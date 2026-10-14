@@ -6,6 +6,7 @@
  */
 import { TOUCH_GAP_PT, TOUCH_PT } from './theme';
 import { TEXT_MIN } from './tokens';
+import type { SizeClass } from './sizeClass';
 
 /** Smallest text that carries meaning, in CSS px (A11Y-09: 6.5 UI px; a UI px is 2 CSS px on every phone). */
 export const TEXT_MIN_PT = TEXT_MIN * 2;
@@ -20,7 +21,8 @@ export interface Rect {
 export interface UiElement {
   /** Stable id: an i18n key, a button label or icon, or a normalised text. */
   id: string;
-  kind: 'interactive' | 'text';
+  /** 'box': a dialog or side panel, seen by the landscape checks only (`stretched`). */
+  kind: 'interactive' | 'text' | 'box';
   /** Full bounds (canvas CSS px). */
   rect: Rect;
   /** Visible part when inside a scroll viewport (else the full rect). */
@@ -46,9 +48,23 @@ export interface UiElement {
   size?: number;
   /** Interactive: where a tap inside its drawn box misses its hit area (IN-02 tap probe), if anywhere. */
   tapMiss?: string;
+  /** What the `stretched` maximum is for: a list row, a button, a wrapped text line, a dialog or side panel. */
+  role?: 'row' | 'button' | 'line' | 'dialog';
+  /** A bar meant to span its pane (`uiStretch`, itself or an ancestor). */
+  stretch?: boolean;
+  /** The screen's primary action (`uiPrimary`, itself or an ancestor). */
+  primary?: boolean;
+  /** A nav rail or tab bar item (`nav.*` / `tab.*` ids). */
+  nav?: boolean;
+  /** The id was given with `uiId` (the ids `element-parity` compares). */
+  named?: boolean;
 }
 
-export type CheckKind = 'overlap' | 'spacing' | 'text-overflow' | 'text-column' | 'text-overlap' | 'outside-safe-area' | 'touch-size' | 'clipped' | 'text-size' | 'tap';
+/** The landscape checks (design/ux/landscape-v6.md §5), in the order the spec lists them. */
+export const WIDE_CHECKS = ['letterbox', 'class-match', 'wasted-width', 'empty-column', 'stretched', 'field-coverage', 'above-fold', 'element-parity', 'nav-labels'] as const;
+export type WideCheck = (typeof WIDE_CHECKS)[number];
+
+export type CheckKind = 'overlap' | 'spacing' | 'text-overflow' | 'text-column' | 'text-overlap' | 'outside-safe-area' | 'touch-size' | 'clipped' | 'text-size' | 'tap' | WideCheck;
 
 export interface Violation {
   check: CheckKind;
@@ -105,7 +121,7 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
   const textPt = o.textPt ?? TEXT_MIN_PT;
   const screen: Rect = { x: 0, y: 0, w: o.width, h: o.height };
   const out: Violation[] = [];
-  const shown = els.filter((e) => e.visible.w > 0.5 && e.visible.h > 0.5);
+  const shown = els.filter((e) => e.kind !== 'box' && e.visible.w > 0.5 && e.visible.h > 0.5);
   const inter = shown.filter((e) => e.kind === 'interactive');
   const texts = shown.filter((e) => e.kind === 'text');
 
@@ -174,4 +190,176 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
 /** Allowlist key of a violation on a screen. */
 export function violationKey(screen: string, v: Violation): string {
   return [screen, v.check, ...v.ids].join('|');
+}
+
+// ------------------------------------------------------------------ landscape checks (§5, V6-RFND-03)
+
+/** A size class with its orientation, the key of the per-class thresholds. */
+export type Variant = 'compact-port' | 'compact-land' | 'medium' | 'expanded';
+export const variantOf = (cls: SizeClass, land: boolean): Variant => (cls === 'compact' ? (land ? 'compact-land' : 'compact-port') : cls);
+
+/** The thresholds (scripts/lib/layoutMatrix.mjs WIDE_RULES, one table next to the sizes). */
+export interface WideRules {
+  /** CSS px the #game box or the canvas may fall short of the box around it. */
+  letterbox: number;
+  /** Least share of contentW the content spans, by variant (menu screens). */
+  wastedWidth: Partial<Record<Variant, number>>;
+  /** An empty strip this share of contentW wide and of the content height tall fails, in these variants (menu screens). */
+  emptyColumn: { width: number; height: number; variants: Variant[] };
+  /** Maximum widths, UI px (§2.3). */
+  stretched: { row: number; button: number; cta: number; line: number; dialog: number };
+  /** Least share of the #game box the field shows outside the opaque HUD, by variant (field scenes). */
+  fieldCoverage: Record<Variant, number>;
+}
+
+/** What a scene registered with `uiLayout`: the variant it built, and whether it is a menu or a field screen. */
+export interface LayoutReg {
+  scene: string;
+  cls: SizeClass;
+  land: boolean;
+  kind: 'menu' | 'field';
+}
+
+/** One screen as the landscape checks see it. Page rects are CSS px of the page; element rects are canvas-relative. */
+export interface WideScreen {
+  /** The viewport's safe box. */
+  safe: Rect;
+  /** The #game box. */
+  game: Rect;
+  /** The canvas (the v5 column while an unmigrated scene runs, ADR-0013). */
+  canvas: Rect;
+  /** What the size class gives the #game box (src/ui/sizeClass.ts metricsFor, not legacy); S in CSS px per UI px. */
+  m: { cls: SizeClass; land: boolean; S: number; navW: number; contentW: number };
+  /** CSS px per UI px of each scene, for the UI-px maxima (default m.S). */
+  scale?: Record<string, number>;
+  layouts: LayoutReg[];
+  kind: 'menu' | 'field';
+  /** `uiOpaque` HUD rects, canvas-relative. */
+  opaque: Rect[];
+  /** Measured at scroll 0 (above-fold is judged there only). */
+  scrollTop: boolean;
+}
+
+const shortBy = (outer: Rect, inner: Rect) => Math.max(outer.w - inner.w, outer.h - inner.h);
+
+/** Gaps of [lo, hi] the intervals leave: the total and the longest. */
+function gaps(spans: [number, number][], lo: number, hi: number): { total: number; longest: number } {
+  let total = 0;
+  let longest = 0;
+  let at = lo;
+  for (const [a, b] of [...spans].sort((p, q) => p[0] - q[0])) {
+    if (a > at) {
+      const g = Math.min(a, hi) - at;
+      total += g;
+      longest = Math.max(longest, g);
+    }
+    at = Math.max(at, b);
+    if (at >= hi) return { total, longest };
+  }
+  return { total: total + (hi - at), longest: Math.max(longest, hi - at) };
+}
+
+/** Area of the union of rects clipped to `area` (coordinate compression). */
+function unionArea(rects: Rect[], area: Rect): number {
+  const rs = rects.map((r) => intersect(r, area)).filter((r): r is Rect => !!r);
+  const xs = [...new Set(rs.flatMap((r) => [r.x, r.x + r.w]))].sort((a, b) => a - b);
+  let sum = 0;
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const spans = rs.filter((r) => r.x <= xs[i] && r.x + r.w >= xs[i + 1]).map((r) => [r.y, r.y + r.h] as [number, number]);
+    sum += (xs[i + 1] - xs[i]) * (area.h - gaps(spans, area.y, area.y + area.h).total);
+  }
+  return sum;
+}
+
+/**
+ * The landscape checks of one screen (design/ux/landscape-v6.md §5), all but `element-parity`, which
+ * compares sizes across browser contexts (scripts/lib/layoutMatrix.mjs checkParity). Elements are moved from the canvas into the #game box, so a legacy
+ * column is judged against the whole box it leaves empty.
+ */
+export function checkWide(els: readonly UiElement[], s: WideScreen, rules: WideRules, eps = 0.75): Violation[] {
+  const out: Violation[] = [];
+  const v = variantOf(s.m.cls, s.m.land);
+  const dx = s.canvas.x - s.game.x;
+  const dy = s.canvas.y - s.game.y;
+  const shift = (r: Rect): Rect => ({ x: r.x + dx, y: r.y + dy, w: r.w, h: r.h });
+  const shown = els.filter((e) => !e.world && e.visible.w > 0.5 && e.visible.h > 0.5);
+
+  // letterbox: #game fills the safe box, and the canvas fills #game
+  if (shortBy(s.safe, s.game) > rules.letterbox) out.push({ check: 'letterbox', ids: ['#game'], detail: `#game ${fmt(s.game)} inside the safe box ${fmt(s.safe)}` });
+  else if (shortBy(s.game, s.canvas) > rules.letterbox) out.push({ check: 'letterbox', ids: ['canvas'], detail: `canvas ${fmt(s.canvas)} inside #game ${fmt(s.game)}` });
+
+  // class-match: every visible scene registered the variant of this size
+  if (!s.layouts.length) out.push({ check: 'class-match', ids: ['layout'], detail: `no layout registered (uiLayout); the size is ${v}` });
+  for (const l of s.layouts)
+    if (variantOf(l.cls, l.land) !== v) out.push({ check: 'class-match', ids: [l.scene], detail: `${l.scene} built ${variantOf(l.cls, l.land)}; the size is ${v}` });
+
+  // the content region: the pane right of the nav rail, capped at contentW and centred in it
+  const S = s.m.S;
+  const paneX = s.m.land ? s.m.navW * S : 0;
+  const cw = s.m.contentW * S;
+  const cx0 = paneX + (s.game.w - paneX - cw) / 2;
+  const content = shown.filter((e) => !e.stretch && !e.nav && e.kind !== 'box').map((e) => shift(e.visible));
+
+  const minSpan = rules.wastedWidth[v];
+  if (s.kind === 'menu' && minSpan !== undefined && cw > 0) {
+    const x0 = Math.max(cx0, Math.min(...content.map((r) => r.x)));
+    const x1 = Math.min(cx0 + cw, Math.max(...content.map((r) => r.x + r.w)));
+    const span = content.length ? Math.max(0, x1 - x0) : 0;
+    if (span < minSpan * cw - eps)
+      out.push({ check: 'wasted-width', ids: ['content'], detail: `content spans ${Math.round(span)} of ${Math.round(cw)} px (${Math.round((100 * span) / cw)}% < ${Math.round(100 * minSpan)}%)` });
+  }
+
+  if (s.kind === 'menu' && rules.emptyColumn.variants.includes(v) && cw > 0) {
+    const w = rules.emptyColumn.width * cw;
+    const need = rules.emptyColumn.height * s.game.h;
+    let worst: { x: number; gap: number } | null = null;
+    for (let x = cx0; x + w <= cx0 + cw + eps; x += 4) {
+      const spans = content.filter((r) => r.x < x + w && r.x + r.w > x).map((r) => [r.y, r.y + r.h] as [number, number]);
+      const gap = gaps(spans, 0, s.game.h).longest;
+      if (gap >= need - eps && (!worst || gap > worst.gap)) worst = { x, gap };
+    }
+    if (worst) out.push({ check: 'empty-column', ids: ['content'], detail: `nothing in x ${Math.round(worst.x)}..${Math.round(worst.x + w)} for ${Math.round(worst.gap)} of ${Math.round(s.game.h)} px` });
+  }
+
+  // stretched: the §2.3 maxima per role, in UI px
+  const st = rules.stretched;
+  for (const e of shown) {
+    if (e.stretch || !e.role) continue;
+    const max = e.role === 'row' ? st.row : e.role === 'line' ? st.line : e.role === 'dialog' ? st.dialog : e.primary ? st.cta : st.button;
+    const w = e.rect.w / (s.scale?.[e.scene] ?? S);
+    if (w > max + eps) out.push({ check: 'stretched', ids: [e.id], detail: `${e.role}${e.primary ? ' (primary)' : ''} ${Math.round(w)} UI px wide > ${max}` });
+  }
+
+  // field-coverage: the field is the canvas minus the opaque HUD, judged against the whole #game box
+  if (s.kind === 'field') {
+    const canvas = shift({ x: 0, y: 0, w: s.canvas.w, h: s.canvas.h });
+    const share = (canvas.w * canvas.h - unionArea(s.opaque.map(shift), canvas)) / (s.game.w * s.game.h);
+    const min = rules.fieldCoverage[v];
+    if (share < min - 1e-6) out.push({ check: 'field-coverage', ids: ['field'], detail: `the field shows on ${Math.round(100 * share)}% of the box < ${Math.round(100 * min)}%` });
+  }
+
+  // above-fold: the primary action shows whole at scroll 0
+  if (s.scrollTop) {
+    const canvasBox: Rect = { x: 0, y: 0, w: s.canvas.w, h: s.canvas.h };
+    for (const e of els) {
+      if (!e.primary || e.kind !== 'interactive' || e.world) continue;
+      if (e.visible.w < e.rect.w - eps || e.visible.h < e.rect.h - eps || !contains(canvasBox, e.rect, eps))
+        out.push({ check: 'above-fold', ids: [e.id], detail: `primary ${fmt(e.rect)} shows ${fmt(e.visible)} at scroll 0` });
+    }
+  }
+
+  // nav-labels: every nav item shows its whole label
+  const texts = shown.filter((e) => e.kind === 'text' && e.text?.trim());
+  for (const item of shown) {
+    if (!item.nav || item.kind !== 'interactive') continue;
+    const r = item.visible;
+    const label = texts.find((t) => {
+      const cx = t.visible.x + t.visible.w / 2;
+      const cy = t.visible.y + t.visible.h / 2;
+      return cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h;
+    });
+    if (!label) out.push({ check: 'nav-labels', ids: [item.id], detail: 'no label' });
+    else if (/(…|\.\.\.)\s*$/.test(label.text!)) out.push({ check: 'nav-labels', ids: [item.id], detail: `label "${label.text}" is cut` });
+  }
+  return out;
 }

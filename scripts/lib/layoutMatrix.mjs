@@ -17,6 +17,39 @@ export const MATRIX = {
 };
 MATRIX.all = [MATRIX.phone[0], MATRIX.phone[1], MATRIX.phone[2], MATRIX.landscape[0], ...MATRIX.tablet, ...MATRIX.landscape.slice(1)];
 
+/**
+ * The thresholds of the landscape checks (design/ux/landscape-v6.md §5, src/ui/layoutCheck.ts checkWide),
+ * one table next to the sizes. Keys of the per-class rows are variants: compact-port, compact-land,
+ * medium, expanded. Widths in `stretched` are UI px and match src/ui/sizeClass.ts (§2.3).
+ */
+export const WIDE_RULES = {
+  letterbox: 2, // CSS px #game may fall short of the safe box, and the canvas of #game
+  wastedWidth: { medium: 0.8, expanded: 0.7 }, // least share of contentW the content spans (menu screens)
+  emptyColumn: { width: 0.25, height: 0.6, variants: ['compact-land', 'medium', 'expanded'] }, // an empty strip this wide x tall fails
+  stretched: { row: 360, button: 240, cta: 300, line: 300, dialog: 320 },
+  fieldCoverage: { expanded: 0.6, 'compact-land': 0.5, medium: 0.5, 'compact-port': 0.4 }, // least share of the box the field shows
+};
+/** The landscape checks (src/ui/layoutCheck.ts WIDE_CHECKS): a pending family's findings of these are reported, not failed. */
+export const WIDE_CHECKS = new Set(['letterbox', 'class-match', 'wasted-width', 'empty-column', 'stretched', 'field-coverage', 'above-fold', 'element-parity', 'nav-labels']);
+/** The size whose `uiId`s every other size must show (element-parity). */
+export const PARITY_BASE = '390x844';
+
+/**
+ * element-parity, the one landscape check that compares sizes (so it runs here, across browser contexts;
+ * the other eight are src/ui/layoutCheck.ts checkWide): every `uiId` shown at PARITY_BASE (`base`) shows
+ * here too, or is registered collapsed (`uiCollapsed(scene, id, intoId)`) into a control shown here.
+ */
+export function checkParity(base, here, collapsed) {
+  const out = [];
+  for (const id of base) {
+    if (here.has(id)) continue;
+    const into = collapsed[id];
+    if (into && here.has(into)) continue;
+    out.push({ check: 'element-parity', ids: [id], detail: into ? `collapsed into ${into}, which is not shown` : `shown at ${PARITY_BASE}, missing here (uiCollapsed registers a dropped element)` });
+  }
+  return out;
+}
+
 /** The sizes to run: `--sizes` (a list of WxH) wins; else the `--matrix` groups (default all). */
 export function sizesFor(matrix = 'all', sizes = '') {
   if (sizes) return sizes.split(',');
@@ -202,4 +235,66 @@ export function staleEntries(allowed, found, ran) {
       return covered(ran, key, size) && !shows(found, key, size);
     })
     .sort();
+}
+
+// ------------------------------------------------------------------ pending families (V6-021, V6-RFND-03)
+// A family that has not migrated has `"pending": true` in its scripts/layout-allowlist/V6-RSCR-NN.json:
+// its findings of the landscape checks are reported, not failed. Its story drops the flag when it opts
+// the family in (`responsive = true` on its scenes); V6-RSCR-11 deletes the mechanism.
+
+/** The story files in `dir` flagged `"pending": true`. */
+export function loadPending(dir) {
+  let names = [];
+  try {
+    names = readdirSync(dir).filter((f) => f.endsWith('.json'));
+  } catch {
+    return new Set();
+  }
+  return new Set(names.filter((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')).pending === true).map((f) => f.slice(0, -5)).sort());
+}
+
+/** Whether a screen's family (its owner story) is still pending. */
+export const isPending = (screen, pending) => pending.has(storyOf(screen));
+
+/** The foundation screens (Menu, Settings, Kit): the landscape checks can never be allowlisted for them (§5). */
+export const isFoundationScreen = (screen, owner) => owner === 'F' && (screen === 'menu' || screen.startsWith('menu-') || screen.startsWith('kit-'));
+
+/**
+ * Splits one screen's violations: the landscape-check findings of a screen that has not opted in
+ * (`responsive` false: the canvas is the legacy column) in a pending family are `pending` (reported);
+ * the rest are `enforced` (failed unless allowlisted). An opted-in screen is enforced even inside a
+ * pending family: opting in is migrating.
+ */
+export function triageWide({ screen, responsive, violations }, pending) {
+  const held = !responsive && isPending(screen, pending);
+  const out = { enforced: [], pending: [] };
+  for (const v of violations) (held && WIDE_CHECKS.has(v.check) ? out.pending : out.enforced).push(v);
+  return out;
+}
+
+/**
+ * `--update-allowlist` made stable (V6-057: one run under timing flakes added 35 one-off hits and dropped
+ * 131 live entries). The rewrite of rewriteAllowlist is only proposed: an entry is added when the previous
+ * update run proposed it too, and dropped when the previous run also missed it; entries of pending
+ * families are never dropped, and the landscape checks of the foundation screens are never added.
+ * `prev` is the previous run's `candidates` ({ add, drop }); returns the allowlist (story -> entries)
+ * and this run's candidates.
+ */
+export function stableRewrite(allowed, found, ran, owners, pending, prev = { add: [], drop: [] }) {
+  const proposed = new Map();
+  for (const [story, entries] of Object.entries(rewriteAllowlist(allowed, found, ran, owners))) for (const e of entries) proposed.set(e, story);
+  const foundationWide = (e) => {
+    const [screen, check] = splitEntry(e).key.split('|');
+    return WIDE_CHECKS.has(check) && isFoundationScreen(screen, owners[screen]);
+  };
+  const add = [...proposed.keys()].filter((e) => !allowed.has(e) && !foundationWide(e)).sort();
+  const drop = [...allowed.keys()].filter((e) => !proposed.has(e) && !pending.has(allowed.get(e))).sort();
+  const kept = new Map(allowed);
+  const before = { add: new Set(prev.add), drop: new Set(prev.drop) };
+  for (const e of add) if (before.add.has(e)) kept.set(e, proposed.get(e));
+  for (const e of drop) if (before.drop.has(e)) kept.delete(e);
+  const out = {};
+  for (const [e, story] of kept) (out[story] ??= []).push(e);
+  for (const s of Object.keys(out)) out[s].sort();
+  return { out, candidates: { add, drop } };
 }
