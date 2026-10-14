@@ -8,6 +8,7 @@ import type { PlatformEnv } from '../core/env';
 import type { Platform } from '../core/platform';
 import type { Insets } from '../core/safeArea';
 import { createWebBack } from './back';
+import { webPayments } from './payments';
 import { browserInputHints, copyText, localKV, openTab, PLAY_URL, queryLaunchParam } from './dom';
 
 const ZERO: Insets = { top: 0, bottom: 0, left: 0, right: 0 };
@@ -21,10 +22,7 @@ export function createWebPlatform(env: PlatformEnv): Platform {
       input.listen();
     },
     auth: { transport: 'cookie', methods: () => [], silentProof: () => null },
-    payments: {
-      status: () => ({ available: false, reason: 'coming_soon' }),
-      pay: async () => 'failed',
-    },
+    payments: webPayments,
     storage: { save: () => kv, device: () => kv, roams: false },
     haptics: { impact() {}, notify() {}, select() {}, setEnabled() {} },
     back: createWebBack(env),

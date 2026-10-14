@@ -24,8 +24,6 @@ const ADAPTERS = /^src\/platform\/(telegram|web|steam|mobile)\//;
 
 /** Files not yet moved off the old seams (today's importers of the telegram.ts shim and online.available). */
 const ALLOWLIST: Record<string, Rule[]> = {
-  // rule 1: imports src/platform/telegram (the M1 shim) for something other than haptics; M7 moves it
-  'src/ui/econ/source.ts': [1],
   // rule 4: the retired names (the shim itself, until M10)
   'src/platform/telegram.ts': [4],
 };

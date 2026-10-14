@@ -11,10 +11,11 @@ import type { Insets } from '../core/safeArea';
 import type { KV } from '../core/storage';
 import { browserInputHints, copyText, localKV, openTab, PLAY_URL, queryLaunchParam } from '../web/dom';
 import { createTelegramBack } from './back';
+import { createTelegramPayments } from './payments';
 import { launchedFromTelegram, loadScript, safe, sdk, SDK_URL, type TgWebApp } from './sdk';
 import { cloudKV, mirroredKV, type CloudHealth } from './storage';
 
-export type { TgWebApp, InvoiceStatus } from './sdk';
+export type { TgWebApp } from './sdk';
 
 /** The Telegram adapter, plus what the telegram.ts shim still needs until M10 deletes it. */
 export interface TelegramPlatform extends Platform {
@@ -30,7 +31,6 @@ export interface TelegramPlatform extends Platform {
 const MOBILE = new Set(['ios', 'android', 'android_x']);
 /** Clients that run on a computer, where a keyboard is likely. */
 const DESKTOP = new Set(['tdesktop', 'macos', 'weba']);
-const PAY_RESULTS = new Set(['paid', 'cancelled', 'failed', 'pending']);
 const ZERO: Insets = { top: 0, bottom: 0, left: 0, right: 0 };
 
 function readInsets(src: Partial<Insets> | undefined): Insets {
@@ -122,18 +122,7 @@ export function createTelegramPlatform(env: PlatformEnv, opts: { bot?: string; a
         return typeof d === 'string' && d.length > 0 ? { kind: 'telegram', initData: d } : null;
       },
     },
-    payments: {
-      status: () => (app?.openInvoice && v('6.1') ? { available: true, provider: 'telegram_stars' } : { available: false, reason: 'offline' }),
-      pay: (invoice) =>
-        new Promise((resolve) => {
-          if (!app?.openInvoice || !v('6.1')) return resolve('failed');
-          try {
-            app.openInvoice(invoice.link, (status) => resolve(PAY_RESULTS.has(status) ? status : 'failed'));
-          } catch {
-            resolve('failed');
-          }
-        }),
-    },
+    payments: createTelegramPayments(() => app, v),
     storage: {
       save() {
         const cs = cloud();

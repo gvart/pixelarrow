@@ -11,7 +11,7 @@ import { fadeIn } from '../ui/motion';
 import { walletOverdrawn } from '../game/economy';
 import { ensureFonts } from '../ui/fonts';
 import { frameScrollTexts } from '../ui/sheet';
-import { econ, newRequestId, setEconSource, type ConsumableInfo } from '../ui/econ/source';
+import { econ, newRequestId, packLegalKey, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
 import { pickBattleConsumable } from '../ui/econ/consumablePicker';
 import { fmtAgo } from '../util/format';
@@ -813,8 +813,8 @@ export class ShopScene extends BaseScene {
       if (i % L.cols === L.cols - 1 || i === packs.length - 1) y += Math.max(ph, L.cols === 2 ? L.cardH(false) : 0) + GAP;
     });
     y += 4;
-    // what Stars buy, and the legal pages (Telegram's payment rules)
-    const legal = wrapText(t('wallet.legal'), w - 6, 4);
+    // what the provider's payments buy (Stars copy only for Telegram Stars), and the legal pages
+    const legal = wrapText(t(packLegalKey(platform.payments.status())), w - 6, 4);
     c.add(addText(this, 1, y, legal.lines.join('\n'), 'pMuted'));
     y += legal.lines.length * LINE_H + 4;
     const lw = Math.floor((w - GAP) / 2);
