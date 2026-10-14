@@ -31,6 +31,12 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Cause:** suspected load timeout (timing/async): one test sweeps the settlement tap areas and runs close to the 30 s limit on a loaded CPU.
 - **Fix:** none yet. Record each further run here.
 
+### F11 · server vitest suite hangs at 0% CPU with no output (suspected, open handle)
+
+- **Seen:** occasionally the server vitest suite hangs at 0% CPU (no output); seen in ACCT-07's agent run (killed after 40 min) and in the ACCT-06 integration (≈ 20 min); a rerun passes.
+- **Cause:** suspected: a workerd/miniflare handle not closing.
+- **Fix:** none yet. A QA pass should find which test file hangs (run with --reporter=verbose and a per-file timeout).
+
 ## Resolved
 
 ### F8 · layout check element parity on real-time scenes (timing/async + random seed, fixed in PARITY-STABLE)
