@@ -3,7 +3,8 @@
 //     exactly Campaign, Duels, War, Forge; every mode poster is a real clip poster in /video/.
 //  2. Layout: no horizontal overflow at 320, 390, 768, 1280, 1440 and 1920.
 //  3. Tilt: a card tilts under a fine pointer, never on a touch device or under reduced motion.
-//  4. Dividers: draw on view only with no reduced-motion preference.
+//  4. Dividers, feature icons and the closing board (V6-LAND-06): animate on view only with no
+//     reduced-motion preference.
 //  5. Lazy stills: no bust or poster loads on the first view; they arrive as their section nears.
 //  6. Clips: no source before the clip is near; muted autoplay when visible, paused when not; at most
 //     one playing on a phone and two on desktop; reduced motion keeps the poster until pressed.
@@ -127,6 +128,13 @@ try {
     await page.goto(URL_, { waitUntil: 'load' });
     const anim = await page.$eval('.divider', (e) => getComputedStyle(e, '::before').animationName);
     check(reduce ? anim === 'none' : anim === 'divider-draw', `${reduce ? 'reduced motion: dividers are static' : 'dividers draw on view'} (${anim})`);
+    // V6-LAND-06: the feature icons engrave on view, and the closing board pulls back on view (its
+    // sheet loads near the clips); both are static and complete under reduced motion.
+    const icon = await page.$eval('.feature__icon', (e) => [getComputedStyle(e).animationName, getComputedStyle(e).strokeDasharray]);
+    check(reduce ? icon[0] === 'none' && icon[1] === 'none' : icon[0] === 'icon-draw', `${reduce ? 'reduced motion: feature icons are drawn and still' : 'feature icons draw on view'} (${icon.join(', ')})`);
+    await scrollTo(page, '.closing');
+    const board = await page.$eval('.closing__board', (e) => [getComputedStyle(e).animationName, getComputedStyle(e).backgroundImage.includes('landing_hero_diorama_still_2x.webp')]);
+    check(board[1] && (reduce ? board[0] === 'none' : board[0] === 'closing-pull'), `closing band: the hero board returns${reduce ? ', still under reduced motion' : ' and pulls back on view'} (${board.join(', ')})`);
     await page.close();
   }
 

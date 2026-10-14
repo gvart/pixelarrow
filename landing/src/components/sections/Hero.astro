@@ -111,7 +111,7 @@ const H = '/hero/';
   }
 </script>
 
-<style>
+<style is:global>
   .hero {
     --diorama-w: 432px;
     --diorama-h: 284px;
@@ -338,7 +338,7 @@ const H = '/hero/';
       mask-image: linear-gradient(90deg, transparent, #000 var(--crop-fade));
     }
   }
-  .hero__diorama-wrap :global(.hero__live) {
+  .hero__diorama-wrap .hero__live {
     position: absolute;
     top: 0;
     left: calc(-1 * var(--crop));
@@ -347,7 +347,7 @@ const H = '/hero/';
     opacity: 0;
     transition: opacity 600ms cubic-bezier(0.25, 1, 0.5, 1);
   }
-  .hero:global(.is-live) :global(.hero__live) {
+  .hero.is-live .hero__live {
     opacity: 1;
   }
 
@@ -367,7 +367,7 @@ const H = '/hero/';
     pointer-events: none;
     transition: opacity 900ms ease-out;
   }
-  .hero:global(.is-lit) .hero__lamp {
+  .hero.is-lit .hero__lamp {
     opacity: 1;
   }
 
@@ -394,6 +394,11 @@ const H = '/hero/';
       }
       .hero__sky {
         animation-name: hero-sky;
+      }
+      /* Phones: no dive (the board sits at the hero's lower edge), but it lags the scroll and swells as
+         the hero leaves (the camera leans in), so phones feel the depth too (V6-LAND-06). */
+      .hero__diorama-wrap {
+        animation-name: hero-lift;
       }
       @media (min-width: 768px) {
         .hero {
@@ -426,6 +431,11 @@ const H = '/hero/';
   @keyframes hero-sky {
     to {
       transform: translate3d(0, 38%, 0) scale(1.08);
+    }
+  }
+  @keyframes hero-lift {
+    to {
+      transform: translate3d(0, 12%, 0) scale(1.12);
     }
   }
   @keyframes hero-beam {

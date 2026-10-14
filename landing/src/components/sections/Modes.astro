@@ -47,7 +47,7 @@ const MODES = [
   </div>
 </section>
 
-<style>
+<style is:global>
   .modes__grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -63,7 +63,7 @@ const MODES = [
     align-content: start;
     gap: var(--s4);
   }
-  .mode :global(.clip) {
+  .mode .clip {
     border: 1px solid var(--stone-edge);
     border-bottom: 3px solid #0c0a08;
     border-radius: var(--radius);

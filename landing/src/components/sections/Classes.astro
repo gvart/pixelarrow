@@ -70,7 +70,7 @@ const BEASTS = [
   </div>
 </section>
 
-<style>
+<style is:global>
   /* Base plates (ART_DIRECTION §3): a dark slab, 1 px warm outline, 2 px darker lower edge, radius 2.
      The bust sits in a square well with a bronze edge, like the game's portrait well. */
   .roster {
@@ -81,7 +81,7 @@ const BEASTS = [
     padding: 0;
     list-style: none;
   }
-  .classes :global(.plate) {
+  .classes .plate {
     display: grid;
     grid-template-rows: auto 1fr;
     background: var(--stone);
@@ -210,7 +210,7 @@ const BEASTS = [
       scrollbar-width: thin;
       scrollbar-color: var(--stone-edge) transparent;
     }
-    .roster > :global(.plate) {
+    .roster > .plate {
       scroll-snap-align: start;
     }
     .roster__more {
@@ -221,7 +221,7 @@ const BEASTS = [
       grid-template-columns: minmax(0, 1fr);
       gap: var(--s3);
     }
-    .beasts__list > :global(.plate--beast) {
+    .beasts__list > .plate--beast {
       grid-template-rows: none;
       grid-template-columns: 88px minmax(0, 1fr);
       align-items: center;

@@ -36,7 +36,7 @@ const base = `/video/${id}`;
   </noscript>
 </div>
 
-<style>
+<style is:global>
   /* The frame keeps the clip's own aspect unless a parent sets --frame-ar (one frame for a grid). */
   .clip {
     position: relative;
@@ -70,8 +70,32 @@ const base = `/video/${id}`;
     opacity: 0;
     transition: opacity var(--dur-enter) var(--ease-out);
   }
-  .clip:global(.is-shown) .clip__video {
+  .clip.is-shown .clip__video {
     opacity: 1;
+  }
+  /* The frame (V6-LAND-06): a lamp-lit vignette and a thin bronze edge, so a clip reads as a window
+     onto the table rather than a flat rectangle. Under a fine pointer the picture leans in and the
+     edge warms; it settles back when the pointer leaves. */
+  .clip::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 0 1px rgb(176 138 58 / 0.25), inset 0 0 48px rgb(0 0 0 / 0.55);
+    pointer-events: none;
+    transition: box-shadow var(--dur-enter) var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .clip__poster img,
+    .clip__video {
+      transition: opacity var(--dur-enter) var(--ease-out), transform 700ms var(--ease-out);
+    }
+    .clip:hover .clip__poster img,
+    .clip:hover .clip__video {
+      transform: scale(1.04);
+    }
+    .clip:hover::after {
+      box-shadow: inset 0 0 0 1px rgb(176 138 58 / 0.75), inset 0 0 32px rgb(0 0 0 / 0.4);
+    }
   }
 
   /* Paused: a round terracotta play glyph in the middle (ART_DIRECTION §7). Playing: a small pause
@@ -102,7 +126,7 @@ const base = `/video/${id}`;
   .clip__glyph--pause {
     display: none;
   }
-  .clip:global(.is-playing) .clip__toggle {
+  .clip.is-playing .clip__toggle {
     left: auto;
     top: auto;
     right: var(--s3);
@@ -114,20 +138,20 @@ const base = `/video/${id}`;
     transform: none;
     opacity: 0;
   }
-  .clip:global(.is-playing) .clip__glyph--play {
+  .clip.is-playing .clip__glyph--play {
     display: none;
   }
-  .clip:global(.is-playing) .clip__glyph--pause {
+  .clip.is-playing .clip__glyph--pause {
     display: block;
     width: 18px;
     height: 18px;
   }
-  .clip:global(.is-playing):hover .clip__toggle,
-  .clip:global(.is-playing) .clip__toggle:focus-visible {
+  .clip.is-playing:hover .clip__toggle,
+  .clip.is-playing .clip__toggle:focus-visible {
     opacity: 1;
   }
   @media (hover: none) {
-    .clip:global(.is-playing) .clip__toggle {
+    .clip.is-playing .clip__toggle {
       opacity: 0.8;
     }
   }
