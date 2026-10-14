@@ -17,12 +17,13 @@ import { ACCOUNT_RU } from '../src/i18n/account.ru';
 import { legalUrl } from '../src/ui/legal';
 import type { HumanCheck, HumanCheckAction, HumanCheckWidget } from '../src/platform/core/auth';
 import type { PlatformEnv } from '../src/platform/core/env';
+import type { Entry } from '../src/i18n/index';
 import { conflictView, fmt, guestSave, pageLang, PW_MAX, PW_MIN, readToken, resetView, savedLangSetting, variantOf, verifyView, type Lang, type Reply, type Variant, type View } from './logic';
 
 type Key = keyof typeof ACCOUNT_EN;
 type Params = Record<string, string | number>;
 
-const TABLES: Record<Lang, Record<Key, string>> = { en: ACCOUNT_EN, ru: ACCOUNT_RU };
+const TABLES: Record<Lang, Record<Key, Entry>> = { en: ACCOUNT_EN, ru: ACCOUNT_RU };
 const AUTO_MS = 3000;
 
 const doc = document;
@@ -45,7 +46,10 @@ let lang: Lang = pageLang(savedLangSetting(storage), navigator.languages ?? [nav
 // ---- text, by key ----
 
 const labels = new WeakMap<Element, { key: Key; params?: Params; attr?: string }>();
-const text = (key: Key, params?: Params) => fmt(TABLES[lang][key], params);
+const text = (key: Key, params?: Params) => {
+  const entry = TABLES[lang][key]; // the auth pages use plain strings; plural entries come from ACCT-07's keys
+  return fmt(typeof entry === 'string' ? entry : entry.other, params);
+};
 
 /** Sets an element's text (or one attribute) from a key, and remembers it for the language switch. */
 function tx<E extends Element>(el: E, key: Key, params?: Params, attr?: string): E {
