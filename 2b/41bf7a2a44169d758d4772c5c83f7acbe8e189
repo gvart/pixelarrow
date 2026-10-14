@@ -1,0 +1,23 @@
+scripts/layout-allowlist/V6-RSCR-08.json
+  s_0d98fe904b2e82::t_f796e4095a22cd 3
+scripts/lib/layoutMatrix.mjs
+  s_0d98fe904b2e82::t_f99c25cc93b3be 159
+scripts/layout-allowlist/V6-RSCR-03.json
+  s_0d98fe904b2e82::t_f796e4095a22cd 37-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2b41bf7a2a44169d758d4772c5c83f7acbe8e189",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
