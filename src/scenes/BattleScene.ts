@@ -10,7 +10,7 @@ import { MOSAIC } from '../ui/tokens';
 import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, endBannerKey, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
-import { uiBlocker, uiId, uiIgnore, uiLayout, uiOpaque, uiPanel, uiPrimary } from '../ui/layout';
+import { uiBlocker, uiId, uiIgnore, uiLayout, uiOpaque, uiPanel, uiPrimary, uiTransient } from '../ui/layout';
 import { MEDIUM, centredRow, hudMode, keycapSlot, narratorBox, sheetCardW, sideHud, type HudMode, type Rect, type SideHud } from '../ui/battleLayout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollOrigin, flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
@@ -473,6 +473,9 @@ export class BattleScene extends BaseScene {
     this.thenOffer = null;
     this.thenArming = -1;
     this.thenLive = false;
+    // in the fight, Undo and Then… show for a few seconds after an order (element-parity leaves them out)
+    uiTransient(this, 'battle.undo', () => this.sim.phase === 'battle');
+    uiTransient(this, 'battle.then', () => this.sim.phase === 'battle');
     this.plan.clear();
     this.ghostBtns.clear();
     this.tapGhost = null;

@@ -41,11 +41,14 @@ export const PARITY_BASE = '390x844';
  * element-parity, the one landscape check that compares sizes (so it runs here, across browser contexts;
  * the other eight are src/ui/layoutCheck.ts checkWide): every `uiId` shown at PARITY_BASE (`base`) shows
  * here too, or is registered collapsed (`uiCollapsed(scene, id, intoId)`) into a control shown here.
+ * `transient`: ids registered transient by design (`uiTransient`, e.g. the battle Undo chip's 3 s window)
+ * at either size, left out (PARITY-STABLE, V6-076); they are still checked for overlap and size when shown.
  */
-export function checkParity(base, here, collapsed) {
+export function checkParity(base, here, collapsed, transient = []) {
   const out = [];
+  const passing = new Set(transient);
   for (const id of base) {
-    if (here.has(id)) continue;
+    if (here.has(id) || passing.has(id)) continue;
     const into = collapsed[id];
     if (into && here.has(into)) continue;
     out.push({ check: 'element-parity', ids: [id], detail: into ? `collapsed into ${into}, which is not shown` : `shown at ${PARITY_BASE}, missing here (uiCollapsed registers a dropped element)` });
