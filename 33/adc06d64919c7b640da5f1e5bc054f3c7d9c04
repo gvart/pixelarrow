@@ -1,0 +1,32 @@
+src/ui/account/reauth.ts
+  s_0d98fe904b2e82::t_b446aceefe3089 60
+src/ui/account/accountPage.ts
+  s_0d98fe904b2e82::t_b446aceefe3089 95,236
+src/ui/account/methods.ts
+  s_0d98fe904b2e82::t_b446aceefe3089 37-38
+src/ui/account/removeMethod.ts
+  s_0d98fe904b2e82::t_b446aceefe3089 28,32-33,35
+scripts/account-manage-e2e.mjs
+  s_0d98fe904b2e82::t_08c07c06b03dc8 248
+  s_0d98fe904b2e82::t_39e538cd1c71c1 92,169-170
+  s_0d98fe904b2e82::t_875fc9ec0f28e8 1-91,93-168,171-247,249-288
+src/ui/mosaic/AccountRow.ts
+  s_0d98fe904b2e82::t_f2d829d8d7da9e 44
+  s_0d98fe904b2e82::t_b78482512245cb 45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "33adc06d64919c7b640da5f1e5bc054f3c7d9c04",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
