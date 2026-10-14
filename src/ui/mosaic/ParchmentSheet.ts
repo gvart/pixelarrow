@@ -23,7 +23,7 @@
 import Phaser from 'phaser';
 import { addText, type UIMetrics } from '../kit';
 import { navLayer } from '../../platform/nav';
-import { uiBlocker, uiFrame, uiId } from '../layout';
+import { uiBlocker, uiFrame, uiId, uiPanel } from '../layout';
 import { motion, tweenTo } from '../motion';
 import { ellipsize, measureText } from '../textfit';
 import { MOSAIC, SPACE } from '../tokens';
@@ -216,6 +216,8 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   c.add(box);
   // a docked sheet reaches under the screen's lower edge (it slides up from there)
   box.add(mosaicImage(scene, x, y, w, docked ? h + 10 : h, 'sheet'));
+  // a docked side panel: the layout check judges the screen beside it, and the panel by the §3.4 widths (V6-063)
+  if (side) uiPanel(box, x, y, w, h, true);
   const sm = side ? { in: motion.reduced ? 0 : SIDE_MS, out: 0, rise: 0 } : sheetMotion(motion.reduced);
   const entry: Overlay = { kind: o.kind ?? 'sheet', c };
   let closed = false;
