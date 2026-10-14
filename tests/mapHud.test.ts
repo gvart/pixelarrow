@@ -52,6 +52,27 @@ describe('map HUD (§12.2)', () => {
     }
   });
 
+  it('puts the keys in one row at the foot when the stack cannot fit the height (Telegram at 844x390: 726x323)', () => {
+    const m = metricsFor(726, 323, 1, false);
+    expect(m.VH).toBe(161);
+    // World's three keys still stack; Camp's five would run off the screen
+    expect(mapHudLayout(m, WORLD).commands.mode).toBe('stack');
+    const l = mapHudLayout(m, CAMP);
+    expect(l.variant).toBe('compactLandscape');
+    if (l.commands.mode !== 'row') throw new Error('a row');
+    const r = l.commands.rect;
+    // across the foot inside the frame padding, keys ≥ 48 pt (24 UI px) tall
+    expect(r).toEqual({ x: 6, y: m.VH - 6 - 24, w: m.VW - 12, h: 24 });
+    // the card keeps its width (no stack beside it), one line
+    expect(l.card).toMatchObject({ x: 6, y: 30, w: 260, lines: 1 });
+    // the framing rect: clear of the card, its row and the keys, inside the map
+    const map: Box = { x: 0, y: 24, w: m.VW, h: m.VH - 24 };
+    expect(inside(l.framing, map)).toBe(true);
+    expect(overlap(l.framing, r)).toBe(false);
+    expect(overlap(l.framing, { x: l.card.x, y: l.card.y, w: l.card.w, h: l.card.h + CAMP.under })).toBe(false);
+    expect(l.framing.w * l.framing.h).toBeGreaterThan(0);
+  });
+
   it('caps the strip at 360 and centres it at medium, with the v5 card', () => {
     for (const size of ['768x1024', '820x1180']) {
       const m = at(size);

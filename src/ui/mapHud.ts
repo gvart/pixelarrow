@@ -9,6 +9,10 @@
  * | compact landscape | top-left, one line, ≤ 260   | a stack at the right edge, at the foot (thumbs)    |
  * | medium            | v5: full width, two lines   | the strip, ≤ 360 wide, centred                     |
  * | expanded          | top-left, two lines, ≤ 320  | a stack of 120-wide keys at the bottom-right       |
+ * | short landscape   | top-left, one line, ≤ 260   | one row of keys along the foot, right-aligned      |
+ *
+ * "Short landscape" is compact landscape where the stack does not fit the height under the top bar (Camp's five
+ * keys in Telegram's 844x390 safe area): stacking would push End day off the screen.
  *
  * The corners are anchored with `edgeClusters` (§3.5). Its framing assumes clusters that span their row or
  * column; the map card is a short corner cluster, so the framing here is the largest clear rect the card,
@@ -40,7 +44,12 @@ export type MapCommands =
   /** The v5 stone strip (its own height), `w` wide from `x`, on the screen's lower edge. */
   | { mode: 'bar'; x: number; w: number }
   /** Keys stacked top to bottom in `rect`, `keyH` tall, `gap` apart; the last (the primary) at the foot. */
-  | { mode: 'stack'; rect: Box; keyH: number; gap: number };
+  | { mode: 'stack'; rect: Box; keyH: number; gap: number }
+  /**
+   * Landscape too short for the stack (Telegram's 844x390 safe area is 161 UI px tall): the keys in one row along
+   * the foot of `rect`, at their natural widths, right-aligned so the primary sits at the right end (the thumb).
+   */
+  | { mode: 'row'; rect: Box; keyH: number; gap: number };
 
 export interface MapHudLayout {
   variant: LayoutVariant;
@@ -63,6 +72,8 @@ const BAR_MAX_MEDIUM = 360;
 const KEY_W_EXPANDED = 120;
 const KEY_W_MIN = 72;
 const KEY_W_MAX = 120;
+/** A key of the row: 48 pt, v5's strip key. */
+const ROW_KEY_H = 24;
 /** Between two stacked keys: ≥ 4 pt (§15). */
 export const STACK_GAP = 3;
 
@@ -84,6 +95,17 @@ export function mapHudLayout(m: MapHudMetrics, s: MapHudSpec): MapHudLayout {
   const keyW = expanded ? KEY_W_EXPANDED : Math.max(KEY_W_MIN, Math.min(KEY_W_MAX, Math.ceil(s.keyW)));
   const stackH = s.keys * keyH + Math.max(0, s.keys - 1) * STACK_GAP;
   const safe: Box = { x: 0, y: s.top, w: VW, h: VH - s.top };
+  if (!expanded && stackH > safe.h - EDGE_PAD * 2) {
+    // short landscape: the keys go in a row along the foot; the card keeps its full width at the top left
+    const cardH = s.cardH(1);
+    const card = { x: EDGE_PAD, y: s.top + EDGE_PAD, w: Math.min(CARD_MAX_COMPACT, VW - EDGE_PAD * 2), h: cardH, lines: 1 as const };
+    const rect: Box = { x: EDGE_PAD, y: VH - EDGE_PAD - ROW_KEY_H, w: VW - EDGE_PAD * 2, h: ROW_KEY_H };
+    const tlBottom = card.y + cardH + s.under;
+    const below: Box = { x: 0, y: tlBottom + EDGE_PAD, w: VW, h: rect.y - EDGE_PAD - (tlBottom + EDGE_PAD) };
+    const beside: Box = { x: card.x + card.w + EDGE_PAD, y: s.top, w: VW - (card.x + card.w + EDGE_PAD), h: rect.y - EDGE_PAD - s.top };
+    const framing = area(below) >= area(beside) ? below : beside;
+    return { variant, card, commands: { mode: 'row', rect, keyH: ROW_KEY_H, gap: STACK_GAP }, framing };
+  }
   const cardW = Math.min(expanded ? CARD_MAX_EXPANDED : CARD_MAX_COMPACT, VW - EDGE_PAD * 3 - keyW);
   const cardH = s.cardH(lines);
   const { rects } = edgeClusters(safe, { tl: { w: cardW, h: cardH + s.under }, br: { w: keyW, h: stackH } });

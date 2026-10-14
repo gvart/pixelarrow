@@ -29,7 +29,7 @@ import { SHEET_ACTION_H } from '../ui/mosaic/ParchmentSheet';
 import { BUTTON_MAX } from '../ui/sizeClass';
 import { mapHudLayout, stackKeys, type MapHudLayout } from '../ui/mapHud';
 import { ensureFonts } from '../ui/fonts';
-import { uiId, uiIgnore, uiLayout, uiOpaque, uiPrimary } from '../ui/layout';
+import { uiCollapsed, uiId, uiIgnore, uiLayout, uiOpaque, uiPrimary } from '../ui/layout';
 import { TEXT_MIN, lineHeight } from '../ui/tokens';
 import { motion } from '../ui/motion';
 import { haptic, hapticNotify } from '../platform/haptics';
@@ -106,8 +106,10 @@ export class CampScene extends BaseScene {
   private d!: CampSceneData;
   /** Where the HUD goes in this size class, and the framing rect the clearing is framed in (§12.2, §12.3). */
   private hudL!: MapHudLayout;
-  /** The left edge of an open inspector panel (landscape): the framing rect ends there while it is open. */
-  private panelX: number | null = null;
+  /** An open inspector panel's box and id (landscape): the framing rect ends at its left edge while it is open. */
+  private panelR: { x: number; y: number; w: number; h: number; id: string } | null = null;
+  /** Landscape: the top of what sits along the foot (the key row, the War camp's reason line); VH when nothing does. */
+  private footTop = 0;
   private world!: Phaser.GameObjects.Container;
   private view = { x: 0, y: 0, w: 0, h: 0 };
   private maskG: Phaser.GameObjects.Graphics | null = null;
@@ -161,7 +163,7 @@ export class CampScene extends BaseScene {
     this.busy = false;
     this.modal = null;
     this.inspector = false;
-    this.panelX = null;
+    this.panelR = null;
     this.eventCard = null;
     this.placed = [];
     this.ghostObjs = [];
@@ -631,7 +633,11 @@ export class CampScene extends BaseScene {
     const v = this.view;
     if (this.hudL.commands.mode === 'bar') return { x: v.x, y: this.visTop, w: v.w, h: v.y + v.h - this.visTop };
     const f = this.hudL.framing;
-    return this.panelX === null ? f : { ...f, w: Math.max(40, Math.min(f.w, this.panelX - EDGE_PAD - f.x)) };
+    const p = this.panelR;
+    if (!p) return f;
+    // an open panel: the clear map left of it (the card's own rect, when it lies under the panel, is hidden)
+    if (p.x - EDGE_PAD - f.x >= 40) return { ...f, w: Math.min(f.w, p.x - EDGE_PAD - f.x) };
+    return { x: 0, y: TOPBAR_H, w: Math.max(40, p.x - EDGE_PAD), h: Math.max(40, this.footTop - EDGE_PAD - TOPBAR_H) };
   }
 
   /** The middle of the framing rect, UI px. */
@@ -784,16 +790,21 @@ export class CampScene extends BaseScene {
       return openParchmentSheet(this, o);
     }
     const { VW, VH } = this.m;
+    // the panel docks left of the tool rail (above the War camp's reason line): the tools stay live beside it. Short
+    // landscape has no room above the key row: the panel takes the full height, and the keys it covers step aside.
+    const cmd = this.hudL.commands;
+    const right = cmd.mode === 'stack' ? cmd.rect.x - EDGE_PAD : VW;
+    const bottom = cmd.mode === 'stack' && this.footTop < VH ? this.footTop - EDGE_PAD : VH;
     const p = openPanel(this, {
       kind: 'task',
       inspector: true,
       title: o.title,
       h: o.h,
-      area: { x: 0, y: TOPBAR_H, w: VW, h: VH - TOPBAR_H },
+      area: { x: 0, y: TOPBAR_H, w: right, h: bottom - TOPBAR_H },
       id: o.id,
       onClose: () => {
         this.inspector = false;
-        this.panelX = null;
+        this.panelR = null;
         this.coverHud();
         this.clampPan();
         o.onClose?.();
@@ -809,7 +820,7 @@ export class CampScene extends BaseScene {
       p.buttons.push(b);
     });
     this.inspector = true;
-    this.panelX = p.x;
+    this.panelR = { x: p.x, y: p.y, w: p.w, h: p.h, id: o.id };
     this.coverHud();
     this.clampPan();
     return acts.length ? { ...p, body: { ...p.body, h: p.body.h - acts.length * (SHEET_ACTION_H + 4) - 4 } } : p;
@@ -862,8 +873,13 @@ export class CampScene extends BaseScene {
   private buildBar(): void {
     const { VW, VH } = this.m;
     const cmd = this.hudL.commands;
+    this.footTop = VH;
     if (cmd.mode === 'stack') {
       this.buildRail(cmd);
+      return;
+    }
+    if (cmd.mode === 'row') {
+      this.buildKeyRow(cmd);
       return;
     }
     const h = this.barH();
@@ -925,20 +941,82 @@ export class CampScene extends BaseScene {
     line.add(mosaicImage(this, 0, 0, w, WHY_H, 'parchment'));
     line.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: room, box: { owner: line, w, h: WHY_H } }));
     bar.add(uiOpaque(line));
+    this.footTop = y;
   }
 
   /**
-   * An inspector panel lies over the right of the map: what of the HUD it covers (the tool rail; at 844x390 the card
-   * and the zoom key too) steps aside until it closes, so nothing is drawn or tapped under it.
+   * Short landscape (the stack would run off the screen): the tools in one row along the foot at their natural widths,
+   * right-aligned so the primary sits at the right end (the thumb), each key its own opaque cluster so the map shows
+   * between them; the War camp's reason line on parchment, as wide as its words, left of the keys or over them.
+   */
+  private buildKeyRow(cmd: Extract<MapHudLayout['commands'], { mode: 'row' }>): void {
+    const bar = this.add.container(0, 0);
+    this.bar = bar;
+    this.hud.add(bar);
+    const c = this.add.container(0, 0);
+    bar.add(c);
+    uiId(c, 'camp.strip');
+    const slots = this.actionRows().flat();
+    const r = cmd.rect;
+    const room = r.w - cmd.gap * (slots.length - 1);
+    const label = (sl: CampSlot) => Math.max(TAP_KEY, mw(sl.label.toUpperCase(), sl.off ? 'rOff' : 'rCream', 7) + 14);
+    const withIcon = (sl: CampSlot) => label(sl) + (sl.icon ? 12 : 0);
+    const icons = slots.reduce((a, sl) => a + withIcon(sl), 0) <= room;
+    const nat = slots.map((sl) => (icons ? withIcon(sl) : label(sl)));
+    const sum = nat.reduce((a, n) => a + n, 0);
+    const ws = nat.map((n) => (sum <= room ? Math.ceil(n) : Math.max(TAP_KEY, Math.floor((n * room) / sum))));
+    let x = r.x + r.w - (ws.reduce((a, n) => a + n, 0) + cmd.gap * (slots.length - 1));
+    slots.forEach((sl, i) => {
+      const variant: MButtonVariant = sl.off ? 'disabled' : sl.primary ? 'primary' : 'secondary';
+      const b = new MButton(this, x, r.y, ws[i], cmd.keyH, { label: sl.label, icon: icons ? sl.icon : undefined, variant, onClick: sl.onClick, disabledReason: sl.off, tip: sl.tip ?? sl.label, id: sl.id });
+      c.add(uiOpaque(sl.primary ? uiPrimary(b) : b));
+      x += ws[i] + cmd.gap;
+    });
+    this.footTop = r.y;
+    const keysX = r.x + r.w - (ws.reduce((a, n) => a + n, 0) + cmd.gap * (slots.length - 1));
+    const why = slots.filter((sl) => sl.off);
+    if (this.d.mode !== 'online' || !why.length) return;
+    const all = why.map((sl) => t('cmp.reason', { name: sl.label, why: sl.off! })).join(' · ');
+    const one = why.find((sl) => sl.primary) ?? why[0];
+    const beside = keysX - EDGE_PAD - r.x;
+    const fits = (s: string, w: number) => mw(s, 'pSec', TEXT_MIN) + 8 <= w;
+    const text = fits(all, r.w) ? all : t('cmp.reason', { name: one.label, why: one.off! });
+    const w = Math.min(r.w, Math.ceil(mw(text, 'pSec', TEXT_MIN)) + 8);
+    // left of the keys when the words fit there, else right-aligned over them
+    const at = fits(text, beside) ? { x: r.x, y: r.y + Math.round((cmd.keyH - WHY_H) / 2) } : { x: r.x + r.w - w, y: r.y - 2 - WHY_H };
+    const line = this.add.container(at.x, at.y);
+    line.add(mosaicImage(this, 0, 0, w, WHY_H, 'parchment'));
+    line.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: w - 8, box: { owner: line, w, h: WHY_H } }));
+    bar.add(uiOpaque(line));
+    this.footTop = Math.min(this.footTop, at.y);
+  }
+
+  /**
+   * An inspector panel lies over the map: what of the HUD it covers (at 844x390 the card and the zoom key; in short
+   * landscape the keys of the row under it) steps aside until it closes, so nothing is drawn or tapped under it; the
+   * tool rail stays live beside it. What
+   * steps aside is registered as collapsed into the panel's close key (element-parity: closing brings it back).
    */
   private coverHud(): void {
-    const x = this.panelX;
-    const edge = x === null ? Infinity : x * this.m.S;
-    for (const o of this.hud.list as (Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible)[]) {
+    const p = this.panelR;
+    const S = this.m.S;
+    const ids: string[] = [];
+    const collect = (o: Phaser.GameObjects.GameObject) => {
+      const id = (o as unknown as { __uiId?: string }).__uiId;
+      if (id) ids.push(id);
+      for (const k of (o as unknown as { list?: Phaser.GameObjects.GameObject[] }).list ?? []) collect(k);
+    };
+    type Part = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible & { list?: Part[]; __uiId?: string };
+    // the strip's keys step aside one by one (a row along the foot is partly under the panel)
+    const parts = (o: Part): Part[] => (o === (this.bar as unknown) ? (o.list ?? []).flatMap((k) => (k.__uiId === 'camp.strip' ? (k.list ?? []) : [k])) : [o]);
+    for (const o of (this.hud.list as Part[]).flatMap(parts)) {
       const b = (o as unknown as { getBounds?: () => Phaser.Geom.Rectangle }).getBounds?.();
-      // the top bar stays: the panel docks under it
-      if (b) o.setVisible(b.right <= edge + 0.5 || b.bottom <= TOPBAR_H * this.m.S + 0.5);
+      if (!b) continue;
+      const under = !!p && b.right > p.x * S + 0.5 && b.x < (p.x + p.w) * S - 0.5 && b.bottom > p.y * S + 0.5 && b.y < (p.y + p.h) * S - 0.5;
+      o.setVisible(!under);
+      if (under) collect(o);
     }
+    if (p) for (const id of ids) uiCollapsed(this, id, `${p.id}.close`);
   }
 
   /** A row of buttons across the strip (`w` wide from `x0`): natural widths plus an equal share of what is left; icons go first when it is tight. */
@@ -1292,8 +1370,8 @@ export class CampScene extends BaseScene {
     const pad = 8;
     // the scroll area's width, less a margin (the bitmap face runs a little wider than its measure)
     const tw = sw - pad * 2 - 12;
-    const body = wrapWords(t('cmp.sup.body', { max: WORKS.max }), tw, (q) => mw(q, 'pSec', TEXT_MIN));
-    const more = wrapWords(t('cmp.sup.more'), tw, (q) => mw(q, 'pSec', TEXT_MIN));
+    const wrap = (w: number) => [wrapWords(t('cmp.sup.body', { max: WORKS.max }), w, (q) => mw(q, 'pSec', TEXT_MIN)), wrapWords(t('cmp.sup.more'), w, (q) => mw(q, 'pSec', TEXT_MIN))];
+    let [body, more] = wrap(tw);
     const allow = worksAllowance(w.supplies);
     const contentH = 12 + body.length * LH + 4 + WORK_TYPES.length * (ROW_H + ROW_GAP_LIST) + 2 + more.length * LH;
     const h = Math.min(VH - 12, 26 + contentH + 8 + 24 + 10);
@@ -1307,6 +1385,8 @@ export class CampScene extends BaseScene {
     });
     this.modal = md;
     const b = md.body;
+    // a side panel can be narrower than the sheet asked for: the words wrap to its box (v5's sheet keeps v5's lines)
+    if (this.inspector) [body, more] = wrap(b.w - 12);
     const area = new ScrollArea(this, md.c, b.x, b.y, b.w, b.h, this.m.S);
     const C = area.content;
     let y = 0;
@@ -1564,6 +1644,8 @@ export class CampScene extends BaseScene {
         );
       },
       id: (i) => `camp.temper.row.${i}`,
+      // every row's Temper key, built or scrolled out of the panel (element-parity, V6-066)
+      ids: (i) => [`camp.temper.do.${i}`],
     });
     frameScrollTexts(list.area, b.w);
   }
