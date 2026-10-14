@@ -1,0 +1,38 @@
+src/game/save.ts
+  s_0d98fe904b2e82::t_a0313ccf03742c 53-54,81
+src/ui/keycap.ts
+  s_0d98fe904b2e82::t_a3f6d8df25c7ee 1-74
+src/ui/hover.ts
+  s_0d98fe904b2e82::t_a0313ccf03742c 40-42,66-69
+src/ui/battleHud.ts
+  s_0d98fe904b2e82::t_19d025c650282a 25-26,1340-1385
+src/i18n/controls.en.ts
+  s_0d98fe904b2e82::t_fd4ab0856a2b8f 40-44
+src/i18n/controls.ru.ts
+  s_0d98fe904b2e82::t_fd4ab0856a2b8f 38-42
+tests/settingsControls.test.ts
+  s_0d98fe904b2e82::t_63bdaa5da5c3a9 124,130-132
+src/scenes/BattleScene.ts
+  s_0d98fe904b2e82::t_aaffe2bf868451 3135-3137
+  s_0d98fe904b2e82::t_18795cab103e62 34
+  s_0d98fe904b2e82::t_e222f18e2f00c4 10
+  s_0d98fe904b2e82::t_19d025c650282a 3282-3283
+src/ui/settings.ts
+  s_0d98fe904b2e82::t_a0313ccf03742c 95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "500f2d8b39e88d7e6281a8ef0855d9eeb304ad40",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
