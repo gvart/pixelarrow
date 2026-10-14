@@ -41,9 +41,29 @@ export class KeyRouter {
   private readonly firsts = new Map<ActionId, KeyHandler[]>();
   /** Held hold-actions by the physical key holding them (a key comes up under the code it went down with). */
   private readonly holds = new Map<string, ActionId>();
+  /** A rebinding capture (the Controls page): sees every key down first. */
+  private catcher: ((ev: KeyInput) => boolean) | null = null;
 
   constructor(map: BindingMap = defaultBindings()) {
     this.map = map;
+  }
+
+  /** The bindings keys resolve with now (the Controls page edits from these). */
+  get bindings(): BindingMap {
+    return this.map;
+  }
+
+  /**
+   * A rebinding capture (input-v6.md §5.3): `fn` sees every key down before any action (text fields
+   * and IME input aside) and returns true when it took the key, false to let the router handle it
+   * (Tab still moves focus). One at a time; the returned function ends it.
+   */
+  capture(fn: (ev: KeyInput) => boolean): () => void {
+    this.catcher = fn;
+    this.clear();
+    return () => {
+      if (this.catcher === fn) this.catcher = null;
+    };
   }
 
   setBindings(map: BindingMap): void {
@@ -75,6 +95,7 @@ export class KeyRouter {
   /** A key went down. True: the router handled it (the caller calls preventDefault). */
   down(ev: KeyInput): boolean {
     if (ev.editable || ev.composing || this.active.includes('capture')) return false;
+    if (this.catcher?.(ev)) return true;
     const id = resolve(this.map, ev, this.active);
     if (!id) return false;
     const list = [...(this.handlers.get(id) ?? []), ...(this.firsts.get(id) ?? [])];

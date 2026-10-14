@@ -24,6 +24,8 @@ import { addSyncBadge } from './online';
 import { online } from '../platform/cloud';
 import { analyticsToggled } from '../platform/monitoring';
 import { SPEEDS, speedLabel, startSpeed } from './input/pace';
+import { openControls } from './settings/controls';
+import { platform, type InputHints } from '../platform';
 
 type ToggleKey = { [K in keyof Settings]-?: NonNullable<Settings[K]> extends boolean ? K : never }[keyof Settings];
 type Volume = 'musicVol' | 'sfxVol';
@@ -36,7 +38,7 @@ type Row =
   | { kind: 'speed'; label: TKey }
   | { kind: 'lang' }
   | { kind: 'tutorial'; label: TKey }
-  | { kind: 'open'; what: 'notify' | 'about'; label: TKey }
+  | { kind: 'open'; what: 'notify' | 'about' | 'controls'; label: TKey }
   | { kind: 'sync'; label: TKey }
   | { kind: 'newCampaign'; label: TKey; sub: TKey };
 
@@ -80,6 +82,28 @@ export const ROWS: readonly Row[] = [
   { kind: 'toggle', key: 'analytics', label: 'settings.analytics' },
   { kind: 'newCampaign', label: 'menu.newCampaign', sub: 'settings.newCampaignSub' },
 ];
+/** Controls → Keyboard shortcuts (input-v6.md §5.1): only while a keyboard is likely or was used; before Account. */
+const CONTROLS_ROWS: readonly Row[] = [
+  { kind: 'section', label: 'controls.sec' },
+  { kind: 'open', what: 'controls', label: 'controls.title' },
+];
+
+/** The sheet's rows: ROWS, plus the Controls section with a keyboard. */
+export function settingsRows(keyboard: boolean): readonly Row[] {
+  if (!keyboard) return ROWS;
+  const at = ROWS.findIndex((r) => r.kind === 'section' && r.label === 'settings.sec.account');
+  return [...ROWS.slice(0, at), ...CONTROLS_ROWS, ...ROWS.slice(at)];
+}
+
+/** Calls `cb` with the new rows when a keyboard appears or goes (a tablet pairing one), without reopening Settings. */
+export function watchRows(hints: Pick<InputHints, 'keyboard' | 'onChange'>, cb: (rows: readonly Row[]) => void): () => void {
+  let kb = hints.keyboard();
+  return hints.onChange(() => {
+    if (hints.keyboard() === kb) return;
+    kb = hints.keyboard();
+    cb(settingsRows(kb));
+  });
+}
 const LANGS_SET: LangSetting[] = ['auto', 'en', 'ru'];
 /** One icon per section. */
 const SECTION_ICON: Partial<Record<TKey, string>> = {
@@ -106,13 +130,14 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
   const rowH = 24;
   const step = rowH + SIZE.gap;
   const w = settingsSheetW(VW);
-  const want = 26 + ROWS.length * step + 14;
+  let rows = settingsRows(platform.input.keyboard());
+  const want = 26 + rows.length * step + 14;
   const m = openParchmentSheet(scene, { title: t('settings.title'), w, h: Math.min(want, VH - 12), dock: 'bottom', onClose });
   const { c, body } = m;
   const listH = body.h;
   let list: ScrollList | null = null;
   list = new ScrollList(scene, c, body.x, body.y, body.w, listH, {
-    count: ROWS.length,
+    count: rows.length,
     rowH,
     // the controls each row renders, for element-parity while the row is scrolled out of the window (V6-066)
     ids: (i) => {
@@ -129,7 +154,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
       return [];
     },
     render: (i, row, rw) => {
-      const r = ROWS[i];
+      const r = rows[i];
       if (r.kind === 'section') {
         // a section: its icon and title over a bronze hairline
         row.add(addIcon(scene, 0, 8, SECTION_ICON[r.label] ?? 'gear'));
@@ -285,12 +310,17 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         word.once('destroy', off);
       } else if (r.kind === 'open') {
         const what = r.what;
-        row.add(new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.open'), icon: 'chevR', inline: true, small: true, id: `settings.open.${what}`, onClick: () => (what === 'notify' ? openNotifySettings(scene) : openAbout(scene)) }));
+        row.add(new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.open'), icon: 'chevR', inline: true, small: true, id: `settings.open.${what}`, onClick: () => (what === 'notify' ? openNotifySettings(scene) : what === 'controls' ? openControls(scene) : openAbout(scene)) }));
       }
     },
   });
   open.set(scene, c);
+  const offRows = watchRows(platform.input, (next) => {
+    rows = next;
+    list?.setCount(rows.length);
+  });
   c.once('destroy', () => {
+    offRows();
     if (open.get(scene) === c) open.delete(scene);
     list?.destroy();
     list = null;

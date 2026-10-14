@@ -44,6 +44,7 @@ import { WAR_V5_RU } from './war.v5.ru';
 import { DUELS_V5_RU } from './duels.v5.ru';
 import { GAPS_RU } from './gaps.ru';
 import { INPUT_RU } from './input.ru';
+import { CONTROLS_RU } from './controls.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -352,4 +353,5 @@ export const RU: Table = {
   ...DUELS_V5_RU,
   ...GAPS_RU,
   ...INPUT_RU,
+  ...CONTROLS_RU,
 };
