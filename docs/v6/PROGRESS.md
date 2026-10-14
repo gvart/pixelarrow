@@ -5,7 +5,11 @@
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
-## PAUSED AGAIN (2026-10-14, at the owner's request)
+## RESUMED AGAIN (2026-10-14)
+
+Running: integrator-pay-01 (PAY-01 plus the RSCR-02 layout gate and the screenshot cap), acct-05b, fix-e2e-b and parity-stable-b (each continuing in its existing worktree).
+
+### Second pause record
 
 **To resume:** start the same `/loop /orchestrate …` prompt. Then:
 1. **RSCR-02 is merged** (d696167d; v6 HEAD 9b8404b3), but its integrator skipped the layout gate: run `layout-check --scenes 'battle*,results*,tutorial*'` at all sizes plus `--quick` on v6 first.
