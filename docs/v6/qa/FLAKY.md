@@ -8,7 +8,11 @@ With fewer than 3 runs a case is only **suspected**.
 
 ## Open
 
-None.
+### F2 · `server/test/public-api.test.ts` "a 304 and a HEAD run the same single SELECT; 405, 404 and 429 run none" (suspected, cause not yet classified)
+
+- **Seen:** failed once under parallel load (reported with GATE-01b, V6-057), and passes on a re-run with no code change. One failure, so **suspected** until it is seen again or the cause is found.
+- **Cause:** not yet found. Likely timing/async or load race (the test counts D1 SELECTs per request; under load a cache or rate-limit window may differ).
+- **Fix:** none yet. Record each further run here.
 
 ## Fixed
 
