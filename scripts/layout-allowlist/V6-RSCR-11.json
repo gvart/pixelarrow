@@ -1,7 +1,8 @@
 {
-  "_doc": "Known layout violations owned by V6-RSCR-11 (scripts/layout-check.mjs, docs/UI_KIT.md \"Layout check\"). Fix them and remove the entries; delete this file when it is empty. Keys: screen|check|element ids, or screen|check|* for the whole screen (text-size only); a trailing @WxH scopes an entry to one size.",
+  "_doc": "Known layout violations owned by V6-RSCR-11 (scripts/layout-check.mjs, docs/UI_KIT.md \"Layout check\"). Fix them and remove the entries; delete this file when it is empty. Keys: screen|check|element ids, or screen|check|* for the whole screen (text-size only); a trailing @WxH scopes an entry to one size. kit-focus at 844x390 (from V6-INP-06): Tab's scroll-into-view scrolls the Kit States page so its title runs under the 'States n/m' header; a Kit dev page only.",
   "pending": true,
   "entries": [
+    "kit-focus|text-overlap|STATES|STATES #/#@844x390",
     "kit-forms-check-capped|text-size|*@844x390",
     "kit-forms-check|text-size|*@844x390",
     "kit-mosaic|touch-size|tab.campaign@844x390",
