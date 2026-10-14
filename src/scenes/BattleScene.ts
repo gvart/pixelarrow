@@ -32,6 +32,8 @@ import { keys, screenKeys } from '../ui/input/keys';
 import { findUi, flashControl, tapControl } from '../ui/hotkeyPress';
 import { nav } from '../platform/nav';
 import { platform } from '../platform';
+import { openShortcuts, shortcutsOpen } from '../ui/shortcutsSheet';
+import { actionKey } from '../ui/input/glyphs';
 import { LADDER, ticketClock } from '../duel/ladder';
 import { battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind, type Unlocks } from '../ui/input/attention';
 import { FACING_DIRS, mirrorX, nextZoom, pipSlot } from '../ui/input/singleTap';
@@ -2629,7 +2631,7 @@ export class BattleScene extends BaseScene {
     if (this.overlay || this.worksGhost) return;
     if (this.pips) this.closePips();
     if (this.selGroup < 0) {
-      this.showBanner(t('battle.sit.idle'), 1400);
+      this.showBanner(this.idleLine(), 1400);
       return;
     }
     const hit = hitTest(this.hitState(), { x, y }).tap;
@@ -3126,6 +3128,8 @@ export class BattleScene extends BaseScene {
       this.onGestures(evs);
       return evs.length > 0;
     }, ev);
+    // ? or F1: the shortcuts sheet, pausing an offline fight as the ⋯ menu does (input-v6.md §6.4)
+    keys.on('help.keys', () => (nav.topOwner() === this ? this.openShortcutsSheet() : false), ev);
     keys.on('time.faster', () => this.speedKey(1), ev);
     keys.on('time.slower', () => this.speedKey(-1), ev);
     keys.on('turn.left', () => this.turnKey(-1), ev);
@@ -3137,6 +3141,24 @@ export class BattleScene extends BaseScene {
     ev.once('shutdown', offInput);
     const pans: [ActionId, number, number][] = [['cam.pan.up', 0, -1], ['cam.pan.down', 0, 1], ['cam.pan.left', -1, 0], ['cam.pan.right', 1, 0]];
     for (const [a, x, y] of pans) keys.on(a, () => this.keyPan.press({ x, y }), ev);
+  }
+
+  /** "Tap a group, then an order below.", or with a keyboard its keys (input-v6.md §6.3, by InputHints, never the platform's name). */
+  private idleLine(): string {
+    if (!platform.input.keyboard()) return t('battle.sit.idle');
+    return t('controls.idleKb', { orders: `${actionKey('order.advance')}–${actionKey('order.fifth')}` });
+  }
+
+  /** The shortcuts sheet over the battle; an offline fight pauses while it is open and runs on as it was. */
+  private openShortcutsSheet(): boolean {
+    if (shortcutsOpen(this)) return true;
+    const fighting = this.sim.phase === 'battle';
+    const wasPaused = this.paused;
+    if (fighting && !this.paused && !this.realtimeLocked && !this.tutorial) this.setPaused(true);
+    openShortcuts(this, () => {
+      if (fighting && !wasPaused && this.paused && this.sim.phase === 'battle') this.setPaused(false);
+    });
+    return true;
   }
 
   /** A hotkey that presses a HUD control, or says why there is none. */
@@ -3561,7 +3583,7 @@ export class BattleScene extends BaseScene {
         const name = sel.individual ? sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim();
         const soon = this.contactSoon.check(sim, sel.id, sim.tick / TICK_RATE);
         sentence = t(soon ? 'battle.sit.marching' : 'battle.sit.moving', { group: name, order: sel.routed ? t('battle.order.routed') : t(`battle.order.${sel.order}` as TKey) });
-      } else sentence = this.realtimeLocked ? t('battle.sit.online') : t('battle.sit.idle');
+      } else sentence = this.realtimeLocked ? t('battle.sit.online') : this.idleLine();
       const tk = this.ticketSecs >= 0 && sim.phase === 'battle' ? this.ticketStage : 0;
       // a ladder floor's last minutes: the clock counts down the ticket instead (controls.md R10)
       if (tk) this.top.setTime(fmtClock(this.ticketSecs), t(tk === 2 ? 'pace.expiredShort' : 'pace.left'), true);

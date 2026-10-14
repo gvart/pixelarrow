@@ -41,5 +41,5 @@ export const CONTROLS_EN = {
   'controls.keyHints': 'Show key hints',
   'controls.sheetTip': 'Press ? or F1 any time to see this list.',
   'controls.edit': 'Edit in Settings',
-  'controls.sheetHint': 'Click a group or press 1–9, then an order ({orders}).',
+  'controls.idleKb': 'Click a group or press 1–9, then an order ({orders}). Press ? for all keys.',
 } as const;

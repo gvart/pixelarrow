@@ -39,5 +39,5 @@ export const CONTROLS_RU: Record<keyof typeof CONTROLS_EN, string> = {
   'controls.keyHints': 'Показывать клавиши',
   'controls.sheetTip': 'Нажмите ? или F1, чтобы открыть этот список.',
   'controls.edit': 'Изменить в настройках',
-  'controls.sheetHint': 'Щёлкните отряд или нажмите 1–9, затем приказ ({orders}).',
+  'controls.idleKb': 'Щёлкните отряд или нажмите 1–9, затем приказ ({orders}). ? — все клавиши.',
 };
