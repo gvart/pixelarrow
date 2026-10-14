@@ -1,0 +1,23 @@
+src/platform/api.ts
+  s_0d98fe904b2e82::t_c684a6044fb2b1 341-342
+  s_0d98fe904b2e82::t_a57e513526f4ad 485-512
+tests/accountManage.test.ts
+  s_0d98fe904b2e82::t_81540176dc520e 30-31
+  s_0d98fe904b2e82::t_f2c9036f5c1801 1-29,32-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a143856d74e1362f8650dcbdde98cb835c109882",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
