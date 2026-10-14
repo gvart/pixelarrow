@@ -13,6 +13,13 @@
 //   - a tap where a control is drawn misses its hit area (the tap probe: every interactive
 //     element, v3 buttons included, is pressed at its centre and towards each corner through
 //     Phaser's own hit test; MECH §3).
+// Plus the nine landscape checks (design/ux/landscape-v6.md §5; thresholds: WIDE_RULES in
+// scripts/lib/layoutMatrix.mjs, next to the sizes): letterbox, class-match, wasted-width,
+// empty-column, stretched, field-coverage, above-fold, element-parity (every uiId at 390x844 shows
+// at each size, or is uiCollapsed) and nav-labels. A family that has not migrated is "pending"
+// ("pending": true in its scripts/layout-allowlist/V6-RSCR-NN.json, V6-021): its landscape findings
+// are reported, not failed, unless the screen opted in (`responsive = true`: the canvas fills #game).
+// The foundation screens (Menu, Settings, Kit) can never allowlist the landscape checks.
 // The rules are src/ui/layoutCheck.ts (unit-tested in tests/ui.test.ts, tests/inputContract.test.ts).
 // Element bounds come from the game's debug UI registry (window.__layout,
 // src/ui/layout.ts). Known violations are listed in scripts/layout-allowlist/<story>.json,
@@ -31,7 +38,10 @@
 //                        else main; uncommitted and untracked files count) can affect; conservative
 //   --scenes a,kit-*     only these screens (ids or globs; opt-in screens only when a glob names no other)
 //   --screens a,b        the same (the older name)
-//   --update-allowlist   write the current violations into the allowlist (owners from the screen table)
+//   --update-allowlist   write the current violations into the allowlist (owners from the screen table); stable
+//                        (V6-057): a finding is added only when the previous update run found it too, an entry
+//                        dropped only when the previous run also missed it, never for a pending family
+//                        (the previous run's proposal: shots/layout-candidates.json)
 //   --sizes 390x844,320x568   only these sizes (wins over --matrix)
 //   --matrix phone|tablet|landscape|all|v5   size groups, comma-separated (default all: the ten
 //                        matrix sizes; v5 = the v5 phone sizes outside the matrix, run by CI too)
@@ -53,7 +63,8 @@ import { execFileSync } from 'node:child_process';
 import { join, relative } from 'node:path';
 import { ROOT as root, launch, captureErrors, apiDown, makePageApi, shotsDir } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
-import { KNOWN_CRASHES, MATRIX, TG, allows, configsFor, loadAllowlist, rewriteAllowlist, sizesFor, splitEntry, staleEntries, storyOf } from './lib/layoutMatrix.mjs';
+import { KNOWN_CRASHES, MATRIX, TG, allows, configsFor, loadAllowlist, sizesFor, splitEntry, staleEntries, storyOf } from './lib/layoutMatrix.mjs';
+import { PARITY_BASE, WIDE_CHECKS, WIDE_RULES, checkParity, isFoundationScreen, loadPending, stableRewrite, triageWide } from './lib/layoutMatrix.mjs';
 import { QUICK, matchScreens, sceneKeysOf, screensForChanges } from './lib/layoutScenes.mjs';
 import { installSettle, settle, untilInPage } from './lib/settle.mjs';
 const args = process.argv.slice(2);
@@ -1075,6 +1086,10 @@ async function runConfig(browser, cfg, screens) {
     await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
     await ctx.addInitScript(seededRandom);
     if (!FIXED_WAITS) await installSettle(ctx);
+    // the landscape checks (src/ui/layout.ts checkUi): their thresholds and this viewport's safe box
+    const t = cfg.insets === 'tg' ? cfg.tg : null;
+    const [l, top, r, b] = t ? [t.safeLeft ?? 0, t.safeTop + t.contentTop, t.safeRight ?? 0, t.safeBottom] : [0, 0, 0, 0];
+    await ctx.addInitScript((o) => (window.__layoutWide = o), { rules: WIDE_RULES, safe: { x: l, y: top, w: W - l - r, h: H - top - b }, scrollTop: true });
     // a full-screen Telegram with the insets already reported
     if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, { insets: cfg.tg, fullscreen: 'launch', languageCode: 'en' });
     const page = await ctx.newPage();
@@ -1113,6 +1128,7 @@ async function runConfig(browser, cfg, screens) {
     let violations = [];
     let elements = 0;
     let error = null;
+    let wide = null;
     try {
       await ev(page, (n) => window.__reseed(n), [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
       const w0 = page.__waits ?? 0;
@@ -1123,11 +1139,13 @@ async function runConfig(browser, cfg, screens) {
       await timed('settle', () => until(page, () => window.__game.scene.getScenes(true).every((s) => s.tweens.getTweens().every((t) => !t.isPlaying() || t.loop === -1 || t.data.some((d) => d.repeat === -1))), 3000));
       // let tooltips / toasts from staging fade, then measure
       const r = await timed('check', () => ev(page, () => {
+        window.__layoutWide.scrollTop = true;
         const x = window.__layout.check();
-        return { violations: x.violations, elements: x.elements.length, scenes: window.__game.scene.getScenes(true).map((s) => s.scene.key) };
+        return { violations: [...x.violations, ...x.wide.violations], wide: { ...x.wide, violations: undefined }, elements: x.elements.length, scenes: window.__game.scene.getScenes(true).map((s) => s.scene.key) };
       }));
       violations = r.violations;
       elements = r.elements;
+      wide = r.wide;
       const dir = join(outDir, `${cfg.lang}-${cfg.insets}`, `${W}x${H}`);
       if (!flag('no-shots'))
         await timed('shots', () => {
@@ -1138,16 +1156,22 @@ async function runConfig(browser, cfg, screens) {
       await timed('scroll', async () => {
         if (!(await ev(page, () => window.__layout.scrollAll(1e6)))) return;
         await (FIXED_WAITS ? page.waitForTimeout(250) : settle(page, 250)); // (the scroll pass's own time, not a staging wait)
-        const r2 = await ev(page, () => window.__layout.check().violations);
+        const r2 = await ev(page, () => {
+          window.__layoutWide.scrollTop = false;
+          const x = window.__layout.check();
+          window.__layoutWide.scrollTop = true;
+          return { violations: [...x.violations, ...x.wide.violations], ids: x.wide.ids };
+        });
         const seen = new Set(violations.map((v) => [v.check, ...v.ids].join('|')));
-        for (const v of r2) if (!seen.has([v.check, ...v.ids].join('|'))) violations.push(v);
+        for (const v of r2.violations) if (!seen.has([v.check, ...v.ids].join('|'))) violations.push(v);
+        wide.ids = [...new Set([...wide.ids, ...r2.ids])];
         if (!flag('no-shots')) await page.screenshot({ path: join(dir, `${sc.id}-end.png`) });
         await ev(page, () => window.__layout.scrollAll(0));
       });
     } catch (e) {
       error = String(e && e.message ? e.message : e).split('\n')[0];
     }
-    results.push({ screen: sc.id, owner: sc.owner, violations, elements, error });
+    results.push({ screen: sc.id, owner: sc.owner, violations, elements, error, wide });
   }
   await timed('browser', () => ctx.close());
   return { cfg, results, errors };
@@ -1185,6 +1209,29 @@ function sourceTexts() {
   walk(join(root, 'src'));
   return out;
 }
+
+// The pending rule's fixtures (V6-RFND-03), opt-in: `--scenes kit-wide-*`. Both show the Kit tokens page,
+// whose family (V6-RSCR-11) is pending. kit-wide-pending runs it as it is (the legacy column): its landscape
+// findings are reported and the run passes. kit-wide-optin starts it once with `responsive` on, as a family
+// that opted in without laying out for the class: the same rules fail it (class-match at least).
+SCREENS.push(
+  { id: 'kit-wide-pending', owner: 'F', optIn: true, run: async (p) => (await start(p, 'Kit', { page: 'tokens' }), wait(p, 1200)) },
+  {
+    id: 'kit-wide-optin',
+    owner: 'F',
+    optIn: true,
+    run: async (p) => {
+      await start(p, 'Kit', { page: 'tokens' }); // (a lazy scene exists once started)
+      await until(p, activeIs('Kit'));
+      await ev(p, () => {
+        let once = true; // the next build only: later screens get the Kit as it is
+        Object.defineProperty(window.__game.scene.getScene('Kit'), 'responsive', { configurable: true, get: () => (once ? !(once = false) : false) });
+      });
+      await start(p, 'Kit', { page: 'tokens' });
+      return wait(p, 1200);
+    },
+  },
+);
 
 // opt-in screens (art previews) run only when named
 const DEFAULT_SCREENS = SCREENS.filter((s) => !s.optIn);
@@ -1280,27 +1327,57 @@ if (flag('timing')) {
 const keyOf = (screen, v) => [screen, v.check, ...v.ids].join('|');
 const sizeOf = (cfg) => cfg.size.join('x');
 const tagOf = (cfg) => `${cfg.lang}-${cfg.insets}-${sizeOf(cfg)}`;
+/** Story files flagged "pending": families whose landscape findings are reported, not failed (V6-021). */
+const PENDING = loadPending(allowDir);
+/** The uiIds each screen shows at PARITY_BASE, per language and safe-area variant (element-parity). */
+const baseIds = new Map();
+const baseKey = (screen, cfg) => `${screen}|${cfg.lang}|${cfg.insets}`;
+/** Adds element-parity to every result, then splits its violations: enforced, or pending (reported only). */
+function settleRuns(list) {
+  for (const r of list) if (sizeOf(r.cfg) === PARITY_BASE) for (const x of r.results) if (x.wide && !baseIds.has(baseKey(x.screen, r.cfg))) baseIds.set(baseKey(x.screen, r.cfg), x.wide.ids);
+  for (const r of list)
+    for (const x of r.results) {
+      const base = x.wide && sizeOf(r.cfg) !== PARITY_BASE ? baseIds.get(baseKey(x.screen, r.cfg)) : null;
+      if (base) x.violations.push(...checkParity(base, new Set(x.wide.ids), x.wide.collapsed));
+      const t = triageWide({ screen: x.screen, responsive: !!x.wide?.responsive, violations: x.violations }, PENDING);
+      x.violations = t.enforced;
+      x.pending = t.pending;
+    }
+  return list;
+}
+settleRuns(runs);
 const found = new Map(); // key -> { owner, screen, configs: [], sizes: Set, detail }
+const pendingFound = new Map(); // the same, for the pending findings
 const pageErrors = [];
 const screenErrors = [];
+const record = (map, x, v, cfg) => {
+  const k = keyOf(x.screen, v);
+  if (!map.has(k)) map.set(k, { owner: x.owner, screen: x.screen, configs: [], sizes: new Set(), detail: v.detail });
+  map.get(k).configs.push(tagOf(cfg));
+  map.get(k).sizes.add(sizeOf(cfg));
+};
 for (const r of runs) {
   const tag = tagOf(r.cfg);
   for (const e of r.errors) pageErrors.push(`${tag}: ${e}`);
   for (const x of r.results) {
     if (x.error) screenErrors.push(`${tag} ${x.screen}: ${x.error}`);
-    for (const v of x.violations) {
-      const k = keyOf(x.screen, v);
-      if (!found.has(k)) found.set(k, { owner: x.owner, screen: x.screen, configs: [], sizes: new Set(), detail: v.detail });
-      found.get(k).configs.push(tag);
-      found.get(k).sizes.add(sizeOf(r.cfg));
-    }
+    for (const v of x.violations) record(found, x, v, r.cfg);
+    for (const v of x.pending) record(pendingFound, x, v, r.cfg);
   }
 }
 // every violation with the configurations it showed in: two runs compare with a plain diff
-writeFileSync(join(outDir, 'found.json'), JSON.stringify(Object.fromEntries([...found].sort().map(([k, x]) => [k, x.configs.sort()])), null, 1) + '\n');
+const dump = (map) => JSON.stringify(Object.fromEntries([...map].sort().map(([k, x]) => [k, x.configs.sort()])), null, 1) + '\n';
+writeFileSync(join(outDir, 'found.json'), dump(found));
+writeFileSync(join(outDir, 'pending.json'), dump(pendingFound));
 const allowed = loadAllowlist(allowDir);
+/** Whether a finding is allowlisted: never a landscape check on a foundation screen (Menu, Settings, Kit). */
+const allowedAt = (k, size) => {
+  const f = found.get(k);
+  if (WIDE_CHECKS.has(k.split('|')[1]) && isFoundationScreen(f.screen, f.owner)) return false;
+  return allows(allowed, k, size);
+};
 /** New violations: `key@WxH` for every size a key shows at without an allowlist entry. */
-let fresh = [...found].flatMap(([k, x]) => [...x.sizes].filter((size) => !allows(allowed, k, size)).map((size) => `${k}@${size}`)).sort();
+let fresh = [...found].flatMap(([k, x]) => [...x.sizes].filter((size) => !allowedAt(k, size)).map((size) => `${k}@${size}`)).sort();
 const flaky = [];
 if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   // Timing differs on slow machines (CI): a new violation only counts when the
@@ -1314,7 +1391,7 @@ if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
     }
   }
   const again = new Set();
-  for (const r of await runAll([...redo.values()].map(({ cfg, ids }) => ({ cfg, screens: SCREENS.filter((s) => ids.has(s.id)) })), false))
+  for (const r of settleRuns(await runAll([...redo.values()].map(({ cfg, ids }) => ({ cfg, screens: SCREENS.filter((s) => ids.has(s.id)) })), false)))
     for (const x of r.results) for (const v of x.violations) again.add(`${keyOf(x.screen, v)}@${sizeOf(r.cfg)}`);
   flaky.push(...fresh.filter((e) => !again.has(e)));
   fresh = fresh.filter((e) => again.has(e));
@@ -1328,40 +1405,69 @@ const stale = staleEntries(allowed, found, ran);
 
 if (flag('update-allowlist')) {
   const owners = Object.fromEntries(SCREENS.map((s) => [s.id, s.owner]));
-  const out = rewriteAllowlist(allowed, found, ran, owners);
+  // stable (V6-057): what this run would add or drop waits for the next update run to agree
+  const candFile = join(shotsDir(), 'layout-candidates.json');
+  const prev = existsSync(candFile) ? JSON.parse(readFileSync(candFile, 'utf8')) : { add: [], drop: [] };
+  const { out, candidates } = stableRewrite(allowed, found, ran, owners, PENDING, prev);
+  writeFileSync(candFile, JSON.stringify(candidates, null, 1) + '\n');
   mkdirSync(allowDir, { recursive: true });
-  for (const story of [...new Set([...allowed.values(), ...Object.keys(out)])].sort()) {
+  for (const story of [...new Set([...allowed.values(), ...Object.keys(out), ...PENDING])].sort()) {
     const file = join(allowDir, `${story}.json`);
     const entries = out[story] ?? [];
-    // a story's file goes when its list is empty: the lists only shrink
-    if (!entries.length) {
+    const pending = PENDING.has(story);
+    // a story's file goes when its list is empty and its family has migrated: the lists only shrink
+    if (!entries.length && !pending) {
       if (existsSync(file)) unlinkSync(file);
       continue;
     }
     const doc = `Known layout violations owned by ${story} (scripts/layout-check.mjs, docs/UI_KIT.md "Layout check"). Fix them and remove the entries; delete this file when it is empty. Keys: screen|check|element ids, or screen|check|* for the whole screen (text-size only); a trailing @WxH scopes an entry to one size.`;
-    writeFileSync(file, JSON.stringify({ _doc: doc, entries }, null, 2) + '\n');
+    writeFileSync(file, JSON.stringify({ _doc: doc, ...(pending ? { pending: true } : {}), entries }, null, 2) + '\n');
   }
+  const agreed = (kind) => candidates[kind].filter((e) => prev[kind].includes(e)).length;
   console.log(`allowlist written: ${Object.entries(out).map(([st, e]) => `${st} ${e.length}`).join(', ') || 'empty'}`);
+  console.log(
+    `  confirmed by the previous update run: ${agreed('add')} added, ${agreed('drop')} dropped; held for the next run: ${candidates.add.length - agreed('add')} to add, ${candidates.drop.length - agreed('drop')} to drop (${relative(root, candFile)}); pending families never drop entries`,
+  );
 }
 
 // ------------------------------------------------------------------ per-size summary
 
 const SIZE_LIST = [...ran.sizes];
 const freshSet = new Set(fresh);
-/** Per size: screens (summed over configurations) clean, with only allowlisted violations (known), or failed; context seconds. */
-const perSize = Object.fromEntries(SIZE_LIST.map((size) => [size, { configs: configs.filter((c) => sizeOf(c) === size).length, s: 0, clean: 0, known: 0, failed: 0 }]));
+/**
+ * Per size: screens (summed over configurations) clean, with only allowlisted violations (known), with
+ * pending landscape findings and nothing new (pending), or failed; context seconds; the size class.
+ */
+const perSize = Object.fromEntries(SIZE_LIST.map((size) => [size, { configs: configs.filter((c) => sizeOf(c) === size).length, s: 0, clean: 0, known: 0, pending: 0, failed: 0, cls: '-' }]));
 for (const r of runs) {
   const size = sizeOf(r.cfg);
   const row = perSize[size];
   row.s += r.ms / 1000;
   for (const x of r.results) {
+    // the class of the #game box (the plain variant: Telegram's insets only narrow the phones)
+    if (x.wide && (row.cls === '-' || r.cfg.insets === 'plain')) row.cls = x.wide.cls === 'compact' ? `compact ${x.wide.land ? 'landscape' : 'portrait'}` : x.wide.cls;
     const keys = x.violations.map((v) => `${keyOf(x.screen, v)}@${size}`);
     if (x.error || keys.some((k) => freshSet.has(k))) row.failed++;
+    else if (x.pending.length) row.pending++;
     else if (keys.length) row.known++;
     else row.clean++;
   }
 }
 const groupOf = (size) => Object.keys(MATRIX).find((g) => g !== 'all' && MATRIX[g].includes(size)) ?? '-';
+/** The same per size class (the reviewer's view: which class failed). */
+const perClass = {};
+for (const size of SIZE_LIST) {
+  const r = perSize[size];
+  const c = (perClass[r.cls] ??= { sizes: [], clean: 0, known: 0, pending: 0, failed: 0 });
+  c.sizes.push(size);
+  for (const k of ['clean', 'known', 'pending', 'failed']) c[k] += r[k];
+}
+/** Pending findings per family and check: reported, not failed. */
+const pendingBy = {};
+for (const [k, f] of pendingFound) {
+  const row = (pendingBy[storyOf(f.screen) ?? f.owner] ??= {});
+  row[k.split('|')[1]] = (row[k.split('|')[1]] ?? 0) + f.configs.length;
+}
 
 // ------------------------------------------------------------------ index
 
@@ -1383,14 +1489,28 @@ const md = [
   '',
   '## Per size',
   '',
-  'Screens summed over languages and safe-area variants: clean, only allowlisted violations (known), failed (a new violation or a staging error). Seconds are browser-context time.',
+  'Screens summed over languages and safe-area variants: clean, only allowlisted violations (known), landscape findings of a pending family and nothing new (pending: reported, not failed), failed (a new violation or a staging error). Seconds are browser-context time.',
   '',
-  '| Size | Group | Configs | Clean | Known | Failed | Seconds |',
-  '| --- | --- | --- | --- | --- | --- | --- |',
+  '| Size | Class | Group | Configs | Clean | Known | Pending | Failed | Seconds |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ...SIZE_LIST.map((size) => {
     const r = perSize[size];
-    return `| ${size} | ${groupOf(size)} | ${r.configs} | ${r.clean} | ${r.known} | ${r.failed} | ${Math.round(r.s)} |`;
+    return `| ${size} | ${r.cls} | ${groupOf(size)} | ${r.configs} | ${r.clean} | ${r.known} | ${r.pending} | ${r.failed} | ${Math.round(r.s)} |`;
   }),
+  '',
+  '## Per class',
+  '',
+  '| Class | Sizes | Clean | Known | Pending | Failed |',
+  '| --- | --- | --- | --- | --- | --- |',
+  ...Object.entries(perClass).map(([cls, c]) => `| ${cls} | ${c.sizes.join(', ')} | ${c.clean} | ${c.known} | ${c.pending} | ${c.failed} |`),
+  '',
+  '## Pending families (landscape findings reported, not failed; shots/layout/pending.json)',
+  '',
+  `Pending: ${[...PENDING].join(', ') || 'none'}. Findings summed over configurations, by family and check.`,
+  '',
+  ...Object.entries(pendingBy)
+    .sort()
+    .map(([story, row]) => `- ${story}: ${Object.entries(row).map(([c, n]) => `${c} ${n}`).join(', ')}`),
   '',
   '## Violations per screen (all sizes)',
   '',
@@ -1441,12 +1561,19 @@ if (failNew) {
   console.log(`\nNEW layout violations (not in the allowlist): ${fresh.length}`);
   for (const k of fresh) console.log(show(k));
 }
-console.log('\nPer size (screens: clean / known / failed; context seconds):');
+if (pendingFound.size) {
+  console.log(`\nPending families (landscape findings reported, not failed; ${pendingFound.size} distinct, shots/layout/pending.json):`);
+  for (const [story, row] of Object.entries(pendingBy).sort()) console.log(`  ${story}: ${Object.entries(row).map(([c, n]) => `${c} ${n}`).join(', ')}`);
+}
+console.log('\nPer size (screens: clean / known / pending / failed; context seconds):');
+const pad = (n) => String(n).padStart(4);
 for (const size of SIZE_LIST) {
   const r = perSize[size];
-  console.log(`  ${size.padEnd(9)} ${groupOf(size).padEnd(9)} ${String(r.clean).padStart(4)} / ${String(r.known).padStart(4)} / ${String(r.failed).padStart(4)}   ${Math.round(r.s)} s`);
+  console.log(`  ${size.padEnd(9)} ${r.cls.padEnd(18)} ${groupOf(size).padEnd(9)} ${pad(r.clean)} / ${pad(r.known)} / ${pad(r.pending)} / ${pad(r.failed)}   ${Math.round(r.s)} s`);
 }
-console.log(`\n${configs.length} configs${SHARDS > 1 ? ` (shard ${SHARD}/${SHARDS})` : ''} x ${screens.length} screens${extraAt.size ? ` (+ the smoke subset at ${QUICK.sizes.join(', ')})` : ''} in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new.`);
+console.log('Per class (screens: clean / known / pending / failed):');
+for (const [cls, c] of Object.entries(perClass)) console.log(`  ${cls.padEnd(18)} ${pad(c.clean)} / ${pad(c.known)} / ${pad(c.pending)} / ${pad(c.failed)}   (${c.sizes.join(', ')})`);
+console.log(`\n${configs.length} configs${SHARDS > 1 ? ` (shard ${SHARD}/${SHARDS})` : ''} x ${screens.length} screens${extraAt.size ? ` (+ the smoke subset at ${QUICK.sizes.join(', ')})` : ''} in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new; ${pendingFound.size} pending.`);
 const failed = failNew || pageErrors.length > 0 || screenErrors.length > 0;
 console.log(failed ? 'LAYOUT CHECK FAILED' : 'LAYOUT CHECK PASSED');
 process.exit(failed ? 1 : 0);

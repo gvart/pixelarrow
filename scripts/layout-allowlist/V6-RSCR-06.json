@@ -1,5 +1,6 @@
 {
   "_doc": "Known layout violations owned by V6-RSCR-06 (scripts/layout-check.mjs, docs/UI_KIT.md \"Layout check\"). Fix them and remove the entries; delete this file when it is empty. Keys: screen|check|element ids, or screen|check|* for the whole screen (text-size only); a trailing @WxH scopes an entry to one size.",
+  "pending": true,
   "entries": [
     "consumable-picker|text-size|*@844x390",
     "market-browse|outside-safe-area|market.purse@844x390",
