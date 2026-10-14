@@ -514,6 +514,11 @@ tx($('terms'), 'auth.link.terms');
 tx($('title'), variant === 'reset' ? 'auth.reset.title' : 'auth.page.titleEmail');
 relabel();
 
+// A second link opened into this same tab only changes the fragment: start over with its token.
+window.addEventListener('hashchange', () => {
+  if (readToken(location.hash)) location.reload();
+});
+
 if (!token) noToken();
 else if (variant === 'reset') resetForm();
 else void verify();
