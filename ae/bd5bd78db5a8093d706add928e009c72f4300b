@@ -1,0 +1,45 @@
+src/platform/telegram/index.ts
+  s_0d98fe904b2e82::t_3d7fc33d849ad9 124-125
+src/ui/account/checkEmail.ts
+  s_0d98fe904b2e82::t_c65fac5e28f800 25,28-29,32-33,52,113-117
+  s_0d98fe904b2e82::t_a629d3f2279017 5-6
+src/ui/account/reauth.ts
+  s_0d98fe904b2e82::t_0b2d05fcc66062 15,84-102
+  s_0d98fe904b2e82::t_4b701ce1abe27c 1-14,16-83,103
+src/ui/form/authForm.ts
+  s_0d98fe904b2e82::t_544b89d0fc0dbd 61-62
+  s_0d98fe904b2e82::t_d26e79ff330806 459
+src/ui/account/addEmail.ts
+  s_0d98fe904b2e82::t_bdf1b70dbea6df 1-14,17-38,40-49
+  s_0d98fe904b2e82::t_0b2d05fcc66062 15-16,39
+src/ui/account/changeEmail.ts
+  s_0d98fe904b2e82::t_0cb6701c3a2c62 1-37
+src/ui/account/changePassword.ts
+  s_0d98fe904b2e82::t_166974c691148b 1-43
+src/scenes/kit/formsPage.ts
+  s_0d98fe904b2e82::t_163afe0a06d375 17-20,48,62-67,69-71,183-189,193-195,198-241,258-259,270,272-275
+  s_0d98fe904b2e82::t_2de6f99124cb82 190-192,196-197
+src/ui/account/removeMethod.ts
+  s_0d98fe904b2e82::t_fabca782526cd5 1-61
+src/ui/account/deps.ts
+  s_0d98fe904b2e82::t_63d7743a0307d0 17,22,25-30,54-58
+  s_0d98fe904b2e82::t_cff62b3963f1cf 59
+src/platform/core/auth.ts
+  s_0d98fe904b2e82::t_f404e27dad4cf7 48-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "aebd5bd78db5a8093d706add928e009c72f4300b",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
