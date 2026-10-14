@@ -1,7 +1,7 @@
 # ADR-0013: Responsive scale policy: size classes, whole-number S, the UIMetrics contract and the legacy column
 
 ## Status
-Proposed (story V6-RFND-01, 2026-10-14). The Director moves it to Accepted by logging it in `docs/v6/DECISIONS.md`.
+Accepted with the legacy-column deviation (Director, 2026-10-14, V6-055)
 
 ## Date
 2026-10-14
