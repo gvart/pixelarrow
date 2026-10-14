@@ -104,6 +104,8 @@ export interface TutorialHost {
   fieldTop(): number;
   panelTop(): number;
   headTop(): number;
+  /** The narrator's x and width (battleLayout.narratorBox) and whether it docks in a landscape field (top-left, else its foot). */
+  narratorBox(): { x: number; w: number; land: boolean };
   /** Field point -> UI pixels. */
   toUi(x: number, y: number): Pt;
   /** Field paces -> UI pixels at the current zoom (roughly, across the screen). */
@@ -477,8 +479,9 @@ export class BattleTutorial {
    */
   private dock(text: string, tap: boolean): number {
     const h = this.host;
+    const box = h.narratorBox();
+    this.narrator.box = box;
     const nh = this.narrator.measure(text, tap);
-    const { VW } = this.scene.m;
     const keep: Rect[] = [];
     const id = this.step;
     const spec = id ? this.specs[id] : null;
@@ -490,11 +493,12 @@ export class BattleTutorial {
     const g = spec?.ghost?.();
     if (g) pts.push(...(g.kind === 'drag' ? g.pts : [g.at]));
     for (const p of pts) keep.push({ x: p.x - 12, y: p.y - 16, w: 24, h: 24 });
-    const cands = [Math.max(h.fieldTop(), h.headTop() - 2 - nh), 0];
+    // landscape (§13.1): top-left of the field, else at its foot; never over the top row, the cards or the rail
+    const cands = box.land ? [h.fieldTop(), Math.max(h.fieldTop(), h.panelTop() - 2 - nh)] : [Math.max(h.fieldTop(), h.headTop() - 2 - nh), 0];
     let best = cands[0];
     let bestCost = Infinity;
     for (const y of cands) {
-      const r = { x: 0, y, w: VW, h: nh };
+      const r = { x: box.x, y, w: box.w, h: nh };
       const cost = keep.reduce((a, k) => a + overlap(r, k), 0);
       if (cost < bestCost) {
         best = y;

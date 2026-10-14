@@ -77,6 +77,13 @@ const GAP = 4;
 const PAD = 8;
 const NOTE = 7;
 
+/** A row is a button: at most 240 wide (landscape-v6 §2.3), centred in the sheet's body (a side panel can be wider). */
+const ROW_MAX_W = 240;
+function rowBox(body: { x: number; w: number }): { x: number; w: number } {
+  const w = Math.min(body.w, ROW_MAX_W);
+  return { x: body.x + Math.floor((body.w - w) / 2), w };
+}
+
 export function openBattleMenu(scene: UiScene, o: BattleMenuOpts): BattleMenuHandle {
   const { VW } = scene.m;
   const items = battleMenuItems(o.state);
@@ -112,7 +119,8 @@ export function openBattleMenu(scene: UiScene, o: BattleMenuOpts): BattleMenuHan
   const make = (item: BattleMenuItem, ry: number): MButton => {
     const sound = item === 'sound';
     const variant: MButtonVariant = sound ? (o.soundOn() ? 'lit' : 'secondary') : item === 'settings' || item === 'skip' ? 'secondary' : 'neutral';
-    const b = new MButton(scene, body.x, ry, body.w, ROW_H, {
+    const row = rowBox(body);
+    const b = new MButton(scene, row.x, ry, row.w, ROW_H, {
       label: sound ? soundLabel() : t(LABEL[item]),
       icon: ICON[item],
       variant,
@@ -182,9 +190,10 @@ export function openAbilitySheet(scene: UiScene, o: { items: AbilitySheetItem[];
   });
   const { c, body } = sheet;
   let y = body.y;
+  const row = rowBox(body);
   o.items.forEach((it, i) => {
     c.add(
-      new MButton(scene, body.x, y, body.w, ROW_H, {
+      new MButton(scene, row.x, y, row.w, ROW_H, {
         label: it.label,
         icon: it.icon,
         variant: 'secondary',

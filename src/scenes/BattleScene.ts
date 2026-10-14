@@ -11,7 +11,7 @@ import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, car
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore, uiLayout, uiOpaque, uiPanel, uiPrimary } from '../ui/layout';
-import { MEDIUM, centredRow, hudMode, keycapSlot, sheetCardW, sideHud, type HudMode, type Rect, type SideHud } from '../ui/battleLayout';
+import { MEDIUM, centredRow, hudMode, keycapSlot, narratorBox, sheetCardW, sideHud, type HudMode, type Rect, type SideHud } from '../ui/battleLayout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollOrigin, flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
 import { dollFromHero, dollFx, drawnFrames, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, NFRAMES, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type DollSpec, type WeaponClass } from '../art/paperdoll';
@@ -4354,8 +4354,8 @@ export class BattleScene extends BaseScene {
     if (!sel) return;
     const mem = this.selectedUnits();
     const panel = this.side?.panel;
-    // a tablet upright: a bottom sheet centred, its rows no wider than a button (landscape-v6 §2.3, §3.4)
-    const mid = this.hm === 'medium' ? centredRow(VW, ROW_SHEET_MAX) : { x: 4, w: VW - 8 };
+    // a tablet upright: a bottom sheet centred, its rows (4 px in from its edges) no wider than a button, 240 (landscape-v6 §2.3, §3.4)
+    const mid = this.hm === 'medium' ? centredRow(VW, ROW_SHEET_MAX - 8) : { x: 4, w: VW - 8 };
     const x = panel ? panel.x + 4 : mid.x;
     const w = panel ? panel.w - 8 : mid.w;
     const rowH = this.compact ? 22 : 24;
@@ -5516,6 +5516,7 @@ export class BattleScene extends BaseScene {
       // landscape: the framing rect's foot and the orders plate's top (compact landscape has no sheet: the screen's foot)
       panelTop: () => (s.side ? s.side.framing.y + s.side.framing.h : s.m.VH - s.panelHeight()),
       headTop: () => (s.side ? (s.side.plate?.y ?? s.m.VH) : s.sheetHeadY() - 1),
+      narratorBox: () => ({ ...narratorBox(s.hm, s.m.VW, s.side?.framing ?? null), land: !!s.side }),
       toUi: (x: number, y: number) => {
         const cam = s.cameras.main;
         const w = isoToScreen(x, y);

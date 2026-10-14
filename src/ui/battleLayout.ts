@@ -285,3 +285,17 @@ export function fieldCoverage(VW: number, VH: number, opaque: readonly Rect[]): 
   }
   return free / (VW * VH);
 }
+
+/** The tutorial narrator is a dialog: at most 320 UI px wide off the phone (landscape-v6 §2.3, §13.1). */
+export const NARRATOR_MAX = 320;
+
+/**
+ * The tutorial narrator's panel, x and width (landscape-v6 §13.1): the v5 full-width panel on a phone
+ * upright; centred and at most 320 on a tablet upright; top-left of the framing rect in landscape, so
+ * it never covers the card column or the order rail.
+ */
+export function narratorBox(mode: HudMode, VW: number, framing: Rect | null): { x: number; w: number } {
+  if (framing && (mode === 'land' || mode === 'wide')) return { x: framing.x + 4, w: Math.min(NARRATOR_MAX, framing.w - 8) };
+  if (mode === 'medium') return centredRow(VW, NARRATOR_MAX);
+  return { x: 4, w: VW - 8 };
+}

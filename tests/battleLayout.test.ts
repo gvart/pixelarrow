@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HUD_TAP, MEDAL_W, MEDIUM, centredRow, fieldCoverage, hudMode, keycapSlot, sheetCardW, sideHud, type Rect } from '../src/ui/battleLayout';
+import { HUD_TAP, MEDAL_W, MEDIUM, NARRATOR_MAX, centredRow, fieldCoverage, hudMode, keycapSlot, narratorBox, sheetCardW, sideHud, type Rect } from '../src/ui/battleLayout';
 
 const inside = (r: Rect, VW: number, VH: number) => r.x >= 0 && r.y >= 0 && r.x + r.w <= VW && r.y + r.h <= VH;
 const overlap = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -154,6 +154,32 @@ describe('keycap slots (input-v6 §6.1)', () => {
       const k = h.orders.keys;
       const slots = h.orders.vertical ? [0, 1, 2, 3, 4].map((i) => keycapSlot({ x: k.x, y: k.y + i * (h.orders.keyH + 2), w: k.w, h: h.orders.keyH })) : [keycapSlot({ ...k, x: k.x + k.w - 56, w: 56 })];
       for (const s of slots) expect(inside(s, VW, VH)).toBe(true);
+    }
+  });
+});
+
+describe('the tutorial narrator\'s box (landscape-v6 §13.1: a dialog, at most 320 wide)', () => {
+  it('keeps the v5 full-width panel on a phone upright', () => {
+    for (const VW of [195, 180, 160]) expect(narratorBox('portrait', VW, null)).toEqual({ x: 4, w: VW - 8 });
+  });
+
+  it('centres a 320 panel on a tablet upright (as v5, no wider than a dialog)', () => {
+    const b = narratorBox('medium', 384, null);
+    expect(b.w).toBe(NARRATOR_MAX);
+    expect(b.x).toBe(32);
+  });
+
+  it('sits top-left in the framing rect in landscape, clear of the card column and the rails', () => {
+    for (const [VW, VH] of [...LAND, ...WIDE]) {
+      for (const leftHand of [false, true]) {
+        const mode = VW < 480 ? 'land' : 'wide';
+        const h = sideHud(mode, VW, VH, { cards: 4, leftHand });
+        const b = narratorBox(mode, VW, h.framing);
+        expect(b.w).toBeLessThanOrEqual(NARRATOR_MAX);
+        expect(b.x).toBeGreaterThanOrEqual(h.framing.x);
+        expect(b.x + b.w).toBeLessThanOrEqual(h.framing.x + h.framing.w);
+        expect(overlap({ ...b, y: h.framing.y, h: 40 }, { ...h.cards, h: 4 * h.cardH })).toBe(false);
+      }
     }
   });
 });
