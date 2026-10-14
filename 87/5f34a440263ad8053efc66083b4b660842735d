@@ -1,0 +1,21 @@
+tests/scrollListIds.test.ts
+  s_0d98fe904b2e82::t_a4c08ebb5f0d2a 9
+src/ui/mosaic/ParchmentSheet.ts
+  s_0d98fe904b2e82::t_1379671f873c47 80-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "875f34a440263ad8053efc66083b4b660842735d",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
