@@ -186,7 +186,10 @@ export function focusable(obj: Phaser.GameObjects.GameObject, o: FocusOpts): voi
   g.on('pointerdown', (p: unknown) => {
     if (realPointer(p)) focus.pointerFocus(f);
   });
+  const canvas = g.scene?.sys.game.canvas;
   g.once('destroy', () => {
+    // a control gone from under the mouse (its screen closed) leaves no hand cursor behind
+    if (hovered === reg && canvas?.style.cursor === g.input?.cursor) canvas.style.cursor = '';
     if (hovered === reg) hovered = null;
     off();
   });
