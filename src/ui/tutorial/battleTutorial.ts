@@ -67,6 +67,20 @@ import { tutorialStep } from '../../audio/hooks';
 import { track } from '../../platform/analytics';
 import { haptic, hapticNotify } from '../../platform/haptics';
 import { t, tOr, type TKey } from '../../i18n';
+import { platform } from '../../platform';
+import { keys } from '../input/keys';
+import type { ActionId } from '../input/actions';
+import { keyLabel } from '../settings/controls';
+import { tutorialLine } from './keyLines';
+
+/** The player's keyboard layout labels, once read (null: the US labels). */
+let layoutLabels: ReadonlyMap<string, string> | null = null;
+/** An action's current key, as the keyboard lines name it (input-v6.md §10: a rebound key shows correctly). */
+const keyOf = (a: ActionId): string => {
+  const [b0, b1] = keys.bindings[a];
+  const b = b0 ?? b1;
+  return b ? keyLabel(b, layoutLabels) : t('controls.none');
+};
 
 /** Analytics (docs/OPS.md): when this tutorial run began, and a step's stable number. */
 let tutorialStartedAt = 0;
@@ -216,6 +230,7 @@ export class BattleTutorial {
     const prev = progressOf(st);
     this.progress = beginTutorial(opts.replay || prev.status !== 'active' ? { ...prev, done: [] } : prev, !!opts.replay);
     tutorialStartedAt = Date.now();
+    void platform.input.keyLabels().then((m) => (layoutLabels = m), () => undefined);
     st.tutorial = this.progress;
     void state.save();
     this.plan = planSteps(this.progress);
@@ -430,7 +445,8 @@ export class BattleTutorial {
 
   private lineOf(id: TutStepId): string {
     const spec = this.specs[id];
-    return t(spec.text ?? 'tut.step.win', spec.params?.());
+    const dev = { keyboard: platform.input.keyboard(), fine: platform.input.finePointer() };
+    return tutorialLine(id, spec.text ?? 'tut.step.win', spec.params?.(), dev, keyOf);
   }
 
   private talk(): void {
