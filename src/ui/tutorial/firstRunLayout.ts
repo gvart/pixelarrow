@@ -4,7 +4,8 @@
  * - compact portrait: the v5 column, at most 200 wide (unchanged);
  * - medium: a centred column, at most 360 wide (fresco on top, speech, CTA, skip);
  * - compact landscape and expanded: a stage, the fresco on the left and Nikias, the CTA and Skip on
- *   the right (compact landscape: half and half; expanded: the fresco at most 360 wide);
+ *   the right (compact landscape: half and half; expanded: the fresco at most 300 wide, the spec's 360
+ *   cap lowered because the fresco is also the tutorial's door, a primary control capped at 300, §2.3);
  * - the three mode cards side by side everywhere but compact portrait (at most 180 each on laptops).
  */
 import type { Box } from '../mosaic';
@@ -16,7 +17,7 @@ export const V5_COL = 200;
 export const MEDIUM_COL = 360;
 /** The stage's width on laptops (fresco and words together). */
 const STAGE_MAX = 600;
-const ART_MAX = 360;
+const ART_MAX = 300;
 /** The words beside the fresco: room for the speech card; the CTA inside it stays ≤ 300 (§2.3). */
 const SIDE_MAX = 280;
 /** A mode card at most this wide on laptops (§13.1). */

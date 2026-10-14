@@ -29,6 +29,13 @@ describe('coach bubbles in every size class (landscape-v6.md §13.1)', () => {
     expect(p.side).toBe('left');
   });
 
+  it('a panel across a narrow canvas leaves no room beside it: the card stays above or below, full width', () => {
+    const at = { x: 6, y: 60, w: 113, h: 120 };
+    const p = bubblePlace(at, 109, 50, 125, 195, null);
+    expect(p.w).toBe(109);
+    expect(p.side === 'above' || p.side === 'below').toBe(true);
+  });
+
   it('keeps clear of a nav rail on the left', () => {
     const at = { x: 90, y: 150, w: 30, h: 30 };
     const p = bubblePlace(at, 176, 50, 422, 195, null, 84);

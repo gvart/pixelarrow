@@ -19,7 +19,10 @@ export function bubbleMaxW(m: { cls: SizeClass; land: boolean }): number {
   return m.cls === 'expanded' ? 240 : 176;
 }
 
-const hits = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+/** The narrowest card that goes beside its target (narrower, its words would stack into a tower). */
+const MIN_BESIDE = 120;
+
+const hits =(a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 /**
  * Above a low target, else below; with a rail, the card keeps to its left, and for a target on the rail
@@ -47,6 +50,8 @@ export function bubblePlace(at: Rect | null, w: number, h: number, VW: number, V
   // beside the target: the side with more room, as wide as that room allows
   const roomL = at.x - 8 - x0;
   const roomR = right - (at.x + at.w + 8);
+  // no room beside it either (a panel across a phone's width): above or below as before
+  if (Math.max(roomL, roomR) < MIN_BESIDE) return { x, y, w: bw, side };
   if (roomL >= roomR) {
     const sw = Math.min(bw, roomL);
     return { x: Math.round(at.x - 8 - sw), y: midY(at), w: sw, side: 'left' };

@@ -20,7 +20,7 @@ import { uiFrame, uiId, uiLayout, uiPrimary } from '../ui/layout';
 import { FrescoBanner, MButton, MODE_TABS, ParchmentCard, ScreenFrame, TopBar, goTab, mosaicImage, mtext, type Box, type TabId } from '../ui/mosaic';
 import { makePressable } from '../ui/mosaic/base';
 import { ensureNarratorTextures, preloadNarrator, setNarratorFrame } from '../ui/tutorial/narrator';
-import { columnBox, modesRow, offerLayout, MEDIUM_COL } from '../ui/tutorial/firstRunLayout';
+import { columnBox, modesRow, offerLayout } from '../ui/tutorial/firstRunLayout';
 import { layoutVariant, type LayoutVariant } from '../ui/mosaic/layout/variant';
 import { NARRATOR_SIZE } from '../art/narrator';
 import { state } from '../state';
@@ -41,6 +41,9 @@ export interface FirstRunData {
 }
 
 const BTN_H = 26;
+/** The reward's gold card and item card heights. */
+const GOLD_H = 26;
+const ITEM_H = SIZE.cell + 14;
 /** The Skip text link's touch height (44 pt). */
 const LINK_H = 22;
 /** A mode card's height (64 pt at least, C-2). */
@@ -65,8 +68,8 @@ const CTA_MAX = 300;
 const BTN_MAX = 240;
 /** The offer fresco's height on tablets (§13.1). */
 const ART_MAX_H = 280;
-/** Wide layouts' reward column (speech above, the gold and item cards side by side). */
-const REWARD_MAX = 600;
+/** The Skip link beside the CTA on a tablet. */
+const SKIP_W = 112;
 
 export class FirstRunScene extends BaseScene {
   /** Lays out for each size class (landscape-v6.md §13.1); compact portrait is the v5 column. */
@@ -236,9 +239,11 @@ export class FirstRunScene extends BaseScene {
   private buildOfferWide(resume: boolean): void {
     const text = resume ? t('firstrun.resume') : t('firstrun.offer');
     const lay = offerLayout(this.variant, this.inner);
+    // on a tablet the CTA and Skip share a row (the column's whole width: the CTA is capped at 300)
+    const row = lay.kind === 'column';
     const blockH = (w: number) => {
       this.area = { ...this.area, w };
-      return this.compactSpeechH(text) + 6 + BTN_H + 2 + LINK_H;
+      return this.compactSpeechH(text) + 6 + BTN_H + (row ? 0 : 2 + LINK_H);
     };
     let words: Box;
     let art: Box | null;
@@ -260,19 +265,25 @@ export class FirstRunScene extends BaseScene {
       const ah = Math.min(ART_MAX_H, col.h - bh - 5);
       const total = (ah >= 40 ? ah + 5 : 0) + bh;
       const y0 = col.y + Math.max(0, Math.round((col.h - total) / 2));
-      art = ah >= 40 ? { x: col.x, y: y0, w: col.w, h: ah } : null;
+      const aw = Math.min(col.w, CTA_MAX);
+      art = ah >= 40 ? { x: col.x + Math.round((col.w - aw) / 2), y: y0, w: aw, h: ah } : null;
       words = { x: col.x, y: y0 + (art ? ah + 5 : 0), w: col.w, h: bh };
     }
     this.area = words;
     const sh = this.compactSpeechH(text);
     this.speech(words.y, words.y + sh, text, true);
-    const ctaW = Math.min(words.w, CTA_MAX);
     const ctaY = words.y + sh + 6;
-    const cta = new MButton(this, words.x + Math.round((words.w - ctaW) / 2), ctaY, ctaW, BTN_H, { label: resume ? t('firstrun.resumeBtn') : t('firstrun.tutorial'), icon: 'swords', variant: 'primary', onClick: () => this.startTutorial() });
+    const label = resume ? t('firstrun.resumeBtn') : t('firstrun.tutorial');
+    const linkW = row ? SKIP_W : Math.min(words.w, BTN_MAX);
+    const ctaW = Math.min(row ? words.w - 8 - linkW : words.w, CTA_MAX);
+    const ctaX = row ? words.x : words.x + Math.round((words.w - ctaW) / 2);
+    const cta = new MButton(this, ctaX, ctaY, ctaW, BTN_H, { label, icon: 'swords', variant: 'primary', onClick: () => this.startTutorial() });
     this.ui.add(uiPrimary(cta));
-    const linkW = Math.min(words.w, BTN_MAX);
-    this.textLink(words.x + Math.round((words.w - linkW) / 2), ctaY + BTN_H + 2, linkW, t('firstrun.skip'), 'firstrun.skip', () => (resume ? this.confirmSkip() : this.skip()));
-    if (art) this.ui.add(new FrescoBanner(this, art.x, art.y, art.w, art.h, { image: SPLASH, label: t('firstrun.title'), id: 'firstrun.art' }));
+    const skip = () => (resume ? this.confirmSkip() : this.skip());
+    if (row) this.textLink(words.x + words.w - linkW, ctaY + Math.round((BTN_H - LINK_H) / 2), linkW, t('firstrun.skip'), 'firstrun.skip', skip);
+    else this.textLink(words.x + Math.round((words.w - linkW) / 2), ctaY + BTN_H + 2, linkW, t('firstrun.skip'), 'firstrun.skip', skip);
+    // the key art is a door to the tutorial too, as the Menu's fresco is to the march (a big target beside the words)
+    if (art) this.ui.add(uiPrimary(new FrescoBanner(this, art.x, art.y, art.w, art.h, { image: SPLASH, label, id: 'firstrun.art', onClick: () => this.startTutorial() })));
   }
 
   startTutorial(): void {
@@ -297,35 +308,71 @@ export class FirstRunScene extends BaseScene {
   // ------------------------------------------------------------------ reward
 
   private buildReward(item: Item | null): void {
-    // tablets and landscape (§13.1): a wider column, the gold and the item side by side, Continue ≤ 300 wide
+    if (this.variant === 'compactLandscape' || this.variant === 'expanded') return this.buildRewardStage(item);
+    // tablets (§13.1): a 360 column, the gold and the item side by side, Continue ≤ 300 wide
     const wide = this.variant !== 'compactPortrait';
-    if (wide) {
-      const cw = Math.min(this.inner.w, this.variant === 'medium' ? MEDIUM_COL : REWARD_MAX);
-      this.area = { x: this.inner.x + Math.round((this.inner.w - cw) / 2), y: this.inner.y, w: cw, h: this.inner.h };
-    }
+    if (wide) this.area = columnBox(this.variant, this.inner);
     const { x, w } = this.area;
-    const onContinue = () => this.scene.start('FirstRun', { mode: 'modes' });
     let top: number;
     if (wide) {
       const bw = Math.min(w, CTA_MAX);
       top = this.area.y + this.area.h - BTN_H;
-      this.ui.add(uiPrimary(new MButton(this, x + Math.round((w - bw) / 2), top, bw, BTN_H, { label: t('menu.continue'), icon: 'check', variant: 'primary', onClick: onContinue })));
-    } else top = this.bottomButtons([{ label: t('menu.continue'), icon: 'check', primary: true, onClick: onContinue }]);
+      this.continueBtn(x + Math.round((w - bw) / 2), top, bw);
+    } else top = this.bottomButtons([{ label: t('menu.continue'), icon: 'check', primary: true, onClick: () => this.scene.start('FirstRun', { mode: 'modes' }) }]);
     // the reward as two card rows: gold counting up, and the item in its rarity frame
-    const goldH = 26;
-    const itemH = SIZE.cell + 14;
-    const need = item ? (wide ? itemH : goldH + 3 + itemH) : 0;
-    // side by side: the gold card as tall as the item's
-    const gw = wide ? Math.floor((w - 6) / 2) : w;
-    const gh = wide ? itemH : goldH;
+    const need = item ? (wide ? ITEM_H : GOLD_H + 3 + ITEM_H) : 0;
     const first = this.ui.length;
     let y = this.speech(this.area.y + 4, top - 6 - need - 6, item ? t('firstrun.reward') : t('firstrun.rewardSeen'));
     if (!item) return;
     y += 6;
+    const end = this.rewardCards(item, x, y, w, wide);
+    // the speech and the rewards as one block, centred above the button (no empty band between them)
+    const dy = Math.max(0, Math.floor((top - 6 - end - 4) / 2));
+    this.ui.list.slice(first).forEach((o) => ((o as unknown as { y: number }).y += dy));
+    uiLevelUp();
+    hapticNotify('success');
+  }
+
+  /** Landscape (§13.1): a stage, Nikias and his line on the left, the gold, the item and Continue on the right, each centred in its height. */
+  private buildRewardStage(item: Item | null): void {
+    const lay = offerLayout(this.variant, this.inner);
+    if (lay.kind !== 'stage') return;
+    const { art: left, side } = lay;
+    const centre = (first: number, top: number, end: number, box: Box) => {
+      const dy = Math.max(0, Math.floor((box.h - (end - top)) / 2));
+      this.ui.list.slice(first).forEach((o) => ((o as unknown as { y: number }).y += dy));
+    };
+    const text = item ? t('firstrun.reward') : t('firstrun.rewardSeen');
+    // the rewards on the left, where the offer's fresco was; Nikias and Continue on the right, where its words were
+    let first = this.ui.length;
+    this.area = left;
+    const end = item ? this.rewardCards(item, left.x, left.y, left.w, true) : this.speech(left.y, left.y + left.h, text, true) - 4;
+    centre(first, left.y, end, left);
+    first = this.ui.length;
+    this.area = side;
+    let y = side.y;
+    if (item) y = this.speech(y, side.y + side.h, text, true) + 4;
+    const bw = Math.min(side.w, CTA_MAX);
+    this.continueBtn(side.x + Math.round((side.w - bw) / 2), y, bw);
+    centre(first, side.y, y + BTN_H, side);
+    if (!item) return;
+    uiLevelUp();
+    hapticNotify('success');
+  }
+
+  private continueBtn(x: number, y: number, w: number): void {
+    this.ui.add(uiPrimary(new MButton(this, x, y, w, BTN_H, { label: t('menu.continue'), icon: 'check', variant: 'primary', onClick: () => this.scene.start('FirstRun', { mode: 'modes' }) })));
+  }
+
+  /** The gold card (counting up) and the item card in its rarity frame, stacked or side by side; returns their bottom. */
+  private rewardCards(item: Item, x: number, y: number, w: number, sideBySide: boolean): number {
+    // side by side: the gold card as tall as the item's
+    const gw = sideBySide ? Math.floor((w - 6) / 2) : w;
+    const gh = sideBySide ? ITEM_H : GOLD_H;
     const gold = new ParchmentCard(this, x, y, gw, gh, { id: 'firstrun.gold' });
     this.ui.add(gold);
     gold.add(addIcon(this, 8, Math.round((gh - 12) / 2), 'coin'));
-    gold.add(mtext(this, 26, Math.round((gh - 9) / 2), t('common.gold'), 'rInk', { size: 7, maxW: gw - 80, box: { owner: gold, w: gw, h: gh } }));
+    gold.add(mtext(this, 26, Math.round((gh - 9) / 2), t('common.gold'), 'rInk', { size: 7, maxW: sideBySide ? gw - 56 : gw - 80, box: { owner: gold, w: gw, h: gh } }));
     const num = addText(this, gw - 8, Math.round((gh - 9) / 2), '+0', 'pInk', 1);
     uiFrame(num, gold, gw, gh);
     gold.add(num);
@@ -347,26 +394,22 @@ export class FirstRunScene extends BaseScene {
       },
       onComplete: () => num.setText(`+${TUTORIAL_REWARD.gold}`),
     });
-    const iy = wide ? y : y + goldH + 3;
-    const ix = wide ? x + gw + 6 : x;
-    const iw = wide ? w - gw - 6 : w;
-    const row = new ParchmentCard(this, ix, iy, iw, itemH, { id: 'firstrun.item' });
+    const iy = sideBySide ? y : y + GOLD_H + 3;
+    const ix = sideBySide ? x + gw + 6 : x;
+    const iw = sideBySide ? w - gw - 6 : w;
+    const row = new ParchmentCard(this, ix, iy, iw, ITEM_H, { id: 'firstrun.item' });
     this.ui.add(row);
-    const icon = new ItemIcon(this, 8, Math.round((itemH - SIZE.cell) / 2), { item }, { size: SIZE.cell });
+    const icon = new ItemIcon(this, 8, Math.round((ITEM_H - SIZE.cell) / 2), { item }, { size: SIZE.cell });
     row.add(icon);
     const nx = 8 + SIZE.cell + 6;
     const name = tOr(`item.${item.def}.name`, itemDef(item.def).name);
     const nw = iw - 6 - nx;
     const nameLines = wrapText(name, nw, 2).lines;
     const nameText = addText(this, nx, nameLines.length > 1 ? 9 : 12, nameLines.join('\n'), 'pInk');
-    uiFrame(nameText, row, iw, itemH);
+    uiFrame(nameText, row, iw, ITEM_H);
     row.add(nameText);
     if (nameLines.length < 2) row.add(addText(this, nx, 23, ellipsize(tOr(`rarity.${item.rarity}`, item.rarity), nw), 'pSec'));
-    // the speech and the rewards as one block, centred above the button (no empty band between them)
-    const dy = Math.max(0, Math.floor((top - 6 - (iy + itemH) - 4) / 2));
-    this.ui.list.slice(first).forEach((o) => ((o as unknown as { y: number }).y += dy));
-    uiLevelUp();
-    hapticNotify('success');
+    return iy + ITEM_H;
   }
 
   // ------------------------------------------------------------------ the three modes
