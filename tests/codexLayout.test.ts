@@ -4,7 +4,7 @@
  * a laptop gets a card grid beside a 240-wide detail pane.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { codexLayout, DETAIL_W } from '../src/ui/codexLayout';
+import { cardCols, codexLayout, DETAIL_W } from '../src/ui/codexLayout';
 
 // the beast sheet draws with Phaser; the rule tested here is pure. Phaser itself needs a browser.
 vi.mock('phaser', () => {
@@ -22,14 +22,14 @@ describe('codexLayout (§13.2)', () => {
     expect(l.detail).toBeNull();
   });
 
-  it('phone landscape (844x390, 330 wide beside the rail): rows left, the detail pane right', () => {
-    const l = codexLayout({ cls: 'compact', land: true }, box(330));
+  it('phone landscape (844x390, 316 wide beside the rail): rows left, the detail pane right', () => {
+    const l = codexLayout({ cls: 'compact', land: true }, box(316));
     expect(l.list).toBe('rows');
     expect(l.detail).not.toBeNull();
-    expect(l.master.w).toBeGreaterThanOrEqual(150);
+    expect(l.master.w).toBeGreaterThanOrEqual(140);
     expect(l.detail!.w).toBeGreaterThanOrEqual(160);
     expect(l.detail!.x).toBe(l.master.x + l.master.w + 8);
-    expect(l.detail!.x + l.detail!.w).toBe(10 + 330);
+    expect(l.detail!.x + l.detail!.w).toBe(10 + 316);
   });
 
   it('phone landscape in Telegram (no room for two panes): rows across, the detail a side panel', () => {
@@ -63,6 +63,17 @@ describe('codexLayout (§13.2)', () => {
     const l = codexLayout({ cls: 'expanded', land: true }, box(432));
     expect(l.list).toBe('rows');
     expect(l.detail!.w).toBe(DETAIL_W);
+  });
+});
+
+describe('cardCols', () => {
+  it('a list shorter than two full rows takes two columns, so no column stands empty down the screen', () => {
+    const tablet = codexLayout({ cls: 'medium', land: false }, box(372));
+    expect(cardCols(tablet, 5)).toBe(2);
+    expect(cardCols(tablet, 8)).toBe(3);
+    const wide = codexLayout({ cls: 'expanded', land: true }, box(640));
+    expect(cardCols(wide, 5)).toBe(2);
+    expect(cardCols(wide, 8)).toBe(3);
   });
 });
 
