@@ -80,7 +80,8 @@ Sensitive actions: link, unlink, change email, change password (it already asks 
    It then records `link_codes.telegram_id` and sets `status='awaiting_web'`. Nothing is linked yet.
 4. **Two-sided confirmation:** the web page polls `GET /api/account/link/telegram/status` every 3 s, for at most 10 minutes. It shows "Telegram account `@username` / `first name` wants to link. Confirm?". Only the web session that created the code can confirm, with `POST /api/account/link/telegram/confirm`, and the link happens then.
 
-   Why both sides: a leaked or shoulder-surfed code alone can't attach an attacker's Telegram to a victim's account. A code sent by an attacker to a victim can't attach the victim's Telegram either, because the victim's web session never created it.
+   Why both sides: a leaked or shoulder-surfed code alone can't attach an attacker's Telegram to a victim's account. **Amended by V6-053:** a code sent by an attacker to a victim *can* reach the web confirm if the victim taps "Link" in the Mini App (the attacker's own web session created it). With no conflict that only attaches the victim's Telegram to the attacker's account, which the victim agreed to on a screen naming that account, and the bot tells the chat at once. With a conflict, the web confirm alone decides nothing: see §5.2 (both sides choose).
+   **"Not me" (V6-053):** the Mini App offers a cancel at any point, `POST /api/account/link/telegram/cancel {initData}`. It cancels the code (named by `start_param`, or any code this Telegram user completed) and every open conflict of this Telegram user, tells the web owner by email and bot, and counts as one code against the creating player's limit (10 per hour).
 5. On confirm, in one D1 batch: insert the `telegram` identity, set the `players.telegram_id` mirror, and mark the code used. If that Telegram id already has its own player, the conflict rules in §5 apply first. The bot sends "Linked to your web account", and an email goes to the address.
 
 The Telegram Login Widget is **not** used in v6. It needs BotFather `/setdomain` and a second validation scheme, and the Mini App path proves the same thing with the HMAC check that already exists. This is logged as a proposal.
@@ -101,14 +102,15 @@ A conflict happens when linking Telegram `T` to web player `W` where `T` already
 
 **There is no merge of game state, ever.** One account survives and the other is deleted (§7).
 
-1. **The other side is empty → automatic.** "Empty" means: no cloud save with campaign progress beyond the first battle, no `online_profiles`, `duel_profiles` or `duel_ratings` row, no `purchases` or `entitlements`, a wallet balance of zero and no ledger entries other than starter grants, and no clan membership. Delete the empty player under §7 and attach the identity to the surviving one. No question is asked.
+1. **The other side is empty → automatic.** "Empty" (strict, V6-053) means: no `saves` row at all, no `online_profiles`, `duel_profiles`, `duel_ratings` or `duel_matches` row, no `purchases` or `entitlements`, a wallet balance of zero and no ledger entries, no clan membership, and no sign-in other than the one being linked. Delete the empty player under §7 and attach the identity to the surviving one. No question is asked.
 2. **Both have progress → the player chooses.**
    - For an email conflict, the player must also prove the other account. Clicking the verify link proves the mailbox, and they must also enter `W`'s password (or reset it first). Without that proof the flow stops with "this email belongs to another account".
    - The client shows both accounts side by side, from `GET /api/account/conflict/:id`: display name, campaign stage, hero count, duel rating, war season profile, purchases yes or no, and created date.
    - The player picks the survivor with `POST /api/account/conflict/:id/resolve {keep: 'this' | 'other', confirm: '<loser display name>'}`, typing the loser's display name to confirm.
+   - **Both sides choose (V6-053).** A conflict resolves only when the web side and the Telegram owner made the same choice. The web side is the session bound to the conflict (the session that created the link code, or the browser that proved the email account), re-authed. The Telegram side chooses in the Mini App with `POST /api/account/conflict/:id/telegram {initData, keep: 'telegram' | 'web'}`: initData at most 10 minutes old, of the conflict's Telegram user, and from a launch newer than the one that completed the code (a different initData, `auth_date` not before the conflict). The Mini App reads `POST /api/account/conflict/telegram {initData}`, which shows the web account that asks (display name, masked email) and both summaries, so the owner sees what will be deleted. The bot asks the Telegram owner in the chat when the conflict opens. The web's resolve answers `202 waiting_telegram` until the Mini App agrees, then (posted again) resolves. Different choices end the conflict with `409 choices_differ` and nothing changes; a side can't change its choice (`409 already_chosen`). So no web session alone can delete the Telegram account's progress or put its email on the Telegram account.
    - The survivor gets both identities. The loser is deleted under §7, which revokes its sessions.
 3. **Purchases decide the survivor.** An account with `purchases` or `entitlements` can't be the loser. If only one side has purchases, it must be the survivor, and the choice is preset with a reason. If both have purchases (impossible today, because the web has no payments yet), the flow refuses with `409 contact_support`, and support resolves it by hand.
-4. **Not during live play.** If the loser is in a live duel match, the matchmaker queue, an open battle ticket or an active world-boss attempt, refuse with `409 busy_try_later`.
+4. **Not during live play.** If the loser is in a live duel match, the matchmaker queue, an open battle ticket or an active world-boss attempt, refuse with `409 busy_try_later`. The D1 part of this check is a guard inside the transfer batch itself (no gap between check and write); the queue lives in a Durable Object, and the deletion's leave step removes the loser from it.
 5. Conflict records (`link_conflicts`: id, `survivor_candidates`, `kind`, `created_at`, `expires_at` of 15 minutes) are short-lived and pruned daily.
 
 ### 6. Display names (V6-011)
@@ -208,8 +210,11 @@ GET    /api/account/link/telegram/:code       (Mini App)               → {disp
 POST   /api/account/link/telegram/complete    (Mini App) {initData}    → {status:'awaiting_web'}
 GET    /api/account/link/telegram/status      (web)                    → {status, telegram?:{username, firstName}}
 POST   /api/account/link/telegram/confirm *   (web)                    → {linked:true} | {conflict:id}
-GET    /api/account/conflict/:id        *                               → {this:Summary, other:Summary, forced?:'this'|'other', reason?}
-POST   /api/account/conflict/:id/resolve *    {keep, confirm}
+GET    /api/account/conflict/:id        *     (bound web session)       → {this:Summary, other:Summary, forced?:'this'|'other', reason?, choices}
+POST   /api/account/conflict/:id/resolve *    {keep, confirm}          → 202 {status:'waiting_telegram'} | {status:'resolved', kept, switched}
+POST   /api/account/conflict/telegram         (Mini App) {initData}    → {conflicts:[{id, kind, telegram, web:{…, emailMasked}, forced?, choices}]}   (V6-053)
+POST   /api/account/conflict/:id/telegram     (Mini App) {initData, keep:'telegram'|'web'} → {status:'waiting_web'}   (V6-053)
+POST   /api/account/link/telegram/cancel      (Mini App) {initData}    → {cancelled:n}   ("Not me", V6-053)
 DELETE /api/account/identities/:kind    *
 GET    /api/account                           → {displayName, identities:[{kind, emailMasked?, telegramUsername?}], publicBoards, sessions:n}
 PUT    /api/account/name                      {name}
@@ -230,6 +235,7 @@ export const DELETION_MAP: Record<string, 'delete' | 'anonymise' | 'keep_tombsto
 - Must never merge game state between two players. Must resolve conflicts by keeping one and deleting the other.
 - Must never let an account with purchases or entitlements be deleted through a conflict flow.
 - Must require two-sided proof to link (the email link, or Mini App `initData` plus confirmation from the web session that created the code).
+- Must resolve a conflict only on the same choice from both sides: the bound web session and the Telegram owner in the Mini App with fresh initData (V6-053).
 - Must require re-auth within 10 minutes for link, unlink, email change, conflict resolution and deletion.
 - Must refuse to remove the last identity.
 - Must keep the `players.telegram_id` mirror in the same batch as the telegram identity, and clear it on unlink and deletion.

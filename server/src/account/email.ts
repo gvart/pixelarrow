@@ -41,7 +41,7 @@ async function passwordIdentity(db: D1Database, pid: number) {
   return db.prepare(`SELECT id, subject, email FROM auth_identities WHERE player_id = ?1 AND kind = 'password'`).bind(pid).first<{ id: number; subject: string; email: string | null }>();
 }
 
-async function ownerOf(db: D1Database, emailNorm: string): Promise<number | null> {
+export async function ownerOf(db: D1Database, emailNorm: string): Promise<number | null> {
   const row = await db.prepare(`SELECT player_id FROM auth_identities WHERE kind = 'password' AND subject = ?1`).bind(emailNorm).first<{ player_id: number }>();
   return row?.player_id ?? null;
 }
@@ -98,7 +98,7 @@ interface TokenRow {
   pending_hash: string | null;
 }
 
-async function liveToken(d: FlowDeps, purpose: 'add_email' | 'change_email', token: string): Promise<{ th: string; row: TokenRow & { player_id: number }; player: PlayerRow }> {
+export async function liveToken(d: FlowDeps, purpose: 'add_email' | 'change_email', token: string): Promise<{ th: string; row: TokenRow & { player_id: number }; player: PlayerRow }> {
   if (!EMAIL_TOKEN.test(token)) throw invalidToken();
   const th = await hashToken(token);
   const row = await d.db

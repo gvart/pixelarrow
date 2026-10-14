@@ -72,14 +72,17 @@ Status: ADR-0008, 0009 and 0010 are **Accepted** (V6-014). If an ADR changes, up
 - M-LK-2: web → Telegram linking uses a single-use, 10-minute, hashed link code; the Mini App `initData` with `start_param = link_<code>`; **and** confirmation from the same web session that created the code.
 - M-LK-3: Telegram → email linking completes only through the emailed `add_email` link.
 - M-LK-4: notify by email and bot on every identity change. Email changes notify the old address.
-- M-LK-5: on a conflict with an empty other account, delete it automatically. With both accounts holding progress, the player chooses, after proving both accounts and typing the loser's name.
+- M-LK-5: on a conflict with a strictly empty other account (no save at all, no purchases, no duel or war history, no clan, no Drachmae, only the sign-in being linked), delete it automatically. Otherwise the player chooses, after proving both accounts and typing the loser's name.
 - M-LK-6: an account with purchases or entitlements is always the survivor. If both have them, refuse with `contact_support`.
-- M-LK-7: refuse with `busy_try_later` when the losing account is in a live duel, the queue, an open ticket or a boss attempt.
+- M-LK-7: refuse with `busy_try_later` when the losing account is in a live duel, the queue, an open ticket or a boss attempt; the D1 part of the check is a guard inside the transfer batch.
+- M-LK-8 (V6-053): resolve a conflict only when both sides made the same choice: the web session bound to the conflict (re-authed) and the Telegram owner in the Mini App with initData ≤ 10 min, of the same Telegram user, newer than the initData that completed the code. Different choices end the conflict and change nothing.
+- M-LK-9 (V6-053): the Mini App offers "Not me" at any point; it cancels the code and the conflict, notifies the web owner, and counts toward the creating player's code limit.
 
 **Never**
 - N-LK-1: never merge game state between two players.
 - N-LK-2: never remove a player's last identity.
 - N-LK-3: never link on a code alone (one side's proof) without the web confirmation.
+- N-LK-4 (V6-053): never attach the web account's email to the Telegram-side player, or delete the Telegram-side player, without the Telegram owner's explicit choice in the Mini App.
 
 ## Display names
 

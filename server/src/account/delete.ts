@@ -25,7 +25,7 @@ import type { Env } from '../env';
 import { peppersFromEnv } from '../auth/password';
 import { forgetSessions } from '../auth/sessions';
 import { emailKeyHash } from '../auth/throttle';
-import { liveMatchOf } from '../duel/live';
+import { liveMatchOf, MATCH_STALE_MS } from '../duel/live';
 import { shardDoName } from '../online/store';
 import { NAME_HOLD_MS } from '../players';
 import { log, logError } from '../telemetry/log';
@@ -77,10 +77,7 @@ export async function deleteAccount(env: Env, pid: number, reason: DeletionReaso
   if (!job) {
     if (!(await db.prepare('SELECT 1 FROM players WHERE id = ?1').bind(pid).first())) throw new Error(`no player ${pid}`);
     if (await isBusy(env, db, pid, now)) return 'busy';
-    await db.batch([
-      db.prepare('INSERT INTO deletion_jobs (player_id, reason, step, started_at) VALUES (?1, ?2, 0, ?3) ON CONFLICT (player_id) DO NOTHING').bind(pid, reason, now),
-      db.prepare('UPDATE players SET deleted_at = COALESCE(deleted_at, ?2) WHERE id = ?1').bind(pid, now),
-    ]);
+    await db.batch(startDeletion(db, pid, reason, now));
     forgetSessions(pid);
     log('info', 'account_deletion', { pid, reason });
     job = (await getJob(db, pid))!;
@@ -88,8 +85,36 @@ export async function deleteAccount(env: Env, pid: number, reason: DeletionReaso
   return runJob({ env, db, pid, now, opts }, job.step);
 }
 
+/**
+ * The statements that start a deletion: the job row and `deleted_at` (no
+ * session works from then on). `guard` (an SQL condition) lets a caller start
+ * it inside its own batch only when that batch's precondition holds (V6-LINK-03
+ * conflicts); deleteAccount then resumes the started job.
+ */
+export function startDeletion(db: D1Database, pid: number, reason: DeletionReason, now: number, guard = '1'): D1PreparedStatement[] {
+  return [
+    db.prepare(`INSERT INTO deletion_jobs (player_id, reason, step, started_at) SELECT ?1, ?2, 0, ?3 WHERE ${guard} ON CONFLICT (player_id) DO NOTHING`).bind(pid, reason, now),
+    db.prepare(`UPDATE players SET deleted_at = COALESCE(deleted_at, ?2) WHERE id = ?1 AND ${guard}`).bind(pid, now),
+  ];
+}
+
+/**
+ * The D1 half of isBusy as an SQL condition that is true while the player is
+ * NOT busy, for a guard inside a batch (V6-LINK-03: no gap between the check
+ * and the write). The duel queue lives in a Durable Object and can't be in a
+ * batch; the deletion's leave step removes the player from it either way.
+ */
+export function notBusySql(pid: number, now: number): string {
+  const p = Math.trunc(pid);
+  const t = Math.trunc(now);
+  return `(NOT EXISTS (SELECT 1 FROM duel_matches WHERE (player_a = ${p} OR player_b = ${p}) AND status = 'live' AND created_at > ${t - MATCH_STALE_MS})
+    AND NOT EXISTS (SELECT 1 FROM battle_tickets WHERE player_id = ${p} AND status = 'open' AND expires_at > ${t})
+    AND NOT EXISTS (SELECT 1 FROM duel_tickets WHERE player_id = ${p} AND status = 'open' AND expires_at > ${t})
+    AND NOT EXISTS (SELECT 1 FROM duel_attacks WHERE attacker = ${p} AND status = 'open' AND expires_at > ${t}))`;
+}
+
 /** Busy (ADR-0009 §5.4): a live duel match, the duel queue, an open battle, duel or arena ticket. */
-async function isBusy(env: Env, db: D1Database, pid: number, now: number): Promise<boolean> {
+export async function isBusy(env: Env, db: D1Database, pid: number, now: number): Promise<boolean> {
   if (await liveMatchOf(db, pid, now)) return true;
   const open = await db
     .prepare(

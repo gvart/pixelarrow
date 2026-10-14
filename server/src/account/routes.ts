@@ -6,23 +6,37 @@
  * V6-LINK-01: the summary, renames and the public-boards opt-out.
  * V6-LINK-02: re-auth, add and change email, unlink and deletion. Every
  * sensitive route (*) needs a proof from the last 10 minutes (reauth.ts), else
- * `401 reauth_required`. Linking Telegram from the web is V6-LINK-03.
+ * `401 reauth_required`.
  *
  *   POST   /reauth              {password} | {initData}  → {reauthUntil}
  *   POST   /email             * {email, password}        → 202 {status: 'check_email'}
  *   POST   /email/change      * {email}                  → 202 {status: 'check_email'}
  *   DELETE /identities/:kind   * (telegram | password)    → {ok: true, signedOut}
  *   DELETE /                  * {confirm: 'DELETE'}      → {status: 'done' | 'resumable'}
+ *
+ * V6-LINK-03: web → Telegram linking and conflicts (link.ts, conflicts.ts).
+ *
+ *   POST   /link/telegram          *                      → {code, expiresAt, deepLink}
+ *   DELETE /link/telegram                                   → {ok} ("Not me": the session's code goes)
+ *   GET    /link/telegram/:code      (Mini App)             → {displayName, emailMasked, conflict}
+ *   POST   /link/telegram/complete   (Mini App) {initData}  → {status: 'awaiting_web'}
+ *   GET    /link/telegram/status     (creating session)     → {status, expiresAt?, telegram?, conflict?}
+ *   POST   /link/telegram/confirm  * (creating session)     → {linked, removedEmpty?} | {conflict}
+ *   POST   /link/telegram/cancel     (Mini App) {initData}  → {cancelled}  ("Not me", any time; V6-053)
+ *   GET    /conflict/:id           * (bound web session)    → {kind, this, other, forced?, reason?, choices, expiresAt}
+ *   POST   /conflict/:id/resolve   * {keep, confirm}        → 202 {status: 'waiting_telegram'} | {status: 'resolved', kept, switched}
+ *   POST   /conflict/telegram        (Mini App) {initData}  → {conflicts: [...]}
+ *   POST   /conflict/:id/telegram    (Mini App) {initData, keep: 'telegram' | 'web'} → {status: 'waiting_web'}
  */
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { db, requireSession, secret } from '../middleware';
-import { forgetSessions } from '../auth/sessions';
+import { clientIp, db, requireSession, secret } from '../middleware';
+import { createSession, deviceLabel, forgetSessions } from '../auth/sessions';
 import { peppersFromEnv } from '../auth/password';
-import { clearSessionCookie } from '../auth/cookies';
+import { clearSessionCookie, sessionCookie } from '../auth/cookies';
 import { deleteAccount } from './delete';
 import { reauthWithInitData, reauthWithPassword, requireReauth } from './reauth';
 import { requestAddEmail, requestChangeEmail } from './email';
@@ -33,6 +47,9 @@ import { validateDisplayName } from '../names/validate';
 import { getPlayer, nameKeyHeld, setDisplayName, type PlayerRow } from '../players';
 import { requireLimit } from '../rateLimit';
 import { accountSummary, nameStatus } from './summary';
+import { cancelLink, completeLinkCode, confirmLink, createLinkCode, deepLinkFor, linkStatus, peekLinkCode } from './link';
+import { cancelFromTelegram, chooseFromTelegram, conflictView, resolveConflict, telegramConflicts } from './conflicts';
+import { resolveBot } from '../online/clans';
 
 export const account = new Hono<AppEnv>();
 account.use('*', requireSession);
@@ -163,4 +180,101 @@ account.delete('/', async (c) => {
   if (result === 'busy') throw new ApiError(409, 'busy_try_later', "You're in a live match, queue or battle. Finish it, then try again");
   if (s.transport === 'cookie') c.header('set-cookie', clearSessionCookie());
   return c.json({ status: result });
+});
+
+// ---- V6-LINK-03: web → Telegram link codes and conflicts (ADR-0009 §3, §5) ----
+
+const peppers = (c: Context<AppEnv>) => () => peppersFromEnv(c.env);
+/** Code lookups and the Mini App step: the location-wide per-IP gate (codes are 128-bit; this keeps guessing and HMAC work slow). */
+const linkGate = (c: Context<AppEnv>) => requireLimit(c.env.RL_AUTH_IP, `link:${clientIp(c)}`, 'Too many attempts, try again in a minute');
+
+account.post('/link/telegram', async (c) => {
+  const s = c.get('session');
+  requireReauth(s);
+  const out = await createLinkCode(db(c.env), s, Date.now());
+  const deepLink = deepLinkFor(await resolveBot(c.env), c.env.TELEGRAM_APP_NAME || 'play', out.code);
+  c.header('cache-control', 'no-store');
+  return c.json({ ...out, deepLink });
+});
+
+account.delete('/link/telegram', async (c) => {
+  await cancelLink(db(c.env), c.get('session'));
+  return c.json({ ok: true });
+});
+
+account.get('/link/telegram/status', async (c) => c.json(await linkStatus(db(c.env), c.get('session'), Date.now())));
+
+const CompleteBody = z.object({ initData: z.string().min(1).max(8 * 1024) });
+
+account.post('/link/telegram/complete', async (c) => {
+  await linkGate(c);
+  const body = await readJson(c, CompleteBody, 10 * 1024);
+  return c.json(await completeLinkCode(db(c.env), secret(c.env, 'TELEGRAM_BOT_TOKEN'), peppers(c), body.initData, Date.now()));
+});
+
+account.post('/link/telegram/confirm', async (c) => {
+  const s = c.get('session');
+  requireReauth(s);
+  const d = flowDeps(c);
+  return c.json(await confirmLink(c.env, peppers(c), notifier(c, d), s, d.now));
+});
+
+// After the fixed paths above: the Mini App's look at a code.
+account.get('/link/telegram/:code', async (c) => {
+  await linkGate(c);
+  return c.json(await peekLinkCode(db(c.env), c.get('session'), c.req.param('code'), Date.now()));
+});
+
+/** Mini App "Not me", at any point (V6-053): cancels the code and this Telegram user's conflicts. */
+account.post('/link/telegram/cancel', async (c) => {
+  await linkGate(c);
+  const body = await readJson(c, CompleteBody, 10 * 1024);
+  const d = flowDeps(c);
+  return c.json(await cancelFromTelegram(d.db, secret(c.env, 'TELEGRAM_BOT_TOKEN'), notifier(c, d), body.initData, d.now));
+});
+
+/** Mini App: the conflicts this Telegram user must decide (initData in the body, never the URL). */
+account.post('/conflict/telegram', async (c) => {
+  await linkGate(c);
+  const body = await readJson(c, CompleteBody, 10 * 1024);
+  return c.json(await telegramConflicts(db(c.env), secret(c.env, 'TELEGRAM_BOT_TOKEN'), body.initData, Date.now()));
+});
+
+const TelegramChoiceBody = z.object({ initData: z.string().min(1).max(8 * 1024), keep: z.enum(['telegram', 'web']) });
+
+/** Mini App: the Telegram owner's choice; never resolves alone (V6-053). */
+account.post('/conflict/:id/telegram', async (c) => {
+  await linkGate(c);
+  const body = await readJson(c, TelegramChoiceBody, 10 * 1024);
+  return c.json(await chooseFromTelegram(db(c.env), secret(c.env, 'TELEGRAM_BOT_TOKEN'), c.req.param('id'), body.initData, body.keep, Date.now()));
+});
+
+account.get('/conflict/:id', async (c) => {
+  const s = c.get('session');
+  requireReauth(s);
+  return c.json(await conflictView(db(c.env), s, c.req.param('id'), Date.now()));
+});
+
+const ResolveBody = z.object({ keep: z.enum(['this', 'other']), confirm: z.string().max(64) });
+
+/**
+ * The web side's choice (ADR-0009 §5.2, V6-053): 202 waiting_telegram until
+ * the Mini App agrees; then (re-posted) it resolves. When the kept account
+ * isn't this session's, a cookie session for it replaces this one.
+ */
+account.post('/conflict/:id/resolve', async (c) => {
+  const s = c.get('session');
+  requireReauth(s);
+  const body = await readJson(c, ResolveBody, 1024);
+  const d = flowDeps(c);
+  const out = await resolveConflict(c.env, notifier(c, d), s, c.req.param('id'), body.keep, body.confirm, d.now);
+  if (out.status === 'waiting_telegram') return c.json(out, 202);
+  const switched = out.survivor !== s.pid;
+  if (switched && s.transport === 'cookie') {
+    // This session's player was just deleted; the person proved both accounts. The new session carries no fresh re-auth.
+    const { token } = await createSession(d.db, out.survivor, 'cookie', 'password', deviceLabel(c.req.header('user-agent')), d.now, null);
+    c.header('set-cookie', sessionCookie(token));
+    c.header('cache-control', 'no-store');
+  }
+  return c.json({ status: out.status, kept: out.kept, switched });
 });
