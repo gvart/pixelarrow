@@ -14,6 +14,12 @@ With fewer than 3 runs a case is only **suspected**.
 - **Cause:** not yet found. Likely timing/async or load race (the test counts D1 SELECTs per request; under load a cache or rate-limit window may differ).
 - **Fix:** none yet. Record each further run here.
 
+### F3 · `scripts/audio-smoke.mjs` in web mode, the Web Audio juice-tier sounds (thud, splinter) (suspected, cause not yet classified)
+
+- **Seen:** failed once on the juice-tier sounds (thud, splinter) during the RFND-04 integration, then passed on 2 web-only reruns with no code change. One failure, so **suspected** until it is seen again or the cause is found.
+- **Cause:** not yet found. Likely timing/async (`audio-smoke.mjs` still waits on fixed timers, see the watch list).
+- **Fix:** none yet. Record each further run here.
+
 ## Fixed
 
 ### F1 · `scripts/smoke.mjs` "entered the village" (timing/async, fixed in V6-GATE-02)
