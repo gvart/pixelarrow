@@ -555,14 +555,20 @@ every size instead and says so: name the screens you changed with `--scenes`,
 and the integrator's full run covers the rest.
 
 **Speed.** Staging waits are state waits (`scripts/lib/settle.mjs`): a
-screen's `wait(p, ms)` ends once the game is quiet (no scene starting or
-loading, no camera fade, pan or zoom, no finite tween, no Phaser timer or
-`setTimeout` due before the deadline, no fetch or worker reply outstanding;
-two polls in a row, two frames on) and never later than `ms`, so a run sees
-the same states as the old fixed sleeps, sooner. `--fixed-waits` brings the
-sleeps back (to compare, or to rule waits out when a screen turns flaky);
-`--timing` prints where the time went (browser, page load, boot, staging,
-waits, settle, check, screenshots, scroll pass).
+screen's `wait(p, ms)` ends once the game is quiet (no battle running, no
+scene starting or loading, no camera fade, pan or zoom, no finite tween, no
+Phaser timer or `setTimeout` due before the deadline, no fetch outstanding;
+checked inside the page on two animation frames in a row, two game frames
+on) and never later than `ms`, so a run sees the same states as the old
+fixed sleeps, sooner. A running battle never counts as quiet: what it shows
+depends on the time elapsed. `until` polls inside the page on every frame
+too, with no round trip per poll. `--fixed-waits` brings the sleeps back (to
+compare, or to rule waits out when a screen turns flaky); `--timing` prints
+where the time went (browser, page load, boot, staging, waits, settle,
+check, screenshots, scroll pass) and what kept waits to their deadline.
+Measured on one configuration (en, plain, 390x844, 196 screens, one
+context, a loaded 10-core machine): 417 s with fixed sleeps (265 s of them
+sleeping), 276 s with state waits (113 s waiting).
 
 **Registering:** nothing to do for kit components and plain Phaser objects:
 the registry walks the display list (interactive objects and bitmap texts;

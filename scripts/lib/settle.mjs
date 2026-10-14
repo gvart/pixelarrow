@@ -90,15 +90,20 @@ export async function installSettle(ctx) {
 
 /**
  * Polls a page function (no arguments, no closure) on every animation frame inside the page until it is
- * truthy, `ms` at most: true, or false at the deadline. The same answer as polling it from Node, without
- * a round trip per poll (each one waits for the page's main thread, slow when software WebGL is drawing).
+ * truthy: true, or false once it has had ms / step chances. The same answer as polling it from Node
+ * every `step` ms (harness.mjs until), without a round trip per poll. Like that loop, the limit counts
+ * polls, not wall time: a chance is a new frame at least `step` ms after the last one, so on a slow,
+ * loaded machine (frames of half a second, tweens held back by Phaser's lag smoothing) it waits about as
+ * long as the old loop did, and never less than `ms`.
  */
-export function untilInPage(page, fn, ms) {
+export function untilInPage(page, fn, ms, step = 150) {
   return page.evaluate(
-    ([src, m]) =>
+    ([src, m, st]) =>
       new Promise((done, fail) => {
         const f = new Function(`return (${src})();`);
-        const end = performance.now() + m;
+        const t0 = performance.now();
+        let polls = Math.ceil(m / st);
+        let last = t0;
         const tick = () => {
           let v;
           try {
@@ -107,12 +112,14 @@ export function untilInPage(page, fn, ms) {
             return fail(e);
           }
           if (v) return done(true);
-          if (performance.now() >= end) return done(false);
+          const now = performance.now();
+          if (now - last >= st) (polls--, (last = now));
+          if (polls <= 0 && now - t0 >= m) return done(false);
           requestAnimationFrame(tick);
         };
         tick();
       }),
-    [fn.toString(), ms],
+    [fn.toString(), ms, step],
   );
 }
 
