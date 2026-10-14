@@ -11,7 +11,7 @@ import { addIcon, scaleIcon, type FontKey } from '../kit';
 import { uiFrame, uiId } from '../layout';
 import { MOSAIC, TEXT_MIN, lineHeight } from '../tokens';
 import { motion } from '../motion';
-import { GAP, MButton, buttonLabelSizes, mosaicImage, mtext, mw } from '../mosaic';
+import { GAP, MButton, buttonLabelSizes, mosaicImage, mtext, mw, type MButtonOpts } from '../mosaic';
 import { centeredFace, makePressable, put, wrapWords } from '../mosaic/base';
 
 type C = Phaser.GameObjects.Container;
@@ -254,7 +254,7 @@ export function addPackCard(
   y: number,
   L: PackLayout,
   p: PackCardData,
-  o: { noun: string; bestTag: string; bonusText: string; label: string; tip: string; onClick: () => void },
+  o: { noun: string; bestTag: string; bonusText: string; label: string; tip: string; onClick: () => void; offReason?: string },
 ): number {
   const pw = L.pw;
   const ph = L.cardH(p.best);
@@ -286,7 +286,11 @@ export function addPackCard(
     card.add(mtext(scene, 6, ly, o.noun, 'pSec', { size: TEXT_MIN, maxW: pw - 12 - (bonusW ? bonusW + 4 : 0), box: frame }));
     if (p.bonus > 0) card.add(uiIdOf(mtext(scene, pw - 6, ly - 0.5, o.bonusText, 'pGood', { size: 7, align: 1, box: frame }), `wallet.bonus.${p.id}`));
   }
-  card.add(new MButton(scene, 6, ph - L.btnH - 5, pw - 12, L.btnH, { label: o.label, icon: L.icon ? 'tgstar' : undefined, variant: 'purchase', tip: o.tip, id: `wallet.pack.${p.id}`, onClick: o.onClick }));
+  // no provider here yet (the web): off, no Stars, the reason on tap (AU-20)
+  const btn: MButtonOpts = o.offReason
+    ? { label: o.label, variant: 'disabled', disabledReason: o.offReason, id: `wallet.pack.${p.id}` }
+    : { label: o.label, icon: L.icon ? 'tgstar' : undefined, variant: 'purchase', tip: o.tip, id: `wallet.pack.${p.id}`, onClick: o.onClick };
+  card.add(new MButton(scene, 6, ph - L.btnH - 5, pw - 12, L.btnH, btn));
   return ph;
 }
 
