@@ -35,6 +35,8 @@ export type LayerClose = () => void | false;
 
 interface Layer {
   close: LayerClose;
+  /** What the layer is on screen (its container): the focus scope of the controls inside it. */
+  key?: object;
 }
 interface Entry {
   owner: object;
@@ -89,11 +91,11 @@ export class NavStack {
     this.sync();
   }
 
-  /** A dialog on top of `owner`'s screen (default: the top screen). Returns a remover. */
-  pushLayer(close: LayerClose, owner?: object): () => void {
+  /** A dialog on top of `owner`'s screen (default: the top screen). `key`: what it is on screen (a focus scope). Returns a remover. */
+  pushLayer(close: LayerClose, owner?: object, key?: object): () => void {
     const e = owner ? this.entries.find((x) => x.owner === owner) : this.top();
     if (!e) return () => {};
-    const layer: Layer = { close };
+    const layer: Layer = { close, key };
     e.layers.push(layer);
     this.sync();
     return () => {
@@ -139,6 +141,11 @@ export class NavStack {
 
   layers(): number {
     return this.top()?.layers.length ?? 0;
+  }
+
+  /** The keys of the top screen's layers, bottom to top (layers pushed without a key are left out). */
+  layerKeys(): object[] {
+    return (this.top()?.layers ?? []).flatMap((l) => (l.key ? [l.key] : []));
   }
 
   /** The owner of the top screen (a scene), or null with none. */
@@ -194,7 +201,7 @@ export function registerScreen(scene: SceneLike, opts: ScreenOpts): void {
  * (usually destroying `container`); the layer goes away with the container.
  */
 export function navLayer(container: { once(ev: 'destroy', fn: () => void): unknown }, close: LayerClose, owner?: object): () => void {
-  const remove = nav.pushLayer(close, owner);
+  const remove = nav.pushLayer(close, owner, container);
   container.once('destroy', remove);
   return remove;
 }

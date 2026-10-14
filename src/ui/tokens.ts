@@ -163,6 +163,13 @@ export const MOSAIC = {
   segOpen: 0x4a3a2a,
 } as const;
 
+/**
+ * Keyboard focus and mouse hover (input-v6.md §2.1, §4.4): the focus ring is two-tone, a 1 UI px
+ * basalt outer line and a 2 UI px cream inner line, so one of them keeps 3:1 on parchment and on
+ * stone (A11Y-02); hover lightens a control's rim one step.
+ */
+export const FOCUS = { outer: MOSAIC.page, inner: MOSAIC.cream, hover: MOSAIC.goldHi } as const;
+
 /** Rarity labels darkened to read on parchment. */
 export const RARITY_INK = { common: 0x4f483f, uncommon: 0x33581d, rare: 0x1f478a, epic: 0x62298a, legendary: 0x6e4600 } as const;
 
@@ -407,6 +414,9 @@ export const CONTRAST_PAIRS: { fg: number; bg: number; min: number; what: string
   { fg: TEXT.onAccent, bg: ACCENT.purchase, min: 4.5, what: 'purchase button label' },
   { fg: TEXT.onAccent, bg: ACCENT.dangerFill, min: 4.5, what: 'badge count' },
   ...Object.entries(ROLE).map(([r, bg]) => ({ fg: TEXT.onAccent, bg, min: 4.5, what: `role pill ${r}` })),
+  // ---- v6 focus ring (input-v6.md §4.4): its basalt line on light surfaces, its cream line on dark ones
+  ...[MOSAIC.parchHi, MOSAIC.parch, MOSAIC.parchLo, MOSAIC.well, MOSAIC.bronzeHi, MOSAIC.slabHi].map((bg) => ({ fg: FOCUS.outer, bg, min: 3, what: 'focus ring (basalt line) on a light surface' })),
+  ...[MOSAIC.page, MOSAIC.stone0, MOSAIC.stone1, MOSAIC.stone2, MOSAIC.stone3, MOSAIC.teal, MOSAIC.tabBar, MOSAIC.bronze, MOSAIC.bronzeLo, MOSAIC.terra, MOSAIC.wine, MOSAIC.slabLo].map((bg) => ({ fg: FOCUS.inner, bg, min: 3, what: 'focus ring (cream line) on a dark surface' })),
 ];
 
 /** "#rrggbb" of a token (Canvas 2D). */

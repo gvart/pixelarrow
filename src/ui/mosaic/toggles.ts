@@ -5,6 +5,8 @@
  */
 import Phaser from 'phaser';
 import { Button, addText, mosaicPanelImage, tappable } from '../kit';
+import { focusGroup } from '../focusRing';
+import type { Dir } from '../input/focus';
 import { uiFrame, uiId } from '../layout';
 import { tweenTo } from '../motion';
 import { MOSAIC } from '../tokens';
@@ -114,6 +116,10 @@ export class Stepper extends Phaser.GameObjects.Container {
     this.minus = new Button(scene, 0, 0, 22, 22, { label: '-', tip: o.label, id: `${id}.down`, onClick: () => this.step(-1) });
     this.plus = new Button(scene, 48, 0, 22, 22, { label: '+', tip: o.label, id: `${id}.up`, onClick: () => this.step(1) });
     this.add([this.minus, this.plus]);
+    // a focused stepper takes Left/Right itself (input-v6.md §4.3); Tab passes it as one stop
+    const adjust = (d: Dir) => (d === 'left' || d === 'right' ? (this.step(d === 'left' ? -1 : 1), true) : false);
+    focusGroup(this.minus, this, adjust);
+    focusGroup(this.plus, this, adjust);
     this.refresh();
     scene.add.existing(this);
   }

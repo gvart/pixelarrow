@@ -26,6 +26,7 @@ import { ACCENT, MOSAIC, RESOURCES, TEXT, TEXT_MIN } from './tokens';
 import { scrollCue } from './mosaic/policy';
 import { motion } from './motion';
 import { hoverTip } from './hover';
+import { focusable, type FocusScroll } from './focusRing';
 import { wheelOwner, type WheelNode } from './input/wheel';
 
 export { scrollCue };
@@ -453,21 +454,36 @@ export class Button extends Phaser.GameObjects.Container {
       this.release();
       if (!d || long) return;
       if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
-      if (!this.enabled) {
-        uiDisabled();
-        longPress.toast?.(scene, this.opts.disabledReason ?? t('kit.disabled'));
-        return;
-      }
-      haptic('light');
-      uiButton(this.opts.icon, this.opts.id);
-      // Crash-report breadcrumb: the button's id or icon only (labels may hold player names).
-      breadcrumb('ui', `tap ${this.opts.id ?? this.opts.icon ?? '?'}`);
-      this.opts.onClick?.();
+      this.fire();
     });
     this.once('destroy', () => this.pressTimer?.remove());
     // a mouse resting on the button shows the long-press tip (A11Y-15)
     hoverTip(this, () => this.tipText(), (text) => longPress.show?.(scene, text, this));
+    // Tab, arrows and Enter reach it, and a mouse lightens it (ADR-0012 Decision 4)
+    focusable(this, {
+      activate: () => this.fire(),
+      enabled: () => this.enabled,
+      role: opts.variant === 'destructive' ? 'danger' : opts.variant === 'primary' ? 'primary' : undefined,
+      tip: () => this.tipText(),
+      showTip: (text) => longPress.show?.(scene, text, this),
+      area: () => scrollAreaOf(this),
+    });
     scene.add.existing(this);
+  }
+
+  /** What a tap does (and Enter on the focused button): act, or say why not. */
+  private fire(): void {
+    if (!this.scene) return;
+    if (!this.enabled) {
+      uiDisabled();
+      longPress.toast?.(this.scene, this.opts.disabledReason ?? t('kit.disabled'));
+      return;
+    }
+    haptic('light');
+    uiButton(this.opts.icon, this.opts.id);
+    // Crash-report breadcrumb: the button's id or icon only (labels may hold player names).
+    breadcrumb('ui', `tap ${this.opts.id ?? this.opts.icon ?? '?'}`);
+    this.opts.onClick?.();
   }
 
   private release(keepLong = false): void {
@@ -740,7 +756,16 @@ if (inputProto && !inputProto.__clipPatched) {
   inputProto.__clipPatched = true;
 }
 
-export class ScrollArea {
+/** The innermost scroll area holding `obj`, or null. */
+export function scrollAreaOf(obj: Phaser.GameObjects.GameObject): ScrollArea | null {
+  for (let o = obj.parentContainer; o; o = o.parentContainer) {
+    const a = wheelAreas.get(o as unknown as WheelNode);
+    if (a) return a;
+  }
+  return null;
+}
+
+export class ScrollArea implements FocusScroll {
   readonly content: Phaser.GameObjects.Container;
   private maskG: Phaser.GameObjects.Graphics;
   /** The scroll cue: a shade at a clipped edge and a chevron (drawn over the content, never taking taps). */
@@ -764,6 +789,7 @@ export class ScrollArea {
     S: number,
     opts: { cue?: boolean } = {},
   ) {
+    this.S = S;
     this.content = scene.add.container(x, y);
     parent.add(this.content);
     if (opts.cue !== false) {
@@ -845,6 +871,28 @@ export class ScrollArea {
   }
 
   private cleanup: () => void = () => {};
+  private readonly S: number;
+
+  /** The visible window in world (canvas) px. */
+  viewWorld(): { x: number; y: number; w: number; h: number } {
+    const c = (this.content as unknown as Clipped).__scrollClip!;
+    const d = c.at?.() ?? { x: 0, y: 0 };
+    return { x: c.x + d.x, y: c.y + d.y, w: c.w, h: c.h };
+  }
+
+  /** Scroll so the world-px span top..bottom is fully in view, clear of the scroll cue (keyboard focus, input-v6.md §4.3). */
+  revealSpan(top: number, bottom: number): void {
+    const v = this.viewWorld();
+    const m = SCROLL_CUE_H * this.S;
+    if (top < v.y + m) this.setScroll(this.scroll - (v.y + m - top) / this.S);
+    else if (bottom > v.y + v.h - m) this.setScroll(this.scroll + (bottom - (v.y + v.h - m)) / this.S);
+  }
+
+  /** PageUp / PageDown scroll one view; Home / End go to the ends. */
+  page(kind: 'up' | 'down' | 'home' | 'end'): void {
+    this.vel = 0;
+    this.setScroll(kind === 'home' ? 0 : kind === 'end' ? this.maxScroll : this.scroll + (kind === 'down' ? 1 : -1) * this.h);
+  }
 
   /** Still on screen (its scene runs and its content is visible). */
   isActive(): boolean {
@@ -993,20 +1041,32 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
     if (down && Math.abs(p.x - down.x) + Math.abs(p.y - down.y) > 14 * RS) stop();
   });
   obj.on('pointerout', stop);
-  obj.on('pointerup', (p: Phaser.Input.Pointer) => {
-    stop();
-    if (!down || long) return;
-    const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
-    down = null;
-    if (d > 14 * RS || (area && area.moved)) return;
+  // what a tap does (and Enter on the focused control): a blocked one gives the soft "no" and says why
+  const fire = () => {
     if (blocked?.()) uiDisabled();
     else {
       haptic('light');
       uiButton(undefined, (obj as { __uiId?: string }).__uiId);
     }
     onTap();
+  };
+  obj.on('pointerup', (p: Phaser.Input.Pointer) => {
+    stop();
+    if (!down || long) return;
+    const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
+    down = null;
+    if (d > 14 * RS || (area && area.moved)) return;
+    fire();
   });
   obj.once('destroy', stop);
   // a mouse resting on it shows the same tip (A11Y-15)
   if (tip) hoverTip(obj, tip, (text) => longPress.show?.(scene, text, obj));
+  // Tab, arrows and Enter reach it, and a mouse lightens it (ADR-0012 Decision 4)
+  focusable(obj, {
+    activate: fire,
+    enabled: () => !blocked?.(),
+    tip: tip ? () => (typeof tip === 'function' ? tip() : tip) : undefined,
+    showTip: (text) => longPress.show?.(scene, text, obj),
+    area: () => area ?? scrollAreaOf(obj),
+  });
 }

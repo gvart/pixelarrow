@@ -4,9 +4,10 @@
  * hold it), selected where the control has one, disabled with its reason (flat grey and a lock; a tap
  * says why). Then the error and alert states, badges and chips.
  *
- * "Focused": the Mini App is touch-first and the kit has no keyboard focus (IN-01), so the state a
- * control shows for "this one" is its selected / in-force look (lit bronze, the parchment block with
- * a bronze rim); that is the "selected" column.
+ * "Focused" and "hover" (V6-INP-04, input-v6.md §2.1, §4.4): the real keyboard focus ring (two-tone,
+ * drawn 2 UI px outside the control by src/ui/focusRing.ts) and the mouse hover rim, on parchment and
+ * on stone, next to the pressed and disabled looks they must not be confused with. Every control on
+ * this page also takes real focus (Tab) and hover.
  */
 import Phaser from 'phaser';
 import { Button } from '../../ui/kit';
@@ -16,6 +17,7 @@ import {
   type MButtonVariant, type MIconButtonVariant, type KeyVariant, type StoneTileVariant,
 } from '../../ui/mosaic';
 import { MOSAIC, RESOURCES, TEXT_MIN } from '../../ui/tokens';
+import { drawFocusRing, drawHoverRim } from '../../ui/focusRing';
 import { G, holdDown, type Cursor } from './common';
 
 type Obj = Phaser.GameObjects.Container;
@@ -39,6 +41,34 @@ export function buildStates(cur: Cursor): void {
   const press = <T extends Obj>(o: T): T => (holdDown(o), o);
 
   cur.note('Rows: variants. Columns: default, pressed (held), selected, disabled with a reason (tap it). Grey means disabled only.');
+
+  // ---------------------------------------------------------------- focus and hover
+  cur.title('Focus and hover');
+  // inset by the ring's reach (5 px), which sits outside the control and would be clipped at the page edge
+  const fx = 5;
+  const fw = Math.floor((w - 2 * fx - 3 * G) / 4);
+  heads(cur, 0, ['focused', 'hover', 'focused', 'hover']);
+  // a little room for the ring, which sits outside the control
+  cur.y += 4;
+  const ring = scene.add.graphics();
+  const sample: [MButtonVariant, string][] = [['secondary', 'Collect'], ['secondary', 'Collect'], ['primary', 'Fight'], ['primary', 'Fight']];
+  sample.forEach(([v, label], i) => {
+    const b = cur.add(new MButton(scene, fx + i * (fw + G), cur.y, fw, 24, { label, variant: v, onClick: tap(v), id: `kit.focus.${i}` }));
+    const r = { x: b.x, y: b.y, w: b.w, h: b.h };
+    if (i % 2 === 0) drawFocusRing(ring, r);
+    else drawHoverRim(ring, r);
+  });
+  cur.add(ring);
+  cur.y += 24 + 4 + G;
+  const rw = Math.floor((w - 2 * fx - 2 * G) / 2);
+  const row = cur.add(new ParchmentRow(scene, fx, cur.y, rw, { title: 'Focused row', icon: 'helmet', onClick: tap('row'), id: 'kit.focus.row' }));
+  const row2 = cur.add(new ParchmentRow(scene, fx + rw + 2 * G, cur.y, rw, { title: 'Hover row', icon: 'helmet', onClick: tap('row'), id: 'kit.focus.row2' }));
+  const ring2 = scene.add.graphics();
+  drawFocusRing(ring2, { x: row.x, y: row.y, w: rw, h: ROW_H });
+  drawHoverRim(ring2, { x: row2.x, y: row2.y, w: rw, h: ROW_H });
+  cur.add(ring2);
+  cur.y += ROW_H + 4 + G;
+  cur.note('Focused: a basalt line and a cream line 2 px outside, shown only after a key (Tab, arrows), never on touch. Hover: the rim lightens, mouse only. Neither moves the control.');
 
   // ---------------------------------------------------------------- MButton
   cur.title('MButton');

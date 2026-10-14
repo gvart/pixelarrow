@@ -12,6 +12,7 @@ import type { MosaicStyle } from '../../art/mosaicUi';
 import { LINE_H } from '../../art/vectorFont';
 import { ICON_PX, addIcon, fitCinzel, type FontKey } from '../kit';
 import { uiId } from '../layout';
+import { focusGroup } from '../focusRing';
 import { MOSAIC } from '../tokens';
 import { MBadge, TAP, centeredFace, fit, makePressable, mosaicImage, mosaicTexture, mtext, mw, put } from './base';
 
@@ -80,6 +81,8 @@ export class KeyButton extends Phaser.GameObjects.Container {
       disabled: () => (this.enabled ? undefined : this.reason ?? o.tip ?? o.label),
     });
     uiId(this, o.id ?? `key:${o.label}`);
+    // the keys of one bar are a group: arrows walk the bar, Tab leaves it (input-v6.md §4.3)
+    focusGroup(this, () => this.parentContainer ?? undefined);
     scene.add.existing(this);
   }
 

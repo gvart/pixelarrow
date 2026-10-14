@@ -37,6 +37,8 @@ export class KeyRouter {
   private map: BindingMap;
   private active: readonly Context[] = ['global'];
   private readonly handlers = new Map<ActionId, KeyHandler[]>();
+  /** Handlers tried before every other one of their action (the focus manager's Esc leaves HUD focus before the battle's Esc opens its menu). */
+  private readonly firsts = new Map<ActionId, KeyHandler[]>();
   /** Held hold-actions by the physical key holding them (a key comes up under the code it went down with). */
   private readonly holds = new Map<string, ActionId>();
 
@@ -56,11 +58,12 @@ export class KeyRouter {
     for (const [code, id] of this.holds) if (!stack.includes(ACTIONS[id].context)) this.holds.delete(code);
   }
 
-  /** Register `fn` for `action`; removed when `owner` shuts down, or by the returned function. */
-  on(action: ActionId, fn: KeyHandler, owner?: KeyOwner): () => void {
-    const list = this.handlers.get(action) ?? [];
+  /** Register `fn` for `action`; removed when `owner` shuts down, or by the returned function. `first`: tried before the others. */
+  on(action: ActionId, fn: KeyHandler, owner?: KeyOwner, opts?: { first?: boolean }): () => void {
+    const map = opts?.first ? this.firsts : this.handlers;
+    const list = map.get(action) ?? [];
     list.push(fn);
-    this.handlers.set(action, list);
+    map.set(action, list);
     const off = (): void => {
       const i = list.indexOf(fn);
       if (i >= 0) list.splice(i, 1);
@@ -74,8 +77,8 @@ export class KeyRouter {
     if (ev.editable || ev.composing || this.active.includes('capture')) return false;
     const id = resolve(this.map, ev, this.active);
     if (!id) return false;
-    const list = this.handlers.get(id);
-    if (!list?.length) return false;
+    const list = [...(this.handlers.get(id) ?? []), ...(this.firsts.get(id) ?? [])];
+    if (!list.length) return false;
     const kind = ACTIONS[id].kind;
     if (ev.repeat && kind !== 'repeat') return true;
     for (let i = list.length - 1; i >= 0; i--) {
@@ -104,12 +107,13 @@ export class KeyRouter {
 }
 
 /**
- * The active contexts, most specific first: the top screen's own (none while a
- * layer is open over it: a sheet, menu or dialog suspends the screen's keys,
- * input-v6.md §3.1), then `menu` and `global`.
+ * The active contexts, most specific first: `focus` while a control has keyboard focus (so the
+ * arrows, Enter and Space act on it before the battle's pan, FIGHT and pause, V6-052), the top
+ * screen's own (none while a layer is open over it: a sheet, menu or dialog suspends the screen's
+ * keys, input-v6.md §3.1), then `menu` and `global`.
  */
-export function activeContexts(screen: readonly Context[] | null, layers: number): Context[] {
-  return [...(layers > 0 || !screen ? [] : screen), 'menu', 'global'];
+export function activeContexts(screen: readonly Context[] | null, layers: number, focused = false): Context[] {
+  return [...(focused ? (['focus'] as const) : []), ...(layers > 0 || !screen ? [] : screen), 'menu', 'global'];
 }
 
 /** The game's router (keySource.ts installs the window listener that feeds it). */

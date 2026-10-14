@@ -15,6 +15,7 @@ import { GAP, TAP, mosaicImage, mtext } from './base';
 import { MButton, oneFace } from './controls';
 import { MIconButton } from './iconButton';
 import { addParchmentEmpty } from './EmptyState';
+import { focusGroup } from '../focusRing';
 
 type C = Phaser.GameObjects.Container;
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: C };
@@ -168,6 +169,8 @@ export class MStashGrid {
 function stashCell(scene: UiScene, o: MStashGridOpts, it: Item, cc: C, size: number, area: ScrollArea | null, hero: Hero | undefined): void {
   const sel = o.selected?.() === it.uid;
   const ic = new ItemIcon(scene, 0, 0, { item: it }, { size, area, selected: sel, tip: false, onTap: () => o.drag?.dragging || o.onTap(it) });
+  // the grid is one Tab stop; arrows move between its cells (input-v6.md §4.3)
+  focusGroup(ic, o);
   cc.add(ic);
   cc.add(condPip(scene, 3, size - 4, size - 6, it.cond));
   const pr = o.price?.(it);

@@ -17,6 +17,7 @@ import { MBadge, makePressable, mosaicImage, mtext, mw } from './base';
 import { MEDALLION_RISE, MODE_TABS, TAB_H, fitTabLabels, tabLayout, type TabId } from './tabLayout';
 import { MEDALLION_GLOW } from '../../art/mosaicUi';
 import { hubView } from '../../platform/nav';
+import { focusGroup } from '../focusRing';
 
 export interface TabBarOpts {
   active?: TabId;
@@ -122,6 +123,8 @@ export class TabBar extends Phaser.GameObjects.Container {
       // pressed: the tab dims while held (tabs are never disabled: every mode hub opens, and says itself what is locked)
       makePressable(hit, { w: slot.hitW, h: hh, onTap: () => scene.time.delayedCall(0, () => this.o.onSelect(tab.id)), tip: t(tab.key), down: () => c.setAlpha(0.7), up: () => c.setAlpha(1) });
       uiId(hit, `tab.${tab.id}`);
+      // manual activation: arrows move between tabs, Enter switches (a tab rebuilds a scene, input-v6.md §4.3)
+      focusGroup(hit, this, null, () => tab.id === this.current);
       Object.assign(hit, { opts: { label: t(tab.key) } });
       this.page.add(hit);
     });

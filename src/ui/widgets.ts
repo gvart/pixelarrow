@@ -23,6 +23,7 @@ import { itemDef, normalizeRarity, type Item, type Rarity } from '../data/items'
 import { ensureItemIcon, fitItemIcon } from './sprites';
 import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { toastY, type OverlayKind, type Rect } from './mosaic/overlays';
+import { focusGroup } from './focusRing';
 import { badgeText, switchLabelStyle } from './mosaic/policy';
 import { haptic } from '../platform/haptics';
 import { sfx } from '../audio';
@@ -550,6 +551,8 @@ export class Tabs extends Phaser.GameObjects.Container {
       const it = new TabItem(scene, 2 + Math.round(i * this.tw) + 1.5, 0, Math.round(this.tw) - 3, this.h, label, { icon: o.icons?.[i], iconOnly: !!o.iconOnly && !!o.icons?.[i], id: o.ids?.[i] }, () => this.select(i));
       this.items.push(it);
       this.add(it);
+      // one Tab stop; arrows move between the tabs, Enter switches (input-v6.md §4.3)
+      focusGroup(it, this, null, () => this.sel === i);
     });
     this.style = tabRowStyle(this.items, ['rInk', 'rGold']);
     this.paint();

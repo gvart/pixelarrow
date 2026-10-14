@@ -31,6 +31,7 @@ import { installStaticCanvases } from './platform/staticCanvas';
 import { selectPlatform } from './platform';
 import { installKeySource } from './ui/input/keySource';
 import { activeContexts, keys, screenContexts } from './ui/input/keys';
+import { focus, installFocus } from './ui/focusRing';
 import { loadBindings } from './ui/input/bindingStore';
 
 // Telegram or the plain web, decided once from the launch hints (ADR-0006).
@@ -80,11 +81,13 @@ installAudio(game, () => state.campaign?.data.settings);
 // Duel challenges pop up on every online screen (map, army, clan).
 installDuelInvites(game);
 // The keyboard (ADR-0012): one window listener feeding the router, with the contexts of the top screen and
-// its layers; Esc is Back (a screen may take it first: the battle opens its menu); this device's bindings.
-const keyContexts = () => activeContexts(screenContexts(nav.topOwner()), nav.layers());
+// its layers (and `focus` while a control has keyboard focus); Esc is Back (a screen may take it first: the
+// battle opens its menu); this device's bindings. Tab, arrows and Enter move and use focus (focusRing.ts).
+const keyContexts = () => activeContexts(screenContexts(nav.topOwner()), nav.layers(), focus.focused !== null);
 installKeySource(window, keys, keyContexts);
 nav.subscribe(() => keys.setContexts(keyContexts()));
 keys.on('back', () => nav.back());
+installFocus(game);
 void loadBindings().then((m) => keys.setBindings(m));
 // Ask before closing while a save is still uploading.
 online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
@@ -112,7 +115,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Debug handles (used by the screenshot script).
-Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav });
+Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav, __focus: focus });
 // Layout check (scripts/layout-check.mjs): UI element bounds and rule violations of the current screen.
 Object.assign(window, {
   __layout: {
