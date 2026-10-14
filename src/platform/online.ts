@@ -13,7 +13,7 @@
  */
 import { ApiClient, isApiError, type PlayerInfo, type Product, type VerifyRequest } from './api';
 import type { Auth } from './core/auth';
-import type { InvoiceStatus } from './telegram';
+import type { Payments } from './core/payments';
 import type { KV, SaveData } from '../game/save';
 import { SYNC_META_KEY, decideOnLoad, parseSyncMeta, remoteSaveData, resolveConflict, seqOf, type SyncMeta } from './saveSync';
 
@@ -34,7 +34,8 @@ export interface OnlineDeps {
   devAuth?: boolean;
   /** Which DEV_AUTH test user (`?devuser=2` in dev builds, to try two players side by side). */
   devUser?: { id: number; name: string };
-  openInvoice?: (link: string) => Promise<InvoiceStatus>;
+  /** The platform's payments: an invoice is asked for only when status() says it can be paid. */
+  payments?: Payments;
   /** The device's offset from UTC in minutes (east positive), reported after sign-in for the bot's quiet hours. */
   timeZoneOffset?: () => number | null;
   debounceMs?: number;
@@ -412,12 +413,13 @@ export class Online {
   }
 
   /**
-   * Buys a product with Telegram Stars: invoice -> Telegram payment sheet ->
-   * on "paid" polls the entitlements briefly (the grant arrives via the bot
+   * Buys a product through the platform's payments: invoice -> payment sheet
+   * -> on "paid" polls the entitlements briefly (the grant arrives via the bot
    * webhook).
    */
   async buy(productId: string, onStage?: (stage: 'invoice' | 'paying' | 'confirming') => void): Promise<BuyResult> {
-    if (!this.silent || !this.d.openInvoice) return 'unavailable';
+    const pay = this.d.payments?.status();
+    if (!this.silent || !this.d.payments || !pay?.available) return 'unavailable';
     if (!(await this.signIn())) return 'offline';
     let link: string;
     try {
@@ -432,7 +434,7 @@ export class Online {
       return isApiError(e) && e.offline ? 'offline' : 'failed';
     }
     onStage?.('paying');
-    const status = await this.d.openInvoice(link);
+    const status = await this.d.payments.pay({ provider: pay.provider, link });
     if (status === 'cancelled') return 'cancelled';
     if (status !== 'paid' && status !== 'pending') return 'failed';
     onStage?.('confirming');

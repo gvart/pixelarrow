@@ -134,6 +134,8 @@ export class Narrator {
   folded = false;
   /** Panel rectangle (UI px); the recall key's while folded. */
   rect = { x: 0, y: 0, w: 0, h: 0 };
+  /** The panel's x and width (UI px); null: the v5 full width (battleLayout.narratorBox). */
+  box: { x: number; w: number } | null = null;
 
   constructor(scene: UiScene, parent: Phaser.GameObjects.Container, private keys: NarratorKeys) {
     this.scene = scene;
@@ -153,9 +155,9 @@ export class Narrator {
 
   private layout(text: string, tap: boolean): Layout {
     const { VW } = this.scene.m;
-    const x = 4;
-    const w = VW - 8;
-    const portrait = VW >= PORTRAIT_MIN_VW;
+    const x = this.box?.x ?? 4;
+    const w = this.box?.w ?? VW - 8;
+    const portrait = w + 8 >= PORTRAIT_MIN_VW;
     const tx = x + 4 + (portrait ? PORTRAIT + 5 : 0);
     const colR = x + w - 6;
     const closeX = x + w - 3 - KEY;

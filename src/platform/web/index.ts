@@ -8,6 +8,7 @@ import type { PlatformEnv } from '../core/env';
 import type { Platform } from '../core/platform';
 import type { Insets } from '../core/safeArea';
 import { createWebBack } from './back';
+import { webPayments } from './payments';
 import { browserInputHints, copyText, localKV, openTab, PLAY_URL, queryLaunchParam } from './dom';
 import { createTurnstile } from './turnstile';
 
@@ -23,10 +24,7 @@ export function createWebPlatform(env: PlatformEnv, opts: { turnstileSiteKey?: s
       input.listen();
     },
     auth: { transport: 'cookie', methods: () => ['password'], silentProof: () => null, humanCheck },
-    payments: {
-      status: () => ({ available: false, reason: 'coming_soon' }),
-      pay: async () => 'failed',
-    },
+    payments: webPayments,
     storage: { save: () => kv, device: () => kv, roams: false },
     haptics: { impact() {}, notify() {}, select() {}, setEnabled() {} },
     back: createWebBack(env),

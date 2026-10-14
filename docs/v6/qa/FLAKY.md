@@ -15,18 +15,26 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Seen:** failed once in the full layout matrix during V6-067's integration (FIX-KIT-WIDE), then passed 2 standalone reruns with no code change. One failure, so **suspected**.
 - **Cause:** suspected timing/async: the check measured a text that had not yet settled (wrapped or faded in).
 - **Fix:** none yet. Record each further run here.
+- **V6-RSCR-02 (2026-10-14):** seen again as a once-only finding (`battle.banner.contact|battle.menu.note`) in 3-4 configs at 844x390 in each of two full `battle*,results*,tutorial*` matrices; the check's own second run cleared it every time ("Seen once ... ignored"), so neither run failed.
 
 ### F6 · `tutorial-smoke` web, `duel-smoke` Telegram and `duel-smoke` web (suspected, load timeouts)
 
 - **Seen:** all three timed out once at load average ≈ 42 during the RSCR-01 + INP-05 integration, then passed on the first rerun with no code change. One failure each, so **suspected**.
 - **Cause:** suspected load timeouts (timing/async): the runner's per-script timeout ran out while frames were slow.
 - **Fix:** none yet. The next QA pass checks whether the smoke runner's per-script timeouts should scale with CPU load, or whether these scripts still have fixed waits. Record each further run here.
+- **V6-RSCR-02 (2026-10-14):** `duel-smoke` Telegram failed "[ladder] deselecting in battle keeps the game running" once in `regression --all` while a full layout matrix ran beside it (it reads `loop.frame` 600 ms apart); web passed. A rerun of `--only duel-smoke,battle-kinds` with nothing else running passed both modes.
 
 ### F7 · vitest `qafixWorld.test.ts` S4 "the tap area is what is drawn on the settlement" (suspected, load timeout)
 
 - **Seen:** timed out at 30 s twice in the full `vitest run` during V6-RSCR-05 (two layout checks from other agents were running on the machine), then passed standalone (14/14, the file takes 43 s). No World code changed in that story.
 - **Cause:** suspected load timeout (timing/async): one test sweeps the settlement tap areas and runs close to the 30 s limit on a loaded CPU.
 - **Fix:** none yet. Record each further run here.
+
+### F8 · layout check element parity on real-time scenes (suspected, tooling gap)
+
+- **Seen:** element-parity findings that a rerun clears, on scenes that run live: the world-encounter ids during V6-074's integration (RSCR-07); `results.loot15`–`17` at 320x693 and 360x780, and `battle.undo` (shown only for 3 s after an order) during V6-RSCR-02.
+- **Cause:** a tooling gap (timing/async): each size stages its own live scene, so parity compares different moments of different runs, not like with like.
+- **Fix:** the tooling story PARITY-STABLE (V6-076) stages parity runs deterministically (a fixed seed plus a paused or fixed clock) or excludes ids registered as transient (`uiTransient`). Until then, rerun the scene alone once; record each further run here.
 
 ## Resolved
 

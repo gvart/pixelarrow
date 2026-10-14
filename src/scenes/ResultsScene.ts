@@ -22,7 +22,10 @@ import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { ScrollArea, addIcon, addText, tappable, Button } from '../ui/kit';
 import { ItemIcon, Label, ScrollList, StatBar, addScrollHint, openModal, showTooltip, toast, subjectName } from '../ui/widgets';
-import { uiFrame, uiId } from '../ui/layout';
+import { uiCollapsed, uiFrame, uiId, uiLayout, uiPrimary } from '../ui/layout';
+import { CTA_PANE_MAX, SUMMARY_STACK_SHARE, resultsPanes, spoilCols, tilesPerRow, type PaneBox } from '../ui/results/layout';
+import { layoutVariant, type LayoutVariant } from '../ui/mosaic/layout/variant';
+import { CTA_MAX } from '../ui/sizeClass';
 import { ellipsize, wrapText } from '../ui/textfit';
 import { MOSAIC, RARITY_INK } from '../ui/tokens';
 import { GAP, addParchmentEmpty, MButton, ScreenFrame, SegmentedSwitch, SWITCH_H, mosaicImage, mtext, mw, rarityInk, type Box } from '../ui/mosaic';
@@ -73,6 +76,17 @@ const LOWER_BETTER = new Set<keyof StatMods>(['atkTime', 'shotTime']);
 const PERCENT = new Set<keyof StatMods>(['accuracy', 'block', 'blockPierce', 'speed', 'chargeBonus', 'armorPierce', 'moraleShock', 'xpBonus']);
 
 export class ResultsScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-02): two panes in landscape. */
+  protected override readonly responsive = true;
+  /** Two panes (landscape): the Summary on the left, Heroes / Spoils on the right (landscape-v6 §7.5). */
+  private two = false;
+  /** The Summary stays on show above the Heroes / Spoils tabs (two panes, or stacked on a tablet upright; §7.5). */
+  private pinned = false;
+  /** The banner column (the whole page in one column). */
+  private head: PaneBox = { x: 0, w: 0 };
+  /** Where the pages go: the whole page, or the right pane. */
+  private pane: PaneBox = { x: 0, w: 0 };
+  private variant: LayoutVariant = 'compactPortrait';
   /** Picked loot (uids). */
   chosen = new Set<string>();
   private report!: BattleReport;
@@ -163,16 +177,26 @@ export class ResultsScene extends BaseScene {
     this.ui.add(frame);
     this.box = frame.content;
     this.screen({ back: () => this.back() });
+    uiLayout(this, this.m.cls, this.m.land);
+    const panes = resultsPanes(this.box, this.m.land, this.m.cls);
+    this.two = !!panes.right;
+    this.head = panes.left;
+    this.pane = panes.right ?? panes.left;
+    this.variant = layoutVariant(this.m);
+    // a tablet upright has the room: the Summary stacks over the Heroes / Spoils tabs, as the landscape's left pane
+    const stack = !this.two && this.variant === 'medium' && !this.m.land;
+    this.pinned = this.two || stack;
 
     const bannerH = VH < 300 ? 30 : VH < 380 ? 38 : 46;
     this.buildBanner(bannerH);
-    const x0 = this.box.x + 4;
-    const W = this.box.w - 8;
+    // one column: the page spans the frame; two panes (landscape-v6 §7.5): Summary on the left, Heroes / Spoils on the right
+    const x0 = this.head.x;
+    const W = this.head.w;
     let ty = this.box.y + 4 + bannerH + 4 + this.subH + 4;
     // why it went this way (battle-readability.md R5): under the banner, wrapped, never cut
     const why = this.arcOpen ? '' : this.whyText(data.report !== undefined);
     if (why) {
-      const line = new Label(this, this.box.x + this.box.w / 2, ty - 2, why, { maxW: W - 4, maxLines: WHY_MAX_LINES, font: 'pInk', align: 0.5 });
+      const line = new Label(this, x0 + W / 2, ty - 2, why, { maxW: W - 4, maxLines: WHY_MAX_LINES, font: 'pInk', align: 0.5 });
       uiId(line, 'results.why');
       this.ui.add(line);
       ty += line.h + 4;
@@ -180,7 +204,7 @@ export class ResultsScene extends BaseScene {
     // Reopened after the app closed mid-battle: the battle was fought out (V5-011).
     // In the layout under the banner, not a toast over it (it covered the header).
     if (!data.report && state.notice === 'battle.abandoned') {
-      const note = new Label(this, this.box.x + this.box.w / 2, ty - 2, t('battle.abandoned'), { maxW: W - 4, maxLines: 4, font: 'pSec', align: 0.5 });
+      const note = new Label(this, x0 + W / 2, ty - 2, t('battle.abandoned'), { maxW: W - 4, maxLines: 4, font: 'pSec', align: 0.5 });
       uiId(note, 'results.abandoned');
       this.ui.add(note);
       ty += note.h + 4;
@@ -188,25 +212,39 @@ export class ResultsScene extends BaseScene {
     }
     const BTN_H = 28;
     this.bottom = this.box.y + this.box.h - 4 - BTN_H - 5;
+    // the primary: across the page (phones), at most 300 centred (a tablet upright), at the right pane's foot at most 240 (landscape)
+    const pw = this.two ? Math.min(this.pane.w, CTA_PANE_MAX) : this.variant === 'medium' ? Math.min(W, CTA_MAX) : W;
+    const px = this.two ? this.pane.x + this.pane.w - pw : pw === W ? x0 : Math.round(x0 + (W - pw) / 2);
+    const py = this.box.y + this.box.h - 4 - BTN_H;
+    // the right pane starts at the frame's top, beside the banner
+    let rightTop = this.two ? this.box.y + 4 : ty;
+    if (this.two) this.buildSummaryPane(ty, fresh);
+    else if (stack) rightTop = this.buildSummaryPane(ty, fresh, ty + Math.round(SUMMARY_STACK_SHARE * (this.bottom - ty))) + 6;
     if (this.arcOpen) {
-      this.top = ty;
+      this.top = rightTop;
       this.pageLayer = this.add.container(0, 0);
       this.ui.add(this.pageLayer);
       this.buildArc();
-      this.primary = new MButton(this, x0, this.box.y + this.box.h - 4 - BTN_H, W, BTN_H, { label: t('results.arc.continue'), icon: 'flag', variant: 'primaryHero', id: 'results.primary', onClick: () => this.closeArc() });
+      this.primary = uiPrimary(new MButton(this, px, py, pw, BTN_H, { label: t('results.arc.continue'), icon: 'flag', variant: 'primaryHero', id: 'results.primary', onClick: () => this.closeArc() }));
       this.ui.add(this.primary);
     } else {
-      const pages = pagesFor(!!this.practice);
-      if (!pages.includes(this.page)) this.page = 'summary';
-      this.tabs = new SegmentedSwitch(this, x0, ty, W, {
-        options: pages.map((p) => ({ id: p, label: t(`results.tab.${p}` as TKey), icon: W >= 156 ? (p === 'summary' ? 'trophy' : p === 'heroes' ? 'people' : 'chest') : undefined })),
+      // the Summary pinned (the left pane, or stacked on a tablet upright): its tab folds into it (element-parity, §7.5)
+      const pages = pagesFor(!!this.practice).filter((p) => !this.pinned || p !== 'summary');
+      if (this.pinned) {
+        this.seen.add('summary');
+        uiCollapsed(this, 'results.tab.summary', 'results.tile.time');
+      }
+      if (!pages.includes(this.page)) this.page = pages[0];
+      const TW = this.pane.w;
+      this.tabs = new SegmentedSwitch(this, this.pane.x, rightTop, TW, {
+        options: pages.map((p) => ({ id: p, label: t(`results.tab.${p}` as TKey), icon: TW >= 156 ? (p === 'summary' ? 'trophy' : p === 'heroes' ? 'people' : 'chest') : undefined })),
         selected: this.page,
         id: 'results.tab',
         onChange: (id) => this.showPage(id as Page),
       });
       this.ui.add(this.tabs);
-      this.top = ty + SWITCH_H + 5;
-      this.primary = new MButton(this, x0, this.box.y + this.box.h - 4 - BTN_H, W, BTN_H, { label: t('results.continue'), icon: 'check', variant: 'primaryHero', id: 'results.primary', onClick: () => this.onPrimary() });
+      this.top = rightTop + SWITCH_H + 5;
+      this.primary = uiPrimary(new MButton(this, px, py, pw, BTN_H, { label: t('results.continue'), icon: 'check', variant: 'primaryHero', id: 'results.primary', onClick: () => this.onPrimary() }));
       this.ui.add(this.primary);
       this.showPage(this.page);
     }
@@ -221,8 +259,13 @@ export class ResultsScene extends BaseScene {
     const { area, w } = this.pageScroll();
     const roll = companyRoll(this.report);
     const piece = arcPiece(this.report.loot);
-    const h = buildArcVictory(this, area.content, area, w, { ...roll, piece, onPiece: () => this.inspect(0) });
-    area.setContentHeight(h);
+    const inner = this.add.container(0, 0);
+    area.content.add(inner);
+    const h = buildArcVictory(this, inner, area, w, { ...roll, piece, onPiece: () => this.inspect(0) });
+    // the Summary pinned beside or over it: the roll and the set piece centred in their page, a moment to look at, not a list
+    const dy = this.pinned ? Math.max(0, Math.floor((area.viewHeight - h) / 2)) : 0;
+    inner.y = dy;
+    area.setContentHeight(h + dy);
   }
 
   /** Continue the campaign: the post-game begins ('won' becomes 'post') and the normal report follows, on its Spoils. */
@@ -305,11 +348,12 @@ export class ResultsScene extends BaseScene {
 
   private buildBanner(h: number): void {
     const r = this.report;
-    const cx = this.box.x + this.box.w / 2;
+    // over the banner column: the page (one column) or the left pane (two)
+    const cx = this.head.x + this.head.w / 2;
     const cy = this.box.y + 4 + h / 2;
     const c = this.add.container(cx, cy);
     this.ui.add(c);
-    const w = Math.min(this.box.w - 8, 220);
+    const w = Math.min(this.head.w, 220);
     const win = r.result === 'victory';
     // a victory: a teal plaque between two gilded laurel branches; anything else on grey stone (terracotta stays for the next action)
     c.add(mosaicImage(this, -w / 2, -h / 2, w, h, win ? 'plaque' : 'tileOff'));
@@ -327,7 +371,7 @@ export class ResultsScene extends BaseScene {
     const sub: string[] = [r.vs];
     if (r.verified !== null) sub.push(t(r.verified ? 'results.verified' : 'results.unverified'));
     if (this.practice) sub.push(t('results.practice'));
-    const subLine = mtext(this, cx, this.box.y + 4 + h + 4, sub.join(' · '), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: this.box.w - 12, wrap: true, box: { owner: this.ui, w: this.m.VW, h: this.m.VH } });
+    const subLine = mtext(this, cx, this.box.y + 4 + h + 4, sub.join(' · '), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: this.head.w - 4, wrap: true, box: { owner: this.ui, w: this.m.VW, h: this.m.VH } });
     subLine.setCenterAlign();
     uiId(subLine, 'results.vs');
     this.ui.add(subLine);
@@ -374,6 +418,8 @@ export class ResultsScene extends BaseScene {
   }
 
   showPage(p: Page): void {
+    // two panes: the Summary is always on show at the left; its page is the right pane's first (Heroes)
+    if (this.pinned && p === 'summary') p = pagesFor(!!this.practice).find((x) => x !== 'summary') ?? 'heroes';
     this.clearPage();
     this.page = p;
     this.tabs?.pick(p, false);
@@ -407,19 +453,51 @@ export class ResultsScene extends BaseScene {
   /** A scrolling page between the tabs and the bottom button. */
   private pageScroll(): { area: ScrollArea; x: number; w: number } {
     const { S } = this.m;
-    const area = new ScrollArea(this, this.pageLayer!, this.box.x + 4, this.top, this.box.w - 8, this.bottom - this.top, S);
+    const area = new ScrollArea(this, this.pageLayer!, this.pane.x, this.top, this.pane.w, this.bottom - this.top, S);
     this.pageArea = area;
     addScrollHint(this, this.pageLayer!, area, MOSAIC.parch);
-    return { area, x: 0, w: this.box.w - 8 - 4 };
+    return { area, x: 0, w: this.pane.w - 4 };
   }
 
-  private buildSummary(animate: boolean): void {
+  /**
+   * Two panes: the Summary (tiles, MVP, notes) in its own scrolling pane under the banner at the left,
+   * on show the whole time (`results.summary` holds the folded Summary tab). Stacked (a tablet upright,
+   * `maxBottom` given): the same pane over the tabs, as tall as its content up to `maxBottom`; returns its foot.
+   */
+  private buildSummaryPane(top: number, animate: boolean, maxBottom?: number): number {
+    const { S } = this.m;
+    const x = this.head.x;
+    const w = this.head.w;
+    const room = (maxBottom ?? this.box.y + this.box.h - 4) - top;
+    let bottom = top + room;
+    if (maxBottom !== undefined) {
+      // stacked: as tall as its content, at most `room` (it scrolls past that); measured on a hidden copy
+      const probe = this.add.container(0, 0).setVisible(false);
+      const pa = new ScrollArea(this, probe, x, top, w, room, S);
+      this.buildSummary(false, pa, w - 4, room);
+      bottom = top + Math.min(room, Math.ceil(pa.contentHeight));
+      pa.destroy();
+      probe.destroy(true);
+    }
+    const layer = this.add.container(0, 0);
+    this.ui.add(layer);
+    layer.add(mosaicImage(this, x - 2, top - 2, w + 4, bottom - top + 4, 'parchment'));
+    const area = new ScrollArea(this, layer, x, top, w, bottom - top, S);
+    addScrollHint(this, layer, area, MOSAIC.parch);
+    this.buildSummary(animate && !this.seen.has('summary'), area, w - 4, room);
+    return bottom;
+  }
+
+  private buildSummary(animate: boolean, given?: ScrollArea, givenW?: number, givenH?: number): void {
     const r = this.report;
-    const { area, w } = this.pageScroll();
+    const { area, w } = given ? { area: given, w: givenW! } : this.pageScroll();
     const c = area.content;
     const gap = GAP;
-    const tw = Math.floor((w - 2 * gap) / 3);
-    const roomy = this.bottom - this.top >= 200;
+    // five in a row where the labels fit (a tablet upright, compact landscape; §7.5), else three and two (v5, and the 260-wide left pane)
+    const five = (this.variant === 'compactLandscape' || (this.variant === 'medium' && !this.m.land)) && tilesPerRow(w, gap, ['time', 'kills', 'losses', r.glory !== undefined ? 'glory' : 'gold', 'xp'].map((k) => mw(t(`results.tile.${k}` as TKey), 'pSec', TEXT_MIN))) === 5;
+    const per = five ? 5 : 3;
+    const tw = Math.floor((w - (per - 1) * gap) / per);
+    const roomy = (givenH ?? this.bottom - this.top) >= 200;
     const th = roomy ? 46 : 36;
     const tiles: { icon: string; key: string; tip: TKey; value: number; prefix?: string; clock?: boolean; tone?: 'ink' | 'good' | 'bad' }[] = [
       { icon: 'hourglass', key: 'time', tip: 'results.tip.time', value: r.duration, clock: true },
@@ -433,16 +511,17 @@ export class ResultsScene extends BaseScene {
     // one number size for the whole set, so a long clock doesn't make its tile look smaller
     const numSize = Math.min(...tiles.map((tl) => tileNumSize(`${tl.prefix ?? ''}${tl.clock ? fmtClock(tl.value) : tl.value}`, tw, th)));
     tiles.forEach((tl, i) => {
-      const row = Math.floor(i / 3);
-      const inRow = row === 0 ? 3 : tiles.length - 3;
+      const row = Math.floor(i / per);
+      const inRow = row === 0 ? per : tiles.length - per;
       const rowW = inRow * tw + (inRow - 1) * gap;
-      const x = Math.round((w - rowW) / 2) + (i % 3) * (tw + gap);
+      const x = Math.round((w - rowW) / 2) + (i % per) * (tw + gap);
       const y = row * (th + gap);
       const label = t(`results.tile.${tl.key}` as TKey);
       // the clock counts in m:ss
       const tile = new ResultTile(this, x, y, tw, th, { icon: this.iconOr(tl.icon), label, value: tl.value, prefix: tl.prefix, format: tl.clock ? fmtClock : undefined, tone: tl.tone, duration: animate ? 900 : 0, delay: animate ? 150 + i * 160 : 0, sound: animate && !tl.clock, iconBeside, numSize, id: `stat.${tl.key}` });
       const tween = tile.start();
-      if (tween) this.pageTweens.push(tween);
+      // the left pane's count-ups outlive the right pane's page changes
+      if (tween && !given) this.pageTweens.push(tween);
       c.add(tile);
       const z = this.add.zone(x, y, tw, th).setOrigin(0, 0).setInteractive();
       uiId(z, `results.tile.${tl.key}`);
@@ -452,9 +531,9 @@ export class ResultsScene extends BaseScene {
       z.on('pointerover', (p: Phaser.Input.Pointer) => !p.wasTouch && showTooltip(this, tip, tile));
       c.add(z);
     });
-    let y = 2 * (th + gap) + 3;
+    let y = (five ? 1 : 2) * (th + gap) + 3;
     // the hero of the battle: only someone with a kill (plan ANSWERS A-36)
-    if (r.mvp) y = this.buildMvp(c, y, w, roomy);
+    if (r.mvp) y = this.buildMvp(c, y, w, roomy, area);
     // notes as chips (audit RES-5): promotions, the bounty, practice, the report's own lines
     noteChips(r, { practice: !!this.practice }).forEach((chip, i) => {
       const { c: chipC, h } = addNoteChip(this, c, 0, y, w, chip, area, `results.note${i}`);
@@ -472,7 +551,7 @@ export class ResultsScene extends BaseScene {
   }
 
   /** The hero of the battle: portrait in a gold frame, name, class, kills and damage. */
-  private buildMvp(c: Phaser.GameObjects.Container, y: number, w: number, big: boolean): number {
+  private buildMvp(c: Phaser.GameObjects.Container, y: number, w: number, big: boolean, area: ScrollArea): number {
     const mvp = this.report.mvp;
     if (!mvp) return y;
     const h = big ? 60 : 50;
@@ -503,7 +582,17 @@ export class ResultsScene extends BaseScene {
     const cls = mvp.hero ? heroClass(mvp.hero) : null;
     c.add(mtext(this, tx, ty + 11, heroName(mvp.name), 'pInk', { maxW: tw, box }));
     if (cls) c.add(mtext(this, tx, ty + 21, tOr(`class.${cls.id}.name`, cls.name), 'pSec', { size: TEXT_MIN, maxW: tw, box }));
-    c.add(mtext(this, tx, ty + (cls ? 31 : 21), t('results.mvpLine', { kills: t('results.kills', { n: mvp.kills }), dmg: mvp.dmg }), 'pGood', { size: TEXT_MIN, maxW: tw, box }));
+    const line = t('results.mvpLine', { kills: t('results.kills', { n: mvp.kills }), dmg: mvp.dmg });
+    c.add(mtext(this, tx, ty + (cls ? 31 : 21), line, 'pGood', { size: TEXT_MIN, maxW: tw, box }));
+    // off the phone, like the tiles above it: a press or a hover says the whole card (G15)
+    if (this.variant !== 'compactPortrait') {
+      const tip = [mvpT, heroName(mvp.name), cls ? tOr(`class.${cls.id}.name`, cls.name) : '', line].filter(Boolean).join(' · ');
+      const z = this.add.zone(0, y, w, h).setOrigin(0, 0).setInteractive();
+      uiId(z, 'results.mvpCard');
+      tappable(z, area, () => showTooltip(this, tip, z), tip);
+      z.on('pointerover', (p: Phaser.Input.Pointer) => !p.wasTouch && showTooltip(this, tip, z));
+      c.add(z);
+    }
     return y + h + 5;
   }
 
@@ -512,19 +601,33 @@ export class ResultsScene extends BaseScene {
   private buildHeroes(animate: boolean): void {
     const r = this.report;
     if (r.heroes.length === 0) {
-      this.pageLayer!.add(mosaicImage(this, this.box.x + 4, this.top, this.box.w - 8, this.bottom - this.top, 'parchment'));
-      this.pageLayer!.add(addParchmentEmpty(this, this.box.x + 6, this.top + 2, this.box.w - 12, this.bottom - this.top - 4, { icon: 'people', hint: t('results.noHeroes') }));
+      this.pageLayer!.add(mosaicImage(this, this.pane.x, this.top, this.pane.w, this.bottom - this.top, 'parchment'));
+      this.pageLayer!.add(addParchmentEmpty(this, this.pane.x + 2, this.top + 2, this.pane.w - 4, this.bottom - this.top - 4, { icon: 'people', hint: t('results.noHeroes') }));
       return;
     }
     if (animate) this.xpStart = this.time.now + 300;
     const rowH = 28;
-    this.heroList = new ScrollList(this, this.pageLayer!, this.box.x + 4, this.top, this.box.w - 8, this.bottom - this.top, {
+    this.heroList = new ScrollList(this, this.pageLayer!, this.pane.x, this.top, this.pane.w, this.bottom - this.top, {
       fade: MOSAIC.parch,
       count: r.heroes.length,
       rowH,
       id: (i) => `results.hero${i}`,
-      render: (i, row, w) => this.renderHeroRow(r.heroes[i], row, w, rowH),
+      render: (i, row, w, _rh, area) => {
+        this.renderHeroRow(r.heroes[i], row, w, rowH);
+        // two panes, a mouse at a desk: the whole row says the hero's level and XP on a press or a hover (G15)
+        if (this.variant !== 'compactPortrait') this.heroRowTip(r.heroes[i], row, w, rowH, area);
+      },
     });
+  }
+
+  /** A hero row's tip in two panes: name, level and the XP this battle gave (a press, or a mouse hover). */
+  private heroRowTip(h: HeroLine, row: Phaser.GameObjects.Container, w: number, rh: number, area: ScrollArea): void {
+    const tip = [heroName(h.name), t('battle.lv', { n: this.levelOf(h).level }), h.died ? t('results.fallen') : t('results.xp', { n: h.xp })].join(' · ');
+    const z = this.add.zone(0, 0, w, rh).setOrigin(0, 0).setInteractive();
+    uiId(z, `results.heroTip.${h.heroId}`);
+    tappable(z, area, () => showTooltip(this, tip, row), tip);
+    z.on('pointerover', (p: Phaser.Input.Pointer) => !p.wasTouch && showTooltip(this, tip, row));
+    row.add(z);
   }
 
   private renderHeroRow(h: HeroLine, row: Phaser.GameObjects.Container, w: number, rh: number): void {
@@ -615,14 +718,15 @@ export class ResultsScene extends BaseScene {
       this.buildSpoilsEmpty(hint);
       return;
     }
-    this.counter = addText(this, this.box.x + this.box.w / 2, top + 1, '', 'pInk', 0.5);
+    this.counter = addText(this, this.pane.x + this.pane.w / 2, top + 1, '', 'pInk', 0.5);
     this.pageLayer!.add(this.counter);
     this.refreshCounter();
     this.top = top + 13;
     const { area, w } = this.pageScroll();
     this.top = top;
     const gap = GAP;
-    const cols = w >= 3 * 64 + 2 * gap ? 3 : 2;
+    // a grid by width (landscape-v6 §3.7): 2 or 3 on a phone, up to 4 on a tablet or in the right pane
+    const cols = spoilCols(w, gap, this.variant === 'compactPortrait');
     const cw = Math.floor((w - (cols - 1) * gap) / cols);
     const ch = 64;
     // a lair's hoard first, under its own header (campaign-arc.md R6)
@@ -650,15 +754,16 @@ export class ResultsScene extends BaseScene {
 
   /** No spoils (audit RES-4): a compact card with the painted open chest, the title and why. */
   private buildSpoilsEmpty(hint: string): void {
-    const x = this.box.x + 4;
-    const w = this.box.w - 8;
+    const x = this.pane.x;
+    const w = this.pane.w;
     const room = this.bottom - this.top;
     const lh = Math.ceil(lineHeight(TEXT_MIN));
     const lines = wrapText(hint, w - 16, 5, false, TEXT_MIN).lines;
     const art = Math.min(56, Math.max(0, room - (12 + 12 + lines.length * lh + 12)));
     const showArt = art >= 28;
     const h = Math.min(room, 8 + (showArt ? art + 4 : 0) + 12 + lines.length * lh + 8);
-    const c = this.add.container(x, this.top);
+    // the Summary pinned beside or over it: the card centred in its page's height, as the arc's roll (an empty pane reads as broken)
+    const c = this.add.container(x, this.top + (this.pinned ? Math.floor((room - h) / 2) : 0));
     this.pageLayer!.add(c);
     c.add(mosaicImage(this, 0, 0, w, h, 'parchment'));
     let y = 8;
@@ -677,7 +782,7 @@ export class ResultsScene extends BaseScene {
     const r = this.report;
     if (!this.counter) return;
     const s = r.lootInStash ? t('results.inStash') : r.picks > 0 ? t('results.pick', { n: this.chosen.size, max: r.picks }) : '';
-    this.counter.setText(ellipsize(s, this.box.w - 16));
+    this.counter.setText(ellipsize(s, this.pane.w - 8));
   }
 
   /** Turn the next hidden card over every 0.35 s. */
@@ -729,9 +834,17 @@ export class ResultsScene extends BaseScene {
     c.removeAll(true);
     const area = this.pageArea;
     if (!this.revealed.has(i)) {
-      // face down: a dark stone card with a chest
-      c.add(mosaicImage(this, 0, 0, w, h, 'tileStone'));
+      // face down: a dark stone card with a chest (the card is on show face down too: its id, whatever the reveal's pace)
+      const back = mosaicImage(this, 0, 0, w, h, 'tileStone');
+      c.add(this.variant === 'compactPortrait' ? uiId(back, `results.loot${i}`) : back);
       c.add(addIcon(this, Math.round((w - 12) / 2), Math.round((h - 12) / 2), 'chest', 'L'));
+      // off the phone: a press (or a click) turns it over at once instead of waiting its turn
+      if (this.variant !== 'compactPortrait') {
+        const z = this.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive();
+        uiId(z, `results.loot${i}`);
+        tappable(z, area, () => this.flip(i), t('results.tip.card'));
+        c.add(z);
+      }
       return;
     }
     const it = this.report.loot[i];
