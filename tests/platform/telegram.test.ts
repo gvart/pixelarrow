@@ -230,6 +230,22 @@ describe('Telegram adapter: storage', () => {
     expect(await read).toBe('v1');
   });
 
+  it('a write lands in the mirror at once; the cloud follows in order, and reads meanwhile come from the mirror', async () => {
+    const { p, wa, f } = await launched();
+    await p.storage.save().set('campaign', 'v1');
+    wa.CloudStorage.hang = true;
+    // a slow cloud holds neither the write nor a read of it
+    await p.storage.save().set('campaign', 'v2');
+    expect(f.localStorage.get('pixelarrow:campaign')).toBe('v2');
+    expect(await p.storage.save().get('campaign')).toBe('v2');
+    expect(wa.cloud.get('campaign')).toBe('v1');
+    wa.CloudStorage.hang = false;
+    f.runTimers(); // the hung cloud write gives up; the next ones go through
+    await p.storage.save().set('campaign', 'v3');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(wa.cloud.get('campaign')).toBe('v3');
+  });
+
   it('keeps device data in localStorage only', async () => {
     const { p, wa, f } = await launched();
     await p.storage.device().set('mapView', 'z2');

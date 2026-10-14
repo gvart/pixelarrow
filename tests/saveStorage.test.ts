@@ -111,8 +111,10 @@ describe('a save written before M4 still loads', () => {
     // and the next save still lands in both places, under the same keys
     state.campaign.data.gold = 502;
     await state.save();
-    expect((await readSave(mapKV(cloud)))?.gold).toBe(502);
+    // the mirror has it at once; the cloud copy follows on its queue
     expect((await readSave(mapKV(f.localStorage, 'pixelarrow:')))?.gold).toBe(502);
+    await new Promise((r) => setTimeout(r, 0));
+    expect((await readSave(mapKV(cloud)))?.gold).toBe(502);
   });
 
   it('on the web: localStorage keys under pixelarrow:', async () => {

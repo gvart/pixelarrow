@@ -8,6 +8,7 @@
 import type { PlatformEnv } from '../core/env';
 import type { Platform } from '../core/platform';
 import type { Insets } from '../core/safeArea';
+import type { KV } from '../core/storage';
 import { browserInputHints, copyText, localKV, openTab, PLAY_URL, queryLaunchParam } from '../web/dom';
 import { createTelegramBack } from './back';
 import { launchedFromTelegram, loadScript, safe, sdk, SDK_URL, type TgWebApp } from './sdk';
@@ -45,6 +46,7 @@ export function createTelegramPlatform(env: PlatformEnv, opts: { bot?: string; a
   const back = createTelegramBack(() => app);
   const mirror = localKV(env);
   const cloudHealth: CloudHealth = { down: false };
+  let saveKV: { cs: NonNullable<TgWebApp['CloudStorage']>; kv: KV } | null = null;
   const input = browserInputHints(env, () => DESKTOP.has(app?.platform ?? ''));
 
   const v = (ver: string): boolean => !!app?.isVersionAtLeast?.(ver);
@@ -135,7 +137,10 @@ export function createTelegramPlatform(env: PlatformEnv, opts: { bot?: string; a
     storage: {
       save() {
         const cs = cloud();
-        return cs ? mirroredKV(cloudKV(env, cs, cloudHealth), mirror, cloudHealth) : mirror;
+        if (!cs) return mirror;
+        // one per CloudStorage: its write queue keeps the cloud copy in order
+        if (saveKV?.cs !== cs) saveKV = { cs, kv: mirroredKV(cloudKV(env, cs, cloudHealth), mirror, cloudHealth) };
+        return saveKV.kv;
       },
       device: () => mirror,
       get roams() {

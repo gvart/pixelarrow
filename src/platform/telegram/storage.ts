@@ -37,24 +37,33 @@ export function cloudKV(env: PlatformEnv, cs: NonNullable<TgWebApp['CloudStorage
 }
 
 /**
- * Writes go to both; a read the cloud cannot answer (timeout, error, missing)
- * comes from the mirror. While the cloud is down (its last call timed out),
- * reads go straight to the mirror, so a hung CloudStorage costs one timeout,
- * not one per key (before M4 the save fell back to the mirror after one).
+ * The save on both stores. A write resolves once the mirror has it; the cloud
+ * copy follows on one ordered queue, so a slow CloudStorage never holds up the
+ * save (the local copy is current as soon as the game has written it). Reads
+ * come from the mirror while cloud writes are queued or the cloud is down (its
+ * last call timed out: one timeout, not one per key), else from the cloud,
+ * with the mirror for whatever the cloud cannot answer (error, missing).
+ * Make one per session: the queue is what keeps the cloud writes in order.
  */
 export function mirroredKV(cloud: KV, mirror: KV, health: CloudHealth = { down: false }): KV {
+  let queue: Promise<void> = Promise.resolve();
+  let queued = 0;
+  const toCloud = (op: () => Promise<void>): void => {
+    queued++;
+    queue = queue.then(op).finally(() => void queued--);
+  };
   return {
     async get(k) {
-      if (health.down) return mirror.get(k);
+      if (health.down || queued > 0) return mirror.get(k);
       return (await cloud.get(k)) ?? mirror.get(k);
     },
     async set(k, v) {
       await mirror.set(k, v);
-      await cloud.set(k, v);
+      toCloud(() => cloud.set(k, v));
     },
     async remove(k) {
       await mirror.remove(k);
-      await cloud.remove(k);
+      toCloud(() => cloud.remove(k));
     },
   };
 }
