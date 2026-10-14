@@ -1,0 +1,26 @@
+src/ui/shortcutsSheet.ts
+  s_0d98fe904b2e82::t_62555d49e8f00b 8-10,55,71-85,90
+scripts/layout-check.mjs
+  s_0d98fe904b2e82::t_430756b8eb27ae 1075-1109
+src/ui/settings/controls.ts
+  s_0d98fe904b2e82::t_83c4aa95dd989d 157-162
+src/ui/keycap.ts
+  s_0d98fe904b2e82::t_05443a5b4f177f 27,79
+  s_0d98fe904b2e82::t_364df2b00a141a 69,73-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d2271d3e30ca2551e5ed8b9d276c90b511e08f51",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
