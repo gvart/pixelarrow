@@ -4,6 +4,7 @@ import { state } from '../state';
 import { online } from '../platform/cloud';
 import type { SyncStatus } from '../platform/online';
 import { confirmNewCampaign, openSettings } from '../ui/settings';
+import { openAccountRoute } from '../ui/account';
 import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
 import { addSyncBadge } from '../ui/online';
 import { FrescoBanner, MButton, ProfileCard, QuestCard, StoneTile, addHubShell, goTab, mtext, mw, wrapWords, type HubShell, type ProfileCardOpts, type QuestCardOpts } from '../ui/mosaic';
@@ -41,7 +42,7 @@ export class MenuScene extends BaseScene {
     super('Menu');
   }
 
-  create(data?: { settings?: 'notify' }): void {
+  create(data?: { settings?: 'notify'; account?: { view?: string } }): void {
     this.initUi();
     this.screen({ back: null }); // root: Telegram shows Close
     const shell = addHubShell(this, { title: 'Pixelarrow', active: 'campaign' });
@@ -61,6 +62,8 @@ export class MenuScene extends BaseScene {
 
     // Opened from a bot message's "Open in the game" (startapp=settings).
     if (data?.settings === 'notify') this.openNotifications();
+    // Opened at #login or #forgot (an email-link page's "Log in", V6-071): the form, once (not again on a relayout).
+    if (data?.account && openAccountRoute(this, data.account)) delete data.account;
   }
 
   // ------------------------------------------------------------------ the parts (every layout shows all of them)

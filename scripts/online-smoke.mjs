@@ -25,8 +25,13 @@ async function webRun() {
   const page = await ctx.newPage();
   const netErrors = [];
   const errors = captureErrors(page, { ignoreNetwork: true, network: netErrors });
-  // no session cookie: whatever the client asks the API, it is signed out
-  await page.route('**/api/**', (r) => r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":{"code":"unauthorized","message":"signed out"}}' }));
+  // no session cookie: whatever the client asks the API, it is signed out, except the public catalogue
+  // (the web can sign in since V6-ACCT-05, so the shop reads it before it finds no session)
+  await page.route('**/api/**', (r) =>
+    /\/api\/economy\/catalog$/.test(new URL(r.request().url()).pathname)
+      ? r.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+      : r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":{"code":"unauthorized","message":"signed out"}}' }),
+  );
   const { ev, active, sceneText } = makePageApi(page);
   const startAll = (k) => ev((key) => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start(key, {})), k);
   await page.goto(base, { timeout: 60000 });

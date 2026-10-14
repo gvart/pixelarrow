@@ -274,6 +274,8 @@ to Inter at that size, then ends in "..."** (`fitCinzel` in kit.ts, used by
 | States | `addParchmentEmpty`, `addEconState` (loading, offline, closed) | empty and unavailable states on a parchment well. |
 | Party parts | `GearSlot`, `mountSlot`, `slotGrid`, `MPager`, `MStashGrid`, `addNiche` | Army / Hero / Settlement. |
 | Text | `rarityInk(scene, rarity)`, `mtext`, `mw`, `fit` | item names in their rarity ink; fitted one-line text. |
+| Countdowns | `CountdownLabel`, `runCountdown` | m:ss on the wall clock with a callback at zero (Resend, link codes). |
+| Forms (HTML) | `AuthHost` / `AuthForm` (`src/ui/form/authForm.ts`), `promptFields` | anything typed: real DOM inputs over the canvas (password managers, autofill, paste, the phone keyboard, Turnstile). Field kinds `email`, `newPassword`, `currentPassword`, `nickname`, `confirmWord`, `text`; one card at a time, a form that leads to another replaces it in place; Back, Esc and Cancel go back. Kit: the Forms page. |
 
 Pick: a hub gets `addHubShell`; anything you reach from it gets `addSubShell`;
 a question or a detail is a sheet, not a screen; actions live in a `MActionBar`

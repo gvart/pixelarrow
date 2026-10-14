@@ -32,6 +32,7 @@ export { GearSlot, mountSlot, slotGrid, type GearSlotOpts, type SlotGrid } from 
 export { MPager, PAGER_W, addSwipe, type PagerOpts } from './Pager';
 export { Toggle, Stepper, type ToggleOpts, type StepperOpts } from './toggles';
 export { purchaseButton, confirmPurchase } from './purchase';
+export { CountdownLabel, formatCountdown, runCountdown } from './CountdownLabel';
 export { flyReward, addClaimGlow, type FlyTarget } from './rewardFx';
 export { addMedallion } from './medallion';
 export { MStashGrid, type MStashGridOpts } from './StashGrid';

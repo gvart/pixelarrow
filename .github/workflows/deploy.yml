@@ -112,6 +112,8 @@ jobs:
           # Telegram invite links t.me/<bot>/<app>?startapp=... (owner action; the play URL until set)
           VITE_TELEGRAM_BOT: ${{ vars.TELEGRAM_BOT_USERNAME }}
           VITE_TELEGRAM_APP: ${{ vars.TELEGRAM_APP_NAME }}
+          # the web sign-in forms' Turnstile site key (public; owner action, ADR-0008 §6)
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
       - uses: actions/upload-artifact@v4
         with:
           name: dist

@@ -206,6 +206,8 @@ describe('Telegram adapter: payments, share, auth', () => {
     expect(p.auth.silentProof()).toEqual({ kind: 'telegram', initData: 'user=1&hash=abc' });
     expect(p.auth.methods()).toEqual(['telegram']);
     expect(p.auth.transport).toBe('bearer');
+    // no email forms in the Mini App, so no human check (N-AF-3)
+    expect(p.auth.humanCheck).toBeUndefined();
     const empty = (await launched(fakeWebApp('8.0', 'ios', ''))).p;
     expect(empty.auth.silentProof()).toBeNull();
   });

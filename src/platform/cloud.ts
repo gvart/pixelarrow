@@ -15,6 +15,9 @@ const auth: Auth = {
   },
   methods: () => platform.auth.methods(),
   silentProof: () => platform.auth.silentProof(),
+  get humanCheck() {
+    return platform.auth.humanCheck;
+  },
 };
 
 /** The selected platform's Payments, read at each use. */

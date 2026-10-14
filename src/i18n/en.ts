@@ -53,6 +53,7 @@ import { DUELS_V5_EN } from './duels.v5.en';
 import { GAPS_EN } from './gaps.en';
 import { INPUT_EN } from './input.en';
 import { CONTROLS_EN } from './controls.en';
+import { ACCOUNT_EN } from './account.en';
 
 export const EN = {
   // ---- shared words
@@ -395,4 +396,6 @@ export const EN = {
   ...GAPS_EN,
   ...INPUT_EN,
   ...CONTROLS_EN,
+  // ---- the sign-in forms and email-link pages (account.en.ts, V6-ACCT-05)
+  ...ACCOUNT_EN,
 } as const;

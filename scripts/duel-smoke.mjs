@@ -7,7 +7,7 @@
 // the report (with its stars) and back to the ladder with its Glory, XP and a
 // cleared floor, a ranked match, a raid on a defence team (the async ladder)
 // and the leaderboards. Also checks the hub's state when the API cannot be
-// used: signed out on the web ("available in Telegram", 'outside'), and in
+// used: signed out on the web ('outside'), and in
 // Telegram with the API down (a closed / offline state, not 'outside').
 // Platform modes (scripts/lib/platform.mjs): telegram (fake WebApp) and web.
 // Regressions: switching views does not pile up listeners, a second Back or
@@ -31,18 +31,24 @@ await apiDown(page);
 const { ev, call, active, untilPage: until } = makePageApi(page);
 const shown = () => call('Duel', "return window.__game.scene.getScenes(true).map((x) => x.scene.key).join('+') === 'Duel' && s.st === 'ready' && s.body.list.length > 3;");
 
+// the web has a server that answers "no session" (401); since V6-ACCT-05 the web can sign in, so an
+// unreachable API (from the boot probe on) would read as offline rather than signed out
+const signedOut = (r) => r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":{"code":"unauthorized","message":"signed out"}}' });
+if (mode === 'web') await page.route('**/api/**', signedOut);
 await page.goto(launchUrl(base, mode), { timeout: 60000 });
 check('menu', await until(() => !!window.__game && window.__game.scene.isActive('Menu'), 60000));
 await checkPlatform(page, mode);
 
-// The real API cannot be used: signed out on the web, the hub says it is available in Telegram ('outside');
+// The real API cannot be used: signed out on the web, the hub shows its signed-out state ('outside');
 // in Telegram the API is down (503), so the hub shows its closed / offline state. Either way, no crash.
 await call('Menu', 's.openDuels(); return 1;');
 await until(() => window.__game.scene.isActive('Duel'));
 await until(() => window.__game.scene.getScene('Duel').st !== 'loading', 15000);
 const apiSt = await call('Duel', 'return s.st;');
-if (mode === 'web') check('[api] web, signed out: the hub says "available in Telegram"', apiSt === 'outside', apiSt);
-else check('[api] Telegram, API down: the hub shows a closed or offline state', ['closed', 'offline', 'error'].includes(apiSt), apiSt);
+if (mode === 'web') {
+  check('[api] web, signed out: the hub shows its signed-out state (outside)', apiSt === 'outside', apiSt);
+  await page.unroute('**/api/**', signedOut);
+} else check('[api] Telegram, API down: the hub shows a closed or offline state', ['closed', 'offline', 'error'].includes(apiSt), apiSt);
 
 // The demo duel army.
 await ev(() => window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Duel', { preview: true, tab: 'team' })));

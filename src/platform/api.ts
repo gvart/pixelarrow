@@ -407,6 +407,33 @@ export class ApiClient {
     return this.request<MeResponse>('GET', '/api/me', { auth: true, reauth: false });
   }
 
+  // ---- the web's email forms (V6-ACCT-03/05, ADR-0008 §4): same-origin; the server sets or clears the session cookie
+
+  /** Always `202 check_email` for a well-formed request, whether or not the address has an account (M-AF-3). */
+  signup(email: string, password: string, turnstile: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/auth/signup', { body: { email, password, turnstile } });
+  }
+
+  /** A new cookie session; `401 invalid_credentials` for an unknown email, a wrong password and a locked address alike. */
+  login(email: string, password: string, turnstile: string): Promise<{ player: PlayerInfo; expiresAt: number }> {
+    return this.request('POST', '/api/auth/login', { body: { email, password, turnstile } });
+  }
+
+  /** Always `202 check_email` (no account disclosure). */
+  resetRequest(email: string, turnstile: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/auth/reset/request', { body: { email, turnstile } });
+  }
+
+  /** A new link for a pending sign-up; always `202 check_email`. */
+  resendVerify(email: string, turnstile: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/auth/verify/resend', { body: { email, turnstile } });
+  }
+
+  /** Ends this session (the server clears the cookie). A 401 is final: there was nothing to end. */
+  logout(): Promise<{ ok: true }> {
+    return this.request('POST', '/api/auth/logout', { auth: true, reauth: false });
+  }
+
   /** Local development only: needs DEV_AUTH=1 on a local `wrangler dev`. */
   async authDev(id = 1, firstName = 'Dev'): Promise<AuthResponse> {
     const r = await this.request<AuthResponse>('POST', '/api/auth/telegram', { body: { dev: { id, first_name: firstName } } });

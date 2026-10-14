@@ -27,6 +27,7 @@ export const KIT_PAGES: readonly KitPage[] = [
   { id: 'type', tab: 8, name: 'Type' },
   { id: 'states', tab: 9, name: 'States' },
   { id: 'overlays', tab: 10, name: 'Overlays' },
+  { id: 'forms', tab: 14, name: 'Forms' },
   { id: 'icons', tab: 11, name: 'Icons' },
   { id: 'army', tab: 12, name: 'Army' },
   { id: 'layouts', tab: 13, name: 'Layouts' },

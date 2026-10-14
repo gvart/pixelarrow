@@ -43,6 +43,8 @@ export interface PlatformOptions {
   telegramBot?: string;
   /** The Mini App's short name in BotFather (the adapter defaults to "play"). */
   telegramApp?: string;
+  /** The web forms' Turnstile site key (web/turnstile.ts turnstileOptions). */
+  turnstileSiteKey?: string;
 }
 
 /**
@@ -61,5 +63,5 @@ export function telegramLinkOptions(env: { VITE_TELEGRAM_BOT?: string; VITE_TELE
 /** The adapter for id. Steam and mobile have no adapter yet, so they get the web one. */
 export function createPlatform(id: PlatformId, env: PlatformEnv, opts: PlatformOptions = {}): Platform {
   if (id === 'telegram') return createTelegramPlatform(env, { bot: opts.telegramBot, app: opts.telegramApp });
-  return createWebPlatform(env);
+  return createWebPlatform(env, { turnstileSiteKey: opts.turnstileSiteKey });
 }
