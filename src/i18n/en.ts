@@ -52,6 +52,7 @@ import { WAR_V5_EN } from './war.v5.en';
 import { DUELS_V5_EN } from './duels.v5.en';
 import { GAPS_EN } from './gaps.en';
 import { INPUT_EN } from './input.en';
+import { CONTROLS_EN } from './controls.en';
 
 export const EN = {
   // ---- shared words
@@ -393,4 +394,5 @@ export const EN = {
   // ---- strings that lived outside i18n: online errors, the last kit sheets (gaps.en.ts, G12)
   ...GAPS_EN,
   ...INPUT_EN,
+  ...CONTROLS_EN,
 } as const;

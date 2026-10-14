@@ -1,0 +1,40 @@
+/**
+ * Settings → Keyboard shortcuts (story V6-INP-05, design/ux/input-v6.md §5):
+ * the Controls section, the page, the capture sheet and its messages.
+ * Spread into en.ts; ru.ts spreads controls.ru.ts.
+ */
+export const CONTROLS_EN = {
+  'controls.sec': 'Controls',
+  'controls.title': 'Keyboard shortcuts',
+  'controls.sec.orders': 'Orders',
+  'controls.sec.groups': 'Groups',
+  'controls.sec.abilities': 'Abilities',
+  'controls.sec.time': 'Time',
+  'controls.sec.camera': 'Camera',
+  'controls.sec.deploy': 'Deployment',
+  'controls.sec.confirm': 'Asks first',
+  'controls.sec.menus': 'Menus (fixed)',
+  'controls.chipTip': 'Change the key for {action}',
+  'controls.addTip': 'Add a second key for {action}',
+  'controls.resetRow': 'Reset {action}',
+  'controls.resetAll': 'Reset all to defaults',
+  'controls.resetAllTitle': 'Reset all keys?',
+  'controls.resetAllBody': 'Every shortcut goes back to its default. Keys are saved on this device only.',
+  'controls.resetAllOk': 'Reset all',
+  'controls.resetAllDone': 'All keys are back to their defaults',
+  'controls.capture.title': 'Change key',
+  'controls.capture.prompt': 'Press a key for {action}',
+  'controls.capture.hint': 'Esc cancels',
+  'controls.capture.clear': 'Clear',
+  'controls.refused.reserved': '{key} is used to go back and move focus.',
+  'controls.refused.browser': '{key} belongs to the browser or system.',
+  'controls.refused.fixed': '{key} is fixed: {action}.',
+  'controls.conflict': '{key} is already {action}.',
+  'controls.noKey': '{action} will have no key.',
+  'controls.swap': 'Swap',
+  'controls.replace': 'Replace',
+  'controls.toast': '{action}: {from} → {to}',
+  'controls.none': 'no key',
+  'controls.key.space': 'Space',
+  'controls.key.enter': 'Enter',
+} as const;
