@@ -1,0 +1,25 @@
+src/platform/telegram/storage.ts
+  s_0d98fe904b2e82::t_edffab7fd2db9d 40-46,49-54,57,62,66
+tests/saveStorage.test.ts
+  s_0d98fe904b2e82::t_5d70ed03d0a83a 114,116-117
+tests/platform/telegram.test.ts
+  s_0d98fe904b2e82::t_4010a29130dcb0 233-248
+src/platform/telegram/index.ts
+  s_0d98fe904b2e82::t_edffab7fd2db9d 11,49,140-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "383afaded40dd35b10be46a6a6778e0fc0134fd3",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
