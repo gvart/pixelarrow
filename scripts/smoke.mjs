@@ -467,7 +467,11 @@ const village = await ev(() => {
     s.renderCamp();
     s.buildHud();
   }
-  const v = w.map.settlements.find((x) => x.kind === 'village');
+  // the village nearest the map's centre (FLAKY.md F1): the first one in the list could stand on the map's edge,
+  // where the camera stops at its bounds instead of centring it, and its picture then lay under the top HUD, so
+  // the tap pressed a HUD control (a seed-dependent miss, one map in many)
+  const mid = [w.map.w / 2, w.map.h / 2];
+  const v = w.map.settlements.filter((x) => x.kind === 'village').sort((a, b) => Math.hypot(a.x - mid[0], a.y - mid[1]) - Math.hypot(b.x - mid[0], b.y - mid[1]))[0];
   w.reveal(v.x + 0.5, v.y + 0.5, 4);
   const t = w.nearestPassable(v.x + 2, v.y, 3);
   w.s.x = t.x + 0.5;
@@ -491,7 +495,12 @@ const vpos = await ev((id) => {
   const cam = s.cameras.main;
   return window.__css(((v.x * 8 + 4) - cam.worldView.x) * cam.zoom, (v.y * 8 - cam.worldView.y) * cam.zoom);
 }, village.id);
-check('nothing over the village', await mapPointFree(vpos[0], vpos[1]));
+const villageFree = await mapPointFree(vpos[0], vpos[1]);
+check('nothing over the village', villageFree, villageFree ? '' : `at ${vpos.map(Math.round)}: ${await ev(([px, py]) => {
+  const s = window.__game.scene.getScene('World');
+  const [gx, gy] = window.__gamePt(px, py);
+  return s.input.hitTestPointer({ x: gx, y: gy, camera: null }).map((o) => o.__uiId ?? o.parentContainer?.__uiId ?? o.type).join(', ');
+}, vpos)}`);
 const preVillage = await worldDiag();
 const routes1 = await routes();
 await tap(vpos[0], vpos[1]);
