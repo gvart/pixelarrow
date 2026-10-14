@@ -3,3 +3,5 @@
  * (geometry.ts) and the Phaser parts drawn with it (the side panel and the rotate card).
  */
 export * from './geometry';
+export { openPanel, type PanelOpts, type PanelHandle } from './SidePanel';
+export { RotateCard, mountRotateCard } from './RotateCard';

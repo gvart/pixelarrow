@@ -46,7 +46,7 @@ function share(specs: PaneSpec[], avail: number): number[] {
   const w = specs.map((p) => p.min);
   let left = avail - sumMin;
   for (;;) {
-    const open = specs.map((p, i) => i).filter((i) => w[i] < (specs[i].max ?? Infinity));
+    const open = specs.map((_, i) => i).filter((i) => w[i] < (specs[i].max ?? Infinity));
     if (!open.length || left <= 0) break;
     const each = Math.floor(left / open.length);
     if (each === 0) {
