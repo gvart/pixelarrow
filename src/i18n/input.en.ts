@@ -61,6 +61,7 @@ export const INPUT_EN = {
   'input.action.hero.dismiss': 'Dismiss',
   // what a battle hotkey says when its control is not there (input-v6.md §3.2, §3.3, §3.5)
   'input.why.then': 'Then… follows a move order',
+  'input.hint.rightClick': 'Right-click the ground or an enemy',
   'input.why.noGroup': 'No group {n}',
   'input.why.fastest': 'Fastest for this battle',
   'input.why.slowest': 'Slowest for this battle',

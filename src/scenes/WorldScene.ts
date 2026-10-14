@@ -3,6 +3,7 @@ import { encounterName } from '../ui/beastInfo';
 import Phaser from 'phaser';
 import { RS, camZoom, zoomUnits } from '../platform/renderScale';
 import { mapWheel, zoomCamAt } from '../ui/input/zoomAt';
+import { mapCursor } from '../ui/input/cursorApply';
 import { BaseScene } from './BaseScene';
 import { addIcon, addText, scaleIcon } from '../ui/kit';
 import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
@@ -299,6 +300,8 @@ export class WorldScene extends BaseScene {
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
+    // a mouse: the right button does nothing on the map (no browser menu), the middle one pans; cursors (input-v6.md §2.2, §2.4)
+    mapCursor(this, () => this.gesture?.mode === 'pan');
     // the wheel zooms one step at the cursor (accumulated for trackpads), shift or deltaX pans; not over the HUD or a sheet
     mapWheel(this, {
       blocked: (_p, over) => over.length > 0 || !!(this.cine || this.encounter || this.eventCard || this.assaultSheet || this.arcSheet || this.coach),
@@ -1117,7 +1120,11 @@ export class WorldScene extends BaseScene {
       this.gesture = null;
       return;
     }
-    this.gesture = { mode: 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y };
+    if (!p.wasTouch && p.button === 2) {
+      this.gesture = null;
+      return;
+    }
+    this.gesture = { mode: !p.wasTouch && p.button === 1 ? 'pan' : 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y };
   }
 
   private onMove(p: Phaser.Input.Pointer): void {

@@ -22,6 +22,7 @@ import { confirmDialog, toast, ScrollList } from '../ui/widgets';
 import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
 import { wrapsWhole } from '../ui/textfit';
 import { anchorOffset, mapWheel } from '../ui/input/zoomAt';
+import { mapCursor } from '../ui/input/cursorApply';
 import { CHIP_ROW_H, ChipRow, MButton, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, openParchmentSheet, wrapWords, type MButtonVariant, type ParchmentSheetHandle, type SituationChip } from '../ui/mosaic';
 import { ensureFonts } from '../ui/fonts';
 import { uiId, uiIgnore } from '../ui/layout';
@@ -197,6 +198,8 @@ export class CampScene extends BaseScene {
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
+    // a mouse: the right button does nothing on the camp (no browser menu), the middle one pans; cursors (input-v6.md §2.2, §2.4)
+    mapCursor(this, () => !!this.gesture?.moved);
     this.hud = this.add.container(0, 0);
     this.ui.add(this.hud);
     this.screen({ back: () => this.goBack() });
@@ -654,8 +657,9 @@ export class CampScene extends BaseScene {
   }
 
   private onDown(p: Phaser.Input.Pointer): void {
-    if (this.modal) return;
-    this.gesture = { id: p.id, sx: p.x, sy: p.y, wx: this.world.x, wy: this.world.y, moved: false };
+    if (this.modal || (!p.wasTouch && p.button === 2)) return;
+    // the middle button pans from the first move, and is never a tap
+    this.gesture = { id: p.id, sx: p.x, sy: p.y, wx: this.world.x, wy: this.world.y, moved: !p.wasTouch && p.button === 1 };
   }
 
   private onMove(p: Phaser.Input.Pointer): void {

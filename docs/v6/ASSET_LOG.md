@@ -15,6 +15,7 @@ Specs: `docs/v6/landing/ART_DIRECTION.md` §8. Owner of the Chrome tab: the `ass
 | LND-04 | Beast plates (wolf, boar, bear, mythical) | Re-export v5 plates (`public/ui/beasts/`) | |
 | LND-05 | Open Graph image 1200x630 | Composite: LND-01 render + code-set wordmark | Not generated |
 | LND-06 | Gameplay clips H1, M1–M4, G1–G4, B1 | `video` agent, Playwright recording | List and specs: `docs/v6/landing/STRUCTURE.md` › Clips needed; budgets ADR-0011 |
+| CUR-01 | Pixel cursors (optional, V6-INP-03): default, pointer, not-allowed, grab, grabbing, turn, target, pan, wait | Hand-drawn pixel art or Gemini with a pixel clean-up; 16 px with 2x variants in `public/cursors/` | The game ships CSS keyword fallbacks (`src/ui/input/cursor.ts` CURSOR_CSS); when PNGs land, `CURSOR_CSS` gains `url(cursors/<kind>.png) <hotspot>, <keyword>`. Bronze arrow family, input-v6.md §2.4; never animated |
 | LND-07 | Optional painted "chronicle" band (one wide fresco at night for the closing CTA) | Gemini, fresco family prompt (PROMPTS_ART §5) with `fresco_war` attached, LIGHT: night, torchlit | Only if the build story wants it; painted art never behind text |
 
 ## Done

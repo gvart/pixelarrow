@@ -215,3 +215,117 @@ describe('gestures: two fingers', () => {
     expect(all.some((e) => e.type === 'drag-start' || e.type === 'drag-end' || e.type === 'tap')).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------- mouse buttons (ADR-0012 Decision 5, input-v6.md §2.2)
+
+/** A mouse pointer with `button` (0 left, 1 middle, 2 right). */
+const M = (button: number, x: number, y: number, isDown = true): Ptr => ({ id: 0, x, y, isDown, button, wasTouch: false });
+/** Screen px to field: 10 px a pace, so facings read off the screen directly. */
+const field = (x: number, y: number) => ({ x: x / 10, y: y / 10 });
+
+describe('gestures: the right button orders', () => {
+  it('a right click is an order click at the cursor, never a tap', () => {
+    const g = new GestureRecognizer(10, field);
+    expect(g.down(M(2, 50, 50), [M(2, 50, 50)], 1, probe())).toEqual([]);
+    expect(g.move(M(2, 54, 53), [M(2, 54, 53)], () => true)).toEqual([]); // 7 px: still a click
+    expect(g.up(M(2, 54, 53, false), [])).toEqual([{ type: 'release' }, { type: 'order-click', x: 54, y: 53 }]);
+  });
+
+  it('a right press on a HUD control is not a field order', () => {
+    const g = new GestureRecognizer(10, field);
+    g.down(M(2, 50, 50), [M(2, 50, 50)], 1, probe({ blocked: true }));
+    expect(g.move(M(2, 90, 50), [], () => true)).toEqual([]);
+    expect(g.up(M(2, 90, 50, false), [])).toEqual([]);
+  });
+
+  it('a right-drag sets the ghost at the press point and faces from it toward the cursor', () => {
+    const g = new GestureRecognizer(10, field);
+    g.down(M(2, 100, 100), [M(2, 100, 100)], 1, probe());
+    const evs = g.move(M(2, 100, 140), [], () => true);
+    expect(evs[0]).toEqual({ type: 'order-drag-start', at: { x: 10, y: 10 } });
+    expect(evs[1]).toMatchObject({ type: 'order-drag-move', at: { x: 10, y: 10 }, fx: 0, fy: 1, snapped: true });
+    expect(g.active()).toBe('order');
+    expect(g.up(M(2, 100, 140, false), [])).toEqual([{ type: 'release' }, { type: 'order-drag-end', at: { x: 10, y: 10 }, fx: 0, fy: 1 }]);
+    expect(g.active()).toBeNull();
+  });
+
+  it('the facing snaps to the eight directions within 8°, and is free beyond', () => {
+    const drag = (dx: number, dy: number) => {
+      const g = new GestureRecognizer(10, field);
+      g.down(M(2, 0, 0), [M(2, 0, 0)], 1, probe());
+      g.move(M(2, dx, dy), [], () => true);
+      return g.up(M(2, dx, dy, false), [])[1] as Extract<GestureEvent, { type: 'order-drag-end' }>;
+    };
+    const deg = (d: number): [number, number] => [Math.cos((d * Math.PI) / 180) * 100, Math.sin((d * Math.PI) / 180) * 100];
+    // 7° off east snaps to east; 7° off the south-east diagonal snaps to it
+    expect(drag(...deg(7))).toMatchObject({ fx: 1, fy: 0 });
+    const se = drag(...deg(45 - 7));
+    expect(se.fx).toBeCloseTo(Math.SQRT1_2, 9);
+    expect(se.fy).toBeCloseTo(Math.SQRT1_2, 9);
+    // 9° off east is not snapped: the facing points at the cursor
+    const free = drag(...deg(9));
+    expect(free.fx).toBeCloseTo(Math.cos((9 * Math.PI) / 180), 9);
+    expect(free.fy).toBeCloseTo(Math.sin((9 * Math.PI) / 180), 9);
+  });
+
+  it('a right-drag under the drag threshold is a plain right click', () => {
+    const g = new GestureRecognizer(10, field);
+    g.down(M(2, 50, 50), [M(2, 50, 50)], 1, probe());
+    g.move(M(2, 55, 55), [], () => true); // exactly 10: not over it
+    expect(g.up(M(2, 55, 55, false), [])).toEqual([{ type: 'release' }, { type: 'order-click', x: 55, y: 55 }]);
+  });
+
+  it('Esc during a right-drag cancels it: nothing is sent', () => {
+    const g = new GestureRecognizer(10, field);
+    g.down(M(2, 50, 50), [M(2, 50, 50)], 1, probe());
+    g.move(M(2, 50, 90), [], () => true);
+    expect(g.cancelOrder()).toEqual([{ type: 'order-cancel' }]);
+    expect(g.move(M(2, 50, 120), [], () => true)).toEqual([]);
+    expect(g.up(M(2, 50, 120, false), [])).toEqual([]); // no order
+    expect(g.cancelOrder()).toEqual([]); // nothing to cancel any more: Esc is free for its menu
+  });
+
+  it('a left press during a right-drag cancels it, and that left press does nothing else', () => {
+    const g = new GestureRecognizer(10, field);
+    g.down(M(2, 50, 50), [M(2, 50, 50)], 1, probe());
+    g.move(M(2, 50, 90), [], () => true);
+    expect(g.down(M(0, 50, 90), [M(0, 50, 90)], 1, probe())).toEqual([{ type: 'order-cancel' }]);
+    expect(types(g.up(M(0, 50, 90), []))).toEqual(['release']); // no tap
+    expect(g.up(M(2, 50, 90, false), [])).toEqual([]); // no order
+  });
+
+  it('a right click while the left button holds a drag leaves that drag alone', () => {
+    const g = new GestureRecognizer(10, field);
+    g.down(M(0, 50, 50), [M(0, 50, 50)], 1, probe({ grab: 'move' }));
+    g.move(M(0, 50, 80), [], () => true);
+    expect(g.down(M(2, 50, 80), [M(2, 50, 80)], 1, probe())).toEqual([]);
+    expect(g.up(M(2, 50, 80), [])).toEqual([]);
+    expect(g.active()).toBe('move');
+    expect(types(g.up(M(0, 50, 80, false), []))).toEqual(['release', 'drag-end']);
+  });
+
+  it('a finger is always the left button, whatever the event says', () => {
+    const g = new GestureRecognizer(10, field);
+    const f: Ptr = { id: 1, x: 50, y: 50, isDown: true, button: 2, wasTouch: true };
+    expect(types(g.down(f, [f], 1, probe()))).toEqual(['press']);
+    expect(types(g.up({ ...f, isDown: false }, []))).toEqual(['release', 'tap']);
+  });
+});
+
+describe('gestures: the middle button pans', () => {
+  it('a middle drag pans 1:1 from the first move, and never orders', () => {
+    const g = new GestureRecognizer(10, field);
+    expect(g.down(M(1, 50, 50), [M(1, 50, 50)], 1, probe({ grab: 'move' }))).toEqual([]);
+    expect(g.move(M(1, 53, 51), [], () => true)).toEqual([{ type: 'pan', dx: 3, dy: 1 }]);
+    expect(g.active()).toBe('pan');
+    expect(g.move(M(1, 60, 60), [], () => true)).toEqual([{ type: 'pan', dx: 7, dy: 9 }]);
+    expect(types(g.up(M(1, 60, 60, false), []))).toEqual(['release']);
+    expect(g.active()).toBeNull();
+  });
+
+  it('a middle press over the HUD does nothing', () => {
+    const g = new GestureRecognizer(10, field);
+    g.down(M(1, 50, 50), [M(1, 50, 50)], 1, probe({ blocked: true }));
+    expect(g.move(M(1, 70, 50), [], () => true)).toEqual([]);
+  });
+});

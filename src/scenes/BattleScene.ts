@@ -34,6 +34,8 @@ import { LADDER, ticketClock } from '../duel/ladder';
 import { battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind, type Unlocks } from '../ui/input/attention';
 import { FACING_DIRS, mirrorX, nextZoom, pipSlot } from '../ui/input/singleTap';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
+import { cursorFor, type HoverHit } from '../ui/input/cursor';
+import { noContextMenu, overControl, resetCursor, setCursor } from '../ui/input/cursorApply';
 import { mapWheel, zoomCamAt } from '../ui/input/zoomAt';
 import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf, type UndoStep } from '../ui/input/undo';
 import { StagedPlan, TAP_GHOST_MS, THEN_CHIP_S, ThenQueue, type ThenKey } from '../ui/orderQueue';
@@ -175,6 +177,9 @@ interface OrderKey {
 
 /** Finger travel (screen px) before a press becomes a drag: below it a lift is a tap. */
 const DRAG_PX = px(10);
+/** A right click on one of ours says what the right button is for, the first few times a session (input-v6.md §2.2). */
+const RIGHT_HINTS = 3;
+let rightHints = 0;
 /** Grab radius (screen px) around the selected group's soldiers, placement marker and facing knob. */
 const GRAB_PX = px(30);
 /** Tap radius (screen px) of a floating group tag (a 44 pt target). */
@@ -214,8 +219,16 @@ export class BattleScene extends BaseScene {
   private acc = 0;
   private selGroup = -1;
   private selUnit = -1;
-  /** One- and two-finger gestures on the field (src/ui/input/gestures.ts); the scene only routes pointer events to it. */
-  private gestures = new GestureRecognizer(DRAG_PX);
+  /** One- and two-finger gestures and the mouse's right and middle buttons on the field (src/ui/input/gestures.ts); the scene only routes pointer events to it. */
+  private gestures = new GestureRecognizer(DRAG_PX, (x, y) => this.fieldAt(x, y));
+  /** A right-drag (move and face) under way for the selected group: its ghost is the drag preview. */
+  private orderDrag = false;
+  /** The mouse's last point and what was under it; the hover is worked out from it once a frame (null: no mouse, or a finger). */
+  private hoverAt: { x: number; y: number; over: Phaser.GameObjects.GameObject[]; dirty: boolean } | null = null;
+  /** The hover preview (input-v6.md §2.1): what a click on this would do, drawn at 50%. */
+  private hover: { kind: 'enemy'; unit: number } | { kind: 'own'; gid: number } | { kind: 'knob' } | null = null;
+  /** The 50% hover preview's layer (the would-be attack arrow or reticle). */
+  private hoverG!: Phaser.GameObjects.Graphics;
   /** Undo (controls.md R4): a stack in deployment, the last order for UNDO_S in battle. Undo issues inverse orders. */
   private deployUndo = new UndoHistory(DEPLOY_UNDO_DEPTH);
   private battleUndo = new UndoHistory(1, UNDO_S * 1000);
@@ -427,6 +440,9 @@ export class BattleScene extends BaseScene {
     this.selGroup = -1;
     this.selUnit = -1;
     this.gestures.reset();
+    this.orderDrag = false;
+    this.hoverAt = null;
+    this.hover = null;
     this.deployUndo.clear();
     this.battleUndo.clear();
     this.undoChip = null;
@@ -570,6 +586,8 @@ export class BattleScene extends BaseScene {
     this.world.add(this.boxes);
     this.knobG = this.add.graphics().setDepth(92000);
     this.world.add(this.knobG);
+    this.hoverG = this.add.graphics().setDepth(92001).setAlpha(0.5);
+    this.world.add(this.hoverG);
     this.projG = this.add.graphics().setDepth(100000);
     this.world.add(this.projG);
     this.fx = new BattleFx(this, this.world);
@@ -658,6 +676,14 @@ export class BattleScene extends BaseScene {
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
+    // a mouse leaving the canvas hovers nothing
+    this.input.on('gameout', () => {
+      this.hoverAt = null;
+      this.hover = null;
+    });
+    // the right button orders on the field: never the browser's menu over the canvas (input-v6.md §2.2)
+    noContextMenu(this);
+    this.events.once('shutdown', () => resetCursor(this));
     // the wheel zooms one step at the cursor (accumulated for trackpads) and shift or deltaX pans; never over the HUD or a dialog
     mapWheel(this, {
       blocked: (_p, over) => over.length > 0 || !!this.overlay,
@@ -932,6 +958,7 @@ export class BattleScene extends BaseScene {
     this.beasts?.update(alpha, !!this.banner);
     this.renderProjectiles(alpha);
     if (this.sim.phase === 'deploy') this.syncWorkArt();
+    this.updateHover();
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
@@ -1332,6 +1359,7 @@ export class BattleScene extends BaseScene {
     const g = this.boxes;
     g.clear();
     this.knobG.clear();
+    this.hoverG.clear();
     if (this.sim.phase === 'deploy') {
       const zone = (side: Side, color: number, fill: number, a: number) => {
         const z = this.sim.deployZone(side);
@@ -1421,10 +1449,38 @@ export class BattleScene extends BaseScene {
       const slots = this.sim.groupSlots(grp.id);
       drawSlots(slots, grp.formation.fx, grp.formation.fy, 0x7fa9a8, 0.6);
       if (this.sim.phase === 'battle') this.drawTargeting(g, grp.id);
-      // the facing arrow and its knob: drag the knob to turn the group
+      // the facing arrow and its knob: drag the knob to turn the group (a mouse over it scales it 1.1x, never under Reduce motion)
       const fr = this.canCommand() && this.sim.phase !== 'ended' ? this.selectedFrame() : null;
-      if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85);
+      const big = this.hover?.kind === 'knob' && !motion.reduced ? 1.1 : 1;
+      if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85, big);
     }
+    this.drawHover(drawSlots);
+  }
+
+  /**
+   * The mouse's hover preview (input-v6.md §2.1), at 50%: over an enemy, what
+   * a click would do (the attack arrow for melee, the reticle for missiles);
+   * over another group of ours, its formation's outline.
+   */
+  private drawHover(drawSlots: (slots: { x: number; y: number }[], fx: number, fy: number, color: number, a: number, dashed?: boolean) => void): void {
+    const h = this.hover;
+    if (!h || h.kind === 'knob') return;
+    if (h.kind === 'own') {
+      const grp = this.sim.groups[h.gid];
+      if (grp && !grp.disbanded) drawSlots(this.sim.groupSlots(grp.id), grp.formation.fx, grp.formation.fy, 0x7fa9a8, 0.35);
+      return;
+    }
+    const foe = this.sim.units[h.unit];
+    const gid = this.selUnit >= 0 ? this.sim.units[this.selUnit].group : this.selGroup;
+    const to = foe ? groupCentre(this.sim, foe.group) : null;
+    if (!to || gid < 0) return;
+    const at = isoToScreen(to.x, to.y);
+    if (enemyTap(this.sim, gid, foe.group).kind === 'focus') {
+      strokeReticle(this.hoverG, at.x, at.y - 52, 7, 1.4);
+      return;
+    }
+    const from = this.selUnit >= 0 ? { x: this.sim.units[this.selUnit].x, y: this.sim.units[this.selUnit].y } : groupCentre(this.sim, gid);
+    if (from) this.chargeArrow(this.hoverG, isoToScreen(from.x, from.y), at);
   }
 
   /**
@@ -1546,7 +1602,7 @@ export class BattleScene extends BaseScene {
   }
 
   /** A facing arrow from the front-rank centre to a round knob KNOB_PACES ahead (the turn handle). */
-  private drawFacingKnob(g: Phaser.GameObjects.Graphics, cx: number, cy: number, fx: number, fy: number, color: number, a: number): void {
+  private drawFacingKnob(g: Phaser.GameObjects.Graphics, cx: number, cy: number, fx: number, fy: number, color: number, a: number, scale = 1): void {
     const P = (along: number, side = 0) => {
       const r = rightOf(fx, fy);
       const p = isoToScreen(cx + fx * along + r.x * side, cy + fy * along + r.y * side);
@@ -1569,11 +1625,11 @@ export class BattleScene extends BaseScene {
     }
     // the knob: a bronze disc in a dark rim, big enough to read as "grab me"
     g.fillStyle(0x2a1d14, 0.8 * a);
-    g.fillCircle(k.x, k.y, 8);
+    g.fillCircle(k.x, k.y, 8 * scale);
     g.fillStyle(0xd9a441, a);
-    g.fillCircle(k.x, k.y, 6);
+    g.fillCircle(k.x, k.y, 6 * scale);
     g.fillStyle(0xfff4c0, a);
-    g.fillCircle(k.x - 1, k.y - 2, 2);
+    g.fillCircle(k.x - 1, k.y - 2, 2 * scale);
   }
 
   /**
@@ -1956,12 +2012,56 @@ export class BattleScene extends BaseScene {
     this.onGestures(evs);
   }
 
-  private onMove(p: Phaser.Input.Pointer): void {
+  private onMove(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[] = []): void {
+    // a mouse: the hover is worked out once a frame from its last point (ADR-0012 Decision 5); a finger never hovers
+    this.hoverAt = p.wasTouch ? null : { x: p.x, y: p.y, over, dirty: true };
     this.onGestures(this.gestures.move(p, this.downPointers(), () => (this.worksGhost ? this.worksShown() : this.selGroup >= 0 && this.canCommand())));
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
     this.onGestures(this.gestures.up(p, this.downPointers()));
+    if (this.hoverAt) this.hoverAt.dirty = true;
+  }
+
+  /**
+   * The mouse's hover, once a frame after it moved (ADR-0012 Decision 5): the
+   * cursor (input-v6.md §2.4) and the hover preview (§2.1). A drag under way
+   * sets the cursor by itself; hover never changes the selection or orders.
+   */
+  private updateHover(): void {
+    const h = this.hoverAt;
+    if (!h) {
+      this.hover = null;
+      return;
+    }
+    const active = this.gestures.active();
+    if (!h.dirty && !active) return;
+    h.dirty = false;
+    let hit: HoverHit = 'none';
+    let disabled = false;
+    this.hover = null;
+    if (h.over.length) ({ hit, disabled } = overControl(h.over));
+    else if (!active && !this.overlay && !this.worksGhost && this.sim.phase !== 'ended') {
+      const r = hitTest(this.hitState(), h);
+      if (r.grab === 'turn') {
+        hit = 'knob';
+        this.hover = { kind: 'knob' };
+      } else if (r.grab === 'move') hit = 'body';
+      else if (r.tap.kind === 'enemy' && this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
+        hit = 'enemy';
+        this.hover = { kind: 'enemy', unit: r.tap.unit };
+      } else if (r.tap.kind === 'own' && r.tap.group !== this.selGroup) this.hover = { kind: 'own', gid: r.tap.group };
+      else if (r.tap.kind === 'tag' && r.tap.gid !== this.selGroup) this.hover = { kind: 'own', gid: r.tap.gid };
+    }
+    // a right-drag sets a facing: the turn cursor
+    const drag = active === 'order' ? (this.orderDrag ? 'turn' : null) : active;
+    setCursor(this, { wasTouch: false }, cursorFor({ hit, drag, disabled, busy: false }));
+  }
+
+  /** Screen px -> field coordinates through the battle camera. */
+  private fieldAt(x: number, y: number): Pt {
+    const w = this.cameras.main.getWorldPoint(x, y);
+    return screenToIso(w.x, w.y);
   }
 
   /** Carry out what the gesture recogniser made of a pointer event. */
@@ -2031,6 +2131,28 @@ export class BattleScene extends BaseScene {
           this.dragPreview = null;
           if (this.worksTap(e.x, e.y)) break;
           this.tap(e.x, e.y);
+          break;
+        case 'order-click':
+          this.orderClick(e.x, e.y);
+          break;
+        case 'order-drag-start':
+          // the right-drag (move and face) needs a group that can take orders; else its release does nothing
+          this.orderDrag = !this.overlay && !this.worksGhost && this.selGroup >= 0 && this.canCommand();
+          if (this.orderDrag) haptic('light');
+          break;
+        case 'order-drag-move':
+          if (this.orderDrag) this.orderPreview(e.at, e.fx, e.fy);
+          break;
+        case 'order-drag-end':
+          if (!this.orderDrag) break;
+          this.orderDrag = false;
+          this.dragPreview = null;
+          // the move-drag's `form` (R2.1) at the press point, with the facing the drag chose
+          this.moveTo(e.at, { x: e.fx, y: e.fy });
+          break;
+        case 'order-cancel':
+          this.orderDrag = false;
+          this.dragPreview = null;
           break;
         case 'drag-end': {
           // lift to place (a ghost on invalid ground stays, and says why)
@@ -2425,35 +2547,91 @@ export class BattleScene extends BaseScene {
       return;
     }
     if (hit.kind === 'enemy') {
-      const foe = this.sim.units[hit.unit];
-      if (this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
-        // missile groups focus their fire on the tapped group, melee groups attack (controls.md R3.1, R3.2)
-        const gid = this.selUnit >= 0 ? this.sim.units[this.selUnit].group : this.selGroup;
-        const act = enemyTap(this.sim, gid, foe.group);
-        if (act.kind === 'focus') this.setFocus(act.target);
-        else this.attackUnit(foe);
-      } else {
-        const h = this.enemyHeroes.find((q) => q.id === foe.heroId);
-        const wpn = h?.equip.weapon ? itemName(h.equip.weapon.def) : t('battle.unarmed');
-        this.showBanner(`${foe.name} - ${wpn}`, 1800);
-      }
+      this.tapEnemy(hit.unit);
       return;
     }
     if (this.selGroup >= 0 && this.canCommand()) {
-      const grp = this.sim.groups[this.selGroup];
-      const f = grp.formation;
-      const w = this.cameras.main.getWorldPoint(x, y);
-      const fp = screenToIso(w.x, w.y);
-      const face = this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy };
-      const solo = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
-      const from = solo ? { x: solo.x, y: solo.y } : groupCentre(this.sim, this.selGroup);
-      const n = this.selUnit >= 0 && !grp.individual ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
-      this.command({ kind: 'form', group: -1, cx: fp.x, cy: fp.y, fx: face.x, fy: face.y, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
-      // the tap-move preview: a path line and a ghost at the destination for TAP_GHOST_MS (R5)
-      const l = Math.hypot(face.x, face.y) || 1;
-      if (from) this.tapGhost = { gid: this.selGroup, from, cx: fp.x, cy: fp.y, fx: face.x / l, fy: face.y / l, frontage: n === 1 ? 1 : f.frontage, type: n === 1 ? 'line' : f.type, n, until: this.time.now + TAP_GHOST_MS };
-      this.tutorialEvent({ kind: 'tapmove' });
+      const fp = this.fieldAt(x, y);
+      const f = this.sim.groups[this.selGroup].formation;
+      this.moveTo(fp, this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy });
     }
+  }
+
+  /**
+   * A right click on the field (input-v6.md §2.2): on the ground the tap-move,
+   * on an enemy the attack or focus, exactly as a tap; it never selects, so on
+   * one of ours it only says what it is for (the first few times).
+   */
+  private orderClick(x: number, y: number): void {
+    if (this.overlay || this.worksGhost) return;
+    if (this.pips) this.closePips();
+    if (this.selGroup < 0) {
+      this.showBanner(t('battle.sit.idle'), 1400);
+      return;
+    }
+    const hit = hitTest(this.hitState(), { x, y }).tap;
+    if (hit.kind === 'own' || hit.kind === 'tag') {
+      if (rightHints < RIGHT_HINTS) {
+        rightHints++;
+        this.showBanner(t('input.hint.rightClick'), 1400);
+      }
+      return;
+    }
+    if (hit.kind === 'enemy') {
+      this.tapEnemy(hit.unit);
+      return;
+    }
+    if (!this.canCommand()) return;
+    const fp = this.fieldAt(x, y);
+    const f = this.sim.groups[this.selGroup].formation;
+    this.moveTo(fp, this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy });
+  }
+
+  /** The right-drag's ghost: the selected group in its shape at `at`, facing (fx, fy) (the move-drag's preview). */
+  private orderPreview(at: Pt, fx: number, fy: number): void {
+    const grp = this.sim.groups[this.selGroup];
+    if (!grp) return;
+    const solo = this.selUnit >= 0 && !grp.individual;
+    const n = solo ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
+    const frontage = solo ? 1 : grp.formation.frontage;
+    const type = solo ? 'line' : grp.formation.type;
+    const files = Phaser.Math.Clamp(Math.round(frontage), 1, n);
+    const label = type === 'wedge' ? t('battle.cmd.wedge') : `${files}x${Math.ceil(n / files)}`;
+    this.dragPreview = { cx: at.x, cy: at.y, fx, fy, frontage, type, n, label };
+  }
+
+  /** A tap (or right click) on an enemy man: attack or focus with the selected group, else who he is. */
+  private tapEnemy(unit: number): void {
+    const foe = this.sim.units[unit];
+    if (this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
+      // missile groups focus their fire on the tapped group, melee groups attack (controls.md R3.1, R3.2)
+      const gid = this.selUnit >= 0 ? this.sim.units[this.selUnit].group : this.selGroup;
+      const act = enemyTap(this.sim, gid, foe.group);
+      if (act.kind === 'focus') this.setFocus(act.target);
+      else this.attackUnit(foe);
+    } else {
+      const h = this.enemyHeroes.find((q) => q.id === foe.heroId);
+      const wpn = h?.equip.weapon ? itemName(h.equip.weapon.def) : t('battle.unarmed');
+      this.showBanner(`${foe.name} - ${wpn}`, 1800);
+    }
+  }
+
+  /**
+   * Send the selected group to field point `fp` facing `face`, keeping its
+   * shape: the tap-move (a tap or right click on the ground) and the
+   * right-drag (move and face) both come here, so they send the same `form`.
+   */
+  private moveTo(fp: Pt, face: Pt): void {
+    const grp = this.sim.groups[this.selGroup];
+    const f = grp.formation;
+    const solo = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
+    const from = solo ? { x: solo.x, y: solo.y } : groupCentre(this.sim, this.selGroup);
+    const n = this.selUnit >= 0 && !grp.individual ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
+    this.command({ kind: 'form', group: -1, cx: fp.x, cy: fp.y, fx: face.x, fy: face.y, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
+    // the tap-move preview: a path line and a ghost at the destination for TAP_GHOST_MS (R5)
+    const l = Math.hypot(face.x, face.y) || 1;
+    if (from) this.tapGhost = { gid: this.selGroup, from, cx: fp.x, cy: fp.y, fx: face.x / l, fy: face.y / l, frontage: n === 1 ? 1 : f.frontage, type: n === 1 ? 'line' : f.type, n, until: this.time.now + TAP_GHOST_MS };
+    this.tutorialEvent({ kind: 'tapmove' });
   }
 
   /**
@@ -2879,6 +3057,12 @@ export class BattleScene extends BaseScene {
     for (const a of PRESS_ACTIONS) keys.on(a, () => this.hotkey(a), ev);
     // Esc in the field opens the ⋯ menu (§3.1); with a sheet or dialog open it is the global Back that closes it
     keys.on('back', () => (nav.topOwner() === this && nav.layers() === 0 && !this.overlay ? this.pressHud('battle.menu') : false), ev);
+    // Esc during a right press or right-drag cancels it (nothing is sent); it is asked first, so the menu waits
+    keys.on('back', () => {
+      const evs = this.gestures.cancelOrder();
+      this.onGestures(evs);
+      return evs.length > 0;
+    }, ev);
     keys.on('time.faster', () => this.speedKey(1), ev);
     keys.on('time.slower', () => this.speedKey(-1), ev);
     keys.on('turn.left', () => this.turnKey(-1), ev);

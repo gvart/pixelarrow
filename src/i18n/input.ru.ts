@@ -58,6 +58,7 @@ export const INPUT_RU: Record<keyof typeof INPUT_EN, string> = {
   'input.action.battle.retreat': 'Отступить',
   'input.action.hero.dismiss': 'Отпустить',
   'input.why.then': '«Затем…» следует за приказом двигаться',
+  'input.hint.rightClick': 'Правый клик — по земле или по врагу',
   'input.why.noGroup': 'Нет отряда {n}',
   'input.why.fastest': 'Быстрее в этом бою нельзя',
   'input.why.slowest': 'Медленнее в этом бою нельзя',

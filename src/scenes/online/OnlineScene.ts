@@ -49,6 +49,7 @@ import { planMarch, type MarchPlan } from '../../online/marchPlan';
 import { regionActions, type Act, type ActId } from '../../online/regionActions';
 import { demoShard, type DemoShard } from '../../online/demoShard';
 import { mapWheel, zoomCamAt } from '../../ui/input/zoomAt';
+import { mapCursor } from '../../ui/input/cursorApply';
 import { ParchmentMapView, clampCenter, otherColor, snapZoom, zoomCycle, zoomLimits, zoomStep, type WorldMapView } from './regionMapView';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
@@ -334,6 +335,8 @@ export class OnlineScene extends BaseScene {
     this.input.on('pointerdown', this.onDown, this);
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
+    // a mouse: the right button does nothing on the map (no browser menu), the middle one pans; cursors (input-v6.md §2.2, §2.4)
+    mapCursor(this, () => this.gesture?.mode === 'pan');
     // the wheel zooms one step at the cursor (accumulated for trackpads), shift or deltaX pans; not over the rail or a sheet
     mapWheel(this, {
       blocked: (p) => this.view.kind !== 'map' || this.overUi(p),
@@ -1470,8 +1473,8 @@ export class OnlineScene extends BaseScene {
       this.pinch = { d0: Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y), z0: this.cameras.main.zoom, wx: w.x, wy: w.y };
       return;
     }
-    if (this.overUi(p)) return;
-    this.gesture = { mode: 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y };
+    if (this.overUi(p) || (!p.wasTouch && p.button === 2)) return;
+    this.gesture = { mode: !p.wasTouch && p.button === 1 ? 'pan' : 'pending', id: p.id, sx: p.x, sy: p.y, lx: p.x, ly: p.y };
   }
 
   private onMove(p: Phaser.Input.Pointer): void {
