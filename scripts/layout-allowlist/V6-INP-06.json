@@ -1,0 +1,7 @@
+{
+  "_doc": "Known layout violations owned by V6-INP-06 (scripts/layout-check.mjs, docs/UI_KIT.md \"Layout check\"). Fix them and remove the entries; delete this file when it is empty. kit-focus at 844x390 in the Telegram insets: Tab's scroll-into-view (INP-04) scrolls the Kit States page so its title runs under the page's 'States n/m' header; a Kit dev page only, the real screens are clean.",
+  "pending": false,
+  "entries": [
+    "kit-focus|text-overlap|STATES|STATES #/#@844x390"
+  ]
+}

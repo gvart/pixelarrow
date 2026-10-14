@@ -28,11 +28,13 @@ import type { GameLike } from './platform/telemetry';
 import { installRenderScale, RS } from './platform/renderScale';
 import { installFastArcs } from './platform/fastArcs';
 import { installStaticCanvases } from './platform/staticCanvas';
-import { selectPlatform } from './platform';
+import { platform, selectPlatform } from './platform';
 import { installKeySource } from './ui/input/keySource';
 import { activeContexts, keys, screenContexts } from './ui/input/keys';
 import { focus, installFocus } from './ui/focusRing';
 import { loadBindings } from './ui/input/bindingStore';
+import { loadGlyphs } from './ui/input/glyphs';
+import { openShortcuts } from './ui/shortcutsSheet';
 
 // Telegram or the plain web, decided once from the launch hints (ADR-0006).
 selectPlatform();
@@ -87,8 +89,17 @@ const keyContexts = () => activeContexts(screenContexts(nav.topOwner()), nav.lay
 installKeySource(window, keys, keyContexts);
 nav.subscribe(() => keys.setContexts(keyContexts()));
 keys.on('back', () => nav.back());
+// ? or F1: the Keyboard shortcuts sheet on the top screen (input-v6.md §6.4; the battle takes it first to pause)
+keys.on('help.keys', () => {
+  const top = nav.topOwner();
+  if (!(top instanceof Phaser.Scene) || !('ui' in top) || !('m' in top)) return false;
+  openShortcuts(top as Parameters<typeof openShortcuts>[0]);
+  return true;
+});
 installFocus(game);
 void loadBindings().then((m) => keys.setBindings(m));
+// key labels on this layout, Cmd or Ctrl by platform (glyphs.ts)
+void loadGlyphs(platform.input);
 // Ask before closing while a save is still uploading.
 online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
 
@@ -115,7 +126,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Debug handles (used by the screenshot script).
-Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav, __focus: focus });
+Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav, __focus: focus, __keys: keys });
 // Layout check (scripts/layout-check.mjs): UI element bounds and rule violations of the current screen.
 Object.assign(window, {
   __layout: {

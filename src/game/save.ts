@@ -50,6 +50,8 @@ export interface Settings {
   leftHand?: boolean;
   /** The last offline battle speed (0.5..3); missing = 1. */
   battleSpeed?: number;
+  /** Keycaps on battle controls with a keyboard (input-v6.md §5.1, Settings → Controls). */
+  keyHints: boolean;
 }
 
 /**
@@ -76,6 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   seenGestureHint: false,
   lang: 'auto',
   analytics: true,
+  keyHints: true,
 };
 
 export interface SaveData {

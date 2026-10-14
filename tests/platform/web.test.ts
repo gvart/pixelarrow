@@ -142,6 +142,13 @@ describe('web adapter: storage, input and lifecycle', () => {
     expect(changed).toHaveBeenCalledTimes(2);
   });
 
+  it('names the shortcut modifier by the OS: ⌘ (meta) on Apple devices, Ctrl elsewhere', () => {
+    expect(createWebPlatform(fakeEnv({ os: 'MacIntel' }).env).input.commandKey()).toBe('meta');
+    expect(createWebPlatform(fakeEnv({ os: 'iPad' }).env).input.commandKey()).toBe('meta');
+    expect(createWebPlatform(fakeEnv({ os: 'Win32' }).env).input.commandKey()).toBe('ctrl');
+    expect(createWebPlatform(fakeEnv().env).input.commandKey()).toBe('ctrl');
+  });
+
   it('gives key labels from the layout map, or null without one', async () => {
     expect(await createWebPlatform(fakeEnv().env).input.keyLabels()).toBeNull();
     const labels = await createWebPlatform(fakeEnv({ layout: { KeyQ: 'a' } }).env).input.keyLabels();

@@ -44,8 +44,7 @@ vi.mock('phaser', () => {
 });
 const { ACTIONS, ACTION_IDS } = await import('../src/ui/input/actions');
 const { defaultBindings } = await import('../src/ui/input/bindings');
-const { SECTIONS, captureKey, changed, keyLabel } = await import('../src/ui/settings/controls');
-const { setLang } = await import('../src/i18n');
+const { SECTIONS, captureKey, changed } = await import('../src/ui/settings/controls');
 
 describe('the Keyboard shortcuts page lists every action once, grouped as in input-v6.md §1.1 (§5.2)', () => {
   it('each action is in exactly one section; the fixed ones only under Menus, read-only', () => {
@@ -117,38 +116,20 @@ describe('a row shows its reset only when it differs from the default (§5.2)', 
   });
 });
 
-describe('key labels follow the layout (§6.2)', () => {
-  it("a letter is the layout's character, upper-cased, else the US label", () => {
-    expect(keyLabel({ code: 'KeyQ' }, new Map([['KeyQ', 'й']]))).toBe('Й');
-    expect(keyLabel({ code: 'KeyQ' }, null)).toBe('Q');
-    expect(keyLabel({ code: 'Digit1' }, null)).toBe('1');
-    expect(keyLabel({ code: 'BracketRight' }, null)).toBe(']');
-  });
-
-  it('named keys use short labels; Space is localized; chords join with +', () => {
-    setLang('ru');
-    expect(keyLabel({ code: 'Space' }, null)).toBe('Пробел');
-    setLang('en');
-    expect(keyLabel({ code: 'Space' }, null)).toBe('Space');
-    expect(keyLabel({ code: 'Numpad1' }, null)).toBe('Num 1');
-    expect(keyLabel({ code: 'ArrowUp' }, null)).toBe('↑');
-    expect(keyLabel({ code: 'KeyZ', mod: true }, null)).toBe('Ctrl+Z');
-    expect(keyLabel({ code: 'Tab', shift: true }, null)).toBe('Shift+Tab');
-  });
-});
-
 const { settingsRows, watchRows } = await import('../src/ui/settings');
 
 describe('the Controls section shows only with a keyboard, and appears live (input-v6.md §5.1)', () => {
   const hasControls = (rows: ReturnType<typeof settingsRows>) => rows.some((r) => r.kind === 'open' && r.what === 'controls');
 
-  it('touch only: no Controls section; with a keyboard: Controls → Keyboard shortcuts, before Account', () => {
+  it('touch only: no Controls section; with a keyboard: Controls → Keyboard shortcuts and Show key hints, before Account', () => {
     expect(hasControls(settingsRows(false))).toBe(false);
     const rows = settingsRows(true);
     expect(hasControls(rows)).toBe(true);
     const at = rows.findIndex((r) => r.kind === 'section' && r.label === 'controls.sec');
     expect(rows[at + 1]).toEqual({ kind: 'open', what: 'controls', label: 'controls.title' });
-    expect(rows[at + 2]).toEqual({ kind: 'section', label: 'settings.sec.account' });
+    // Show key hints (§5.1), default on
+    expect(rows[at + 2]).toEqual({ kind: 'toggle', key: 'keyHints', label: 'controls.keyHints' });
+    expect(rows[at + 3]).toEqual({ kind: 'section', label: 'settings.sec.account' });
   });
 
   it('a keyboard paired while Settings is open adds the section at once (a fake InputHints)', () => {

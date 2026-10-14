@@ -8,4 +8,6 @@ export interface InputHints {
   onChange(cb: () => void): () => void;
   /** KeyboardEvent.code to the label on the player's layout; null where no layout map exists. */
   keyLabels(): Promise<ReadonlyMap<string, string> | null>;
+  /** The OS's shortcut modifier, for labels: 'meta' (⌘) on Apple devices, else 'ctrl' (ADR-0012 Decision 6). */
+  commandKey(): 'ctrl' | 'meta';
 }

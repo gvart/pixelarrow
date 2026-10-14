@@ -37,6 +37,9 @@ interface Shown {
   destroy(): void;
 }
 
+/** The key a control's tip names, "Charge (W)" (set by the keycap layer, src/ui/keycap.ts; input-v6.md §6.1). */
+export const tipKeys: { of: (obj: object) => string | null } = { of: () => null };
+
 const isShown = (v: unknown): v is Shown => !!v && typeof (v as Shown).destroy === 'function';
 
 /**
@@ -60,8 +63,10 @@ export function hoverTip(obj: HoverTarget, tip: string | (() => string | undefin
     if (!canHover(p) || !obj.scene) return;
     timer = obj.scene.time.delayedCall(HOVER_MS, () => {
       timer = null;
-      const text = typeof tip === 'function' ? tip() : tip;
-      if (!text || !obj.scene || obj.input?.enabled === false) return;
+      const said = typeof tip === 'function' ? tip() : tip;
+      if (!said || !obj.scene || obj.input?.enabled === false) return;
+      const key = tipKeys.of(obj);
+      const text = key ? `${said} (${key})` : said;
       const r = show(text);
       shown = isShown(r) ? r : null;
     });
