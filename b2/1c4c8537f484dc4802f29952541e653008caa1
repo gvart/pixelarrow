@@ -1,0 +1,52 @@
+tests/deeplink.test.ts
+  s_0d98fe904b2e82::t_32f46949939b2f 8,135
+tests/online.test.ts
+  s_0d98fe904b2e82::t_32f46949939b2f 7,61,204,311
+src/ui/econ/source.ts
+  s_0d98fe904b2e82::t_7523c357625bf8 37,66,70-72,130
+tests/duelLive.test.ts
+  s_0d98fe904b2e82::t_06e52adb22ce0d 9
+tests/platform/facade.test.ts
+  s_0d98fe904b2e82::t_233208dfbd1bba 4
+src/platform/api.ts
+  s_0d98fe904b2e82::t_3f78e0b83c02af 33-38,276-277,319,360-361,405-407
+  s_0d98fe904b2e82::t_08c7d976611b68 408-409
+tests/onlineAuth.test.ts
+  s_0d98fe904b2e82::t_3e60aebcef1076 1-12,14-17,19-45,47-185,187-199
+  s_0d98fe904b2e82::t_66391e080f879d 46
+  s_0d98fe904b2e82::t_9b0792e07209f3 13,18
+  s_0d98fe904b2e82::t_f9bfd216e5a3bf 186
+tests/platformBoundary.test.ts
+  s_0d98fe904b2e82::t_233208dfbd1bba 28-29
+src/duel/client.ts
+  s_0d98fe904b2e82::t_7523c357625bf8 325-327,451-453
+tests/apiTransport.test.ts
+  s_0d98fe904b2e82::t_32f46949939b2f 14,132
+src/platform/online.ts
+  s_0d98fe904b2e82::t_3ca8d9f3c6b39a 7-12,14-15,31-32,46-48,66-67,80-82,85-92,122-125,127-130,138-143,148-153,156-157,166-183,195,198,230-232,282,389,418,449
+src/platform/cloud.ts
+  s_0d98fe904b2e82::t_7523c357625bf8 1,3-4,7,11-19,21,24
+src/scenes/BootScene.ts
+  s_0d98fe904b2e82::t_7523c357625bf8 112
+tests/fakes/platform.ts
+  s_0d98fe904b2e82::t_32f46949939b2f 6,18-20
+  s_0d98fe904b2e82::t_8b8e95579ea657 21-22
+src/online/client.ts
+  s_0d98fe904b2e82::t_7523c357625bf8 299-301
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b21c4c8537f484dc4802f29952541e653008caa1",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
