@@ -5,7 +5,9 @@
  * The battle opens it through its own help.keys handler so an offline fight pauses while it is open.
  */
 import Phaser from 'phaser';
-import { addText, mosaicPanelImage, type UIMetrics } from './kit';
+import { Button, addText, mosaicPanelImage, type UIMetrics } from './kit';
+import { SIZE } from './theme';
+import { BUTTON_MAX } from './sizeClass';
 import { ScrollList } from './widgets';
 import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { ellipsize, measureText, wrapText } from './textfit';
@@ -50,7 +52,7 @@ export function openShortcuts(scene: UiScene, onClose?: () => void): Phaser.Game
   const rowH = 16;
   const gap = 2;
   const w = settingsSheetW(VW);
-  const want = 26 + 12 + SHEET_ROWS.length * (rowH + gap) + 40;
+  const want = 26 + 12 + SHEET_ROWS.length * (rowH + gap) + SIZE.btnH + 16;
   let list: ScrollList | null = null;
   const m = openParchmentSheet(scene, {
     title: t('controls.title'),
@@ -63,25 +65,29 @@ export function openShortcuts(scene: UiScene, onClose?: () => void): Phaser.Game
       list = null;
       onClose?.();
     },
-    actions: [
-      {
-        label: t('controls.edit'),
-        variant: 'secondary',
-        id: 'shortcuts.edit',
-        onClick: () => {
-          m.close();
-          openControls(scene);
-        },
-      },
-    ],
   });
   const { c, body } = m;
   open.set(scene, c);
+  // Edit in Settings under the list, at most a button's width (§2.3), centred
+  const bw = Math.min(BUTTON_MAX, body.w);
+  const footY = body.y + body.h - SIZE.btnH;
+  c.add(
+    new Button(scene, body.x + (body.w - bw) / 2, footY, bw, SIZE.btnH, {
+      label: t('controls.edit'),
+      variant: 'secondary',
+      small: true,
+      id: 'shortcuts.edit',
+      onClick: () => {
+        m.close();
+        openControls(scene);
+      },
+    }),
+  );
   // where the sheet comes from, under the title
   const tip = wrapText(t('controls.sheetTip'), body.w - 4, 2, false, TEXT_MIN).lines;
   c.add(addText(scene, body.x + 2, body.y, tip.join('\n'), 'pSec').setFontSize(TEXT_MIN));
   const top = body.y + tip.length * 8 + 4;
-  list = new ScrollList(scene, c, body.x, top, body.w, body.y + body.h - top, {
+  list = new ScrollList(scene, c, body.x, top, body.w, footY - SIZE.gap - top, {
     count: SHEET_ROWS.length,
     rowH,
     gap,

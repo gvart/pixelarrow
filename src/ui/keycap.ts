@@ -24,7 +24,7 @@ import { state } from '../state';
 /** The keycap's text size (the A11Y text floor, 6.5 UI px) and its padding. */
 export const CAP_TEXT = 6.5;
 const PAD = 2;
-const CAP_H = 9;
+const CAP_H = 11;
 /** How far the keycap reaches out over the control's rim, UI px. */
 const RIM_OUT = 4;
 
@@ -66,15 +66,17 @@ export function addKeycap(scene: Phaser.Scene, host: Host, action: ActionId, pho
   if (!label) return;
   const cw = Math.min(w, Math.ceil(measureText(label, false, CAP_TEXT)) + PAD * 2);
   const ch = Math.min(h, CAP_H);
-  // straddling the top-right rim (half out), kept on screen: a bar's key at the screen's edge stays inside
+  // straddling the top-right rim (partly out), kept on screen: a bar's key at the screen's edge stays inside
   const m = host.getWorldTransformMatrix();
   const k = Math.abs(m.scaleX) || 1;
   const x = Math.min(w - cw + RIM_OUT, (scene.scale.width - m.tx) / k - cw);
-  const y = Math.max(-RIM_OUT, -m.ty / k);
+  // a control flush with the screen's top (the top bar) takes its keycap on the lower rim instead, clear of its label
+  const roomUp = m.ty / k;
+  const y = roomUp >= RIM_OUT ? -RIM_OUT : Math.min(h - ch + RIM_OUT, (scene.scale.height - m.ty) / k - ch);
   const cap = scene.add.container(x, y);
   cap.name = `keycap.${action}`;
   cap.add(scene.add.rectangle(0, 0, cw, ch, MOSAIC.page, 0.92).setOrigin(0, 0).setStrokeStyle(0.6, MOSAIC.cream, 0.55));
-  const txt = addText(scene, cw / 2, 0.5, label, 'onAccent', 0.5).setFontSize(CAP_TEXT);
+  const txt = addText(scene, cw / 2, 1, label, 'onAccent', 0.5).setFontSize(CAP_TEXT);
   uiFrame(txt, cap, cw, ch);
   cap.add(txt);
   host.add(cap);

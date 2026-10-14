@@ -154,6 +154,12 @@ export function openControls(scene: UiScene, onClose?: () => void): Phaser.GameO
     count: PAGE_ROWS.length,
     rowH,
     gap: SIZE.gap,
+    // every row's chips, for element-parity while the row is scrolled out of the window (V6-066)
+    ids: (i) => {
+      const r = PAGE_ROWS[i];
+      if (r.kind !== 'action' || !ACTIONS[r.id].rebindable) return [];
+      return [`controls.${r.id}.0`, `controls.${r.id}.1`, ...(changed(keys.bindings, r.id) ? [`controls.${r.id}.reset`] : [])];
+    },
     render: (i, row, rw) => {
       const r = PAGE_ROWS[i];
       if (r.kind === 'section') {
