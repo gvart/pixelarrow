@@ -41,7 +41,8 @@ export class AccountRow extends Phaser.GameObjects.Container {
       if (a.off) b.setEnabled(false, a.off);
       this.add(b);
     } else if (a?.kind === 'more') {
-      this.add(new Button(scene, w - MORE_W - 1, 1, MORE_W, h - 2, { icon: 'more', iconOnly: true, small: true, tip: a.label, id: a.id, onClick: a.onClick }));
+      // the ⋯ as three dots in the label (the kit's 'more' icon is a chevron); its name is the long-press text
+      this.add(new Button(scene, w - MORE_W - 1, 1, MORE_W, h - 2, { label: '•••', small: true, tip: a.label, id: a.id, onClick: a.onClick }));
     }
     scene.add.existing(this);
   }

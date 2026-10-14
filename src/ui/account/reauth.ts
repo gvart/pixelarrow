@@ -57,7 +57,7 @@ export async function confirmItsYou(scene: UiScene, d: AccountDeps, o: { hasPass
       intro: t(onlyReopen ? 'reauth.reopen' : 'reauth.body'),
       fields: onlyReopen ? [] : [{ name: 'password', kind: 'currentPassword', label: t('auth.field.password') }],
       footLinks: step === 'passwordReopen' ? [{ id: 'reopen', label: t('reauth.reopenAlt'), onClick: reopen }] : undefined,
-      submitLabel: t(onlyReopen ? 'reauth.reopenBtn' : 'reauth.submit'),
+      submitLabel: t(onlyReopen ? 'reauth.reopenBtn' : 'menu.continue'),
       onDispose: () => done(false),
       async onSubmit(v, f) {
         if (onlyReopen) return reopen();

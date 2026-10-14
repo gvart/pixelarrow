@@ -192,7 +192,6 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'reauth.reopenBtn': 'Открыть заново',
   'reauth.reopenAlt': 'Нет пароля под рукой? Откройте Pixelarrow заново',
   'reauth.reopenFailed': 'Закройте Pixelarrow и откройте снова из бота, затем повторите.',
-  'reauth.submit': 'Продолжить',
   'reauth.err.password': 'Это не ваш пароль.',
   'reauth.err.telegram': 'Telegram не смог подтвердить, что это вы. Откройте Pixelarrow заново и повторите.',
   'reauth.err.wrongAccount': 'Этот аккаунт Telegram не привязан к этому аккаунту Pixelarrow.',

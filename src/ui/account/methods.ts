@@ -34,8 +34,8 @@ export function methodRows(a: Pick<AccountSummary, 'identities'>, pending: strin
   let tg: string | null | undefined;
   let email: string | undefined;
   for (const i of a.identities) {
-    if (i.kind === 'telegram') tg = i.telegramUsername;
-    else email = i.emailMasked;
+    if (i.kind === 'password') email = i.emailMasked;
+    else tg = i.telegramUsername;
   }
   const last = a.identities.length < 2;
   const telegram: MethodRow =

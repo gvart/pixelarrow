@@ -31,7 +31,6 @@ export function openChangeEmail(scene: UiScene, d: AccountDeps, o: ManageOpts): 
       d.resend.sent(d.now());
       host.close();
       openCheckEmail(scene, d, { email, variant: 'changeEmail', onResend: () => openChangeEmail(scene, d, { ...o, email }) });
-      o.onDone?.();
     },
   });
 }

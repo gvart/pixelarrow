@@ -202,7 +202,6 @@ export const ACCOUNT_EN = {
   'reauth.reopenBtn': 'Reopen',
   'reauth.reopenAlt': 'No password at hand? Reopen Pixelarrow instead',
   'reauth.reopenFailed': 'Close Pixelarrow and open it again from the bot, then try again.',
-  'reauth.submit': 'Continue',
   'reauth.err.password': "That's not your password.",
   'reauth.err.telegram': "Telegram couldn't confirm it's you. Reopen Pixelarrow and try again.",
   'reauth.err.wrongAccount': "This Telegram account isn't linked to this Pixelarrow account.",

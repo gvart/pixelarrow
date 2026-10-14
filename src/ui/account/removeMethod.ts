@@ -25,13 +25,14 @@ export interface RemoveOpts {
 }
 
 /** This session came from `kind`: removing it signs this device out. */
-export const endsThisSession = (kind: MethodKind, transport: 'bearer' | 'cookie'): boolean => (kind === 'telegram' ? transport === 'bearer' : transport === 'cookie');
+export const endsThisSession = (kind: MethodKind, transport: 'bearer' | 'cookie'): boolean => (kind === 'password' ? transport === 'cookie' : transport === 'bearer');
 
 export function confirmRemove(scene: UiScene, d: AccountDeps, o: RemoveOpts): void {
   const here = endsThisSession(o.kind, d.transport());
-  const body = o.kind === 'telegram' ? t('unlink.tg.body') : t('unlink.email.body', { email: o.emailMasked ?? '' });
+  const email = o.kind === 'password';
+  const body = email ? t('unlink.email.body', { email: o.emailMasked ?? '' }) : t('unlink.tg.body');
   confirmDialog(scene, {
-    title: t(o.kind === 'telegram' ? 'unlink.tg.title' : 'unlink.email.title'),
+    title: t(email ? 'unlink.email.title' : 'unlink.tg.title'),
     body: here ? `${body} ${t('unlink.signedOutHere')}` : body,
     cancel: t('common.cancel'),
     ok: t('unlink.ok'),

@@ -43,7 +43,6 @@ export function openAddEmail(scene: UiScene, d: AccountDeps, o: ManageOpts): Aut
       d.resend.sent(now);
       host.close();
       openCheckEmail(scene, d, { email, variant: 'addEmail', onResend: () => openAddEmail(scene, d, { ...o, email }) });
-      o.onDone?.();
     },
   });
 }

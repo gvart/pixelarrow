@@ -92,7 +92,7 @@ export function liveAccountSource(d: AccountDeps = accountDeps()): AccountSource
  * (V6-LINK-05) a Telegram-only account with no email, and the same with an add-email link waiting.
  */
 export function demoAccountSource(kind: 'live' | 'guest' | 'pending' | 'telegram' | 'waiting' = 'live'): AccountSource {
-  const tgOnly = kind === 'telegram' || kind === 'waiting';
+  const tgOnly = kind !== 'live' && kind !== 'guest' && kind !== 'pending';
   const now = Date.now();
   let boards = true;
   let sessions: SessionInfo[] = [
@@ -233,7 +233,7 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     const after = { onReload: reopen, onDone: reopen };
     const remove = (kind: MethodKind) => confirmRemove(scene, d, { kind, emailMasked, hasPassword, onDone: reopen });
     for (const r of methodRows(a, waiting)) {
-      const tg = r.kind === 'telegram';
+      const tg = r.kind !== 'password';
       const off = r.last ? t('account.remove.last') : undefined;
       let action: AccountRowOpts['action'];
       if (r.action === 'remove') action = { kind: 'button', label: t('account.remove'), off, id: 'account.tg.remove', onClick: () => remove('telegram') };
