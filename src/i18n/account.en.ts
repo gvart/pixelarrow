@@ -137,6 +137,7 @@ export const ACCOUNT_EN = {
   'account.tg': 'Telegram',
   'account.email': 'Email',
   'account.notLinked': 'Not linked',
+  'account.linked': 'Linked',
   'account.emailNone': 'Not added: add one to play on the web',
   'account.devices': 'Signed-in devices',
   'account.logoutHere': 'Log out on this device',

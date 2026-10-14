@@ -4,7 +4,13 @@ import { state } from '../state';
 import { online } from '../platform/cloud';
 import type { SyncStatus } from '../platform/online';
 import { confirmNewCampaign, openSettings } from '../ui/settings';
-import { openAccountRoute } from '../ui/account';
+import { canUsePasswordForms, openAccountForm, openAccountRoute } from '../ui/account';
+import { askTwoCampaigns, openTwoCampaigns } from '../ui/account/twoCampaigns';
+import { demoAccountSource, openAccountPage } from '../ui/account/accountPage';
+import { openDevices } from '../ui/account/devices';
+import { addTipLine } from '../ui/mosaic';
+import { tipHidden } from '../ui/mosaic/tips';
+import { Campaign } from '../game/campaign';
 import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
 import { addSyncBadge } from '../ui/online';
 import { FrescoBanner, MButton, ProfileCard, QuestCard, StoneTile, addHubShell, goTab, mtext, mw, wrapWords, type HubShell, type ProfileCardOpts, type QuestCardOpts } from '../ui/mosaic';
@@ -64,6 +70,26 @@ export class MenuScene extends BaseScene {
     if (data?.settings === 'notify') this.openNotifications();
     // Opened at #login or #forgot (an email-link page's "Log in", V6-071): the form, once (not again on a relayout).
     if (data?.account && openAccountRoute(this, data.account)) delete data.account;
+    // The first sync after a log-in found progress on both sides (AU-08, V6-ACCT-07): the player picks.
+    askTwoCampaigns(this, () => this.scene.restart());
+  }
+
+  /**
+   * AU-07 the guest tip (accounts-v6.md §4.3 step 4, V6-ACCT-07): on a platform with email forms, with no
+   * session, once the first battle is won; dismissed for good with its X. Null when it does not show.
+   */
+  private guestTip(w: number): { c: Phaser.GameObjects.Container; h: number } | null {
+    if (!canUsePasswordForms() || online.signedIn || !state.hasSave || state.campaign.data.won <= 0 || tipHidden('guestSave')) return null;
+    const c = this.add.container(0, 0);
+    const h = addTipLine(this, c, 0, 0, w, {
+      text: t('auth.guest.tip'),
+      icon: 'people',
+      card: true,
+      dismissId: 'guestSave',
+      id: 'menu.guestTip',
+      action: { label: t('auth.guest.tipCta'), id: 'menu.guestTip.create', onClick: () => openAccountForm(this, 'signup', { onSignedIn: () => this.scene.restart() }) },
+    });
+    return { c, h };
   }
 
   // ------------------------------------------------------------------ the parts (every layout shows all of them)
@@ -183,6 +209,11 @@ export class MenuScene extends BaseScene {
     y += profile.h + GAP;
     const q = this.questOpts(compact);
     if (q) y += add(new QuestCard(this, 1, y, w, q)).h + GAP;
+    const tip = this.guestTip(w);
+    if (tip) {
+      add(tip.c.setPosition(1, y));
+      y += tip.h + GAP;
+    }
     // Army, Stash and Camp, built first: the fresco takes what they leave above the fold
     const row = this.tileRow(add, 1, w, compact ? 36 : 56);
     // the fresco (a one-line banner, or none, when the tiles would fall below the fold)
@@ -218,6 +249,11 @@ export class MenuScene extends BaseScene {
     ly += add(new ProfileCard(this, 1, ly, lw, { ...this.profileOpts(), portraitSize: 24, statsBelow: true })).h + GAP;
     const q = this.questOpts(true);
     if (q) ly += add(new QuestCard(this, 1, ly, lw, q)).h + GAP;
+    const tip = this.guestTip(lw);
+    if (tip) {
+      add(tip.c.setPosition(1, ly));
+      ly += tip.h + GAP;
+    }
     let ry = 2;
     add(this.primary(rx, ry, Math.min(rw, CTA_MAX)));
     ry += CTA_H + GAP;
@@ -243,6 +279,11 @@ export class MenuScene extends BaseScene {
     const profile = add(new ProfileCard(this, 1, y, q ? half : w, { ...this.profileOpts(), portraitSize: 40, statsBelow: 'auto' }));
     const quest = q ? add(new QuestCard(this, 1 + half + PANE_GUTTER, y, w - half - PANE_GUTTER, q)) : null;
     y += Math.max(profile.h, quest?.h ?? 0) + GAP;
+    const tip = this.guestTip(w);
+    if (tip) {
+      add(tip.c.setPosition(1, y));
+      y += tip.h + GAP;
+    }
     const cw = Math.min(w, CTA_MAX);
     const cx = 1 + Math.floor((w - cw) / 2);
     const row = this.tileRow(add, cx, cw, 56);
@@ -292,13 +333,18 @@ export class MenuScene extends BaseScene {
     const quest = q ? new QuestCard(this, side.x, 0, side.w, q) : null;
     if (quest) parts.push(quest);
     const row = this.tileRow(add, side.x, side.w, 56);
-    const sideH = profile.h + GAP + (quest ? quest.h + GAP + 2 : 2) + row.h;
+    const tip = this.guestTip(side.w);
+    const sideH = profile.h + GAP + (quest ? quest.h + GAP + 2 : 2) + (tip ? tip.h + GAP : 0) + row.h;
     let sy = Math.max(2, Math.floor((view - sideH) / 2));
     for (const p of parts) {
       add(p.setY(sy));
       sy += (p === profile ? profile.h : quest!.h) + GAP + (p === quest ? 2 : 0);
     }
     if (!quest) sy += 2;
+    if (tip) {
+      add(tip.c.setPosition(side.x, sy));
+      sy += tip.h + GAP;
+    }
     row.build(sy);
     this.secondPane(shell, side.x);
     area.setContentHeight(Math.max(hy + CTA_H, sy + row.h) + 4);
@@ -336,6 +382,28 @@ export class MenuScene extends BaseScene {
   openNotifications(demo = false): void {
     this.openSettings();
     openNotifySettings(this, demo ? { source: demoNotifySource() } : {});
+  }
+
+  /** Settings → Account (`demo`: an in-memory account for the layout check and the regression run). */
+  openAccount(demo?: 'live' | 'guest' | 'pending'): void {
+    this.openSettings();
+    openAccountPage(this, demo ? { source: demoAccountSource(demo) } : {});
+  }
+
+  /** Settings → Account → Signed-in devices, on an in-memory account (layout check). */
+  openDevicesDemo(): void {
+    this.openAccount('live');
+    openDevices(this, { source: demoAccountSource('live') });
+  }
+
+  /** AU-08 with two sample campaigns (layout check); nothing is kept. */
+  openTwoCampaignsDemo(): void {
+    const local = Campaign.fresh(7).sync();
+    const cloud = Campaign.fresh(8).sync();
+    Object.assign(local, { won: 6, gold: 344 });
+    Object.assign(cloud, { won: 22, gold: 1210 });
+    cloud.world.time = 30 * 24;
+    openTwoCampaigns(this, { local, cloud, prefer: 'cloud', keep: async () => true });
   }
 
   /** Settings → About (terms, privacy, refunds). */

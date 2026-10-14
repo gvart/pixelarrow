@@ -14,7 +14,8 @@ import { MOTION } from '../tokens';
 import { LINE_H, wrapText } from '../textfit';
 import { hintStore } from '../widgets';
 import { t } from '../../i18n';
-import { TAP, makePressable, mosaicImage } from './base';
+import { TAP, makePressable, mosaicImage, mw } from './base';
+import { MButton } from './controls';
 import type { FontKey } from '../kit';
 
 export interface TipLineOpts {
@@ -27,6 +28,8 @@ export interface TipLineOpts {
   maxLines?: number;
   /** On a parchment card of its own instead of flat on the page. */
   card?: boolean;
+  /** One button under the words, at the right (the guest tip's Create account, accounts-v6.md AU-07). */
+  action?: { label: string; id: string; onClick: () => void };
   id?: string;
 }
 
@@ -45,19 +48,20 @@ export function addTipLine(scene: Phaser.Scene, parent: Phaser.GameObjects.Conta
   const xw = o.dismissId ? TAP + 2 : 0;
   const tx = 18;
   const wr = wrapText(o.text, w - tx - xw - 2 - (card ? 2 : 0), o.maxLines ?? 99);
-  const h = Math.max(o.dismissId ? TAP : card ? 18 : 16, wr.lines.length * LINE_H + (card ? 8 : 6));
+  const textH = Math.max(o.dismissId ? TAP : card ? 18 : 16, wr.lines.length * LINE_H + (card ? 8 : 6));
+  const h = textH + (o.action ? TAP + 4 : 0);
   const c = scene.add.container(Math.round(x), Math.round(y));
   parent.add(c);
   if (card) c.add(mosaicImage(scene, 0, 0, w, h, 'parchment'));
   const ic = scaleIcon(addIcon(scene, 0, 0, o.icon ?? (tone === 'reward' ? 'chest' : 'info'), tone === 'info' ? 'D' : ''), 1.2);
-  ic.setPosition(card ? 5 : 2, Math.round((h - ic.displayHeight) / 2));
+  ic.setPosition(card ? 5 : 2, Math.round((textH - ic.displayHeight) / 2));
   c.add(ic);
-  const txt = addText(scene, tx, Math.round((h - wr.lines.length * LINE_H) / 2) + 1, wr.lines.join('\n'), font);
+  const txt = addText(scene, tx, Math.round((textH - wr.lines.length * LINE_H) / 2) + 1, wr.lines.join('\n'), font);
   uiFrame(txt, c, w, h);
   c.add(txt);
   if (o.dismissId) {
     const id = o.dismissId;
-    const b = scene.add.container(w - TAP, Math.round((h - TAP) / 2));
+    const b = scene.add.container(w - TAP, Math.round((textH - TAP) / 2));
     const face = scene.add.container(TAP / 2, TAP / 2);
     const s = TAP - 8;
     const bg = mosaicImage(scene, -s / 2, -s / 2, s, s, 'btnBronze');
@@ -77,6 +81,10 @@ export function addTipLine(scene: Phaser.Scene, parent: Phaser.GameObjects.Conta
     });
     uiId(b, `tip.${id}.close`);
     c.add(b);
+  }
+  if (o.action) {
+    const aw = Math.min(w - tx - 4, Math.max(80, mw(o.action.label, 'pInk') + 24));
+    c.add(new MButton(scene, w - aw - 4, textH, aw, TAP, { label: o.action.label, variant: 'secondary', id: o.action.id, onClick: o.action.onClick }));
   }
   uiId(c, o.id ?? 'tip');
   return h;

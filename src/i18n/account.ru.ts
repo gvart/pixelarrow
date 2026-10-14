@@ -128,6 +128,7 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'account.tg': 'Telegram',
   'account.email': 'Почта',
   'account.notLinked': 'Не привязан',
+  'account.linked': 'Привязан',
   'account.emailNone': 'Не добавлена: добавьте, чтобы играть в браузере',
   'account.devices': 'Устройства со входом',
   'account.logoutHere': 'Выйти на этом устройстве',
