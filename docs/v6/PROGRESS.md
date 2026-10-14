@@ -22,7 +22,9 @@
 
 ## Pause reports 2
 
-(filled in as the agents report)
+- **fix-e2e**: branch `worktree-agent-ae16c57e7911aaf81`, commit c2a4ebfa. A **test bug, not a game bug**: Online.create() never resets this.map, so the e2e's wait on scene.map passed while the view was still loading. Fixed: it waits for the map view with its rail built, and the Lobby and Challenge taps get up to 5 s. The bisect pointed at a docs-only commit, so the failure is load-dependent. Since the fix, 4/15 runs fully passed twice in a row and the duel lookup didn't fail again. Open: (1) about 1 run in 4, player A's page reloads after the attack report (the 'mid-run navigation' PLAT-04 saw; cause unknown; apply `.fixe2e-logs/navprobe.patch` in its worktree to catch it); (2) the recruit Hire tap missed twice; (3) write up the CI job proposal (local wrangler plus a dev-auth build). Keep its worktree (logs in .fixe2e-logs/).
+- **parity-stable**: branch `worktree-agent-a317540fcdde1e225`, commit 749ad462 (wip). Done: restoreStage reloads the staged campaign and reseeds Math.random and crypto before every screen; uiTransient(scene, id, when) and transientIds in src/ui/layout.ts (checkParity skips transient ids; BattleScene registers battle.undo and battle.then while fighting); results-spoils waits for the last card to turn over (fixed results.loot19 at 320x693); tests/parityStable.test.ts (8); vitest 2011/2011; replay-hash 13/13. Left: the 3× runs (run 1 logged 16 violations once at en plain 360x780, unexplained; a standalone probe was clean). Resume: vite on 6130 with the scratch config in .parity-logs/, `.parity-logs/run3x.sh fix 1 2 3`, diff the found.json files, update FLAKY.md (F8), write the report. Keep its worktree.
+- **acct-05**: (awaiting its report)
 
 ## RESUMED (2026-10-14), after a pause at the owner's request
 
