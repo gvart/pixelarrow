@@ -1,0 +1,20 @@
+scripts/lib/settle.mjs
+  s_0d98fe904b2e82::t_4dd7bb6441b24c 47-50
+  s_0d98fe904b2e82::t_200fb6d1832c02 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ee1aa187874729b09c15f8b09ddf7d63862917b0",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
