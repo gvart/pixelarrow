@@ -86,6 +86,8 @@ describe('the beast sheet stage (the 844x390 Telegram crash)', () => {
 
   it('keeps v5 sizes where there is room', () => {
     expect(beastStageH(1000, 179, true)).toBe(74);
+    // the 320-wide phone's sheet (132 of words): v5's 74
+    expect(beastStageH(1000, 132, true)).toBe(74);
     expect(beastStageH(100, 179, true)).toBe(44);
     expect(beastStageH(150, 179, false)).toBe(60);
   });

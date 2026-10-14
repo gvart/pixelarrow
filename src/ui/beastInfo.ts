@@ -150,6 +150,9 @@ const ink: { body: FontKey; dim: FontKey; good: FontKey; bullet: string; heading
   heading: (scene, x, y, str, maxW) => mtext(scene, x, y, str.toUpperCase(), 'rInk', { size: 7, maxW }),
 };
 
+/** The narrowest stage the figure keeps beside the plate, UI px. */
+const FIGURE_MIN = 24;
+
 /**
  * The height of the beast's stage (and its square plate): a short sheet gives the stage less room so the words
  * show, and beside the plate the figure always keeps some width (a narrow column once asked for a stage of
@@ -157,7 +160,7 @@ const ink: { body: FontKey; dim: FontKey; good: FontKey; bullet: string; heading
  */
 export function beastStageH(areaH: number, w: number, plate: boolean): number {
   const h = Math.max(44, Math.min(74, Math.round(areaH * 0.4)));
-  return plate ? Math.min(h, Math.floor((w - 4) / 2)) : h;
+  return plate ? Math.min(h, w - 4 - FIGURE_MIN) : h;
 }
 
 /** The scrolled content of a beast panel into the area (width `w`). */
