@@ -121,6 +121,47 @@
 .closing.section--night {
   background: radial-gradient(32rem 16rem at 50% 50%, rgb(var(--lamp) / 0.16), rgb(var(--lamp) / 0.05) 55%, transparent), var(--night);
 }
+/* The board returns (V6-LAND-06): the hero's diorama still (already in the cache), dim, under the
+   lamp, at a whole-pixel size. Loaded with this sheet, so it costs the first view nothing. As the
+   band scrolls in, the camera pulls back out of the board: the hero's dive, reversed. */
+.closing {
+  isolation: isolate;
+  overflow: clip;
+}
+.closing__board {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url('/hero/landing_hero_diorama_still_2x.webp') 50% 38% / 1296px auto no-repeat;
+  image-rendering: pixelated;
+  opacity: 0.3;
+  mask-image: radial-gradient(closest-side, #000 40%, transparent);
+}
+.closing__title {
+  text-shadow: 0 2px 24px rgb(16 13 11 / 0.9);
+}
+@media (max-width: 767px) {
+  .closing__board {
+    background-size: 648px auto;
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .closing__board {
+      animation-name: closing-pull;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 55%;
+    }
+  }
+}
+@keyframes closing-pull {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14%, 0) scale(1.6);
+  }
+}
 .closing__inner {
   display: grid;
   justify-items: center;

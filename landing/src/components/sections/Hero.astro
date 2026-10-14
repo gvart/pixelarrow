@@ -395,6 +395,11 @@ const H = '/hero/';
       .hero__sky {
         animation-name: hero-sky;
       }
+      /* Phones: no dive (the board sits at the hero's lower edge), but it lags the scroll and swells as
+         the hero leaves (the camera leans in), so phones feel the depth too (V6-LAND-06). */
+      .hero__diorama-wrap {
+        animation-name: hero-lift;
+      }
       @media (min-width: 768px) {
         .hero {
           --dive-scale: 2.1;
@@ -426,6 +431,11 @@ const H = '/hero/';
   @keyframes hero-sky {
     to {
       transform: translate3d(0, 38%, 0) scale(1.08);
+    }
+  }
+  @keyframes hero-lift {
+    to {
+      transform: translate3d(0, 12%, 0) scale(1.12);
     }
   }
   @keyframes hero-beam {

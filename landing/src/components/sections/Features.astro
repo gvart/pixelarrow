@@ -110,6 +110,29 @@ const FEATURES = [
     color: var(--cream-sec);
   }
 
+  /* The icons engrave themselves as the band scrolls in, like the dividers draw (V6-LAND-06). Every
+     stroke is shorter than 160 units, so one dash covers it; static without timelines or motion. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .feature__icon {
+        stroke-dasharray: 160;
+        animation-name: icon-draw;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 25%; /* done by the time it is a quarter up the screen */
+      }
+    }
+  }
+  @keyframes icon-draw {
+    from {
+      stroke-dashoffset: 160;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
   @media (max-width: 1099px) {
     .features__list {
       grid-template-columns: repeat(2, minmax(0, 1fr));

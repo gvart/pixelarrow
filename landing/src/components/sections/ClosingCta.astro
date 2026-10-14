@@ -1,12 +1,14 @@
 ---
 // Closing call to action, STRUCTURE.md §8: one band, no new information, both ways in. The lamp from
-// the hero glows once more over the line. While this band is in view the nav's small "Play" drops to
+// the hero glows once more over the line, and the hero's battlefield comes back under it: the page
+// ends on the board it opened with, the camera pulling back out of it (V6-LAND-06). While this band is in view the nav's small "Play" drops to
 // the outline style, so "Play in browser" is the only terracotta button on screen (ART_DIRECTION §4,
 // V6-025). The nav's own scroll animation ends on the button's underlying colours, so changing those
 // is enough, and it works in browsers without scroll timelines too. Styles: styles/below.css.
 import { PLAY_URL, TELEGRAM_URL } from '../../site';
 ---
 <section class="section section--night closing" aria-labelledby="closing-title">
+  <div class="closing__board" aria-hidden="true"></div>
   <div class="container closing__inner">
     <h2 id="closing-title" class="section__title closing__title">Your phalanx is waiting</h2>
     <div class="closing__ctas">
