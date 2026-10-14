@@ -13,7 +13,7 @@ const { as: Tag = 'li', class: extra } = Astro.props;
   <slot />
 </Tag>
 
-<style>
+<style is:global>
   .tilt {
     --rx: 0deg;
     --ry: 0deg;
@@ -38,10 +38,10 @@ const { as: Tag = 'li', class: extra } = Astro.props;
     .tilt::after {
       transition: opacity 400ms var(--ease-out);
     }
-    .tilt:global(.is-tilting) {
+    .tilt.is-tilting {
       transition: transform 80ms linear;
     }
-    .tilt:global(.is-tilting)::after {
+    .tilt.is-tilting::after {
       opacity: 1;
     }
   }

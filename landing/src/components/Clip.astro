@@ -36,7 +36,7 @@ const base = `/video/${id}`;
   </noscript>
 </div>
 
-<style>
+<style is:global>
   /* The frame keeps the clip's own aspect unless a parent sets --frame-ar (one frame for a grid). */
   .clip {
     position: relative;
@@ -70,7 +70,7 @@ const base = `/video/${id}`;
     opacity: 0;
     transition: opacity var(--dur-enter) var(--ease-out);
   }
-  .clip:global(.is-shown) .clip__video {
+  .clip.is-shown .clip__video {
     opacity: 1;
   }
 
@@ -102,7 +102,7 @@ const base = `/video/${id}`;
   .clip__glyph--pause {
     display: none;
   }
-  .clip:global(.is-playing) .clip__toggle {
+  .clip.is-playing .clip__toggle {
     left: auto;
     top: auto;
     right: var(--s3);
@@ -114,20 +114,20 @@ const base = `/video/${id}`;
     transform: none;
     opacity: 0;
   }
-  .clip:global(.is-playing) .clip__glyph--play {
+  .clip.is-playing .clip__glyph--play {
     display: none;
   }
-  .clip:global(.is-playing) .clip__glyph--pause {
+  .clip.is-playing .clip__glyph--pause {
     display: block;
     width: 18px;
     height: 18px;
   }
-  .clip:global(.is-playing):hover .clip__toggle,
-  .clip:global(.is-playing) .clip__toggle:focus-visible {
+  .clip.is-playing:hover .clip__toggle,
+  .clip.is-playing .clip__toggle:focus-visible {
     opacity: 1;
   }
   @media (hover: none) {
-    .clip:global(.is-playing) .clip__toggle {
+    .clip.is-playing .clip__toggle {
       opacity: 0.8;
     }
   }
