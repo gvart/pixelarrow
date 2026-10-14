@@ -16,7 +16,7 @@ const json = (status: number, body: unknown) => new Response(JSON.stringify(body
 const kv = (): KV => ({ get: async () => null, set: async () => {}, remove: async () => {} });
 
 const telegram = (initData: string | null = 'query_id=1&hash=abc'): Auth => telegramAuth(initData);
-const web = (): Auth => ({ transport: 'cookie', methods: () => [], silentProof: () => null });
+const web = (methods: Auth['methods'] = () => []): Auth => ({ transport: 'cookie', methods, silentProof: () => null });
 
 type Call = { method: string; url: string; init: RequestInit };
 
@@ -115,6 +115,19 @@ describe('web (cookie)', () => {
     expect(await o.signIn()).toBe(false);
     expect(o.signedIn).toBe(false);
     expect(await o.ensureSession()).toBe('signed_out');
+  });
+
+  it('with the password method (ACCT-05): a "no session" answer is signed out, an unreachable server is offline', async () => {
+    let down = false;
+    const srv = server({ 'GET /api/me': () => (down ? json(503, { error: { code: 'unavailable', message: 'x' } }) : unauthorized()) });
+    const o = make(web(() => ['password']), srv.fetch);
+    expect(o.canSignIn()).toBe(true);
+    expect(await o.ensureSession()).toBe('signed_out');
+    expect(await o.ensureSession()).toBe('signed_out'); // remembered: no second probe
+    expect(srv.hits('GET /api/me')).toBe(1);
+    down = true;
+    expect(await o.recheckSession()).toBe(false);
+    expect(await o.ensureSession()).toBe('offline');
   });
 
   it('finds an existing session cookie through GET /api/me (same-origin cookies, no token)', async () => {

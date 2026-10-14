@@ -162,9 +162,10 @@ describe('web adapter: storage, input and lifecycle', () => {
     expect(seen).toEqual([false, true]);
   });
 
-  it('has no sign-in method, payments are coming soon, no notification channel, launch param from ?startapp=', async () => {
+  it('signs in with email and password over a cookie, payments are coming soon, no notification channel, launch param from ?startapp=', async () => {
     const p = createWebPlatform(fakeEnv({ search: '?startapp=duel' }).env);
-    expect(p.auth.methods()).toEqual([]);
+    expect(p.auth.methods()).toEqual(['password']);
+    expect(p.auth.humanCheck).toBeDefined();
     expect(p.auth.silentProof()).toBeNull();
     expect(p.auth.transport).toBe('cookie');
     expect(p.payments.status()).toEqual({ available: false, reason: 'coming_soon' });

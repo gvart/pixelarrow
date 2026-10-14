@@ -82,7 +82,7 @@ export class Online {
     return !!this.d.api.token || this.cookie === 'live';
   }
 
-  /** This platform has a way to sign in (Telegram's initData, the web's methods once ACCT-05 lands, or dev auth). */
+  /** This platform has a way to sign in (Telegram's initData, the web's email and password, or dev auth). */
   canSignIn(): boolean {
     return this.d.auth.methods().length > 0 || !!this.d.devAuth;
   }
@@ -166,10 +166,12 @@ export class Online {
   /** Signs in if needed and says where the player stands (the online screens' gate). */
   async ensureSession(): Promise<SessionState> {
     if (await this.signIn()) return 'live';
+    // the web: the server said there is no session cookie (the player can log in: ACCT-05)
+    if (!this.silent && this.cookie === 'none') return 'signed_out';
     return this.canSignIn() ? 'offline' : 'signed_out';
   }
 
-  /** The session cookie may have changed (log-in, email verified, log-out: ACCT-05): ask the server again. */
+  /** The session cookie may have changed (log-in, email verified, log-out): ask the server again. */
   recheckSession(): Promise<boolean> {
     this.cookie = 'unknown';
     this.nextAuthAt = 0;

@@ -76,6 +76,9 @@ export function platformContract(name: string, make: () => Promise<ContractHarne
       expect(Array.isArray(p.auth.methods())).toBe(true);
       const proof = p.auth.silentProof();
       if (proof) expect(proof.kind).toBe('telegram');
+      // the human check comes with the email forms: present exactly when the password method is
+      expect(p.auth.humanCheck === undefined).toBe(!p.auth.methods().includes('password'));
+      if (p.auth.humanCheck) expect(typeof p.auth.humanCheck.mount).toBe('function');
       expect(typeof p.input.keyboard()).toBe('boolean');
       expect(typeof p.input.finePointer()).toBe('boolean');
       p.input.onChange(() => {})();

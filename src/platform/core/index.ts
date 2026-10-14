@@ -1,6 +1,6 @@
 /** The platform interfaces (ADR-0006). Types only: no runtime code, no globals. */
 export type { Platform, PlatformId, ClientInfo } from './platform';
-export type { Auth, AuthMethod, AuthProof } from './auth';
+export type { Auth, AuthMethod, AuthProof, HumanCheck, HumanCheckAction, HumanCheckFailure, HumanCheckState, HumanCheckWidget } from './auth';
 export type { Payments, PaymentStatus, PaymentResult } from './payments';
 export type { Storage, KV } from './storage';
 export type { Haptics, ImpactStyle, NotifyType } from './haptics';

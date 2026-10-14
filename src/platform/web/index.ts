@@ -1,7 +1,7 @@
 /**
- * The browser adapter (play.pixelarrow.app outside Telegram): no SDK, no
- * sign-in method until ADR-0008 lands, payments "coming soon", saves in
- * localStorage. Safe-area insets come from the CSS env(safe-area-inset-*)
+ * The browser adapter (play.pixelarrow.app outside Telegram): no SDK, email
+ * and password over a session cookie with Turnstile on the forms (ADR-0008),
+ * payments "coming soon", saves in localStorage. Safe-area insets come from the CSS env(safe-area-inset-*)
  * that index.html already applies, so the reported insets are zero.
  */
 import type { PlatformEnv } from '../core/env';
@@ -9,18 +9,20 @@ import type { Platform } from '../core/platform';
 import type { Insets } from '../core/safeArea';
 import { createWebBack } from './back';
 import { browserInputHints, copyText, localKV, openTab, PLAY_URL, queryLaunchParam } from './dom';
+import { createTurnstile } from './turnstile';
 
 const ZERO: Insets = { top: 0, bottom: 0, left: 0, right: 0 };
 
-export function createWebPlatform(env: PlatformEnv): Platform {
+export function createWebPlatform(env: PlatformEnv, opts: { turnstileSiteKey?: string } = {}): Platform {
   const input = browserInputHints(env, () => false);
   const kv = localKV(env);
+  const humanCheck = createTurnstile(env, opts.turnstileSiteKey);
   return {
     id: 'web',
     async init() {
       input.listen();
     },
-    auth: { transport: 'cookie', methods: () => [], silentProof: () => null },
+    auth: { transport: 'cookie', methods: () => ['password'], silentProof: () => null, humanCheck },
     payments: {
       status: () => ({ available: false, reason: 'coming_soon' }),
       pay: async () => 'failed',

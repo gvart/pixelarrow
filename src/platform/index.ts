@@ -6,6 +6,7 @@
 import type { PlatformEnv } from './core/env';
 import type { Platform } from './core/platform';
 import { createPlatform, detectPlatformId, readLaunchHints, telegramLinkOptions } from './detect';
+import { turnstileOptions } from './web/turnstile';
 
 export type * from './core/index';
 
@@ -48,7 +49,10 @@ export function selectPlatform(): Platform {
   selected = true;
   const env = browserEnv();
   const id = detectPlatformId(readLaunchHints(env, { build: import.meta.env.VITE_PLATFORM, dev: !!import.meta.env.DEV }));
-  platform = createPlatform(id, env, telegramLinkOptions({ VITE_TELEGRAM_BOT: import.meta.env.VITE_TELEGRAM_BOT, VITE_TELEGRAM_APP: import.meta.env.VITE_TELEGRAM_APP }));
+  platform = createPlatform(id, env, {
+    ...telegramLinkOptions({ VITE_TELEGRAM_BOT: import.meta.env.VITE_TELEGRAM_BOT, VITE_TELEGRAM_APP: import.meta.env.VITE_TELEGRAM_APP }),
+    ...turnstileOptions({ VITE_TURNSTILE_SITE_KEY: import.meta.env.VITE_TURNSTILE_SITE_KEY, DEV: !!import.meta.env.DEV }),
+  });
   return platform;
 }
 
