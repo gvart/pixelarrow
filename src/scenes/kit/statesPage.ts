@@ -46,20 +46,24 @@ export function buildStates(cur: Cursor): void {
   cur.title('Focus and hover');
   // inset by the ring's reach (5 px), which sits outside the control and would be clipped at the page edge
   const fx = 5;
-  const fw = Math.floor((w - 2 * fx - 3 * G) / 4);
-  heads(cur, 0, ['focused', 'hover', 'focused', 'hover']);
+  // four in a row when each keeps its tap width, else two rows of two (a narrow page, compact landscape)
+  const cols = Math.floor((w - 2 * fx - 3 * G) / 4) >= TAP ? 4 : 2;
+  const fw = Math.floor((w - 2 * fx - (cols - 1) * G) / cols);
+  // rows far enough apart that their rings do not touch
+  const pitch = 24 + 3 * G;
+  heads(cur, 0, ['focused', 'hover', 'focused', 'hover'].slice(0, cols));
   // a little room for the ring, which sits outside the control
   cur.y += 4;
   const ring = scene.add.graphics();
   const sample: [MButtonVariant, string][] = [['secondary', 'Collect'], ['secondary', 'Collect'], ['primary', 'Fight'], ['primary', 'Fight']];
   sample.forEach(([v, label], i) => {
-    const b = cur.add(new MButton(scene, fx + i * (fw + G), cur.y, fw, 24, { label, variant: v, onClick: tap(v), id: `kit.focus.${i}` }));
+    const b = cur.add(new MButton(scene, fx + (i % cols) * (fw + G), cur.y + Math.floor(i / cols) * pitch, fw, 24, { label, variant: v, onClick: tap(v), id: `kit.focus.${i}` }));
     const r = { x: b.x, y: b.y, w: b.w, h: b.h };
     if (i % 2 === 0) drawFocusRing(ring, r);
     else drawHoverRim(ring, r);
   });
   cur.add(ring);
-  cur.y += 24 + 4 + G;
+  cur.y += (4 / cols - 1) * pitch + 24 + 4 + G;
   const rw = Math.floor((w - 2 * fx - 2 * G) / 2);
   const row = cur.add(new ParchmentRow(scene, fx, cur.y, rw, { title: 'Focused row', icon: 'helmet', onClick: tap('row'), id: 'kit.focus.row' }));
   const row2 = cur.add(new ParchmentRow(scene, fx + rw + 2 * G, cur.y, rw, { title: 'Hover row', icon: 'helmet', onClick: tap('row'), id: 'kit.focus.row2' }));
