@@ -38,6 +38,19 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 
 ## Resolved
 
+### F9 · `scripts/online-e2e.mjs`: A's "reload" before recruiting, the Hire tap, the lockstep tick wait (timing/async, fixed in FIX-E2E)
+
+- **Seen:** "Execution context was destroyed" at the recruit step in 4 of 24 runs; "recruited a hero" failed in 2 of
+  24, then 3 of 14 more; "both clients advance in lockstep" once in 4 at load ≈ 85. Not in CI (the script needs a
+  local Worker with DEV_AUTH; proposal in `E2E_CI.md`).
+- **Cause:** test only, no navigation and no game bug. The "reload" was a same-document page (Playwright reports any
+  protocol error on an evaluate as a destroyed context) at the one evaluate that returned Phaser's ScenePlugin, a
+  3-9 s serialization; not reproduced in 14 later runs, so the exact error is unknown. The Hire tap came at a fixed
+  400 ms, and the 4 s undo window is game time (frames capped at 200 ms), 20 s at 1 fps. The tick wait had a 30 s cap.
+- **Fix:** `void` the evaluate; Hire by layout id until the scene holds the hire, then wait for it to be sent and for
+  the profile; 90 s caps on the duel waits. Then 10/10 runs in a row passed (load 54-88), plus 2 with the committed
+  script. Details: `E2E_CI.md` "Stability evidence".
+
 ### F4 · `scripts/smoke.mjs` in Telegram mode, "tap on the map plans a route" and "party marched" (timing/async + missed event, fixed in QA-HARDEN)
 
 - **Seen:** both failed once during the INP-03 integration (load average ≈ 20; `v6-shots/integrator-inp-03/regression.log`:
