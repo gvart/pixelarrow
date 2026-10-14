@@ -1,0 +1,26 @@
+tests/shopWebWallet.test.ts
+  s_0d98fe904b2e82::t_2d0d424ff99786 1-53
+src/i18n/shop.v5.ru.ts
+  s_0d98fe904b2e82::t_cf9c5bc99c0384 17-20
+src/i18n/shop.v5.en.ts
+  s_0d98fe904b2e82::t_cf9c5bc99c0384 18-21
+src/ui/econ/shopModel.ts
+  s_0d98fe904b2e82::t_e8254b223e1a82 10-11,71-78
+  s_0d98fe904b2e82::t_4ffdd826c5bf29 79-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cb6719786163e6164b6bafec65828af88eb92581",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
