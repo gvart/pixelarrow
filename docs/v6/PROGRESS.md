@@ -5,7 +5,11 @@
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
-## PAUSED (2026-10-14, at the owner's request)
+## RESUMED (2026-10-14), after a pause at the owner's request
+
+Resumed: integrator-plat-05 is merging PLAT-05; rscr-02b, rscr-05b and rscr-07b continue in the existing worktrees of rscr-02, rscr-05 and rscr-07.
+
+### Pause record
 
 The run is paused cleanly. **To resume:** start the same `/loop /orchestrate …` prompt. The Director reads this file and `git log` on v6, then:
 1. Checks each paused agent's branch below (commits, `wip` commits included). For an unfinished branch, dispatch a fresh agent with the same story prompt, telling it to start FROM that branch (`git merge --ff-only <branch>` or a reset to it) and to finish the remaining steps. For a finished branch, hand it to an integrator.
