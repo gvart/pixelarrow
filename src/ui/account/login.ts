@@ -43,7 +43,10 @@ export function openLogin(scene: UiScene, d: AccountDeps, o: SignInOpts = {}): A
       await forgetPending(d.kv);
       host.close();
       if (scene.sys.isActive()) toast(scene, t('auth.login.ok', { name: d.session.playerName ?? '' }), 'good');
-      o.onSignedIn?.();
+      // the first sync with the account (the guest save goes up, or Two campaigns asks), then the caller
+      const done = () => o.onSignedIn?.();
+      if (d.afterSignIn) d.afterSignIn(scene, done);
+      else done();
     },
   });
   return form;

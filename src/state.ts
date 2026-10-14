@@ -13,6 +13,10 @@ import { online } from './platform/cloud';
 import { newProgress } from './game/tutorial';
 import { setReducedMotion } from './ui/motion';
 import { resolveAbandoned } from './game/campaignBattle';
+import { hasProgress } from './platform/saveSync';
+
+/** Device storage key of the last campaign with progress that a cloud copy replaced (kept, never read by the game). */
+export const REPLACED_KEY = 'px_save_replaced';
 
 /** Longest the boot screen waits for the cloud save before starting with the local one. */
 const PULL_WAIT_MS = 6000;
@@ -129,6 +133,7 @@ class GameState {
   /** A newer copy of the campaign arrived from the server (another device). */
   async adoptRemote(data: SaveData): Promise<void> {
     await this.saving;
+    await this.keepReplaced();
     this.campaign = new Campaign(data);
     this.hasSave = true;
     this.pending = null;
@@ -136,6 +141,42 @@ class GameState {
     setHaptics(this.campaign.data.settings.haptics);
     setReducedMotion(this.campaign.data.settings.reduceMotion);
     await this.writeLocal(data);
+  }
+
+  /**
+   * Before a cloud copy replaces this device's campaign: one copy of the campaign it replaces, when that
+   * had progress, in device storage (the save-systems "keep the last good save" rule; recovered by hand).
+   */
+  private async keepReplaced(): Promise<void> {
+    const cur = this.hasSave ? this.campaign?.data : null;
+    if (!cur || !hasProgress(cur)) return;
+    try {
+      await platform.storage.device().set(REPLACED_KEY, JSON.stringify({ at: Date.now(), data: cur }));
+    } catch {
+      /* a safety copy only */
+    }
+  }
+
+  /**
+   * After a log-in on this device (V6-ACCT-07): the first sync with the account. A guest campaign goes
+   * up to an account that has none; a device without one takes the account's (through online.onAdopt,
+   * which also sends the game to the menu); with progress on both sides, online.choice waits for AU-08.
+   * True when the account's campaign replaced this device's.
+   */
+  async syncAfterSignIn(): Promise<boolean> {
+    if (this.readOnly) return false;
+    await this.saving;
+    const remote = await online.pullOnLoad(this.hasSave ? this.campaign.sync() : null);
+    if (!remote) return false;
+    await online.onAdopt(remote);
+    return true;
+  }
+
+  /** AU-08 answered: the account's campaign replaces this one, or this one is uploaded over the account's. */
+  async keepCampaign(keep: 'local' | 'cloud'): Promise<void> {
+    await this.saving;
+    const cloud = await online.resolveChoice(keep, this.campaign.sync());
+    if (cloud) await online.onAdopt(cloud);
   }
 
   async reset(): Promise<void> {

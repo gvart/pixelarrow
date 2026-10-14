@@ -1,4 +1,5 @@
 import { setCosmeticLoadout } from '../game/cosmetics';
+import { addSignInGate, showsSignInGate } from '../ui/account/gate';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { scaleIcon, ScrollArea, addIcon, addText, tappable } from '../ui/kit';
@@ -233,7 +234,10 @@ export class ShopScene extends BaseScene {
     if (this.st === 'outside') {
       // AU-01 Sign in to play online (design/ux/accounts-v6.md §4.4)
       const [x, w, h] = [this.box.x + 4, this.box.w - 8, this.pageBottom() - top];
-      this.page.add([mosaicImage(this, x, top, w, h, 'parchmentWell'), addParchmentEmpty(this, x + 2, top + 2, w - 4, h - 4, { icon: 'flag', title: t('auth.gate.title'), hint: t('auth.gate.shop') })]);
+      this.page.add(mosaicImage(this, x, top, w, h, 'parchmentWell'));
+      // with Create account and Log in where the platform signs in with forms (V6-ACCT-07)
+      if (showsSignInGate()) addSignInGate(this, this.page, x, top, w, h, 'shop', () => this.scene.restart(this.sys.settings.data));
+      else this.page.add(addParchmentEmpty(this, x + 2, top + 2, w - 4, h - 4, { icon: 'flag', title: t('auth.gate.title'), hint: t('auth.gate.shop') }));
       return;
     }
     if (this.st !== 'ready' || !this.loaded) {

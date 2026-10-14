@@ -8,14 +8,26 @@
  *
  * Sessions (ADR-0006 M6, ADR-0008 §3) follow the platform's Auth: Telegram
  * signs in silently with initData (a 24 h bearer token, renewed on a 401);
- * the web may hold a session cookie, found by GET /api/me. Only silent
- * sign-ins sync the save (the web's guest save upload is ACCT-07).
+ * the web may hold a session cookie, found by GET /api/me. Both sync the
+ * save (V6-ACCT-07): a guest's campaign goes up to the account it signs in
+ * to, and when the device and the account both have progress nothing is
+ * written until the player picks one (`choice`, AU-08).
  */
 import { ApiClient, isApiError, type PlayerInfo, type Product, type VerifyRequest } from './api';
 import type { Auth } from './core/auth';
 import type { Payments } from './core/payments';
 import type { KV, SaveData } from '../game/save';
 import { SYNC_META_KEY, decideOnLoad, parseSyncMeta, remoteSaveData, resolveConflict, seqOf, type SyncMeta } from './saveSync';
+
+/** AU-08: this device's campaign and the account's both have progress; the player keeps one. */
+export interface TwoCampaigns {
+  local: SaveData;
+  cloud: SaveData;
+  /** The server revision the cloud copy was read at. */
+  revision: number;
+  /** The copy with more progress (preselected). */
+  prefer: 'local' | 'cloud';
+}
 
 export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offline';
 
@@ -54,6 +66,10 @@ export class Online {
   playerName: string | null = null;
   playerId: number | null = null;
   entitlements = new Set<string>();
+  /** Two campaigns wait for the player's choice (AU-08): nothing is uploaded until resolveChoice(). */
+  choice: TwoCampaigns | null = null;
+  /** The server refused this account as banned (403 banned, accounts-v6.md §14 Q4). */
+  banned = false;
   /** Whether replacing the running campaign is safe right now (not mid-battle). */
   canAdopt: () => boolean = () => true;
   /** Replace the running campaign with a newer server copy. */
@@ -91,6 +107,11 @@ export class Online {
   /** Signs in silently (Telegram initData or dev auth): these sessions sync the save and buy with Stars. */
   private get silent(): boolean {
     return !!this.d.auth.silentProof() || !!this.d.devAuth;
+  }
+
+  /** This device syncs the save: a silent sign-in, or a session cookie the server confirmed (ACCT-07). */
+  private get syncs(): boolean {
+    return this.silent || this.cookie === 'live';
   }
 
   get api(): ApiClient {
@@ -141,14 +162,17 @@ export class Online {
           ? (await this.d.api.me()).player
           : (proof ? await this.d.api.authTelegram(proof.initData) : await this.d.api.authDev(this.d.devUser?.id, this.d.devUser?.name)).player;
         if (probe) this.cookie = 'live';
+        this.banned = false;
         this.adoptPlayer(player);
         this.authFails = 0;
         void this.refreshEntitlements();
         void this.reportTimeZone();
         return true;
       } catch (e) {
-        if (probe && isApiError(e) && e.status === 401) {
+        // no session, or a banned account's (Q4): signed out, never retried until recheckSession()
+        if (probe && isApiError(e) && (e.status === 401 || (e.status === 403 && e.code === 'banned'))) {
           this.cookie = 'none';
+          this.banned = e.status === 403;
           this.adoptPlayer(null);
           return false;
         }
@@ -214,6 +238,7 @@ export class Online {
   }
 
   private async storeMeta(m: SyncMeta): Promise<void> {
+    if (this.playerId !== null) m = { ...m, pid: this.playerId };
     this.meta = m;
     try {
       await this.d.kv().set(SYNC_META_KEY, JSON.stringify(m));
@@ -230,18 +255,26 @@ export class Online {
    */
   async pullOnLoad(local: SaveData | null): Promise<SaveData | null> {
     const gen = ++this.pullGen;
-    if (!this.silent) {
-      // the web: find a session cookie before the first screen; the save stays on this device
-      await this.signIn();
-      return null;
-    }
-    const stored = await this.loadMeta();
-    if (!(await this.signIn())) return null;
+    const saved = await this.loadMeta();
+    // the web finds its session cookie here, before the first screen; a guest's save stays on this device
+    if (!(await this.signIn()) || !this.syncs) return null;
+    // metadata another player left on this device counts as none (a second person logs in here)
+    const stored = saved && (saved.pid === undefined || saved.pid === this.playerId) ? saved : null;
     this.setStatus('syncing');
     try {
       const remote = await this.d.api.getSave();
       if (gen !== this.pullGen) return null;
-      const dec = decideOnLoad(local, stored, remote);
+      let dec = decideOnLoad(local, stored, remote);
+      if (dec.action === 'ask') {
+        if (!this.silent) {
+          // AU-08: the player picks; until then nothing is written here or on the server
+          this.choice = { local: dec.local, cloud: dec.cloud, revision: dec.revision, prefer: dec.prefer };
+          this.setStatus('local');
+          return null;
+        }
+        // Telegram never asks (unchanged): the copy with more progress wins
+        dec = dec.prefer === 'cloud' ? { action: 'adopt', data: dec.cloud, revision: dec.revision } : { action: 'push', revision: dec.revision };
+      }
       if (dec.action === 'adopt') {
         await this.storeMeta({ revision: dec.revision, seq: seqOf(dec.data) });
         this.setStatus('synced');
@@ -275,6 +308,58 @@ export class Online {
     this.setStatus('offline');
   }
 
+  /**
+   * AU-08 answered. 'cloud': the account's campaign is returned for the caller to adopt (the device's
+   * copy is replaced). 'local': `current` (the device's campaign as it is now) is uploaded over the
+   * account's. Null for 'local', or when nothing was waiting.
+   */
+  async resolveChoice(keep: 'local' | 'cloud', current: SaveData): Promise<SaveData | null> {
+    const c = this.choice;
+    if (!c) return null;
+    this.choice = null;
+    if (keep === 'cloud') {
+      await this.storeMeta({ revision: c.revision, seq: seqOf(c.cloud) });
+      this.setStatus('synced');
+      return c.cloud;
+    }
+    this.meta = { revision: c.revision, seq: -1 };
+    this.queuePush(current, 0);
+    return null;
+  }
+
+  /**
+   * Log out (accounts-v6.md §6.3): what is waiting is uploaded first, then `end` ends the session on the
+   * server (a session that already ended counts as done). On the web the campaign stays on the device
+   * as a guest save with its sync metadata removed, so another person logging in here later is asked
+   * (AU-08) rather than uploaded into. Telegram signs in again silently; its sync is unchanged.
+   * False when the server could not be told (nothing changes then).
+   */
+  async signOut(end: () => Promise<unknown>): Promise<boolean> {
+    await this.flush();
+    try {
+      await end();
+    } catch (e) {
+      if (!(isApiError(e) && e.status === 401)) return false;
+    }
+    this.d.api.token = null;
+    if (this.silent) return true;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.pending = null;
+    this.choice = null;
+    this.meta = null;
+    this.abandonPull();
+    try {
+      await this.d.kv().remove(SYNC_META_KEY);
+    } catch {
+      /* the next pull checks the player id as well */
+    }
+    this.cookie = 'none';
+    this.adoptPlayer(null);
+    this.setStatus('local');
+    return true;
+  }
+
   /** Boot gave up waiting: ignore whatever the in-flight pull returns. */
   abandonPull(): void {
     this.pullGen++;
@@ -282,7 +367,7 @@ export class Online {
 
   /** Called after every local save: uploads the latest data after a quiet period. */
   queuePush(data: SaveData, delayMs = this.d.debounceMs ?? 4000): void {
-    if (!this.silent || this.held) return;
+    if (!this.syncs || this.held || this.choice) return;
     this.pending = data;
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {

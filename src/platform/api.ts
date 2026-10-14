@@ -288,6 +288,28 @@ export function defaultApiBase(): string {
   }
 }
 
+/** One signed-in device (GET /api/auth/sessions; server/src/auth/sessions.ts SessionInfo). */
+export interface SessionInfo {
+  handle: string;
+  transport: 'cookie' | 'bearer';
+  method: string;
+  /** "Chrome on macOS", "Telegram on iOS"; null when the browser did not say. */
+  device: string | null;
+  createdAt: number;
+  lastSeenAt: number;
+  current: boolean;
+}
+
+/** GET /api/account (server/src/account/summary.ts AccountSummary). */
+export interface AccountSummary {
+  displayName: string;
+  identities: ({ kind: 'telegram'; telegramUsername: string | null } | { kind: 'password'; emailMasked: string })[];
+  publicBoards: boolean;
+  sessions: number;
+  hasPurchases: boolean;
+  name: { freeChange: boolean; nextChangeAt: number | null; lockedUntil: number | null; moderatedAt: number | null };
+}
+
 export class ApiClient {
   token: string | null = null;
   readonly base: string;
@@ -432,6 +454,31 @@ export class ApiClient {
   /** Ends this session (the server clears the cookie). A 401 is final: there was nothing to end. */
   logout(): Promise<{ ok: true }> {
     return this.request('POST', '/api/auth/logout', { auth: true, reauth: false });
+  }
+
+  /** Ends every session of the player, this one included (ADR-0008 §3; accounts-v6.md §14 Q6). */
+  logoutAll(): Promise<{ ok: true }> {
+    return this.request('POST', '/api/auth/logout-all', { auth: true, reauth: false });
+  }
+
+  /** The player's signed-in devices (a handle each, never a token). */
+  sessions(): Promise<{ sessions: SessionInfo[] }> {
+    return this.request('GET', '/api/auth/sessions', { auth: true });
+  }
+
+  /** Ends one session by its 12-character handle (`404` when it is already gone). */
+  revokeSession(handle: string): Promise<{ ok: true }> {
+    return this.request('DELETE', `/api/auth/sessions/${encodeURIComponent(handle)}`, { auth: true });
+  }
+
+  /** The caller's account summary (ADR-0009; accounts-v6.md §8.2 AU-09). */
+  account(): Promise<AccountSummary> {
+    return this.request('GET', '/api/account', { auth: true });
+  }
+
+  /** Show me on the public boards of pixelarrow.app (ADR-0010; in-game boards always show the player). */
+  setPublicBoards(enabled: boolean): Promise<{ publicBoards: boolean }> {
+    return this.request('PUT', '/api/account/public-boards', { auth: true, body: { enabled } });
   }
 
   /** Local development only: needs DEV_AUTH=1 on a local `wrangler dev`. */
