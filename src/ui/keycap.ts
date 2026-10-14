@@ -25,6 +25,8 @@ import { state } from '../state';
 export const CAP_TEXT = 6.5;
 const PAD = 2;
 const CAP_H = 9;
+/** How far the keycap reaches out over the control's rim, UI px. */
+const RIM_OUT = 4;
 
 type Host = Phaser.GameObjects.Container & { w?: number; h?: number; __keyAction?: ActionId };
 
@@ -59,12 +61,17 @@ export function addKeycap(scene: Phaser.Scene, host: Host, action: ActionId, pho
   const w = host.w ?? host.width;
   const h = host.h ?? host.height;
   if (!w || !h || !keycapsShown(w, phone)) return;
+  if (host.list.some((c) => c.name === `keycap.${action}`)) return;
   const label = capLabel(action);
   if (!label) return;
   const cw = Math.min(w, Math.ceil(measureText(label, false, CAP_TEXT)) + PAD * 2);
   const ch = Math.min(h, CAP_H);
-  const x = w - cw;
-  const cap = scene.add.container(x, 0);
+  // straddling the top-right rim (half out), kept on screen: a bar's key at the screen's edge stays inside
+  const m = host.getWorldTransformMatrix();
+  const k = Math.abs(m.scaleX) || 1;
+  const x = Math.min(w - cw + RIM_OUT, (scene.scale.width - m.tx) / k - cw);
+  const y = Math.max(-RIM_OUT, -m.ty / k);
+  const cap = scene.add.container(x, y);
   cap.name = `keycap.${action}`;
   cap.add(scene.add.rectangle(0, 0, cw, ch, MOSAIC.page, 0.92).setOrigin(0, 0).setStrokeStyle(0.6, MOSAIC.cream, 0.55));
   const txt = addText(scene, cw / 2, 0.5, label, 'onAccent', 0.5).setFontSize(CAP_TEXT);

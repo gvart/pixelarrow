@@ -155,6 +155,14 @@ export class TopBar extends Phaser.GameObjects.Container {
     // the callbacks close over the scene's live state, so equal slots can keep their buttons
     if (key === this.key) return this;
     this.key = key;
+    this.build(o);
+    // the rebuilt keys get their keycaps again (input-v6.md §6.1); phone sizes hide them on keys under 32 UI px
+    const m = uiMetrics(this.scene);
+    addHudKeycaps(this.scene, this.slots, [], m.cls === 'compact' && !m.land);
+    return this;
+  }
+
+  private build(o: TopBarOpts): this {
     this.slots.removeAll(true);
     for (const k of Object.keys(this.buttons) as (keyof TopBar['buttons'])[]) delete this.buttons[k];
     if (this.one) return this.setOne(o, this.one);

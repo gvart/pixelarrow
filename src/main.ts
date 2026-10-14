@@ -126,7 +126,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Debug handles (used by the screenshot script).
-Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav, __focus: focus });
+Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav, __focus: focus, __keys: keys });
 // Layout check (scripts/layout-check.mjs): UI element bounds and rule violations of the current screen.
 Object.assign(window, {
   __layout: {
