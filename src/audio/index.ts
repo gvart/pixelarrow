@@ -1,5 +1,5 @@
 /**
- * Game audio: the engine singleton and its wiring to the page, Telegram and
+ * Game audio: the engine singleton and its wiring to the page, the platform and
  * Phaser scenes. What plays when is decided in ./hooks.ts (the one file that
  * maps game events to sounds); scenes and widgets only call one-liners:
  *
@@ -8,7 +8,7 @@
  *   battleAudio(scene, sim, events)  // battle events -> sounds (BattleScene.handleEvents)
  */
 import type Phaser from 'phaser';
-import { onAppActive } from '../platform/telegram';
+import { platform } from '../platform';
 import { AudioEngine, type AudioSettings, type PlayOpts } from './engine';
 import type { StingerId, TrackId } from './music';
 import type { SfxId } from './sfx';
@@ -47,7 +47,7 @@ export function installAudio(game: Phaser.Game, settings: () => Partial<AudioSet
   document.addEventListener('visibilitychange', vis);
   window.addEventListener('pagehide', () => audio.setHidden(true));
   window.addEventListener('pageshow', vis);
-  onAppActive((active) => audio.setHidden(!active || document.visibilityState === 'hidden'));
+  platform.onActive((active) => audio.setHidden(!active || document.visibilityState === 'hidden'));
   // Music follows the running scene.
   const hook = (): void => {
     for (const s of game.scene.scenes) {

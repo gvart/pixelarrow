@@ -12,7 +12,8 @@
  * Values are CSS pixels, the unit the canvas parent is laid out in, so no
  * devicePixelRatio / game-scale conversion is needed.
  */
-import { onInsetsChanged, type Insets } from './telegram';
+import type { Insets } from './core/safeArea';
+import { platform } from './index';
 
 const SIDES = ['top', 'bottom', 'left', 'right'] as const;
 
@@ -32,10 +33,10 @@ export function gameInsets(): Insets {
   return { top: r.top, bottom: window.innerHeight - r.bottom, left: r.left, right: window.innerWidth - r.right };
 }
 
-/** Track Telegram's insets; `relayout` runs after each change (e.g. game.scale.refresh()). */
+/** Track the platform's insets; `relayout` runs after each change (e.g. game.scale.refresh()). */
 export function trackSafeArea(relayout: () => void): () => void {
   let last = '';
-  return onInsetsChanged((d, c) => {
+  return platform.safeArea.onChange((d, c) => {
     // Telegram reports the same insets over and over (every viewportChanged);
     // only an actual change needs a re-layout.
     const key = JSON.stringify([d, c]);

@@ -22,11 +22,6 @@ export function attachWebApp(wa: TgWebApp): void {
   tg()?.attach(wa);
 }
 
-/** Called when the app goes to the background (false) or comes back (true). */
-export function onAppActive(cb: (active: boolean) => void): () => void {
-  return platform.onActive(cb);
-}
-
 /** Called with the new insets whenever they change (and once on attach). */
 export function onInsetsChanged(cb: (device: Insets, content: Insets) => void): () => void {
   return platform.safeArea.onChange(cb);
@@ -49,28 +44,12 @@ export function inTelegram(): boolean {
   return !!tg()?.webApp();
 }
 
-/** Client platform ("ios", "android", "tdesktop", "weba", ...) and Bot API version, or "web". */
-export function telegramClient(): { platform: string; version?: string } {
-  const c = platform.client();
-  return { platform: c.platform, version: c.version };
-}
-
-/** The Telegram user's IETF language tag (e.g. "ru", "en-US"), if known. */
-export function telegramLanguage(): string | undefined {
-  return platform.client().language;
-}
-
 export function hasNativeBack(): boolean {
   return platform.back.native;
 }
 
 export function setBackButton(cb: (() => void) | null): void {
   platform.back.setBack(cb);
-}
-
-export function cloudStorage(): TgWebApp['CloudStorage'] | undefined {
-  const app = tg()?.webApp();
-  return app?.isVersionAtLeast?.('6.9') ? app.CloudStorage : undefined;
 }
 
 /** Signed launch data for POST /api/auth/telegram, or null. */
