@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import { t } from '../../i18n';
 import { AuthHost, type AuthForm } from '../form/authForm';
-import { MButton, mtext, openParchmentSheet, runCountdown, SHEET_TITLE_H, GAP, type ParchmentSheetHandle } from '../mosaic';
+import { MButton, mtext, mw, openParchmentSheet, runCountdown, sheetWidth, SHEET_TITLE_H, GAP, wrapWords, type ParchmentSheetHandle } from '../mosaic';
 import type { UiScene } from '../mosaic/subShell';
 import { MOSAIC } from '../tokens';
 import { toast } from '../widgets';
@@ -41,14 +41,26 @@ function envelope(scene: Phaser.Scene, cx: number, y: number): Phaser.GameObject
 }
 
 export function openCheckEmail(scene: UiScene, d: AccountDeps, o: CheckEmailOpts): ParchmentSheetHandle {
-  const w = Math.min(220, scene.m.VW - 16);
-  const bw = w - 16;
-  const lead = mtext(scene, 0, 0, o.variant === 'reset' ? t('auth.check.reset', { email: o.email }) : t('auth.check.sent', { email: o.email }), 'pInk', { size: TEXT, maxW: bw, wrap: true });
   const capped = () => d.resend.state(d.now()).kind === 'capped';
-  const spam = mtext(scene, 0, 0, t(capped() ? 'auth.check.capped' : 'auth.check.spam'), 'pSec', { size: TEXT, maxW: bw, wrap: true });
   const change = o.variant === 'signup';
-  const bodyH = 20 + 4 + lead.height + 4 + spam.height + 6 + BTN_H + GAP + (change ? BTN_H + GAP : 0) + BTN_H;
-  const m = openParchmentSheet(scene, { title: t('auth.check.title'), w, h: SHEET_TITLE_H + bodyH + 18, closeButton: false, id: 'account.checkEmail' });
+  const leadText = o.variant === 'reset' ? t('auth.check.reset', { email: o.email }) : t('auth.check.sent', { email: o.email });
+  const texts = (bw: number) => ({
+    lead: mtext(scene, 0, 0, leadText, 'pInk', { size: TEXT, maxW: bw, wrap: true }),
+    spam: mtext(scene, 0, 0, t(capped() ? 'auth.check.capped' : 'auth.check.spam'), 'pSec', { size: TEXT, maxW: bw, wrap: true }),
+  });
+  const sheetH = (p: { lead: { height: number }; spam: { height: number } }, buttonRows: number) =>
+    SHEET_TITLE_H + 20 + 4 + p.lead.height + 4 + p.spam.height + 6 + buttonRows * BTN_H + (buttonRows - 1) * GAP + 18;
+  // laid out for the box the sheet gets (a side panel in landscape is wider than the phone's 220); on a
+  // short screen with room across, Resend and Change it share a row so the card fits without scrolling
+  const sheetO = { title: t('auth.check.title'), w: Math.min(220, scene.m.VW - 16), closeButton: false, id: 'account.checkEmail' };
+  const w = sheetWidth(scene, sheetO);
+  const bw = w - 16;
+  const halfW = Math.floor((bw - GAP) / 2);
+  const tx = texts(bw);
+  const paired = change && halfW >= 100 && sheetH(tx, 3) > scene.m.VH - 16;
+  const { lead, spam } = tx;
+  const rows = change && !paired ? 3 : 2;
+  const m = openParchmentSheet(scene, { ...sheetO, h: sheetH(tx, rows) });
   const { x, y } = m.body;
   let cy = y;
   m.c.add(envelope(scene, x + bw / 2, cy));
@@ -59,9 +71,9 @@ export function openCheckEmail(scene: UiScene, d: AccountDeps, o: CheckEmailOpts
   cy += spam.height + 6;
 
   let stop: (() => void) | null = null;
-  const resend = new MButton(scene, x, cy, bw, BTN_H, { label: t('auth.check.resend'), variant: 'secondary', id: 'account.check.resend', onClick: () => onResend() });
+  const resend = new MButton(scene, x, cy, paired ? halfW : bw, BTN_H, { label: t('auth.check.resend'), variant: 'secondary', id: 'account.check.resend', onClick: () => onResend() });
   m.c.add(resend);
-  cy += BTN_H + GAP;
+  if (!paired) cy += BTN_H + GAP;
   /** The button follows the gate: off with the countdown while it waits, off for the hour once capped. */
   const refresh = (): void => {
     stop?.();
@@ -70,7 +82,8 @@ export function openCheckEmail(scene: UiScene, d: AccountDeps, o: CheckEmailOpts
     const s = d.resend.state(d.now());
     if (s.kind === 'capped') {
       resend.setLabel(t('auth.check.resend')).setEnabled(false, t('auth.check.capped'));
-      spam.setText(t('auth.check.capped'));
+      // wrapped like mtext did, so the longer line stays inside the card
+      spam.setText(wrapWords(t('auth.check.capped'), bw, (s) => mw(s, 'pSec', TEXT)).join('\n'));
     } else if (s.kind === 'wait') {
       resend.setEnabled(false, t('auth.check.wait'));
       stop = runCountdown(scene, s.ms, (time) => resend.scene && resend.setLabel(t('auth.check.resendIn', { time })), refresh, d.now);
@@ -88,7 +101,7 @@ export function openCheckEmail(scene: UiScene, d: AccountDeps, o: CheckEmailOpts
 
   if (change) {
     m.c.add(
-      new MButton(scene, x, cy, bw, BTN_H, {
+      new MButton(scene, paired ? x + bw - halfW : x, cy, paired ? halfW : bw, BTN_H, {
         label: t('auth.check.change'),
         variant: 'neutral',
         id: 'account.check.change',
