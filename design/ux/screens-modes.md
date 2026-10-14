@@ -4,7 +4,7 @@
 > **Author**: ux-designer (autonomous; answers in docs/v5/ux/ANSWERS.md)
 > **Last Updated**: 2026-10-10
 > **Journey Phase(s)**: 5-minute loop (Duels, War), long-term (Codex, Shop)
-> **Platform Target**: Telegram Mini App, portrait; touch first, mouse second; keyboard/gamepad out of scope. 390x844 design, 360x780 clean, 320x640 and 320x568 usable.
+> **Platform Target**: Telegram Mini App, portrait; touch first, mouse second; keyboard/gamepad out of scope; **v6:** mouse and keyboard per [input-v6.md](input-v6.md) (gamepad still out of scope). 390x844 design, 360x780 clean, 320x640 and 320x568 usable.
 > **Accessibility tier**: Standard (V5-013)
 > **Template**: UX Spec
 > **GDDs referenced**: ai-doctrines.md (Codex doctrines), controls.md (ladder pause, settings), abilities.md (duel respec), battle-readability.md (report why line)
