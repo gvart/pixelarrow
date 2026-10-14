@@ -1,0 +1,23 @@
+src/ui/tutorial/onlineCoach.ts
+  s_0d98fe904b2e82::t_7230494d19f065 20,49,155-168,185,189-192
+src/ui/tutorial/coachPlace.ts
+  s_0d98fe904b2e82::t_ed2f7a1a22ba22 1-56
+tests/coachPlace.test.ts
+  s_0d98fe904b2e82::t_076d2b9c569bc8 1-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e25f100724bf854e3dfca88e5601b1173490ef67",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
