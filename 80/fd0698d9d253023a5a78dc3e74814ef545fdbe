@@ -1,0 +1,41 @@
+src/ui/sheet.ts
+  s_0d98fe904b2e82::t_5b0257f85a9a2b 39,532-535
+  s_0d98fe904b2e82::t_edf5c97013ed86 35-37,311-315,319-335,343-350,373-374,399-403,407-408,410-421
+  s_0d98fe904b2e82::t_85c415a90880d0 409
+  s_0d98fe904b2e82::t_85a6019d605ddc 40,633-637
+  s_0d98fe904b2e82::t_8a75b6a5b2b964 422-423
+src/ui/army/drop.ts
+  s_0d98fe904b2e82::t_b0d4b1e112358d 1-33
+src/ui/mosaic/index.ts
+  s_0d98fe904b2e82::t_98cb7b67595186 24
+src/ui/mosaic/StashGrid.ts
+  s_0d98fe904b2e82::t_8e2c66badec49c 13-15,34-39,79-89,91-92
+  s_0d98fe904b2e82::t_2eda76b1e1ed79 90
+src/ui/army/index.ts
+  s_0d98fe904b2e82::t_398fd61a6b0cc2 11
+tests/armyDrop.test.ts
+  s_0d98fe904b2e82::t_f0cfad14b9ea3e 1-36
+src/ui/mosaic/ParchmentSheet.ts
+  s_0d98fe904b2e82::t_61da7774062be9 121-128
+src/ui/army/parts.ts
+  s_0d98fe904b2e82::t_1d76d7ef7f4e12 22-24,344-346,391-406,408-424
+  s_0d98fe904b2e82::t_8b5feb7856be47 407
+  s_0d98fe904b2e82::t_398fd61a6b0cc2 109-111,114-116
+  s_0d98fe904b2e82::t_6386b11b6416b3 425-426
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "80fd0698d9d253023a5a78dc3e74814ef545fdbe",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
