@@ -1,0 +1,33 @@
+src/scenes/kit/layoutsPage.ts
+  s_0d98fe904b2e82::t_88851b10207220 226
+  s_0d98fe904b2e82::t_74b0cb5392a36f 180
+  s_0d98fe904b2e82::t_41174623e25a45 172-173
+  s_0d98fe904b2e82::t_7224654846d97b 236,258-260,268-285,373
+  s_0d98fe904b2e82::t_abaadb0a55adcc 350-353
+  s_0d98fe904b2e82::t_5b1912218ec608 316-322
+  s_0d98fe904b2e82::t_2c6652f3bfab1a 27
+  s_0d98fe904b2e82::t_b58e9d145a1874 369
+  s_0d98fe904b2e82::t_b136c61ebb810d 333
+  s_0d98fe904b2e82::t_0d1a66ccbd195e 153,159,171,175-178,181-184,187,190-191,193-207,355
+  s_0d98fe904b2e82::t_3583c9a695150c 54-94,97-101
+  s_0d98fe904b2e82::t_6b0c0125db0737 7-8,10-15
+  s_0d98fe904b2e82::t_283c01778e3a0e 290
+  s_0d98fe904b2e82::t_4fc8e486fcb301 237,240-241,374,419
+  s_0d98fe904b2e82::t_c2369d7842434c 20,125-126,142-143,146,154-158,235,238,295,299-300,323,334,337,343-346,354,356-357,370-372,375-390,420-423,439-440,442,470-472
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f9e378b5f025622b39442681f525a7ffdbfad78c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
