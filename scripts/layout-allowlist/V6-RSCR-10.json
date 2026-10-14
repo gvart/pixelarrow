@@ -9,13 +9,6 @@
     "kit-overlay-purchase|text-size|*",
     "kit-overlay-sheet-actions|text-overlap|DOCKED TO THE LOWER EDGE; IT SL…|LATER@844x390",
     "kit-overlay-sheet-actions|text-size|*@844x390",
-    "kit-overlay-sheet|text-size|*@844x390",
-    "menu-reset|text-size|*@844x390",
-    "menu-settings-about|outside-safe-area|about.refunds@844x390",
-    "menu-settings-about|outside-safe-area|wallet.refunds@844x390",
-    "menu-settings-notify|text-overflow|notify.title@844x390",
-    "menu-settings|text-overlap|-|readout.bar.m@844x390",
-    "menu-settings|text-overlap|-|М@844x390",
-    "menu-settings|text-overlap|settings.newCampaignGo|settings.newCampaignSub@844x390"
+    "kit-overlay-sheet|text-size|*@844x390"
   ]
 }
