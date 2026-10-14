@@ -6,7 +6,7 @@ export const CONTROLS_RU: Record<keyof typeof CONTROLS_EN, string> = {
   'controls.title': 'Горячие клавиши',
   'controls.sec.orders': 'Приказы',
   'controls.sec.groups': 'Отряды',
-  'controls.sec.abilities': 'Умения',
+  'controls.sec.abilities': 'Умения в бою',
   'controls.sec.time': 'Время',
   'controls.sec.camera': 'Камера',
   'controls.sec.deploy': 'Расстановка',
