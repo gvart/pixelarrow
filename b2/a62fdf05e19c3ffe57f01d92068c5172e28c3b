@@ -1,0 +1,33 @@
+tests/coachPlace.test.ts
+  s_0d98fe904b2e82::t_8cf9e879439203 32-38
+src/scenes/FirstRunScene.ts
+  s_0d98fe904b2e82::t_fc9e721371cbde 71-72,242-243,246,277-280,282-284
+  s_0d98fe904b2e82::t_96d793c5e09063 268-269
+  s_0d98fe904b2e82::t_ad2711ccfe64bb 23,44-46,311-312,314,320-321,323,328-344,347-348,350-353,355-371,397-400,402,409,412
+  s_0d98fe904b2e82::t_5a6a771a70ee83 276,285-286
+  s_0d98fe904b2e82::t_0f22641b3794d4 375
+  s_0d98fe904b2e82::t_a64f36cb9fb84f 345-346,354
+  s_0d98fe904b2e82::t_5be8c033151a37 349
+src/ui/tutorial/coachPlace.ts
+  s_0d98fe904b2e82::t_6340ced77d74c4 53-54
+  s_0d98fe904b2e82::t_d9d10aafb2cf06 22-25
+src/ui/tutorial/firstRunLayout.ts
+  s_0d98fe904b2e82::t_3e73c597ece32f 7-8
+  s_0d98fe904b2e82::t_ad2711ccfe64bb 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b2a62fdf05e19c3ffe57f01d92068c5172e28c3b",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
