@@ -184,6 +184,9 @@ const SCREENS = [
   { id: 'menu-settings-account', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('live'); return 1;"), wait(p, 600)) },
   { id: 'menu-settings-account-guest', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('guest'); return 1;"), wait(p, 600)) },
   { id: 'menu-settings-account-pending', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('pending'); return 1;"), wait(p, 600)) },
+  // V6-LINK-05: a Telegram-only account (email Not added, Remove off as the last method), an add-email link waiting
+  { id: 'menu-settings-account-telegram', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('telegram'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-account-waiting', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('waiting'); return 1;"), wait(p, 600)) },
   { id: 'menu-settings-devices', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openDevicesDemo(); return 1;'), wait(p, 700)) },
   { id: 'menu-two-campaigns', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openTwoCampaignsDemo(); return 1;'), wait(p, 500)) },
   { id: 'menu-reset', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.confirmReset(); return 1;'), wait(p, 400)) },
@@ -207,7 +210,8 @@ const SCREENS = [
   { id: 'kit-army', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'army' }), wait(p, 1500)) },
   // V6-ACCT-05: the Forms page, and Check your email (a canvas sheet; the forms themselves are HTML over the canvas)
   { id: 'kit-forms', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'forms' }), wait(p, 1200)) },
-  ...['check', 'check-capped'].map((sample) => ({
+  // V6-LINK-05: Check your email for add and change email (the AU-10/11/12 forms are HTML: tests/ and the e2e cover them)
+  ...['check', 'check-capped', 'check-add', 'check-change'].map((sample) => ({
     id: `kit-forms-${sample}`,
     owner: 'F',
     run: async (p) => (await start(p, 'Kit', { page: 'forms' }), await wait(p, 600), await call(p, 'Kit', `s.openFormSample(${JSON.stringify(sample)}); return 1;`), wait(p, 700)),

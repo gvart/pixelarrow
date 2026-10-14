@@ -390,7 +390,7 @@ export class MenuScene extends BaseScene {
   }
 
   /** Settings → Account (`demo`: an in-memory account for the layout check and the regression run). */
-  openAccount(demo?: 'live' | 'guest' | 'pending'): void {
+  openAccount(demo?: Parameters<typeof demoAccountSource>[0]): void {
     this.openSettings();
     openAccountPage(this, demo ? { source: demoAccountSource(demo) } : {});
   }
