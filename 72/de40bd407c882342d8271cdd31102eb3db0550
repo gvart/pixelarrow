@@ -1,0 +1,25 @@
+tests/scrollListIds.test.ts
+  s_0d98fe904b2e82::t_3a93755f7580cd 1-36
+src/ui/widgets.ts
+  s_0d98fe904b2e82::t_f9eac60a8d79c8 757-758
+  s_0d98fe904b2e82::t_3b4ce6db2c9910 767-776
+  s_0d98fe904b2e82::t_a286af54e49e43 801
+src/ui/settings.ts
+  s_0d98fe904b2e82::t_16f4a8aefa017f 117-130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "72de40bd407c882342d8271cdd31102eb3db0550",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
