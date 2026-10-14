@@ -1,0 +1,21 @@
+scripts/duel-smoke.mjs
+  s_0d98fe904b2e82::t_47122b253d2161 10,34-37,42,48-51
+scripts/online-smoke.mjs
+  s_0d98fe904b2e82::t_00e15efc2471f8 28-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cd3ccb9492c2e436f8fa921cd23c5ffc495c265f",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
