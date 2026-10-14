@@ -1,0 +1,21 @@
+src/scenes/online/MerchantScene.ts
+  s_0d98fe904b2e82::t_78db2281c8a582 15-17,81-87,89-90,98-99,120,122,155-156,167-185,190-195,197-230,233-234,242-249,274-279,286-292,295,306-313,320-338,344
+  s_0d98fe904b2e82::t_5c2140d0a57cc8 341
+  s_0d98fe904b2e82::t_504c3ef9531dbf 339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "75e7b9ce966dc982bd450371380b7a8cce1c3a4b",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
