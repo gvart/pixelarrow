@@ -50,7 +50,8 @@ States (the layout-check screens): deployment (`battle-deploy`, `-deploy-formati
 | Shape sheet (5–6 shapes) | `battle.cmd.form_*` | shape open | shape sheet | over the sheet | right side panel, full height | as v5 | right side panel |
 | Groups modal, ⋯ battle menu, more-abilities sheet, retreat confirm, Settings | sheet ids | popups | popups | sheets | side panel / centred dialog (ParchmentSheet 'auto', RSCR-01) | bottom sheet ≤ 320 / dialog | side panel / dialog |
 | Gesture hint card, terrain tip | text | deploy / long press | gesture hint, tooltip | over the field band | centred in the framing rect | as v5 | centred in the framing rect |
-| Tutorial narrator and coach bubbles | — | tutorial | §13.1 | v5 | RSCR-08 (anchors read `fieldTop`/`panelTop`/`headTop`) | — | — |
+| Tutorial narrator (portrait, name, Skip, ✕, typed line) | `tut.narrator`, `tut.skip`, `tut.hide` | tutorial | §13.1 | v5 (full width) | top-left of the framing rect, ≤ 320, else at the field's foot | as v5, ≤ 320 centred | top-left of the framing rect, ≤ 320 |
+| Coach bubbles, ghost hand, skip dialog | — | tutorial | §13.1 | v5 | anchored to the moved controls (RSCR-08 owns their landscape polish) | as v5 | as 844x390 |
 | Left-hand mode | — | setting | Left-hand | rail and eye move | the whole layout mirrors | as v5 | the whole layout mirrors |
 
 ### Results and Inspect
@@ -61,17 +62,17 @@ States (the layout-check screens): deployment (`battle-deploy`, `-deploy-formati
 | "vs …" line (verified, practice) | `results.vs` | vs line | under the banner | left pane | under the banner | left pane |
 | Why line | `results.why` | why | under it | left pane | under it | left pane |
 | Abandoned note | `results.abandoned` | note | under it | left pane | under it | left pane |
-| Tabs Summary / Heroes / Spoils | `results.tab`, `.summary`, `.heroes`, `.spoils` | tabs | 3 | right pane: Heroes / Spoils; `results.tab.summary` is `uiCollapsed` into the left pane's tiles | 3 | as 844x390 |
-| Summary tiles (time, kills, losses, gold or glory, XP) | `results.tile.*`, `stat.*` | tiles | 3 + 2 | left pane, 5 in a row | 3 + 2 | left pane, 3 + 2 |
-| MVP card | `results.mvp` | MVP | Summary page | left pane | Summary page | left pane |
-| Note chips | `results.note#` | notes | Summary page | left pane | Summary page | left pane |
-| Heroes rows with XP bars | rows | Heroes | Heroes page | right pane | Heroes page | right pane |
+| Tabs Summary / Heroes / Spoils | `results.tab`, `.summary`, `.heroes`, `.spoils` | tabs | 3 | right pane: Heroes / Spoils; `results.tab.summary` is `uiCollapsed` into the left pane's tiles | Heroes / Spoils under the stacked Summary (`results.tab.summary` collapsed the same way) | as 844x390 |
+| Summary tiles (time, kills, losses, gold or glory, XP) | `results.tile.*`, `stat.*` | tiles | 3 + 2 | left pane, 5 in a row | stacked over the tabs, 5 in a row | left pane, 3 + 2 |
+| MVP card | `results.mvp` | MVP | Summary page | left pane | stacked over the tabs | left pane |
+| Note chips | `results.note#` | notes | Summary page | left pane | stacked over the tabs (the stack scrolls past 40% of the page) | left pane |
+| Heroes rows with XP bars | rows | Heroes | Heroes page | right pane | Heroes page, ≤ 360 | right pane |
 | Spoils grid, counter, hoard header, empty chest | `results.loot#`, `results.chest` | Spoils | Spoils page | right pane | Spoils page | right pane |
-| Arc variant (company roll, set piece) | `results.arc.*` | arc | page | right pane | page | right pane |
+| Arc variant (company roll, set piece) | `results.arc.*` | arc | page | right pane, centred in its height | under the stacked Summary, centred | right pane, centred in its height |
 | Primary: Spoils, then Continue / Take n/m | `results.primary` | primary | pinned, full width | right pane foot, ≤ 240 | pinned | right pane foot, ≤ 240 |
 | Inspect (item, compare bars, Take / Put back) | sheet | Inspect | modal sheet | right side panel | bottom sheet ≤ 320 | right side panel |
 
-Nothing is removed. The only element not drawn in a layout is the Summary tab in the two-pane layouts: its page is the left pane, registered with `uiCollapsed(scene, 'results.tab.summary', 'results.tile.time')` (the Summary's first control, always on show in the left pane).
+Nothing is removed. The only element not drawn in a layout is the Summary tab where the Summary is pinned (two panes, and stacked on a tablet upright): its page is on show the whole time, registered with `uiCollapsed(scene, 'results.tab.summary', 'results.tile.time')` (the Summary's first control, always on show in the left pane).
 
 ## What changed
 
@@ -93,7 +94,9 @@ Nothing is removed. The only element not drawn in a layout is the Summary tab in
 - Off the phone, hero rows and the MVP card got a press / hover tip (from existing strings) and a face-down spoil turns over when pressed. They make the wide panes real content (the `empty-column` rule) and suit a mouse; compact portrait is unchanged.
 - The left Summary pane uses 3+2 tiles at expanded (the spec's own §7.5 table), 5 a row at compact landscape and on a tablet upright.
 - `GroupCard.barLift` (1 UI px) lifts the bar labels of the expanded cards: at S = 3 (1920x1080) pixel rounding put them 1 CSS px past the card's foot.
-- The tutorial host's `panelTop`/`headTop` read the framing rect in landscape; the narrator's own landscape layout stays with V6-RSCR-08.
+- The tutorial host's `panelTop`/`headTop` read the framing rect in landscape. The narrator is a dialog (≤ 320, §2.3): `battleLayout.narratorBox` puts it top-left of the framing rect in landscape (clear of the cards and the rail; the foot of the field when that covers less of what the step points at), centred ≤ 320 on a tablet upright, and the v5 full width on a phone. Coach bubbles and the first-run screens stay with V6-RSCR-08.
+- Results on a tablet upright (resumed session): the Summary stacks over the Heroes / Spoils tabs (as the landscape's left pane; at most 40% of the page, scrolling past that) and the column is at most 360 (ROW_MAX), centred. The single-column page left the Spoils (empty chest) and the arc variant three quarters empty (`empty-column`) and its rows 385 wide at 820x1180 (`stretched`). The arc's roll and set piece are centred in their page's height wherever the Summary is pinned (the right pane at 1280x800 was empty under them).
+- The shape sheet on a tablet upright is 248 wide so its rows are 240 (they were 248, over the button limit).
 
 ## Evidence
 
@@ -101,3 +104,19 @@ Nothing is removed. The only element not drawn in a layout is the Summary tab in
 - Played with real input (mouse, wheel, right click, keyboard Space / E / Tab / Esc at 1280x800 and 844x390; touch at 768x1024): cards, Fight, Charge and Hold, pause, wheel zoom at the field, focus ring on the HUD; 28/28 checks, no page errors.
 - Portrait HUD pixel compare against v6 (world camera and badges hidden, fake clock, portraits stilled): 9 states × 390, 360, 320 = 27 shots, 0 px different.
 - replay-hash: 13/13 battles in chromium and webkit.
+
+### Resumed session (after merging v6 at cd5a0e1f: RSCR-01, INP-05, QA-HARDEN, PLAT-05)
+
+- `node scripts/layout-check.mjs <preview> --no-shots --scenes 'battle*,results*,tutorial*' --verbose`, all 10 sizes, en and ru, plain and Telegram (28 configurations × 38 screens): **LAYOUT CHECK PASSED, 0 new, 0 failed**. Per class clean / known: compact portrait 442 / 14, compact landscape 144 / 8, medium 148 / 4, expanded 298 / 6 (the known ones are V6-RSCR-08's text-size floor on `tutorial-move` and `tutorial-skip`). Timing-only findings the check's second run cleared: FLAKY F5 (`battle-menu-locked` banner / note at 844x390) and `results.loot15–17` element-parity at 320x693 and 360x780 (see Open issues).
+- The 12 violations at 844x390 in the pause report were the narrator's width (9 tutorial screens, `stretched` 376 > 320), the medallion text-size on `tutorial-move` (allowlisted for V6-RSCR-08, unchanged) and F5. A first full run here also found the shape rows at 768x1024 (248 > 240), the battle menu rows at 1440x900 (243 > 240), Results `empty-column` at 768x1024, 1280x800 and 1440x900 and `stretched` rows at 820x1180; all fixed above.
+- 37 V6-RSCR-08 allowlist entries at 844x390 (group-card overflow, the order keys' touch size, the strength-row overlap on tutorial screens) were fixed by the landscape HUD and are removed.
+- tsc 0 errors; vitest 1978/1979 with the full suite under load (the known World timeout, FLAKY F7, `tests/qafixWorld.test.ts` passes 14/14 alone); vite build OK; replay-hash 13/13 in chromium and webkit (src/sim and src/game untouched).
+- `node scripts/regression/run.mjs <preview> --all`, both modes: 20/21 PASS; `duel-smoke` Telegram failed once under a parallel layout matrix (FLAKY F6, recorded) and passed on the rerun (`--only duel-smoke,battle-kinds`: 4/4 PASS).
+- Portrait pixel compare against v6 (hudshots, 9 HUD states × 390, 360, 320): **27/27 0 px** (two runs each side; one v6 run's `works@390` showed the world layer the harness hides, a capture flake on the v6 side). Results and the narrator are portrait-identical by construction (the stack, the 360 column and the centring run only on a tablet or with the Summary pinned; the face-down spoil's id is metadata).
+- Screenshots: `docs/v6/shots/V6-RSCR-02/` (battle fight, deploy, shapes, menu, beast; Results, Spoils, arc, empty, Inspect; tutorial; at 1280x800, 844x390 and 768x1024, a 1920x1080 fight and Russian at three sizes).
+
+## Open issues
+
+- `results.loot15–19` element-parity at 320x693 and 360x780 shows once and clears on the check's rerun: the Spoils at 390 and 320 are staged by separate battles, so the loot count can differ; the face-down cards now carry their id, so it is no longer the reveal's pace. Not a dropped element.
+- `battle.undo` element-parity at expanded showed twice in a run under heavy load: Undo lives 3 s after an order (controls.md R4.1) and the staging's wall-clock timing decides whether portrait or wide sees it. Clean in the final run.
+- Coach bubbles and the first-run screens in landscape stay with V6-RSCR-08.
