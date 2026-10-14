@@ -146,15 +146,24 @@ const ink: { body: FontKey; dim: FontKey; good: FontKey; bullet: string; heading
   heading: (scene, x, y, str, maxW) => mtext(scene, x, y, str.toUpperCase(), 'rInk', { size: 7, maxW }),
 };
 
+/**
+ * The height of the beast's stage (and its square plate): a short sheet gives the stage less room so the words
+ * show, and beside the plate the figure always keeps some width (a narrow column once asked for a stage of
+ * negative width: the 844x390 Telegram crash, V6-RSCR-09).
+ */
+export function beastStageH(areaH: number, w: number, plate: boolean): number {
+  const h = Math.max(44, Math.min(74, Math.round(areaH * 0.4)));
+  return plate ? Math.min(h, Math.floor((w - 4) / 2)) : h;
+}
+
 /** The scrolled content of a beast panel into the area (width `w`). */
 function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: number, o: BeastInfoOpts): void {
   const c = area.content;
   const world = WORLD_BOSSES.includes(enc);
   let y = 0;
-  // a short sheet gives the stage less room so the words show
-  const stageH = Math.max(44, Math.min(74, Math.round(area.bounds.h * 0.4)));
   // the sheet: the painted plate (what it is) beside the figure on its stage (how it looks in battle)
   const plate = beastPlate(scene, enc);
+  const stageH = beastStageH(area.bounds.h, w, !!plate);
   let sx = 0;
   if (plate) {
     c.add(mosaicImage(scene, 0, y, stageH, stageH, 'parchmentWell'));
