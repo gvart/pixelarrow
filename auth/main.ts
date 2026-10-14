@@ -181,8 +181,9 @@ function playRow(lines: HTMLElement[], to = '/'): void {
   };
   const cancel = (e: Event) => {
     stop();
-    // Enter or Space on Play still opens the game; any other key or a tap just stops the timer.
-    if (e.target !== play) tx(count, 'auth.page.stopped');
+    // Enter or Space on Play, or a tap on it, still opens the game; anything else just stops the timer.
+    const onPlay = e.target === play && (e.type === 'pointerdown' || (e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ');
+    if (!onPlay) tx(count, 'auth.page.stopped');
   };
   doc.addEventListener('keydown', cancel, true);
   doc.addEventListener('pointerdown', cancel, true);

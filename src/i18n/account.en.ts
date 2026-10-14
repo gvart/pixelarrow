@@ -68,7 +68,7 @@ export const ACCOUNT_EN = {
   'auth.page.expiredHint': 'If you already confirmed, just log in.',
   'auth.page.newLink': 'Send a new link',
   'auth.page.taken': 'This email was confirmed for another account in the meantime.',
-  'auth.page.rate': 'Too many tries from this network. Wait a minute and reload this page.',
+  'auth.page.rate': 'Too many tries from this network. Wait a minute and try again.',
   'auth.page.offline': "We couldn't reach Pixelarrow. Check your connection and try again.",
   'auth.page.retry': 'Try again',
   // email-link page variants and parts (§8.3, §8.4, §12 "Auth page shell"; V6-ACCT-06)

@@ -60,7 +60,7 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, string> = {
   'auth.page.expiredHint': 'Если вы уже подтвердили почту, просто войдите.',
   'auth.page.newLink': 'Отправить новую ссылку',
   'auth.page.taken': 'Этот адрес тем временем подтвердили для другого аккаунта.',
-  'auth.page.rate': 'Слишком много попыток из этой сети. Подождите минуту и обновите страницу.',
+  'auth.page.rate': 'Слишком много попыток из этой сети. Подождите минуту и попробуйте снова.',
   'auth.page.offline': 'Не удалось связаться с Pixelarrow. Проверьте соединение и попробуйте ещё раз.',
   'auth.page.retry': 'Попробовать снова',
   'auth.page.titleEmail': 'Подтверждение почты',

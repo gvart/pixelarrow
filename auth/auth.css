@@ -92,6 +92,8 @@ body {
 
 .top {
   display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
   align-items: flex-start;
   gap: 8px;
   padding-bottom: 8px;
@@ -101,7 +103,10 @@ body {
 }
 
 h1 {
-  flex: 1;
+  /* Beside the EN | RU switch when it fits; a long Russian title wraps under it at full width. */
+  flex: 1 1 170px;
+  min-width: 0;
+  overflow-wrap: break-word;
   margin: 0;
   padding-top: 8px;
   font: 700 18px/1.25 'Cinzel', 'Cormorant SC', Georgia, serif;
