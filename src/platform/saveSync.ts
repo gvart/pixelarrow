@@ -83,6 +83,13 @@ export function compareProgress(a: SaveData, b: SaveData): number {
   return (a.won ?? 0) - (b.won ?? 0) || compareSaves(a, b);
 }
 
+/** AU-08: keeping `keep` gives up a campaign with more battles won (the choice is confirmed first). */
+export function keepsLessProgress(c: { local: SaveData; cloud: SaveData }, keep: 'local' | 'cloud'): boolean {
+  const kept = keep === 'local' ? c.local : c.cloud;
+  const lost = keep === 'local' ? c.cloud : c.local;
+  return (kept.won ?? 0) < (lost.won ?? 0);
+}
+
 /** What AU-08 shows of a campaign. */
 export function summarize(s: SaveData): { day: number; men: number; gold: number; won: number } {
   return { day: Math.floor((s.world?.time ?? 0) / 24) + 1, men: s.heroes?.length ?? 0, gold: s.gold ?? 0, won: s.won ?? 0 };

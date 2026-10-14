@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { Campaign } from '../src/game/campaign';
 import type { SaveData } from '../src/game/save';
-import { decideOnLoad, parseSyncMeta, summarize } from '../src/platform/saveSync';
+import { decideOnLoad, keepsLessProgress, parseSyncMeta, summarize } from '../src/platform/saveSync';
 
 function save(seq: number, extra: Partial<SaveData> = {}): SaveData {
   const d = Campaign.fresh(42).sync();
@@ -59,5 +59,15 @@ describe('summarize: what AU-08 shows of each campaign', () => {
     const s = save(1, { won: 6, gold: 344 });
     s.world.time = 11 * 24 + 5;
     expect(summarize(s)).toEqual({ day: 12, men: s.heroes.length, gold: 344, won: 6 });
+  });
+});
+
+describe('AU-08 confirms only a choice that keeps less progress', () => {
+  it('is destructive only when the kept campaign has fewer battles won', () => {
+    const local = save(40, { won: 6 });
+    const cloud = save(12, { won: 22 });
+    expect(keepsLessProgress({ local, cloud }, 'local')).toBe(true);
+    expect(keepsLessProgress({ local, cloud }, 'cloud')).toBe(false);
+    expect(keepsLessProgress({ local: save(1, { won: 5 }), cloud: save(2, { won: 5 }) }, 'local')).toBe(false);
   });
 });
