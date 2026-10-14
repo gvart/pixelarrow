@@ -126,3 +126,13 @@ export function intoFraming(p: { x: number; y: number }, r: Box): { x: number; y
   const d = (v: number, lo: number, hi: number) => (v < lo ? lo - v : v > hi ? hi - v : 0);
   return { x: d(p.x, r.x, r.x + r.w), y: d(p.y, r.y, r.y + r.h) };
 }
+
+/**
+ * The zoom limits from the framing rect and S (§8.3), not S alone: zoomed all the way out, the whole map
+ * fits the framing rect and is no smaller (a tap still picks a region by its area, so it stays tappable);
+ * the floor never passes the start zoom.
+ */
+export function framedZoomLimits<T extends { min: number; max: number; start: number }>(lim: T, S: number, framing: Box, b: Box): T {
+  const fit = Math.min((framing.w * S) / Math.max(1, b.w), (framing.h * S) / Math.max(1, b.h));
+  return { ...lim, min: Math.min(lim.start, Math.max(lim.min, fit)) };
+}

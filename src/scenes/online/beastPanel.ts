@@ -22,6 +22,8 @@ import { ScrollArea, type UIMetrics } from '../../ui/kit';
 import { addScrollHint, type Modal } from '../../ui/widgets';
 import { itemName } from '../../ui/sheet';
 import { SHEET_TITLE_H, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, type MButtonOpts } from '../../ui/mosaic';
+import { sheetWidth } from '../../ui/mosaic/ParchmentSheet';
+import { layoutVariant } from '../../ui/mosaic/layout/geometry';
 import { uiId } from '../../ui/layout';
 import { MOSAIC, TEXT_MIN, lineHeight } from '../../ui/tokens';
 
@@ -68,7 +70,11 @@ export interface WarBeastOpts {
 /** The War beast sheet (docked, X and Back close it). */
 export function openWarBeast(scene: UiScene, enc: EncounterId, o: WarBeastOpts): Modal {
   const { VW, VH } = scene.m;
-  const w = VW - 8;
+  // v5: docked across the screen; medium: a bottom sheet ≤ 320; landscape: the side panel's own width (§3.4).
+  // The content is laid out for the width the sheet will get.
+  const v = layoutVariant(scene.m);
+  const asked = v === 'compactPortrait' ? VW - 8 : v === 'medium' ? 320 : undefined;
+  const w = sheetWidth(scene, { w: asked, dock: 'bottom' });
   const actions: MButtonOpts[] = [{ label: t('war5.codex'), icon: 'beast', variant: 'secondary', tip: t('war5.codexTip'), id: 'beast.codex', onClick: () => o.codex() }];
   if (o.action) {
     const a = o.action;
@@ -80,7 +86,7 @@ export function openWarBeast(scene: UiScene, enc: EncounterId, o: WarBeastOpts):
   const probe = scene.add.container(0, 0);
   const contentH = fill(scene, probe, enc, w - 20, o);
   probe.destroy();
-  const s = openParchmentSheet(scene, { title: encounterName(enc), w, h: Math.min(VH - 12, SHEET_TITLE_H + contentH + 6 + capH + sheetActionsH(actions, w) + 8), actions, dock: 'bottom', id: 'online.beast', onClose: o.onClose });
+  const s = openParchmentSheet(scene, { title: encounterName(enc), w: asked, h: Math.min(VH - 12, SHEET_TITLE_H + contentH + 6 + capH + sheetActionsH(actions, w) + 8), actions, dock: 'bottom', id: 'online.beast', onClose: o.onClose });
   const b = s.body;
   capLines.forEach((l, i) => s.c.add(mtext(scene, b.x + b.w / 2, b.y + b.h - capH + 2 + i * LH, l, 'pInk', { size: TEXT_MIN, align: 0.5, maxW: b.w })));
   const area = new ScrollArea(scene, s.c, b.x, b.y, b.w, b.h - capH - 2, scene.m.S);
