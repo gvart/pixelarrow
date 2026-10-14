@@ -1,0 +1,37 @@
+src/ui/account/twoCampaigns.ts
+  s_0d98fe904b2e82::t_b203e7db3a0929 1-183
+tests/saveSync.test.ts
+  s_0d98fe904b2e82::t_1dcfd9b10ba560 10,64-71
+  s_0d98fe904b2e82::t_96ccd7d123672f 72-73
+src/platform/saveSync.ts
+  s_0d98fe904b2e82::t_1dcfd9b10ba560 86-92
+src/ui/account/index.ts
+  s_0d98fe904b2e82::t_d58fc76d1e7567 7,52-55,57-58
+src/ui/account/deps.ts
+  s_0d98fe904b2e82::t_d58fc76d1e7567 17-22
+  s_0d98fe904b2e82::t_955bed340adbd1 13-14,31-35,52
+src/i18n/account.en.ts
+  s_0d98fe904b2e82::t_01dca7e372a2b8 96-159
+src/i18n/account.ru.ts
+  s_0d98fe904b2e82::t_01dca7e372a2b8 2,5,87-150
+src/ui/account/login.ts
+  s_0d98fe904b2e82::t_955bed340adbd1 46-49
+src/scenes/kit/formsPage.ts
+  s_0d98fe904b2e82::t_e6884c3c7e76e6 57,59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "be86215417af77cd684beced032e3c5e1e1a7339",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
