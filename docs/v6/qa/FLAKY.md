@@ -8,28 +8,61 @@ With fewer than 3 runs a case is only **suspected**.
 
 ## Open
 
-### F2 · `server/test/public-api.test.ts` "a 304 and a HEAD run the same single SELECT; 405, 404 and 429 run none" (suspected, cause not yet classified)
+None. F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 
-- **Seen:** failed once under parallel load (reported with GATE-01b, V6-057), and passes on a re-run with no code change. One failure, so **suspected** until it is seen again or the cause is found.
-- **Cause:** not yet found. Likely timing/async or load race (the test counts D1 SELECTs per request; under load a cache or rate-limit window may differ).
-- **Fix:** none yet. Record each further run here.
+## Resolved
 
-### F3 · `scripts/audio-smoke.mjs` in web mode, the Web Audio juice-tier sounds (thud, splinter) (suspected, cause not yet classified)
+### F4 · `scripts/smoke.mjs` in Telegram mode, "tap on the map plans a route" and "party marched" (timing/async + missed event, fixed in QA-HARDEN)
 
-- **Seen:** failed once on the juice-tier sounds (thud, splinter) during the RFND-04 integration, then passed on 2 web-only reruns with no code change. One failure, so **suspected** until it is seen again or the cause is found.
-- **Cause:** not yet found. Likely timing/async (`audio-smoke.mjs` still waits on fixed timers, see the watch list).
-- **Fix:** none yet. Record each further run here.
-- **Recurred:** failed once more on web during the INP-03 integration (load average ≈ 20). Still **suspected**, now suspected load-sensitive; see F4 for the hardening story.
+- **Seen:** both failed once during the INP-03 integration (load average ≈ 20; `v6-shots/integrator-inp-03/regression.log`:
+  the party stayed at 89.5,73.5, so the tap was dropped, not slow), then passed 3 reruns.
+- **Cause:** the step tapped the map without waiting until it takes taps, and judged the tap by polling the route.
+  `WorldScene` drops a ground tap while a "We found X" cut runs (`cine`), while a card, encounter, sheet or coach
+  mark is open, while another pointer is down (it reads a pinch), and over any interactive object (`onDown`'s
+  `over`; the target filter only kept 90/120 CSS px clear of the bars, and the top HUD reaches lower on some
+  maps and modes). The route poll could also miss a short march planned and walked between two polls.
+- **Fix:** `mapReady()` waits for the map to take taps (World in, two game frames since, no discovery, cut, card,
+  encounter, sheet or coach mark, camera pan and fade over, no pointer down); the target must have nothing
+  interactive over it (`mapPointFree`, the same hit test as `onDown`); the World's planned routes are counted
+  (`window.__routes`), so "tap on the map plans a route" is an event, not a poll. A dropped tap now fails by name
+  with the map's state at the tap and after (`worldDiag`).
+- **Evidence:** see F1 (same script, same series).
 
-### F4 · `scripts/smoke.mjs` in Telegram mode, "tap on the map plans a route" and "party marched" (suspected, load-sensitive)
+### F3 · `scripts/audio-smoke.mjs` in web mode, "juice tiers sound" (timing/async, fixed in QA-HARDEN)
 
-- **Seen:** both failed once during the INP-03 integration with the machine heavily loaded (load average ≈ 20), then passed 3 reruns with no code change. One failure, so **suspected**.
-- **Cause:** suspected load-sensitive (timing/async): the steps still lean on time-based waits that run out when frames are slow.
-- **Fix:** none yet. A QA hardening story should replace the remaining time-based waits in `smoke.mjs` and `audio-smoke.mjs` with state waits (`settled()` in `scripts/lib/harness.mjs`). Record each further run here.
+- **Seen:** failed during the RFND-04 and INP-03 integrations, then passed reruns. The logs
+  (`v6-shots/integrator-rfnd-04/regression.log`, `integrator-inp-03/regression.log`) show **all five** tiers
+  missing (thud, splinter, standardFall, groan, hornChord), not only thud and splinter as first recorded here.
+- **Cause:** the step unpaused the live fight in one `evaluate`, then fed the tiers in the next. Under load the frames
+  in between ran the sim into its first enemy contact, which auto-pauses once (QA-03 S3-9, `firstContact`), and the
+  audio pause gate refuses every field sound (`AudioEngine.play`: `bus !== 'ui' && paused`), so all five were
+  gated together. The duck check after it read -7 dB (the battle-start horn), not the army-break chord's -10 dB.
+  The rest of the script slept on timers (2.5 s after load, 150-3000 ms around async `resume()`/`suspend()`,
+  gain ramps on the audio clock, sheets sliding in, a save before a reload).
+- **Fix:** the field is held paused until every earlier voice has ended and a tier gap (300 ms of game time) has
+  passed (a named check); then one `evaluate` resumes, feeds the tiers and pauses again, so no frame of the fight
+  runs between. Every other fixed sleep is a state wait: the context state, the gain values, steady buttons
+  (`steady()`), `settled()` scenes, `GameState.saving` before the reload, and one page load instead of
+  load-clear-reload (the race smoke.mjs already fixed). No `wait()` is left in the script.
+- **Evidence (6 busy loops (`node -e "while(true){}"`) on a 10-core Mac already loaded by other agents, the three series running side by side (load average 31-116); preview on 127.0.0.1:6170; logs in the QA-HARDEN scratchpad (`qa-harden/{smoke-final,audio-load,f2-load}-N.log`)):** `node scripts/audio-smoke.mjs <url> --platform both`, 10 runs in a row: **10/10 PASS**,
+  "juice tiers sound" passing 20/20 (10 Telegram, 10 web); no fail.
 
-## Fixed
+### F2 · `server/test/public-api.test.ts` "a 304 and a HEAD run the same single SELECT; 405, 404 and 429 run none" (load race on a wall-clock window, fixed in QA-HARDEN)
 
-### F1 · `scripts/smoke.mjs` "entered the village" (timing/async, fixed in V6-GATE-02)
+- **Seen:** failed once under parallel load (GATE-01b, V6-057), then passed.
+- **Cause:** the test spent a real RL_PUBLIC_IP bucket with 60 calls and expected the 61st to be refused. Miniflare's
+  rate limiter counts in 60 s windows aligned to the wall clock (`epoch = floor(now / 60 s)` in
+  `miniflare/.../ratelimit-object.worker.js`), so every bucket empties at the top of each minute. Under parallel load
+  the 61 calls took long enough to straddle a minute; the 61st was a 200 and ran the SELECT. Reproduced on purpose:
+  the same 61 calls started 0.3 s before a minute boundary gave a 200 for the 61st (a scratch test, not committed).
+- **Fix:** the single-SELECT test takes its 429 from a limiter that refuses (it tests what runs on a refusal; the
+  limiter's count has its own tests). The two limiter tests (61st call is 429, cf-connecting-ip only) start with at
+  least 30 s of window left (`freshWindow()` waits for the next window otherwise), so their calls cannot straddle
+  a rollover.
+- **Evidence (6 busy loops (`node -e "while(true){}"`) on a 10-core Mac already loaded by other agents, the three series running side by side (load average 31-116); preview on 127.0.0.1:6170; logs in the QA-HARDEN scratchpad (`qa-harden/{smoke-final,audio-load,f2-load}-N.log`)):** `npx vitest run test/public-api.test.ts`, 10 runs in a row: **10/10 PASS** (25/25 each).
+  The full server suite under the same load: 58 files, 557/557 PASS.
+
+### F1 · `scripts/smoke.mjs` "entered the village" (timing/async in V6-GATE-02; seed-dependent staging, resolved in QA-HARDEN)
 
 - **Seen:** PLAT-02 saw it fail once and pass on a re-run (one failure in two runs, so suspected until the cause was found).
 - **Cause:** a wait on a timer instead of on state. The step reveals the village (`World.reveal` queues a
@@ -50,6 +83,21 @@ With fewer than 3 runs a case is only **suspected**.
   `.claude/worktrees/v6-shots/gate-02/`). Also PASS in the first run of both modes and in the
   `regression --all` run, so 12 of 12 passes in total.
 - **Recurred:** failed once on web during the INP-03 integration under heavy load (load average ≈ 20), then passed on rerun. GATE-02's fix is not fully robust under heavy load; see F4 for the hardening story.
+- **Resolved (QA-HARDEN, 2026-10-14):** the 10x series below caught the real cause on one Telegram run: the
+  new guard "nothing over the village" failed. The staging took the **first** village in the list; on that map it
+  stood on the map's top row (party at 36.5,4.5), where the camera stops at its bounds instead of centring it, so
+  the village lay under the top HUD and the tap pressed a HUD control (game time ran on for 290 hours with no
+  route). This is a seed-dependent staging miss (one map in many), which is why it looked rare and load-linked.
+  The staging now takes the village nearest the map's centre; the tap waits for `mapReady()` (which covers
+  GATE-02's cut wait and also cards, sheets, a pointer still down and the camera's fade), checks nothing is over
+  the village (naming what is, when something is), and "the tap sets out for the village" is a named check on
+  the World's planned routes. The remaining fixed sleeps in smoke.mjs are state waits (battle camera still,
+  entry slide in, steady buttons, 20 battle ticks before the error check); only the 16 ms pacing between the
+  moves of a two-finger gesture is left.
+- **Evidence (6 busy loops (`node -e "while(true){}"`) on a 10-core Mac already loaded by other agents, the three series running side by side (load average 31-116); preview on 127.0.0.1:6170; logs in the QA-HARDEN scratchpad (`qa-harden/{smoke-final,audio-load,f2-load}-N.log`)):** `node scripts/smoke.mjs <url> --platform both` on the final code, 10 runs in a row:
+  **10/10 PASS** (load average 31-75 during the series), with "tap on the map plans a route", "nothing over
+  the village" and "entered the village" each passing 20/20 (10 Telegram, 10 web). Before the village fix, a 5-run series on the earlier hardening caught the failure above
+  once (run 3, Telegram) and passed the other 9 mode runs.
 
 ## Not flaky, but seen while adding the modes (for the record)
 
@@ -61,7 +109,8 @@ With fewer than 3 runs a case is only **suspected**.
 
 ## Watch list (fixed sleeps still in place, not yet seen to flake)
 
-`online-smoke.mjs` (`waitForTimeout(3000)` after load, 600-1500 ms waits between scenes),
-`audio-smoke.mjs` (`wait(2500)` after load) and `fullscreen-smoke.mjs` (Telegram mode, 300-900 ms waits)
-still wait on timers. If one of them flakes, replace the sleep with a state wait
-(`settled()` in `scripts/lib/harness.mjs`) and add a row above.
+`online-smoke.mjs` (`waitForTimeout(3000)` after load, 600-1500 ms waits between scenes) and
+`fullscreen-smoke.mjs` (Telegram mode, 300-900 ms waits) still wait on timers (`audio-smoke.mjs` and
+`smoke.mjs` no longer do, F3 and F1/F4). If one of them flakes, replace the sleep with a state wait
+(`settled()`, `steady()` and `nextFrame()` in `scripts/lib/harness.mjs`, `untilInPage()` in
+`scripts/lib/settle.mjs`) and add a row above.
