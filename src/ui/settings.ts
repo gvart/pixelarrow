@@ -141,7 +141,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
     rowH,
     // the controls each row renders, for element-parity while the row is scrolled out of the window (V6-066)
     ids: (i) => {
-      const r = ROWS[i];
+      const r = rows[i];
       if (r.kind === 'toggle' || r.kind === 'feel') return [`settings.toggle.${r.key}`];
       if (r.kind === 'motion') return ['settings.toggle.reduceMotion'];
       if (r.kind === 'volume') return [`settings.${r.key}.down`, `settings.${r.key}.up`];
