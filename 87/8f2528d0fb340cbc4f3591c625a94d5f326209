@@ -1,0 +1,21 @@
+scripts/lib/settle.mjs
+  s_0d98fe904b2e82::t_1f874f3e6c2278 93-97,99,101,104-106,115-117,122
+docs/UI_KIT.md
+  s_0d98fe904b2e82::t_44aaf4d0d60c6d 558-571
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "878f2528d0fb340cbc4f3591c625a94d5f326209",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
