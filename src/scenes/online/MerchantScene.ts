@@ -12,6 +12,9 @@ import { BaseScene } from '../BaseScene';
 import { ScrollArea, addIcon, addText, scaleIcon, type FontKey } from '../../ui/kit';
 import { MButton, MChip, SECTION_TITLE_H as SectionTitle_H, SectionTitle, mosaicImage, mtext, TAP, addSubShell } from '../../ui/mosaic';
 import { MOSAIC, TEXT_MIN, lineHeight } from '../../ui/tokens';
+import { uiLayout } from '../../ui/layout';
+import { CONTENT_MAX } from '../../ui/sizeClass';
+import { PANE_GUTTER, gridColumns, layoutVariant } from '../../ui/mosaic/layout/geometry';
 import { ItemIcon, addScrollHint, confirmDialog, subjectName, toast } from '../../ui/widgets';
 import { ellipsize, wrapText, LINE_H } from '../../ui/textfit';
 import { SIZE } from '../../ui/theme';
@@ -75,7 +78,16 @@ const LH = Math.ceil(lineHeight(TEXT_MIN));
 type Section = MerchantOffer['slot'];
 const SECTIONS: Section[] = ['base', 'region', 'rare'];
 
+/** The landscape info pane's width (§8.2: info and chips left, offers right). */
+const INFO_W_COMPACT = 150;
+const INFO_W_EXPANDED = 180;
+/** An offer card is at least this wide in the grid (§3.7); up to 3 columns (§8.2). */
+const OFFER_MIN = 140;
+const OFFER_COLS = 3;
+
 export class MerchantScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-03): two panes in landscape, an offers grid from medium up. */
+  protected override readonly responsive = true;
   private loc = 0;
   private src!: Source;
   private view: MerchantView | null = null;
@@ -83,6 +95,8 @@ export class MerchantScene extends BaseScene {
   private head!: Phaser.GameObjects.Container;
   private page!: Phaser.GameObjects.Container;
   private area: ScrollArea | null = null;
+  /** The info pane (landscape): its own scroll area beside the offers. */
+  private infoArea: ScrollArea | null = null;
   private backTo: MerchantData['back'];
   private busy = false;
   private pendingIds = new Map<string, string>();
@@ -103,7 +117,9 @@ export class MerchantScene extends BaseScene {
     this.st = 'loading';
     this.busy = false;
     this.area = null;
+    this.infoArea = null;
     this.screen({ back: () => this.leave() });
+    uiLayout(this, this.m.cls, this.m.land);
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     this.ui.add([this.head, this.page]);
@@ -136,6 +152,8 @@ export class MerchantScene extends BaseScene {
   private clearPage(): void {
     this.area?.destroy();
     this.area = null;
+    this.infoArea?.destroy();
+    this.infoArea = null;
     this.page.removeAll(true);
   }
 
@@ -143,30 +161,77 @@ export class MerchantScene extends BaseScene {
   private render(): void {
     this.head.removeAll(true);
     this.clearPage();
-    const { VW } = this.m;
     const v = this.view;
     const H = this.head;
     const { content: c } = addSubShell(this, { title: t(`merchant.title.${v?.kind ?? 'town'}` as TKey), back: () => this.leave(), id: 'merchant.header', parent: H, scroll: false });
+    const variant = layoutVariant(this.m);
+    const ready = this.st === 'ready' && !!v;
+    // landscape with the stock in: the chips head the info pane (§8.2); else the row over the page, as v5
+    const split = ready && (variant === 'compactLandscape' || variant === 'expanded');
+    if (!split) this.addChips(H, c.x + 3, c.y + 3, c.w - 6);
+    const top = c.y + 3 + TAP + 3;
+    if (!ready) {
+      const s = this.st === 'ready' ? 'error' : this.st;
+      // the state card fills the content (centred in it, never a stretched column, §15)
+      addEconState(this, this.page, c.x + 3, top + 2, c.w - 6, c.y + c.h - top - 6, s, () => ((this.st = 'loading'), this.render(), void this.fetch()));
+      return;
+    }
+    if (split) this.buildSplit(v!, c);
+    else this.buildStock(v!, top, c, variant === 'medium' ? 2 : 1);
+  }
+
+  /** Gold and Drachmae chips from (x, y): one row when both fit `w`, else one under the other. Returns the height. */
+  private addChips(H: Phaser.GameObjects.Container, x: number, y: number, w: number): number {
+    const v = this.view;
     const chips: { icon: string; value: string | number; id: string }[] = [
       { icon: 'wargold', value: v?.gold ?? '-', id: 'merchant.gold' },
       { icon: currencyIcon('drachmae'), value: v?.drachmae ?? '-', id: 'merchant.drachmae' },
     ];
-    let cx = c.x + 3;
-    for (const o of chips) {
-      const chip = new MChip(this, cx, c.y + 3, { ...o, surface: 'stone', w: Math.max(40, MChip.width({ ...o, surface: 'stone' }) + 8) });
+    const ws = chips.map((o) => Math.max(40, MChip.width({ ...o, surface: 'stone' }) + 8));
+    const row = ws[0] + 3 + ws[1] <= w;
+    let cx = x;
+    let cy = y;
+    chips.forEach((o, i) => {
+      const chip = new MChip(this, cx, cy, { ...o, surface: 'stone', w: ws[i] });
       H.add(chip);
-      cx += chip.w + 3;
-    }
-    const top = c.y + 3 + TAP + 3;
-    if (this.st !== 'ready' || !v) {
-      const s = this.st === 'ready' ? 'error' : this.st;
-      addEconState(this, this.page, c.x + 3, top + 2, VW - c.x * 2 - 6, c.y + c.h - top - 6, s, () => ((this.st = 'loading'), this.render(), void this.fetch()));
-      return;
-    }
-    this.buildStock(v, top, c);
+      if (row) cx += chip.w + 3;
+      else cy += TAP + 3;
+    });
+    return row ? TAP : cy - y - 3;
   }
 
-  private buildStock(v: MerchantView, top: number, box: { x: number; y: number; w: number; h: number }): void {
+  /**
+   * Landscape (§8.2): two panes, each scrolling on its own: the chips and the info card on the left, the
+   * offers grid on the right (up to 3 columns, §3.7). The panes span at most CONTENT_MAX, centred (§2.3).
+   */
+  private buildSplit(v: MerchantView, c: { x: number; y: number; w: number; h: number }): void {
+    const { S } = this.m;
+    const iw = Math.min(c.w - 6, CONTENT_MAX);
+    const x0 = c.x + 3 + Math.floor((c.w - 6 - iw) / 2);
+    const lw = this.m.cls === 'expanded' ? INFO_W_EXPANDED : INFO_W_COMPACT;
+    const top = c.y + 3;
+    const h = c.y + c.h - 3 - top;
+    // ---- left: the chips, then who, where and on what terms
+    const left = new ScrollArea(this, this.page, x0, top, lw, h, S);
+    this.infoArea = left;
+    addScrollHint(this, this.page, left, MOSAIC.parch);
+    let y = this.addChips(left.content, 0, 0, lw - 4) + 4;
+    y += this.infoCard(left.content, v, y, lw - 4);
+    left.setContentHeight(y + 2);
+    frameScrollTexts(left, lw);
+    // ---- right: the offers
+    const rx = x0 + lw + PANE_GUTTER;
+    const rw = x0 + iw - rx;
+    const area = new ScrollArea(this, this.page, rx, top, rw, h, S);
+    this.area = area;
+    addScrollHint(this, this.page, area, MOSAIC.parch);
+    const end = this.offerSections(area.content, area, v, 0, rw - 4, gridColumns(rw - 4, { minCell: OFFER_MIN, maxCols: OFFER_COLS, gap: SIZE.gap }));
+    area.setContentHeight(end);
+    frameScrollTexts(area, rw);
+  }
+
+  /** v5's page (`cols` 1), or medium's offers grid in 2 columns under the info card (§8.2). */
+  private buildStock(v: MerchantView, top: number, box: { x: number; y: number; w: number; h: number }, cols: number): void {
     const { VW, S } = this.m;
     const areaW = box.w - 6;
     const area = new ScrollArea(this, this.page, box.x + 3, top, areaW, box.y + box.h - top - 3, S);
@@ -174,7 +239,14 @@ export class MerchantScene extends BaseScene {
     addScrollHint(this, this.page, area, MOSAIC.parch);
     const c = area.content;
     const w = areaW - 4;
-    let y = 0;
+    let y = this.infoCard(c, v, 0, w) + 6;
+    y = this.offerSections(c, area, v, y, w, cols);
+    area.setContentHeight(y);
+    frameScrollTexts(area, VW - 8);
+  }
+
+  /** Who, where, and on what terms: one line each, with its sign. Returns the card's height. */
+  private infoCard(c: Phaser.GameObjects.Container, v: MerchantView, y: number, w: number): number {
     // ---- who, where, and on what terms: one line each, with its sign
     const pct = Math.round(v.discountRate * 100);
     const cut = Math.round(v.holderCutRate * 100);
@@ -199,19 +271,28 @@ export class MerchantScene extends BaseScene {
       c.add(addText(this, 20, iy, x.lines.join('\n'), x.font));
       iy += Math.max(12, x.lines.length * LINE_H) + 2;
     }
-    y += infoH + 6;
-    // ---- the offers by section
+    return infoH;
+  }
+
+  /** The offers by section from `y`, `cols` cards a row (one card a row is v5's list). Returns the y below. */
+  private offerSections(c: Phaser.GameObjects.Container, area: ScrollArea, v: MerchantView, y: number, w: number, cols: number): number {
+    const cw = Math.floor((w - SIZE.gap * (cols - 1)) / cols);
     for (const sec of SECTIONS) {
       const list = v.offers.filter((o) => o.slot === sec);
       if (!list.length) continue;
       const title = sec === 'region' ? t(`merchant.region.${v.region}` as TKey) : t(`merchant.sec.${sec}` as TKey);
       c.add(new SectionTitle(this, 0, y, w, title, { size: 8 }));
       y += SectionTitle_H;
-      for (const o of list) y += this.offerRow(c, area, v, o, y, w) + SIZE.gap;
+      // a row of cards is as tall as its tallest (the buy buttons line up)
+      for (let i = 0; i < list.length; i += cols) {
+        const line = list.slice(i, i + cols);
+        const rowH = Math.max(...line.map((o) => this.offerH(o, cw)));
+        line.forEach((o, j) => this.offerRow(c, area, v, o, y, cw, j * (cw + SIZE.gap), rowH));
+        y += rowH + SIZE.gap;
+      }
       y += 4;
     }
-    area.setContentHeight(y);
-    frameScrollTexts(area, VW - 8);
+    return y;
   }
 
   private offerName(o: MerchantOffer): string {
@@ -222,26 +303,45 @@ export class MerchantScene extends BaseScene {
     return { uid: `offer_${o.id}`, def: o.ref, rarity: o.rarity, cond: 100 };
   }
 
-  /** One offer: icon, name, today's count, a line of description, the buy buttons. Returns its height. */
-  private offerRow(c: Phaser.GameObjects.Container, area: ScrollArea, v: MerchantView, o: MerchantOffer, y: number, w: number): number {
-    const consumable = o.kind === 'consumable';
-    const def = consumable ? null : ITEMS[o.ref];
-    const descText = consumable ? tOr(`consumable.${o.ref}.desc`, CONSUMABLES[o.ref as ConsumableId]?.desc ?? '') : `${tOr(`rarity.${o.rarity}`, o.rarity)} · ${tOr(`slot.${def?.slot}`, def?.slot ?? '')} · ${tOr(`item.${o.ref}.desc`, def?.desc ?? '')}`;
-    const tx = 32;
-    const desc = wrapText(descText, w - tx - 4, 2);
-    const capped = o.bought >= o.dailyCap;
+  /** An offer's description text. */
+  private offerDesc(o: MerchantOffer): string {
+    const def = o.kind === 'consumable' ? null : ITEMS[o.ref];
+    return o.kind === 'consumable' ? tOr(`consumable.${o.ref}.desc`, CONSUMABLES[o.ref as ConsumableId]?.desc ?? '') : `${tOr(`rarity.${o.rarity}`, o.rarity)} · ${tOr(`slot.${def?.slot}`, def?.slot ?? '')} · ${tOr(`item.${o.ref}.desc`, def?.desc ?? '')}`;
+  }
+
+  /** The prices shown (gold, Drachmae where sold for them) and whether a list price is struck through. */
+  private offerPrices(o: MerchantOffer): { shown: [Currency, number | null][]; struck: boolean } {
     const prices: [Currency, number | null][] = [
       ['gold', o.price.gold],
       ['drachmae', o.price.drachmae],
     ];
     const shown = prices.filter(([, p]) => p !== null);
     const listOf = (cur: Currency) => (cur === 'gold' ? o.gold : o.drachmae);
+    return { shown, struck: shown.some(([cur, p]) => listOf(cur) !== null && listOf(cur) !== p) };
+  }
+
+  /** An offer card's natural height at width `w`. */
+  private offerH(o: MerchantOffer, w: number): number {
+    const desc = wrapText(this.offerDesc(o), w - 32 - 4, 2);
+    return 30 + desc.lines.length * LINE_H + (this.offerPrices(o).struck ? LH : 0) + TAP + 4 + (o.bought >= o.dailyCap ? LH + 2 : 0);
+  }
+
+  /** One offer: icon, name, today's count, a line of description, the buy buttons; at `x0`, at least `minH` tall. Returns its height. */
+  private offerRow(c0: Phaser.GameObjects.Container, area: ScrollArea, v: MerchantView, o: MerchantOffer, y: number, w: number, x0 = 0, minH = 0): number {
+    // a card in a grid column draws in its own container at its column (v5: the one column at 0)
+    const c = x0 ? this.add.container(x0, 0) : c0;
+    if (c !== c0) c0.add(c);
+    const consumable = o.kind === 'consumable';
+    const descText = this.offerDesc(o);
+    const tx = 32;
+    const desc = wrapText(descText, w - tx - 4, 2);
+    const capped = o.bought >= o.dailyCap;
+    const listOf = (cur: Currency) => (cur === 'gold' ? o.gold : o.drachmae);
     // the discount is said once, in the info card; here the list price is struck through over its button (MER-1)
-    const struck = shown.some(([cur, p]) => listOf(cur) !== null && listOf(cur) !== p);
-    const struckH = struck ? LH : 0;
+    const { shown } = this.offerPrices(o);
     // a capped row says why under its buttons (MER-2)
     const reasonH = capped ? LH + 2 : 0;
-    const rowH = 30 + desc.lines.length * LINE_H + struckH + TAP + 4 + reasonH;
+    const rowH = Math.max(minH, this.offerH(o, w));
     c.add(mosaicImage(this, 0, y, w, rowH, capped0(o) ? 'parchmentWell' : 'parchment'));
     const name = this.offerName(o);
     const subject = consumable ? { consumable: o.ref } : { item: this.preview(o) };
