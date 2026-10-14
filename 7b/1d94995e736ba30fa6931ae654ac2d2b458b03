@@ -1,0 +1,43 @@
+public/_headers
+  s_0d98fe904b2e82::t_65cdf3fb4d3ae6 7-16
+src/i18n/account.ru.ts
+  s_0d98fe904b2e82::t_6049afec520997 66-76
+src/i18n/account.en.ts
+  s_0d98fe904b2e82::t_6049afec520997 74-85
+auth/auth.css
+  s_0d98fe904b2e82::t_6458f8433aba1b 1-218
+tests/authPages.test.ts
+  s_0d98fe904b2e82::t_591400b7509875 9,162
+  s_0d98fe904b2e82::t_ee8fb7534d3461 7-8
+  s_0d98fe904b2e82::t_a07f74997162c6 130-161,163-165
+auth/main.ts
+  s_0d98fe904b2e82::t_de977071770c5a 457
+  s_0d98fe904b2e82::t_26f34e40dfb431 18,442-456,466,478,481,487,494,501
+  s_0d98fe904b2e82::t_5d0eea69ad7596 1-17,19-441,458-465,467-477,479-480,482-486,488-493,495-500,502-518
+auth/change_email.html
+  s_0d98fe904b2e82::t_8ef4d77e46f2e2 1-29
+auth/add_email.html
+  s_0d98fe904b2e82::t_8ef4d77e46f2e2 1-29
+auth/reset.html
+  s_0d98fe904b2e82::t_8ef4d77e46f2e2 1-29
+auth/signup.html
+  s_0d98fe904b2e82::t_8ef4d77e46f2e2 1-29
+vite.config.ts
+  s_0d98fe904b2e82::t_3358feefb89d68 34-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7b1d94995e736ba30fa6931ae654ac2d2b458b03",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
