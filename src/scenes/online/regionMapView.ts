@@ -21,6 +21,7 @@ import { LiveArmies, routePoints } from '../../online/liveArmies';
 import { placeName } from '../../i18n/places';
 import { getMap, hasMap, type WorldGraph } from '../../online/world';
 import { addText } from '../../ui/kit';
+import { platform } from '../../platform';
 import type { Pix } from '../../art/pixels';
 import { MapLife } from './mapLife';
 import {
@@ -328,30 +329,27 @@ export class ParchmentMapView implements WorldMapView {
     if (this.selected !== null) this.setSelected(this.selected);
   }
 
-  /** New revealPan regions (since the last build, or since the last visit by local memory). */
+  /** New revealPan regions (since the last build, or since the last visit by this device's memory). */
   private discover(map: MapView, known: Set<number>): void {
     const key = `pm_seen_${map.shard.id}_${map.season.id}`;
-    let seen: Set<number> | null = null;
-    if (this.knownPrev) seen = this.knownPrev;
-    else {
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw) seen = new Set(JSON.parse(raw) as number[]);
-      } catch {
-        seen = null;
-      }
-    }
     const pans = [...known].filter((l) => this.world.has(l) && this.world.info(l).revealPan);
-    const fresh = seen ? pans.filter((l) => !seen!.has(l)) : [];
+    const prevKnown = this.knownPrev;
     this.knownPrev = new Set(known);
-    try {
-      const prev = localStorage.getItem(key);
-      const all = new Set<number>([...(prev ? (JSON.parse(prev) as number[]) : []), ...pans]);
-      localStorage.setItem(key, JSON.stringify([...all]));
-    } catch {
-      /* private mode: no memory, no harm */
-    }
-    if (fresh.length && this.onDiscover) this.onDiscover(fresh[0], placeName(this.world.info(fresh[0]).name));
+    const world = this.world;
+    const kv = platform.storage.device();
+    void (async () => {
+      let stored: number[] | null = null;
+      try {
+        const raw = await kv.get(key);
+        stored = raw ? (JSON.parse(raw) as number[]) : null;
+      } catch {
+        stored = null; // unreadable: no memory, no harm
+      }
+      const seen = prevKnown ?? (stored ? new Set(stored) : null);
+      const fresh = seen ? pans.filter((l) => !seen.has(l)) : [];
+      await kv.set(key, JSON.stringify([...new Set<number>([...(stored ?? []), ...pans])]));
+      if (fresh.length && this.onDiscover && world === this.world) this.onDiscover(fresh[0], placeName(world.info(fresh[0]).name));
+    })();
   }
 
   /** Unexplored parchment around the map's edges. */

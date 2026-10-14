@@ -6,7 +6,8 @@ import type { UnitStat } from './game/report';
 import type { EnemyArmy } from './game/enemy';
 import type { Hero } from './data/units';
 import type { BattleSite } from './world/battlefield';
-import { gameKV } from './platform/storage';
+import type { KV } from './platform/core/storage';
+import { platform } from './platform';
 import { setHaptics } from './platform/haptics';
 import { online } from './platform/cloud';
 import { newProgress } from './game/tutorial';
@@ -57,8 +58,8 @@ class GameState {
   private dirty = false;
 
   async load(): Promise<void> {
-    const kv = gameKV();
-    this.cloud = kv.cloud;
+    const kv = saveStores();
+    this.cloud = platform.storage.roams;
     this.readOnly = false;
     const prim = await readSaveResult(kv.primary);
     const mirr = prim.kind !== 'ok' && kv.mirror ? await readSaveResult(kv.mirror) : null;
@@ -105,9 +106,8 @@ class GameState {
   }
 
   private async writeLocal(data: SaveData): Promise<void> {
-    const kv = gameKV();
-    await writeSave(kv.primary, data);
-    if (kv.mirror) await writeSave(kv.mirror, data);
+    // the platform's save store writes its own mirror (Telegram: CloudStorage and localStorage)
+    await writeSave(platform.storage.save(), data);
   }
 
   /** Persist (serialised so writes never interleave): locally first, then the cloud (debounced). */
@@ -140,7 +140,7 @@ class GameState {
 
   async reset(): Promise<void> {
     if (this.readOnly) return;
-    const kv = gameKV();
+    const kv = saveStores();
     const seq = this.campaign?.data.seq ?? 0;
     const prev = this.campaign?.data.settings;
     await clearSave(kv.primary);
@@ -155,6 +155,17 @@ class GameState {
     this.hasSave = true;
     await this.save();
   }
+}
+
+/**
+ * Where the save is read from: the platform's save store and, when this device
+ * keeps a separate copy (Telegram's localStorage mirror of CloudStorage), that
+ * copy, which a load falls back to as a whole when the primary cannot be read.
+ */
+function saveStores(): { primary: KV; mirror: KV | null } {
+  const primary = platform.storage.save();
+  const device = platform.storage.device();
+  return { primary, mirror: device === primary ? null : device };
 }
 
 /** Seeds for new campaigns/battles come from the clock + crypto (outside the sim). */

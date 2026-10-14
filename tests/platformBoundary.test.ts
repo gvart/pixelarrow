@@ -24,13 +24,11 @@ const ADAPTERS = /^src\/platform\/(telegram|web|steam|mobile)\//;
 
 /** Files not yet moved off the old seams (today's importers of the telegram.ts shim and online.available). */
 const ALLOWLIST: Record<string, Rule[]> = {
-  // rule 1: imports src/platform/telegram (the M1 shim) for something other than haptics; M5, M7, M8 move them
-  'src/audio/index.ts': [1],
+  // rule 1: imports src/platform/telegram (the M1 shim) for something other than haptics; M7, M8 move them
   'src/scenes/BootScene.ts': [1, 4],
   'src/scenes/ShopScene.ts': [1],
   'src/scenes/online/ClanScene.ts': [1, 4],
   'src/ui/econ/source.ts': [1, 4],
-  'src/ui/lang.ts': [1],
   'src/ui/notifySettings.ts': [1],
   // rule 4: online.available (M6) and the retired names (the shim itself, until M10)
   'src/online/client.ts': [4],

@@ -16,11 +16,6 @@ function memKV(store: Map<string, string>): KV {
   };
 }
 
-vi.mock('../src/platform/storage', () => ({
-  gameKV: () => ({ primary: memKV(stores.primary), mirror: null, cloud: false }),
-  localKV: () => memKV(new Map()),
-  safeLocalStorage: () => null,
-}));
 vi.mock('../src/platform/cloud', () => ({
   online: {
     available: false,
@@ -35,6 +30,12 @@ vi.mock('../src/platform/haptics', async (orig) => ({ ...(await orig<typeof impo
 import { state } from '../src/state';
 import { firstRunEntry } from '../src/scenes/bootRoute';
 import { SAVE_VERSION } from '../src/game/save';
+import { setPlatformForTests } from '../src/platform';
+import { FakePlatform } from './fakes/platform';
+
+const fake = new FakePlatform();
+fake.saveStore = () => memKV(stores.primary);
+setPlatformForTests(fake);
 
 const FIXTURES = import.meta.glob<string>('./fixtures/saves/*.json', { eager: true, query: '?raw', import: 'default' });
 const V6 = Object.entries(FIXTURES).find(([k]) => k.includes('/v6-'))![1];

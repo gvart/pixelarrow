@@ -1,7 +1,7 @@
-/** Picks the UI language from the URL, the player's setting, Telegram and the browser (src/i18n). */
+/** Picks the UI language from the URL, the player's setting, the platform's client and the browser (src/i18n). */
 import { detectLang, lang, setLang } from '../i18n';
 import { state } from '../state';
-import { telegramLanguage } from '../platform/telegram';
+import { platform } from '../platform';
 
 function urlLang(): string | null {
   try {
@@ -20,6 +20,6 @@ export function refreshLang(): boolean {
   } catch {
     /* no navigator */
   }
-  setLang(detectLang({ url: urlLang(), setting: state.campaign?.data.settings.lang ?? 'auto', telegram: telegramLanguage(), browser }));
+  setLang(detectLang({ url: urlLang(), setting: state.campaign?.data.settings.lang ?? 'auto', telegram: platform.client().language, browser }));
   return lang() !== before;
 }

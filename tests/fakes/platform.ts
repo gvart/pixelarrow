@@ -61,7 +61,10 @@ export class FakePlatform implements Platform {
     },
   };
 
-  readonly storage = { save: () => this.saveKV, device: () => this.deviceKV, roams: false };
+  /** Where save() and device() point; a test may swap in its own stores. */
+  saveStore: () => KV = () => this.saveKV;
+  deviceStore: () => KV = () => this.deviceKV;
+  readonly storage = { save: () => this.saveStore(), device: () => this.deviceStore(), roams: false };
 
   readonly haptics = {
     impact: (s: string) => void (this.hapticsOn && this.cues.push(`impact:${s}`)),
