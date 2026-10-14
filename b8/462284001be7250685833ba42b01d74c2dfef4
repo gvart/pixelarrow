@@ -1,0 +1,25 @@
+src/ui/econ/shopParts.ts
+  s_0d98fe904b2e82::t_7df39690414475 14
+  s_0d98fe904b2e82::t_aef17c54a98c78 257,289-293
+src/ui/econ/widgets.ts
+  s_0d98fe904b2e82::t_aef17c54a98c78 7,10-11,90-112
+  s_0d98fe904b2e82::t_f22475187ebdb1 113
+src/scenes/ShopScene.ts
+  s_0d98fe904b2e82::t_141b43be45aedd 18-19,795-797,803,807,812,815,822
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b8462284001be7250685833ba42b01d74c2dfef4",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
