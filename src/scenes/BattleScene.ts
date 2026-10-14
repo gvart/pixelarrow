@@ -7,7 +7,7 @@ import { GroupCard, PanelRow, numeralBadge, numeralColour, orderBadgeW, orderBar
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, endBannerKey, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
+import { FacingPip, HintPill, addHudKeycaps, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, endBannerKey, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore, uiLayout, uiOpaque, uiPanel, uiPrimary, uiTransient } from '../ui/layout';
@@ -31,6 +31,7 @@ import { KeyPan, PRESS_ACTIONS, battleKeyTarget, turned } from '../ui/input/batt
 import { keys, screenKeys } from '../ui/input/keys';
 import { findUi, flashControl, tapControl } from '../ui/hotkeyPress';
 import { nav } from '../platform/nav';
+import { platform } from '../platform';
 import { LADDER, ticketClock } from '../duel/ladder';
 import { battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind, type Unlocks } from '../ui/input/attention';
 import { FACING_DIRS, mirrorX, nextZoom, pipSlot } from '../ui/input/singleTap';
@@ -3131,6 +3132,9 @@ export class BattleScene extends BaseScene {
     keys.on('turn.right', () => this.turnKey(1), ev);
     keys.on('cam.zoom.in', () => this.zoomStep(1), ev);
     keys.on('cam.zoom.out', () => this.zoomStep(-1), ev);
+    // keycaps come with the first key (input-v6.md §6.1, §8): the HUD is rebuilt when a keyboard appears
+    const offInput = platform.input.onChange(() => this.hud?.active && this.buildHud());
+    ev.once('shutdown', offInput);
     const pans: [ActionId, number, number][] = [['cam.pan.up', 0, -1], ['cam.pan.down', 0, 1], ['cam.pan.left', -1, 0], ['cam.pan.right', 1, 0]];
     for (const [a, x, y] of pans) keys.on(a, () => this.keyPan.press({ x, y }), ev);
   }
@@ -3275,6 +3279,8 @@ export class BattleScene extends BaseScene {
       const at = this.heroInfoBox();
       this.buildHeroInfo(u, at.y, at.x, at.w);
     }
+    // keycaps on the keyed controls with a keyboard (input-v6.md §6.1)
+    addHudKeycaps(this, this.hud, this.medalIds, this.m.cls === 'compact' && !this.m.land);
     this.hudDirty = true;
     this.refreshHud();
     this.tutorialEvent({ kind: 'hud' });

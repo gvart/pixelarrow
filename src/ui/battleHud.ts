@@ -22,6 +22,8 @@ import type { Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import { TICK_RATE } from '../sim/battle';
 import { t } from '../i18n';
 import { namesIn } from '../i18n/names';
+import { addKeycap } from './keycap';
+import type { ActionId } from './input/actions';
 
 /** Height of the top bar (UI px). */
 export const TOP_H = 46;
@@ -1334,4 +1336,50 @@ export function damageNumberHits(events: readonly SimEvent[]): HitEvent[] {
     if (kill || impacts.has(`${e.unit}:${e.by}`)) out.push(e);
   }
   return out.reverse();
+}
+
+/**
+ * The battle controls that show a keycap (input-v6.md §6.1), by uiId: the order bar, Then… and Undo,
+ * More, Pause/Play, Speed, Follow, Zoom, the ⋯ menu, FIGHT/READY, Shape, Groups and Works. Group cards
+ * show none (their numeral is the key); medallions are added by their place on the rail.
+ */
+export const KEYCAP_ACTIONS: Readonly<Record<string, ActionId>> = {
+  'battle.cmd.advance': 'order.advance',
+  'battle.cmd.charge': 'order.charge',
+  'battle.cmd.hold': 'order.hold',
+  'battle.cmd.loose': 'order.shoot',
+  'battle.cmd.feint': 'order.fifth',
+  'battle.cmd.fallback': 'order.fifth',
+  'battle.then': 'order.then',
+  'battle.undo': 'order.undo',
+  'battle.more': 'ability.more',
+  'battle.pause': 'time.pause',
+  'battle.play': 'time.pause',
+  'battle.speed': 'time.faster',
+  'battle.follow': 'cam.follow',
+  'battle.zoom': 'cam.zoom.in',
+  'battle.menu': 'menu.battle',
+  'battle.fight': 'deploy.fight',
+  'battle.ready': 'deploy.fight',
+  'battle.cat.formation': 'deploy.shape',
+  'battle.groups': 'deploy.groups',
+  'battle.works': 'deploy.works',
+};
+
+/** The action a HUD control's key runs, by its uiId (`medallions`: the rail's ids, top to bottom). */
+export function keycapAction(id: string, medallions: readonly string[]): ActionId | null {
+  const m = medallions.indexOf(id);
+  if (m >= 0 && m < 3) return `ability.${m + 1}` as ActionId;
+  return KEYCAP_ACTIONS[id] ?? null;
+}
+
+/** Tag every keyed control under `root` (its tip names the key) and give it a keycap when they are shown. */
+export function addHudKeycaps(scene: Phaser.Scene, root: Phaser.GameObjects.Container, medallions: readonly string[], phone: boolean): void {
+  for (const o of root.list) {
+    if (!(o instanceof Phaser.GameObjects.Container)) continue;
+    const id = (o as { __uiId?: string }).__uiId;
+    const action = id ? keycapAction(id, medallions) : null;
+    if (action) addKeycap(scene, o, action, phone);
+    else addHudKeycaps(scene, o, medallions, phone);
+  }
 }

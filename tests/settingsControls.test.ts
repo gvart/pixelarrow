@@ -121,13 +121,15 @@ const { settingsRows, watchRows } = await import('../src/ui/settings');
 describe('the Controls section shows only with a keyboard, and appears live (input-v6.md §5.1)', () => {
   const hasControls = (rows: ReturnType<typeof settingsRows>) => rows.some((r) => r.kind === 'open' && r.what === 'controls');
 
-  it('touch only: no Controls section; with a keyboard: Controls → Keyboard shortcuts, before Account', () => {
+  it('touch only: no Controls section; with a keyboard: Controls → Keyboard shortcuts and Show key hints, before Account', () => {
     expect(hasControls(settingsRows(false))).toBe(false);
     const rows = settingsRows(true);
     expect(hasControls(rows)).toBe(true);
     const at = rows.findIndex((r) => r.kind === 'section' && r.label === 'controls.sec');
     expect(rows[at + 1]).toEqual({ kind: 'open', what: 'controls', label: 'controls.title' });
-    expect(rows[at + 2]).toEqual({ kind: 'section', label: 'settings.sec.account' });
+    // Show key hints (§5.1), default on
+    expect(rows[at + 2]).toEqual({ kind: 'toggle', key: 'keyHints', label: 'controls.keyHints' });
+    expect(rows[at + 3]).toEqual({ kind: 'section', label: 'settings.sec.account' });
   });
 
   it('a keyboard paired while Settings is open adds the section at once (a fake InputHints)', () => {
