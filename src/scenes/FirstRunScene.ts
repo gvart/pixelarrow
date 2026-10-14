@@ -16,10 +16,12 @@ import { ensureFonts } from '../ui/fonts';
 import { ellipsize, wrapText, LINE_H } from '../ui/textfit';
 import { SIZE } from '../ui/theme';
 import { MOSAIC } from '../ui/tokens';
-import { uiFrame, uiId } from '../ui/layout';
+import { uiFrame, uiId, uiLayout, uiPrimary } from '../ui/layout';
 import { FrescoBanner, MButton, MODE_TABS, ParchmentCard, ScreenFrame, TopBar, goTab, mosaicImage, mtext, type Box, type TabId } from '../ui/mosaic';
 import { makePressable } from '../ui/mosaic/base';
 import { ensureNarratorTextures, preloadNarrator, setNarratorFrame } from '../ui/tutorial/narrator';
+import { columnBox, modesRow, offerLayout, MEDIUM_COL } from '../ui/tutorial/firstRunLayout';
+import { layoutVariant, type LayoutVariant } from '../ui/mosaic/layout/variant';
 import { NARRATOR_SIZE } from '../art/narrator';
 import { state } from '../state';
 import { progressOf, skipTutorial, TUTORIAL_REWARD } from '../game/tutorial';
@@ -55,8 +57,23 @@ const MODES: { id: Extract<TabId, 'campaign' | 'duels' | 'war'>; pitch: TKey; ar
 /** A card's fresco strip: at most this wide per high, and none below MIN_ART high (a short screen keeps the words). */
 const ART_ASPECT = 4;
 const MIN_ART = 22;
+/** Side by side, a card's fresco keeps the painting's own shape (1080 × 480). */
+const MODE_ART_ASPECT = 2.25;
+
+/** A CTA at most this wide outside compact portrait (§2.3), and the Skip link and Continue at most a button's width. */
+const CTA_MAX = 300;
+const BTN_MAX = 240;
+/** The offer fresco's height on tablets (§13.1). */
+const ART_MAX_H = 280;
+/** Wide layouts' reward column (speech above, the gold and item cards side by side). */
+const REWARD_MAX = 600;
 
 export class FirstRunScene extends BaseScene {
+  /** Lays out for each size class (landscape-v6.md §13.1); compact portrait is the v5 column. */
+  protected override readonly responsive = true;
+  private variant: LayoutVariant = 'compactPortrait';
+  /** The frame's content box (UI px), under the top bar. */
+  private inner: Box = { x: 0, y: 0, w: 0, h: 0 };
   private mode: FirstRunMode = 'offer';
   private portrait: Phaser.GameObjects.Image | null = null;
   private dialog: Phaser.GameObjects.Container | null = null;
@@ -90,8 +107,11 @@ export class FirstRunScene extends BaseScene {
     this.ui.add(frame);
     const title = t(this.mode === 'reward' ? 'firstrun.rewardTitle' : this.mode === 'modes' ? 'firstrun.ways' : 'firstrun.title');
     this.ui.add(new TopBar(this, frame.topBar, { title, id: 'firstrun.topbar', back: back && this.inGameBack ? back : undefined }));
-    const w = Math.min(frame.inner.w, 200);
-    this.area = { x: frame.inner.x + Math.round((frame.inner.w - w) / 2), y: frame.inner.y + 2, w, h: frame.inner.h - 2 };
+    this.variant = layoutVariant(this.m);
+    uiLayout(this, this.m.cls, this.m.land);
+    this.inner = { x: frame.inner.x, y: frame.inner.y + 2, w: frame.inner.w, h: frame.inner.h - 2 };
+    // the v5 column (compact portrait), else a 360 column; the offer, reward and modes widen it as they need
+    this.area = columnBox(this.variant, this.inner);
     if (this.mode === 'modes') this.buildModes();
     else if (this.mode === 'reward') this.buildReward(data?.item ?? null);
     else this.buildOffer(this.mode === 'resume');
@@ -193,17 +213,66 @@ export class FirstRunScene extends BaseScene {
 
   /** The key art in its fresco frame (FR-1); Nikias, the CTA at thumb height and the Skip link under it. */
   private buildOffer(resume: boolean): void {
+    if (this.variant !== 'compactPortrait') return this.buildOfferWide(resume);
     const { x, y: top, w, h } = this.area;
     const bottom = top + h;
     const linkY = bottom - LINK_H;
     const ctaY = linkY - 2 - BTN_H;
-    this.ui.add(new MButton(this, x, ctaY, w, BTN_H, { label: resume ? t('firstrun.resumeBtn') : t('firstrun.tutorial'), icon: 'swords', variant: 'primary', onClick: () => this.startTutorial() }));
+    this.ui.add(uiPrimary(new MButton(this, x, ctaY, w, BTN_H, { label: resume ? t('firstrun.resumeBtn') : t('firstrun.tutorial'), icon: 'swords', variant: 'primary', onClick: () => this.startTutorial() })));
     this.textLink(x, linkY, w, t('firstrun.skip'), 'firstrun.skip', () => (resume ? this.confirmSkip() : this.skip()));
     const text = resume ? t('firstrun.resume') : t('firstrun.offer');
-    const sy = ctaY - 6 - this.compactSpeechH(text);
+    // never up into the top bar (UI.md §3.17)
+    const sy = Math.max(top, ctaY - 6 - this.compactSpeechH(text));
     this.speech(sy, ctaY - 6, text, true);
     const artH = sy - 5 - top;
     if (artH >= 40) this.ui.add(new FrescoBanner(this, x, top, w, artH, { image: SPLASH, label: t('firstrun.title'), id: 'firstrun.art' }));
+  }
+
+  /**
+   * Tablets and landscape (§13.1): on a tablet the fresco on top (at most 280 tall), then Nikias, the CTA
+   * and Skip, centred as one block; in landscape a stage, the fresco on the left and the rest on the right,
+   * centred in its height (the CTA always above the fold).
+   */
+  private buildOfferWide(resume: boolean): void {
+    const text = resume ? t('firstrun.resume') : t('firstrun.offer');
+    const lay = offerLayout(this.variant, this.inner);
+    const blockH = (w: number) => {
+      this.area = { ...this.area, w };
+      return this.compactSpeechH(text) + 6 + BTN_H + 2 + LINK_H;
+    };
+    let words: Box;
+    let art: Box | null;
+    if (lay.kind === 'stage') {
+      // a short phone (Telegram's insets) gives the words the room they need, the fresco the rest
+      let { art: a, side } = lay;
+      while (blockH(side.w) > side.h && a.w > 100) {
+        a = { ...a, w: a.w - 20 };
+        side = { ...side, x: side.x - 20, w: side.w + 20 };
+      }
+      const bh = blockH(side.w);
+      words = { x: side.x, y: side.y + Math.max(0, Math.round((side.h - bh) / 2)), w: side.w, h: bh };
+      // the portrait key art, as tall as the stage and no taller than 1.6 x its width
+      const ah = Math.min(a.h, Math.round(a.w * 1.6));
+      art = { x: a.x, y: a.y + Math.round((a.h - ah) / 2), w: a.w, h: ah };
+    } else {
+      const col = lay.col;
+      const bh = blockH(col.w);
+      const ah = Math.min(ART_MAX_H, col.h - bh - 5);
+      const total = (ah >= 40 ? ah + 5 : 0) + bh;
+      const y0 = col.y + Math.max(0, Math.round((col.h - total) / 2));
+      art = ah >= 40 ? { x: col.x, y: y0, w: col.w, h: ah } : null;
+      words = { x: col.x, y: y0 + (art ? ah + 5 : 0), w: col.w, h: bh };
+    }
+    this.area = words;
+    const sh = this.compactSpeechH(text);
+    this.speech(words.y, words.y + sh, text, true);
+    const ctaW = Math.min(words.w, CTA_MAX);
+    const ctaY = words.y + sh + 6;
+    const cta = new MButton(this, words.x + Math.round((words.w - ctaW) / 2), ctaY, ctaW, BTN_H, { label: resume ? t('firstrun.resumeBtn') : t('firstrun.tutorial'), icon: 'swords', variant: 'primary', onClick: () => this.startTutorial() });
+    this.ui.add(uiPrimary(cta));
+    const linkW = Math.min(words.w, BTN_MAX);
+    this.textLink(words.x + Math.round((words.w - linkW) / 2), ctaY + BTN_H + 2, linkW, t('firstrun.skip'), 'firstrun.skip', () => (resume ? this.confirmSkip() : this.skip()));
+    if (art) this.ui.add(new FrescoBanner(this, art.x, art.y, art.w, art.h, { image: SPLASH, label: t('firstrun.title'), id: 'firstrun.art' }));
   }
 
   startTutorial(): void {
@@ -228,22 +297,37 @@ export class FirstRunScene extends BaseScene {
   // ------------------------------------------------------------------ reward
 
   private buildReward(item: Item | null): void {
+    // tablets and landscape (§13.1): a wider column, the gold and the item side by side, Continue ≤ 300 wide
+    const wide = this.variant !== 'compactPortrait';
+    if (wide) {
+      const cw = Math.min(this.inner.w, this.variant === 'medium' ? MEDIUM_COL : REWARD_MAX);
+      this.area = { x: this.inner.x + Math.round((this.inner.w - cw) / 2), y: this.inner.y, w: cw, h: this.inner.h };
+    }
     const { x, w } = this.area;
-    const top = this.bottomButtons([{ label: t('menu.continue'), icon: 'check', primary: true, onClick: () => this.scene.start('FirstRun', { mode: 'modes' }) }]);
+    const onContinue = () => this.scene.start('FirstRun', { mode: 'modes' });
+    let top: number;
+    if (wide) {
+      const bw = Math.min(w, CTA_MAX);
+      top = this.area.y + this.area.h - BTN_H;
+      this.ui.add(uiPrimary(new MButton(this, x + Math.round((w - bw) / 2), top, bw, BTN_H, { label: t('menu.continue'), icon: 'check', variant: 'primary', onClick: onContinue })));
+    } else top = this.bottomButtons([{ label: t('menu.continue'), icon: 'check', primary: true, onClick: onContinue }]);
     // the reward as two card rows: gold counting up, and the item in its rarity frame
     const goldH = 26;
     const itemH = SIZE.cell + 14;
-    const need = item ? goldH + 3 + itemH : 0;
+    const need = item ? (wide ? itemH : goldH + 3 + itemH) : 0;
+    // side by side: the gold card as tall as the item's
+    const gw = wide ? Math.floor((w - 6) / 2) : w;
+    const gh = wide ? itemH : goldH;
     const first = this.ui.length;
     let y = this.speech(this.area.y + 4, top - 6 - need - 6, item ? t('firstrun.reward') : t('firstrun.rewardSeen'));
     if (!item) return;
     y += 6;
-    const gold = new ParchmentCard(this, x, y, w, goldH, { id: 'firstrun.gold' });
+    const gold = new ParchmentCard(this, x, y, gw, gh, { id: 'firstrun.gold' });
     this.ui.add(gold);
-    gold.add(addIcon(this, 8, Math.round((goldH - 12) / 2), 'coin'));
-    gold.add(mtext(this, 26, Math.round((goldH - 9) / 2), t('common.gold'), 'rInk', { size: 7, maxW: w - 80, box: { owner: gold, w, h: goldH } }));
-    const num = addText(this, w - 8, Math.round((goldH - 9) / 2), '+0', 'pInk', 1);
-    uiFrame(num, gold, w, goldH);
+    gold.add(addIcon(this, 8, Math.round((gh - 12) / 2), 'coin'));
+    gold.add(mtext(this, 26, Math.round((gh - 9) / 2), t('common.gold'), 'rInk', { size: 7, maxW: gw - 80, box: { owner: gold, w: gw, h: gh } }));
+    const num = addText(this, gw - 8, Math.round((gh - 9) / 2), '+0', 'pInk', 1);
+    uiFrame(num, gold, gw, gh);
     gold.add(num);
     let lastTick = 0;
     this.tweens.addCounter({
@@ -263,17 +347,19 @@ export class FirstRunScene extends BaseScene {
       },
       onComplete: () => num.setText(`+${TUTORIAL_REWARD.gold}`),
     });
-    const iy = y + goldH + 3;
-    const row = new ParchmentCard(this, x, iy, w, itemH, { id: 'firstrun.item' });
+    const iy = wide ? y : y + goldH + 3;
+    const ix = wide ? x + gw + 6 : x;
+    const iw = wide ? w - gw - 6 : w;
+    const row = new ParchmentCard(this, ix, iy, iw, itemH, { id: 'firstrun.item' });
     this.ui.add(row);
     const icon = new ItemIcon(this, 8, Math.round((itemH - SIZE.cell) / 2), { item }, { size: SIZE.cell });
     row.add(icon);
     const nx = 8 + SIZE.cell + 6;
     const name = tOr(`item.${item.def}.name`, itemDef(item.def).name);
-    const nw = w - 6 - nx;
+    const nw = iw - 6 - nx;
     const nameLines = wrapText(name, nw, 2).lines;
     const nameText = addText(this, nx, nameLines.length > 1 ? 9 : 12, nameLines.join('\n'), 'pInk');
-    uiFrame(nameText, row, w, itemH);
+    uiFrame(nameText, row, iw, itemH);
     row.add(nameText);
     if (nameLines.length < 2) row.add(addText(this, nx, 23, ellipsize(tOr(`rarity.${item.rarity}`, item.rarity), nw), 'pSec'));
     // the speech and the rewards as one block, centred above the button (no empty band between them)
@@ -287,6 +373,8 @@ export class FirstRunScene extends BaseScene {
 
   /** One card per mode, in the tab bar's order and with its name and icon; the Campaign card is the lit one (the primary). */
   private buildModes(): void {
+    const row = modesRow(this.variant, this.inner);
+    if (row) return this.buildModesRow(row);
     const { x, w } = this.area;
     const gap = SIZE.gap + 2;
     // a screen too short for all three (320x568 inside Telegram) scrolls them
@@ -327,6 +415,46 @@ export class FirstRunScene extends BaseScene {
       y += h + gap;
     }
     scroll.setContentHeight(y - gap);
+  }
+
+  /**
+   * Tablets and landscape (§13.1): the three cards side by side, as tall as each other, the fresco on top
+   * of each (its own 2.25:1 or what the words leave) and the row centred in the height; a screen too short
+   * for the cards scrolls them.
+   */
+  private buildModesRow(row: { x: number; w: number; gap: number }): void {
+    const { w, gap } = row;
+    const { y: top0, h: areaH } = this.inner;
+    const totalW = w * MODES.length + gap * (MODES.length - 1);
+    const scroll = new ScrollArea(this, this.ui, row.x, top0, totalW, areaH, this.m.S);
+    this.events.once('shutdown', () => scroll.destroy());
+    const px = 8;
+    const tx = 26;
+    const cards = MODES.map((m) => ({ m, lines: wrapText(t(m.pitch), w - px * 2, 0).lines }));
+    const textH = Math.max(MODE_H, 20 + Math.max(...cards.map((c) => c.lines.length)) * LINE_H + 4);
+    let artH = Math.min(Math.round((w - 6) / MODE_ART_ASPECT), areaH - textH - 3 - 6);
+    if (artH < MIN_ART) artH = 0;
+    const top = artH ? artH + 3 : 0;
+    const h = top + textH;
+    const y = Math.max(0, Math.round((areaH - h) / 2));
+    cards.forEach(({ m, lines }, i) => {
+      const tab = MODE_TABS.find((tb) => tb.id === m.id)!;
+      const label = t(tab.key);
+      const card = new ParchmentCard(this, i * (w + gap), y, w, h, { id: `firstrun.mode.${m.id}`, selected: m.id === 'campaign' });
+      const face = this.add.container(0, 0);
+      card.add(face);
+      if (artH) face.add(new FrescoBanner(this, 3, 3, w - 6, artH, { image: m.art, id: `firstrun.mode.${m.id}.art` }));
+      face.add(addIcon(this, px, top + 5, tab.icon));
+      face.add(mtext(this, tx, top + 7, label, 'rInk', { size: 7.5, maxW: w - tx - 20, box: { owner: card, w, h } }));
+      const body = addText(this, px, top + 19, lines.join('\n'), 'pInk');
+      uiFrame(body, card, w, h);
+      face.add(body);
+      face.add(addIcon(this, w - 15, top + 5, 'chevR'));
+      makePressable(card, { w, h, onTap: () => !scroll.moved && this.openMode(m.id), tip: label });
+      Object.assign(card, { opts: { label } });
+      scroll.content.add(card);
+    });
+    scroll.setContentHeight(y + h);
   }
 
   private openMode(id: 'campaign' | 'duels' | 'war'): void {
