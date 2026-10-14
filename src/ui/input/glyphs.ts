@@ -4,7 +4,7 @@
  *
  * - printable keys take the layout's character (InputHints.keyLabels: "Й" for KeyQ on a Russian
  *   layout in Chromium), else the US label; named keys a short, localized name;
- * - the shortcut modifier is "⌘" or "Ctrl" by InputHints.commandKey(), never by game code reading
+ * - the shortcut modifier is "Cmd" (⌘) or "Ctrl" by InputHints.commandKey(), never by game code reading
  *   the client platform (ARCH_REVIEW C-08);
  * - an action's key is its current primary binding in the router, so a rebound key shows at once.
  */
@@ -74,13 +74,12 @@ function codeLabel(code: string, layout: ReadonlyMap<string, string> | null): st
 
 /**
  * A binding's label (§6.2): the layout's character (upper-cased) where the browser has a layout map,
- * else the US label. Chords read "Ctrl+Z", or "⌘Z" (with ⌥ and ⇧ before it) where the platform's
- * shortcut modifier is ⌘.
+ * else the US label. Chords read "Ctrl+Z", or "Cmd+Z" where the platform's shortcut modifier is ⌘
+ * (spelled out: the bundled UI font has no ⌘ ⌥ ⇧ glyphs; Alt is "Option" there).
  */
 export function keyLabel(b: Binding, layout: ReadonlyMap<string, string> | null, cmd: Glyphs['cmd'] = 'ctrl'): string {
-  const key = codeLabel(b.code, layout);
-  if (cmd === 'meta') return `${b.alt ? '⌥' : ''}${b.shift ? '⇧' : ''}${b.mod ? '⌘' : ''}${key}`;
-  return `${b.mod ? 'Ctrl+' : ''}${b.alt ? 'Alt+' : ''}${b.shift ? 'Shift+' : ''}${key}`;
+  const mac = cmd === 'meta';
+  return `${b.mod ? (mac ? 'Cmd+' : 'Ctrl+') : ''}${b.alt ? (mac ? 'Option+' : 'Alt+') : ''}${b.shift ? 'Shift+' : ''}${codeLabel(b.code, layout)}`;
 }
 
 /** The label of `id`'s primary binding (its secondary when the primary is empty); null when it has no key. */

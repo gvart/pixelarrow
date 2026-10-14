@@ -28,9 +28,10 @@ describe('key labels follow the layout (input-v6.md §6.2)', () => {
     expect(keyLabel({ code: 'Tab', shift: true }, null)).toBe('Shift+Tab');
   });
 
-  it('the shortcut modifier reads ⌘ where the platform says so (Ctrl elsewhere), never from game code', () => {
-    expect(keyLabel({ code: 'KeyZ', mod: true }, null, 'meta')).toBe('⌘Z');
-    expect(keyLabel({ code: 'KeyZ', mod: true, shift: true }, null, 'meta')).toBe('⇧⌘Z');
+  // the bundled UI font has no ⌘ ⇧ ⌥ glyphs, so the Apple modifier is spelled "Cmd" (V6 decision log)
+  it('the shortcut modifier reads Cmd where the platform says ⌘ (Ctrl elsewhere), never from game code', () => {
+    expect(keyLabel({ code: 'KeyZ', mod: true }, null, 'meta')).toBe('Cmd+Z');
+    expect(keyLabel({ code: 'KeyZ', mod: true, alt: true }, null, 'meta')).toBe('Cmd+Option+Z');
     expect(keyLabel({ code: 'KeyZ', mod: true }, RU, 'ctrl')).toBe('Ctrl+Я');
   });
 });
