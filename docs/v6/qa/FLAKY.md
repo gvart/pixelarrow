@@ -16,6 +16,12 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Cause:** suspected timing/async: the check measured a text that had not yet settled (wrapped or faded in).
 - **Fix:** none yet. Record each further run here.
 
+### F6 · `tutorial-smoke` web, `duel-smoke` Telegram and `duel-smoke` web (suspected, load timeouts)
+
+- **Seen:** all three timed out once at load average ≈ 42 during the RSCR-01 + INP-05 integration, then passed on the first rerun with no code change. One failure each, so **suspected**.
+- **Cause:** suspected load timeouts (timing/async): the runner's per-script timeout ran out while frames were slow.
+- **Fix:** none yet. The next QA pass checks whether the smoke runner's per-script timeouts should scale with CPU load, or whether these scripts still have fixed waits. Record each further run here.
+
 ## Resolved
 
 ### F4 · `scripts/smoke.mjs` in Telegram mode, "tap on the map plans a route" and "party marched" (timing/async + missed event, fixed in QA-HARDEN)
