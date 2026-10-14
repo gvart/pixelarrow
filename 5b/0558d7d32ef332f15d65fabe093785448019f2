@@ -1,0 +1,24 @@
+auth/logic.ts
+  s_0d98fe904b2e82::t_b0c729d56e4b63 1-185
+tests/authPages.test.ts
+  s_0d98fe904b2e82::t_27eb246929cf99 1-76,78-126
+  s_0d98fe904b2e82::t_ebc2e0769d5408 77
+tsconfig.json
+  s_0d98fe904b2e82::t_51feac2d494c76 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5b0558d7d32ef332f15d65fabe093785448019f2",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
