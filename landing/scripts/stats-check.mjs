@@ -7,9 +7,11 @@
 //  4. Names are text: a name holding markup renders as those characters, never as an element.
 //  5. Empty state, no invented numbers: a 503, a failed request, a bad body, empty boards and small
 //     totals all show "—" counters and "The war is just beginning…", with no digit anywhere in them.
-//     One empty board alone keeps its ruled ledger with a one-line note.
-//  6. Fixed slots: the ledgers are the same size before and after the rows arrive, and a deep link
-//     with a slow answer records no layout shift; no horizontal overflow at 320, 390 and 1440.
+//     The two ledgers stay blank (hidden from screen readers) under the invitation; one empty board
+//     alone keeps its ruled ledger with a one-line note.
+//  6. Fixed slots: the ledgers are the same size before and after the rows arrive, the empty state is
+//     as tall as the filled boards, and a deep link records no layout shift from its first paint,
+//     filled or empty (V6-056, V6-LAND-06); no horizontal overflow at 320, 390 and 1440.
 // With SHOTS_DIR set, it saves the section filled and empty at the six widths.
 //
 // Usage (in landing/, after `npm run build`): npm run test:stats (STATS_TEST_PORT picks the port,
@@ -48,8 +50,14 @@ const clone = () => structuredClone(FIXTURE);
 const emptyBoards = (s) => Object.assign(s, { duels: { ...s.duels, live: [], async: [] }, war: { ...s.war, players: [], clans: [] } });
 
 /** A page whose summary request is answered by `answer` ({status, body} | 'abort'); counts requests. */
-async function open(browser, answer, { width = 1440, height = 900, hash = '', delay = 0, ...opts } = {}) {
+async function open(browser, answer, { width = 1440, height = 900, hash = '', delay = 0, init = false, ...opts } = {}) {
   const page = await browser.newPage({ viewport: { width, height }, ...opts });
+  if (init) {
+    await page.addInitScript(() => {
+      window.__clsAll = 0;
+      new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__clsAll += e.value; }).observe({ type: 'layout-shift', buffered: true });
+    });
+  }
   const hits = { summary: 0, module: 0 };
   page.on('pageerror', (e) => check(false, `no page error (${e.message})`));
   page.on('request', (r) => { if (/\/_astro\/stats-[^/]+\.js$/.test(r.url())) hits.module++; });
@@ -182,7 +190,8 @@ try {
     // the lead may carry the snapshot's real "as of" time; nothing else may hold a digit
     const text = await page.$eval('#leaderboards', (e) => [...e.querySelectorAll('.stats__tally, .stats__boards')].map((x) => x.textContent).join(' '));
     check(!/\d/.test(text), `${label}: no number in the counters or the boards`);
-    check(await page.$('#leaderboards table') === null, `${label}: no ledger rows`);
+    const blank = await page.$$eval('#leaderboards .ledger', (ls) => ls.map((l) => l.getAttribute('aria-hidden') === 'true' && [...l.querySelectorAll('td')].every((td) => td.textContent === '')));
+    check(blank.length === 2 && blank.every(Boolean), `${label}: the two ledgers stay blank and hidden from screen readers (${blank.join(', ')})`);
     check(hits.summary === 1, `${label}: one request, no retry (${hits.summary})`);
     await page.close();
   }
@@ -246,15 +255,26 @@ try {
     check(cls < 0.01, `#leaderboards deep link: no layout shift when the data arrives (CLS ${cls.toFixed(4)})`);
     await page.close();
   }
-  {
+  for (const [width, height] of [[390, 844], [1440, 900]]) {
     const heights = [];
     for (const answer of [{ status: 200, body: FIXTURE }, { status: 503, body: { status: 'warming' } }]) {
-      const { page } = await open(browser, answer);
+      const { page } = await open(browser, answer, { width, height });
       await toStats(page);
-      heights.push(await page.$eval('#leaderboards .stats__boards', (e) => Math.round(e.getBoundingClientRect().height)));
+      heights.push(await page.$eval('#leaderboards', (e) => Math.round(e.getBoundingClientRect().height)));
       await page.close();
     }
-    check(heights[0] === heights[1], `1440px: the empty page is as tall as the ledgers it stands in for (${heights.join(' vs ')})`);
+    check(heights[0] === heights[1], `${width}px: the empty state is as tall as the ledgers it stands in for (${heights.join(' vs ')})`);
+  }
+  for (const [width, height] of [[390, 844], [1440, 900]]) {
+    for (const answer of [{ status: 200, body: FIXTURE }, { status: 503, body: { status: 'warming' } }]) {
+      // the whole deep link, from the first paint (V6-056: the title painted alone, then the slots)
+      const { page } = await open(browser, answer, { width, height, hash: '#leaderboards', delay: 400, init: true });
+      await page.waitForSelector('#leaderboards:not(.is-loading) .stats__boards');
+      await page.waitForTimeout(1600);
+      const cls = await page.evaluate(() => window.__clsAll);
+      check(cls < 0.01, `${width}px #leaderboards deep link (${answer.status}): no layout shift from first paint (CLS ${cls.toFixed(4)})`);
+      await page.close();
+    }
   }
   for (const [width, height] of [[320, 640], [390, 844], [1440, 900]]) {
     for (const [label, answer] of [['filled', { status: 200, body: FIXTURE }], ['empty', { status: 503, body: { status: 'warming' } }]]) {

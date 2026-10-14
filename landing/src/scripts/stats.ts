@@ -8,7 +8,8 @@
 // - two parchment ledgers, "Top duelists" and "War standings", always ten ruled lines tall, so the
 //   slots never change size when the rows arrive;
 // - the empty state when the boards are empty, the totals are small, or the request fails (any 503,
-//   other status or bad body): counters show "—" and one line invites the visitor to play. Nothing
+//   other status or bad body): counters show "—", the two ledgers stay blank, and a slip laid across
+//   them invites the visitor to play (V6-LAND-06; same size as the filled boards). Nothing
 //   here ever shows a number that did not come from the server.
 // Names come from players, so they are only ever set with textContent.
 import css from '../styles/stats.css?inline';
@@ -139,8 +140,21 @@ function render(section: HTMLElement, s: Summary | null): void {
   const duels = s ? (s.duels.live.length ? s.duels.live : s.duels.async) : [];
   const clans = s?.war.clans ?? [];
   const boards = h('div', 'stats__boards');
-  if (!s || (!duels.length && !clans.length)) boards.append(emptyPanel());
-  else {
+  if (!s || (!duels.length && !clans.length)) {
+    // The two pages stay on the table, blank and ruled, with the invitation laid across them: the
+    // section keeps the exact size of its loading slots and of the filled boards at every width.
+    // No season numbers here: the empty state shows no digit at all.
+    boards.classList.add('is-empty');
+    for (const [title, sub, cols] of [['Top duelists', 'Live ladder', 3], ['War standings', 'Clans', 4]] as const) {
+      const l = ledger('', title, sub, Array<string>(cols).fill(''), [], '');
+      l.querySelector('.ledger__none')!.remove();
+      l.querySelector('h3')!.removeAttribute('id');
+      l.querySelector('table')!.removeAttribute('aria-labelledby');
+      l.setAttribute('aria-hidden', 'true');
+      boards.append(l);
+    }
+    boards.append(emptyPanel());
+  } else {
     const ladder = s.duels.live.length ? 'Live ladder' : 'Async ladder';
     boards.append(
       ledger('stats-duels', 'Top duelists', `${ladder}, season ${s.duels.season.id}`, ['Rank', 'Player', 'League'],

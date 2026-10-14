@@ -42,6 +42,7 @@
   color: var(--cream);
   font-variant-numeric: lining-nums tabular-nums;
   white-space: nowrap;
+  align-self: stretch; /* full width: the count-up changes the text, never the box (no layout shift) */
 }
 .tally__label {
   color: var(--cream-sec);
@@ -139,17 +140,50 @@
   text-align: center;
 }
 
-/* Empty state: one blank ledger page, the size of the two it stands in for, with the invitation. */
+/* Empty state (V6-LAND-06): the two blank ruled pages stay on the table, waiting for names, and one
+   slip with a wax seal is laid across them, a degree off square like paper dropped on a desk. The
+   boards keep the filled size at every width, so nothing below moves when the answer lands. */
+.stats__boards {
+  position: relative;
+}
+.is-empty .ledger {
+  filter: brightness(0.82) saturate(0.85);
+}
 .stats__empty {
-  grid-column: 1 / -1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(100% - 2 * var(--s4), 32rem);
   display: grid;
-  place-content: center;
   justify-items: center;
-  gap: var(--s4);
-  min-height: 550px; /* the filled ledgers' height: title, caption, header and ten 40 px lines */
+  gap: var(--s3);
+  padding: var(--s12) var(--s8) var(--s8);
   text-align: center;
-  background-image: repeating-linear-gradient(to bottom, transparent 0 39px, rgb(58 36 20 / 0.1) 39px 40px),
-    radial-gradient(120% 80% at 18% 0%, #efe0bb, var(--parch) 55%, #dcc89b);
+  transform: translate(-50%, -50%) rotate(-1deg);
+  box-shadow: inset 0 -2px 0 rgb(58 36 20 / 0.2), 0 24px 60px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(58 36 20 / 0.25);
+}
+.stats__empty::before {
+  /* the seal: the page's diamond in terracotta wax */
+  content: '';
+  position: absolute;
+  top: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  background: radial-gradient(circle at 35% 30%, #c96a45, var(--terra) 60%, #7c2f1d);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.45), inset 0 0 0 3px rgb(0 0 0 / 0.12);
+  transform: rotate(45deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stats__empty {
+    animation: stats-slip 520ms cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+}
+@keyframes stats-slip {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 24px)) rotate(-4deg);
+  }
 }
 .stats__empty-title {
   color: var(--ink);
@@ -196,7 +230,7 @@
     max-width: 36rem;
   }
   .stats__empty {
-    min-height: 360px;
+    top: 275px; /* stacked pages: over the first one, where the eye arrives */
   }
 }
 /* Phones: the counters become the ledger's totals lines, numeral right, label left. */
@@ -217,11 +251,15 @@
     border-left: 0;
   }
   .tally__n {
+    flex: 1;
     font-size: 2.25rem;
+    text-align: right;
   }
-  .ledger,
-  .stats__empty {
+  .ledger {
     padding: var(--s4);
+  }
+  .stats__empty {
+    padding: var(--s12) var(--s4) var(--s6);
   }
   .ledger__none {
     inset-inline: var(--s4);
@@ -241,8 +279,7 @@
 }
 /* The narrowest phones: a step smaller and tighter, so names keep most of their letters. */
 @media (max-width: 399px) {
-  .ledger,
-  .stats__empty {
+  .ledger {
     padding: var(--s3);
   }
   .ledger__none {

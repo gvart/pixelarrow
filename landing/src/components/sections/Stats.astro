@@ -27,3 +27,12 @@
   );
   io.observe(document.getElementById('leaderboards')!);
 </script>
+
+<style is:global>
+  /* A #leaderboards deep link paints this title before the module builds the rest. At least one
+     screen tall, nothing below the section is in view then, so its growth moves nothing seen
+     (V6-056). The finished section is taller than this at every width anyway. */
+  #leaderboards {
+    min-height: 100lvh;
+  }
+</style>
