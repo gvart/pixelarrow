@@ -230,7 +230,8 @@ async function guided(tag, ctxOpts, fake, main) {
   }
 
   // the morale glyph: lit on the enemy badge, a tap goes on
-  if (await talkingAt('morale', 40000)) {
+  // the step waits up to 45 s of battle time for a group to waver (preTimeout): a slow machine needs more wall time
+  if (await talkingAt('morale', 70000)) {
     await clear('morale');
     const nm = (await tut()).narrator;
     await tap(nm.x + nm.w / 2, nm.y + nm.h - 6);
