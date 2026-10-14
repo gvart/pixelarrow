@@ -119,11 +119,19 @@ function placeSheet(scene: UiScene, o: ParchmentSheetOpts): { presentation: Pane
 }
 
 /**
+ * The box a sheet opened with `o` would get (V6-RSCR-05): a caller that lays out its own content measures it
+ * from this width, so a side panel's content fills the panel it is given. Compact portrait returns v5's box.
+ */
+export function sheetBox(scene: UiScene, o: ParchmentSheetOpts): { presentation: PanelPresentation; x: number; y: number; w: number; h: number } {
+  return placeSheet(scene, o);
+}
+
+/**
  * The width a sheet asking for `o` gets on this screen (v5's in compact portrait, the §3.4 caps elsewhere), so a
  * caller can lay its content out for the box it will be given before opening it.
  */
 export function sheetWidth(scene: UiScene, o: Omit<ParchmentSheetOpts, 'h'>): number {
-  return placeSheet(scene, { ...o, h: 0 }).w;
+  return sheetBox(scene, { ...o, h: 0 }).w;
 }
 
 export interface ParchmentSheetHandle extends Modal {

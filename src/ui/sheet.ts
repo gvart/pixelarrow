@@ -32,8 +32,12 @@ import {
 import { t, tOr, type TKey } from '../i18n';
 import { heroName } from '../i18n/names';
 import { fmtCount, fmtDecimal, localDecimals } from '../i18n/numbers';
-import { ROLE } from './tokens';
+import { MOSAIC, ROLE } from './tokens';
+import { CURSOR_CSS } from './input/cursor';
+import { dropView } from './army/drop';
 import { arrangeActions } from './mosaic/overlays';
+import { sheetBox } from './mosaic/ParchmentSheet';
+import { BUTTON_MAX } from './sizeClass';
 
 export const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
 export const ROMAN = ['I', 'II', 'III', 'IV'];
@@ -304,9 +308,30 @@ export class DragDrop {
   targets: DropTarget[] = [];
 
   constructor(private scene: UiScene) {
-    scene.input.on('pointermove', (p: Phaser.Input.Pointer) => this.ghost?.setPosition(p.x / scene.m.S, p.y / scene.m.S - 6));
+    scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (!this.ghost) return;
+      this.ghost.setPosition(p.x / scene.m.S, p.y / scene.m.S - 6);
+      this.mark(p);
+    });
     scene.input.on('pointerup', (p: Phaser.Input.Pointer) => this.end(p));
   }
+
+  /** The slots that take the item outlined, full strength under the pointer; the §4 cursor for a mouse (V6-RSCR-05). */
+  private mark(p: Phaser.Input.Pointer): void {
+    const it = this.item;
+    const g = this.marks;
+    if (!it || !g) return;
+    const { S } = this.scene.m;
+    const v = dropView(this.targets.map((tg) => ({ rect: tg.rect(), ok: tg.accepts(it) })), p.x / S, p.y / S);
+    g.clear();
+    for (const mk of v.marks) dashedRect(g, mk.rect.x - 2, mk.rect.y - 2, mk.rect.w + 4, mk.rect.h + 4, mk.alpha);
+    if (p.wasTouch) return;
+    const canvas = this.scene.sys.game.canvas;
+    if (canvas) canvas.style.cursor = CURSOR_CSS[v.cursor];
+    this.cursorSet = true;
+  }
+
+  private cursorSet = false;
 
   get dragging(): boolean {
     return !!this.ghost;
@@ -315,6 +340,14 @@ export class DragDrop {
   /** Make `icon` draggable (long press). `area`: the scroll area it sits in. */
   attach(icon: Phaser.GameObjects.GameObject, it: Item, area: ScrollArea | null): void {
     let timer: Phaser.Time.TimerEvent | null = null;
+    // a mouse over a stash item shows that it can be picked up (§4: grab), after the hand the control set
+    icon.on('pointerover', (p: Phaser.Input.Pointer) => {
+      if (p.wasTouch || this.ghost) return;
+      const g = icon as Phaser.GameObjects.GameObject & { input?: { cursor?: string } | null };
+      if (g.input) g.input.cursor = CURSOR_CSS.grab;
+      const canvas = this.scene.sys.game.canvas;
+      if (canvas) canvas.style.cursor = CURSOR_CSS.grab;
+    });
     icon.on('pointerdown', (p: Phaser.Input.Pointer) => {
       timer?.remove();
       timer = this.scene.time.delayedCall(300, () => {
@@ -337,13 +370,8 @@ export class DragDrop {
     this.scene.ui.add(this.ghost);
     this.marks = this.scene.add.graphics();
     this.scene.ui.add(this.marks);
-    for (const tg of this.targets) {
-      if (!tg.accepts(it)) continue;
-      const r = tg.rect();
-      this.marks.lineStyle(2, 0xffe080, 1);
-      this.marks.strokeRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
-    }
-    this.scene.tweens.add({ targets: this.marks, alpha: { from: 1, to: 0.35 }, duration: 380, yoyo: true, repeat: -1 });
+    // the drop targets light on drag start (§3.3, §4)
+    this.mark(p);
     this.scene.ui.bringToTop(this.ghost);
   }
 
@@ -368,7 +396,29 @@ export class DragDrop {
     this.marks?.destroy();
     this.marks = null;
     this.item = null;
+    if (this.cursorSet) {
+      this.cursorSet = false;
+      const canvas = this.scene.sys.game.canvas;
+      if (canvas) canvas.style.cursor = '';
+    }
   }
+}
+
+/** A bronze dashed outline (a drop target, §4): 3 px dashes with 2 px gaps. */
+function dashedRect(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, alpha: number): void {
+  g.lineStyle(2, MOSAIC.bronzeHi, alpha);
+  const DASH = 3;
+  const GAP_ = 2;
+  const side = (x0: number, y0: number, dx: number, dy: number, len: number) => {
+    for (let d = 0; d < len; d += DASH + GAP_) {
+      const e = Math.min(len, d + DASH);
+      g.lineBetween(x0 + dx * d, y0 + dy * d, x0 + dx * e, y0 + dy * e);
+    }
+  };
+  side(x, y, 1, 0, w);
+  side(x, y + h, 1, 0, w);
+  side(x, y, 0, 1, h);
+  side(x + w, y, 0, 1, h);
 }
 
 /** UI-pixel bounds of an object inside the scene's UI root. */
@@ -479,7 +529,10 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   const it = o.item;
   const def = itemDef(it.def);
   const rarity = normalizeRarity(it.rarity);
-  const w = Math.min(VW - 12, 210);
+  // v5's card width; a side panel (landscape, V6-RSCR-05) lays the card out across the panel it is given
+  const v5w = Math.min(VW - 12, 210);
+  const box = sheetBox(scene, { w: v5w, h: VH });
+  const w = box.presentation === 'side' ? box.w : v5w;
   const inner = w - 16;
   // ---- measure the content
   const cmp = o.hero && !o.equipped ? compareItem(o.hero, it) : null;
@@ -577,8 +630,11 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     const n = o.actions.length;
     const fy = y + h - 8 - SIZE.btnH;
     const { order, gaps } = arrangeActions(o.actions.map((a) => (a.variant === 'primary' || a.variant === 'destructive' ? a.variant : 'other')), SIZE.gap);
-    const bw = Math.floor((inner - gaps.reduce((s, g) => s + g, 0)) / n);
-    let ax = bx;
+    // in a wide side panel the row keeps each button within the §2.3 cap, at the right (primary under the thumb)
+    const gapW = gaps.reduce((s, g) => s + g, 0);
+    const rowW = box.presentation === 'side' ? Math.min(inner, n * BUTTON_MAX + gapW) : inner;
+    const bw = Math.floor((rowW - gapW) / n);
+    let ax = bx + inner - rowW;
     order.forEach((ai, i) => {
       const a = o.actions[ai];
       if (i > 0) ax += bw + gaps[i - 1];

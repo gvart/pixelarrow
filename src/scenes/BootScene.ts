@@ -109,7 +109,7 @@ export class BootScene extends Phaser.Scene {
     const first = firstRunEntry(state.campaign.data.settings, !!target || !!debugScene || !!(window as { __noFirstRun?: boolean }).__noFirstRun);
     // Reloaded during a live duel (Telegram reopens a mini app the system closed): back into the match,
     // or its report, instead of the menu while the match is lost by abandonment.
-    const live = !target && !debugScene && online.available ? ongoingMatch() : null;
+    const live = !target && !debugScene && (online.signedIn || online.canSignIn()) ? ongoingMatch() : null;
     if (live) this.scene.start('Duel', { tab: 'ranked', arena: 'home', rejoin: { id: live.id, mode: live.mode } });
     // Closed during a campaign battle: it was fought out at load (V5-011), show its report.
     else if (state.last && !target && !debugScene) this.scene.start('Results', {});
