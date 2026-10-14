@@ -14,7 +14,10 @@ import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { ScrollArea } from '../../ui/kit';
 import { ScrollList, addScrollHint, confirmDialog, toast } from '../../ui/widgets';
-import { uiClip, uiId, uiIgnore } from '../../ui/layout';
+import { uiClip, uiCollapsed, uiId, uiIgnore, uiLayout } from '../../ui/layout';
+import { layoutVariant, masterDetail, type Box as PaneBox } from '../../ui/mosaic/layout/geometry';
+import { focusPane } from '../../ui/focusRing';
+import { CONTENT_MAX } from '../../ui/sizeClass';
 import { ensureFonts } from '../../ui/fonts';
 import { GAP, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, addParchmentEmpty, addSubShell, mosaicImage, mtext, mw, openParchmentSheet, type Box, type FramedSubShell, type MButtonOpts } from '../../ui/mosaic';
 import { MOSAIC, TEXT_MIN } from '../../ui/tokens';
@@ -124,7 +127,25 @@ export function footerWidths(labels: string[], room: number): { icons: boolean; 
   return { icons: false, widths: bare.map((x) => Math.floor((x * room) / sum)) };
 }
 
+/** The detail pane's widest card (as the Army's, landscape-v6 §10.2). */
+const DETAIL_MAX = 340;
+/** The footer's height. */
+const FOOT_H = 32;
+/** Stash cells in the master pane, UI px (28 at phone sizes), as the Army's. */
+const STASH_CELL_MEDIUM = 40;
+const STASH_CELL_WIDE = 34;
+
+/** Every object under `c` (a container tree), `c` itself included. */
+function eachChild(c: Phaser.GameObjects.GameObject, fn: (o: Phaser.GameObjects.GameObject) => void): void {
+  fn(c);
+  if (c instanceof Phaser.GameObjects.Container) for (const o of c.list) eachChild(o, fn);
+}
+
 export class OnlineArmyScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-03): master and detail side by side outside compact portrait, as the Army. */
+  protected override readonly responsive = true;
+  /** The detail pane (the selected hero's card or the garrison head) beside the list. */
+  private detail: ScrollArea | null = null;
   profile: ProfileView | null = null;
   private sel: string | null = null;
   private garrisonHex: number | null = null;
@@ -172,9 +193,11 @@ export class OnlineArmyScene extends BaseScene {
     this.stateC = null;
     this.stash = null;
     this.hire = null;
+    this.detail = null;
     this.initUi();
     ensureFonts(this);
     this.screen({ back: () => this.back() });
+    uiLayout(this, this.m.cls, this.m.land);
     this.shell = addSubShell(this, { title: this.garrisonHex !== null ? t('oarmy.garrison') : t('war5.armyTitle'), back: () => this.back(), id: 'oarmy.topbar', scroll: false });
     this.box = this.shell.content;
     this.drag = new DragDrop(this);
@@ -252,6 +275,8 @@ export class OnlineArmyScene extends BaseScene {
     this.page = null;
     this.area?.destroy();
     this.area = null;
+    this.detail?.destroy();
+    this.detail = null;
     this.mini?.destroy();
     this.mini = null;
     this.clip?.destroy();
@@ -280,9 +305,15 @@ export class OnlineArmyScene extends BaseScene {
     this.refresh();
   }
 
+  /** Two panes (landscape-v6 §8.2, as the Army §10.2): every layout but compact portrait, which keeps the v5 page. */
+  private get split(): boolean {
+    return layoutVariant(this.m) !== 'compactPortrait';
+  }
+
   refresh(): void {
     const p = this.profile;
     if (!p) return;
+    if (this.split) return this.refreshSplit(p);
     const keep = this.area?.scrollY ?? 0;
     this.clearPage();
     const box = this.box;
@@ -323,6 +354,64 @@ export class OnlineArmyScene extends BaseScene {
       area.onScroll((s) => sync(s));
       sync(area.scrollY);
     }
+    this.ui.bringToTop(this.shell.top);
+    this.ui.bringToTop(this.footer);
+    if (this.hire) this.ui.bringToTop(this.hire.bar);
+  }
+
+  /**
+   * Compact landscape, medium and expanded (§3.3): the master pane on the left (the purse, Roster | Stash, the rows
+   * or the stash grid), the detail pane on the right (the selected hero's card or the garrison head, the footer
+   * under it). Each pane scrolls on its own; stash items drag from the master grid onto the card's slots. The
+   * collapsed one-line header is not needed: the card is a fixed pane (registered collapsed into his first slot).
+   */
+  private refreshSplit(p: ProfileView): void {
+    const keepM = this.area?.scrollY ?? 0;
+    const keepD = this.detail?.scrollY ?? 0;
+    this.clearPage();
+    const b = this.box;
+    const iw = Math.min(b.w - 8, CONTENT_MAX);
+    const inner: PaneBox = { x: b.x + 4 + Math.floor((b.w - 8 - iw) / 2), y: b.y + 4, w: iw, h: b.h - 7 };
+    const md = masterDetail(inner, this.m);
+    const M = md.master;
+    const D = md.detail ?? md.master;
+    // detail first: the stash's drop targets are the card's slots
+    const dw = Math.min(D.w, DETAIL_MAX);
+    const dx = D.x + Math.floor((D.w - dw) / 2);
+    const head = this.add.container(0, 0);
+    const headH = this.garrisonHex !== null ? this.buildGarrisonHead(head, dw - 3, 0, p, true) : this.buildHead(head, dw - 3, 0);
+    // the card and the footer as one group, centred in the pane's height when they fit (as the Army's)
+    const fits = headH + FOOT_H + 1 <= D.h;
+    const top = fits ? D.y + Math.floor((D.h - headH - FOOT_H - 1) / 2) : D.y;
+    this.footer = this.buildFooter(p, dx, fits ? top + headH + FOOT_H + 1 : D.y + D.h, dw);
+    this.ui.add(this.footer);
+    const viewBottom = this.footer.y - 1;
+    const detail = new ScrollArea(this, this.ui, dx, top, dw, viewBottom - top, this.m.S);
+    this.detail = detail;
+    addScrollHint(this, this.ui, detail, MOSAIC.parch);
+    detail.content.add(head);
+    detail.setContentHeight(headH);
+    detail.setScroll(keepD);
+    // master: the purse, the switch and the list as one group, centred in the pane's height when it fits (a few
+    // stash items), else from the top, scrolling
+    const area = new ScrollArea(this, this.ui, M.x, M.y, M.w, M.h, this.m.S);
+    this.area = area;
+    addScrollHint(this, this.ui, area, MOSAIC.parch);
+    const page = this.add.container(0, 0);
+    area.content.add(page);
+    this.page = page;
+    const cw = M.w - 3;
+    let y = this.buildChips(page, cw, 0, p);
+    this.cardTop = 0;
+    y = this.buildTabs(page, cw, y, p);
+    y = this.tab === 'stash' && this.garrisonHex === null ? this.buildStash(page, cw, y, p) : this.buildRoster(page, cw, y, p);
+    area.setContentHeight(y + 4);
+    area.setScroll(keepM);
+    if (y + 4 < M.h) page.y = Math.floor((M.h - y - 4) / 2);
+    if (this.selected() && this.garrisonHex === null) uiCollapsed(this, 'army.mini', 'slot:helmet');
+    // Tab reads the top bar, the master pane, the detail pane, then the footer (landscape-v6 §4)
+    eachChild(head, (o) => focusPane(o, 1));
+    eachChild(this.footer, (o) => focusPane(o, 2));
     this.ui.bringToTop(this.shell.top);
     this.ui.bringToTop(this.footer);
     if (this.hire) this.ui.bringToTop(this.hire.bar);
@@ -373,7 +462,7 @@ export class OnlineArmyScene extends BaseScene {
   }
 
   /** Garrison mode: which hex, how to pick, how many stand there (with clan mates). */
-  private buildGarrisonHead(L: Phaser.GameObjects.Container, cw: number, y0: number, p: ProfileView): number {
+  private buildGarrisonHead(L: Phaser.GameObjects.Container, cw: number, y0: number, p: ProfileView, centred = false): number {
     const g = this.garrisonHex!;
     const others = (this.hexDetail?.garrison ?? []).filter((x) => !p.heroes.some((h) => h.hero.id === x.hero.id)).length;
     const hint = wrapText(t('oarmy.garrisonHint', { name: this.regionName(g) }), cw - 12, 3, false, TEXT_MIN).lines;
@@ -382,8 +471,11 @@ export class OnlineArmyScene extends BaseScene {
     const card = this.add.container(0, y0);
     card.add(mosaicImage(this, 0, 0, cw, h, 'parchment'));
     const box = { owner: card, w: cw, h };
-    hint.forEach((l, i) => card.add(mtext(this, 6, 5 + i * ARMY_LH, l, 'pSec', { size: TEXT_MIN, box })));
-    card.add(uiId(mtext(this, 6, 6 + hint.length * ARMY_LH + 3, line, 'rInk', { size: 7, maxW: cw - 12, box }), 'oarmy.stationed'));
+    // (centred in the detail pane, left-aligned on the v5 page)
+    const tx = centred ? cw / 2 : 6;
+    const align = centred ? 0.5 : 0;
+    hint.forEach((l, i) => card.add(mtext(this, tx, 5 + i * ARMY_LH, l, 'pSec', { size: TEXT_MIN, box, align })));
+    card.add(uiId(mtext(this, tx, 6 + hint.length * ARMY_LH + 3, line, 'rInk', { size: 7, maxW: cw - 12, box, align }), 'oarmy.stationed'));
     L.add(card);
     return y0 + h + 4;
   }
@@ -449,10 +541,10 @@ export class OnlineArmyScene extends BaseScene {
   }
 
   /** The footer: Recruit (the primary), Market, Shop at one label size (OAR-2); in garrison mode Station. No back here: the top bar's is the one. */
-  private buildFooter(p: ProfileView): Phaser.GameObjects.Container {
-    const b = this.box;
-    const H = 32;
-    const c = this.add.container(b.x, b.y + b.h - H);
+  private buildFooter(p: ProfileView, left = this.box.x, bottom = this.box.y + this.box.h, w = this.box.w): Phaser.GameObjects.Container {
+    const b = { x: left, w };
+    const H = FOOT_H;
+    const c = this.add.container(left, bottom - H);
     c.add(mosaicImage(this, 0, 0, b.w, H, 'sheet'));
     uiId(c, 'oarmy.footer');
     if (this.garrisonHex !== null) {
@@ -498,7 +590,10 @@ export class OnlineArmyScene extends BaseScene {
   }
 
   private buildStash(L: Phaser.GameObjects.Container, w: number, top: number, p: ProfileView): number {
+    const v = layoutVariant(this.m);
     this.stash = new MStashGrid(this, L, 0, top, w, 0, {
+      // larger cells where the pane has the room, as the Army's (§10.2)
+      ...(v === 'medium' ? { cell: STASH_CELL_MEDIUM } : v === 'expanded' ? { cell: STASH_CELL_WIDE } : {}),
       items: () => p.stash,
       state: this.stashState,
       hero: () => this.selected()?.hero,
@@ -631,9 +726,11 @@ export class OnlineArmyScene extends BaseScene {
           hapticNotify('error');
           toast(this, errorText(e), 'bad');
         });
-    const b = this.box;
-    const bar = this.add.container(b.x + 4, (this.footer?.y ?? b.y + b.h - 32) - 4 - TAP - 4);
-    const w = b.w - 8;
+    // over the footer (in two panes, the detail pane's)
+    const fx = this.footer?.x ?? this.box.x;
+    const fw = this.footer ? (this.footer.list[0] as Phaser.GameObjects.Image).displayWidth : this.box.w;
+    const bar = this.add.container(fx + 4, (this.footer?.y ?? this.box.y + this.box.h - 32) - 4 - TAP - 4);
+    const w = fw - 8;
     const h = TAP + 4;
     bar.add(mosaicImage(this, 0, 0, w, h, 'parchmentSel'));
     const uw = Math.max(52, mw(t('undo.chip').toUpperCase(), 'rCream', 7) + 18);
