@@ -1,0 +1,52 @@
+src/ui/mosaic/layout/variant.ts
+  s_0d98fe904b2e82::t_4db97afaf0a00d 1-24
+src/ui/mosaic/layout/floor.ts
+  s_0d98fe904b2e82::t_eb00c310cba8f6 1-27
+src/ui/mosaic/layout/columns.ts
+  s_0d98fe904b2e82::t_70ac4fc5adbfa2 1-88
+src/ui/mosaic/layout/grid.ts
+  s_0d98fe904b2e82::t_462d28d9d3553c 1-41
+tests/layoutPrimitives.test.ts
+  s_0d98fe904b2e82::t_285181a2e02094 125-172,174-189
+  s_0d98fe904b2e82::t_5133098f04a4f3 257-263,266-303
+  s_0d98fe904b2e82::t_931fb414b32844 173
+  s_0d98fe904b2e82::t_821b29d59cb5a7 8
+  s_0d98fe904b2e82::t_86f4fddc27c240 93-118,120-124
+  s_0d98fe904b2e82::t_79867b99fff0a2 81-82
+  s_0d98fe904b2e82::t_554c2760f92dcb 190-256
+  s_0d98fe904b2e82::t_6bc1abe6e14676 119
+  s_0d98fe904b2e82::t_258945bfa0a31a 264-265
+  s_0d98fe904b2e82::t_77e725802f2cde 1-7,9-80,83-92
+src/ui/mosaic/layout/masterDetail.ts
+  s_0d98fe904b2e82::t_46d8fe76009e25 1-30
+src/ui/mosaic/layout/edgeClusters.ts
+  s_0d98fe904b2e82::t_88e3b6174eafa0 1-68,71-84
+  s_0d98fe904b2e82::t_42332623c63280 69-70
+src/ui/mosaic/layout/index.ts
+  s_0d98fe904b2e82::t_5bb2590b5ff7ec 2-3,5
+  s_0d98fe904b2e82::t_baf4d2114dd27d 1,4
+src/ui/mosaic/layout/panels.ts
+  s_0d98fe904b2e82::t_f6779427885344 1-64
+src/ui/mosaic/layout/geometry.ts
+  s_0d98fe904b2e82::t_5bb2590b5ff7ec 1-6
+  s_0d98fe904b2e82::t_d5f263594f1747 10
+  s_0d98fe904b2e82::t_949d5952a493f9 7-8
+  s_0d98fe904b2e82::t_b36aa972b78767 9
+  s_0d98fe904b2e82::t_22a53d0dd8977f 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d67dd97f0cdd798cbc5477129f58f2cb3c08b5e9",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
