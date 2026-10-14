@@ -1,0 +1,19 @@
+scripts/layout-allowlist/V6-RSCR-02.json
+  s_0d98fe904b2e82::t_8302a171cb4c98 5,14,26,28-30,112,114-115,130,153,156-157,204,213,286,295,307,309-311,360-361,367,374,378-383,407-410
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "09d51c4ee5900429036a9abc6511fcbeb8e489db",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
