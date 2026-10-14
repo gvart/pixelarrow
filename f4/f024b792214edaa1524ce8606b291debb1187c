@@ -1,0 +1,23 @@
+server/src/routes/shop.ts
+  s_0d98fe904b2e82::t_35a3e356438cc7 33-35,38-39
+  s_0d98fe904b2e82::t_f96aa9bb40feed 44
+server/test/payments-web.test.ts
+  s_0d98fe904b2e82::t_4259bf5bc48c4d 14
+  s_0d98fe904b2e82::t_40e511660e752f 1-13,15-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f4f024b792214edaa1524ce8606b291debb1187c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
