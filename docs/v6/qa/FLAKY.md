@@ -16,6 +16,7 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Cause:** suspected timing/async: the check measured a text that had not yet settled (wrapped or faded in).
 - **Fix:** none yet. Record each further run here.
 - **V6-RSCR-02 (2026-10-14):** seen again as a once-only finding (`battle.banner.contact|battle.menu.note`) in 3-4 configs at 844x390 in each of two full `battle*,results*,tutorial*` matrices; the check's own second run cleared it every time ("Seen once ... ignored"), so neither run failed.
+- **PARITY-STABLE (2026-10-14):** in 4 full `world*,camp*,battle*,results*` matrices (load average 40-120) it was found in 2-4 of the four 844x390 configs every time (en-plain, en-tg, ru-plain, ru-tg) and cleared by the check's second run 3 times; in the 4th (load ≈ 120, the run later stopped) it counted as new. Not an element-parity case; still open.
 
 ### F6 · `tutorial-smoke` web, `duel-smoke` Telegram and `duel-smoke` web (suspected, load timeouts)
 
@@ -30,13 +31,14 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Cause:** suspected load timeout (timing/async): one test sweeps the settlement tap areas and runs close to the 30 s limit on a loaded CPU.
 - **Fix:** none yet. Record each further run here.
 
-### F8 · layout check element parity on real-time scenes (suspected, tooling gap)
+## Resolved
+
+### F8 · layout check element parity on real-time scenes (timing/async + random seed, fixed in PARITY-STABLE)
 
 - **Seen:** element-parity findings that a rerun clears, on scenes that run live: the world-encounter ids during V6-074's integration (RSCR-07); `results.loot15`–`17` at 320x693 and 360x780, and `battle.undo` (shown only for 3 s after an order) during V6-RSCR-02.
-- **Cause:** a tooling gap (timing/async): each size stages its own live scene, so parity compares different moments of different runs, not like with like.
-- **Fix:** the tooling story PARITY-STABLE (V6-076) stages parity runs deterministically (a fixed seed plus a paused or fixed clock) or excludes ids registered as transient (`uiTransient`). Until then, rerun the scene alone once; record each further run here.
-
-## Resolved
+- **Cause:** a tooling gap (timing/async plus seed): each size stages its own live scene, so parity compared different moments of different runs. Three sources: (1) what earlier screens left behind (the campaign, its rng, the world's clock and parties) differed per size; (2) chips that show for a few seconds by design (`battle.undo`, `battle.then`); (3) staging that waited on the clock: the Spoils cards turn one every 0.35 s, and `world-encounter` rested until a band walked over, with `until()` giving up silently after 6 s (at load ≈ 120 it flagged `encounter.attack`, `.flee`, `.doctrine.info` and `.sheet.close` at 9 en configs in PARITY-STABLE's first run).
+- **Fix (PARITY-STABLE, V6-076):** `restoreStage` reloads the staged campaign and reseeds `Math.random` and `crypto` from the screen id before every screen; `uiTransient(scene, id, when)` in `src/ui/layout.ts` registers ids transient by design (BattleScene: Undo and Then… while fighting) and `checkParity` leaves them out (still checked for overlap and size); `results-spoils` waits until the last card has turned; `world-encounter` opens the sheet with `openEncounter` and fails the screen if it doesn't open. Tests: `tests/parityStable.test.ts` (8).
+- **Evidence:** 3 consecutive full runs of `layout-check --scenes 'world*,camp*,battle*,results*'` (28 configs x 40 screens: 10 sizes, en and ru, plain and tg) at load average 40-70 after the fix: all PASSED, **0 element-parity findings** in each. `found.json` of runs 1 and 3 is byte-identical; run 2 differs only in which 844x390 configs caught F5 (text-overlap, not parity). The 16 violations once logged at en plain 360x780 (run before the fix, the run crashed before its summary, so their ids are lost) did not recur in 4 later full runs (plus a partial one) nor a standalone 360x780 probe; they were counted before parity is added, so they were not element-parity; recorded as a one-off (suspected timing at load).
 
 ### F10 · `scripts/online-e2e.mjs`: A's "reload" before recruiting, the Hire tap, the lockstep tick wait (timing/async, fixed in FIX-E2E)
 

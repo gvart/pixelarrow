@@ -479,9 +479,12 @@ const SCREENS = [
         party.y = t.y + 0.5;
         party.idle = 0;
         party.power = s.info.power * 1.05;
-        s.setWaiting(true);
+        // open the sheet for that band now, as the world's encounter event does (PARITY-STABLE, V6-076): resting
+        // until it walks over takes world time, and under load the 6 s ran out at some sizes, so parity compared
+        // a sheet with no sheet
+        s.openEncounter(party.id, false);
       });
-      await until(p, () => !!window.__game.scene.getScene('World').dialog, 6000);
+      if (!(await until(p, () => !!window.__game.scene.getScene('World').dialog, 6000))) throw new Error('the encounter sheet did not open');
       return wait(p, 400);
     },
   },
@@ -817,7 +820,17 @@ const SCREENS = [
   },
   { id: 'results', owner: 'A', run: async (p) => (await results(p), wait(p, 300)) },
   { id: 'results-heroes', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('heroes'); return 1;`), wait(p, 2500)) },
-  { id: 'results-spoils', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('spoils'); return 1;`), wait(p, 3500)) },
+  {
+    id: 'results-spoils',
+    owner: 'A',
+    // the cards turn over one every 0.35 s: wait until the last has turned, so no size is caught mid-flip (V6-076)
+    run: async (p) => (
+      await results(p),
+      await call(p, 'Results', `s.showPage('spoils'); return 1;`),
+      await until(p, () => { const s = window.__game.scene.getScene('Results'); return s.revealed.size >= s.report.loot.length && !s.revealTimer; }, 20000),
+      wait(p, 600)
+    ),
+  },
   // RES-01: the Spoils empty state (painted chest) and the arc's Victory variant (company roll, set piece)
   { id: 'results-empty', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.report.loot.length = 0; s.report.picks = 0; s.showPage('spoils'); return 1;`), wait(p, 600)) },
   {
@@ -1074,7 +1087,10 @@ function seededRandom() {
   };
   Math.random = gen(0x9e3779b9);
   let seeds = gen(0x51ed2701);
-  window.__reseed = (n) => (seeds = gen(n));
+  window.__reseed = (n) => {
+    seeds = gen(n);
+    Math.random = gen(n ^ 0x9e3779b9);
+  };
   const orig = crypto.getRandomValues.bind(crypto);
   crypto.getRandomValues = (a) => {
     if (a instanceof Uint32Array || a instanceof Uint8Array || a instanceof Uint16Array || a instanceof Int32Array) {
@@ -1084,6 +1100,21 @@ function seededRandom() {
     }
     return orig(a);
   };
+}
+
+/**
+ * Before every screen (PARITY-STABLE, V6-076): the staged campaign again and the random streams re-seeded
+ * from the screen's id. Each size stages its own live scenes, and the World and the battles run on real
+ * time, so what earlier screens left (the campaign's rng, the world's clock and parties, recruits) differs
+ * between sizes; from here every size stages the same battle, encounter and loot, and element-parity
+ * compares like with like.
+ */
+function restoreStage(seed) {
+  const st = window.__state;
+  st.campaign = new st.campaign.constructor(JSON.parse(window.__stagedCampaign));
+  st.pending = null;
+  st.last = null;
+  window.__reseed(seed);
 }
 
 async function runConfig(browser, cfg, screens) {
@@ -1129,6 +1160,8 @@ async function runConfig(browser, cfg, screens) {
     const rar = ['legendary', 'epic', 'rare', 'uncommon', 'common'];
     c.data.stash = defs.map((def, i) => ({ uid: `lc${i}`, def, rarity: rar[i % 5], cond: 100 - ((i * 17) % 60) }));
     await st.save();
+    // every screen starts from this campaign (restoreStage), not from what the screens before it left behind
+    window.__stagedCampaign = JSON.stringify(c.sync());
   }));
   const results = [];
   for (const sc of screens) {
@@ -1137,7 +1170,7 @@ async function runConfig(browser, cfg, screens) {
     let error = null;
     let wide = null;
     try {
-      await ev(page, (n) => window.__reseed(n), [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
+      await ev(page, restoreStage, [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
       const w0 = page.__waits ?? 0;
       await timed('staging', () => sc.run(page));
       T.staging -= (page.__waits ?? 0) - w0; // staging is the screen's own work, its waits are counted apart
@@ -1336,16 +1369,17 @@ const sizeOf = (cfg) => cfg.size.join('x');
 const tagOf = (cfg) => `${cfg.lang}-${cfg.insets}-${sizeOf(cfg)}`;
 /** Story files flagged "pending": families whose landscape findings are reported, not failed (V6-021). */
 const PENDING = loadPending(allowDir);
-/** The uiIds each screen shows at PARITY_BASE, per language and safe-area variant (element-parity). */
+/** The uiIds each screen shows at PARITY_BASE, and the ids it registered transient, per language and safe-area variant (element-parity). */
 const baseIds = new Map();
 const baseKey = (screen, cfg) => `${screen}|${cfg.lang}|${cfg.insets}`;
 /** Adds element-parity to every result, then splits its violations: enforced, or pending (reported only). */
 function settleRuns(list) {
-  for (const r of list) if (sizeOf(r.cfg) === PARITY_BASE) for (const x of r.results) if (x.wide && !baseIds.has(baseKey(x.screen, r.cfg))) baseIds.set(baseKey(x.screen, r.cfg), x.wide.ids);
+  for (const r of list) if (sizeOf(r.cfg) === PARITY_BASE) for (const x of r.results) if (x.wide && !baseIds.has(baseKey(x.screen, r.cfg))) baseIds.set(baseKey(x.screen, r.cfg), x.wide);
   for (const r of list)
     for (const x of r.results) {
       const base = x.wide && sizeOf(r.cfg) !== PARITY_BASE ? baseIds.get(baseKey(x.screen, r.cfg)) : null;
-      if (base) x.violations.push(...checkParity(base, new Set(x.wide.ids), x.wide.collapsed));
+      // a transient id (uiTransient) registered at either size is left out
+      if (base) x.violations.push(...checkParity(base.ids, new Set(x.wide.ids), x.wide.collapsed, [...(base.transient ?? []), ...(x.wide.transient ?? [])]));
       const t = triageWide({ screen: x.screen, responsive: !!x.wide?.responsive, violations: x.violations }, PENDING);
       x.violations = t.enforced;
       x.pending = t.pending;

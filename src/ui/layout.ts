@@ -96,7 +96,7 @@ export function uiClip(container: Phaser.GameObjects.Container, viewport: Phaser
 
 // ------------------------------------------------------------------ landscape hooks (design/ux/landscape-v6.md §5)
 
-type Registered = Phaser.Scene & { __uiLayout?: LayoutReg; __uiCollapsed?: Record<string, string> };
+type Registered = Phaser.Scene & { __uiLayout?: LayoutReg; __uiCollapsed?: Record<string, string>; __uiTransient?: Record<string, () => boolean> };
 
 /**
  * The layout variant a scene built (`class-match`): call it with the class and orientation the scene laid
@@ -131,6 +131,23 @@ export function uiPrimary<T extends Phaser.GameObjects.GameObject>(obj: T): T {
  */
 export function uiCollapsed(scene: Phaser.Scene, id: string, intoId: string): void {
   ((scene as Registered).__uiCollapsed ??= {})[id] = intoId;
+}
+
+/**
+ * The element `id` is transient by design (PARITY-STABLE, V6-076): it shows for a moment and goes on its
+ * own, e.g. the battle Undo chip for 3 s after an order, so whether a capture catches it depends on the
+ * clock, not the layout. `element-parity` leaves it out while `when` holds (always, without it); it is
+ * still checked for overlap and size when shown. Scoped to the scene.
+ */
+export function uiTransient(scene: Phaser.Scene, id: string, when: () => boolean = () => true): void {
+  ((scene as Registered).__uiTransient ??= {})[id] = when;
+}
+
+/** The ids a scene registered transient (`uiTransient`) whose condition holds now. */
+export function transientIds(scene: Phaser.Scene): string[] {
+  return Object.entries((scene as Registered).__uiTransient ?? {})
+    .filter(([, when]) => when())
+    .map(([id]) => id);
 }
 
 /**
@@ -277,6 +294,8 @@ interface Collected {
   opaque: Rect[];
   layouts: LayoutReg[];
   collapsed: Record<string, string>;
+  /** Ids registered transient (`uiTransient`) whose condition holds. */
+  transient: string[];
   /** A visible scene draws a scrolling world (a map or battle) under its UI. */
   field: boolean;
 }
@@ -296,6 +315,7 @@ function collect(game: Phaser.Game): Collected {
   const opaque: Rect[] = [];
   const layouts: LayoutReg[] = [];
   const collapsed: Record<string, string> = {};
+  const transient: string[] = [];
   let field = false;
   /** A modal backdrop was just met: the next panel is its dialog or side panel. */
   let afterBlocker = false;
@@ -304,6 +324,7 @@ function collect(game: Phaser.Game): Collected {
     const reg = scene as Registered;
     if (reg.__uiLayout) layouts.push(reg.__uiLayout);
     Object.assign(collapsed, reg.__uiCollapsed);
+    transient.push(...transientIds(scene));
     const cams = scene.cameras.cameras.filter((c) => c.visible);
     // Scenes with a map have a scrolling main camera plus a UI camera (each ignores the other's objects).
     const multi = cams.length > 1;
@@ -478,7 +499,7 @@ function collect(game: Phaser.Game): Collected {
     out.push(el);
   });
   const css = (b: Rect): Rect => ({ x: b.x / RS, y: b.y / RS, w: b.w / RS, h: b.h / RS });
-  return { elements: RS === 1 ? out : out.map(toCss), under: RS === 1 ? under : under.map(toCss), listIds, opaque: opaque.map(css), layouts, collapsed, field };
+  return { elements: RS === 1 ? out : out.map(toCss), under: RS === 1 ? under : under.map(toCss), listIds, opaque: opaque.map(css), layouts, collapsed, transient, field };
 }
 
 /** A text that wraps at a declared width: its box is its widest line (`stretched` reads lines at 300 UI px). */
@@ -515,6 +536,8 @@ export interface WideResult {
   /** `uiId`s on show (element-parity). */
   ids: string[];
   collapsed: Record<string, string>;
+  /** Ids transient by design (`uiTransient`): element-parity leaves them out. */
+  transient: string[];
   /** The canvas fills #game: the screen opted in (`responsive`), not the legacy column. */
   responsive: boolean;
   cls: SizeClass;
@@ -546,5 +569,5 @@ export function checkUi(game: Phaser.Game): { elements: UiElement[]; violations:
   const wide = checkWide(elements, { safe: o.safe, game: gameBox, canvas: box(game.canvas), m: { cls: m.cls, land: m.land, S: m.S / RS, navW: m.navW, contentW: m.contentW }, scale, layouts: c.layouts, kind, opaque: c.opaque, scrollTop: o.scrollTop, under: c.under }, o.rules);
   // the base screen under an open panel is still there (V6-063): its ids count for element-parity
   const ids = shownIds([...elements, ...c.under], c.listIds);
-  return { elements, violations, width, height, wide: { violations: wide, ids, collapsed: c.collapsed, responsive: !legacyColumn(), cls: m.cls, land: m.land } };
+  return { elements, violations, width, height, wide: { violations: wide, ids, collapsed: c.collapsed, transient: c.transient, responsive: !legacyColumn(), cls: m.cls, land: m.land } };
 }
