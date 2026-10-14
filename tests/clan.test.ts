@@ -18,7 +18,7 @@ vi.mock('phaser', () => {
   class C {}
   return { default: { GameObjects: { Container: C, Image: C, Text: C, Graphics: C, Rectangle: C, Zone: C, BitmapText: C }, Scene: C, Loader: { Events: {} }, Geom: { Rectangle: C } } };
 });
-const { clanError, clanFormError, roleName } = await import('../src/scenes/online/ClanScene');
+const { clanError, clanFormError, inviteStatus, roleName } = await import('../src/scenes/online/ClanScene');
 
 const placeholders = (e: unknown): string[] => [...JSON.stringify(e).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -61,6 +61,20 @@ describe('clan errors', () => {
     expect(clanError(new ApiError(418, 'something_new', 'Some English'))).toBe(CLAN_RU['clan.err.generic']);
     expect(clanError(new Error('boom'))).toBe(CLAN_RU['clan.err.generic']);
     expect(clanError(new ApiError(502, 'bad_gateway', 'Bad gateway'))).toBe('Нет связи с сервером');
+  });
+});
+
+describe('invite through the platform (ADR-0006 M8)', () => {
+  it('the sheet says sent or copied by what share.invite() did, and nothing when it failed', () => {
+    expect(inviteStatus('shared')).toBe('clan.link.sent');
+    expect(inviteStatus('copied')).toBe('clan.link.copied');
+    expect(inviteStatus('failed')).toBeNull();
+  });
+
+  it('builds the link with platform.share and never asks whether it runs in Telegram', () => {
+    expect(clanSrc).toMatch(/platform\.share\.inviteUrl\(/);
+    expect(clanSrc).toMatch(/platform\.share\.invite\(/);
+    expect(clanSrc).not.toMatch(/inTelegram|openTelegramLink|t\.me\/share|navigator\.clipboard|platform\/telegram/);
   });
 });
 

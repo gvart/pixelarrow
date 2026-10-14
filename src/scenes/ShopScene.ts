@@ -21,7 +21,7 @@ import { LookCard, MarketCard, addPackCard, addShopSkeleton, packLayout, type Lo
 import { PASS_XP, claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
-import { openExternalLink } from '../platform/telegram';
+import { platform } from '../platform';
 import { haptic, hapticNotify } from '../platform/haptics';
 import { legalUrl } from '../ui/legal';
 import { uiCoin } from '../audio/hooks';
@@ -818,8 +818,8 @@ export class ShopScene extends BaseScene {
     c.add(addText(this, 1, y, legal.lines.join('\n'), 'pMuted'));
     y += legal.lines.length * LINE_H + 4;
     const lw = Math.floor((w - GAP) / 2);
-    c.add(new MButton(this, 0, y, lw, 24, { label: t('wallet.terms'), variant: 'secondary', id: 'wallet.terms', onClick: () => openExternalLink(legalUrl('terms', lang())) }));
-    c.add(new MButton(this, lw + GAP, y, w - lw - GAP, 24, { label: t('wallet.refunds'), variant: 'secondary', id: 'wallet.refunds', onClick: () => openExternalLink(legalUrl('refunds', lang())) }));
+    c.add(new MButton(this, 0, y, lw, 24, { label: t('wallet.terms'), variant: 'secondary', id: 'wallet.terms', onClick: () => platform.share.openExternal(legalUrl('terms', lang())) }));
+    c.add(new MButton(this, lw + GAP, y, w - lw - GAP, 24, { label: t('wallet.refunds'), variant: 'secondary', id: 'wallet.refunds', onClick: () => platform.share.openExternal(legalUrl('refunds', lang())) }));
     y += 24 + 8;
     // history
     c.add(new SectionTitle(this, 0, y, w, t('wallet.history')));

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseStartParam, sceneForRoute, startParamOf, type StartRoute } from '../src/online/deeplink';
+import { launchRoute, parseHashRoute, parseStartParam, sceneForRoute, startParamOf, type StartRoute } from '../src/online/deeplink';
 import { legalUrl } from '../src/ui/legal';
 import { ApiClient } from '../src/platform/api';
+import { createPlatform, telegramLinkOptions } from '../src/platform/detect';
+import { fakeEnv } from './platform/env';
 import { Online } from '../src/platform/online';
 
 describe('startapp deep links', () => {
@@ -18,6 +20,8 @@ describe('startapp deep links', () => {
       { kind: 'season' },
       { kind: 'settings' },
       { kind: 'wallet' },
+      { kind: 'account' },
+      { kind: 'link', code: 'Ab-_0123456789xyzXYZ12' },
     ];
     for (const r of routes) {
       const p = startParamOf(r);
@@ -54,6 +58,65 @@ describe('startapp deep links', () => {
     expect(legalUrl('terms', 'en')).toBe('https://pixelarrow.app/terms');
     expect(legalUrl('refunds', 'ru')).toBe('https://pixelarrow.app/ru/refunds');
     expect(legalUrl('privacy', 'de')).toBe('https://pixelarrow.app/privacy');
+  });
+});
+
+describe('v6 account deep links (accounts-v6 §14 Q3)', () => {
+  const CODE = 'Ab-_0123456789xyzXYZ12'; // 22 chars of base64url, as the Worker mints them
+
+  it('startapp=account and startapp=link_<code> are Telegram launch routes', () => {
+    expect(parseStartParam('account')).toEqual({ kind: 'account' });
+    expect(parseStartParam(`link_${CODE}`)).toEqual({ kind: 'link', code: CODE });
+    for (const p of ['link_', 'link_short', `link_${CODE}x`, `link_${CODE.slice(1)}!`, 'login', 'forgot']) expect(parseStartParam(p), p).toBeNull();
+  });
+
+  it('the web hash routes', () => {
+    expect(parseHashRoute('#login')).toEqual({ kind: 'login' });
+    expect(parseHashRoute('#forgot')).toEqual({ kind: 'forgot' });
+    expect(parseHashRoute('#account')).toEqual({ kind: 'account' });
+    expect(parseHashRoute(`#account/conflict/${CODE}`)).toEqual({ kind: 'conflict', id: CODE });
+    for (const h of ['', '#', '#duel', '#account/', '#account/conflict/', '#account/conflict/a b', '#account/conflict/x/y', '#tgWebAppData=query_id%3D1&tgWebAppVersion=8.0', 'login']) expect(parseHashRoute(h), h).toBeNull();
+  });
+
+  it('the launch parameter wins over the hash', () => {
+    expect(launchRoute('duel', '#account')).toEqual({ kind: 'duel' });
+    expect(launchRoute(null, '#login')).toEqual({ kind: 'login' });
+    expect(launchRoute('nope', '#forgot')).toEqual({ kind: 'forgot' });
+    expect(launchRoute(null, '#tgWebAppData=x')).toBeNull();
+    expect(launchRoute(undefined, undefined)).toBeNull();
+  });
+
+  it('account routes open the menu with the account view asked for', () => {
+    expect(sceneForRoute({ kind: 'account' })).toEqual({ scene: 'Menu', data: { account: { view: 'account' } } });
+    expect(sceneForRoute({ kind: 'login' })).toEqual({ scene: 'Menu', data: { account: { view: 'login' } } });
+    expect(sceneForRoute({ kind: 'forgot' })).toEqual({ scene: 'Menu', data: { account: { view: 'forgot' } } });
+    expect(sceneForRoute({ kind: 'conflict', id: CODE })).toEqual({ scene: 'Menu', data: { account: { view: 'conflict', id: CODE } } });
+    expect(sceneForRoute({ kind: 'link', code: CODE })).toEqual({ scene: 'Menu', data: { account: { view: 'link', code: CODE } } });
+  });
+});
+
+describe('invite links through the platform (ADR-0006 M8)', () => {
+  /** The startapp parameter a link opens the game with, as Telegram or the web adapter reads it. */
+  const paramOf = (url: string) => new URL(url).searchParams.get('startapp');
+  const invite: StartRoute = { kind: 'invite', code: 'abcD2345xy' };
+
+  it('a clan invite link opens the clan invite again, on every adapter', () => {
+    const links = [
+      createPlatform('web', fakeEnv().env).share.inviteUrl(startParamOf(invite)),
+      createPlatform('telegram', fakeEnv().env).share.inviteUrl(startParamOf(invite)),
+      createPlatform('telegram', fakeEnv().env, telegramLinkOptions({ VITE_TELEGRAM_BOT: 'pixelarrow_bot' })).share.inviteUrl(startParamOf(invite)),
+    ];
+    expect(links[0]).toBe('https://play.pixelarrow.app/?startapp=clan_abcD2345xy');
+    expect(links[2]).toBe('https://t.me/pixelarrow_bot/play?startapp=clan_abcD2345xy');
+    for (const l of links) expect(parseStartParam(paramOf(l))).toEqual(invite);
+  });
+
+  it('the Telegram bot and Mini App names come from the build env, never a guess (V6-025)', () => {
+    expect(telegramLinkOptions({})).toEqual({});
+    expect(telegramLinkOptions({ VITE_TELEGRAM_BOT: '  ' })).toEqual({});
+    expect(telegramLinkOptions({ VITE_TELEGRAM_BOT: '@PixelArrowBot', VITE_TELEGRAM_APP: 'game' })).toEqual({ telegramBot: 'PixelArrowBot', telegramApp: 'game' });
+    // a malformed value is ignored (the play URL fallback) rather than baked into every invite
+    expect(telegramLinkOptions({ VITE_TELEGRAM_BOT: 'https://t.me/x', VITE_TELEGRAM_APP: 'a/b' })).toEqual({});
   });
 });
 
