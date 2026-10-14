@@ -1,0 +1,20 @@
+tests/warHud.test.ts
+  s_0d98fe904b2e82::t_03fea8cc3c7218 7,178-188
+  s_0d98fe904b2e82::t_1ad95ef3170640 189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b8acb9e186800da181f669155df255b85159e158",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
