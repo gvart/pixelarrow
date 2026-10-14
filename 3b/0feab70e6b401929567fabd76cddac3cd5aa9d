@@ -1,0 +1,37 @@
+src/scenes/online/OnlineScene.ts
+  s_0d98fe904b2e82::t_d1c446aadc87b5 16-17,21,25-26,28-30
+  s_0d98fe904b2e82::t_92c4cc2f8ddee2 248,256,265-266,311-318,343-344,351,371,391-392,401-417
+  s_0d98fe904b2e82::t_821ff31509375c 1432-1434,1436,1557,1593
+  s_0d98fe904b2e82::t_168ae56f6d8138 349
+  s_0d98fe904b2e82::t_5b5f2568d79768 1143-1144,1154
+  s_0d98fe904b2e82::t_009abb5b7f0ccd 1633-1636,1640-1641,1672-1679,1696-1701,1707,1710-1713,1719,1721-1722,1748-1754
+  s_0d98fe904b2e82::t_e8fae0c879c43f 1702-1704,1706
+  s_0d98fe904b2e82::t_4f282e9e182ec0 122-131,1003,1012,1081-1083,1100-1119,1123-1125,1128-1142,1145-1153,1155-1161,1166,1168,1170,1188,1190,1197-1211,1325
+  s_0d98fe904b2e82::t_14e2e4f1fa7efa 787,809-920,922,945-946,1853-1857
+  s_0d98fe904b2e82::t_7acafca359168d 629,935-938,974,987
+  s_0d98fe904b2e82::t_342787e2129934 1705,1708-1709
+  s_0d98fe904b2e82::t_7e1989330899df 1120-1122,1126-1127
+  s_0d98fe904b2e82::t_9c30bacc2ecf1f 697-698,710-740,775,789
+  s_0d98fe904b2e82::t_647e59e5f3f0c2 561,582-610,640,653,655-656,932,1737,1780,1810
+  s_0d98fe904b2e82::t_07b283c8e94748 921,923,1858-1859
+src/scenes/online/beastPanel.ts
+  s_0d98fe904b2e82::t_821ff31509375c 25-26,73-77,89
+src/scenes/online/warHud.ts
+  s_0d98fe904b2e82::t_03fea8cc3c7218 129-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3b0feab70e6b401929567fabd76cddac3cd5aa9d",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
