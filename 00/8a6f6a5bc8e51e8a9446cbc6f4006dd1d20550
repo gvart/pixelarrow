@@ -1,0 +1,23 @@
+src/scenes/CampScene.ts
+  s_0d98fe904b2e82::t_88a983d7fbd328 32,109-112,166,636-640,793-797,803,807,823,876,881-884,944,948-998,1001-1012,1014-1017,1019,1373-1374,1388-1389,1647-1648
+src/ui/mapHud.ts
+  s_0d98fe904b2e82::t_aba32df3742648 12-15,47-52,75-76,98-108
+tests/mapHud.test.ts
+  s_0d98fe904b2e82::t_10d96ba9e147d7 55-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "008a6f6a5bc8e51e8a9446cbc6f4006dd1d20550",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
