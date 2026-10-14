@@ -1,0 +1,24 @@
+src/scenes/online/warHud.ts
+  s_0d98fe904b2e82::t_51c0f9bc5b93f1 68-69,94
+src/scenes/online/beastPanel.ts
+  s_0d98fe904b2e82::t_766decb32d7dbd 24,74,89
+src/scenes/online/OnlineScene.ts
+  s_0d98fe904b2e82::t_346ff78678c884 131,238-239
+  s_0d98fe904b2e82::t_51c0f9bc5b93f1 230-231,233,236,240,855,900,902,1195-1196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3ec64efb781f32d81ee44d2e128f38db7933b9d4",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
