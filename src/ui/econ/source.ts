@@ -6,6 +6,8 @@
  * an "available in Telegram" / "offline" / "closed" state (econState).
  */
 import { online } from '../../platform/cloud';
+import { platform } from '../../platform';
+import type { PaymentStatus } from '../../platform/core/payments';
 import {
   ApiError,
   isApiError,
@@ -52,7 +54,7 @@ export interface EconSource {
   marketList(body: MarketListRequest): Promise<{ listing: MarketListing }>;
   marketBuy(id: string): Promise<{ listing: MarketListing; paid: number; fee: number; sellerGets: number }>;
   marketCancel(id: string): Promise<unknown>;
-  /** Buy a Drachmae pack with Telegram Stars: invoice, payment sheet, then wait for the credit. */
+  /** Buy a Drachmae pack through platform.payments: invoice, payment sheet, then wait for the credit ('unavailable' when the platform cannot pay). */
   buyPack(productId: string, onStage?: (s: 'invoice' | 'paying' | 'confirming') => void): Promise<PackResult>;
 }
 
@@ -127,7 +129,9 @@ export class ApiEconSource implements EconSource {
   }
 
   async buyPack(productId: string, onStage?: (s: 'invoice' | 'paying' | 'confirming') => void): Promise<PackResult> {
-    if (!this.available()) return 'unavailable';
+    // no invoice unless this platform can pay it (the web: coming soon); the shop shows status().reason
+    const pay = platform.payments.status();
+    if (!pay.available || !this.available()) return 'unavailable';
     let api;
     try {
       api = await this.api();
@@ -143,7 +147,7 @@ export class ApiEconSource implements EconSource {
       return isApiError(e) && e.offline ? 'offline' : 'failed';
     }
     onStage?.('paying');
-    const status = await openInvoiceLink(link);
+    const status = await platform.payments.pay({ provider: pay.provider, link });
     if (status === 'cancelled') return 'cancelled';
     if (status !== 'paid' && status !== 'pending') return 'failed';
     onStage?.('confirming');
@@ -157,9 +161,14 @@ export class ApiEconSource implements EconSource {
   }
 }
 
-async function openInvoiceLink(link: string): Promise<string> {
-  const { openInvoice } = await import('../../platform/telegram');
-  return openInvoice(link);
+/**
+ * The wallet's legal line, keyed to the payment provider (ADR-0006): the Stars
+ * line while Telegram Stars is this platform's provider (also when Telegram's
+ * sheet can't open right now), the plain line where no provider exists yet.
+ */
+export function packLegalKey(s: PaymentStatus): 'wallet.legal' | 'shop.web.legal' {
+  if (s.available) return s.provider === 'telegram_stars' ? 'wallet.legal' : 'shop.web.legal';
+  return s.reason === 'coming_soon' ? 'shop.web.legal' : 'wallet.legal';
 }
 
 let current: EconSource | null = null;

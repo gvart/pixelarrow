@@ -5,6 +5,31 @@
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
+## RESUMED AGAIN (2026-10-14)
+
+Running: integrator-pay-01 (PAY-01 plus the RSCR-02 layout gate and the screenshot cap), acct-05b, fix-e2e-b and parity-stable-b (each continuing in its existing worktree).
+
+### Second pause record
+
+**To resume:** start the same `/loop /orchestrate …` prompt. Then:
+1. **RSCR-02 is merged** (d696167d; v6 HEAD 9b8404b3), but its integrator skipped the layout gate: run `layout-check --scenes 'battle*,results*,tutorial*'` at all sizes plus `--quick` on v6 first.
+2. **Screenshot cap (V6-076) isn't met yet:** RSCR-02 is still 10.5 MB as JPEG (cap 5 MB). Decision for resume: keep ≤ 10 key shots per story in docs/ (the 4 report shots plus the most telling states) and move the rest to v6-shots/; the PNG originals are in v6-shots/integrator-rscr-02/png-originals/.
+3. **PAY-01 is complete** (branch worktree-agent-a003341de6e3c3eea), ready for an integrator. Decision text for it: the shop pays via platform.payments; the Telegram adapter is unchanged; the web adapter is always coming_soon; the server's POST /api/shop/invoice answers 403 payments_unavailable unless the session is a Telegram bearer session; the boundary allowlist is down to 1 (telegram.ts rule 4, M10); PAY-02 must update the shopParity fixture or disable the web pack buttons, and build the coming-soon card and the AU-20 strings.
+4. The paused agents below each continue from their branch.
+
+**Paused agents** (see "Pause reports 2"):
+- acct-05 (V6-ACCT-05 web sign-in client)
+- fix-e2e (the online-e2e duel-step regression)
+- parity-stable (PARITY-STABLE, deterministic element parity)
+
+**Queue after them:** ACCT-06/07, LINK-05/06/07 (after ACCT-05), PAY-02 (after PAY-01), RSCR-03, 04, 06, 08, 09, 10 (after PARITY-STABLE ideally), RSCR-11 last, INP-06, then QA-final (Phase 8), which includes rewriting the landing FAQ.
+
+## Pause reports 2
+
+- **fix-e2e**: branch `worktree-agent-ae16c57e7911aaf81`, commit c2a4ebfa. A **test bug, not a game bug**: Online.create() never resets this.map, so the e2e's wait on scene.map passed while the view was still loading. Fixed: it waits for the map view with its rail built, and the Lobby and Challenge taps get up to 5 s. The bisect pointed at a docs-only commit, so the failure is load-dependent. Since the fix, 4/15 runs fully passed twice in a row and the duel lookup didn't fail again. Open: (1) about 1 run in 4, player A's page reloads after the attack report (the 'mid-run navigation' PLAT-04 saw; cause unknown; apply `.fixe2e-logs/navprobe.patch` in its worktree to catch it); (2) the recruit Hire tap missed twice; (3) write up the CI job proposal (local wrangler plus a dev-auth build). Keep its worktree (logs in .fixe2e-logs/).
+- **parity-stable**: branch `worktree-agent-a317540fcdde1e225`, commit 749ad462 (wip). Done: restoreStage reloads the staged campaign and reseeds Math.random and crypto before every screen; uiTransient(scene, id, when) and transientIds in src/ui/layout.ts (checkParity skips transient ids; BattleScene registers battle.undo and battle.then while fighting); results-spoils waits for the last card to turn over (fixed results.loot19 at 320x693); tests/parityStable.test.ts (8); vitest 2011/2011; replay-hash 13/13. Left: the 3× runs (run 1 logged 16 violations once at en plain 360x780, unexplained; a standalone probe was clean). Resume: vite on 6130 with the scratch config in .parity-logs/, `.parity-logs/run3x.sh fix 1 2 3`, diff the found.json files, update FLAKY.md (F8), write the report. Keep its worktree.
+- **acct-05**: the agent died from a network error (API unreachable) before its pause report; the Director stopped its leftover servers (vite preview and wrangler dev on 6150–6153). Branch `worktree-agent-acc8f2f4759b00ed6`, commit 375f8392. Committed: 030be5c6 (email form endpoints, sign-in rules, EN/RU account strings), 4ace8b59 (AuthForm and the web sign-in screens: Log in, Create account, Check your email, Forgot password), 375f8392 (UI kit docs; the Turnstile site-key owner step). Unknown: how far its verification got (the end-to-end against the local Worker, the error-code mapping, keyboard, layout at all sizes, regression). Its logs are in .acct05-logs/ (uncommitted; keep the worktree). **Resume:** a fresh agent continues on this branch, reads .acct05-logs, then runs and fixes the full ACCT-05 verification list before integration.
+
 ## RESUMED (2026-10-14), after a pause at the owner's request
 
 Resumed: integrator-plat-05 is merging PLAT-05; rscr-02b, rscr-05b and rscr-07b continue in the existing worktrees of rscr-02, rscr-05 and rscr-07.
@@ -35,6 +60,8 @@ The run is paused cleanly. **To resume:** start the same `/loop /orchestrate …
 - **rscr-02** (V6-RSCR-02): branch `worktree-agent-a1c9a07a75e7920bc`, last commit a71c8917 (wip). Done: the battle HUD per size class (portrait unchanged, 3 cards per row on tablet, right thumb rail at 844x390, bottom-centre orders on laptops), the camera framing rect follows and recentres, Results in two panes, Inspect as a side panel, the allowlist file deleted; vitest 1968/1968; replay-hash 13/13; portrait 0 px; 28/28 play checks. Left: the tutorial narrator panel is 376 wide at medium (over 320); 12 undiagnosed violations at 844x390; rerun `layout-check --scenes 'battle*,results*,tutorial*' --verbose`, then regression --all; commit the screenshots and finish the notes.
 
 ## Merged
+
+- PLAT-05 (V6-071), RSCR-05 (V6-072), PLAT-04 (V6-073), RSCR-07 (V6-074), RSCR-02 (V6-075/076). 49 of 64 stories merged.
 
 - RSCR-01 (V6-068), INP-05 (V6-069), QA-HARDEN (V6-070), FIX-KIT-WIDE (V6-067). 44 of 64 stories merged; v6 HEAD 803fde39 or later.
 
