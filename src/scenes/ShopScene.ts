@@ -15,8 +15,8 @@ import { econ, newRequestId, packLegalKey, setEconSource, type ConsumableInfo } 
 import { DemoEconSource } from '../ui/econ/demo';
 import { pickBattleConsumable } from '../ui/econ/consumablePicker';
 import { fmtAgo } from '../util/format';
-import { addCosmetic, addEconState, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
-import { cosmeticAction, cosmeticOffer, cosmeticsBySlot, packOffers, premiumOffer, type CosmeticOffer } from '../ui/econ/shopModel';
+import { addComingSoon, addCosmetic, addEconState, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
+import { cosmeticAction, cosmeticOffer, cosmeticsBySlot, packButton, packOffers, premiumOffer, type CosmeticOffer } from '../ui/econ/shopModel';
 import { LookCard, MarketCard, addPackCard, addShopSkeleton, packLayout, type LookState } from '../ui/econ/shopParts';
 import { PASS_XP, claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
@@ -792,29 +792,34 @@ export class ShopScene extends BaseScene {
     const note = wrapText(t('wallet.note'), w - 6, 4);
     c.add(addText(this, 1, y, note.lines.join('\n'), 'pSec'));
     y += note.lines.length * LINE_H + 6;
+    // no payment provider here yet (the web): say why above the packs, which keep their amounts (AU-20)
+    const pay = platform.payments.status();
+    if (!pay.available && pay.reason === 'coming_soon') y += addComingSoon(this, c, 0, y, w, { title: t('shop.web.soonTitle'), body: t('shop.web.soonBody') }) + 6;
     // packs: real money, so the Telegram blue button with "Stars", and a confirmation. Pixel-perfect (SHP-3):
     // two lines a card, the one label size of every button, the "Best value" tag inside its card
     c.add(new SectionTitle(this, 0, y, w, t('wallet.packs')));
     y += SECTION_TITLE_H + 4;
     const packs = packOffers(d.cat);
-    const L = packLayout(packs, w, { label: (n) => t('res.starsPrice', { n }), noun: t('econ.drachmae'), bonusLong: (n) => t('shop.v5.bonus', { n }) });
+    const L = packLayout(packs, w, { label: (n) => packButton(pay, n).label, noun: t('econ.drachmae'), bonusLong: (n) => t('shop.v5.bonus', { n }) });
     packs.forEach((pk, i) => {
       const px = (i % L.cols) * (L.pw + GAP);
       if (pk.best) addClaimGlow(this, c, px, y, L.pw, L.cardH(true)).setAlpha(0.5);
+      const btn = packButton(pay, pk.stars);
       const ph = addPackCard(this, c, px, y, L, pk, {
         noun: t('econ.drachmae'),
         bestTag: t('wallet.best'),
         bonusText: L.longBonus ? t('shop.v5.bonus', { n: pk.bonus }) : t('wallet.bonus', { n: pk.bonus }),
-        label: t('res.starsPrice', { n: pk.stars }),
+        label: btn.label,
         tip: t('res.tip.stars'),
         onClick: () => this.askPack(pk),
+        offReason: btn.offReason,
       });
       // the next row starts under the tallest card of this one
       if (i % L.cols === L.cols - 1 || i === packs.length - 1) y += Math.max(ph, L.cols === 2 ? L.cardH(false) : 0) + GAP;
     });
     y += 4;
     // what the provider's payments buy (Stars copy only for Telegram Stars), and the legal pages
-    const legal = wrapText(t(packLegalKey(platform.payments.status())), w - 6, 4);
+    const legal = wrapText(t(packLegalKey(pay)), w - 6, 4);
     c.add(addText(this, 1, y, legal.lines.join('\n'), 'pMuted'));
     y += legal.lines.length * LINE_H + 4;
     const lw = Math.floor((w - GAP) / 2);

@@ -14,4 +14,8 @@ export const SHOP_V5_RU: Record<keyof typeof SHOP_V5_EN, Entry> = {
   'auth.gate.shop': 'Лавка, пропуск сезона и ваши драхмы хранятся в аккаунте.',
   // AU-20, оплата там, где способа оплаты ещё нет (design/ux/accounts-v6.md)
   'shop.web.legal': 'Драхмы нельзя обменять на деньги.',
+  'shop.web.soonTitle': 'Покупка драхм в браузере появится позже.',
+  'shop.web.soonBody': 'Telegram Stars работают только внутри Telegram, а оплату для браузера мы ещё настраиваем. Пока наборы драхм продаются в игре в Telegram.',
+  'shop.web.soon': 'Скоро',
+  'shop.web.soonTip': 'Оплата в браузере пока недоступна. Драхмы можно купить в игре в Telegram.',
 };

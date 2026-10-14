@@ -7,6 +7,8 @@
  * the Shop showed before the v5 rebuild.
  */
 import type { CosmeticInfo, EconomyCatalog, SeasonPassInfo, WalletInfo } from '../../platform/api';
+import type { PaymentStatus } from '../../platform/core';
+import { t } from '../../i18n';
 
 /** A look's state on its card: Equipped, Owned, earned elsewhere (pass, Duels, not for sale) or a price. */
 export type CosmeticOffer =
@@ -64,6 +66,16 @@ export interface PackOffer {
 export function packOffers(cat: Pick<EconomyCatalog, 'packs'>): PackOffer[] {
   const best = cat.packs.reduce((a, pk) => (!a || pk.drachmae / pk.stars > a.drachmae / a.stars ? pk : a), null as (typeof cat.packs)[number] | null);
   return cat.packs.map((pk) => ({ id: pk.id, stars: pk.stars, drachmae: pk.drachmae, bonus: Math.round((pk.drachmae / pk.stars - 1) * 100), best: pk === best && cat.packs.length > 1 }));
+}
+
+/**
+ * A pack's button: the Stars price (Telegram's blue button) while Telegram Stars is this platform's
+ * provider, even when its sheet can't open right now; where no provider exists yet (the web), "Coming
+ * soon" with no price, off, with the reason a tap shows (AU-20, UXA-12). Prices never change here.
+ */
+export function packButton(s: PaymentStatus, stars: number): { label: string; stars: boolean; offReason?: string } {
+  if (!s.available && s.reason === 'coming_soon') return { label: t('shop.web.soon'), stars: false, offReason: t('shop.web.soonTip') };
+  return { label: t('res.starsPrice', { n: stars }), stars: true };
 }
 
 /** The premium track: its price and whether the wallet is short of it (then the button leads to the wallet). */
