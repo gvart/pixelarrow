@@ -5,20 +5,29 @@
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
-## Running
+## PAUSED (2026-10-14, at the owner's request)
 
-| Agent | Story | Slot | Skills |
-| --- | --- | --- | --- |
-| fix-kit-wide | FIX-KIT-WIDE: panel-aware wide rules and realistic Kit demos (V6-063); gets v6 green | 3 (6130–6139) | game-ui-ux, regression-suite, tdd |
-| plat-05 | V6-PLAT-05: share, invite and deep links through the platform | 2 (6120–6129) | dev-story, improve-codebase-architecture, tdd |
-| rscr-01 | V6-RSCR-01: shell and hubs, landscape and tablet (first per-screen story) | 1 (6110–6119) | game-ui-ux, ux-review, frontend-design, design-principles, tdd |
-| inp-05 | V6-INP-05: Settings → Keyboard shortcuts page | 5 (6150–6159) | input-systems, game-ui-ux, ux-review, tdd |
+The run is paused cleanly. **To resume:** start the same `/loop /orchestrate …` prompt. The Director reads this file and `git log` on v6, then:
+1. Checks each paused agent's branch below (commits, `wip` commits included). For an unfinished branch, dispatch a fresh agent with the same story prompt, telling it to start FROM that branch (`git merge --ff-only <branch>` or a reset to it) and to finish the remaining steps. For a finished branch, hand it to an integrator.
+2. Continues the queue below.
 
-**v6 status:** red only on kit-layouts* wide findings (V6-062), until FIX-KIT-WIDE merges.
-**Default layout command:** story agents use `--quick`; integrators use the full matrix only when src/ or the layout scripts changed (V6-057).
-**Next ready:** PLAT-04 (after PLAT-05), then ACCT-05 and PAY-01; RSCR-02..11 after RSCR-01; LINK-05/06/07 after ACCT-05; INP-06 after INP-05 and RSCR-02; a QA hardening story for the load-sensitive smoke flakes (FLAKY F1, F3, F4).
+**Paused agents** (branch, state: filled in from their pause reports):
+- rscr-02 (V6-RSCR-02, battle HUD and results): see "Pause reports" below
+- rscr-05 (V6-RSCR-05, Army and Hero): see below
+- rscr-07 (V6-RSCR-07, World and Camp): see below
+- plat-05 (V6-PLAT-05, share, invite and deep links): see below
+
+**Queue after them:** PLAT-04 (after PLAT-05) → ACCT-05 → ACCT-06/07, PAY-01 → PAY-02; LINK-05/06/07 (after ACCT-05); RSCR-03, 04, 06, 08, 09, 10, 11 (any order, file-disjoint, at most 4 at a time; RSCR-11 last, since it removes the legacy column and the pending mechanism); INP-06 (after INP-05 and RSCR-02); then the QA-release epic (QA-01..05, Phase 8). QA-final must rewrite the landing FAQ once the web account, linking, rebinding and deletion UIs ship (V6-060).
+
+**Rules learned (keep them):** integrators run one at a time in the v6 worktree, on ports 6190–6199; no Director commits while a merge is open (V6-037); every agent writes logs to its own folder (V6-035); story agents use `layout-check --quick`; integrators run the full matrix only when src/ or the layout scripts changed (V6-057); agents that need a shell or browser are general-purpose agents reading a role file (V6-004).
+
+## Pause reports
+
+(filled in as the agents report)
 
 ## Merged
+
+- RSCR-01 (V6-068), INP-05 (V6-069), QA-HARDEN (V6-070), FIX-KIT-WIDE (V6-067). 44 of 64 stories merged; v6 HEAD 803fde39 or later.
 
 - STATS-03 (V6-050/051), INP-02 (V6-052), LINK-03 (V6-054, with the V6-053 security fix), RFND-01 (V6-055), LAND-04 (V6-056), GATE-01b (V6-057), RFND-04 (V6-058), RFND-02 (V6-059), LAND-06 (V6-060), PLAT-03 (V6-061), RFND-03 (V6-062), INP-03 (V6-064), INP-04 (V6-065), LINK-02 (V6-049)
 
