@@ -568,7 +568,7 @@ where the time went (browser, page load, boot, staging, waits, settle,
 check, screenshots, scroll pass) and what kept waits to their deadline.
 Measured on one configuration (en, plain, 390x844, 196 screens, one
 context, a loaded 10-core machine): 417 s with fixed sleeps (265 s of them
-sleeping), 276 s with state waits (113 s waiting).
+sleeping), 281 s with state waits (113 s waiting), the same violations.
 
 **Registering:** nothing to do for kit components and plain Phaser objects:
 the registry walks the display list (interactive objects and bitmap texts;
