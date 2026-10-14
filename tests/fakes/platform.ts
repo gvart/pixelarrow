@@ -3,7 +3,7 @@
  * FakePlatform()) and read what the game did (haptic cues, back callbacks,
  * shares, payments). Every capability can be tuned through its fields.
  */
-import type { AuthMethod, AuthProof, Insets, KV, PaymentResult, PaymentStatus, Platform, ShareResult } from '../../src/platform/core/index';
+import type { Auth, AuthMethod, AuthProof, Insets, KV, PaymentResult, PaymentStatus, Platform, ShareResult } from '../../src/platform/core/index';
 
 export function memoryKV(): KV & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -13,6 +13,11 @@ export function memoryKV(): KV & { data: Map<string, string> } {
     set: async (k, v) => void data.set(k, v),
     remove: async (k) => void data.delete(k),
   };
+}
+
+/** Telegram's Auth for Online tests: bearer, signing in silently with this initData (null: the SDK did not load). */
+export function telegramAuth(initData: string | null): Auth {
+  return { transport: 'bearer', methods: () => ['telegram'], silentProof: () => (initData ? { kind: 'telegram', initData } : null) };
 }
 
 const ZERO: Insets = { top: 0, bottom: 0, left: 0, right: 0 };

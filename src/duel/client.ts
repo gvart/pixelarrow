@@ -322,8 +322,9 @@ export class ApiDuelSource implements DuelSource {
   readonly demo = false;
 
   private async req<T>(method: string, path: string, body?: unknown): Promise<T> {
-    if (!online.available) throw outside();
-    if (!(await online.signIn())) throw new ApiError(0, 'network', 'Cannot reach the server');
+    const s = await online.ensureSession();
+    if (s === 'signed_out') throw outside();
+    if (s === 'offline') throw new ApiError(0, 'network', 'Cannot reach the server');
     return online.api.request<T>(method, `/api/duel${path}`, { auth: true, body });
   }
 
@@ -447,8 +448,9 @@ export class ApiDuelSource implements DuelSource {
       if (m.type === 'match_found' || (m.type === 'unqueued' && m.reason !== 'cancelled')) stop();
     });
     void (async () => {
-      if (!online.available) return on({ type: 'error', message: t('gap.err.outside'), code: 'outside' });
-      if (!(await online.signIn())) return on({ type: 'error', message: t('gap.err.network'), code: 'network' });
+      const s = await online.ensureSession();
+      if (s === 'signed_out') return on({ type: 'error', message: t('gap.err.outside'), code: 'outside' });
+      if (s === 'offline') return on({ type: 'error', message: t('gap.err.network'), code: 'network' });
       if (!over) sock.open();
     })();
     return () => {
