@@ -1,6 +1,6 @@
 // State waits for the layout check (scripts/layout-check.mjs, V6-GATE-01b): `settle(page, ms)` returns
 // once the game is quiet, and after `ms` at the latest, so it never waits longer than the fixed sleep it
-// replaces. Quiet: no scene starting or loading, no camera fade / pan / zoom, no finite tween playing, no
+// replaces. Quiet: no battle running, no scene starting or loading, no camera fade / pan / zoom, no finite tween playing, no
 // timer (Phaser time event or setTimeout) due before the deadline, no fetch outstanding;
 // seen on two animation frames in a row, at least two game frames after the wait began.
 
@@ -44,6 +44,10 @@ export function quietNow(horizon) {
   // Phaser.Scenes: START 2, LOADING 3, CREATING 4 (INIT 1 is a scene added but never started)
   const starting = m.scenes.find((s) => s.sys.settings.status >= 2 && s.sys.settings.status <= 4);
   if (starting) return `${starting.sys.settings.key} starting`;
+  // a battle in progress never settles: what it shows (floating hits, banners) depends on the time elapsed,
+  // so its waits keep their full length, as the fixed sleeps had
+  const b = m.getScene('Battle');
+  if (b?.sys.isActive() && b.sim?.phase === 'battle' && !b.paused) return 'battle running';
   for (const s of m.getScenes(true)) {
     const k = s.sys.settings.key;
     if (s.load.isLoading()) return `${k} loading`;
