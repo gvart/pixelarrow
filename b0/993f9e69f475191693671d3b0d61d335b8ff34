@@ -1,0 +1,75 @@
+docs/v6/DECISIONS.md
+  s_0d98fe904b2e82::t_dea7f1e1dc9da2 77-79
+docs/v6/qa/FLAKY.md
+  s_0d98fe904b2e82::t_a030f9669e3963 25-30
+docs/v6/shots/V6-RSCR-05/keyboard-mouse-1280x800.txt
+  s_0d98fe904b2e82::t_59eb1f8676a095 1-19
+docs/v6/stories/V6-RSCR-05/NOTES.md
+  s_0d98fe904b2e82::t_10f0c7f337cc45 1-84
+src/duel/client.ts
+  s_0d98fe904b2e82::t_9266c4a61bb763 325-327,451-453
+src/online/client.ts
+  s_0d98fe904b2e82::t_3e55f607178463 299-301
+src/platform/api.ts
+  s_0d98fe904b2e82::t_9977909b64ebc5 33-38,276-277,319,360-361,405-409
+src/platform/cloud.ts
+  s_0d98fe904b2e82::t_a07bdefaf095ad 1,3-4,7,11-19,21,24
+src/platform/online.ts
+  s_0d98fe904b2e82::t_c048bbfdd8609d 7-12,14-15,31-32,46-48,66-67,80-82,85-92,122-125,127-130,138-143,148-153,156-157,166-183,195,198,230-232,282,389,418,449
+src/scenes/ArmyScene.ts
+  s_0d98fe904b2e82::t_1122a4c2a8ca05 3,5-8,24,51-52,54-55,94,96,139-140,150-154,156-159,207-281,283,289-291,307,326,467-468,471-480,514,516-517,628-643
+src/scenes/BootScene.ts
+  s_0d98fe904b2e82::t_54781aa8401a0a 112
+src/scenes/HeroScene.ts
+  s_0d98fe904b2e82::t_3aad760fd3fc93 5-8,35,72-76,138-139,141,185,187,198-217,225-228,238-241,254-259,283-284,310-384,440,448,462,470,567,584,588,597,604-609,637-642,844-847,1074-1077,1339-1360
+src/ui/army/drop.ts
+  s_0d98fe904b2e82::t_ffef4cffe73842 1-33
+src/ui/army/index.ts
+  s_0d98fe904b2e82::t_eb59deeb52a635 11
+src/ui/army/parts.ts
+  s_0d98fe904b2e82::t_76961c9453046d 22-24,109-111,114-116,344-346,391-426
+src/ui/econ/source.ts
+  s_0d98fe904b2e82::t_88e76de13c433e 37,66,70-72,130
+src/ui/mosaic/ParchmentSheet.ts
+  s_0d98fe904b2e82::t_608e87568a048e 121-128,134
+src/ui/mosaic/StashGrid.ts
+  s_0d98fe904b2e82::t_7bcbd8d713ac14 13-15,34-39,79-92
+src/ui/mosaic/index.ts
+  s_0d98fe904b2e82::t_bcf41cc14c42ff 24
+src/ui/sheet.ts
+  s_0d98fe904b2e82::t_6ef9face18f61f 35-37,39-40,311-315,319-335,343-350,373-374,399-403,407-423,532-535,633-637
+tests/apiTransport.test.ts
+  s_0d98fe904b2e82::t_5b939c1ee2e081 14,132
+tests/armyDrop.test.ts
+  s_0d98fe904b2e82::t_e4953ab5b812a7 1-36
+tests/deeplink.test.ts
+  s_0d98fe904b2e82::t_8ef428b55f4637 8,135
+tests/duelLive.test.ts
+  s_0d98fe904b2e82::t_e9904937511d60 9
+tests/fakes/platform.ts
+  s_0d98fe904b2e82::t_6ca95dc522ab13 6,18-22
+tests/online.test.ts
+  s_0d98fe904b2e82::t_9147a6ebeb8c4a 7,61,204,311
+tests/onlineAuth.test.ts
+  s_0d98fe904b2e82::t_472075100e259f 1-199
+tests/platform/facade.test.ts
+  s_0d98fe904b2e82::t_0635e42328cf8e 4
+tests/platformBoundary.test.ts
+  s_0d98fe904b2e82::t_3db6288fc24c92 28-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b0993f9e69f475191693671d3b0d61d335b8ff34",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
