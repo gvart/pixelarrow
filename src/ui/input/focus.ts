@@ -46,6 +46,10 @@ export interface Focusable {
   current?(): boolean;
   /** Left/Right (or any direction) handled by the control itself (a stepper): true when it took it. */
   onAdjust?(d: Dir): boolean;
+  /** Comes after every other control in reading order (a nav rail down the left edge: nav last, landscape-v6 §4). */
+  tail?: boolean;
+  /** The pane it sits in (0, the default, is the first): panes are read left to right, each top to bottom (landscape-v6 §4). */
+  pane?: number;
 }
 
 interface ScopeState {
@@ -61,8 +65,8 @@ export const OFF_AXIS = 3;
 
 const centre = (r: Rect) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 
-function readingOrder(a: { r: Rect }, b: { r: Rect }): number {
-  return Math.floor(a.r.y / BAND) - Math.floor(b.r.y / BAND) || a.r.x - b.r.x || a.r.y - b.r.y;
+function readingOrder(a: { r: Rect; f?: Focusable }, b: { r: Rect; f?: Focusable }): number {
+  return Number(!!a.f?.tail) - Number(!!b.f?.tail) || (a.f?.pane ?? 0) - (b.f?.pane ?? 0) || Math.floor(a.r.y / BAND) - Math.floor(b.r.y / BAND) || a.r.x - b.r.x || a.r.y - b.r.y;
 }
 
 /**

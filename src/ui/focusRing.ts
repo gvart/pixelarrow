@@ -204,6 +204,18 @@ export function focusGroup(obj: Phaser.GameObjects.GameObject, group: unknown | 
   if (current) reg.f.current = current;
 }
 
+/** The control comes after every other in reading order (a nav rail down the left edge: nav last, landscape-v6 §4). */
+export function focusTail(obj: Phaser.GameObjects.GameObject): void {
+  const reg = regs.get(obj);
+  if (reg) reg.f.tail = true;
+}
+
+/** The pane a control sits in (0 is the first): Tab reads panes left to right, each top to bottom (landscape-v6 §4). */
+export function focusPane(obj: Phaser.GameObjects.GameObject, pane: number): void {
+  const reg = regs.get(obj);
+  if (reg) reg.f.pane = pane;
+}
+
 /** The control's role for the default focus (a decision's primary; a destructive dialog's danger button). */
 export function focusRole(obj: Phaser.GameObjects.GameObject, role: FocusRole): void {
   const reg = regs.get(obj);
