@@ -246,7 +246,7 @@ describe('online layer', () => {
     await online.flush();
     expect(srv.st.revision).toBe(1);
     expect(online.status).toBe('synced');
-    expect(JSON.parse(kv.store.get(SYNC_META_KEY)!)).toEqual({ revision: 1, seq: 3 });
+    expect(JSON.parse(kv.store.get(SYNC_META_KEY)!)).toEqual({ revision: 1, seq: 3, pid: 1 });
     online.queuePush(save(4));
     await online.flush();
     expect(srv.st.puts.map((p) => p.revision)).toEqual([0, 1]);
@@ -259,7 +259,7 @@ describe('online layer', () => {
     const got = await online.pullOnLoad(save(12));
     expect(got?.seq).toBe(30);
     expect(online.status).toBe('synced');
-    expect(JSON.parse(kv.store.get(SYNC_META_KEY)!)).toEqual({ revision: 7, seq: 30 });
+    expect(JSON.parse(kv.store.get(SYNC_META_KEY)!)).toEqual({ revision: 7, seq: 30, pid: 1 });
   });
 
   it('on 409 re-uploads when the local copy is newer', async () => {
