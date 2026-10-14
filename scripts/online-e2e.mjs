@@ -9,6 +9,7 @@
 // Needs: `npm run dev` in server/ (wrangler dev on :8787 with DEV_AUTH=1 in
 // .dev.vars and migrations applied) and `VITE_DEV_AUTH=1 npx vite` (proxying
 // /api and /ws to :8787). Usage: node scripts/online-e2e.mjs [viteUrl] [outDir]
+// E2E_DEBUG=1 logs the duel's socket traffic; E2E_NAVPROBE=1 logs navigations, crashes and failed CDP calls.
 import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir, until as untilBase } from './lib/harness.mjs';
 
 const base = (process.argv[2] ?? 'http://localhost:5173/').replace(/\/?$/, '/');
@@ -16,6 +17,21 @@ const out = shotsDir('', process.argv[3]);
 const ids = [Math.floor(Date.now() / 1000) % 100000 + 200000, Math.floor(Date.now() / 1000) % 100000 + 300000];
 
 const browser = await launch();
+const NAVPROBE = !!process.env.E2E_NAVPROBE;
+if (NAVPROBE) {
+  // the raw CDP error behind Playwright's 'Execution context was destroyed' (it rewrites any protocol error to that)
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  const { CRSession } = req(req.resolve('playwright-core/package.json').replace(/package\.json$/, 'lib/server/chromium/crConnection.js'));
+  const send = CRSession.prototype.send;
+  CRSession.prototype.send = function (method, params) {
+    const t = Date.now();
+    return send.call(this, method, params).catch((e) => {
+      if (method.startsWith('Runtime.')) console.log(`  CDPERR ${method} after ${Date.now() - t}ms: ${String(e.message ?? e).slice(0, 400)}`);
+      throw e;
+    });
+  };
+}
 
 async function player(devuser, extra = '') {
   const ctx = await phoneContext(browser);
@@ -33,6 +49,34 @@ async function player(devuser, extra = '') {
       ws.on('close', () => console.log(`  [${devuser}] socket closed`));
     });
   }
+  if (NAVPROBE) {
+    // who navigates the page, if anything: document requests, navigation requests, crashes, unloads
+    const t0 = Date.now();
+    const L = (...a) => console.log(`  NAV [${devuser}] +${Date.now() - t0}ms`, ...a);
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send('Page.enable');
+    await cdp.send('Network.enable');
+    cdp.on('Page.frameRequestedNavigation', (e) => L('requested', e.reason, e.disposition, e.url));
+    cdp.on('Page.navigatedWithinDocument', (e) => L('within', e.url));
+    cdp.on('Network.requestWillBeSent', (e) => { if (e.type === 'Document') L('docreq', e.request.url, JSON.stringify(e.initiator).slice(0, 1500)); });
+    cdp.on('Inspector.targetCrashed', () => L('CRASHED'));
+    page.on('crash', () => L('page crash'));
+    page.on('close', () => L('page close'));
+    page.on('framenavigated', (f) => { if (f === page.mainFrame()) L('framenavigated', f.url()); });
+    page.on('console', (m) => { if (/^\[nav\]/.test(m.text())) L(m.text()); });
+    await page.addInitScript(() => {
+      console.log('[nav] load', performance.getEntriesByType('navigation')[0]?.type, location.href, 'hist', history.length, JSON.stringify(history.state));
+      addEventListener('pagehide', (e) => console.log('[nav] pagehide persisted', e.persisted));
+      addEventListener('beforeunload', () => console.log('[nav] beforeunload'));
+      window.navigation?.addEventListener('navigate', (e) => {
+        const g = window.__game;
+        const rec = { t: Date.now(), type: e.navigationType, url: e.destination.url, user: e.userInitiated, same: e.destination.sameDocument, form: !!e.formData, scenes: g?.scene.getScenes(true).map((s) => s.scene.key).join(','), stack: new Error().stack };
+        const log = JSON.parse(sessionStorage.getItem('__navlog') ?? '[]');
+        log.push(rec);
+        sessionStorage.setItem('__navlog', JSON.stringify(log.slice(-6)));
+      });
+    });
+  }
   // Two players in software WebGL run at ~5 fps: taps are dispatched inside the page (harness.mjs tap).
   const p = { page, ctx, errors, devuser, api: makePageApi(page, { tapWait: 250, step: 200 }) };
   await page.goto(`${base}?devuser=${devuser}${extra}`);
@@ -40,7 +84,14 @@ async function player(devuser, extra = '') {
   return p;
 }
 
-const ev = (p, fn, arg) => p.page.evaluate(fn, arg);
+const ev = (p, fn, arg) => p.page.evaluate(fn, arg).catch(async (e) => {
+  if (!NAVPROBE || !/context was destroyed/.test(String(e))) throw e;
+  // still the same document? (the session's navigation log, navigation type, history)
+  await p.page.waitForTimeout(3000);
+  const info = await p.page.evaluate(() => JSON.stringify({ navlog: sessionStorage.getItem('__navlog'), url: location.href, nav: performance.getEntriesByType('navigation')[0]?.type, hist: history.length, state: history.state })).catch((x) => String(x));
+  console.log(`  DESTROYED [${p.devuser}] ${info} errors=${p.errors.join(' | ')}`);
+  throw e;
+});
 const until = (fn, ms = 15000, step = 200) => untilBase(fn, ms, step);
 const active = (p, k) => p.api.active(k);
 const tap = (p, x, y) => p.api.tap(x, y);
@@ -122,13 +173,28 @@ check('report -> back to the map', await leaveReport(A));
 await A.page.waitForTimeout(1000);
 
 // ---------------------------------------------------------------- recruit through the server (also keeps A fit for the duel)
-await ev(A, () => window.__game.scene.getScene('Online').scene.start('OnlineArmy', {}));
+// `void`: scene.start() returns the ScenePlugin, and page.evaluate would serialize that whole
+// object graph (the game, its renderer, textures) back to node: 3-9 s of a frozen page, and
+// Playwright reports any protocol error on that call as 'Execution context was destroyed'.
+await ev(A, () => void window.__game.scene.getScene('Online').scene.start('OnlineArmy', {}));
 await until(async () => (await sceneText(A, 'OnlineArmy')).includes('RECRUIT'), 8000);
 const before = await ev(A, () => window.__game.scene.getScene('OnlineArmy').profile.heroes.length);
-await tapBtn(A, 'OnlineArmy', 'Recruit');
-await A.page.waitForTimeout(400);
-await tapBtn(A, 'OnlineArmy', 'Hire'); // the recruit sheet: one Hire button per class
-check('recruited a hero on the server', await until(() => ev(A, (n) => window.__game.scene.getScene('OnlineArmy').profile?.heroes.length === n + 1, before), 8000));
+// Wait for state, not time. The recruit sheet slides in at software-WebGL frame rates, so a
+// tap a fixed 400 ms after Recruit could land before its Hire button (or on the closing sheet).
+// The tap took when the scene holds the hire in its undo window (N21, 4 s of game time);
+// then the hire is sent and the profile reloads.
+const holdsHire = () => ev(A, () => window.__game.scene.getScene('OnlineArmy').hire !== null);
+let held = false;
+for (let i = 0; i < 3 && !held; i++) {
+  if (!(await A.api.btn('OnlineArmy', { id: 'oarmy.hire' }))) await A.api.tapBtn('OnlineArmy', { id: 'oarmy.recruit' }, { waitMs: 5000 });
+  await A.api.tapBtn('OnlineArmy', { id: 'oarmy.hire' }, { waitMs: 5000 }); // the sheet: one Hire per class
+  held = await until(holdsHire, 3000);
+}
+check('Hire took (undo window open)', held);
+// The undo window is game time: Phaser caps a frame's delta at 200 ms (fps.min 5), so at 1 fps
+// on a loaded machine 4 s of game time take 20 s. Wait for the hire to be sent, then for the profile.
+check('hire sent after its undo window', await until(async () => !(await holdsHire()), 90000, 500));
+check('recruited a hero on the server', await until(() => ev(A, (n) => window.__game.scene.getScene('OnlineArmy').profile?.heroes.length === n + 1, before), 15000));
 
 // ---------------------------------------------------------------- clan via invite link
 // (from the army screen: stop every running scene, then open the clan page)
@@ -209,7 +275,7 @@ await B.page.waitForTimeout(1000);
 check("opponent's deployment withheld until go", !(await sides(B)).includes(0), JSON.stringify(await sides(B)));
 // A is ready; B lets its 15 s countdown run out (B's client then sends ready itself).
 await tapBtn(A, 'Battle', 'Ready');
-check('duel started on both (countdown -> lockstep go)', await until(async () => (await phase(A)) === 'battle' && (await phase(B)) === 'battle', 30000));
+check('duel started on both (countdown -> lockstep go)', await until(async () => (await phase(A)) === 'battle' && (await phase(B)) === 'battle', 90000, 500));
 check("opponent's deployment revealed at go", (await sides(B)).includes(0), JSON.stringify(await sides(B)));
 await ev(A, () => {
   const s = window.__game.scene.getScene('Battle');
@@ -220,14 +286,15 @@ await ev(B, () => {
   for (const g of s.sim.groups) if (g.side === s.me) s.order({ kind: 'order', group: g.id, order: 'charge' });
 });
 const ticks = () => Promise.all([A, B].map((p) => ev(p, () => window.__game.scene.getScene('Battle').sim.tick)));
-await until(async () => (await ticks()).every((t) => t > 40), 30000, 500);
+// Ticks advance with frames; at ~1 fps on a loaded machine 40 ticks can take more than 30 s.
+await until(async () => (await ticks()).every((t) => t > 40), 90000, 500);
 const tk = await ticks();
 check('both clients advance in lockstep', tk[0] > 40 && tk[1] > 40 && Math.abs(tk[0] - tk[1]) <= 12, tk.join(' / '));
 await B.page.screenshot({ path: `${out}/25-duel.png` });
 console.log('saved', `${out}/25-duel.png`);
 // B sounds the retreat: the duel ends on both clients at the same tick, then the server's verdict.
 await ev(B, () => window.__game.scene.getScene('Battle').order({ kind: 'retreat' }));
-check('duel over on both (reports)', await until(async () => (await active(A, 'Results')) && (await active(B, 'Results')), 40000, 500));
+check('duel over on both (reports)', await until(async () => (await active(A, 'Results')) && (await active(B, 'Results')), 90000, 500));
 const ra = await report(A);
 const rb = await report(B);
 check('A won, server verified', ra?.result === 'victory' && ra.verified === true && ra.online === 'duel', JSON.stringify(ra));
