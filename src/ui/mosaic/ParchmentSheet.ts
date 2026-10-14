@@ -77,8 +77,9 @@ const sheetAreas = new WeakMap<Phaser.Scene, Box>();
 
 /** Where side panels of `scene` dock (buildPage sets it to the page under its top bar; default the whole screen). */
 export function setSheetArea(scene: Phaser.Scene, area: Box): void {
+  // one shutdown listener per scene run: a hub rebuilds its page on every view switch
+  if (!sheetAreas.has(scene)) scene.events.once('shutdown', () => sheetAreas.delete(scene));
   sheetAreas.set(scene, area);
-  scene.events.once('shutdown', () => sheetAreas.delete(scene));
 }
 
 /** The shade of a side panel: the screen stays readable beside it (§3.4: 20%). */

@@ -6,6 +6,7 @@ vi.mock('phaser', () => {
   return { default: { GameObjects: { Container: C, Image: C, Text: C, Graphics: C, Rectangle: C, Zone: C, BitmapText: C, Sprite: C }, Scene: C, Loader: { Events: {} }, Geom: { Rectangle: C }, Math: { Clamp: (v: number) => v } } };
 });
 const { scrollListIds } = await import('../src/ui/widgets');
+// @ts-expect-error plain .mjs module without types
 const { checkParity } = await import('../scripts/lib/layoutMatrix.mjs');
 
 /** A settings-like list: a section, a toggle, a stepper, and so on, 12 rows. */
