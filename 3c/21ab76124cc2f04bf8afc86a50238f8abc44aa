@@ -1,0 +1,85 @@
+docs/v6/DECISIONS.md
+  s_0d98fe904b2e82::t_65fd505c992692 80-82
+docs/v6/PROGRESS.md
+  s_0d98fe904b2e82::t_34b623f5877c1b 8-32,64-65
+docs/v6/qa/FLAKY.md
+  s_0d98fe904b2e82::t_454610da32876c 18,25,33-38
+docs/v6/stories/V6-RSCR-02/NOTES.md
+  s_0d98fe904b2e82::t_05e2fb528341a0 1-122
+scripts/dev/battle-follow.mjs
+  s_0d98fe904b2e82::t_95f59592d9d616 1-136
+scripts/layout-allowlist/V6-RSCR-08.json
+  s_0d98fe904b2e82::t_6943c7b001707b 49
+server/src/routes/shop.ts
+  s_0d98fe904b2e82::t_83e47225c4f043 33-35,38-39,44
+server/test/payments-web.test.ts
+  s_0d98fe904b2e82::t_967b869bf6c9ae 1-36
+src/i18n/shop.v5.en.ts
+  s_0d98fe904b2e82::t_2b838e1808e30b 16-17
+src/i18n/shop.v5.ru.ts
+  s_0d98fe904b2e82::t_6f7505cce48092 15-16
+src/platform/cloud.ts
+  s_0d98fe904b2e82::t_844f51174d435a 4,23-28,37
+src/platform/online.ts
+  s_0d98fe904b2e82::t_31417f4591f194 16,37-38,416-417,421-422,437
+src/platform/telegram.ts
+  s_0d98fe904b2e82::t_545a70f4a740ae 11
+src/platform/telegram/index.ts
+  s_0d98fe904b2e82::t_3d4852733310a3 14,18,125
+src/platform/telegram/payments.ts
+  s_0d98fe904b2e82::t_f43f6deff06413 1-22
+src/platform/web/index.ts
+  s_0d98fe904b2e82::t_9a4e7062736c0d 11,27
+src/platform/web/payments.ts
+  s_0d98fe904b2e82::t_de234b626d65d5 1-12
+src/scenes/BattleScene.ts
+  s_0d98fe904b2e82::t_78a5eedd4a2b9c 13-14,100-102,167-178,214-219,671-673,761-767,769-786,808-809,844-847,852-853,926,928-929,944-949,951,2235-2237,2402-2404,2407,2413-2414,2417,2423,3201-3202,3209,3236-3238,3271-3274,3284,3292-3335,3338-3339,3374,3378-3409,3609-3610,3613,3615,3626-3630,3632,3652,3661-3663,3666,3671-3736,3755-3764,3767,3772-3773,3778,3789,3797-3800,3802,3807,3810,3812-3813,3815-3895,3897-3902,3904-3943,3947-3956,3973-3976,3979-3987,4013-4021,4023-4028,4030-4065,4074,4141-4146,4149-4151,4274-4279,4282,4356-4360,4365-4368,4371,4375,4381-4385,4389-4393,4402,4404,4409,4426,4647-4648,4653-4661,4682-4683,4820,4822,5018-5022,5108-5111,5516-5519
+src/scenes/ResultsScene.ts
+  s_0d98fe904b2e82::t_f95d44245cebf9 25-28,79-89,180-188,192-194,199,207,215-222,224,228,231-240,246-247,262-268,351-352,356,374,421-422,456,459-488,491,493,496-500,514-515,517,523-524,534,536,554,585-595,604-605,610,615-619,623-632,721,728-729,757-758,765-766,785,837-839,841-847
+src/scenes/ShopScene.ts
+  s_0d98fe904b2e82::t_7db41684401603 14,816-817
+src/ui/battleHud.ts
+  s_0d98fe904b2e82::t_c93a289fe2016e 13,19,92-107,110-111,121-125,127,130-135,158,195-307,310,335,340-348
+src/ui/battleLayout.ts
+  s_0d98fe904b2e82::t_9fd8ba12c1e8a7 1-301
+src/ui/battlePanel.ts
+  s_0d98fe904b2e82::t_e6c22871b06579 125-126,280
+src/ui/beastView.ts
+  s_0d98fe904b2e82::t_6bb0d6b51ed479 33-38,89,92,94,106,125,448-456,462-463,465-466,498
+src/ui/econ/source.ts
+  s_0d98fe904b2e82::t_de544b45036b6b 9-10,57,132-134,150,164-171
+src/ui/results/layout.ts
+  s_0d98fe904b2e82::t_12e6c165060d54 1-50
+src/ui/sheets/battleMenu.ts
+  s_0d98fe904b2e82::t_e5b3b5e9ee6fea 80-86,122-123,193,196
+src/ui/tutorial/battleTutorial.ts
+  s_0d98fe904b2e82::t_1bcab993a7bc76 107-108,482-483,496-497,501
+src/ui/tutorial/narrator.ts
+  s_0d98fe904b2e82::t_51732efbee2eba 137-138,158-160
+tests/battleLayout.test.ts
+  s_0d98fe904b2e82::t_289aa78e0eea5f 1-185
+tests/online.test.ts
+  s_0d98fe904b2e82::t_364a0578867ca0 8-13,69,305,308,324,328-336
+tests/payments.test.ts
+  s_0d98fe904b2e82::t_7262f9f0058c06 1-84
+tests/platform/facade.test.ts
+  s_0d98fe904b2e82::t_a8fb045b534855 4
+tests/resultsLayout.test.ts
+  s_0d98fe904b2e82::t_3866c7b7ec9298 1-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3c21ab76124cc2f04bf8afc86a50238f8abc44aa",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
