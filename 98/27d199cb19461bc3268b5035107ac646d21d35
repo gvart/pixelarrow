@@ -1,0 +1,37 @@
+src/ui/settings.ts
+  s_0d98fe904b2e82::t_ffbc301b82f187 27-28,41,85-106,133-134,140,143,299,304-307,309
+src/i18n/controls.ru.ts
+  s_0d98fe904b2e82::t_bc0581bba43c5c 1-38
+src/ui/settings/controls.ts
+  s_0d98fe904b2e82::t_bc6d8e1f25d9c1 1-80,82-281,283-356,359,364-365,375,379,383-384
+  s_0d98fe904b2e82::t_32c4c1c37c274e 357-358,360-363
+  s_0d98fe904b2e82::t_11f65abc925a95 81
+  s_0d98fe904b2e82::t_2b43a6243a7a08 282
+  s_0d98fe904b2e82::t_2f66f2bf905a9c 366-374,376-378,380-382
+tests/settingsControls.test.ts
+  s_0d98fe904b2e82::t_1a3b768ebfbcfd 1-38
+  s_0d98fe904b2e82::t_fe67ca04db96a6 39-138
+  s_0d98fe904b2e82::t_be64c7de4cf8ee 139-168
+src/i18n/controls.en.ts
+  s_0d98fe904b2e82::t_f715d2134536b0 1-40
+src/i18n/en.ts
+  s_0d98fe904b2e82::t_d04e19e6bd2f15 55,397
+src/i18n/ru.ts
+  s_0d98fe904b2e82::t_92ab6c0b9e2e14 47,356
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9827d199cb19461bc3268b5035107ac646d21d35",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
