@@ -38,7 +38,7 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 
 ## Resolved
 
-### F9 · `scripts/online-e2e.mjs`: A's "reload" before recruiting, the Hire tap, the lockstep tick wait (timing/async, fixed in FIX-E2E)
+### F10 · `scripts/online-e2e.mjs`: A's "reload" before recruiting, the Hire tap, the lockstep tick wait (timing/async, fixed in FIX-E2E)
 
 - **Seen:** "Execution context was destroyed" at the recruit step in 4 of 24 runs; "recruited a hero" failed in 2 of
   24, then 3 of 14 more; "both clients advance in lockstep" once in 4 at load ≈ 85. Not in CI (the script needs a
