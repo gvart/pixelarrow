@@ -7,7 +7,6 @@
  * Keeping the one with fewer battles won is confirmed first. Back leaves the choice open: nothing is
  * written here or on the server until the player picks, and the hub asks again.
  */
-import Phaser from 'phaser';
 import { t, type TKey } from '../../i18n';
 import { addIcon, scaleIcon, ScrollArea } from '../kit';
 import { MButton, mosaicImage, mtext, openParchmentSheet, sheetWidth, GAP, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
@@ -58,6 +57,12 @@ export function openTwoCampaigns(scene: UiScene, o: TwoCampaignsOpts): Parchment
     stats: mtext(scene, 0, 0, statsLine(k === 'local' ? o.local : o.cloud), 'pInk', { size: TEXT, maxW: cw - CARD_PAD * 2, wrap: true }),
   }));
   const cardH = Math.max(...cardTexts.map((c) => CARD_PAD + c.title.height + 3 + c.stats.height + 4 + 10 + CARD_PAD));
+  // measured: keep the words and the title's height, drop the measuring objects
+  const words = cardTexts.map((c) => ({ title: c.title.text, titleH: c.title.height, stats: c.stats.text }));
+  for (const c of cardTexts) {
+    c.title.destroy();
+    c.stats.destroy();
+  }
   const cardsH = two ? cardH : cardH * 2 + GAP;
   const contentH = body.height + 6 + cardsH + 6 + note.height;
   const want = SHEET_TITLE_H + contentH + 8 + BTN_H + 16;
@@ -73,42 +78,37 @@ export function openTwoCampaigns(scene: UiScene, o: TwoCampaignsOpts): Parchment
   into.add(body.setPosition(ox, cy));
   cy += body.height + 6;
 
-  const cards: Phaser.GameObjects.Container[] = [];
-  const draw = (): void => {
-    for (const c of cards) c.destroy();
-    cards.length = 0;
+  // the cards are built once (pressable, focusable) and repainted on a pick, so keyboard focus stays put
+  const cards = sides.map((k, i) => {
+    const c = scene.add.container(two ? ox + i * (cw + GAP) : ox, two ? cy : cy + i * (cardH + GAP));
+    makePressable(c, { w: cw, h: cardH, tip: t(k === 'local' ? 'sync.two.local' : 'sync.two.cloud'), onTap: () => pick(k) });
+    uiId(c, `sync.two.${k}`);
+    into.add(c);
+    return c;
+  });
+  const paint = (): void => {
     sides.forEach((k, i) => {
-      const cx = two ? ox + i * (cw + GAP) : ox;
-      const yy = two ? cy : cy + i * (cardH + GAP);
+      const c = cards[i];
+      c.removeAll(true);
       const on = sel === k;
-      const c = scene.add.container(cx, yy);
       c.add(mosaicImage(scene, 0, 0, cw, cardH, on ? 'parchmentSel' : 'parchment'));
-      const tx = cardTexts[i];
-      // the texts move between redraws, so fresh copies each time
-      c.add(mtext(scene, CARD_PAD, CARD_PAD, tx.title.text, 'rInk', { size: 7.5, maxW: cw - CARD_PAD * 2 }));
-      c.add(mtext(scene, CARD_PAD, CARD_PAD + tx.title.height + 3, tx.stats.text, 'pInk', { size: TEXT }));
+      const tx = words[i];
+      c.add(mtext(scene, CARD_PAD, CARD_PAD, tx.title, 'rInk', { size: 7.5, maxW: cw - CARD_PAD * 2 }));
+      c.add(mtext(scene, CARD_PAD, CARD_PAD + tx.titleH + 3, tx.stats, 'pInk', { size: TEXT }));
       const ky = cardH - CARD_PAD - 9;
       // the selected card says so in words and with a tick, not by colour alone
       if (on) c.add(scaleIcon(addIcon(scene, CARD_PAD, ky - 1, 'check', 'L'), 0.75));
       c.add(mtext(scene, CARD_PAD + (on ? 12 : 0), ky, t((on ? 'sync.two.kept' : 'sync.two.keep') as TKey), on ? 'pInk' : 'pSec', { size: TEXT, maxW: cw - CARD_PAD * 2 - 12 }));
-      makePressable(c, { w: cw, h: cardH, tip: t(k === 'local' ? 'sync.two.local' : 'sync.two.cloud'), onTap: () => pick(k) });
-      uiId(c, `sync.two.${k}`);
-      into.add(c);
-      cards.push(c);
     });
   };
   const pick = (k: Keep): void => {
     if (busy || sel === k) return;
     sel = k;
-    draw();
+    paint();
   };
-  draw();
+  paint();
   cy += cardsH + 6;
   into.add(note.setPosition(ox, cy));
-  for (const c of cardTexts) {
-    c.title.destroy();
-    c.stats.destroy();
-  }
   if (area) {
     area.setContentHeight(contentH);
     m.c.once('destroy', () => area.destroy());

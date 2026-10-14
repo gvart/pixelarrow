@@ -89,7 +89,6 @@ export class MenuScene extends BaseScene {
     const c = this.add.container(0, 0);
     const h = addTipLine(this, c, 0, 0, w, {
       text: t('auth.guest.tip'),
-      icon: 'people',
       card: true,
       dismissId: 'guestSave',
       id: 'menu.guestTip',

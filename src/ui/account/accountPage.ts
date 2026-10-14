@@ -20,7 +20,7 @@ import { Toggle } from '../mosaic/toggles';
 import { MButton, mtext, GAP } from '../mosaic';
 import type { UiScene } from '../mosaic/subShell';
 import { SURFACE } from '../tokens';
-import { ellipsize, measureText } from '../textfit';
+import { ellipsize, measureText, wrapText } from '../textfit';
 import { legalUrl } from '../legal';
 import { openSettingsPage, settingsSheetW } from '../notifySettings';
 import { confirmDialog, toast } from '../widgets';
@@ -145,14 +145,17 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     return yy + SECTION_H;
   };
   /** A setting row on its well: the label (and a quieter value or line under it), the control at the right. */
-  const row = (into: Phaser.GameObjects.Container, yy: number, label: string, sub: string | null, right: number): number => {
-    into.add(mosaicPanelImage(scene, 0, yy, iw - 4, ROW_H - 1, 'parchmentWell'));
+  /** `wrapSub`: the quieter line wraps to two lines (the row grows) instead of being cut (§13.6). */
+  const row = (into: Phaser.GameObjects.Container, yy: number, label: string, sub: string | null, right: number, wrapSub = false): number => {
     const room = iw - right - 14;
+    const subLines = sub ? (wrapSub ? wrapText(sub, room, 2, false, 6.5).lines : [ellipsize(sub, room, false, 6.5)]) : [];
+    const rh = ROW_H + Math.max(0, subLines.length - 1) * 9;
+    into.add(mosaicPanelImage(scene, 0, yy, iw - 4, rh - 1, 'parchmentWell'));
     if (sub) {
       into.add(addText(scene, 6, yy + 2, ellipsize(label, room, false, 6.5), 'pInk').setFontSize(6.5));
-      into.add(addText(scene, 6, yy + 12, ellipsize(sub, room, false, 6.5), 'pMuted').setFontSize(6.5));
+      into.add(addText(scene, 6, yy + 12, subLines.join('\n'), 'pMuted').setFontSize(6.5).setLineSpacing(-1));
     } else into.add(addText(scene, 6, yy + 8, measureText(label) <= room ? label : ellipsize(label, room, false, 6.5), 'pInk'));
-    return yy + STEP;
+    return yy + rh + GAP;
   };
   const say = (into: Phaser.GameObjects.Container, yy: number, text: string, font: 'pInk' | 'pMuted' | 'pBad' = 'pInk'): number => {
     const tx = mtext(scene, 0, yy, text, font, { size: 7, maxW: iw - 4, wrap: true });
@@ -216,7 +219,7 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     let boards = a.publicBoards;
     let busy = false;
     const ty = yy;
-    yy = row(into, yy, t('account.boards'), t('account.boardsSub'), 38);
+    yy = row(into, yy, t('account.boards'), t('account.boardsSub'), 38, true);
     const sw = new Toggle(scene, iw - 4 - 34, ty + 1, {
       on: boards,
       label: t('account.boards'),
@@ -258,7 +261,6 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
       into.add(
         new Button(scene, iw - 4 - 68, ly + 1, 68, 22, {
           label: t('auth.logout'),
-          icon: 'chevR',
           inline: true,
           small: true,
           id: 'account.logout',
