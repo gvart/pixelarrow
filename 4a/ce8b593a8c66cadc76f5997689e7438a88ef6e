@@ -1,0 +1,63 @@
+scripts/layout-check.mjs
+  s_0d98fe904b2e82::t_2d5486ebd4310d 202-208
+src/ui/account/index.ts
+  s_0d98fe904b2e82::t_7e9b49b8cbdcbf 1-64
+src/ui/account/common.ts
+  s_0d98fe904b2e82::t_73682e765884e6 1-32
+scripts/account-e2e.mjs
+  s_0d98fe904b2e82::t_e37a4bb4edca23 1-58,60-63,65-66,68-99,101-102,104-108,111-120,124-150,152-159,161-164,166-167,170-176,178-194,196-202,204-208,213-214,220-228,230-235
+  s_0d98fe904b2e82::t_e33d3a661a93ac 122,209-212,215-219
+  s_0d98fe904b2e82::t_5f38c531913930 59,100,109-110,121,151,160,165,168-169,177,195,203,229
+  s_0d98fe904b2e82::t_69cfd3420e1d6d 64,67
+  s_0d98fe904b2e82::t_06ff4c8d2fe302 103,123
+src/ui/account/checkEmail.ts
+  s_0d98fe904b2e82::t_10c0dc77b9bb8e 1-8,10-85,87-106,131
+  s_0d98fe904b2e82::t_a2813faf9e910a 9,86,107-130
+src/ui/account/deps.ts
+  s_0d98fe904b2e82::t_44bc60ab1e8d00 1-44
+src/ui/account/signup.ts
+  s_0d98fe904b2e82::t_d4e25fd625c836 1-42
+src/ui/mosaic/index.ts
+  s_0d98fe904b2e82::t_20034236f6ba24 35
+src/scenes/kit/formsPage.ts
+  s_0d98fe904b2e82::t_0bd8e1fefa66eb 1-10,12-167,169-202
+  s_0d98fe904b2e82::t_a2813faf9e910a 11,168
+src/ui/mosaic/CountdownLabel.ts
+  s_0d98fe904b2e82::t_750002d94e9bd5 1-7,10-43,45-46,48-54
+  s_0d98fe904b2e82::t_20034236f6ba24 8-9,44,47
+src/ui/account/forgot.ts
+  s_0d98fe904b2e82::t_3ad4ccefffdd50 1-32
+src/ui/form/authForm.ts
+  s_0d98fe904b2e82::t_fcf8d5521358aa 18,23,324
+  s_0d98fe904b2e82::t_981b3cfde87c6d 76,80,83-95,97-120,122-127,129,476-478,486,490-491
+  s_0d98fe904b2e82::t_f9720e31d1d168 1-17,19-22,24-75,77-79,81-82,96,121,128,130-323,325-475,479-485,487-489,492-506,509-610
+  s_0d98fe904b2e82::t_8b38080d0374de 507-508
+src/scenes/kit/catalog.ts
+  s_0d98fe904b2e82::t_c0dac6fe3b6be0 30
+src/ui/account/login.ts
+  s_0d98fe904b2e82::t_5596aaef8133db 1-50
+src/scenes/MenuScene.ts
+  s_0d98fe904b2e82::t_a9e19b4b77150f 7,45,65-66
+src/scenes/online/textInput.ts
+  s_0d98fe904b2e82::t_6de38776ca689d 2-5,8,21,23-25,27-41
+  s_0d98fe904b2e82::t_981b3cfde87c6d 22
+src/scenes/KitScene.ts
+  s_0d98fe904b2e82::t_c0dac6fe3b6be0 30,51,118-120
+  s_0d98fe904b2e82::t_a97def5ca510f5 121-122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4ace8b593a8c66cadc76f5997689e7438a88ef6e",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
