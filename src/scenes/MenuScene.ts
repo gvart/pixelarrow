@@ -6,8 +6,12 @@ import type { SyncStatus } from '../platform/online';
 import { confirmNewCampaign, openSettings } from '../ui/settings';
 import { demoNotifySource, openAbout, openNotifySettings } from '../ui/notifySettings';
 import { addSyncBadge } from '../ui/online';
-import { FrescoBanner, MButton, ProfileCard, QuestCard, StoneTile, addHubShell, goTab, mtext, mw, wrapWords } from '../ui/mosaic';
+import { FrescoBanner, MButton, ProfileCard, QuestCard, StoneTile, addHubShell, goTab, mtext, mw, wrapWords, type HubShell, type ProfileCardOpts, type QuestCardOpts } from '../ui/mosaic';
 import { COMPACT_CSS_H, frescoSlot, hubStatusLine, pendingMen } from '../ui/mosaic/campaignHub';
+import { PANE_GUTTER, columns, layoutVariant, type Box } from '../ui/mosaic/layout/geometry';
+import { uiCollapsed, uiLayout, uiPrimary } from '../ui/layout';
+import { focusPane } from '../ui/focusRing';
+import { CTA_MAX, ROW_MAX } from '../ui/sizeClass';
 import { TEXT_MIN, lineHeight } from '../ui/tokens';
 import { RS } from '../platform/renderScale';
 import { toast } from '../ui/widgets';
@@ -17,6 +21,8 @@ import { placeName } from '../i18n/places';
 
 const GAP = 4;
 const CTA_H = 30;
+/** The fresco on a tablet upright: full width, at most this tall (landscape-v6 §6.2). */
+const FRESCO_MEDIUM_MAX = 200;
 
 /**
  * The Campaign hub, direction A "Fresco Hall" (design/ux/screens-campaign.md C-3,
@@ -28,6 +34,8 @@ const CTA_H = 30;
  */
 export class MenuScene extends BaseScene {
   private overlay: Phaser.GameObjects.Container | null = null;
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-01): the whole safe area, a rail in landscape. */
+  protected override readonly responsive = true;
 
   constructor() {
     super('Menu');
@@ -36,19 +44,31 @@ export class MenuScene extends BaseScene {
   create(data?: { settings?: 'notify' }): void {
     this.initUi();
     this.screen({ back: null }); // root: Telegram shows Close
+    const shell = addHubShell(this, { title: 'Pixelarrow', active: 'campaign' });
+    this.syncBadge(shell.frame.topBar.x + 5, shell.frame.topBar.y + 7);
+    uiLayout(this, this.m.cls, this.m.land);
+    const v = layoutVariant(this.m);
+    if (v === 'compactPortrait') this.layPortrait(shell);
+    else if (v === 'compactLandscape') this.layCompactLandscape(shell);
+    else if (v === 'medium' && !this.m.land) this.layMediumPortrait(shell);
+    else this.layExpanded(shell);
+
+    // What happened to the save at boot (V5-011), once.
+    if (state.notice) {
+      toast(this, t(state.notice), state.notice === 'battle.abandoned' ? 'info' : 'bad', 7000);
+      state.notice = null;
+    }
+
+    // Opened from a bot message's "Open in the game" (startapp=settings).
+    if (data?.settings === 'notify') this.openNotifications();
+  }
+
+  // ------------------------------------------------------------------ the parts (every layout shows all of them)
+
+  /** The save: the strategos, where the army is, what is up, the arc; campaign gold, battles won, men. */
+  private profileOpts(): ProfileCardOpts {
     const c = state.campaign.data;
     const world = state.campaign.world;
-    const shell = addHubShell(this, { title: 'Pixelarrow', active: 'campaign' });
-    const { area, w } = shell;
-    this.syncBadge(shell.frame.topBar.x + 5, shell.frame.topBar.y + 7);
-    const content = area.content;
-    const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (content.add(o), o);
-    // short phones (MENU-1): a smaller portrait, a one-row quest, lower tiles and tighter gaps
-    const compact = (this.m.VH * this.m.S) / RS < COMPACT_CSS_H;
-    const gap = compact ? GAP : GAP + 2;
-    let y = 2;
-
-    // ---- the save: the strategos, where the army is, what is up, the arc; campaign gold, battles won, men
     const lead = c.heroes[0];
     const inside = state.hasSave ? world.s.inside : -1;
     const lairs = world.map.settlements.filter((st) => st.kind === 'lair');
@@ -61,90 +81,224 @@ export class MenuScene extends BaseScene {
       lairs: lairs.length,
       arc: world.s.arc?.stage ?? 'lairs',
     });
-    const profile = add(
-      new ProfileCard(this, 1, y, w, {
-        portrait: 'ui_portrait_leader',
-        portraitSize: compact ? 24 : w >= 180 ? 40 : 32,
-        statsBelow: compact || 'auto',
-        name: state.hasSave && lead ? t('hub.leader', { name: heroName(lead.name) }) : t('hub.newCampaign'),
-        subtitle: status,
-        stats: [
-          { icon: 'coin', text: t('hub.gold', { n: c.gold }), right: { icon: 'trophy', text: t('hub.trophies', { n: c.won }) } },
-          { icon: 'people', text: t('hub.warband', { n: c.heroes.length }) },
-        ],
-        id: 'menu.save',
-      }),
-    );
-    y += profile.h + GAP;
+    return {
+      portrait: 'ui_portrait_leader',
+      name: state.hasSave && lead ? t('hub.leader', { name: heroName(lead.name) }) : t('hub.newCampaign'),
+      subtitle: status,
+      stats: [
+        { icon: 'coin', text: t('hub.gold', { n: c.gold }), right: { icon: 'trophy', text: t('hub.trophies', { n: c.won }) } },
+        { icon: 'people', text: t('hub.warband', { n: c.heroes.length }) },
+      ],
+      id: 'menu.save',
+    };
+  }
 
-    // ---- first steps, until they are done
+  /** First steps, until they are done (null after). */
+  private questOpts(compact: boolean): QuestCardOpts | null {
     const steps = this.firstSteps();
     const done = steps.filter((s) => s.done).length;
     const next = steps.find((s) => !s.done);
-    if (next) {
-      const quest = add(new QuestCard(this, 1, y, w, { title: t('menu.firstSteps', { done: t('strat.ofCount', { a: done, b: steps.length }) }), total: steps.length, done, next: next.text, compact, id: 'menu.quest' }));
-      y += quest.h + GAP;
-    }
+    if (!next) return null;
+    return { title: t('menu.firstSteps', { done: t('strat.ofCount', { a: done, b: steps.length }) }), total: steps.length, done, next: next.text, compact, id: 'menu.quest' };
+  }
 
-    // ---- Army, Stash and Camp, built first: the fresco takes what they leave above the fold
-    // (no save yet: Army and Stash wait for the march to begin, C-3 "No save"; live tiles are bronze,
-    // grey stone means disabled only: V5-046, C-3 colour roles)
+  /**
+   * Army, Stash and Camp in a row `w` wide at `x`, `th` tall, with the reasons of the disabled tiles under it
+   * (no save yet: Army and Stash wait for the march to begin, C-3 "No save"; live tiles are bronze, grey stone
+   * means disabled only: V5-046, C-3 colour roles). `h` is the row with its reasons; `build(y)` adds it.
+   */
+  private tileRow(add: <T extends Phaser.GameObjects.GameObject>(o: T) => T, x: number, w: number, maxH: number): { th: number; h: number; build: (y: number) => void } {
+    const c = state.campaign.data;
+    const world = state.campaign.world;
     const tw = Math.floor((w - 2 * GAP) / 3);
-    const th = Math.min(tw, compact ? 36 : 56);
+    const th = Math.min(tw, maxH);
     const lastW = w - 2 * (tw + GAP);
     const noSave = state.hasSave ? undefined : t('hub.beginFirst');
     const pending = state.hasSave ? pendingMen(c.heroes) : 0;
     const campOff = world.camp ? undefined : t('hub.pitchCamp');
-    const tiles = [
-      new StoneTile(this, 1, 0, tw, th, { icon: 'helmet', label: t('hub.army'), variant: 'bronze', badge: pending || undefined, disabled: noSave, caption: false, tip: t('hub.tip.army'), id: 'menu.army', onClick: () => this.scene.start('Army', { from: 'Menu' }) }),
-      new StoneTile(this, 1 + tw + GAP, 0, tw, th, { icon: 'chest', label: t('hub.stash'), variant: 'bronze', disabled: noSave, caption: false, tip: t('hub.tip.stash'), id: 'menu.stash', onClick: () => this.scene.start('Army', { from: 'Menu', tab: 'stash' }) }),
-      new StoneTile(this, 1 + 2 * (tw + GAP), 0, lastW, th, { icon: 'tent', label: t('hub.camp'), variant: 'bronze', disabled: campOff, caption: false, tip: t('hub.tip.camp'), id: 'menu.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) }),
-    ];
     // the reasons of the disabled tiles, one line each across the row (the mockup's "Pitch camp on the map"):
     // under Army and Stash at the left, under Camp at the right
     const lh = Math.ceil(lineHeight(TEXT_MIN));
     const reasons: { lines: string[]; x: number; align: 0 | 1 }[] = [];
-    if (noSave) reasons.push({ lines: wrapWords(noSave, w, (s) => mw(s, 'pSec', TEXT_MIN)), x: 2, align: 0 });
-    if (campOff) reasons.push({ lines: wrapWords(campOff, w, (s) => mw(s, 'pSec', TEXT_MIN)), x: 1 + w, align: 1 });
+    if (noSave) reasons.push({ lines: wrapWords(noSave, w, (s) => mw(s, 'pSec', TEXT_MIN)), x: x + 1, align: 0 });
+    if (campOff) reasons.push({ lines: wrapWords(campOff, w, (s) => mw(s, 'pSec', TEXT_MIN)), x: x + w, align: 1 });
     const reasonH = reasons.reduce((a, r) => a + r.lines.length * lh, 0);
-    const tilesH = th + (reasonH ? 2 + reasonH : 0);
+    const tiles = [
+      new StoneTile(this, x, 0, tw, th, { icon: 'helmet', label: t('hub.army'), variant: 'bronze', badge: pending || undefined, disabled: noSave, caption: false, tip: t('hub.tip.army'), id: 'menu.army', onClick: () => this.scene.start('Army', { from: 'Menu' }) }),
+      new StoneTile(this, x + tw + GAP, 0, tw, th, { icon: 'chest', label: t('hub.stash'), variant: 'bronze', disabled: noSave, caption: false, tip: t('hub.tip.stash'), id: 'menu.stash', onClick: () => this.scene.start('Army', { from: 'Menu', tab: 'stash' }) }),
+      new StoneTile(this, x + 2 * (tw + GAP), 0, lastW, th, { icon: 'tent', label: t('hub.camp'), variant: 'bronze', disabled: campOff, caption: false, tip: t('hub.tip.camp'), id: 'menu.camp', onClick: () => this.scene.start('Camp', { mode: 'field' }) }),
+    ];
+    return {
+      th,
+      h: th + (reasonH ? 2 + reasonH : 0),
+      build: (y) => {
+        for (const tile of tiles) add(tile.setY(y));
+        let ry = y + th + 2;
+        for (const r of reasons)
+          for (const line of r.lines) {
+            add(mtext(this, r.x, ry, line, 'pSec', { size: TEXT_MIN, align: r.align }));
+            ry += lh;
+          }
+      },
+    };
+  }
 
-    // ---- the fresco: a tap marches on (a one-line banner, or none, when the tiles would fall below the fold)
-    const go = () => (state.hasSave ? this.continueCampaign() : this.newCampaign());
-    const room = area.viewHeight - y - (gap + CTA_H + gap + tilesH + 4);
+  /** Continue the march (or begin one: "New campaign" over a save lives in Settings, confirmed). */
+  private readonly go = () => (state.hasSave ? this.continueCampaign() : this.newCampaign());
+
+  /** The one primary, shown whole at scroll 0 at every size (above-fold). */
+  private primary(x: number, y: number, w: number): MButton {
+    const id = state.hasSave ? 'menu.continue' : 'menu.new';
+    return uiPrimary(new MButton(this, x, y, w, CTA_H, { label: state.hasSave ? t('menu.continueMarch') : t('menu.beginMarch'), icon: 'march', variant: 'primaryHero', id, onClick: this.go }));
+  }
+
+  /** The fresco: a tap marches on. Where a layout has no room for it, its action is the primary's (element-parity). */
+  private fresco(x: number, y: number, w: number, h: number): FrescoBanner {
+    return new FrescoBanner(this, x, y, w, h, { image: 'ui_banner_campaign', label: t('menu.continueMarch'), id: 'menu.banner', onClick: this.go });
+  }
+
+  /** Tab reads the left pane, then the right one (landscape-v6 §4): the controls from `x` on are the second pane. */
+  private secondPane(shell: HubShell, x: number): void {
+    for (const o of shell.area.content.list) if ((o as Phaser.GameObjects.Container).x >= x) focusPane(o, 1);
+  }
+
+  private noFresco(): void {
+    uiCollapsed(this, 'menu.banner', state.hasSave ? 'menu.continue' : 'menu.new');
+  }
+
+  // ------------------------------------------------------------------ layouts (design/ux/landscape-v6.md §6.2)
+
+  /** Compact portrait: the v5 hub, unchanged (§16.9). */
+  private layPortrait(shell: HubShell): void {
+    const { area, w } = shell;
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (area.content.add(o), o);
+    // short phones (MENU-1): a smaller portrait, a one-row quest, lower tiles and tighter gaps
+    const compact = (this.m.VH * this.m.S) / RS < COMPACT_CSS_H;
+    const gap = compact ? GAP : GAP + 2;
+    let y = 2;
+    const profile = add(new ProfileCard(this, 1, y, w, { ...this.profileOpts(), portraitSize: compact ? 24 : w >= 180 ? 40 : 32, statsBelow: compact || 'auto' }));
+    y += profile.h + GAP;
+    const q = this.questOpts(compact);
+    if (q) y += add(new QuestCard(this, 1, y, w, q)).h + GAP;
+    // Army, Stash and Camp, built first: the fresco takes what they leave above the fold
+    const row = this.tileRow(add, 1, w, compact ? 36 : 56);
+    // the fresco (a one-line banner, or none, when the tiles would fall below the fold)
+    const room = area.viewHeight - y - (gap + CTA_H + gap + row.h + 4);
     const fresco = frescoSlot(w, room);
     // room left over (first steps done, a tall phone): shared above and below the fresco, so the
     // primary and the tiles keep to the thumb zone without a hole under the cards
     if (fresco.kind === 'full') y += Math.max(0, Math.floor((room - fresco.h) / 2));
     if (fresco.kind !== 'none') {
-      add(new FrescoBanner(this, 1, y, w, fresco.h, { image: 'ui_banner_campaign', label: t('menu.continueMarch'), id: 'menu.banner', onClick: go }));
+      add(this.fresco(1, y, w, fresco.h));
       y += fresco.h + gap;
-    }
-    y += Math.max(0, Math.floor(area.viewHeight - y - (CTA_H + gap + tilesH + 4)));
-
-    // ---- the one primary
-    // (no save yet: the same place begins one; "New campaign" over a save lives in Settings, confirmed)
-    add(new MButton(this, 1, y, w, CTA_H, { label: state.hasSave ? t('menu.continueMarch') : t('menu.beginMarch'), icon: 'march', variant: 'primaryHero', id: state.hasSave ? 'menu.continue' : 'menu.new', onClick: go }));
+    } else this.noFresco();
+    y += Math.max(0, Math.floor(area.viewHeight - y - (CTA_H + gap + row.h + 4)));
+    add(this.primary(1, y, w));
     y += CTA_H + gap;
-
-    for (const tile of tiles) add(tile.setY(y));
-    let ry = y + th + 2;
-    for (const r of reasons)
-      for (const line of r.lines) {
-        add(mtext(this, r.x, ry, line, 'pSec', { size: TEXT_MIN, align: r.align }));
-        ry += lh;
-      }
-    y += tilesH + 4;
+    row.build(y);
+    y += row.h + 4;
     area.setContentHeight(y);
+  }
 
-    // What happened to the save at boot (V5-011), once.
-    if (state.notice) {
-      toast(this, t(state.notice), state.notice === 'battle.abandoned' ? 'info' : 'bad', 7000);
-      state.notice = null;
+  /**
+   * Compact landscape, 844x390 (§6.2, §6.5): two panes beside the rail. Left the profile and the quest; right
+   * the primary at the top (always above the fold), the tiles and the disabled reasons. No fresco (`short`).
+   */
+  private layCompactLandscape(shell: HubShell): void {
+    const { area, w } = shell;
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (area.content.add(o), o);
+    // two panes at every compact-landscape width (the Telegram safe area leaves 279 UI px, under `columns`' 300)
+    const lw = Math.floor((w - PANE_GUTTER) / 2);
+    const rx = 1 + lw + PANE_GUTTER;
+    const rw = w - lw - PANE_GUTTER;
+    let ly = 2;
+    ly += add(new ProfileCard(this, 1, ly, lw, { ...this.profileOpts(), portraitSize: 24, statsBelow: true })).h + GAP;
+    const q = this.questOpts(true);
+    if (q) ly += add(new QuestCard(this, 1, ly, lw, q)).h + GAP;
+    let ry = 2;
+    add(this.primary(rx, ry, Math.min(rw, CTA_MAX)));
+    ry += CTA_H + GAP;
+    const row = this.tileRow(add, rx, rw, 36);
+    row.build(ry);
+    ry += row.h + 4;
+    this.noFresco();
+    this.secondPane(shell, rx);
+    area.setContentHeight(Math.max(ly, ry));
+  }
+
+  /**
+   * Medium portrait, tablets upright (§6.2): one column with the tab bar, the profile and the quest side by
+   * side, the fresco across (at most 200 tall), then the primary and the tiles (at most 300 wide, centred).
+   */
+  private layMediumPortrait(shell: HubShell): void {
+    const { area, w } = shell;
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (area.content.add(o), o);
+    const gap = GAP + 2;
+    let y = 2;
+    const q = this.questOpts(false);
+    const half = Math.floor((w - PANE_GUTTER) / 2);
+    const profile = add(new ProfileCard(this, 1, y, q ? half : w, { ...this.profileOpts(), portraitSize: 40, statsBelow: 'auto' }));
+    const quest = q ? add(new QuestCard(this, 1 + half + PANE_GUTTER, y, w - half - PANE_GUTTER, q)) : null;
+    y += Math.max(profile.h, quest?.h ?? 0) + GAP;
+    const cw = Math.min(w, CTA_MAX);
+    const cx = 1 + Math.floor((w - cw) / 2);
+    const row = this.tileRow(add, cx, cw, 56);
+    const fw = Math.min(w, ROW_MAX);
+    const room = area.viewHeight - y - (gap + CTA_H + gap + row.h + 4);
+    const fresco = frescoSlot(fw, Math.min(room, FRESCO_MEDIUM_MAX));
+    if (fresco.kind === 'full') y += Math.max(0, Math.floor((room - fresco.h) / 2));
+    if (fresco.kind !== 'none') {
+      add(this.fresco(1 + Math.floor((w - fw) / 2), y, fw, fresco.h));
+      y += fresco.h + gap;
+    } else this.noFresco();
+    y += Math.max(0, Math.floor(area.viewHeight - y - (CTA_H + gap + row.h + 4)));
+    add(this.primary(cx, y, cw));
+    y += CTA_H + gap;
+    row.build(y);
+    y += row.h + 4;
+    area.setContentHeight(y);
+  }
+
+  /**
+   * Expanded, laptops and desktops, and near-square windows (§6.2, §6.3): two panes beside the rail. Left the
+   * hero pane, the fresco (16:9, at most 300 wide) with the primary under it; right the profile, the quest and
+   * the tiles. Each pane's group is centred in the height, so neither leaves an empty band.
+   */
+  private layExpanded(shell: HubShell): void {
+    const { area, w } = shell;
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (area.content.add(o), o);
+    const view = area.viewHeight;
+    const [hero, side] = columns({ x: 1, y: 0, w, h: view }, [
+      { min: 200, max: CTA_MAX, priority: 2 },
+      { min: 180, max: 320, priority: 1 },
+    ]).panes as Box[];
+    // the hero pane: fresco + primary, as tall as the view allows
+    const fh = Math.max(0, Math.min(Math.round((hero.w * 9) / 16), view - 4 - CTA_H - GAP - 4));
+    const heroH = (fh ? fh + GAP + 2 : 0) + CTA_H;
+    let hy = Math.max(2, Math.floor((view - heroH) / 2));
+    if (fh) {
+      add(this.fresco(hero.x, hy, hero.w, fh));
+      hy += fh + GAP + 2;
+    } else this.noFresco();
+    add(this.primary(hero.x, hy, hero.w));
+    // the side pane: profile, quest, tiles
+    const q = this.questOpts(false);
+    const parts: Phaser.GameObjects.Container[] = [];
+    const profile = new ProfileCard(this, side.x, 0, side.w, { ...this.profileOpts(), portraitSize: 40, statsBelow: 'auto' });
+    parts.push(profile);
+    const quest = q ? new QuestCard(this, side.x, 0, side.w, q) : null;
+    if (quest) parts.push(quest);
+    const row = this.tileRow(add, side.x, side.w, 56);
+    const sideH = profile.h + GAP + (quest ? quest.h + GAP + 2 : 2) + row.h;
+    let sy = Math.max(2, Math.floor((view - sideH) / 2));
+    for (const p of parts) {
+      add(p.setY(sy));
+      sy += (p === profile ? profile.h : quest!.h) + GAP + (p === quest ? 2 : 0);
     }
-
-    // Opened from a bot message's "Open in the game" (startapp=settings).
-    if (data?.settings === 'notify') this.openNotifications();
+    if (!quest) sy += 2;
+    row.build(sy);
+    this.secondPane(shell, side.x);
+    area.setContentHeight(Math.max(hy + CTA_H, sy + row.h) + 4);
   }
 
   /** The cloud badge at the left of the top bar, only while the cloud save fails (C-3, MENU-4); World and Army always show it. */

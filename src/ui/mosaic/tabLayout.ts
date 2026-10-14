@@ -173,3 +173,73 @@ export function fitTabLabels(VW: number, labels: readonly string[], measure: (te
   }
   return last!;
 }
+
+// ------------------------------------------------------------------ nav rail (landscape-v6 §3.1)
+
+/** One rail item: its block (the parchment when selected) and its touch area, UI px from the rail's top. */
+export interface RailItemBox {
+  y: number;
+  h: number;
+  hitY: number;
+  hitH: number;
+}
+
+export interface RailLayout {
+  /** Rail width, UI px (84 at compact landscape, 72 elsewhere). */
+  w: number;
+  /** Icon left of the label (compact landscape) or above it (medium, expanded). */
+  compact: boolean;
+  items: RailItemBox[];
+  /** The War medallion's diameter (26 compact, 40 expanded). */
+  medallionD: number;
+  /** Where labels start (compact: after the icon column) and the room every label has, UI px. */
+  labelX: number;
+  labelW: number;
+}
+
+/** Item heights and medallion sizes of the two rail variants (§3.1). */
+const RAIL_ITEM_H = { compact: 30, wide: 48 };
+const RAIL_MEDALLION = { compact: 26, wide: 40 };
+/** The widest a rail slot grows on a tall screen, UI px: the five items stay together, centred. */
+const RAIL_SLOT_MAX = 64;
+/** The selected item's bronze bar on the rail's inner edge, UI px. */
+export const RAIL_BAR = 2;
+/** The icon column of the compact rail (the medallion's diameter plus its margin), UI px. */
+const RAIL_ICON_COL = 30;
+
+/** The five items of a rail `VH` UI px tall: equal slots centred in the height, each item centred in its slot. */
+export function railLayout(VH: number, compact: boolean, count = 5): RailLayout {
+  const w = compact ? 84 : 72;
+  const itemH = compact ? RAIL_ITEM_H.compact : RAIL_ITEM_H.wide;
+  const slot = Math.min(VH / count, compact ? Infinity : RAIL_SLOT_MAX);
+  const y0 = (VH - slot * count) / 2;
+  const h = Math.min(itemH, Math.floor(slot - TAB_GAP));
+  const items: RailItemBox[] = [];
+  for (let i = 0; i < count; i++) {
+    const y = Math.round(y0 + i * slot + (slot - h) / 2);
+    items.push({ y, h, hitY: y, hitH: h });
+  }
+  const labelX = compact ? RAIL_ICON_COL : 4;
+  return { w, compact, items, medallionD: compact ? RAIL_MEDALLION.compact : RAIL_MEDALLION.wide, labelX, labelW: w - labelX - 4 - RAIL_BAR };
+}
+
+export interface RailLabelFit {
+  style: TabLabelStyle;
+  texts: string[];
+  widths: number[];
+  /** Every label fits its room (always, in both languages: nav labels never ellipsise, §15). */
+  fits: boolean;
+}
+
+/** The one style the five rail labels share: the first of TAB_LABEL_STYLES at which each fits the rail's label room. */
+export function fitRailLabels(compact: boolean, labels: readonly string[], measure: (text: string, face: 'roman' | 'body', size: number) => number): RailLabelFit {
+  const room = railLayout(400, compact).labelW;
+  let last: RailLabelFit | null = null;
+  for (const style of TAB_LABEL_STYLES) {
+    const texts = labels.map((l) => tabLabelText(l, style));
+    const widths = texts.map((t) => measure(t, style.face, style.size));
+    last = { style, texts, widths, fits: widths.every((w) => w <= room) };
+    if (last.fits) return last;
+  }
+  return last!;
+}

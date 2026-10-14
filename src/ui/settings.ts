@@ -114,6 +114,20 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
   list = new ScrollList(scene, c, body.x, body.y, body.w, listH, {
     count: ROWS.length,
     rowH,
+    // the controls each row renders, for element-parity while the row is scrolled out of the window (V6-066)
+    ids: (i) => {
+      const r = ROWS[i];
+      if (r.kind === 'toggle' || r.kind === 'feel') return [`settings.toggle.${r.key}`];
+      if (r.kind === 'motion') return ['settings.toggle.reduceMotion'];
+      if (r.kind === 'volume') return [`settings.${r.key}.down`, `settings.${r.key}.up`];
+      if (r.kind === 'speed') return ['settings.battleSpeed.down', 'settings.battleSpeed.up'];
+      if (r.kind === 'lang') return LANGS_SET.map((l) => `settings.lang.${l}`);
+      if (r.kind === 'tutorial') return ['settings.tutorial'];
+      if (r.kind === 'newCampaign') return ['settings.newCampaign'];
+      if (r.kind === 'open') return [`settings.open.${r.what}`];
+      if (r.kind === 'sync') return ['legend.sync'];
+      return [];
+    },
     render: (i, row, rw) => {
       const r = ROWS[i];
       if (r.kind === 'section') {

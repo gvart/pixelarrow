@@ -10,14 +10,15 @@
  */
 import Phaser from 'phaser';
 import { addIcon, scaleIcon, type FontKey } from '../kit';
-import { uiId } from '../layout';
+import { uiId, uiStretch } from '../layout';
 import { pulse } from '../motion';
 import { t } from '../../i18n';
 import { MBadge, makePressable, mosaicImage, mtext, mw } from './base';
-import { MEDALLION_RISE, MODE_TABS, TAB_H, fitTabLabels, tabLayout, type TabId } from './tabLayout';
+import { MEDALLION_RISE, MODE_TABS, RAIL_BAR, TAB_H, fitRailLabels, fitTabLabels, railLayout, tabLayout, type TabId } from './tabLayout';
 import { MEDALLION_GLOW } from '../../art/mosaicUi';
 import { hubView } from '../../platform/nav';
-import { focusGroup } from '../focusRing';
+import { focusGroup, focusTail } from '../focusRing';
+import { MOSAIC } from '../tokens';
 
 export interface TabBarOpts {
   active?: TabId;
@@ -135,6 +136,125 @@ export class TabBar extends Phaser.GameObjects.Container {
       const slot = lay.slots[i];
       const war = tab.id === 'war';
       this.page.add(new MBadge(scene, war ? lay.medallionX + lay.medallionD - 4 : slot.x + slot.w / 2 + 9, war ? -MEDALLION_RISE + 8 : 8, badge));
+    });
+  }
+}
+
+/** The mode navigation of a hub: the tab bar (portrait) or the nav rail (landscape). */
+export type ModeNav = TabBar | NavRail;
+
+/**
+ * NavRail: the tab bar of a landscape screen (design/ux/landscape-v6.md §3.1): the same five modes, in the same
+ * order top to bottom, down the left edge at full height. 84 UI px wide with the icon left of its label at
+ * compact landscape, 72 with the icon above the label elsewhere; every label always shows (nav-labels). The
+ * selected mode is a parchment block plus a bronze bar on the rail's inner edge (shape and colour); the War
+ * medallion is the middle item. Same ids (`tab.*`), badges and focus group as the tab bar; Up/Down move.
+ */
+export class NavRail extends Phaser.GameObjects.Container {
+  readonly w: number;
+  readonly h: number;
+  private current: TabId | undefined;
+  private badges: Partial<Record<TabId, number | string>>;
+  private page: Phaser.GameObjects.Container;
+
+  constructor(scene: Phaser.Scene, VH: number, private compact: boolean, private o: TabBarOpts) {
+    super(scene, 0, 0);
+    const lay = railLayout(VH, compact);
+    this.w = lay.w;
+    this.h = VH;
+    this.current = o.active;
+    this.badges = { ...o.badges };
+    this.add(mosaicImage(scene, 0, 0, lay.w, VH, 'tabBar'));
+    // the gold rim on the inner edge, as the tab bar's on its top
+    const rim = scene.add.graphics();
+    rim.fillStyle(MOSAIC.meander, 1).fillRect(lay.w - 1.5, 0, 1.5, VH);
+    rim.fillStyle(0x000000, 0.55).fillRect(lay.w - 2.2, 0, 0.7, VH);
+    this.add(rim);
+    this.page = scene.add.container(0, 0);
+    this.add(this.page);
+    uiId(this, 'navrail');
+    // a bar meant to span the screen's height: not content (wasted-width, stretched)
+    uiStretch(this);
+    this.build();
+    scene.add.existing(this);
+    // a hub's rail is on screen: this view is the root (no Back; Telegram shows Close)
+    hubView(scene, null);
+  }
+
+  /** Select a mode (no callback). */
+  select(id: TabId | undefined): this {
+    if (id === this.current) return this;
+    this.current = id;
+    this.build();
+    return this;
+  }
+
+  setBadge(id: TabId, n: number | string | undefined): this {
+    if (n === undefined || n === 0) delete this.badges[id];
+    else this.badges[id] = n;
+    this.build();
+    return this;
+  }
+
+  private build(): void {
+    const scene = this.scene;
+    this.page.removeAll(true);
+    const lay = railLayout(this.h, this.compact);
+    const labels = fitRailLabels(this.compact, MODE_TABS.map((tab) => t(tab.key)), (str, face, z) => mw(str, face === 'roman' ? 'rCream' : 'light', z));
+    const { face, size } = labels.style;
+    const inner = lay.w - 2 - RAIL_BAR;
+    MODE_TABS.forEach((tab, i) => {
+      const it = lay.items[i];
+      const sel = tab.id === this.current;
+      const war = tab.id === 'war';
+      const font: FontKey = face === 'roman' ? (sel ? 'rInk' : 'rCream') : sel ? 'pInk' : 'light';
+      const c = scene.add.container(0, 0);
+      this.page.add(c);
+      if (sel) {
+        c.add(mosaicImage(scene, 1, it.y, inner - 1, it.h, 'tabSel'));
+        const bar = scene.add.graphics();
+        bar.fillStyle(MOSAIC.bronzeHi, 1).fillRect(inner, it.y, RAIL_BAR, it.h);
+        c.add(bar);
+      }
+      // the icon (the medallion for War): left of the label (compact) or above it
+      let icon: { x: number; y: number; w: number };
+      if (war) {
+        const d = lay.medallionD;
+        const glow = Math.round(d * MEDALLION_GLOW);
+        const mx = this.compact ? 1 : Math.round((inner - d) / 2);
+        const my = this.compact ? Math.round(it.y + (it.h - d) / 2) : it.y - 9;
+        const med = mosaicImage(scene, mx - glow, my - glow, d + glow * 2, d + glow * 2, sel ? 'medallionSel' : 'medallion');
+        c.add(med);
+        if (sel) pulse(scene, med, 'alpha', 0.82, 1, 1400);
+        const glyph = scaleIcon(addIcon(scene, 0, 0, 'war'), (d * WAR_GLYPH) / 12);
+        glyph.setPosition(Math.round(mx + (d - glyph.displayWidth) / 2), Math.round(my + (d - glyph.displayHeight) / 2));
+        c.add(glyph);
+        icon = { x: mx, y: my, w: d };
+      } else {
+        const img = scaleIcon(addIcon(scene, 0, 0, tab.icon), ICON_K);
+        const ix = this.compact ? Math.round(2 + (lay.medallionD - img.displayWidth) / 2) : Math.round((inner - img.displayWidth) / 2);
+        const iy = this.compact ? Math.round(it.y + (it.h - img.displayHeight) / 2) : it.y + 8;
+        img.setPosition(ix, iy);
+        c.add(img);
+        icon = { x: ix, y: iy, w: img.displayWidth };
+      }
+      // the label belongs to the rail (not to the medallion drawn before it)
+      const box = { owner: this as Phaser.GameObjects.Container, w: lay.w, h: this.h };
+      c.add(
+        this.compact
+          ? mtext(scene, lay.labelX, it.y + Math.round((it.h - 8) / 2), labels.texts[i], font, { size, box })
+          : mtext(scene, Math.round(inner / 2), it.y + it.h - (war ? 10 : 13), labels.texts[i], font, { size, align: 0.5, box }),
+      );
+      const hit = scene.add.container(0, it.hitY);
+      makePressable(hit, { w: inner, h: it.hitH, onTap: () => scene.time.delayedCall(0, () => this.o.onSelect(tab.id)), tip: t(tab.key), down: () => c.setAlpha(0.7), up: () => c.setAlpha(1) });
+      uiId(hit, `tab.${tab.id}`);
+      // Up/Down move inside the rail, Enter switches; the rail is the last Tab stop (landscape-v6 §4: nav last)
+      focusGroup(hit, this, null, () => tab.id === this.current);
+      focusTail(hit);
+      Object.assign(hit, { opts: { label: t(tab.key) } });
+      this.page.add(hit);
+      const badge = this.badges[tab.id];
+      if (badge !== undefined) this.page.add(new MBadge(scene, icon.x + icon.w - 2, icon.y + 2, badge));
     });
   }
 }

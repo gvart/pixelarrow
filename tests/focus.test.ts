@@ -72,6 +72,22 @@ describe('FocusManager: reading order', () => {
     expect(off.taps).toBe(1);
   });
 
+  it('a nav rail down the left edge is the last Tab stop, after the top bar and the panes (landscape-v6 §4)', () => {
+    const fm = setup();
+    const rail = {};
+    const items = [10, 50, 90].map((y, i) => Object.assign(ctl(screen, `nav${i}`, 0, y, { group: rail }), { tail: true }));
+    items.forEach((c) => fm.add(c));
+    [ctl(screen, 'gear', 300, 2), ctl(screen, 'cta', 100, 12), ctl(screen, 'tile', 100, 60)].forEach((c) => fm.add(c));
+    expect(fm.order().map((c) => (c as Ctl).name)).toEqual(['gear', 'cta', 'tile', 'nav0', 'nav1', 'nav2']);
+  });
+
+  it('panes are read one after the other, left to right, each top to bottom (landscape-v6 §4)', () => {
+    const fm = setup();
+    const right = (c: Ctl) => Object.assign(c, { pane: 1 });
+    [ctl(screen, 'gear', 300, 2), ctl(screen, 'fresco', 10, 40), ctl(screen, 'cta', 10, 120), right(ctl(screen, 'army', 200, 90)), right(ctl(screen, 'stash', 240, 90))].forEach((c) => fm.add(c));
+    expect(fm.order().map((c) => (c as Ctl).name)).toEqual(['gear', 'fresco', 'cta', 'army', 'stash']);
+  });
+
   it('a removed control is never focused again', () => {
     const fm = setup();
     const a = ctl(screen, 'a', 0, 0);
