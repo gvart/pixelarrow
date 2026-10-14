@@ -1,0 +1,47 @@
+src/i18n/clan.ru.ts
+  s_0d98fe904b2e82::t_6c8604049dce66 43
+src/scenes/BootScene.ts
+  s_0d98fe904b2e82::t_2dc158dbdf20de 7,98-101
+src/ui/notifySettings.ts
+  s_0d98fe904b2e82::t_2dc158dbdf20de 25,186
+src/platform/detect.ts
+  s_0d98fe904b2e82::t_2bc125d23a884a 41-60,62-63
+src/platform/index.ts
+  s_0d98fe904b2e82::t_0c6b2c3989a9b4 51
+  s_0d98fe904b2e82::t_2bc125d23a884a 8,50
+.github/workflows/deploy.yml
+  s_0d98fe904b2e82::t_4e43bc3031ae48 111-114
+tests/platformBoundary.test.ts
+  s_0d98fe904b2e82::t_5592a0cee26922 27,30
+tests/deeplink.test.ts
+  s_0d98fe904b2e82::t_9dd8afc1ba2f72 2,23-24,64-94
+  s_0d98fe904b2e82::t_454c8b6b52add3 5-6,95-121
+  s_0d98fe904b2e82::t_0e346d1b510fd7 122
+src/i18n/clan.en.ts
+  s_0d98fe904b2e82::t_6c8604049dce66 49
+src/scenes/ShopScene.ts
+  s_0d98fe904b2e82::t_2dc158dbdf20de 24,821-822
+src/online/deeplink.ts
+  s_0d98fe904b2e82::t_f852385a857b87 19-27,41-48,50-53,61-62,78-79,86-100,102,123-130
+src/scenes/online/ClanScene.ts
+  s_0d98fe904b2e82::t_40b4949d50a3ff 21,27,44-48,342-344,346-348,377,379-380,382-385
+tests/clan.test.ts
+  s_0d98fe904b2e82::t_7370eb704f2129 21,67-78
+  s_0d98fe904b2e82::t_bfe5814a80518f 79-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b756850f4770bce0c7c0bee5ab020d8143782a5c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
