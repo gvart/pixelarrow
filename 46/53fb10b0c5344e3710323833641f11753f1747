@@ -1,0 +1,49 @@
+src/scenes/CampScene.ts
+  s_0d98fe904b2e82::t_dd8ad96c5a2b28 185-196,634-636,640-654
+  s_0d98fe904b2e82::t_7b385a9fd222c4 24
+  s_0d98fe904b2e82::t_b39d8dd9393134 655
+src/scenes/WorldScene.ts
+  s_0d98fe904b2e82::t_45d123d2d81d86 5,302-303,305-310,1162-1171
+  s_0d98fe904b2e82::t_ad1d958f1a90a5 304
+src/scenes/BattleScene.ts
+  s_0d98fe904b2e82::t_25d416c453e5bc 661-669,2056,2060-2062,2068-2070
+  s_0d98fe904b2e82::t_a764d036eec01d 37
+tests/war01.test.ts
+  s_0d98fe904b2e82::t_26b427d5cb4faa 186
+tests/scrollAreaWheel.test.ts
+  s_0d98fe904b2e82::t_ebda642ab2e470 11-17
+  s_0d98fe904b2e82::t_73edb9a6d09e03 1-10,18-74,79-80
+  s_0d98fe904b2e82::t_dd58dde345da4f 75-78
+tests/wheel.test.ts
+  s_0d98fe904b2e82::t_efb81089bffab3 1-121
+src/ui/input/wheel.ts
+  s_0d98fe904b2e82::t_f309049c80b507 1-90
+src/scenes/online/OnlineScene.ts
+  s_0d98fe904b2e82::t_5a37e6fa9d5f33 51,337-345,1446
+src/ui/kit.ts
+  s_0d98fe904b2e82::t_036d8910b52e59 29,687-688,813-819,861-863
+  s_0d98fe904b2e82::t_b177f9b02f71bd 864-865
+src/ui/input/zoomAt.ts
+  s_0d98fe904b2e82::t_b6dc8bbd472ef9 64-65
+  s_0d98fe904b2e82::t_c54fbd509a64d1 95-98,100
+  s_0d98fe904b2e82::t_ed788978fbf927 11,75-94,99,101
+  s_0d98fe904b2e82::t_43cac0683b0e23 1-10,12-31,33-34,49-59,66,68-69,72-73,102
+  s_0d98fe904b2e82::t_2ac3c43f0df4e9 32,35-48,60-61
+  s_0d98fe904b2e82::t_d4204449ad1a3b 62-63,67,70-71,74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4653fb10b0c5344e3710323833641f11753f1747",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
