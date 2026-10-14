@@ -296,8 +296,9 @@ export const onlineApi = {
 
 /** Can the online mode be used right now? Signs in if needed. */
 export async function checkOnline(): Promise<Availability> {
-  if (!online.available) return { ok: false, reason: 'outside', message: t('gap.net.outside') };
-  if (!(await online.signIn())) return { ok: false, reason: 'offline', message: t('gap.net.offline') };
+  const s = await online.ensureSession();
+  if (s === 'signed_out') return { ok: false, reason: 'outside', message: t('gap.net.outside') };
+  if (s === 'offline') return { ok: false, reason: 'offline', message: t('gap.net.offline') };
   try {
     await onlineApi.status();
     return { ok: true };

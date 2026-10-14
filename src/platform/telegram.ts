@@ -52,11 +52,6 @@ export function setBackButton(cb: (() => void) | null): void {
   platform.back.setBack(cb);
 }
 
-/** Signed launch data for POST /api/auth/telegram, or null. */
-export function telegramInitData(): string | null {
-  return platform.auth.silentProof()?.initData ?? null;
-}
-
 export function openInvoice(link: string): Promise<'paid' | 'cancelled' | 'failed' | 'pending'> {
   return platform.payments.pay({ provider: 'telegram_stars', link });
 }

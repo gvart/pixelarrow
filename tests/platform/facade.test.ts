@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { platform, setPlatformForTests } from '../../src/platform/index';
 import { haptic, hapticNotify, hapticSelect, setHaptics } from '../../src/platform/haptics';
-import { hasNativeBack, openInvoice, setBackButton, startParam, telegramInitData } from '../../src/platform/telegram';
+import { hasNativeBack, openInvoice, setBackButton, startParam } from '../../src/platform/telegram';
 import { FakePlatform } from '../fakes/platform';
 import { platformContract } from './contract';
 
@@ -42,9 +42,6 @@ describe('the platform facade', () => {
     expect(fake.backCb).toBe(cb);
     fake.launch = 'duel';
     expect(startParam()).toBe('duel');
-    expect(telegramInitData()).toBeNull();
-    fake.proof = { kind: 'telegram', initData: 'signed' };
-    expect(telegramInitData()).toBe('signed');
     expect(await openInvoice('https://t.me/$inv')).toBe('paid');
     expect(fake.paid).toEqual([{ link: 'https://t.me/$inv' }]);
   });

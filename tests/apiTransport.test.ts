@@ -11,6 +11,7 @@ import { ShardSocket } from '../src/online/client';
 import { platform, setPlatformForTests } from '../src/platform/index';
 import type { KV } from '../src/game/save';
 import { FakePlatform } from './fakes/platform';
+import { telegramAuth } from './fakes/platform';
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -128,7 +129,7 @@ describe('the signed-in player (the v6 /api/me shape)', () => {
   function signIn(player: Record<string, unknown>) {
     const fetch: FetchLike = async (url) =>
       url === '/api/auth/telegram' ? json(200, { token: 'pa2_tok', expiresAt: Date.now() + 86_400_000, player }) : json(404, { error: { code: 'not_found', message: 'x' } });
-    const o = new Online({ api: new ApiClient({ base: '', fetch, transport: () => 'bearer' }), kv, cache: kv(), initData: () => 'query_id=1&hash=abc' });
+    const o = new Online({ api: new ApiClient({ base: '', fetch, transport: () => 'bearer' }), kv, cache: kv(), auth: telegramAuth('query_id=1&hash=abc') });
     return o.signIn().then((ok) => ({ ok, o }));
   }
 

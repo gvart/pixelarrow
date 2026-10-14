@@ -30,6 +30,12 @@ export interface AuthResponse {
   player: PlayerInfo;
 }
 
+/** GET /api/me: whoever the session (a bearer token or the web's cookie) belongs to. */
+export interface MeResponse {
+  player: PlayerInfo;
+  session: { expiresAt: number; transport: 'bearer' | 'cookie' };
+}
+
 export interface RemoteSave {
   revision: number;
   version: number | null;
@@ -267,6 +273,8 @@ export interface ApiOptions {
 interface RequestOpts {
   body?: unknown;
   auth?: boolean;
+  /** false: a 401 is final (the session probe itself must not trigger a re-auth). */
+  reauth?: boolean;
   timeoutMs?: number;
 }
 
@@ -308,7 +316,7 @@ export class ApiClient {
     try {
       return await this.once<T>(method, path, opts);
     } catch (e) {
-      if (opts.auth && isApiError(e) && e.status === 401 && this.reauth) {
+      if (opts.auth && opts.reauth !== false && isApiError(e) && e.status === 401 && this.reauth) {
         const t = await this.reauth().catch(() => null);
         if (t) {
           this.token = t;
@@ -349,7 +357,8 @@ export class ApiClient {
           headers,
           body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
           signal: ctl?.signal,
-          credentials: transport === 'cookie' ? 'same-origin' : 'omit',
+          // a bearer token never rides with cookies (the server refuses both on one request)
+          credentials: transport === 'cookie' && !headers.authorization ? 'same-origin' : 'omit',
         }),
         timeout,
       ]);
@@ -391,6 +400,11 @@ export class ApiClient {
     const r = await this.request<AuthResponse>('POST', '/api/auth/telegram', { body: { initData } });
     this.token = r.token;
     return r;
+  }
+
+  /** The session's player: on the web, whether a session cookie is live (401 when not). */
+  me(): Promise<MeResponse> {
+    return this.request<MeResponse>('GET', '/api/me', { auth: true, reauth: false });
   }
 
   /** Local development only: needs DEV_AUTH=1 on a local `wrangler dev`. */

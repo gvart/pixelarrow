@@ -34,7 +34,7 @@ export type PackResult = 'credited' | 'pending' | 'cancelled' | 'failed' | 'offl
 
 export interface EconSource {
   readonly demo: boolean;
-  /** Can the player sign in at all (inside Telegram)? */
+  /** Is there a session, or a way to sign in here? (false: the "Sign in to play online" state) */
   available(): boolean;
   catalog(): Promise<EconomyCatalog>;
   wallet(): Promise<WalletInfo>;
@@ -63,12 +63,13 @@ export class ApiEconSource implements EconSource {
   readonly demo = false;
 
   available(): boolean {
-    return online.available;
+    return online.signedIn || online.canSignIn();
   }
 
   private async api() {
-    if (!online.available) throw outside();
-    if (!(await online.signIn())) throw new ApiError(0, 'network', 'Cannot reach the server');
+    const s = await online.ensureSession();
+    if (s === 'signed_out') throw outside();
+    if (s === 'offline') throw new ApiError(0, 'network', 'Cannot reach the server');
     return online.api;
   }
 
@@ -126,7 +127,7 @@ export class ApiEconSource implements EconSource {
   }
 
   async buyPack(productId: string, onStage?: (s: 'invoice' | 'paying' | 'confirming') => void): Promise<PackResult> {
-    if (!online.available) return 'unavailable';
+    if (!this.available()) return 'unavailable';
     let api;
     try {
       api = await this.api();

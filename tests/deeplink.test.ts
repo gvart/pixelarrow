@@ -5,6 +5,7 @@ import { ApiClient } from '../src/platform/api';
 import { createPlatform, telegramLinkOptions } from '../src/platform/detect';
 import { fakeEnv } from './platform/env';
 import { Online } from '../src/platform/online';
+import { telegramAuth } from './fakes/platform';
 
 describe('startapp deep links', () => {
   it('round-trips every route within Telegram limits', () => {
@@ -131,7 +132,7 @@ describe('time zone report for quiet hours', () => {
       return json({ entitlements: [], purchases: [] });
     };
     const kv = { get: async () => null, set: async () => {}, remove: async () => {} };
-    const online = new Online({ api: new ApiClient({ base: '', fetch }), kv: () => kv, cache: kv, initData: () => 'x', timeZoneOffset: () => 180 });
+    const online = new Online({ api: new ApiClient({ base: '', fetch }), kv: () => kv, cache: kv, auth: telegramAuth('x'), timeZoneOffset: () => 180 });
     expect(await online.signIn()).toBe(true);
     await new Promise((r) => setTimeout(r, 5));
     expect(calls.filter((c) => c.url === '/api/notify/settings')).toEqual([{ url: '/api/notify/settings', method: 'PUT', body: { tzOffset: 180 } }]);
