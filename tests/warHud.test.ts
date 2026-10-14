@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { metricsFor, type UIMetrics } from '../src/ui/sizeClass';
-import { clampToFraming, intoFraming, warHudLayout, type WarHudSpec } from '../src/scenes/online/warHud';
+import { clampToFraming, framedZoomLimits, intoFraming, warHudLayout, type WarHudSpec } from '../src/scenes/online/warHud';
 import type { Box } from '../src/ui/mosaic/layout/geometry';
 
 const at = (size: string): UIMetrics => {
@@ -174,5 +174,17 @@ describe('the War map camera (§8.3)', () => {
     expect(1000 + d.x).toBe(inner.x + inner.w);
     const up = intoFraming({ x: 300, y: 10 }, inner);
     expect(10 + up.y).toBe(inner.y);
+  });
+
+  it('takes the zoom limits from the framing rect and S: zoomed out, the whole map fits the framing rect, no smaller', () => {
+    const lim = { min: 0.25, max: 6, start: 2 };
+    // a small map: the overview stops where the map fills the framing rect (600 device px / 1000 map px)
+    const small = framedZoomLimits(lim, S, framing, { x: 0, y: 0, w: 1000, h: 800 });
+    expect(small.min).toBeCloseTo(Math.min((framing.w * S) / 1000, (framing.h * S) / 800));
+    expect(small.max).toBe(lim.max);
+    expect(small.start).toBe(lim.start);
+    // a big map keeps S's floor; the floor never passes the start zoom
+    expect(framedZoomLimits(lim, S, framing, { x: 0, y: 0, w: 40000, h: 30000 }).min).toBe(lim.min);
+    expect(framedZoomLimits(lim, S, framing, { x: 0, y: 0, w: 10, h: 10 }).min).toBe(lim.start);
   });
 });
