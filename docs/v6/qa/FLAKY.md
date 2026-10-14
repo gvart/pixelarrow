@@ -141,3 +141,7 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 `smoke.mjs` no longer do, F3 and F1/F4). If one of them flakes, replace the sleep with a state wait
 (`settled()`, `steady()` and `nextFrame()` in `scripts/lib/harness.mjs`, `untilInPage()` in
 `scripts/lib/settle.mjs`) and add a row above.
+
+### F9 (open, suspected) server auth.test.ts "rate-limits logins per IP (30 / 60 s)"
+
+Got 200 instead of 429 once under load during the PAY-01 integration (V6-077), then passed 2 reruns. Likely the same Miniflare wall-clock rate-limit window issue fixed for F2 by QA-HARDEN: apply the same fix (a refusing-limiter stub, or start with ≥ 30 s of window left) in the next QA pass.
