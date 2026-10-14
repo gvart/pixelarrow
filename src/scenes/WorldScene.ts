@@ -6,7 +6,8 @@ import { mapWheel, zoomCamAt } from '../ui/input/zoomAt';
 import { mapCursor } from '../ui/input/cursorApply';
 import { BaseScene } from './BaseScene';
 import { addIcon, addText, scaleIcon } from '../ui/kit';
-import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
+import { MActionBar, MButton, MChip, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, situationLineH, wrapWords, TAP, type BarSlot, type SituationChip } from '../ui/mosaic';
+import { followStep, mapHudLayout, stackKeys, type MapHudLayout } from '../ui/mapHud';
 import { t, tOr, type TKey } from '../i18n';
 import { fmtSigned, localDecimals } from '../i18n/numbers';
 import { bandName, lairName } from '../i18n/names';
@@ -35,7 +36,7 @@ import { THREAT_COLOR, hasCaptain, partyArmy, threatLevel, type PartyState, type
 import { isCaptain } from '../sim/stats';
 import { confirmDialog, hintStore } from '../ui/widgets';
 import { CampLife } from '../ui/campLife';
-import { uiBlocker, uiId } from '../ui/layout';
+import { uiBlocker, uiId, uiLayout, uiOpaque, uiPrimary } from '../ui/layout';
 import { motion } from '../ui/motion';
 import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
 import { openAssaultSheet, type AssaultChoiceKey, type AssaultHandle } from '../ui/sheets/assault';
@@ -114,7 +115,11 @@ const COACH_HINT = 'coach.world';
 const ROW_ORDER: Record<ArcLairRow['state'], number> = { standing: 0, reborn: 1, burnt: 2, unknown: 3 };
 
 export class WorldScene extends BaseScene {
+  /** Opted in to the size classes (ADR-0013): the map fills the safe area, the HUD sits on its edges (landscape-v6 §12). */
+  protected override readonly responsive = true;
   private w!: World;
+  /** Where the HUD goes in this size class, and the framing rect the camera works in (§12.2, §12.3). */
+  private hudL!: MapHudLayout;
   private layer!: Phaser.GameObjects.Layer;
   private uiCam!: Phaser.Cameras.Scene2D.Camera;
   private party!: Phaser.GameObjects.Sprite;
@@ -128,7 +133,8 @@ export class WorldScene extends BaseScene {
   private topC!: Phaser.GameObjects.Container;
   private topKey = '';
   private sitKey = '';
-  private strip: MActionBar | null = null;
+  /** The commands: the v5 strip, or a stack of keys at the right edge (landscape). */
+  private strip: MActionBar | Phaser.GameObjects.Container | null = null;
   private stripKey = '';
   private followBtn!: MIconButton;
   /** The open encounter sheet (the map is paused while it is up). */
@@ -229,6 +235,8 @@ export class WorldScene extends BaseScene {
     this.w.s.inside = -1;
     this.info = camp.playerInfo();
     const m = this.w.map;
+    this.hudL = this.layoutHud();
+    uiLayout(this, this.m.cls, this.m.land, 'field');
 
     // ---- world layer
     this.layer = this.add.layer();
@@ -282,7 +290,8 @@ export class WorldScene extends BaseScene {
     cam.setBounds(-60, -60, m.w * WTILE + 120, m.h * WTILE + 120);
     cam.setBackgroundColor(MAPC.parch[0]);
     cam.setZoom(camZoom(2));
-    cam.centerOn(this.w.s.x * WTILE, this.w.s.y * WTILE);
+    const off = this.frameOffset();
+    cam.centerOn(this.w.s.x * WTILE - off.x, this.w.s.y * WTILE - off.y);
     this.uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.uiCam.ignore(this.layer);
     cam.ignore(this.ui);
@@ -454,10 +463,13 @@ export class WorldScene extends BaseScene {
     hapticNotify('success');
     this.showBanner(t('wld.found', { name: placeName(s.name) }));
     const cam = this.cameras.main;
-    cam.pan(s.x * WTILE + 4, s.y * WTILE, 900, 'Sine.easeInOut', true);
+    // into the framing rect, clear of the card and the keys (§12.3)
+    const off = this.frameOffset();
+    cam.pan(s.x * WTILE + 4 - off.x, s.y * WTILE - off.y, 900, 'Sine.easeInOut', true);
     this.time.delayedCall(1900, () => {
       if (!this.scene.isActive()) return;
-      cam.pan(Math.round(this.w.s.x * WTILE), Math.round(this.w.s.y * WTILE), 700, 'Sine.easeInOut', true, (_c: Phaser.Cameras.Scene2D.Camera, prog: number) => {
+      const back = this.frameOffset();
+      cam.pan(Math.round(this.w.s.x * WTILE - back.x), Math.round(this.w.s.y * WTILE - back.y), 700, 'Sine.easeInOut', true, (_c: Phaser.Cameras.Scene2D.Camera, prog: number) => {
         if (prog < 1) return;
         this.cine = false;
         if (this.panQueue.length) this.nextPan();
@@ -635,11 +647,20 @@ export class WorldScene extends BaseScene {
     this.renderCampAnim(now, _delta);
     // camera follow (eased, snapped to whole pixels)
     const cam = this.cameras.main;
-    if (this.follow && !this.pinch && !this.cine) {
+    if (this.follow && !this.pinch && !this.cine && this.hudL.variant === 'compactPortrait') {
+      // the v5 follow, about the canvas centre (compact portrait is the pixel reference, §16.9)
       const k = 1 - Math.exp((-Math.max(16, _delta) / 1000) * 4);
       const cx = cam.midPoint.x + (px - cam.midPoint.x) * k;
       const cy = cam.midPoint.y + (py - cam.midPoint.y) * k;
       cam.centerOn(cx, cy);
+    } else if (this.follow && !this.pinch && !this.cine) {
+      // inside the framing rect, never under the card or the keys: only what leaves the deadzone (20% of the rect) is chased (§12.3)
+      const f = this.hudL.framing;
+      const S = this.m.S;
+      const fx = cam.worldView.x + ((f.x + f.w / 2) * S) / cam.zoom;
+      const fy = cam.worldView.y + ((f.y + f.h / 2) * S) / cam.zoom;
+      const step = followStep(px - fx, py - fy, (f.w * 0.2 * S) / cam.zoom, (f.h * 0.2 * S) / cam.zoom, Math.max(16, _delta));
+      cam.setScroll(cam.scrollX + step.x, cam.scrollY + step.y);
     }
     // night: stepped plum dusk by the hour
     const h = this.w.hour;
@@ -878,21 +899,62 @@ export class WorldScene extends BaseScene {
   buildHud(): void {
     const H = this.hud;
     H.removeAll(true);
-    const { VW, VH } = this.m;
+    const { VH } = this.m;
+    const L = this.hudL;
+    const card = L.card;
     // the top bar (back arrow, day and place), then the situation line and its chips under it
-    this.topC = this.add.container(0, 0);
+    this.topC = uiOpaque(this.add.container(0, 0));
     H.add(this.topC);
     this.topKey = '';
-    this.sit = new SituationLine(this, 4, TOPBAR_H + 2, VW - 8, { compact: VH < 240, id: 'world.situation' });
+    this.sit = uiOpaque(new SituationLine(this, card.x, card.y, card.w, { compact: card.lines === 1, id: 'world.situation' }));
     H.add(this.sit);
     this.buildFollow();
     this.arcKey = '';
     this.refreshArcChip();
-    this.syncBadge(H, 8 + (this.arcChip ? this.arcChip.w + 4 : 0), this.sit.y + this.sit.h + 8);
-    this.strip = new MActionBar(this, VW, VH);
-    H.add(this.strip);
-    this.strip.set(this.stripSlots());
+    this.syncBadge(H, card.x + 4 + (this.arcChip ? this.arcChip.w + 4 : 0), this.sit.y + this.sit.h + 8);
+    const c = L.commands;
+    // the v5 strip (≤ 360 at medium), or the keys stacked at the right edge (landscape, §12.2)
+    this.strip = c.mode === 'bar' ? new MActionBar(this, c.w, VH, c.x ? { x: c.x } : {}) : uiId(this.add.container(0, 0), 'strip');
+    H.add(uiOpaque(this.strip));
+    this.setCommands(this.stripSlots());
     this.refreshHud();
+  }
+
+  /** The HUD's layout for this size (the widest command key decides the stack's width in compact landscape). */
+  private layoutHud(): MapHudLayout {
+    const labels = [t('world.strip.camp'), t('world.strip.rest'), t('battle.strip.pause'), t('world.strip.stop'), t('world.strip.party')];
+    const keyW = Math.max(...labels.map((l) => mw(l.toUpperCase(), 'rCream', 7))) + 14 + 12;
+    return mapHudLayout(this.m, { top: TOPBAR_H, cardH: situationLineH, under: 27, keys: 3, keyW, kind: 'world' });
+  }
+
+  /** World px from the canvas centre to the framing rect's centre at the current zoom (none in compact portrait: v5 centres on the canvas). */
+  private frameOffset(): { x: number; y: number } {
+    const L = this.hudL;
+    if (!L || L.variant === 'compactPortrait') return { x: 0, y: 0 };
+    const cam = this.cameras.main;
+    const S = this.m.S;
+    const f = L.framing;
+    return { x: ((f.x + f.w / 2) * S - cam.width / 2) / cam.zoom, y: ((f.y + f.h / 2) * S - cam.height / 2) / cam.zoom };
+  }
+
+  /** The commands of the state: on the strip, or on the stack's keys from the foot up (the primary stays at the foot). */
+  private setCommands(slots: BarSlot[]): void {
+    const strip = this.strip;
+    if (!strip) return;
+    if (strip instanceof MActionBar) {
+      strip.set(slots);
+      return;
+    }
+    const c = this.hudL.commands;
+    if (c.mode !== 'stack') return;
+    strip.removeAll(true);
+    const keys = stackKeys(c, 3).slice(3 - slots.length);
+    slots.forEach((sl, i) => {
+      const k = keys[i];
+      const variant = sl.variant ?? (sl.off ? 'disabled' : sl.primary ? 'primary' : sl.selected ? 'lit' : 'secondary');
+      const b = new MButton(this, k.x, k.y, k.w, k.h, { label: sl.label, icon: sl.icon, variant, onClick: sl.onClick, disabledReason: sl.off, tip: sl.tip, badge: sl.badge, id: sl.id });
+      strip.add(sl.primary ? uiPrimary(b) : b);
+    });
   }
 
   /** The cloud badge under the situation line, only while the cloud save fails (E093; as the Campaign hub's). */
@@ -915,7 +977,7 @@ export class WorldScene extends BaseScene {
   private buildFollow(): void {
     this.followBtn?.destroy();
     const sit = this.sit!;
-    this.followBtn = new MIconButton(this, this.m.VW - 4 - 24, sit.y + sit.h + 3, 24, 24, { icon: 'eye', label: t('battle.strip.follow'), variant: this.follow ? 'lit' : 'neutral', tip: t('battle.tip.follow'), id: 'world.follow', onClick: () => this.toggleFollow() });
+    this.followBtn = new MIconButton(this, sit.x + sit.w - 24, sit.y + sit.h + 3, 24, 24, { icon: 'eye', label: t('battle.strip.follow'), variant: this.follow ? 'lit' : 'neutral', tip: t('battle.tip.follow'), id: 'world.follow', onClick: () => this.toggleFollow() });
     this.hud.add(this.followBtn);
   }
 
@@ -1015,7 +1077,7 @@ export class WorldScene extends BaseScene {
     const stripKey = `${!!this.w.camp}|${this.waiting}|${this.w.moving}`;
     if (stripKey !== this.stripKey) {
       this.stripKey = stripKey;
-      this.strip?.set(this.stripSlots());
+      this.setCommands(this.stripSlots());
     }
   }
 
@@ -1026,7 +1088,7 @@ export class WorldScene extends BaseScene {
   private situation(where: string, hint: string, idle: boolean, next: string | null): string {
     const sit = this.sit!;
     const room = sit.w - 14;
-    const lines = this.m.VH < 240 ? 1 : 2;
+    const lines = this.hudL.card.lines;
     const tries = [next ? `${where} ${t('wld.next', { name: next })} ${hint}` : '', `${where} ${hint}`, idle ? `${where} ${t('wld.hintShort')}` : '', hint];
     return tries.find((x) => x && wrapsWhole(x, room, lines)) ?? hint;
   }
@@ -1071,16 +1133,19 @@ export class WorldScene extends BaseScene {
   /** A banner under the situation line for 6 s (C-4), wrapped, never cut (A11Y-10). Red ink only for a refusal (A11Y-05). */
   private showBanner(msg: string, bad = false): void {
     this.banner?.destroy();
-    const { VW } = this.m;
     const c = this.add.container(0, 0);
-    // under the situation line and its follow button
-    const by = (this.sit ? this.sit.y + this.sit.h : TOPBAR_H) + 30;
+    // under the situation line and its follow button; in landscape over the framing rect, clear of the card and the keys
+    const v5 = this.hudL.commands.mode === 'bar';
+    const f = this.hudL.framing;
+    const x0 = v5 ? 0 : f.x;
+    const VW = v5 ? this.m.VW : f.w;
+    const by = v5 ? (this.sit ? this.sit.y + this.sit.h : TOPBAR_H) + 30 : f.y + 4;
     const font = bad ? 'pBad' : 'pInk';
     const lines = wrapWords(msg, VW - 32, (q) => mw(q, font, 7));
-    const txt = mtext(this, VW / 2, by + 5, lines.join('\n'), font, { align: 0.5 });
+    const txt = mtext(this, x0 + VW / 2, by + 5, lines.join('\n'), font, { align: 0.5 });
     txt.setCenterAlign();
     const wdt = Math.min(VW - 8, Math.max(80, Math.max(...lines.map((l) => mw(l, font, 7))) + 20));
-    c.add(mosaicImage(this, Math.round((VW - wdt) / 2), by, wdt, 8 + lines.length * 10, 'parchment'));
+    c.add(mosaicImage(this, x0 + Math.round((VW - wdt) / 2), by, wdt, 8 + lines.length * 10, 'parchment'));
     c.add(txt);
     uiId(c, 'world.banner');
     this.ui.add(c);
@@ -1421,7 +1486,7 @@ export class WorldScene extends BaseScene {
     this.arcKey = key;
     this.arcChip?.destroy();
     const sit = this.sit!;
-    const chip = new MChip(this, 4, sit.y + sit.h + 3, { icon: f.icon, value: f.value, surface: 'stone', onClick: () => this.openArc() });
+    const chip = new MChip(this, sit.x, sit.y + sit.h + 3, { icon: f.icon, value: f.value, surface: 'stone', onClick: () => this.openArc() });
     uiId(chip, 'world.arc');
     this.hud.add(chip);
     this.arcChip = chip;
@@ -1471,7 +1536,8 @@ export class WorldScene extends BaseScene {
     const y = h ? h.y * WTILE : st ? st.y * WTILE + WTILE / 2 : null;
     if (x === null || y === null) return;
     if (this.follow) this.toggleFollow();
-    this.cameras.main.pan(x, y, motion.reduced ? 0 : 500, 'Sine.easeInOut', true);
+    const off = this.frameOffset();
+    this.cameras.main.pan(x - off.x, y - off.y, motion.reduced ? 0 : 500, 'Sine.easeInOut', true);
   }
 
   /** The Assault sheet of lair `lairId` (R2.2): its garrison, doctrine, captain and hoard; Assault or Leave. */

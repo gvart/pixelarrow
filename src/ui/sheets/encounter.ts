@@ -21,7 +21,7 @@ import { MOSAIC } from '../tokens';
 import { LINE_H } from '../textfit';
 import { uiId } from '../layout';
 import { motion } from '../motion';
-import { MIconButton, addNiche, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
+import { MIconButton, addNiche, mtext, mw, openParchmentSheet, sheetActionsH, sheetWidth, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
 import { navLayer } from '../../platform/nav';
 import { hapticNotify } from '../../platform/haptics';
 import { doctrineIcon, doctrineName, doctrineTell, noteDoctrine } from './doctrine';
@@ -182,7 +182,8 @@ export function doctrineText(scene: Phaser.Scene, c: Phaser.GameObjects.Containe
 
 export function openEncounterSheet(scene: UiScene, m: EncounterModel, onClosed?: () => void): EncounterHandle {
   const { VW, VH } = scene.m;
-  const w = VW - 8;
+  // the box the sheet gets: v5's in compact portrait, a centred dialog ≤ 320 in landscape (landscape-v6 §3.4)
+  const w = sheetWidth(scene, { w: VW - 8, dock: 'bottom', shadeCloses: false });
   const iw = w - PAD * 2;
   if (m.doctrine) noteDoctrine(m.doctrine);
   let picked: EncounterChoice | null = null;

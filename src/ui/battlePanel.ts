@@ -122,6 +122,8 @@ export class GroupCard extends Phaser.GameObjects.Container {
   private bars: Phaser.GameObjects.Graphics;
   private key = '';
   private info: GroupCardInfo | null = null;
+  /** UI px the bar row sits higher (a landscape card at S = 3: its labels stay inside the card after pixel rounding). */
+  barLift = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, onTap: () => void, baseTip: () => string) {
     super(scene, Math.round(x), Math.round(y));
@@ -275,7 +277,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
     this.add(mosaicImage(s, 0, 0, this.w, this.h, i.selected ? 'parchmentSel' : 'parchment'));
     if (i.men === 0) this.add(s.add.rectangle(0, 0, this.w, this.h, MOSAIC.parchLo, 0.5).setOrigin(0, 0));
     if (i.selected) this.add(goldFrame(s, this.w, this.h));
-    const barTop = this.h - BAR_H - 2.5;
+    const barTop = this.h - BAR_H - 2.5 - this.barLift;
     // the leading man's portrait (room permitting) above the bars, the numeral plate on its corner
     let x = 3;
     let plateX = 1;

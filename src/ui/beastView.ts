@@ -30,6 +30,12 @@ import { TICK_RATE } from '../sim/battle';
 /** Left edge of the boss bar (UI px): clear of the zoom key (4 + 22) with a 3 px gap; mirrored on the right for the eye. */
 const BAR_X = 29;
 
+/** Where the boss bar goes on a landscape HUD (UI px): its left edge and width. */
+export interface BarPlace {
+  x: number;
+  w: number;
+}
+
 /** What BattleScene keeps per figure (structural: its UnitView). */
 export interface BeastUnitView {
   u: SimUnit;
@@ -80,11 +86,12 @@ export class BeastView {
   private bar: Phaser.GameObjects.Container | null = null;
   private barG: Phaser.GameObjects.Graphics | null = null;
   private barW = 0;
+  private barX = BAR_X;
   private last = 0;
 
-  static create(scene: Phaser.Scene, sim: Battle, views: BeastUnitView[], world: Phaser.GameObjects.Layer, ui: Phaser.GameObjects.Container, me: Side, vw: number, top: number): BeastView | null {
+  static create(scene: Phaser.Scene, sim: Battle, views: BeastUnitView[], world: Phaser.GameObjects.Layer, ui: Phaser.GameObjects.Container, me: Side, vw: number, top: number, place?: BarPlace): BeastView | null {
     if (!sim.myth) return null;
-    return new BeastView(scene, sim, views, world, ui, me, vw, top);
+    return new BeastView(scene, sim, views, world, ui, me, vw, top, place);
   }
 
   private constructor(
@@ -96,6 +103,7 @@ export class BeastView {
     private me: Side,
     vw: number,
     top: number,
+    place?: BarPlace,
   ) {
     this.gfx = scene.add.graphics().setDepth(99000);
     this.ground = scene.add.graphics().setDepth(-85000);
@@ -114,7 +122,7 @@ export class BeastView {
       queueDollRows(scene, sp);
       this.parts.push({ v, id, sp, last: new Map(), regrowAt: -1000 });
     }
-    this.buildBar(vw, top);
+    this.buildBar(vw, top, place);
   }
 
   private st(u: SimUnit): MythState | undefined {
@@ -437,15 +445,25 @@ export class BeastView {
     return this.bar;
   }
 
-  private buildBar(vw: number, top: number): void {
+  /** Build the boss bar again for a new screen size (BattleScene's HUD relayout). */
+  placeBar(vw: number, top: number, place?: BarPlace): void {
+    this.bar?.destroy();
+    this.bar = null;
+    this.barG = null;
+    this.buildBar(vw, top, place);
+  }
+
+  private buildBar(vw: number, top: number, place?: BarPlace): void {
     const bodies = this.bodies();
     if (!bodies.length) return;
     const c = this.scene.add.container(0, 0);
     // Z2 of the battle HUD (hud.md §C, BTL-01): between the zoom key and the eye, under the top bar;
     // banners and the Paused pill sit below it, so it never hides (BTL-1)
-    const x = BAR_X;
+    // landscape (landscape-v6 §7.2): centred under the one-row top bar, at most 200 (compact) or 300 wide
+    const x = place?.x ?? BAR_X;
     const y = top + 3;
-    const w = vw - BAR_X * 2;
+    const w = place?.w ?? vw - BAR_X * 2;
+    this.barX = x;
     this.barW = w;
     c.add(addPanel(this.scene, x, y, w, 20, 'parch'));
     const id = bodies[0].stats.boss as MythId;
@@ -477,7 +495,7 @@ export class BeastView {
     }
     const parts = this.sim.units.filter((u) => u.side !== this.me && isMythId(u.stats.boss) && !this.sim.myth!.isBody(u));
     const flock = bodies.length > 1;
-    const x = BAR_X;
+    const x = this.barX;
     const y = (c.list[0] as Phaser.GameObjects.GameObject & { y: number }).y;
     const w = this.barW;
     g.clear();

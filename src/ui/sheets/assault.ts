@@ -14,7 +14,7 @@ import { ScrollArea, addIcon, scaleIcon, type UIMetrics } from '../kit';
 import { addScrollHint } from '../widgets';
 import { MOSAIC } from '../tokens';
 import { uiId } from '../layout';
-import { MIconButton, addNiche, mtext, openParchmentSheet, sheetActionsH, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
+import { MIconButton, addNiche, mtext, openParchmentSheet, sheetActionsH, sheetWidth, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
 import { navLayer } from '../../platform/nav';
 import { doctrineIcon, doctrineName, doctrineTell, noteDoctrine } from './doctrine';
 import { doctrineText, para, worldGlyph } from './encounter';
@@ -151,7 +151,8 @@ function mainPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: Ass
 
 export function openAssaultSheet(scene: UiScene, m: AssaultModel, onClosed?: () => void): AssaultHandle {
   const { VW, VH } = scene.m;
-  const w = VW - 8;
+  // the box the sheet gets: v5's in compact portrait, a centred dialog ≤ 320 in landscape (landscape-v6 §3.4)
+  const w = sheetWidth(scene, { w: VW - 8, dock: 'bottom', shadeCloses: false });
   const iw = w - PAD * 2;
   if (m.doctrine && m.men > 0) noteDoctrine(m.doctrine);
   const primary = assaultPrimary(m);

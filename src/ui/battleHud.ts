@@ -10,13 +10,13 @@
  * buttons and GroupCard.
  */
 import Phaser from 'phaser';
-import { addIcon, addText, longPress, panelK, tappable, uiMetrics, type FontKey } from './kit';
+import { ICON_PX, addIcon, addText, longPress, panelK, tappable, uiMetrics, type FontKey } from './kit';
 import { renderMedallion, renderSweep, type MedallionState } from '../art/smoothUi';
 import { KeyButton, caps, mosaicImage, mw } from './mosaic';
 import { MOSAIC } from './tokens';
 import { RS } from '../platform/renderScale';
 import { ellipsize, measureText, wrapText } from './textfit';
-import { uiFrame, uiId } from './layout';
+import { uiFrame, uiId, uiOpaque } from './layout';
 import { pulse } from './motion';
 import type { Side, SimEvent, SimGroup, SimUnit } from '../sim/types';
 import { TICK_RATE } from '../sim/battle';
@@ -89,8 +89,26 @@ export function topKeyW(w: number): number {
   return w < 170 ? 30 : 32;
 }
 
+/**
+ * The landscape top bar (landscape-v6 §7.2): one row `h` tall (22 at compact landscape, 26 at
+ * expanded) with Menu and the clock at one end, the strength row in the middle (bars at most
+ * `barMax` UI px each) and Pause and Speed at the other. `compact` draws Menu and Pause as icons.
+ */
+export interface TopRow {
+  h: number;
+  compact: boolean;
+  barMax: number;
+}
+
+/** Narrowest strength bar the one-row bar keeps before it drops the clock's word (UI px). */
+const ROW_BAR_MIN = 16;
+
+type RowSpec = { ours: number; theirs: number; you: string; foe: string } | { text: string };
+
 export class TopBar extends Phaser.GameObjects.Container {
   readonly w: number;
+  /** Its height: TOP_H, or the one row's. */
+  readonly h: number;
   readonly buttons: Partial<Record<'menu' | 'pause' | 'speed', KeyButton>> = {};
   private slots: Phaser.GameObjects.Container;
   private timeText: Phaser.GameObjects.BitmapText;
@@ -100,11 +118,21 @@ export class TopBar extends Phaser.GameObjects.Container {
   private clock = { x0: 0, x1: 0, size: 12 };
   private word = '';
   private key = '';
+  /** One row (landscape), or null for the v5 two rows. */
+  private one: TopRow | null;
+  /** One row: the strength row's room, right of the clock and its word. */
+  private rowRoom = { lo: 0, hi: 0 };
+  private lastRow: RowSpec | null = null;
 
-  constructor(scene: Phaser.Scene, w: number, o: TopBarOpts) {
+  constructor(scene: Phaser.Scene, w: number, o: TopBarOpts, one: TopRow | null = null) {
     super(scene, 0, 0);
     this.w = w;
-    this.add(mosaicImage(scene, -2, -4, w + 4, TOP_H + 4, 'topBar'));
+    this.one = one;
+    this.h = one ? one.h : TOP_H;
+    const bg = mosaicImage(scene, -2, -4, w + 4, this.h + 4, 'topBar');
+    // an opaque HUD cluster over the field (field-coverage, landscape-v6 §5)
+    if (one) uiOpaque(bg);
+    this.add(bg);
     this.slots = scene.add.container(0, 0);
     this.add(this.slots);
     this.timeText = addText(scene, 0, 4, '', 'ink', 0.5);
@@ -127,6 +155,7 @@ export class TopBar extends Phaser.GameObjects.Container {
     this.key = key;
     this.slots.removeAll(true);
     for (const k of Object.keys(this.buttons) as (keyof TopBar['buttons'])[]) delete this.buttons[k];
+    if (this.one) return this.setOne(o, this.one);
     const s = this.scene;
     const y = 4;
     const h = 26;
@@ -163,8 +192,122 @@ export class TopBar extends Phaser.GameObjects.Container {
     return this;
   }
 
+  /** One row (landscape): the keys at the ends, every word in capitals at the text floor, or the icon alone. */
+  private setOne(o: TopBarOpts, one: TopRow): this {
+    const s = this.scene;
+    const y = Math.round((one.h - 22) / 2);
+    const gap = 3;
+    const widthOf = (slot: StripSlot, iconOnly: boolean) => (iconOnly ? 26 : Math.max(30, Math.ceil(mw(caps(slot.label), 'rCream', HUD_TEXT)) + (slot.icon ? ICON_PX + 2 : 0) + 8));
+    const key = (slot: StripSlot, x: number, w: number, iconOnly: boolean, primary: boolean) =>
+      new KeyButton(s, x, y, w, 22, { label: slot.label, icon: slot.icon, iconOnly, onClick: slot.onClick, tip: slot.tip, disabledReason: slot.off, id: slot.id, variant: slot.destructive ? 'stone' : primary ? 'primary' : 'bronze', lit: !!slot.selected });
+    // compact: Menu and Pause as icons (their words are their tips); Speed keeps "1×", the only thing it says
+    const menuW = widthOf(o.menu, one.compact);
+    const control = [o.pause, o.speed].filter((x): x is StripSlot => !!x);
+    const ws = control.map((slot) => widthOf(slot, one.compact && slot === o.pause));
+    const controlW = ws.reduce((a, b) => a + b, 0) + Math.max(0, control.length - 1) * gap;
+    const menuX = o.leftHand ? this.w - 4 - menuW : 4;
+    let cx = o.leftHand ? 4 : this.w - 4 - controlW;
+    this.buttons.menu = key(o.menu, menuX, menuW, one.compact, false);
+    this.slots.add(this.buttons.menu);
+    control.forEach((slot, i) => {
+      const b = key(slot, cx, ws[i], one.compact && slot === o.pause, slot === o.pause && !!o.primary);
+      this.buttons[slot === o.pause ? 'pause' : 'speed'] = b;
+      this.slots.add(b);
+      cx += ws[i] + gap;
+    });
+    // the clock beside Menu, the strength row in the room the clock leaves
+    const x0 = o.leftHand ? 4 + (controlW ? controlW + 6 : 0) : 4 + menuW + 6;
+    const x1 = o.leftHand ? this.w - 4 - menuW - 6 : this.w - 4 - (controlW ? controlW + 6 : 0);
+    this.clock = { x0, x1, size: one.compact ? 10 : 12 };
+    this.timeText.setOrigin(0, 0);
+    this.wordText.setOrigin(0, 0);
+    uiFrame(this.timeText, this, x1 - x0, one.h, x0, 0);
+    uiFrame(this.wordText, this, x1 - x0, one.h, x0, 0);
+    this.rowRoom = { lo: -1, hi: -1 };
+    this.layoutClock();
+    return this;
+  }
+
+  /** One row: where the clock, its word and the strength row go (the word only while the bars keep ROW_BAR_MIN). */
+  private layoutOne(one: TopRow): void {
+    const { x0, x1, size } = this.clock;
+    this.timeText.setFontSize(size);
+    this.timeText.setPosition(x0, Math.round((one.h - (10 * size) / 7) / 2));
+    const reserve = Math.ceil(Math.max(measureText('00:00', false, size), measureText(this.timeText.text, false, size)));
+    const wordW = Math.ceil(measureText(this.word, false, HUD_TEXT));
+    const withWord = !!this.word && x1 - x0 - reserve - 4 - wordW - 6 - this.rowNeed(this.lastRow, ROW_BAR_MIN) >= 0;
+    const fitted = withWord ? this.word : '';
+    if (this.wordText.text !== fitted) this.wordText.setText(fitted);
+    this.wordText.setFontSize(HUD_TEXT);
+    // the word follows the clock as written ("9 men"); the room it keeps is the widest clock's, so the row never jumps
+    this.wordText.setPosition(x0 + Math.ceil(measureText(this.timeText.text, false, size)) + 4, Math.round((one.h - (10 * HUD_TEXT) / 7) / 2));
+    const lo = x0 + reserve + (withWord ? 4 + wordW : 0) + 6;
+    if (lo === this.rowRoom.lo && x1 === this.rowRoom.hi) return;
+    this.rowRoom = { lo, hi: x1 };
+    if (this.lastRow) this.drawRowOne(this.lastRow, one);
+  }
+
+  /** One row: the strength row's width with bars `bar` wide (the deployment's line of words: its own width). */
+  private rowNeed(r: RowSpec | null, bar: number): number {
+    if (!r) return 0;
+    if ('text' in r) return Math.ceil(measureText(r.text, false, HUD_TEXT));
+    const half = Math.max(8, Math.ceil(measureText(t('battle.vsShort'), false, HUD_TEXT) / 2) + 4);
+    return Math.ceil(measureText(`${r.you} ${r.ours}%`, false, HUD_TEXT) + measureText(`${r.theirs}% ${r.foe}`, false, HUD_TEXT)) + 8 + 2 * half + 2 * bar;
+  }
+
+  /** One row's middle: the words and bars centred on the bar when the room allows, else centred in the room. */
+  private drawRowOne(r: RowSpec, one: TopRow): void {
+    this.row.removeAll(true);
+    const s = this.scene;
+    const room = this.rowRoom;
+    const yText = Math.round((one.h - (10 * HUD_TEXT) / 7) / 2);
+    if ('text' in r) {
+      const w = room.hi - room.lo;
+      const text = ellipsize(r.text, w, false, HUD_TEXT);
+      const tw = measureText(text, false, HUD_TEXT);
+      const cx = Math.round(Math.min(Math.max(this.w / 2, room.lo + tw / 2), room.hi - tw / 2));
+      const tt = addText(s, cx, yText, text, 'dim', 0.5).setFontSize(HUD_TEXT);
+      uiFrame(tt, this, w, one.h, room.lo, 0);
+      this.row.add(tt);
+      return;
+    }
+    const left = `${r.you} ${r.ours}%`;
+    const right = `${r.theirs}% ${r.foe}`;
+    const lw = Math.ceil(measureText(left, false, HUD_TEXT));
+    const rw = Math.ceil(measureText(right, false, HUD_TEXT));
+    const word = t('battle.vsShort');
+    const half = Math.max(8, Math.ceil(measureText(word, false, HUD_TEXT) / 2) + 4);
+    const fixed = lw + rw + 8 + 2 * half;
+    const B = Math.max(4, Math.min(one.barMax, Math.floor((room.hi - room.lo - fixed) / 2)));
+    const total = fixed + 2 * B;
+    const x0 = Math.round(Math.min(Math.max(this.w / 2 - total / 2, room.lo), room.hi - total));
+    const mid = x0 + lw + 4 + B + half;
+    const lt = addText(s, x0, yText, left, 'light', 0).setFontSize(HUD_TEXT);
+    const rt = addText(s, x0 + total, yText, right, 'light', 1).setFontSize(HUD_TEXT);
+    const vs = addText(s, mid, yText, word, 'gold', 0.5).setFontSize(HUD_TEXT);
+    for (const tt of [lt, rt, vs]) uiFrame(tt, this, this.w, one.h);
+    const g = s.add.graphics();
+    const by = Math.round(one.h / 2 - 2.5);
+    const bar = (bx0: number, bx1: number, f: number, color: number, fromRight: boolean) => {
+      const w = Math.max(4, bx1 - bx0);
+      g.fillStyle(MOSAIC.bronzeLo, 1);
+      g.fillRoundedRect(bx0, by, w, 5, 1.5);
+      g.fillStyle(MOSAIC.stone0, 1);
+      g.fillRoundedRect(bx0 + 0.5, by + 0.5, w - 1, 4, 1.2);
+      const fw = Math.max(0, Math.min(1, f)) * (w - 2);
+      if (fw > 0.5) {
+        g.fillStyle(color, 1);
+        g.fillRoundedRect(fromRight ? bx0 + w - 1 - fw : bx0 + 1, by + 1, fw, 3, 1);
+      }
+    };
+    bar(x0 + lw + 4, mid - half, r.ours / 100, MOSAIC.bronzeHi, false);
+    bar(mid + half, x0 + total - rw - 4, r.theirs / 100, MOSAIC.terraHi, true);
+    this.row.add([g, lt, rt, vs]);
+  }
+
   /** Clock size and the word under it, fitted to the room between the slots. */
   private layoutClock(): void {
+    if (this.one) return this.layoutOne(this.one);
     const { x0, x1, size } = this.clock;
     this.timeText.setFontSize(size);
     const wordY = 4 + (10 * size) / 7;
@@ -189,11 +332,20 @@ export class TopBar extends Phaser.GameObjects.Container {
    * The second row: "You 86% [bar] vs [bar] 92% Foe" in battle, or a line of
    * words in deployment ("8 men in 2 groups").
    */
-  setRow(r: { ours: number; theirs: number; you: string; foe: string } | { text: string }): this {
+  setRow(r: RowSpec): this {
     const key = JSON.stringify(r);
     if (key === this.rowKey) return this;
     this.rowKey = key;
     this.row.removeAll(true);
+    if (this.one) {
+      const kind = !this.lastRow || 'text' in this.lastRow !== 'text' in r;
+      this.lastRow = r;
+      // a new kind of row (deployment to the fight) may leave the clock's word room, or take it
+      if (kind) this.rowRoom = { lo: -1, hi: -1 };
+      if (kind) this.layoutOne(this.one);
+      else this.drawRowOne(r, this.one);
+      return this;
+    }
     const s = this.scene;
     const y = 33;
     if ('text' in r) {
