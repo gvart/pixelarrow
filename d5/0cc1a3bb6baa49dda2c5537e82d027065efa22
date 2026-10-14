@@ -1,0 +1,39 @@
+scripts/layout-allowlist/V6-RSCR-02.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-01.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-08.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-05.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-04.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-11.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-03.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-07.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-06.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-10.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+scripts/layout-allowlist/V6-RSCR-09.json
+  s_0d98fe904b2e82::t_3e0caab0e688e9 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d50cc1a3bb6baa49dda2c5537e82d027065efa22",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
