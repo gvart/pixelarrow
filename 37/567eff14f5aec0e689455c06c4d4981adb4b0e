@@ -1,0 +1,77 @@
+scripts/guest-save-e2e.mjs
+  s_0d98fe904b2e82::t_0349d841438f4c 1-233
+scripts/layout-check.mjs
+  s_0d98fe904b2e82::t_c499c5783f1b4a 183-188
+scripts/online-smoke.mjs
+  s_0d98fe904b2e82::t_df851e42d56e6d 7-8,51-52
+scripts/regression/controls.mjs
+  s_0d98fe904b2e82::t_035e48e2236c7d 78-79
+src/i18n/account.en.ts
+  s_0d98fe904b2e82::t_3cdbf4423a9576 96-160
+src/i18n/account.ru.ts
+  s_0d98fe904b2e82::t_c5fc514574bfe0 2,5,87-151
+src/platform/api.ts
+  s_0d98fe904b2e82::t_4d52555bc2b962 291-312,459-483
+src/platform/online.ts
+  s_0d98fe904b2e82::t_d9e8b8d71d6010 11-14,22-31,69-72,112-116,165,172-173,175,241,258-262,267-277,311-362,370
+src/platform/saveSync.ts
+  s_0d98fe904b2e82::t_ee39ee801f26a0 17-18,70-96,105-107,115-121,146
+src/scenes/MenuScene.ts
+  s_0d98fe904b2e82::t_5fa0c67a5c8d0c 7-13,73-97,217-221,257-261,287-291,341-342,349-352,392-413,461-469
+src/scenes/ShopScene.ts
+  s_0d98fe904b2e82::t_fc309a0cc50339 2,237-240
+src/scenes/duel/DuelScene.ts
+  s_0d98fe904b2e82::t_b672b6e2a47f26 30,602-608
+src/scenes/kit/formsPage.ts
+  s_0d98fe904b2e82::t_cf8fb4829a1ddb 57,59
+src/scenes/online/OnlineScene.ts
+  s_0d98fe904b2e82::t_1726f6e2e9845f 12,583-587
+src/state.ts
+  s_0d98fe904b2e82::t_f3b5f6045e902e 16-19,136,146-181
+src/ui/account/accountPage.ts
+  s_0d98fe904b2e82::t_f23c5a159c787f 1-308
+src/ui/account/deps.ts
+  s_0d98fe904b2e82::t_5b3219d0f1acdd 13-14,17-22,31-35,52
+src/ui/account/devices.ts
+  s_0d98fe904b2e82::t_8b02cd37fb6224 1-148
+src/ui/account/gate.ts
+  s_0d98fe904b2e82::t_2db49468833554 1-112
+src/ui/account/index.ts
+  s_0d98fe904b2e82::t_9c89c391d4df74 7,52-55,57-58
+src/ui/account/login.ts
+  s_0d98fe904b2e82::t_6cb7f453fe0a09 46-49
+src/ui/account/twoCampaigns.ts
+  s_0d98fe904b2e82::t_09f3aa7c70b0b5 1-185
+src/ui/econ/widgets.ts
+  s_0d98fe904b2e82::t_7b4ebcea80f219 16-17,88-93
+src/ui/mosaic/tips.ts
+  s_0d98fe904b2e82::t_a0e614bd6e163a 17-18,31-32,51-52,57,59,64,85-88
+src/ui/settings.ts
+  s_0d98fe904b2e82::t_0bde2e7d60d1d9 29-32,47,83,104-114,138-141,175,211,216-217,221-222,334-338,346-350
+tests/online.test.ts
+  s_0d98fe904b2e82::t_2b7a5f63cca0a3 249,262
+tests/onlineAuth.test.ts
+  s_0d98fe904b2e82::t_f46517530a2aca 193-194,198-200
+tests/saveSync.test.ts
+  s_0d98fe904b2e82::t_a004827f9b77a8 1-73
+tests/saveSyncOnline.test.ts
+  s_0d98fe904b2e82::t_0ae181cf520829 1-196
+tests/settings.test.ts
+  s_0d98fe904b2e82::t_543658c1a33545 45,69-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "37567eff14f5aec0e689455c06c4d4981adb4b0e",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
