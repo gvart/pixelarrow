@@ -38,8 +38,28 @@ export function readLaunchHints(env: PlatformEnv, build: { build: string | undef
   return { ...telegramLaunchHints(env), ...build };
 }
 
+export interface PlatformOptions {
+  /** The bot's username: Telegram invite links become t.me/<bot>/<app>?startapp=... */
+  telegramBot?: string;
+  /** The Mini App's short name in BotFather (the adapter defaults to "play"). */
+  telegramApp?: string;
+}
+
+/**
+ * The Telegram link names from the build env (VITE_TELEGRAM_BOT, VITE_TELEGRAM_APP;
+ * the deploy workflow fills them from repo variables). The bot username is not in
+ * the repo (V6-025), so without it invites fall back to the play URL; a malformed
+ * value is ignored the same way.
+ */
+export function telegramLinkOptions(env: { VITE_TELEGRAM_BOT?: string; VITE_TELEGRAM_APP?: string }): PlatformOptions {
+  const bot = env.VITE_TELEGRAM_BOT?.trim().replace(/^@/, '');
+  if (!bot || !/^[A-Za-z0-9_]{5,32}$/.test(bot)) return {};
+  const app = env.VITE_TELEGRAM_APP?.trim();
+  return app && /^[A-Za-z0-9_]{3,30}$/.test(app) ? { telegramBot: bot, telegramApp: app } : { telegramBot: bot };
+}
+
 /** The adapter for id. Steam and mobile have no adapter yet, so they get the web one. */
-export function createPlatform(id: PlatformId, env: PlatformEnv, opts: { telegramBot?: string } = {}): Platform {
-  if (id === 'telegram') return createTelegramPlatform(env, { bot: opts.telegramBot });
+export function createPlatform(id: PlatformId, env: PlatformEnv, opts: PlatformOptions = {}): Platform {
+  if (id === 'telegram') return createTelegramPlatform(env, { bot: opts.telegramBot, app: opts.telegramApp });
   return createWebPlatform(env);
 }

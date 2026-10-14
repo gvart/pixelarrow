@@ -46,7 +46,7 @@ export const CLAN_EN = {
   'clan.done.joined': 'Welcome to [{tag}]!',
   // ---- invite link
   'clan.link.title': 'Invite link',
-  'clan.link.sent': 'Sent to the Telegram share sheet.',
+  'clan.link.sent': 'Sent to the share sheet.',
   'clan.link.copied': 'Link copied:',
   'clan.link.code': 'Code {code} · valid {days} days',
   'clan.link.share': 'Share',

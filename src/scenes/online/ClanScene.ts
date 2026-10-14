@@ -18,12 +18,13 @@ import { wrapText } from '../../ui/textfit';
 import { confirmDialog, toast } from '../../ui/widgets';
 import { addEconState } from '../../ui/econ/widgets';
 import { econState, type EconState } from '../../game/economy';
-import { inTelegram, openTelegramLink } from '../../platform/telegram';
+import { platform, type ShareResult } from '../../platform';
 import { hapticNotify } from '../../platform/haptics';
 import { isApiError } from '../../platform/api';
 import { canInvite, canKick, canPromote, ONLINE_RULES, type ClanRole } from '../../online/rules';
 import { checkOnline, errorText, onlineApi, takePendingInvite, peekPendingInvite, type ClanMember, type ClanView } from '../../online/client';
 import { SIM_VERSION_REJECTED } from '../../online/protocol';
+import { startParamOf } from '../../online/deeplink';
 import { online } from '../../platform/cloud';
 import { t, tOr, type TKey } from '../../i18n';
 import { promptFields } from './textInput';
@@ -39,6 +40,11 @@ const TAG_RE = /^[A-Za-z0-9]{2,5}$/;
 
 /** The chip colour of each rank (never grey: grey means disabled). */
 const ROLE_FILL: Record<ClanRole, number> = { leader: MOSAIC.bronze, officer: MOSAIC.teal, member: MOSAIC.bronzeLo };
+
+/** The invite sheet's status line for what share.invite() did; none when nothing was shared or copied. */
+export function inviteStatus(r: ShareResult): TKey | null {
+  return r === 'shared' ? 'clan.link.sent' : r === 'copied' ? 'clan.link.copied' : null;
+}
 
 export function roleName(r: ClanRole): string {
   return t(`clan.role.${r}` as TKey);
@@ -333,18 +339,13 @@ export class ClanScene extends BaseScene {
     try {
       const r = await onlineApi.clanInvite();
       if (!this.sys.isActive()) return;
-      this.lastInvite = r;
+      // the platform builds the link (t.me Mini App link or the play URL) and shares or copies it
+      const link = platform.share.inviteUrl(startParamOf({ kind: 'invite', code: r.code }));
+      this.lastInvite = { code: r.code, link };
       const text = t('clan.link.text', { tag: this.clan?.tag ?? '' });
-      const share = `https://t.me/share/url?url=${encodeURIComponent(r.link)}&text=${encodeURIComponent(text)}`;
-      if (inTelegram()) openTelegramLink(share);
-      else {
-        try {
-          await navigator.clipboard?.writeText(r.link);
-        } catch {
-          /* no clipboard */
-        }
-      }
-      this.showInvite(r.link, r.code, share);
+      const result = await platform.share.invite(link, text);
+      if (!this.sys.isActive()) return;
+      this.showInvite(link, r.code, text, result);
     } catch (e) {
       if (this.sys.isActive()) toast(this, clanError(e), 'bad');
     } finally {
@@ -373,11 +374,15 @@ export class ClanScene extends BaseScene {
     return Math.min(this.m.VW - 16, 200);
   }
 
-  private showInvite(link: string, code: string, share: string): void {
+  private showInvite(link: string, code: string, text: string, result: ShareResult): void {
     const days = Math.round(ONLINE_RULES.inviteTtlMs / 864e5);
-    const lines = [{ text: inTelegram() ? t('clan.link.sent') : t('clan.link.copied') }, { text: link.replace(/^https:\/\//, ''), font: 'pSec' as FontKey }, { text: t('clan.link.code', { code, days }) }];
+    const status = inviteStatus(result);
+    const lines = [...(status ? [{ text: t(status) }] : []), { text: link.replace(/^https:\/\//, ''), font: 'pSec' as FontKey }, { text: t('clan.link.code', { code, days }) }];
     const w = this.sheetW();
-    const actions = [{ label: t('clan.link.share'), icon: 'people', variant: 'primary' as const, id: 'clan.share', onClick: () => openTelegramLink(share) }];
+    const shareAgain = async (): Promise<void> => {
+      if ((await platform.share.invite(link, text)) === 'copied' && this.sys.isActive()) toast(this, t('clan.link.copied'), 'good');
+    };
+    const actions = [{ label: t('clan.link.share'), icon: 'people', variant: 'primary' as const, id: 'clan.share', onClick: () => void shareAgain() }];
     const md = openParchmentSheet(this, { title: t('clan.link.title'), w, h: SHEET_TITLE_H + this.linesH(w, lines) + 6 + sheetActionsH(actions, w) + 4, actions, id: 'clan.link' });
     this.bodyLines(md, md.body.y, lines);
   }
