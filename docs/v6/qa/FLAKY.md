@@ -22,6 +22,12 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Cause:** suspected load timeouts (timing/async): the runner's per-script timeout ran out while frames were slow.
 - **Fix:** none yet. The next QA pass checks whether the smoke runner's per-script timeouts should scale with CPU load, or whether these scripts still have fixed waits. Record each further run here.
 
+### F7 · vitest `qafixWorld.test.ts` S4 "the tap area is what is drawn on the settlement" (suspected, load timeout)
+
+- **Seen:** timed out at 30 s twice in the full `vitest run` during V6-RSCR-05 (two layout checks from other agents were running on the machine), then passed standalone (14/14, the file takes 43 s). No World code changed in that story.
+- **Cause:** suspected load timeout (timing/async): one test sweeps the settlement tap areas and runs close to the 30 s limit on a loaded CPU.
+- **Fix:** none yet. Record each further run here.
+
 ## Resolved
 
 ### F4 · `scripts/smoke.mjs` in Telegram mode, "tap on the map plans a route" and "party marched" (timing/async + missed event, fixed in QA-HARDEN)

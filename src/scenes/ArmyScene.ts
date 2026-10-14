@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { ScrollArea } from '../ui/kit';
+import { ScrollArea, addIcon, scaleIcon, tappable } from '../ui/kit';
 import { addScrollHint, confirmDialog, firstTimeHint, toast } from '../ui/widgets';
-import { uiClip, uiIgnore, uiId } from '../ui/layout';
+import { uiClip, uiCollapsed, uiIgnore, uiId, uiLayout } from '../ui/layout';
+import { layoutVariant, masterDetail, type Box as PaneBox } from '../ui/mosaic/layout/geometry';
+import { focusPane } from '../ui/focusRing';
+import { CONTENT_MAX } from '../ui/sizeClass';
 import { wrapText } from '../ui/textfit';
 import { ensureFonts } from '../ui/fonts';
 import { equipRefusal, DragDrop, defaultStashState, groupName, itemName, openItemCard, saleText, uiBoundsOf, type StashState } from '../ui/sheet';
@@ -18,7 +21,7 @@ import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import { queryRoster, ROSTER_FILTERS, ROSTER_SORTS, type RosterFilter, type RosterSort } from '../game/gear';
 import { GAP, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, addParchmentEmpty, addSubShell, addSwitchBadge, mosaicImage, mtext, type FramedSubShell, type Box } from '../ui/mosaic';
 import {
-  ARMY_LH, ARMY_ROW_H, ArmyFooter, addArmyHead, addMiniHead, addRosterRow, armyBack, campaignArmy, collapsed, ensureBusts, openOptionSheet, tappableRow, type ArmyOrigin, type ArmySource,
+  ARMY_LH, ARMY_ROW_H, HEAD_NICHE, ArmyFooter, addArmyHead, addMiniHead, addRosterRow, armyBack, campaignArmy, collapsed, ensureBusts, openOptionSheet, tappableRow, type ArmyOrigin, type ArmySource,
 } from '../ui/army';
 import { t, type TKey } from '../i18n';
 import { heroName } from '../i18n/names';
@@ -45,7 +48,11 @@ interface ArmyData {
  * Telegram's) only, to the screen that opened the Army (BACK_RULES origin).
  */
 export class ArmyScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-05): master and detail side by side outside compact portrait. */
+  protected override readonly responsive = true;
   private src: ArmySource = campaignArmy;
+  /** The detail pane (the selected hero's card) beside the list, outside compact portrait. */
+  private detail: ScrollArea | null = null;
   private heroId = '';
   private tab: 'roster' | 'stash' = 'roster';
   private origin: ArmyOrigin = {};
@@ -84,7 +91,9 @@ export class ArmyScene extends BaseScene {
     this.mini = null;
     this.clip = null;
     this.stash = null;
+    this.detail = null;
     this.screen({ back: () => this.goBack() });
+    uiLayout(this, this.m.cls, this.m.land);
     const shell = addSubShell(this, { title: t('hub.army'), back: () => this.goBack(), id: 'army.topbar', scroll: false });
     this.box = shell.content;
     addSyncBadge(this, this.ui, shell.frame.topBar.x + shell.frame.topBar.w - 17 - (TAP + GAP * 2), shell.frame.topBar.y + 6);
@@ -127,6 +136,8 @@ export class ArmyScene extends BaseScene {
     this.page = null;
     this.area?.destroy();
     this.area = null;
+    this.detail?.destroy();
+    this.detail = null;
     this.mini?.destroy();
     this.mini = null;
     this.clip?.destroy();
@@ -136,7 +147,16 @@ export class ArmyScene extends BaseScene {
     this.slotObjs.clear();
   }
 
+  /** Two panes (landscape-v6 §10.2): every layout but compact portrait, which keeps the v5 page. */
+  private get split(): boolean {
+    return layoutVariant(this.m) !== 'compactPortrait';
+  }
+
   refresh(): void {
+    if (this.split) {
+      this.refreshSplit();
+      return;
+    }
     const keep = this.area?.scrollY ?? 0;
     this.clearPage();
     const box = this.box;
@@ -184,16 +204,91 @@ export class ArmyScene extends BaseScene {
     if (this.footer) this.ui.bringToTop(this.footer);
   }
 
+  /**
+   * Compact landscape, medium and expanded (landscape-v6 §10.2, §3.3): the master pane on the left (the
+   * sentence and chips, Roster | Stash, filter and sort, the rows or the stash grid), the detail pane on
+   * the right (the selected hero's card with his slots, the footer under it). Each pane scrolls on its own;
+   * stash items drag from the master grid onto the detail's slots. The collapsed one-line header is not
+   * needed: the card is a fixed pane (registered as collapsed into his first slot).
+   */
+  private refreshSplit(): void {
+    const keepM = this.area?.scrollY ?? 0;
+    const keepD = this.detail?.scrollY ?? 0;
+    this.clearPage();
+    const b = this.box;
+    // the panes region is at most CONTENT_MAX wide (§2.3), centred in the frame
+    const iw = Math.min(b.w - 8, CONTENT_MAX);
+    const inner: PaneBox = { x: b.x + 4 + Math.floor((b.w - 8 - iw) / 2), y: b.y + 4, w: iw, h: b.h - 7 };
+    const md = masterDetail(inner, this.m);
+    const M = md.master;
+    const D = md.detail ?? md.master;
+    // detail first: the stash's drop targets are the card's slots
+    const dw = Math.min(D.w, DETAIL_MAX);
+    const dx = D.x + Math.floor((D.w - dw) / 2);
+    const head = this.add.container(0, 0);
+    let headH = this.buildHead(head, dw - 3, 0);
+    const h = this.hero();
+    if (h) {
+      // beside the list, his figure opens his sheet (perks in pick mode), as the row's second tap does
+      const fig = this.add.zone(HEAD_NICHE.x, HEAD_NICHE.y, HEAD_NICHE.w, HEAD_NICHE.h).setOrigin(0, 0).setInteractive();
+      tappable(fig, null, () => this.openHero(), t('army.sheetTip'));
+      head.add(uiId(fig, 'army.figure'));
+    }
+    if (this.pick && h) {
+      // pick mode: the row's tap opens his perks; the detail says so with the same action (nothing new)
+      head.add(new MButton(this, 0, headH, dw - 3, TAP + 2, { label: t('hero.tab.perks'), icon: 'aura', variant: 'primary', id: 'army.pickPerks', onClick: () => this.openHero() }));
+      headH += TAP + 2 + 4;
+    }
+    const footH = this.pick ? 0 : FOOT_H + 1;
+    // the card and the footer as one group, centred in the pane's height when they fit (as the Menu's panes)
+    const fits = headH + footH <= D.h;
+    const top = fits ? D.y + Math.floor((D.h - headH - footH) / 2) : D.y;
+    let viewBottom = fits ? top + headH : D.y + D.h;
+    if (!this.pick) {
+      // the footer under the card when both fit; else on the pane's floor, the card scrolling above it
+      this.footer = this.buildFooter(dx, fits ? top + headH + footH : D.y + D.h, dw);
+      this.ui.add(this.footer);
+      viewBottom = this.footer.top - 1;
+    }
+    const detail = new ScrollArea(this, this.ui, dx, top, dw, viewBottom - top, this.m.S);
+    this.detail = detail;
+    addScrollHint(this, this.ui, detail, MOSAIC.parch);
+    detail.content.add(head);
+    detail.setContentHeight(headH);
+    // on the stash the slots are the drop targets: the card scrolls to them (a short pane shows the name above)
+    detail.setScroll(this.tab === 'stash' ? headH : keepD);
+    // master
+    const area = new ScrollArea(this, this.ui, M.x, M.y, M.w, M.h, this.m.S);
+    this.area = area;
+    addScrollHint(this, this.ui, area, MOSAIC.parch);
+    const page = this.add.container(0, 0);
+    area.content.add(page);
+    this.page = page;
+    const cw = M.w - 3;
+    let y = this.buildTip(page, cw, 0, true);
+    this.cardTop = 0;
+    y = this.buildTabs(page, cw, y);
+    y = this.tab === 'roster' ? this.buildRoster(page, cw, y) : this.buildStash(page, cw, y);
+    area.setContentHeight(y + 4);
+    area.setScroll(keepM);
+    if (this.hero()) uiCollapsed(this, 'army.mini', 'slot:helmet');
+    // Tab reads the top bar, the master pane, the detail pane, then the footer (landscape-v6 §4)
+    eachChild(head, (o) => focusPane(o, 1));
+    if (this.footer) eachChild(this.footer, (o) => focusPane(o, 2));
+    this.ui.bringToTop(this.shell.top);
+    if (this.footer) this.ui.bringToTop(this.footer);
+  }
+
   /** The footer: Dismiss (confirms) and Sheet (the primary; a count of points to spend). */
-  private buildFooter(): ArmyFooter {
+  private buildFooter(x = this.box.x, bottom = this.box.y + this.box.h, w = this.box.w): ArmyFooter {
     const h = this.hero();
     const pend = h ? this.src.pending(h) : 0;
     const blocked = h ? this.src.dismiss?.blocked(h.id) ?? null : t('army.noHeroes');
     return new ArmyFooter(
       this,
-      this.box.x,
-      this.box.y + this.box.h,
-      this.box.w,
+      x,
+      bottom,
+      w,
       { label: t('army.dismiss'), icon: 'skull', variant: blocked ? 'disabled' : 'secondary', disabledReason: blocked ?? undefined, id: 'army.dismiss', onClick: () => this.dismiss() },
       {
         label: t('army.sheet'),
@@ -209,7 +304,7 @@ export class ArmyScene extends BaseScene {
   }
 
   /** The sentence (what needs doing first) and the chips: men, gold, wounds. Returns the y below. */
-  private buildTip(L: Phaser.GameObjects.Container, w: number, y0: number): number {
+  private buildTip(L: Phaser.GameObjects.Container, w: number, y0: number, always = false): number {
     const heroes = this.src.heroes();
     const hurt = heroes.filter((h) => this.src.status(h)?.bad);
     const pend = heroes.filter((h) => this.src.pending(h) > 0);
@@ -228,7 +323,7 @@ export class ArmyScene extends BaseScene {
       urgent = pend.length > 0;
     }
     let y = y0;
-    if (this.m.VH >= 300 || this.pick) {
+    if (this.m.VH >= 300 || this.pick || always) {
       const lines = wrapText(parts.join(' '), w - 4, 3, false, TEXT_MIN).lines;
       lines.forEach((l, i) => L.add(mtext(this, w / 2, y + i * ARMY_LH, l, urgent ? 'pInk' : 'pSec', { size: TEXT_MIN, align: 0.5, box: { owner: this.ui, w: this.m.VW, h: this.m.VH } })));
       y += lines.length * ARMY_LH + 3;
@@ -369,10 +464,20 @@ export class ArmyScene extends BaseScene {
       L.add(addParchmentEmpty(this, 0, y, w, 80, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint'), action: { label: t('army.filter.all'), onClick: () => ((this.filter = 'all'), this.refresh()) } }));
       return y + 80;
     }
+    // beside the detail pane the selected row also gets a bronze rim and a chevron pointing at it (§3.3: not colour alone)
+    const rw = this.split ? w - CHEV_W : w;
     roster.forEach((h, i) => {
       const row = this.add.container(0, y);
-      addRosterRow(this, row, w, ARMY_ROW_H, h, this.src, h.id === this.heroId);
-      tappableRow(row, w, ARMY_ROW_H, this.area!, () => this.select(h.id));
+      const on = h.id === this.heroId;
+      addRosterRow(this, row, rw, ARMY_ROW_H, h, this.src, on);
+      if (on && this.split) {
+        const g = this.add.graphics();
+        g.lineStyle(1.2, MOSAIC.bronze, 1);
+        g.strokeRoundedRect(0.6, 0.6, rw - 1.2, ARMY_ROW_H - 1.2, 3);
+        row.add(g);
+        row.add(scaleIcon(addIcon(this, rw + 1, Math.round((ARMY_ROW_H - 9) / 2), 'chevR'), 0.75));
+      }
+      tappableRow(row, rw, ARMY_ROW_H, this.area!, () => this.select(h.id));
       uiId(row, `roster:${i}`);
       L.add(row);
       y += ARMY_ROW_H + GAP;
@@ -406,7 +511,10 @@ export class ArmyScene extends BaseScene {
   }
 
   private buildStash(L: Phaser.GameObjects.Container, w: number, top: number): number {
+    const v = layoutVariant(this.m);
     this.stash = new MStashGrid(this, L, 0, top, w, 0, {
+      // larger cells where the pane has the room: a tablet's tall pane (touch), 6 columns on a laptop (§10.2)
+      ...(v === 'medium' ? { cell: STASH_CELL_MEDIUM } : v === 'expanded' ? { cell: STASH_CELL_WIDE } : {}),
       items: () => this.src.stash(),
       state: this.stashState,
       hero: () => this.hero(),
@@ -516,4 +624,20 @@ export class ArmyScene extends BaseScene {
       },
     });
   }
+}
+
+/** The detail pane's widest card (a hero card wider than this only stretches its rows of pills). */
+const DETAIL_MAX = 340;
+/** Room beside a roster row for the selected row's chevron, UI px. */
+const CHEV_W = 10;
+/** Stash cells in the master pane, UI px (28 at phone sizes). */
+const STASH_CELL_MEDIUM = 40;
+const STASH_CELL_WIDE = 34;
+/** The footer's height (ArmyFooter.h). */
+const FOOT_H = 32;
+
+/** Every object under `c` (a container tree), `c` itself included. */
+function eachChild(c: Phaser.GameObjects.GameObject, fn: (o: Phaser.GameObjects.GameObject) => void): void {
+  fn(c);
+  if (c instanceof Phaser.GameObjects.Container) for (const o of c.list) eachChild(o, fn);
 }

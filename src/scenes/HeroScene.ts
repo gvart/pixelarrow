@@ -2,7 +2,10 @@ import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { ScrollArea, addIcon, scaleIcon } from '../ui/kit';
 import { addScrollHint, confirmDialog, firstTimeHint, toast } from '../ui/widgets';
-import { uiClip, uiId, uiIgnore } from '../ui/layout';
+import { uiClip, uiCollapsed, uiId, uiIgnore, uiLayout } from '../ui/layout';
+import { PANE_GUTTER, layoutVariant, type Box as PaneBox } from '../ui/mosaic/layout/geometry';
+import { focusPane } from '../ui/focusRing';
+import { CONTENT_MAX, ROW_MAX } from '../ui/sizeClass';
 import { wrapText } from '../ui/textfit';
 import { COLOR } from '../ui/theme';
 import { addMedallion, addSwipe } from '../ui/mosaic';
@@ -29,7 +32,7 @@ import { computeStats, heroClass } from '../sim/stats';
 import { STATS, fmtStat, heroStars, powerRating, previewAttrs, sheetStats } from '../game/gear';
 import {
   MActionBar, GAP, GearSlot, MButton, MChip, MStashGrid, PAGER_W, MBar, MPager, SegmentedSwitch, SectionTitle, SECTION_TITLE_H, MIconButton, SWITCH_H, TAP,
-  addNiche, slotGrid, addParchmentEmpty, mw, wrapWords, MBadge, addSubShell, addSwitchBadge, mosaicImage, mountSlot, mtext, openParchmentSheet, SHEET_TITLE_H,
+  addNiche, slotGrid, addParchmentEmpty, mw, wrapWords, MBadge, addSubShell, addSwitchBadge, mosaicImage, mountSlot, mtext, openParchmentSheet, sheetBox, SHEET_TITLE_H,
   type Box, type MButtonOpts, type FramedSubShell,
 } from '../ui/mosaic';
 import { t, tOr, type TKey } from '../i18n';
@@ -66,6 +69,11 @@ interface HeroData {
  * with a free retrain owed), a taken tier can be retrained after a confirm that states the cost (R7, F3).
  */
 export class HeroScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-05): the paper doll beside the tabs in landscape. */
+  protected override readonly responsive = true;
+  /** Landscape (V6-RSCR-05): the paper doll's own scroll pane on the left, and the XP line and tabs fixed over the page. */
+  private left: ScrollArea | null = null;
+  private fixed: C | null = null;
   private heroId = '';
   private src: HeroSource = campaignHeroes;
   private from: Record<string, unknown> = {};
@@ -127,7 +135,10 @@ export class HeroScene extends BaseScene {
     this.clip = null;
     this.bar = null;
     this.outer = null;
+    this.left = null;
+    this.fixed = null;
     this.screen({ back: () => this.back() });
+    uiLayout(this, this.m.cls, this.m.land);
     this.shell = addSubShell(this, { title: t('hero.title'), back: () => this.back(), id: 'hero.header', scroll: false });
     this.box = this.shell.content;
     this.drag = new DragDrop(this);
@@ -171,7 +182,9 @@ export class HeroScene extends BaseScene {
 
   private build(keepScroll = false): void {
     const keep = keepScroll ? this.outer?.scrollY ?? 0 : 0;
+    const keepLeft = this.left?.scrollY ?? 0;
     this.layout();
+    this.left?.setScroll(keepLeft);
     // a caller that opens another tab wants its page, not the head (on a short screen the head fills it)
     this.outer?.setScroll(keepScroll || this.tab === 'stats' ? keep : this.pageInView(keep));
   }
@@ -182,6 +195,26 @@ export class HeroScene extends BaseScene {
     return Math.max(scroll, Math.min(this.tabsY, this.pageTop + PAGE_PEEK - view));
   }
 
+  /**
+   * The paper doll and the tabs side by side (landscape-v6 §10.2): compact landscape and expanded (and a
+   * near-square window). Compact portrait and medium portrait keep the v5 page (head, tabs, page, one scroll).
+   */
+  private get split(): boolean {
+    const v = layoutVariant(this.m);
+    return v === 'compactLandscape' || v === 'expanded' || (v === 'medium' && this.m.land);
+  }
+
+  /** The two panes of the split layout: the paper doll (left) and the tabs and page (right), at most CONTENT_MAX wide. */
+  private panes(): { L: PaneBox; R: PaneBox } {
+    const b = this.box;
+    const iw = Math.min(b.w - 8, CONTENT_MAX);
+    const x = b.x + 4 + Math.floor((b.w - 8 - iw) / 2);
+    const lw = layoutVariant(this.m) === 'compactLandscape' ? DOLL_W_COMPACT : DOLL_W;
+    const y = b.y + 4;
+    const h = b.y + b.h - 3 - y;
+    return { L: { x, y, w: lw, h }, R: { x: x + lw + PANE_GUTTER, y, w: iw - lw - PANE_GUTTER, h } };
+  }
+
   private layout(): void {
     this.clearPage();
     this.head?.destroy();
@@ -189,6 +222,10 @@ export class HeroScene extends BaseScene {
     this.outer?.destroy();
     this.sticky?.destroy();
     this.clip?.destroy();
+    this.left?.destroy();
+    this.fixed?.destroy();
+    this.left = null;
+    this.fixed = null;
     this.outer = null;
     this.sticky = null;
     this.clip = null;
@@ -198,6 +235,10 @@ export class HeroScene extends BaseScene {
     // the plaque carries his name; where it would cut it (a long name on a 274 px canvas) the head does
     const cut = h ? this.titleName(h) : (this.shell.retitle(t('hero.title')), false);
     this.refreshBar();
+    if (this.split) {
+      this.layoutSplit(h, cut);
+      return;
+    }
     const top = b.y + 4;
     // the scroll area reaches 2 px from the frame so the tab bar can take its whole width (ru "Умения" uncut at 320);
     // everything else keeps the 4 px inset (ox = 2)
@@ -210,6 +251,12 @@ export class HeroScene extends BaseScene {
     this.ox = 2;
     this.cw = vw - 7;
     this.tabW = vw;
+    if (layoutVariant(this.m) !== 'compactPortrait') {
+      // a tablet held upright: the head and the page at most a list row wide (§2.3), centred; the tabs span
+      const c = Math.min(this.cw, ROW_MAX);
+      this.ox += Math.floor((this.cw - c) / 2);
+      this.cw = c;
+    }
     this.head = this.add.container(0, 0);
     this.page = this.add.container(0, 0);
     outer.content.add([this.head, this.page]);
@@ -233,6 +280,8 @@ export class HeroScene extends BaseScene {
     this.clip = uiIgnore(this.add.zone(vx, top, vw, bottom - top).setOrigin(0, 0));
     this.ui.add(this.clip);
     uiClip(outer.content, this.clip);
+    // a tall tablet page may never scroll the tabs away: the pinned copy is then the tabs themselves
+    if (layoutVariant(this.m) !== 'compactPortrait') this.pinIsTabs();
     const pinH = SWITCH_H + 6;
     // the pinned copy exists only while the tabs have scrolled away (scripts and the layout check see one tab bar)
     const sync = (s: number) => {
@@ -256,6 +305,81 @@ export class HeroScene extends BaseScene {
     sync(outer.scrollY);
     this.ui.bringToTop(this.shell.top);
     if (this.bar) this.ui.bringToTop(this.bar);
+  }
+
+  /**
+   * Landscape (landscape-v6 §10.2, §10.3): the paper doll on the left (power, the niche with the slots around
+   * it, level and stars, the pager under it, then class, role and traits), scrolling on its own; on the right
+   * the XP line and the tabs fixed at the top, the tab's page scrolling under them, and the action bar at the
+   * bottom right. The tabs never scroll away here, so the pinned copy is not needed (collapsed into them).
+   */
+  private layoutSplit(h: Hero | undefined, cut: boolean): void {
+    const { L, R } = this.panes();
+    const S = this.m.S;
+    const left = new ScrollArea(this, this.ui, L.x, L.y, L.w, L.h, S);
+    this.left = left;
+    addScrollHint(this, this.ui, left, MOSAIC.parch);
+    this.head = this.add.container(0, 0);
+    left.content.add(this.head);
+    const fixed = this.add.container(R.x, R.y);
+    this.ui.add(fixed);
+    this.fixed = fixed;
+    this.page = this.add.container(0, 0);
+    if (!h) {
+      this.outer = new ScrollArea(this, this.ui, R.x, R.y, R.w, R.h, S);
+      this.outer.content.add(this.page);
+      this.ui.bringToTop(this.shell.top);
+      return;
+    }
+    // the paper doll
+    this.ox = 0;
+    this.cw = L.w - 3;
+    this.tabW = L.w;
+    let top0 = 0;
+    if (cut) {
+      const nl = classLines(heroName(h.name), this.cw - 4, 8);
+      nl.forEach((l, i) => this.head.add(mtext(this, this.cw / 2, i * 11, l, 'rInk', { size: 8, align: 0.5, box: { owner: this.head, w: this.tabW, h: 100000 } })));
+      top0 = nl.length * 11 + 3;
+    }
+    // the stage as tall as the pane allows with the power line above it and the pager under it in view (§10.3: 110)
+    const above = top0 + 21 + (h.wound > 0 ? 12 : 0);
+    const room = L.h - above - (this.src.heroes().length > 1 ? TAP + 3 : 0) - 6;
+    // wider classes: the doll fills its pane's height, with class, role and traits still in view under the pager
+    const cl = layoutVariant(this.m) === 'compactLandscape';
+    const stageH = Math.max(STAGE_MIN, Math.min(cl ? 110 : STAGE_MAX, room - (cl ? 0 : IDENTITY_H)));
+    const dollH = this.headFull(h, top0, { stageH, xp: false, area: left });
+    left.setContentHeight(dollH + 2);
+    // the XP line and the tabs, fixed over the page
+    this.tabW = R.w;
+    // the tabs' count badges stand above the track: clear of the XP bar
+    const tabY = this.xpBar(h, 2, 0, R.w - 4, fixed) + 4;
+    this.addTabs(fixed, 0, tabY, 'hero.tab', h);
+    const fixedH = tabY + SWITCH_H + 4;
+    // the page: at most a list row wide (§2.3), centred under the tabs
+    const pageTop = R.y + fixedH;
+    const outer = new ScrollArea(this, this.ui, R.x, pageTop, R.w, this.bottomEdge() - pageTop, S);
+    this.outer = outer;
+    addScrollHint(this, this.ui, outer, MOSAIC.parch);
+    outer.content.add(this.page);
+    this.cw = Math.min(R.w - 3, ROW_MAX);
+    this.ox = Math.floor((R.w - 3 - this.cw) / 2);
+    this.tabsY = 0;
+    this.pageTop = 0;
+    this.buildPage();
+    // the tabs never scroll away here: the pinned copy (and each of its tabs) is the fixed tab strip
+    this.pinIsTabs();
+    // Tab reads the top bar, the paper doll, the tabs and the page, then the action bar (landscape-v6 §4)
+    eachChild(fixed, (o) => focusPane(o, 1));
+    eachChild(this.page, (o) => focusPane(o, 1));
+    if (this.bar) eachChild(this.bar, (o) => focusPane(o, 2));
+    this.ui.bringToTop(this.shell.top);
+    if (this.bar) this.ui.bringToTop(this.bar);
+  }
+
+  /** `hero.pinTab` and its tabs are reached through `hero.tab` (element-parity, landscape-v6 §10.2). */
+  private pinIsTabs(): void {
+    uiCollapsed(this, 'hero.pinTab', 'hero.tab');
+    for (const k of TABS) uiCollapsed(this, `hero.pinTab.${k}`, `hero.tab.${k}`);
   }
 
   /** Put his name on the top bar's plaque; true when the plaque had to cut it (then it says "Hero" and the head shows the name). */
@@ -313,7 +437,7 @@ export class HeroScene extends BaseScene {
   }
 
   /** Power, the wounded line; the niche between two columns of slots, the pager under it; class, role, traits, XP. Returns the y under it. */
-  private headFull(h: Hero, y0: number): number {
+  private headFull(h: Hero, y0: number, o: { stageH?: number; xp?: boolean; area?: ScrollArea } = {}): number {
     const L = this.head;
     const x0 = this.ox;
     const cw = this.cw;
@@ -321,7 +445,7 @@ export class HeroScene extends BaseScene {
     const cls = heroClass(h);
     let y = this.powerAndWound(h, y0);
     const ss = 28;
-    const stageH = VH >= 400 ? 124 : 112;
+    const stageH = o.stageH ?? (VH >= 400 ? 124 : 112);
     const sgap = Math.floor((stageH - 3 * ss) / 2);
     const sx0 = x0 + ss + 4;
     const sw = cw - 2 * (ss + 4);
@@ -335,7 +459,7 @@ export class HeroScene extends BaseScene {
     const m = mountSlot(this, x0 + cw - ss, y + 2 * (ss + sgap), h, ss);
     if (m) L.add(m);
     armyPill(this, L, sx0 + 3, y + 3, t('hero.level', { n: h.level }), MOSAIC.bronze, 40);
-    addStars(this, L, sx0 + sw - 3 - 39, y + 5, heroStars(h), 5, { area: this.outer });
+    addStars(this, L, sx0 + sw - 3 - 39, y + 5, heroStars(h), 5, { area: o.area ?? this.outer });
     y += stageH + 3;
     // the pager under the niche, clear of every slot (HRO-4): ‹ 7 / 9 › (a swipe does the same)
     const pager = this.pagerOpts();
@@ -343,7 +467,7 @@ export class HeroScene extends BaseScene {
       L.add(new MPager(this, Math.round(sx0 + sw / 2 - PAGER_W / 2), y, pager));
       y += TAP + 3;
     }
-    return this.identity(h, cls, x0 + 2, y + 2, cw - 4);
+    return this.identity(h, cls, x0 + 2, y + 2, cw - 4, o.xp ?? true);
   }
 
   /** Short screens: a small niche beside the identity, the pager under the niche, the slots in a row below. */
@@ -440,7 +564,7 @@ export class HeroScene extends BaseScene {
   }
 
   /** Class, role pill and traits, then the XP bar (full layout). Returns the y under them. */
-  private identity(h: Hero, cls: ReturnType<typeof heroClass>, x: number, y: number, w: number): number {
+  private identity(h: Hero, cls: ReturnType<typeof heroClass>, x: number, y: number, w: number, xp = true): number {
     const L = this.head;
     const box = { owner: this.head, w: this.tabW, h: 100000 };
     const cl = classLines(className(h), w, 8);
@@ -457,11 +581,11 @@ export class HeroScene extends BaseScene {
       tl.forEach((l, i) => L.add(mtext(this, x + chipW + 4, y + 2 + i * LH, l, 'pSec', { size: TEXT_MIN, box })));
       rowH = Math.max(rowH, 3 + tl.length * LH);
     }
-    return this.xpBar(h, x, y + rowH, w);
+    return xp ? this.xpBar(h, x, y + rowH, w) : y + rowH + 4;
   }
 
   /** The XP bar: "XP to level n" and the count with its percentage, so an empty bar never reads as broken (HRO-5). */
-  private xpBar(h: Hero, x: number, y: number, w: number): number {
+  private xpBar(h: Hero, x: number, y: number, w: number, parent: C = this.head): number {
     const need = xpToNext(h.level);
     const p = Math.floor((100 * h.xp) / Math.max(1, need));
     const label = t('hero.xpTo', { n: h.level + 1 });
@@ -470,15 +594,19 @@ export class HeroScene extends BaseScene {
     const full = t('hero5.xp', { xp: Math.floor(h.xp), need, p });
     const right = h.level >= MAX_LEVEL ? t('hero.noMorePoints') : fits(full) ? full : `${p}%`;
     const xp = new MBar(this, x, y, w, { value: h.xp, max: need, h: 5, size: TEXT_MIN, trough: 'light', color: RESOURCES.xp.color, label, right });
-    this.head.add(xp);
+    parent.add(xp);
     return y + xp.h + 5;
   }
 
   /** Swipe the stage: the next or the previous hero. */
   private swipeZone(L: C, x: number, y: number, w: number, h: number): void {
     if (this.src.heroes().length < 2) return;
-    const z = this.add.zone(x, y, w, h).setOrigin(0, 0).setInteractive();
-    uiIgnore(z);
+    // beside the tabs the figure is a control of its own (a swipe pages heroes), clear of the pill and the stars
+    const own = this.split;
+    const top = own ? STAGE_CONTROL_TOP : 0;
+    const z = this.add.zone(x, y + top, w, h - top).setOrigin(0, 0).setInteractive();
+    if (own) uiId(z, 'hero.stage');
+    else uiIgnore(z);
     addSwipe(z, () => this.cycleHero(1), () => this.cycleHero(-1));
     L.add(z);
   }
@@ -506,7 +634,12 @@ export class HeroScene extends BaseScene {
       actions = [{ label: t('duels.dismissOne'), icon: 'bin', variant: why ? 'disabled' : 'secondary', disabledReason: why ?? undefined, id: 'hero.dismiss', onClick: () => this.askDismiss() }];
     }
     if (!actions.length) return;
-    this.bar = new MActionBar(this, this.box.w, this.box.y + this.box.h, { surface: 'parchment', x: this.box.x }).set(actions);
+    if (layoutVariant(this.m) !== 'compactPortrait') {
+      // bottom right, under the tab's page (§10.2), no wider than its buttons need (§2.3: a button ≤ 240)
+      const R = this.split ? this.panes().R : { x: this.box.x, w: this.box.w };
+      const w = Math.min(R.w, actions.length > 1 ? BAR_MAX : BAR_MAX_ONE);
+      this.bar = new MActionBar(this, w, this.box.y + this.box.h, { surface: 'parchment', x: R.x + R.w - w }).set(actions);
+    } else this.bar = new MActionBar(this, this.box.w, this.box.y + this.box.h, { surface: 'parchment', x: this.box.x }).set(actions);
     this.ui.add(this.bar);
   }
 
@@ -708,6 +841,10 @@ export class HeroScene extends BaseScene {
     const top = this.pageTop;
     const outer = this.outer!;
     this.stash = new MStashGrid(this, this.page, this.ox, top, this.cw, 0, {
+      // beside the paper doll on a laptop the gear is the page's subject: larger cells, read at desk distance
+      ...(this.split && layoutVariant(this.m) !== 'compactLandscape' ? { cell: GEAR_CELL_WIDE } : {}),
+      // beside the paper doll the stash is the page: its well fills the pane, the drag hint at its foot
+      ...(this.split ? { fill: outer.viewHeight - top - 4, hint: t('stash.dragHint') } : {}),
       items: () => this.src.stash(),
       state: this.stashState,
       hero: () => this.hero(),
@@ -934,7 +1071,10 @@ export class HeroScene extends BaseScene {
     if (!v) return;
     let sel: PerkId = pick && v.opts.includes(pick) ? pick : v.taken ? v.opts.find((p) => p !== v.taken) ?? v.taken : v.opts[0];
     const { VW, VH } = this.m;
-    const w = Math.min(VW - 12, 240);
+    // v5's width; a side panel (landscape) lays the options out across the panel it is given
+    const v5w = Math.min(VW - 12, 240);
+    const pb = sheetBox(this, { w: v5w, h: VH });
+    const w = pb.presentation === 'side' ? pb.w : v5w;
     const pad = 8;
     const bw = w - 2 * pad;
     const blocks = v.opts.map((id) => this.optionLines(h, v, id, bw - 30));
@@ -1194,6 +1334,28 @@ export class HeroScene extends BaseScene {
     if (ok) toast(this, t('hero.pointsSaved'), 'good');
     this.build(true);
   }
+}
+
+/** The paper doll's pane, UI px: compact landscape (§10.3) and the wider classes (§10.2: 240). */
+const DOLL_W_COMPACT = 168;
+const DOLL_W = 240;
+/** The shortest stage that keeps three 28-px slots in a column 4 px apart (a short Telegram window). */
+const STAGE_MIN = 3 * 28 + 2 * 4;
+/** The stage's swipe area starts under its level pill and rank stars (their tap targets), UI px. */
+const STAGE_CONTROL_TOP = 30;
+/** The tallest stage in the wide split layout, and the room kept under the pager for class, role and traits, UI px. */
+const STAGE_MAX = 240;
+const IDENTITY_H = 48;
+/** The action bar's widest in the split layout: two buttons, each under the 240 button cap (§2.3). */
+const BAR_MAX = 320;
+const BAR_MAX_ONE = 248;
+/** Stash cells on the Gear tab in the wide split layout, UI px (28 elsewhere). */
+const GEAR_CELL_WIDE = 44;
+
+/** Every object under `c` (a container tree), `c` itself included. */
+function eachChild(c: Phaser.GameObjects.GameObject, fn: (o: Phaser.GameObjects.GameObject) => void): void {
+  fn(c);
+  if (c instanceof Phaser.GameObjects.Container) for (const o of c.list) eachChild(o, fn);
 }
 
 /** The class name in Cinzel, wrapped to at most two lines by the face it is drawn in. */

@@ -10,7 +10,9 @@ import { cycle, isUpgrade, queryStash, RARITY_FILTERS, SLOT_FILTERS, STASH_SORTS
 import type { Item } from '../../data/items';
 import { t, type TKey } from '../../i18n';
 import type { Hero } from '../../data/units';
-import { ACCENT, MOSAIC } from '../tokens';
+import { ACCENT, MOSAIC, TEXT_MIN, lineHeight } from '../tokens';
+import { wrapText } from '../textfit';
+import { uiFrame } from '../layout';
 import { GAP, TAP, mosaicImage, mtext } from './base';
 import { MButton, oneFace } from './controls';
 import { MIconButton } from './iconButton';
@@ -29,6 +31,12 @@ const FILTER_H = TAP;
 export interface MStashGridOpts extends StashGridOpts {
   /** Lay every item out in the page instead of scrolling inside: the page's own scroll area (taps ignore its drags). */
   inline?: ScrollArea;
+  /**
+   * Inline: the grid's well reaches at least this tall (from the grid's top, UI px), so a short stash still
+   * fills its pane as one inventory box (V6-RSCR-05, a laptop's tab page); `hint` is set at the well's foot.
+   */
+  fill?: number;
+  hint?: string;
 }
 
 export class MStashGrid {
@@ -68,8 +76,20 @@ export class MStashGrid {
     const cols = Math.max(1, Math.floor((w - 3 + GAP) / (cell + GAP)));
     const pad = Math.floor((w - 3 - (cols * (cell + GAP) - GAP)) / 2);
     const rows = Math.max(1, Math.ceil(this.list.length / cols));
-    const gh = Math.max(40, rows * (cell + GAP) - GAP + 8);
-    this.c.add(mosaicImage(scene, x, cy, w, gh, 'parchmentWell'));
+    const need = Math.max(40, rows * (cell + GAP) - GAP + 8);
+    const gh = Math.max(need, (this.o.fill ?? 0) - (cy - this.y));
+    const well = mosaicImage(scene, x, cy, w, gh, 'parchmentWell');
+    this.c.add(well);
+    if (this.o.hint && this.list.length) {
+      const lines = wrapText(this.o.hint, w - 12, 2, false, TEXT_MIN).lines;
+      const lh = Math.ceil(lineHeight(TEXT_MIN));
+      if (gh - need >= lines.length * lh + 8)
+        lines.forEach((l, i) => {
+          // the hint stands for the well: the layout check reads the inventory box as content
+          const tx = mtext(scene, x + w / 2, cy + gh - 6 - (lines.length - i) * lh, l, 'pMuted', { size: TEXT_MIN, align: 0.5 });
+          this.c.add(uiFrame(tx, this.c, w, gh, x, cy));
+        });
+    }
     if (!this.list.length) this.c.add(addParchmentEmpty(scene, x + 2, cy + 2, w - 4, gh - 4, { icon: 'shield', title: t('stash.noMatch'), hint: t('stash.noMatchHint') }));
     this.list.forEach((it, i) => {
       const cc = scene.add.container(x + 3 + pad + (i % cols) * (cell + GAP), cy + 4 + Math.floor(i / cols) * (cell + GAP));

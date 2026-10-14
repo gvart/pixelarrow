@@ -118,6 +118,14 @@ function placeSheet(scene: UiScene, o: ParchmentSheetOpts): { presentation: Pane
   return { presentation: p, x: Math.round((VW - w) / 2), y: p === 'bottom' ? VH - h : Math.round((VH - h) / 2), w, h };
 }
 
+/**
+ * The box a sheet opened with `o` would get (V6-RSCR-05): a caller that lays out its own content measures it
+ * from this width, so a side panel's content fills the panel it is given. Compact portrait returns v5's box.
+ */
+export function sheetBox(scene: UiScene, o: ParchmentSheetOpts): { presentation: PanelPresentation; x: number; y: number; w: number; h: number } {
+  return placeSheet(scene, o);
+}
+
 export interface ParchmentSheetHandle extends Modal {
   buttons: MButton[];
 }
