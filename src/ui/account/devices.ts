@@ -12,14 +12,13 @@ import { lang, t } from '../../i18n';
 import { Button, ScrollArea, addText, mosaicPanelImage } from '../kit';
 import { MButton, GAP, mtext } from '../mosaic';
 import type { UiScene } from '../mosaic/subShell';
-import { ellipsize } from '../textfit';
+import { wrapText } from '../textfit';
 import { openSettingsPage, settingsSheetW } from '../notifySettings';
 import { confirmDialog, toast } from '../widgets';
 import type { SessionInfo } from '../../platform/api';
 import type { AccountSource } from './accountPage';
 
 const ROW_H = 26;
-const STEP = ROW_H + GAP;
 const DAY = 864e5;
 
 /** "today", "yesterday" or the short date, in the game's language. */
@@ -70,17 +69,20 @@ export function openDevices(scene: UiScene, o: { source: AccountSource; onSigned
     let yy = 0;
     const rows = orderSessions(list);
     for (const s of rows) {
-      into.add(mosaicPanelImage(scene, 0, yy, iw - 4, ROW_H - 1, s.current ? 'parchmentSel' : 'parchmentWell'));
       const right = s.current ? 4 : 62;
       const room = iw - right - 14;
       const name = s.device ?? t('devices.unknown');
       // the current one says so in words ("This device"), not by its lighter well alone
-      const title = s.current ? `${name} · ${t('devices.this')}` : name;
-      into.add(addText(scene, 6, yy + 3, ellipsize(title, room, false, 6.5), 'pInk').setFontSize(6.5));
-      into.add(addText(scene, 6, yy + 14, ellipsize(t('devices.meta', { date: shortDate(s.createdAt), when: whenLabel(s.lastSeenAt, now) }), room, false, 6.5), 'pMuted').setFontSize(6.5));
+      const title = wrapText(s.current ? `${name} · ${t('devices.this')}` : name, room, 2, false, 6.5).lines;
+      // the dates wrap rather than being cut (§13.6)
+      const meta = wrapText(t('devices.meta', { date: shortDate(s.createdAt), when: whenLabel(s.lastSeenAt, now) }), room, 3, false, 6.5).lines;
+      const rh = Math.max(ROW_H, 5 + (title.length + meta.length) * 9 + 3);
+      into.add(mosaicPanelImage(scene, 0, yy, iw - 4, rh - 1, s.current ? 'parchmentSel' : 'parchmentWell'));
+      into.add(addText(scene, 6, yy + 3, title.join('\n'), 'pInk').setFontSize(6.5).setLineSpacing(-1));
+      into.add(addText(scene, 6, yy + 3 + title.length * 9 + 2, meta.join('\n'), 'pMuted').setFontSize(6.5).setLineSpacing(-1));
       if (!s.current) {
         const handle = s.handle;
-        const b = new Button(scene, iw - 4 - 60, yy + 2, 60, 22, {
+        const b = new Button(scene, iw - 4 - 60, yy + Math.round((rh - 22) / 2), 60, 22, {
           label: t('devices.logout'),
           small: true,
           id: `devices.logout.${handle}`,
@@ -94,7 +96,7 @@ export function openDevices(scene: UiScene, o: { source: AccountSource; onSigned
         });
         into.add(b);
       }
-      yy += STEP;
+      yy += rh + GAP;
     }
     if (rows.filter((s) => !s.current).length === 0) yy = say(into, yy + 2, t('devices.onlyThis'));
     else {

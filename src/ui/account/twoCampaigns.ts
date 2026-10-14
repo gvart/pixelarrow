@@ -127,7 +127,9 @@ export function openTwoCampaigns(scene: UiScene, o: TwoCampaignsOpts): Parchment
     play.setEnabled(true);
     toast(scene, t('sync.two.failed'), 'bad');
   };
-  const play = new MButton(scene, x, y + Math.min(contentH, room) + 8, bw, BTN_H, {
+  // a button never stretches past 240 UI px on a wide dialog (landscape-v6.md §2.3)
+  const pw = Math.min(bw, 240);
+  const play = new MButton(scene, x + Math.round((bw - pw) / 2), y + Math.min(contentH, room) + 8, pw, BTN_H, {
     label: t('sync.two.play'),
     variant: 'primary',
     id: 'sync.two.play',
