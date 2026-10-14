@@ -13,7 +13,7 @@ import Phaser from 'phaser';
 import { Button, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelK, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
 import { ACCENT, MOSAIC, MOTION } from './tokens';
 import { tweenTo } from './motion';
-import { uiFrame, uiId, worldRect } from './layout';
+import { uiFrame, uiId, uiListIds, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, STRAT, glows } from './theme';
 import { renderGlow, renderRarityFrame } from '../art/uiTextures';
@@ -785,6 +785,8 @@ export class ScrollList {
     this.o = { gap: SIZE.gap, overscan: 2, hint: true, ...o };
     this.area = new ScrollArea(scene, parent, x, y, w, h, metrics(scene).S);
     this.area.onScroll(() => this.sync());
+    // element-parity counts every row's id, built or not (V6-066)
+    uiListIds(this.area.content, () => (this.o.onTap && this.o.id ? Array.from({ length: this.o.count }, (_, i) => this.o.id!(i)) : []));
     if (this.o.hint) this.hint = addScrollHint(scene, parent, this.area, this.o.fade);
     this.setCount(o.count);
   }

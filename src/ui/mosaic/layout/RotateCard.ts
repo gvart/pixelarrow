@@ -8,7 +8,7 @@
 import Phaser from 'phaser';
 import type { UIMetrics } from '../../kit';
 import { RS } from '../../../platform/renderScale';
-import { uiBlocker, uiFrame, uiId } from '../../layout';
+import { uiBlocker, uiFrame, uiId, uiPanel } from '../../layout';
 import { MOSAIC, TEXT_MIN, lineHeight } from '../../tokens';
 import { lang } from '../../../i18n';
 import { mosaicImage, mtext, mw } from '../base';
@@ -37,11 +37,14 @@ export class RotateCard extends Phaser.GameObjects.Container {
     const h = Math.min(VH - 8, PAD + ICON + 6 + textH + PAD);
     const x = Math.round((VW - w) / 2);
     const y = Math.round((VH - h) / 2);
-    this.add(mosaicImage(scene, x, y, w, h, 'parchment'));
-    this.add(phoneGlyph(scene, x + w / 2, y + PAD + ICON / 2));
+    // the card is a dialog for the layout check: the screen under the stage is what it measures (V6-063)
+    const card = uiPanel(new Phaser.GameObjects.Container(scene, 0, 0), x, y, w, h);
+    this.add(card);
+    card.add(mosaicImage(scene, x, y, w, h, 'parchment'));
+    card.add(phoneGlyph(scene, x + w / 2, y + PAD + ICON / 2));
     const txt = mtext(scene, x + w / 2, y + PAD + ICON + 6, line, 'pInk', { size: Math.max(TEXT_MIN, size), maxW: w - PAD * 2, wrap: true, align: 0.5 }).setCenterAlign();
     uiFrame(txt, this as unknown as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject, w, h, x, y);
-    this.add(txt);
+    card.add(txt);
     uiId(this, 'layout.rotateCard');
   }
 }

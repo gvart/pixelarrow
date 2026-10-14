@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { WIDE_CHECKS, checkLayout, checkWide, variantOf, type Rect, type UiElement, type WideScreen } from '../src/ui/layoutCheck';
-import { BUTTON_MAX, CTA_MAX, DIALOG_MAX, READING_MAX, ROW_MAX, metricsFor } from '../src/ui/sizeClass';
+import { WIDE_CHECKS, checkLayout, checkWide, shownIds, variantOf, type Rect, type UiElement, type WideScreen } from '../src/ui/layoutCheck';
+import { BUTTON_MAX, CTA_MAX, DIALOG_MAX, READING_MAX, ROW_MAX, SIDE_PANEL_MAX, SIDE_PANEL_MIN, metricsFor } from '../src/ui/sizeClass';
 // @ts-expect-error plain .mjs module without types
 import { MATRIX, WIDE_CHECKS as SCRIPT_CHECKS, checkParity, WIDE_RULES, isFoundationScreen, isPending, loadPending, stableRewrite, triageWide } from '../scripts/lib/layoutMatrix.mjs';
 
@@ -47,6 +47,7 @@ describe('thresholds table (one table, next to the sizes)', () => {
     expect(WIDE_RULES.wastedWidth).toEqual({ medium: 0.8, expanded: 0.7 });
     expect(WIDE_RULES.emptyColumn).toEqual({ width: 0.25, height: 0.6, variants: ['compact-land', 'medium', 'expanded'] });
     expect(WIDE_RULES.stretched).toEqual({ row: ROW_MAX, button: BUTTON_MAX, cta: CTA_MAX, line: READING_MAX, dialog: DIALOG_MAX });
+    expect(WIDE_RULES.sidePanel).toEqual({ 'compact-land': { min: 220, max: 280, share: 0.6 }, expanded: { min: SIDE_PANEL_MIN, max: SIDE_PANEL_MAX } });
     expect(WIDE_RULES.fieldCoverage).toEqual({ expanded: 0.6, 'compact-land': 0.5, medium: 0.5, 'compact-port': 0.4 });
     expect(WIDE_RULES.letterbox).toBe(2);
     expect(MATRIX.all).toHaveLength(10);
@@ -181,12 +182,24 @@ describe('above-fold', () => {
   });
 });
 
-describe('nav-labels', () => {
+describe('nav-labels (the rail, and tab bars outside compact portrait: V6-066)', () => {
   const item = (id: string, x: number) => el('interactive', R(x, 780, 70, 60), { id, nav: true });
   const label = (text: string, x: number) => el('text', R(x + 5, 820, 50, 14), { text });
-  it('fails a nav item without a label or with an ellipsised one', () => {
+  /** A nav rail item at 1280x800 (rail 144 CSS wide), its label under its icon. */
+  const railItem = (id: string, y: number) => el('interactive', R(0, y, 144, 96), { id, nav: true });
+  const railLabel = (text: string, y: number) => el('text', R(40, y + 60, 64, 20), { text });
+  const navLabels = (els: UiElement[], s: WideScreen) => wide(els, s).filter((v) => v.check === 'nav-labels').map((v) => v.ids[0]);
+  it('fails a landscape rail item without a label or with an ellipsised one', () => {
+    const els = [railItem('nav.camp', 100), railLabel('CAMP', 100), railItem('nav.war', 200), railItem('nav.shop', 300), railLabel('SHO…', 300)];
+    expect(navLabels(els, screen(1280, 800))).toEqual(['nav.war', 'nav.shop']);
+  });
+  it('fails an unlabelled tab bar outside compact portrait (medium)', () => {
+    expect(navLabels([item('tab.camp', 0), label('CAMP', 0), item('tab.war', 80)], screen(768, 1024))).toEqual(['tab.war']);
+  });
+  it('passes the compact-portrait tab bar, the v5 reference that labels the active tab only (V5-068)', () => {
     const els = [item('tab.camp', 0), label('CAMP', 0), item('tab.war', 80), item('tab.shop', 160), label('SHO…', 160)];
-    expect(wide(els, screen(390, 844)).filter((v) => v.check === 'nav-labels').map((v) => v.ids[0])).toEqual(['tab.war', 'tab.shop']);
+    expect(navLabels(els, screen(390, 844))).toEqual([]);
+    expect(navLabels(els, screen(320, 693))).toEqual([]);
   });
 });
 
@@ -195,6 +208,93 @@ describe('element-parity (needs uiCollapsed to drop an element)', () => {
     const base = ['a', 'b', 'c', 'd'];
     const here = new Set(['a', 'menu']);
     expect(checkParity(base, here, { c: 'menu', d: 'gone' }).map((v: { ids: string[] }) => v.ids[0])).toEqual(['b', 'd']);
+  });
+});
+
+// V6-063: with a dialog, sheet or side panel open, wasted-width and empty-column judge the base screen
+// beneath it; the panel is judged by its own caps (dialog 320, side panel 240..320 UI px in expanded).
+describe('open panels (V6-063): the base screen is measured, the panel by its caps', () => {
+  const s = () => screen(1280, 800); // S 2: the content region is x 144..1280 CSS
+  /** A side panel docked at the right of the content (240 UI = 480 CSS), with its title and close button. */
+  const sidePanel = (w = 480) => [el('box', R(1268 - w, 80, w, 700), { role: 'side' }), el('text', R(1280 - w, 90, 200, 20), { panel: true }), el('interactive', R(1222, 82, 44, 44), { panel: true })];
+  /** A base grid left of the panel: three columns, 150 .. 770 CSS. */
+  const leftGrid = () => {
+    const out: UiElement[] = [];
+    for (let c = 0; c < 3; c++) for (let r = 0; r < 4; r++) out.push(el('interactive', R(150 + c * 220, 20 + r * 190, 180, 120)));
+    return out;
+  };
+  const kindsOf = (els: UiElement[], o: Partial<WideScreen> = {}) => kinds(els, { ...s(), ...o });
+
+  it('passes a modal task panel over a full-width base (the base beneath the shade is measured)', () => {
+    expect(wide(sidePanel(), { ...s(), under: goodWide() })).toEqual([]);
+  });
+
+  it('passes an intentionally narrow inspector: the strip it docks in is the panel, not wasted width', () => {
+    expect(wide([...leftGrid(), ...sidePanel()], s())).toEqual([]);
+  });
+
+  it('still fails real wasted width under a modal dialog', () => {
+    const column = [el('interactive', R(400, 100, 480, 60)), el('text', R(420, 200, 400, 20))];
+    const dialog = [el('box', R(320, 250, 640, 300), { role: 'dialog' }), el('interactive', R(340, 480, 290, 44), { panel: true }), el('interactive', R(650, 480, 290, 44), { panel: true })];
+    expect(kindsOf(dialog, { under: column })).toEqual(['empty-column', 'wasted-width']);
+  });
+
+  it('still fails a narrow base column beside an inspector', () => {
+    const column = [0, 1, 2, 3].map((r) => el('interactive', R(150, 20 + r * 190, 200, 120)));
+    expect(kindsOf([...column, ...sidePanel()])).toContain('wasted-width');
+  });
+
+  it("never counts the panel's own elements as base content", () => {
+    const full = [el('box', R(320, 100, 640, 600), { role: 'dialog' })];
+    for (let c = 0; c < 4; c++) full.push(el('interactive', R(150 + c * 280, 300, 220, 44), { panel: true }));
+    expect(kindsOf(full, { under: [] })).toContain('wasted-width');
+  });
+
+  it('checks a side panel by the §3.4 widths: 240..320 UI px in expanded', () => {
+    const stretched = (w: number) => wide([...leftGrid(), ...sidePanel(w)], s()).filter((v) => v.check === 'stretched');
+    expect(stretched(480)).toEqual([]); // 240 UI
+    expect(stretched(640)).toEqual([]); // 320 UI
+    expect(stretched(660)).toHaveLength(1); // 330 UI: too wide
+    expect(stretched(400)).toHaveLength(1); // 200 UI: narrower than an item card
+  });
+
+  it('in compact landscape: up to 280 UI px, at least 220 or 60% of VW (Settings)', () => {
+    // 844x390 inside Telegram's insets: 726x323 CSS, S 2, VW 363
+    const t = screen(726, 323);
+    const at = (w: number) => wide([el('box', R(726 - 2 * w, 0, 2 * w, 300), { role: 'side' })], t).filter((v) => v.check === 'stretched');
+    expect(at(218)).toEqual([]); // 60% of 363
+    expect(at(280)).toEqual([]);
+    expect(at(200)).toHaveLength(1);
+    expect(at(290)).toHaveLength(1);
+  });
+});
+
+describe('shownIds (element-parity reads these)', () => {
+  it('counts a named element that shows, or that sits in a scroll area (one scroll away), never a hidden one', () => {
+    const clip = R(0, 0, 100, 100);
+    const els = [
+      el('interactive', R(0, 0, 50, 50), { id: 'on', named: true }),
+      el('interactive', R(0, 200, 50, 50), { id: 'scrolled', named: true, clip, visible: R(0, 200, 50, 0) }),
+      el('interactive', R(0, 200, 50, 50), { id: 'gone', named: true, visible: R(0, 200, 0, 0) }),
+      el('interactive', R(0, 0, 50, 50), { id: 'unnamed' }),
+    ];
+    expect(shownIds(els)).toEqual(['on', 'scrolled']);
+  });
+
+  // V6-066: a virtualised ScrollList builds only the rows near its window; the ids it registers for its whole
+  // content (uiListIds) count, so an off-screen row is not a dropped element, while a row truly removed still is
+  const rowIds = (n: number) => Array.from({ length: n }, (_, i) => `settings.row${i}`);
+  /** The rows a virtualised list renders: `from .. to` only. */
+  const rendered = (from: number, to: number) => rowIds(to + 1).slice(from).map((id, i) => el('interactive', R(0, (from + i) * 50, 300, 44), { id, named: true, clip: R(0, 0, 300, 400) }));
+  it('counts every row of a virtualised list for element-parity', () => {
+    const base = shownIds(rendered(0, 9), rowIds(12)); // 390x844: rows 0..9 built
+    const here = new Set(shownIds(rendered(0, 4), rowIds(12))); // 844x390: rows 0..4 built
+    expect(checkParity(base, here, {})).toEqual([]);
+  });
+  it('still fails a row removed at one size', () => {
+    const base = shownIds(rendered(0, 9), rowIds(12));
+    const here = new Set(shownIds(rendered(0, 4), rowIds(11))); // the last row is gone from the list
+    expect(checkParity(base, here, {}).map((v: { ids: string[] }) => v.ids[0])).toEqual(['settings.row11']);
   });
 });
 

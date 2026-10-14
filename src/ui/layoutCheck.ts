@@ -21,7 +21,7 @@ export interface Rect {
 export interface UiElement {
   /** Stable id: an i18n key, a button label or icon, or a normalised text. */
   id: string;
-  /** 'box': a dialog or side panel, seen by the landscape checks only (`stretched`). */
+  /** 'box': an open dialog, sheet or side panel, seen by the landscape checks only (its caps in `stretched`; V6-063). */
   kind: 'interactive' | 'text' | 'box';
   /** Full bounds (canvas CSS px). */
   rect: Rect;
@@ -48,8 +48,10 @@ export interface UiElement {
   size?: number;
   /** Interactive: where a tap inside its drawn box misses its hit area (IN-02 tap probe), if anywhere. */
   tapMiss?: string;
-  /** What the `stretched` maximum is for: a list row, a button, a wrapped text line, a dialog or side panel. */
-  role?: 'row' | 'button' | 'line' | 'dialog';
+  /** What the `stretched` maximum is for: a list row, a button, a wrapped text line, a dialog or sheet, a docked side panel. */
+  role?: 'row' | 'button' | 'line' | 'dialog' | 'side';
+  /** Inside an open dialog, sheet or side panel: not base content for `wasted-width` and `empty-column` (V6-063). */
+  panel?: boolean;
   /** A bar meant to span its pane (`uiStretch`, itself or an ancestor). */
   stretch?: boolean;
   /** The screen's primary action (`uiPrimary`, itself or an ancestor). */
@@ -187,6 +189,16 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
   return out;
 }
 
+/**
+ * The `uiId`s a screen shows, which `element-parity` compares across sizes: a named element that shows, or
+ * that sits in a scroll area (a row scrolled out of a short window is one scroll away, not dropped), plus
+ * `lists`: the ids a virtualised list registers for its whole content (`uiListIds`; V6-066), rows it has
+ * not built at this scroll position included.
+ */
+export function shownIds(els: readonly UiElement[], lists: readonly string[] = []): string[] {
+  return [...new Set([...els.filter((e) => e.named && (e.clip || (e.visible.w > 0.5 && e.visible.h > 0.5))).map((e) => e.id), ...lists])];
+}
+
 /** Allowlist key of a violation on a screen. */
 export function violationKey(screen: string, v: Violation): string {
   return [screen, v.check, ...v.ids].join('|');
@@ -208,6 +220,8 @@ export interface WideRules {
   emptyColumn: { width: number; height: number; variants: Variant[] };
   /** Maximum widths, UI px (§2.3). */
   stretched: { row: number; button: number; cta: number; line: number; dialog: number };
+  /** A docked side panel's width, UI px, by variant (§3.4); a variant without a row shows no side panels. */
+  sidePanel: Partial<Record<Variant, { min: number; max: number; share?: number }>>;
   /** Least share of the #game box the field shows outside the opaque HUD, by variant (field scenes). */
   fieldCoverage: Record<Variant, number>;
 }
@@ -238,6 +252,11 @@ export interface WideScreen {
   opaque: Rect[];
   /** Measured at scroll 0 (above-fold is judged there only). */
   scrollTop: boolean;
+  /**
+   * With a modal dialog, sheet or side panel open: the base screen's elements its shade covers (V6-063).
+   * `wasted-width` and `empty-column` measure these, not the panel; canvas-relative like the elements.
+   */
+  under?: UiElement[];
 }
 
 const shortBy = (outer: Rect, inner: Rect) => Math.max(outer.w - inner.w, outer.h - inner.h);
@@ -298,22 +317,37 @@ export function checkWide(els: readonly UiElement[], s: WideScreen, rules: WideR
   const paneX = s.m.land ? s.m.navW * S : 0;
   const cw = s.m.contentW * S;
   const cx0 = paneX + (s.game.w - paneX - cw) / 2;
-  const content = shown.filter((e) => !e.stretch && !e.nav && e.kind !== 'box').map((e) => shift(e.visible));
+  // V6-063: with a panel open, the base screen is measured (what the shade covers and what stays live beside
+  // an inspector), never the panel's own elements; a docked side panel takes its strip out of the region
+  const boxes = shown.filter((e) => e.kind === 'box');
+  const base = boxes.length ? [...shown.filter((e) => !e.panel), ...(s.under ?? []).filter((e) => !e.world && e.visible.w > 0.5 && e.visible.h > 0.5)] : shown;
+  const content = base.filter((e) => !e.stretch && !e.nav && e.kind !== 'box').map((e) => shift(e.visible));
+  let rx0 = cx0;
+  let rx1 = cx0 + cw;
+  for (const b of boxes) {
+    if (b.role !== 'side') continue;
+    const p = shift(b.visible);
+    // the longer part of the region beside the panel
+    if (Math.min(rx1, p.x) - rx0 >= rx1 - Math.max(rx0, p.x + p.w)) rx1 = Math.min(rx1, p.x);
+    else rx0 = Math.max(rx0, p.x + p.w);
+  }
+  const rw = Math.max(0, rx1 - rx0);
 
   const minSpan = rules.wastedWidth[v];
-  if (s.kind === 'menu' && minSpan !== undefined && cw > 0) {
-    const x0 = Math.max(cx0, Math.min(...content.map((r) => r.x)));
-    const x1 = Math.min(cx0 + cw, Math.max(...content.map((r) => r.x + r.w)));
+  if (s.kind === 'menu' && minSpan !== undefined && rw > 0) {
+    const x0 = Math.max(rx0, Math.min(...content.map((r) => r.x)));
+    const x1 = Math.min(rx1, Math.max(...content.map((r) => r.x + r.w)));
     const span = content.length ? Math.max(0, x1 - x0) : 0;
-    if (span < minSpan * cw - eps)
-      out.push({ check: 'wasted-width', ids: ['content'], detail: `content spans ${Math.round(span)} of ${Math.round(cw)} px (${Math.round((100 * span) / cw)}% < ${Math.round(100 * minSpan)}%)` });
+    const beside = rw < cw ? ' beside the side panel' : '';
+    if (span < minSpan * rw - eps)
+      out.push({ check: 'wasted-width', ids: ['content'], detail: `content spans ${Math.round(span)} of ${Math.round(rw)} px${beside} (${Math.round((100 * span) / rw)}% < ${Math.round(100 * minSpan)}%)` });
   }
 
   if (s.kind === 'menu' && rules.emptyColumn.variants.includes(v) && cw > 0) {
     const w = rules.emptyColumn.width * cw;
     const need = rules.emptyColumn.height * s.game.h;
     let worst: { x: number; gap: number } | null = null;
-    for (let x = cx0; x + w <= cx0 + cw + eps; x += 4) {
+    for (let x = rx0; x + w <= rx1 + eps; x += 4) {
       const spans = content.filter((r) => r.x < x + w && r.x + r.w > x).map((r) => [r.y, r.y + r.h] as [number, number]);
       const gap = gaps(spans, 0, s.game.h).longest;
       if (gap >= need - eps && (!worst || gap > worst.gap)) worst = { x, gap };
@@ -325,8 +359,16 @@ export function checkWide(els: readonly UiElement[], s: WideScreen, rules: WideR
   const st = rules.stretched;
   for (const e of shown) {
     if (e.stretch || !e.role) continue;
-    const max = e.role === 'row' ? st.row : e.role === 'line' ? st.line : e.role === 'dialog' ? st.dialog : e.primary ? st.cta : st.button;
     const w = e.rect.w / (s.scale?.[e.scene] ?? S);
+    if (e.role === 'side') {
+      // a docked side panel: wide enough for an item card, narrow enough to keep the screen (§3.4)
+      const cap = rules.sidePanel[v] ?? { min: 0, max: st.dialog };
+      // `share` of VW (as panelLayout computes it) lowers the least width: Settings at 60% of VW in compact landscape
+      const min = cap.share ? Math.min(cap.min, Math.round(cap.share * Math.floor(s.game.w / S))) : cap.min;
+      if (w < min - eps || w > cap.max + eps) out.push({ check: 'stretched', ids: [e.id], detail: `side panel ${Math.round(w)} UI px wide, outside ${Math.round(min)}..${cap.max}` });
+      continue;
+    }
+    const max = e.role === 'row' ? st.row : e.role === 'line' ? st.line : e.role === 'dialog' ? st.dialog : e.primary ? st.cta : st.button;
     if (w > max + eps) out.push({ check: 'stretched', ids: [e.id], detail: `${e.role}${e.primary ? ' (primary)' : ''} ${Math.round(w)} UI px wide > ${max}` });
   }
 
@@ -348,9 +390,10 @@ export function checkWide(els: readonly UiElement[], s: WideScreen, rules: WideR
     }
   }
 
-  // nav-labels: every nav item shows its whole label
+  // nav-labels: every nav item shows its whole label; not in compact portrait, the v5 reference, whose tab bar
+  // labels the active tab only (V5-068, landscape-v6 §16.9; V6-066)
   const texts = shown.filter((e) => e.kind === 'text' && e.text?.trim());
-  for (const item of shown) {
+  for (const item of v === 'compact-port' ? [] : shown) {
     if (!item.nav || item.kind !== 'interactive') continue;
     const r = item.visible;
     const label = texts.find((t) => {
