@@ -5,6 +5,12 @@ import { compareSaves, decideOnLoad, parseSyncMeta, resolveConflict, SYNC_META_K
 import { Campaign } from '../src/game/campaign';
 import { SAVE_VERSION, type KV, type SaveData } from '../src/game/save';
 import { telegramAuth } from './fakes/platform';
+import type { PaymentResult, Payments, PaymentStatus } from '../src/platform/core/payments';
+
+/** Telegram Stars payments that answer `result` for every link (and record it). */
+function stars(result: (link: string) => Promise<PaymentResult>, status: PaymentStatus = { available: true, provider: 'telegram_stars' }): Payments {
+  return { status: () => status, pay: (i) => result(i.link) };
+}
 
 function memoryKV(): KV & { store: Map<string, string> } {
   const store = new Map<string, string>();
@@ -60,7 +66,7 @@ function makeOnline(fetch: FetchLike, over: Partial<OnlineDeps> = {}) {
     cache,
     auth: telegramAuth('query_id=1&hash=abc'),
     debounceMs: 0,
-    openInvoice: async () => 'cancelled',
+    payments: stars(async () => 'cancelled'),
     sleep: async () => {},
     log: { warn: () => {}, info: () => {} },
     ...over,
@@ -296,10 +302,10 @@ describe('online layer', () => {
     const srv = fakeServer();
     let polls = 0;
     const { online, cache } = makeOnline(srv.fetch, {
-      openInvoice: async (link) => {
+      payments: stars(async (link) => {
         expect(link).toBe('https://t.me/$inv');
         return 'paid';
-      },
+      }),
       sleep: async () => {
         if (++polls === 2) srv.st.ents.push(SUPPORTER_BANNER); // webhook lands later
       },
@@ -315,8 +321,17 @@ describe('online layer', () => {
 
   it('reports a cancelled payment', async () => {
     const srv = fakeServer();
-    const { online } = makeOnline(srv.fetch, { openInvoice: async () => 'cancelled' });
+    const { online } = makeOnline(srv.fetch, { payments: stars(async () => 'cancelled') });
     expect(await online.buy(SUPPORTER_BANNER)).toBe('cancelled');
+  });
+
+  it('asks for no invoice when the platform cannot pay', async () => {
+    const srv = fakeServer();
+    const pay = vi.fn(async () => 'paid' as const);
+    const { online } = makeOnline(srv.fetch, { payments: stars(pay, { available: false, reason: 'coming_soon' }) });
+    expect(await online.buy(SUPPORTER_BANNER)).toBe('unavailable');
+    expect(srv.calls).not.toContain('POST /api/shop/invoice');
+    expect(pay).not.toHaveBeenCalled();
   });
 
   it('logs battle verification mismatches and swallows errors', async () => {

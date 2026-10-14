@@ -8,7 +8,7 @@ import { platform } from './index';
 import type { Insets } from './core/safeArea';
 import type { TelegramPlatform, TgWebApp } from './telegram/index';
 
-export type { InvoiceStatus, TgWebApp } from './telegram/index';
+export type { TgWebApp } from './telegram/index';
 export type { Insets };
 export { haptic, hapticNotify, hapticSelect, setHaptics } from './haptics';
 
@@ -50,10 +50,6 @@ export function hasNativeBack(): boolean {
 
 export function setBackButton(cb: (() => void) | null): void {
   platform.back.setBack(cb);
-}
-
-export function openInvoice(link: string): Promise<'paid' | 'cancelled' | 'failed' | 'pending'> {
-  return platform.payments.pay({ provider: 'telegram_stars', link });
 }
 
 export function startParam(): string | null {

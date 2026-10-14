@@ -13,4 +13,6 @@ export const SHOP_V5_EN = {
   // AU-01, signed out (design/ux/accounts-v6.md)
   'auth.gate.title': 'Sign in to play online',
   'auth.gate.shop': 'The shop, the season pass and your Drachmae are kept with your account.',
+  // AU-20, payments where no provider exists yet (design/ux/accounts-v6.md)
+  'shop.web.legal': 'Drachmae cannot be cashed out.',
 };
