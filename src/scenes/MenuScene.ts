@@ -70,6 +70,12 @@ export class MenuScene extends BaseScene {
     if (data?.settings === 'notify') this.openNotifications();
     // Opened at #login or #forgot (an email-link page's "Log in", V6-071): the form, once (not again on a relayout).
     if (data?.account && openAccountRoute(this, data.account)) delete data.account;
+    // #account and startapp=account (the bot's /delete_my_data, the re-auth Reopen path): Settings → Account, once
+    if (data?.account?.view === 'account') {
+      delete data.account;
+      clearHash('#account');
+      this.openAccount();
+    }
     // The first sync after a log-in found progress on both sides (AU-08, V6-ACCT-07): the player picks.
     askTwoCampaigns(this, () => this.scene.restart());
   }
@@ -451,5 +457,14 @@ export class MenuScene extends BaseScene {
     this.overlay = c;
     c.once('destroy', () => this.overlay === c && (this.overlay = null));
     prev?.destroy();
+  }
+}
+
+/** Drops a handled hash route from the address, so a reload doesn't reopen it. */
+function clearHash(hash: string): void {
+  try {
+    if (location.hash === hash) history.replaceState(history.state, '', location.pathname + location.search);
+  } catch {
+    /* no history: the route stays in the address */
   }
 }
