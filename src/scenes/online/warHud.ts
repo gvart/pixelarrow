@@ -65,6 +65,8 @@ const PANEL_EXPANDED_NARROW = 240;
 /** The march bar (v5's MARCH_H) and its widths: the clock, the countdown and Halt need 140. */
 export const MARCH_H = 24;
 const MARCH_MAX = 260;
+/** At 844x390 the bar is narrower: Telegram's short landscape (161 UI px tall) keeps half the box for the map. */
+const MARCH_MAX_COMPACT = 200;
 const MARCH_MIN = 140;
 const RAIL_PAD = 2;
 
@@ -89,7 +91,7 @@ export function warHudLayout(m: WarHudMetrics, s: WarHudSpec): WarHud | null {
   const cw = Math.min(expanded ? CARD_MAX_EXPANDED : CARD_MAX_COMPACT, right - EDGE_PAD - cx);
   const card: Box | null = panel && cw < CARD_MIN ? null : { x: cx, y: top + EDGE_PAD, w: cw, h: s.cardH(cw) };
   const freeW = right - navW;
-  const mw = Math.min(MARCH_MAX, freeW - EDGE_PAD * 2);
+  const mw = Math.min(expanded ? MARCH_MAX : MARCH_MAX_COMPACT, freeW - EDGE_PAD * 2);
   const march: Box | null = !s.marching || mw < MARCH_MIN ? null : { x: navW + Math.round((freeW - mw) / 2), y: VH - EDGE_PAD - MARCH_H, w: mw, h: MARCH_H };
   // the framing rect: the clear map below the card or beside it, left of the panel or the rail, above the march bar
   const bottom = march ? march.y - EDGE_PAD : VH;

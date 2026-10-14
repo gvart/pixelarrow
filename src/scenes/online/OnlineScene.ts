@@ -128,7 +128,7 @@ const PANEL_MAX_MEDIUM = 360;
 /** The key rail's keys on laptops: 44 tall, the label under the icon (§8.2). */
 const KEY_H_WIDE = 44;
 /** The situation card's stone border, UI px. */
-const CARD_PAD = 2;
+const CARD_PAD = 1;
 
 type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string; outside: boolean } | { kind: 'join' } | { kind: 'map' };
 
@@ -227,14 +227,17 @@ const RES_ICON: Record<keyof Resources, string> = { gold: 'wargold', food: 'food
 const CHIP_COUNT = RESOURCE_KEYS.length + 1;
 const CHIP_GAP = 2;
 const CHIP_PAD = 2;
-function chipGrid(w: number): { cols: number; rows: number; cw: number; h: number } {
-  const need = ICON_PX + 3 + CHIP_PAD + Math.ceil(mw('12.4K', 'ink', 6));
+function chipGrid(w: number, gap = CHIP_GAP, pad = CHIP_PAD): { cols: number; rows: number; cw: number; h: number } {
+  const need = ICON_PX + 3 + pad + Math.ceil(mw('12.4K', 'ink', 6));
   let cols = CHIP_COUNT;
-  while (cols > Math.ceil(CHIP_COUNT / 2) && Math.floor((w - CHIP_GAP * (cols - 1)) / cols) < need) cols--;
+  while (cols > Math.ceil(CHIP_COUNT / 2) && Math.floor((w - gap * (cols - 1)) / cols) < need) cols--;
   const rows = Math.ceil(CHIP_COUNT / cols);
   cols = Math.ceil(CHIP_COUNT / rows);
-  return { cols, rows, cw: Math.floor((w - CHIP_GAP * (cols - 1)) / cols), h: rows * TAP + (rows - 1) * CHIP_GAP };
+  return { cols, rows, cw: Math.floor((w - gap * (cols - 1)) / cols), h: rows * TAP + (rows - 1) * gap };
 }
+/** The landscape card's chips keep 1 px less padding: six in one row in Telegram's short landscape. */
+const WIDE_CHIP_GAP = 2;
+const WIDE_CHIP_PAD = 1;
 
 /** Height of a labelled rail key (icon over its label), UI px. */
 const KEY_H = 30;
@@ -849,7 +852,7 @@ export class OnlineScene extends BaseScene {
     const sentenceLines = (w: number) => wrapWords(sentence, textW(w), (str) => mw(str, 'pInk', TEXT_MIN));
     // the sentence in at most two lines beside Collect (the whole of it on tap)
     const rowH = (w: number) => Math.max(TAP + 4, Math.min(2, sentenceLines(w).length) * lh + 6);
-    const cardH = (w: number) => CARD_PAD + rowH(w) + 3 + chipGrid(w - CARD_PAD * 2).h + CARD_PAD;
+    const cardH = (w: number) => CARD_PAD + rowH(w) + 3 + chipGrid(w - CARD_PAD * 2, WIDE_CHIP_GAP, WIDE_CHIP_PAD).h + CARD_PAD;
     const expanded = this.m.cls === 'expanded';
     const spec = (panel: boolean) => ({ top: TOPBAR_H, rail: (avail: number, exp: boolean) => railLayout(labels, avail, exp ? KEY_H_WIDE : KEY_H), cardH, marching, panel });
     // the hex panel first: its box does not depend on the card, and its own Collect decides the card's
@@ -894,9 +897,9 @@ export class OnlineScene extends BaseScene {
           }),
         );
       const items = this.chipItems(energy);
-      const { cols, cw } = chipGrid(sw);
+      const { cols, cw } = chipGrid(sw, WIDE_CHIP_GAP, WIDE_CHIP_PAD);
       items.forEach((it, i) => {
-        const chip: MChip = new MChip(this, sx + (i % cols) * (cw + CHIP_GAP), sy + sh + 3 + Math.floor(i / cols) * (TAP + CHIP_GAP), { icon: it.icon, value: it.value, surface: 'stone', w: cw, pad: CHIP_PAD, tip: it.tip, onClick: () => showTooltip(this, it.tip, chip), id: `online.chip.${it.icon}` });
+        const chip: MChip = new MChip(this, sx + (i % cols) * (cw + WIDE_CHIP_GAP), sy + sh + 3 + Math.floor(i / cols) * (TAP + WIDE_CHIP_GAP), { icon: it.icon, value: it.value, surface: 'stone', w: cw, pad: WIDE_CHIP_PAD, tip: it.tip, onClick: () => showTooltip(this, it.tip, chip), id: `online.chip.${it.icon}` });
         c.add(chip);
       });
       this.uiRects.push(card);
@@ -1189,7 +1192,8 @@ export class OnlineScene extends BaseScene {
     const A = panel.area;
     this.panelLines(panel, A.x, A.y + 1, A.w, rows.slice(0, shown), d, { owner: panel, w: panel.w, h: panel.h });
     const zone = this.add.zone(A.x - 2, A.y + 2, A.w + 4, linesH - 2).setOrigin(0, 0).setInteractive();
-    uiId(zone, 'online.hexInfo');
+    // the lines' tap area spans the panel's body by design (not a stretched button, §5)
+    uiStretch(uiId(zone, 'online.hexInfo'));
     tappable(zone, null, () => showTooltip(this, full, { x: panel.x + A.x, y: panel.y + A.y + 2, w: A.w, h: linesH - 2 }), full);
     panel.addAt(zone, 1);
   }
