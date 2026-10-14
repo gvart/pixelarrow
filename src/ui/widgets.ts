@@ -754,12 +754,24 @@ export interface ScrollListOpts {
   tip?: (i: number) => string | undefined;
   /** Layout-check id of a row. */
   id?: (i: number) => string;
+  /** The layout-check ids of the controls a row renders (element-parity counts them while the row is not built, V6-066). */
+  ids?: (i: number) => string[];
   /** Rows built beyond the viewport on each side (default 2). */
   overscan?: number;
   /** Draw the scroll hint (edge fades and thumb; default true). */
   hint?: boolean;
   /** The colour behind the list, that the edge fades melt into (default: the surface it sits on, `surfaceUnder`). */
   fade?: number;
+}
+
+/** Every id a list's whole content holds, built or not (V6-066): each tappable row's id and the ids its rows render. */
+export function scrollListIds(o: Pick<ScrollListOpts, 'count' | 'onTap' | 'id' | 'ids'>): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < o.count; i++) {
+    if (o.onTap && o.id) out.push(o.id(i));
+    if (o.ids) out.push(...o.ids(i));
+  }
+  return out;
 }
 
 /**
@@ -786,7 +798,7 @@ export class ScrollList {
     this.area = new ScrollArea(scene, parent, x, y, w, h, metrics(scene).S);
     this.area.onScroll(() => this.sync());
     // element-parity counts every row's id, built or not (V6-066)
-    uiListIds(this.area.content, () => (this.o.onTap && this.o.id ? Array.from({ length: this.o.count }, (_, i) => this.o.id!(i)) : []));
+    uiListIds(this.area.content, () => scrollListIds(this.o));
     if (this.o.hint) this.hint = addScrollHint(scene, parent, this.area, this.o.fade);
     this.setCount(o.count);
   }
