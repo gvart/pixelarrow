@@ -11,9 +11,13 @@
  */
 import Phaser from 'phaser';
 import { ScrollArea, type FontKey } from './kit';
-import { Label, addScrollHint } from './widgets';
-import { MOSAIC, TEXT_MIN } from './tokens';
-import { SHEET_TITLE_H, addCover, hasRaster, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, type MButtonOpts } from './mosaic';
+import { Label, addScrollHint, markSurface } from './widgets';
+import { MOSAIC, SPACE, TEXT_MIN } from './tokens';
+import { MButton, SHEET_ACTION_H, SHEET_TITLE_H, addCover, hasRaster, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, sheetWidth, wrapWords, type MButtonOpts } from './mosaic';
+import { layoutVariant, type Box } from './mosaic/layout/geometry';
+import { BUTTON_MAX, DIALOG_MAX } from './sizeClass';
+import { uiId, uiPrimary } from './layout';
+import { focusPane } from './focusRing';
 import { ensureDoll, dollFrame, dollOrigin } from './sprites';
 import { renderStage } from '../art/sheetArt';
 import { renderFrame } from '../art/paperdoll';
@@ -146,15 +150,27 @@ const ink: { body: FontKey; dim: FontKey; good: FontKey; bullet: string; heading
   heading: (scene, x, y, str, maxW) => mtext(scene, x, y, str.toUpperCase(), 'rInk', { size: 7, maxW }),
 };
 
+/** The narrowest stage the figure keeps beside the plate, UI px. */
+const FIGURE_MIN = 24;
+
+/**
+ * The height of the beast's stage (and its square plate): a short sheet gives the stage less room so the words
+ * show, and beside the plate the figure always keeps some width (a narrow column once asked for a stage of
+ * negative width: the 844x390 Telegram crash, V6-RSCR-09).
+ */
+export function beastStageH(areaH: number, w: number, plate: boolean): number {
+  const h = Math.max(44, Math.min(74, Math.round(areaH * 0.4)));
+  return plate ? Math.min(h, w - 4 - FIGURE_MIN) : h;
+}
+
 /** The scrolled content of a beast panel into the area (width `w`). */
 function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: number, o: BeastInfoOpts): void {
   const c = area.content;
   const world = WORLD_BOSSES.includes(enc);
   let y = 0;
-  // a short sheet gives the stage less room so the words show
-  const stageH = Math.max(44, Math.min(74, Math.round(area.bounds.h * 0.4)));
   // the sheet: the painted plate (what it is) beside the figure on its stage (how it looks in battle)
   const plate = beastPlate(scene, enc);
+  const stageH = beastStageH(area.bounds.h, w, !!plate);
   let sx = 0;
   if (plate) {
     c.add(mosaicImage(scene, 0, y, stageH, stageH, 'parchmentWell'));
@@ -219,18 +235,16 @@ function fillBeastInfo(scene: UiScene, area: ScrollArea, enc: EncounterId, w: nu
  */
 export function openBeastSheet(scene: UiScene, enc: EncounterId, o: BeastInfoOpts = {}): { close: () => void } {
   const { VW, VH } = scene.m;
-  // docked: the full width (a long name keeps its title size beside the X at 320)
-  const w = VW - 8;
-  const actions: MButtonOpts[] = o.action
-    ? [{ label: o.action.label, icon: o.action.icon ?? 'swords', variant: o.action.disabled ? 'disabled' : 'primary', disabledReason: o.action.disabled, onClick: () => o.action!.run(), id: 'beast.sheet.action' }]
-    : [];
-  // the caption over the action: what a Trial fight is, or why it cannot be fought now
-  const caption = o.action?.disabled ?? o.caption;
+  // docked: the full width (a long name keeps its title size beside the X at 320); elsewhere the side panel or
+  // tablet sheet it will be (landscape-v6 §3.4), so the words fill the box they get
+  const v = layoutVariant(scene.m);
+  const w = v === 'compactPortrait' ? VW - 8 : sheetWidth(scene, { dock: 'bottom', w: v === 'medium' ? DIALOG_MAX : undefined });
+  // outside compact portrait the Trial fight is one button of at most 240 (§2.3), not the sheet's full-width row
+  const own = v !== 'compactPortrait' && !!o.action;
+  const actions: MButtonOpts[] = o.action && !own ? [actionOpts(o.action)] : [];
+  const ownH = own ? SHEET_ACTION_H + SPACE.sm : 0;
   const bw = w - 16;
-  const capSize = Math.max(TEXT_MIN, 7);
-  const capFont: FontKey = o.action?.disabled ? 'pInk' : 'pSec';
-  const capLines = caption ? wrapWords(caption, bw, (str) => mw(str, capFont, capSize)).slice(0, 3) : [];
-  const capH = capLines.length ? capLines.length * 10 + 4 : 0;
+  const cap = captionOf(o, bw);
   // as tall as its content (measured once off screen), at most the screen
   const probe = scene.add.container(0, 0);
   const pa = new ScrollArea(scene, probe, 0, 0, bw, 1000, scene.m.S);
@@ -238,13 +252,79 @@ export function openBeastSheet(scene: UiScene, enc: EncounterId, o: BeastInfoOpt
   const contentH = pa.contentHeight;
   pa.destroy();
   probe.destroy();
-  const h = Math.min(VH - 12, SHEET_TITLE_H + contentH + 6 + capH + sheetActionsH(actions, w) + 8);
+  const h = Math.min(VH - 12, SHEET_TITLE_H + contentH + 6 + cap.h + sheetActionsH(actions, w) + ownH + 8);
   const s = openParchmentSheet(scene, { title: encounterName(enc), w, h, actions, dock: 'bottom', id: 'beast.sheet', onClose: o.onClose });
   const b = s.body;
-  if (capLines.length) s.c.add(mtext(scene, b.x + b.w / 2, b.y + b.h - capH + 2, capLines.join('\n'), capFont, { size: capSize, align: 0.5 }).setCenterAlign());
-  const area = new ScrollArea(scene, s.c, b.x, b.y, b.w, b.h - capH - 2, scene.m.S);
+  let bottom = b.y + b.h;
+  if (own) {
+    const aw = Math.min(BUTTON_MAX, b.w);
+    bottom -= SHEET_ACTION_H;
+    s.c.add(new MButton(scene, b.x + Math.round((b.w - aw) / 2), bottom, aw, SHEET_ACTION_H, actionOpts(o.action!)));
+    bottom -= SPACE.sm;
+  }
+  if (cap.lines.length) s.c.add(mtext(scene, b.x + b.w / 2, bottom - cap.h + 2, cap.lines.join('\n'), cap.font, { size: cap.size, align: 0.5 }).setCenterAlign());
+  const area = new ScrollArea(scene, s.c, b.x, b.y, b.w, bottom - cap.h - 2 - b.y, scene.m.S);
   fillBeastInfo(scene, area, enc, b.w - 4, o);
   addScrollHint(scene, s.c, area, MOSAIC.parch);
   s.c.once('destroy', () => area.destroy());
   return { close: s.close };
+}
+
+/** The beast's primary action as a button (Trial fight; disabled with its reason). */
+function actionOpts(a: NonNullable<BeastInfoOpts['action']>): MButtonOpts {
+  return { label: a.label, icon: a.icon ?? 'swords', variant: a.disabled ? 'disabled' : 'primary', disabledReason: a.disabled, onClick: () => a.run(), id: 'beast.sheet.action' };
+}
+
+/** The caption over the action: what a Trial fight is, or why it cannot be fought now (up to 3 lines of `w`). */
+function captionOf(o: BeastInfoOpts, w: number): { lines: string[]; font: FontKey; size: number; h: number } {
+  const caption = o.action?.disabled ?? o.caption;
+  const size = Math.max(TEXT_MIN, 7);
+  const font: FontKey = o.action?.disabled ? 'pInk' : 'pSec';
+  const lines = caption ? wrapWords(caption, w, (str) => mw(str, font, size)).slice(0, 3) : [];
+  return { lines, font, size, h: lines.length ? lines.length * 10 + 4 : 0 };
+}
+
+/** Padding inside a detail pane, UI px (a sheet's). */
+const PANE_PAD = 8;
+
+/** A detail pane's title (as a sheet's, without the X: the pane is not a layer) and its rule; returns where the body starts. */
+export function addPaneTitle(scene: Phaser.Scene, c: Phaser.GameObjects.Container, box: Box, title: string): number {
+  const room = box.w - PANE_PAD * 2;
+  c.add(mtext(scene, box.x + box.w / 2, box.y + 5, title, 'rInk', { size: 9, maxW: room, align: 0.5 }));
+  const g = scene.add.graphics();
+  g.lineStyle(0.7, MOSAIC.parchEdge, 0.7);
+  g.lineBetween(box.x + PANE_PAD, box.y + 21, box.x + box.w - PANE_PAD, box.y + 21);
+  c.add(g);
+  return box.y + SHEET_TITLE_H;
+}
+
+/**
+ * The beast as a detail pane beside the Codex list (landscape-v6 §13.2): the same content as the sheet (title,
+ * plate and stage, how it fights, what beats it, drops, the caption and the Trial fight at the foot), laid out
+ * in `box` of `parent`. It keeps the sheet's ids, so the layout check sees the same elements at every size.
+ */
+export function addBeastDetail(scene: UiScene, parent: Phaser.GameObjects.Container, box: Box, enc: EncounterId, o: BeastInfoOpts = {}): Phaser.GameObjects.Container {
+  const c = scene.add.container(0, 0);
+  parent.add(c);
+  c.add(mosaicImage(scene, box.x, box.y, box.w, box.h, 'sheet'));
+  markSurface(c, MOSAIC.parch);
+  uiId(c, 'beast.sheet');
+  const top = addPaneTitle(scene, c, box, encounterName(enc));
+  const iw = box.w - PANE_PAD * 2;
+  let bottom = box.y + box.h - PANE_PAD;
+  if (o.action) {
+    const bw = Math.min(BUTTON_MAX, iw);
+    bottom -= SHEET_ACTION_H;
+    const b = new MButton(scene, box.x + Math.round((box.w - bw) / 2), bottom, bw, SHEET_ACTION_H, actionOpts(o.action));
+    c.add(uiPrimary(b));
+    focusPane(b, 1);
+    bottom -= SPACE.sm;
+  }
+  const cap = captionOf(o, iw);
+  if (cap.lines.length) c.add(mtext(scene, box.x + box.w / 2, bottom - cap.h + 2, cap.lines.join('\n'), cap.font, { size: cap.size, align: 0.5 }).setCenterAlign());
+  const area = new ScrollArea(scene, c, box.x + PANE_PAD, top, iw, bottom - cap.h - 2 - top, scene.m.S);
+  fillBeastInfo(scene, area, enc, iw - 4, o);
+  addScrollHint(scene, c, area, MOSAIC.parch);
+  c.once('destroy', () => area.destroy());
+  return c;
 }

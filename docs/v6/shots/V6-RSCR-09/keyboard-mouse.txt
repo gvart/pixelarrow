@@ -1,0 +1,20 @@
+1280x800 Tab order: beast.sheet.action > tab.codex > hub.topbar.gear > codex.seg.beasts > codex.hydra > codex.cyclops > codex.harpies > codex.nemean_lion > codex.minotaur > codex.chimera > codex.kraken > codex.titan > beast.sheet.action > tab.codex > codex.seg.beasts > codex.hydra > codex.cyclops > codex.harpies
+PASS 1280: the first Tab shows the ring on the primary (Trial fight) — beast.sheet.action
+PASS 1280: Tab reads top bar, master (switch, cards), detail (Trial), then the rail — top 2, card 4, trial 12, rail 13
+PASS 1280: Enter on Cyclops shows it in the detail pane — {"kind":"beast","id":"cyclops"}
+PASS 1280: focus stays on the chosen card after the rebuild — codex.cyclops
+PASS 1280: a card shows the pointer cursor — pointer
+PASS 1280: a click on Harpies shows it in the detail pane — {"kind":"beast","id":"harpies"}
+PASS 1280: Trial fight shows the pointer cursor — pointer
+PASS 1280: the arrows switch to Doctrines; the pane shows the first met doctrine — doctrines
+PASS 1280: no page errors
+PASS 768: Enter on a card opens the beast sheet and focus moves into it — beast.sheet.close
+PASS 768: Esc closes the sheet — 0
+PASS 768: focus returns to the opener — codex.cyclops
+PASS 768: a click opens the sheet with its X
+PASS 768: the X closes it
+PASS 768: no page errors
+PASS 1024: the doctrine door selects Fury in the pane (no sheet) — {"kind":"doctrine","id":"fury"}
+PASS 1024: a locked doctrine shows the not-allowed cursor — not-allowed
+PASS 1024: no page errors
+ALL PASS

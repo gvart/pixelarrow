@@ -83,9 +83,7 @@ export function tgInsets([w, h]) {
  * A crash cannot be allowlisted and breaks every later screen in its browser context, so the run
  * skips these and prints them; the owner fixes the crash and deletes the line (the list only shrinks).
  */
-export const KNOWN_CRASHES = {
-  'codex-beast@844x390/tg': 'V6-RSCR-09: "Invalid typed array length: -888" opening the beast sheet in the 844x390 Telegram safe area (323 px tall)',
-};
+export const KNOWN_CRASHES = {};
 
 /** Every configuration (language x size x safe-area variant) to visit; the Telegram variant only where tgInsets has one. */
 export function configsFor(sizes, langs, insets) {

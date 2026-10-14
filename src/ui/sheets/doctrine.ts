@@ -10,11 +10,14 @@
  */
 import Phaser from 'phaser';
 import { ScrollArea, addIcon, scaleIcon, type FontKey, type UIMetrics } from '../kit';
-import { addScrollHint } from '../widgets';
 import { MOSAIC } from '../tokens';
+import { addScrollHint, markSurface } from '../widgets';
 import { LINE_H } from '../textfit';
 import { uiId } from '../layout';
-import { mtext, mw, openParchmentSheet, SHEET_TITLE_H, wrapWords } from '../mosaic';
+import { mosaicImage, mtext, mw, openParchmentSheet, SHEET_TITLE_H, sheetWidth, wrapWords } from '../mosaic';
+import { layoutVariant, type Box } from '../mosaic/layout/geometry';
+import { DIALOG_MAX } from '../sizeClass';
+import { addPaneTitle } from '../beastInfo';
 import { DOCTRINE_IDS, type DoctrineId } from '../../sim/types';
 import { safeLocalStorage } from '../../platform/storage';
 import { practiceOf } from '../../game/campaignBattle';
@@ -115,7 +118,9 @@ function fill(scene: Phaser.Scene, c: Phaser.GameObjects.Container, id: Doctrine
  */
 export function openDoctrineSheet(scene: UiScene, id: DoctrineId, onClose?: () => void): { close: () => void } {
   const { VW, VH } = scene.m;
-  const w = VW - 16;
+  // v5's width on a phone; elsewhere the side panel or tablet sheet it will be (landscape-v6 §3.4)
+  const v = layoutVariant(scene.m);
+  const w = v === 'compactPortrait' ? VW - 16 : sheetWidth(scene, { w: v === 'medium' ? DIALOG_MAX : undefined });
   const iw = w - PAD * 2 - 4;
   // measure first: the sheet is as tall as its words, at most the screen
   const probe = scene.add.container(0, 0);
@@ -130,4 +135,31 @@ export function openDoctrineSheet(scene: UiScene, id: DoctrineId, onClose?: () =
   s.c.once('destroy', () => area.destroy());
   uiId(s.c, `doctrine.${id}`);
   return { close: s.close };
+}
+
+/**
+ * The doctrine as a detail pane beside the Codex list (landscape-v6 §13.2): the sheet's title and content in
+ * `box` of `parent`, with the sheet's ids (the pane is not a layer, so it has no X).
+ */
+export function addDoctrineDetail(scene: UiScene, parent: Phaser.GameObjects.Container, region: Box, id: DoctrineId): Phaser.GameObjects.Container {
+  const iw = region.w - PAD * 2 - 4;
+  // as tall as its words, centred in the pane's height (as the Menu's and Army's panes); at most the pane, then it scrolls
+  const probe = scene.add.container(0, 0);
+  const contentH = fill(scene, probe, id, iw);
+  probe.destroy();
+  const h = Math.min(region.h, SHEET_TITLE_H + contentH + PAD);
+  const box = { ...region, y: region.y + Math.floor((region.h - h) / 2), h };
+  const c = scene.add.container(0, 0);
+  parent.add(c);
+  c.add(mosaicImage(scene, box.x, box.y, box.w, box.h, 'sheet'));
+  markSurface(c, MOSAIC.parch);
+  uiId(c, 'doctrine.sheet');
+  const top = addPaneTitle(scene, c, box, doctrineName(id));
+  const area = new ScrollArea(scene, c, box.x + PAD + 2, top, box.w - PAD * 2 - 2, box.y + box.h - PAD - top, scene.m.S);
+  const body = scene.add.container(0, 0);
+  area.content.add(uiId(body, `doctrine.${id}`));
+  area.setContentHeight(fill(scene, body, id, iw));
+  addScrollHint(scene, c, area, MOSAIC.parch);
+  c.once('destroy', () => area.destroy());
+  return c;
 }
