@@ -138,6 +138,35 @@ export function settled(api, key, ms = 20000) {
   );
 }
 
+/** Resolves once the game has run at least `n` more frames (a state, not a sleep: slow frames take longer). */
+export const nextFrame = (ev, n = 1) =>
+  ev(
+    (k) =>
+      new Promise((done) => {
+        const f = window.__game.loop.frame;
+        const tick = () => (window.__game.loop.frame >= f + k ? done(true) : requestAnimationFrame(tick));
+        tick();
+      }),
+    n,
+  );
+
+/**
+ * The page point `find()` returns (a button's centre, say; null while absent) once it stands still: the same
+ * before and after a game frame, so a sheet, card or dialog that slides or pops in has landed before the tap.
+ * Polls up to `ms`; null if it never shows or never stops.
+ */
+export async function steady(ev, find, ms = 15000) {
+  let p = null;
+  const ok = await until(async () => {
+    const a = await find();
+    if (!a) return false;
+    await nextFrame(ev);
+    p = await find();
+    return !!p && p[0] === a[0] && p[1] === a[1];
+  }, ms, 100);
+  return ok ? p : null;
+}
+
 // ------------------------------------------------------------------ page API
 
 /**
