@@ -1,11 +1,14 @@
 // The web sign-in forms end to end against a local Worker (V6-ACCT-05, design/ux/accounts-v6.md §5–§7).
 //
-//   node scripts/account-e2e.mjs <workerUrl> [--persist server/.wrangler/state] [--shots <dir>]
+//   node scripts/account-e2e.mjs <gameUrl> [--persist <wrangler state dir>] [--shots <dir>]
 //
 // Needs `wrangler dev` (from server/: npx wrangler dev --config ../wrangler.jsonc --persist-to <dir>
-// --port <port>) serving a build made with VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA, and a
-// .dev.vars with DEV_AUTH=1, DEV_EMAIL=1, the always-pass TURNSTILE_SECRET and DEV_ORIGINS holding the
-// worker's origin. Links are read from the local D1 dev_outbox (wrangler d1 execute). It runs as a web
+// --port <apiPort>) and the game from vite on another port proxying /api to it
+// (VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA API_PROXY=http://127.0.0.1:<apiPort> npx vite --port <gamePort>),
+// with a .dev.vars holding DEV_AUTH=1, DEV_EMAIL=1, the always-pass TURNSTILE_SECRET and DEV_ORIGINS with
+// the vite origin. Give the game's (vite's) URL, not the worker's: under wrangler dev
+// (4.148) a request whose Origin equals its own host is refused 403 bad_origin (observed with curl too; a
+// local-dev quirk, production serves both from one origin). Links are read from the local D1 dev_outbox (wrangler d1 execute). It runs as a web
 // page (the email forms are web-only) and checks Telegram mode never opens them.
 //
 // Flows: sign up (a common password refused, then accepted) → Check your email → a taken address gets the
