@@ -58,6 +58,8 @@ export interface AuthFormSpec {
   footLinks?: FormLink[];
   /** The submit: the form is busy until it settles, and a second submit is impossible meanwhile. */
   onSubmit: (values: Record<string, string>, form: AuthForm) => Promise<void>;
+  /** The form left the overlay (Back, Cancel, Escape, close, or the caller's own back()): a form another one waits on resolves here. */
+  onDispose?: () => void;
 }
 
 /** A kit colour (src/ui/tokens.ts MOSAIC) as CSS. */
@@ -454,6 +456,7 @@ export class AuthForm {
   dispose(): void {
     this.widget?.remove();
     this.widget = null;
+    this.spec.onDispose?.();
   }
 }
 

@@ -121,6 +121,8 @@ export function createTelegramPlatform(env: PlatformEnv, opts: { bot?: string; a
         const d = app?.initData;
         return typeof d === 'string' && d.length > 0 ? { kind: 'telegram', initData: d } : null;
       },
+      // the Mini App's own direct link relaunches it with fresh initData, straight into the account page
+      reopen: () => !!app && !!opts.bot && openTelegramLink(`https://t.me/${opts.bot}/${opts.app ?? 'play'}?startapp=account`),
     },
     payments: createTelegramPayments(() => app, v),
     storage: {

@@ -14,6 +14,10 @@ import { LoginGuard, ResendGate } from '../../ui/account/flows';
 import { openForgot } from '../../ui/account/forgot';
 import { openLogin } from '../../ui/account/login';
 import { openSignup } from '../../ui/account/signup';
+import { openAddEmail } from '../../ui/account/addEmail';
+import { openChangeEmail } from '../../ui/account/changeEmail';
+import { openChangePassword } from '../../ui/account/changePassword';
+import { confirmItsYou } from '../../ui/account/reauth';
 import { CountdownLabel, ParchmentRow, ROW_H } from '../../ui/mosaic';
 import { G, type Cursor, type KitScene } from './common';
 
@@ -41,7 +45,7 @@ function kitCheck(mode: HumanCheckState): HumanCheck {
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Stand-in deps: each endpoint answers after a short delay with `reply` (a value or an ApiError). */
-function kitDeps(o: { check?: HumanCheckState; login?: unknown; signup?: unknown; resend?: ResendGate } = {}): AccountDeps {
+function kitDeps(o: { check?: HumanCheckState; login?: unknown; signup?: unknown; resend?: ResendGate; reauth?: unknown; manage?: unknown; proof?: string } = {}): AccountDeps {
   const answer = (reply: unknown) => async () => {
     await wait(400);
     if (reply instanceof Error) throw reply;
@@ -55,7 +59,16 @@ function kitDeps(o: { check?: HumanCheckState; login?: unknown; signup?: unknown
       resendVerify: answer({ status: 'check_email' }),
       logout: answer({ ok: true }),
       logoutAll: answer({ ok: true }),
+      // V6-LINK-05: the first call of a sensitive action asks for a proof, as the server does after 10 minutes
+      reauthWith: answer(o.reauth ?? { reauthUntil: Date.now() + 600_000 }),
+      addEmail: answer(o.manage ?? { status: 'check_email' }),
+      changeEmail: answer(o.manage ?? { status: 'check_email' }),
+      removeMethod: answer(o.manage ?? { ok: true, signedOut: false }),
+      changePassword: answer(o.manage ?? { ok: true }),
     },
+    transport: () => 'cookie',
+    proof: () => o.proof ?? null,
+    reopen: () => false,
     session: { recheckSession: async () => true, signOut: async () => true, playerName: 'Swift Fox 12' },
     humanCheck: kitCheck(o.check ?? 'ready'),
     kv: { get: async () => null, set: async () => {}, remove: async () => {} },
@@ -167,6 +180,65 @@ export const FORM_SAMPLES: readonly FormSample[] = [
   { id: 'check-reset', label: 'Check your email: reset', what: 'No Change link; Resend reopens the form', icon: 'check', open: (s) => openKitCheck(s, 'reset', 1) },
   { id: 'check-capped', label: 'Check your email: capped', what: 'The 4th email in an hour: off', icon: 'check', open: (s) => openKitCheck(s, 'signup', 4) },
   { id: 'resend', label: 'Resend link', what: 'No field: the check and Send again', icon: 'check', open: (s) => void openResend(s, kitDeps(), SAMPLE_EMAIL) },
+  // V6-LINK-05: account management (accounts-v6.md §1.4, §8.3, §8.4)
+  { id: 'reauth', label: "Confirm it's you", what: 'The password, after 401 reauth_required', icon: 'shield', open: (s) => void confirmItsYou(s, kitDeps(), { hasPassword: true }) },
+  {
+    id: 'reauth-wrong',
+    label: "Confirm it's you: wrong password",
+    what: 'Under the field, emptied; counts toward the lockout',
+    icon: 'cross',
+    open: (s) => {
+      void confirmItsYou(s, kitDeps({ reauth: new ApiError(401, 'invalid_credentials', 'x') }), { hasPassword: true });
+      // the form opens after the (absent) silent proof
+      setTimeout(() => {
+        AuthHost.top()?.form?.setValue('password', 'not-my-password');
+        submitTop();
+      }, 50);
+    },
+  },
+  {
+    id: 'reauth-reopen',
+    label: "Confirm it's you: Reopen",
+    what: 'Telegram, initData older than 10 min, no password',
+    icon: 'repair',
+    open: (s) => void confirmItsYou(s, kitDeps({ proof: 'query_id=kit', reauth: new ApiError(401, 'init_data_expired', 'x') }), { hasPassword: false }),
+  },
+  {
+    id: 'reauth-both',
+    label: "Confirm it's you: password or Reopen",
+    what: 'Telegram, stale initData, the account has an email',
+    icon: 'repair',
+    open: (s) => {
+      const d = kitDeps({ proof: 'query_id=kit', reauth: new ApiError(401, 'init_data_expired', 'x') });
+      void confirmItsYou(s, { ...d, reopen: () => true }, { hasPassword: true });
+    },
+  },
+  { id: 'add-email', label: 'Add email and password', what: 'Telegram → web; no human check', icon: 'plus', open: (s) => void openAddEmail(s, kitDeps(), { onReload: () => undefined }) },
+  {
+    id: 'add-email-limit',
+    label: 'Add email: 5 links this hour',
+    what: '429: the banner, fields kept',
+    icon: 'hourglass',
+    open: (s) => {
+      const f = openAddEmail(s, kitDeps({ manage: new ApiError(429, 'rate_limited', 'x') }), { email: SAMPLE_EMAIL, onReload: () => undefined });
+      f.setValue('password', 'a long passphrase');
+      submitTop();
+    },
+  },
+  { id: 'change-email', label: 'Change email', what: 'One field: the new address', icon: 'pen', open: (s) => void openChangeEmail(s, kitDeps(), { onReload: () => undefined }) },
+  {
+    id: 'change-email-same',
+    label: 'Change email: the same address',
+    what: '400 same_email under the field',
+    icon: 'cross',
+    open: (s) => {
+      openChangeEmail(s, kitDeps({ manage: new ApiError(400, 'same_email', 'x') }), { email: SAMPLE_EMAIL, onReload: () => undefined });
+      submitTop();
+    },
+  },
+  { id: 'change-password', label: 'Change password', what: 'Current and new, with the hint', icon: 'lock', open: (s) => void openChangePassword(s, kitDeps(), { onReload: () => undefined }) },
+  { id: 'check-add', label: 'Check your email: add email', what: 'It also signs you in there', icon: 'check', open: (s) => openCheckEmail(s, kitDeps(), { email: SAMPLE_EMAIL, variant: 'addEmail', onResend: () => undefined }) },
+  { id: 'check-change', label: 'Check your email: change email', what: 'The old address stays until opened', icon: 'check', open: (s) => openCheckEmail(s, kitDeps(), { email: SAMPLE_EMAIL, variant: 'changeEmail', onResend: () => undefined }) },
 ];
 
 function openKitCheck(s: KitScene, variant: 'signup' | 'reset', sends: number): void {
@@ -183,6 +255,8 @@ export function openFormSample(scene: KitScene, id: string): void {
   FORM_SAMPLES.find((o) => o.id === id)?.open(scene);
 }
 
+const MANAGE = new Set(['reauth', 'reauth-wrong', 'reauth-reopen', 'reauth-both', 'add-email', 'add-email-limit', 'change-email', 'change-email-same', 'change-password', 'check-add', 'check-change']);
+
 export function buildForms(cur: Cursor): void {
   const { scene, w } = cur;
   const rows = (list: readonly FormSample[]) => {
@@ -193,9 +267,12 @@ export function buildForms(cur: Cursor): void {
   };
   cur.title('AuthForm');
   cur.note('HTML forms over the canvas: real inputs, so password managers, paste and the phone keyboard work. Stand-in answers; no server.');
-  rows(FORM_SAMPLES.filter((o) => !o.id.startsWith('check') && o.id !== 'resend'));
+  rows(FORM_SAMPLES.filter((o) => !o.id.startsWith('check') && o.id !== 'resend' && !MANAGE.has(o.id)));
   cur.title('Check your email');
-  rows(FORM_SAMPLES.filter((o) => o.id.startsWith('check') || o.id === 'resend'));
+  rows(FORM_SAMPLES.filter((o) => (o.id.startsWith('check') || o.id === 'resend') && !MANAGE.has(o.id)));
+  cur.title('Account management');
+  cur.note("Confirm it's you, add or change the email, change the password (V6-LINK-05).");
+  rows(FORM_SAMPLES.filter((o) => MANAGE.has(o.id)));
   cur.title('CountdownLabel');
   cur.note('m:ss on the wall clock; calls back at zero.');
   const cd = new CountdownLabel(scene, 0, cur.y, { ms: 42_000, maxW: w, template: (time) => t('auth.check.resendIn', { time }) });

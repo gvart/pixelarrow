@@ -45,4 +45,10 @@ export interface Auth {
    * no email forms (Telegram: initData is signed, and Turnstile can't run in its webview, N-AF-3).
    */
   readonly humanCheck?: HumanCheck;
+  /**
+   * Relaunches the game with a fresh `silentProof()` and the account page open (accounts-v6.md §8.6 "Reopen"):
+   * re-auth needs a proof at most 10 minutes old (M-LK-1). False when nothing opened. Absent where the
+   * platform's proof never goes stale (the web has none).
+   */
+  readonly reopen?: () => boolean;
 }
