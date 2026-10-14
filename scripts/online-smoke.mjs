@@ -4,8 +4,8 @@
 // shots/20-shop.png, git-ignored) and buys a consumable from a map merchant
 // against mocked routes.
 // Platform modes (scripts/lib/platform.mjs): `telegram` is all of the above (the fake WebApp signs in);
-// `web` is a plain web page, signed out: the campaign plays offline and saves locally, the shop says
-// "Sign in to play online" (AU-01), online mode says unavailable, and nothing is requested from telegram.org.
+// `web` is a plain web page, signed out: the campaign plays offline and saves locally, the shop and
+// online mode say "Sign in to play online" (AU-01), and nothing is requested from telegram.org.
 // Usage: node scripts/online-smoke.mjs <baseUrl> [outDir] [--platform telegram|web|both]   (needs a running dev/preview server)
 import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir, until } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
@@ -48,7 +48,8 @@ async function webRun() {
   await ev(() => window.__game.scene.getScene('Menu').continueCampaign());
   check('[web] the offline campaign: world map playable', await until(() => active('World'), 30000));
   await startAll('Online');
-  check('[web] online mode says unavailable', await until(async () => (await active('Online')) && (await sceneText('Online')).includes('ONLINE UNAVAILABLE'), 15000), (await sceneText('Online').catch(() => '')).slice(0, 80));
+  // V6-ACCT-07: signed out on the web, the war shows AU-01 "Sign in to play online" (not "outside Telegram")
+  check('[web] online mode says "Sign in to play online"', await until(async () => (await active('Online')) && /sign in to play online/i.test(await sceneText('Online')), 15000), (await sceneText('Online').catch(() => '')).slice(0, 80));
   await startAll('Menu');
   await until(() => active('Menu'), 15000);
   await ev(() => window.__state.save());

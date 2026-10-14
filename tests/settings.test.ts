@@ -42,7 +42,7 @@ vi.mock('phaser', () => {
   const go = { Container: C, Image: C, Sprite: C, Text: C, BitmapText: C, Graphics: C, Rectangle: C, Zone: C, TileSprite: C, RenderTexture: C };
   return { default: { GameObjects: go, Scene: C, Geom: { Rectangle: C }, Events: { EventEmitter: C } } };
 });
-const { ROWS } = await import('../src/ui/settings');
+const { ROWS, accountRow } = await import('../src/ui/settings');
 
 describe('the Settings sheet keeps every element of the element map (M-15, ELEMENT_MAP E005, E019-E034)', () => {
   const has = (pred: (r: (typeof ROWS)[number]) => boolean) => ROWS.some(pred);
@@ -64,6 +64,21 @@ describe('the Settings sheet keeps every element of the element map (M-15, ELEME
     expect(has((r) => r.kind === 'open' && r.what === 'notify')).toBe(true);
     expect(has((r) => r.kind === 'open' && r.what === 'about')).toBe(true);
     expect(has((r) => r.kind === 'newCampaign')).toBe(true);
+  });
+
+  it('Account is the first row of the Account section, and the rest stay where they were (accounts-v6.md §8.1)', () => {
+    const at = ROWS.findIndex((r) => r.kind === 'section' && r.label === 'settings.sec.account');
+    expect(ROWS[at + 1]).toEqual({ kind: 'account', label: 'account.row' });
+    expect(ROWS.slice(at + 2).map((r) => r.kind)).toEqual(['sync', 'tutorial', 'open', 'open', 'toggle', 'newCampaign']);
+  });
+
+  it('the Account row by session: the name and Open; a guest Log in; a pending sign-up; offline', () => {
+    expect(accountRow({ signedIn: true, name: 'Swift Fox 12', forms: true, pending: false })).toEqual({ sub: 'Swift Fox 12', action: 'open' });
+    expect(accountRow({ signedIn: true, name: 'Ana', forms: false, pending: false })).toEqual({ sub: 'Ana', action: 'open' });
+    expect(accountRow({ signedIn: false, name: null, forms: true, pending: false })).toEqual({ sub: t('account.row.guest'), action: 'login' });
+    expect(accountRow({ signedIn: false, name: null, forms: true, pending: true })).toEqual({ sub: t('account.row.pending'), action: 'open' });
+    // Telegram before its silent sign-in answered: no form to offer
+    expect(accountRow({ signedIn: false, name: null, forms: false, pending: false })).toEqual({ sub: t('settings.sync.offline'), action: 'open' });
   });
 
   it('every label exists in English and Russian', () => {

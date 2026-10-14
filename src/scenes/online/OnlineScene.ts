@@ -9,6 +9,7 @@
  * displays it and sends intents. Started with `{ preview }` it shows a local
  * demo shard instead (src/online/demoShard.ts: layout check, screenshots).
  */
+import { addSignInGate, showsSignInGate } from '../../ui/account/gate';
 import { RS } from '../../platform/renderScale';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
@@ -579,6 +580,11 @@ export class OnlineScene extends BaseScene {
     const H = this.hud;
     H.add(mosaicImage(this, area.x, area.y, area.w, area.h, 'paper'));
     const v = this.view;
+    if (v.kind === 'unavailable' && v.outside && showsSignInGate()) {
+      // AU-01 (V6-ACCT-07): the web with no session signs in here
+      addSignInGate(this, H, area.x, area.y, area.w, area.h, 'war', () => this.scene.restart(this.sys.settings.data));
+      return;
+    }
     const w = Math.min(area.w - 12, 200);
     const x = Math.round(area.x + (area.w - w) / 2);
     const lh = Math.ceil(lineHeight(TEXT_MIN));

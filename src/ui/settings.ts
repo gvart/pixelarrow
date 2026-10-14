@@ -26,6 +26,10 @@ import { analyticsToggled } from '../platform/monitoring';
 import { SPEEDS, speedLabel, startSpeed } from './input/pace';
 import { openControls } from './settings/controls';
 import { platform, type InputHints } from '../platform';
+import { deviceKV } from '../platform/storage';
+import { canUsePasswordForms, openAccountForm } from './account';
+import { openAccountPage } from './account/accountPage';
+import { readPending } from './account/flows';
 
 type ToggleKey = { [K in keyof Settings]-?: NonNullable<Settings[K]> extends boolean ? K : never }[keyof Settings];
 type Volume = 'musicVol' | 'sfxVol';
@@ -40,6 +44,7 @@ type Row =
   | { kind: 'tutorial'; label: TKey }
   | { kind: 'open'; what: 'notify' | 'about' | 'controls'; label: TKey }
   | { kind: 'sync'; label: TKey }
+  | { kind: 'account'; label: TKey }
   | { kind: 'newCampaign'; label: TKey; sub: TKey };
 
 interface UiScene extends Phaser.Scene {
@@ -75,6 +80,7 @@ export const ROWS: readonly Row[] = [
   { kind: 'toggle', key: 'haptics', label: 'settings.haptics' },
   { kind: 'toggle', key: 'leftHand', label: 'settings.leftHand' },
   { kind: 'section', label: 'settings.sec.account' },
+  { kind: 'account', label: 'account.row' },
   { kind: 'sync', label: 'menu.cloudSave' },
   { kind: 'tutorial', label: 'settings.tutorial' },
   { kind: 'open', what: 'notify', label: 'settings.notifications' },
@@ -93,6 +99,17 @@ export function settingsRows(keyboard: boolean): readonly Row[] {
   if (!keyboard) return ROWS;
   const at = ROWS.findIndex((r) => r.kind === 'section' && r.label === 'settings.sec.account');
   return [...ROWS.slice(0, at), ...CONTROLS_ROWS, ...ROWS.slice(at)];
+}
+
+/**
+ * The Account row (accounts-v6.md §8.1, V6-ACCT-07): signed in, the name and Open (AU-09); a guest where the
+ * platform has email forms, "Guest: this browser only" and Log in; a sign-up waiting for its link, "Confirm
+ * your email" and Open; no session and no form (Telegram before its silent sign-in answered), Offline.
+ */
+export function accountRow(o: { signedIn: boolean; name: string | null; forms: boolean; pending: boolean }): { sub: string; action: 'open' | 'login' } {
+  if (o.signedIn) return { sub: o.name ?? '', action: 'open' };
+  if (!o.forms) return { sub: t('settings.sync.offline'), action: 'open' };
+  return o.pending ? { sub: t('account.row.pending'), action: 'open' } : { sub: t('account.row.guest'), action: 'login' };
 }
 
 /** Calls `cb` with the new rows when a keyboard appears or goes (a tablet pairing one), without reopening Settings. */
@@ -117,6 +134,10 @@ const SECTION_ICON: Partial<Record<TKey, string>> = {
 const REBUILD_ON_LANG = new Set(['Menu', 'Codex', 'World', 'Settlement', 'Army', 'Hero', 'Online', 'OnlineArmy', 'OnlineClan', 'Kit']);
 
 const open = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
+
+/** The last pending sign-up hint read (accounts-v6.md §5.5). */
+let pendingHint = false;
+const accountRowNow = () => accountRow({ signedIn: online.signedIn, name: online.playerName, forms: canUsePasswordForms(), pending: pendingHint });
 
 /**
  * The settings sheet (slides up; Back, a tap outside or the X shut it):
@@ -151,6 +172,7 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
       if (r.kind === 'newCampaign') return ['settings.newCampaign'];
       if (r.kind === 'open') return [`settings.open.${r.what}`];
       if (r.kind === 'sync') return ['legend.sync'];
+      if (r.kind === 'account') return [accountRowNow().action === 'login' ? 'settings.account.login' : 'settings.open.account'];
       return [];
     },
     render: (i, row, rw) => {
@@ -186,17 +208,18 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         );
         return;
       }
-      const right = r.kind === 'volume' || r.kind === 'speed' ? 74 : r.kind === 'sync' ? 30 : r.kind === 'tutorial' || r.kind === 'open' || r.kind === 'newCampaign' ? 70 : 38;
+      const right = r.kind === 'volume' || r.kind === 'speed' ? 74 : r.kind === 'sync' ? 30 : r.kind === 'tutorial' || r.kind === 'open' || r.kind === 'newCampaign' || r.kind === 'account' ? 70 : 38;
       // a label that does not fit goes onto two lines at the readable floor (6.5 UI px, A11Y-09; never cut)
       const room = rw - right - 10;
       const label = t(r.label);
       let sub: Phaser.GameObjects.BitmapText | null = null;
-      if (r.kind === 'newCampaign' || r.kind === 'sync') {
-        // the name, and under it what it does (MENU-7) or the cloud save's state (MENU-4)
+      if (r.kind === 'newCampaign' || r.kind === 'sync' || r.kind === 'account') {
+        // the name, and under it what it does (MENU-7), the cloud save's state (MENU-4) or who is signed in (§8.1)
         const big = measureText(label) <= room;
         const name = addText(scene, 6, 2, big ? label : ellipsize(label, room, false, TEXT_MIN), 'pInk');
         row.add(big ? name : name.setFontSize(TEXT_MIN));
-        sub = addText(scene, 6, 12, t(r.kind === 'sync' ? `settings.sync.${online.status}` : r.sub), 'pMuted').setFontSize(TEXT_MIN);
+        const line = r.kind === 'sync' ? t(`settings.sync.${online.status}`) : r.kind === 'account' ? ellipsize(accountRowNow().sub, room, false, TEXT_MIN) : t(r.sub);
+        sub = addText(scene, 6, 12, line, 'pMuted').setFontSize(TEXT_MIN);
         row.add(sub);
       } else if (measureText(label) <= room) row.add(addText(scene, 6, 8, label, 'pInk'));
       else {
@@ -308,6 +331,11 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
         const word = sub;
         const off = online.onStatus((st) => word.active && word.setText(t(`settings.sync.${st}`)));
         word.once('destroy', off);
+      } else if (r.kind === 'account') {
+        const a = accountRowNow();
+        if (a.action === 'login')
+          row.add(new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('auth.gate.login'), inline: true, small: true, id: 'settings.account.login', onClick: () => openAccountForm(scene, 'login', { onSignedIn: () => list?.refresh() }) }));
+        else row.add(new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.open'), icon: 'chevR', inline: true, small: true, id: 'settings.open.account', onClick: () => openAccountPage(scene, { onClose: () => list?.refresh() }) }));
       } else if (r.kind === 'open') {
         const what = r.what;
         row.add(new Button(scene, rw - 4 - 68, 1, 68, 22, { label: t('settings.open'), icon: 'chevR', inline: true, small: true, id: `settings.open.${what}`, onClick: () => (what === 'notify' ? openNotifySettings(scene) : what === 'controls' ? openControls(scene) : openAbout(scene)) }));
@@ -315,6 +343,11 @@ export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameO
     },
   });
   open.set(scene, c);
+  // a sign-up waiting for its link on this device (a hint): the Account row says so once it is read
+  void readPending(deviceKV, Date.now()).then((p) => {
+    pendingHint = !!p;
+    if (p && c.scene) list?.refresh();
+  });
   const offRows = watchRows(platform.input, (next) => {
     rows = next;
     list?.setCount(rows.length);

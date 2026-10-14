@@ -180,6 +180,12 @@ const SCREENS = [
   // Settings → Notifications (demo switches) and Settings → About (legal pages)
   { id: 'menu-settings-notify', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openNotifications(true); return 1;'), wait(p, 500)) },
   { id: 'menu-settings-about', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openAboutPage(); return 1;'), wait(p, 400)) },
+  // V6-ACCT-07: Settings → Account (signed in, guest, a pending sign-up; in-memory), Signed-in devices, Two campaigns
+  { id: 'menu-settings-account', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('live'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-account-guest', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('guest'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-account-pending', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('pending'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-devices', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openDevicesDemo(); return 1;'), wait(p, 700)) },
+  { id: 'menu-two-campaigns', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openTwoCampaignsDemo(); return 1;'), wait(p, 500)) },
   { id: 'menu-reset', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.confirmReset(); return 1;'), wait(p, 400)) },
   { id: 'codex', owner: 'F', run: async (p) => (await codexMet(p, []), await start(p, 'Codex'), wait(p, 900)) },
   // the Codex (CDX-01): a beast sheet with the Trial fight, the Doctrines segment (four met, one locked), a doctrine sheet

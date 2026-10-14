@@ -13,6 +13,8 @@ import { measureText } from '../textfit';
 import type { CosmeticInfo, EconomyCatalog, PassReward } from '../../platform/api';
 import type { EconState } from '../../game/economy';
 import { t, tOr } from '../../i18n';
+import type { UiScene } from '../mosaic/subShell';
+import { addSignInGate, gateForScene, showsSignInGate } from '../account/gate';
 
 /**
  * Makes sure the 'drachma' kit icon (icon_drachma, iconL_, iconD_) exists: it
@@ -81,6 +83,12 @@ export function addEconState(scene: Phaser.Scene, parent: Phaser.GameObjects.Con
     const tx = mtext(scene, x + w / 2, y + h / 2 - 4, t('econ.loading'), 'pSec', { align: 0.5, maxW: w - 8 });
     parent.add(tx);
     scene.tweens.add({ targets: tx, alpha: { from: 1, to: 0.35 }, duration: 500, yoyo: true, repeat: -1 });
+    return;
+  }
+  // the web with no session: AU-01 Sign in to play online (V6-ACCT-07), never "outside Telegram"
+  if (s === 'outside' && showsSignInGate()) {
+    const sc = scene as UiScene;
+    addSignInGate(sc, parent, x, y, w, h, gateForScene(scene.sys.settings.key), () => scene.scene.restart(scene.sys.settings.data));
     return;
   }
   const title = s === 'outside' ? t('econ.outside') : s === 'offline' ? t('econ.offline') : s === 'closed' ? t('econ.closed') : t('econ.error');

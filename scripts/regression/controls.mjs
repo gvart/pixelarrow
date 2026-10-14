@@ -75,7 +75,8 @@ await flow('settings', async () => {
         check(`${n} ${key}: the switch is there`, false);
         break;
       }
-      const want = !before?.value;
+      // a switch scrolled out of view reads null until tapCtl brings it in: then the saved setting says what it shows
+      const want = !(before ? before.value : s0.s[key]);
       const ok = await until(async () => {
         const s1 = await saved();
         return s1.s[key] === want && s1.seq > s0.seq && (await ctl('Menu', id))?.value === want;
