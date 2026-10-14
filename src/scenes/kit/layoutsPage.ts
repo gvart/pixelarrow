@@ -13,7 +13,7 @@
  */
 import Phaser from 'phaser';
 import { ScrollArea, addText } from '../../ui/kit';
-import { uiId } from '../../ui/layout';
+import { uiId, uiLayout } from '../../ui/layout';
 import { motion, tweenTo } from '../../ui/motion';
 import { BUTTON_MAX, ROW_MAX, READING_MAX } from '../../ui/sizeClass';
 import { MOSAIC } from '../../ui/tokens';
@@ -62,6 +62,8 @@ const SPOILS = ['coin', 'chest', 'sword', 'shield', 'helmet', 'armor', 'spear', 
 export function buildLayouts(scene: KitScene, p: C, o: LayoutsOpts): LayoutsPage {
   const { VW, VH } = scene.m;
   const variant = layoutVariant(scene.m);
+  // the variant this page built, for the layout check's class-match (a field is judged by field-coverage)
+  uiLayout(scene, scene.m.cls, scene.m.land, o.demo === 'field' ? 'field' : 'menu');
   const demoSwitch = (x: number, y: number, w: number) =>
     new SegmentedSwitch(scene, x, y, w, {
       options: [
