@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- The link carries a token in #t=: no page or request here may send a Referer (M-AF-6). -->
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#16120f" />
+    <title>Pixelarrow</title>
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="stylesheet" href="./auth.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body data-variant="signup">
+    <main class="shell">
+      <div class="plaque"><img src="/icon-192.png" alt="" width="32" height="32" /><span>Pixelarrow</span></div>
+      <section class="card" aria-labelledby="title">
+        <div class="top">
+          <h1 id="title" tabindex="-1"></h1>
+          <div class="lang" role="group"><button type="button" data-lang="en" lang="en">EN</button><button type="button" data-lang="ru" lang="ru">RU</button></div>
+        </div>
+        <div id="body" aria-live="polite"><p class="wait"><span class="spin" aria-hidden="true"></span></p></div>
+      </section>
+      <footer><a id="privacy" href="https://pixelarrow.app/privacy" target="_blank" rel="noopener noreferrer">Privacy notice</a><a id="terms" href="https://pixelarrow.app/terms" target="_blank" rel="noopener noreferrer">Terms</a></footer>
+    </main>
+    <noscript><p class="nojs">Pixelarrow needs JavaScript to confirm this link. / Чтобы подтвердить ссылку, включите JavaScript.</p></noscript>
+  </body>
+</html>

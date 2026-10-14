@@ -71,6 +71,18 @@ export const ACCOUNT_EN = {
   'auth.page.rate': 'Too many tries from this network. Wait a minute and reload this page.',
   'auth.page.offline': "We couldn't reach Pixelarrow. Check your connection and try again.",
   'auth.page.retry': 'Try again',
+  // email-link page variants and parts (§8.3, §8.4, §12 "Auth page shell"; V6-ACCT-06)
+  'auth.page.titleEmail': 'Confirm your email',
+  'auth.page.emailAdded': "Email added. You're signed in here as {name}: the same account as in Telegram.",
+  'auth.page.emailChanged': 'Your email is now {email}. We told your old address.',
+  'auth.page.emailChangedPlain': 'Your email is changed. We told your old address.',
+  'auth.page.conflict': 'This email already has a Pixelarrow account.',
+  'auth.page.conflictHint': "To link it to your Telegram account, first prove it's yours: enter that account's password.",
+  'auth.page.continue': 'Continue',
+  'auth.page.removedEmpty': 'An empty Pixelarrow account that only had this email was removed.',
+  'auth.page.handover': 'Opening the game to choose which account to keep…',
+  'auth.page.stopped': 'Stopped. Press Play when you are ready.',
+  'auth.page.lang': 'Language',
   // log in (§6.4)
   'auth.login.title': 'Log in',
   'auth.login.submit': 'Log in',

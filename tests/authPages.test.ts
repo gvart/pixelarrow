@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { conflictView, guestSave, pageLang, readToken, resetView, savedLangSetting, variantOf, verifyView } from '../auth/logic';
 import { PASSWORD_MAX, PASSWORD_MIN } from '../src/ui/account/flows';
 import { PW_MAX, PW_MIN } from '../auth/logic';
+import { MOSAIC } from '../src/ui/tokens';
+import headers from '../public/_headers?raw';
+import { readText } from './support/nodeIo.js';
 
 const TOKEN = 'Abc_def-0123456789xyzABCDEFGHIJ';
 const ok = (body: unknown) => ({ status: 200, body });
@@ -123,4 +126,40 @@ describe('the device hints', () => {
 
 it('mirrors the password policy of the in-game forms', () => {
   expect([PW_MIN, PW_MAX]).toEqual([PASSWORD_MIN, PASSWORD_MAX]);
+});
+
+describe('the pages ship safe by construction', () => {
+  const pages = import.meta.glob('../auth/*.html', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+
+  it('four pages, each with no Referer, no inline script and its variant', () => {
+    expect(Object.keys(pages).map((k) => k.split('/').pop()).sort()).toEqual(['add_email.html', 'change_email.html', 'reset.html', 'signup.html']);
+    for (const [path, html] of Object.entries(pages)) {
+      expect(html).toContain('<meta name="referrer" content="no-referrer" />');
+      expect(html).toContain(`data-variant="${path.split('/').pop()!.replace('.html', '')}"`);
+      // Only the module entry: no inline script or style, so the strict CSP holds.
+      expect(html.match(/<script/g)).toHaveLength(1);
+      expect(html).toContain('<script type="module" src="./main.ts"></script>');
+      expect(html).not.toMatch(/<style|style="/);
+    }
+  });
+
+  it('public/_headers: no Referer, never framed, nothing but this origin and Turnstile', () => {
+    const block = headers.split('\n/auth/*\n')[1]?.split('\n\n')[0] ?? '';
+    const h = Object.fromEntries(block.split('\n').filter((l) => /^\s+\S/.test(l)).map((l) => [l.slice(0, l.indexOf(':')).trim().toLowerCase(), l.slice(l.indexOf(':') + 1).trim()]));
+    expect(h['referrer-policy']).toBe('no-referrer');
+    const csp = Object.fromEntries((h['content-security-policy'] ?? '').split(';').map((d) => d.trim().split(/\s+/)).map(([k, ...v]) => [k, v.join(' ')]));
+    expect(csp['default-src']).toBe("'none'");
+    expect(csp['frame-ancestors']).toBe("'none'");
+    expect(csp['connect-src']).toBe("'self'");
+    expect(csp['script-src']).toBe("'self' https://challenges.cloudflare.com");
+    expect(csp['frame-src']).toBe('https://challenges.cloudflare.com');
+    expect(csp['base-uri']).toBe("'none'");
+  });
+
+  it('the page CSS uses the Mosaic kit colours', () => {
+    const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
+    const vars: Record<string, keyof typeof MOSAIC> = { page: 'page', stone0: 'stone0', parch: 'parch', 'parch-hi': 'parchHi', 'parch-lo': 'parchLo', 'parch-edge': 'parchEdge', well: 'well', ink: 'ink', 'ink-sec': 'inkSec', 'ink-muted': 'inkMuted', 'ink-good': 'inkGood', 'ink-bad': 'inkBad', cream: 'cream', terra: 'terra', 'terra-hi': 'terraHi', bronze: 'bronze', 'bronze-hi': 'bronzeHi', teal: 'teal', meander: 'meander', gold: 'gold' };
+    const css = readText('auth/auth.css');
+    for (const [v, k] of Object.entries(vars)) expect(css, v).toContain(`--${v}: ${hex(MOSAIC[k])};`);
+  });
 });

@@ -31,7 +31,18 @@ export default defineConfig({
       // preview.html (procedural sprite sheets) and store.html (Telegram store
       // art, see scripts/dev/store-images.mjs) are shipped too, for art review;
       // audio.html plays every procedural sound and track (src/dev/audio.ts).
-      input: { main: 'index.html', preview: 'preview.html', store: 'store.html', audio: 'audio.html' },
+      // auth/*.html are the standalone email-link pages (V6-ACCT-06, accounts-v6.md UXA-06): a few KB,
+      // no Phaser; Workers static assets serve /auth/signup from auth/signup.html.
+      input: {
+        main: 'index.html',
+        preview: 'preview.html',
+        store: 'store.html',
+        audio: 'audio.html',
+        'auth-signup': 'auth/signup.html',
+        'auth-add_email': 'auth/add_email.html',
+        'auth-change_email': 'auth/change_email.html',
+        'auth-reset': 'auth/reset.html',
+      },
     },
   },
   // /api and /ws go to a local `wrangler dev` (see README, "Online features");
