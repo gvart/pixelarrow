@@ -48,6 +48,7 @@ import { ONLINE_RULES, RESOURCE_KEYS, type Resources } from '../../online/rules'
 import { planMarch, type MarchPlan } from '../../online/marchPlan';
 import { regionActions, type Act, type ActId } from '../../online/regionActions';
 import { demoShard, type DemoShard } from '../../online/demoShard';
+import { mapWheel, zoomCamAt } from '../../ui/input/zoomAt';
 import { ParchmentMapView, clampCenter, otherColor, snapZoom, zoomCycle, zoomLimits, zoomStep, type WorldMapView } from './regionMapView';
 import { duelReturn, showChallenge } from '../../ui/duelInvites';
 import { t, tOr, type TKey } from '../../i18n';
@@ -333,7 +334,15 @@ export class OnlineScene extends BaseScene {
     this.input.on('pointerdown', this.onDown, this);
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
-    this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown[], _dx: number, dy: number) => this.zoomAt(zoomStep(this.cameras.main.zoom, dy > 0 ? -1 : 1, zoomLimits(this.m.S)) / this.cameras.main.zoom, p.x, p.y));
+    // the wheel zooms one step at the cursor (accumulated for trackpads), shift or deltaX pans; not over the rail or a sheet
+    mapWheel(this, {
+      blocked: (p) => this.view.kind !== 'map' || this.overUi(p),
+      zoom: (dir, sx, sy) => this.zoomAt(zoomStep(this.cameras.main.zoom, dir, zoomLimits(this.m.S)) / this.cameras.main.zoom, sx, sy),
+      pan: (dx) => {
+        this.cameras.main.scrollX += dx / this.cameras.main.zoom;
+        this.clampCamera();
+      },
+    });
     if (!this.demo) {
       this.offSocket = shardSocket.on((m) => this.onSocket(m));
       Object.assign(window, { __shard: shardSocket }); // debug handle (e2e script)
@@ -1434,12 +1443,7 @@ export class OnlineScene extends BaseScene {
     if (this.view.kind !== 'map') return;
     const cam = this.cameras.main;
     const lim = zoomLimits(this.m.S);
-    const before = cam.getWorldPoint(sx, sy);
-    cam.setZoom(Phaser.Math.Clamp(cam.zoom * f, lim.min, lim.max));
-    cam.preRender();
-    const after = cam.getWorldPoint(sx, sy);
-    cam.scrollX += before.x - after.x;
-    cam.scrollY += before.y - after.y;
+    zoomCamAt(this, cam, Phaser.Math.Clamp(cam.zoom * f, lim.min, lim.max), sx, sy);
     this.clampCamera();
   }
 

@@ -183,7 +183,7 @@ describe('the War hub', () => {
     for (const id of ['online.bar.army', 'online.bar.clan', 'online.bar.duels', 'online.centre', 'online.zoom', 'online.bar.collect', 'online.halt', 'online.act.merchant', 'online.act.camp', 'online.act.beast', 'online.act.codex', 'online.retry', 'online.join', 'online.panel', 'online.hexInfo'])
       expect(src, id).toContain(`'${id}'`);
     for (const fn of ['openLobby', 'showAttackResult', 'showDuelResult', 'openBeast', 'openMerchant', 'openCamp', 'openCodex', 'onDown', 'onMove', 'onUp', 'zoomAt']) expect(src, fn).toContain(`${fn}(`);
-    expect(src).toContain("this.input.on('wheel'");
+    expect(src).toContain('mapWheel(this, {'); // the wheel (RFND-04: through the shared accumulator)
   });
 
   it('own and clan land carry a crest; others only their colour (G13)', () => {

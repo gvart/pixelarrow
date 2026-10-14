@@ -21,6 +21,7 @@ import { ScrollArea, scaleIcon, addIcon } from '../ui/kit';
 import { confirmDialog, toast, ScrollList } from '../ui/widgets';
 import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
 import { wrapsWhole } from '../ui/textfit';
+import { anchorOffset, mapWheel } from '../ui/input/zoomAt';
 import { CHIP_ROW_H, ChipRow, MButton, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, openParchmentSheet, wrapWords, type MButtonVariant, type ParchmentSheetHandle, type SituationChip } from '../ui/mosaic';
 import { ensureFonts } from '../ui/fonts';
 import { uiId, uiIgnore } from '../ui/layout';
@@ -181,6 +182,18 @@ export class CampScene extends BaseScene {
     uiIgnore(zone);
     this.ui.add(zone);
     zone.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
+    // a mouse: the wheel zooms 1x/2x at the cursor (accumulated for trackpads), shift or deltaX pans; a drag pans as a finger does
+    mapWheel(this, {
+      blocked: (p, over) => !this.layout || !this.overMap(p) || over.some((o) => o !== zone),
+      zoom: (dir, sx, sy) => {
+        const z = Phaser.Math.Clamp(this.zoom + dir, 1, 2);
+        if (z !== this.zoom) this.zoomAround(z, sx / this.m.S, sy / this.m.S);
+      },
+      pan: (dx) => {
+        this.world.x -= dx / this.m.S;
+        this.clampPan();
+      },
+    });
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
@@ -618,16 +631,26 @@ export class CampScene extends BaseScene {
   }
 
   private toggleZoom(): void {
-    const L = this.layout;
-    if (!L) return;
-    const { x: cx, y: cy } = this.visCentre();
-    const wx = (cx - this.world.x) / this.zoom;
-    const wy = (cy - this.world.y) / this.zoom;
-    this.zoom = this.zoom === 1 ? 2 : 1;
-    this.world.setScale(this.zoom);
-    this.world.setPosition(Math.round(cx - wx * this.zoom), Math.round(cy - wy * this.zoom));
-    this.clampPan();
+    if (!this.layout) return;
+    const c = this.visCentre();
+    this.zoomAround(this.zoom === 1 ? 2 : 1, c.x, c.y);
     haptic('light');
+  }
+
+  /** Zoom to z (1 or 2) keeping the map point under UI (ux, uy) in place: the zoom key about the middle, the wheel about the cursor. */
+  private zoomAround(z: number, ux: number, uy: number): void {
+    const z0 = this.zoom;
+    this.zoom = z;
+    this.world.setScale(z);
+    this.world.setPosition(Math.round(anchorOffset(this.world.x, ux, z0, z)), Math.round(anchorOffset(this.world.y, uy, z0, z)));
+    this.clampPan();
+  }
+
+  /** Over the open map (not the top bar, the situation line or the strip), and no sheet open. */
+  private overMap(p: Phaser.Input.Pointer): boolean {
+    const ux = p.x / this.m.S;
+    const uy = p.y / this.m.S;
+    return !this.modal && !this.eventCard && ux >= this.view.x && ux <= this.view.x + this.view.w && uy >= this.visTop && uy <= this.view.y + this.view.h;
   }
 
   private onDown(p: Phaser.Input.Pointer): void {

@@ -26,6 +26,7 @@ import { ACCENT, MOSAIC, RESOURCES, TEXT, TEXT_MIN } from './tokens';
 import { scrollCue } from './mosaic/policy';
 import { motion } from './motion';
 import { hoverTip } from './hover';
+import { wheelOwner, type WheelNode } from './input/wheel';
 
 export { scrollCue };
 
@@ -683,6 +684,8 @@ export class Meter extends Phaser.GameObjects.Graphics {
  */
 /** Live scroll areas (the layout check scrolls them to the end to check the rest). */
 const liveAreas = new Set<ScrollArea>();
+/** The scroll area each content container and drag zone belongs to (the wheel finds the one under the pointer). */
+const wheelAreas = new WeakMap<WheelNode, ScrollArea>();
 
 /** Scroll every live scroll area of active scenes to `v` (clamped); returns how many can scroll. */
 export function scrollAllAreas(v: number): number {
@@ -807,7 +810,13 @@ export class ScrollArea {
     const onUp = () => {
       this.dragging = false;
     };
-    const onWheel = (_p: unknown, _o: unknown, _dx: number, dy: number) => this.setScroll(this.scroll + dy * 0.3);
+    wheelAreas.set(this.content, this);
+    wheelAreas.set(this.zone, this);
+    // only the innermost area under the pointer scrolls (not every live list on screen)
+    const onWheel = (_p: unknown, over: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
+      if (wheelOwner(over[0], (n) => wheelAreas.get(n)) !== this) return;
+      this.setScroll(this.scroll + dy * 0.3);
+    };
     const onUpdate = () => {
       follow();
       if (!this.dragging && Math.abs(this.vel) > 0.1) {
@@ -847,6 +856,11 @@ export class ScrollArea {
       o = o.parentContainer;
     }
     return true;
+  }
+
+  /** On screen with something to scroll (the wheel passes over one that has nothing). */
+  canScroll(): boolean {
+    return this.maxScroll > 0 && this.isActive();
   }
 
   private begin(p: Phaser.Input.Pointer): void {
