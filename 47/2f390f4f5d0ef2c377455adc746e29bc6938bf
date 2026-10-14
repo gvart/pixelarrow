@@ -1,0 +1,22 @@
+landing/src/components/sections/Faq.astro
+  s_0d98fe904b2e82::t_07300c421a18a1 4,21,25,29,37
+  s_0d98fe904b2e82::t_8ef1a7b287472b 5-7
+landing/src/site.ts
+  s_0d98fe904b2e82::t_2082d853e7168b 13-14,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "472f390f4f5d0ef2c377455adc746e29bc6938bf",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
