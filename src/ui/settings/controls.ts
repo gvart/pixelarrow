@@ -8,9 +8,9 @@
  *   holds asks Swap (default) or Replace.
  * - Every change applies at once (the router's bindings) and is saved on this device only, as the
  *   differences from the defaults (bindingStore.ts, §5.5).
- * - Labels come from the layout map (InputHints.keyLabels) or a US table (§6.2).
+ * - Labels come from glyphs.ts: the layout map (InputHints.keyLabels) or a US table, ⌘ or Ctrl by platform (§6.2).
  *
- * The pure parts (SECTIONS, captureKey, changed, keyLabel) are tested in tests/settingsControls.test.ts.
+ * The pure parts (SECTIONS, captureKey, changed) are tested in tests/settingsControls.test.ts.
  */
 import Phaser from 'phaser';
 import { Button, addText, mosaicPanelImage, type UIMetrics } from '../kit';
@@ -26,6 +26,7 @@ import { ACTIONS, type ActionId } from '../input/actions';
 import { assign, conflictsWith, defaultBindings, refused, resetAction, resetAll, sameBinding, type Binding, type BindingMap, type KeyEvent, type Slot } from '../input/bindings';
 import { keys } from '../input/keys';
 import { saveBindings } from '../input/bindingStore';
+import { bindingLabel, loadGlyphs } from '../input/glyphs';
 import { platform } from '../../platform';
 import { t, type TKey } from '../../i18n';
 
@@ -94,74 +95,13 @@ export function changed(map: BindingMap, id: ActionId): boolean {
   return !same(map[id][0], d[0]) || !same(map[id][1], d[1]);
 }
 
-/** Keys the layout map labels (printable); their US labels. */
-const PRINTABLE: Record<string, string> = {
-  Backquote: '`',
-  Minus: '-',
-  Equal: '=',
-  BracketLeft: '[',
-  BracketRight: ']',
-  Backslash: '\\',
-  Semicolon: ';',
-  Quote: "'",
-  Comma: ',',
-  Period: '.',
-  Slash: '/',
-  IntlBackslash: '\\',
-};
-const NAMED: Record<string, string> = {
-  Escape: 'Esc',
-  Tab: 'Tab',
-  Backspace: 'Backspace',
-  Delete: 'Del',
-  Insert: 'Ins',
-  ArrowUp: '↑',
-  ArrowDown: '↓',
-  ArrowLeft: '←',
-  ArrowRight: '→',
-  PageUp: 'PgUp',
-  PageDown: 'PgDn',
-  Home: 'Home',
-  End: 'End',
-  CapsLock: 'Caps',
-  NumpadAdd: 'Num +',
-  NumpadSubtract: 'Num -',
-  NumpadMultiply: 'Num *',
-  NumpadDivide: 'Num /',
-  NumpadDecimal: 'Num .',
-  NumpadEnter: 'Num Enter',
-};
-
-/** The label of one key code: the layout's character for printable keys, else a short name. */
-function codeLabel(code: string, layout: ReadonlyMap<string, string> | null): string {
-  if (code === 'Space') return t('controls.key.space');
-  if (code === 'Enter') return t('controls.key.enter');
-  const printable = /^Key[A-Z]$/.test(code) || /^Digit\d$/.test(code) || code in PRINTABLE;
-  const fromLayout = printable ? layout?.get(code) : undefined;
-  if (fromLayout && fromLayout.trim()) return fromLayout.toUpperCase();
-  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
-  if (/^Digit\d$/.test(code)) return code.slice(5);
-  if (/^Numpad\d$/.test(code)) return `Num ${code.slice(6)}`;
-  return PRINTABLE[code] ?? NAMED[code] ?? code;
-}
-
-/**
- * A binding's label (input-v6.md §6.2): the layout's character (upper-cased) where the browser has a
- * layout map, else the US label; chords as "Ctrl+Z". (⌘ by OS is INP-06's, from a platform capability.)
- */
-export function keyLabel(b: Binding, layout: ReadonlyMap<string, string> | null): string {
-  return `${b.mod ? 'Ctrl+' : ''}${b.alt ? 'Alt+' : ''}${b.shift ? 'Shift+' : ''}${codeLabel(b.code, layout)}`;
-}
-
 // ------------------------------------------------------------------ the page
 
 type PageRow = { kind: 'section'; label: TKey } | { kind: 'action'; id: ActionId };
 
 const PAGE_ROWS: readonly PageRow[] = SECTIONS.flatMap((s): PageRow[] => [{ kind: 'section', label: s.label }, ...s.actions.map((id): PageRow => ({ kind: 'action', id }))]);
 
-/** The player's layout labels, once read (null: none, the US table). */
-let layout: ReadonlyMap<string, string> | null = null;
-const label = (b: Binding | null) => (b ? keyLabel(b, layout) : t('controls.none'));
+const label = (b: Binding | null) => (b ? bindingLabel(b) : t('controls.none'));
 
 /** Apply and save a new map; `msg` is the toast that confirms it. */
 function apply(scene: Phaser.Scene, next: BindingMap, msg: string): void {
@@ -276,10 +216,7 @@ export function openControls(scene: UiScene, onClose?: () => void): Phaser.GameO
     },
   });
   // labels from the player's layout (Й on a Russian layout in Chromium), once the browser answers
-  void platform.input.keyLabels().then((l) => {
-    layout = l;
-    refresh();
-  });
+  void loadGlyphs(platform.input).then(refresh);
   c.once('destroy', () => {
     list?.destroy();
     list = null;
@@ -351,7 +288,7 @@ function openCapture(scene: UiScene, id: ActionId, slot: Slot, done: (next: Bind
       finish(r.map, r.binding);
       return true;
     }
-    const key = keyLabel(r.binding, layout);
+    const key = bindingLabel(r.binding);
     if (r.kind === 'refused') {
       say(r.why === 'fixed' ? t('controls.refused.fixed', { key, action: t(ACTIONS[r.other!].label) }) : t(`controls.refused.${r.why}`, { key }));
       // Tab does what it says: it moves focus to the buttons (Clear, Cancel), and the capture stops

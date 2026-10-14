@@ -33,6 +33,9 @@ export interface EnvDocument extends EnvEvents {
 export interface EnvNavigator {
   share?(data: { url?: string; text?: string }): Promise<void>;
   readonly clipboard?: { writeText(s: string): Promise<void> };
+  /** navigator.platform ('MacIntel', 'Win32', 'iPad'…) and its newer form. */
+  readonly platform?: string;
+  readonly userAgentData?: { readonly platform?: string };
   readonly keyboard?: { getLayoutMap(): Promise<{ forEach(cb: (label: string, code: string) => void): void }> };
 }
 

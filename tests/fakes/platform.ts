@@ -105,6 +105,7 @@ export class FakePlatform implements Platform {
     finePointer: () => this.keyboardOn,
     onChange: (cb: () => void) => (this.inputSubs.add(cb), () => void this.inputSubs.delete(cb)),
     keyLabels: async () => null,
+    commandKey: () => 'ctrl' as const,
   };
 
   readonly notifications = { channels: () => [] };

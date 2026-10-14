@@ -44,8 +44,7 @@ vi.mock('phaser', () => {
 });
 const { ACTIONS, ACTION_IDS } = await import('../src/ui/input/actions');
 const { defaultBindings } = await import('../src/ui/input/bindings');
-const { SECTIONS, captureKey, changed, keyLabel } = await import('../src/ui/settings/controls');
-const { setLang } = await import('../src/i18n');
+const { SECTIONS, captureKey, changed } = await import('../src/ui/settings/controls');
 
 describe('the Keyboard shortcuts page lists every action once, grouped as in input-v6.md §1.1 (§5.2)', () => {
   it('each action is in exactly one section; the fixed ones only under Menus, read-only', () => {
@@ -114,26 +113,6 @@ describe('a row shows its reset only when it differs from the default (§5.2)', 
     expect(changed(map, 'time.pause')).toBe(false);
     const r = captureKey(map, 'time.pause', 0, key('KeyK'));
     expect(r.kind === 'done' && changed(r.map, 'time.pause')).toBe(true);
-  });
-});
-
-describe('key labels follow the layout (§6.2)', () => {
-  it("a letter is the layout's character, upper-cased, else the US label", () => {
-    expect(keyLabel({ code: 'KeyQ' }, new Map([['KeyQ', 'й']]))).toBe('Й');
-    expect(keyLabel({ code: 'KeyQ' }, null)).toBe('Q');
-    expect(keyLabel({ code: 'Digit1' }, null)).toBe('1');
-    expect(keyLabel({ code: 'BracketRight' }, null)).toBe(']');
-  });
-
-  it('named keys use short labels; Space is localized; chords join with +', () => {
-    setLang('ru');
-    expect(keyLabel({ code: 'Space' }, null)).toBe('Пробел');
-    setLang('en');
-    expect(keyLabel({ code: 'Space' }, null)).toBe('Space');
-    expect(keyLabel({ code: 'Numpad1' }, null)).toBe('Num 1');
-    expect(keyLabel({ code: 'ArrowUp' }, null)).toBe('↑');
-    expect(keyLabel({ code: 'KeyZ', mod: true }, null)).toBe('Ctrl+Z');
-    expect(keyLabel({ code: 'Tab', shift: true }, null)).toBe('Shift+Tab');
   });
 });
 
