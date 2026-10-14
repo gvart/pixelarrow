@@ -1016,6 +1016,25 @@ const SCREENS = [
       return wait(p, 900);
     },
   })),
+  // V6-RFND-02: the Kit Layouts page (src/scenes/kit/layoutsPage.ts), opted in to the size classes: each demo, then its samples
+  { id: 'kit-layouts', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'layouts' }), wait(p, 900)) },
+  ...[
+    ['panes-folded', { demo: 'panes' }, 'folded'],
+    ['list', { demo: 'list', sel: 2 }],
+    ['list-detail', { demo: 'list' }, 'detail'],
+    ['panels', { demo: 'panels' }],
+    ['panels-task', { demo: 'panels' }, 'task'],
+    ['panels-decision', { demo: 'panels' }, 'decision'],
+    ['panels-inspector', { demo: 'panels' }, 'inspector'],
+    ['panels-settings', { demo: 'panels' }, 'settings'],
+    ['panels-rotate', { demo: 'panels' }, 'rotate'],
+    ['field', { demo: 'field' }],
+    ['field-left', { demo: 'field', left: true }],
+  ].map(([id, data, sample]) => ({
+    id: `kit-layouts-${id}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Kit', { page: 'layouts', ...data }), await wait(p, 700), sample && (await call(p, 'Kit', `s.layoutsSample(${JSON.stringify(sample)}); return 1;`)), wait(p, 500)),
+  })),
 ];
 
 // ------------------------------------------------------------------ page setup
