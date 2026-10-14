@@ -61,7 +61,7 @@
   /* Light and accents. */
   --lamp: 242 200 121;   /* #f2c879 as channels: the glow is always a gradient at 0-18% */
   --terra: #a8432c;      /* the one primary action per viewport */
-  --terra-hi: #b9502f;   /* hover: one step warmer */
+  --terra-hi: #b03a22;   /* hover: one step warmer (redder, not lighter: cream on it stays 4.7:1, V6-LAND-06) */
   --bronze: #b08a3a;     /* frame edges, icon strokes */
   --lattice: #7fd0e0;    /* the formation lattice and the focus ring; never text, never buttons */
   --lattice-line: rgb(127 208 224 / 0.25);
