@@ -2,13 +2,8 @@
   "_doc": "Known layout violations owned by V6-RSCR-11 (scripts/layout-check.mjs, docs/UI_KIT.md \"Layout check\"). Fix them and remove the entries; delete this file when it is empty. Keys: screen|check|element ids, or screen|check|* for the whole screen (text-size only); a trailing @WxH scopes an entry to one size.",
   "pending": true,
   "entries": [
-    "kit-forms-check-capped|outside-safe-area|*@844x390",
-    "kit-forms-check-capped|text-overflow|*@844x390",
     "kit-forms-check-capped|text-size|*@844x390",
-    "kit-forms-check|outside-safe-area|*@844x390",
     "kit-forms-check|text-size|*@844x390",
-    "kit-forms|clipped|*@844x390",
-    "kit-forms|text-overflow|*@844x390",
     "kit-mosaic|touch-size|tab.campaign@844x390",
     "kit-mosaic|touch-size|tab.codex@844x390",
     "kit-mosaic|touch-size|tab.duels@844x390",

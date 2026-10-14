@@ -197,6 +197,7 @@ export function buildForms(cur: Cursor): void {
   rows(FORM_SAMPLES.filter((o) => o.id.startsWith('check') || o.id === 'resend'));
   cur.title('CountdownLabel');
   cur.note('m:ss on the wall clock; calls back at zero.');
-  cur.add(new CountdownLabel(scene, 0, cur.y, { ms: 42_000, template: (time) => t('auth.check.resendIn', { time }) }));
-  cur.y += 14;
+  const cd = new CountdownLabel(scene, 0, cur.y, { ms: 42_000, maxW: w, template: (time) => t('auth.check.resendIn', { time }) });
+  cur.add(cd);
+  cur.y += Math.max(14, cd.textHeight + 5);
 }

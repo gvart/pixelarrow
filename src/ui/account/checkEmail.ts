@@ -10,7 +10,8 @@ import { AuthHost, type AuthForm } from '../form/authForm';
 import { MButton, mtext, mw, openParchmentSheet, runCountdown, sheetWidth, SHEET_TITLE_H, GAP, wrapWords, type ParchmentSheetHandle } from '../mosaic';
 import type { UiScene } from '../mosaic/subShell';
 import { MOSAIC } from '../tokens';
-import { toast } from '../widgets';
+import { ScrollArea } from '../kit';
+import { addScrollHint, toast } from '../widgets';
 import { flowDeps, humanCheckOf, showError } from './common';
 import type { AccountDeps } from './deps';
 import { runResend } from './flows';
@@ -60,15 +61,28 @@ export function openCheckEmail(scene: UiScene, d: AccountDeps, o: CheckEmailOpts
   const paired = change && halfW >= 100 && sheetH(tx, 3) > scene.m.VH - 16;
   const { lead, spam } = tx;
   const rows = change && !paired ? 3 : 2;
-  const m = openParchmentSheet(scene, { ...sheetO, h: sheetH(tx, rows) });
+  // the buttons always show; on a screen too short even so (the Kit's letterboxed column) the words scroll above them
+  const want = sheetH(tx, rows);
+  const h = Math.min(want, scene.m.VH - 16);
+  const textH = 20 + 4 + lead.height + 4 + spam.height;
+  const textRoom = textH - (want - h);
+  const m = openParchmentSheet(scene, { ...sheetO, h });
   const { x, y } = m.body;
-  let cy = y;
-  m.c.add(envelope(scene, x + bw / 2, cy));
-  cy += 20 + 4;
-  m.c.add(lead.setPosition(x, cy));
-  cy += lead.height + 4;
-  m.c.add(spam.setPosition(x, cy));
-  cy += spam.height + 6;
+  const area = textRoom < textH ? new ScrollArea(scene, m.c, x, y, bw, Math.max(20, textRoom), scene.m.S) : null;
+  const into = area?.content ?? m.c;
+  const ox = area ? 0 : x;
+  let ty = area ? 0 : y;
+  into.add(envelope(scene, ox + bw / 2, ty));
+  ty += 20 + 4;
+  into.add(lead.setPosition(ox, ty));
+  ty += lead.height + 4;
+  into.add(spam.setPosition(ox, ty));
+  if (area) {
+    area.setContentHeight(textH);
+    addScrollHint(scene, m.c, area, MOSAIC.parch);
+    m.c.once('destroy', () => area.destroy());
+  }
+  let cy = y + Math.min(textH, textRoom) + 6;
 
   let stop: (() => void) | null = null;
   const resend = new MButton(scene, x, cy, paired ? halfW : bw, BTN_H, { label: t('auth.check.resend'), variant: 'secondary', id: 'account.check.resend', onClick: () => onResend() });

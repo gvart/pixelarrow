@@ -6,7 +6,8 @@
  */
 import Phaser from 'phaser';
 import type { FontKey } from '../kit';
-import { mtext } from './base';
+import { mtext, mw } from './base';
+import { wrapWords } from './policy';
 
 /** 42_000 → "0:42", 61_000 → "1:01"; partial seconds round up, so 0:00 shows only at the end. */
 export function formatCountdown(ms: number): string {
@@ -39,16 +40,27 @@ export function runCountdown(scene: Phaser.Scene, ms: number, onTick: (time: str
   return stop;
 }
 
-/** A text label running a countdown: `template` wraps the m:ss (e.g. "Resend in {time}"). */
+/** A text label running a countdown: `template` wraps the m:ss (e.g. "Resend in {time}"); with `maxW` it wraps onto more lines, never cut. */
 export class CountdownLabel extends Phaser.GameObjects.Container {
   private readonly label: Phaser.GameObjects.BitmapText;
   private readonly stop: () => void;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, o: { ms: number; template?: (time: string) => string; font?: FontKey; size?: number; onDone?: () => void }) {
+  constructor(scene: Phaser.Scene, x: number, y: number, o: { ms: number; template?: (time: string) => string; font?: FontKey; size?: number; maxW?: number; onDone?: () => void }) {
     super(scene, x, y);
-    this.label = mtext(scene, 0, 0, '', o.font ?? 'pInk', { size: o.size ?? 7 });
+    const font = o.font ?? 'pInk';
+    const size = o.size ?? 7;
+    this.label = mtext(scene, 0, 0, '', font, { size });
     this.add(this.label);
-    this.stop = runCountdown(scene, o.ms, (time) => this.label.setText(o.template ? o.template(time) : time), o.onDone);
+    const text = (time: string): string => {
+      const s = o.template ? o.template(time) : time;
+      return o.maxW ? wrapWords(s, o.maxW, (x) => mw(x, font, size)).join('\n') : s;
+    };
+    this.stop = runCountdown(scene, o.ms, (time) => this.label.setText(text(time)), o.onDone);
     this.once('destroy', () => this.stop());
+  }
+
+  /** The label's height now (more than one line when it wrapped at `maxW`). */
+  get textHeight(): number {
+    return this.label.height;
   }
 }
