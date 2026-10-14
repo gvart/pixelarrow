@@ -510,11 +510,59 @@ Screenshots: `shots/layout/<lang>-<plain|tg>/<W>x<H>/<screen>.png`
 `shots/layout/index.md`: a per-size table (screens clean, with only
 allowlisted violations, or failed, and the browser time) and the violations
 per screen. The console prints the same per-size table. Options: `--matrix`,
-`--screens`, `--sizes` (wins over `--matrix`), `--langs`, `--insets`,
+`--sizes` (wins over `--matrix`), `--langs`, `--insets`,
 `--no-shots`, `--verbose`, `--update-allowlist`, `--shard i/n` (every n-th
 configuration) and `--split k` (each configuration's screens in k contexts,
-run in parallel by `--jobs`). CI runs one job per size and language
-(`--sizes WxH --langs xx`).
+run in parallel by `--jobs`, default half the CPUs, 2 to 6). CI runs one job
+per size and language (`--sizes WxH --langs xx`). `shots/layout/found.json`
+lists every violation with the configurations it showed in, so two runs
+compare with a plain diff.
+
+**Which screens (V6-030).** The full matrix is for integrators and final QA.
+Story agents run a subset:
+
+| Mode | Runs | Use |
+| --- | --- | --- |
+| `--quick [base]` | the screens your branch's changes can affect at all ten sizes, plus a smoke subset (`QUICK` in `scripts/lib/layoutScenes.mjs`: menu, settings, a kit sheet, world, army, hero, battle, results, shop, duel ladder, war map) at 390x844 and 1280x800 | story agents, before handing off |
+| `--changed [base]` | only the screens the changes can affect (all sizes, or what `--matrix` / `--sizes` say) | narrowing any run |
+| `--scenes a,kit-*` | these screens: ids or `*` / `?` globs, comma-separated (`--screens` is the older name); with `--quick`, added to the changed ones | a screen family you are fixing |
+| (none) | every screen at every matrix size | integrators, final QA |
+
+`base` defaults to `v6`, else `main`; the changes are everything since the
+merge base with it, uncommitted and untracked files included. `--list`
+prints what each size would visit and stops (no browser). The map from
+files to screens (`screensForChanges`) is conservative:
+
+- a changed `src/` file counts for every scene that imports it, directly or
+  through other modules (an import graph read from the sources), and for the
+  screens whose staging names those scenes (`sceneKeysOf`: the scene keys in
+  the screen's `run` and the helpers it calls); a screen that names no scene
+  is taken for any `src/` change;
+- an i18n dictionary (`src/i18n/*.ts`) counts for the files that use its key
+  prefixes (`'market.`); a prefix no file names means every screen;
+- every screen when the change reaches what all screens share: `main.ts`,
+  the Boot scene, `BaseScene` and their imports (the kit, layout, language,
+  safe area, render scale, sprites, rasters), apart from the services listed
+  in `SERVICES` (state, cloud, navigation, audio, routing, and the widget and
+  duel-invite installers, whose hooks never fire in the check); also for the
+  check itself, `public/`, `index.html`, `package.json` and the Vite and TS
+  configs, a deleted file, or a file nothing imports;
+- a changed allowlist file counts for the screens on its changed lines; files
+  outside `src/` (docs, server, landing, tests) count for none.
+
+When `--quick`'s change reaches every screen it runs the smoke subset at
+every size instead and says so: name the screens you changed with `--scenes`,
+and the integrator's full run covers the rest.
+
+**Speed.** Staging waits are state waits (`scripts/lib/settle.mjs`): a
+screen's `wait(p, ms)` ends once the game is quiet (no scene starting or
+loading, no camera fade, pan or zoom, no finite tween, no Phaser timer or
+`setTimeout` due before the deadline, no fetch or worker reply outstanding;
+two polls in a row, two frames on) and never later than `ms`, so a run sees
+the same states as the old fixed sleeps, sooner. `--fixed-waits` brings the
+sleeps back (to compare, or to rule waits out when a screen turns flaky);
+`--timing` prints where the time went (browser, page load, boot, staging,
+waits, settle, check, screenshots, scroll pass).
 
 **Registering:** nothing to do for kit components and plain Phaser objects:
 the registry walks the display list (interactive objects and bitmap texts;

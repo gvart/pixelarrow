@@ -55,7 +55,7 @@ import { ROOT as root, launch, captureErrors, apiDown, makePageApi, shotsDir } f
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
 import { KNOWN_CRASHES, MATRIX, TG, allows, configsFor, loadAllowlist, rewriteAllowlist, sizesFor, splitEntry, staleEntries, storyOf } from './lib/layoutMatrix.mjs';
 import { QUICK, matchScreens, sceneKeysOf, screensForChanges } from './lib/layoutScenes.mjs';
-import { installSettle, settle } from './lib/settle.mjs';
+import { installSettle, settle, untilInPage } from './lib/settle.mjs';
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
 const opt = (n, d) => {
@@ -102,9 +102,23 @@ const timed = async (phase, fn) => {
 const ev = (page, fn, arg) => page.evaluate(fn, arg);
 const start = (page, key, data) => makePageApi(page).start(key, data);
 const call = (page, key, body) => makePageApi(page).call(key, body);
+/** Staging waits that ran to their deadline, by what kept the game busy: reason -> count. */
+const BUSY = {};
+let settledWaits = 0;
 /** A staging wait: up to `ms`, over as soon as the game is quiet (scripts/lib/settle.mjs) unless --fixed-waits. */
-const wait = (page, ms) => timed('waits', () => (FIXED_WAITS ? page.waitForTimeout(ms) : settle(page, ms)));
-const until = (page, fn, ms = 8000) => makePageApi(page).untilPage(fn, ms, 150);
+async function wait(page, ms) {
+  const t = Date.now();
+  if (FIXED_WAITS) await page.waitForTimeout(ms);
+  else {
+    const r = await settle(page, ms);
+    if (r.busy) BUSY[r.busy] = (BUSY[r.busy] ?? 0) + 1;
+    else settledWaits++;
+  }
+  T.waits += Date.now() - t;
+  page.__waits = (page.__waits ?? 0) + Date.now() - t; // per page: contexts run in parallel
+}
+/** Polls a page function until it is truthy (`ms` at most), on every frame inside the page (scripts/lib/settle.mjs). */
+const until = (page, fn, ms = 8000) => untilInPage(page, fn, ms);
 const activeIs = (k) => new Function(`return window.__game.scene.isActive(${JSON.stringify(k)})`);
 
 /**
@@ -1082,9 +1096,9 @@ async function runConfig(browser, cfg, screens) {
     let error = null;
     try {
       await ev(page, (n) => window.__reseed(n), [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
-      const w0 = T.waits;
+      const w0 = page.__waits ?? 0;
       await timed('staging', () => sc.run(page));
-      T.staging -= T.waits - w0; // staging is the screen's own work, its waits are counted apart
+      T.staging -= (page.__waits ?? 0) - w0; // staging is the screen's own work, its waits are counted apart
       // let finite tweens end (a sheet sliding in, a fade): on a slow software renderer they can
       // outlast the screen's fixed wait, and a half-open sheet reads as "outside the safe area"
       await timed('settle', () => until(page, () => window.__game.scene.getScenes(true).every((s) => s.tweens.getTweens().every((t) => !t.isPlaying() || t.loop === -1 || t.data.some((d) => d.repeat === -1))), 3000));
@@ -1104,7 +1118,7 @@ async function runConfig(browser, cfg, screens) {
       // Scroll every list to its end and check the rest of the content too.
       await timed('scroll', async () => {
         if (!(await ev(page, () => window.__layout.scrollAll(1e6)))) return;
-        await (FIXED_WAITS ? page.waitForTimeout(250) : settle(page, 250));
+        await (FIXED_WAITS ? page.waitForTimeout(250) : settle(page, 250)); // (the scroll pass's own time, not a staging wait)
         const r2 = await ev(page, () => window.__layout.check().violations);
         const seen = new Set(violations.map((v) => [v.check, ...v.ids].join('|')));
         for (const v of r2) if (!seen.has([v.check, ...v.ids].join('|'))) violations.push(v);
@@ -1236,6 +1250,10 @@ if (flag('timing')) {
   const total = Object.values(T).reduce((a, b) => a + b, 0);
   console.log(`\nWhere the time went (context seconds, summed over ${units.length} contexts; wall ${Math.round((Date.now() - t0) / 1000)} s, ${FIXED_WAITS ? 'fixed waits' : 'state waits'}):`);
   for (const [k, ms] of Object.entries(T)) console.log(`  ${k.padEnd(8)} ${String(Math.round(ms / 1000)).padStart(6)} s  ${String(Math.round((100 * ms) / total)).padStart(3)} %`);
+  if (!FIXED_WAITS) {
+    const capped = Object.entries(BUSY).sort((a, b) => b[1] - a[1]);
+    console.log(`  staging waits: ${settledWaits} ended quiet, ${capped.reduce((a, [, n]) => a + n, 0)} ran to their deadline${capped.length ? ` (${capped.slice(0, 8).map(([k, n]) => `${k} ${n}`).join(', ')})` : ''}`);
+  }
 }
 
 // ------------------------------------------------------------------ compare with the allowlist

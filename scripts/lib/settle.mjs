@@ -1,10 +1,10 @@
 // State waits for the layout check (scripts/layout-check.mjs, V6-GATE-01b): `settle(page, ms)` returns
 // once the game is quiet, and after `ms` at the latest, so it never waits longer than the fixed sleep it
 // replaces. Quiet: no scene starting or loading, no camera fade / pan / zoom, no finite tween playing, no
-// timer (Phaser time event or setTimeout) due before the deadline, no fetch or worker reply outstanding;
-// seen on two polls in a row, at least two game frames after the wait began.
+// timer (Phaser time event or setTimeout) due before the deadline, no fetch outstanding;
+// seen on two animation frames in a row, at least two game frames after the wait began.
 
-/** Init script: counts what the page is still waiting for (setTimeout due times, fetches, worker replies). */
+/** Init script: tracks what the page is still waiting for (setTimeout due times, fetches). */
 export function trackPending() {
   const due = new Map();
   const st = window.setTimeout.bind(window);
@@ -12,74 +12,112 @@ export function trackPending() {
   window.setTimeout = (fn, ms, ...rest) => {
     if (typeof fn !== 'function') return st(fn, ms, ...rest);
     const id = st((...a) => (due.delete(id), fn(...a)), ms, ...rest);
-    due.set(id, performance.now() + (Number(ms) || 0));
+    due.set(id, { at: performance.now() + (Number(ms) || 0), ms: Number(ms) || 0 });
     return id;
   };
   window.clearTimeout = (id) => (due.delete(id), ct(id));
-  let fetches = 0;
+  const fetches = new Map();
+  let fid = 0;
   const f = window.fetch.bind(window);
   window.fetch = (...a) => {
-    fetches++;
-    return f(...a).finally(() => fetches--);
+    const id = ++fid;
+    fetches.set(id, String(a[0]?.url ?? a[0]));
+    return f(...a).finally(() => fetches.delete(id));
   };
-  let replies = 0;
-  const W = window.Worker;
-  window.Worker = class extends W {
-    constructor(...a) {
-      super(...a);
-      this.addEventListener('message', () => (replies = Math.max(0, replies - 1)));
-    }
-    postMessage(...a) {
-      replies++;
-      return super.postMessage(...a);
-    }
-  };
-  /** How many things the page waits for that land within `horizon` ms. */
+  // (Workers are not waited for: the game's one worker bakes war-map ground chunks, map content the check
+  // never compares, and the fixed sleeps never waited for it either.)
+  /** What the page still waits for within `horizon` ms ('' when nothing): a timeout or a fetch. */
   window.__pending = (horizon) => {
     const now = performance.now();
-    let n = fetches + replies;
-    for (const t of due.values()) if (t - now <= horizon) n++;
-    return n;
+    for (const t of due.values()) if (t.at - now <= horizon) return `setTimeout ${t.ms} ms`;
+    for (const u of fetches.values()) return `fetch ${u.replace(/^https?:\/\/[^/]+/, '').slice(0, 40)}`;
+    return '';
   };
 }
 
-/** Page function: whether the game is quiet for the next `horizon` ms (see the header). */
+/** Page function: what keeps the game busy for the next `horizon` ms (see the header), '' when it is quiet. */
 export function quietNow(horizon) {
   const g = window.__game;
-  if (!g || !window.__pending) return true;
+  if (!g || !window.__pending) return '';
   const m = g.scene;
-  if (m._pending.length || m._start.length || m._queue.length) return false;
-  // Phaser.Scenes: INIT 1, START 2, LOADING 3, CREATING 4
-  if (m.scenes.some((s) => s.sys.settings.status >= 1 && s.sys.settings.status <= 4)) return false;
+  if (m._pending.length || m._start.length || m._queue.length) return 'scene queue';
+  // Phaser.Scenes: START 2, LOADING 3, CREATING 4 (INIT 1 is a scene added but never started)
+  const starting = m.scenes.find((s) => s.sys.settings.status >= 2 && s.sys.settings.status <= 4);
+  if (starting) return `${starting.sys.settings.key} starting`;
   for (const s of m.getScenes(true)) {
-    if (s.load.isLoading()) return false;
-    if (s.cameras.cameras.some((c) => c.fadeEffect.isRunning || c.panEffect.isRunning || c.zoomEffect.isRunning)) return false;
-    if (s.tweens.getTweens().some((t) => t.isPlaying() && t.loop !== -1 && !t.data.some((d) => d.repeat === -1))) return false;
+    const k = s.sys.settings.key;
+    if (s.load.isLoading()) return `${k} loading`;
+    if (s.cameras.cameras.some((c) => c.fadeEffect.isRunning || c.panEffect.isRunning || c.zoomEffect.isRunning)) return `${k} camera`;
+    if (s.tweens.getTweens().some((t) => t.isPlaying() && t.loop !== -1 && !t.data.some((d) => d.repeat === -1))) return `${k} tween`;
     const scale = s.time.timeScale || 1;
     for (const e of [...s.time._active, ...s.time._pendingInsertion])
-      if (!e.paused && !e.loop && e.repeat !== -1 && !e.hasDispatched && (e.delay - e.elapsed) / scale <= horizon) return false;
+      if (!e.paused && !e.loop && e.repeat !== -1 && !e.hasDispatched && (e.delay - e.elapsed) / scale <= horizon) return `${k} timer`;
   }
-  return window.__pending(horizon) === 0;
+  return window.__pending(horizon);
 }
 
-/** Installs the trackers and `window.__quiet(horizon)` in every page of a browser context. */
+/**
+ * Page function: resolves once the game has been quiet on two animation frames in a row, at least two
+ * game frames after the call, or at `ms` at the latest, with what kept it busy then ('' when it settled).
+ * Checking in the page on every frame costs no round trips to the browser.
+ */
+export function settleInPage(ms) {
+  const end = performance.now() + ms;
+  const f0 = window.__game?.loop.frame ?? 0;
+  return new Promise((done) => {
+    let calm = 0;
+    const tick = () => {
+      const now = performance.now();
+      const busy = window.__quiet(end - now) || ((window.__game?.loop.frame ?? 0) < f0 + 2 ? 'frames' : '');
+      calm = busy ? 0 : calm + 1;
+      if (calm >= 2) return done('');
+      if (now >= end) return done(busy || 'one more frame');
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+/** Installs the trackers, `window.__quiet(horizon)` and `window.__settle(ms)` in every page of a browser context. */
 export async function installSettle(ctx) {
   await ctx.addInitScript(trackPending);
-  await ctx.addInitScript(`window.__quiet = ${quietNow.toString()};`);
+  await ctx.addInitScript(`window.__quiet = ${quietNow.toString()}; window.__settle = ${settleInPage.toString()};`);
 }
 
-/** Waits until the game is quiet (two polls in a row, two frames on), `ms` at most; returns the ms waited. */
-export async function settle(page, ms, step = 100) {
+/**
+ * Polls a page function (no arguments, no closure) on every animation frame inside the page until it is
+ * truthy, `ms` at most: true, or false at the deadline. The same answer as polling it from Node, without
+ * a round trip per poll (each one waits for the page's main thread, slow when software WebGL is drawing).
+ */
+export function untilInPage(page, fn, ms) {
+  return page.evaluate(
+    ([src, m]) =>
+      new Promise((done, fail) => {
+        const f = new Function(`return (${src})();`);
+        const end = performance.now() + m;
+        const tick = () => {
+          let v;
+          try {
+            v = f();
+          } catch (e) {
+            return fail(e);
+          }
+          if (v) return done(true);
+          if (performance.now() >= end) return done(false);
+          requestAnimationFrame(tick);
+        };
+        tick();
+      }),
+    [fn.toString(), ms],
+  );
+}
+
+/**
+ * Waits until the game is quiet (see settleInPage), `ms` at most. Returns the ms waited and, when the
+ * deadline came first, what kept the game busy (`busy`, '' when it settled).
+ */
+export async function settle(page, ms) {
   const t0 = Date.now();
-  const left = () => ms - (Date.now() - t0);
-  let f0 = null;
-  let calm = 0;
-  while (left() > 0) {
-    const { q, frame } = await page.evaluate((h) => ({ q: window.__quiet ? window.__quiet(h) : true, frame: window.__game?.loop.frame ?? 0 }), left());
-    f0 ??= frame;
-    calm = q ? calm + 1 : 0;
-    if (calm >= 2 && frame >= f0 + 2) break;
-    if (left() > 0) await page.waitForTimeout(Math.min(step, left()));
-  }
-  return Date.now() - t0;
+  const busy = await page.evaluate((m) => (window.__settle ? window.__settle(m) : new Promise((r) => setTimeout(() => r(''), m))), ms);
+  return { ms: Date.now() - t0, busy };
 }

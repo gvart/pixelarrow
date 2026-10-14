@@ -66,8 +66,11 @@ describe('--changed: changed files to screens', () => {
     expect(affected(['src/scenes/BootScene.ts']).ids).toEqual(ALL);
   });
 
-  it('takes every screen when a changed scene is staged by no screen, or a src file is not in the import graph', () => {
-    expect(affected(['src/scenes/BeastTrialScene.ts']).ids).toEqual(ALL);
+  it('adds no screen for a scene no screen stages (the full matrix does not visit it either)', () => {
+    expect(affected(['src/scenes/BeastTrialScene.ts']).ids).toEqual(['mystery']);
+  });
+
+  it('takes every screen when a src file is not in the import graph', () => {
     expect(affected(['src/dev/balance.ts']).ids).toEqual(ALL);
     expect(affected(['src/ui/deleted.ts']).ids).toEqual(ALL);
   });

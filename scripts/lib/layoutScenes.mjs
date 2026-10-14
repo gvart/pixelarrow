@@ -179,9 +179,9 @@ export function screensForChanges(changed, sources, screens) {
         continue;
       }
       const key = sceneOf.get(f);
+      // a scene no screen stages (BeastTrial) is not checked by the full matrix either: it adds no screen
       if (key) {
-        if (!staged.has(key)) return everything(`${path} reaches the ${key} scene, which no screen stages`);
-        keys.add(key);
+        if (staged.has(key)) keys.add(key);
         scene = true;
       }
       const up = [...(rev.get(f) ?? [])].filter((i) => !(key && REGISTRY.has(i)));
