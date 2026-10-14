@@ -9,16 +9,18 @@
 
 | Agent | Story | Slot | Skills |
 | --- | --- | --- | --- |
-| rfnd-01 | V6-RFND-01: scale policy, ADR-0013, size classes, legacy column | 1 (6110–6119) | game-ui-ux, architecture-decision, phaser-core, tdd |
-| gate-01b | GATE-01b: fast layout-check mode (V6-030) | 5 (6150–6159) | performance-optimization, regression-suite, tdd |
-| inp-02 | V6-INP-02: KeyRouter, Esc, battle hotkeys | 5 (6150–6159, shared; checked with lsof) | input-systems, phaser-core, tdd |
-| stats-03 | V6-STATS-03: landing proxy on the real PublicApi entrypoint, two-Worker e2e | 3 (6130–6139) | security-audit, tdd, dev-story |
-| link-02 | V6-LINK-02: re-auth, add or change email, unlink, the delete route, notices | 6 (6160–6169) | security-audit, dev-story, tdd |
+| fix-kit-wide | FIX-KIT-WIDE: panel-aware wide rules and realistic Kit demos (V6-063); gets v6 green | 3 (6130–6139) | game-ui-ux, regression-suite, tdd |
+| plat-05 | V6-PLAT-05: share, invite and deep links through the platform | 2 (6120–6129) | dev-story, improve-codebase-architecture, tdd |
+| rscr-01 | V6-RSCR-01: shell and hubs, landscape and tablet (first per-screen story) | 1 (6110–6119) | game-ui-ux, ux-review, frontend-design, design-principles, tdd |
+| inp-05 | V6-INP-05: Settings → Keyboard shortcuts page | 5 (6150–6159) | input-systems, game-ui-ux, ux-review, tdd |
 
-**Integration queue:** RFND-01 next, then whatever finishes.
-**Next ready:** PLAT-03 (after RFND-01, because of the safe area), RFND-02/03 (after RFND-01), LAND-04 (after STATS-03), LINK-03 (after LINK-02), INP-03 (after INP-02).
+**v6 status:** red only on kit-layouts* wide findings (V6-062), until FIX-KIT-WIDE merges.
+**Default layout command:** story agents use `--quick`; integrators use the full matrix only when src/ or the layout scripts changed (V6-057).
+**Next ready:** PLAT-04 (after PLAT-05), then ACCT-05 and PAY-01; RSCR-02..11 after RSCR-01; LINK-05/06/07 after ACCT-05; INP-06 after INP-05 and RSCR-02; a QA hardening story for the load-sensitive smoke flakes (FLAKY F1, F3, F4).
 
 ## Merged
+
+- STATS-03 (V6-050/051), INP-02 (V6-052), LINK-03 (V6-054, with the V6-053 security fix), RFND-01 (V6-055), LAND-04 (V6-056), GATE-01b (V6-057), RFND-04 (V6-058), RFND-02 (V6-059), LAND-06 (V6-060), PLAT-03 (V6-061), RFND-03 (V6-062), INP-03 (V6-064), INP-04 (V6-065), LINK-02 (V6-049)
 
 - ACCT-04 (V6-045), FIX-SHOP-01 (V6-046), STATS-02 (V6-047), LINK-04 (V6-048)
 
