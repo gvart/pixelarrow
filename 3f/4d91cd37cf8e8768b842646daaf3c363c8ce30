@@ -1,0 +1,41 @@
+tests/layoutScenes.test.ts
+  s_0d98fe904b2e82::t_9d3314888047c9 69-73
+scripts/layout-check.mjs
+  s_0d98fe904b2e82::t_6abd6e16f9dbc8 1099,1101
+  s_0d98fe904b2e82::t_7758ea394d1cdf 1121
+  s_0d98fe904b2e82::t_54c13c942bef52 58,120-121
+  s_0d98fe904b2e82::t_2afa5c77eccfca 105-107,109-119
+  s_0d98fe904b2e82::t_b079e76d7b00c0 1253-1256
+scripts/lib/settle.mjs
+  s_0d98fe904b2e82::t_5a4a423ab988e4 38,41,43,45-46,48-51,54
+  s_0d98fe904b2e82::t_48def681dbdf48 87,118
+  s_0d98fe904b2e82::t_b7faf2af55f843 59-78,81,84,116-117,119,121-122
+  s_0d98fe904b2e82::t_83c46c88e145e5 15,19-20,23-25,32-33
+  s_0d98fe904b2e82::t_66abe98ab9428f 44
+  s_0d98fe904b2e82::t_c281fb588a6eba 56
+  s_0d98fe904b2e82::t_f189dc0d4d5047 27-29
+  s_0d98fe904b2e82::t_ffc3bec7eae552 57,88-115
+  s_0d98fe904b2e82::t_18a476b7cd7eb7 4-5,7
+  s_0d98fe904b2e82::t_85dcfe53718924 34
+  s_0d98fe904b2e82::t_9e7b8e8be84561 58
+docs/UI_KIT.md
+  s_0d98fe904b2e82::t_3a87ef88c22eec 513,516-565
+scripts/lib/layoutScenes.mjs
+  s_0d98fe904b2e82::t_0c49e566956dfd 182,184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3f4d91cd37cf8e8768b842646daaf3c363c8ce30",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
