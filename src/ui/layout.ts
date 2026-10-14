@@ -19,7 +19,7 @@
 import Phaser from 'phaser';
 import { RS, legacyColumn } from '../platform/renderScale';
 import { keyOfText } from '../i18n';
-import { checkLayout, checkWide, intersect, type LayoutReg, type Rect, type UiElement, type Violation, type WideRules } from './layoutCheck';
+import { checkLayout, checkWide, intersect, shownIds, type LayoutReg, type Rect, type UiElement, type Violation, type WideRules } from './layoutCheck';
 import { metricsFor, type SizeClass } from './sizeClass';
 
 type GO = Phaser.GameObjects.GameObject & {
@@ -35,6 +35,8 @@ type GO = Phaser.GameObjects.GameObject & {
   __uiBlock?: string;
   __uiRect?: () => Rect;
   __uiBlocker?: boolean;
+  __uiPanel?: { rect: () => Rect | null; role: 'dialog' | 'side' };
+  __uiListIds?: () => string[];
   list?: GO[];
   visible?: boolean;
   alpha?: number;
@@ -129,6 +131,27 @@ export function uiPrimary<T extends Phaser.GameObjects.GameObject>(obj: T): T {
  */
 export function uiCollapsed(scene: Phaser.Scene, id: string, intoId: string): void {
   ((scene as Registered).__uiCollapsed ??= {})[id] = intoId;
+}
+
+/**
+ * An open dialog, sheet or side panel (V6-063): `obj` holds the panel, `x, y, w, h` is its box in `obj`'s
+ * space. Its box is checked by its own caps (`stretched`: a dialog or sheet 320 UI px, a side panel the
+ * §3.4 widths); it and what it holds are never base content, so `wasted-width` and `empty-column` measure
+ * the screen beneath it (what its shade covers, or what stays live beside an inspector). A docked side
+ * panel (`side`) also takes its strip out of the content region. `openPanel` and the rotate card call it.
+ */
+export function uiPanel<T extends Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject>(obj: T, x: number, y: number, w: number, h: number, side = false): T {
+  (obj as unknown as GO).__uiPanel = { rect: () => worldRect(obj, x, y, w, h), role: side ? 'side' : 'dialog' };
+  return obj;
+}
+
+/**
+ * The ids of every row of a virtualised list (`content` is its scroll content): `element-parity` counts them
+ * all, rows not built at the current scroll position included (V6-066). ScrollList calls it.
+ */
+export function uiListIds<T extends Phaser.GameObjects.GameObject>(content: T, ids: () => string[]): T {
+  (content as GO).__uiListIds = ids;
+  return content;
 }
 
 /** Custom bounds for an object (world coordinates), e.g. a container with a hit area. */
@@ -235,6 +258,8 @@ function fontPx(o: GO, cam: Phaser.Cameras.Scene2D.Camera): number | undefined {
 interface Inherited {
   stretch: boolean;
   primary: boolean;
+  /** Inside a `uiPanel`. */
+  panel: boolean;
 }
 
 /** Collect the UI elements of every visible scene (top layer only), in canvas CSS px. */
@@ -245,6 +270,10 @@ export function collectUi(game: Phaser.Game): UiElement[] {
 /** What the landscape checks read besides the elements (canvas CSS px). */
 interface Collected {
   elements: UiElement[];
+  /** With a modal panel open: the base screen's elements its shade covers (V6-063). */
+  under: UiElement[];
+  /** The ids virtualised lists registered for their whole content (`uiListIds`), on the layers element-parity reads. */
+  listIds: string[];
   opaque: Rect[];
   layouts: LayoutReg[];
   collapsed: Record<string, string>;
@@ -255,7 +284,15 @@ interface Collected {
 function collect(game: Phaser.Game): Collected {
   const W = game.scale.width;
   const H = game.scale.height;
-  let items: (Walked & { kind: 'interactive' | 'text' | 'panel'; scene: string; marks: Inherited; dialog?: boolean })[] = [];
+  type Item = Walked & { kind: 'interactive' | 'text' | 'panel'; scene: string; marks: Inherited; dialog?: boolean; role?: 'dialog' | 'side'; layer: number };
+  let items: Item[] = [];
+  /** What modal backdrops covered, with the layer each was drawn in. */
+  const covered: Item[] = [];
+  /** Modal layers: 0 is the screen, each backdrop opens the next; whether a layer holds a dialog, sheet or panel. */
+  let layer = 0;
+  const layerHasPanel: boolean[] = [false];
+  /** `uiListIds` met, with the layer of each. */
+  const lists: { ids: string[]; layer: number }[] = [];
   const opaque: Rect[] = [];
   const layouts: LayoutReg[] = [];
   const collapsed: Record<string, string> = {};
@@ -288,7 +325,7 @@ function collect(game: Phaser.Game): Collected {
         if (!o || o.visible === false || o.__uiIgnore) continue;
         const a = alpha * (o.alpha ?? 1);
         if (a < 0.05) continue;
-        const marks: Inherited = { stretch: inherited.stretch || !!o.__uiStretch, primary: inherited.primary || !!o.__uiPrimary };
+        const marks: Inherited = { stretch: inherited.stretch || !!o.__uiStretch, primary: inherited.primary || !!o.__uiPrimary, panel: inherited.panel || !!o.__uiPanel };
         let r = root;
         let c = clip;
         if (!r) {
@@ -306,6 +343,15 @@ function collect(game: Phaser.Game): Collected {
             c = c ? intersect(c, v) ?? { x: v.x, y: v.y, w: 0, h: 0 } : v;
           }
         }
+        if (o.__uiListIds) lists.push({ ids: o.__uiListIds(), layer });
+        if (o.__uiPanel) {
+          const b = o.__uiPanel.rect();
+          if (b) {
+            items.push({ o, rect: project(b, r), clip: c, kind: 'panel', scene: scene.sys.settings.key, world: r.world, project: r.project, cam: r.cam, marks, dialog: true, role: o.__uiPanel.role, layer });
+            if (layer > 0) layerHasPanel[layer] = true;
+            afterBlocker = false;
+          }
+        }
         if (o.__uiOpaque) {
           const b = boundsOf(o);
           if (b) opaque.push(project(b, r));
@@ -318,13 +364,20 @@ function collect(game: Phaser.Game): Collected {
             const rect = project(b, r);
             if (interactive && ((o as GO).__uiBlocker || (!isText && rect.w * rect.h >= 0.9 * W * H && !(o instanceof Phaser.GameObjects.Container)))) {
               // A modal backdrop: drop what it covers (this and lower scenes).
-              items = items.filter((it) => !(intersect(it.rect, rect)));
+              // a row scrolled out of its list is covered with the list: the shade covers its scroll window
+              const under = (it: Item) => !!intersect(it.clip && !it.world ? it.clip : it.rect, rect);
+              covered.push(...items.filter(under));
+              items = items.filter((it) => !under(it));
               afterBlocker = true;
+              layerHasPanel[++layer] = false;
             } else {
               const kind = isText ? 'text' : interactive ? 'interactive' : 'panel';
               const dialog = kind === 'panel' && afterBlocker;
-              if (dialog) afterBlocker = false;
-              items.push({ o, rect, clip: c, kind, scene: scene.sys.settings.key, world: r.world, project: r.project, cam: r.cam, marks, dialog });
+              if (dialog) {
+                afterBlocker = false;
+                layerHasPanel[layer] = true;
+              }
+              items.push({ o, rect, clip: c, kind, scene: scene.sys.settings.key, world: r.world, project: r.project, cam: r.cam, marks, dialog, layer });
             }
           }
         }
@@ -332,18 +385,38 @@ function collect(game: Phaser.Game): Collected {
         if (kids && kids.length) walk(kids, r, c, a, marks);
       }
     };
-    walk(scene.children.list as GO[], null, null, 1, { stretch: false, primary: false });
+    walk(scene.children.list as GO[], null, null, 1, { stretch: false, primary: false, panel: false });
   }
+  // V6-063: when the top layers are panels (a dialog over a sheet counts as one), the layer beneath them is
+  // the base screen: its covered elements are measured by wasted-width and empty-column, the panels' are not
+  let first = layer + 1;
+  while (first > 1 && layerHasPanel[first - 1]) first--;
+  const panelFrom = first <= layer ? first : Infinity;
+  const base = (it: Item): UiElement => {
+    const visible = it.clip ? intersect(it.rect, it.clip) ?? { x: it.rect.x, y: it.rect.y, w: 0, h: 0 } : it.rect;
+    const el: UiElement = { id: idOf(it.o), kind: it.kind as 'interactive' | 'text', rect: it.rect, visible, scene: it.scene, path: pathOf(it.o) };
+    if (it.clip && !it.world) el.clip = it.clip;
+    if (it.world) el.world = true;
+    if (it.o.__uiId) el.named = true;
+    if (it.marks.stretch) el.stretch = true;
+    if (it.kind === 'interactive' && /^(tab|nav)\./.test(el.id)) el.nav = true;
+    return el;
+  };
+  const under = panelFrom === Infinity ? [] : covered.filter((it) => it.layer === panelFrom - 1 && it.kind !== 'panel').map(base);
+  // the lists of the base screen (under a panel) and above it; a full-screen layer that is not a panel hides the rest
+  const fromLayer = panelFrom === Infinity ? layer : panelFrom - 1;
+  const listIds = lists.filter((l) => l.layer >= fromLayer).flatMap((l) => l.ids);
   const panels = items.filter((i) => i.kind === 'panel');
   const out: UiElement[] = [];
   items.forEach((it) => {
     if (it.kind === 'panel') {
-      // a dialog or side panel (the first panel over a modal backdrop): only `stretched` reads it
-      if (it.dialog) out.push({ id: idOf(it.o), kind: 'box', role: 'dialog', rect: it.rect, visible: it.rect, scene: it.scene, path: pathOf(it.o) });
+      // a dialog, sheet or side panel (a `uiPanel`, or the first panel over a modal backdrop): its own caps only
+      if (it.dialog) out.push({ id: idOf(it.o), kind: 'box', role: it.role ?? 'dialog', rect: it.rect, visible: it.rect, scene: it.scene, path: pathOf(it.o) });
       return;
     }
     const visible = it.clip ? intersect(it.rect, it.clip) ?? { x: it.rect.x, y: it.rect.y, w: 0, h: 0 } : it.rect;
     const el: UiElement = { id: idOf(it.o), kind: it.kind as 'interactive' | 'text', rect: it.rect, visible, scene: it.scene, path: pathOf(it.o) };
+    if (it.marks.panel || it.layer >= panelFrom) el.panel = true;
     if (it.clip && !it.world) el.clip = it.clip;
     if (it.world) el.world = true;
     if (it.o.__uiId) el.named = true;
@@ -405,7 +478,7 @@ function collect(game: Phaser.Game): Collected {
     out.push(el);
   });
   const css = (b: Rect): Rect => ({ x: b.x / RS, y: b.y / RS, w: b.w / RS, h: b.h / RS });
-  return { elements: RS === 1 ? out : out.map(toCss), opaque: opaque.map(css), layouts, collapsed, field };
+  return { elements: RS === 1 ? out : out.map(toCss), under: RS === 1 ? under : under.map(toCss), listIds, opaque: opaque.map(css), layouts, collapsed, field };
 }
 
 /** A text that wraps at a declared width: its box is its widest line (`stretched` reads lines at 300 UI px). */
@@ -470,7 +543,8 @@ export function checkUi(game: Phaser.Game): { elements: UiElement[]; violations:
     if (S) scale[s.sys.settings.key] = S / RS;
   }
   const kind = c.layouts.some((l) => l.kind === 'field') || (!c.layouts.length && c.field) ? 'field' : 'menu';
-  const wide = checkWide(elements, { safe: o.safe, game: gameBox, canvas: box(game.canvas), m: { cls: m.cls, land: m.land, S: m.S / RS, navW: m.navW, contentW: m.contentW }, scale, layouts: c.layouts, kind, opaque: c.opaque, scrollTop: o.scrollTop }, o.rules);
-  const ids = [...new Set(elements.filter((e) => e.named && e.visible.w > 0.5 && e.visible.h > 0.5).map((e) => e.id))];
+  const wide = checkWide(elements, { safe: o.safe, game: gameBox, canvas: box(game.canvas), m: { cls: m.cls, land: m.land, S: m.S / RS, navW: m.navW, contentW: m.contentW }, scale, layouts: c.layouts, kind, opaque: c.opaque, scrollTop: o.scrollTop, under: c.under }, o.rules);
+  // the base screen under an open panel is still there (V6-063): its ids count for element-parity
+  const ids = shownIds([...elements, ...c.under], c.listIds);
   return { elements, violations, width, height, wide: { violations: wide, ids, collapsed: c.collapsed, responsive: !legacyColumn(), cls: m.cls, land: m.land } };
 }

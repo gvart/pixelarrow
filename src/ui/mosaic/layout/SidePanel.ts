@@ -12,7 +12,7 @@
 import Phaser from 'phaser';
 import { addText, type UIMetrics } from '../../kit';
 import { navLayer } from '../../../platform/nav';
-import { uiBlocker, uiFrame, uiId, uiIgnore } from '../../layout';
+import { uiBlocker, uiFrame, uiId, uiIgnore, uiPanel } from '../../layout';
 import { motion, tweenTo } from '../../motion';
 import { ellipsize, measureText } from '../../textfit';
 import { MOSAIC, SPACE } from '../../tokens';
@@ -78,6 +78,8 @@ export function openPanel(scene: UiScene, o: PanelOpts): PanelHandle {
       id,
       onClose: o.onClose,
     });
+    // the layout check judges the screen beneath it, and the sheet by its own caps (V6-063)
+    uiPanel(s.c, s.x, s.y, s.w, s.h);
     return { presentation, ...s };
   }
   const { VW, VH } = scene.m;
@@ -99,6 +101,7 @@ export function openPanel(scene: UiScene, o: PanelOpts): PanelHandle {
   const { x, y, w, h } = rect;
   const box = scene.add.container(0, 0);
   c.add(box);
+  uiPanel(box, x, y, w, h, true);
   // the panel takes the taps on it (an inspector leaves the rest of the screen live)
   box.add(uiIgnore(mosaicImage(scene, x, y, w, h, 'sheet').setInteractive({ cursor: 'default' })));
   const room = w - 26 * 2;

@@ -27,6 +27,9 @@ export const WIDE_RULES = {
   wastedWidth: { medium: 0.8, expanded: 0.7 }, // least share of contentW the content spans (menu screens)
   emptyColumn: { width: 0.25, height: 0.6, variants: ['compact-land', 'medium', 'expanded'] }, // an empty strip this wide x tall fails
   stretched: { row: 360, button: 240, cta: 300, line: 300, dialog: 320 },
+  // a docked side panel's width (§3.4, §2.3), UI px; `share` of VW lowers the least width (Settings: 60% of VW
+  // in compact landscape); compact portrait and medium show sheets instead (V6-063)
+  sidePanel: { 'compact-land': { min: 220, max: 280, share: 0.6 }, expanded: { min: 240, max: 320 } },
   fieldCoverage: { expanded: 0.6, 'compact-land': 0.5, medium: 0.5, 'compact-port': 0.4 }, // least share of the box the field shows
 };
 /** The landscape checks (src/ui/layoutCheck.ts WIDE_CHECKS): a pending family's findings of these are reported, not failed. */
