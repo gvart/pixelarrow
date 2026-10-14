@@ -14,6 +14,8 @@ export interface PaneBox {
 
 /** The left pane at expanded (§7.5: 260); at compact landscape the two panes share the width. */
 export const SUMMARY_PANE_W = 260;
+/** A tablet upright: the Summary stacked over the tabs takes at most this share of the page's height. */
+export const SUMMARY_STACK_SHARE = 0.4;
 /** The space between the panes (landscape-v6 §3.2). */
 export const RESULTS_GUTTER = 8;
 /** The landscape primary at the right pane's foot, at most this wide (§7.5). */
@@ -21,11 +23,13 @@ export const CTA_PANE_MAX = 240;
 
 /**
  * The banner column (`left`) and, in landscape, the page column (`right`) inside the frame's content box.
- * One column: `left` is the whole page (4 px inset, as v5) and `right` is null. Two panes: the right pane
+ * One column: `left` is the whole page (4 px inset, as v5; at most ROW_MAX, centred, on a tablet upright) and `right` is null. Two panes: the right pane
  * is a list's width at most (ROW_MAX: its rows are list rows), and the pair is centred in the box.
  */
 export function resultsPanes(box: { x: number; w: number }, land: boolean, cls: SizeClass): { left: PaneBox; right: PaneBox | null } {
   const inner = { x: box.x + 4, w: box.w - 8 };
+  // a tablet upright: one column of list rows, at most ROW_MAX, centred (the stretched rule)
+  if (!land && cls === 'medium' && inner.w > ROW_MAX) return { left: { x: inner.x + Math.floor((inner.w - ROW_MAX) / 2), w: ROW_MAX }, right: null };
   if (!land) return { left: inner, right: null };
   const leftW = cls === 'compact' ? Math.floor((inner.w - RESULTS_GUTTER) * 0.48) : Math.min(SUMMARY_PANE_W, Math.floor((inner.w - RESULTS_GUTTER) * 0.45));
   const rightW = Math.min(ROW_MAX, inner.w - RESULTS_GUTTER - leftW);

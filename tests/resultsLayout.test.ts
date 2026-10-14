@@ -3,9 +3,12 @@ import { CTA_PANE_MAX, RESULTS_GUTTER, resultsPanes, spoilCols, tilesPerRow } fr
 import { ROW_MAX } from '../src/ui/sizeClass';
 
 describe('Results panes (landscape-v6 §7.5)', () => {
-  it('keeps the v5 single column on phones and tablets upright', () => {
+  it('keeps the v5 single column on phones, and a list width at most, centred, on tablets upright', () => {
     expect(resultsPanes({ x: 6, w: 183 }, false, 'compact')).toEqual({ left: { x: 10, w: 175 }, right: null });
-    expect(resultsPanes({ x: 6, w: 372 }, false, 'medium')).toEqual({ left: { x: 10, w: 364 }, right: null });
+    // 768x1024 and 820x1180: its rows are list rows, at most ROW_MAX (the stretched rule)
+    expect(resultsPanes({ x: 6, w: 372 }, false, 'medium')).toEqual({ left: { x: 12, w: ROW_MAX }, right: null });
+    expect(resultsPanes({ x: 6, w: 397 }, false, 'medium')).toEqual({ left: { x: 24, w: ROW_MAX }, right: null });
+    expect(resultsPanes({ x: 6, w: 300 }, false, 'medium')).toEqual({ left: { x: 10, w: 292 }, right: null });
   });
 
   it('splits compact landscape into two panes that share the width', () => {

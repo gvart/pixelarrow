@@ -23,7 +23,7 @@ import { BaseScene } from './BaseScene';
 import { ScrollArea, addIcon, addText, tappable, Button } from '../ui/kit';
 import { ItemIcon, Label, ScrollList, StatBar, addScrollHint, openModal, showTooltip, toast, subjectName } from '../ui/widgets';
 import { uiCollapsed, uiFrame, uiId, uiLayout, uiPrimary } from '../ui/layout';
-import { CTA_PANE_MAX, resultsPanes, spoilCols, tilesPerRow, type PaneBox } from '../ui/results/layout';
+import { CTA_PANE_MAX, SUMMARY_STACK_SHARE, resultsPanes, spoilCols, tilesPerRow, type PaneBox } from '../ui/results/layout';
 import { layoutVariant, type LayoutVariant } from '../ui/mosaic/layout/variant';
 import { CTA_MAX } from '../ui/sizeClass';
 import { ellipsize, wrapText } from '../ui/textfit';
@@ -80,6 +80,8 @@ export class ResultsScene extends BaseScene {
   protected override readonly responsive = true;
   /** Two panes (landscape): the Summary on the left, Heroes / Spoils on the right (landscape-v6 §7.5). */
   private two = false;
+  /** The Summary stays on show above the Heroes / Spoils tabs (two panes, or stacked on a tablet upright; §7.5). */
+  private pinned = false;
   /** The banner column (the whole page in one column). */
   private head: PaneBox = { x: 0, w: 0 };
   /** Where the pages go: the whole page, or the right pane. */
@@ -181,6 +183,9 @@ export class ResultsScene extends BaseScene {
     this.head = panes.left;
     this.pane = panes.right ?? panes.left;
     this.variant = layoutVariant(this.m);
+    // a tablet upright has the room: the Summary stacks over the Heroes / Spoils tabs, as the landscape's left pane
+    const stack = !this.two && this.variant === 'medium' && !this.m.land;
+    this.pinned = this.two || stack;
 
     const bannerH = VH < 300 ? 30 : VH < 380 ? 38 : 46;
     this.buildBanner(bannerH);
@@ -212,8 +217,9 @@ export class ResultsScene extends BaseScene {
     const px = this.two ? this.pane.x + this.pane.w - pw : pw === W ? x0 : Math.round(x0 + (W - pw) / 2);
     const py = this.box.y + this.box.h - 4 - BTN_H;
     // the right pane starts at the frame's top, beside the banner
-    const rightTop = this.two ? this.box.y + 4 : ty;
+    let rightTop = this.two ? this.box.y + 4 : ty;
     if (this.two) this.buildSummaryPane(ty, fresh);
+    else if (stack) rightTop = this.buildSummaryPane(ty, fresh, ty + Math.round(SUMMARY_STACK_SHARE * (this.bottom - ty))) + 6;
     if (this.arcOpen) {
       this.top = rightTop;
       this.pageLayer = this.add.container(0, 0);
@@ -222,9 +228,9 @@ export class ResultsScene extends BaseScene {
       this.primary = uiPrimary(new MButton(this, px, py, pw, BTN_H, { label: t('results.arc.continue'), icon: 'flag', variant: 'primaryHero', id: 'results.primary', onClick: () => this.closeArc() }));
       this.ui.add(this.primary);
     } else {
-      // two panes: the Summary is the left pane, so its tab folds into it (element-parity, §7.5)
-      const pages = pagesFor(!!this.practice).filter((p) => !this.two || p !== 'summary');
-      if (this.two) {
+      // the Summary pinned (the left pane, or stacked on a tablet upright): its tab folds into it (element-parity, §7.5)
+      const pages = pagesFor(!!this.practice).filter((p) => !this.pinned || p !== 'summary');
+      if (this.pinned) {
         this.seen.add('summary');
         uiCollapsed(this, 'results.tab.summary', 'results.tile.time');
       }
@@ -253,8 +259,13 @@ export class ResultsScene extends BaseScene {
     const { area, w } = this.pageScroll();
     const roll = companyRoll(this.report);
     const piece = arcPiece(this.report.loot);
-    const h = buildArcVictory(this, area.content, area, w, { ...roll, piece, onPiece: () => this.inspect(0) });
-    area.setContentHeight(h);
+    const inner = this.add.container(0, 0);
+    area.content.add(inner);
+    const h = buildArcVictory(this, inner, area, w, { ...roll, piece, onPiece: () => this.inspect(0) });
+    // the Summary pinned beside or over it: the roll and the set piece centred in their page, a moment to look at, not a list
+    const dy = this.pinned ? Math.max(0, Math.floor((area.viewHeight - h) / 2)) : 0;
+    inner.y = dy;
+    area.setContentHeight(h + dy);
   }
 
   /** Continue the campaign: the post-game begins ('won' becomes 'post') and the normal report follows, on its Spoils. */
@@ -408,7 +419,7 @@ export class ResultsScene extends BaseScene {
 
   showPage(p: Page): void {
     // two panes: the Summary is always on show at the left; its page is the right pane's first (Heroes)
-    if (this.two && p === 'summary') p = pagesFor(!!this.practice).find((x) => x !== 'summary') ?? 'heroes';
+    if (this.pinned && p === 'summary') p = pagesFor(!!this.practice).find((x) => x !== 'summary') ?? 'heroes';
     this.clearPage();
     this.page = p;
     this.tabs?.pick(p, false);
@@ -450,19 +461,31 @@ export class ResultsScene extends BaseScene {
 
   /**
    * Two panes: the Summary (tiles, MVP, notes) in its own scrolling pane under the banner at the left,
-   * on show the whole time (`results.summary` holds the folded Summary tab).
+   * on show the whole time (`results.summary` holds the folded Summary tab). Stacked (a tablet upright,
+   * `maxBottom` given): the same pane over the tabs, as tall as its content up to `maxBottom`; returns its foot.
    */
-  private buildSummaryPane(top: number, animate: boolean): void {
+  private buildSummaryPane(top: number, animate: boolean, maxBottom?: number): number {
     const { S } = this.m;
     const x = this.head.x;
     const w = this.head.w;
-    const bottom = this.box.y + this.box.h - 4;
+    const room = (maxBottom ?? this.box.y + this.box.h - 4) - top;
+    let bottom = top + room;
+    if (maxBottom !== undefined) {
+      // stacked: as tall as its content, at most `room` (it scrolls past that); measured on a hidden copy
+      const probe = this.add.container(0, 0).setVisible(false);
+      const pa = new ScrollArea(this, probe, x, top, w, room, S);
+      this.buildSummary(false, pa, w - 4, room);
+      bottom = top + Math.min(room, Math.ceil(pa.contentHeight));
+      pa.destroy();
+      probe.destroy(true);
+    }
     const layer = this.add.container(0, 0);
     this.ui.add(layer);
     layer.add(mosaicImage(this, x - 2, top - 2, w + 4, bottom - top + 4, 'parchment'));
     const area = new ScrollArea(this, layer, x, top, w, bottom - top, S);
     addScrollHint(this, layer, area, MOSAIC.parch);
-    this.buildSummary(animate && !this.seen.has('summary'), area, w - 4, bottom - top);
+    this.buildSummary(animate && !this.seen.has('summary'), area, w - 4, room);
+    return bottom;
   }
 
   private buildSummary(animate: boolean, given?: ScrollArea, givenW?: number, givenH?: number): void {
@@ -739,7 +762,8 @@ export class ResultsScene extends BaseScene {
     const art = Math.min(56, Math.max(0, room - (12 + 12 + lines.length * lh + 12)));
     const showArt = art >= 28;
     const h = Math.min(room, 8 + (showArt ? art + 4 : 0) + 12 + lines.length * lh + 8);
-    const c = this.add.container(x, this.top);
+    // the Summary pinned beside or over it: the card centred in its page's height, as the arc's roll (an empty pane reads as broken)
+    const c = this.add.container(x, this.top + (this.pinned ? Math.floor((room - h) / 2) : 0));
     this.pageLayer!.add(c);
     c.add(mosaicImage(this, 0, 0, w, h, 'parchment'));
     let y = 8;
@@ -810,8 +834,9 @@ export class ResultsScene extends BaseScene {
     c.removeAll(true);
     const area = this.pageArea;
     if (!this.revealed.has(i)) {
-      // face down: a dark stone card with a chest
-      c.add(mosaicImage(this, 0, 0, w, h, 'tileStone'));
+      // face down: a dark stone card with a chest (the card is on show face down too: its id, whatever the reveal's pace)
+      const back = mosaicImage(this, 0, 0, w, h, 'tileStone');
+      c.add(this.variant === 'compactPortrait' ? uiId(back, `results.loot${i}`) : back);
       c.add(addIcon(this, Math.round((w - 12) / 2), Math.round((h - 12) / 2), 'chest', 'L'));
       // off the phone: a press (or a click) turns it over at once instead of waiting its turn
       if (this.variant !== 'compactPortrait') {
