@@ -30,6 +30,12 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Cause:** suspected load timeout (timing/async): one test sweeps the settlement tap areas and runs close to the 30 s limit on a loaded CPU.
 - **Fix:** none yet. Record each further run here.
 
+### F8 · layout check element parity on real-time scenes (suspected, tooling gap)
+
+- **Seen:** element-parity findings that a rerun clears, on scenes that run live: the world-encounter ids during V6-074's integration (RSCR-07); `results.loot15`–`17` at 320x693 and 360x780, and `battle.undo` (shown only for 3 s after an order) during V6-RSCR-02.
+- **Cause:** a tooling gap (timing/async): each size stages its own live scene, so parity compares different moments of different runs, not like with like.
+- **Fix:** the tooling story PARITY-STABLE (V6-076) stages parity runs deterministically (a fixed seed plus a paused or fixed clock) or excludes ids registered as transient (`uiTransient`). Until then, rerun the scene alone once; record each further run here.
+
 ## Resolved
 
 ### F4 · `scripts/smoke.mjs` in Telegram mode, "tap on the map plans a route" and "party marched" (timing/async + missed event, fixed in QA-HARDEN)
