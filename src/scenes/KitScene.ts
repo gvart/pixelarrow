@@ -27,6 +27,7 @@ import { Cursor } from './kit/common';
 import { buildTokens, buildType } from './kit/tokensPage';
 import { buildStates } from './kit/statesPage';
 import { buildOverlays, openOverlaySample } from './kit/overlaysPage';
+import { buildForms, openFormSample } from './kit/formsPage';
 import { buildIcons } from './kit/iconsPage';
 import { buildArmy } from './kit/armyPage';
 import { buildLayouts, type LayoutDemo, type LayoutSample, type LayoutsPage } from './kit/layoutsPage';
@@ -47,7 +48,7 @@ interface KitData {
 const LAYOUTS_TAB = KIT_PAGES.find((p) => p.id === 'layouts')!.tab;
 
 /** The v5 pages: their builder on a framed parchment page. */
-const V5_PAGES: Record<number, (cur: Cursor) => void> = { 7: buildTokens, 8: buildType, 9: buildStates, 10: buildOverlays, 11: buildIcons, 12: buildArmy };
+const V5_PAGES: Record<number, (cur: Cursor) => void> = { 7: buildTokens, 8: buildType, 9: buildStates, 10: buildOverlays, 11: buildIcons, 12: buildArmy, 14: buildForms };
 
 /** Height of the pager row at the top, UI px. */
 const HEAD = 30;
@@ -112,6 +113,11 @@ export class KitScene extends BaseScene {
   /** Opens an overlay sample of the Overlays page (scripts, the layout check). */
   openSample(id: string): void {
     openOverlaySample(this, id);
+  }
+
+  /** Opens a sample of the Forms page: an AuthForm state or Check your email (scripts, screenshots). */
+  openFormSample(id: string): void {
+    openFormSample(this, id);
   }
 
   private show(i: number): void {

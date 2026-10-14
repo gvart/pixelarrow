@@ -199,6 +199,13 @@ const SCREENS = [
   { id: 'kit-overlays', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'overlays' }), wait(p, 900)) },
   { id: 'kit-icons', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'icons' }), wait(p, 1200)) },
   { id: 'kit-army', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'army' }), wait(p, 1500)) },
+  // V6-ACCT-05: the Forms page, and Check your email (a canvas sheet; the forms themselves are HTML over the canvas)
+  { id: 'kit-forms', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'forms' }), wait(p, 1200)) },
+  ...['check', 'check-capped'].map((sample) => ({
+    id: `kit-forms-${sample}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Kit', { page: 'forms' }), await wait(p, 600), await call(p, 'Kit', `s.openFormSample(${JSON.stringify(sample)}); return 1;`), wait(p, 700)),
+  })),
   // 'confirm-over' then 'destructive': a destructive confirm over the sheet that asked (one sheet plus one confirm)
   ...[['sheet'], ['sheet-actions'], ['decision'], ['footer-close'], ['confirm-over', 'destructive'], ['item'], ['purchase']].map((samples) => ({
     id: `kit-overlay-${samples[0]}`,
