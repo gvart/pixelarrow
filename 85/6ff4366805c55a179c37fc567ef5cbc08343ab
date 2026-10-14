@@ -1,0 +1,27 @@
+scripts/guest-save-e2e.mjs
+  s_0d98fe904b2e82::t_4ff8588e96faf9 152
+  s_0d98fe904b2e82::t_b62c2ee43febeb 159-161,176
+  s_0d98fe904b2e82::t_3b23061b7504af 178
+  s_0d98fe904b2e82::t_960139373832ad 1-151,153-158,162-175,177,179-233
+src/ui/account/accountPage.ts
+  s_0d98fe904b2e82::t_07c8b9562023bd 23,148-149,151-153,156,158,222
+src/ui/account/twoCampaigns.ts
+  s_0d98fe904b2e82::t_cf12be518dff68 60-65,95-97
+  s_0d98fe904b2e82::t_7659b647e486a6 81-89,91-92,107,109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "856ff4366805c55a179c37fc567ef5cbc08343ab",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
