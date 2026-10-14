@@ -78,7 +78,7 @@ export const ACCOUNT_EN = {
   'auth.page.emailChangedPlain': 'Your email is changed. We told your old address.',
   'auth.page.conflict': 'This email already has a Pixelarrow account.',
   'auth.page.conflictHint': "To link it to your Telegram account, first prove it's yours: enter that account's password.",
-  'auth.page.continue': 'Continue',
+  'auth.page.continue': 'Link this email',
   'auth.page.removedEmpty': 'An empty Pixelarrow account that only had this email was removed.',
   'auth.page.handover': 'Opening the game to choose which account to keep…',
   'auth.page.stopped': 'Stopped. Press Play when you are ready.',

@@ -69,7 +69,7 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, string> = {
   'auth.page.emailChangedPlain': 'Почта изменена. Мы сообщили об этом на старый адрес.',
   'auth.page.conflict': 'У этой почты уже есть аккаунт Pixelarrow.',
   'auth.page.conflictHint': 'Чтобы привязать её к аккаунту в Telegram, сначала докажите, что она ваша: введите пароль того аккаунта.',
-  'auth.page.continue': 'Продолжить',
+  'auth.page.continue': 'Привязать почту',
   'auth.page.removedEmpty': 'Пустой аккаунт Pixelarrow, у которого была только эта почта, удалён.',
   'auth.page.handover': 'Открываем игру, чтобы выбрать, какой аккаунт оставить…',
   'auth.page.stopped': 'Остановлено. Нажмите «Играть», когда будете готовы.',
