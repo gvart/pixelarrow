@@ -361,8 +361,17 @@ export class ParchmentMapView implements WorldMapView {
     const st: MapState = { fog: new Uint8Array(this.world.map.w * this.world.map.h).fill(1), owner: new Map() };
     const key = this.addTex(bakeChunk(this.fields, st, 1, 0, 0, T, T));
     const pad = 4096;
+    // Phaser's TileSprite keeps a canvas of its own size even under WebGL, which never draws to it: at full
+    // size (about 19000 x 14500) that canvas alone was 1 GB, past the iOS limits (Telegram's WebView died
+    // on the War map). It is laid out at 1/K and scaled up, the tiles scaled down by as much: same look.
+    const K = 16;
     // toned (WAR-3): the unexplored parchment reads as paper, not as a white band over the map
-    this.margin = this.scene.add.tileSprite(-pad, -pad, this.fields.W + 2 * pad, this.fields.H + 2 * pad, key).setOrigin(0, 0).setTint(FOG_TONE);
+    this.margin = this.scene.add
+      .tileSprite(-pad, -pad, Math.ceil((this.fields.W + 2 * pad) / K), Math.ceil((this.fields.H + 2 * pad) / K), key)
+      .setOrigin(0, 0)
+      .setScale(K)
+      .setTileScale(1 / K)
+      .setTint(FOG_TONE);
     this.groundOverview.addAt(this.margin, 0);
   }
 
