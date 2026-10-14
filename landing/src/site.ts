@@ -10,9 +10,10 @@ export const PLAY_URL = 'https://play.pixelarrow.app/';
 // PUBLIC_TELEGRAM_URL; until it is set the buttons open Telegram's own site instead of a guess.
 export const TELEGRAM_URL: string = import.meta.env.PUBLIC_TELEGRAM_URL || 'https://telegram.org/';
 
-export const TITLE = 'Pixelarrow: pixel-art formation battles in the ancient Mediterranean';
+// ≤ 60 characters (V6-025, LAND-06 SEO pass) so search results show it whole.
+export const TITLE = 'Pixelarrow: pixel-art phalanx battles of the ancient world';
 export const DESCRIPTION =
-  'Command pixel phalanxes in real-time battles. Campaign, ranked duels and a seasonal online war. Free in your browser and in Telegram.';
+  'Command pixel-art phalanxes in real-time battles: a campaign, ranked duels and a seasonal online war. Free to play in your web browser and in Telegram.';
 export const OG_IMAGE = {
   url: `${SITE_URL}/og.jpg`,
   width: 1200,
