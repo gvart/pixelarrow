@@ -1,0 +1,21 @@
+scripts/dev/battle-follow.mjs
+  s_0d98fe904b2e82::t_e0981257f9e851 95,98-106,110
+  s_0d98fe904b2e82::t_e6dc5c48ea3196 125-127,129,131
+  s_0d98fe904b2e82::t_bca86db96dae5f 1-94,96-97,107-109,111-124,128,130,132-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2537065cdc5c0d911c64bd6df88295499c1e00aa",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
