@@ -1,0 +1,22 @@
+tests/codexLayout.test.ts
+  s_0d98fe904b2e82::t_503a8f70f853f8 89-90
+src/ui/beastInfo.ts
+  s_0d98fe904b2e82::t_6c82fc89758efe 163
+  s_0d98fe904b2e82::t_6d4d6c2251ed06 153-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "315af0eb77b1d84020c6bbcd1df0557c0f1f1744",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
