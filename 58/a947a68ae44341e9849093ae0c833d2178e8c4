@@ -1,0 +1,54 @@
+src/ui/sheets/eventCard.ts
+  s_0d98fe904b2e82::t_d066bb2b84cec1 26,205-206,347
+  s_0d98fe904b2e82::t_17821a962d351f 24,313-314,348
+src/scenes/WorldScene.ts
+  s_0d98fe904b2e82::t_b406fc32351150 466-468,471-472,902-904,906,909,914-919,923-959,980,1080,1091,1489,1539-1540
+  s_0d98fe904b2e82::t_9f67869f55403a 9-10,39,118-119,121-122,136-137
+  s_0d98fe904b2e82::t_d6427ca66137f0 1137-1142,1145,1148
+  s_0d98fe904b2e82::t_11fa64bcd2e258 238-239,293-294,650-651,656-663
+src/ui/mapHud.ts
+  s_0d98fe904b2e82::t_2a63bac623196d 113
+  s_0d98fe904b2e82::t_f8102f59c01586 1-112,114-115
+src/scenes/CampScene.ts
+  s_0d98fe904b2e82::t_4f4bc65ec8f466 769-796,798-801,811-812,814,816-817,957-958,1240,1300,1445-1446,1512,1588,1858-1859
+  s_0d98fe904b2e82::t_69261f64a6f8c0 26-27,30,32,104-105,107-110,144-145,163-164,182-183,185-187,626-637,639-640,656-661,686,690
+  s_0d98fe904b2e82::t_2c1b5b5f3e28c1 28-29,797,802-810,813,815,858,901-906,927-938,941-942,1054
+  s_0d98fe904b2e82::t_936b2cae92ccec 939-940
+  s_0d98fe904b2e82::t_3ec56ac703a20e 826-828,830,833,836-838,842,849,852,854
+  s_0d98fe904b2e82::t_471544419782ff 855,864-868,872,891,896-900,907-926,944-946,953,955
+  s_0d98fe904b2e82::t_a83134419db688 943
+src/ui/mosaic/ParchmentSheet.ts
+  s_0d98fe904b2e82::t_171014e057370e 121-128
+src/ui/sheets/encounter.ts
+  s_0d98fe904b2e82::t_c832619176670a 24,185-186
+src/ui/mosaic/index.ts
+  s_0d98fe904b2e82::t_c832619176670a 24
+  s_0d98fe904b2e82::t_675fb529bf74bf 27
+src/ui/sheets/arcSheet.ts
+  s_0d98fe904b2e82::t_c832619176670a 16,139
+  s_0d98fe904b2e82::t_17821a962d351f 140-141
+src/ui/sheets/assault.ts
+  s_0d98fe904b2e82::t_c832619176670a 17,154-155
+docs/v6/stories/V6-RSCR-07/NOTES.md
+  s_0d98fe904b2e82::t_fdeaff07341ce1 1-53
+src/ui/mosaic/SituationLine.ts
+  s_0d98fe904b2e82::t_44eab3d2231a18 23-25
+tests/mapHud.test.ts
+  s_0d98fe904b2e82::t_a4470e695af07c 1-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "58a947a68ae44341e9849093ae0c833d2178e8c4",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
