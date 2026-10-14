@@ -19,6 +19,13 @@ With fewer than 3 runs a case is only **suspected**.
 - **Seen:** failed once on the juice-tier sounds (thud, splinter) during the RFND-04 integration, then passed on 2 web-only reruns with no code change. One failure, so **suspected** until it is seen again or the cause is found.
 - **Cause:** not yet found. Likely timing/async (`audio-smoke.mjs` still waits on fixed timers, see the watch list).
 - **Fix:** none yet. Record each further run here.
+- **Recurred:** failed once more on web during the INP-03 integration (load average ≈ 20). Still **suspected**, now suspected load-sensitive; see F4 for the hardening story.
+
+### F4 · `scripts/smoke.mjs` in Telegram mode, "tap on the map plans a route" and "party marched" (suspected, load-sensitive)
+
+- **Seen:** both failed once during the INP-03 integration with the machine heavily loaded (load average ≈ 20), then passed 3 reruns with no code change. One failure, so **suspected**.
+- **Cause:** suspected load-sensitive (timing/async): the steps still lean on time-based waits that run out when frames are slow.
+- **Fix:** none yet. A QA hardening story should replace the remaining time-based waits in `smoke.mjs` and `audio-smoke.mjs` with state waits (`settled()` in `scripts/lib/harness.mjs`). Record each further run here.
 
 ## Fixed
 
@@ -42,6 +49,7 @@ With fewer than 3 runs a case is only **suspected**.
   in web mode, with "entered the village" passing all 10 times (logs `smoke-loop-1..5.log` in
   `.claude/worktrees/v6-shots/gate-02/`). Also PASS in the first run of both modes and in the
   `regression --all` run, so 12 of 12 passes in total.
+- **Recurred:** failed once on web during the INP-03 integration under heavy load (load average ≈ 20), then passed on rerun. GATE-02's fix is not fully robust under heavy load; see F4 for the hardening story.
 
 ## Not flaky, but seen while adding the modes (for the record)
 
