@@ -77,7 +77,7 @@ Header (icon, name, rarity and slot, condition, worth), the compare block (again
 - **Portrait pixel compare** (`.rscr05/portrait.mjs`, a fake clock and a fixed campaign, against v6 cd5a0e1f) at 390x844, 360x780 and 320x693, en and ru, 13 screens each: 78 compared, 0 different (0 px).
 - **Keyboard and mouse at 1280x800**: `docs/v6/shots/V6-RSCR-05/keyboard-mouse-1280x800.txt` (Tab order top bar, master, detail, footer; Enter and Esc; grab, grabbing and not-allowed cursors; drop equips).
 - **Gates**: tsc 0 errors; vitest 156 files, 1952 tests passed; vite build OK; regression `--all` (telegram and web): 21 of 21 rows PASS, suite 1991 s. The World test that timed out under load earlier (FLAKY F7) did not recur.
-- **Screenshots**: `docs/v6/shots/V6-RSCR-05/after/` has every family screen at 1280x800, 1920x1080, 844x390 and 768x1024 (en), plus Army, Hero, Hero gear and the compare card in ru at the same sizes; all opened and checked. The other sizes and tg variants come from the layout check's shots (git-ignored).
+- **Screenshots**: `docs/v6/shots/V6-RSCR-05/after/` has every family screen at 1280x800, 1920x1080, 844x390 and 768x1024 (en), plus Army, Hero, Hero gear and the compare card in ru at the same sizes; all opened and checked. Per V6-078 the folder keeps 10 key shots (Army at all four sizes, Hero at 1280x800 and 844x390, Hero skills at 1920x1080, Army with the stash, the wounded Army and the compare card on tablet); the full set is archived outside git in `v6-shots/archive/V6-RSCR-05/`. The other sizes and tg variants come from the layout check's shots (git-ignored).
 
 ## Open items
 

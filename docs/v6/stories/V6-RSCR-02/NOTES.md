@@ -113,7 +113,7 @@ Nothing is removed. The only element not drawn in a layout is the Summary tab wh
 - tsc 0 errors; vitest 1979/1979 on the final code (an earlier run under a parallel layout matrix hit the known World timeout, FLAKY F7); vite build OK; replay-hash 13/13 in chromium and webkit (src/sim and src/game untouched).
 - `node scripts/regression/run.mjs <preview> --all`, both modes: 20/21 PASS; `duel-smoke` Telegram failed once under a parallel layout matrix (FLAKY F6, recorded) and passed on the rerun (`--only duel-smoke,battle-kinds`: 4/4 PASS).
 - Portrait pixel compare against v6 (hudshots, 9 HUD states × 390, 360, 320): **27/27 0 px** (two runs each side; one v6 run's `works@390` showed the world layer the harness hides, a capture flake on the v6 side). Results and the narrator are portrait-identical by construction (the stack, the 360 column and the centring run only on a tablet or with the Summary pinned; the face-down spoil's id is metadata).
-- Screenshots: `docs/v6/shots/V6-RSCR-02/` (battle fight, deploy, shapes, menu, beast; Results, Spoils, arc, empty, Inspect; tutorial; at 1280x800, 844x390 and 768x1024, a 1920x1080 fight and Russian at three sizes).
+- Screenshots: `docs/v6/shots/V6-RSCR-02/` (battle fight, deploy, shapes, menu, beast; Results, Spoils, arc, empty, Inspect; tutorial; at 1280x800, 844x390 and 768x1024, a 1920x1080 fight and Russian at three sizes). Per V6-078 the folder keeps 10 key shots (the fight at 1280x800, 844x390, 768x1024 and 1920x1080; deploy; Results at 1280x800, 844x390 and 768x1024; Inspect; the tutorial narrator at 844x390); the full set is archived outside git in `v6-shots/archive/V6-RSCR-02/`.
 
 ## Open issues
 
