@@ -88,8 +88,11 @@ function helpers(p) {
       for (const [k, v] of Object.entries(values)) await p.fill(`#px-auth input[name=${k}]`, v);
     },
     submit: () => p.click('#px-auth [data-act=submit]'),
+    /** The overlay fades out over 120 ms after it closes. */
+    closed: () => until(() => p.evaluate(() => !document.querySelector('#px-auth form')), 3000).then(() => true, () => false),
     settled: () => until(() => ev(() => !document.querySelector('#px-auth [aria-busy=true]')), 20000),
-    text: async () => (await api.sceneText('Menu')).replace(/\s+/g, ' '),
+    // the scene's words, flattened and lower-cased (titles are drawn in capitals)
+    text: async () => (await api.sceneText('Menu')).replace(/\s+/g, ' ').toLowerCase(),
     has: (id) =>
       ev((i) => {
         let hit = false;
@@ -125,7 +128,7 @@ await T.boot();
 await T.account();
 const tgId = await T.ev(async () => (await window.__online.api.me()).player.id);
 check('Telegram: signed in from initData (a real HMAC) as a new player', typeof tgId === 'number', String(tgId));
-check('AU-09 Telegram only: email "Not added" with Add; Telegram\'s Remove is there (off: the only method)', (await T.has('account.email.add')) && (await T.has('account.tg.remove')) && (await T.text()).includes('Not added'));
+check('AU-09 Telegram only: email "Not added" with Add; Telegram\'s Remove is there (off: the only method)', (await T.has('account.email.add')) && (await T.has('account.tg.remove')) && (await T.text()).includes('not added'));
 await T.shot('01-tg-account-not-added');
 await T.api.tapBtn('Menu', { id: 'account.tg.remove' });
 await tp.waitForTimeout(400);
@@ -154,7 +157,7 @@ check('Back from AU-10 returns to Add email with the fields kept', (await T.valu
 await T.settled();
 await T.submit();
 await until(() => T.text().then((t) => t.includes('also signs you in there')), 20000);
-check('fresh initData proves it silently, the add is retried once → 202 → Check your email (add email variant)', !(await T.form()) && (await T.text()).includes(EMAIL));
+check('fresh initData proves it silently, the add is retried once → 202 → Check your email (add email variant)', (await T.closed()) && (await T.text()).includes(EMAIL));
 await T.shot('03-tg-check-email-add');
 const hint = await T.ev(() => Object.entries(localStorage).find(([k]) => k.endsWith('account.addPending'))?.[1] ?? null);
 check('the device keeps a masked hint only (no full address in storage)', !!hint && !hint.includes(EMAIL) && hint.includes('l***@e***.com'), String(hint));
@@ -182,7 +185,7 @@ const webMe = await wp.evaluate(async () => (await (await fetch('/api/me')).json
 check('the desktop browser is signed in as the same player (same id)', webMe?.id === tgId, JSON.stringify(webMe));
 await T.boot();
 await T.account();
-check("the Mini App's row reads the masked email after a refresh, with the ⋯ menu", (await T.text()).includes('l***@e***.com') && !(await T.text()).includes('Waiting') && (await T.has('account.email.more')));
+check("the Mini App's row reads the masked email after a refresh, with the ⋯ menu", (await T.text()).includes('l***@e***.com') && !(await T.text()).includes('waiting') && (await T.has('account.email.more')));
 await T.shot('04-tg-account-both');
 
 // =========================================================== 3. web: change email with password re-auth; change password
@@ -208,7 +211,7 @@ await W.shot('06-web-reauth-wrong');
 await W.fill({ password: PW });
 await W.submit();
 await until(() => W.text().then((t) => t.includes('new address')), 20000);
-check('the right password → back to Change email, retried once → Check your email (change variant)', !(await W.form()));
+check('the right password → back to Change email, retried once → Check your email (change variant)', await W.closed());
 await until(async () => !!(tok = outboxToken(EMAIL2, '/auth/change_email#t=')), 20000, 1000);
 const changed = await wp.evaluate(async (t) => (await fetch('/api/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: t }) })).status, tok);
 check('the change_email link confirms the new address (200)', changed === 200, String(changed));
@@ -234,22 +237,22 @@ await W.settled();
 check("a wrong current password: account.err.current under it, emptied", (await W.fieldErr('current')).includes('not your current password') && (await W.value('current')) === '');
 await W.fill({ current: PW, next: PW2 });
 await W.submit();
-await until(() => W.text().then((t) => t.includes('Password changed')), 15000);
-check('password changed: the toast says other devices were signed out', !(await W.form()));
+await until(() => W.text().then((t) => t.includes('password changed')), 15000);
+check('password changed: the toast says other devices were signed out', await W.closed());
 await W.shot('07-web-password-changed');
 
 // =========================================================== 4. remove a method; the last one can't go
 await W.boot();
 await W.account();
 await W.api.tapBtn('Menu', { id: 'account.tg.remove' });
-await until(() => W.text().then((t) => t.includes('Remove Telegram?')), 5000);
+await until(() => W.text().then((t) => t.includes('remove telegram?')), 5000);
 check('AU-15: the Telegram body says what changes (bot, new empty account, purchases stay)', (await W.text()).includes('purchases stay'));
 await W.shot('08-web-remove-tg');
 await W.api.tapBtn('Menu', { label: 'Remove', index: -1 });
-await until(() => W.text().then((t) => t.includes('Sign-in method removed')), 15000);
+await until(() => W.text().then((t) => t.includes('sign-in method removed')), 15000);
 await W.boot();
 await W.account();
-check('Telegram now reads Not linked; still signed in on the web (a cookie session)', (await W.text()).includes('Not linked') && (await W.ev(() => window.__online.signedIn)));
+check('Telegram now reads Not linked; still signed in on the web (a cookie session)', (await W.text()).includes('not linked') && (await W.ev(() => window.__online.signedIn)));
 await W.api.tapBtn('Menu', { id: 'account.email.more' });
 await W.api.tapBtn('Menu', { id: 'account.email.remove' });
 await wp.waitForTimeout(400);

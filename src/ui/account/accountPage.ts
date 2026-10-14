@@ -18,7 +18,7 @@ import { lang, t, type TKey } from '../../i18n';
 import { Button, ScrollArea, addIcon, addText, mosaicPanelImage } from '../kit';
 import { Toggle } from '../mosaic/toggles';
 import { MButton, mtext, openParchmentSheet, GAP, SHEET_TITLE_H } from '../mosaic';
-import { AccountRow, ACCOUNT_ROW_H, type AccountRowOpts } from '../mosaic/AccountRow';
+import { AccountRow, type AccountRowOpts } from '../mosaic/AccountRow';
 import type { UiScene } from '../mosaic/subShell';
 import { SURFACE } from '../tokens';
 import { ellipsize, measureText, wrapText } from '../textfit';
@@ -264,8 +264,9 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
         };
       // 'link' (Telegram not linked, the web) opens AU-13, which comes with V6-LINK-06: read only until then
       const sub = 'text' in r.sub ? r.sub.text : t(r.sub.key, r.sub.params);
-      into.add(new AccountRow(scene, 0, yy, iw - 4, { mark: tg ? 'tg' : 'at', title: t(tg ? 'account.tg' : 'account.email'), sub, action }));
-      yy += ACCOUNT_ROW_H + GAP;
+      const row = new AccountRow(scene, 0, yy, iw - 4, { mark: tg ? 'tg' : 'at', title: t(tg ? 'account.tg' : 'account.email'), sub, action });
+      into.add(row);
+      yy += row.h + GAP;
     }
     return yy;
   };
