@@ -30,7 +30,6 @@ import { buildOverlays, openOverlaySample } from './kit/overlaysPage';
 import { buildIcons } from './kit/iconsPage';
 import { buildArmy } from './kit/armyPage';
 import { buildLayouts, type LayoutDemo, type LayoutSample, type LayoutsPage } from './kit/layoutsPage';
-import { mountRotateCard } from '../ui/mosaic/layout';
 import { BUTTON_MAX } from '../ui/sizeClass';
 import { BottomPanel, FrescoBanner, addSubShell, addParchmentEmpty, GAP, MButton, MChip, MIconButton, ParchmentCard, ParchmentRow, ProfileCard, QuestCard, ScreenFrame, SectionTitle, SegmentedSwitch, StoneTile, TabBar, TAB_H, TAP, TopBar, ROW_H, SECTION_TITLE_H, SWITCH_H, openParchmentSheet, type TabId } from '../ui/mosaic';
 
@@ -69,8 +68,6 @@ export class KitScene extends BaseScene {
     this.tab = kitTab(data, location.search);
     this.responsive = this.tab === LAYOUTS_TAB;
     this.initUi();
-    // the global floor (§3.6): under 320 CSS px tall the rotate card covers the page, which keeps running
-    mountRotateCard(this);
     this.screen({ back: () => this.scene.start('Menu', {}) });
     const { VW } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, this.m.VH, SURFACE.bg).setOrigin(0, 0));

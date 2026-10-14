@@ -7,6 +7,7 @@ import { ENTRY_ALPHA, motion } from '../ui/motion';
 import { MOSAIC, MOTION } from '../ui/tokens';
 import { openSettings } from '../ui/settings';
 import { renderGround } from '../art/ground';
+import { mountRotateCard } from '../ui/mosaic/layout';
 
 /** The screen before this one showed a field (map or battle): the next one enters through parchment too (R6). */
 let leftField = false;
@@ -30,6 +31,8 @@ export abstract class BaseScene extends Phaser.Scene {
     setLegacyColumn(this.scale, !this.responsive);
     this.m = uiMetrics(this);
     this.ui = this.add.container(0, 0).setScale(this.m.S);
+    // the global floor (§3.6): under 320 CSS px tall the rotate card covers every scene, which keeps running
+    mountRotateCard(this);
     // Phaser emits 'resize' on every scale.refresh(), even when nothing changed,
     // and Telegram triggers refreshes constantly (viewportChanged / safe-area
     // events, e.g. whenever its header Back button is shown or hidden).
