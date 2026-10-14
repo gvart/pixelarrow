@@ -139,3 +139,4 @@ no live users (V5-074), so this is accepted.
 
 11. **Authorise Context7** (`/mcp`) if you want later runs to check library and
     Cloudflare docs live (was item 3).
+- GitHub repo variable TELEGRAM_BOT_USERNAME (and TELEGRAM_APP_NAME if the Mini App short name isn't 'play'), so Telegram invites use t.me deep links (V6-PLAT-05). Until then, invites fall back to the https://play.pixelarrow.app link.

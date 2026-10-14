@@ -3,9 +3,8 @@ import { registerUiAssets, addText, uiMetrics } from '../ui/kit';
 import { registerMisc } from '../ui/sprites';
 import { loadUiFonts } from '../art/vectorFont';
 import { ICON_ATLASES, registerIconFrames } from '../art/iconBitmaps';
-import { startParam } from '../platform/telegram';
 import { platform } from '../platform';
-import { parseStartParam, sceneForRoute } from '../online/deeplink';
+import { launchRoute, sceneForRoute } from '../online/deeplink';
 import { setPendingInvite } from '../online/client';
 import { state } from '../state';
 import { refreshLang } from '../ui/lang';
@@ -96,9 +95,10 @@ export class BootScene extends Phaser.Scene {
       void state.save();
     };
     // Opened through a deep link (src/online/deeplink.ts): a clan invite
-    // (startapp=clan_<code>) or a bot notification's button (hex_<q>_<r>,
-    // duel, market, ...) goes straight to its screen.
-    const route = parseStartParam(startParam());
+    // (startapp=clan_<code>), a bot notification's button (loc_<id>, duel,
+    // market, account, ...), a link request (link_<code>) or a web hash route
+    // (#login, #account, ...) goes straight to its screen, before first run.
+    const route = launchRoute(platform.launchParam(), location.hash);
     if (route?.kind === 'invite') setPendingInvite(route.code);
     const target = sceneForRoute(route);
     // Debug: ?scene=Kit opens the UI kit gallery.
