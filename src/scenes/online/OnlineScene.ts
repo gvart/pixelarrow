@@ -783,7 +783,7 @@ export class OnlineScene extends BaseScene {
         const chip: MChip = new MChip(this, cx, cy, { icon: it.icon, value: it.value, surface: 'stone', w: cw, pad: CHIP_PAD, tip: it.tip, onClick: () => showTooltip(this, it.tip, chip), id: `online.chip.${it.icon}` });
         H.add(chip);
       });
-    }
+    } else for (const id of ['online.situation', 'online.bar.collect', ...this.chipItems(energy).map((it) => `online.chip.${it.icon}`)]) uiCollapsed(this, id, 'online.panel.close');
     const bottom = this.panel ? this.panelTop : win.y + win.h;
     // ---- marching bar with Halt
     const marching = p.army.marching && p.army.arriveAt;
@@ -795,6 +795,8 @@ export class OnlineScene extends BaseScene {
     this.rail = null;
     // a hex panel that leaves no map above it hides the rail until it closes (the panel is a layer over the hub)
     if (rail.h > bottom - top - 3) {
+      // the five keys are one step away: the panel's close key brings them back (element parity, §16.4)
+      for (const k of keys) uiCollapsed(this, k.id!, 'online.panel.close');
       this.coach?.refresh();
       return;
     }
@@ -864,7 +866,8 @@ export class OnlineScene extends BaseScene {
     const card = L.card;
     const collapsed: string[] = [];
     if (card) {
-      const c = uiOpaque(this.add.container(0, 0));
+      // named as a top bar: toasts drop below the card instead of over its sentence (widgets.ts toastRoom)
+      const c = uiId(uiOpaque(this.add.container(0, 0)), 'online.card.top');
       H.add(c);
       c.add(mosaicImage(this, card.x, card.y, card.w, card.h, 'tabBar'));
       const sx = card.x + CARD_PAD;
