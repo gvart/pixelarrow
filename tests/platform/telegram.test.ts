@@ -313,5 +313,9 @@ describe('Telegram adapter: haptics, insets, lifecycle, input', () => {
     expect(phone.input.keyboard()).toBe(false);
     expect(phone.launchParam()).toBe('duel');
     expect(await phone.input.keyLabels()).toBeNull();
+    // the shortcut modifier follows the client: ⌘ on the macOS client, Ctrl on Telegram Desktop for Windows
+    expect((await launched(fakeWebApp('8.0', 'macos'))).p.input.commandKey()).toBe('meta');
+    expect((await launched(fakeWebApp('8.0', 'tdesktop'), { os: 'Win32' })).p.input.commandKey()).toBe('ctrl');
+    expect((await launched(fakeWebApp('8.0', 'tdesktop'), { os: 'MacIntel' })).p.input.commandKey()).toBe('meta');
   });
 });

@@ -81,6 +81,7 @@ export function platformContract(name: string, make: () => Promise<ContractHarne
       if (p.auth.humanCheck) expect(typeof p.auth.humanCheck.mount).toBe('function');
       expect(typeof p.input.keyboard()).toBe('boolean');
       expect(typeof p.input.finePointer()).toBe('boolean');
+      expect(['ctrl', 'meta']).toContain(p.input.commandKey());
       p.input.onChange(() => {})();
       const labels = await p.input.keyLabels();
       expect(labels === null || labels instanceof Map).toBe(true);

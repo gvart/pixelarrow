@@ -92,6 +92,7 @@ export const ROWS: readonly Row[] = [
 const CONTROLS_ROWS: readonly Row[] = [
   { kind: 'section', label: 'controls.sec' },
   { kind: 'open', what: 'controls', label: 'controls.title' },
+  { kind: 'toggle', key: 'keyHints', label: 'controls.keyHints' },
 ];
 
 /** The sheet's rows: ROWS, plus the Controls section with a keyboard. */

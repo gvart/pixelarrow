@@ -9,7 +9,7 @@ import type { PlatformEnv } from '../core/env';
 import type { Platform } from '../core/platform';
 import type { Insets } from '../core/safeArea';
 import type { KV } from '../core/storage';
-import { browserInputHints, copyText, localKV, openTab, PLAY_URL, queryLaunchParam } from '../web/dom';
+import { browserCommandKey, browserInputHints, copyText, localKV, openTab, PLAY_URL, queryLaunchParam } from '../web/dom';
 import { createTelegramBack } from './back';
 import { createTelegramPayments } from './payments';
 import { launchedFromTelegram, loadScript, safe, sdk, SDK_URL, type TgWebApp } from './sdk';
@@ -31,6 +31,8 @@ export interface TelegramPlatform extends Platform {
 const MOBILE = new Set(['ios', 'android', 'android_x']);
 /** Clients that run on a computer, where a keyboard is likely. */
 const DESKTOP = new Set(['tdesktop', 'macos', 'weba']);
+/** Clients on Apple systems, where the shortcut modifier is ⌘. */
+const APPLE_CLIENTS = new Set(['macos', 'ios']);
 const ZERO: Insets = { top: 0, bottom: 0, left: 0, right: 0 };
 
 function readInsets(src: Partial<Insets> | undefined): Insets {
@@ -47,7 +49,8 @@ export function createTelegramPlatform(env: PlatformEnv, opts: { bot?: string; a
   const mirror = localKV(env);
   const cloudHealth: CloudHealth = { down: false };
   let saveKV: { cs: NonNullable<TgWebApp['CloudStorage']>; kv: KV } | null = null;
-  const input = browserInputHints(env, () => DESKTOP.has(app?.platform ?? ''));
+  // the macOS and iOS clients use ⌘; Telegram Desktop and Web follow the OS they run on
+  const input = browserInputHints(env, () => DESKTOP.has(app?.platform ?? ''), () => (APPLE_CLIENTS.has(app?.platform ?? '') ? 'meta' : browserCommandKey(env)));
 
   const v = (ver: string): boolean => !!app?.isVersionAtLeast?.(ver);
   const insets = () => ({ device: readInsets(app?.safeAreaInset), content: readInsets(app?.contentSafeAreaInset) });

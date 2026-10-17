@@ -35,4 +35,9 @@ export const CONTROLS_RU: Record<keyof typeof CONTROLS_EN, string> = {
   'controls.none': 'нет',
   'controls.key.space': 'Пробел',
   'controls.key.enter': 'Enter',
+  // V6-INP-06: «Показывать клавиши» (§5.1) и список клавиш (§6.4)
+  'controls.keyHints': 'Показывать клавиши',
+  'controls.sheetTip': 'Нажмите ? или F1, чтобы открыть этот список.',
+  'controls.edit': 'Изменить в настройках',
+  'controls.idleKb': 'Щёлкните отряд или нажмите 1–9, затем приказ ({orders}). ? — все клавиши.',
 };
