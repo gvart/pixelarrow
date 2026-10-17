@@ -4,7 +4,7 @@
 > **Author**: ux-designer (autonomous; answers in docs/v5/ux/ANSWERS.md)
 > **Last Updated**: 2026-10-10
 > **Journey Phase(s)**: first session (C-1, C-2), 5-minute loop and session loop (C-3 … C-10), VISION.md "Core loop"
-> **Platform Target**: Telegram Mini App, portrait; touch first, mouse second; keyboard/gamepad out of scope (ANSWERS Q9). 390x844 design, 360x780 clean, 320x640 and 320x568 usable.
+> **Platform Target**: Telegram Mini App, portrait; touch first, mouse second; keyboard/gamepad out of scope (ANSWERS Q9); **v6:** mouse and keyboard per [input-v6.md](input-v6.md) (gamepad still out of scope). 390x844 design, 360x780 clean, 320x640 and 320x568 usable.
 > **Accessibility tier**: Standard (V5-013)
 > **Template**: UX Spec
 > **GDDs referenced**: controls.md, battle-readability.md, campaign-arc.md, campaign-events.md, abilities.md, ai-doctrines.md, formations-orders.md, field-works.md

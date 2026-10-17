@@ -76,6 +76,13 @@ export function openTab(env: PlatformEnv, url: string, features?: string): boole
 }
 
 const FINE = '(any-pointer: fine)';
+const APPLE = /mac|iphone|ipad|ipod/i;
+
+/** ⌘ on Apple devices, Ctrl elsewhere, from navigator.userAgentData or navigator.platform. */
+export function browserCommandKey(env: PlatformEnv): 'ctrl' | 'meta' {
+  const os = env.navigator?.userAgentData?.platform || env.navigator?.platform || '';
+  return APPLE.test(os) ? 'meta' : 'ctrl';
+}
 const EDITABLE = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
 
 /**
@@ -83,7 +90,7 @@ const EDITABLE = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
  * `keyboardLikely()` says so or once a key is pressed outside a text field.
  * `listen()` wires the events (the adapter's init()).
  */
-export function browserInputHints(env: PlatformEnv, keyboardLikely: () => boolean): InputHints & { listen(): void } {
+export function browserInputHints(env: PlatformEnv, keyboardLikely: () => boolean, commandKey: () => 'ctrl' | 'meta' = () => browserCommandKey(env)): InputHints & { listen(): void } {
   const subs = new Set<() => void>();
   let typed = false;
   const changed = (): void => subs.forEach((cb) => cb());
@@ -91,6 +98,7 @@ export function browserInputHints(env: PlatformEnv, keyboardLikely: () => boolea
   return {
     keyboard: () => typed || keyboardLikely(),
     finePointer: () => !!query()?.matches,
+    commandKey,
     onChange(cb) {
       subs.add(cb);
       return () => subs.delete(cb);

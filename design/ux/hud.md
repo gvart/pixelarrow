@@ -224,7 +224,7 @@ The ru strings are proposals for the localization owner; the layout check enforc
 - **Motion:** Reduce motion (pulses static, fades cut), Reduce shake (×0), Reduce flash (no rings). Hit-stop stays (not motion).
 - **Time:** 0.5× offline; pause anywhere offline and on the ladder.
 - **No long-press-only info:** Inspect toggle for terrain; tooltips on hover.
-- **Keyboard/gamepad:** out of scope for v5 (ANSWERS Q9). This is an **accepted deviation from WCAG SC 2.1.1** for Telegram Desktop; the specs do not claim full AA.
+- **Keyboard/gamepad:** out of scope for v5 (ANSWERS Q9). **v6:** the keyboard is in scope: battle hotkeys, HUD focus mode, keycaps on the keyed controls and the ? shortcuts sheet are in [input-v6.md](input-v6.md) §3 and §6 (A11Y-22 updated); gamepad stays out of scope.
 - **Text size (SC 1.4.4):** no in-game text-scale option in v5; an open question for the accessibility requirements file.
 
 ## K. Tuning Knobs (player-adjustable)

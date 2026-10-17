@@ -3,7 +3,7 @@
 > **Status**: In Review (S2-UX-IA)
 > **Author**: ux-designer (autonomous)
 > **Last Updated**: 2026-10-10
-> **Platform Target**: touch first, mouse second; keyboard/gamepad out of scope for v5
+> **Platform Target**: touch first, mouse second; keyboard/gamepad out of scope for v5. **v6:** mouse and keyboard are specified in [input-v6.md](input-v6.md) (focus, hotkeys, keycaps, rebinding); gamepad stays out of scope.
 > **Accessibility tier**: Standard (V5-013)
 > **Template**: Interaction Pattern Library
 > **Implements with**: `src/ui/mosaic/*` (V4_SPEC "Code layout"); the Kit gallery shows every pattern in every state

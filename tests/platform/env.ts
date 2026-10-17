@@ -40,6 +40,8 @@ export interface FakeEnvOptions {
   share?: (d: { url?: string; text?: string }) => Promise<void>;
   clipboard?: { writeText(s: string): Promise<void> } | undefined;
   layout?: Record<string, string>;
+  /** navigator.platform (e.g. 'MacIntel', 'Win32'). */
+  os?: string;
   open?: (url: string, target?: string, features?: string) => unknown;
   /** Extra window globals (e.g. a fake Telegram SDK). */
   globals?: Record<string, unknown>;
@@ -71,6 +73,7 @@ export function fakeEnv(o: FakeEnvOptions = {}) {
   const navigator: Record<string, unknown> = {};
   if (o.share) navigator.share = o.share;
   if ('clipboard' in o) navigator.clipboard = o.clipboard;
+  if (o.os) navigator.platform = o.os;
   if (o.layout) navigator.keyboard = { getLayoutMap: async () => new Map(Object.entries(o.layout!)) };
   const localStorage = memoryStore();
   const env = {
