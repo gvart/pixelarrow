@@ -50,6 +50,7 @@ export const TUTORIAL_EN = {
   'tut.step.then.kb': 'Or press {thenKey}, then {chargeKey}.',
   'tut.step.ability.mouse': 'Locked in battle! Click {ability}: stun the man in front.',
   'tut.step.ability.kb': 'Or press {key}.',
+  'tut.step.victory.kb': 'Press ? any time for all shortcuts.',
   'tut.good.0': 'Good!',
   'tut.good.1': 'Well done!',
   'tut.good.2': 'Just so!',

@@ -50,6 +50,7 @@ export const TUTORIAL_RU: Record<keyof typeof TUTORIAL_EN, Entry> = {
   'tut.step.then.kb': 'Или нажмите {thenKey}, затем {chargeKey}.',
   'tut.step.ability.mouse': 'Сошлись в бою! Щёлкните «{ability}»: оглушите врага перед собой.',
   'tut.step.ability.kb': 'Или нажмите {key}.',
+  'tut.step.victory.kb': 'Нажмите ? в любой момент, чтобы увидеть все клавиши.',
   'tut.good.0': 'Хорошо!',
   'tut.good.1': 'Отлично!',
   'tut.good.2': 'Именно так!',

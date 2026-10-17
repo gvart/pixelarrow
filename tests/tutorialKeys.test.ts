@@ -39,8 +39,15 @@ describe('tutorial lines by device (input-v6.md §10)', () => {
   });
 
   it('steps without a hotkey get no keyboard line', () => {
-    for (const id of ['intro', 'sling', 'focus', 'move', 'morale', 'flank', 'win', 'victory'] as const)
-      expect(tutorialLine(id, `tut.step.${id}`, {}, desk, keyOf)).not.toMatch(/\[/);
+    for (const id of ['intro', 'sling', 'focus', 'move', 'morale', 'flank', 'win'] as const)
+      expect(tutorialLine(id, `tut.step.${id}`, {}, desk, keyOf)).toBe(tutorialLine(id, `tut.step.${id}`, {}, { keyboard: false, fine: true }, keyOf));
+  });
+
+  it('the victory card points a keyboard at the shortcuts sheet, never a touch device', () => {
+    expect(tutorialLine('victory', 'tut.step.victory', {}, desk, keyOf)).toMatch(/Press \? any time for all shortcuts\.$/);
+    expect(tutorialLine('victory', 'tut.step.victory', {}, touch, keyOf)).not.toMatch(/\?/);
+    setLang('ru');
+    expect(tutorialLine('victory', 'tut.step.victory', {}, desk, keyOf)).toMatch(/\?/);
   });
 
   it('Russian has every variant, with the binding', () => {
