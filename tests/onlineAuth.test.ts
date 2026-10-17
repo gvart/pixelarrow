@@ -190,13 +190,14 @@ describe('web (cookie)', () => {
     expect(await o.signIn()).toBe(true);
   });
 
-  it('a cookie session does not sync the save yet (the guest save upload is ACCT-07)', async () => {
-    const srv = server({ 'GET /api/me': me() });
+  it('a cookie session syncs the save (ACCT-07; tests/saveSyncOnline.test.ts), with the cookie and no token', async () => {
+    const srv = server({ 'GET /api/me': me(), 'GET /api/save': () => json(200, { revision: 0, version: 3, data: null, updatedAt: 1 }) });
     const o = make(web(), srv.fetch);
     expect(await o.pullOnLoad(null)).toBeNull();
     expect(o.signedIn).toBe(true); // boot found the session
-    expect(o.status).toBe('local');
-    expect(srv.calls.filter((c) => c.url.startsWith('/api/save'))).toEqual([]);
+    const get = srv.calls.find((c) => c.url === '/api/save')!;
+    expect(get.init.credentials).toBe('same-origin');
+    expect(header(get, 'authorization')).toBeUndefined();
   });
 
   it('a bearer token (dev auth on the web) never rides with cookies', async () => {

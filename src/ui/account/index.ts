@@ -4,13 +4,12 @@
  *
  * Hooks for the next stories:
  * - AU-01 "Sign in to play online" and the guest tip (ACCT-07): `openAccountForm(scene, 'signup' | 'login', { onSignedIn })`.
- * - The Account page's Log out (ACCT-07): `logOut()`, then re-render (the session is re-read).
+ * - The Account page's Log out (ACCT-07): `logOut()`, then re-render.
  * - The /auth/* pages (ACCT-06) link back to `/#login` and `/#forgot`: Boot opens the menu with
  *   `data.account.view`, and the menu calls `openAccountRoute`.
  * - Check your email for add / change email (LINK-05): `openCheckEmail` is ready for more variants.
  */
 import { platform } from '../../platform';
-import { isApiError } from '../../platform/api';
 import type { AuthForm } from '../form/authForm';
 import type { UiScene } from '../mosaic/subShell';
 import { accountDeps, type AccountDeps } from './deps';
@@ -50,15 +49,11 @@ export function openAccountRoute(scene: UiScene, route: { view?: string } | unde
 }
 
 /**
- * Log out on this device (accounts-v6.md §6.3): ends the cookie session on the server, then re-reads
- * it so every screen sees the player signed out. True when the device is signed out afterwards; a
- * session that had already ended counts as done.
+ * Log out (accounts-v6.md §6.3): uploads what the campaign has waiting, ends the session on the server
+ * (`everywhere`: every session of the player, this one included, §14 Q6), and keeps the campaign on
+ * this device as a guest save with its sync metadata removed. True when it is done; a session that had
+ * already ended counts as done. Telegram signs in again silently after `everywhere`.
  */
-export async function logOut(d: AccountDeps = accountDeps()): Promise<boolean> {
-  try {
-    await d.api.logout();
-  } catch (e) {
-    if (!(isApiError(e) && e.status === 401)) return false;
-  }
-  return !(await d.session.recheckSession());
+export async function logOut(d: AccountDeps = accountDeps(), everywhere = false): Promise<boolean> {
+  return d.session.signOut(() => (everywhere ? d.api.logoutAll() : d.api.logout()));
 }

@@ -27,6 +27,7 @@
  * the duel source; the screen redraws from the answer. Started with `{ preview:
  * true }` it runs on the in-memory demo.
  */
+import { addSignInGate, showsSignInGate } from '../../ui/account/gate';
 import { SETS, setPieces } from '../../data/sets';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
@@ -596,6 +597,13 @@ export class DuelScene extends BaseScene {
         y += 34;
       }
       this.finishPage(y, 0);
+      return;
+    }
+    if (outside && showsSignInGate()) {
+      // AU-01 (V6-ACCT-07): the web with no session signs in here
+      const view = this.area?.viewHeight ?? 200;
+      const gate = addSignInGate(this, c, 1, y, w, view - y - 2, 'duels', () => this.scene.restart(this.sys.settings.data));
+      this.finishPage(Math.max(gate.bottom() + GAP, view - 2), 0);
       return;
     }
     const title = outside ? t('econ.outside') : st === 'offline' ? t('econ.offline') : st === 'closed' ? t('duels.closed') : t('econ.error');

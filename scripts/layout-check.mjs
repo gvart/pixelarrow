@@ -182,6 +182,12 @@ const SCREENS = [
   // Settings → Notifications (demo switches) and Settings → About (legal pages)
   { id: 'menu-settings-notify', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openNotifications(true); return 1;'), wait(p, 500)) },
   { id: 'menu-settings-about', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openAboutPage(); return 1;'), wait(p, 400)) },
+  // V6-ACCT-07: Settings → Account (signed in, guest, a pending sign-up; in-memory), Signed-in devices, Two campaigns
+  { id: 'menu-settings-account', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('live'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-account-guest', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('guest'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-account-pending', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('pending'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-devices', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openDevicesDemo(); return 1;'), wait(p, 700)) },
+  { id: 'menu-two-campaigns', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openTwoCampaignsDemo(); return 1;'), wait(p, 500)) },
   { id: 'menu-reset', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.confirmReset(); return 1;'), wait(p, 400)) },
   { id: 'codex', owner: 'F', run: async (p) => (await codexMet(p, []), await start(p, 'Codex'), wait(p, 900)) },
   // the Codex (CDX-01): a beast sheet with the Trial fight, the Doctrines segment (four met, one locked), a doctrine sheet
@@ -1069,6 +1075,41 @@ const SCREENS = [
     owner: 'F',
     run: async (p) => (await start(p, 'Kit', { page: 'layouts', ...data }), await wait(p, 700), sample && (await call(p, 'Kit', `s.layoutsSample(${JSON.stringify(sample)}); return 1;`)), wait(p, 500)),
   })),
+  // V6-INP-06: keycaps (a key pressed first, so InputHints.keyboard() holds), the shortcuts sheet, the Controls page, the focus ring
+  {
+    id: 'battle-keys',
+    owner: 'A',
+    run: async (p) => {
+      await p.keyboard.press('Shift');
+      await battle(p);
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 2; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); const g = s.sim.groups.find((x) => x.side === 0); s.selGroup = g ? g.id : -1; s.buildHud(); return 1;`);
+      return wait(p, 600);
+    },
+  },
+  { id: 'battle-keys-deploy', owner: 'A', run: async (p) => (await p.keyboard.press('Shift'), await battle(p), await call(p, 'Battle', 's.buildHud(); return 1;'), wait(p, 600)) },
+  { id: 'battle-shortcuts', owner: 'A', run: async (p) => (await battle(p), await p.keyboard.press('F1'), wait(p, 700)) },
+  { id: 'menu-shortcuts', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await p.keyboard.press('F1'), wait(p, 700)) },
+  {
+    // Settings → Keyboard shortcuts (V6-069), through the sheet's Edit in Settings
+    id: 'menu-settings-controls',
+    owner: 'F',
+    run: async (p) => {
+      await start(p, 'Menu');
+      await wait(p, 500);
+      await p.keyboard.press('F1');
+      await wait(p, 500);
+      await ev(p, () => {
+        let b = null;
+        const walk = (list) => list.forEach((o) => ((o.__uiId === 'shortcuts.edit' && (b = o)), o.list && walk(o.list)));
+        walk(window.__game.scene.getScene('Menu').children.list);
+        b?.emit('pointerdown', { x: 0, y: 0 });
+        b?.emit('pointerup', { x: 0, y: 0 });
+      });
+      return wait(p, 900);
+    },
+  },
+  // the focus ring on the Kit States page after Tab (INP-04's ring, drawn only after a key)
+  { id: 'kit-focus', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'states' }), await wait(p, 900), await p.keyboard.press('Tab'), await p.keyboard.press('Tab'), wait(p, 500)) },
 ];
 
 // ------------------------------------------------------------------ page setup

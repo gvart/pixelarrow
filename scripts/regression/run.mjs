@@ -61,6 +61,8 @@ const SMOKES = [
   { name: 'online-smoke', script: 'scripts/online-smoke.mjs', args: ['BASE'], min: 10 },
   { name: 'fullscreen-smoke', script: 'scripts/fullscreen-smoke.mjs', args: ['BASE'], min: 10 },
   { name: 'audio-smoke', script: 'scripts/audio-smoke.mjs', args: ['BASE'], min: 10 },
+  // keys and keycaps at 1280x800 and 1920x1080, a Russian layout, touch and hybrid (V6-INP-06)
+  { name: 'keyboard-smoke', script: 'scripts/keyboard-smoke.mjs', args: ['BASE'], min: 10 },
 ];
 const jobs = [...SUITE, ...(args.includes('--all') ? SMOKES : [])]
   .filter((j) => !only.length || only.includes(j.name))
