@@ -192,12 +192,13 @@ function components(mask, w, h) {
 /**
  * A colour no dark-epic unit has: a saturated spark or glow (OKLab chroma over 0.14), a near-white flash
  * (lightness over 0.86) or a light neutral grey (the ghost trails PixelLab leaves on fast spears). Such pixels are
- * cut, not remapped: remapping would keep the invented shape in a legal colour.
+ * cut, not remapped: remapping would keep the invented shape in a legal colour. `greyCut` is the lightness above
+ * which a neutral grey counts as a ghost (spec `greyCut`; iron-clad classes raise it so a lit blade survives).
  */
-export function foreign(rgb) {
+export function foreign(rgb, greyCut = 0.55) {
   const [L, a, b] = oklab(rgb);
   const C = Math.hypot(a, b);
-  return C > 0.14 || L > 0.86 || (C < 0.025 && L > 0.55);
+  return C > 0.14 || L > 0.86 || (C < 0.025 && L > greyCut);
 }
 
 /** Clears detached specks (8-connected bits under 5 px) and loose crimson splats (under 60 px); returns how many pixels. */
@@ -242,7 +243,7 @@ function dropSpecks(parts, w, h, isRed) {
  * same clip (or null). `headDir` the screen direction the spearhead must lead in ([0,-1] upright). `crest` / `emblem`
  * false (spec flags): a class with no crest / no shield emblem keeps that crimson in the cloak.
  */
-export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = true, parts: partMap = null, crest = true, emblem = true } = {}) {
+export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = true, parts: partMap = null, crest = true, emblem = true, greyCut = 0.55 } = {}) {
   const { w, h, data } = img;
   const parts = new Array(w * h).fill(null);
   const info = new Array(w * h).fill(null);
@@ -250,7 +251,7 @@ export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = t
   for (let i = 0; i < w * h; i++) {
     if (data[i * 4 + 3] < 128) continue;
     const rgb = [data[i * 4], data[i * 4 + 1], data[i * 4 + 2]];
-    if (foreign(rgb)) { dropped++; continue; }
+    if (foreign(rgb, greyCut)) { dropped++; continue; }
     const m = map(rgb[0], rgb[1], rgb[2]);
     info[i] = m;
     parts[i] = partOfStep(m.ramp, m.step, m.n, partMap);

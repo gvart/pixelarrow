@@ -21,6 +21,8 @@
 //              default bronze),
 //   "metalSlots"?: { "metal"?: ["helmet", "armor", ...], "weaponMetal"?: [...] } (the gear whose rarity a metal group
 //              follows; default shield, helmet, armor for metal and weapon for weaponMetal),
+//   "greyCut"?: L (OKLab lightness above which a neutral grey is cut as a ghost trail; default 0.55; iron-clad
+//              classes raise it, about 0.8, so a lit iron blade is kept),
 //   "tiers": { "veteran": { "<group>": [anchor hex dark->light] }, "elite": { ... } }
 // }
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -65,7 +67,7 @@ for (const [anim, a] of Object.entries(spec.anims)) {
     const headDir = a.spear === 'level' ? LEVEL[dir] : [0, -1];
     let prev = null;
     const frames = fr.map((img) => {
-      const r = splitFrame(img, map, { prev, headDir, spear: spec.spear !== false, parts: spec.parts, crest: spec.crest !== false, emblem: spec.emblem !== false });
+      const r = splitFrame(img, map, { prev, headDir, spear: spec.spear !== false, parts: spec.parts, crest: spec.crest !== false, emblem: spec.emblem !== false, greyCut: spec.greyCut ?? 0.55 });
       prev = r.parts;
       return { img, parts: r.parts, info: r.info, spear: r.spear, dropped: r.dropped };
     });
