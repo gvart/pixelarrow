@@ -43,6 +43,48 @@
    "height_px": 58,
    "heads": 5.27
   },
+  "thureophoros": {
+   "culture": "phoenician",
+   "character_id": "270a1787-53f3-433e-887e-6142142715b1",
+   "prompt_id": "I4a-thureophoros-A1",
+   "rotations": "docs/v5/pixellab/I4a/raw/thureophoros/A1/zip/Idle/rotations",
+   "crown": 10,
+   "chin": 19,
+   "headgear_top": 3,
+   "groups": {
+    "cloak": "purpleBlack (shared with the tunic skirt)",
+    "linothorax": "umber"
+   },
+   "status": "approved",
+   "note": "pilos point (rows 3-9) not counted in the stature",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 57,
+   "heads": 5.7
+  },
+  "rhomphaia": {
+   "culture": "greek",
+   "character_id": "440f945a-999b-4f57-befb-94a78b094473",
+   "prompt_id": "I4a-rhomphaia-A2",
+   "rotations": "docs/v5/pixellab/I4a/raw/rhomphaia/A2/zip/Idle/rotations",
+   "crown": 10,
+   "chin": 20,
+   "headgear_top": 4,
+   "groups": {
+    "cloak": "crimson (also the tunic hem)",
+    "scale": "metal"
+   },
+   "status": "approved",
+   "note": "Phrygian crown (rows 4-9) not counted",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 57,
+   "heads": 5.18
+  },
   "archer": {
    "culture": "greek",
    "character_id": "b8f323c8-cfc6-44b3-a9cf-0639fa075125",
@@ -107,6 +149,26 @@
    "feet": 66,
    "height_px": 59,
    "heads": 4.92
+  },
+  "peltast": {
+   "culture": "greek",
+   "character_id": "4739f237-b6fb-4bfa-af9d-d4c30e6fe530",
+   "prompt_id": "I4a-peltast-A2",
+   "rotations": "docs/v5/pixellab/I4a/raw/peltast/A2/zip/Idle/rotations",
+   "crown": 9,
+   "chin": 19,
+   "headgear_top": 4,
+   "groups": {
+    "cloak": "crimson (also the tunic hem)",
+    "leather": "umber"
+   },
+   "status": "approved",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 58,
+   "heads": 5.27
   }
  }
 }
