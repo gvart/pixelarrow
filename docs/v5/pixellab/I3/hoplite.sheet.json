@@ -253,7 +253,15 @@
      "attempt": "a1"
     },
     "south-west": {
-     "attempt": "a1"
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 2,
+       "op": "copy",
+       "from": 1,
+       "why": "REJECTED frame: impact spark spikes left by the shield after the colour cut"
+      }
+     ]
     },
     "north-west": {
      "attempt": "a1"
@@ -354,7 +362,21 @@
      "attempt": "a2"
     },
     "north-west": {
-     "attempt": "p1"
+     "attempt": "p1",
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: a blood burst over the spear; once cut, the spear has no head"
+      },
+      {
+       "frame": 1,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: as f0"
+      }
+     ]
     }
    }
   },
@@ -387,7 +409,68 @@
      "attempt": "p1"
     },
     "north-west": {
+     "attempt": "p1",
+     "fixes": [
+      {
+       "frame": 1,
+       "op": "copy",
+       "from": 0,
+       "why": "REJECTED frame: blood over the spearhead; once cut, headless"
+      },
+      {
+       "frame": 2,
+       "op": "copy",
+       "from": 0,
+       "why": "REJECTED frame: as f1"
+      }
+     ]
+    }
+   }
+  },
+  "fallFwd": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
      "attempt": "p1"
+    },
+    "north-east": {
+     "attempt": "p1"
+    },
+    "south-west": {
+     "attempt": "p1",
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: a red burst over the torso (cut) leaves holes in the body"
+      },
+      {
+       "frame": 1,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: as f0"
+      }
+     ]
+    },
+    "north-west": {
+     "attempt": "p1",
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: a blood burst over the spear and shoulder; once cut, the spear is broken and headless"
+      },
+      {
+       "frame": 1,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: as f0"
+      }
+     ]
     }
    }
   }
