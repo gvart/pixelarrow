@@ -70,7 +70,7 @@ import type { Hero } from '../data/units';
 import { CLASSES, classOfHero, type BeastId, type MountId } from '../data/classes';
 import { isMythId } from '../data/beasts';
 import { MYTH_GEOM, buildMyth, mythBasis } from './beastArt';
-import { coreAnimOf, decodeSheetFrame } from './sheetManifest';
+import { coreAnimOf, decodeSheetFrame, type SheetTier } from './sheetManifest';
 
 export const FRAME_NAMES = [
   // 0..15: the original columns (indices kept for older callers)
@@ -321,6 +321,8 @@ export interface DollSpec {
   culture?: string;
   /** Class id: a class with a sprite sheet is drawn from it (src/art/sheetDoll.ts), else procedurally. */
   cls?: string;
+  /** Sheet tier override (dev previews): draw this recolour whatever the gear says. */
+  sheetTier?: SheetTier;
 }
 
 /**

@@ -138,12 +138,13 @@ describe('sheet manifests', () => {
     expect(procColumn(7)).toBe(7);
   });
 
-  it('picks the gear tier from the mean item tier, rarity aside', () => {
-    expect(gearTier([])).toBe('basic');
-    expect(gearTier([1, 1, 1, 1])).toBe('basic');
-    expect(gearTier([1, 2, 2, 2])).toBe('veteran');
-    expect(gearTier([2, 2])).toBe('veteran');
-    expect(gearTier([3, 3, 2, 2])).toBe('elite');
+  it('picks the gear tier from the item tiers against the class, rarity aside', () => {
+    expect(gearTier('hoplite', [])).toBe('basic');
+    expect(gearTier('hoplite', [1, 1, 1, 1])).toBe('basic');
+    expect(gearTier('hoplite', [1, 2, 2, 2])).toBe('veteran');
+    expect(gearTier('hoplite', [2, 2])).toBe('basic');
+    expect(gearTier('hoplite', [3, 3, 2, 2])).toBe('elite');
+    expect(gearTier('wolf', [3, 3, 3, 3])).toBe('basic');
     expect(tierOfDoll(HOPLITE)).toBe('basic');
     expect(tierOfDoll({ ...HOPLITE, gear: { weapon: { def: 'bronze_dory', r: 4 }, shield: { def: 'aspis', r: 0 }, helmet: { def: 'corinthian', r: 0 }, armor: { def: 'cuirass', r: 0 } } })).toBe('elite');
     expect(tierOfDoll({ ...HOPLITE, gear: { weapon: { def: 'dory', r: 4 }, shield: { def: 'hoplon', r: 4 } } })).toBe('basic');

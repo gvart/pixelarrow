@@ -25,7 +25,7 @@ import { isoToScreen, ISO_HW, ISO_HH } from '../art/iso';
 import { SPACING } from '../sim/formation';
 import { initSheets } from '../art/sheetRegistry';
 import { onSheetReady, setSheetsEnabled, isSheetDoll, sheetAnimsOf } from '../art/sheetDoll';
-import { sheetFrameId, type SheetAnim } from '../art/sheetManifest';
+import { SHEET_TIERS, sheetFrameId, type SheetAnim, type SheetTier } from '../art/sheetManifest';
 
 const q = new URLSearchParams(location.search);
 const Z = Number(q.get('z') ?? 1);
@@ -276,10 +276,10 @@ async function main(): Promise<void> {
 
 const SHEET = q.get('sheet');
 
-/** A figure drawn by paperdoll renderFrame: the sheet (when loaded and enabled) or the procedural doll. */
-function dollFigure(label: string, cls: string, tier: number, seed: number): Figure {
+/** A figure drawn by paperdoll renderFrame: the sheet (when loaded and enabled) or the procedural doll; `sheetTier` forces its recolour. */
+function dollFigure(label: string, cls: string, tier: number, seed: number, sheetTier?: SheetTier): Figure {
   const h = makeHero(new Rng(seed), { nextId: 900 + seed }, 'greek', cls as never, 1, tier);
-  const spec: DollSpec = { ...dollFromHero(h), scale: BATTLE_SCALE, res: BATTLE_RES };
+  const spec: DollSpec = { ...dollFromHero(h), scale: BATTLE_SCALE, res: BATTLE_RES, sheetTier };
   const anims = sheetAnimsOf(spec);
   const cache = new Map<string, Strip>();
   return {
@@ -326,7 +326,8 @@ async function sheetMain(cls: string): Promise<void> {
     links.appendChild(a);
   }
   document.body.appendChild(links);
-  const tiers = [dollFigure(`${cls} basic`, cls, 1, 11), dollFigure(`${cls} veteran`, cls, 2, 12), dollFigure(`${cls} elite`, cls, 3, 13)];
+  // each tier forced, so the row shows all three recolours whatever the kit's gear tier works out to
+  const tiers = SHEET_TIERS.map((t, i) => dollFigure(`${cls} ${t}`, cls, i + 1, 11 + i, t));
   const basic = tiers[0];
 
   // 1. every animation in the 4 facings
