@@ -29,7 +29,7 @@ const staged = (): boolean => hintStore.seen().includes('*') || !!(window as { _
 
 /** AU-18 first time: the name others see, Keep or Change. */
 export function openNameOffer(scene: UiScene, a: Pick<AccountSummary, 'displayName' | 'name'>, o: { api?: Pick<ApiClient, 'rename'> } = {}): void {
-  const sheet = openLinkSheet(scene, { title: t('name.title'), id: 'name.offer', h: 170 });
+  const sheet = openLinkSheet(scene, { title: t('name.title'), id: 'name.offer', h: 150 });
   sheet.show((b) => {
     b.text(t('name.firstBody', { name: a.displayName }));
     b.gap(4);
@@ -43,7 +43,7 @@ export function openNameOffer(scene: UiScene, a: Pick<AccountSummary, 'displayNa
 /** AU-18 moderation notice: the name was reset, and when a new one can be picked. */
 export function openModerationNotice(scene: UiScene, a: Pick<AccountSummary, 'displayName' | 'name'>): void {
   // the sheet's title stays short (a long one shrinks below the text floor on a 320 phone); the notice leads the body
-  const sheet = openLinkSheet(scene, { title: t('name.title'), id: 'name.mod', h: 190 });
+  const sheet = openLinkSheet(scene, { title: t('name.title'), id: 'name.mod', h: 180 });
   const until = a.name.lockedUntil ?? a.name.nextChangeAt ?? Date.now();
   sheet.show((b) => {
     b.text(t('name.mod.title'), 'pBad', 8);
