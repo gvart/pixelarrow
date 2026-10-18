@@ -753,3 +753,71 @@ rig's joints fitted to the sprite's big-helmet proportions); from an upright spe
 shoulder. Template clips drop the shield; pixminimax keeps it but loses whatever the start frame half-hides. Give a thrust
 a canvas its extension fits in. Review both spear ends frame by frame, and keep the fixes in a JSON (`fixframes.mjs`) so a
 re-fetch can replay them. A ramp-aware remap keeps bronze bronze; nearest-colour snapping does not.
+
+## 15. PixelLab hoplite production and the style lock (I3a)
+
+Full log, ids and costs: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I3a. The recipe for the other classes:
+[docs/v5/art/STYLE_LOCK.md](../v5/art/STYLE_LOCK.md). Rebuild: `fetchjobs.mjs docs/v5/pixellab/I3/jobs.json` then
+`sheetbuild.mjs docs/v5/pixellab/I3/hoplite.sheet.json`.
+
+**Base (H4, promoted):** `create_character` `mode: pro`, `style_character_id` E3 `62d4f135-…`, `size: 68`,
+`view: high top-down`, `concept_image_url` = the H3 south view re-proportioned by `proportion.mjs` (4x nearest):
+
+```
+tall grim Spartan hoplite with the realistic adult proportions of the concept: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark weathered bronze Corinthian helmet covering the face with a deep dark crimson horsehair crest; deep dark crimson cloak hanging behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round bronze aspis on his left arm, chin to knee, dark bronze rim and a muted dark-red lambda; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+H1–H3 (rejected) are in the asset log word for word: Pro Flash with E3 as a style image lost the NW spear and
+brightened the crimson; pro with E3 as the style character kept E3's look but also its 4–4.5-head proportions,
+whatever the text said.
+
+**Clip prompts** (pixminimax unless noted). Fixed fields: `view: high top-down`, `direction` = the facing,
+`subject_description` front facings "a tall grim Spartan hoplite in a dark bronze Corinthian helmet with a dark crimson
+crest, dark crimson cloak, a large round bronze shield with a red lambda and a long spear" (back facings: "… seen from
+behind …, a large round bronze shield and a long spear"; levelled clips end "… and a long levelled spear"),
+`initial_pose` "standing upright, the spear held upright in the right hand, the shield on the left arm" (levelled:
+"standing with the spear levelled at the hip pointing forward, the shield on the left arm"). The SW wording below;
+the other facings swap "towards the viewer's lower left" for lower right / "away from the viewer towards the upper
+right / left" and add "seen from behind" in NE and NW.
+
+- idle (12): `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm across the body in every frame`
+- look (16): `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, the face never turns away from the viewer's side; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top; the large round shield stays on the left arm in every frame` (SE NE NW: "never further than over his shoulder")
+- adjust (12): `standing still in place, he hitches the heavy round shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end`
+- walk (16): `steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the long spear held upright in the right hand and swaying a little with each step, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways`
+- run (12): `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the long spear held upright in the right hand and tilted slightly forward, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm in front of the body in every frame; the cloak streams back` (NE redo: "the large round shield stays clearly visible on the left arm at his left side in every frame")
+- rout (12): `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the long spear carried loosely upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield still on the left arm in every frame; the cloak flapping`
+- kneel (12): `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the round shield planted in front of him, head bowed, shoulders heaving with laboured breath; the long spear stays in the right hand, upright, single leaf-shaped spearhead at the top, plain blunt butt end; the shield stays on the left arm in every frame` (NE redo: "the round shield kept on his left arm at his left side and clearly visible in every frame")
+- ready (12, guard frame): `standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the long spear held level at the hip in the right hand and pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up across the body on the left arm in every frame`
+- charge (12, guard): `charging forward at a heavy run in place, leaning into it, the long spear levelled at the hip in the right hand and pointed straight ahead the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up in front on the left arm in every frame; the cloak streams back`
+- brace (12, guard): `braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the big round shield forward in front of his body and leans into it, the long spear kept level low at his right side pointing forward the way he faces; then holds the braced crouch, breathing; single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame`
+- block (12, guard): `blocks a heavy blow in place: snaps the big round shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the long spear stays level in the right hand pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame` (SE NE NW add "no sparks, no effects": sparks came anyway)
+- stagger (12, guard; SE NE NW): `struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the spear level and pointing forward and the shield on the left arm in every frame; no motion blur, no effects, single leaf-shaped spearhead, plain blunt butt end`; SW: skeleton-v3 `rig.mjs stagger`, action "staggered by a heavy blow, knocked back", description as the thrust's
+- fallBack (12, die 128): `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the round shield stays strapped on his left arm and the spear falls with him; no blood spray, no effects`
+- fallFwd (12, die): `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the round shield stays strapped on his left arm and the spear falls with him; no blood, no effects`
+- cheer (12, tall 96 x 112): `victory cheer in place: he thrusts the long spear straight up high over his head in the right hand, spearhead pointing at the sky, keeps the big round shield on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; single leaf-shaped spearhead, plain blunt butt end; the shield stays on the left arm in every frame`
+- **thrust** (skeleton-v3, 14 frames, action "heavy spear thrust", `rig.mjs thrust <dir> guard_<dir>.png --grip x,y`):
+  ```
+  grim muscular Spartan hoplite in a dark weathered bronze Corinthian helmet with a dark crimson crest, dark crimson cloak, dark bronze cuirass and greaves, one very large round bronze aspis with a muted red lambda on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike
+  ```
+  (back facings: "… seen from behind … dark bronze greaves …, away from the viewer, …"; SE redo: "always pointing
+  straight forward the way he faces at the same angle in every frame" from a flatter first frame)
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | H1–H3 | **Rejected:** spear lost in NW (H1); 3.7–4.5 heads (H2, H3) |
+| 2 | H4 | **Promoted:** the style anchor |
+| 3 | thrust SW a1 | **Rejected:** the draw-back pivots the spear; ghost tips; the shield hand was put in front of the body |
+| 4 | thrust SW a2, NE, NW, SE a2 | **Promoted** |
+| 5 | thrust SE a1 | **Rejected:** the spear levels itself (a 30° pivot) |
+| 6 | idle, look, adjust, walk, rout, ready, charge, brace (all 4) | **Promoted** (look NE f8 := f7) |
+| 7 | run NE a1, kneel NE a1, cheer SW a2 | **Rejected:** the shield vanishes |
+| 8 | cheer SW a1 | **Rejected:** no room to raise the spear on 68 |
+| 9 | block, stagger, deaths | **Promoted after the colour cut** (sparks, blood); 9 frames replaced where the cut took the spearhead or left holes |
+| 10 | stagger SW a1 | **Rejected:** a doubled, smeared spear |
+
+**Lessons:** a style character carries its proportions as well as its look: give pro a re-proportioned concept to
+change the body. pixminimax keeps identity at 1 generation per 68-px clip; it adds sparks and blood whatever the
+prompt says, so cut by colour and look at every cut frame. For our own poses, put the skeleton's shield hand where the
+sprite holds the shield and the weapon hand on the drawn fist (`--grip`), or the model turns the man to fit. A first
+frame with the spear at the angle the model likes (level in SE) keeps a thrust from pivoting. Test every clip in SW,
+then check the back views first.
