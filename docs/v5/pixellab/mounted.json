@@ -1,5 +1,5 @@
 {
- "$doc": "I4b mounted and chariot base characters (8 rotations), styled on H4, one PixelLab character per figure (rider + horse, or crew + horses + car). canvas = PixelLab rotation canvas (square); box = opaque box per game facing (x0..x1, y0..y1 in canvas px); ground = the hooves' or wheels' lowest row; centre = box centre x, the suggested per-row anchor. rotations = local raw path (gitignored); refetch with scripts/art/pixellab/fetch.mjs <character_id> <dir without /zip/...>. Remap palette for the sheets: docs/v5/pixellab/I4a/palette-dark-i4a.json. Scale: same art px per metre as H4 (manifest scale 0.5 like the foot sheets): the riders' heads 9-11 px crown to chin (H4 9-10), the horses' withers about 47 px above the hooves (1.42 m at H4's 58 px = 1.76 m).",
+ "$doc": "I4b mounted and chariot base characters (8 rotations), styled on H4, one PixelLab character per figure (rider + horse, or crew + horses + car). canvas = PixelLab rotation canvas (square); box = opaque box per game facing (x0..x1, y0..y1 in canvas px); ground = the hooves' or wheels' lowest row; centre = box centre x, the suggested per-row anchor. rotations = local raw path (gitignored); refetch with scripts/art/pixellab/fetch.mjs <character_id> <dir without /zip/...>. Remap palette for the sheets: docs/v5/pixellab/I4a/palette-dark-i4a.json. Scale: same art px per metre as H4 (the same manifest scale as the H4-based foot sheets): the riders' heads 9-11 px crown to chin (H4 9-10), the horses' withers about 47 px above the hooves (1.42 m at H4's 58 px = 1.76 m).",
  "approach": "one pro-mode humanoid character per mounted figure: create_character mode pro, body_type humanoid (default), style_character_id H4 b7624d6d-132a-458c-8e3d-d6960d175988, view high top-down; size 100 for a rider (128 draws the whole figure 1.3-1.45x H4's scale), 128 for the chariot (its length fills the canvas, crew at H4 scale). Clips: pixminimax 16 frames, keyed loop (start = end = a mid-gallop frame of a first pixminimax run). Rejected: quadruped template horse (smaller pony horse, invented ground shadow, Corinthian-looking helm; its skeleton-v3 template gallop has 8 frames, shrinks the figure and adds ground shadows); create_object_pro_flash (style drift to near-black, scythes and helmet lost).",
  "palette": "docs/v5/pixellab/I4a/palette-dark-i4a.json",
  "classes": {
@@ -23,7 +23,19 @@
     "skin": "skin, shared with the horse's bay coat: per-man skin tint must be off for riders",
     "metal": "umber/skin: the bronze cuirass and helmet share the horse and leather colours (10 source colours)"
    },
-   "clips": {},
+   "clips": {
+    "gallop": {
+     "dir": "docs/v5/pixellab/I4b/raw/companion/A5/zip/Idle/animations/gallop",
+     "frames": 16,
+     "fps": 16,
+     "loop": "whole clip (two strides of 8 frames; frame 15 wraps to 0 like any step)",
+     "mode": "pixminimax keyed loop: start = end = the widest frame 2..9 of the gallop-entry run (SE frame 4, NE 5, SW 4, NW 5)",
+     "canvas": { "south-east": "128x128", "north-east": "132x132", "south-west": "140x144", "north-west": "136x144" },
+     "animation_group_id": "7642e014-eed1-4a6d-8520-bfee35476884",
+     "entry_group_id": "7012c675-d8fc-47f9-8b23-263e95ce50e6",
+     "cost": "10 gens (entry SE 2, NE/SW/NW 1 each; loop SE 2, NE/SW/NW 1 each)"
+    }
+   },
    "status": "approved"
   },
   "thessalian": {
