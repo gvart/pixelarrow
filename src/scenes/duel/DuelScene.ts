@@ -652,7 +652,7 @@ export class DuelScene extends BaseScene {
   }
 
   /** Ends a page: the scroll area's height and where it starts (kept when the same page is rebuilt). */
-  private finishPage(y: number, scroll: number, center = false): void {
+  private finishPage(y: number, scroll: number, center = false, centerSide = true): void {
     const area = this.area;
     if (!area) return;
     // outside portrait a short page (the search, the opponent found) sits in the middle of its pane
@@ -660,8 +660,9 @@ export class DuelScene extends BaseScene {
     area.setContentHeight(y + 2);
     area.setScroll(Math.max(0, scroll));
     const side = this.side;
-    // the profile column, shorter than its pane, sits in the middle of it (as the Menu's and Army's panes)
-    if (side) side.area.setContentHeight(side.y + 2 + centerIn(side.area, side.y));
+    // the profile column, shorter than its pane, sits in the middle of it (as the Menu's and Army's panes); Team's
+    // master starts at the top, level with the hero rows beside it
+    if (side) side.area.setContentHeight(side.y + 2 + (centerSide ? centerIn(side.area, side.y) : 0));
   }
 
   private render(): void {
@@ -2684,7 +2685,7 @@ export class DuelScene extends BaseScene {
         roster();
         side.y = ty;
       }
-      this.finishPage(y + 20, keep);
+      this.finishPage(y + 20, keep, false, false);
       return;
     }
     ty += this.presetChips(pc, p, ty, pwid, parea) + GAP;
@@ -2715,7 +2716,7 @@ export class DuelScene extends BaseScene {
         y += ARMY_ROW_H + GAP;
       }
     }
-    this.finishPage(y, keep);
+    this.finishPage(y, keep, false, false);
   }
 
   /** Whose heroes these are: the duel army, not the campaign warband; its symbols behind an (i). */
