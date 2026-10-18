@@ -1,0 +1,17 @@
+{
+ "$doc": "I1 hoplite bake-off variants (docs/v5/ASSET_LOG.md I1). body = crest-to-feet height in sprite px, measured on the rotations (south-west); the preview scales it to the procedural man's. modes = the attack-mode comparison on D2.",
+ "variants": [
+  { "id": "A2", "label": "size 48, low top-down", "size": 48, "view": "low top-down", "body": 57 },
+  { "id": "B3", "label": "size 48, high top-down", "size": 48, "view": "high top-down", "body": 53 },
+  { "id": "C2", "label": "size 32, low top-down", "size": 32, "view": "low top-down", "body": 38 },
+  { "id": "D2", "label": "size 32, high top-down", "size": 32, "view": "high top-down", "body": 36 }
+ ],
+ "modes": [
+  { "id": "v3-sw", "variant": "D2", "label": "v3 custom", "anim": "attack", "dir": "south-west" },
+  { "id": "tpl-sw", "variant": "D2", "label": "template lead-jab", "anim": "attack_template", "dir": "south-west" },
+  { "id": "skel-sw", "variant": "D2", "label": "skeleton-v3 lead-jab", "anim": "attack_skeleton", "dir": "south-west" },
+  { "id": "v3-ne", "variant": "D2", "label": "v3 custom", "anim": "attack", "dir": "north-east" },
+  { "id": "tpl-ne", "variant": "D2", "label": "template lead-jab", "anim": "attack_template", "dir": "north-east" },
+  { "id": "skel-ne", "variant": "D2", "label": "skeleton-v3 lead-jab", "anim": "attack_skeleton", "dir": "north-east" }
+ ]
+}

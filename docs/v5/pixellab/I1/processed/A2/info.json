@@ -1,0 +1,177 @@
+{
+ "variant": "A2",
+ "id": "c1c0a877-82b8-4dd8-9179-1d4142185686",
+ "view": "low top-down",
+ "canvas": {
+  "width": 68,
+  "height": 68
+ },
+ "rot": {
+  "south": {
+   "box": {
+    "x": 20,
+    "y": 3,
+    "w": 28,
+    "h": 60
+   },
+   "colors": 31,
+   "snapped": 16
+  },
+  "south-east": {
+   "box": {
+    "x": 24,
+    "y": 6,
+    "w": 21,
+    "h": 59
+   },
+   "colors": 30,
+   "snapped": 15
+  },
+  "east": {
+   "box": {
+    "x": 22,
+    "y": 8,
+    "w": 17,
+    "h": 56
+   },
+   "colors": 31,
+   "snapped": 16
+  },
+  "north-east": {
+   "box": {
+    "x": 22,
+    "y": 8,
+    "w": 21,
+    "h": 56
+   },
+   "colors": 30,
+   "snapped": 16
+  },
+  "north": {
+   "box": {
+    "x": 21,
+    "y": 5,
+    "w": 28,
+    "h": 58
+   },
+   "colors": 30,
+   "snapped": 15
+  },
+  "north-west": {
+   "box": {
+    "x": 26,
+    "y": 8,
+    "w": 20,
+    "h": 56
+   },
+   "colors": 30,
+   "snapped": 15
+  },
+  "west": {
+   "box": {
+    "x": 25,
+    "y": 8,
+    "w": 17,
+    "h": 56
+   },
+   "colors": 30,
+   "snapped": 15
+  },
+  "south-west": {
+   "box": {
+    "x": 21,
+    "y": 7,
+    "w": 27,
+    "h": 58
+   },
+   "colors": 30,
+   "snapped": 15
+  }
+ },
+ "anims": {
+  "walk": {
+   "north-west": {
+    "frames": 8,
+    "w": 68,
+    "h": 68,
+    "feetY": [
+     61,
+     64
+    ],
+    "colors": 35
+   },
+   "south-west": {
+    "frames": 8,
+    "w": 68,
+    "h": 68,
+    "feetY": [
+     61,
+     63
+    ],
+    "colors": 39
+   },
+   "south-east": {
+    "frames": 8,
+    "w": 68,
+    "h": 68,
+    "feetY": [
+     61,
+     63
+    ],
+    "colors": 39
+   },
+   "north-east": {
+    "frames": 8,
+    "w": 68,
+    "h": 68,
+    "feetY": [
+     62,
+     64
+    ],
+    "colors": 37
+   }
+  },
+  "attack": {
+   "south-west": {
+    "frames": 9,
+    "w": 88,
+    "h": 88,
+    "feetY": [
+     74,
+     74
+    ],
+    "colors": 50
+   },
+   "north-west": {
+    "frames": 9,
+    "w": 84,
+    "h": 84,
+    "feetY": [
+     71,
+     71
+    ],
+    "colors": 45
+   },
+   "south-east": {
+    "frames": 9,
+    "w": 88,
+    "h": 88,
+    "feetY": [
+     74,
+     74
+    ],
+    "colors": 52
+   },
+   "north-east": {
+    "frames": 9,
+    "w": 84,
+    "h": 84,
+    "feetY": [
+     71,
+     71
+    ],
+    "colors": 46
+   }
+  }
+ }
+}
