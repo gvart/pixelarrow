@@ -1,0 +1,25 @@
+tests/regression/SUITE.md
+  s_0d98fe904b2e82::t_08532c84955b32 15
+docs/v6/qa/FLAKY.md
+  s_0d98fe904b2e82::t_40fb6c10fbc2ff 36
+  s_0d98fe904b2e82::t_7dc3b6775fda70 29
+scripts/regression/run.mjs
+  s_0d98fe904b2e82::t_3a3cc0892923b0 8,16-19,43-47,148,153,156-159
+  s_0d98fe904b2e82::t_a47373fd8cc551 149-152,154-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a8da1cf984619afcd4eecc2fb6cd202bec21f7c0",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
