@@ -8,7 +8,8 @@
  *   ?rs=2         device pixels per CSS pixel (RS: 2 on phones); 1 canvas px is drawn as 1 CSS px,
  *                 so a screenshot shows the device pixels a phone would light
  *   ?anim=walk    idle | walk | attack: what every figure plays
- *   ?snap=1       the PA-WORLD-snapped strips instead of PixelLab's raw colours
+ *   ?snap=1       each variant's post-processed strips instead of PixelLab's raw colours (I1: the PA-WORLD
+ *                 snap; I1b: the ramp-aware remap to PA-WORLD-DARK, manifest `post`)
  *   ?h=N          crest-to-feet height (world px) every variant is scaled to; default: measured on the
  *                 procedural hoplite (its red crest's top row to its feet in the south-west idle frame)
  */
@@ -32,7 +33,8 @@ const GAME_DIRS = ['south-east', 'north-east', 'south-west', 'north-west'] as co
 const DIRS8 = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west'];
 type Dir = (typeof GAME_DIRS)[number];
 
-interface VariantDef { id: string; label: string; size: number; view: string; body: number }
+/** anims maps the page's clip names (walk, attack) to the variant's own (I1b: walk_pixminimax, thrust2); post is the post-processed folder. */
+interface VariantDef { id: string; label: string; size: number; view: string; body: number; post?: string; anims?: Record<string, string> }
 interface ModeDef { id: string; variant: string; label: string; anim: string; dir: Dir }
 interface Manifest { variants: VariantDef[]; modes: ModeDef[] }
 interface Info { canvas: { width: number; height: number }; rot: Record<string, { box: { y: number; h: number } | null }>; anims: Record<string, Record<string, { frames: number; w: number; h: number; feetY: [number, number] }>> }
@@ -78,7 +80,7 @@ function cut(img: HTMLImageElement, fw: number, fh: number): HTMLCanvasElement[]
 }
 
 async function pixellabFigure(v: VariantDef): Promise<Figure> {
-  const dir = `${BASE}${v.id}/${SNAP ? 'snap/' : ''}`;
+  const dir = `${BASE}${v.id}/${SNAP ? `${v.post ?? 'snap'}/` : ''}`;
   const info = (await (await fetch(`${BASE}${v.id}/info.json`)).json()) as Info;
   const fw = info.canvas.width, fh = info.canvas.height;
   const rot = cut(await loadImg(`${dir}rot.png`), fw, fh);
@@ -94,7 +96,7 @@ async function pixellabFigure(v: VariantDef): Promise<Figure> {
   return {
     label: `${v.id} ${v.label}`,
     k: TARGET_H / v.body,
-    frames: (anim, d) => (anim === 'idle' ? idle(d) : strips.get(`${anim}:${d}`) ?? idle(d)),
+    frames: (anim, d) => (anim === 'idle' ? idle(d) : strips.get(`${v.anims?.[anim] ?? anim}:${d}`) ?? idle(d)),
   };
 }
 
@@ -181,9 +183,9 @@ const loop = (t: number) => {
 };
 
 function header(m: Manifest): void {
-  document.body.appendChild(el('h2', 'margin:0 0 4px;font-size:15px', 'I1 hoplite bake-off'));
+  document.body.appendChild(el('h2', 'margin:0 0 4px;font-size:15px', 'I1 and I1b hoplite bake-off: today, B3 (bright), E3 (dark-epic)'));
   const p = el('div', 'margin-bottom:8px;color:#d6c0a8');
-  p.textContent = `zoom ${Z}x, RS ${RS} (1 canvas px = 1 device px), anim ${ANIM_NAME}, ${SNAP ? 'snapped to PA-WORLD' : 'raw PixelLab colours'}, every variant scaled so its crest-to-feet height is ${TARGET_H.toFixed(1)} world px, the procedural man's (nearest, whole device px, as Phaser pixelArt + roundPixels). Variants: ${m.variants.map((v) => `${v.id} = size ${v.size}, ${v.view}`).join('; ')}.`;
+  p.textContent = `zoom ${Z}x, RS ${RS} (1 canvas px = 1 device px), anim ${ANIM_NAME}, ${SNAP ? 'post-processed (B3: PA-WORLD snap, E3: PA-WORLD-DARK remap)' : 'raw PixelLab colours'}, every variant scaled so its crest-to-feet height is ${TARGET_H.toFixed(1)} world px, the procedural man's (nearest, whole device px, as Phaser pixelArt + roundPixels). Variants: ${m.variants.map((v) => `${v.id} = ${v.label}`).join('; ')}.`;
   document.body.appendChild(p);
   const links = el('div', 'margin-bottom:10px');
   const mk = (t: string, over: Record<string, string>) => {
@@ -195,7 +197,7 @@ function header(m: Manifest): void {
   };
   for (const z of ['1', '2', '3']) mk(`zoom ${z}x`, { z });
   for (const a of ['idle', 'walk', 'attack']) mk(a, { anim: a });
-  mk(SNAP ? 'raw colours' : 'snapped', { snap: SNAP ? '0' : '1' });
+  mk(SNAP ? 'raw colours' : 'post-processed colours', { snap: SNAP ? '0' : '1' });
   document.body.appendChild(links);
 }
 
@@ -228,7 +230,7 @@ async function main(): Promise<void> {
     labels.push({ x: cx + 16, y: 2, t: i ? fig.label.split(' ')[0] : 'today' });
     GAME_DIRS.forEach((d, j) => placed.push({ fig, x: cx + (j % 2) * 32, y: 44 + Math.floor(j / 2) * 38, dir: d, anim: ANIM_NAME, phase: 0 }));
   });
-  stage('Line-up: today vs A..D, the 4 game facings (top: SE, NE; bottom: SW, NW)', figs.length * colW + 10, wH + 10, placed, labels);
+  stage(`Line-up: today vs ${m.variants.map((v) => v.id).join(', ')}, the 4 game facings (top: SE, NE; bottom: SW, NW)`, figs.length * colW + 10, wH + 10, placed, labels);
 
   // 2. formations: 5 files x 3 ranks per figure, enemy side (facing SW, seen from the front) and player side (NE, from behind)
   for (const [dir, side] of [['south-west', 'enemy side, facing down-left (front view)'], ['north-east', 'player side, facing up-right (back view)']] as const) {
@@ -257,7 +259,7 @@ async function main(): Promise<void> {
       ml.push({ x: 40 + i * 70, y: 2, t: md.label });
       mp.push({ fig, x: 40 + i * 70, y: 60, dir: md.dir, anim: md.anim, phase: 0 });
     });
-    stage(`Attack modes on ${base.id}: ${m.modes.map((x) => `${x.label} ${x.dir}`).join(" | ")}`, m.modes.length * 70 + 20, 72, mp, ml);
+    stage(`Animation modes on ${base.id}: ${m.modes.map((x) => `${x.label} ${x.dir}`).join(' | ')}`, m.modes.length * 70 + 20, 72, mp, ml);
   }
   requestAnimationFrame(loop);
 }
