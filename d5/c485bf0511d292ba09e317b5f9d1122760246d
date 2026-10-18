@@ -1,0 +1,20 @@
+src/war/sim/classes.ts
+  s_cfc22b058125c4::t_879430eb32fda2 51
+  s_cfc22b058125c4::t_5a904465d75094 1-50,52-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d5c485bf0511d292ba09e317b5f9d1122760246d",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
