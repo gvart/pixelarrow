@@ -1,0 +1,112 @@
+{
+ "$doc": "I4a foot-class base characters (8 rotations, no animations), one per class, styled on H4. height_px = crown (skull or helmet bowl; crest, plume, pilos point, Phrygian crown and hair spikes not counted) to the feet row, inclusive; heads = height_px / crown-to-chin rows (H4 = 5.7 on this measure). groups = the PA-WORLD-DARK-I4a ramps (docs/v5/pixellab/I4a/palette-dark-i4a.json) the recolour groups fall in. normalise = rows and columns dropped by scripts/art/pixellab/rollout/normalise.mjs before a v3 import (no resampling). rotations = local raw path (gitignored); refetch with scripts/art/pixellab/fetch.mjs <character_id> <dir>.",
+ "palette": "docs/v5/pixellab/I4a/palette-dark-i4a.json",
+ "classes": {
+  "hoplite": {
+   "culture": "greek",
+   "character_id": "b7624d6d-132a-458c-8e3d-d6960d175988",
+   "prompt_id": "I3a H4 (STYLE_LOCK §3)",
+   "rotations": "docs/v5/pixellab/I4a/raw/H4/zip/Idle/rotations",
+   "crown": 10,
+   "chin": 19,
+   "groups": {
+    "cloak": "crimson",
+    "crest": "crimson + teamRed",
+    "trim": "darkBronze"
+   },
+   "status": "anchor (hoplite-prod)",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 57,
+   "heads": 5.7
+  },
+  "militia": {
+   "culture": "greek",
+   "character_id": "4860b1e6-6cfb-465f-b656-449d56e71071",
+   "prompt_id": "I4a-militia-A2",
+   "rotations": "docs/v5/pixellab/I4a/raw/militia/A2/zip/Idle/rotations",
+   "crown": 9,
+   "chin": 19,
+   "headgear_top": 7,
+   "groups": {
+    "cloak": "crimson (exclusive)",
+    "tunic": "umber",
+    "cap": "umber"
+   },
+   "status": "approved",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 58,
+   "heads": 5.27
+  },
+  "archer": {
+   "culture": "greek",
+   "character_id": "b8f323c8-cfc6-44b3-a9cf-0639fa075125",
+   "prompt_id": "I4a-archer-A2",
+   "rotations": "docs/v5/pixellab/I4a/raw/archer/A2/zip/Idle/rotations",
+   "crown": 7,
+   "chin": 18,
+   "groups": {
+    "cloak": "crimson (exclusive)",
+    "jerkin": "umber"
+   },
+   "status": "approved",
+   "note": "stature 60 (+2, the tolerance edge)",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 60,
+   "heads": 5
+  },
+  "slinger": {
+   "culture": "greek",
+   "character_id": "d15d6271-1f9b-460f-b12a-b4e8fb2ed045",
+   "prompt_id": "I4a-slinger-A1",
+   "source_character_id": "83bbfaea-fc14-436b-93eb-9f32d5048c42",
+   "normalise": {
+    "rows": 5,
+    "cols": 2
+   },
+   "rotations": "docs/v5/pixellab/I4a/raw/slinger/N1/zip/Idle/rotations",
+   "crown": 9,
+   "chin": 19,
+   "groups": {
+    "cloak": "crimson (exclusive)",
+    "tunic": "umber"
+   },
+   "status": "approved (normalised: v3 import of A1 minus 5 rows, 2 columns)",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 58,
+   "heads": 5.27
+  },
+  "javelineer": {
+   "culture": "phoenician",
+   "character_id": "a0b21d96-7b5b-486c-825c-6b5681390f34",
+   "prompt_id": "I4a-javelineer-A1",
+   "rotations": "docs/v5/pixellab/I4a/raw/javelineer/A1/zip/Idle/rotations",
+   "crown": 8,
+   "chin": 19,
+   "headgear_top": 3,
+   "groups": {
+    "cloak": "purpleBlack (exclusive)",
+    "tunic": "umber"
+   },
+   "status": "approved",
+   "note": "soft cap peak (rows 3-7) not counted",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 59,
+   "heads": 4.92
+  }
+ }
+}
