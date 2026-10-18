@@ -11,7 +11,8 @@
 //    function for loops.
 //
 // Usage: node scripts/art/pixellab/rig.mjs <clip> <facing> <sprite.png> [--weapon spear] [--frames 14]
-//          [--out file.json] [--sheet overlay.png] [--feet y] [--head y] [--stature px] [--cx x] [--k 4] [--cols 5] [--ghost 1]
+//          [--out file.json] [--sheet overlay.png] [--feet y] [--head y] [--stature px] [--cx x] [--grip x,y] [--k 4] [--cols 5] [--ghost 1]
+//   --grip  where the sprite draws the weapon fist (spear.mjs prints it): the weapon hand follows it in every frame
 //   clip    one of CLIPS (node rig.mjs --list)
 //   facing  south-east | north-east | south-west | north-west | south
 // Writes { clip, facing, weapon, fit, first_frame_keypoints, keypoints } (x, y fractions of the image, z_index
@@ -146,7 +147,8 @@ export const CLIPS = {
       ];
     },
   },
-  // struck: flinch back, a stumbling step back (knockback), the shield sagging, then catching himself in guard
+  // struck: flinch back, a stumbling step back (knockback), the shield sagging, then catching himself and stepping
+  // back up into guard
   stagger: {
     kind: 'once', frames: 12, start: guardPose, keys: (w) => {
       const g = guardPose(w);
@@ -155,14 +157,16 @@ export const CLIPS = {
         [0.15, { ...g, pf: -0.12, lean: -0.22, roll: 0.08, twist: -0.3, nod: -0.15, L: add3(w.guard.L, [-0.12, -0.08, -0.12]), R: add3(w.guard.R, [-0.1, 0.06, 0.06]) }],
         [0.35, { ...g, pf: -0.28, hip: BODY.hip - 0.08, lean: -0.12, roll: 0.05, twist: -0.2, fR: [-0.46, 0.16, 0], fL: [0.0, -0.14, 0.05], nod: -0.05, L: add3(w.guard.L, [-0.14, -0.08, -0.18]) }],
         [0.55, { ...g, pf: -0.34, hip: BODY.hip - 0.12, lean: 0.1, fR: [-0.48, 0.16, 0], fL: [-0.08, -0.14, 0], L: add3(w.guard.L, [-0.06, -0.04, -0.1]) }],
-        [0.8, { ...g, pf: -0.3, hip: BODY.hip - 0.06, lean: 0.06, fR: [-0.48, 0.16, 0], fL: [-0.1, -0.14, 0] }],
-        [1, { ...g, pf: -0.3, fL: [-0.12, -0.14, 0], fR: [-0.46, 0.14, 0] }],
+        [0.78, { ...g, pf: -0.22, hip: BODY.hip - 0.06, lean: 0.08, fR: [-0.4, 0.16, 0], fL: [0.02, -0.14, 0.06] }],
+        // he steps back up into his place (the sprite keeps its anchor; the sim moves the man)
+        [1, g],
       ];
     },
   },
-  // killed: the knees go, the body tips backwards past the feet and lands flat (the shield stays on the arm)
-  fallBack: { kind: 'once', frames: 14, start: base, keys: (w) => fallKeys(w, -1) },
-  fallFwd: { kind: 'once', frames: 14, start: base, keys: (w) => fallKeys(w, 1) },
+  // killed in the fight (from the guard): the knees go, the body tips past the feet and lands flat; the shield
+  // stays on the arm
+  fallBack: { kind: 'once', frames: 14, start: guardPose, keys: (w) => fallKeys(w, -1) },
+  fallFwd: { kind: 'once', frames: 14, start: guardPose, keys: (w) => fallKeys(w, 1) },
   // wounded: down on the right knee, leaning on the shield, a slow laboured breath; the entry is the drop
   kneel: {
     kind: 'once', frames: 12, hold: 4, start: base, keys: (w) => {
@@ -226,7 +230,7 @@ function stride(w, t, s, lift, bob, lean) {
 }
 
 function fallKeys(w, dir) {
-  const b = base(w);
+  const b = guardPose(w);
   const buckle = { ...b, hip: BODY.hip - 0.18, lean: 0.2 * dir, nod: 0.25 * dir, fL: [0.06, -0.14, 0], fR: [-0.08, 0.14, 0], L: add3(w.rest.L, [0, -0.06, -0.12]), R: add3(w.rest.R, [0.06, 0.06, -0.2]) };
   return [
     [0, b],
@@ -382,14 +386,24 @@ export function frameKeypoints(js, f, img) {
 }
 
 /** Keypoints of a clip for a facing on a sprite: { fit, first_frame_keypoints, keypoints }. */
-export function clipKeypoints(clip, facing, img, { weapon = 'spear', frames, fit } = {}) {
+export function clipKeypoints(clip, facing, img, { weapon = 'spear', frames, fit, grip } = {}) {
   const c = CLIPS[clip];
   const n = frames ?? c.frames;
   const f = fit ?? fitOf(img);
   const dir = FACING[facing];
-  const first = frameKeypoints(joints(startPose(clip, weapon), dir), f, img);
+  let first = frameKeypoints(joints(startPose(clip, weapon), dir), f, img);
   // a loop samples n phases (frame 0 = the start pose); a one-shot runs from just after the start to the end
-  const kps = Array.from({ length: n }, (_, i) => frameKeypoints(joints(poseAt(clip, c.kind === 'loop' ? i / n : (i + 1) / n, weapon), dir), f, img));
+  let kps = Array.from({ length: n }, (_, i) => frameKeypoints(joints(poseAt(clip, c.kind === 'loop' ? i / n : (i + 1) / n, weapon), dir), f, img));
+  if (grip) {
+    // PixelLab draws the weapon fist where it likes (higher than the camera puts it): move the weapon hand of
+    // every frame by the rest frame's miss, the elbow by half, so the first skeleton sits on the drawn fist
+    const h = first.find((p) => p.label === 'RIGHT ARM');
+    const dx = grip[0] / img.w - h.x, dy = grip[1] / img.h - h.y;
+    const shift = (fr) => fr.map((p) => (p.label === 'RIGHT ARM' ? { ...p, x: +(p.x + dx).toFixed(3), y: +(p.y + dy).toFixed(3) }
+      : p.label === 'RIGHT ELBOW' ? { ...p, x: +(p.x + dx / 2).toFixed(3), y: +(p.y + dy / 2).toFixed(3) } : p));
+    first = shift(first);
+    kps = kps.map(shift);
+  }
   return { clip, facing, weapon, frames: n, hold: c.hold, fit: f, first_frame_keypoints: first, keypoints: kps };
 }
 
@@ -429,7 +443,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const img = readImage(sprite);
   const o = {};
   for (const k of ['feet', 'head', 'cx', 'stature']) if (opt(k) !== undefined) o[k] = Number(opt(k));
-  const res = clipKeypoints(clip, facing, img, { weapon: opt('weapon', 'spear'), frames: opt('frames') ? Number(opt('frames')) : undefined, fit: fitOf(img, o) });
+  const res = clipKeypoints(clip, facing, img, { weapon: opt('weapon', 'spear'), frames: opt('frames') ? Number(opt('frames')) : undefined, fit: fitOf(img, o), grip: opt('grip') ? opt('grip').split(',').map(Number) : undefined });
   const out = opt('out');
   if (out) writeFileSync(out, JSON.stringify(res));
   const sheet = opt('sheet');
