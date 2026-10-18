@@ -1,6 +1,6 @@
 /** Global game state shared between scenes (no Phaser imports). */
 import { Campaign } from './game/campaign';
-import { backupRaw, carrySettings, readSaveResult, writeSave, clearSave, type LoadFailure, type SaveData } from './game/save';
+import { backupRaw, carrySettings, readSaveResult, writeSave, clearSave, type LoadFailure, type SaveData, type Settings } from './game/save';
 import type { Outcome } from './game/loot';
 import type { UnitStat } from './game/report';
 import type { EnemyArmy } from './game/enemy';
@@ -179,6 +179,33 @@ class GameState {
     if (cloud) await online.onAdopt(cloud);
   }
 
+  /**
+   * The account was deleted (V6-LINK-07; accounts-v6.md §10.1, UXA-11): this device forgets its campaign,
+   * the copy kept from a replaced one and every first-time hint; the language, sound, haptics and
+   * accessibility choices stay; the next launch is a first run. Written here only (never uploaded).
+   */
+  async forgetCampaign(): Promise<void> {
+    if (this.readOnly) return;
+    await this.saving;
+    const prev = this.campaign?.data.settings;
+    const kv = saveStores();
+    await clearSave(kv.primary);
+    if (kv.mirror) await clearSave(kv.mirror);
+    try {
+      await platform.storage.device().remove(REPLACED_KEY);
+    } catch {
+      /* a safety copy only */
+    }
+    this.campaign = Campaign.fresh(randomSeed());
+    const s = this.campaign.data.settings;
+    if (prev) for (const k of KEPT_ON_DELETE) (s as unknown as Record<string, unknown>)[k] = prev[k];
+    s.tutorial = newProgress();
+    this.pending = null;
+    this.last = null;
+    this.hasSave = false;
+    await this.writeLocal(this.campaign.sync());
+  }
+
   async reset(): Promise<void> {
     if (this.readOnly) return;
     const kv = saveStores();
@@ -219,5 +246,8 @@ export function randomSeed(): number {
     return (Date.now() ^ 0x5f3759df) >>> 0;
   }
 }
+
+/** The player's own preferences a deleted account leaves on the device (accounts-v6.md §10.3: language and sound), and the analytics choice (an opt-out never turns back on by itself). */
+const KEPT_ON_DELETE = ['lang', 'sound', 'musicVol', 'sfxVol', 'haptics', 'reduceMotion', 'reduceShake', 'reduceFlash', 'leftHand', 'keyHints', 'analytics'] as const satisfies readonly (keyof Settings)[];
 
 export const state = new GameState();

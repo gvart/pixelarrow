@@ -4,9 +4,9 @@
  * GET /api/account; what shows depends on the session and on what the platform can do, never on which
  * platform it is (UXA-04).
  *
- * - Signed in: Profile (name, the public-boards switch), Sign-in methods (Telegram and email, read
- *   only here: LINK-05 adds their actions), Devices (Signed-in devices → AU-17, and Log out on this
- *   device where the session is a cookie), Privacy (the notice; Delete account comes with LINK-07).
+ * - Signed in: Profile (name with Rename → AU-18, the public-boards switch), Sign-in methods (Telegram
+ *   and email with their actions, LINK-05), Devices (Signed-in devices → AU-17, and Log out on this
+ *   device where the session is a cookie), Privacy (the notice, and Delete account → AU-19, LINK-07).
  * - Guest (a platform with email forms and no session): the guest card with Create account and Log
  *   in, then the privacy notice. A sign-up waiting for its link: Resend link and Use another email.
  * - Loading, error and offline states, each with Retry; a banned account says so (§14 Q4).
@@ -41,6 +41,10 @@ import { openChangePassword } from './changePassword';
 import { confirmRemove } from './removeMethod';
 import { openLinkTelegram } from './linkTelegram';
 import { checkTelegramConflicts } from './conflict';
+import { openRename } from './rename';
+import { renameOff } from './nameRules';
+import { noticeModeration } from './nameSheet';
+import { openDeleteAccount } from './deleteAccount';
 
 /** Where the page's data comes from: the server (live) or a stand-in (Kit, layout check). */
 export interface AccountSource {
@@ -130,6 +134,8 @@ export function demoAccountSource(kind: 'live' | 'guest' | 'pending' | 'telegram
 }
 
 const ROW_H = 24;
+/** Full-width page buttons stop growing here (V6-092: a wide sheet keeps them thumb-sized). */
+const WIDE_MAX = 240;
 const STEP = ROW_H + GAP;
 const SECTION_H = 22;
 const SECTION_ICON: Record<string, string> = { profile: 'people', methods: 'flag', devices: 'gear', privacy: 'eye' };
@@ -183,8 +189,11 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     into.add(tx);
     return yy + tx.height + 6;
   };
-  const wide = (into: Phaser.GameObjects.Container, yy: number, label: string, variant: 'primary' | 'secondary' | 'neutral', id: string, onClick: () => void): number => {
-    into.add(new MButton(scene, 0, yy, iw - 4, ROW_H, { label, variant, id, onClick }));
+  /** A full-width action, at most 240 wide and centred on a wide sheet (V6-092). */
+  const wide = (into: Phaser.GameObjects.Container, yy: number, label: string, variant: 'primary' | 'secondary' | 'neutral' | 'destructive', id: string, onClick: () => void): number => {
+    const bw = Math.min(iw - 4, WIDE_MAX);
+    const bx = Math.round((iw - 4 - bw) / 2);
+    into.add(variant === 'destructive' ? new Button(scene, bx, yy, bw, ROW_H, { label, variant, id, onClick }) : new MButton(scene, bx, yy, bw, ROW_H, { label, variant, id, onClick }));
     return yy + STEP;
   };
   const privacy = (into: Phaser.GameObjects.Container, yy: number): number => {
@@ -298,10 +307,22 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     clear();
     const into = area!.content;
     let yy = section(into, 0, 'profile');
-    // the name (Rename comes with the nickname story)
-    const nameW = Math.min(measureText(a.displayName) + 4, iw / 2);
-    yy = row(into, yy, t('account.name'), null, nameW + 6);
-    into.add(addText(scene, iw - 10, yy - STEP + 8, ellipsize(a.displayName, nameW, false), 'pInk', 1));
+    // the name and Rename (AU-18, V6-LINK-07): off with its reason during the cooldown or a moderator's lock
+    const nameW = Math.max(30, Math.min(measureText(a.displayName) + 4, iw / 2 - 70));
+    const ny = yy;
+    yy = row(into, yy, t('account.name'), null, nameW + 6 + 72);
+    into.add(addText(scene, iw - 4 - 72 - 6, ny + 8, ellipsize(a.displayName, nameW, false), 'pInk', 1));
+    const off = renameOff(a.name, d.now());
+    const rename = new Button(scene, iw - 4 - 68, ny + 1, 68, 22, {
+      label: t('account.rename'),
+      inline: true,
+      small: true,
+      id: 'account.rename',
+      disabledReason: off ? t(off.key, off.params) : undefined,
+      onClick: () => openRename(scene, { current: a.displayName, status: a.name, now: d.now, onDone: reopen }),
+    });
+    if (off) rename.setEnabled(false, t(off.key, off.params));
+    into.add(rename);
     // public boards (ADR-0010): its line says exactly what changes
     let boards = a.publicBoards;
     let busy = false;
@@ -359,7 +380,9 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
         }),
       );
     }
-    finish(privacy(into, yy));
+    yy = privacy(into, yy);
+    // AU-19, the last row (§10.1): a danger button; the steps say what is lost before anything happens
+    finish(wide(into, yy + 2, t('account.delete'), 'destructive', 'account.delete', () => openDeleteAccount(scene, d, { account: a, onReload: reopen })));
   };
 
   const load = async (): Promise<void> => {
@@ -378,6 +401,8 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
       // the link was opened: the hint has done its job
       if (waiting && a.identities.some((i) => i.kind === 'password')) void src.forgetAddPending();
       if (c.scene) showAccount(a, waiting);
+      // a moderator reset the name since this device last said so (§9.5)
+      if (c.scene && !o.source) void noticeModeration(scene, a, d.kv);
       // in the Mini App: a link conflict this Telegram account must decide opens over the page (V6-053)
       if (c.scene && !o.source) void checkTelegramConflicts(scene, { d });
     } catch (e) {

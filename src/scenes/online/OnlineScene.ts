@@ -10,6 +10,7 @@
  * demo shard instead (src/online/demoShard.ts: layout check, screenshots).
  */
 import { addSignInGate, showsSignInGate } from '../../ui/account/gate';
+import { offerNameOnHub } from '../../ui/account/nameSheet';
 import { RS } from '../../platform/renderScale';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
@@ -510,7 +511,11 @@ export class OnlineScene extends BaseScene {
     else if (d.lobby) this.openLobby();
     this.stagePreview();
     if (d.coach || (!d.preview && coachDue())) this.coach = new OnlineCoach(this.coachHost(), this.ui, d.coach);
-    else if (!d.preview) firstTimeHint(this, 'online-map', t('online.hint'));
+    else if (!d.preview) {
+      firstTimeHint(this, 'online-map', t('online.hint'));
+      // AU-18: the name others see, once, after the coach's visit (V6-LINK-07)
+      void offerNameOnHub(this);
+    }
     this.data0 = { preview: d.preview };
   }
 

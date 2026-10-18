@@ -107,10 +107,11 @@ export interface LinkSheet {
   readonly live: boolean;
 }
 
-export function openLinkSheet(scene: UiScene, o: { title: string; id: string; onClose?: () => void; closeButton?: boolean }): LinkSheet {
+/** `h`: the sheet's height (default 340; never taller than the screen allows). */
+export function openLinkSheet(scene: UiScene, o: { title: string; id: string; onClose?: () => void; closeButton?: boolean; h?: number }): LinkSheet {
   const sheetO = { title: o.title, w: Math.min(scene.m.VW - 16, 320), shadeCloses: false, closeButton: o.closeButton ?? true, panel: 'decision' as const, id: o.id, onClose: o.onClose };
   const w = sheetWidth(scene, sheetO);
-  const h = Math.min(scene.m.VH - 16, 340);
+  const h = Math.min(scene.m.VH - 16, o.h ?? 340);
   const m = openParchmentSheet(scene, { ...sheetO, h });
   const { x, y } = m.body;
   const bw = w - 16;

@@ -307,7 +307,15 @@ export interface AccountSummary {
   publicBoards: boolean;
   sessions: number;
   hasPurchases: boolean;
-  name: { freeChange: boolean; nextChangeAt: number | null; lockedUntil: number | null; moderatedAt: number | null };
+  name: NameStatus;
+}
+
+/** The rename rules' state for this player (server/src/account/summary.ts NameStatus). */
+export interface NameStatus {
+  freeChange: boolean;
+  nextChangeAt: number | null;
+  lockedUntil: number | null;
+  moderatedAt: number | null;
 }
 
 // ---------------------------------------------------------------- web → Telegram linking (V6-LINK-03/06; server/src/account/link.ts, conflicts.ts)
@@ -540,6 +548,19 @@ export class ApiClient {
   /** Show me on the public boards of pixelarrow.app (ADR-0010; in-game boards always show the player). */
   setPublicBoards(enabled: boolean): Promise<{ publicBoards: boolean }> {
     return this.request('PUT', '/api/account/public-boards', { auth: true, body: { enabled } });
+  }
+
+  /**
+   * A new display name (V6-LINK-07; ADR-0009 §6): `400 invalid_name {reason}`, `409 taken`,
+   * `429 cooldown {nextChangeAt}`, `423 locked {lockedUntil}`.
+   */
+  rename(name: string): Promise<{ displayName: string; name: NameStatus }> {
+    return this.request('PUT', '/api/account/name', { auth: true, body: { name } });
+  }
+
+  /** Sensitive. Deletes the account now and for good (ADR-0009 §7); `409 busy_try_later`. The body's word is always the English one. */
+  deleteAccount(): Promise<{ status: 'done' | 'resumable' }> {
+    return this.request('DELETE', '/api/account', { auth: true, body: { confirm: 'DELETE' } });
   }
 
   // ---- sign-in method management (V6-LINK-05; server/src/account/routes.ts, V6-049). Routes marked

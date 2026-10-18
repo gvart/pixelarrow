@@ -360,6 +360,31 @@ export class Online {
     return true;
   }
 
+  /**
+   * The account was deleted (V6-LINK-07, UXA-11): the session is gone on the server. Nothing waiting is
+   * uploaded (there is no account to take it), the sync metadata goes, and no silent sign-in runs again
+   * until recheckSession() (in Telegram it would start a new, empty account: the next launch does that).
+   */
+  async forgetSession(): Promise<void> {
+    this.d.api.token = null;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.pending = null;
+    this.choice = null;
+    this.meta = null;
+    this.abandonPull();
+    try {
+      await this.d.kv().remove(SYNC_META_KEY);
+    } catch {
+      /* the next pull checks the player id as well */
+    }
+    this.cookie = 'none';
+    this.nextAuthAt = Number.POSITIVE_INFINITY;
+    this.adoptPlayer(null);
+    this.entitlements.clear();
+    this.setStatus('local');
+  }
+
   /** Boot gave up waiting: ignore whatever the in-flight pull returns. */
   abandonPull(): void {
     this.pullGen++;

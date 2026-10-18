@@ -28,6 +28,7 @@
  * true }` it runs on the in-memory demo.
  */
 import { addSignInGate, showsSignInGate } from '../../ui/account/gate';
+import { offerNameOnHub } from '../../ui/account/nameSheet';
 import { SETS, setPieces } from '../../data/sets';
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
@@ -318,6 +319,8 @@ export class DuelScene extends BaseScene {
       this.busy = false;
       this.renaming = false;
       this.arrival = data.error ? null : data.result ?? null;
+      // AU-18: the first visit while signed in shows the name others see, once (V6-LINK-07)
+      if (!data.preview) void offerNameOnHub(this);
     }
     this.area = null;
     this.mainBtn = null;
