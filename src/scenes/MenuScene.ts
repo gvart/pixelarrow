@@ -8,6 +8,8 @@ import { canUsePasswordForms, openAccountForm, openAccountRoute } from '../ui/ac
 import { askTwoCampaigns, openTwoCampaigns } from '../ui/account/twoCampaigns';
 import { demoAccountSource, openAccountPage } from '../ui/account/accountPage';
 import { openDevices } from '../ui/account/devices';
+import { checkTelegramConflicts } from '../ui/account/conflict';
+import { openLinkingDemo, type LinkDemo } from '../ui/account/linkDemo';
 import { addTipLine } from '../ui/mosaic';
 import { tipHidden } from '../ui/mosaic/tips';
 import { Campaign } from '../game/campaign';
@@ -67,7 +69,11 @@ export class MenuScene extends BaseScene {
     }
 
     // Opened from a bot message's "Open in the game" (startapp=settings).
-    if (data?.settings === 'notify') this.openNotifications();
+    if (data?.settings === 'notify') {
+      this.openNotifications();
+      // the bot's message about a link conflict opens here: the choice it asks for (V6-LINK-06)
+      void checkTelegramConflicts(this);
+    }
     // Opened at #login or #forgot (an email-link page's "Log in", V6-071): the form, once (not again on a relayout).
     if (data?.account && openAccountRoute(this, data.account)) delete data.account;
     // #account and startapp=account (the bot's /delete_my_data, the re-auth Reopen path): Settings → Account, once
@@ -399,6 +405,11 @@ export class MenuScene extends BaseScene {
   openDevicesDemo(): void {
     this.openAccount('live');
     openDevices(this, { source: demoAccountSource('live') });
+  }
+
+  /** The linking sheets (AU-13, AU-14, AU-16) on stand-in answers (layout check); nothing is sent. */
+  openLinkingDemo(kind: LinkDemo): void {
+    openLinkingDemo(this, kind);
   }
 
   /** AU-08 with two sample campaigns (layout check); nothing is kept. */
