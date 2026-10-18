@@ -11,7 +11,7 @@
 // Platform modes (V6-GATE-02, scripts/lib/platform.mjs): every browser script runs once per mode, as a
 // Telegram Mini App (fake WebApp) and as a plain web page; the summary has one row per script and mode.
 // A failure is never retried: a script that fails in one run is reported FAIL with both modes' rows, and a
-// suspected flake goes into docs/v6/qa/FLAKY.md (re-run it and record every result, never hide it).
+// suspected flake goes into docs/FLAKY.md (re-run it and record every result, never hide it).
 //
 // Runs the scripts, --jobs at a time (V6-QA-SPEED: each its own process and browser, so they share
 // nothing but the static server; their lines stream as they come, each prefixed with its row's

@@ -577,7 +577,7 @@ describe('Back targets (screen-flow.md §3)', () => {
 
   // The document is the contract: every screen of its register has a rule here, and the rule matches the
   // Back column of its §3 table.
-  const flow = Object.values(import.meta.glob<string>('../design/ux/screen-flow.md', { eager: true, query: '?raw', import: 'default' }))[0];
+  const flow = Object.values(import.meta.glob<string>('../docs/SCREEN_FLOW.md', { eager: true, query: '?raw', import: 'default' }))[0];
   const section = (n: number) => flow.split(/^## /m).find((s: string) => s.startsWith(`${n}.`))!;
   const rows = (text: string) => text.split('\n').filter((l) => /^\| S\d\d/.test(l)).map((l) => l.split('|').map((c) => c.trim()));
   /** S-ID -> scene key (the register's code column). */

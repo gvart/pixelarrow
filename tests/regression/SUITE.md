@@ -19,7 +19,7 @@ npx vitest run tests/regression        # the unit guards (also part of `npm test
 There is no default port: a URL or `--port` is required (V6-035). Every browser script runs in both
 platform modes (V6-GATE-02, `scripts/lib/platform.mjs`): as a Telegram Mini App (the fake WebApp) and as a
 plain web page (no request to telegram.org); each script also takes `<url> --platform telegram|web|both`
-on its own. Nothing is retried: a flaky failure is reported with every run in `docs/v6/qa/FLAKY.md`.
+on its own. Nothing is retried: a flaky failure is reported with every run in `docs/FLAKY.md`.
 
 Exit 0 = pass, 1 = a script failed or timed out (killed after its limit), 2 = NOT ASSESSED (a script
 could not run, e.g. no Chromium for the replay check). A KNOWN line is a reported open bug: it is named in
