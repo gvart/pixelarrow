@@ -447,7 +447,7 @@ edge, which from behind reads like the left hand; the SE shield has the dark-ora
 have none), and that rim is trim, so the tiers tint it; the woad stays enemySlate blue (shadow, not tinted). One slot
 over the cap: five jobs ran at once for a few minutes (cheer SE a2), then back to four.
 
-**Sheet.** 16 clips, frame 88 x 112, 4048 x 2240 (34.6 MB as v2); packed in the build below. 35 colours; groups trim 3
+**Sheet.** 16 clips, frame 88 x 112, 4048 x 2240 (34.6 MB as v2); packed **7.76 MB decoded (core 6.05 MB), 259 KB**. 35 colours; groups trim 3
 (the torc), skin 4 (the body only); metal: iron (weapon). Tiers: veteran polished torc, elite gold torc (he has no cloak).
 **QC:** 0 failures, stature 61 in all four facings; 374 warnings, all the spear-end heuristic on the axe and the shield
 edge. **Gens:** 92 quoted (76 jobs).
@@ -487,7 +487,7 @@ proportion drift: **0**. **Needs review:** the NW walk (sling hidden by the cloa
 the SE and NE stab swings; the NE cheer turns to profile; the NW fallBack falls forward like the fallFwd. Twice more
 five jobs ran at once for a few minutes (a slip in counting), then back to four.
 
-**Sheet.** 16 clips, frame 120 x 113, 4080 x 2712 (42.2 MB as v2); packed in the build below. 21 colours; groups cloak 6
+**Sheet.** 16 clips, frame 120 x 113, 4080 x 2712 (42.2 MB as v2); packed **6.78 MB decoded (core 5.45 MB), 225 KB**. 21 colours; groups cloak 6
 (crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 57 in all
 four facings; 454 warnings, all the spear-end heuristic on the sling. **Gens:** 90 quoted (72 jobs).
 
@@ -521,7 +521,7 @@ reversed weapon, head backwards, clipping, proportion drift: **0**. **Needs revi
 black, so the tier recolour of its umber group shows only on its folds (veteran and elite read close to basic); the NE
 fallBack and the NW fallBack fall more forward than back; the NE rout turns to profile in passing.
 
-**Sheet.** 15 clips, frame 113 x 115, 4068 x 2760 (42.8 MB as v2); packed in the build below. 28 colours; groups cloak 5
+**Sheet.** 15 clips, frame 113 x 115, 4068 x 2760 (42.8 MB as v2); packed **9.24 MB decoded (core 7.29 MB), 281 KB**. 28 colours; groups cloak 5
 (umber), skin 4; metal: iron (weapon). Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 58–59;
 168 warnings (the spear heuristic on the kopis). **Gens:** 78 quoted (65 jobs).
 
