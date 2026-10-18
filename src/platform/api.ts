@@ -338,7 +338,8 @@ export class ApiClient {
     try {
       return await this.once<T>(method, path, opts);
     } catch (e) {
-      if (opts.auth && opts.reauth !== false && isApiError(e) && e.status === 401 && this.reauth) {
+      // only a lost session signs in again: a 401 asking for a proof (reauth_required, a wrong password, stale initData) is the caller's
+      if (opts.auth && opts.reauth !== false && isApiError(e) && e.status === 401 && (e.code === 'unauthorized' || e.code === 'http_401') && this.reauth) {
         const t = await this.reauth().catch(() => null);
         if (t) {
           this.token = t;
@@ -479,6 +480,34 @@ export class ApiClient {
   /** Show me on the public boards of pixelarrow.app (ADR-0010; in-game boards always show the player). */
   setPublicBoards(enabled: boolean): Promise<{ publicBoards: boolean }> {
     return this.request('PUT', '/api/account/public-boards', { auth: true, body: { enabled } });
+  }
+
+  // ---- sign-in method management (V6-LINK-05; server/src/account/routes.ts, V6-049). Routes marked
+  // sensitive answer `401 reauth_required` without a proof from the last 10 minutes.
+
+  /** A fresh proof for this session (AU-10): the account's password, or Telegram initData at most 10 minutes old. */
+  reauthWith(proof: { password: string } | { initData: string }): Promise<{ reauthUntil: number }> {
+    return this.request('POST', '/api/account/reauth', { auth: true, body: proof });
+  }
+
+  /** Sensitive. Emails an add_email link (`202 check_email`); `409 already_has_email` when the account has one. */
+  addEmail(email: string, password: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/account/email', { auth: true, body: { email, password } });
+  }
+
+  /** Sensitive. Emails a change_email link to the new address (`202`); `400 same_email`, `400 no_password`. */
+  changeEmail(email: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/account/email/change', { auth: true, body: { email } });
+  }
+
+  /** Sensitive. Removes a sign-in method; `409 last_login_method` for the only one. `signedOut`: this session ended with it. */
+  removeMethod(kind: 'telegram' | 'password'): Promise<{ ok: true; signedOut: boolean }> {
+    return this.request('DELETE', `/api/account/identities/${kind}`, { auth: true });
+  }
+
+  /** Every other session ends; `401 invalid_credentials` for a wrong current password (it counts toward the lockout). */
+  changePassword(current: string, next: string): Promise<{ ok: true }> {
+    return this.request('POST', '/api/auth/password', { auth: true, body: { current, next } });
   }
 
   /** Local development only: needs DEV_AUTH=1 on a local `wrangler dev`. */

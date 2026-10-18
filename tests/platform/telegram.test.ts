@@ -211,6 +211,16 @@ describe('Telegram adapter: payments, share, auth', () => {
     const empty = (await launched(fakeWebApp('8.0', 'ios', ''))).p;
     expect(empty.auth.silentProof()).toBeNull();
   });
+
+  it('Reopen relaunches the Mini App on the account page for fresh initData (V6-LINK-05), and says false without a bot link', async () => {
+    const { p, wa } = await launched();
+    expect(p.auth.reopen?.()).toBe(true);
+    expect(wa.links).toEqual(['https://t.me/pixelarrow_bot/play?startapp=account']);
+    const f = fakeEnv({ hash: '#tgWebAppData=x', globals: { Telegram: { WebApp: fakeWebApp() } } });
+    const bare = createTelegramPlatform(f.env);
+    await bare.init();
+    expect(bare.auth.reopen?.()).toBe(false);
+  });
 });
 
 describe('Telegram adapter: storage', () => {

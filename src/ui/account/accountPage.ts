@@ -17,7 +17,8 @@ import Phaser from 'phaser';
 import { lang, t, type TKey } from '../../i18n';
 import { Button, ScrollArea, addIcon, addText, mosaicPanelImage } from '../kit';
 import { Toggle } from '../mosaic/toggles';
-import { MButton, mtext, GAP } from '../mosaic';
+import { MButton, mtext, openParchmentSheet, GAP, SHEET_TITLE_H } from '../mosaic';
+import { AccountRow, type AccountRowOpts } from '../mosaic/AccountRow';
 import type { UiScene } from '../mosaic/subShell';
 import { SURFACE } from '../tokens';
 import { ellipsize, measureText, wrapText } from '../textfit';
@@ -33,6 +34,11 @@ import { accountDeps, type AccountDeps } from './deps';
 import { readPending } from './flows';
 import { openResend } from './checkEmail';
 import { openDevices } from './devices';
+import { forgetAddPending, methodRows, readAddPending, type MethodKind } from './methods';
+import { openAddEmail } from './addEmail';
+import { openChangeEmail } from './changeEmail';
+import { openChangePassword } from './changePassword';
+import { confirmRemove } from './removeMethod';
 
 /** Where the page's data comes from: the server (live) or a stand-in (Kit, layout check). */
 export interface AccountSource {
@@ -42,6 +48,9 @@ export interface AccountSource {
   setBoards(on: boolean): Promise<boolean>;
   /** The sign-up waiting for its link on this device (a hint), or null. */
   pending(): Promise<string | null>;
+  /** The add-email link sent from this device (its masked address, a hint), or null (V6-LINK-05). */
+  addPending(): Promise<string | null>;
+  forgetAddPending(): Promise<void>;
   /** The page offers Log out on this device (a cookie session). */
   canLogOut(): boolean;
   logOut(): Promise<boolean>;
@@ -61,6 +70,8 @@ export function liveAccountSource(d: AccountDeps = accountDeps()): AccountSource
     load: () => online.api.account(),
     setBoards: async (on) => (await online.api.setPublicBoards(on)).publicBoards,
     pending: async () => (await readPending(d.kv, d.now()))?.email ?? null,
+    addPending: () => readAddPending(d.kv, d.now()),
+    forgetAddPending: () => forgetAddPending(d.kv),
     canLogOut: () => platform.auth.transport === 'cookie',
     logOut: () => logOut(d),
     sessions: async () => (await online.api.sessions()).sessions,
@@ -76,8 +87,12 @@ export function liveAccountSource(d: AccountDeps = accountDeps()): AccountSource
   };
 }
 
-/** In-memory account (Kit, layout check): signed in, a guest, or a guest waiting for an email link. */
-export function demoAccountSource(kind: 'live' | 'guest' | 'pending' = 'live'): AccountSource {
+/**
+ * In-memory account (Kit, layout check): signed in, a guest, or a guest waiting for an email link; and
+ * (V6-LINK-05) a Telegram-only account with no email, and the same with an add-email link waiting.
+ */
+export function demoAccountSource(kind: 'live' | 'guest' | 'pending' | 'telegram' | 'waiting' = 'live'): AccountSource {
+  const tgOnly = kind !== 'live' && kind !== 'guest' && kind !== 'pending';
   const now = Date.now();
   let boards = true;
   let sessions: SessionInfo[] = [
@@ -86,13 +101,15 @@ export function demoAccountSource(kind: 'live' | 'guest' | 'pending' = 'live'): 
     { handle: 'cccccccccccc', transport: 'cookie', method: 'password', device: null, createdAt: now - 20 * 864e5, lastSeenAt: now - 6 * 864e5, current: false },
   ];
   return {
-    session: async () => (kind === 'live' ? 'live' : 'guest'),
+    session: async () => (kind === 'guest' || kind === 'pending' ? 'guest' : 'live'),
     load: async () => ({
       displayName: 'SwiftArcher4821',
-      identities: [
-        { kind: 'telegram', telegramUsername: 'nikias_k' },
-        { kind: 'password', emailMasked: 'j***@g***.com' },
-      ],
+      identities: tgOnly
+        ? [{ kind: 'telegram', telegramUsername: 'nikias_k' }]
+        : [
+            { kind: 'telegram', telegramUsername: 'nikias_k' },
+            { kind: 'password', emailMasked: 'j***@g***.com' },
+          ],
       publicBoards: boards,
       sessions: sessions.length,
       hasPurchases: false,
@@ -100,7 +117,9 @@ export function demoAccountSource(kind: 'live' | 'guest' | 'pending' = 'live'): 
     }),
     setBoards: async (on) => (boards = on),
     pending: async () => (kind === 'pending' ? 'name@example.com' : null),
-    canLogOut: () => true,
+    addPending: async () => (kind === 'waiting' ? 'a***@e***.com' : null),
+    forgetAddPending: async () => undefined,
+    canLogOut: () => !tgOnly,
     logOut: async () => true,
     sessions: async () => sessions,
     revoke: async (h) => void (sessions = sessions.filter((s) => s.handle !== h)),
@@ -207,7 +226,71 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     }
     finish(privacy(into, yy + 4));
   };
-  const showAccount = (a: AccountSummary) => {
+  /** The Sign-in methods rows (§8.2): Remove (off with its reason for the last one), Add, the ⋯ menu. */
+  const methods = (into: Phaser.GameObjects.Container, yy: number, a: AccountSummary, waiting: string | null): number => {
+    const hasPassword = a.identities.some((i) => i.kind === 'password');
+    const emailMasked = a.identities.find((i) => i.kind === 'password')?.emailMasked;
+    const after = { onReload: reopen, onDone: reopen };
+    const remove = (kind: MethodKind) => confirmRemove(scene, d, { kind, emailMasked, hasPassword, onDone: reopen });
+    for (const r of methodRows(a, waiting)) {
+      const tg = r.kind !== 'password';
+      const off = r.last ? t('account.remove.last') : undefined;
+      let action: AccountRowOpts['action'];
+      if (r.action === 'remove') action = { kind: 'button', label: t('account.remove'), off, id: 'account.tg.remove', onClick: () => remove('telegram') };
+      else if (r.action === 'add') action = { kind: 'button', label: t('account.add'), id: 'account.email.add', onClick: () => void openAddEmail(scene, d, after) };
+      else if (r.action === 'menu')
+        action = {
+          kind: 'more',
+          label: t('account.more'),
+          id: 'account.email.more',
+          onClick: () =>
+            menu(t('account.email'), [
+              { label: t('account.changeEmail'), id: 'account.email.change', onClick: () => void openChangeEmail(scene, d, after) },
+              { label: t('account.changePassword'), id: 'account.email.password', onClick: () => void openChangePassword(scene, d, after) },
+              { label: t('account.remove'), id: 'account.email.remove', off, onClick: () => remove('password') },
+            ]),
+        };
+      else if (r.action === 'pendingMenu')
+        action = {
+          kind: 'more',
+          label: t('account.more'),
+          id: 'account.email.more',
+          onClick: () =>
+            menu(t('account.email'), [
+              { label: t('account.resend'), id: 'account.email.resend', onClick: () => void openAddEmail(scene, d, after) },
+              // the hint only: the link itself simply expires (§8.2)
+              { label: t('account.cancelPending'), id: 'account.email.cancel', onClick: () => void src.forgetAddPending().then(reopen) },
+            ]),
+        };
+      // 'link' (Telegram not linked, the web) opens AU-13, which comes with V6-LINK-06: read only until then
+      const sub = 'text' in r.sub ? r.sub.text : t(r.sub.key, r.sub.params);
+      const row = new AccountRow(scene, 0, yy, iw - 4, { mark: tg ? 'tg' : 'at', title: t(tg ? 'account.tg' : 'account.email'), sub, action });
+      into.add(row);
+      yy += row.h + GAP;
+    }
+    return yy;
+  };
+  /** A short list of actions over the page (the email's ⋯): one button each, a disabled one says why on tap. */
+  const menu = (title: string, items: { label: string; id: string; onClick: () => void; off?: string }[]) => {
+    const mw = Math.min(200, scene.m.VW - 16);
+    const sh = openParchmentSheet(scene, { title, w: mw, h: SHEET_TITLE_H + items.length * STEP + 12, kind: 'confirm', id: 'account.methodMenu' });
+    const { x, y } = sh.body;
+    items.forEach((it, i) => {
+      const b = new MButton(scene, x, y + i * STEP, mw - 16, ROW_H, {
+        label: it.label,
+        variant: 'secondary',
+        id: it.id,
+        disabledReason: it.off,
+        onClick: () => {
+          sh.close();
+          it.onClick();
+        },
+      });
+      if (it.off) b.setEnabled(false, it.off);
+      sh.c.add(b);
+    });
+  };
+  const showAccount = (a: AccountSummary, waiting: string | null = null) => {
     clear();
     const into = area!.content;
     let yy = section(into, 0, 'profile');
@@ -239,17 +322,9 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
       },
     });
     into.add(sw);
-    // the sign-in methods, as they are (their actions come with LINK-05)
+    // the sign-in methods and their actions (V6-LINK-05)
     yy = section(into, yy, 'methods');
-    // identities by their fields (an identity kind, not a platform check)
-    let tgUser: string | null | undefined;
-    let email: string | undefined;
-    for (const i of a.identities) {
-      if ('telegramUsername' in i) tgUser = i.telegramUsername;
-      else if ('emailMasked' in i) email = i.emailMasked;
-    }
-    yy = row(into, yy, t('account.tg'), tgUser === undefined ? t('account.notLinked') : tgUser ? `@${tgUser}` : t('account.linked'), 4);
-    yy = row(into, yy, t('account.email'), email ?? t('account.emailNone'), 4);
+    yy = methods(into, yy, a, waiting);
     // devices
     yy = section(into, yy, 'devices');
     const dy = yy;
@@ -295,8 +370,10 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     }
     if (s === 'offline') return showProblem(t('econ.offline'));
     try {
-      const a = await src.load();
-      if (c.scene) showAccount(a);
+      const [a, waiting] = await Promise.all([src.load(), src.addPending().catch(() => null)]);
+      // the link was opened: the hint has done its job
+      if (waiting && a.identities.some((i) => i.kind === 'password')) void src.forgetAddPending();
+      if (c.scene) showAccount(a, waiting);
     } catch (e) {
       if (!c.scene) return;
       if (isApiError(e) && e.status === 403 && e.code === 'banned') showBanned();

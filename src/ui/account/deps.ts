@@ -14,14 +14,20 @@ import type { UiScene } from '../mosaic/subShell';
 import { afterSignIn } from './twoCampaigns';
 
 export interface AccountDeps {
-  api: Pick<ApiClient, 'signup' | 'login' | 'resetRequest' | 'resendVerify' | 'logout' | 'logoutAll'>;
+  api: Pick<ApiClient, 'signup' | 'login' | 'resetRequest' | 'resendVerify' | 'logout' | 'logoutAll' | 'reauthWith' | 'addEmail' | 'changeEmail' | 'removeMethod' | 'changePassword'>;
   /**
    * online.recheckSession() after a log-in (V6-073); signOut() for Log out (it keeps the campaign as a guest
    * save, V6-ACCT-07); playerName for the "Signed in as" toast.
    */
-  session: { recheckSession(): Promise<boolean>; signOut(end: () => Promise<unknown>): Promise<boolean>; readonly playerName: string | null };
+  session: { recheckSession(): Promise<boolean>; signOut(end: () => Promise<unknown>): Promise<boolean>; readonly playerName: string | null; flush?(): Promise<void> };
   /** The platform's human check (web: Turnstile); absent on Telegram. */
   humanCheck?: HumanCheck;
+  /** How this device's session travels ('bearer': Telegram, 'cookie': the web): which removal signs it out (§8.8). */
+  transport: () => 'bearer' | 'cookie';
+  /** Telegram's signed initData, re-sent silently to confirm it's you (§1.4); null where the platform has none. */
+  proof: () => string | null;
+  /** Relaunches the game with a fresh proof (Telegram's Reopen, §8.6); absent where the platform can't. */
+  reopen?: () => boolean;
   /** Device-local storage: the pending sign-up email (accounts-v6.md §5.5). */
   kv: KV;
   now: () => number;
@@ -44,6 +50,12 @@ export function accountDeps(): AccountDeps {
     session: online,
     get humanCheck() {
       return platform.auth.humanCheck;
+    },
+    transport: () => platform.auth.transport,
+    proof: () => platform.auth.silentProof()?.initData ?? null,
+    get reopen() {
+      const r = platform.auth.reopen;
+      return r ? () => r() : undefined;
     },
     kv: deviceKV,
     now: () => Date.now(),

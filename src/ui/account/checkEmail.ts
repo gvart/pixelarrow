@@ -2,7 +2,8 @@
  * AU-04 Check your email (design/ux/accounts-v6.md §5.3): a canvas sheet, not a form, so the player can
  * close it and keep playing. It names the address, says how long the link works, and offers Resend
  * (off for 60 s with a countdown, off for the hour after the cap), Wrong address? Change it (sign-up
- * only) and Keep playing. The reset variant's Resend reopens Forgot password, prefilled.
+ * only) and Keep playing. The reset variant's Resend reopens Forgot password, prefilled; the add and
+ * change email variants' (V6-LINK-05) reopen their own form.
  */
 import Phaser from 'phaser';
 import { t } from '../../i18n';
@@ -21,10 +22,14 @@ import { openSignup } from './signup';
 
 export interface CheckEmailOpts {
   email: string;
-  variant: 'signup' | 'reset';
+  variant: 'signup' | 'reset' | 'addEmail' | 'changeEmail';
   /** Carried to the forms it reopens (Change it, the reset Resend). */
   signIn?: SignInOpts;
+  /** Add and change email (V6-LINK-05): Resend reopens the form that sent the link, prefilled. */
+  onResend?: () => void;
 }
+
+const LEAD = { signup: 'auth.check.sent', reset: 'auth.check.reset', addEmail: 'auth.check.addEmail', changeEmail: 'auth.check.changeEmail' } as const;
 
 const BTN_H = 24;
 const TEXT = 7;
@@ -44,7 +49,7 @@ function envelope(scene: Phaser.Scene, cx: number, y: number): Phaser.GameObject
 export function openCheckEmail(scene: UiScene, d: AccountDeps, o: CheckEmailOpts): ParchmentSheetHandle {
   const capped = () => d.resend.state(d.now()).kind === 'capped';
   const change = o.variant === 'signup';
-  const leadText = o.variant === 'reset' ? t('auth.check.reset', { email: o.email }) : t('auth.check.sent', { email: o.email });
+  const leadText = t(LEAD[o.variant], { email: o.email });
   const texts = (bw: number) => ({
     lead: mtext(scene, 0, 0, leadText, 'pInk', { size: TEXT, maxW: bw, wrap: true }),
     spam: mtext(scene, 0, 0, t(capped() ? 'auth.check.capped' : 'auth.check.spam'), 'pSec', { size: TEXT, maxW: bw, wrap: true }),
@@ -105,6 +110,11 @@ export function openCheckEmail(scene: UiScene, d: AccountDeps, o: CheckEmailOpts
   };
 
   const onResend = (): void => {
+    if (o.onResend) {
+      m.close();
+      o.onResend();
+      return;
+    }
     if (o.variant === 'reset') {
       m.close();
       openForgot(scene, d, { ...o.signIn, email: o.email });
