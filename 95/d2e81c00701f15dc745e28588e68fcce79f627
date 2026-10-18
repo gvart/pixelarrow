@@ -1,0 +1,21 @@
+landing/public/refunds.html
+  s_0d98fe904b2e82::t_96b4317b67a9ed 40,57
+landing/public/ru/refunds.html
+  s_0d98fe904b2e82::t_96b4317b67a9ed 40,57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "95d2e81c00701f15dc745e28588e68fcce79f627",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
