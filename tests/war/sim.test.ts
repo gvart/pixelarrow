@@ -95,14 +95,15 @@ describe('war sim', () => {
     expect(x0).toBeLessThan(130);
   });
 
-  it('attack walks to the target squad', () => {
+  it('attack walks to the target squad and engages it', () => {
     const sim = createSim(ridge, 2);
     const a = sim.spawnSquad('a', 0, 'militia', 10, 115, 100);
     const b = sim.spawnSquad('b', 1, 'militia', 10, 140, 110);
     sim.order({ kind: 'attack', squad: a, target: b });
     run(sim, 300);
     const [ax, ay] = centre(sim, a);
-    expect(Math.hypot(ax - 140, ay - 110)).toBeLessThan(5);
+    expect(Math.hypot(ax - 140, ay - 110)).toBeLessThan(6);
+    expect(sim.snapshot().units.some((u) => u.squad === a && u.state === 'attack')).toBe(true);
   });
 
   it('is deterministic: same seed and orders give the same snapshot hash', () => {
