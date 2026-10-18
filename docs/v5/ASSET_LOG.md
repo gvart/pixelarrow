@@ -204,6 +204,88 @@ for the other 17 foot classes** (tiers are free recolours now). Riders and chari
 - Give the cloak a hue nothing on the horse has (purple on a bay with a brown mane); a black mane takes a dark cloak's colours.
 - pixminimax gallops start from the standing pose; key the loop on a stretched frame for a clean cycle.
 
+### I5b Shieldless, two-handed and missile foot classes: full packed sheets from the I4a bases (2026-10-18)
+
+**Brief.** Take rhomphaia, celt_sword, archer, falx, gallic, slinger and fanatic from their approved I4a bases to full
+sheets at the hoplite's standard (16 clips, 12–16 frames, 4 facings, runtime tiers), with physically real attacks: a
+two-handed cleave for the two-handed blades, a weighted one-hand cut with the shield moving with the body for the shield
+classes, a nock-draw-release bow shot, an overhead whirl and whip release for the sling, and a short melee `stab` for the
+missile men (the sim lets them fight at close quarters). Hard rejects checked frame by frame on contact sheets.
+
+**Tool and budget.** PixelLab MCP, Tier 2, at most 4 of my jobs at once (the account shared with other agents). Balance
+before: 4,236.50 generations left. Cap 1,250 for the 7 classes. **Raws:** `docs/v5/pixellab/I5b/raw/<class>/`
+(gitignored): `base/` (the I4a rotations, refetched), `first/` (first frames), `clips/<anim>/<dir>/<attempt>/`.
+**Machine-readable:** `docs/v5/pixellab/I5b/<class>.jobs.json` (every job, its first frame and quoted gens),
+`<class>.picks.json` (which attempt ships per clip and facing, frame fixes, with the reason of every rejected frame),
+`<class>.sheet.json` (the sheetbuild spec, written from the picks by `scripts/art/pixellab/i5b/mkspec.mjs`). **Rebuild:**
+`node scripts/art/pixellab/i5b/prep.mjs <class>` (first frames), `node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I5b/<class>.jobs.json docs/v5/pixellab/I5b/raw/<class>`,
+then the guard frames (`i5b/setfirst.mjs`, below), `i5b/mkspec.mjs <class>` and `sheetbuild.mjs docs/v5/pixellab/I5b/<class>.sheet.json`.
+**Tools** (`scripts/art/pixellab/i5b/`): `prep.mjs` (rot / tall / atk / die canvases), `setfirst.mjs` + `repad.mjs` (a clip
+frame promoted to a first frame, also moved onto the attack canvas), `upload.mjs`, `addjob.mjs`, `rv.mjs` (contact sheet
+of clips), `rampdump.mjs` (which raw colour lands in which ramp step), `feet.mjs`, `mkspec.mjs`, `shots5b.mjs`
+(preview screenshots), `rig5b.mjs` (two-handed and one-hand cut skeletons on the shared rig, kept for an A/B; not
+needed in the end).
+
+**Recipe (what changed against STYLE_LOCK §6).** All clips are pixminimax (1 gen at 68 and 96 x 112, 2 at 128).
+- **The guard frame.** The bases carry the weapon at rest (upright, or point down), so the stance clips (ready, charge,
+  brace, block, stagger) start from a guard frame that PixelLab draws itself: an 8-frame "he takes his fighting guard"
+  clip on the tall canvas (1 gen per facing), whose last frame is the guard. Its look is the model's own, so no pixel
+  editing (the hoplite's `spear.mjs`) is needed.
+- **The attack** starts from that guard moved onto a 128 x 112 attack canvas (the man set back 20 px from his facing,
+  40 px ahead of him, 40 above) and ends back in it, so the runtime's windup flows out of `ready` and the recovery flows
+  back in. 16 frames at 16 fps, `strike` 6.
+- **The crescent smear.** At the moment of the blow pixminimax bends a long blade into a big crescent (a motion smear
+  drawn as metal) in every facing, whatever the prompt says. Those 1–2 frames are dropped by the spec's `frames` list,
+  the windup's peak held a frame instead (an anticipation hold), so the blow lands in one frame from the top of the
+  swing, the blade in its own shape.
+- **Blood and sparks** come anyway; the colour cut removes them, and every frame where the cut took the blade with it is
+  replaced by its neighbour (`fixes`).
+- Stature: classes whose headgear rises above the skull set the spec's `stature.skipTop`; crestless classes set
+  `"crest": false, "emblem": false` (both added to the shared scripts for I5b by pipeline-fix2).
+
+#### rhomphaia
+
+Base: I4a A2 `440f945a` (open Phrygian helm, crimson cloak, iron scale, rhomphaia upright). Ramps outline, crimson, umber,
+darkBronze, skin, metal; the helmet is umber (its lightest step the trim, the rest metal), the iron scale and blade the
+metal ramp (not recoloured), skin only the face and arms (no leather in the skin ramp). Subject: "a tall grim Thracian
+rhomphaia warrior in an open-faced dark bronze Phrygian helmet, a dark crimson cloak, a dark iron scale corselet, dark
+brown trousers and dark bronze greaves, no shield, one long rhomphaia: a wooden shaft and a long slightly curved
+single-edged iron blade" (back facings: "… seen from behind, …"). Prompts: PROMPTS_ART › I5b.
+
+**The attack (`slash`, 16 @ 16, strike 6).** From the low two-handed guard (blade forward at the enemy, both hands on
+the shaft) he heaves the blade up and back over his right shoulder (f1–f5, the peak held a frame), steps in on the left
+foot with the hips turning and brings it down in one frame to low at his left in front of him (f6), follows through low
+and bent forward (f7–f11), and settles back into the guard (f12–f15). Both hands stay on the shaft in every frame.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | SW | a1 | 1 | **Rejected:** the blade carried up over the left shoulder (a port), not at the target |
+| 2 | guard | SW SE NW | a2 | 3 | **Promoted** (f7): blade forward low, both hands on the shaft |
+| 3 | guard | NE | a2 | 1 | **Rejected:** facing drift, he turns round to the right, chest to the viewer |
+| 4 | guard | NE | a3 | 1 | **Promoted** (f7): side-on, back to the viewer ("his back and cloak to the viewer in every frame … he does not turn round") |
+| 5 | slash | SW | a1 | 2 | Kept as the A/B: a good cut from the upright rest; superseded by a3 (starts and ends in the guard) |
+| 6 | slash | SW | a2 | 2 | **Rejected:** crescent smears f6–f7, a long held low pose |
+| 7 | slash | all 4 | a3 | 8 | **Promoted after frame drops:** crescent smears SE f5–f6, NE f4, SW f6, NW f5–f6 dropped (the peak held instead) |
+| 8 | idle, look, adjust, walk, run, rout, kneel | all 4 | a1 | 28 | **Promoted** (walk NE drifts towards facing north mid-cycle: kept) |
+| 9 | ready, brace, block, stagger | all 4 | a1 | 16 | **Promoted after the cut:** block sparks f2–f4 in every facing (cut; SE f2, NE f2 lost the blade: := f3); stagger blood SE f0, NE f0, NW f0–f1 (cut took the blade: := next frame) |
+| 10 | charge | SE SW NW | a1 | 3 | **Promoted** |
+| 11 | charge | NE | a1 | 1 | **Rejected:** the rhomphaia vanishes f1–f3 |
+| 12 | charge | NE | a2 | 1 | **Promoted** ("the whole rhomphaia clearly visible in every frame, never hidden") |
+| 13 | fallBack, fallFwd | all 4 | a1 | 16 | **Promoted after the cut:** blood in 6 of 8 (cut); fallBack SE f0 and SW f3 lost the blade (:= neighbour) |
+| 14 | cheer | all 4 | a1 | 4 | **Promoted** |
+
+**Rejections** (whole clip-directions / frames): weapon not at the target 1 clip; facing drift 1 clip; weapon missing
+1 clip; gear drift (crescent smear) 1 clip + 6 frames; blade lost to the blood or spark cut 8 frames. Reversed or doubled
+weapon, a hand off the haft, head backwards, clipped by the canvas, proportion drift: **0**. Invented effects cut: sparks
+in 4 clips, blood in 10.
+
+**Sheet.** 16 clips, 204 columns, frame 118 x 113, 4012 x 2712 (41.5 MB decoded as v2); packed **9.06 MB decoded
+(core 7.56 MB), 252 KB download**. 48 colours; groups cloak 6, trim 2, skin, wood; metal: bronze (helmet), weapon. Tiers
+(V5-098 colours): veteran wine cloak and polished trim, elite black cloak and gold trim. **QC:** 0 failures (stature 57–58
+with `skipTop` 4 for the Phrygian crown); 51 warnings, all the spear-end heuristic on a blade (a blade's tip is thinner
+than a spearhead, so "the leading end is the thin one" fires on the upright carry; checked by eye on the strips: blade at
+the top or at the target in every frame). **Gens:** 87 quoted (73 jobs).
+
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
 **Brief.** One approved base character per foot class other than the hoplite (militia, thureophoros, celt_sword, rhomphaia, archer, slinger, javelineer, peltast, falx, gallic, fanatic, royal_guard, sacred_band), matching H4 (`b7624d6d`) in style, shape and proportion, following `docs/v5/art/STYLE_LOCK.md`. Mood is dark-epic: Greeks in bronze and crimson; Carthaginians in purple-black, bronze and linen; Celts in plaid, iron, woad and torcs. Every class must read at battle scale by its headgear and silhouette (art bible §5.2). The cloak, crest and trim stay clean colour groups for the tier recolour (V5-092). Hard rejects are checked in all 8 views.
