@@ -1094,3 +1094,51 @@ This section covers the six I4a bases (royal_guard, sacred_band, thureophoros, m
 - The model reads a bright shield face as the front, so in NE it swings the shield round to show it. Name the shield's dark back in every NE prompt.
 - "dull and dark" keeps a silver face out of the near-white cut.
 - `guard.mjs` found the same fist and grip for every H4-based spear class, so the thrust keypoints can be reused across them.
+
+## I5b. PixelLab shieldless, two-handed and missile foot classes (animation)
+
+Full log, ids, costs and every rejection: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I5b. Jobs and picks:
+`docs/v5/pixellab/I5b/<class>.jobs.json`, `<class>.picks.json`. Tools: `scripts/art/pixellab/i5b/`.
+
+**Fixed fields** (every clip, pixminimax): `view: high top-down`, `direction` = the facing, `subject_description` per
+class (front facings; the back facings NE and NW add "seen from behind" and drop what only shows from the front),
+`initial_pose` the rest pose (rot, tall, die canvases) or the guard pose (stance clips and the attack). The SW wording is
+given; the other facings swap "towards the viewer's lower left" for "lower right" / "away from the viewer towards the
+upper right / left", and the back facings open with "seen from behind,". Frames: guard 8, look and walk 16, attack 16,
+the rest 12.
+
+### rhomphaia
+
+- subject: `a tall grim Thracian rhomphaia warrior in an open-faced dark bronze Phrygian helmet, a dark crimson cloak, a dark iron scale corselet, dark brown trousers and dark bronze greaves, no shield, one long rhomphaia: a wooden shaft and a long slightly curved single-edged iron blade`
+  (back: `a tall grim Thracian rhomphaia warrior seen from behind, an open-faced dark bronze Phrygian helmet, a dark crimson cloak, dark brown trousers and dark bronze greaves, no shield, one long rhomphaia: a wooden shaft and a long slightly curved single-edged iron blade`)
+- rest pose: `standing upright, the rhomphaia held upright in his right hand at his right side, the long blade standing up above his head, his left hand empty, no shield`; guard pose: `in a low fighting guard, both hands on the shaft, the long curved blade pointed forward low ahead of him, knees bent`
+- guard (a2, tall canvas, last frame = the guard): `he takes his fighting guard in place: he grips the shaft with both hands, right hand at his right hip and left hand in front of his chest, and lowers the rhomphaia forward so the long curved iron blade points ahead of him towards the viewer's lower left at head height, the edge down, ready to strike; knees bent, the left foot a little forward; one rhomphaia only, both hands on the shaft at the end; no shield, no effects` (NE a3: `seen from behind, his back and cloak to the viewer in every frame, … he keeps facing away towards the upper right, he does not turn round; …`)
+- slash (a3, from the guard on the attack canvas): `a heavy two-handed cleaving cut towards the viewer's lower left: from his low guard he heaves the rhomphaia back and up over his right shoulder with both hands on the shaft, steps forward onto his left foot with the hips turning first, and brings the long blade down hard in a diagonal arc from above his right shoulder to low at his left in front of him, the edge leading, the body following through low and bent forward, then he settles back into his low guard with the blade pointed forward; both hands on the shaft the whole time; the blade keeps its own long, slightly curved shape and size in every frame; one rhomphaia only; no smear, no sparks, no motion trails, no blood, no effects` (back facings add "he keeps facing away")
+- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the rhomphaia stays upright in the right hand at his right side, one long curved iron blade at the top above his head, the wooden shaft below; no shield`
+- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder, the face never turns away from the viewer's side; the rhomphaia stays upright in the right hand at his right side, the long curved iron blade at the top above his head; feet planted; no shield` (back: "his back stays to the viewer")
+- adjust: `standing still in place, he shifts his grip on the heavy rhomphaia: he lifts it a little in his right hand, settles the shaft back against his shoulder side and plants it upright again, rolling his shoulders loose; the feet stay planted; the rhomphaia stays upright in the right hand at his right side in every frame, the long curved iron blade at the top above his head, the wooden shaft below; no shield`
+- walk: `steady marching walk in place towards the viewer's lower left, long natural strides, the rhomphaia held upright in the right hand at his right side and swaying a little with each step, the long curved iron blade at the top above his head; the left arm swings naturally; the cloak sways; no shield`
+- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the rhomphaia held upright in the right hand at his right side and tilted slightly forward, the long curved iron blade at the top above his head; the left arm pumping; the cloak streams back; no shield` (back: "…, clearly visible in every frame")
+- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the rhomphaia carried loosely upright in the right hand, the long curved iron blade at the top; the left arm flailing; the cloak flapping; no shield`
+- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the rhomphaia planted upright beside him like a staff, head bowed, shoulders heaving with laboured breath; the rhomphaia stays in his right hand, upright, the long curved iron blade at the top; no shield, no blood, no effects`
+- ready (guard): `standing in place in a tense fighting stance, knees bent, the weight shifting slowly from foot to foot, breathing; both hands stay on the shaft and the long curved iron blade stays pointed forward towards the viewer's lower left in every frame, swaying a little; one rhomphaia only; no shield, no effects`
+- charge (guard): `charging forward at a heavy run in place towards the viewer's lower left, leaning into it, knees driving, both hands on the shaft and the long curved iron blade held forward and low ahead of him the way he faces in every frame; one rhomphaia only; the cloak streams back; no shield, no effects` (NE a2 and NW: "the whole rhomphaia clearly visible in every frame, never hidden")
+- brace (guard): `braces to hold the line in place: he drops into a low wide crouch with the left foot forward and the right foot braced back, both hands firm on the shaft, the long curved iron blade set low and pointed forward towards the viewer's lower left like a hedge against a charge; then holds the braced crouch, breathing; one rhomphaia only, both hands on the shaft in every frame; no shield, no effects`
+- block (guard): `parries a heavy blow in place: he snaps the rhomphaia up with both hands on the shaft and holds it across in front of his head and chest to catch the blow on the wooden shaft, the impact jolts him back half a step, then he lowers it back to his guard with the long curved blade pointed forward towards the viewer's lower left; both hands on the shaft in every frame; one rhomphaia only; no shield, no sparks, no effects`
+- stagger (guard): `struck hard and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the arms jolted, nearly losing his balance, then plants his feet and steps forward back into his low guard; both hands stay on the shaft and the long curved iron blade stays pointed forward towards the viewer's lower left in every frame; one rhomphaia only; no motion blur, no blood, no effects; no shield`
+- fallBack (die canvas): `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the rhomphaia falls from his hands and lies beside him; no blood spray, no effects`
+- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the rhomphaia falls from his hands and lies beside him; no blood, no effects`
+- cheer (tall): `victory cheer in place: he thrusts the rhomphaia straight up high over his head in his right hand, the long curved iron blade pointing at the sky, raises his left fist, tips his head back shouting, then pumps the weapon up and down twice; one rhomphaia only, the blade at the top in every frame; no shield, no effects`
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | guard SW a1 | **Rejected:** a port carry, the blade over the left shoulder |
+| 2 | guard NE a2 | **Rejected:** turns round to face the viewer |
+| 3 | slash SW a2 | **Rejected:** crescent smears, a long held low pose |
+| 4 | charge NE a1 | **Rejected:** the weapon vanishes f1–f3 |
+| 5 | everything else | **Promoted** (crescent smear frames dropped from the slash; cut-damaged frames replaced) |
+
+**Lessons:** pixminimax draws a good guard by itself: an 8-frame "takes his guard" clip is a cheap first frame for every
+stance clip and for the attack. Start the attack from that guard, and end it there, so it joins `ready`. At the blow it
+always bends a long blade into a crescent smear: drop those frames and hold the windup's peak instead. "His back and cloak
+to the viewer in every frame … he does not turn round" keeps a back facing from swinging round in a stance.

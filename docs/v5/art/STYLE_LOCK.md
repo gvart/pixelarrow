@@ -137,6 +137,8 @@ Unit sheets are not hard-snapped (V5-087). Every frame goes through `scripts/art
    not counted). Both combine. `"px"` / `"tol"` in the same field replace the 58 ± 3 target (mounted: riders about
    84-92 px from helmet top to hooves, the chariot driver about 100); `qc.mjs --stature N[:tol]` is the CLI shortcut
    and wins over the spec. They combine with `skipTop` / `from`.
+   The light-neutral-grey cut (step 1) also takes a lit iron blade: iron-clad classes set `"greyCut": 0.8` (default
+   0.55, the OKLab lightness above which a neutral grey is cut as a ghost trail).
 4. The manifest lists `colorGroups` (cloak, crest, trim, skin, emblem, wood; dark to light), `metal` (light to dark)
    and the tier ramps (`tiers.veteran`, `tiers.elite`: anchor colours in the spec, interpolated to each group's
    length). Hoplite tiers: veteran = wine cloak, scarlet crest, polished trim; elite = black cloak and crest, gold trim
