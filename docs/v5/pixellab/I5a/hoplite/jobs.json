@@ -1,0 +1,7 @@
+[
+ {"anim":"thrust","dir":"south-east","attempt":"s2","job":"0834d1b7-3ea1-42fc-99cf-8234cafadfa1","mode":"skeleton","frames":14,"gens":3,"note":"I5a SE guard fix: guard2flat (grip back, head 52 ahead)"},
+ {"anim":"ready","dir":"south-east","attempt":"s2","job":"a0d8f19a-3ebc-47ce-b369-2cd6ebbfa4e7","mode":"pixminimax","frames":12,"gens":2,"note":"I5a SE guard fix: guard2"},
+ {"anim":"block","dir":"south-east","attempt":"s2","job":"7cc1ce6e-b638-4e85-9345-86c58e338291","mode":"pixminimax","frames":12,"gens":2,"note":"I5a SE guard fix: guard2"},
+ {"anim":"stagger","dir":"south-east","attempt":"s2","job":"66e51649-8cbe-46d4-abfa-b544feaaf563","mode":"pixminimax","frames":12,"gens":2,"note":"I5a SE guard fix: guard2"},
+ {"anim":"stagger","dir":"south-east","attempt":"s3","job":"512e1f83-c939-46a4-be0f-5deda959e6d6","mode":"pixminimax","frames":12,"gens":2,"note":"redo: s2 f0 an invented brown smear off the shield, f1 a second spear tip"}
+]

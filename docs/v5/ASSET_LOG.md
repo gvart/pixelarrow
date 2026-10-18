@@ -93,6 +93,18 @@ The fix is a new SE guard and SE flat-guard frame from `i5a/guard.mjs --ahead 52
 
 STYLE_LOCK §6 gained an additive "SE guard" note. Zooms are in the scratchpad: `se_zoom_royal_guard_v2.png`. QC: 0 failures.
 
+#### hoplite SE guard fix (routed to I5a by main)
+
+The shipped hoplite had the same SE geometry as royal_guard: its leaf head led, but behind the shield rim. I redid four of its SE clips from an equivalent grip-back SE guard, made with `i5a/guard.mjs --ahead 52 --behind 10` on the H4 SE rotation (`docs/v5/pixellab/I3/raw/first5/`):
+
+- ready **s2** and block **s2** (pixminimax 2 each)
+- thrust **s2** (skeleton-v3, 3: `rig.mjs thrust south-east guard2flat --grip 35,61`)
+- stagger **s3** (pixminimax 2). stagger s2 was **rejected (invented item / weapon doubled)**: an invented brown smear came off the shield in f0, and a second spear tip appeared in f1.
+
+That is **11 gens**. The jobs were added to `docs/v5/pixellab/I3/jobs.json` (and also logged in `docs/v5/pixellab/I5a/hoplite/jobs.json`), and the picks are in `hoplite.sheet.json`.
+
+The rebuild leaves the NE, SW and NW rows byte-identical; the check was a pixel diff, with 0 changed pixels outside the SE row. The colour groups and tiers are unchanged too. The SE anchor moved from x 49 to 42 because the shorter butt shrank the row's left extent, so all SE frames sit 7 px further left in the image. On screen they are identical, because the runtime draws them from the anchor. QC: 0 failures. Zoom: scratchpad `se_zoom_hoplite_v2.png`.
+
 ### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
 
 **Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated

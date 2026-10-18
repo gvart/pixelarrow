@@ -189,7 +189,8 @@
    "spear": "level",
    "dirs": {
     "south-east": {
-     "attempt": "a1"
+     "attempt": "s2",
+     "why": "I5a SE guard fix (main review): redone from a grip-back SE guard (spear.mjs --ahead 52 --behind 10), the leaf clear of the shield rim and leading"
     },
     "north-east": {
      "attempt": "a1"
@@ -247,7 +248,8 @@
    "spear": "level",
    "dirs": {
     "south-east": {
-     "attempt": "a1"
+     "attempt": "s2",
+     "why": "I5a SE guard fix (main review): redone from a grip-back SE guard (spear.mjs --ahead 52 --behind 10), the leaf clear of the shield rim and leading"
     },
     "north-east": {
      "attempt": "a1"
@@ -314,7 +316,8 @@
    "spear": "level",
    "dirs": {
     "south-east": {
-     "attempt": "a2"
+     "attempt": "s2",
+     "why": "I5a SE guard fix (main review): redone from a grip-back SE guard (spear.mjs --ahead 52 --behind 10), the leaf clear of the shield rim and leading"
     },
     "north-east": {
      "attempt": "a1"
@@ -353,7 +356,8 @@
    "spear": "level",
    "dirs": {
     "south-east": {
-     "attempt": "p1"
+     "attempt": "s3",
+     "why": "I5a SE guard fix (main review): redone from a grip-back SE guard (spear.mjs --ahead 52 --behind 10), the leaf clear of the shield rim and leading; s2 rejected (an invented smear and a second spear tip)"
     },
     "north-east": {
      "attempt": "p1"
