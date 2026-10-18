@@ -1,0 +1,437 @@
+.gitignore
+  s_0d98fe904b2e82::t_4023f4bbe5b2b7 23-28
+docs/playbook/PROMPTS_ART.md
+  s_0d98fe904b2e82::t_2fd07763af030c 19-21,594-1951,1967
+docs/v5/ASSET_LOG.md
+  s_0d98fe904b2e82::t_f3b01f175b0afe 11-1401
+docs/v5/DECISIONS.md
+  s_0d98fe904b2e82::t_8899d276c59963 85-114
+docs/v5/art/SHEET_FORMAT.md
+  s_0d98fe904b2e82::t_de165eea60a020 1-318
+docs/v5/art/STYLE_LOCK.md
+  s_0d98fe904b2e82::t_8d5abd3e5fd2e6 1-230
+docs/v5/pixellab/I1/fixes-E3.json
+  s_0d98fe904b2e82::t_a1bdeeb6ba0272 1-66
+docs/v5/pixellab/I1/processed/A2/info.json
+  s_0d98fe904b2e82::t_740f4b0c4373d9 1-177
+docs/v5/pixellab/I1/processed/B3/info.json
+  s_0d98fe904b2e82::t_4b555beb7fde7a 1-177
+docs/v5/pixellab/I1/processed/C2/info.json
+  s_0d98fe904b2e82::t_18c861893bf522 1-177
+docs/v5/pixellab/I1/processed/D2/info.json
+  s_0d98fe904b2e82::t_b12ed8be72961c 1-241
+docs/v5/pixellab/I1/processed/E3/info.json
+  s_0d98fe904b2e82::t_b2e7deaf4383a3 1-223
+docs/v5/pixellab/I1/processed/E3elite/info.json
+  s_0d98fe904b2e82::t_a6bcf8b4b080c6 1-92
+docs/v5/pixellab/I1/processed/manifest.json
+  s_0d98fe904b2e82::t_63e692a338f35f 1-16
+docs/v5/pixellab/I1/skeletons/thrustLow_north-east.json
+  s_0d98fe904b2e82::t_9fdde4756055d9 1
+docs/v5/pixellab/I1/skeletons/thrustLow_north-west.json
+  s_0d98fe904b2e82::t_d6a4414ec19b7a 1
+docs/v5/pixellab/I1/skeletons/thrustLow_south-east.json
+  s_0d98fe904b2e82::t_ca3e1a7a17b8a8 1
+docs/v5/pixellab/I1/skeletons/thrustLow_south-west.json
+  s_0d98fe904b2e82::t_bcbc44c4ec770f 1
+docs/v5/pixellab/I3/hoplite.sheet.json
+  s_0d98fe904b2e82::t_1e2d9307aaf216 1-522
+docs/v5/pixellab/I3/jobs.json
+  s_0d98fe904b2e82::t_4ba1d6dd7f3ab7 1-80
+docs/v5/pixellab/I4a/palette-dark-i4a.json
+  s_0d98fe904b2e82::t_f4137ac0755474 1-81
+docs/v5/pixellab/I5a/hoplite/jobs.json
+  s_0d98fe904b2e82::t_e7409d04b9da81 1-7
+docs/v5/pixellab/I5a/javelineer/class.json
+  s_0d98fe904b2e82::t_9e74cc3c261166 1-340
+docs/v5/pixellab/I5a/javelineer/guard.json
+  s_0d98fe904b2e82::t_93db58b37bdc8b 1-35
+docs/v5/pixellab/I5a/javelineer/javelineer.sheet.json
+  s_0d98fe904b2e82::t_eed12f3e1cffcf 1-605
+docs/v5/pixellab/I5a/javelineer/jobs.json
+  s_0d98fe904b2e82::t_58c50bf96a7002 1-76
+docs/v5/pixellab/I5a/militia/class.json
+  s_0d98fe904b2e82::t_4c459ee2e82a34 1-181
+docs/v5/pixellab/I5a/militia/jobs.json
+  s_0d98fe904b2e82::t_888f3e2861dcd0 1-68
+docs/v5/pixellab/I5a/militia/militia.sheet.json
+  s_0d98fe904b2e82::t_0b2b65454eef07 1-476
+docs/v5/pixellab/I5a/peltast/class.json
+  s_0d98fe904b2e82::t_7f64434770d154 1-387
+docs/v5/pixellab/I5a/peltast/jobs.json
+  s_0d98fe904b2e82::t_e8e65363905eb0 1-75
+docs/v5/pixellab/I5a/peltast/peltast.sheet.json
+  s_0d98fe904b2e82::t_eb525dee0962fe 1-657
+docs/v5/pixellab/I5a/royal_guard/class.json
+  s_0d98fe904b2e82::t_776e6649d922b8 1-334
+docs/v5/pixellab/I5a/royal_guard/jobs.json
+  s_0d98fe904b2e82::t_bd71b23b202947 1-77
+docs/v5/pixellab/I5a/royal_guard/royal_guard.sheet.json
+  s_0d98fe904b2e82::t_965fe070c635d9 1-568
+docs/v5/pixellab/I5a/sacred_band/class.json
+  s_0d98fe904b2e82::t_070762cb22e4c7 1-268
+docs/v5/pixellab/I5a/sacred_band/jobs.json
+  s_0d98fe904b2e82::t_7856dab9f4f7d3 1-70
+docs/v5/pixellab/I5a/sacred_band/sacred_band.sheet.json
+  s_0d98fe904b2e82::t_b9b095be680c8c 1-555
+docs/v5/pixellab/I5a/thureophoros/class.json
+  s_0d98fe904b2e82::t_c9cc496307726b 1-375
+docs/v5/pixellab/I5a/thureophoros/jobs.json
+  s_0d98fe904b2e82::t_e2c64370ca97ac 1-74
+docs/v5/pixellab/I5a/thureophoros/thureophoros.sheet.json
+  s_0d98fe904b2e82::t_b9fb35b58fc8bc 1-610
+docs/v5/pixellab/I5b/archer.jobs.json
+  s_0d98fe904b2e82::t_28f7e06f4fe354 1-72
+docs/v5/pixellab/I5b/archer.picks.json
+  s_0d98fe904b2e82::t_c0d2c4684ebdd4 1-457
+docs/v5/pixellab/I5b/archer.sheet.json
+  s_0d98fe904b2e82::t_adf34c001cb3f9 1-703
+docs/v5/pixellab/I5b/celt_sword.jobs.json
+  s_0d98fe904b2e82::t_96a7e7c7db184d 1-73
+docs/v5/pixellab/I5b/celt_sword.picks.json
+  s_0d98fe904b2e82::t_6f257f74685eab 1-40
+docs/v5/pixellab/I5b/celt_sword.sheet.json
+  s_0d98fe904b2e82::t_2647e221a8ae99 1-587
+docs/v5/pixellab/I5b/falx.jobs.json
+  s_0d98fe904b2e82::t_c2518870242950 1-78
+docs/v5/pixellab/I5b/falx.picks.json
+  s_0d98fe904b2e82::t_a2718d3a963c91 1-345
+docs/v5/pixellab/I5b/falx.sheet.json
+  s_0d98fe904b2e82::t_4cc4c39d2f6744 1-594
+docs/v5/pixellab/I5b/fanatic.jobs.json
+  s_0d98fe904b2e82::t_b2303381be131e 1-69
+docs/v5/pixellab/I5b/fanatic.picks.json
+  s_0d98fe904b2e82::t_cc57b5031c92a1 1-804
+docs/v5/pixellab/I5b/fanatic.sheet.json
+  s_0d98fe904b2e82::t_ae5d4f2e916446 1-1036
+docs/v5/pixellab/I5b/gallic.jobs.json
+  s_0d98fe904b2e82::t_d98b92f3a8a651 1-85
+docs/v5/pixellab/I5b/gallic.picks.json
+  s_0d98fe904b2e82::t_f3247823b8d458 1-513
+docs/v5/pixellab/I5b/gallic.sheet.json
+  s_0d98fe904b2e82::t_2d3d01f7649823 1-740
+docs/v5/pixellab/I5b/polish.prompts.json
+  s_0d98fe904b2e82::t_ab230c67bfa41d 1-293
+docs/v5/pixellab/I5b/rhomphaia.jobs.json
+  s_0d98fe904b2e82::t_967f09d6f22e14 1-75
+docs/v5/pixellab/I5b/rhomphaia.picks.json
+  s_0d98fe904b2e82::t_e3b298a1ec5c52 1-51
+docs/v5/pixellab/I5b/rhomphaia.sheet.json
+  s_0d98fe904b2e82::t_fc35ca672576e0 1-648
+docs/v5/pixellab/I5b/slinger.jobs.json
+  s_0d98fe904b2e82::t_29e1caa3a25e1b 1-80
+docs/v5/pixellab/I5b/slinger.picks.json
+  s_0d98fe904b2e82::t_78901b316960f2 1-1309
+docs/v5/pixellab/I5b/slinger.sheet.json
+  s_0d98fe904b2e82::t_9262364d909e2f 1-1531
+docs/v5/pixellab/I5c/chariot.jobs.json
+  s_0d98fe904b2e82::t_8cc5b4e102d2ef 1-389
+docs/v5/pixellab/I5c/chariot.sheet.json
+  s_0d98fe904b2e82::t_8cc2e82a0c6817 1-410
+docs/v5/pixellab/I5c/companion.jobs.json
+  s_0d98fe904b2e82::t_ba84032417a9d4 1-565
+docs/v5/pixellab/I5c/companion.sheet.json
+  s_0d98fe904b2e82::t_2e5e941b7eabe5 1-367
+docs/v5/pixellab/I5c/horse_archer.jobs.json
+  s_0d98fe904b2e82::t_d1b102d49b9807 1-616
+docs/v5/pixellab/I5c/horse_archer.sheet.json
+  s_0d98fe904b2e82::t_60dc57a4963179 1-506
+docs/v5/pixellab/I5c/prompts.json
+  s_0d98fe904b2e82::t_3f30021b601426 1-117
+docs/v5/pixellab/I5c/thessalian.jobs.json
+  s_0d98fe904b2e82::t_88115d4eb2602b 1-550
+docs/v5/pixellab/I5c/thessalian.sheet.json
+  s_0d98fe904b2e82::t_7ac810e74c5421 1-560
+docs/v5/pixellab/bases.json
+  s_0d98fe904b2e82::t_514b014de6f635 1-328
+docs/v5/pixellab/mounted.json
+  s_0d98fe904b2e82::t_0442536b7e3a71 1-123
+docs/v5/pixellab/palette-dark.json
+  s_0d98fe904b2e82::t_d0ab71ed523162 1-17
+hoplite-bakeoff.html
+  s_0d98fe904b2e82::t_ef0256b7a07cdc 1-4
+package.json
+  s_0d98fe904b2e82::t_ce22a916dd1443 17-18
+scripts/art/pack/cli.mjs
+  s_0d98fe904b2e82::t_2948f37aea2479 1-111
+scripts/art/pack/pack.mjs
+  s_0d98fe904b2e82::t_20129de28ad303 1-230
+scripts/art/pack/png.mjs
+  s_0d98fe904b2e82::t_5889551871e804 1-157
+scripts/art/pack/vite-plugin.d.mts
+  s_0d98fe904b2e82::t_c7cfc1316d9ae2 1-2
+scripts/art/pack/vite-plugin.mjs
+  s_0d98fe904b2e82::t_213b97d308a376 1-33
+scripts/art/pixellab/addclip.mjs
+  s_0d98fe904b2e82::t_362f2c0edbdef3 1-30
+scripts/art/pixellab/ascii.mjs
+  s_0d98fe904b2e82::t_177118f7de05ff 1-19
+scripts/art/pixellab/build.mjs
+  s_0d98fe904b2e82::t_d9f910ac0fecbb 1-117
+scripts/art/pixellab/clipsheet.mjs
+  s_0d98fe904b2e82::t_86516f88282657 1-33
+scripts/art/pixellab/fetch.mjs
+  s_0d98fe904b2e82::t_7e9fff66ae6d1e 1-26
+scripts/art/pixellab/fetchjobs.mjs
+  s_0d98fe904b2e82::t_9d6d00a87ad113 1-23
+scripts/art/pixellab/fixframes.mjs
+  s_0d98fe904b2e82::t_60cbab927962cb 1-45
+scripts/art/pixellab/getclip.mjs
+  s_0d98fe904b2e82::t_7fb16a85dcd8d7 1-25
+scripts/art/pixellab/gif.mjs
+  s_0d98fe904b2e82::t_9c5dd4d1bcc502 1-50
+scripts/art/pixellab/groups.mjs
+  s_0d98fe904b2e82::t_f069f84e0e94b2 1-373
+scripts/art/pixellab/i1b-e3.sh
+  s_0d98fe904b2e82::t_25b43043308bc2 1-44
+scripts/art/pixellab/i1b-prep.mjs
+  s_0d98fe904b2e82::t_b0cc2ed9210fe0 1-28
+scripts/art/pixellab/i5a/battle.mjs
+  s_0d98fe904b2e82::t_7647db80f26a60 1-60
+scripts/art/pixellab/i5a/feet.mjs
+  s_0d98fe904b2e82::t_2007bfbe19bf0e 1-16
+scripts/art/pixellab/i5a/frames.mjs
+  s_0d98fe904b2e82::t_ca93ac28050dd9 1-27
+scripts/art/pixellab/i5a/guard.mjs
+  s_0d98fe904b2e82::t_cdb58ec4bd5962 1-147
+scripts/art/pixellab/i5a/insertlog.mjs
+  s_0d98fe904b2e82::t_3d4ea850a9d161 1-38
+scripts/art/pixellab/i5a/job.mjs
+  s_0d98fe904b2e82::t_c45fb4b833a095 1-17
+scripts/art/pixellab/i5a/partsview.mjs
+  s_0d98fe904b2e82::t_eb4acb3211836b 1-33
+scripts/art/pixellab/i5a/prep.mjs
+  s_0d98fe904b2e82::t_d38daa798e243e 1-64
+scripts/art/pixellab/i5a/prompts.mjs
+  s_0d98fe904b2e82::t_1a6d010a4c8ec6 1-196
+scripts/art/pixellab/i5a/rig5.mjs
+  s_0d98fe904b2e82::t_9446615b467391 1-85
+scripts/art/pixellab/i5a/spec.mjs
+  s_0d98fe904b2e82::t_c19143890cbb0f 1-49
+scripts/art/pixellab/i5a/tpad.mjs
+  s_0d98fe904b2e82::t_ef98ced2cc8926 1-23
+scripts/art/pixellab/i5b/addjob.mjs
+  s_0d98fe904b2e82::t_5f48242f7196e8 1-18
+scripts/art/pixellab/i5b/battle5b.mjs
+  s_0d98fe904b2e82::t_8477526920708d 1-34
+scripts/art/pixellab/i5b/detached.mjs
+  s_0d98fe904b2e82::t_143eeec374d334 1-35
+scripts/art/pixellab/i5b/feet.mjs
+  s_0d98fe904b2e82::t_7c9fe429c34d04 1-15
+scripts/art/pixellab/i5b/mgroups.mjs
+  s_0d98fe904b2e82::t_37be561d08689a 1-8
+scripts/art/pixellab/i5b/mkspec.mjs
+  s_0d98fe904b2e82::t_4027089aefa1ad 1-65
+scripts/art/pixellab/i5b/prep.mjs
+  s_0d98fe904b2e82::t_d43972231e8c33 1-37
+scripts/art/pixellab/i5b/rampdump.mjs
+  s_0d98fe904b2e82::t_d970de471f7567 1-31
+scripts/art/pixellab/i5b/repad.mjs
+  s_0d98fe904b2e82::t_ef2ee491432349 1-22
+scripts/art/pixellab/i5b/rig5b.mjs
+  s_0d98fe904b2e82::t_9601c271b55c40 1-108
+scripts/art/pixellab/i5b/rv.mjs
+  s_0d98fe904b2e82::t_0d40d03e7f40c4 1-16
+scripts/art/pixellab/i5b/setfirst.mjs
+  s_0d98fe904b2e82::t_c50bd64b22e4f7 1-25
+scripts/art/pixellab/i5b/shots5b.mjs
+  s_0d98fe904b2e82::t_aeb32ba55d1507 1-28
+scripts/art/pixellab/i5b/upload.mjs
+  s_0d98fe904b2e82::t_c7ab53b6601f9f 1-18
+scripts/art/pixellab/i5c/align.mjs
+  s_0d98fe904b2e82::t_1f15cf512c589b 1-33
+scripts/art/pixellab/i5c/anchorcheck.mjs
+  s_0d98fe904b2e82::t_2082769d699b06 1-32
+scripts/art/pixellab/i5c/build.mjs
+  s_0d98fe904b2e82::t_ae0258c971979d 1-35
+scripts/art/pixellab/i5c/derive.mjs
+  s_0d98fe904b2e82::t_fc2630fef4a057 1-41
+scripts/art/pixellab/i5c/despeck.mjs
+  s_0d98fe904b2e82::t_015e9d0eeeefc4 1-40
+scripts/art/pixellab/i5c/dust.mjs
+  s_0d98fe904b2e82::t_7837e9b376b130 1-71
+scripts/art/pixellab/i5c/fetchall.mjs
+  s_0d98fe904b2e82::t_1f62abf904147a 1-29
+scripts/art/pixellab/i5c/finish.mjs
+  s_0d98fe904b2e82::t_8ba9a6d97bf3d4 1-13
+scripts/art/pixellab/i5c/get.mjs
+  s_0d98fe904b2e82::t_ab0736fc52ecda 1-20
+scripts/art/pixellab/i5c/job.mjs
+  s_0d98fe904b2e82::t_9ba727aec55781 1-24
+scripts/art/pixellab/i5c/lib.mjs
+  s_0d98fe904b2e82::t_6a72f66ff3c530 1-84
+scripts/art/pixellab/i5c/log.mjs
+  s_0d98fe904b2e82::t_6bc156a5de0f7a 1-22
+scripts/art/pixellab/i5c/parts.mjs
+  s_0d98fe904b2e82::t_001a68e2c37058 1-38
+scripts/art/pixellab/i5c/start.mjs
+  s_0d98fe904b2e82::t_a35acf332c629a 1-21
+scripts/art/pixellab/kp.mjs
+  s_0d98fe904b2e82::t_ba9560ce669dcd 1-9
+scripts/art/pixellab/measure.mjs
+  s_0d98fe904b2e82::t_11228f15e90258 1-41
+scripts/art/pixellab/mounted/anchors.mjs
+  s_0d98fe904b2e82::t_74df7951def2d8 1-17
+scripts/art/pixellab/mounted/clip.mjs
+  s_0d98fe904b2e82::t_aa6c8817215481 1-34
+scripts/art/pixellab/mounted/cutcheck.mjs
+  s_0d98fe904b2e82::t_98ffa5740184ae 1-25
+scripts/art/pixellab/mounted/facings.mjs
+  s_0d98fe904b2e82::t_1e308b0a74341b 1-22
+scripts/art/pixellab/mounted/keyframe.mjs
+  s_0d98fe904b2e82::t_d7dbc98d6e851c 1-16
+scripts/art/pixellab/mounted/lib.mjs
+  s_0d98fe904b2e82::t_b7c788da9d5751 1-27
+scripts/art/pixellab/mounted/loopfind.mjs
+  s_0d98fe904b2e82::t_354d51f6cdcf40 1-29
+scripts/art/pixellab/mounted/review.mjs
+  s_0d98fe904b2e82::t_c589e33d6692c0 1-31
+scripts/art/pixellab/mounted/sheets.mjs
+  s_0d98fe904b2e82::t_818093a6a5c3ca 1-97
+scripts/art/pixellab/mounted/upload1.mjs
+  s_0d98fe904b2e82::t_24c42c6afd1aa6 1-14
+scripts/art/pixellab/pad.mjs
+  s_0d98fe904b2e82::t_23ff9c9d6541fc 1-11
+scripts/art/pixellab/polish/first.mjs
+  s_0d98fe904b2e82::t_27e5b146b32352 1-20
+scripts/art/pixellab/polish/log.mjs
+  s_0d98fe904b2e82::t_fc138cb15f3fd6 1-30
+scripts/art/pixellab/polish/shots.mjs
+  s_0d98fe904b2e82::t_d89b69417a50d3 1-30
+scripts/art/pixellab/polish/strip.mjs
+  s_0d98fe904b2e82::t_6c8994aec35751 1-46
+scripts/art/pixellab/polish/tiers.mjs
+  s_0d98fe904b2e82::t_41bb9449750c93 1-50
+scripts/art/pixellab/proportion.mjs
+  s_0d98fe904b2e82::t_6d87e977d01f28 1-46
+scripts/art/pixellab/qc.mjs
+  s_0d98fe904b2e82::t_039e638957cd87 1-181
+scripts/art/pixellab/remap.mjs
+  s_0d98fe904b2e82::t_24592bf0b579ed 1-63
+scripts/art/pixellab/rig.mjs
+  s_0d98fe904b2e82::t_8b2a08d1718e03 1-460
+scripts/art/pixellab/rollout/boxcolours.mjs
+  s_0d98fe904b2e82::t_5b71d4653524b5 1-15
+scripts/art/pixellab/rollout/colours.mjs
+  s_0d98fe904b2e82::t_73b9641f3ee786 1-19
+scripts/art/pixellab/rollout/groups.mjs
+  s_0d98fe904b2e82::t_7828bf2c013cf8 1-40
+scripts/art/pixellab/rollout/groupsall.mjs
+  s_0d98fe904b2e82::t_fb883bf6fe1c09 1-38
+scripts/art/pixellab/rollout/normalise.mjs
+  s_0d98fe904b2e82::t_5eb49f0db155ff 1-64
+scripts/art/pixellab/rollout/overlay.mjs
+  s_0d98fe904b2e82::t_f3f367bc398897 1-28
+scripts/art/pixellab/rollout/rampascii.mjs
+  s_0d98fe904b2e82::t_bd470dd34862b3 1-23
+scripts/art/pixellab/rollout/retint.mjs
+  s_0d98fe904b2e82::t_6235d0f9cf8641 1-51
+scripts/art/pixellab/rollout/review.mjs
+  s_0d98fe904b2e82::t_d42737d9f6c781 1-34
+scripts/art/pixellab/rollout/roster.mjs
+  s_0d98fe904b2e82::t_9ac0e8f02b72ff 1-67
+scripts/art/pixellab/rollout/stature.mjs
+  s_0d98fe904b2e82::t_796a2b32d53f45 1-32
+scripts/art/pixellab/rollout/upload.mjs
+  s_0d98fe904b2e82::t_ec99c11a2c4f18 1-18
+scripts/art/pixellab/rollout/upscale.mjs
+  s_0d98fe904b2e82::t_5ac11cef7c0061 1-9
+scripts/art/pixellab/sheet.mjs
+  s_0d98fe904b2e82::t_77b6cb6d7d46e2 1-95
+scripts/art/pixellab/sheetbuild.mjs
+  s_0d98fe904b2e82::t_7d7be75a239ac5 1-225
+scripts/art/pixellab/sheetgifs.mjs
+  s_0d98fe904b2e82::t_5c2bea544b97ce 1-40
+scripts/art/pixellab/shots.mjs
+  s_0d98fe904b2e82::t_3abeb561fa1599 1-30
+scripts/art/pixellab/skeleton.mjs
+  s_0d98fe904b2e82::t_ee84b4c2389445 1-227
+scripts/art/pixellab/spear.mjs
+  s_0d98fe904b2e82::t_1cc7ad84b86b58 1-100
+scripts/dev/placeholder-sheet.mjs
+  s_0d98fe904b2e82::t_bc20a351f31373 1-271
+src/art/paperdoll.ts
+  s_0d98fe904b2e82::t_a527c8bd68c6c2 13-16,73,153-160,163,321-340,427,442-443,455,457-461,463,468,545-549,552,3189-3190
+src/art/sheetAnim.ts
+  s_0d98fe904b2e82::t_eb89eabe57c9b8 1-266
+src/art/sheetDoll.ts
+  s_0d98fe904b2e82::t_8c0da41145c440 1-614
+src/art/sheetManifest.ts
+  s_0d98fe904b2e82::t_e5dd51947f94bd 1-572
+src/art/sheetRegistry.ts
+  s_0d98fe904b2e82::t_dc7d9739993998 1-80
+src/assets/sheets/archer/manifest.json
+  s_0d98fe904b2e82::t_f5c1e9bb2ff598 1-171
+src/assets/sheets/celt_sword/manifest.json
+  s_0d98fe904b2e82::t_bb8bc2237f31d2 1-199
+src/assets/sheets/chariot/manifest.json
+  s_0d98fe904b2e82::t_200c57a200c727 1-108
+src/assets/sheets/companion/manifest.json
+  s_0d98fe904b2e82::t_752c5833bbaa9d 1-203
+src/assets/sheets/falx/manifest.json
+  s_0d98fe904b2e82::t_8b0dffb7a18337 1-180
+src/assets/sheets/fanatic/manifest.json
+  s_0d98fe904b2e82::t_e87fffdff0ad79 1-190
+src/assets/sheets/gallic/manifest.json
+  s_0d98fe904b2e82::t_afb3113f4dd874 1-170
+src/assets/sheets/hoplite/manifest.json
+  s_0d98fe904b2e82::t_6692043ea0ad25 1-250
+src/assets/sheets/horse_archer/manifest.json
+  s_0d98fe904b2e82::t_004998247c6124 1-143
+src/assets/sheets/javelineer/manifest.json
+  s_0d98fe904b2e82::t_1ea82353029185 1-234
+src/assets/sheets/militia/manifest.json
+  s_0d98fe904b2e82::t_9ab67e2f8f2413 1-229
+src/assets/sheets/peltast/manifest.json
+  s_0d98fe904b2e82::t_574692eed0ae7e 1-230
+src/assets/sheets/rhomphaia/manifest.json
+  s_0d98fe904b2e82::t_be58ee5276bd0b 1-214
+src/assets/sheets/royal_guard/manifest.json
+  s_0d98fe904b2e82::t_f17728db5ad439 1-234
+src/assets/sheets/sacred_band/manifest.json
+  s_0d98fe904b2e82::t_a63930391e02f1 1-223
+src/assets/sheets/slinger/manifest.json
+  s_0d98fe904b2e82::t_98d538dc16fddf 1-171
+src/assets/sheets/thessalian/manifest.json
+  s_0d98fe904b2e82::t_7319d1f697661b 1-193
+src/assets/sheets/thureophoros/manifest.json
+  s_0d98fe904b2e82::t_adce965271e6e0 1-208
+src/dev/hopliteBakeoff.ts
+  s_0d98fe904b2e82::t_95ea49eb972f10 1-378
+src/dev/sheets/companion/manifest.json
+  s_0d98fe904b2e82::t_68bef4c66fcf4e 1-176
+src/dev/sheets/hoplite/manifest.json
+  s_0d98fe904b2e82::t_320540ad342f54 1-217
+src/scenes/BattleScene.ts
+  s_0d98fe904b2e82::t_4dfa7f54a46e0c 16-19,163-170,682,687-689,1090-1148,1283-1286,1301
+src/ui/sprites.ts
+  s_0d98fe904b2e82::t_a69828d748da60 29-37,51-56,72-73,87,148-158,161,176,424-426,428,448-450,488-492,514,516,520,566-570
+tests/sheetDoll.test.ts
+  s_0d98fe904b2e82::t_3473b6ca1e4a5c 1-530
+tests/sheetMounted.test.ts
+  s_0d98fe904b2e82::t_afd10b97bbaefd 1-280
+tests/sheetPack.test.ts
+  s_0d98fe904b2e82::t_b6d59abcdcf221 1-121
+tests/sheetPacked.test.ts
+  s_0d98fe904b2e82::t_c9a52e6d026ab8 1-154
+tests/sheetTierRule.test.ts
+  s_0d98fe904b2e82::t_34b0b47692597d 1-110
+vite.config.ts
+  s_0d98fe904b2e82::t_55e667f8d84760 4,27-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3ece6c561afb70060ff30ed43a8d4f8b5f4a3ea8",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
