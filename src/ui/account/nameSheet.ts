@@ -3,8 +3,9 @@
  *
  * - The first visit to Duels or War while signed in shows the generated name once: Keep this name, or
  *   Change (the rename form). The seen flag is `settings.seenHints` 'nameOffer', set when it shows.
- * - After a moderator reset the name, the next of those visits (or the Account page) says so once:
- *   the reset's time is kept on this device (`account.modSeen`).
+ * - After a moderator reset the name, the next launch says so once (the first Menu entry: §9.5 "on the
+ *   next launch"), or the next of those visits or the Account page when the launch couldn't check: the
+ *   reset's time is kept on this device (`account.modSeen`).
  *
  * Staged runs (seenHints '*', window.__noFirstRun) never see either. The hub that was opening stays
  * under the sheet, so either answer lands the player where they were going.
@@ -74,6 +75,33 @@ export async function noticeModeration(scene: UiScene, a: AccountSummary, kv: KV
 }
 
 let modCheckedThisLaunch = false;
+
+/**
+ * The launch (MenuScene's first entry): signed in, the moderation notice when one is unseen. Once per
+ * launch; the hubs skip their own check after it. Never blocks the menu; a failure shows nothing (the
+ * next Duels, War or Account visit asks again).
+ */
+export async function noticeModerationAtLaunch(scene: UiScene, o: { kv?: KV; api?: Pick<ApiClient, 'account'>; session?: Pick<typeof online, 'signIn' | 'canSignIn'> } = {}): Promise<boolean> {
+  const session = o.session ?? online;
+  if (staged() || modCheckedThisLaunch || !session.canSignIn()) return false;
+  modCheckedThisLaunch = true;
+  let a: AccountSummary;
+  try {
+    if (!(await session.signIn())) throw new Error('signed out');
+    a = await (o.api ?? online.api).account();
+  } catch {
+    modCheckedThisLaunch = false;
+    return false;
+  }
+  // the player already left the menu: the next hub or Account visit shows it
+  if (!scene.sys.isActive()) return (modCheckedThisLaunch = false);
+  return noticeModeration(scene, a, o.kv ?? deviceKV);
+}
+
+/** Tests: a fresh launch. */
+export function resetLaunchChecks(): void {
+  modCheckedThisLaunch = false;
+}
 
 /**
  * A Duels or War hub opened (hook lines in DuelScene and OnlineScene): signed in, the moderation notice

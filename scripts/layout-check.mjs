@@ -1010,6 +1010,8 @@ const SCREENS = [
   // ---- onboarding (owner F): first-run screens, the tutorial battle's narrator and spotlight, the online coach marks
   // (each waits for its step to be built: the scene preloads its paintings first, which a busy machine can make slow)
   ...['offer', 'resume', 'modes'].map((mode) => ({ id: `first-run-${mode}`, owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode }), await firstRunIs(p, mode), wait(p, 700)) })),
+  // V6-LINK-07b: the Modes step signed in, "Other players will see you as …" and Change under the cards
+  { id: 'first-run-modes-named', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'modes', name: 'SwiftArcher4821' }), await firstRunIs(p, 'modes'), wait(p, 700)) },
   {
     id: 'first-run-reward',
     owner: 'F',

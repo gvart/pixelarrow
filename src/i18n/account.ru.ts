@@ -346,4 +346,7 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'delete.failed': 'Не удалось удалить аккаунт. Ничего не изменилось.',
   // V6-LINK-07 (из LINK-06): Mini App переходит на аккаунт, привязку которого подтвердили в браузере
   'account.link.switched': 'Привязано. Теперь и здесь вы играете как {name}.',
+  // V6-LINK-07b: первый запуск, шаг «Режимы» (accounts-v6.md §4.3, шаг 6)
+  'auth.fr.nameLine': 'Другие игроки увидят вас как {name}',
+  'auth.fr.nameChange': 'Изменить',
 };

@@ -16,7 +16,10 @@
 //    button is off until DELETE is typed → Confirm it's you (password) → deleted: the result card, the player
 //    is a tombstone, the session is gone, the device's campaign is a fresh first run and the language stays.
 // 5. Telegram delete (Russian): the word is УДАЛИТЬ (the request still carries DELETE), the proof is the
-//    Mini App's own initData (no form), the card says reopening starts a new account.
+//    Mini App's own initData (no form), the card says reopening starts a new account, and Close closes the
+//    Mini App (WebApp.close, V6-LINK-07b).
+// 6. Telegram, a moderator reset the name: the next launch shows the notice on the menu, once (V6-LINK-07b).
+// 7. Telegram, First run's Modes step: "Other players will see you as {name}", and Change renames (V6-LINK-07b).
 import { spawnSync } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { join } from 'node:path';
@@ -128,7 +131,7 @@ function helpers(p, tag) {
       return (await h.focused()) === id;
     },
     shot: async (name) => {
-      if (!SHOTS || shots >= 10) return;
+      if (!SHOTS || shots >= 12) return;
       shots++;
       await p.screenshot({ path: join(SHOTS, `${name}.jpg`), type: 'jpeg', quality: 82 });
     },
@@ -165,7 +168,8 @@ async function telegramUser(name, lang = 'en') {
   await applyPlatform(ctx, 'telegram');
   await ctx.addInitScript(() => {
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
-    window.__noFirstRun = true;
+    // a launch that may show its notices (6) sets __launchOn; boot still skips the first run (the tutorial is skipped)
+    window.__noFirstRun = sessionStorage.getItem('__launchOn') !== '1';
     const d = sessionStorage.getItem('__initData');
     const wa = window.Telegram?.WebApp;
     if (d && wa) wa.initData = d;
@@ -321,6 +325,54 @@ const newName = `Ana ${stamp.slice(-5)}x`.replace(/[^A-Za-z0-9 ]/g, 'q');
   await until(() => tg.T.has('delete.startOver'), 15000, 250);
   check('5: no password form in the Mini App (its initData is the proof); the card says reopening starts a new account', (await tg.T.text()).includes('новый пустой аккаунт') && deletedAt(tg.id) !== null);
   await tg.T.shot('08-tg-delete-done-ru');
+  await tg.T.tap('delete.startOver');
+  check('5: Close closes the Mini App (WebApp.close)', await until(() => tg.T.ev(() => window.__tg.log.includes('close')), 5000, 200));
+  await tg.ctx.close();
+}
+
+// =========================================================== 6. the moderation notice at launch (Telegram)
+{
+  const tg = await telegramUser('Faidon');
+  await tg.T.ev(() => ((window.__state.campaign.data.settings.tutorial = { status: 'skipped', done: [] }), window.__state.save()));
+  await tg.T.ev(() => sessionStorage.setItem('__launchOn', '1'));
+  const now = Date.now();
+  d1(`INSERT INTO display_name_history (player_id, old, new, old_key, changed_at, by_admin) VALUES (${tg.id}, '${tg.name}', '${tg.name}', 'mod07b${stamp}', ${now}, 1)`);
+  d1(`UPDATE players SET name_locked_until = ${now + 7 * 86_400_000} WHERE id = ${tg.id}`);
+  await tg.T.boot();
+  check('6: the launch after a moderator reset shows the notice on the menu', await until(() => tg.T.has('name.mod.ok'), 15000, 250));
+  const said = await tg.T.text();
+  check('6: … saying the name was changed, with the current name', said.includes('your name was changed') && said.includes(tg.name.toLowerCase()), said.slice(-300));
+  await tg.T.shot('12-tg-launch-moderated');
+  await tg.T.tap('name.mod.ok');
+  await until(() => tg.T.has('name.mod.ok').then((x) => !x), 5000, 200);
+  await tg.T.boot();
+  await tg.p.waitForTimeout(2500);
+  check('6: … and only once: the next launch says nothing', !(await tg.T.has('name.mod.ok')));
+  await openAccount(tg.T);
+  await until(() => tg.T.has('account.rename'), 15000, 250);
+  await tg.p.waitForTimeout(1200);
+  check('6: … nor the Account page', !(await tg.T.has('name.mod.ok')));
+  await tg.ctx.close();
+}
+
+// =========================================================== 7. First run, Modes: the name line and Change (Telegram)
+{
+  const tg = await telegramUser('Galen');
+  await tg.T.api.call('Menu', "s.scene.start('FirstRun', { mode: 'modes' }); return 1;");
+  await until(() => tg.T.has('firstrun.name.change'), 15000, 250);
+  const said = await tg.T.text();
+  check('7: Modes says "Other players will see you as {name}" with Change', said.includes(`other players will see you as ${tg.name.toLowerCase()}`), said.slice(-300));
+  await tg.T.shot('11-tg-firstrun-name');
+  await tg.T.tap('firstrun.name.change', 'FirstRun');
+  await until(() => tg.T.form().then((f) => f === 'rename'), 8000);
+  const v0 = await tg.T.ev(() => document.querySelector('#px-auth input[name=name]').value);
+  check('7: Change opens the rename form with the current name', v0 === tg.name, v0);
+  const renamed = `Galen ${stamp.slice(-5)}y`.replace(/[^A-Za-z0-9 ]/g, 'q');
+  await tg.T.fill({ name: renamed });
+  await tg.T.submit();
+  await until(() => tg.T.form().then((f) => f === null), 8000);
+  check('7: saved: the line shows the new name', await until(() => tg.T.text().then((x) => x.includes(`other players will see you as ${renamed.toLowerCase()}`)), 8000, 250));
+  check('7: … and the account has it', (await tg.T.account()).displayName === renamed);
   await tg.ctx.close();
 }
 

@@ -359,4 +359,7 @@ export const ACCOUNT_EN = {
   'delete.failed': "We couldn't delete the account. Nothing was changed.",
   // V6-LINK-07 (from LINK-06): the Mini App follows the link the web confirmed
   'account.link.switched': 'Linked. You now play as {name} here too.',
+  // V6-LINK-07b: First run, Modes step (accounts-v6.md §4.3 step 6)
+  'auth.fr.nameLine': 'Other players will see you as {name}',
+  'auth.fr.nameChange': 'Change',
 } as const;

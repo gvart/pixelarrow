@@ -11,6 +11,7 @@ import { openDevices } from '../ui/account/devices';
 import { checkTelegramConflicts } from '../ui/account/conflict';
 import { openLinkingDemo, type LinkDemo } from '../ui/account/linkDemo';
 import { openPrivacyDemo, type PrivacyDemo } from '../ui/account/privacyDemo';
+import { noticeModerationAtLaunch } from '../ui/account/nameSheet';
 import { addTipLine } from '../ui/mosaic';
 import { tipHidden } from '../ui/mosaic/tips';
 import { Campaign } from '../game/campaign';
@@ -85,6 +86,8 @@ export class MenuScene extends BaseScene {
     }
     // The first sync after a log-in found progress on both sides (AU-08, V6-ACCT-07): the player picks.
     askTwoCampaigns(this, () => this.scene.restart());
+    // A moderator reset the name (AU-18 §9.5): the launch says so, once (after Two campaigns, when that asks).
+    if (!online.choice) void noticeModerationAtLaunch(this);
   }
 
   /**
