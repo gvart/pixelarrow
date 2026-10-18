@@ -10,6 +10,10 @@
  * Corinthian helmet's eye-slits, gilded trim, rivets, amulets) are placed as
  * depth-tested single pixels (Scene.dot), so they stay crisp.
  *
+ * Pre-made sprite sheets (PixelLab) replace a class's figure through
+ * setSheetHook (src/art/sheetDoll.ts, format in docs/v5/art/SHEET_FORMAT.md);
+ * a class without a loaded sheet is drawn here as below.
+ *
  * SHEET FORMAT (what a hand-drawn replacement must follow):
  *   - One sheet per figure, 4 rows (facings) of frames. A man has NFRAMES (40)
  *     columns, every other figure LEGACY_FRAMES (16); frame ids are always
