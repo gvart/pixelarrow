@@ -37,6 +37,8 @@ export interface MStashGridOpts extends StashGridOpts {
    */
   fill?: number;
   hint?: string;
+  /** The price tag's text size, UI px (default 5.5; the duel Armoury's sell grid passes TEXT_MIN, V6-RSCR-04). */
+  priceSize?: number;
 }
 
 export class MStashGrid {
@@ -195,8 +197,9 @@ function stashCell(scene: UiScene, o: MStashGridOpts, it: Item, cc: C, size: num
   cc.add(condPip(scene, 3, size - 4, size - 6, it.cond));
   const pr = o.price?.(it);
   if (pr) {
-    const pt = mtext(scene, size - 2, 1, pr.text, 'light', { size: 5.5, align: 1 });
-    const bg = scene.add.rectangle(size - 3 - pt.width, 1, pt.width + 2, 7, 0x000000, 0.65).setOrigin(0, 0);
+    const ps = o.priceSize ?? 5.5;
+    const pt = mtext(scene, size - 2, 1, pr.text, 'light', { size: ps, align: 1 });
+    const bg = scene.add.rectangle(size - 3 - pt.width, 1, pt.width + 2, ps > 5.5 ? Math.ceil(ps) + 2 : 7, 0x000000, 0.65).setOrigin(0, 0);
     cc.add([bg, pt]);
   }
   if (hero && isUpgrade(hero, it)) {
