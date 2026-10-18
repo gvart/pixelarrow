@@ -50,12 +50,19 @@ export function devPanel(game: Phaser.Game, s: SandboxScene): void {
   }, 250);
 }
 
-/** 15 own squads in the west against 15 bot squads in the east: 600 units. */
+/**
+ * 15 own squads in the west against 15 bot squads in the east: 600 units. On test-ridge the sides
+ * face each other across the river (x 96..104), clear of the mountain wall (y 78..86), so the
+ * fight has to go through the ford (y 36..39), the bridge (y 118..120) or, from the north, the pass.
+ */
 export function brawl(s: SandboxScene): void {
-  const { w, h } = s.region;
+  const { w, h, id } = s.region;
+  const ridge = id === 'test-ridge';
+  const ys = ridge ? [30, 52, 68, 100, 134] : [0.2, 0.35, 0.5, 0.65, 0.8].map((f) => h * f);
+  const [west, east] = ridge ? [86, 114] : [w * 0.38, w * 0.62];
   for (let i = 0; i < 15; i++) {
-    const y = h * 0.2 + (i % 5) * h * 0.15, dx = Math.floor(i / 5) * 6;
-    s.sim.spawn('you', 0, CLASSES[i % CLASSES.length], 20, w * 0.38 - dx, y);
-    s.sim.spawn('bot', 1, CLASSES[(i + 2) % CLASSES.length], 20, w * 0.62 + dx, y);
+    const y = ys[i % 5], dx = Math.floor(i / 5) * 6;
+    s.sim.spawn('you', 0, CLASSES[i % CLASSES.length], 20, west - dx, y);
+    s.sim.spawn('bot', 1, CLASSES[(i + 2) % CLASSES.length], 20, east + dx, y);
   }
 }

@@ -3,6 +3,7 @@
  * height shading with a NW light, contour lines between height levels, cliffs heavier, water
  * shallow vs deep), and the overlays at 1 px per tile (scaled up with nearest filtering).
  */
+import { buildGrid } from '../sim/grid';
 import type { RegionData, TerrainKind } from '../types';
 
 export const TILE = 16;
@@ -15,12 +16,6 @@ const TINT: Record<TerrainKind, [number, number, number]> = {
 const SHALLOW: [number, number, number] = [98, 150, 170];
 const DEEP: [number, number, number] = [44, 82, 120];
 
-/** Movement cost for the overlay (Infinity = impassable); a view-side guess until the sim exports one. */
-export function moveCost(r: RegionData, i: number): number {
-  if (r.water[i] === 2 || r.terrain[i] === 'rock') return Infinity;
-  if (r.water[i] === 1) return 2.5;
-  return { road: 0.7, grass: 1, dirt: 1, snow: 1.5, sand: 1.5, forest: 2, marsh: 2.5, rock: Infinity }[r.terrain[i]];
-}
 
 /** One chunk of the base map, cx/cy in chunks. */
 export function bakeChunk(r: RegionData, cx: number, cy: number): HTMLCanvasElement {
@@ -70,14 +65,15 @@ export function bakeOverlay(r: RegionData, kind: 'height' | 'cost'): HTMLCanvasE
   cv.height = r.h;
   const ctx = cv.getContext('2d')!;
   const img = ctx.createImageData(r.w, r.h), px = img.data;
+  const cost = buildGrid(r).cost; // the sim's per-tile move cost, 0 = impassable (cliffs are per step, not shown)
   for (let i = 0; i < r.w * r.h; i++) {
     let c: [number, number, number];
     if (kind === 'height') {
       const t = r.height[i] / 7;
       c = [255 * t, 80 + 60 * Math.sin(t * Math.PI), 255 * (1 - t)];
     } else {
-      const m = moveCost(r, i);
-      c = m === Infinity ? [0, 0, 0] : [Math.min(255, (m - 0.7) * 140), Math.max(0, 230 - (m - 0.7) * 100), 40];
+      const m = cost[i];
+      c = m === 0 ? [0, 0, 0] : [Math.min(255, (m - 0.7) * 140), Math.max(0, 230 - (m - 0.7) * 100), 40];
     }
     px.set([c[0], c[1], c[2], 255], i * 4);
   }
