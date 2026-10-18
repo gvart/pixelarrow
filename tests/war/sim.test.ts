@@ -7,6 +7,7 @@ import { hashString } from '../../src/sim/rng';
 import type { Order, WarSim } from '../../src/war/types';
 
 const ridge = parseRegion(ridgeJson);
+const K = ridge.w / 256; // features are authored on a 256 map and scale with it
 const [FX, FY] = SPOTS.fieldE; // open flat field east of the river
 const tile = (x: number, y: number) => Math.floor(y) * ridge.w + Math.floor(x);
 const blocked = (x: number, y: number) => ridge.terrain[tile(x, y)] === 'rock' || ridge.water[tile(x, y)] === 2;
@@ -28,7 +29,7 @@ describe('war sim', () => {
     const sim = createSim(ridge, 7);
     const s = sim.spawnSquad('a', 0, 'militia', 20, ...SPOTS.passN);
     sim.order({ kind: 'move', squad: s, x: SPOTS.passS[0], y: SPOTS.passS[1] });
-    run(sim, 1600, () => {
+    run(sim, 1600 * K, () => {
       for (const u of sim.snapshot().units) expect(blocked(u.x, u.y)).toBe(false);
     });
     for (const u of sim.snapshot().units) {
