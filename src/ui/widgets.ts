@@ -13,7 +13,7 @@ import Phaser from 'phaser';
 import { Button, ScrollArea, addIcon, addText, longPress, mosaicPanelImage, panelK, panelTexture, tappable, SHADOW_FONTS, type ButtonVariant, type FontKey, type UIMetrics, uiMetrics } from './kit';
 import { ACCENT, MOSAIC, MOTION } from './tokens';
 import { tweenTo } from './motion';
-import { uiFrame, uiId, worldRect } from './layout';
+import { uiFrame, uiId, uiListIds, worldRect } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { RARITY_COLOR, RARITY_GLOW, SIZE, COLOR, STRAT, glows } from './theme';
 import { renderGlow, renderRarityFrame } from '../art/uiTextures';
@@ -23,8 +23,9 @@ import { itemDef, normalizeRarity, type Item, type Rarity } from '../data/items'
 import { ensureItemIcon, fitItemIcon } from './sprites';
 import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { toastY, type OverlayKind, type Rect } from './mosaic/overlays';
+import { focusGroup } from './focusRing';
 import { badgeText, switchLabelStyle } from './mosaic/policy';
-import { haptic } from '../platform/telegram';
+import { haptic } from '../platform/haptics';
 import { sfx } from '../audio';
 import { uiDestroy } from '../audio/hooks';
 import { t, tOr } from '../i18n';
@@ -68,7 +69,7 @@ function uiBounds(scene: Phaser.Scene, obj: Phaser.GameObjects.GameObject): { x:
 const tooltips = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
 
 /** Hide the scene's tooltip, if any. */
-export function hideTooltip(scene: Phaser.Scene): void {
+function hideTooltip(scene: Phaser.Scene): void {
   tooltips.get(scene)?.destroy();
   tooltips.delete(scene);
 }
@@ -118,7 +119,7 @@ export function showTooltip(scene: Phaser.Scene, text: string, anchor: Phaser.Ga
 
 const toasts = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
 
-export type ToastKind = 'info' | 'good' | 'bad';
+type ToastKind = 'info' | 'good' | 'bad';
 
 /** Layout ids of the bars a toast keeps clear of: the screen's top bar (v4 TopBar, v3 header, the battle HUD) and its bottom bar. */
 const TOP_BAR = /(^|[.:])(topbar|header|top)$/;
@@ -248,7 +249,7 @@ export class Badge extends Phaser.GameObjects.Container {
 
 // ================================================================== stat bar
 
-export interface StatBarOpts {
+interface StatBarOpts {
   label: string;
   max: number;
   color?: number;
@@ -335,7 +336,7 @@ export class StatBar extends Phaser.GameObjects.Container {
 
 // ================================================================== count-up tile
 
-export interface CountUpOpts {
+interface CountUpOpts {
   icon?: string;
   label: string;
   value: number;
@@ -409,7 +410,7 @@ export class CountUp extends Phaser.GameObjects.Container {
 
 // ================================================================== tabs
 
-export interface TabsOpts {
+interface TabsOpts {
   selected?: number;
   onChange?: (i: number) => void;
   icons?: (string | undefined)[];
@@ -550,6 +551,8 @@ export class Tabs extends Phaser.GameObjects.Container {
       const it = new TabItem(scene, 2 + Math.round(i * this.tw) + 1.5, 0, Math.round(this.tw) - 3, this.h, label, { icon: o.icons?.[i], iconOnly: !!o.iconOnly && !!o.icons?.[i], id: o.ids?.[i] }, () => this.select(i));
       this.items.push(it);
       this.add(it);
+      // one Tab stop; arrows move between the tabs, Enter switches (input-v6.md §4.3)
+      focusGroup(it, this, null, () => this.sel === i);
     });
     this.style = tabRowStyle(this.items, ['rInk', 'rGold']);
     this.paint();
@@ -582,68 +585,10 @@ export class Tabs extends Phaser.GameObjects.Container {
   }
 }
 
-/**
- * The second level under a Tabs switch (docs/UI_KIT.md "Navigation"): words on the page
- * with a gold underline that slides to the selected one (Today | Gear | Sell).
- * Height 22.
- */
-export class UnderlineTabs extends Phaser.GameObjects.Container {
-  readonly w: number;
-  readonly h = 22;
-  private items: TabItem[] = [];
-  private bar: Phaser.GameObjects.Rectangle;
-  private sel: number;
-  private style: RowStyle;
-
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number, labels: string[], private o: TabsOpts = {}) {
-    super(scene, Math.round(x), Math.round(y));
-    this.w = Math.round(w);
-    this.sel = o.selected ?? 0;
-    const n = labels.length;
-    const tw = this.w / n;
-    this.add(mosaicPanelImage(scene, 0, 0, this.w, this.h, 'track'));
-    labels.forEach((label, i) => {
-      const it = new TabItem(scene, Math.round(i * tw) + 1.5, 0, Math.round(tw) - 3, this.h, label, { icon: o.icons?.[i], iconOnly: !!o.iconOnly && !!o.icons?.[i], id: o.ids?.[i] }, () => this.select(i));
-      this.items.push(it);
-      this.add(it);
-    });
-    const it = this.items[this.sel];
-    this.bar = scene.add.rectangle(it.x + 6, this.h - 3, it.w - 12, 2, MOSAIC.goldHi).setOrigin(0, 0);
-    this.add(this.bar);
-    this.style = tabRowStyle(this.items, ['rCream', 'rGold']);
-    this.paint();
-    scene.add.existing(this);
-  }
-
-  get selected(): number {
-    return this.sel;
-  }
-
-  private paint(): void {
-    this.items.forEach((it, k) => it.paint(k === this.sel, 'rCream', 'rGold', this.style));
-  }
-
-  select(i: number, notify = true): void {
-    if (i === this.sel) return;
-    this.sel = i;
-    const it = this.items[i];
-    tweenTo(this.scene, this.bar, { x: it.x + 6, width: it.w - 12 }, MOTION.tab);
-    this.paint();
-    if (notify) this.o.onChange?.(i);
-  }
-
-  badge(i: number, count: number | string): Badge {
-    const it = this.items[i];
-    const badge = new Badge(this.scene, it.x + it.w - 4, -1, count);
-    this.add(badge);
-    return badge;
-  }
-}
-
 // ================================================================== scroll hint
 
 /** Colour the edge fades melt into by default (the stone of the pages), outside a marked surface. */
-export const FADE_DEFAULT = 0x1f1913;
+const FADE_DEFAULT = 0x1f1913;
 
 /** Marks `c` as drawn on a surface of `color` (a parchment sheet): scroll hints inside it fade into that colour. */
 export function markSurface(c: Phaser.GameObjects.Container, color: number): void {
@@ -651,7 +596,7 @@ export function markSurface(c: Phaser.GameObjects.Container, color: number): voi
 }
 
 /** The colour of the nearest marked surface `obj` sits in (itself or a parent container), else FADE_DEFAULT. */
-export function surfaceUnder(obj: Phaser.GameObjects.Container): number {
+function surfaceUnder(obj: Phaser.GameObjects.Container): number {
   for (let o: Phaser.GameObjects.Container | null = obj; o; o = o.parentContainer) {
     const s = (o as unknown as { __surface?: number }).__surface;
     if (s !== undefined) return s;
@@ -738,7 +683,7 @@ export function addScrollHint(scene: Phaser.Scene, parent: Phaser.GameObjects.Co
 
 // ================================================================== scroll list (virtualised)
 
-export interface ScrollListOpts {
+interface ScrollListOpts {
   count: number;
   rowH: number;
   /** Space between rows (default SIZE.gap: keeps the 4 pt touch spacing). */
@@ -751,12 +696,24 @@ export interface ScrollListOpts {
   tip?: (i: number) => string | undefined;
   /** Layout-check id of a row. */
   id?: (i: number) => string;
+  /** The layout-check ids of the controls a row renders (element-parity counts them while the row is not built, V6-066). */
+  ids?: (i: number) => string[];
   /** Rows built beyond the viewport on each side (default 2). */
   overscan?: number;
   /** Draw the scroll hint (edge fades and thumb; default true). */
   hint?: boolean;
   /** The colour behind the list, that the edge fades melt into (default: the surface it sits on, `surfaceUnder`). */
   fade?: number;
+}
+
+/** Every id a list's whole content holds, built or not (V6-066): each tappable row's id and the ids its rows render. */
+export function scrollListIds(o: Pick<ScrollListOpts, 'count' | 'onTap' | 'id' | 'ids'>): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < o.count; i++) {
+    if (o.onTap && o.id) out.push(o.id(i));
+    if (o.ids) out.push(...o.ids(i));
+  }
+  return out;
 }
 
 /**
@@ -782,6 +739,8 @@ export class ScrollList {
     this.o = { gap: SIZE.gap, overscan: 2, hint: true, ...o };
     this.area = new ScrollArea(scene, parent, x, y, w, h, metrics(scene).S);
     this.area.onScroll(() => this.sync());
+    // element-parity counts every row's id, built or not (V6-066)
+    uiListIds(this.area.content, () => scrollListIds(this.o));
     if (this.o.hint) this.hint = addScrollHint(scene, parent, this.area, this.o.fade);
     this.setCount(o.count);
   }
@@ -857,7 +816,7 @@ export class ScrollList {
 
 // ================================================================== grid (inventory)
 
-export interface GridOpts {
+interface GridOpts {
   count: number;
   /** Cell edge (default SIZE.cell). */
   cell?: number;
@@ -921,7 +880,7 @@ export class Grid {
 
 export type IconSubject = { item: Item } | { consumable: string } | { resource: string };
 
-export interface ItemIconOpts {
+interface ItemIconOpts {
   /** Frame edge in UI px (default SIZE.cell = 24: a 44 pt target at the smallest scale). */
   size?: number;
   /** Frame colour for goods (items use their own rarity). */
@@ -1044,7 +1003,7 @@ export class ItemIcon extends Phaser.GameObjects.Container {
 
 // ================================================================== expandable card
 
-export interface CardOpts {
+interface CardOpts {
   title: string;
   subtitle?: string;
   /** A kit icon name, or an item to show as an ItemIcon. */
@@ -1142,7 +1101,7 @@ export function stackCards(cards: readonly Card[], y0 = 0, gap: number = SIZE.ga
 
 // ================================================================== fitted label
 
-export interface LabelOpts {
+interface LabelOpts {
   font?: FontKey;
   align?: 0 | 0.5 | 1;
   /** Line width in UI px. */
@@ -1189,14 +1148,9 @@ export class Label extends Phaser.GameObjects.Container {
   }
 }
 
-/** Shorthand: a one-line label that ends in "…" (full text on tap). */
-export function addLabel(scene: Phaser.Scene, x: number, y: number, str: string, o: LabelOpts): Label {
-  return new Label(scene, x, y, str, o);
-}
-
 // ================================================================== modal
 
-export interface ModalOpts {
+interface ModalOpts {
   title?: string;
   /** Width (default: min(VW - 16, 200)). */
   w?: number;
@@ -1258,7 +1212,7 @@ export function openModal(scene: UiScene, o: ModalOpts): Modal {
 
 // ================================================================== confirm dialog
 
-export interface ConfirmDialogOpts {
+interface ConfirmDialogOpts {
   title?: string;
   /** Body text (wrapped, at most 6 lines). */
   body?: string;

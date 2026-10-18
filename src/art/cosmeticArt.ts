@@ -21,7 +21,7 @@ import { ellipsePath, poly, roundRect } from './path2d';
 
 export const COSMETIC_PREVIEW = 28;
 /** Drawing space edge of a smooth preview: 28 UI px = 112 units. */
-export const COSMETIC_UNITS = 112;
+const COSMETIC_UNITS = 112;
 
 interface Look {
   main: number;

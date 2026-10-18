@@ -1,0 +1,44 @@
+---
+// The page shell: head (fonts, metadata), skip link, nav, <main id="content">, footer.
+// Only Cinzel 700 is preloaded (ADR-0011 Decision 4): it sets the hero headline, the likely LCP text.
+import '../styles/global.css';
+import cinzelUrl from '../fonts/cinzel-700-latin.woff2?url';
+import Footer from '../components/Footer.astro';
+import Nav from '../components/Nav.astro';
+import Seo from '../components/Seo.astro';
+import SkipLink from '../components/SkipLink.astro';
+import { PLAY_URL } from '../site';
+
+interface Props {
+  title?: string;
+  description?: string;
+  path?: string;
+}
+const props = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    {/* First in <head>: Telegram puts launch data in the hash, which never reaches the Worker, so a
+        Mini App that still points at the apex is sent on to play with it (ADR-0007). */}
+    <script is:inline define:vars={{ play: PLAY_URL }}>if(location.hash.indexOf('tgWebApp')!==-1)location.replace(play+location.search+location.hash)</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" href={cinzelUrl} as="font" type="font/woff2" crossorigin />
+    <Seo {...props} />
+    <slot name="head" />
+  </head>
+  <body>
+    <SkipLink />
+    <Nav />
+    <main id="content" tabindex="-1">
+      <slot />
+    </main>
+    <Footer />
+    {/* Below-the-fold stills ([data-src]) load as they near the viewport. One page-level importer, so
+        the module is inlined instead of costing a request before LCP (scripts/lazy.ts). */}
+    <script>
+      import '../scripts/lazy';
+    </script>
+  </body>
+</html>

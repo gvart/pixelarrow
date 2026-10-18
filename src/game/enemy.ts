@@ -38,7 +38,7 @@ export function garrisonWorks(): WorksAllowance {
 }
 
 /** Bot army strength relative to the player (before the victory ramp); tuned with `npm run balance`. */
-export const ENEMY_POWER = 1.2;
+const ENEMY_POWER = 1.2;
 
 /**
  * Army make-up: a proper battle line, the bands that roam the overland map,
@@ -51,7 +51,7 @@ export type ArmyMix =
   | 'wolves' | 'boars' | 'bear' | 'beasts';
 
 /** Neutral defender mixes: weights of classes (and their battle group). */
-export const NEUTRAL_MIXES: Partial<Record<ArmyMix, { cls: ClassId; w: number; group?: number }[]>> = {
+const NEUTRAL_MIXES: Partial<Record<ArmyMix, { cls: ClassId; w: number; group?: number }[]>> = {
   militia: [{ cls: 'militia', w: 7 }, { cls: 'slinger', w: 1 }, { cls: 'javelineer', w: 1 }],
   outlaws: [{ cls: 'archer', w: 3 }, { cls: 'militia', w: 2 }, { cls: 'peltast', w: 2 }, { cls: 'wolf', w: 1 }],
   hill_tribe: [{ cls: 'slinger', w: 3 }, { cls: 'javelineer', w: 3 }, { cls: 'peltast', w: 2 }, { cls: 'falx', w: 1 }, { cls: 'bear', w: 0.4 }],
@@ -65,7 +65,7 @@ export const NEUTRAL_MIXES: Partial<Record<ArmyMix, { cls: ClassId; w: number; g
   beasts: [{ cls: 'wolf', w: 4 }, { cls: 'boar', w: 2 }, { cls: 'bear', w: 0.5 }],
 };
 
-export interface ArmyRequest {
+interface ArmyRequest {
   culture?: Culture;
   count: number;
   level: number;

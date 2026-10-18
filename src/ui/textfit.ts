@@ -8,8 +8,8 @@
  */
 import { advance, type Face } from '../art/vectorFont';
 
-export const BASE_FONT_SIZE = 7;
-export const ELLIPSIS = '…';
+const BASE_FONT_SIZE = 7;
+const ELLIPSIS = '…';
 
 /** Rendered width of one line. `shadow`: fonts drawn with a 1 px drop shadow (light, gold, title). */
 export function measureText(str: string, shadow = false, size = BASE_FONT_SIZE, face: Face = 'body'): number {
@@ -44,7 +44,7 @@ export function ellipsize(str: string, maxW: number, shadow = false, size = BASE
   return measureText(ELLIPSIS, shadow, size, face) <= maxW ? ELLIPSIS : '';
 }
 
-export interface WrapResult {
+interface WrapResult {
   lines: string[];
   /** Some text was cut (the last line ends in "…"). */
   truncated: boolean;
@@ -100,7 +100,7 @@ export function wrapsWhole(str: string, maxW: number, maxLines = 0, shadow = fal
 /** Line height of the pixel font in UI pixels (glyphs 7-8 px + spacing). */
 export const LINE_H = 10;
 
-export interface FittedCinzel {
+interface FittedCinzel {
   text: string;
   /** The label is written in Inter (the capitals did not fit at the smallest size). */
   inter: boolean;

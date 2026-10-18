@@ -10,4 +10,10 @@ export const SHOP_V5_EN = {
   'shop.v5.loading': 'Opening the shop...',
   'shop.v5.bonus': '+{n}% bonus',
   'shop.v5.xpHow': 'How to earn XP',
+  // AU-20, payments where no provider exists yet (design/ux/accounts-v6.md)
+  'shop.web.legal': 'Drachmae cannot be cashed out.',
+  'shop.web.soonTitle': 'Buying Drachmae on the web is coming soon.',
+  'shop.web.soonBody': "Telegram Stars only work inside Telegram, and we're still setting up payments for the web. Until then, Drachmae packs are sold in the game's Telegram app.",
+  'shop.web.soon': 'Coming soon',
+  'shop.web.soonTip': "Payments on the web aren't available yet. Play in Telegram to buy Drachmae.",
 };

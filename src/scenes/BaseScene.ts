@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
 import { sweepPanels, uiMetrics, type UIMetrics } from '../ui/kit';
+import { resizeAction } from '../ui/sizeClass';
+import { setLegacyColumn } from '../platform/renderScale';
 import { registerScreen, navLayer, navMotion, screenOpts, showInGameBack, type LayerClose, type ScreenOpts } from '../platform/nav';
 import { ENTRY_ALPHA, motion } from '../ui/motion';
 import { MOSAIC, MOTION } from '../ui/tokens';
 import { openSettings } from '../ui/settings';
 import { renderGround } from '../art/ground';
+import { mountRotateCard } from '../ui/mosaic/layout';
 
 /** The screen before this one showed a field (map or battle): the next one enters through parchment too (R6). */
 let leftField = false;
@@ -18,9 +21,18 @@ export abstract class BaseScene extends Phaser.Scene {
   m!: UIMetrics;
   private resizeTimer: Phaser.Time.TimerEvent | null = null;
 
+  /**
+   * Has this scene migrated to the size classes (ADR-0013)? Until it does, it
+   * lays out in the v5 column centred in the full-size game box (V6-021).
+   */
+  protected readonly responsive: boolean = false;
+
   protected initUi(): void {
+    setLegacyColumn(this.scale, !this.responsive);
     this.m = uiMetrics(this);
     this.ui = this.add.container(0, 0).setScale(this.m.S);
+    // the global floor (§3.6): under 320 CSS px tall the rotate card covers every scene, which keeps running
+    mountRotateCard(this);
     // Phaser emits 'resize' on every scale.refresh(), even when nothing changed,
     // and Telegram triggers refreshes constantly (viewportChanged / safe-area
     // events, e.g. whenever its header Back button is shown or hidden).
@@ -36,7 +48,8 @@ export abstract class BaseScene extends Phaser.Scene {
         this.resizeTimer = null;
         if (!changed()) return;
         laidOut = { w: this.scale.width, h: this.scale.height };
-        this.onResized();
+        if (resizeAction(this.m, uiMetrics(this)) === 'rebuild') this.onResized();
+        else this.onReflow();
       });
     };
     this.scale.on('resize', onResize);
@@ -85,6 +98,11 @@ export abstract class BaseScene extends Phaser.Scene {
 
   /** Set while the scene restarts for a new screen size (no entry motion then). */
   protected relayingOut = false;
+
+  /** A new size in the same class and orientation (ADR-0013). Default: rebuild, as across a class. */
+  protected onReflow(): void {
+    this.onResized();
+  }
 
   /** Default: rebuild the scene with the same data. */
   protected onResized(): void {

@@ -256,7 +256,7 @@ export const DUELS_EN = {
   'duels.why.searching': 'Cancel the search first',
   'duels.why.busy': 'One moment...',
   'duels.why.noCandidates': 'No defenders to raid right now',
-  'duels.outsideHint': 'Open Pixelarrow from the Telegram bot to play duels: your duel army lives on the server.',
+  'duels.outsideHint': 'Your duel army lives on our server. Sign in to play duels.',
   'duels.offlineHint': 'Cannot reach the duel server. Check the connection and try again.',
   'duels.closed': 'Duels are closed',
   'duels.closedHint': 'The duel realm is not open yet. Come back soon.',

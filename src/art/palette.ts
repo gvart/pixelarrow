@@ -52,15 +52,8 @@ export const P = {
   blue: 0x4a6b8a,
 };
 
-export const SIDE_COLOR = [0x4a6b8a, 0x9a3b2f];
-
 export function hex(c: number): string {
   return '#' + c.toString(16).padStart(6, '0');
-}
-
-export function tunicRamp(key: string): number[] {
-  const r = (P as unknown as Record<string, number[]>)[key];
-  return Array.isArray(r) ? r : P.tunicBlue;
 }
 
 export function mix(a: number, b: number, t: number): number {

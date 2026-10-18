@@ -149,9 +149,9 @@ const JS = `'use strict';
         card('Analytics Engine', o.analyticsEngine ? 'on' : 'off')));
     },
     Players: async () => {
-      const q = h('input', { placeholder: 'id, Telegram id or username', size: 30 });
+      const q = h('input', { placeholder: 'id, Telegram id, username or name', size: 30 });
       const results = h('div', {});
-      const search = async () => { results.replaceChildren(h('p', { class: 'muted' }, '...')); try { const r = await api('GET', '/players?q=' + encodeURIComponent(q.value)); results.replaceChildren(table(r.players, ['id', 'telegram_id', 'username', 'first_name', 'created_at', 'last_seen_at', 'banned_at'], (p) => openPlayer(p.id))); } catch (e) { results.replaceChildren(errBox(e)); } };
+      const search = async () => { results.replaceChildren(h('p', { class: 'muted' }, '...')); try { const r = await api('GET', '/players?q=' + encodeURIComponent(q.value)); results.replaceChildren(table(r.players, ['id', 'display_name', 'telegram_id', 'username', 'first_name', 'created_at', 'last_seen_at', 'banned_at'], (p) => openPlayer(p.id))); } catch (e) { results.replaceChildren(errBox(e)); } };
       show(h('h1', {}, 'Players'), h('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); search(); } }, q, h('button', { type: 'submit' }, 'Search')), results);
       search();
     },
@@ -192,12 +192,13 @@ const JS = `'use strict';
       const reload = () => openPlayer(id);
       show(
         h('p', {}, h('button', { onclick: () => select('Players') }, '< Players')),
-        h('h1', {}, 'Player #' + p.id + ' ', p.username ? '@' + p.username : '', ' ', p.first_name || ''),
+        h('h1', {}, 'Player #' + p.id + ' ' + p.display_name + ' ', p.username ? '@' + p.username : '', ' ', p.first_name || ''),
         h('p', { class: p.banned_at ? 'err' : 'muted' }, p.banned_at ? 'BANNED ' + fmtTime(p.banned_at) + ': ' + (p.ban_reason || '') : 'Telegram id ' + p.telegram_id + ' / joined ' + fmtTime(p.created_at) + ' / last seen ' + fmtTime(p.last_seen_at) + (p.analytics_opt_out ? ' / analytics off' : '')),
         h('fieldset', {}, h('legend', {}, 'Actions'),
           p.banned_at
             ? actionForm('Unban', [], (reason, requestId) => api('POST', '/players/' + id + '/unban', { requestId, reason }).then((x) => (setTimeout(reload, 800), x)))
             : actionForm('Ban', [], (reason, requestId) => api('POST', '/players/' + id + '/ban', { requestId, reason }).then((x) => (setTimeout(reload, 800), x)), true),
+          actionForm('Reset name (locks renames for 7 days)', [], (reason, requestId) => api('POST', '/players/' + id + '/rename', { requestId, reason }).then((x) => (setTimeout(reload, 800), x)), true),
           actionForm('Adjust balance', [cur, delta], (reason, requestId) => api('POST', '/players/' + id + '/adjust', { requestId, reason, currency: cur.value, delta: Number(delta.value) }))),
         h('h2', {}, 'Wallet: ' + (r.wallet.drachmae ?? 0) + ' Drachmae'), table(r.ledger),
         h('h2', {}, 'Stars purchases'),
@@ -246,7 +247,6 @@ const JS = `'use strict';
 
 const SECURITY_HEADERS: Record<string, string> = {
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-  'x-frame-options': 'DENY',
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'no-referrer',
   'cache-control': 'no-store',

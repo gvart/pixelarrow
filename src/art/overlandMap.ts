@@ -115,7 +115,7 @@ function tapMask(site: SiteArt): Uint8Array {
 }
 
 /** (x, y) is in `site`'s tap area (tapMask). */
-export function onSitePicture(site: SiteArt, x: number, y: number): boolean {
+function onSitePicture(site: SiteArt, x: number, y: number): boolean {
   const M = SITE_TAP_MARGIN;
   const px = Math.floor(x - site.x) + M;
   const py = Math.floor(y - site.y) + M;
@@ -146,7 +146,7 @@ export function pickSettlement(settlements: readonly SettlementDef[], sites: rea
   return best;
 }
 
-export function archOfSettlement(s: SettlementDef): Arch {
+function archOfSettlement(s: SettlementDef): Arch {
   if (s.culture === 'phoenician') return 'punic';
   if (s.culture === 'celtic') return 'celtic';
   // a few Greek places inland read as native hill towns

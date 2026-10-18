@@ -46,7 +46,7 @@ export class Breadcrumbs {
   }
 }
 
-export type ErrorKind = 'error' | 'rejection' | 'scene' | 'console';
+type ErrorKind = 'error' | 'rejection' | 'scene' | 'console';
 
 export interface ErrorItem {
   kind: ErrorKind;
@@ -74,7 +74,7 @@ export interface ErrorsPayload {
   errors: ErrorItem[];
 }
 
-export interface ReporterOptions {
+interface ReporterOptions {
   /** Delivers a batch; `beacon` asks for navigator.sendBeacon (page hiding). */
   send: (payload: ErrorsPayload, beacon: boolean) => void | Promise<unknown>;
   context: () => ErrorContext;
@@ -89,9 +89,9 @@ export interface ReporterOptions {
 }
 
 export const MAX_PER_MINUTE = 10;
-export const MAX_QUEUE = 10;
+const MAX_QUEUE = 10;
 export const MAX_SENDS_PER_FP = 3;
-export const FLUSH_MS = 4000;
+const FLUSH_MS = 4000;
 
 /** Normalized message + top stack frame: what makes two errors "the same". */
 export function fingerprint(kind: ErrorKind, message: string, stack?: string): string {
@@ -100,7 +100,7 @@ export function fingerprint(kind: ErrorKind, message: string, stack?: string): s
 }
 
 /** Message and stack of anything thrown. */
-export function describeError(err: unknown): { message: string; stack?: string } {
+function describeError(err: unknown): { message: string; stack?: string } {
   if (err instanceof Error) return { message: `${err.name}: ${err.message}`, stack: err.stack };
   if (typeof err === 'string') return { message: err };
   try {
@@ -197,7 +197,7 @@ export class ErrorReporter {
 
 // ------------------------------------------------------------------ browser wiring
 
-export interface InstallDeps {
+interface InstallDeps {
   endpoint?: string;
   token: () => string | null;
   platform: () => { platform?: string; tg?: string; lang?: string };
@@ -210,11 +210,6 @@ let activeScenes: () => string = () => '';
 /** Breadcrumb from anywhere (no-op before installErrorCapture). */
 export function breadcrumb(category: string, message: string): void {
   reporter?.crumbs.add(category, message);
-}
-
-/** Reports an error caught by the game itself (no-op before installErrorCapture). */
-export function reportError(err: unknown, kind: ErrorKind = 'error'): void {
-  reporter?.capture(err, kind);
 }
 
 function uaFamily(): string {

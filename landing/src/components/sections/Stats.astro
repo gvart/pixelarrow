@@ -1,0 +1,38 @@
+---
+// Live stats and leaderboards (#leaderboards), STRUCTURE.md §5, V6-LAND-04. The markup is only the
+// title: the inline HTML is within a few bytes of the mobile LCP cliff (V6-036), so the counters, the
+// ledgers, the empty state and their styles are built by scripts/stats.ts. That module loads only when
+// the section comes within 1500 px (at once on a #leaderboards deep link, which starts in view).
+// It is bundled through Vite's `?worker&url` only to get a separate, hashed file whose URL can be
+// inlined here: a dynamic import() would move this loader out of the HTML into its own module script,
+// an extra request in the first view. It runs on the main thread as an ordinary module script.
+---
+<section class="section" id="leaderboards" aria-labelledby="leaderboards-title">
+  <div class="container">
+    <header class="section__head">
+      <h2 id="leaderboards-title" class="section__title">The war right now</h2>
+    </header>
+  </div>
+</section>
+
+<script>
+  import src from '../../scripts/stats?worker&url';
+  const io = new IntersectionObserver(
+    ([e]) => {
+      if (!e?.isIntersecting) return;
+      io.disconnect();
+      document.head.append(Object.assign(document.createElement('script'), { type: 'module', src }));
+    },
+    { rootMargin: '1500px 0px' },
+  );
+  io.observe(document.getElementById('leaderboards')!);
+</script>
+
+<style is:global>
+  /* A #leaderboards deep link paints this title before the module builds the rest. At least one
+     screen tall, nothing below the section is in view then, so its growth moves nothing seen
+     (V6-056). The finished section is taller than this at every width anyway. */
+  #leaderboards {
+    min-height: 100lvh;
+  }
+</style>

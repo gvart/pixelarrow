@@ -20,12 +20,12 @@ import { DOCTRINES, RETREAT_SHARE, SKIRMISH_RIDER_EXTRA, battleTimers, doctrineO
 /** Seconds without any combat before the bot commits everything to an attack. */
 export const PRESS_IDLE_S = DOCTRINES.steady.pressIdleS;
 /** A line holding a hill under missiles gives it up after this long. */
-export const HILL_SHOT_S = 22;
+const HILL_SHOT_S = 22;
 /** Riders wait this long for the lines to meet (or less when the enemy shoots). */
-export const CAV_WAIT_S = 10;
-export const CAV_SHOOTER_WAIT_S = 3;
+const CAV_WAIT_S = 10;
+const CAV_SHOOTER_WAIT_S = 3;
 /** Animals leave their lair by this time at the latest. */
-export const BEAST_WAIT_S = 45;
+const BEAST_WAIT_S = 45;
 
 interface GroupMemo {
   stage: number;
@@ -39,9 +39,9 @@ interface GroupMemo {
 }
 
 /** What a group is made of, for the tactics the bot uses with it. */
-export type GroupKind = 'foot' | 'cavalry' | 'horse_archers' | 'beasts';
+type GroupKind = 'foot' | 'cavalry' | 'horse_archers' | 'beasts';
 
-export function groupKind(mem: SimUnit[]): GroupKind {
+function groupKind(mem: SimUnit[]): GroupKind {
   let riders = 0;
   let shooters = 0;
   let beasts = 0;
@@ -58,37 +58,37 @@ export function groupKind(mem: SimUnit[]): GroupKind {
 }
 
 /** Riders stop and pull back after this long locked in a melee they are not winning. */
-export const CAV_MELEE_S = 4;
+const CAV_MELEE_S = 4;
 /** ... and regroup this long before the next charge. */
-export const CAV_REGROUP_S = 3;
+const CAV_REGROUP_S = 3;
 
 /** Seconds a bot line will hold a hill (or wait at a contested ford) before it gives up and attacks. */
 export const HOLD_HILL_S = DOCTRINES.steady.holdHillS;
 export const FORD_WAIT_S = DOCTRINES.steady.fordWaitS;
 
 /** The doctrines that answer a turtle with a stand-off (ai-doctrines.md R5). */
-export const STAND_OFF_DOCTRINES: readonly DoctrineId[] = ['swarm', 'hammer'];
+const STAND_OFF_DOCTRINES: readonly DoctrineId[] = ['swarm', 'hammer'];
 /** Seconds the enemy must have held still, behind works or in an orb, before a stand-off (R5). */
 export const STAND_OFF_S = 20;
 /** A stand-off ends once our missile-men have loosed nothing for this long (out of reach, or out of ammo). */
-export const STAND_OFF_QUIET_S = 10;
+const STAND_OFF_QUIET_S = 10;
 /** Paces in front of the line (or out from a palisade gate) that a bot lays its works (field-works.md R6). */
 export const WORKS_OUT = 2;
 /** EC-05: a garrison behind its palisade stays at its posts until an enemy comes within this many paces of the wall. */
 export const WALL_REACH = 2;
 /** EC-05 focus fire: a missile group focuses an enemy group whose centre is within its longest range plus this. */
-export const FOCUS_SLACK = 2;
+const FOCUS_SLACK = 2;
 /** EC-05 orb: riders this close off a foot group's facing close it into an orb (FO-02's answer row: 8)... */
-export const ORB_HORSE_NEAR = 8;
+const ORB_HORSE_NEAR = 8;
 /** ...it opens again once no rider is this close, or enemy foot comes this close. */
-export const ORB_HORSE_LEAVE = 12;
-export const ORB_FOOT_NEAR = 6;
+const ORB_HORSE_LEAVE = 12;
+const ORB_FOOT_NEAR = 6;
 /** EC-05 orb: a group closes into an orb only with no enemy foot this close (riders alone, no line coming on). */
-export const ORB_FOOT_CLEAR = 12;
+const ORB_FOOT_CLEAR = 12;
 /** ...nor with its own stakes this close: they already cover the flank. */
-export const ORB_STAKES_NEAR = 6;
+const ORB_STAKES_NEAR = 6;
 /** ...nor with another group of ours this close: the orb is for a group left on its own. */
-export const ORB_ALONE = 8;
+const ORB_ALONE = 8;
 
 export class BotAI {
   readonly side: Side;

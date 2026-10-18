@@ -26,7 +26,7 @@ import { battleTicketView, closeBattleTicket, loadOwnTicket, requireOpenTicket, 
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import type { Hero } from '../../../src/data/units';
 import type { Item } from '../../../src/data/items';
 import { DEFAULT_DOCTRINE, type BattleSetup } from '../../../src/sim/types';
@@ -44,7 +44,7 @@ import { pickConsumable, withConsumables } from './attack';
 import { armyState, clanTags, energyNow, fieldReady, formationsOf, heroPrefix, loadHeroes, playerNames, randomToken, randomU32, staticRegion, type OwnedHero } from './store';
 
 export const bosses = new Hono<AppEnv>();
-bosses.use('*', requireAuth);
+bosses.use('*', requirePlayable);
 
 interface BossRow {
   season_id: number;
@@ -115,7 +115,7 @@ async function warHoldings(pc: PlayerCtx, season: number, pid: number): Promise<
  * set piece, the named item or an epic; the war bad-luck counter); safe to
  * run any number of times: every write is guarded by its row not existing yet.
  */
-export async function splitBossLoot(pc: PlayerCtx, row: BossRow): Promise<void> {
+async function splitBossLoot(pc: PlayerCtx, row: BossRow): Promise<void> {
   if (row.status !== 'dead') return;
   const dmg = await pc.db
     .prepare('SELECT player_id, damage FROM world_boss_damage WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3 AND damage > 0 ORDER BY player_id')

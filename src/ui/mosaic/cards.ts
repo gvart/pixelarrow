@@ -63,7 +63,7 @@ export class SectionTitle extends Phaser.GameObjects.Container {
 
 // ================================================================== profile card
 
-export interface StatItem {
+interface StatItem {
   icon: string;
   text: string;
 }
@@ -100,7 +100,7 @@ interface StatRow {
  * Rows of stat lines for a text column `tw` wide. Numbers are never cut: a pair that does not fit
  * at any size goes on two rows, and a single item shrinks before it is ever shortened.
  */
-export function statRows(stats: StatLine[], tw: number): StatRow[] {
+function statRows(stats: StatLine[], tw: number): StatRow[] {
   const need = (it: StatItem, size: number) => 14 + mw(it.text, 'pInk', size);
   const rows: StatRow[] = [];
   for (const s of stats) {

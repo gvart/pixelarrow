@@ -4,13 +4,30 @@
  *
  * Contract with the rest of the game: nothing here may block or break play.
  * Every method resolves (never rejects); failures just flip the sync status to
- * `offline` and are retried later with backoff. Outside Telegram (no initData)
- * the layer is inert: status `local`, no network requests at all.
+ * `offline` and are retried later with backoff.
+ *
+ * Sessions (ADR-0006 M6, ADR-0008 §3) follow the platform's Auth: Telegram
+ * signs in silently with initData (a 24 h bearer token, renewed on a 401);
+ * the web may hold a session cookie, found by GET /api/me. Both sync the
+ * save (V6-ACCT-07): a guest's campaign goes up to the account it signs in
+ * to, and when the device and the account both have progress nothing is
+ * written until the player picks one (`choice`, AU-08).
  */
-import { ApiClient, isApiError, type Product, type VerifyRequest } from './api';
-import type { InvoiceStatus } from './telegram';
+import { ApiClient, isApiError, type PlayerInfo, type Product, type VerifyRequest } from './api';
+import type { Auth } from './core/auth';
+import type { Payments } from './core/payments';
 import type { KV, SaveData } from '../game/save';
 import { SYNC_META_KEY, decideOnLoad, parseSyncMeta, remoteSaveData, resolveConflict, seqOf, type SyncMeta } from './saveSync';
+
+/** AU-08: this device's campaign and the account's both have progress; the player keeps one. */
+interface TwoCampaigns {
+  local: SaveData;
+  cloud: SaveData;
+  /** The server revision the cloud copy was read at. */
+  revision: number;
+  /** The copy with more progress (preselected). */
+  prefer: 'local' | 'cloud';
+}
 
 export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offline';
 
@@ -23,12 +40,14 @@ export interface OnlineDeps {
   kv: () => KV;
   /** Device-local cache (entitlements survive offline launches). */
   cache: KV;
-  initData: () => string | null;
+  /** The platform's sign-in facts: transport, methods and the silent proof (Telegram initData). */
+  auth: Auth;
   /** Sign in with the DEV_AUTH test user (local `wrangler dev` only). */
   devAuth?: boolean;
   /** Which DEV_AUTH test user (`?devuser=2` in dev builds, to try two players side by side). */
   devUser?: { id: number; name: string };
-  openInvoice?: (link: string) => Promise<InvoiceStatus>;
+  /** The platform's payments: an invoice is asked for only when status() says it can be paid. */
+  payments?: Payments;
   /** The device's offset from UTC in minutes (east positive), reported after sign-in for the bot's quiet hours. */
   timeZoneOffset?: () => number | null;
   debounceMs?: number;
@@ -37,13 +56,20 @@ export interface OnlineDeps {
   log?: Pick<Console, 'warn' | 'info'>;
 }
 
-export type BuyResult = 'granted' | 'pending' | 'cancelled' | 'failed' | 'owned' | 'offline' | 'unavailable';
+/** Where the player stands for online play: signed in, signed out with no way to sign in here, or the server was not reached. */
+type SessionState = 'live' | 'signed_out' | 'offline';
+
+type BuyResult = 'granted' | 'pending' | 'cancelled' | 'failed' | 'owned' | 'offline' | 'unavailable';
 
 export class Online {
   status: SyncStatus = 'local';
   playerName: string | null = null;
   playerId: number | null = null;
   entitlements = new Set<string>();
+  /** Two campaigns wait for the player's choice (AU-08): nothing is uploaded until resolveChoice(). */
+  choice: TwoCampaigns | null = null;
+  /** The server refused this account as banned (403 banned, accounts-v6.md §14 Q4). */
+  banned = false;
   /** Whether replacing the running campaign is safe right now (not mid-battle). */
   canAdopt: () => boolean = () => true;
   /** Replace the running campaign with a newer server copy. */
@@ -54,6 +80,8 @@ export class Online {
   private authing: Promise<boolean> | null = null;
   private nextAuthAt = 0;
   private authFails = 0;
+  /** The web's session cookie, as GET /api/me last answered ('unknown' until asked, or after a network failure). */
+  private cookie: 'unknown' | 'none' | 'live' = 'unknown';
   private meta: SyncMeta | null = null;
   private pending: SaveData | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -66,13 +94,24 @@ export class Online {
     deps.api.reauth = () => this.reauth();
   }
 
-  /** There is a way to sign in (inside Telegram, or dev auth). */
-  get available(): boolean {
-    return !!this.d.initData() || !!this.d.devAuth;
+  /** A session is live: a bearer token, or a session cookie the server confirmed. */
+  get signedIn(): boolean {
+    return !!this.d.api.token || this.cookie === 'live';
   }
 
-  get signedIn(): boolean {
-    return !!this.d.api.token;
+  /** This platform has a way to sign in (Telegram's initData, the web's email and password, or dev auth). */
+  canSignIn(): boolean {
+    return this.d.auth.methods().length > 0 || !!this.d.devAuth;
+  }
+
+  /** Signs in silently (Telegram initData or dev auth): these sessions sync the save and buy with Stars. */
+  private get silent(): boolean {
+    return !!this.d.auth.silentProof() || !!this.d.devAuth;
+  }
+
+  /** This device syncs the save: a silent sign-in, or a session cookie the server confirmed (ACCT-07). */
+  private get syncs(): boolean {
+    return this.silent || this.cookie === 'live';
   }
 
   get api(): ApiClient {
@@ -102,10 +141,15 @@ export class Online {
 
   // ------------------------------------------------------------------ auth
 
-  /** Signs in once (deduplicated, with backoff after failures). */
+  /**
+   * Signs in once (deduplicated, with backoff after failures): silently with
+   * the platform's proof, else by asking whether a session cookie is live.
+   */
   signIn(): Promise<boolean> {
-    if (this.d.api.token) return Promise.resolve(true);
-    if (!this.available) {
+    if (this.signedIn) return Promise.resolve(true);
+    const silent = this.silent;
+    const probe = !silent && this.d.auth.transport === 'cookie' && this.cookie !== 'none';
+    if (!silent && !probe) {
       this.setStatus('local');
       return Promise.resolve(false);
     }
@@ -113,24 +157,55 @@ export class Online {
     if (this.now() < this.nextAuthAt) return Promise.resolve(false);
     this.authing = (async () => {
       try {
-        const init = this.d.initData();
-        const r = init ? await this.d.api.authTelegram(init) : await this.d.api.authDev(this.d.devUser?.id, this.d.devUser?.name);
-        this.playerName = r.player?.firstName ?? r.player?.username ?? null;
-        this.playerId = typeof r.player?.id === 'number' ? r.player.id : null;
+        const proof = this.d.auth.silentProof();
+        const player = probe
+          ? (await this.d.api.me()).player
+          : (proof ? await this.d.api.authTelegram(proof.initData) : await this.d.api.authDev(this.d.devUser?.id, this.d.devUser?.name)).player;
+        if (probe) this.cookie = 'live';
+        this.banned = false;
+        this.adoptPlayer(player);
         this.authFails = 0;
         void this.refreshEntitlements();
         void this.reportTimeZone();
         return true;
-      } catch {
+      } catch (e) {
+        // no session, or a banned account's (Q4): signed out, never retried until recheckSession()
+        if (probe && isApiError(e) && (e.status === 401 || (e.status === 403 && e.code === 'banned'))) {
+          this.cookie = 'none';
+          this.banned = e.status === 403;
+          this.adoptPlayer(null);
+          return false;
+        }
         this.authFails++;
         this.nextAuthAt = this.now() + Math.min(300_000, 15_000 * 2 ** Math.min(4, this.authFails - 1));
-        this.setStatus('offline');
+        // the badge is about the save, which only silent sessions sync
+        if (!probe) this.setStatus('offline');
         return false;
       } finally {
         this.authing = null;
       }
     })();
     return this.authing;
+  }
+
+  /** Signs in if needed and says where the player stands (the online screens' gate). */
+  async ensureSession(): Promise<SessionState> {
+    if (await this.signIn()) return 'live';
+    // the web: the server said there is no session cookie (the player can log in: ACCT-05)
+    if (!this.silent && this.cookie === 'none') return 'signed_out';
+    return this.canSignIn() ? 'offline' : 'signed_out';
+  }
+
+  /** The session cookie may have changed (log-in, email verified, log-out): ask the server again. */
+  recheckSession(): Promise<boolean> {
+    this.cookie = 'unknown';
+    this.nextAuthAt = 0;
+    return this.signIn();
+  }
+
+  private adoptPlayer(p: PlayerInfo | null | undefined): void {
+    this.playerName = p?.firstName ?? p?.username ?? p?.displayName ?? null;
+    this.playerId = typeof p?.id === 'number' ? p.id : null;
   }
 
   /** Tells the server the device's time zone (bot notifications keep quiet at night). Fire and forget. */
@@ -144,8 +219,10 @@ export class Online {
     }
   }
 
+  /** A 401 on a signed-in call: a new bearer token from the silent proof (retried once), or the cookie is re-checked (never retried). */
   private async reauth(): Promise<string | null> {
     this.d.api.token = null;
+    if (this.cookie === 'live') this.cookie = 'unknown';
     this.nextAuthAt = 0;
     return (await this.signIn()) ? this.d.api.token : null;
   }
@@ -161,6 +238,7 @@ export class Online {
   }
 
   private async storeMeta(m: SyncMeta): Promise<void> {
+    if (this.playerId !== null) m = { ...m, pid: this.playerId };
     this.meta = m;
     try {
       await this.d.kv().set(SYNC_META_KEY, JSON.stringify(m));
@@ -177,17 +255,26 @@ export class Online {
    */
   async pullOnLoad(local: SaveData | null): Promise<SaveData | null> {
     const gen = ++this.pullGen;
-    if (!this.available) {
-      this.setStatus('local');
-      return null;
-    }
-    const stored = await this.loadMeta();
-    if (!(await this.signIn())) return null;
+    const saved = await this.loadMeta();
+    // the web finds its session cookie here, before the first screen; a guest's save stays on this device
+    if (!(await this.signIn()) || !this.syncs) return null;
+    // metadata another player left on this device counts as none (a second person logs in here)
+    const stored = saved && (saved.pid === undefined || saved.pid === this.playerId) ? saved : null;
     this.setStatus('syncing');
     try {
       const remote = await this.d.api.getSave();
       if (gen !== this.pullGen) return null;
-      const dec = decideOnLoad(local, stored, remote);
+      let dec = decideOnLoad(local, stored, remote);
+      if (dec.action === 'ask') {
+        if (!this.silent) {
+          // AU-08: the player picks; until then nothing is written here or on the server
+          this.choice = { local: dec.local, cloud: dec.cloud, revision: dec.revision, prefer: dec.prefer };
+          this.setStatus('local');
+          return null;
+        }
+        // Telegram never asks (unchanged): the copy with more progress wins
+        dec = dec.prefer === 'cloud' ? { action: 'adopt', data: dec.cloud, revision: dec.revision } : { action: 'push', revision: dec.revision };
+      }
       if (dec.action === 'adopt') {
         await this.storeMeta({ revision: dec.revision, seq: seqOf(dec.data) });
         this.setStatus('synced');
@@ -221,6 +308,83 @@ export class Online {
     this.setStatus('offline');
   }
 
+  /**
+   * AU-08 answered. 'cloud': the account's campaign is returned for the caller to adopt (the device's
+   * copy is replaced). 'local': `current` (the device's campaign as it is now) is uploaded over the
+   * account's. Null for 'local', or when nothing was waiting.
+   */
+  async resolveChoice(keep: 'local' | 'cloud', current: SaveData): Promise<SaveData | null> {
+    const c = this.choice;
+    if (!c) return null;
+    this.choice = null;
+    if (keep === 'cloud') {
+      await this.storeMeta({ revision: c.revision, seq: seqOf(c.cloud) });
+      this.setStatus('synced');
+      return c.cloud;
+    }
+    this.meta = { revision: c.revision, seq: -1 };
+    this.queuePush(current, 0);
+    return null;
+  }
+
+  /**
+   * Log out (accounts-v6.md §6.3): what is waiting is uploaded first, then `end` ends the session on the
+   * server (a session that already ended counts as done). On the web the campaign stays on the device
+   * as a guest save with its sync metadata removed, so another person logging in here later is asked
+   * (AU-08) rather than uploaded into. Telegram signs in again silently; its sync is unchanged.
+   * False when the server could not be told (nothing changes then).
+   */
+  async signOut(end: () => Promise<unknown>): Promise<boolean> {
+    await this.flush();
+    try {
+      await end();
+    } catch (e) {
+      if (!(isApiError(e) && e.status === 401)) return false;
+    }
+    this.d.api.token = null;
+    if (this.silent) return true;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.pending = null;
+    this.choice = null;
+    this.meta = null;
+    this.abandonPull();
+    try {
+      await this.d.kv().remove(SYNC_META_KEY);
+    } catch {
+      /* the next pull checks the player id as well */
+    }
+    this.cookie = 'none';
+    this.adoptPlayer(null);
+    this.setStatus('local');
+    return true;
+  }
+
+  /**
+   * The account was deleted (V6-LINK-07, UXA-11): the session is gone on the server. Nothing waiting is
+   * uploaded (there is no account to take it), the sync metadata goes, and no silent sign-in runs again
+   * until recheckSession() (in Telegram it would start a new, empty account: the next launch does that).
+   */
+  async forgetSession(): Promise<void> {
+    this.d.api.token = null;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.pending = null;
+    this.choice = null;
+    this.meta = null;
+    this.abandonPull();
+    try {
+      await this.d.kv().remove(SYNC_META_KEY);
+    } catch {
+      /* the next pull checks the player id as well */
+    }
+    this.cookie = 'none';
+    this.nextAuthAt = Number.POSITIVE_INFINITY;
+    this.adoptPlayer(null);
+    this.entitlements.clear();
+    this.setStatus('local');
+  }
+
   /** Boot gave up waiting: ignore whatever the in-flight pull returns. */
   abandonPull(): void {
     this.pullGen++;
@@ -228,7 +392,7 @@ export class Online {
 
   /** Called after every local save: uploads the latest data after a quiet period. */
   queuePush(data: SaveData, delayMs = this.d.debounceMs ?? 4000): void {
-    if (!this.available || this.held) return;
+    if (!this.syncs || this.held || this.choice) return;
     this.pending = data;
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
@@ -335,7 +499,7 @@ export class Online {
 
   /** Re-reads entitlements from the server; false when that was not possible. */
   async refreshEntitlements(): Promise<boolean> {
-    if (!this.d.api.token) return false;
+    if (!this.signedIn) return false;
     try {
       const r = await this.d.api.entitlements();
       this.entitlements = new Set((r.entitlements ?? []).map((e) => e.productId));
@@ -359,12 +523,13 @@ export class Online {
   }
 
   /**
-   * Buys a product with Telegram Stars: invoice -> Telegram payment sheet ->
-   * on "paid" polls the entitlements briefly (the grant arrives via the bot
+   * Buys a product through the platform's payments: invoice -> payment sheet
+   * -> on "paid" polls the entitlements briefly (the grant arrives via the bot
    * webhook).
    */
   async buy(productId: string, onStage?: (stage: 'invoice' | 'paying' | 'confirming') => void): Promise<BuyResult> {
-    if (!this.available || !this.d.openInvoice) return 'unavailable';
+    const pay = this.d.payments?.status();
+    if (!this.silent || !this.d.payments || !pay?.available) return 'unavailable';
     if (!(await this.signIn())) return 'offline';
     let link: string;
     try {
@@ -379,7 +544,7 @@ export class Online {
       return isApiError(e) && e.offline ? 'offline' : 'failed';
     }
     onStage?.('paying');
-    const status = await this.d.openInvoice(link);
+    const status = await this.d.payments.pay({ provider: pay.provider, link });
     if (status === 'cancelled') return 'cancelled';
     if (status !== 'paid' && status !== 'pending') return 'failed';
     onStage?.('confirming');
@@ -395,7 +560,7 @@ export class Online {
 
   /** Fire-and-forget replay check; mismatches are logged, never acted on (v1). */
   verifyBattle(req: VerifyRequest): void {
-    if (!this.d.api.token) return;
+    if (!this.signedIn) return;
     const log = this.d.log ?? console;
     void this.d.api
       .verifyBattle(req)

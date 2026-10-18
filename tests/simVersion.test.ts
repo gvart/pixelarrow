@@ -28,7 +28,6 @@ function capture() {
     bodies[path] = opts?.body as Record<string, unknown>;
     return {} as never;
   });
-  vi.spyOn(online, 'available', 'get').mockReturnValue(true);
   vi.spyOn(online, 'signIn').mockResolvedValue(true);
   return bodies;
 }

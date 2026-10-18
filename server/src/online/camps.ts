@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import { CAMP_BUILDING_IDS, CAMP_RULES, ONLINE_RULES, type CampBuildingId, type Resources } from '../../../src/online/rules';
 import { campView, checkBuild, checkClaim, towerSight, type CampBuildingState, type CampMarker, type CampReason } from '../../../src/online/camps';
 import type { WorldGraph } from '../../../src/online/world';
@@ -24,11 +24,11 @@ import { limit, player, type PlayerCtx } from './context';
 import { armyState, energyNow, getProfile, revBatch, revGuard, type ProfileRow, type Shard } from './store';
 
 export const camps = new Hono<AppEnv>();
-camps.use('*', requireAuth);
+camps.use('*', requirePlayable);
 
 // ------------------------------------------------------------------ storage
 
-export interface CampRow {
+interface CampRow {
   loc: number;
   player_id: number;
   home: number;

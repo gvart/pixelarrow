@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import { LEGACY_RARITY, isBound, normalizeItem, normalizeRarity, type Item } from '../../../src/data/items';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import type { WorldGraph } from '../../../src/online/world';
@@ -35,13 +35,13 @@ import { armyState, playerNames, randomToken, regionRow, revBatch, revGuard, typ
 import { ev, later, notify } from '../notify/outbox';
 
 export const market = new Hono<AppEnv>();
-market.use('*', requireAuth);
+market.use('*', requirePlayable);
 
 type Currency = 'gold' | 'drachmae';
 type Kind = 'item' | 'resource' | 'consumable';
 type ResourceKey = (typeof MARKET.resources)[number];
 
-export interface ListingRow {
+interface ListingRow {
   id: string;
   season_id: number;
   shard_id: number;

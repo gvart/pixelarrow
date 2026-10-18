@@ -23,7 +23,7 @@ import { idleRating, seasonId, type Ladder } from '../../../src/duel/season';
 import { rollRatings } from './season';
 import { duelHeroXp } from '../../../src/duel/ladder';
 import {
-  RANKED, glicko2, leagueOf, matchPay, placed, recordAbandon, scoreOf, type AbandonState, type DuelMode, type League, type LeagueId, type Rating,
+  RANKED, glicko2, leagueOf, matchPay, placed, recordAbandon, scoreOf, type AbandonState, type DuelMode, type League, type Rating,
 } from '../../../src/duel/rating';
 import type { LiveMatchRef, MatchEnd, MatchReport } from '../../../src/duel/protocol';
 import { randomToken } from '../online/store';
@@ -66,12 +66,6 @@ export function leagueText(l: League | null): string | null {
   return l ? `${l.id}:${l.division ?? 0}` : null;
 }
 
-export function parseLeague(s: string | null): League | null {
-  if (!s) return null;
-  const [id, d] = s.split(':');
-  return { id: id as LeagueId, division: Number(d) || null };
-}
-
 interface QueueStateRow {
   abandons: string;
   cooldown_until: number;
@@ -100,7 +94,7 @@ export async function liveMatchOf(db: D1Database, pid: number, now: number): Pro
   return r ? { id: r.id, mode: r.mode } : null;
 }
 
-export interface DuelTeam {
+interface DuelTeam {
   heroes: Hero[];
   formations: FormationType[];
 }
@@ -116,7 +110,7 @@ export async function loadTeam(db: D1Database, pid: number, p?: DuelProfileRow |
   return { heroes, formations: l.formations };
 }
 
-export type QueueRefusal = 'cooldown' | 'locked' | 'no_team' | 'over_budget' | 'too_many' | 'busy';
+type QueueRefusal = 'cooldown' | 'locked' | 'no_team' | 'over_budget' | 'too_many' | 'busy';
 
 /** Whether a player may join a queue now: their rating to pair by, or the reason not. */
 export async function queueCheck(db: D1Database, pid: number, mode: DuelMode, now: number): Promise<{ ok: true; rating: RatingRow } | { ok: false; reason: QueueRefusal; until?: number }> {

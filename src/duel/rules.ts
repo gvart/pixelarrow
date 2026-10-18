@@ -49,13 +49,6 @@ export const DUEL_RULES = {
   presetNameMax: 16,
 };
 
-// ------------------------------------------------------------------ presets
-
-/** A preset's shown name: its own, or "Team <slot>". */
-export function presetName(l: { slot: number; name: string | null }): string {
-  return l.name?.trim() || `Team ${l.slot}`;
-}
-
 /** A preset name as stored: trimmed, at most presetNameMax, null for the default. */
 export function cleanPresetName(name: string | null | undefined): string | null {
   const s = (name ?? '').trim();
@@ -69,7 +62,7 @@ export const RARITY_POINTS: Record<Rarity, number> = { common: 0, uncommon: 1, r
 /** A named legendary costs more than a random one (docs/ITEMS.md "Duel fairness"). */
 export const NAMED_POINTS = 7;
 /** Each active set bonus line a hero wears costs this much on top of the pieces. */
-export const SET_LINE_POINTS = 1;
+const SET_LINE_POINTS = 1;
 
 /** Budget points of a class at level 1: a tenth of its recruitment price (hoplite 10, archer 5, companion 16). */
 export function classPoints(cls: ClassId): number {
@@ -77,7 +70,7 @@ export function classPoints(cls: ClassId): number {
 }
 
 /** A hero's level cost: level 10 costs twice level 1. */
-export function levelMult(level: number): number {
+function levelMult(level: number): number {
   return 1 + (Math.max(1, Math.min(10, level)) - 1) / 9;
 }
 
@@ -192,7 +185,7 @@ export function duelRecruit(seed: number, ids: IdSource, prefix: string, cls: Cl
 }
 
 /** The roster a new duel profile starts with: 2 hoplites, 2 archers, a peltast and a slinger. */
-export const STARTER_CLASSES: ClassId[] = ['hoplite', 'hoplite', 'archer', 'archer', 'peltast', 'slinger'];
+const STARTER_CLASSES: ClassId[] = ['hoplite', 'hoplite', 'archer', 'archer', 'peltast', 'slinger'];
 
 export function starterDuelRoster(seed: number, ids: IdSource, prefix: string): Hero[] {
   const rng = new Rng(seed >>> 0 || 1);
@@ -248,7 +241,7 @@ export function respecPrice(h: Pick<Hero, 'level'>): number {
 // ------------------------------------------------------------------ the duel shop
 
 /** Glory price multiplier of gear by rarity. */
-export const RARITY_PRICE: Record<Rarity, number> = { common: 1, uncommon: 2, rare: 4, epic: 8, legendary: 14 };
+const RARITY_PRICE: Record<Rarity, number> = { common: 1, uncommon: 2, rare: 4, epic: 8, legendary: 14 };
 
 /** Glory price of an item def at a rarity (half its market value times the rarity factor, at least 5). */
 export function gearPrice(defId: string, rarity: Rarity): number {
@@ -315,7 +308,7 @@ export const SPOILS = {
   rarity: [['common', 50], ['uncommon', 35], ['rare', 15]] as [Rarity, number][],
 };
 
-export type SpoilsMode = 'ranked' | 'unranked' | 'raid';
+type SpoilsMode = 'ranked' | 'unranked' | 'raid';
 
 /**
  * The item a won duel drops, or null: seeded by the match (or raid) seed and
@@ -352,7 +345,7 @@ export function offerUid(offer: Pick<ShopOffer, 'def' | 'rarity'> & { id?: strin
 
 // ------------------------------------------------------------------ shop compare
 
-export interface OfferStatLine {
+interface OfferStatLine {
   /** The modifier (translate with the item card's labels). */
   key: keyof StatMods;
   /** The offer's value (rarity applied, perfect condition) and its card text ("+8.5", "12%"). */
@@ -368,7 +361,7 @@ export interface OfferStatLine {
   better: boolean | null;
 }
 
-export interface OfferSummary {
+interface OfferSummary {
   slot: Slot;
   /** The item compared against (same slot and weapon class, on a hero who would use the offer); null when that hero's slot is empty or nobody would use it. */
   vs: Item | null;

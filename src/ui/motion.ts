@@ -9,7 +9,7 @@ import type Phaser from 'phaser';
 export const motion = { reduced: false };
 
 /** The system asks for less motion. */
-export function prefersReducedMotion(): boolean {
+function prefersReducedMotion(): boolean {
   try {
     return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   } catch {

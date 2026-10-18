@@ -9,29 +9,41 @@
  */
 import type { CampsView } from '../online/camps';
 import type { CampBuildingId } from '../online/rules';
+import type { Auth } from './core/auth';
+import { platform } from './index';
 
 export interface PlayerInfo {
   id: number;
-  telegramId?: number;
+  /** The unique public name (every player has one, ACCT-02). */
+  displayName?: string | null;
+  /** Null for a player with no Telegram identity. */
+  telegramId?: number | null;
   username?: string | null;
   firstName?: string | null;
   [k: string]: unknown;
 }
 
-export interface AuthResponse {
+interface AuthResponse {
   token: string;
+  /** Epoch ms. */
   expiresAt: number;
   player: PlayerInfo;
 }
 
-export interface RemoteSave {
+/** GET /api/me: whoever the session (a bearer token or the web's cookie) belongs to. */
+interface MeResponse {
+  player: PlayerInfo;
+  session: { expiresAt: number; transport: 'bearer' | 'cookie' };
+}
+
+interface RemoteSave {
   revision: number;
   version: number | null;
   data: unknown;
   updatedAt: number | null;
 }
 
-export interface PutSaveResponse {
+interface PutSaveResponse {
   revision: number;
   updatedAt: number;
 }
@@ -187,12 +199,12 @@ export function newRequestId(): string {
   return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export interface Entitlement {
+interface Entitlement {
   productId: string;
   grantedAt: number;
 }
 
-export interface EntitlementsResponse {
+interface EntitlementsResponse {
   entitlements: Entitlement[];
   purchases: { productId: string; stars: number; currency: string; createdAt: number; refunded: boolean }[];
 }
@@ -244,7 +256,7 @@ export function isApiError(e: unknown): e is ApiError {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-export interface ApiOptions {
+interface ApiOptions {
   /** Prefix for every path, e.g. '' (same origin) or 'http://localhost:8787'. */
   base?: string;
   fetch?: FetchLike;
@@ -254,16 +266,20 @@ export interface ApiOptions {
    * (or null). The request is retried once with it.
    */
   reauth?: () => Promise<string | null>;
+  /** How requests authenticate; read per request. Default: the selected platform's. */
+  transport?: () => Auth['transport'];
 }
 
 interface RequestOpts {
   body?: unknown;
   auth?: boolean;
+  /** false: a 401 is final (the session probe itself must not trigger a re-auth). */
+  reauth?: boolean;
   timeoutMs?: number;
 }
 
 /** Default base: `VITE_API_BASE` at build time, else same origin. */
-export function defaultApiBase(): string {
+function defaultApiBase(): string {
   try {
     const v = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE;
     return v ? v.replace(/\/+$/, '') : '';
@@ -272,11 +288,102 @@ export function defaultApiBase(): string {
   }
 }
 
+/** One signed-in device (GET /api/auth/sessions; server/src/auth/sessions.ts SessionInfo). */
+export interface SessionInfo {
+  handle: string;
+  transport: 'cookie' | 'bearer';
+  method: string;
+  /** "Chrome on macOS", "Telegram on iOS"; null when the browser did not say. */
+  device: string | null;
+  createdAt: number;
+  lastSeenAt: number;
+  current: boolean;
+}
+
+/** GET /api/account (server/src/account/summary.ts AccountSummary). */
+export interface AccountSummary {
+  displayName: string;
+  identities: ({ kind: 'telegram'; telegramUsername: string | null } | { kind: 'password'; emailMasked: string })[];
+  publicBoards: boolean;
+  sessions: number;
+  hasPurchases: boolean;
+  name: NameStatus;
+}
+
+/** The rename rules' state for this player (server/src/account/summary.ts NameStatus). */
+export interface NameStatus {
+  freeChange: boolean;
+  nextChangeAt: number | null;
+  lockedUntil: number | null;
+  moderatedAt: number | null;
+}
+
+// ---------------------------------------------------------------- web → Telegram linking (V6-LINK-03/06; server/src/account/link.ts, conflicts.ts)
+
+/** POST /api/account/link/telegram: a one-time code; `deepLink` is null when the server doesn't know the bot. */
+export interface LinkCode {
+  code: string;
+  expiresAt: number;
+  deepLink: string | null;
+}
+
+/** GET /api/account/link/telegram/status (only the session that made the code sees it). */
+export type LinkStatus =
+  | { status: 'none' | 'expired' | 'linked' | 'cancelled' }
+  | { status: 'pending'; expiresAt: number }
+  | { status: 'awaiting_web'; expiresAt: number; telegram: { username: string | null; firstName: string | null } }
+  | { status: 'conflict'; conflict: string };
+
+/** GET /api/account/link/telegram/:code (Mini App): the web account that asks, and whether this account has progress. */
+export interface LinkPeek {
+  displayName: string;
+  emailMasked: string | null;
+  conflict: boolean;
+}
+
+/** One side of a link conflict (server/src/account/conflicts.ts SideSummary). */
+export interface ConflictSide {
+  displayName: string;
+  signIn: ('telegram' | 'password')[];
+  campaignDay: number | null;
+  heroes: number;
+  duelRating: number | null;
+  war: { regions: number } | null;
+  purchases: boolean;
+  createdAt: number;
+}
+
+/** GET /api/account/conflict/:id (the web session it is bound to). */
+export interface ConflictView {
+  kind: 'telegram' | 'email';
+  this: ConflictSide;
+  other: ConflictSide;
+  forced?: 'this' | 'other';
+  reason?: 'purchases';
+  choices: { web: 'this' | 'other' | null; telegram: 'this' | 'other' | null };
+  expiresAt: number;
+}
+
+/** POST /api/account/conflict/telegram (Mini App): a conflict this Telegram user must decide. */
+export interface TelegramConflict {
+  id: string;
+  kind: 'telegram' | 'email';
+  telegram: ConflictSide;
+  web: ConflictSide & { emailMasked: string | null };
+  forced?: 'telegram' | 'web';
+  reason?: 'purchases';
+  choices: { telegram: 'telegram' | 'web' | null; web: 'telegram' | 'web' | null };
+  expiresAt: number;
+}
+
+type ResolveResult = { status: 'waiting_telegram' } | { status: 'resolved'; kept: 'this' | 'other'; switched: boolean };
+
 export class ApiClient {
   token: string | null = null;
   readonly base: string;
   private readonly fetchFn: FetchLike;
   private readonly timeoutMs: number;
+  private readonly transportOf: () => Auth['transport'];
   reauth?: () => Promise<string | null>;
   /** Extra headers on every request (src/platform/monitoring.ts: app version, platform, analytics opt-out). */
   extraHeaders?: () => Record<string, string>;
@@ -287,13 +394,20 @@ export class ApiClient {
     this.fetchFn = f ?? (() => Promise.reject(new TypeError('fetch unavailable')));
     this.timeoutMs = opts.timeoutMs ?? 8000;
     this.reauth = opts.reauth;
+    this.transportOf = opts.transport ?? (() => platform.auth.transport);
+  }
+
+  /** 'bearer': the token goes in a header and no cookies are sent (Telegram); 'cookie': the same-origin session cookie (web). */
+  get transport(): Auth['transport'] {
+    return this.transportOf();
   }
 
   async request<T>(method: string, path: string, opts: RequestOpts = {}): Promise<T> {
     try {
       return await this.once<T>(method, path, opts);
     } catch (e) {
-      if (opts.auth && isApiError(e) && e.status === 401 && this.reauth) {
+      // only a lost session signs in again: a 401 asking for a proof (reauth_required, a wrong password, stale initData) is the caller's
+      if (opts.auth && opts.reauth !== false && isApiError(e) && e.status === 401 && (e.code === 'unauthorized' || e.code === 'http_401') && this.reauth) {
         const t = await this.reauth().catch(() => null);
         if (t) {
           this.token = t;
@@ -312,10 +426,9 @@ export class ApiClient {
       /* headers are best effort */
     }
     if (opts.body !== undefined) headers['content-type'] = 'application/json';
-    if (opts.auth) {
-      if (!this.token) throw new ApiError(401, 'unauthorized', 'Not signed in');
-      headers.authorization = `Bearer ${this.token}`;
-    }
+    const transport = this.transport;
+    if (opts.auth && this.token) headers.authorization = `Bearer ${this.token}`;
+    else if (opts.auth && transport === 'bearer') throw new ApiError(401, 'unauthorized', 'Not signed in');
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
     let timedOut = false;
     const ms = opts.timeoutMs ?? this.timeoutMs;
@@ -335,7 +448,8 @@ export class ApiClient {
           headers,
           body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
           signal: ctl?.signal,
-          credentials: 'omit',
+          // a bearer token never rides with cookies (the server refuses both on one request)
+          credentials: transport === 'cookie' && !headers.authorization ? 'same-origin' : 'omit',
         }),
         timeout,
       ]);
@@ -377,6 +491,160 @@ export class ApiClient {
     const r = await this.request<AuthResponse>('POST', '/api/auth/telegram', { body: { initData } });
     this.token = r.token;
     return r;
+  }
+
+  /** The session's player: on the web, whether a session cookie is live (401 when not). */
+  me(): Promise<MeResponse> {
+    return this.request<MeResponse>('GET', '/api/me', { auth: true, reauth: false });
+  }
+
+  // ---- the web's email forms (V6-ACCT-03/05, ADR-0008 §4): same-origin; the server sets or clears the session cookie
+
+  /** Always `202 check_email` for a well-formed request, whether or not the address has an account (M-AF-3). */
+  signup(email: string, password: string, turnstile: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/auth/signup', { body: { email, password, turnstile } });
+  }
+
+  /** A new cookie session; `401 invalid_credentials` for an unknown email, a wrong password and a locked address alike. */
+  login(email: string, password: string, turnstile: string): Promise<{ player: PlayerInfo; expiresAt: number }> {
+    return this.request('POST', '/api/auth/login', { body: { email, password, turnstile } });
+  }
+
+  /** Always `202 check_email` (no account disclosure). */
+  resetRequest(email: string, turnstile: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/auth/reset/request', { body: { email, turnstile } });
+  }
+
+  /** A new link for a pending sign-up; always `202 check_email`. */
+  resendVerify(email: string, turnstile: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/auth/verify/resend', { body: { email, turnstile } });
+  }
+
+  /** Ends this session (the server clears the cookie). A 401 is final: there was nothing to end. */
+  logout(): Promise<{ ok: true }> {
+    return this.request('POST', '/api/auth/logout', { auth: true, reauth: false });
+  }
+
+  /** Ends every session of the player, this one included (ADR-0008 §3; accounts-v6.md §14 Q6). */
+  logoutAll(): Promise<{ ok: true }> {
+    return this.request('POST', '/api/auth/logout-all', { auth: true, reauth: false });
+  }
+
+  /** The player's signed-in devices (a handle each, never a token). */
+  sessions(): Promise<{ sessions: SessionInfo[] }> {
+    return this.request('GET', '/api/auth/sessions', { auth: true });
+  }
+
+  /** Ends one session by its 12-character handle (`404` when it is already gone). */
+  revokeSession(handle: string): Promise<{ ok: true }> {
+    return this.request('DELETE', `/api/auth/sessions/${encodeURIComponent(handle)}`, { auth: true });
+  }
+
+  /** The caller's account summary (ADR-0009; accounts-v6.md §8.2 AU-09). */
+  account(): Promise<AccountSummary> {
+    return this.request('GET', '/api/account', { auth: true });
+  }
+
+  /** Show me on the public boards of pixelarrow.app (ADR-0010; in-game boards always show the player). */
+  setPublicBoards(enabled: boolean): Promise<{ publicBoards: boolean }> {
+    return this.request('PUT', '/api/account/public-boards', { auth: true, body: { enabled } });
+  }
+
+  /**
+   * A new display name (V6-LINK-07; ADR-0009 §6): `400 invalid_name {reason}`, `409 taken`,
+   * `429 cooldown {nextChangeAt}`, `423 locked {lockedUntil}`.
+   */
+  rename(name: string): Promise<{ displayName: string; name: NameStatus }> {
+    return this.request('PUT', '/api/account/name', { auth: true, body: { name } });
+  }
+
+  /** Sensitive. Deletes the account now and for good (ADR-0009 §7); `409 busy_try_later`. The body's word is always the English one. */
+  deleteAccount(): Promise<{ status: 'done' | 'resumable' }> {
+    return this.request('DELETE', '/api/account', { auth: true, body: { confirm: 'DELETE' } });
+  }
+
+  // ---- sign-in method management (V6-LINK-05; server/src/account/routes.ts, V6-049). Routes marked
+  // sensitive answer `401 reauth_required` without a proof from the last 10 minutes.
+
+  /** A fresh proof for this session (AU-10): the account's password, or Telegram initData at most 10 minutes old. */
+  reauthWith(proof: { password: string } | { initData: string }): Promise<{ reauthUntil: number }> {
+    return this.request('POST', '/api/account/reauth', { auth: true, body: proof });
+  }
+
+  /** Sensitive. Emails an add_email link (`202 check_email`); `409 already_has_email` when the account has one. */
+  addEmail(email: string, password: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/account/email', { auth: true, body: { email, password } });
+  }
+
+  /** Sensitive. Emails a change_email link to the new address (`202`); `400 same_email`, `400 no_password`. */
+  changeEmail(email: string): Promise<{ status: 'check_email' }> {
+    return this.request('POST', '/api/account/email/change', { auth: true, body: { email } });
+  }
+
+  /** Sensitive. Removes a sign-in method; `409 last_login_method` for the only one. `signedOut`: this session ended with it. */
+  removeMethod(kind: 'telegram' | 'password'): Promise<{ ok: true; signedOut: boolean }> {
+    return this.request('DELETE', `/api/account/identities/${kind}`, { auth: true });
+  }
+
+  /** Every other session ends; `401 invalid_credentials` for a wrong current password (it counts toward the lockout). */
+  changePassword(current: string, next: string): Promise<{ ok: true }> {
+    return this.request('POST', '/api/auth/password', { auth: true, body: { current, next } });
+  }
+
+  // ---- web → Telegram linking (V6-LINK-06). initData goes in the body, never the URL; ids are base64url.
+
+  /** Sensitive (web). A new link code for this session; `409 already_linked`, `429 rate_limited`. */
+  linkStart(): Promise<LinkCode> {
+    return this.request('POST', '/api/account/link/telegram', { auth: true });
+  }
+
+  /** The web closed the sheet or said "Not me": this session's unspent code goes. */
+  linkAbandon(): Promise<{ ok: true }> {
+    return this.request('DELETE', '/api/account/link/telegram', { auth: true });
+  }
+
+  linkStatus(): Promise<LinkStatus> {
+    return this.request('GET', '/api/account/link/telegram/status', { auth: true });
+  }
+
+  /** Sensitive (web). Links, or opens a conflict both sides must decide. */
+  linkConfirm(): Promise<{ linked: true; removedEmpty?: true } | { conflict: string }> {
+    return this.request('POST', '/api/account/link/telegram/confirm', { auth: true });
+  }
+
+  /** Mini App: who asks (`410 link_expired`, `409 already_linked`). */
+  linkPeek(code: string): Promise<LinkPeek> {
+    return this.request('GET', `/api/account/link/telegram/${encodeURIComponent(code)}`, { auth: true });
+  }
+
+  /** Mini App "Link": records this Telegram account on the code; links nothing until the web confirms. */
+  linkComplete(initData: string): Promise<{ status: 'awaiting_web' }> {
+    return this.request('POST', '/api/account/link/telegram/complete', { auth: true, body: { initData } });
+  }
+
+  /** Mini App "Not me", at any step: cancels the code and this Telegram user's conflicts. */
+  linkNotMe(initData: string): Promise<{ cancelled: number }> {
+    return this.request('POST', '/api/account/link/telegram/cancel', { auth: true, body: { initData } });
+  }
+
+  /** Sensitive (web). Both sides of a conflict, and each side's choice so far. */
+  conflict(id: string): Promise<ConflictView> {
+    return this.request('GET', `/api/account/conflict/${encodeURIComponent(id)}`, { auth: true });
+  }
+
+  /** Sensitive (web). The web side's choice with the loser's name typed: `202 waiting_telegram` until the Mini App agrees. */
+  resolveConflict(id: string, keep: 'this' | 'other', confirm: string): Promise<ResolveResult> {
+    return this.request('POST', `/api/account/conflict/${encodeURIComponent(id)}/resolve`, { auth: true, body: { keep, confirm } });
+  }
+
+  /** Mini App: the conflicts this Telegram user must decide. */
+  telegramConflicts(initData: string): Promise<{ conflicts: TelegramConflict[] }> {
+    return this.request('POST', '/api/account/conflict/telegram', { auth: true, body: { initData } });
+  }
+
+  /** Mini App: the Telegram owner's choice (initData of a launch newer than the "Link" tap); never resolves alone. */
+  chooseFromTelegram(id: string, initData: string, keep: 'telegram' | 'web'): Promise<{ status: 'waiting_web' }> {
+    return this.request('POST', `/api/account/conflict/${encodeURIComponent(id)}/telegram`, { auth: true, body: { initData, keep } });
   }
 
   /** Local development only: needs DEV_AUTH=1 on a local `wrangler dev`. */

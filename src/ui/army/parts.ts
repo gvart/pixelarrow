@@ -19,6 +19,9 @@ import { GROUP_COLOR, MOSAIC, ACCENT, TEXT_MIN, lineHeight } from '../tokens';
 import { GAP, GearSlot, MBadge, MButton, MIconButton, TAP, addNiche, addPortraitWell, addRowFace, mosaicImage, mountSlot, mtext, mw, slotGrid, type MButtonOpts } from '../mosaic';
 import { makePressable, wrapWords } from '../mosaic/base';
 import { navLayer } from '../../platform/nav';
+import { openParchmentSheet, sheetBox, SHEET_TITLE_H } from '../mosaic/ParchmentSheet';
+import { layoutVariant, type ClassOf } from '../mosaic/layout/variant';
+import type { UIMetrics } from '../kit';
 import { t } from '../../i18n';
 import { heroName } from '../../i18n/names';
 import { addClassBust } from './busts';
@@ -103,11 +106,14 @@ export interface HeadResult {
  * class bust in the niche's corner; name, class, Lv and role pills, Power and rank stars; group
  * buttons I-IV and the group's name; the gear slots in the shared order (ARM-8).
  */
+/** Where the hero card draws his figure's niche, in the card (a screen may make the figure tappable). */
+export const HEAD_NICHE = { x: 5, y: 5, w: 56, h: 72 } as const;
+
 export function addArmyHead(scene: Phaser.Scene, parent: C, x0: number, y0: number, cw: number, h: Hero, src: ArmySource, o: HeadOpts): HeadResult {
   const cls = heroClass(h);
-  const P = 5;
-  const nw = 56;
-  const nh = 72;
+  const P = HEAD_NICHE.x;
+  const nw = HEAD_NICHE.w;
+  const nh = HEAD_NICHE.h;
   const card = scene.add.container(x0, y0);
   const bg = mosaicImage(scene, 0, 0, cw, 10, 'parchment');
   card.add(bg);
@@ -335,7 +341,9 @@ export interface OptionSheetOpts<T> {
  * Pick one of a few options on a sheet over a scrim (P11): two columns of bronze buttons, the
  * current one lit with a check (G13). The X, a tap outside and Back close it.
  */
-export function openOptionSheet<T>(scene: Phaser.Scene & { ui: C; m: { VW: number; VH: number } }, frame: { x: number; w: number; bottom: number }, o: OptionSheetOpts<T>): C {
+export function openOptionSheet<T>(scene: Phaser.Scene & { ui: C; m: { VW: number; VH: number } & Partial<ClassOf> }, frame: { x: number; w: number; bottom: number }, o: OptionSheetOpts<T>): C {
+  const m = scene.m;
+  if (m.cls && m.land !== undefined && layoutVariant(m as ClassOf) !== 'compactPortrait') return optionPanel(scene as Phaser.Scene & { ui: C; m: UIMetrics }, o);
   const root = scene.add.container(0, 0);
   scene.ui.add(root);
   const scrim = scene.add.rectangle(0, 0, scene.m.VW, scene.m.VH, 0x0d0907, 0.45).setOrigin(0, 0);
@@ -378,6 +386,42 @@ export function openOptionSheet<T>(scene: Phaser.Scene & { ui: C; m: { VW: numbe
   uiId(sheet, o.id);
   navLayer(root, close, scene);
   return root;
+}
+
+/**
+ * Outside compact portrait the same options on a task sheet (landscape-v6 §3.4: a right side panel in
+ * landscape, a bottom sheet at medium), laid out across the panel it is given: one column of bronze buttons
+ * while the panel is narrow, two once each keeps 100 UI px.
+ */
+function optionPanel<T>(scene: Phaser.Scene & { ui: C; m: UIMetrics }, o: OptionSheetOpts<T>): C {
+  const P = 8;
+  const want = { title: o.title, w: 220, h: 0, id: o.id };
+  const box = sheetBox(scene, { ...want, h: scene.m.VH });
+  const inner = box.w - P * 2;
+  const cols = inner >= 200 + GAP ? 2 : 1;
+  const rows = Math.ceil(o.options.length / cols);
+  const s = openParchmentSheet(scene, { ...want, w: box.w, h: SHEET_TITLE_H + rows * (TAP + GAP) - GAP + P * 2 });
+  const bw = Math.floor((s.w - P * 2 - GAP * (cols - 1)) / cols);
+  // swallow taps on the panel itself (only the shade closes it), as the v5 sheet's `.bg`
+  const hit = scene.add.zone(s.x, s.y, s.w, s.h).setOrigin(0, 0).setInteractive();
+  s.c.addAt(hit, 1);
+  uiId(hit, `${o.id}.bg`);
+  o.options.forEach((op, i) => {
+    const on = op.id === o.selected;
+    s.c.add(
+      new MButton(scene, s.x + P + (i % cols) * (bw + GAP), s.body.y + Math.floor(i / cols) * (TAP + GAP), bw, TAP, {
+        label: op.label,
+        icon: on ? 'check' : undefined,
+        variant: on ? 'lit' : 'secondary',
+        id: `${o.id}.${String(op.id)}`,
+        onClick: () => {
+          s.close();
+          o.onPick(op.id);
+        },
+      }),
+    );
+  });
+  return s.c;
 }
 
 /** Make a plain row container tappable inside the page's scroll area (a drag scrolls, a tap selects). */

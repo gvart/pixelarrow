@@ -1,5 +1,6 @@
 /** Telegram Stars purchase bookkeeping (D1). */
-import { getPlayerByTelegramId, upsertPlayer } from './players';
+import { getPlayerByTelegramId } from './players';
+import { upsertTelegramPlayer } from './auth/identity';
 import { getProduct, parsePayload } from './products';
 import type { TelegramUser } from './telegramAuth';
 import { creditOnce } from './economy/wallet';
@@ -52,7 +53,7 @@ export async function checkPreCheckout(db: D1Database, q: PreCheckoutQuery): Pro
 export async function recordPayment(db: D1Database, from: TelegramUser, pay: SuccessfulPayment, now = Date.now()): Promise<boolean> {
   const parsed = parsePayload(pay.invoice_payload);
   const productId = parsed?.productId ?? 'unknown';
-  const player = (await getPlayerByTelegramId(db, from.id)) ?? (await upsertPlayer(db, from, now));
+  const player = (await getPlayerByTelegramId(db, from.id)) ?? (await upsertTelegramPlayer(db, from, now)).player;
 
   const ins = await db
     .prepare(

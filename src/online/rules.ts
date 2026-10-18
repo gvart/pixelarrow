@@ -26,7 +26,7 @@ export const RESOURCE_KEYS: (keyof Resources)[] = ['gold', 'food', 'wood', 'bron
 const R = (gold = 0, food = 0, wood = 0, bronze = 0, recruits = 0): Resources => ({ gold, food, wood, bronze, recruits });
 
 /** Hourly yield of a held plot by its ground: fields feed, forests give wood, hills bronze, scrub and coast a little of everything. */
-export const PLOT_INCOME: Record<RegionInfo['site']['base'], Resources> = {
+const PLOT_INCOME: Record<RegionInfo['site']['base'], Resources> = {
   plain: R(2, 6),
   forest: R(1, 1, 6),
   hills: R(2, 0, 1, 4),
@@ -34,7 +34,7 @@ export const PLOT_INCOME: Record<RegionInfo['site']['base'], Resources> = {
   beach: R(4, 3),
 };
 /** What the other kinds of region pay (forts and capitals on top of their ground). */
-export const KIND_INCOME: Record<Exclude<RegionInfo['kind'], 'plot'>, Resources> = {
+const KIND_INCOME: Record<Exclude<RegionInfo['kind'], 'plot'>, Resources> = {
   town: R(12, 2, 0, 0, 0.3),
   fort: R(8, 2, 2, 2, 0.1),
   capital: R(35, 10, 5, 5, 0.6),
@@ -44,7 +44,7 @@ export const KIND_INCOME: Record<Exclude<RegionInfo['kind'], 'plot'>, Resources>
 };
 
 /** Season ranking points per held region. */
-export const SCORE = { region: 1, town: 3, fort: 10, capital: 100 } as const;
+const SCORE = { region: 1, town: 3, fort: 10, capital: 100 } as const;
 
 export function regionScore(r: Pick<RegionInfo, 'kind'>): number {
   return r.kind === 'capital' ? SCORE.capital : r.kind === 'fort' ? SCORE.fort : r.kind === 'town' ? SCORE.town : SCORE.region;
@@ -144,7 +144,6 @@ export function addResources(a: Resources, b: Resources): Resources {
 // ------------------------------------------------------------------ clans
 
 export type ClanRole = 'leader' | 'officer' | 'member';
-export const CLAN_ROLES: ClanRole[] = ['leader', 'officer', 'member'];
 const RANK: Record<ClanRole, number> = { leader: 3, officer: 2, member: 1 };
 
 export function canInvite(role: ClanRole): boolean {
@@ -164,7 +163,7 @@ export function canPromote(actor: ClanRole, target: ClanRole, to: ClanRole): boo
 export const CLAN_INVITE_PREFIX = 'clan_';
 
 /** Telegram deep link that opens the Mini App with start_param clan_<code>. */
-export function clanInviteLink(botUsername: string | null, code: string, appName = 'play', fallbackUrl = 'https://pixelarrow.app/'): string {
+export function clanInviteLink(botUsername: string | null, code: string, appName = 'play', fallbackUrl = 'https://play.pixelarrow.app/'): string {
   if (botUsername) return `https://t.me/${botUsername}/${appName}?startapp=${CLAN_INVITE_PREFIX}${code}`;
   return `${fallbackUrl}?startapp=${CLAN_INVITE_PREFIX}${code}`;
 }
@@ -247,13 +246,13 @@ export const CAMP_RULES = {
   restCooldownMs: 4 * 60 * 60_000,
 };
 
-export interface CampLevel {
+interface CampLevel {
   cost: Resources;
   /** Construction time. */
   minutes: number;
 }
 
-export interface CampBuildingDef {
+interface CampBuildingDef {
   id: CampBuildingId;
   /** Per level (index 0 = level 1). */
   levels: [CampLevel, CampLevel, CampLevel];
@@ -311,8 +310,6 @@ export const CAMP_BUILDINGS: Record<CampBuildingId, CampBuildingDef> = {
 export const PALISADE = { garrison: [0, 2, 4, 6], militia: [0, 1, 2, 3] } as const;
 /** Extra sight (routes) from a camp with a watchtower, per level. */
 export const WATCHTOWER_SIGHT = [0, 1, 1, 2] as const;
-/** The most extra sight any camp can have (for "who might see this" filters). */
-export const MAX_TOWER_SIGHT = 2;
 
 /** Cost and time to reach `level` (1..maxLevel) of a building. */
 export function campLevelCost(id: CampBuildingId, level: number): CampLevel {

@@ -7,18 +7,18 @@
  */
 import Phaser from 'phaser';
 import { scaleIcon, Button, Meter, ScrollArea, addIcon, addText, mosaicPanelImage, tappable, type FontKey } from './kit';
-import { Badge, ItemIcon, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
+import { ItemIcon, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
-import { SIZE, COLOR, RARITY_COLOR } from './theme';
+import { SIZE, COLOR } from './theme';
 import { addPill } from './mosaic/pill';
 import { ensureFonts, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
 import { rarityInkKey } from './mosaic/rarityInk';
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
-import { renderStage, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
+import { renderStage, ROLE_COLOR } from '../art/sheetArt';
 import { ANIM, attackLength, dollFromHero, dollGeom, weaponClass } from '../art/paperdoll';
-import { isBound, itemDef, itemValue, normalizeRarity, salvageValue, SLOTS, type Item, type Slot, type StatMods } from '../data/items';
+import { isBound, itemDef, itemValue, normalizeRarity, salvageValue, type Item, type Slot, type StatMods } from '../data/items';
 import { POWERS, itemPower, powerText } from '../data/affixes';
 import { SETS, SET_SPECIAL_TEXT, setPieces } from '../data/sets';
 import { classesFor, gearPenalty, requirements, shortfall } from '../data/gearRules';
@@ -32,8 +32,12 @@ import {
 import { t, tOr, type TKey } from '../i18n';
 import { heroName } from '../i18n/names';
 import { fmtCount, fmtDecimal, localDecimals } from '../i18n/numbers';
-import { ROLE } from './tokens';
+import { MOSAIC, ROLE } from './tokens';
+import { CURSOR_CSS } from './input/cursor';
+import { dropView } from './army/drop';
 import { arrangeActions } from './mosaic/overlays';
+import { addParchmentPane, sheetBox } from './mosaic/ParchmentSheet';
+import { BUTTON_MAX } from './sizeClass';
 
 export const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
 export const ROMAN = ['I', 'II', 'III', 'IV'];
@@ -65,7 +69,7 @@ function tex(scene: Phaser.Scene, key: string, make: () => { toCanvas(): HTMLCan
   return key;
 }
 
-export function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: number): string {
+function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: number): string {
   return tex(scene, `stage_${w}x${h}_${accent.toString(16)}`, () => renderStage(w, h, accent));
 }
 
@@ -98,14 +102,6 @@ export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Contain
   return max * 8 - 1;
 }
 
-/** A round group badge with its roman numeral (12 x 12). With `legend`, a tap says which battle group it is. */
-export function addGroupBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, group: number, legend?: { area?: ScrollArea | null }): void {
-  parent.add(scene.add.image(Math.round(x), Math.round(y), tex(scene, `gbadge_${group}`, () => renderGroupBadge(group))).setOrigin(0, 0));
-  const n = ROMAN[group] ?? '?';
-  parent.add(addText(scene, Math.round(x + 6), Math.round(y + 2), n, 'light', 0.5));
-  if (legend) addLegend(scene, parent, x - 5, y - 5, 22, 22, t('legend.group', { n, name: tOr(`group.${group}`, n) }), legend.area ?? null, 'legend.group');
-}
-
 /**
  * An invisible tap target over a symbol that explains it (a legend on tap:
  * rank diamonds, group numerals, the sync cloud). Inside a scroll list pass
@@ -124,7 +120,7 @@ export const roleColor = (role: string): number => (ROLE as Record<string, numbe
 
 // ------------------------------------------------------------------ portrait stage
 
-export interface StageOpts {
+interface StageOpts {
   /** Facing row (default 0: three-quarter view, weapon side). */
   dir?: number;
   /** Doll scale (1 or 2). */
@@ -242,52 +238,9 @@ export class Stage extends Phaser.GameObjects.Container {
   }
 }
 
-// ------------------------------------------------------------------ equipment slot tiles
-
-export interface SlotTileOpts {
-  size?: number;
-  selected?: boolean;
-  onTap: () => void;
-  area?: ScrollArea | null;
-}
-
-/** An equipment slot: the item in its rarity frame (with a condition pip), or an empty slot with the slot icon. */
-export function addSlotTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, slot: Slot, it: Item | undefined, o: SlotTileOpts): Phaser.GameObjects.GameObject {
-  const size = o.size ?? SIZE.cell;
-  if (it) {
-    const ic = new ItemIcon(scene, x, y, { item: it }, { size, onTap: o.onTap, area: o.area, selected: o.selected });
-    uiId(ic, `slot:${slot}`);
-    parent.add(ic);
-    // condition pip along the bottom edge
-    const cm = new Meter(scene, x + 3, y + size - 4, size - 6, 2, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100);
-    parent.add(cm);
-    return ic;
-  }
-  const bg = mosaicPanelImage(scene, x, y, size, size, o.selected ? 'parchmentSel' : 'parchmentWell');
-  bg.setInteractive();
-  uiId(bg, `slot:${slot}`);
-  tappable(bg, o.area ?? null, o.onTap, t(`slot.${slot}` as TKey));
-  parent.add(bg);
-  parent.add(addIcon(scene, x + Math.round((size - 12) / 2), y + Math.round((size - 12) / 2), SLOT_ICON[slot], o.selected ? '' : 'D'));
-  return bg;
-}
-
-/** The mount of a riding class: a framed tile (not an item: the class rides it). */
-export function addMountTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, hero: Hero, size: number = SIZE.cell): void {
-  const cls = heroClass(hero);
-  if (!cls.mount) return;
-  const bg = mosaicPanelImage(scene, x, y, size, size, 'parchmentWell');
-  bg.setInteractive();
-  uiId(bg, 'slot:mount');
-  const name = tOr(`mount.${cls.mount}`, cls.mount);
-  tappable(bg, null, () => showTooltip(scene, `${name}\n${t('hero.mountTip')}`, bg), name);
-  parent.add(bg);
-  parent.add(addIcon(scene, x + Math.round((size - 12) / 2), y + Math.round((size - 12) / 2), cls.mount === 'chariot' ? 'f_wedge' : 'advance', 'D'));
-}
-
 // ------------------------------------------------------------------ drag and drop
 
-export interface DropTarget {
+interface DropTarget {
   rect: () => { x: number; y: number; w: number; h: number };
   accepts: (it: Item) => boolean;
   drop: (it: Item) => void;
@@ -304,9 +257,30 @@ export class DragDrop {
   targets: DropTarget[] = [];
 
   constructor(private scene: UiScene) {
-    scene.input.on('pointermove', (p: Phaser.Input.Pointer) => this.ghost?.setPosition(p.x / scene.m.S, p.y / scene.m.S - 6));
+    scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (!this.ghost) return;
+      this.ghost.setPosition(p.x / scene.m.S, p.y / scene.m.S - 6);
+      this.mark(p);
+    });
     scene.input.on('pointerup', (p: Phaser.Input.Pointer) => this.end(p));
   }
+
+  /** The slots that take the item outlined, full strength under the pointer; the §4 cursor for a mouse (V6-RSCR-05). */
+  private mark(p: Phaser.Input.Pointer): void {
+    const it = this.item;
+    const g = this.marks;
+    if (!it || !g) return;
+    const { S } = this.scene.m;
+    const v = dropView(this.targets.map((tg) => ({ rect: tg.rect(), ok: tg.accepts(it) })), p.x / S, p.y / S);
+    g.clear();
+    for (const mk of v.marks) dashedRect(g, mk.rect.x - 2, mk.rect.y - 2, mk.rect.w + 4, mk.rect.h + 4, mk.alpha);
+    if (p.wasTouch) return;
+    const canvas = this.scene.sys.game.canvas;
+    if (canvas) canvas.style.cursor = CURSOR_CSS[v.cursor];
+    this.cursorSet = true;
+  }
+
+  private cursorSet = false;
 
   get dragging(): boolean {
     return !!this.ghost;
@@ -315,6 +289,14 @@ export class DragDrop {
   /** Make `icon` draggable (long press). `area`: the scroll area it sits in. */
   attach(icon: Phaser.GameObjects.GameObject, it: Item, area: ScrollArea | null): void {
     let timer: Phaser.Time.TimerEvent | null = null;
+    // a mouse over a stash item shows that it can be picked up (§4: grab), after the hand the control set
+    icon.on('pointerover', (p: Phaser.Input.Pointer) => {
+      if (p.wasTouch || this.ghost) return;
+      const g = icon as Phaser.GameObjects.GameObject & { input?: { cursor?: string } | null };
+      if (g.input) g.input.cursor = CURSOR_CSS.grab;
+      const canvas = this.scene.sys.game.canvas;
+      if (canvas) canvas.style.cursor = CURSOR_CSS.grab;
+    });
     icon.on('pointerdown', (p: Phaser.Input.Pointer) => {
       timer?.remove();
       timer = this.scene.time.delayedCall(300, () => {
@@ -337,13 +319,8 @@ export class DragDrop {
     this.scene.ui.add(this.ghost);
     this.marks = this.scene.add.graphics();
     this.scene.ui.add(this.marks);
-    for (const tg of this.targets) {
-      if (!tg.accepts(it)) continue;
-      const r = tg.rect();
-      this.marks.lineStyle(2, 0xffe080, 1);
-      this.marks.strokeRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
-    }
-    this.scene.tweens.add({ targets: this.marks, alpha: { from: 1, to: 0.35 }, duration: 380, yoyo: true, repeat: -1 });
+    // the drop targets light on drag start (§3.3, §4)
+    this.mark(p);
     this.scene.ui.bringToTop(this.ghost);
   }
 
@@ -368,7 +345,29 @@ export class DragDrop {
     this.marks?.destroy();
     this.marks = null;
     this.item = null;
+    if (this.cursorSet) {
+      this.cursorSet = false;
+      const canvas = this.scene.sys.game.canvas;
+      if (canvas) canvas.style.cursor = '';
+    }
   }
+}
+
+/** A bronze dashed outline (a drop target, §4): 3 px dashes with 2 px gaps. */
+function dashedRect(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, alpha: number): void {
+  g.lineStyle(2, MOSAIC.bronzeHi, alpha);
+  const DASH = 3;
+  const GAP_ = 2;
+  const side = (x0: number, y0: number, dx: number, dy: number, len: number) => {
+    for (let d = 0; d < len; d += DASH + GAP_) {
+      const e = Math.min(len, d + DASH);
+      g.lineBetween(x0 + dx * d, y0 + dy * d, x0 + dx * e, y0 + dy * e);
+    }
+  };
+  side(x, y, 1, 0, w);
+  side(x, y + h, 1, 0, w);
+  side(x, y, 0, 1, h);
+  side(x + w, y, 0, 1, h);
 }
 
 /** UI-pixel bounds of an object inside the scene's UI root. */
@@ -426,7 +425,7 @@ function modsText(m: StatMods): string {
  * bonuses the hero has lit, what it asks for (red when the hero is short, with
  * the penalty) and which classes may use it (red when the hero's may not).
  */
-export function itemRuleLines(it: Item, hero: Hero | undefined, w: number): { text: string; font: FontKey }[] {
+function itemRuleLines(it: Item, hero: Hero | undefined, w: number): { text: string; font: FontKey }[] {
   const def = itemDef(it.def);
   const out: { text: string; font: FontKey }[] = [];
   const add = (text: string, font: FontKey, max = 2) => {
@@ -476,12 +475,38 @@ export function equipRefusal(h: Hero, it: Item): string | undefined {
 export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   ensureFonts(scene);
   const { VW, VH } = scene.m;
+  // v5's card width; a side panel (landscape, V6-RSCR-05) lays the card out across the panel it is given
+  const v5w = Math.min(VW - 12, 210);
+  const box = sheetBox(scene, { w: v5w, h: VH });
+  const w = box.presentation === 'side' ? box.w : v5w;
+  const k = measureItemCard(o, w);
+  const m = openModal(scene, { title: o.title ?? (k.cmp ? t('stash.compare') : t('stash.item')), w, h: Math.min(k.want, VH - 12) });
+  const area = drawItemCard(scene, m.c, m.x, m.y, w, m.h, o, k, box.presentation === 'side', m.close);
+  m.c.once('destroy', () => area.destroy());
+  return m;
+}
+
+/**
+ * The item card in place, as a detail pane beside a list (design/ux/landscape-v6.md §3.3): the card's
+ * parchment and title in `box`, its content laid out across the pane; an action does what it does on the
+ * card (nothing closes). Returns the pane's container (`destroy` takes its scroll area with it).
+ */
+export function addItemCardPane(scene: UiScene, parent: Phaser.GameObjects.Container, box: { x: number; y: number; w: number; h: number }, o: ItemCardOpts & { id?: string }): Phaser.GameObjects.Container {
+  ensureFonts(scene);
+  const k = measureItemCard(o, box.w);
+  const pane = addParchmentPane(scene, parent, box, { title: o.title ?? (k.cmp ? t('stash.compare') : t('stash.item')), id: o.id });
+  const area = drawItemCard(scene, pane.c, box.x, box.y, box.w, box.h, o, k, true, () => {});
+  pane.c.once('destroy', () => area.destroy());
+  return pane.c;
+}
+
+type ItemCardLayout = ReturnType<typeof measureItemCard>;
+
+/** The item card's content measured for a card `w` wide. */
+function measureItemCard(o: ItemCardOpts, w: number) {
   const it = o.item;
   const def = itemDef(it.def);
-  const rarity = normalizeRarity(it.rarity);
-  const w = Math.min(VW - 12, 210);
   const inner = w - 16;
-  // ---- measure the content
   const cmp = o.hero && !o.equipped ? compareItem(o.hero, it) : null;
   const changed = cmp ? cmp.deltas.filter((d) => d.better !== null) : [];
   const mods = itemModLines(it, o.hero?.attrs).map((ml) => ({ ...ml, text: localDecimals(ml.text) }));
@@ -497,8 +522,16 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   const bodyH = cmpH + modsH + rules.length * LINE_H + (rules.length ? 4 : 0) + desc.lines.length * LINE_H + 4 + notes.length * LINE_H;
   const footH = o.actions.length ? SIZE.btnH + 10 : 0;
   const want = 26 + headH + bodyH + footH + 8;
-  const m = openModal(scene, { title: o.title ?? (cmp ? t('stash.compare') : t('stash.item')), w, h: Math.min(want, VH - 12) });
-  const { c, x, y, h } = m;
+  return { cmp, changed, mods, desc, notes, rules, headH, cmpH, modName, modCols, footH, want };
+}
+
+/** The card's content into `c` (header, scrolling body, actions) in the card box x, y, w, h; returns its scroll area. */
+function drawItemCard(scene: UiScene, c: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, o: ItemCardOpts, k: ItemCardLayout, side: boolean, close: () => void): ScrollArea {
+  const { cmp, changed, mods, desc, notes, rules, headH, cmpH, modName, modCols, footH } = k;
+  const it = o.item;
+  const def = itemDef(it.def);
+  const rarity = normalizeRarity(it.rarity);
+  const inner = w - 16;
   const bx = x + 8;
   let cy = y + 24;
   // ---- header: icon, name, rarity + slot, condition, value
@@ -577,8 +610,11 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     const n = o.actions.length;
     const fy = y + h - 8 - SIZE.btnH;
     const { order, gaps } = arrangeActions(o.actions.map((a) => (a.variant === 'primary' || a.variant === 'destructive' ? a.variant : 'other')), SIZE.gap);
-    const bw = Math.floor((inner - gaps.reduce((s, g) => s + g, 0)) / n);
-    let ax = bx;
+    // in a wide side panel the row keeps each button within the §2.3 cap, at the right (primary under the thumb)
+    const gapW = gaps.reduce((s, g) => s + g, 0);
+    const rowW = side ? Math.min(inner, n * BUTTON_MAX + gapW) : inner;
+    const bw = Math.floor((rowW - gapW) / n);
+    let ax = bx + inner - rowW;
     order.forEach((ai, i) => {
       const a = o.actions[ai];
       if (i > 0) ax += bw + gaps[i - 1];
@@ -588,7 +624,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
         variant: a.variant ?? 'secondary',
         id: a.id,
         onClick: () => {
-          m.close();
+          close();
           a.onClick();
         },
       });
@@ -596,8 +632,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
       c.add(btn);
     });
   }
-  c.once('destroy', () => area.destroy());
-  return m;
+  return area;
 }
 
 // ------------------------------------------------------------------ stash grid with filters
@@ -626,26 +661,7 @@ export interface StashGridOpts {
   price?: (it: Item) => { text: string; font: FontKey } | null;
 }
 
-/** Rarity colour of an item (for frames drawn by hand). */
-export const rarityColor = (it: Item): number => RARITY_COLOR[normalizeRarity(it.rarity)];
-
-/** Group colour (roster badges, group buttons). */
-export const groupColor = (g: number): number => GROUP_COLOR[g] ?? 0x8a7a6a;
-
-/** The equipment slots a hero shows, in sheet order. */
-export const heroSlots = (): Slot[] => SLOTS;
-
 export { FONT_GOOD_LIGHT, FONT_RED_LIGHT };
-
-/**
- * A count badge on the top edge of tab `i` of a Tabs bar at (x, y), width w,
- * n tabs: above the label so it never covers it.
- */
-export function addTabBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, n: number, i: number, count: number | string): void {
-  const tw = Math.floor((w - SIZE.gap * (n - 1)) / n);
-  const right = i === n - 1 ? x + w : x + i * (tw + SIZE.gap) + tw;
-  parent.add(new Badge(scene, right - 6, y + 1, count));
-}
 
 /** An item icon drawn at twice its pixel size inside its rarity frame (cards, details). */
 export function bigItemIcon(scene: Phaser.Scene, x: number, y: number, it: Item, size = 34, opts: { onTap?: () => void } = {}): ItemIcon {
@@ -691,7 +707,7 @@ export function frameScrollTexts(area: ScrollArea, w: number): void {
 
 // ------------------------------------------------------------------ class card (recruiting)
 
-export interface ClassCardOpts {
+interface ClassCardOpts {
   /** A sample hero of the class (his gear is shown). */
   hero: Hero;
   title?: string;

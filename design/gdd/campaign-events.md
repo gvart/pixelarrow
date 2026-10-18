@@ -1,7 +1,7 @@
 # Overland Event Deck
 
 > **Type**: New Small System (quick-design), extending #19 Overland campaign world
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Vision rank**: 5 of 6
 > **Pillars**: P4 Every man has a name; supports P1 (it sends you into fights with stakes)
 > **Fixes**: MECH C2 (texture), E2 (a gold sink), H4 (a respec source); folds in the deferred "town contracts" (2.5.3) as event chains

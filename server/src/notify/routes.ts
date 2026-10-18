@@ -9,15 +9,15 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
-import { db, requireAuth } from '../middleware';
+import { db, requireSession } from '../middleware';
 import { requireRate } from '../rateLimit';
 import { disabledSet, getSettings, type NotifySettingsRow } from './outbox';
 import { NOTIFY_TYPES, type NotifyType } from './templates';
 
 export const notifyRoutes = new Hono<AppEnv>();
-notifyRoutes.use('*', requireAuth);
+notifyRoutes.use('*', requireSession);
 
-export function settingsView(s: NotifySettingsRow | null) {
+function settingsView(s: NotifySettingsRow | null) {
   const off = disabledSet(s);
   return {
     types: NOTIFY_TYPES.map((type) => ({ type, on: !off.has(type) })),

@@ -2,18 +2,29 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppEnv, Env } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { clientIp, db, secret } from '../middleware';
+import { clientIp, db, requireSession, secret } from '../middleware';
 import { bannedError } from '../ban';
-import { displayName, getPlayerByTelegramId, publicPlayer, upsertPlayer, type PlayerRow } from '../players';
+import { publicPlayer, type PlayerRow } from '../players';
+import { playerByTelegramIdentity, upsertTelegramPlayer } from '../auth/identity';
+import { isBanTombstoned } from '../account/banTombstone';
+import { clearSessionCookie, sessionCookie } from '../auth/cookies';
+import { createSession, deviceLabel, listSessions, revokeAll, revokeSession, type Method } from '../auth/sessions';
+import { changePassword, confirmReset, login, requestReset, resendSignup, signup, tokenPurpose, verifySignup, type EmailPurpose, type FlowDeps } from '../auth/flows';
+import { verifyAddEmail, verifyChangeEmail } from '../account/email';
+import { bindWebSession, proveEmailConflict } from '../account/conflicts';
+import { notifierFor, type Notifier } from '../account/notices';
+import { peppersFromEnv } from '../auth/password';
+import { emailSenderFor } from '../email/sender';
+import { pickLang } from '../email/templates';
+import { readJson } from '../body';
+import { gameOrigins, gameUrl } from '../urls';
+import type { Context, MiddlewareHandler } from 'hono';
 import { optedOut, requestCtx, writeEvent } from '../telemetry/analytics';
-import { requireRate } from '../rateLimit';
-import { signSession } from '../session';
+import { requireLimit } from '../rateLimit';
+import { requireTurnstile } from '../auth/turnstile';
 import { validateInitData, type TelegramUser } from '../telegramAuth';
 
 const MAX_BODY = 8 * 1024;
-/** Per-IP, per-isolate: at most AUTH_LIMIT logins per AUTH_WINDOW_MS. */
-export const AUTH_LIMIT = 20;
-const AUTH_WINDOW_MS = 60_000;
 
 const Body = z.union([
   z.object({ initData: z.string().min(1).max(MAX_BODY) }),
@@ -39,8 +50,8 @@ function devAuthAllowed(env: Env): boolean {
 export const auth = new Hono<AppEnv>();
 
 auth.post('/telegram', async (c) => {
-  requireRate(`auth:${clientIp(c)}`, AUTH_LIMIT, AUTH_WINDOW_MS, 'Too many login attempts, slow down');
-  const sessionSecret = secret(c.env, 'SESSION_SECRET');
+  // Per IP only (ADR-0008 §5.3): initData is HMAC-signed, and Turnstile can't run in the Telegram iframe (N-AF-3).
+  await requireLimit(c.env.RL_TG_AUTH_IP, `tg:${clientIp(c)}`, 'Too many login attempts, slow down');
 
   // Accept either JSON { initData } or the raw initData string as the body.
   let body: z.infer<typeof Body>;
@@ -64,6 +75,9 @@ auth.post('/telegram', async (c) => {
   }
 
   let user: TelegramUser;
+  const now = Date.now();
+  // The session's re-auth proof is as fresh as the initData (ADR-0009 §1): a day-old initData signs in but isn't a fresh proof.
+  let reauthAt = now;
   if ('dev' in body) {
     if (!devAuthAllowed(c.env)) throw new ApiError(403, 'forbidden', 'Dev auth is disabled');
     user = body.dev;
@@ -72,23 +86,210 @@ auth.post('/telegram', async (c) => {
     const result = await validateInitData(body.initData, botToken);
     if (!result.ok) throw new ApiError(401, 'invalid_init_data', `initData rejected: ${result.reason}`);
     user = result.user;
+    reauthAt = Math.min(now, result.authDate * 1000);
   }
 
   const d = db(c.env);
-  const prev = await getPlayerByTelegramId(d, user.id);
-  if (prev?.banned_at) throw bannedError();
-  const now = Date.now();
-  const player = await upsertPlayer(d, user, now);
+  if ((await playerByTelegramIdentity(d, user.id))?.banned_at) throw bannedError();
+  // A deleted banned player's Telegram id stays refused for 180 days (ADR-0009 §7.7).
+  if (await isBanTombstoned(d, () => peppersFromEnv(c.env), 'telegram', String(user.id), now)) throw bannedError();
+  const { prev, player } = await upsertTelegramPlayer(d, user, now);
   if (!optedOut(c) && !prev?.analytics_opt_out) {
     for (const event of retentionEvents(prev, now)) writeEvent(c.env, requestCtx(c, player.id, 'server', daysSince(player.created_at, now)), event, {});
   }
-  const { token, session } = await signSession({ pid: player.id, tg: player.telegram_id, name: displayName(player) }, sessionSecret);
-  return c.json({ token, expiresAt: session.exp, player: publicPlayer(player) });
+  // Telegram always gets a bearer session (ADR-0008 §3): cookies are blocked in its iframe.
+  const { token, session } = await createSession(d, player.id, 'bearer', 'telegram', deviceLabel(c.req.header('user-agent')), now, reauthAt);
+  return c.json({ token, expiresAt: session.expiresAt, player: publicPlayer(player) });
+});
+
+/** Ends this session; a cookie session also gets its cookie cleared. */
+auth.post('/logout', requireSession, async (c) => {
+  const s = c.get('session');
+  await revokeSession(db(c.env), s.pid, s.sid);
+  if (s.transport === 'cookie') c.header('set-cookie', clearSessionCookie());
+  return c.json({ ok: true });
+});
+
+/** Ends every session of the player, this one included. */
+auth.post('/logout-all', requireSession, async (c) => {
+  const s = c.get('session');
+  await revokeAll(db(c.env), s.pid);
+  if (s.transport === 'cookie') c.header('set-cookie', clearSessionCookie());
+  return c.json({ ok: true });
+});
+
+/** The player's signed-in devices: a 12-character handle each, never the token or its hash. */
+auth.get('/sessions', requireSession, async (c) => {
+  const s = c.get('session');
+  return c.json({ sessions: await listSessions(db(c.env), s.pid, s.sid) });
+});
+
+/** Ends one of the player's sessions by its handle. */
+auth.delete('/sessions/:handle', requireSession, async (c) => {
+  const s = c.get('session');
+  const handle = c.req.param('handle');
+  if (!/^[A-Za-z0-9_-]{12}$/.test(handle)) throw badRequest('Bad session handle');
+  if (!(await revokeSession(db(c.env), s.pid, handle))) throw new ApiError(404, 'not_found', 'No such session');
+  if (s.transport === 'cookie' && s.sid.startsWith(handle)) c.header('set-cookie', clearSessionCookie());
+  return c.json({ ok: true });
+});
+
+// ---- Email and password (V6-ACCT-03; ADR-0008 §4) ----
+//
+// Gate order (M-AF-1, ADR-0008 §2): Origin → Rate Limiting binding per IP
+// (RL_AUTH_IP, `<route>:<ip>`) → Turnstile (forms without a link token) → D1
+// throttle and lockout (auth/flows.ts) → the password hash. Each gate is
+// cheaper than the next, so a flood never reaches the hash or D1.
+
+const AUTH_BODY = 8 * 1024;
+const Email = z.string().max(320);
+/** Long enough that the policy (not zod) answers too_long; never truncated. */
+const Password = z.string().max(4096);
+/** Required: a missing token is `400 turnstile_failed` from requireTurnstile, like a bad one. 2048 is Turnstile's maximum. */
+const Turnstile = z.string().max(2048).optional();
+const Token = z.string().max(128);
+
+const SignupBody = z.object({ email: Email, password: Password, turnstile: Turnstile });
+const EmailBody = z.object({ email: Email, turnstile: Turnstile });
+const LoginBody = z.object({ email: Email, password: Password, turnstile: Turnstile });
+const TokenBody = z.object({ token: Token });
+const ResetConfirmBody = z.object({ token: Token, password: Password });
+const ChangeBody = z.object({ current: Password, next: Password });
+
+export function flowDeps(c: Context<AppEnv>): FlowDeps {
+  return {
+    db: db(c.env),
+    peppers: peppersFromEnv(c.env),
+    mail: emailSenderFor(c.env),
+    gameUrl: gameUrl(c.env),
+    lang: pickLang(c.req.header('accept-language')),
+    defer: (p) => c.executionCtx.waitUntil(p),
+    now: Date.now(),
+  };
+}
+
+/** A fresh cookie session for the web (rotation on every log-in, ADR-0008 §3). */
+async function cookieSession(
+  c: Context<AppEnv>,
+  player: PlayerRow,
+  method: Method,
+  purpose?: EmailPurpose,
+  extra: Record<string, unknown> = {},
+  bind?: (sid: string) => Promise<void>,
+) {
+  const { token, session } = await createSession(db(c.env), player.id, 'cookie', method, deviceLabel(c.req.header('user-agent')));
+  if (bind) await bind(session.sid);
+  c.header('set-cookie', sessionCookie(token));
+  c.header('cache-control', 'no-store');
+  return c.json({ ...(purpose ? { purpose } : {}), ...extra, player: publicPlayer(player), expiresAt: session.expiresAt });
+}
+
+/** The email and bot notices of identity changes (account/notices.ts), sent after the response. */
+export function notifier(c: Context<AppEnv>, d: FlowDeps): Notifier {
+  return notifierFor(c.env, d.mail, d.defer, c.req.header('accept-language'));
+}
+
+const CHECK_EMAIL = { status: 'check_email' } as const;
+
+/** The per-IP gate for the email forms (ADR-0008 §5.1). */
+const ipGate = (c: Context<AppEnv>, route: string) => requireLimit(c.env.RL_AUTH_IP, `${route}:${clientIp(c)}`, 'Too many attempts, try again in a minute');
+
+/**
+ * The email forms are posted only by the web game, from its own origin. A
+ * foreign or missing Origin is 403 `bad_origin` even without a cookie: it
+ * stops login CSRF (a cross-site form signing the victim into the attacker's
+ * account through login, verify or reset/confirm, which set the cookie).
+ */
+const fromGame: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (!gameOrigins(c.env).includes(c.req.header('origin') ?? '')) throw new ApiError(403, 'bad_origin', 'Cross-origin request refused');
+  await next();
+};
+
+/** Always 202 for a well-formed request, whether or not the address has an account (M-AF-3). */
+auth.post('/signup', fromGame, async (c) => {
+  await ipGate(c, 'signup');
+  const body = await readJson(c, SignupBody, AUTH_BODY);
+  await requireTurnstile(c.env, body.turnstile, 'signup', clientIp(c));
+  await signup(flowDeps(c), body.email, body.password);
+  return c.json(CHECK_EMAIL, 202);
+});
+
+/**
+ * Opens an email link and signs this browser in: a sign-up creates the
+ * account; add_email and change_email (V6-LINK-02, ADR-0009 §2, §4) change
+ * the identities of an existing one. The reply names the purpose.
+ */
+auth.post('/verify', fromGame, async (c) => {
+  await ipGate(c, 'verify'); // no Turnstile: the link token is the proof
+  const body = await readJson(c, TokenBody, AUTH_BODY);
+  const d = flowDeps(c);
+  const purpose = await tokenPurpose(d, body.token);
+  if (purpose === 'add_email') return cookieSession(c, await verifyAddEmail(d, notifier(c, d), body.token), 'email_link', purpose);
+  if (purpose === 'change_email') return cookieSession(c, await verifyChangeEmail(d, notifier(c, d), body.token), 'email_link', purpose);
+  // Sign-up, and everything else (a reset token, an unknown or spent one) answers as an invalid sign-up link.
+  return cookieSession(c, await verifySignup(d, body.token), 'email_link', 'signup');
+});
+
+const ConflictProofBody = z.object({ token: Token, password: Password });
+
+/**
+ * V6-LINK-03 (ADR-0009 §5.2): an add_email link that answered 409
+ * email_conflict, plus the password of the address's own account. Signs this
+ * browser in to the Telegram player that asked, with `{conflict}` to choose
+ * from, or `{removedEmpty}` when the other account was empty and is gone.
+ */
+auth.post('/verify/conflict', fromGame, async (c) => {
+  await ipGate(c, 'verify');
+  const body = await readJson(c, ConflictProofBody, AUTH_BODY);
+  const d = flowDeps(c);
+  const { player, ...extra } = await proveEmailConflict(c.env, d, notifier(c, d), body.token, body.password);
+  // The conflict's web side is this browser's new session (V6-053); the Telegram owner chooses in the Mini App.
+  return cookieSession(c, player, 'email_link', 'add_email', extra, extra.conflict ? (sid) => bindWebSession(d.db, extra.conflict!, sid) : undefined);
+});
+
+auth.post('/verify/resend', fromGame, async (c) => {
+  await ipGate(c, 'resend');
+  const body = await readJson(c, EmailBody, AUTH_BODY);
+  await requireTurnstile(c.env, body.turnstile, 'resend', clientIp(c));
+  await resendSignup(flowDeps(c), body.email);
+  return c.json(CHECK_EMAIL, 202);
+});
+
+/** One `401 invalid_credentials` for an unknown email, a wrong password and a locked address. */
+auth.post('/login', fromGame, async (c) => {
+  await ipGate(c, 'login');
+  const body = await readJson(c, LoginBody, AUTH_BODY);
+  await requireTurnstile(c.env, body.turnstile, 'login', clientIp(c));
+  const player = await login(flowDeps(c), body.email, body.password);
+  return cookieSession(c, player, 'password');
+});
+
+auth.post('/reset/request', fromGame, async (c) => {
+  await ipGate(c, 'reset');
+  const body = await readJson(c, EmailBody, AUTH_BODY);
+  await requireTurnstile(c.env, body.turnstile, 'reset', clientIp(c));
+  await requestReset(flowDeps(c), body.email);
+  return c.json(CHECK_EMAIL, 202);
+});
+
+/** Sets the new password, signs out everywhere, and signs this browser in. */
+auth.post('/reset/confirm', fromGame, async (c) => {
+  await ipGate(c, 'reset'); // no Turnstile: the link token is the proof
+  const body = await readJson(c, ResetConfirmBody, AUTH_BODY);
+  const player = await confirmReset(flowDeps(c), body.token, body.password);
+  return cookieSession(c, player, 'email_link');
+});
+
+/** Changes the password of a signed-in player; every other session ends. */
+auth.post('/password', requireSession, async (c) => {
+  const body = await readJson(c, ChangeBody, AUTH_BODY);
+  await changePassword(flowDeps(c), c.get('session'), body.current, body.next);
+  return c.json({ ok: true });
 });
 
 const DAY_MS = 86_400_000;
 const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
-export const daysSince = (createdAt: number, now: number) => utcDay(now) - utcDay(createdAt);
+const daysSince = (createdAt: number, now: number) => utcDay(now) - utcDay(createdAt);
 
 /**
  * Retention markers from the player row as it was before this sign-in:

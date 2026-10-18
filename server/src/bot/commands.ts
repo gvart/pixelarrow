@@ -6,7 +6,7 @@
  */
 export const COMMANDS_VERSION = 1;
 
-export interface BotCommand {
+interface BotCommand {
   command: string;
   description: string;
 }

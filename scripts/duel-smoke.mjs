@@ -6,34 +6,49 @@
 // is claimed, and a ladder floor is fought through the real battle scene to
 // the report (with its stars) and back to the ladder with its Glory, XP and a
 // cleared floor, a ranked match, a raid on a defence team (the async ladder)
-// and the leaderboards. Also checks that the hub shows "available in
-// Telegram" when the API cannot be used.
+// and the leaderboards. Also checks the hub's state when the API cannot be
+// used: signed out on the web ('outside'), and in
+// Telegram with the API down (a closed / offline state, not 'outside').
+// Platform modes (scripts/lib/platform.mjs): telegram (fake WebApp) and web.
 // Regressions: switching views does not pile up listeners, a second Back or
 // Continue after a report lands on the hub (not the menu), a new screen size
 // keeps the view and the queue search, and the hub is drawn after every match.
-// Usage: node scripts/duel-smoke.mjs [baseUrl]   (needs a running dev/preview server)
+// Usage: node scripts/duel-smoke.mjs <baseUrl> [--platform telegram|web|both]   (needs a running dev/preview server)
 import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish } from './lib/harness.mjs';
+import { cliArgs, platformMode, applyPlatform, launchUrl, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
-const base = process.argv[2] ?? 'http://localhost:5173/';
+const cli = cliArgs(process.argv.slice(2), 'scripts/duel-smoke.mjs');
+const mode = await platformMode(import.meta.url, cli);
+const base = cli.base;
 
 const browser = await launch();
 const ctx = await phoneContext(browser);
+const plat = await applyPlatform(ctx, mode, { languageCode: 'en' });
 const page = await ctx.newPage();
 const errors = captureErrors(page, { ignoreNetwork: true });
 await apiDown(page);
-await page.route('**/telegram.org/**', (r) => r.abort());
 
 const { ev, call, active, untilPage: until } = makePageApi(page);
 const shown = () => call('Duel', "return window.__game.scene.getScenes(true).map((x) => x.scene.key).join('+') === 'Duel' && s.st === 'ready' && s.body.list.length > 3;");
 
-await page.goto(base, { timeout: 60000 });
-check('menu', await until(() => !!window.__game && window.__game.scene.isActive('Menu'), 20000));
+// the web has a server that answers "no session" (401); since V6-ACCT-05 the web can sign in, so an
+// unreachable API (from the boot probe on) would read as offline rather than signed out
+const signedOut = (r) => r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":{"code":"unauthorized","message":"signed out"}}' });
+if (mode === 'web') await page.route('**/api/**', signedOut);
+await page.goto(launchUrl(base, mode), { timeout: 60000 });
+check('menu', await until(() => !!window.__game && window.__game.scene.isActive('Menu'), 60000));
+await checkPlatform(page, mode);
 
-// Outside Telegram the real API is not available: the hub says so (no crash).
+// The real API cannot be used: signed out on the web, the hub shows its signed-out state ('outside');
+// in Telegram the API is down (503), so the hub shows its closed / offline state. Either way, no crash.
 await call('Menu', 's.openDuels(); return 1;');
 await until(() => window.__game.scene.isActive('Duel'));
-await until(() => window.__game.scene.getScene('Duel').st !== 'loading');
-check('[api] outside Telegram: the hub shows a state', (await call('Duel', 'return s.st;')) === 'outside');
+await until(() => window.__game.scene.getScene('Duel').st !== 'loading', 15000);
+const apiSt = await call('Duel', 'return s.st;');
+if (mode === 'web') {
+  check('[api] web, signed out: the hub shows its signed-out state (outside)', apiSt === 'outside', apiSt);
+  await page.unroute('**/api/**', signedOut);
+} else check('[api] Telegram, API down: the hub shows a closed or offline state', ['closed', 'offline', 'error'].includes(apiSt), apiSt);
 
 // The demo duel army.
 await ev(() => window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Duel', { preview: true, tab: 'team' })));
@@ -217,4 +232,5 @@ check('[hub] a resize keeps the view and the queue search', rl.search && rl.tab 
 await call('Duel', 's.cancelSearch(); return 1;');
 
 check('no page errors', errors.length === 0, errors.join(' | '));
+noTelegramRequests(plat);
 await finish({ browser });

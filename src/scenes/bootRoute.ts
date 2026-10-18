@@ -8,7 +8,7 @@
  */
 import { canResume, progressOf, type TutorialProgress } from '../game/tutorial';
 
-export type FirstRunEntry = 'offer' | 'resume';
+type FirstRunEntry = 'offer' | 'resume';
 
 /** The first-run screen to open, or null for the normal routing. `blocked`: a deep link, `?scene=Kit` or a test script wins. */
 export function firstRunEntry(settings: { tutorial?: TutorialProgress }, blocked = false): FirstRunEntry | null {

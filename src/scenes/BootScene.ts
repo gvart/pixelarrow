@@ -3,8 +3,8 @@ import { registerUiAssets, addText, uiMetrics } from '../ui/kit';
 import { registerMisc } from '../ui/sprites';
 import { loadUiFonts } from '../art/vectorFont';
 import { ICON_ATLASES, registerIconFrames } from '../art/iconBitmaps';
-import { initTelegram, startParam } from '../platform/telegram';
-import { parseStartParam, sceneForRoute } from '../online/deeplink';
+import { platform } from '../platform';
+import { launchRoute, sceneForRoute } from '../online/deeplink';
 import { setPendingInvite } from '../online/client';
 import { state } from '../state';
 import { refreshLang } from '../ui/lang';
@@ -83,7 +83,7 @@ export class BootScene extends Phaser.Scene {
   private async route(): Promise<void> {
     // Test scripts force the error screen with window.__bootFail (as they skip first run with __noFirstRun).
     if ((window as { __bootFail?: boolean }).__bootFail) throw new Error('boot: forced failure (test)');
-    await initTelegram();
+    await platform.init();
     await state.load();
     // every scene key exists before the first screen (the second chunk: scenes/lazy.ts)
     await loadLazyScenes(this.game);
@@ -95,9 +95,10 @@ export class BootScene extends Phaser.Scene {
       void state.save();
     };
     // Opened through a deep link (src/online/deeplink.ts): a clan invite
-    // (startapp=clan_<code>) or a bot notification's button (hex_<q>_<r>,
-    // duel, market, ...) goes straight to its screen.
-    const route = parseStartParam(startParam());
+    // (startapp=clan_<code>), a bot notification's button (loc_<id>, duel,
+    // market, account, ...), a link request (link_<code>) or a web hash route
+    // (#login, #account, ...) goes straight to its screen, before first run.
+    const route = launchRoute(platform.launchParam(), location.hash);
     if (route?.kind === 'invite') setPendingInvite(route.code);
     const target = sceneForRoute(route);
     // Debug: ?scene=Kit opens the UI kit gallery.
@@ -108,7 +109,7 @@ export class BootScene extends Phaser.Scene {
     const first = firstRunEntry(state.campaign.data.settings, !!target || !!debugScene || !!(window as { __noFirstRun?: boolean }).__noFirstRun);
     // Reloaded during a live duel (Telegram reopens a mini app the system closed): back into the match,
     // or its report, instead of the menu while the match is lost by abandonment.
-    const live = !target && !debugScene && online.available ? ongoingMatch() : null;
+    const live = !target && !debugScene && (online.signedIn || online.canSignIn()) ? ongoingMatch() : null;
     if (live) this.scene.start('Duel', { tab: 'ranked', arena: 'home', rejoin: { id: live.id, mode: live.mode } });
     // Closed during a campaign battle: it was fought out at load (V5-011), show its report.
     else if (state.last && !target && !debugScene) this.scene.start('Results', {});

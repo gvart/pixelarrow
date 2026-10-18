@@ -45,7 +45,7 @@ export type TutStepId =
   | 'win'
   | 'victory';
 
-export interface TutStepDef {
+interface TutStepDef {
   id: TutStepId;
   phase: 'deploy' | 'battle';
   /**
@@ -261,13 +261,13 @@ export function grantReward(data: { gold: number; stash: Item[] } & IdSource, rn
 
 // ------------------------------------------------------------------ scenario
 
-export const TUTORIAL_SEED = 0x7e7041a1;
-export const TUT_FIELD = { w: 20, h: 28 } as const;
+const TUTORIAL_SEED = 0x7e7041a1;
+const TUT_FIELD = { w: 20, h: 28 } as const;
 
 /** Group ids in the scenario's sim (side 0 has four groups, then side 1's four): I, II and IV are ours, as a new campaign's. */
 export const TUT_GROUPS = { hop: 0, sling: 1, pelt: 3, foeMain: 4, foeSkirm: 5, foeWave: 7 } as const;
 
-export interface TutorialBattle {
+interface TutorialBattle {
   setup: BattleSetup;
   heroes: Hero[];
   enemyHeroes: Hero[];
@@ -369,7 +369,7 @@ export function wavePost(sim: Battle): { x: number; y: number } {
   return { x: sim.width - 0.8, y: iv.y };
 }
 
-export type EnemyCue = 'battle' | 'charge' | 'flank' | 'win';
+type EnemyCue = 'battle' | 'charge' | 'flank' | 'win';
 
 /**
  * The enemy's script (they have no bot): javelin-men come forward when the

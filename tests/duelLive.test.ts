@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/platform/cloud', () => ({
-  online: { available: true, signIn: async () => true, api: { token: 'tok', base: 'http://local' } },
+  online: { signedIn: true, canSignIn: () => true, signIn: async () => true, ensureSession: async () => 'live', api: { token: 'tok', base: 'http://local' } },
 }));
 
 import { Battle } from '../src/sim/battle';

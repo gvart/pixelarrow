@@ -45,7 +45,7 @@ export interface Lair {
 const lairCache = new Map<string, Lair | null>();
 
 /** The landscape a beast may favour (ENCOUNTERS[...].terrain) for a region's ground. */
-export function landTag(r: Pick<RegionInfo, 'site'>): EncounterTerrain {
+function landTag(r: Pick<RegionInfo, 'site'>): EncounterTerrain {
   switch (r.site.base) {
     case 'forest':
       return 'forest';
@@ -226,9 +226,9 @@ export function bossLoot(boss: EncounterId, shardKey: string, pid: number, share
 }
 
 
-export type BossChestKind = 'set' | 'named' | 'epic' | 'legendary';
+type BossChestKind = 'set' | 'named' | 'epic' | 'legendary';
 
-export interface BossChestInput {
+interface BossChestInput {
   /** Item defs the player owns this season (stash and heroes): the set pieces they already have. */
   owned: ReadonlySet<string>;
   /** The player already got this boss's named item this season (a second one becomes an epic). */

@@ -28,7 +28,16 @@ import type { GameLike } from './platform/telemetry';
 import { installRenderScale, RS } from './platform/renderScale';
 import { installFastArcs } from './platform/fastArcs';
 import { installStaticCanvases } from './platform/staticCanvas';
+import { platform, selectPlatform } from './platform';
+import { installKeySource } from './ui/input/keySource';
+import { activeContexts, keys, screenContexts } from './ui/input/keys';
+import { focus, installFocus } from './ui/focusRing';
+import { loadBindings } from './ui/input/bindingStore';
+import { loadGlyphs } from './ui/input/glyphs';
+import { openShortcuts } from './ui/shortcutsSheet';
 
+// Telegram or the plain web, decided once from the launch hints (ADR-0006).
+selectPlatform();
 installWidgets();
 installRenderScale();
 // engine costs measured in QA-05 (docs/v5/qa/PERF.md): arcs as few chords as they need, no canvas readback
@@ -47,7 +56,8 @@ const game = new Phaser.Game({
     width: window.innerWidth * RS,
     height: window.innerHeight * RS,
   },
-  input: { activePointers: 3 },
+  // keys come from one window listener and the KeyRouter (ADR-0012 Decision 3), not Phaser's per-scene KeyboardPlugin
+  input: { activePointers: 3, keyboard: false },
   audio: { noAudio: true }, // all sound is our own Web Audio (src/audio)
   // the first screens; the rest (online, duels, shop, camp, ...) come in a second chunk (scenes/lazy.ts)
   scene: [BootScene, MenuScene, WorldScene, SettlementScene, ArmyScene, HeroScene, BattleScene, ResultsScene, FirstRunScene],
@@ -72,6 +82,24 @@ trackSafeArea(() => {
 installAudio(game, () => state.campaign?.data.settings);
 // Duel challenges pop up on every online screen (map, army, clan).
 installDuelInvites(game);
+// The keyboard (ADR-0012): one window listener feeding the router, with the contexts of the top screen and
+// its layers (and `focus` while a control has keyboard focus); Esc is Back (a screen may take it first: the
+// battle opens its menu); this device's bindings. Tab, arrows and Enter move and use focus (focusRing.ts).
+const keyContexts = () => activeContexts(screenContexts(nav.topOwner()), nav.layers(), focus.focused !== null);
+installKeySource(window, keys, keyContexts);
+nav.subscribe(() => keys.setContexts(keyContexts()));
+keys.on('back', () => nav.back());
+// ? or F1: the Keyboard shortcuts sheet on the top screen (input-v6.md §6.4; the battle takes it first to pause)
+keys.on('help.keys', () => {
+  const top = nav.topOwner();
+  if (!(top instanceof Phaser.Scene) || !('ui' in top) || !('m' in top)) return false;
+  openShortcuts(top as Parameters<typeof openShortcuts>[0]);
+  return true;
+});
+installFocus(game);
+void loadBindings().then((m) => keys.setBindings(m));
+// key labels on this layout, Cmd or Ctrl by platform (glyphs.ts)
+void loadGlyphs(platform.input);
 // Ask before closing while a save is still uploading.
 online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
 
@@ -98,7 +126,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Debug handles (used by the screenshot script).
-Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav });
+Object.assign(window, { __game: game, __state: state, __online: online, __nav: nav, __focus: focus, __keys: keys });
 // Layout check (scripts/layout-check.mjs): UI element bounds and rule violations of the current screen.
 Object.assign(window, {
   __layout: {

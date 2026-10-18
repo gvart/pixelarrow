@@ -10,8 +10,8 @@
 //      battle's zoom key and ⋯).
 //   3. a long scroll list never takes a tab-bar tap (S1-1): the Shop's cosmetics (demo source) scrolled so
 //      masked rows sit under the tab bar; each tab-bar key, tapped, opens its hub.
-// Usage: node scripts/regression/controls.mjs [baseUrl]   (needs a running preview server)
-import { launch, check, until, baseUrl, openGame, settled, running, startScene, steadyBtn, need, flow, done } from './lib.mjs';
+// Usage: node scripts/regression/controls.mjs <baseUrl> [--platform telegram|web|both]   (needs a running preview server)
+import { launch, check, until, baseUrl, openGame, settled, running, startScene, steadyBtn, need, flow, done, openSettings } from './lib.mjs';
 
 const base = baseUrl();
 const browser = await launch();
@@ -57,7 +57,7 @@ const SWITCHES = ['sound', 'dmgNumbers', 'pauseContact', 'pauseFlank', 'pauseRou
 
 await flow('settings', async () => {
   const n = '[settings]';
-  await api.ev(() => window.__tg.pressSettings());
+  need(`${n} Settings pressed`, await openSettings(api));
   need(`${n} the sheet opens`, await until(() => api.ev(() => window.__nav.layers() === 1), 10000, 150));
 
   // the language tabs (kit Tabs) sit above the battle switches: pick English, then back to Auto
@@ -75,7 +75,8 @@ await flow('settings', async () => {
         check(`${n} ${key}: the switch is there`, false);
         break;
       }
-      const want = !before?.value;
+      // a switch scrolled out of view reads null until tapCtl brings it in: then the saved setting says what it shows
+      const want = !(before ? before.value : s0.s[key]);
       const ok = await until(async () => {
         const s1 = await saved();
         return s1.s[key] === want && s1.seq > s0.seq && (await ctl('Menu', id))?.value === want;

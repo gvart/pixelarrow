@@ -2,18 +2,44 @@
 // Covers the campaign loop: new campaign -> march on the map -> encounter ->
 // battle -> back to the map -> recruit in a village -> spend a stat point and
 // take perks -> equip from the stash -> use an ability in battle; plus the touch controls (pan vs order, drag to move, the facing knob to turn, tap to move) and pinch zoom.
-// Usage: node scripts/smoke.mjs [baseUrl]
-import { launch, phoneContext, captureErrors, makePageApi, check, finish } from './lib/harness.mjs';
+// Runs as a Telegram Mini App (fake WebApp) and as a plain web page (the offline campaign, signed out,
+// no request to telegram.org): scripts/lib/platform.mjs.
+// Usage: node scripts/smoke.mjs <baseUrl> [--platform telegram|web|both]
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, settled, nextFrame, steady } from './lib/harness.mjs';
+import { cliArgs, platformMode, applyPlatform, launchUrl, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
-const base = process.argv[2] ?? 'http://localhost:5173/';
+const cli = cliArgs(process.argv.slice(2), 'scripts/smoke.mjs');
+const mode = await platformMode(import.meta.url, cli);
+const base = cli.base;
 const browser = await launch();
 const ctx = await phoneContext(browser);
+const plat = await applyPlatform(ctx, mode, { languageCode: 'en' });
 const page = await ctx.newPage();
-const errors = captureErrors(page);
+// the API down (503): in Telegram the online layer signs in, and no step may depend on a backend (the preview
+// server's /api proxy answered 502); the browser's own "Failed to load resource" lines are expected then
+const errors = captureErrors(page, { ignoreNetwork: true });
+await apiDown(page);
 // taps dispatched inside the page (harness.mjs tap: a CDP tap read as a long-press in slow software WebGL)
 // Under load (many agents, CI) the game runs at a few frames a second: every step waits on a state
 // with a generous deadline, never on a fixed sleep (a screen still building, a scene not started yet).
-const { ev, wait, touch, tap, swipe, pinch, active, until, btn, tapBtn } = makePageApi(page, { tapWait: 150, step: 250, btnIndex: -1, btnWaitMs: 15000 });
+const api = makePageApi(page, { tapWait: 150, step: 250, btnIndex: -1, btnWaitMs: 15000 });
+const { ev, wait, touch, tap, swipe, pinch, active, until, btn, tapBtn } = api;
+/** Taps a button once it stands still (a card or confirm popping in), as tapBtn does once it is there. */
+async function tapSteady(key, match) {
+  const p = await steady(ev, () => btn(key, match));
+  if (p) await tap(p[0], p[1]);
+  else await tapBtn(key, match); // logs the scene's buttons
+  return !!p;
+}
+/** The battle camera is still: two game frames since the call, no pan, zoom or fade effect and no tween on it. */
+async function battleCamStill(ms = 15000) {
+  const f0 = await ev(() => window.__game.loop.frame);
+  return until(() => ev((f) => {
+    const s = window.__game.scene.getScene('Battle');
+    const cam = s.cameras.main;
+    return window.__game.loop.frame >= f + 2 && !cam.panEffect.isRunning && !cam.zoomEffect.isRunning && !cam.fadeEffect.isRunning && !s.tweens.getTweens().some((t) => t.isPlaying() && t.targets.includes(cam));
+  }, f0), ms, 100);
+}
 /** A check the steps after it build on (a screen open, a battle running): on a FAIL the run stops here, named, instead of failing on in a wrong state (it crashed in openStashItem with no Hero screen open). */
 async function need(name, ok, detail = '') {
   check(name, ok, detail);
@@ -25,13 +51,16 @@ async function need(name, ok, detail = '') {
 // A fresh context starts with empty storage: one load. (It loaded, cleared localStorage and loaded again, but
 // a first launch writes its fresh campaign (GameState.load) once boot gets there; under load that write
 // landed after the clear, the reload found a save, and the menu offered Continue, not Begin the march.)
-await page.goto(base);
+await page.goto(launchUrl(base, mode));
 // boot is slow under load: wait for the game object and its menu (a fixed 2.5 s sleep failed, unnamed, on window.__rs())
 await need('menu active', await until(() => ev(() => !!window.__game?.scene.isActive('Menu')), 60000));
 // The menu enters with a slide and fade (BaseScene.enterMotion). Since FL-02 a tap lands during it (V5-067,
 // checked by scripts/regression/hub-flows.mjs), but the slide moves the buttons: wait until the menu is fully in
 // so the taps below hit where they aim.
 await need('menu entered', await until(() => ev(() => { const ui = window.__game.scene.getScene('Menu').ui; return ui.alpha === 1 && ui.x === 0; }), 15000, 100));
+await checkPlatform(page, mode);
+// web: nobody is signed in, and the campaign runs offline (local save, no sync)
+if (mode === 'web') check('[web] signed out: the online layer stays local', await ev(() => window.__online?.status === 'local' && !window.__online.playerId), JSON.stringify(await ev(() => ({ status: window.__online?.status, id: window.__online?.playerId }))));
 const RS = await ev(() => window.__rs());
 // The event deck is on (EV-03): a card (after a battle, on arrival, on the march) waits for an answer and
 // pauses the map. Answer any card with its free choice and close the result, as a player would; the
@@ -44,6 +73,63 @@ await ev(() => setInterval(() => {
 }, 250));
 /** No event card open on `key` (the answer above takes a moment). */
 const noEventCard = (key) => until(() => ev((k) => !window.__game.scene.getScene(k).eventCard && !window.__state.campaign.world.s.pendingEvent, key), 10000, 100);
+
+// ---- map taps (docs/v6/qa/FLAKY.md F1, F4): WorldScene drops a tap on the ground while a "We found X" cut runs
+// (cine), while a card, an encounter, a sheet or a coach mark is open, while another pointer is down (it reads a
+// pinch) and when the tap lands on an interactive object (onDown `over`); a discovery queued by a reveal only
+// starts its cut on the next frame. The map steps waited on parts of that (or on nothing) and then polled the
+// route, which a tap dropped for any of these never plans. Now a map tap waits until the map takes taps,
+// checks the point in the page against the same rules, and counts the routes the World plans, so a dropped
+// tap fails as "the tap planned a route" with the map's state at the tap, never as a 30 s wait further on.
+/** What the World map is doing (a failing map step prints it). */
+const worldDiag = () => ev(() => {
+  const g = window.__game;
+  const s = g.scene.getScene('World');
+  const w = s.w;
+  const cam = s.cameras.main;
+  return JSON.stringify({ frame: g.loop.frame, active: g.scene.getScenes(true).map((x) => x.sys.settings.key), cine: s.cine, panQ: s.panQueue?.length, disc: w.discoveries.length, coach: !!s.coach, card: !!s.eventCard, enc: !!s.encounter, sheet: !!(s.assaultSheet || s.arcSheet), down: g.input.pointers.filter((q) => q.isDown).length, ui: s.ui && [s.ui.alpha, s.ui.x], follow: s.follow, cam: [Math.round(cam.scrollX), Math.round(cam.scrollY), cam.zoom, cam.panEffect.isRunning, cam.fadeEffect.isRunning], route: w.route.length, routes: window.__routes ?? 0, dest: w.s.destSettlement, at: [+w.s.x.toFixed(2), +w.s.y.toFixed(2)], time: +w.s.time.toFixed(2), camp: !!w.camp, pending: !!w.s.pendingEvent });
+});
+/** A map check: on a FAIL its detail is the map's state now (and `pre`, its state at the tap). */
+async function checkMap(name, ok, pre = '') {
+  check(name, ok, ok ? '' : `${pre ? `at tap ${pre} ` : ''}now ${await worldDiag()}`);
+  return ok;
+}
+/**
+ * The map takes a tap: World running and fully in, at least two game frames since the call (a queued discovery
+ * has started its cut by then), no discovery queued or cut running or pending, the camera's pan and fade over,
+ * no card, encounter, sheet or coach mark, no pointer down.
+ */
+async function mapReady(ms = 30000) {
+  const f0 = await ev(() => window.__game.loop.frame);
+  return until(() => ev((f) => {
+    const g = window.__game;
+    const s = g.scene.getScene('World');
+    if (!s?.sys.isActive() || g.loop.frame < f + 2) return false;
+    const cam = s.cameras.main;
+    return !s.w.discoveries.length && !s.panQueue.length && !s.cine && !cam.panEffect.isRunning && !cam.fadeEffect.isRunning
+      && !s.eventCard && !s.encounter && !s.assaultSheet && !s.arcSheet && !s.coach && !s.w.s.pendingEvent
+      && (!s.ui || (s.ui.alpha === 1 && s.ui.x === 0)) && !g.input.pointers.some((q) => q.isDown);
+  }, f0), ms, 100);
+}
+/** Counts the routes the World plans (window.__routes): a march planned and walked between two polls still counts. */
+const countRoutes = () => ev(() => {
+  const w = window.__state.campaign.world;
+  if (w.__counted) return;
+  w.__counted = true;
+  const plan = w.setDestination;
+  w.setDestination = function (...a) {
+    const ok = plan.apply(this, a);
+    if (ok) window.__routes = (window.__routes ?? 0) + 1;
+    return ok;
+  };
+});
+const routes = () => ev(() => window.__routes ?? 0);
+/** No interactive object (HUD, banner, plate) under page point (x, y): WorldScene.onDown drops a tap there. */
+const mapPointFree = (x, y) => ev(([px, py]) => {
+  const s = window.__game.scene.getScene('World');
+  const [gx, gy] = window.__gamePt(px, py);
+  return s.input.hitTestPointer({ x: gx, y: gy, camera: null }).length === 0;
+}, [x, y]);
 
 // ---- new campaign
 await tapBtn('Menu', { label: 'Begin the march' });
@@ -82,15 +168,21 @@ const findTarget = () => ev(() => {
   }
   return null;
 });
-// the map may still be settling (camera, fog) right after it opens: look again until open ground shows
+// the map may still be settling (camera, fog) right after it opens: wait until it takes taps, then look for open
+// ground with nothing interactive over it
+await checkMap('the map takes taps', await mapReady());
+await countRoutes();
 let target = null;
-check('open ground to march to', await until(async () => (target = await findTarget()) !== null, 20000));
+check('open ground to march to', await until(async () => (target = await findTarget()) !== null && (await mapPointFree(target[0], target[1])), 20000));
+const routes0 = await routes();
+const preTap = await worldDiag();
 if (target) await tap(target[0], target[1]);
-check('tap on the map plans a route', await until(() => ev(() => window.__state.campaign.world.route.length > 0), 10000, 100));
+await checkMap('tap on the map plans a route', await until(async () => (await routes()) > routes0, 10000, 100), preTap);
 // the march runs on game time: wait until the party has walked, not a fixed 2 s
 await until(() => ev(([x, y, t]) => { const s = window.__state.campaign.world.s; return Math.hypot(s.x - x, s.y - y) > 0.5 && s.time > t; }, [start.x, start.y, start.t]), 30000);
 const moved = await ev(() => window.__state.campaign.world.s);
-check('party marched and time passed', Math.hypot(moved.x - start.x, moved.y - start.y) > 0.5 && moved.time > start.t, `${start.x.toFixed(1)},${start.y.toFixed(1)} -> ${moved.x.toFixed(1)},${moved.y.toFixed(1)}`);
+const marched = Math.hypot(moved.x - start.x, moved.y - start.y) > 0.5 && moved.time > start.t;
+check('party marched and time passed', marched, `${start.x.toFixed(1)},${start.y.toFixed(1)} -> ${moved.x.toFixed(1)},${moved.y.toFixed(1)}${marched ? '' : ` ${await worldDiag()}`}`);
 
 // ---- encounter: a band steps out next to us; camping lets time run until it attacks
 async function ambush(melee = false) {
@@ -148,7 +240,7 @@ check('battle against the band', fought === bandId, JSON.stringify({ bandId, fou
 check('one-time controls hint on the first deployment', await until(() => ev(() => !!window.__game.scene.getScene('Battle').hint), 15000));
 await tap(195, 120);
 check('hint dismissed and remembered', await until(() => ev(() => !window.__game.scene.getScene('Battle').hint && window.__state.campaign.data.settings.seenGestureHint), 15000, 100));
-await wait(300);
+await battleCamStill();
 /** Page (CSS px) points for field points, plus the selected group's state. */
 const geo = (pts, frame = true) =>
   ev(([pts, frame]) => {
@@ -275,12 +367,13 @@ await touch('touchMove', [g.pts[1], [g.pts[1][0] + 80, g.pts[1][1] + 40]]);
 await wait(16);
 await touch('touchMove', [g.pts[1], [g.pts[1][0] + 100, g.pts[1][1] + 60]]);
 await touch('touchEnd', []);
-await wait(400);
+// an order the gesture gave would be in the log once the scene has run its frames after the touchEnd
+await nextFrame(ev, 3);
 check('pinch start cancels the pending formation order', (await orders()) === o1);
 
 // 7) tap on the ground moves the group there, keeping its shape, facing the enemy
 await ev(() => { const s = window.__game.scene.getScene('Battle'); s.frameArmies(); });
-await wait(200);
+await battleCamStill();
 g = await geo([]);
 // three to six paces in front of the group (clear of its men and of the group tags), inside the deployment zone
 let dest = null;
@@ -320,7 +413,7 @@ check('pinch zoom', z1 > z0, `${z0} -> ${z1}`);
 await tapBtn('Battle', { id: 'battle.fight' });
 await need('battle started', await until(async () => (await ev(() => window.__game.scene.getScene('Battle').sim.phase)) === 'battle', 20000, 100));
 // sprites are drawn at native size: a man is ~34 CSS px tall at zoom 1 (camera zoom RS); the fight starts at 1x or closer
-await wait(400);
+await battleCamStill();
 const zf = await ev(() => window.__game.scene.getScene('Battle').cameras.main.zoom);
 check('readable fight zoom (a man is at least 30 px tall)', (zf / RS) * 34 >= 30, `zoom ${zf / RS} (camera ${zf}, RS ${RS})`);
 // fast-forward: the band is worn out (test staging), the sim runs to the end.
@@ -374,7 +467,11 @@ const village = await ev(() => {
     s.renderCamp();
     s.buildHud();
   }
-  const v = w.map.settlements.find((x) => x.kind === 'village');
+  // the village nearest the map's centre (FLAKY.md F1): the first one in the list could stand on the map's edge,
+  // where the camera stops at its bounds instead of centring it, and its picture then lay under the top HUD, so
+  // the tap pressed a HUD control (a seed-dependent miss, one map in many)
+  const mid = [w.map.w / 2, w.map.h / 2];
+  const v = w.map.settlements.filter((x) => x.kind === 'village').sort((a, b) => Math.hypot(a.x - mid[0], a.y - mid[1]) - Math.hypot(b.x - mid[0], b.y - mid[1]))[0];
   w.reveal(v.x + 0.5, v.y + 0.5, 4);
   const t = w.nearestPassable(v.x + 2, v.y, 3);
   w.s.x = t.x + 0.5;
@@ -384,20 +481,37 @@ const village = await ev(() => {
   s.follow = false;
   return { id: v.id };
 });
-await wait(200);
-// discovering a settlement plays a short camera cut that ignores taps (WorldScene.cine): let it finish
-await until(() => ev(() => !window.__game.scene.getScene('World').cine), 20000, 100);
-await wait(300);
+// Discovering a settlement plays a short camera cut that ignores taps (WorldScene.cine) and moves the camera.
+// The reveal above only queues the discovery: WorldScene.update drains it on its next frame and starts the cut
+// then. This waited 200 ms and then for !cine: on a loaded machine (a few frames a second) no frame had run
+// yet, so !cine held at once, the cut started after the village's position was read, the tap was swallowed
+// or missed, and "entered the village" failed now and then (V6-GATE-02, docs/v6/qa/FLAKY.md). Wait on the
+// state instead: no discovery queued, no cut running or pending, the camera's pan over, two frames drawn.
+// mapReady() is that check, and also waits out a card, a sheet, a pointer still down and the camera's fade.
+await checkMap('the village cut is over, the camera still', await mapReady());
 const vpos = await ev((id) => {
   const s = window.__game.scene.getScene('World');
   const v = s.w.map.settlements[id];
   const cam = s.cameras.main;
   return window.__css(((v.x * 8 + 4) - cam.worldView.x) * cam.zoom, (v.y * 8 - cam.worldView.y) * cam.zoom);
 }, village.id);
+const villageFree = await mapPointFree(vpos[0], vpos[1]);
+check('nothing over the village', villageFree, villageFree ? '' : `at ${vpos.map(Math.round)}: ${await ev(([px, py]) => {
+  const s = window.__game.scene.getScene('World');
+  const [gx, gy] = window.__gamePt(px, py);
+  return s.input.hitTestPointer({ x: gx, y: gy, camera: null }).map((o) => o.__uiId ?? o.parentContainer?.__uiId ?? o.type).join(', ');
+}, vpos)}`);
+const preVillage = await worldDiag();
+const routes1 = await routes();
 await tap(vpos[0], vpos[1]);
-await need('entered the village', await until(() => active('Settlement'), 30000));
+// the tap plans the march to the village (or enters it, standing on it): named, so a dropped tap says so
+const setOut = await until(async () => (await routes()) > routes1 || (await active('Settlement')), 10000, 100);
+if (await active('World')) await checkMap('the tap sets out for the village', setOut, preVillage);
+else check('the tap sets out for the village', setOut);
+await need('entered the village', await until(() => active('Settlement'), 30000), (await active('World')) ? await worldDiag() : '');
 await noEventCard('Settlement');
-await wait(400);
+// its entry slide moves the buttons: wait until it is in, not a fixed 400 ms
+await settled(api, 'Settlement', 15000);
 const before = await ev(() => ({ n: window.__state.campaign.data.heroes.length, gold: window.__state.campaign.data.gold }));
 await tapBtn('Settlement', { icon: 'coin', index: 0 });
 await until(() => ev((n) => window.__state.campaign.data.heroes.length > n, before.n), 10000, 100);
@@ -446,18 +560,22 @@ await ev(() => {
   const s = window.__game.scene.getScene('Hero');
   s.openStashItem(window.__state.campaign.data.stash.find((i) => i.uid === 'smoke_helm'));
 });
-await wait(300);
-await tapBtn('Hero', { label: 'Equip' });
+// the compare card pops in: tap Equip once it stands still
+await tapSteady('Hero', { label: 'Equip' });
 await until(() => ev(() => window.__state.campaign.data.heroes[0].equip.helmet?.uid === 'smoke_helm'), 3000, 100);
 const helm = await ev(() => ({ on: window.__state.campaign.data.heroes[0].equip.helmet?.uid, inStash: window.__state.campaign.data.stash.some((i) => i.uid === 'smoke_helm') }));
 check('equipped a helmet from the stash', helm.on === 'smoke_helm' && !helm.inStash, JSON.stringify(helm));
 
 // ---- use the ability in battle
 await ev(() => window.__game.scene.getScene('Hero').back());
-await wait(400);
-// the Army has no footer back (N3, ARM-01): its top-bar back returns to the town that opened it
-await tapBtn('Army', { id: 'army.topbar.back' });
-await wait(400);
+await need('back on the army screen', await until(() => active('Army'), 15000));
+// the Army has no footer back (N3, ARM-01): its top-bar back returns to the town that opened it. In Telegram
+// the header's Back replaces the arrow-only back button (scripts/fullscreen-smoke.mjs noArrow): press that.
+if (mode === 'telegram') await ev(() => window.__tg.pressBack());
+else await tapBtn('Army', { id: 'army.topbar.back' });
+await need('back in the village from the army', await until(() => active('Settlement'), 15000));
+// its entry slide moves the buttons: wait until it is in (as for the menu above), not a fixed 400 ms
+await until(() => ev(() => { const ui = window.__game.scene.getScene('Settlement').ui; return !ui || (ui.alpha === 1 && ui.x === 0); }), 15000, 100);
 await tapBtn('Settlement', { label: 'Leave' });
 await need('left the village', await until(() => active('World'), 15000));
 await need('second encounter', await ambush(true));
@@ -491,13 +609,15 @@ const ready = await ev((hid) => {
   return { ready: s.sim.abilityReady(u, 'bash'), phase: s.sim.phase, t: s.sim.tick / 20 };
 }, hero0.id);
 check('shield basher in contact', ready.ready, JSON.stringify(ready));
-await wait(300);
-await tapBtn('Battle', { id: 'battle.cmd.bash' }); // the ability medallion
+await tapSteady('Battle', { id: 'battle.cmd.bash' }); // the ability medallion, once the rebuilt HUD stands still
 const usedBash = () => ev(() => window.__game.scene.getScene('Battle').sim.orderLog.some((o) => o.side === 0 && o.order.kind === 'ability' && o.order.ability === 'bash'));
 await until(usedBash, 15000, 100);
 const used = await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.filter((o) => o.side === 0 && o.order.kind === 'ability').map((o) => o.order.ability));
 check('ability used from the battle bar', used.includes('bash'), JSON.stringify(used));
 await tapBtn('Battle', { id: 'battle.play' }); // unpause
-await wait(1500);
+// let the fight run a second of battle time (20 ticks) before the error check, not 1.5 s of wall time
+const tick0 = await ev(() => window.__game.scene.getScene('Battle').sim.tick);
+await until(() => ev((t) => { const s = window.__game.scene.getScene('Battle'); return !s?.sys.isActive() || s.sim.phase !== 'battle' || s.sim.tick >= t + 20; }, tick0), 30000, 100);
 check('no console errors', errors.length === 0, errors.join(' | '));
+noTelegramRequests(plat);
 await finish({ browser });

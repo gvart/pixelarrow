@@ -13,9 +13,9 @@
  */
 
 export type ConsumableId = 'healing_salve' | 'morale_wine' | 'war_horn' | 'sharpening_stone' | 'march_rations';
-export type ConsumableUse = 'battle' | 'heal' | 'march';
+type ConsumableUse = 'battle' | 'heal' | 'march';
 
-export interface ConsumableEffect {
+interface ConsumableEffect {
   /** Multiplier on melee and ranged damage of every unit on the side (battle). */
   dmgMult?: number;
   /** Added to every unit's morale stat (battle). */
@@ -28,7 +28,7 @@ export interface ConsumableEffect {
   marchMult?: number;
 }
 
-export interface ConsumableDef {
+interface ConsumableDef {
   id: ConsumableId;
   name: string;
   desc: string;
@@ -103,7 +103,7 @@ export function isConsumableId(v: unknown): v is ConsumableId {
 }
 
 /** Structural view of a sim ArmySpec (kept import-free so this file stays self-contained). */
-export interface ConsumableArmy {
+interface ConsumableArmy {
   horn?: number;
   units: { level: number; stats: { dmg: number; rangedDmg: number; morale: number; abilities: string[] } }[];
 }

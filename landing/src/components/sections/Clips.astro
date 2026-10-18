@@ -1,0 +1,75 @@
+---
+// Gameplay clips (#clips), STRUCTURE.md §6. Four longer takes G1-G4 recorded from the real game
+// (docs/v6/ASSET_LOG.md, P5-VIDEO); captions say only what each take shows. A 2x2 grid from 768 px,
+// a horizontal snap reel on phones (one clip in view, so one plays). Clip.astro and clips.ts are shared
+// with Modes, unchanged. One VideoObject per clip, built from the same list, so the JSON-LD never
+// describes a clip the page does not show.
+import Clip from '../Clip.astro';
+import { SITE_URL } from '../../site';
+// The styles of the clips, FAQ and closing sections load late (scripts/below-css.ts); this is the
+// no-JS fallback's URL.
+import belowCss from '../../styles/below.css?url';
+
+const CLIPS = [
+  {
+    id: 'G1', seconds: 8,
+    title: 'A formation breaks',
+    line: 'Cavalry rides round the Celts’ flank and charges. Their line breaks and runs.',
+    label: 'Cavalry charges a Celtic flank and the line routs',
+  },
+  {
+    id: 'G2', seconds: 8,
+    title: 'The war map',
+    line: 'The shared seasonal map: towns, rivers and a rival army on the march.',
+    label: 'A pass over the war map to a rival army',
+  },
+  {
+    id: 'G3', seconds: 8,
+    title: 'A ranked duel',
+    line: 'A phalanx in shield wall holds as two duel armies clash.',
+    label: 'A shield wall holds in a ranked duel',
+  },
+  {
+    id: 'G4', seconds: 5,
+    title: 'At the forge',
+    line: 'One stat line of an item, reforged at a town’s smith.',
+    label: 'An item’s stat line reforged at the smith',
+  },
+];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': CLIPS.map((c) => ({
+    '@type': 'VideoObject',
+    name: c.title,
+    thumbnailUrl: `${SITE_URL}/video/${c.id}-poster.webp`,
+    contentUrl: `${SITE_URL}/video/${c.id}.webm`,
+    uploadDate: '2026-10-13',
+    duration: `PT${c.seconds}S`,
+  })),
+};
+---
+<noscript><link rel="stylesheet" href={belowCss} /></noscript>
+<section class="section section--night clips" id="clips" aria-labelledby="clips-title">
+  <div class="container">
+    <header class="section__head">
+      <h2 id="clips-title" class="section__title">See it move</h2>
+      <p class="section__lead">Recorded from the game.</p>
+    </header>
+    <ul class="clips__reel" role="list">
+      {CLIPS.map((c) => (
+        <li class="take">
+          <Clip id={c.id} width={960} height={540} label={c.label} />
+          <h3 class="take__title">{c.title}</h3>
+          <p class="take__line">{c.line}</p>
+        </li>
+      ))}
+    </ul>
+  </div>
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+</section>
+
+<script>
+  import { loadBelowCss } from '../../scripts/below-css';
+  loadBelowCss();
+</script>

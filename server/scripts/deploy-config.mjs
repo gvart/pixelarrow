@@ -12,11 +12,14 @@
  * Engine: the deploy step falls back to it if the account cannot create the
  * datasets yet (docs/OPS.md "Analytics").
  * Prints "d1=true|false" (also to $GITHUB_OUTPUT when present).
+ * Fails (exit 1, nothing written) when the config sets DEV_AUTH or DEV_EMAIL
+ * as a var (N-SE-4, deploy-guard.mjs).
  *
  * Usage: node server/scripts/deploy-config.mjs [path/to/wrangler.jsonc]
  */
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { devVarsIn } from './deploy-guard.mjs';
 
 /** Removes // and /* *\/ comments and trailing commas, leaving string contents alone. */
 export function stripJsonc(src) {
@@ -56,6 +59,14 @@ export function stripJsonc(src) {
 
 const configPath = resolve(process.argv[2] ?? 'wrangler.jsonc');
 const config = JSON.parse(stripJsonc(readFileSync(configPath, 'utf8')));
+
+// N-SE-4: never deploy the local dev switches (deploy-guard.mjs).
+const devVars = devVarsIn(config);
+if (devVars.length > 0) {
+  console.error(`Refusing to deploy: ${devVars.join(', ')} ${devVars.length === 1 ? 'is' : 'are'} set. DEV_AUTH and DEV_EMAIL belong only in the local .dev.vars.`);
+  process.exit(1);
+}
+
 const id = (process.env.D1_DATABASE_ID ?? '').trim();
 
 let d1 = false;

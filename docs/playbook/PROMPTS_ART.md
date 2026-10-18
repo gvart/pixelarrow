@@ -588,3 +588,57 @@ the one render; the favicon sizes (16, 32, 48) use only the inner disc so the he
 ```
 Create an image. ROLE: the app icon and browser favicon of a mobile strategy game set in the ancient Mediterranean; it must read as one bold shape at 16 pixels and still look rich at 512 pixels. SUBJECT: a single bronze Corinthian hoplite helmet in side profile, facing the viewer's left, with a tall arched red horsehair crest; the eye opening is one clear dark almond shape; the helmet and crest together fill about 70 percent of the disc and are centred in it. DISC: a perfect circle of dark black-glaze umber (#2a1a12 to #3a2418), like the ground of a red-figure Greek vase, edged by a ring of terracotta (#a8432c) carrying a simple bold Greek key meander band in terracotta and warm cream (#e7d6ad), the band about 8 percent of the diameter wide; the helmet sits inside the ring and does not touch it. STYLE: painted like a red-figure Greek vase but with soft painted shading on the bronze: flat bold shapes, a heavy dark-brown outline (#2a1a12) of even weight around the helmet and crest, light from the upper left, bronze #b08a3a with warm highlights, warm earth colours, no pure black and no pure white, very few internal details; hand-painted, not a photo, not a 3D render, not glossy digital art, not anime. COMPOSITION: the disc centred, seen flat from the front, filling 94 percent of the square, nothing outside the disc. BACKGROUND: a perfectly flat solid #FF00FF magenta background outside the disc, edge to edge, with no shadow, no gradient and no glow; no magenta anywhere inside the disc. EXCLUDE: any text, letters, numbers, signatures, watermarks, a face or a person inside the helmet, spears, more than one object, tiny details, perspective, a drop shadow. ASPECT: square 1:1, highest resolution available.
 ```
+
+## 13. Landing page mockups (v6 P2-LAND)
+
+Three full-page desktop landing directions (A "Lamplit Chronicle", B "Night Tabletop", C "Wine-dark Dusk") and
+one fix edit. The full prompts are in [docs/v6/ASSET_LOG.md](../v6/ASSET_LOG.md) › P2-LAND, word for word: a shared
+page block (an allowlist of every section and string, ending in "Nothing else on the page: …") plus one
+direction block. Seeds: `splash_keyart.jpg` (painted style) and a real battle screenshot (pixel style).
+Outputs were 1024x4128 or 1088x3904 JPEG, one very tall image per page.
+
+**Lessons:**
+- Name what each gameplay still shows. Left open, Gemini invented a pixel smithy for "Forge" (the real forge is a
+  menu row) and used the battlefield for "Campaign" (the real overland map is top-down).
+- Say "plain icon (no badges, no numbers on icons)": a feature icon came back with a round "8", which reads as a
+  level.
+- Edits keep the layout but can garble small text; the copy is set in code, so judge the direction, not the letters.
+- Ask for counters as "—" so no invented numbers appear; tables still get placeholder digits, so note them.
+
+## 14. Landing hero layers (v6 P5-LAND-ART)
+
+Parallax layers for the landing hero: three painted atmosphere layers from Gemini, and the pixel diorama
+**rendered by the game's own code** (`scripts/art/landing/diorama.mjs`), never generated. Full prompts, verdicts and
+processing: [docs/v6/ASSET_LOG.md](../v6/ASSET_LOG.md) › P5-LAND-ART; sizes and budgets:
+[docs/v6/landing/ASSET_SPEC.md](../v6/landing/ASSET_SPEC.md). Seeds: the engine render of the slab (2x, on
+`#100d0b`) and `splash_keyart.jpg`. 3 of 4 renders kept.
+
+**Proven: a sky layer** (accepted first try; reuse for any dark painted backdrop, change the SUBJECT):
+
+```
+Create an image. ROLE: the farthest background layer of a website hero for PIXELARROW, a pixel-art formation-tactics game set in the ancient Mediterranean. The first attached picture is the real game battlefield drawn as a small tabletop diorama; on the website it floats in the middle of this background, but it is NOT part of this image. The second attached picture is the game's painted key art: match its painting style, warm palette and soft brushwork. SUBJECT: an empty night sky, a calm painted backdrop: a very dark warm ground (#100d0b to #1d1812, warm basalt brown-black, not blue, not purple), a faint warm haze near the bottom edge, a soft wide band of the Milky Way rising from the lower left to the upper right in warm cream and faint ochre, and many small soft stars in warm cream (#f0e3c2), a few a little brighter, never sharp white points; the upper left corner slightly warmer, as if a lamp glows just off the frame. Keep the whole image very dark: most of the area below 10 percent brightness and the brightest star no brighter than #f0e3c2, so cream text stays readable over any part of it. COMPOSITION: no horizon, no land, no sea, no moon, no clouds with shapes, no figures; detail spread evenly across the whole image so it can be cropped to any shape from 21:9 to 9:16. STYLE: painted, soft, a slight lime-plaster grain, not a photo, not a 3D render, not glossy digital art, no pure black and no pure white. EXCLUDE: any text, letters, numbers, logos, UI, a frame or border, the diorama, planets, comets, constellation lines, people, buildings. ASPECT: landscape 16:9, highest resolution available.
+```
+
+**Proven: a light-only layer for `mix-blend-mode: screen`** (accepted first try):
+
+```
+Create a NEW image, not an edit of the references. ROLE: a light-only overlay layer for the same website hero; on the page it is blended with the "screen" blend mode, so everything black disappears and only the light shows. SUBJECT: a soft cone of warm lamplight (#f2c879, a little cream at the core) entering from the upper left corner and falling diagonally down toward the centre right, widening as it goes, with soft feathered edges; brightest at the upper left edge where it enters and fading smoothly to nothing before the lower right corner; inside the beam, many tiny dust motes floating in the light: soft warm specks of different sizes, most very small, a few slightly larger and slightly out of focus, more of them inside the beam and almost none outside it. BACKGROUND: perfectly flat pure black #000000 everywhere outside the light, edge to edge, with no texture, no vignette, no stars and no colour noise. No lamp, no window, no objects, no diorama, no people: only the light and the dust. STYLE: painted, soft, gentle; no lens flare, no hard rays, no god-ray stripes, no bloom rings. EXCLUDE: any text, letters, numbers, logos, UI, a frame or border. ASPECT: landscape 16:9, highest resolution available.
+```
+
+**Proven with one fix: a keyed foreground strip.** The first prompt (ASSET_LOG S3) gave an upright helmet 80% of
+the image tall. The fix that worked, in the same chat:
+
+```
+Create a NEW image with the same prompt, but fix three things: (1) everything is far too tall: the table edge must fill only the bottom 12 percent of the image, and the helmet and the scroll must lie low on the table, the helmet lying on its side with the crest along the table (not standing upright), each prop no taller than 25 percent of the image height; the top two thirds of the image are empty magenta; (2) the props and the table must be much darker, nearly silhouettes in a dark room: their faces in deep umber shadow (#1d1812 to #342d25), with only a thin warm rim of lamplight on their top-left edges; (3) the magenta must be one perfectly flat colour #FF00FF with no texture, no brush marks and no shading. Keep everything else from the first prompt: the same two props at the same sides, the painted style, no text or symbols, the very wide aspect.
+```
+
+**Lessons:**
+- Anything that could pass for gameplay is rendered by the game, not generated: `renderGround`, the terrain props
+  and the paperdoll `renderFrame` run in Node through Vite `ssrLoadModule` (no browser, no Phaser) and give exact,
+  repeatable pixel art. Attach that render as the seed so the painted layers sit around it.
+- "Keep it very dark … so cream text stays readable" works for skies; Gemini kept every value low.
+- For light layers ask for pure black and blend with `screen`; no keying needed, and they compress to 5–14 kB.
+- Gemini makes props tall and lit by default. State a height cap as a percentage of the image and "lying on its
+  side"; even then the fix came back lighter than asked, so plan a CSS darken.
+- Gemini returns JPEG even for magenta-key jobs; `keyOut` tol 70 still left zero residue.
+- `sips` AVIF with alpha does not show in Chromium: ship alpha layers as WebP (lossless for pixel art).

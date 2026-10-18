@@ -65,8 +65,16 @@ import {
 } from '../../game/tutorial';
 import { tutorialStep } from '../../audio/hooks';
 import { track } from '../../platform/analytics';
-import { haptic, hapticNotify } from '../../platform/telegram';
+import { haptic, hapticNotify } from '../../platform/haptics';
 import { t, tOr, type TKey } from '../../i18n';
+import { platform } from '../../platform';
+import { keys } from '../input/keys';
+import type { ActionId } from '../input/actions';
+import { glyphs, primaryLabel } from '../input/glyphs';
+import { tutorialLine } from './keyLines';
+
+/** An action's current key, as the keyboard lines name it (input-v6.md §10: a rebound key shows correctly). */
+const keyOf = (a: ActionId): string => primaryLabel(keys.bindings, a, glyphs()) ?? t('controls.none');
 
 /** Analytics (docs/OPS.md): when this tutorial run began, and a step's stable number. */
 let tutorialStartedAt = 0;
@@ -104,6 +112,8 @@ export interface TutorialHost {
   fieldTop(): number;
   panelTop(): number;
   headTop(): number;
+  /** The narrator's x and width (battleLayout.narratorBox) and whether it docks in a landscape field (top-left, else its foot). */
+  narratorBox(): { x: number; w: number; land: boolean };
   /** Field point -> UI pixels. */
   toUi(x: number, y: number): Pt;
   /** Field paces -> UI pixels at the current zoom (roughly, across the screen). */
@@ -430,7 +440,8 @@ export class BattleTutorial {
 
   private lineOf(id: TutStepId): string {
     const spec = this.specs[id];
-    return t(spec.text ?? 'tut.step.win', spec.params?.());
+    const dev = { keyboard: platform.input.keyboard(), fine: platform.input.finePointer() };
+    return tutorialLine(id, spec.text ?? 'tut.step.win', spec.params?.(), dev, keyOf);
   }
 
   private talk(): void {
@@ -479,8 +490,9 @@ export class BattleTutorial {
    */
   private dock(text: string, tap: boolean): number {
     const h = this.host;
+    const box = h.narratorBox();
+    this.narrator.box = box;
     const nh = this.narrator.measure(text, tap);
-    const { VW } = this.scene.m;
     const keep: Rect[] = [];
     const id = this.step;
     const spec = id ? this.specs[id] : null;
@@ -492,11 +504,12 @@ export class BattleTutorial {
     const g = spec?.ghost?.();
     if (g) pts.push(...(g.kind === 'drag' ? g.pts : [g.at]));
     for (const p of pts) keep.push({ x: p.x - 12, y: p.y - 16, w: 24, h: 24 });
-    const cands = [Math.max(h.fieldTop(), h.headTop() - 2 - nh), 0];
+    // landscape (§13.1): top-left of the field, else at its foot; never over the top row, the cards or the rail
+    const cands = box.land ? [h.fieldTop(), Math.max(h.fieldTop(), h.panelTop() - 2 - nh)] : [Math.max(h.fieldTop(), h.headTop() - 2 - nh), 0];
     let best = cands[0];
     let bestCost = Infinity;
     for (const y of cands) {
-      const r = { x: 0, y, w: VW, h: nh };
+      const r = { x: box.x, y, w: box.w, h: nh };
       const cost = keep.reduce((a, k) => a + overlap(r, k), 0);
       if (cost < bestCost) {
         best = y;

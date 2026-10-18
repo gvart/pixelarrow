@@ -42,7 +42,7 @@ export function arcPiece(loot: readonly Item[]): Item | null {
   return it && normalizeRarity(it.rarity) === 'legendary' && itemDef(it.def).set ? it : null;
 }
 
-export interface SpoilSection {
+interface SpoilSection {
   /** Header i18n key; null = no header (a plain field battle). */
   title: 'results.hoard' | 'results.field' | null;
   from: number;

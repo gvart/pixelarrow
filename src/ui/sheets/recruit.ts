@@ -15,7 +15,7 @@ import { uiFrame, uiId } from '../layout';
 import { LINE_H } from '../textfit';
 import { MOSAIC, TEXT_MIN } from '../tokens';
 import { COLOR } from '../theme';
-import { MButton, TAP, mtext, mw, openParchmentSheet, wrapWords, SHEET_TITLE_H, SHEET_ACTION_H } from '../mosaic';
+import { MButton, TAP, addParchmentPane, mtext, mw, openParchmentSheet, wrapWords, SHEET_TITLE_H, SHEET_ACTION_H } from '../mosaic';
 import { Stage, className, roleColor, roleName, roleTraits } from '../sheet';
 import { armyPill, armyPillH, armyPillW } from '../army/parts';
 import { addClassBust, ensureBusts } from '../army/busts';
@@ -35,7 +35,7 @@ type C = Phaser.GameObjects.Container;
 export const HIRE_UNDO_S = 4;
 
 /** What a hire needs to be taken back. */
-export interface HireReceipt {
+interface HireReceipt {
   /** The settlement. */
   sid: number;
   /** The offer's index in the settlement's pool. */
@@ -68,17 +68,19 @@ export function canRetrainAny(heroes: readonly Hero[]): boolean {
 
 /**
  * A toast with an Undo button, just above `bottom` (the action bar), for HIRE_UNDO_S seconds. A
- * newer one replaces it; it goes with the scene. Returns its close.
+ * newer one replaces it; it goes with the scene. Returns its close. `place`: centred in that span
+ * (UI px) instead of the screen, e.g. over a list pane so it leaves a banner pane's actions clear.
  */
-export function showUndoToast(scene: UiScene, text: string, bottom: number, onUndo: () => void): () => void {
+export function showUndoToast(scene: UiScene, text: string, bottom: number, onUndo: () => void, place?: { x: number; w: number }): () => void {
   undoToasts.get(scene)?.();
   const { VW } = scene.m;
-  const w = Math.min(VW - 16, 240);
+  const span = place ?? { x: 0, w: VW };
+  const w = Math.min(span.w - 16, 240);
   const bw = Math.max(TAP + 18, Math.ceil(mw(t('set.undo'), 'rInk', 7)) + 30);
   const tw = w - bw - 18;
   const lines = wrapWords(text, tw, (s) => mw(s, 'light', 7)).slice(0, 3);
   const h = Math.max(TAP + 8, lines.length * LINE_H + 12);
-  const x = Math.round((VW - w) / 2);
+  const x = Math.round(span.x + (span.w - w) / 2);
   const c = scene.add.container(x, Math.round(bottom - h - 4));
   scene.ui.add(c);
   uiId(c, 'town.undoToast');
@@ -227,4 +229,27 @@ export function openRecruitSheet(scene: UiScene, o: RecruitSheetOpts): { close: 
     addClassBust(scene, area.content, iw - 34, 4, 30, heroClass(o.hero).id);
   });
   return { close: s.close };
+}
+
+/**
+ * The recruit card in place, as the detail pane beside the volunteers (landscape-v6 §11.2, expanded): the
+ * sheet's content and Hire at the pane's foot. Returns the pane's container.
+ */
+export function addRecruitPane(scene: UiScene, parent: C, box: { x: number; y: number; w: number; h: number }, o: RecruitSheetOpts): C {
+  const pane = addParchmentPane(scene, parent, box, {
+    title: heroName(o.hero.name),
+    id: 'recruit.pane',
+    actions: [{ label: `${t('town.hire')} ${o.price}`, icon: 'coin', variant: o.blocked ? 'disabled' : 'primary', disabledReason: o.blocked, id: 'town.hireCard', onClick: () => o.onHire() }],
+  });
+  const iw = pane.body.w - 4;
+  const stageH = scene.m.VH < 300 ? 0 : 120;
+  const area = new ScrollArea(scene, pane.c, pane.body.x + 2, pane.body.y, pane.body.w - 2, pane.body.h, scene.m.S);
+  area.setContentHeight(fill(scene, area.content, o, iw, stageH));
+  addScrollHint(scene, pane.c, area, MOSAIC.parch);
+  pane.c.once('destroy', () => area.destroy());
+  ensureBusts(scene, [heroClass(o.hero).id], () => {
+    if (!area.content.scene || !stageH) return;
+    addClassBust(scene, area.content, iw - 34, 4, 30, heroClass(o.hero).id);
+  });
+  return pane.c;
 }

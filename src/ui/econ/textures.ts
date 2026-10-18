@@ -11,7 +11,7 @@ import { renderGoodsIcon, renderGoodsIconHD, goodsIconKey, type GoodsKind } from
 import { renderCosmetic, renderCosmeticHD, cosmeticKey, COSMETIC_PREVIEW } from '../../art/cosmeticArt';
 
 /** The goods icons' size in UI px. */
-export const GOODS_PX = 16;
+const GOODS_PX = 16;
 
 export function goodsTexture(scene: Phaser.Scene, kind: GoodsKind, id: string): string {
   if (typeof document === 'undefined') {

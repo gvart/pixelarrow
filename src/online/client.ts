@@ -296,8 +296,9 @@ export const onlineApi = {
 
 /** Can the online mode be used right now? Signs in if needed. */
 export async function checkOnline(): Promise<Availability> {
-  if (!online.available) return { ok: false, reason: 'outside', message: t('gap.net.outside') };
-  if (!(await online.signIn())) return { ok: false, reason: 'offline', message: t('gap.net.offline') };
+  const s = await online.ensureSession();
+  if (s === 'signed_out') return { ok: false, reason: 'outside', message: t('gap.net.outside') };
+  if (s === 'offline') return { ok: false, reason: 'offline', message: t('gap.net.offline') };
   try {
     await onlineApi.status();
     return { ok: true };
@@ -348,7 +349,7 @@ export function simSocketPath(path: string): string {
 type Listener<S> = (m: S) => void;
 
 /** A socket's heartbeat (ShardSocket): half-open sockets never fire onclose, so silence is the only sign. */
-export interface Heartbeat {
+interface Heartbeat {
   /** How often a `ping` text frame goes out (the server's auto-response answers `pong`). */
   everyMs: number;
   /** Nothing received for this long: the socket is dead (a phone put away, a network switch) and is replaced. */
@@ -449,13 +450,14 @@ export class ShardSocket<S extends { type: string } = ServerMsg, C = ClientMsg> 
     this.wanted = true;
     this.startBeat();
     if (this.ws) return;
+    // bearer (Telegram) needs the token; a cookie session (web) rides on the same-origin cookie
     const token = online.api.token;
-    if (!token) return;
+    if (!token && online.api.transport !== 'cookie') return;
     const base = online.api.base || location.origin;
     const url = base.replace(/^http/, 'ws') + simSocketPath(this.path);
     let ws: WebSocket;
     try {
-      ws = new WebSocket(url, ['pixelarrow.v1', token]);
+      ws = new WebSocket(url, token ? ['pixelarrow.v1', token] : ['pixelarrow.v1']);
     } catch {
       this.schedule();
       return;

@@ -5,7 +5,7 @@ import { db } from '../middleware';
 import { requireRate } from '../rateLimit';
 import { currentSeason, getShard, membership, requireProfile, shardDoName, type Membership, type ProfileRow, type Season, type Shard } from './store';
 
-export interface Ctx {
+interface Ctx {
   db: D1Database;
   env: Env;
   now: number;

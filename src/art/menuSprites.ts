@@ -10,7 +10,7 @@
 import Phaser from 'phaser';
 
 /** Shared palette: warm outline, wood, bronze, gold, cloth, flame, stone. */
-export const MENU_PAL: Record<string, number> = {
+const MENU_PAL: Record<string, number> = {
   k: 0x1a0f08, // outline
   d: 0x5a3818, // wood dark
   w: 0x8a5a2b, // wood
@@ -39,7 +39,7 @@ export type Grid = readonly string[];
 // ------------------------------------------------------------------ chest
 
 /** Closed chest, 16 x 13. */
-export const CHEST_CLOSED: Grid = [
+const CHEST_CLOSED: Grid = [
   '..kkkkkkkkkkkk..',
   '.kWWWWWWWWWWWWk.',
   'kWwwwwwbbwwwwwwk',
@@ -56,7 +56,7 @@ export const CHEST_CLOSED: Grid = [
 ];
 
 /** Open chest, lid thrown back, gold heaped over the rim (the moment of claiming), 16 x 15. */
-export const CHEST_FULL: Grid = [
+const CHEST_FULL: Grid = [
   '..kkkkkkkkkkkk..',
   '.kWWWWWWWWWWWWk.',
   '.kddddddddddddk.',
@@ -75,7 +75,7 @@ export const CHEST_FULL: Grid = [
 ];
 
 /** Open and empty (claimed), 16 x 15. */
-export const CHEST_EMPTY: Grid = [
+const CHEST_EMPTY: Grid = [
   '..kkkkkkkkkkkk..',
   '.kWWWWWWWWWWWWk.',
   '.kddddddddddddk.',
@@ -109,32 +109,10 @@ export const PENNANT: Grid[] = [
   ['.B..........', 'kbk.........', '.wkkkkkkk...', '.wkcCccck...', '.wkccccccckk', '.wkcCcccccck', '.wkkkkkkkkk.', '.w..........', '.w..........', '.w..........', '.w..........', '.w..........', '.w..........', '.d..........'],
 ];
 
-/** A laurel branch (the left half of a victor's wreath; flip it for the right), 13 x 18. */
-export const LAUREL: Grid = [
-  '.....kgGkk.kk',
-  '......kgGbkgG',
-  '...kk..kbkgGk',
-  '..kgGkkbkkkk.',
-  '...kgGbkgGk..',
-  '..kkkgbgGk...',
-  '.kgGkbkkk....',
-  '..kgGbkgGk...',
-  '..kkgbgGk....',
-  '.kgGkbkkk....',
-  '..kgGbkgGk...',
-  '...kgbgGk....',
-  '..kgGkbkkk...',
-  '...kgGbkgGk..',
-  '....kgkbGk...',
-  '.....k.kbkk..',
-  '........kbBk.',
-  '.........kk..',
-];
-
 // ------------------------------------------------------------------ texture builder
 
 /** Paints a grid into a canvas (pure: tests and the texture builder). Unknown letters are skipped. */
-export function paintGrid(ctx: CanvasRenderingContext2D, grid: Grid, ox = 0, oy = 0, pal: Record<string, number> = MENU_PAL, dim = false): void {
+function paintGrid(ctx: CanvasRenderingContext2D, grid: Grid, ox = 0, oy = 0, pal: Record<string, number> = MENU_PAL, dim = false): void {
   grid.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       const c = pal[row[x]];
@@ -146,7 +124,7 @@ export function paintGrid(ctx: CanvasRenderingContext2D, grid: Grid, ox = 0, oy 
 }
 
 /** Grey and darker: the locked look of a sprite. */
-export function desaturate(c: number): number {
+function desaturate(c: number): number {
   const r = (c >> 16) & 255;
   const g = (c >> 8) & 255;
   const b = c & 255;
@@ -155,7 +133,7 @@ export function desaturate(c: number): number {
 }
 
 /** Grid size: [w, h]. */
-export function gridSize(grid: Grid): [number, number] {
+function gridSize(grid: Grid): [number, number] {
   return [grid[0]?.length ?? 0, grid.length];
 }
 
@@ -179,7 +157,7 @@ export function gridTexture(scene: Phaser.Scene, key: string, frames: Grid[], di
 }
 
 /** One sprite of a grid, top-left at x, y (UI px; 1 art px = `scale` UI px). */
-export function addGridImage(scene: Phaser.Scene, x: number, y: number, key: string, grid: Grid, o: { dim?: boolean; scale?: number } = {}): Phaser.GameObjects.Image {
+function addGridImage(scene: Phaser.Scene, x: number, y: number, key: string, grid: Grid, o: { dim?: boolean; scale?: number } = {}): Phaser.GameObjects.Image {
   const tk = gridTexture(scene, key, [grid], o.dim);
   return scene.add.image(Math.round(x), Math.round(y), tk).setOrigin(0, 0).setScale(o.scale ?? 1);
 }

@@ -20,7 +20,7 @@ import { uiBlocker, uiFrame, uiId } from './layout';
 import { addPortrait } from './sprites';
 import { dollKey, type DollSpec } from '../art/paperdoll';
 import { ellipsize, measureText } from './textfit';
-import { haptic, hapticSelect } from '../platform/telegram';
+import { haptic, hapticSelect } from '../platform/haptics';
 import { uiButton } from '../audio/hooks';
 import { t } from '../i18n';
 import { heroName, namesIn } from '../i18n/names';
@@ -47,12 +47,12 @@ function goldFrame(scene: Phaser.Scene, w: number, h: number): Phaser.GameObject
 }
 
 /** The first candidate (upper-cased) whose width fits `maxW`; else the last one. */
-export function firstFit(cands: (string | undefined | false | null)[], maxW: number, shadow = false, face: 'body' | 'roman' = 'body'): string {
+function firstFit(cands: (string | undefined | false | null)[], maxW: number, shadow = false, face: 'body' | 'roman' = 'body'): string {
   const list = cands.filter((c): c is string => !!c).map((c) => (face === 'roman' ? caps(c) : c));
   return list.find((c) => measureText(c, shadow, 7, face) <= maxW) ?? list[list.length - 1] ?? '';
 }
 
-export interface GroupCardInfo {
+interface GroupCardInfo {
   /** "I", "II"... or "*" for a detached hero. */
   numeral: string;
   men: number;
@@ -89,7 +89,7 @@ let seenScene: Phaser.Scene | null = null;
 let seenN = 1;
 
 /** The battle count for `scene`'s run: read and bumped once per run (a per-player convenience, kept in localStorage). */
-export function barsSeen(scene: Phaser.Scene): number {
+function barsSeen(scene: Phaser.Scene): number {
   if (seenScene === scene) return seenN;
   seenScene = scene;
   const ls = safeLocalStorage();
@@ -122,6 +122,8 @@ export class GroupCard extends Phaser.GameObjects.Container {
   private bars: Phaser.GameObjects.Graphics;
   private key = '';
   private info: GroupCardInfo | null = null;
+  /** UI px the bar row sits higher (a landscape card at S = 3: its labels stay inside the card after pixel rounding). */
+  barLift = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, onTap: () => void, baseTip: () => string) {
     super(scene, Math.round(x), Math.round(y));
@@ -275,7 +277,7 @@ export class GroupCard extends Phaser.GameObjects.Container {
     this.add(mosaicImage(s, 0, 0, this.w, this.h, i.selected ? 'parchmentSel' : 'parchment'));
     if (i.men === 0) this.add(s.add.rectangle(0, 0, this.w, this.h, MOSAIC.parchLo, 0.5).setOrigin(0, 0));
     if (i.selected) this.add(goldFrame(s, this.w, this.h));
-    const barTop = this.h - BAR_H - 2.5;
+    const barTop = this.h - BAR_H - 2.5 - this.barLift;
     // the leading man's portrait (room permitting) above the bars, the numeral plate on its corner
     let x = 3;
     let plateX = 1;
@@ -425,7 +427,7 @@ export function strokeReticle(g: Phaser.GameObjects.Graphics, cx: number, cy: nu
 }
 
 /** The focus reticle as its own object (a group card's corner). */
-export function reticle(scene: Phaser.Scene, cx: number, cy: number, r: number): Phaser.GameObjects.Graphics {
+function reticle(scene: Phaser.Scene, cx: number, cy: number, r: number): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics();
   strokeReticle(g, cx, cy, r * 0.8, 0.9);
   return g;
@@ -480,7 +482,7 @@ export function numeralBadge(scene: Phaser.Scene, x: number, y: number, h: numbe
 }
 
 /** One row of the works tray. */
-export interface WorksTrayRow {
+interface WorksTrayRow {
   id: string;
   title: string;
   subtitle: string;
@@ -548,7 +550,7 @@ export function worksTray(
   return { c, top: y, rows: out };
 }
 
-export interface TrayRowOpts {
+interface TrayRowOpts {
   title: string;
   /** The quieter line under the title. */
   subtitle?: string;

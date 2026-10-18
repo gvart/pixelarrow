@@ -28,12 +28,13 @@ const LOOP_MS = 45_000;
 interface Duellist {
   token: string;
   pid: number;
+  name: string;
 }
 
 /** A player with a duel profile; `level5` gives the XP of duel level 5 (ranked). */
 async function duellist(tg: number, opts: { level5?: boolean; rating?: number } = {}): Promise<Duellist> {
-  const { token, pid } = await openDuellist(tg, { name: `D${tg}`, ...opts });
-  return { token, pid };
+  const { token, pid, name } = await openDuellist(tg, { name: `D${tg}`, ...opts });
+  return { token, pid, name };
 }
 
 const queueSocket = async (p: Duellist) => {
@@ -141,7 +142,7 @@ describe('duel queue (MatchmakerDO)', () => {
     });
     await runDurableObjectAlarm(mm());
     const fa = await qa.next('match_found');
-    expect(fa).toMatchObject({ mode: 'ranked', opponent: { name: `D980112`, league: { id: 'gold' } } });
+    expect(fa).toMatchObject({ mode: 'ranked', opponent: { name: b.name, league: { id: 'gold' } } });
     await qb.next('match_found');
     expect(await runInDurableObject(mm(), (i: MatchmakerDO) => i.waiting())).toEqual([]);
     // a player in a live match cannot queue again

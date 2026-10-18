@@ -4,7 +4,7 @@
  * and track (loot_pity, migration 0015). Rules: src/game/sources.ts.
  */
 
-export type PityTrack = 'war' | 'duel';
+type PityTrack = 'war' | 'duel';
 
 /** A player's bad-luck counter on a track (0 without a row). */
 export async function getPity(db: D1Database, pid: number, track: PityTrack): Promise<number> {

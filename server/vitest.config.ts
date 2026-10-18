@@ -15,8 +15,16 @@ export default defineConfig({
         bindings: {
           TELEGRAM_BOT_TOKEN: '123456:TEST-TOKEN',
           TELEGRAM_WEBHOOK_SECRET: 'test-webhook-secret',
-          SESSION_SECRET: 'test-session-secret-0123456789abcdef',
           DEV_AUTH: '1',
+          // Test-only pepper values (ADR-0008 §2); production peppers are Worker secrets.
+          PASSWORD_PEPPER: btoa('test-pepper-0123456789abcdefghij'),
+          PASSWORD_PEPPER_ID: '2',
+          PASSWORD_PEPPER_PREVIOUS: `1:${btoa('old-test-pepper-0123456789abcdef')}`,
+          DEV_EMAIL: '1',
+          // Cloudflare's published always-pass Turnstile testing secret (ADR-0008 §6); siteverify
+          // itself is faked in test/setup.ts, so no test reaches the network.
+          TURNSTILE_SECRET: '1x0000000000000000000000000000000AA',
+          DEV_ORIGINS: 'http://localhost:6160',
           ONLINE_MAP: 'test30',
           ADMIN_TOKEN: 'ops:test-admin-token-0123456789abcdef0123456789, short:tooshort',
           TEST_MIGRATIONS: await readD1Migrations('./migrations'),

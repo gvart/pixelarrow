@@ -586,23 +586,6 @@ export function renderStructure(id: StructureId, frame = 0, look = 0): Pix {
   return px;
 }
 
-/** Placement ghost tile: a dotted square, cyan (valid) or red (blocked). */
-export function renderPlaceTile(ok: boolean): Pix {
-  const S = WTILE;
-  const px = new Pix(S, S);
-  const c = ok ? 0x7fd0e0 : 0xb83d4a;
-  for (let k = 0; k < S; k++) {
-    if (k % 2 === 0) {
-      px.set(k, 0, c);
-      px.set(k, S - 1, c);
-      px.set(0, k, c);
-      px.set(S - 1, k, c);
-    }
-  }
-  for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) px.set(x, y, c, (x + y) % 2 ? 60 : 30);
-  return px;
-}
-
 /** Build dust: three frames of cream puffs, 16x12 each, side by side. */
 export function renderDust(): Pix {
   const px = new Pix(48, 12);

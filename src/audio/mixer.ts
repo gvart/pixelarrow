@@ -21,7 +21,7 @@ export type Bus = 'music' | 'sfx' | 'ui';
 /** dB per volume step: 10 = 0 dB, 1 = -18 dB, 0 = off. */
 export const STEP_DB = 2;
 /** Below this a gain is silence. */
-export const SILENT_DB = -80;
+const SILENT_DB = -80;
 
 /** Per-bus trim, dB (headroom into the limiter; the old linear 1.2 / 0.9 maxima). */
 export const TRIM_DB: Record<Bus, number> = { music: 1.5, sfx: -1, ui: -1 };
@@ -48,7 +48,7 @@ export function busOf(id: SfxId): Bus {
 }
 
 /** How far a sound pulls other buses down while it plays, dB (sidechain by volume automation). */
-export interface DuckSpec {
+interface DuckSpec {
   music: number;
   sfx?: number;
 }
@@ -89,7 +89,7 @@ export class Ducker {
   }
 }
 
-export interface MixSettings {
+interface MixSettings {
   sound: boolean;
   musicVol: number;
   sfxVol: number;

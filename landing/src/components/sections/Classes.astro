@@ -1,0 +1,234 @@
+---
+// Classes and units (#classes), STRUCTURE.md §3. Names, roles and cultures are copied from the game's
+// class data (src/data/classes.ts; culture names from CULTURE_LABEL in src/data/names.ts) and checked
+// in docs/v6/landing/NOTES.md. Busts are the shipped v5 portraits (public/ui/busts/), copied unchanged
+// into landing/public/classes/ (288x288 JPEG, 20-25 kB each, ADR-0011 bust budget ≤ 25 kB).
+import TiltCard from '../TiltCard.astro';
+
+const CLASSES = [
+  { id: 'hoplite', name: 'Spartan hoplite', role: 'Heavy', from: 'Hellenes', line: 'Braced spear wall. The line cavalry breaks on.' },
+  { id: 'rhomphaia', name: 'Thracian rhomphaia', role: 'Heavy', from: 'Hellenes', line: 'Two-handed blade that breaks shields. Weak to missiles.' },
+  { id: 'celt_sword', name: 'Celtic swordsman', role: 'Heavy', from: 'Galatae', line: 'Long sword, tall shield. A hard first rush.' },
+  { id: 'archer', name: 'Cretan archer', role: 'Ranged', from: 'Hellenes, Carthaginians', line: 'Longest range. Pierces armour.' },
+  { id: 'slinger', name: 'Rhodian slinger', role: 'Ranged', from: 'All three cultures', line: 'Lead bullets at long range. Carries the most ammunition.' },
+  { id: 'horse_archer', name: 'Scythian horse archer', role: 'Ranged, mounted', from: 'Carthaginians, Galatae', line: 'Shoots from the saddle on the move.' },
+  { id: 'peltast', name: 'Peltast', role: 'Light', from: 'Hellenes, Galatae', line: 'Throws, then closes. Hunts archers.' },
+  { id: 'falx', name: 'Thracian falx', role: 'Light', from: 'Hellenes, Galatae', line: 'Fast and hits hard. No shield.' },
+  { id: 'companion', name: 'Companion cavalry', role: 'Cavalry', from: 'Hellenes', line: 'Shock riders for flank and rear charges.' },
+  { id: 'chariot', name: 'Scythed chariot', role: 'Cavalry', from: 'Carthaginians', line: 'Breaks loose foot. Wrecks in woods and stones.' },
+  { id: 'royal_guard', name: 'Royal guard', role: 'Elite', from: 'Hellenes', line: 'Picked men with silver shields.' },
+  { id: 'sacred_band', name: 'Sacred Band', role: 'Elite', from: 'Hellenes', line: 'Sworn pairs who hold when others run.' },
+] as const;
+
+const BEASTS = [
+  { id: 'wolf', name: 'Wolf', line: 'Hunts in packs and circles to a flank.' },
+  { id: 'boar', name: 'Wild boar', line: 'Charges straight in, tusks low.' },
+  { id: 'bear', name: 'Brown bear', line: 'Each swipe can fell a man.' },
+] as const;
+---
+<section class="section classes" id="classes" aria-labelledby="classes-title">
+  <div class="container">
+    <header class="section__head">
+      <h2 id="classes-title" class="section__title">Choose your men</h2>
+      <p class="section__lead">Twenty-one classes across three cultures, from village levies to the Sacred Band, plus wolves, boars and bears.</p>
+    </header>
+
+    <ul class="roster" data-lazy-group role="list" tabindex="0" aria-label="Twelve of the eighteen soldier classes">
+      {CLASSES.map((c) => (
+        <TiltCard class="plate">
+          <img class="plate__bust" data-src={`/classes/bust_${c.id}.jpg`} width="288" height="288" alt="" decoding="async" />
+          <noscript><img class="plate__bust" src={`/classes/bust_${c.id}.jpg`} width="288" height="288" alt="" /></noscript>
+          <div class="plate__text">
+            <h3 class="plate__name">{c.name}</h3>
+            <p class="plate__role">{c.role}</p>
+            <p class="plate__from">{c.from}</p>
+            <p class="plate__line">{c.line}</p>
+          </div>
+        </TiltCard>
+      ))}
+    </ul>
+    <p class="roster__more">Also in the ranks: militia, thureophoroi, peltast javelineers, Gallic warbands, fanatics and Thessalian horse.</p>
+
+    <div class="beasts">
+      <div class="beasts__text">
+        <h3 class="beasts__title">Beasts</h3>
+        <p>Wolves, boars and bears fight on the field. Mythical beasts hold lairs on the war map: the hydra, the cyclops, harpies, the Nemean lion, the minotaur and the chimera.</p>
+      </div>
+      <ul class="beasts__list" data-lazy-group role="list">
+        {BEASTS.map((b) => (
+          <TiltCard class="plate plate--beast">
+            <img class="plate__bust" data-src={`/classes/bust_${b.id}.jpg`} width="288" height="288" alt="" decoding="async" />
+            <noscript><img class="plate__bust" src={`/classes/bust_${b.id}.jpg`} width="288" height="288" alt="" /></noscript>
+            <div class="plate__text">
+              <h4 class="plate__name">{b.name}</h4>
+              <p class="plate__line">{b.line}</p>
+            </div>
+          </TiltCard>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  /* Base plates (ART_DIRECTION §3): a dark slab, 1 px warm outline, 2 px darker lower edge, radius 2.
+     The bust sits in a square well with a bronze edge, like the game's portrait well. */
+  .roster {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--s6);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .classes .plate {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    background: var(--stone);
+    border: 1px solid var(--stone-edge);
+    border-bottom: 3px solid #0c0a08;
+    border-radius: var(--radius);
+  }
+  .plate__bust {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    border-bottom: 1px solid var(--bronze);
+    box-shadow: inset 0 0 0 1px rgb(176 138 58 / 0.6);
+    background: var(--basalt);
+  }
+  /* Without JS the <noscript> twin shows instead (scripts/lazy.ts). */
+  @media (scripting: none) {
+    .plate__bust[data-src] {
+      display: none;
+    }
+  }
+  .plate__text {
+    display: grid;
+    align-content: start;
+    gap: var(--s2);
+    padding: var(--s3) var(--s4) var(--s4);
+  }
+  .plate__name {
+    margin: 0;
+    color: var(--cream);
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+  }
+  .plate__role {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s2);
+    margin-bottom: calc(-1 * var(--s2));
+    font-size: var(--fs-caption);
+    font-weight: 600;
+    color: var(--cream);
+  }
+  /* The diamond bullet is the page's one shape motif (ART_DIRECTION §3). */
+  .plate__role::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    align-self: center;
+    background: var(--bronze);
+    transform: rotate(45deg);
+  }
+  .plate__from {
+    font-size: var(--fs-caption);
+    color: var(--cream-muted);
+  }
+  .plate__line {
+    font-size: var(--fs-caption);
+    color: var(--cream-sec);
+  }
+  .roster__more {
+    margin-top: var(--s8);
+    text-align: center;
+    color: var(--cream-muted);
+    font-size: var(--fs-caption);
+  }
+
+  .beasts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s12);
+    align-items: center;
+    margin-top: var(--s16);
+    padding-top: var(--s12);
+    border-top: 1px solid var(--stone-edge);
+  }
+  .beasts__text {
+    display: grid;
+    gap: var(--s3);
+    max-width: var(--measure);
+  }
+  .beasts__title {
+    font-size: 1.5rem;
+  }
+  .beasts__list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s6);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (max-width: 1279px) {
+    .roster {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 1023px) {
+    .roster {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--s4);
+    }
+    .beasts {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s8);
+    }
+  }
+  /* Phones: the roster becomes a horizontal snap strip so twelve cards cost one screen, not six.
+     It bleeds to the screen edges and keeps the gutter as scroll padding. */
+  @media (max-width: 767px) {
+    .roster {
+      grid-template-columns: none;
+      grid-auto-flow: column;
+      grid-auto-columns: min(62vw, 240px);
+      gap: var(--s3);
+      margin-inline: calc(-1 * var(--gutter));
+      padding: 0 var(--gutter) var(--s3);
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scroll-padding-inline: var(--gutter);
+      scrollbar-width: thin;
+      scrollbar-color: var(--stone-edge) transparent;
+    }
+    .roster > .plate {
+      scroll-snap-align: start;
+    }
+    .roster__more {
+      margin-top: var(--s6);
+      text-align: left;
+    }
+    .beasts__list {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s3);
+    }
+    .beasts__list > .plate--beast {
+      grid-template-rows: none;
+      grid-template-columns: 88px minmax(0, 1fr);
+      align-items: center;
+    }
+    .beasts__list .plate__bust {
+      border-bottom: 0;
+      border-right: 1px solid var(--bronze);
+    }
+  }
+</style>

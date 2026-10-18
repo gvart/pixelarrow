@@ -18,8 +18,8 @@ export const SubmitBody = z.object({
   deployOrders: z.number().int().min(0).max(LIMITS.maxOrders).optional(),
   claim: z.object({ winner: z.union([z.literal(0), z.literal(1), z.literal(-1)]), ticks: z.number().int().min(0), hash: z.string().max(16) }),
 });
-export type Submission = z.infer<typeof SubmitBody>;
-export type Replayed = ReturnType<typeof replayBattle>;
+type Submission = z.infer<typeof SubmitBody>;
+type Replayed = ReturnType<typeof replayBattle>;
 
 /**
  * Replays a submission against the setup its ticket fixed. A client that does

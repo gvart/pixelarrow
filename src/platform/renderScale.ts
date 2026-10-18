@@ -11,6 +11,7 @@
  * `zoomUnits()`.
  */
 import Phaser from 'phaser';
+import { legacyColumnWidth } from '../ui/sizeClass';
 
 /**
  * Device pixels per CSS pixel for a screen of `dpr`: quarter steps, at most 3x (fill rate), and at most 2x
@@ -44,22 +45,43 @@ export const camZoom = (units: number): number => units * RS;
 export const zoomUnits = (zoom: number): number => zoom / RS;
 
 /**
- * Make Phaser's RESIZE mode size the canvas at RS x its parent: the parent's
- * CSS size is reported multiplied by RS, so the game size (and the canvas
- * backing store) are in device pixels; index.html stretches the canvas back
- * to the parent's CSS size. Call before `new Phaser.Game`.
+ * The legacy column (ADR-0013, V6-021): while a scene that has not migrated to
+ * the size classes runs, the game box is the v5 column, min(W, H x 0.64) of the
+ * safe area, centred in #game (which fills the safe area). A scene that opted in
+ * gets the whole safe area. BaseScene switches it as each screen is built.
+ */
+let column = true;
+
+/** Is the game box the v5 column right now? */
+export const legacyColumn = (): boolean => column;
+
+/** Switch the legacy column on or off; the game resizes at once, before the scene lays out. */
+export function setLegacyColumn(scale: Phaser.Scale.ScaleManager, on: boolean): void {
+  if (column === on) return;
+  column = on;
+  if (scale.getParentBounds()) scale.refresh();
+}
+
+/**
+ * Make Phaser's RESIZE mode size the game from #game: the parent's CSS box,
+ * narrowed to the legacy column while it is on (index.html centres the canvas
+ * at `--pa-col` wide), times RS, so the game size (and the canvas backing
+ * store) are in device pixels; index.html stretches the canvas back to its CSS
+ * size. At RS 1 the size is not rounded, as Phaser's own measure. Call before
+ * `new Phaser.Game`.
  */
 export function installRenderScale(): void {
-  if (RS === 1) return;
   const proto = Phaser.Scale.ScaleManager.prototype as unknown as {
     getParentBounds(this: Phaser.Scale.ScaleManager & { parent: HTMLElement | null; canvasBounds: Phaser.Geom.Rectangle }): boolean;
   };
   proto.getParentBounds = function () {
     if (!this.parent) return false;
     const r = this.parent.getBoundingClientRect();
-    const w = Math.floor(r.width * RS);
-    const h = Math.floor(r.height * RS);
+    const cssW = column ? legacyColumnWidth(r.width, r.height) : r.width;
+    const w = RS === 1 ? cssW : Math.floor(cssW * RS);
+    const h = RS === 1 ? r.height : Math.floor(r.height * RS);
     if (this.parentSize.width !== w || this.parentSize.height !== h) {
+      this.parent.style.setProperty('--pa-col', `${cssW}px`);
       this.parentSize.setSize(w, h);
       return true;
     }

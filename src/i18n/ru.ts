@@ -43,6 +43,9 @@ import { ARC_RU } from './arc.ru';
 import { WAR_V5_RU } from './war.v5.ru';
 import { DUELS_V5_RU } from './duels.v5.ru';
 import { GAPS_RU } from './gaps.ru';
+import { INPUT_RU } from './input.ru';
+import { CONTROLS_RU } from './controls.ru';
+import { ACCOUNT_RU } from './account.ru';
 
 export const RU: Table = {
   'common.ok': 'ОК',
@@ -286,7 +289,7 @@ export const RU: Table = {
   'notify.title': 'Уведомления',
   'notify.note': 'Сообщения от бота Pixelarrow в Telegram.',
   'notify.blocked': 'Бот не может вам написать. Откройте его в Telegram и отправьте /start.',
-  'notify.offline': 'Уведомления настраиваются в Telegram, при подключении.',
+  'notify.offline': 'Уведомления настраиваются, когда вы вошли в аккаунт и есть связь.',
   'notify.failed': 'Не удалось сохранить. Попробуйте ещё раз.',
   'notify.quiet': 'Тихо ночью',
   'notify.type.attack': 'Атаки',
@@ -350,4 +353,7 @@ export const RU: Table = {
   ...WAR_V5_RU,
   ...DUELS_V5_RU,
   ...GAPS_RU,
+  ...INPUT_RU,
+  ...CONTROLS_RU,
+  ...ACCOUNT_RU,
 };

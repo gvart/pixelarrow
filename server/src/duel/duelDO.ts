@@ -31,11 +31,11 @@ import { newRelay, relayMessage, relayResume, relayTick, startMsg, type DuelStat
 import { settleMatch, type MatchInit, type MatchOutcome } from './live';
 
 /** Extra deployment time for both players to open the match socket. */
-export const CONNECT_MS = 5000;
+const CONNECT_MS = 5000;
 /** The relay state is saved at least this often during a battle (alarm). */
-export const SNAPSHOT_MS = 5000;
+const SNAPSHOT_MS = 5000;
 /** A match still running after this long is void (deployment, a 5-minute battle and reconnects fit easily). */
-export const MATCH_MAX_MS = 12 * 60_000;
+const MATCH_MAX_MS = 12 * 60_000;
 const LOG_CHUNK = 500;
 const MAX_MESSAGE = 16 * 1024;
 const RELAY_TYPES = new Set(['d_order', 'd_ready', 'cmd', 'reach', 'end']);
@@ -131,6 +131,18 @@ export class DuelDO extends DurableObject<Env> {
   }
 
   // ------------------------------------------------------------------ sockets
+
+  /** Account deletion (server/src/account/delete.ts): closes the player's sockets; the match runs on as if they left. */
+  async kick(pid: number): Promise<void> {
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) {
+      await this.leave(ws);
+      try {
+        ws.close(4403, 'account deleted');
+      } catch {
+        // already closed
+      }
+    }
+  }
 
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected WebSocket upgrade', { status: 426 });

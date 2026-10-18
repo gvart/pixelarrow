@@ -29,9 +29,9 @@ export interface Box {
  */
 export const OPEN_ZOOM_MIN = 0.5;
 /** The opening never zooms closer than this. */
-export const OPEN_ZOOM_MAX = 1;
+const OPEN_ZOOM_MAX = 1;
 /** The opening zoom snaps down to this step (fine, so it never drops a whole quarter below the fit). */
-export const OPEN_ZOOM_STEP = 0.05;
+const OPEN_ZOOM_STEP = 0.05;
 /** The fight starts at least this close (zoom units): a man is ~34 px tall. */
 export const OPEN_FIGHT_ZOOM = 1;
 /** The zoom key's word: whole steps as "2×", the deployment's overview to a tenth ("0.6×", ru "0,6×"). */

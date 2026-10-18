@@ -99,7 +99,7 @@ export const SEASON_SET = 'sacred_band';
  * The rare set of a tier-3 campaign band's hero: archers carry Cretan
  * pieces, javelin men Peltast pieces, the rest of a Greek band Agoge pieces.
  */
-export function bandSetOf(cls: string | undefined, culture: Culture): string | null {
+function bandSetOf(cls: string | undefined, culture: Culture): string | null {
   if (cls === 'archer') return 'cretan';
   if (cls === 'javelineer' || cls === 'peltast') return 'peltast';
   return culture === 'greek' ? 'agoge' : null;
@@ -108,12 +108,6 @@ export function bandSetOf(cls: string | undefined, culture: Culture): string | n
 /** Item defs of a set's pieces. */
 export function pieceDefs(set: string): ItemDef[] {
   return setPieces(set).map(itemDef);
-}
-
-/** Every set piece and named legendary that some source here hands out (tests/itemSources.test.ts checks it covers them all). */
-export function specialSourceIds(): string[] {
-  const sets = new Set<string>([...Object.values(CHAPTER_SET), ...HOARD_SETS, SEASON_SET, ...Object.values(BOSS_SET).filter((s): s is string => !!s), 'agoge', 'peltast', 'cretan']);
-  return [...[...sets].flatMap(setPieces), ...Object.values(BEAST_NAMED).flat(), ...Object.values(LADDER_NAMED)];
 }
 
 // ------------------------------------------------------------------ campaign bands
@@ -148,8 +142,8 @@ export const LAIR_HOARD = { picks: 3, set: 0.25 };
 export const LAIR_SET: Readonly<Record<Culture, string>> = { greek: 'sacred_band', phoenician: 'immortals', celtic: 'brennus' };
 
 /** The campaign's legendary sets: the host carries one, chosen per campaign. */
-export const ARC_SETS = ['achilles', 'alexander'] as const;
-export type ArcSet = (typeof ARC_SETS)[number];
+const ARC_SETS = ['achilles', 'alexander'] as const;
+type ArcSet = (typeof ARC_SETS)[number];
 
 /**
  * A fallen lair's hoard (R6): a chest of LAIR_HOARD.picks pieces of the
@@ -188,7 +182,7 @@ export function arcSetPiece(set: ArcSet, owned: ReadonlySet<string>, seed: strin
 }
 
 /** An item turned into another def at a rarity (its random stats and power then roll from its uid for the new def). */
-export function withDef(it: Item, def: string, rarity: Rarity): Item {
+function withDef(it: Item, def: string, rarity: Rarity): Item {
   const out: Item = { ...it, def, rarity };
   delete out.aff;
   delete out.pow;

@@ -117,16 +117,6 @@ export function rallyRadius(s: { will: number }): number {
   return ABILITY_RULES.rallyRadius + willRadius(s);
 }
 
-export function collectMods(hero: Hero): StatMods[] {
-  const mods: StatMods[] = [];
-  for (const slot of SLOTS) {
-    const it = hero.equip[slot];
-    if (it) mods.push(itemMods(it, hero.attrs));
-  }
-  for (const t of hero.traits) mods.push(TRAITS[t].mods);
-  return mods;
-}
-
 /** The class definition of a hero (derived for heroes from before classes). */
 export function heroClass(hero: Hero): ClassDef {
   return CLASSES[classOfHero({ cls: hero.cls, arch: hero.arch, culture: hero.culture, weaponDef: hero.equip.weapon?.def })];

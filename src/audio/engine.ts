@@ -34,7 +34,7 @@ export interface AudioSettings {
   sfxVol: number;
 }
 
-export const DEFAULT_AUDIO: AudioSettings = { sound: true, musicVol: 6, sfxVol: 7 };
+const DEFAULT_AUDIO: AudioSettings = { sound: true, musicVol: 6, sfxVol: 7 };
 
 export interface PlayOpts {
   /** Stereo position -1 (left) .. 1 (right). */

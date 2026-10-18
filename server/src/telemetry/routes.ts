@@ -18,18 +18,18 @@ import { readJson } from '../body';
 import { bytesToHex, utf8 } from '../crypto';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { bearer, clientIp, db, requireAuth, sessionFromToken } from '../middleware';
+import { bearer, clientIp, db, requireSession, sessionOf } from '../middleware';
 import { requireRate } from '../rateLimit';
 import { scrubText } from '../../../src/platform/analyticsSchema';
 import { milestone, optedOut, requestCtx, safeTag, writeEvent, writePoint } from './analytics';
 
-export const ERRORS_MAX_BODY = 48 * 1024;
-export const EVENTS_MAX_BODY = 16 * 1024;
+const ERRORS_MAX_BODY = 48 * 1024;
+const EVENTS_MAX_BODY = 16 * 1024;
 /** Error batches per IP / per player per minute (per isolate). */
 export const ERROR_BATCHES_PER_MIN = 6;
 /** Error rows written per isolate per minute, all clients together (a cap on D1 writes). */
-export const ERROR_ROWS_PER_MIN = 300;
-export const EVENT_BATCHES_PER_MIN = 20;
+const ERROR_ROWS_PER_MIN = 300;
+const EVENT_BATCHES_PER_MIN = 20;
 
 const short = (n: number) => z.string().max(n);
 const Crumb = z.object({ t: z.number().int().nonnegative(), c: short(16), m: short(120) });
@@ -55,7 +55,7 @@ const Device = z.object({
   ua: short(40).optional(),
   mem: z.number().min(0).max(1024).optional(),
 });
-export const ErrorsBody = z.object({
+const ErrorsBody = z.object({
   token: short(2048).optional(),
   app: AppInfo.default({}),
   device: Device.default({}),
@@ -63,7 +63,7 @@ export const ErrorsBody = z.object({
 });
 
 const EventItem = z.object({ e: short(40), p: z.record(z.string(), z.unknown()).optional() });
-export const EventsBody = z.object({
+const EventsBody = z.object({
   token: short(2048).optional(),
   app: AppInfo.default({}),
   optOut: z.boolean().optional(),
@@ -72,12 +72,13 @@ export const EventsBody = z.object({
 
 export const telemetry = new Hono<AppEnv>();
 
-/** The player id of a valid session (header or body token), else 0. Never throws. */
+/**
+ * The player id of a valid session (the cookie, or a bearer token in the header
+ * or the body: sendBeacon cannot set headers), else 0. Never throws.
+ */
 async function optionalPid(c: Context<AppEnv>, bodyToken?: string): Promise<number> {
-  const token = bearer(c) ?? bodyToken ?? null;
-  if (!token || !c.env.SESSION_SECRET) return 0;
   try {
-    return (await sessionFromToken(c.env, token)).pid;
+    return (await sessionOf(c, bearer(c) ?? bodyToken ?? null)).pid;
   } catch {
     return 0;
   }
@@ -94,11 +95,11 @@ function topFrame(stack: string | undefined): string {
 }
 
 /** Message without the parts that vary between occurrences (numbers, quoted values). */
-export function normalizeMessage(m: string): string {
+function normalizeMessage(m: string): string {
   return m.replace(/\d+/g, 'N').replace(/'[^']{0,80}'|"[^"]{0,80}"/g, "'…'").slice(0, 300);
 }
 
-export async function errorFingerprint(kind: string, message: string, stack: string | undefined, version: string): Promise<string> {
+async function errorFingerprint(kind: string, message: string, stack: string | undefined, version: string): Promise<string> {
   const frame = topFrame(stack).replace(/:\d+:\d+\)?$/, '').replace(/[?#].*$/, '');
   return (await sha256Hex(`${kind}|${normalizeMessage(message)}|${frame}|${version}`)).slice(0, 24);
 }
@@ -180,14 +181,14 @@ telemetry.post('/events', async (c) => {
   return c.json({ accepted, rejected });
 });
 
-telemetry.post('/consent', requireAuth, async (c) => {
+telemetry.post('/consent', requireSession, async (c) => {
   const body = await readJson(c, z.object({ analytics: z.boolean() }), 256);
   await db(c.env).prepare('UPDATE players SET analytics_opt_out = ?2 WHERE id = ?1').bind(c.get('session').pid, body.analytics ? 0 : 1).run();
   return c.json({ analytics: body.analytics });
 });
 
 /** Daily cron: forget error groups not seen for ERROR_RETENTION_DAYS. */
-export const ERROR_RETENTION_DAYS = 30;
+const ERROR_RETENTION_DAYS = 30;
 export async function pruneClientErrors(d: D1Database, now = Date.now()): Promise<number> {
   const r = await d.prepare('DELETE FROM client_errors WHERE last_seen < ?1').bind(now - ERROR_RETENTION_DAYS * 86_400_000).run();
   return r.meta.changes;

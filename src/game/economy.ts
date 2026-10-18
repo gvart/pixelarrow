@@ -14,7 +14,7 @@ export { DEFAULT_FEE_RATE, marketFee, rarityBounds };
 // ------------------------------------------------------------------ season pass
 
 export type Track = 'free' | 'premium';
-export type TierState = 'claimed' | 'claimable' | 'locked' | 'premium';
+type TierState = 'claimed' | 'claimable' | 'locked' | 'premium';
 
 /** State of one reward: claimed, claimable now, not reached yet, or reached but the premium track is not unlocked. */
 export function tierState(p: Pick<SeasonPassInfo, 'tier' | 'premium' | 'claimed'>, tier: number, track: Track): TierState {

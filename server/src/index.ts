@@ -4,13 +4,20 @@
  * A daily cron (wrangler.jsonc triggers) prunes old client error reports.
  */
 import { Hono, type Context } from 'hono';
+import { WorkerEntrypoint } from 'cloudflare:workers';
 import { readJson } from './body';
 import { LIMITS, verifyBattle, VerifyBody } from './battle';
 import type { AppEnv } from './env';
-import { ApiError, errorBody } from './errors';
-import { db, requireAuth, sessionFromToken } from './middleware';
+import { ApiError, errorBody, unauthorized } from './errors';
+import { assertPlayable, credentials, db, requirePlayable, requireSession } from './middleware';
+import { originCheck } from './auth/origin';
+import { lookupSession, pruneAuth } from './auth/sessions';
+import { finishDeletions } from './account/delete';
+import { pruneLinks } from './account/cron';
+import { gameOrigins } from './urls';
 import { getPlayer, publicPlayer } from './players';
 import { auth } from './routes/auth';
+import { account } from './account/routes';
 import { save } from './routes/save';
 import { entitlements, shop } from './routes/shop';
 import { webhook } from './routes/webhook';
@@ -24,23 +31,53 @@ import { requireDuelProfile } from './duel/store';
 import { currentSeason, requireProfile, shardDoName } from './online/store';
 import { notifyRoutes } from './notify/routes';
 import { runScheduled } from './notify/jobs';
+import { buildPublicSnapshot } from './public/snapshot';
+import { PUBLIC_PREFIX, publicRoute, readSnapshot, type SnapshotRow } from './public/routes';
 import { pruneClientErrors, telemetry } from './telemetry/routes';
 import { logError, log } from './telemetry/log';
 import { admin } from './admin/routes';
 import { adminPage } from './admin/page';
 
-// Only handlers and Durable Object classes may be exported from the entry module.
+// Only handlers, Durable Object classes and entrypoints may be exported from the entry module.
 export { RegionDO } from './region';
 export { MatchmakerDO } from './duel/matchmaker';
 export { DuelDO } from './duel/duelDO';
 
+/**
+ * The landing Worker's way in (ADR-0010 §4): its GAME service binding names
+ * this entrypoint, so the call never crosses the internet and needs no IP
+ * limit. Same row as GET /api/public/v1/summary; null before the first
+ * snapshot (or without D1), which the landing treats as unavailable.
+ */
+export class PublicApi extends WorkerEntrypoint<AppEnv['Bindings']> {
+  async summary(): Promise<SnapshotRow | null> {
+    return this.env.DB ? readSnapshot(this.env.DB) : null;
+  }
+}
+
 const app = new Hono<AppEnv>();
 
-// The Mini App is same-origin; this only matters for local tooling and Telegram web clients.
-const ALLOWED_ORIGINS = new Set(['https://pixelarrow.app', 'https://web.telegram.org']);
+/**
+ * Play may be framed by itself and by Telegram Web, which shows the Mini App
+ * in an iframe (ADR-0007); never X-Frame-Options. Responses that set their own
+ * policy (the admin page: frame-ancestors 'none') keep it. The game's static
+ * HTML gets the same header from public/_headers.
+ */
+const FRAMING = "frame-ancestors 'self' https://web.telegram.org";
+app.use('*', async (c, next) => {
+  await next();
+  if (c.res.status === 101 || c.res.headers.has('content-security-policy')) return; // 101: rebuilding would drop the socket
+  c.res = new Response(c.res.body, c.res); // asset responses have immutable headers
+  c.res.headers.set('content-security-policy', FRAMING);
+});
+
+// The game and its API are same-origin on play (ADR-0007); this only matters for
+// Telegram web clients and local tooling. Never the apex, never credentials.
+const TELEGRAM_WEB = 'https://web.telegram.org';
 app.use('/api/*', async (c, next) => {
   const origin = c.req.header('origin');
-  if (origin && ALLOWED_ORIGINS.has(origin) && c.req.method === 'OPTIONS') {
+  const allowed = !!origin && (origin === TELEGRAM_WEB || gameOrigins(c.env).includes(origin));
+  if (allowed && c.req.method === 'OPTIONS') {
     c.res = new Response(null, {
       status: 204,
       headers: {
@@ -54,12 +91,14 @@ app.use('/api/*', async (c, next) => {
     return;
   }
   await next();
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
+  if (allowed) {
     c.res.headers.set('access-control-allow-origin', origin);
     c.res.headers.append('vary', 'origin');
   }
   c.res.headers.set('cache-control', 'no-store');
 });
+app.use('/api/*', originCheck);
+app.use('/ws/*', originCheck);
 
 app.get('/api/health', (c) =>
   c.json({
@@ -69,7 +108,6 @@ app.get('/api/health', (c) =>
     secrets: {
       telegramBotToken: !!c.env.TELEGRAM_BOT_TOKEN,
       telegramWebhookSecret: !!c.env.TELEGRAM_WEBHOOK_SECRET,
-      sessionSecret: !!c.env.SESSION_SECRET,
       adminToken: !!c.env.ADMIN_TOKEN,
     },
     analyticsEngine: !!c.env.ANALYTICS,
@@ -78,12 +116,13 @@ app.get('/api/health', (c) =>
 
 app.route('/api/auth', auth);
 
-app.get('/api/me', requireAuth, async (c) => {
+app.get('/api/me', requireSession, async (c) => {
   const player = await getPlayer(db(c.env), c.get('session').pid);
   if (!player) throw new ApiError(404, 'not_found', 'Player not found');
-  return c.json({ player: publicPlayer(player), session: { expiresAt: c.get('session').exp } });
+  return c.json({ player: publicPlayer(player), session: { expiresAt: c.get('session').expiresAt, transport: c.get('session').transport } });
 });
 
+app.route('/api/account', account);
 app.route('/api/save', save);
 app.route('/api/shop', shop);
 app.route('/api/entitlements', entitlements);
@@ -99,7 +138,7 @@ app.route('/api/economy', economy);
 app.route('/api/duel', duel);
 app.route('/api/notify', notifyRoutes);
 
-app.post('/api/battle/verify', requireAuth, async (c) => {
+app.post('/api/battle/verify', requirePlayable, async (c) => {
   const req = await readJson(c, VerifyBody, LIMITS.maxBodyBytes);
   try {
     return c.json(verifyBattle(req));
@@ -131,24 +170,31 @@ function refuseSocket(r: SocketRefused): Response {
 }
 
 /**
- * Session token from ?token=... or Sec-WebSocket-Protocol: pixelarrow.v1, <token>.
- * `?sim=` must be SIM_VERSION, else the socket is refused.
+ * The socket's session (ADR-0008 §3): the web's cookie (the same-origin upgrade
+ * sends it; originCheck has already matched the Origin), or Telegram's bearer
+ * token in `Sec-WebSocket-Protocol: pixelarrow.v1, <token>`. Never `?token=`.
+ * The player must be playable (M-OG-1). `?sim=` must be SIM_VERSION, else the
+ * socket is refused.
  */
 async function wsSession(c: Context<AppEnv>) {
   if (c.req.header('upgrade')?.toLowerCase() !== 'websocket') throw new ApiError(426, 'upgrade_required', 'Expected a WebSocket upgrade');
   const protocols = (c.req.header('sec-websocket-protocol') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const fromProtocol = protocols.includes(WS_PROTOCOL) ? protocols.find((p) => p !== WS_PROTOCOL) : undefined;
-  const session = await sessionFromToken(c.env, fromProtocol ?? c.req.query('token') ?? null);
+  const offered = protocols.includes(WS_PROTOCOL);
+  const cred = credentials(c, (offered ? protocols.find((p) => p !== WS_PROTOCOL) : undefined) ?? null);
+  if (!cred) throw unauthorized();
+  const session = await lookupSession(db(c.env), cred.token, cred.transport);
+  if (!session) throw unauthorized();
+  assertPlayable(session);
   try {
     checkSocketSimVersion(c.req.query('sim'));
   } catch (e) {
-    if (e instanceof ApiError && e.code === SIM_VERSION_REJECTED) throw new SocketRefused(e, fromProtocol ? WS_PROTOCOL : null);
+    if (e instanceof ApiError && e.code === SIM_VERSION_REJECTED) throw new SocketRefused(e, offered ? WS_PROTOCOL : null);
     throw e;
   }
   const headers = new Headers(c.req.raw.headers);
   headers.set('x-player-id', String(session.pid));
   headers.set('x-player-name', session.name);
-  if (fromProtocol) headers.set('x-ws-protocol', WS_PROTOCOL);
+  if (offered) headers.set('x-ws-protocol', WS_PROTOCOL);
   else headers.delete('x-ws-protocol');
   return { session, headers };
 }
@@ -218,27 +264,48 @@ app.onError((err, c) => {
   return c.json(errorBody('internal', 'Internal error'), 500);
 });
 
-/** Daily housekeeping (cron HOUSEKEEPING_CRON): client error reports past their retention. */
+/** Daily housekeeping (cron HOUSEKEEPING_CRON): client error reports past their retention; expired sessions, email tokens and idle throttle rows; interrupted account deletions (ADR-0009 §7); expired link codes and conflicts (§3, §5). */
 const HOUSEKEEPING_CRON = '17 3 * * *';
 async function housekeeping(env: AppEnv['Bindings']): Promise<void> {
   if (!env.DB) return;
   try {
     const pruned = await pruneClientErrors(env.DB);
     log('info', 'cron_pruned', { table: 'client_errors', rows: pruned });
+    log('info', 'cron_pruned', { table: 'auth', ...(await pruneAuth(env.DB)) });
+    log('info', 'cron_deletions', await finishDeletions(env));
+    log('info', 'cron_pruned', { table: 'links', ...(await pruneLinks(env.DB)) });
   } catch (e) {
     logError('cron', e);
     throw e;
   }
 }
 
+/** The landing page's stats snapshot (ADR-0010 §2), every 5 minutes. A failed run keeps the last good snapshot. */
+async function publicSnapshot(env: AppEnv['Bindings'], now: number): Promise<void> {
+  if (!env.DB) return;
+  try {
+    await buildPublicSnapshot(env, now);
+  } catch (e) {
+    logError('cron', e, { step: 'public snapshot' });
+  }
+}
+
 export default {
-  fetch: app.fetch,
+  // /api/public/* never enters the Hono app: no session, CORS or Origin middleware (ADR-0010 §1, §5).
+  fetch(request, env, ctx) {
+    if (new URL(request.url).pathname.startsWith(PUBLIC_PREFIX)) return publicRoute(request, env);
+    return app.fetch(request, env, ctx);
+  },
   /**
    * Cron (wrangler.jsonc triggers): every 5 minutes bot notifications that
-   * wait, season and income notices, bot setup; daily housekeeping.
+   * wait, season and income notices, bot setup, the public stats snapshot;
+   * daily housekeeping.
    */
   scheduled(controller, env, ctx) {
     if (controller.cron === HOUSEKEEPING_CRON) ctx.waitUntil(housekeeping(env));
-    else ctx.waitUntil(runScheduled(env, controller.scheduledTime));
+    else {
+      ctx.waitUntil(runScheduled(env, controller.scheduledTime));
+      ctx.waitUntil(publicSnapshot(env, controller.scheduledTime));
+    }
   },
 } satisfies ExportedHandler<AppEnv['Bindings']>;

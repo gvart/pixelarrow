@@ -29,7 +29,7 @@ const PRESS_DIM = 0.8;
 const ROMAN_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['rInk', 'rCream', 'rGold', 'rOff']);
 
 /** The vector face a font key is drawn in. */
-export function faceOf(font: FontKey): Face {
+function faceOf(font: FontKey): Face {
   return ROMAN_FONTS.has(font) ? 'roman' : font === 'head' || font === 'headL' ? 'head' : 'body';
 }
 
@@ -48,7 +48,7 @@ export function midY(h: number, size = 7): number {
   return Math.round((h - (LINE_H * size) / 7) / 2);
 }
 
-export interface TextOpts {
+interface TextOpts {
   size?: number;
   align?: 0 | 0.5 | 1;
   /** Shorten with "…" to this width (or, with `wrap`, the line width). */
@@ -95,7 +95,7 @@ export function mosaicImage(scene: Phaser.Scene, x: number, y: number, w: number
   return scene.add.image(x, y, mosaicTexture(scene, w, h, style)).setOrigin(0, 0).setScale(1 / panelK(scene));
 }
 
-export interface PressOpts {
+interface PressOpts {
   /** The part that shrinks on press (about its own origin: centre it on the button). */
   face?: C;
   w: number;

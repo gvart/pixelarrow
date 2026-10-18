@@ -23,7 +23,7 @@
 import Phaser from 'phaser';
 import { addText, type UIMetrics } from '../kit';
 import { navLayer } from '../../platform/nav';
-import { uiBlocker, uiFrame, uiId } from '../layout';
+import { uiBlocker, uiFrame, uiId, uiPanel } from '../layout';
 import { motion, tweenTo } from '../motion';
 import { ellipsize, measureText } from '../textfit';
 import { MOSAIC, SPACE } from '../tokens';
@@ -34,6 +34,10 @@ import { actionRows } from './BottomPanel';
 import { MButton, type MButtonOpts } from './controls';
 import { MIconButton } from './iconButton';
 import { SCRIM_ALPHA, closeAffordance, sheetMotion, visibleOverlays, type OverlayKind } from './overlays';
+import type { Box } from './ScreenFrame';
+import { panelLayout, type PanelKind, type PanelPresentation } from './layout/panels';
+import { layoutVariant } from './layout/variant';
+import { BUTTON_MAX, DIALOG_MAX, SIDE_PANEL_MAX } from '../sizeClass';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
@@ -56,8 +60,81 @@ export interface ParchmentSheetOpts {
   closeButton?: boolean;
   /** A sheet (default) or a yes/no confirm: a confirm stays over the sheet under it, a sheet replaces it (V5-029). */
   kind?: OverlayKind;
+  /**
+   * Where the sheet goes outside compact portrait (design/ux/landscape-v6.md §3.4). `auto` (default) picks by
+   * the size class and `panel`: a task sheet becomes a right side panel in landscape, a decision a centred
+   * dialog. Compact portrait (every phone, every unmigrated scene) always keeps `dock`, as v5.
+   */
+  presentation?: 'auto' | PanelPresentation;
+  /** The sheet's kind for `auto` (default: `decision` for a confirm or a sheet the shade cannot close, else `task`). */
+  panel?: PanelKind;
   onClose?: () => void;
   id?: string;
+}
+
+/** The content area a side panel docks in, per scene: under the top bar, beside the nav rail (the shells set it). */
+const sheetAreas = new WeakMap<Phaser.Scene, Box>();
+
+/** Where side panels of `scene` dock (buildPage sets it to the page under its top bar; default the whole screen). */
+export function setSheetArea(scene: Phaser.Scene, area: Box): void {
+  // one shutdown listener per scene run: a hub rebuilds its page on every view switch
+  if (!sheetAreas.has(scene)) scene.events.once('shutdown', () => sheetAreas.delete(scene));
+  sheetAreas.set(scene, area);
+}
+
+/** The shade of a side panel: the screen stays readable beside it (§3.4: 20%). */
+const SIDE_SHADE = 0.2;
+/** A side panel slides this far in from its edge, in this time (§3.4). */
+const SIDE_SLIDE = 12;
+const SIDE_MS = 160;
+
+/** Where a sheet goes and its box: v5's in compact portrait, else the §3.4 presentation. */
+function placeSheet(scene: UiScene, o: ParchmentSheetOpts): { presentation: PanelPresentation; x: number; y: number; w: number; h: number } {
+  const { VW, VH } = scene.m;
+  const docked = o.dock === 'bottom';
+  const v5 = () => {
+    const w = Math.min(o.w ?? (docked ? 260 : 200), VW - (docked ? 8 : 16));
+    const h = Math.min(o.h, VH - 12);
+    return { presentation: (docked ? 'bottom' : 'dialog') as PanelPresentation, x: Math.round((VW - w) / 2), y: docked ? VH - h : Math.round((VH - h) / 2), w, h };
+  };
+  const pres = o.presentation ?? 'auto';
+  if (pres === 'auto' && layoutVariant(scene.m) === 'compactPortrait') return v5();
+  const kind: PanelKind = o.panel ?? (o.kind === 'confirm' || o.shadeCloses === false ? 'decision' : 'task');
+  const area = sheetAreas.get(scene) ?? { x: 0, y: 0, w: VW, h: VH };
+  const lay = pres === 'auto' ? panelLayout(scene.m, kind, area, o.h) : null;
+  const p = lay?.presentation ?? (pres as PanelPresentation);
+  // Settings and its pages take exactly the §3.4 box (the pages lay their content out for it: settingsSheetW)
+  const fixed = kind === 'settings' ? lay : null;
+  if (p === 'side') {
+    const r = lay?.rect ?? panelLayout({ ...scene.m, cls: 'expanded', land: true }, 'task', area, o.h).rect;
+    // never narrower than the sheet the caller laid its content for (up to the side-panel cap and the area)
+    const w = Math.min(fixed ? r.w : Math.max(r.w, o.w ?? 0), SIDE_PANEL_MAX, area.w);
+    // and never shorter than the content it holds (v5's clamp): a tall page rises over the top bar on a short screen
+    const y = Math.min(r.y, VH - Math.min(o.h, VH - 12));
+    return { presentation: 'side', x: r.x + r.w - w, y, w, h: r.y + r.h - y };
+  }
+  // a dialog or a bottom sheet keeps the width it asked for, up to the §2.3 caps
+  const cap = p === 'dialog' ? DIALOG_MAX : lay?.rect.w ?? DIALOG_MAX;
+  const w = fixed ? fixed.rect.w : Math.min(o.w ?? (p === 'bottom' ? 260 : 200), cap, VW - (p === 'bottom' ? 8 : 16));
+  // the Settings panel on a laptop: at most 80% of the height (§3.4)
+  const h = Math.min(o.h, VH - (p === 'dialog' ? 16 : 12), fixed && p === 'dialog' ? fixed.rect.h : Infinity);
+  return { presentation: p, x: Math.round((VW - w) / 2), y: p === 'bottom' ? VH - h : Math.round((VH - h) / 2), w, h };
+}
+
+/**
+ * The box a sheet opened with `o` would get (V6-RSCR-05): a caller that lays out its own content measures it
+ * from this width, so a side panel's content fills the panel it is given. Compact portrait returns v5's box.
+ */
+export function sheetBox(scene: UiScene, o: ParchmentSheetOpts): { presentation: PanelPresentation; x: number; y: number; w: number; h: number } {
+  return placeSheet(scene, o);
+}
+
+/**
+ * The width a sheet asking for `o` gets on this screen (v5's in compact portrait, the §3.4 caps elsewhere), so a
+ * caller can lay its content out for the box it will be given before opening it.
+ */
+export function sheetWidth(scene: UiScene, o: Omit<ParchmentSheetOpts, 'h'>): number {
+  return sheetBox(scene, { ...o, h: 0 }).w;
 }
 
 export interface ParchmentSheetHandle extends Modal {
@@ -146,22 +223,22 @@ function addTitle(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: 
 
 export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): ParchmentSheetHandle {
   const { VW, VH } = scene.m;
-  const docked = o.dock === 'bottom';
+  const { presentation, x, y, w, h } = placeSheet(scene, o);
+  const docked = presentation === 'bottom';
+  const side = presentation === 'side';
   const id = o.id ?? 'sheet';
   const c = scene.add.container(0, 0);
   scene.ui.add(c);
-  const shade = scene.add.rectangle(0, 0, VW, VH, MOSAIC.page, SCRIM_ALPHA).setOrigin(0, 0).setInteractive();
+  const shade = scene.add.rectangle(0, 0, VW, VH, MOSAIC.page, side ? SIDE_SHADE : SCRIM_ALPHA).setOrigin(0, 0).setInteractive(side ? { cursor: 'default' } : undefined);
   uiBlocker(shade);
   c.add(shade);
-  const w = Math.min(o.w ?? (docked ? 260 : 200), VW - (docked ? 8 : 16));
-  const h = Math.min(o.h, VH - 12);
-  const x = Math.round((VW - w) / 2);
-  const y = docked ? VH - h : Math.round((VH - h) / 2);
   const box = scene.add.container(0, 0);
   c.add(box);
   // a docked sheet reaches under the screen's lower edge (it slides up from there)
   box.add(mosaicImage(scene, x, y, w, docked ? h + 10 : h, 'sheet'));
-  const sm = sheetMotion(motion.reduced);
+  // a docked side panel: the layout check judges the screen beside it, and the panel by the §3.4 widths (V6-063)
+  if (side) uiPanel(box, x, y, w, h, true);
+  const sm = side ? { in: motion.reduced ? 0 : SIDE_MS, out: 0, rise: 0 } : sheetMotion(motion.reduced);
   const entry: Overlay = { kind: o.kind ?? 'sheet', c };
   let closed = false;
   const close = () => {
@@ -183,10 +260,13 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   const actionsH = rows.length ? rows.length * (SHEET_ACTION_H + GAP) + SPACE.sm : 0;
   const buttons: MButton[] = [];
   rows.forEach((row, ri) => {
-    const aw = Math.floor((w - SPACE.md * 2 - GAP * (row.length - 1)) / row.length);
+    // at most a button's width (§2.3: a lone action across a wide side panel), the row centred
+    const fill = Math.floor((w - SPACE.md * 2 - GAP * (row.length - 1)) / row.length);
+    const aw = Math.min(BUTTON_MAX, fill);
+    const ax = x + SPACE.md + Math.floor(((fill - aw) * row.length) / 2);
     row.forEach((a, i) => {
       const by = y + h - SPACE.md - (rows.length - ri) * SHEET_ACTION_H - (rows.length - ri - 1) * GAP;
-      const b = new MButton(scene, x + SPACE.md + i * (aw + GAP), by, aw, SHEET_ACTION_H, { variant: 'neutral', ...a });
+      const b = new MButton(scene, ax + i * (aw + GAP), by, aw, SHEET_ACTION_H, { variant: 'neutral', ...a });
       box.add(b);
       buttons.push(b);
     });
@@ -197,7 +277,14 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   // one close affordance (G5): once the caller has filled the sheet, a footer Close of its own makes the X redundant
   const xb = head.x;
   if (xb) scene.events.once('prerender', () => xb.scene && !closeAffordance({ closable: true, footerClose: hasFooterClose(box, xb) }).x && xb.destroy());
-  if (sm.in) {
+  if (sm.in && side) {
+    // a side panel slides in from its edge with a fade (§3.4)
+    box.x = SIDE_SLIDE;
+    box.alpha = 0;
+    tweenTo(scene, box, { x: 0, alpha: 1 }, sm.in, { ease: 'Cubic.easeOut' });
+    shade.alpha = 0;
+    tweenTo(scene, shade, { alpha: 1 }, sm.in);
+  } else if (sm.in) {
     if (docked) box.y = h + 12;
     else {
       box.y = sm.rise;
@@ -214,4 +301,34 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   restack(scene);
   uiId(c, id);
   return { c: box, x, y, w, h, body: { x: x + PAD, y: top, w: w - PAD * 2, h: y + h - PAD - top - actionsH }, buttons, close };
+}
+
+/**
+ * A detail pane in place (design/ux/landscape-v6.md §3.3): the sheet's parchment, title and action row,
+ * drawn into `parent` at `box` with no shade, no X and no navigation layer, because in two or three panes
+ * the detail is not a layer (Back leaves the screen). A screen fills `body` with what its sheet shows.
+ */
+export function addParchmentPane(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, box: Box, o: { title: string; actions?: MButtonOpts[]; id?: string }): { c: Phaser.GameObjects.Container; body: Box; buttons: MButton[] } {
+  const { x, y, w, h } = box;
+  const c = scene.add.container(0, 0);
+  parent.add(c);
+  c.add(mosaicImage(scene, x, y, w, h, 'sheet'));
+  const top = addTitle(scene, c, x, y, w, o.title, undefined, o.id ?? 'pane').top;
+  const rows = o.actions?.length ? actionRows(o.actions, w - SPACE.md * 2) : [];
+  const actionsH = rows.length ? rows.length * (SHEET_ACTION_H + GAP) + SPACE.sm : 0;
+  const buttons: MButton[] = [];
+  rows.forEach((row, ri) => {
+    const fill = Math.floor((w - SPACE.md * 2 - GAP * (row.length - 1)) / row.length);
+    const aw = Math.min(BUTTON_MAX, fill);
+    const ax = x + SPACE.md + Math.floor(((fill - aw) * row.length) / 2);
+    row.forEach((a, i) => {
+      const by = y + h - SPACE.md - (rows.length - ri) * SHEET_ACTION_H - (rows.length - ri - 1) * GAP;
+      const b = new MButton(scene, ax + i * (aw + GAP), by, aw, SHEET_ACTION_H, { variant: 'neutral', ...a });
+      c.add(b);
+      buttons.push(b);
+    });
+  });
+  markSurface(c, MOSAIC.parch);
+  if (o.id) uiId(c, o.id);
+  return { c, body: { x: x + PAD, y: top, w: w - PAD * 2, h: y + h - PAD - top - actionsH }, buttons };
 }

@@ -20,6 +20,9 @@ const PAD = 4;
 export const CHIP_ROW_H = 18;
 const GAP = 3;
 
+/** A SituationLine's height with `lines` lines of sentence (the map HUD lays out around it before drawing it). */
+export const situationLineH = (lines: 1 | 2): number => PAD + lines * LINE_H + 3 + CHIP_ROW_H + PAD;
+
 /** A row of tight chips (icon, number) across `w`: natural widths plus an equal share of what is left; the short values when the full ones do not fit. */
 export class ChipRow extends Phaser.GameObjects.Container {
   readonly w: number;

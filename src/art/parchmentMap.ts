@@ -28,7 +28,7 @@ export { MP, drawTree, shipPix };
 /** Terrain indices (mapSchema TERRAINS). */
 const T = { Sea: 0, Shelf: 1, Sand: 2, Land: 3, Forest: 4, Hills: 5, Mountain: 6, Marsh: 7 } as const;
 
-export interface Placed {
+interface Placed {
   id: number;
   x: number;
   y: number;
@@ -37,7 +37,7 @@ export interface Placed {
   sprite: PropSprite;
 }
 
-export interface Harbour {
+interface Harbour {
   /** Coast point (map px) and the way out to sea. */
   x: number;
   y: number;
@@ -1146,7 +1146,7 @@ function drawMiniFeatures(p: Pix, f: MapFields, s: number, gx0: number, gy0: num
 }
 
 /** A painted mountain peak (lit west face, lavender shade east, snow cap, SE shadow). */
-export function drawPeak(p: Pix, cx: number, by: number, hw: number, h: number, snow: boolean, seed: number): void {
+function drawPeak(p: Pix, cx: number, by: number, hw: number, h: number, snow: boolean, seed: number): void {
   const top = by - h;
   const halfAt = (y: number) => {
     const t = (y - top) / h;
@@ -1177,7 +1177,7 @@ export function drawPeak(p: Pix, cx: number, by: number, hw: number, h: number, 
 }
 
 /** A small rock lump (mauve-grey, light top, soft shadow). */
-export function drawBoulder(p: Pix, cx: number, cy: number, r: number): void {
+function drawBoulder(p: Pix, cx: number, cy: number, r: number): void {
   for (let i = 0; i <= r + 2; i++) p.set(cx + i, cy + r + 1, MP.shadow, 60);
   for (let j = -r; j <= r; j++)
     for (let i = -r - 1; i <= r + 1; i++) {
@@ -1188,7 +1188,7 @@ export function drawBoulder(p: Pix, cx: number, cy: number, r: number): void {
 }
 
 /** A rolling grass mound. */
-export function drawMound(p: Pix, cx: number, by: number, hw: number, h: number): void {
+function drawMound(p: Pix, cx: number, by: number, hw: number, h: number): void {
   for (let i = 0; i <= hw + 2; i++) p.set(cx + i + 1, by + 1, MP.shadow, 60);
   for (let y = by - h; y <= by; y++) {
     const v = (by - y) / h;

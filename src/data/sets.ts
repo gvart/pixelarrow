@@ -9,13 +9,13 @@ import { ITEM_LIST, type Rarity, type StatMods } from './items';
 
 export type SetSpecial = 'war_cry' | 'rain_of_arrows' | 'bond_of_the_band' | 'heel_of_achilles' | 'born_to_rule';
 
-export interface SetBonus {
+interface SetBonus {
   pieces: number;
   mods?: StatMods;
   special?: SetSpecial;
 }
 
-export interface SetDef {
+interface SetDef {
   id: string;
   name: string;
   rarity: Rarity;

@@ -33,7 +33,7 @@ const DIR_DMG: Record<HitDir, number> = { front: 1, side: 1.3, rear: 1.6 };
 const ORBIT_C = 0.9982005399352042;
 const ORBIT_S = 0.059964006479444595;
 
-export interface Flight {
+interface Flight {
   id: number;
   /** The thrower (unit id). */
   from: number;

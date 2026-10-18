@@ -19,8 +19,11 @@
         --pa-l: calc(max(env(safe-area-inset-left, 0px), var(--pa-safe-left, var(--tg-safe-area-inset-left, 0px))) + var(--pa-content-left, var(--tg-content-safe-area-inset-left, 0px)));
         --pa-r: calc(max(env(safe-area-inset-right, 0px), var(--pa-safe-right, var(--tg-safe-area-inset-right, 0px))) + var(--pa-content-right, var(--tg-content-safe-area-inset-right, 0px)));
       }
-      #game { position: fixed; top: var(--pa-t); bottom: var(--pa-b); left: calc(50% + (var(--pa-l) - var(--pa-r)) / 2); transform: translateX(-50%); width: min(calc(100vw - var(--pa-l) - var(--pa-r)), calc((100vh - var(--pa-t) - var(--pa-b)) * 0.64)); }
-      #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: 100% !important; height: 100% !important; }
+      /* #game fills the safe area at every size (ADR-0013). The canvas fills it too, except while a scene that
+         has not migrated to the size classes runs: then it is the v5 column (--pa-col, set by
+         src/platform/renderScale.ts), centred on the stone stage. */
+      #game { position: fixed; top: var(--pa-t); bottom: var(--pa-b); left: var(--pa-l); right: var(--pa-r); background: #1a1612; }
+      #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: var(--pa-col, 100%) !important; height: 100% !important; margin: 0 auto; }
     </style>
   </head>
   <body>

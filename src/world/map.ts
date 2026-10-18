@@ -8,11 +8,10 @@ import type { Culture } from '../data/names';
 import { fbm, hash3 } from './noise';
 import { findPath, type Tile } from './path';
 
-export const MAP_W = 112;
-export const MAP_H = 112;
+const MAP_W = 112;
+const MAP_H = 112;
 
 export const T = { deep: 0, sea: 1, beach: 2, grass: 3, scrub: 4, forest: 5, hills: 6, mountain: 7 } as const;
-export type TerrainId = (typeof T)[keyof typeof T];
 export const TERRAIN_NAMES = ['Deep sea', 'Sea', 'Shore', 'Plain', 'Scrubland', 'Forest', 'Hills', 'Mountains'];
 
 export type SettlementKind = 'town' | 'village' | 'lair';
@@ -49,7 +48,7 @@ export const TOWN_NAMES = ['Neapolis', 'Taras', 'Kroton', 'Syrakousai', 'Akragas
  * A map takes them in turn from a seed-given start, so lairs of one kind differ.
  * Every Galatae name says "Galatae" (overlandMap.ts lairProp draws by it); no other does.
  */
-export const LAIR_NAMES = {
+const LAIR_NAMES = {
   raiders: ['Galatae camp', 'Galatae hillfort', 'Galatae war camp', 'Galatae stockade', 'Galatae holdfast', 'Galatae steading'],
   bandits: ['Bandit camp', "Robbers' den", "Brigands' hold", 'Outlaw stockade', "Cutthroats' roost", "Thieves' hollow"],
 } as const;
@@ -61,10 +60,6 @@ export function isWater(t: number): boolean {
 
 export function inMap(m: WorldMap, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < m.w && y < m.h;
-}
-
-export function terrainAt(m: WorldMap, x: number, y: number): number {
-  return inMap(m, x, y) ? m.terrain[y * m.w + x] : T.deep;
 }
 
 export function passable(m: WorldMap, x: number, y: number): boolean {

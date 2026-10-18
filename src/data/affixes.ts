@@ -22,9 +22,9 @@ export type AffixId =
   | 'xpBonus' | 'goldBonus' | 'durable';
 
 /** Where an affix may roll: melee weapon, ranged weapon (bows, slings, javelins), shield, helmet, armour, trinket. */
-export type AffixSlot = 'melee' | 'ranged' | 'shield' | 'helmet' | 'armor' | 'trinket';
+type AffixSlot = 'melee' | 'ranged' | 'shield' | 'helmet' | 'armor' | 'trinket';
 
-export interface AffixDef {
+interface AffixDef {
   id: AffixId;
   /** The word in front of the item's name ("Keen Xiphos"). */
   word: string;
@@ -62,10 +62,9 @@ export const AFFIXES: Record<AffixId, AffixDef> = {
   goldBonus: A('goldBonus', 'Gilded', 0.05, ['trinket'], { economy: true }),
   durable: A('durable', 'Sturdy', 0.15, ['melee', 'ranged', 'shield', 'helmet', 'armor'], { economy: true }),
 };
-export const AFFIX_IDS = Object.keys(AFFIXES) as AffixId[];
 
 /** Number of random stats by rarity, and the steps each one rolls. */
-export const AFFIX_COUNT = [0, 1, 2, 3, 4];
+const AFFIX_COUNT = [0, 1, 2, 3, 4];
 export const AFFIX_STEPS: [number, number][] = [[0, 0], [1, 2], [1, 2], [1, 2], [1, 2]];
 
 export function affixSlot(def: ItemDef): AffixSlot {
@@ -88,7 +87,7 @@ export function affixPool(def: ItemDef): [AffixId, number][] {
   return out;
 }
 
-export type Affixes = [AffixId, number][];
+type Affixes = [AffixId, number][];
 
 /** Parse a stored `aff` string ("atkSpeed:2,hp:1"). Unknown stats are dropped. */
 export function parseAffixes(s: string): Affixes {
@@ -177,7 +176,7 @@ export interface PowerGrade {
   extra?: number;
 }
 
-export interface PowerDef {
+interface PowerDef {
   id: PowerId;
   name: string;
   /** Slots that roll it (the melee / ranged split for weapons). */

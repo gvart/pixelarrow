@@ -8,7 +8,7 @@ import type { Campaign } from './campaign';
 import type { TKey } from '../i18n';
 import { WORLD_RULES } from '../world/world';
 
-export interface ArmyLine {
+interface ArmyLine {
   /** Men fit to fight who march with the formation. */
   fit: number;
   /** Wounded men, in camp or not. */
@@ -28,7 +28,7 @@ export function armyLine(camp: Campaign): ArmyLine {
   return { fit, wounded, noneFit, power: noneFit ? 0 : camp.playerInfo().power, key: noneFit ? 'wld.enc.armyNoneFit' : wounded ? 'wld.enc.armyWounded' : 'wld.enc.army' };
 }
 
-export interface OffersIn {
+interface OffersIn {
   byPlayer: boolean;
   /** Band power over ArmyLine.power. */
   ratio: number;
@@ -45,7 +45,7 @@ export function encounterOffers(o: OffersIn): { attack: boolean; ransom: boolean
   return { attack: true, ransom: o.canRansom && !o.failedFlee, letGo, flee: !o.failedFlee && !letGo };
 }
 
-export interface EncounterCopyIn {
+interface EncounterCopyIn {
   /** Band power over ArmyLine.power. */
   ratio: number;
   byPlayer: boolean;

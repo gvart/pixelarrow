@@ -4,6 +4,13 @@ import { Online, SUPPORTER_BANNER, type OnlineDeps } from '../src/platform/onlin
 import { compareSaves, decideOnLoad, parseSyncMeta, resolveConflict, SYNC_META_KEY } from '../src/platform/saveSync';
 import { Campaign } from '../src/game/campaign';
 import { SAVE_VERSION, type KV, type SaveData } from '../src/game/save';
+import { telegramAuth } from './fakes/platform';
+import type { PaymentResult, Payments, PaymentStatus } from '../src/platform/core/payments';
+
+/** Telegram Stars payments that answer `result` for every link (and record it). */
+function stars(result: (link: string) => Promise<PaymentResult>, status: PaymentStatus = { available: true, provider: 'telegram_stars' }): Payments {
+  return { status: () => status, pay: (i) => result(i.link) };
+}
 
 function memoryKV(): KV & { store: Map<string, string> } {
   const store = new Map<string, string>();
@@ -57,9 +64,9 @@ function makeOnline(fetch: FetchLike, over: Partial<OnlineDeps> = {}) {
     api: new ApiClient({ base: '', fetch, timeoutMs: 200 }),
     kv: () => kv,
     cache,
-    initData: () => 'query_id=1&hash=abc',
+    auth: telegramAuth('query_id=1&hash=abc'),
     debounceMs: 0,
-    openInvoice: async () => 'cancelled',
+    payments: stars(async () => 'cancelled'),
     sleep: async () => {},
     log: { warn: () => {}, info: () => {} },
     ...over,
@@ -200,7 +207,7 @@ describe('a server save from a newer build is never overwritten (V5-011)', () =>
 describe('online layer', () => {
   it('is inert outside Telegram: no requests, local status', async () => {
     const f = vi.fn();
-    const { online } = makeOnline(f, { initData: () => null });
+    const { online } = makeOnline(f, { auth: telegramAuth(null) });
     expect(await online.pullOnLoad(save(1))).toBeNull();
     online.queuePush(save(2));
     await online.flush();
@@ -239,7 +246,7 @@ describe('online layer', () => {
     await online.flush();
     expect(srv.st.revision).toBe(1);
     expect(online.status).toBe('synced');
-    expect(JSON.parse(kv.store.get(SYNC_META_KEY)!)).toEqual({ revision: 1, seq: 3 });
+    expect(JSON.parse(kv.store.get(SYNC_META_KEY)!)).toEqual({ revision: 1, seq: 3, pid: 1 });
     online.queuePush(save(4));
     await online.flush();
     expect(srv.st.puts.map((p) => p.revision)).toEqual([0, 1]);
@@ -252,7 +259,7 @@ describe('online layer', () => {
     const got = await online.pullOnLoad(save(12));
     expect(got?.seq).toBe(30);
     expect(online.status).toBe('synced');
-    expect(JSON.parse(kv.store.get(SYNC_META_KEY)!)).toEqual({ revision: 7, seq: 30 });
+    expect(JSON.parse(kv.store.get(SYNC_META_KEY)!)).toEqual({ revision: 7, seq: 30, pid: 1 });
   });
 
   it('on 409 re-uploads when the local copy is newer', async () => {
@@ -295,10 +302,10 @@ describe('online layer', () => {
     const srv = fakeServer();
     let polls = 0;
     const { online, cache } = makeOnline(srv.fetch, {
-      openInvoice: async (link) => {
+      payments: stars(async (link) => {
         expect(link).toBe('https://t.me/$inv');
         return 'paid';
-      },
+      }),
       sleep: async () => {
         if (++polls === 2) srv.st.ents.push(SUPPORTER_BANNER); // webhook lands later
       },
@@ -307,15 +314,24 @@ describe('online layer', () => {
     expect(online.has(SUPPORTER_BANNER)).toBe(true);
     expect(JSON.parse(cache.store.get('px_ent')!)).toEqual([SUPPORTER_BANNER]);
     // cached entitlements survive an offline relaunch
-    const again = new Online({ api: new ApiClient({ fetch: srv.fetch }), kv: () => memoryKV(), cache, initData: () => null });
+    const again = new Online({ api: new ApiClient({ fetch: srv.fetch }), kv: () => memoryKV(), cache, auth: telegramAuth(null) });
     await again.loadCachedEntitlements();
     expect(again.has(SUPPORTER_BANNER)).toBe(true);
   });
 
   it('reports a cancelled payment', async () => {
     const srv = fakeServer();
-    const { online } = makeOnline(srv.fetch, { openInvoice: async () => 'cancelled' });
+    const { online } = makeOnline(srv.fetch, { payments: stars(async () => 'cancelled') });
     expect(await online.buy(SUPPORTER_BANNER)).toBe('cancelled');
+  });
+
+  it('asks for no invoice when the platform cannot pay', async () => {
+    const srv = fakeServer();
+    const pay = vi.fn(async () => 'paid' as const);
+    const { online } = makeOnline(srv.fetch, { payments: stars(pay, { available: false, reason: 'coming_soon' }) });
+    expect(await online.buy(SUPPORTER_BANNER)).toBe('unavailable');
+    expect(srv.calls).not.toContain('POST /api/shop/invoice');
+    expect(pay).not.toHaveBeenCalled();
   });
 
   it('logs battle verification mismatches and swallows errors', async () => {

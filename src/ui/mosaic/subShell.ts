@@ -16,6 +16,8 @@ import { MOSAIC } from '../tokens';
 import { mosaicImage } from './base';
 import { ScreenFrame, TOPBAR_H, type Box } from './ScreenFrame';
 import { TopBar, type TopAction } from './TopBar';
+import { setSheetArea } from './ParchmentSheet';
+import { uiStretch } from '../layout';
 
 export type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
@@ -55,7 +57,7 @@ export interface SubShellOpts {
 /** The gear that opens Settings. */
 export const gearAction = (scene: UiScene): TopAction => ({ icon: 'gear', label: t('menu.settings'), onClick: () => openSettings(scene) });
 
-export interface PageOpts {
+interface PageOpts {
   title: string;
   id: string;
   /** Height of the tab bar under the frame (a hub). */
@@ -65,15 +67,21 @@ export interface PageOpts {
   scroll?: boolean;
   reserve?: number;
   parent?: Phaser.GameObjects.Container;
+  /** Left edge of the page, UI px (a landscape hub: the nav rail's width). */
+  x?: number;
 }
 
 /** The framed page: frame, top bar (gear by default) and scroll area. Shared by the hub and the sub-screen shell. */
 export function buildPage(scene: UiScene, o: PageOpts): Pick<SubShell, 'top' | 'content' | 'w' | 'bottom' | 'area'> & { frame: ScreenFrame } {
   const { VW, VH, S } = scene.m;
   const parent = o.parent ?? scene.ui;
-  const frame = new ScreenFrame(scene, VW, VH, o.tabBar ? { tabBar: o.tabBar } : {});
+  const frame = new ScreenFrame(scene, VW, VH, { ...(o.tabBar ? { tabBar: o.tabBar } : {}), ...(o.x ? { x: o.x } : {}) });
   parent.add(frame);
+  // side panels dock at the right of the page, under its top bar and never over the nav rail (§3.4)
+  setSheetArea(scene, { x: frame.content.x, y: frame.content.y, w: VW - frame.content.x, h: VH - frame.content.y });
   const top = new TopBar(scene, frame.topBar, { title: o.title, id: o.id, back: o.back && showInGameBack() ? o.back : undefined, actions: o.actions ?? [gearAction(scene)] });
+  // the bar spans the page by design: not content for wasted-width, not a stretched control (§5)
+  uiStretch(top);
   parent.add(top);
   const c = frame.content;
   const area = o.scroll === false ? undefined : new ScrollArea(scene, parent, c.x + 4, c.y + 3, c.w - 8, c.h - 3 - (o.reserve ?? 0), S);
@@ -104,6 +112,7 @@ export function addSubShell(scene: UiScene, o: SubShellOpts): SubShell {
     line.fillStyle(MOSAIC.meander, 0.9);
     line.fillRect(0, TOPBAR_H - 1, VW, 1);
     parent.add(line);
+    setSheetArea(scene, { x: 0, y: TOPBAR_H, w: VW, h: VH - TOPBAR_H });
     const shell: SubShell = { frame: null, top: bar(o.title, o.back), content: { x: 0, y: TOPBAR_H, w: VW, h: VH - TOPBAR_H }, w: VW, bottom: VH, retitle: () => undefined };
     parent.add(shell.top);
     shell.retitle = (title, back = o.back) => {

@@ -21,4 +21,6 @@ export const MARKET_EN = {
   'market.presetTip': 'Worth x{n}',
   'market.keyDel': 'Delete',
   'market.keyClear': 'Clear',
+  'market.freeSlot': 'Free slot',
+  'market.freeSlotHint': 'List something from Sell',
 };

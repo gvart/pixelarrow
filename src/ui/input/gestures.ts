@@ -12,19 +12,33 @@
  * - A second finger: PINCH zoom and pan. It cancels any one-finger gesture,
  *   so two fingers never give an order.
  *
- * ADR-0004 (design/adr/ADR-0004-input-layer.md).
+ * A mouse adds two buttons (ADR-0012 Decision 5, input-v6.md §2.2); the left
+ * button and every finger take the paths above, unchanged:
+ * - RIGHT click: an ORDER CLICK at the cursor (the scene sends the tap-move or
+ *   the attack/focus a tap would, and never selects). RIGHT drag past `dragPx`:
+ *   an ORDER DRAG, the group's ghost at the press point facing toward the
+ *   cursor (snapped to the eight directions within SNAP_DEG, as the knob);
+ *   the release sends one order. Esc (cancelOrder) or a left press cancels it.
+ * - MIDDLE drag: a PAN, 1:1 from the first move.
+ *
+ * ADR-0004 (design/adr/ADR-0004-input-layer.md), amended by ADR-0012.
  */
-import type { DragKind } from '../dragFormation';
+import { SNAP_DEG, type DragKind } from '../dragFormation';
 import type { Pt } from './hitTest';
+import { FACING_DIRS } from './singleTap';
 
 export interface Ptr {
   id: number;
   x: number;
   y: number;
   isDown: boolean;
+  /** The mouse button of this event: 0 left (and every finger), 1 middle, 2 right. Missing: left. */
+  button?: number;
+  /** The event came from a touch screen: always the left button. */
+  wasTouch?: boolean;
 }
 
-export type PressMode = 'pending' | 'pan' | 'formation' | 'info';
+type PressMode = 'pending' | 'pan' | 'formation' | 'info';
 
 export interface Press {
   id: number;
@@ -63,7 +77,44 @@ export type GestureEvent =
   | { type: 'drag-end' }
   /** The one finger lifted (whatever it was doing). */
   | { type: 'release' }
-  | { type: 'tap'; x: number; y: number };
+  | { type: 'tap'; x: number; y: number }
+  /** A right click at screen (x, y): move there or attack what is there. */
+  | { type: 'order-click'; x: number; y: number }
+  /** A right press became a drag: the ghost stands at the field point `at`. */
+  | { type: 'order-drag-start'; at: Pt }
+  /** The facing (field, unit) from `at` toward the cursor; `snapped` to one of the eight directions. */
+  | { type: 'order-drag-move'; at: Pt; fx: number; fy: number; snapped: boolean }
+  /** The right button came up: send the order at `at` facing (fx, fy). */
+  | { type: 'order-drag-end'; at: Pt; fx: number; fy: number }
+  /** Esc or a left press dropped the right press: nothing is sent. */
+  | { type: 'order-cancel' };
+
+/** A right-button press: pending until it travels `dragPx`, then a drag with a facing. */
+interface OrderPress {
+  sx: number;
+  sy: number;
+  at: Pt;
+  drag: boolean;
+  fx: number;
+  fy: number;
+}
+
+/** What the recogniser is doing now, for the cursor (input-v6.md §2.4). */
+type ActiveGesture = DragKind | 'pan' | 'order' | null;
+
+const SNAP_COS = Math.cos((SNAP_DEG * Math.PI) / 180);
+
+/** The facing from a field vector: one of the eight directions when within SNAP_DEG of it, else the vector itself; null when too short. */
+function snapFacing(dx: number, dy: number): { fx: number; fy: number; snapped: boolean } | null {
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return null;
+  const fx = dx / len;
+  const fy = dy / len;
+  for (const d of FACING_DIRS) if (fx * d.x + fy * d.y >= SNAP_COS) return { fx: d.x, fy: d.y, snapped: true };
+  return { fx, fy, snapped: false };
+}
+
+const buttonOf = (p: Ptr): number => (p.wasTouch ? 0 : (p.button ?? 0));
 
 interface Pinch {
   d0: number;
@@ -77,12 +128,52 @@ const mid = (a: Ptr, b: Ptr) => ({ d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x
 export class GestureRecognizer {
   press: Press | null = null;
   pinch: Pinch | null = null;
+  private order: OrderPress | null = null;
+  /** The middle button's last point while it pans. */
+  private mid: { lx: number; ly: number; moved: boolean } | null = null;
+  /** A left press that cancelled a right drag: its lift is not a tap. */
+  private swallow = false;
 
-  /** @param dragPx finger travel (screen px, |dx| + |dy|) before a press becomes a drag */
-  constructor(private readonly dragPx: number) {}
+  /**
+   * @param dragPx finger travel (screen px, |dx| + |dy|) before a press becomes a drag
+   * @param toField screen px to field coordinates (the right-drag's ghost and facing)
+   */
+  constructor(
+    private readonly dragPx: number,
+    private readonly toField: (x: number, y: number) => Pt = (x, y) => ({ x, y }),
+  ) {}
+
+  /** What is under way now: a formation drag, a pan, a right-button order, or nothing. */
+  active(): ActiveGesture {
+    if (this.order) return 'order';
+    if (this.mid?.moved || this.press?.mode === 'pan') return 'pan';
+    if (this.press?.mode === 'formation') return this.press.grab;
+    return null;
+  }
+
+  /** Esc: drop a right-button press, if there is one (then nothing is sent). */
+  cancelOrder(): GestureEvent[] {
+    if (!this.order) return [];
+    this.order = null;
+    return [{ type: 'order-cancel' }];
+  }
 
   /** A finger came down. `downs`: every pointer now down (this one included); `zoom`: the camera zoom now. */
   down(p: Ptr, downs: Ptr[], zoom: number, probe: () => PressProbe): GestureEvent[] {
+    const button = buttonOf(p);
+    if (this.order) {
+      // a left press cancels the right drag (and is used up by it); other buttons are ignored
+      if (button !== 0) return [];
+      this.swallow = true;
+      return this.cancelOrder();
+    }
+    if (button !== 0) {
+      // the right and middle buttons start nothing over a gesture under way or over the HUD
+      if (this.press || this.pinch || this.mid || probe().blocked) return [];
+      if (button === 2) this.order = { sx: p.x, sy: p.y, at: this.toField(p.x, p.y), drag: false, fx: 0, fy: 0 };
+      else if (button === 1) this.mid = { lx: p.x, ly: p.y, moved: false };
+      return [];
+    }
     if (downs.length >= 2) {
       this.press = null;
       const m = mid(downs[0], downs[1]);
@@ -109,6 +200,31 @@ export class GestureRecognizer {
       pinch.cy = m.cy;
       return [ev];
     }
+    const o = this.order;
+    if (o) {
+      const out: GestureEvent[] = [];
+      if (!o.drag) {
+        if (Math.abs(p.x - o.sx) + Math.abs(p.y - o.sy) <= this.dragPx) return [];
+        o.drag = true;
+        out.push({ type: 'order-drag-start', at: o.at });
+      }
+      const c = this.toField(p.x, p.y);
+      const f = snapFacing(c.x - o.at.x, c.y - o.at.y);
+      if (f) {
+        o.fx = f.fx;
+        o.fy = f.fy;
+      }
+      out.push({ type: 'order-drag-move', at: o.at, fx: o.fx, fy: o.fy, snapped: f?.snapped ?? false });
+      return out;
+    }
+    const m = this.mid;
+    if (m) {
+      const ev: GestureEvent = { type: 'pan', dx: p.x - m.lx, dy: p.y - m.ly };
+      m.lx = p.x;
+      m.ly = p.y;
+      m.moved = true;
+      return [ev];
+    }
     const g = this.press;
     if (!g || p.id !== g.id || !p.isDown) return [];
     const out: GestureEvent[] = [];
@@ -129,6 +245,25 @@ export class GestureRecognizer {
 
   /** A finger lifted. `downs`: the pointers still down. */
   up(p: Ptr, downs: Ptr[]): GestureEvent[] {
+    const button = buttonOf(p);
+    if (button !== 0) {
+      // the right or middle button came up: it ends only its own gesture (a left press held meanwhile goes on)
+      const o = this.order;
+      if (button === 2 && o) {
+        this.order = null;
+        if (!o.drag) return [{ type: 'release' }, { type: 'order-click', x: p.x, y: p.y }];
+        return [{ type: 'release' }, { type: 'order-drag-end', at: o.at, fx: o.fx, fy: o.fy }];
+      }
+      if (button === 1 && this.mid) {
+        this.mid = null;
+        return [{ type: 'release' }];
+      }
+      return [];
+    }
+    if (this.swallow && button === 0) {
+      this.swallow = false;
+      return [{ type: 'release' }];
+    }
     const pinch = this.pinch;
     if (pinch) {
       this.press = null;
@@ -156,5 +291,8 @@ export class GestureRecognizer {
   reset(): void {
     this.press = null;
     this.pinch = null;
+    this.order = null;
+    this.mid = null;
+    this.swallow = false;
   }
 }

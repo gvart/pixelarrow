@@ -12,7 +12,8 @@
  * via `this.screen({...})`) and `navLayer(container, close)` for each modal.
  * Both clean up on scene shutdown / container destroy.
  */
-import { hapticSelect, hasNativeBack, setBackButton, setClosingConfirmation, setSettingsButton } from './telegram';
+import type { BackButton } from './core/back';
+import { platform } from './index';
 import type { TabId } from '../ui/mosaic/tabLayout';
 
 export interface ScreenOpts {
@@ -24,11 +25,8 @@ export interface ScreenOpts {
   settings?: (() => void) | null;
 }
 
-/** What the stack drives; Telegram in the game, a mock in tests. */
-export interface NavHost {
-  setBack(cb: (() => void) | null): void;
-  setSettings(cb: (() => void) | null): void;
-  setClosingConfirmation(on: boolean): void;
+/** What the stack drives: the platform's Back control plus a feedback cue; a mock in tests. */
+interface NavHost extends Omit<BackButton, 'native'> {
   feedback(): void;
 }
 
@@ -37,6 +35,8 @@ export type LayerClose = () => void | false;
 
 interface Layer {
   close: LayerClose;
+  /** What the layer is on screen (its container): the focus scope of the controls inside it. */
+  key?: object;
 }
 interface Entry {
   owner: object;
@@ -50,6 +50,7 @@ export const navMotion = { back: false };
 export class NavStack {
   private entries: Entry[] = [];
   private unsaved = false;
+  private readonly subs = new Set<() => void>();
   private readonly dispatch = (): void => {
     this.host.feedback();
     this.back();
@@ -90,11 +91,11 @@ export class NavStack {
     this.sync();
   }
 
-  /** A dialog on top of `owner`'s screen (default: the top screen). Returns a remover. */
-  pushLayer(close: LayerClose, owner?: object): () => void {
+  /** A dialog on top of `owner`'s screen (default: the top screen). `key`: what it is on screen (a focus scope). Returns a remover. */
+  pushLayer(close: LayerClose, owner?: object, key?: object): () => void {
     const e = owner ? this.entries.find((x) => x.owner === owner) : this.top();
     if (!e) return () => {};
-    const layer: Layer = { close };
+    const layer: Layer = { close, key };
     e.layers.push(layer);
     this.sync();
     return () => {
@@ -142,24 +143,41 @@ export class NavStack {
     return this.top()?.layers.length ?? 0;
   }
 
+  /** The keys of the top screen's layers, bottom to top (layers pushed without a key are left out). */
+  layerKeys(): object[] {
+    return (this.top()?.layers ?? []).flatMap((l) => (l.key ? [l.key] : []));
+  }
+
+  /** The owner of the top screen (a scene), or null with none. */
+  topOwner(): object | null {
+    return this.top()?.owner ?? null;
+  }
+
+  /** Called after every change of the stack (a screen or a layer came or went); returns an unsubscribe. */
+  subscribe(cb: () => void): () => void {
+    this.subs.add(cb);
+    return () => this.subs.delete(cb);
+  }
+
   private top(): Entry | undefined {
     return this.entries[this.entries.length - 1];
   }
 
   private sync(): void {
     const e = this.top();
+    this.subs.forEach((cb) => cb());
     this.host.setBack(this.canGoBack() ? this.dispatch : null);
     this.host.setSettings(e?.opts.settings ? this.openSettings : null);
     this.host.setClosingConfirmation(this.unsaved || !!e?.opts.confirmClose);
   }
 }
 
-/** The game's navigation, wired to Telegram (no-ops outside it). */
+/** The game's navigation, wired to `platform.back` (read per call: the platform is selected after this module loads). */
 export const nav = new NavStack({
-  setBack: setBackButton,
-  setSettings: setSettingsButton,
-  setClosingConfirmation,
-  feedback: hapticSelect,
+  setBack: (cb) => platform.back.setBack(cb),
+  setSettings: (cb) => platform.back.setSettings(cb),
+  setClosingConfirmation: (on) => platform.back.setClosingConfirmation(on),
+  feedback: () => platform.haptics.select(),
 });
 
 interface SceneLike {
@@ -183,17 +201,17 @@ export function registerScreen(scene: SceneLike, opts: ScreenOpts): void {
  * (usually destroying `container`); the layer goes away with the container.
  */
 export function navLayer(container: { once(ev: 'destroy', fn: () => void): unknown }, close: LayerClose, owner?: object): () => void {
-  const remove = nav.pushLayer(close, owner);
+  const remove = nav.pushLayer(close, owner, container);
   container.once('destroy', remove);
   return remove;
 }
 
 /**
- * Whether scenes should draw their own back arrow: not when Telegram's header
- * Back button does the job (avoids two back buttons).
+ * Whether scenes should draw their own back arrow: not when the platform's own
+ * Back control (Telegram's header button) does the job (avoids two back buttons).
  */
 export function showInGameBack(): boolean {
-  return !hasNativeBack();
+  return !platform.back.native;
 }
 
 // ------------------------------------------------------------------ the Back contract (HUB-01, ia.md §2 §6, screen-flow.md §3)
@@ -220,7 +238,7 @@ export interface BackTarget {
  * - `battle`: Back opens the battle menu (⋯).
  * - `none`: nothing to go back to (Boot).
  */
-export type BackRule = { kind: 'root' } | { kind: 'parent'; to: string } | { kind: 'origin'; fallback: string } | { kind: 'battle' } | { kind: 'none' };
+type BackRule = { kind: 'root' } | { kind: 'parent'; to: string } | { kind: 'origin'; fallback: string } | { kind: 'battle' } | { kind: 'none' };
 
 /** The Back rule of every screen, by scene key. Camp is the field camp's (`parent` World); the War camp is `origin` (screen-flow S05). */
 export const BACK_RULES: Readonly<Record<string, BackRule>> = {

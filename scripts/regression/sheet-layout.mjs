@@ -10,8 +10,8 @@
 // does a sheet that never showed (that would be a check that did not run).
 // Sizes 320x568, 320x640, 360x780, 390x844; en and ru; plain insets (the Telegram insets
 // variant is layout-check's).
-// Usage: node scripts/regression/sheet-layout.mjs [baseUrl] [--sizes 390x844] [--langs en]
-import { launch, check, until, baseUrl, settled, done } from './lib.mjs';
+// Usage: node scripts/regression/sheet-layout.mjs <baseUrl> [--platform telegram|web|both] [--sizes 390x844] [--langs en]
+import { launch, check, until, baseUrl, settled, done, usePlatform, entryUrl } from './lib.mjs';
 import { captureErrors, apiDown, makePageApi } from '../lib/harness.mjs';
 
 const args = process.argv.slice(2);
@@ -79,12 +79,12 @@ for (const lang of LANGS) {
     const cfg = `${lang} ${W}x${H}`;
     const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
     await ctx.addInitScript(() => (window.__noFirstRun = true));
+    await usePlatform(ctx, { languageCode: lang });
     const page = await ctx.newPage();
     captureErrors(page, { into: errors, ignoreNetwork: true, prefix: true });
     await apiDown(page);
-    await page.route('**/telegram.org/**', (r) => r.abort());
     const api = makePageApi(page);
-    await page.goto(`${base}?lang=${lang}`, { timeout: 60000 });
+    await page.goto(entryUrl(base, `?lang=${lang}`), { timeout: 60000 });
     const up = await until(() => api.ev(() => !!window.__game?.scene.isActive('Menu')), 60000, 250);
     check(`[${cfg}] boot`, up);
     if (!up) { await ctx.close(); continue; }

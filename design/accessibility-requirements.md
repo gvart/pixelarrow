@@ -25,7 +25,7 @@ Every requirement has an ID and a binary check. "Auto" means a script or test in
 
 | ID | Requirement | How to verify |
 | --- | --- | --- |
-| A11Y-06 | Every interactive element has a hit area of at least **44x44 pt** (art may be smaller: the turn knob is 20 pt art in a 44 pt hit area). | Auto: `node scripts/layout-check.mjs <url>` reports no target under 44 pt that is not in `scripts/layout-allowlist.json`. |
+| A11Y-06 | Every interactive element has a hit area of at least **44x44 pt** (art may be smaller: the turn knob is 20 pt art in a 44 pt hit area). | Auto: `node scripts/layout-check.mjs <url>` reports no target under 44 pt that is not in `scripts/layout-allowlist/<story>.json`. |
 | A11Y-07 | Neighbouring targets are at least **8 pt** apart; **4 pt** in the battle order bar and the tab bar. | Auto: layout-check fails below 4 pt. Manual: the 8 pt rule outside the battle order bar and tab bar is checked in UI review. |
 | A11Y-08 | A destructive action is never next to the screen's primary action and always confirms (e.g. Reset all lives in the ⋯ battle menu, away from FIGHT!). | Manual: on deployment, Settlement Sell, Clan Leave and Army Dismiss, the destructive control is not adjacent to the primary and opens a confirm. |
 
@@ -66,4 +66,4 @@ Every requirement has an ID and a binary check. "Auto" means a script or test in
 
 | ID | Requirement | How to verify |
 | --- | --- | --- |
-| A11Y-22 | Keyboard and gamepad access (WCAG SC 2.1.1) is **out of scope for v5** (accepted deviation, docs/v5/ux/ANSWERS.md Q9). The specs do not claim full AA. Mouse on Telegram Desktop works: hover shows tooltips and the wheel zooms. | Manual: on desktop, hover and wheel work on the battle field and the war map. |
+| A11Y-22 | **v6: keyboard and mouse are in scope** (design/ux/input-v6.md §9, ADR-0012). Every screen, sheet, tab and dialog is reachable and operable by keyboard with a visible focus ring (WCAG 2.1.1, 2.1.2, 2.4.3, 2.4.7); every battle and map action has a rebindable single-key default (no chords, no holds, no timing); Esc always leaves a layer and Tab moves focus, and neither can be rebound; ? or F1 lists the current keys. **Remaining deviation:** pointing at a field position or an enemy, Solo, works placement and War-map hexes need a pointer (mouse or touch); gamepads and screen readers are out of scope (the game is a canvas). | `scripts/keyboard-smoke.mjs` (1280x800, 1920x1080, a Russian layout, touch, hybrid) in `run.mjs --all`; the manual Telegram Desktop and Web checks in docs/v6/qa/INPUT_MANUAL.md. |

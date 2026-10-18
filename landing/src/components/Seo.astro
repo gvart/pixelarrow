@@ -1,0 +1,75 @@
+---
+// The landing's head metadata (STRUCTURE.md "SEO and metadata"; ADR-0011): title, description,
+// canonical, Open Graph and Twitter at 1200x630, icons, and the JSON-LD graph (VideoGame + WebSite).
+// Every value in the JSON-LD is something the page itself says; nothing is invented.
+import { DESCRIPTION, OG_IMAGE, PLAY_URL, SITE_URL, TITLE } from '../site';
+
+interface Props {
+  title?: string;
+  description?: string;
+  path?: string;
+}
+const { title = TITLE, description = DESCRIPTION, path = '/' } = Astro.props;
+const canonical = new URL(path, SITE_URL).href;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      name: 'Pixelarrow',
+      url: `${SITE_URL}/`,
+      inLanguage: 'en',
+    },
+    {
+      '@type': 'VideoGame',
+      '@id': `${SITE_URL}/#game`,
+      name: 'Pixelarrow',
+      url: `${SITE_URL}/`,
+      description,
+      image: OG_IMAGE.url,
+      genre: 'Strategy',
+      applicationCategory: 'Game',
+      gamePlatform: ['Web browser', 'Telegram'],
+      playMode: ['SinglePlayer', 'MultiPlayer'],
+      inLanguage: ['en', 'ru'],
+      offers: {
+        '@type': 'Offer',
+        price: 0,
+        priceCurrency: 'USD',
+        url: PLAY_URL,
+      },
+    },
+  ],
+};
+---
+<title>{title}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+<meta name="theme-color" content="#100d0b" />
+<meta name="color-scheme" content="dark" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Pixelarrow" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:url" content={canonical} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={OG_IMAGE.url} />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content={String(OG_IMAGE.width)} />
+<meta property="og:image:height" content={String(OG_IMAGE.height)} />
+<meta property="og:image:alt" content={OG_IMAGE.alt} />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={OG_IMAGE.url} />
+<meta name="twitter:image:alt" content={OG_IMAGE.alt} />
+
+<link rel="icon" href="/favicon.ico" sizes="48x48" />
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="manifest" href="/manifest.webmanifest" />
+
+<script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

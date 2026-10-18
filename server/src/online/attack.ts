@@ -21,7 +21,7 @@ import { battleTicketView, closeBattleTicket, loadOwnTicket, requireOpenTicket, 
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import type { Hero } from '../../../src/data/units';
 import { DEFAULT_DOCTRINE, type BattleSetup } from '../../../src/sim/types';
 import { ABANDON_MS, neutralDefenders, RESPAWN_MS, SIEGE_DECAY_MS, WINS_TO_CLAIM } from '../../../src/online/defenders';
@@ -58,7 +58,7 @@ import {
 } from './store';
 
 export const attack = new Hono<AppEnv>();
-attack.use('*', requireAuth);
+attack.use('*', requirePlayable);
 
 /** The beast of a lair region if it is at home (never slain, or back after BEAST_RULES.respawnMs). */
 export function lairBeast(shard: Pick<Shard, 'world' | 'seed'>, loc: number, row: Pick<RegionRow, 'beast_slain_at'> | null | undefined, now: number): Lair | null {
@@ -79,7 +79,7 @@ export function currentNeutrals(shard: Pick<Shard, 'world' | 'seed'>, loc: numbe
 }
 
 /** An owned region nobody guards and whose income was left alone for ABANDON_MS falls back to the neutrals. */
-export function abandoned(row: RegionRow | null | undefined, garrison: number, now: number): boolean {
+function abandoned(row: RegionRow | null | undefined, garrison: number, now: number): boolean {
   return !!row?.owner_id && row.home !== 1 && garrison === 0 && now - (row.accrued_at ?? now) > ABANDON_MS;
 }
 

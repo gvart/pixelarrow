@@ -163,11 +163,11 @@ export interface WorldSave {
 }
 
 /** The v6 world fields of a campaign that has not touched them (new campaigns and migrated saves). */
-export function v6WorldDefaults(): Pick<WorldSave, 'lairs' | 'arc' | 'flags' | 'eventCd' | 'eventsToday' | 'journal'> {
+function v6WorldDefaults(): Pick<WorldSave, 'lairs' | 'arc' | 'flags' | 'eventCd' | 'eventsToday' | 'journal'> {
   return { lairs: {}, arc: { stage: 'lairs' }, flags: {}, eventCd: {}, eventsToday: [0, 0], journal: [] };
 }
 
-export type WorldEvent =
+type WorldEvent =
   | { type: 'encounter'; party: number; byPlayer: boolean }
   | { type: 'arrive'; settlement: number }
   /** A campaign event was drawn and is pending (campaign-events.md R4): the map stays paused until it is resolved. */
@@ -311,7 +311,7 @@ const BAND_NAMES: Record<BandKind, string> = { bandits: 'Bandits', raiders: 'Gal
 // The host's army is hostArmy's (partyArmy never reads its entry here).
 const BAND_MIX: Record<PartyKind, ArmyMix> = { bandits: 'bandits', raiders: 'raiders', mercs: 'mercs', host: 'mercs' };
 
-export function partySpeed(size: number): number {
+function partySpeed(size: number): number {
   return WORLD_RULES.speed * Math.max(0.7, 1 - WORLD_RULES.sizeSlow * size);
 }
 
@@ -323,8 +323,6 @@ export function threatLevel(ratio: number): 0 | 1 | 2 | 3 | 4 {
   if (ratio < 1.7) return 3;
   return 4;
 }
-
-export const THREAT_LABEL = ['Weak', 'Weaker', 'Even', 'Strong', 'Deadly'];
 export const THREAT_COLOR = [0x6fae5a, 0xb8c460, 0xe0b860, 0xd8743a, 0xc03028];
 
 export class World {
@@ -1570,7 +1568,7 @@ export interface Recruit {
   price: number;
 }
 
-export interface Ware {
+interface Ware {
   index: number;
   item: Item;
   price: number;

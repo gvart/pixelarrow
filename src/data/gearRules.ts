@@ -10,11 +10,11 @@
 import { itemDef, normalizeRarity, rarityRank, type ItemDef, type Rarity } from './items';
 import type { AttrId, Attrs } from './perks';
 
-export type WeaponFamily =
+type WeaponFamily =
   | 'spear' | 'short_spear' | 'lance' | 'javelins' | 'short_sword' | 'curved_sword' | 'longsword'
   | 'axe' | 'club' | 'falx' | 'rhomphaia' | 'sling' | 'bow' | 'short_bow';
-export type ShieldType = 'big' | 'long' | 'light';
-export type ArmorWeight = 'light' | 'medium' | 'heavy';
+type ShieldType = 'big' | 'long' | 'light';
+type ArmorWeight = 'light' | 'medium' | 'heavy';
 
 const WEIGHT_RANK: Record<ArmorWeight, number> = { light: 0, medium: 1, heavy: 2 };
 
@@ -50,7 +50,7 @@ export function armorWeight(def: ItemDef): ArmorWeight | null {
 
 // ------------------------------------------------------------------ class limits
 
-export interface ClassGear {
+interface ClassGear {
   weapons: WeaponFamily[];
   shields: ShieldType[];
   armor: ArmorWeight;
@@ -99,7 +99,7 @@ export function classesFor(def: ItemDef): string[] {
 
 // ------------------------------------------------------------------ attribute requirements
 
-export interface Requirement {
+interface Requirement {
   attr: AttrId;
   n: number;
 }

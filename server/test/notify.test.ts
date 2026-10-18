@@ -103,8 +103,8 @@ describe('notification texts and deep links', () => {
     ];
     for (const [type, e, param] of cases) {
       const r = render('en', type, [e]);
-      const url = buttonUrl('https://pixelarrow.app', r.route);
-      expect(url).toBe(`https://pixelarrow.app/?startapp=${param}`);
+      const url = buttonUrl('https://play.pixelarrow.app', r.route);
+      expect(url).toBe(`https://play.pixelarrow.app/?startapp=${param}`);
       expect(parseStartParam(new URL(url).searchParams.get('startapp'))).toEqual(r.route);
     }
   });
@@ -130,7 +130,7 @@ describe('delivery rules', () => {
     const sent = sends(calls, 77001);
     expect(sent).toHaveLength(1);
     expect(sent[0].params.text).toContain('Your army has arrived at Saguntum');
-    expect(button(sent[0])[0][0].web_app!.url).toBe('https://pixelarrow.app/?startapp=loc_21');
+    expect(button(sent[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=loc_21');
     expect((await outbox(p.playerId)).map((r) => r.status)).toEqual(['sent']);
   });
 
@@ -253,9 +253,9 @@ describe('event triggers', () => {
     expect(t.status).toBe(200);
     expect(t.body.defenderKind).toBe('militia');
     const start = await waitForEvent(owner.playerId, 'attack_start');
-    expect(JSON.parse(start.data)).toMatchObject({ loc: h, place: w.info(h).name, by: 'Raider' });
+    expect(JSON.parse(start.data)).toMatchObject({ loc: h, place: w.info(h).name, by: att.name });
     await vi.waitFor(() => expect(sends(calls, 77101)).toHaveLength(1), { timeout: 30_000, interval: 50 });
-    expect(button(sends(calls, 77101)[0])[0][0].web_app!.url).toBe(`https://pixelarrow.app/?startapp=loc_${h}`);
+    expect(button(sends(calls, 77101)[0])[0][0].web_app!.url).toBe(`https://play.pixelarrow.app/?startapp=loc_${h}`);
     const run = play(t.body.setup);
     const sub = await post<{ captured: boolean; won: boolean }>('/api/online/attack/submit', att.token, { ticket: t.body.ticket, ...run });
     expect(sub.status).toBe(200);
@@ -298,9 +298,9 @@ describe('event triggers', () => {
     wa.send({ type: 'challenge', to: b.playerId });
     expect(await wa.next('error')).toMatchObject({ code: 'unavailable' });
     const row = await waitForEvent(b.playerId, 'duel_challenge');
-    expect(JSON.parse(row.data)).toEqual({ by: 'Challenger' });
+    expect(JSON.parse(row.data)).toEqual({ by: a.name });
     await vi.waitFor(() => expect(sends(calls, 77302)).toHaveLength(1), { timeout: 30_000, interval: 50 });
-    expect(button(sends(calls, 77302)[0])[0][0].web_app!.url).toBe('https://pixelarrow.app/?startapp=duel');
+    expect(button(sends(calls, 77302)[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=duel');
     wa.ws.close(1000);
   });
 
@@ -312,7 +312,7 @@ describe('event triggers', () => {
     const m = await join(77402, 'Newbie');
     await sameShard(lead, m);
     expect((await post('/api/online/clans/join', m.token, { code: inv.body.code })).status).toBe(200);
-    expect(JSON.parse((await waitForEvent(lead.playerId, 'clan_joined')).data)).toEqual({ name: 'Newbie', clan: '[RVN] Ravens' });
+    expect(JSON.parse((await waitForEvent(lead.playerId, 'clan_joined')).data)).toEqual({ name: m.name, clan: '[RVN] Ravens' });
     expect((await post('/api/online/clans/promote', lead.token, { playerId: m.playerId, role: 'officer' })).status).toBe(200);
     expect(JSON.parse((await waitForEvent(m.playerId, 'clan_role')).data)).toEqual({ clan: '[RVN] Ravens', role: 'officer' });
     expect((await post('/api/online/clans/kick', lead.token, { playerId: m.playerId })).status).toBe(200);
@@ -404,6 +404,8 @@ describe('bot commands', () => {
     expect(en).toContain('https://pixelarrow.app/privacy');
     expect(en).toContain('https://pixelarrow.app/refunds');
     expect(ru).toContain('https://pixelarrow.app/ru/terms');
+    // Legal pages live on the landing (LANDING_URL), never on the game host (ADR-0007).
+    expect(`${en}${ru}`).not.toContain('play.pixelarrow.app');
     expect(ru).toContain('Политика конфиденциальности');
   });
 
@@ -432,20 +434,13 @@ describe('bot commands', () => {
     expect((await DB().prepare('SELECT COUNT(*) AS n FROM support_requests WHERE telegram_id = 77802').first<{ n: number }>())!.n).toBe(2);
   });
 
-  it('/delete_my_data logs a deletion request', async () => {
-    const calls = mockTelegram();
-    await webhook(msg(77803, '/delete_my_data'));
-    expect(sends(calls, 77803)[0].params.text).toMatch(/deletion request #\d+ has been logged/);
-    expect(await DB().prepare("SELECT kind FROM support_requests WHERE telegram_id = 77803").first()).toEqual({ kind: 'deletion' });
-  });
-
   it('/settings shows the switches; a button toggles a type', async () => {
     const p = await join(77804);
     const calls = mockTelegram();
     await webhook(msg(77804, '/settings'));
     const kb = button(sends(calls, 77804)[0]);
     expect(kb[0][0]).toMatchObject({ text: '✅ Attacks on your land', callback_data: 'ns:attack' });
-    expect(kb.at(-1)![0].web_app!.url).toBe('https://pixelarrow.app/?startapp=settings');
+    expect(kb.at(-1)![0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=settings');
     await webhook({ update_id: 2, callback_query: { id: 'cb1', from: { id: 77804 }, message: { message_id: 9, chat: { id: 77804 } }, data: 'ns:attack' } });
     const edit = calls.find((c) => c.method === 'editMessageText')!;
     expect((edit.params.reply_markup as { inline_keyboard: { text: string }[][] }).inline_keyboard[0][0].text).toBe('❌ Attacks on your land');
@@ -454,12 +449,12 @@ describe('bot commands', () => {
     expect(view.body.types.find((t) => t.type === 'attack')!.on).toBe(false);
     // someone who never played gets a Play button
     await webhook(msg(77899, '/settings'));
-    expect(button(sends(calls, 77899)[0])[0][0].web_app!.url).toBe('https://pixelarrow.app');
+    expect(button(sends(calls, 77899)[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app');
   });
 
   it('registers the command menu in English and Russian once per version', async () => {
     await DB().prepare("DELETE FROM bot_meta WHERE key = 'commands_version'").run();
-    const calls = mockTelegram({ getWebhookInfo: { url: 'https://pixelarrow.app/api/telegram/webhook', allowed_updates: ['message', 'pre_checkout_query'] } });
+    const calls = mockTelegram({ getWebhookInfo: { url: 'https://play.pixelarrow.app/api/telegram/webhook', allowed_updates: ['message', 'pre_checkout_query'] } });
     expect(await ensureBotSetup(env)).toBe(true);
     expect(await ensureBotSetup(env)).toBe(false);
     const set = calls.filter((c) => c.method === 'setMyCommands');
@@ -468,14 +463,6 @@ describe('bot commands', () => {
     expect(set[1].params).toMatchObject({ language_code: 'ru', commands: BOT_COMMANDS.ru });
     expect(BOT_COMMANDS.en.map((c) => c.command)).toEqual(['start', 'settings', 'paysupport', 'terms', 'delete_my_data']);
     expect(calls.find((c) => c.method === 'setWebhook')!.params).toMatchObject({ allowed_updates: ['message', 'pre_checkout_query', 'callback_query'], secret_token: env.TELEGRAM_WEBHOOK_SECRET });
-  });
-
-  it('the legal pages are served as static assets in both languages', async () => {
-    for (const [path, text] of [['/terms', 'Terms of Service'], ['/privacy', 'Privacy Policy'], ['/refunds', 'Refund Policy'], ['/ru/terms', 'Условия использования'], ['/ru/refunds', 'Политика возвратов']]) {
-      const res = await api(path);
-      expect(res.status, path).toBe(200);
-      expect(await res.text()).toContain(text);
-    }
   });
 
   it('enqueue is idempotent per dedupe key', async () => {

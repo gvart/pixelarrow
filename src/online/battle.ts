@@ -16,7 +16,7 @@ import type { BattleResult, BattleSetup, LoggedOrder, Side } from '../sim/types'
 import { generateBattlefield, siteName, type BattleSite } from '../world/battlefield';
 import { ONLINE_RULES } from './rules';
 
-export interface SideArmy {
+interface SideArmy {
   heroes: Hero[];
   formations: FormationType[];
   bot: boolean;
@@ -38,7 +38,7 @@ export function onlineBattleSetup(seed: number, a: SideArmy, b: SideArmy, site: 
 }
 
 /** What an attack's client submits for the server's replay (POST /api/online/attack/submit). */
-export interface AttackSubmission {
+interface AttackSubmission {
   orders: LoggedOrder[];
   /** How many of `orders` were issued during deployment (before startBattle). */
   deployOrders: number;
@@ -67,7 +67,7 @@ export function flipResult(r: BattleResult): BattleResult {
   };
 }
 
-export interface SideOutcome {
+interface SideOutcome {
   outcome: Outcome;
   /** Heroes still alive (XP and wear applied, wounds marked by `wounded`). */
   survivors: Hero[];
@@ -86,7 +86,7 @@ function side(result: BattleResult, mine: Hero[], theirs: Hero[], rng: Rng): Sid
   return { outcome, survivors, dead: [...before].filter((id) => !alive.has(id)), wounded };
 }
 
-export interface AttackResolution {
+interface AttackResolution {
   attacker: SideOutcome;
   defender: SideOutcome;
   /** Items the attacker takes: the best `picks` of the pool from enemies they killed. */

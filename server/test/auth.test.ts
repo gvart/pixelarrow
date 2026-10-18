@@ -2,7 +2,6 @@ import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import type { Env } from '../src/env';
 import { db, secret } from '../src/middleware';
-import { signSession, verifySession } from '../src/session';
 import { signInitData, validateInitData } from '../src/telegramAuth';
 import { api, BOT_TOKEN, devLogin } from './helpers';
 
@@ -44,23 +43,6 @@ describe('initData validation', () => {
   });
 });
 
-describe('session tokens', () => {
-  const secret = 'unit-secret';
-  it('round-trips and expires', async () => {
-    const { token } = await signSession({ pid: 1, tg: 2, name: 'A' }, secret, 1000, 60);
-    expect((await verifySession(token, secret, 1030))?.pid).toBe(1);
-    expect(await verifySession(token, secret, 1061)).toBeNull();
-  });
-  it('rejects tampering and the wrong secret', async () => {
-    const { token } = await signSession({ pid: 1, tg: 2, name: 'A' }, secret);
-    const [p, body, sig] = token.split('.');
-    const forged = btoa(JSON.stringify({ pid: 2, tg: 2, name: 'A', iat: 0, exp: 9e9 })).replace(/=+$/, '');
-    expect(await verifySession(`${p}.${forged}.${sig}`, secret)).toBeNull();
-    expect(await verifySession(`${p}.${body}.${sig}`, 'other')).toBeNull();
-    expect(await verifySession('garbage', secret)).toBeNull();
-  });
-});
-
 describe('POST /api/auth/telegram', () => {
   it('logs in with valid initData (JSON or raw body), upserts the player', async () => {
     const res = await api('/api/auth/telegram', { method: 'POST', json: { initData: await initData() } });
@@ -86,7 +68,7 @@ describe('POST /api/auth/telegram', () => {
 
   it('requires a session for /api/me', async () => {
     expect((await api('/api/me')).status).toBe(401);
-    expect((await api('/api/me', { token: 'pa1.x.y' })).status).toBe(401);
+    expect((await api('/api/me', { token: 'pa2_' + 'A'.repeat(43) })).status).toBe(401);
   });
 
   it('supports DEV_AUTH logins when enabled', async () => {
@@ -94,14 +76,14 @@ describe('POST /api/auth/telegram', () => {
     expect((await api('/api/me', { token })).status).toBe(200);
   });
 
-  it('rate-limits logins per IP', async () => {
+  it('rate-limits logins per IP through the RL_TG_AUTH_IP binding (30 / 60 s)', async () => {
     const headers = { 'cf-connecting-ip': '203.0.113.9' };
     const statuses: number[] = [];
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 32; i++) {
       const r = await api('/api/auth/telegram', { method: 'POST', json: { dev: { id: 5000 + i } }, headers });
       statuses.push(r.status);
     }
-    expect(statuses.slice(0, 20).every((s) => s === 200)).toBe(true);
+    expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
   });
 });
@@ -109,7 +91,7 @@ describe('POST /api/auth/telegram', () => {
 describe('health', () => {
   it('reports configuration without leaking secrets', async () => {
     const res = await api('/api/health');
-    expect(await res.json()).toMatchObject({ ok: true, db: true, secrets: { telegramBotToken: true, sessionSecret: true } });
+    expect(await res.json()).toMatchObject({ ok: true, db: true, secrets: { telegramBotToken: true } });
   });
   it('unknown API routes are JSON 404s', async () => {
     const res = await api('/api/nope');
@@ -122,13 +104,15 @@ describe('missing configuration', () => {
   it('answers 503 when D1 or a secret is not configured', () => {
     const empty = {} as Env;
     expect(() => db(empty)).toThrow(expect.objectContaining({ status: 503, code: 'not_configured', message: 'database not configured' }));
-    expect(() => secret(empty, 'SESSION_SECRET')).toThrow(expect.objectContaining({ status: 503, message: 'SESSION_SECRET not configured' }));
+    expect(() => secret(empty, 'TELEGRAM_BOT_TOKEN')).toThrow(expect.objectContaining({ status: 503, message: 'TELEGRAM_BOT_TOKEN not configured' }));
   });
 });
 
 describe('entry module', () => {
-  it('exports only handlers and Durable Object classes (workerd rejects anything else)', async () => {
+  it('exports only handlers, Durable Object classes and entrypoints (workerd rejects anything else)', async () => {
     const mod = await import('../src/index');
-    expect(Object.keys(mod).sort()).toEqual(['DuelDO', 'MatchmakerDO', 'RegionDO', 'default']);
+    expect(Object.keys(mod).sort()).toEqual(['DuelDO', 'MatchmakerDO', 'PublicApi', 'RegionDO', 'default']);
+    const { WorkerEntrypoint } = await import('cloudflare:workers');
+    expect(mod.PublicApi.prototype).toBeInstanceOf(WorkerEntrypoint);
   });
 });

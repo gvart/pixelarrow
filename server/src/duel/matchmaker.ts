@@ -24,7 +24,7 @@ import type { MatchmakerClientMsg, MatchmakerServerMsg } from '../../../src/duel
 import { createMatch, getQueueState, liveMatchOf, queueCheck, rowLeague } from './live';
 
 /** How often the queue is paired again while anyone waits (the windows widen meanwhile). */
-export const PAIR_EVERY_MS = 2000;
+const PAIR_EVERY_MS = 2000;
 const MAX_MESSAGE = 4096;
 
 interface Attachment {
@@ -32,7 +32,7 @@ interface Attachment {
   name: string;
 }
 
-export interface Waiting extends QueueEntry {
+interface Waiting extends QueueEntry {
   name: string;
   /** Rated games so far (the opponent sees a league only after placements). */
   games: number;
@@ -54,6 +54,21 @@ export class MatchmakerDO extends DurableObject<Env> {
   /** The queue right now (tests, ops). */
   async waiting(): Promise<Waiting[]> {
     return this.queue.map((w) => ({ ...w }));
+  }
+
+  /** Account deletion (server/src/account/delete.ts): drops the player from the queue and closes their sockets. */
+  async remove(pid: number): Promise<void> {
+    for (const ws of this.ctx.getWebSockets(`p:${pid}`)) {
+      ws.serializeAttachment(null);
+      try {
+        ws.close(4403, 'account deleted');
+      } catch {
+        // already closed
+      }
+    }
+    const had = this.queue.length;
+    this.queue = this.queue.filter((w) => w.pid !== pid);
+    if (this.queue.length !== had) await this.save();
   }
 
   private async save(): Promise<void> {

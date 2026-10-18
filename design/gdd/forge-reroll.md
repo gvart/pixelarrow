@@ -1,6 +1,7 @@
 # Quick Design Spec: Forge reroll (the town Smith)
 
 **Type**: Addition (a small mechanic on top of the item system; no new state beyond the item's existing `aff` field)
+**Status**: Implemented
 **System**: Items, random stats (`src/data/affixes.ts`), campaign economy
 **GDD Reference**: no GDD covered rerolling. Sources used: `docs/ITEMS.md` "Random stats" and Open question 1, `docs/v5/audit/MECHANICS.md` E2 and §2.6.2, `docs/v5/balance/BASELINE.md` "Economy", `docs/v5/balance/AR-03.md` "Economy", `docs/v5/vision/GDD_REVIEW.md` W6 and Deferred 1, `docs/v5/DECISIONS.md` V5-018, V5-031, V5-070, V5-071, `docs/v5/plan/ANSWERS.md` A-40, story EC-01 in `docs/v5/plan/STORIES.md`.
 **Prior quick specs for this system**: none (`design/quick-specs/` does not exist).

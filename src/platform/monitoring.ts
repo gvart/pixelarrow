@@ -7,11 +7,11 @@
 import { Analytics, flushAnalytics, setAnalytics, track, type EventsPayload } from './analytics';
 import { online } from './cloud';
 import { APP_VERSION, installErrorCapture, sendJson, watchGame, type GameLike } from './telemetry';
-import { telegramClient } from './telegram';
+import { platform } from './index';
 
 const CONSENT_KEY = 'pa_analytics_consent_synced';
 
-export interface MonitoringDeps {
+interface MonitoringDeps {
   /** The Settings "Analytics" toggle. */
   analyticsEnabled: () => boolean;
   lang: () => string;
@@ -19,26 +19,17 @@ export interface MonitoringDeps {
 
 let deps: MonitoringDeps | null = null;
 
-function storedConsent(): string | null {
-  try {
-    return localStorage.getItem(CONSENT_KEY);
-  } catch {
-    return null;
-  }
-}
 
 /** Tells the server about the toggle once signed in (only when it changed since the last sync). */
 async function syncConsent(): Promise<boolean> {
   if (!deps || !online.signedIn) return false;
   const on = deps.analyticsEnabled();
-  if (storedConsent() === String(on)) return true;
+  // this device remembers the last value the server has (the KV never throws)
+  const device = platform.storage.device();
+  if ((await device.get(CONSENT_KEY)) === String(on)) return true;
   try {
     await online.api.request('POST', '/api/telemetry/consent', { body: { analytics: on }, auth: true });
-    try {
-      localStorage.setItem(CONSENT_KEY, String(on));
-    } catch {
-      /* private mode */
-    }
+    await device.set(CONSENT_KEY, String(on));
     return true;
   } catch {
     return false;
@@ -55,15 +46,16 @@ let analyticsInstance: Analytics | null = null;
 
 export function installMonitoring(game: GameLike, d: MonitoringDeps): void {
   deps = d;
-  const tg = telegramClient();
+  // read at each use: the client is known only once platform.init() has run (BootScene)
+  const client = () => platform.client();
   installErrorCapture({
     token: () => online.api.token,
-    platform: () => ({ platform: tg.platform, tg: tg.version, lang: d.lang() }),
+    platform: () => ({ platform: client().platform, tg: client().version, lang: d.lang() }),
   });
   watchGame(game);
 
   online.api.extraHeaders = () => {
-    const h: Record<string, string> = { 'x-pa-version': APP_VERSION, 'x-pa-platform': tg.platform };
+    const h: Record<string, string> = { 'x-pa-version': APP_VERSION, 'x-pa-platform': client().platform };
     if (!d.analyticsEnabled()) h['x-pa-analytics'] = '0';
     return h;
   };
@@ -71,7 +63,7 @@ export function installMonitoring(game: GameLike, d: MonitoringDeps): void {
   analyticsInstance = new Analytics({
     enabled: d.analyticsEnabled,
     token: () => online.api.token,
-    app: () => ({ version: APP_VERSION, platform: tg.platform }),
+    app: () => ({ version: APP_VERSION, platform: client().platform }),
     send: async (payload: EventsPayload, beacon: boolean) => {
       if (beacon) {
         sendJson('/api/telemetry/events', payload, true);
@@ -91,7 +83,7 @@ export function installMonitoring(game: GameLike, d: MonitoringDeps): void {
   });
 
   const l = d.lang();
-  track('session_start', { tg: tg.version, lang: l === 'en' || l === 'ru' ? l : 'other' });
+  track('session_start', { tg: client().version, lang: l === 'en' || l === 'ru' ? l : 'other' });
 
   // Sync the opt-out once the game has signed in (sign-in happens lazily elsewhere).
   let tries = 0;

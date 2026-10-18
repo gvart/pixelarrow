@@ -14,17 +14,20 @@ import { paintIcon, type IconLook, type IconPart } from '../art/iconStyle';
 import { renderIcon } from '../art/uiTextures';
 import { BRONZE_D2, STATUS_D2, TEXT_D2, renderSmoothPanel, type SmoothStyle } from '../art/smoothUi';
 import { renderMosaic, type MosaicStyle } from '../art/mosaicUi';
-import { haptic } from '../platform/telegram';
+import { haptic } from '../platform/haptics';
 import { uiButton, uiDisabled } from '../audio/hooks';
 import { breadcrumb } from '../platform/telemetry';
 import { t } from '../i18n';
 import { ellipsize, fitCinzelLabel, measureText, LINE_H } from './textfit';
 import { uiClip, uiFrame, uiIgnore, uiMaxWidth } from './layout';
-import { RS } from '../platform/renderScale';
+import { RS, legacyColumn } from '../platform/renderScale';
+import { metricsFor, type UIMetrics } from './sizeClass';
 import { ACCENT, MOSAIC, RESOURCES, TEXT, TEXT_MIN } from './tokens';
 import { scrollCue } from './mosaic/policy';
 import { motion } from './motion';
 import { hoverTip } from './hover';
+import { focusable, type FocusScroll } from './focusRing';
+import { wheelOwner, type WheelNode } from './input/wheel';
 
 export { scrollCue };
 
@@ -37,18 +40,15 @@ export type FontKey =
   // ink forms of the v3 colours, for text on parchment: headings in the head face, reward gold, xp, Drachmae
   | 'hInk' | 'pGold' | 'pXp' | 'pPremium';
 
-export interface UIMetrics {
-  S: number;
-  VW: number;
-  VH: number;
-}
+export type { SizeClass, UIMetrics } from './sizeClass';
 
+/**
+ * The scene's UI metrics (ADR-0013, src/ui/sizeClass.ts): the size class, a
+ * whole-number S (canvas px per UI px, RS included) and VW × VH in UI px of the
+ * game box. A scene that has not migrated sees the v5 column (`legacy`).
+ */
 export function uiMetrics(scene: Phaser.Scene): UIMetrics {
-  const W = scene.scale.width;
-  const H = scene.scale.height;
-  // whole UI px per CSS px, chosen on the CSS size; the canvas is RS x denser (src/platform/renderScale.ts)
-  const S = Math.max(2, Math.min(4, Math.floor(Math.min(W / RS / 190, H / RS / 400)))) * RS;
-  return { S, VW: Math.floor(W / S), VH: Math.floor(H / S) };
+  return metricsFor(scene.scale.width, scene.scale.height, RS, legacyColumn());
 }
 
 /** Text colours on the Bronze & Stone surfaces (src/art/smoothUi.ts): light ink on dark stone. */
@@ -195,12 +195,12 @@ export function sweepPanels(game: Phaser.Game): number {
 }
 
 /** An image of a panel texture, scaled to UI px (origin top-left). */
-export function panelImage(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle): Phaser.GameObjects.Image {
+function panelImage(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle): Phaser.GameObjects.Image {
   return scene.add.image(x, y, panelTexture(scene, w, h, style)).setOrigin(0, 0).setScale(1 / panelK(scene));
 }
 
 /** Texture key of a v4 surface (the same cache as src/ui/mosaic/base.ts `mosaicTexture`). */
-export function mosaicPanelTexture(scene: Phaser.Scene, w: number, h: number, style: MosaicStyle): string {
+function mosaicPanelTexture(scene: Phaser.Scene, w: number, h: number, style: MosaicStyle): string {
   w = Math.max(4, Math.round(w));
   h = Math.max(4, Math.round(h));
   const K = panelK(scene);
@@ -216,15 +216,6 @@ export function mosaicPanelImage(scene: Phaser.Scene, x: number, y: number, w: n
 
 export function addPanel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle = 'parch'): Phaser.GameObjects.Image {
   return panelImage(scene, Math.round(x), Math.round(y), w, h, style);
-}
-
-/** A title plaque (it was a parchment scroll): a stone panel with a fine bronze rule inside. */
-export function addScroll(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number): void {
-  parent.add(addPanel(scene, x, y, w, h, 'parch'));
-  const g = scene.add.graphics();
-  g.lineStyle(0.5, BRONZE_D2.lo, 1);
-  g.strokeRoundedRect(x + 2.5, y + 2.5, w - 5, h - 5, 2.5);
-  parent.add(g);
 }
 
 export function addText(
@@ -251,7 +242,7 @@ export const SHADOW_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['light', 'go
 /** The Inter font that reads on the same surface as a Cinzel one (cream on stone, ink on a lit block, gold on dark). */
 const INTER_OF: Partial<Record<FontKey, FontKey>> = { rCream: 'light', rOff: 'dim', rInk: 'pInk', rGold: 'gold' };
 
-export interface FittedLabel {
+interface FittedLabel {
   text: string;
   /** The font to draw `text` in: the Cinzel one, or its Inter twin. */
   font: FontKey;
@@ -278,21 +269,6 @@ export function fitBody(label: string, font: FontKey, room: number, size: number
   return { text, font: inter, size, truncated: text !== label };
 }
 
-/**
- * Shortens a one-line text until it fits the width, ending it with "…". The
- * full text stays in the object's data (`fullText`) for a tooltip.
- */
-export function fitText(txt: Phaser.GameObjects.BitmapText, w: number): Phaser.GameObjects.BitmapText {
-  if (txt.width <= w) return txt;
-  txt.setData('fullText', txt.text);
-  let str = txt.text;
-  while (str.length > 1 && txt.width > w) {
-    str = str.slice(0, -1).trimEnd();
-    txt.setText(str + '…');
-  }
-  return txt;
-}
-
 /** Icon edge in UI px (the pixel icons' size; smooth icons are drawn denser and scaled down to it). */
 export const ICON_PX = 12;
 
@@ -317,7 +293,7 @@ export function scaleIcon(img: Phaser.GameObjects.Image, n: number): Phaser.Game
 /** 'ghost': a quiet outlined action; 'purchase': real money (Telegram Stars), its own blue. */
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost' | 'purchase';
 
-export interface ButtonOpts {
+interface ButtonOpts {
   label?: string;
   icon?: string;
   /** Legacy look: 'buttonSel' = selected / primary, 'buttonOff' = disabled. */
@@ -358,7 +334,7 @@ export interface HoldTimer {
 }
 
 /** Longest frame that counts in full towards a long-press (longer ones are stalls). */
-export const HOLD_FRAME_CAP = 100;
+const HOLD_FRAME_CAP = 100;
 
 /**
  * Calls `cb` once the finger has been held for `ms` of *smooth* frame time.
@@ -458,21 +434,36 @@ export class Button extends Phaser.GameObjects.Container {
       this.release();
       if (!d || long) return;
       if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 14 * RS) return;
-      if (!this.enabled) {
-        uiDisabled();
-        longPress.toast?.(scene, this.opts.disabledReason ?? t('kit.disabled'));
-        return;
-      }
-      haptic('light');
-      uiButton(this.opts.icon, this.opts.id);
-      // Crash-report breadcrumb: the button's id or icon only (labels may hold player names).
-      breadcrumb('ui', `tap ${this.opts.id ?? this.opts.icon ?? '?'}`);
-      this.opts.onClick?.();
+      this.fire();
     });
     this.once('destroy', () => this.pressTimer?.remove());
     // a mouse resting on the button shows the long-press tip (A11Y-15)
     hoverTip(this, () => this.tipText(), (text) => longPress.show?.(scene, text, this));
+    // Tab, arrows and Enter reach it, and a mouse lightens it (ADR-0012 Decision 4)
+    focusable(this, {
+      activate: () => this.fire(),
+      enabled: () => this.enabled,
+      role: opts.variant === 'destructive' ? 'danger' : opts.variant === 'primary' ? 'primary' : undefined,
+      tip: () => this.tipText(),
+      showTip: (text) => longPress.show?.(scene, text, this),
+      area: () => scrollAreaOf(this),
+    });
     scene.add.existing(this);
+  }
+
+  /** What a tap does (and Enter on the focused button): act, or say why not. */
+  private fire(): void {
+    if (!this.scene) return;
+    if (!this.enabled) {
+      uiDisabled();
+      longPress.toast?.(this.scene, this.opts.disabledReason ?? t('kit.disabled'));
+      return;
+    }
+    haptic('light');
+    uiButton(this.opts.icon, this.opts.id);
+    // Crash-report breadcrumb: the button's id or icon only (labels may hold player names).
+    breadcrumb('ui', `tap ${this.opts.id ?? this.opts.icon ?? '?'}`);
+    this.opts.onClick?.();
   }
 
   private release(keepLong = false): void {
@@ -689,6 +680,8 @@ export class Meter extends Phaser.GameObjects.Graphics {
  */
 /** Live scroll areas (the layout check scrolls them to the end to check the rest). */
 const liveAreas = new Set<ScrollArea>();
+/** The scroll area each content container and drag zone belongs to (the wheel finds the one under the pointer). */
+const wheelAreas = new WeakMap<WheelNode, ScrollArea>();
 
 /** Scroll every live scroll area of active scenes to `v` (clamped); returns how many can scroll. */
 export function scrollAllAreas(v: number): number {
@@ -702,7 +695,9 @@ export function scrollAllAreas(v: number): number {
 }
 
 /** Height of the scroll cue's shade, UI px. */
-export const SCROLL_CUE_H = 10;
+const SCROLL_CUE_H = 10;
+/** A snapping track moves at most a column per this many ms of wheel events. */
+const WHEEL_STEP_MS = 120;
 
 /** Screen-space viewport of a scroll area's content, kept on the content container. */
 type ClipRect = { x: number; y: number; w: number; h: number; at?: () => { x: number; y: number } };
@@ -743,7 +738,16 @@ if (inputProto && !inputProto.__clipPatched) {
   inputProto.__clipPatched = true;
 }
 
-export class ScrollArea {
+/** The innermost scroll area holding `obj`, or null. */
+function scrollAreaOf(obj: Phaser.GameObjects.GameObject): ScrollArea | null {
+  for (let o = obj.parentContainer; o; o = o.parentContainer) {
+    const a = wheelAreas.get(o as unknown as WheelNode);
+    if (a) return a;
+  }
+  return null;
+}
+
+export class ScrollArea implements FocusScroll {
   readonly content: Phaser.GameObjects.Container;
   private maskG: Phaser.GameObjects.Graphics;
   /** The scroll cue: a shade at a clipped edge and a chevron (drawn over the content, never taking taps). */
@@ -765,8 +769,15 @@ export class ScrollArea {
     private w: number,
     private h: number,
     S: number,
-    opts: { cue?: boolean } = {},
+    /**
+     * `axis: 'x'` scrolls sideways (a track of columns: a drag, the wheel or a key moves it); `snap` (UI px, with
+     * 'x') rests it on whole columns of that step, so no column is ever cut at the side of its window.
+     */
+    opts: { cue?: boolean; axis?: 'y' | 'x'; snap?: number } = {},
   ) {
+    this.S = S;
+    this.sideways = opts.axis === 'x';
+    this.snap = this.sideways ? opts.snap ?? 0 : 0;
     this.content = scene.add.container(x, y);
     parent.add(this.content);
     if (opts.cue !== false) {
@@ -804,19 +815,41 @@ export class ScrollArea {
     };
     const onMove = (p: Phaser.Input.Pointer) => {
       if (!this.dragging || !p.isDown) return;
-      const dy = (p.y - this.lastY) / S;
-      this.lastY = p.y;
-      if (Math.abs(p.y - this.startY) > 10 * RS) this.moved = true;
+      const at = this.sideways ? p.x : p.y;
+      const dy = (at - this.lastY) / S;
+      this.lastY = at;
+      if (Math.abs(at - this.startY) > 10 * RS) this.moved = true;
       this.vel = dy;
       this.setScroll(this.scroll - dy);
     };
     const onUp = () => {
+      if (this.dragging && this.snap) {
+        // a snapping track rests on the nearest whole column, a fling carrying it one further
+        this.setScroll(this.snapped(this.scroll - this.vel * 4));
+        this.vel = 0;
+      }
       this.dragging = false;
     };
-    const onWheel = (_p: unknown, _o: unknown, _dx: number, dy: number) => this.setScroll(this.scroll + dy * 0.3);
+    wheelAreas.set(this.content, this);
+    wheelAreas.set(this.zone, this);
+    // only the innermost area under the pointer scrolls (not every live list on screen)
+    let wheelAt = 0;
+    const onWheel = (_p: unknown, over: Phaser.GameObjects.GameObject[], dx: number, dy: number) => {
+      if (wheelOwner(over[0], (n) => wheelAreas.get(n)) !== this) return;
+      const d = this.sideways ? dx || dy : dy;
+      if (!this.snap) {
+        this.setScroll(this.scroll + d * 0.3);
+        return;
+      }
+      // a snapping track: a column a notch (a trackpad's burst of events moves it one)
+      const now = scene.time.now;
+      if (!d || now - wheelAt < WHEEL_STEP_MS) return;
+      wheelAt = now;
+      this.setScroll(this.snapped(this.scroll + Math.sign(d) * this.snap));
+    };
     const onUpdate = () => {
       follow();
-      if (!this.dragging && Math.abs(this.vel) > 0.1) {
+      if (!this.dragging && !this.snap && Math.abs(this.vel) > 0.1) {
         this.setScroll(this.scroll - this.vel);
         this.vel *= 0.9;
       }
@@ -842,6 +875,47 @@ export class ScrollArea {
   }
 
   private cleanup: () => void = () => {};
+  private readonly S: number;
+  /** Scrolls sideways (`axis: 'x'`), resting on whole columns of `snap` UI px when set. */
+  private readonly sideways: boolean;
+  private readonly snap: number;
+
+  /** `v` on the nearest whole column of a snapping track (as is otherwise). */
+  private snapped(v: number): number {
+    return this.snap ? Math.round(v / this.snap) * this.snap : v;
+  }
+
+  /** The visible window in world (canvas) px. */
+  viewWorld(): { x: number; y: number; w: number; h: number } {
+    const c = (this.content as unknown as Clipped).__scrollClip!;
+    const d = c.at?.() ?? { x: 0, y: 0 };
+    return { x: c.x + d.x, y: c.y + d.y, w: c.w, h: c.h };
+  }
+
+  /** Scroll so the world-px span top..bottom is fully in view, clear of the scroll cue (keyboard focus, input-v6.md §4.3). */
+  revealSpan(top: number, bottom: number): void {
+    if (this.sideways) return;
+    const v = this.viewWorld();
+    const m = SCROLL_CUE_H * this.S;
+    if (top < v.y + m) this.setScroll(this.scroll - (v.y + m - top) / this.S);
+    else if (bottom > v.y + v.h - m) this.setScroll(this.scroll + (bottom - (v.y + v.h - m)) / this.S);
+  }
+
+  /** A sideways track: scroll so the world-px span left..right is in view, on whole columns (keyboard focus). */
+  revealX(left: number, right: number): void {
+    if (!this.sideways) return;
+    const v = this.viewWorld();
+    const k = this.snap || 1;
+    if (left < v.x - 0.5) this.setScroll(Math.floor((this.scroll - (v.x - left) / this.S) / k) * k);
+    else if (right > v.x + v.w + 0.5) this.setScroll(Math.ceil((this.scroll + (right - (v.x + v.w)) / this.S) / k) * k);
+  }
+
+  /** PageUp / PageDown scroll one view; Home / End go to the ends. */
+  page(kind: 'up' | 'down' | 'home' | 'end'): void {
+    this.vel = 0;
+    const view = this.sideways ? this.w : this.h;
+    this.setScroll(kind === 'home' ? 0 : kind === 'end' ? this.maxScroll : this.snapped(this.scroll + (kind === 'down' ? 1 : -1) * view));
+  }
 
   /** Still on screen (its scene runs and its content is visible). */
   isActive(): boolean {
@@ -855,12 +929,17 @@ export class ScrollArea {
     return true;
   }
 
+  /** On screen with something to scroll (the wheel passes over one that has nothing). */
+  canScroll(): boolean {
+    return this.maxScroll > 0 && this.isActive();
+  }
+
   private begin(p: Phaser.Input.Pointer): void {
     if (this.dragging) return;
     this.dragging = true;
     this.moved = false;
-    this.lastY = p.y;
-    this.startY = p.y;
+    this.lastY = this.sideways ? p.x : p.y;
+    this.startY = this.lastY;
     this.vel = 0;
   }
 
@@ -878,9 +957,10 @@ export class ScrollArea {
     this.listeners.push(cb);
   }
 
+  /** The content's extent along the scroll axis (its width, for a sideways track). */
   setContentHeight(ch: number): void {
     this.contentH = ch;
-    this.maxScroll = Math.max(0, ch - this.h);
+    this.maxScroll = Math.max(0, ch - (this.sideways ? this.w : this.h));
     this.setScroll(this.scroll, true);
   }
 
@@ -900,7 +980,8 @@ export class ScrollArea {
     const next = Math.max(0, Math.min(this.maxScroll, v));
     if (next === this.scroll && !force) return;
     this.scroll = next;
-    this.content.y = Math.round(this.y - this.scroll);
+    if (this.sideways) this.content.x = Math.round(this.x - this.scroll);
+    else this.content.y = Math.round(this.y - this.scroll);
     this.drawCue();
     for (const cb of this.listeners) cb(this.scroll, this.maxScroll);
   }
@@ -913,6 +994,28 @@ export class ScrollArea {
     const { above, below } = scrollCue(this.scroll, this.maxScroll);
     const bands = 5;
     const step = SCROLL_CUE_H / bands;
+    if (this.sideways) {
+      // a sideways track: the shade at a clipped side, the chevron at the right one's middle
+      for (let i = 0; i < bands; i++) {
+        g.fillStyle(0x1a0d06, 0.035 * (bands - i));
+        if (above) g.fillRect(this.x + i * step, this.y, step, this.h);
+        if (below) g.fillRect(this.x + this.w - (i + 1) * step, this.y, step, this.h);
+      }
+      if (below) {
+        // (at the top right, clear of a column's controls)
+        const cx = this.x + this.w - 6;
+        const cy = this.y + 6;
+        g.fillStyle(0x1a0d06, 0.75);
+        g.fillCircle(cx, cy, 4.5);
+        g.lineStyle(1.1, MOSAIC.cream, 1);
+        g.beginPath();
+        g.moveTo(cx - 1, cy - 2.3);
+        g.lineTo(cx + 1.3, cy);
+        g.lineTo(cx - 1, cy + 2.3);
+        g.strokePath();
+      }
+      return;
+    }
     for (let i = 0; i < bands; i++) {
       const a = 0.035 * (bands - i);
       g.fillStyle(0x1a0d06, a);
@@ -985,20 +1088,32 @@ export function tappable(obj: Phaser.GameObjects.GameObject, area: ScrollArea | 
     if (down && Math.abs(p.x - down.x) + Math.abs(p.y - down.y) > 14 * RS) stop();
   });
   obj.on('pointerout', stop);
-  obj.on('pointerup', (p: Phaser.Input.Pointer) => {
-    stop();
-    if (!down || long) return;
-    const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
-    down = null;
-    if (d > 14 * RS || (area && area.moved)) return;
+  // what a tap does (and Enter on the focused control): a blocked one gives the soft "no" and says why
+  const fire = () => {
     if (blocked?.()) uiDisabled();
     else {
       haptic('light');
       uiButton(undefined, (obj as { __uiId?: string }).__uiId);
     }
     onTap();
+  };
+  obj.on('pointerup', (p: Phaser.Input.Pointer) => {
+    stop();
+    if (!down || long) return;
+    const d = Math.abs(p.x - down.x) + Math.abs(p.y - down.y);
+    down = null;
+    if (d > 14 * RS || (area && area.moved)) return;
+    fire();
   });
   obj.once('destroy', stop);
   // a mouse resting on it shows the same tip (A11Y-15)
   if (tip) hoverTip(obj, tip, (text) => longPress.show?.(scene, text, obj));
+  // Tab, arrows and Enter reach it, and a mouse lightens it (ADR-0012 Decision 4)
+  focusable(obj, {
+    activate: fire,
+    enabled: () => !blocked?.(),
+    tip: tip ? () => (typeof tip === 'function' ? tip() : tip) : undefined,
+    showTip: (text) => longPress.show?.(scene, text, obj),
+    area: () => area ?? scrollAreaOf(obj),
+  });
 }

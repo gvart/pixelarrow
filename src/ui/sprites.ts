@@ -218,7 +218,7 @@ interface Slot {
 }
 
 /** A frame as shown by a sprite: the atlas texture key and the frame name in it. */
-export interface FrameRef {
+interface FrameRef {
   key: string;
   frame: string;
 }
@@ -496,25 +496,6 @@ export function releaseBattleRows(scene: Phaser.Scene): void {
   rowQueue.length = 0;
 }
 
-/** Texture memory held by a scene's battle atlases (bytes), for the perf overlay. */
-export function battleAtlasBytes(scene: Phaser.Scene): number {
-  return (atlases.get(scene)?.length ?? 0) * ATLAS_W * ATLAS_H * 4;
-}
-
-/** Frames held in a scene's battle atlases and the cells they take (bytes), for tests and the perf overlay. */
-export function battleAtlasStats(scene: Phaser.Scene): { atlases: number; frames: number; cellBytes: number } {
-  let frames = 0;
-  let cellBytes = 0;
-  for (const r of rowTex.values()) {
-    if (r.scene !== scene) continue;
-    for (const f of r.frames.values()) {
-      frames++;
-      cellBytes += f.slot.w * f.slot.h * 4;
-    }
-  }
-  return { atlases: atlases.get(scene)?.length ?? 0, frames, cellBytes };
-}
-
 /** Draw queued rows / frames for at most `budgetMs` (call once per frame); expire frames not shown lately. */
 export function pumpDolls(budgetMs = 6): void {
   const t0 = performance.now();
@@ -563,7 +544,7 @@ const PORTRAIT_MAX_PX = 160;
  * more pixels rather than bigger ones), capped so a frame stays at most
  * PORTRAIT_MAX_PX across.
  */
-export function portraitRes(scene: Phaser.Scene, size: number): number {
+function portraitRes(scene: Phaser.Scene, size: number): number {
   const K = typeof document === 'undefined' ? PORTRAIT_RES : panelK(scene);
   return Math.max(1, Math.min(K, Math.floor(PORTRAIT_MAX_PX / size)));
 }
@@ -584,7 +565,7 @@ interface PortraitJob {
 const portraitJobs = new Map<string, PortraitJob>();
 const portraitPumps = new WeakSet<Phaser.Scene>();
 
-export interface PortraitHandle {
+interface PortraitHandle {
   key: string;
   anim: string;
   /** The sprite scale that shows the portrait at its UI size. */
@@ -599,7 +580,7 @@ export interface PortraitHandle {
  * (pumpPortraits), when the loop starts. Returns the texture key, the
  * animation key and the scale that shows it at `size`.
  */
-export function ensurePortraitAnim(scene: Phaser.Scene, spec: DollSpec, size = PORTRAIT_PX): PortraitHandle {
+function ensurePortraitAnim(scene: Phaser.Scene, spec: DollSpec, size = PORTRAIT_PX): PortraitHandle {
   const res = portraitRes(scene, size);
   const key = `portrait_${dollKey(spec)}@${size}x${res}`;
   const anim = `${key}#idle`;
@@ -632,7 +613,7 @@ export function ensurePortraitAnim(scene: Phaser.Scene, spec: DollSpec, size = P
 }
 
 /** Draw queued portrait frames for at most `budgetMs` (once per game frame, on the scene's postupdate). */
-export function pumpPortraits(scene: Phaser.Scene, budgetMs = 5): void {
+function pumpPortraits(scene: Phaser.Scene, budgetMs = 5): void {
   const t0 = performance.now();
   for (const [k, j] of portraitJobs) {
     if (j.scene !== scene) continue;
@@ -668,7 +649,7 @@ function playPortrait(spr: Phaser.GameObjects.Sprite, anim: string): void {
   spr.play({ key: anim, startFrame: Math.floor(Math.random() * n) });
 }
 
-export interface PortraitOpts {
+interface PortraitOpts {
   /** Display size (UI px, square; default PORTRAIT_PX). */
   size?: number;
   /** A frozen portrait (frame 0). */
@@ -715,11 +696,6 @@ export function ensureItemIcon(scene: Phaser.Scene, item: Item, size = 16): stri
 /** Scale an image of an item icon texture to `size` UI px. */
 export function fitItemIcon(img: Phaser.GameObjects.Image, size = 16): Phaser.GameObjects.Image {
   return img.setScale(size / Math.max(1, img.width));
-}
-
-/** An item icon image at (x, y), origin top left, `size` UI px on a side. */
-export function addItemIcon(scene: Phaser.Scene, x: number, y: number, item: Item, size = 16): Phaser.GameObjects.Image {
-  return fitItemIcon(scene.add.image(x, y, ensureItemIcon(scene, item, size)).setOrigin(0, 0), size);
 }
 
 /** Base plate widths (px) for a man and for a rider / chariot. */

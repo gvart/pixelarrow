@@ -1,10 +1,14 @@
 # Pixelarrow backend
 
 One Cloudflare Worker, `pixelarrow`, serves **both** the static game (the root
-`dist/` build, on https://pixelarrow.app) **and** this API. `wrangler.jsonc`
+`dist/` build, on https://play.pixelarrow.app) **and** this API. `wrangler.jsonc`
 (repo root) sets `assets.run_worker_first: ["/api/*", "/ws/*"]`, so only those
 paths run Worker code; everything else is plain static hosting with the SPA
-fallback.
+fallback. The landing page on https://pixelarrow.app (and www) is a separate
+Worker, `pixelarrow-landing` (`landing/wrangler.jsonc`, ADR-0007): static
+pages and the legal pages, plus a cached proxy that reaches this Worker's
+`PublicApi` entrypoint through a service binding. It has no D1, no Durable
+Objects and no secrets.
 
 - **Routing:** [Hono](https://hono.dev). **Validation:** zod. **Storage:** D1
   (`DB`, database `pixelarrow`). **Realtime:** SQLite-backed Durable Objects
@@ -19,8 +23,9 @@ fallback.
 ```
 server/
   src/
-    index.ts          Worker entry: Hono app, CORS, error handler, /ws upgrades; exports RegionDO, MatchmakerDO, DuelDO
+    index.ts          Worker entry: Hono app, CORS (play, web.telegram.org, DEV_ORIGINS), frame-ancestors, error handler, /ws upgrades; exports RegionDO, MatchmakerDO, DuelDO
     env.ts            bindings / secrets types
+    urls.ts           GAME_URL (play) and LANDING_URL (apex, legal links) with their defaults; dev origins
     routes/auth.ts    POST /api/auth/telegram
     routes/save.ts    GET/PUT /api/save
     routes/shop.ts    GET /api/shop/products, POST /api/shop/invoice, GET /api/entitlements
@@ -47,16 +52,19 @@ server/
                       async.ts (raids, seasons, boards routes), season.ts (rollover, leaderboards),
                       verify.ts (the replay check shared by the ladder and raids)
     telegramAuth.ts   initData validation (HMAC-SHA256, constant-time, 24 h max age)
-    session.ts        stateless signed session tokens
+    auth/             sessions.ts (pa2 server-side sessions, 30 s cache, prune), identity.ts (telegram
+                      identity + players.telegram_id mirror), cookies.ts (__Host-pa_sid), origin.ts (CSRF)
+    names/            generate.ts (generated display names and their uniqueness key)
     payments.ts       pre-checkout checks, idempotent payment/refund recording
     products.ts       shop catalogue (Stars prices) and invoice payload format
-    middleware.ts     requireAuth, db()/secret() -> 503 when not configured
+    middleware.ts     requireSession, requirePlayable, db()/secret() -> 503 when not configured
     crypto.ts, body.ts, errors.ts, players.ts, rateLimit.ts, telegramApi.ts
   migrations/                D1 schema, applied in order by CI: 0001 players, saves, purchases,
                              entitlements; 0002 online mode; 0003 economy; 0004 beasts and world
                              bosses; 0005 notifications and support; 0006 ops (docs/OPS.md);
                              0007-0010 and 0014 duels; 0009 merchants; 0011 camps; 0012 the switch
-                             to region maps; 0013 the muster reserve flag
+                             to region maps; 0013 the muster reserve flag; 0017 accounts and
+                             sessions (ADR-0008)
   scripts/deploy-config.mjs  CI: wrangler.jsonc -> wrangler.deploy.json (fills/drops D1 id)
   scripts/bot-setup.mjs      one-off: setMyCommands (EN/RU) and setWebhook with the allowed updates
   test/                      vitest in workerd (@cloudflare/vitest-pool-workers)
@@ -105,12 +113,18 @@ configured`; a missing secret → 503 `<NAME> not configured`.
 `initData` is validated per the Telegram spec: `secret = HMAC_SHA256("WebAppData",
 bot_token)`, `hash = hex(HMAC_SHA256(secret, data_check_string))`, compared in
 constant time (`crypto.subtle.verify`); `auth_date` older than 24 h (or > 5 min
-in the future) is rejected. The player row is upserted (telegram id, username,
-first name, language, premium, created/last seen).
+in the future) is rejected. The telegram identity (`auth_identities`) and its
+`players.telegram_id` mirror are written in one batch; a new player gets a
+generated display name, never the Telegram name.
 
-Session tokens are stateless: `pa1.<base64url(json)>.<base64url(HMAC-SHA256)>`
-signed with `SESSION_SECRET` (rotating it logs everyone out). There is no
-sessions table.
+Sessions (ADR-0008 §3) live in D1: a token is `pa2_` + 32 random bytes and only
+its SHA-256 is stored. Telegram gets a 24 h bearer token; the web gets the
+`__Host-pa_sid` cookie (30 days, 7 days idle). One transport per request (both
+is 400), a token is never read from the URL (`?token=` is 400), and a cookie
+request that changes state must carry the game's `Origin`. Sockets use the
+cookie or `Sec-WebSocket-Protocol: pixelarrow.v1, <token>`. `POST
+/api/auth/logout`, `/logout-all`, `GET /api/auth/sessions` and `DELETE
+/api/auth/sessions/:handle` end and list sessions; the daily cron prunes them.
 
 **Rate limit:** 20 logins per minute per IP, kept in isolate memory, so it is a
 per-isolate soft guard, not a global quota. Move to the Workers Rate Limiting
@@ -174,7 +188,7 @@ raids. Sockets (`/ws/*`) take `?sim=`.
 TELEGRAM_WEBHOOK_SECRET` (constant-time compare), otherwise 401.
 
 - `/start` → replies with an inline **web_app** button opening `GAME_URL`
-  (https://pixelarrow.app); it also re-enables notifications for a player
+  (https://play.pixelarrow.app); it also re-enables notifications for a player
   whose bot was blocked.
 - `/settings`, `/paysupport`, `/terms`, `/delete_my_data` and the `/settings`
   buttons (`callback_query`): see "Bot notifications" and "Payment support
@@ -199,7 +213,7 @@ created with `createInvoiceLink`, currency `XTR`, empty `provider_token`.
 
 ### Region WebSocket (`RegionDO`)
 
-`wss://pixelarrow.app/ws/region/<id>` with the session token either as
+`wss://play.pixelarrow.app/ws/region/<id>` with the session token either as
 `?token=<token>` or as the second WebSocket subprotocol:
 `new WebSocket(url, ['pixelarrow.v1', token])` (the server answers with
 `pixelarrow.v1`). One DO per region id (`[a-z0-9_-]{1,40}`).
@@ -690,7 +704,7 @@ Rows are claimed (`pending → sending`) before the send, so two concurrent
 flushes never double-send; a 429, 5xx or network error puts them back for
 the next run. Messages are EN or RU by the player's Telegram `language_code`,
 end with "Turn these off: /settings" and carry one inline **web_app** button
-`https://pixelarrow.app/?startapp=<route>`; `BootScene` routes it
+`https://play.pixelarrow.app/?startapp=<route>`; `BootScene` routes it
 (`parseStartParam` / `sceneForRoute` in `src/online/deeplink.ts`): `loc_<id>`
 and `boss_<id>` centre the war map on the region and select it, `duel` opens the
 lobby, `market` the marketplace, `myclan` the clan, `settings` the menu with
@@ -790,6 +804,15 @@ typecheck, tests, build → `server/` `npm ci`, typecheck, tests →
 It also writes `wrangler.deploy.noae.json` (no Analytics Engine datasets): the
 deploy falls back to it if the account cannot bind Analytics Engine yet. The
 Actions variable `ANALYTICS_ENGINE=off` drops the datasets on purpose.
+The workflow deploys the game Worker only when the game changed (a `changes`
+job filters by path; a manual run picks `target: both | game | landing`).
+A landing-only change runs `landing-build`, `landing-test` and
+`landing-deploy` (`wrangler deploy --config ../landing/wrangler.jsonc` with
+this folder's pinned wrangler) and never touches this Worker, D1 or the
+Durable Objects. When both changed, the game deploys first and the landing
+right after. The go-live order for the two hosts is in
+docs/v6/OWNER_ACTIONS.md.
+
 `.github/workflows/backup.yml` exports the database daily (docs/OPS.md
 "Backups"); `server/scripts/d1-restore.mjs` is the point-in-time restore.
 
@@ -808,22 +831,21 @@ Actions variable `ANALYTICS_ENGINE=off` drops the datasets on purpose.
    cd server
    npx wrangler secret put TELEGRAM_BOT_TOKEN --config ../wrangler.jsonc       # from @BotFather
    openssl rand -hex 32 | npx wrangler secret put TELEGRAM_WEBHOOK_SECRET --config ../wrangler.jsonc
-   openssl rand -hex 32 | npx wrangler secret put SESSION_SECRET --config ../wrangler.jsonc
    ```
    Keep the webhook secret value handy for step 5 (or set it from a variable).
    For the admin panel also set `ADMIN_TOKEN` (docs/OPS.md "Operator setup").
-   Check with `curl https://pixelarrow.app/api/health`.
+   Check with `curl https://play.pixelarrow.app/api/health`.
 5. **Register the webhook** (also enables payment updates):
    ```bash
    curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
      -H 'content-type: application/json' \
-     -d "{\"url\":\"https://pixelarrow.app/api/telegram/webhook\",
+     -d "{\"url\":\"https://play.pixelarrow.app/api/telegram/webhook\",
           \"secret_token\":\"$TELEGRAM_WEBHOOK_SECRET\",
           \"allowed_updates\":[\"message\",\"pre_checkout_query\",\"callback_query\"],
           \"drop_pending_updates\":true}"
    curl -sS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
    ```
-6. In @BotFather point the Mini App / menu button URL at `https://pixelarrow.app`.
+6. In @BotFather point the Mini App / menu button URL at `https://play.pixelarrow.app`.
    Stars payments need no provider setup.
 7. Clan invite links are `https://t.me/<bot>/<app>?startapp=clan_<code>`. The
    bot username comes from `getMe` (or set the var `TELEGRAM_BOT_USERNAME`);

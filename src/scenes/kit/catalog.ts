@@ -15,7 +15,7 @@ import { ACCENT, COLOR_ROLE, GROUP_COLOR, MOSAIC, RARITY_FRAME, RARITY_INK, RARI
  * theirs, so scripts that open them still do); `id` is what `?scene=Kit&kit=<id>` and
  * `scene.start('Kit', { page: id })` take.
  */
-export interface KitPage {
+interface KitPage {
   id: string;
   tab: number;
   name: string;
@@ -27,8 +27,10 @@ export const KIT_PAGES: readonly KitPage[] = [
   { id: 'type', tab: 8, name: 'Type' },
   { id: 'states', tab: 9, name: 'States' },
   { id: 'overlays', tab: 10, name: 'Overlays' },
+  { id: 'forms', tab: 14, name: 'Forms' },
   { id: 'icons', tab: 11, name: 'Icons' },
   { id: 'army', tab: 12, name: 'Army' },
+  { id: 'layouts', tab: 13, name: 'Layouts' },
   { id: 'mosaic', tab: 4, name: 'Mosaic' },
   { id: 'parts', tab: 5, name: 'Parts' },
   { id: 'controls', tab: 0, name: 'Controls' },
@@ -55,12 +57,12 @@ export function stepPage(tab: number, dir: 1 | -1): number {
   return KIT_PAGES[(i + dir + KIT_PAGES.length) % KIT_PAGES.length].tab;
 }
 
-export interface Swatch {
+interface Swatch {
   name: string;
   color: number;
 }
 
-export interface TokenGroup {
+interface TokenGroup {
   title: string;
   /** Where the tokens live, for the reader: `tokens.ts` export name. */
   source: string;
@@ -98,7 +100,7 @@ export const SURFACES: readonly MosaicStyle[] = [
 /** "#a8432c" */
 export const hexOf = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
 
-export interface TypeRole {
+interface TypeRole {
   name: string;
   size: number;
   /** Cinzel caps (display) or Inter (text); `micro` is decoration only and exempt from the text floor. */

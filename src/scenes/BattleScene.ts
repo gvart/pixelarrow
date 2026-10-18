@@ -7,10 +7,11 @@ import { GroupCard, PanelRow, numeralBadge, numeralColour, orderBadgeW, orderBar
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { FacingPip, HintPill, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, endBannerKey, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, frameBattleSeconds, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
+import { FacingPip, HintPill, addHudKeycaps, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, endBannerKey, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, frameBattleSeconds, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
-import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
+import { uiBlocker, uiId, uiIgnore, uiLayout, uiOpaque, uiPanel, uiPrimary, uiTransient } from '../ui/layout';
+import { MEDIUM, centredRow, hudMode, keycapSlot, narratorBox, sheetCardW, sideHud, type HudMode, type Rect, type SideHud } from '../ui/battleLayout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollOrigin, flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
 import { dollFromHero, dollFx, drawnFrames, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, NFRAMES, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type DollSpec, type WeaponClass } from '../art/paperdoll';
@@ -24,11 +25,22 @@ import { Rng } from '../sim/rng';
 import { SPACING, formationSlots, presetFrontage, rightOf, type FormationType } from '../sim/formation';
 import { KNOB_PACES, dragMove, dragOrder, dragPlan, dragStart, nudgeDrop, slotSpots, type DragEvents, type DragKind, type DragState } from '../ui/dragFormation';
 import { grabAt, hitTest, tapSelect, type HitState, type Pt } from '../ui/input/hitTest';
-import { SPEEDS, nextSpeed, paceMode, realtimeLocked, speedLabel, startSpeed, type PaceMode } from '../ui/input/pace';
+import { SPEEDS, nextSpeed, paceMode, realtimeLocked, speedLabel, startSpeed, stepSpeed, type PaceMode } from '../ui/input/pace';
+import type { ActionId, Context } from '../ui/input/actions';
+import { KeyPan, PRESS_ACTIONS, battleKeyTarget, turned } from '../ui/input/battleKeys';
+import { keys, screenKeys } from '../ui/input/keys';
+import { findUi, flashControl, tapControl } from '../ui/hotkeyPress';
+import { nav } from '../platform/nav';
+import { platform } from '../platform';
+import { openShortcuts, shortcutsOpen } from '../ui/shortcutsSheet';
+import { actionKey } from '../ui/input/glyphs';
 import { LADDER, ticketClock } from '../duel/ladder';
 import { battleUnlocks, fifthKey, orbWarn, raiseState, visibleKinds, type ControlKind, type Unlocks } from '../ui/input/attention';
 import { FACING_DIRS, mirrorX, nextZoom, pipSlot } from '../ui/input/singleTap';
 import { GestureRecognizer, type GestureEvent, type Ptr } from '../ui/input/gestures';
+import { cursorFor, type HoverHit } from '../ui/input/cursor';
+import { noContextMenu, overControl, resetCursor, setCursor } from '../ui/input/cursorApply';
+import { mapWheel, zoomCamAt } from '../ui/input/zoomAt';
 import { DEPLOY_UNDO_DEPTH, UNDO_S, UndoHistory, groupsOf, inverseOf, type UndoStep } from '../ui/input/undo';
 import { StagedPlan, TAP_GHOST_MS, THEN_CHIP_S, ThenQueue, type ThenKey } from '../ui/orderQueue';
 import { CARD_DOUBLE_TAP_MS, FOLLOW_MARGIN, POINTER_INSET, RECENTRE_MS, FOLLOW_CATCH_UP, boxOf, centreOf, edgePointer, followCentre, keepInView, openingFrame, OPEN_ZOOM_MIN, OPEN_FIGHT_ZOOM, clearOfBadges, snapZoom, zoomLabel, type Box } from '../ui/battleCamera';
@@ -44,7 +56,7 @@ import { drainLogged, lastBattle, unitStats } from '../game/report';
 import { GROUP_NAMES, type Hero } from '../data/units';
 import { RARITIES, itemDef } from '../data/items';
 import { CULTURE_LABEL } from '../data/names';
-import { haptic, hapticNotify, hapticSelect } from '../platform/telegram';
+import { haptic, hapticNotify, hapticSelect } from '../platform/haptics';
 import { BattleFx, DMG_NUMBER_PX, DMG_NUMBER_S, drawFlankArc, Juice, JUICE_TIERS, type JuiceKind } from '../ui/battleFx';
 import { FlankWatch, flankArc, flankThreats, type Vec } from '../ui/flankArc';
 import { BeastView } from '../ui/beastView';
@@ -88,6 +100,9 @@ const SPLINTER = 0x9a6a3a;
 const SHEET_CARD_H = 28;
 const SHEET_HEAD_H = 22;
 const SHEET_ORDERS_H = 28;
+/** Landscape and tablet caps (landscape-v6 §2.3: a button is at most 240 wide): the shape sheet, and the works tray (rows + the (i) key). */
+const ROW_SHEET_MAX = 256;
+const TRAY_MAX = 270;
 
 const PRESETS: [FormationType, string, string][] = [
   ['line', 'line', 'f_line'],
@@ -152,6 +167,18 @@ const STANDARD_RAMP = [
   [0xcc7677, 0xb83d4a, 0xa12735, 0x5e2427],
 ];
 
+/** A chip of the sheet head (Formation, Groups, Alone / Rejoin): `short` is the word a narrow slot shows. */
+interface HeadChip {
+  icon: string;
+  label: string;
+  short?: string;
+  tip: string;
+  id: string;
+  selected?: boolean;
+  off?: string;
+  onClick: () => void;
+}
+
 /** An order key of the bottom sheet's order row. */
 interface OrderKey {
   key: string;
@@ -169,6 +196,9 @@ interface OrderKey {
 
 /** Finger travel (screen px) before a press becomes a drag: below it a lift is a tap. */
 const DRAG_PX = px(10);
+/** A right click on one of ours says what the right button is for, the first few times a session (input-v6.md §2.2). */
+const RIGHT_HINTS = 3;
+let rightHints = 0;
 /** Grab radius (screen px) around the selected group's soldiers, placement marker and facing knob. */
 const GRAB_PX = px(30);
 /** Tap radius (screen px) of a floating group tag (a 44 pt target). */
@@ -184,6 +214,12 @@ const UNIT_TAP_PX = px(22);
 const WORKS_SEEN_FLAG = '@works';
 
 export class BattleScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-02): the field fills the safe area, the HUD sits in edge clusters. */
+  protected override readonly responsive = true;
+  /** Which HUD layout the size class takes (landscape-v6 §7.2). */
+  private hm: HudMode = 'portrait';
+  /** The landscape layout (compact landscape, expanded): rails, bars and the framing rect; null in portrait and medium. */
+  private side: SideHud | null = null;
   private sim!: Battle;
   /** For the server replay check (platform/verify). */
   private verifySetup: BattleSetup | null = null;
@@ -208,8 +244,16 @@ export class BattleScene extends BaseScene {
   private acc = 0;
   private selGroup = -1;
   private selUnit = -1;
-  /** One- and two-finger gestures on the field (src/ui/input/gestures.ts); the scene only routes pointer events to it. */
-  private gestures = new GestureRecognizer(DRAG_PX);
+  /** One- and two-finger gestures and the mouse's right and middle buttons on the field (src/ui/input/gestures.ts); the scene only routes pointer events to it. */
+  private gestures = new GestureRecognizer(DRAG_PX, (x, y) => this.fieldAt(x, y));
+  /** A right-drag (move and face) under way for the selected group: its ghost is the drag preview. */
+  private orderDrag = false;
+  /** The mouse's last point and what was under it; the hover is worked out from it once a frame (null: no mouse, or a finger). */
+  private hoverAt: { x: number; y: number; over: Phaser.GameObjects.GameObject[]; dirty: boolean } | null = null;
+  /** The hover preview (input-v6.md §2.1): what a click on this would do, drawn at 50%. */
+  private hover: { kind: 'enemy'; unit: number } | { kind: 'own'; gid: number } | { kind: 'knob' } | null = null;
+  /** The 50% hover preview's layer (the would-be attack arrow or reticle). */
+  private hoverG!: Phaser.GameObjects.Graphics;
   /** Undo (controls.md R4): a stack in deployment, the last order for UNDO_S in battle. Undo issues inverse orders. */
   private deployUndo = new UndoHistory(DEPLOY_UNDO_DEPTH);
   private battleUndo = new UndoHistory(1, UNDO_S * 1000);
@@ -335,6 +379,10 @@ export class BattleScene extends BaseScene {
   /** The facing pips are open round this group (A11Y-14), or null. */
   private pips: { gid: number; btns: { pip: FacingPip; dir: Pt }[] } | null = null;
   private zoomBtn: KeyButton | null = null;
+  /** The medallions' ids, top to bottom (the ability hotkeys Z, X, C press them). */
+  private medalIds: string[] = [];
+  /** The arrow keys' pan (input-v6.md §3.5). */
+  private keyPan = new KeyPan();
   /** The zoom (whole units) the camera is settling at: what the zoom key says (0: read the camera). */
   private zoomTo = 0;
   /** The deployment's opening zoom (zoom units, 1 or less): the zoom key and the pinch reach it while deploying. */
@@ -412,10 +460,14 @@ export class BattleScene extends BaseScene {
     this.speed = 1;
     this.juice = new Juice();
     this.shook = { x: 0, y: 0 };
+    this.keyPan = new KeyPan();
     this.acc = 0;
     this.selGroup = -1;
     this.selUnit = -1;
     this.gestures.reset();
+    this.orderDrag = false;
+    this.hoverAt = null;
+    this.hover = null;
     this.deployUndo.clear();
     this.battleUndo.clear();
     this.undoChip = null;
@@ -424,6 +476,9 @@ export class BattleScene extends BaseScene {
     this.thenOffer = null;
     this.thenArming = -1;
     this.thenLive = false;
+    // in the fight, Undo and Then… show for a few seconds after an order (element-parity leaves them out)
+    uiTransient(this, 'battle.undo', () => this.sim.phase === 'battle');
+    uiTransient(this, 'battle.then', () => this.sim.phase === 'battle');
     this.plan.clear();
     this.ghostBtns.clear();
     this.tapGhost = null;
@@ -559,6 +614,8 @@ export class BattleScene extends BaseScene {
     this.world.add(this.boxes);
     this.knobG = this.add.graphics().setDepth(92000);
     this.world.add(this.knobG);
+    this.hoverG = this.add.graphics().setDepth(92001).setAlpha(0.5);
+    this.world.add(this.hoverG);
     this.projG = this.add.graphics().setDepth(100000);
     this.world.add(this.projG);
     this.fx = new BattleFx(this, this.world);
@@ -617,7 +674,9 @@ export class BattleScene extends BaseScene {
     }
     this.createStandards();
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
-    this.beasts = BeastView.create(this, this.sim, this.views, this.world, this.ui, this.me, this.m.VW, this.topH());
+    this.hm = hudMode(this.m);
+    this.layoutSide();
+    this.beasts = BeastView.create(this, this.sim, this.views, this.world, this.ui, this.me, this.m.VW, this.topH(), this.side?.boss);
 
     // ---- cameras
     const cam = this.cameras.main;
@@ -647,9 +706,22 @@ export class BattleScene extends BaseScene {
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
-    this.input.on('wheel', (_p: unknown, _o: unknown[], _dx: number, dy: number) => {
-      this.setZoom(Math.round(zoomUnits(cam.zoom)) + (dy > 0 ? -1 : 1));
-      this.tutorialEvent({ kind: 'zoom' });
+    // a mouse leaving the canvas hovers nothing
+    this.input.on('gameout', () => {
+      this.hoverAt = null;
+      this.hover = null;
+    });
+    // the right button orders on the field: never the browser's menu over the canvas (input-v6.md §2.2)
+    noContextMenu(this);
+    this.events.once('shutdown', () => resetCursor(this));
+    // the wheel zooms one step at the cursor (accumulated for trackpads) and shift or deltaX pans; never over the HUD or a dialog
+    mapWheel(this, {
+      blocked: (_p, over) => over.length > 0 || !!this.overlay,
+      zoom: (dir, sx, sy) => this.zoomStep(dir, { x: sx, y: sy }),
+      pan: (dx) => {
+        this.setFollow(false);
+        this.cameras.main.scrollX += dx / this.cameras.main.zoom;
+      },
     });
     // Back never leaves silently: deployment asks first, in battle it offers the retreat (pausing offline).
     this.screen({
@@ -660,6 +732,7 @@ export class BattleScene extends BaseScene {
         openSettings(this, () => this.settingsClosed());
       },
     });
+    this.bindKeys();
     if (this.tutorialData) {
       this.tutorial = new BattleTutorial(this.tutorialHost(), this.tutorialData);
       return;
@@ -691,10 +764,32 @@ export class BattleScene extends BaseScene {
     return this.sheetH();
   }
 
-  /** Visible battlefield in screen pixels: right of the group cards, between the situation bar and the strip. */
-  private fieldViewport(): { top: number; bottom: number; left: number } {
+  /**
+   * The visible battlefield in screen pixels, the camera's framing rect (landscape-v6 §3.5, §7.3): in
+   * portrait the band between the top bar and the sheet; in landscape the field the edge clusters leave
+   * (the card column, the order rail or bar, the medallions). The camera opens, centres, follows and
+   * recentres inside it (camera-systems: frame the view the player sees, not the canvas).
+   */
+  private fieldViewport(): { top: number; bottom: number; left: number; right: number } {
     const { S, VH } = this.m;
-    return { top: this.topH() * S, bottom: (VH - this.panelHeight() - 6) * S, left: 0 };
+    const f = this.side?.framing;
+    if (f) return { top: f.y * S, bottom: (f.y + f.h) * S, left: f.x * S, right: (f.x + f.w) * S };
+    return { top: this.topH() * S, bottom: (VH - this.panelHeight() - 6) * S, left: 0, right: this.scale.width };
+  }
+
+  /** The camera's offset (world px) that puts a point at the framing rect's centre instead of the canvas's. */
+  private framingOffset(): { x: number; y: number } {
+    const cam = this.cameras.main;
+    const vp = this.fieldViewport();
+    return { x: (this.scale.width / 2 - (vp.left + vp.right) / 2) / cam.zoom, y: (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom };
+  }
+
+  /**
+   * The HUD layout for the size class (landscape-v6 §7.2): the side layouts' clusters and framing rect
+   * from the card count and the hand; null in portrait and medium (the v5 sheet).
+   */
+  private layoutSide(): void {
+    this.side = this.hm === 'land' || this.hm === 'wide' ? sideHud(this.hm, this.m.VW, this.m.VH, { cards: this.sheetGroups().length, leftHand: this.leftHand }) : null;
   }
 
   /**
@@ -716,7 +811,8 @@ export class BattleScene extends BaseScene {
     const armies = boxOf(pts, 10, 44, 4);
     if (!armies) return;
     const vp = this.fieldViewport();
-    const f = openingFrame(this.scale.width / RS, (vp.bottom - vp.top) / RS, armies, this.tutorialData ? 1 : OPEN_ZOOM_MIN);
+    // the framing rect's true aspect: wider than tall in landscape (§7.3), the portrait band otherwise
+    const f = openingFrame((vp.right - vp.left) / RS, (vp.bottom - vp.top) / RS, armies, this.tutorialData ? 1 : OPEN_ZOOM_MIN);
     this.openZoom = f.zoom;
     this.zoomTo = 0;
     cam.setZoom(camZoom(f.zoom));
@@ -751,16 +847,16 @@ export class BattleScene extends BaseScene {
     const vp = this.fieldViewport();
     const top = Math.max(MARGIN_Y, vp.top / cam.zoom + 40);
     const bottom = Math.max(MARGIN_Y, (this.scale.height - vp.bottom) / cam.zoom + 40);
-    cam.setBounds(fb.x0 - MARGIN_X, fb.y0 - top, fb.x1 - fb.x0 + MARGIN_X * 2, fb.y1 - fb.y0 + top + bottom);
+    // the side rails too: the field's edge can be scrolled out from under a rail, never past it (§7.3)
+    const left = Math.max(MARGIN_X, vp.left / cam.zoom + 40);
+    const right = Math.max(MARGIN_X, (this.scale.width - vp.right) / cam.zoom + 40);
+    cam.setBounds(fb.x0 - left, fb.y0 - top, fb.x1 - fb.x0 + left + right, fb.y1 - fb.y0 + top + bottom);
   }
 
   /** Centre the camera on a world point inside the visible band between the HUD bars. */
   private centerCam(x: number, y: number): void {
-    const cam = this.cameras.main;
-    const vp = this.fieldViewport();
-    const offX = (this.scale.width / 2 - (vp.left + this.scale.width) / 2) / cam.zoom;
-    const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
-    cam.centerOn(x + offX, y + offY);
+    const off = this.framingOffset();
+    this.cameras.main.centerOn(x + off.x, y + off.y);
   }
 
   /**
@@ -833,11 +929,10 @@ export class BattleScene extends BaseScene {
     const engaged = this.sim.units.filter((u) => u.state === 'ready' && u.engaged);
     const melee = engaged.length >= 2 ? boxOf(engaged.map((u) => isoToScreen(u.x, u.y)), 10, 44, 4) : null;
     const group = boxOf(this.selectedUnits().map((u) => isoToScreen(u.x, u.y)), 10, 44, 4);
-    const view = { w: this.scale.width / cam.zoom, h: (vp.bottom - vp.top) / cam.zoom };
+    const view = { w: (vp.right - vp.left) / cam.zoom, h: (vp.bottom - vp.top) / cam.zoom };
     const t0 = followCentre(melee, group, this.focusPoint(), view, FOLLOW_MARGIN);
-    const offX = (this.scale.width / 2 - (vp.left + this.scale.width) / 2) / cam.zoom;
-    const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
-    const cur = { x: cam.midPoint.x - offX, y: cam.midPoint.y - offY };
+    const off = this.framingOffset();
+    const cur = { x: cam.midPoint.x - off.x, y: cam.midPoint.y - off.y };
     const k = 1 - Math.exp((-delta / 1000) * 2.2);
     // eased toward the frame, then pulled (fast, but not a jump) to keep the selected group in view:
     // smoothing alone let a running group outrun the camera (K2)
@@ -852,7 +947,14 @@ export class BattleScene extends BaseScene {
     this.uiCam.setSize(this.scale.width, this.scale.height);
     this.m = { ...this.m, ...uiMetricsOf(this) };
     this.ui.setScale(this.m.S);
+    // a new class or orientation takes its own HUD layout, and the boss bar moves with the top row
+    this.hm = hudMode(this.m);
+    this.layoutSide();
+    this.beasts?.placeBar(this.m.VW, this.topH(), this.side?.boss);
+    const bossBar = this.beasts?.barObject;
+    if (bossBar) this.ui.moveAbove(bossBar, this.tags);
     this.buildHud();
+    this.fitBounds();
   }
 
   // ===================================================================== loop
@@ -911,6 +1013,7 @@ export class BattleScene extends BaseScene {
     }
     const alpha = this.sim.phase === 'battle' && !this.paused ? Math.min(1, this.acc / DT) : 1;
     this.fitBounds();
+    this.panByKeys(delta);
     this.updateCamera(delta);
     this.juice.frame(delta, this.sim.phase === 'battle' && !this.paused);
     this.applyShake();
@@ -921,6 +1024,7 @@ export class BattleScene extends BaseScene {
     this.beasts?.update(alpha, !!this.banner);
     this.renderProjectiles(alpha);
     if (this.sim.phase === 'deploy') this.syncWorkArt();
+    this.updateHover();
     this.renderBoxes();
     this.updateProps();
     this.updateTags();
@@ -1321,6 +1425,7 @@ export class BattleScene extends BaseScene {
     const g = this.boxes;
     g.clear();
     this.knobG.clear();
+    this.hoverG.clear();
     if (this.sim.phase === 'deploy') {
       const zone = (side: Side, color: number, fill: number, a: number) => {
         const z = this.sim.deployZone(side);
@@ -1410,10 +1515,38 @@ export class BattleScene extends BaseScene {
       const slots = this.sim.groupSlots(grp.id);
       drawSlots(slots, grp.formation.fx, grp.formation.fy, 0x7fa9a8, 0.6);
       if (this.sim.phase === 'battle') this.drawTargeting(g, grp.id);
-      // the facing arrow and its knob: drag the knob to turn the group
+      // the facing arrow and its knob: drag the knob to turn the group (a mouse over it scales it 1.1x, never under Reduce motion)
       const fr = this.canCommand() && this.sim.phase !== 'ended' ? this.selectedFrame() : null;
-      if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85);
+      const big = this.hover?.kind === 'knob' && !motion.reduced ? 1.1 : 1;
+      if (fr) this.drawFacingKnob(this.knobG, fr.cx, fr.cy, fr.fx, fr.fy, 0xf6ecd8, 0.85, big);
     }
+    this.drawHover(drawSlots);
+  }
+
+  /**
+   * The mouse's hover preview (input-v6.md §2.1), at 50%: over an enemy, what
+   * a click would do (the attack arrow for melee, the reticle for missiles);
+   * over another group of ours, its formation's outline.
+   */
+  private drawHover(drawSlots: (slots: { x: number; y: number }[], fx: number, fy: number, color: number, a: number, dashed?: boolean) => void): void {
+    const h = this.hover;
+    if (!h || h.kind === 'knob') return;
+    if (h.kind === 'own') {
+      const grp = this.sim.groups[h.gid];
+      if (grp && !grp.disbanded) drawSlots(this.sim.groupSlots(grp.id), grp.formation.fx, grp.formation.fy, 0x7fa9a8, 0.35);
+      return;
+    }
+    const foe = this.sim.units[h.unit];
+    const gid = this.selUnit >= 0 ? this.sim.units[this.selUnit].group : this.selGroup;
+    const to = foe ? groupCentre(this.sim, foe.group) : null;
+    if (!to || gid < 0) return;
+    const at = isoToScreen(to.x, to.y);
+    if (enemyTap(this.sim, gid, foe.group).kind === 'focus') {
+      strokeReticle(this.hoverG, at.x, at.y - 52, 7, 1.4);
+      return;
+    }
+    const from = this.selUnit >= 0 ? { x: this.sim.units[this.selUnit].x, y: this.sim.units[this.selUnit].y } : groupCentre(this.sim, gid);
+    if (from) this.chargeArrow(this.hoverG, isoToScreen(from.x, from.y), at);
   }
 
   /**
@@ -1535,7 +1668,7 @@ export class BattleScene extends BaseScene {
   }
 
   /** A facing arrow from the front-rank centre to a round knob KNOB_PACES ahead (the turn handle). */
-  private drawFacingKnob(g: Phaser.GameObjects.Graphics, cx: number, cy: number, fx: number, fy: number, color: number, a: number): void {
+  private drawFacingKnob(g: Phaser.GameObjects.Graphics, cx: number, cy: number, fx: number, fy: number, color: number, a: number, scale = 1): void {
     const P = (along: number, side = 0) => {
       const r = rightOf(fx, fy);
       const p = isoToScreen(cx + fx * along + r.x * side, cy + fy * along + r.y * side);
@@ -1558,11 +1691,11 @@ export class BattleScene extends BaseScene {
     }
     // the knob: a bronze disc in a dark rim, big enough to read as "grab me"
     g.fillStyle(0x2a1d14, 0.8 * a);
-    g.fillCircle(k.x, k.y, 8);
+    g.fillCircle(k.x, k.y, 8 * scale);
     g.fillStyle(0xd9a441, a);
-    g.fillCircle(k.x, k.y, 6);
+    g.fillCircle(k.x, k.y, 6 * scale);
     g.fillStyle(0xfff4c0, a);
-    g.fillCircle(k.x - 1, k.y - 2, 2);
+    g.fillCircle(k.x - 1, k.y - 2, 2 * scale);
   }
 
   /**
@@ -1945,12 +2078,56 @@ export class BattleScene extends BaseScene {
     this.onGestures(evs);
   }
 
-  private onMove(p: Phaser.Input.Pointer): void {
+  private onMove(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[] = []): void {
+    // a mouse: the hover is worked out once a frame from its last point (ADR-0012 Decision 5); a finger never hovers
+    this.hoverAt = p.wasTouch ? null : { x: p.x, y: p.y, over, dirty: true };
     this.onGestures(this.gestures.move(p, this.downPointers(), () => (this.worksGhost ? this.worksShown() : this.selGroup >= 0 && this.canCommand())));
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
     this.onGestures(this.gestures.up(p, this.downPointers()));
+    if (this.hoverAt) this.hoverAt.dirty = true;
+  }
+
+  /**
+   * The mouse's hover, once a frame after it moved (ADR-0012 Decision 5): the
+   * cursor (input-v6.md §2.4) and the hover preview (§2.1). A drag under way
+   * sets the cursor by itself; hover never changes the selection or orders.
+   */
+  private updateHover(): void {
+    const h = this.hoverAt;
+    if (!h) {
+      this.hover = null;
+      return;
+    }
+    const active = this.gestures.active();
+    if (!h.dirty && !active) return;
+    h.dirty = false;
+    let hit: HoverHit = 'none';
+    let disabled = false;
+    this.hover = null;
+    if (h.over.length) ({ hit, disabled } = overControl(h.over));
+    else if (!active && !this.overlay && !this.worksGhost && this.sim.phase !== 'ended') {
+      const r = hitTest(this.hitState(), h);
+      if (r.grab === 'turn') {
+        hit = 'knob';
+        this.hover = { kind: 'knob' };
+      } else if (r.grab === 'move') hit = 'body';
+      else if (r.tap.kind === 'enemy' && this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
+        hit = 'enemy';
+        this.hover = { kind: 'enemy', unit: r.tap.unit };
+      } else if (r.tap.kind === 'own' && r.tap.group !== this.selGroup) this.hover = { kind: 'own', gid: r.tap.group };
+      else if (r.tap.kind === 'tag' && r.tap.gid !== this.selGroup) this.hover = { kind: 'own', gid: r.tap.gid };
+    }
+    // a right-drag sets a facing: the turn cursor
+    const drag = active === 'order' ? (this.orderDrag ? 'turn' : null) : active;
+    setCursor(this, { wasTouch: false }, cursorFor({ hit, drag, disabled, busy: false }));
+  }
+
+  /** Screen px -> field coordinates through the battle camera. */
+  private fieldAt(x: number, y: number): Pt {
+    const w = this.cameras.main.getWorldPoint(x, y);
+    return screenToIso(w.x, w.y);
   }
 
   /** Carry out what the gesture recogniser made of a pointer event. */
@@ -2021,6 +2198,28 @@ export class BattleScene extends BaseScene {
           if (this.worksTap(e.x, e.y)) break;
           this.tap(e.x, e.y);
           break;
+        case 'order-click':
+          this.orderClick(e.x, e.y);
+          break;
+        case 'order-drag-start':
+          // the right-drag (move and face) needs a group that can take orders; else its release does nothing
+          this.orderDrag = !this.overlay && !this.worksGhost && this.selGroup >= 0 && this.canCommand();
+          if (this.orderDrag) haptic('light');
+          break;
+        case 'order-drag-move':
+          if (this.orderDrag) this.orderPreview(e.at, e.fx, e.fy);
+          break;
+        case 'order-drag-end':
+          if (!this.orderDrag) break;
+          this.orderDrag = false;
+          this.dragPreview = null;
+          // the move-drag's `form` (R2.1) at the press point, with the facing the drag chose
+          this.moveTo(e.at, { x: e.fx, y: e.fy });
+          break;
+        case 'order-cancel':
+          this.orderDrag = false;
+          this.dragPreview = null;
+          break;
         case 'drag-end': {
           // lift to place (a ghost on invalid ground stays, and says why)
           if (this.worksDrag) {
@@ -2042,14 +2241,25 @@ export class BattleScene extends BaseScene {
     }
   }
 
-  private setZoom(z: number): void {
+  private setZoom(z: number, at?: { x: number; y: number }): void {
     const cam = this.cameras.main;
     const target = camZoom(Phaser.Math.Clamp(z, this.minZoom(), 3));
     if (target !== cam.zoom) this.setFollow(false);
-    this.tweens.add({ targets: cam, zoom: target, duration: 120 });
+    // landscape: the keys and the zoom key anchor at the framing rect's centre, not the canvas's (§7.3)
+    const f = this.side?.framing;
+    if (!at && f) at = { x: (f.x + f.w / 2) * this.m.S, y: (f.y + f.h / 2) * this.m.S };
+    // the wheel holds the point under the cursor; the keys zoom about the centre
+    if (at) zoomCamAt(this, cam, target, at.x, at.y, 120);
+    else this.tweens.add({ targets: cam, zoom: target, duration: 120 });
     // the zoom key says the zoom it settles at
     this.zoomTo = zoomUnits(target);
     if (this.zoomBtn && this.zoomBtn.opts.label !== zoomLabel(this.zoomTo)) this.buildHud();
+  }
+
+  /** One whole zoom step in (1) or out (-1): a wheel notch (about the cursor `at`), or the = and - keys. */
+  private zoomStep(dir: 1 | -1, at?: { x: number; y: number }): void {
+    this.setZoom(Math.round(zoomUnits(this.cameras.main.zoom)) + dir, at);
+    this.tutorialEvent({ kind: 'zoom' });
   }
 
   /** The farthest zoom out (zoom units): the opening overview while deploying, else 1x (the readability floor). */
@@ -2202,25 +2412,28 @@ export class BattleScene extends BaseScene {
     const st = state.campaign.data.settings;
     if (st.seenGestureHint || this.sim.phase !== 'deploy') return;
     const { VW, VH } = this.m;
-    const w = Math.min(VW - 12, 200);
+    // landscape: centred in the framing rect, clear of the rails (§7.2)
+    const f = this.side?.framing;
+    const w = Math.min((f?.w ?? VW) - 12, 200);
     const keys: TKey[] = ['battle.hint.sling', 'battle.hint.shape', 'battle.hint.pan'];
     const TOP = this.topH();
-    const room = VH - this.panelHeight() - TOP - 10;
+    const room = f ? f.h - 10 : VH - this.panelHeight() - TOP - 10;
     let paras = keys.map((k) => wrapText(t(k), w - 14).lines);
     const height = () => 18 + paras.reduce((a, l) => a + l.length * LINE_H + 4, 0) + 12;
     while (paras.length > 1 && height() > room) paras = paras.slice(0, -1);
     const h = height();
     const c = this.add.container(0, 0);
-    const x = Math.round((VW - w) / 2);
+    const cx = f ? f.x + f.w / 2 : VW / 2;
+    const x = Math.round(cx - w / 2);
     const y = Math.max(TOP + 4, Math.round(TOP + (room - h) / 2));
     c.add(mosaicImage(this, x, y, w, h, 'parchment'));
-    c.add(mtext(this, VW / 2, y + 6, caps(t('battle.hint.title')), 'rInk', { align: 0.5, maxW: w - 12 }));
+    c.add(mtext(this, cx, y + 6, caps(t('battle.hint.title')), 'rInk', { align: 0.5, maxW: w - 12 }));
     let ty = y + 18;
     for (const lines of paras) {
       c.add(addText(this, x + 7, ty, lines.join('\n'), 'pInk'));
       ty += lines.length * LINE_H + 4;
     }
-    c.add(addText(this, VW / 2, y + h - 11, ellipsize(t('battle.hint.dismiss'), w - 8), 'pSec', 0.5));
+    c.add(addText(this, cx, y + h - 11, ellipsize(t('battle.hint.dismiss'), w - 8), 'pSec', 0.5));
     this.ui.add(c);
     this.hint = c;
     const dismiss = () => {
@@ -2406,35 +2619,91 @@ export class BattleScene extends BaseScene {
       return;
     }
     if (hit.kind === 'enemy') {
-      const foe = this.sim.units[hit.unit];
-      if (this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
-        // missile groups focus their fire on the tapped group, melee groups attack (controls.md R3.1, R3.2)
-        const gid = this.selUnit >= 0 ? this.sim.units[this.selUnit].group : this.selGroup;
-        const act = enemyTap(this.sim, gid, foe.group);
-        if (act.kind === 'focus') this.setFocus(act.target);
-        else this.attackUnit(foe);
-      } else {
-        const h = this.enemyHeroes.find((q) => q.id === foe.heroId);
-        const wpn = h?.equip.weapon ? itemName(h.equip.weapon.def) : t('battle.unarmed');
-        this.showBanner(`${foe.name} - ${wpn}`, 1800);
-      }
+      this.tapEnemy(hit.unit);
       return;
     }
     if (this.selGroup >= 0 && this.canCommand()) {
-      const grp = this.sim.groups[this.selGroup];
-      const f = grp.formation;
-      const w = this.cameras.main.getWorldPoint(x, y);
-      const fp = screenToIso(w.x, w.y);
-      const face = this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy };
-      const solo = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
-      const from = solo ? { x: solo.x, y: solo.y } : groupCentre(this.sim, this.selGroup);
-      const n = this.selUnit >= 0 && !grp.individual ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
-      this.command({ kind: 'form', group: -1, cx: fp.x, cy: fp.y, fx: face.x, fy: face.y, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
-      // the tap-move preview: a path line and a ghost at the destination for TAP_GHOST_MS (R5)
-      const l = Math.hypot(face.x, face.y) || 1;
-      if (from) this.tapGhost = { gid: this.selGroup, from, cx: fp.x, cy: fp.y, fx: face.x / l, fy: face.y / l, frontage: n === 1 ? 1 : f.frontage, type: n === 1 ? 'line' : f.type, n, until: this.time.now + TAP_GHOST_MS };
-      this.tutorialEvent({ kind: 'tapmove' });
+      const fp = this.fieldAt(x, y);
+      const f = this.sim.groups[this.selGroup].formation;
+      this.moveTo(fp, this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy });
     }
+  }
+
+  /**
+   * A right click on the field (input-v6.md §2.2): on the ground the tap-move,
+   * on an enemy the attack or focus, exactly as a tap; it never selects, so on
+   * one of ours it only says what it is for (the first few times).
+   */
+  private orderClick(x: number, y: number): void {
+    if (this.overlay || this.worksGhost) return;
+    if (this.pips) this.closePips();
+    if (this.selGroup < 0) {
+      this.showBanner(this.idleLine(), 1400);
+      return;
+    }
+    const hit = hitTest(this.hitState(), { x, y }).tap;
+    if (hit.kind === 'own' || hit.kind === 'tag') {
+      if (rightHints < RIGHT_HINTS) {
+        rightHints++;
+        this.showBanner(t('input.hint.rightClick'), 1400);
+      }
+      return;
+    }
+    if (hit.kind === 'enemy') {
+      this.tapEnemy(hit.unit);
+      return;
+    }
+    if (!this.canCommand()) return;
+    const fp = this.fieldAt(x, y);
+    const f = this.sim.groups[this.selGroup].formation;
+    this.moveTo(fp, this.faceEnemyFrom(fp.x, fp.y) ?? { x: f.fx, y: f.fy });
+  }
+
+  /** The right-drag's ghost: the selected group in its shape at `at`, facing (fx, fy) (the move-drag's preview). */
+  private orderPreview(at: Pt, fx: number, fy: number): void {
+    const grp = this.sim.groups[this.selGroup];
+    if (!grp) return;
+    const solo = this.selUnit >= 0 && !grp.individual;
+    const n = solo ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
+    const frontage = solo ? 1 : grp.formation.frontage;
+    const type = solo ? 'line' : grp.formation.type;
+    const files = Phaser.Math.Clamp(Math.round(frontage), 1, n);
+    const label = type === 'wedge' ? t('battle.cmd.wedge') : `${files}x${Math.ceil(n / files)}`;
+    this.dragPreview = { cx: at.x, cy: at.y, fx, fy, frontage, type, n, label };
+  }
+
+  /** A tap (or right click) on an enemy man: attack or focus with the selected group, else who he is. */
+  private tapEnemy(unit: number): void {
+    const foe = this.sim.units[unit];
+    if (this.selGroup >= 0 && this.canCommand() && this.sim.phase === 'battle') {
+      // missile groups focus their fire on the tapped group, melee groups attack (controls.md R3.1, R3.2)
+      const gid = this.selUnit >= 0 ? this.sim.units[this.selUnit].group : this.selGroup;
+      const act = enemyTap(this.sim, gid, foe.group);
+      if (act.kind === 'focus') this.setFocus(act.target);
+      else this.attackUnit(foe);
+    } else {
+      const h = this.enemyHeroes.find((q) => q.id === foe.heroId);
+      const wpn = h?.equip.weapon ? itemName(h.equip.weapon.def) : t('battle.unarmed');
+      this.showBanner(`${foe.name} - ${wpn}`, 1800);
+    }
+  }
+
+  /**
+   * Send the selected group to field point `fp` facing `face`, keeping its
+   * shape: the tap-move (a tap or right click on the ground) and the
+   * right-drag (move and face) both come here, so they send the same `form`.
+   */
+  private moveTo(fp: Pt, face: Pt): void {
+    const grp = this.sim.groups[this.selGroup];
+    const f = grp.formation;
+    const solo = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
+    const from = solo ? { x: solo.x, y: solo.y } : groupCentre(this.sim, this.selGroup);
+    const n = this.selUnit >= 0 && !grp.individual ? 1 : Math.max(1, this.sim.activeMembers(grp.id).length);
+    this.command({ kind: 'form', group: -1, cx: fp.x, cy: fp.y, fx: face.x, fy: face.y, frontage: this.selUnit >= 0 && !grp.individual ? 1 : f.frontage });
+    // the tap-move preview: a path line and a ghost at the destination for TAP_GHOST_MS (R5)
+    const l = Math.hypot(face.x, face.y) || 1;
+    if (from) this.tapGhost = { gid: this.selGroup, from, cx: fp.x, cy: fp.y, fx: face.x / l, fy: face.y / l, frontage: n === 1 ? 1 : f.frontage, type: n === 1 ? 'line' : f.type, n, until: this.time.now + TAP_GHOST_MS };
+    this.tutorialEvent({ kind: 'tapmove' });
   }
 
   /**
@@ -2845,6 +3114,121 @@ export class BattleScene extends BaseScene {
     if (play) this.tutorialEvent({ kind: 'play' });
   }
 
+  // ---- hotkeys (ADR-0012 Decision 3, input-v6.md §1.1, §3): each presses the control that does the same thing
+
+  /** The battle's key contexts while it is the top screen; none while a dialog of its own is up. */
+  private keyContexts(): Context[] {
+    if (this.overlay || this.ending) return [];
+    if (this.sim.phase === 'deploy') return ['battle.deploy', 'battle', 'camera'];
+    return this.sim.phase === 'battle' ? ['battle.fight', 'battle', 'camera'] : ['battle'];
+  }
+
+  private bindKeys(): void {
+    screenKeys(this, () => this.keyContexts());
+    const ev = this.events;
+    for (const a of PRESS_ACTIONS) keys.on(a, () => this.hotkey(a), ev);
+    // Esc in the field opens the ⋯ menu (§3.1); with a sheet or dialog open it is the global Back that closes it
+    keys.on('back', () => (nav.topOwner() === this && nav.layers() === 0 && !this.overlay ? this.pressHud('battle.menu') : false), ev);
+    // Esc during a right press or right-drag cancels it (nothing is sent); it is asked first, so the menu waits
+    keys.on('back', () => {
+      const evs = this.gestures.cancelOrder();
+      this.onGestures(evs);
+      return evs.length > 0;
+    }, ev);
+    // ? or F1: the shortcuts sheet, pausing an offline fight as the ⋯ menu does (input-v6.md §6.4)
+    keys.on('help.keys', () => (nav.topOwner() === this ? this.openShortcutsSheet() : false), ev);
+    keys.on('time.faster', () => this.speedKey(1), ev);
+    keys.on('time.slower', () => this.speedKey(-1), ev);
+    keys.on('turn.left', () => this.turnKey(-1), ev);
+    keys.on('turn.right', () => this.turnKey(1), ev);
+    keys.on('cam.zoom.in', () => this.zoomStep(1), ev);
+    keys.on('cam.zoom.out', () => this.zoomStep(-1), ev);
+    // keycaps come with the first key (input-v6.md §6.1, §8): the HUD is rebuilt when a keyboard appears
+    const offInput = platform.input.onChange(() => this.hud?.active && this.buildHud());
+    ev.once('shutdown', offInput);
+    const pans: [ActionId, number, number][] = [['cam.pan.up', 0, -1], ['cam.pan.down', 0, 1], ['cam.pan.left', -1, 0], ['cam.pan.right', 1, 0]];
+    for (const [a, x, y] of pans) keys.on(a, () => this.keyPan.press({ x, y }), ev);
+  }
+
+  /** "Tap a group, then an order below.", or with a keyboard its keys (input-v6.md §6.3, by InputHints, never the platform's name). */
+  private idleLine(): string {
+    if (!platform.input.keyboard()) return t('battle.sit.idle');
+    return t('controls.idleKb', { orders: `${actionKey('order.advance')}–${actionKey('order.fifth')}` });
+  }
+
+  /** The shortcuts sheet over the battle; an offline fight pauses while it is open and runs on as it was. */
+  private openShortcutsSheet(): boolean {
+    if (shortcutsOpen(this)) return true;
+    const fighting = this.sim.phase === 'battle';
+    const wasPaused = this.paused;
+    if (fighting && !this.paused && !this.realtimeLocked && !this.tutorial) this.setPaused(true);
+    openShortcuts(this, () => {
+      if (fighting && !wasPaused && this.paused && this.sim.phase === 'battle') this.setPaused(false);
+    });
+    return true;
+  }
+
+  /** A hotkey that presses a HUD control, or says why there is none. */
+  private hotkey(a: ActionId): void {
+    // the number of the selected group centres the camera on it (R8.2's double tap, without its timing)
+    const sel = this.cards.find((c) => c.gid === this.selGroup);
+    if (sel && this.selUnit < 0 && a === `group.${ROMAN.indexOf(sel.numeral) + 1}`) {
+      this.recentre('group');
+      this.flashHud(`battle.group.${sel.numeral}`);
+      return;
+    }
+    const target = battleKeyTarget(a, { has: (id) => !!findUi(this.hud, id), medallions: this.medalIds, numerals: ROMAN });
+    if (!target) return;
+    if ('press' in target) this.pressHud(target.press);
+    else this.showBanner(t(target.why, { n: target.n ?? '' }), 1200);
+  }
+
+  /** Press the HUD control `id` as a tap would, then flash it (rebuilt by the tap, it is found again). */
+  private pressHud(id: string): void {
+    const c = findUi(this.hud, id);
+    if (!c) return;
+    tapControl(c);
+    this.flashHud(id);
+  }
+
+  private flashHud(id: string): void {
+    const c = findUi(this.hud, id);
+    if (c) flashControl(this, c);
+  }
+
+  /** ] and [: one speed up or down, stopping at this battle's ends (the speed key only cycles forward). */
+  private speedKey(dir: 1 | -1): void {
+    if (this.sim.phase !== 'battle') return;
+    if (this.realtimeLocked) return this.showBanner(t('pace.locked'), 1400);
+    const s = stepSpeed(this.pace, this.speed, dir);
+    if (s === null) return this.showBanner(t(dir > 0 ? 'input.why.fastest' : 'input.why.slowest'), 1200);
+    this.setSpeed(s);
+    this.flashHud('battle.speed');
+  }
+
+  /** , and .: turn the selected group 45°, sent as the knob's pip would (`face` in battle, `form` in deployment). */
+  private turnKey(dir: 1 | -1): void {
+    const fr = this.selectedFrame();
+    if (!fr || !this.canCommand()) return this.showBanner(t('battle.why.noGroup'), 1200);
+    // the pip's turn, aimed from the group's pivot so it lands on the direction exactly
+    const d = turned({ x: fr.fx, y: fr.fy }, dir);
+    this.pickFacing({ x: d.x + (fr.px - fr.cx) / KNOB_PACES, y: d.y + (fr.py - fr.cy) / KNOB_PACES });
+  }
+
+  /** Each frame: the held arrow keys pan the field (screen space, UI px), turning Follow off as a finger pan does. */
+  private panByKeys(delta: number): void {
+    const held = (a: ActionId) => (keys.held(a) ? 1 : 0);
+    const d = this.keyPan.frame({ x: held('cam.pan.right') - held('cam.pan.left'), y: held('cam.pan.down') - held('cam.pan.up') }, delta);
+    if (!d.dx && !d.dy) return;
+    const cam = this.cameras.main;
+    this.setFollow(false);
+    cam.panEffect.reset();
+    cam.scrollX += (d.dx * this.m.S) / cam.zoom;
+    cam.scrollY += (d.dy * this.m.S) / cam.zoom;
+    // the tutorial's pan step counts the arrow keys as a drag (input-v6.md §10)
+    this.tutorialEvent({ kind: 'pan', px: Math.hypot(d.dx, d.dy) });
+  }
+
   /** A message under the top bar (ms = 0: stays until replaced or hidden); it wraps to `maxLines` (A11Y-10: never cut). */
   showBanner(msg: string, ms: number, maxLines = 2): void {
     this.hideBanner();
@@ -2852,14 +3236,15 @@ export class BattleScene extends BaseScene {
     const c = this.add.container(0, 0);
     // under the top bar, in the hint's place (the hint hides while a banner shows)
     const left = 0;
-    const maxW = VW - 60;
+    // landscape: at the top centre of the field, as wide as the hint pill may be (§7.2)
+    const maxW = this.side ? this.side.hint.maxW : VW - 60;
     const lines = wrapText(namesIn(msg), maxW - 12, maxLines).lines;
     const w = Math.max(60, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
     const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 3, false, 6.5).lines : [];
     const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6.5))) + 14 : 0;
     const bw = Math.min(maxW, Math.max(w, subW));
     const h = lines.length * LINE_H + 8 + Math.ceil((sub.length * LINE_H * 6.5) / 7);
-    const x = Math.round(left + (VW - left - bw) / 2);
+    const x = this.side ? Math.round(this.side.hint.cx - bw / 2) : Math.round(left + (VW - left - bw) / 2);
     const y = this.bannerTop();
     c.add(mosaicImage(this, x, y, bw, h, 'parchment'));
     const txt = addText(this, x + bw / 2, y + 4, lines.join('\n'), 'pInk', 0.5);
@@ -2886,6 +3271,9 @@ export class BattleScene extends BaseScene {
 
   buildHud(): void {
     this.hud.removeAll(true);
+    // the layout this size class takes (class-match), a field screen (field-coverage instead of wasted-width)
+    uiLayout(this, this.m.cls, this.m.land, 'field');
+    this.layoutSide();
     this.undoChip = null;
     this.undoLive = this.liveBattleUndo();
     // Then… arms one group: selecting another lets it go
@@ -2893,6 +3281,7 @@ export class BattleScene extends BaseScene {
     this.thenLive = this.thenChipLive();
     this.cards = [];
     this.abilityBtns = [];
+    this.medalIds = [];
     this.followBtn = null;
     this.cmdBtns.clear();
     this.feintBar = null;
@@ -2917,7 +3306,12 @@ export class BattleScene extends BaseScene {
     if (this.worksOpen && !this.worksGhost && this.worksShown()) this.buildWorksTray();
     // the selected soldier: who he is and how he fares, just above the sheet
     const u = this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
-    if (u) this.buildHeroInfo(u, this.stripTop() - 27);
+    if (u) {
+      const at = this.heroInfoBox();
+      this.buildHeroInfo(u, at.y, at.x, at.w);
+    }
+    // keycaps on the keyed controls with a keyboard (input-v6.md §6.1)
+    addHudKeycaps(this, this.hud, this.medalIds, this.m.cls === 'compact' && !this.m.land);
     this.hudDirty = true;
     this.refreshHud();
     this.tutorialEvent({ kind: 'hud' });
@@ -2927,7 +3321,7 @@ export class BattleScene extends BaseScene {
 
   /** Height of the top bar: where the field begins. */
   private topH(): number {
-    return TOP_H;
+    return this.side?.top.h ?? TOP_H;
   }
 
   /** Top edge of the bottom sheet. */
@@ -2935,8 +3329,54 @@ export class BattleScene extends BaseScene {
     return this.m.VH - this.sheetH();
   }
 
+  /**
+   * The foot of the field's free band, where the chip row (and the selected soldier's info under it)
+   * stand: the sheet's top in portrait, the screen's foot at compact landscape, the orders plate's top at
+   * expanded.
+   */
+  private chipFloor(): number {
+    return this.side ? this.side.chips.bottom : this.stripTop();
+  }
+
+  /** The chip row's left and right limits (landscape: between the card column and the medallions or rail). */
+  private chipSpan(): { x0: number; x1: number } {
+    const s = this.side!;
+    // compact landscape without medallions (deployment): the row may run on to the rail
+    if (s.mode === 'land' && !this.abilityDefs().length) return this.leftHand ? { x0: s.rail!.x + s.rail!.w + 3, x1: s.chips.x1 } : { x0: s.chips.x0, x1: s.rail!.x - 3 };
+    return s.chips;
+  }
+
+  /**
+   * Where each HUD control's keycap goes (input-v6.md §6.1; drawn by V6-INP-06): the control's top-right
+   * corner, over its rim, so it takes no width. UI px, by the control's uiId. Group cards show none (their
+   * numeral is the key).
+   */
+  hudKeySlots(): Record<string, Rect> {
+    const out: Record<string, Rect> = {};
+    const add = (o: Phaser.GameObjects.GameObject | null | undefined) => {
+      const k = o as (Phaser.GameObjects.Container & { w?: number; h?: number; __uiId?: string }) | null | undefined;
+      if (!k?.active || typeof k.w !== 'number' || typeof k.h !== 'number' || !k.__uiId) return;
+      out[k.__uiId] = keycapSlot({ x: k.x, y: k.y, w: k.w, h: k.h });
+    };
+    for (const b of Object.values(this.top?.buttons ?? {})) add(b);
+    for (const b of this.cmdBtns.values()) add(b as unknown as Phaser.GameObjects.GameObject);
+    add(this.zoomBtn);
+    add(this.followBtn);
+    for (const o of this.hud.list) if ((o as { __uiId?: string }).__uiId === 'battle.fight' || (o as { __uiId?: string }).__uiId === 'battle.ready') add(o);
+    return out;
+  }
+
+  /** The selected soldier's info strip: just above the sheet (portrait) or at the field's foot (landscape). */
+  private heroInfoBox(): { x: number; y: number; w: number } {
+    if (!this.side) return { x: 4, y: this.stripTop() - 27, w: this.m.VW - 8 };
+    const sp = this.side.mode === 'wide' ? { x0: this.side.plate!.x, x1: this.side.plate!.x + this.side.plate!.w } : this.side.chips;
+    return { x: sp.x0, y: this.chipFloor() - 24, w: sp.x1 - sp.x0 };
+  }
+
   private buildTop(): void {
     const { VW } = this.m;
+    const side = this.side;
+    if (side) return this.buildTopSide(side);
     this.top = new TopBar(this, VW, this.topOpts());
     this.hud.add(this.top);
     // following the fight: a small eye at the field's top right (battle only); left-hand mode mirrors it (A11Y-16)
@@ -2971,7 +3411,40 @@ export class BattleScene extends BaseScene {
 
   /** Top of Z3 (banners, the Paused pill, the hint): under the corner keys' row, so never over the boss bar (BTL-1). */
   private bannerTop(): number {
+    if (this.side) return this.side.hint.top + (this.beasts?.hasBar ? 24 : 0);
     return TOP_H + 4 + (this.beasts?.hasBar ? 24 : 0);
+  }
+
+  /**
+   * The landscape top row and the field keys (landscape-v6 §7.2): one row (Menu and the clock, the
+   * strength bars, Pause and Speed); Zoom and Follow over the medallions (compact landscape) or in the
+   * bottom-right corner (expanded); the hint pill at the top centre of the field.
+   */
+  private buildTopSide(side: SideHud): void {
+    const { VW } = this.m;
+    const land = side.mode === 'land';
+    this.top = new TopBar(this, VW, this.topOpts(), { h: side.top.h, compact: land, barMax: land ? 60 : 100 });
+    this.hud.add(this.top);
+    if (this.sim.phase === 'battle') {
+      const f = side.follow;
+      const fb = new KeyButton(this, f.x, f.y, f.w, f.h, { icon: 'eye', iconOnly: true, label: this.follow ? t('battle.strip.follow') : t('battle.strip.watch'), lit: this.follow, tip: t('battle.tip.follow'), id: 'battle.follow', onClick: () => this.toggleFollow() });
+      this.hud.add(fb);
+      this.followBtn = fb;
+    }
+    if (this.sim.phase !== 'ended') {
+      const z = this.zoomTo || zoomUnits(this.cameras.main.zoom);
+      const r = side.zoom;
+      this.zoomBtn = new KeyButton(this, r.x, r.y, r.w, r.h, { icon: 'zoom', iconOnly: true, label: zoomLabel(z), tip: t('attn.tip.zoom'), id: 'battle.zoom', variant: 'bronze', onClick: () => this.stepZoom() });
+      this.hud.add(this.zoomBtn);
+    }
+    this.hintPill = new HintPill(this, side.hint.cx, this.bannerTop(), side.hint.maxW);
+    this.hud.add(this.hintPill);
+    if (this.dclock && this.sim.phase === 'deploy') {
+      const bar = this.add.graphics();
+      this.hud.add(bar);
+      this.countdown = { bar, shown: -1 };
+      this.updateCountdown();
+    }
   }
 
   private topOpts(): TopBarOpts {
@@ -3119,7 +3592,7 @@ export class BattleScene extends BaseScene {
         const name = sel.individual ? sim.members(sel.id)[0]?.name ?? '' : `${groupName(sel.name)} ${numeral}`.trim();
         const soon = this.contactSoon.check(sim, sel.id, sim.tick / TICK_RATE);
         sentence = t(soon ? 'battle.sit.marching' : 'battle.sit.moving', { group: name, order: sel.routed ? t('battle.order.routed') : t(`battle.order.${sel.order}` as TKey) });
-      } else sentence = this.realtimeLocked ? t('battle.sit.online') : t('battle.sit.idle');
+      } else sentence = this.realtimeLocked ? t('battle.sit.online') : this.idleLine();
       const tk = this.ticketSecs >= 0 && sim.phase === 'battle' ? this.ticketStage : 0;
       // a ladder floor's last minutes: the clock counts down the ticket instead (controls.md R10)
       if (tk) this.top.setTime(fmtClock(this.ticketSecs), t(tk === 2 ? 'pace.expiredShort' : 'pace.left'), true);
@@ -3173,11 +3646,13 @@ export class BattleScene extends BaseScene {
     }
     const { VW } = this.m;
     const f = d.total > 0 ? d.left / d.total : 0;
+    // along the top bar's foot; under the one-row bar in landscape, clear of its keys (landscape-v6 §7.2)
+    const by = this.side ? this.topH() : TOP_H - 3;
     c.bar.clear();
     c.bar.fillStyle(0x0d0a08, 0.8);
-    c.bar.fillRect(4, TOP_H - 3, VW - 8, 2);
+    c.bar.fillRect(4, by, VW - 8, 2);
     c.bar.fillStyle(hot && Math.floor(this.time.now / 250) % 2 ? 0xe05040 : TERRA.hi, 1);
-    c.bar.fillRect(4, TOP_H - 3, Math.round((VW - 8) * f), 2);
+    c.bar.fillRect(4, by, Math.round((VW - 8) * f), 2);
   }
 
   // ---- the bottom sheet: group cards, then the orders (battle) or Fight (deployment)
@@ -3188,8 +3663,13 @@ export class BattleScene extends BaseScene {
     return cardGroups(this.sim, this.me, false).map(({ gid, numeral }) => ({ g: this.sim.groups[gid], numeral }));
   }
 
+  /** Cards a row in the bottom sheet: two (v5), three on a tablet upright (landscape-v6 §7.2). */
+  private cardCols(): number {
+    return this.hm === 'medium' ? MEDIUM.cols : 2;
+  }
+
   private cardRows(): number {
-    return Math.max(1, Math.ceil(this.sheetGroups().length / 2));
+    return Math.max(1, Math.ceil(this.sheetGroups().length / this.cardCols()));
   }
 
   /** Top of the sheet's header row (the shape chip, Groups) under the cards. */
@@ -3209,6 +3689,7 @@ export class BattleScene extends BaseScene {
     // what the order row is built for, on every path (no selection draws no row): refreshHud rebuilds the HUD
     // whenever this differs, so a stale key would rebuild it forever (a stack overflow freezing the game loop)
     this.ordersBuilt = this.ordersKey();
+    if (this.side) return this.buildSideSheet(this.side);
     const y0 = this.stripTop();
     this.hud.add(mosaicImage(this, -2, y0, VW + 4, VH - y0 + 4, 'topBar'));
     const rim = this.add.graphics();
@@ -3217,41 +3698,82 @@ export class BattleScene extends BaseScene {
     rim.fillStyle(MOSAIC.meanderLo, 1);
     rim.fillRect(-2, y0 + 1, VW + 4, 1);
     this.hud.add(rim);
-    // cards
-    const cw = Math.floor((VW - 8 - SIZE.gap) / 2);
+    // cards: two a row (three on a tablet upright)
+    const cols = this.cardCols();
+    const cw = sheetCardW(VW, cols, SIZE.gap);
     const all = this.sheetGroups();
     all.forEach(({ g, numeral }, i) => {
-      const card = new GroupCard(
-        this,
-        4 + (i % 2) * (cw + SIZE.gap),
-        y0 + 5 + Math.floor(i / 2) * (SHEET_CARD_H + SIZE.gap),
-        all.length === 1 ? VW - 8 : cw,
-        SHEET_CARD_H,
-        () => {
-          // a double tap on a card centres the camera on its group (R8.2) and leaves it selected
-          const now = this.time.now;
-          const twice = this.lastCardTap?.gid === g.id && now - this.lastCardTap.at < CARD_DOUBLE_TAP_MS;
-          this.lastCardTap = twice ? null : { gid: g.id, at: now };
-          if (twice) this.selGroup = g.id;
-          else if (this.selGroup === g.id && this.selUnit < 0) this.selGroup = -1;
-          else this.selGroup = g.id;
-          this.selUnit = g.individual ? this.sim.members(g.id)[0]?.id ?? -1 : -1;
-          this.shapeOpen = false;
-          this.buildHud();
-          if (twice) this.recentre('group');
-        },
-        () => this.cardTip(g.id, numeral),
-      );
-      uiId(card, `battle.group.${numeral}`);
-      this.hud.add(card);
-      this.cards.push({ gid: g.id, card, numeral });
+      this.makeCard(g, numeral, 4 + (i % cols) * (cw + SIZE.gap), y0 + 5 + Math.floor(i / cols) * (SHEET_CARD_H + SIZE.gap), all.length === 1 ? VW - 8 : cw, SHEET_CARD_H);
     });
     // the header: whose orders, and the chips (shape; Groups in deployment, hud.md Z8; solo / join)
     let y = this.sheetHeadY();
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
-    const numeral = sel ? this.cards.find((c) => c.gid === sel.id)?.numeral ?? '' : '';
-    const selName = sel ? (sel.individual ? heroName(this.sim.members(sel.id)[0]?.name ?? '') : `${groupName(sel.name)} ${numeral}`.trim()) : '';
-    const chips: { icon: string; label: string; short?: string; tip: string; id: string; selected?: boolean; off?: string; onClick: () => void }[] = [];
+    // the row: Fight (deployment) or the five orders (battle); on a tablet upright both are capped and centred, the head over the orders
+    const row = this.hm === 'medium' ? centredRow(VW, MEDIUM.ordersMax) : { x: 4, w: VW - 8 };
+    this.drawHead(row.x - 4, row.x + row.w + 4, y, deploy, sel, this.headChips(deploy, sel));
+    y += SHEET_HEAD_H + 3;
+    if (deploy) {
+      const fr = this.hm === 'medium' ? centredRow(VW, MEDIUM.fightMax) : { x: 4, w: VW - 8 };
+      this.hud.add(this.mainButton(fr.x, y, fr.w, SHEET_ORDERS_H, 'primaryHero'));
+      this.buildTargetChips(null);
+      return;
+    }
+    const orders = this.orderKeys();
+    if (!orders.length) {
+      // at the text floor (A11Y-09), on two lines when one is too wide (A11Y-10: never cut)
+      const none = t('battle.orders.none');
+      const two = mw(none, 'dim', 6.5) > VW - 12;
+      this.hud.add(mtext(this, VW / 2, y + (two ? 4 : 9), none, 'dim', { size: 6.5, maxW: VW - 12, wrap: true, align: 0.5 }));
+      this.buildTargetChips(null);
+      return;
+    }
+    this.drawOrderRow(orders, sel!, row.x, y, row.w, SHEET_ORDERS_H);
+    if (orders.some((o) => o.key === 'feint')) this.coach('feint');
+    this.buildTargetChips(sel!);
+  }
+
+  /** A group card (tap selects, a second tap within CARD_DOUBLE_TAP_MS recentres on the group; long-press explains). */
+  private makeCard(g: SimGroup, numeral: string, x: number, y: number, w: number, h: number): GroupCard {
+    const card = new GroupCard(
+      this,
+      x,
+      y,
+      w,
+      h,
+      () => {
+        // a double tap on a card centres the camera on its group (R8.2) and leaves it selected
+        const now = this.time.now;
+        const twice = this.lastCardTap?.gid === g.id && now - this.lastCardTap.at < CARD_DOUBLE_TAP_MS;
+        this.lastCardTap = twice ? null : { gid: g.id, at: now };
+        if (twice) this.selGroup = g.id;
+        else if (this.selGroup === g.id && this.selUnit < 0) this.selGroup = -1;
+        else this.selGroup = g.id;
+        this.selUnit = g.individual ? this.sim.members(g.id)[0]?.id ?? -1 : -1;
+        this.shapeOpen = false;
+        this.buildHud();
+        if (twice) this.recentre('group');
+      },
+      () => this.cardTip(g.id, numeral),
+    );
+    uiId(card, `battle.group.${numeral}`);
+    this.hud.add(card);
+    this.cards.push({ gid: g.id, card, numeral });
+    return card;
+  }
+
+  /** The deployment's one primary: Fight, or Ready online (grey stone while the online ready is waiting). */
+  private mainButton(x: number, y: number, w: number, h: number, variant: 'primaryHero' | 'primary'): MButton {
+    const ready = this.dclock?.ready ?? false;
+    const main: StripSlot = this.online
+      ? { icon: 'check', label: t('battle.ready'), selected: ready, off: ready ? t('battle.why.waiting') : undefined, tip: t(this.src?.lockstep ? 'battle.tip.readyDuel' : 'battle.tip.ready'), id: 'battle.ready', onClick: () => this.startFight() }
+      : { icon: 'swords', label: t('battle.fight'), tip: t('battle.tip.fight'), id: 'battle.fight', onClick: () => this.startFight() };
+    // the screen's primary action (above-fold, landscape-v6 §5)
+    return uiPrimary(new MButton(this, x, y, w, h, { icon: main.icon, label: main.label, tip: main.tip, id: main.id, variant: main.off ? 'disabled' : variant, disabledReason: main.off, onClick: main.onClick }));
+  }
+
+  /** The sheet head's chips: the shape (Formation); Groups in deployment (hud.md Z8); Alone or Rejoin for a selected soldier. */
+  private headChips(deploy: boolean, sel: SimGroup | null): HeadChip[] {
+    const chips: HeadChip[] = [];
     const shapeOf = sel && !sel.disbanded ? sel.formation.type : null;
     const preset = PRESETS.find((p) => p[0] === shapeOf);
     const shapeName = preset ? t(`battle.cmd.${preset[1]}` as TKey) : t('battle.shape.chip');
@@ -3270,20 +3792,30 @@ export class BattleScene extends BaseScene {
     const u = !deploy && this.selUnit >= 0 ? this.sim.units[this.selUnit] : null;
     if (u && this.sim.groups[u.group].individual) chips.push({ icon: 'people', label: t('battle.ring.join'), tip: t('battle.tip.join'), id: 'battle.cmd.join', onClick: () => this.rejoin(u) });
     else if (u) chips.push({ icon: 'detach', label: t('battle.ring.solo'), tip: t('battle.tip.solo'), id: 'battle.cmd.solo', onClick: () => this.detach(u) });
+    return chips;
+  }
+
+  /**
+   * The sheet head between `L` and `R` (UI px) with its top at `y`: the selected group's numeral badge and
+   * "ORDERS · PHALANX" at the left, the chips right-aligned.
+   */
+  private drawHead(L: number, R: number, y: number, deploy: boolean, sel: SimGroup | null, chips: HeadChip[]): void {
+    const numeral = sel ? this.cards.find((c) => c.gid === sel.id)?.numeral ?? '' : '';
+    const selName = sel ? (sel.individual ? heroName(this.sim.members(sel.id)[0]?.name ?? '') : `${groupName(sel.name)} ${numeral}`.trim()) : '';
     // in battle the selected group's numeral badge, in its colour, leads the line (controls.md R1.3)
     const badge = !deploy && sel ? groupNumeral(this.sim.groups, sel.id) : '';
-    const tx = badge ? 4 + orderBadgeW(badge) + 4 : 6;
+    const tx = L + (badge ? 4 + orderBadgeW(badge) + 4 : 6);
     const barName = badge && sel && !sel.individual ? groupName(sel.name) : selName;
     // the header's words stay at the text floor (A11Y-09): the title keeps at least the group's name, the shape
     // chip drops "Formation:" before that, and a chip that still does not fit shows its icon alone
     const chipW = (label: string) => Math.min(112, Math.ceil(mw(caps(label), 'rCream', 6.5)) + 22);
-    const titleNeed = !deploy && sel ? tx + Math.ceil(mw(caps(barName), 'rGold', 6.5)) + 6 : 0;
-    const budget = VW - 4 - titleNeed - SIZE.gap * (chips.length - 1);
+    const titleNeed = !deploy && sel ? tx - L + Math.ceil(mw(caps(barName), 'rGold', 6.5)) + 6 : 0;
+    const budget = R - L - 4 - titleNeed - SIZE.gap * (chips.length - 1);
     const labels = chips.map((c) => c.label);
     const total = () => labels.reduce((a, l) => a + (l ? chipW(l) : SHEET_HEAD_H + 2), 0);
     if (total() > budget && chips[0].short) labels[0] = chips[0].short;
     for (let i = chips.length - 1; i >= 0 && total() > budget; i--) labels[i] = '';
-    let cx = VW - 4;
+    let cx = R - 4;
     for (let ci = chips.length - 1; ci >= 0; ci--) {
       const c = chips[ci];
       const label = labels[ci];
@@ -3294,7 +3826,7 @@ export class BattleScene extends BaseScene {
       if (c.id === 'battle.cmd.join' || c.id === 'battle.cmd.solo') this.cmdBtns.set(c.id.slice('battle.cmd.'.length), b);
       cx -= SIZE.gap;
     }
-    if (badge) this.hud.add(numeralBadge(this, 4, y + 1, SHEET_HEAD_H - 4, badge));
+    if (badge) this.hud.add(numeralBadge(this, L + 4, y + 1, SHEET_HEAD_H - 4, badge));
     // the orphan "Shape" title of the deployment is gone (BTL-8): the chip says it
     const title = !deploy && sel ? t('battle.orders.title', { group: barName }) : '';
     if (title) {
@@ -3302,75 +3834,164 @@ export class BattleScene extends BaseScene {
       const line = mw(caps(title), 'rGold', 6.5) <= room ? title : barName;
       this.hud.add(mtext(this, tx, y + 3, caps(line), 'rGold', { size: 6.5, maxW: room }));
     }
-    y += SHEET_HEAD_H + 3;
-    // the row: Fight (deployment) or the five orders (battle)
-    if (deploy) {
-      const ready = this.dclock?.ready ?? false;
-      const main: StripSlot = this.online
-        ? { icon: 'check', label: t('battle.ready'), selected: ready, off: ready ? t('battle.why.waiting') : undefined, tip: t(this.src?.lockstep ? 'battle.tip.readyDuel' : 'battle.tip.ready'), id: 'battle.ready', onClick: () => this.startFight() }
-        : { icon: 'swords', label: t('battle.fight'), tip: t('battle.tip.fight'), id: 'battle.fight', onClick: () => this.startFight() };
-      // the one primary of the deployment: the hero button (grey stone while the online ready is waiting)
-      this.hud.add(new MButton(this, 4, y, VW - 8, SHEET_ORDERS_H, { icon: main.icon, label: main.label, tip: main.tip, id: main.id, variant: main.off ? 'disabled' : 'primaryHero', disabledReason: main.off, onClick: main.onClick }));
-      this.buildTargetChips(null);
-      return;
-    }
-    const orders = this.orderKeys();
-    if (!orders.length) {
-      // at the text floor (A11Y-09), on two lines when one is too wide (A11Y-10: never cut)
-      const none = t('battle.orders.none');
-      const two = mw(none, 'dim', 6.5) > VW - 12;
-      this.hud.add(mtext(this, VW / 2, y + (two ? 4 : 9), none, 'dim', { size: 6.5, maxW: VW - 12, wrap: true, align: 0.5 }));
-      this.buildTargetChips(null);
-      return;
-    }
+  }
+
+  /** The five orders in one row from `x`, `w` wide, `h` tall: the sheet's row (portrait) or the bottom-centre bar (expanded). */
+  private drawOrderRow(orders: OrderKey[], sel: SimGroup, x: number, y: number, w: number, h: number): void {
     // the bar wears the selected group's colour (its numeral badge heads the line above; controls.md R1.3, PLAY C3)
-    this.hud.add(orderBarPlate(this, 4, y, VW - 8, SHEET_ORDERS_H, groupNumeral(this.sim.groups, sel!.id)));
+    this.hud.add(orderBarPlate(this, x, y, w, h, groupNumeral(this.sim.groups, sel.id)));
     // a long word gets a wider key rather than an ellipsis (controls.md R9: "Withdraw" at 360)
     // at the text floor (hud.md §I): the full words when they fit, else the icons alone, each word its tip (V5-063: one name at every width)
     const { words, iconOnly } = orderLabels(
       orders.map((o) => o.label),
-      VW - 8,
+      w,
       SIZE.gap,
     );
-    const keyW = iconOnly ? orders.map(() => Math.floor((VW - 8 - SIZE.gap * (orders.length - 1)) / orders.length)) : orderKeyWidths(words, VW - 8, SIZE.gap);
+    const keyW = iconOnly ? orders.map(() => Math.floor((w - SIZE.gap * (orders.length - 1)) / orders.length)) : orderKeyWidths(words, w, SIZE.gap);
     // one face for the whole row: capitals when every word fits its key as such, else Inter
-    const plain = words.some((w, i) => mw(caps(w), 'rCream', 6.5) > keyW[i] - 4);
-    let kx = 4;
+    const plain = words.some((wd, i) => mw(caps(wd), 'rCream', 6.5) > keyW[i] - 4);
+    let kx = x;
     orders.forEach((o, i) => {
-      const bw = keyW[i];
-      const b = new KeyButton(this, kx, y, bw, SHEET_ORDERS_H, {
-        icon: o.icon,
-        label: words[i],
-        iconOnly,
-        tip: o.tip,
-        id: `battle.cmd.${o.key}`,
-        variant: 'bronze',
-        lit: o.selected && !o.hollow,
-        plain,
-        disabledReason: o.off,
-        onClick: () => o.onTap(),
-      });
-      this.hud.add(b);
-      this.cmdBtns.set(o.key, b);
-      // on but idle out of range: a hollow key, a gold rim round an unlit face (controls.md R3.4)
-      if (o.hollow) {
-        const g = this.add.graphics();
-        g.lineStyle(1, MOSAIC.ink, 1);
-        g.strokeRoundedRect(kx + 0.5, y + 0.5, bw - 1, SHEET_ORDERS_H - 1, 2.5);
-        g.lineStyle(1.2, MOSAIC.meanderHi, 1);
-        g.strokeRoundedRect(kx + 1.6, y + 1.6, bw - 3.2, SHEET_ORDERS_H - 3.2, 2);
-        this.hud.add(g);
-      }
-      // Withdraw while the feint cools down: a sweep along the key's foot says when Feint is back (formations-orders.md R3.4)
-      if (o.key === 'fallback' && this.fifth(sel!).cdLeftS > 0) {
-        this.feintBar = { g: this.add.graphics(), x: kx + 3, y: y + SHEET_ORDERS_H - 4, w: bw - 6, gid: sel!.id };
-        this.hud.add(this.feintBar.g);
-        this.drawFeintBar();
-      }
-      kx += bw + SIZE.gap;
+      this.drawOrderKey(o, sel, kx, y, keyW[i], h, { label: words[i], iconOnly, plain, icon: true });
+      kx += keyW[i] + SIZE.gap;
     });
-    if (orders.some((o) => o.key === 'feint')) this.coach('feint');
+  }
+
+  /** One order key, with its out-of-range hollow rim and the feint cooldown sweep. */
+  private drawOrderKey(o: OrderKey, sel: SimGroup, kx: number, y: number, bw: number, h: number, face: { label: string; iconOnly: boolean; plain: boolean; icon: boolean }): void {
+    const b = new KeyButton(this, kx, y, bw, h, {
+      icon: face.icon ? o.icon : undefined,
+      label: face.label,
+      iconOnly: face.iconOnly,
+      tip: o.tip,
+      id: `battle.cmd.${o.key}`,
+      variant: 'bronze',
+      lit: o.selected && !o.hollow,
+      plain: face.plain,
+      disabledReason: o.off,
+      onClick: () => o.onTap(),
+    });
+    this.hud.add(b);
+    this.cmdBtns.set(o.key, b);
+    // on but idle out of range: a hollow key, a gold rim round an unlit face (controls.md R3.4)
+    if (o.hollow) {
+      const g = this.add.graphics();
+      g.lineStyle(1, MOSAIC.ink, 1);
+      g.strokeRoundedRect(kx + 0.5, y + 0.5, bw - 1, h - 1, 2.5);
+      g.lineStyle(1.2, MOSAIC.meanderHi, 1);
+      g.strokeRoundedRect(kx + 1.6, y + 1.6, bw - 3.2, h - 3.2, 2);
+      this.hud.add(g);
+    }
+    // Withdraw while the feint cools down: a sweep along the key's foot says when Feint is back (formations-orders.md R3.4)
+    if (o.key === 'fallback' && this.fifth(sel).cdLeftS > 0) {
+      this.feintBar = { g: this.add.graphics(), x: kx + 3, y: y + h - 4, w: bw - 6, gid: sel.id };
+      this.hud.add(this.feintBar.g);
+      this.drawFeintBar();
+    }
+  }
+
+  /**
+   * One face for a column of keys `w` wide (the compact-landscape rail): capitals with the icon when every
+   * word fits so at the text floor, else Inter with the icon, else Inter alone; never an ellipsis (A11Y-10).
+   */
+  private railFace(words: string[], w: number): { plain: boolean; icon: boolean } {
+    const room = (icon: boolean) => w - 4 - (icon ? ICON_PX + 2 : 0);
+    if (words.every((x) => mw(caps(x), 'rCream', 6.5) <= room(true))) return { plain: false, icon: true };
+    if (words.every((x) => mw(x, 'light', 6.5) <= room(true))) return { plain: true, icon: true };
+    return { plain: !words.every((x) => mw(caps(x), 'rCream', 6.5) <= room(false)), icon: false };
+  }
+
+  /**
+   * The landscape HUD's lower clusters (landscape-v6 §7.2): the group cards in a left column; at compact
+   * landscape the right thumb rail (the numeral badge, the five orders stacked, Formation at its foot; in
+   * deployment Formation, Groups, Works, Undo and Fight), at expanded the bottom-centre bar (the head line
+   * over the five orders, or Fight).
+   */
+  private buildSideSheet(s: SideHud): void {
+    const deploy = this.sim.phase === 'deploy';
+    const all = this.sheetGroups();
+    all.forEach(({ g, numeral }, i) => {
+      const card = uiOpaque(this.makeCard(g, numeral, s.cards.x, s.cards.y + i * (s.cardH + s.cardGap), s.cards.w, s.cardH));
+      // the bar labels clear the card's foot after pixel rounding at S = 3 (1920x1080)
+      if (s.mode === 'wide') card.barLift = 1;
+    });
+    const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
+    const chips = this.headChips(deploy, sel);
+    if (s.mode === 'wide') {
+      const p = s.plate!;
+      this.hud.add(uiOpaque(mosaicImage(this, p.x, p.y, p.w, p.h + 4, 'topBar')));
+      const rim = this.add.graphics();
+      rim.fillStyle(MOSAIC.meander, 1);
+      rim.fillRect(p.x, p.y, p.w, 1);
+      rim.fillStyle(MOSAIC.meanderLo, 1);
+      rim.fillRect(p.x, p.y + 1, p.w, 1);
+      this.hud.add(rim);
+      const head = s.head!;
+      this.drawHead(head.x - 4, head.x + head.w + 4, head.y + 1, deploy, sel, chips);
+      if (deploy) {
+        const f = s.fight;
+        this.hud.add(this.mainButton(f.x, f.y, f.w, f.h, 'primaryHero'));
+        this.buildTargetChips(null);
+        return;
+      }
+      const orders = this.orderKeys();
+      const k = s.orders.keys;
+      if (!orders.length) {
+        this.hud.add(mtext(this, k.x + k.w / 2, k.y + 9, t('battle.orders.none'), 'dim', { size: 6.5, maxW: k.w - 4, wrap: true, align: 0.5 }));
+        this.buildTargetChips(null);
+        return;
+      }
+      this.drawOrderRow(orders, sel!, k.x, k.y, k.w, k.h);
+      if (orders.some((o) => o.key === 'feint')) this.coach('feint');
+      this.buildTargetChips(sel!);
+      return;
+    }
+    // compact landscape: the right thumb rail
+    const rail = s.rail!;
+    this.hud.add(uiOpaque(mosaicImage(this, rail.x, rail.y, rail.w, rail.h, 'topBar')));
+    const chip = (c: HeadChip, r: Rect, short = true) => {
+      const label = short && c.short ? c.short : c.label;
+      const face = this.railFace([label], r.w);
+      const b = new KeyButton(this, r.x, r.y, r.w, r.h, { icon: face.icon ? c.icon : undefined, label, plain: face.plain, tip: c.tip, id: c.id, variant: 'bronze', lit: c.selected, disabledReason: c.off, onClick: c.onClick });
+      this.hud.add(b);
+      return b;
+    };
+    if (deploy) {
+      // Formation and Groups at the rail's head (Works and Undo follow, from the chip row); Fight at its foot
+      chips.forEach((c, i) => s.deployChips[i] && chip(c, s.deployChips[i]));
+      const f = s.fight;
+      this.hud.add(this.mainButton(f.x, f.y, f.w, f.h, 'primary'));
+      this.buildTargetChips(null);
+      return;
+    }
+    const o = s.orders;
+    const formation = chips[0];
+    if (o.formation) chip(formation, o.formation);
+    const orders = this.orderKeys();
+    if (sel) {
+      const badge = groupNumeral(this.sim.groups, sel.id);
+      const b = o.badge!;
+      this.hud.add(numeralBadge(this, Math.round(b.x + (b.w - orderBadgeW(badge)) / 2), b.y, b.h, badge));
+    }
+    if (!orders.length) {
+      this.hud.add(mtext(this, o.keys.x + o.keys.w / 2, o.keys.y + 4, t('battle.orders.none'), 'dim', { size: 6.5, maxW: o.keys.w, wrap: true, align: 0.5 }));
+      this.buildTargetChips(null);
+      return;
+    }
+    const face = this.railFace(orders.map((x) => x.label), o.keys.w);
+    orders.forEach((ok, i) => this.drawOrderKey(ok, sel!, o.keys.x, o.keys.y + i * (o.keyH + 2), o.keys.w, o.keyH, { label: ok.label, iconOnly: false, plain: face.plain, icon: face.icon }));
+    if (orders.some((x) => x.key === 'feint')) this.coach('feint');
     this.buildTargetChips(sel!);
+  }
+
+  /**
+   * Compact landscape, in battle: the head chips the rail has no room for go first in the chip row (Alone or
+   * Rejoin; Formation too on a rail too short for it, landscape-v6 §18 risks).
+   */
+  private landHeadChips(sel: SimGroup | null): HeadChip[] {
+    if (this.side?.mode !== 'land' || this.sim.phase !== 'battle') return [];
+    const chips = this.headChips(false, sel);
+    return this.side.orders.formation ? chips.slice(1) : chips;
   }
 
   /** What the order row shows (rebuilt when it changes: orders are rare events). */
@@ -3389,12 +4010,21 @@ export class BattleScene extends BaseScene {
    * range (not in live battles, R10b).
    */
   private buildTargetChips(sel: Battle['groups'][number] | null): void {
-    if (this.shapeOpen || !this.kinds.includes('chips')) return;
-    // the tutorial keeps the field clear of the chips while a step needs the ground, and shows them when it teaches one
-    if (this.tutorialData && !this.tutAllow.chips) return;
+    // compact landscape: the head chips the rail has no room for lead the row, whatever else hides it
+    const head = this.landHeadChips(sel).map((c) => ({ icon: c.icon, label: c.short ?? c.label, tip: c.tip, id: c.id, off: c.off, lit: c.selected, onClick: c.onClick }));
+    const hidden = this.shapeOpen || !this.kinds.includes('chips') || (!!this.tutorialData && !this.tutAllow.chips);
+    if (hidden && !head.length) return;
     // the tutorial shows Undo from its Undo step on (TUT-02): until then its lesson keeps the field clear
     const undo = !this.tutorialData || this.tutAllow.undo;
-    const chips: { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; iconOnly?: boolean; onClick: () => void }[] = [];
+    const chips: { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; iconOnly?: boolean; onClick: () => void }[] = [...head];
+    if (!hidden) this.fieldChips(sel, undo, chips);
+    if (!chips.length) return;
+    this.layChips(chips);
+  }
+
+  /** The chip row's chips for this moment (Undo, Then…, the queued step, Clear plan, Focus ✕, Works…, To range). */
+  private fieldChips(sel: SimGroup | null, undo: boolean, chips: { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; iconOnly?: boolean; onClick: () => void }[]): void {
+    // the tutorial keeps the field clear of the chips while a step needs the ground, and shows them when it teaches one
     // placing a work: only Place, Turn and Cancel, in one row (FW-03; a second row would climb into the top bar on short screens)
     const placing = !!this.worksGhost && this.worksShown();
     // deployment: Undo always there, greyed with its reason while empty (R4.2); online too, it is orders like any other
@@ -3420,24 +4050,59 @@ export class BattleScene extends BaseScene {
     if (sel && this.canCommand() && this.far.has(sel.id) && this.unlocks.toRange) {
       chips.push({ icon: 'advance', label: t('target.chip.advance'), tip: t('target.tip.advance'), id: 'battle.target.advance', onClick: () => this.advanceToRange() });
     }
-    if (!chips.length) return;
+  }
+
+  /**
+   * Lay the chip row out: from the left, wrapping upward (CT-04: no chip is dropped). Portrait: above the
+   * sheet, clear of the medallion rail and the zoom key. Compact landscape: at the field's foot between the
+   * card column and the medallions, and in deployment Undo and Works go into the rail under Formation and
+   * Groups. Expanded: directly above the orders plate.
+   */
+  private layChips(chips: { icon: string; label: string; tip: string; id: string; off?: string; lit?: boolean; iconOnly?: boolean; onClick: () => void }[]): void {
     const h = SHEET_HEAD_H;
-    // above the works tray while it is open
-    const base = this.worksOpen && !this.worksGhost && this.worksShown() ? this.worksTrayTop() : this.selUnit >= 0 ? this.stripTop() - 27 : this.stripTop();
-    let y = base - 2 - h;
-    // a chip that would run under the medallion rail starts a row above (CT-04: no chip is dropped); left-hand: the rail is on the left
-    const rail = this.kinds.includes('medallions') && this.abilityDefs().length ? MED_W + 4 : 0;
-    const x00 = this.leftHand ? rail + 2 : 4;
-    const right0 = this.m.VW - (this.leftHand ? 0 : rail) - 2;
-    let x0 = x00;
-    let right = right0;
-    // a short field: a row level with the zoom key starts beside it, never under it
-    const row = () => {
-      const level = y < this.cornerY(!this.leftHand) + 22 + SIZE.gap * 2;
-      x0 = level && !this.leftHand ? Math.max(x00, 4 + 22 + SIZE.gap * 2) : x00;
-      right = level && this.leftHand ? Math.min(right0, this.m.VW - 4 - 22 - SIZE.gap * 2) : right0;
+    const s = this.side;
+    const put = (c: (typeof chips)[number], x: number, y: number, w: number, plain = true, icon = true) => {
+      const b = new KeyButton(this, x, y, w, h, { icon: icon ? c.icon : undefined, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain, lit: c.lit, iconOnly: c.iconOnly, disabledReason: c.off, onClick: c.onClick });
+      this.hud.add(b);
+      if (c.id === 'battle.undo') this.undoChip = this.sim.phase === 'battle' ? b : null;
+      this.cmdBtns.set(c.id.startsWith('battle.cmd.') ? c.id.slice('battle.cmd.'.length) : c.id.slice('battle.'.length), b);
     };
-    row();
+    if (s?.mode === 'land' && this.sim.phase === 'deploy') {
+      // Undo and Works sit in the rail's slots under Formation and Groups (§7.2)
+      const inRail = chips.filter((c) => c.id === 'battle.undo' || c.id === 'battle.works');
+      inRail.forEach((c, i) => {
+        const r = s.deployChips[2 + i];
+        const face = this.railFace([c.label], r.w);
+        put(c, r.x, r.y, r.w, face.plain, face.icon);
+      });
+      chips = chips.filter((c) => !inRail.includes(c));
+      if (!chips.length) return;
+    }
+    // above the works tray while it is open, and above the selected soldier's info
+    const base = this.worksOpen && !this.worksGhost && this.worksShown() ? this.worksTrayTop() : this.selUnit >= 0 ? this.heroInfoBox().y : this.chipFloor();
+    let y = base - 2 - h;
+    let x0: number;
+    let right: number;
+    let row = () => {};
+    if (s) {
+      const sp = this.chipSpan();
+      x0 = sp.x0;
+      right = sp.x1;
+    } else {
+      // a chip that would run under the medallion rail starts a row above (CT-04: no chip is dropped); left-hand: the rail is on the left
+      const rail = this.kinds.includes('medallions') && this.abilityDefs().length ? MED_W + 4 : 0;
+      const x00 = this.leftHand ? rail + 2 : 4;
+      const right0 = this.m.VW - (this.leftHand ? 0 : rail) - 2;
+      x0 = x00;
+      right = right0;
+      // a short field: a row level with the zoom key starts beside it, never under it
+      row = () => {
+        const level = y < this.cornerY(!this.leftHand) + 22 + SIZE.gap * 2;
+        x0 = level && !this.leftHand ? Math.max(x00, 4 + 22 + SIZE.gap * 2) : x00;
+        right = level && this.leftHand ? Math.min(right0, this.m.VW - 4 - 22 - SIZE.gap * 2) : right0;
+      };
+      row();
+    }
     let x = x0;
     for (const c of chips) {
       const w = c.iconOnly ? SHEET_HEAD_H : Math.ceil(mw(c.label, 'light', 6.5)) + ICON_PX + 12;
@@ -3446,10 +4111,7 @@ export class BattleScene extends BaseScene {
         row();
         x = x0;
       }
-      const b = new KeyButton(this, x, y, w, h, { icon: c.icon, label: c.label, tip: c.tip, id: c.id, variant: 'bronze', plain: true, lit: c.lit, iconOnly: c.iconOnly, disabledReason: c.off, onClick: c.onClick });
-      this.hud.add(b);
-      if (c.id === 'battle.undo') this.undoChip = this.sim.phase === 'battle' ? b : null;
-      this.cmdBtns.set(c.id.slice('battle.'.length), b);
+      put(c, x, y, w);
       x += w + SIZE.gap;
     }
   }
@@ -3516,17 +4178,22 @@ export class BattleScene extends BaseScene {
     const defs = this.abilityDefs();
     if (!defs.length || !this.kinds.includes('medallions')) return;
     const { VW } = this.m;
-    // the rail runs down the right edge; left-hand mode mirrors it to the left (A11Y-16)
-    const x = mirrorX(VW - MED_W - 2, MED_W, VW, this.leftHand);
-    let y = this.followBtn ? this.cornerY(this.leftHand) + 26 : TOP_H + 6;
-    const bottom = this.stripTop() - (this.selUnit >= 0 ? 29 : 2);
+    const s = this.side;
+    // the rail runs down the right edge; left-hand mode mirrors it to the left (A11Y-16); landscape: beside the order rail
+    // (compact) or down the right edge between the top row and the corner keys (expanded), landscape-v6 §7.2
+    const x = s ? s.medals.x : mirrorX(VW - MED_W - 2, MED_W, VW, this.leftHand);
+    let y = s ? s.medals.top : this.followBtn ? this.cornerY(this.leftHand) + 26 : TOP_H + 6;
+    const bottom = s ? s.medals.bottom : this.stripTop() - (this.selUnit >= 0 ? 29 : 2);
     this.railW = MED_W + 4;
     // at most 3 medallions (2 on a short field) and the "more" key for the rest (hud.md Z5)
-    const { shown, more } = railLayout(defs.length, this.stripTop() - TOP_H, bottom - y);
+    const { shown, more } = railLayout(defs.length, s ? s.framing.h : this.stripTop() - TOP_H, bottom - y);
+    // expanded: the column centred in its band (§7.2 "right edge, vertically centred")
+    if (s?.mode === 'wide') y += Math.max(0, Math.floor((bottom - y - (shown * (MED_H + 4) + (more ? MORE_H : -4))) / 2));
     for (const d of defs.slice(0, shown)) {
       const m = new Medallion(this, x, y, { icon: d.icon, label: d.label, sub: d.sub, tip: d.tip, id: `battle.cmd.${d.key}`, onClick: d.run });
       this.hud.add(m);
       this.cmdBtns.set(d.key, m);
+      this.medalIds.push(`battle.cmd.${d.key}`);
       if (d.ability) this.abilityBtns.push({ id: d.ability, btn: m });
       if (d.key === 'standard') this.stdBtn = m;
       y += MED_H + 4;
@@ -3644,11 +4311,15 @@ export class BattleScene extends BaseScene {
     const cx = ((w.x - cam.worldView.x) * cam.zoom) / S;
     const cy = ((w.y - cam.worldView.y) * cam.zoom) / S;
     const R = 32;
-    const top = this.topH() + 30;
-    const bottom = this.stripTop() - 14;
+    // inside the field band (portrait) or the framing rect (landscape): never under a rail
+    const f = this.side?.framing;
+    const top = f ? f.y + 13 : this.topH() + 30;
+    const bottom = f ? f.y + f.h - 13 : this.stripTop() - 14;
+    const left = f ? f.x + 13 : 13;
+    const right = f ? f.x + f.w - 13 : this.m.VW - 13;
     for (const b of p.btns) {
       const a = pipSlot(this.pipArrow(b.dir));
-      b.pip.follow(Phaser.Math.Clamp(cx + Math.cos(a) * R, 13, this.m.VW - 13), Phaser.Math.Clamp(cy + Math.sin(a) * R, top, bottom));
+      b.pip.follow(Phaser.Math.Clamp(cx + Math.cos(a) * R, left, right), Phaser.Math.Clamp(cy + Math.sin(a) * R, top, bottom));
     }
   }
 
@@ -3722,30 +4393,44 @@ export class BattleScene extends BaseScene {
     const sel = this.selGroup >= 0 ? this.sim.groups[this.selGroup] : null;
     if (!sel) return;
     const mem = this.selectedUnits();
-    const x = 4;
-    const w = VW - 8;
+    const panel = this.side?.panel;
+    // a tablet upright: a bottom sheet centred, its rows (4 px in from its edges) no wider than a button, 240 (landscape-v6 §2.3, §3.4)
+    const mid = this.hm === 'medium' ? centredRow(VW, ROW_SHEET_MAX - 8) : { x: 4, w: VW - 8 };
+    const x = panel ? panel.x + 4 : mid.x;
+    const w = panel ? panel.w - 8 : mid.w;
     const rowH = this.compact ? 22 : 24;
     // the orb appears once unlocked (R10b), or while the group already stands in one
     const shapes = PRESETS.filter(([type]) => type !== 'orb' || this.unlocks.orb || sel.formation.type === 'orb');
     if (shapes.some(([type]) => type === 'orb')) this.coach('orb');
-    const h = 16 + shapes.length * (rowH + SIZE.gap) - SIZE.gap + 6;
+    // landscape: a right side panel (a task sheet, landscape-v6 §3.4); rows in two columns when one is too tall for it
+    const cols = panel && 16 + shapes.length * (rowH + SIZE.gap) - SIZE.gap + 6 > panel.h - 8 ? 2 : 1;
+    const perCol = Math.ceil(shapes.length / cols);
+    const h = 16 + perCol * (rowH + SIZE.gap) - SIZE.gap + 6;
     this.hideBanner();
     // above the bottom sheet when there is room; on short screens it rises over the sheet, never under the top bar
-    const y = Math.max(TOP_H + 2, this.stripTop() - h - 2);
+    const y = panel ? panel.y + 4 : Math.max(TOP_H + 2, this.stripTop() - h - 2);
     const c = this.add.container(0, 0);
     this.hud.add(c);
     // a popup: the field and the sheet dim behind it, and a tap outside closes it
-    const shade = uiBlocker(this.add.rectangle(0, 0, this.m.VW, this.m.VH, 0x000000, 0.35).setOrigin(0, 0).setInteractive());
+    const shade = uiBlocker(this.add.rectangle(0, 0, this.m.VW, this.m.VH, 0x000000, panel ? 0.2 : 0.35).setOrigin(0, 0).setInteractive());
     shade.on('pointerup', () => {
       this.shapeOpen = false;
       this.buildHud();
     });
     c.add(shade);
-    c.add(mosaicImage(this, x, y, w, h, 'sheet'));
+    if (panel) {
+      // docked to the right edge, full height (under the top row at expanded): the side panel's own box
+      c.add(mosaicImage(this, panel.x, panel.y, panel.w, panel.h, 'sheet'));
+      uiPanel(c, panel.x, panel.y, panel.w, panel.h, true);
+    } else c.add(mosaicImage(this, x, y, w, h, 'sheet'));
     const numeral = this.cards.find((k) => k.gid === sel.id)?.numeral ?? '';
     c.add(mtext(this, x + 6, y + 5, t('battle.shape.title', { numeral, name: sel.individual ? heroName(this.sim.members(sel.id)[0]?.name ?? '') : groupName(sel.name) }).toUpperCase().replace(/ +/g, '  '), 'rInk', { size: 7.5, maxW: w - 12 }));
     let ry = y + 16;
-    for (const [type, key, icon] of shapes) {
+    // a row is a button: at most 240 wide in a wide side panel (§2.3)
+    const rowW = cols === 2 ? Math.floor((w - 8 - SIZE.gap) / 2) : panel ? Math.min(w - 8, ROW_SHEET_MAX - 16) : w - 8;
+    shapes.forEach(([type, key, icon], i) => {
+      const rx = x + 4 + (cols === 2 ? Math.floor(i / perCol) * (rowW + SIZE.gap) : 0);
+      ry = y + 16 + (i % perCol) * (rowH + SIZE.gap);
       const wallOff =
         type === 'shieldwall' && !mem.some((u) => u.stats.canShieldWall)
           ? t('battle.why.noShields')
@@ -3754,14 +4439,14 @@ export class BattleScene extends BaseScene {
             : undefined;
       const row = new PanelRow(
         this,
-        x + 4,
+        rx,
         ry,
-        w - 8,
+        rowW,
         rowH,
         {
           icon,
           title: t(`battle.cmd.${key}` as TKey),
-          subtitle: this.compact ? undefined : t(`battle.shape.${type}` as TKey),
+          subtitle: this.compact || cols === 2 ? undefined : t(`battle.shape.${type}` as TKey),
           selected: sel.formation.type === type,
           disabled: wallOff,
           tip: t(`battle.tip.${key}` as TKey),
@@ -3778,8 +4463,7 @@ export class BattleScene extends BaseScene {
       );
       c.add(row);
       this.cmdBtns.set(`form_${type}`, row);
-      ry += rowH + SIZE.gap;
-    }
+    });
   }
 
   /** A line or shield wall near the group faces it head-on (src/ui/input/attention.ts orbWarn). */
@@ -4000,8 +4684,19 @@ export class BattleScene extends BaseScene {
    * it comes down over the group cards instead.
    */
   private worksTrayTop(): number {
+    // landscape: at the field's foot (compact) or on the orders plate (expanded), the chip row above it
+    if (this.side) return Math.max(this.topH() + 3 + SHEET_HEAD_H + 4, this.chipFloor() - this.worksTrayH());
     const floor = this.cornerY(true) + 22 + 4 + SHEET_HEAD_H + 4;
     return Math.max(floor, this.stripTop() - 2 - this.worksTrayH());
+  }
+
+  /** The works tray's left edge and width: across the screen (portrait), across the field band (landscape). */
+  private worksTrayX(): { x: number; w: number } {
+    // its rows are buttons: no wider than 240 (§2.3), so the tray keeps to TRAY_MAX on a tablet or a laptop
+    if (!this.side) return this.hm === 'medium' ? centredRow(this.m.VW, TRAY_MAX) : { x: 4, w: this.m.VW - 8 };
+    if (this.side.mode === 'wide') return { x: this.side.plate!.x, w: Math.min(this.side.plate!.w, TRAY_MAX) };
+    const sp = this.chipSpan();
+    return { x: sp.x0, w: sp.x1 - sp.x0 };
   }
 
   /** The works tray, above the bottom sheet: supplies left, and a row per work with its (i). */
@@ -4024,7 +4719,8 @@ export class BattleScene extends BaseScene {
     });
     const supplies = t('works.supplies', { n: Math.floor(state.campaign.worksLeft(this.sim.works())) });
     const top = this.worksTrayTop();
-    const tray = worksTray(this, 4, top + this.worksTrayH(), this.m.VW - 8, this.compact ? 22 : 24, t('works.title'), supplies, rows, top, t('works.chip'));
+    const tx = this.worksTrayX();
+    const tray = worksTray(this, tx.x, top + this.worksTrayH(), tx.w, this.compact ? 22 : 24, t('works.title'), supplies, rows, top, t('works.chip'));
     this.hud.add(tray.c);
     for (const [id, row] of tray.rows) this.cmdBtns.set(id.slice('battle.'.length), row);
   }
@@ -4161,12 +4857,9 @@ export class BattleScene extends BaseScene {
   }
 
   /** The selected soldier: portrait, name and level, weapon, and health / morale / stamina columns. */
-  private buildHeroInfo(u: SimUnit, y: number): void {
-    const { VW } = this.m;
+  private buildHeroInfo(u: SimUnit, y: number, x: number, w: number): void {
     const c = this.add.container(0, 0);
-    // across the field's foot, just above the sheet
-    const x = 4;
-    const w = VW - 4 - x;
+    // across the field's foot, just above the sheet (landscape: the field band's foot)
     c.add(mosaicImage(this, x, y, w, 24, 'parchment'));
     const hero = this.views[u.id].hero;
     c.add(addPortrait(this, dollFromHero(hero), x + 2, y + 2, { size: 20 }));
@@ -4362,7 +5055,11 @@ export class BattleScene extends BaseScene {
     const cam = this.cameras.main;
     const { S, VW, VH } = this.m;
     // clear of the top corner keys (the eye, the zoom key) and of the medallion rail, on whichever side it is
-    const rect: Box = { x0: this.leftHand ? this.railW : 0, y0: this.topH() + (this.zoomBtn || this.followBtn ? 28 : 0), x1: VW - (this.leftHand ? 0 : this.railW), y1: VH - this.panelHeight() - 6 };
+    const f = this.side?.framing;
+    // landscape: the framing rect's edges (its corners hold no keys at compact landscape; the bar's top at expanded)
+    const rect: Box = f
+      ? { x0: f.x, y0: f.y, x1: f.x + f.w, y1: f.y + f.h }
+      : { x0: this.leftHand ? this.railW : 0, y0: this.topH() + (this.zoomBtn || this.followBtn ? 28 : 0), x1: VW - (this.leftHand ? 0 : this.railW), y1: VH - this.panelHeight() - 6 };
     let first: Pt | null = null;
     const badges: Box[] = [];
     for (const tag of this.tagMap.values()) {
@@ -4448,11 +5145,10 @@ export class BattleScene extends BaseScene {
     const at = key === 'group' ? this.groupCentre() : this.foeCentre();
     if (!at) return;
     const cam = this.cameras.main;
-    const vp = this.fieldViewport();
-    const offX = (this.scale.width / 2 - (vp.left + this.scale.width) / 2) / cam.zoom;
-    const offY = (this.scale.height / 2 - (vp.top + vp.bottom) / 2) / cam.zoom;
-    if (motion.reduced) cam.centerOn(at.x + offX, at.y + offY);
-    else cam.pan(at.x + offX, at.y + offY, RECENTRE_MS, 'Cubic.easeOut', true);
+    // on the framing rect's centre, never under a rail (§7.3)
+    const off = this.framingOffset();
+    if (motion.reduced) cam.centerOn(at.x + off.x, at.y + off.y);
+    else cam.pan(at.x + off.x, at.y + off.y, RECENTRE_MS, 'Cubic.easeOut', true);
   }
 
   private toggleFollow(): void {
@@ -4527,7 +5223,11 @@ export class BattleScene extends BaseScene {
   /** The speed key: the next speed this battle offers (pace.ts); the choice is the next battle's too (A11Y-21). */
   private toggleSpeed(): void {
     if (this.realtimeLocked) return;
-    this.speed = nextSpeed(this.pace, this.speed);
+    this.setSpeed(nextSpeed(this.pace, this.speed));
+  }
+
+  private setSpeed(s: number): void {
+    this.speed = s;
     this.juice.speed = this.speed;
     if (!this.tutorialData) {
       state.campaign.data.settings.battleSpeed = this.speed;
@@ -4856,8 +5556,10 @@ export class BattleScene extends BaseScene {
       },
       badge: (gid: number) => s.tagMap.get(gid) ?? null,
       fieldTop: () => s.topH(),
-      panelTop: () => s.m.VH - s.panelHeight(),
-      headTop: () => s.sheetHeadY() - 1,
+      // landscape: the framing rect's foot and the orders plate's top (compact landscape has no sheet: the screen's foot)
+      panelTop: () => (s.side ? s.side.framing.y + s.side.framing.h : s.m.VH - s.panelHeight()),
+      headTop: () => (s.side ? (s.side.plate?.y ?? s.m.VH) : s.sheetHeadY() - 1),
+      narratorBox: () => ({ ...narratorBox(s.hm, s.m.VW, s.side?.framing ?? null), land: !!s.side }),
       toUi: (x: number, y: number) => {
         const cam = s.cameras.main;
         const w = isoToScreen(x, y);

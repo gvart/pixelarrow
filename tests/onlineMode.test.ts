@@ -60,6 +60,7 @@ describe('economy and clan rules', () => {
     expect(canPromote('leader', 'member', 'officer')).toBe(true);
     expect(canPromote('officer', 'member', 'officer')).toBe(false);
     expect(clanInviteLink('pxbot', 'Ab12cd34')).toBe('https://t.me/pxbot/play?startapp=clan_Ab12cd34');
+    expect(clanInviteLink(null, 'Ab12cd34')).toBe('https://play.pixelarrow.app/?startapp=clan_Ab12cd34');
     expect(inviteCodeFrom('clan_Ab12cd34')).toBe('Ab12cd34');
     expect(inviteCodeFrom('evil_x')).toBeNull();
   });

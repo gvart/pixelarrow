@@ -51,7 +51,7 @@ export const TICK_RATE = 20;
 /** Running speed of a man (charging), as a multiple of his walk. */
 const BASE_RUN = 1.75;
 export const DT = 1 / TICK_RATE;
-export const UNIT_RADIUS = 0.3;
+const UNIT_RADIUS = 0.3;
 
 export const RULES = {
   meleeHit: 0.55,
@@ -153,7 +153,7 @@ const TURN_HORSE = smallTurn(RULES.turnRateHorse / TICK_RATE);
  * `kind: 'animal'` in their stats use these, so battles without them play
  * exactly as before.
  */
-export const MOUNTED_RULES = {
+const MOUNTED_RULES = {
   /** A rider delivers a charge impact at or above this fraction of his gallop. */
   chargeSpeed: 0.55,
   /** Speed kept after a charge impact (the rest is spent on the man struck). */
@@ -3446,7 +3446,7 @@ const DIAG = Math.SQRT1_2;
 /** Search directions for freePoint, in a fixed order (deterministic). */
 const DIRS8: [number, number][] = [[0, 1], [0, -1], [1, 0], [-1, 0], [DIAG, DIAG], [-DIAG, DIAG], [DIAG, -DIAG], [-DIAG, -DIAG]];
 
-export function slotPriority(u: SimUnit): number {
+function slotPriority(u: SimUnit): number {
   if (u.stats.role === 'ranged') return 3;
   if (u.stats.shield !== 'none' && u.stats.role === 'melee') return u.stats.weapon === 'spear' ? 0 : 1;
   if (u.stats.role === 'hybrid') return 2;

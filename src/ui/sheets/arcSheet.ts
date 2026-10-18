@@ -13,7 +13,7 @@ import { addScrollHint } from '../widgets';
 import { MOSAIC } from '../tokens';
 import { LINE_H } from '../textfit';
 import { uiId } from '../layout';
-import { SegmentedSwitch, SWITCH_H, mosaicImage, mtext, mw, openParchmentSheet, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
+import { SegmentedSwitch, SWITCH_H, mosaicImage, mtext, mw, openParchmentSheet, sheetWidth, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
 import { centeredFace, makePressable, put } from '../mosaic/base';
 import { journalEntry } from './eventCard';
 import { t } from '../../i18n';
@@ -32,7 +32,7 @@ export interface ArcLairRow {
   men: number;
 }
 
-export interface ArcModel {
+interface ArcModel {
   /** The goal sentence for the arc stage. */
   goal: string;
   /** "{town} is sacked..." while the start town burns. */
@@ -136,7 +136,9 @@ function journalPage(scene: UiScene, c: Phaser.GameObjects.Container | null, m: 
 
 export function openArcSheet(scene: UiScene, m: ArcModel, first: ArcTab = 'lairs', onClosed?: () => void): ArcHandle {
   const { VW, VH } = scene.m;
-  const w = VW - 16;
+  // the box the sheet gets: v5's in compact portrait, a side panel ≤ 320 in landscape (landscape-v6 §3.4)
+  // (compact landscape: the side panel's own width; asking for more would stretch it past its 280 cap)
+  const w = sheetWidth(scene, { w: scene.m.cls === 'compact' && scene.m.land ? 1 : VW - 16 });
   const iw = w - PAD * 2 - 4;
   let current: ArcTab = first;
   let closed = false;

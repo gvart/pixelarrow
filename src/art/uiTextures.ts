@@ -126,14 +126,6 @@ export function renderIcon(rows: string[], ink: number, hi: number): Pix {
   return px;
 }
 
-/** Simple horizontal bar background (for HP/morale meters). */
-export function renderBar(w: number, h: number, color: number, back: number): Pix {
-  const px = new Pix(w, h);
-  px.rect(0, 0, w, h, back);
-  px.rect(1, 1, w - 2, h - 2, color);
-  return px;
-}
-
 /**
  * Item slot frame: a dark well with a 1 px rarity-coloured border and a
  * brighter inner corner highlight. `size` x `size`.

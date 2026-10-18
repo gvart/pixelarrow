@@ -6,7 +6,8 @@
 import { describe, expect, it } from 'vitest';
 import { TEXT_MIN_PT, checkLayout, type UiElement } from '../src/ui/layoutCheck';
 import { HOVER_MS, canHover, hoverTip, type HoverPointer, type HoverTarget } from '../src/ui/hover';
-import allowlist from '../scripts/layout-allowlist.json';
+// @ts-expect-error plain .mjs module without types
+import { MATRIX, PER_SCREEN, loadAllowlist, splitEntry, storyOf } from '../scripts/lib/layoutMatrix.mjs';
 import layoutCheckSrc from '../scripts/layout-check.mjs?raw';
 
 const el = (id: string, kind: UiElement['kind'], x: number, y: number, w: number, h: number, extra: Partial<UiElement> = {}): UiElement => {
@@ -184,20 +185,26 @@ describe('hover tips (A11Y-15)', () => {
 // ------------------------------------------------------------------ allowlist
 
 describe('layout allowlist (AC1: existing violations, each with its owning story)', () => {
-  const groups = allowlist as unknown as Record<'A' | 'B' | 'C' | 'F', string[]> & { stories: Record<string, string> };
-  const keys = [...groups.A, ...groups.B, ...groups.C, ...groups.F];
+  const allowed: Map<string, string> = loadAllowlist(new URL('../scripts/layout-allowlist', import.meta.url).pathname);
+  const keys = [...allowed.keys()];
+  /** The foundation screens (owner F in the SCREENS table): clean at the phone portrait sizes, apart from the text-size floor. */
+  const foundation = (screen: string) => /^(menu|kit-|codex)/.test(screen) && !screen.startsWith('menu-shop');
+  const phonePortrait = new Set([...MATRIX.phone, ...MATRIX.v5]);
 
-  it('names the owning story of every entry, the foundation group too', () => {
-    for (const k of keys) expect(groups.stories[k], k).toMatch(/^[A-Z]+-\d{2}$/);
+  it('keeps every entry in its owning story file (scripts/layout-allowlist/<story>.json)', () => {
+    for (const [e, story] of allowed) expect(story, e).toBe(storyOf(splitEntry(e).key.split('|')[0]));
   });
 
   it('allows a whole screen only for the text-size floor; touch size, spacing and the tap probe stay per element', () => {
-    for (const k of keys.filter((x) => x.endsWith('|*'))) expect(k.split('|')[1], k).toBe('text-size');
-    for (const k of groups.F) expect(k.split('|')[1], k).toBe('text-size');
+    for (const e of keys) {
+      const { key, size } = splitEntry(e);
+      if (key.endsWith('|*')) expect(key.split('|')[1], e).toBe('text-size');
+      if (foundation(key.split('|')[0]) && (!size || phonePortrait.has(size))) expect(key.split('|')[1], e).toBe('text-size');
+    }
   });
 
-  it('the script knows the F group and per-screen entries', () => {
-    expect(layoutCheckSrc).toMatch(/const GROUPS = \['A', 'B', 'C', 'F'\]/);
-    expect(layoutCheckSrc).toMatch(/PER_SCREEN = new Set\(\['text-size'\]\)/);
+  it('the script reads the per-story allowlist and per-screen entries', () => {
+    expect(layoutCheckSrc).toContain("join(root, 'scripts/layout-allowlist')");
+    expect(PER_SCREEN).toEqual(new Set(['text-size']));
   });
 });

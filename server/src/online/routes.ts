@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv } from '../env';
 import { ApiError, badRequest } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
 import { isBound, itemDef, salvageValue, SLOTS, type Item, type Slot } from '../../../src/data/items';
 import { equipBlocker, equipBlockerText, equipInto, unequipInto } from '../../../src/game/gear';
 import { FORMATION_TYPES, type FormationType } from '../../../src/sim/formation';
@@ -69,7 +69,7 @@ import {
 } from './store';
 
 export const online = new Hono<AppEnv>();
-online.use('*', requireAuth);
+online.use('*', requirePlayable);
 
 const Formations = z.array(z.enum(FORMATION_TYPES as [string, ...string[]])).length(4);
 const HeroId = z.string().min(1).max(80);
@@ -266,7 +266,7 @@ online.get('/map', async (c) => {
 });
 
 /** The :loc route parameter: a region of the shard's map (400 otherwise). */
-export function parseLoc(c: { req: { param: (k: string) => string } }, shard: Shard): number {
+function parseLoc(c: { req: { param: (k: string) => string } }, shard: Shard): number {
   const raw = c.req.param('loc');
   const loc = /^\d{1,7}$/.test(raw) ? Number(raw) : NaN;
   if (!Number.isInteger(loc) || !shard.world.has(loc)) throw badRequest('No such region');

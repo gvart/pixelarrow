@@ -4,9 +4,9 @@
  * filter on `$metadata.event = "unhandled"`, `scope`, `path`, `pid` and so on
  * (docs/OPS.md "Monitoring"). Never log tokens, initData or names.
  */
-export type Level = 'debug' | 'info' | 'warn' | 'error';
+type Level = 'debug' | 'info' | 'warn' | 'error';
 
-export interface LogFields {
+interface LogFields {
   [k: string]: string | number | boolean | null | undefined;
 }
 

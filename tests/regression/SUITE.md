@@ -8,11 +8,18 @@
 ## How to run
 
 ```
-npm run regression                     # vite build if dist/ is missing, vite preview on :8047, every script, server stopped
-npm run regression -- --port 8051      # another port (one per agent, V5-004)
-npm run regression -- --all            # also the browser smokes (the smoke-check scope; not online-e2e)
+npm run regression -- --port 6150     # vite build if dist/ is missing, vite preview on that port, every script, server stopped
+npm run regression -- http://127.0.0.1:6150/   # against a server already running (a port in your own slot, V6-035)
+npm run regression -- <url> --platform web     # one platform mode; the default is both (telegram, then web)
+npm run regression -- <url> --all     # also the browser smokes (the smoke-check scope; not online-e2e)
+npm run regression -- <url> --all --jobs 3   # scripts at a time, each its own browser (default 2; --jobs 1 = in turn)
 npx vitest run tests/regression        # the unit guards (also part of `npm test`)
 ```
+
+There is no default port: a URL or `--port` is required (V6-035). Every browser script runs in both
+platform modes (V6-GATE-02, `scripts/lib/platform.mjs`): as a Telegram Mini App (the fake WebApp) and as a
+plain web page (no request to telegram.org); each script also takes `<url> --platform telegram|web|both`
+on its own. Nothing is retried: a flaky failure is reported with every run in `docs/v6/qa/FLAKY.md`.
 
 Exit 0 = pass, 1 = a script failed or timed out (killed after its limit), 2 = NOT ASSESSED (a script
 could not run, e.g. no Chromium for the replay check). A KNOWN line is a reported open bug: it is named in
@@ -50,7 +57,7 @@ the summary and never counted as a pass.
 | `tests/practice.test.ts` | V5-039 Trial farm |
 | `tests/trainReplay.test.ts`, `server/test/trainReplay.test.ts` | v2 replay hashes in Node and workerd |
 | `tests/layoutCheckConfig.test.ts` | layout-check sizes (320x640) and allowlist owners |
-| `scripts/smoke.mjs`, `tutorial-smoke.mjs`, `duel-smoke.mjs`, `online-smoke.mjs`, `fullscreen-smoke.mjs` | the smoke-check scope (`--all`) |
+| `scripts/smoke.mjs`, `tutorial-smoke.mjs`, `duel-smoke.mjs`, `online-smoke.mjs`, `fullscreen-smoke.mjs`, `audio-smoke.mjs` | the smoke-check scope (`--all`), each in both platform modes |
 | `scripts/online-e2e.mjs` | real server: attack, clan, live duel (needs wrangler with DEV_AUTH; not in the runner) |
 
 ## Known bugs
@@ -59,7 +66,7 @@ the summary and never counted as a pass.
 | --- | --- | --- | --- |
 | (none open) | | | |
 
-Fixed: QA02-B1 (a Settings replay skipped or finished went to FirstRun, not the screen Settings was opened from; now `TutorialStart.back`, routed by `tutorialExit`). Its battle-kinds check is a plain assertion.
+Fixed: QA02-B1 (a Settings replay skipped or finished went to FirstRun, not the screen Settings was opened from; now `TutorialStart.back`, routed by `tutorialExit`). Its battle-kinds check is a plain assertion. GATE02-B1 (signed out on the web the Shop stayed on "Opening the shop...": `fetchAll` threw from `create()`, where `sys.isActive()` is still false, so the catch never set the state; now it sets `outside` before any await and shows AU-01 "Sign in to play online"). Its online-smoke web check is a plain assertion.
 
 ## Known gaps
 

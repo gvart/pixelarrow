@@ -31,7 +31,7 @@ import { heroName } from '../../i18n/names';
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 type C = Phaser.GameObjects.Container;
 
-export interface ForgeSheetOpts {
+interface ForgeSheetOpts {
   /** The items the Smith takes (forgeCandidates), re-read on every redraw. */
   candidates: () => ForgeCandidate[];
   /** Gold in hand. */
@@ -129,7 +129,7 @@ export function openForgeSheet(scene: UiScene, o: ForgeSheetOpts): { close: () =
 
 // ------------------------------------------------------------------ one item
 
-export interface ForgeItemOpts extends ForgeSheetOpts {
+interface ForgeItemOpts extends ForgeSheetOpts {
   item: Item;
   hero?: Hero;
   onClose?: () => void;

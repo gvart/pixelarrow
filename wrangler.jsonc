@@ -1,8 +1,10 @@
-// One Cloudflare Worker serves the built game (dist/) as static assets on the
-// pixelarrow.app custom domain AND the backend API (server/, see
-// server/README.md). Only /api/* and /ws/* reach the Worker code; everything
-// else is plain static hosting with the SPA fallback. Deployed by
-// .github/workflows/deploy.yml after tests pass.
+// The game Worker (ADR-0007): serves the built game (dist/) as static assets on
+// the play.pixelarrow.app custom domain AND the backend API (server/, see
+// server/README.md), for the web and the Telegram Mini App. Only /api/*, /ws/*
+// and /admin reach the Worker code; everything else is plain static hosting
+// with the SPA fallback (headers from public/_headers). The landing site on
+// pixelarrow.app and www is a separate Worker (landing/wrangler.jsonc).
+// Deployed by .github/workflows/deploy.yml after tests pass.
 //
 // The D1 database id below is a placeholder: CI generates wrangler.deploy.json
 // from this file (server/scripts/deploy-config.mjs), filling in the
@@ -19,11 +21,43 @@
     "run_worker_first": ["/api/*", "/ws/*", "/admin", "/admin/*"]
   },
   "routes": [
-    { "pattern": "pixelarrow.app", "custom_domain": true }
+    { "pattern": "play.pixelarrow.app", "custom_domain": true }
   ],
   "vars": {
-    "GAME_URL": "https://pixelarrow.app"
+    "GAME_URL": "https://play.pixelarrow.app",
+    // The landing, which serves the legal pages linked from bot texts.
+    "LANDING_URL": "https://pixelarrow.app",
+    // The sender of account emails (ADR-0008 §4); must be on the domain
+    // onboarded in Email Service (docs/v6/OWNER_ACTIONS.md).
+    "MAIL_FROM": "noreply@pixelarrow.app"
+    // Secrets (wrangler secret put, never here): TELEGRAM_BOT_TOKEN,
+    // TELEGRAM_WEBHOOK_SECRET, ADMIN_TOKEN, PASSWORD_PEPPER, PASSWORD_PEPPER_ID,
+    // TURNSTILE_SECRET. DEV_AUTH and DEV_EMAIL are local-only (.dev.vars);
+    // deploy-config.mjs refuses a config that sets either.
   },
+  // Per-IP rate limits for the auth routes and the public stats API (ADR-0008 §5), enforced per
+  // Cloudflare location and eventually consistent: the cheap first gate that
+  // keeps floods away from Turnstile, D1 and the password hash.
+  // namespace_id must be unique on the account (bindings sharing one share
+  // counters); period is 10 or 60 seconds.
+  "ratelimits": [
+    // <route>:<ip> for signup, verify, resend, login, reset; also rename:<pid>
+    { "name": "RL_AUTH_IP", "namespace_id": "6001", "simple": { "limit": 10, "period": 60 } },
+    // tg:<ip> for /api/auth/telegram (initData is HMAC-signed, so no Turnstile)
+    { "name": "RL_TG_AUTH_IP", "namespace_id": "6002", "simple": { "limit": 30, "period": 60 } },
+    // public:<ip> for GET/HEAD /api/public/v1/summary (ADR-0010 §4). The landing
+    // reaches the snapshot through the PublicApi entrypoint instead, never this.
+    { "name": "RL_PUBLIC_IP", "namespace_id": "6003", "simple": { "limit": 60, "period": 60 } }
+  ],
+  // Account email through Cloudflare Email Service (ADR-0008 §4), only from
+  // MAIL_FROM. Local dev and tests use the dev outbox (DEV_EMAIL=1) instead.
+  // Not "remote": true (V6-ACCT-04): `remote` only changes local runs, and a
+  // remote binding makes `wrangler dev` and the workerd tests open a remote
+  // proxy session, which fails without a Cloudflare login. Deployed Workers
+  // always use the real binding.
+  "send_email": [
+    { "name": "EMAIL", "allowed_sender_addresses": ["noreply@pixelarrow.app"] }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

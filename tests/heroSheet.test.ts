@@ -4,21 +4,11 @@
  * that pays gold or spends a free retrain.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { KV } from '../src/game/save';
 
-function memKV(): KV {
-  const s = new Map<string, string>();
-  return { get: async (k) => s.get(k) ?? null, set: async (k, v) => void s.set(k, v), remove: async (k) => void s.delete(k) };
-}
-vi.mock('../src/platform/storage', () => ({
-  gameKV: () => ({ primary: memKV(), mirror: null, cloud: false }),
-  localKV: () => memKV(),
-  safeLocalStorage: () => null,
-}));
 vi.mock('../src/platform/cloud', () => ({
   online: { available: false, loadCachedEntitlements: async () => undefined, pullOnLoad: async () => null, abandonPull: () => undefined, queuePush: () => undefined },
 }));
-vi.mock('../src/platform/telegram', () => ({ setHaptics: () => undefined }));
+vi.mock('../src/platform/haptics', async (orig) => ({ ...(await orig<typeof import('../src/platform/haptics')>()), setHaptics: () => undefined }));
 
 import { state } from '../src/state';
 import { Campaign } from '../src/game/campaign';

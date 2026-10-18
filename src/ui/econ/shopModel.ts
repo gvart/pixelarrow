@@ -7,6 +7,8 @@
  * the Shop showed before the v5 rebuild.
  */
 import type { CosmeticInfo, EconomyCatalog, SeasonPassInfo, WalletInfo } from '../../platform/api';
+import type { PaymentStatus } from '../../platform/core';
+import { t } from '../../i18n';
 
 /** A look's state on its card: Equipped, Owned, earned elsewhere (pass, Duels, not for sale) or a price. */
 export type CosmeticOffer =
@@ -29,7 +31,7 @@ export function cosmeticOffer(cm: CosmeticInfo, wallet: Pick<WalletInfo, 'cosmet
 }
 
 /** The one action of a look's sheet: equip / take off, buy (or "Need n Dr" when short), or go where it is earned. */
-export type CosmeticAction =
+type CosmeticAction =
   | { id: 'shop.equip'; equip: boolean }
   | { id: 'shop.buyCosmetic'; price: number; short: boolean }
   | { id: 'shop.earnGo'; to: 'pass' | 'duels' }
@@ -50,7 +52,7 @@ export function cosmeticsBySlot(cat: Pick<EconomyCatalog, 'slots' | 'cosmetics'>
   return cat.slots.map((slot) => ({ slot, list: cat.cosmetics.filter((x) => x.slot === slot) })).filter((g) => g.list.length > 0);
 }
 
-export interface PackOffer {
+interface PackOffer {
   id: string;
   stars: number;
   drachmae: number;
@@ -64,6 +66,16 @@ export interface PackOffer {
 export function packOffers(cat: Pick<EconomyCatalog, 'packs'>): PackOffer[] {
   const best = cat.packs.reduce((a, pk) => (!a || pk.drachmae / pk.stars > a.drachmae / a.stars ? pk : a), null as (typeof cat.packs)[number] | null);
   return cat.packs.map((pk) => ({ id: pk.id, stars: pk.stars, drachmae: pk.drachmae, bonus: Math.round((pk.drachmae / pk.stars - 1) * 100), best: pk === best && cat.packs.length > 1 }));
+}
+
+/**
+ * A pack's button: the Stars price (Telegram's blue button) while Telegram Stars is this platform's
+ * provider, even when its sheet can't open right now; where no provider exists yet (the web), "Coming
+ * soon" with no price, off, with the reason a tap shows (AU-20, UXA-12). Prices never change here.
+ */
+export function packButton(s: PaymentStatus, stars: number): { label: string; stars: boolean; offReason?: string } {
+  if (!s.available && s.reason === 'coming_soon') return { label: t('shop.web.soon'), stars: false, offReason: t('shop.web.soonTip') };
+  return { label: t('res.starsPrice', { n: stars }), stars: true };
 }
 
 /** The premium track: its price and whether the wallet is short of it (then the button leads to the wallet). */

@@ -104,7 +104,7 @@ describe('analytics events', () => {
     // A free-text value or a wrong enum is dropped (its column stays, empty).
     expect(normalizeEvent('tutorial_step', { id: 'Hello World!', step: 3.4, extra: 'x' }, 'client')).toEqual({ event: 'tutorial_step', strings: [''], numbers: [3] });
     expect(normalizeEvent('battle_result', { mode: 'offline', result: 'maybe', ticks: 1e12 }, 'client')).toEqual({ event: 'battle_result', strings: ['offline', ''], numbers: [1_000_000] });
-    expect(scrubText('see https://x.app/p?tgWebAppData=user%3D123 and pa1.eyJhbGciOiJIUzI1NiJ9abcdefghijklmnop.c2lnbmF0dXJlc2lnbmF0dXJlc2ln')).toBe('see https://x.app/p and <redacted>');
+    expect(scrubText('see https://x.app/p?tgWebAppData=user%3D123 and pa2_Qm9vdHN0cmFwVG9rZW5PbmVUd29UaHJlZUZvdXJGaXZlU2l4')).toBe('see https://x.app/p and <redacted>');
   });
 
   it('accepts allowlisted client events, records first_battle once, honours opt-out', async () => {

@@ -18,9 +18,9 @@ import { BODY_METRICS, HEAD_METRICS, ROMAN_METRICS } from './fontMetrics';
 export type Face = 'body' | 'head' | 'roman';
 
 /** The kit's base font size (BitmapText fontSize); other sizes scale from it. */
-export const BASE_SIZE = 7;
+const BASE_SIZE = 7;
 /** Em size in UI px of body text at the base size. */
-export const FONT_PX = 8;
+const FONT_PX = 8;
 /** Em size in UI px of heading text at the base size (Cormorant runs small). */
 const HEAD_PX = 10;
 /** Em size in UI px of roman (Cinzel) text at the base size: caps as tall as the body's. */
@@ -37,7 +37,7 @@ const FACES: Record<Face, { css: string; px: number; m: { cap: number; adv: Reco
 };
 
 /** CSS font shorthand for a face at `px` CSS/canvas px. */
-export function cssFont(face: Face, px: number): string {
+function cssFont(face: Face, px: number): string {
   return FACES[face].css.replace('{px}', String(px));
 }
 
@@ -67,7 +67,7 @@ function naturalAdvance(ch: string, face: Face): number {
 }
 
 /** Every character with metrics (the set the UI may use). */
-export const UI_CHARS: readonly string[] = Object.keys(BODY_METRICS.adv);
+const UI_CHARS: readonly string[] = Object.keys(BODY_METRICS.adv);
 
 /**
  * The bundled families each face draws with, and a sample of what it draws
@@ -87,7 +87,7 @@ const FAMILIES: Record<Face, { family: string; weight: string; sample: string }[
  * fallback. `document.fonts.check` alone is not enough: it also answers true
  * when no @font-face of the family exists at all.
  */
-export function faceReady(face: Face): boolean {
+function faceReady(face: Face): boolean {
   if (typeof document === 'undefined' || !document.fonts) return false;
   const faces = [...(document.fonts as unknown as Iterable<FontFace>)];
   return FAMILIES[face].every(
@@ -134,7 +134,7 @@ function glyphAdvances(face: Face, K: number, ready: boolean, drawn: readonly nu
   });
 }
 
-export interface VectorGlyph {
+interface VectorGlyph {
   ch: string;
   /** Cell in the atlas (atlas px). */
   x: number;

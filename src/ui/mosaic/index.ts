@@ -5,7 +5,7 @@
  */
 export { ScreenFrame, TOPBAR_H, type Box, type ScreenFrameOpts } from './ScreenFrame';
 export { TopBar, type TopAction, type TopBarOpts } from './TopBar';
-export { TabBar, type TabBarOpts } from './TabBar';
+export { NavRail, TabBar, type ModeNav, type TabBarOpts } from './TabBar';
 export { MODE_TABS, TAB_H, MEDALLION_RISE, tabLayout, tabSlotWidths, fitTabLabels, TAB_LABEL_STYLES, type TabId, type TabLayout, type TabLabelStyle, type TabLabelFit } from './tabLayout';
 export { badgeText, wrapWords, chipText, buttonLabelSizes, switchLabelStyle, scrollCue } from './policy';
 export { addRowFace, addPortraitWell, ParchmentCard, SectionTitle, SECTION_TITLE_H, ProfileCard, QuestCard, FrescoBanner, ParchmentRow, ROW_H, type ParchmentCardOpts, type ProfileCardOpts, type StatLine, type QuestCardOpts, type FrescoBannerOpts, type ParchmentRowOpts } from './cards';
@@ -21,10 +21,10 @@ export { rarityInk, rarityInkKey, ensureRarityInk } from './rarityInk';
 export { MBar, type MBarOpts } from './meters';
 export { addSubShell, gearAction, type SubShell, type FramedSubShell, type SubShellOpts } from './subShell';
 export { addTipLine, type TipLineOpts } from './tips';
-export { openParchmentSheet, sheetActionsH, SHEET_TITLE_H, SHEET_ACTION_H, type ParchmentSheetOpts, type ParchmentSheetHandle } from './ParchmentSheet';
+export { openParchmentSheet, addParchmentPane, sheetBox, sheetActionsH, sheetWidth, SHEET_TITLE_H, SHEET_ACTION_H, type ParchmentSheetOpts, type ParchmentSheetHandle } from './ParchmentSheet';
 export { MIconButton, type MIconButtonOpts, type MIconButtonVariant } from './iconButton';
 export { MActionBar, actionBarH, type BarSlot, type MActionBarOpts } from './ActionBar';
-export { SituationLine, ChipRow, CHIP_ROW_H, type SituationChip } from './SituationLine';
+export { SituationLine, ChipRow, CHIP_ROW_H, situationLineH, type SituationChip } from './SituationLine';
 export { RoundButton, type RoundButtonOpts } from './RoundButton';
 export { addPill, pillWidth, addRarityPill } from './pill';
 export { addNiche } from './Niche';
@@ -32,6 +32,7 @@ export { GearSlot, mountSlot, slotGrid, type GearSlotOpts, type SlotGrid } from 
 export { MPager, PAGER_W, addSwipe, type PagerOpts } from './Pager';
 export { Toggle, Stepper, type ToggleOpts, type StepperOpts } from './toggles';
 export { purchaseButton, confirmPurchase } from './purchase';
+export { CountdownLabel, formatCountdown, runCountdown } from './CountdownLabel';
 export { flyReward, addClaimGlow, type FlyTarget } from './rewardFx';
 export { addMedallion } from './medallion';
 export { MStashGrid, type MStashGridOpts } from './StashGrid';

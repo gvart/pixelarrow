@@ -212,7 +212,7 @@ const ONGOING_KEY = 'pixelarrow.duel.ongoing';
 /** A remembered match older than this is over either way (the server voids a match after 12 minutes). */
 const ONGOING_MAX_MS = 15 * 60_000;
 
-export interface OngoingMatch {
+interface OngoingMatch {
   id: string;
   mode: DuelMode;
   at: number;

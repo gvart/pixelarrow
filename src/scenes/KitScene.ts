@@ -27,18 +27,31 @@ import { Cursor } from './kit/common';
 import { buildTokens, buildType } from './kit/tokensPage';
 import { buildStates } from './kit/statesPage';
 import { buildOverlays, openOverlaySample } from './kit/overlaysPage';
+import { buildForms, openFormSample } from './kit/formsPage';
 import { buildIcons } from './kit/iconsPage';
 import { buildArmy } from './kit/armyPage';
+import { buildLayouts, type LayoutDemo, type LayoutSample, type LayoutsPage } from './kit/layoutsPage';
+import { BUTTON_MAX } from '../ui/sizeClass';
+import { uiLayout } from '../ui/layout';
 import { BottomPanel, FrescoBanner, addSubShell, addParchmentEmpty, GAP, MButton, MChip, MIconButton, ParchmentCard, ParchmentRow, ProfileCard, QuestCard, ScreenFrame, SectionTitle, SegmentedSwitch, StoneTile, TabBar, TAB_H, TAP, TopBar, ROW_H, SECTION_TITLE_H, SWITCH_H, openParchmentSheet, type TabId } from '../ui/mosaic';
 
 interface KitData {
   tab?: number;
   /** A page id (catalog.ts KIT_PAGES); `tab` wins when both are given. */
   page?: string;
+  /** The Layouts page: its demo, the selected row of the List demo, left-hand mode. */
+  demo?: LayoutDemo;
+  sel?: number;
+  left?: boolean;
 }
 
+/** The Layouts page (V6-RFND-02): the one Kit page opted in to the size classes (ADR-0013). */
+const LAYOUTS_TAB = KIT_PAGES.find((p) => p.id === 'layouts')!.tab;
+/** The Overlays page (V6-RSCR-10): opted in too, so its sheets and dialogs show the §3.4 presentations. */
+const OVERLAYS_TAB = KIT_PAGES.find((p) => p.id === 'overlays')!.tab;
+
 /** The v5 pages: their builder on a framed parchment page. */
-const V5_PAGES: Record<number, (cur: Cursor) => void> = { 7: buildTokens, 8: buildType, 9: buildStates, 10: buildOverlays, 11: buildIcons, 12: buildArmy };
+const V5_PAGES: Record<number, (cur: Cursor) => void> = { 7: buildTokens, 8: buildType, 9: buildStates, 10: buildOverlays, 11: buildIcons, 12: buildArmy, 14: buildForms };
 
 /** Height of the pager row at the top, UI px. */
 const HEAD = 30;
@@ -47,14 +60,18 @@ export class KitScene extends BaseScene {
   private page: Phaser.GameObjects.Container | null = null;
   private cleanup: (() => void)[] = [];
   private tab = 0;
+  private layoutsPage: LayoutsPage | null = null;
+  /** Only the Layouts page lays out in the full safe area; the older pages keep the v5 column. */
+  protected override responsive = false;
 
   constructor() {
     super('Kit');
   }
 
   create(data: KitData): void {
-    this.initUi();
     this.tab = kitTab(data, location.search);
+    this.responsive = this.tab === LAYOUTS_TAB || this.tab === OVERLAYS_TAB;
+    this.initUi();
     this.screen({ back: () => this.scene.start('Menu', {}) });
     const { VW } = this.m;
     this.ui.add(this.add.rectangle(0, 0, VW, this.m.VH, SURFACE.bg).setOrigin(0, 0));
@@ -62,10 +79,11 @@ export class KitScene extends BaseScene {
     if (this.tab === SHELL_TAB) return this.show(SHELL_TAB);
     const name = KIT_PAGES.find((p) => p.tab === this.tab)?.name ?? '';
     const n = KIT_PAGES.findIndex((p) => p.tab === this.tab) + 1;
-    const mid = VW - 12 - 2 * (TAP + GAP);
+    // a page laid out in the full width keeps the pager's title a button, not a banner (§2.3)
+    const mid = Math.min(VW - 12 - 2 * (TAP + GAP), this.responsive ? BUTTON_MAX : Infinity);
     this.ui.add(new MIconButton(this, 6, 4, TAP, TAP, { icon: 'chevL', label: 'Previous page', variant: 'neutral', id: 'kit.prev', onClick: () => this.go(stepPage(this.tab, -1)) }));
     this.ui.add(new MButton(this, 6 + TAP + GAP, 4, mid, TAP, { label: `${name} ${n}/${KIT_PAGES.length}`, variant: 'secondary', id: 'kit.pages', onClick: () => this.pageList() }));
-    this.ui.add(new MIconButton(this, VW - 6 - TAP, 4, TAP, TAP, { icon: 'chevR', label: 'Next page', variant: 'neutral', id: 'kit.next', onClick: () => this.go(stepPage(this.tab, 1)) }));
+    this.ui.add(new MIconButton(this, 6 + TAP + GAP + mid + GAP, 4, TAP, TAP, { icon: 'chevR', label: 'Next page', variant: 'neutral', id: 'kit.next', onClick: () => this.go(stepPage(this.tab, 1)) }));
     this.show(this.tab);
   }
 
@@ -74,22 +92,35 @@ export class KitScene extends BaseScene {
     this.scene.restart({ tab });
   }
 
-  /** Every page in a sheet: a tap opens it. */
+  /** Every page in a sheet: a tap opens it. The list scrolls where the sheet would not fit (phone landscape). */
   pageList(): void {
     const w = Math.min(200, this.m.VW - 16);
     const bw = Math.floor((w - 16 - GAP) / 2);
     const rows = Math.ceil(KIT_PAGES.length / 2);
     const m = openParchmentSheet(this, { title: 'UI kit', w, h: 26 + rows * (TAP + GAP) + 12, id: 'kit.pageList' });
+    const area = new ScrollArea(this, m.c, m.body.x, m.body.y, m.body.w, m.body.h, this.m.S);
+    m.c.once('destroy', () => area.destroy());
     KIT_PAGES.forEach((p, i) => {
-      const x = m.body.x + (i % 2) * (bw + GAP);
-      const y = m.body.y + Math.floor(i / 2) * (TAP + GAP);
-      m.c.add(new MButton(this, x, y, i % 2 ? m.body.w - bw - GAP : bw, TAP, { label: p.name, variant: p.tab === this.tab ? 'lit' : 'neutral', id: `kit.page.${p.id}`, onClick: () => (m.close(), this.go(p.tab)) }));
+      const x = (i % 2) * (bw + GAP);
+      const y = Math.floor(i / 2) * (TAP + GAP);
+      area.content.add(new MButton(this, x, y, i % 2 ? m.body.w - bw - GAP : bw, TAP, { label: p.name, variant: p.tab === this.tab ? 'lit' : 'neutral', id: `kit.page.${p.id}`, onClick: () => (m.close(), this.go(p.tab)) }));
     });
+    area.setContentHeight(rows * (TAP + GAP) - GAP);
+  }
+
+  /** Opens a sample of the Layouts page: a panel, a folded pane, the detail sheet or the rotate card (scripts, the layout check). */
+  layoutsSample(id: LayoutSample): void {
+    this.layoutsPage?.sample(id);
   }
 
   /** Opens an overlay sample of the Overlays page (scripts, the layout check). */
   openSample(id: string): void {
     openOverlaySample(this, id);
+  }
+
+  /** Opens a sample of the Forms page: an AuthForm state or Check your email (scripts, screenshots). */
+  openFormSample(id: string): void {
+    openFormSample(this, id);
   }
 
   private show(i: number): void {
@@ -99,7 +130,9 @@ export class KitScene extends BaseScene {
     this.page?.destroy();
     this.page = this.add.container(0, 0);
     this.ui.add(this.page);
+    this.layoutsPage = null;
     if (V5_PAGES[i]) this.v5(this.page, V5_PAGES[i]);
+    else if (i === LAYOUTS_TAB) this.layouts(this.page);
     else if (i === 0) this.controls(this.page);
     else if (i === 1) this.items(this.page);
     else if (i === 2) this.lists(this.page);
@@ -118,8 +151,22 @@ export class KitScene extends BaseScene {
     const area = new ScrollArea(this, p, c0.x + 4, c0.y + 3, c0.w - 8, c0.h - 3, this.m.S);
     this.cleanup.push(() => area.destroy());
     const cur = new Cursor(this, area, c0.w - 8 - 4);
+    if (this.responsive) uiLayout(this, this.m.cls, this.m.land);
     build(cur);
     cur.done();
+  }
+
+  /** The Layouts page (src/scenes/kit/layoutsPage.ts); its demo and selection live in the scene data, so a resize keeps them. */
+  private layouts(p: Phaser.GameObjects.Container): void {
+    const data = (this.sys.settings.data ?? {}) as KitData;
+    this.layoutsPage = buildLayouts(this, p, {
+      top: HEAD,
+      demo: data.demo ?? 'panes',
+      sel: data.sel ?? 0,
+      leftHand: !!data.left,
+      go: (o) => this.scene.restart({ ...data, tab: LAYOUTS_TAB, ...o }),
+      cleanup: (f) => this.cleanup.push(f),
+    });
   }
 
   /** The rest of the shared v4 parts (src/scenes/kit/mosaicParts.ts), each in its states, on a parchment page. */

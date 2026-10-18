@@ -60,6 +60,29 @@ export async function prepContext(c) {
 }
 
 /**
+ * Test lever (V6-QA-SPEED): the game clock on real frame time. Below 5 fps Phaser hands every scene a
+ * smoothed delta of 16.7 ms a frame whatever the frame took (TimeStep.smoothDelta), so on a loaded machine
+ * drawing a frame or two a second the game ran at 1/15 to 1/70 of real time (a guided battle at 1920x1080
+ * took most of the runner's 30 minutes). With this, each frame passes its real time, capped at `capMs`
+ * (the battle's own cap a frame, BattleScene.update): the game runs as on a slow phone, not in slow motion.
+ * An init script on the context sets it on `window.__game` as main.ts publishes it (every load and
+ * reload); the game build has no such switch. The battle and the tutorial's battle script already run on
+ * real time in the game (BattleScene: loop.rawDelta, which this leaves alone); this still covers what reads
+ * Phaser's delta: tweens, the deployment clock and the narrator's timers.
+ */
+export async function realClock(ctx, capMs = 250) {
+  await ctx.addInitScript((cap) => {
+    Object.defineProperty(window, '__game', {
+      configurable: true,
+      set(g) {
+        g.loop.smoothDelta = (d) => Math.min(d, cap);
+        Object.defineProperty(window, '__game', { value: g, writable: true, configurable: true, enumerable: true });
+      },
+    });
+  }, capMs);
+}
+
+/**
  * Collects console errors and page errors of a page into `into` (returned).
  *   ignoreNetwork  skip the browser's own "Failed to load resource" lines (pushed to `network` instead, when given)
  *   console        false: page errors only
@@ -114,6 +137,57 @@ export async function until(fn, ms = 15000, step = 250) {
     await sleep(step);
   }
   return false;
+}
+
+/**
+ * True once `key` is the scene in front and has settled: active and running, its loader idle (late art
+ * landed), no camera fade, its entry motion over (BaseScene.enterMotion: ui.alpha 1, ui.x 0). Polls up to
+ * `ms`. (scripts/regression/lib.mjs re-exports it.)
+ */
+export function settled(api, key, ms = 20000) {
+  return until(
+    () =>
+      api.ev((k) => {
+        const g = window.__game;
+        const s = g?.scene.getScene(k);
+        // isActive: the scene's status is RUNNING (not starting or shutting down)
+        if (!s || !s.sys.isActive()) return false;
+        if (s.load.isLoading()) return false;
+        if (s.cameras.cameras.some((c) => c.fadeEffect.isRunning)) return false;
+        return !s.ui || (s.ui.alpha === 1 && s.ui.x === 0);
+      }, key),
+    ms,
+    150,
+  );
+}
+
+/** Resolves once the game has run at least `n` more frames (a state, not a sleep: slow frames take longer). */
+export const nextFrame = (ev, n = 1) =>
+  ev(
+    (k) =>
+      new Promise((done) => {
+        const f = window.__game.loop.frame;
+        const tick = () => (window.__game.loop.frame >= f + k ? done(true) : requestAnimationFrame(tick));
+        tick();
+      }),
+    n,
+  );
+
+/**
+ * The page point `find()` returns (a button's centre, say; null while absent) once it stands still: the same
+ * before and after a game frame, so a sheet, card or dialog that slides or pops in has landed before the tap.
+ * Polls up to `ms`; null if it never shows or never stops.
+ */
+export async function steady(ev, find, ms = 15000) {
+  let p = null;
+  const ok = await until(async () => {
+    const a = await find();
+    if (!a) return false;
+    await nextFrame(ev);
+    p = await find();
+    return !!p && p[0] === a[0] && p[1] === a[1];
+  }, ms, 100);
+  return ok ? p : null;
 }
 
 // ------------------------------------------------------------------ page API

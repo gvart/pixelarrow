@@ -1,0 +1,23 @@
+---
+// "Skip to content": the first focusable element on the page (STRUCTURE.md "Global chrome").
+---
+<a class="skip" href="#content">Skip to content</a>
+
+<style is:global>
+  .skip {
+    position: fixed;
+    top: var(--s2);
+    left: var(--s2);
+    z-index: 100;
+    padding: var(--s3) var(--s4);
+    border-radius: var(--radius);
+    background: var(--cream);
+    color: var(--night);
+    font-weight: 600;
+    text-decoration: none;
+    transform: translateY(calc(-100% - var(--s4)));
+  }
+  .skip:focus-visible {
+    transform: none;
+  }
+</style>

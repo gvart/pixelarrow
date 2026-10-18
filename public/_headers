@@ -1,0 +1,16 @@
+# Headers for the game's static files on play.pixelarrow.app (Workers static
+# assets; the Worker's own responses set theirs in server/src/index.ts).
+# Telegram Web shows the Mini App in an iframe, so play may be framed by itself
+# and web.telegram.org only (ADR-0007). Never add X-Frame-Options here.
+/*
+  Content-Security-Policy: frame-ancestors 'self' https://web.telegram.org
+
+# The standalone email-link pages (V6-ACCT-06; ADR-0008 §4, M-AF-6). Their links carry a token in
+# #t=: never send a Referer, never frame them (the reset form is a clickjacking target; Telegram
+# never frames them), and allow nothing but this origin plus Cloudflare Turnstile (a new-link form).
+# This CSP adds to the one above (both apply, so frame-ancestors is 'none' here).
+/auth/*
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Cache-Control: no-cache
+  Content-Security-Policy: default-src 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; frame-src https://challenges.cloudflare.com; form-action 'self'; base-uri 'none'; frame-ancestors 'none'

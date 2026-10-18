@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import type { ScrollArea } from '../kit';
 import { ScreenFrame, type Box } from './ScreenFrame';
-import { TabBar } from './TabBar';
+import { NavRail, TabBar, type ModeNav } from './TabBar';
 import { TAB_H, type TabId } from './tabLayout';
 import { buildPage, type UiScene } from './subShell';
 
@@ -24,7 +24,8 @@ export function goTab(scene: Phaser.Scene, id: TabId): void {
 
 export interface HubShell {
   frame: ScreenFrame;
-  tabs: TabBar;
+  /** The tab bar (portrait) or the nav rail (landscape, design/ux/landscape-v6.md §3.1). */
+  tabs: ModeNav;
   area: ScrollArea;
   /** The parchment area inside the frame, UI px. */
   content: Box;
@@ -38,10 +39,18 @@ export interface HubShell {
  * parts go into (default the scene's UI root).
  */
 export function addHubShell(scene: UiScene, o: { title: string; active: TabId; reserve?: number; parent?: Phaser.GameObjects.Container }): HubShell {
-  const { VW, VH } = scene.m;
+  const { VW, VH, land, cls, navW } = scene.m;
   const parent = o.parent ?? scene.ui;
+  const onSelect = (id: TabId) => id !== o.active && goTab(scene, id);
+  // landscape (§3.1): the five modes in a rail down the left edge, the page beside it at full height
+  if (land) {
+    const page = buildPage(scene, { title: o.title, id: 'hub.topbar', reserve: o.reserve, parent, x: navW });
+    const rail = new NavRail(scene, VH, cls === 'compact', { active: o.active, onSelect });
+    parent.add(rail);
+    return { frame: page.frame, tabs: rail, area: page.area!, content: page.content, w: page.w };
+  }
   const page = buildPage(scene, { title: o.title, id: 'hub.topbar', tabBar: TAB_H, reserve: o.reserve, parent });
-  const tabs = new TabBar(scene, VW, VH, { active: o.active, onSelect: (id) => id !== o.active && goTab(scene, id) });
+  const tabs = new TabBar(scene, VW, VH, { active: o.active, onSelect });
   parent.add(tabs);
   return { frame: page.frame, tabs, area: page.area!, content: page.content, w: page.w };
 }

@@ -274,6 +274,8 @@ to Inter at that size, then ends in "..."** (`fitCinzel` in kit.ts, used by
 | States | `addParchmentEmpty`, `addEconState` (loading, offline, closed) | empty and unavailable states on a parchment well. |
 | Party parts | `GearSlot`, `mountSlot`, `slotGrid`, `MPager`, `MStashGrid`, `addNiche` | Army / Hero / Settlement. |
 | Text | `rarityInk(scene, rarity)`, `mtext`, `mw`, `fit` | item names in their rarity ink; fitted one-line text. |
+| Countdowns | `CountdownLabel`, `runCountdown` | m:ss on the wall clock with a callback at zero (Resend, link codes). |
+| Forms (HTML) | `AuthHost` / `AuthForm` (`src/ui/form/authForm.ts`), `promptFields` | anything typed: real DOM inputs over the canvas (password managers, autofill, paste, the phone keyboard, Turnstile). Field kinds `email`, `newPassword`, `currentPassword`, `nickname`, `confirmWord`, `text`; one card at a time, a form that leads to another replaces it in place; Back, Esc and Cancel go back. Kit: the Forms page. |
 
 Pick: a hub gets `addHubShell`; anything you reach from it gets `addSubShell`;
 a question or a detail is a sheet, not a screen; actions live in a `MActionBar`
@@ -479,10 +481,22 @@ World (WorldScene)     map shell (top bar strip) · SituationLine (sentence + ch
 ## Layout check
 
 `node scripts/layout-check.mjs <url>` (needs `npm run build` and
-`npx vite preview`, or the dev server) visits every screen at 320x568,
-375x667, 390x844, 430x932 and 360x780, plain and inside a fake full-screen
-Telegram (insets top 59 + 46, bottom 34), in English and Russian, scrolls every
-list to its end and checks again. It fails on:
+`npx vite preview`, or the dev server) visits every screen across the v6
+screen matrix, in English and Russian, scrolls every list to its end and
+checks again. The sizes live in `scripts/lib/layoutMatrix.mjs`, by group
+(`--matrix`, comma-separated; default `all`):
+
+| Group | Sizes |
+| --- | --- |
+| `phone` | 390x844 (design size), 360x780, 320x693 |
+| `landscape` | 844x390 (phone landscape), 1024x768, 1280x800, 1440x900, 1920x1080 |
+| `tablet` | 768x1024, 820x1180 |
+| `all` | the ten above |
+| `v5` | 320x568, 375x667, 430x932, 320x640: the v5 phone sizes, outside the matrix; CI still runs them |
+
+At phone sizes it also runs inside a fake full-screen Telegram: insets top
+59 + 46 and bottom 34 in portrait; sides 59, top 46 and bottom 21 at 844x390.
+Tablets and laptops run plain only. It fails on:
 
 - `overlap` / `spacing`: interactive elements overlapping or closer than 4 pt;
 - `text-overflow`: text outside its box (its button / panel, or wider than
@@ -494,11 +508,69 @@ list to its end and checks again. It fails on:
 - `touch-size`: an interactive element under 44 pt.
 
 Screenshots: `shots/layout/<lang>-<plain|tg>/<W>x<H>/<screen>.png`
-(git-ignored; CI uploads them as artifacts), summary in
-`shots/layout/index.md`. Options: `--screens`, `--sizes`,
-`--langs`, `--insets`, `--verbose`, `--update-allowlist`, `--shard i/n` (every
-n-th configuration; CI runs 10 shards in parallel) and `--split k` (each
-configuration's screens in k contexts, run in parallel by `--jobs`).
+(git-ignored; `$SHOTS` moves them; CI uploads them as artifacts), summary in
+`shots/layout/index.md`: a per-size table (screens clean, with only
+allowlisted violations, or failed, and the browser time) and the violations
+per screen. The console prints the same per-size table. Options: `--matrix`,
+`--sizes` (wins over `--matrix`), `--langs`, `--insets`,
+`--no-shots`, `--verbose`, `--update-allowlist`, `--shard i/n` (every n-th
+configuration) and `--split k` (each configuration's screens in k contexts,
+run in parallel by `--jobs`, default half the CPUs, 2 to 6). CI runs one job
+per size and language (`--sizes WxH --langs xx`). `shots/layout/found.json`
+lists every violation with the configurations it showed in, so two runs
+compare with a plain diff.
+
+**Which screens (V6-030).** The full matrix is for integrators and final QA.
+Story agents run a subset:
+
+| Mode | Runs | Use |
+| --- | --- | --- |
+| `--quick [base]` | the screens your branch's changes can affect at all ten sizes, plus a smoke subset (`QUICK` in `scripts/lib/layoutScenes.mjs`: menu, settings, a kit sheet, world, army, hero, battle, results, shop, duel ladder, war map) at 390x844 and 1280x800 | story agents, before handing off |
+| `--changed [base]` | only the screens the changes can affect (all sizes, or what `--matrix` / `--sizes` say) | narrowing any run |
+| `--scenes a,kit-*` | these screens: ids or `*` / `?` globs, comma-separated (`--screens` is the older name); with `--quick`, added to the changed ones | a screen family you are fixing |
+| (none) | every screen at every matrix size | integrators, final QA |
+
+`base` defaults to `v6`, else `main`; the changes are everything since the
+merge base with it, uncommitted and untracked files included. `--list`
+prints what each size would visit and stops (no browser). The map from
+files to screens (`screensForChanges`) is conservative:
+
+- a changed `src/` file counts for every scene that imports it, directly or
+  through other modules (an import graph read from the sources), and for the
+  screens whose staging names those scenes (`sceneKeysOf`: the scene keys in
+  the screen's `run` and the helpers it calls); a screen that names no scene
+  is taken for any `src/` change;
+- an i18n dictionary (`src/i18n/*.ts`) counts for the files that use its key
+  prefixes (`'market.`); a prefix no file names means every screen;
+- every screen when the change reaches what all screens share: `main.ts`,
+  the Boot scene, `BaseScene` and their imports (the kit, layout, language,
+  safe area, render scale, sprites, rasters), apart from the services listed
+  in `SERVICES` (state, cloud, navigation, audio, routing, and the widget and
+  duel-invite installers, whose hooks never fire in the check); also for the
+  check itself, `public/`, `index.html`, `package.json` and the Vite and TS
+  configs, a deleted file, or a file nothing imports;
+- a changed allowlist file counts for the screens on its changed lines; files
+  outside `src/` (docs, server, landing, tests) count for none.
+
+When `--quick`'s change reaches every screen it runs the smoke subset at
+every size instead and says so: name the screens you changed with `--scenes`,
+and the integrator's full run covers the rest.
+
+**Speed.** Staging waits are state waits (`scripts/lib/settle.mjs`): a
+screen's `wait(p, ms)` ends once the game is quiet (no battle running, no
+scene starting or loading, no camera fade, pan or zoom, no finite tween, no
+Phaser timer or `setTimeout` due before the deadline, no fetch outstanding;
+checked inside the page on two animation frames in a row, two game frames
+on) and never later than `ms`, so a run sees the same states as the old
+fixed sleeps, sooner. A running battle never counts as quiet: what it shows
+depends on the time elapsed. `until` polls inside the page on every frame
+too, with no round trip per poll. `--fixed-waits` brings the sleeps back (to
+compare, or to rule waits out when a screen turns flaky); `--timing` prints
+where the time went (browser, page load, boot, staging, waits, settle,
+check, screenshots, scroll pass) and what kept waits to their deadline.
+Measured on one configuration (en, plain, 390x844, 196 screens, one
+context, a loaded 10-core machine): 417 s with fixed sleeps (265 s of them
+sleeping), 281 s with state waits (113 s waiting), the same violations.
 
 **Registering:** nothing to do for kit components and plain Phaser objects:
 the registry walks the display list (interactive objects and bitmap texts;
@@ -523,9 +595,19 @@ content: clipped to the view, never compared with the UI drawn over them.
 **New screens** go into the `SCREENS` table of `scripts/layout-check.mjs`
 with an owner and a staging function (start the scene, open the dialog).
 
-**Allowlist:** `scripts/layout-allowlist.json` lists known violations by
-owner. Keys are `screen|check|element ids`. CI fails on anything not listed.
-Fix your entries and delete them; the list must end up empty. Never add
-entries for new work (`--update-allowlist` rewrites the file from the current
-state: review the diff, it should only shrink). The foundation screens (menu,
-settings, kit gallery) are never allowlisted.
+**Allowlist:** `scripts/layout-allowlist/<story>.json` lists known
+violations, one file per owner story (the V6-RSCR story of the screen's
+family, `STORY_OF` in `scripts/lib/layoutMatrix.mjs`), so stories working in
+parallel never edit the same file. Each file is `{ "_doc", "entries" }`.
+Keys are `screen|check|element ids`, or `screen|check|*` for the whole screen
+(the text-size floor only); a trailing `@WxH` scopes an entry to one size, and
+an unscoped entry holds at every size. A violation not listed at the size it
+shows at fails the run (after a second look, see `--no-retry`). Fix your
+entries and delete them; delete your file when it is empty: the lists only
+shrink. Never add entries for new work (`--update-allowlist` rewrites the
+files from the current state, adding new violations scoped to their size:
+review the diff, it should only shrink; run it on the whole matrix, since an
+unscoped entry only counts as fixed after a run of every matrix size). The
+foundation screens (menu, settings, kit gallery) are never allowlisted at the
+phone portrait sizes, apart from the text-size floor; their findings at the
+other matrix sizes belong to their family's story (V6-RSCR-01, -10, -11).

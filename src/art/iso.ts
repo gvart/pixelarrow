@@ -15,8 +15,6 @@
  */
 export const ISO_HW = 18;
 export const ISO_HH = 9;
-export const ISO_TW = ISO_HW * 2;
-export const ISO_TH = ISO_HH * 2;
 
 export interface Pt {
   x: number;

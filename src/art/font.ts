@@ -171,8 +171,6 @@ const G: Record<string, string[]> = {
   'ю': ['.....', '.....', '#..#.', '#.#.#', '###.#', '#.#.#', '#..#.'],
   'я': ['....', '....', '.###', '#..#', '.###', '.#.#', '#..#'],
 };
-
-export const FONT_LINE_HEIGHT = 9;
 /** Atlas row pitch: the line plus one row for the drop shadow under descenders. */
 export const FONT_CELL_H = 10;
 
@@ -182,15 +180,6 @@ export interface GlyphInfo {
   y: number;
   w: number;
 }
-
-/** Width in pixels of a glyph (without shadow), or -1 when the font has no such glyph. */
-export function glyphWidth(ch: string): number {
-  const g = G[ch] ?? G[ch.toUpperCase()];
-  return g ? g[0].length : -1;
-}
-
-/** Every character the font can draw (lower case maps onto upper case). */
-export const FONT_CHARS: readonly string[] = Object.keys(G);
 
 /** Render the glyph atlas (white glyphs, plus optional 1px drop shadow colour). */
 export function renderFontAtlas(color: number, shadow?: number): { canvas: HTMLCanvasElement; glyphs: GlyphInfo[] } {

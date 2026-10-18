@@ -41,16 +41,6 @@ export type MountId = 'horse' | 'chariot';
 /** Animals and mythical beasts (src/data/beasts.ts). */
 export type BeastId = 'wolf' | 'boar' | 'bear' | MythId;
 
-export const ROLE_LABEL: Record<ClassRole, string> = {
-  levy: 'Levy',
-  heavy: 'Heavy infantry',
-  ranged: 'Ranged',
-  light: 'Light / shock',
-  cavalry: 'Cavalry',
-  elite: 'Elite',
-  beast: 'Beast',
-};
-
 /** Kit options per tier (index 0..2): item ids, one picked per slot. */
 type Kit = Partial<Record<'weapon' | 'shield' | 'helmet' | 'armor', string[][]>>;
 
@@ -351,10 +341,8 @@ const defs: ClassDef[] = [
 
 export const CLASSES: Record<ClassId, ClassDef> = Object.fromEntries(defs.map((d) => [d.id, d])) as Record<ClassId, ClassDef>;
 export const CLASS_LIST: readonly ClassDef[] = defs;
-export const CLASS_IDS: ClassId[] = defs.map((d) => d.id);
 /** Classes a player can field (not animals). */
 export const SOLDIER_CLASSES: ClassId[] = defs.filter((d) => d.kind !== 'animal').map((d) => d.id);
-export const BEAST_CLASSES: ClassId[] = defs.filter((d) => d.kind === 'animal').map((d) => d.id);
 
 for (const d of defs) registerClassTree(d.id, d.tree);
 

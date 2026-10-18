@@ -68,7 +68,7 @@ export interface DuelState {
 
 export type RelayMsg = Extract<ClientMsg, { type: 'd_order' | 'd_ready' | 'cmd' | 'reach' | 'end' }>;
 
-export interface RelayStep {
+interface RelayStep {
   out: Out[];
   /** The duel is over: a desync, or the verified result (in d.result, with the server's replay). */
   ended?: 'desync' | 'result';
@@ -80,7 +80,7 @@ export interface RelayStep {
  * groups and men (no new groups, no randomness), so the two sides' deployment
  * orders commute and can be revealed at go without changing the outcome.
  */
-export const DEPLOY_KINDS: ReadonlySet<Order['kind']> = new Set(['form', 'preset', 'order', 'shieldwall', 'loose', 'assign']);
+const DEPLOY_KINDS: ReadonlySet<Order['kind']> = new Set(['form', 'preset', 'order', 'shieldwall', 'loose', 'assign']);
 
 export function newRelay(id: string, players: [number, number], names: [string, string], setup: BattleSetup, now: number, deployMs = DEPLOY_MS): DuelState {
   return {
@@ -104,7 +104,7 @@ export function newRelay(id: string, players: [number, number], names: [string, 
   };
 }
 
-export function both(d: DuelState, msg: ServerMsg): Out[] {
+function both(d: DuelState, msg: ServerMsg): Out[] {
   return [{ to: d.players[0], msg }, { to: d.players[1], msg }];
 }
 
@@ -115,7 +115,7 @@ export function startMsg(d: DuelState, side: Side, heroes: [Hero[], Hero[]], now
 }
 
 /** Seals the next turn with the orders that came in since the last one. */
-export function relaySeal(d: DuelState): Out[] {
+function relaySeal(d: DuelState): Out[] {
   const n = d.next++;
   const tick = n * TURN_TICKS;
   const orders = d.pending;
@@ -129,7 +129,7 @@ export function relaySeal(d: DuelState): Out[] {
  * Deployment over: each player now gets the opponent's (withheld)
  * deployment orders, then go, and the first DELAY_TURNS turns sealed empty.
  */
-export function relayStart(d: DuelState): Out[] {
+function relayStart(d: DuelState): Out[] {
   d.phase = 'battle';
   d.deployOrders = d.log.length;
   const out: Out[] = [];

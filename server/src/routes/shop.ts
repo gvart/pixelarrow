@@ -4,7 +4,7 @@ import { readJson } from '../body';
 import { randomNonce } from '../crypto';
 import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
-import { db, requireAuth, secret } from '../middleware';
+import { db, requireSession, secret } from '../middleware';
 import { getProduct, makePayload, PRODUCTS } from '../products';
 import { callBot } from '../telegramApi';
 
@@ -30,14 +30,18 @@ shop.get('/products', (c) =>
 /**
  * Creates a Telegram Stars invoice link for the caller. The client opens it with
  * Telegram.WebApp.openInvoice(link, cb); the purchase is granted when the bot
- * webhook receives `successful_payment`.
+ * webhook receives `successful_payment`. Only the Mini App's own session (a
+ * bearer token from Telegram initData) may ask: a web cookie session has no
+ * payment sheet to open, so it is refused before any invoice exists (V6-073).
  */
-shop.post('/invoice', requireAuth, async (c) => {
+shop.post('/invoice', requireSession, async (c) => {
+  const s = c.get('session');
+  if (s.transport !== 'bearer' || s.method !== 'telegram') throw new ApiError(403, 'payments_unavailable', 'Payments are only available in the Telegram app');
   const { productId } = await readJson(c, InvoiceBody, 1024);
   const product = getProduct(productId);
   if (!product) throw new ApiError(404, 'unknown_product', `No product "${productId}"`);
   const botToken = secret(c.env, 'TELEGRAM_BOT_TOKEN');
-  const pid = c.get('session').pid;
+  const pid = s.pid;
   const owned = await db(c.env)
     .prepare('SELECT 1 FROM entitlements WHERE player_id = ?1 AND product_id = ?2 AND revoked_at IS NULL')
     .bind(pid, product.id)
@@ -57,7 +61,7 @@ shop.post('/invoice', requireAuth, async (c) => {
 });
 
 export const entitlements = new Hono<AppEnv>();
-entitlements.use('*', requireAuth);
+entitlements.use('*', requireSession);
 
 entitlements.get('/', async (c) => {
   const d = db(c.env);

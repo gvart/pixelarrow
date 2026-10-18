@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Which site to check and deploy (overrides the path filter)
+        type: choice
+        options: [both, game, landing]
+        default: both
 
 permissions:
   contents: read
@@ -14,11 +20,77 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
-# Gates run in parallel; every one of them must pass before the deploy job:
-#   build (types, unit tests, dist/ as an artifact) -> layout (10 shards) + smoke (5 scripts)
-#   build -> server (types, tests in workerd; wrangler.jsonc's assets need dist/)
+# Two sites, two Workers (ADR-0007): the game on play.pixelarrow.app
+# (wrangler.jsonc) and the landing on pixelarrow.app + www (landing/wrangler.jsonc).
+# `changes` decides which site a push touched (a manual run picks it with
+# `target`); only that site's jobs run:
+#   game:    build (types, unit tests, dist/ as an artifact)
+#              -> server (types, tests in workerd; wrangler.jsonc's assets need dist/)
+#              -> layout (one job per size and language) + smoke (one job per script
+#                 and platform mode) + regression (both platform modes)
+#              -> deploy (D1 migrations, game Worker)
+#   landing: landing-build (types, Worker tests in workerd, astro build, landing-dist)
+#              -> landing-test (hero and sections checks in Chromium)
+#              -> landing-deploy (landing Worker)
+# When both changed, they go live together: the game deploy also waits for the
+# landing gates, and the landing deploys right after the game (V6-023: the
+# apex legal pages live in the landing build). Deploys run only from main.
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      game: ${{ steps.pick.outputs.game }}
+      landing: ${{ steps.pick.outputs.landing }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'push'
+      # Paths from ADR-0007, plus tests/, maps-src/ and the workflow itself.
+      # landing/scripts/sections-check.mjs reads src/data/classes.ts.
+      - id: filter
+        if: github.event_name == 'push'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            game:
+              - 'src/**'
+              - 'server/**'
+              - 'public/**'
+              - 'index.html'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'maps-src/**'
+              - 'package*.json'
+              - 'vite.config.*'
+              - 'wrangler.jsonc'
+              - 'tsconfig*.json'
+              - '.github/**'
+            landing:
+              - 'landing/**'
+              - 'src/data/classes.ts'
+              - '.github/**'
+      - id: pick
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          TARGET: ${{ inputs.target }}
+          GAME: ${{ steps.filter.outputs.game }}
+          LANDING: ${{ steps.filter.outputs.landing }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            case "$TARGET" in
+              game) GAME=true; LANDING=false ;;
+              landing) GAME=false; LANDING=true ;;
+              *) GAME=true; LANDING=true ;;
+            esac
+          fi
+          echo "game=${GAME:-false}" >> "$GITHUB_OUTPUT"
+          echo "landing=${LANDING:-false}" >> "$GITHUB_OUTPUT"
+          echo "game=${GAME:-false} landing=${LANDING:-false}"
+
   build:
+    needs: changes
+    if: needs.changes.outputs.game == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -36,6 +108,12 @@ jobs:
       - run: npx vitest run
       # vite build only: the type-check above is what `npm run build` adds
       - run: npx vite build
+        env:
+          # Telegram invite links t.me/<bot>/<app>?startapp=... (owner action; the play URL until set)
+          VITE_TELEGRAM_BOT: ${{ vars.TELEGRAM_BOT_USERNAME }}
+          VITE_TELEGRAM_APP: ${{ vars.TELEGRAM_APP_NAME }}
+          # the web sign-in forms' Turnstile site key (public; owner action, ADR-0008 §6)
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -60,29 +138,33 @@ jobs:
       - run: npx vitest run
         working-directory: server
 
-  # ---- layout check (docs/UI_KIT.md "Layout check"): every screen at five
-  # phone sizes, with and without Telegram's safe-area insets, in English and
-  # Russian: 20 configurations, two per shard, each split in two contexts.
-  # Known violations are allowlisted with an owner in
-  # scripts/layout-allowlist.json; anything else fails the deploy.
+  # ---- layout check (docs/UI_KIT.md "Layout check"): every screen across the
+  # v6 screen matrix (the ten sizes of `--matrix all`) plus the v5 phone sizes
+  # (`--matrix v5`: 320x568, 375x667, 430x932, 320x640), in English and
+  # Russian, with Telegram's safe-area insets too at phone sizes. One job per
+  # size and language (one or two configurations, each split in two contexts).
+  # Known violations are allowlisted per owner story in
+  # scripts/layout-allowlist/<story>.json (`@WxH` scopes an entry to a size);
+  # anything else fails the deploy.
   layout:
     needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        size: [390x844, 360x780, 320x693, 844x390, 768x1024, 820x1180, 1024x768, 1280x800, 1440x900, 1920x1080, 320x568, 375x667, 430x932, 320x640]
+        lang: [en, ru]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/browser-setup
-      - name: Layout check (shard ${{ matrix.shard }}/10)
-        run: node scripts/layout-check.mjs http://localhost:4173/ --shard ${{ matrix.shard }}/10 --split 2 --jobs 4
+      - name: Layout check (${{ matrix.size }}, ${{ matrix.lang }})
+        run: node scripts/layout-check.mjs http://localhost:4173/ --sizes ${{ matrix.size }} --langs ${{ matrix.lang }} --split 2 --jobs 4
       - name: Upload layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: layout-screenshots-${{ matrix.shard }}
+          name: layout-${{ matrix.size }}-${{ matrix.lang }}
           path: shots/layout
           retention-days: 14
 
@@ -94,18 +176,47 @@ jobs:
       fail-fast: false
       matrix:
         script: [smoke, online-smoke, fullscreen-smoke, audio-smoke, tutorial-smoke, duel-smoke]
+        platform: [telegram, web]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/browser-setup
+      # GATE-02 interface: base URL as argv[2]; the platform mode
+      # (telegram | web) from SMOKE_PLATFORM, one job per mode.
       - run: node scripts/${{ matrix.script }}.mjs http://localhost:4173/
+        env:
+          SMOKE_PLATFORM: ${{ matrix.platform }}
+
+  # ---- regression suite (tests/regression/SUITE.md), both platform modes
+  regression:
+    needs: [changes, build]
+    if: needs.changes.outputs.game == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/browser-setup
+      - run: node scripts/regression/run.mjs http://localhost:4173/
 
   deploy:
-    needs: [build, server, layout, smoke]
+    # The game gates must pass. If the landing changed too, its gates must
+    # pass as well, so the two sites go live together or not at all (V6-023).
+    needs: [changes, build, server, layout, smoke, regression, landing-build, landing-test]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.changes.outputs.game == 'true' &&
+      needs.build.result == 'success' &&
+      needs.server.result == 'success' &&
+      needs.layout.result == 'success' &&
+      needs.smoke.result == 'success' &&
+      needs.regression.result == 'success' &&
+      (needs.changes.outputs.landing != 'true' ||
+        (needs.landing-build.result == 'success' && needs.landing-test.result == 'success'))
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://pixelarrow.app
+      url: https://play.pixelarrow.app
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/server-setup
@@ -153,3 +264,107 @@ jobs:
               exit 1
             fi
           fi
+
+  # ---- the landing site (landing/, ADR-0007, ADR-0011)
+  landing-build:
+    needs: changes
+    if: needs.changes.outputs.landing == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: landing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: landing/package-lock.json
+      - run: npm ci
+      # tsc on the Worker and its tests (astro check does not support TS 7, V6-025)
+      - run: npm run typecheck
+      # the Worker tests run in workerd
+      - run: npm test
+      - run: npm run build
+        env:
+          # the "Open in Telegram" deep link (owner action; telegram.org until set)
+          PUBLIC_TELEGRAM_URL: ${{ vars.PUBLIC_TELEGRAM_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: landing-dist
+          path: landing/dist
+          retention-days: 3
+
+  landing-test:
+    # The hero and sections checks serve landing/dist themselves (ports 6141 and
+    # 6143) and use Playwright from the repository root's node_modules.
+    needs: landing-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - uses: actions/download-artifact@v4
+        with:
+          name: landing-dist
+          path: landing/dist
+      - id: pw
+        run: echo "version=$(node -p "require('./node_modules/playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-shell-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Chromium system libraries
+        run: |
+          printf '%s\n' 'DPkg::Lock::Timeout "120";' 'Acquire::Retries "3";' \
+            | sudo tee /etc/apt/apt.conf.d/99ci-browser-setup > /dev/null
+          bash .github/actions/browser-setup/bounded-retry.sh 480 300 npx playwright install-deps chromium
+      - name: Install Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: bash .github/actions/browser-setup/bounded-retry.sh 240 120 npx playwright install --only-shell chromium
+      - run: npm run test:hero
+        working-directory: landing
+      - run: npm run test:sections
+        working-directory: landing
+
+  landing-deploy:
+    # After the game deploy when both changed; alone (never waiting on or
+    # triggering a game deploy) when only the landing changed. A failed or
+    # skipped game deploy for a run that changed the game holds the landing back.
+    needs: [changes, landing-build, landing-test, deploy]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.changes.outputs.landing == 'true' &&
+      needs.landing-build.result == 'success' &&
+      needs.landing-test.result == 'success' &&
+      (needs.changes.outputs.game != 'true' || needs.deploy.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production-landing
+      url: https://pixelarrow.app
+    steps:
+      - uses: actions/checkout@v4
+      # the wrangler pinned in server/package-lock.json
+      - uses: ./.github/actions/server-setup
+      - uses: actions/download-artifact@v4
+        with:
+          name: landing-dist
+          path: landing/dist
+      # No D1 and no deploy-config.mjs: landing/wrangler.jsonc has no placeholders.
+      - name: Deploy the landing Worker
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy --config ../landing/wrangler.jsonc

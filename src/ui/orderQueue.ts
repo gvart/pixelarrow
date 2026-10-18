@@ -22,7 +22,7 @@ export const ARRIVE_DIST = 1;
 /** Seconds of battle time a group must stand still to count as arrived (F1). */
 export const STILL_S = 1.5;
 /** Drift (paces) of the group's centre still read as "standing still" (men shuffle in their slots). */
-export const STILL_EPS = 0.15;
+const STILL_EPS = 0.15;
 /** How long the tap-move preview (path line and destination ghost) stays (controls.md R5). */
 export const TAP_GHOST_MS = 600;
 
@@ -35,7 +35,7 @@ export function thenOrder(gid: number, key: ThenKey): Order {
 }
 
 /** What the arrival test reads of the battle (a Battle satisfies it). */
-export interface QueueView {
+interface QueueView {
   readonly tick: number;
   readonly groups: readonly { disbanded: boolean; routed: boolean }[];
   activeMembers(gid: number): readonly { x: number; y: number; engaged: boolean }[];

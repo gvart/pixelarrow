@@ -11,20 +11,22 @@ import { z } from 'zod';
 import { readJson } from '../body';
 import type { AppEnv, Env } from '../env';
 import { ApiError } from '../errors';
-import { requireAuth } from '../middleware';
+import { requirePlayable } from '../middleware';
+import { gameUrl } from '../urls';
 import { callBot } from '../telegramApi';
 import { canInvite, canKick, canPromote, clanInviteLink, ONLINE_RULES, type ClanRole } from '../../../src/online/rules';
 import { base, limit, player, type PlayerCtx } from './context';
+import { isBlocked, validateClanName } from '../names/validate';
 import { ensureProfile, getProfile, membership, playerNames, randomCode } from './store';
 import { ev, later, notify } from '../notify/outbox';
 
 export const clans = new Hono<AppEnv>();
-clans.use('*', requireAuth);
+clans.use('*', requirePlayable);
 
 let botUsername: { name: string | null; at: number } | null = null;
 
 /** Bot username for invite links: TELEGRAM_BOT_USERNAME, else getMe (cached per isolate). */
-async function resolveBot(env: Env): Promise<string | null> {
+export async function resolveBot(env: Env): Promise<string | null> {
   if (env.TELEGRAM_BOT_USERNAME) return env.TELEGRAM_BOT_USERNAME.replace(/^@/, '');
   if (botUsername && Date.now() - botUsername.at < 3_600_000) return botUsername.name;
   let name: string | null = null;
@@ -92,7 +94,7 @@ function landStatements(d: D1Database, season: number, pid: number, clanId: numb
 }
 
 const CreateBody = z.object({
-  name: z.string().trim().min(3).max(24).regex(/^[\p{L}\p{N} '\-]+$/u),
+  name: z.string().max(64),
   tag: z.string().trim().min(2).max(5).regex(/^[A-Za-z0-9]+$/),
 });
 
@@ -100,12 +102,16 @@ clans.post('/', async (c) => {
   limit(c, 'clan', 10);
   const pc = await player(c);
   const body = await readJson(c, CreateBody, 1024);
+  // Clan names are public on the war board: the shared name rules (ADR-0009 §6, M-DN-5).
+  const name = validateClanName(body.name);
+  if (!name.ok) throw new ApiError(400, 'invalid_name', "This name isn't allowed", { reason: name.reason });
+  if (isBlocked(body.tag)) throw new ApiError(400, 'invalid_tag', "This tag isn't allowed");
   if (pc.clan) throw new ApiError(409, 'in_clan', 'Leave your clan first');
   let id: number;
   try {
     const r = await pc.db
       .prepare('INSERT INTO clans (season_id, shard_id, name, tag, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id')
-      .bind(pc.season.id, pc.shard.id, body.name, body.tag.toUpperCase(), pc.pid, pc.now)
+      .bind(pc.season.id, pc.shard.id, name.name, body.tag.toUpperCase(), pc.pid, pc.now)
       .first<{ id: number }>();
     id = r!.id;
   } catch {
@@ -141,7 +147,7 @@ clans.post('/invite', async (c) => {
     .bind(code, pc.clan.clanId, pc.pid, pc.now, expiresAt, ONLINE_RULES.inviteMaxUses)
     .run();
   const bot = await resolveBot(c.env);
-  const link = clanInviteLink(bot, code, c.env.TELEGRAM_APP_NAME || 'play', `${(c.env.GAME_URL || 'https://pixelarrow.app').replace(/\/+$/, '')}/`);
+  const link = clanInviteLink(bot, code, c.env.TELEGRAM_APP_NAME || 'play', `${gameUrl(c.env).replace(/\/+$/, '')}/`);
   return c.json({ code, link, expiresAt, maxUses: ONLINE_RULES.inviteMaxUses });
 });
 

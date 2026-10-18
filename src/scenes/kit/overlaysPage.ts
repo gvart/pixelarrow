@@ -8,7 +8,9 @@ import { t } from '../../i18n';
 import { confirmDialog, openModal, showTooltip, toast } from '../../ui/widgets';
 import { openItemCard } from '../../ui/sheet';
 import { MButton, ParchmentRow, ROW_H, confirmPurchase, mtext, openParchmentSheet, type ParchmentSheetHandle } from '../../ui/mosaic';
-import { G, type Cursor, type KitScene } from './common';
+import { columns } from '../../ui/mosaic/layout';
+import { BUTTON_MAX } from '../../ui/sizeClass';
+import { Cursor, G, type KitScene } from './common';
 
 /** Body text in a sheet's body area, wrapped. */
 function body(scene: KitScene, m: ParchmentSheetHandle | ReturnType<typeof openModal>, text: string): void {
@@ -23,14 +25,16 @@ function sheet(scene: KitScene, title: string, text: string, h = 110): Parchment
 
 /** A full-width button at the foot of a sheet's body. */
 function sheetButton(scene: KitScene, m: ParchmentSheetHandle, label: string, variant: 'primary' | 'secondary' | 'neutral', onClick: () => void, id: string): MButton {
-  const b = new MButton(scene, m.body.x, m.body.y + m.body.h - 24, m.body.w, 24, { label, variant, onClick, id });
+  // at most a button's width (§2.3), centred
+  const bw = Math.min(m.body.w, BUTTON_MAX);
+  const b = new MButton(scene, m.body.x + (m.body.w - bw) / 2, m.body.y + m.body.h - 24, bw, 24, { label, variant, onClick, id });
   m.c.add(b);
   return b;
 }
 
 const SAMPLE_ITEM = { uid: 'kit-item', def: 'bronze_dory', rarity: 'epic' as const, cond: 90 };
 
-export interface OverlaySample {
+interface OverlaySample {
   id: string;
   label: string;
   /** What it shows, under the label. */
@@ -40,7 +44,7 @@ export interface OverlaySample {
 }
 
 /** The samples, in the page's order. */
-export const OVERLAY_SAMPLES: readonly OverlaySample[] = [
+const OVERLAY_SAMPLES: readonly OverlaySample[] = [
   { id: 'sheet', label: 'Sheet', what: 'An X, Back or a tap outside closes it', icon: 'log', open: (s) => void sheet(s, 'Optional sheet', 'A sheet over a 45% basalt scrim. Close it with the X, Back or a tap outside.') },
   {
     id: 'sheet-actions',
@@ -130,20 +134,54 @@ export function openOverlaySample(scene: KitScene, id: string): void {
   OVERLAY_SAMPLES.find((o) => o.id === id)?.open(scene);
 }
 
+/** The samples of each group: sheets, then confirms (the toasts and the tooltip go under the confirms). */
+const SHEET_IDS = ['sheet', 'sheet-actions', 'decision', 'footer-close', 'replace', 'item', 'modal'];
+const isToast = (o: OverlaySample) => o.id.startsWith('toast');
+
 export function buildOverlays(cur: Cursor): void {
-  const { scene, w } = cur;
-  const rows = (list: readonly OverlaySample[]) => {
+  const { scene } = cur;
+  const rows = (into: Cursor, list: readonly OverlaySample[]) => {
     for (const o of list) {
-      cur.add(new ParchmentRow(scene, 0, cur.y, w, { icon: o.icon, title: o.label, tip: o.what, onClick: () => o.open(scene), id: `kit.overlay.${o.id}` }));
-      cur.y += ROW_H + G;
+      into.add(new ParchmentRow(scene, 0, into.y, into.w, { icon: o.icon, title: o.label, tip: o.what, onClick: () => o.open(scene), id: `kit.overlay.${o.id}` }));
+      into.y += ROW_H + G;
     }
   };
-  cur.title('Sheets and confirms');
-  cur.note('One sheet plus one confirm on screen at most; Back closes the top one (F-03). Tap a row to open it.');
-  rows(OVERLAY_SAMPLES.filter((o) => !o.id.startsWith('toast')));
-  cur.title('Toasts and tips');
-  rows(OVERLAY_SAMPLES.filter((o) => o.id.startsWith('toast')));
-  const tipBtn: MButton = cur.add(new MButton(scene, 0, cur.y, w, 24, { label: 'Tooltip', variant: 'neutral', onClick: () => showTooltip(scene, 'A long press (or a resting mouse) shows the tip.', tipBtn), id: 'kit.overlay.tip' }));
-  cur.y += 24 + 2;
-  cur.note('Long-press any control for its tip; a disabled one says why.');
+  const toasts = (into: Cursor) => {
+    into.title('Toasts and tips');
+    rows(into, OVERLAY_SAMPLES.filter(isToast));
+    const tipBtn: MButton = into.add(new MButton(scene, 0, into.y, into.w, 24, { label: 'Tooltip', variant: 'neutral', onClick: () => showTooltip(scene, 'A long press (or a resting mouse) shows the tip.', tipBtn), id: 'kit.overlay.tip' }));
+    into.y += 24 + 2;
+    into.note('Long-press any control for its tip; a disabled one says why.');
+  };
+  const note = 'One sheet plus one confirm on screen at most; Back closes the top one (F-03). Tap a row to open it.';
+  // a phone upright: the v5 single column
+  const lay = columns({ x: 0, y: 0, w: cur.w, h: 1 }, [ROW_PANE, ROW_PANE]);
+  if (lay.shown.length < 2) {
+    cur.title('Sheets and confirms');
+    cur.note(note);
+    rows(cur, OVERLAY_SAMPLES.filter((o) => !isToast(o)));
+    toasts(cur);
+    return;
+  }
+  // wider (V6-RSCR-10): sheets in the left pane, confirms, toasts and tips in the right, each row at most 360 (§2.3)
+  const pane = (i: number): Cursor => {
+    const b = lay.panes[i]!;
+    const into = scene.add.container(b.x, 0);
+    cur.add(into);
+    const c = new Cursor(scene, cur.area, b.w, into);
+    c.y = cur.y;
+    return c;
+  };
+  const left = pane(0);
+  left.title('Sheets');
+  left.note(note);
+  rows(left, OVERLAY_SAMPLES.filter((o) => SHEET_IDS.includes(o.id)));
+  const right = pane(1);
+  right.title('Confirms');
+  rows(right, OVERLAY_SAMPLES.filter((o) => !isToast(o) && !SHEET_IDS.includes(o.id)));
+  toasts(right);
+  cur.y = Math.max(left.y, right.y);
 }
+
+/** A pane of rows: wide enough for a row's title and tip, never a stretched row (§2.3). */
+const ROW_PANE = { min: 150, max: 360 };

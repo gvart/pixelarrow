@@ -37,7 +37,7 @@ export interface RegionInfo {
   depth: number;
 }
 
-export interface WorldPath {
+interface WorldPath {
   /** Locs from start to goal, both included. */
   path: number[];
   /** Sum of the edge minutes. */

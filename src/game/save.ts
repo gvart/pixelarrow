@@ -9,6 +9,7 @@ import { defaultAttrs, PERKS } from '../data/perks';
 import { ARC_STAGES, FLAGS_CAP, JOURNAL_CAP, World, type ArcState, type LairState, type WorldSave } from '../world/world';
 import type { TutorialProgress } from './tutorial';
 import { validMarker, type BattleMarker } from './campaignBattle';
+import type { KV } from '../platform/core/storage';
 
 /**
  * v6 is the one v5-train bump (ST-02, design/adr/ADR-0002-save-migration.md):
@@ -49,6 +50,8 @@ export interface Settings {
   leftHand?: boolean;
   /** The last offline battle speed (0.5..3); missing = 1. */
   battleSpeed?: number;
+  /** Keycaps on battle controls with a keyboard (input-v6.md §5.1, Settings → Controls). */
+  keyHints: boolean;
 }
 
 /**
@@ -75,6 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   seenGestureHint: false,
   lang: 'auto',
   analytics: true,
+  keyHints: true,
 };
 
 export interface SaveData {
@@ -258,12 +262,8 @@ export function unchunk(parts: (string | null | undefined)[]): string | null {
   return parts.join('');
 }
 
-/** Async key/value backend (Telegram CloudStorage or localStorage). */
-export interface KV {
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<void>;
-  remove(key: string): Promise<void>;
-}
+/** Async key/value backend; it lives with the platform storage interface (ADR-0006 M4). */
+export type { KV };
 
 /*
  * Storage layout (V5-011). Two slots of parts, `px_part_N` (slot 0, also the
@@ -310,7 +310,7 @@ export async function writeSave(kv: KV, s: SaveData): Promise<void> {
   for (let i = parts.length; i < (old?.pn ?? 0); i++) await kv.remove(PART(slot, i));
 }
 
-export type ReadResult =
+type ReadResult =
   | { kind: 'ok'; data: SaveData; fromBackup?: boolean }
   | { kind: 'empty' }
   /** `raw` is what was stored (null when not even that could be read), kept for the backup. */

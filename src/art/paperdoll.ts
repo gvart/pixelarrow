@@ -74,7 +74,7 @@ export const FRAME_NAMES = [
   'idle2', 'idle3', 'walk6', 'walk7', 'run0', 'run1', 'run2', 'run3', 'run4', 'run5', 'wind', 'follow', 'block', 'hit1',
   'dieB0', 'dieB1', 'dieB2', 'dieB3', 'rout0', 'rout1', 'rout2', 'rout3', 'win0', 'win1',
 ] as const;
-export type FrameName = (typeof FRAME_NAMES)[number];
+type FrameName = (typeof FRAME_NAMES)[number];
 /** Columns of a man's sheet; frame ids are dir * NFRAMES + column for every sheet. */
 export const NFRAMES = FRAME_NAMES.length;
 /** Columns of a rider's, chariot's or animal's sheet. */
@@ -254,7 +254,6 @@ const GEOM = {
 
 /** Frame size of a man (the common case). */
 export const FW = GEOM.man.fw;
-export const FH = GEOM.man.fh;
 
 /** An equipped piece's identity for the art: its item def and rarity rank (0..4). */
 export interface GearTag {
@@ -312,17 +311,17 @@ export const BATTLE_SCALE = 0.74;
 /** Render resolution of the battlefield's figures (see DollSpec.res). */
 export const BATTLE_RES = 2;
 /** Pixels per metre of a figure's render (model3d's camera at scale 1 draws 22.6 px/m). */
-export const PPM = 16 * Math.SQRT2;
+const PPM = 16 * Math.SQRT2;
 /** Fine detail (brows, straps, folds, strands) is added from this density on: battle 2x and portraits, not the 1x screens. */
 export function fineDetail(d: DollSpec): boolean {
   return (d.scale ?? 1) * (d.res ?? 1) * PPM >= 28;
 }
 
 /** The visible cosmetic loadout (slot -> cosmetic id), see src/game/cosmetics.ts. */
-export type CosmeticLoadout = Partial<Record<string, string>>;
+type CosmeticLoadout = Partial<Record<string, string>>;
 
 /** Shield paint of an emblem cosmetic. */
-export const COSMETIC_EMBLEMS: Record<string, ItemPaint> = {
+const COSMETIC_EMBLEMS: Record<string, ItemPaint> = {
   emblem_owl: { emblem: 'owl', field: 'cream', ink: 'ink' },
   emblem_lambda: { emblem: 'lambda', field: 'red', ink: 'cream' },
   emblem_pegasus: { emblem: 'horse', field: 'blue', ink: 'cream' },
@@ -333,11 +332,11 @@ export const COSMETIC_EMBLEMS: Record<string, ItemPaint> = {
   duel_emblem_gold: { emblem: 'star', field: 'gold', ink: 'red' },
 };
 /** Cloak palette key of a cloak cosmetic. */
-export const COSMETIC_CLOAKS: Record<string, string> = { cloak_crimson: 'cloakCrimson', cloak_purple: 'cloakRoyal', cloak_pass_s: 'cloakGold' };
+const COSMETIC_CLOAKS: Record<string, string> = { cloak_crimson: 'cloakCrimson', cloak_purple: 'cloakRoyal', cloak_pass_s: 'cloakGold' };
 /** Crest colour of a crest cosmetic. */
-export const COSMETIC_CRESTS: Record<string, string> = { crest_white: 'white', crest_gold: 'gold', crest_purple: 'purple', crest_black: 'black' };
+const COSMETIC_CRESTS: Record<string, string> = { crest_white: 'white', crest_gold: 'gold', crest_purple: 'purple', crest_black: 'black' };
 /** Victory pose of a pose cosmetic. */
-export const COSMETIC_POSES: Record<string, string> = { pose_salute: 'salute', pose_shield: 'shield' };
+const COSMETIC_POSES: Record<string, string> = { pose_salute: 'salute', pose_shield: 'shield' };
 
 /** Dress a figure in the player's cosmetics (shield paint, cloak, crest, army skin, victory pose). */
 export function applyCosmetics(d: DollSpec, lo: CosmeticLoadout | undefined): DollSpec {
@@ -464,7 +463,7 @@ export interface DollFx {
 }
 
 /** Outline colours by rank (palette-limited: epic violet, legendary gold). */
-export const FX_OUTLINE = [0, 0, 0, 0xc890f0, 0xffe080];
+const FX_OUTLINE = [0, 0, 0, 0xc890f0, 0xffe080];
 
 /** What animated rarity effects a figure carries in battle. */
 export function dollFx(d: DollSpec): DollFx {
@@ -3117,8 +3116,8 @@ export const PORTRAIT_RES = 2;
  * helmet). A roster picks a seeded sequence of these (portraitLoop).
  */
 export const PORTRAIT_FRAMES = ['neutral', 'breath1', 'breath2', 'blink', 'glanceR', 'glanceR2', 'glanceL', 'glint0', 'glint1', 'glint2', 'nod'] as const;
-export type PortraitFrame = (typeof PORTRAIT_FRAMES)[number];
-export const PORTRAIT_FRAME: Record<PortraitFrame, number> = Object.fromEntries(PORTRAIT_FRAMES.map((n, i) => [n, i])) as Record<PortraitFrame, number>;
+type PortraitFrame = (typeof PORTRAIT_FRAMES)[number];
+const PORTRAIT_FRAME: Record<PortraitFrame, number> = Object.fromEntries(PORTRAIT_FRAMES.map((n, i) => [n, i])) as Record<PortraitFrame, number>;
 
 /** Whether a blink shows on this figure's portrait (not behind a Corinthian helm, not on an animal). */
 export function portraitBlinks(d: DollSpec): boolean {
@@ -3302,9 +3301,4 @@ function merge(dst: Scene, src: Scene): void {
     dst.lines.push(l);
   }
   for (const d of src.dots) dst.dots.push(d);
-}
-
-/** Deterministic tiny jitter for variety (wear spots). */
-export function dollJitter(seed: number, i: number): number {
-  return hash2(seed, i, 41);
 }

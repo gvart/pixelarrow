@@ -54,7 +54,7 @@ export interface Loadout {
   formations: FormationType[];
 }
 
-export interface DuelHero {
+interface DuelHero {
   hero: Hero;
   base: Attrs;
 }
@@ -164,11 +164,11 @@ function formationList(json: string): FormationType[] {
 }
 
 /** The legacy team of a profile row (0007; loadout 1 since 0010). */
-export function teamOf(p: Pick<DuelProfileRow, 'team'>): string[] {
+function teamOf(p: Pick<DuelProfileRow, 'team'>): string[] {
   return idList(p.team);
 }
 
-export function duelFormations(p: Pick<DuelProfileRow, 'formations'>): FormationType[] {
+function duelFormations(p: Pick<DuelProfileRow, 'formations'>): FormationType[] {
   return formationList(p.formations);
 }
 
@@ -258,7 +258,7 @@ export function farmLeft(p: Pick<DuelProfileRow, 'farm_day' | 'farm_glory'>, now
   return p.farm_day === utcDay(now) ? Math.max(0, DUEL_RULES.farmGloryPerDay - p.farm_glory) : DUEL_RULES.farmGloryPerDay;
 }
 
-export interface DuelProfileView {
+interface DuelProfileView {
   now: number;
   day: number;
   glory: number;

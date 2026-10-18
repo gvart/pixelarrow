@@ -34,7 +34,7 @@ export function forgeCost(item: Pick<Item, 'def' | 'rarity'>): number {
 
 export type StatId = 'hp' | 'dmg' | 'ranged' | 'armor' | 'block' | 'morale' | 'stamina' | 'speed' | 'accuracy' | 'reach' | 'range' | 'atkTime' | 'ko';
 
-export interface StatDef {
+interface StatDef {
   id: StatId;
   get: (s: CombatStats) => number;
   /** Decimal places shown. */
@@ -161,7 +161,7 @@ export function equipInto(equip: Equipment, item: Item): Item[] {
 // ------------------------------------------------------------------ who would use an item
 
 /** The weapon kinds a hero fights with: every weapon of his class kit, and the one in his hand. */
-export function heroWeaponKinds(h: Hero): Set<WeaponKind> {
+function heroWeaponKinds(h: Hero): Set<WeaponKind> {
   const out = new Set<WeaponKind>();
   for (const tier of heroClass(h).kit.weapon ?? []) for (const id of tier) if (id) {
     const k = itemDef(id).weaponKind;
@@ -229,13 +229,6 @@ export function previewEquip(h: Hero, it: Item): Hero {
   return clone;
 }
 
-/** The hero without what he carries in `slot`. */
-export function previewUnequip(h: Hero, slot: Slot): Hero {
-  const clone: Hero = { ...h, equip: { ...h.equip } };
-  delete clone.equip[slot];
-  return clone;
-}
-
 /** Hero attributes raised by `pending` points (the stats tab's live preview). */
 export function previewAttrs(h: Hero, pending: Partial<Hero['attrs']>): Hero {
   const attrs = { ...h.attrs };
@@ -243,7 +236,7 @@ export function previewAttrs(h: Hero, pending: Partial<Hero['attrs']>): Hero {
   return { ...h, attrs };
 }
 
-export interface Comparison {
+interface Comparison {
   /** What the hero carries in the item's slot now (if anything). */
   equipped: Item | undefined;
   /** Items the swap would also take off (a shield for a two-hander...). */
@@ -276,7 +269,7 @@ const MOD_ORDER: [keyof StatMods, number, boolean?][] = [
   ['goldBonus', 0, true], ['durable', 0, true],
 ];
 
-export interface ModLine {
+interface ModLine {
   key: keyof StatMods;
   value: number;
   /** Formatted with sign and unit, e.g. "+8.5", "-7%". */
@@ -320,7 +313,7 @@ export const STASH_SORTS: StashSort[] = ['rarity', 'slot', 'value', 'cond'];
 export const SLOT_FILTERS: SlotFilter[] = ['all', ...SLOTS];
 export const RARITY_FILTERS: RarityFilter[] = ['all', 'common', 'uncommon', 'rare', 'epic', 'legendary'];
 
-export interface StashQuery {
+interface StashQuery {
   slot?: SlotFilter;
   rarity?: RarityFilter;
   sort?: StashSort;
@@ -447,11 +440,6 @@ export type RosterSort = 'power' | 'level' | 'class' | 'group';
 export const ROSTER_SORTS: RosterSort[] = ['power', 'level', 'class', 'group'];
 export type RosterFilter = 'all' | 0 | 1 | 2 | 3 | 'wounded' | 'ready';
 export const ROSTER_FILTERS: RosterFilter[] = ['all', 0, 1, 2, 3, 'wounded', 'ready'];
-
-/** Something to spend: attribute points or a perk point. */
-export function hasPending(h: Hero, perkSlots: (lvl: number) => number): boolean {
-  return h.points > 0 || h.perks.length < perkSlots(h.level);
-}
 
 /**
  * A hero to badge: unspent attribute points or a free perk slot

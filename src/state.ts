@@ -1,17 +1,22 @@
 /** Global game state shared between scenes (no Phaser imports). */
 import { Campaign } from './game/campaign';
-import { backupRaw, carrySettings, readSaveResult, writeSave, clearSave, type LoadFailure, type SaveData } from './game/save';
+import { backupRaw, carrySettings, readSaveResult, writeSave, clearSave, type LoadFailure, type SaveData, type Settings } from './game/save';
 import type { Outcome } from './game/loot';
 import type { UnitStat } from './game/report';
 import type { EnemyArmy } from './game/enemy';
 import type { Hero } from './data/units';
 import type { BattleSite } from './world/battlefield';
-import { gameKV } from './platform/storage';
-import { setHaptics } from './platform/telegram';
+import type { KV } from './platform/core/storage';
+import { platform } from './platform';
+import { setHaptics } from './platform/haptics';
 import { online } from './platform/cloud';
 import { newProgress } from './game/tutorial';
 import { setReducedMotion } from './ui/motion';
 import { resolveAbandoned } from './game/campaignBattle';
+import { hasProgress } from './platform/saveSync';
+
+/** Device storage key of the last campaign with progress that a cloud copy replaced (kept, never read by the game). */
+const REPLACED_KEY = 'px_save_replaced';
 
 /** Longest the boot screen waits for the cloud save before starting with the local one. */
 const PULL_WAIT_MS = 6000;
@@ -57,8 +62,8 @@ class GameState {
   private dirty = false;
 
   async load(): Promise<void> {
-    const kv = gameKV();
-    this.cloud = kv.cloud;
+    const kv = saveStores();
+    this.cloud = platform.storage.roams;
     this.readOnly = false;
     const prim = await readSaveResult(kv.primary);
     const mirr = prim.kind !== 'ok' && kv.mirror ? await readSaveResult(kv.mirror) : null;
@@ -105,9 +110,8 @@ class GameState {
   }
 
   private async writeLocal(data: SaveData): Promise<void> {
-    const kv = gameKV();
-    await writeSave(kv.primary, data);
-    if (kv.mirror) await writeSave(kv.mirror, data);
+    // the platform's save store writes its own mirror (Telegram: CloudStorage and localStorage)
+    await writeSave(platform.storage.save(), data);
   }
 
   /** Persist (serialised so writes never interleave): locally first, then the cloud (debounced). */
@@ -129,6 +133,7 @@ class GameState {
   /** A newer copy of the campaign arrived from the server (another device). */
   async adoptRemote(data: SaveData): Promise<void> {
     await this.saving;
+    await this.keepReplaced();
     this.campaign = new Campaign(data);
     this.hasSave = true;
     this.pending = null;
@@ -138,9 +143,72 @@ class GameState {
     await this.writeLocal(data);
   }
 
+  /**
+   * Before a cloud copy replaces this device's campaign: one copy of the campaign it replaces, when that
+   * had progress, in device storage (the save-systems "keep the last good save" rule; recovered by hand).
+   */
+  private async keepReplaced(): Promise<void> {
+    const cur = this.hasSave ? this.campaign?.data : null;
+    if (!cur || !hasProgress(cur)) return;
+    try {
+      await platform.storage.device().set(REPLACED_KEY, JSON.stringify({ at: Date.now(), data: cur }));
+    } catch {
+      /* a safety copy only */
+    }
+  }
+
+  /**
+   * After a log-in on this device (V6-ACCT-07): the first sync with the account. A guest campaign goes
+   * up to an account that has none; a device without one takes the account's (through online.onAdopt,
+   * which also sends the game to the menu); with progress on both sides, online.choice waits for AU-08.
+   * True when the account's campaign replaced this device's.
+   */
+  async syncAfterSignIn(): Promise<boolean> {
+    if (this.readOnly) return false;
+    await this.saving;
+    const remote = await online.pullOnLoad(this.hasSave ? this.campaign.sync() : null);
+    if (!remote) return false;
+    await online.onAdopt(remote);
+    return true;
+  }
+
+  /** AU-08 answered: the account's campaign replaces this one, or this one is uploaded over the account's. */
+  async keepCampaign(keep: 'local' | 'cloud'): Promise<void> {
+    await this.saving;
+    const cloud = await online.resolveChoice(keep, this.campaign.sync());
+    if (cloud) await online.onAdopt(cloud);
+  }
+
+  /**
+   * The account was deleted (V6-LINK-07; accounts-v6.md §10.1, UXA-11): this device forgets its campaign,
+   * the copy kept from a replaced one and every first-time hint; the language, sound, haptics and
+   * accessibility choices stay; the next launch is a first run. Written here only (never uploaded).
+   */
+  async forgetCampaign(): Promise<void> {
+    if (this.readOnly) return;
+    await this.saving;
+    const prev = this.campaign?.data.settings;
+    const kv = saveStores();
+    await clearSave(kv.primary);
+    if (kv.mirror) await clearSave(kv.mirror);
+    try {
+      await platform.storage.device().remove(REPLACED_KEY);
+    } catch {
+      /* a safety copy only */
+    }
+    this.campaign = Campaign.fresh(randomSeed());
+    const s = this.campaign.data.settings;
+    if (prev) for (const k of KEPT_ON_DELETE) (s as unknown as Record<string, unknown>)[k] = prev[k];
+    s.tutorial = newProgress();
+    this.pending = null;
+    this.last = null;
+    this.hasSave = false;
+    await this.writeLocal(this.campaign.sync());
+  }
+
   async reset(): Promise<void> {
     if (this.readOnly) return;
-    const kv = gameKV();
+    const kv = saveStores();
     const seq = this.campaign?.data.seq ?? 0;
     const prev = this.campaign?.data.settings;
     await clearSave(kv.primary);
@@ -157,6 +225,17 @@ class GameState {
   }
 }
 
+/**
+ * Where the save is read from: the platform's save store and, when this device
+ * keeps a separate copy (Telegram's localStorage mirror of CloudStorage), that
+ * copy, which a load falls back to as a whole when the primary cannot be read.
+ */
+function saveStores(): { primary: KV; mirror: KV | null } {
+  const primary = platform.storage.save();
+  const device = platform.storage.device();
+  return { primary, mirror: device === primary ? null : device };
+}
+
 /** Seeds for new campaigns/battles come from the clock + crypto (outside the sim). */
 export function randomSeed(): number {
   try {
@@ -167,5 +246,8 @@ export function randomSeed(): number {
     return (Date.now() ^ 0x5f3759df) >>> 0;
   }
 }
+
+/** The player's own preferences a deleted account leaves on the device (accounts-v6.md §10.3: language and sound), and the analytics choice (an opt-out never turns back on by itself). */
+const KEPT_ON_DELETE = ['lang', 'sound', 'musicVol', 'sfxVol', 'haptics', 'reduceMotion', 'reduceShake', 'reduceFlash', 'leftHand', 'keyHints', 'analytics'] as const satisfies readonly (keyof Settings)[];
 
 export const state = new GameState();

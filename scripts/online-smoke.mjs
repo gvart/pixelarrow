@@ -3,12 +3,61 @@
 // (503 / unreachable), then walks the Stars purchase flow, opens the shop (saves
 // shots/20-shop.png, git-ignored) and buys a consumable from a map merchant
 // against mocked routes.
-// Usage: node scripts/online-smoke.mjs [baseUrl] [outDir]   (needs a running dev/preview server)
+// Platform modes (scripts/lib/platform.mjs): `telegram` is all of the above (the fake WebApp signs in);
+// `web` is a plain web page, signed out: the campaign plays offline and saves locally, the shop and
+// online mode say "Sign in to play online" (AU-01), and nothing is requested from telegram.org.
+// Usage: node scripts/online-smoke.mjs <baseUrl> [outDir] [--platform telegram|web|both]   (needs a running dev/preview server)
 import { launch, phoneContext, captureErrors, makePageApi, check, finish, shotsDir, until } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
+import { cliArgs, platformMode, applyPlatform, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
-const base = process.argv[2] ?? 'http://localhost:5173/';
-const out = shotsDir('', process.argv[3]);
+const cli = cliArgs(process.argv.slice(2), 'scripts/online-smoke.mjs');
+const platform = await platformMode(import.meta.url, cli);
+const base = cli.base;
+const out = shotsDir('', cli.args.find((a) => !a.startsWith('--')));
+if (platform === 'web') await webRun();
+
+/** The web, signed out (see the header); ends the process. */
+async function webRun() {
+  const browser = await launch();
+  const ctx = await phoneContext(browser);
+  const plat = await applyPlatform(ctx, 'web');
+  const page = await ctx.newPage();
+  const netErrors = [];
+  const errors = captureErrors(page, { ignoreNetwork: true, network: netErrors });
+  // no session cookie: whatever the client asks the API, it is signed out, except the public catalogue
+  // (the web can sign in since V6-ACCT-05, so the shop reads it before it finds no session)
+  await page.route('**/api/**', (r) =>
+    /\/api\/economy\/catalog$/.test(new URL(r.request().url()).pathname)
+      ? r.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+      : r.fulfill({ status: 401, contentType: 'application/json', body: '{"error":{"code":"unauthorized","message":"signed out"}}' }),
+  );
+  const { ev, active, sceneText } = makePageApi(page);
+  const startAll = (k) => ev((key) => window.__game.scene.getScenes(true).forEach((sc) => sc.scene.start(key, {})), k);
+  await page.goto(base, { timeout: 60000 });
+  check('[web] menu reached', await until(() => active('Menu'), 60000));
+  await checkPlatform(page, 'web');
+  const on = await ev(() => ({ status: window.__online.status, id: window.__online.playerId }));
+  check('[web] signed out: no player, the save stays local', on.id === null && on.status === 'local', JSON.stringify(on));
+  await ev(() => window.__game.scene.getScene('Menu').openShop());
+  // GATE02-B1 (fixed): the shop used to stay on "Opening the shop..." here; signed out it shows AU-01
+  const gate = await until(async () => (await ev(() => window.__game.scene.isActive('Shop') && window.__game.scene.getScene('Shop').st === 'outside')) && /sign in to play online/i.test(await sceneText('Shop')), 15000);
+  check('[web] the shop says "Sign in to play online"', gate, (await sceneText('Shop').catch(() => '')).slice(-60));
+  await startAll('Menu');
+  await until(() => active('Menu'), 15000);
+  await ev(() => window.__game.scene.getScene('Menu').continueCampaign());
+  check('[web] the offline campaign: world map playable', await until(() => active('World'), 30000));
+  await startAll('Online');
+  // V6-ACCT-07: signed out on the web, the war shows AU-01 "Sign in to play online" (not "outside Telegram")
+  check('[web] online mode says "Sign in to play online"', await until(async () => (await active('Online')) && /sign in to play online/i.test(await sceneText('Online')), 15000), (await sceneText('Online').catch(() => '')).slice(0, 80));
+  await startAll('Menu');
+  await until(() => active('Menu'), 15000);
+  await ev(() => window.__state.save());
+  check('[web] saved locally', await until(() => ev(() => (window.__state.campaign.data.seq ?? 0) >= 1 && Object.keys(localStorage).length > 0), 10000));
+  check('[web] no console/page errors', errors.length === 0, errors.join(' | '));
+  noTelegramRequests(plat);
+  await finish({ browser });
+}
 
 async function session(name, routeApi) {
   const browser = await launch();
@@ -100,7 +149,7 @@ const s = await session('ok', async (route) => {
   const json = (status, body) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   switch (`${req.method()} ${url.pathname}`) {
     case 'POST /api/auth/telegram':
-      return json(200, { token: 'pa1.test', expiresAt: 0, player: { id: 1, firstName: 'Ana' } });
+      return json(200, { token: 'pa2_test', expiresAt: 0, player: { id: 1, firstName: 'Ana' } });
     case 'GET /api/save':
       return json(200, { revision: saveRev, version: null, data: null, updatedAt: null });
     case 'PUT /api/save':

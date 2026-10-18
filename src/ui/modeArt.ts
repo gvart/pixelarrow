@@ -16,7 +16,7 @@ import { PENNANT, TORCH, gridTexture } from '../art/menuSprites';
 import { idleFrames } from './motion';
 import { uiIgnore } from './layout';
 
-export type BannerMode = 'ladder' | 'arena' | 'shop' | 'beasts' | 'online';
+type BannerMode = 'ladder' | 'arena' | 'shop' | 'beasts' | 'online';
 
 type Put = (x: number, y: number, c: number) => void;
 
@@ -40,7 +40,7 @@ const BRONZE = 0xb48a52;
 const GOLD = 0xe0b23a;
 
 /** Paints the banner into `put` (w x h art px). Deterministic. */
-export function paintBanner(put: Put, w: number, h: number, mode: BannerMode): { torches: [number, number][]; pennants: [number, number][] } {
+function paintBanner(put: Put, w: number, h: number, mode: BannerMode): { torches: [number, number][]; pennants: [number, number][] } {
   const horizon = Math.round(h * 0.62);
   // sky: dusk bands, ordered-dithered into each other
   for (let y = 0; y < horizon; y++) {

@@ -35,6 +35,6 @@ export async function pendingIncome(d: D1Database, shard: Shard, pid: number, cl
   return { total, regions, rows: mine.results };
 }
 
-export function zero(): Resources {
+function zero(): Resources {
   return { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 };
 }

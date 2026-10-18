@@ -10,7 +10,7 @@ any browser). The icons are drawn art, shipped as two atlases in `public/icons`.
 All other art and all sound are generated in code; there are no other image or
 audio files.
 
-**Play:** https://pixelarrow.app
+**Play:** https://play.pixelarrow.app (web and Telegram) · **Site:** https://pixelarrow.app
 
 | | | |
 | --- | --- | --- |
@@ -75,7 +75,7 @@ node scripts/audio-smoke.mjs http://localhost:4173/       # with and without Web
 
 The layout check is a CI gate; it fails on overlapping or too-small touch
 targets, overflowing text and anything outside the safe area, except the
-known violations in `scripts/layout-allowlist.json` (docs/UI_KIT.md "Layout
+known violations in `scripts/layout-allowlist/<story>.json` (docs/UI_KIT.md "Layout
 check"). Other scripts set `window.__noFirstRun` so onboarding never gets in
 their way.
 
@@ -113,14 +113,31 @@ traffic). The same flows run without a browser in
 
 ### Deployment
 
-`.github/workflows/deploy.yml` runs on every push to `main` (and by hand).
-The gates run in parallel: **build** (type-check, unit tests, `vite build`),
-**server** (type-check, tests), **layout** (the layout check in 10 shards)
-and **smoke** (one job per smoke script). When all pass, **deploy** applies
-the D1 migrations and `wrangler deploy` publishes `dist/` as static assets of
-the Worker (`wrangler.jsonc`) on https://pixelarrow.app. It needs the
+Two sites, two Cloudflare Workers (ADR-0007): the game and its API on
+https://play.pixelarrow.app (`wrangler.jsonc`), and the landing page with the
+legal pages on https://pixelarrow.app and www (`landing/`, its own
+`landing/wrangler.jsonc`).
+
+`.github/workflows/deploy.yml` runs on every push to `main` (and by hand,
+with `target`: `both`, `game` or `landing`). A `changes` job looks at the
+paths a push touched, and only that site's jobs run:
+
+- **Game:** **build** (type-check, unit tests, `vite build`), **server**
+  (type-check, tests), **layout** (the layout check, one job per size and
+  language) and **smoke** (one job per smoke script). When all pass,
+  **deploy** applies the D1 migrations and `wrangler deploy` publishes
+  `dist/` as static assets of the game Worker on https://play.pixelarrow.app.
+- **Landing:** **landing-build** (type-check, Worker tests, `astro build`)
+  and **landing-test** (hero and sections checks), then **landing-deploy**
+  publishes `landing/dist` with the landing Worker on https://pixelarrow.app.
+  A landing-only change never runs or waits for a game deploy, so it never
+  restarts live duels.
+
+When both changed, they go live together: the game deploy also waits for the
+landing checks, and the landing deploys right after it. Deploys need the
 repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the
-backend setup is in server/README.md "One-time setup checklist". The build
+backend setup is in server/README.md "One-time setup checklist", and the
+go-live order is in docs/v6/OWNER_ACTIONS.md. The game build
 uses a relative `base` (`./`), so it also works under a sub-path.
 
 ## Audio
@@ -158,6 +175,7 @@ src/
   platform/   Telegram wrapper, back navigation, safe area, storage, API client, cloud save sync, battle verify
   dev/        sprite preview, store art, audio samples, balance harnesses
 server/       the Cloudflare Worker (API, Durable Objects, D1 migrations), see server/README.md
+landing/      the landing site pixelarrow.app: Astro build, its own Worker and wrangler.jsonc (ADR-0007)
 maps-src/     authored season maps, compiled by scripts/buildMap.ts
 tests/        vitest suites
 scripts/      smoke tests, layout check, map compiler; dev/ for screenshot, art and balance tools
@@ -166,7 +184,7 @@ docs/         design and operations docs (see "Docs")
 
 ## Telegram Mini App setup
 
-1. **Deploy the build** (above) to https://pixelarrow.app, or upload `dist/`
+1. **Deploy the build** (above) to https://play.pixelarrow.app, or upload `dist/`
    to any HTTPS static host (relative paths, so a sub-folder works). For
    local testing expose the dev server with a tunnel, e.g.
    `cloudflared tunnel --url http://localhost:5173`.

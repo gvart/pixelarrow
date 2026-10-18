@@ -28,6 +28,8 @@ export interface ScreenFrameOpts {
   topBar?: boolean;
   /** Top of the page (default 0: a screen of its own; the Kit gallery leaves room for its tabs). */
   y?: number;
+  /** Left of the page (default 0; a landscape hub leaves the nav rail's width, landscape-v6 §3.1). */
+  x?: number;
   /** A window left open in the content area (the war map shows through it): page and paper are drawn around it, not under it. */
   window?: Box;
 }
@@ -56,18 +58,21 @@ export class ScreenFrame extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, VW: number, VH: number, o: ScreenFrameOpts = {}) {
     super(scene, 0, 0);
     const y0 = o.y ?? 0;
+    const x0 = o.x ?? 0;
+    const fw = VW - x0;
     const bottom = VH - (o.tabBar ? o.tabBar + TAB_FRAME_GAP : 0);
-    this.rect = { x: 0, y: y0, w: VW, h: bottom - y0 };
+    this.rect = { x: x0, y: y0, w: fw, h: bottom - y0 };
     const barH = o.topBar === false ? 0 : TOPBAR_H;
-    this.topBar = { x: FRAME_T, y: y0 + FRAME_T, w: VW - FRAME_T * 2, h: barH };
-    this.content = { x: FRAME_T, y: y0 + FRAME_T + barH, w: VW - FRAME_T * 2, h: bottom - y0 - FRAME_T * 2 - barH };
+    this.topBar = { x: x0 + FRAME_T, y: y0 + FRAME_T, w: fw - FRAME_T * 2, h: barH };
+    this.content = { x: x0 + FRAME_T, y: y0 + FRAME_T + barH, w: fw - FRAME_T * 2, h: bottom - y0 - FRAME_T * 2 - barH };
     const pad = SPACE.md;
     this.inner = { x: this.content.x + pad, y: this.content.y + SPACE.sm, w: this.content.w - pad * 2, h: this.content.h - SPACE.sm - pad };
     const win = o.window;
-    for (const b of win ? around({ x: 0, y: y0, w: VW, h: VH - y0 }, win) : [{ x: 0, y: y0, w: VW, h: VH - y0 }]) this.add(mosaicImage(scene, b.x, b.y, b.w, b.h, 'page'));
+    const page = { x: x0, y: y0, w: fw, h: VH - y0 };
+    for (const b of win ? around(page, win) : [page]) this.add(mosaicImage(scene, b.x, b.y, b.w, b.h, 'page'));
     for (const b of win ? around(this.content, win) : [this.content]) this.add(mosaicImage(scene, b.x, b.y, b.w, b.h, 'paper'));
     if (barH > 0) this.add(mosaicImage(scene, this.topBar.x, this.topBar.y, this.topBar.w, barH, 'topBar'));
-    this.add(mosaicImage(scene, 0, y0, VW, bottom - y0, 'frame'));
+    this.add(mosaicImage(scene, x0, y0, fw, bottom - y0, 'frame'));
     scene.add.existing(this);
   }
 }

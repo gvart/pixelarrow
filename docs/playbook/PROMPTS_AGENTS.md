@@ -98,7 +98,7 @@ Merge in this order, each with `git merge --no-ff <branch> -m "merge: {STORY_ID}
 CONFLICT RULES:
 - Docs and state files ({DOCS}/*.md, story NOTES): keep both sides' content.
 - i18n: en.ts / ru.ts spreads and src/i18n/index.ts imports are append-only: keep every line from both sides.
-- scripts/layout-allowlist.json: take the union, then drop entries the merged code no longer produces.
+- scripts/layout-allowlist/<story>.json: take the union, then drop entries the merged code no longer produces.
 - Anything else that is not trivial: stop, report the conflict, do not guess.
 
 GATES, in this order, after all merges (never run layout-check, regression and online-e2e at the same time):

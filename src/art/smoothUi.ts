@@ -15,8 +15,6 @@ import type { PanelStyle } from './uiTextures';
  */
 export type V3Style = 'card' | 'cardRaised' | 'cardSel' | 'cardLocked' | 'well' | 'track' | 'thumb' | 'buttonBuy' | 'buttonBuyDown' | 'buttonGhost' | 'buttonGhostDown' | 'chip' | 'header' | 'bar' | 'stage';
 export type SmoothStyle = PanelStyle | 'buttonOn' | 'buttonOnDown' | V3Style;
-
-export const STONE = { s0: 0x120e0b, s1: 0x1a1511, s2: 0x241d17, s3: 0x2f261e, s4: 0x3b3027 } as const;
 export const BRONZE_D2 = { hi: 0xe2c48c, main: 0xb48a52, mid: 0x8c6a3c, lo: 0x5c4325, dk: 0x3a2915 } as const;
 export const TEXT_D2 = { tx: 0xf1e8d8, tx2: 0xc2b49c, tx3: 0x8f826d, onBtn: 0xfbf1dd } as const;
 export const TERRA = { hi: 0xc2563a, main: 0xa3402a, lo: 0x76291a } as const;

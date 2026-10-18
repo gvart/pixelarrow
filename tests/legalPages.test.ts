@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import terms from '../public/terms.html?raw';
-import privacy from '../public/privacy.html?raw';
-import refunds from '../public/refunds.html?raw';
-import ruTerms from '../public/ru/terms.html?raw';
-import ruPrivacy from '../public/ru/privacy.html?raw';
-import ruRefunds from '../public/ru/refunds.html?raw';
+import terms from '../landing/public/terms.html?raw';
+import privacy from '../landing/public/privacy.html?raw';
+import refunds from '../landing/public/refunds.html?raw';
+import ruTerms from '../landing/public/ru/terms.html?raw';
+import ruPrivacy from '../landing/public/ru/privacy.html?raw';
+import ruRefunds from '../landing/public/ru/refunds.html?raw';
 
-// Static pages in public/ (copied to dist/, served by the Worker's assets at /terms, /privacy, /refunds and /ru/...).
+// Static pages in landing/public/ (copied to landing/dist/, served at /terms, /privacy, /refunds and /ru/... by the landing Worker on pixelarrow.app, ADR-0007).
 const FILES: Record<string, string> = {
   'terms.html': terms,
   'privacy.html': privacy,
@@ -29,16 +29,17 @@ describe('legal pages', () => {
         expect(html).toContain(`href="${other}"`);
         const prefix = lang === 'ru' ? '/ru' : '';
         for (const q of PAGES) expect(html).toContain(`href="${prefix}/${q}"`);
-        // operator details are placeholders for the operator to fill in, never invented
-        expect(html).toContain('[OPERATOR NAME]');
-        expect(html).not.toMatch(/@[a-z0-9-]+\.[a-z]{2,}/i);
+        // operator details are the owner's, filled in at sign-off; no placeholder may remain
+        expect(html).toContain('Vladlen Gladis');
+        expect(html).not.toMatch(/\[[A-Z][A-Z /]+\]|class="ph"/);
+        for (const m of html.match(/@[a-z0-9-]+\.[a-z]{2,}/gi) ?? []) expect(m).toBe('@pixelarrow.app');
       }
     }
   });
 
   it('cover what the store and Telegram ask for', () => {
     const privacy = page('privacy.html');
-    for (const s of ['Telegram user id', 'username', 'language', 'Purchases', 'How long we keep it', '/delete_my_data', '[CONTACT EMAIL]']) expect(privacy).toContain(s);
+    for (const s of ['Telegram user id', 'username', 'language', 'Purchases', 'How long we keep it', '/delete_my_data', 'privacy@pixelarrow.app']) expect(privacy).toContain(s);
     const terms = page('terms.html');
     for (const s of ['digital goods', 'cannot be cashed out', 'https://telegram.org/tos/stars', '/paysupport']) expect(terms).toContain(s);
     const refunds = page('refunds.html');

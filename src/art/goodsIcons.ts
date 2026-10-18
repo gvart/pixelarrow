@@ -28,7 +28,7 @@ export const CONSUMABLE_ICON_IDS = ['healing_salve', 'morale_wine', 'war_horn', 
 export const RESOURCE_ICON_IDS = ['gold', 'food', 'wood', 'bronze', 'recruits', 'drachmae'] as const;
 
 /** Drawing space edge of a goods icon: 16 UI px = 64 units. */
-export const GOODS_UNITS = 64;
+const GOODS_UNITS = 64;
 
 // ================================================================== painting helpers (shared with cosmeticArt.ts)
 
@@ -77,7 +77,7 @@ export const TONES = {
 
 export const INK = 'rgba(22, 13, 8, 0.9)';
 
-export interface ShapeOpts {
+interface ShapeOpts {
   /** Gradient direction: 'v' top -> bottom (default), 'd' top-left -> bottom-right, 'h' left -> right. */
   dir?: 'v' | 'd' | 'h';
   /** Bounding box of the gradient (defaults to the whole box). */
@@ -97,7 +97,7 @@ export interface ShapeOpts {
 }
 
 /** The lit gradient of a tone over a box. */
-export function litFill(g: G, t: Tone, box: [number, number, number, number], dir: 'v' | 'd' | 'h' = 'v'): CanvasGradient {
+function litFill(g: G, t: Tone, box: [number, number, number, number], dir: 'v' | 'd' | 'h' = 'v'): CanvasGradient {
   const [x0, y0, x1, y1] = box;
   const gr = dir === 'v' ? g.createLinearGradient(0, y0, 0, y1) : dir === 'h' ? g.createLinearGradient(x0, 0, x1, 0) : g.createLinearGradient(x0, y0, x1, y1);
   gr.addColorStop(0, t.hi);
@@ -108,7 +108,7 @@ export function litFill(g: G, t: Tone, box: [number, number, number, number], di
 }
 
 /** A soft drop shadow of a path, down and to the right. */
-export function dropShadow(g: G, p: Path2D, units: number, alpha = 0.5): void {
+function dropShadow(g: G, p: Path2D, units: number, alpha = 0.5): void {
   g.save();
   g.translate(units * 0.02, units * 0.035);
   g.fillStyle = `rgba(0,0,0,${alpha})`;

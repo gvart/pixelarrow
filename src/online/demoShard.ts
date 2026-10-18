@@ -20,7 +20,7 @@ import { DEFAULT_MAP_ID, getMap, type WorldGraph } from './world';
 import { t, type TKey } from '../i18n';
 import { demoName } from '../i18n/names';
 
-export const DEMO = { seed: 42, me: 101, mate: 102, rival: 201, raider: 202, clan: 7, rivalClan: 9 };
+const DEMO = { seed: 42, me: 101, mate: 102, rival: 201, raider: 202, clan: 7, rivalClan: 9 };
 
 const R = (gold: number, food: number, wood: number, bronze: number, recruits: number): Resources => ({ gold, food, wood, bronze, recruits });
 

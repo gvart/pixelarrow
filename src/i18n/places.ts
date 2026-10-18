@@ -10,7 +10,7 @@
 import { lang, type Lang } from './index';
 
 /** Towns, villages, the online maps' named places and seas. */
-export const PLACES_RU: Readonly<Record<string, string>> = {
+const PLACES_RU: Readonly<Record<string, string>> = {
   // the campaign map's towns and villages (src/world/map.ts)
   Neapolis: 'Неаполь', Taras: 'Тарент', Kroton: 'Кротон', Syrakousai: 'Сиракузы', Akragas: 'Акрагант', Massalia: 'Массалия',
   Rhegion: 'Регий', Kyme: 'Кумы', Elea: 'Элея', Selinous: 'Селинунт', Himera: 'Гимера', Gela: 'Гела', Lokroi: 'Локры', Sybaris: 'Сибарис',
@@ -73,7 +73,7 @@ export const PLACES_RU: Readonly<Record<string, string>> = {
  * The peoples of the online maps' generated regions ("Gaetulian Meadows"):
  * the stem of the Russian adjective, without its ending.
  */
-export const PEOPLES_RU: Readonly<Record<string, string>> = {
+const PEOPLES_RU: Readonly<Record<string, string>> = {
   Apuanian: 'Апуанск', Aquitanian: 'Аквитанск', Arecomican: 'Арекомикск', Arevacan: 'Аревакск', Asturian: 'Астурийск',
   Ausetanian: 'Авсетанск', Autrigonian: 'Автригонск', Balarian: 'Баларск', Baquatian: 'Бакватск', Bastetanian: 'Бастетанск',
   Beronian: 'Беронск', Bruttian: 'Бруттийск', Byzacene: 'Бизаценск', Cantabrian: 'Кантабрийск', Carpetanian: 'Карпетанск',
@@ -93,7 +93,7 @@ export const PEOPLES_RU: Readonly<Record<string, string>> = {
 };
 
 /** The land words of the generated regions: the Russian noun and the adjective ending it takes. */
-export const LAND_RU: Readonly<Record<string, [string, 'ие' | 'ий' | 'ая']>> = {
+const LAND_RU: Readonly<Record<string, [string, 'ие' | 'ий' | 'ая']>> = {
   Crags: ['утёсы', 'ие'], Downs: ['увалы', 'ие'], Farmlands: ['пашни', 'ие'], Fields: ['поля', 'ие'], Foothills: ['предгорья', 'ие'],
   Grove: ['роща', 'ая'], Heights: ['высоты', 'ие'], Highlands: ['нагорья', 'ие'], Hills: ['холмы', 'ие'], Lowlands: ['низины', 'ие'],
   Meadows: ['луга', 'ие'], Passes: ['перевалы', 'ие'], Pastures: ['пастбища', 'ие'], Peaks: ['пики', 'ие'], Pinewood: ['сосняк', 'ий'],

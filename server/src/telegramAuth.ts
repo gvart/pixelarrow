@@ -21,7 +21,7 @@ export interface TelegramUser {
   photo_url?: string;
 }
 
-export type InitDataResult =
+type InitDataResult =
   | { ok: true; user: TelegramUser; authDate: number; fields: Record<string, string> }
   | { ok: false; reason: 'malformed' | 'missing_hash' | 'bad_hash' | 'expired' | 'future' | 'no_user' };
 

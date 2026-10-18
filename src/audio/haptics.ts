@@ -10,7 +10,7 @@ import type { JuiceKind } from '../ui/battleFx';
 
 export type Cue = { kind: 'impact'; style: 'light' | 'medium' | 'heavy' } | { kind: 'notify'; style: 'error' | 'success' | 'warning' } | null;
 
-export interface HapticRow {
+interface HapticRow {
   /** Who fires it. */
   by: 'scene' | 'audio';
   /** When the event is the player's side (their man, group, army). */

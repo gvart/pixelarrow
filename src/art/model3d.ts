@@ -37,13 +37,13 @@ const S = K * Math.SQRT2; // pixels per metre in the view plane
 const C30 = Math.cos(Math.PI / 6);
 const S30 = 0.5;
 /** View direction (into the scene), screen right and screen up as world vectors. */
-export const VIEW: V3 = [-C30 / Math.SQRT2, -C30 / Math.SQRT2, -S30];
+const VIEW: V3 = [-C30 / Math.SQRT2, -C30 / Math.SQRT2, -S30];
 const RIGHT: V3 = [Math.SQRT1_2, -Math.SQRT1_2, 0];
 const UP: V3 = [-S30 / Math.SQRT2, -S30 / Math.SQRT2, C30];
 /** Towards the camera. */
 export const CAM: V3 = [-VIEW[0], -VIEW[1], -VIEW[2]];
 /** Light: from the upper left of the screen and a little towards the camera. */
-export const LIGHT: V3 = norm(add(add(mul(RIGHT, -0.55), mul(UP, 0.75)), mul(CAM, 0.45)));
+const LIGHT: V3 = norm(add(add(mul(RIGHT, -0.55), mul(UP, 0.75)), mul(CAM, 0.45)));
 const HALF: V3 = norm(add(LIGHT, CAM));
 /** Ordered-dither amplitude in ramp steps: small, so tones form clean bands rather than noisy gradients. */
 const DITHER = 0.2;
@@ -511,7 +511,7 @@ export class Scene {
  * further rings that copy the first ring's colour, so it stays the same
  * sel-out shade rather than darkening towards black.
  */
-export function softOutline(px: Pix, width = 1): void {
+function softOutline(px: Pix, width = 1): void {
   const { w, h, data } = px;
   const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && data[(y * w + x) * 4 + 3] > 128;
   for (let ring = 0; ring < width; ring++) {
@@ -544,20 +544,11 @@ export function softOutline(px: Pix, width = 1): void {
  * towards red-purple (dark brown under skin, oxblood under red, slate under
  * blue), never black.
  */
-export function selOut(c: number): number {
+function selOut(c: number): number {
   const r = (c >> 16) & 255;
   const g = (c >> 8) & 255;
   const b = c & 255;
   return (Math.round(r * 0.36 + 26) << 16) | (Math.round(g * 0.3 + 14) << 8) | Math.round(b * 0.36 + 18);
-}
-
-/** A darker, slightly cooler version of a colour. */
-export function shadeOf(c: number, k: number): number {
-  const r = (c >> 16) & 255;
-  const g = (c >> 8) & 255;
-  const b = c & 255;
-  const f = 1 - k;
-  return (Math.round(r * f * 0.92 + 18 * k) << 16) | (Math.round(g * f * 0.9 + 12 * k) << 8) | Math.round(b * f + 16 * k);
 }
 
 /**

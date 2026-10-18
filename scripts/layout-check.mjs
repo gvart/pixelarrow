@@ -1,8 +1,10 @@
 // Layout check (docs/DESIGN_V2.md "UX principles", docs/UI_KIT.md "Layout check").
 //
-// Visits every screen at 320x568, 375x667, 390x844, 430x932, 360x780 and 320x640, in a
-// plain browser and inside a fake full-screen Telegram (safe-area insets: top
-// 59 + 46, bottom 34), in English and Russian, and fails when
+// Visits every screen across the v6 screen matrix (scripts/lib/layoutMatrix.mjs: phone
+// 390x844, 360x780, 320x693; landscape 844x390, 1024x768, 1280x800, 1440x900, 1920x1080;
+// tablet 768x1024, 820x1180), in a plain browser and, at phone sizes, inside a fake
+// full-screen Telegram (safe-area insets: portrait top 59 + 46, bottom 34; at 844x390
+// sides 59, top 46, bottom 21), in English and Russian, and fails when
 //   - interactive elements overlap (or sit closer than 4 pt),
 //   - text overflows its box or overlaps other text, or is cut at the side of a scroll area,
 //   - an element falls outside the safe area (the canvas),
@@ -11,94 +13,99 @@
 //   - a tap where a control is drawn misses its hit area (the tap probe: every interactive
 //     element, v3 buttons included, is pressed at its centre and towards each corner through
 //     Phaser's own hit test; MECH §3).
+// Plus the nine landscape checks (design/ux/landscape-v6.md §5; thresholds: WIDE_RULES in
+// scripts/lib/layoutMatrix.mjs, next to the sizes): letterbox, class-match, wasted-width,
+// empty-column, stretched, field-coverage, above-fold, element-parity (every uiId at 390x844 shows
+// at each size, or is uiCollapsed) and nav-labels. A family that has not migrated is "pending"
+// ("pending": true in its scripts/layout-allowlist/V6-RSCR-NN.json, V6-021): its landscape findings
+// are reported, not failed, unless the screen opted in (`responsive = true`: the canvas fills #game).
+// The foundation screens (Menu, Settings, Kit) can never allowlist the landscape checks.
 // The rules are src/ui/layoutCheck.ts (unit-tested in tests/ui.test.ts, tests/inputContract.test.ts).
 // Element bounds come from the game's debug UI registry (window.__layout,
-// src/ui/layout.ts). Known violations are listed with an owner in
-// scripts/layout-allowlist.json; anything not listed fails the run. An entry
+// src/ui/layout.ts). Known violations are listed in scripts/layout-allowlist/<story>.json,
+// one file per owner story; anything not listed fails the run. An entry
 // `screen|check|*` allows that check on the whole screen (used for the text-size floor,
-// which arrived after the screens: one entry per screen, owned by the screen's story).
+// which arrived after the screens: one entry per screen, owned by the screen's story);
+// a trailing `@WxH` scopes an entry to one size.
 // Screenshots: shots/layout/<lang>-<plain|tg>/<WxH>/<screen>.png and a summary
 // in shots/layout/index.md (git-ignored; CI uploads shots/layout as an artifact).
 //
 // Usage: node scripts/layout-check.mjs [baseUrl] [options]   (needs a running dev/preview server)
-//   --update-allowlist   write the current violations into the allowlist (owners from the screen table)
-//   --screens a,b        only these screens          --sizes 390x844,320x568   only these sizes
+//   --quick [base]       story default (V6-030): the screens the branch's changes can affect (--changed)
+//                        at every matrix size, plus a smoke subset (QUICK in scripts/lib/layoutScenes.mjs)
+//                        at 390x844 and 1280x800
+//   --changed [base]     only the screens the files changed since the merge base with `base` (default v6,
+//                        else main; uncommitted and untracked files count) can affect; conservative
+//   --scenes a,kit-*     only these screens (ids or globs; opt-in screens only when a glob names no other)
+//   --screens a,b        the same (the older name)
+//   --update-allowlist   write the current violations into the allowlist (owners from the screen table); stable
+//                        (V6-057): a finding is added only when the previous update run found it too, an entry
+//                        dropped only when the previous run also missed it, never for a pending family
+//                        (the previous run's proposal: shots/layout-candidates.json)
+//   --sizes 390x844,320x568   only these sizes (wins over --matrix)
+//   --matrix phone|tablet|landscape|all|v5   size groups, comma-separated (default all: the ten
+//                        matrix sizes; v5 = the v5 phone sizes outside the matrix, run by CI too)
 //   --langs en           only these languages        --insets plain|tg          only one safe-area variant
-//   --jobs 4             parallel browser contexts   --no-shots                 skip screenshots
-//   --shard 3/10         only every 10th configuration, starting with the 3rd (CI runs 10 shards in parallel)
+//   --jobs 4             parallel browser contexts (default: half the CPUs, 2 to 6)
+//   --no-shots           skip screenshots
+//   --shard 3/10         only every 10th configuration, starting with the 3rd (CI shards by --sizes instead)
 //   --split 2            split each configuration's screens into 2 contiguous runs (each in its own context, in parallel)
 //   --dpr 3              device pixel ratio of the screenshots (default 1)
+//   --fixed-waits        sleep the full staging waits instead of waiting for the game to be quiet (scripts/lib/settle.mjs)
+//   --list               print the screens each size would visit and stop (no browser)
+//   --timing             print where the time went (browser, boot, staging, waits, check, shots, scroll)
 //   --verbose            print every violation with its detail
 //   --no-retry           do not re-run screens with new violations (by default a new violation must show twice)
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+// Besides index.md it writes shots/layout/found.json: every violation key with the configurations it showed in.
+import { mkdirSync, writeFileSync, existsSync, unlinkSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { join, relative } from 'node:path';
 import { ROOT as root, launch, captureErrors, apiDown, makePageApi, shotsDir } from './lib/harness.mjs';
 import { fakeTelegram } from './lib/fakeTelegram.mjs';
+import { KNOWN_CRASHES, MATRIX, TG, allows, configsFor, loadAllowlist, sizesFor, splitEntry, staleEntries, storyOf } from './lib/layoutMatrix.mjs';
+import { PARITY_BASE, WIDE_CHECKS, WIDE_RULES, checkParity, isFoundationScreen, loadPending, stableRewrite, triageWide } from './lib/layoutMatrix.mjs';
+import { QUICK, matchScreens, sceneKeysOf, screensForChanges } from './lib/layoutScenes.mjs';
+import { installSettle, settle, untilInPage } from './lib/settle.mjs';
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
 const opt = (n, d) => {
   const i = args.indexOf(`--${n}`);
   return i >= 0 && args[i + 1] ? args[i + 1] : d;
 };
+/** A flag with an optional value (`--changed`, `--changed main`): undefined when absent, '' when bare. */
+const optional = (n) => {
+  const i = args.indexOf(`--${n}`);
+  if (i < 0) return undefined;
+  const v = args[i + 1];
+  return v && !v.startsWith('--') && !/^https?:/.test(v) ? v : '';
+};
 const base = args.find((a) => /^https?:/.test(a)) ?? 'http://localhost:5173/';
 const outDir = shotsDir('layout');
-const allowPath = join(root, 'scripts/layout-allowlist.json');
-/** Allowlist groups: A, B, C by screen owner; F only for checks added after the foundation screens (text-size). */
-const GROUPS = ['A', 'B', 'C', 'F'];
-/** Checks allowlisted per screen (`screen|check|*`) rather than per element. */
-const PER_SCREEN = new Set(['text-size']);
-/** The story that owns a screen's fixes (docs/v5/plan/STORIES.md), for new allowlist entries: first matching prefix. */
-const STORY_OF = [
-  ['kit-', 'F-05'],
-  ['menu-settings', 'DLG-01'],
-  ['menu-reset', 'DLG-01'],
-  ['menu-shop', 'SHP-01'],
-  ['shop', 'SHP-01'],
-  ['consumable-picker', 'SHP-01'],
-  ['menu', 'HUB-02'],
-  ['codex', 'CDX-01'],
-  ['online-army', 'WAR-01'],
-  ['online-clan', 'WAR-02'],
-  ['merchant-', 'WAR-02'],
-  ['online', 'WAR-01'],
-  ['duel-board', 'DUE-02'],
-  ['duel-raid', 'DUE-02'],
-  ['duel-defence', 'DUE-02'],
-  ['duel-search', 'DUE-02'],
-  ['duel-found', 'DUE-02'],
-  ['duel-ranked', 'DUE-02'],
-  ['duel-season', 'DUE-02'],
-  ['duel-', 'DUE-01'],
-  ['market-', 'MKT-01'],
-  ['world-event', 'EV-03'],
-  ['world-journal', 'EV-03'],
-  ['world', 'WLD-01'],
-  ['camp', 'CMP-01'],
-  ['fire', 'CMP-01'],
-  ['army', 'ARM-01'],
-  ['stash-', 'ARM-01'],
-  ['hero', 'HERO-01'],
-  ['village', 'SET-01'],
-  ['town-', 'SET-01'],
-  ['recruits', 'SET-01'],
-  ['results', 'RES-01'],
-  ['inspect', 'RES-01'],
-  ['battle-works', 'FW-03'],
-  ['battle-assault', 'FW-03'],
-  ['battle-', 'BTL-01'],
-  ['tutorial-', 'TUT-02'],
-  ['first-run', 'TUT-01'],
-];
-const storyOf = (key) => STORY_OF.find(([p]) => key.startsWith(p))?.[1];
+const allowDir = join(root, 'scripts/layout-allowlist');
 
-const SIZES = opt('sizes', '320x568,375x667,390x844,430x932,360x780,320x640').split(',').map((s) => s.split('x').map(Number));
+const QUICK_MODE = optional('quick') !== undefined;
+const CHANGED = QUICK_MODE ? (optional('quick') || optional('changed') || '') : optional('changed');
+const SIZES = sizesFor(opt('matrix', 'all'), opt('sizes', ''));
 const LANGS = opt('langs', 'en,ru').split(',');
 const INSETS = opt('insets', 'plain,tg').split(',');
-const JOBS = Number(opt('jobs', '4'));
+const JOBS = Number(opt('jobs', String(Math.min(6, Math.max(2, Math.floor(availableParallelism() / 2))))));
 const DPR = Number(opt('dpr', '1'));
 const [SHARD, SHARDS] = opt('shard', '1/1').split('/').map(Number);
 const SPLIT = Math.max(1, Number(opt('split', '1')));
-const TG = { safeTop: 59, contentTop: 46, safeBottom: 34 };
+const FIXED_WAITS = flag('fixed-waits');
+
+// ------------------------------------------------------------------ timing (--timing)
+/** Milliseconds spent per phase, summed over every context. */
+const T = { browser: 0, load: 0, boot: 0, stage: 0, staging: 0, waits: 0, settle: 0, check: 0, shots: 0, scroll: 0 };
+const timed = async (phase, fn) => {
+  const t = Date.now();
+  try {
+    return await fn();
+  } finally {
+    T[phase] += Date.now() - t;
+  }
+};
 
 // ------------------------------------------------------------------ screens
 // owner: F = UI foundation (must stay clean), A = battle + results, B = army /
@@ -106,9 +113,26 @@ const TG = { safeTop: 59, contentTop: 46, safeBottom: 34 };
 const ev = (page, fn, arg) => page.evaluate(fn, arg);
 const start = (page, key, data) => makePageApi(page).start(key, data);
 const call = (page, key, body) => makePageApi(page).call(key, body);
-const wait = (page, ms) => page.waitForTimeout(ms);
-const until = (page, fn, ms = 8000) => makePageApi(page).untilPage(fn, ms, 150);
+/** Staging waits that ran to their deadline, by what kept the game busy: reason -> count. */
+const BUSY = {};
+let settledWaits = 0;
+/** A staging wait: up to `ms`, over as soon as the game is quiet (scripts/lib/settle.mjs) unless --fixed-waits. */
+async function wait(page, ms) {
+  const t = Date.now();
+  if (FIXED_WAITS) await page.waitForTimeout(ms);
+  else {
+    const r = await settle(page, ms);
+    if (r.busy) BUSY[r.busy] = (BUSY[r.busy] ?? 0) + 1;
+    else settledWaits++;
+  }
+  T.waits += Date.now() - t;
+  page.__waits = (page.__waits ?? 0) + Date.now() - t; // per page: contexts run in parallel
+}
+/** Polls a page function until it is truthy (`ms` at most), on every frame inside the page (scripts/lib/settle.mjs). */
+const until = (page, fn, ms = 8000) => untilInPage(page, fn, ms);
 const activeIs = (k) => new Function(`return window.__game.scene.isActive(${JSON.stringify(k)})`);
+/** FirstRun shows step `mode` (its create ran: the step's paintings are loaded). */
+const firstRunIs = (page, mode) => until(page, new Function(`const s = window.__game.scene.getScene('FirstRun'); return s.sys.isActive() && s.mode === ${JSON.stringify(mode)};`), 15000);
 
 /**
  * A fresh skirmish in deployment. online = 'attack' | 'duel' restarts it as an
@@ -158,6 +182,31 @@ const SCREENS = [
   // Settings → Notifications (demo switches) and Settings → About (legal pages)
   { id: 'menu-settings-notify', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openNotifications(true); return 1;'), wait(p, 500)) },
   { id: 'menu-settings-about', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openAboutPage(); return 1;'), wait(p, 400)) },
+  // V6-ACCT-07: Settings → Account (signed in, guest, a pending sign-up; in-memory), Signed-in devices, Two campaigns
+  { id: 'menu-settings-account', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('live'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-account-guest', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('guest'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-account-pending', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('pending'); return 1;"), wait(p, 600)) },
+  // V6-LINK-05: a Telegram-only account (email Not added, Remove off as the last method), an add-email link waiting
+  { id: 'menu-settings-account-telegram', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('telegram'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-account-waiting', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('waiting'); return 1;"), wait(p, 600)) },
+  { id: 'menu-settings-devices', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openDevicesDemo(); return 1;'), wait(p, 700)) },
+  // V6-LINK-06: Link Telegram (QR on a mouse, Show QR on touch, no bot username, Is this you?), the Mini App's
+  // link request (and with its own progress), Keep one account on the web (and a forced survivor) and in the Mini App
+  ...['web-qr', 'web-touch', 'web-nobot', 'web-ask', 'web-conflict', 'web-forced', 'tg-request', 'tg-progress', 'tg-conflict'].map((k) => ({
+    id: `menu-link-${k}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', `s.openLinkingDemo('${k}'); return 1;`), wait(p, 700)),
+  })),
+  // V6-LINK-07: the Account page renamed recently (Rename off with its date, purchases), Delete account (both
+  // methods: the unlink alternative; with purchases: the paid warning; Telegram only), its result on the web and
+  // in Telegram, Your name (first time) and the moderation notice
+  { id: 'menu-settings-account-renamed', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('renamed'); return 1;"), wait(p, 600)) },
+  ...['delete', 'delete-paid', 'delete-tg', 'delete-done', 'delete-done-tg', 'name-offer', 'name-mod'].map((k) => ({
+    id: `menu-privacy-${k}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', `s.openPrivacyDemo('${k}'); return 1;`), wait(p, 700)),
+  })),
+  { id: 'menu-two-campaigns', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openTwoCampaignsDemo(); return 1;'), wait(p, 500)) },
   { id: 'menu-reset', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.confirmReset(); return 1;'), wait(p, 400)) },
   { id: 'codex', owner: 'F', run: async (p) => (await codexMet(p, []), await start(p, 'Codex'), wait(p, 900)) },
   // the Codex (CDX-01): a beast sheet with the Trial fight, the Doctrines segment (four met, one locked), a doctrine sheet
@@ -177,6 +226,14 @@ const SCREENS = [
   { id: 'kit-overlays', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'overlays' }), wait(p, 900)) },
   { id: 'kit-icons', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'icons' }), wait(p, 1200)) },
   { id: 'kit-army', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'army' }), wait(p, 1500)) },
+  // V6-ACCT-05: the Forms page, and Check your email (a canvas sheet; the forms themselves are HTML over the canvas)
+  { id: 'kit-forms', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'forms' }), wait(p, 1200)) },
+  // V6-LINK-05: Check your email for add and change email (the AU-10/11/12 forms are HTML: tests/ and the e2e cover them)
+  ...['check', 'check-capped', 'check-add', 'check-change'].map((sample) => ({
+    id: `kit-forms-${sample}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Kit', { page: 'forms' }), await wait(p, 600), await call(p, 'Kit', `s.openFormSample(${JSON.stringify(sample)}); return 1;`), wait(p, 700)),
+  })),
   // 'confirm-over' then 'destructive': a destructive confirm over the sheet that asked (one sheet plus one confirm)
   ...[['sheet'], ['sheet-actions'], ['decision'], ['footer-close'], ['confirm-over', 'destructive'], ['item'], ['purchase']].map((samples) => ({
     id: `kit-overlay-${samples[0]}`,
@@ -450,9 +507,12 @@ const SCREENS = [
         party.y = t.y + 0.5;
         party.idle = 0;
         party.power = s.info.power * 1.05;
-        s.setWaiting(true);
+        // open the sheet for that band now, as the world's encounter event does (PARITY-STABLE, V6-076): resting
+        // until it walks over takes world time, and under load the 6 s ran out at some sizes, so parity compared
+        // a sheet with no sheet
+        s.openEncounter(party.id, false);
       });
-      await until(p, () => !!window.__game.scene.getScene('World').dialog, 6000);
+      if (!(await until(p, () => !!window.__game.scene.getScene('World').dialog, 6000))) throw new Error('the encounter sheet did not open');
       return wait(p, 400);
     },
   },
@@ -788,7 +848,17 @@ const SCREENS = [
   },
   { id: 'results', owner: 'A', run: async (p) => (await results(p), wait(p, 300)) },
   { id: 'results-heroes', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('heroes'); return 1;`), wait(p, 2500)) },
-  { id: 'results-spoils', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.showPage('spoils'); return 1;`), wait(p, 3500)) },
+  {
+    id: 'results-spoils',
+    owner: 'A',
+    // the cards turn over one every 0.35 s: wait until the last has turned, so no size is caught mid-flip (V6-076)
+    run: async (p) => (
+      await results(p),
+      await call(p, 'Results', `s.showPage('spoils'); return 1;`),
+      await until(p, () => { const s = window.__game.scene.getScene('Results'); return s.revealed.size >= s.report.loot.length && !s.revealTimer; }, 20000),
+      wait(p, 600)
+    ),
+  },
   // RES-01: the Spoils empty state (painted chest) and the arc's Victory variant (company roll, set piece)
   { id: 'results-empty', owner: 'A', run: async (p) => (await results(p), await call(p, 'Results', `s.report.loot.length = 0; s.report.picks = 0; s.showPage('spoils'); return 1;`), wait(p, 600)) },
   {
@@ -938,13 +1008,16 @@ const SCREENS = [
     },
   })),
   // ---- onboarding (owner F): first-run screens, the tutorial battle's narrator and spotlight, the online coach marks
-  ...['offer', 'resume', 'modes'].map((mode) => ({ id: `first-run-${mode}`, owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode }), wait(p, 700)) })),
+  // (each waits for its step to be built: the scene preloads its paintings first, which a busy machine can make slow)
+  ...['offer', 'resume', 'modes'].map((mode) => ({ id: `first-run-${mode}`, owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode }), await firstRunIs(p, mode), wait(p, 700)) })),
+  // V6-LINK-07b: the Modes step signed in, "Other players will see you as …" and Change under the cards
+  { id: 'first-run-modes-named', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'modes', name: 'SwiftArcher4821' }), await firstRunIs(p, 'modes'), wait(p, 700)) },
   {
     id: 'first-run-reward',
     owner: 'F',
-    run: async (p) => (await start(p, 'FirstRun', { mode: 'reward', item: { uid: 'tr1', def: 'chalcidian', rarity: 'common', cond: 100 } }), wait(p, 1600)),
+    run: async (p) => (await start(p, 'FirstRun', { mode: 'reward', item: { uid: 'tr1', def: 'chalcidian', rarity: 'common', cond: 100 } }), await firstRunIs(p, 'reward'), wait(p, 1600)),
   },
-  { id: 'first-run-skip', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'resume' }), await wait(p, 500), await call(p, 'FirstRun', 's.confirmSkip(); return 1;'), wait(p, 400)) },
+  { id: 'first-run-skip', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'resume' }), await firstRunIs(p, 'resume'), await wait(p, 500), await call(p, 'FirstRun', 's.confirmSkip(); return 1;'), wait(p, 400)) },
   // tutorial steps: [screen, steps already learned (a resumed run starts at the first one not learned), start the battle]
   // (TUT-02: Undo comes back with the drag it takes back, Then… with its move; the later steps are in scripts/tutorial-smoke.mjs)
   ...[
@@ -1005,6 +1078,60 @@ const SCREENS = [
       return wait(p, 900);
     },
   })),
+  // V6-RFND-02: the Kit Layouts page (src/scenes/kit/layoutsPage.ts), opted in to the size classes: each demo, then its samples
+  { id: 'kit-layouts', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'layouts' }), wait(p, 900)) },
+  ...[
+    ['panes-folded', { demo: 'panes' }, 'folded'],
+    ['list', { demo: 'list', sel: 2 }],
+    ['list-detail', { demo: 'list' }, 'detail'],
+    ['panels', { demo: 'panels' }],
+    ['panels-task', { demo: 'panels' }, 'task'],
+    ['panels-decision', { demo: 'panels' }, 'decision'],
+    ['panels-inspector', { demo: 'panels' }, 'inspector'],
+    ['panels-settings', { demo: 'panels' }, 'settings'],
+    ['panels-rotate', { demo: 'panels' }, 'rotate'],
+    ['field', { demo: 'field' }],
+    ['field-left', { demo: 'field', left: true }],
+  ].map(([id, data, sample]) => ({
+    id: `kit-layouts-${id}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Kit', { page: 'layouts', ...data }), await wait(p, 700), sample && (await call(p, 'Kit', `s.layoutsSample(${JSON.stringify(sample)}); return 1;`)), wait(p, 500)),
+  })),
+  // V6-INP-06: keycaps (a key pressed first, so InputHints.keyboard() holds), the shortcuts sheet, the Controls page, the focus ring
+  {
+    id: 'battle-keys',
+    owner: 'A',
+    run: async (p) => {
+      await p.keyboard.press('Shift');
+      await battle(p);
+      await call(p, 'Battle', `s.startFight(); for (let i = 0; i < 20 * 2; i++) { s.sim.step(); s.handleEvents(s.sim.drainEvents()); } s.setPaused(true); s.hideBanner(); const g = s.sim.groups.find((x) => x.side === 0); s.selGroup = g ? g.id : -1; s.buildHud(); return 1;`);
+      return wait(p, 600);
+    },
+  },
+  { id: 'battle-keys-deploy', owner: 'A', run: async (p) => (await p.keyboard.press('Shift'), await battle(p), await call(p, 'Battle', 's.buildHud(); return 1;'), wait(p, 600)) },
+  { id: 'battle-shortcuts', owner: 'A', run: async (p) => (await battle(p), await p.keyboard.press('F1'), wait(p, 700)) },
+  { id: 'menu-shortcuts', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await p.keyboard.press('F1'), wait(p, 700)) },
+  {
+    // Settings → Keyboard shortcuts (V6-069), through the sheet's Edit in Settings
+    id: 'menu-settings-controls',
+    owner: 'F',
+    run: async (p) => {
+      await start(p, 'Menu');
+      await wait(p, 500);
+      await p.keyboard.press('F1');
+      await wait(p, 500);
+      await ev(p, () => {
+        let b = null;
+        const walk = (list) => list.forEach((o) => ((o.__uiId === 'shortcuts.edit' && (b = o)), o.list && walk(o.list)));
+        walk(window.__game.scene.getScene('Menu').children.list);
+        b?.emit('pointerdown', { x: 0, y: 0 });
+        b?.emit('pointerup', { x: 0, y: 0 });
+      });
+      return wait(p, 900);
+    },
+  },
+  // the focus ring on the Kit States page after Tab (INP-04's ring, drawn only after a key)
+  { id: 'kit-focus', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'states' }), await wait(p, 900), await p.keyboard.press('Tab'), await p.keyboard.press('Tab'), wait(p, 500)) },
 ];
 
 // ------------------------------------------------------------------ page setup
@@ -1026,7 +1153,10 @@ function seededRandom() {
   };
   Math.random = gen(0x9e3779b9);
   let seeds = gen(0x51ed2701);
-  window.__reseed = (n) => (seeds = gen(n));
+  window.__reseed = (n) => {
+    seeds = gen(n);
+    Math.random = gen(n ^ 0x9e3779b9);
+  };
   const orig = crypto.getRandomValues.bind(crypto);
   crypto.getRandomValues = (a) => {
     if (a instanceof Uint32Array || a instanceof Uint8Array || a instanceof Uint16Array || a instanceof Int32Array) {
@@ -1038,23 +1168,46 @@ function seededRandom() {
   };
 }
 
+/**
+ * Before every screen (PARITY-STABLE, V6-076): the staged campaign again and the random streams re-seeded
+ * from the screen's id. Each size stages its own live scenes, and the World and the battles run on real
+ * time, so what earlier screens left (the campaign's rng, the world's clock and parties, recruits) differs
+ * between sizes; from here every size stages the same battle, encounter and loot, and element-parity
+ * compares like with like.
+ */
+function restoreStage(seed) {
+  const st = window.__state;
+  st.campaign = new st.campaign.constructor(JSON.parse(window.__stagedCampaign));
+  st.pending = null;
+  st.last = null;
+  window.__reseed(seed);
+}
+
 async function runConfig(browser, cfg, screens) {
   const [W, H] = cfg.size;
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true });
-  await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
-  await ctx.addInitScript(seededRandom);
-  // a full-screen Telegram with the insets already reported
-  if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, { insets: TG, fullscreen: 'launch', languageCode: 'en' });
-  const page = await ctx.newPage();
-  const errors = captureErrors(page, { ignoreNetwork: true });
-  await apiDown(page);
-  await page.route('**/telegram.org/**', (r) => r.abort());
+  const { ctx, page, errors } = await timed('browser', async () => {
+    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true });
+    await ctx.addInitScript(() => (window.__noFirstRun = true)); // no onboarding here (scripts/tutorial-smoke.mjs covers it)
+    await ctx.addInitScript(seededRandom);
+    if (!FIXED_WAITS) await installSettle(ctx);
+    // the landscape checks (src/ui/layout.ts checkUi): their thresholds and this viewport's safe box
+    const t = cfg.insets === 'tg' ? cfg.tg : null;
+    const [l, top, r, b] = t ? [t.safeLeft ?? 0, t.safeTop + t.contentTop, t.safeRight ?? 0, t.safeBottom] : [0, 0, 0, 0];
+    await ctx.addInitScript((o) => (window.__layoutWide = o), { rules: WIDE_RULES, safe: { x: l, y: top, w: W - l - r, h: H - top - b }, scrollTop: true });
+    // a full-screen Telegram with the insets already reported
+    if (cfg.insets === 'tg') await ctx.addInitScript(fakeTelegram, { insets: cfg.tg, fullscreen: 'launch', languageCode: 'en' });
+    const page = await ctx.newPage();
+    const errors = captureErrors(page, { ignoreNetwork: true });
+    await apiDown(page);
+    await page.route('**/telegram.org/**', (r) => r.abort());
+    return { ctx, page, errors };
+  });
   const url = `${base}${base.includes('?') ? '&' : '?'}lang=${cfg.lang}${cfg.insets === 'tg' ? '#tgWebAppVersion=8.0&tgWebAppPlatform=ios' : ''}`;
   // a busy machine can be slow to serve the first load: one more try
-  await page.goto(url, { timeout: 60000 }).catch(() => page.goto(url, { timeout: 60000 }));
-  await until(page, () => !!window.__game && window.__game.scene.isActive('Menu'), 15000);
+  await timed('load', () => page.goto(url, { timeout: 60000 }).catch(() => page.goto(url, { timeout: 60000 })));
+  await timed('boot', () => until(page, () => !!window.__game && window.__game.scene.isActive('Menu'), 15000));
   // A fixed campaign, staged like the screenshot tour: more heroes, gold, perks; no one-time hints.
-  await ev(page, async () => {
+  await timed('stage', () => ev(page, async () => {
     const st = window.__state;
     st.campaign = st.campaign.constructor.fresh(20261006);
     st.hasSave = true;
@@ -1073,153 +1226,354 @@ async function runConfig(browser, cfg, screens) {
     const rar = ['legendary', 'epic', 'rare', 'uncommon', 'common'];
     c.data.stash = defs.map((def, i) => ({ uid: `lc${i}`, def, rarity: rar[i % 5], cond: 100 - ((i * 17) % 60) }));
     await st.save();
-  });
+    // every screen starts from this campaign (restoreStage), not from what the screens before it left behind
+    window.__stagedCampaign = JSON.stringify(c.sync());
+  }));
   const results = [];
   for (const sc of screens) {
     let violations = [];
     let elements = 0;
     let error = null;
+    let wide = null;
     try {
-      await ev(page, (n) => window.__reseed(n), [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
-      await sc.run(page);
+      await ev(page, restoreStage, [...sc.id].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7));
+      const w0 = page.__waits ?? 0;
+      await timed('staging', () => sc.run(page));
+      T.staging -= (page.__waits ?? 0) - w0; // staging is the screen's own work, its waits are counted apart
       // let finite tweens end (a sheet sliding in, a fade): on a slow software renderer they can
       // outlast the screen's fixed wait, and a half-open sheet reads as "outside the safe area"
-      await until(page, () => window.__game.scene.getScenes(true).every((s) => s.tweens.getTweens().every((t) => !t.isPlaying() || t.loop === -1 || t.data.some((d) => d.repeat === -1))), 3000);
+      await timed('settle', () => until(page, () => window.__game.scene.getScenes(true).every((s) => s.tweens.getTweens().every((t) => !t.isPlaying() || t.loop === -1 || t.data.some((d) => d.repeat === -1))), 3000));
       // let tooltips / toasts from staging fade, then measure
-      const r = await ev(page, () => {
+      const r = await timed('check', () => ev(page, () => {
+        window.__layoutWide.scrollTop = true;
         const x = window.__layout.check();
-        return { violations: x.violations, elements: x.elements.length, scenes: window.__game.scene.getScenes(true).map((s) => s.scene.key) };
-      });
+        return { violations: [...x.violations, ...x.wide.violations], wide: { ...x.wide, violations: undefined }, elements: x.elements.length, scenes: window.__game.scene.getScenes(true).map((s) => s.scene.key) };
+      }));
       violations = r.violations;
       elements = r.elements;
+      wide = r.wide;
       const dir = join(outDir, `${cfg.lang}-${cfg.insets}`, `${W}x${H}`);
-      if (!flag('no-shots')) {
-        mkdirSync(dir, { recursive: true });
-        await page.screenshot({ path: join(dir, `${sc.id}.png`) });
-      }
+      if (!flag('no-shots'))
+        await timed('shots', () => {
+          mkdirSync(dir, { recursive: true });
+          return page.screenshot({ path: join(dir, `${sc.id}.png`) });
+        });
       // Scroll every list to its end and check the rest of the content too.
-      if (await ev(page, () => window.__layout.scrollAll(1e6))) {
-        await wait(page, 250);
-        const r2 = await ev(page, () => window.__layout.check().violations);
+      await timed('scroll', async () => {
+        if (!(await ev(page, () => window.__layout.scrollAll(1e6)))) return;
+        await (FIXED_WAITS ? page.waitForTimeout(250) : settle(page, 250)); // (the scroll pass's own time, not a staging wait)
+        const r2 = await ev(page, () => {
+          window.__layoutWide.scrollTop = false;
+          const x = window.__layout.check();
+          window.__layoutWide.scrollTop = true;
+          return { violations: [...x.violations, ...x.wide.violations], ids: x.wide.ids };
+        });
         const seen = new Set(violations.map((v) => [v.check, ...v.ids].join('|')));
-        for (const v of r2) if (!seen.has([v.check, ...v.ids].join('|'))) violations.push(v);
+        for (const v of r2.violations) if (!seen.has([v.check, ...v.ids].join('|'))) violations.push(v);
+        wide.ids = [...new Set([...wide.ids, ...r2.ids])];
         if (!flag('no-shots')) await page.screenshot({ path: join(dir, `${sc.id}-end.png`) });
         await ev(page, () => window.__layout.scrollAll(0));
-      }
+      });
     } catch (e) {
       error = String(e && e.message ? e.message : e).split('\n')[0];
     }
-    results.push({ screen: sc.id, owner: sc.owner, violations, elements, error });
+    results.push({ screen: sc.id, owner: sc.owner, violations, elements, error, wide });
   }
-  await ctx.close();
+  await timed('browser', () => ctx.close());
   return { cfg, results, errors };
 }
 
-// ------------------------------------------------------------------ run
+// ------------------------------------------------------------------ which screens
 
-const onlyScreens = opt('screens', '');
+const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8', maxBuffer: 64 << 20 });
+/** Files changed since the merge base with `ref` (default v6, else main), uncommitted and untracked ones included, with their diffs. */
+function changedFiles(ref) {
+  const refs = ref ? [ref] : ['v6', 'main'];
+  const found = refs.find((r) => {
+    try {
+      git('rev-parse', '--verify', '--quiet', `${r}^{commit}`);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!found) throw new Error(`--changed: no ref ${refs.join(' or ')}`);
+  const mb = git('merge-base', 'HEAD', found).trim();
+  const paths = [...new Set([...git('diff', '--name-only', mb).split('\n'), ...git('ls-files', '--others', '--exclude-standard').split('\n')].filter(Boolean))];
+  return { ref: found, files: paths.map((path) => ({ path, diff: path.startsWith('scripts/layout-allowlist/') ? git('diff', mb, '--', path) : '' })) };
+}
+/** Every src/ file's text, by repository-relative path. */
+function sourceTexts() {
+  const out = new Map();
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(ts|tsx|js|mjs)$/.test(name)) out.set(relative(root, p).split('\\').join('/'), readFileSync(p, 'utf8'));
+    }
+  };
+  walk(join(root, 'src'));
+  return out;
+}
+
+// The pending rule's fixtures (V6-RFND-03), opt-in: `--scenes kit-wide-*`. Both show the Kit tokens page,
+// whose family (V6-RSCR-11) is pending. kit-wide-pending runs it as it is (the legacy column): its landscape
+// findings are reported and the run passes. kit-wide-optin starts it once with `responsive` on, as a family
+// that opted in without laying out for the class: the same rules fail it (class-match at least).
+SCREENS.push(
+  { id: 'kit-wide-pending', owner: 'F', optIn: true, run: async (p) => (await start(p, 'Kit', { page: 'tokens' }), wait(p, 1200)) },
+  {
+    id: 'kit-wide-optin',
+    owner: 'F',
+    optIn: true,
+    run: async (p) => {
+      await start(p, 'Kit', { page: 'tokens' }); // (a lazy scene exists once started)
+      await until(p, activeIs('Kit'));
+      await ev(p, () => {
+        let once = true; // the next build only: later screens get the Kit as it is
+        Object.defineProperty(window.__game.scene.getScene('Kit'), 'responsive', { configurable: true, get: () => (once ? !(once = false) : false) });
+      });
+      await start(p, 'Kit', { page: 'tokens' });
+      return wait(p, 1200);
+    },
+  },
+);
+
 // opt-in screens (art previews) run only when named
 const DEFAULT_SCREENS = SCREENS.filter((s) => !s.optIn);
-const screens = onlyScreens ? SCREENS.filter((s) => onlyScreens.split(',').includes(s.id)) : DEFAULT_SCREENS;
-const configs = [];
-for (const lang of LANGS) for (const insets of INSETS) for (const size of SIZES) configs.push({ lang, insets, size });
-const allConfigs = configs.length;
+const byId = new Map(SCREENS.map((s) => [s.id, s]));
+const pick = (ids) => ids.map((id) => byId.get(id));
+for (const id of QUICK.smoke) if (!byId.has(id)) throw new Error(`QUICK.smoke names ${id}, which is not a screen`);
+const onlyScreens = opt('scenes', opt('screens', ''));
+const named = onlyScreens ? matchScreens(DEFAULT_SCREENS.map((s) => s.id), onlyScreens, SCREENS.filter((s) => s.optIn).map((s) => s.id)) : null;
+let screens = named ? pick(named) : DEFAULT_SCREENS;
+/** Per size, extra screens to run there only (--quick's smoke subset). */
+const extraAt = new Map();
+if (CHANGED !== undefined) {
+  const { ref, files } = changedFiles(CHANGED);
+  const sources = sourceTexts();
+  const known = [...new Set([...sources.values()].map((t) => /\bsuper\(\s*'([A-Z]\w*)'\s*\)/.exec(t)?.[1]).filter(Boolean))];
+  const helpers = { battle: battle.toString(), results: results.toString(), codexMet: codexMet.toString() };
+  // --changed alone narrows --scenes; --quick adds the named screens to the changed ones
+  const pool = QUICK_MODE ? DEFAULT_SCREENS : screens;
+  const hit = screensForChanges(files, sources, pool.map((s) => ({ id: s.id, keys: sceneKeysOf(s.run.toString(), helpers, known) })));
+  console.log(`--changed: ${files.length} files changed since the merge base with ${ref}; ${hit.all ? `every screen (${hit.why})` : `${hit.ids.length} screens${hit.ids.length ? `: ${hit.ids.join(', ')}` : ''}`}`);
+  if (!QUICK_MODE) screens = pick(hit.ids);
+  else {
+    // a change that reaches every screen: the smoke subset at every size instead (the full matrix is the integrator's)
+    const ids = new Set([...(hit.all ? QUICK.smoke : hit.ids), ...(named ?? [])]);
+    if (hit.all) console.log(`--quick: the change reaches every screen, so this runs the smoke subset at every size${named ? ' plus --scenes' : ''}; name the screens you changed with --scenes, and the integrator runs the full matrix`);
+    screens = SCREENS.filter((s) => ids.has(s.id));
+    for (const size of QUICK.sizes) extraAt.set(size, pick(QUICK.smoke.filter((id) => !ids.has(id))));
+  }
+}
+const screensAt = (size) => [...screens, ...(extraAt.get(size) ?? [])];
+
+// ------------------------------------------------------------------ run
+
+const configs = configsFor(SIZES, LANGS, INSETS).filter((c) => screensAt(c.size.join('x')).length);
 if (SHARDS > 1) configs.splice(0, configs.length, ...configs.filter((_, k) => k % SHARDS === SHARD - 1));
+if (!configs.length) {
+  console.log('No screens to check.\nLAYOUT CHECK PASSED');
+  process.exit(0);
+}
+if (flag('list')) {
+  for (const size of [...new Set(configs.map((c) => c.size.join('x')))]) console.log(`${size} (${configs.filter((c) => c.size.join('x') === size).length} configs): ${screensAt(size).map((s) => s.id).join(', ')}`);
+  console.log(`${configs.length} configs, ${configs.reduce((a, c) => a + screensAt(c.size.join('x')).length, 0)} screen visits`);
+  process.exit(0);
+}
 // work units: a configuration and a contiguous run of screens (each unit is a fresh context)
 const units = [];
-const per = Math.ceil(screens.length / SPLIT);
-for (const cfg of configs) for (let c = 0; c < SPLIT; c++) if (c * per < screens.length) units.push({ cfg, screens: screens.slice(c * per, (c + 1) * per), part: c });
+const skipped = [];
+for (const cfg of configs) {
+  const crash = (s) => KNOWN_CRASHES[`${s.id}@${cfg.size.join('x')}/${cfg.insets}`];
+  const here = screensAt(cfg.size.join('x'));
+  for (const s of here.filter(crash)) skipped.push(`${cfg.lang}-${cfg.insets}-${cfg.size.join('x')} ${s.id}: ${crash(s)}`);
+  const list = here.filter((s) => !crash(s));
+  const per = Math.ceil(list.length / SPLIT);
+  for (let c = 0; c < SPLIT; c++) if (c * per < list.length) units.push({ cfg, screens: list.slice(c * per, (c + 1) * per), part: c });
+}
 
-const browser = await launch();
-const runs = [];
-let next = 0;
+/** Runs the units on one browser, JOBS contexts at a time; `log` prints each unit's line. */
+async function runAll(list, log = true) {
+  const browser = await launch();
+  const out = [];
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(JOBS, list.length) }, async () => {
+      while (next < list.length) {
+        const u = list[next++];
+        const t = Date.now();
+        const r = await runConfig(browser, u.cfg, u.screens);
+        r.ms = Date.now() - t;
+        out.push(r);
+        const n = r.results.reduce((a, x) => a + x.violations.length, 0);
+        if (log) console.log(`${u.cfg.lang} ${u.cfg.insets} ${u.cfg.size.join('x')}${SPLIT > 1 ? ` part ${u.part + 1}/${SPLIT}` : ''}: ${u.screens.length} screens, ${n} violations${r.errors.length ? `, ${r.errors.length} page errors` : ''}`);
+      }
+    }),
+  );
+  await browser.close();
+  return out;
+}
+
 const t0 = Date.now();
-await Promise.all(
-  Array.from({ length: Math.min(JOBS, units.length) }, async () => {
-    while (next < units.length) {
-      const u = units[next++];
-      const r = await runConfig(browser, u.cfg, u.screens);
-      runs.push(r);
-      const n = r.results.reduce((a, x) => a + x.violations.length, 0);
-      console.log(`${u.cfg.lang} ${u.cfg.insets} ${u.cfg.size.join('x')}${SPLIT > 1 ? ` part ${u.part + 1}/${SPLIT}` : ''}: ${n} violations${r.errors.length ? `, ${r.errors.length} page errors` : ''}`);
-    }
-  }),
-);
-await browser.close();
+const runs = await runAll(units);
+if (flag('timing')) {
+  const total = Object.values(T).reduce((a, b) => a + b, 0);
+  console.log(`\nWhere the time went (context seconds, summed over ${units.length} contexts; wall ${Math.round((Date.now() - t0) / 1000)} s, ${FIXED_WAITS ? 'fixed waits' : 'state waits'}):`);
+  for (const [k, ms] of Object.entries(T)) console.log(`  ${k.padEnd(8)} ${String(Math.round(ms / 1000)).padStart(6)} s  ${String(Math.round((100 * ms) / total)).padStart(3)} %`);
+  if (!FIXED_WAITS) {
+    const capped = Object.entries(BUSY).sort((a, b) => b[1] - a[1]);
+    console.log(`  staging waits: ${settledWaits} ended quiet, ${capped.reduce((a, [, n]) => a + n, 0)} ran to their deadline${capped.length ? ` (${capped.slice(0, 8).map(([k, n]) => `${k} ${n}`).join(', ')})` : ''}`);
+  }
+}
 
 // ------------------------------------------------------------------ compare with the allowlist
 
 const keyOf = (screen, v) => [screen, v.check, ...v.ids].join('|');
-const found = new Map(); // key -> { owner, configs: [], detail }
+const sizeOf = (cfg) => cfg.size.join('x');
+const tagOf = (cfg) => `${cfg.lang}-${cfg.insets}-${sizeOf(cfg)}`;
+/** Story files flagged "pending": families whose landscape findings are reported, not failed (V6-021). */
+const PENDING = loadPending(allowDir);
+/** The uiIds each screen shows at PARITY_BASE, and the ids it registered transient, per language and safe-area variant (element-parity). */
+const baseIds = new Map();
+const baseKey = (screen, cfg) => `${screen}|${cfg.lang}|${cfg.insets}`;
+/** Adds element-parity to every result, then splits its violations: enforced, or pending (reported only). */
+function settleRuns(list) {
+  for (const r of list) if (sizeOf(r.cfg) === PARITY_BASE) for (const x of r.results) if (x.wide && !baseIds.has(baseKey(x.screen, r.cfg))) baseIds.set(baseKey(x.screen, r.cfg), x.wide);
+  for (const r of list)
+    for (const x of r.results) {
+      const base = x.wide && sizeOf(r.cfg) !== PARITY_BASE ? baseIds.get(baseKey(x.screen, r.cfg)) : null;
+      // a transient id (uiTransient) registered at either size is left out
+      if (base) x.violations.push(...checkParity(base.ids, new Set(x.wide.ids), x.wide.collapsed, [...(base.transient ?? []), ...(x.wide.transient ?? [])]));
+      const t = triageWide({ screen: x.screen, responsive: !!x.wide?.responsive, violations: x.violations }, PENDING);
+      x.violations = t.enforced;
+      x.pending = t.pending;
+    }
+  return list;
+}
+settleRuns(runs);
+const found = new Map(); // key -> { owner, screen, configs: [], sizes: Set, detail }
+const pendingFound = new Map(); // the same, for the pending findings
 const pageErrors = [];
 const screenErrors = [];
+const record = (map, x, v, cfg) => {
+  const k = keyOf(x.screen, v);
+  if (!map.has(k)) map.set(k, { owner: x.owner, screen: x.screen, configs: [], sizes: new Set(), detail: v.detail });
+  map.get(k).configs.push(tagOf(cfg));
+  map.get(k).sizes.add(sizeOf(cfg));
+};
 for (const r of runs) {
-  const tag = `${r.cfg.lang}-${r.cfg.insets}-${r.cfg.size.join('x')}`;
+  const tag = tagOf(r.cfg);
   for (const e of r.errors) pageErrors.push(`${tag}: ${e}`);
   for (const x of r.results) {
     if (x.error) screenErrors.push(`${tag} ${x.screen}: ${x.error}`);
-    for (const v of x.violations) {
-      const k = keyOf(x.screen, v);
-      if (!found.has(k)) found.set(k, { owner: x.owner, screen: x.screen, configs: [], detail: v.detail });
-      found.get(k).configs.push(tag);
-    }
+    for (const v of x.violations) record(found, x, v, r.cfg);
+    for (const v of x.pending) record(pendingFound, x, v, r.cfg);
   }
 }
-const allow = existsSync(allowPath) ? JSON.parse(readFileSync(allowPath, 'utf8')) : {};
-const allowed = new Map();
-for (const owner of GROUPS) for (const k of allow[owner] ?? []) allowed.set(k, owner);
-/** `screen|check|*` of a key. */
-const wildOf = (k) => k.split('|').slice(0, 2).join('|') + '|*';
-const isAllowed = (k) => allowed.has(k) || allowed.has(wildOf(k));
-let fresh = [...found.keys()].filter((k) => !isAllowed(k)).sort();
+// every violation with the configurations it showed in: two runs compare with a plain diff
+const dump = (map) => JSON.stringify(Object.fromEntries([...map].sort().map(([k, x]) => [k, x.configs.sort()])), null, 1) + '\n';
+writeFileSync(join(outDir, 'found.json'), dump(found));
+writeFileSync(join(outDir, 'pending.json'), dump(pendingFound));
+const allowed = loadAllowlist(allowDir);
+/** Whether a finding is allowlisted: never a landscape check on a foundation screen (Menu, Settings, Kit). */
+const allowedAt = (k, size) => {
+  const f = found.get(k);
+  if (WIDE_CHECKS.has(k.split('|')[1]) && isFoundationScreen(f.screen, f.owner)) return false;
+  return allows(allowed, k, size);
+};
+/** New violations: `key@WxH` for every size a key shows at without an allowlist entry. */
+let fresh = [...found].flatMap(([k, x]) => [...x.sizes].filter((size) => !allowedAt(k, size)).map((size) => `${k}@${size}`)).sort();
 const flaky = [];
 if (fresh.length && !flag('update-allowlist') && !flag('no-retry')) {
   // Timing differs on slow machines (CI): a new violation only counts when the
   // same screen in the same configuration shows it again on a second run.
-  const tagOf = (c) => `${c.lang}-${c.insets}-${c.size.join('x')}`;
   const redo = new Map();
-  for (const k of fresh)
-    for (const tag of found.get(k).configs) {
-      const cfg = configs.find((c) => tagOf(c) === tag);
-      if (!redo.has(tag)) redo.set(tag, { cfg, ids: new Set() });
-      redo.get(tag).ids.add(found.get(k).screen);
+  for (const e of fresh) {
+    const { key, size } = splitEntry(e);
+    for (const tag of found.get(key).configs.filter((t) => t.endsWith(`-${size}`))) {
+      if (!redo.has(tag)) redo.set(tag, { cfg: configs.find((c) => tagOf(c) === tag), ids: new Set() });
+      redo.get(tag).ids.add(found.get(key).screen);
     }
-  const b2 = await launch();
-  const again = new Set();
-  for (const { cfg, ids } of redo.values()) {
-    const r = await runConfig(b2, cfg, SCREENS.filter((s) => ids.has(s.id)));
-    for (const x of r.results) for (const v of x.violations) again.add(keyOf(x.screen, v));
   }
-  await b2.close();
-  flaky.push(...fresh.filter((k) => !again.has(k)));
-  fresh = fresh.filter((k) => again.has(k));
+  const again = new Set();
+  for (const r of settleRuns(await runAll([...redo.values()].map(({ cfg, ids }) => ({ cfg, screens: SCREENS.filter((s) => ids.has(s.id)) })), false)))
+    for (const x of r.results) for (const v of x.violations) again.add(`${keyOf(x.screen, v)}@${sizeOf(r.cfg)}`);
+  flaky.push(...fresh.filter((e) => !again.has(e)));
+  fresh = fresh.filter((e) => again.has(e));
 }
-const partial = configs.length < allConfigs || allConfigs < 20 || screens.length < DEFAULT_SCREENS.length;
-const foundWild = new Set([...found.keys()].map(wildOf));
-const stale = [...allowed.keys()].filter((k) => !(k.endsWith('|*') ? foundWild.has(k) : found.has(k)) && screens.some((s) => k.startsWith(s.id + '|'))).sort();
+const ran = {
+  screens: new Set(configs.flatMap((c) => screensAt(sizeOf(c)).map((s) => s.id))),
+  sizes: new Set(configs.map(sizeOf)),
+  pairs: new Set(configs.flatMap((c) => screensAt(sizeOf(c)).map((s) => `${s.id}@${sizeOf(c)}`))),
+};
+const stale = staleEntries(allowed, found, ran);
 
 if (flag('update-allowlist')) {
-  const out = {
-    _doc: 'Known layout violations (scripts/layout-check.mjs), by owner. A = battle panel, online battle rules, battle report; B = army, hero, stash, shop, pass, marketplace, settlements; C = world and hex maps; F = foundation screens (UI kit, menu, onboarding), only for the text-size floor. `stories` names the story that owns each fix (docs/v5/plan/STORIES.md). Fix them and remove the entries: this list must end up empty. Keys: screen|check|element ids, or screen|check|* for a check on the whole screen (text-size).',
-    A: [],
-    B: [],
-    C: [],
-    F: [],
-  };
-  for (const [k, f] of found) {
-    const check = k.split('|')[1];
-    // the foundation screens must stay clean, apart from checks added after them
-    if (f.owner === 'F' && !PER_SCREEN.has(check)) continue;
-    out[f.owner].push(PER_SCREEN.has(check) ? wildOf(k) : k);
+  const owners = Object.fromEntries(SCREENS.map((s) => [s.id, s.owner]));
+  // stable (V6-057): what this run would add or drop waits for the next update run to agree
+  const candFile = join(shotsDir(), 'layout-candidates.json');
+  const prev = existsSync(candFile) ? JSON.parse(readFileSync(candFile, 'utf8')) : { add: [], drop: [] };
+  const { out, candidates } = stableRewrite(allowed, found, ran, owners, PENDING, prev);
+  writeFileSync(candFile, JSON.stringify(candidates, null, 1) + '\n');
+  mkdirSync(allowDir, { recursive: true });
+  for (const story of [...new Set([...allowed.values(), ...Object.keys(out), ...PENDING])].sort()) {
+    const file = join(allowDir, `${story}.json`);
+    const entries = out[story] ?? [];
+    const pending = PENDING.has(story);
+    // a story's file goes when its list is empty and its family has migrated: the lists only shrink
+    if (!entries.length && !pending) {
+      if (existsSync(file)) unlinkSync(file);
+      continue;
+    }
+    const doc = `Known layout violations owned by ${story} (scripts/layout-check.mjs, docs/UI_KIT.md "Layout check"). Fix them and remove the entries; delete this file when it is empty. Keys: screen|check|element ids, or screen|check|* for the whole screen (text-size only); a trailing @WxH scopes an entry to one size.`;
+    writeFileSync(file, JSON.stringify({ _doc: doc, ...(pending ? { pending: true } : {}), entries }, null, 2) + '\n');
   }
-  // keep entries of screens not run this time
-  for (const [k, owner] of allowed) if (!found.has(k) && !screens.some((s) => k.startsWith(s.id + '|'))) out[owner].push(k);
-  for (const o of GROUPS) out[o] = [...new Set(out[o])].sort();
-  // the story that owns each entry's fix: kept for entries still listed, new ones from the screen
-  const kept = [...out.A, ...out.B, ...out.C, ...out.F];
-  out.stories = Object.fromEntries(kept.map((k) => [k, allow.stories?.[k] ?? storyOf(k)]).filter(([, s]) => s));
-  writeFileSync(allowPath, JSON.stringify(out, null, 2) + '\n');
-  console.log(`allowlist written: A ${out.A.length}, B ${out.B.length}, C ${out.C.length}, F ${out.F.length}`);
+  const agreed = (kind) => candidates[kind].filter((e) => prev[kind].includes(e)).length;
+  console.log(`allowlist written: ${Object.entries(out).map(([st, e]) => `${st} ${e.length}`).join(', ') || 'empty'}`);
+  console.log(
+    `  confirmed by the previous update run: ${agreed('add')} added, ${agreed('drop')} dropped; held for the next run: ${candidates.add.length - agreed('add')} to add, ${candidates.drop.length - agreed('drop')} to drop (${relative(root, candFile)}); pending families never drop entries`,
+  );
+}
+
+// ------------------------------------------------------------------ per-size summary
+
+const SIZE_LIST = [...ran.sizes];
+const freshSet = new Set(fresh);
+/**
+ * Per size: screens (summed over configurations) clean, with only allowlisted violations (known), with
+ * pending landscape findings and nothing new (pending), or failed; context seconds; the size class.
+ */
+const perSize = Object.fromEntries(SIZE_LIST.map((size) => [size, { configs: configs.filter((c) => sizeOf(c) === size).length, s: 0, clean: 0, known: 0, pending: 0, failed: 0, cls: '-' }]));
+for (const r of runs) {
+  const size = sizeOf(r.cfg);
+  const row = perSize[size];
+  row.s += r.ms / 1000;
+  for (const x of r.results) {
+    // the class of the #game box (the plain variant: Telegram's insets only narrow the phones)
+    if (x.wide && (row.cls === '-' || r.cfg.insets === 'plain')) row.cls = x.wide.cls === 'compact' ? `compact ${x.wide.land ? 'landscape' : 'portrait'}` : x.wide.cls;
+    const keys = x.violations.map((v) => `${keyOf(x.screen, v)}@${size}`);
+    if (x.error || keys.some((k) => freshSet.has(k))) row.failed++;
+    else if (x.pending.length) row.pending++;
+    else if (keys.length) row.known++;
+    else row.clean++;
+  }
+}
+const groupOf = (size) => Object.keys(MATRIX).find((g) => g !== 'all' && MATRIX[g].includes(size)) ?? '-';
+/** The same per size class (the reviewer's view: which class failed). */
+const perClass = {};
+for (const size of SIZE_LIST) {
+  const r = perSize[size];
+  const c = (perClass[r.cls] ??= { sizes: [], clean: 0, known: 0, pending: 0, failed: 0 });
+  c.sizes.push(size);
+  for (const k of ['clean', 'known', 'pending', 'failed']) c[k] += r[k];
+}
+/** Pending findings per family and check: reported, not failed. */
+const pendingBy = {};
+for (const [k, f] of pendingFound) {
+  const row = (pendingBy[storyOf(f.screen) ?? f.owner] ??= {});
+  row[k.split('|')[1]] = (row[k.split('|')[1]] ?? 0) + f.configs.length;
 }
 
 // ------------------------------------------------------------------ index
@@ -1236,27 +1590,54 @@ const md = [
   '# Layout check',
   '',
   'Generated by `node scripts/layout-check.mjs` (see docs/UI_KIT.md). Screenshots are written next to this file',
-  '(`<lang>-<plain|tg>/<W>x<H>/<screen>.png`; CI uploads them as the `layout-screenshots-<shard>` artifacts).',
+  '(`<lang>-<plain|tg>/<W>x<H>/<screen>.png`; CI uploads them as the `layout-<size>` artifacts).',
   '',
-  `Sizes: ${SIZES.map((s) => s.join('x')).join(', ')}. Telegram insets: top ${TG.safeTop} + ${TG.contentTop}, bottom ${TG.safeBottom}.`,
+  `Sizes: ${SIZE_LIST.join(', ')}. Telegram insets (phones only): portrait top ${TG.safeTop} + ${TG.contentTop}, bottom ${TG.safeBottom}; 844x390 sides 59, top 46, bottom 21.`,
+  '',
+  '## Per size',
+  '',
+  'Screens summed over languages and safe-area variants: clean, only allowlisted violations (known), landscape findings of a pending family and nothing new (pending: reported, not failed), failed (a new violation or a staging error). Seconds are browser-context time.',
+  '',
+  '| Size | Class | Group | Configs | Clean | Known | Pending | Failed | Seconds |',
+  '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+  ...SIZE_LIST.map((size) => {
+    const r = perSize[size];
+    return `| ${size} | ${r.cls} | ${groupOf(size)} | ${r.configs} | ${r.clean} | ${r.known} | ${r.pending} | ${r.failed} | ${Math.round(r.s)} |`;
+  }),
+  '',
+  '## Per class',
+  '',
+  '| Class | Sizes | Clean | Known | Pending | Failed |',
+  '| --- | --- | --- | --- | --- | --- |',
+  ...Object.entries(perClass).map(([cls, c]) => `| ${cls} | ${c.sizes.join(', ')} | ${c.clean} | ${c.known} | ${c.pending} | ${c.failed} |`),
+  '',
+  '## Pending families (landscape findings reported, not failed; shots/layout/pending.json)',
+  '',
+  `Pending: ${[...PENDING].join(', ') || 'none'}. Findings summed over configurations, by family and check.`,
+  '',
+  ...Object.entries(pendingBy)
+    .sort()
+    .map(([story, row]) => `- ${story}: ${Object.entries(row).map(([c, n]) => `${c} ${n}`).join(', ')}`),
   '',
   '## Violations per screen (all sizes)',
   '',
   `| Screen | Owner | ${variants.join(' | ')} |`,
   `| --- | --- | ${variants.map(() => '---').join(' | ')} |`,
-  ...SCREENS.filter((s) => counts[s.id]).map((s) => `| ${s.id} | ${s.owner} | ${variants.map((v) => counts[s.id][v] ?? '-').join(' | ')} |`),
+  ...SCREENS.filter((s) => counts[s.id]).map((s) => `| ${s.id} | ${storyOf(s.id) ?? s.owner} | ${variants.map((v) => counts[s.id][v] ?? '-').join(' | ')} |`),
   '',
-  `Distinct violations: ${found.size} (allowlisted ${[...found.keys()].filter(isAllowed).length}, new ${fresh.length}).`,
+  `Distinct violations: ${found.size}; new (key@size): ${fresh.length}.`,
   '',
 ];
-if (!partial) writeFileSync(join(outDir, 'index.md'), md.join('\n'));
+writeFileSync(join(outDir, 'index.md'), md.join('\n'));
 
 // ------------------------------------------------------------------ report
 
 const verbose = flag('verbose');
-const show = (k) => {
-  const f = found.get(k);
-  return `  ${k}  [${f.configs.length} configs, e.g. ${f.configs[0]}]${verbose ? `\n      ${f.detail}` : ''}`;
+const show = (e) => {
+  const { key, size } = splitEntry(e);
+  const f = found.get(key);
+  const cfgs = size ? f.configs.filter((t) => t.endsWith(`-${size}`)) : f.configs;
+  return `  ${e}  [${cfgs.length} configs, e.g. ${cfgs[0]}]${verbose ? `\n      ${f.detail}` : ''}`;
 };
 if (verbose) {
   console.log('\nAll violations:');
@@ -1267,8 +1648,12 @@ if (flaky.length) {
   for (const k of flaky) console.log(show(k));
 }
 if (stale.length) {
-  console.log(`\nFixed but still allowlisted (remove from ${allowPath.replace(root + '/', '')}):`);
-  for (const k of stale) console.log(`  ${k}`);
+  console.log('\nFixed but still allowlisted (remove from scripts/layout-allowlist/<story>.json):');
+  for (const k of stale) console.log(`  ${k}  (${allowed.get(k)})`);
+}
+if (skipped.length) {
+  console.log('\nKnown crashes, skipped (KNOWN_CRASHES in scripts/lib/layoutMatrix.mjs; the owner fixes them):');
+  for (const s of skipped) console.log(`  ${s}`);
 }
 if (pageErrors.length) {
   console.log('\nPage errors:');
@@ -1283,7 +1668,19 @@ if (failNew) {
   console.log(`\nNEW layout violations (not in the allowlist): ${fresh.length}`);
   for (const k of fresh) console.log(show(k));
 }
-console.log(`\n${configs.length} configs${SHARDS > 1 ? ` (shard ${SHARD}/${SHARDS})` : ''} x ${screens.length} screens in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new.`);
+if (pendingFound.size) {
+  console.log(`\nPending families (landscape findings reported, not failed; ${pendingFound.size} distinct, shots/layout/pending.json):`);
+  for (const [story, row] of Object.entries(pendingBy).sort()) console.log(`  ${story}: ${Object.entries(row).map(([c, n]) => `${c} ${n}`).join(', ')}`);
+}
+console.log('\nPer size (screens: clean / known / pending / failed; context seconds):');
+const pad = (n) => String(n).padStart(4);
+for (const size of SIZE_LIST) {
+  const r = perSize[size];
+  console.log(`  ${size.padEnd(9)} ${r.cls.padEnd(18)} ${groupOf(size).padEnd(9)} ${pad(r.clean)} / ${pad(r.known)} / ${pad(r.pending)} / ${pad(r.failed)}   ${Math.round(r.s)} s`);
+}
+console.log('Per class (screens: clean / known / pending / failed):');
+for (const [cls, c] of Object.entries(perClass)) console.log(`  ${cls.padEnd(18)} ${pad(c.clean)} / ${pad(c.known)} / ${pad(c.pending)} / ${pad(c.failed)}   (${c.sizes.join(', ')})`);
+console.log(`\n${configs.length} configs${SHARDS > 1 ? ` (shard ${SHARD}/${SHARDS})` : ''} x ${screens.length} screens${extraAt.size ? ` (+ the smoke subset at ${QUICK.sizes.join(', ')})` : ''} in ${Math.round((Date.now() - t0) / 1000)} s; ${found.size} distinct violations, ${fresh.length} new; ${pendingFound.size} pending.`);
 const failed = failNew || pageErrors.length > 0 || screenErrors.length > 0;
 console.log(failed ? 'LAYOUT CHECK FAILED' : 'LAYOUT CHECK PASSED');
 process.exit(failed ? 1 : 0);

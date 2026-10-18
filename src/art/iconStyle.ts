@@ -18,7 +18,7 @@ import { BACKED_FILL, drawIconBitmap, paintIconBacking } from './iconBitmaps';
 /** Gradient stops top-left -> bottom-right: highlight, body, shade. */
 type Tone = [string, string, string];
 
-export const TONES = {
+const TONES = {
   bronze: ['#f8e4b8', '#d2a564', '#86592a'],
   gold: ['#fff4c0', '#f0c24a', '#9c6c18'],
   steel: ['#f6f8fa', '#bcc5ce', '#636d78'],
@@ -112,7 +112,7 @@ function bbox(d: string): { x0: number; y0: number; x1: number; y1: number } {
 }
 
 /** Parts of an icon given as a bare path (a single bronze shape). */
-export function iconParts(parts: IconPart[] | string): IconPart[] {
+function iconParts(parts: IconPart[] | string): IconPart[] {
   return typeof parts === 'string' ? [{ d: parts, tone: 'bronze' }] : parts;
 }
 

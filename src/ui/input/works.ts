@@ -42,7 +42,7 @@ export interface WorkGhost {
 }
 
 /** The grid step along a segment laid across facing (fx, fy): right of the facing, snapped to 8 directions. */
-export function workStep(fx: number, fy: number): { sx: number; sy: number } {
+function workStep(fx: number, fy: number): { sx: number; sy: number } {
   const l = Math.hypot(fx, fy) || 1;
   // right of the facing (src/sim/formation rightOf): (-fy, fx)
   const rx = -fy / l;
@@ -130,7 +130,7 @@ export interface TrayRow {
 }
 
 /** The purse and the allowance the tray reads. */
-export interface TrayCtx {
+interface TrayCtx {
   /** Supplies on hand (WorldSave.supplies), before this battle's works are paid. */
   supplies: number;
   /** The player's segments on the field now (Battle.works(), own side). */

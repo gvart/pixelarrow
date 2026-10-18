@@ -56,7 +56,7 @@ export function allSteps(path: readonly number[], at: readonly number[]): MarchS
 
 // ------------------------------------------------------------------ client tracker
 
-export interface LiveArmy {
+interface LiveArmy {
   player: number;
   name: string;
   clan: number | null;
@@ -67,7 +67,7 @@ export interface LiveArmy {
   own: boolean;
 }
 
-export interface ArmyPose {
+interface ArmyPose {
   player: number;
   /** Position in map pixels (along the route's waypoints while marching). */
   x: number;
@@ -82,7 +82,7 @@ export interface ArmyPose {
 }
 
 /** Map refresh input: what /api/online/map returns for armies. */
-export interface MapArmy {
+interface MapArmy {
   player: number;
   loc: number;
   dest: number | null;

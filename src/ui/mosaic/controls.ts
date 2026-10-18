@@ -11,6 +11,7 @@ import Phaser from 'phaser';
 import type { MosaicStyle } from '../../art/mosaicUi';
 import { addIcon, fitBody, fitCinzel, panelK, scaleIcon, ICON_PX } from '../kit';
 import { uiId } from '../layout';
+import { focusGroup, focusRole } from '../focusRing';
 import { motion, tweenTo } from '../motion';
 import { MOSAIC, MOTION, TEXT_MIN, lineHeight } from '../tokens';
 import { fmtCount } from '../../i18n/numbers';
@@ -92,6 +93,7 @@ export class MButton extends Phaser.GameObjects.Container {
       disabled: () => (this.enabled ? undefined : this.reason ?? o.disabledReason),
     });
     uiId(this, o.id ?? `mbtn:${o.label}`);
+    if (this.variant === 'primary' || this.variant === 'primaryHero') focusRole(this, 'primary');
     scene.add.existing(this);
   }
 
@@ -377,6 +379,8 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
   /** Each segment's left edge and width (equal while every label fits; else sized to the labels, V5-063). */
   private segX: number[] = [];
   private segWs: number[] = [];
+  /** Its segments' focus group: focus moving along it selects (input-v6.md §4.3). */
+  private readonly focusGroupKey = { follow: true };
 
   constructor(scene: Scene, x: number, y: number, w: number, private o: SegmentedSwitchOpts) {
     super(scene, Math.round(x), Math.round(y));
@@ -441,6 +445,8 @@ export class SegmentedSwitch extends Phaser.GameObjects.Container {
         tip: text !== str ? opt.label : undefined,
       });
       uiId(hit, `${o.id ?? 'switch'}.${opt.id}`);
+      // Left/Right change the selection directly (cheap), skipping locked segments (input-v6.md §4.3)
+      focusGroup(hit, this.focusGroupKey, null, () => this.sel === opt.id);
       Object.assign(hit, { opts: { label: opt.label } });
       hit.add(scene.add.rectangle(0, 0, segW, this.h, 0, 0).setOrigin(0, 0));
       this.add(hit);

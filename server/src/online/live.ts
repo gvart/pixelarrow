@@ -20,7 +20,7 @@ import type { PlayerCtx } from './context';
 import { shardStub } from './context';
 import { armyState, playerNames, type ProfileRow } from './store';
 
-export type ArmyMove = { kind: 'march'; path: number[]; at: number[] } | { kind: 'pos'; pos: number };
+type ArmyMove = { kind: 'march'; path: number[]; at: number[] } | { kind: 'pos'; pos: number };
 
 export interface LiveOut {
   to: number;
@@ -83,7 +83,7 @@ export function liveMessages(
 }
 
 /** Marches at least this long notify their owner on arrival (when offline then). */
-export const MARCH_NOTICE_MIN_MS = 5 * 60_000;
+const MARCH_NOTICE_MIN_MS = 5 * 60_000;
 
 /** Pushes an army move to everyone online in the shard who can see it. Never throws. */
 export async function pushArmyMove(pc: PlayerCtx, move: ArmyMove): Promise<void> {

@@ -173,7 +173,7 @@ export interface EventCtx {
   escaped: number;
 }
 
-export function condMet(c: EventCond, x: EventCtx): boolean {
+function condMet(c: EventCond, x: EventCtx): boolean {
   if (c.minDay !== undefined && x.day < c.minDay) return false;
   if (c.maxDay !== undefined && x.day > c.maxDay) return false;
   if (c.danger && (x.danger < c.danger[0] || x.danger > c.danger[1])) return false;
@@ -187,7 +187,7 @@ export function condMet(c: EventCond, x: EventCtx): boolean {
 }
 
 /** The day a `flag` event comes due, or null while its flag is unset. Seeded per world and flag value. */
-export function dueDay(def: EventDef, flags: Readonly<Record<string, number>>, worldSeed: number): number | null {
+function dueDay(def: EventDef, flags: Readonly<Record<string, number>>, worldSeed: number): number | null {
   if (!def.after) return null;
   const set = flags[def.after.flag];
   if (set === undefined) return null;

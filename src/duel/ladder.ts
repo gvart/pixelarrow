@@ -75,7 +75,7 @@ export function ticketClock(expiresAt: number, now: number): { secs: number; sho
 
 const MIXES: ArmyMix[] = ['bandits', 'line', 'raiders', 'hill_tribe', 'mercs', 'pirates', 'deserters', 'cultists', 'line', 'garrison'];
 
-export interface Floor {
+interface Floor {
   floor: number;
   boss: boolean;
   /** Points the player's team may bring. */
@@ -143,12 +143,12 @@ export function floorBudget(floor: number): number {
 }
 
 /** The enemy's share of the player's budget: from 70% on floor 1 to 115% on floor 50; bosses +15%. */
-export function floorDifficulty(floor: number): number {
+function floorDifficulty(floor: number): number {
   const f = Math.max(1, Math.min(LADDER.floors, floor));
   return 0.7 + (0.45 * (f - 1)) / (LADDER.floors - 1) + (isBoss(f) ? 0.15 : 0);
 }
 
-export function floorReward(floor: number): Floor['reward'] {
+function floorReward(floor: number): Floor['reward'] {
   const k = isBoss(floor) ? 2 : 1;
   return { firstGlory: (40 + 8 * floor) * k, farmGlory: (10 + floor) * k, xp: 20 + 2 * floor };
 }
@@ -233,7 +233,7 @@ export interface HeroXp {
   xpBefore: number;
 }
 
-export interface LadderPayout {
+interface LadderPayout {
   won: boolean;
   firstClear: boolean;
   glory: number;
@@ -272,7 +272,7 @@ export function duelHeroXp(result: Pick<BattleResult, 'units'>, team: Hero[], wo
 }
 
 /** What the army a ladder drop follows is, and the duel bad-luck counter (both optional: none and 0). */
-export interface DropContext {
+interface DropContext {
   classes?: readonly string[];
   pity?: number;
 }
@@ -378,7 +378,7 @@ export function chapterMaxStars(chapter: number): number {
   return 3 * (b - a + 1);
 }
 
-export interface ChestReward {
+interface ChestReward {
   glory: number;
   /** The rarity of the item it holds, a piece of the chapter's set (only the top tier). */
   item: Rarity | null;

@@ -205,7 +205,7 @@ export function isMythId(v: unknown): v is MythId {
 
 // ------------------------------------------------------------------ encounters
 
-export interface EncounterDef {
+interface EncounterDef {
   id: EncounterId;
   /** The body (killing it ends the fight); for a flock, the flock member. */
   body: MythId;

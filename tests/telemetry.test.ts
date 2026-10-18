@@ -77,9 +77,11 @@ describe('error capture', () => {
 
   it('scrubs tokens from messages and fingerprints ignore numbers and positions', () => {
     const { r, sent } = reporter();
-    r.capture(new Error('fetch failed Bearer pa1.eyJwaWQiOjF9abcdefghijklmnopqrstuvwxyz.c2lnbmF0dXJl'));
+    r.capture(new Error('fetch failed Bearer pa2_q8Xv3kLmN0pR7sT2uW5yZa1bC4dE6fG9hJ-iK_oQ3rS'));
+    r.capture(new Error('socket refused pa2_Zm9vYmFyYmF6cXV4cXV1eGNvcmdlZ3JhdWx0Z2FycGx5'));
     r.flush();
-    expect(sent[0].payload.errors[0].message).not.toContain('eyJwaWQ');
+    expect(sent[0].payload.errors[0].message).not.toContain('q8Xv3kLm');
+    expect(sent[0].payload.errors[1].message).toBe('Error: socket refused <redacted>');
     expect(fingerprint('error', 'a 1', 'Error\n at f (main.js:10:20)')).toBe(fingerprint('error', 'a 22', 'Error\n at f (main.js:99:1)'));
     expect(scrubText('mail me@example.com')).toBe('mail <email>');
   });

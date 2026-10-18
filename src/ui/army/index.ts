@@ -8,4 +8,4 @@ export { campaignArmy, pendingPoints, type ArmySource, type HeroStatus } from '.
 export { SLOT_ORDER, FOOT_GAP, armyBack, footerLayout, collapsed, groupNameBeside, type ArmyOrigin } from './layout';
 export { SHIPPED_BUSTS, bustKey, bustUrl } from './layout';
 export { ensureBusts, addClassBust } from './busts';
-export { ARMY_LH, ARMY_ROW_H, ArmyFooter, addArmyHead, addGroupDisc, addMiniHead, addRosterRow, armyPill, armyPillW, openOptionSheet, tappableRow, type HeadOpts, type HeadResult, type OptionSheetOpts } from './parts';
+export { ARMY_LH, ARMY_ROW_H, HEAD_NICHE, ArmyFooter, addArmyHead, addGroupDisc, addMiniHead, addRosterRow, armyPill, armyPillW, openOptionSheet, tappableRow, type HeadOpts, type HeadResult, type OptionSheetOpts } from './parts';

@@ -80,18 +80,6 @@ export function renderStage(w: number, h: number, accent: number): Pix {
   return px;
 }
 
-/** A 7 x 7 rank star, filled gold or an empty outline. */
-export function renderStar(filled: boolean): Pix {
-  const rows = ['...#...', '..###..', '#######', '.#####.', '..###..', '.##.##.', '#.....#'];
-  const px = new Pix(7, 7);
-  px.bitmap(0, 0, rows, { '#': filled ? 0xe0b040 : 0x8a7a6a });
-  if (filled) {
-    px.set(3, 1, 0xfff0a0);
-    px.set(2, 2, 0xfff0a0);
-  }
-  return px;
-}
-
 /** Battle group colours: I Phalanx red, II Skirmish green, III Reserve blue, IV Flank bronze. */
 export const GROUP_COLOR = [0xa83a2c, 0x5f8a45, 0x4a6b9a, 0xb8863b];
 

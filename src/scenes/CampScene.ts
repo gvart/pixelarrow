@@ -21,12 +21,18 @@ import { ScrollArea, scaleIcon, addIcon } from '../ui/kit';
 import { confirmDialog, toast, ScrollList } from '../ui/widgets';
 import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
 import { wrapsWhole } from '../ui/textfit';
-import { CHIP_ROW_H, ChipRow, MButton, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, openParchmentSheet, wrapWords, type MButtonVariant, type ParchmentSheetHandle, type SituationChip } from '../ui/mosaic';
+import { anchorOffset, mapWheel } from '../ui/input/zoomAt';
+import { mapCursor } from '../ui/input/cursorApply';
+import { CHIP_ROW_H, ChipRow, MButton, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, openParchmentSheet, situationLineH, wrapWords, type MButtonVariant, type ParchmentSheetHandle, type ParchmentSheetOpts, type SituationChip } from '../ui/mosaic';
+import { openPanel, EDGE_PAD } from '../ui/mosaic/layout';
+import { SHEET_ACTION_H } from '../ui/mosaic/ParchmentSheet';
+import { BUTTON_MAX } from '../ui/sizeClass';
+import { mapHudLayout, stackKeys, type MapHudLayout } from '../ui/mapHud';
 import { ensureFonts } from '../ui/fonts';
-import { uiId, uiIgnore } from '../ui/layout';
+import { uiCollapsed, uiId, uiIgnore, uiLayout, uiOpaque, uiPrimary } from '../ui/layout';
 import { TEXT_MIN, lineHeight } from '../ui/tokens';
 import { motion } from '../ui/motion';
-import { haptic, hapticNotify } from '../platform/telegram';
+import { haptic, hapticNotify } from '../platform/haptics';
 import { state } from '../state';
 import { t, tOr, type TKey } from '../i18n';
 import { fmtSigned, localDecimals } from '../i18n/numbers';
@@ -95,7 +101,15 @@ interface Placed {
 }
 
 export class CampScene extends BaseScene {
+  /** Opted in to the size classes (ADR-0013): the clearing fills the safe area, the tools sit on its edges (landscape-v6 §12). */
+  protected override readonly responsive = true;
   private d!: CampSceneData;
+  /** Where the HUD goes in this size class, and the framing rect the clearing is framed in (§12.2, §12.3). */
+  private hudL!: MapHudLayout;
+  /** An open inspector panel's box and id (landscape): the framing rect ends at its left edge while it is open. */
+  private panelR: { x: number; y: number; w: number; h: number; id: string } | null = null;
+  /** Landscape: the top of what sits along the foot (the key row, the War camp's reason line); VH when nothing does. */
+  private footTop = 0;
   private world!: Phaser.GameObjects.Container;
   private view = { x: 0, y: 0, w: 0, h: 0 };
   private maskG: Phaser.GameObjects.Graphics | null = null;
@@ -129,6 +143,8 @@ export class CampScene extends BaseScene {
   private busy = false;
   private timer: Phaser.Time.TimerEvent | null = null;
   private modal: ParchmentSheetHandle | null = null;
+  /** The open sheet is an inspector panel: the clearing stays live beside it (§3.4, §12.2). */
+  private inspector = false;
   private eventCard: EventCardHandle | null = null;
   private musterList: MusterHero[] = [];
 
@@ -146,6 +162,8 @@ export class CampScene extends BaseScene {
     this.kind = null;
     this.busy = false;
     this.modal = null;
+    this.inspector = false;
+    this.panelR = null;
     this.eventCard = null;
     this.placed = [];
     this.ghostObjs = [];
@@ -163,9 +181,12 @@ export class CampScene extends BaseScene {
     ensureFonts(this);
     registerCampTextures(this, 30);
     const { VW, VH } = this.m;
+    this.hudL = this.layoutHud();
+    uiLayout(this, this.m.cls, this.m.land, 'field');
     this.cameras.main.setBackgroundColor(0x2b1d1a);
-    // the map fills the screen between the top bar and the action strip; the situation line floats over its top
-    this.view = { x: 0, y: TOPBAR_H, w: VW, h: VH - TOPBAR_H - this.barH() };
+    // the map fills the screen between the top bar and the action strip; the situation line floats over its top.
+    // In landscape it is full bleed under the top bar: the card and the tool rail float over it (§12.2).
+    this.view = { x: 0, y: TOPBAR_H, w: VW, h: VH - TOPBAR_H - (this.hudL.commands.mode === 'bar' ? this.barH() : 0) };
     this.visTop = TOPBAR_H;
     // the pannable world under a mask of the viewport
     this.world = this.add.container(0, 0);
@@ -181,9 +202,23 @@ export class CampScene extends BaseScene {
     uiIgnore(zone);
     this.ui.add(zone);
     zone.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
+    // a mouse: the wheel zooms 1x/2x at the cursor (accumulated for trackpads), shift or deltaX pans; a drag pans as a finger does
+    mapWheel(this, {
+      blocked: (p, over) => !this.layout || !this.overMap(p) || over.some((o) => o !== zone),
+      zoom: (dir, sx, sy) => {
+        const z = Phaser.Math.Clamp(this.zoom + dir, 1, 2);
+        if (z !== this.zoom) this.zoomAround(z, sx / this.m.S, sy / this.m.S);
+      },
+      pan: (dx) => {
+        this.world.x -= dx / this.m.S;
+        this.clampPan();
+      },
+    });
     this.input.on('pointermove', this.onMove, this);
     this.input.on('pointerup', this.onUp, this);
     this.input.on('pointerupoutside', this.onUp, this);
+    // a mouse: the right button does nothing on the camp (no browser menu), the middle one pans; cursors (input-v6.md §2.2, §2.4)
+    mapCursor(this, () => !!this.gesture?.moved);
     this.hud = this.add.container(0, 0);
     this.ui.add(this.hud);
     this.screen({ back: () => this.goBack() });
@@ -590,10 +625,25 @@ export class CampScene extends BaseScene {
     this.lookAt(c.x, c.y + 10);
   }
 
-  /** The middle of the open map (under the situation line, above the strip), UI px. */
+  /**
+   * The framing rect, UI px: the open map under the situation line and above the strip (v5), or in landscape the
+   * clear map the card, the tool rail and an open inspector panel leave (§12.3).
+   */
+  private frame(): { x: number; y: number; w: number; h: number } {
+    const v = this.view;
+    if (this.hudL.commands.mode === 'bar') return { x: v.x, y: this.visTop, w: v.w, h: v.y + v.h - this.visTop };
+    const f = this.hudL.framing;
+    const p = this.panelR;
+    if (!p) return f;
+    // an open panel: the clear map left of it (the card's own rect, when it lies under the panel, is hidden)
+    if (p.x - EDGE_PAD - f.x >= 40) return { ...f, w: Math.min(f.w, p.x - EDGE_PAD - f.x) };
+    return { x: 0, y: TOPBAR_H, w: Math.max(40, p.x - EDGE_PAD), h: Math.max(40, this.footTop - EDGE_PAD - TOPBAR_H) };
+  }
+
+  /** The middle of the framing rect, UI px. */
   private visCentre(): { x: number; y: number } {
-    const bottom = this.view.y + this.view.h;
-    return { x: this.view.x + this.view.w / 2, y: Math.round((this.visTop + bottom) / 2) };
+    const f = this.frame();
+    return { x: f.x + f.w / 2, y: Math.round((f.y + f.y + f.h) / 2) };
   }
 
   /** Pan so the world point (wx, wy) sits in the middle of the open map. */
@@ -609,30 +659,43 @@ export class CampScene extends BaseScene {
     if (!L) return;
     const g = Iso.groundLayout(L.w, L.h);
     const z = this.zoom;
-    const minX = this.view.x + this.view.w - (g.pw - g.ox) * z - 20;
-    const maxX = this.view.x + g.ox * z + 20;
-    const minY = this.view.y + this.view.h - (g.ph - g.oy) * z - 20;
-    const maxY = this.visTop + g.oy * z + 60;
+    // the clearing's edges stop at the framing rect's (v5: the open map between the situation line and the strip)
+    const f = this.frame();
+    const minX = f.x + f.w - (g.pw - g.ox) * z - 20;
+    const maxX = f.x + g.ox * z + 20;
+    const minY = f.y + f.h - (g.ph - g.oy) * z - 20;
+    const maxY = f.y + g.oy * z + 60;
     this.world.x = Math.round(Phaser.Math.Clamp(this.world.x, Math.min(minX, maxX), Math.max(minX, maxX)));
     this.world.y = Math.round(Phaser.Math.Clamp(this.world.y, Math.min(minY, maxY), Math.max(minY, maxY)));
   }
 
   private toggleZoom(): void {
-    const L = this.layout;
-    if (!L) return;
-    const { x: cx, y: cy } = this.visCentre();
-    const wx = (cx - this.world.x) / this.zoom;
-    const wy = (cy - this.world.y) / this.zoom;
-    this.zoom = this.zoom === 1 ? 2 : 1;
-    this.world.setScale(this.zoom);
-    this.world.setPosition(Math.round(cx - wx * this.zoom), Math.round(cy - wy * this.zoom));
-    this.clampPan();
+    if (!this.layout) return;
+    const c = this.visCentre();
+    this.zoomAround(this.zoom === 1 ? 2 : 1, c.x, c.y);
     haptic('light');
   }
 
+  /** Zoom to z (1 or 2) keeping the map point under UI (ux, uy) in place: the zoom key about the middle, the wheel about the cursor. */
+  private zoomAround(z: number, ux: number, uy: number): void {
+    const z0 = this.zoom;
+    this.zoom = z;
+    this.world.setScale(z);
+    this.world.setPosition(Math.round(anchorOffset(this.world.x, ux, z0, z)), Math.round(anchorOffset(this.world.y, uy, z0, z)));
+    this.clampPan();
+  }
+
+  /** Over the open map (not the top bar, the situation line or the strip), and no sheet open. */
+  private overMap(p: Phaser.Input.Pointer): boolean {
+    const ux = p.x / this.m.S;
+    const uy = p.y / this.m.S;
+    return (!this.modal || this.inspector) && !this.eventCard && ux >= this.view.x && ux <= this.view.x + this.view.w && uy >= this.visTop && uy <= this.view.y + this.view.h;
+  }
+
   private onDown(p: Phaser.Input.Pointer): void {
-    if (this.modal) return;
-    this.gesture = { id: p.id, sx: p.x, sy: p.y, wx: this.world.x, wy: this.world.y, moved: false };
+    if ((this.modal && !this.inspector) || (!p.wasTouch && p.button === 2)) return;
+    // the middle button pans from the first move, and is never a tap
+    this.gesture = { id: p.id, sx: p.x, sy: p.y, wx: this.world.x, wy: this.world.y, moved: !p.wasTouch && p.button === 1 };
   }
 
   private onMove(p: Phaser.Input.Pointer): void {
@@ -709,6 +772,60 @@ export class CampScene extends BaseScene {
 
   // ================================================================ HUD
 
+  /** The HUD's layout for this size: the widest tool key (label and icon) sets the rail's width in compact landscape. */
+  private layoutHud(): MapHudLayout {
+    const labels = [t('cmp.strike'), t('cmp.muster'), t('cmp.loot'), t('cmp.build'), t('cs.endDay'), t('common.cancel'), t('cs.place'), t('ocamp.rest'), t('cmp.buildings'), t('ocamp.upgrade'), t('ocamp.build'), t('ocamp.maxed'), t('ocamp.claim'), t('common.back')];
+    const keyW = Math.max(...labels.map((l) => mw(l.toUpperCase(), 'rCream', 7))) + 14 + 12;
+    return mapHudLayout(this.m, { top: TOPBAR_H, cardH: situationLineH, under: TAP_KEY + 4, keys: RAIL_KEYS, keyW, kind: 'camp' });
+  }
+
+  /**
+   * A camp sheet (build, buildings, supplies, muster, forge): v5's sheet in compact portrait, a bottom sheet ≤ 320 at
+   * medium, and in landscape an inspector side panel: no shade, the clearing stays live beside it (§3.4, §12.2).
+   */
+  private openSheet(o: ParchmentSheetOpts & { title: string; id: string }): ParchmentSheetHandle {
+    this.modal?.close();
+    if (this.hudL.commands.mode === 'bar') {
+      this.inspector = false;
+      return openParchmentSheet(this, o);
+    }
+    const { VW, VH } = this.m;
+    // the panel docks left of the tool rail (above the War camp's reason line): the tools stay live beside it. Short
+    // landscape has no room above the key row: the panel takes the full height, and the keys it covers step aside.
+    const cmd = this.hudL.commands;
+    const right = cmd.mode === 'stack' ? cmd.rect.x - EDGE_PAD : VW;
+    const bottom = cmd.mode === 'stack' && this.footTop < VH ? this.footTop - EDGE_PAD : VH;
+    const p = openPanel(this, {
+      kind: 'task',
+      inspector: true,
+      title: o.title,
+      h: o.h,
+      area: { x: 0, y: TOPBAR_H, w: right, h: bottom - TOPBAR_H },
+      id: o.id,
+      onClose: () => {
+        this.inspector = false;
+        this.panelR = null;
+        this.coverHud();
+        this.clampPan();
+        o.onClose?.();
+      },
+    });
+    // the footer action, centred and ≤ 240 wide (a button, not a banner: §2.3)
+    const acts = o.actions ?? [];
+    const bw = Math.min(BUTTON_MAX, p.w - 16);
+    acts.forEach((a, i) => {
+      const by = p.y + p.h - 8 - (acts.length - i) * (SHEET_ACTION_H + 4) + 4;
+      const b = new MButton(this, p.x + Math.round((p.w - bw) / 2), by, bw, SHEET_ACTION_H, { variant: 'neutral', ...a });
+      p.c.add(b);
+      p.buttons.push(b);
+    });
+    this.inspector = true;
+    this.panelR = { x: p.x, y: p.y, w: p.w, h: p.h, id: o.id };
+    this.coverHud();
+    this.clampPan();
+    return acts.length ? { ...p, body: { ...p.body, h: p.body.h - acts.length * (SHEET_ACTION_H + 4) - 4 } } : p;
+  }
+
   /** Height of the action strip: two rows of buttons, and the War camp's reason line. */
   private barH(): number {
     return BAR_PAD * 2 + BTN_H * 2 + ROW_GAP + (this.d?.mode === 'online' ? WHY_H : 0);
@@ -717,41 +834,58 @@ export class CampScene extends BaseScene {
   private buildHud(): void {
     const H = this.hud;
     H.removeAll(true);
-    const { VW, VH } = this.m;
+    const { VW } = this.m;
+    const card = this.hudL.card;
+    const v5 = this.hudL.commands.mode === 'bar';
     // the top bar (back, the camp's name, gear), then the situation line with the purse, floating over the map
-    this.topC = this.add.container(0, 0);
+    this.topC = uiOpaque(this.add.container(0, 0));
     H.add(this.topC);
     this.topKey = '';
-    this.sit = new SituationLine(this, 4, TOPBAR_H + 2, VW - 8, { compact: VH < 240, id: 'camp.situation' });
+    this.sit = uiOpaque(new SituationLine(this, card.x, card.y, card.w, { compact: card.lines === 1, id: 'camp.situation' }));
     H.add(this.sit);
     this.sitKey = '';
-    this.visTop = this.sit.y + this.sit.h;
+    // v5: the open map starts under the card; in landscape it runs under the top bar and the card floats over it
+    this.visTop = v5 ? this.sit.y + this.sit.h : this.view.y;
+    const cardBottom = this.sit.y + this.sit.h;
     // the War camp's chips cannot share one row on the narrowest screens (Telegram at 320x568): the last ones
     // get a parchment strip of their own under the card, so no number is ever cut (G14)
     this.chips2 = null;
+    let under = cardBottom;
     if (this.d.mode === 'online' && VW < 150) {
       this.chips2 = this.add.container(4, this.visTop + 1);
       this.chips2.add(mosaicImage(this, 0, 0, VW - 8, CHIP_ROW_H + 4, 'parchment'));
       uiId(this.chips2, 'camp.chips2');
       H.add(this.chips2);
       this.visTop += CHIP_ROW_H + 5;
+      under = this.visTop;
     }
     // a tap on the card is not a tap on the camp under it
-    const block = uiIgnore(this.add.zone(this.sit.x, this.sit.y, this.sit.w, this.visTop - this.sit.y).setOrigin(0, 0).setInteractive());
+    const block = uiIgnore(this.add.zone(this.sit.x, this.sit.y, this.sit.w, under - this.sit.y).setOrigin(0, 0).setInteractive());
     H.add(block);
-    // the zoom key (WCAG 2.5.1: pinch is never the only way)
-    H.add(new MIconButton(this, VW - 4 - TAP_KEY, this.visTop + 4, TAP_KEY, TAP_KEY, { icon: 'eye', label: t('cmp.zoom'), tip: t('cmp.zoomTip'), variant: this.zoom > 1 ? 'lit' : 'neutral', onClick: () => this.toggleZoom(), id: 'camp.zoom' }));
+    // the zoom key (WCAG 2.5.1: pinch is never the only way), under the card at its right
+    H.add(new MIconButton(this, this.sit.x + this.sit.w - TAP_KEY, under + 4, TAP_KEY, TAP_KEY, { icon: 'eye', label: t('cmp.zoom'), tip: t('cmp.zoomTip'), variant: this.zoom > 1 ? 'lit' : 'neutral', onClick: () => this.toggleZoom(), id: 'camp.zoom' }));
     this.buildBar();
     this.refreshHud();
+    this.coverHud();
   }
 
   /** The stone strip: rows of labelled buttons; over it, on parchment, why the War camp's off buttons are off (CMP-6). */
   private buildBar(): void {
     const { VW, VH } = this.m;
+    const cmd = this.hudL.commands;
+    this.footTop = VH;
+    if (cmd.mode === 'stack') {
+      this.buildRail(cmd);
+      return;
+    }
+    if (cmd.mode === 'row') {
+      this.buildKeyRow(cmd);
+      return;
+    }
     const h = this.barH();
     const c = this.add.container(0, VH - h);
     this.bar = c;
-    this.hud.add(c);
+    this.hud.add(uiOpaque(c));
     c.add(mosaicImage(this, 0, 0, VW, h, 'tabBar'));
     uiId(c, 'camp.strip');
     const rows = this.actionRows();
@@ -770,25 +904,136 @@ export class CampScene extends BaseScene {
     const used = rows.length * BTN_H + (rows.length - 1) * ROW_GAP;
     let y = top + BAR_PAD + Math.round((inner - used) / 2);
     for (const row of rows) {
-      this.layoutRow(c, row, y);
+      this.layoutRow(c, row, y, cmd.x, cmd.w);
       y += BTN_H + ROW_GAP;
     }
   }
 
-  /** A row of buttons across the strip: natural widths plus an equal share of what is left; icons go first when it is tight. */
-  private layoutRow(c: Phaser.GameObjects.Container, row: CampSlot[], y: number): void {
-    const room = this.m.VW - BAR_PAD * 2 - GAP_BTN * (row.length - 1);
+  /**
+   * Landscape: the tools stacked at the right edge, top to bottom in the strip's reading order, the primary (End day,
+   * Place, Build, Claim) at the foot; the War camp's reason line on parchment at the foot, left of the rail (§12.2).
+   */
+  private buildRail(cmd: Extract<MapHudLayout['commands'], { mode: 'stack' }>): void {
+    // the keys and the reason line are separate opaque clusters (the map shows between them)
+    const bar = this.add.container(0, 0);
+    this.bar = bar;
+    this.hud.add(bar);
+    const c = uiOpaque(this.add.container(0, 0));
+    bar.add(c);
+    uiId(c, 'camp.strip');
+    const slots = this.actionRows().flat();
+    const keys = stackKeys(cmd, RAIL_KEYS).slice(Math.max(0, RAIL_KEYS - slots.length));
+    slots.forEach((sl, i) => {
+      const k = keys[i];
+      const variant: MButtonVariant = sl.off ? 'disabled' : sl.primary ? 'primary' : 'secondary';
+      const b = new MButton(this, k.x, k.y, k.w, k.h, { label: sl.label, icon: sl.icon, variant, onClick: sl.onClick, disabledReason: sl.off, tip: sl.tip ?? sl.label, id: sl.id });
+      c.add(sl.primary ? uiPrimary(b) : b);
+    });
+    const why = slots.filter((sl) => sl.off);
+    if (this.d.mode !== 'online' || !why.length) return;
+    const w = cmd.rect.x - EDGE_PAD * 2;
+    const y = this.m.VH - EDGE_PAD - WHY_H;
+    const room = w - 8;
+    const all = why.map((sl) => t('cmp.reason', { name: sl.label, why: sl.off! })).join(' · ');
+    const one = why.find((sl) => sl.primary) ?? why[0];
+    const text = mw(all, 'pSec', TEXT_MIN) <= room ? all : t('cmp.reason', { name: one.label, why: one.off! });
+    const line = this.add.container(EDGE_PAD, y);
+    line.add(mosaicImage(this, 0, 0, w, WHY_H, 'parchment'));
+    line.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: room, box: { owner: line, w, h: WHY_H } }));
+    bar.add(uiOpaque(line));
+    this.footTop = y;
+  }
+
+  /**
+   * Short landscape (the stack would run off the screen): the tools in one row along the foot at their natural widths,
+   * right-aligned so the primary sits at the right end (the thumb), each key its own opaque cluster so the map shows
+   * between them; the War camp's reason line on parchment, as wide as its words, left of the keys or over them.
+   */
+  private buildKeyRow(cmd: Extract<MapHudLayout['commands'], { mode: 'row' }>): void {
+    const bar = this.add.container(0, 0);
+    this.bar = bar;
+    this.hud.add(bar);
+    const c = this.add.container(0, 0);
+    bar.add(c);
+    uiId(c, 'camp.strip');
+    const slots = this.actionRows().flat();
+    const r = cmd.rect;
+    const room = r.w - cmd.gap * (slots.length - 1);
+    const label = (sl: CampSlot) => Math.max(TAP_KEY, mw(sl.label.toUpperCase(), sl.off ? 'rOff' : 'rCream', 7) + 14);
+    const withIcon = (sl: CampSlot) => label(sl) + (sl.icon ? 12 : 0);
+    const icons = slots.reduce((a, sl) => a + withIcon(sl), 0) <= room;
+    const nat = slots.map((sl) => (icons ? withIcon(sl) : label(sl)));
+    const sum = nat.reduce((a, n) => a + n, 0);
+    const ws = nat.map((n) => (sum <= room ? Math.ceil(n) : Math.max(TAP_KEY, Math.floor((n * room) / sum))));
+    let x = r.x + r.w - (ws.reduce((a, n) => a + n, 0) + cmd.gap * (slots.length - 1));
+    slots.forEach((sl, i) => {
+      const variant: MButtonVariant = sl.off ? 'disabled' : sl.primary ? 'primary' : 'secondary';
+      const b = new MButton(this, x, r.y, ws[i], cmd.keyH, { label: sl.label, icon: icons ? sl.icon : undefined, variant, onClick: sl.onClick, disabledReason: sl.off, tip: sl.tip ?? sl.label, id: sl.id });
+      c.add(uiOpaque(sl.primary ? uiPrimary(b) : b));
+      x += ws[i] + cmd.gap;
+    });
+    this.footTop = r.y;
+    const keysX = r.x + r.w - (ws.reduce((a, n) => a + n, 0) + cmd.gap * (slots.length - 1));
+    const why = slots.filter((sl) => sl.off);
+    if (this.d.mode !== 'online' || !why.length) return;
+    const all = why.map((sl) => t('cmp.reason', { name: sl.label, why: sl.off! })).join(' · ');
+    const one = why.find((sl) => sl.primary) ?? why[0];
+    const beside = keysX - EDGE_PAD - r.x;
+    const fits = (s: string, w: number) => mw(s, 'pSec', TEXT_MIN) + 8 <= w;
+    const text = fits(all, r.w) ? all : t('cmp.reason', { name: one.label, why: one.off! });
+    const w = Math.min(r.w, Math.ceil(mw(text, 'pSec', TEXT_MIN)) + 8);
+    // left of the keys when the words fit there, else right-aligned over them
+    const at = fits(text, beside) ? { x: r.x, y: r.y + Math.round((cmd.keyH - WHY_H) / 2) } : { x: r.x + r.w - w, y: r.y - 2 - WHY_H };
+    const line = this.add.container(at.x, at.y);
+    line.add(mosaicImage(this, 0, 0, w, WHY_H, 'parchment'));
+    line.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: w - 8, box: { owner: line, w, h: WHY_H } }));
+    bar.add(uiOpaque(line));
+    this.footTop = Math.min(this.footTop, at.y);
+  }
+
+  /**
+   * An inspector panel lies over the map: what of the HUD it covers (at 844x390 the card and the zoom key; in short
+   * landscape the keys of the row under it) steps aside until it closes, so nothing is drawn or tapped under it; the
+   * tool rail stays live beside it. What
+   * steps aside is registered as collapsed into the panel's close key (element-parity: closing brings it back).
+   */
+  private coverHud(): void {
+    const p = this.panelR;
+    const S = this.m.S;
+    const ids: string[] = [];
+    const collect = (o: Phaser.GameObjects.GameObject) => {
+      const id = (o as unknown as { __uiId?: string }).__uiId;
+      if (id) ids.push(id);
+      for (const k of (o as unknown as { list?: Phaser.GameObjects.GameObject[] }).list ?? []) collect(k);
+    };
+    type Part = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible & { list?: Part[]; __uiId?: string };
+    // the strip's keys step aside one by one (a row along the foot is partly under the panel)
+    const parts = (o: Part): Part[] => (o === (this.bar as unknown) ? (o.list ?? []).flatMap((k) => (k.__uiId === 'camp.strip' ? (k.list ?? []) : [k])) : [o]);
+    for (const o of (this.hud.list as Part[]).flatMap(parts)) {
+      const b = (o as unknown as { getBounds?: () => Phaser.Geom.Rectangle }).getBounds?.();
+      if (!b) continue;
+      const under = !!p && b.right > p.x * S + 0.5 && b.x < (p.x + p.w) * S - 0.5 && b.bottom > p.y * S + 0.5 && b.y < (p.y + p.h) * S - 0.5;
+      o.setVisible(!under);
+      if (under) collect(o);
+    }
+    if (p) for (const id of ids) uiCollapsed(this, id, `${p.id}.close`);
+  }
+
+  /** A row of buttons across the strip (`w` wide from `x0`): natural widths plus an equal share of what is left; icons go first when it is tight. */
+  private layoutRow(c: Phaser.GameObjects.Container, row: CampSlot[], y: number, x0: number, w0: number): void {
+    const room = w0 - BAR_PAD * 2 - GAP_BTN * (row.length - 1);
     const label = (sl: CampSlot) => mw(sl.label.toUpperCase(), sl.off ? 'rOff' : 'rCream', 7) + 14;
     const withIcon = (sl: CampSlot) => label(sl) + (sl.icon ? 12 : 0);
     const icons = row.reduce((a, sl) => a + withIcon(sl), 0) <= room;
     const nat = row.map((sl) => (icons ? withIcon(sl) : label(sl)));
     const sum = nat.reduce((a, n) => a + n, 0);
     const share = Math.floor((room - sum) / row.length);
-    let x = BAR_PAD;
+    let x = x0 + BAR_PAD;
     row.forEach((sl, i) => {
-      const w = i === row.length - 1 ? this.m.VW - BAR_PAD - x : Math.max(TAP_KEY, sum <= room ? nat[i] + share : Math.floor((nat[i] * room) / sum));
+      const w = i === row.length - 1 ? x0 + w0 - BAR_PAD - x : Math.max(TAP_KEY, sum <= room ? nat[i] + share : Math.floor((nat[i] * room) / sum));
       const variant: MButtonVariant = sl.off ? 'disabled' : sl.primary ? 'primary' : 'secondary';
-      c.add(new MButton(this, x, y, w, BTN_H, { label: sl.label, icon: icons ? sl.icon : undefined, variant, onClick: sl.onClick, disabledReason: sl.off, tip: sl.tip ?? sl.label, id: sl.id }));
+      const b = new MButton(this, x, y, w, BTN_H, { label: sl.label, icon: icons ? sl.icon : undefined, variant, onClick: sl.onClick, disabledReason: sl.off, tip: sl.tip ?? sl.label, id: sl.id });
+      c.add(sl.primary ? uiPrimary(b) : b);
       x += w + GAP_BTN;
     });
   }
@@ -884,6 +1129,7 @@ export class CampScene extends BaseScene {
     this.barKey = key;
     this.bar?.destroy();
     this.buildBar();
+    this.coverHud();
   }
 
   private barKey = '';
@@ -1069,7 +1315,7 @@ export class CampScene extends BaseScene {
     const rowH = ROW_H + extra * LH - (extra ? 2 : 0);
     const w = Math.min(VW - 12, 240);
     const h = Math.min(VH - 12, 26 + rows.length * (rowH + ROW_GAP_LIST) + 14);
-    const md = openParchmentSheet(this, { title, w, h, id, onClose: () => (this.modal = null) });
+    const md = this.openSheet({ title, w, h, id, onClose: () => (this.modal = null) });
     this.modal = md;
     const b = md.body;
     const list = new ScrollList(this, md.c, b.x, b.y, b.w, b.h, {
@@ -1124,12 +1370,12 @@ export class CampScene extends BaseScene {
     const pad = 8;
     // the scroll area's width, less a margin (the bitmap face runs a little wider than its measure)
     const tw = sw - pad * 2 - 12;
-    const body = wrapWords(t('cmp.sup.body', { max: WORKS.max }), tw, (q) => mw(q, 'pSec', TEXT_MIN));
-    const more = wrapWords(t('cmp.sup.more'), tw, (q) => mw(q, 'pSec', TEXT_MIN));
+    const wrap = (w: number) => [wrapWords(t('cmp.sup.body', { max: WORKS.max }), w, (q) => mw(q, 'pSec', TEXT_MIN)), wrapWords(t('cmp.sup.more'), w, (q) => mw(q, 'pSec', TEXT_MIN))];
+    let [body, more] = wrap(tw);
     const allow = worksAllowance(w.supplies);
     const contentH = 12 + body.length * LH + 4 + WORK_TYPES.length * (ROW_H + ROW_GAP_LIST) + 2 + more.length * LH;
     const h = Math.min(VH - 12, 26 + contentH + 8 + 24 + 10);
-    const md = openParchmentSheet(this, {
+    const md = this.openSheet({
       title: t('cmp.sup.title'),
       w: sw,
       h,
@@ -1139,6 +1385,8 @@ export class CampScene extends BaseScene {
     });
     this.modal = md;
     const b = md.body;
+    // a side panel can be narrower than the sheet asked for: the words wrap to its box (v5's sheet keeps v5's lines)
+    if (this.inspector) [body, more] = wrap(b.w - 12);
     const area = new ScrollArea(this, md.c, b.x, b.y, b.w, b.h, this.m.S);
     const C = area.content;
     let y = 0;
@@ -1274,6 +1522,8 @@ export class CampScene extends BaseScene {
     const w = state.campaign.world;
     const h = Math.floor(w.s.time % 24);
     const hours = h < 6 ? 6 - h : 30 - h;
+    // an open inspector shows the camp as it was: the night closes it
+    this.modal?.close();
     this.hud.setVisible(false);
     const veil = this.add.rectangle(0, 0, this.m.VW, this.m.VH, 0x100c1c, 0).setOrigin(0, 0).setDepth(9e6);
     this.ui.add(veil);
@@ -1339,7 +1589,7 @@ export class CampScene extends BaseScene {
     const rowH = 3 + 10 + LH * (ownLine ? 2 : 1) + BTN_H + 4;
     const sw = Math.min(VW - 12, 240);
     const h = Math.min(VH - 12, 26 + Math.max(1, items.length) * (rowH + ROW_GAP_LIST) + 14);
-    const md = openParchmentSheet(this, { title: t('cmp.temper.title'), w: sw, h, id: 'camp.temper.sheet', onClose: () => (this.modal = null) });
+    const md = this.openSheet({ title: t('cmp.temper.title'), w: sw, h, id: 'camp.temper.sheet', onClose: () => (this.modal = null) });
     this.modal = md;
     const b = md.body;
     if (!items.length) {
@@ -1394,6 +1644,8 @@ export class CampScene extends BaseScene {
         );
       },
       id: (i) => `camp.temper.row.${i}`,
+      // every row's Temper key, built or scrolled out of the panel (element-parity, V6-066)
+      ids: (i) => [`camp.temper.do.${i}`],
     });
     frameScrollTexts(list.area, b.w);
   }
@@ -1415,7 +1667,7 @@ export class CampScene extends BaseScene {
     const { VW, VH } = this.m;
     const w = Math.min(VW - 12, 250);
     const h = Math.min(VH - 12, 330);
-    const m = openParchmentSheet(this, {
+    const m = this.openSheet({
       title: t('cmp.muster.title'),
       w,
       h,
@@ -1685,6 +1937,8 @@ export class CampScene extends BaseScene {
 
 /** UI px of a square key (48 pt). */
 const TAP_KEY = 24;
+/** Keys the landscape tool rail holds (the field camp's five tools; fewer sit at its foot). */
+const RAIL_KEYS = 5;
 /** Between two buttons of a row (8 pt). */
 const GAP_BTN = 4;
 

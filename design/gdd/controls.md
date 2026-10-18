@@ -1,7 +1,7 @@
 # Battle Controls (touch-first)
 
 > **Type**: Rework of system #23 Battle input and controls. Classified **too large for quick-design** (`[F]`), but kept at quick-design depth per the brief. **Run `/design-system controls` (with `/ux-design`) before its epic.**
-> **Status**: Draft (S2-VISION, 2026-10-10)
+> **Status**: Implemented
 > **Pillars**: P3 Command from the thumb, P2 Read it at a glance
 > **Fixes**: PLAY C1–C8, K1, K2, P2 (ladder pause); UI BTL-3, BTL-5, BTL-8, G10, G13, G15; MECH B2 (with formations-orders.md)
 > **Legacy reference**: docs/GAMEPLAY.md "Controls", DESIGN_V2.md "Controls" and "Online battle rules"
@@ -162,7 +162,12 @@ Ladder verification replays the seed and the order log by tick, so pausing doesn
 | Handedness | A **Left-hand** setting mirrors the medallion rail and the Follow eye to the left edge. |
 | Speed | **0.5×** offline, for players who need more time. It's a client stepping rate, and the sim's tick is unchanged. |
 | Haptics | A light tick on snap, select and order; a medium one on Undo. |
-| Mouse (Telegram Desktop) | Hover shows the same tooltips. The wheel zooms (as today). |
+| Mouse (v6: every desktop client) | Hover shows the same tooltips, naming the key ("Charge (W)"). The wheel zooms at the cursor. Right click on the ground moves, on an enemy attacks; right-drag moves and faces; middle-drag pans. Left press means exactly what a finger press means. See **Keyboard and mouse** below. |
+| Keyboard (v6) | Every order, group, ability, time and camera control has a rebindable single-key default; HUD controls show keycaps on keyboard devices (Show key hints); ? or F1 lists the current keys. See **Keyboard and mouse** below. |
+
+### Keyboard and mouse (v6)
+
+The touch rules above are unchanged. Mouse buttons, the wheel, cursors, hotkeys, HUD focus, keycaps, the shortcuts sheet and rebinding are specified in [design/ux/input-v6.md](../ux/input-v6.md) (architecture: ADR-0012). A hotkey presses the same control a tap does, so orders, the order log and replays are identical (ADR-0001). The remaining pointer-only inputs (pointing at a field position or an enemy, Solo, works placement) are A11Y-22's accepted deviation.
 
 ## Formulas
 

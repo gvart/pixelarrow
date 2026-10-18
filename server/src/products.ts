@@ -9,7 +9,7 @@
  *   existing shop screen and the payment flow test keep working). It is owned
  *   forever (until refunded) and doubles as a banner cosmetic.
  */
-export interface Product {
+interface Product {
   id: string;
   title: string; // 1-32 chars (Bot API limit)
   description: string; // 1-255 chars

@@ -33,7 +33,7 @@ interface Seg {
   t1: number;
 }
 
-export function ensureGhostTextures(scene: Phaser.Scene): void {
+function ensureGhostTextures(scene: Phaser.Scene): void {
   if (!scene.textures.exists('ghost_hand')) scene.textures.addCanvas('ghost_hand', renderHand().toCanvas());
   if (!scene.textures.exists('ghost_ring')) scene.textures.addCanvas('ghost_ring', renderTouchRing().toCanvas());
 }

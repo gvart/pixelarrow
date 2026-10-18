@@ -20,7 +20,7 @@ import { replayBattle, type BattleSummary } from '../../src/sim/replay';
 import { checkSimVersion, SIM_VERSION, SimVersionField } from './simVersion';
 
 export { replayBattle } from '../../src/sim/replay';
-export type { BattleSummary, ReplayOutcome } from '../../src/sim/replay';
+export type { ReplayOutcome } from '../../src/sim/replay';
 
 export const LIMITS = {
   maxUnitsPerSide: 64,
@@ -177,9 +177,9 @@ export const VerifyBody = z.object({
     hash: z.string().max(16).optional(),
   }),
 });
-export type VerifyRequest = z.infer<typeof VerifyBody>;
+type VerifyRequest = z.infer<typeof VerifyBody>;
 
-export interface VerifyResponse {
+interface VerifyResponse {
   match: boolean;
   /** The sim version the server replayed with. */
   simVersion: number;

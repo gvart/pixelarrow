@@ -21,9 +21,10 @@ import Phaser from 'phaser';
 import { ScrollArea, addIcon, type FontKey, type UIMetrics } from '../kit';
 import { addScrollHint, confirmDialog } from '../widgets';
 import { MOSAIC } from '../tokens';
+import { BUTTON_MAX } from '../sizeClass';
 import { uiId } from '../layout';
-import { MButton, addNiche, mtext, mw, openParchmentSheet, sheetActionsH, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
-import { hapticNotify } from '../../platform/telegram';
+import { MButton, addNiche, mtext, mw, openParchmentSheet, sheetActionsH, sheetWidth, wrapWords, SHEET_TITLE_H, type ParchmentSheetHandle } from '../mosaic';
+import { hapticNotify } from '../../platform/haptics';
 import { navLayer } from '../../platform/nav';
 import { state } from '../../state';
 import { t, tOr, type TKey } from '../../i18n';
@@ -67,7 +68,7 @@ const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `-${-n}` : '0')
 const gainFont = (n: number): FontKey => (n < 0 ? 'pBad' : 'pGood');
 
 /** One effect as a token, or null for the bookkeeping the player doesn't see (flags, the silent garrison cut: EV-02 decision 7). */
-export function effectToken(e: Effect): Token | null {
+function effectToken(e: Effect): Token | null {
   switch (e.k) {
     case 'gold':
       return { icon: 'coin', text: t('evc.fx.gold', { n: signed(e.n) }), font: gainFont(e.n) };
@@ -184,7 +185,7 @@ export interface EventCardHandle {
   readonly closed: boolean;
 }
 
-export interface EventCardOpts {
+interface EventCardOpts {
   /** The card is done: the result page closed (`res`), or the event vanished (null). */
   onDone?: (res: EventResolution | null) => void;
 }
@@ -201,7 +202,8 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
   void state.save();
   const def = pe.def;
   const { VW, VH } = scene.m;
-  const w = VW - 8;
+  // the box the sheet gets: v5's in compact portrait, a centred dialog ≤ 320 in landscape (landscape-v6 §3.4)
+  const w = sheetWidth(scene, { w: VW - 8, dock: 'bottom', shadeCloses: false, closeButton: false });
   const iw = w - PAD * 2;
   const blocked = new Map(pe.choices.map((c) => [c.key, c.blocked] as const));
   const free = def.choices.find((c) => !c.cost?.length && !blocked.get(c.key)) ?? null;
@@ -308,7 +310,8 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
   let cy = s.y + s.h - PAD - choicesH;
   def.choices.forEach((c, i) => {
     const b = blocked.get(c.key);
-    const btn = new MButton(scene, x, cy, iw, BTN_H, {
+    // a button stays a button, not a banner: ≤ 240 wide (landscape-v6 §2.3; a phone's card is narrower anyway)
+    const btn = new MButton(scene, x, cy, Math.min(iw, BUTTON_MAX), BTN_H, {
       label: choiceLabel(def.id, c.key),
       variant: b ? 'disabled' : c === primary ? 'primary' : 'secondary',
       disabledReason: b ? blockText(b) : undefined,
@@ -341,7 +344,8 @@ export function openEventCard(scene: UiScene, o: EventCardOpts = {}): EventCardH
 /** The result page: what happened, in words, and Continue (an optional sheet: Back or the shade close it too). */
 function openResult(scene: UiScene, def: EventDef, res: EventResolution, done: () => void): ParchmentSheetHandle {
   const { VW, VH } = scene.m;
-  const w = VW - 8;
+  // the box the sheet gets: v5's in compact portrait, the §3.4 placement elsewhere (landscape-v6)
+  const w = sheetWidth(scene, { w: scene.m.cls === 'compact' && scene.m.land ? 1 : VW - 8, dock: 'bottom', closeButton: false });
   const iw = w - PAD * 2;
   const c = def.choices.find((x) => x.key === res.key)!;
   const line = resultLine(def.id, res.key, res.ok);

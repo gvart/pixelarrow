@@ -10,11 +10,14 @@ import { cycle, isUpgrade, queryStash, RARITY_FILTERS, SLOT_FILTERS, STASH_SORTS
 import type { Item } from '../../data/items';
 import { t, type TKey } from '../../i18n';
 import type { Hero } from '../../data/units';
-import { ACCENT, MOSAIC } from '../tokens';
+import { ACCENT, MOSAIC, TEXT_MIN, lineHeight } from '../tokens';
+import { wrapText } from '../textfit';
+import { uiCollapsed, uiFrame } from '../layout';
 import { GAP, TAP, mosaicImage, mtext } from './base';
 import { MButton, oneFace } from './controls';
 import { MIconButton } from './iconButton';
 import { addParchmentEmpty } from './EmptyState';
+import { focusGroup } from '../focusRing';
 
 type C = Phaser.GameObjects.Container;
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: C };
@@ -28,6 +31,14 @@ const FILTER_H = TAP;
 export interface MStashGridOpts extends StashGridOpts {
   /** Lay every item out in the page instead of scrolling inside: the page's own scroll area (taps ignore its drags). */
   inline?: ScrollArea;
+  /**
+   * Inline: the grid's well reaches at least this tall (from the grid's top, UI px), so a short stash still
+   * fills its pane as one inventory box (V6-RSCR-05, a laptop's tab page); `hint` is set at the well's foot.
+   */
+  fill?: number;
+  hint?: string;
+  /** The price tag's text size, UI px (default 5.5; the duel Armoury's sell grid passes TEXT_MIN, V6-RSCR-04). */
+  priceSize?: number;
 }
 
 export class MStashGrid {
@@ -67,8 +78,20 @@ export class MStashGrid {
     const cols = Math.max(1, Math.floor((w - 3 + GAP) / (cell + GAP)));
     const pad = Math.floor((w - 3 - (cols * (cell + GAP) - GAP)) / 2);
     const rows = Math.max(1, Math.ceil(this.list.length / cols));
-    const gh = Math.max(40, rows * (cell + GAP) - GAP + 8);
-    this.c.add(mosaicImage(scene, x, cy, w, gh, 'parchmentWell'));
+    const need = Math.max(40, rows * (cell + GAP) - GAP + 8);
+    const gh = Math.max(need, (this.o.fill ?? 0) - (cy - this.y));
+    const well = mosaicImage(scene, x, cy, w, gh, 'parchmentWell');
+    this.c.add(well);
+    if (this.o.hint && this.list.length) {
+      const lines = wrapText(this.o.hint, w - 12, 2, false, TEXT_MIN).lines;
+      const lh = Math.ceil(lineHeight(TEXT_MIN));
+      if (gh - need >= lines.length * lh + 8)
+        lines.forEach((l, i) => {
+          // the hint stands for the well: the layout check reads the inventory box as content
+          const tx = mtext(scene, x + w / 2, cy + gh - 6 - (lines.length - i) * lh, l, 'pMuted', { size: TEXT_MIN, align: 0.5 });
+          this.c.add(uiFrame(tx, this.c, w, gh, x, cy));
+        });
+    }
     if (!this.list.length) this.c.add(addParchmentEmpty(scene, x + 2, cy + 2, w - 4, gh - 4, { icon: 'shield', title: t('stash.noMatch'), hint: t('stash.noMatchHint') }));
     this.list.forEach((it, i) => {
       const cc = scene.add.container(x + 3 + pad + (i % cols) * (cell + GAP), cy + 4 + Math.floor(i / cols) * (cell + GAP));
@@ -101,6 +124,8 @@ export class MStashGrid {
       });
       cy += FILTER_H + GAP;
     }
+    // one row: the six slot filters fold into the one slot button that cycles them (element-parity)
+    if (!twoRows) SLOT_FILTERS.forEach((f) => uiCollapsed(scene, `filter:${f}`, 'filter:slot'));
     const n = twoRows ? 2 : 3;
     const bw = Math.floor((w - (n - 1) * GAP) / n);
     let bx = x;
@@ -168,12 +193,15 @@ export class MStashGrid {
 function stashCell(scene: UiScene, o: MStashGridOpts, it: Item, cc: C, size: number, area: ScrollArea | null, hero: Hero | undefined): void {
   const sel = o.selected?.() === it.uid;
   const ic = new ItemIcon(scene, 0, 0, { item: it }, { size, area, selected: sel, tip: false, onTap: () => o.drag?.dragging || o.onTap(it) });
+  // the grid is one Tab stop; arrows move between its cells (input-v6.md §4.3)
+  focusGroup(ic, o);
   cc.add(ic);
   cc.add(condPip(scene, 3, size - 4, size - 6, it.cond));
   const pr = o.price?.(it);
   if (pr) {
-    const pt = mtext(scene, size - 2, 1, pr.text, 'light', { size: 5.5, align: 1 });
-    const bg = scene.add.rectangle(size - 3 - pt.width, 1, pt.width + 2, 7, 0x000000, 0.65).setOrigin(0, 0);
+    const ps = o.priceSize ?? 5.5;
+    const pt = mtext(scene, size - 2, 1, pr.text, 'light', { size: ps, align: 1 });
+    const bg = scene.add.rectangle(size - 3 - pt.width, 1, pt.width + 2, ps > 5.5 ? Math.ceil(ps) + 2 : 7, 0x000000, 0.65).setOrigin(0, 0);
     cc.add([bg, pt]);
   }
   if (hero && isUpgrade(hero, it)) {

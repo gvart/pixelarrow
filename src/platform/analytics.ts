@@ -14,8 +14,8 @@
 import { normalizeEvent, type ClientEvent, type EventProps } from './analyticsSchema';
 
 export const MAX_BATCH = 20;
-export const MAX_QUEUED = 100;
-export const FLUSH_MS = 10_000;
+const MAX_QUEUED = 100;
+const FLUSH_MS = 10_000;
 
 export interface QueuedEvent {
   e: string;
@@ -28,7 +28,7 @@ export interface EventsPayload {
   events: QueuedEvent[];
 }
 
-export interface AnalyticsOptions {
+interface AnalyticsOptions {
   /** Delivers a batch; resolves true when the server took it. */
   send: (payload: EventsPayload, beacon: boolean) => Promise<boolean> | boolean;
   enabled: () => boolean;
