@@ -160,7 +160,7 @@ export class MarketScene extends BaseScene {
   private box!: Box;
   private gen = 0;
   /** Expanded laptops (§11.2: three panes): the listing the detail pane shows, per tab (the first until one is chosen). */
-  private sel: { browse?: string; mine?: string } = {};
+  private sel: { browse?: MarketListing; mine?: MarketListing } = {};
   /** The detail pane's box on this page (null: the listing opens as a sheet). */
   private detailBox: Box | null = null;
 
@@ -344,8 +344,8 @@ export class MarketScene extends BaseScene {
 
   /** The listing the detail pane shows on this tab: the chosen one, else the first. */
   private chosen(list: readonly MarketListing[]): MarketListing | undefined {
-    const id = this.tab === 'mine' ? this.sel.mine : this.sel.browse;
-    return list.find((l) => l.id === id) ?? list[0];
+    const c = this.tab === 'mine' ? this.sel.mine : this.sel.browse;
+    return list.find((l) => l === c) ?? list.find((l) => l.id === c?.id) ?? list[0];
   }
 
   /** The detail pane: the chosen listing's card, as the sheet shows it (Buy, Cancel listing), in place. */
@@ -354,8 +354,8 @@ export class MarketScene extends BaseScene {
     if (!box || !l) return;
     const card = this.listingCard(b, l, box.w);
     const pane = card.kind === 'item' ? addItemCardPane(this, this.page, box, { ...card.opts, id: 'market.detailPane' }) : this.goodsPane(box, card);
-    // the card's X has nothing to close in a pane: the listing's row is what replaces it (element-parity)
-    uiCollapsed(this, card.kind === 'item' ? 'sheet.close' : 'market.goods.close', `item:${s0(this.subject(l))}`);
+    // the card's X has nothing to close in a pane: the rows that choose the listing replace it (element-parity)
+    uiCollapsed(this, card.kind === 'item' ? 'sheet.close' : 'market.goods.close', this.tab === 'mine' ? 'market.tab.mine' : 'market.price');
     // Tab reads the filters, the listings, then the detail pane (landscape-v6 §4)
     focusPane(pane, 2);
     inPane(pane, 2);
@@ -363,8 +363,8 @@ export class MarketScene extends BaseScene {
 
   /** Show `l` in the detail pane (its row takes the selected rim). */
   private choose(l: MarketListing): void {
-    if (this.tab === 'mine') this.sel.mine = l.id;
-    else this.sel.browse = l.id;
+    if (this.tab === 'mine') this.sel.mine = l;
+    else this.sel.browse = l;
     const keep = (this.areas.find((a) => a instanceof ScrollList) as ScrollList | undefined)?.area.scrollY ?? 0;
     this.buildPage();
     (this.areas.find((a) => a instanceof ScrollList) as ScrollList | undefined)?.area.setScroll(keep);
