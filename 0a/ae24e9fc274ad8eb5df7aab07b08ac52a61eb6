@@ -1,0 +1,69 @@
+docs/v5/pixellab/I5b/slinger.jobs.json
+  s_41b82181a73565::t_8b7c2a8a96c36a 1-4,74
+  s_41b82181a73565::t_b17a2865a35f32 6-8
+  s_41b82181a73565::t_60eeb5d3c0c427 25
+  s_41b82181a73565::t_517bf34402dc56 39-40
+  s_41b82181a73565::t_a9f9155a91111e 53-54
+  s_41b82181a73565::t_2ca0e6cebe8f65 55
+  s_41b82181a73565::t_be9647b576cd5a 41
+  s_41b82181a73565::t_c1adf9a9b86b84 59
+  s_41b82181a73565::t_45084b5d656ba9 63
+  s_41b82181a73565::t_26a588cbe68cee 61
+  s_41b82181a73565::t_39bf7718444b28 62
+  s_41b82181a73565::t_352fc6b0172987 42-43
+  s_41b82181a73565::t_0277bc420b3d75 46
+  s_41b82181a73565::t_8bb7cd1ddc2cde 22-23
+  s_41b82181a73565::t_705695525bf58d 24
+  s_41b82181a73565::t_8027faa575d4b4 27
+  s_41b82181a73565::t_0be079bea1d5ca 16
+  s_41b82181a73565::t_8869e3874dc34f 47-49
+  s_41b82181a73565::t_cd08466af864c4 31
+  s_41b82181a73565::t_53d419c2b3bb90 60
+  s_41b82181a73565::t_de278b38d4f32e 44-45
+  s_41b82181a73565::t_a81c76bdc90579 64-65
+  s_41b82181a73565::t_4454a94a5c6914 32
+  s_41b82181a73565::t_a2e274c2fa374c 66-69
+  s_41b82181a73565::t_008359ba9644bf 17-20
+  s_41b82181a73565::t_14f3cbd1bda02f 29-30
+  s_41b82181a73565::t_bc2d390d6c8950 57-58
+  s_41b82181a73565::t_adc4597eedd634 28
+  s_41b82181a73565::t_0c5363b12561f8 56
+  s_41b82181a73565::t_eed335b9b63280 50
+  s_41b82181a73565::t_760dee94cec7ae 70-73
+  s_41b82181a73565::t_5fbc937d289ba3 5
+  s_41b82181a73565::t_8a92533ff45e9e 21
+  s_41b82181a73565::t_20ca4809f9d4a2 9-12
+  s_41b82181a73565::t_2b8442001ee4c2 37-38
+  s_41b82181a73565::t_a93133cb58a03e 51-52
+  s_41b82181a73565::t_e3d01c8fa243b9 13-15
+  s_41b82181a73565::t_4be876acfdd2c0 26
+  s_41b82181a73565::t_88465a118af234 36
+  s_41b82181a73565::t_39307b8709ca17 33
+  s_41b82181a73565::t_aff98c9167c11d 34-35
+docs/playbook/PROMPTS_ART.md
+  s_41b82181a73565::t_c8f6342bea4a71 1168-1190
+docs/v5/pixellab/I5b/slinger.picks.json
+  s_41b82181a73565::t_09b2d6ba0e9f90 1-1407
+src/assets/sheets/slinger/manifest.json
+  s_41b82181a73565::t_4c537acbaa7c64 1-171
+docs/v5/pixellab/I5b/slinger.sheet.json
+  s_41b82181a73565::t_4c537acbaa7c64 1-1631
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_352a472fd5ebda 455-493
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0aae24e9fc274ad8eb5df7aab07b08ac52a61eb6",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
