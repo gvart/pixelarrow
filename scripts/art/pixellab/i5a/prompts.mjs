@@ -35,7 +35,21 @@ export const CLASSES = {
     shield: 'the large round shield',
     spear: 'the long spear',
     head: 'single leaf-shaped spearhead',
+    backNE: "seen from behind, the shield's dark back and rim face the viewer in every frame, never its painted face",
     skel: 'grim muscular Theban Sacred Band hoplite in a dark weathered bronze Boeotian helmet with a wide flaring brim and an open face, very dark blue-black cloak, dark bronze muscle cuirass and greaves, one very large round bronze aspis with a muted dark-red club emblem on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike',
+  },
+  thureophoros: {
+    who: 'a grim lean Hellenistic thureophoros',
+    look: 'in a tall pointed dark bronze pilos helmet, a dark purple cloak over a pale grey-brown linen corselet',
+    shieldN: 'a tall oval dark wooden thureos shield with a central spine and boss',
+    shieldNb: 'a tall oval dark wooden thureos shield',
+    weaponN: 'a short straight iron sword',
+    shield: 'the tall oval shield',
+    spear: 'the short straight sword',
+    head: 'one straight blade',
+    sword: true,
+    backNE: "seen from behind, the shield's dark back and rim face the viewer in every frame, never its face",
+    skel: 'grim lean Hellenistic thureophoros in a tall pointed dark weathered bronze pilos helmet, dark purple-black cloak, pale grey-brown linen corselet over a dark purple tunic skirt, dark greaves, one tall oval dark wooden thureos shield with a central spine and an iron boss on his left arm, one short straight iron sword in his right hand, one straight blade in one piece',
   },
   peltast: {
     who: 'a grim lean Greek peltast',
@@ -71,12 +85,35 @@ const CLIPS = {
   cheer: [UP, 'victory cheer in place: he thrusts {W} straight up high over his head in the right hand, spearhead pointing at the sky, keeps {S} on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; {H}, plain blunt butt end; the shield stays on the left arm in every frame'],
 };
 
+/** A one-handed sword class (thureophoros): the same clips, the sword held low or raised to cut instead of the spear. */
+const UPS = 'standing, the short sword held low in the right hand, the shield on the left arm';
+const GDS = 'standing in a fighting stance, the short sword held forward at the waist in the right hand, the shield on the left arm';
+const SWORD = {
+  idle: [UPS, 'standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; {W} hangs low in the right hand, point down, {H}; {S} stays on the left arm in every frame'],
+  look: [UPS, 'standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; {W} stays low in the right hand, {H}; {S} stays on the left arm in every frame'],
+  adjust: [UPS, 'standing still in place, he hitches {S} up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; {W} stays low in the right hand, {H}'],
+  walk: [UPS, 'steady disciplined marching walk in place {t}, long natural strides, {W} held low in the right hand and swinging a little with each step, {H}; {S} stays on the left arm in every frame; the cloak sways'],
+  run: [UPS, 'running in place at a steady heavy jog {t}, knees lifting, leaning a little forward, {W} held low in the right hand, {H}; {S} stays clearly visible on the left arm in every frame; the cloak streams back'],
+  rout: [UPS, 'fleeing in panic, running in place fast {t}, hunched forward with the head low between the shoulders, {W} carried loosely in the right hand, {H}; {S} still on the left arm in every frame; the cloak flapping'],
+  kneel: [UPS, 'badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the shield planted in front of him, head bowed, shoulders heaving with laboured breath; {W} stays in the right hand, point resting on the ground, {H}; {S} stays on the left arm and clearly visible in every frame'],
+  // ready starts from the rotation (sword low): it raises the sword to the guard; a ready frame is then the other guard clips' first frame
+  ready: [UPS, 'he raises {W} to a fighting guard and stands in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; {W} held forward at waist height in the right hand, the point toward the enemy the way he faces in every frame, {H}; {S} held up across the body on the left arm in every frame'],
+  charge: [GDS, 'charging forward at a heavy run in place, leaning into it, {S} held up in front on the left arm in every frame, {W} held ready at his right side, point forward, {H}; the cloak streams back'],
+  brace: [GDS, 'braces in place: drops into a low crouch with the left foot forward and the right foot braced back, sets {S} forward in front of his body and leans into it, {W} kept ready low at his right side, point forward; then holds the braced crouch, breathing; {H}; one shield on the left arm in every frame'],
+  block: [GDS, 'blocks a heavy blow in place: snaps {S} up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; {W} stays in the right hand at his side, point forward, {H}; one shield on the left arm in every frame; no sparks, no effects'],
+  stagger: [GDS, 'struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; one sword in the right hand and the shield on the left arm in every frame; no motion blur, no smears, no effects, {H}'],
+  slash: [GDS, 'a heavy one-handed sword cut: he draws {W} back and up behind his right shoulder, steps in on the left foot pushing {S} forward with the body, then swings the blade down and across in front of him in one diagonal cut along its edge, the hips and shoulders turning into the blow, follows through low to his left and recovers to his guard; {H}, it stays straight and in one piece; one shield on the left arm in every frame; no motion blur, no trail, no effects'],
+  fallBack: [UPS, 'killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and his one sword falls with him; no blood, no effects'],
+  fallFwd: [UPS, 'killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and his one sword falls with him; no blood, no effects'],
+  cheer: [UPS, 'victory cheer in place: he thrusts {W} straight up high over his head in the right hand, the point at the sky, keeps {S} on his left arm in front of his body, tips his head back shouting, then pumps the sword up and down twice; {H}; the shield stays on the left arm in every frame'],
+};
+
 export function promptOf(cls, anim, dir) {
   const c = CLASSES[cls];
   if (!c) throw new Error(`no class ${cls}`);
-  const [pose, tpl] = CLIPS[anim] ?? [];
+  const [pose, tpl] = (c.sword ? SWORD : CLIPS)[anim] ?? [];
   if (!tpl) throw new Error(`no clip ${anim}`);
-  const lv = pose === LV;
+  const lv = pose === LV; // (a sword is never 'levelled')
   const subject = back(dir)
     ? `${c.who} seen from behind ${c.look}, ${c.shieldNb} and ${lv ? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`
     : `${c.who} ${c.look}, ${c.shieldN} and ${lv ? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`;

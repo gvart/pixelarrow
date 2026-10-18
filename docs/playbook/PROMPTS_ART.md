@@ -1095,6 +1095,51 @@ This section covers the six I4a bases (royal_guard, sacred_band, thureophoros, m
 - "dull and dark" keeps a silver face out of the near-white cut.
 - `guard.mjs` found the same fist and grip for every H4-based spear class, so the thrust keypoints can be reused across them.
 
+### sacred_band
+- `subject_description` SW and SE: `a tall grim Theban Sacred Band hoplite in a dark bronze Boeotian helmet with a wide brim, a very dark blue-black cloak, a large round bronze shield with a dark red club emblem and a long spear`; NE and NW: `a tall grim Theban Sacred Band hoplite seen from behind in a dark bronze Boeotian helmet with a wide brim, a very dark blue-black cloak, a large round bronze shield and a long spear`; levelled clips end "a levelled long spear"
+- `initial_pose` upright: `standing upright, the spear held upright in the right hand, the shield on the left arm`; levelled: `standing with the spear levelled at the hip pointing forward, the shield on the left arm`
+- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm across the body in every frame`
+- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top; the large round shield stays on the left arm in every frame`
+- adjust: `standing still in place, he hitches the large round shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end`
+- walk: `steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the long spear held upright in the right hand and swaying a little with each step, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways`
+- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the long spear held upright in the right hand and tilted slightly forward, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays clearly visible on the left arm in every frame; the cloak streams back`
+- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the long spear carried loosely upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield still on the left arm in every frame; the cloak flapping`
+- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the shield planted in front of him, head bowed, shoulders heaving with laboured breath; the long spear stays in the right hand, upright, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm and clearly visible in every frame`
+- ready: `standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the long spear held level at the hip in the right hand and pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up across the body on the left arm in every frame`
+- charge: `charging forward at a heavy run in place, leaning into it, the long spear levelled at the hip in the right hand and pointed straight ahead the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up in front on the left arm in every frame; the cloak streams back`
+- brace: `braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the large round shield forward in front of his body and leans into it, the long spear kept level low at his right side pointing forward the way he faces; then holds the braced crouch, breathing; single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame`
+- block: `blocks a heavy blow in place: snaps the large round shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the long spear stays level in the right hand pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame; no sparks, no effects`
+- stagger: `struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the spear level and pointing forward and the shield on the left arm in every frame; no motion blur, no effects, single leaf-shaped spearhead, plain blunt butt end`
+- fallBack: `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood spray, no effects`
+- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood, no effects`
+- cheer: `victory cheer in place: he thrusts the long spear straight up high over his head in the right hand, spearhead pointing at the sky, keeps the large round shield on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; single leaf-shaped spearhead, plain blunt butt end; the shield stays on the left arm in every frame`
+- every NE description ends: `; seen from behind, the shield's dark back and rim face the viewer in every frame, never its painted face`
+- thrust (skeleton-v3, action "heavy spear thrust"): `grim muscular Theban Sacred Band hoplite in a dark weathered bronze Boeotian helmet with a wide flaring brim and an open face, very dark blue-black cloak, dark bronze muscle cuirass and greaves, one very large round bronze aspis with a muted dark-red club emblem on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike` (NE and NW: "… in his right hand, seen from behind, away from the viewer, …"; SE: "always pointing straight forward the way he faces at the same angle in every frame")
+
+
+- **Redo and standing wordings.** Each of these replaced part of the standard prompt:
+  - adjust, run and kneel NE a1: royal_guard's NE a2 wordings (above), word for word with "large round shield".
+  - block (NE, NW, SE): adds "never raised upright" after "the long spear stays level …".
+  - stagger (NE, NW, SE): `… he keeps his one spear level and pointing forward and the shield on the left arm in every frame, only one spear; no motion blur, no smears, no effects, …`.
+  - fallBack and fallFwd (all facings): `… and his one spear falls with him, only one spear in every frame; …`; NE adds "with its dark back and rim towards the viewer, dull and dark" (fallBack) or "dull and dark" (fallFwd) after "the shield stays strapped on his left arm".
+  - kneel NW: `… the round shield kept on his left arm at his left side and clearly visible in every frame`.
+  - cheer NE: drops "in front of his body".
+  - fallBack NW p2: `… no blood at all, no red spray, no effects, no particles`.
+  - thrust SE: the action label was "spear thrust" (the other facings "heavy spear thrust").
+  - run SE a2: adds `; his head keeps facing the lower right and the wide-brimmed Boeotian helmet keeps the same round shape in every frame, no crest, no plume`.
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | 16 clips SW, NE, NW | **Promoted.** 8 frames replaced after the colour cut. |
+| 2 | fallBack NW p1 | **Rejected:** a heavy blood spray over the body. |
+| 3 | run SE a1 | **Rejected:** the Boeotian helmet morphs into a crested peak. |
+| 4 | the redos and every other SE clip | **Promoted.** 2 frames replaced, 4 `clear` boxes. |
+
+**Lessons:**
+- Putting the dark-back line on every NE prompt from the start cost nothing and removed the NE shield-face rejects.
+- Name a non-generic helmet's shape in fast clips (run, charge), or the model drifts to a crested one.
+
+
 ## I5b. PixelLab shieldless, two-handed and missile foot classes (animation)
 
 Full log, ids, costs and every rejection: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I5b. Jobs and picks:

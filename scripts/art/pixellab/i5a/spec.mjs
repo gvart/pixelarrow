@@ -39,7 +39,7 @@ const spec = {
   scale: hop.scale,
   ramps: c.ramps,
   parts: c.parts,
-  ...Object.fromEntries(['crest', 'emblem', 'stature', 'metalKind', 'metalSlots', 'spear'].filter((k) => c[k] !== undefined).map((k) => [k, c[k]])),
+  ...Object.fromEntries(['crest', 'emblem', 'stature', 'metalKind', 'metalSlots', 'spear', 'greyCut'].filter((k) => c[k] !== undefined).map((k) => [k, c[k]])),
   rowsFeet: c.rowsFeet,
   canvases: hop.canvases,
   anims,
