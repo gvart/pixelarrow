@@ -1,0 +1,38 @@
+docs/v5/pixellab/I1/skeletons/thrustLow_south-west.json
+  s_41b82181a73565::t_2fb000cb33940f 1
+docs/v5/pixellab/I1/fixes-E3.json
+  s_41b82181a73565::t_f09851a9d8602c 1
+  s_41b82181a73565::t_abd00a5c302045 2-66
+docs/v5/pixellab/I1/processed/E3elite/info.json
+  s_41b82181a73565::t_96af5791027d57 1-92
+docs/v5/pixellab/I1/processed/E3/info.json
+  s_41b82181a73565::t_6609793dd87cda 1-113,126,137-155,220-223
+  s_41b82181a73565::t_96af5791027d57 114-125,127-136,156-219
+src/dev/hopliteBakeoff.ts
+  s_41b82181a73565::t_0b333a1383348d 186
+  s_41b82181a73565::t_3d760bc6e86e5e 11-12,36-37,83,99,188,200,233,262
+docs/v5/pixellab/I1/skeletons/thrustLow_south-east.json
+  s_41b82181a73565::t_2fb000cb33940f 1
+docs/v5/pixellab/I1/skeletons/thrustLow_north-east.json
+  s_41b82181a73565::t_2bcf0552101dad 1
+docs/v5/pixellab/I1/processed/manifest.json
+  s_41b82181a73565::t_982feb3413a253 2,4-6,9-14
+docs/v5/pixellab/I1/skeletons/thrustLow_north-west.json
+  s_41b82181a73565::t_2fb000cb33940f 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "40c2a732e307078c911ed66e4e3086be556fa699",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
