@@ -3,16 +3,16 @@
  "class": "celt_sword",
  "image": "celt_sword.png",
  "frame": {
-  "w": 83,
+  "w": 82,
   "h": 110
  },
  "anchor": {
-  "x": 44,
+  "x": 42,
   "y": 101
  },
  "anchors": {
   "south-east": {
-   "x": 33,
+   "x": 41,
    "y": 101
   },
   "north-east": {
@@ -20,11 +20,11 @@
    "y": 101
   },
   "south-west": {
-   "x": 44,
+   "x": 42,
    "y": 101
   },
   "north-west": {
-   "x": 48,
+   "x": 41,
    "y": 101
   }
  },

@@ -334,6 +334,48 @@ wine cloak and polished torc, elite black cloak and gold torc (checked in the pr
 failures, stature 56–59; 184 warnings, all the spear-end heuristic on a sword and a shield edge (both free ends wide).
 **Gens:** 86 quoted (71 jobs).
 
+**Rebuilt** after `alignMax` (below): the guard canvases are now measured on the model-drawn guard frame itself
+(`mkspec.mjs`), and clips whose frame 0 is redrawn 7–16 px off are re-anchored (`alignMax` [18, 8], a new opt-in field in
+the shared sheetbuild, hoplite byte-identical), so ready, block and stagger no longer slide sideways off the anchor.
+celt_sword packed 7.65 MB decoded, rhomphaia 9.07 MB; QC 0 failures for both.
+
+#### archer
+
+Base: I4a N1 `199cd6bb` (bare curly head, crimson cloak, leather jerkin, one plain bow, back quiver). The data gives him a
+bow and a melee fight at close quarters (`attack` → the runtime's `stab`), so the sheet has `shoot` and `stab`; no
+`brace` (no shield wall: the runtime falls back to `block`). Ramps outline, crimson, umber, darkBronze, skin, iron; the
+leather and wood go to shadow (no metal, no rarity group), crimson is the cloak, skin is skin only (his leather is
+umber, not in the skin ramp). Crest, emblem and the spear heuristic off; `stature.from: any`.
+
+**The shot (`shoot`, 16 @ 16, strike 10).** He draws an arrow from the quiver over his shoulder (f0–f2), nocks it (f3),
+turns side-on and raises the bow arm straight at the target while the string comes back to the cheek, back and shoulder
+tight (f4–f9, the full draw held), releases at f10 (the string snaps forward, the bow arm recoils, the right hand flies
+back past the ear) and lowers the bow (f11–f15). The runtime spreads f0–f9 over the aim window and plays the release at
+the shot. The loosed arrow PixelLab draws in flight is cleared (`i5b/detached.mjs` lists the detached pieces as `clear`
+fixes): the sim draws the missile. Every shoot was re-timed with `frames` so the release lands on index 10 in all four
+facings.
+
+**The melee (`stab`, 12 @ 14, strike 4).** A two-handed bow ram: he grips the bow with both hands, steps in on the left
+foot and drives its end into the face of the man in front of him, then steps back with the bow in his left hand.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | shoot | all 4 | a1 | 8 | **Promoted after the cut:** arrows in flight cleared; SE f0–f1 an arrow already flying before he shoots (REJECTED pieces, cleared); NE the loosed arrow flies the wrong way (cleared) |
+| 2 | guard (nocked ready) | all 4 | a1 | 4 | **Promoted** (SW SE NE f7 / f6; NW f7 the arrow low to his left, kept as a low ready) |
+| 3 | adjust | SW | a1 | 1 | **Rejected:** a second bow appears f5–f9 ("flexes the bow": one bow in each hand) |
+| 4 | adjust | SW | a2 | 1 | **Promoted** ("the one bow never moves from his left hand … there is only one bow") |
+| 5 | stab | all 4 | a1 | 8 | **Promoted after the cut:** sparks and blood in every facing; NE f5–f6 lost the bow with the cut (:= neighbours); NE swings the bow up rather than ramming it forward (kept, **weak**) |
+| 6 | idle, look, walk, run, rout, kneel, charge, ready, block, stagger | all 4 | a1 | 40 | **Promoted** (stagger SW f0 an arrow pops out of the hand: := f1; a hollow-drawn bow in walk SE f6, look NE f14, adjust NE f9: := neighbour; block sparks cut) |
+| 7 | fallBack, fallFwd | all 4 | a1 | 16 | **Promoted after the cut** (blood in 5 of 8) |
+| 8 | cheer | all 4 | a1 | 4 | **Promoted** (the bow raised overhead) |
+
+**Rejections:** a second bow 1 clip; a second missile (arrow already flying or popping out) 2 pieces + 1 frame; bow lost
+to the cut 2 frames; hollow bow 3 frames. Head backwards, clipping, proportion drift: **0**.
+
+**Sheet.** 16 clips, frame 120 x 109, 4080 x 2616 (40.7 MB as v2); packed **8.23 MB decoded (core 6.69 MB), 285 KB**.
+28 colours; groups cloak 6 (crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0
+failures, stature 57–60; 146 warnings, all the spear-end heuristic on the bow and arrow. **Gens:** 85 quoted (69 jobs).
+
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
 **Brief.** One approved base character per foot class other than the hoplite (militia, thureophoros, celt_sword, rhomphaia, archer, slinger, javelineer, peltast, falx, gallic, fanatic, royal_guard, sacred_band), matching H4 (`b7624d6d`) in style, shape and proportion, following `docs/v5/art/STYLE_LOCK.md`. Mood is dark-epic: Greeks in bronze and crimson; Carthaginians in purple-black, bronze and linen; Celts in plaid, iron, woad and torcs. Every class must read at battle scale by its headgear and silhouette (art bible §5.2). The cloak, crest and trim stay clean colour groups for the tier recolour (V5-092). Hard rejects are checked in all 8 views.

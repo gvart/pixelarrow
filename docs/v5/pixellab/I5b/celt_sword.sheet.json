@@ -38,6 +38,10 @@
   ]
  },
  "greyCut": 0.8,
+ "alignMax": [
+  18,
+  8
+ ],
  "rowsFeet": {
   "south-east": [
    32,
@@ -131,37 +135,37 @@
   },
   "guard": {
    "south-east": [
-    14,
+    13,
     40
    ],
    "north-east": [
-    14,
+    12,
     40
    ],
    "south-west": [
-    14,
-    40
+    13,
+    42
    ],
    "north-west": [
-    14,
+    6,
     40
    ]
   },
   "gatk": {
    "south-east": [
-    20,
+    19,
     40
    ],
    "north-east": [
-    20,
+    18,
     40
    ],
    "south-west": [
-    40,
-    40
+    39,
+    42
    ],
    "north-west": [
-    40,
+    32,
     40
    ]
   }
