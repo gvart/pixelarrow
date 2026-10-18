@@ -1,0 +1,20 @@
+src/scenes/BattleScene.ts
+  s_0d98fe904b2e82::t_083659664beb1d 3333
+  s_0d98fe904b2e82::t_d723947e5e6e63 3317-3326
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f09c91b10a3e151ff87b5277a1cf64b8d1889cde",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
