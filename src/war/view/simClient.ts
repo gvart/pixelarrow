@@ -24,7 +24,7 @@ export class SimClient {
       this.at = performance.now();
       this.squads = new Map(this.cur.squads.map((s) => [s.id, s]));
     };
-    this.send({ t: 'init', region, seed: 1 });
+    this.send({ t: 'init', region, seed: 1, sim: new URLSearchParams(location.search).get('sim') === 'fake' ? 'fake' : 'real' });
     this.speed(1);
   }
 
