@@ -32,7 +32,8 @@ const img = readImage(join(dirname(manPath), m.image));
 const spec = opt('spec') ? JSON.parse(readFileSync(opt('spec'), 'utf8')) : null;
 const LEVEL_ANIMS = new Set(['ready', 'charge', 'brace', 'block', 'thrust', 'stagger', 'fallBack', 'fallFwd']);
 const spearOf = (a) => spec?.anims?.[a]?.spear ?? (LEVEL_ANIMS.has(a) ? 'level' : 'upright');
-const STANDING = new Set(['idle', 'look', 'adjust', 'ready', 'block', 'brace', 'thrust', 'cheer', 'walk']);
+// clips whose feet stay on the anchor row (a thrust lunges, a walk lifts a foot: not counted)
+const STANDING = new Set(['idle', 'look', 'adjust', 'ready', 'block', 'brace', 'cheer']);
 
 const hex = (r, g, b) => '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
 const fails = [];

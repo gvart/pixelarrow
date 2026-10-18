@@ -1,11 +1,14 @@
 // One GIF per animation of a promoted sheet, the 4 facings side by side, at the clip's own fps (held clips play
 // the entry once, then the loop twice). Optionally a tier: the manifest's recolour applied by position.
-// Usage: node scripts/art/pixellab/sheetgifs.mjs <manifest.json> <out dir> [--scale 3] [--tier elite]
+// Usage: node scripts/art/pixellab/sheetgifs.mjs <manifest.json> <out dir> [--scale 3] [--tier elite] [--strips]
+//   --strips  also a PNG per animation: the 4 facings as rows, every frame (for the frame-by-frame review)
 import { readFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { readImage } from '../lib/png.mjs';
 import { crop, hexToRgb } from '../lib/ops.mjs';
 import { writeGif } from './gif.mjs';
+import { buildSheet } from './sheet.mjs';
+import { writeImage } from '../lib/png.mjs';
 
 const args = process.argv.slice(2);
 const opt = (n, d) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : d);
@@ -32,5 +35,6 @@ for (const [anim, a] of Object.entries(m.anims)) {
   const clips = m.rows.map((_, row) => order.map((i) => frame(row, a.col + i)));
   const file = join(out, `${m.class}${tier ? `_${tier}` : ''}_${anim}.gif`);
   writeGif(file, clips, { fps: a.fps, scale });
+  if (args.includes('--strips')) writeImage(join(out, `${m.class}${tier ? `_${tier}` : ''}_${anim}.png`), buildSheet(m.rows.map((d, row) => ({ label: `${anim} ${d}`, imgs: Array.from({ length: a.frames }, (_, i) => frame(row, a.col + i)) })), { scale: 2 }));
   console.log(`${file} (${a.frames} frames @ ${a.fps} fps)`);
 }

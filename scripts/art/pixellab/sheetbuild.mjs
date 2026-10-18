@@ -7,7 +7,8 @@
 //   "class", "raw": "<raw dir with clips/>", "out": "src/assets/sheets/<class>",
 //   "scale": 0.55, "rowsFeet": { "<dir>": [x, y] } (the feet point in the 68 rotation of each facing),
 //   "canvases": { "<name>": { "<dir>": [dx, dy] } } (where the rotation sits in each clip's first frame),
-//   "anims": { "<anim>": { "fps", "hold"?, "strike"?, "canvas", "spear": "upright" | "level",
+//   "anims": { "<anim>": { "fps", "hold"?, "strike"?, "canvas", "spear": "upright" | "level", "align"? (default true:
+//              each clip is re-anchored on its frame 0's feet and shins, which PixelLab redraws a few px off),
 //              "dirs": { "<dir>": { "attempt", "fixes"?: [{ "frame", "op": "copy", "from" } | { "frame", "op": "clear", "box", "red"? }],
 //                                    "frames"?: [indices to keep, in order] } } } },
 //   "tiers": { "veteran": { "<group>": [anchor hex dark->light] }, "elite": { ... } }
@@ -58,7 +59,29 @@ for (const [anim, a] of Object.entries(spec.anims)) {
       prev = r.parts;
       return { img, parts: r.parts, info: r.info, spear: r.spear, dropped: r.dropped };
     });
-    clips.push({ anim, dir, frames, origin: [fx + dx, fy + dy] });
+    // PixelLab redraws the figure a few px off where the first frame had it (skeleton-v3 lowers it by 4-6 px):
+    // measure frame 0's feet (lowest body pixel) and shins' centre and move the clip's origin onto them
+    const origin = [fx + dx, fy + dy];
+    if (a.align !== false) {
+      const f0 = frames[0];
+      const body = (i) => f0.parts[i] && f0.parts[i] !== 'wood' && f0.parts[i] !== 'weaponMetal';
+      const W0 = f0.img.w;
+      let low = -1;
+      for (let i = 0; i < f0.parts.length; i++) if (body(i)) low = Math.max(low, (i / W0) | 0);
+      let lo = W0, hi = -1;
+      for (let y = low - 8; y <= low - 3; y++) for (let x = 0; x < W0;) {
+        if (!body(y * W0 + x)) { x++; continue; }
+        let e = x;
+        while (e < W0 && body(y * W0 + e)) e++;
+        if (e - x >= 4) { lo = Math.min(lo, x); hi = Math.max(hi, e - 1); }
+        x = e;
+      }
+      const shift = [hi >= 0 ? Math.round((lo + hi) / 2) - origin[0] : 0, low >= 0 ? low - origin[1] : 0];
+      // only a small drift is corrected: a big one means the first frame is not standing (or the measure failed)
+      if (Math.abs(shift[0]) <= 6 && Math.abs(shift[1]) <= 8) { origin[0] += shift[0]; origin[1] += shift[1]; }
+      if (shift[0] || shift[1]) console.log(`  ${anim} ${dir}: frame 0 drifted ${shift[0]},${shift[1]} px${Math.abs(shift[0]) <= 6 && Math.abs(shift[1]) <= 8 ? ', re-anchored' : ', LEFT AS IS'}`);
+    }
+    clips.push({ anim, dir, frames, origin });
   }
 }
 
@@ -82,6 +105,17 @@ for (const c of clips) for (const f of c.frames) {
     e.r = Math.max(e.r, x - c.origin[0] + 1);
     e.u = Math.max(e.u, c.origin[1] - y);
     e.d = Math.max(e.d, y - c.origin[1] + 1);
+  }
+}
+if (args.includes('--extents')) {
+  // which clips set the frame size
+  for (const c of clips) {
+    const e = { l: 0, r: 0, u: 0, d: 0 };
+    for (const f of c.frames) for (let i = 0; i < f.parts.length; i++) if (f.parts[i]) {
+      const x = i % f.img.w, y = (i / f.img.w) | 0;
+      e.l = Math.max(e.l, c.origin[0] - x); e.r = Math.max(e.r, x - c.origin[0] + 1); e.u = Math.max(e.u, c.origin[1] - y); e.d = Math.max(e.d, y - c.origin[1] + 1);
+    }
+    console.log(`  extent ${c.anim} ${c.dir}: left ${e.l} right ${e.r} up ${e.u} down ${e.d}`);
   }
 }
 const up = Math.max(...ROWS.map((r) => ext[r].u)), down = Math.max(...ROWS.map((r) => ext[r].d));
