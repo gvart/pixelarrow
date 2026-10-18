@@ -1,0 +1,21 @@
+.gitignore
+  s_41b82181a73565::t_9fd320c9717f30 23-25
+docs/v5/DECISIONS.md
+  s_41b82181a73565::t_88bd6462c9955b 85-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9bcc763e9d6bed329460e71f026fbb4901ab3de6",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
