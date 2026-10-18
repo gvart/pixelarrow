@@ -1,0 +1,66 @@
+docs/v5/pixellab/I5a/thureophoros/class.json
+  s_41b82181a73565::t_039e3564eba7e7 26
+  s_41b82181a73565::t_d18641fc742d94 1-25,27-28,45-46,53,375
+  s_41b82181a73565::t_352b33b5ea67c1 143-159,228-254,269-285,287-297,303-313
+  s_41b82181a73565::t_aeda1b06ce5aa2 29-44,47-52,54-142,160-227,255-268,286,298-302,314-374
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_52cd8df6f86a0c 149-180
+scripts/art/pixellab/i5a/prompts.mjs
+  s_41b82181a73565::t_8c494b3d36d3f4 117-118
+  s_41b82181a73565::t_34701033cb5842 54-65,124-145,149,151
+docs/v5/pixellab/I5a/thureophoros/jobs.json
+  s_41b82181a73565::t_465e47e0d97e82 50
+  s_41b82181a73565::t_376951245043fb 65-66
+  s_41b82181a73565::t_9722466bcfce26 58
+  s_41b82181a73565::t_559b9c0fcd83b1 67
+  s_41b82181a73565::t_5d46c78e3bb416 55
+  s_41b82181a73565::t_b8de076a9f1e79 68-70
+  s_41b82181a73565::t_f4847652e345d5 59
+  s_41b82181a73565::t_f3aec31b15ac70 71-73
+  s_41b82181a73565::t_8f6131d381f303 46
+  s_41b82181a73565::t_97bde6ae46d610 2-42,74
+  s_41b82181a73565::t_f4de2589484db5 48
+  s_41b82181a73565::t_ec76c71a36334c 53
+  s_41b82181a73565::t_39f558c4bcd42d 56
+  s_41b82181a73565::t_aac84cb406cabe 49
+  s_41b82181a73565::t_94ed6efc3fe90e 43
+  s_41b82181a73565::t_b6893a21e7138a 47
+  s_41b82181a73565::t_d8e8873f1a3d78 52
+  s_41b82181a73565::t_11e395d1a6f9cb 1
+  s_41b82181a73565::t_6771e512733b5d 57
+  s_41b82181a73565::t_5ee871e9b24bdb 60-61
+  s_41b82181a73565::t_583015db6f12bc 62
+  s_41b82181a73565::t_9699ec72185716 44-45
+  s_41b82181a73565::t_9592b01f3747aa 54
+  s_41b82181a73565::t_466297a82c1f22 63
+  s_41b82181a73565::t_54f72f65a16302 51
+  s_41b82181a73565::t_cd44bac7a35982 64
+src/assets/sheets/thureophoros/manifest.json
+  s_41b82181a73565::t_a0d14dc6c84c16 15
+  s_41b82181a73565::t_fb891b92e00c06 1-14,16-208
+scripts/art/pixellab/i5a/rig5.mjs
+  s_41b82181a73565::t_5dfba9b4dbf7ea 43-69
+docs/playbook/PROMPTS_ART.md
+  s_41b82181a73565::t_52cd8df6f86a0c 1142-1186
+docs/v5/pixellab/I5a/thureophoros/thureophoros.sheet.json
+  s_41b82181a73565::t_039e3564eba7e7 25
+  s_41b82181a73565::t_a3edef59ca8178 1-24,26-106,570-610
+  s_41b82181a73565::t_fb891b92e00c06 107-330,346-430,440-441,456-478,494-498,508-525,535-569
+  s_41b82181a73565::t_a0d14dc6c84c16 331-345,431-439,442-455,479-493,499-507,526-534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "87bf16be334e792406d1ee0e2681bd5000ba393a",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
