@@ -8,6 +8,68 @@ Empty. The AS-07 Nikias prompts were sent in AS-08 (below).
 
 ## Done
 
+### Polish: the I5b sheets of fanatic, gallic, falx, slinger and archer (2026-10-18)
+
+**Brief.** A polish pass on the shipped I5b sheets: fanatic tiers that read, the woad off the enemy slate, the gallic SE
+shield rim out of the tier recolour, and cheap re-runs of the clips the I5b review flagged (falx NE stance, slinger NW
+walk / run, slinger SE / NE and archer NE `stab`, gallic NW guard, fanatic NE / NW fallBack). Rule: test one facing first,
+replace a clip only when the new one is clearly better. **Budget:** cap 120 generations, at most 3 of my jobs at once.
+**Used: 33 generations quoted, 24 jobs** (balance 2,747.5 before; the account is shared, so the receipt is the jobs list).
+**Raws:** the I5b raws were refetched for free (`fetchjobs.mjs` on each `<class>.jobs.json`); re-runs start from the
+exact input frame of the clip they replace (`scripts/art/pixellab/polish/first.mjs`, pixminimax image 0). Every job and
+its description word for word: `docs/v5/pixellab/I5b/polish.prompts.json` (attempts `p1`, `p2` in the class jobs files).
+**Tools** (`scripts/art/pixellab/polish/`): `first.mjs`, `log.mjs` (logs a job in both files, sets its verdict),
+`tiers.mjs` (basic / veteran / elite side by side from a manifest), `strip.mjs` (shipped frames of chosen clips, a tier
+forced), `shots.mjs` (`shots5b.mjs` with long timeouts). Rebuilding all five specs from the refetched raws first gave
+byte-identical sheets.
+
+**1. Fanatic tiers.** The cloak's pixels sit almost all on umber step 0 (`#1c1410`), and the old tier ramps started
+near-black too (`#1c0710`, `#0b0c0e`), so veteran and elite looked like basic. A pre-pass that would have repainted the
+outline-black cloak masses was tried on two frames and dropped (it caught the kilt hem and the back views are umber
+already). Fix in the spec: the ramps lift every step, and the darkBronze kilt (`#241a10`, a big block at the waist in
+front views) joins the cloak group (`parts` darkBronze → cloak), so the tier also shows from the front. Veteran
+`#36120f … #964434` (oxblood / umber), elite `#3a3632 … #a39a8e` (ash-grey pelt). No gold trim: he has no torc or other
+metal trim to carry it. Checked in the preview with the tiers forced and in the 5x3 formations at zoom 1 and 2.
+
+**2. Woad and the gallic rim.** An additive `woad` ramp in PA-WORLD-DARK, `#102d3a`, `#244853`, `#45676d`: OKLab hue
+-124° … -143° against enemySlate's -103° … -110°, and darker, so it no longer reads as the enemy team colour; chroma
+chosen so the fanatic's raw woad `#2b2e45` lands on it, not on iron. Gallic and fanatic take `woad` instead of
+`enemySlate`. Gallic trim was bronze steps 0-2: step 0 is the torc, steps 1-2 are only the SE shield rim (checked on
+every clip and row of the sheet); `parts` `"bronze:1-2": "shadow"`, so the trim group is the torc alone and the tiers
+no longer tint the rim. Torc tiers: veteran `#9a7434` (polished bronze), elite `#c8963a` (gold).
+
+**3. Clip re-runs.**
+
+| # | Class | Clip | Dir | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | fanatic | fallBack | NW | p1 | 2 | **Promoted:** rocks back and falls on his back, face up (a1 pitched forward face down) |
+| 2 | fanatic | fallBack | NE | p1 | 2 | **Promoted:** arms flung out from f1, falls on his back (a1 hunched forward f3-f4 first) |
+| 3 | falx | guard | NE | p1 | 1 | **Rejected:** the hook overdone into a shepherd's crook, a bright blade held upright, no low guard |
+| 4 | falx | guard | NE | p2 | 1 | **Promoted** (f7 the new NE guard): a low guard, the blade hooked in at the tip like the base |
+| 5 | falx | ready, charge, brace, block, stagger | NE | p1 | 5 | **Promoted:** the hook reads in every frame; block sparks cut; stagger has no blood (a1 had a burst) |
+| 6 | falx | slash | NE | p1 | 2 | **Promoted after frame drops:** crescent smear f7 dropped, the peak f6 straight into the blow f8 (index 6); the follow-through turns side-on as a1 did |
+| 7 | slinger | walk | NW | p1 | 1 | **Promoted:** the sling clear on his right in 10 of 16 frames (a2: 7); still behind the cloak f0-f2, f13-f15 |
+| 8 | slinger | run | NW | p1 | 1 | **Promoted:** the sling clear in every frame (a1 hid it f1-f4) |
+| 9 | slinger | stab | SE | p1 | 2 | **Rejected:** a second man (the enemy) drawn and knocked down |
+| 10 | slinger | stab | SE | p2 | 2 | **Promoted after frame drops:** "he alone, no other person in the frame"; f0 (a red flash) and f4 (smear) dropped; crouch, the pouch reared high behind the shoulder (held), a lunge bent low over the blow (f5, index 4) |
+| 11 | slinger | stab | NE | p1 | 2 | **Rejected:** turns to the viewer in the windup, the blow still up over his head, the sling vanishes f7-f9 |
+| 12 | slinger | stab | NE | p2 | 2 | **Rejected:** turns to the viewer and to profile, a blood burst; not better than a2, which is kept |
+| 13 | archer | stab | NE | p1 | 2 | **Promoted:** draws the bow to his chest and lunges, driving it forward with both hands (f4-f7), where a1 swung it up with a blood burst; f2-f3 a little side-on |
+| 14 | gallic | guard | NW | p1 | 1 | **Promoted** (f7 the new NW guard): the axe raised in his right hand on the viewer's right, clear of the shield; the axe head a little bigger than the base's |
+| 15 | gallic | ready, charge, brace, block | NW | p1 | 4 | **Promoted:** axe on his right, shield on his left in every frame; charge's shield face a lighter brown in 5 frames (kept); block sparks cut |
+| 16 | gallic | stagger | NW | p1 | 1 | **Promoted after a frame drop:** f2 a blood burst over the shield, f1 held |
+| 17 | gallic | slash | NW | p1 | 2 | **Promoted after frame drops:** smear f5, smear and blood f6 dropped, the raised axe f4 held into the chop f7 (index 6); his back stays to the viewer (a1 turned round f2-f3) |
+
+The new falx NE and gallic NW guard frames sit elsewhere on the tall canvas, so each spec's `guard` / `gatk` offset for
+that facing was re-measured as `mkspec.mjs` does (fitOf against `rowsFeet`): falx NE [13, 43] / [19, 43], gallic NW
+[11, 39] / [37, 39], written into the sheet spec by hand (noted under `polish` in the picks). **Rejections:** invented
+enemy 1 clip; facing drift 2 clips; over-drawn weapon 1 clip. **Still open:** slinger NE stab (a2: the blow reads as an
+upward swing from behind); slinger NW walk hides the sling in 6 frames.
+
+**Sheets.** QC 0 failures for all five (statures unchanged: fanatic 58-59, gallic 61, falx 57, slinger 57, archer 57-60);
+`tsc --noEmit` and `vite build` clean. Before / after strips and preview shots (tiers forced) are in the session
+scratchpad (`polish/`).
+
 ### I5a Shield-bearing foot classes animated: royal_guard, sacred_band, thureophoros, militia, peltast, javelineer (2026-10-18)
 
 **Brief.** I5a takes each of the six classes from its approved I4a base (`docs/v5/pixellab/bases.json`) to a full packed sheet, matching the shipped hoplite. That means the hoplite's 16 clips (frame counts, fps, scale and anchors), 12–16 frames each, and dark-epic art that stays identical to the base. Each class's melee attack is a weighted full-body one-hand attack moving with the shield: the hoplite thrust recipe for spears, a cut along the blade for the sword, and a javelin `throw` for javelineer and peltast. Every frame passes the I3a hard-reject list. Tiers are runtime recolours (V5-092, V5-098). The budget cap is 1,050 generations for the six, with at most 3 PixelLab jobs at a time on the shared Tier 2 account.

@@ -1779,3 +1779,51 @@ told "on the same spot … he does not move away". From behind, the cloak hides 
 **Lessons:** a curved one-hand blade gets the same crescent smear at the blow as the long blades; a hack "with all his
 weight" brings blood at the blow in most facings even with "no blood": drop those frames and hold the windup. A parry
 with a blade brings a spark burst nearly every time.
+
+## 21. PixelLab polish of the I5b sheets
+
+Full log and verdicts: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › Polish. Every job word for word, with its first
+frame and verdict: `docs/v5/pixellab/I5b/polish.prompts.json`. Tools: `scripts/art/pixellab/polish/`.
+
+**Fixed fields** as §19 (pixminimax, `view: high top-down`, `direction` the facing, the class's `subject_description`;
+`initial_pose` the rest pose, or the guard pose for stance clips and attacks). The first frame is the exact input of the
+clip being replaced (`polish/first.mjs`), or the new guard's last frame for clips re-run from a new guard.
+
+The prompts that worked (abridged; the full text is in the JSON):
+
+- **A weapon's own shape, from behind** (falx NE guard p2): `… swings the falx forward and down so its curved iron blade
+  reaches ahead of him … the falx keeps the shape it has at rest in every frame: a long blade curving forward with its
+  point turned in at the tip like a sickle, dark iron, the same size as at rest …`. The stance clips from that guard
+  repeat `the falx keeps its shape in every frame: the curved iron blade with its point turned in at the tip like a
+  sickle`.
+- **Which hand, from behind** (gallic NW guard p1): `… the tall oval shield … on his left arm, on the viewer's left, and
+  raises the war axe in his right hand on the viewer's right … clear of the shield and away from it … the axe stays in
+  his right hand on his right side in every frame, it never crosses over the shield …`. Every NW clip from that guard
+  says `on the viewer's left` / `on the viewer's right`.
+- **A sling not hidden by the cloak** (slinger NW walk / run p1): `his right arm swings out a little away from his body
+  at his right side with the leather sling hanging from his right fist, the two cords and the pouch swinging clear of
+  his body on the viewer's right in every frame; the short cloak hangs only down the middle of his back and never covers
+  his right arm or the sling`.
+- **A weighted blow** (slinger SE stab p2, archer NE stab p1): `draws … far back … with his weight on his back foot, then
+  lunges forward onto his left foot … his hips and shoulders turning into the blow and his whole body following through,
+  bent forward over it`; the archer adds `the bow thrusts straight forward, not upward`.
+- **No enemy drawn** (slinger SE stab p2): open with `he alone, no other person in the frame:` and say `at the empty air
+  in front of him …, as if at an enemy's head` and `only him, no enemy drawn`.
+- **A fall backwards from behind** (fanatic NE / NW fallBack p1): `seen from behind, dying in battle: his strength
+  suddenly gives out, he rocks back on his heels with his chest and head thrown back and his arms flung out, and topples
+  over backwards towards the viewer's lower left / right … lying still face up; he falls backwards, never forwards, his
+  head ends nearest the viewer …`.
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | falx guard NE p1 | **Rejected:** "bends sharply forward at the top into a deep hook like a beak" drew a shepherd's crook |
+| 2 | slinger stab SE p1 | **Rejected:** "onto the enemy's head in front of him" drew the enemy |
+| 3 | slinger stab NE p1, p2 | **Rejected:** he turns to the viewer in the windup both times (an overhand arc and a flat hook) |
+| 4 | everything else | **Promoted** (smear, spark and blood frames dropped by `frames`) |
+
+**Lessons:** name the weapon's shape by the rest pose ("the shape it has at rest … the same size as at rest") rather
+than an image ("a hook like a beak"), which the model exaggerates. From behind, "left / right" alone is ambiguous: add
+"on the viewer's left / right". "Onto the enemy's head" can make the model draw the enemy: say "he alone, no other
+person in the frame". "Lunges … his whole body following through, bent forward over it" gives the weight the old
+"steps in" wording lacked. A back-facing (NE) melee blow with a short weapon still turns him to the camera; two re-runs
+did not fix it.
