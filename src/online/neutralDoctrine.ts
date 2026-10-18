@@ -10,7 +10,7 @@ import { defenderFor } from './defenders';
 import type { RegionInfo } from './world';
 
 /** Each neutral defender kind (src/online/defenders.ts DEFENDERS) as the campaign army mix it mirrors. */
-const NEUTRAL_MIX: Readonly<Record<string, ArmyMix>> = {
+export const NEUTRAL_MIX: Readonly<Record<string, ArmyMix>> = {
   militia: 'militia',
   beasts: 'beasts',
   outlaws: 'outlaws',

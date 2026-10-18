@@ -33,7 +33,7 @@ interface DefenderDef {
   gear: number;
 }
 
-const DEFENDERS: Record<string, DefenderDef> = {
+export const DEFENDERS: Record<string, DefenderDef> = {
   militia: { id: 'militia', label: 'Peasant militia and brigands', culture: 'local', gear: 0, units: [
     { arch: 'raw', group: 0, weight: 5 }, { arch: 'swordsman', group: 0, weight: 2 }, { arch: 'peltast', group: 1, weight: 2 }, { arch: 'slinger', group: 1, weight: 1 },
   ] },
