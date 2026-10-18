@@ -471,7 +471,7 @@ function sheetPortrait(d: DollSpec, frame: number, res: number, box: number): Pi
   const i = Math.min(idle.frames - 1, name === 'breath1' ? 1 : name === 'breath2' ? 2 : 0);
   // game row 2 faces the viewer
   const art = wholeFrame(m, artFrame(s, idle.col + i, s.e.rows[2], paletteOf(s, d)));
-  const crop = m.portrait ?? autoCrop(art, anchorOf(m, s.e.rows[2]));
+  const crop = m.portrait ?? (d.mount ? crewCrop(art, anchorOf(m, s.e.rows[2])) : autoCrop(art, anchorOf(m, s.e.rows[2])));
   const size = box * res;
   const out = new Pix(size, size);
   for (let y = 0; y < size; y++)
@@ -496,6 +496,26 @@ function autoCrop(art: Pix, an: { x: number; y: number }): { x: number; y: numbe
   if (top < 0) return { x: 0, y: 0, size: Math.min(art.w, art.h) };
   const size = Math.max(4, Math.round((an.y - top) * 0.4));
   return { x: an.x - Math.floor(size / 2), y: Math.max(0, top - 1), size };
+}
+
+/**
+ * A rider's or chariot crew's head and shoulders. The anchor is between the
+ * hooves / wheels, so the head is found as the highest solid 6 x 6 px block
+ * (30 of 36 opaque) anywhere in the frame: a lance or a bow, outlined and
+ * however slanted, is too thin. The square is centred on it, 30% of the height
+ * from it to the anchor.
+ */
+function crewCrop(art: Pix, an: { x: number; y: number }): { x: number; y: number; size: number } {
+  const B = 6;
+  for (let y = 0; y + B <= an.y; y++)
+    for (let x = 0; x + B <= art.w; x++) {
+      let n = 0;
+      for (let b = 0; b < B * B; b++) if (art.alpha(x + (b % B), y + Math.floor(b / B)) > 0) n++;
+      if (n < 30) continue;
+      const size = Math.max(8, Math.round((an.y - y) * 0.3));
+      return { x: x + B / 2 - Math.floor(size / 2), y: Math.max(0, y - 2), size };
+    }
+  return autoCrop(art, an);
 }
 
 /**
