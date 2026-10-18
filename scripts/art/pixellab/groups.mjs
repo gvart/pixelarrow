@@ -15,10 +15,27 @@ export const LEVEL = { 'south-east': [0.894, 0.447], 'north-east': [0.894, -0.44
 export const HOPLITE_RAMPS = ['outline', 'crimson', 'umber', 'darkBronze', 'skin'];
 
 /**
+ * A class's own ramp -> part map (spec `parts`), or null when it says nothing of this step. Keys: "<ramp>:<step>",
+ * "<ramp>:<from>-<to>" (inclusive) or "<ramp>"; a per-step key wins over a range, a range over the whole ramp.
+ */
+export function overridePart(ramp, step, parts) {
+  if (!parts) return null;
+  if (parts[`${ramp}:${step}`]) return parts[`${ramp}:${step}`];
+  for (const [k, p] of Object.entries(parts)) {
+    const m = /^(\w+):(\d+)-(\d+)$/.exec(k);
+    if (m && m[1] === ramp && step >= +m[2] && step <= +m[3]) return p;
+  }
+  return parts[ramp] ?? null;
+}
+
+/**
  * The part each ramp step goes to before the splits. The lightest brown step becomes trim (the
  * highlights on helmet, cuirass and shield rims: what the elite gilds); the darkest step stays shadow.
+ * `parts` (the class spec's ramp -> part map) overrides this default per ramp or per step.
  */
-export function partOfStep(ramp, step, n) {
+export function partOfStep(ramp, step, n, parts = null) {
+  const o = overridePart(ramp, step, parts);
+  if (o) return o;
   if (ramp === 'outline') return 'outline';
   if (ramp === 'crimson') return 'cloak';
   if (ramp === 'skin') return 'skin';
@@ -184,7 +201,7 @@ export function foreign(rgb) {
 }
 
 /** Clears detached specks (8-connected bits under 5 px) and loose crimson splats (under 60 px); returns how many pixels. */
-function dropSpecks(parts, w, h) {
+function dropSpecks(parts, w, h, isRed) {
   const mask = parts.map((p) => (p ? 1 : 0));
   const comp = new Int32Array(w * h).fill(-1);
   const sizes = [];
@@ -199,7 +216,7 @@ function dropSpecks(parts, w, h) {
     while (st.length) {
       const j = st.pop(), x = j % w, y = (j / w) | 0;
       n++;
-      if (parts[j] === 'cloak') red++;
+      if (isRed(j)) red++;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const X = x + dx, Y = y + dy;
         if (X < 0 || Y < 0 || X >= w || Y >= h) continue;
@@ -224,7 +241,7 @@ function dropSpecks(parts, w, h) {
  * Parts of one frame: Array(w*h) of part names (null = transparent). `prev` is the previous frame's parts of the
  * same clip (or null). `headDir` the screen direction the spearhead must lead in ([0,-1] upright).
  */
-export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = true } = {}) {
+export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = true, parts: partMap = null } = {}) {
   const { w, h, data } = img;
   const parts = new Array(w * h).fill(null);
   const info = new Array(w * h).fill(null);
@@ -235,13 +252,15 @@ export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = t
     if (foreign(rgb)) { dropped++; continue; }
     const m = map(rgb[0], rgb[1], rgb[2]);
     info[i] = m;
-    parts[i] = partOfStep(m.ramp, m.step, m.n);
+    parts[i] = partOfStep(m.ramp, m.step, m.n, partMap);
   }
-  dropped += dropSpecks(parts, w, h);
-  // the spear shaft: thin brown / skin-ramp pixels on the longest straight line
+  // only crimson cloak pixels are splats, crest or emblem: a cloak given by `parts` in another ramp is just cloak
+  const isRed = (i) => parts[i] === 'cloak' && info[i].ramp === 'crimson';
+  dropped += dropSpecks(parts, w, h, isRed);
+  // the spear shaft: thin brown / iron / skin-ramp pixels on the longest straight line
   let sp = null;
   if (spear) {
-    const cand = (x, y) => { const m = info[y * w + x]; return m && (m.ramp === 'umber' || m.ramp === 'darkBronze' || m.ramp === 'skin' || m.ramp === 'outline'); };
+    const cand = (x, y) => { const m = info[y * w + x]; return m && (m.ramp === 'umber' || m.ramp === 'darkBronze' || m.ramp === 'metal' || m.ramp === 'skin' || m.ramp === 'outline'); };
     sp = findSpear({ w, h, data }, { candidate: cand, headDir });
     if (sp) {
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -259,7 +278,7 @@ export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = t
       // the head is wider than the shaft: its leaf pixels a little off the line
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
         const i = y * w + x, m = info[i];
-        if (!m || (m.ramp !== 'umber' && m.ramp !== 'darkBronze')) continue;
+        if (!m || (m.ramp !== 'umber' && m.ramp !== 'darkBronze' && m.ramp !== 'metal')) continue;
         const { d, t } = distToSeg(x, y, sp.butt, sp.head);
         if (sp.headW > sp.buttW + 1 && d <= 2.6 && t * sp.len > sp.len - 7) parts[i] = 'weaponMetal';
       }
@@ -267,7 +286,7 @@ export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = t
   }
   // the crimson: components; the emblem is enclosed by brown, the crest is up at the helmet, the rest is cloak
   const red = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i++) red[i] = parts[i] === 'cloak' ? 1 : 0;
+  for (let i = 0; i < w * h; i++) red[i] = parts[i] && isRed(i) ? 1 : 0;
   const { comp, n } = components(red, w, h);
   let topRed = h;
   for (let i = 0; i < w * h; i++) if (red[i]) { topRed = Math.min(topRed, (i / w) | 0); }
