@@ -71,8 +71,6 @@ export function clanFormError(name: string, tag: string): string | null {
 
 /** The clan pane's width in landscape and medium (§8.2: clan card and members left, management right). */
 const LEFT_MAX = 300;
-/** The no-clan card outside compact portrait: the art left of the words (§8.2). */
-const NONE_W = 480;
 
 export class ClanScene extends BaseScene {
   /** Migrated to the size classes (ADR-0013, V6-RSCR-03): two panes outside compact portrait. */
@@ -85,6 +83,8 @@ export class ClanScene extends BaseScene {
   private st: EconState | 'loading' = 'loading';
   private me = 0;
   private area: ScrollArea | null = null;
+  /** The management pane's scroll, where the chosen member's block is taller than its room. */
+  private areaR: ScrollArea | null = null;
   private busy = false;
   lastInvite: { code: string; link: string } | null = null;
 
@@ -96,6 +96,7 @@ export class ClanScene extends BaseScene {
     this.loaded = false;
     this.st = 'loading';
     this.area = null;
+    this.areaR = null;
     this.pick = null;
     this.initUi();
     this.screen({ back: () => this.back() });
@@ -167,6 +168,8 @@ export class ClanScene extends BaseScene {
   private render(): void {
     this.area?.destroy();
     this.area = null;
+    this.areaR?.destroy();
+    this.areaR = null;
     this.ui.removeAll(true);
     const { content: c } = addSubShell(this, { title: t('clan.title'), back: () => this.back(), scroll: false });
     const box = { x: c.x + 3, y: c.y + 3, w: c.w - 6, h: c.h - 6 };
@@ -204,14 +207,16 @@ export class ClanScene extends BaseScene {
     ].map(([icon, text]) => [icon, wrapText(text, tw, 3, false, TEXT_MIN).lines.join('\n')] as [string, string]);
   }
 
-  /** No clan, outside compact portrait: one card, the war fresco left of the words and Found a clan (§8.2). */
-  private renderNoneWide(b0: { x: number; y: number; w: number; h: number }): void {
-    // one card, at most NONE_W wide, centred (the words keep a readable measure beside the art)
-    const w = Math.min(b0.w, NONE_W);
-    const b = { ...b0, x: b0.x + Math.floor((b0.w - w) / 2), w };
+  /**
+   * No clan, outside compact portrait: one card across the content (at most CONTENT_MAX), the war fresco left of
+   * the words and Found a clan (§8.2). The words are centred in their column, as v5's card centres them, so the
+   * card reads as one block across the pane, not a column stuck to the art (§5 empty-column).
+   */
+  private renderNoneWide(b: { x: number; y: number; w: number; h: number }): void {
     const artW = Math.min(Math.round(b.w * 0.42), 240);
     const tx = b.x + artW + 10;
     const tw = b.x + b.w - 8 - tx;
+    const mid = tx + Math.round(tw / 2);
     const bullets = this.noneBullets(tw - 22);
     const bulletH = (s: string) => Math.max(14, s.split('\n').length * LH + 4);
     const lead = wrapText(t('clan.none.lead'), tw, 3, false, TEXT_MIN).lines;
@@ -231,24 +236,34 @@ export class ClanScene extends BaseScene {
       tappable(art, null, () => void this.create_(), t('clan.found'));
       c.add(art);
     }
-    let y = y0 + 8;
-    c.add(mtext(this, tx, y, t('clan.none.title'), 'rInk', { size: 8, maxW: tw }));
+    // a card shorter than its words (Telegram's short landscape): the words scroll, Found a clan stays at the foot
+    const by = y0 + cardH - TAP - 8;
+    const scroll = textH > cardH ? new ScrollArea(this, this.ui, tx - 4, y0 + 4, tw + 8, by - 4 - (y0 + 4), this.m.S) : null;
+    this.area = scroll;
+    const put = (o: Phaser.GameObjects.GameObject) => (scroll ? scroll.content.add(o) : c.add(o));
+    const ox = scroll ? -(tx - 4) : 0;
+    let y = scroll ? 4 : y0 + 8;
+    put(mtext(this, ox + mid, y, t('clan.none.title'), 'rInk', { size: 8, align: 0.5, maxW: tw }));
     y += 14;
-    lead.forEach((l, i) => c.add(mtext(this, tx, y + i * LH, l, 'pInk', { size: TEXT_MIN })));
+    lead.forEach((l, i) => put(mtext(this, ox + mid, y + i * LH, l, 'pInk', { size: TEXT_MIN, align: 0.5 })));
     y += lead.length * LH + 6;
+    // the bullets stay a left-aligned block (the icons in a column), the block centred in the column
+    const blockW = Math.min(tw, 20 + Math.max(...bullets.map(([, s]) => Math.max(...s.split('\n').map((l) => mw(l, 'pInk', TEXT_MIN))))));
+    const bx = ox + Math.round(mid - blockW / 2);
     for (const [icon, s] of bullets) {
       const h = bulletH(s);
       const ic = scaleIcon(addIcon(this, 0, 0, icon, ''), 1.1);
-      ic.setPosition(tx + 2, y + Math.round((h - 4 - ic.displayHeight) / 2));
-      c.add(ic);
-      c.add(mtext(this, tx + 20, y + Math.round((h - 4 - s.split('\n').length * LH) / 2), s, 'pInk', { size: TEXT_MIN }));
+      ic.setPosition(bx + 2, y + Math.round((h - 4 - ic.displayHeight) / 2));
+      put(ic);
+      put(mtext(this, bx + 20, y + Math.round((h - 4 - s.split('\n').length * LH) / 2), s, 'pInk', { size: TEXT_MIN }));
       y += h;
     }
     y += 4;
-    hint.forEach((l, i) => c.add(mtext(this, tx, y + i * LH, l, 'pSec', { size: TEXT_MIN })));
+    hint.forEach((l, i) => put(mtext(this, ox + mid, y + i * LH, l, 'pSec', { size: TEXT_MIN, align: 0.5 })));
     y += hint.length * LH + 8;
+    scroll?.setContentHeight(y - 4);
     const bw = Math.min(tw, 160);
-    c.add(new MButton(this, tx, Math.min(y, y0 + cardH - TAP - 8), bw, TAP, { label: t('clan.found'), icon: 'flag', variant: 'primary', id: 'clan.found', onClick: () => void this.create_() }));
+    c.add(new MButton(this, mid - Math.round(bw / 2), scroll ? by : Math.min(y, by), bw, TAP, { label: t('clan.found'), icon: 'flag', variant: 'primary', id: 'clan.found', onClick: () => void this.create_() }));
   }
 
   /**
@@ -293,18 +308,26 @@ export class ClanScene extends BaseScene {
     const bw = Math.min(R.w - 16, 200);
     const bx = R.x + Math.round((R.w - bw) / 2);
     const acts = this.manageActs(m);
-    // the chosen member's block, centred in the room above Invite
+    // the chosen member's block, centred in the room above Invite; where it is taller than that room (Telegram's
+    // short landscape) it scrolls there instead, Invite staying put under it
     const blockH = 14 + LH + 8 + acts.reduce((a, x) => a + (x.kick ? 6 : 0) + TAP + 4, 0);
-    let my = R.y + Math.max(8, Math.floor((iby - 8 - R.y - blockH) / 2));
-    this.ui.add(mtext(this, R.x + R.w / 2, my, m.name, 'rInk', { size: 8, align: 0.5, maxW: bw }));
+    const room = iby - 4 - (R.y + 4);
+    const fits = blockH + 16 <= room;
+    const scroll = fits ? null : new ScrollArea(this, this.ui, R.x + 2, R.y + 4, R.w - 4, room, this.m.S);
+    this.areaR = scroll;
+    const put = (o: Phaser.GameObjects.GameObject) => (scroll ? scroll.content.add(o) : this.ui.add(o));
+    const ox = scroll ? -(R.x + 2) : 0;
+    let my = scroll ? 4 : R.y + Math.max(8, Math.floor((iby - 8 - R.y - blockH) / 2));
+    put(mtext(this, ox + R.x + R.w / 2, my, m.name, 'rInk', { size: 8, align: 0.5, maxW: bw }));
     my += 14;
-    this.ui.add(mtext(this, R.x + R.w / 2, my, `${roleName(m.role)} · ${t('clan.regions', { n: m.regions })}`, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: bw }));
+    put(mtext(this, ox + R.x + R.w / 2, my, `${roleName(m.role)} · ${t('clan.regions', { n: m.regions })}`, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: bw }));
     my += LH + 8;
     for (const a of acts) {
       if (a.kick) my += 6;
-      this.ui.add(new MButton(this, bx, my, bw, TAP, a.opts));
+      put(new MButton(this, ox + bx, my, bw, TAP, a.opts));
       my += TAP + 4;
     }
+    scroll?.setContentHeight(my + 4);
     // the v5 sheet's close is this pane's member row (choosing another replaces it, §3.3)
     uiCollapsed(this, 'clan.manage', `clan.member.${m.id}`);
     uiCollapsed(this, 'clan.manage.close', `clan.member.${m.id}`);
