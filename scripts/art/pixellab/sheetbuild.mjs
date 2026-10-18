@@ -11,6 +11,8 @@
 //              each clip is re-anchored on its frame 0's feet and shins, which PixelLab redraws a few px off),
 //              "dirs": { "<dir>": { "attempt", "fixes"?: [{ "frame", "op": "copy", "from" } | { "frame", "op": "clear", "box", "red"? }],
 //                                    "frames"?: [indices to keep, in order] } } } },
+//   "parts"?: { "<ramp>" | "<ramp>:<step>" | "<ramp>:<from>-<to>": "<part>" } (overrides the default ramp -> part map,
+//              docs/v5/art/STYLE_LOCK.md › Colour),
 //   "tiers": { "veteran": { "<group>": [anchor hex dark->light] }, "elite": { ... } }
 // }
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -55,7 +57,7 @@ for (const [anim, a] of Object.entries(spec.anims)) {
     const headDir = a.spear === 'level' ? LEVEL[dir] : [0, -1];
     let prev = null;
     const frames = fr.map((img) => {
-      const r = splitFrame(img, map, { prev, headDir });
+      const r = splitFrame(img, map, { prev, headDir, parts: spec.parts });
       prev = r.parts;
       return { img, parts: r.parts, info: r.info, spear: r.spear, dropped: r.dropped };
     });

@@ -121,6 +121,13 @@ Unit sheets are not hard-snapped (V5-087). Every frame goes through `scripts/art
    the elite gilds), `metal` (the other bronze steps: rarity of shield, helmet, armour), `weaponMetal` (the spearhead,
    when the spear's head end is found: rarity of the weapon), `wood` (thin pixels on the spear line, the butt), `skin`,
    `shadow` (the darkest bronze step, not recoloured), `outline`.
+   The mapping above is the hoplite's default; any other ramp falls to `shadow`. A class whose groups sit in other
+   ramps declares them in the spec's `parts`: `{ "<ramp>": "<part>" }`, with per-step keys `"<ramp>:<step>"` or
+   `"<ramp>:<from>-<to>"` (a step key wins over a range, a range over the whole ramp, the ramp over the default).
+   Royal guard: `{ "purpleBlack": "cloak", "linen": "crest", "metal": "metal" }`; sacred band: `{ "purpleBlack":
+   "cloak", "metal": "cloak" }`; falx: `{ "skin:0": "shadow" }` (the leather on skin step 0 leaves the skin group).
+   Only crimson cloak is split into crest and emblem or dropped as a splat; the spear line also takes the `metal`
+   ramp (iron heads).
 4. The manifest lists `colorGroups` (cloak, crest, trim, skin, emblem, wood; dark to light), `metal` (light to dark)
    and the tier ramps (`tiers.veteran`, `tiers.elite`: anchor colours in the spec, interpolated to each group's
    length). Hoplite tiers: veteran = wine cloak, scarlet crest, polished trim; elite = black cloak and crest, gold trim
