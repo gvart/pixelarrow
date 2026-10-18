@@ -5,6 +5,14 @@
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
+## PAUSED (2026-10-18, owner request)
+
+All agents stopped, and all servers on 6150–6159/6190–6199 killed. v6 HEAD before this note: 19d1285d. Everything is merged except PLAT-06, and the tree is clean. To finish, in order:
+1. The final gate pass on 19d1285d was interrupted during e2e. Rerun it: tsc, vitest, build, regression `--all`, layout `--quick`, link-telegram/account-privacy/account-manage e2e.
+2. PLAT-06 (the "inside Telegram" strings become "Sign in to play online") was interrupted on branch `worktree-agent-a759cf89d9737b52a`. Resume it in a fresh isolated worktree with `git reset --hard` to that branch (V6-080), then merge it.
+3. Merge the docs branch `worktree-agent-a842e8a506fc57042` (landing FAQ and OWNER_ACTIONS). On OWNER_ACTIONS, take that branch's version.
+4. Rename docs/v6/REPORT.draft.md to REPORT.md, fixing any numbers. Set Phase to FINAL. QA-final, RSCR-11, GATE-03 and PLAT-07 are not done, by the owner's decision.
+
 ## RESUMED AGAIN (2026-10-14)
 
 Running: integrator-pay-01 (PAY-01 plus the RSCR-02 layout gate and the screenshot cap), acct-05b, fix-e2e-b and parity-stable-b (each continuing in its existing worktree).
