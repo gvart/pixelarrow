@@ -105,6 +105,69 @@ That is **11 gens**. The jobs were added to `docs/v5/pixellab/I3/jobs.json` (and
 
 The rebuild leaves the NE, SW and NW rows byte-identical; the check was a pixel diff, with 0 changed pixels outside the SE row. The colour groups and tiers are unchanged too. The SE anchor moved from x 49 to 42 because the shorter butt shrank the row's left extent, so all SE frames sit 7 px further left in the image. On screen they are identical, because the runtime draws them from the anchor. QC: 0 failures. Zoom: scratchpad `se_zoom_hoplite_v2.png`.
 
+### I5c Mounted and chariot clips: companion, horse archer, thessalian, chariot, from the I4b bases to game sheets (2026-10-18)
+
+**Brief.** Animate the four approved I4b bases (`docs/v5/pixellab/mounted.json`) to the hoplite's standard: 12-16 frames a clip, dark-epic, each class identical to its base in every frame, real rider and horse proportions, weight in every attack (a lance driven with the horse's momentum, a javelin thrown with the torso turned, a bow drawn to the cheek), real gaits, spearheads lead, one head, one bow. Hard rejects frame by frame: extra or missing horse legs, rider merged into the horse, a doubled, reversed or missing weapon, a second bow, style or proportion drift, canvas clipping, unrequested sparks or blood. Tiers by runtime recolour (V5-092, V5-098); horse coats kept out of the skin and metal groups where the colours allow, the runtime flags (`variation`, `rarity`, I6) set where they do not.
+
+**Tool and budget.** PixelLab MCP `animate_image_pixminimax`, at most 3 of my jobs at once, cap 330 generations for the four. Balance before: 3,917.50 left (985.50 used).
+
+**Recipe.** Every clip is generated on one **work canvas** per class (`scripts/art/pixellab/i5c/lib.mjs` CANVAS: riders 144 x 160 with the 100 rotation at 22,44, room to rear, fall and raise the weapon; chariot 176 x 176 at 24,40): `start.mjs` pastes the rotation (or a loop key) there, it is uploaded and passed as `first_frame_url`, `view: high top-down`, `direction` the facing, `subject_description` and `initial_pose` set (prompts.json). 144 x 160 at 12-16 frames bills **1 generation**. Results are aligned on the work canvas (`align.mjs`; the stored I4b gallop on its grown canvases by matching its keys), so the sheet spec has one canvas offset per clip family and `align: false`. Loops: idle and walk pinned (`last_frame_url` = the first frame); gallop, charge and rout keyed (start = end = a stretched mid-gallop frame) or an 8-frame stride cut from an entry run that already loops (`loopfind.mjs`). Detached dust clumps are cleared by `despeck.mjs`; sparks, white streaks, grey trails and blood splats by the pipeline's invented-colour cut. Jobs and verdicts: `docs/v5/pixellab/I5c/<class>.jobs.json`; prompts word for word: `docs/v5/pixellab/I5c/prompts.json` and `docs/playbook/PROMPTS_ART.md` › 18. Raws: `docs/v5/pixellab/I5c/raw/` (gitignored; `fetchall.mjs <class>` refetches). Build: `node scripts/art/pixellab/i5c/build.mjs <class> --qc <dir>` (derive, sheetbuild, finish, anchorcheck, qc).
+
+#### companion (42 gens)
+
+Clips (16 frames unless said): idle 12 @ 8, walk @ 14, gallop @ 16 (the I4b loop, reused), charge @ 16 (lance couched; SE/NE/NW keyed loops, SW an 8-frame stride twice), thrust @ 14 (strike 7: a couched drive with the horse lunging one stride), stagger 12 @ 12 (the horse shies and rears half up), fallFwd @ 12 (the horse goes down, the rider is thrown clear; serves fallBack and die), rout @ 16, cheer @ 10, hold 15 (lance raised, the horse rears once and stands). Not made: look, adjust, ready, block (the battle falls back to idle / stagger).
+
+Sheet: `src/assets/sheets/companion/` 136 columns x 4 rows of 129 x 138, packed 14.55 MB decoded (core 12.58), 513 KB download. `qc.mjs`: 0 failures; warnings are the spear heuristic catching horse legs and reins as the longest thin line, and cheer's rearing frames off the feet row (expected); every frame checked by eye on the review sheets. Groups: cloak = purpleBlack (exclusive), skin = the rider's skin **and the bay coat** (the same three hexes), metal = umber 3 (helmet, cuirass, a few bridle pixels; not the coat), weaponMetal the lance head. Manifest: `variation.skin: false` (the coat would take the man's skin tone), rarity swap kept; no trim group (the bronze has no separate highlight step), so the elite tier is the black cloak only.
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `b114c90c` | C-idle-1 | 1 | usable: calm breathing, 4 legs, one lance; but the tail is out at frame 11 and down at 0 (a jump at the wrap). Re-rolled pinned (a2) |
+| thrust | SW | a1 | `c11bc241` | C-thrust-1 | 1 | REJECTED: frames 3-7 the spear is reversed (leaf head at the back, behind the rider, while drawing back overarm) |
+| stagger | SW | a1 | `6e0c67f2` | C-stagger-1 | 1 | accepted: shies, rears half up, drops back; 4 legs, one lance upright throughout |
+| idle | SW | a2 | `3a339cc0` | C-idle-1 | 1 | accepted: pinned loop (last frame = the rotation), breathing, weight shift, tail swish; 4 legs, one lance |
+| thrust | SW | a2 | `e1410f5a` | C-thrust-2 | 1 | accepted: lance couched, head leads in 16/16, the horse lunges a stride (5-9), held reach 8-9, back upright; a stray light blob at frame 11 is cut by colour |
+| walk | SW | a1 | `79e3bdb3` | C-walk-1 | 1 | accepted: a high-stepping walk in place, pinned loop, 4 legs, one lance upright; a grey speck at the mouth (frame 8) cut by colour |
+| idle | SE | a1 | `61c08bed` | C-idle-1 | 1 | accepted: pinned loop, tail swish and breathing, 4 legs, one lance |
+| thrust | SE | a1 | `2171d812` | C-thrust-2 | 1 | REJECTED: frames 1-5 the lance swings back, its head behind the rider (reversed); 6-12 right |
+| stagger | SE | a1 | `ae859c17` | C-stagger-1 | 1 | accepted: rears and drops back; an orange slash arc at frame 0 (invented) is cut by colour |
+| idle | NE | a1 | `8f3f8d14` | C-idle-1 | 1 | accepted |
+| thrust | SE | a2 | `9f627c21` | C-thrust-3 | 1 | accepted: the lance cocked back high (butt up behind, point forward, the head hidden by the horse's neck in 1-3, not reversed), then the lunge and a couched drive, head leading 4-15; white sparks at 5-6 cut by colour |
+| idle | NW | a1 | `6ad6ec43` | C-idle-1 | 1 | accepted |
+| stagger | NE | a1 | `f9ce17a6` | C-stagger-1 | 1 | accepted: rears and drops back; grey specks at the bit (9-11) cut by colour |
+| walk | SE | a1 | `affbac17` | C-walk-1 | 1 | accepted: the lance comes upright during the walk and slants back for the pinned end |
+| walk | NE | a1 | `397490f3` | C-walk-1 | 1 | accepted |
+| fallFwd | SW | a1 | `4c60ec74` | C-fall-1 | 1 | fallback: the horse sinks to its knees and lies on its belly, the rider sprawled across its back (distinct, not merged); lance flat. Re-rolled for a clearer fall (a2) |
+| thrust | NE | a1 | `e42f544e` | C-thrust-3 | 1 | REJECTED: from frame 6 the rider turns to face the camera and the lance points back (south-west) |
+| walk | NW | a1 | `c5372094` | C-walk-1 | 1 | accepted |
+| stagger | NW | a1 | `d03a4726` | C-stagger-1 | 1 | accepted: rears and lands; a white slash streak in 0-1 is cut by colour |
+| thrust | NE | a2 | `51dad0ad` | C-thrust-4 | 1 | accepted: seen from behind throughout, the lance couched and leading north-east 0-11, the lunge at 7-8, back upright 13-15 |
+| fallFwd | SW | a2 | `79c83ef1` | C-fall-2 | 1 | accepted: the horse buckles and goes down, the rider is thrown clear and lies on his back, the lance flat beside him; one lance, 4 legs while visible; grey specks cut by colour |
+| thrust | NW | a1 | `58ceddbc` | C-thrust-4 | 1 | accepted: seen from behind, couched, head leads north-west 2-13, plain blunt butt behind; the lunge 6-9 |
+| cheer | SW | a1 | `4025f171` | C-cheer-1 | 1 | accepted with a fix: lance raised and shaken, the horse rears (6-10) and prances, ends standing with the lance aloft (hold 15); frame 2 the lower end looks like a second head: copied from frame 1 |
+| charge-entry | SW | a1 | `893ae3ee` | C-charge-1 | 1 | accepted: lance couched from frame 5, a real gallop; the 8-frame stride 7..14 loops (wrap 50% vs 60-69% between neighbours): charge = frames 7-14 twice |
+| fallFwd | SE | a1 | `6dedaf95` | C-fall-2 | 1 | accepted: thrown off as the horse goes down, lies beside it; red specks at 12-15 cut as splats |
+| cheer | SE | a1 | `dddb0684` | C-cheer-1 | 1 | accepted: lance raised upright high, the horse rears (4-8) and settles; hold on the last frame |
+| fallFwd | NE | a1 | `7d1d84df` | C-fall-3 | 1 | accepted: goes down, rider thrown beside it; a red splat at frame 0 cut |
+| charge-entry | SE | a1 | `68150aa0` | C-charge-1 | 1 | partly: couched and leading from 6, but no clean couched loop (best 6..14, 9 frames) and an odd raised rear arm at 8-11; frame 6 used as the key of a step-2 loop |
+| charge-entry | NE | a1 | `ee31e563` | C-charge-2 | 1 | partly: couched from 3, but dust clumps at the hooves; frame 6 keys a step-2 loop |
+| charge-entry | NW | a1 | `85057299` | C-charge-2 | 1 | partly: couched from 7; frame 8 keys a step-2 loop |
+| fallFwd | NW | a1 | `a1bdd555` | C-fall-3 | 1 | accepted: the horse goes down on its side, the rider slides off and lies beside it, the lance flat |
+| charge | SE | a1 | `10be9348` | C-chargeloop-1 | 1 | accepted: keyed loop, two strides, the lance couched and leading in 16/16, held two-handed (the left hand on the butt, raised behind) |
+| charge | NE | a1 | `b372ad80` | C-chargeloop-2 | 1 | accepted after despeck: keyed loop, the lance leads north-east; dust clumps at the hooves cleared (despeck 60) |
+| charge | NW | a1 | `39bf8f19` | C-chargeloop-2 | 1 | accepted: keyed loop, couched, leads north-west |
+| cheer | NE | a1 | `2d910301` | C-cheer-2 | 1 | accepted: lance raised overhead, rears 3-7, prances |
+| cheer | NW | a1 | `5def6b89` | C-cheer-2 | 1 | accepted: lance raised, rears 5-11, settles |
+| rout-entry | SW | a1 | `986ea194` | C-rout-1 | 1 | accepted as rout: hunched, cloak flying, the lance trailing upright; frames 0-15 loop (frame 8 = frame 0, 7.6 %) |
+| rout-entry | SE | a1 | `719d087a` | C-rout-1 | 1 | accepted: the stride 3..10 loops (10 %): rout = frames 3-10 twice |
+| rout-entry | NE | a1 | `d1c88a3d` | C-rout-2 | 1 | REJECTED: the rider twists round to face the camera with a cartoon face (style drift) and the brim changes |
+| rout-entry | NW | a1 | `30cde16b` | C-rout-2 | 1 | partly: good, but its loop is 10 frames (4..13): frame 4 keys a 16-frame loop |
+| rout | NE | a1 | `35e4859f` | C-routloop-1 | 1 | accepted: keyed loop, hunched low, head forward, lance trailing upright |
+| rout | NW | a1 | `2900e63f` | C-routloop-1 | 1 | accepted: keyed loop on rout-entry frame 4 |
+
+42 jobs, 42 gens.
+
+**Rejected and why:** thrust SW a1 and SE a1, the lance swung back with its head behind the rider (reversed); thrust NE a1, the rider turns to face the camera with the lance pointing back; rout NE (entry), a cartoon face turned to the camera (style drift). Fixed: cheer SW frame 2 (the lower end read as a second head: copied from frame 1). Lesson: an overarm draw invites a reversed lance; say "couched … the spearhead always points forward … never backwards", and for the back views "seen from behind, the rider faces away the whole time".
+
 ### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
 
 **Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated
