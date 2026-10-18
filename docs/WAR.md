@@ -1,12 +1,13 @@
 # Global war
 
-Living rules of the browser global war. Decisions: `docs/impl/global-war-rebuild.md` (W-01..W-15, temporary).
+Living rules of the browser global war. Decisions: `docs/impl/global-war-rebuild.md` (W-01..W-17, temporary).
 
 ## World
 
 37 hand-made regions on one continent ringed by sea. The world is mirror-symmetric in **topology** (every home has
 the same number of entries, neutrals and routes to the centre) and different in **flavour** (biome, fauna,
-specialty resource). Prototypes: `shots/war/gemini/` (git-ignored); prompts in `docs/playbook/PROMPTS_ART.md`
+specialty resource). The strategic world map is pixel art; region maps are true isometric (W-16).
+Prototypes: `shots/war/gemini/` (git-ignored); prompts in `docs/playbook/PROMPTS_ART.md`
 §21.
 
 ### Geography
@@ -32,8 +33,15 @@ marsh, scree and forest slow; roads are fast; high ground gives + range and + da
 | Kyrene | SE | desert-edge oasis on a river terrace, red cliffs | copper | Ammos dunes (N), Great River (W) |
 | Elaia | SW | terraced olive hills round a bay, marble | marble | Stymphalia (N), Great River (E) |
 
-Each home sums to 9 resource points; each touches exactly one tin region, one silver region and one of
-Krios/Achelous Delta. Bronze = copper + tin, so tin and copper force trade or war.
+Each home sums to 9 resource points; through its entries each home reaches exactly one tin region, one silver
+region and one of Krios/Achelous Delta, all two transfers away. Bronze = copper + tin, so tin and copper force trade
+or war.
+
+**Tin is scarce: exactly 2 sources on the map**, Kleisoura Pass (contested by Dodona and Skythia) and Achelous Ford
+(contested by Elaia and Kyrene). Neither touches a home or is reachable from one home's entries only: each borders
+one entry of each of its two homes plus two neutrals (Kleisoura: Krios, Eagle Saddle; Achelous: the delta, Gorge of
+the Falls), so no alliance can sit on tin without its neighbour contesting it, and the far pair can raid it by the
+gate.
 
 ### Resources and fauna
 
@@ -44,7 +52,7 @@ Krios/Achelous Delta. Bronze = copper + tin, so tin and copper force trade or wa
 | stone | everywhere hilly |
 | iron | Dodona, Krios, Grey Moors, Eagle Saddle, bog iron in the delta |
 | copper | Kyrene, Red Canyons, Lion Savanna, Ammos |
-| tin | Kleisoura Pass, Achelous Ford only |
+| tin | Kleisoura Pass, Achelous Ford; nowhere else (scarce) |
 | silver | Omphalos, Siren Estuary, Ammon Salt Flats |
 | horses | Skythia, Frost Steppe, Kurgan Hills, Chalk Coast, Kimmerian Hills |
 | marble | Elaia, Bacchae Hills, Omphalos |
