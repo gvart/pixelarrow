@@ -26,7 +26,7 @@ import type { UiScene } from '../mosaic/subShell';
 import { legalUrl } from '../legal';
 import { toast } from '../widgets';
 import { accountDeps, type AccountDeps } from './deps';
-import { ReauthCancelled } from './methods';
+import { needsReauth, ReauthCancelled } from './methods';
 import { sensitive } from './reauth';
 import { cardState, conflictCards, factLines, linkFail, POLL_MS, typedMatches, waitingStep, type LinkFail } from './linking';
 import { openLinkSheet, type Body, type LinkSheet } from './linkSheet';
@@ -228,11 +228,9 @@ export function openWebConflict(scene: UiScene, id: string, o: WebConflictOpts):
         finish(sheet, { key: 'conflict.differ' }, {});
       }
     } catch (e) {
-      const m = linkFail(e, 'browser');
-      if (m.next !== 'retry' && !(e instanceof ReauthCancelled)) {
-        if ((e as { code?: string }).code === 'reauth_required') stop();
-        else fail(e);
-      }
+      // the proof ran out (10 minutes): polling stops, and Check again asks Confirm it's you
+      if (needsReauth(e)) stop();
+      else if (linkFail(e, 'browser').next !== 'retry' && !(e instanceof ReauthCancelled)) fail(e);
     } finally {
       inflight = false;
     }
