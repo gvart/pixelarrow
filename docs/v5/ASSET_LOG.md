@@ -8,6 +8,106 @@ Empty. The AS-07 Nikias prompts were sent in AS-08 (below).
 
 ## Done
 
+### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
+
+**Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated
+body per class (veteran and elite are runtime recolours, I3b), the full clip set at 12–16 frames, a thrust driven by
+the whole body (no "only the arm stretches"), every hard reject of I1b checked frame by frame, and a recipe the other
+17 classes can follow (`docs/v5/art/STYLE_LOCK.md`).
+
+**Tool and budget.** PixelLab MCP, Tier 2. Balance before 4,803.75; after 4,408.50 (the account was shared from
+mid-run with the I4a base-rotation agent). This round's own jobs: **36 base + 118 clip generations quoted** (72 clip
+jobs: 63 pixminimax, 9 skeleton-v3); billing ran about 12 % over the quotes in the stretch measured alone (107 quoted,
+120 billed), so about **170 generations** (cap 450). **Raws:** `docs/v5/pixellab/I3/raw/` (gitignored): `H1`–`H4`,
+`ref/`, `first/` (first frames and skeleton JSON), `clips/<anim>/<dir>/<attempt>/`. **Rebuild:**
+`node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I3/jobs.json docs/v5/pixellab/I3/raw && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I3/hoplite.sheet.json`
+(every job is in `jobs.json`, every pick and frame fix in `hoplite.sheet.json`). **Shipped:**
+`src/assets/sheets/hoplite/{hoplite.png, manifest.json}`. **Contact sheets:** `docs/v5/art/I3-bases.png`,
+`I3-lineup.png` (the sheet's idle beside H4 and E3), `I3-thrust.png`, `I3-rejected.png`. **Preview:**
+`/hoplite-bakeoff.html?sheet=hoplite` (through the runtime; `?z=1..3`, `&anim=` for the formations).
+
+**Base character prompts, word for word** (all 68 x 68, `high top-down`):
+
+- **H1** (`create_character_pro_flash`, `style_image` = E3 south cropped to 68, usage "the approved style: copy its
+  colours, dark bronze and crimson ramps, outline, shading, pixel density and gear design exactly; but draw the man
+  with realistic adult proportions (a smaller head and helmet, longer legs) instead of this sprite's big helmet and
+  short legs")
+  ```
+  grim battle-hardened Spartan hoplite warrior with realistic adult human proportions, about seven heads tall: a normal-sized head and helmet, long legs, natural arm length, broad shoulders, muscular athletic build; standing straight and facing the viewer, full body with the feet near the bottom of the canvas: dark weathered bronze Corinthian helmet covering the face with a deep crimson horsehair crest; deep crimson cloak hanging from the shoulders behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round aspis shield on his left arm reaching from his chin to his knees, dark bronze rim and a muted dark-red lambda emblem; one very long wooden spear (dory) held vertically in his right hand, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours, low-key cinematic light from the upper left, the mood of the film 300
+  ```
+- **H2** (`create_character` pro, `style_character_id` E3 `62d4f135`)
+  ```
+  grim battle-hardened Spartan hoplite with realistic adult human proportions, seven heads tall: a normal-sized head and a close-fitting helmet, long legs, natural arm length, broad shoulders, muscular athletic build; dark weathered bronze Corinthian helmet covering the face with a deep dark crimson horsehair crest; deep dark crimson cloak hanging behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round bronze aspis on his left arm, chin to knee, dark bronze rim and a muted dark-red lambda; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **H3** (pro, style E3): H2 with the opening "tall grim Spartan hoplite drawn with true realistic adult anatomy,
+  seven and a half heads tall like a real man: a small head and a snug helmet only one seventh of his height, a long
+  torso, long legs (half his height), natural arm length, broad shoulders, lean muscular build, not chibi, not heroic
+  big-head proportions;" and the rest as H2.
+- **H4** (pro, style E3, `concept_image_url` = H3's south re-proportioned by `proportion.mjs`, bands
+  `3:10:0.6:0.75:7:33,11:24:0.68:0.78:8:33,25:48:0.86,49:65:1.55`, 4x nearest): the verbatim block in
+  STYLE_LOCK §3.
+
+| # | Attempt | id | Call | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | H1 | e752da6b | H1, Pro Flash + style image | 6 | **Rejected:** the spear is gone in NW; the crimson came out saturated, brighter than E3; helmet still big |
+| 2 | H2 | 852ef75e | H2, pro + E3 style | 10 | **Rejected (proportions):** E3's colours exactly and the spear in 8/8, but 4.5 heads; a flat 9-colour palette |
+| 3 | H3 | 4a5c84b4 | H3, pro + E3 style | 10 | **Rejected (proportions):** measured 3.7 heads (helmet 15 of 55 px), legs 31 % of the height |
+| 4 | H4 | b7624d6d | H4, pro + E3 style + concept | 10 | **Promoted:** a small head, legs about 45 %, 52 colours in E3's ramps; spear visible, head up, butt plain in all 8 views; one shield |
+
+**Clips.** Mode, frames, fps and prompts per clip: STYLE_LOCK §6 and PROMPTS_ART §15. Every clip was tested in SW
+first, then rolled out. The thrust is the only skeleton-v3 clip shipped (rig.mjs keypoints, the spear redrawn
+levelled into the first frame); everything else is pixminimax from the rotation, the levelled-spear frame, a tall
+canvas or a big centred canvas.
+
+| # | Clip | Mode | Dirs | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 5 | thrust a1 | skeleton-v3 | SW | 3 | **Rejected (spear pivots, ghost tips):** the draw-back swung the spear round (f1–f4), grey ghost tips, the figure turned to face south (the skeleton's shield hand was put in front of the body, not at his left) |
+| 6 | thrust a2 | skeleton-v3 | SW | 3 | **Promoted:** spear level and head-first in 14/14, lunge on the lead foot, shield driven forward with the body |
+| 7 | thrust a1 | skeleton-v3 | NE, NW | 6 | **Promoted** (NE f2 a grey ghost: cut by the colour step) |
+| 8 | thrust a1 | skeleton-v3 | SE | 3 | **Rejected (pivot):** the spear rotates about 30° from the camera-true downward angle to level |
+| 9 | thrust a2 | skeleton-v3 | SE | 3 | **Promoted:** first frame drawn flatter (`--vec 1,0.22`): the angle holds |
+| 10 | walk, idle, look, adjust, rout | pixminimax | all 4 | 20 | **Promoted;** look NE f8 rejected (lumpy, doubled head; := f7) |
+| 11 | run a1 | pixminimax | 4 | 4 | **Promoted SE SW NW; NE rejected:** the shield almost vanishes (f3) |
+| 12 | run a2 | pixminimax | NE | 1 | **Promoted** ("the shield stays clearly visible on the left arm") |
+| 13 | kneel a1 | pixminimax | 4 | 4 | **Promoted SE SW NW; NE rejected:** shield gone f1–f2 |
+| 14 | kneel a2 | pixminimax | NE | 1 | **Promoted** |
+| 15 | cheer a1 | pixminimax | SW | 1 | **Rejected:** on the 68 canvas the spear is never raised (no room overhead) |
+| 16 | cheer a2 | skeleton-v3 | SW | 3 | **Rejected:** the shield vanishes in every frame |
+| 17 | cheer a3 | pixminimax, tall 96 x 112 | all 4 | 4 | **Promoted** (SW turns a little towards the viewer: kept) |
+| 18 | ready, charge, brace | pixminimax, guard | all 4 | 24 | **Promoted** (the charge's lambda flickers in 2 frames: kept) |
+| 19 | block | pixminimax, guard | all 4 | 8 | **Promoted after the cut:** impact sparks in f2–f5 of every facing (invented effect, cut by colour); SW f2 spikes left (:= f1) |
+| 20 | stagger a1 | pixminimax | SW | 2 | **Rejected:** a doubled, smeared spear f0–f2 |
+| 21 | stagger a2 | skeleton-v3 | SW | 3 | **Promoted:** a weak but clean reel back (grey ghost f2 cut) |
+| 22 | stagger p1 | pixminimax | SE NE NW | 6 | **Promoted after the cut:** blood (cut); NW f0–f1 lost the spearhead with the blood (:= f2) |
+| 23 | fallBack a1 | skeleton-v3 | SW | 3 | Kept as the A/B: a sitting fall, spear still held level; the pixminimax fall reads better and costs 2 |
+| 24 | fallBack p1, fallFwd p1 | pixminimax, die 128 x 128 | all 4 | 16 | **Promoted after the cut:** blood in 7 of 8 (bright cut; fallBack NE f0 splat cleared, `red` fix); NW fallBack f1–f2 and fallFwd f0–f1, fallFwd SW f0–f1 holes or a headless spear after the cut (:= neighbour) |
+
+**Rejection count** (whole clips / frames): proportions 2 bases; spear missing in a game facing 1 base (H1 NW);
+spear pivoting instead of travelling along its axis 2 clips (thrust SW a1, SE a1); doubled or ghost spear 1 clip
+(stagger SW a1) + 1 frame (look NE f8), grey ghosts cut in 2 clips; spearhead lost with cut blood 6 frames; shield
+vanishing 3 clips (run NE, kneel NE, cheer SW a2); action not performed 1 clip (cheer a1); invented effects: sparks in
+4 clips and blood in 10 clips, all cut, 3 frames replaced; spear tip backwards, double-ended butt, head turned
+backwards, head cut by the canvas, proportion or style drift: **0** (QC stature 56–59 px in all 4 facings).
+
+**Colours.** The sheet uses 46 colours, all PA-WORLD-DARK steps or their 1-step group nudges; groups (dark→light):
+cloak 6, crest 4, emblem 3, trim 2, skin 4, wood 11; metal: bronze 5 (shield, helmet, armour), spearhead 7. Tiers:
+veteran = wine cloak, scarlet crest, polished trim; elite = black cloak and crest, gold trim (I1b elite probe colours).
+
+**QC** (`qc.mjs`): 0 failures; 12 warnings, all eyeballed false positives of the spear-end heuristic (an end over
+the legs or a lying body) and one walk frame with a lifted foot. Frame 142 x 117 (the raised cheer spear and the
+lying dead set it), 202 columns, wrap 28: a 3976 x 3744 PNG, **57 MB decoded**: it needs the trim-and-pack step
+before phones. Preview through the v2 runtime: no console errors; `tsc`, `vite build` and the 1,568 tests pass.
+
+**Verdict.** H4 is the style anchor for every class (STYLE_LOCK §1). pixminimax is the workhorse (1 generation at
+68, 2 at 128, identity steady, 1 in 6 clip-directions redone); skeleton-v3 is kept for the attack, where the pose must
+be ours. PixelLab adds sparks and blood whatever the prompt says: the colour cut removes them, but where blood covered
+the spear it takes the spearhead with it, so check every cut frame.
+
+**Cost per class, measured** (the full basic set, 16 clips x 4 facings): base 10–20 + 0.25 import; clips 100 quoted
+(28 at 1, 60 at 2, 12 at 3) + about 20 % redos ≈ 120; ≈ **135–150 generations per class with billing**, **≈ 2,500
+for the other 17 foot classes** (tiers are free recolours now). Riders and chariots need bigger canvases (pixminimax
+2 per clip at 128, more above).
+
 ### I1b Dark-epic hoplite: the restyle, 12–16-frame walk and thrust, frame-by-frame review, the elite probe (2026-10-18)
 
 **Brief** (user review of I1, V5-087): darker, *300* / Lord of the Rings mood on the I1 pick B3 (high top-down, 48); smooth 12–16-frame clips; a spearhead pointing away from the facing or the attack is never allowed; then, mid-round, a hard rule: exactly one spearhead at the leading end, a plain blunt wooden butt (no sauroter), and every frame with a pointed or metallic butt rejected. Every prompt below carries "single leaf-shaped spearhead, plain blunt butt end, no butt spike".

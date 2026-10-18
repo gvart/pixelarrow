@@ -12,12 +12,20 @@
  *                 snap; I1b: the ramp-aware remap to PA-WORLD-DARK, manifest `post`)
  *   ?h=N          crest-to-feet height (world px) every variant is scaled to; default: measured on the
  *                 procedural hoplite (its red crest's top row to its feet in the south-west idle frame)
+ *
+ * Sheet preview (I3a): ?sheet=hoplite draws a shipped sprite sheet (src/assets/sheets/<class>/) through the real
+ * runtime (src/art/sheetDoll.ts via paperdoll renderFrame, BATTLE_SCALE, BATTLE_RES): every animation in the 4
+ * facings at its own fps, the three gear tiers, 5x3 formations, next to the procedural classes. ?z= and ?rs= as above;
+ * ?anim=<sheet anim> sets what the formations play (default walk).
  */
 import { renderFrame, dollGeom, dollFromHero, ANIM, BATTLE_SCALE, BATTLE_RES, type DollSpec } from '../art/paperdoll';
 import { makeHero } from '../game/heroes';
 import { Rng } from '../sim/rng';
 import { isoToScreen, ISO_HW, ISO_HH } from '../art/iso';
 import { SPACING } from '../sim/formation';
+import { initSheets } from '../art/sheetRegistry';
+import { onSheetReady, setSheetsEnabled, isSheetDoll, sheetAnimsOf } from '../art/sheetDoll';
+import { sheetFrameId, type SheetAnim } from '../art/sheetManifest';
 
 const q = new URLSearchParams(location.search);
 const Z = Number(q.get('z') ?? 1);
@@ -47,7 +55,7 @@ interface Figure {
   frames(anim: string, dir: Dir): Strip;
 }
 /** Frames of one animation in one facing; v3 clips come on a bigger canvas than the rotations, so each strip has its own size and feet line. */
-interface Strip { imgs: CanvasImageSource[]; fw: number; fh: number; feetY: number }
+interface Strip { imgs: CanvasImageSource[]; fw: number; fh: number; feetY: number; fps?: number }
 
 document.body.style.cssText = 'margin:0;padding:12px;background:#2b2620;color:#f0e6d0;font:12px/1.4 monospace';
 
@@ -142,7 +150,7 @@ function stage(title: string, wW: number, wH: number, placed: Placed[], labels: 
     ctx.drawImage(ground, 0, 0);
     for (const p of sorted) {
       const st = p.fig.frames(p.anim, p.dir);
-      const img = st.imgs[Math.floor(t / 100 + p.phase) % st.imgs.length];
+      const img = st.imgs[Math.floor((t * (st.fps ?? 10)) / 1000 + p.phase) % st.imgs.length];
       const k = p.fig.k;
       // Phaser pixelArt + roundPixels: nearest filtering, whole device pixels
       const dx = Math.round((p.x - (st.fw * k) / 2) * F);
@@ -264,4 +272,106 @@ async function main(): Promise<void> {
   requestAnimationFrame(loop);
 }
 
-main().catch((e) => document.body.appendChild(el('pre', 'color:#f88', String(e))));
+// ================================================================ sheet preview (?sheet=<class>)
+
+const SHEET = q.get('sheet');
+
+/** A figure drawn by paperdoll renderFrame: the sheet (when loaded and enabled) or the procedural doll. */
+function dollFigure(label: string, cls: string, tier: number, seed: number): Figure {
+  const h = makeHero(new Rng(seed), { nextId: 900 + seed }, 'greek', cls as never, 1, tier);
+  const spec: DollSpec = { ...dollFromHero(h), scale: BATTLE_SCALE, res: BATTLE_RES };
+  const anims = sheetAnimsOf(spec);
+  const cache = new Map<string, Strip>();
+  return {
+    label,
+    k: 1 / BATTLE_RES,
+    frames(anim, d) {
+      const key = `${anim}:${d}`;
+      if (!cache.has(key)) {
+        const g = dollGeom(spec);
+        const dir = GAME_DIRS.indexOf(d);
+        const a = anims?.[anim as SheetAnim];
+        const ids = a ? Array.from({ length: a.frames }, (_, i) => sheetFrameId(anim as SheetAnim, i)) : ANIM.walk;
+        cache.set(key, { imgs: ids.map((f) => renderFrame(spec, f, dir).toCanvas()), fw: g.fw, fh: g.fh, feetY: g.footY, fps: a?.fps ?? 10 });
+      }
+      return cache.get(key)!;
+    },
+  };
+}
+
+async function sheetMain(cls: string): Promise<void> {
+  initSheets();
+  // the procedural look first, with sheets off, then the sheet
+  setSheetsEnabled(false);
+  const proc = [dollFigure('procedural hoplite', 'hoplite', 1, 3), dollFigure('procedural thureophoros', 'thureophoros', 1, 4)];
+  for (const f of proc) for (const d of GAME_DIRS) { f.frames('walk', d); f.frames('idle', d); }
+  setSheetsEnabled(true);
+  const probe: DollSpec = { ...dollFromHero(makeHero(new Rng(1), { nextId: 1 }, 'greek', cls as never, 1, 1)), scale: BATTLE_SCALE, res: BATTLE_RES };
+  isSheetDoll(probe);
+  await new Promise<void>((ok, fail) => {
+    if (isSheetDoll(probe)) return ok();
+    const off = onSheetReady(() => { if (isSheetDoll(probe)) { off(); ok(); } });
+    setTimeout(() => fail(new Error(`sheet ${cls} did not load`)), 8000);
+  });
+  const anims = sheetAnimsOf(probe)!;
+  const names = Object.keys(anims) as SheetAnim[];
+  document.body.appendChild(el('h2', 'margin:0 0 4px;font-size:15px', `Sheet preview: ${cls} (I3a), zoom ${Z}x, RS ${RS}`));
+  document.body.appendChild(el('div', 'margin-bottom:8px;color:#d6c0a8', `Drawn through the runtime (sheetDoll via renderFrame at BATTLE_SCALE ${BATTLE_SCALE}, BATTLE_RES ${BATTLE_RES}), each clip at its own fps. Clips: ${names.map((n) => `${n} ${anims[n]!.frames}f@${anims[n]!.fps}`).join(', ')}.`));
+  const links = el('div', 'margin-bottom:10px');
+  for (const z of ['1', '2', '3']) {
+    const u = new URLSearchParams(q);
+    u.set('z', z);
+    const a = el('a', 'color:#e0c070;margin-right:10px', `zoom ${z}x`);
+    a.href = `?${u}`;
+    links.appendChild(a);
+  }
+  document.body.appendChild(links);
+  const tiers = [dollFigure(`${cls} basic`, cls, 1, 11), dollFigure(`${cls} veteran`, cls, 2, 12), dollFigure(`${cls} elite`, cls, 3, 13)];
+  const basic = tiers[0];
+
+  // 1. every animation in the 4 facings
+  const colW = 64;
+  for (let i0 = 0; i0 < names.length; i0 += 8) {
+    const chunk = names.slice(i0, i0 + 8);
+    const placed: Placed[] = [];
+    const labels: { x: number; y: number; t: string }[] = [];
+    chunk.forEach((anim, i) => {
+      const cx = 40 + i * colW;
+      labels.push({ x: cx, y: 2, t: anim });
+      GAME_DIRS.forEach((d, j) => placed.push({ fig: basic, x: cx, y: 52 + j * 46, dir: d, anim, phase: 0 }));
+    });
+    stage(`Animations (rows: ${GAME_DIRS.join(', ')})`, chunk.length * colW + 30, 52 + 4 * 46, placed, labels);
+  }
+
+  // 2. tiers and the procedural classes, the 4 facings, idle and walk
+  const lineup = [...proc, ...tiers];
+  for (const anim of ['idle', 'walk', 'thrust'] as const) {
+    const placed: Placed[] = [];
+    const labels: { x: number; y: number; t: string }[] = [];
+    lineup.forEach((fig, i) => {
+      const cx = 30 + i * 84;
+      labels.push({ x: cx + 18, y: 2, t: fig.label });
+      GAME_DIRS.forEach((d, j) => placed.push({ fig, x: cx + (j % 2) * 40, y: 48 + Math.floor(j / 2) * 42, dir: d, anim: fig === proc[0] || fig === proc[1] ? (anim === 'thrust' ? 'walk' : anim) : anim, phase: 0 }));
+    });
+    stage(`Tiers beside the procedural classes: ${anim}`, lineup.length * 84 + 20, 100, placed, labels);
+  }
+
+  // 3. formations 5x3, both sides, the sheet beside the procedural hoplite
+  const fAnim = (q.get('anim') ?? 'walk') as string;
+  for (const [dir, side] of [['south-west', 'enemy side, facing down-left'], ['north-east', 'player side, facing up-right']] as const) {
+    const fp: Placed[] = [];
+    const fl: { x: number; y: number; t: string }[] = [];
+    [proc[0], basic, tiers[2]].forEach((fig, b) => {
+      const ox = 70 + b * 170, oy = 34;
+      fl.push({ x: ox + 10, y: 2, t: fig.label });
+      for (let r = 0; r < 3; r++) for (let f = 0; f < 5; f++) {
+        const p = isoToScreen(f * SPACING.line.file, (dir === 'south-west' ? -r : r) * SPACING.line.rank);
+        fp.push({ fig, x: ox + p.x - 30, y: oy + p.y + (dir === 'south-west' ? 30 : 0), dir, anim: fig === proc[0] ? 'walk' : fAnim, phase: (f * 3 + r * 5) % 8 });
+      }
+    });
+    stage(`Formation 5x3, ${side}, ${fAnim}`, 3 * 170 + 60, 120, fp, fl);
+  }
+  requestAnimationFrame(loop);
+}
+
+(SHEET ? sheetMain(SHEET) : main()).catch((e) => document.body.appendChild(el('pre', 'color:#f88', String(e))));
