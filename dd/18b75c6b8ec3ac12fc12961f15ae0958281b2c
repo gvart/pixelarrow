@@ -1,0 +1,28 @@
+src/platform/index.ts
+  s_0d98fe904b2e82::t_94fc9d0719a44a 41
+tests/armyTemplate.test.ts
+  s_0d98fe904b2e82::t_94fc9d0719a44a 4
+tests/regression/doors.test.ts
+  s_0d98fe904b2e82::t_94fc9d0719a44a 9
+tests/platformBoundary.test.ts
+  s_0d98fe904b2e82::t_94fc9d0719a44a 6-7,68-69
+tests/nav.test.ts
+  s_0d98fe904b2e82::t_7aab288c75d28d 4-5,13-21
+  s_0d98fe904b2e82::t_94fc9d0719a44a 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "dd18b75c6b8ec3ac12fc12961f15ae0958281b2c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
