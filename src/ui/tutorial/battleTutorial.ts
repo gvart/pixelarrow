@@ -67,6 +67,14 @@ import { tutorialStep } from '../../audio/hooks';
 import { track } from '../../platform/analytics';
 import { haptic, hapticNotify } from '../../platform/haptics';
 import { t, tOr, type TKey } from '../../i18n';
+import { platform } from '../../platform';
+import { keys } from '../input/keys';
+import type { ActionId } from '../input/actions';
+import { glyphs, primaryLabel } from '../input/glyphs';
+import { tutorialLine } from './keyLines';
+
+/** An action's current key, as the keyboard lines name it (input-v6.md §10: a rebound key shows correctly). */
+const keyOf = (a: ActionId): string => primaryLabel(keys.bindings, a, glyphs()) ?? t('controls.none');
 
 /** Analytics (docs/OPS.md): when this tutorial run began, and a step's stable number. */
 let tutorialStartedAt = 0;
@@ -430,7 +438,8 @@ export class BattleTutorial {
 
   private lineOf(id: TutStepId): string {
     const spec = this.specs[id];
-    return t(spec.text ?? 'tut.step.win', spec.params?.());
+    const dev = { keyboard: platform.input.keyboard(), fine: platform.input.finePointer() };
+    return tutorialLine(id, spec.text ?? 'tut.step.win', spec.params?.(), dev, keyOf);
   }
 
   private talk(): void {

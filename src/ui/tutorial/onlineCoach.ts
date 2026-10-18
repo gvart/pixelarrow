@@ -17,6 +17,7 @@ import { uiBlocker, uiId } from '../layout';
 import { wrapText, LINE_H } from '../textfit';
 import { SIZE } from '../theme';
 import { Spotlight, type Rect } from './spotlight';
+import { bubblePlace, bubbleMaxW } from './coachPlace';
 import { ONLINE_COACH, nextCoach, type CoachId } from '../../game/tutorial';
 import { state } from '../../state';
 import { tutorialStep } from '../../audio/hooks';
@@ -45,29 +46,7 @@ export interface CoachHost {
   rail?(): Rect | null;
 }
 
-/**
- * Where the coach card goes (UI px): above a low target, else below; with a rail, the card keeps to its left,
- * and for a target on the rail itself it sits beside the rail at the target's height, the arrow pointing right.
- */
-export function bubblePlace(at: Rect | null, w: number, h: number, VW: number, VH: number, rail: Rect | null): { x: number; y: number; w: number; side: 'above' | 'below' | 'left' } {
-  const right = rail ? rail.x - 6 : VW - 8;
-  const bw = Math.min(w, right - 8);
-  if (at && rail && at.x >= rail.x - 2) {
-    const y = Math.round(Math.max(4, Math.min(VH - 4 - h, at.y + at.h / 2 - h / 2)));
-    return { x: Math.round(right - bw), y, w: bw, side: 'left' };
-  }
-  let y: number;
-  let side: 'above' | 'below' = 'below';
-  if (!at) y = Math.round((VH - h) / 2);
-  else if (at.y + at.h / 2 > VH / 2) {
-    y = at.y - 8 - h;
-    side = 'above';
-  } else y = at.y + at.h + 8;
-  y = Math.max(4, Math.min(VH - 4 - h, y));
-  const cx = at ? at.x + at.w / 2 : VW / 2;
-  const x = Math.round(Math.max(8, Math.min(right - bw, cx - bw / 2)));
-  return { x, y, w: bw, side };
-}
+export { bubblePlace } from './coachPlace';
 
 const TARGET: Partial<Record<CoachId, string>> = {
   defenders: 'online.hexInfo',
@@ -173,12 +152,20 @@ export class OnlineCoach {
     // only a column rail at the right edge leaves room beside it (a row of keys across the top does not)
     const r0 = this.host.rail?.() ?? null;
     const rail = r0 && r0.h > r0.w && r0.x - 14 >= 120 ? r0 : null;
-    // the card's width: what is left of the rail (opposite it, WAR-6), at most 176
-    const w0 = Math.min(VW - 16, 176, rail ? rail.x - 14 : VW);
-    const lines = wrapText(text, w0 - 14, 7).lines;
-    const h = 7 + lines.length * LINE_H + (button ? SIZE.btnH + 6 : 3);
-    // above the target when it sits low, else below; beside the rail for a rail key; never on it
-    const pl = bubblePlace(at, w0, h, VW, VH, rail);
+    // the card's width: what is left of the rail (opposite it, WAR-6), at most 176 (240 on laptops, §13.1)
+    const navW = s.m.land ? s.m.navW : 0;
+    const w0 = Math.min(VW - 16 - navW, bubbleMaxW(s.m), rail ? rail.x - 14 - navW : VW);
+    const sized = (bw: number) => {
+      const lines = wrapText(text, bw - 14, 7).lines;
+      return { lines, h: 7 + lines.length * LINE_H + (button ? SIZE.btnH + 6 : 3) };
+    };
+    let { lines, h } = sized(w0);
+    // above the target when it sits low, else below; beside the rail for a rail key; never on it (beside it when need be)
+    let pl = bubblePlace(at, w0, h, VW, VH, rail, navW);
+    if (pl.w < w0) {
+      ({ lines, h } = sized(pl.w));
+      pl = bubblePlace(at, pl.w, h, VW, VH, rail, navW);
+    }
     const { x, y, w } = pl;
     const below = pl.side === 'below';
     const cx = at ? at.x + at.w / 2 : VW / 2;
@@ -195,10 +182,14 @@ export class OnlineCoach {
       this.bubble.add(addText(s, x + 7, y + h - 17, `${ONLINE_COACH.indexOf(this.step!) + 1} / ${ONLINE_COACH.length}`, 'pSec'));
     }
     if (at && pl.side === 'left') {
-      // the arrow from the card's right edge to the rail key
+      // the arrow from the card's right edge to the rail key (or the control beside it)
       const ay = Math.round(Math.max(y + 8, Math.min(y + h - 8, at.y + at.h / 2)));
       this.arrow.fillStyle(MOSAIC.parch, 1);
       this.arrow.fillTriangle(x + w - 1, ay - 5, x + w - 1, ay + 5, x + w + 5, ay);
+    } else if (at && pl.side === 'right') {
+      const ay = Math.round(Math.max(y + 8, Math.min(y + h - 8, at.y + at.h / 2)));
+      this.arrow.fillStyle(MOSAIC.parch, 1);
+      this.arrow.fillTriangle(x + 1, ay - 5, x + 1, ay + 5, x - 5, ay);
     } else if (at) {
       // the arrow from the bubble to the target
       const ax = Math.round(Math.max(x + 8, Math.min(x + w - 8, cx)));

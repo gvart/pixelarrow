@@ -156,7 +156,7 @@ const STORY_OF = [
   ['battle-', 'V6-RSCR-02'],
   ['results', 'V6-RSCR-02'],
   ['inspect', 'V6-RSCR-02'],
-  ['online-coach', 'V6-RSCR-08'],
+  ['online-coach', 'V6-RSCR-03'], // the coach marks sit on the online war map (OnlineScene, RSCR-03's family)
   ['online', 'V6-RSCR-03'],
   ['merchant-', 'V6-RSCR-03'],
   ['duel-', 'V6-RSCR-04'],

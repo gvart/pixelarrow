@@ -131,6 +131,8 @@ async function wait(page, ms) {
 /** Polls a page function until it is truthy (`ms` at most), on every frame inside the page (scripts/lib/settle.mjs). */
 const until = (page, fn, ms = 8000) => untilInPage(page, fn, ms);
 const activeIs = (k) => new Function(`return window.__game.scene.isActive(${JSON.stringify(k)})`);
+/** FirstRun shows step `mode` (its create ran: the step's paintings are loaded). */
+const firstRunIs = (page, mode) => until(page, new Function(`const s = window.__game.scene.getScene('FirstRun'); return s.sys.isActive() && s.mode === ${JSON.stringify(mode)};`), 15000);
 
 /**
  * A fresh skirmish in deployment. online = 'attack' | 'duel' restarts it as an
@@ -990,13 +992,14 @@ const SCREENS = [
     },
   })),
   // ---- onboarding (owner F): first-run screens, the tutorial battle's narrator and spotlight, the online coach marks
-  ...['offer', 'resume', 'modes'].map((mode) => ({ id: `first-run-${mode}`, owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode }), wait(p, 700)) })),
+  // (each waits for its step to be built: the scene preloads its paintings first, which a busy machine can make slow)
+  ...['offer', 'resume', 'modes'].map((mode) => ({ id: `first-run-${mode}`, owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode }), await firstRunIs(p, mode), wait(p, 700)) })),
   {
     id: 'first-run-reward',
     owner: 'F',
-    run: async (p) => (await start(p, 'FirstRun', { mode: 'reward', item: { uid: 'tr1', def: 'chalcidian', rarity: 'common', cond: 100 } }), wait(p, 1600)),
+    run: async (p) => (await start(p, 'FirstRun', { mode: 'reward', item: { uid: 'tr1', def: 'chalcidian', rarity: 'common', cond: 100 } }), await firstRunIs(p, 'reward'), wait(p, 1600)),
   },
-  { id: 'first-run-skip', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'resume' }), await wait(p, 500), await call(p, 'FirstRun', 's.confirmSkip(); return 1;'), wait(p, 400)) },
+  { id: 'first-run-skip', owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode: 'resume' }), await firstRunIs(p, 'resume'), await wait(p, 500), await call(p, 'FirstRun', 's.confirmSkip(); return 1;'), wait(p, 400)) },
   // tutorial steps: [screen, steps already learned (a resumed run starts at the first one not learned), start the battle]
   // (TUT-02: Undo comes back with the drag it takes back, Then… with its move; the later steps are in scripts/tutorial-smoke.mjs)
   ...[

@@ -56,7 +56,7 @@ const SUITE = [
 /** --all: the browser smokes too (online-e2e needs wrangler with DEV_AUTH and stays out). */
 const SMOKES = [
   { name: 'smoke', script: 'scripts/smoke.mjs', args: ['BASE'], min: 15 },
-  { name: 'tutorial-smoke', script: 'scripts/tutorial-smoke.mjs', args: ['BASE'], min: 15 },
+  { name: 'tutorial-smoke', script: 'scripts/tutorial-smoke.mjs', args: ['BASE'], min: 30 }, // five guided battles (390, 320 TG, 844x390, 1280x800, 1920x1080; V6-RSCR-08)
   { name: 'duel-smoke', script: 'scripts/duel-smoke.mjs', args: ['BASE'], min: 10 },
   { name: 'online-smoke', script: 'scripts/online-smoke.mjs', args: ['BASE'], min: 10 },
   { name: 'fullscreen-smoke', script: 'scripts/fullscreen-smoke.mjs', args: ['BASE'], min: 10 },

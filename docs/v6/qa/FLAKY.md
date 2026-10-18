@@ -25,6 +25,8 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Fix:** none yet. The next QA pass checks whether the smoke runner's per-script timeouts should scale with CPU load, or whether these scripts still have fixed waits. Record each further run here.
 - **V6-RSCR-02 (2026-10-14):** `duel-smoke` Telegram failed "[ladder] deselecting in battle keeps the game running" once in `regression --all` while a full layout matrix ran beside it (it reads `loop.frame` 600 ms apart); web passed. A rerun of `--only duel-smoke,battle-kinds` with nothing else running passed both modes.
 
+- **V6-RSCR-08 (2026-10-18):** `tutorial-smoke` web failed "1920x1080: morale step (an enemy group wavers)" twice in a row at load 27–49 (once in `regression --all` beside another agent's suite, once alone with `--only`), phase still `pre` after the 70 s wall wait; every other size and Telegram passed. Cause (timing/async): the step's own clock adds at most 100 ms a frame (`battleTutorial.ts`, preTimeout 45), so at a few frames a second its 45 s is minutes of wall time. Fix: the smoke now waits on the tutorial's clock (fails only if it stalls 20 s) and accepts the designed "its moment never came, on without it" path.
+
 ### F7 · vitest `qafixWorld.test.ts` S4 "the tap area is what is drawn on the settlement" (suspected, load timeout)
 
 - **Seen:** timed out at 30 s twice in the full `vitest run` during V6-RSCR-05 (two layout checks from other agents were running on the machine), then passed standalone (14/14, the file takes 43 s). No World code changed in that story.

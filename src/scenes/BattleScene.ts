@@ -3218,6 +3218,8 @@ export class BattleScene extends BaseScene {
     cam.panEffect.reset();
     cam.scrollX += (d.dx * this.m.S) / cam.zoom;
     cam.scrollY += (d.dy * this.m.S) / cam.zoom;
+    // the tutorial's pan step counts the arrow keys as a drag (input-v6.md §10)
+    this.tutorialEvent({ kind: 'pan', px: Math.hypot(d.dx, d.dy) });
   }
 
   /** A message under the top bar (ms = 0: stays until replaced or hidden); it wraps to `maxLines` (A11Y-10: never cut). */
