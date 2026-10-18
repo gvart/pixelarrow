@@ -1,0 +1,23 @@
+docs/v6/shots/V6-RSCR-06/NOTES.md
+  s_0d98fe904b2e82::t_da92e50b7cab72 46-47
+  s_0d98fe904b2e82::t_a480468839da07 1-45,48-65
+  s_0d98fe904b2e82::t_3ba89df271befe 66-82
+docs/v6/shots/V6-RSCR-06/play-transcript.txt
+  s_0d98fe904b2e82::t_460cda930196d8 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5b5ea583525652d38048d23ef6f582b77a782a74",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
