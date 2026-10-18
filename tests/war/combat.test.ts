@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
+import { SPOTS } from '../../src/war/regions/test-ridge.spots';
 import { parseRegion } from '../../src/war/region/schema';
 import { createSim } from '../../src/war/sim';
 import { warStats } from '../../src/war/sim/classes';
@@ -7,6 +8,7 @@ import type { Shape } from '../../src/war/sim/formation';
 import type { WarSim } from '../../src/war/types';
 
 const ridge = parseRegion(ridgeJson);
+const [FX, FY] = SPOTS.fieldE; // open flat field east of the river
 const H = (x: number, y: number) => ridge.height[Math.floor(y) * ridge.w + Math.floor(x)];
 
 type Side = { cls: string; n: number; x: number; y: number; shape?: Shape };
@@ -44,10 +46,13 @@ describe('class stats', () => {
 
 describe('combat', () => {
   it('equal squads: the side holding high ground wins clearly', () => {
-    expect(H(42, 37)).toBe(5);
-    expect(H(42, 16)).toBe(1);
+    const [cx, cy] = SPOTS.ridgeCrest;
+    const k = 22 / 26; // 22 tiles down the gentle side (ridgeFoot is 26)
+    const [fx, fy] = [cx + (SPOTS.ridgeFoot[0] - cx) * k, cy + (SPOTS.ridgeFoot[1] - cy) * k];
+    expect(H(cx, cy)).toBe(5);
+    expect(H(fx, fy)).toBe(1);
     for (const seed of SEEDS) {
-      const r = battle(seed, { cls: 'militia', n: 20, x: 42, y: 37 }, { cls: 'militia', n: 20, x: 42, y: 16 });
+      const r = battle(seed, { cls: 'militia', n: 20, x: cx, y: cy }, { cls: 'militia', n: 20, x: fx, y: fy });
       expect(r.att).toBe(0);
       expect(r.def).toBeGreaterThanOrEqual(10);
     }
@@ -55,18 +60,21 @@ describe('combat', () => {
 
   it('archers on the plateau beat melee climbing at them, but lose the same fight on the flat', () => {
     for (const seed of SEEDS) {
-      const hill = battle(seed, { cls: 'archer', n: 20, x: 42, y: 38 }, { cls: 'militia', n: 14, x: 42, y: 14 });
+      const hill = battle(seed, { cls: 'archer', n: 20, x: SPOTS.ridgeCrest[0], y: SPOTS.ridgeCrest[1] }, { cls: 'militia', n: 14, x: SPOTS.ridgeFoot[0], y: SPOTS.ridgeFoot[1] });
       expect(hill.att).toBe(0);
       expect(hill.def).toBeGreaterThanOrEqual(8);
-      const flat = battle(seed, { cls: 'archer', n: 20, x: 130, y: 100 }, { cls: 'militia', n: 14, x: 130, y: 124 });
+      const flat = battle(seed, { cls: 'archer', n: 20, x: FX, y: FY - 12 }, { cls: 'militia', n: 14, x: FX, y: FY + 12 });
       expect(flat.def).toBe(0);
     }
   });
 
   it('a squad fighting from a ford does much worse than on dry ground', () => {
     for (const seed of SEEDS) {
-      const ford = battle(seed, { cls: 'militia', n: 10, x: 102, y: 37.5, shape: 'column' }, { cls: 'militia', n: 10, x: 114, y: 37.5, shape: 'column' });
-      const dry = battle(seed, { cls: 'militia', n: 10, x: 130, y: 100, shape: 'column' }, { cls: 'militia', n: 10, x: 142, y: 100, shape: 'column' });
+      // attackers 12 tiles off: on the east bank beyond fordE (10 off), and on the flat
+      const [ox, oy] = SPOTS.ford;
+      const [ex, ey] = [ox + (SPOTS.fordE[0] - ox) * 1.2, oy + (SPOTS.fordE[1] - oy) * 1.2];
+      const ford = battle(seed, { cls: 'militia', n: 10, x: ox, y: oy, shape: 'column' }, { cls: 'militia', n: 10, x: ex, y: ey, shape: 'column' });
+      const dry = battle(seed, { cls: 'militia', n: 10, x: FX, y: FY, shape: 'column' }, { cls: 'militia', n: 10, x: FX + 12, y: FY, shape: 'column' });
       expect(ford.def).toBe(0);
       expect(ford.att).toBeGreaterThanOrEqual(dry.att + 2);
     }
@@ -80,17 +88,18 @@ describe('combat', () => {
       for (let k = 0; k < 250; k++) sim.step();
       return sim.snapshot().units.filter((u) => u.squad === t).reduce((a, u) => a + u.maxHp - u.hp, 0);
     };
-    expect(ridge.terrain[45 * ridge.w + 130]).toBe('forest');
-    const inForest = volley(130, 45);
-    const inOpen = volley(130, 100);
+    const [wx, wy] = SPOTS.forest;
+    expect(ridge.terrain[wy * ridge.w + wx]).toBe('forest');
+    const inForest = volley(wx, wy);
+    const inOpen = volley(FX, FY);
     expect(inOpen).toBeGreaterThan(0);
     expect(inForest).toBeLessThan(inOpen * 0.75);
   });
 
   it('the fallen are dead, mostly wounded, some killed, and leave the collision', () => {
     const sim = createSim(ridge, 9);
-    const a = sim.spawnSquad('a', 0, 'militia', 20, 120, 100);
-    const b = sim.spawnSquad('b', 1, 'militia', 20, 120, 106);
+    const a = sim.spawnSquad('a', 0, 'militia', 20, FX - 10, FY);
+    const b = sim.spawnSquad('b', 1, 'militia', 20, FX - 10, FY + 6);
     sim.order({ kind: 'attack', squad: a, target: b });
     sim.order({ kind: 'attack', squad: b, target: a });
     let shots = 0;
@@ -111,8 +120,8 @@ describe('combat', () => {
 
   it('missiles fly: shots show in the snapshot until they land', () => {
     const sim = createSim(ridge, 5);
-    sim.spawnSquad('t', 0, 'militia', 10, 130, 100);
-    sim.spawnSquad('a', 1, 'archer', 10, 130, 112);
+    sim.spawnSquad('t', 0, 'militia', 10, FX, FY);
+    sim.spawnSquad('a', 1, 'archer', 10, FX, FY + 12);
     let seen = 0;
     for (let k = 0; k < 60; k++) {
       sim.step();
@@ -128,9 +137,9 @@ describe('combat', () => {
 
   it('holding units fight what comes into reach, marching units do not', () => {
     const sim = createSim(ridge, 6);
-    const hold = sim.spawnSquad('h', 0, 'militia', 10, 130, 100);
-    const march = sim.spawnSquad('m', 1, 'militia', 10, 130, 108);
-    sim.order({ kind: 'move', squad: march, x: 130, y: 85 }); // straight through the holders
+    const hold = sim.spawnSquad('h', 0, 'militia', 10, FX, FY);
+    const march = sim.spawnSquad('m', 1, 'militia', 10, FX, FY + 8);
+    sim.order({ kind: 'move', squad: march, x: FX, y: FY - 15 }); // straight through the holders
     let marchHit = false;
     for (let k = 0; k < 120; k++) {
       sim.step();
@@ -144,10 +153,10 @@ describe('combat', () => {
 
 describe('head-on jams', () => {
   const cases = [
-    ['pass', [39, 68], [39, 96], 'line'],
-    ['ford', [90, 37], [114, 37], 'wedge'],
-    ['ford', [90, 37], [114, 37], 'loose'],
-    ['bridge', [88, 119], [112, 119], 'line'],
+    ['pass', SPOTS.passN, SPOTS.passSaddle, 'line'],
+    ['ford', SPOTS.fordW, SPOTS.fordE, 'wedge'],
+    ['ford', SPOTS.fordW, SPOTS.fordE, 'loose'],
+    ['bridge', SPOTS.bridgeW, SPOTS.bridgeE, 'line'],
   ] as const;
   it.each(cases)('two friendly squads meeting head-on at the %s (%s) pass each other within 450 ticks', (_, p0, p1, shape) => {
     const sim = createSim(ridge, 4);

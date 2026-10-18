@@ -28,7 +28,12 @@ const PUSH = 0.5; // fraction of the overlap resolved per tick
 const TURN = 0.35; // max anchor turn per tick (rad)
 const ARRIVE = 0.05;
 const REPATH_TICKS = 20; // attack: re-path to the moving target
-const PATHS_PER_TICK = 4; // A* searches per tick (~1.5 ms each cross-map on test-ridge); the rest wait in FIFO order
+/**
+ * Squad A* work per tick, in tiles of straight-line distance (deterministic, unlike a time budget):
+ * via the sector layer a search costs about 1 ms per 150 tiles. At least one search runs per tick;
+ * the rest wait in FIFO order.
+ */
+const PATH_BUDGET = 900;
 const UNIT_PATHS_PER_TICK = 2; // short A* searches for stuck units
 const SCAN = 5; // ticks between squad-level scans for enemy squads nearby
 const NEAR = 26; // enemy squads whose centre is this close are target candidates
@@ -481,8 +486,10 @@ export function createSim(region: RegionData, seed: number): WarSim {
     }
     if (tick % SCAN === 0) scanNear();
     for (const s of squads) if (s.order === 'attack' && s.alive > 0) updateAttack(s);
-    for (const s of pathQueue.splice(0, PATHS_PER_TICK)) {
+    for (let budget = PATH_BUDGET; budget > 0 && pathQueue.length > 0; ) {
+      const s = pathQueue.shift()!;
       if (!s.goal) continue; // cancelled by hold
+      budget -= Math.hypot(s.goal[0] - s.ax, s.goal[1] - s.ay);
       pathTo(s, s.goal[0], s.goal[1]);
       s.goal = null;
     }
