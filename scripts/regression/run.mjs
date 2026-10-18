@@ -5,6 +5,7 @@
 //   npm run regression -- <url> --platform web     # one platform mode (default both: telegram, then web)
 //   npm run regression -- <url> --all     # also the browser smokes (smoke-check scope)
 //   npm run regression -- <url> --only hub-flows,battle-kinds
+//   npm run regression -- <url> --all --jobs 3   # scripts at a time (default 2; 1 = one after another)
 //
 // A URL or --port is required: there is no default port (each agent and CI job its own, V6-035).
 // Platform modes (V6-GATE-02, scripts/lib/platform.mjs): every browser script runs once per mode, as a
@@ -12,8 +13,10 @@
 // A failure is never retried: a script that fails in one run is reported FAIL with both modes' rows, and a
 // suspected flake goes into docs/v6/qa/FLAKY.md (re-run it and record every result, never hide it).
 //
-// Runs each script in turn with a time limit (a hung script is killed and fails), prints a
-// summary with times, stops the preview server it started, and exits
+// Runs the scripts, --jobs at a time (V6-QA-SPEED: each its own process and browser, so they share
+// nothing but the static server; their lines stream as they come, each prefixed with its row's
+// [script mode], and the summary lists them in suite order whatever order they finish in), each with a
+// time limit (a hung script is killed and fails), prints a summary with times, stops the preview server it started, and exits
 //   0  every script passed (KNOWN bug checks are named in the summary, never as a pass),
 //   1  a script failed or timed out,
 //   2  nothing failed but a script could not run (NOT ASSESSED: e.g. no browser engine for the
@@ -37,6 +40,11 @@ if (!['telegram', 'web', 'both'].includes(PLATFORM)) {
   process.exit(2);
 }
 const MODES = PLATFORM === 'both' ? ['telegram', 'web'] : [PLATFORM];
+const JOBS = Number(opt('jobs', process.env.REGRESSION_JOBS || '2'));
+if (!Number.isInteger(JOBS) || JOBS < 1) {
+  console.log(`NOT RUN: --jobs must be a whole number of at least 1 (got ${opt('jobs', process.env.REGRESSION_JOBS)})`);
+  process.exit(2);
+}
 const only = opt('only', '')
   .split(',')
   .filter(Boolean);
@@ -137,8 +145,18 @@ const results = [];
 try {
   if (!given) server = await serve();
   const base = given ?? server.url;
-  console.log(`regression suite against ${base} (platform ${PLATFORM}): ${jobs.map((j) => (j.mode ? `${j.name} ${j.mode}` : j.name)).join(', ')}`);
-  for (const job of jobs) results.push({ job, ...(await run(job, base)) });
+  console.log(`regression suite against ${base} (platform ${PLATFORM}, ${JOBS} at a time): ${jobs.map((j) => (j.mode ? `${j.name} ${j.mode}` : j.name)).join(', ')}`);
+  // a pool of JOBS workers; with more than one, the longest-capped scripts start first (so the tutorial's
+  // battles do not start last and run alone); results keep suite order
+  const queue = jobs.map((_, i) => i);
+  if (JOBS > 1) queue.sort((a, b) => jobs[b].min - jobs[a].min);
+  const worker = async () => {
+    while (queue.length) {
+      const i = queue.shift();
+      results[i] = { job: jobs[i], ...(await run(jobs[i], base)) };
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(JOBS, jobs.length) }, worker));
 } catch (e) {
   console.log(`SUITE ERROR ${e.message}`);
   results.push({ job: { name: 'setup' }, code: 1, ms: 0, known: 0, last: e.message });
