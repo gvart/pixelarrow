@@ -10,7 +10,7 @@ import { t } from '../../i18n';
 import { motion, tweenTo } from '../motion';
 import { MOTION, SPACE } from '../tokens';
 import { uiId } from '../layout';
-import { navLayer } from '../../platform/nav';
+import { nav, navLayer } from '../../platform/nav';
 import { GAP, TAP, makePressable, mosaicImage, mtext, mw } from './base';
 import { MButton, type MButtonOpts } from './controls';
 import { addIcon, scaleIcon } from '../kit';
@@ -27,6 +27,11 @@ export interface BottomPanelOpts {
   actions?: MButtonOpts[];
   /** Rise from under the tab bar (default true; the gallery shows it in place). */
   animate?: boolean;
+  /**
+   * An inspector (landscape-v6 §3.4): Esc and Back still close it first, but it is no focus scope, so Tab moves
+   * between it and the rest of the screen instead of being trapped in it (the War map's hex panel in landscape).
+   */
+  inspector?: boolean;
   id?: string;
 }
 
@@ -86,7 +91,11 @@ export class BottomPanel extends Phaser.GameObjects.Container {
     });
     uiId(this, o.id ?? 'bottompanel');
     scene.add.existing(this);
-    this.unlayer = navLayer(this, () => this.close(), scene);
+    if (o.inspector) {
+      // a layer without a key: Back pops it, focus does not scope to it (nav.layerKeys)
+      this.unlayer = nav.pushLayer(() => this.close(), scene);
+      this.once('destroy', this.unlayer);
+    } else this.unlayer = navLayer(this, () => this.close(), scene);
     if (o.animate === false || motion.reduced) return;
     const y = this.y;
     this.y = y + 14;

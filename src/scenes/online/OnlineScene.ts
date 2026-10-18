@@ -26,6 +26,7 @@ import { setSheetArea } from '../../ui/mosaic/ParchmentSheet';
 import { layoutVariant } from '../../ui/mosaic/layout/geometry';
 import { LINE_H } from '../../ui/textfit';
 import { uiCollapsed, uiId, uiLayout, uiOpaque, uiPanel, uiStretch, worldRect } from '../../ui/layout';
+import { focusPane } from '../../ui/focusRing';
 import { motion } from '../../ui/motion';
 import { MARCH_H, clampToFraming, framedZoomLimits, intoFraming, warHudLayout, type WarHud } from './warHud';
 import { haptic, hapticNotify } from '../../platform/haptics';
@@ -241,6 +242,12 @@ const WIDE_CHIP_PAD = 1;
 
 /** Height of a labelled rail key (icon over its label), UI px. */
 const KEY_H = 30;
+
+/** Every object under `c` (a container tree), `c` itself included. */
+function eachChild(c: Phaser.GameObjects.GameObject, fn: (o: Phaser.GameObjects.GameObject) => void): void {
+  fn(c);
+  if (c instanceof Phaser.GameObjects.Container) for (const o of c.list) eachChild(o, fn);
+}
 const RAIL_PAD = 2;
 
 /**
@@ -908,11 +915,12 @@ export class OnlineScene extends BaseScene {
       this.uiRects.push(card);
     } else collapsed.push('online.situation', 'online.bar.collect', ...this.chipItems(energy).map((it) => `online.chip.${it.icon}`));
     // ---- the march bar, bottom-centre over the map
+    let marchC: Phaser.GameObjects.Container | null = null;
     if (marching) {
       if (L.march) {
-        const m = uiOpaque(this.add.container(0, 0));
-        H.add(m);
-        this.marchBar(m, L.march.x, L.march.y, L.march.w);
+        marchC = uiOpaque(this.add.container(0, 0));
+        H.add(marchC);
+        this.marchBar(marchC, L.march.x, L.march.y, L.march.w);
       } else collapsed.push('online.halt');
     }
     for (const id of collapsed) uiCollapsed(this, id, 'online.panel.close');
@@ -922,6 +930,11 @@ export class OnlineScene extends BaseScene {
     H.add(rc);
     rc.add(mosaicImage(this, L.rail.x, L.rail.y, L.rail.w, L.rail.h, 'tabBar'));
     keys.forEach((k, i) => rc.add(new KeyButton(this, L.rail.x + r.keys[i].x, L.rail.y + r.keys[i].y, r.keyW, r.keyH, { ...k, variant: 'bronze', plain: true, iconOnly: !r.labels })));
+    // Tab reads the top bar and the card, then the march bar, the hex panel and the key rail, left to right
+    // (landscape-v6 §4), the nav rail last; as panes, so the rail (one stop) never interleaves with the card
+    if (marchC) eachChild(marchC, (o) => focusPane(o, 1));
+    if (this.panel) eachChild(this.panel, (o) => focusPane(o, 2));
+    eachChild(rc, (o) => focusPane(o, 3));
     this.rail = L.rail;
     this.uiRects.push(L.rail);
     this.coach?.refresh();
@@ -1122,7 +1135,7 @@ export class OnlineScene extends BaseScene {
     if (side) {
       // landscape (§8.2): an inspector side panel left of the key rail, full height; no shade, the map stays live.
       // Its lines are never dropped: they scroll above the actions at its foot.
-      const panel = new BottomPanel(this, VW, 0, { title, bodyH: side.h - SPACE.md * 2 - PANEL_TITLE_H, w: side.w, animate: false, onClose, id: 'online.panel' });
+      const panel = new BottomPanel(this, VW, 0, { title, bodyH: side.h - SPACE.md * 2 - PANEL_TITLE_H, w: side.w, animate: false, onClose, id: 'online.panel', inspector: true });
       // (not setPosition: its fourth component would overwrite the panel's `w`)
       panel.x = side.x;
       panel.y = side.y;
