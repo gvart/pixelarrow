@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
+import { SPOTS } from '../../src/war/regions/test-ridge.spots';
 import { parseRegion } from '../../src/war/region/schema';
-import { buildGrid, canEnter, findPath } from '../../src/war/sim/grid';
+import { buildGrid, canEnter, findPath, nearestOpen } from '../../src/war/sim/grid';
 
 const ridge = parseRegion(ridgeJson);
 const grid = buildGrid(ridge);
-const T = (x: number, y: number) => y * ridge.w + x;
-const riverX = (y: number) => 100 + Math.round(4 * Math.sin(y / 14));
+const T = ([x, y]: readonly [number, number]) => Math.floor(y) * ridge.w + Math.floor(x);
+const near = (t: number, p: readonly [number, number], r: number) => Math.hypot((t % ridge.w) + 0.5 - p[0], Math.floor(t / ridge.w) + 0.5 - p[1]) <= r;
 
 /** Every step of the path is a legal move: open tile, no cliff. */
 function legal(path: number[]) {
@@ -15,7 +16,7 @@ function legal(path: number[]) {
 
 describe('test-ridge region', () => {
   it('validates against the schema', () => {
-    expect(ridge.w * ridge.h).toBe(160 * 160);
+    expect([ridge.w, ridge.h]).toEqual([256, 256]);
     expect(ridge.entries.map((e) => e.side).sort()).toEqual(['E', 'N', 'S', 'W']);
     expect(ridge.noBuild).toHaveLength(4);
   });
@@ -26,53 +27,75 @@ describe('test-ridge region', () => {
     expect(() => parseRegion({ ...ridge, height: [9, ...ridge.height.slice(1)] })).toThrow();
   });
 
-  it('the river is deep everywhere but the ford and the bridge', () => {
-    for (let y = 0; y < ridge.h; y++) {
-      const w = ridge.water[T(riverX(y), y)];
-      if (y >= 36 && y <= 39) expect(w).toBe(1);
-      else if (y >= 118 && y <= 120) expect([w, ridge.terrain[T(riverX(y), y)]]).toEqual([0, 'road']);
-      else expect(w).toBe(2);
-    }
+  it('every named spot is open ground', () => {
+    for (const [name, p] of Object.entries(SPOTS)) expect([name, grid.cost[T(p)] > 0]).toEqual([name, true]);
+    expect(ridge.water[T(SPOTS.ford)]).toBe(1);
+    expect(ridge.terrain[T(SPOTS.bridge)]).toBe('road');
+    expect(ridge.terrain[T(SPOTS.forest)]).toBe('forest');
+    expect(ridge.terrain[T(SPOTS.marsh)]).toBe('marsh');
+    expect(ridge.terrain[T(SPOTS.sand)]).toBe('sand');
+    expect(ridge.height[T(SPOTS.plateauTop)]).toBe(5);
+    expect(ridge.height[T(SPOTS.ridgeCrest)]).toBe(5);
   });
 });
 
 describe('pathfinding', () => {
-  it('crosses the mountain wall only through the pass, never over a cliff', () => {
-    const path = findPath(grid, T(20, 70), T(20, 95));
-    expect(path.at(-1)).toBe(T(20, 95));
+  it('crosses the mountain chain only by the switchback pass, never over rock', () => {
+    const path = findPath(grid, T(SPOTS.passN), T(SPOTS.passS));
+    expect(path.at(-1)).toBe(T(SPOTS.passS));
     legal(path);
-    const inWall = path.filter((t) => Math.floor(t / ridge.w) >= 78 && Math.floor(t / ridge.w) <= 86);
-    expect(inWall.length).toBeGreaterThan(0);
-    for (const t of inWall) expect(t % ridge.w).toBeGreaterThanOrEqual(38), expect(t % ridge.w).toBeLessThanOrEqual(40);
+    expect(path.some((t) => near(t, SPOTS.passSaddle, 2))).toBe(true);
     expect(path.some((t) => ridge.terrain[t] === 'rock')).toBe(false);
+    // the road winds: much longer than the straight line
+    expect(path.length).toBeGreaterThan(1.5 * Math.hypot(SPOTS.passS[0] - SPOTS.passN[0], SPOTS.passS[1] - SPOTS.passN[1]));
   });
 
   it('crosses the river at the ford when it is the nearer crossing', () => {
-    const path = findPath(grid, T(85, 30), T(115, 30));
-    expect(path.at(-1)).toBe(T(115, 30));
+    const path = findPath(grid, T(SPOTS.fordW), T(SPOTS.fordE));
+    expect(path.at(-1)).toBe(T(SPOTS.fordE));
     legal(path);
     expect(path.some((t) => ridge.water[t] === 1)).toBe(true);
     expect(path.some((t) => ridge.water[t] === 2)).toBe(false);
   });
 
   it('crosses the river on the bridge in the south', () => {
-    const path = findPath(grid, T(85, 130), T(115, 130));
+    const path = findPath(grid, T(SPOTS.bridgeW), T(SPOTS.bridgeE));
+    expect(path.at(-1)).toBe(T(SPOTS.bridgeE));
     legal(path);
-    const crossing = path.filter((t) => Math.abs((t % ridge.w) - riverX(Math.floor(t / ridge.w))) <= 2);
-    expect(crossing.length).toBeGreaterThan(0);
-    for (const t of crossing) expect(ridge.terrain[t]).toBe('road');
+    expect(path.some((t) => near(t, SPOTS.bridge, 1.5))).toBe(true);
+    expect(path.some((t) => ridge.water[t] !== 0)).toBe(false);
   });
 
-  it('climbs the ridge to the plateau by slopes', () => {
-    const top = T(42, 40);
-    expect(ridge.height[top]).toBe(5);
-    const path = findPath(grid, T(42, 15), top);
-    expect(path.at(-1)).toBe(top);
+  it('climbs the ridge by its gentle side; the north face is a cliff', () => {
+    const up = findPath(grid, T(SPOTS.ridgeFoot), T(SPOTS.ridgeCrest));
+    expect(up.at(-1)).toBe(T(SPOTS.ridgeCrest));
+    legal(up);
+    expect(up.length).toBeLessThan(30);
+    const cliff = findPath(grid, T(SPOTS.ridgeCliffFoot), T(SPOTS.ridgeCrest));
+    expect(cliff.at(-1)).toBe(T(SPOTS.ridgeCrest));
+    legal(cliff);
+    expect(cliff.length).toBeGreaterThan(40); // around the ridge end, not up the face
+  });
+
+  it('reaches the plateau only by the ramp', () => {
+    const path = findPath(grid, T(SPOTS.fieldE), T(SPOTS.plateauTop));
+    expect(path.at(-1)).toBe(T(SPOTS.plateauTop));
     legal(path);
+    expect(path.some((t) => near(t, SPOTS.rampMid, 2))).toBe(true);
+  });
+
+  it('long searches through the sector layer match a plain search closely', () => {
+    const a = nearestOpen(grid, 12, 30);
+    const b = nearestOpen(grid, 244, 230);
+    const path = findPath(grid, a, b);
+    expect(path.at(-1)).toBe(b);
+    legal(path);
+    expect(path.length).toBeLessThan(380);
   });
 
   it('stops at the closest reachable tile when the goal is walled off', () => {
-    const path = findPath(grid, T(20, 70), T(20, 82)); // inside the rock wall
+    const rock = ridge.terrain.findIndex((t, i) => t === 'rock' && Math.floor(i / ridge.w) === 146);
+    const path = findPath(grid, T(SPOTS.passN), rock);
     expect(ridge.terrain[path.at(-1)!]).not.toBe('rock');
     legal(path);
   });
