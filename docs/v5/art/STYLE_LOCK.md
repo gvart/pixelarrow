@@ -134,7 +134,9 @@ Unit sheets are not hard-snapped (V5-087). Every frame goes through `scripts/art
    default; the spec's `stature` changes that: `{ "skipTop": <rows> }` drops headgear rows (a Phrygian crown: bases.json
    `headgear_top` to `crown`), `{ "from": "any" }` measures from the first opaque non-weapon pixel (bare-headed archer,
    falx, slinger, gallic, fanatic; the spear line found by the spear detection and the wood / weapon metal groups are
-   not counted). Both combine.
+   not counted). Both combine. `"px"` / `"tol"` in the same field replace the 58 ± 3 target (mounted: riders about
+   84-92 px from helmet top to hooves, the chariot driver about 100); `qc.mjs --stature N[:tol]` is the CLI shortcut
+   and wins over the spec. They combine with `skipTop` / `from`.
 4. The manifest lists `colorGroups` (cloak, crest, trim, skin, emblem, wood; dark to light), `metal` (light to dark)
    and the tier ramps (`tiers.veteran`, `tiers.elite`: anchor colours in the spec, interpolated to each group's
    length). Hoplite tiers: veteran = wine cloak, scarlet crest, polished trim; elite = black cloak and crest, gold trim

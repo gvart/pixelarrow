@@ -14,7 +14,8 @@
 //   "parts"?: { "<ramp>" | "<ramp>:<step>" | "<ramp>:<from>-<to>": "<part>" } (overrides the default ramp -> part map,
 //              docs/v5/art/STYLE_LOCK.md › Colour),
 //   "crest"?: false, "emblem"?: false (no crest / no shield emblem: that crimson stays cloak),
-//   "stature"?: { "skipTop"?: rows, "from"?: "any" } (read by qc.mjs --spec: how helmet top to feet is measured),
+//   "stature"?: { "skipTop"?: rows, "from"?: "any", "px"?, "tol"? } (read by qc.mjs --spec: how helmet top to feet is
+//              measured and its target, default 58 ± 3),
 //   "tiers": { "veteran": { "<group>": [anchor hex dark->light] }, "elite": { ... } }
 // }
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
