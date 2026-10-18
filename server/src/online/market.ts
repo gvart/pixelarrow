@@ -41,7 +41,7 @@ type Currency = 'gold' | 'drachmae';
 type Kind = 'item' | 'resource' | 'consumable';
 type ResourceKey = (typeof MARKET.resources)[number];
 
-export interface ListingRow {
+interface ListingRow {
   id: string;
   season_id: number;
   shard_id: number;

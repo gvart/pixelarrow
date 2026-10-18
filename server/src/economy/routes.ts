@@ -152,7 +152,7 @@ economy.post('/buy', async (c) => {
   return c.json({ order: orderView(body.requestId, order), replayed: false, drachmae: await balance(d, pid) });
 });
 
-export function grantCosmetic(d: D1Database, pid: number, id: string, guard: string, now: number): D1PreparedStatement {
+function grantCosmetic(d: D1Database, pid: number, id: string, guard: string, now: number): D1PreparedStatement {
   return d
     .prepare(
       `INSERT INTO entitlements (player_id, product_id, purchase_id, granted_at) SELECT ?1, ?2, NULL, ?3 WHERE ${guard}

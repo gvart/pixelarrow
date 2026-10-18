@@ -38,9 +38,9 @@ export const LIFETIME: Record<Transport, { absolute: number; idle: number }> = {
 /** `last_seen_at` (and the sliding idle expiry) is written at most this often. */
 export const TOUCH_EVERY_MS = HOUR;
 export const CACHE_TTL_MS = 30_000;
-export const CACHE_MAX = 5_000;
+const CACHE_MAX = 5_000;
 /** The public handle of a session: the first characters of its id hash. */
-export const HANDLE_LENGTH = 12;
+const HANDLE_LENGTH = 12;
 
 const PREFIX = 'pa2_';
 const TOKEN = /^pa2_[A-Za-z0-9_-]{43}$/;
@@ -178,7 +178,7 @@ export async function revokeAll(db: D1Database, pid: number, exceptIdHash?: stri
   forgetSessions(pid);
 }
 
-export interface SessionInfo {
+interface SessionInfo {
   handle: string;
   transport: Transport;
   method: Method;

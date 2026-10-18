@@ -13,7 +13,7 @@ import type { AppEnv, Env } from '../env';
 import { normalizeEvent, type AnalyticsEvent, type EventProps } from '../../../src/platform/analyticsSchema';
 import { log } from './log';
 
-export interface EmitCtx {
+interface EmitCtx {
   pid: number;
   source: 'client' | 'server';
   platform?: string | null;
@@ -83,7 +83,7 @@ export async function milestone(db: D1Database, pid: number, name: string, now =
 export const outcomeOf = (winner: number): 'win' | 'loss' | 'draw' => (winner === 0 ? 'win' : winner === 1 ? 'loss' : 'draw');
 
 /** Runs work after the response when the runtime allows it (else awaits it). */
-export async function background(c: Context<AppEnv>, work: Promise<unknown>): Promise<void> {
+async function background(c: Context<AppEnv>, work: Promise<unknown>): Promise<void> {
   const safe = work.catch((e) => log('warn', 'background_failed', { message: (e as Error)?.message ?? String(e) }));
   try {
     c.executionCtx.waitUntil(safe);

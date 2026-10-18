@@ -20,7 +20,7 @@ import { forgetSessions, type Session } from '../auth/sessions';
 import { emailKeyHash } from '../auth/throttle';
 import { noticeTargets, type Notifier } from './notices';
 
-export type IdentityKind = 'telegram' | 'password';
+type IdentityKind = 'telegram' | 'password';
 
 /** Unlinks `kind`; true when the caller's own session was revoked by it. */
 export async function unlinkIdentity(db: D1Database, notify: Notifier, s: Session, kind: IdentityKind, now = Date.now()): Promise<{ signedOut: boolean }> {

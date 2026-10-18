@@ -8,7 +8,7 @@
  */
 import { b64urlEncode, utf8 } from '../crypto';
 
-export interface ThrottleRule {
+interface ThrottleRule {
   limit: number;
   windowMs: number;
 }
@@ -16,10 +16,10 @@ export interface ThrottleRule {
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 /** M-AF-5: all purposes together, per address. */
-export const MAIL_PER_HOUR: ThrottleRule = { limit: 3, windowMs: HOUR };
-export const MAIL_PER_DAY: ThrottleRule = { limit: 10, windowMs: 24 * HOUR };
+const MAIL_PER_HOUR: ThrottleRule = { limit: 3, windowMs: HOUR };
+const MAIL_PER_DAY: ThrottleRule = { limit: 10, windowMs: 24 * HOUR };
 /** M-AF-4: lock after this many consecutive failures… */
-export const LOCK_AFTER = 5;
+const LOCK_AFTER = 5;
 /** …for 1 minute, doubling per further failure, up to 1 hour. */
 const LOCK_BASE_MS = MIN;
 const LOCK_MAX_MS = HOUR;

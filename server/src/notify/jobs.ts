@@ -18,12 +18,12 @@ import { cleanup, flushDue } from './outbox';
 
 const DAY = 24 * 3_600_000;
 
-export async function metaGet(db: D1Database, key: string): Promise<string | null> {
+async function metaGet(db: D1Database, key: string): Promise<string | null> {
   const r = await db.prepare('SELECT value FROM bot_meta WHERE key = ?1').bind(key).first<{ value: string }>();
   return r?.value ?? null;
 }
 
-export async function metaSet(db: D1Database, key: string, value: string, now: number): Promise<void> {
+async function metaSet(db: D1Database, key: string, value: string, now: number): Promise<void> {
   await db
     .prepare('INSERT INTO bot_meta (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at')
     .bind(key, value, now)

@@ -266,7 +266,7 @@ online.get('/map', async (c) => {
 });
 
 /** The :loc route parameter: a region of the shard's map (400 otherwise). */
-export function parseLoc(c: { req: { param: (k: string) => string } }, shard: Shard): number {
+function parseLoc(c: { req: { param: (k: string) => string } }, shard: Shard): number {
   const raw = c.req.param('loc');
   const loc = /^\d{1,7}$/.test(raw) ? Number(raw) : NaN;
   if (!Number.isInteger(loc) || !shard.world.has(loc)) throw badRequest('No such region');

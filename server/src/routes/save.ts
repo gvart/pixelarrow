@@ -14,7 +14,7 @@ import type { AppEnv } from '../env';
 import { ApiError } from '../errors';
 import { db, requireSession } from '../middleware';
 
-export const MAX_SAVE_BYTES = 512 * 1024;
+const MAX_SAVE_BYTES = 512 * 1024;
 
 const PutBody = z.object({
   revision: z.number().int().min(0),

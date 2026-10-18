@@ -18,17 +18,12 @@ import type { BattleSetup, Side } from '../../../src/sim/types';
 import { CHALLENGE_TTL_MS, type ClientMsg, type PresencePlayer, type ServerMsg } from '../../../src/online/protocol';
 import { newRelay, relayMessage, relayTick, startMsg, type DuelState, type Out } from './relay';
 
-export { DEPLOY_KINDS, type DuelState, type Out } from './relay';
+export { type Out } from './relay';
 
 /** Storage key prefix of the hub's persisted challenges and deployments (DuelHub.persistence). */
 export const HUB_PREFIX = 'hub:';
 
-export interface DuelArmy {
-  heroes: Hero[];
-  name: string;
-}
-
-export interface Challenge {
+interface Challenge {
   id: string;
   from: PresencePlayer;
   to: PresencePlayer;
@@ -38,7 +33,7 @@ export interface Challenge {
   consumable?: ConsumableId | null;
 }
 
-export interface DuelDeps {
+interface DuelDeps {
   now(): number;
   randomId(): string;
   randomSeed(): number;
@@ -260,7 +255,7 @@ export class DuelHub {
 }
 
 /** A duel message's consumable: null for none, undefined when invalid (not ONE battle consumable id). */
-export function duelConsumable(v: unknown): ConsumableId | null | undefined {
+function duelConsumable(v: unknown): ConsumableId | null | undefined {
   if (v === undefined || v === null) return null;
   return typeof v === 'string' && (BATTLE_CONSUMABLES as string[]).includes(v) ? (v as ConsumableId) : undefined;
 }

@@ -12,9 +12,9 @@ import { errorBody } from '../errors';
 import { logError } from '../telemetry/log';
 
 export const PUBLIC_PREFIX = '/api/public/';
-export const SUMMARY_PATH = '/api/public/v1/summary';
+const SUMMARY_PATH = '/api/public/v1/summary';
 /** M-PS-4: browsers keep it a minute, the edge five, and may serve it stale for ten more while refetching. */
-export const SUMMARY_CACHE = 'public, max-age=60, s-maxage=300, stale-while-revalidate=600';
+const SUMMARY_CACHE = 'public, max-age=60, s-maxage=300, stale-while-revalidate=600';
 const RETRY_S = '60';
 
 /** The stored snapshot: what the HTTP route and the PublicApi entrypoint both serve. */

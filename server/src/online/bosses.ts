@@ -115,7 +115,7 @@ async function warHoldings(pc: PlayerCtx, season: number, pid: number): Promise<
  * set piece, the named item or an epic; the war bad-luck counter); safe to
  * run any number of times: every write is guarded by its row not existing yet.
  */
-export async function splitBossLoot(pc: PlayerCtx, row: BossRow): Promise<void> {
+async function splitBossLoot(pc: PlayerCtx, row: BossRow): Promise<void> {
   if (row.status !== 'dead') return;
   const dmg = await pc.db
     .prepare('SELECT player_id, damage FROM world_boss_damage WHERE season_id = ?1 AND shard_id = ?2 AND boss = ?3 AND damage > 0 ORDER BY player_id')

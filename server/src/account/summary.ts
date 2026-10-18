@@ -5,7 +5,7 @@
  */
 import { RENAME_COOLDOWN_MS, type PlayerRow } from '../players';
 
-export interface NameStatus {
+interface NameStatus {
   /** The next rename costs nothing (the player never renamed). */
   freeChange: boolean;
   /** While the cooldown runs: when the next rename is allowed (unix ms). */
@@ -16,7 +16,7 @@ export interface NameStatus {
   moderatedAt: number | null;
 }
 
-export interface AccountSummary {
+interface AccountSummary {
   displayName: string;
   identities: ({ kind: 'telegram'; telegramUsername: string | null } | { kind: 'password'; emailMasked: string })[];
   publicBoards: boolean;

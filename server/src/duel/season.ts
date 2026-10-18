@@ -53,7 +53,7 @@ export async function rollRatings(db: D1Database, pid: number, now: number): Pro
   }
 }
 
-export interface SeasonRewardView {
+interface SeasonRewardView {
   season: number;
   ladder: Ladder;
   league: LeagueId;
@@ -63,7 +63,7 @@ export interface SeasonRewardView {
   pick: string | null;
 }
 
-export interface SeasonView {
+interface SeasonView {
   now: number;
   season: { id: number; start: number; end: number };
   /** The league now and the best reached this season (null: not placed / no rated game this season). */
@@ -89,7 +89,7 @@ interface RewardRow {
 }
 
 /** The player's title: the best peak league of the latest rewarded season. */
-export function titleOf(rows: readonly Pick<RewardRow, 'season' | 'league'>[]): SeasonView['title'] {
+function titleOf(rows: readonly Pick<RewardRow, 'season' | 'league'>[]): SeasonView['title'] {
   if (!rows.length) return null;
   const last = Math.max(...rows.map((r) => r.season));
   let best: LeagueId | null = null;
@@ -157,7 +157,7 @@ export async function pickSeasonPiece(db: D1Database, pid: number, season: numbe
 
 export type Board = 'live' | 'async' | 'legend';
 
-export interface BoardRow {
+interface BoardRow {
   rank: number;
   pid: number;
   name: string;
@@ -167,7 +167,7 @@ export interface BoardRow {
   games: number;
 }
 
-export interface LeaderboardView {
+interface LeaderboardView {
   board: Board;
   season: { id: number; end: number };
   rows: BoardRow[];
@@ -175,7 +175,7 @@ export interface LeaderboardView {
   me: BoardRow | null;
 }
 
-export const BOARD_SIZE = 50;
+const BOARD_SIZE = 50;
 /** On `players p`: banned and deleted players are never on a board (ADR-0009 §7, N-DL-2). */
 const ON_BOARD = 'p.deleted_at IS NULL AND p.banned_at IS NULL';
 

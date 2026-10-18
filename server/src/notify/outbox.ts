@@ -134,7 +134,7 @@ interface OutboxRow {
 const ids = (rows: { id: number }[]) => rows.map((r) => r.id | 0).join(',');
 
 /** Marks a player unreachable (blocked the bot / never started it) and drops what was waiting. */
-export async function markBlocked(db: D1Database, pid: number, now: number): Promise<void> {
+async function markBlocked(db: D1Database, pid: number, now: number): Promise<void> {
   await db.batch([
     db
       .prepare(
@@ -154,7 +154,7 @@ export async function clearBlocked(db: D1Database, telegramId: number, now: numb
     .run();
 }
 
-export type FlushResult = { sent: number; waiting: number; skipped: number; blocked?: boolean };
+type FlushResult = { sent: number; waiting: number; skipped: number; blocked?: boolean };
 
 /** Delivers what a player has waiting, as far as the rules allow right now. */
 export async function flushPlayer(env: Env, pid: number, now = Date.now()): Promise<FlushResult> {

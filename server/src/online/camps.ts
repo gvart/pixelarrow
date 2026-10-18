@@ -28,7 +28,7 @@ camps.use('*', requirePlayable);
 
 // ------------------------------------------------------------------ storage
 
-export interface CampRow {
+interface CampRow {
   loc: number;
   player_id: number;
   home: number;

@@ -40,16 +40,16 @@ import { validateInitData, INIT_DATA_MAX_AGE_SEC, type TelegramUser } from '../t
 import { REAUTH_WINDOW_MS } from './reauth';
 import { maskEmail } from './summary';
 
-export const CONFLICT_TTL_MS = 15 * 60_000;
-export const CONFLICT_ID = /^[A-Za-z0-9_-]{22}$/;
+const CONFLICT_TTL_MS = 15 * 60_000;
+const CONFLICT_ID = /^[A-Za-z0-9_-]{22}$/;
 const LINK_CODE_RE = /^link_([A-Za-z0-9_-]{22})$/;
 /** Codes a player may create per hour; a Mini App cancel counts as one (V6-053). */
 export const LINK_CODE_RULE = { limit: 10, windowMs: 3_600_000 };
 
-export type ConflictKind = 'telegram' | 'email';
+type ConflictKind = 'telegram' | 'email';
 
 /** One side of a conflict as the player sees it (accounts-v6.md §8.7). */
-export interface SideSummary {
+interface SideSummary {
   displayName: string;
   signIn: IdentityKind[];
   /** Campaign day of the cloud save (1-based), null without one. */
@@ -95,7 +95,7 @@ interface FactsRow {
   kinds: string | null;
 }
 
-export async function facts(db: D1Database, pid: number): Promise<Facts | null> {
+async function facts(db: D1Database, pid: number): Promise<Facts | null> {
   const save = (expr: string) => `(SELECT ${expr} FROM saves WHERE player_id = p.id AND json_valid(data))`;
   const r = await db
     .prepare(
@@ -162,7 +162,7 @@ export async function hasProgress(db: D1Database, pid: number): Promise<boolean>
   return (await facts(db, pid))?.progress ?? false;
 }
 
-export const busyError = () => new ApiError(409, 'busy_try_later', 'That account is in a live match, queue or battle. Try again when it has finished');
+const busyError = () => new ApiError(409, 'busy_try_later', 'That account is in a live match, queue or battle. Try again when it has finished');
 const contactSupport = () => new ApiError(409, 'contact_support', 'Both accounts have purchases. Contact support to resolve this');
 const conflictExpired = () => new ApiError(410, 'conflict_expired', 'This choice timed out. Start the link again');
 const linkCancelled = () => new ApiError(410, 'link_cancelled', 'The link was cancelled in Telegram');
@@ -189,7 +189,7 @@ export interface Proof {
  * busy_try_later (nothing changed) or `gone()` when the proof was spent
  * meanwhile.
  */
-export async function transfer(env: Env, survivor: number, loser: number, proof: Proof, gone: () => ApiError, now: number): Promise<IdentityKind[]> {
+async function transfer(env: Env, survivor: number, loser: number, proof: Proof, gone: () => ApiError, now: number): Promise<IdentityKind[]> {
   const db = env.DB!;
   // The duel queue (a Durable Object) is checked here; the D1 half is also inside the batch's guard.
   if (await isBusy(env, db, loser, now)) throw busyError();
@@ -226,7 +226,7 @@ export async function noticeGained(db: D1Database, notify: Notifier, pid: number
   for (const k of kinds) notify(k === 'telegram' ? 'telegram_linked' : 'email_added', to);
 }
 
-export interface ConflictOrigin {
+interface ConflictOrigin {
   /** The web session that may choose (null until bound, for the email flow). */
   webSession: string | null;
   /** The Telegram user who must choose in the Mini App. */
@@ -398,7 +398,7 @@ async function telegramProof(botToken: string, initData: string, now: number, ma
   return { user: r.user, authDate: r.authDate, hash: await hashToken(initData), startParam: r.fields.start_param ?? null };
 }
 
-export interface TelegramConflictView {
+interface TelegramConflictView {
   id: string;
   kind: ConflictKind;
   /** The Telegram user's own account, and the web account that asks (with its masked email). */

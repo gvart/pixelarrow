@@ -104,7 +104,7 @@ export function forgetSeasonCache(): void {
   shardCache.clear();
 }
 
-export interface Standing {
+interface Standing {
   playerId: number;
   shardId: number;
   score: number;
@@ -149,7 +149,7 @@ export async function standings(db: D1Database, season: number): Promise<Standin
 }
 
 /** Title for a final placing: the best clan of a shard rules it, the best players command. */
-export function seasonTitle(rank: number, topClan: boolean, score: number): string {
+function seasonTitle(rank: number, topClan: boolean, score: number): string {
   if (topClan) return 'Archon';
   if (rank === 1) return 'Basileus';
   if (rank <= 3) return 'Strategos';
@@ -210,17 +210,17 @@ export async function getShard(db: D1Database, season: number, id: number): Prom
 }
 
 /** Players a shard on this map takes: the rules' capacity, at most one per spawn plot. */
-export function shardCapacity(world: WorldGraph): number {
+function shardCapacity(world: WorldGraph): number {
   return Math.max(1, Math.min(ONLINE_RULES.shardCapacity, world.spawns().length));
 }
 
 /** The map new shards get (the season map; tests may pin one with the ONLINE_MAP binding). */
-export function seasonMapId(pinned?: string | null): string {
+function seasonMapId(pinned?: string | null): string {
   return pinned && hasMap(pinned) ? pinned : DEFAULT_MAP_ID;
 }
 
 /** The oldest shard with room, or a new one on the season map. */
-export async function openShard(db: D1Database, season: number, now = Date.now(), mapId = DEFAULT_MAP_ID): Promise<Shard> {
+async function openShard(db: D1Database, season: number, now = Date.now(), mapId = DEFAULT_MAP_ID): Promise<Shard> {
   const open = await db
     .prepare('SELECT id, map_id, players FROM online_shards WHERE season_id = ?1 ORDER BY id')
     .bind(season)
@@ -259,14 +259,14 @@ export interface ProfileRow {
   updated_at: number;
 }
 
-export interface March {
+interface March {
   /** Regions from the start to the destination. */
   path: number[];
   /** Arrival time at each path entry (at[0] = departure). */
   at: number[];
 }
 
-export interface ArmyState {
+interface ArmyState {
   /** Region the army stands in (or last passed). */
   pos: number;
   marching: boolean;
@@ -420,7 +420,7 @@ export function energyNow(p: Pick<ProfileRow, 'energy' | 'energy_at'>, now: numb
 
 // ------------------------------------------------------------------ heroes & items
 
-export interface HeroRow {
+interface HeroRow {
   id: string;
   player_id: number;
   data: string;
@@ -445,7 +445,7 @@ export interface OwnedHero {
   reserve: boolean;
 }
 
-export function heroOf(r: HeroRow): OwnedHero {
+function heroOf(r: HeroRow): OwnedHero {
   return {
     hero: normalizeEquip(JSON.parse(r.data) as Hero),
     playerId: r.player_id,

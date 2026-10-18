@@ -28,7 +28,7 @@ export async function consumableInventory(d: D1Database, season: number, pid: nu
 }
 
 /** SQL: the player holds at least one of a consumable this season (params ?1 season, ?2 player, `idParam`). */
-export function holdsSql(idParam: string): string {
+function holdsSql(idParam: string): string {
   return `EXISTS (SELECT 1 FROM online_consumables WHERE season_id = ?1 AND player_id = ?2 AND consumable_id = ${idParam} AND qty >= 1)`;
 }
 

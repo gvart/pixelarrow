@@ -20,9 +20,9 @@
  * - dev_only        written only with DEV_EMAIL=1 locally, never in production
  */
 
-export type DeletionRule = 'delete' | 'keep_tombstone' | 'shared_history' | 'release' | 'tombstone' | 'not_player_keyed' | 'derived' | 'dev_only';
+type DeletionRule = 'delete' | 'keep_tombstone' | 'shared_history' | 'release' | 'tombstone' | 'not_player_keyed' | 'derived' | 'dev_only';
 
-export interface TableRule {
+interface TableRule {
   rule: DeletionRule;
   /** Columns holding the player's id that this rule acts on. */
   pid?: string[];

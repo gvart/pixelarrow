@@ -45,7 +45,7 @@ const TYPE_LABEL: Record<Lang, Record<NotifyType, string>> = {
 };
 
 /** The legal pages (static assets of the landing Worker on LANDING_URL, ADR-0007). */
-export function legalUrls(landingUrl: string, lang: Lang) {
+function legalUrls(landingUrl: string, lang: Lang) {
   const base = `${landingUrl.replace(/\/+$/, '')}${lang === 'ru' ? '/ru' : ''}`;
   return { terms: `${base}/terms`, privacy: `${base}/privacy`, refunds: `${base}/refunds` };
 }

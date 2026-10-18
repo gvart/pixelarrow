@@ -289,7 +289,7 @@ auth.post('/password', requireSession, async (c) => {
 
 const DAY_MS = 86_400_000;
 const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
-export const daysSince = (createdAt: number, now: number) => utcDay(now) - utcDay(createdAt);
+const daysSince = (createdAt: number, now: number) => utcDay(now) - utcDay(createdAt);
 
 /**
  * Retention markers from the player row as it was before this sign-in:

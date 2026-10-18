@@ -4,7 +4,7 @@
  */
 import { LIFETIME } from './sessions';
 
-export const SESSION_COOKIE = '__Host-pa_sid';
+const SESSION_COOKIE = '__Host-pa_sid';
 const MAX_AGE_SEC = LIFETIME.cookie.absolute / 1000;
 
 /** `Set-Cookie` for a new cookie session. */

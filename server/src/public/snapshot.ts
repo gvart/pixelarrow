@@ -14,9 +14,8 @@ import { standings } from '../online/store';
 
 const DAY = 86_400_000;
 
-export type { PublicSummaryV1 } from './schema';
 
-export interface SnapshotOptions {
+interface SnapshotOptions {
   /**
    * May this clan name be public? By default ADR-0009's shared validator
    * (names/validate.ts): a clan whose name fails it stays off the clan board

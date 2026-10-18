@@ -11,7 +11,7 @@ import type { BattleSetup } from '../../src/sim/types';
 export type TicketStatus = 'open' | 'used' | 'rejected' | 'abandoned';
 
 /** The columns every ticket table shares for the submit preamble. */
-export interface TicketState {
+interface TicketState {
   status: TicketStatus;
   claim: string | null;
   result: string | null;
@@ -19,7 +19,7 @@ export interface TicketState {
 }
 
 /** A `battle_tickets` row as far as the shared view needs it. */
-export interface BattleTicketLike {
+interface BattleTicketLike {
   id: string;
   expires_at: number;
   setup: string;

@@ -50,7 +50,7 @@ interface AuditRow {
  * `replayed: true`. `run` receives an SQL guard (its two parameters numbered from `first`) that only holds for the
  * request that wrote the row (for statements that must apply exactly once).
  */
-export async function audited<T extends Record<string, unknown>>(
+async function audited<T extends Record<string, unknown>>(
   c: Context<AppEnv>,
   action: string,
   playerId: number | null,
@@ -364,7 +364,7 @@ admin.post('/players/:id/rename', async (c) => {
   return c.json(out);
 });
 
-export const MAX_ADJUST = 1_000_000;
+const MAX_ADJUST = 1_000_000;
 const AdjustBody = z.object({
   requestId: RequestId,
   currency: z.enum(['drachmae', 'gold']),

@@ -23,7 +23,7 @@ export interface EmailSender {
 }
 
 /** ADR-0008 §4: a send is awaited for at most this long. */
-export const SEND_TIMEOUT_MS = 5_000;
+const SEND_TIMEOUT_MS = 5_000;
 
 /** The configured sender, or null when email is not set up. */
 export function emailSenderFor(env: Env): EmailSender | null {

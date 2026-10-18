@@ -79,7 +79,7 @@ export function currentNeutrals(shard: Pick<Shard, 'world' | 'seed'>, loc: numbe
 }
 
 /** An owned region nobody guards and whose income was left alone for ABANDON_MS falls back to the neutrals. */
-export function abandoned(row: RegionRow | null | undefined, garrison: number, now: number): boolean {
+function abandoned(row: RegionRow | null | undefined, garrison: number, now: number): boolean {
   return !!row?.owner_id && row.home !== 1 && garrison === 0 && now - (row.accrued_at ?? now) > ABANDON_MS;
 }
 

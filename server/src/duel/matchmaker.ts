@@ -24,7 +24,7 @@ import type { MatchmakerClientMsg, MatchmakerServerMsg } from '../../../src/duel
 import { createMatch, getQueueState, liveMatchOf, queueCheck, rowLeague } from './live';
 
 /** How often the queue is paired again while anyone waits (the windows widen meanwhile). */
-export const PAIR_EVERY_MS = 2000;
+const PAIR_EVERY_MS = 2000;
 const MAX_MESSAGE = 4096;
 
 interface Attachment {
@@ -32,7 +32,7 @@ interface Attachment {
   name: string;
 }
 
-export interface Waiting extends QueueEntry {
+interface Waiting extends QueueEntry {
   name: string;
   /** Rated games so far (the opponent sees a league only after placements). */
   games: number;

@@ -26,7 +26,7 @@ import { isBanTombstoned } from './banTombstone';
 import { noticeTargets, type Notifier } from './notices';
 
 /** ADR-0009 §2: add-email (and change-email) requests per account per hour. */
-export const ADD_EMAIL_RULE = { limit: 5, windowMs: 3_600_000 };
+const ADD_EMAIL_RULE = { limit: 5, windowMs: 3_600_000 };
 
 const alreadyHasEmail = () => new ApiError(409, 'already_has_email', 'This account already has an email');
 const emailConflict = () => new ApiError(409, 'email_conflict', 'This email belongs to another account');

@@ -32,8 +32,8 @@ import { log, logError } from '../telemetry/log';
 import { BAN_TOMBSTONE_MS, banIdentityHash, type IdentityKind } from './banTombstone';
 import { purgeTables } from './deletionMap';
 
-export type DeletionReason = 'self' | 'conflict' | 'admin';
-export type DeletionResult = 'done' | 'busy' | 'resumable';
+type DeletionReason = 'self' | 'conflict' | 'admin';
+type DeletionResult = 'done' | 'busy' | 'resumable';
 
 /** What other players see in place of a deleted player's name. */
 export const DELETED_NAME = 'Deleted player';
@@ -41,7 +41,7 @@ export const DELETION_STEPS = ['revoke', 'leave', 'purge', 'tombstone'] as const
 /** The cron sweeps finished deletions this long for rows written late (a match settling after the run). */
 const SWEEP_MS = 2 * 86_400_000;
 
-export interface DeleteOptions {
+interface DeleteOptions {
   /** Run at most this many steps now and leave the rest to the cron, as an interrupted run would. */
   maxSteps?: number;
   /** Called with the player's email addresses before the identities go (the confirmation email, ADR-0009 §7). Failures are logged, not fatal. */

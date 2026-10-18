@@ -17,7 +17,7 @@ import { NOTIFY_TYPES, type NotifyType } from './templates';
 export const notifyRoutes = new Hono<AppEnv>();
 notifyRoutes.use('*', requireSession);
 
-export function settingsView(s: NotifySettingsRow | null) {
+function settingsView(s: NotifySettingsRow | null) {
   const off = disabledSet(s);
   return {
     types: NOTIFY_TYPES.map((type) => ({ type, on: !off.has(type) })),

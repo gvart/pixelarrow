@@ -30,7 +30,7 @@ import { forgetSessions, hashToken, type Session } from './sessions';
 const MIN = 60_000;
 /** M-AF-6: verify links last 24 h, reset links 30 min. */
 export const SIGNUP_TOKEN_TTL_MS = 24 * 60 * MIN;
-export const RESET_TOKEN_TTL_MS = 30 * MIN;
+const RESET_TOKEN_TTL_MS = 30 * MIN;
 const EMAIL_MAX = 254;
 /** An email-link token as it arrives: 32 bytes in base64url. */
 export const EMAIL_TOKEN = /^[A-Za-z0-9_-]{43}$/;

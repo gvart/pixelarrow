@@ -31,11 +31,11 @@ import { newRelay, relayMessage, relayResume, relayTick, startMsg, type DuelStat
 import { settleMatch, type MatchInit, type MatchOutcome } from './live';
 
 /** Extra deployment time for both players to open the match socket. */
-export const CONNECT_MS = 5000;
+const CONNECT_MS = 5000;
 /** The relay state is saved at least this often during a battle (alarm). */
-export const SNAPSHOT_MS = 5000;
+const SNAPSHOT_MS = 5000;
 /** A match still running after this long is void (deployment, a 5-minute battle and reconnects fit easily). */
-export const MATCH_MAX_MS = 12 * 60_000;
+const MATCH_MAX_MS = 12 * 60_000;
 const LOG_CHUNK = 500;
 const MAX_MESSAGE = 16 * 1024;
 const RELAY_TYPES = new Set(['d_order', 'd_ready', 'cmd', 'reach', 'end']);

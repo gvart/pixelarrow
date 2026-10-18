@@ -31,11 +31,11 @@ import { maskEmail } from './summary';
 import { hasProgress, LINK_CODE_RULE, lit, noticeGained, settle, type Proof } from './conflicts';
 import type { Notifier } from './notices';
 
-export const LINK_CODE_TTL_MS = 10 * 60_000;
-export const LINK_CODE = /^[A-Za-z0-9_-]{22}$/;
+const LINK_CODE_TTL_MS = 10 * 60_000;
+const LINK_CODE = /^[A-Za-z0-9_-]{22}$/;
 const START_PARAM = /^link_([A-Za-z0-9_-]{22})$/;
 
-export const linkExpired = () => new ApiError(410, 'link_expired', 'This link has expired. Start again from Settings on the web');
+const linkExpired = () => new ApiError(410, 'link_expired', 'This link has expired. Start again from Settings on the web');
 const alreadyLinked = () => new ApiError(409, 'already_linked', 'This Telegram account is already linked');
 
 const telegramIdentityOf = (db: D1Database, pid: number) =>
@@ -130,7 +130,7 @@ export async function completeLinkCode(db: D1Database, botToken: string, peppers
 const sessionCode = (db: D1Database, s: Session) =>
   db.prepare('SELECT * FROM link_codes WHERE session_hash = ?1 AND player_id = ?2 ORDER BY created_at DESC LIMIT 1').bind(s.sid, s.pid).first<CodeRow>();
 
-export type LinkStatus =
+type LinkStatus =
   | { status: 'none' | 'expired' | 'linked' | 'cancelled' }
   | { status: 'pending'; expiresAt: number }
   | { status: 'awaiting_web'; expiresAt: number; telegram: { username: string | null; firstName: string | null } }

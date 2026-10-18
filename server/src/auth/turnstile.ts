@@ -19,7 +19,7 @@ import { ApiError } from '../errors';
 import { log } from '../telemetry/log';
 import { gameUrl } from '../urls';
 
-export type TurnstileAction = 'signup' | 'login' | 'reset' | 'resend';
+type TurnstileAction = 'signup' | 'login' | 'reset' | 'resend';
 
 export const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 /** A token is valid for 300 s from the challenge (ADR-0008 §6). */
@@ -40,7 +40,7 @@ interface SiteverifyReply {
 const unavailable = () => new ApiError(503, 'turnstile_unavailable', 'The human check is unavailable, try again later');
 
 /** The hostnames a token may come from: the game's, plus localhost when DEV_AUTH=1. */
-export function turnstileHostnames(env: Env): string[] {
+function turnstileHostnames(env: Env): string[] {
   const hosts = [new URL(gameUrl(env)).hostname];
   if (env.DEV_AUTH === '1') hosts.push('localhost');
   return hosts;

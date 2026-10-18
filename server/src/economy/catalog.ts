@@ -11,7 +11,7 @@ import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/dat
 export type CosmeticSlot = 'emblem' | 'banner' | 'cloak' | 'clan_flag' | 'army_skin' | 'table_theme' | 'crest' | 'aura' | 'pose';
 export const COSMETIC_SLOTS: CosmeticSlot[] = ['emblem', 'banner', 'cloak', 'crest', 'aura', 'pose', 'clan_flag', 'army_skin', 'table_theme'];
 
-export interface Cosmetic {
+interface Cosmetic {
   id: string;
   slot: CosmeticSlot;
   name: string;
@@ -23,7 +23,7 @@ export interface Cosmetic {
 
 const C = (id: string, slot: CosmeticSlot, name: string, drachmae: number | null, source?: Cosmetic['source']): Cosmetic => ({ id, slot, name, drachmae, ...(source ? { source } : {}) });
 
-export const COSMETICS: Record<string, Cosmetic> = Object.fromEntries(
+const COSMETICS: Record<string, Cosmetic> = Object.fromEntries(
   [
     C('emblem_owl', 'emblem', 'Owl of Athena', 60),
     C('emblem_lambda', 'emblem', 'Lakedaimon lambda', 60),
@@ -73,7 +73,7 @@ export type PassReward =
   | { kind: 'consumable'; id: ConsumableId; qty: number }
   | { kind: 'cosmetic'; id: string };
 
-export interface PassTier {
+interface PassTier {
   tier: number;
   /** Total pass XP needed. */
   xp: number;
@@ -111,7 +111,7 @@ export const PASS_TIERS: PassTier[] = Array.from({ length: PASS.tiers }, (_, i) 
  * Consumables are sold by the merchants on the war map
  * (server/src/online/merchant.ts, docs/DUELS.md "War-map shops on the map").
  */
-export type ShopItem = { kind: 'cosmetic'; id: string; drachmae: number } | { kind: 'pass'; id: 'season_pass'; drachmae: number };
+type ShopItem = { kind: 'cosmetic'; id: string; drachmae: number } | { kind: 'pass'; id: 'season_pass'; drachmae: number };
 
 export function shopItem(id: string): ShopItem | null {
   if (id === 'season_pass') return { kind: 'pass', id, drachmae: PASS.premiumDrachmae };

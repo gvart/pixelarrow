@@ -34,14 +34,14 @@ import type { LiveArrival, LiveOut } from './online/live';
 import { ev, notify } from './notify/outbox';
 
 /** A march whose owner gets a bot notification on arrival if they are not online then. */
-export interface MarchNotice {
+interface MarchNotice {
   at: number;
   loc: number;
   /** The region's name (for the message). */
   place: string;
 }
 
-export interface PresenceInfo {
+interface PresenceInfo {
   id: number;
   name: string;
 }
@@ -55,7 +55,7 @@ interface ShardMeta {
   shard: number;
 }
 
-export interface RegionLock {
+interface RegionLock {
   ticket: string;
   player: number;
   until: number;

@@ -53,7 +53,7 @@ export interface PendingEvent {
   data: Record<string, unknown>;
 }
 
-export interface Rendered {
+interface Rendered {
   text: string;
   button: string;
   route: StartRoute;
@@ -75,7 +75,7 @@ const BUTTON: Record<Lang, Record<NotifyType, string>> = {
   ru: { attack: '🛡 К военному столу', march: '🗺 Открыть карту', income: '💰 Собрать', duel: '⚔ К дуэлям', clan: '🏛 Открыть клан', boss: '🎁 К добыче', season: '🏆 В бой', market: '🪙 Рынок' },
 };
 
-export const FOOTER: Record<Lang, string> = {
+const FOOTER: Record<Lang, string> = {
   en: 'Turn these off: /settings',
   ru: 'Отключить уведомления: /settings',
 };

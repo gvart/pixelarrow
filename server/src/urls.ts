@@ -7,7 +7,7 @@ export const gameUrl = (env: Env): string => env.GAME_URL || 'https://play.pixel
 export const landingUrl = (env: Env): string => env.LANDING_URL || 'https://pixelarrow.app';
 
 /** Local dev origins, from DEV_ORIGINS in .dev.vars only (comma-separated). */
-export const devOrigins = (env: Env): string[] =>
+const devOrigins = (env: Env): string[] =>
   (env.DEV_ORIGINS ?? '')
     .split(',')
     .map((s) => s.trim())

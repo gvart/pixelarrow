@@ -55,7 +55,7 @@ interface PoolRow {
   heroes: string;
 }
 
-export interface Candidate {
+interface Candidate {
   pid: number;
   name: string;
   /** Null while the defender is in placements. */
@@ -370,7 +370,7 @@ duelSeason.post('/async/abandon', async (c) => {
 
 // ------------------------------------------------------------------ the defence log
 
-export interface LogEntry {
+interface LogEntry {
   id: string;
   at: number;
   /** attack: you raided them; defence: they raided your defence. */

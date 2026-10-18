@@ -7,7 +7,7 @@ import { BLOCKLIST } from './blocklist';
 import { RESERVED } from './reserved';
 
 export type NameReason = 'length' | 'chars' | 'mixed_script' | 'reserved' | 'blocked';
-export type NameCheck = { ok: true; name: string; key: string } | { ok: false; reason: NameReason };
+type NameCheck = { ok: true; name: string; key: string } | { ok: false; reason: NameReason };
 
 /**
  * Look-alike digits, `i` (with `1` and `l`), and Cyrillic letters that look

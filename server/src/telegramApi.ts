@@ -1,7 +1,7 @@
 /** Minimal Telegram Bot API client. */
 import { ApiError } from './errors';
 
-export const TELEGRAM_API = 'https://api.telegram.org';
+const TELEGRAM_API = 'https://api.telegram.org';
 
 export async function callBot<T = unknown>(token: string, method: string, params: Record<string, unknown>): Promise<T> {
   const res = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
@@ -21,7 +21,7 @@ export async function callBot<T = unknown>(token: string, method: string, params
   return body.result as T;
 }
 
-export interface BotResult<T = unknown> {
+interface BotResult<T = unknown> {
   ok: boolean;
   /** HTTP status (0 for a network failure). */
   status: number;

@@ -19,16 +19,16 @@ import { bearer, clientIp } from '../middleware';
 import { overLimit, rateLimit } from '../rateLimit';
 import { log } from '../telemetry/log';
 
-export const MIN_ADMIN_TOKEN = 32;
-export const ADMIN_FAILS_PER_10MIN = 10;
+const MIN_ADMIN_TOKEN = 32;
+const ADMIN_FAILS_PER_10MIN = 10;
 
-export interface AdminCredential {
+interface AdminCredential {
   name: string;
   token: string;
 }
 
 /** Parses ADMIN_TOKEN; tokens shorter than MIN_ADMIN_TOKEN are ignored. */
-export function adminCredentials(env: Env): AdminCredential[] {
+function adminCredentials(env: Env): AdminCredential[] {
   const raw = (env.ADMIN_TOKEN ?? '').trim();
   if (!raw) return [];
   const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
@@ -41,7 +41,7 @@ export function adminCredentials(env: Env): AdminCredential[] {
 }
 
 /** The operator a token belongs to, or null. Checks every credential (no early exit). */
-export function adminFor(env: Env, token: string | null): string | null {
+function adminFor(env: Env, token: string | null): string | null {
   if (!token) return null;
   let who: string | null = null;
   for (const c of adminCredentials(env)) if (safeEqual(token, c.token) && who === null) who = c.name;
