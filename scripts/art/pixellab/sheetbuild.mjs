@@ -23,6 +23,8 @@
 //              follows; default shield, helmet, armor for metal and weapon for weaponMetal),
 //   "greyCut"?: L (OKLab lightness above which a neutral grey is cut as a ghost trail; default 0.55; iron-clad
 //              classes raise it, about 0.8, so a lit iron blade is kept),
+//   "alignMax"?: [dx, dy] (the largest frame-0 drift of a clip that is re-anchored on its feet; default [6, 8]: the
+//              model redraws a guard-stance first frame 7-16 px off, so the I5b classes raise it),
 //   "tiers": { "veteran": { "<group>": [anchor hex dark->light] }, "elite": { ... } }
 // }
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -41,6 +43,8 @@ const specPath = args.find((a) => a.endsWith('.json') && !a.startsWith('--'));
 const spec = JSON.parse(readFileSync(specPath, 'utf8'));
 const outDir = opt('out', spec.out);
 const map = rampMapper(spec.ramps ?? HOPLITE_RAMPS);
+// how far frame 0 of a clip may have drifted and still be re-anchored on its feet (spec alignMax, default [6, 8])
+const ALIGN_MAX = spec.alignMax ?? [6, 8];
 
 // ---- 1. load, fix, split
 const clips = []; // { anim, dir, frames: [{img, parts, spear}], origin: [x, y] }
@@ -90,8 +94,8 @@ for (const [anim, a] of Object.entries(spec.anims)) {
       }
       const shift = [hi >= 0 ? Math.round((lo + hi) / 2) - origin[0] : 0, low >= 0 ? low - origin[1] : 0];
       // only a small drift is corrected: a big one means the first frame is not standing (or the measure failed)
-      if (Math.abs(shift[0]) <= 6 && Math.abs(shift[1]) <= 8) { origin[0] += shift[0]; origin[1] += shift[1]; }
-      if (shift[0] || shift[1]) console.log(`  ${anim} ${dir}: frame 0 drifted ${shift[0]},${shift[1]} px${Math.abs(shift[0]) <= 6 && Math.abs(shift[1]) <= 8 ? ', re-anchored' : ', LEFT AS IS'}`);
+      if (Math.abs(shift[0]) <= ALIGN_MAX[0] && Math.abs(shift[1]) <= ALIGN_MAX[1]) { origin[0] += shift[0]; origin[1] += shift[1]; }
+      if (shift[0] || shift[1]) console.log(`  ${anim} ${dir}: frame 0 drifted ${shift[0]},${shift[1]} px${Math.abs(shift[0]) <= ALIGN_MAX[0] && Math.abs(shift[1]) <= ALIGN_MAX[1] ? ', re-anchored' : ', LEFT AS IS'}`);
     }
     clips.push({ anim, dir, frames, origin });
   }

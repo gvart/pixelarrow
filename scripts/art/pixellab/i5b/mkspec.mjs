@@ -3,7 +3,7 @@
 // picks: { class, scale, ramps, parts?, tiers, anims: { <anim>: { fps, hold?, strike?, canvas, spear,
 //          dirs: { se|ne|sw|nw: "<attempt>" | { attempt, fixes?, frames? } } } } }
 // Usage: node scripts/art/pixellab/i5b/mkspec.mjs <class>
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readImage } from '../../lib/png.mjs';
 import { ROOT } from '../../lib/manifest.mjs';
@@ -22,8 +22,16 @@ for (const d of DIRS) {
 }
 // canvas names: rot, tall, atk, die (prep.mjs) and the guard frames: guard (tall), gatk (atk)
 const canvases = Object.fromEntries(Object.entries(CANVASES).map(([k, c]) => [k, c.at]));
-canvases.guard = CANVASES.tall.at;
-canvases.gatk = CANVASES.atk.at;
+// the guard frames are drawn by the model, the feet where it put them: the canvas offset is measured on the frame
+// itself (its feet and shins against the rotation's), so the stance clips stand on the same anchor as the rest
+const measured = (name, canvas) => Object.fromEntries(DIRS.map((d) => {
+  const file = join(ROOT, raw, 'first', `${name}_${d}.png`);
+  if (!existsSync(file)) return [d, CANVASES[canvas].at[d]];
+  const f = fitOf(readImage(file));
+  return [d, [Math.round(f.cx) - rowsFeet[d][0], f.feet - rowsFeet[d][1]]];
+}));
+canvases.guard = measured('guard', 'tall');
+canvases.gatk = measured('gatk', 'atk');
 for (const [k, v] of Object.entries(p.extraCanvases ?? {})) canvases[k] = CANVASES[v].at;
 const anims = {};
 for (const [a, x] of Object.entries(p.anims)) {
@@ -43,6 +51,11 @@ const spec = {
   ...(p.crest === false ? { crest: false } : {}),
   ...(p.emblem === false ? { emblem: false } : {}),
   ...(p.stature ? { stature: p.stature } : {}),
+  ...(p.spear === false ? { spear: false } : {}),
+  ...(p.metalKind ? { metalKind: p.metalKind } : {}),
+  ...(p.metalSlots ? { metalSlots: p.metalSlots } : {}),
+  ...(p.greyCut !== undefined ? { greyCut: p.greyCut } : {}),
+  alignMax: p.alignMax ?? [18, 8],
   rowsFeet,
   canvases,
   anims,

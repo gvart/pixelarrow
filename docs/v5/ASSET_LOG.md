@@ -660,6 +660,127 @@ in 4 clips, blood in 10.
 with `skipTop` 4 for the Phrygian crown); 51 warnings, all the spear-end heuristic on a blade (a blade's tip is thinner
 than a spearhead, so "the leading end is the thin one" fires on the upright carry; checked by eye on the strips: blade at
 the top or at the target in every frame). **Gens:** 87 quoted (73 jobs).
+**Rebuilt** after the iron work below (`iron` ramp, `metalKind`, `spear: false`, `greyCut` 0.8): the iron scale and blade
+are one iron metal group (weapon, armor), the bronze helmet a bronze one (helmet); 32 colours; packed 9.07 MB decoded
+(core 7.56), 248 KB; QC 0 failures, 53 warnings (spear heuristic on the blade).
+
+**Iron.** PA-WORLD-DARK had no neutral iron: the `metal` ramp's light steps are warm tan, so lit iron came out bronze,
+and `foreign()` cut every light neutral grey (L > 0.55) as a ghost trail, which hollowed out lit blades (two outline lines
+with the ground showing through). Fixes, each a separate commit: an additive `iron` ramp in `palette-dark.json`
+(`#1c1b1c … #b0adab`, matched to the bases' iron; main logs it as V5-105), and an opt-in `greyCut` spec field in the shared
+sheet pipeline (default 0.55; iron classes 0.8; the hoplite rebuilt from its raws byte-identical). With pipeline-fix3's
+`metalKind` / `metalSlots` / `spear: false`, iron is its own rarity group (`ironOf`) and the spear-line heuristic no
+longer tags cloak or leather pixels on swords, axes and bows.
+
+#### celt_sword
+
+Base: I4a N2 `73d12bee` (iron Montefortino, green plaid cloak, ring mail, bronze torc, checked trousers, oval shield,
+longsword). The data gives him a shield, so the attack is a **weighted one-hand cut with the shield moving with the
+body**. Ramps outline, umber, darkBronze, skin, plaidGreen, bronze, iron; parts: plaidGreen → cloak, bronze (the torc) →
+trim, umber and darkBronze (shield wood, leather, trousers) → shadow, iron → metal (`metalKind` iron, slots helmet,
+armor, weapon); crest and emblem off; `stature.from: any`.
+
+**The attack (`slash`, 16 @ 16, strike 6).** From the guard behind the tall shield he draws the sword back high over his
+right shoulder (f1–f5), steps in on the left foot with the hips and shoulders turning and the shield driving forward,
+and cuts down into the man in front of him (f6, the blow low ahead of his left knee, the point at the target), follows
+through low (f7–f11) and comes back up behind the shield (f12–f15).
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | all 4 | a1 | 4 | **Promoted** (f7): SW sword up beside the shield, SE forward low, NE / NW raised |
+| 2 | slash | SW | a1 | 2 | **Rejected:** he turns to face south mid-cut and the blade ends pointing to the lower right, off the target; crescent smears, an orange trail |
+| 3 | slash | SW SE | a2 | 4 | **Promoted after frame drops:** "at an enemy in front of him … ending low ahead of his left knee with the point still towards …"; crescent smears SW f4–f5, SE f6 dropped |
+| 4 | slash | NE | a2 | 2 | **Rejected:** he turns round to the viewer in the windup (face to the camera, f1–f4) |
+| 5 | slash | NE | a3 | 2 | **Promoted:** "his back and cloak to the viewer in every frame … he never turns round"; a fiery flash f6 (cut) := f7 |
+| 6 | slash | NW | a1 | 2 | **Rejected:** facing drift, he turns to face west and south-west through the follow-through |
+| 7 | slash | NW | a2 | 2 | **Promoted:** "his body keeps facing the upper left the whole time"; crescent smear f7 dropped |
+| 8 | idle, look, adjust, walk, run, rout, kneel | all 4 | a1 | 28 | **Promoted** |
+| 9 | ready, charge, brace, block, stagger | all 4 | a1 | 20 | **Promoted after the cut** (block sparks f1–f4, stagger blood specks) |
+| 10 | fallBack, fallFwd | all 4 | a1 | 16 | **Promoted after the cut** (blood in 4 of 8) |
+| 11 | cheer | all 4 | a1 | 4 | **Promoted** |
+
+**Rejections:** facing drift (turned round or sideways) 3 clips; blade off the target 1 clip; gear drift (crescent smear)
+4 frames, flash-damaged blade 1 frame. Doubled or reversed weapon, shield missing, head backwards, clipping, proportion
+drift: **0**. Invented effects cut: sparks in 4 clips, blood in 6, one fire trail.
+
+**Sheet.** 16 clips, frame 83 x 110, 4067 x 2200 (34.1 MB decoded as v2); packed **7.65 MB decoded (core 6.04 MB), 257 KB**.
+29 colours; groups cloak 5 (plaid green), trim 3 (the torc), skin 4; metal: iron (helmet, mail, sword). Tiers: veteran
+wine cloak and polished torc, elite black cloak and gold torc (checked in the preview through the runtime). **QC:** 0
+failures, stature 56–59; 184 warnings, all the spear-end heuristic on a sword and a shield edge (both free ends wide).
+**Gens:** 86 quoted (71 jobs).
+
+**Rebuilt** after `alignMax` (below): the guard canvases are now measured on the model-drawn guard frame itself
+(`mkspec.mjs`), and clips whose frame 0 is redrawn 7–16 px off are re-anchored (`alignMax` [18, 8], a new opt-in field in
+the shared sheetbuild, hoplite byte-identical), so ready, block and stagger no longer slide sideways off the anchor.
+celt_sword packed 7.65 MB decoded, rhomphaia 9.07 MB; QC 0 failures for both.
+
+#### archer
+
+Base: I4a N1 `199cd6bb` (bare curly head, crimson cloak, leather jerkin, one plain bow, back quiver). The data gives him a
+bow and a melee fight at close quarters (`attack` → the runtime's `stab`), so the sheet has `shoot` and `stab`; no
+`brace` (no shield wall: the runtime falls back to `block`). Ramps outline, crimson, umber, darkBronze, skin, iron; the
+leather and wood go to shadow (no metal, no rarity group), crimson is the cloak, skin is skin only (his leather is
+umber, not in the skin ramp). Crest, emblem and the spear heuristic off; `stature.from: any`.
+
+**The shot (`shoot`, 16 @ 16, strike 10).** He draws an arrow from the quiver over his shoulder (f0–f2), nocks it (f3),
+turns side-on and raises the bow arm straight at the target while the string comes back to the cheek, back and shoulder
+tight (f4–f9, the full draw held), releases at f10 (the string snaps forward, the bow arm recoils, the right hand flies
+back past the ear) and lowers the bow (f11–f15). The runtime spreads f0–f9 over the aim window and plays the release at
+the shot. The loosed arrow PixelLab draws in flight is cleared (`i5b/detached.mjs` lists the detached pieces as `clear`
+fixes): the sim draws the missile. Every shoot was re-timed with `frames` so the release lands on index 10 in all four
+facings.
+
+**The melee (`stab`, 12 @ 14, strike 4).** A two-handed bow ram: he grips the bow with both hands, steps in on the left
+foot and drives its end into the face of the man in front of him, then steps back with the bow in his left hand.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | shoot | all 4 | a1 | 8 | **Promoted after the cut:** arrows in flight cleared; SE f0–f1 an arrow already flying before he shoots (REJECTED pieces, cleared); NE the loosed arrow flies the wrong way (cleared) |
+| 2 | guard (nocked ready) | all 4 | a1 | 4 | **Promoted** (SW SE NE f7 / f6; NW f7 the arrow low to his left, kept as a low ready) |
+| 3 | adjust | SW | a1 | 1 | **Rejected:** a second bow appears f5–f9 ("flexes the bow": one bow in each hand) |
+| 4 | adjust | SW | a2 | 1 | **Promoted** ("the one bow never moves from his left hand … there is only one bow") |
+| 5 | stab | all 4 | a1 | 8 | **Promoted after the cut:** sparks and blood in every facing; NE f5–f6 lost the bow with the cut (:= neighbours); NE swings the bow up rather than ramming it forward (kept, **weak**) |
+| 6 | idle, look, walk, run, rout, kneel, charge, ready, block, stagger | all 4 | a1 | 40 | **Promoted** (stagger SW f0 an arrow pops out of the hand: := f1; a hollow-drawn bow in walk SE f6, look NE f14, adjust NE f9: := neighbour; block sparks cut) |
+| 7 | fallBack, fallFwd | all 4 | a1 | 16 | **Promoted after the cut** (blood in 5 of 8) |
+| 8 | cheer | all 4 | a1 | 4 | **Promoted** (the bow raised overhead) |
+
+**Rejections:** a second bow 1 clip; a second missile (arrow already flying or popping out) 2 pieces + 1 frame; bow lost
+to the cut 2 frames; hollow bow 3 frames. Head backwards, clipping, proportion drift: **0**.
+
+**Sheet.** 16 clips, frame 120 x 109, 4080 x 2616 (40.7 MB as v2); packed **8.23 MB decoded (core 6.69 MB), 285 KB**.
+28 colours; groups cloak 6 (crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0
+failures, stature 57–60; 146 warnings, all the spear-end heuristic on the bow and arrow. **Gens:** 85 quoted (69 jobs).
+
+#### falx
+
+Base: I4a N1 `63527404` (black hair and beard, moss-green cloak, umber leather jerkin, brown trousers, falx in both hands).
+**Groups (the open question from I4a):** his leather jerkin, trousers and boots are raw `#412a22`, which lands on skin
+step 0, while his real skin lands on steps 2–3. `parts` `{ "skin:0": "shadow" }` takes step 0 out of the skin group, so
+the per-man skin recolour (V5-095) can no longer tint his leather; the skin group is now `#7b503d … #f8d5c2` only (checked
+in the manifest). The other leather-clad classes were checked the same way with `i5b/rampdump.mjs`: the archer's and
+celt_sword's leather is umber, not skin; slinger, gallic and fanatic are checked in their own sections. Also: plaidGreen
+→ cloak, umber and darkBronze → shadow, iron → the iron metal group (weapon), crest and emblem off, `greyCut` 0.8.
+
+**The attack (`slash`, 16 @ 16, strike 6).** The same two-handed cleave as the rhomphaia, with the falx's hook: from
+the low guard he heaves the falx up and back over his right shoulder with both hands on the haft (f1–f5), steps in on
+the left foot with the hips leading and brings the sickle blade down into the man in front of him, the inner edge
+first (f6), follows through low at his left (f7–f11) and comes back to the guard (f12–f15).
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | all 4 | a1 | 4 | **Promoted** (f7) |
+| 2 | slash | all 4 | a1 | 8 | **Promoted after frame drops:** crescent smears SW f5–f6, SE f8, NE f7, NW f6 dropped |
+| 3 | look | NE | a1 | 1 | **Promoted after frame drops:** f8–f15 REJECTED, the head turns round to face the viewer; the first half is played out and back |
+| 4 | everything else | all 4 | a1 | 59 | **Promoted** (block sparks and death blood cut) |
+
+**Rejections:** head turned backwards 8 frames; gear drift (crescent smear) 5 frames. **Needs review:** in the NE
+stance clips (ready, charge, brace, block, stagger) the falx reads as a long curved blade with a smaller hook than the
+base's; one weapon, held right, but a softer silhouette.
+
+**Sheet.** 16 clips, frame 112 x 113, 4032 x 2712 (41.7 MB as v2); packed **8.68 MB decoded (core 7.19 MB), 243 KB**.
+27 colours; groups cloak 4 (moss green), skin 4 (leather excluded); metal: iron (weapon). Tiers: veteran wine cloak, elite
+black cloak. **QC:** 0 failures, stature 57 in all four facings; 139 warnings (the spear-end heuristic on the falx).
+**Gens:** 80 quoted (68 jobs).
 
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
