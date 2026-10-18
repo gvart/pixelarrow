@@ -8,7 +8,7 @@
 //   "scale": 0.55, "rowsFeet": { "<dir>": [x, y] } (the feet point in the 68 rotation of each facing),
 //   "canvases": { "<name>": { "<dir>": [dx, dy] } } (where the rotation sits in each clip's first frame),
 //   "anims": { "<anim>": { "fps", "hold"?, "strike"?, "canvas", "spear": "upright" | "level",
-//              "dirs": { "<dir>": { "attempt", "fixes"?: [{ "frame", "op": "copy", "from" } | { "frame", "op": "clear", "box" }],
+//              "dirs": { "<dir>": { "attempt", "fixes"?: [{ "frame", "op": "copy", "from" } | { "frame", "op": "clear", "box", "red"? }],
 //                                    "frames"?: [indices to keep, in order] } } } },
 //   "tiers": { "veteran": { "<group>": [anchor hex dark->light] }, "elite": { ... } }
 // }
@@ -41,7 +41,11 @@ for (const [anim, a] of Object.entries(spec.anims)) {
       else if (f.op === 'clear') {
         const im = fr[f.frame];
         const [x0, y0, x1, y1] = f.box;
-        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) im.data[(y * im.w + x) * 4 + 3] = 0;
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          const i = (y * im.w + x) * 4;
+          // red: only the crimson pixels (a blood splat over the figure)
+          if (!f.red || im.data[i] > im.data[i + 1] * 1.6) im.data[i + 3] = 0;
+        }
       } else throw new Error(`fix op ${f.op}`);
     }
     if (d.frames) fr = d.frames.map((i) => fr[i]);

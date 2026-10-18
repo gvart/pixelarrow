@@ -183,21 +183,23 @@ export function foreign(rgb) {
   return C > 0.14 || L > 0.86 || (C < 0.025 && L > 0.55);
 }
 
-/** Clears detached specks (8-connected bits under 5 px away from the figure); returns how many pixels. */
+/** Clears detached specks (8-connected bits under 5 px) and loose crimson splats (under 60 px); returns how many pixels. */
 function dropSpecks(parts, w, h) {
   const mask = parts.map((p) => (p ? 1 : 0));
   const comp = new Int32Array(w * h).fill(-1);
   const sizes = [];
+  const reds = [];
   const st = [];
   for (let i = 0; i < w * h; i++) {
     if (!mask[i] || comp[i] >= 0) continue;
     const id = sizes.length;
-    let n = 0;
+    let n = 0, red = 0;
     comp[i] = id;
     st.push(i);
     while (st.length) {
       const j = st.pop(), x = j % w, y = (j / w) | 0;
       n++;
+      if (parts[j] === 'cloak') red++;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const X = x + dx, Y = y + dy;
         if (X < 0 || Y < 0 || X >= w || Y >= h) continue;
@@ -206,9 +208,13 @@ function dropSpecks(parts, w, h) {
       }
     }
     sizes.push(n);
+    reds.push(red);
   }
+  // specks, and loose crimson splats (the blood PixelLab adds to hits and deaths, prompt or not)
+  const big = Math.max(...sizes, 0);
+  const drop = sizes.map((n, k) => n < 5 || (n < big && n < 60 && reds[k] >= 0.6 * n));
   let cut = 0;
-  for (let i = 0; i < w * h; i++) if (comp[i] >= 0 && sizes[comp[i]] < 5) { parts[i] = null; cut++; }
+  for (let i = 0; i < w * h; i++) if (comp[i] >= 0 && drop[comp[i]]) { parts[i] = null; cut++; }
   return cut;
 }
 

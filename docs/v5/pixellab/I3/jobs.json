@@ -61,5 +61,14 @@
  {"anim": "cheer", "dir": "north-west", "attempt": "a3", "job": "803e3c89-89bc-40ec-8634-4e00a1ccaec4", "mode": "pixminimax", "frames": 12, "gens": 1},
  {"anim": "fallBack", "dir": "south-west", "attempt": "a1", "job": "c8e4268b-d913-4c7b-b257-bf547faf42b3", "mode": "skeleton", "frames": 14, "gens": 3},
  {"anim": "fallBack", "dir": "south-west", "attempt": "p1", "job": "31835aa5-269d-4e01-b5b7-35aa73323224", "mode": "pixminimax", "frames": 12, "gens": 2},
- {"anim": "stagger", "dir": "south-east", "attempt": "p1", "job": "3d04a1b7-ae5b-4943-8e19-559bba5b2118", "mode": "pixminimax", "frames": 12, "gens": 2}
+ {"anim": "stagger", "dir": "south-east", "attempt": "p1", "job": "3d04a1b7-ae5b-4943-8e19-559bba5b2118", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "fallFwd", "dir": "south-west", "attempt": "p1", "job": "0f4f34ee-171c-45ab-843a-a5662ba59f9e", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "fallBack", "dir": "south-east", "attempt": "p1", "job": "ed3d343d-a6e3-49eb-8ecb-ed4cd3aa6823", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "fallBack", "dir": "north-east", "attempt": "p1", "job": "03b77c4d-c00b-47b1-b6ce-856446504672", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "fallBack", "dir": "north-west", "attempt": "p1", "job": "99a0b648-55e6-491e-ad51-9b7ae506b8c4", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "fallFwd", "dir": "south-east", "attempt": "p1", "job": "0694a46b-592f-4afa-8ced-2e4f3b65d52c", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "fallFwd", "dir": "north-east", "attempt": "p1", "job": "7b5e9942-3521-4017-ba54-4aa692687d52", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "fallFwd", "dir": "north-west", "attempt": "p1", "job": "d4d4e07a-10a2-497c-9240-288ae95ca359", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "stagger", "dir": "north-east", "attempt": "p1", "job": "fc9188d0-9cdb-469a-9e38-698505c79867", "mode": "pixminimax", "frames": 12, "gens": 2},
+ {"anim": "stagger", "dir": "north-west", "attempt": "p1", "job": "d9764561-211e-40e0-8f8a-3c2164b0454a", "mode": "pixminimax", "frames": 12, "gens": 2}
 ]
