@@ -243,7 +243,7 @@ const alive = (pid) => d1(`SELECT deleted_at FROM players WHERE id = ${pid}`)[0]
     return a;
   });
   check('A: a mouse device shows the QR code of the same link (its alt is the link), with Copy link and Open Telegram', alt === code.deepLink && (await w.W.has('link.copy')) && (await w.W.has('link.open')), `${alt} ${await w.W.has('link.copy')} ${await w.W.has('link.open')}`);
-  check('A: the steps and the countdown show', /open pixelarrow in telegram.*tap "link" there.*come back and confirm here.*waiting for telegram… [0-9]:[0-9]{2}/.test(await w.W.text()), (await w.W.text()).slice(0, 300));
+  check('A: the steps and the countdown show', /open pixelarrow in telegram.*tap "link" there.*come back and confirm here.*waiting for telegram… [0-9]{1,2}:[0-9]{2}/.test(await w.W.text()), (await w.W.text()).slice(0, 300));
   await w.W.shot('01-web-link-steps-qr');
   await tg.launch(`link_${code.code}`);
   await until(() => tg.T.has('link.tg.link'), 15000, 250);
@@ -264,6 +264,17 @@ const alive = (pid) => d1(`SELECT deleted_at FROM players WHERE id = ${pid}`)[0]
     return r && r.won === 0 && r.fought === 0 && r.hours < 24 ? r : null;
   }, 15000, 500);
   check('A: the Telegram side has its own day-1 cloud save (kept, not deleted by the script)', !!day1, JSON.stringify(day1));
+  // the Mini App's toast (4 s) can come and go while the d1 checks below block node: watch for it in the page
+  await tg.T.ev((needle) => {
+    window.__switchedSeen = false;
+    const id = setInterval(() => {
+      const out = [];
+      const walk = (l) => l.forEach((o) => (o.text !== undefined && out.push(o.text), o.list && walk(o.list)));
+      const menu = window.__game.scene.getScene('Menu');
+      if (menu) walk(menu.children.list);
+      if (out.join(' ').replace(/\s+/g, ' ').toLowerCase().includes(needle)) (window.__switchedSeen = true), clearInterval(id);
+    }, 150);
+  }, `you now play as ${w.name.toLowerCase()} here too`);
   await confirmOnWeb(w, { keyboard: true });
   await until(() => w.W.text().then((x) => x.includes('telegram linked')), 15000);
   check('A: linked; the empty Telegram-side account was removed (the note says so)', (await w.W.text()).includes('empty pixelarrow account'), (await w.W.text()).slice(-400));
@@ -272,7 +283,7 @@ const alive = (pid) => d1(`SELECT deleted_at FROM players WHERE id = ${pid}`)[0]
   // the Mini App, still open on "Almost done", follows by itself: the web account, and the toast
   const switched = await until(() => tg.T.ev((id) => window.__online.playerId === id, w.id), 20000, 250);
   check('A: the open Mini App switches to the web account by itself (no relaunch)', switched, String(await tg.T.ev(() => window.__online.playerId)));
-  const toastSeen = await until(() => tg.T.text().then((x) => x.includes(`you now play as ${w.name.toLowerCase()} here too`)), 10000, 150);
+  const toastSeen = await until(() => tg.T.ev(() => window.__switchedSeen), 10000, 150);
   check('A: … and says so (account.link.switched)', toastSeen, (await tg.T.text()).slice(0, 300));
   await tg.T.shot('02b-tg-switched');
   await tg.launch();
