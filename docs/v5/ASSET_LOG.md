@@ -491,6 +491,40 @@ five jobs ran at once for a few minutes (a slip in counting), then back to four.
 (crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 57 in all
 four facings; 454 warnings, all the spear-end heuristic on the sling. **Gens:** 90 quoted (72 jobs).
 
+#### fanatic
+
+Base: I4a N2 `fe0b0a2d` (gaunt, matted ash-grey hair, woad and ash on a bare chest, ragged black cloak, umber kilt
+retinted darkBronze, bare feet, one heavy curved iron kopis, no shield). **Groups** (bases.json and `i5b/rampdump.mjs`):
+cloak umber (exclusive), kilt darkBronze, hair plaidGreen and linen, woad enemySlate and metal, the blade iron. His skin
+lands on the skin ramp alone (no leather), so the skin group is his body. Ramps outline, umber, darkBronze, skin, linen,
+plaidGreen, metal, iron, enemySlate; parts: umber → cloak, iron → the iron metal group (weapon), the rest → shadow; crest,
+emblem and the spear heuristic off; `greyCut` 0.8; `stature { from: any, skipTop: 5 }` (the hair stands up above the
+crown and measured 63–64 against the lock's 58; with the top 5 rows skipped, 58–59). No `brace` (no shield: the runtime
+falls back to `block`), so 15 clips.
+
+**The attack (`slash`, 16 @ 16, strike 6).** A frenzied, weighty kopis hack: from his crouch, the blade raised beside
+his head, he rears up and hauls the kopis far back over his right shoulder, the body coiling (f1–f5), lunges onto the
+left foot and hacks down with all his weight into the man in front of him (f6), bent forward over the blow, then wrenches
+the blade back up and drops into the crouch (f7–f15). Each facing is re-timed with `frames` so the hack lands on index 6.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard (frenzied crouch) | all 4 | a1 | 4 | **Promoted** (f7); NW f2 a white smear (not used) |
+| 2 | slash | NE | a1 | 2 | **Rejected:** a huge blood burst over the blow and the body (a colour cut would hole him) |
+| 3 | slash | all 4 | SW SE NW a1, NE a2 | 8 | **Promoted after frame drops:** crescent smears (SW f4, SE f3, NE f6, NW f5) and blood or sparks at the blow (SW f5–f6, SE f4–f5, NW f6) dropped, loose specks cleared |
+| 4 | block | all 4 | a1 | 4 | **Promoted after frame drops:** smears and spark bursts on the parry (SW f2–f4, SE f1–f2, NE f3, NW f1) |
+| 5 | stagger | SW | a1 | 1 | **Promoted after frame drops:** f1–f2 a blood burst |
+| 6 | everything else | all 4 | a1 | 59 | **Promoted** (the clean-death wording from the gallic gave no blood in any fall) |
+
+**Rejections:** blood over the body 1 clip + 7 frames; gear drift (crescent smear) 7 frames; sparks 7 frames. Doubled or
+reversed weapon, head backwards, clipping, proportion drift: **0**. **Needs review:** the cloak is mostly drawn in outline
+black, so the tier recolour of its umber group shows only on its folds (veteran and elite read close to basic); the NE
+fallBack and the NW fallBack fall more forward than back; the NE rout turns to profile in passing.
+
+**Sheet.** 15 clips, frame 113 x 115, 4068 x 2760 (42.8 MB as v2); packed in the build below. 28 colours; groups cloak 5
+(umber), skin 4; metal: iron (weapon). Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 58–59;
+168 warnings (the spear heuristic on the kopis). **Gens:** 78 quoted (65 jobs).
+
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
 **Brief.** One approved base character per foot class other than the hoplite (militia, thureophoros, celt_sword, rhomphaia, archer, slinger, javelineer, peltast, falx, gallic, fanatic, royal_guard, sacred_band), matching H4 (`b7624d6d`) in style, shape and proportion, following `docs/v5/art/STYLE_LOCK.md`. Mood is dark-epic: Greeks in bronze and crimson; Carthaginians in purple-black, bronze and linen; Celts in plaid, iron, woad and torcs. Every class must read at battle scale by its headgear and silhouette (art bible §5.2). The cloak, crest and trim stay clean colour groups for the tier recolour (V5-092). Hard rejects are checked in all 8 views.

@@ -1188,3 +1188,21 @@ model draws motion arcs and the flying bullet anyway, and both clear as detached
 "straight ahead of him … his body keeps facing … the whole time". A back-facing flee drifts out of the 68 canvas unless
 told "on the same spot … he does not move away". From behind, the cloak hides a sling carried at the side; asking for it
 "clearly visible beside the cloak" did not fix it.
+
+### fanatic
+
+- subject: `a gaunt grim bare-chested cult fanatic with long matted ash-grey hair and grey ash on his skin, dark woad marks on his chest, a ragged black cloak, a dark umber kilt with a rope belt, bare legs and bare feet, no shield, one heavy curved iron kopis blade in his right hand` (back: `a gaunt grim cult fanatic seen from behind, long matted ash-grey hair, a ragged black cloak, a dark umber kilt, bare legs and bare feet, no shield, one heavy curved iron kopis blade in his right hand`)
+- rest pose: `standing upright, the kopis held down in his right hand at his right side, his left hand an empty fist`; guard pose: `in a crouched frenzied fighting stance, the kopis raised beside his head in his right hand, his left fist forward, knees bent`
+- guard: `he drops into a crouched frenzied fighting stance in place: knees bent, shoulders hunched forward, the heavy curved kopis raised high beside his head in his right hand ready to hack down towards the viewer's lower left, his left fist forward; one kopis only, in the right hand; no shield, no effects`
+- slash (front): `a frenzied heavy hacking blow at an enemy in front of him towards the viewer's lower left: from his crouch he rears up and hauls the heavy curved kopis far back over his right shoulder, the whole body coiling, then lunges forward onto his left foot and hacks down hard with all his weight behind it, the forward-curved blade chopping into the enemy in front of him, ending low ahead of his left knee with his body bent forward over it, then he wrenches the blade back up and drops back into his crouch; his face and chest stay towards the viewer's lower left in every frame, he never turns his back; one kopis only, in the right hand, the blade keeps its curved shape and size; no smear, no sparks, no motion trails, no blood, no effects` (back: `seen from behind, his back and cloak to the viewer in every frame, … straight ahead of him … his body keeps facing the upper right the whole time, he never turns sideways or round to the viewer`; NE a2 adds `his chest and face never show … no blood, no red`)
+- block: `parries a blow in place: he snaps the kopis up across in front of his face to catch the enemy's blade on it …`; adjust: `he twitches and rolls his shoulders, grips the kopis hilt tighter and turns the heavy curved blade over once …`; kneel: `leaning his weight on the kopis planted point down beside him`
+- the other clips: the slinger's wording with the kopis, the gallic's clean deaths
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | slash NE a1 | **Rejected:** a huge blood burst |
+| 2 | everything else | **Promoted** (smear, spark and blood frames dropped) |
+
+**Lessons:** a curved one-hand blade gets the same crescent smear at the blow as the long blades; a hack "with all his
+weight" brings blood at the blow in most facings even with "no blood": drop those frames and hold the windup. A parry
+with a blade brings a spark burst nearly every time.
