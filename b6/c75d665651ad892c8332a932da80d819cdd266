@@ -1,0 +1,63 @@
+docs/v5/pixellab/I5b/rhomphaia.picks.json
+  s_41b82181a73565::t_5764978d26b3d0 43
+  s_41b82181a73565::t_d06d35f43b030b 44
+  s_41b82181a73565::t_ce420b9dddfb00 6-8
+  s_0d98fe904b2e82::t_27e1fd87149440 1-5,9-42,45-46
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_a35374877b4a72 207-288
+docs/playbook/PROMPTS_ART.md
+  s_41b82181a73565::t_704b1672354096 1037-1084
+src/assets/sheets/rhomphaia/manifest.json
+  s_41b82181a73565::t_0c55da5f305d3d 1-231
+scripts/art/pixellab/i5b/mkspec.mjs
+  s_41b82181a73565::t_6af8a79de64e3f 43-45
+  s_0d98fe904b2e82::t_935bd9da67b8b5 1-42,46-52
+docs/v5/pixellab/I5b/rhomphaia.jobs.json
+  s_41b82181a73565::t_e0924f48a7ffc7 1-75
+docs/v5/pixellab/I5b/rhomphaia.sheet.json
+  s_41b82181a73565::t_e0165a93179e0d 1-625
+scripts/art/pixellab/i5b/addjob.mjs
+  s_0d98fe904b2e82::t_ceec7158f8bd5a 1-18
+scripts/art/pixellab/i5b/feet.mjs
+  s_41b82181a73565::t_ea15e783867593 1-15
+scripts/art/pixellab/i5b/prep.mjs
+  s_41b82181a73565::t_52d92d72163cc0 1-37
+scripts/art/pixellab/i5b/rampdump.mjs
+  s_41b82181a73565::t_3ed56a0bc8fb53 1-31
+scripts/art/pixellab/i5b/repad.mjs
+  s_0d98fe904b2e82::t_50b29d0dea3a60 1-22
+scripts/art/pixellab/i5b/rig5b.mjs
+  s_41b82181a73565::t_894fddd29795fb 1-108
+scripts/art/pixellab/i5b/rv.mjs
+  s_0d98fe904b2e82::t_75237f101b3b52 1-16
+scripts/art/pixellab/i5b/setfirst.mjs
+  s_41b82181a73565::t_02fca658b6d35d 1-25
+scripts/art/pixellab/i5b/shots5b.mjs
+  s_41b82181a73565::t_76ff1682e0ad19 1-28
+scripts/art/pixellab/i5b/upload.mjs
+  s_41b82181a73565::t_4b95086cf0af7f 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b6c75d665651ad892c8332a932da80d819cdd266",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    },
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
