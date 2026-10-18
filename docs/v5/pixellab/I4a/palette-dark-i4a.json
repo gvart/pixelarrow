@@ -1,0 +1,81 @@
+{
+ "$doc": "PA-WORLD-DARK-I4a: palette-dark.json (I1b) plus the ramps the I4a classes need and the I1b ramps lack (proposed upstream to hoplite-prod): purpleBlack (Carthaginian cloaks), plaidGreen (Celtic plaid wool), woad (blue body paint). Same rules: shadow -> light, remap.mjs picks the ramp by hue and chroma.",
+ "outline": [
+  "#120c0a",
+  "#2a1a12",
+  "#442618"
+ ],
+ "darkBronze": [
+  "#241a10",
+  "#3a2a18",
+  "#544024",
+  "#735a34",
+  "#977848",
+  "#bb9a60",
+  "#dcc08a"
+ ],
+ "bronze": [
+  "#6a4a1e",
+  "#b08a3a",
+  "#e0c070"
+ ],
+ "crimson": [
+  "#240c0e",
+  "#3e1216",
+  "#5e1a1e",
+  "#7e2428",
+  "#9c3432",
+  "#b84a40"
+ ],
+ "teamRed": [
+  "#5e2427",
+  "#7a2a2e",
+  "#a12735",
+  "#cc7677"
+ ],
+ "umber": [
+  "#1c1410",
+  "#30241a",
+  "#463426",
+  "#5e4632",
+  "#7b5e44"
+ ],
+ "skin": [
+  "#4e3024",
+  "#7b503d",
+  "#a87464",
+  "#dbac99",
+  "#f8d5c2"
+ ],
+ "metal": [
+  "#2e2826",
+  "#5a4a44",
+  "#836c65",
+  "#ac9283",
+  "#d2b68e"
+ ],
+ "linen": [
+  "#9c8b78",
+  "#d6c0a8",
+  "#e8e2d4"
+ ],
+ "enemySlate": [
+  "#24344a",
+  "#3d5a78",
+  "#7a7a88"
+ ],
+ "purpleBlack": [
+  "#100810",
+  "#160c16",
+  "#2a1f2a",
+  "#3e2c3e",
+  "#54405a"
+ ],
+ "plaidGreen": [
+  "#12120a",
+  "#1d1e13",
+  "#2a2d1c",
+  "#3b3d29",
+  "#55573c"
+ ]
+}
