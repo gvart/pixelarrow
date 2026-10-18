@@ -27,6 +27,8 @@ export const SHEET_ANIMS = [
   'stagger', 'fallFwd', 'fallBack', 'kneel',
   // ambient idles
   'look', 'adjust', 'cheer',
+  // a missile man's short melee jab; riders' gallop; the chariot's drive and wreck
+  'stab', 'gallop', 'drive', 'wreck',
 ] as const;
 export type SheetAnim = (typeof SHEET_ANIMS)[number];
 
@@ -49,15 +51,15 @@ export const ANIM_FALLBACK: Record<SheetAnim, readonly SheetAnim[]> = {
   hit: ['stagger'],
   die: ['fallFwd', 'fallBack', 'hit'],
   dieB: ['fallBack', 'die'],
-  rout: ['run'],
+  rout: ['gallop', 'run'],
   win: ['cheer'],
   thrust: ['attack'],
-  slash: ['attack'],
-  throw: ['attack'],
+  slash: ['thrust', 'attack'],
+  throw: ['shoot', 'attack'],
   shoot: ['attack'],
-  sling: ['attack'],
+  sling: ['throw'],
   brace: ['block'],
-  charge: ['run'],
+  charge: ['gallop', 'run'],
   ready: [],
   stagger: ['hit'],
   fallFwd: ['die'],
@@ -66,6 +68,10 @@ export const ANIM_FALLBACK: Record<SheetAnim, readonly SheetAnim[]> = {
   look: [],
   adjust: [],
   cheer: ['win'],
+  stab: ['thrust'],
+  gallop: ['run'],
+  drive: ['gallop', 'run'],
+  wreck: ['die'],
 };
 
 /** The first animation found from `a` through its fallbacks that satisfies `ok` (null: none). */
@@ -233,6 +239,17 @@ export interface SheetManifest {
   metal?: MetalGroup[];
   /** Bust crop for portraits (art px, a square at x, y): default from the idle frame's bounds. */
   portrait?: { x: number; y: number; size: number };
+  /**
+   * Per-man variation (default: both on). `skin: false` keeps the skin group as
+   * drawn (no Look.skin tone), `shade: false` the cloak and crest (no shade
+   * step): e.g. a horse whose coat shares the rider's skin colours.
+   */
+  variation?: { skin?: boolean; shade?: boolean };
+  /**
+   * Rarity (default on). `metal: false` keeps the metal colours as drawn (no
+   * ramp swap); the glint mask (rank 2+) and the outline glow stay.
+   */
+  rarity?: { metal?: boolean };
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -298,6 +315,12 @@ export function parseManifest(raw: unknown): SheetManifest {
     if (g.kind !== 'bronze' && g.kind !== 'iron') errs.push(`metal kind ${g.kind} unknown`);
     if (!Array.isArray(g.colors) || !g.colors.length || g.colors.some((c) => !HEX.test(c))) errs.push('metal colors must be #rrggbb');
     if (g.slots && g.slots.some((s) => !METAL_SLOTS.includes(s))) errs.push(`metal slots ${g.slots.join(',')} unknown`);
+  }
+  for (const [f, keys] of [['variation', ['skin', 'shade']], ['rarity', ['metal']]] as const) {
+    const o = (m as unknown as Record<string, unknown>)[f];
+    if (o === undefined) continue;
+    if (!o || typeof o !== 'object') errs.push(`${f} must be an object`);
+    else for (const [k, v] of Object.entries(o)) if (!(keys as readonly string[]).includes(k) || typeof v !== 'boolean') errs.push(`${f}.${k}: unknown or not true / false`);
   }
   if (errs.length) throw new Error(`sheet manifest ${m.class ?? '?'}: ${errs.join('; ')}`);
   return m;
@@ -463,9 +486,14 @@ export interface SheetVariant {
   shade: number;
 }
 
-export function sheetVariant(lookSkin: number | undefined, seed: number | undefined): SheetVariant {
-  const skin = Math.max(0, Math.min(SKIN_TONES.length - 1, Math.round(lookSkin ?? 1)));
-  const shade = (Math.imul((seed ?? 0) + 11, 0x9e3779b1) >>> 16) % SHADE_STEPS.length;
+/** Neutral variant: the skin as drawn (tone 1), no shade step (x1). */
+const SKIN_AS_DRAWN = 1;
+const SHADE_NONE = 1;
+
+/** A man's variant; a manifest that turns a part off (`variation`) gets the neutral one there, so its looks collapse to one key. */
+export function sheetVariant(lookSkin: number | undefined, seed: number | undefined, m?: Pick<SheetManifest, 'variation'>): SheetVariant {
+  const skin = m?.variation?.skin === false ? SKIN_AS_DRAWN : Math.max(0, Math.min(SKIN_TONES.length - 1, Math.round(lookSkin ?? 1)));
+  const shade = m?.variation?.shade === false ? SHADE_NONE : (Math.imul((seed ?? 0) + 11, 0x9e3779b1) >>> 16) % SHADE_STEPS.length;
   return { skin, shade };
 }
 
@@ -479,8 +507,8 @@ export function recolorMap(m: SheetManifest, tier: SheetTier, v: SheetVariant): 
   const rc = m.tiers?.[tier] ?? {};
   for (const [name, src] of Object.entries(m.colorGroups ?? {})) {
     const to = (rc[name] ?? src).map(hexColor);
-    const tone = name === 'skin' ? SKIN_TONES[v.skin] : null;
-    const k = SHADED_GROUPS.includes(name) ? SHADE_STEPS[v.shade] : 1;
+    const tone = name === 'skin' && m.variation?.skin !== false ? SKIN_TONES[v.skin] : null;
+    const k = SHADED_GROUPS.includes(name) && m.variation?.shade !== false ? SHADE_STEPS[v.shade] : 1;
     src.forEach((c, i) => {
       let t = to[i];
       if (tone) t = tone(t);

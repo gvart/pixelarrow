@@ -226,7 +226,7 @@ function resolve(d: DollSpec): Resolved | null {
   const e = entries.get(d.cls);
   if (!e) return null;
   e.used = now();
-  if (coreReady(e)) return { e, tier: tierOfDoll(d), v: sheetVariant(d.look?.skin, d.seed) };
+  if (coreReady(e)) return { e, tier: tierOfDoll(d), v: sheetVariant(d.look?.skin, d.seed, e.m) };
   e.pages.forEach((p, i) => p.group === 'core' && loadPage(e, i));
   return null;
 }
@@ -346,9 +346,11 @@ function paletteOf(s: Resolved, d: DollSpec): Palette {
     palettes.set(key, p);
   } else {
     p = { swap: recolorMap(e.m, s.tier, s.v), glint: new Set() };
+    const swapMetal = e.m.rarity?.metal !== false;
     e.metal.forEach((g, i) => {
       const target = (g.kind === 'iron' ? ironOf(ranks[i]) : bronzeOf(ranks[i])).ramp;
-      for (const [a, b] of metalSwap(g.colors, target)) p!.swap.set(a, b);
+      // rarity.metal false: the metal stays as drawn, but still glints (and the outline glows) by rank
+      if (swapMetal) for (const [a, b] of metalSwap(g.colors, target)) p!.swap.set(a, b);
       if (ranks[i] >= 2) for (const c of g.colors) p!.glint.add(c);
     });
     palettes.set(key, p);
