@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "class": "hoplite",
+  "frame": {
+    "w": 42,
+    "h": 54
+  },
+  "anchor": {
+    "x": 21,
+    "y": 47
+  },
+  "scale": 1,
+  "rows": [
+    "south-east",
+    "north-east",
+    "south-west",
+    "north-west"
+  ],
+  "tiers": {
+    "basic": "basic.png",
+    "veteran": "veteran.png",
+    "elite": "elite.png"
+  },
+  "anims": {
+    "idle": {
+      "col": 0,
+      "frames": 4,
+      "fps": 4
+    },
+    "walk": {
+      "col": 4,
+      "frames": 8,
+      "fps": 12
+    },
+    "run": {
+      "col": 12,
+      "frames": 6,
+      "fps": 12
+    },
+    "attack": {
+      "col": 18,
+      "frames": 5,
+      "fps": 14
+    },
+    "block": {
+      "col": 23,
+      "frames": 1,
+      "fps": 4
+    },
+    "hit": {
+      "col": 24,
+      "frames": 2,
+      "fps": 8
+    },
+    "die": {
+      "col": 26,
+      "frames": 4,
+      "fps": 12
+    },
+    "dieB": {
+      "col": 30,
+      "frames": 4,
+      "fps": 12
+    },
+    "rout": {
+      "col": 34,
+      "frames": 4,
+      "fps": 11
+    },
+    "win": {
+      "col": 38,
+      "frames": 2,
+      "fps": 2.6
+    },
+    "thrust": {
+      "col": 40,
+      "frames": 5,
+      "fps": 14
+    },
+    "brace": {
+      "col": 45,
+      "frames": 2,
+      "fps": 2
+    },
+    "charge": {
+      "col": 47,
+      "frames": 6,
+      "fps": 12
+    },
+    "cheer": {
+      "col": 53,
+      "frames": 3,
+      "fps": 3
+    },
+    "fallFwd": {
+      "col": 56,
+      "frames": 4,
+      "fps": 12
+    },
+    "fallBack": {
+      "col": 60,
+      "frames": 4,
+      "fps": 12
+    },
+    "look": {
+      "col": 64,
+      "frames": 6,
+      "fps": 3
+    }
+  },
+  "metal": [
+    {
+      "kind": "bronze",
+      "colors": [
+        "#fbe6a6",
+        "#dcb060",
+        "#ae7c3a",
+        "#7a5228",
+        "#4a321c"
+      ],
+      "slots": [
+        "shield",
+        "helmet",
+        "armor"
+      ]
+    },
+    {
+      "kind": "iron",
+      "colors": [
+        "#f0f2ec",
+        "#b4bcc0",
+        "#7e8890",
+        "#52585e",
+        "#30343a"
+      ],
+      "slots": [
+        "weapon"
+      ]
+    }
+  ]
+}
