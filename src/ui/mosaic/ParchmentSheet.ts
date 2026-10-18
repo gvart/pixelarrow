@@ -37,7 +37,7 @@ import { SCRIM_ALPHA, closeAffordance, sheetMotion, visibleOverlays, type Overla
 import type { Box } from './ScreenFrame';
 import { panelLayout, type PanelKind, type PanelPresentation } from './layout/panels';
 import { layoutVariant } from './layout/variant';
-import { DIALOG_MAX, SIDE_PANEL_MAX } from '../sizeClass';
+import { BUTTON_MAX, DIALOG_MAX, SIDE_PANEL_MAX } from '../sizeClass';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
@@ -257,10 +257,13 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   const actionsH = rows.length ? rows.length * (SHEET_ACTION_H + GAP) + SPACE.sm : 0;
   const buttons: MButton[] = [];
   rows.forEach((row, ri) => {
-    const aw = Math.floor((w - SPACE.md * 2 - GAP * (row.length - 1)) / row.length);
+    // at most a button's width (§2.3: a lone action across a wide side panel), the row centred
+    const fill = Math.floor((w - SPACE.md * 2 - GAP * (row.length - 1)) / row.length);
+    const aw = Math.min(BUTTON_MAX, fill);
+    const ax = x + SPACE.md + Math.floor(((fill - aw) * row.length) / 2);
     row.forEach((a, i) => {
       const by = y + h - SPACE.md - (rows.length - ri) * SHEET_ACTION_H - (rows.length - ri - 1) * GAP;
-      const b = new MButton(scene, x + SPACE.md + i * (aw + GAP), by, aw, SHEET_ACTION_H, { variant: 'neutral', ...a });
+      const b = new MButton(scene, ax + i * (aw + GAP), by, aw, SHEET_ACTION_H, { variant: 'neutral', ...a });
       box.add(b);
       buttons.push(b);
     });

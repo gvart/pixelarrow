@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
 import { ScrollArea, addIcon, panelK } from '../ui/kit';
+import { SIZE } from '../ui/theme';
 import { ScrollList, ItemIcon, addScrollHint, confirmDialog, toast } from '../ui/widgets';
-import { uiId } from '../ui/layout';
+import { uiId, uiLayout } from '../ui/layout';
+import { layoutVariant, PANE_GUTTER } from '../ui/mosaic/layout/geometry';
+import { focusPane } from '../ui/focusRing';
+import { BUTTON_MAX, ROW_MAX } from '../ui/sizeClass';
 import { measureText, wrapText, LINE_H } from '../ui/textfit';
 import { ensureFonts } from '../ui/fonts';
 import { className, defaultStashState, itemName, openItemCard, saleText, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
@@ -54,6 +58,8 @@ let lastTab: { id: number; tab: Tab } | null = null;
 
 /** Village / town screen (screens-campaign.md C-6): hire volunteers, buy and sell gear, services (rest, provisions, physician, drillmaster). */
 export class SettlementScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-06). */
+  protected override readonly responsive = true;
   private id = 0;
   private tab: Tab = 'recruits';
   private tabList: Tab[] = [];
@@ -68,6 +74,8 @@ export class SettlementScene extends BaseScene {
   private bodyTop = 0;
   private bodyBottom = 0;
   private chipsY = 0;
+  /** The banner pane (compact landscape, expanded): the purse is laid out across its width, row by row. */
+  private chipBox: { x: number; w: number } | null = null;
   private restArea: ScrollArea | null = null;
   private eventCard: EventCardHandle | null = null;
 
@@ -96,20 +104,44 @@ export class SettlementScene extends BaseScene {
     this.screen({ back: () => this.leave() });
     const { VH } = this.m;
     const compact = VH < 300;
+    // compact landscape and expanded: a banner pane at the left (the fresco, who lives here, the purse, Army
+    // and Leave at its foot) beside the tabs and their body (landscape-v6 §11.2); compact portrait (v5) and
+    // medium stack them
+    const v = layoutVariant(this.m);
+    uiLayout(this, this.m.cls, this.m.land);
+    const paned = v === 'compactLandscape' || v === 'expanded';
 
     const shell = addSubShell(this, { title: placeName(def.name), back: () => this.leave(), id: 'town.topbar', scroll: false });
     const b = shell.content;
     this.ax = b.x + 4;
     this.aw = b.w - 8;
     let y = b.y + 4;
+    // the banner pane and the body pane, centred in the frame together
+    const lw = v === 'expanded' ? BANNER_W_WIDE : BANNER_W;
+    const bodyW = Math.min(this.aw - lw - PANE_GUTTER, ROW_MAX);
+    const px = this.ax + Math.floor((this.aw - lw - PANE_GUTTER - bodyW) / 2);
+    this.chipBox = paned ? { x: px, w: lw } : null;
+    // Army and Leave: across the foot of the page, or of the banner pane
+    const actions: MButtonOpts[] = [
+      { label: t('town.party'), icon: 'people', variant: 'secondary', id: 'town.party', onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id }) },
+      { label: t('town.leave'), icon: 'map', variant: 'secondary', id: 'town.leave', onClick: () => this.leave() },
+    ];
+    const bar = paned ? new MActionBar(this, lw, b.y + b.h, { surface: 'parchment', x: px }).set(actions) : new MActionBar(this, b.w, b.y + b.h, { surface: 'parchment', x: b.x }).set(actions);
 
     // the settlement's painted vignette in the fresco frame (the map tile drawn large until it has loaded)
-    // shorter on a short screen, so the tab's first rows (the Drillmaster in Services) stay in view
-    const artH = compact ? 38 : VH < 380 ? 58 : 78;
+    // shorter on a short screen, so the tab's first rows (the Drillmaster in Services) stay in view; in the
+    // banner pane it takes the height the purse and the actions leave
+    const chipsH = paned ? this.chipRowsNeeded() * (CHIP_ROW_H + 3) : 0;
+    // (in the pane, at most what keeps the column under it from standing empty for most of the height: who
+    // lives here and the purse sit right under it)
+    const room = bar.top - 3 - chipsH - 11 - 3 - y;
+    const artH = paned ? Math.min(room, Math.floor(VH * ART_SHARE) - y - 6) : v === 'medium' ? ART_H_MEDIUM : compact ? 38 : VH < 380 ? 58 : 78;
+    const artX = paned ? px : this.ax;
+    const artW = paned ? lw : this.aw;
     const vk = vignetteKey(def.kind, def.culture);
     const artY = y;
-    const banner = (art: { image: string } | { pixelKey: string }) => new FrescoBanner(this, this.ax, artY, this.aw, artH, { ...art, label: placeName(def.name), id: 'town.art' });
-    const first = banner(hasRaster(this, vk) ? { image: vk } : { pixelKey: this.artTexture(def, this.aw - 8, artH - 8) });
+    const banner = (art: { image: string } | { pixelKey: string }) => new FrescoBanner(this, artX, artY, artW, artH, { ...art, label: placeName(def.name), id: 'town.art' });
+    const first = banner(hasRaster(this, vk) ? { image: vk } : { pixelKey: this.artTexture(def, artW - 8, artH - 8) });
     this.ui.add(first);
     // downloaded on the first visit to a place of this kind and people, without holding the page up
     if (!hasRaster(this, vk) && !askedVignettes.has(vk)) {
@@ -124,13 +156,20 @@ export class SettlementScene extends BaseScene {
     }
     y += artH + 3;
     const people = tOr(`culture.${def.culture}`, CULTURE_LABEL[def.culture]);
-    this.ui.add(mtext(this, b.x + b.w / 2, y + 1, t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: this.aw, box: { owner: this.ui, w: this.m.VW, h: VH } }));
+    const kindX = paned ? px + lw / 2 : b.x + b.w / 2;
+    this.ui.add(mtext(this, kindX, y + 1, t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: artW, box: { owner: this.ui, w: this.m.VW, h: VH } }));
     y += 11;
 
     // gold, men, wounded
     this.chipsY = y;
     y += 18 + 3;
 
+    // the tabs and their body: under the purse, or at the top of the body pane
+    if (paned) {
+      this.ax = px + lw + PANE_GUTTER;
+      this.aw = bodyW;
+      y = b.y + 4;
+    }
     // tabs: Hire / Buy / Sell / Services in a town, Hire / Rest in a village (V5-029)
     const town = def.kind === 'town';
     this.ui.add(
@@ -151,13 +190,10 @@ export class SettlementScene extends BaseScene {
     this.ui.add(this.status);
 
     // Leave is bronze (SET-3): the page's primary is per tab (Hire, Buy, Sell, Rest 8 hours)
-    const actions: MButtonOpts[] = [
-      { label: t('town.party'), icon: 'people', variant: 'secondary', id: 'town.party', onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id }) },
-      { label: t('town.leave'), icon: 'map', variant: 'secondary', id: 'town.leave', onClick: () => this.leave() },
-    ];
-    const bar = new MActionBar(this, b.w, b.y + b.h, { surface: 'parchment', x: b.x }).set(actions);
     this.ui.add(bar);
-    this.bodyBottom = bar.top - 3;
+    this.bodyBottom = paned ? b.y + b.h - 3 : bar.top - 3;
+    // Tab reads the top bar, the tabs and their body, then Army and Leave (landscape-v6 §4)
+    if (paned) bar.buttons.forEach((o) => focusPane(o, 1));
     this.events.once('shutdown', () => this.clearBody());
     this.refresh();
     // an arrival event (campaign-events.md R3) is answered before the page is used (screens-campaign.md C-6)
@@ -222,12 +258,32 @@ export class SettlementScene extends BaseScene {
       new MChip(this, 0, 0, { icon: 'coin', value: camp.data.gold, tip: t('menu.tip.gold'), id: 'town.gold' }),
       new MChip(this, 0, 0, { icon: 'people', value: `${camp.data.heroes.length}/${MAX_ARMY}`, tip: t('menu.tip.army'), id: 'town.men' }),
     ];
+    const pane = this.chipBox;
     if (wounded) {
-      // the word goes before the chip does not fit
+      // the word goes before the chip does not fit (in the banner pane: before it needs a row more than the pane keeps)
       const room = this.aw - chips.reduce((a, c) => a + c.w, 0) - GAP * 2;
       const word = t('town.hurt', { n: wounded });
-      const value = MChip.width({ icon: 'cross', value: word }) <= room ? word : `${wounded}`;
+      const ww = MChip.width({ icon: 'cross', value: word });
+      const fits = pane ? chipRows([...chips.map((c) => c.w), ww], pane.w).length <= this.chipRowsNeeded() : ww <= room;
+      const value = fits ? word : `${wounded}`;
       chips.push(new MChip(this, 0, 0, { icon: 'cross', value, tip: t('town.wounded'), id: 'town.hurt' }));
+    }
+    if (pane) {
+      // in the banner pane: as many to a row as fit, each row centred
+      let i = 0;
+      chipRows(chips.map((c) => c.w), pane.w).forEach((row, r) => {
+        const total = row.reduce((a, w) => a + w, 0) + GAP * (row.length - 1);
+        let x = Math.round(pane.x + (pane.w - total) / 2);
+        for (const w of row) {
+          const c = chips[i++];
+          c.x = x;
+          c.y = this.chipsY + r * (CHIP_ROW_H + 3);
+          this.status.add(c);
+          x += w + GAP;
+        }
+      });
+      this.buildBody();
+      return;
     }
     const total = chips.reduce((a, c) => a + c.w, 0) + GAP * (chips.length - 1);
     let x = Math.round(this.ax + (this.aw - total) / 2);
@@ -238,6 +294,17 @@ export class SettlementScene extends BaseScene {
       x += c.w + GAP;
     }
     this.buildBody();
+  }
+
+  /** Rows the purse takes in the banner pane now (the wounded chip with its word when that fits on a second row). */
+  private chipRowsNeeded(): number {
+    const pane = this.chipBox;
+    if (!pane) return 1;
+    const camp = state.campaign;
+    const widths = [MChip.width({ icon: 'coin', value: camp.data.gold }), MChip.width({ icon: 'people', value: `${camp.data.heroes.length}/${MAX_ARMY}` })];
+    const wounded = camp.wounded().length;
+    if (wounded) widths.push(MChip.width({ icon: 'cross', value: `${wounded}` }));
+    return chipRows(widths, pane.w).length;
   }
 
   private clearBody(): void {
@@ -263,8 +330,14 @@ export class SettlementScene extends BaseScene {
     this.restArea?.setScroll(keep);
   }
 
-  private newList(y: number, h: number, count: number, rowH: number, render: ConstructorParameters<typeof ScrollList>[6]['render']): ScrollList {
-    return new ScrollList(this, this.body, this.ax, y, this.aw, h, { count, rowH, render, fade: MOSAIC.parch });
+  private newList(y: number, h: number, count: number, rowH: number, render: ConstructorParameters<typeof ScrollList>[6]['render'], ids?: (i: number) => string[]): ScrollList {
+    // beside the banner pane a list shorter than the body sits in the middle of its height, not at the top of an empty page
+    const total = count * (rowH + LIST_GAP) - LIST_GAP;
+    if (this.chipBox && total < h) {
+      y += Math.floor((h - total) / 2);
+      h = total;
+    }
+    return new ScrollList(this, this.body, this.ax, y, this.aw, h, { count, rowH, render, fade: MOSAIC.parch, ids });
   }
 
   /**
@@ -303,7 +376,7 @@ export class SettlementScene extends BaseScene {
     const trait = (cls: string) => wrapWords(`+${roleTraits(cls).good}`, fw, (s) => mw(s, 'pGood', TEXT_MIN)).slice(0, 2);
     const lines = Math.max(1, ...pool.map((r) => trait(heroClass(r.hero).role).length));
     // the pills beside the price when they fit there, else on a line of their own under it (narrow screens)
-    const bw = 50;
+    const bw = this.priceW(t('town.hire'), pool.map((r) => r.price));
     const pillsW = (r: (typeof pool)[number]) => armyPillW(roleName(heroClass(r.hero).role)) + (r.index >= VOLUNTEER_RULES.floorIndex ? armyPillW(t('set.volunteer')) + 3 : 0);
     const below = (r: (typeof pool)[number]) => pillsW(r) > fw - bw - 4;
     const extra = pool.some(below) ? 16 : 0;
@@ -330,7 +403,7 @@ export class SettlementScene extends BaseScene {
       row.add(mtext(this, tx, 15, className(hero), 'pSec', { size: TEXT_MIN, maxW: w0, box }));
       row.add(
         new MButton(this, rw - bw - 4, 26, bw, TAP, {
-          label: `${r.price}`,
+          label: this.priceLabel(t('town.hire'), r.price),
           icon: 'coin',
           variant: can ? 'secondary' : 'disabled',
           disabledReason: full ? t('town.armyFull') : t('stash.noGold'),
@@ -347,7 +420,23 @@ export class SettlementScene extends BaseScene {
       const pw = armyPill(this, row, tx, py, roleName(cls.role), roleColor(cls.role), pr);
       if (vol) armyPill(this, row, tx + pw + 3, py, t('set.volunteer'), MOSAIC.bronze, pr - pw - 3);
       trait(cls.role).forEach((l, k) => row.add(mtext(this, tx, 51 + (low ? extra : 0) + k * ARMY_LH, l, 'pGood', { size: TEXT_MIN, maxW: w0, box })));
-    });
+    }, (i) => (i < pool.length ? ['recruit.card', 'town.hire'] : []));
+  }
+
+  /** A row this wide names its price button's action ("Hire 56"; the phone's rows show the price alone). */
+  private get wideRows(): boolean {
+    return this.aw >= WIDE_ROW;
+  }
+
+  private priceLabel(verb: string, price: number): string {
+    return this.wideRows ? `${verb} ${price}` : `${price}`;
+  }
+
+  /** The price buttons' one width in a list: 50, or what the longest "verb price" needs in a wide row. */
+  private priceW(verb: string, prices: number[]): number {
+    if (!this.wideRows) return 50;
+    const need = Math.max(...prices.map((p) => mw(this.priceLabel(verb, p).toUpperCase(), 'rCream', 7)));
+    return Math.max(50, Math.min(WIDE_BTN_MAX, Math.ceil(need) + 30));
   }
 
   openRecruit(index: number): void {
@@ -412,10 +501,10 @@ export class SettlementScene extends BaseScene {
       const isz = 28;
       row.add(new ItemIcon(this, 5, Math.round((rh - isz) / 2), { item: it }, { size: isz, area, glow: false, onTap: () => this.openWare(ware.index) }));
       const can = camp.data.gold >= ware.price;
-      const bw = 50;
+      const bw = this.priceW(t('town.tab.buy'), wares.map((x) => x.price));
       row.add(
         new MButton(this, rw - bw - 4, Math.round((rh - TAP) / 2), bw, TAP, {
-          label: `${ware.price}`,
+          label: this.priceLabel(t('town.tab.buy'), ware.price),
           icon: 'coin',
           variant: can ? 'secondary' : 'disabled',
           disabledReason: t('stash.noGold'),
@@ -425,15 +514,23 @@ export class SettlementScene extends BaseScene {
       );
       const tx = 5 + isz + 6;
       const tw = rw - tx - bw - 8;
-      row.add(mtext(this, tx, 4, itemName(it), rarityInk(this, it.rarity), { size: 7, maxW: tw, box }));
       const def = itemDef(it.def);
       // the slot, then its main stats on their own line (whole; a long one drops before it is cut)
       const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${localDecimals(m.text)}`);
+      if (this.wideRows) {
+        // a wide row: the name and slot at the left, each stat on its own line in a second column
+        const cw = Math.floor(tw / 2);
+        row.add(mtext(this, tx, 9, itemName(it), rarityInk(this, it.rarity), { size: 7, maxW: cw - 4, box }));
+        row.add(mtext(this, tx, 21, t(`slot.${def.slot}` as TKey), 'pSec', { size: TEXT_MIN, maxW: cw - 4, box }));
+        mods.forEach((m, k) => row.add(mtext(this, tx + cw, (mods.length > 1 ? 9 : 15) + k * 12, m, 'pMuted', { size: TEXT_MIN, maxW: tw - cw, box })));
+        return;
+      }
+      row.add(mtext(this, tx, 4, itemName(it), rarityInk(this, it.rarity), { size: 7, maxW: tw, box }));
       const fits = (s: string) => measureText(s, false, TEXT_MIN) <= tw;
       const ml = fits(mods.join(' · ')) ? mods.join(' · ') : (mods[0] ?? '');
       row.add(mtext(this, tx, 16, t(`slot.${def.slot}` as TKey), 'pSec', { size: TEXT_MIN, maxW: tw, box }));
       row.add(mtext(this, tx, 27, ml, 'pMuted', { size: TEXT_MIN, maxW: tw, box }));
-    });
+    }, (i) => (i < wares.length ? [`item:${wares[i].item.def}`, 'town.buy'] : []));
   }
 
   openWare(index: number): void {
@@ -482,6 +579,8 @@ export class SettlementScene extends BaseScene {
 
   private buildSell(y: number, h: number): void {
     this.stash = new MStashGrid(this, this.body, this.ax, y, this.aw, h, {
+      // larger cells in a wide body (a tablet, beside the banner pane), as the Army's stash (V6-RSCR-05)
+      ...(this.wideRows ? { cell: STASH_CELL_WIDE } : {}),
       items: () => state.campaign.data.stash,
       state: this.stashState,
       onTap: (it) => this.openSell(it),
@@ -531,7 +630,9 @@ export class SettlementScene extends BaseScene {
     const wounded = camp.wounded();
     const BH = TAP + 2;
     // the primary, pinned at the foot of the tab
-    this.body.add(new MButton(this, this.ax, y + h - BH, this.aw, BH, { label: t('town.rest8'), icon: 'tent', variant: 'primary', id: 'town.rest', onClick: () => this.rest(8) }));
+    // (at most a button's width, §2.3: a full-pane bar reads as a banner on a tablet)
+    const rw = Math.min(this.aw, BUTTON_MAX);
+    this.body.add(new MButton(this, this.ax + Math.floor((this.aw - rw) / 2), y + h - BH, rw, BH, { label: t('town.rest8'), icon: 'tent', variant: 'primary', id: 'town.rest', onClick: () => this.rest(8) }));
     const area = new ScrollArea(this, this.body, this.ax, y, this.aw, h - BH - GAP, this.m.S);
     this.restArea = area;
     addScrollHint(this, this.body, area, MOSAIC.parch);
@@ -725,3 +826,36 @@ export class SettlementScene extends BaseScene {
   }
 }
 
+/** The banner pane's width, UI px (landscape-v6 §11.2): compact landscape, expanded. */
+const BANNER_W = 150;
+const BANNER_W_WIDE = 220;
+/** A body this wide (tablets, beside the banner pane) names the price buttons' action; their widest. */
+const WIDE_ROW = 300;
+const WIDE_BTN_MAX = 110;
+/** ScrollList's gap between rows (SIZE.gap). */
+const LIST_GAP = SIZE.gap;
+/** The Sell tab's stash cells in a wide body, UI px (28 on a phone). */
+const STASH_CELL_WIDE = 40;
+/** The fresco band on a tablet (§11.2: at most 120). */
+const ART_H_MEDIUM = 120;
+/** The banner pane's fresco ends above this share of the height (the layout check's empty-column, 60%). */
+const ART_SHARE = 0.55;
+/** A purse chip's height (MChip without a tap). */
+const CHIP_ROW_H = 18;
+
+/** Chips of these widths in rows at most `w` wide (each row at least one chip). */
+function chipRows(widths: number[], w: number): number[][] {
+  const rows: number[][] = [];
+  let used = 0;
+  for (const cw of widths) {
+    const row = rows[rows.length - 1];
+    if (row && used + GAP + cw <= w) {
+      row.push(cw);
+      used += GAP + cw;
+    } else {
+      rows.push([cw]);
+      used = cw;
+    }
+  }
+  return rows;
+}
