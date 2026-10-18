@@ -17,6 +17,7 @@ reconstructed or invented. How to run a job: [ART.md](ART.md).
 | AS-06 | World pixel sprites | 14 | 1 (the seed) | 13 (follow-up pattern verbatim, specifics quoted in short) |
 | AS-08 | Nikias portraits, app icon mark | 5 | 5 | 0 |
 | I1 | PixelLab hoplite bake-off (characters and clips, §13) | 10 characters + 10 clip jobs | 5 (3 character prompts, 2 attack prompts) + the call settings | 0 |
+| I1b | PixelLab dark-epic hoplite, 16-frame walk, 12-frame thrust, elite state (§14) | 4 characters + 11 clip jobs | 9 prompts + the call settings | 0 |
 | **Total (Gemini)** | | **82** | **41** | **41** |
 
 **Missing.** No v5 render is unrecorded. Not recorded anywhere: the prompts for art that predates v5 and still
@@ -670,3 +671,85 @@ third of the body). v3 custom clips invent the weapon's path (a lateral swing, a
 hold identity but have no spear motions; skeleton-v3 holds identity best in front views and breaks in the back view.
 Next time pose the thrust ourselves (`animate_with_skeleton_v3`, keypoints from the procedural rig) and check NE first.
 Snap with a ramp-aware remap: the nearest-colour snap turns PixelLab bronze into the grey metal ramp.
+
+## 14. PixelLab dark-epic hoplite (I1b)
+
+The I1 review asked for a darker, *300* / Lord of the Rings look, smooth 12–16-frame clips and a spear whose head always
+leads (V5-087), then one spearhead only and a plain blunt butt. Full log, ids, fixes and costs:
+[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I1b. Rebuild: `bash scripts/art/pixellab/i1b-e3.sh`. Every prompt carries
+"single leaf-shaped spearhead, plain blunt butt end, no butt spike".
+
+**D1** (character, Pro Flash 68x68, high top-down)
+
+```
+  grim battle-hardened Spartan hoplite warrior, muscular build, standing straight and facing the viewer, full body with the feet near the bottom of the canvas: dark weathered bronze Corinthian helmet covering the face with a tall deep crimson horsehair crest; deep crimson cloak hanging from the shoulders behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; a very large round aspis shield on his left arm reaching from his chin to his knees, dark bronze rim and a muted dark-red painted emblem; a very long wooden spear (dory) held vertically in his right hand, taller than the man, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; heavy shadows, desaturated dark warm colours, low-key cinematic light from the upper left, the mood of the film 300 and Lord of the Rings
+```
+
+**D2** (v3 redo of SE and NW from E1, rejected)
+
+```
+  grim muscular Spartan hoplite: dark weathered bronze Corinthian helmet with a tall deep crimson crest, deep crimson cloak, dark bronze cuirass, very large round aspis with a dark bronze rim and a muted red lambda on his left arm, a very long wooden spear held vertically in his right hand beside his body, taller than the man, its single leaf-shaped spearhead clearly visible above his head in every view, plain blunt butt end, no butt spike
+```
+
+**D3** (v3 import of all 8 views: E3)
+
+```
+  grim muscular Spartan hoplite: dark weathered bronze Corinthian helmet with a tall deep crimson crest, deep crimson cloak, dark bronze cuirass, very large round aspis with a dark bronze rim and a muted red lambda on his left arm, a very long wooden spear held vertically in his right hand, single leaf-shaped spearhead, plain blunt butt end, no butt spike
+```
+
+**D4** (elite state, create_character_state)
+
+```
+  elite veteran version of the same hoplite: a black cloak instead of the crimson one, a gilded crest holder with a black horsehair crest trimmed in gold, an ornate dark bronze muscle cuirass with gilded edges; keep the same Corinthian helmet shape, the same very large round aspis with the muted red lambda on the left arm, and the same long spear in the right hand with a single leaf-shaped spearhead, plain blunt butt end, no butt spike; same pose, same dark grim palette
+```
+
+**W1** (walk, pixminimax 16 frames)
+
+```
+  steady disciplined marching walk, the long spear held upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways a little
+```
+
+**W2** (walk SE redo, pixminimax 16 frames from a drawn start frame)
+
+```
+  steady disciplined marching walk, the long spear held in the right hand and leaning a little outward, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm in every frame; the cloak sways a little
+```
+
+**T1** (thrust, skeleton-v3 12 frames, overhand from the upright spear, rejected)
+
+```
+  grim muscular Spartan hoplite in dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze cuirass and greaves, a very large round bronze aspis with a muted red lambda held across his body on his left arm in every frame, a long wooden spear in his right hand gripped overhand above the shoulder, its single leaf-shaped spearhead always at the front end pointing the way he faces, plain blunt butt end, no butt spike
+```
+
+**T2** (thrust, skeleton-v3 12 frames from a couched first frame, front facings)
+
+```
+  grim muscular Spartan hoplite in a dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze cuirass and greaves, one very large round bronze aspis with a muted red lambda held across his body on his left arm, one long wooden spear held level at the hip in his right hand with a single leaf-shaped spearhead at the front end pointing the way he faces, plain blunt butt end, no butt spike
+```
+
+**T2, back facings (NE, NW)**
+
+```
+  grim muscular Spartan hoplite seen from behind in a dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze greaves, one very large round bronze aspis held on his left arm in front of him, one long wooden spear held level at the hip in his right hand with a single leaf-shaped spearhead at the front end pointing the way he faces, plain blunt butt end, no butt spike
+```
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | E1, D1 | **Promoted, patched:** the look in one call; NW spear hidden behind the cloak (pasted from NE by hand) |
+| 2 | E2, D2 | **Rejected:** NW spear still missing |
+| 3 | E3, D3 | **Promoted:** the patched E1 on a 96 canvas (0.25 gens) |
+| 4 | Elite, D4 | **Probe passed:** identity and gear placement hold in 8 views |
+| 5 | walk template SW NE | **Rejected:** the aspis vanishes in every frame |
+| 6 | W1 SW NE NW | **Promoted** |
+| 7 | W1 SE | **Rejected:** no spear in 16 frames |
+| 8 | W2 SE | **Promoted** |
+| 9 | T1 SW | **Rejected:** head carried backwards over the shoulder (6 frames) |
+| 10 | T2 SW SE NW | **Promoted**; SE f2 and NW f7 rejected for a metallic or pointed butt (replaced by the neighbouring frame) |
+| 11 | T2 NE | **Rejected:** head runs off the canvas (3 frames); redone with the figure further left: **promoted** |
+
+**Lessons:** a held weapon is safest when the first frame already shows it the way the clip needs it: draw the couched
+spear head-forward into the first frame (`spear.mjs`) and pose the body with our own skeleton (`skeleton.mjs`, the doll
+rig's joints fitted to the sprite's big-helmet proportions); from an upright spear the model swings the head over the
+shoulder. Template clips drop the shield; pixminimax keeps it but loses whatever the start frame half-hides. Give a thrust
+a canvas its extension fits in. Review both spear ends frame by frame, and keep the fixes in a JSON (`fixframes.mjs`) so a
+re-fetch can replay them. A ramp-aware remap keeps bronze bronze; nearest-colour snapping does not.
