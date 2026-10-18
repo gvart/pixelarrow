@@ -19,7 +19,7 @@ import { SIZE } from './theme';
 import { MOSAIC } from './tokens';
 import { BUTTON_MAX } from './sizeClass';
 import { uiFrame } from './layout';
-import { openParchmentSheet, sheetWidth } from './mosaic/ParchmentSheet';
+import { openParchmentSheet, sheetBox, sheetWidth } from './mosaic/ParchmentSheet';
 import { MIconButton } from './mosaic/iconButton';
 import { online } from '../platform/cloud';
 import { NOTIFY_TYPES, type NotifySettings, type NotifyType } from '../platform/api';
@@ -74,6 +74,15 @@ export const settingsSheetOpts = (scene: UiScene): { w: number; dock: 'bottom'; 
  */
 export const settingsSheetW = (at: number | UiScene): number => (typeof at === 'number' ? Math.min(at - 8, 240) : sheetWidth(at, settingsSheetOpts(at)));
 
+/**
+ * The height Settings or a page asking for `want` gets: as asked, but a side panel stays under the top bar
+ * (§3.4), since the content scrolls. A page whose content does not scroll (About) passes `rise` instead.
+ */
+export function settingsSheetH(scene: UiScene, want: number): number {
+  const box = sheetBox(scene, { ...settingsSheetOpts(scene), h: 0 });
+  return Math.min(want, scene.m.VH - 12, box.presentation === 'side' ? box.h : Infinity);
+}
+
 /** Title sizes of a page, largest first; 6.5 UI px is the readable floor (A11Y-09). */
 const TITLE_SIZES = [9, 8.5, 8, 7.5, 7, 6.5];
 
@@ -82,8 +91,8 @@ const TITLE_SIZES = [9, 8.5, 8, 7.5, 7, 6.5];
  * chevron at the left of its title and no X (one close affordance, G5).
  * Closing it (chevron, Back, a tap outside) uncovers the settings again.
  */
-export function openSettingsPage(scene: UiScene, o: { title: string; h: number; id: string; onClose?: () => void }): Modal {
-  const m = openParchmentSheet(scene, { ...settingsSheetOpts(scene), h: o.h, closeButton: false, onClose: o.onClose, id: o.id });
+export function openSettingsPage(scene: UiScene, o: { title: string; h: number; id: string; rise?: boolean; onClose?: () => void }): Modal {
+  const m = openParchmentSheet(scene, { ...settingsSheetOpts(scene), h: o.rise ? o.h : settingsSheetH(scene, o.h), closeButton: false, onClose: o.onClose, id: o.id });
   const { c, x, y, w } = m;
   c.add(new MIconButton(scene, x + 3, y + 1, 22, 22, { icon: 'chevL', label: t('common.back'), variant: 'secondary', id: `${o.id}.back`, onClick: () => m.close() }));
   // centred like every sheet title; moved right of the chevron when it would not fit there at a readable size
@@ -187,7 +196,8 @@ export function openAbout(scene: UiScene, onClose?: () => void): Phaser.GameObje
   const note = wrapText(t('about.note'), iw, 6);
   const step = SIZE.btnH + SIZE.gap;
   const want = 26 + note.lines.length * LINE_H + 8 + PAGES.length * step + 12;
-  const m = openSettingsPage(scene, { title: t('about.title'), h: Math.min(want, VH - 12), id: 'about', onClose });
+  // its words and buttons do not scroll: on a short screen it rises over the top bar to show them all
+  const m = openSettingsPage(scene, { title: t('about.title'), h: Math.min(want, VH - 12), id: 'about', rise: true, onClose });
   const { c, x, y } = m;
   c.add(addText(scene, x + 8, y + 26, note.lines.join('\n'), 'pInk'));
   let by = y + 26 + note.lines.length * LINE_H + 8;

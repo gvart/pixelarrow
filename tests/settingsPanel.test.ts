@@ -12,13 +12,13 @@ vi.mock('phaser', () => {
   const go = { Container: C, Image: C, Sprite: C, Text: C, BitmapText: C, Graphics: C, Rectangle: C, Zone: C, TileSprite: C, RenderTexture: C };
   return { default: { GameObjects: go, Scene: C, Geom: { Rectangle: C }, Events: { EventEmitter: C } } };
 });
-const { sheetBox } = await import('../src/ui/mosaic/ParchmentSheet');
-const { settingsSheetW, settingsSheetOpts } = await import('../src/ui/notifySettings');
+const { sheetBox, setSheetArea } = await import('../src/ui/mosaic/ParchmentSheet');
+const { settingsSheetH, settingsSheetW, settingsSheetOpts } = await import('../src/ui/notifySettings');
 
 /** A scene at a W x H CSS px safe area (only its metrics are read). */
 const sceneAt = (size: string) => {
   const [w, h] = size.split('x').map(Number);
-  return { m: metricsFor(w, h, 1, false) } as unknown as Parameters<typeof sheetBox>[0];
+  return { m: metricsFor(w, h, 1, false), events: { once: () => undefined } } as unknown as Parameters<typeof sheetBox>[0];
 };
 const settingsBox = (size: string, h = 999) => {
   const s = sceneAt(size);
@@ -77,5 +77,16 @@ describe('Settings opens per §3.4 in every class', () => {
   it('a bare width keeps the v5 rule for callers that pass VW', () => {
     expect(settingsSheetW(195)).toBe(187);
     expect(settingsSheetW(640)).toBe(240);
+  });
+
+  it('a side panel stays under the top bar: Settings asks for no more than the content area (§3.4), a phone upright as v5', () => {
+    const s = sceneAt('844x390');
+    setSheetArea(s, { x: 42, y: 15, w: s.m.VW - 42, h: s.m.VH - 15 });
+    expect(settingsSheetH(s, 999)).toBe(s.m.VH - 15);
+    const box = sheetBox(s, { ...settingsSheetOpts(s), h: settingsSheetH(s, 999) });
+    expect(box).toMatchObject({ presentation: 'side', y: 15 });
+    const p = sceneAt('390x844');
+    expect(settingsSheetH(p, 999)).toBe(p.m.VH - 12);
+    expect(settingsSheetH(p, 300)).toBe(300);
   });
 });
