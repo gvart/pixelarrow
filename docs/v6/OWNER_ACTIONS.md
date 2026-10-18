@@ -11,30 +11,15 @@ The two hosts (ADR-0007): the game and its API on `https://play.pixelarrow.app`
 
 ## A. Before go-live (any time; nothing goes offline)
 
-1. **Legal and privacy sign-off** (was items 5 and 6; ADR-0009 §8; V6-LINK-07).
-   The privacy notice draft is `landing/public/privacy.html` and
-   `landing/public/ru/privacy.html` (sections 1–11, marked "Draft — pending
-   owner sign-off"). Every value only you can decide is a visible `[…]`
-   placeholder there.
-   1. Fill in the operator name and address/country, the privacy contact email
-      and the effective date (both languages).
-   2. Confirm how long purchase records are kept after an account is deleted
-      (proposed **5 years**; accounts UX Q8). The game says the same number on
-      the Delete account screen: if it changes, change
-      `PURCHASE_RETENTION_YEARS` in `src/ui/account/deletion.ts` too.
-   3. Confirm how long D1 backups are kept (proposed **30 days**) and how long
-      support requests are kept after they are resolved (`[N months]`).
-   4. Decide the **minimum player age** (13 or 16; it must also respect
-      Telegram's terms) and put it in section 9 of both pages. The sign-up form
-      has a key for an age line (`auth.signup.age`) if you want it shown there
-      too.
-   5. Decide which language prevails if the English and Russian texts differ
-      (section 11).
-   6. Read the whole notice in both languages and remove the draft line once it
-      is signed off.
-   7. Sign off the other legal pages' wording (`landing/public/terms.html`,
-      `refunds.html` and their `landing/public/ru/` copies), including the URL
-      fix to "Mini App at play.pixelarrow.app" (V6-024).
+1. **Legal and privacy sign-off** — DONE 2026-10-18 (V6-LINK-07). Privacy,
+   terms and refunds (EN and RU, `landing/public/`) are filled in: operator
+   Vladlen Gladis, Germany; contact privacy@pixelarrow.app; effective
+   18 October 2026; purchase records 5 years after deletion (matches
+   `PURCHASE_RETENTION_YEARS`); D1 backups 30 days; support requests 12 months;
+   minimum age 16; English prevails; German law governs the terms; refunds
+   asked within 14 days, answered within 3 working days. Draft banners removed.
+   Left for you: make sure privacy@pixelarrow.app receives mail (Cloudflare
+   Email Routing) before go-live, and read the pages once in both languages.
 2. **Cloudflare plan** (was item 4). Upgrade to Workers Paid if the Rate Limiting
    binding (`RL_LANDING_PUBLIC` and the account limits) or the CPU limits need
    it. Step 3 needs it.
