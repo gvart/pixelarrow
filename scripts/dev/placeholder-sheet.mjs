@@ -15,6 +15,11 @@
 // the runtime swaps them per rarity. Some new animations are left out on purpose
 // (slash, throw, shoot, sling, ready, stagger, kneel, adjust), so the battle shows
 // their fallbacks. Load it in the dev server with ?sheets=dev.
+//
+// `companion` renders the procedural rider instead (a mounted sheet): the gallop,
+// lance thrust, rear (hit), both falls, rout and victory, in a frame padded with
+// headroom and off-centre per row (the rows facing right stand left of centre),
+// so the runtime's mounted path (frame box, per-row anchors, scale) is exercised.
 import { createServer } from 'vite';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -30,8 +35,30 @@ const { ANIM, BATTLE_SCALE, DIRS, dollGeom, renderFrame } = pd;
 const LOOK = { skin: 1, hair: 1, hairStyle: 0, beard: 1, tunic: 'tunicRed' };
 const R = 2; // rank of the drawn metal: every metal surface lands in the glint mask
 
+/** Per class: the body, the colour groups found on it, the tiers, the layout, and the frame padding (art px). */
+const RIDER = cls === 'companion';
+
+/** The rider: lance, Boeotian helm, linothorax, purple cloak with a hem, on a horse (coat 0). */
+function riderSpec(o = {}) {
+  return {
+    look: { ...LOOK, ...(o.look ?? {}) },
+    weapon: 'lance',
+    helmet: { art: 'boeotian' },
+    armor: 'linothorax',
+    cloak: o.cloak ?? 'cloakPurple',
+    cloakTrim: o.trim ?? true,
+    mount: 'horse',
+    coat: 0,
+    seed: 3,
+    scale: BATTLE_SCALE,
+    gear: { weapon: { def: 'xyston', r: R }, helmet: { def: 'boeotian', r: R }, armor: { def: 'linothorax', r: R } },
+    cls,
+  };
+}
+
 /** The one body: basic gear (the gear tier only recolours), a crested helmet, a red cloak with a hem. */
 function spec(o = {}) {
+  if (RIDER) return riderSpec(o);
   return {
     look: { ...LOOK, ...(o.look ?? {}) },
     weapon: 'spear',
@@ -49,18 +76,31 @@ function spec(o = {}) {
 
 const dl = (ramp) => [...ramp].reverse(); // material ramps are light to dark; colour groups dark to light
 /** Colour groups, in the order a pixel is claimed: the drawn ramp each snaps to, and the variant that finds it. */
-const GROUPS = [
+const GROUPS_FOOT = [
   // the gold hem is drawn, then written as a plain dark hem (the basic look); tiers gild it
   { name: 'trim', alt: { trim: false }, find: dl(mat.GOLD.ramp), ramp: dl(mat.CLOTH.cloakBrown.ramp) },
   { name: 'crest', alt: { crest: 'blue' }, ramp: dl(mat.CREST.red.ramp) },
   { name: 'skin', alt: { look: { skin: 3 } }, ramp: dl(mat.SKIN[1].ramp) },
   { name: 'cloak', alt: { cloak: 'cloakBlue' }, ramp: dl(mat.CLOTH.cloakRed.ramp) },
 ];
-const TIERS = {
+const GROUPS_RIDER = [
+  { name: 'trim', alt: { trim: false }, find: dl(mat.GOLD.ramp), ramp: dl(mat.CLOTH.cloakBrown.ramp) },
+  { name: 'skin', alt: { look: { skin: 3 } }, ramp: dl(mat.SKIN[1].ramp) },
+  { name: 'cloak', alt: { cloak: 'cloakBlue' }, ramp: dl(mat.CLOTH.cloakPurple.ramp) },
+];
+const GROUPS = RIDER ? GROUPS_RIDER : GROUPS_FOOT;
+const TIERS_RIDER = {
+  basic: {},
+  veteran: { cloak: dl(mat.CLOTH.cloakCrimson.ramp), trim: dl(mat.CLOTH.tunicOchre.ramp) },
+  elite: { cloak: dl(mat.CLOTH.cloakBlack.ramp), trim: dl(mat.GOLD.ramp) },
+};
+const TIERS_FOOT = {
   basic: {},
   veteran: { cloak: dl(mat.CLOTH.cloakCrimson.ramp), crest: dl(mat.CREST_EXTRA.white.ramp), trim: dl(mat.CLOTH.tunicOchre.ramp) },
   elite: { cloak: dl(mat.CLOTH.cloakBlack.ramp), crest: dl(mat.GOLD.ramp), trim: dl(mat.GOLD.ramp) },
 };
+
+const TIERS = RIDER ? TIERS_RIDER : TIERS_FOOT;
 
 const turn = (dir, a) => {
   const [x, y] = DIRS[dir];
@@ -68,7 +108,7 @@ const turn = (dir, a) => {
 };
 
 /** Animations of the placeholder: procedural columns (or a turned idle for the look-around); [name, frames, fps, hold?]. */
-const LAYOUT = [
+const LAYOUT_FOOT = [
   ['idle', ANIM.idle, 4],
   ['walk', ANIM.walk, 12],
   ['run', ANIM.run, 12],
@@ -89,9 +129,26 @@ const LAYOUT = [
   ['look', [[0, 0], [0, 0.5], [0, 0.5], [0, 0], [0, -0.5], [0, -0.5]], 3],
 ];
 
+/** Riders: the gallop is their run (ANIM.gallop); `hit` the horse rearing; no brace, look or block. */
+const LAYOUT_RIDER = [
+  ['idle', ANIM.idle, 4],
+  ['walk', ANIM.walk, 12],
+  ['gallop', ANIM.gallop, 14],
+  ['thrust', ANIM.attack, 14],
+  ['hit', ANIM.hit, 8],
+  ['fallFwd', ANIM.die, 10],
+  ['fallBack', ANIM.dieB, 10],
+  ['rout', ANIM.gallop, 16],
+  ['cheer', [...ANIM.win, ANIM.idle[0]], 3],
+];
+const LAYOUT = RIDER ? LAYOUT_RIDER : LAYOUT_FOOT;
+
 const ROWS = ['south-east', 'north-east', 'south-west', 'north-west']; // game rows 0..3 (DEFAULT_FACINGS)
 
-const g = dollGeom(spec());
+const pg = dollGeom(spec());
+/** Padding of the art frame around the procedural one: headroom on top; per row, where the figure sits across (left of centre facing right). */
+const PAD = RIDER ? { top: 20, side: 16, rowX: [0, 0, 16, 16] } : { top: 0, side: 0, rowX: [0, 0, 0, 0] };
+const g = { fw: pg.fw + PAD.side, fh: pg.fh + PAD.top, footY: pg.footY + PAD.top };
 const cols = LAYOUT.reduce((n, [, f]) => n + f.length, 0);
 const W = cols * g.fw;
 const H = ROWS.length * g.fh;
@@ -117,12 +174,12 @@ function sheet() {
     for (const f of frames) {
       for (let dir = 0; dir < ROWS.length; dir++) {
         const draw = (s, mask) => (Array.isArray(f) ? renderFrame(s, ANIM.idle[f[0]], dir, mask, turn(dir, f[1])) : renderFrame(s, f, dir, mask));
-        const mask = new Uint8Array(g.fw * g.fh);
+        const mask = new Uint8Array(pg.fw * pg.fh);
         const px = draw(base, mask);
         const alt = alts.map((s) => draw(s));
-        for (let y = 0; y < g.fh; y++)
-          for (let x = 0; x < g.fw; x++) {
-            const i = (y * g.fw + x) * 4;
+        for (let y = 0; y < pg.fh; y++)
+          for (let x = 0; x < pg.fw; x++) {
+            const i = (y * pg.fw + x) * 4;
             if (!px.data[i + 3]) continue;
             let c = colorAt(px, i);
             const gi = GROUPS.findIndex((_, k) => alt[k].data[i + 3] !== px.data[i + 3] || colorAt(alt[k], i) !== c);
@@ -130,14 +187,14 @@ function sheet() {
               // a colour group: snapped to its ramp (found by its drawn ramp, written as its listed one)
               const gr = GROUPS[gi];
               c = gr.ramp[Math.min(gr.ramp.length - 1, nearest(c, gr.find ?? gr.ramp))];
-            } else if (mask[y * g.fw + x]) {
+            } else if (mask[y * pg.fw + x]) {
               // metal: snapped to the listed ramps
               c = metalCols[nearest(c, metalCols)];
             } else {
               // never a listed colour by chance (it would take a swap)
               while (taken.has(c)) c ^= 1;
             }
-            const o = ((dir * g.fh + y) * W + col * g.fw + x) * 4;
+            const o = ((dir * g.fh + y + PAD.top) * W + col * g.fw + x + PAD.rowX[dir]) * 4;
             [out[o], out[o + 1], out[o + 2]] = rgb(c);
             out[o + 3] = px.data[i + 3];
           }
@@ -193,7 +250,8 @@ const manifest = {
   class: cls,
   image: `${cls}.png`,
   frame: { w: g.fw, h: g.fh },
-  anchor: { x: Math.floor(g.fw / 2), y: g.footY },
+  anchor: { x: Math.floor(pg.fw / 2), y: g.footY },
+  ...(RIDER ? { anchors: Object.fromEntries(ROWS.map((r, i) => [r, { x: Math.floor(pg.fw / 2) + PAD.rowX[i], y: g.footY }])) } : {}),
   scale: 1,
   rows: ROWS,
   colorGroups: Object.fromEntries(GROUPS.map((gr) => [gr.name, gr.ramp.map(hex)])),
@@ -203,6 +261,8 @@ const manifest = {
     { kind: 'bronze', colors: BR.map(hex), slots: ['shield', 'helmet', 'armor'] },
     { kind: 'iron', colors: IR.map(hex), slots: ['weapon'] },
   ],
+  // the PixelLab riders' coats share the rider's skin colours: their manifests turn the skin tone off (this one shows the flag)
+  ...(RIDER ? { variation: { skin: false } } : {}),
 };
 const file = join(dir, manifest.image);
 writeFileSync(file, png(W, H, sheet()));
