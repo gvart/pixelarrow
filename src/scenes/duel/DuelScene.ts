@@ -59,7 +59,7 @@ import type { Hero } from '../../data/units';
 import { CLASSES } from '../../data/classes';
 import { heroClass } from '../../sim/stats';
 import { econState, type EconState } from '../../game/economy';
-import { heroNeedsAttention } from '../../game/gear';
+import { SLOT_FILTERS, heroNeedsAttention } from '../../game/gear';
 import { lastBattle, type BattleReport } from '../../game/report';
 import type { BattleSource } from '../../online/battleSource';
 import type { Battle } from '../../sim/battle';
@@ -607,7 +607,8 @@ export class DuelScene extends BaseScene {
     }
     const M = panes.main;
     // the hub's mode switch tops the mode content as a fixed bar (hubTopPanes), the content scrolls under it
-    const head = hub && panes.side ? MODE_BAR_H : 0;
+    // (a short screen, 844x390, puts it at the top of the profile column: the content keeps its whole height)
+    const head = hub && panes.side && !this.m.short ? MODE_BAR_H : 0;
     this.modeBar = head ? { x: M.x, y: M.y, w: M.w } : null;
     // `extra`: room under the list for a pinned row, unless the profile column holds it
     const area = new ScrollArea(this, this.body, M.x, M.y + head, M.w, M.h - head - (main ? MAIN_H + GAP : 0) - (panes.side ? 0 : extra), S);
@@ -961,6 +962,18 @@ export class DuelScene extends BaseScene {
     const side = this.side!;
     const sw = side.w;
     const k = side.c;
+    const modeSwitch = (x: number, sy: number, mw2: number) =>
+      new SegmentedSwitch(this, x, sy, mw2, {
+        options: MODES.map((k2, i) => ({ id: k2, label: t(`duels.tab.${k2}` as TKey), icon: MODE_ICONS[i] })),
+        selected: this.mode,
+        id: 'duel.mode',
+        onChange: (id) => this.openMode(id as HubMode),
+      });
+    const bar = this.modeBar;
+    if (!bar) {
+      k.add(modeSwitch(1, side.y, sw));
+      side.y += MODE_BAR_H;
+    }
     k.add(new SectionTitle(this, 1, side.y, sw, t('dv.title')));
     if (this.src.demo) {
       const note = ptext(this, k, sw, side.y + 2, t('dv.demo'), 'muted', { size: TEXT_MIN, align: 1 });
@@ -978,15 +991,11 @@ export class DuelScene extends BaseScene {
       k.add(new FrescoBanner(this, 1, side.y, sw, fh, { label: art, id: `duel.banner.${art}`, art: (parent, ax, ay, aw, ah) => addModeBanner(this, parent, ax, ay, aw, ah, art) }));
       side.y += fh + GAP;
     }
-    const bar = this.modeBar!;
-    const sw2 = new SegmentedSwitch(this, bar.x + 1, bar.y, bar.w - 2, {
-      options: MODES.map((k2, i) => ({ id: k2, label: t(`duels.tab.${k2}` as TKey), icon: MODE_ICONS[i] })),
-      selected: this.mode,
-      id: 'duel.mode',
-      onChange: (id) => this.openMode(id as HubMode),
-    });
-    this.body.add(sw2);
-    eachChild(sw2, (o) => focusPane(o, 1));
+    if (bar) {
+      const sw2 = modeSwitch(bar.x + 1, bar.y, bar.w - 2);
+      this.body.add(sw2);
+      eachChild(sw2, (o) => focusPane(o, 1));
+    }
     void c;
     void w;
     return y;
@@ -1308,15 +1317,18 @@ export class DuelScene extends BaseScene {
   openChestReward(r: ChestClaim): void {
     const { VW } = this.m;
     const w = this.sheetW(Math.min(VW - 4, 210), { panel: 'decision' });
-    const art = 3;
+    const actions: MButtonOpts[] = [{ label: t('duels.reward.ok'), variant: 'primary', id: 'duel.chest.ok', onClick: () => m.close() }];
+    const tall = (art: number) => SHEET_PAD + 8 + 13 * art + 8 + 22 + (r.item ? 38 : 0) + sheetActionsH(actions, w);
+    // a short screen (Telegram at 844x390): a smaller chest with its Glory beside it, so the dialog holds it all
+    const compact = !this.v5 && tall(3) > this.m.VH - 16;
+    const art = compact ? 2 : 3;
     const ah = 13 * art;
     let chestAt = { x: VW / 2, y: this.m.VH / 2 };
-    const actions: MButtonOpts[] = [{ label: t('duels.reward.ok'), variant: 'primary', id: 'duel.chest.ok', onClick: () => m.close() }];
-    const m = openParchmentSheet(this, { title: this.sheetTitle(t('duels.chest.title', { n: r.chapter }), t('duels.chapter', { n: r.chapter }), w), w, h: SHEET_PAD + 8 + ah + 8 + 22 + (r.item ? 38 : 0) + sheetActionsH(actions, w), actions, panel: 'decision', id: 'duel.rewardSheet', onClose: () => this.releaseGlory(chestAt) });
+    const m = openParchmentSheet(this, { title: this.sheetTitle(t('duels.chest.title', { n: r.chapter }), t('duels.chapter', { n: r.chapter }), w), w, h: compact ? tall(art) - 24 : tall(art), actions, panel: 'decision', id: 'duel.rewardSheet', onClose: () => this.releaseGlory(chestAt) });
     const { c, body: b } = m;
     let y = b.y + 8;
     // the chest: closed, it shakes, it opens on its gold (instantly under reduced motion)
-    const cx = Math.round(m.x + w / 2 - 8 * art);
+    const cx = Math.round(m.x + w / 2 - 8 * art - (compact ? 30 : 0));
     chestAt = { x: cx + 8 * art, y: y + ah / 2 };
     const closed = addChestSprite(this, cx, y, 'ready', art);
     const open = addChestSprite(this, cx, y, 'full', art).setVisible(false);
@@ -1326,9 +1338,10 @@ export class DuelScene extends BaseScene {
       c.add(sq);
       return sq;
     });
-    y += ah + 8;
+    if (!compact) y += ah + 8;
+    else y += Math.round((ah - 24) / 2);
     const gw = 24 + 4 + measureText(`+${fmtCount(r.glory)}`) * 1.5;
-    const gx = Math.round(m.x + w / 2 - gw / 2);
+    const gx = compact ? cx + 16 * art + 10 : Math.round(m.x + w / 2 - gw / 2);
     c.add(scaleIcon(addIcon(this, gx, y, 'laurel'), 2));
     const gt = ptext(this, c, gx + 28, y + 6, `+${fmtCount(r.glory)}`, 'ink').setScale(1.5);
     const reveal = () => {
@@ -1351,7 +1364,7 @@ export class DuelScene extends BaseScene {
       gt.setText('+0');
       this.tweens.add({ targets: closed, x: { from: closed.x - 1.5, to: closed.x + 1.5 }, duration: 60, yoyo: true, repeat: 4, onComplete: reveal });
     }
-    y += 30;
+    y += compact ? ah - Math.round((ah - 24) / 2) + 6 : 30;
     const it = r.item;
     if (it) {
       const rowW = b.w;
@@ -2509,24 +2522,34 @@ export class DuelScene extends BaseScene {
     const best0H = best0 ? wrapText(best0, inner, 2).lines.length * LINE_H + 4 : 0;
     const titleLine = needH + best0H <= this.m.VH - 12 ? best0 : '';
     const titleH = titleLine ? best0H : 0;
+    // a dialog shorter still (Telegram at 844x390) scrolls the rows and the set piece's line under the season
+    const limit = this.m.VH - 16;
+    const scroll = !this.v5 && needH + titleH > limit;
     const m = openParchmentSheet(this, {
       title: this.sheetTitle(t('duels.reward.title'), t('d5.seasonOver'), w),
       w,
-      h: needH + titleH,
+      h: scroll ? limit : needH + titleH,
       actions,
       panel: 'decision',
       id: 'duel.rewardsSheet',
       onClose: () => void this.src.seasonSeen().catch(() => undefined),
     });
-    const { c, body: b } = m;
+    const b = m.body;
     let y = b.y;
-    ptext(this, c, m.x + w / 2, y, seasonName(v.rewards[0].season), 'ink', { align: 0.5, maxW: inner });
+    ptext(this, m.c, m.x + w / 2, y, seasonName(v.rewards[0].season), 'ink', { align: 0.5, maxW: inner });
     y += 14;
+    const listH = limit - (fixedH - pickH) - titleH;
+    const sa = scroll ? new ScrollArea(this, m.c, b.x, y, b.w, listH, this.m.S) : null;
+    if (sa) m.c.once('destroy', () => sa.destroy());
+    // in the scroll, positions are the scroll content's (its origin is the body's left at y)
+    const c = sa?.content ?? m.c;
+    const ox = sa ? b.x : 0;
+    if (sa) y = 0;
     for (const { r, line, cos, h } of rows) {
-      c.add(new ParchmentCard(this, b.x, y, inner, h));
-      c.add(mosaicImage(this, b.x + 3, y + 7, 28, 28, 'parchmentWell'));
-      c.add(addCosmetic(this, b.x + 4, y + 8, r.cosmetic, r.cosmetic.startsWith('duel_banner') ? 'banner' : 'emblem', 26));
-      const tx = b.x + 36;
+      c.add(new ParchmentCard(this, b.x - ox, y, inner, h));
+      c.add(mosaicImage(this, b.x - ox + 3, y + 7, 28, 28, 'parchmentWell'));
+      c.add(addCosmetic(this, b.x - ox + 4, y + 8, r.cosmetic, r.cosmetic.startsWith('duel_banner') ? 'banner' : 'emblem', 26));
+      const tx = b.x - ox + 36;
       if (size) ptext(this, c, tx, y + 5, line, 'head', { size });
       else ptext(this, c, tx, y + 5, line, 'ink', { maxW: tw });
       c.add(addIcon(this, tx, y + 15, 'laurel'));
@@ -2534,8 +2557,9 @@ export class DuelScene extends BaseScene {
       ptext(this, c, tx, y + 29, cos.join('\n'), 'sec');
       y += h + GAP;
     }
-    if (titleLine) pwrap(this, c, m.x + (w - inner) / 2, y + 2, titleLine, inner, 2, 'sec', 0.5);
-    if (pickLine) pwrap(this, c, m.x + (w - inner) / 2, y + 2 + titleH, pickLine, inner, 2, 'good', 0.5);
+    if (titleLine) pwrap(this, c, m.x - ox + (w - inner) / 2, y + 2, titleLine, inner, 2, 'sec', 0.5);
+    if (pickLine) pwrap(this, c, m.x - ox + (w - inner) / 2, y + 2 + titleH, pickLine, inner, 2, 'good', 0.5);
+    sa?.setContentHeight(y + 2 + titleH + pickH);
   }
 
   /** The season reward's set piece of choice: one button per piece of the set. */
@@ -2764,18 +2788,25 @@ export class DuelScene extends BaseScene {
     const used = LOADOUT_USES.filter((u) => p.use[u] === slot);
     const BH = 24;
     const bodyH = 12 + 14 + 3 * (BH + GAP) + 10 + BH + 12 + BH;
-    const m = openParchmentSheet(this, { title: t('d5.presetSheet', { team: presetLabel(l) }), w, h: SHEET_PAD + bodyH + 4, id: 'duel.presetSheet' });
-    const { c, body: b } = m;
-    let y = b.y;
-    ptext(this, c, b.x, y, line, 'sec', { maxW: inner });
+    // a short screen (Telegram at 844x390) scrolls the body under the title rather than cut it off
+    const room = this.m.VH - 12 - SHEET_PAD - 4;
+    const scroll = !this.v5 && bodyH > room;
+    const m = openParchmentSheet(this, { title: t('d5.presetSheet', { team: presetLabel(l) }), w, h: SHEET_PAD + (scroll ? room : bodyH) + 4, id: 'duel.presetSheet' });
+    const b = m.body;
+    const sa = scroll ? new ScrollArea(this, m.c, b.x, b.y, b.w, room, this.m.S) : null;
+    if (sa) m.c.once('destroy', () => sa.destroy());
+    const c = sa?.content ?? m.c;
+    const bx = sa ? 0 : b.x;
+    let y = sa ? 0 : b.y;
+    ptext(this, c, bx, y, line, 'sec', { maxW: inner });
     y += 12;
-    ptext(this, c, b.x, y, used.length ? t('d5.fightsOn') : t('d5.fightsOnNone'), 'head', { size: 7.5, maxW: inner });
+    ptext(this, c, bx, y, used.length ? t('d5.fightsOn') : t('d5.fightsOnNone'), 'head', { size: 7.5, maxW: inner });
     y += 14;
     LOADOUT_USES.forEach((u) => {
       const on = p.use[u] === slot;
       const label = t(`duels.use.${u}` as TKey);
       const problem = u === 'defence' ? teamProblem(heroes, DUEL_RULES.budget) : heroes.length ? null : 'empty';
-      const b2 = new MButton(this, b.x, y, inner, BH, {
+      const b2 = new MButton(this, bx, y, inner, BH, {
         label: on ? `${label} · ${t('d5.useOnShort')}` : label,
         icon: on ? 'check' : USE_ICONS[u],
         variant: on ? 'lit' : 'secondary',
@@ -2791,15 +2822,16 @@ export class DuelScene extends BaseScene {
     const full = p.loadouts.length >= DUEL_RULES.presetsMax;
     const last = p.loadouts.length <= 1;
     const hw = Math.floor((inner - GAP) / 2);
-    c.add(new MButton(this, b.x, y, hw, BH, { label: t('duels.preset.rename'), icon: 'pen', variant: 'secondary', id: 'duel.preset.rename', onClick: () => (m.close(), void this.renamePreset(slot)) }));
-    const dup = new MButton(this, b.x + hw + GAP, y, inner - hw - GAP, BH, { label: t('duels.preset.duplicate'), icon: 'copy', variant: 'secondary', id: 'duel.preset.duplicate', onClick: () => (m.close(), this.duplicatePreset(slot)) });
+    c.add(new MButton(this, bx, y, hw, BH, { label: t('duels.preset.rename'), icon: 'pen', variant: 'secondary', id: 'duel.preset.rename', onClick: () => (m.close(), void this.renamePreset(slot)) }));
+    const dup = new MButton(this, bx + hw + GAP, y, inner - hw - GAP, BH, { label: t('duels.preset.duplicate'), icon: 'copy', variant: 'secondary', id: 'duel.preset.duplicate', onClick: () => (m.close(), this.duplicatePreset(slot)) });
     if (full) dup.setEnabled(false, t('duels.preset.full', { n: DUEL_RULES.presetsMax }));
     c.add(dup);
     // the destructive action on its own row, 12 px from the others (P4)
     y += BH + 12;
-    const del = new MButton(this, b.x, y, inner, BH, { label: t('duels.preset.delete'), icon: 'bin', variant: 'neutral', id: 'duel.preset.delete', onClick: () => (m.close(), this.deletePreset(slot)) });
+    const del = new MButton(this, bx, y, inner, BH, { label: t('duels.preset.delete'), icon: 'bin', variant: 'neutral', id: 'duel.preset.delete', onClick: () => (m.close(), this.deletePreset(slot)) });
     if (last) del.setEnabled(false, t('duels.preset.lastOne'));
     c.add(del);
+    sa?.setContentHeight(bodyH);
   }
 
   /** "In the team · 6 of 10" and the points against the budget, with its bar. */
@@ -3070,6 +3102,7 @@ export class DuelScene extends BaseScene {
         price: (it) => ({ text: `+${fmtCount(sellPrice(it))}`, font: 'glory' }),
         empty: { title: t('stash.emptyTitle'), hint: t('d5.sellEmpty') },
       });
+      this.collapseSlotFilters();
       return;
     }
     let offers: ShopOffer[];
@@ -3134,7 +3167,20 @@ export class DuelScene extends BaseScene {
       empty: { title: t('stash.emptyTitle'), hint: t('d5.sellEmpty') },
       inline: area,
     });
+    this.collapseSlotFilters();
     this.finishPage(y + this.stash.height, 0, true);
+  }
+
+  /**
+   * Where the stash has no room for its row of slot chips (a short pane, the narrowest phone) they are one
+   * Slot button that cycles them (MStashGrid): registered collapsed into it, not dropped (element-parity).
+   */
+  private collapseSlotFilters(): void {
+    const s = this.stash;
+    if (!s) return;
+    let cycle = false;
+    eachChild(s.c, (o) => (cycle ||= (o as unknown as { __uiId?: string }).__uiId === 'filter:slot'));
+    if (cycle) for (const f of SLOT_FILTERS) uiCollapsed(this, `filter:${f}`, 'filter:slot');
   }
 
   /**

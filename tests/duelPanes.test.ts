@@ -46,6 +46,13 @@ describe('duelPanes (landscape-v6 §9.2)', () => {
     expect(offerColumns(CL, p.main.w)).toBe(2);
   });
 
+  it('keeps one pane for a sub-screen whose list would be squeezed (Telegram at 844x390), the column where it fits', () => {
+    expect(duelPanes(CL, box(351), 'board')!.side).toBeNull();
+    expect(duelPanes(CL, box(351), 'raid')!.side).toBeNull();
+    expect(duelPanes(CL, box(414), 'board')!.side).not.toBeNull();
+    expect(duelPanes(CL, box(351), 'team')!.side).not.toBeNull();
+  });
+
   it('never leaves a pane narrower than a five-tile row (Telegram at 844x390)', () => {
     const p = duelPanes(CL, box(267), 'hub')!;
     expect(p.main.w).toBeGreaterThanOrEqual(5 * 22 + 4 * 2);
