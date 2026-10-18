@@ -1,0 +1,37 @@
+src/war/types.ts
+  s_cfc22b058125c4::t_af01ea17f14ee7 15,17-19
+src/war/sim/combat.ts
+  s_cfc22b058125c4::t_2227914a775d50 12-16
+  s_cfc22b058125c4::t_221ef7484ec98e 1-11,25-40,45-46,51,53-79
+  s_cfc22b058125c4::t_e6d8c2ee4f1c20 17-24,41-44,47-50,52
+tests/war/sim.test.ts
+  s_cfc22b058125c4::t_30c82139867bd6 98,105-106
+src/war/sim/grid.ts
+  s_cfc22b058125c4::t_0e4b6bc158a445 15-16,19-21,26,29,32
+tests/war/combat.test.ts
+  s_cfc22b058125c4::t_fa3be67175a732 79
+  s_cfc22b058125c4::t_875d9eaea711a2 1-78,80-170
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_2227914a775d50 400
+  s_cfc22b058125c4::t_66638843c17a1e 444,623
+  s_cfc22b058125c4::t_95e531fda5a867 21,42,248-259,299,524
+  s_cfc22b058125c4::t_9bc7fe47c5810b 2,8-14,17-18,24,32-41,56,59-70,78,83-84,86-87,94-102,112-115,123-125,141-143,145-146,154-158,160-163,171-186,192,200,203-212,217-237,242-246,276,278,280,283,285-286,314,317-323,351-367,369-388,390-399,401-443,445-466,470-483,489-495,501,510,513-522,525-529,533-534,537,546-548,553,560-565,573-580,582-585,594,596-598,604-607,611,624,627,631
+  s_cfc22b058125c4::t_e6d8c2ee4f1c20 19,43-44,260-269,271-275,368,389
+  s_cfc22b058125c4::t_7cf4f572ba2bd6 247
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3c655cb7b5ab0bdd6c17e0609681523c0411b6a2",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
