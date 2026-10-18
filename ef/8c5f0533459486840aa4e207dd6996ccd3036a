@@ -1,0 +1,59 @@
+src/ui/account/follow.ts
+  s_0d98fe904b2e82::t_4b0424940ce8c6 1-74
+src/ui/account/accountPage.ts
+  s_0d98fe904b2e82::t_9a2bc5c796e31a 311
+  s_0d98fe904b2e82::t_8b342f8114d685 7-9,44-47,137-138,192-196,310,312-325,383-385,404-405
+src/ui/account/rename.ts
+  s_0d98fe904b2e82::t_a67abc8b029e7d 1-83
+tests/nameDelete.test.ts
+  s_0d98fe904b2e82::t_8a0aa7ea2e2252 1-115
+src/i18n/account.en.ts
+  s_0d98fe904b2e82::t_c29927a3bbd24c 305-364
+src/ui/account/nameSheet.ts
+  s_0d98fe904b2e82::t_e6e7bfb62e7862 74-75,84-86
+  s_0d98fe904b2e82::t_f304defdc7d339 1-73,76-83,87-98
+src/ui/account/deleteAccount.ts
+  s_0d98fe904b2e82::t_b4348defbf4eb2 1-139
+src/platform/api.ts
+  s_0d98fe904b2e82::t_956541e506c537 310-318,553-564
+  s_0d98fe904b2e82::t_4208acf99f6fe5 565
+src/ui/account/linkRequest.ts
+  s_0d98fe904b2e82::t_f87565bce5180b 19,27-28,92-93
+src/i18n/account.ru.ts
+  s_0d98fe904b2e82::t_c29927a3bbd24c 292-351
+src/ui/account/linkSheet.ts
+  s_0d98fe904b2e82::t_77bf8d1fb7abac 110-111,114
+src/scenes/online/OnlineScene.ts
+  s_0d98fe904b2e82::t_b64b005bbf25a4 13,514-518
+src/ui/account/nameRules.ts
+  s_0d98fe904b2e82::t_be70d8d16adf4c 1-85
+src/ui/account/conflict.ts
+  s_0d98fe904b2e82::t_f87565bce5180b 367-368
+  s_0d98fe904b2e82::t_27af4a2a9db2af 33
+src/platform/online.ts
+  s_0d98fe904b2e82::t_496cbad0e18780 363-387
+src/ui/account/deletion.ts
+  s_0d98fe904b2e82::t_a0c3dd0a73b6f0 1-43
+src/state.ts
+  s_0d98fe904b2e82::t_e96d36aefc7712 3,250-251
+  s_0d98fe904b2e82::t_496cbad0e18780 182-208
+  s_0d98fe904b2e82::t_e463df35e1564e 252
+src/scenes/duel/DuelScene.ts
+  s_0d98fe904b2e82::t_b64b005bbf25a4 31,322-323
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ef8c5f0533459486840aa4e207dd6996ccd3036a",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
