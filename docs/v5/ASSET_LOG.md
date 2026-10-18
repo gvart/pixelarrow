@@ -376,6 +376,37 @@ to the cut 2 frames; hollow bow 3 frames. Head backwards, clipping, proportion d
 28 colours; groups cloak 6 (crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0
 failures, stature 57–60; 146 warnings, all the spear-end heuristic on the bow and arrow. **Gens:** 85 quoted (69 jobs).
 
+#### falx
+
+Base: I4a N1 `63527404` (black hair and beard, moss-green cloak, umber leather jerkin, brown trousers, falx in both hands).
+**Groups (the open question from I4a):** his leather jerkin, trousers and boots are raw `#412a22`, which lands on skin
+step 0, while his real skin lands on steps 2–3. `parts` `{ "skin:0": "shadow" }` takes step 0 out of the skin group, so
+the per-man skin recolour (V5-095) can no longer tint his leather; the skin group is now `#7b503d … #f8d5c2` only (checked
+in the manifest). The other leather-clad classes were checked the same way with `i5b/rampdump.mjs`: the archer's and
+celt_sword's leather is umber, not skin; slinger, gallic and fanatic are checked in their own sections. Also: plaidGreen
+→ cloak, umber and darkBronze → shadow, iron → the iron metal group (weapon), crest and emblem off, `greyCut` 0.8.
+
+**The attack (`slash`, 16 @ 16, strike 6).** The same two-handed cleave as the rhomphaia, with the falx's hook: from
+the low guard he heaves the falx up and back over his right shoulder with both hands on the haft (f1–f5), steps in on
+the left foot with the hips leading and brings the sickle blade down into the man in front of him, the inner edge
+first (f6), follows through low at his left (f7–f11) and comes back to the guard (f12–f15).
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | all 4 | a1 | 4 | **Promoted** (f7) |
+| 2 | slash | all 4 | a1 | 8 | **Promoted after frame drops:** crescent smears SW f5–f6, SE f8, NE f7, NW f6 dropped |
+| 3 | look | NE | a1 | 1 | **Promoted after frame drops:** f8–f15 REJECTED, the head turns round to face the viewer; the first half is played out and back |
+| 4 | everything else | all 4 | a1 | 59 | **Promoted** (block sparks and death blood cut) |
+
+**Rejections:** head turned backwards 8 frames; gear drift (crescent smear) 5 frames. **Needs review:** in the NE
+stance clips (ready, charge, brace, block, stagger) the falx reads as a long curved blade with a smaller hook than the
+base's; one weapon, held right, but a softer silhouette.
+
+**Sheet.** 16 clips, frame 112 x 113, 4032 x 2712 (41.7 MB as v2); packed **8.68 MB decoded (core 7.19 MB), 243 KB**.
+27 colours; groups cloak 4 (moss green), skin 4 (leather excluded); metal: iron (weapon). Tiers: veteran wine cloak, elite
+black cloak. **QC:** 0 failures, stature 57 in all four facings; 139 warnings (the spear-end heuristic on the falx).
+**Gens:** 80 quoted (68 jobs).
+
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
 **Brief.** One approved base character per foot class other than the hoplite (militia, thureophoros, celt_sword, rhomphaia, archer, slinger, javelineer, peltast, falx, gallic, fanatic, royal_guard, sacred_band), matching H4 (`b7624d6d`) in style, shape and proportion, following `docs/v5/art/STYLE_LOCK.md`. Mood is dark-epic: Greeks in bronze and crimson; Carthaginians in purple-black, bronze and linen; Celts in plaid, iron, woad and torcs. Every class must read at battle scale by its headgear and silhouette (art bible §5.2). The cloak, crest and trim stay clean colour groups for the tier recolour (V5-092). Hard rejects are checked in all 8 views.

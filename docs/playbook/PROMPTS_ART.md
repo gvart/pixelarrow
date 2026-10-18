@@ -1123,3 +1123,21 @@ what the body keeps doing ("his body keeps facing the upper left the whole time"
 **Lessons:** never ask the archer to handle the bow with both hands at rest ("flexes", "tests the string"): the model
 draws a second bow. Say "the one bow never moves … there is only one bow". The model draws the loosed arrow in flight
 (and sometimes one before the shot): clear the detached pieces, the game draws the missile.
+
+### falx
+
+- subject: `a grim tall Dacian falx warrior, bare head with long black hair and a full black beard, a plain dark moss-green cloak, a warm dark umber leather jerkin, dark brown trousers, no shield, one falx: a long wooden haft and a long forward-curved iron sickle blade` (back: `a grim tall Dacian falx warrior seen from behind, long black hair, a plain dark moss-green cloak, dark brown trousers, no shield, one falx: a long wooden haft and a long forward-curved iron sickle blade`)
+- rest pose: `standing upright, the falx gripped with both hands in front of his right side, no shield`; guard pose: `in a low fighting guard, both hands on the haft, the curved falx blade forward low ahead of him, knees bent`
+- guard: the rhomphaia's with `… lowers the falx forward so the long curved iron sickle blade points ahead of him towards the viewer's lower left at head height, its inner edge towards the enemy …`
+- slash: `a heavy two-handed hooking cut at an enemy in front of him towards the viewer's lower left: from his low guard he heaves the falx back and up over his right shoulder with both hands on the haft, steps forward onto his left foot with the hips turning first, and brings the curved sickle blade down hard in a diagonal arc from above his right shoulder into the enemy in front of him, the inner edge leading, ending low at his left with the body bent forward in the follow-through, then he settles back into his low guard with the blade forward; both hands on the haft the whole time; the curved blade keeps its own shape and size in every frame; he keeps facing the viewer's lower left; one falx only; no smear, no sparks, no motion trails, no blood, no effects` (back facings: `seen from behind, his back and cloak to the viewer in every frame, … he never turns round to the viewer`)
+- look NW (after NE was rejected): `seen from behind, standing still in place, he slowly turns his head a little to his right, holds, then a little to his left, holds, then back; only the head turns slightly, his back and the back of his head stay to the viewer in every frame, his face never shows; …`
+- the other clips: the rhomphaia wording with `the falx … in both hands in front of his right side` (kneel: `leaning his weight on the falx planted upright beside him like a staff`; cheer: `thrusts the falx straight up high over his head with both hands, the curved iron blade at the sky`)
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | look NE a1 | **Rejected frames:** the head turns round to face the viewer |
+| 2 | everything else | **Promoted** (crescent smear frames dropped) |
+
+**Lessons:** "never further than over his shoulder" is not enough for a back-facing look: say "his back and the back of
+his head stay to the viewer in every frame, his face never shows". A leather colour on a skin step is fixed in the spec
+with a per-step `parts` key, no retint needed.
