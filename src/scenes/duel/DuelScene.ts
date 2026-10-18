@@ -1941,8 +1941,8 @@ export class DuelScene extends BaseScene {
   }
 
   private buildFound(p: DuelProfileView, f: { name: string; league: League | null; mode: DuelMode }): void {
-    const { c, w } = this.openShell(false, this.viewTitle(), { label: t('duel.preparing'), secondary: true, off: t('duel.preparing'), id: 'duel.preparing', onClick: () => undefined }, 0, 'search');
-    // the search's panes carry on: your lineup and league stay in the profile column, the VS card takes the rings' place
+    // a phone sideways keeps the search's panes (lineup and league in the profile column); wider screens one pane
+    const { c, w } = this.openShell(false, this.viewTitle(), { label: t('duel.preparing'), secondary: true, off: t('duel.preparing'), id: 'duel.preparing', onClick: () => undefined }, 0, this.m.cls === 'compact' ? 'search' : 'stack');
     const side = this.side;
     if (side) side.y = this.searchTeam(p, f, side.c, side.y, side.w);
     const cs = 36;
@@ -1950,8 +1950,8 @@ export class DuelScene extends BaseScene {
     const card = new ParchmentCard(this, 1, 8, w, h, { selected: true, id: 'duel.foundCard' });
     c.add(card);
     const mid = w / 2;
-    // one wide pane (a tablet) sets the two sides further apart, facing across the VS
-    const q = !this.v5 && !side ? 0.15 : 0.25;
+    // one wide pane sets the two sides further apart, facing across the VS
+    const q = this.v5 || side ? 0.25 : 0.2;
     const sides: [number, string, League | null][] = [
       [w * q, t('duels.board.you'), this.ranked?.league ?? null],
       [w * (1 - q), f.name, f.league],
@@ -1959,7 +1959,8 @@ export class DuelScene extends BaseScene {
     for (const [sx, name, league] of sides) {
       addCrest(this, card, Math.round(sx - cs / 2), 10, cs, league);
       ptext(this, card, sx, 14 + cs, name, 'ink', { align: 0.5, maxW: w / 2 - 8 });
-      if (league) {
+      if (league && !this.v5) ptext(this, card, sx, 27 + cs, leagueName(league), 'sec', { align: 0.5, maxW: w / 2 - 8 });
+      else if (league) {
         // centred on the column: measure first (the chip sizes itself to its word)
         const label = leagueName(league);
         const lw = Math.min(w / 2 - 8, armyPillW(label));
@@ -1969,7 +1970,9 @@ export class DuelScene extends BaseScene {
     ptext(this, card, mid, 10 + cs / 2 - 5, t('battle.vsShort'), 'head', { size: 9, align: 0.5, maxW: w / 2 - cs - 4 }); // between the crests ('против' is wide)
     const prep = ptext(this, card, mid, h - 14, t('duel.preparing'), 'sec', { align: 0.5, maxW: w - 12 });
     this.tweens.add({ targets: prep, alpha: { from: 1, to: 0.4 }, duration: 700, yoyo: true, repeat: -1 });
-    this.finishPage(8 + h + GAP, 0, true);
+    // outside portrait the search's lineup and league stay under the VS card while the field is prepared
+    const y = this.v5 || side ? 8 + h + GAP : this.searchTeam(p, f, c, 8 + h + GAP, w);
+    this.finishPage(y, 0, true);
   }
 
   private tickSearch(): void {
@@ -2443,13 +2446,16 @@ export class DuelScene extends BaseScene {
     // rating (where the league has one); a phone's row puts the league pill in place of a missing rating
     if (!this.v5 && w >= BOARD_TABLE_W) {
       const rx = w - 8;
-      const gx = rx - BOARD_RATING_W;
-      const lx = Math.round(w * 0.45);
-      if (r.rating !== null) ptext(this, row, rx, 9, fmtCount(r.rating), 'ink', { align: 1 });
+      // the columns spread over the row: league from 42%, games ending at 72% (or before the rating), rating at the right
+      const gx = Math.min(rx - BOARD_RATING_W, Math.round(w * 0.72));
+      const lx = Math.round(w * 0.42);
+      // the rating where the league has one; a dash for the leagues that play without one
+      ptext(this, row, rx, 9, r.rating !== null ? fmtCount(r.rating) : '—', r.rating !== null ? 'ink' : 'muted', { align: 1 });
       // games played: crossed swords and the count (the standing rows' icon-and-number form)
       const gt = ptext(this, row, gx, 9, fmtCount(r.games), 'sec', { align: 1 });
       row.add(addIcon(this, Math.round(gx - gt.width - 14), 7, 'swords', 'D'));
-      addLeaguePill(this, row, lx, 7, r.league, leagueName(r.league), gx - BOARD_GAMES_W - lx);
+      // the league by name (its colour is the crest's)
+      ptext(this, row, lx, 9, leagueName(r.league), 'sec', { maxW: gx - BOARD_GAMES_W - lx });
       ptext(this, row, nx, 9, me ? t('duels.board.you') : r.name, me ? 'head' : 'ink', { maxW: lx - nx - 6 });
       return;
     }
