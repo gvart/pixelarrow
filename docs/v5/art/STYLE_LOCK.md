@@ -139,6 +139,8 @@ Unit sheets are not hard-snapped (V5-087). Every frame goes through `scripts/art
    and wins over the spec. They combine with `skipTop` / `from`.
    The light-neutral-grey cut (step 1) also takes a lit iron blade: iron-clad classes set `"greyCut": 0.8` (default
    0.55, the OKLab lightness above which a neutral grey is cut as a ghost trail).
+   `"alignMax": [dx, dy]` (default `[6, 8]`) is the largest frame-0 drift sheetbuild re-anchors on the feet; clips that
+   start from a model-drawn stance frame drift more (7-16 px) and set it higher, e.g. `[18, 8]`.
 4. The manifest lists `colorGroups` (cloak, crest, trim, skin, emblem, wood; dark to light), `metal` (light to dark)
    and the tier ramps (`tiers.veteran`, `tiers.elite`: anchor colours in the spec, interpolated to each group's
    length). Hoplite tiers: veteran = wine cloak, scarlet crest, polished trim; elite = black cloak and crest, gold trim
