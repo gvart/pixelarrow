@@ -64,6 +64,32 @@
    "height_px": 57,
    "heads": 5.7
   },
+  "celt_sword": {
+   "culture": "celtic",
+   "character_id": "73d12bee-8f66-406f-aae0-c3da5ce19d74",
+   "prompt_id": "I4a-celt_sword-A3",
+   "source_character_id": "ddf1d88b-3e38-4837-b979-ad4027f52cae",
+   "normalise": {
+    "rows": 3,
+    "cols": 1,
+    "from": 17
+   },
+   "rotations": "docs/v5/pixellab/I4a/raw/celt_sword/N2/zip/Idle/rotations",
+   "crown": 9,
+   "chin": 19,
+   "groups": {
+    "cloak": "plaidGreen (exclusive)",
+    "mail": "metal",
+    "shield": "umber + darkBronze"
+   },
+   "status": "approved (normalised: v3 import of A3 minus 3 rows, 1 column)",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 58,
+   "heads": 5.27
+  },
   "rhomphaia": {
    "culture": "greek",
    "character_id": "440f945a-999b-4f57-befb-94a78b094473",
@@ -169,6 +195,77 @@
    "feet": 66,
    "height_px": 58,
    "heads": 5.27
+  },
+  "falx": {
+   "culture": "celtic",
+   "character_id": "c9bdfe6f-045d-41da-89be-fa7f154565b4",
+   "prompt_id": "I4a-falx-A3",
+   "rotations": "docs/v5/pixellab/I4a/raw/falx/A3/zip/Idle/rotations",
+   "crown": 10,
+   "chin": 20,
+   "groups": {
+    "cloak": "plaidGreen (also the darkest hair steps)",
+    "jerkin": "umber"
+   },
+   "status": "approved, colour group needs review",
+   "note": "hair shares plaidGreen with the cloak",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 57,
+   "heads": 5.18
+  },
+  "gallic": {
+   "culture": "celtic",
+   "character_id": "462072a6-497a-4058-a66d-2af2d2b49263",
+   "prompt_id": "I4a-gallic-A1",
+   "source_character_id": "ec8e285a-b264-4dd5-b1f1-1019afd22b4b",
+   "normalise": {
+    "rows": 2,
+    "cols": 1,
+    "from": 17
+   },
+   "rotations": "docs/v5/pixellab/I4a/raw/gallic/N1/zip/Idle/rotations",
+   "crown": 8,
+   "chin": 18,
+   "headgear_top": 4,
+   "groups": {
+    "hair": "linen + metal",
+    "trousers": "darkBronze (shared with the torc and shield rim)"
+   },
+   "status": "approved, colour group needs review",
+   "note": "bare per the data: no cloak or crest group; limed spikes (rows 4-7) not counted",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 59,
+   "heads": 5.36
+  },
+  "fanatic": {
+   "culture": "any",
+   "character_id": "9ae28d60-9313-4774-b98b-70c3854a5a20",
+   "prompt_id": "I4a-fanatic-A1",
+   "source_character_id": "9e6425ee-a034-40cf-864d-3d18e9851f1f",
+   "normalise": {
+    "rows": 5,
+    "cols": 2
+   },
+   "rotations": "docs/v5/pixellab/I4a/raw/fanatic/N1/zip/Idle/rotations",
+   "crown": 8,
+   "chin": 19,
+   "groups": {
+    "cloak": "metal (shared with the ash-grey skin)"
+   },
+   "status": "approved, colour group needs review",
+   "note": "the black cloak and the ash skin both remap to metal",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 59,
+   "heads": 4.92
   },
   "royal_guard": {
    "culture": "greek",
