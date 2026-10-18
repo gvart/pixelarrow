@@ -1,0 +1,268 @@
+{
+ "class": "sacred_band",
+ "ramps": [
+  "outline",
+  "umber",
+  "darkBronze",
+  "purpleBlack",
+  "metal",
+  "skin",
+  "crimson"
+ ],
+ "parts": {
+  "purpleBlack": "cloak",
+  "metal": "cloak",
+  "crimson": "shadow"
+ },
+ "rowsFeet": {
+  "south-east": [
+   34,
+   66
+  ],
+  "north-east": [
+   33,
+   66
+  ],
+  "south-west": [
+   35,
+   66
+  ],
+  "north-west": [
+   35,
+   66
+  ]
+ },
+ "picks": {
+  "idle": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "look": {
+   "south-east": "a2",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "adjust": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "walk": {
+   "south-east": "a2",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "run": {
+   "south-east": "a2",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "rout": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "kneel": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "ready": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "charge": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "brace": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "block": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: spark-burst residue over the shield rim after the cut"
+     }
+    ]
+   },
+   "north-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: an impact spark over the shield; once cut, the shield is hollowed out"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: dark spark dashes around the shield"
+     }
+    ]
+   }
+  },
+  "thrust": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "stagger": {
+   "south-east": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 11,
+      "why": "REJECTED frame: an invented second shaft/streak through the shield"
+     },
+     {
+      "frame": 1,
+      "op": "clear",
+      "box": [
+       61,
+       57,
+       80,
+       66
+      ],
+      "why": "an invented dark smear right of the shield"
+     },
+     {
+      "frame": 2,
+      "op": "clear",
+      "box": [
+       64,
+       61,
+       70,
+       65
+      ],
+      "why": "a stray dark speck"
+     }
+    ]
+   },
+   "north-east": "a1",
+   "south-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: motion lines along the spear read as a forked second head"
+     }
+    ]
+   },
+   "north-west": "a1"
+  },
+  "fallBack": {
+   "south-east": "p1",
+   "north-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: blood over the spear; once cut, the spearhead floats loose"
+     }
+    ]
+   },
+   "south-west": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: blood burst; once cut, holes in the body"
+     },
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: as f0"
+     }
+    ]
+   },
+   "north-west": {
+    "attempt": "p2",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: a red streak across the spear and cloak; once cut, the spearhead floats loose"
+     },
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: as f0, streak residue on the cloak"
+     },
+     {
+      "frame": 3,
+      "op": "clear",
+      "box": [
+       89,
+       72,
+       95,
+       77
+      ],
+      "why": "a stray blood speck"
+     }
+    ]
+   }
+  },
+  "fallFwd": {
+   "south-east": "p1",
+   "north-east": "p1",
+   "south-west": "p1",
+   "north-west": "p1"
+  },
+  "cheer": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  }
+ },
+ "rejected": [
+  {
+   "clip": "run south-east a1",
+   "why": "head/helmet drift",
+   "detail": "the wide-brimmed Boeotian helmet morphs into a tall crested peak (f4-f11)"
+  },
+  {
+   "clip": "fallBack north-west p1",
+   "why": "blood",
+   "detail": "a heavy red spray over the cloak and body f0-f5; once cut, the body is shredded"
+  }
+ ],
+ "crest": false,
+ "emblem": false
+}

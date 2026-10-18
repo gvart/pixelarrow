@@ -2,7 +2,7 @@
 // shared logs only change inside I5a's own sections.
 // Usage: node scripts/art/pixellab/i5a/insertlog.mjs asset <file.md>   (first call: the section head goes after "## Done";
 //                                                                        later calls: appended at the end of the I5a section)
-//        node scripts/art/pixellab/i5a/insertlog.mjs prompts <file.md> (appended at the end of the file)
+//        node scripts/art/pixellab/i5a/insertlog.mjs prompts <file.md> (appended at the end of the I5a section)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,14 @@ const [kind, file] = process.argv.slice(2);
 const add = readFileSync(file, 'utf8').trimEnd() + '\n';
 if (kind === 'prompts') {
   const p = join(ROOT, 'docs/playbook/PROMPTS_ART.md');
-  writeFileSync(p, readFileSync(p, 'utf8').trimEnd() + '\n\n' + add);
+  // the end of the I5a section: the next '## ' heading after it (other agents' sections follow it)
+  const lines = readFileSync(p, 'utf8').split('\n');
+  const start = lines.findIndex((l) => l.startsWith('## ') && l.endsWith('(I5a)'));
+  let end = lines.findIndex((l, i) => i > start && l.startsWith('## '));
+  if (end < 0) end = lines.length;
+  while (end > start && lines[end - 1].trim() === '') end--;
+  lines.splice(end, 0, '', ...add.trimEnd().split('\n'), '');
+  writeFileSync(p, lines.join('\n'));
 } else {
   const p = join(ROOT, 'docs/v5/ASSET_LOG.md');
   const lines = readFileSync(p, 'utf8').split('\n');
