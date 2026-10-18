@@ -1,0 +1,26 @@
+scripts/art/pack/vite-plugin.d.mts
+  s_41b82181a73565::t_ae25181c8eff48 1-2
+vite.config.ts
+  s_41b82181a73565::t_8acc9f9bfdac18 27-28
+  s_41b82181a73565::t_da56920c0113df 4
+src/art/sheetRegistry.ts
+  s_41b82181a73565::t_387ce876970f0f 4-9,11-13,16,19-20,65-69,71-72
+scripts/art/pack/vite-plugin.mjs
+  s_41b82181a73565::t_a3b3009733b9ee 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8a1f6b4206717c134950deb00801fa225292e711",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
