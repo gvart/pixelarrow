@@ -47,7 +47,7 @@ The full log is in [DECISIONS.md](DECISIONS.md). The ones that change how you wo
 - **Nicknames replace Telegram names in public (V6-011).** Public boards never carry ids.
 - **Compact portrait is still v5 (V6-020, V6-066).** Phones in portrait look as they did in v5; only landscape, tablet and desktop changed.
 - **Web payments show "Coming soon" (V6-084).** No provider has been chosen; the provider, prices, taxes and refunds are your decision.
-- **Process rules that stay:** ports 6100–6199 for v6 work (V6-002); committed screenshots are JPEG, at most 10 per story and 5 MB (V6-076/078); never bypass the edit hook (V6-080).
+- **Process rules that stay:** ports 6100–6199 for v6 work (V6-002); screenshots stay outside git (V6-076/078 capped them; the v6 cleanup removed the committed ones); never bypass the edit hook (V6-080).
 
 ## 4. Known open issues
 
@@ -86,5 +86,5 @@ The full log is in [DECISIONS.md](DECISIONS.md). The ones that change how you wo
 
 - **Code:** the local branch `v6` in the worktree `.claude/worktrees/v6`. It has **never been pushed**, merged to `main` or deployed. Going live means merging `v6` into `main` and running OWNER_ACTIONS part B.
 - **What you must do:** [OWNER_ACTIONS.md](OWNER_ACTIONS.md), one ordered checklist.
-- **Docs:** [DECISIONS.md](DECISIONS.md), [PROGRESS.md](PROGRESS.md), [qa/](qa/), story notes and screenshots in [shots/](shots/) and [stories/](stories/), the plan in [plan/SPRINTS.md](plan/SPRINTS.md), ADRs 0006–0013 in `design/adr/`, and the UX specs in `design/ux/`.
+- **Docs:** [DECISIONS.md](DECISIONS.md), [PROGRESS.md](PROGRESS.md), [qa/](qa/), story notes in [stories/](stories/) (the per-story screenshots that lived in `docs/v6/shots/` were removed in the v6 cleanup; they stay in git history and in the full sets below), the plan in [plan/SPRINTS.md](plan/SPRINTS.md), ADRs 0006–0013 in `design/adr/`, and the UX specs in `design/ux/`.
 - **Full screenshot sets** (outside git): `.claude/worktrees/v6-shots/`, about 850 MB. Prune them when you no longer need them.

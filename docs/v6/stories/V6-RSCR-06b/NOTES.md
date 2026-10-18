@@ -1,6 +1,6 @@
 # V6-RSCR-06b notes: the rest of Settlements and economy (landscape and tablet)
 
-Finishes what V6-RSCR-06 recorded as deviations (docs/v6/shots/V6-RSCR-06/NOTES.md), against design/ux/landscape-v6.md §3.2–§3.4, §5, §11.2. Stacked on the RSCR-06 branch. Compact portrait runs the same code paths as before; every change is behind the layout variant.
+Finishes what V6-RSCR-06 recorded as deviations (docs/v6/stories/V6-RSCR-06/NOTES.md), against design/ux/landscape-v6.md §3.2–§3.4, §5, §11.2. Stacked on the RSCR-06 branch. Compact portrait runs the same code paths as before; every change is behind the layout variant.
 
 ## What changed
 
