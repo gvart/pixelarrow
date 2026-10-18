@@ -1165,3 +1165,26 @@ out … no wounds, no red" gives clean falls. Blood over the body must be droppe
 holes the figure). A block "at a blow" makes the model turn side-on to the attacker; "takes cover … he does not turn"
 holds the facing better. A shielded one-hand chop keeps facing only with "his face and chest stay towards … he never
 turns his back".
+
+### slinger
+
+- subject: `a lean grim Rhodian slinger, bare head with short dark hair and a short dark beard, a short dark crimson cloak, a dark oxblood-brown tunic with a leather belt and a bullet pouch, bare legs and sandals, one leather sling hanging from his right hand, no shield` (back: `a lean grim Rhodian slinger seen from behind, short dark hair, a short dark crimson cloak, a dark oxblood-brown tunic, bare legs and sandals, one leather sling hanging from his right hand, no shield`)
+- rest pose: `standing upright, the sling hanging from his right hand at his right side, his left hand empty`; ready pose: `in a low ready stance, knees bent, the loaded sling held low in his right hand, his left arm forward`
+- guard: `he takes a ready stance in place: he fits one lead bullet into the sling's pouch with his left hand, then holds the two cords in his right hand with the loaded pouch hanging low beside his right leg, his left arm reaching forward towards the viewer's lower left at the target, knees a little bent, ready to whirl; one sling only, in the right hand; no shield, no effects`
+- sling (attack canvas, from the rest): `he slings a lead bullet at an enemy far ahead of him towards the viewer's lower left: he turns side-on with his weight on the back foot, raises the loaded sling over his head in his right hand and whirls it round in fast flat circles above his head, the two cords taut and the loaded pouch circling at their end, his left arm pointing at the target; then he steps forward onto his left foot and whips his right arm forward and down, letting one cord go: the pouch snaps open and the bullet is gone at once, the empty sling flicks forward past his left hip in the follow-through, then he lowers it to his side; one sling only, in the right hand; no flying bullet, no motion trails, no effects` (back facings: `seen from behind, his back and cloak to the viewer in every frame, … he never turns round to the viewer`)
+- stab (attack canvas): front `a short hard melee blow at an enemy close in front of him …: he wraps the sling's cords round his right fist, steps in on his left foot with his weight behind it and swings the loaded pouch in a short hard overhand arc down onto the enemy's head like a club …`; back a2 `… he lifts the loaded sling pouch over his right shoulder with the cords wound round his fist, steps in on his left foot towards the upper right and brings the pouch down hard straight ahead of him like a club onto the enemy's head … his body keeps facing the upper right the whole time, he never turns sideways or round to the viewer …`
+- adjust: `he reaches down with his left hand to the bullet pouch at his hip, takes out one lead bullet, looks at it and drops it back, then lets the hand fall; the sling never leaves his right hand …; there is only one sling`; block: `he flinches and throws his left forearm up across in front of his head, ducking behind it …`; rout (back a2): `… running in place on the same spot … he stays in the middle of the frame, his feet pumping in place, he does not move away`
+- the other clips: the archer's wording with the sling, and the gallic's clean deaths (`his strength suddenly gives out … no wounds, no red, no blood at all`)
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | stab NE NW a1 | **Rejected:** he turns and strikes to the west |
+| 2 | walk NW a1 | **Rejected:** the sling hidden behind the cloak |
+| 3 | rout NE a1 | **Rejected:** he runs out of the frame |
+| 4 | everything else | **Promoted** (motion arcs, bullets and sparks cleared or dropped) |
+
+**Lessons:** the whirl comes out clean and loopable from "whirls it round in fast flat circles above his head"; the
+model draws motion arcs and the flying bullet anyway, and both clear as detached pieces. A back-facing melee blow needs
+"straight ahead of him … his body keeps facing … the whole time". A back-facing flee drifts out of the 68 canvas unless
+told "on the same spot … he does not move away". From behind, the cloak hides a sling carried at the side; asking for it
+"clearly visible beside the cloak" did not fix it.

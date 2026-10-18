@@ -452,6 +452,45 @@ over the cap: five jobs ran at once for a few minutes (cheer SE a2), then back t
 **QC:** 0 failures, stature 61 in all four facings; 374 warnings, all the spear-end heuristic on the axe and the shield
 edge. **Gens:** 92 quoted (76 jobs).
 
+#### slinger
+
+Base: I4a N1 `d15d6271` (bare head, short dark hair and beard, crimson cloak, oxblood tunic, belt and bullet pouch,
+sandals, one leather sling in the right hand). The data gives him a sling and a melee fight at close quarters, so the
+sheet has `sling` and `stab` (no `brace`: no shield wall, the runtime falls back to `block`). **Groups:**
+`i5b/rampdump.mjs`: his tunic is outline / umber, his belt a few px of skin step 1; the skin group is his arms and legs.
+Ramps outline, crimson, umber, skin, darkBronze; parts: crimson → cloak, umber and darkBronze → shadow; no metal; crest,
+emblem and the spear heuristic off; `stature.from: any`.
+
+**The shot (`sling`, 16 @ 16, strike 10).** From the rest he turns side-on with his weight back, lifts the loaded sling
+over his head and whirls it in flat circles (f1–f9: the whirl, which loops, so the runtime can hold it through the aim),
+steps in on the left foot and whips the arm forward and down at f10, one cord let go, the pouch snapping open, and
+follows through past the left hip and lowers the sling (f11–f15). The whirl's motion arcs and the loosed bullet are
+cleared (`i5b/detached.mjs`): the sim draws the missile. NE and NW were re-timed with `frames` so the release lands on
+index 10. **The melee (`stab`, 12 @ 14, strike 4).** The cords wound round his fist, he steps in and brings the loaded
+pouch down on the man in front of him like a club, then steps back.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard (ready) | all 4 | a1 | 4 | **Promoted** (SW SE NE f6, NW f7); SW f7 REJECTED (the sling drawn as a stick), NE f7 (a bullet in flight) |
+| 2 | sling | all 4 | a1 | 8 | **Promoted after the cut and re-timing:** motion arcs and the loosed bullet cleared; NE turns side-on to whirl (kept) |
+| 3 | stab | NE NW | a1 | 4 | **Rejected:** facing drift, he turns and strikes to the west; NW his face turns to the viewer |
+| 4 | stab | all 4 | SW SE a1, NE NW a2 | 8 | **Promoted after frame drops:** spark bursts over the pouch dropped, loose sparks cut; SE (a low swing) and NE (an upward swing) are **weak** |
+| 5 | walk | NW | a1 | 1 | **Rejected:** the sling hidden behind the cloak for six frames |
+| 6 | walk | NW | a2 | 1 | **Promoted, needs review:** still hidden f1–f6 ("clearly visible beside the cloak" did not hold) |
+| 7 | rout | NE | a1 | 1 | **Rejected:** he runs out of the frame (clipped by the canvas) |
+| 8 | rout | NE | a2 | 1 | **Promoted:** "running in place on the same spot … he does not move away" |
+| 9 | everything else | all 4 | a1 | 62 | **Promoted** (block spark frames dropped in all 4; cheer SE f2 the sling drawn as a huge whip, dropped; the dropped bullet in adjust cleared) |
+
+**Rejections:** facing drift 2 clips; sling hidden 1 clip; clipped by the canvas 1 clip; gear drift 3 frames (a stick, a
+huge whip); a second missile 1 frame; sparks over the body 6 frames. Doubled or reversed weapon, head backwards,
+proportion drift: **0**. **Needs review:** the NW walk (sling hidden by the cloak f1–f6), the NW run (f1–f4 the same),
+the SE and NE stab swings; the NE cheer turns to profile; the NW fallBack falls forward like the fallFwd. Twice more
+five jobs ran at once for a few minutes (a slip in counting), then back to four.
+
+**Sheet.** 16 clips, frame 120 x 113, 4080 x 2712 (42.2 MB as v2); packed in the build below. 21 colours; groups cloak 6
+(crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 57 in all
+four facings; 454 warnings, all the spear-end heuristic on the sling. **Gens:** 90 quoted (72 jobs).
+
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
 **Brief.** One approved base character per foot class other than the hoplite (militia, thureophoros, celt_sword, rhomphaia, archer, slinger, javelineer, peltast, falx, gallic, fanatic, royal_guard, sacred_band), matching H4 (`b7624d6d`) in style, shape and proportion, following `docs/v5/art/STYLE_LOCK.md`. Mood is dark-epic: Greeks in bronze and crimson; Carthaginians in purple-black, bronze and linen; Celts in plaid, iron, woad and torcs. Every class must read at battle scale by its headgear and silhouette (art bible §5.2). The cloak, crest and trim stay clean colour groups for the tier recolour (V5-092). Hard rejects are checked in all 8 views.

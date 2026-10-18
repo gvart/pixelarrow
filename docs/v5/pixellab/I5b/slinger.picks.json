@@ -1,0 +1,1407 @@
+{
+ "$doc": "I5b slinger: which reviewed attempt of every clip and facing ships, with its frame fixes (scripts/art/pixellab/i5b/mkspec.mjs writes slinger.sheet.json from it). Rejections: ASSET_LOG I5b. The loosed bullet and the whirl's motion arcs are cleared: the sim draws the missile.",
+ "class": "slinger",
+ "scale": 0.55,
+ "ramps": [
+  "outline",
+  "crimson",
+  "umber",
+  "skin",
+  "darkBronze"
+ ],
+ "parts": {
+  "crimson": "cloak",
+  "umber": "shadow",
+  "darkBronze": "shadow"
+ },
+ "crest": false,
+ "emblem": false,
+ "spear": false,
+ "stature": {
+  "from": "any",
+  "why": "bare head"
+ },
+ "anims": {
+  "idle": {
+   "fps": 8,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "look": {
+   "fps": 8,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "adjust": {
+   "fps": 10,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 9,
+       "op": "clear",
+       "box": [
+        65,
+        36,
+        67,
+        41
+       ],
+       "why": "the bullet dropped in the air"
+      }
+     ]
+    },
+    "ne": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 8,
+       "op": "clear",
+       "box": [
+        51,
+        22,
+        55,
+        26
+       ],
+       "why": "the bullet dropped in the air"
+      },
+      {
+       "frame": 9,
+       "op": "clear",
+       "box": [
+        57,
+        35,
+        61,
+        39
+       ],
+       "why": "the bullet dropped in the air"
+      },
+      {
+       "frame": 10,
+       "op": "clear",
+       "box": [
+        63,
+        53,
+        67,
+        57
+       ],
+       "why": "the bullet dropped in the air"
+      },
+      {
+       "frame": 11,
+       "op": "clear",
+       "box": [
+        66,
+        54,
+        67,
+        58
+       ],
+       "why": "the bullet dropped in the air"
+      }
+     ]
+    },
+    "sw": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 9,
+       "op": "clear",
+       "box": [
+        59,
+        49,
+        62,
+        53
+       ],
+       "why": "the bullet dropped in the air"
+      },
+      {
+       "frame": 10,
+       "op": "clear",
+       "box": [
+        63,
+        63,
+        66,
+        66
+       ],
+       "why": "the bullet dropped in the air"
+      }
+     ]
+    },
+    "nw": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        13,
+        37,
+        16,
+        41
+       ],
+       "why": "the bullet dropped in the air"
+      },
+      {
+       "frame": 8,
+       "op": "clear",
+       "box": [
+        13,
+        49,
+        16,
+        53
+       ],
+       "why": "the bullet dropped in the air"
+      },
+      {
+       "frame": 9,
+       "op": "clear",
+       "box": [
+        13,
+        60,
+        16,
+        64
+       ],
+       "why": "the bullet dropped in the air"
+      }
+     ]
+    }
+   }
+  },
+  "walk": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": {
+     "attempt": "a2",
+     "why": "a1 REJECTED: the sling hidden behind the cloak for six frames; a2 still hides it f1-f6 (needs review)"
+    }
+   }
+  },
+  "run": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "rout": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": {
+     "attempt": "a2",
+     "why": "a1 REJECTED: he runs out of the frame (clipped by the canvas)"
+    },
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "kneel": {
+   "fps": 8,
+   "hold": 4,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "charge": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "ready": {
+   "fps": 8,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "block": {
+   "fps": 14,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "se": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      1,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ],
+     "fixes": [
+      {
+       "frame": 2,
+       "op": "clear",
+       "box": [
+        44,
+        54,
+        51,
+        56
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 2,
+       "op": "clear",
+       "box": [
+        56,
+        69,
+        65,
+        70
+       ],
+       "why": "loose sparks"
+      }
+     ],
+     "why": "f2 REJECTED: sparks on the arm"
+    },
+    "ne": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      2,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ],
+     "fixes": [
+      {
+       "frame": 4,
+       "op": "clear",
+       "box": [
+        44,
+        49,
+        46,
+        52
+       ],
+       "why": "loose sparks"
+      }
+     ],
+     "why": "f3 REJECTED: a spark over the head"
+    },
+    "sw": {
+     "attempt": "a1",
+     "frames": [
+      1,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ],
+     "fixes": [
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        24,
+        42,
+        25,
+        44
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        62,
+        58,
+        66,
+        58
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        1,
+        59,
+        5,
+        59
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        12,
+        64,
+        16,
+        64
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        19,
+        82,
+        21,
+        85
+       ],
+       "why": "loose sparks"
+      }
+     ],
+     "why": "f0 REJECTED: a spark burst over him"
+    },
+    "nw": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11
+     ],
+     "fixes": [
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        30,
+        40,
+        33,
+        46
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        43,
+        40,
+        45,
+        46
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        49,
+        50,
+        54,
+        52
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        21,
+        51,
+        26,
+        52
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        50,
+        60,
+        55,
+        62
+       ],
+       "why": "loose sparks"
+      }
+     ],
+     "why": "f0-f1 REJECTED: a spark burst and red marks over the head"
+    }
+   }
+  },
+  "stagger": {
+   "fps": 12,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "sling": {
+   "fps": 16,
+   "strike": 10,
+   "canvas": "atk",
+   "spear": "upright",
+   "dirs": {
+    "se": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 2,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 4,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 5,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 8,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 9,
+       "op": "clear",
+       "box": [
+        115,
+        104,
+        117,
+        106
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 10,
+       "op": "clear",
+       "box": [
+        118,
+        98,
+        120,
+        101
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 11,
+       "op": "clear",
+       "box": [
+        113,
+        94,
+        116,
+        96
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 12,
+       "op": "clear",
+       "box": [
+        113,
+        76,
+        115,
+        78
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      },
+      {
+       "frame": 13,
+       "op": "clear",
+       "box": [
+        111,
+        55,
+        113,
+        57
+       ],
+       "why": "the whirl's motion arcs, a stray bullet and the loosed bullet"
+      }
+     ],
+     "why": "the bullet goes at f10, on index 10"
+    },
+    "ne": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15,
+      15
+     ],
+     "fixes": [
+      {
+       "frame": 11,
+       "op": "clear",
+       "box": [
+        121,
+        8,
+        123,
+        10
+       ],
+       "why": "the loosed bullet"
+      },
+      {
+       "frame": 12,
+       "op": "clear",
+       "box": [
+        89,
+        33,
+        93,
+        37
+       ],
+       "why": "the loosed bullet"
+      }
+     ],
+     "why": "two whirl frames dropped so the release f12 lands on index 10"
+    },
+    "sw": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 2,
+       "op": "clear",
+       "box": [
+        16,
+        47,
+        40,
+        59
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      },
+      {
+       "frame": 2,
+       "op": "clear",
+       "box": [
+        86,
+        54,
+        101,
+        60
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      },
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        56,
+        7,
+        79,
+        8
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      },
+      {
+       "frame": 4,
+       "op": "clear",
+       "box": [
+        106,
+        34,
+        119,
+        56
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      },
+      {
+       "frame": 5,
+       "op": "clear",
+       "box": [
+        14,
+        45,
+        41,
+        59
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      },
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        75,
+        8,
+        98,
+        14
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        106,
+        34,
+        119,
+        56
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      },
+      {
+       "frame": 8,
+       "op": "clear",
+       "box": [
+        11,
+        33,
+        19,
+        48
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      },
+      {
+       "frame": 9,
+       "op": "clear",
+       "box": [
+        88,
+        10,
+        107,
+        17
+       ],
+       "why": "the whirl's motion arcs and the loosed bullet"
+      }
+     ],
+     "why": "the bullet goes at f10, on index 10"
+    },
+    "nw": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15
+     ],
+     "fixes": [
+      {
+       "frame": 11,
+       "op": "clear",
+       "box": [
+        6,
+        6,
+        10,
+        10
+       ],
+       "why": "the loosed bullet in flight"
+      },
+      {
+       "frame": 11,
+       "op": "clear",
+       "box": [
+        52,
+        34,
+        82,
+        49
+       ],
+       "why": "the loosed bullet in flight"
+      }
+     ],
+     "why": "one whirl frame dropped so the release f11 lands on index 10"
+    }
+   }
+  },
+  "stab": {
+   "fps": 14,
+   "strike": 4,
+   "canvas": "atk",
+   "spear": "level",
+   "dirs": {
+    "se": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      0,
+      1,
+      1,
+      2,
+      3,
+      4,
+      5,
+      7,
+      9,
+      10,
+      11
+     ],
+     "fixes": [
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        104,
+        89,
+        108,
+        92
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        83,
+        97,
+        88,
+        97
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        106,
+        97,
+        111,
+        97
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        86,
+        100,
+        91,
+        103
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        103,
+        101,
+        107,
+        104
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        91,
+        103,
+        94,
+        108
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 3,
+       "op": "clear",
+       "box": [
+        99,
+        104,
+        100,
+        110
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 4,
+       "op": "clear",
+       "box": [
+        109,
+        86,
+        111,
+        89
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 4,
+       "op": "clear",
+       "box": [
+        78,
+        97,
+        82,
+        97
+       ],
+       "why": "loose sparks and blood specks"
+      }
+     ],
+     "why": "the blow f2 held to index 4 (weak: a low swing)"
+    },
+    "ne": {
+     "attempt": "a2",
+     "frames": [
+      0,
+      2,
+      4,
+      5,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11,
+      11
+     ],
+     "fixes": [
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        78,
+        7,
+        78,
+        18
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        62,
+        11,
+        71,
+        20
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        83,
+        11,
+        89,
+        19
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        87,
+        16,
+        97,
+        22
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        58,
+        30,
+        69,
+        35
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        88,
+        31,
+        98,
+        37
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        69,
+        33,
+        73,
+        41
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        83,
+        34,
+        86,
+        42
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 8,
+       "op": "clear",
+       "box": [
+        76,
+        24,
+        81,
+        28
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 8,
+       "op": "clear",
+       "box": [
+        97,
+        37,
+        101,
+        40
+       ],
+       "why": "loose sparks"
+      }
+     ],
+     "why": "a1 REJECTED (he turns and strikes to the west); a2 the blow f7 on index 4 (weak: an upward swing)"
+    },
+    "sw": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ],
+     "fixes": [
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        30,
+        60,
+        30,
+        68
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        41,
+        63,
+        44,
+        69
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        18,
+        65,
+        21,
+        71
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        7,
+        70,
+        16,
+        77
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        4,
+        96,
+        12,
+        98
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        15,
+        101,
+        21,
+        110
+       ],
+       "why": "loose sparks"
+      },
+      {
+       "frame": 6,
+       "op": "clear",
+       "box": [
+        35,
+        104,
+        37,
+        111
+       ],
+       "why": "loose sparks"
+      }
+     ],
+     "why": "f5 REJECTED: a spark burst over the pouch; the blow f6 on index 4"
+    },
+    "nw": {
+     "attempt": "a2",
+     "frames": [
+      0,
+      2,
+      3,
+      5,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11,
+      11
+     ],
+     "fixes": [
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        29,
+        31,
+        36,
+        42
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        39,
+        31,
+        39,
+        37
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        43,
+        32,
+        48,
+        42
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        52,
+        38,
+        57,
+        41
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        21,
+        40,
+        27,
+        42
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        40,
+        52,
+        41,
+        60
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        24,
+        53,
+        28,
+        54
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 7,
+       "op": "clear",
+       "box": [
+        33,
+        53,
+        36,
+        58
+       ],
+       "why": "loose sparks and blood specks"
+      },
+      {
+       "frame": 8,
+       "op": "clear",
+       "box": [
+        41,
+        60,
+        41,
+        64
+       ],
+       "why": "loose sparks and blood specks"
+      }
+     ],
+     "why": "a1 REJECTED (facing drift, his face turns to the viewer); a2 f6 REJECTED (a spark burst over the arm), the blow f7 on index 4"
+    }
+   }
+  },
+  "fallBack": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "fallFwd": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "cheer": {
+   "fps": 10,
+   "hold": 3,
+   "canvas": "tall",
+   "spear": "upright",
+   "dirs": {
+    "se": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      1,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ],
+     "why": "f2 REJECTED: the sling drawn as a huge curved whip"
+    },
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  }
+ },
+ "tiers": {
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#151719",
+    "#1e2224",
+    "#2d3131",
+    "#3b4141"
+   ]
+  }
+ }
+}
