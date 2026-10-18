@@ -1,0 +1,43 @@
+docs/v5/pixellab/I3/hoplite.sheet.json
+  s_41b82181a73565::t_c05c3b8135ed4a 1-39
+scripts/art/pixellab/qc.mjs
+  s_41b82181a73565::t_286aa258b51bf2 1-8,12-21,23-107,122-165
+  s_41b82181a73565::t_74140cee3465d9 9-11,108-121
+  s_41b82181a73565::t_5390c0d785498d 22
+docs/v5/pixellab/I3/jobs.json
+  s_41b82181a73565::t_fb4847f42963b3 57-60
+  s_41b82181a73565::t_0eea3716371686 56
+  s_41b82181a73565::t_ebbd9e7dffb9a0 1-55,65
+  s_41b82181a73565::t_fd72bc643bcaba 61-64
+scripts/art/pixellab/groups.mjs
+  s_41b82181a73565::t_f18c777a59254c 109,112,304-307
+  s_41b82181a73565::t_5390c0d785498d 11-13
+  s_41b82181a73565::t_02f2a63989a6a2 243,245-247,250
+  s_41b82181a73565::t_c3a6f15c7678bc 1-10,14-108,110-111,113-242,244,251-257,259-303,308-345
+  s_41b82181a73565::t_048556f7b87458 248-249,258
+scripts/art/pixellab/sheetbuild.mjs
+  s_41b82181a73565::t_5390c0d785498d 20
+  s_41b82181a73565::t_c3a6f15c7678bc 1-19,21-170
+scripts/art/pixellab/fetchjobs.mjs
+  s_41b82181a73565::t_7699bb0b9b1d73 5,18-22
+scripts/art/pixellab/kp.mjs
+  s_41b82181a73565::t_8e56e8931cb9eb 1-9
+scripts/art/pixellab/rig.mjs
+  s_41b82181a73565::t_578166fe91c44f 14-15,150-151,160-162,166-169,233,389,394,396-406,446
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "34c2789389e90fe7a27f953ee1fa89d1039dfe9e",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
