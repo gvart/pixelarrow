@@ -75,6 +75,31 @@ export const CLASSES = {
     backNE: "seen from behind, the shield's dark back and rim face the viewer in every frame, never its face",
     skel: 'grim lean Greek peltast in an open-faced dark weathered bronze Thracian helmet with a forward-curving peak and cheek guards, short deep dark crimson cloak, dark leather jerkin over a dark oxblood-brown tunic, tall dark leather boots, one crescent-shaped pelte shield of dark hide with a dark bronze rim on his left arm, one wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped iron spearhead at the front end, plain blunt wooden butt end, no butt spike',
   },
+  // a pair of javelins in the right hand (I4a base): the spear words become the pair's ('poseW'); the throw sends one
+  // javelin and the spare goes to the shield hand
+  javelineer: {
+    who: 'a grim lean Carthaginian javelin skirmisher',
+    look: 'in a soft dark umber felt Thracian cap with a tall forward-curving top, a short dark purple-black cloak and a plain dark umber tunic',
+    shieldN: 'a small crescent-shaped pelte shield',
+    shieldNb: 'a small crescent-shaped pelte shield',
+    weaponN: 'two javelins',
+    weaponLv: 'two levelled javelins',
+    shield: 'the small crescent pelte shield',
+    spear: 'the two javelins',
+    poseW: 'the two javelins',
+    head: 'each with one small leaf-shaped iron head',
+    backNE: "seen from behind, the shield's dark back and rim face the viewer in every frame, never its face",
+    skel: 'grim lean Carthaginian javelin skirmisher in a soft dark umber felt Thracian cap with a tall forward-curving top and ear flaps, short deep dark purple-black cloak, plain dark umber wool tunic with a dark leather belt, bare legs, dark sandals, one small crescent-shaped pelte shield of dark wicker and hide on his left arm, two javelins held level together at the hip in his right hand, always pointing forward the way he faces, each with one small leaf-shaped iron head at the front end, plain blunt wooden butt ends, no butt spike',
+    clips: {
+      throw: 'a powerful overarm javelin throw, facing {t} the whole time: he passes one javelin to his left hand, where it stays upright behind {S}, raises the other javelin to his right shoulder, level and pointing forward with its small iron head in front of him and the butt behind his shoulder, draws it back along its own line, plants his left foot forward, then whips his hips, shoulders and arm forward and hurls it; the javelin leaves his hand and flies off forward out of the frame, head first; he follows through with his empty right hand forward and down and stays facing the same way, never turning round; the thrown javelin always points forward the way he faces; the spare javelin stays upright in his left hand behind the shield; no motion blur, no trail, no effects',
+      block: 'blocks a heavy blow in place: snaps {S} up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the two javelins stay level in the right hand pointing forward the way he faces in every frame, never raised upright, {H} at the front end, plain blunt butt end; one shield on the left arm in every frame; no sparks, no effects',
+      stagger: 'struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the two javelins level and pointing forward and the shield on the left arm in every frame, only two javelins; no motion blur, no smears, no effects, {H}, plain blunt butt end',
+      cheer: 'victory cheer in place: he thrusts the two javelins straight up high over his head in the right hand, the iron heads pointing at the sky, keeps {S} on his left arm in front of his body, tips his head back shouting, then pumps the two javelins up and down twice; {H}, plain blunt butt end; the shield stays on the left arm in every frame',
+      // the falls with the strong no-blood wording (the model still paints bursts; redClear cuts the red)
+      fallBack: 'killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and his two javelins fall with him, only two javelins in every frame; no blood at all, no red spray, no splatter, no particles, no effects',
+      fallFwd: 'killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and his two javelins fall with him, only two javelins in every frame; no blood at all, no red spray, no splatter, no particles, no effects',
+    },
+  },
 };
 
 /** The clips: [first-frame pose kind, description template]. {t} the direction, {S} the shield, {W} the weapon, {H} the head. */
@@ -151,16 +176,17 @@ const MILITIA = {
 export function promptOf(cls, anim, dir) {
   const c = CLASSES[cls];
   if (!c) throw new Error(`no class ${cls}`);
-  const [pose, tpl] = (c.sword ? SWORD : c.noShield ? MILITIA : CLIPS)[anim] ?? [];
+  const [pose0, tpl0] = (c.sword ? SWORD : c.noShield ? MILITIA : CLIPS)[anim] ?? [];
+  const pose = pose0, tpl = c.clips?.[anim] ?? tpl0;
   if (!tpl) throw new Error(`no clip ${anim}`);
   const lv = pose === LV || pose === LVM; // (a sword is never 'levelled')
   const subject = back(dir)
-    ? `${c.who} seen from behind ${c.look}, ${c.shieldNb} and ${lv ? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`
-    : `${c.who} ${c.look}, ${c.shieldN} and ${lv ? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`;
-  let description = tpl.replaceAll('{t}', TOWARD[dir]).replaceAll('{S}', c.shield).replaceAll('{W}', c.spear).replaceAll('{H}', c.head);
+    ? `${c.who} seen from behind ${c.look}, ${c.shieldNb} and ${lv ? c.weaponLv ?? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`
+    : `${c.who} ${c.look}, ${c.shieldN} and ${lv ? c.weaponLv ?? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`;
+  let description = (c.poseW ? tpl.replaceAll('the spear', c.poseW) : tpl).replaceAll('{t}', TOWARD[dir]).replaceAll('{S}', c.shield).replaceAll('{W}', c.spear).replaceAll('{H}', c.head);
   // NE (the shield on the far side of a back view): the model swings a bright shield face round to the viewer
   if (dir === 'north-east' && c.backNE) description += `; ${c.backNE}`;
-  return { subject_description: subject, initial_pose: pose, description, view: 'high top-down', direction: dir };
+  return { subject_description: subject, initial_pose: c.poseW ? pose.replace('the spear', c.poseW) : pose, description, view: 'high top-down', direction: dir };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

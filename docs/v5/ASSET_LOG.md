@@ -17,13 +17,15 @@ Empty. The AS-07 Nikias prompts were sent in AS-08 (below).
 | script | what it does |
 | --- | --- |
 | `prep.mjs <class> [--upload url]` | Builds the first frames from the base rotations and uploads them. `rot` is 68, `tall` is 96 x 112, `die` is 128 x 128, `guard` is 128 x 112 with the spear levelled, and `guardflat` is SE with `--vec 1,0.22`. |
-| `guard.mjs` | Makes a levelled-spear guard frame with no hand measuring. It finds the upright spear (`findSpear`), takes the fist from the skin on the line and erases the old spear along its line. Then `spear.mjs` redraws it in the class's own shaft and head colours. |
+| `guard.mjs` | Makes a levelled-spear guard frame with no hand measuring. It finds the upright spear (`findSpear`), takes the fist from the skin on the line and erases the old spear along its line. Then `spear.mjs` redraws it in the class's own shaft and head colours. A pair the search misses takes `--grip`, `--colors` and `--erase` boxes, read by `prep.mjs` from `<class>/guard.json`. |
 | `prompts.mjs <class> <anim> <dir>` | Prints the fields of every call. These are the hoplite's §15 prompts with each class's subject, shield and weapon words. |
 | `job.mjs` | Logs every job to `docs/v5/pixellab/I5a/<class>/jobs.json`, in the `fetchjobs.mjs` format, with the gens quoted. |
 | `spec.mjs <class>` | Writes the sheetbuild spec from `class.json` (picks, frame fixes with the reason for each, ramps, parts) and the hoplite's clip table, so the timings are the same. |
 | `partsview.mjs` | Shows false-colour colour groups, to check a spec's `parts` before a build. |
 | `feet.mjs` | Measures `rowsFeet`. |
 | `battle.mjs` | Takes real-battle screenshots with the men's classes swapped. |
+| `tpad.mjs <class> [--upload url]` | Pads the rotation onto the guard canvas (`tpad_<dir>`), the first frame of a `throw`. |
+| `rig5.mjs` | Skeleton-v3 rigs that `rig.mjs` lacks: the two-hand thrust (`thrust2`). |
 
 Rebuild a class: `node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I5a/<class>/jobs.json docs/v5/pixellab/I5a/raw/<class> && node scripts/art/pixellab/i5a/spec.mjs <class> && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I5a/<class>/<class>.sheet.json`. Raws are in `docs/v5/pixellab/I5a/raw/` (gitignored). The base rotations are refetched with `fetch.mjs <character id>`.
 
@@ -207,7 +209,7 @@ The hoplite's 16 clips for a shieldless levy spearman. The `MILITIA` prompt tabl
 The hoplite's 16 clips plus `throw`, for a light javelin-armed skirmisher with the crescent pelte. The melee `stab` falls back to `thrust` at runtime, so the attack set is the hoplite one-hand thrust (skeleton-v3 on `rig.mjs thrust`; strike 6) and the new `throw` (pixminimax, 12 frames at 14 fps, strike 9, guard canvas): he raises the spear to his right shoulder with the head forward, draws back, steps in and hurls it; the spear flies out of the frame and the hand ends empty. The throw starts from the rotation padded onto the guard canvas (`i5a/tpad.mjs`); SE starts from the guard (spear level, head forward).
 
 - **Calls and costs.** 73 jobs, **118 gens quoted**: 69 pixminimax and 4 skeleton-v3 thrusts.
-- **Sheet.** `src/assets/sheets/peltast/{peltast.png, manifest.json}`: 214 columns of 117 x 113, wrap 35, a 4095 x 3164 image, **49.4 MB decoded**.
+- **Sheet.** `src/assets/sheets/peltast/{peltast.png, manifest.json}`: 214 columns of 117 x 113, wrap 35, a 4095 x 3164 image, **49.4 MB decoded**; packed by the build to **10.41 MB decoded** (core 8.70 MB), a 306.2 KB download.
 - **Colour groups.** ramps outline, umber, darkBronze, crimson, metal, skin, iron. The crimson cloak is the exclusive `cloak` group; `metalKind.weaponMetal: iron` puts the iron spearhead on the iron ramp. crest and emblem false. `stature.skipTop: 4` drops the Thracian helmet's forward-curving apex from the measure (62 to 58 px). Blood left after the cut joins the cloak, so every fall and stagger was checked after the cut and broken frames replaced.
 - **QC.** `qc.mjs`: **0 failures**, 62 warnings: the spear-end heuristic on upright, parrying and thrown spears, and the wide braced and blocking stances (feet 105 vs 102); checked by eye. Stature 58, 56, 58, 56 px.
 
@@ -226,6 +228,36 @@ The hoplite's 16 clips plus `throw`, for a light javelin-armed skirmisher with t
 - A javelin throw needs the line spelled out per facing ("the spear lying along the line from his shoulder … towards <corner> … never points <back>"); "pointing forward" alone lets the model flip the head in the draw-back.
 - Starting the throw from the level guard (head already forward) keeps the head forward far better than starting from the upright rotation.
 - For a crimson-cloaked class the cut leaves blood in the cloak group; check every fall and stagger after the cut.
+
+#### javelineer (base `a0b21d96`, A1)
+
+The hoplite's 16 clips plus `throw`, for a Carthaginian skirmisher with a pair of javelins and a small pelte. The melee `stab` falls back to `thrust` (skeleton-v3 on `rig.mjs thrust`, the pair held level; strike 6). The `throw` (12 frames at 14 fps, strike 9, guard canvas) passes one javelin to the shield hand, where it stays upright, and hurls the other: it flies out of the frame and the hand ends empty. SW and NW start from the rotation padded onto the guard canvas (`i5a/tpad.mjs`); NE and SE start from the guard.
+
+- **First frames.** The pair defeats the line search (`guard.mjs` found half a javelin or none), so `guard.mjs` gained `--erase` boxes, `--colors` and a found-nothing path with `--grip`, and `prep.mjs` reads the per-facing arguments from `docs/v5/pixellab/I5a/javelineer/guard.json` (fists and erased javelins measured by hand from the rotations).
+- **Calls and costs.** 74 jobs, **120 gens quoted**: 70 pixminimax and 4 skeleton-v3 thrusts.
+- **Sheet.** `src/assets/sheets/javelineer/{javelineer.png, manifest.json}`: 214 columns of 133 x 117, wrap 30, a 3990 x 3744 image, **57.0 MB decoded** (the thrown javelins widen the cell); packed by the build to **10.58 MB decoded** (core 8.76 MB), a 291.1 KB download.
+- **Colour groups.** ramps outline, umber, darkBronze, purpleBlack, metal, skin, iron, crimson. parts: purpleBlack → cloak (exclusive), iron → weaponMetal, crimson → shadow (the class has no crimson, so blood left after the cut falls into shadow). crest and emblem false; `metalKind.weaponMetal: iron`; `stature.skipTop: 4` (the soft cap's peak), 58 px in every facing.
+- **QC.** `qc.mjs`: **0 failures**, 81 warnings: the spear-end heuristic on the pair (two parallel shafts read as double-ended), upright and thrown javelins, and the wide stances; checked by eye.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | throw NE | a1 | **Rejected (weapon reversed):** the head points down-left, backwards, in the draw-back (f4–f8). a2 (from the guard, "the thrown javelin always lies along the line from his shoulder up and away to the upper right") promoted with `frames` 0, 1, 2, 2, 3×4, 7, 8, 9, 11: f4–f6, where the head still swings back, drop out. |
+| 2 | throw SE | a1 | **Rejected (weapon reversed, shield vanishing):** the head points up-left in the draw-back (f2–f7) and the shield vanishes after the throw (f8–f11). a2 from the guard promoted; `frames` hold the draw-back so the release lands on the strike frame. |
+| 3 | throw SW | a1 | **Promoted** with f9 cleared of the javelin in flight (drawn tail first) and f10 of a speck. NW a1 promoted as is. |
+| 4 | fallBack SE | p1, p2 | **Rejected:** p1 a blood flash and the whole man recoloured orange-brown, the cloak lost (f1–f11); p2 a blood burst over the body f0–f4 (the first frame broken once cut). p3 ("he slumps … no wound is shown … no red") promoted. |
+| 5 | stagger SE | a1 | **Rejected (shield vanishing, weapon missing):** the shield vanishes (f2–f5) and one javelin is lost. a2 ("the shield stays strapped on his left arm and clearly visible") promoted. |
+| 6 | block NE | a1 | **Rejected (shield vanishing):** the shield face turns to the viewer (f1), then the shield vanishes (f2–f11). a2 promoted with `frames` 0, 1, 1, 3×6, 1, 1, 0: the shield goes behind him again after f3, so the block is held at f3. |
+| 7 | every other clip, all facings | a1 / p1 | **Promoted.** Frames replaced: fallBack NE f2←f1, f3←f4; fallBack SW f1←f0; fallBack NW f1←f0; fallFwd NW f2←f1; stagger SW f0←f1 (blood over the shafts or body); block SE f2←f3, block SW f2←f1 (spark residue). |
+
+**Rejection count.** Whole clips: weapon reversed 2, shield vanishing 3 (one also weapon missing), blood 2 (one also recoloured). Frames replaced 9 (blood 7, sparks 2); 2 frames cleared; 2 clips re-timed with `frames` to drop bad frames (throw NE: 3 reversed; block NE: the shieldless f4–f11 and a spark frame). No heads turned backwards or clipped, no drift.
+
+**Process notes.** I sent several calls in one message (look, adjust, walk NE; at most 3 running), so the 2 s gap between those submissions is not assured.
+
+**Lessons.**
+- A pair of javelins needs the guard frame by hand: erase boxes and a measured fist.
+- Starting the throw from the level guard keeps the head forward (NE, SE), as for the peltast.
+- The pair read as two parallel spears in the levelled clips; the spear QC heuristic warns on them, which is expected.
+- A red-only clear also eats purple and dark umber pixels; replace frames instead.
 
 ### I5c Mounted and chariot clips: companion, horse archer, thessalian, chariot, from the I4b bases to game sheets (2026-10-18)
 

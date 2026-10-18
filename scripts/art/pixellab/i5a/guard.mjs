@@ -5,6 +5,9 @@
 // Usage: node scripts/art/pixellab/i5a/guard.mjs <rotation.png> <out.png> --facing south-west [--pad 128,112,52,30]
 //          [--vec dx,dy] [--ahead 38] [--behind 20] [--grip x,y] [--count 1]
 //   --count 2   two javelins held together: every thin line through the fist is erased, two are drawn 2 px apart
+//   --erase "x0,y0,x1,y1 ..."  boxes of the old spear(s) cleared by hand (rotation pixels, the fist box kept): a pair the
+//               line search misses or only half finds (javelineer); with --grip and --colors no line need be found
+//   --colors shaft,dark,butt,line,head,headDark  the spear colours (hex), instead of sampling them from the old shaft
 // Prints the grip and the spear.mjs call.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
@@ -40,9 +43,8 @@ const lines = [];
     erase(work, sp, 1.6, 2.8, null);
   }
 }
-if (!lines.length) throw new Error('no spear found');
-const sp = lines[0];
-const { head, butt, len } = sp;
+if (!lines.length && !(opt('grip') && opt('colors'))) throw new Error('no spear found');
+const { head, butt, len } = lines[0] ?? { head: [0, 0], butt: [0, 0], len: 1 };
 const P = (t) => [butt[0] + (head[0] - butt[0]) * t, butt[1] + (head[1] - butt[1]) * t];
 
 // the fist: skin pixels within 3 px of the line, in the middle of it
@@ -87,6 +89,13 @@ let outline = [18, 12, 10];
 const keep = [grip[0] - 3, grip[1] - 2, grip[0] + 3, grip[1] + 2];
 const clean = { w, h, data: new Uint8Array(data) };
 for (const l of lines) erase(clean, l, 1.6, 2.8, keep);
+for (const b of (opt('erase') ?? '').split(' ').filter(Boolean)) {
+  const [x0, y0, x1, y1] = b.split(',').map(Number);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (x >= keep[0] && x <= keep[2] && y >= keep[1] && y <= keep[3]) continue;
+    clean.data[(y * w + x) * 4 + 3] = 0;
+  }
+}
 // pixels of the old spear left as a speck by the erase (under 4 px, 8-connected) go too
 dropSpecks(clean);
 
@@ -95,7 +104,7 @@ const cleanPath = join(tmp, 'clean.png');
 writeImage(cleanPath, clean);
 const [pdx, pdy] = PAD[facing];
 const pad = opt('pad', `128,112,${pdx},${pdy}`);
-const colors = [shaft, dark, shaft, outline, headL, headD].map(hex).join(',');
+const colors = opt('colors') ?? [shaft, dark, shaft, outline, headL, headD].map(hex).join(',');
 const call = (g, k, p) => ['--facing', facing, '--grip', g.join(','), '--keep', k.join(','), '--pad', p, '--colors', colors,
   '--ahead', opt('ahead', '38'), '--behind', opt('behind', '20'), ...(opt('vec') ? ['--vec', opt('vec')] : [])];
 const spearJs = join(HERE, '..', 'spear.mjs');

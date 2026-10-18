@@ -7,6 +7,8 @@
 //     guard      128 x 112, the spear redrawn levelled (i5a/guard.mjs; --spear 2: a pair of javelins); 0: the rotation
 //                padded the same way (a sword class)
 //     guardflat  SE only: guard with the spear drawn flatter (--vec 1,0.22), the thrust's first frame (STYLE_LOCK §6)
+//   docs/v5/pixellab/I5a/<class>/guard.json, if there: { <dir>: [guard.mjs args] } appended per facing (a pair the
+//     line search misses: --grip, --colors, --erase by hand)
 //   With --upload (a get_upload_url URL) every file is uploaded and the refs merged into first/uploads.json.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -28,6 +30,8 @@ const spear = Number(opt('spear', 1));
 const only = opt('only') ? opt('only').split(',') : null;
 const node = (...a) => execFileSync('node', a, { stdio: ['ignore', 'pipe', 'inherit'] }).toString().trim();
 const files = [];
+const gj = join(ROOT, 'docs/v5/pixellab/I5a', cls, 'guard.json');
+const extra = existsSync(gj) ? JSON.parse(readFileSync(gj, 'utf8')) : {};
 for (const d of DIRS) {
   const rot = join(rotDir, `${d}.png`);
   const want = (n) => !only || only.includes(n);
@@ -37,13 +41,13 @@ for (const d of DIRS) {
   if (want('guard')) {
     // SE: the grip moved back (head 52 px ahead of the fist, butt 10 behind) so the leaf clears the shield rim and leads
     // visibly (main's review of royal_guard: with 38 / 20 the long butt up-left read as the point)
-    const se = d === 'south-east' ? ['--ahead', '52', '--behind', '10'] : [];
+    const se = [...(d === 'south-east' ? ['--ahead', '52', '--behind', '10'] : []), ...(extra[d] ?? [])];
     if (spear) console.log(node(join(HERE, 'guard.mjs'), rot, join(first, `guard_${d}.png`), '--facing', d, '--count', String(spear), ...se).split('\n').at(-1));
     else node(join(HERE, '..', 'pad.mjs'), rot, join(first, `guard_${d}.png`), '128', '112', ...GUARD[d].map(String));
     files.push(`guard_${d}`);
   }
   if (spear && d === 'south-east' && want('guardflat')) {
-    console.log(node(join(HERE, 'guard.mjs'), rot, join(first, `guardflat_${d}.png`), '--facing', d, '--count', String(spear), '--vec', '1,0.22', '--ahead', '52', '--behind', '10').split('\n').at(-1));
+    console.log(node(join(HERE, 'guard.mjs'), rot, join(first, `guardflat_${d}.png`), '--facing', d, '--count', String(spear), '--vec', '1,0.22', '--ahead', '52', '--behind', '10', ...(extra[d] ?? [])).split('\n').at(-1));
     files.push(`guardflat_${d}`);
   }
 }
