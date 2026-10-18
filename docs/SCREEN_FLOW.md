@@ -5,13 +5,13 @@
 > **Last Updated**: 2026-10-10
 > **Platform Target**: Telegram Mini App, portrait, touch first
 > **Template**: UX Spec (flow)
-> **Built from**: docs/v5/audit/NAV.md (every `scene.start`, `goTab`, back handler and `sceneForRoute`), changed by the rules in [ia.md](ia.md)
+> **Built from**: docs/v5/audit/NAV.md (every `scene.start`, `goTab`, back handler and `sceneForRoute`), changed by the IA rules (removed with design/ux; see git history)
 
 Every screen, how you get in, how you get out, and where Back goes. "Back" means the top-left arrow in a browser and Telegram's BackButton inside Telegram (`BaseScene.screen({back})`); they always do the same thing.
 
 ## 1. Screen register
 
-**24 screens** (full-screen destinations) and **68 sheets and pages** (overlays that keep the screen under them). The specs are in [screens-campaign.md](screens-campaign.md) (C-) and [screens-modes.md](screens-modes.md) (M-). The Battle HUD is in [hud.md](hud.md).
+**24 screens** (full-screen destinations) and **68 sheets and pages** (overlays that keep the screen under them). C- and M- ids refer to the removed design/ux screen specs (git history); the Battle HUD is in docs/UI_KIT.md "Battle HUD".
 
 | ID | Screen | Scene (code) | Kind | Spec |
 | --- | --- | --- | --- | --- |

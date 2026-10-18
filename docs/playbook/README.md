@@ -1,13 +1,10 @@
 # The pixelarrow playbook
 
-How v5 was built, written down so the next feature, the next piece of art and the v6 platform work can be
-built the same way. It is for someone who was not there: every rule points at the file or decision it came
-from.
-
-v5 was run by one coordinating session (the "Director") that wrote no code. It wrote design docs, planned
-stories and dispatched agents. Agents did all the work in their own git worktrees, and short-lived
-"integrator" agents merged them into the local branch `v5` and ran every gate. Gemini (in Chrome) made the
-painted art. This playbook keeps that method and drops the parts that were only true for one night.
+How v5 and v6 were built, written down so the next feature, piece of art or multi-agent run can be built the
+same way. v5 and v6 were each run by one coordinating session (the "Director") that wrote no code: it planned
+stories and dispatched agents, agents worked in their own git worktrees, short-lived "integrator" agents merged
+them and ran every gate, Gemini (in Chrome) made the painted art and PixelLab the soldier sprites. The run logs,
+GDDs and ADRs of those runs are no longer in the repo; this playbook keeps the method, the prompts and the lessons.
 
 ## Read in this order
 
@@ -15,36 +12,30 @@ painted art. This playbook keeps that method and drops the parts that were only 
 | --- | --- | --- | --- |
 | 1 | [NEW_FEATURE.md](NEW_FEATURE.md) | Idea → GDD → decisions → story card → agent → review → merge → balance → regression → localization, with a checklist | Every new feature |
 | 2 | [LESSONS.md](LESSONS.md) | The hard rules learned the expensive way (disk, flakes, taps, fonts, servers) | Before you dispatch anything |
-| 3 | [PROMPTS_AGENTS.md](PROMPTS_AGENTS.md) | Fill-in prompts for the implementation agent, integrator, flake fixer, QA playthrough and the Director's review loop; the skills and agents list | When you write an agent prompt |
+| 3 | [PROMPTS_AGENTS.md](PROMPTS_AGENTS.md) | Fill-in prompts for the implementation agent, integrator, flake fixer, QA playthrough and the Director's review loop | When you write an agent prompt |
 | 4 | [ART.md](ART.md) | The image pipeline: art bible essentials, Gemini workflow, process → check → preview → promote, sizes and budgets | Before any art job |
-| 5 | [PROMPTS_ART.md](PROMPTS_ART.md) | Every Gemini prompt used in v5, grouped by asset type, with results and reusable templates | When you write an image prompt |
-| 6 | [SCENARIOS.md](SCENARIOS.md) | How game content was authored: event cards, campaign events, lairs and the host, ladder floors, doctrines, names | When you add content |
-| — | [director-brief-v5.md](director-brief-v5.md) | The v5 Director brief, word for word | When you start a new multi-agent run |
+| 5 | [PROMPTS_ART.md](PROMPTS_ART.md) | The Gemini and PixelLab prompt templates and the prompts behind shipped art | When you write an image prompt |
+| 6 | [SCENARIOS.md](SCENARIOS.md) | How game content is authored: event cards, the campaign arc, ladder floors, doctrines, names | When you add content |
+| — | [director-brief.md](director-brief.md) | The Director brief as a fill-in template (v5 + v6) | When you start a new multi-agent run |
 
-## The sources this is built from
-
-Read these when the playbook is not enough. They stay the ground truth.
+## Ground truth that is still in the repo
 
 | Topic | File |
 | --- | --- |
-| Decisions, with alternatives and reasons | [docs/v5/DECISIONS.md](../v5/DECISIONS.md) |
-| What was merged, gate results, follow-ups | [docs/v5/PROGRESS.md](../v5/PROGRESS.md) |
-| Story list and gate codes | [docs/v5/plan/STORIES.md](../v5/plan/STORIES.md) |
-| Waves, file ownership, dispatch cards | [docs/v5/plan/SPRINTS.md](../v5/plan/SPRINTS.md) |
-| Which skills each story used | [docs/v5/SKILLS_LOG.md](../v5/SKILLS_LOG.md) |
-| Gemini prompts and verdicts | [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) |
-| Art rules | [design/art/art-bible.md](../../design/art/art-bible.md), [docs/v5/art/ASSET_PIPELINE.md](../v5/art/ASSET_PIPELINE.md), [docs/v5/art/ASSET_LIST.md](../v5/art/ASSET_LIST.md) |
-| Design docs | [design/gdd/](../../design/gdd/), [design/adr/](../../design/adr/), [design/ux/](../../design/ux/) |
-| Balance | [docs/v5/balance/FINAL.md](../v5/balance/FINAL.md) and one file per mechanic story in [docs/v5/balance/](../v5/balance/) |
-| QA | [docs/v5/qa/PLAYTHROUGH.md](../v5/qa/PLAYTHROUGH.md), [tests/regression/SUITE.md](../../tests/regression/SUITE.md) |
+| Art pipeline scripts, asset list, sheet format, PixelLab style lock | [docs/v5/art/](../v5/art/) (`ASSET_PIPELINE.md`, `ASSET_LIST.md`, `SHEET_FORMAT.md`, `STYLE_LOCK.md`, `asset-manifest.json`, `palette.json`) |
+| PixelLab job ids, picks and the I5c / polish prompts by id | [docs/v5/pixellab/](../v5/pixellab/) |
+| Player-facing rules | [docs/GAMEPLAY.md](../GAMEPLAY.md), [DESIGN_V2.md](../DESIGN_V2.md), [DUELS.md](../DUELS.md), [ITEMS.md](../ITEMS.md) |
+| Regression suite | [tests/regression/SUITE.md](../../tests/regression/SUITE.md) |
+| Flaky checks | [docs/FLAKY.md](../FLAKY.md) |
 | Release and ops | [docs/OPS.md](../OPS.md) |
-| What comes next | [docs/ROADMAP.md](../ROADMAP.md) "Next: v6" |
+| What comes next | [docs/ROADMAP.md](../ROADMAP.md) |
+
+Decision ids quoted in these files (V5-0xx, V6-0xx) point at the decision logs of those runs, which are in git
+history, not in the tree.
 
 ## Things that are not in git
 
-- `.claude/` (skills, agents, the Director brief) is untracked (V5-002). In v5 it lived at
-  `F=/Users/v.gladis/Workspace/Personal/pixelarrow/.claude/worktrees/sd-69ad2c`. Agent prompts point at
-  `$F/.claude/skills/<name>/SKILL.md` and `$F/.claude/agents/<name>.md`. If that worktree is removed, copy
-  `.claude/` somewhere stable first and update the paths.
-- Raw Gemini downloads are gitignored (V5-049). They are in `$F/docs/v5/gemini/AS-0N/`. The processed
-  files and contact sheets are in git.
+- `.claude/` (skills, agents, Director briefs) is untracked (V5-002). Agent prompts point at
+  `{F}/skills/<name>/SKILL.md` and `{F}/agents/<name>.md` with `{F}` an absolute path; keep `.claude/` somewhere
+  stable (v6 used `{ROOT}/.claude`) and update the paths if it moves.
+- Raw Gemini downloads are gitignored (V5-049). The processed files and contact sheets are in git.

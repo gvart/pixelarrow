@@ -137,7 +137,7 @@ When both changed, they go live together: the game deploy also waits for the
 landing checks, and the landing deploys right after it. Deploys need the
 repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the
 backend setup is in server/README.md "One-time setup checklist", and the
-go-live order is in docs/v6/OWNER_ACTIONS.md. The game build
+go-live order is in docs/OPS.md "Go-live". The game build
 uses a relative `base` (`./`), so it also works under a sub-path.
 
 ## Audio
