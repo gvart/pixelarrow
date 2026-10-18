@@ -16,6 +16,11 @@
 //   "crest"?: false, "emblem"?: false (no crest / no shield emblem: that crimson stays cloak),
 //   "stature"?: { "skipTop"?: rows, "from"?: "any", "px"?, "tol"? } (read by qc.mjs --spec: how helmet top to feet is
 //              measured and its target, default 58 ± 3),
+//   "spear"?: false (no spear-line detection: swords, axes, bows; default on),
+//   "metalKind"?: { "metal"?: "iron" | "bronze", "weaponMetal"?: "iron" | "bronze" } (each metal group's manifest kind,
+//              default bronze),
+//   "metalSlots"?: { "metal"?: ["helmet", "armor", ...], "weaponMetal"?: [...] } (the gear whose rarity a metal group
+//              follows; default shield, helmet, armor for metal and weapon for weaponMetal),
 //   "tiers": { "veteran": { "<group>": [anchor hex dark->light] }, "elite": { ... } }
 // }
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -60,7 +65,7 @@ for (const [anim, a] of Object.entries(spec.anims)) {
     const headDir = a.spear === 'level' ? LEVEL[dir] : [0, -1];
     let prev = null;
     const frames = fr.map((img) => {
-      const r = splitFrame(img, map, { prev, headDir, parts: spec.parts, crest: spec.crest !== false, emblem: spec.emblem !== false });
+      const r = splitFrame(img, map, { prev, headDir, spear: spec.spear !== false, parts: spec.parts, crest: spec.crest !== false, emblem: spec.emblem !== false });
       prev = r.parts;
       return { img, parts: r.parts, info: r.info, spear: r.spear, dropped: r.dropped };
     });
@@ -186,8 +191,9 @@ for (const [t, groups] of Object.entries(spec.tiers ?? {})) {
   for (const [g, anc] of Object.entries(groups)) if (colorGroups[g]) tiers[t][g] = ramp(anc, colorGroups[g].length);
 }
 const metal = [];
-if (G.metal?.length) metal.push({ kind: 'bronze', colors: [...G.metal].reverse(), slots: ['shield', 'helmet', 'armor'] });
-if (G.weaponMetal?.length) metal.push({ kind: 'bronze', colors: [...G.weaponMetal].reverse(), slots: ['weapon'] });
+const metalGroup = (g, slots) => ({ kind: spec.metalKind?.[g] ?? 'bronze', colors: [...G[g]].reverse(), slots: spec.metalSlots?.[g] ?? slots });
+if (G.metal?.length) metal.push(metalGroup('metal', ['shield', 'helmet', 'armor']));
+if (G.weaponMetal?.length) metal.push(metalGroup('weaponMetal', ['weapon']));
 
 const manifest = {
   version: 2,
