@@ -190,8 +190,8 @@
     "ne": "a1",
     "sw": "a1",
     "nw": {
-     "attempt": "a2",
-     "why": "a1 REJECTED: the sling hidden behind the cloak for six frames; a2 still hides it f1-f6 (needs review)"
+     "attempt": "p1",
+     "why": "polish: the sling swings clear on his right f3-f12 (a2 hid it f1-f6); still behind the cloak f0-f2, f13-f15"
     }
    }
   },
@@ -203,7 +203,10 @@
     "se": "a1",
     "ne": "a1",
     "sw": "a1",
-    "nw": "a1"
+    "nw": {
+     "attempt": "p1",
+     "why": "polish: the sling clear on his right in every frame (a1 hid it f1-f4)"
+    }
    }
   },
   "rout": {
@@ -867,123 +870,22 @@
    "spear": "level",
    "dirs": {
     "se": {
-     "attempt": "a1",
+     "attempt": "p2",
      "frames": [
-      0,
-      0,
-      1,
       1,
       2,
       3,
-      4,
+      3,
       5,
+      6,
       7,
+      8,
       9,
       10,
+      11,
       11
      ],
-     "fixes": [
-      {
-       "frame": 3,
-       "op": "clear",
-       "box": [
-        104,
-        89,
-        108,
-        92
-       ],
-       "why": "loose sparks and blood specks"
-      },
-      {
-       "frame": 3,
-       "op": "clear",
-       "box": [
-        83,
-        97,
-        88,
-        97
-       ],
-       "why": "loose sparks and blood specks"
-      },
-      {
-       "frame": 3,
-       "op": "clear",
-       "box": [
-        106,
-        97,
-        111,
-        97
-       ],
-       "why": "loose sparks and blood specks"
-      },
-      {
-       "frame": 3,
-       "op": "clear",
-       "box": [
-        86,
-        100,
-        91,
-        103
-       ],
-       "why": "loose sparks and blood specks"
-      },
-      {
-       "frame": 3,
-       "op": "clear",
-       "box": [
-        103,
-        101,
-        107,
-        104
-       ],
-       "why": "loose sparks and blood specks"
-      },
-      {
-       "frame": 3,
-       "op": "clear",
-       "box": [
-        91,
-        103,
-        94,
-        108
-       ],
-       "why": "loose sparks and blood specks"
-      },
-      {
-       "frame": 3,
-       "op": "clear",
-       "box": [
-        99,
-        104,
-        100,
-        110
-       ],
-       "why": "loose sparks and blood specks"
-      },
-      {
-       "frame": 4,
-       "op": "clear",
-       "box": [
-        109,
-        86,
-        111,
-        89
-       ],
-       "why": "loose sparks and blood specks"
-      },
-      {
-       "frame": 4,
-       "op": "clear",
-       "box": [
-        78,
-        97,
-        82,
-        97
-       ],
-       "why": "loose sparks and blood specks"
-      }
-     ],
-     "why": "the blow f2 held to index 4 (weak: a low swing)"
+     "why": "polish: f0 REJECTED (a red flash at the hand), f4 REJECTED (crescent smear); the windup f3 held, the blow f5 on index 4; a1 (a weak low swing) replaced"
     },
     "ne": {
      "attempt": "a2",

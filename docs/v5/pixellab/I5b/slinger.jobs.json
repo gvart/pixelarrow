@@ -70,5 +70,11 @@
  {"anim":"stagger","dir":"north-west","attempt":"a1","job":"23ff7fc1-d5b3-44cf-b09d-130084ee3cb3","mode":"pixminimax","frames":12,"gens":1,"first":"guard"},
  {"anim":"fallBack","dir":"north-west","attempt":"a1","job":"be3c2547-78cf-47c4-b993-c7363f57705e","mode":"pixminimax","frames":12,"gens":2,"first":"die"},
  {"anim":"fallFwd","dir":"north-west","attempt":"a1","job":"5c9b7f01-29dc-4a25-83be-515594f512f3","mode":"pixminimax","frames":12,"gens":2,"first":"die"},
- {"anim":"cheer","dir":"north-west","attempt":"a1","job":"6d844401-a0e4-4a04-800c-b0805e49cd1e","mode":"pixminimax","frames":12,"gens":1,"first":"tall"}
+ {"anim":"cheer","dir":"north-west","attempt":"a1","job":"6d844401-a0e4-4a04-800c-b0805e49cd1e","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"walk","dir":"north-west","attempt":"p1","job":"b242c37e-f2ac-4e41-8240-c5899a5bde76","mode":"pixminimax","frames":16,"gens":1,"first":"rot"},
+ {"anim":"run","dir":"north-west","attempt":"p1","job":"0d5f3c8f-6a3a-4f8e-b7bd-cc7cf2caba52","mode":"pixminimax","frames":12,"gens":1,"first":"rot"},
+ {"anim":"stab","dir":"south-east","attempt":"p1","job":"1eabc5e5-a40d-492f-83ed-38c0546471d6","mode":"pixminimax","frames":12,"gens":2,"first":"atk"},
+ {"anim":"stab","dir":"north-east","attempt":"p1","job":"aaedf3e9-52ac-4482-beb2-5e867b88c9da","mode":"pixminimax","frames":12,"gens":2,"first":"atk"},
+ {"anim":"stab","dir":"south-east","attempt":"p2","job":"17ccb513-3ab7-4189-97a2-bdd52c059cc3","mode":"pixminimax","frames":12,"gens":2,"first":"atk"},
+ {"anim":"stab","dir":"north-east","attempt":"p2","job":"b9c2fc4d-548d-4550-8952-2331bc802d49","mode":"pixminimax","frames":12,"gens":2,"first":"atk"}
 ]

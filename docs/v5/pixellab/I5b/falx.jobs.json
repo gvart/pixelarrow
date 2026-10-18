@@ -66,5 +66,13 @@
  {"anim":"stagger","dir":"north-west","attempt":"a1","job":"99171501-104e-43a4-ac88-6b946487ed59","mode":"pixminimax","frames":12,"gens":1,"first":"guard"},
  {"anim":"fallBack","dir":"north-west","attempt":"a1","job":"0a1cf051-4d38-47b7-871c-30c570876c4d","mode":"pixminimax","frames":12,"gens":2,"first":"die"},
  {"anim":"fallFwd","dir":"north-west","attempt":"a1","job":"8bdbc193-79ab-4360-8c86-8650336d88f3","mode":"pixminimax","frames":12,"gens":2,"first":"die"},
- {"anim":"cheer","dir":"north-west","attempt":"a1","job":"00bad03e-90cf-419f-a41a-1d4c1c4680d9","mode":"pixminimax","frames":12,"gens":1,"first":"tall"}
+ {"anim":"cheer","dir":"north-west","attempt":"a1","job":"00bad03e-90cf-419f-a41a-1d4c1c4680d9","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"guard","dir":"north-east","attempt":"p1","job":"09b6939a-f854-4908-8166-13f2a9e08765","mode":"pixminimax","frames":8,"gens":1,"first":"tall"},
+ {"anim":"guard","dir":"north-east","attempt":"p2","job":"fa45f334-216e-48b7-8cbb-3e307781f1ab","mode":"pixminimax","frames":8,"gens":1,"first":"tall"},
+ {"anim":"ready","dir":"north-east","attempt":"p1","job":"b25b09aa-718b-40cb-b075-ac7d959cf5b0","mode":"pixminimax","frames":12,"gens":1,"first":"guard"},
+ {"anim":"charge","dir":"north-east","attempt":"p1","job":"59bf5c1c-8f11-499e-a00e-ddfe99608748","mode":"pixminimax","frames":12,"gens":1,"first":"guard"},
+ {"anim":"slash","dir":"north-east","attempt":"p1","job":"47c97370-ca9c-48b8-be9a-a994b9293a33","mode":"pixminimax","frames":16,"gens":2,"first":"gatk"},
+ {"anim":"brace","dir":"north-east","attempt":"p1","job":"8f2a3295-4e6b-459c-bfdc-c9232cd1e109","mode":"pixminimax","frames":12,"gens":1,"first":"guard"},
+ {"anim":"block","dir":"north-east","attempt":"p1","job":"087564ff-8b5f-470d-b9e4-4e58e9a1d723","mode":"pixminimax","frames":12,"gens":1,"first":"guard"},
+ {"anim":"stagger","dir":"north-east","attempt":"p1","job":"3dbe412a-a333-44d7-b0fb-ea2d712f6bc8","mode":"pixminimax","frames":12,"gens":1,"first":"guard"}
 ]

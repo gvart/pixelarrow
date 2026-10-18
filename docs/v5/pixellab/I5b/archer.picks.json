@@ -2,40 +2,456 @@
  "$doc": "I5b archer: which reviewed attempt of every clip and facing ships, with its frame fixes (scripts/art/pixellab/i5b/mkspec.mjs writes archer.sheet.json from it). Rejections: ASSET_LOG I5b. Missiles loosed in flight are cleared: the sim draws the arrow.",
  "class": "archer",
  "scale": 0.55,
- "ramps": ["outline", "crimson", "umber", "darkBronze", "skin", "iron"],
- "parts": { "umber": "shadow", "darkBronze": "shadow", "iron": "shadow" },
+ "ramps": [
+  "outline",
+  "crimson",
+  "umber",
+  "darkBronze",
+  "skin",
+  "iron"
+ ],
+ "parts": {
+  "umber": "shadow",
+  "darkBronze": "shadow",
+  "iron": "shadow"
+ },
  "crest": false,
  "emblem": false,
  "spear": false,
- "stature": { "from": "any", "why": "bare head" },
+ "stature": {
+  "from": "any",
+  "why": "bare head"
+ },
  "anims": {
-  "idle": { "fps": 8, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "look": { "fps": 8, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": { "attempt": "a1", "fixes": [{ "frame": 14, "op": "copy", "from": 13, "why": "the bow drawn hollow and dark for one frame" }] }, "sw": "a1", "nw": "a1" } },
-  "adjust": { "fps": 10, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": { "attempt": "a1", "fixes": [{ "frame": 9, "op": "copy", "from": 8, "why": "the bow drawn hollow and dark for one frame" }] }, "sw": "a2", "nw": "a1" } },
-  "walk": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": { "attempt": "a1", "fixes": [{ "frame": 6, "op": "copy", "from": 5, "why": "the bow drawn hollow and dark for one frame" }] }, "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "run": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "rout": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "kneel": { "fps": 8, "hold": 4, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "charge": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "ready": { "fps": 8, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "block": { "fps": 14, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "stagger": { "fps": 12, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1",
-   "sw": { "attempt": "a1", "fixes": [{ "frame": 1, "op": "clear", "box": [72, 8, 78, 16], "why": "a stray arrowhead in the air" }, { "frame": 0, "op": "copy", "from": 1, "why": "REJECTED frame: an arrow pops up out of the hand, a second missile" }] },
-   "nw": "a1" } },
-  "shoot": { "fps": 16, "strike": 10, "canvas": "atk", "spear": "upright", "dirs": {
-   "sw": { "attempt": "a1", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 9, 10, 11, 12, 13, 14], "fixes": [{ "frame": 9, "op": "clear", "box": [6, 76, 33, 92], "why": "the loosed arrow in flight (the sim draws the missile)" }], "why": "full draw held a frame; release f9 on index 10" },
-   "se": { "attempt": "a1", "frames": [0, 1, 2, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 15, 15], "fixes": [{ "frame": 0, "op": "clear", "box": [101, 81, 126, 92], "why": "REJECTED piece: an arrow already in flight before he shoots" }, { "frame": 1, "op": "clear", "box": [80, 72, 105, 80], "why": "as f0" }, { "frame": 12, "op": "clear", "box": [99, 67, 126, 73], "why": "the loosed arrow in flight" }], "why": "release f12 on index 10" },
-   "ne": { "attempt": "a1", "frames": [0, 1, 2, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 15, 15], "fixes": [{ "frame": 12, "op": "clear", "box": [82, 24, 103, 41], "why": "the loosed arrow, flying the wrong way (upper left)" }, { "frame": 13, "op": "clear", "box": [111, 5, 125, 16], "why": "as f12" }], "why": "release f12 on index 10" },
-   "nw": { "attempt": "a1", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 15], "fixes": [{ "frame": 11, "op": "clear", "box": [28, 37, 48, 48], "why": "the loosed arrow in flight" }, { "frame": 12, "op": "clear", "box": [0, 28, 4, 31], "why": "as f11" }], "why": "release f11 on index 10" } } },
-  "stab": { "fps": 14, "strike": 4, "canvas": "atk", "spear": "level", "dirs": { "se": "a1",
-   "ne": { "attempt": "a1", "fixes": [{ "frame": 5, "op": "copy", "from": 4, "why": "REJECTED frame: an impact flash over the bow; once cut, the bow is broken" }, { "frame": 6, "op": "copy", "from": 7, "why": "REJECTED frame: a blood burst over the bow" }] },
-   "sw": "a1", "nw": "a1" } },
-  "fallBack": { "fps": 12, "canvas": "die", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "fallFwd": { "fps": 12, "canvas": "die", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
-  "cheer": { "fps": 10, "hold": 3, "canvas": "tall", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } }
+  "idle": {
+   "fps": 8,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "look": {
+   "fps": 8,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 14,
+       "op": "copy",
+       "from": 13,
+       "why": "the bow drawn hollow and dark for one frame"
+      }
+     ]
+    },
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "adjust": {
+   "fps": 10,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 9,
+       "op": "copy",
+       "from": 8,
+       "why": "the bow drawn hollow and dark for one frame"
+      }
+     ]
+    },
+    "sw": "a2",
+    "nw": "a1"
+   }
+  },
+  "walk": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 6,
+       "op": "copy",
+       "from": 5,
+       "why": "the bow drawn hollow and dark for one frame"
+      }
+     ]
+    },
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "run": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "rout": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "kneel": {
+   "fps": 8,
+   "hold": 4,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "charge": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "ready": {
+   "fps": 8,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "block": {
+   "fps": 14,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "stagger": {
+   "fps": 12,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        72,
+        8,
+        78,
+        16
+       ],
+       "why": "a stray arrowhead in the air"
+      },
+      {
+       "frame": 0,
+       "op": "copy",
+       "from": 1,
+       "why": "REJECTED frame: an arrow pops up out of the hand, a second missile"
+      }
+     ]
+    },
+    "nw": "a1"
+   }
+  },
+  "shoot": {
+   "fps": 16,
+   "strike": 10,
+   "canvas": "atk",
+   "spear": "upright",
+   "dirs": {
+    "sw": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ],
+     "fixes": [
+      {
+       "frame": 9,
+       "op": "clear",
+       "box": [
+        6,
+        76,
+        33,
+        92
+       ],
+       "why": "the loosed arrow in flight (the sim draws the missile)"
+      }
+     ],
+     "why": "full draw held a frame; release f9 on index 10"
+    },
+    "se": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15,
+      15
+     ],
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "clear",
+       "box": [
+        101,
+        81,
+        126,
+        92
+       ],
+       "why": "REJECTED piece: an arrow already in flight before he shoots"
+      },
+      {
+       "frame": 1,
+       "op": "clear",
+       "box": [
+        80,
+        72,
+        105,
+        80
+       ],
+       "why": "as f0"
+      },
+      {
+       "frame": 12,
+       "op": "clear",
+       "box": [
+        99,
+        67,
+        126,
+        73
+       ],
+       "why": "the loosed arrow in flight"
+      }
+     ],
+     "why": "release f12 on index 10"
+    },
+    "ne": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15,
+      15
+     ],
+     "fixes": [
+      {
+       "frame": 12,
+       "op": "clear",
+       "box": [
+        82,
+        24,
+        103,
+        41
+       ],
+       "why": "the loosed arrow, flying the wrong way (upper left)"
+      },
+      {
+       "frame": 13,
+       "op": "clear",
+       "box": [
+        111,
+        5,
+        125,
+        16
+       ],
+       "why": "as f12"
+      }
+     ],
+     "why": "release f12 on index 10"
+    },
+    "nw": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15
+     ],
+     "fixes": [
+      {
+       "frame": 11,
+       "op": "clear",
+       "box": [
+        28,
+        37,
+        48,
+        48
+       ],
+       "why": "the loosed arrow in flight"
+      },
+      {
+       "frame": 12,
+       "op": "clear",
+       "box": [
+        0,
+        28,
+        4,
+        31
+       ],
+       "why": "as f11"
+      }
+     ],
+     "why": "release f11 on index 10"
+    }
+   }
+  },
+  "stab": {
+   "fps": 14,
+   "strike": 4,
+   "canvas": "atk",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "p1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "fallBack": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "fallFwd": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  },
+  "cheer": {
+   "fps": 10,
+   "hold": 3,
+   "canvas": "tall",
+   "spear": "upright",
+   "dirs": {
+    "se": "a1",
+    "ne": "a1",
+    "sw": "a1",
+    "nw": "a1"
+   }
+  }
  },
  "tiers": {
-  "veteran": { "cloak": ["#1c0710", "#3a0d1c", "#5c1428", "#7c2236"] },
-  "elite": { "cloak": ["#0b0c0e", "#151719", "#1e2224", "#2d3131", "#3b4141"] }
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#151719",
+    "#1e2224",
+    "#2d3131",
+    "#3b4141"
+   ]
+  }
  }
 }

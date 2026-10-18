@@ -13,15 +13,15 @@
   "plaidGreen",
   "metal",
   "iron",
-  "enemySlate"
+  "woad"
  ],
  "parts": {
   "umber": "cloak",
-  "darkBronze": "shadow",
+  "darkBronze": "cloak",
   "linen": "shadow",
   "plaidGreen": "shadow",
   "metal": "shadow",
-  "enemySlate": "shadow",
+  "woad": "shadow",
   "iron": "metal"
  },
  "crest": false,
@@ -961,13 +961,15 @@
      "attempt": "a1"
     },
     "north-east": {
-     "attempt": "a1"
+     "attempt": "p1",
+     "why": "polish: rocks back and falls on his back (a1 hunched forward first)"
     },
     "south-west": {
      "attempt": "a1"
     },
     "north-west": {
-     "attempt": "a1"
+     "attempt": "p1",
+     "why": "polish: falls backwards onto his back, face up (a1 pitched forward face down)"
     }
    }
   },
@@ -1014,19 +1016,20 @@
  "tiers": {
   "veteran": {
    "cloak": [
-    "#1c0710",
-    "#3a0d1c",
-    "#5c1428",
-    "#7c2236"
+    "#36120f",
+    "#4e1a16",
+    "#66241c",
+    "#7e3226",
+    "#964434"
    ]
   },
   "elite": {
    "cloak": [
-    "#0b0c0e",
-    "#151719",
-    "#1e2224",
-    "#2d3131",
-    "#3b4141"
+    "#3a3632",
+    "#524c46",
+    "#6c655c",
+    "#888075",
+    "#a39a8e"
    ]
   }
  }
