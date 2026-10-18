@@ -1,0 +1,49 @@
+docs/v5/pixellab/I5a/royal_guard/jobs.json
+  s_41b82181a73565::t_453b664fcaaa2b 73-74
+  s_41b82181a73565::t_78bdb4b9d609c4 75-76
+  s_41b82181a73565::t_f89f3440abe578 72
+src/assets/sheets/royal_guard/manifest.json
+  s_41b82181a73565::t_1c48c51f6b3a55 15,174,193
+docs/v5/pixellab/I5a/royal_guard/royal_guard.sheet.json
+  s_41b82181a73565::t_1c48c51f6b3a55 242,300,341,352,514
+  s_41b82181a73565::t_cfc96c386c37c5 347-350
+scripts/art/pixellab/i5a/spec.mjs
+  s_41b82181a73565::t_c9ff7c0ffc8105 42
+docs/v5/art/STYLE_LOCK.md
+  s_41b82181a73565::t_2769241a2db302 191-192
+scripts/art/pixellab/i5a/prep.mjs
+  s_41b82181a73565::t_4bfd3f5d46455d 46
+  s_41b82181a73565::t_7954eb22b6199c 38-41
+docs/v5/pixellab/I5a/royal_guard/class.json
+  s_41b82181a73565::t_1c48c51f6b3a55 3-16,19-39,41-100,103-130,134-140,145-188,191-240,243-259,264-275,278-332
+  s_41b82181a73565::t_cfc96c386c37c5 141-144
+  s_41b82181a73565::t_4015e9f58c4ffe 102
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_20f3ae0768daf7 88-95
+scripts/art/pixellab/i5a/frames.mjs
+  s_0d98fe904b2e82::t_9ac3ef8e8961a0 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5b09fb481e815af1fe36c7364018c4c7ed96bba7",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    },
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
