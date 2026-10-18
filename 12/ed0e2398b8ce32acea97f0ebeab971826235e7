@@ -1,0 +1,32 @@
+landing/public/refunds.html
+  s_0d98fe904b2e82::t_7447e0257b5a4f 18,59,61
+landing/public/privacy.html
+  s_0d98fe904b2e82::t_296c23213adf37 103,109
+  s_0d98fe904b2e82::t_260b4a7e5544dd 18,30,68,72,74,81,99,111
+landing/public/terms.html
+  s_0d98fe904b2e82::t_7447e0257b5a4f 18,27,53,65,68,70
+landing/public/ru/refunds.html
+  s_0d98fe904b2e82::t_7447e0257b5a4f 18,59,61
+landing/public/ru/privacy.html
+  s_0d98fe904b2e82::t_296c23213adf37 103,109
+  s_0d98fe904b2e82::t_260b4a7e5544dd 81
+  s_0d98fe904b2e82::t_052c17ffeb6e4e 18,30,68,72,74,99,111
+landing/public/ru/terms.html
+  s_0d98fe904b2e82::t_7447e0257b5a4f 18,27,53,65,68,70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "12ed0e2398b8ce32acea97f0ebeab971826235e7",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
