@@ -1,0 +1,31 @@
+src/ui/mosaic/qrEncode.ts
+  s_0d98fe904b2e82::t_54e3b160d15c2d 1,5-238
+  s_0d98fe904b2e82::t_5f9ac4ef5c6e10 2-4
+src/ui/mosaic/qr.ts
+  s_0d98fe904b2e82::t_14508a52e09a84 25,53
+  s_0d98fe904b2e82::t_54e3b160d15c2d 3-4,6-8,13,15
+  s_0d98fe904b2e82::t_445eebbf6e1f56 1-2,5,9-12,14,16-24,26-52,54-57
+tests/qr.test.ts
+  s_0d98fe904b2e82::t_e1cba89d3d662f 5,156,168-174
+  s_0d98fe904b2e82::t_54e3b160d15c2d 9
+  s_0d98fe904b2e82::t_0ce2368bdf282d 1-4,6-8,10-155,157-167
+scripts/dev/qr-verify.mjs
+  s_0d98fe904b2e82::t_17743d0625ce4e 1,3-9,11-20,27-29,31,47-48,58-79,82-100
+  s_0d98fe904b2e82::t_a67560ea4671b2 2,10,21-26,30,32-46,49-57,80-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "73f8971edde78d02025adacc6a5d44ce0d70f931",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
