@@ -532,11 +532,10 @@ export class FirstRunScene extends BaseScene {
   private nameLine(x: number, y: number, w: number): void {
     const draw = (name: string, status: NameStatus | null): void => {
       const lines = wrapText(t('auth.fr.nameLine', { name }), w - 8, 2).lines;
-      lines.forEach((l, i) => {
-        const txt = mtext(this, x + w / 2, y + i * LINE_H, l, 'pSec', { align: 0.5, maxW: w - 8 });
-        uiId(txt, `firstrun.name.${i}`);
-        this.ui.add(txt);
-      });
+      // one text (one id at every size), its lines centred
+      const txt = mtext(this, x + w / 2, y, lines.join('\n'), 'pSec', { align: 0.5 }).setCenterAlign();
+      uiId(txt, 'firstrun.name');
+      this.ui.add(txt);
       const linkW = Math.min(w, SKIP_W);
       const rename = (st: NameStatus) => openRename(this, { current: name, status: st, onDone: (n) => this.sys.isActive() && this.scene.restart({ mode: 'modes', name: n }) });
       this.textLink(x + Math.round((w - linkW) / 2), y + lines.length * LINE_H, linkW, t('auth.fr.nameChange'), 'firstrun.name.change', () => {
