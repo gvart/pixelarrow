@@ -1,0 +1,19 @@
+docs/v5/DECISIONS.md
+  s_41b82181a73565::t_69c498e78cf43b 113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b64b599d70e9b94d26dcf032eb4914c1f32ce4f3",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
