@@ -222,8 +222,10 @@ export class MenuScene extends BaseScene {
     let y = 2;
     const profile = add(new ProfileCard(this, 1, y, w, { ...this.profileOpts(), portraitSize: compact ? 24 : w >= 180 ? 40 : 32, statsBelow: compact || 'auto' }));
     y += profile.h + GAP;
+    const cardsTop = y;
     const q = this.questOpts(compact);
-    if (q) y += add(new QuestCard(this, 1, y, w, q)).h + GAP;
+    const quest = q ? add(new QuestCard(this, 1, y, w, q)) : null;
+    if (quest) y += quest.h + GAP;
     const tip = this.guestTip(w);
     if (tip) {
       add(tip.c.setPosition(1, y));
@@ -231,6 +233,18 @@ export class MenuScene extends BaseScene {
     }
     // Army, Stash and Camp, built first: the fresco takes what they leave above the fold
     const row = this.tileRow(add, 1, w, compact ? 36 : 56);
+    // too short for the cards above the primary (Telegram at 320x568): the primary and the tiles go under the
+    // profile, the quest and the tip below them, so the primary still shows whole at scroll 0
+    const foot = CTA_H + gap + row.h + 4;
+    if (area.viewHeight - y < foot) {
+      this.noFresco();
+      add(this.primary(1, cardsTop, w));
+      row.build(cardsTop + CTA_H + gap);
+      quest?.setY(quest.y + foot);
+      tip?.c.setY(tip.c.y + foot);
+      area.setContentHeight(y + foot);
+      return;
+    }
     // the fresco (a one-line banner, or none, when the tiles would fall below the fold)
     const room = area.viewHeight - y - (gap + CTA_H + gap + row.h + 4);
     const fresco = frescoSlot(w, room);

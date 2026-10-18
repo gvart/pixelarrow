@@ -828,7 +828,16 @@ export class CampScene extends BaseScene {
 
   /** Height of the action strip: two rows of buttons, and the War camp's reason line. */
   private barH(): number {
-    return BAR_PAD * 2 + BTN_H * 2 + ROW_GAP + (this.d?.mode === 'online' ? WHY_H : 0);
+    return this.barPad() * 2 + BTN_H * 2 + this.rowGap() + (this.d?.mode === 'online' ? WHY_H : 0);
+  }
+
+  /** The strip's padding and row gap: tighter on a short portrait (Telegram at 320x568), so the field keeps 40% of the box. */
+  private barPad(): number {
+    return this.m.short ? 1 : BAR_PAD;
+  }
+
+  private rowGap(): number {
+    return this.m.short ? 2 : ROW_GAP;
   }
 
   private buildHud(): void {
@@ -900,12 +909,12 @@ export class CampScene extends BaseScene {
       if (text) c.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: room, box: { owner: c, w: VW, h: WHY_H } }));
     }
     // one row sits in the middle of the strip; two fill it
-    const inner = h - top - BAR_PAD * 2;
-    const used = rows.length * BTN_H + (rows.length - 1) * ROW_GAP;
-    let y = top + BAR_PAD + Math.round((inner - used) / 2);
+    const inner = h - top - this.barPad() * 2;
+    const used = rows.length * BTN_H + (rows.length - 1) * this.rowGap();
+    let y = top + this.barPad() + Math.round((inner - used) / 2);
     for (const row of rows) {
       this.layoutRow(c, row, y, cmd.x, cmd.w);
-      y += BTN_H + ROW_GAP;
+      y += BTN_H + this.rowGap();
     }
   }
 
