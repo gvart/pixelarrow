@@ -310,6 +310,66 @@ export interface AccountSummary {
   name: { freeChange: boolean; nextChangeAt: number | null; lockedUntil: number | null; moderatedAt: number | null };
 }
 
+// ---------------------------------------------------------------- web → Telegram linking (V6-LINK-03/06; server/src/account/link.ts, conflicts.ts)
+
+/** POST /api/account/link/telegram: a one-time code; `deepLink` is null when the server doesn't know the bot. */
+export interface LinkCode {
+  code: string;
+  expiresAt: number;
+  deepLink: string | null;
+}
+
+/** GET /api/account/link/telegram/status (only the session that made the code sees it). */
+export type LinkStatus =
+  | { status: 'none' | 'expired' | 'linked' | 'cancelled' }
+  | { status: 'pending'; expiresAt: number }
+  | { status: 'awaiting_web'; expiresAt: number; telegram: { username: string | null; firstName: string | null } }
+  | { status: 'conflict'; conflict: string };
+
+/** GET /api/account/link/telegram/:code (Mini App): the web account that asks, and whether this account has progress. */
+export interface LinkPeek {
+  displayName: string;
+  emailMasked: string | null;
+  conflict: boolean;
+}
+
+/** One side of a link conflict (server/src/account/conflicts.ts SideSummary). */
+export interface ConflictSide {
+  displayName: string;
+  signIn: ('telegram' | 'password')[];
+  campaignDay: number | null;
+  heroes: number;
+  duelRating: number | null;
+  war: { regions: number } | null;
+  purchases: boolean;
+  createdAt: number;
+}
+
+/** GET /api/account/conflict/:id (the web session it is bound to). */
+export interface ConflictView {
+  kind: 'telegram' | 'email';
+  this: ConflictSide;
+  other: ConflictSide;
+  forced?: 'this' | 'other';
+  reason?: 'purchases';
+  choices: { web: 'this' | 'other' | null; telegram: 'this' | 'other' | null };
+  expiresAt: number;
+}
+
+/** POST /api/account/conflict/telegram (Mini App): a conflict this Telegram user must decide. */
+export interface TelegramConflict {
+  id: string;
+  kind: 'telegram' | 'email';
+  telegram: ConflictSide;
+  web: ConflictSide & { emailMasked: string | null };
+  forced?: 'telegram' | 'web';
+  reason?: 'purchases';
+  choices: { telegram: 'telegram' | 'web' | null; web: 'telegram' | 'web' | null };
+  expiresAt: number;
+}
+
+export type ResolveResult = { status: 'waiting_telegram' } | { status: 'resolved'; kept: 'this' | 'other'; switched: boolean };
+
 export class ApiClient {
   token: string | null = null;
   readonly base: string;
@@ -508,6 +568,62 @@ export class ApiClient {
   /** Every other session ends; `401 invalid_credentials` for a wrong current password (it counts toward the lockout). */
   changePassword(current: string, next: string): Promise<{ ok: true }> {
     return this.request('POST', '/api/auth/password', { auth: true, body: { current, next } });
+  }
+
+  // ---- web → Telegram linking (V6-LINK-06). initData goes in the body, never the URL; ids are base64url.
+
+  /** Sensitive (web). A new link code for this session; `409 already_linked`, `429 rate_limited`. */
+  linkStart(): Promise<LinkCode> {
+    return this.request('POST', '/api/account/link/telegram', { auth: true });
+  }
+
+  /** The web closed the sheet or said "Not me": this session's unspent code goes. */
+  linkAbandon(): Promise<{ ok: true }> {
+    return this.request('DELETE', '/api/account/link/telegram', { auth: true });
+  }
+
+  linkStatus(): Promise<LinkStatus> {
+    return this.request('GET', '/api/account/link/telegram/status', { auth: true });
+  }
+
+  /** Sensitive (web). Links, or opens a conflict both sides must decide. */
+  linkConfirm(): Promise<{ linked: true; removedEmpty?: true } | { conflict: string }> {
+    return this.request('POST', '/api/account/link/telegram/confirm', { auth: true });
+  }
+
+  /** Mini App: who asks (`410 link_expired`, `409 already_linked`). */
+  linkPeek(code: string): Promise<LinkPeek> {
+    return this.request('GET', `/api/account/link/telegram/${encodeURIComponent(code)}`, { auth: true });
+  }
+
+  /** Mini App "Link": records this Telegram account on the code; links nothing until the web confirms. */
+  linkComplete(initData: string): Promise<{ status: 'awaiting_web' }> {
+    return this.request('POST', '/api/account/link/telegram/complete', { auth: true, body: { initData } });
+  }
+
+  /** Mini App "Not me", at any step: cancels the code and this Telegram user's conflicts. */
+  linkNotMe(initData: string): Promise<{ cancelled: number }> {
+    return this.request('POST', '/api/account/link/telegram/cancel', { auth: true, body: { initData } });
+  }
+
+  /** Sensitive (web). Both sides of a conflict, and each side's choice so far. */
+  conflict(id: string): Promise<ConflictView> {
+    return this.request('GET', `/api/account/conflict/${encodeURIComponent(id)}`, { auth: true });
+  }
+
+  /** Sensitive (web). The web side's choice with the loser's name typed: `202 waiting_telegram` until the Mini App agrees. */
+  resolveConflict(id: string, keep: 'this' | 'other', confirm: string): Promise<ResolveResult> {
+    return this.request('POST', `/api/account/conflict/${encodeURIComponent(id)}/resolve`, { auth: true, body: { keep, confirm } });
+  }
+
+  /** Mini App: the conflicts this Telegram user must decide. */
+  telegramConflicts(initData: string): Promise<{ conflicts: TelegramConflict[] }> {
+    return this.request('POST', '/api/account/conflict/telegram', { auth: true, body: { initData } });
+  }
+
+  /** Mini App: the Telegram owner's choice (initData of a launch newer than the "Link" tap); never resolves alone. */
+  chooseFromTelegram(id: string, initData: string, keep: 'telegram' | 'web'): Promise<{ status: 'waiting_web' }> {
+    return this.request('POST', `/api/account/conflict/${encodeURIComponent(id)}/telegram`, { auth: true, body: { initData, keep } });
   }
 
   /** Local development only: needs DEV_AUTH=1 on a local `wrangler dev`. */
