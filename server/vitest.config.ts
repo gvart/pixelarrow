@@ -12,6 +12,8 @@ export default defineConfig({
       miniflare: {
         // The pool's bundled workerd can lag behind wrangler.jsonc's compatibility_date.
         compatibilityDate: '2026-08-15',
+        // A second, empty database: test/migrations.test.ts migrates it with seeded rows.
+        d1Databases: ['MIGRATE_DB'],
         bindings: {
           TELEGRAM_BOT_TOKEN: '123456:TEST-TOKEN',
           TELEGRAM_WEBHOOK_SECRET: 'test-webhook-secret',

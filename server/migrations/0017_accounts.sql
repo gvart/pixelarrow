@@ -2,11 +2,14 @@
 -- staging rows are copied, nothing is kept for old clients.
 --
 -- players is rebuilt because SQLite cannot drop NOT NULL from telegram_id.
--- D1 always enforces foreign keys, so the rebuild runs with deferred checks:
--- the ~40 tables that reference players(id) point at the same ids again once
--- the new table is renamed into place. DROP TABLE performs an implicit DELETE,
--- which fires ON DELETE CASCADE: saves is the one cascading child, so its rows
--- are parked in a copy and put back.
+-- D1 always enforces foreign keys, so the rebuild runs with deferred checks.
+-- DROP TABLE performs an implicit DELETE: every child row of the ~40 tables
+-- that reference players(id) counts as a deferred violation, and a RENAME does
+-- not clear that count, so the commit would fail. The rows are therefore
+-- inserted only after the new table is renamed into place: each inserted
+-- parent row cancels the violations of its children, which point at the same
+-- ids again. The implicit DELETE also fires ON DELETE CASCADE: saves is the one
+-- cascading child, so its rows are parked in a copy and put back.
 PRAGMA defer_foreign_keys = on;
 
 CREATE TABLE saves_0017 AS SELECT * FROM saves;
@@ -29,11 +32,11 @@ CREATE TABLE players_0017 (
 );
 
 -- Existing rows get generated names, <Adjective><Unit><4 digits> (injective in id
--- below 160,000 ids; the key folds the digits as nameKey does).
-INSERT INTO players_0017 (id, telegram_id, username, first_name, language_code, is_premium, display_name, display_name_key,
-                          created_at, last_seen_at, banned_at, ban_reason, analytics_opt_out)
-SELECT id, telegram_id, username, first_name, language_code, is_premium, name,
-       replace(replace(replace(replace(replace(replace(lower(name), '0', 'o'), '1', 'l'), '3', 'e'), '4', 'a'), '5', 's'), '7', 't'),
+-- below 160,000 ids; the key folds the digits as nameKey does). They wait in a
+-- plain table (no keys) until players_0017 is renamed into place.
+CREATE TABLE players_0017_rows AS
+SELECT id, telegram_id, username, first_name, language_code, is_premium, name AS display_name,
+       replace(replace(replace(replace(replace(replace(lower(name), '0', 'o'), '1', 'l'), '3', 'e'), '4', 'a'), '5', 's'), '7', 't') AS display_name_key,
        created_at, last_seen_at, banned_at, ban_reason, analytics_opt_out
 FROM (
   SELECT p.*,
@@ -45,6 +48,12 @@ FROM (
 
 DROP TABLE players;
 ALTER TABLE players_0017 RENAME TO players;
+INSERT INTO players (id, telegram_id, username, first_name, language_code, is_premium, display_name, display_name_key,
+                     created_at, last_seen_at, banned_at, ban_reason, analytics_opt_out)
+SELECT id, telegram_id, username, first_name, language_code, is_premium, display_name, display_name_key,
+       created_at, last_seen_at, banned_at, ban_reason, analytics_opt_out
+FROM players_0017_rows;
+DROP TABLE players_0017_rows;
 CREATE INDEX idx_players_banned ON players(banned_at) WHERE banned_at IS NOT NULL;
 CREATE INDEX idx_players_username ON players(username COLLATE NOCASE);
 
