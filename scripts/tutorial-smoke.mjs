@@ -230,8 +230,25 @@ async function guided(tag, ctxOpts, fake, main) {
   }
 
   // the morale glyph: lit on the enemy badge, a tap goes on
-  // the step waits up to 45 s of battle time for a group to waver (preTimeout): a slow machine needs more wall time
-  if (await talkingAt('morale', 70000)) {
+  // the step waits up to 45 s of its own clock for a group to waver (preTimeout), then goes on without it. That
+  // clock takes at most 100 ms a frame, so at a few frames a second (1920x1080 under load) 45 s is minutes of
+  // wall time: wait on the tutorial's clock, not the wall's (a stalled clock still fails after 20 s)
+  const moraleSeen = async () => {
+    let last = -1;
+    let stalled = Date.now();
+    for (;;) {
+      const x = await ev(() => { const t = window.__game.scene.getScene('Battle')?.tutorial; return t ? { step: t.step, phase: t.phase, timer: t.timer } : null; });
+      if (!x || x.step !== 'morale') return 'skipped';
+      if (x.phase === 'talk') return 'talk';
+      if (x.timer !== last) { last = x.timer; stalled = Date.now(); }
+      if (Date.now() - stalled > 20000) return 'stalled';
+      await wait(300);
+    }
+  };
+  await talkingAt('morale', 70000);
+  const morale = (await tut())?.step === 'morale' ? await moraleSeen() : 'skipped';
+  if (morale === 'skipped') c('morale: no group wavered within its 45 s, the lesson went on without it (preTimeout)', ['flank', 'win', 'victory'].includes((await tut())?.step), JSON.stringify(await tut()));
+  else if (morale === 'talk') {
     await clear('morale');
     const nm = (await tut()).narrator;
     await tap(nm.x + nm.w / 2, nm.y + nm.h - 6);
