@@ -105,4 +105,28 @@ Nothing is removed. The fresco is the only element left out of a layout, at 844x
 
 ## What changed
 
-TBD (filled in at the end).
+- **`src/scenes/duel/duelLayout.ts`** (new, pure; `tests/duelPanes.test.ts`): `duelPanes(m, region, view)` gives the profile column and the mode content per variant (null in compact portrait: the v5 page); `floorsPerRow` (ten a row at expanded, five elsewhere, four on the narrowest phones as v5); `offerColumns` (v5's two from 2 x 176 in portrait, else the §3.7 grid).
+- **`DuelScene.ts`**: `responsive = true` and `uiLayout` on every page. Compact portrait runs the v5 code (same calls, same widths: element positions identical, see Verification). Elsewhere `openPanes` builds the shell, a scroll area for the profile column and one for the mode content, and the view's fixed action at the bottom-right of the mode content (≤ 240, `uiPrimary`). `profilePart` puts the header, tips and a view's own controls in the profile column when there is one. A profile column shorter than its pane sits in the middle of it (as the Menu's, Army's and Codex's panes); so do the short pages (search, found, raid picks, the Arena's cards, selling).
+  - **Hub**: the title, Glory, level, Team and Armoury stacked in the column (`profileColumn`), the fresco under them at expanded (180 x 99), the tip under that; the Ladder | Arena switch is a fixed bar over the mode content; the next floor and Fight share one row where the pane is 300 wide (Fight ≤ 240), the chapters below, ten tiles a row at expanded. The Arena's cards stack in the pane, their buttons ≤ 360 and their lines ≤ 300.
+  - **Team** (master and detail on tablets too): chips, Recruit (in view at once), the tip, the presets, the points and the roster card in the column; the hero rows (≤ 360) and the bench beside it. Each row still opens the duel Hero sheet (RSCR-05's paper doll).
+  - **Armoury**: one pane at 844x390 (cards two abreast); beside a column on tablets' stack and laptops; selling lays the stash inside the pane's scroll.
+  - **Raids**: chips, tip, standing, raids left and the defence in the column; the defender rows (≤ 360) beside it; Raid at the bottom-right.
+  - **Leaderboards**: the switch, the season words and "You" pinned in the column; the rows as a table (rank, crest, name, league, games played, rating; a dash where the league has no rating) from 240 wide. Only data the board already sends.
+  - **Search / found**: the rings, clock and range hold the pane, your lineup and league in the column; the found card (sides at 20% / 80%) with the lineup under it.
+  - **Unavailable** (`duel-closed`): one card across the pane, in the middle of its height, Retry inside it at the right (§15).
+  - **Sheets**: every sheet is laid out for the width it is given (`sheetW` → `sheetWidth`): task sheets become right side panels in landscape, bottom sheets on tablets; the chest reward, the season rewards and the season pick are centred dialogs (rewards and a forced choice, not tasks); confirms stay dialogs. The floor sheet no longer assumes the full screen width; its Fight is the panel's `uiPrimary`; the preset sheet's buttons stay ≤ 240.
+- **Short landscape** (844x390, `m.short`; Telegram's insets leave 363 x 161 UI px): the mode switch tops the profile column (the floors keep the pane's height); the Arena's Find match comes before its line; the search sets the arena beside the clock on one row; the found card names each side and league on one line over its crest; the raid picks keep one pane where the rows would be squeezed beside the column; the preset sheet scrolls its body and the season rewards their rows when the dialog cannot hold them; the chest reward sets a smaller chest with its Glory beside it.
+- **Shared kit, additive only**: `MStashGridOpts.priceSize` (src/ui/mosaic/StashGrid.ts; default 5.5, unchanged for every caller that does not pass it). The duel sell grid passes `TEXT_MIN`, which fixes the `duel-shop-sell|text-size|*` entry (all sizes). Otherwise only existing exports are used (`sheetWidth`, `gridColumns`, `layoutVariant`, `focusPane`, `uiCollapsed`, `uiPrimary`, `uiLayout`, MStashGrid's `inline`, `SLOT_FILTERS`).
+- **Element parity**: where the stash has no room for its row of slot chips (320x693, a short pane) MStashGrid draws one cycling Slot button; the chips register `uiCollapsed` into `filter:slot`.
+- `scripts/layout-allowlist/V6-RSCR-04.json`: the 7 stale duel-hero lines (left by RSCR-05) are removed, then the file is deleted (pending → done).
+
+## Deviations
+
+- **Mode switch** beside a profile column is a fixed bar over the mode content (spec: "top of the right pane"): it never scrolls away with the floors.
+- **Fight** sits beside the next-floor card at the top of the pane (spec: "bottom-right, max 240" at expanded): one row, as compact landscape's "next-floor card + primary on one row", next to what it fights; ≤ 240.
+- **Team at expanded**: the presets stay in the column instead of "a card row above"; the right pane is the hero rows (the "hero" detail is the duel Hero sheet, RSCR-05's screen, one tap away).
+- **Shop columns**: the grid's cell is 150, not 140 (at 140 the third card cuts the name, slot and stat changes); 2 columns at 844x390, on tablets and at 1024–1920, 3 from a 456-wide pane.
+- **Board columns**: games played (`games`, in the payload) is the extra column; wins and last seen are not in the payload, so nothing else is added.
+- **Tablet hub**: the v5 stack across the pane with a 56-tall fresco (spec: max 120).
+- **Compact portrait, one change**: the sell grid's price tags are 6.5 UI px (the text floor) instead of 5.5; everything else in portrait is the v5 code path.
+- **Reward dialogs**: the chest reward, the season rewards and the season pick open as centred dialogs outside portrait (the §3.4 "decision" kind), not side panels: they are moments to acknowledge or a forced choice, not tasks beside the hub.

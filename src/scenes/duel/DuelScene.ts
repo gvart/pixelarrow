@@ -2321,17 +2321,28 @@ export class DuelScene extends BaseScene {
     const fixed = SHEET_PAD + 6 + n * (rowH + GAP);
     const hintLines = Math.max(0, Math.min(3, Math.floor((VH - 12 - fixed) / LINE_H)));
     const wr = hintLines ? wrapText(t('duels.def.hint', { n: DUEL_RULES.budget }), inner, hintLines) : { lines: [] as string[] };
-    const m = openParchmentSheet(this, { title: t('duels.def.title'), w, h: fixed + wr.lines.length * LINE_H, id: 'duel.defSheet' });
-    const { c, body: b } = m;
+    // a short screen with many teams (Telegram at 844x390) scrolls the teams rather than run past the panel
+    const room = VH - 12 - SHEET_PAD - 6;
+    const scroll = !this.v5 && n * (rowH + GAP) > room;
+    const m = openParchmentSheet(this, { title: t('duels.def.title'), w, h: scroll ? VH - 12 : fixed + wr.lines.length * LINE_H, id: 'duel.defSheet' });
+    const b = m.body;
     let y = b.y;
-    if (wr.lines.length) ptext(this, c, b.x, y, wr.lines.join('\n'), 'sec');
+    if (wr.lines.length) ptext(this, m.c, b.x, y, wr.lines.join('\n'), 'sec');
     y += wr.lines.length * LINE_H + 6;
+    const sa = scroll ? new ScrollArea(this, m.c, b.x, y, b.w, room, this.m.S) : null;
+    if (sa) {
+      m.c.once('destroy', () => sa.destroy());
+      sa.setContentHeight(n * (rowH + GAP));
+    }
+    const c = sa?.content ?? m.c;
+    const bx = sa ? 0 : b.x;
+    if (sa) y = 0;
     for (const l of p.loadouts) {
       const heroes = this.heroesOf(p, l.team);
       const pts = teamPoints(heroes);
       const problem = teamProblem(heroes, DUEL_RULES.budget);
       const on = p.use.defence === l.slot && !!p.defence;
-      const btn = new MButton(this, b.x, y, inner, rowH, {
+      const btn = new MButton(this, bx, y, inner, rowH, {
         label: `${presetLabel(l)} · ${t('duels.teamLine', { n: heroes.length, max: DUEL_RULES.teamMax, pts })}`,
         icon: on ? 'check' : 'shield',
         variant: on ? 'secondary' : 'neutral',
