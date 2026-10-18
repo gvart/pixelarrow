@@ -3314,14 +3314,23 @@ export class BattleScene extends BaseScene {
     // under the top bar, in the hint's place (the hint hides while a banner shows)
     const left = 0;
     // landscape: at the top centre of the field, as wide as the hint pill may be (§7.2)
-    const maxW = this.side ? this.side.hint.maxW : VW - 60;
+    let maxW = this.side ? this.side.hint.maxW : VW - 60;
+    let cx = this.side?.hint.cx ?? 0;
+    // the ⋯ menu docked beside a live fight (locked: it does not pause): the banner keeps to the field beside it
+    const p = this.side && this.menu && !this.menu.closed ? this.menu.sheet : null;
+    if (p && this.side && cx + maxW / 2 > p.x && cx - maxW / 2 < p.x + p.w) {
+      const { x0, x1 } = this.side.chips;
+      const [a, b] = p.x - x0 >= x1 - (p.x + p.w) ? [x0, Math.min(x1, p.x - 4)] : [Math.max(x0, p.x + p.w + 4), x1];
+      maxW = Math.min(maxW, b - a);
+      cx = Math.round((a + b) / 2);
+    }
     const lines = wrapText(namesIn(msg), maxW - 12, maxLines).lines;
     const w = Math.max(60, Math.min(maxW, Math.max(...lines.map((l) => measureText(l))) + 14));
     const sub = ms === 0 && this.paused && this.sim.phase === 'battle' ? wrapText(t('battle.banner.paused'), maxW - 12, 3, false, 6.5).lines : [];
     const subW = sub.length ? Math.max(...sub.map((l) => measureText(l, false, 6.5))) + 14 : 0;
     const bw = Math.min(maxW, Math.max(w, subW));
     const h = lines.length * LINE_H + 8 + Math.ceil((sub.length * LINE_H * 6.5) / 7);
-    const x = this.side ? Math.round(this.side.hint.cx - bw / 2) : Math.round(left + (VW - left - bw) / 2);
+    const x = this.side ? Math.round(cx - bw / 2) :Math.round(left + (VW - left - bw) / 2);
     const y = this.bannerTop();
     c.add(mosaicImage(this, x, y, bw, h, 'parchment'));
     const txt = addText(this, x + bw / 2, y + 4, lines.join('\n'), 'pInk', 0.5);
