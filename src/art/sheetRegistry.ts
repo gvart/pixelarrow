@@ -1,19 +1,23 @@
 /**
  * Where sprite sheets come from (src/art/sheetDoll.ts draws them):
  *
- *  - Shipped art: every src/assets/sheets/<class>/manifest.json with its tier
- *    images next to it. Manifests are bundled (small); the images are plain
- *    asset URLs, fetched only when a figure of that class and tier is first
- *    drawn.
+ *  - Shipped art: every src/assets/sheets/<class>/ sheet, as packed by
+ *    scripts/art/pack/ into src/generated/sheets/<class>/ (the vite build and
+ *    dev server run the packer first; the source images never ship).
+ *    Manifests are bundled (small); the pages are plain asset URLs, fetched
+ *    only when a figure of that class is first drawn (extra pages: when one
+ *    of their clips first shows).
  *  - Dev builds only, with ?sheets=dev: the placeholder sheets in
- *    src/dev/sheets/ (made by scripts/dev/placeholder-sheet.mjs) on top.
+ *    src/dev/sheets/ (made by scripts/dev/placeholder-sheet.mjs) on top,
+ *    packed (src/generated/dev-sheets/); ?sheets=dev-raw loads them unpacked
+ *    (v2, one image) instead.
  *  - ?sheets=off draws every figure procedurally (the fallback check).
  */
-import { installSheetDolls, registerSheet, setSheetLoader, setSheetsEnabled, type SheetPixels } from './sheetDoll';
+import { installSheetDolls, registerSheet, setSheetLoader, setSheetsEnabled, sheetMemoryStats, type SheetPixels } from './sheetDoll';
 import type { SheetManifest } from './sheetManifest';
 
-const shipped = import.meta.glob('../assets/sheets/*/manifest.json', { eager: true, import: 'default' }) as Record<string, unknown>;
-const shippedImages = import.meta.glob('../assets/sheets/*/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const shipped = import.meta.glob('../generated/sheets/*/manifest.json', { eager: true, import: 'default' }) as Record<string, unknown>;
+const shippedImages = import.meta.glob('../generated/sheets/*/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
 /** Decode an image once; frames are cut from it with a scratch canvas when asked for. */
 async function loadImage(url: string, m: SheetManifest): Promise<SheetPixels> {
@@ -58,12 +62,14 @@ export function initSheets(): void {
       console.warn(err);
     }
   }
-  if (import.meta.env.DEV && flag === 'dev') {
-    // the dev server serves source files as they are: /src/dev/sheets/<class>/<file>
-    const dev = import.meta.glob('../dev/sheets/*/manifest.json', { import: 'default' });
+  if (import.meta.env.DEV) (globalThis as { __sheetMem?: typeof sheetMemoryStats }).__sheetMem = sheetMemoryStats;
+  if (import.meta.env.DEV && (flag === 'dev' || flag === 'dev-raw')) {
+    // the dev server serves source files as they are: /src/<dir>/<class>/<file>
+    const raw = flag === 'dev-raw';
+    const dev = raw ? import.meta.glob('../dev/sheets/*/manifest.json', { import: 'default' }) : import.meta.glob('../generated/dev-sheets/*/manifest.json', { import: 'default' });
     for (const [path, get] of Object.entries(dev)) {
-      const base = `/src/dev/sheets/${path.split('/').slice(-2, -1)[0]}/`;
-      get().then((raw) => registerSheet(raw, (file) => base + file)).catch((err) => console.warn(err));
+      const base = `/src/${raw ? 'dev/sheets' : 'generated/dev-sheets'}/${path.split('/').slice(-2, -1)[0]}/`;
+      get().then((m) => registerSheet(m, (file) => base + file)).catch((err) => console.warn(err));
     }
   }
 }
