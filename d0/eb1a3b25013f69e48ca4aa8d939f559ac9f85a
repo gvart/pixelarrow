@@ -1,0 +1,29 @@
+tests/duelPanes.test.ts
+  s_0d98fe904b2e82::t_3c5c94685e2414 49-55
+src/scenes/duel/DuelScene.ts
+  s_0d98fe904b2e82::t_72b4bae2031f40 2791-2801,2803,2809,2825-2826,2831,2834
+  s_0d98fe904b2e82::t_4e24323b792d3d 62,3105,3170,3174-3183
+  s_0d98fe904b2e82::t_45302271c745cc 610-611,965-976,994-998
+  s_0d98fe904b2e82::t_2d01bc3dbe9dfc 1327
+  s_0d98fe904b2e82::t_089d40606d7054 2525-2527,2531,2537,2539,2541-2547,2549-2552,2560-2562
+  s_0d98fe904b2e82::t_cb6d6a99d87d58 1320-1324,1331,1341-1342,1344,1367
+  s_0d98fe904b2e82::t_fbf268c8dce002 3184-3185
+src/scenes/duel/duelLayout.ts
+  s_0d98fe904b2e82::t_3c5c94685e2414 34-35,57-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d0eb1a3b25013f69e48ca4aa8d939f559ac9f85a",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
