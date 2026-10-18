@@ -16,6 +16,16 @@
  *    for (never all classes up front), and is kept as a decoded image element;
  *    frames are cut from it as the atlases ask (onSheetReady tells the battle
  *    to re-key its men once one arrives).
+ *  - Packed sheets (v3, what the build ships; scripts/art/pack/) are pages of
+ *    trimmed, deduplicated frames: a frame is read and recoloured from its
+ *    rect only. The class is ready once its `core` pages are; an `extra` page
+ *    (ambient idles, victory) loads the first time one of its clips is asked
+ *    for, and that clip shows its fallback (sheetIndex) until it arrives.
+ *  - Memory is bounded (sweepSheets, from the atlas sweep in src/ui/sprites.ts):
+ *    an extra page nobody read for PAGE_TTL_MS (the atlas frame TTL) is
+ *    dropped; core pages of classes unused for CLASS_IDLE_MS go, oldest first,
+ *    while all core pages together exceed CORE_BUDGET; the colour maps are an
+ *    LRU of PALETTE_CAP. sheetMemoryStats() counts the decoded bytes.
  *  - Tiers are recolours: the gear tier (TIER_RULE) picks the manifest's
  *    recolour of its colour groups (an elite's black cloak, gilded crest); on
  *    top, each man's skin tone (Look.skin) and a seeded shade step of cloak
@@ -30,7 +40,7 @@ import { Pix } from './pixels';
 import { bronzeOf, ironOf } from './materials';
 import { itemDef, ITEMS } from '../data/items';
 import {
-  CORE_ANIMS, METAL_SLOTS, TIER_RULE, anchorOf, decodeSheetFrame, facingRows, frameCell, gearTier, hexColor, imageSize, metalSwap, parseManifest, recolorMap, resolveAnim, sheetVariant,
+  CORE_ANIMS, METAL_SLOTS, SHEET_ANIMS, TIER_RULE, anchorOf, animPages, decodeSheetFrame, facingRows, frameCell, gearTier, hexColor, imageSize, metalSwap, packedCell, parseManifest, recolorMap, resolveAnim, sheetFrameId, sheetVariant,
   type MetalGroup, type SheetAnim, type SheetManifest, type SheetTier, type SheetVariant,
 } from './sheetManifest';
 import type { AnimTable } from './sheetAnim';
@@ -42,9 +52,17 @@ export interface SheetPixels {
   read(x: number, y: number, w: number, h: number): Uint8ClampedArray;
 }
 
-interface ImageState {
+/** An image of a sheet: v2's one image, or a page of a packed sheet. */
+interface PageState {
+  file: string;
+  /** Core pages make the class ready; extra pages load when one of their clips is first asked for. */
+  group: 'core' | 'extra';
+  /** The size the manifest needs. */
+  need: [number, number];
   status: 'idle' | 'loading' | 'ready' | 'error';
   px?: SheetPixels;
+  /** When a frame was last read from it (performance.now()). */
+  last: number;
 }
 
 interface Entry {
@@ -53,37 +71,66 @@ interface Entry {
   url: (file: string) => string | null;
   rows: number[];
   anims: AnimTable;
+  /** The pages each animation's frames are on. */
+  animPages: Partial<Record<SheetAnim, number[]>>;
   metal: { kind: MetalGroup['kind']; colors: number[]; slots: readonly string[] }[];
-  img: ImageState;
+  pages: PageState[];
+  /** When a figure of the class was last resolved or a battle row of it was alive (performance.now()). */
+  used: number;
 }
+
+/** An extra page nobody read for this long is dropped (as a battle atlas frame nobody showed). */
+export const PAGE_TTL_MS = 6000;
+/** A class unused for this long may lose its core pages... */
+export const CLASS_IDLE_MS = 60_000;
+/** ...while the core pages of all classes together decode to more than this. */
+export const CORE_BUDGET = 48 * 1024 * 1024;
+/** Colour maps kept (least recently used dropped first). */
+export const PALETTE_CAP = 256;
 
 const entries = new Map<string, Entry>();
 const listeners = new Set<() => void>();
 let enabled = true;
 let loader: ((url: string, m: SheetManifest) => Promise<SheetPixels>) | null = null;
+/** Frames drawn as a fallback because the clip's page was still loading (src/ui/sprites.ts redraws those UI rows). */
+let pendingDraws = 0;
+const now = () => performance.now();
 
 /** Register a class's sheet (manifest checked); `url` resolves its image files. */
 export function registerSheet(raw: unknown, url: (file: string) => string | null = () => null): SheetManifest {
   const m = parseManifest(raw);
   const anims: AnimTable = {};
   for (const [k, a] of Object.entries(m.anims)) if (a) anims[k as SheetAnim] = { frames: a.frames, fps: a.fps, strike: a.strike, hold: a.hold };
+  const pages: PageState[] = m.packed
+    ? m.packed.pages.map((p) => ({ file: p.file, group: p.group, need: [p.w, p.h], status: 'idle', last: 0 }))
+    : [{ file: m.image!, group: 'core', need: imageSize(m), status: 'idle', last: 0 }];
+  const ap: Entry['animPages'] = {};
+  for (const a of SHEET_ANIMS) if (m.anims[a]) ap[a] = animPages(m, a);
   entries.set(m.class, {
     m,
     url,
     rows: facingRows(m),
     anims,
+    animPages: ap,
     metal: (m.metal ?? []).map((g) => ({ kind: g.kind, colors: g.colors.map(hexColor), slots: g.slots ?? METAL_SLOTS })),
-    img: { status: 'idle' },
+    pages,
+    used: 0,
   });
   for (const k of [...palettes.keys()]) if (k.startsWith(`${m.class}|`)) palettes.delete(k);
   return m;
 }
 
-/** Give a registered sheet its pixels directly (tests, dev tools). */
-export function setSheetPixels(cls: string, px: SheetPixels | Pix): void {
+/** Give a registered sheet its pixels directly (tests, dev tools): its one image, or its pages in order (null: leave a page unloaded). */
+export function setSheetPixels(cls: string, px: SheetPixels | Pix | (SheetPixels | Pix | null)[]): void {
   const e = entries.get(cls);
   if (!e) throw new Error(`setSheetPixels: no sheet for ${cls}`);
-  e.img = { status: 'ready', px: px instanceof Pix ? pixSource(px) : px };
+  (Array.isArray(px) ? px : [px]).forEach((p, i) => {
+    const pg = e.pages[i];
+    if (!pg || !p) return;
+    pg.px = p instanceof Pix ? pixSource(p) : p;
+    pg.status = 'ready';
+    pg.last = now();
+  });
   notify();
 }
 
@@ -169,35 +216,53 @@ interface Resolved {
   e: Entry;
   tier: SheetTier;
   v: SheetVariant;
-  px: SheetPixels;
 }
+
+/** The class is drawn from its sheet once every core page is loaded. */
+const coreReady = (e: Entry) => e.pages.every((p) => p.group !== 'core' || p.status === 'ready');
 
 function resolve(d: DollSpec): Resolved | null {
   if (!enabled || d.beast || !d.cls) return null;
   const e = entries.get(d.cls);
   if (!e) return null;
-  const st = e.img;
-  if (st.status === 'ready' && st.px) return { e, tier: tierOfDoll(d), v: sheetVariant(d.look?.skin, d.seed), px: st.px };
-  if (st.status === 'idle') load(e, st);
+  e.used = now();
+  if (coreReady(e)) return { e, tier: tierOfDoll(d), v: sheetVariant(d.look?.skin, d.seed) };
+  e.pages.forEach((p, i) => p.group === 'core' && loadPage(e, i));
   return null;
 }
 
-function load(e: Entry, st: ImageState): void {
-  const url = e.url(e.m.image);
+function loadPage(e: Entry, i: number): void {
+  const pg = e.pages[i];
+  if (pg.status !== 'idle') return;
+  const url = e.url(pg.file);
   if (!url || !loader) return;
-  st.status = 'loading';
+  pg.status = 'loading';
   loader(url, e.m).then(
     (px) => {
-      const need = imageSize(e.m);
-      if (px.w < need[0] || px.h < need[1]) throw new Error(`${url}: ${px.w} x ${px.h}, the manifest needs ${need[0]} x ${need[1]}`);
-      st.px = px;
-      st.status = 'ready';
+      if (entries.get(e.m.class) !== e) return; // the class was registered again meanwhile
+      if (px.w < pg.need[0] || px.h < pg.need[1]) throw new Error(`${url}: ${px.w} x ${px.h}, the manifest needs ${pg.need[0]} x ${pg.need[1]}`);
+      pg.px = px;
+      pg.status = 'ready';
+      pg.last = now();
       notify();
     },
   ).catch((err) => {
-    st.status = 'error';
-    console.warn(`sprite sheet ${e.m.class} failed, drawn procedurally:`, err);
+    pg.status = 'error';
+    console.warn(pg.group === 'core' ? `sprite sheet ${e.m.class} failed, drawn procedurally:` : `sprite sheet ${e.m.class}: ${pg.file} failed, its clips show their fallbacks:`, err);
   });
+}
+
+/** Whether an animation's pages are loaded; starts loading them if not. */
+function animReady(e: Entry, a: SheetAnim): boolean {
+  const ps = e.animPages[a];
+  if (!ps) return false;
+  let ok = true;
+  for (const i of ps)
+    if (e.pages[i].status !== 'ready') {
+      ok = false;
+      loadPage(e, i);
+    }
+  return ok;
 }
 
 /** The animations of a figure's sheet (null: no sheet loaded, the figure is procedural). */
@@ -223,9 +288,12 @@ function sheetKey(d: DollSpec): string | null {
 
 // ================================================================ frames
 
-/** Sheet animation and frame of a frame id: a sheet id as it is, a procedural column by the state it belongs to. */
-export function sheetIndex(frame: number, anims: AnimTable): { anim: SheetAnim; i: number } {
-  const has = (a: SheetAnim) => !!anims[a];
+/**
+ * Sheet animation and frame of a frame id: a sheet id as it is, a procedural
+ * column by the state it belongs to. `has` narrows the animations that can
+ * show (default: those the sheet has), e.g. to those whose page is loaded.
+ */
+export function sheetIndex(frame: number, anims: AnimTable, has: (a: SheetAnim) => boolean = (a) => !!anims[a]): { anim: SheetAnim; i: number } {
   const sf = decodeSheetFrame(frame);
   if (sf) {
     const anim = resolveAnim(sf.anim, has);
@@ -242,6 +310,24 @@ export function sheetIndex(frame: number, anims: AnimTable): { anim: SheetAnim; 
   return { anim: 'idle', i: 0 };
 }
 
+/**
+ * The frame id a figure can be drawn with right now: its own, or, while the
+ * page of its clip is loading (which this starts), the frame of the clip's
+ * fallback, so a battle atlas caches what it drew under the id it drew and
+ * draws the clip itself once its page is in. Null: not a sheet figure.
+ */
+export function sheetDrawFrame(d: DollSpec, frame: number): number | null {
+  const e = d.cls ? entries.get(d.cls) : undefined;
+  if (!e) return null;
+  const s = sheetIndex(frame, e.anims, (a) => !!e.anims[a] && animReady(e, a));
+  return sheetFrameId(s.anim, s.i);
+}
+
+/** Count of frames drawn as a fallback while a page loads (callers compare it before and after a draw). */
+export function sheetPendingDraws(): number {
+  return pendingDraws;
+}
+
 interface Palette {
   swap: Map<number, number>;
   glint: Set<number>;
@@ -254,7 +340,11 @@ function paletteOf(s: Resolved, d: DollSpec): Palette {
   const ranks = metalRanks(e, d);
   const key = `${e.m.class}|${s.tier}|${s.v.skin}${s.v.shade}|${ranks.join('')}`;
   let p = palettes.get(key);
-  if (!p) {
+  if (p) {
+    // most recently used last
+    palettes.delete(key);
+    palettes.set(key, p);
+  } else {
     p = { swap: recolorMap(e.m, s.tier, s.v), glint: new Set() };
     e.metal.forEach((g, i) => {
       const target = (g.kind === 'iron' ? ironOf(ranks[i]) : bronzeOf(ranks[i])).ramp;
@@ -262,15 +352,42 @@ function paletteOf(s: Resolved, d: DollSpec): Palette {
       if (ranks[i] >= 2) for (const c of g.colors) p!.glint.add(c);
     });
     palettes.set(key, p);
+    while (palettes.size > PALETTE_CAP) palettes.delete(palettes.keys().next().value!);
   }
   return p;
 }
 
-/** One art frame (art pixels, palette swapped), plus which pixels are glinting metal. */
-function artFrame(s: Resolved, col: number, row: number, pal: Palette): { px: Pix; metal: Uint8Array } {
-  const { w, h } = s.e.m.frame;
-  const [x0, y0] = frameCell(s.e.m, col, row);
-  const src = s.px.read(x0, y0, w, h);
+/** An art frame, palette swapped: the part of the frame at (dx, dy) that has pixels, and which of them are glinting metal. */
+interface ArtFrame {
+  px: Pix;
+  metal: Uint8Array;
+  dx: number;
+  dy: number;
+}
+
+/** One art frame: a packed sheet's stored rect (only it is read and recoloured), or v2's whole frame cell. */
+function artFrame(s: Resolved, col: number, row: number, pal: Palette): ArtFrame {
+  const m = s.e.m;
+  let src: Uint8ClampedArray;
+  let w = 0;
+  let h = 0;
+  let dx = 0;
+  let dy = 0;
+  if (m.packed) {
+    const c = packedCell(m, col, row);
+    const pg = c ? s.e.pages[c.page] : null;
+    if (c && pg?.px) {
+      pg.last = now();
+      src = pg.px.read(c.x, c.y, c.w, c.h);
+      ({ w, h, dx, dy } = c);
+    } else src = new Uint8ClampedArray(0);
+  } else {
+    ({ w, h } = m.frame);
+    const [x0, y0] = frameCell(m, col, row);
+    const pg = s.e.pages[0];
+    pg.last = now();
+    src = pg.px!.read(x0, y0, w, h);
+  }
   const px = new Pix(w, h);
   const metal = new Uint8Array(w * h);
   const o = px.data;
@@ -285,7 +402,15 @@ function artFrame(s: Resolved, col: number, row: number, pal: Palette): { px: Pi
     o[i * 4 + 3] = a;
     if (pal.glint.has(rgb)) metal[i] = 1;
   }
-  return { px, metal };
+  return { px, metal, dx, dy };
+}
+
+/** An art frame at full frame size (portraits). */
+function wholeFrame(m: SheetManifest, a: ArtFrame): Pix {
+  if (a.dx === 0 && a.dy === 0 && a.px.w === m.frame.w && a.px.h === m.frame.h) return a.px;
+  const out = new Pix(m.frame.w, m.frame.h);
+  for (let y = 0; y < a.px.h; y++) out.data.set(a.px.data.subarray(y * a.px.w * 4, (y + 1) * a.px.w * 4), ((a.dy + y) * m.frame.w + a.dx) * 4);
+  return out;
 }
 
 /** Art px -> rendered px for a figure: manifest scale x model scale / BATTLE_SCALE x res, snapped to n or 1 / n. */
@@ -299,7 +424,11 @@ function sheetFrame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array):
   if (!s) return null;
   const g = dollGeom(d);
   const m = s.e.m;
-  const { anim, i } = sheetIndex(frame, s.e.anims);
+  const e = s.e;
+  // a clip whose page is still loading shows its fallback (the page is on its way)
+  const want = sheetIndex(frame, e.anims);
+  const { anim, i } = sheetIndex(frame, e.anims, (a) => !!e.anims[a] && animReady(e, a));
+  if (anim !== want.anim) pendingDraws++;
   const col = m.anims[anim]!.col + i;
   const row = s.e.rows[Math.max(0, Math.min(NDIRS - 1, dir))];
   const an = anchorOf(m, row);
@@ -310,13 +439,15 @@ function sheetFrame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array):
   const cy = g.footY;
   const ad = art.px.data;
   const od = out.data;
+  const aw = art.px.w;
+  const ah = art.px.h;
   for (let by = 0; by < g.fh; by++) {
-    const sy = an.y + Math.floor((by - cy) / k);
-    if (sy < 0 || sy >= m.frame.h) continue;
+    const sy = an.y + Math.floor((by - cy) / k) - art.dy;
+    if (sy < 0 || sy >= ah) continue;
     for (let bx = 0; bx < g.fw; bx++) {
-      const sx = an.x + Math.floor((bx - cx) / k);
-      if (sx < 0 || sx >= m.frame.w) continue;
-      const si = sy * m.frame.w + sx;
+      const sx = an.x + Math.floor((bx - cx) / k) - art.dx;
+      if (sx < 0 || sx >= aw) continue;
+      const si = sy * aw + sx;
       if (!ad[si * 4 + 3]) continue;
       const oi = by * g.fw + bx;
       od.set(ad.subarray(si * 4, si * 4 + 4), oi * 4);
@@ -337,7 +468,7 @@ function sheetPortrait(d: DollSpec, frame: number, res: number, box: number): Pi
   const idle = m.anims.idle!;
   const i = Math.min(idle.frames - 1, name === 'breath1' ? 1 : name === 'breath2' ? 2 : 0);
   // game row 2 faces the viewer
-  const art = artFrame(s, idle.col + i, s.e.rows[2], paletteOf(s, d)).px;
+  const art = wholeFrame(m, artFrame(s, idle.col + i, s.e.rows[2], paletteOf(s, d)));
   const crop = m.portrait ?? autoCrop(art, anchorOf(m, s.e.rows[2]));
   const size = box * res;
   const out = new Pix(size, size);
@@ -386,6 +517,70 @@ function sheetGeom(d: DollSpec, base: SheetGeom): SheetGeom | null {
   }
   if (half * 2 === base.fw && up === base.footY && down === base.fh - base.footY) return null;
   return { fw: half * 2, fh: up + down, footY: up };
+}
+
+// ================================================================ memory
+
+/**
+ * Bound the decoded sheet memory (called about once a second by the battle
+ * atlas sweep, src/ui/sprites.ts; `inUse`: classes with live battle rows).
+ * An extra page nobody read for PAGE_TTL_MS is dropped (reloaded, from the
+ * browser cache, the next time one of its clips shows; its fallback shows
+ * meanwhile). While the core pages of every class decode to more than
+ * CORE_BUDGET, the class unused longest (and at least CLASS_IDLE_MS) loses
+ * them and is drawn procedurally until a figure of it asks again.
+ */
+export function sweepSheets(t: number, inUse: ReadonlySet<string> = new Set()): void {
+  let core = 0;
+  for (const e of entries.values()) {
+    if (inUse.has(e.m.class)) e.used = t;
+    for (const p of e.pages) {
+      if (p.status !== 'ready') continue;
+      if (p.group === 'extra' && e.url(p.file) && t - p.last > PAGE_TTL_MS) dropPage(p);
+      else if (p.group === 'core') core += p.need[0] * p.need[1] * 4;
+    }
+  }
+  if (core <= CORE_BUDGET) return;
+  const idle = [...entries.values()].filter((e) => !inUse.has(e.m.class) && t - e.used > CLASS_IDLE_MS && e.pages.some((p) => p.status === 'ready' && e.url(p.file)));
+  idle.sort((a, b) => a.used - b.used);
+  for (const e of idle) {
+    if (core <= CORE_BUDGET) break;
+    for (const p of e.pages)
+      if (p.status === 'ready') {
+        if (p.group === 'core') core -= p.need[0] * p.need[1] * 4;
+        dropPage(p);
+      }
+    for (const k of [...palettes.keys()]) if (k.startsWith(`${e.m.class}|`)) palettes.delete(k);
+  }
+}
+
+function dropPage(p: PageState): void {
+  p.px = undefined;
+  p.status = 'idle';
+}
+
+/** Decoded bytes the sheet caches hold (dev counter: window.__sheetMem in dev builds, the perf overlay). */
+export function sheetMemoryStats(): { classes: number; pages: number; coreBytes: number; extraBytes: number; palettes: number; paletteBytes: number; bytes: number } {
+  let classes = 0;
+  let pages = 0;
+  let coreBytes = 0;
+  let extraBytes = 0;
+  for (const e of entries.values()) {
+    let any = false;
+    for (const p of e.pages) {
+      if (p.status !== 'ready' || !p.px) continue;
+      any = true;
+      pages++;
+      const b = p.px.w * p.px.h * 4;
+      if (p.group === 'core') coreBytes += b;
+      else extraBytes += b;
+    }
+    if (any) classes++;
+  }
+  // a colour map: about 40 bytes per Map / Set entry plus the objects
+  let paletteBytes = 0;
+  for (const p of palettes.values()) paletteBytes += 200 + 40 * (p.swap.size + p.glint.size);
+  return { classes, pages, coreBytes, extraBytes, palettes: palettes.size, paletteBytes, bytes: coreBytes + extraBytes + paletteBytes };
 }
 
 /** Route paperdoll's rendering through the sheets (once, from src/ui/sprites.ts). */

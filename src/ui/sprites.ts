@@ -31,6 +31,10 @@
  * src/art/sheetRegistry.ts) go through the same paths: dollKey and renderFrame
  * answer from the sheet once its image is loaded, and battle rows take the
  * sheet's frame ids (src/art/sheetManifest.ts sheetFrameId) as they are.
+ * A clip whose packed page is still loading is drawn (and cached) as its
+ * fallback under the fallback's id, so the clip itself is drawn once its page
+ * is in; a UI row drawn that way is redrawn when the page arrives. The atlas
+ * sweep also bounds the sheet caches (sweepSheets).
  */
 import Phaser from 'phaser';
 import {
@@ -45,7 +49,7 @@ import { Pix } from '../art/pixels';
 import { P } from '../art/palette';
 import type { Item } from '../data/items';
 import { initSheets } from '../art/sheetRegistry';
-import { sheetAnimsOf, sheetIndex } from '../art/sheetDoll';
+import { onSheetReady, sheetAnimsOf, sheetDrawFrame, sheetIndex, sheetPendingDraws, sweepSheets } from '../art/sheetDoll';
 import { sheetFrameId } from '../art/sheetManifest';
 import type { AnimTable } from '../art/sheetAnim';
 
@@ -141,8 +145,20 @@ function refresh(scene: Phaser.Scene, key: string, fxKey: string | null): void {
   if (fxKey && scene.textures.exists(fxKey)) (scene.textures.get(fxKey) as Phaser.Textures.CanvasTexture).refresh();
 }
 
+/** UI rows drawn with a clip's fallback while its sheet page loaded: redrawn when a page arrives. */
+const staleRows: { scene: Phaser.Scene; key: string; dir: number }[] = [];
+onSheetReady(() => {
+  for (const q of staleRows.splice(0)) {
+    const d = dolls.get(q.key);
+    if (!d || !q.scene.sys || !q.scene.textures.exists(q.key)) continue;
+    d.rows[q.dir] = false;
+    queue.push(q);
+  }
+});
+
 function drawRow(scene: Phaser.Scene, key: string, d: DollTex, dir: number): boolean {
   if (d.rows[dir]) return false;
+  const pending = sheetPendingDraws();
   const ctx = (scene.textures.get(key) as Phaser.Textures.CanvasTexture).getContext();
   const fctx = d.fxKey ? (scene.textures.get(d.fxKey) as Phaser.Textures.CanvasTexture).getContext() : null;
   const wrapH = Math.ceil(d.cols / d.perRow) * d.geom.fh;
@@ -157,6 +173,7 @@ function drawRow(scene: Phaser.Scene, key: string, d: DollTex, dir: number): boo
     } else put(ctx, renderFrame(d.spec, f, dir), x, y);
   }
   d.rows[dir] = true;
+  if (sheetPendingDraws() !== pending) staleRows.push({ scene, key, dir });
   return true;
 }
 
@@ -430,7 +447,7 @@ export function battleFrame(rk: string, frame: number): FrameRef & { ring?: stri
   if (!r) return { key: '__MISSING', frame: '__BASE' };
   // a sheet figure's frames by their sheet id (a procedural column shows its state's sheet frame)
   const sh = r.doll.sheet;
-  const col = sh ? sheetIdOf(frame, sh) : sheetColumn(frame, drawnFrames(r.doll.spec));
+  const col = sh ? (sheetDrawFrame(r.doll.spec, frame) ?? sheetIdOf(frame, sh)) : sheetColumn(frame, drawnFrames(r.doll.spec));
   const have = r.frames.get(col);
   const now = performance.now();
   if (have) {
@@ -494,10 +511,13 @@ function dropFrame(r: RowTex, col: number, f: DrawnFrame): void {
 function sweepFrames(now: number): void {
   if (now - sweptAt < SWEEP_MS) return;
   sweptAt = now;
+  const sheetsInUse = new Set<string>();
   for (const r of rowTex.values()) {
+    if (r.doll.sheet && r.doll.spec.cls) sheetsInUse.add(r.doll.spec.cls);
     if (!r.scene.sys.isActive() || !r.frames.size) continue;
     for (const [col, f] of r.frames) if (now - f.last > FRAME_TTL_MS) dropFrame(r, col, f);
   }
+  sweepSheets(now, sheetsInUse);
 }
 
 /** Upload every atlas drawn into since the last call (once per game frame, before rendering). */

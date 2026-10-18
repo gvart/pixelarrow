@@ -166,12 +166,38 @@ export interface MetalGroup {
 /** A tier's recolour: per colour group, the colours that replace the group's (same length, dark to light). */
 export type TierRecolor = Record<string, string[]>;
 
+/** A page of a packed sheet (v3): one PNG of trimmed frames. */
+export interface PackedPage {
+  file: string;
+  w: number;
+  h: number;
+  /** `core` pages load with the class; `extra` ones (ambient idles, victory) the first time one of their clips shows. */
+  group: 'core' | 'extra';
+}
+
+/**
+ * The frame table of a packed sheet (v3, written by scripts/art/pack/): frames
+ * trimmed to their opaque box, identical ones stored once, on pages.
+ */
+export interface PackedSheet {
+  pages: PackedPage[];
+  /** Stored frames, 5 numbers each: page, x, y, w, h. */
+  rects: number[];
+  /** Per frame (index col * rows.length + row), 3 numbers: stored frame (-1: empty), and its offset dx, dy in the frame. */
+  cells: number[];
+  /** The image it was packed from (provenance). */
+  source?: { image: string; w: number; h: number; sha1: string };
+}
+
 export interface SheetManifest {
-  version: 2;
+  /** 2: one image (`image`); 3: packed pages (`packed`), as the build ships it. */
+  version: 2 | 3;
   /** Class id (src/data/classes.ts). */
   class: string;
-  /** The image (relative to the manifest): every animation of the class, in basic tier colours. */
-  image: string;
+  /** v2: the image (relative to the manifest): every animation of the class, in basic tier colours. */
+  image?: string;
+  /** v3: the packed pages and frame table (replaces `image` and `wrap`). */
+  packed?: PackedSheet;
   /** Frame size in art pixels; every frame has it. */
   frame: { w: number; h: number };
   /**
@@ -218,7 +244,7 @@ export function parseManifest(raw: unknown): SheetManifest {
   const errs: string[] = [];
   const num = (v: unknown, min = 0) => typeof v === 'number' && Number.isFinite(v) && v >= min;
   if (!m || typeof m !== 'object') throw new Error('sheet manifest: not an object');
-  if (m.version !== 2) errs.push('version must be 2 (one image, tiers by recolour)');
+  if (m.version !== 2 && m.version !== 3) errs.push('version must be 2 (one image, tiers by recolour) or 3 (packed)');
   if (typeof m.class !== 'string' || !m.class) errs.push('class missing');
   if (!m.frame || !num(m.frame.w, 1) || !num(m.frame.h, 1)) errs.push('frame.w / frame.h must be positive');
   if (!m.anchor || !num(m.anchor.x) || !num(m.anchor.y)) errs.push('anchor.x / anchor.y missing');
@@ -230,7 +256,8 @@ export function parseManifest(raw: unknown): SheetManifest {
   if (!Array.isArray(m.rows) || !m.rows.length || m.rows.some((r) => !SHEET_DIRECTIONS.includes(r))) errs.push('rows must name directions');
   const facings = m.facings ?? DEFAULT_FACINGS;
   if (facings.length !== 4 || facings.some((f) => !m.rows?.includes(f))) errs.push('facings must name four rows of the image');
-  if (typeof m.image !== 'string' || !m.image) errs.push('image missing');
+  if (m.version === 2 && (typeof m.image !== 'string' || !m.image)) errs.push('image missing');
+  if (m.version === 3) errs.push(...packedErrors(m));
   if (m.wrap !== undefined && (!num(m.wrap, 1) || !Number.isInteger(m.wrap))) errs.push('wrap must be a whole number of columns');
   const owner = new Map<string, string>();
   for (const g of m.metal ?? []) for (const c of g.colors ?? []) owner.set(String(c).toLowerCase(), 'metal');
@@ -274,6 +301,67 @@ export function parseManifest(raw: unknown): SheetManifest {
   }
   if (errs.length) throw new Error(`sheet manifest ${m.class ?? '?'}: ${errs.join('; ')}`);
   return m;
+}
+
+/** What is wrong with a v3 manifest's frame table (frame size and anims already read). */
+function packedErrors(m: SheetManifest): string[] {
+  const p = m.packed;
+  if (!p || !Array.isArray(p.pages) || !p.pages.length || !Array.isArray(p.rects) || !Array.isArray(p.cells)) return ['packed: pages, rects and cells are required'];
+  const errs: string[] = [];
+  const whole = (v: unknown, min = 0) => Number.isInteger(v) && (v as number) >= min;
+  p.pages.forEach((pg, i) => {
+    if (typeof pg.file !== 'string' || !pg.file || !whole(pg.w, 1) || !whole(pg.h, 1) || pg.w > MAX_PAGE || pg.h > MAX_PAGE) errs.push(`packed.pages[${i}]: file and w / h (1..${MAX_PAGE})`);
+    if (pg.group !== 'core' && pg.group !== 'extra') errs.push(`packed.pages[${i}].group must be core or extra`);
+  });
+  if (p.rects.length % 5) errs.push('packed.rects: 5 numbers per frame');
+  for (let i = 0; i + 4 < p.rects.length; i += 5) {
+    const [pg, x, y, w, h] = p.rects.slice(i, i + 5);
+    const page = p.pages[pg];
+    if (!page || !whole(x) || !whole(y) || !whole(w, 1) || !whole(h, 1) || x + w > page.w || y + h > page.h) {
+      errs.push(`packed.rects[${i / 5}] is not inside its page`);
+      break;
+    }
+  }
+  if (!m.rows?.length || !m.frame || !m.anims) return errs;
+  if (p.cells.length !== manifestColumns(m) * m.rows.length * 3) errs.push(`packed.cells: 3 numbers for each of the ${manifestColumns(m) * m.rows.length} frames`);
+  const n = p.rects.length / 5;
+  for (let i = 0; i + 2 < p.cells.length; i += 3) {
+    const [r, dx, dy] = p.cells.slice(i, i + 3);
+    if (r === -1) continue;
+    if (!whole(r) || r >= n || !whole(dx) || !whole(dy) || dx + p.rects[r * 5 + 3] > m.frame.w || dy + p.rects[r * 5 + 4] > m.frame.h) {
+      errs.push(`packed.cells[${i / 3}] is not a stored frame inside the frame`);
+      break;
+    }
+  }
+  if (!errs.length && m.anims.idle && animPages(m, 'idle').some((i) => p.pages[i].group !== 'core')) errs.push('packed: idle must be on core pages');
+  return errs;
+}
+
+/** Widest / tallest page of a packed sheet. */
+export const MAX_PAGE = 2048;
+
+/** A frame of a packed sheet: its stored rect (page, x, y, w, h) and offset in the frame (null: empty). */
+export function packedCell(m: SheetManifest, col: number, row: number): { page: number; x: number; y: number; w: number; h: number; dx: number; dy: number } | null {
+  const p = m.packed!;
+  const i = (col * m.rows.length + row) * 3;
+  const r = p.cells[i];
+  if (r === undefined || r < 0) return null;
+  const k = r * 5;
+  return { page: p.rects[k], x: p.rects[k + 1], y: p.rects[k + 2], w: p.rects[k + 3], h: p.rects[k + 4], dx: p.cells[i + 1], dy: p.cells[i + 2] };
+}
+
+/** The pages an animation's frames are on (v2: the one image, page 0). */
+export function animPages(m: SheetManifest, a: SheetAnim): number[] {
+  const def = m.anims[a];
+  if (!def) return [];
+  if (!m.packed) return [0];
+  const out = new Set<number>();
+  for (let c = def.col; c < def.col + def.frames; c++)
+    for (let r = 0; r < m.rows.length; r++) {
+      const cell = packedCell(m, c, r);
+      if (cell) out.add(cell.page);
+    }
+  return [...out];
 }
 
 /** Columns of the layout (frames of every animation, end to end). */

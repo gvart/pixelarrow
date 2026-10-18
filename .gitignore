@@ -23,3 +23,6 @@ test-results
 
 # I1+: raw PixelLab downloads (zips, rotations, frames) stay on disk, never in git (V5-086, as V5-049)
 /docs/v5/pixellab/**/raw/
+
+# I3c: packed sprite sheets, written by scripts/art/pack/ (the vite build runs it)
+/src/generated/

@@ -166,3 +166,82 @@ matching frame of the state on the sheet.
 Shield paint, cloak and crest cosmetics, hair and beard, the `Look` body
 variation (beyond skin) and the victory-pose cosmetic are not drawn on sheet
 figures.
+
+## Packed sheets (v3, I3c)
+
+The art is authored and committed as v2 (above). The build never ships the v2
+image: `scripts/art/pack/` packs each `src/assets/sheets/<class>/` into
+`src/generated/sheets/<class>/` (git-ignored), and the registry reads only
+that. The vite build and dev server run the packer first (`sheetPackPlugin` in
+`vite.config.ts`); `npm run sheets:pack` runs it by hand (with the dev
+placeholders). A class repacks only when its manifest, its image or the packer
+changed.
+
+What the packer does, losslessly:
+
+1. Trims every frame (column x row) to its opaque box and keeps the box's
+   offset in the frame, so `anchor`, `anchors` and `portrait` (frame
+   coordinates) stay exact.
+2. Stores identical trimmed frames once (held poses, clips that reuse frames).
+3. Shelf-packs them into pages of at most 2048 x 2048 per clip group: `core`
+   (everything a battle shows) and `extra` (`look`, `adjust`, `cheer`, `win`:
+   ambient idles and victory). A frame both groups use is on a core page.
+4. Writes each page as the smallest PNG it finds: indexed (with tRNS) at 256
+   colours or fewer, else RGBA; no colour chunks. Fully transparent pixels are
+   written as 0,0,0,0; every other pixel, and so every colour group and metal
+   colour, is exact. Each frame is checked against the source after the PNGs
+   are decoded again, and a mismatch fails the build.
+
+The packed manifest is the v2 manifest with `version: 3`, no `image` or `wrap`,
+and a `packed` block:
+
+```json
+"packed": {
+  "pages": [{ "file": "hoplite.0.png", "w": 611, "h": 273, "group": "core" },
+            { "file": "hoplite.1.png", "w": 147, "h": 100, "group": "extra" }],
+  "rects": [0, 0, 0, 30, 49, ...],
+  "cells": [0, 6, 2, ...],
+  "source": { "image": "hoplite.png", "w": 2982, "h": 216, "sha1": "..." }
+}
+```
+
+| field | meaning |
+| --- | --- |
+| `pages` | the page images, relative to the manifest, with their size and group |
+| `rects` | stored frames, 5 numbers each: page, x, y, w, h |
+| `cells` | 3 numbers per frame, index `col * rows.length + row`: the stored frame (`-1`: empty) and its offset `dx, dy` in the frame |
+| `source` | what it was packed from (`sha1` covers the manifest, the image and the packer) |
+
+`idle` must be on core pages. At runtime (`src/art/sheetDoll.ts`) a class is
+drawn from its sheet once its core pages are loaded. A frame is read and
+recoloured from its rect only. An extra page loads the first time one of its
+clips is asked for. Until it arrives, the clip shows its fallback (the table
+above, so `cheer` shows `win`, then `idle`), and the clip itself is drawn once
+the page is in. v2 manifests still load unchanged: `?sheets=dev` loads the
+packed dev placeholders and `?sheets=dev-raw` the unpacked ones.
+
+**Memory.** A decoded page takes w x h x 4 bytes. The battle atlas sweep
+(`src/ui/sprites.ts`, once a second) also bounds the sheet caches:
+
+- An extra page nobody read for 6 s (`PAGE_TTL_MS`, the atlas frame TTL) is
+  dropped and reloads, from the browser cache, on next use.
+- While the core pages of all classes exceed 48 MB (`CORE_BUDGET`), the
+  classes unused for 60 s (`CLASS_IDLE_MS`, no live battle rows) lose theirs,
+  oldest first. Such a class is procedural again until a figure asks for it.
+- The colour maps (tier x variant x rarity mix) are an LRU of 256
+  (`PALETTE_CAP`, about 1 KB each).
+- Battle atlases hold only frames on screen, so the number of looks does not
+  grow GPU memory.
+
+`sheetMemoryStats()` reports the decoded bytes (`window.__sheetMem()` in dev
+builds).
+
+| sheet | decoded before → after | download before → after |
+| --- | --- | --- |
+| placeholder hoplite (71 cols x 4 rows, 42 x 54) | 2.46 → 0.69 MB (core 0.64) | 63.9 → 40.0 KB |
+| synthetic 16 clips x 14 frames x 4 rows, 84 x 108 (res-2 procedural) | 33.2 → 14.3 MB (core 11.6) | 831 → 617 KB |
+
+Trimming does most of the work: packing fills 94-96% of each page, and
+procedural frames have few duplicates to remove. PixelLab art with more
+colours per page may go over 256 colours, and then packs as RGBA (larger
+downloads, the same decoded size).
