@@ -1,0 +1,30 @@
+server/test/deletion-bot.test.ts
+  s_0d98fe904b2e82::t_3b6cc28fad9a14 28
+server/src/account/notices.ts
+  s_0d98fe904b2e82::t_3b6cc28fad9a14 68
+docs/v6/plan/CONTROL_MANIFEST_ACCOUNTS.md
+  s_0d98fe904b2e82::t_8985bc1889a614 75
+server/src/account/conflicts.ts
+  s_0d98fe904b2e82::t_9fc3489239e2fa 7-8,85-86,106-107,124-125,147-157
+  s_0d98fe904b2e82::t_4a1ed40ecbe478 158-159
+server/test/account-telegram-link.test.ts
+  s_0d98fe904b2e82::t_2a2090b3195575 16,106-112,319-347,529-532
+server/src/bot/handlers.ts
+  s_0d98fe904b2e82::t_3b6cc28fad9a14 173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "da4136837224d9d12718aec9c210e5370c171d4e",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
