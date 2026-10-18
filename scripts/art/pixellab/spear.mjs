@@ -6,7 +6,10 @@
 //          [--column x,y0,y1] (repaint the old shaft where it crosses the body: each shaft-coloured pixel takes its
 //                              right neighbour's colour; with --head x0,y0,x1,y1 the old spearhead the same way)
 //          [--keep x0,y0,x1,y1] (the fist: restored over the new shaft) [--pad 128,128,30,40] [--ahead 38 --behind 20]
+//          [--line x0,y0,x1,y1[,w]] (erase the old spear along this line, w px either side (default 1.5),
+//                              everything but the --keep box: a slanted spear the --box cannot isolate)
 //          [--vec dx,dy] (the head's screen direction instead of the facing's levelled forward, e.g. an upright spear)
+//          [--colors shaft,dark,butt,line,head,headDark] (hex without #: the class's own spear colours; default E3's)
 //          [--over both] (draw both ends over the sprite: a spear held in front of the man)
 // Coordinates are in the input sprite's pixels. The part of the spear on the far side of the man is drawn only
 // where the sprite is empty, so it passes behind him.
@@ -33,6 +36,17 @@ if (keep) for (let y = keep[1]; y <= keep[3]; y++) for (let x = keep[0]; x <= ke
 
 const box = nums(opt('box'));
 if (box) for (let y = box[1]; y <= box[3]; y++) for (let x = box[0]; x <= box[2]; x++) if (!inBox(x, y, keep)) get(x, y)[3] = 0;
+const line = nums(opt('line'));
+if (line) {
+  const [x0, y0, x1, y1, lw = 1.5] = line;
+  const L = Math.hypot(x1 - x0, y1 - y0);
+  for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) {
+    const t = ((x - x0) * (x1 - x0) + (y - y0) * (y1 - y0)) / (L * L);
+    if (t < -0.02 || t > 1.02 || inBox(x, y, keep)) continue;
+    const d = Math.abs((x - x0) * (y1 - y0) - (y - y0) * (x1 - x0)) / L;
+    if (d <= lw) get(x, y)[3] = 0;
+  }
+}
 const col = nums(opt('column'));
 if (col) for (let y = col[1]; y <= col[2]; y++) if (!inBox(col[0], y, keep) && SHAFT.has(hex(get(col[0], y)))) get(col[0], y).set(get(col[0] + 1, y));
 const head = nums(opt('head'));
@@ -58,7 +72,8 @@ const put = (x, y, rgb, over) => {
   if (!over && !empty(x, y)) return;
   o.data.set([...rgb, 255], (y * W + x) * 4);
 };
-const C = { shaft: hexToRgb('#653722'), dark: hexToRgb('#2a1a12'), butt: hexToRgb('#48271a'), line: hexToRgb('#120c0a'), bronze: hexToRgb('#987248'), bronzeD: hexToRgb('#6e4f32') };
+const [cs, cd, cb, cl, ch, chd] = (opt('colors') ?? '653722,2a1a12,48271a,120c0a,987248,6e4f32').split(',').map((h) => hexToRgb(`#${h}`));
+const C = { shaft: cs, dark: cd, butt: cb, line: cl, bronze: ch, bronzeD: chd };
 const G = [gx + ox, gy + oy];
 // shaft from the butt to the head's base; one dark pixel under it where the sprite is empty
 for (let t = -behind; t <= ahead - 6; t += 0.5) {
