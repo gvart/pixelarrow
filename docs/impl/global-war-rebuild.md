@@ -23,7 +23,9 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-13 Greybox first: gameplay on coded tiles + height shading; Gemini prototypes → owner approval → PixelLab assets swapped in, in parallel.
 - W-14 Testing is owner-in-the-loop: every milestone ends with a local URL (`sandbox.html?region=…&scenario=…`) and a short checklist.
 - W-16 Regions render in true isometric (2:1 diamonds) with raised height: cliffs/plateaus/banks visible as walls; sim stays in tile coords (owner 2026-10-19).
-- W-17 Region size 256×256 tiles (owner 2026-10-19).
+- W-17 ~~Region size 256×256~~ superseded by W-18.
+- W-18 Real scale: soldier sprite 58 px = 1.76 m (≈33 px/m). 1 tile = 2 m; region 512×512 tiles ≈ 1 km. Trees, forts, rivers, roads sized true to the soldiers; mountains may be compressed. Zoomed-out LOD (dots/banners) for 600 units (owner 2026-10-19).
+- W-19 Gemini images are prototypes only. Real region art is built with PixelLab: map generation, tile generation (iso tilesets/transitions), map objects (trees, rocks, buildings) and FX (owner 2026-10-19).
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
