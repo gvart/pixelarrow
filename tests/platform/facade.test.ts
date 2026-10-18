@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { platform, setPlatformForTests } from '../../src/platform/index';
 import { haptic, hapticNotify, hapticSelect, setHaptics } from '../../src/platform/haptics';
-import { hasNativeBack, setBackButton, startParam } from '../../src/platform/telegram';
 import { FakePlatform } from '../fakes/platform';
 import { platformContract } from './contract';
 
@@ -30,17 +29,5 @@ describe('the platform facade', () => {
     setHaptics(false);
     haptic('heavy');
     expect(fake.cues).toEqual(['impact:light', 'notify:success', 'select']);
-  });
-
-  it('keeps the old telegram.ts names working through the platform (the M1 shim)', async () => {
-    const fake = new FakePlatform();
-    setPlatformForTests(fake);
-    fake.back.native = true;
-    expect(hasNativeBack()).toBe(true);
-    const cb = () => {};
-    setBackButton(cb);
-    expect(fake.backCb).toBe(cb);
-    fake.launch = 'duel';
-    expect(startParam()).toBe('duel');
   });
 });

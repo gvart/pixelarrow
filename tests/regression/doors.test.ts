@@ -6,7 +6,7 @@ import { sourceFiles } from '../support/nodeIo.js';
 // contract in src/platform/nav.ts, so the walk cannot drift from it: a new screen with a Back rule needs
 // a door (or a reason in ELSEWHERE), and a door's expected landing is what resolveBack says.
 
-// telegram.ts touches `window` only when attaching; give node a minimal one (as tests/nav.test.ts does).
+// The Telegram adapter touches `window` only when attaching; give node a minimal one (as tests/nav.test.ts does).
 (globalThis as Record<string, unknown>).window ??= { innerWidth: 390, innerHeight: 844, addEventListener: () => {} };
 const { BACK_RULES, TAB_ROOTS, resolveBack } = await import('../../src/platform/nav');
 const { MODE_TABS } = await import('../../src/ui/mosaic/tabLayout');

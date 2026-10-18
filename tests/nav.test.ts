@@ -1,14 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakePlatform } from './fakes/platform';
 import { fakeEnv } from './platform/env';
+import type { TelegramPlatform } from '../src/platform/telegram/index';
+import type { Insets } from '../src/platform/core/safeArea';
 
-// telegram.ts touches `window` only when attaching; give node a minimal one.
+// The Telegram adapter touches `window` only when attaching; give node a minimal one.
 const win = { innerWidth: 390, innerHeight: 844, addEventListener: () => {} };
 (globalThis as Record<string, unknown>).window = win;
 
 const { NavStack, nav, registerScreen, navLayer, showInGameBack, TAB_ROOTS, BACK_RULES, tabOfScene, resolveBack, screenOpts, hubView } = await import('../src/platform/nav');
 const { MODE_TABS } = await import('../src/ui/mosaic/tabLayout');
-const tg = await import('../src/platform/telegram');
+const platformModule = await import('../src/platform/index');
+/** The Telegram calls these tests drive, straight on the live platform (the old telegram.ts shim is gone). */
+const tg = {
+  attachWebApp(wa: never): void {
+    if (platformModule.platform.id === 'telegram') (platformModule.platform as TelegramPlatform).attach(wa);
+  },
+  onInsetsChanged: (cb: (device: Insets, content: Insets) => void) => platformModule.platform.safeArea.onChange(cb),
+  deviceInsets: (): Insets => platformModule.platform.safeArea.current().device,
+};
 const { trackSafeArea } = await import('../src/platform/safeArea');
 const { platform, setPlatformForTests } = await import('../src/platform/index');
 const { createWebPlatform } = await import('../src/platform/web/index');

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readText } from './support/nodeIo.js';
 
-// nav.ts reaches telegram.ts, which touches `window` only when attaching; give node a minimal one.
+// nav.ts reaches the Telegram adapter, which touches `window` only when attaching; give node a minimal one.
 (globalThis as Record<string, unknown>).window = { innerWidth: 390, innerHeight: 844, addEventListener: () => {} };
 
 const { SLOT_ORDER, FOOT_GAP, armyBack, footerLayout, collapsed, groupNameBeside } = await import('../src/ui/army/layout');

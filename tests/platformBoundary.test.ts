@@ -3,9 +3,8 @@
  * platform only through src/platform (the facade), src/platform/core and the
  * neutral services, and never checks which platform it runs on.
  *
- * ALLOWLIST holds the files not migrated yet, with the rules each still breaks.
- * It may only shrink: the test fails when a listed file stops breaking a listed
- * rule, so the entry must be removed in the same change. M10 empties and deletes it.
+ * M10 (PLAT-07) deleted the telegram.ts shim and the migration allowlist: no file
+ * may break the rule.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -21,12 +20,6 @@ type Rule = 1 | 2 | 3 | 4 | 5;
 /** vitest runs from the repo root. */
 const ROOT = (globalThis as unknown as { process: { cwd(): string } }).process.cwd();
 const ADAPTERS = /^src\/platform\/(telegram|web|steam|mobile)\//;
-
-/** Files not yet moved off the old seams (today's importers of the telegram.ts shim and online.available). */
-const ALLOWLIST: Record<string, Rule[]> = {
-  // rule 4: the retired names (the shim itself, until M10)
-  'src/platform/telegram.ts': [4],
-};
 
 /** Repo-relative paths of the .ts files under dir. */
 function walk(dir: string): string[] {
@@ -72,14 +65,8 @@ function violations(): { file: string; rule: Rule; line: number; text: string }[
 describe('platform boundary (ADR-0006)', () => {
   const found = violations();
 
-  it('no file outside the allowlist breaks the platform rule', () => {
-    const fresh = found.filter((v) => !ALLOWLIST[v.file]?.includes(v.rule));
-    expect(fresh.map((v) => `rule ${v.rule}: ${v.file}:${v.line}  ${v.text}`)).toEqual([]);
-  });
-
-  it('the allowlist only shrinks: every listed file still breaks every listed rule', () => {
-    const stale = Object.entries(ALLOWLIST).flatMap(([file, rules]) => rules.filter((r) => !found.some((v) => v.file === file && v.rule === r)).map((r) => `${file} no longer breaks rule ${r}: remove it from ALLOWLIST`));
-    expect(stale).toEqual([]);
+  it('no file breaks the platform rule', () => {
+    expect(found.map((v) => `rule ${v.rule}: ${v.file}:${v.line}  ${v.text}`)).toEqual([]);
   });
 
   it('catches each kind of violation', () => {

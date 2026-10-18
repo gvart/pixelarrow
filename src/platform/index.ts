@@ -38,7 +38,7 @@ function browserEnv(): PlatformEnv {
 /**
  * The platform of this session. Until selectPlatform() runs (unit tests,
  * tools) it is a Telegram adapter that was never launched: every call is a
- * no-op, as telegram.ts was before initTelegram().
+ * no-op, as the old telegram.ts was before initTelegram().
  */
 export let platform: Platform = createPlatform('telegram', browserEnv());
 let selected = false;
