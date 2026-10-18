@@ -1,0 +1,46 @@
+docs/v5/pixellab/I5b/celt_sword.picks.json
+  s_41b82181a73565::t_105b414e6e49bb 5
+  s_41b82181a73565::t_0792c26fa06b56 6-7,9-10
+  s_41b82181a73565::t_494a5cc2b35d5e 8
+  s_41b82181a73565::t_81ff9217c2c87b 1-4,11-40
+src/assets/sheets/rhomphaia/manifest.json
+  s_41b82181a73565::t_a06bf5fe90995b 15,164,168,170-175,178-179
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_4651199d9c66fe 288-335
+scripts/art/pixellab/i5b/mgroups.mjs
+  s_41b82181a73565::t_3e99edc6e357b9 1-8
+docs/v5/pixellab/I5b/rhomphaia.sheet.json
+  s_41b82181a73565::t_4e2f8cf794851f 39
+  s_41b82181a73565::t_aa689bf0dc93b9 13-14,16-18,25-38
+docs/v5/pixellab/I5b/rhomphaia.picks.json
+  s_41b82181a73565::t_7e5fa784993f1b 5-7,9-10
+  s_41b82181a73565::t_494a5cc2b35d5e 8
+scripts/art/pixellab/i5b/mkspec.mjs
+  s_41b82181a73565::t_ba3194d5f08c3d 46-48
+  s_41b82181a73565::t_6566750fde591d 49
+docs/v5/pixellab/I5b/celt_sword.sheet.json
+  s_41b82181a73565::t_dab9d7d2d1e0dc 1-39,41-583
+  s_41b82181a73565::t_4e2f8cf794851f 40
+src/assets/sheets/celt_sword/manifest.json
+  s_41b82181a73565::t_a06bf5fe90995b 1-199
+docs/playbook/PROMPTS_ART.md
+  s_41b82181a73565::t_b3771a879e148d 1085-1105
+docs/v5/pixellab/I5b/celt_sword.jobs.json
+  s_41b82181a73565::t_1b7719779d05b4 1-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fd47c7b29323b7c9623189af09153a6ea4d00349",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
