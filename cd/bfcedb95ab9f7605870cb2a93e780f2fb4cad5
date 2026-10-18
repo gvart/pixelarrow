@@ -1,0 +1,415 @@
+src/scenes/ResultsScene.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 61
+src/game/encounter.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 11,31,48
+src/audio/voices.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 16,32,34
+src/data/gearRules.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 13,16-17,53,102
+src/scenes/duel/duelParts.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 37,66,120,133,200,245,288,347,435
+src/ui/tutorial/keyLines.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 12
+src/scenes/duel/duelLayout.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 21
+src/ui/mosaic/policy.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 88
+src/art/menuSprites.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 13,42,59,78,115,127,136,160
+src/ui/account/methods.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 21,79
+src/ui/account/index.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 26
+src/art/cosmeticArt.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 24
+src/online/liveArmies.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 59,70,85
+src/scenes/online/warHud.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 19
+src/online/rules.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 29,37,47,249,255
+src/ui/sheets/eventCard.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 71,188
+src/ui/account/nameSheet.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 26
+src/platform/online.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23,60,62
+src/game/economy.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 17
+src/scenes/kit/catalog.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 18,60,65,103
+src/ui/account/deleteAccount.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 35,45
+src/ui/orderQueue.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 25,38
+src/ui/sheets/arcSheet.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 35
+src/ui/account/checkEmail.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23
+src/platform/telegram/back.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 5
+src/sim/ai.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23,25-26,28,42,44,61,63,70,74,80,82,84-85,87,89,91
+src/ui/kit.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 198,203,245,296,337,698,742
+src/ui/dragFormation.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 42,84,191
+src/ui/beastView.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 34,40
+src/art/terrainArt.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 34,370
+src/art/goodsIcons.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 31,80,100,111
+src/art/ground.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 8,21,239-240,246
+src/ui/account/gate.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 24
+src/ui/sprites.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 221,547,568,583,616,652
+src/ui/account/linkRequest.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23
+src/scenes/online/OnlineScene.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 138,140,1914
+src/ui/focusRing.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 48
+src/online/lairs.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 48,229,231
+src/game/tutorial.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 48,264-265,270,372
+src/game/gear.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 37,164,239,272,316
+src/world/campLayout.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 473
+  s_0d98fe904b2e82::t_8037e96da47272 24
+src/platform/api.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 26,34,39,46,202,207,259,282,379
+src/ui/sheets/forge.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 34,132
+src/ui/econ/consumablePicker.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 36
+src/ui/input/battleKeys.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 14,21
+src/ui/mosaic/StepList.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 14
+src/ui/account/linkTelegram.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 34,36
+src/world/path.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 9
+src/art/itemIconsHD.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 25,29,48
+src/ui/input/gestures.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 41,103,108
+src/ui/account/flows.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 112
+src/ui/campLife.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 61
+src/ui/mosaic/subShell.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 60
+src/ui/legal.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 4
+src/data/consumables.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 16,18,31,106
+src/ui/account/conflict.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 103,257
+src/game/loot.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 33,75
+src/audio/mixer.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 24,51,92
+src/ui/input/undo.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 24,34
+src/ui/mosaic/cards.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 66,103
+src/ui/econ/shopModel.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 34,55
+src/ui/results/arcVictory.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23
+src/ui/account/removeMethod.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 17,28
+src/online/camps.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 38,43,114,164
+src/online/defenders.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 17,19,27,36,83
+src/online/mapSchema.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 119,128
+src/ui/form/authForm.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 25
+src/art/campIso.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23-24,31,52,102,116,987
+src/ui/account/accountPage.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 68
+src/online/neutralDoctrine.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 13
+src/game/muster.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 63,99
+src/data/items.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 592
+src/state.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 19
+src/ui/keycap.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 25,34,40,45
+src/duel/match.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 215
+src/ui/input/works.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 45,133
+src/ui/input/keySource.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 13,27
+src/platform/web/turnstile.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 14
+src/online/deeplink.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 46,48
+src/art/iconStyle.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 21,115
+src/ui/battlePanel.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 50,55,92,430,485,553
+src/ui/widgets.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 72,122,252,339,413,591,599,686,819,883,1006,1104,1153,1215
+src/ui/tutorial/firstRunLayout.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 15,17,32
+src/world/camp.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 16,170,200
+src/platform/monitoring.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 14
+src/game/save.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 313
+src/ui/account/linking.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 109
+src/ui/battleLayout.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 48,100,118,273
+src/game/report.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 32,122,239,241,243,245,247,315,348,452
+src/ui/econ/widgets.ts
+  s_0d98fe904b2e82::t_8037e96da47272 7
+src/scenes/HeroScene.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 1367
+src/ui/mosaic/base.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 32,51,98
+src/platform/telemetry.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 49,77,92,94,103,200
+src/ui/tutorial/narrator.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 68,84,96
+src/game/campaign.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 78,81,90
+src/game/armySpec.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 7
+src/audio/synth.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 31,44,62,85,91,124,175
+src/platform/saveSync.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 52,62,82
+src/platform/safeArea.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 21
+src/ui/tutorial/coachPlace.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 8,15
+src/sim/formation.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 22,158
+src/ui/mosaic/AccountRow.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 22
+src/platform/nav.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 29,241
+src/ui/settings/controls.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 59
+src/audio/engine.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 37
+src/ui/sizeClass.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 43-45,47,53,71
+src/art/vectorFont.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 21,23,40,70,90,137
+src/ui/account/linkSheet.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 14,17
+src/art/model3d.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 40,46,514,547
+src/art/iconBitmaps.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 145
+src/game/heroes.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 18,22-23,39,44,76,106,119
+src/scenes/online/MerchantScene.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 36
+src/ui/shortcutsSheet.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 32,35
+src/ui/econ/demo.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 93
+src/scenes/online/regionMapView.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 89,91,93
+src/online/world.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 40
+src/duel/rules.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 65,73,188,244,311,348,364
+src/ui/tokens.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 322
+src/scenes/kit/overlaysPage.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 37,47
+src/art/campArt.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 20,267,305,435,586,814,966
+  s_0d98fe904b2e82::t_8037e96da47272 13
+src/ui/mosaic/tabLayout.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 41,43,45,47,49,51,149,180,187,226
+src/duel/season.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 113,122,141
+src/ui/tutorial/spotlight.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 21
+src/ui/input/attention.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 27,29,100,134
+src/sim/battle.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 54,156,3449
+src/ui/input/hitTest.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 64,118
+src/ui/modeArt.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 19,43
+src/ui/input/zoomAt.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 36,43,78
+src/ui/online.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 111,162
+src/game/enemy.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 41,54,68
+src/ui/beastInfo.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 38,104
+src/online/demoShard.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23
+src/ui/econ/shopParts.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 27,194,202
+src/scenes/kit/formsPage.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 81,94
+src/ui/mapHud.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23,78
+src/ui/battleHud.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 69,90,99,465,476,625,670,766,863,909,977,979,1019,1096,1275,1370,1394
+src/world/map.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 11-12,51
+src/ui/results/layout.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 16
+src/ui/account/twoCampaigns.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 25,38
+src/ui/sheets/recruit.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 38
+src/art/mosaicUi.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 28,454
+src/duel/ladder.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 78,146,151,236,275,381
+src/data/affixes.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 25,27,67,90,179
+src/art/overlandMap.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 118,149
+src/ui/tutorial/ghost.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 36
+src/game/sources.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 102,145-146,185
+src/scenes/duel/DuelScene.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 99,101,104,106,153,159,164,170,193,3402,3414,3424,3448,3475,3512,3530,3549,3571,3603
+src/ui/motion.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 12
+src/ui/army/drop.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 10,20
+src/ui/input/wheel.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 15,17,19,31,41
+src/ui/input/glyphs.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 18
+src/data/events.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 176,190
+src/scenes/online/beastPanel.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 49,59,71
+src/ui/textfit.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 11-12,47,103
+src/ui/battleCamera.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 32,34
+src/ui/sheet.ts
+  s_0d98fe904b2e82::t_8037e96da47272 10,13,19,21
+  s_0d98fe904b2e82::t_1a00a90188a3a6 72,123,243,428,710
+src/scenes/online/OnlineArmyScene.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 48,57,70
+src/online/lockstep.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 17
+src/art/materials.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 46,114,116,120-122
+src/data/sets.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 12,18
+src/ui/flankArc.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 68
+src/art/mapProps.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 199,261
+src/data/traits.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 5
+src/world/world.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 166,170,314,1571
+src/scenes/FirstRunScene.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 38,40
+src/art/paperdoll.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 77,314,321,324,335,337,339,466,3119-3120
+src/data/beasts.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 208
+src/ui/campIsoLife.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 18,62
+src/i18n/places.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 13,76,96
+src/ui/sheets/encounter.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 46
+src/ui/input/focus.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 62,64
+src/ui/notifySettings.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 37
+src/ui/input/keys.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 29,32
+src/audio/sfx.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 11
+src/ui/account/rename.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 16
+src/ui/input/actions.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 41,110
+src/data/perks.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 57,186,208,336
+src/platform/analytics.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 17-18,31
+src/sim/myth.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 36
+src/ui/sheets/battleMenu.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 23,54,160
+src/ui/econ/textures.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 14
+src/dev/ladderParity/ai.frozen.ts
+  s_0d98fe904b2e82::t_8037e96da47272 19
+  s_0d98fe904b2e82::t_1a00a90188a3a6 21,23-24,26,40,42,59,61,64,66,68,70,1209
+src/ui/layout.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 528
+src/ui/sheets/assault.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 31
+src/ui/results/model.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 45
+src/ui/battleFx.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 79,86,410
+src/platform/analyticsSchema.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 19,25,37-38,79,81
+src/scenes/kit/layoutsPage.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 35
+src/online/battle.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 19,41,70,89
+src/ui/layoutCheck.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 67,77
+src/ui/account/devices.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 25,33,42
+src/platform/detect.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 41
+src/audio/haptics.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 13
+src/art/parchmentMap.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 31,40,1149,1180,1191
+src/scenes/bootRoute.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 11
+src/platform/core/env.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 8
+src/online/client.ts
+  s_0d98fe904b2e82::t_1a00a90188a3a6 352
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cdbfcedb95ab9f7605870cb2a93e780f2fb4cad5",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
