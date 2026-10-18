@@ -1,17 +1,17 @@
 # v6 progress
 
 - **Line:** branch `v6` in the worktree `/Users/v.gladis/Workspace/Personal/pixelarrow/.claude/worktrees/v6`
-- **Phase:** 0 (setup) and 1 (audit), running in parallel
+- **Phase:** FINAL (2026-10-18). The run is closed; see docs/v6/REPORT.md and docs/v6/OWNER_ACTIONS.md. Nothing pushed, merged to main or deployed.
 - **Port slots** (V6-002): slot 1 = 6110–6119, slot 2 = 6120–6129, slot 3 = 6130–6139, slot 4 = 6140–6149
 - **Chrome and Gemini:** checked 2026-10-13. Signed in and working.
 
-## PAUSED (2026-10-18, owner request)
+## FINAL (2026-10-18)
 
-All agents stopped, and all servers on 6150–6159/6190–6199 killed. v6 HEAD before this note: 19d1285d. Everything is merged except PLAT-06, and the tree is clean. To finish, in order:
-1. The final gate pass on 19d1285d was interrupted during e2e. Rerun it: tsc, vitest, build, regression `--all`, layout `--quick`, link-telegram/account-privacy/account-manage e2e.
-2. PLAT-06 (the "inside Telegram" strings become "Sign in to play online") was interrupted on branch `worktree-agent-a759cf89d9737b52a`. Resume it in a fresh isolated worktree with `git reset --hard` to that branch (V6-080), then merge it.
-3. Merge the docs branch `worktree-agent-a842e8a506fc57042` (landing FAQ and OWNER_ACTIONS). On OWNER_ACTIONS, take that branch's version.
-4. Rename docs/v6/REPORT.draft.md to REPORT.md, fixing any numbers. Set Phase to FINAL. QA-final, RSCR-11, GATE-03 and PLAT-07 are not done, by the owner's decision.
+- **Merged:** 57 of 64 stories (the last: RSCR-06+06b, LINK-07+07b, PLAT-06), plus main's five v5 hotfixes, QA-SPEED, FIX-ARMY-EMPTY and the wrap-up docs (landing FAQ, OWNER_ACTIONS). The final gate pass on a3d4bc34 is green; see REPORT.md §2.
+- **Cancelled by the owner:** QA-final (QA-01..04) and RSCR-11 (the legacy column and the pending allowlist stay).
+- **Not done:** GATE-03 (landing CI gates) and PLAT-07 (the telegram.ts shim and its boundary allowlist entry).
+- **Open:** FLAKY F5, F6, F7, F11 and F12; the smoke `worldDiag` one-off; the polish items in V6-090..094; the privacy notice draft awaiting the owner's sign-off.
+- Everything below this section is the historical run log.
 
 ## RESUMED AGAIN (2026-10-14)
 
