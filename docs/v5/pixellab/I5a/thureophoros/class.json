@@ -1,0 +1,375 @@
+{
+ "class": "thureophoros",
+ "ramps": [
+  "outline",
+  "umber",
+  "darkBronze",
+  "purpleBlack",
+  "metal",
+  "skin",
+  "iron",
+  "crimson"
+ ],
+ "parts": {
+  "purpleBlack": "cloak",
+  "iron": "weaponMetal",
+  "crimson": "shadow"
+ },
+ "crest": false,
+ "emblem": false,
+ "spear": false,
+ "greyCut": 0.8,
+ "metalKind": {
+  "weaponMetal": "iron"
+ },
+ "stature": {
+  "skipTop": 4
+ },
+ "rowsFeet": {
+  "south-east": [
+   35,
+   66
+  ],
+  "north-east": [
+   33,
+   66
+  ],
+  "south-west": [
+   35,
+   66
+  ],
+  "north-west": [
+   35,
+   66
+  ]
+ },
+ "clips": {
+  "slash": {
+   "fps": 14,
+   "strike": 6,
+   "canvas": "guard",
+   "spear": "level"
+  }
+ },
+ "picks": {
+  "idle": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "look": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "adjust": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "walk": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "run": {
+   "south-east": "a1",
+   "north-east": "a3",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "rout": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 9,
+      "op": "copy",
+      "from": 8,
+      "why": "REJECTED frame: the shield splits into two pieces"
+     }
+    ]
+   },
+   "north-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: the sword jumps to his left side past the shield"
+     },
+     {
+      "frame": 7,
+      "op": "copy",
+      "from": 6,
+      "why": "REJECTED frame: as f1"
+     }
+    ]
+   }
+  },
+  "kneel": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "ready": {
+   "south-east": "a2",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "charge": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "brace": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a2"
+  },
+  "block": {
+   "south-east": "a1",
+   "north-east": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: the shield swings its red face round to the viewer in a back view"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: as f1"
+     }
+    ]
+   },
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "slash": {
+   "south-west": {
+    "attempt": "a2",
+    "fixes": [
+     {
+      "frame": 5,
+      "op": "copy",
+      "from": 4,
+      "why": "REJECTED frame: the blade bends into a scimitar curve"
+     },
+     {
+      "frame": 6,
+      "op": "copy",
+      "from": 7,
+      "why": "REJECTED frame: a big swoosh arc trails the blade (an invented effect)"
+     }
+    ]
+   },
+   "south-east": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 4,
+      "why": "REJECTED frame: a swoosh arc trails the blade"
+     }
+    ]
+   },
+   "north-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 4,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: a swoosh arc trails the blade"
+     },
+     {
+      "frame": 5,
+      "op": "copy",
+      "from": 6,
+      "why": "REJECTED frame: as f4"
+     }
+    ]
+   },
+   "north-east": {
+    "attempt": "a3",
+    "fixes": [
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: a swoosh arc trails the blade"
+     },
+     {
+      "frame": 4,
+      "op": "copy",
+      "from": 5,
+      "why": "REJECTED frame: as f3"
+     }
+    ]
+   }
+  },
+  "stagger": {
+   "south-east": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 11,
+      "why": "REJECTED frame: motion-streak lines beside the shield (an invented effect)"
+     }
+    ]
+   },
+   "north-east": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "clear",
+      "box": [
+       74,
+       44,
+       100,
+       50
+      ],
+      "why": "an invented dark streak in the air"
+     }
+    ]
+   },
+   "south-west": "a1",
+   "north-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 11,
+      "why": "REJECTED frame: a long white streak off the blade"
+     }
+    ]
+   }
+  },
+  "fallBack": {
+   "south-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: blood over the shield; once cut, the shield is holed"
+     },
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 4,
+      "why": "REJECTED frame: as f2"
+     }
+    ]
+   },
+   "north-east": "p1",
+   "south-west": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 4,
+      "why": "REJECTED frame: blood over the chest and shield; residue once cut"
+     }
+    ]
+   },
+   "north-west": "p1"
+  },
+  "fallFwd": {
+   "south-east": "p1",
+   "north-east": "p1",
+   "south-west": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: a blood burst over the shield; once cut, the shield is broken"
+     }
+    ]
+   },
+   "north-west": "p1"
+  },
+  "cheer": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: the sword shrinks to a stub at his face"
+     }
+    ]
+   },
+   "north-west": "a1"
+  }
+ },
+ "rejected": [
+  {
+   "clip": "slash south-west a1",
+   "why": "weapon deformed / invented effect",
+   "detail": "the blade bends into a curve (f5) and a big swoosh arc (f6); the body turns away"
+  },
+  {
+   "clip": "slash south-west s1",
+   "why": "weapon missing",
+   "detail": "skeleton-v3 slash1h (rig5.mjs): the sword hides behind the body and shield through the whole cut (f6-f10), the blow does not read"
+  },
+  {
+   "clip": "slash north-east a1",
+   "why": "facing flip",
+   "detail": "he turns round to face the viewer (f4-f11); swoosh arcs (f3-f4)"
+  },
+  {
+   "clip": "slash north-east a2",
+   "why": "facing flip",
+   "detail": "he turns round to face the viewer again (f6-f10)"
+  },
+  {
+   "clip": "ready south-east a1",
+   "why": "weapon hidden",
+   "detail": "the blade hides behind the shield in every frame"
+  },
+  {
+   "clip": "run north-east a1",
+   "why": "shield vanishing",
+   "detail": "the shield turns edge-on and nearly vanishes (f4-f7)"
+  },
+  {
+   "clip": "run north-east a2",
+   "why": "shield vanishing",
+   "detail": "the shield still hides behind the cloak (f4-f6)"
+  },
+  {
+   "clip": "brace north-west a1",
+   "why": "weapon reversed",
+   "detail": "the sword points backwards (east) in f1-f11"
+  }
+ ]
+}

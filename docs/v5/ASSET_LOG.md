@@ -146,6 +146,38 @@ There were **0** reversed or double-ended spears, missing or doubled shields, he
 - pixminimax can reinvent a helmet in a fast clip; name the helmet's shape when it is not the generic crested one.
 - Check the clip table's frame count per clip (walk and look are 16) before submitting.
 
+#### thureophoros (base `270a1787`, A1)
+
+The hoplite's 16 clips with `slash` (a one-hand sword cut) in place of `thrust`. Every clip was tested in SW first. A sword class has no levelled-spear guard, so `ready` was made first from the padded rotation (sword low), and its f4 (the sword forward at the waist) became each facing's guard first frame (`first/gready_<dir>.png`) for charge, brace, block, stagger and slash.
+
+- **Calls and costs.** 72 jobs, **111 gens quoted**: 71 pixminimax and 1 skeleton-v3 test. Prompts are `i5a/prompts.mjs thureophoros …` (the `SWORD` table); every job id is in `jobs.json`.
+- **Slash.** pixminimax draws a weighted full-body cut (draw back over the right shoulder, step in behind the shield, diagonal cut, follow-through low), but in every facing it also paints a swoosh arc on the cut frames, and in SW a1 it bent the blade. The arc frames are replaced by their neighbours, so the cut snaps from high to low across one frame at 14 fps; the strike is on frame 6. NE needed a3 ("we watch him from behind and he never turns round … chops the blade down hard in front of him away from the viewer", last frame pinned to the guard) because a1 and a2 turned round to face the viewer.
+- **Skeleton test.** `i5a/rig5.mjs` gained `WEAPONS.sword` and `CLIPS.slash1h` (I5b's `rig5b.mjs` documents a slash1h but does not define it). SW s1 kept the facing, but the sword hides behind the body and shield through the whole cut, so the blow does not read; rejected, and kept in the rig for later tuning.
+- **Sheet.** `src/assets/sheets/thureophoros/{thureophoros.png, manifest.json}`: 200 columns of 99 x 111, wrap 41, a 4059 x 2220 image, **34.4 MB decoded**; packed by the build to **8.37 MB decoded** (core 6.63 MB), a 238.0 KB download.
+- **Colour groups.** `parts`: `purpleBlack→cloak` (cloak and tunic skirt, as in I4a), `iron→weaponMetal` with `metalKind.weaponMetal: iron` (the iron blade follows the weapon's rarity on the iron ramp), `crimson→shadow` (blood is never recoloured). `spear: false`, `greyCut: 0.8` (keeps the lit blade), `crest`/`emblem` false. The lightest linen steps fall in `trim`, so the elite tier gilds the corselet's highlights.
+- **QC.** `qc.mjs`: **0 failures**, 196 warnings, all the spear-line heuristic, which still runs on a sword class's clips ("both ends wide" / "no spear found"); checked by eye on the strips. Stature (spec `"stature": {"skipTop": 4}`, the pilos point) is 58, 56, 58 and 56 px.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | all 16, SW | a1 / p1 (slash a2) | **Promoted.** slash a1 **rejected (weapon deformed / invented effect)**: the blade bends (f5) and a big swoosh (f6). a2 adds "perfectly straight and rigid … no swoosh arc, no motion trail"; f5←f4 (the curve again) and f6←f7 (the swoosh). Frames replaced: cheer f0←f1 (the sword shrinks to a stub), rout f9←f8 (the shield splits), fallBack f3←f4 and fallFwd f3←f2 (blood over the shield). |
+| 2 | slash SW | s1 | **Rejected (weapon missing):** skeleton-v3 `slash1h`, the sword hidden through the cut. |
+| 3 | slash NE | a1, a2 | **Rejected (facing flip):** he turns round to face the viewer (a1 f4–f11, a2 f6–f10), with swooshes. |
+| 4 | slash NE | a3 | **Promoted.** f3←f2, f4←f5 (swooshes). |
+| 5 | run NE | a1, a2 | **Rejected (shield vanishing):** the shield turns edge-on / hides behind the cloak (f4–f7). |
+| 6 | run NE | a3 | **Promoted.** "the tall oval shield held out on the left arm beside his body, clearly visible … never hidden behind the cloak". |
+| 7 | brace NW | a1 | **Rejected (weapon reversed):** the sword points backwards (east) f1–f11. a2 ("its point forward towards the upper left … never pointing backwards") promoted. |
+| 8 | ready SE | a1 | **Rejected (weapon hidden):** the blade hides behind the shield. a2 ("held low and out at his right side … the whole blade clearly visible") promoted; its f4 is the SE guard. |
+| 9 | every other clip, NE / NW / SE | a1 / p1 | **Promoted.** Frames replaced: slash NW f4←f3, f5←f6 and SE f3←f4 (swooshes); block NE f1←f0, f2←f3 (the shield's red face swings round in a back view); rout NW f1←f0, f7←f6 (the sword jumps past the shield); stagger NW f0←f11 and SE f0←f11 (streaks), NE f1 `clear` over a dark streak; fallBack SE f2←f1, f3←f4 (blood over the shield). The block sparks and fall blood elsewhere cut cleanly. |
+
+**Rejection count.** Whole clips: invented effect / weapon deformed 1, weapon missing 1 (skeleton), facing flip 2, shield vanishing 2, weapon reversed 1, weapon hidden 1. Frames replaced: 22 plus 1 `clear` (8 swoosh, 6 blood or sparks, 4 weapon or shield glitches, 3 streaks, 1 stub). No doubled weapons or shields, no heads turned backwards or clipped, no proportion drift.
+
+**Process note.** For a few minutes 4 of my jobs ran at once (run NE a2 was submitted while 3 were running); every other submission kept to 3.
+
+**Lessons.**
+- pixminimax paints a swoosh on any sword cut whatever the prompt says; plan on replacing those frames.
+- In back views (NE) the model turns a cutting man round to face the viewer; describe the blow from behind ("we watch him from behind … chops away from the viewer") and pin the last frame.
+- A sword's SE guard hides behind the shield unless the prompt holds it "out at his right side … the whole blade clearly visible".
+
 ### I5c Mounted and chariot clips: companion, horse archer, thessalian, chariot, from the I4b bases to game sheets (2026-10-18)
 
 **Brief.** Animate the four approved I4b bases (`docs/v5/pixellab/mounted.json`) to the hoplite's standard: 12-16 frames a clip, dark-epic, each class identical to its base in every frame, real rider and horse proportions, weight in every attack (a lance driven with the horse's momentum, a javelin thrown with the torso turned, a bow drawn to the cheek), real gaits, spearheads lead, one head, one bow. Hard rejects frame by frame: extra or missing horse legs, rider merged into the horse, a doubled, reversed or missing weapon, a second bow, style or proportion drift, canvas clipping, unrequested sparks or blood. Tiers by runtime recolour (V5-092, V5-098); horse coats kept out of the skin and metal groups where the colours allow, the runtime flags (`variation`, `rarity`, I6) set where they do not.

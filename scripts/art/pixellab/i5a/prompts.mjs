@@ -51,6 +51,18 @@ export const CLASSES = {
     backNE: "seen from behind, the shield's dark back and rim face the viewer in every frame, never its face",
     skel: 'grim lean Hellenistic thureophoros in a tall pointed dark weathered bronze pilos helmet, dark purple-black cloak, pale grey-brown linen corselet over a dark purple tunic skirt, dark greaves, one tall oval dark wooden thureos shield with a central spine and an iron boss on his left arm, one short straight iron sword in his right hand, one straight blade in one piece',
   },
+  militia: {
+    who: 'a grim weathered Greek peasant levy spearman',
+    look: 'in a low dark brown felt cap, a short faded dark crimson cloak and a plain dark umber tunic, no shield',
+    shieldN: 'his left hand empty',
+    shieldNb: 'his left hand empty',
+    weaponN: 'a wooden spear',
+    shield: 'his free left arm',
+    spear: 'the wooden spear',
+    head: 'single leaf-shaped iron spearhead',
+    noShield: true,
+    skel: 'grim weathered Greek peasant levy spearman in a low dark brown felt cap, short faded dark crimson cloak, plain dark umber wool tunic with a dark leather belt, bare legs, dark sandals, no shield, no armour, one wooden spear held in both hands, always pointing forward the way he faces, single leaf-shaped iron spearhead at the front end, plain blunt wooden butt end, no butt spike',
+  },
   peltast: {
     who: 'a grim lean Greek peltast',
     look: 'in an open-faced dark bronze Thracian helmet with a forward-curving peak, a short dark crimson cloak, a leather jerkin and tall boots',
@@ -102,18 +114,41 @@ const SWORD = {
   brace: [GDS, 'braces in place: drops into a low crouch with the left foot forward and the right foot braced back, sets {S} forward in front of his body and leans into it, {W} kept ready low at his right side, point forward; then holds the braced crouch, breathing; {H}; one shield on the left arm in every frame'],
   block: [GDS, 'blocks a heavy blow in place: snaps {S} up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; {W} stays in the right hand at his side, point forward, {H}; one shield on the left arm in every frame; no sparks, no effects'],
   stagger: [GDS, 'struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; one sword in the right hand and the shield on the left arm in every frame; no motion blur, no smears, no effects, {H}'],
-  slash: [GDS, 'a heavy one-handed sword cut: he draws {W} back and up behind his right shoulder, steps in on the left foot pushing {S} forward with the body, then swings the blade down and across in front of him in one diagonal cut along its edge, the hips and shoulders turning into the blow, follows through low to his left and recovers to his guard; {H}, it stays straight and in one piece; one shield on the left arm in every frame; no motion blur, no trail, no effects'],
+  // a2 wording (SW a1 bent the blade and drew a swoosh; the cut frames are still replaced, see ASSET_LOG)
+  slash: [GDS, 'a heavy one-handed sword cut: he draws {W} back and up behind his right shoulder, steps in on the left foot pushing {S} forward with the body, then swings the blade down and across in front of him in one diagonal cut, the hips and shoulders turning into the blow, follows through low to his left and recovers to his guard; he keeps facing {t} the whole time; one short straight blade, perfectly straight and rigid in every frame, never bending or curving; one shield on the left arm in every frame; no swoosh arc, no motion trail, no smear, no blur, no effects'],
   fallBack: [UPS, 'killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and his one sword falls with him; no blood, no effects'],
   fallFwd: [UPS, 'killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and his one sword falls with him; no blood, no effects'],
   cheer: [UPS, 'victory cheer in place: he thrusts {W} straight up high over his head in the right hand, the point at the sky, keeps {S} on his left arm in front of his body, tips his head back shouting, then pumps the sword up and down twice; {H}; the shield stays on the left arm in every frame'],
 };
 
+/** The shieldless spearman (militia): the hoplite clips without the shield; the spear levelled in both hands; adjust is a
+ *  grip shift, kneel leans on the spear, block parries with the shaft, brace grounds the butt. */
+const UPM = 'standing upright, the spear held upright in the right hand, the left hand empty at his side, no shield';
+const LVM = 'standing with the spear levelled at the hip pointing forward, no shield';
+const MILITIA = {
+  idle: [UPM, 'standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; {W} stays upright in the right hand, {H} at the top, plain blunt butt end; the left hand hangs empty at his side; no shield'],
+  look: [UPM, 'standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; {W} stays upright in the right hand, {H} at the top; the left hand empty; no shield'],
+  adjust: [UPM, 'standing still in place, he shifts his grip on the spear: lifts it a little with both hands, slides his right hand to a new hold on the shaft, sets the butt end back down by his right foot and rolls his shoulders; {W} stays upright, {H} at the top, plain blunt butt end; no shield'],
+  walk: [UPM, 'steady marching walk in place {t}, long natural strides, {W} held upright in the right hand and swaying a little with each step, {H} at the top, plain blunt butt end, no butt spike; the left arm swings free; no shield; the cloak sways'],
+  run: [UPM, 'running in place at a steady heavy jog {t}, knees lifting, leaning a little forward, {W} held upright in the right hand and tilted slightly forward, {H} at the top, plain blunt butt end; the left arm pumping; no shield; the cloak streams back'],
+  rout: [UPM, 'fleeing in panic, running in place fast {t}, hunched forward with the head low between the shoulders, {W} carried loosely upright in the right hand, {H} at the top, plain blunt butt end; the left arm flailing; no shield; the cloak flapping'],
+  kneel: [UPM, 'badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on {W} planted upright beside him in both hands, head bowed, shoulders heaving with laboured breath; {H} at the top, plain blunt butt end on the ground; no shield'],
+  ready: [LVM, 'standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; {W} held level at the hip in both hands, the left hand forward on the shaft, pointing forward the way he faces in every frame, {H} at the front end, plain blunt butt end; no shield'],
+  charge: [LVM, 'charging forward at a heavy run in place, leaning into it, {W} levelled at the hip in both hands and pointed straight ahead the way he faces in every frame, {H} at the front end, plain blunt butt end; no shield; the cloak streams back'],
+  brace: [LVM, 'braces against a charge in place: drops into a low crouch with the left foot forward, grounds the plain blunt butt end of {W} against the ground beside his right foot behind him and angles the spear up and forward the way he faces, gripping it in both hands; then holds the braced crouch, breathing; {H} at the front end; no shield'],
+  block: [LVM, 'parries a heavy blow in place: snaps {W} up across his body in both hands, the shaft catching the blow in front of his chest, the impact jolts him back half a step, then he brings the spear back down level to his guard pointing forward; {H} at the front end, plain blunt butt end; no shield; no sparks, no effects'],
+  stagger: [LVM, 'struck hard and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the arms jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps his one spear level and pointing forward in every frame, only one spear; no shield; no motion blur, no smears, no effects, {H}, plain blunt butt end'],
+  fallBack: [UPM, 'killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; his one spear falls with him, only one spear in every frame; no shield; no blood spray, no effects'],
+  fallFwd: [UPM, 'killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; his one spear falls with him, only one spear in every frame; no shield; no blood, no effects'],
+  cheer: [UPM, 'victory cheer in place: he thrusts {W} straight up high over his head in the right hand, spearhead pointing at the sky, raises his left fist, tips his head back shouting, then pumps the spear up and down twice; {H}, plain blunt butt end; no shield'],
+};
+
 export function promptOf(cls, anim, dir) {
   const c = CLASSES[cls];
   if (!c) throw new Error(`no class ${cls}`);
-  const [pose, tpl] = (c.sword ? SWORD : CLIPS)[anim] ?? [];
+  const [pose, tpl] = (c.sword ? SWORD : c.noShield ? MILITIA : CLIPS)[anim] ?? [];
   if (!tpl) throw new Error(`no clip ${anim}`);
-  const lv = pose === LV; // (a sword is never 'levelled')
+  const lv = pose === LV || pose === LVM; // (a sword is never 'levelled')
   const subject = back(dir)
     ? `${c.who} seen from behind ${c.look}, ${c.shieldNb} and ${lv ? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`
     : `${c.who} ${c.look}, ${c.shieldN} and ${lv ? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`;

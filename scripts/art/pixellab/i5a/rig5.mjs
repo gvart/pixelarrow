@@ -40,6 +40,33 @@ CLIPS.thrust2 = {
   },
 };
 
+// a one-hand sword and a big shield on the left arm (thureophoros): the guard holds the sword forward at the waist
+WEAPONS.sword = {
+  rest: { R: [0.3, 0.32, 1.0], L: [0.2, -0.32, 1.08] },
+  guard: { R: [0.3, 0.32, 1.0], L: [0.2, -0.32, 1.08] },
+  couch: { R: [0.3, 0.32, 1.0], L: [0.2, -0.32, 1.08] },
+};
+// the one-hand cut with the shield (STYLE_LOCK §6 weighted, full body): the sword drawn back and up behind the right
+// shoulder, the step in on the lead (left) foot with the shield driving forward, the hips and shoulders turning into a
+// downward diagonal cut to low at his left, a held follow-through, recovery to the guard
+CLIPS.slash1h = {
+  kind: 'once', frames: 14, start: guard1, keys: (w) => {
+    const g = guard1(w);
+    const L0 = w.guard.L;
+    return [
+      [0, g],
+      [0.14, { ...g, twist: -0.3, hip: BODY.hip - 0.03, R: [0.0, 0.34, 1.45], L: add(L0, [0.04, 0, 0.02]) }],
+      [0.3, { ...g, twist: -0.5, lean: -0.05, roll: -0.05, hip: BODY.hip - 0.04, R: [-0.14, 0.3, 1.68], L: add(L0, [0.06, 0.02, 0.03]), fL: [0.12, -0.13, 0.03] }],
+      [0.42, { ...g, twist: -0.32, lean: 0.06, pf: 0.1, hip: BODY.hip - 0.06, R: [0.02, 0.3, 1.74], L: add(L0, [0.18, 0.04, 0.04]), fL: [0.42, -0.14, 0.04] }],
+      [0.5, { ...g, twist: 0.3, lean: 0.22, pf: 0.22, hip: BODY.hip - 0.09, R: [0.5, 0.06, 1.22], L: add(L0, [0.24, 0.04, 0.02]), fL: [0.5, -0.15, 0], fR: [-0.16, 0.13, 0.03], nod: 0.1 }],
+      [0.6, { ...g, twist: 0.5, lean: 0.32, pf: 0.25, hip: BODY.hip - 0.12, R: [0.42, -0.24, 0.76], L: add(L0, [0.24, 0.06, 0]), fL: [0.52, -0.15, 0], fR: [-0.2, 0.13, 0.05], nod: 0.14 }],
+      [0.7, { ...g, twist: 0.55, lean: 0.34, pf: 0.25, hip: BODY.hip - 0.12, R: [0.4, -0.26, 0.74], L: add(L0, [0.24, 0.06, 0]), fL: [0.52, -0.15, 0], fR: [-0.2, 0.13, 0.05], nod: 0.14 }],
+      [0.86, { ...g, twist: 0.15, lean: 0.12, pf: 0.1, hip: BODY.hip - 0.06, R: [0.36, 0.14, 0.95], L: add(L0, [0.1, 0.02, 0.01]), fL: [0.3, -0.14, 0.03], fR: [-0.06, 0.13, 0] }],
+      [1, g],
+    ];
+  },
+};
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const opt = (n, d) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : d);
