@@ -10,14 +10,33 @@
   "umber",
   "darkBronze",
   "skin",
-  "metal"
+  "metal",
+  "iron"
  ],
+ "parts": {
+  "iron": "weaponMetal"
+ },
  "crest": false,
  "emblem": false,
  "stature": {
   "skipTop": 4,
   "why": "the Phrygian crown (rows 4-9 of the base, bases.json) is not counted"
  },
+ "spear": false,
+ "metalKind": {
+  "metal": "bronze",
+  "weaponMetal": "iron"
+ },
+ "metalSlots": {
+  "metal": [
+   "helmet"
+  ],
+  "weaponMetal": [
+   "weapon",
+   "armor"
+  ]
+ },
+ "greyCut": 0.8,
  "rowsFeet": {
   "south-east": [
    33,

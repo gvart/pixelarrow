@@ -285,6 +285,54 @@ in 4 clips, blood in 10.
 with `skipTop` 4 for the Phrygian crown); 51 warnings, all the spear-end heuristic on a blade (a blade's tip is thinner
 than a spearhead, so "the leading end is the thin one" fires on the upright carry; checked by eye on the strips: blade at
 the top or at the target in every frame). **Gens:** 87 quoted (73 jobs).
+**Rebuilt** after the iron work below (`iron` ramp, `metalKind`, `spear: false`, `greyCut` 0.8): the iron scale and blade
+are one iron metal group (weapon, armor), the bronze helmet a bronze one (helmet); 32 colours; packed 9.07 MB decoded
+(core 7.56), 248 KB; QC 0 failures, 53 warnings (spear heuristic on the blade).
+
+**Iron.** PA-WORLD-DARK had no neutral iron: the `metal` ramp's light steps are warm tan, so lit iron came out bronze,
+and `foreign()` cut every light neutral grey (L > 0.55) as a ghost trail, which hollowed out lit blades (two outline lines
+with the ground showing through). Fixes, each a separate commit: an additive `iron` ramp in `palette-dark.json`
+(`#1c1b1c … #b0adab`, matched to the bases' iron; main logs it as V5-105), and an opt-in `greyCut` spec field in the shared
+sheet pipeline (default 0.55; iron classes 0.8; the hoplite rebuilt from its raws byte-identical). With pipeline-fix3's
+`metalKind` / `metalSlots` / `spear: false`, iron is its own rarity group (`ironOf`) and the spear-line heuristic no
+longer tags cloak or leather pixels on swords, axes and bows.
+
+#### celt_sword
+
+Base: I4a N2 `73d12bee` (iron Montefortino, green plaid cloak, ring mail, bronze torc, checked trousers, oval shield,
+longsword). The data gives him a shield, so the attack is a **weighted one-hand cut with the shield moving with the
+body**. Ramps outline, umber, darkBronze, skin, plaidGreen, bronze, iron; parts: plaidGreen → cloak, bronze (the torc) →
+trim, umber and darkBronze (shield wood, leather, trousers) → shadow, iron → metal (`metalKind` iron, slots helmet,
+armor, weapon); crest and emblem off; `stature.from: any`.
+
+**The attack (`slash`, 16 @ 16, strike 6).** From the guard behind the tall shield he draws the sword back high over his
+right shoulder (f1–f5), steps in on the left foot with the hips and shoulders turning and the shield driving forward,
+and cuts down into the man in front of him (f6, the blow low ahead of his left knee, the point at the target), follows
+through low (f7–f11) and comes back up behind the shield (f12–f15).
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | all 4 | a1 | 4 | **Promoted** (f7): SW sword up beside the shield, SE forward low, NE / NW raised |
+| 2 | slash | SW | a1 | 2 | **Rejected:** he turns to face south mid-cut and the blade ends pointing to the lower right, off the target; crescent smears, an orange trail |
+| 3 | slash | SW SE | a2 | 4 | **Promoted after frame drops:** "at an enemy in front of him … ending low ahead of his left knee with the point still towards …"; crescent smears SW f4–f5, SE f6 dropped |
+| 4 | slash | NE | a2 | 2 | **Rejected:** he turns round to the viewer in the windup (face to the camera, f1–f4) |
+| 5 | slash | NE | a3 | 2 | **Promoted:** "his back and cloak to the viewer in every frame … he never turns round"; a fiery flash f6 (cut) := f7 |
+| 6 | slash | NW | a1 | 2 | **Rejected:** facing drift, he turns to face west and south-west through the follow-through |
+| 7 | slash | NW | a2 | 2 | **Promoted:** "his body keeps facing the upper left the whole time"; crescent smear f7 dropped |
+| 8 | idle, look, adjust, walk, run, rout, kneel | all 4 | a1 | 28 | **Promoted** |
+| 9 | ready, charge, brace, block, stagger | all 4 | a1 | 20 | **Promoted after the cut** (block sparks f1–f4, stagger blood specks) |
+| 10 | fallBack, fallFwd | all 4 | a1 | 16 | **Promoted after the cut** (blood in 4 of 8) |
+| 11 | cheer | all 4 | a1 | 4 | **Promoted** |
+
+**Rejections:** facing drift (turned round or sideways) 3 clips; blade off the target 1 clip; gear drift (crescent smear)
+4 frames, flash-damaged blade 1 frame. Doubled or reversed weapon, shield missing, head backwards, clipping, proportion
+drift: **0**. Invented effects cut: sparks in 4 clips, blood in 6, one fire trail.
+
+**Sheet.** 16 clips, frame 83 x 110, 4067 x 2200 (34.1 MB decoded as v2); packed **7.65 MB decoded (core 6.04 MB), 257 KB**.
+29 colours; groups cloak 5 (plaid green), trim 3 (the torc), skin 4; metal: iron (helmet, mail, sword). Tiers: veteran
+wine cloak and polished torc, elite black cloak and gold torc (checked in the preview through the runtime). **QC:** 0
+failures, stature 56–59; 184 warnings, all the spear-end heuristic on a sword and a shield edge (both free ends wide).
+**Gens:** 86 quoted (71 jobs).
 
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
