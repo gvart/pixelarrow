@@ -188,6 +188,13 @@ const SCREENS = [
   { id: 'menu-settings-account-telegram', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('telegram'); return 1;"), wait(p, 600)) },
   { id: 'menu-settings-account-waiting', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', "s.openAccount('waiting'); return 1;"), wait(p, 600)) },
   { id: 'menu-settings-devices', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openDevicesDemo(); return 1;'), wait(p, 700)) },
+  // V6-LINK-06: Link Telegram (QR on a mouse, Show QR on touch, no bot username, Is this you?), the Mini App's
+  // link request (and with its own progress), Keep one account on the web (and a forced survivor) and in the Mini App
+  ...['web-qr', 'web-touch', 'web-nobot', 'web-ask', 'web-conflict', 'web-forced', 'tg-request', 'tg-progress', 'tg-conflict'].map((k) => ({
+    id: `menu-link-${k}`,
+    owner: 'F',
+    run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', `s.openLinkingDemo('${k}'); return 1;`), wait(p, 700)),
+  })),
   { id: 'menu-two-campaigns', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.openTwoCampaignsDemo(); return 1;'), wait(p, 500)) },
   { id: 'menu-reset', owner: 'F', run: async (p) => (await start(p, 'Menu'), await wait(p, 500), await call(p, 'Menu', 's.confirmReset(); return 1;'), wait(p, 400)) },
   { id: 'codex', owner: 'F', run: async (p) => (await codexMet(p, []), await start(p, 'Codex'), wait(p, 900)) },

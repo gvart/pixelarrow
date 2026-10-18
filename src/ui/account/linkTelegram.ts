@@ -56,13 +56,14 @@ export function openLinkTelegram(scene: UiScene, o: LinkTelegramOpts): void {
   let offline = false;
   let view: WebView | null = null;
   let stopTimer: (() => void) | null = null;
-  let poll: Phaser.Time.TimerEvent | null = null;
+  // wall-clock polling: the game's own clock slows down when the page isn't in front
+  let poll: ReturnType<typeof setInterval> | null = null;
   let inflight = false;
   // polling pauses while the game is in the background (the player is usually in Telegram) and catches up on return
   let active = true;
 
   const stopPoll = () => {
-    poll?.remove(false);
+    if (poll) clearInterval(poll);
     poll = null;
     stopTimer?.();
     stopTimer = null;
@@ -77,6 +78,8 @@ export function openLinkTelegram(scene: UiScene, o: LinkTelegramOpts): void {
       if (code && !finished) void api.linkAbandon().catch(() => undefined);
     },
   });
+  // the scene went away under the sheet: nothing keeps polling
+  sheet.m.c.once('destroy', () => (stopPoll(), offActive()));
   const offActive = platform.onActive((on) => {
     active = on;
     if (on && poll) void check();
@@ -253,7 +256,7 @@ export function openLinkTelegram(scene: UiScene, o: LinkTelegramOpts): void {
     }
     if (!sheet.live) return void api.linkAbandon().catch(() => undefined);
     apply({ step: 'waiting', expiresAt: code.expiresAt });
-    poll = scene.time.addEvent({ delay: POLL_MS, loop: true, callback: () => void check() });
+    poll = setInterval(() => void check(), POLL_MS);
     void check();
   };
 

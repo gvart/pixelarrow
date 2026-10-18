@@ -10,8 +10,11 @@
 import { lang, t, type TKey } from '../../i18n';
 import { isApiError, type ConflictSide, type LinkStatus } from '../../platform/api';
 
-/** The web polls the link status this often while the sheet is open and the tab visible (§8.5). */
-export const POLL_MS = 3000;
+/**
+ * The web polls the link status this often while the sheet is open and the tab visible (§8.5 says 3 s; a
+ * little less keeps "the confirm step within 3 s" (§8.11) true with the request's own time).
+ */
+export const POLL_MS = 2500;
 
 export type WebView =
   | { step: 'waiting'; expiresAt: number }

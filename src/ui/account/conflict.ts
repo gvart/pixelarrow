@@ -72,13 +72,18 @@ function cards<S extends string>(
 ): void {
   const two = choiceColumns(b.w + 16, scene.m.S);
   const cw = two ? Math.floor((b.w - GAP) / 2) : b.w;
-  const ch = Math.max(...sides.map((s) => ChoiceCard.measure(scene, cw, { ...s.opts, onPick: () => undefined })));
+  const hs = sides.map((s) => ChoiceCard.measure(scene, cw, { ...s.opts, onPick: () => undefined }));
+  // side by side, both as tall as the taller; stacked, each its own height
+  const ch = Math.max(...hs);
+  let y = b.y;
   sides.forEach((s, i) => {
-    const card = new ChoiceCard(scene, two ? b.x + i * (cw + GAP) : b.x, two ? b.y : b.y + i * (ch + GAP), cw, ch, { ...s.opts, onPick: () => onPick(s.side) });
+    const h = two ? ch : hs[i];
+    const card = new ChoiceCard(scene, two ? b.x + i * (cw + GAP) : b.x, y, cw, h, { ...s.opts, onPick: () => onPick(s.side) });
     card.setState(cardState(s.side, picked, forced));
     b.into.add(card);
+    if (!two) y += h + GAP;
   });
-  b.y += (two ? ch : ch * 2 + GAP) + GAP;
+  b.y = (two ? b.y + ch + GAP : y) + GAP;
 }
 
 /** A closing message (or a support link) in the sheet. */
@@ -106,15 +111,16 @@ export interface WebConflictOpts {
 export function openWebConflict(scene: UiScene, id: string, o: WebConflictOpts): void {
   const api = o.api ?? online.api;
   const d = o.d ?? accountDeps();
-  let poll: Phaser.Time.TimerEvent | null = null;
+  let poll: ReturnType<typeof setInterval> | null = null;
   let stopTimer: (() => void) | null = null;
   const stop = () => {
-    poll?.remove(false);
+    if (poll) clearInterval(poll);
     poll = null;
     stopTimer?.();
     stopTimer = null;
   };
   const sheet = openLinkSheet(scene, { title: t('conflict.sheetTitle'), id: 'conflict.sheet', onClose: stop });
+  sheet.m.c.once('destroy', stop);
   let v: ConflictView | null = null;
   let picked: 'this' | 'other' | null = null;
   let chosen: { keep: 'this' | 'other'; typed: string } | null = null;
@@ -203,7 +209,7 @@ export function openWebConflict(scene: UiScene, id: string, o: WebConflictOpts):
       b.button({ label: t('conflict.checkAgain'), id: 'conflict.check', variant: 'secondary', onClick: () => void check(true) });
       b.button({ label: t('common.close'), id: 'conflict.close', variant: 'neutral', onClick: () => sheet.close() });
     });
-    poll ??= scene.time.addEvent({ delay: POLL_MS, loop: true, callback: () => void check() });
+    poll ??= setInterval(() => void check(), POLL_MS);
   };
 
   let inflight = false;
