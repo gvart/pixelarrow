@@ -306,7 +306,7 @@ export const EN = {
   'notify.title': 'Notifications',
   'notify.note': 'Messages from the Pixelarrow bot in Telegram.',
   'notify.blocked': 'The bot cannot reach you. Open it in Telegram and send /start.',
-  'notify.offline': 'Notifications can be set inside Telegram, when online.',
+  'notify.offline': 'Notifications can be set once you are signed in and online.',
   'notify.failed': 'Could not save. Try again.',
   'notify.quiet': 'Quiet at night',
   'notify.type.attack': 'Attacks',

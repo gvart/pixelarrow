@@ -7,7 +7,7 @@
  */
 export const GAPS_EN = {
   // ---- availability (checkOnline / explain)
-  'gap.net.outside': 'Online play runs inside Telegram.',
+  'gap.net.outside': 'Sign in to play online.',
   'gap.net.offline': 'Cannot reach the server.',
   'gap.net.closed': 'The online realm is not open yet.',
   // ---- a failed call, by HTTP status when the code is not known
@@ -22,7 +22,7 @@ export const GAPS_EN = {
   'gap.err.s429': 'Too many tries. Wait a moment.',
   'gap.err.s5xx': 'The server is unreachable.',
   // ---- a failed call, by the server's error code
-  'gap.err.outside': 'Online play runs inside Telegram.',
+  'gap.err.outside': 'Sign in to play online.',
   'gap.err.network': 'The server is unreachable.',
   'gap.err.already_owned': 'You already own this.',
   'gap.err.army_full': 'Your army is full.',

@@ -58,7 +58,7 @@ export interface EconSource {
   buyPack(productId: string, onStage?: (s: 'invoice' | 'paying' | 'confirming') => void): Promise<PackResult>;
 }
 
-const outside = () => new ApiError(0, 'outside', 'Available in Telegram');
+const outside = () => new ApiError(0, 'outside', 'Signed out');
 
 /** The real API through the signed-in client. */
 export class ApiEconSource implements EconSource {
