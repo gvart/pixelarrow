@@ -1,0 +1,27 @@
+scripts/art/pixellab/polish/tiers.mjs
+  s_41b82181a73565::t_1865319f0d11c0 1-50
+docs/v5/pixellab/I5b/fanatic.picks.json
+  s_41b82181a73565::t_eccb5343d9abf9 18,781-785,790-794
+docs/v5/pixellab/I5b/fanatic.sheet.json
+  s_41b82181a73565::t_eccb5343d9abf9 20,1017-1021,1026-1030
+src/assets/sheets/fanatic/manifest.json
+  s_41b82181a73565::t_43262a41f693be 128,130,133-136,163-172,177-186
+scripts/art/pixellab/polish/strip.mjs
+  s_41b82181a73565::t_2f8355c9e1769e 1-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "52c5b0346dccb99c393562768227ae3764c7ccc1",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
