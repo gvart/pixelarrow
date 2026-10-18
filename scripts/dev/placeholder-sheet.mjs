@@ -1,17 +1,22 @@
 // Placeholder sprite sheet for the sheet runtime (src/art/sheetDoll.ts), until the
 // PixelLab art lands: renders today's procedural hoplite into the sheet format
-// (docs/v5/art/SHEET_FORMAT.md), one image per gear tier, each tier tinted so they
-// tell apart on the field, and writes src/dev/sheets/hoplite/.
+// (docs/v5/art/SHEET_FORMAT.md, v2): ONE image, basic tier colours, whose colour
+// groups (cloak, crest, trim, skin) are snapped to exact ramps and listed in the
+// manifest, so the runtime recolours them per tier (veteran: crimson cloak, white
+// crest, ochre hem; elite: black cloak, gilded crest and hem) and per man (skin
+// tone, cloak / crest shade). Writes src/dev/sheets/hoplite/.
 //
 //   node scripts/dev/placeholder-sheet.mjs [class]      (default hoplite)
 //
-// The metal is drawn at rank 2 (burnished bronze, bright steel) and snapped to those
-// ramps, which the manifest lists as its metal colours: the runtime swaps them per
-// rarity. Some new animations are left out on purpose (slash, throw, shoot, sling,
-// ready, stagger, kneel, adjust), so the battle shows their fallbacks.
-// Load it in the dev server with ?sheets=dev.
+// Each group is found by drawing the frame twice, with and without a change to
+// that part alone (another cloak, crest, skin, the gold hem off): the pixels that
+// differ are the group. The metal is drawn at rank 2 (burnished bronze, bright
+// steel) and snapped to those ramps, which the manifest lists as its metal colours:
+// the runtime swaps them per rarity. Some new animations are left out on purpose
+// (slash, throw, shoot, sling, ready, stagger, kneel, adjust), so the battle shows
+// their fallbacks. Load it in the dev server with ?sheets=dev.
 import { createServer } from 'vite';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { ROOT } from '../lib/harness.mjs';
@@ -22,35 +27,47 @@ const pd = await server.ssrLoadModule('/src/art/paperdoll.ts');
 const mat = await server.ssrLoadModule('/src/art/materials.ts');
 const { ANIM, BATTLE_SCALE, DIRS, dollGeom, renderFrame } = pd;
 
-/** Tier looks: gear (art + item def for the tier) and the tint that marks the tier. */
 const LOOK = { skin: 1, hair: 1, hairStyle: 0, beard: 1, tunic: 'tunicRed' };
-const TIERS = {
-  basic: { helmet: ['pilos', 'pilos'], armor: ['linothorax', 'linothorax'], weapon: 'dory', shield: 'hoplon', tint: null },
-  veteran: { helmet: ['chalcidian', 'chalcidian'], armor: ['cuirass', 'bell_cuirass'], weapon: 'bronze_dory', shield: 'hoplon', tint: 0x2f6ad0 },
-  elite: { helmet: ['corinthian', 'corinthian'], armor: ['cuirass', 'cuirass'], weapon: 'bronze_dory', shield: 'aspis', tint: 0xd03a8a },
-};
 const R = 2; // rank of the drawn metal: every metal surface lands in the glint mask
 
-function spec(t) {
+/** The one body: basic gear (the gear tier only recolours), a crested helmet, a red cloak with a hem. */
+function spec(o = {}) {
   return {
-    look: LOOK,
+    look: { ...LOOK, ...(o.look ?? {}) },
     weapon: 'spear',
     shield: { art: 'hoplon', paint: { emblem: 'lambda', field: 'red', ink: 'cream' } },
-    helmet: { art: t.helmet[0], paint: { field: 'red' } },
-    armor: t.armor[0],
-    cloak: 'cloakRed',
+    helmet: { art: 'chalcidian', paint: { field: 'red' } },
+    armor: 'linothorax',
+    cloak: o.cloak ?? 'cloakRed',
+    crest: o.crest ?? 'red',
+    cloakTrim: o.trim ?? true,
     seed: 3,
     scale: BATTLE_SCALE,
-    gear: { weapon: { def: t.weapon, r: R }, shield: { def: t.shield, r: R }, helmet: { def: t.helmet[1], r: R }, armor: { def: t.armor[1], r: R } },
+    gear: { weapon: { def: 'dory', r: R }, shield: { def: 'hoplon', r: R }, helmet: { def: 'pilos', r: R }, armor: { def: 'linothorax', r: R } },
   };
 }
+
+const dl = (ramp) => [...ramp].reverse(); // material ramps are light to dark; colour groups dark to light
+/** Colour groups, in the order a pixel is claimed: the drawn ramp each snaps to, and the variant that finds it. */
+const GROUPS = [
+  // the gold hem is drawn, then written as a plain dark hem (the basic look); tiers gild it
+  { name: 'trim', alt: { trim: false }, find: dl(mat.GOLD.ramp), ramp: dl(mat.CLOTH.cloakBrown.ramp) },
+  { name: 'crest', alt: { crest: 'blue' }, ramp: dl(mat.CREST.red.ramp) },
+  { name: 'skin', alt: { look: { skin: 3 } }, ramp: dl(mat.SKIN[1].ramp) },
+  { name: 'cloak', alt: { cloak: 'cloakBlue' }, ramp: dl(mat.CLOTH.cloakRed.ramp) },
+];
+const TIERS = {
+  basic: {},
+  veteran: { cloak: dl(mat.CLOTH.cloakCrimson.ramp), crest: dl(mat.CREST_EXTRA.white.ramp), trim: dl(mat.CLOTH.tunicOchre.ramp) },
+  elite: { cloak: dl(mat.CLOTH.cloakBlack.ramp), crest: dl(mat.GOLD.ramp), trim: dl(mat.GOLD.ramp) },
+};
 
 const turn = (dir, a) => {
   const [x, y] = DIRS[dir];
   return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
 };
 
-/** Animations of the placeholder: procedural columns (or a turned idle for the look-around). */
+/** Animations of the placeholder: procedural columns (or a turned idle for the look-around); [name, frames, fps, hold?]. */
 const LAYOUT = [
   ['idle', ANIM.idle, 4],
   ['walk', ANIM.walk, 12],
@@ -63,7 +80,8 @@ const LAYOUT = [
   ['rout', ANIM.rout, 11],
   ['win', ANIM.win, 2.6],
   ['thrust', ANIM.attack, 14],
-  ['brace', [ANIM.block[0], ANIM.block[0]], 2],
+  // brace: step into the stance (idle, block), then hold it
+  ['brace', [ANIM.idle[0], ANIM.block[0], ANIM.block[0]], 6, 2],
   ['charge', ANIM.run, 12],
   ['cheer', [...ANIM.win, ANIM.idle[0]], 3],
   ['fallFwd', ANIM.die, 12],
@@ -73,48 +91,51 @@ const LAYOUT = [
 
 const ROWS = ['south-east', 'north-east', 'south-west', 'north-west']; // game rows 0..3 (DEFAULT_FACINGS)
 
-const g = dollGeom(spec(TIERS.basic));
+const g = dollGeom(spec());
 const cols = LAYOUT.reduce((n, [, f]) => n + f.length, 0);
 const W = cols * g.fw;
 const H = ROWS.length * g.fh;
 const BR = mat.bronzeOf(R).ramp;
 const IR = mat.ironOf(R).ramp;
-const metalCols = [...BR.map((c) => [c, 'b']), ...IR.map((c) => [c, 'i'])];
-const isMetal = new Set([...BR, ...IR]);
+const metalCols = [...BR, ...IR];
+const taken = new Set([...metalCols, ...GROUPS.flatMap((gr) => gr.ramp)]);
 
 const rgb = (c) => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
 const d2 = (a, b) => {
   const [p, q] = [rgb(a), rgb(b)];
   return (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
 };
+const nearest = (c, list) => list.reduce((best, m) => (d2(c, m) < d2(c, list[best]) ? list.indexOf(m) : best), 0);
+const colorAt = (px, i) => (px.data[i] << 16) | (px.data[i + 1] << 8) | px.data[i + 2];
 
-function tierSheet(t) {
-  const s = spec(t);
+function sheet() {
   const out = new Uint8Array(W * H * 4);
+  const base = spec();
+  const alts = GROUPS.map((gr) => spec(gr.alt));
   let col = 0;
   for (const [, frames] of LAYOUT) {
     for (const f of frames) {
       for (let dir = 0; dir < ROWS.length; dir++) {
+        const draw = (s, mask) => (Array.isArray(f) ? renderFrame(s, ANIM.idle[f[0]], dir, mask, turn(dir, f[1])) : renderFrame(s, f, dir, mask));
         const mask = new Uint8Array(g.fw * g.fh);
-        const px = Array.isArray(f) ? renderFrame(s, ANIM.idle[f[0]], dir, mask, turn(dir, f[1])) : renderFrame(s, f, dir, mask);
+        const px = draw(base, mask);
+        const alt = alts.map((s) => draw(s));
         for (let y = 0; y < g.fh; y++)
           for (let x = 0; x < g.fw; x++) {
             const i = (y * g.fw + x) * 4;
             if (!px.data[i + 3]) continue;
-            let c = (px.data[i] << 16) | (px.data[i + 1] << 8) | px.data[i + 2];
-            if (mask[y * g.fw + x]) {
-              // snap the metal to the listed ramps
-              let best = metalCols[0][0];
-              for (const [m] of metalCols) if (d2(c, m) < d2(c, best)) best = m;
-              c = best;
+            let c = colorAt(px, i);
+            const gi = GROUPS.findIndex((_, k) => alt[k].data[i + 3] !== px.data[i + 3] || colorAt(alt[k], i) !== c);
+            if (gi >= 0) {
+              // a colour group: snapped to its ramp (found by its drawn ramp, written as its listed one)
+              const gr = GROUPS[gi];
+              c = gr.ramp[Math.min(gr.ramp.length - 1, nearest(c, gr.find ?? gr.ramp))];
+            } else if (mask[y * g.fw + x]) {
+              // metal: snapped to the listed ramps
+              c = metalCols[nearest(c, metalCols)];
             } else {
-              if (t.tint !== null) {
-                const [r0, g0, b0] = rgb(c);
-                const [r1, g1, b1] = rgb(t.tint);
-                c = (Math.round(r0 * 0.6 + r1 * 0.4) << 16) | (Math.round(g0 * 0.6 + g1 * 0.4) << 8) | Math.round(b0 * 0.6 + b1 * 0.4);
-              }
-              // never a listed metal colour by chance (it would take the rarity swap)
-              if (isMetal.has(c)) c ^= 1;
+              // never a listed colour by chance (it would take a swap)
+              while (taken.has(c)) c ^= 1;
             }
             const o = ((dir * g.fh + y) * W + col * g.fw + x) * 4;
             [out[o], out[o + 1], out[o + 2]] = rgb(c);
@@ -160,30 +181,31 @@ function png(w, h, rgba) {
 const hex = (c) => `#${c.toString(16).padStart(6, '0')}`;
 const dir = join(ROOT, 'src', 'dev', 'sheets', cls);
 mkdirSync(dir, { recursive: true });
+for (const old of ['basic.png', 'veteran.png', 'elite.png']) rmSync(join(dir, old), { force: true });
 const anims = {};
 let c0 = 0;
-for (const [name, frames, fps] of LAYOUT) {
-  anims[name] = { col: c0, frames: frames.length, fps };
+for (const [name, frames, fps, hold] of LAYOUT) {
+  anims[name] = { col: c0, frames: frames.length, fps, ...(hold ? { hold } : {}) };
   c0 += frames.length;
 }
 const manifest = {
-  version: 1,
+  version: 2,
   class: cls,
+  image: `${cls}.png`,
   frame: { w: g.fw, h: g.fh },
   anchor: { x: Math.floor(g.fw / 2), y: g.footY },
   scale: 1,
   rows: ROWS,
-  tiers: { basic: 'basic.png', veteran: 'veteran.png', elite: 'elite.png' },
+  colorGroups: Object.fromEntries(GROUPS.map((gr) => [gr.name, gr.ramp.map(hex)])),
+  tiers: Object.fromEntries(Object.entries(TIERS).map(([t, rc]) => [t, Object.fromEntries(Object.entries(rc).map(([k, v]) => [k, v.map(hex)]))])),
   anims,
   metal: [
     { kind: 'bronze', colors: BR.map(hex), slots: ['shield', 'helmet', 'armor'] },
     { kind: 'iron', colors: IR.map(hex), slots: ['weapon'] },
   ],
 };
-for (const [name, t] of Object.entries(TIERS)) {
-  const file = join(dir, `${name}.png`);
-  writeFileSync(file, png(W, H, tierSheet(t)));
-  console.log(`${file}: ${W} x ${H}`);
-}
+const file = join(dir, manifest.image);
+writeFileSync(file, png(W, H, sheet()));
+console.log(`${file}: ${W} x ${H}`);
 writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 await server.close();
