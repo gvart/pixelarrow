@@ -184,7 +184,11 @@ export function sweepPanels(game: Phaser.Game): number {
     if (!key.startsWith('panel_') || used.has(key)) continue;
     const src = game.textures.get(key).source[0];
     if (!src || src.width * src.height < SWEEP_MIN_PX) continue;
+    const canvas = src.image;
     game.textures.remove(key);
+    // WebKit keeps a dropped canvas's backing store until it is collected (iOS counts it against the canvas
+    // budget meanwhile); panel canvases are drawn for their texture alone, so empty it now
+    if (canvas instanceof HTMLCanvasElement) canvas.width = canvas.height = 0;
     freed++;
   }
   return freed;

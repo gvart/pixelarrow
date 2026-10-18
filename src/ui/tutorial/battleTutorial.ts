@@ -23,7 +23,7 @@
  *   (src/scenes/FirstRunScene.ts).
  */
 import Phaser from 'phaser';
-import type { Battle } from '../../sim/battle';
+import { DT, type Battle } from '../../sim/battle';
 import type { Order } from '../../sim/types';
 import { worldRect } from '../layout';
 import { confirmDialog, type UiScene } from '../widgets';
@@ -427,6 +427,8 @@ export class BattleTutorial {
     const spec = this.specs[id];
     this.timer = 0;
     if (spec.pre && this.host.sim.phase === 'battle') {
+      // its moment may be here already; else afterStep looks for it on every sim step
+      if (spec.pre(0)) return this.talk();
       this.phase = 'pre';
       this.host.allow('plan', false);
       this.host.allow('chips', true);
@@ -617,11 +619,6 @@ export class BattleTutorial {
     this.lastTime = time;
     const sim = this.host.sim;
     this.host.followBtn?.setVisible(false);
-    // the hoplites charge (their queued Then… step fired, or the Charge key): the band comes on, the wave slips round
-    if (!this.chargeCued && sim.phase === 'battle' && sim.groups[G.hop].order === 'charge') {
-      this.chargeCued = true;
-      enemyCue(sim, 'charge');
-    }
     // the battle is over: victory (or a defeat to try again), whatever step we were on
     if (sim.phase === 'ended' && !this.outcome && sim.winner !== null) {
       this.outcome = sim.winner === 0 ? 'victory' : 'defeat';
@@ -642,23 +639,9 @@ export class BattleTutorial {
         this.refreshSpot();
       }
     }
-    const dt = Math.min(delta, 100) / 1000;
-    const running = sim.phase === 'battle' && !this.host.paused && !this.dialog;
-    // the finale: the enemy groups out of contact are re-aimed at our men now and then, so it never stalls
-    if (running && this.step === 'win') {
-      this.reaim -= dt;
-      if (this.reaim <= 0) {
-        this.reaim = WIN_REAIM_S;
-        enemyCue(sim, 'win');
-      }
-    }
-    if (this.phase === 'pre') {
-      if (running) this.timer += dt;
-      const spec = this.specs[this.step!];
-      if (spec.pre?.(this.timer)) this.talk();
-      else if (this.timer > (spec.preTimeout ?? 30)) this.next(); // its moment never came: on without it
-    } else if (this.phase === 'run') {
-      if (running || sim.phase !== 'battle') this.timer -= dt;
+    // the battle's own script (pre, run, the finale's re-aims) goes by sim steps (afterStep); after the battle, by the clock
+    if (this.phase === 'run' && sim.phase !== 'battle') {
+      this.timer -= Math.min(delta, 100) / 1000;
       if (this.timer <= 0) this.next();
     } else if (this.phase === 'talk' && !this.outcome) {
       const id = this.step!;
@@ -674,6 +657,39 @@ export class BattleTutorial {
     this.spot.update(time);
     this.ghost.update(time);
     this.drawMarker(time);
+  }
+
+  /**
+   * One sim step went by (BattleScene's step loop, which stops stepping once a step pauses the battle):
+   * the steps that wait on the battle count battle time and look at every tick, so the scripted fight
+   * goes the same at 60 fps and on a slow phone's 3 (a frame-clocked script let the sim run on for up to
+   * 250 ms a frame between looks, and the morale moment could pass unseen).
+   */
+  afterStep(): void {
+    const sim = this.host.sim;
+    if (sim.phase !== 'battle' || this.dialog) return;
+    // the hoplites charge (their queued Then… step fired, or the Charge key): the band comes on, the wave slips round
+    if (!this.chargeCued && sim.groups[G.hop].order === 'charge') {
+      this.chargeCued = true;
+      enemyCue(sim, 'charge');
+    }
+    // the finale: the enemy groups out of contact are re-aimed at our men now and then, so it never stalls
+    if (this.step === 'win') {
+      this.reaim -= DT;
+      if (this.reaim <= 0) {
+        this.reaim = WIN_REAIM_S;
+        enemyCue(sim, 'win');
+      }
+    }
+    if (this.phase === 'pre') {
+      this.timer += DT;
+      const spec = this.specs[this.step!];
+      if (spec.pre?.(this.timer)) this.talk();
+      else if (this.timer > (spec.preTimeout ?? 30)) this.next(); // its moment never came: on without it
+    } else if (this.phase === 'run') {
+      this.timer -= DT;
+      if (this.timer <= 0) this.next();
+    }
   }
 
   private obs(): TutObs {

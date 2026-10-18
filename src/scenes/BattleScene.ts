@@ -7,7 +7,7 @@ import { GroupCard, PanelRow, numeralBadge, numeralColour, orderBadgeW, orderBar
 import type { StripSlot } from '../ui/battleHud';
 import { KeyButton, MButton, caps, mosaicImage, mtext, mw } from '../ui/mosaic';
 import { MOSAIC } from '../ui/tokens';
-import { FacingPip, HintPill, addHudKeycaps, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, endBannerKey, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
+import { FacingPip, HintPill, addHudKeycaps, MED_H, MED_W, Medallion, ROMAN, TOP_H, TopBar, cardGroups, nextSelection, chargeTarget, groupCentre, groupNumeral, ContactSoon, OutOfRange, advanceToRange, enemyTap, orderKeyWidths, orderLabels, railLayout, MORE_H, rangeRing, rangeTarget, badgeAlpha, badgeKey, fieldBadge, groupReadout, AutoPauseMerge, FirstContact, endBannerKey, BANNER_TTL_S, BADGE_H, BannerLife, damageNumberHits, declutterBadges, frameBattleSeconds, type BadgeSlot, type BadgeSpec, type HintTone, type TopBarOpts } from '../ui/battleHud';
 import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore, uiLayout, uiOpaque, uiPanel, uiPrimary, uiTransient } from '../ui/layout';
@@ -976,13 +976,16 @@ export class BattleScene extends BaseScene {
     if (this.tutorialData && !this.tutorial?.holdsChips) this.tutClock += delta;
     if (this.bannerLife?.expired(this.time.now)) this.hideBanner();
     if (this.sim.phase === 'battle' && !this.paused) {
-      this.acc += Math.min(0.25, delta / 1000) * this.speed;
+      // real time, not Phaser's smoothed delta (16.7 ms a frame below 5 fps): the battle and the tutorial keep pace on a slow phone
+      this.acc += frameBattleSeconds(this.game.loop.rawDelta, this.speed);
       let steps = 0;
       // Live duel back from a reconnect: run through the sealed backlog (up to CATCH_UP steps a frame) to rejoin the opponent.
       const catchUp = (ls?.backlog?.() ?? 0) > CATCH_UP_TURNS;
       if (catchUp) this.acc = Math.max(this.acc, DT * CATCH_UP_STEPS);
       const maxSteps = catchUp ? CATCH_UP_STEPS : 10;
-      while (this.acc >= DT && steps < maxSteps && this.sim.phase === 'battle') {
+      // a step that pauses (an auto-pause, the tutorial's next line) stops the frame's stepping there:
+      // on a slow frame the battle no longer runs on for up to 10 more steps past the moment it paused for
+      while (this.acc >= DT && steps < maxSteps && this.sim.phase === 'battle' && !this.paused) {
         // Live duel: never run ahead of the turns the server sealed.
         if (ls && !ls.canStep()) {
           this.acc = Math.min(this.acc, DT);
@@ -995,12 +998,16 @@ export class BattleScene extends BaseScene {
         ls?.beforeStep();
         this.sim.step();
         this.handleEvents(drainLogged(this.sim));
+        // a queued Then… step fires on the tick its group arrives, whatever the frame rate
+        this.fireThen();
+        this.tutorial?.afterStep();
         this.acc -= DT;
         steps++;
       }
+      // paused by a step: the rest of this frame's time is not owed to the battle after Play
+      if (this.paused) this.acc = 0;
       if (catchUp) this.acc = Math.min(this.acc, DT);
       this.hudDirty = true;
-      this.fireThen();
     } else if (this.sim.phase === 'ended') {
       this.handleEvents(drainLogged(this.sim));
     }
@@ -5276,6 +5283,9 @@ export class BattleScene extends BaseScene {
 
   private onBattleStarted(): void {
     if (this.sim.phase === 'deploy') this.sim.startBattle();
+    // the battle track and the horn with the press, not with the first sim step: a slow first frame,
+    // a pause or a live duel waiting for its first sealed turn would hold the deployment music on
+    battleAudio(this, this.sim, [], this.me);
     // A campaign battle stands once it begins: closing the app now does not void it (V5-011).
     if (!this.src && !this.tutorialData && state.pending) {
       // field works are paid now, for the segments on the field only: an undone one cost nothing (field-works.md R4.3)
