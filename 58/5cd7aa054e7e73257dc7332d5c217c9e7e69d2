@@ -1,0 +1,95 @@
+docs/v5/pixellab/I5b/polish.prompts.json
+  s_41b82181a73565::t_958421bb8cd4ad 133-134
+  s_41b82181a73565::t_7a13edaa5790a2 157-158
+  s_41b82181a73565::t_132b67ce428067 4-48,51-60,63-72,291
+  s_41b82181a73565::t_ea167f0c2b086d 265-266,277-278,289-290
+  s_41b82181a73565::t_5648c2cd662104 229-230,279-288
+  s_41b82181a73565::t_0eb27b54ab6e58 267-276
+  s_41b82181a73565::t_f9ec7008c048d7 49-50,61-62,73-84,87-96,99-108
+  s_41b82181a73565::t_a9c2d5754480d8 241-242,253-254
+  s_41b82181a73565::t_37a06d2f9862a3 145-146
+  s_41b82181a73565::t_3fefdb89964b63 207-216
+  s_41b82181a73565::t_998f6ac98a2fbe 231-240,243-252
+  s_41b82181a73565::t_66a3356c4c2dd2 111-120,123-132,135-144
+  s_41b82181a73565::t_3af6638e2e4e8d 255-264
+  s_41b82181a73565::t_a2920597059677 169-170
+  s_41b82181a73565::t_0830efe1851ae5 121-122
+  s_41b82181a73565::t_bc018d16bd0318 205-206,217-218
+  s_41b82181a73565::t_837c949feadc02 171-180,183-192
+  s_41b82181a73565::t_b8f7458dcddbb5 159-168
+  s_41b82181a73565::t_198e12f6aae697 181-182,193-194,219-228
+  s_41b82181a73565::t_87243e827382f4 195-204
+  s_41b82181a73565::t_049ce071c71923 85-86,97-98,109-110,147-156
+  s_41b82181a73565::t_d7daf712a595a2 1-3,292-293
+docs/v5/pixellab/I5b/fanatic.sheet.json
+  s_41b82181a73565::t_89d0114a2ca803 964-965,971-972
+docs/v5/pixellab/I5b/gallic.sheet.json
+  s_41b82181a73565::t_783e72980fc021 153-154,171-172,356,375,395,459-460,537,541-542,551,553,556,620-635
+docs/v5/pixellab/I5b/slinger.jobs.json
+  s_41b82181a73565::t_3af6638e2e4e8d 78-79
+  s_41b82181a73565::t_3d4a9bc69d1769 73
+  s_41b82181a73565::t_132b67ce428067 74
+  s_41b82181a73565::t_66a3356c4c2dd2 75-76
+  s_41b82181a73565::t_87243e827382f4 77
+docs/v5/pixellab/I5b/fanatic.jobs.json
+  s_41b82181a73565::t_60fe09a39ca2f2 66
+  s_41b82181a73565::t_132b67ce428067 67-68
+docs/v5/pixellab/I5b/gallic.jobs.json
+  s_41b82181a73565::t_5648c2cd662104 83-84
+  s_41b82181a73565::t_198e12f6aae697 80
+  s_41b82181a73565::t_837c949feadc02 78-79
+  s_41b82181a73565::t_0eb27b54ab6e58 82
+  s_41b82181a73565::t_998f6ac98a2fbe 81
+  s_41b82181a73565::t_049ce071c71923 77
+docs/v5/pixellab/I5b/archer.sheet.json
+  s_41b82181a73565::t_37a06d2f9862a3 615
+docs/v5/pixellab/I5b/slinger.sheet.json
+  s_41b82181a73565::t_7acff4ebcc3854 349-350,369-370,1073,1078,1080,1082,1085,1088
+docs/v5/pixellab/I5b/falx.picks.json
+  s_41b82181a73565::t_2cea6dc30fa8bb 5-19,24-35,37-321,324-343
+docs/v5/pixellab/I5b/fanatic.picks.json
+  s_41b82181a73565::t_89d0114a2ca803 749-752,754-757
+src/assets/sheets/fanatic/manifest.json
+  s_41b82181a73565::t_89d0114a2ca803 7,19
+scripts/art/pixellab/polish/first.mjs
+  s_41b82181a73565::t_a882e7a9fab035 1-20
+docs/v5/pixellab/I5b/gallic.picks.json
+  s_41b82181a73565::t_783e72980fc021 163,174,186,249-250,327,331-332,341,343,346,409-426,509-511
+scripts/art/pixellab/polish/log.mjs
+  s_41b82181a73565::t_e9552278604fc2 1-30
+docs/v5/pixellab/I5b/slinger.picks.json
+  s_41b82181a73565::t_7acff4ebcc3854 193-194,206-209,873,878,880,882,885,888
+src/assets/sheets/falx/manifest.json
+  s_41b82181a73565::t_2cea6dc30fa8bb 19
+src/assets/sheets/gallic/manifest.json
+  s_41b82181a73565::t_783e72980fc021 27
+docs/v5/pixellab/I5b/falx.jobs.json
+  s_41b82181a73565::t_f9ec7008c048d7 71-73
+  s_41b82181a73565::t_b8f7458dcddbb5 74
+  s_41b82181a73565::t_3d4a9bc69d1769 69
+  s_41b82181a73565::t_998f6ac98a2fbe 76-77
+  s_41b82181a73565::t_132b67ce428067 70
+  s_41b82181a73565::t_3fefdb89964b63 75
+docs/v5/pixellab/I5b/archer.picks.json
+  s_41b82181a73565::t_37a06d2f9862a3 5-17,21-24,26-436,439-455
+docs/v5/pixellab/I5b/archer.jobs.json
+  s_41b82181a73565::t_66a3356c4c2dd2 70-71
+docs/v5/pixellab/I5b/falx.sheet.json
+  s_41b82181a73565::t_2cea6dc30fa8bb 139-140,157-158,333,352,372,391,452,471,506
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "585cd7aa054e7e73257dc7332d5c217c9e7e69d2",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
