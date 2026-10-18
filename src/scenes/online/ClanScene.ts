@@ -8,11 +8,13 @@
  */
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { ScrollArea, addIcon, scaleIcon, type FontKey } from '../../ui/kit';
-import { MButton, SECTION_TITLE_H, SHEET_TITLE_H, SectionTitle, TAP, addCover, addPortraitWell, addSubShell, hasRaster, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, type ParchmentSheetHandle } from '../../ui/mosaic';
+import { ScrollArea, addIcon, scaleIcon, tappable, type FontKey } from '../../ui/kit';
+import { MButton, type MButtonOpts, SECTION_TITLE_H, SHEET_TITLE_H, SectionTitle, TAP, addCover, addPortraitWell, addSubShell, hasRaster, mosaicImage, mtext, mw, openParchmentSheet, sheetActionsH, type ParchmentSheetHandle } from '../../ui/mosaic';
 import { makePressable } from '../../ui/mosaic/base';
 import { openOverlays } from '../../ui/mosaic/ParchmentSheet';
-import { uiId } from '../../ui/layout';
+import { uiCollapsed, uiId, uiLayout } from '../../ui/layout';
+import { CONTENT_MAX } from '../../ui/sizeClass';
+import { PANE_GUTTER, layoutVariant } from '../../ui/mosaic/layout/geometry';
 import { MOSAIC, TEXT_MIN, lineHeight } from '../../ui/tokens';
 import { wrapText } from '../../ui/textfit';
 import { confirmDialog, toast } from '../../ui/widgets';
@@ -67,13 +69,22 @@ export function clanFormError(name: string, tag: string): string | null {
   return null;
 }
 
+/** The clan pane's width in landscape and medium (§8.2: clan card and members left, management right). */
+const LEFT_MAX = 300;
+
 export class ClanScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-03): two panes outside compact portrait. */
+  protected override readonly responsive = true;
+  /** The member the management pane shows (two panes; v5 opens a sheet instead). */
+  private pick: number | null = null;
   private clan: ClanView | null = null;
   private role: ClanRole | null = null;
   private loaded = false;
   private st: EconState | 'loading' = 'loading';
   private me = 0;
   private area: ScrollArea | null = null;
+  /** The management pane's scroll, where the chosen member's block is taller than its room. */
+  private areaR: ScrollArea | null = null;
   private busy = false;
   lastInvite: { code: string; link: string } | null = null;
 
@@ -85,8 +96,11 @@ export class ClanScene extends BaseScene {
     this.loaded = false;
     this.st = 'loading';
     this.area = null;
+    this.areaR = null;
+    this.pick = null;
     this.initUi();
     this.screen({ back: () => this.back() });
+    uiLayout(this, this.m.cls, this.m.land);
     this.render();
     void this.fetchData();
   }
@@ -154,6 +168,8 @@ export class ClanScene extends BaseScene {
   private render(): void {
     this.area?.destroy();
     this.area = null;
+    this.areaR?.destroy();
+    this.areaR = null;
     this.ui.removeAll(true);
     const { content: c } = addSubShell(this, { title: t('clan.title'), back: () => this.back(), scroll: false });
     const box = { x: c.x + 3, y: c.y + 3, w: c.w - 6, h: c.h - 6 };
@@ -162,11 +178,198 @@ export class ClanScene extends BaseScene {
         const tx = mtext(this, box.x + box.w / 2, box.y + 40, t('clan.loading'), 'pSec', { align: 0.5, maxW: box.w - 12 });
         this.ui.add(tx);
         this.tweens.add({ targets: tx, alpha: { from: 1, to: 0.35 }, duration: 500, yoyo: true, repeat: -1 });
-      } else addEconState(this, this.ui, box.x, box.y, box.w, box.h, this.st, () => this.retry());
+      } else addEconState(this, this.ui, box.x, box.y, box.w, box.h, this.st, () => this.retry(), this.split ? Math.round(this.m.contentW * 0.9) : undefined);
+      return;
+    }
+    // two panes (and the no-clan card with its art beside the words) outside compact portrait, at most CONTENT_MAX wide
+    if (this.split) {
+      const w = Math.min(box.w, CONTENT_MAX);
+      const b = { ...box, x: box.x + Math.floor((box.w - w) / 2), w };
+      if (!this.clan) this.renderNoneWide(b);
+      else this.renderClanWide(this.clan, b);
       return;
     }
     if (!this.clan) this.renderNone(box);
     else this.renderClan(this.clan, box);
+  }
+
+  /** Two panes (§8.2): every layout but compact portrait, which keeps the v5 page. */
+  private get split(): boolean {
+    return layoutVariant(this.m) !== 'compactPortrait';
+  }
+
+  /** The bullets of the no-clan card, wrapped to `tw`. */
+  private noneBullets(tw: number): [string, string][] {
+    return [
+      ['shield', t('clan.how.garrison')],
+      ['map', t('clan.how.income')],
+      ['people', t('clan.how.size', { max: ONLINE_RULES.clanMaxMembers })],
+    ].map(([icon, text]) => [icon, wrapText(text, tw, 3, false, TEXT_MIN).lines.join('\n')] as [string, string]);
+  }
+
+  /**
+   * No clan, outside compact portrait: one card across the content (at most CONTENT_MAX), the war fresco left of
+   * the words and Found a clan (§8.2). The words are centred in their column, as v5's card centres them, so the
+   * card reads as one block across the pane, not a column stuck to the art (§5 empty-column).
+   */
+  private renderNoneWide(b: { x: number; y: number; w: number; h: number }): void {
+    const artW = Math.min(Math.round(b.w * 0.42), 240);
+    const tx = b.x + artW + 10;
+    const tw = b.x + b.w - 8 - tx;
+    const mid = tx + Math.round(tw / 2);
+    const bullets = this.noneBullets(tw - 22);
+    const bulletH = (s: string) => Math.max(14, s.split('\n').length * LH + 4);
+    const lead = wrapText(t('clan.none.lead'), tw, 3, false, TEXT_MIN).lines;
+    const hint = wrapText(t('clan.none.hint'), tw, 3, false, TEXT_MIN).lines;
+    const textH = 8 + 14 + lead.length * LH + 6 + bullets.reduce((a, [, s]) => a + bulletH(s), 0) + 4 + hint.length * LH + 8 + TAP + 8;
+    const cardH = Math.min(b.h, Math.max(textH, 120));
+    // the card centred in the content (§15: never a column stuck to the top)
+    const y0 = b.y + Math.floor((b.h - cardH) / 2);
+    const c = this.add.container(0, 0);
+    this.ui.add(c);
+    c.add(mosaicImage(this, b.x, y0, b.w, cardH, 'parchment'));
+    if (!this.textures.exists(ART.key)) this.loadArt();
+    // the art's slot is kept while it loads (Found a clan never jumps)
+    if (hasRaster(this, ART.key)) {
+      // like the Menu's fresco, the picture is a way in: a tap founds a clan, as the button does
+      const art = uiId(addCover(this, b.x + 3, y0 + 3, artW - 3, cardH - 6, ART.key).setInteractive(), 'clan.art');
+      tappable(art, null, () => void this.create_(), t('clan.found'));
+      c.add(art);
+    }
+    // a card shorter than its words (Telegram's short landscape): the words scroll, Found a clan stays at the foot
+    const by = y0 + cardH - TAP - 8;
+    const scroll = textH > cardH ? new ScrollArea(this, this.ui, tx - 4, y0 + 4, tw + 8, by - 4 - (y0 + 4), this.m.S) : null;
+    this.area = scroll;
+    const put = (o: Phaser.GameObjects.GameObject) => (scroll ? scroll.content.add(o) : c.add(o));
+    const ox = scroll ? -(tx - 4) : 0;
+    let y = scroll ? 4 : y0 + 8;
+    put(mtext(this, ox + mid, y, t('clan.none.title'), 'rInk', { size: 8, align: 0.5, maxW: tw }));
+    y += 14;
+    lead.forEach((l, i) => put(mtext(this, ox + mid, y + i * LH, l, 'pInk', { size: TEXT_MIN, align: 0.5 })));
+    y += lead.length * LH + 6;
+    // the bullets stay a left-aligned block (the icons in a column), the block centred in the column
+    const blockW = Math.min(tw, 20 + Math.max(...bullets.map(([, s]) => Math.max(...s.split('\n').map((l) => mw(l, 'pInk', TEXT_MIN))))));
+    const bx = ox + Math.round(mid - blockW / 2);
+    for (const [icon, s] of bullets) {
+      const h = bulletH(s);
+      const ic = scaleIcon(addIcon(this, 0, 0, icon, ''), 1.1);
+      ic.setPosition(bx + 2, y + Math.round((h - 4 - ic.displayHeight) / 2));
+      put(ic);
+      put(mtext(this, bx + 20, y + Math.round((h - 4 - s.split('\n').length * LH) / 2), s, 'pInk', { size: TEXT_MIN }));
+      y += h;
+    }
+    y += 4;
+    hint.forEach((l, i) => put(mtext(this, ox + mid, y + i * LH, l, 'pSec', { size: TEXT_MIN, align: 0.5 })));
+    y += hint.length * LH + 8;
+    scroll?.setContentHeight(y - 4);
+    const bw = Math.min(tw, 160);
+    c.add(new MButton(this, mid - Math.round(bw / 2), scroll ? by : Math.min(y, by), bw, TAP, { label: t('clan.found'), icon: 'flag', variant: 'primary', id: 'clan.found', onClick: () => void this.create_() }));
+  }
+
+  /**
+   * In a clan, outside compact portrait (§8.2, §3.3): the banner and the members on the left, management on the
+   * right: the chosen member (name, rank and land, the actions your rank may take, Kick set apart) and Invite at
+   * its foot. Choosing a member replaces the right pane; the v5 manage sheet's X is collapsed into his row.
+   */
+  private renderClanWide(cl: ClanView, b: { x: number; y: number; w: number; h: number }): void {
+    const lw = Math.min(LEFT_MAX, Math.floor((b.w - PANE_GUTTER) * 0.55));
+    const L = { x: b.x, y: b.y, w: lw, h: b.h };
+    const R = { x: b.x + lw + PANE_GUTTER, y: b.y, w: b.w - lw - PANE_GUTTER, h: b.h };
+    const manageable = (m: ClanMember) => !!this.role && m.id !== this.me && (canKick(this.role, m.role) || canPromote(this.role, m.role, 'officer'));
+    if (this.pick === null || !cl.members.some((m) => m.id === this.pick && manageable(m))) this.pick = cl.members.find(manageable)?.id ?? null;
+    // ---- left: the banner (with Leave), then the members, scrolling under it; as one group centred in the
+    // pane's height when it fits (as the Army's and the Menu's panes), else from the top
+    const listH = SECTION_TITLE_H + cl.members.length * (ROW_H + 2);
+    const group = this.bannerH(cl, L.w) + 4 + listH;
+    const gy = group <= L.h ? L.y + Math.floor((L.h - group) / 2) : L.y;
+    const top = this.banner(cl, L.x, gy, L.w) + 4;
+    const area = new ScrollArea(this, this.ui, L.x, top, L.w, (group <= L.h ? Math.min(top + listH, L.y + L.h) : L.y + L.h) - top, this.m.S);
+    this.area = area;
+    area.content.add(new SectionTitle(this, 0, 0, L.w, t('clan.members'), { size: 8 }));
+    let y = SECTION_TITLE_H;
+    for (const m of cl.members) {
+      area.content.add(this.memberRow(area, m, y, L.w, manageable(m), m.id === this.pick));
+      y += ROW_H + 2;
+    }
+    area.setContentHeight(y);
+    // ---- right: management
+    this.ui.add(mosaicImage(this, R.x, R.y, R.w, R.h, 'parchmentWell'));
+    const may = !!this.role && canInvite(this.role);
+    const why = may ? [] : wrapText(t('clan.invite.why'), R.w - 16, 2, false, TEXT_MIN).lines;
+    const whyH = why.length ? why.length * LH + 4 : 0;
+    const iby = R.y + R.h - 6 - TAP - whyH;
+    const ibw = Math.min(R.w - 12, 240);
+    const inv = new MButton(this, R.x + Math.round((R.w - ibw) / 2), iby, ibw, TAP, { label: t('clan.invite'), icon: 'people', variant: 'primary', id: 'clan.invite', onClick: () => void this.invite() });
+    if (!may) inv.setEnabled(false, t('clan.invite.why'));
+    this.ui.add(inv);
+    why.forEach((l, i) => this.ui.add(mtext(this, R.x + R.w / 2, iby + TAP + 3 + i * LH, l, 'pSec', { size: TEXT_MIN, align: 0.5 })));
+    const m = cl.members.find((x) => x.id === this.pick);
+    if (!m) return;
+    const bw = Math.min(R.w - 16, 200);
+    const bx = R.x + Math.round((R.w - bw) / 2);
+    const acts = this.manageActs(m);
+    // the chosen member's block, centred in the room above Invite; where it is taller than that room (Telegram's
+    // short landscape) it scrolls there instead, Invite staying put under it
+    const blockH = 14 + LH + 8 + acts.reduce((a, x) => a + (x.kick ? 6 : 0) + TAP + 4, 0);
+    const room = iby - 4 - (R.y + 4);
+    const fits = blockH + 16 <= room;
+    const scroll = fits ? null : new ScrollArea(this, this.ui, R.x + 2, R.y + 4, R.w - 4, room, this.m.S);
+    this.areaR = scroll;
+    const put = (o: Phaser.GameObjects.GameObject) => (scroll ? scroll.content.add(o) : this.ui.add(o));
+    const ox = scroll ? -(R.x + 2) : 0;
+    let my = scroll ? 4 : R.y + Math.max(8, Math.floor((iby - 8 - R.y - blockH) / 2));
+    put(mtext(this, ox + R.x + R.w / 2, my, m.name, 'rInk', { size: 8, align: 0.5, maxW: bw }));
+    my += 14;
+    put(mtext(this, ox + R.x + R.w / 2, my, `${roleName(m.role)} · ${t('clan.regions', { n: m.regions })}`, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: bw }));
+    my += LH + 8;
+    for (const a of acts) {
+      if (a.kick) my += 6;
+      put(new MButton(this, ox + bx, my, bw, TAP, a.opts));
+      my += TAP + 4;
+    }
+    scroll?.setContentHeight(my + 4);
+    // the v5 sheet's close is this pane's member row (choosing another replaces it, §3.3)
+    uiCollapsed(this, 'clan.manage', `clan.member.${m.id}`);
+    uiCollapsed(this, 'clan.manage.close', `clan.member.${m.id}`);
+  }
+
+  /** The banner's stats lines at width `w`. */
+  private bannerStats(cl: ClanView, w: number): string[] {
+    const stats = t('clan.stats', {
+      men: t('clan.men', { n: cl.members.length, max: ONLINE_RULES.clanMaxMembers }),
+      regions: t('clan.regions', { n: cl.regions }),
+      role: this.role ? roleName(this.role) : '',
+    });
+    return wrapText(stats, w - 30 - 18, 2, false, TEXT_MIN).lines;
+  }
+
+  /** The banner's height at width `w`. */
+  private bannerH(cl: ClanView, w: number): number {
+    return 6 + Math.max(30, 12 + this.bannerStats(cl, w).length * LH) + 6 + 4 + TAP + 6;
+  }
+
+  /** The clan banner (CLN-2): crest, [TAG] name, men, land, rank; Leave. Returns its bottom. */
+  private banner(cl: ClanView, x: number, y0: number, w: number): number {
+    const crest = 30;
+    const lw = Math.max(64, Math.min(90, Math.round(w * 0.42)));
+    const statsLines = this.bannerStats(cl, w);
+    const headH = Math.max(crest, 12 + statsLines.length * LH) + 6;
+    const cardH = 6 + headH + 4 + TAP + 6;
+    this.ui.add(mosaicImage(this, x, y0, w, cardH, 'parchment'));
+    addPortraitWell(this, this.ui, x + 7, y0 + 7, crest, MOSAIC.teal);
+    const flag = scaleIcon(addIcon(this, 0, 0, 'flag', 'L'), 1.6);
+    flag.setPosition(x + 7 + Math.round((crest - flag.displayWidth) / 2), y0 + 7 + Math.round((crest - flag.displayHeight) / 2));
+    this.ui.add(flag);
+    const tx = x + 7 + crest + 7;
+    this.ui.add(mtext(this, tx, y0 + 8, `[${cl.tag}] ${cl.name}`, 'rInk', { size: 7.5, maxW: x + w - 6 - tx }));
+    this.ui.add(mtext(this, tx, y0 + 20, statsLines.join('\n'), 'pSec', { size: TEXT_MIN }));
+    const ry = y0 + 6 + headH + 4;
+    const rule = this.add.graphics();
+    rule.lineStyle(0.7, MOSAIC.parchEdge, 0.5);
+    rule.lineBetween(x + 7, ry - 2, x + w - 7, ry - 2);
+    this.ui.add(rule);
+    this.ui.add(new MButton(this, x + w - 6 - lw, ry, lw, TAP, { label: t('clan.leave'), icon: 'close', variant: 'secondary', id: 'clan.leave', onClick: () => this.confirmLeave() }));
+    return y0 + cardH;
   }
 
   /** No clan: the war fresco, what a clan gives (three icon bullets), and Found a clan (CLN-4). */
@@ -280,13 +483,20 @@ export class ClanScene extends BaseScene {
   }
 
   /** A member: name, land, a rank chip at the right; a chevron and the manage sheet when your rank may act on them. */
-  private memberRow(area: ScrollArea, m: ClanMember, y: number, w: number, manage: boolean): Phaser.GameObjects.Container {
+  private memberRow(area: ScrollArea, m: ClanMember, y: number, w: number, manage: boolean, picked = false): Phaser.GameObjects.Container {
     const row = this.add.container(0, y);
     // the face scales from its centre when pressed
     const face = this.add.container(w / 2, ROW_H / 2);
     row.add(face);
     const at = <T extends Phaser.GameObjects.Components.Transform>(o: T): T => (o.setPosition(o.x - w / 2, o.y - ROW_H / 2), o);
     face.add(at(mosaicImage(this, 0, 0, w, ROW_H, m.id === this.me ? 'parchmentSel' : 'parchment')));
+    if (picked) {
+      // the member the management pane shows: a bronze rim and the chevron (never colour alone, §3.3)
+      const rim = this.add.graphics();
+      rim.lineStyle(1.5, MOSAIC.bronze, 1);
+      rim.strokeRect(0.75, 0.75, w - 1.5, ROW_H - 1.5);
+      face.add(at(rim));
+    }
     const role = roleName(m.role);
     const chipW = Math.ceil(mw(role, 'onAccent', TEXT_MIN)) + 10;
     const right = w - 6 - (manage ? 12 : 0);
@@ -387,7 +597,45 @@ export class ClanScene extends BaseScene {
     this.bodyLines(md, md.body.y, lines);
   }
 
+  /** The actions your rank may take on member `m` (Officer, Demote, Lead; Kick last, set apart, confirming: A11Y-08). */
+  private manageActs(m: ClanMember, close: () => void = () => undefined): { opts: MButtonOpts; kick?: boolean }[] {
+    const role = this.role!;
+    const done = (fn: () => Promise<unknown>, ok: string) => () => {
+      close();
+      void this.act(fn, ok);
+    };
+    const out: { opts: MButtonOpts; kick?: boolean }[] = [];
+    if (canPromote(role, m.role, 'officer') && m.role === 'member') out.push({ opts: { label: t('clan.manage.officer'), variant: 'secondary', onClick: done(() => onlineApi.clanPromote(m.id, 'officer'), t('clan.done.officer', { name: m.name })) } });
+    if (canPromote(role, m.role, 'member') && m.role === 'officer') out.push({ opts: { label: t('clan.manage.demote'), variant: 'secondary', onClick: done(() => onlineApi.clanPromote(m.id, 'member'), t('clan.done.member', { name: m.name })) } });
+    if (canPromote(role, m.role, 'leader'))
+      out.push({
+        opts: {
+          label: t('clan.manage.lead'),
+          variant: 'secondary',
+          onClick: () => confirmDialog(this, { title: t('clan.lead.title'), body: t('clan.lead.body', { name: m.name }), ok: t('clan.manage.lead'), cancel: t('common.cancel'), onOk: done(() => onlineApi.clanPromote(m.id, 'leader'), t('clan.done.lead', { name: m.name })) }),
+        },
+      });
+    if (canKick(role, m.role))
+      out.push({
+        kick: true,
+        opts: {
+          label: t('clan.manage.kick'),
+          icon: 'close',
+          variant: 'secondary',
+          id: 'clan.kick',
+          onClick: () => confirmDialog(this, { title: t('clan.kick.title', { name: m.name }), body: t('clan.kick.body'), ok: t('clan.manage.kick'), cancel: t('common.cancel'), destructive: true, onOk: done(() => onlineApi.clanKick(m.id), t('clan.done.kick', { name: m.name })) }),
+        },
+      });
+    return out;
+  }
+
   manage(m: ClanMember): void {
+    // two panes: the member goes to the management pane (no sheet over it)
+    if (this.split) {
+      this.pick = m.id;
+      this.render();
+      return;
+    }
     const role = this.role!;
     const acts: { label: string; run: () => void }[] = [];
     const done = (fn: () => Promise<unknown>, ok: string) => () => {

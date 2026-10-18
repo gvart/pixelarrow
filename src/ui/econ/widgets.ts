@@ -76,8 +76,11 @@ export function addPurse(scene: Phaser.Scene, parent: Phaser.GameObjects.Contain
   return used;
 }
 
-/** The unavailable states as an empty state with a Retry action (not outside Telegram), or the loading line, on a parchment well. */
-export function addEconState(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, s: EconState | 'loading', onRetry: () => void): void {
+/**
+ * The unavailable states as an empty state with a Retry action (not outside Telegram), or the loading line, on a
+ * parchment well. `rowW` (landscape panes, landscape-v6 §15): the state as one band that wide, centred in the well.
+ */
+export function addEconState(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, s: EconState | 'loading', onRetry: () => void, rowW?: number): void {
   parent.add(mosaicImage(scene, x, y, w, h, 'parchmentWell'));
   if (s === 'loading') {
     const tx = mtext(scene, x + w / 2, y + h / 2 - 4, t('econ.loading'), 'pSec', { align: 0.5, maxW: w - 8 });
@@ -93,6 +96,15 @@ export function addEconState(scene: Phaser.Scene, parent: Phaser.GameObjects.Con
   }
   const title = s === 'outside' ? t('econ.outside') : s === 'offline' ? t('econ.offline') : s === 'closed' ? t('econ.closed') : t('econ.error');
   const hint = s === 'outside' ? t('econ.outsideHint') : s === 'offline' ? t('econ.offlineHint') : s === 'closed' ? t('econ.closedHint') : t('econ.offlineHint');
+  if (rowW) {
+    const bw = Math.min(w - 8, rowW);
+    const bh = Math.min(h - 8, 64);
+    const bx = x + Math.round((w - bw) / 2);
+    const by = y + Math.round((h - bh) / 2);
+    parent.add(mosaicImage(scene, bx, by, bw, bh, 'parchment'));
+    parent.add(addParchmentEmpty(scene, bx, by, bw, bh, { row: true, icon: s === 'outside' ? 'flag' : 'tent', title, hint, action: s === 'outside' ? undefined : { label: t('econ.retry'), icon: 'repair', onClick: onRetry } }));
+    return;
+  }
   parent.add(addParchmentEmpty(scene, x + 2, y + 2, w - 4, h - 4, { icon: s === 'outside' ? 'flag' : 'tent', title, hint, action: s === 'outside' ? undefined : { label: t('econ.retry'), icon: 'repair', onClick: onRetry } }));
 }
 
