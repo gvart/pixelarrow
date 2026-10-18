@@ -1714,3 +1714,68 @@ draws a second bow. Say "the one bow never moves … there is only one bow". The
 **Lessons:** "never further than over his shoulder" is not enough for a back-facing look: say "his back and the back of
 his head stay to the viewer in every frame, his face never shows". A leather colour on a skin step is fixed in the spec
 with a per-step `parts` key, no retint needed.
+
+### gallic
+
+- subject: `a grim tall bare-chested Gallic warrior with limed pale-grey spiked hair and a long moustache, blue woad on his chest, a bronze torc, dark trousers, one tall oval plain dark hide shield with a dark iron boss on his left arm, one heavy iron war axe on a wooden haft in his right hand` (back: `a grim tall bare-chested Gallic warrior seen from behind, limed pale-grey spiked hair, bare back, dark trousers, one tall oval dark hide shield on his left arm, one heavy iron war axe on a wooden haft in his right hand`)
+- rest pose: `standing upright, the war axe held down at his right side, the tall oval shield on his left arm`; guard pose: `in a fighting guard, the tall oval shield up in front of his body, the war axe raised beside it in his right hand, knees bent`
+- guard: the celt_sword's with `… raises the war axe in his right hand, the axe head up beside the shield's right edge …`; SE a2 adds `the shield stays plain dark brown hide with only a dark iron boss, no metal rim, no gold`
+- slash (front, a2): `a heavy one-handed chopping blow at an enemy in front of him towards the viewer's lower left: from his guard he lifts the war axe straight up high over his right shoulder without turning away, then steps forward onto his left foot with the hips and shoulders turning towards the viewer's lower left, driving the tall shield forward with his body, and brings the axe down hard in a diagonal chop into the enemy in front of him, the axe blade leading, ending low ahead of his left knee, then he recovers back into his guard behind the shield; his face and chest stay towards the viewer's lower left in every frame, he never turns his back or turns round; the shield stays on his left arm; one axe only, the axe keeps its shape and size; no smear, no sparks, no motion trails, no blood, no effects` (SE a2: `… a short diagonal chop past the shield's edge … the tall oval shield stays on his left arm in front of his body, clearly visible in every frame, it never disappears and never moves to his other side`; back facings: the celt_sword's NW a2 wording with the axe)
+- block: front a3 `takes cover in place: he crouches a little and pulls the tall oval shield up higher in front of his body until its rim is at his eyes, braces behind it with his shoulder for a moment, then lowers it back to his guard; he does not turn …`; SE `he thrusts the tall oval shield up and forward towards the viewer's lower right, his left shoulder leading …`; back `… his back stays to the viewer in every frame, he never turns round …`
+- deaths (a2 and all back facings): `dying in battle: his strength suddenly gives out, his knees buckle and he topples over backwards … his body stays clean, no wounds, no red, no blood at all, no effects`
+- the other clips: the celt_sword wording with `the war axe … down in the right hand` and no cloak
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | guard SE a1 | **Rejected:** a bright gold shield rim and boss |
+| 2 | slash SW a1, SE a1 | **Rejected:** he turns his back in the windup; the shield swings out of sight |
+| 3 | block SW a1, a2 | **Rejected:** he turns his back on the blow |
+| 4 | fallBack SW SE a1 | **Rejected:** blood bursts over the body |
+| 5 | everything else | **Promoted** (turned-round, smear, spark and blood frames dropped by `frames`) |
+
+**Lessons:** "killed … he is struck" brings a blood burst over the chest in most deaths; "his strength suddenly gives
+out … no wounds, no red" gives clean falls. Blood over the body must be dropped by frame, not cut by colour (the cut
+holes the figure). A block "at a blow" makes the model turn side-on to the attacker; "takes cover … he does not turn"
+holds the facing better. A shielded one-hand chop keeps facing only with "his face and chest stay towards … he never
+turns his back".
+
+### slinger
+
+- subject: `a lean grim Rhodian slinger, bare head with short dark hair and a short dark beard, a short dark crimson cloak, a dark oxblood-brown tunic with a leather belt and a bullet pouch, bare legs and sandals, one leather sling hanging from his right hand, no shield` (back: `a lean grim Rhodian slinger seen from behind, short dark hair, a short dark crimson cloak, a dark oxblood-brown tunic, bare legs and sandals, one leather sling hanging from his right hand, no shield`)
+- rest pose: `standing upright, the sling hanging from his right hand at his right side, his left hand empty`; ready pose: `in a low ready stance, knees bent, the loaded sling held low in his right hand, his left arm forward`
+- guard: `he takes a ready stance in place: he fits one lead bullet into the sling's pouch with his left hand, then holds the two cords in his right hand with the loaded pouch hanging low beside his right leg, his left arm reaching forward towards the viewer's lower left at the target, knees a little bent, ready to whirl; one sling only, in the right hand; no shield, no effects`
+- sling (attack canvas, from the rest): `he slings a lead bullet at an enemy far ahead of him towards the viewer's lower left: he turns side-on with his weight on the back foot, raises the loaded sling over his head in his right hand and whirls it round in fast flat circles above his head, the two cords taut and the loaded pouch circling at their end, his left arm pointing at the target; then he steps forward onto his left foot and whips his right arm forward and down, letting one cord go: the pouch snaps open and the bullet is gone at once, the empty sling flicks forward past his left hip in the follow-through, then he lowers it to his side; one sling only, in the right hand; no flying bullet, no motion trails, no effects` (back facings: `seen from behind, his back and cloak to the viewer in every frame, … he never turns round to the viewer`)
+- stab (attack canvas): front `a short hard melee blow at an enemy close in front of him …: he wraps the sling's cords round his right fist, steps in on his left foot with his weight behind it and swings the loaded pouch in a short hard overhand arc down onto the enemy's head like a club …`; back a2 `… he lifts the loaded sling pouch over his right shoulder with the cords wound round his fist, steps in on his left foot towards the upper right and brings the pouch down hard straight ahead of him like a club onto the enemy's head … his body keeps facing the upper right the whole time, he never turns sideways or round to the viewer …`
+- adjust: `he reaches down with his left hand to the bullet pouch at his hip, takes out one lead bullet, looks at it and drops it back, then lets the hand fall; the sling never leaves his right hand …; there is only one sling`; block: `he flinches and throws his left forearm up across in front of his head, ducking behind it …`; rout (back a2): `… running in place on the same spot … he stays in the middle of the frame, his feet pumping in place, he does not move away`
+- the other clips: the archer's wording with the sling, and the gallic's clean deaths (`his strength suddenly gives out … no wounds, no red, no blood at all`)
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | stab NE NW a1 | **Rejected:** he turns and strikes to the west |
+| 2 | walk NW a1 | **Rejected:** the sling hidden behind the cloak |
+| 3 | rout NE a1 | **Rejected:** he runs out of the frame |
+| 4 | everything else | **Promoted** (motion arcs, bullets and sparks cleared or dropped) |
+
+**Lessons:** the whirl comes out clean and loopable from "whirls it round in fast flat circles above his head"; the
+model draws motion arcs and the flying bullet anyway, and both clear as detached pieces. A back-facing melee blow needs
+"straight ahead of him … his body keeps facing … the whole time". A back-facing flee drifts out of the 68 canvas unless
+told "on the same spot … he does not move away". From behind, the cloak hides a sling carried at the side; asking for it
+"clearly visible beside the cloak" did not fix it.
+
+### fanatic
+
+- subject: `a gaunt grim bare-chested cult fanatic with long matted ash-grey hair and grey ash on his skin, dark woad marks on his chest, a ragged black cloak, a dark umber kilt with a rope belt, bare legs and bare feet, no shield, one heavy curved iron kopis blade in his right hand` (back: `a gaunt grim cult fanatic seen from behind, long matted ash-grey hair, a ragged black cloak, a dark umber kilt, bare legs and bare feet, no shield, one heavy curved iron kopis blade in his right hand`)
+- rest pose: `standing upright, the kopis held down in his right hand at his right side, his left hand an empty fist`; guard pose: `in a crouched frenzied fighting stance, the kopis raised beside his head in his right hand, his left fist forward, knees bent`
+- guard: `he drops into a crouched frenzied fighting stance in place: knees bent, shoulders hunched forward, the heavy curved kopis raised high beside his head in his right hand ready to hack down towards the viewer's lower left, his left fist forward; one kopis only, in the right hand; no shield, no effects`
+- slash (front): `a frenzied heavy hacking blow at an enemy in front of him towards the viewer's lower left: from his crouch he rears up and hauls the heavy curved kopis far back over his right shoulder, the whole body coiling, then lunges forward onto his left foot and hacks down hard with all his weight behind it, the forward-curved blade chopping into the enemy in front of him, ending low ahead of his left knee with his body bent forward over it, then he wrenches the blade back up and drops back into his crouch; his face and chest stay towards the viewer's lower left in every frame, he never turns his back; one kopis only, in the right hand, the blade keeps its curved shape and size; no smear, no sparks, no motion trails, no blood, no effects` (back: `seen from behind, his back and cloak to the viewer in every frame, … straight ahead of him … his body keeps facing the upper right the whole time, he never turns sideways or round to the viewer`; NE a2 adds `his chest and face never show … no blood, no red`)
+- block: `parries a blow in place: he snaps the kopis up across in front of his face to catch the enemy's blade on it …`; adjust: `he twitches and rolls his shoulders, grips the kopis hilt tighter and turns the heavy curved blade over once …`; kneel: `leaning his weight on the kopis planted point down beside him`
+- the other clips: the slinger's wording with the kopis, the gallic's clean deaths
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | slash NE a1 | **Rejected:** a huge blood burst |
+| 2 | everything else | **Promoted** (smear, spark and blood frames dropped) |
+
+**Lessons:** a curved one-hand blade gets the same crescent smear at the blow as the long blades; a hack "with all his
+weight" brings blood at the blow in most facings even with "no blood": drop those frames and hold the windup. A parry
+with a blade brings a spark burst nearly every time.

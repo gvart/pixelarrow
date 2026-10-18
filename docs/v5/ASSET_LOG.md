@@ -782,6 +782,124 @@ base's; one weapon, held right, but a softer silhouette.
 black cloak. **QC:** 0 failures, stature 57 in all four facings; 139 warnings (the spear-end heuristic on the falx).
 **Gens:** 80 quoted (68 jobs).
 
+#### gallic
+
+Base: I4a N1 (bare-chested, limed spiked hair, long moustache, blue woad, bronze torc, dark trousers, tall oval hide
+shield with an iron boss, one iron war axe). The data gives him a shield, so the attack is a **weighted one-hand chop
+with the shield moving with the body**. **Groups:** `i5b/rampdump.mjs` on the base and the slash: his trousers and the
+hide shield are raw `#352b26` (metal step 0) and `#241913` / umber, not skin, so the skin group is his body only; the
+hair lands on linen; the woad lands on enemySlate. Ramps outline, umber, darkBronze, skin, bronze, iron, linen, metal,
+enemySlate; parts: bronze (the torc, the SE shield rim) → trim, iron → the iron metal group (weapon), the rest → shadow;
+crest, emblem and the spear heuristic off; `greyCut` 0.8; `stature.from: any`.
+
+**The attack (`slash`, 16 @ 16, strike 6).** From the guard behind the tall shield he lifts the axe high over his right
+shoulder (f1–f5), steps in on the left foot with the hips and shoulders turning and the shield driven forward, and chops
+down into the man in front of him (f6, low ahead of the left knee), follows through low (f7–f11) and comes back up
+behind the shield (f12–f15). Every facing was re-timed with `frames` so the chop lands on index 6.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | SE | a1 | 1 | **Rejected:** gear drift, a bright gold shield rim and boss |
+| 2 | guard | all 4 | a1 / SE a2 | 4 | **Promoted** (f7); SE a2's dark-orange rim is on the approved SE base |
+| 3 | slash | SW | a1 | 2 | **Rejected:** he turns his back in the windup (f2–f6); blood at the blow |
+| 4 | slash | SW | a2 | 2 | **Promoted after frame drops:** f3–f5 REJECTED (turned away again); the raised axe f2 is held into the overhead f6 |
+| 5 | slash | SE | a1 | 2 | **Rejected:** the shield swings out of sight behind him for the follow-through; crescent smear |
+| 6 | slash | SE | a2 | 2 | **Promoted after frame drops:** crescent smear f4 dropped |
+| 7 | slash | NE NW | a1 | 4 | **Promoted after frame drops:** NE crescent smears f6–f7; NW f2–f3 REJECTED (turned round to the viewer) |
+| 8 | block | SW | a1 a2 | 2 | **Rejected:** he turns his back on the blow / the shield jumps to his other side |
+| 9 | block | SW | a3 | 1 | **Promoted:** the shield thrust out left shoulder first; f8 (a back view in passing) dropped |
+| 10 | block | SE NE NW | a1 | 3 | **Promoted after frame drops:** SE f5–f11 REJECTED (the hair turns blond, sparks over the shield), the raise played out and back; NE f1–f2, NW f2 spark bursts over the shield |
+| 11 | fallBack | SW SE | a1 | 4 | **Rejected:** blood bursts over the chest and shield in the first frames (a colour cut would hole the body) |
+| 12 | fallBack | SW SE | a2 | 4 | **Promoted:** "his strength suddenly gives out … no wounds, no red" (used for NE and NW too) |
+| 13 | cheer | SE | a1 | 1 | Re-run on a false alarm (the raised axe made him look taller; the body measures the same); a2 used |
+| 14 | everything else | all 4 | a1 | 59 | **Promoted** (blood dropped by frame: stagger SW SE NE, fallFwd SW SE, kneel NE; one black-hair frame in adjust SE) |
+
+**Rejections:** facing drift (turned his back or round) 3 clips + 2 frame runs; shield out of sight 1 clip; gear drift
+(gold rim 1 clip, blond hair 7 frames, black hair 1 frame, crescent smears 3 frames); blood over the body 2 clips + 9
+frames. Doubled or reversed weapon, a second shield, clipping, proportion drift: **0**. **Needs review:** in the NW guard
+stance (ready, charge's first frame, block, the slash's windup) the axe is held up across his body over the shield's top
+edge, which from behind reads like the left hand; the SE shield has the dark-orange rim of its base (the other facings
+have none), and that rim is trim, so the tiers tint it; the woad stays enemySlate blue (shadow, not tinted). One slot
+over the cap: five jobs ran at once for a few minutes (cheer SE a2), then back to four.
+
+**Sheet.** 16 clips, frame 88 x 112, 4048 x 2240 (34.6 MB as v2); packed **7.76 MB decoded (core 6.05 MB), 259 KB**. 35 colours; groups trim 3
+(the torc), skin 4 (the body only); metal: iron (weapon). Tiers: veteran polished torc, elite gold torc (he has no cloak).
+**QC:** 0 failures, stature 61 in all four facings; 374 warnings, all the spear-end heuristic on the axe and the shield
+edge. **Gens:** 92 quoted (76 jobs).
+
+#### slinger
+
+Base: I4a N1 `d15d6271` (bare head, short dark hair and beard, crimson cloak, oxblood tunic, belt and bullet pouch,
+sandals, one leather sling in the right hand). The data gives him a sling and a melee fight at close quarters, so the
+sheet has `sling` and `stab` (no `brace`: no shield wall, the runtime falls back to `block`). **Groups:**
+`i5b/rampdump.mjs`: his tunic is outline / umber, his belt a few px of skin step 1; the skin group is his arms and legs.
+Ramps outline, crimson, umber, skin, darkBronze; parts: crimson → cloak, umber and darkBronze → shadow; no metal; crest,
+emblem and the spear heuristic off; `stature.from: any`.
+
+**The shot (`sling`, 16 @ 16, strike 10).** From the rest he turns side-on with his weight back, lifts the loaded sling
+over his head and whirls it in flat circles (f1–f9: the whirl, which loops, so the runtime can hold it through the aim),
+steps in on the left foot and whips the arm forward and down at f10, one cord let go, the pouch snapping open, and
+follows through past the left hip and lowers the sling (f11–f15). The whirl's motion arcs and the loosed bullet are
+cleared (`i5b/detached.mjs`): the sim draws the missile. NE and NW were re-timed with `frames` so the release lands on
+index 10. **The melee (`stab`, 12 @ 14, strike 4).** The cords wound round his fist, he steps in and brings the loaded
+pouch down on the man in front of him like a club, then steps back.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard (ready) | all 4 | a1 | 4 | **Promoted** (SW SE NE f6, NW f7); SW f7 REJECTED (the sling drawn as a stick), NE f7 (a bullet in flight) |
+| 2 | sling | all 4 | a1 | 8 | **Promoted after the cut and re-timing:** motion arcs and the loosed bullet cleared; NE turns side-on to whirl (kept) |
+| 3 | stab | NE NW | a1 | 4 | **Rejected:** facing drift, he turns and strikes to the west; NW his face turns to the viewer |
+| 4 | stab | all 4 | SW SE a1, NE NW a2 | 8 | **Promoted after frame drops:** spark bursts over the pouch dropped, loose sparks cut; SE (a low swing) and NE (an upward swing) are **weak** |
+| 5 | walk | NW | a1 | 1 | **Rejected:** the sling hidden behind the cloak for six frames |
+| 6 | walk | NW | a2 | 1 | **Promoted, needs review:** still hidden f1–f6 ("clearly visible beside the cloak" did not hold) |
+| 7 | rout | NE | a1 | 1 | **Rejected:** he runs out of the frame (clipped by the canvas) |
+| 8 | rout | NE | a2 | 1 | **Promoted:** "running in place on the same spot … he does not move away" |
+| 9 | everything else | all 4 | a1 | 62 | **Promoted** (block spark frames dropped in all 4; cheer SE f2 the sling drawn as a huge whip, dropped; the dropped bullet in adjust cleared) |
+
+**Rejections:** facing drift 2 clips; sling hidden 1 clip; clipped by the canvas 1 clip; gear drift 3 frames (a stick, a
+huge whip); a second missile 1 frame; sparks over the body 6 frames. Doubled or reversed weapon, head backwards,
+proportion drift: **0**. **Needs review:** the NW walk (sling hidden by the cloak f1–f6), the NW run (f1–f4 the same),
+the SE and NE stab swings; the NE cheer turns to profile; the NW fallBack falls forward like the fallFwd. Twice more
+five jobs ran at once for a few minutes (a slip in counting), then back to four.
+
+**Sheet.** 16 clips, frame 120 x 113, 4080 x 2712 (42.2 MB as v2); packed **6.78 MB decoded (core 5.45 MB), 225 KB**. 21 colours; groups cloak 6
+(crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 57 in all
+four facings; 454 warnings, all the spear-end heuristic on the sling. **Gens:** 90 quoted (72 jobs).
+
+#### fanatic
+
+Base: I4a N2 `fe0b0a2d` (gaunt, matted ash-grey hair, woad and ash on a bare chest, ragged black cloak, umber kilt
+retinted darkBronze, bare feet, one heavy curved iron kopis, no shield). **Groups** (bases.json and `i5b/rampdump.mjs`):
+cloak umber (exclusive), kilt darkBronze, hair plaidGreen and linen, woad enemySlate and metal, the blade iron. His skin
+lands on the skin ramp alone (no leather), so the skin group is his body. Ramps outline, umber, darkBronze, skin, linen,
+plaidGreen, metal, iron, enemySlate; parts: umber → cloak, iron → the iron metal group (weapon), the rest → shadow; crest,
+emblem and the spear heuristic off; `greyCut` 0.8; `stature { from: any, skipTop: 5 }` (the hair stands up above the
+crown and measured 63–64 against the lock's 58; with the top 5 rows skipped, 58–59). No `brace` (no shield: the runtime
+falls back to `block`), so 15 clips.
+
+**The attack (`slash`, 16 @ 16, strike 6).** A frenzied, weighty kopis hack: from his crouch, the blade raised beside
+his head, he rears up and hauls the kopis far back over his right shoulder, the body coiling (f1–f5), lunges onto the
+left foot and hacks down with all his weight into the man in front of him (f6), bent forward over the blow, then wrenches
+the blade back up and drops into the crouch (f7–f15). Each facing is re-timed with `frames` so the hack lands on index 6.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard (frenzied crouch) | all 4 | a1 | 4 | **Promoted** (f7); NW f2 a white smear (not used) |
+| 2 | slash | NE | a1 | 2 | **Rejected:** a huge blood burst over the blow and the body (a colour cut would hole him) |
+| 3 | slash | all 4 | SW SE NW a1, NE a2 | 8 | **Promoted after frame drops:** crescent smears (SW f4, SE f3, NE f6, NW f5) and blood or sparks at the blow (SW f5–f6, SE f4–f5, NW f6) dropped, loose specks cleared |
+| 4 | block | all 4 | a1 | 4 | **Promoted after frame drops:** smears and spark bursts on the parry (SW f2–f4, SE f1–f2, NE f3, NW f1) |
+| 5 | stagger | SW | a1 | 1 | **Promoted after frame drops:** f1–f2 a blood burst |
+| 6 | everything else | all 4 | a1 | 59 | **Promoted** (the clean-death wording from the gallic gave no blood in any fall) |
+
+**Rejections:** blood over the body 1 clip + 7 frames; gear drift (crescent smear) 7 frames; sparks 7 frames. Doubled or
+reversed weapon, head backwards, clipping, proportion drift: **0**. **Needs review:** the cloak is mostly drawn in outline
+black, so the tier recolour of its umber group shows only on its folds (veteran and elite read close to basic); the NE
+fallBack and the NW fallBack fall more forward than back; the NE rout turns to profile in passing.
+
+**Sheet.** 15 clips, frame 113 x 115, 4068 x 2760 (42.8 MB as v2); packed **9.24 MB decoded (core 7.29 MB), 281 KB**. 28 colours; groups cloak 5
+(umber), skin 4; metal: iron (weapon). Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 58–59;
+168 warnings (the spear heuristic on the kopis). **Gens:** 78 quoted (65 jobs).
+
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
 **Brief.** One approved base character per foot class other than the hoplite (militia, thureophoros, celt_sword, rhomphaia, archer, slinger, javelineer, peltast, falx, gallic, fanatic, royal_guard, sacred_band), matching H4 (`b7624d6d`) in style, shape and proportion, following `docs/v5/art/STYLE_LOCK.md`. Mood is dark-epic: Greeks in bronze and crimson; Carthaginians in purple-black, bronze and linen; Celts in plaid, iron, woad and torcs. Every class must read at battle scale by its headgear and silhouette (art bible §5.2). The cloak, crest and trim stay clean colour groups for the tier recolour (V5-092). Hard rejects are checked in all 8 views.
