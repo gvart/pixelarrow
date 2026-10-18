@@ -301,7 +301,8 @@ const newName = `Ana ${stamp.slice(-5)}x`.replace(/[^A-Za-z0-9 ]/g, 'q');
   check('4: the device forgot the campaign (a first run next), kept the sound choice, and is signed out', local.won === 0 && local.tut === 'offer' && local.vol === 3 && local.signedIn === false, JSON.stringify(local));
   await a.p.keyboard.press('Enter');
   await a.p.waitForTimeout(400);
-  check('4: keyboard: Start over (Enter) restarts the game', await until(() => a.W.ev(() => !!window.__game?.scene.isActive('Menu') || !!window.__game?.scene.isActive('FirstRun')), 30000, 250));
+  // Start over reloads the page: a check that lands during the navigation reads as not yet
+  check('4: keyboard: Start over (Enter) restarts the game', await until(() => a.W.ev(() => !!window.__game?.scene.isActive('Menu') || !!window.__game?.scene.isActive('FirstRun')).catch(() => false), 30000, 250));
   await a.ctx.close();
 }
 
