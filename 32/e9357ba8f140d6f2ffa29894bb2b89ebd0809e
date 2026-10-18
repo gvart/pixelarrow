@@ -1,0 +1,26 @@
+src/art/sheetDoll.ts
+  s_41b82181a73565::t_4e99ae60f02b2e 19-28,43,55-61,64-65,74-75,77-79,82-90,95-97,104-108,114,116-117,123-124,127-133,221-223,228-230,234-237,239,242-246,250-251,255-267,291-296,313-330,343-347,355,360-390,405-413,427-431,442-443,445-446,448-450,471,522-584
+  s_41b82181a73565::t_d6cebb2debde31 585
+src/ui/sprites.ts
+  s_41b82181a73565::t_5adc5392893b1c 34-37,52,148-158,161,176,450,514,516,520
+tests/sheetPacked.test.ts
+  s_41b82181a73565::t_0882beaa381e0c 1-44,46-50,52-138,149,151-154
+  s_41b82181a73565::t_2ee2275fcbca52 45,51
+  s_41b82181a73565::t_a6db6e0bddfe88 139-148,150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "32e9357ba8f140d6f2ffa29894bb2b89ebd0809e",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
