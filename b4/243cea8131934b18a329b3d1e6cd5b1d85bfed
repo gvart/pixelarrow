@@ -1,0 +1,26 @@
+src/scenes/duel/duelLayout.ts
+  s_0d98fe904b2e82::t_5a57b3f718620c 34,57-58
+src/scenes/duel/DuelScene.ts
+  s_0d98fe904b2e82::t_9fd28babb1a924 1981-1983
+  s_0d98fe904b2e82::t_ae714681d5c92f 1987-1988
+  s_0d98fe904b2e82::t_5a57b3f718620c 180
+  s_0d98fe904b2e82::t_31900feb870c5e 1917-1918,1994-2000,2008,2487-2489
+tests/duelPanes.test.ts
+  s_0d98fe904b2e82::t_5a57b3f718620c 49,51-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b4243cea8131934b18a329b3d1e6cd5b1d85bfed",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
