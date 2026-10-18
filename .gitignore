@@ -20,3 +20,6 @@ test-results
 /docs/v5/gemini/**/*.jpeg
 /docs/v5/gemini/**/*.webp
 !/docs/v5/gemini/**/processed/**
+
+# I1+: raw PixelLab downloads (zips, rotations, frames) stay on disk, never in git (V5-086, as V5-049)
+/docs/v5/pixellab/**/raw/

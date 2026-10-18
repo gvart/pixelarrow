@@ -8,6 +8,159 @@ Empty. The AS-07 Nikias prompts were sent in AS-08 (below).
 
 ## Done
 
+### I1b Dark-epic hoplite: the restyle, 12–16-frame walk and thrust, frame-by-frame review, the elite probe (2026-10-18)
+
+**Brief** (user review of I1, V5-087): darker, *300* / Lord of the Rings mood on the I1 pick B3 (high top-down, 48); smooth 12–16-frame clips; a spearhead pointing away from the facing or the attack is never allowed; then, mid-round, a hard rule: exactly one spearhead at the leading end, a plain blunt wooden butt (no sauroter), and every frame with a pointed or metallic butt rejected. Every prompt below carries "single leaf-shaped spearhead, plain blunt butt end, no butt spike".
+
+**Tool and budget.** PixelLab MCP. Balance before: 1,948 left (52 used, I1); after: 1,900.75 left (99.25 used): **47.25 generations** this round (cap 120). The receipts quoted 3 per 12-frame skeleton-v3 direction, 2 per 16-frame pixminimax direction, 6 for the Pro Flash character, 1 for the v3 redo, 0.25 for the import; the elite state took the remaining ~10. **Raws:** `docs/v5/pixellab/I1/raw/{E1,E1fix,E1pad96,E1guard128,E2,E3,E3w,E3elite}/` (gitignored). **Rebuild:** `bash scripts/art/pixellab/i1b-e3.sh [sheets dir]` (re-fetch, add the skeleton jobs, apply `docs/v5/pixellab/I1/fixes-E3.json`, build). **Processed:** `docs/v5/pixellab/I1/processed/E3/` and `E3elite/` (raw strips and `remap/`). **Skeletons:** `docs/v5/pixellab/I1/skeletons/thrustLow_<dir>.json`. **Contact sheets:** `docs/v5/art/I1b-rotations.png`, `I1b-walk.png`, `I1b-thrust.png`, `I1b-rejected.png`, `I1b-lineup-raw-vs-remap.png`. **Preview:** `/hoplite-bakeoff.html` (today, B3, E3, E3 elite; single, 5x3 both sides, zoom 1–3; a mode panel).
+
+**Character prompts, word for word:**
+
+- **D1** (`create_character_pro_flash`, 68x68, `view: high top-down`; a south image first, then 8 v3 views)
+  ```
+  grim battle-hardened Spartan hoplite warrior, muscular build, standing straight and facing the viewer, full body with the feet near the bottom of the canvas: dark weathered bronze Corinthian helmet covering the face with a tall deep crimson horsehair crest; deep crimson cloak hanging from the shoulders behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; a very large round aspis shield on his left arm reaching from his chin to his knees, dark bronze rim and a muted dark-red painted emblem; a very long wooden spear (dory) held vertically in his right hand, taller than the man, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; heavy shadows, desaturated dark warm colours, low-key cinematic light from the upper left, the mood of the film 300 and Lord of the Rings
+  ```
+- **D2** (`create_character` v3, reference = E1 south, E1's E, N, W, NE, SW given; SE and NW regenerated)
+  ```
+  grim muscular Spartan hoplite: dark weathered bronze Corinthian helmet with a tall deep crimson crest, deep crimson cloak, dark bronze cuirass, very large round aspis with a dark bronze rim and a muted red lambda on his left arm, a very long wooden spear held vertically in his right hand beside his body, taller than the man, its single leaf-shaped spearhead clearly visible above his head in every view, plain blunt butt end, no butt spike
+  ```
+- **D3** (`create_character` v3 import: all 8 views given, nothing generated)
+  ```
+  grim muscular Spartan hoplite: dark weathered bronze Corinthian helmet with a tall deep crimson crest, deep crimson cloak, dark bronze cuirass, very large round aspis with a dark bronze rim and a muted red lambda on his left arm, a very long wooden spear held vertically in his right hand, single leaf-shaped spearhead, plain blunt butt end, no butt spike
+  ```
+- **D4** (`create_character_state` on E3, `state_name: Elite`)
+  ```
+  elite veteran version of the same hoplite: a black cloak instead of the crimson one, a gilded crest holder with a black horsehair crest trimmed in gold, an ornate dark bronze muscle cuirass with gilded edges; keep the same Corinthian helmet shape, the same very large round aspis with the muted red lambda on the left arm, and the same long spear in the right hand with a single leaf-shaped spearhead, plain blunt butt end, no butt spike; same pose, same dark grim palette
+  ```
+
+| # | Attempt | Call | Outcome |
+| --- | --- | --- | --- |
+| 1 | E1 69c457a8 | D1, Pro Flash | **Promoted as the base, patched:** dark bronze, crimson cloak and crest, a big lambda aspis, a muscular build (a big helmet and short legs: heroic proportions). The spear is single-headed with a plain butt in S, NE, SW; in SE it crosses the face (kept, then redrawn); **in NW it is hidden behind the cloak** (spear missing in a game facing) |
+| 2 | E2 a5e62c6e | D2, v3 redo of SE and NW | **Rejected:** NW spear still missing, SE unchanged |
+| 3 | E3 62d4f135 | D3, import | **Promoted:** E1 with NW patched by hand (NE's spear arm pasted, columns 43–56 shifted 3 px, `i1b-prep.mjs`), padded to a 96 canvas so clips have room |
+| 4 | E3 elite 9618a1bf | D4, state | **Probe passed:** identity, pose, silhouette and gear placement hold in all 8 views; black cloak and crest, gilt trim; the hand-patched NW spear arm carried over |
+
+**Clips.** The game facings only (SE, NE, SW, NW). Frame rates for the GIFs: walk 16 frames at 20 fps (a 0.8 s cycle), thrust 12 frames at 14 fps (0.86 s).
+
+- **W1** (pixminimax, `frame_count: 16`, `keep_first_frame: false`; subject "a grim Spartan hoplite in dark bronze Corinthian helmet, crimson cloak, large round bronze shield and a long spear"; initial pose "standing upright, spear vertical in the right hand, shield on the left arm")
+  ```
+  steady disciplined marching walk, the long spear held upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways a little
+  ```
+- **W2** (the SE redo, from a start frame with the spear redrawn by `spear.mjs`; initial pose "standing upright, the spear in the right hand leaning outward with its head above his left shoulder, shield on the left arm" — "left" is a slip, the head is over his right shoulder)
+  ```
+  steady disciplined marching walk, the long spear held in the right hand and leaning a little outward, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm in every frame; the cloak sways a little
+  ```
+- **T1** (`animate_with_skeleton_v3`, `action: overhand spear thrust`, 12 frames, our overhand keypoints, first frame = the upright rotation)
+  ```
+  grim muscular Spartan hoplite in dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze cuirass and greaves, a very large round bronze aspis with a muted red lambda held across his body on his left arm in every frame, a long wooden spear in his right hand gripped overhand above the shoulder, its single leaf-shaped spearhead always at the front end pointing the way he faces, plain blunt butt end, no butt spike
+  ```
+- **T2** (`animate_with_skeleton_v3`, `action: spear thrust`, 12 frames, `thrustLow` keypoints, first frame = `spear.mjs` couched spear on a 128 canvas). Front facings (SE, SW):
+  ```
+  grim muscular Spartan hoplite in a dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze cuirass and greaves, one very large round bronze aspis with a muted red lambda held across his body on his left arm, one long wooden spear held level at the hip in his right hand with a single leaf-shaped spearhead at the front end pointing the way he faces, plain blunt butt end, no butt spike
+  ```
+  Back facings (NE, NW):
+  ```
+  grim muscular Spartan hoplite seen from behind in a dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze greaves, one very large round bronze aspis held on his left arm in front of him, one long wooden spear held level at the hip in his right hand with a single leaf-shaped spearhead at the front end pointing the way he faces, plain blunt butt end, no butt spike
+  ```
+
+| # | Clip | Mode | Dirs | Gens | Outcome (frame by frame, both spear ends checked) |
+| --- | --- | --- | --- | --- | --- |
+| 5 | walk_template | template `walking-8-frames` (8 frames) | SW NE | 2 | **Rejected:** the aspis vanishes in every frame of both facings |
+| 6 | walk_pixminimax | W1 | SW NE | 4 | **Promoted:** one shield and one spear in all 16 frames, head up, butt plain; the shaft is dashed in SW f1/f9 and gapped in NE f5 (cosmetic) |
+| 7 | walk_pixminimax | W1 | SE | 2 | **Rejected:** the spear is gone in all 16 frames (the rotation's spear crossed the face) |
+| 8 | walk_pixminimax | W1 | NW | 2 | **Promoted:** spear (the patched one) and shield in all 16 |
+| 9 | walk_pixminimax_se2 | W2 | SE | 2 | **Promoted:** spear in all 16, head top-left, one shield |
+| 10 | thrust | T1 | SW | 3 | **Rejected (tip rule):** the head is carried backwards over the shoulder in f1–f4 and f9–f10; the spear vanishes in f0 and goes thin and doubled in f5 |
+| 11 | thrust2 | T2 | SW | 3 | **Promoted:** the head leads in 12/12, one shield, no butt seen; f2 had a grey ghost scrap (cleared, 38 px) |
+| 12 | thrust2 | T2 | SE | 3 | **Promoted with 1 frame rejected:** f2's butt is flat and metallic and its head doubles (f2 := f1) |
+| 13 | thrust2 | T2 | NE | 3 | **Rejected:** the head runs off the 128 canvas in f5–f7 (a truncated head) |
+| 14 | thrust2 | T2 | NE, figure 16 px further left | 3 | **Promoted:** whole head leads in 12/12; f3 a light-bronze glint on the butt recoloured to the shaft (18 px), a crest speck cleared |
+| 15 | thrust2 | T2 | NW | 3 | **Promoted with 1 frame rejected:** f7 has a detached light-bronze piece at the butt that reads as a butt spike (f7 := f6, inside the held extension); f0–f2 the head is hidden behind the body (the man faces away) |
+
+**Rejection count.** Spear tip backwards: 1 clip (T1, 6 frames). Butt end pointed or metallic (the new rule, counted apart): **3 frames** (SE f2, NW f7 rejected; NE f3 glint recoloured), plus the doubled head in SE f2. Shield vanishing: 2 clips (template walk SW, NE). Spear missing: E1 NW and E2 NW (rotations), SE walk v1 (16 frames). Head cut off by the canvas: NE thrust v1 (3 frames). Stray scraps: SW f2, NW f7.
+
+**Palette.** The I1 hard snap is dropped for units (V5-087). `scripts/art/pixellab/remap.mjs` maps each colour to the PA-WORLD-DARK ramp (`docs/v5/pixellab/palette-dark.json`: PA-WORLD plus dark bronze, crimson, umber, dark skin and steel ramps) nearest in OKLab hue and chroma, then to that ramp's step nearest in lightness. On E3 it halves the colours (turnaround 52 → 25, walk 41 → 22, thrust 38 → 20) and is hard to tell from raw at zoom 1–3 (`I1b-lineup-raw-vs-remap.png`): the bronze stays bronze, the crimson stays crimson; only the elite's blue-black cloak warms to umber-black. **Recommendation: the remap** (one battle palette at no visible cost); raw is the fallback if a later class has a hue the ramps lack.
+
+**Verdict.**
+- **Style:** E3 reads as the brief at battle scale and in a crowd: dark bronze, crimson cloaks and crests, the lambda aspis (now about chin to knee); the elite state is a clean black-and-gold step up.
+- **Animation mode:** template is out (it drops the aspis). **Walk: pixminimax 16 frames** (2 per direction), steady identity, fluid cloak; it can lose an item the rotation half-hides, so the start frame must show the spear clearly. **Thrust: skeleton-v3 with our own skeletons and a hand-drawn first frame with the spear already couched head-forward** (3 per direction at 12 frames): the only mode that kept the head leading in every frame; an overhand start from the upright spear (T1) flips the head backwards. Expect about one frame in twelve to need a fix (`fixframes.mjs`), and give the thrust a canvas the extension fits in.
+- **Not done:** idle (8+ frames) and the other clips; the elite state is not animated.
+
+**Cost per class at 12–16 frames (estimate).** Base: Pro Flash 6 + a v3 import 0.25 + hand fixes ≈ 7; two tier states ≈ 20. Clips: about 16 per tier × 4 facings × 3 tiers = 192 clip-directions; 6 locomotion/idle clips by pixminimax at 2 = 144; 10 action clips by skeleton-v3 at 3–4 (12–15 frames) ≈ 420; × 1.25 for the redos seen here (1 of 4 directions per clip) ≈ 705. **≈ 730 per class; 18 classes ≈ 13,000 generations (about 6.5 months of Tier 1).** With the full set on the basic tier only and idle, walk and thrust on the other two tiers: ≈ 330 per class, ≈ 6,000 for 18 (3 months).
+
+### I1 Hoplite bake-off: PixelLab, 2 sizes × 2 views, walk and attack, three animation modes (2026-10-18)
+
+**Tool.** The PixelLab MCP (Tier 1, 2,000 generations a month), called from the agent; no browser. Balance before: 2,000 left, 0 used; after: 1,948 left, **52 used** (cap 60). At most 8 jobs at once. The old "ancient roman soldier" character in the account was ignored. **Raws:** `docs/v5/pixellab/I1/raw/<attempt>/` (gitignored, V5-086; `char.zip` plus the unpacked zip, fetched with `scripts/art/pixellab/fetch.mjs`). **Processed:** `docs/v5/pixellab/I1/processed/<variant>/` (`build.mjs`: the 8-view `rot.png`, one strip per animation and facing, the same under `snap/` snapped to PA-WORLD, and `info.json`), `manifest.json` for the preview. **Contact sheets:** `docs/v5/art/I1-rotations.png` (the 4 promoted turnarounds), `I1-rejected.png` (the 6 rejected), `I1-modes.png` (D2 attack: v3 custom vs template vs skeleton-v3, SW and NE), `I1-lineup-raw-vs-snap.png` (the battle line-up at zoom 1 ×3, raw over snapped). **Preview:** `/hoplite-bakeoff.html` on the dev server (`src/dev/hopliteBakeoff.ts`): the variants next to today's procedural hoplite on the iso ground at the battle's scale, zoom 1–3, RS 2, 5x3 formations from both sides, the mode comparison; `?snap=1` for the snapped strips.
+
+**Game facings.** The sheet contract (`src/art/paperdoll.ts` DIRS) has 4 true facings, all diagonals of the 2:1 field: row 0 = PixelLab `south-east`, row 1 = `north-east` (the player's army, back view), row 2 = `south-west` (the enemy, front view), row 3 = `north-west`. Every character was made with 8 directions; walks and attacks only in these 4.
+
+**Shared settings** (every `create_character` call): `mode: standard` (1 generation), `n_directions: 8`, `outline: selective outline`, `shading: basic shading`, `detail: medium detail`, `proportions: {"type": "preset", "name": "realistic_male"}`, `size` 48 or 32 (stored on a 68x68 or 48x48 canvas; the figure is 53–57 or 36–38 px from the crest to the feet), `view` low or high top-down. Prompts word for word:
+
+- **P1**
+  ```
+  ancient Greek hoplite soldier: bronze Corinthian helmet covering the face with a red horsehair crest, large round bronze aspis shield on the left arm, long wooden dory spear with a bronze tip held upright in the right hand, white linen linothorax armour, short red tunic skirt, bronze greaves on the shins, sandals
+  ```
+- **P2**
+  ```
+  ancient Greek hoplite soldier holding a very long wooden spear (dory) vertically in his right hand, the spear taller than the man with a bronze leaf tip above his head; big round bronze aspis shield on his left arm; bronze Corinthian helmet covering the face with a red horsehair crest; white linen linothorax body armour; short red tunic; bronze greaves; sandals
+  ```
+- **P3**
+  ```
+  ancient Greek hoplite: bronze muscle cuirass over a short red tunic, bronze greaves covering both shins, bronze Corinthian helmet covering the face with a red horsehair crest, big round bronze aspis shield on the left arm, very long wooden spear (dory) held vertically in the right hand, taller than the man, bronze leaf tip above his head, sandals
+  ```
+
+**Characters** (1 generation each):
+
+| # | Attempt | id | size, view | Prompt | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | A | e4d7cd01 | 48, low | P1 | **Rejected:** the spear is missing in 6 of 8 views, all 4 game facings among them; the linothorax came out red |
+| 2 | A2 | c1c0a877 | 48, low | P2 | **Promoted (variant A):** spear in 8/8; the linothorax is red, not white, and the shins bare (no greaves); the shield is hidden behind the body in SE, NE, NW |
+| 3 | A3 | f4ac5d3c | 48, low | P3 | **Rejected:** spear missing in SE, E, W |
+| 4 | B | e01ad163 | 48, high | P3 | **Rejected:** spear missing in SE, E, NE, NW, W |
+| 5 | C | a5dc4b0b | 32, low | P3 | **Rejected:** spear missing in SE; a grey iron cuirass, not bronze |
+| 6 | D | 7faec689 | 32, high | P3 | **Rejected:** spear missing in SE, E, NE, NW, W |
+| 7 | B2 | c4abda50 | 48, high | P2 | **Rejected (invented feature):** two spears in S, SE, N, NW, SW |
+| 8 | C2 | 43fec036 | 32, low | P2 | **Promoted (variant C):** spear and shield 8/8, white linothorax, red crest; at 32 px the Corinthian helmet reads open-faced (a beard shows) |
+| 9 | D2 | a295f28c | 32, high | P2 | **Promoted (variant D):** spear and shield 8/8, white linothorax, gold-bronze aspis; near-black outline |
+| 10 | B3 | 88c59d93 | 48, high | P2 | **Promoted (variant B):** spear in all 4 game facings (missing only in E and W), red-faced aspis, white front and red back |
+
+**Animations.** Walk: template `walking-8-frames` (8 frames, 1 generation per direction). Attack: v3 custom, 8 frames plus the reference (9 stored), 1 generation per direction; v3 stores the clip on a bigger canvas (A2 88/84, B3 80/84, C2 60, D2 56), so the strips keep their own size and feet line. Mode comparison on D2: template `lead-jab` and skeleton-v3 `lead-jab` (3 frames each; there is no spear-thrust template).
+
+- **ATK1** (A2 only)
+  ```
+  thrusting the long spear forward overarm at shoulder height while the round shield stays in front of the body, then pulling the spear back
+  ```
+- **ATK2** (B3, C2, D2)
+  ```
+  overarm spear thrust: raises the long spear above the shoulder with the point forward, stabs it straight ahead in the direction he is facing, the round shield kept in front of the chest, then pulls the spear back; he keeps facing the same direction and holds the same spear and shield in every frame
+  ```
+
+| # | Variant | Clip, mode | Directions | Charged | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 11 | A2 | walk, template | SE NE SW NW | 4 | **Kept:** the spear is steady in each facing; no shield in SE, NE, NW (hidden in the rotations too); SW good |
+| 12 | B3 | walk, template | SE NE SW NW | 4 | **Kept, flawed:** in SE the shield pops in at frame 4; in NE it turns into a **white oval and vanishes** (invented); SW, NW good |
+| 13 | C2 | walk, template | SE NE SW NW | 4 | **Kept, flawed:** SE and SW steady; in NE the shield pops in; NW frame 6 loses shield and spear |
+| 14 | D2 | walk, template | SE NE SW NW | 4 | **Kept, flawed:** in SE frames 7–8 a **big black shield** appears (invented); in NE the shield comes late; NW loses shield and spear at the end |
+| 15 | A2 | attack, v3 ATK1 | SE NE SW NW | 4 | **Kept, flawed:** SE turns to face south, the spear swung level across the body and a small shield appears in the far hand; NW spear across the body; SW a fair overarm thrust |
+| 16 | B3 | attack, v3 ATK2 | SE NE SW NW | 4 | **Rejected in review:** SE turns to face south, the shield jumps to the front; NE the spear flips left and right and the shield shrinks to a crescent and goes; SW thrusts the wrong way and a **second shield** appears behind; NW the spear reads double-ended |
+| 17 | C2 | attack, v3 ATK2 | SE NE SW NW | 4 | **Kept, flawed:** the shield holds in every frame; the spear always stabs to screen-left, so SE and NE point the wrong way; SW last frame turns south |
+| 18 | D2 | attack, v3 ATK2 | SE SW, then NE NW appended | 4 | **Kept, flawed:** the shield holds; the spear becomes a double-ended staff across the body in SE, NE, NW; in SW it vanishes |
+| 19 | D2 | attack_template, template `lead-jab` | NE SW | 2 | SW steady but the spear does not move (a boxing jab); NE loses the shield |
+| 20 | D2 | attack_skeleton, skeleton-v3 `lead-jab` | NE SW, then SE NW appended | 4 + 4 quoted (charge below) | **SW: the only correct spear thrust of the run** (levelled down-left, shield in front, identity steady). NE **rejected:** shield gone, spear in pieces, grey ghost scraps; SE turns to face south; NW the spear is gone (an empty fist) |
+
+The receipts quoted 56 generations; the balance fell by 52 (the skeleton-v3 jobs seem to have been billed below the quoted 2 per direction).
+
+**Palette snap.** `build.mjs` snaps with `ops.mjs snapToPalette` (the same weighted nearest colour as `process.mjs`) and binary alpha. It **hurts**: PixelLab's saturated bronze goes to the grey-khaki metal ramp (`#ac9283`/`#d2b68e`) instead of the bronze ramp, so helmets and the D2 shields lose their bronze; B3's red shield and the A2 tunics go darker; D2's near-black outline softens to `#2a1a12` and loses some punch. Reds, linen and skin survive. Snapping is still needed for the battle palette; it needs a ramp-aware remap (bronze to bronze) or generation on the palette (`palette` on `create_character_state`, or Pro mode).
+
+**Verdict.**
+- **View: high top-down.** It is closer to the battle camera's 30° elevation (`model3d.ts`), the shields face the viewer and both armies read in a crowd. Low top-down (A2, C2) hides the shield behind the body in the side and back facings and reads as a red or grey smear in formation.
+- **Size: 48** (B3) over 32 (D2). At the battle's scale a 48 figure is drawn at 0.55 (about one sprite px per device px at zoom 1 on RS 2, the density of today's BATTLE_RES 2 dolls) and stays crisp at zoom 2–3; a 32 figure is drawn at 0.8, so its pixels come out unevenly doubled at every zoom. Both cost 1 generation per direction for template and v3 clips. D2 is the fallback if the 48 tier states cost more.
+- **Animation mode:** none holds both spear and shield in every facing. Template keeps identity best for locomotion but pops or loses the shield in the back facings. v3 custom keeps the shield (C2, D2) but invents the spear's direction (always lateral) and doubles it. skeleton-v3 made the only correct thrust (SW) but broke the back view; `lead-jab` is a boxing clip. Next try: `animate_with_skeleton_v3` with our own spear-thrust keypoints for each facing (the procedural rig in `paperdoll.ts` already has the joints), template for walk and run, and a free `pixelart_workbench` touch-up of the frames where the shield pops.
+- **Not done:** the optional elite-state probe (`create_character_state` costs 10–25 and would have broken the 60 cap); tier consistency is still unmeasured.
+- **Cost per class, estimated** for the full set (V5-081, V5-084): 3 tiers × 4 facings × about 16 clips (idle, walk, run, attack, block, hit, 2 deaths, rout, victory, 2 per-weapon attacks, 2 formation stances, a richer hit, an ambient idle) = 192 clip-directions. Base character about 2.5 tries = **~3**; 2 tier states at 10–25 = **20–50**; clips at 1 per direction (template, v3) = 192, at 2 (skeleton-v3) = 384; with I1's re-roll rate (about half the clip-directions flawed) ×1.5. Template/v3 only: **~320** per class; skeleton-v3 for the 10 non-locomotion clips and template for the 6 locomotion clips: **~505**; skeleton-v3 for all: **~610**. For 18 classes that is about 5,800–11,000 generations, 3 to 5.5 months of Tier 1 (riders and chariots on bigger canvases cost more). Animating only the basic tier in full and the other two tiers with idle, walk and attack would cut the clip-directions to 88 (~170–260 per class).
+
+**Lessons.** Standard mode loses a held spear in the rotated views unless the prompt makes it the first, largest thing ("holding a very long … spear vertically … taller than the man"); 6 of 10 characters were rejected for that or for a doubled spear. Ask for the shield size too: every aspis came out about a third of the body, against the procedural ~half. v3 attacks come back on a larger canvas than the rotations: read the feet line per strip. Back views (NE) fail most in every mode; check them first.
+
 ### AS-08 The Nikias portraits ART-033..035 and the app icon set (2026-10-13)
 
 **Tool.** gemini.google.com, "Gemini 3.1 Pro", in Claude in Chrome, one new tab, two chats (Nikias, then the icon), typed prompts, no tool picker. References attached through the page's hidden `image/*` input. Every output was a 2048x2048 JPEG. Downloads were moved by the AS-02 safe mover (one new `Gemini_Generated_Image_*` newer than the start, else refuse); `~/Downloads` matched its start listing at the end. No CAPTCHA, quota message or download block. The tab was closed. **Raws:** `docs/v5/gemini/AS-08/` in the main checkout (gitignored). **Processed:** `docs/v5/gemini/AS-08/processed/portrait_nikias[_talk|_blink].png`. **Contact sheet:** `docs/v5/art/AS-08-contact.jpg` (the three frames at 384, the in-game card with frames 0/1/2 at 390, 360 and 320 DPR 3, the icon set at real size and zoomed, the maskable safe circle, the Telegram circle crop, the 640x360 image).
