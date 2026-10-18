@@ -961,13 +961,15 @@
      "attempt": "a1"
     },
     "north-east": {
-     "attempt": "a1"
+     "attempt": "p1",
+     "why": "polish: rocks back and falls on his back (a1 hunched forward first)"
     },
     "south-west": {
      "attempt": "a1"
     },
     "north-west": {
-     "attempt": "a1"
+     "attempt": "p1",
+     "why": "polish: falls backwards onto his back, face up (a1 pitched forward face down)"
     }
    }
   },

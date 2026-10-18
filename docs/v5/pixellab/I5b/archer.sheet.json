@@ -612,21 +612,7 @@
      "attempt": "a1"
     },
     "north-east": {
-     "attempt": "a1",
-     "fixes": [
-      {
-       "frame": 5,
-       "op": "copy",
-       "from": 4,
-       "why": "REJECTED frame: an impact flash over the bow; once cut, the bow is broken"
-      },
-      {
-       "frame": 6,
-       "op": "copy",
-       "from": 7,
-       "why": "REJECTED frame: a blood burst over the bow"
-      }
-     ]
+     "attempt": "p1"
     },
     "south-west": {
      "attempt": "a1"

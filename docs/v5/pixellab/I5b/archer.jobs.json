@@ -67,5 +67,6 @@
  {"anim":"stab","dir":"north-west","attempt":"a1","job":"f736affd-6a9a-4051-b4ba-0e02968cb39a","mode":"pixminimax","frames":12,"gens":2,"first":"atk"},
  {"anim":"fallBack","dir":"north-west","attempt":"a1","job":"31e76f47-2429-4014-b2c9-c6f1d173b7bf","mode":"pixminimax","frames":12,"gens":2,"first":"die"},
  {"anim":"fallFwd","dir":"north-west","attempt":"a1","job":"d2b71017-3491-4503-85c6-30e382504cdf","mode":"pixminimax","frames":12,"gens":2,"first":"die"},
- {"anim":"cheer","dir":"north-west","attempt":"a1","job":"fd19f426-e9b8-48dd-a7e2-b10afcafb1ba","mode":"pixminimax","frames":12,"gens":1,"first":"tall"}
+ {"anim":"cheer","dir":"north-west","attempt":"a1","job":"fd19f426-e9b8-48dd-a7e2-b10afcafb1ba","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"stab","dir":"north-east","attempt":"p1","job":"1da9fbbc-badc-469d-9bdd-1a0c4db06dfb","mode":"pixminimax","frames":12,"gens":2,"first":"atk"}
 ]

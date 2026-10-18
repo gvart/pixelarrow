@@ -150,8 +150,8 @@
     44
    ],
    "north-west": [
-    10,
-    42
+    11,
+    39
    ]
   },
   "gatk": {
@@ -168,8 +168,8 @@
     44
    ],
    "north-west": [
-    36,
-    42
+    37,
+    39
    ]
   }
  },
@@ -353,7 +353,7 @@
      "attempt": "a1"
     },
     "north-west": {
-     "attempt": "a1"
+     "attempt": "p1"
     }
    }
   },
@@ -372,7 +372,7 @@
      "attempt": "a1"
     },
     "north-west": {
-     "attempt": "a1"
+     "attempt": "p1"
     }
    }
   },
@@ -392,7 +392,7 @@
      "attempt": "a1"
     },
     "north-west": {
-     "attempt": "a1"
+     "attempt": "p1"
     }
    }
   },
@@ -456,22 +456,8 @@
      "why": "f1-f2 REJECTED: a spark burst over the shield"
     },
     "north-west": {
-     "attempt": "a1",
-     "frames": [
-      0,
-      1,
-      1,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11
-     ],
-     "why": "f2 REJECTED: a fiery streak over the shield"
+     "attempt": "p1",
+     "why": "polish: from the new NW guard (guard nw p1 f7), the axe carried on his right; sparks cut"
     }
    }
   },
@@ -548,26 +534,26 @@
      "why": "f6-f7 REJECTED: crescent smears; the chop f8"
     },
     "north-west": {
-     "attempt": "a1",
+     "attempt": "p1",
      "frames": [
       0,
       1,
-      1,
-      1,
+      2,
+      3,
       4,
       4,
-      5,
-      6,
       7,
       8,
       9,
       10,
       11,
       12,
+      13,
       14,
+      15,
       15
      ],
-     "why": "f2-f3 REJECTED: he turns round to the viewer; the axe up behind the shoulder (f4) held, the chop f5"
+     "why": "polish: f5 REJECTED (crescent smear), f6 REJECTED (smear and blood); the raised axe f4 held, the chop f7 on index 6"
     }
    }
   },
@@ -631,7 +617,22 @@
      "why": "f1-f2 REJECTED: a blood mark over the shield"
     },
     "north-west": {
-     "attempt": "a1"
+     "attempt": "p1",
+     "frames": [
+      0,
+      1,
+      1,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ],
+     "why": "polish: f2 REJECTED (a blood burst over the shield), f1 held"
     }
    }
   },

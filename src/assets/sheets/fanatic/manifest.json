@@ -4,7 +4,7 @@
  "image": "fanatic.png",
  "frame": {
   "w": 113,
-  "h": 115
+  "h": 116
  },
  "anchor": {
   "x": 56,
@@ -16,7 +16,7 @@
    "y": 102
   },
   "north-east": {
-   "x": 39,
+   "x": 41,
    "y": 102
   },
   "south-west": {
