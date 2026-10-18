@@ -30,6 +30,7 @@ import { needsReauth, ReauthCancelled } from './methods';
 import { sensitive } from './reauth';
 import { cardState, conflictCards, factLines, linkFail, POLL_MS, typedMatches, waitingStep, type LinkFail } from './linking';
 import { openLinkSheet, type Body, type LinkSheet } from './linkSheet';
+import { followLinkedAccount } from './follow';
 
 type ConflictApi = Pick<ApiClient, 'conflict' | 'resolveConflict'>;
 type TelegramApi = Pick<ApiClient, 'telegramConflicts' | 'chooseFromTelegram' | 'linkNotMe'>;
@@ -363,6 +364,8 @@ export function openTelegramConflict(scene: UiScene, c: TelegramConflict, o: Tel
               bb.button({ label: t('common.close'), id: 'conflict.tg.close', variant: 'secondary', onClick: () => sheet.close() });
               notMeButton(bb);
             });
+            // keeping the web account: once the web posts the same choice, this launch follows it (V6-LINK-07)
+            if (({ web: true, telegram: false } as const)[keep]) followLinkedAccount(scene, sheet);
           }),
       });
     });

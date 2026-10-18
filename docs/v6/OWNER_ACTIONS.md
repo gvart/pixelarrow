@@ -142,3 +142,22 @@ no live users (V5-074), so this is accepted.
 11. **Authorise Context7** (`/mcp`) if you want later runs to check library and
     Cloudflare docs live (was item 3).
 - GitHub repo variable TELEGRAM_BOT_USERNAME (and TELEGRAM_APP_NAME if the Mini App short name isn't 'play'), so Telegram invites use t.me deep links (V6-PLAT-05). Until then, invites fall back to the https://play.pixelarrow.app link.
+
+## V6-LINK-07: privacy notice sign-off and minimum age (before go-live; details for A.1)
+
+The notice draft is `landing/public/privacy.html` and `landing/public/ru/privacy.html` (ADR-0009 §8,
+sections 1–11, marked "Draft — pending owner sign-off"). Every value only you can decide is a visible
+`[…]` placeholder there. Before go-live:
+
+1. Fill in the operator name and address/country, the privacy contact email and the effective date
+   (both languages).
+2. Confirm how long purchase records are kept after an account is deleted (proposed **5 years**). The
+   game says the same number on the Delete account screen: if it changes, change
+   `PURCHASE_RETENTION_YEARS` in `src/ui/account/deletion.ts` too.
+3. Confirm how long D1 backups are kept (proposed **30 days**) and how long support requests are kept
+   after they are resolved (`[N months]`).
+4. Decide the **minimum player age** (13 or 16; it must also respect Telegram's terms) and put it in
+   section 9 of both pages. The sign-up form has a key for an age line (`auth.signup.age`) if you want it
+   shown there too.
+5. Decide which language prevails if the English and Russian texts differ (section 11).
+6. Read the whole notice in both languages and remove the draft line once it is signed off.

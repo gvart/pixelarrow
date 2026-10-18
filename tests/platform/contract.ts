@@ -89,6 +89,7 @@ export function platformContract(name: string, make: () => Promise<ContractHarne
       const lp = p.launchParam();
       expect(lp === null || typeof lp === 'string').toBe(true);
       expect(typeof p.client().platform).toBe('string');
+      expect(typeof p.closeApp).toBe('function');
       p.onActive(() => {})();
     });
   });

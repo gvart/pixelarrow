@@ -2,7 +2,7 @@
  * The "Parts" page of the Kit gallery: the shared v4 components that the
  * "Mosaic" page does not show (icon buttons, action bars, tips, meters, chips,
  * pills, key buttons, round buttons, gear slots, pager, empty and loading
- * states, sheets, the sub-screen shell), each in its states. Docs: docs/UI_KIT.md.
+ * states, the account StepList and ChoiceCard, sheets, the sub-screen shell), each in its states. Docs: docs/UI_KIT.md.
  */
 import Phaser from 'phaser';
 import { addText, type ScrollArea } from '../../ui/kit';
@@ -16,6 +16,9 @@ import {
 import { defaultStashState } from '../../ui/sheet';
 import { ITEM_LIST, RARITIES, type Rarity } from '../../data/items';
 import { MOSAIC, RESOURCES } from '../../ui/tokens';
+import { StepList } from '../../ui/mosaic/StepList';
+import { ChoiceCard, choiceColumns, type ChoiceCardOpts } from '../../ui/mosaic/ChoiceCard';
+import type { CardState } from '../../ui/account/linking';
 import type { UIMetrics } from '../../ui/kit';
 
 type C = Phaser.GameObjects.Container;
@@ -155,6 +158,47 @@ export function buildParts(scene: Scene, area: ScrollArea, w: number, openShell:
   y += 40 + G;
   addEconState(scene, c, 0, y, w, 90, 'offline', () => toast(scene, 'Retry'));
   y += 90 + G + 2;
+
+  // V6-LINK-06's account parts (accounts-v6.md §12), added by V6-LINK-07
+  title('StepList');
+  const steps = add(new StepList(scene, 0, y, w, [
+    { title: 'Open Pixelarrow in Telegram', state: 'done' },
+    { title: 'Tap "Link" there', state: 'current', slot: 26 },
+    { title: 'Come back and confirm here', state: 'pending' },
+  ]));
+  add(new MButton(scene, StepList.indent, y + steps.slotY(1), Math.min(160, w - StepList.indent), 22, { label: 'Open Telegram', variant: 'primary', id: 'kit.steps.slot', onClick: () => toast(scene, 'Open') }));
+  y += steps.h + G + 2;
+
+  title('ChoiceCard');
+  const card = (side: string, name: string, state: CardState, reason?: string): ChoiceCardOpts => ({
+    title: side,
+    name,
+    sub: side === 'This account' ? 'j***@g***.com' : null,
+    facts: ['Campaign day 31', '14 heroes', 'Duel rating 1480'],
+    keepLabel: 'Keep this',
+    keptLabel: 'Kept',
+    reason,
+    id: `kit.choice.${state}`,
+    onPick: () => toast(scene, state),
+  });
+  const two = choiceColumns(w, scene.m.S);
+  const cw = two ? Math.floor((w - G) / 2) : w;
+  const pairs: [ChoiceCardOpts, CardState][] = [
+    [card('This account', 'SwiftArcher4821', 'picked'), 'picked'],
+    [card('Telegram account', 'Doros', 'unpicked'), 'unpicked'],
+    [card('This account', 'BraveSlinger0417', 'forcedKept', "This account has purchases, so it's kept."), 'forcedKept'],
+    [card('Telegram account', 'Nikias', 'forcedOff', 'The other account has purchases, so it must be kept.'), 'forcedOff'],
+  ];
+  for (let i = 0; i < pairs.length; i += 2) {
+    const row = pairs.slice(i, i + 2);
+    const ch = Math.max(...row.map(([o]) => ChoiceCard.measure(scene, cw, o)));
+    row.forEach(([o, st], j) => {
+      add(new ChoiceCard(scene, two ? j * (cw + G) : 0, y, cw, ch, o)).setState(st);
+      if (!two) y += ch + G;
+    });
+    if (two) y += ch + G;
+  }
+  y += 2;
 
   title('Sheets and shells');
   const bw = Math.floor((w - G) / 2);

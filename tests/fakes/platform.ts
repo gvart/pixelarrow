@@ -123,6 +123,14 @@ export class FakePlatform implements Platform {
     return { platform: 'fake' };
   }
 
+  /** Whether closeApp() closes (as Telegram's Mini App does); `closed` counts the closes. */
+  canClose = false;
+  closed = 0;
+  closeApp(): boolean {
+    if (this.canClose) this.closed++;
+    return this.canClose;
+  }
+
   /** Test drivers. */
   pressBack(): void {
     this.backCb?.();

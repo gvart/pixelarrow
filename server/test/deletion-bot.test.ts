@@ -25,7 +25,7 @@ describe('/delete_my_data', () => {
     await webhook(msg(tg, '/delete_my_data'));
     const [reply] = sent(calls, 'sendMessage');
     expect(reply.params.text).toContain('Settings → Account');
-    expect(keyboard(reply)).toEqual([{ text: expect.any(String), web_app: { url: 'https://play.pixelarrow.app/?startapp=settings' } }]);
+    expect(keyboard(reply)).toEqual([{ text: expect.any(String), web_app: { url: 'https://play.pixelarrow.app/?startapp=account' } }]);
     // A crafted confirmation does nothing for a player who can use the game.
     await press(tg, 'del:yes');
     expect(await nameOf(me.playerId)).not.toBe(DELETED_NAME);

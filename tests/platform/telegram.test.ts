@@ -25,6 +25,7 @@ export function fakeWebApp(version = '8.0', platform = 'ios', initData = 'user=1
     isVersionAtLeast: (v: string) => parseFloat(version) >= parseFloat(v),
     ready: () => calls.push('ready'),
     expand: () => calls.push('expand'),
+    close: () => calls.push('close'),
     disableVerticalSwipes: () => calls.push('disableVerticalSwipes'),
     setHeaderColor: () => {},
     setBackgroundColor: () => {},
@@ -220,6 +221,15 @@ describe('Telegram adapter: payments, share, auth', () => {
     const bare = createTelegramPlatform(f.env);
     await bare.init();
     expect(bare.auth.reopen?.()).toBe(false);
+  });
+
+  it('closes the Mini App (V6-LINK-07b), and says false without the SDK', async () => {
+    const { p, wa } = await launched();
+    expect(p.closeApp()).toBe(true);
+    expect(wa.calls).toContain('close');
+    const plain = createTelegramPlatform(fakeEnv().env);
+    await plain.init();
+    expect(plain.closeApp()).toBe(false);
   });
 });
 

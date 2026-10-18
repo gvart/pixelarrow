@@ -59,5 +59,6 @@ export function createWebPlatform(env: PlatformEnv, opts: { turnstileSiteKey?: s
     },
     launchParam: () => queryLaunchParam(env),
     client: () => ({ platform: 'web' }),
+    closeApp: () => false,
   };
 }

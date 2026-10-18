@@ -12,6 +12,7 @@ type Button = { show(): void; hide(): void; onClick(cb: () => void): void; offCl
 export interface TgWebApp {
   ready(): void;
   expand(): void;
+  close?(): void;
   version: string;
   platform: string;
   colorScheme: 'light' | 'dark';

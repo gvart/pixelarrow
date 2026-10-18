@@ -186,5 +186,14 @@ export function createTelegramPlatform(env: PlatformEnv, opts: { bot?: string; a
       return typeof p === 'string' && p ? p : queryLaunchParam(env);
     },
     client: () => (app ? { platform: app.platform || 'unknown', version: app.version, language: app.initDataUnsafe?.user?.language_code } : { platform: 'web' }),
+    closeApp() {
+      if (!app?.close) return false;
+      try {
+        app.close();
+        return true;
+      } catch {
+        return false;
+      }
+    },
   };
 }

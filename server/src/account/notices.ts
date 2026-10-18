@@ -65,7 +65,7 @@ export async function sendNoticeBot(env: Env, kind: NoticeKind, chat: number, la
     chat_id: chat,
     text: msg.text,
     link_preview_options: { is_disabled: true },
-    ...(msg.button ? { reply_markup: { inline_keyboard: [[{ text: msg.button, web_app: { url: buttonUrl(gameUrl(env), { kind: 'settings' }) } }]] } } : {}),
+    ...(msg.button ? { reply_markup: { inline_keyboard: [[{ text: msg.button, web_app: { url: buttonUrl(gameUrl(env), { kind: 'account' }) } }]] } } : {}),
   });
   if (!res.ok) log('warn', 'account_notice_failed', { channel: 'bot', kind, status: res.status });
 }

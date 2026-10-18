@@ -31,6 +31,9 @@ import { uiLevelUp } from '../audio/hooks';
 import { sfx } from '../audio';
 import { hapticNotify } from '../platform/haptics';
 import { t, tOr, type TKey } from '../i18n';
+import { online } from '../platform/cloud';
+import { openRename } from '../ui/account/rename';
+import type { NameStatus } from '../platform/api';
 
 export type FirstRunMode = 'offer' | 'resume' | 'reward' | 'modes';
 
@@ -38,6 +41,8 @@ export interface FirstRunData {
   mode?: FirstRunMode;
   /** The reward item (mode 'reward'). */
   item?: Item;
+  /** Modes: the name others see, when already known (after a rename; the layout check stages it). Signed in, it is read from the account. */
+  name?: string;
 }
 
 const BTN_H = 26;
@@ -48,6 +53,10 @@ const ITEM_H = SIZE.cell + 14;
 const LINK_H = 22;
 /** A mode card's height (64 pt at least, C-2). */
 const MODE_H = 32;
+/** A name as long as most, to size the Modes name line before the account answers. */
+const SAMPLE_NAME = 'SwiftArcher4821';
+/** A staged name's rules (the layout check): the first change is free. */
+const FREE_NAME: NameStatus = { freeChange: true, nextChangeAt: null, lockedUntil: null, moderatedAt: null };
 /** The painted key art (docs/v5/art/asset-manifest.json T-SPLASH); loaded here, so only a new player downloads it. */
 const SPLASH = 'ui_splash_keyart';
 
@@ -78,6 +87,8 @@ export class FirstRunScene extends BaseScene {
   /** The frame's content box (UI px), under the top bar. */
   private inner: Box = { x: 0, y: 0, w: 0, h: 0 };
   private mode: FirstRunMode = 'offer';
+  /** Modes: the name line's known name (FirstRunData.name). */
+  private knownName: string | null = null;
   private portrait: Phaser.GameObjects.Image | null = null;
   private dialog: Phaser.GameObjects.Container | null = null;
   /** The content area inside the frame (UI px), centred and at most 200 wide. */
@@ -97,6 +108,7 @@ export class FirstRunScene extends BaseScene {
 
   create(data: FirstRunData): void {
     this.mode = data?.mode ?? 'offer';
+    this.knownName = data?.name ?? null;
     this.portrait = null;
     this.dialog = null;
     this.initUi();
@@ -422,7 +434,10 @@ export class FirstRunScene extends BaseScene {
     const gap = SIZE.gap + 2;
     // a screen too short for all three (320x568 inside Telegram) scrolls them
     const top0 = this.area.y + 4;
-    const scroll = new ScrollArea(this, this.ui, x, top0, w, this.area.y + this.area.h - top0, this.m.S);
+    const nameH = this.nameLineH(w);
+    const bottom = this.area.y + this.area.h - nameH;
+    if (nameH) this.nameLine(x, bottom + 2, w);
+    const scroll = new ScrollArea(this, this.ui, x, top0, w, bottom - top0, this.m.S);
     this.events.once('shutdown', () => scroll.destroy());
     let y = 0;
     // the icon sits in the title row, so the pitch has the card's whole width (a short screen keeps all three cards)
@@ -433,7 +448,7 @@ export class FirstRunScene extends BaseScene {
       return { m, lines, textH: Math.max(MODE_H, 20 + lines.length * LINE_H + 4) };
     });
     // the frescoes share what the words leave, up to a 4:1 strip each
-    const room = this.area.y + this.area.h - top0 - gap * (MODES.length - 1) - cards.reduce((s, c) => s + c.textH, 0);
+    const room = bottom - top0 - gap * (MODES.length - 1) - cards.reduce((s, c) => s + c.textH, 0);
     let artH = Math.min(Math.floor(room / MODES.length) - 3, Math.round((w - 6) / ART_ASPECT));
     if (artH < MIN_ART) artH = 0;
     for (const { m, lines, textH } of cards) {
@@ -467,8 +482,11 @@ export class FirstRunScene extends BaseScene {
    */
   private buildModesRow(row: { x: number; w: number; gap: number }): void {
     const { w, gap } = row;
-    const { y: top0, h: areaH } = this.inner;
     const totalW = w * MODES.length + gap * (MODES.length - 1);
+    const nameH = this.nameLineH(Math.min(totalW, CTA_MAX));
+    const { y: top0 } = this.inner;
+    const areaH = this.inner.h - nameH;
+    if (nameH) this.nameLine(row.x + Math.round((totalW - Math.min(totalW, CTA_MAX)) / 2), top0 + areaH + 2, Math.min(totalW, CTA_MAX));
     const scroll = new ScrollArea(this, this.ui, row.x, top0, totalW, areaH, this.m.S);
     this.events.once('shutdown', () => scroll.destroy());
     const px = 8;
@@ -498,6 +516,40 @@ export class FirstRunScene extends BaseScene {
       scroll.content.add(card);
     });
     scroll.setContentHeight(y + h);
+  }
+
+  /** The name line's height under the cards (AU-18, accounts-v6.md §4.3 step 6): signed-in players only, else 0. */
+  private nameLineH(w: number): number {
+    if (!this.knownName && !online.signedIn) return 0;
+    const lines = Math.min(2, wrapText(t('auth.fr.nameLine', { name: this.knownName ?? SAMPLE_NAME }), w - 8, 2).lines.length);
+    return 2 + lines * LINE_H + LINK_H;
+  }
+
+  /**
+   * "Other players will see you as {name}" and a Change link under it that opens the rename form; signed in,
+   * the name comes from the account (nothing shows when it can't be read). A rename lays the step out again.
+   */
+  private nameLine(x: number, y: number, w: number): void {
+    const draw = (name: string, status: NameStatus | null): void => {
+      const lines = wrapText(t('auth.fr.nameLine', { name }), w - 8, 2).lines;
+      // one text (one id at every size), its lines centred
+      const txt = mtext(this, x + w / 2, y, lines.join('\n'), 'pSec', { align: 0.5 }).setCenterAlign();
+      uiId(txt, 'firstrun.name');
+      this.ui.add(txt);
+      const linkW = Math.min(w, SKIP_W);
+      const rename = (st: NameStatus) => openRename(this, { current: name, status: st, onDone: (n) => this.sys.isActive() && this.scene.restart({ mode: 'modes', name: n }) });
+      this.textLink(x + Math.round((w - linkW) / 2), y + lines.length * LINE_H, linkW, t('auth.fr.nameChange'), 'firstrun.name.change', () => {
+        if (status) return void rename(status);
+        // a name known before the account was read (after a rename, or staged): the rules' state comes with the tap
+        if (!online.signedIn) return void rename(FREE_NAME);
+        void online.api.account().then((a) => this.sys.isActive() && rename(a.name), () => undefined);
+      });
+    };
+    if (this.knownName) return draw(this.knownName, null);
+    void online.api.account().then(
+      (a) => this.sys.isActive() && this.mode === 'modes' && draw(a.displayName, a.name),
+      () => undefined,
+    );
   }
 
   private openMode(id: 'campaign' | 'duels' | 'war'): void {

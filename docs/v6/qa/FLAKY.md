@@ -41,6 +41,14 @@ F1-F4 are resolved (QA-HARDEN, 2026-10-14); a new flake gets a row here.
 - **Cause:** suspected: a workerd/miniflare handle not closing.
 - **Fix:** none yet. A QA pass should find which test file hangs (run with --reporter=verbose and a per-file timeout).
 
+### F12 · `scripts/account-e2e.mjs` "sign-up with a taken address shows the same Check your email (no disclosure)" (suspected, timing; cause not found)
+
+- **Seen:** once in V6-LINK-07's agent run (then passed on a rerun). V6-LINK-07b (2026-10-18): local `wrangler dev` (DEV_AUTH, DEV_EMAIL, a private D1) and vite dev on 6140/6141, load average 25-100 (other agents' suites), 26 runs. **Plain runs: 5 of 9 failed it** (2 of 5 back to back, then 3 of 4 at load 50-100; the 4th, with `--shots`, passed). **Instrumented runs: 1 of 17** (13 with a request log, scene create/shutdown hooks armed before the submit and the sheet's texts dumped; 4 with the hooks armed from page load). In 2 of the 6 failing runs the first sign-up's check ("202 check_email: … names the address") failed the same way, while "Resend is off with a countdown", read from the same text, passed.
+- **What a failure looks like:** the form closed (no banner, no field error: the request answered 202, the success path ran), but the address was not in the Menu's texts when the check read them. On the first sign-up a Check your email sheet was there (its title and "Resend in 1:00" were read) without the address. Instrumented runs saw no Menu restart and no other `/api` call between the submit and the check, and every dumped sheet held the address whole (one BitmapText lead, never split).
+- **Cause:** not found; timing, since anything that slows the page down before the check (the probes' evaluates, `--shots`) makes it pass. Ruled out: a wrapped or dropped address, a 429 (that path keeps the form open with a banner), a Menu restart or cloud adopt in the instrumented runs.
+- **Also seen in these runs (not F12):** (1) a run started within a minute of the previous one fails the log-in checks: the script's last step bursts `/api/auth/login` into the per-IP limit, which holds for a minute (run the script at least 65 s apart); (2) 3 times in these runs (load 30-100) the 429 step's submit timed out: the fixed one-minute window rolled over between the burst and the submit, so the log-in went through and the form closed (a real race in the script: the next QA pass should check the answer, not the banner, or retry the burst when the form closes).
+- **Fix:** none yet. Next time it fails, dump every active scene's texts and the Menu's create/shutdown times at the failure without slowing the run before it.
+
 ## Resolved
 
 ### F8 · layout check element parity on real-time scenes (timing/async + random seed, fixed in PARITY-STABLE)

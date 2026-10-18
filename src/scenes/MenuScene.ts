@@ -10,6 +10,8 @@ import { demoAccountSource, openAccountPage } from '../ui/account/accountPage';
 import { openDevices } from '../ui/account/devices';
 import { checkTelegramConflicts } from '../ui/account/conflict';
 import { openLinkingDemo, type LinkDemo } from '../ui/account/linkDemo';
+import { openPrivacyDemo, type PrivacyDemo } from '../ui/account/privacyDemo';
+import { noticeModerationAtLaunch } from '../ui/account/nameSheet';
 import { addTipLine } from '../ui/mosaic';
 import { tipHidden } from '../ui/mosaic/tips';
 import { Campaign } from '../game/campaign';
@@ -84,6 +86,8 @@ export class MenuScene extends BaseScene {
     }
     // The first sync after a log-in found progress on both sides (AU-08, V6-ACCT-07): the player picks.
     askTwoCampaigns(this, () => this.scene.restart());
+    // A moderator reset the name (AU-18 §9.5): the launch says so, once (after Two campaigns, when that asks).
+    if (!online.choice) void noticeModerationAtLaunch(this);
   }
 
   /**
@@ -410,6 +414,11 @@ export class MenuScene extends BaseScene {
   /** The linking sheets (AU-13, AU-14, AU-16) on stand-in answers (layout check); nothing is sent. */
   openLinkingDemo(kind: LinkDemo): void {
     openLinkingDemo(this, kind);
+  }
+
+  /** The nickname and deletion sheets (AU-18, AU-19) on stand-in answers (layout check); nothing is sent. */
+  openPrivacyDemo(kind: PrivacyDemo): void {
+    openPrivacyDemo(this, kind);
   }
 
   /** AU-08 with two sample campaigns (layout check); nothing is kept. */

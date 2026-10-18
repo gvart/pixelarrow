@@ -16,6 +16,7 @@ import type { UiScene } from '../mosaic/subShell';
 import { accountDeps, type AccountDeps } from './deps';
 import { linkFail } from './linking';
 import { openLinkSheet, type Body } from './linkSheet';
+import { followLinkedAccount, type FollowDeps } from './follow';
 
 type RequestApi = Pick<ApiClient, 'linkPeek' | 'linkComplete' | 'linkNotMe'>;
 
@@ -23,6 +24,8 @@ export interface LinkRequestOpts {
   api?: RequestApi;
   d?: AccountDeps;
   onClose?: () => void;
+  /** Stand-ins for following the web's confirm (tests); the live ones by default. */
+  follow?: FollowDeps;
 }
 
 export function openLinkRequest(scene: UiScene, code: string, o: LinkRequestOpts = {}): void {
@@ -86,6 +89,8 @@ export function openLinkRequest(scene: UiScene, code: string, o: LinkRequestOpts
       // still possible after Link (V6-053)
       b.button({ label: t('link.notMe'), id: 'link.tg.notMe', variant: 'neutral', onClick: () => void notMe() });
     });
+    // once the web confirms, this launch becomes the web account by itself (V6-LINK-07)
+    if (!p.conflict) followLinkedAccount(scene, sheet, o.follow);
   };
 
   const load = async () => {

@@ -13,6 +13,7 @@ import { resetRateLimits } from '../src/rateLimit';
 import { banIdentityHash } from '../src/account/banTombstone';
 import { peppersFromEnv } from '../src/auth/password';
 import { pruneLinks } from '../src/account/cron';
+import { day1Only } from '../src/account/conflicts';
 
 const DB = () => env.DB!;
 const PW = 'battle-standard-42';
@@ -102,6 +103,13 @@ async function giveProgress(pid: number, won = 5): Promise<void> {
   const data = JSON.stringify({ v: 1, won, heroes: [{}, {}, {}], world: { time: 24 * 6 + 3 } });
   await DB().prepare('INSERT INTO saves (player_id, revision, version, data, size, updated_at) VALUES (?1, 1, 1, ?2, ?3, ?4)').bind(pid, data, data.length, Date.now()).run();
 }
+/** A cloud save with exactly `data` (an object is stored as JSON, a string as is). */
+async function giveSave(pid: number, data: object | string): Promise<void> {
+  const raw = typeof data === 'string' ? data : JSON.stringify(data);
+  await DB().prepare('INSERT INTO saves (player_id, revision, version, data, size, updated_at) VALUES (?1, 1, 1, ?2, ?3, ?4)').bind(pid, raw, raw.length, Date.now()).run();
+}
+/** What the Mini App uploads on its first launch (and after the tutorial): campaign day 1, no battle fought. */
+const DAY1 = { v: 6, gold: 160, won: 0, fought: 0, heroes: [{}, {}, {}, {}, {}, {}, {}, {}], stash: [{}, {}, {}], world: { time: 8 } };
 async function givePurchase(pid: number): Promise<void> {
   await DB()
     .prepare(`INSERT INTO purchases (telegram_payment_charge_id, player_id, product_id, currency, stars_amount, payload, created_at) VALUES (?1, ?2, 'founder', 'XTR', 100, '{}', ?3)`)
@@ -308,6 +316,35 @@ describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-
     expect((await devLogin(t.tgId)).playerId).toBe(w.pid);
   });
 
+  it('V6-LINK-07: an other account with only a day-1 save (the Mini App first launch) counts as empty: no conflict, its save goes', async () => {
+    const w = await webAccount();
+    await giveProgress(w.pid);
+    const t = await tgAccount();
+    await giveSave(t.pid, DAY1);
+    await linkUpTo(w, t);
+    const r = await confirm({ cookie: w.cookie });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ linked: true, removedEmpty: true });
+    expect(await telegramOf(w.pid)).toBe(String(t.tgId));
+    expect(await deletedAt(t.pid)).not.toBeNull();
+    expect(await count('saves WHERE player_id = ?1', t.pid)).toBe(0);
+    expect(await count('saves WHERE player_id = ?1', w.pid)).toBe(1);
+  });
+
+  it('day1Only: day 1 with no battle fought or won, every field a number; anything else or unknown is progress', () => {
+    expect(day1Only({ hours: 8, won: 0, fought: 0 })).toBe(true);
+    expect(day1Only({ hours: 0, won: 0, fought: 0 })).toBe(true);
+    expect(day1Only({ hours: 23.9, won: 0, fought: 0 })).toBe(true);
+    expect(day1Only({ hours: 24, won: 0, fought: 0 })).toBe(false);
+    expect(day1Only({ hours: 8, won: 1, fought: 1 })).toBe(false);
+    expect(day1Only({ hours: 8, won: 0, fought: 1 })).toBe(false);
+    expect(day1Only({ hours: null, won: 0, fought: 0 })).toBe(false);
+    expect(day1Only({ hours: 8, won: null, fought: 0 })).toBe(false);
+    expect(day1Only({ hours: 8, won: 0, fought: undefined })).toBe(false);
+    expect(day1Only({ hours: '8', won: 0, fought: 0 })).toBe(false);
+    expect(day1Only({ hours: -1, won: 0, fought: 0 })).toBe(false);
+  });
+
   it('a busy other account is 409 busy_try_later and nothing changes', async () => {
     const w = await webAccount();
     const t = await tgAccount();
@@ -489,7 +526,10 @@ describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-
   it('(e) the empty-player check: every kind of progress makes it a conflict', async () => {
     const now = Date.now();
     const kinds: Record<string, (pid: number) => Promise<unknown>> = {
-      'a cloud save (even the first battle)': (pid) => giveProgress(pid, 0),
+      'a cloud save past day 1 (even with no battle won)': (pid) => giveProgress(pid, 0),
+      'a day-1 save with a battle fought': (pid) => giveSave(pid, { v: 6, won: 0, fought: 1, gold: 140, heroes: [{}], world: { time: 9 } }),
+      'a day-1 save with a battle won': (pid) => giveSave(pid, { v: 6, won: 1, fought: 1, heroes: [{}], world: { time: 9 } }),
+      'an unreadable save': (pid) => giveSave(pid, '{not json'),
       'a purchase': givePurchase,
       'an entitlement': (pid) => DB().prepare(`INSERT INTO entitlements (player_id, product_id, granted_at) VALUES (?1, 'founder', ?2)`).bind(pid, now).run(),
       'a duel profile': (pid) => DB().prepare(`INSERT INTO duel_profiles (player_id, glory, next_id, team, formations, created_at, updated_at) VALUES (?1, 0, 1, '[]', '[]', ?2, ?2)`).bind(pid, now).run(),
