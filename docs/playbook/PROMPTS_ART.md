@@ -1141,3 +1141,27 @@ draws a second bow. Say "the one bow never moves … there is only one bow". The
 **Lessons:** "never further than over his shoulder" is not enough for a back-facing look: say "his back and the back of
 his head stay to the viewer in every frame, his face never shows". A leather colour on a skin step is fixed in the spec
 with a per-step `parts` key, no retint needed.
+
+### gallic
+
+- subject: `a grim tall bare-chested Gallic warrior with limed pale-grey spiked hair and a long moustache, blue woad on his chest, a bronze torc, dark trousers, one tall oval plain dark hide shield with a dark iron boss on his left arm, one heavy iron war axe on a wooden haft in his right hand` (back: `a grim tall bare-chested Gallic warrior seen from behind, limed pale-grey spiked hair, bare back, dark trousers, one tall oval dark hide shield on his left arm, one heavy iron war axe on a wooden haft in his right hand`)
+- rest pose: `standing upright, the war axe held down at his right side, the tall oval shield on his left arm`; guard pose: `in a fighting guard, the tall oval shield up in front of his body, the war axe raised beside it in his right hand, knees bent`
+- guard: the celt_sword's with `… raises the war axe in his right hand, the axe head up beside the shield's right edge …`; SE a2 adds `the shield stays plain dark brown hide with only a dark iron boss, no metal rim, no gold`
+- slash (front, a2): `a heavy one-handed chopping blow at an enemy in front of him towards the viewer's lower left: from his guard he lifts the war axe straight up high over his right shoulder without turning away, then steps forward onto his left foot with the hips and shoulders turning towards the viewer's lower left, driving the tall shield forward with his body, and brings the axe down hard in a diagonal chop into the enemy in front of him, the axe blade leading, ending low ahead of his left knee, then he recovers back into his guard behind the shield; his face and chest stay towards the viewer's lower left in every frame, he never turns his back or turns round; the shield stays on his left arm; one axe only, the axe keeps its shape and size; no smear, no sparks, no motion trails, no blood, no effects` (SE a2: `… a short diagonal chop past the shield's edge … the tall oval shield stays on his left arm in front of his body, clearly visible in every frame, it never disappears and never moves to his other side`; back facings: the celt_sword's NW a2 wording with the axe)
+- block: front a3 `takes cover in place: he crouches a little and pulls the tall oval shield up higher in front of his body until its rim is at his eyes, braces behind it with his shoulder for a moment, then lowers it back to his guard; he does not turn …`; SE `he thrusts the tall oval shield up and forward towards the viewer's lower right, his left shoulder leading …`; back `… his back stays to the viewer in every frame, he never turns round …`
+- deaths (a2 and all back facings): `dying in battle: his strength suddenly gives out, his knees buckle and he topples over backwards … his body stays clean, no wounds, no red, no blood at all, no effects`
+- the other clips: the celt_sword wording with `the war axe … down in the right hand` and no cloak
+
+| # | Attempt | Outcome |
+| --- | --- | --- |
+| 1 | guard SE a1 | **Rejected:** a bright gold shield rim and boss |
+| 2 | slash SW a1, SE a1 | **Rejected:** he turns his back in the windup; the shield swings out of sight |
+| 3 | block SW a1, a2 | **Rejected:** he turns his back on the blow |
+| 4 | fallBack SW SE a1 | **Rejected:** blood bursts over the body |
+| 5 | everything else | **Promoted** (turned-round, smear, spark and blood frames dropped by `frames`) |
+
+**Lessons:** "killed … he is struck" brings a blood burst over the chest in most deaths; "his strength suddenly gives
+out … no wounds, no red" gives clean falls. Blood over the body must be dropped by frame, not cut by colour (the cut
+holes the figure). A block "at a blow" makes the model turn side-on to the attacker; "takes cover … he does not turn"
+holds the facing better. A shielded one-hand chop keeps facing only with "his face and chest stay towards … he never
+turns his back".

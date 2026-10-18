@@ -407,6 +407,51 @@ base's; one weapon, held right, but a softer silhouette.
 black cloak. **QC:** 0 failures, stature 57 in all four facings; 139 warnings (the spear-end heuristic on the falx).
 **Gens:** 80 quoted (68 jobs).
 
+#### gallic
+
+Base: I4a N1 (bare-chested, limed spiked hair, long moustache, blue woad, bronze torc, dark trousers, tall oval hide
+shield with an iron boss, one iron war axe). The data gives him a shield, so the attack is a **weighted one-hand chop
+with the shield moving with the body**. **Groups:** `i5b/rampdump.mjs` on the base and the slash: his trousers and the
+hide shield are raw `#352b26` (metal step 0) and `#241913` / umber, not skin, so the skin group is his body only; the
+hair lands on linen; the woad lands on enemySlate. Ramps outline, umber, darkBronze, skin, bronze, iron, linen, metal,
+enemySlate; parts: bronze (the torc, the SE shield rim) → trim, iron → the iron metal group (weapon), the rest → shadow;
+crest, emblem and the spear heuristic off; `greyCut` 0.8; `stature.from: any`.
+
+**The attack (`slash`, 16 @ 16, strike 6).** From the guard behind the tall shield he lifts the axe high over his right
+shoulder (f1–f5), steps in on the left foot with the hips and shoulders turning and the shield driven forward, and chops
+down into the man in front of him (f6, low ahead of the left knee), follows through low (f7–f11) and comes back up
+behind the shield (f12–f15). Every facing was re-timed with `frames` so the chop lands on index 6.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | SE | a1 | 1 | **Rejected:** gear drift, a bright gold shield rim and boss |
+| 2 | guard | all 4 | a1 / SE a2 | 4 | **Promoted** (f7); SE a2's dark-orange rim is on the approved SE base |
+| 3 | slash | SW | a1 | 2 | **Rejected:** he turns his back in the windup (f2–f6); blood at the blow |
+| 4 | slash | SW | a2 | 2 | **Promoted after frame drops:** f3–f5 REJECTED (turned away again); the raised axe f2 is held into the overhead f6 |
+| 5 | slash | SE | a1 | 2 | **Rejected:** the shield swings out of sight behind him for the follow-through; crescent smear |
+| 6 | slash | SE | a2 | 2 | **Promoted after frame drops:** crescent smear f4 dropped |
+| 7 | slash | NE NW | a1 | 4 | **Promoted after frame drops:** NE crescent smears f6–f7; NW f2–f3 REJECTED (turned round to the viewer) |
+| 8 | block | SW | a1 a2 | 2 | **Rejected:** he turns his back on the blow / the shield jumps to his other side |
+| 9 | block | SW | a3 | 1 | **Promoted:** the shield thrust out left shoulder first; f8 (a back view in passing) dropped |
+| 10 | block | SE NE NW | a1 | 3 | **Promoted after frame drops:** SE f5–f11 REJECTED (the hair turns blond, sparks over the shield), the raise played out and back; NE f1–f2, NW f2 spark bursts over the shield |
+| 11 | fallBack | SW SE | a1 | 4 | **Rejected:** blood bursts over the chest and shield in the first frames (a colour cut would hole the body) |
+| 12 | fallBack | SW SE | a2 | 4 | **Promoted:** "his strength suddenly gives out … no wounds, no red" (used for NE and NW too) |
+| 13 | cheer | SE | a1 | 1 | Re-run on a false alarm (the raised axe made him look taller; the body measures the same); a2 used |
+| 14 | everything else | all 4 | a1 | 59 | **Promoted** (blood dropped by frame: stagger SW SE NE, fallFwd SW SE, kneel NE; one black-hair frame in adjust SE) |
+
+**Rejections:** facing drift (turned his back or round) 3 clips + 2 frame runs; shield out of sight 1 clip; gear drift
+(gold rim 1 clip, blond hair 7 frames, black hair 1 frame, crescent smears 3 frames); blood over the body 2 clips + 9
+frames. Doubled or reversed weapon, a second shield, clipping, proportion drift: **0**. **Needs review:** in the NW guard
+stance (ready, charge's first frame, block, the slash's windup) the axe is held up across his body over the shield's top
+edge, which from behind reads like the left hand; the SE shield has the dark-orange rim of its base (the other facings
+have none), and that rim is trim, so the tiers tint it; the woad stays enemySlate blue (shadow, not tinted). One slot
+over the cap: five jobs ran at once for a few minutes (cheer SE a2), then back to four.
+
+**Sheet.** 16 clips, frame 88 x 112, 4048 x 2240 (34.6 MB as v2); packed in the build below. 35 colours; groups trim 3
+(the torc), skin 4 (the body only); metal: iron (weapon). Tiers: veteran polished torc, elite gold torc (he has no cloak).
+**QC:** 0 failures, stature 61 in all four facings; 374 warnings, all the spear-end heuristic on the axe and the shield
+edge. **Gens:** 92 quoted (76 jobs).
+
 ### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
 
 **Brief.** One approved base character per foot class other than the hoplite (militia, thureophoros, celt_sword, rhomphaia, archer, slinger, javelineer, peltast, falx, gallic, fanatic, royal_guard, sacred_band), matching H4 (`b7624d6d`) in style, shape and proportion, following `docs/v5/art/STYLE_LOCK.md`. Mood is dark-epic: Greeks in bronze and crimson; Carthaginians in purple-black, bronze and linen; Celts in plaid, iron, woad and torcs. Every class must read at battle scale by its headgear and silhouette (art bible §5.2). The cloak, crest and trim stay clean colour groups for the tier recolour (V5-092). Hard rejects are checked in all 8 views.
