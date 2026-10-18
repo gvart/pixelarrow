@@ -1,82 +1,144 @@
 /**
- * Greybox terrain baked into canvases: the base map in 16 px-per-tile chunks (terrain tint,
- * height shading with a NW light, contour lines between height levels, cliffs heavier, water
- * shallow vs deep), and the overlays at 1 px per tile (scaled up with nearest filtering).
+ * Greybox iso terrain baked into canvases. Any world-px rectangle can be baked at any scale: the
+ * scene bakes 512 px screen-space chunks at 1x on demand (LRU pool) and one whole-map overview at
+ * 1/4 for zoomed-out views. Tiles are painted back to front (x + y ascending); each draws its own
+ * front walls down to the lower neighbour (or the slab base at the map edge), so cliffs, plateau
+ * edges and riverbanks stand as vertical faces. Light from the NW: tops shade by slope and
+ * altitude, back rims catch light, front rims and the SE faces fall in shadow; tall walls carry a
+ * line per level.
  */
 import { buildGrid } from '../sim/grid';
 import type { RegionData, TerrainKind } from '../types';
+import { HH, HW, IsoMap, LH, ZBASE } from './iso';
 
-export const TILE = 16;
-export const CHUNK = 32; // tiles per chunk side
+export const CHUNK_PX = 512;
+export const OVERVIEW_SCALE = 0.25;
 
-const TINT: Record<TerrainKind, [number, number, number]> = {
+type RGB = [number, number, number];
+const TINT: Record<TerrainKind, RGB> = {
   grass: [118, 140, 84], forest: [62, 96, 58], sand: [196, 180, 128], marsh: [98, 112, 84],
   rock: [128, 122, 116], road: [168, 146, 108], snow: [226, 228, 232], dirt: [140, 118, 86],
 };
-const SHALLOW: [number, number, number] = [98, 150, 170];
-const DEEP: [number, number, number] = [44, 82, 120];
+const SHALLOW: RGB = [98, 150, 170];
+const DEEP: RGB = [40, 74, 112];
+const CLIFF: RGB = [118, 108, 98];
+const ZONE_NOBUILD: RGB = [255, 255, 255];
+const ZONE_ENTRY: RGB = [255, 224, 112];
 
+export interface BakeOpts { ov: 'none' | 'height' | 'cost'; grid: boolean; zones: boolean }
 
-/** One chunk of the base map, cx/cy in chunks. */
-export function bakeChunk(r: RegionData, cx: number, cy: number): HTMLCanvasElement {
-  const tw = Math.min(CHUNK, r.w - cx * CHUNK), th = Math.min(CHUNK, r.h - cy * CHUNK);
-  const cv = document.createElement('canvas');
-  cv.width = tw * TILE;
-  cv.height = th * TILE;
-  const ctx = cv.getContext('2d')!;
-  const img = ctx.createImageData(cv.width, cv.height), px = img.data;
-  const H = (x: number, y: number) => r.height[Math.max(0, Math.min(r.h - 1, y)) * r.w + Math.max(0, Math.min(r.w - 1, x))];
-  for (let ty = 0; ty < th; ty++) {
-    for (let tx = 0; tx < tw; tx++) {
-      const x = cx * CHUNK + tx, y = cy * CHUNK + ty, i = y * r.w + x, h = r.height[i];
-      const wtr = r.water[i];
-      const base = wtr === 2 ? DEEP : wtr === 1 ? SHALLOW : TINT[r.terrain[i]];
-      // light from the NW: brighter where the ground rises toward the SE, plus altitude lift
-      const slope = H(x + 1, y + 1) - H(x - 1, y - 1);
-      const k = wtr ? 1 : 0.78 + h * 0.055 - slope * 0.07;
-      // contours on the edges toward lower ground: 1 px per level step, 2 px + darker for a cliff
-      const dn = [h - H(x, y - 1), h - H(x + 1, y), h - H(x, y + 1), h - H(x - 1, y)];
-      for (let py = 0; py < TILE; py++) {
-        for (let pxl = 0; pxl < TILE; pxl++) {
-          let m = k;
-          const edge = [py, TILE - 1 - pxl, TILE - 1 - py, pxl];
-          for (let s = 0; s < 4; s++) {
-            if (dn[s] >= 2 && edge[s] < 2) m = Math.min(m, 0.32);
-            else if (dn[s] === 1 && edge[s] < 1) m = Math.min(m, k * 0.62);
-          }
-          if (r.terrain[i] === 'forest' && !wtr && ((pxl * 7 + py * 13 + x * 5 + y * 3) % 11 === 0)) m *= 0.7; // canopy speckle
-          const o = ((ty * TILE + py) * cv.width + tx * TILE + pxl) * 4;
-          px[o] = Math.min(255, base[0] * m);
-          px[o + 1] = Math.min(255, base[1] * m);
-          px[o + 2] = Math.min(255, base[2] * m);
-          px[o + 3] = 255;
+/** Per-region data shared by every bake. */
+export class TerrainBaker {
+  private cost: Float32Array;
+  private zone: Uint8Array; // 0 none, 1 no-build, 2 entry
+
+  constructor(readonly r: RegionData, readonly iso: IsoMap) {
+    this.cost = buildGrid(r).cost;
+    this.zone = new Uint8Array(r.w * r.h);
+    const mark = (b: { x: number; y: number; w: number; h: number }, k: number) => {
+      for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) this.zone[y * r.w + x] = k;
+    };
+    r.noBuild.forEach((b) => mark(b, 1));
+    r.entries.forEach((b) => mark(b, 2));
+  }
+
+  /** Paint the world rect (x0, y0, w, h) into ctx (cleared first) at `scale` canvas px per world px. */
+  bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, o: BakeOpts): void {
+    const { r, iso } = this;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
+    ctx.lineJoin = 'round';
+    const seam = 1 / scale; // a 1 canvas-px stroke in the fill colour closes antialias seams
+    const umin = Math.floor((x0 - iso.OX) / HW) - 1, umax = Math.ceil((x0 + w - iso.OX) / HW) + 1;
+    const vmin = Math.floor((y0 - iso.OY - 2 * HH + ZBASE * LH) / HH) - 1;
+    const vmax = Math.ceil((y0 + h - iso.OY + 8 * LH) / HH);
+    const sx = (x: number, y: number) => iso.OX + (x - y) * HW;
+    const sy = (x: number, y: number, z: number) => iso.OY + (x + y) * HH - z * LH;
+    const fill = (c: RGB, k: number) => `rgb(${Math.min(255, c[0] * k) | 0},${Math.min(255, c[1] * k) | 0},${Math.min(255, c[2] * k) | 0})`;
+    const H = (x: number, y: number) => r.height[Math.max(0, Math.min(r.h - 1, y)) * r.w + Math.max(0, Math.min(r.w - 1, x))];
+
+    for (let v = Math.max(0, vmin); v <= Math.min(r.w + r.h - 2, vmax); v++) {
+      let u = Math.max(umin, -v, v - 2 * (r.h - 1));
+      if ((u + v) & 1) u++;
+      for (; u <= Math.min(umax, v, 2 * (r.w - 1) - v); u += 2) {
+        const x = (u + v) / 2, y = (v - u) / 2;
+        if (x < 0 || y < 0 || x >= r.w || y >= r.h) continue;
+        const i = y * r.w + x, z = iso.z[i], wtr = r.water[i];
+        const base: RGB = wtr === 2 ? DEEP : wtr === 1 ? SHALLOW : TINT[r.terrain[i]];
+        const tx = sx(x, y), ty = sy(x, y, z);
+        // front walls: SE face toward (x+1, y), SW face toward (x, y+1)
+        const zE = iso.zt(x + 1, y), zS = iso.zt(x, y + 1);
+        const wall = (dz: number): RGB => (dz >= 2 && !wtr ? CLIFF : base);
+        if (zE < z) this.face(ctx, tx + HW, ty + HH, tx, ty + 2 * HH, z - zE, fill(wall(z - zE), 0.52), seam);
+        if (zS < z) this.face(ctx, tx, ty + 2 * HH, tx - HW, ty + HH, z - zS, fill(wall(z - zS), 0.7), seam);
+
+        // top: overlay or terrain colour, shaded by slope toward the NW light and by altitude
+        let c = base, k = 1;
+        if (o.ov === 'height') c = [255 * (r.height[i] / 7), 80 + 60 * Math.sin((r.height[i] / 7) * Math.PI), 255 * (1 - r.height[i] / 7)];
+        else if (o.ov === 'cost') {
+          const m = this.cost[i];
+          c = m === 0 ? [0, 0, 0] : [Math.min(255, (m - 0.7) * 140), Math.max(0, 230 - (m - 0.7) * 100), 40];
+        } else if (!wtr) {
+          // gentle slopes only (each step clamped to 1): a cliff foot or top is not a slope
+          const d = (nx: number, ny: number) => Math.max(-1, Math.min(1, H(nx, ny) - r.height[i]));
+          const slope = d(x + 1, y) + d(x, y + 1) - d(x - 1, y) - d(x, y - 1);
+          k = 0.8 + r.height[i] * 0.04 - slope * 0.05;
+        }
+        const zk = o.zones ? this.zone[i] : 0;
+        if (zk) {
+          const t = zk === 2 ? 0.3 : 0.14, zc = zk === 2 ? ZONE_ENTRY : ZONE_NOBUILD;
+          c = [c[0] * k * (1 - t) + zc[0] * t, c[1] * k * (1 - t) + zc[1] * t, c[2] * k * (1 - t) + zc[2] * t];
+          k = 1;
+        }
+        const col = fill(c, k);
+        ctx.beginPath();
+        ctx.moveTo(tx, ty); ctx.lineTo(tx + HW, ty + HH); ctx.lineTo(tx, ty + 2 * HH); ctx.lineTo(tx - HW, ty + HH); ctx.closePath();
+        ctx.fillStyle = col; ctx.fill();
+        ctx.strokeStyle = col; ctx.lineWidth = seam; ctx.stroke();
+
+        if (r.terrain[i] === 'forest' && !wtr && o.ov === 'none' && ((x * 7 + y * 13) % 3 === 0)) {
+          ctx.fillStyle = fill(base, 0.62 * k); // a canopy blob
+          ctx.beginPath(); ctx.ellipse(tx, ty + HH - 2, HW * 0.42, HH * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        // rims: back edges toward lower ground catch the light, front edges over a drop go dark
+        ctx.lineWidth = Math.max(seam, 1);
+        const rim = (ax: number, ay: number, bx: number, by: number, s: string) => {
+          ctx.strokeStyle = s; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+        };
+        if (iso.zt(x - 1, y) < z - 0.5) rim(tx - HW, ty + HH, tx, ty, 'rgba(255,250,230,0.35)');
+        if (iso.zt(x, y - 1) < z - 0.5) rim(tx, ty, tx + HW, ty + HH, 'rgba(255,250,230,0.35)');
+        if (zE < z - 0.5) rim(tx + HW, ty + HH, tx, ty + 2 * HH, 'rgba(20,16,10,0.45)');
+        if (zS < z - 0.5) rim(tx, ty + 2 * HH, tx - HW, ty + HH, 'rgba(20,16,10,0.45)');
+        if (zk) {
+          const ec = zk === 2 ? 'rgba(255,224,112,0.9)' : 'rgba(255,255,255,0.6)';
+          const zn = (nx: number, ny: number) => (nx < 0 || ny < 0 || nx >= r.w || ny >= r.h ? 0 : this.zone[ny * r.w + nx]);
+          if (zn(x - 1, y) !== zk) rim(tx - HW, ty + HH, tx, ty, ec);
+          if (zn(x, y - 1) !== zk) rim(tx, ty, tx + HW, ty + HH, ec);
+          if (zn(x + 1, y) !== zk) rim(tx + HW, ty + HH, tx, ty + 2 * HH, ec);
+          if (zn(x, y + 1) !== zk) rim(tx, ty + 2 * HH, tx - HW, ty + HH, ec);
+        }
+        if (o.grid) {
+          ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = seam;
+          ctx.beginPath();
+          ctx.moveTo(tx, ty); ctx.lineTo(tx + HW, ty + HH); ctx.lineTo(tx, ty + 2 * HH); ctx.lineTo(tx - HW, ty + HH); ctx.closePath();
+          ctx.stroke();
         }
       }
     }
   }
-  ctx.putImageData(img, 0, 0);
-  return cv;
-}
 
-/** A 1 px-per-tile overlay: 'height' (blue low to red high) or 'cost' (green cheap to red, black blocked). */
-export function bakeOverlay(r: RegionData, kind: 'height' | 'cost'): HTMLCanvasElement {
-  const cv = document.createElement('canvas');
-  cv.width = r.w;
-  cv.height = r.h;
-  const ctx = cv.getContext('2d')!;
-  const img = ctx.createImageData(r.w, r.h), px = img.data;
-  const cost = buildGrid(r).cost; // the sim's per-tile move cost, 0 = impassable (cliffs are per step, not shown)
-  for (let i = 0; i < r.w * r.h; i++) {
-    let c: [number, number, number];
-    if (kind === 'height') {
-      const t = r.height[i] / 7;
-      c = [255 * t, 80 + 60 * Math.sin(t * Math.PI), 255 * (1 - t)];
-    } else {
-      const m = cost[i];
-      c = m === 0 ? [0, 0, 0] : [Math.min(255, (m - 0.7) * 140), Math.max(0, 230 - (m - 0.7) * 100), 40];
-    }
-    px.set([c[0], c[1], c[2], 255], i * 4);
+  /** A vertical wall under the top edge a -> b, dz levels tall, with a strata line per level. */
+  private face(ctx: CanvasRenderingContext2D, ax: number, ay: number, bx: number, by: number, dz: number, col: string, seam: number): void {
+    const d = dz * LH;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(bx, by + d); ctx.lineTo(ax, ay + d); ctx.closePath();
+    ctx.fillStyle = col; ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = seam; ctx.stroke();
+    if (dz < 1.5) return;
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = Math.max(seam, 1);
+    ctx.beginPath();
+    for (let l = 1; l < dz; l++) { ctx.moveTo(ax, ay + l * LH); ctx.lineTo(bx, by + l * LH); }
+    ctx.stroke();
   }
-  ctx.putImageData(img, 0, 0);
-  return cv;
 }
