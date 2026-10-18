@@ -1,0 +1,123 @@
+{
+ "$doc": "I4b mounted and chariot base characters (8 rotations), styled on H4, one PixelLab character per figure (rider + horse, or crew + horses + car). canvas = PixelLab rotation canvas (square); box = opaque box per game facing (x0..x1, y0..y1 in canvas px); ground = the hooves' or wheels' lowest row; centre = box centre x, the suggested per-row anchor. rotations = local raw path (gitignored); refetch with scripts/art/pixellab/fetch.mjs <character_id> <dir without /zip/...>. Remap palette for the sheets: docs/v5/pixellab/I4a/palette-dark-i4a.json. Scale: same art px per metre as H4 (the same manifest scale as the H4-based foot sheets): the riders' heads 9-11 px crown to chin (H4 9-10), the horses' withers about 47 px above the hooves (1.42 m at H4's 58 px = 1.76 m).",
+ "approach": "one pro-mode humanoid character per mounted figure: create_character mode pro, body_type humanoid (default), style_character_id H4 b7624d6d-132a-458c-8e3d-d6960d175988, view high top-down; size 100 for a rider (128 draws the whole figure 1.3-1.45x H4's scale), 128 for the chariot (its length fills the canvas, crew at H4 scale). Clips: pixminimax 16 frames, keyed loop (start = end = a mid-gallop frame of a first pixminimax run). Rejected: quadruped template horse (smaller pony horse, invented ground shadow, Corinthian-looking helm; its skeleton-v3 template gallop has 8 frames, shrinks the figure and adds ground shadows); create_object_pro_flash (style drift to near-black, scythes and helmet lost).",
+ "palette": "docs/v5/pixellab/I4a/palette-dark-i4a.json",
+ "classes": {
+  "companion": {
+   "culture": "greek",
+   "character_id": "04c31c65-31dd-432b-97e4-c44bb3d66974",
+   "prompt_id": "I4b-companion-A5",
+   "rotations": "docs/v5/pixellab/I4b/raw/companion/A5/zip/Idle/rotations",
+   "size": 100,
+   "canvas": 100,
+   "view": "high top-down",
+   "ground": 96,
+   "facings": {
+    "south-east": { "box": [18, 84, 10, 94] },
+    "north-east": { "box": [21, 83, 5, 96] },
+    "south-west": { "box": [15, 81, 1, 94] },
+    "north-west": { "box": [16, 78, 2, 96] }
+   },
+   "groups": {
+    "cloak": "purpleBlack (exclusive: the only purple on the figure)",
+    "skin": "skin, shared with the horse's bay coat: per-man skin tint must be off for riders",
+    "metal": "umber/skin: the bronze cuirass and helmet share the horse and leather colours (10 source colours)"
+   },
+   "clips": {
+    "gallop": {
+     "dir": "docs/v5/pixellab/I4b/raw/companion/A5/zip/Idle/animations/gallop",
+     "frames": 16,
+     "fps": 16,
+     "loop": "whole clip (two strides of 8 frames; frame 15 wraps to 0 like any step)",
+     "mode": "pixminimax keyed loop: start = end = the widest frame 2..9 of the gallop-entry run (SE frame 4, NE 5, SW 4, NW 5)",
+     "canvas": { "south-east": "128x128", "north-east": "132x132", "south-west": "140x144", "north-west": "136x144" },
+     "animation_group_id": "7642e014-eed1-4a6d-8520-bfee35476884",
+     "entry_group_id": "7012c675-d8fc-47f9-8b23-263e95ce50e6",
+     "cost": "10 gens (entry SE 2, NE/SW/NW 1 each; loop SE 2, NE/SW/NW 1 each)"
+    }
+   },
+   "status": "approved"
+  },
+  "thessalian": {
+   "culture": "greek",
+   "character_id": "1fb01c02-2dff-495f-ab07-15ef180c6e25",
+   "prompt_id": "I4b-thessalian-A3",
+   "rotations": "docs/v5/pixellab/I4b/raw/thessalian/A3/zip/Idle/rotations",
+   "size": 100,
+   "canvas": 100,
+   "view": "high top-down",
+   "ground": 97,
+   "facings": {
+    "south-east": { "box": [19, 81, 5, 95] },
+    "north-east": { "box": [18, 81, 6, 97] },
+    "south-west": { "box": [18, 80, 4, 95] },
+    "north-west": { "box": [18, 81, 3, 97] }
+   },
+   "groups": {
+    "cloak": "crimson (exclusive)",
+    "tunic": "teamRed (a little, on the tunic front)",
+    "horse": "umber + metal (dun-grey coat), not shared with skin"
+   },
+   "status": "approved"
+  },
+  "horse_archer": {
+   "culture": "phoenician / celtic (drawn Scythian, per the class name)",
+   "character_id": "afba45aa-e2de-4e93-b786-bb05e6330ffe",
+   "prompt_id": "I4b-horse_archer-A4",
+   "rotations": "docs/v5/pixellab/I4b/raw/horse_archer/A4/zip/Idle/rotations",
+   "size": 100,
+   "canvas": 100,
+   "view": "high top-down",
+   "ground": 98,
+   "facings": {
+    "south-east": { "box": [18, 88, 1, 98] },
+    "north-east": { "box": [16, 86, 1, 98] },
+    "south-west": { "box": [11, 81, 1, 98] },
+    "north-west": { "box": [13, 83, 6, 98] }
+   },
+   "groups": {
+    "cloak": "teamRed + crimson: the crimson riding coat (exclusive; the class has no cloak)",
+    "skin": "skin, shared with the horse's coat",
+    "mane": "purpleBlack (mane and tail only)"
+   },
+   "note": "the bow tip reaches row 1 of the canvas in three facings (not cut)",
+   "status": "approved"
+  },
+  "chariot": {
+   "culture": "phoenician",
+   "character_id": "bceaa28b-b15f-4c9d-a7ef-5d610c0b345e",
+   "prompt_id": "I4b-chariot-A1",
+   "rotations": "docs/v5/pixellab/I4b/raw/chariot/A1/zip/Idle/rotations",
+   "size": 128,
+   "canvas": 128,
+   "view": "high top-down",
+   "ground": 118,
+   "facings": {
+    "south-east": { "box": [6, 123, 10, 118] },
+    "north-east": { "box": [6, 119, 10, 117] },
+    "south-west": { "box": [4, 121, 9, 118] },
+    "north-west": { "box": [8, 121, 10, 117] }
+   },
+   "groups": {
+    "cloak": "purpleBlack (the driver's cloak; a few harness edge pixels)",
+    "skin": "skin, shared with both horses' coats"
+   },
+   "note": "the driver holds the reins and has his kopis drawn in his right hand in SE/SW (prompt said scabbard): one blade, accepted",
+   "status": "approved"
+  }
+ },
+ "rejected": {
+  "companion Pa1": "fe66ab96-2a05-4782-9dac-b2198fd71aa7: probe (a), size 128: style and gear right, but the whole figure is 1.3-1.45x H4 (rider head 14 px, withers 62 px = 1.9 m). Its gallop clips prove the recipe.",
+  "companion Pb1": "86b445a7-9a04-48a4-be1e-18964a65c057: probe (b), quadruped template horse, size 128: pony-sized horse, grey ground shadow, Corinthian-looking helm",
+  "companion A2": "1df70e8f-ba92-4320-a085-10b8c89e6fc0: size 100, scale right; the helm came out a closed Corinthian dome (no Boeotian brim)",
+  "companion A3": "db742ca7-86f2-4a58-8d38-c5a6d954714d: size 100, right helm and scale; the cloak's 2 source colours are also the horse's black mane and tail (no exclusive cloak group)",
+  "companion A4": "7eb8f6be-2b76-4eb8-9d78-2b2c990dd2fb: clean purple cloak, but a bright orange chestnut horse (style drift) that remaps to crimson and teamRed",
+  "thessalian A1": "d20a0238-3ec9-4ad9-b3d1-ab11808f5cf3: size 128, 1.35x H4",
+  "thessalian A2": "7e21f8b0-ba17-4051-98b4-99a0e46853b6: the buckler grew into an aspis with H4's lambda (copied from the style reference)",
+  "horse_archer A1": "d126eafb-ddb1-4841-95b4-5f9f0bcdae58: size 128; all umber, the checked trousers hidden by the horse (no colour group); quiver unclear",
+  "horse_archer A2": "169fbd9b-3a7c-4ae2-a695-e7a7a7345474: size 128; the bow missing in NE and SW, two arrow bundles in NE",
+  "horse_archer A3": "148bc653-3630-455e-92b7-8da3af48e7ce: size 128, right gear in 4/4 facings but 1.35x H4 (the A4 prompt word for word at 100)",
+  "chariot O1": "object 91b243f5-9b00-459a-8d21-6b1daeaac441: create_object_pro_flash 168 with H4 as style image: near-black style drift, no scythes, hooded driver",
+  "chariot S1": "object 1b8e1167-5a7a-40c0-9753-271d8b29967b: a front view at 'full scale' to rotate with v3: came out the same scale as A1, which turned out to be right"
+ }
+}

@@ -970,3 +970,67 @@ grim tall bare-chested Gallic warband warrior with realistic adult proportions: 
 wooden bow with a single thin curved limb and one straight string … no second bow". "a living man … warm tan skin" keeps a
 grim fanatic alive; grey ash on the body turns him into a ghoul. PixelLab often paints two parts in one exact colour (the
 fanatic's cloak and kilt), so a re-roll rarely separates them; a box retint into a neighbouring ramp does, at no cost.
+
+## 17. PixelLab mounted and chariot bases (I4b)
+
+Companion, thessalian, horse archer and chariot as PixelLab base characters (8 rotations), styled on the hoplite H4, and
+the companion's gallop in the 4 game facings. Full log, every attempt word for word, the probe, scale and costs:
+[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I4b. Ids, boxes and groups: `docs/v5/pixellab/mounted.json`. Sheets:
+`docs/v5/art/I4b-lineup.png`, `I4b-formation.png`, `I4b-gallop.png` (and `.gif`). Tools: `scripts/art/pixellab/mounted/`.
+
+**Call settings:** `create_character`, `mode: pro`, body humanoid (not the quadruped template), `style_character_id` H4
+`b7624d6d-132a-458c-8e3d-d6960d175988`, `view: high top-down`, **`size: 100` for a rider, `128` for the chariot** (the
+canvas sets the scale: a rider at 128 comes out 1.3–1.45x H4). The rider block is STYLE_LOCK §3's with the horse added:
+"… seated astride a real full-size warhorse, the whole horse seen from muzzle to hooves to tail, … the horse a real horse
+with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head,
+a deep chest, exactly four long slender legs with hooves; …".
+
+**companion** (A5)
+
+```
+grim Macedonian Companion heavy cavalryman seated astride a real full-size warhorse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean muscular build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep chest, exactly four long slender legs with hooves; open-faced dark weathered bronze Boeotian cavalry helmet shaped like a folded sun hat, a wide downturned brim all round, the face visible, no crest, no face mask; deep dark royal-purple cloak hanging from his shoulders over the horse's back, the only purple on the figure; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark leather boots; no shield; one long wooden xyston lance held upright in his right hand out at his right side, slanting a little forward, away from the horse's head and clearly visible in every direction, much taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; weathered dark bay-brown horse, dull and dark like old leather, with a dark umber-brown mane and tail, a dark leather bridle and reins, a plain dark leather saddle; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**thessalian** (A3)
+
+```
+grim lean Thessalian light cavalryman seated astride a real full-size horse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean wiry build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep chest, exactly four long slender legs with hooves; dark weathered bronze conical pilos helmet with a narrow brim, the face visible, no crest; short deep dark crimson chlamys cloak pinned at the right shoulder, hanging behind him; plain dark umber leather jerkin over a dark oxblood-brown tunic, no white cloth; tall dark leather boots; one small plain round dark bronze buckler on his left forearm, no bigger than his chest, no emblem, no painted sign; exactly two javelins held upright together in his right hand out at his right side, away from the horse's head and clearly visible in every direction, a little taller than the man, each with one small leaf-shaped iron head at the top and a plain blunt wooden butt end, no butt spike; dark dun-grey horse with a black mane and tail, a dark leather bridle and reins, a plain dark brown sheepskin saddle cloth; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**horse_archer** (A4)
+
+```
+grim lean Scythian horse archer seated astride a real full-size steppe horse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head, natural arms, broad shoulders, lean wiry build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep chest, exactly four long slender legs with hooves; tall pointed dark umber felt Scythian hood with long ear flaps, a dark beard, no helmet; long-sleeved deep dark crimson felt riding coat to mid-thigh with a worn dark leather belt, the only red he wears, no white cloth; dark umber leather trousers, short dark leather boots; no shield; one large recurved composite bow held up in his raised left hand, out to his left side at the height of his head, the whole bow standing upright above the horse's back and clearly visible in every direction; one dark leather quiver of arrows on his back, the arrow ends above his right shoulder; his right hand holds the reins; dark brown horse with a black mane and tail, a dark leather bridle and reins, a plain dark felt saddle cloth; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**chariot** (A1, `size: 128`)
+
+```
+grim Carthaginian scythed war chariot seen whole from the horses' muzzles to the back of the car: a light two-wheeled chariot pulled by exactly two real full-size horses side by side under one yoke on a single wooden pole, each horse with exactly four long slender legs, real horse proportions, much bigger than the man; one driver standing upright in the open car behind the horses, with realistic adult proportions: seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean muscular build; tall conical dark weathered bronze pilos helmet, no crest; deep dark purple-black cloak hanging behind him; dark umber leather corselet over a dark oxblood-brown tunic, no white cloth; he holds the dark leather reins in both hands; one curved iron kopis sword in a scabbard at his hip; the car a low dark wooden box with a dark bronze rim, two large spoked dark wooden wheels, one long curved iron scythe blade sticking out sideways from each wheel hub; two dark bay horses with black manes and tails and dark leather harness; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**Gallop** (pixminimax, 16 frames, 1 gen per facing per step at 100 px; `subject_description` "a cavalryman with a lance
+riding a dark bay warhorse"). Step 1 from the rotation:
+
+```
+the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the lance kept upright in his right hand; exactly four legs on the horse in every frame
+```
+
+Step 2, the loop: `custom_start_frame_url` = `end_frame_url` = the widest frame 2..9 of step 1 (`keyframe.mjs`, uploaded),
+`keep_first_frame: false`, `initial_pose` "mid-gallop, the legs stretched out front and back":
+
+```
+one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the lance kept upright in his right hand; exactly four legs on the horse in every frame
+```
+
+| Class | Attempts | Promoted | Main rejections |
+| --- | --- | --- | --- |
+| companion | 6 (2 probes) | A5 | Pa1: 1.3–1.45x H4 at 128; Pb1 (quadruped template): pony horse, ground shadow; A2: Corinthian dome; A3: black mane shares the cloak's colours; A4: bright chestnut drift |
+| thessalian | 3 | A3 | A1: 1.35x H4; A2: the buckler became an aspis with H4's lambda |
+| horse_archer | 4 | A4 | A1: all umber, no group; A2: the bow hidden by the horse in NE and SW; A3: right but at 128 |
+| chariot | 1 (+2 objects) | A1 | O1 (object 168): near-black drift, no scythes; S1: a front view, same scale as A1 |
+
+**Lessons:** one humanoid pro character carries rider and horse; the canvas sets the scale (measure head and withers
+before clips). The style reference's lambda leaks into round shields ("plain …, no emblem"). A weapon at the side hides
+behind the horse: raise it clear of the horse's back. A black mane takes a dark cloak's colours: give the cloak a hue
+the horse lacks. pixminimax gallops start standing: key the loop on a stretched frame.
