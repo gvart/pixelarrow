@@ -10,7 +10,7 @@
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
 import { ScrollArea, addIcon, addText, scaleIcon, type FontKey } from '../../ui/kit';
-import { MButton, MChip, SECTION_TITLE_H as SectionTitle_H, SectionTitle, mosaicImage, mtext, TAP, addSubShell } from '../../ui/mosaic';
+import { MButton, MChip, SECTION_TITLE_H as SectionTitle_H, SectionTitle, mosaicImage, mtext, mw, wrapWords, TAP, addSubShell } from '../../ui/mosaic';
 import { MOSAIC, TEXT_MIN, lineHeight } from '../../ui/tokens';
 import { uiLayout } from '../../ui/layout';
 import { CONTENT_MAX } from '../../ui/sizeClass';
@@ -217,7 +217,10 @@ export class MerchantScene extends BaseScene {
     addScrollHint(this, this.page, left, MOSAIC.parch);
     let y = this.addChips(left.content, 0, 0, lw - 4) + 4;
     y += this.infoCard(left.content, v, y, lw - 4);
-    left.setContentHeight(y + 2);
+    // as one group centred in the pane's height when it fits (as the Army's and the Clan's panes, §3.3)
+    const dy = Math.max(0, Math.floor((h - y - 2) / 2));
+    if (dy) for (const o of left.content.list as unknown as Phaser.GameObjects.Components.Transform[]) o.y += dy;
+    left.setContentHeight(y + 2 + dy);
     frameScrollTexts(left, lw);
     // ---- right: the offers
     const rx = x0 + lw + PANE_GUTTER;
@@ -277,11 +280,35 @@ export class MerchantScene extends BaseScene {
   /** The offers by section from `y`, `cols` cards a row (one card a row is v5's list). Returns the y below. */
   private offerSections(c: Phaser.GameObjects.Container, area: ScrollArea, v: MerchantView, y: number, w: number, cols: number): number {
     const cw = Math.floor((w - SIZE.gap * (cols - 1)) / cols);
+    const secTitle = (sec: Section) => (sec === 'region' ? t(`merchant.region.${v.region}` as TKey) : t(`merchant.sec.${sec}` as TKey));
+    if (cols >= 3) {
+      // three columns (expanded): one flowing grid, each section opened by a title tile in its first cell, so a
+      // short section does not leave the last columns empty down the pane (§3.7, §5 empty-column)
+      const cells: ({ sec: Section } | MerchantOffer)[] = SECTIONS.flatMap((sec) => {
+        const list = v.offers.filter((o) => o.slot === sec);
+        return list.length ? [{ sec }, ...list] : [];
+      });
+      for (let i = 0; i < cells.length; i += cols) {
+        const line = cells.slice(i, i + cols);
+        const rowH = Math.max(SectionTitle_H * 2, ...line.map((x) => ('sec' in x ? 0 : this.offerH(x, cw))));
+        line.forEach((x, j) => {
+          const x0 = j * (cw + SIZE.gap);
+          if ('sec' in x) {
+            c.add(mosaicImage(this, x0, y, cw, rowH, 'parchmentWell'));
+            const lines = wrapWords(secTitle(x.sec), cw - 12, (s) => mw(s, 'rInk', 8)).slice(0, 3);
+            const tlh = Math.ceil(lineHeight(8));
+            const th = lines.length * tlh;
+            lines.forEach((l, k) => c.add(mtext(this, x0 + cw / 2, y + Math.round((rowH - th) / 2) + k * tlh, l, 'rInk', { size: 8, align: 0.5, maxW: cw - 8 })));
+          } else this.offerRow(c, area, v, x, y, cw, x0, rowH);
+        });
+        y += rowH + SIZE.gap;
+      }
+      return y + 4;
+    }
     for (const sec of SECTIONS) {
       const list = v.offers.filter((o) => o.slot === sec);
       if (!list.length) continue;
-      const title = sec === 'region' ? t(`merchant.region.${v.region}` as TKey) : t(`merchant.sec.${sec}` as TKey);
-      c.add(new SectionTitle(this, 0, y, w, title, { size: 8 }));
+      c.add(new SectionTitle(this, 0, y, w, secTitle(sec), { size: 8 }));
       y += SectionTitle_H;
       // a row of cards is as tall as its tallest (the buy buttons line up)
       for (let i = 0; i < list.length; i += cols) {
