@@ -202,6 +202,31 @@ The hoplite's 16 clips for a shieldless levy spearman. The `MILITIA` prompt tabl
 - The two-hand thrust rig reads cleanly in all four facings at the first try.
 - "No blood" wording barely helps; for a crimson class, check every fall after the cut.
 
+#### peltast (base `4739f237`, A2)
+
+The hoplite's 16 clips plus `throw`, for a light javelin-armed skirmisher with the crescent pelte. The melee `stab` falls back to `thrust` at runtime, so the attack set is the hoplite one-hand thrust (skeleton-v3 on `rig.mjs thrust`; strike 6) and the new `throw` (pixminimax, 12 frames at 14 fps, strike 9, guard canvas): he raises the spear to his right shoulder with the head forward, draws back, steps in and hurls it; the spear flies out of the frame and the hand ends empty. The throw starts from the rotation padded onto the guard canvas (`i5a/tpad.mjs`); SE starts from the guard (spear level, head forward).
+
+- **Calls and costs.** 73 jobs, **118 gens quoted**: 69 pixminimax and 4 skeleton-v3 thrusts.
+- **Sheet.** `src/assets/sheets/peltast/{peltast.png, manifest.json}`: 214 columns of 117 x 113, wrap 35, a 4095 x 3164 image, **49.4 MB decoded**.
+- **Colour groups.** ramps outline, umber, darkBronze, crimson, metal, skin, iron. The crimson cloak is the exclusive `cloak` group; `metalKind.weaponMetal: iron` puts the iron spearhead on the iron ramp. crest and emblem false. `stature.skipTop: 4` drops the Thracian helmet's forward-curving apex from the measure (62 to 58 px). Blood left after the cut joins the cloak, so every fall and stagger was checked after the cut and broken frames replaced.
+- **QC.** `qc.mjs`: **0 failures**, 62 warnings: the spear-end heuristic on upright, parrying and thrown spears, and the wide braced and blocking stances (feet 105 vs 102); checked by eye. Stature 58, 56, 58, 56 px.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | throw SW | a1 | **Rejected (weapon reversed):** the spearhead points backwards while drawn back (f1–f5) and he turns round after the throw (f8–f10). a2 ("facing the viewer's lower left the whole time … never turning round; the spearhead always points forward") promoted; now the table's wording. |
+| 2 | throw NE | a1, a2 | **Rejected (weapon reversed):** the spearhead points left, backwards, while drawn back (f1–f5); a2 still turns sideways. a3 (the explicit line "from his shoulder up and away to the upper right … never points left or down") promoted. |
+| 3 | throw SE | a1, a2 | **Rejected (weapon reversed):** the spearhead points up-left while drawn back (f1–f6, f1–f5). a3 starts from the guard (spear level, head forward) with "the spear always lies along the line from his shoulder down and away to the lower right"; promoted. Frames 8–11 cleared of the thrown spear hanging by his feet, and the timing held (`frames` 0–5, 5, 6, 6, 7–9) so the release lands on the strike frame. |
+| 4 | every other clip, all facings | a1 / p1 | **Promoted.** Frames replaced: fallBack SE f1←f0, f2←f1, f3←f4; fallBack NE f1←f0; fallBack NW f1←f0, f2←f3; fallFwd SE f2←f1; fallFwd NE f1←f0, f2←f3; stagger SW f1←f0, f2←f3; stagger NW f1←f0, f2←f3 (all blood, which hollows the body or breaks the shaft once cut); block SW f3←f4 and thrust NW f7←f8 (spark and glint residue); block NE f3, f4←f2, f5←f6 (the spear swings upright and the shield face turns to the viewer). |
+
+**Rejection count.** Whole clips: weapon reversed 5 (all throws). Frames replaced: 18 (blood 13, sparks 2, weapon upright with the shield face turned 3), plus 4 frames cleared of a stuck thrown spear. No doubled or double-ended spears, no doubled or vanishing shields, no heads turned backwards or clipped, no drift. The front-facing block, stagger and kneel draw the pelte face-on as a round shield; accepted as the same shield seen square.
+
+**Process note.** For a few minutes 4 of my jobs ran at once (cheer SW was submitted with 3 running).
+
+**Lessons.**
+- A javelin throw needs the line spelled out per facing ("the spear lying along the line from his shoulder … towards <corner> … never points <back>"); "pointing forward" alone lets the model flip the head in the draw-back.
+- Starting the throw from the level guard (head already forward) keeps the head forward far better than starting from the upright rotation.
+- For a crimson-cloaked class the cut leaves blood in the cloak group; check every fall and stagger after the cut.
+
 ### I5c Mounted and chariot clips: companion, horse archer, thessalian, chariot, from the I4b bases to game sheets (2026-10-18)
 
 **Brief.** Animate the four approved I4b bases (`docs/v5/pixellab/mounted.json`) to the hoplite's standard: 12-16 frames a clip, dark-epic, each class identical to its base in every frame, real rider and horse proportions, weight in every attack (a lance driven with the horse's momentum, a javelin thrown with the torso turned, a bow drawn to the cheek), real gaits, spearheads lead, one head, one bow. Hard rejects frame by frame: extra or missing horse legs, rider merged into the horse, a doubled, reversed or missing weapon, a second bow, style or proportion drift, canvas clipping, unrequested sparks or blood. Tiers by runtime recolour (V5-092, V5-098); horse coats kept out of the skin and metal groups where the colours allow, the runtime flags (`variation`, `rarity`, I6) set where they do not.

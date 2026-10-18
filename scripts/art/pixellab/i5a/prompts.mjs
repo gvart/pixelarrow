@@ -72,6 +72,7 @@ export const CLASSES = {
     shield: 'the crescent pelte shield',
     spear: 'the spear',
     head: 'single leaf-shaped iron spearhead',
+    backNE: "seen from behind, the shield's dark back and rim face the viewer in every frame, never its face",
     skel: 'grim lean Greek peltast in an open-faced dark weathered bronze Thracian helmet with a forward-curving peak and cheek guards, short deep dark crimson cloak, dark leather jerkin over a dark oxblood-brown tunic, tall dark leather boots, one crescent-shaped pelte shield of dark hide with a dark bronze rim on his left arm, one wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped iron spearhead at the front end, plain blunt wooden butt end, no butt spike',
   },
 };
@@ -94,6 +95,9 @@ const CLIPS = {
   stagger: [LV, 'struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the spear level and pointing forward and the shield on the left arm in every frame; no motion blur, no effects, {H}, plain blunt butt end'],
   fallBack: [UP, 'killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood spray, no effects'],
   fallFwd: [UP, 'killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood, no effects'],
+  // the missile throw (peltast, javelineer): from the upright rotation on the guard canvas; the spear leaves the hand
+  // a2 wording (SW a1 aimed the spearhead backwards while drawing back, then turned round)
+  throw: [UP, 'a powerful overarm javelin throw, facing {t} the whole time: he raises {W} to his right shoulder, level and pointing forward with {H} in front of him and the butt behind his shoulder, draws it back along its own line, plants his left foot forward with {S} held out in front, then whips his hips, shoulders and arm forward and hurls it; the spear leaves his hand and flies off forward out of the frame, spearhead first; he follows through with his empty right hand forward and down and stays facing the same way, never turning round; the spearhead always points forward the way he faces; one spear only; no motion blur, no trail, no effects'],
   cheer: [UP, 'victory cheer in place: he thrusts {W} straight up high over his head in the right hand, spearhead pointing at the sky, keeps {S} on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; {H}, plain blunt butt end; the shield stays on the left arm in every frame'],
 };
 
