@@ -121,7 +121,7 @@ New ids outside compact portrait (none removed): `online.card.top` (the landscap
   - Esc closes the inspector first; Tab to the rail, Down ×4 reaches Zoom, Enter zooms (3 → 4);
   - 768x1024 touch: the v5 window with its rail; a tap selects a hex and opens the bottom panel; no focus ring and no cursor.
 - **online-e2e** (local Worker on :6120, dev-auth client on :6112): ALL PASS (join, attack verified, recruit, clan founded and joined by invite link, live duel 44/44 lockstep, no page errors).
-- **Regression** `run.mjs --all`, both platform modes: see below.
+- **Regression** `run.mjs --port 6113 --all`, both platform modes (Telegram and web, the browser smokes included): **PASS**, exit 0, 2296 s.
 
 ## Key screenshots (docs/v6/shots/V6-RSCR-03/, JPEG q82)
 
