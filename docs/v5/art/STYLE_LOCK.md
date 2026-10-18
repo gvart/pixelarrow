@@ -141,6 +141,13 @@ Unit sheets are not hard-snapped (V5-087). Every frame goes through `scripts/art
    and the tier ramps (`tiers.veteran`, `tiers.elite`: anchor colours in the spec, interpolated to each group's
    length). Hoplite tiers: veteran = wine cloak, scarlet crest, polished trim; elite = black cloak and crest, gold trim
    (the I1b elite probe's colours).
+   Iron-clad classes set `"metalKind": { "metal": "iron", "weaponMetal": "iron" }` in the sheet spec: each metal group's
+   manifest `kind` (default `bronze`), so rarity follows the iron ramp (`ironOf`), and at rank 0 an iron group keeps
+   the sheet's own colours (bronze still spreads over dull bronze). `"metalSlots": { "metal": ["helmet", "armor"] }`
+   narrows the gear a metal group follows for its rarity (default shield, helmet and armour for `metal`, the weapon for
+   `weaponMetal`), e.g. when the shield is wood. Both are per group and optional. `"spear": false` turns off the
+   spear-line detection for classes without a spear (swords, axes, bows), whose plaid cloak, leather and skin would
+   otherwise be tagged `wood` / `weaponMetal` along the longest thin line (default on). The hoplite sets none of them.
 
 ## 6. Animation recipe
 
