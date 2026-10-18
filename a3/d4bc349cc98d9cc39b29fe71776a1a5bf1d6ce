@@ -1,0 +1,20 @@
+scripts/link-telegram-e2e.mjs
+  s_0d98fe904b2e82::t_bfb72013a11049 246
+  s_0d98fe904b2e82::t_80723ec19e7dcc 267-277,286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a3d4bc349cc98d9cc39b29fe71776a1a5bf1d6ce",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
