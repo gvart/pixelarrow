@@ -326,5 +326,4 @@ export const DUELS_RU: Record<keyof typeof DUELS_EN, string> = {
   'duels.buy': 'Купить',
   'duels.buyTip': 'Купить {name} за {n} славы',
   'duels.noGloryFor': 'Не хватает славы: ещё {n}',
-  'duels.board.games': 'Боёв: {n}',
 };

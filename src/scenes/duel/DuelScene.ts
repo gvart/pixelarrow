@@ -141,6 +141,8 @@ const GAP = 3;
 const FRESCO_H_TABLET = 56;
 /** The fresco in the profile column at expanded: at most 100 tall (§9.2: max 180 x 100). */
 const FRESCO_MAX_H = 100;
+/** The hub's fixed mode bar over the mode content beside a profile column: the switch and the gap under it, UI px. */
+const MODE_BAR_H = 24 + GAP + 1;
 /** Height of the hub's one fixed action (Fight floor / Recruit / Raid / Cancel), UI px. */
 const MAIN_H = 30;
 /** The sheet's room for its title and the padding under its body, UI px (see ParchmentSheet). */
@@ -176,10 +178,8 @@ export function leftText(ms: number): string {
 const SHOP_TABS: ShopTab[] = ['offers', 'gear', 'sell'];
 /** A leaderboard row this wide is a table (landscape-v6 §9.2), with these columns for the rating and the games, UI px. */
 const BOARD_TABLE_W = 240;
-/** The games column joins from this row width. */
-const BOARD_GAMES_FROM = 360;
-const BOARD_RATING_W = 40;
-const BOARD_GAMES_W = 56;
+const BOARD_RATING_W = 36;
+const BOARD_GAMES_W = 36;
 /** Height of an offer card (name, rarity, compare line, three stats, Buy). */
 const OFFER_H = 104;
 
@@ -236,6 +236,8 @@ export class DuelScene extends BaseScene {
    * one pane (compact portrait, the v5 page). `y` is where its next part goes.
    */
   private side: { area: ScrollArea; c: Phaser.GameObjects.Container; w: number; y: number } | null = null;
+  /** Where the hub's mode switch goes beside a profile column: a fixed bar over the mode content. */
+  private modeBar: { x: number; y: number; w: number } | null = null;
   private profile: DuelProfileView | null = null;
   private st: EconState | 'loading' | 'ready' = 'loading';
   private busy = false;
@@ -604,8 +606,11 @@ export class DuelScene extends BaseScene {
       this.side = { area, c: area.content, w: b.w - 2, y: 2 };
     }
     const M = panes.main;
+    // the hub's mode switch tops the mode content as a fixed bar (hubTopPanes), the content scrolls under it
+    const head = hub && panes.side ? MODE_BAR_H : 0;
+    this.modeBar = head ? { x: M.x, y: M.y, w: M.w } : null;
     // `extra`: room under the list for a pinned row, unless the profile column holds it
-    const area = new ScrollArea(this, this.body, M.x, M.y, M.w, M.h - (main ? MAIN_H + GAP : 0) - (panes.side ? 0 : extra), S);
+    const area = new ScrollArea(this, this.body, M.x, M.y + head, M.w, M.h - head - (main ? MAIN_H + GAP : 0) - (panes.side ? 0 : extra), S);
     this.area = area;
     this.mainSpec = main;
     this.mainBtn = null;
@@ -973,15 +978,18 @@ export class DuelScene extends BaseScene {
       k.add(new FrescoBanner(this, 1, side.y, sw, fh, { label: art, id: `duel.banner.${art}`, art: (parent, ax, ay, aw, ah) => addModeBanner(this, parent, ax, ay, aw, ah, art) }));
       side.y += fh + GAP;
     }
-    c.add(
-      new SegmentedSwitch(this, 1, y, w, {
-        options: MODES.map((k2, i) => ({ id: k2, label: t(`duels.tab.${k2}` as TKey), icon: MODE_ICONS[i] })),
-        selected: this.mode,
-        id: 'duel.mode',
-        onChange: (id) => this.openMode(id as HubMode),
-      }),
-    );
-    return y + 24 + GAP + 1;
+    const bar = this.modeBar!;
+    const sw2 = new SegmentedSwitch(this, bar.x + 1, bar.y, bar.w - 2, {
+      options: MODES.map((k2, i) => ({ id: k2, label: t(`duels.tab.${k2}` as TKey), icon: MODE_ICONS[i] })),
+      selected: this.mode,
+      id: 'duel.mode',
+      onChange: (id) => this.openMode(id as HubMode),
+    });
+    this.body.add(sw2);
+    eachChild(sw2, (o) => focusPane(o, 1));
+    void c;
+    void w;
+    return y;
   }
 
   /** After a battle: what it paid (and the stars a ladder floor earned), and the new next floor ringed. */
@@ -1706,7 +1714,8 @@ export class DuelScene extends BaseScene {
     const together = !!r && !r.unlocked && !r.match && !!a && !a.unlocked && r.unlockLevel === a.unlockLevel;
     y += this.liveCard(c, p, 1, y, w, together) + GAP;
     if (!together) y += this.raidCard(c, p, 1, y, w) + GAP;
-    this.finishPage(y, keep);
+    // beside a profile column the cards sit in the middle of the pane under the mode bar while they are shorter
+    this.finishPage(y, keep, !!this.side);
   }
 
   /**
@@ -1931,16 +1940,18 @@ export class DuelScene extends BaseScene {
     return y;
   }
 
-  private buildFound(p: DuelProfileView, f: { name: string; league: League | null }): void {
-    void p;
-    const { c, w } = this.openShell(false, this.viewTitle(), { label: t('duel.preparing'), secondary: true, off: t('duel.preparing'), id: 'duel.preparing', onClick: () => undefined });
+  private buildFound(p: DuelProfileView, f: { name: string; league: League | null; mode: DuelMode }): void {
+    const { c, w } = this.openShell(false, this.viewTitle(), { label: t('duel.preparing'), secondary: true, off: t('duel.preparing'), id: 'duel.preparing', onClick: () => undefined }, 0, 'search');
+    // the search's panes carry on: your lineup and league stay in the profile column, the VS card takes the rings' place
+    const side = this.side;
+    if (side) side.y = this.searchTeam(p, f, side.c, side.y, side.w);
     const cs = 36;
     const h = cs + 66;
     const card = new ParchmentCard(this, 1, 8, w, h, { selected: true, id: 'duel.foundCard' });
     c.add(card);
     const mid = w / 2;
-    // a wide pane sets the two sides further apart, facing across the VS
-    const q = !this.v5 && w >= 300 ? 0.2 : 0.25;
+    // one wide pane (a tablet) sets the two sides further apart, facing across the VS
+    const q = !this.v5 && !side ? 0.15 : 0.25;
     const sides: [number, string, League | null][] = [
       [w * q, t('duels.board.you'), this.ranked?.league ?? null],
       [w * (1 - q), f.name, f.league],
@@ -2432,12 +2443,13 @@ export class DuelScene extends BaseScene {
     // rating (where the league has one); a phone's row puts the league pill in place of a missing rating
     if (!this.v5 && w >= BOARD_TABLE_W) {
       const rx = w - 8;
-      const games = w >= BOARD_GAMES_FROM;
       const gx = rx - BOARD_RATING_W;
-      const lx = Math.round(w * (games ? 0.46 : 0.5));
+      const lx = Math.round(w * 0.45);
       if (r.rating !== null) ptext(this, row, rx, 9, fmtCount(r.rating), 'ink', { align: 1 });
-      if (games) ptext(this, row, gx, 9, t('duels.board.games', { n: r.games }), 'sec', { align: 1 });
-      addLeaguePill(this, row, lx, 7, r.league, leagueName(r.league), (games ? gx - BOARD_GAMES_W : gx) - lx);
+      // games played: crossed swords and the count (the standing rows' icon-and-number form)
+      const gt = ptext(this, row, gx, 9, fmtCount(r.games), 'sec', { align: 1 });
+      row.add(addIcon(this, Math.round(gx - gt.width - 14), 7, 'swords', 'D'));
+      addLeaguePill(this, row, lx, 7, r.league, leagueName(r.league), gx - BOARD_GAMES_W - lx);
       ptext(this, row, nx, 9, me ? t('duels.board.you') : r.name, me ? 'head' : 'ink', { maxW: lx - nx - 6 });
       return;
     }

@@ -329,5 +329,4 @@ export const DUELS_EN = {
   'duels.buy': 'Buy',
   'duels.buyTip': 'Buy {name} for {n} Glory',
   'duels.noGloryFor': 'Not enough Glory: {n} more needed',
-  'duels.board.games': 'Games: {n}',
 };
