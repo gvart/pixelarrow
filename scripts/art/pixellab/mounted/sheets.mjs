@@ -62,12 +62,12 @@ function army(facing) {
   for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) units.push({ id: foot[r * 5 + c], x: 260 + c * 20 + r * back[0], y: 150 + c * 10 + r * back[1] });
   // cavalry wing beyond the rank's far end: 2 ranks of 3, about 40 px apart
   const wing = ['companion', 'companion', 'thessalian', 'companion', 'thessalian', 'thessalian'];
-  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) units.push({ id: wing[r * 3 + c], x: 390 + c * 40 + r * back[0] * 2, y: 215 + c * 20 + r * back[1] * 2 });
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) units.push({ id: wing[r * 3 + c], x: 420 + c * 44 + r * back[0] * 2.4, y: 225 + c * 22 + r * back[1] * 2.4 });
   // horse archers screening the near end, loose
   for (const [dx, dy] of [[0, 0], [46, 6], [20, 30]]) units.push({ id: 'horse_archer', x: 150 + dx, y: 95 + dy });
   // the chariot ahead of the block
-  units.push({ id: 'chariot', x: sw ? 230 : 330, y: sw ? 230 : 120 });
-  const img = ground(620, 330);
+  units.push({ id: 'chariot', x: sw ? 190 : 440, y: sw ? 275 : 128 });
+  const img = ground(680, 340);
   units.filter((u) => mounted[u.id]?.rotations || bases[u.id]).sort((a, b) => a.y - b.y).forEach((u) => {
     const im = rot(u.id, facing); const b = bbox(im);
     blit(img, im, u.x - Math.round((b.x0 + b.x1) / 2), u.y - b.y1, 1);
