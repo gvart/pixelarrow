@@ -12,7 +12,10 @@ import { TERRA } from '../art/smoothUi';
 import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
-import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollOrigin, flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
+import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollOrigin, dollSheetAnims, flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
+import { pickDeathAnim, pickManAnim, type AnimTable } from '../art/sheetAnim';
+import { sheetFrameId } from '../art/sheetManifest';
+import { onSheetReady } from '../art/sheetDoll';
 import { dollFromHero, dollFx, drawnFrames, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, NFRAMES, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type DollSpec, type WeaponClass } from '../art/paperdoll';
 import { AURA_COLORS, BANNER_COLORS, cosmeticLoadout } from '../game/cosmetics';
 import { STANDARD_FRAMES, STANDARD_H, STANDARD_W, STRIP_STEPS, plateOrigin, renderGround, renderStandard, renderStripPlate, stripStep } from '../art/ground';
@@ -142,6 +145,10 @@ interface UnitView {
   aura: number[] | null;
   /** Which death he dies (backwards or onto the face). */
   dieB: boolean;
+  /** The figure as drawn (re-keyed when its sprite sheet arrives). */
+  spec: DollSpec;
+  /** His sprite sheet's animations (null: procedural, manFrame / figureFrame). */
+  sheet: AnimTable | null;
 }
 
 /** Texture origins of the joined formation plates, per strip step. */
@@ -611,10 +618,14 @@ export class BattleScene extends BaseScene {
       const view: UnitView = {
         u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big, man, full, plated, plateTop, strip: -1, topKey: '',
         wc: weaponClass(spec.weapon), rowKey, fx, fxRing, fxGlint, aura: u.side === this.me && man ? myAura : null, dieB: (u.id * 7 + 3) % 3 === 0,
+        spec, sheet: dollSheetAnims(key),
       };
       this.views.push(view);
       this.viewById.set(u.id, view);
     }
+    // a class's sprite sheet loads on first use: its men switch over from the procedural figure once it is in
+    const offSheets = onSheetReady(() => this.rekeySheets());
+    this.events.once('shutdown', offSheets);
     this.createStandards();
     this.initialStrength = [Math.max(1, this.sim.sideStrength(0)), Math.max(1, this.sim.sideStrength(1))];
     this.beasts = BeastView.create(this, this.sim, this.views, this.world, this.ui, this.me, this.m.VW, this.topH());
@@ -968,6 +979,53 @@ export class BattleScene extends BaseScene {
     return ANIM.idle[Math.floor(t * 2.2 + ((u.id * 0.618) % 1) * 4) % 4];
   }
 
+  /**
+   * A figure drawn from a sprite sheet: the same states as manFrame, plus the
+   * per-weapon attacks, the shield-wall brace, the lowered-spear charge, the
+   * engaged ready stance, the stun stagger and seeded ambient idles, each
+   * falling back to the nearest animation the sheet has (src/art/sheetAnim.ts).
+   */
+  private sheetFrame(v: UnitView, now: number, sinceHit: number, moving: boolean): number {
+    const u = v.u;
+    const g = this.sim.groups[u.group];
+    const aiming = isRangedClass(v.wc) && u.ammo > 0 && u.lastShotTick > 0 && (now - u.lastShotTick) / TICK_RATE < u.stats.shotTime * 1.8;
+    const p = pickManAnim(
+      {
+        t: now / TICK_RATE,
+        id: u.id,
+        victory: this.sim.phase === 'ended' && u.side === this.victorySide && !moving,
+        sinceAtk: (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE,
+        shot: u.lastShotTick > u.lastAttackTick,
+        wc: v.wc,
+        sinceBlock: (now - u.lastBlockTick) / TICK_RATE,
+        sinceHit,
+        stunned: u.stun > 0,
+        routing: u.state === 'routing',
+        moving,
+        running: u.spd > u.stats.speed * 1.3,
+        charging: g?.order === 'charge',
+        shieldWall: !!g?.shieldWall,
+        engaged: u.engaged,
+        aimUntil: aiming ? Math.max(0, u.cooldown) / TICK_RATE : -1,
+        pace: Math.max(0.6, Math.min(1.6, u.spd / Math.max(0.01, u.stats.speed))),
+      },
+      v.sheet!,
+    );
+    return sheetFrameId(p.anim, p.i);
+  }
+
+  /** A sprite sheet arrived: men of its class and tier take their new figure (same geometry, plates and overlays). */
+  private rekeySheets(): void {
+    for (const v of this.views) {
+      const key = battleDoll(v.spec);
+      if (key === v.key) continue;
+      v.key = key;
+      v.rowKey = battleRow(this, key, v.dir);
+      v.sheet = dollSheetAnims(key);
+      v.shown = undefined;
+    }
+  }
+
   /** Chariots (sixteen-column figures): the original four-phase sets. */
   private figureFrame(v: UnitView, now: number, sinceHit: number, moving: boolean): number {
     const u = v.u;
@@ -1102,7 +1160,10 @@ export class BattleScene extends BaseScene {
         const tt = (now - v.deathTick) / TICK_RATE;
         // men, riders and beasts fall in four steps (stagger, topple / crumple, hit the ground, lie still); chariots in three
         const die = v.full ? (v.dieB ? ANIM.dieB : ANIM.die) : ANIM_FRAMES.fall;
-        frame = die[Math.min(die.length - 1, Math.floor(tt / (v.man ? 0.08 : 0.11)))];
+        if (v.sheet) {
+          const p = pickDeathAnim(tt, v.dieB, u.ko, u.id, v.sheet);
+          frame = sheetFrameId(p.anim, p.i);
+        } else frame = die[Math.min(die.length - 1, Math.floor(tt / (v.man ? 0.08 : 0.11)))];
         v.spr.setDepth(-50000 + ry);
         v.shadow.setVisible(false);
         v.plateTop.setVisible(false);
@@ -1117,7 +1178,7 @@ export class BattleScene extends BaseScene {
       }
       const moving = Math.abs(u.vx) + Math.abs(u.vy) > 0.004;
       const sinceHit = (now - u.lastHitTick) / TICK_RATE;
-      frame = v.full ? this.manFrame(v, now, sinceHit, moving) : this.figureFrame(v, now, sinceHit, moving);
+      frame = v.sheet ? this.sheetFrame(v, now, sinceHit, moving) : v.full ? this.manFrame(v, now, sinceHit, moving) : this.figureFrame(v, now, sinceHit, moving);
       this.showFrame(v, frame);
       v.spr.setDepth(ry);
       if (v.fxRing || v.fxGlint) this.updateGearFx(v, rx, ry, frame);
