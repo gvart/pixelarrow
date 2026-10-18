@@ -282,6 +282,9 @@ jobs:
           cache: npm
           cache-dependency-path: landing/package-lock.json
       - run: npm ci
+      # the landing Worker imports the server's public-API schema, which needs zod
+      - run: npm ci
+        working-directory: server
       # tsc on the Worker and its tests (astro check does not support TS 7, V6-025)
       - run: npm run typecheck
       # the Worker tests run in workerd
