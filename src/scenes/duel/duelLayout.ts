@@ -7,10 +7,10 @@
  *   a sub-screen its chips and controls) and the **mode content** on the right, each its own scroll
  *   area; the fixed action sits at the bottom-right of the right pane. The Armoury at 844x390 keeps one
  *   column, so its cards still go two abreast (§9.2 "Shop cards: 2 columns").
- * - medium: the v5 stack at most 360 wide (a list row's cap, §2.3), centred; Team is master and detail.
+ * - medium: the v5 stack across the pane (its rows and buttons keep their own caps, §2.3); Team is master and detail.
  */
 import { gridColumns, layoutVariant, PANE_GUTTER, type Box, type ClassOf } from '../../ui/mosaic/layout/geometry';
-import { CONTENT_MAX, ROW_MAX } from '../../ui/sizeClass';
+import { CONTENT_MAX } from '../../ui/sizeClass';
 
 /** The views a Duels page can be. */
 export type DuelView = 'hub' | 'team' | 'shop' | 'raid' | 'board' | 'search' | 'stack';
@@ -49,7 +49,7 @@ export function duelPanes(m: ClassOf, region: Box, view: DuelView): DuelPanes | 
     return { side: null, main: { x: r.x + Math.floor((r.w - sw) / 2), y: r.y, w: sw, h: r.h } };
   };
   if (view === 'stack') return stack(r.w);
-  if (v === 'medium' && view !== 'team') return stack(ROW_MAX);
+  if (v === 'medium' && view !== 'team') return stack(r.w);
   if (v === 'compactLandscape' && view === 'shop') return stack(r.w);
   const sw = SIDE_W[v];
   return { side: { x: r.x, y: r.y, w: sw, h: r.h }, main: { x: r.x + sw + PANE_GUTTER, y: r.y, w: r.w - sw - PANE_GUTTER, h: r.h } };

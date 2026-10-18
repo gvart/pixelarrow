@@ -174,10 +174,12 @@ export function leftText(ms: number): string {
 }
 
 const SHOP_TABS: ShopTab[] = ['offers', 'gear', 'sell'];
-/** A leaderboard row this wide shows the league by name in a column (a table, landscape-v6 §9.2). */
+/** A leaderboard row this wide is a table (landscape-v6 §9.2), with these columns for the rating and the games, UI px. */
 const BOARD_TABLE_W = 240;
-/** The narrowest Arena mode card set beside the other (a phone's card is 158). */
-const ARENA_CARD_MIN = 170;
+/** The games column joins from this row width. */
+const BOARD_GAMES_FROM = 360;
+const BOARD_RATING_W = 40;
+const BOARD_GAMES_W = 56;
 /** Height of an offer card (name, rarity, compare line, three stats, Buy). */
 const OFFER_H = 104;
 
@@ -1156,7 +1158,7 @@ export class DuelScene extends BaseScene {
     } else ptext(this, card, 17, 18, t('dv.chapterLocked', { n: first - 1 }), 'off', { maxW: left - 20 });
     // narrow: the chests sit on their own row below the heading; the heading's zone stops short of them
     const chestTop = 8 + 22 + GAP - 6;
-    const hz = this.add.zone(0, 0, left, narrow && chests ? chestTop - 3 : h).setOrigin(0, 0).setInteractive();
+    const hz = this.add.zone(0, 0, this.v5 ? left : Math.min(left, ROW_MAX), narrow && chests ? chestTop - 3 : h).setOrigin(0, 0).setInteractive();
     uiId(hz, 'duel.chapter');
     tappable(hz, null, () => !area.moved && this.toggleChapter(ch));
     card.add(hz);
@@ -1702,12 +1704,8 @@ export class DuelScene extends BaseScene {
     y = this.profilePart(c, y, w, (k, ky, kw) => this.buildSeasonLine(k, 1, ky, kw) - ky, 2);
     // ranked and raids closed at the same level: one card says so, with one bar (not two identical ones)
     const together = !!r && !r.unlocked && !r.match && !!a && !a.unlocked && r.unlockLevel === a.unlockLevel;
-    // a wide pane sets the two mode cards side by side (§9.2)
-    const cw = !this.v5 && !together && w >= 2 * ARENA_CARD_MIN + GAP ? Math.floor((w - GAP) / 2) : w;
-    const lh = this.liveCard(c, p, 1, y, cw, together);
-    if (together) y += lh + GAP;
-    else if (cw < w) y += Math.max(lh, this.raidCard(c, p, 1 + cw + GAP, y, w - cw - GAP)) + GAP;
-    else y += lh + GAP + this.raidCard(c, p, 1, y + lh + GAP, w) + GAP;
+    y += this.liveCard(c, p, 1, y, w, together) + GAP;
+    if (!together) y += this.raidCard(c, p, 1, y, w) + GAP;
     this.finishPage(y, keep);
   }
 
@@ -1725,12 +1723,14 @@ export class DuelScene extends BaseScene {
     const locked = !!r && !r.unlocked;
     const match = r?.match ?? null;
     const level = levelProgress(p.xp).level;
-    const iw = w - 16;
+    // a wide card keeps its buttons a list row's width and its lines a reading line's (§2.3)
+    const iw = this.v5 ? w - 16 : Math.min(w - 16, ROW_MAX);
+    const lineW = this.v5 ? iw : Math.min(iw, READING_MAX);
     const why = this.entering ? t('duel.preparing') : cooldown ? t('duels.unq.cooldown') : problem ? t(`duels.why.${problem}` as TKey, { n: DUEL_RULES.budget }) : !r ? t('duels.unq.error') : undefined;
     let h = this.arenaCard(c, x, y, w, 'duel.liveCard', (k) => {
       let ly = this.cardTitle(k, w, { title: t('duels.card.live'), icon: MODE_ICON.arena, board: 'live', id: 'duel.live' });
       const line = (text: string, font: 'ink' | 'sec' | 'bad') => {
-        ly += pwrap(this, k, 8, ly, text, iw, 2, font) + 4;
+        ly += pwrap(this, k, 8, ly, text, lineW, 2, font) + 4;
       };
       if (!r) {
         ptext(this, k, 8, ly, '...', 'sec');
@@ -1797,7 +1797,7 @@ export class DuelScene extends BaseScene {
         how: t('dv.raidsHow'),
       });
     }
-    const iw = w - 16;
+    const iw = this.v5 ? w - 16 : Math.min(w - 16, ROW_MAX);
     return this.arenaCard(c, x, y, w, 'duel.raidCard', (k) => {
       let ly = this.cardTitle(k, w, { title: t('duels.card.raids'), icon: MODE_ICON.raid, board: 'async', id: 'duel.raids' });
       if (!a) {
@@ -1895,7 +1895,7 @@ export class DuelScene extends BaseScene {
       side.y = this.searchTeam(p, s, side.c, side.y, side.w);
       return this.finishPage(y, 0, true);
     }
-    this.finishPage(this.searchTeam(p, s, c, y, w), 0);
+    this.finishPage(this.searchTeam(p, s, c, y, w), 0, true);
   }
 
   /** Under the search (or beside it): your lineup in pixels and, ranked, your league. */
@@ -1939,8 +1939,8 @@ export class DuelScene extends BaseScene {
     const card = new ParchmentCard(this, 1, 8, w, h, { selected: true, id: 'duel.foundCard' });
     c.add(card);
     const mid = w / 2;
-    // a wide pane sets the two sides apart at its ends, facing across the VS (a banner, not a centred pair)
-    const q = !this.v5 && w >= 300 ? 0.15 : 0.25;
+    // a wide pane sets the two sides further apart, facing across the VS
+    const q = !this.v5 && w >= 300 ? 0.2 : 0.25;
     const sides: [number, string, League | null][] = [
       [w * q, t('duels.board.you'), this.ranked?.league ?? null],
       [w * (1 - q), f.name, f.league],
@@ -2200,7 +2200,7 @@ export class DuelScene extends BaseScene {
       // nobody in range can change: that one offers Retry (M-6)
       const retry = a.unlocked && a.attacks.left > 0 ? () => this.openArena('raid') : undefined;
       const h = this.noticeCard(c, y, w, { ...empty, id: 'duel.raid.empty', retry });
-      this.finishPage(y + h + GAP, keep);
+      this.finishPage(y + h + GAP, keep, true);
       return;
     }
     const tiers = cands.length === 3 ? (['lo', 'eq', 'hi'] as const) : null;
@@ -2227,7 +2227,7 @@ export class DuelScene extends BaseScene {
       });
       y += rowH + GAP;
     });
-    this.finishPage(y, keep);
+    this.finishPage(y, keep, true);
   }
 
   /** Starts a raid on a defender: the battle scene, then the report and back to Raids. */
@@ -2347,9 +2347,7 @@ export class DuelScene extends BaseScene {
     const v = this.boardView && this.boardView.board === this.board ? this.boardView : null;
     // "You" is pinned at the bottom always (M-5): your row, or why you have none
     const pinned = !!v;
-    const { c, w: pageW } = this.openShell(false, this.viewTitle(), null, pinned ? rowH + GAP : 0, 'board');
-    // a list row at most 360 wide (§2.3): a wide pane keeps the table's columns together
-    const w = Math.min(pageW, ROW_MAX);
+    const { c, w } = this.openShell(false, this.viewTitle(), null, pinned ? rowH + GAP : 0, 'board');
     let y = 2;
     // the Live board's second level: everyone, or the Legend league only
     if (this.board !== 'async') {
@@ -2429,16 +2427,26 @@ export class DuelScene extends BaseScene {
     parent.add(row);
     addRankMedal(this, row, 14, h / 2, r.rank);
     addCrest(this, row, 29, 3, h - 6, r.league);
+    const nx = 29 + h - 6 + 6;
+    // a wide row is a table (§9.2) of what the board already sends: rank, crest, name, league, games played,
+    // rating (where the league has one); a phone's row puts the league pill in place of a missing rating
+    if (!this.v5 && w >= BOARD_TABLE_W) {
+      const rx = w - 8;
+      const games = w >= BOARD_GAMES_FROM;
+      const gx = rx - BOARD_RATING_W;
+      const lx = Math.round(w * (games ? 0.46 : 0.5));
+      if (r.rating !== null) ptext(this, row, rx, 9, fmtCount(r.rating), 'ink', { align: 1 });
+      if (games) ptext(this, row, gx, 9, t('duels.board.games', { n: r.games }), 'sec', { align: 1 });
+      addLeaguePill(this, row, lx, 7, r.league, leagueName(r.league), (games ? gx - BOARD_GAMES_W : gx) - lx);
+      ptext(this, row, nx, 9, me ? t('duels.board.you') : r.name, me ? 'head' : 'ink', { maxW: lx - nx - 6 });
+      return;
+    }
     let rw = 0;
     if (r.rating !== null) {
       const rt = ptext(this, row, w - 8, 9, fmtCount(r.rating), 'ink', { align: 1 });
       rw = rt.width + 6;
     } else rw = addLeaguePill(this, row, w - 6, 7, r.league, leagueName(r.league), Math.floor(w * 0.45), true) + 4;
-    const nx = 29 + h - 6 + 6;
-    // a wide row is a table (§9.2): the league by name in a column of its own before the rating (the crest alone on a phone)
-    const lx = !this.v5 && r.rating !== null && w >= BOARD_TABLE_W ? Math.round(w * 0.6) : 0;
-    if (lx) ptext(this, row, lx, 9, leagueName(r.league), 'sec', { maxW: w - lx - rw - 8 });
-    ptext(this, row, nx, 9, me ? t('duels.board.you') : r.name, me ? 'head' : 'ink', { maxW: (lx || w - rw - 2) - nx - 6 });
+    ptext(this, row, nx, 9, me ? t('duels.board.you') : r.name, me ? 'head' : 'ink', { maxW: w - nx - rw - 8 });
   }
 
   // ------------------------------------------------------------------ season rewards
@@ -2731,7 +2739,7 @@ export class DuelScene extends BaseScene {
     const l = p && this.preset(p, slot);
     if (!p || !l) return;
     const w = this.sheetW(Math.min(this.m.VW - 12, 240));
-    const inner = w - 16;
+    const inner = Math.min(w - 16, BUTTON_MAX);
     const heroes = this.heroesOf(p, l.team);
     const pts = teamPoints(heroes);
     const line = t('duels.teamLine', { n: heroes.length, max: DUEL_RULES.teamMax, pts: fmtCount(pts) });
@@ -3096,8 +3104,8 @@ export class DuelScene extends BaseScene {
   }
 
   /**
-   * Selling outside portrait: the stash laid out in the pane's own scroll, its well filling the pane as one
-   * inventory box with the page's hint at its foot (as the Army's stash on a laptop, V6-RSCR-05).
+   * Selling outside portrait: the stash laid out in the pane's own scroll (the filters, then the well as tall
+   * as the items), in the middle of the pane while it is shorter than the pane.
    */
   private sellWell(p: DuelProfileView, c: Phaser.GameObjects.Container, y: number, w: number, area: ScrollArea): void {
     this.stash = new MStashGrid(this, c, 1, y, w, area.viewHeight - y - 2, {
@@ -3107,10 +3115,8 @@ export class DuelScene extends BaseScene {
       price: (it) => ({ text: `+${fmtCount(sellPrice(it))}`, font: 'glory' }),
       empty: { title: t('stash.emptyTitle'), hint: t('d5.sellEmpty') },
       inline: area,
-      fill: area.viewHeight - y - 4,
-      hint: t('duels.sit.sell'),
     });
-    this.finishPage(y + this.stash.height, 0);
+    this.finishPage(y + this.stash.height, 0, true);
   }
 
   /**

@@ -29,10 +29,10 @@ describe('duelPanes (landscape-v6 §9.2)', () => {
     expect(p.main.x + p.main.w).toBe(10 + 30 + 640);
   });
 
-  it('stacks the hub on a tablet at most 360 wide, centred (the v5 page, wider)', () => {
+  it('stacks the hub on a tablet across the pane (the v5 page, wider)', () => {
     const p = duelPanes(MED, box(368), 'hub')!;
     expect(p.side).toBeNull();
-    expect(p.main).toEqual({ x: 14, y: 20, w: 360, h: 300 });
+    expect(p.main).toEqual({ x: 10, y: 20, w: 368, h: 300 });
   });
 
   it('splits Team on a tablet (master and detail) and everywhere outside portrait', () => {
