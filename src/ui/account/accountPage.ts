@@ -97,8 +97,8 @@ export function liveAccountSource(d: AccountDeps = accountDeps()): AccountSource
  * In-memory account (Kit, layout check): signed in, a guest, or a guest waiting for an email link; and
  * (V6-LINK-05) a Telegram-only account with no email, and the same with an add-email link waiting.
  */
-export function demoAccountSource(kind: 'live' | 'guest' | 'pending' | 'telegram' | 'waiting' = 'live'): AccountSource {
-  const tgOnly = kind !== 'live' && kind !== 'guest' && kind !== 'pending';
+export function demoAccountSource(kind: 'live' | 'guest' | 'pending' | 'telegram' | 'waiting' | 'renamed' = 'live'): AccountSource {
+  const tgOnly = kind === 'telegram' || kind === 'waiting';
   const now = Date.now();
   let boards = true;
   let sessions: SessionInfo[] = [
@@ -118,8 +118,9 @@ export function demoAccountSource(kind: 'live' | 'guest' | 'pending' | 'telegram
           ],
       publicBoards: boards,
       sessions: sessions.length,
-      hasPurchases: false,
-      name: { freeChange: true, nextChangeAt: null, lockedUntil: null, moderatedAt: null },
+      hasPurchases: kind === 'renamed',
+      // 'renamed' (V6-LINK-07): renamed 18 days ago, so Rename is off with the next date
+      name: kind === 'renamed' ? { freeChange: false, nextChangeAt: now + 12 * 864e5, lockedUntil: null, moderatedAt: null } : { freeChange: true, nextChangeAt: null, lockedUntil: null, moderatedAt: null },
     }),
     setBoards: async (on) => (boards = on),
     pending: async () => (kind === 'pending' ? 'name@example.com' : null),
@@ -308,7 +309,8 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     const into = area!.content;
     let yy = section(into, 0, 'profile');
     // the name and Rename (AU-18, V6-LINK-07): off with its reason during the cooldown or a moderator's lock
-    const nameW = Math.max(30, Math.min(measureText(a.displayName) + 4, iw / 2 - 70));
+    // the name gets all the room the label and Rename leave (16 characters fit on a phone)
+    const nameW = Math.max(30, Math.min(measureText(a.displayName) + 4, iw - 4 - 72 - 6 - measureText(t('account.name')) - 18));
     const ny = yy;
     yy = row(into, yy, t('account.name'), null, nameW + 6 + 72);
     into.add(addText(scene, iw - 4 - 72 - 6, ny + 8, ellipsize(a.displayName, nameW, false), 'pInk', 1));

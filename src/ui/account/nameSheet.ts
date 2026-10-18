@@ -42,9 +42,11 @@ export function openNameOffer(scene: UiScene, a: Pick<AccountSummary, 'displayNa
 
 /** AU-18 moderation notice: the name was reset, and when a new one can be picked. */
 export function openModerationNotice(scene: UiScene, a: Pick<AccountSummary, 'displayName' | 'name'>): void {
-  const sheet = openLinkSheet(scene, { title: t('name.mod.title'), id: 'name.mod', h: 180 });
+  // the sheet's title stays short (a long one shrinks below the text floor on a 320 phone); the notice leads the body
+  const sheet = openLinkSheet(scene, { title: t('name.title'), id: 'name.mod', h: 190 });
   const until = a.name.lockedUntil ?? a.name.nextChangeAt ?? Date.now();
   sheet.show((b) => {
+    b.text(t('name.mod.title'), 'pBad', 8);
     b.text(t('name.mod.body', { name: a.displayName, date: nameDate(until) }));
     b.gap(4);
     b.button({ label: t('common.ok'), id: 'name.mod.ok', variant: 'primary', onClick: () => sheet.close() });
