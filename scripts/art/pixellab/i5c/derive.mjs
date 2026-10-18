@@ -13,6 +13,22 @@ const DERIVED = {
     ['rout', 'south-west', 'e1', 'rout-entry', 'a1'],
     ['rout', 'south-east', 'e1', 'rout-entry', 'a1'],
   ],
+  horse_archer: [
+    // gallop entries whose 8-frame strides loop: SW 7-14, NW 3-10
+    ['gallop', 'south-west', 'e1', 'gallop-entry', 'a1'],
+    ['gallop', 'north-west', 'e1', 'gallop-entry', 'a1'],
+    // rout entries: SW and SE strides 7-14, NE 2-13
+    ['rout', 'south-west', 'e1', 'rout-entry', 'a1'],
+    ['rout', 'south-east', 'e1', 'rout-entry', 'a1'],
+    ['rout', 'north-east', 'e1', 'rout-entry', 'a1'],
+    ['rout', 'north-west', 'e1', 'rout-entry', 'a2'],
+  ],
+  chariot: [
+    ...['south-east', 'north-east', 'south-west', 'north-west'].flatMap((d) => [['drive', d, 'e1', 'drive-entry', 'a1'], ['rout', d, 'e1', 'rout-entry', 'a1']]),
+  ],
+  thessalian: [
+    ...['south-east', 'north-east', 'south-west', 'north-west'].flatMap((d) => [['gallop', d, 'e1', 'gallop-entry', 'a1'], ['rout', d, 'e1', 'rout-entry', 'a1']]),
+  ],
 };
 
 const cls = process.argv[2];

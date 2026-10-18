@@ -1259,3 +1259,309 @@ Poses (`initial_pose`): stand: "the horse standing square on four legs, the ride
 
 **Lessons:** a lance prompt must say *couched … the spearhead always points forward … never backwards*; pin loops with `last_frame_url`; a gallop entry run often already holds an 8-frame stride that loops (`loopfind.mjs`), else key a loop on a stretched frame; deaths need "thrown clear … apart from it" or the rider stays on the horse.
 
+### horse_archer
+
+- **H-idle-1**
+  ```
+  the horse stands at rest and breathes slowly: its barrel swells and sinks, it shifts its weight from one hind leg to the other, lowers and raises its head a little, flicks its ears and swishes its tail; the rider sits calm and still in the saddle, breathing, the bow held up in his raised left hand, his right hand on the reins; the hooves stay planted where they are; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-gallop-1**
+  ```
+  the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-shoot-1**
+  ```
+  at a full gallop the rider shoots from the saddle: he reaches back over his right shoulder to the quiver and takes one arrow, nocks it on the bow held in his left hand, turns his torso towards the target ahead, pushes the bow out at arm's length and draws the string back to his cheek with his right hand, holds for a heartbeat, then releases: the string snaps forward and the arrow is gone; he lowers the drawing hand and the bow comes back up to rest; the horse keeps galloping in place with a real horse's gallop the whole time; one bow only, one arrow at a time; exactly four legs on the horse in every frame
+  ```
+
+- **H-stagger-1**
+  ```
+  the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the bow kept in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-walk-1**
+  ```
+  the horse walks in place in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed, swaying with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-gallop-2**
+  ```
+  seen from behind: the horse gallops in place away from us in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the bow held up in his left hand; one bow only; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-1**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, its four legs stretched out on the ground, its head down; the rider is thrown clear of the saddle and falls hard to the ground in front of the horse, apart from it, and lies still on his back, the bow dropping on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-gallopLoop-1**
+  ```
+  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-gallopLoop-2**
+  ```
+  seen from behind: one full stride of a real horse's heavy gallop in place away from us in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the bow held up in his left hand; one bow only; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **H-shoot-2**
+  ```
+  seen from behind, the rider faces away the whole time: at a full gallop he shoots from the saddle: he reaches back over his right shoulder to the quiver and takes one arrow, nocks it on the bow held in his left hand, turns his torso towards the target ahead, pushes the bow out at arm's length and draws the string back to his cheek with his right hand, holds for a heartbeat, then releases: the string snaps forward and the arrow is gone; he lowers the drawing hand and the bow comes back up to rest; the horse keeps galloping in place away from us with a real horse's gallop the whole time; one bow only, one arrow at a time; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-2**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it and lies still on his back, the bow on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-walk-2**
+  ```
+  seen from behind: the horse walks in place away from us in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed with his back to us, swaying with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-stagger-2**
+  ```
+  seen from behind, the rider faces away the whole time: the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the bow kept in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-3**
+  ```
+  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches sideways off the falling horse's shoulder, slides down to the ground beside it and lies still on his back, the bow on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-rout-1**
+  ```
+  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the tail streams back, ears pinned; the rider flees in panic, hunched low over the horse's neck, head down, the bow clutched in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-4**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its far side, legs stretched out on the ground; the rider is thrown off towards us and falls to the ground in front of the horse, clearly apart from it, and lies still on his back on the ground, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-rout-2**
+  ```
+  the rider flees in panic at a flat-out gallop: he is bent double, crouched low over the horse's neck, and twists his head to look back over his shoulder in fear, the bow clutched in his left hand; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-5**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider is thrown off over the far side of the horse, away from us, and falls to the ground behind it, clearly apart from it, and lies still, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-6**
+  ```
+  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider is thrown clear off the near side of the horse, towards us, and falls to the ground beside it, clearly apart from the horse, and lies still on his back, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-rout-3**
+  ```
+  seen from behind, the rider flees in panic at a flat-out gallop away from us: he is bent double, crouched low over the horse's neck, head down, facing forward away from us the whole time, the bow clutched in his left hand; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-7**
+  ```
+  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle and never stands up: as the horse goes down he slides sideways off its near side, towards us, drops to the ground beside it, clearly apart from the horse, and lies still on his back, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-cheer-1**
+  ```
+  victory: the rider thrusts the bow high above his head in his left hand and shakes it in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the bow raised high; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-cheer-2**
+  ```
+  seen from behind, the rider faces away the whole time: victory: he thrusts the bow high above his head in his left hand and shakes it in triumph; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the bow raised high; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-rout-4**
+  ```
+  seen from behind, the rider flees in panic at a flat-out gallop away from us: he crouches low over the horse's neck, head down, facing forward away from us the whole time, the bow still clearly visible held upright in his left hand out at his left side; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; one bow only; exactly four legs on the horse in every frame
+  ```
+
+Subjects (`subject_description`): horse_archer: "a Scythian horse archer with one recurved bow seated on a dark brown steppe horse"; horse_archerGallop: "a Scythian horse archer with one recurved bow on a galloping dark brown steppe horse"; horse_archerBack: "a Scythian horse archer with one recurved bow seated on a dark brown steppe horse, seen from behind"; horse_archerGallopBack: "a Scythian horse archer with one recurved bow on a galloping dark brown steppe horse, seen from behind"
+Poses (`initial_pose`): haStand: "the horse standing square on four legs, the rider upright with the bow raised in his left hand"; haGallopKey: "mid-gallop, the rider upright with the bow raised in his left hand"; haStandBack: "the horse standing square on four legs facing away, the rider upright with his back to us and the bow raised in his left hand"; haGallopStretch: "mid-gallop, the legs stretched out front and back, the bow raised in his left hand"
+
+| Clip | Attempts | Shipped | Main rejections |
+| --- | --- | --- | --- |
+| shoot | 4 | H-shoot-1 (SE, SW), H-shoot-2 (NE, NW) on the gallop key | none; dust and the flying arrow cleared |
+| gallop | 4 entries + 2 keyed loops | strides SW, NW; keyed SE, NE | entries SE, NE did not loop in 8 or 16 |
+| rout | 2 keyed + 4 entries + 1 | entries (H-rout-2, -3, -4) | keyed loops kept him upright; NW a1 lost the bow |
+| fallFwd | 9 | H-fall-2 (SW), -3 (NE), -5 (SE), -7 (NW) | floating rider, rider merged into the horse, boots off the canvas |
+| idle, walk, stagger, cheer | 1 each | first try | none |
+
+**Lessons:** a keyed loop keeps the key's posture: a rout or any posture change must be in the entry run. Shoot on the move: pin the clip to the gallop key both ends and rotate frames so the release frame matches across facings.
+
+### thessalian
+
+- **T-idle-1**
+  ```
+  the horse stands at rest and breathes slowly: its barrel swells and sinks, it shifts its weight from one hind leg to the other, lowers and raises its head a little, flicks its ears and swishes its tail; the rider sits calm and still in the saddle, breathing, the two javelins held upright in his right hand with their small heads at the top, the buckler on his left arm; the hooves stay planted where they are; exactly four legs on the horse in every frame
+  ```
+
+- **T-gallop-1**
+  ```
+  the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-1**
+  ```
+  at a full gallop the rider hurls a javelin from the saddle: he lifts one of the two javelins from his right hand, cocks it back above his right shoulder with the point forward, turns his torso and shoulders back, then whips his body round and throws it hard forward with his whole arm and the turn of his torso, his weight surging forward over the horse's neck; the javelin flies off forward and is gone; he recovers upright with the one remaining javelin upright in his right hand; the buckler stays on his left arm; the horse keeps galloping in place with a real horse's gallop the whole time; every javelin has one small head at the front and a plain blunt butt; exactly four legs on the horse in every frame
+  ```
+
+- **T-stagger-1**
+  ```
+  the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-walk-1**
+  ```
+  the horse walks in place in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed, swaying with the horse, the two javelins held upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-2**
+  ```
+  at a full gallop the rider hurls one javelin forward from the saddle without ever turning round: he keeps facing forward the way the horse runs the whole time; he raises one javelin to his right shoulder, point forward, draws his right arm back with the point still aimed ahead, twists his torso a little back, then drives his shoulder and arm forward and throws it hard ahead with the turn of his torso, leaning forward over the horse's neck; the javelin flies off forward and is gone; he settles upright again with the javelins upright in his right hand; the javelin heads always point forward or up, never backwards; the buckler stays on his left arm; the horse keeps galloping in place with a real horse's gallop the whole time; exactly four legs on the horse in every frame
+  ```
+
+- **T-gallop-2**
+  ```
+  seen from behind: the horse gallops in place away from us in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the cloak flapping, the two javelins kept upright in his right hand, the buckler on his left arm; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-3**
+  ```
+  at a full gallop the rider throws one javelin forward like a dart: he brings one javelin down level beside his head, its point aimed straight ahead past the horse's head; keeping the point aimed ahead, he draws it straight back along its own line, his torso twisting back; then he whips torso, shoulder and arm forward and launches it straight ahead, leaning over the horse's neck, and it flies away forward; he settles upright, the remaining javelins upright in his right hand; the javelin head is always in front of his hand, pointing ahead the way the horse runs; the buckler stays on his left arm; the horse keeps galloping in place the whole time; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-4**
+  ```
+  at a full gallop the rider hurls one javelin down at an enemy ahead: he lifts one javelin high above his right shoulder, tilting it so its small head points forward and down towards the ground ahead of the horse, like a harpoon; he rises in the stirrups, twists his torso, then flings it forward and down with all his weight, his arm whipping through and his body leaning over the horse's neck; the javelin leaves his hand point first and is gone; he sits back upright with the other javelin upright in his right hand; the javelin head always points the way the horse runs; the buckler stays on his left arm; the horse keeps galloping in place the whole time; exactly four legs on the horse in every frame
+  ```
+
+- **T-walk-2**
+  ```
+  seen from behind: the horse walks in place away from us in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed with his back to us, swaying with the horse, the two javelins held upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-5**
+  ```
+  seen from behind, the rider faces away the whole time: at a full gallop he hurls one javelin down at an enemy ahead: he lifts one javelin high above his right shoulder, tilting it so its small head points forward and down towards the ground ahead of the horse, away from us; he rises in the stirrups, twists his torso, then flings it forward and down with all his weight, leaning over the horse's neck; the javelin leaves his hand point first and is gone; he sits back upright with the other javelin upright in his right hand; the javelin head always points the way the horse runs, never back towards us; the buckler stays on his left arm; the horse keeps galloping in place the whole time; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **T-stagger-2**
+  ```
+  seen from behind, the rider faces away the whole time: the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-fall-1**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it, clearly apart from the horse, and lies still on his back, the javelins and the buckler on the ground beside him; no blood; exactly four legs on the horse in every frame
+  ```
+
+- **T-rout-1**
+  ```
+  the rider flees in panic at a flat-out gallop: he is bent double, crouched low over the horse's neck, and twists his head to look back over his shoulder in fear, the javelins clutched in his right hand, the buckler on his left arm; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **T-cheer-1**
+  ```
+  victory: the rider thrusts the javelins high above his head in his right hand, heads to the sky, and shakes them in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head; the buckler stays on his left arm; every javelin has one small head at the top; exactly four legs on the horse in every frame
+  ```
+
+- **T-rout-2**
+  ```
+  seen from behind, the rider flees in panic at a flat-out gallop away from us: he is bent double, crouched low over the horse's neck, head down, facing forward away from us the whole time, the javelins clutched upright in his right hand, the buckler on his left arm; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **T-cheer-2**
+  ```
+  seen from behind, the rider faces away the whole time: victory: the rider thrusts the javelins high above his head in his right hand, heads to the sky, and shakes them in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head; the buckler stays on his left arm; every javelin has one small head at the top; exactly four legs on the horse in every frame
+  ```
+
+- **T-fall-2**
+  ```
+  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it, clearly apart from the horse, and lies still on his back, the javelins and the buckler on the ground beside him; no blood; exactly four legs on the horse in every frame
+  ```
+
+Subjects (`subject_description`): thessalian: "a Thessalian light cavalryman with two javelins and a small round buckler seated on a dark dun-grey horse"; thessalianGallop: "a Thessalian light cavalryman with two javelins and a small round buckler on a galloping dark dun-grey horse"; thessalianBack: "a Thessalian light cavalryman with two javelins and a small round buckler seated on a dark dun-grey horse, seen from behind"; thessalianGallopBack: "a Thessalian light cavalryman with two javelins and a small round buckler on a galloping dark dun-grey horse, seen from behind"
+Poses (`initial_pose`): tStand: "the horse standing square on four legs, the rider upright with two javelins held upright in his right hand"; tGallopKey: "mid-gallop, the legs stretched out front and back, the javelins upright in his right hand"; tStandBack: "the horse standing square on four legs facing away, the rider upright with his back to us and two javelins held upright in his right hand"
+
+| Clip | Attempts | Shipped | Main rejections |
+| --- | --- | --- | --- |
+| throw | 7 | T-throw-4 (SW, SE), T-throw-5 (NE, NW), with frame cuts | the drawn-back javelin pointing backwards; the rider turning his back to the facing; a double-ended raised javelin |
+| fallFwd | 5 | T-fall-1 / -2 | one stuck job (cancelled) |
+| gallop, rout | entries only | entry strides | none |
+| idle, walk, stagger, cheer | 1 each | first try | none |
+
+**Lessons:** for a javelin say "lifts it overhead … head points forward and down … flings it forward and down", and cut the frames where the head turns back. Light dust touching the hooves needs a lightness cut in the bottom rows (`dust.mjs`), not only a speck filter.
+
+### chariot
+
+- **K-idle-1**
+  ```
+  the chariot stands still: the two horses stand at rest under the yoke and breathe slowly, their barrels swelling and sinking, each shifting its weight, tossing its head a little and swishing its tail; the driver stands in the car holding the reins, breathing, his sword in his right hand; the wheels and the scythe blades stay still; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-drive-1**
+  ```
+  the chariot drives at full speed in place in the direction it faces: both horses gallop side by side with a real horse's heavy gallop, hind legs pushing off, forelegs reaching and striking the ground, heads nodding, manes and tails streaming; the two spoked wheels spin fast and the scythe blades on the hubs whirl round with them; the car bounces on the ground; the driver leans forward braced in the car, holding the reins taut, his sword in his right hand, his cloak streaming; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-drive-2**
+  ```
+  seen from behind: the chariot drives at full speed in place away from us in the direction it faces: both horses gallop side by side with a real horse's heavy gallop, hind legs pushing off, forelegs reaching and striking the ground, heads nodding, manes and tails streaming; the two spoked wheels spin fast and the scythe blades on the hubs whirl round with them; the car bounces on the ground; the driver, his back to us, leans forward braced in the car holding the reins taut, his cloak streaming; no dust; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-hit-1**
+  ```
+  the chariot is struck: both horses shy in fright, throwing up their heads and half rearing in the traces, front hooves pawing the air, then drop back onto all four hooves and stamp; the car jolts and rocks back on its wheels; the driver is thrown back, braces himself and hauls on the reins, the sword still in his right hand; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-charge-1**
+  ```
+  the scythed chariot charges flat out in place in the direction it faces: both horses gallop at full stretch with heads low and necks straining, hind legs driving, forelegs reaching and striking the ground; the wheels spin fast and the long scythe blades on the hubs whirl round, glinting dully; the driver crouches low in the car, lashes the reins and swings his curved sword overhead, ready to cut; manes, tails and his cloak stream behind; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-rout-1**
+  ```
+  the chariot flees in panic at full speed in place in the direction it faces: both horses bolt at a wild gallop, ears pinned back, eyes rolling, heads thrown up, hind legs driving and forelegs reaching; the wheels spin fast and the car bounces and sways; the driver crouches low in the car, hunched in fear, and looks back over his shoulder, hauling at the reins; manes, tails and his cloak stream behind; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-wreck-1**
+  ```
+  the chariot is wrecked: both horses are struck and go down, stumbling and crashing onto their knees and then onto their sides in a tangle of traces; the pole snaps, the car slews round, tips over onto one wheel and crashes down on its side, one wheel spinning loose; the driver is thrown out of the car onto the ground and lies still beside the wreck; no blood, no fire; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-charge-2**
+  ```
+  seen from behind, the driver faces away the whole time: the scythed chariot charges flat out in place away from us in the direction it faces: both horses gallop at full stretch with heads low and necks straining, hind legs driving, forelegs reaching and striking the ground; the wheels spin fast and the long scythe blades on the hubs whirl round; the driver crouches low in the car, lashes the reins and swings his curved sword overhead, ready to cut; manes, tails and his cloak stream behind; no dust; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-idle-2**
+  ```
+  the chariot stands still: the two horses stand at rest under the yoke and breathe slowly, their barrels swelling and sinking, each shifting its weight, tossing its head a little and swishing its tail; the driver stands in the car holding the reins, breathing; the wheels and the scythe blades stay still; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-hit-2**
+  ```
+  seen from behind, the driver faces away the whole time: the chariot is struck: both horses shy in fright, throwing up their heads and half rearing in the traces, front hooves pawing the air, then drop back onto all four hooves and stamp; the car jolts and rocks back on its wheels; the driver is thrown back, braces himself and hauls on the reins; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-rout-2**
+  ```
+  seen from behind, the driver faces away the whole time: the chariot flees in panic at full speed in place away from us in the direction it faces: both horses bolt at a wild gallop, ears pinned back, heads thrown up, hind legs driving and forelegs reaching; the wheels spin fast and the car bounces and sways; the driver crouches low in the car, hunched in fear, hauling at the reins; manes, tails and his cloak stream behind; no dust; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-wreck-2**
+  ```
+  seen from behind: the chariot is wrecked: both horses are struck and go down, stumbling and crashing onto their knees and then onto their sides in a tangle of traces; the pole snaps, the car slews round, tips over onto one wheel and crashes down on its side, one wheel spinning loose; the driver is thrown out of the car onto the ground and lies still beside the wreck; no blood, no fire; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+Subjects (`subject_description`): chariot: "a Carthaginian scythed war chariot pulled by two dark bay horses, one driver in the car"; chariotBack: "a Carthaginian scythed war chariot pulled by two dark bay horses, one driver in the car, seen from behind"; chariotGallop: "a Carthaginian scythed war chariot pulled by two dark bay horses at the gallop, one driver in the car"; chariotGallopBack: "a Carthaginian scythed war chariot pulled by two dark bay horses at the gallop, one driver in the car, seen from behind"
+Poses (`initial_pose`): cStand: "the two horses standing square under the yoke, the driver upright in the car holding the reins"; cStandBack: "the two horses standing square under the yoke facing away, the driver upright in the car with his back to us holding the reins"; cGallop: "both horses mid-gallop, the driver leaning forward with the reins"
+
+**Lessons:** a two-horse chariot animates as one figure on a 176 canvas at 1 generation per clip; say "exactly two horses, each with exactly four legs". Pin the charge to a drive key with `last_frame_url` so it loops. Earth clods share the coat colours: cut them by shape, not by colour.
+

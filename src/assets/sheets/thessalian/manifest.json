@@ -1,0 +1,193 @@
+{
+ "version": 2,
+ "class": "thessalian",
+ "image": "thessalian.png",
+ "frame": {
+  "w": 123,
+  "h": 139
+ },
+ "anchor": {
+  "x": 59,
+  "y": 125
+ },
+ "anchors": {
+  "south-east": {
+   "x": 50,
+   "y": 125
+  },
+  "north-east": {
+   "x": 52,
+   "y": 125
+  },
+  "south-west": {
+   "x": 59,
+   "y": 125
+  },
+  "north-west": {
+   "x": 67,
+   "y": 125
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "facings": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 33,
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 16,
+   "fps": 14
+  },
+  "gallop": {
+   "col": 28,
+   "frames": 24,
+   "fps": 16
+  },
+  "throw": {
+   "col": 52,
+   "frames": 12,
+   "fps": 14,
+   "strike": 6
+  },
+  "stagger": {
+   "col": 64,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallFwd": {
+   "col": 76,
+   "frames": 16,
+   "fps": 12
+  },
+  "rout": {
+   "col": 92,
+   "frames": 20,
+   "fps": 16
+  },
+  "cheer": {
+   "col": 112,
+   "frames": 16,
+   "fps": 10,
+   "hold": 15
+  }
+ },
+ "colorGroups": {
+  "cloak": [
+   "#240c0e",
+   "#3e1216",
+   "#5e1a1e",
+   "#5e2427",
+   "#7e2428",
+   "#7a2a2e",
+   "#a12735",
+   "#9c3432",
+   "#b84a40",
+   "#cc7677"
+  ],
+  "trim": [
+   "#dcc08a"
+  ],
+  "skin": [
+   "#4e3024",
+   "#7b503d",
+   "#a87464",
+   "#dbac99"
+  ],
+  "wood": [
+   "#1c1b1d",
+   "#30241b",
+   "#2e2827",
+   "#463427",
+   "#5e2428",
+   "#484648",
+   "#5e4633",
+   "#5a4a45",
+   "#7b503e",
+   "#7b5e45",
+   "#836c66",
+   "#a87465",
+   "#bb9a61",
+   "#dbac9a",
+   "#dcc08b"
+  ]
+ },
+ "metal": [
+  {
+   "kind": "bronze",
+   "colors": [
+    "#bb9a60",
+    "#977848"
+   ],
+   "slots": [
+    "shield",
+    "helmet",
+    "armor"
+   ]
+  },
+  {
+   "kind": "bronze",
+   "colors": [
+    "#7b5f44",
+    "#5a4b44",
+    "#5e2527",
+    "#463526",
+    "#2e2926",
+    "#30251a",
+    "#1c1c1c"
+   ],
+   "slots": [
+    "weapon"
+   ]
+  }
+ ],
+ "tiers": {
+  "basic": {},
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#260914",
+    "#300b18",
+    "#3a0d1c",
+    "#450f20",
+    "#511224",
+    "#5c1428",
+    "#67192d",
+    "#711d31",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#0f1113",
+    "#141618",
+    "#181b1d",
+    "#1c2022",
+    "#212527",
+    "#282c2d",
+    "#2f3333",
+    "#353a3a",
+    "#3b4141"
+   ]
+  }
+ },
+ "rarity": {
+  "metal": false
+ },
+ "notes": "I5c thessalian: the dun-grey coat, the pilos, the buckler and the leather all sit in umber / metal / iron and are kept as shadow (no metal group, so no rarity swap; flag set anyway). Skin is only the rider (skin 2): the per-man skin tint stays on. The crimson chlamys and tunic (crimson + teamRed) are the cloak group. Javelin heads lead the throw; the throw clip plays over a galloping horse (thrown on the move). Clips on a 144x160 work canvas, see docs/v5/pixellab/I5c/thessalian.sheet.json."
+}

@@ -109,7 +109,7 @@ The rebuild leaves the NE, SW and NW rows byte-identical; the check was a pixel 
 
 **Brief.** Animate the four approved I4b bases (`docs/v5/pixellab/mounted.json`) to the hoplite's standard: 12-16 frames a clip, dark-epic, each class identical to its base in every frame, real rider and horse proportions, weight in every attack (a lance driven with the horse's momentum, a javelin thrown with the torso turned, a bow drawn to the cheek), real gaits, spearheads lead, one head, one bow. Hard rejects frame by frame: extra or missing horse legs, rider merged into the horse, a doubled, reversed or missing weapon, a second bow, style or proportion drift, canvas clipping, unrequested sparks or blood. Tiers by runtime recolour (V5-092, V5-098); horse coats kept out of the skin and metal groups where the colours allow, the runtime flags (`variation`, `rarity`, I6) set where they do not.
 
-**Tool and budget.** PixelLab MCP `animate_image_pixminimax`, at most 3 of my jobs at once, cap 330 generations for the four. Balance before: 3,917.50 left (985.50 used).
+**Tool and budget.** PixelLab MCP `animate_image_pixminimax`, at most 3 of my jobs at once, cap 330 generations for the four. Balance before: 3,917.50 left (985.50 used); after: 3,230.50 left (1,672.50 used), a change of 687 that includes other agents' jobs in parallel. **Mine by receipt: 145 gens** (companion 42, horse archer 42, thessalian 36, chariot 25; every clip 1 generation at 144 x 160 or 176 x 176, two jobs cancelled) of the 330 cap. Nothing left for review: every requested clip shipped in 4 facings (companion 9 clips, horse archer and thessalian 8, chariot 6); not made because the battle falls back: look, adjust, ready, block, and charge for the two missile riders (charge falls back to gallop). Battle screenshots with the runtime-mounted picker: `docs/v5/art/I5c-battle-riders.png`, `I5c-battle-chariot.png`; sheet previews `I5c-preview-<class>.png`.
 
 **Recipe.** Every clip is generated on one **work canvas** per class (`scripts/art/pixellab/i5c/lib.mjs` CANVAS: riders 144 x 160 with the 100 rotation at 22,44, room to rear, fall and raise the weapon; chariot 176 x 176 at 24,40): `start.mjs` pastes the rotation (or a loop key) there, it is uploaded and passed as `first_frame_url`, `view: high top-down`, `direction` the facing, `subject_description` and `initial_pose` set (prompts.json). 144 x 160 at 12-16 frames bills **1 generation**. Results are aligned on the work canvas (`align.mjs`; the stored I4b gallop on its grown canvases by matching its keys), so the sheet spec has one canvas offset per clip family and `align: false`. Loops: idle and walk pinned (`last_frame_url` = the first frame); gallop, charge and rout keyed (start = end = a stretched mid-gallop frame) or an 8-frame stride cut from an entry run that already loops (`loopfind.mjs`). Detached dust clumps are cleared by `despeck.mjs`; sparks, white streaks, grey trails and blood splats by the pipeline's invented-colour cut. Jobs and verdicts: `docs/v5/pixellab/I5c/<class>.jobs.json`; prompts word for word: `docs/v5/pixellab/I5c/prompts.json` and `docs/playbook/PROMPTS_ART.md` › 18. Raws: `docs/v5/pixellab/I5c/raw/` (gitignored; `fetchall.mjs <class>` refetches). Build: `node scripts/art/pixellab/i5c/build.mjs <class> --qc <dir>` (derive, sheetbuild, finish, anchorcheck, qc).
 
@@ -167,6 +167,148 @@ Sheet: `src/assets/sheets/companion/` 136 columns x 4 rows of 129 x 138, packed 
 42 jobs, 42 gens.
 
 **Rejected and why:** thrust SW a1 and SE a1, the lance swung back with its head behind the rider (reversed); thrust NE a1, the rider turns to face the camera with the lance pointing back; rout NE (entry), a cartoon face turned to the camera (style drift). Fixed: cheer SW frame 2 (the lower end read as a second head: copied from frame 1). Lesson: an overarm draw invites a reversed lance; say "couched … the spearhead always points forward … never backwards", and for the back views "seen from behind, the rider faces away the whole time".
+
+#### horse_archer (42 gens)
+
+Clips: idle 12 @ 8, walk 16 @ 14, gallop 16 @ 16 (SE, NE keyed loops; SW, NW an 8-frame stride of the entry run twice), shoot 16 @ 14, strike 10 (on the gallop: an arrow from the back quiver, nocked, the bow pushed out and drawn to the cheek, loosed; pinned to the gallop key, so it plays over a moving horse, which the sim's Parthian shot needs; frames rotated per facing so the release is frame 10 in all four), stagger 12 @ 12, fallFwd 16 @ 12, rout 24 @ 16 (bent low, glancing back; entry strides 8 x 3 or 12 x 2), cheer 16 @ 10, hold 15 (bow raised, the horse rears). No charge (the battle falls back to gallop).
+
+Sheet: `src/assets/sheets/horse_archer/` 128 columns x 4 rows of 129 x 146, packed 13.42 MB decoded (core 11.12), 485 KB download. `qc.mjs` with `stature { from: any, px: 94, tol: 4 }` (no metal on the hood): 0 failures; the warnings are the spear heuristic run by qc on bow and legs, and cheer's rear off the feet row. Groups: cloak = the crimson riding coat (crimson + teamRed, 9 steps), skin = the rider's skin **and the brown coat** (the same hexes). Hood, leather, bow and quiver are umber / darkBronze kept as shadow, so no metal group (no rarity swap, nothing to flag) and no trim. Spec: `spear: false`, `crest: false`, `emblem: false`. Manifest: `variation.skin: false`. Dust: clumps at the hooves cleared by `despeck.mjs` (60-150 px); the arrow in flight after the release is cleared with them (it left the canvas in SW and SE). A few hoof-attached dust pixels remain in NW rout (tiny, dark).
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `3878c15a` | H-idle-1 | 1 | accepted: pinned loop, breathing, tail swish, one bow |
+| gallop-entry | SW | a1 | `fc97c281` | H-gallop-1 | 1 | accepted: a real gallop, one bow; frames 7-14 loop (8.5 %): gallop = 7-14 twice; frame 7 keys shoot |
+| shoot | SW | a1 | `d1c4b65e` | H-shoot-1 | 1 | accepted with fixes: an arrow from the quiver, nocked, the bow pushed out and drawn to the cheek (8-11, shooting to his left side, the steppe way), released at 8, the horse galloping throughout and pinned back to the gallop key; the arrow in flight at 8 and the string trail at 12 reach the canvas edge: cleared |
+| stagger | SW | a1 | `9bb950fa` | H-stagger-1 | 1 | accepted: rears and lands; a grey arrow streak at frame 0 cut by colour |
+| walk | SW | a1 | `3df7848c` | H-walk-1 | 1 | accepted |
+| gallop-entry | SE | a1 | `280a541f` | H-gallop-1 | 1 | partly: a real gallop but no clean loop (best 10 frames, 35 %): frame 7 keys a 16-frame loop |
+| gallop-entry | NE | a1 | `18c2138e` | H-gallop-2 | 1 | partly: loops in 12 (1..12), not 16: frame 3 keys a 16-frame loop |
+| gallop-entry | NW | a1 | `30d2fcf3` | H-gallop-2 | 1 | accepted: frames 3-10 loop (6 %): gallop = 3-10 twice; frame 3 keys shoot |
+| fallFwd | SW | a1 | `0503ae3d` | H-fall-1 | 1 | fallback only: the horse falls well, but the rider stands up out of the saddle and floats in the air (3-9) before landing; re-rolled (a2) |
+| gallop | SE | a1 | `d7578c61` | H-gallopLoop-1 | 1 | accepted: keyed loop, two strides, one bow |
+| gallop | NE | a1 | `d321249e` | H-gallopLoop-2 | 1 | accepted: keyed loop, rider faces away, one bow |
+| shoot | NW | a1 | `0db881c3` | H-shoot-2 | 1 | accepted after despeck: seen from behind, arrow from the quiver (2-3), drawn to the cheek (6-9), loosed at 10, horse galloping; dust cleared |
+| fallFwd | SW | a2 | `a69460e2` | H-fall-2 | 1 | accepted: the horse buckles and rolls, the rider slides off its shoulder and lies beside it, the bow beside him |
+| shoot | SE | a1 | `22721609` | H-shoot-1 | 1 | accepted with a fix: arrow from the quiver overhead (2-3), drawn to the cheek (7-10), loosed at 11; the arrow in flight at frame 11 reaches the canvas edge: cleared |
+| shoot | NE | a1 | `e7f64eea` | H-shoot-2 | 1 | accepted after despeck: seen from behind, arrow drawn overhead from the quiver (1-3), nocked, drawn to the cheek (8-11), loosed at 12 |
+| idle | SE | a1 | `0a7e0630` | H-idle-1 | 1 | accepted |
+| idle | NE | a1 | `279610b5` | H-idle-1 | 1 | accepted (checked on the sheet strip) |
+| idle | NW | a1 | `09008f42` | H-idle-1 | 1 | accepted |
+| walk | SE | a1 | `616687e9` | H-walk-1 | 1 | accepted |
+| walk | NE | a1 | `cc80088e` | H-walk-2 | 1 | accepted: grey bit streaks at 5-7 cut by colour |
+| walk | NW | a1 | `d1b2a98f` | H-walk-2 | 1 | accepted (checked on the sheet strip) |
+| stagger | SE | a1 | `ec35169a` | H-stagger-1 | 1 | accepted |
+| stagger | NE | a1 | `3836c0da` | H-stagger-2 | 1 | accepted: the bow dips behind the rider at 9-11, one bow throughout |
+| stagger | NW | a1 | `790a32ed` | H-stagger-2 | 1 | accepted: shies with a buck-like leap (4-5), lands; one bow |
+| fallFwd | SE | a1 | `4e8c932d` | H-fall-2 | 1 | REJECTED: from frame 8 the rider lies flat on the horse, merged into its body |
+| fallFwd | NE | a1 | `9189ea0a` | H-fall-3 | 1 | accepted: the horse sinks and rolls, the rider is thrown forward and lies in front of it, the bow beside him |
+| fallFwd | NW | a1 | `a52236b4` | H-fall-3 | 1 | REJECTED: the rider stays sprawled on the lying horse, merged with its back |
+| rout | SW | a1 | `2cb3a8f5` | H-rout-1 | 1 | REJECTED: the rider sits upright (a plain gallop) |
+| fallFwd | SE | a2 | `2f98c1c1` | H-fall-4 | 1 | REJECTED: good fall, rider clear of the horse, but his boots run off the bottom of the canvas (9 px on row 159, frames 11-15) |
+| rout | SE | a1 | `f0d329e8` | H-rout-1 | 1 | REJECTED: keyed loop, but the rider sits upright (a plain gallop): the keyed-loop rout prompt (H-rout-1) does not bend him |
+| rout-entry | SW | a1 | `cdb411d5` | H-rout-2 | 1 | accepted: bent low over the neck, looking back in fear, the bow along his body |
+| fallFwd | SE | a3 | `35c2dd5b` | H-fall-5 | 1 | accepted: the horse goes down, the rider is thrown back over it and lies behind it (his red coat clear of the coat), the bow beside him |
+| fallFwd | NW | a2 | `eb20c389` | H-fall-6 | 1 | fallback: the rider stands up out of the saddle and hangs in the air (5-9) before falling clear; kept as the fallback, re-rolled (a3) |
+| rout-entry | SE | a1 | `efc771ff` | H-rout-2 | 1 | accepted: bent low, looking back, the bow along his body; stride 7-14 (wrap 46 % vs 48-65 % between neighbours): rout = 7-14 twice |
+| rout-entry | NE | a1 | `fa6d1aa2` | H-rout-3 | 1 | accepted after despeck: bent low, glancing back, the bow along the flank; loops in 12 (2-13): rout = 24 frames, 2-13 twice |
+| fallFwd | NW | a3 | `3437d9c7` | H-fall-7 | 1 | accepted: no floating; the rider rises in the stirrups as the horse drops, then slides off its near side and lies beside it, the bow beside him |
+| rout-entry | NW | a1 | `1cf6c078` | H-rout-3 | 1 | REJECTED: the bow vanishes behind the hunched rider from frame 1 (missing weapon) |
+| cheer | SW | a1 | `9c5c19b9` | H-cheer-1 | 1 | accepted: bow raised, shouting, rears 4-11, prances |
+| cheer | SE | a1 | `e375ec76` | H-cheer-1 | 1 | accepted: bow raised and shaken, shouting, the horse rears (4-10) and prances off; held on the last frame |
+| cheer | NE | a1 | `2cfbf868` | H-cheer-2 | 1 | accepted: bow raised overhead, rears 3-8, prances |
+| rout-entry | NW | a2 | `327cf18d` | H-rout-4 | 1 | accepted after despeck: leaning low and forward, the bow visible in his left hand; loops in 12 (3-14): rout 3-14 twice |
+| cheer | NW | a1 | `190fdd3d` | H-cheer-2 | 1 | accepted: bow raised overhead, rears 2-9, settles |
+
+42 jobs, 42 gens.
+
+**Rejected and why:** fallFwd SW a1, SE a1/a2, NW a1/a2 (the rider floats up out of the saddle, merges into the lying horse, or his boots run off the canvas); rout SW / SE keyed loops (the rider sits upright: a keyed loop keeps the key's posture, so a rout must come from an entry run); rout NW a1 (the bow vanishes behind the hunched rider). Lesson: for a fall say "never rises above the saddle … slides off … clearly apart from the horse"; a rout prompt needs "bent double … crouched low" and an entry run, not a keyed loop.
+
+#### thessalian (36 gens)
+
+Clips: idle 12 @ 8, walk 16 @ 14, gallop 24 @ 16 (entry strides: SW, SE, NE 8 x 3; NW 12 x 2), throw 12 @ 14, strike 6 (on the gallop: a javelin lifted overhead, head forward and down, flung down at the foe with the rise in the stirrups; the frames where the drawn javelin turned head-back or read as double-ended were cut, see the table), stagger 12 @ 12, fallFwd 16 @ 12, rout 20 @ 16 (leaning low over the neck; 10-frame strides twice, a frame dropped from the 11-frame ones), cheer 16 @ 10, hold 15. No charge (falls back to gallop).
+
+Sheet: `src/assets/sheets/thessalian/` 128 columns x 4 rows of 123 x 139, packed 10.63 MB decoded (core 8.70), 432 KB download. `qc.mjs` with `stature { from: any, px: 90, tol: 4 }` (the javelin heads are above the pilos): 0 failures. Groups: cloak = crimson + teamRed (chlamys and tunic, exclusive); skin = the rider only (the dun-grey coat is umber / metal / iron): the per-man skin tint stays **on**. The coat, pilos, buckler and leather are kept as shadow, so no rarity-relevant metal (`rarity.metal: false` set for the small darkBronze bits the remap still finds on the javelin heads). Dust puffs touching the hooves: `dust.mjs` (light pixels in the bottom rows) then `despeck.mjs`. Per-clip canvas y offsets (gallop, throw, rout) put the horse's ground row where idle has it (`anchorcheck.mjs` within 2 px). The horse archer got the same x/y correction in this commit.
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `35708324` | T-idle-1 | 1 | accepted: two javelins, plain buckler, breathing, tail swish |
+| gallop-entry | SW | a1 | `ca234148` | T-gallop-1 | 1 | accepted: frames 7-14 loop (9.4 %): gallop 7-14 twice; frame 7 keys throw |
+| gallop-entry | SE | a1 | `aff8b784` | T-gallop-1 | 1 | accepted: frames 7-14 loop (7.5 %): gallop 7-14 twice; frame 7 keys throw |
+| throw | SW | a1 | `964f7d98` | T-throw-1 | 1 | REJECTED: frames 3-9 the rider turns his back to the facing and the javelins point backwards; only the release (10-12) is right |
+| stagger | SW | a1 | `bba3aab3` | T-stagger-1 | 1 | accepted: rears and lands; two javelins, buckler |
+| walk | SW | a1 | `42123c8a` | T-walk-1 | 1 | accepted |
+| throw | SW | a2 | `1a872a5c` | T-throw-2 | 1 | fallback: release 10-12 right, but the cock-back (5-9) holds the head behind his hand, pointing backwards |
+| gallop-entry | NE | a1 | `1aa464c8` | T-gallop-2 | 1 | accepted: stride 3-10 loops (19 % vs 55-65 %): gallop 3-10 x3; frame 3 keys throw |
+| gallop-entry | NW | a1 | `092b155c` | T-gallop-2 | 1 | accepted (sheet strip): loops in 12 (0-11): gallop 0-11 twice; frame 3 keys throw |
+| throw | SW | a3 | `941223d6` | T-throw-3 | 1 | REJECTED: the drawn-back javelin (4-11) again has its head behind his hand |
+| idle | SE | a1 | `7aee8f8a` | T-idle-1 | 1 | accepted |
+| walk | SE | a1 | `a1db3e7c` | T-walk-1 | 1 | accepted (sheet strip) |
+| idle | NE | a1 | `77d7b2b2` | T-idle-1 | 1 | accepted (sheet strip) |
+| throw | SW | a4 | `d6a17464` | T-throw-4 | 1 | accepted with cuts: frames 3-7 show the raised javelin with a point at both ends (double-ended): dropped; shipped 0,1,2,2,8-15 (12 frames): lift overhead, then the downward fling with the head leading, release at 10 |
+| idle | NW | a1 | `875c597a` | T-idle-1 | 1 | accepted (sheet strip) |
+| walk | NE | a1 | `03550d2b` | T-walk-2 | 1 | accepted |
+| throw | SE | a1 | `90206c07` | T-throw-4 | 1 | accepted with cuts: 2-5 hold the raised javelin head-back with a pale buckler (drift): dropped; shipped 0,1,6-15, the downward fling with the head leading, release at 10 |
+| throw | NE | a1 | `28d8b1a0` | T-throw-5 | 1 | accepted with cuts: 4-8 the javelins point backwards: dropped; shipped 0-3,3,9-15; release at 10; the buckler flashes orange at 9-11 (cut by colour or remapped) |
+| throw | NW | a1 | `9ab38f2a` | T-throw-5 | 1 | accepted with cuts: shipped 0-3,3,5,6,7,9,11,13,15: raise, release at 6 (the javelin flies off ahead), recover; dust cleared |
+| walk | NW | a1 | `2089c7c9` | T-walk-2 | 1 |  |
+| stagger | SE | a1 | `99ca4e82` | T-stagger-1 | 1 |  |
+| stagger | NE | a1 | `957840d8` | T-stagger-2 | 1 |  |
+| stagger | NW | a1 | `abcf4836` | T-stagger-2 | 1 |  |
+| fallFwd | SW | a1 | `c5f352f1` | T-fall-1 | 1 | cancelled: stuck at 71 % for 13 min (billed 1 regardless) |
+| rout-entry | SW | a1 | `c7428404` | T-rout-1 | 1 | accepted: leaning low over the neck, javelins trailing; stride 4-13 loops (10 frames): rout 4-13 twice; light dust puffs at the hooves cleared by colour/fix |
+| cheer | SW | a1 | `78b3db89` | T-cheer-1 | 1 | accepted: javelins raised, rears 3-9, prances |
+| cheer | SE | a1 | `ee976902` | T-cheer-1 | 1 | accepted: javelins raised and shaken, rears 5-11, prances |
+| rout-entry | SE | a1 | `817b87f8` | T-rout-1 | 1 | accepted: leaning forward, the javelins upright; the buckler drifts lighter (remapped dark); loops in 11 (4-14); dust cleared |
+| rout-entry | NE | a1 | `6f617f48` | T-rout-2 | 1 | accepted: hunched forward, javelins upright; loops in 11 (0-10): rout 0-10 twice + 0,1 (24) |
+| rout-entry | NW | a1 | `bf5237e1` | T-rout-2 | 1 | accepted: hunched forward under the cloak, the two javelins upright (their heads close together, as in the base NW view); loop 4-14 (11) |
+| cheer | NE | a1 | `69d2a4ff` | T-cheer-2 | 1 | accepted: javelins raised and shaken, rears 3-10 |
+| fallFwd | SE | a1 | `7cddf707` | T-fall-1 | 1 | accepted: the horse goes down head first, the rider pitches over its shoulder and lies against its neck, his red tunic, buckler and javelins clearly his own (not merged) |
+| cheer | NW | a1 | `9c3cd13f` | T-cheer-2 | 1 | accepted |
+| fallFwd | SW | a2 | `0cde37f9` | T-fall-1 | 1 | accepted: the horse buckles and rolls, the rider slides off and lies beside it, javelins and buckler beside him |
+| fallFwd | NE | a1 | `3240069d` | T-fall-2 | 1 | accepted: the rider slides off the near side and lies in front of the horse; the buckler drifts orange (remapped dark) and the javelins stay standing like a planted pair (kept: one pair, heads up) |
+| fallFwd | NW | a1 | `08a3104e` | T-fall-2 | 1 | accepted: the horse rolls, the rider slides off and lies beside it, buckler and javelins with him |
+
+36 jobs, 36 gens.
+
+**Rejected and why:** throw SW a1-a3 (the cocked javelin points back over the rider, or he turns his back to the facing); SW fall a1 stuck and cancelled. Fixed by cuts: throw SW a4, SE, NE, NW (head-back and double-ended frames dropped). Lesson: an overhead harpoon throw ("tilting it so its small head points forward and down … flings it forward and down") keeps the head leading better than "draw back along its line".
+
+#### chariot (25 gens)
+
+Clips on a 176 x 176 work canvas (1 generation each): idle 12 @ 8, drive 16 @ 16 (both horses galloping, wheels and scythes turning; entry strides 8 x 2, SE a 14-frame loop with two frames held), charge 16 @ 16 (pinned to the drive key: the driver whirls his one kopis overhead and cuts), hit 12 @ 12 (both horses half rear in the traces, the car jolts), wreck 16 @ 12 (the horses go down, the pole snaps, the car overturns, the driver is thrown out), rout 14 @ 16 (the driver crouches low, the horses bolt; 11-14-frame loops, short ones stretched by held frames). First try in every clip and facing.
+
+Sheet: `src/assets/sheets/chariot/` 86 columns x 4 rows of 163 x 153, packed 15.78 MB decoded (all core), 579 KB download. `qc.mjs` with `stature { from: any, px: 108, tol: 4 }`: 0 failures. Groups: cloak = the driver's purple-black cloak; skin = the driver's skin **and both bay coats** (same hexes). Everything else (car, wheels, scythes, pilos, kopis, harness) is shadow: no metal group. Manifest: `variation.skin: false`, `rarity.metal: false`. Earth clods thrown up behind the wheels (they share the coats' light browns) are cleared by shape (`dust.mjs --clods`: warm light blobs in the bottom 30 rows bordered by background or their own outline), plus everything below the wheels' ground row; a few dark specks remain in NE / NW drive (2-3 px). `anchorcheck.mjs` prints dy,dx: drive, charge and rout sit within 1 px of idle after per-clip canvas offsets.
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `06fa4984` | K-idle-1 | 1 | accepted: both horses breathe and shift, two horses x 4 legs, the driver with the reins and kopis |
+| drive-entry | SW | a1 | `d568b18e` | K-drive-1 | 1 | accepted: both horses gallop, wheels and scythes turn, cloak streams; frames 7-14 loop (2.6 %): drive 7-14 twice |
+| drive-entry | SE | a1 | `a6bc9b0e` | K-drive-1 | 1 | accepted: loops in 14 (1-14); two frames held to make 16 |
+| drive-entry | NE | a1 | `11420a4f` | K-drive-2 | 1 |  |
+| drive-entry | NW | a1 | `f9bd4763` | K-drive-2 | 1 |  |
+| hit | SW | a1 | `850718e4` | K-hit-1 | 1 | accepted: the horses lurch and half rear in the traces, the car jolts, the driver swings his kopis up and braces; 2 x 4 legs |
+| charge | SW | a1 | `7e244973` | K-charge-1 | 1 | accepted: pinned loop on the drive key; horses at full stretch, the driver whirls one kopis overhead and cuts (4-13) |
+| rout-entry | SW | a1 | `c2ccb4fd` | K-rout-1 | 1 | accepted: the driver crouches low in the car, horses bolting; loops in 14 (0-13), two frames held to make 16 |
+| wreck | SW | a1 | `5ef05615` | K-wreck-1 | 1 | accepted: both horses go down, the pole snaps, the car is flung up and over and crashes on its side, the driver thrown out lies beside it; 2 x 4 legs |
+| idle | SE | x1 | `1221a9b1` | K-drive-1 | 1 | cancelled at once: sent with the drive prompt by mistake (may bill 1) |
+| idle | SE | a1 | `c6dc1727` | K-idle-1 | 1 | accepted (sheet strip) |
+| charge | SE | a1 | `605a2eb8` | K-charge-1 | 1 | accepted: the driver rises with the kopis overhead (4-8) and slashes down; one blade; pinned loop |
+| charge | NE | a1 | `0bf77675` | K-charge-2 | 1 | accepted: seen from behind, the kopis swung overhead and cut (3-12); one blade; dust cleared |
+| charge | NW | a1 | `fe20b914` | K-charge-2 | 1 | accepted: the driver swings the kopis out to the side (9-12), one blade, horses at full stretch |
+| hit | SE | a1 | `f0c725d9` | K-hit-1 | 1 | accepted: the horses lurch and toss their heads, the car jolts, the driver is thrown back with the kopis out and recovers |
+| rout-entry | SE | a1 | `81ac207f` | K-rout-1 | 1 | accepted: driver crouched low, horses bolting; loops in 12 (3-14), four frames held to make 16 |
+| idle | NE | a1 | `64183b7e` | K-idle-2 | 1 | accepted (sheet strip) |
+| wreck | SE | a1 | `3c7da97b` | K-wreck-1 | 1 | accepted: the horses tear loose and go down in the traces, the pole snaps, the car slews back and tips, the driver falls out behind it; 2 x 4 legs |
+| hit | NE | a1 | `7cf46b30` | K-hit-2 | 1 | accepted: both horses rear in the traces and drop, the car rocks; red specks (blood, unrequested) cleared by despeck |
+| rout-entry | NE | a1 | `6c57d9d6` | K-rout-2 | 1 | accepted: driver crouched under his cloak, horses bolting; loops in 12 (2-13), four frames held; dust cleared |
+| rout-entry | NW | a1 | `f25654d0` | K-rout-2 | 1 | accepted: hunched driver, bolting horses; loops in 11 (2-12), five frames held |
+| idle | NW | a1 | `4bb60878` | K-idle-2 | 1 | accepted (sheet strip) |
+| hit | NW | a1 | `1084e890` | K-hit-2 | 1 | accepted: both horses rear in the traces and drop, the car rocks |
+| wreck | NE | a1 | `d0f1e7b7` | K-wreck-2 | 1 | accepted: the horses go down, the pole snaps, the car overturns, the driver lies beside it |
+| wreck | NW | a1 | `992f42b1` | K-wreck-2 | 1 | accepted: the horses go down in the traces, the car tips, the driver tumbles out and lies beside it |
+
+25 jobs, 25 gens.
+
+**Rejected:** none (one idle SE job sent with the drive prompt by mistake, cancelled at once).
 
 ### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
 
