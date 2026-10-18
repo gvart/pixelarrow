@@ -22,6 +22,8 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-12 Neutral regions hold mobs (fauna) and resource nodes; clear mobs to claim; soldiers are assigned to gather.
 - W-13 Greybox first: gameplay on coded tiles + height shading; Gemini prototypes → owner approval → PixelLab assets swapped in, in parallel.
 - W-14 Testing is owner-in-the-loop: every milestone ends with a local URL (`sandbox.html?region=…&scenario=…`) and a short checklist.
+- W-16 Regions render in true isometric (2:1 diamonds) with raised height: cliffs/plateaus/banks visible as walls; sim stays in tile coords (owner 2026-10-19).
+- W-17 Region size 256×256 tiles (owner 2026-10-19).
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
@@ -68,6 +70,8 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 - [x] **M1a sim-core** — types, region schema + loader, hand-made greybox `test-ridge` region (ridge, plateau, narrow pass, ford, deep river, forest, sand), pathfinding with terrain costs, squad movement + formations + separation, bench for 600 units. verify: vitest + `npm run bench:war` ≤ 8 ms/step. depends on: —
 - [x] **M1b sandbox-view** — `sandbox.html` + `src/war/view/`: Phaser greybox renderer (height shading, contours, water, terrain tint), camera pan/zoom, RTS selection box, right-click orders, formation keys, dev panel (spawn squad/bots, time scale, overlays: height/cost, perf). Runs against a fake `WarSim` until M1a merges, then wired to the real sim in a Worker. verify: Playwright screenshots. depends on: — (integration after M1a)
 - [ ] **M1c combat-bots** — melee/ranged combat reusing class stats from `src/sim`, high-ground bonuses, slope/ford penalties, death/wounded flag, simple bot AI (attack-move, hold a point, flank via pass). verify: vitest scenarios (high ground wins equal fight). depends on: M1a
+- [ ] **M1e iso-view** — true-iso renderer with height walls, iso picking for select/orders, occlusion fade/outline; same dev panel. depends on: sandbox-wire
+- [ ] **M1f region-256** — test-ridge regenerated at 256×256, pathing perf re-checked (hierarchical if needed). depends on: M1c
 - [ ] **M1d scenarios** — `?scenario=` presets (pass ambush, ford crossing, hill assault, 600-unit brawl) + owner checklist. depends on: M1b, M1c
 - [ ] **ART-1 world design + prototypes** — `docs/WAR.md` world section: ~35 regions with biome, altitude features, fauna (mobs), resources, adjacency; Gemini prototypes of the world map + 4 sample regions in `shots/war/gemini/`; prompts logged in `docs/playbook/PROMPTS_ART.md`. depends on: —
 
