@@ -1,0 +1,23 @@
+src/scenes/duel/DuelScene.ts
+  s_0d98fe904b2e82::t_fe0b54d755780b 181-182,2447,2449-2452
+  s_0d98fe904b2e82::t_7496296686ec3a 1943-1947,1953-1954
+  s_0d98fe904b2e82::t_37494dd599a540 144-145,239-240,609-611,613,981-992,1717-1718
+docs/v6/stories/V6-RSCR-04/NOTES.md
+  s_0d98fe904b2e82::t_42933ff48f43ff 1-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "808ef2deedcd908de02b8cf652b072368584119b",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
