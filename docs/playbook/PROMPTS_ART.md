@@ -1259,3 +1259,138 @@ Poses (`initial_pose`): stand: "the horse standing square on four legs, the ride
 
 **Lessons:** a lance prompt must say *couched … the spearhead always points forward … never backwards*; pin loops with `last_frame_url`; a gallop entry run often already holds an 8-frame stride that loops (`loopfind.mjs`), else key a loop on a stretched frame; deaths need "thrown clear … apart from it" or the rider stays on the horse.
 
+### horse_archer
+
+- **H-idle-1**
+  ```
+  the horse stands at rest and breathes slowly: its barrel swells and sinks, it shifts its weight from one hind leg to the other, lowers and raises its head a little, flicks its ears and swishes its tail; the rider sits calm and still in the saddle, breathing, the bow held up in his raised left hand, his right hand on the reins; the hooves stay planted where they are; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-gallop-1**
+  ```
+  the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-shoot-1**
+  ```
+  at a full gallop the rider shoots from the saddle: he reaches back over his right shoulder to the quiver and takes one arrow, nocks it on the bow held in his left hand, turns his torso towards the target ahead, pushes the bow out at arm's length and draws the string back to his cheek with his right hand, holds for a heartbeat, then releases: the string snaps forward and the arrow is gone; he lowers the drawing hand and the bow comes back up to rest; the horse keeps galloping in place with a real horse's gallop the whole time; one bow only, one arrow at a time; exactly four legs on the horse in every frame
+  ```
+
+- **H-stagger-1**
+  ```
+  the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the bow kept in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-walk-1**
+  ```
+  the horse walks in place in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed, swaying with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-gallop-2**
+  ```
+  seen from behind: the horse gallops in place away from us in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the bow held up in his left hand; one bow only; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-1**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, its four legs stretched out on the ground, its head down; the rider is thrown clear of the saddle and falls hard to the ground in front of the horse, apart from it, and lies still on his back, the bow dropping on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-gallopLoop-1**
+  ```
+  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-gallopLoop-2**
+  ```
+  seen from behind: one full stride of a real horse's heavy gallop in place away from us in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the bow held up in his left hand; one bow only; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **H-shoot-2**
+  ```
+  seen from behind, the rider faces away the whole time: at a full gallop he shoots from the saddle: he reaches back over his right shoulder to the quiver and takes one arrow, nocks it on the bow held in his left hand, turns his torso towards the target ahead, pushes the bow out at arm's length and draws the string back to his cheek with his right hand, holds for a heartbeat, then releases: the string snaps forward and the arrow is gone; he lowers the drawing hand and the bow comes back up to rest; the horse keeps galloping in place away from us with a real horse's gallop the whole time; one bow only, one arrow at a time; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-2**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it and lies still on his back, the bow on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-walk-2**
+  ```
+  seen from behind: the horse walks in place away from us in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed with his back to us, swaying with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-stagger-2**
+  ```
+  seen from behind, the rider faces away the whole time: the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the bow kept in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-3**
+  ```
+  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches sideways off the falling horse's shoulder, slides down to the ground beside it and lies still on his back, the bow on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-rout-1**
+  ```
+  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the tail streams back, ears pinned; the rider flees in panic, hunched low over the horse's neck, head down, the bow clutched in his left hand; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-4**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its far side, legs stretched out on the ground; the rider is thrown off towards us and falls to the ground in front of the horse, clearly apart from it, and lies still on his back on the ground, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-rout-2**
+  ```
+  the rider flees in panic at a flat-out gallop: he is bent double, crouched low over the horse's neck, and twists his head to look back over his shoulder in fear, the bow clutched in his left hand; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-5**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider is thrown off over the far side of the horse, away from us, and falls to the ground behind it, clearly apart from it, and lies still, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-6**
+  ```
+  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider is thrown clear off the near side of the horse, towards us, and falls to the ground beside it, clearly apart from the horse, and lies still on his back, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-rout-3**
+  ```
+  seen from behind, the rider flees in panic at a flat-out gallop away from us: he is bent double, crouched low over the horse's neck, head down, facing forward away from us the whole time, the bow clutched in his left hand; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-fall-7**
+  ```
+  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle and never stands up: as the horse goes down he slides sideways off its near side, towards us, drops to the ground beside it, clearly apart from the horse, and lies still on his back, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-cheer-1**
+  ```
+  victory: the rider thrusts the bow high above his head in his left hand and shakes it in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the bow raised high; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-cheer-2**
+  ```
+  seen from behind, the rider faces away the whole time: victory: he thrusts the bow high above his head in his left hand and shakes it in triumph; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the bow raised high; one bow only; exactly four legs on the horse in every frame
+  ```
+
+- **H-rout-4**
+  ```
+  seen from behind, the rider flees in panic at a flat-out gallop away from us: he crouches low over the horse's neck, head down, facing forward away from us the whole time, the bow still clearly visible held upright in his left hand out at his left side; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; one bow only; exactly four legs on the horse in every frame
+  ```
+
+Subjects (`subject_description`): horse_archer: "a Scythian horse archer with one recurved bow seated on a dark brown steppe horse"; horse_archerGallop: "a Scythian horse archer with one recurved bow on a galloping dark brown steppe horse"; horse_archerBack: "a Scythian horse archer with one recurved bow seated on a dark brown steppe horse, seen from behind"; horse_archerGallopBack: "a Scythian horse archer with one recurved bow on a galloping dark brown steppe horse, seen from behind"
+Poses (`initial_pose`): haStand: "the horse standing square on four legs, the rider upright with the bow raised in his left hand"; haGallopKey: "mid-gallop, the rider upright with the bow raised in his left hand"; haStandBack: "the horse standing square on four legs facing away, the rider upright with his back to us and the bow raised in his left hand"; haGallopStretch: "mid-gallop, the legs stretched out front and back, the bow raised in his left hand"
+
+| Clip | Attempts | Shipped | Main rejections |
+| --- | --- | --- | --- |
+| shoot | 4 | H-shoot-1 (SE, SW), H-shoot-2 (NE, NW) on the gallop key | none; dust and the flying arrow cleared |
+| gallop | 4 entries + 2 keyed loops | strides SW, NW; keyed SE, NE | entries SE, NE did not loop in 8 or 16 |
+| rout | 2 keyed + 4 entries + 1 | entries (H-rout-2, -3, -4) | keyed loops kept him upright; NW a1 lost the bow |
+| fallFwd | 9 | H-fall-2 (SW), -3 (NE), -5 (SE), -7 (NW) | floating rider, rider merged into the horse, boots off the canvas |
+| idle, walk, stagger, cheer | 1 each | first try | none |
+
+**Lessons:** a keyed loop keeps the key's posture: a rout or any posture change must be in the entry run. Shoot on the move: pin the clip to the gallop key both ends and rotate frames so the release frame matches across facings.
+

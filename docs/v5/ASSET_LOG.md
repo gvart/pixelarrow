@@ -168,6 +168,61 @@ Sheet: `src/assets/sheets/companion/` 136 columns x 4 rows of 129 x 138, packed 
 
 **Rejected and why:** thrust SW a1 and SE a1, the lance swung back with its head behind the rider (reversed); thrust NE a1, the rider turns to face the camera with the lance pointing back; rout NE (entry), a cartoon face turned to the camera (style drift). Fixed: cheer SW frame 2 (the lower end read as a second head: copied from frame 1). Lesson: an overarm draw invites a reversed lance; say "couched … the spearhead always points forward … never backwards", and for the back views "seen from behind, the rider faces away the whole time".
 
+#### horse_archer (42 gens)
+
+Clips: idle 12 @ 8, walk 16 @ 14, gallop 16 @ 16 (SE, NE keyed loops; SW, NW an 8-frame stride of the entry run twice), shoot 16 @ 14, strike 10 (on the gallop: an arrow from the back quiver, nocked, the bow pushed out and drawn to the cheek, loosed; pinned to the gallop key, so it plays over a moving horse, which the sim's Parthian shot needs; frames rotated per facing so the release is frame 10 in all four), stagger 12 @ 12, fallFwd 16 @ 12, rout 24 @ 16 (bent low, glancing back; entry strides 8 x 3 or 12 x 2), cheer 16 @ 10, hold 15 (bow raised, the horse rears). No charge (the battle falls back to gallop).
+
+Sheet: `src/assets/sheets/horse_archer/` 128 columns x 4 rows of 129 x 146, packed 13.42 MB decoded (core 11.12), 485 KB download. `qc.mjs` with `stature { from: any, px: 94, tol: 4 }` (no metal on the hood): 0 failures; the warnings are the spear heuristic run by qc on bow and legs, and cheer's rear off the feet row. Groups: cloak = the crimson riding coat (crimson + teamRed, 9 steps), skin = the rider's skin **and the brown coat** (the same hexes). Hood, leather, bow and quiver are umber / darkBronze kept as shadow, so no metal group (no rarity swap, nothing to flag) and no trim. Spec: `spear: false`, `crest: false`, `emblem: false`. Manifest: `variation.skin: false`. Dust: clumps at the hooves cleared by `despeck.mjs` (60-150 px); the arrow in flight after the release is cleared with them (it left the canvas in SW and SE). A few hoof-attached dust pixels remain in NW rout (tiny, dark).
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `3878c15a` | H-idle-1 | 1 | accepted: pinned loop, breathing, tail swish, one bow |
+| gallop-entry | SW | a1 | `fc97c281` | H-gallop-1 | 1 | accepted: a real gallop, one bow; frames 7-14 loop (8.5 %): gallop = 7-14 twice; frame 7 keys shoot |
+| shoot | SW | a1 | `d1c4b65e` | H-shoot-1 | 1 | accepted with fixes: an arrow from the quiver, nocked, the bow pushed out and drawn to the cheek (8-11, shooting to his left side, the steppe way), released at 8, the horse galloping throughout and pinned back to the gallop key; the arrow in flight at 8 and the string trail at 12 reach the canvas edge: cleared |
+| stagger | SW | a1 | `9bb950fa` | H-stagger-1 | 1 | accepted: rears and lands; a grey arrow streak at frame 0 cut by colour |
+| walk | SW | a1 | `3df7848c` | H-walk-1 | 1 | accepted |
+| gallop-entry | SE | a1 | `280a541f` | H-gallop-1 | 1 | partly: a real gallop but no clean loop (best 10 frames, 35 %): frame 7 keys a 16-frame loop |
+| gallop-entry | NE | a1 | `18c2138e` | H-gallop-2 | 1 | partly: loops in 12 (1..12), not 16: frame 3 keys a 16-frame loop |
+| gallop-entry | NW | a1 | `30d2fcf3` | H-gallop-2 | 1 | accepted: frames 3-10 loop (6 %): gallop = 3-10 twice; frame 3 keys shoot |
+| fallFwd | SW | a1 | `0503ae3d` | H-fall-1 | 1 | fallback only: the horse falls well, but the rider stands up out of the saddle and floats in the air (3-9) before landing; re-rolled (a2) |
+| gallop | SE | a1 | `d7578c61` | H-gallopLoop-1 | 1 | accepted: keyed loop, two strides, one bow |
+| gallop | NE | a1 | `d321249e` | H-gallopLoop-2 | 1 | accepted: keyed loop, rider faces away, one bow |
+| shoot | NW | a1 | `0db881c3` | H-shoot-2 | 1 | accepted after despeck: seen from behind, arrow from the quiver (2-3), drawn to the cheek (6-9), loosed at 10, horse galloping; dust cleared |
+| fallFwd | SW | a2 | `a69460e2` | H-fall-2 | 1 | accepted: the horse buckles and rolls, the rider slides off its shoulder and lies beside it, the bow beside him |
+| shoot | SE | a1 | `22721609` | H-shoot-1 | 1 | accepted with a fix: arrow from the quiver overhead (2-3), drawn to the cheek (7-10), loosed at 11; the arrow in flight at frame 11 reaches the canvas edge: cleared |
+| shoot | NE | a1 | `e7f64eea` | H-shoot-2 | 1 | accepted after despeck: seen from behind, arrow drawn overhead from the quiver (1-3), nocked, drawn to the cheek (8-11), loosed at 12 |
+| idle | SE | a1 | `0a7e0630` | H-idle-1 | 1 | accepted |
+| idle | NE | a1 | `279610b5` | H-idle-1 | 1 | accepted (checked on the sheet strip) |
+| idle | NW | a1 | `09008f42` | H-idle-1 | 1 | accepted |
+| walk | SE | a1 | `616687e9` | H-walk-1 | 1 | accepted |
+| walk | NE | a1 | `cc80088e` | H-walk-2 | 1 | accepted: grey bit streaks at 5-7 cut by colour |
+| walk | NW | a1 | `d1b2a98f` | H-walk-2 | 1 | accepted (checked on the sheet strip) |
+| stagger | SE | a1 | `ec35169a` | H-stagger-1 | 1 | accepted |
+| stagger | NE | a1 | `3836c0da` | H-stagger-2 | 1 | accepted: the bow dips behind the rider at 9-11, one bow throughout |
+| stagger | NW | a1 | `790a32ed` | H-stagger-2 | 1 | accepted: shies with a buck-like leap (4-5), lands; one bow |
+| fallFwd | SE | a1 | `4e8c932d` | H-fall-2 | 1 | REJECTED: from frame 8 the rider lies flat on the horse, merged into its body |
+| fallFwd | NE | a1 | `9189ea0a` | H-fall-3 | 1 | accepted: the horse sinks and rolls, the rider is thrown forward and lies in front of it, the bow beside him |
+| fallFwd | NW | a1 | `a52236b4` | H-fall-3 | 1 | REJECTED: the rider stays sprawled on the lying horse, merged with its back |
+| rout | SW | a1 | `2cb3a8f5` | H-rout-1 | 1 | REJECTED: the rider sits upright (a plain gallop) |
+| fallFwd | SE | a2 | `2f98c1c1` | H-fall-4 | 1 | REJECTED: good fall, rider clear of the horse, but his boots run off the bottom of the canvas (9 px on row 159, frames 11-15) |
+| rout | SE | a1 | `f0d329e8` | H-rout-1 | 1 | REJECTED: keyed loop, but the rider sits upright (a plain gallop): the keyed-loop rout prompt (H-rout-1) does not bend him |
+| rout-entry | SW | a1 | `cdb411d5` | H-rout-2 | 1 | accepted: bent low over the neck, looking back in fear, the bow along his body |
+| fallFwd | SE | a3 | `35c2dd5b` | H-fall-5 | 1 | accepted: the horse goes down, the rider is thrown back over it and lies behind it (his red coat clear of the coat), the bow beside him |
+| fallFwd | NW | a2 | `eb20c389` | H-fall-6 | 1 | fallback: the rider stands up out of the saddle and hangs in the air (5-9) before falling clear; kept as the fallback, re-rolled (a3) |
+| rout-entry | SE | a1 | `efc771ff` | H-rout-2 | 1 | accepted: bent low, looking back, the bow along his body; stride 7-14 (wrap 46 % vs 48-65 % between neighbours): rout = 7-14 twice |
+| rout-entry | NE | a1 | `fa6d1aa2` | H-rout-3 | 1 | accepted after despeck: bent low, glancing back, the bow along the flank; loops in 12 (2-13): rout = 24 frames, 2-13 twice |
+| fallFwd | NW | a3 | `3437d9c7` | H-fall-7 | 1 | accepted: no floating; the rider rises in the stirrups as the horse drops, then slides off its near side and lies beside it, the bow beside him |
+| rout-entry | NW | a1 | `1cf6c078` | H-rout-3 | 1 | REJECTED: the bow vanishes behind the hunched rider from frame 1 (missing weapon) |
+| cheer | SW | a1 | `9c5c19b9` | H-cheer-1 | 1 | accepted: bow raised, shouting, rears 4-11, prances |
+| cheer | SE | a1 | `e375ec76` | H-cheer-1 | 1 | accepted: bow raised and shaken, shouting, the horse rears (4-10) and prances off; held on the last frame |
+| cheer | NE | a1 | `2cfbf868` | H-cheer-2 | 1 | accepted: bow raised overhead, rears 3-8, prances |
+| rout-entry | NW | a2 | `327cf18d` | H-rout-4 | 1 | accepted after despeck: leaning low and forward, the bow visible in his left hand; loops in 12 (3-14): rout 3-14 twice |
+| cheer | NW | a1 | `190fdd3d` | H-cheer-2 | 1 | accepted: bow raised overhead, rears 2-9, settles |
+
+42 jobs, 42 gens.
+
+**Rejected and why:** fallFwd SW a1, SE a1/a2, NW a1/a2 (the rider floats up out of the saddle, merges into the lying horse, or his boots run off the canvas); rout SW / SE keyed loops (the rider sits upright: a keyed loop keeps the key's posture, so a rout must come from an entry run); rout NW a1 (the bow vanishes behind the hunched rider). Lesson: for a fall say "never rises above the saddle … slides off … clearly apart from the horse"; a rout prompt needs "bent double … crouched low" and an entry run, not a keyed loop.
+
 ### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
 
 **Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated
