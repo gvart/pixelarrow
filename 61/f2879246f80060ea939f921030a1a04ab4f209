@@ -1,0 +1,39 @@
+src/ui/notifySettings.ts
+  s_0d98fe904b2e82::t_eae4ffa68a7a05 21,64-74,85-86,109,112,183-184
+src/ui/settings/controls.ts
+  s_0d98fe904b2e82::t_3784f66d591735 120
+  s_0d98fe904b2e82::t_c2edad48387561 117
+src/ui/shortcutsSheet.ts
+  s_0d98fe904b2e82::t_c2edad48387561 51,57
+  s_0d98fe904b2e82::t_c63d63021f6daf 15
+src/ui/mosaic/ParchmentSheet.ts
+  s_0d98fe904b2e82::t_d6947aa37e9ce6 106
+  s_0d98fe904b2e82::t_4013d461f3651c 107,111,118,120
+  s_0d98fe904b2e82::t_8e152ecfcd7ae9 119
+src/ui/settings.ts
+  s_0d98fe904b2e82::t_fa6bbecd59e226 22,151,156-157
+src/ui/account/devices.ts
+  s_0d98fe904b2e82::t_c2edad48387561 48
+  s_0d98fe904b2e82::t_3784f66d591735 49
+tests/settingsPanel.test.ts
+  s_0d98fe904b2e82::t_dadd2a11dfeb95 1-81
+src/ui/account/accountPage.ts
+  s_0d98fe904b2e82::t_c2edad48387561 139
+  s_0d98fe904b2e82::t_3784f66d591735 140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "61f2879246f80060ea939f921030a1a04ab4f209",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
