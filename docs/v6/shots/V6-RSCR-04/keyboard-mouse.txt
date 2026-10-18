@@ -1,0 +1,28 @@
+1280x800 ladder Tab order: hub.topbar.gear > duel.demo > duel.level > duel.team > duel.shop > duel.mode.ladder > duel.nextFloor > duel.fightNext > duel.chapter > duel.chest.1 > duel.chest.2 > duel.chest.3 > duel.floorDone > duel.floorDone > duel.floorDone > duel.floorDone > duel.floorNext > duel.floorLocked > duel.floorLocked > duel.floorLocked > duel.floorLocked > duel.floorLocked > duel.chapter > duel.chapter > duel.chapter > duel.chapter > tab.duels > hub.topbar.gear > duel.demo > duel.level > duel.team > duel.shop > duel.mode.ladder > duel.nextFloor > duel.fightNext > duel.chapter > duel.chest.1 > duel.chest.2 > duel.chest.3 > duel.floorDone
+PASS 1280: Tab reads the top bar, the profile column (chips, Team, Armoury), the mode bar, the next floor and Fight, the floors, then the nav rail — gear 0, team 3, mode 5, fight 7, floor 12, rail 26
+PASS 1280: Enter on Team opens the Team view
+PASS 1280: Esc goes back to the ladder
+PASS 1280: Tab reaches the next-floor card
+PASS 1280: Enter opens the floor sheet
+PASS 1280: focus moves into the floor panel — duel.floorFight
+PASS 1280: the floor sheet is a right side panel — 800,480
+PASS 1280: Esc closes it
+PASS 1280: focus returns to the next-floor card — duel.nextFloor
+PASS 1280: Right on the mode bar opens the Arena — hub.topbar.gear
+PASS 1280 keyboard: no page errors
+PASS 1280: Team shows the pointer cursor — pointer
+PASS 1280: Fight shows the pointer cursor — pointer
+PASS 1280: a floor tile shows the pointer cursor — pointer
+PASS 1280: a click on a cleared floor opens its sheet (Farm)
+PASS 1280: a click on the shade closes it
+PASS 1280: the wheel scrolls the pane under the pointer (the board, not from the profile column) — 0 -> 0 -> 120
+PASS 1280: a click on Arena opens the Arena
+PASS 1280: a Team hero row shows the pointer cursor — pointer
+PASS 1280: a Buy the player cannot afford shows the not-allowed cursor — not-allowed
+PASS 1280 mouse: no page errors
+PASS 768: a tap on Team opens the Team view
+PASS 768: a tap on the next floor opens its sheet
+PASS 768: on a tablet it is a bottom sheet — 296+748
+PASS 768: no focus ring on touch
+PASS 768 touch: no page errors
+ALL PASS
