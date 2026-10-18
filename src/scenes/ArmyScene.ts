@@ -268,7 +268,7 @@ export class ArmyScene extends BaseScene {
     let y = this.buildTip(page, cw, 0, true);
     this.cardTop = 0;
     y = this.buildTabs(page, cw, y);
-    y = this.tab === 'roster' ? this.buildRoster(page, cw, y) : this.buildStash(page, cw, y);
+    y = this.tab === 'roster' ? this.buildRoster(page, cw, y, M.h - 4) : this.buildStash(page, cw, y);
     area.setContentHeight(y + 4);
     area.setScroll(keepM);
     if (this.hero()) uiCollapsed(this, 'army.mini', 'slot:helmet');
@@ -347,6 +347,14 @@ export class ArmyScene extends BaseScene {
 
   private buildHead(L: Phaser.GameObjects.Container, cw: number, y0: number): number {
     const h = this.hero();
+    if (!h && this.split) {
+      // beside the list: one band across the detail pane (landscape-v6 §15), the words spread over it, not a
+      // short centred line that leaves the pane's left part empty (§5 empty-column)
+      const bh = 48;
+      L.add(mosaicImage(this, 0, y0, cw, bh, 'parchment'));
+      L.add(addParchmentEmpty(this, 0, y0, cw, bh, { row: true, icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint') }));
+      return y0 + bh + 4;
+    }
     if (!h) {
       const card = this.add.container(0, y0);
       card.add(mosaicImage(this, 0, 0, cw, 40, 'parchment'));
@@ -426,12 +434,18 @@ export class ArmyScene extends BaseScene {
     return y + SWITCH_H + 4;
   }
 
-  /** The filter and sort buttons (each opens a sheet), then the heroes; returns the y below the last row. */
-  private buildRoster(L: Phaser.GameObjects.Container, w: number, top: number): number {
+  /**
+   * The filter and sort buttons (each opens a sheet), then the heroes; returns the y below the last row.
+   * `fill` (the master pane): an empty state takes the pane's height down to it, centred, not an 80 px block
+   * at the top of an empty column (§5 empty-column).
+   */
+  private buildRoster(L: Phaser.GameObjects.Container, w: number, top: number, fill?: number): number {
     const heroes = this.src.heroes();
+    const emptyH = (y: number) => Math.max(80, (fill ?? 0) - y);
     if (!heroes.length) {
-      L.add(addParchmentEmpty(this, 0, top, w, 80, { icon: 'people', title: t('army5.emptyTitle'), hint: this.volunteersHint() }));
-      return top + 80;
+      const eh = emptyH(top);
+      L.add(addParchmentEmpty(this, 0, top, w, eh, { icon: 'people', title: t('army5.emptyTitle'), hint: this.volunteersHint() }));
+      return top + eh;
     }
     const bw = Math.floor((w - GAP) / 2);
     const filterLabel = (f: RosterFilter) => (f === 'all' ? t('army.filter.all') : t(`army.filter.${f}` as TKey));
@@ -461,8 +475,9 @@ export class ArmyScene extends BaseScene {
     let y = top + TAP + GAP;
     const roster = queryRoster(heroes, this.sort, this.filter);
     if (!roster.length) {
-      L.add(addParchmentEmpty(this, 0, y, w, 80, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint'), action: { label: t('army.filter.all'), onClick: () => ((this.filter = 'all'), this.refresh()) } }));
-      return y + 80;
+      const eh = emptyH(y);
+      L.add(addParchmentEmpty(this, 0, y, w, eh, { icon: 'people', title: t('army.noHeroes'), hint: t('army.noHeroesHint'), action: { label: t('army.filter.all'), onClick: () => ((this.filter = 'all'), this.refresh()) } }));
+      return y + eh;
     }
     // beside the detail pane the selected row also gets a bronze rim and a chevron pointing at it (§3.3: not colour alone)
     const rw = this.split ? w - CHEV_W : w;
