@@ -535,14 +535,21 @@ export class ResultsScene extends BaseScene {
     // the hero of the battle: only someone with a kill (plan ANSWERS A-36)
     if (r.mvp) y = this.buildMvp(c, y, w, roomy, area);
     // notes as chips (audit RES-5): promotions, the bounty, practice, the report's own lines
+    // compact landscape: two chips a row, so short notes don't leave the pane's right half empty
+    const cols = this.variant === 'compactLandscape' ? 2 : 1;
+    const cw = cols === 2 ? Math.floor((w - 3) / 2) : w;
+    let rowH = 0;
     noteChips(r, { practice: !!this.practice }).forEach((chip, i) => {
-      const { c: chipC, h } = addNoteChip(this, c, 0, y, w, chip, area, `results.note${i}`);
+      const col = i % cols;
+      const { c: chipC, h } = addNoteChip(this, c, col * (cw + 3), y, cw, chip, area, `results.note${i}`);
       if (animate && chip.tone === 'badge') {
         chipC.setAlpha(0);
         this.tweens.add({ targets: chipC, alpha: 1, y: { from: y + 6, to: y }, duration: 260, delay: 1200, ease: 'Back.easeOut', onStart: () => (uiLevelUp(), haptic('medium')) });
       }
-      y += h + 3;
+      rowH = Math.max(rowH, h);
+      if (col === cols - 1) (y += rowH + 3), (rowH = 0);
     });
+    if (rowH) y += rowH + 3;
     area.setContentHeight(y);
   }
 
