@@ -1,0 +1,25 @@
+src/scenes/online/ClanScene.ts
+  s_0d98fe904b2e82::t_0c3ce28e02e687 210-215,219
+  s_0d98fe904b2e82::t_d16ba4de2e3ff9 311-312,314-321,323,327,330
+  s_0d98fe904b2e82::t_677c747afdc48b 86-87
+  s_0d98fe904b2e82::t_33814511cd7a04 239-246,248,252,257-258,262,264,266
+  s_0d98fe904b2e82::t_b6a0d95a9f0b79 250-251,256
+  s_0d98fe904b2e82::t_c02915d0d250fe 99
+  s_0d98fe904b2e82::t_3131ba8a696832 171-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "06b5f9be70eef411b4f7b5e54224e65571a64f15",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
