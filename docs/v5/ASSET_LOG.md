@@ -178,6 +178,30 @@ The hoplite's 16 clips with `slash` (a one-hand sword cut) in place of `thrust`.
 - In back views (NE) the model turns a cutting man round to face the viewer; describe the blow from behind ("we watch him from behind … chops away from the viewer") and pin the last frame.
 - A sword's SE guard hides behind the shield unless the prompt holds it "out at his right side … the whole blade clearly visible".
 
+#### militia (base `4860b1e6`, A2)
+
+The hoplite's 16 clips for a shieldless levy spearman. The `MILITIA` prompt table replaces the shield beats: adjust is a grip shift on the spear, kneel leans on the planted spear, block parries with the shaft, brace grounds the butt and angles the spear up and forward. The attack is `thrust`, the two-hand thrust of a man with no shield (V5-093): skeleton-v3 on `i5a/rig5.mjs thrust2` (the left hand takes the shaft ahead of the right, a draw-back, the step in with hips and shoulders driving both hands forward, a held follow-through). Strike frame 6.
+
+- **Calls and costs.** 66 jobs, **104 gens quoted**: 62 pixminimax and 4 skeleton-v3 thrusts.
+- **Sheet.** `src/assets/sheets/militia/{militia.png, manifest.json}`: 202 columns of 120 x 114, wrap 34, a 4080 x 2736 image, **42.6 MB decoded**; packed by the build to **9.06 MB decoded** (core 7.55 MB), a 223.9 KB download.
+- **Colour groups.** ramps outline, umber, darkBronze, crimson, metal, skin, iron. The crimson cloak is the exclusive `cloak` group (the default map); `metalKind.weaponMetal: iron` puts the iron spearhead on the iron ramp. crest and emblem false. Blood left after the cut would join the cloak (the class's own crimson), so every fall was checked after the cut and broken frames replaced.
+- **QC.** `qc.mjs`: **0 failures**, 48 warnings: the spear-end heuristic on upright and parrying spears (adjust, kneel, block NE/NW, walk SW) and brace NE feet 105 vs 102 (the wide braced stance); checked by eye. Stature 58, 57, 59, 57 px.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | block SW | a1 | **Rejected (weapon reversed):** the spearhead swings round behind him while he parries (f5–f7). a2 ("the spearhead still towards his front … never swings behind him") promoted; the wording is now the table's. |
+| 2 | fallBack SW | p1 | **Rejected (blood):** a blood burst over the body f3–f5. p2 ("no blood at all, no red spray, no splatter, no particles") promoted; the model still paints a small burst, cut cleanly. |
+| 3 | every other clip, all facings | a1 / p1 | **Promoted.** Frames replaced: fallBack SE f1←f0, f2←f3 (body hollowed by a cut blood burst), fallBack NW f0←f1 and fallFwd NE f2←f1 (spearhead floating loose after the cut). |
+
+**Rejection count.** Whole clips: weapon reversed 1, blood 1. Frames replaced: 4 (all blood). No doubled or double-ended spears, no heads turned backwards or clipped, no drift; the NE/NW look turns stay in profile.
+
+**Process note.** For a few minutes 4 of my jobs ran at once (cheer NE was submitted with 3 running).
+
+**Lessons.**
+- A shieldless spearman works from the hoplite clips with the shield beats rewritten around the spear.
+- The two-hand thrust rig reads cleanly in all four facings at the first try.
+- "No blood" wording barely helps; for a crimson class, check every fall after the cut.
+
 ### I5c Mounted and chariot clips: companion, horse archer, thessalian, chariot, from the I4b bases to game sheets (2026-10-18)
 
 **Brief.** Animate the four approved I4b bases (`docs/v5/pixellab/mounted.json`) to the hoplite's standard: 12-16 frames a clip, dark-epic, each class identical to its base in every frame, real rider and horse proportions, weight in every attack (a lance driven with the horse's momentum, a javelin thrown with the torso turned, a bow drawn to the cheek), real gaits, spearheads lead, one head, one bow. Hard rejects frame by frame: extra or missing horse legs, rider merged into the horse, a doubled, reversed or missing weapon, a second bow, style or proportion drift, canvas clipping, unrequested sparks or blood. Tiers by runtime recolour (V5-092, V5-098); horse coats kept out of the skin and metal groups where the colours allow, the runtime flags (`variation`, `rarity`, I6) set where they do not.
