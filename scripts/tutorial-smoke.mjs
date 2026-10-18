@@ -17,14 +17,13 @@
 // Saves shots/<mode>/42-tutorial-narrator.png, 43-tutorial-gesture.png, 44-first-run*.png
 // (git-ignored; $SHOTS overrides the folder).
 // Usage: node scripts/tutorial-smoke.mjs <baseUrl> [--platform telegram|web|both]
-import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, shotsDir, until as untilNode } from './lib/harness.mjs';
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, shotsDir, until as untilNode, realClock } from './lib/harness.mjs';
 import { cliArgs, platformMode, applyPlatform, launchUrl, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 
 const cli = cliArgs(process.argv.slice(2), 'scripts/tutorial-smoke.mjs');
 const mode = await platformMode(import.meta.url, cli);
 const base = cli.base;
 const shots = shotsDir(mode);
-const browser = await launch();
 const errors = [];
 /** Every context's platform probe: web mode checks none of them asked telegram.org for anything. */
 const plats = [];
@@ -34,7 +33,11 @@ const plats = [];
  * also takes the screenshots and checks the reward and what follows it.
  */
 async function guided(tag, ctxOpts, fake, main) {
+  const t0 = Date.now();
+  // a browser of its own: the parts run side by side, and one browser draws its pages one after another
+  const browser = await launch();
   const ctx = await phoneContext(browser, { noFirstRun: false, ...ctxOpts });
+  await realClock(ctx); // the game on real frame time, not in slow motion under load (harness.mjs)
   plats.push(await applyPlatform(ctx, mode, fake));
   const page = await ctx.newPage();
   captureErrors(page, { into: errors, ignoreNetwork: true, echo: true });
@@ -167,8 +170,9 @@ async function guided(tag, ctxOpts, fake, main) {
   // the formation drag: carry the hoplites to the flag
   c('move-drag step', await talkingAt('sling', 8000));
   await ev(() => window.__game.scene.getScene('Battle').tutorial.narrator.finishTyping()); // the whole line in the screenshot
-  // the ghost hand half-way through its demonstration
-  await until(() => ev(() => { const g = window.__game.scene.getScene('Battle').tutorial.ghost; const t = window.__game.loop.time - g.start; return g.hands[0].visible && g.segs.length > 1 && t > g.segs[1].t0 + 150 && t < g.segs[1].t1; }), 12000, 50);
+  // the ghost hand half-way through its demonstration, for the screenshot (only the main run takes one: at a frame a
+  // second the window is often missed, and the wait's 240 polls each last a frame, minutes at 1920x1080)
+  if (main) await until(() => ev(() => { const g = window.__game.scene.getScene('Battle').tutorial.ghost; const t = window.__game.loop.time - g.start; return g.hands[0].visible && g.segs.length > 1 && t > g.segs[1].t0 + 150 && t < g.segs[1].t1; }), 12000, 50);
   if (main) await page.screenshot({ path: `${shots}/43-tutorial-gesture.png` });
   const sling = await ghostPts('slingDemo');
   const o0 = await ev(() => window.__game.scene.getScene('Battle').sim.orderLog.length);
@@ -293,103 +297,128 @@ async function guided(tag, ctxOpts, fake, main) {
     await page.reload();
     c('done: no offer on the next launch', await until(() => active('Menu'), 15000));
   }
-  return { ctx, page, ev, wait, tap, until, tapBtn };
+  console.log(`  (${tag}: ${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+  return { close: () => browser.close(), page, ev, wait, tap, until, tapBtn };
 }
 
-const run = await guided('390', {}, { languageCode: 'en' }, true);
-const { ev, wait, tap, until } = run;
-const page = run.page;
+/** The 390x844 lesson (the screenshots, the reward and what follows), then the online coach marks on its page. */
+async function phone() {
+  const run = await guided('390', {}, { languageCode: 'en' }, true);
+  const { ev, wait, tap, until } = run;
+  const page = run.page;
 
-// ------------------------------------------------------------------ online coach marks (local demo shard)
+  // ------------------------------------------------------------------ online coach marks (local demo shard)
 
-const coachOn = async (preview, coach) => {
-  await ev(([p, c]) => window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Online', { preview: p, coach: c })), [preview, coach]);
-  await until(() => ev(() => !!window.__game.scene.getScene('Online').map), 8000);
-  if (preview === 'neutral') await until(() => ev(() => !!window.__game.scene.getScene('Online').detail), 5000);
-  await wait(900);
-};
-await coachOn('neutral', 'attack');
-check('coach mark: Attack explained', await ev(() => window.__game.scene.getScene('Online').coach?.current === 'attack'));
-await page.screenshot({ path: `${shots}/45-online-coach.png` });
-await coachOn('map', 'home');
-check('coach mark: Next goes on', (await run.tapBtn('Online', 'Next')) && (await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 3000)));
-await coachOn('map', 'neighbour');
-const nb = await ev(() => {
-  const s = window.__game.scene.getScene('Online');
-  const r = s.coach.target().rect;
-  return window.__css((r.x + r.w / 2) * s.m.S, (r.y + r.h / 2) * s.m.S);
-});
-await tap(nb[0], nb[1]);
-check('coach mark: tapping the ringed neighbour opens it and goes on', await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 5000), JSON.stringify(await ev(() => window.__game.scene.getScene('Online').selected)));
-await run.ctx.close();
+  const coachOn = async (preview, coach) => {
+    await ev(([p, c]) => window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Online', { preview: p, coach: c })), [preview, coach]);
+    await until(() => ev(() => !!window.__game.scene.getScene('Online').map), 8000);
+    if (preview === 'neutral') await until(() => ev(() => !!window.__game.scene.getScene('Online').detail), 5000);
+    await wait(900);
+  };
+  await coachOn('neutral', 'attack');
+  check('coach mark: Attack explained', await ev(() => window.__game.scene.getScene('Online').coach?.current === 'attack'));
+  await page.screenshot({ path: `${shots}/45-online-coach.png` });
+  await coachOn('map', 'home');
+  check('coach mark: Next goes on', (await run.tapBtn('Online', 'Next')) && (await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 3000)));
+  await coachOn('map', 'neighbour');
+  const nb = await ev(() => {
+    const s = window.__game.scene.getScene('Online');
+    const r = s.coach.target().rect;
+    return window.__css((r.x + r.w / 2) * s.m.S, (r.y + r.h / 2) * s.m.S);
+  });
+  await tap(nb[0], nb[1]);
+  check('coach mark: tapping the ringed neighbour opens it and goes on', await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 5000), JSON.stringify(await ev(() => window.__game.scene.getScene('Online').selected)));
+  await run.close();
+}
 
 // ------------------------------------------------------------------ Telegram full screen at 320x568: the whole lesson again
 
-// Telegram mode: in Telegram full screen (status bar and Telegram's pills over the top, the home indicator below)
-const small = await guided(mode === 'telegram' ? '320 TG' : '320 web', { viewport: { width: 320, height: 568 } }, { insets: { safeTop: 59, contentTop: 46, safeBottom: 34 }, fullscreen: 'launch', languageCode: 'en' }, false);
-await small.ctx.close();
+async function small() {
+  // Telegram mode: in Telegram full screen (status bar and Telegram's pills over the top, the home indicator below)
+  const run = await guided(mode === 'telegram' ? '320 TG' : '320 web', { viewport: { width: 320, height: 568 } }, { insets: { safeTop: 59, contentTop: 46, safeBottom: 34 }, fullscreen: 'launch', languageCode: 'en' }, false);
+  await run.close();
+}
 
 // ------------------------------------------------------------------ phone landscape, laptop and full HD: the whole lesson again
 
 // landscape-v6.md §13.1 (V6-RSCR-08): the HUD moved (thumb rail, bottom-centre orders), the narrator docks
 // top-left of the field, and every lit control must still be clear of it and in reach
-for (const [w, h] of [[844, 390], [1280, 800], [1920, 1080]]) {
-  const wide = await guided(`${w}x${h}`, { viewport: { width: w, height: h } }, { languageCode: 'en' }, false);
-  await wide.ctx.close();
-}
+const wide = async (w, h) => {
+  const run = await guided(`${w}x${h}`, { viewport: { width: w, height: h } }, { languageCode: 'en' }, false);
+  await run.close();
+};
 
 // ------------------------------------------------------------------ resume and skip
 
-const ctx2 = await phoneContext(browser, { noFirstRun: false, viewport: { width: 375, height: 667 } });
-plats.push(await applyPlatform(ctx2, mode, { languageCode: 'en' }));
-const p2 = await ctx2.newPage();
-captureErrors(p2, { into: errors, console: false });
-await apiDown(p2, '{}');
-const api2 = makePageApi(p2, { tapWait: 0 });
-const ev2 = api2.ev;
-const until2 = (fn, ms = 15000) => untilNode(() => ev2(fn), ms, 200);
-await p2.goto(launchUrl(base, mode));
-await until2(() => window.__game?.scene.isActive('FirstRun'));
-await ev2(() => window.__game.scene.getScene('FirstRun').startTutorial());
-await until2(() => window.__game.scene.getScene('Battle')?.tutorial?.step === 'intro');
-// learn two steps, then the app "closes"
-await ev2(() => { const t = window.__game.scene.getScene('Battle').tutorial; t.narrator.finishTyping(); t.tapInfo(); });
-await until2(() => window.__game.scene.getScene('Battle').tutorial.step === 'select');
-await ev2(() => { const s = window.__game.scene.getScene('Battle'); s.tutorialHost().select(0); });
-await until2(() => window.__game.scene.getScene('Battle').tutorial.step === 'pan');
-await p2.waitForTimeout(800);
-await p2.reload();
-check('interrupted: resume offered', await until2(() => window.__game?.scene.isActive('FirstRun') && window.__game.scene.getScene('FirstRun').mode === 'resume'));
-await ev2(() => window.__game.scene.getScene('FirstRun').startTutorial());
-check('resumed past the learned steps (pan next)', await until2(() => window.__game.scene.getScene('Battle')?.tutorial?.step === 'pan'), JSON.stringify(await ev2(() => window.__game.scene.getScene('Battle')?.tutorial?.plan)));
-// the narrator's Skip asks first (TUT-2)
-await until2(() => window.__game.scene.getScene('Battle').tutorial.talking, 5000);
-const skipKey = await ev2(() => {
-  const s = window.__game.scene.getScene('Battle');
-  let hit = null;
-  const walk = (l) => l.forEach((o) => { if (o.opts && o.opts.label === 'Skip' && o.visible) hit = o; if (o.list) walk(o.list); });
-  walk(s.tutorial.overlay.list);
-  const r = hit.getBounds();
-  return window.__css(r.centerX, r.centerY);
-});
-await api2.tap(skipKey[0], skipKey[1]);
-check('skip asks first', await until2(() => window.__game.scene.getScene('Battle').tutorial.dialog !== null, 3000));
-const skipAt = await ev2(() => {
-  const s = window.__game.scene.getScene('Battle');
-  let hit = null;
-  const walk = (l) => l.forEach((o) => { if (o.opts && o.opts.label === 'Skip' && o.visible) hit = o; if (o.list) walk(o.list); });
-  walk(s.tutorial.dialog.list);
-  const r = hit.getBounds();
-  return window.__css(r.centerX, r.centerY);
-});
-await api2.tap(skipAt[0], skipAt[1]);
-check('skipped: the modes screen', await until2(() => window.__game.scene.isActive('FirstRun') && window.__game.scene.getScene('FirstRun').mode === 'modes', 5000));
-check('skip is saved', await ev2(() => window.__state.campaign.data.settings.tutorial.status === 'skipped'));
-await p2.waitForTimeout(800);
-await p2.reload();
-check('skipped: not offered again', await until2(() => window.__game?.scene.isActive('Menu')));
-await ctx2.close();
+async function resumeAndSkip() {
+  const browser = await launch();
+  const ctx2 = await phoneContext(browser, { noFirstRun: false, viewport: { width: 375, height: 667 } });
+  await realClock(ctx2);
+  plats.push(await applyPlatform(ctx2, mode, { languageCode: 'en' }));
+  const p2 = await ctx2.newPage();
+  captureErrors(p2, { into: errors, console: false });
+  await apiDown(p2, '{}');
+  const api2 = makePageApi(p2, { tapWait: 0 });
+  const ev2 = api2.ev;
+  const until2 = (fn, ms = 15000) => untilNode(() => ev2(fn), ms, 200);
+  await p2.goto(launchUrl(base, mode));
+  await until2(() => window.__game?.scene.isActive('FirstRun'));
+  await ev2(() => window.__game.scene.getScene('FirstRun').startTutorial());
+  await until2(() => window.__game.scene.getScene('Battle')?.tutorial?.step === 'intro');
+  // learn two steps, then the app "closes"
+  await ev2(() => { const t = window.__game.scene.getScene('Battle').tutorial; t.narrator.finishTyping(); t.tapInfo(); });
+  await until2(() => window.__game.scene.getScene('Battle').tutorial.step === 'select');
+  await ev2(() => { const s = window.__game.scene.getScene('Battle'); s.tutorialHost().select(0); });
+  await until2(() => window.__game.scene.getScene('Battle').tutorial.step === 'pan');
+  await p2.waitForTimeout(800);
+  await p2.reload();
+  check('interrupted: resume offered', await until2(() => window.__game?.scene.isActive('FirstRun') && window.__game.scene.getScene('FirstRun').mode === 'resume'));
+  await ev2(() => window.__game.scene.getScene('FirstRun').startTutorial());
+  check('resumed past the learned steps (pan next)', await until2(() => window.__game.scene.getScene('Battle')?.tutorial?.step === 'pan'), JSON.stringify(await ev2(() => window.__game.scene.getScene('Battle')?.tutorial?.plan)));
+  // the narrator's Skip asks first (TUT-2)
+  await until2(() => window.__game.scene.getScene('Battle').tutorial.talking, 5000);
+  const skipKey = await ev2(() => {
+    const s = window.__game.scene.getScene('Battle');
+    let hit = null;
+    const walk = (l) => l.forEach((o) => { if (o.opts && o.opts.label === 'Skip' && o.visible) hit = o; if (o.list) walk(o.list); });
+    walk(s.tutorial.overlay.list);
+    const r = hit.getBounds();
+    return window.__css(r.centerX, r.centerY);
+  });
+  await api2.tap(skipKey[0], skipKey[1]);
+  check('skip asks first', await until2(() => window.__game.scene.getScene('Battle').tutorial.dialog !== null, 3000));
+  const skipAt = await ev2(() => {
+    const s = window.__game.scene.getScene('Battle');
+    let hit = null;
+    const walk = (l) => l.forEach((o) => { if (o.opts && o.opts.label === 'Skip' && o.visible) hit = o; if (o.list) walk(o.list); });
+    walk(s.tutorial.dialog.list);
+    const r = hit.getBounds();
+    return window.__css(r.centerX, r.centerY);
+  });
+  await api2.tap(skipAt[0], skipAt[1]);
+  check('skipped: the modes screen', await until2(() => window.__game.scene.isActive('FirstRun') && window.__game.scene.getScene('FirstRun').mode === 'modes', 5000));
+  check('skip is saved', await ev2(() => window.__state.campaign.data.settings.tutorial.status === 'skipped'));
+  await p2.waitForTimeout(800);
+  await p2.reload();
+  check('skipped: not offered again', await until2(() => window.__game?.scene.isActive('Menu')));
+  await browser.close();
+}
+
+// ------------------------------------------------------------------ the parts, `--jobs` at a time
+
+// Each part has its own browser (its own storage and save), so they can run side by side
+// (V6-QA-SPEED): `--jobs N` at a time (default 2; 1 = one after another), the longest first. Every check
+// names its part.
+const jobsArg = cli.args.indexOf('--jobs');
+const JOBS = Math.max(1, Number(jobsArg >= 0 ? cli.args[jobsArg + 1] : 2) || 1);
+const parts = [() => wide(1920, 1080), () => wide(1280, 800), phone, () => wide(844, 390), small, resumeAndSkip];
+await Promise.all(
+  Array.from({ length: Math.min(JOBS, parts.length) }, async () => {
+    while (parts.length) await parts.shift()();
+  }),
+);
+
 
 check('no page errors', errors.length === 0, errors.slice(0, 5).join(' | '));
 for (const p of plats) noTelegramRequests(p);
-await finish({ browser, pass: 'TUTORIAL SMOKE PASSED', fail: (n) => `TUTORIAL SMOKE FAILED (${n})` });
+await finish({ pass: 'TUTORIAL SMOKE PASSED', fail: (n) => `TUTORIAL SMOKE FAILED (${n})` });

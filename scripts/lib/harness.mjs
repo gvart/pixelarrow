@@ -60,6 +60,27 @@ export async function prepContext(c) {
 }
 
 /**
+ * Test lever (V6-QA-SPEED): the game clock on real frame time. Below 5 fps Phaser hands every scene a
+ * smoothed delta of 16.7 ms a frame whatever the frame took (TimeStep.smoothDelta), so on a loaded machine
+ * drawing a frame or two a second the game ran at 1/15 to 1/70 of real time (a guided battle at 1920x1080
+ * took most of the runner's 30 minutes). With this, each frame passes its real time, capped at `capMs`
+ * (the battle's own cap a frame, BattleScene.update): the game runs as on a slow phone, not in slow motion.
+ * An init script on the context sets it on `window.__game` as main.ts publishes it (every load and
+ * reload); the game build has no such switch.
+ */
+export async function realClock(ctx, capMs = 250) {
+  await ctx.addInitScript((cap) => {
+    Object.defineProperty(window, '__game', {
+      configurable: true,
+      set(g) {
+        g.loop.smoothDelta = (d) => Math.min(d, cap);
+        Object.defineProperty(window, '__game', { value: g, writable: true, configurable: true, enumerable: true });
+      },
+    });
+  }, capMs);
+}
+
+/**
  * Collects console errors and page errors of a page into `into` (returned).
  *   ignoreNetwork  skip the browser's own "Failed to load resource" lines (pushed to `network` instead, when given)
  *   console        false: page errors only

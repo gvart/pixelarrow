@@ -12,6 +12,7 @@ npm run regression -- --port 6150     # vite build if dist/ is missing, vite pre
 npm run regression -- http://127.0.0.1:6150/   # against a server already running (a port in your own slot, V6-035)
 npm run regression -- <url> --platform web     # one platform mode; the default is both (telegram, then web)
 npm run regression -- <url> --all     # also the browser smokes (the smoke-check scope; not online-e2e)
+npm run regression -- <url> --all --jobs 3   # scripts at a time, each its own browser (default 2; --jobs 1 = in turn)
 npx vitest run tests/regression        # the unit guards (also part of `npm test`)
 ```
 
