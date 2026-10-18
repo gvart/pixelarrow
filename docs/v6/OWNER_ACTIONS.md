@@ -11,14 +11,30 @@ The two hosts (ADR-0007): the game and its API on `https://play.pixelarrow.app`
 
 ## A. Before go-live (any time; nothing goes offline)
 
-1. **Legal and privacy sign-off** (was items 5 and 6; ADR-0009).
-   1. Sign off the privacy notice text and the retention periods for purchase
-      records and backups.
-   2. Decide the minimum player age and how long purchase records are kept
-      (accounts UX Q8).
-   3. Sign off the legal pages' wording (`landing/public/terms.html`,
-      `privacy.html`, `refunds.html` and `landing/public/ru/`), including the
-      URL fix to "Mini App at play.pixelarrow.app" (V6-024).
+1. **Legal and privacy sign-off** (was items 5 and 6; ADR-0009 §8; V6-LINK-07).
+   The privacy notice draft is `landing/public/privacy.html` and
+   `landing/public/ru/privacy.html` (sections 1–11, marked "Draft — pending
+   owner sign-off"). Every value only you can decide is a visible `[…]`
+   placeholder there.
+   1. Fill in the operator name and address/country, the privacy contact email
+      and the effective date (both languages).
+   2. Confirm how long purchase records are kept after an account is deleted
+      (proposed **5 years**; accounts UX Q8). The game says the same number on
+      the Delete account screen: if it changes, change
+      `PURCHASE_RETENTION_YEARS` in `src/ui/account/deletion.ts` too.
+   3. Confirm how long D1 backups are kept (proposed **30 days**) and how long
+      support requests are kept after they are resolved (`[N months]`).
+   4. Decide the **minimum player age** (13 or 16; it must also respect
+      Telegram's terms) and put it in section 9 of both pages. The sign-up form
+      has a key for an age line (`auth.signup.age`) if you want it shown there
+      too.
+   5. Decide which language prevails if the English and Russian texts differ
+      (section 11).
+   6. Read the whole notice in both languages and remove the draft line once it
+      is signed off.
+   7. Sign off the other legal pages' wording (`landing/public/terms.html`,
+      `refunds.html` and their `landing/public/ru/` copies), including the URL
+      fix to "Mini App at play.pixelarrow.app" (V6-024).
 2. **Cloudflare plan** (was item 4). Upgrade to Workers Paid if the Rate Limiting
    binding (`RL_LANDING_PUBLIC` and the account limits) or the CPU limits need
    it. Step 3 needs it.
@@ -60,7 +76,7 @@ The two hosts (ADR-0007): the game and its API on `https://play.pixelarrow.app`
       `TURNSTILE_SECRET` (that is,
       `npx wrangler secret put TURNSTILE_SECRET --config ../wrangler.jsonc`),
       `PASSWORD_PEPPER` and `PASSWORD_PEPPER_ID`.
-5. **GitHub setup for the landing deploy** (was item 10; V6-025).
+5. **GitHub setup: the landing deploy and Telegram links** (was item 10 and a C item; V6-025).
    1. Settings → Environments → **New environment** `production-landing` (the
       `landing-deploy` job uses it; add the same protection rules as
       `production` if it has any).
@@ -71,6 +87,19 @@ The two hosts (ADR-0007): the game and its API on `https://play.pixelarrow.app`
    3. Check the `CLOUDFLARE_API_TOKEN` covers the `pixelarrow.app` zone for
       Workers custom domains (it already deploys the game's custom domain; the
       landing adds `pixelarrow.app` and `www.pixelarrow.app` on the same zone).
+   4. Settings → Secrets and variables → Actions → **Variables** →
+      `TELEGRAM_BOT_USERNAME` (and `TELEGRAM_APP_NAME` if the Mini App short
+      name isn't `play`), so Telegram invites use t.me deep links (V6-PLAT-05;
+      the deploy workflow passes it to the client build as `VITE_TELEGRAM_BOT`).
+      Until then, invites fall back to the `https://play.pixelarrow.app` link.
+   5. **Dev bot username** (V6-LINK-06/07). Web "Link Telegram" builds its
+      t.me link and QR code from the server's bot username: the
+      `TELEGRAM_BOT_USERNAME` Worker var, else `getMe` with the bot token. A
+      local or dev server with neither (for example `wrangler dev` without a
+      bot token) shows only the `link_<code>` start code and Copy. To test
+      linking end to end, put your dev bot's username in
+      `TELEGRAM_BOT_USERNAME` in `server/.dev.vars`; never point it at the
+      production bot.
 6. **Local dry runs** (no deploy). From `landing/`: `npm ci && npm run build &&
    npm run dry-run`. From `server/`: `npx wrangler deploy --dry-run --config
    ../wrangler.jsonc`. Both must pass.
@@ -141,23 +170,3 @@ no live users (V5-074), so this is accepted.
 
 11. **Authorise Context7** (`/mcp`) if you want later runs to check library and
     Cloudflare docs live (was item 3).
-- GitHub repo variable TELEGRAM_BOT_USERNAME (and TELEGRAM_APP_NAME if the Mini App short name isn't 'play'), so Telegram invites use t.me deep links (V6-PLAT-05). Until then, invites fall back to the https://play.pixelarrow.app link.
-
-## V6-LINK-07: privacy notice sign-off and minimum age (before go-live; details for A.1)
-
-The notice draft is `landing/public/privacy.html` and `landing/public/ru/privacy.html` (ADR-0009 §8,
-sections 1–11, marked "Draft — pending owner sign-off"). Every value only you can decide is a visible
-`[…]` placeholder there. Before go-live:
-
-1. Fill in the operator name and address/country, the privacy contact email and the effective date
-   (both languages).
-2. Confirm how long purchase records are kept after an account is deleted (proposed **5 years**). The
-   game says the same number on the Delete account screen: if it changes, change
-   `PURCHASE_RETENTION_YEARS` in `src/ui/account/deletion.ts` too.
-3. Confirm how long D1 backups are kept (proposed **30 days**) and how long support requests are kept
-   after they are resolved (`[N months]`).
-4. Decide the **minimum player age** (13 or 16; it must also respect Telegram's terms) and put it in
-   section 9 of both pages. The sign-up form has a key for an age line (`auth.signup.age`) if you want it
-   shown there too.
-5. Decide which language prevails if the English and Russian texts differ (section 11).
-6. Read the whole notice in both languages and remove the draft line once it is signed off.
