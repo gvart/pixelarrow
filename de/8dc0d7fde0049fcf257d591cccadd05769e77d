@@ -1,0 +1,51 @@
+docs/v5/pixellab/I5c/prompts.json
+  s_41b82181a73565::t_8219294efd42ce 10-13,23-26,49-68
+  s_41b82181a73565::t_dc413d5a9a351f 69
+  s_41b82181a73565::t_10fb0527d00fa3 70-71
+src/assets/sheets/horse_archer/manifest.json
+  s_41b82181a73565::t_c901ed4fbb8664 1-5,7-26,28-43,45-143
+  s_41b82181a73565::t_6005f96f7515c7 6,27,44
+docs/v5/pixellab/I5c/horse_archer.jobs.json
+  s_41b82181a73565::t_10fb0527d00fa3 542-543,586-590,592-598
+  s_41b82181a73565::t_f4a5433b4adaac 591
+  s_41b82181a73565::t_a528362c3fdf1a 414,513-514
+  s_41b82181a73565::t_8219294efd42ce 544-555
+  s_41b82181a73565::t_43b027b689231b 558-569
+  s_41b82181a73565::t_843b066d699176 601-612
+  s_41b82181a73565::t_6005f96f7515c7 44-45,178,208-209,224,599
+  s_41b82181a73565::t_d4f4b00d1c9d97 1-43,46-177,179-207,210-223,225-413,415-512,515-528,615-616
+  s_41b82181a73565::t_483c1c7cdf4118 570-571
+  s_41b82181a73565::t_a354fb0ede0898 556-557,584-585
+  s_41b82181a73565::t_3a0e55144742bb 529-541
+  s_41b82181a73565::t_a5203af9dc8e7d 572-583
+  s_41b82181a73565::t_88d01df5c48cbf 600
+  s_41b82181a73565::t_c901ed4fbb8664 613-614
+scripts/art/pixellab/i5c/derive.mjs
+  s_41b82181a73565::t_88d01df5c48cbf 24
+  s_41b82181a73565::t_930bdf46f3fece 16-23,25
+docs/v5/pixellab/I5c/horse_archer.sheet.json
+  s_41b82181a73565::t_47b5f5d2e978ab 439,441
+  s_41b82181a73565::t_930bdf46f3fece 1-366,394-438,442-452
+  s_41b82181a73565::t_c9381c08733c19 440
+  s_41b82181a73565::t_88d01df5c48cbf 367-393
+docs/playbook/PROMPTS_ART.md
+  s_41b82181a73565::t_1591f44efb3441 1262-1396
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_b5d46a041a6381 171-225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "de8dc0d7fde0049fcf257d591cccadd05769e77d",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
