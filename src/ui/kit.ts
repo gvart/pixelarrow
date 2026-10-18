@@ -716,6 +716,8 @@ export function scrollAllAreas(v: number): number {
 
 /** Height of the scroll cue's shade, UI px. */
 export const SCROLL_CUE_H = 10;
+/** A snapping track moves at most a column per this many ms of wheel events. */
+const WHEEL_STEP_MS = 120;
 
 /** Screen-space viewport of a scroll area's content, kept on the content container. */
 type ClipRect = { x: number; y: number; w: number; h: number; at?: () => { x: number; y: number } };
@@ -787,9 +789,15 @@ export class ScrollArea implements FocusScroll {
     private w: number,
     private h: number,
     S: number,
-    opts: { cue?: boolean } = {},
+    /**
+     * `axis: 'x'` scrolls sideways (a track of columns: a drag, the wheel or a key moves it); `snap` (UI px, with
+     * 'x') rests it on whole columns of that step, so no column is ever cut at the side of its window.
+     */
+    opts: { cue?: boolean; axis?: 'y' | 'x'; snap?: number } = {},
   ) {
     this.S = S;
+    this.sideways = opts.axis === 'x';
+    this.snap = this.sideways ? opts.snap ?? 0 : 0;
     this.content = scene.add.container(x, y);
     parent.add(this.content);
     if (opts.cue !== false) {
@@ -827,25 +835,41 @@ export class ScrollArea implements FocusScroll {
     };
     const onMove = (p: Phaser.Input.Pointer) => {
       if (!this.dragging || !p.isDown) return;
-      const dy = (p.y - this.lastY) / S;
-      this.lastY = p.y;
-      if (Math.abs(p.y - this.startY) > 10 * RS) this.moved = true;
+      const at = this.sideways ? p.x : p.y;
+      const dy = (at - this.lastY) / S;
+      this.lastY = at;
+      if (Math.abs(at - this.startY) > 10 * RS) this.moved = true;
       this.vel = dy;
       this.setScroll(this.scroll - dy);
     };
     const onUp = () => {
+      if (this.dragging && this.snap) {
+        // a snapping track rests on the nearest whole column, a fling carrying it one further
+        this.setScroll(this.snapped(this.scroll - this.vel * 4));
+        this.vel = 0;
+      }
       this.dragging = false;
     };
     wheelAreas.set(this.content, this);
     wheelAreas.set(this.zone, this);
     // only the innermost area under the pointer scrolls (not every live list on screen)
-    const onWheel = (_p: unknown, over: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
+    let wheelAt = 0;
+    const onWheel = (_p: unknown, over: Phaser.GameObjects.GameObject[], dx: number, dy: number) => {
       if (wheelOwner(over[0], (n) => wheelAreas.get(n)) !== this) return;
-      this.setScroll(this.scroll + dy * 0.3);
+      const d = this.sideways ? dx || dy : dy;
+      if (!this.snap) {
+        this.setScroll(this.scroll + d * 0.3);
+        return;
+      }
+      // a snapping track: a column a notch (a trackpad's burst of events moves it one)
+      const now = scene.time.now;
+      if (!d || now - wheelAt < WHEEL_STEP_MS) return;
+      wheelAt = now;
+      this.setScroll(this.snapped(this.scroll + Math.sign(d) * this.snap));
     };
     const onUpdate = () => {
       follow();
-      if (!this.dragging && Math.abs(this.vel) > 0.1) {
+      if (!this.dragging && !this.snap && Math.abs(this.vel) > 0.1) {
         this.setScroll(this.scroll - this.vel);
         this.vel *= 0.9;
       }
@@ -872,6 +896,14 @@ export class ScrollArea implements FocusScroll {
 
   private cleanup: () => void = () => {};
   private readonly S: number;
+  /** Scrolls sideways (`axis: 'x'`), resting on whole columns of `snap` UI px when set. */
+  private readonly sideways: boolean;
+  private readonly snap: number;
+
+  /** `v` on the nearest whole column of a snapping track (as is otherwise). */
+  private snapped(v: number): number {
+    return this.snap ? Math.round(v / this.snap) * this.snap : v;
+  }
 
   /** The visible window in world (canvas) px. */
   viewWorld(): { x: number; y: number; w: number; h: number } {
@@ -882,16 +914,27 @@ export class ScrollArea implements FocusScroll {
 
   /** Scroll so the world-px span top..bottom is fully in view, clear of the scroll cue (keyboard focus, input-v6.md §4.3). */
   revealSpan(top: number, bottom: number): void {
+    if (this.sideways) return;
     const v = this.viewWorld();
     const m = SCROLL_CUE_H * this.S;
     if (top < v.y + m) this.setScroll(this.scroll - (v.y + m - top) / this.S);
     else if (bottom > v.y + v.h - m) this.setScroll(this.scroll + (bottom - (v.y + v.h - m)) / this.S);
   }
 
+  /** A sideways track: scroll so the world-px span left..right is in view, on whole columns (keyboard focus). */
+  revealX(left: number, right: number): void {
+    if (!this.sideways) return;
+    const v = this.viewWorld();
+    const k = this.snap || 1;
+    if (left < v.x - 0.5) this.setScroll(Math.floor((this.scroll - (v.x - left) / this.S) / k) * k);
+    else if (right > v.x + v.w + 0.5) this.setScroll(Math.ceil((this.scroll + (right - (v.x + v.w)) / this.S) / k) * k);
+  }
+
   /** PageUp / PageDown scroll one view; Home / End go to the ends. */
   page(kind: 'up' | 'down' | 'home' | 'end'): void {
     this.vel = 0;
-    this.setScroll(kind === 'home' ? 0 : kind === 'end' ? this.maxScroll : this.scroll + (kind === 'down' ? 1 : -1) * this.h);
+    const view = this.sideways ? this.w : this.h;
+    this.setScroll(kind === 'home' ? 0 : kind === 'end' ? this.maxScroll : this.snapped(this.scroll + (kind === 'down' ? 1 : -1) * view));
   }
 
   /** Still on screen (its scene runs and its content is visible). */
@@ -915,8 +958,8 @@ export class ScrollArea implements FocusScroll {
     if (this.dragging) return;
     this.dragging = true;
     this.moved = false;
-    this.lastY = p.y;
-    this.startY = p.y;
+    this.lastY = this.sideways ? p.x : p.y;
+    this.startY = this.lastY;
     this.vel = 0;
   }
 
@@ -934,9 +977,10 @@ export class ScrollArea implements FocusScroll {
     this.listeners.push(cb);
   }
 
+  /** The content's extent along the scroll axis (its width, for a sideways track). */
   setContentHeight(ch: number): void {
     this.contentH = ch;
-    this.maxScroll = Math.max(0, ch - this.h);
+    this.maxScroll = Math.max(0, ch - (this.sideways ? this.w : this.h));
     this.setScroll(this.scroll, true);
   }
 
@@ -956,7 +1000,8 @@ export class ScrollArea implements FocusScroll {
     const next = Math.max(0, Math.min(this.maxScroll, v));
     if (next === this.scroll && !force) return;
     this.scroll = next;
-    this.content.y = Math.round(this.y - this.scroll);
+    if (this.sideways) this.content.x = Math.round(this.x - this.scroll);
+    else this.content.y = Math.round(this.y - this.scroll);
     this.drawCue();
     for (const cb of this.listeners) cb(this.scroll, this.maxScroll);
   }
@@ -969,6 +1014,28 @@ export class ScrollArea implements FocusScroll {
     const { above, below } = scrollCue(this.scroll, this.maxScroll);
     const bands = 5;
     const step = SCROLL_CUE_H / bands;
+    if (this.sideways) {
+      // a sideways track: the shade at a clipped side, the chevron at the right one's middle
+      for (let i = 0; i < bands; i++) {
+        g.fillStyle(0x1a0d06, 0.035 * (bands - i));
+        if (above) g.fillRect(this.x + i * step, this.y, step, this.h);
+        if (below) g.fillRect(this.x + this.w - (i + 1) * step, this.y, step, this.h);
+      }
+      if (below) {
+        // (at the top right, clear of a column's controls)
+        const cx = this.x + this.w - 6;
+        const cy = this.y + 6;
+        g.fillStyle(0x1a0d06, 0.75);
+        g.fillCircle(cx, cy, 4.5);
+        g.lineStyle(1.1, MOSAIC.cream, 1);
+        g.beginPath();
+        g.moveTo(cx - 1, cy - 2.3);
+        g.lineTo(cx + 1.3, cy);
+        g.lineTo(cx - 1, cy + 2.3);
+        g.strokePath();
+      }
+      return;
+    }
     for (let i = 0; i < bands; i++) {
       const a = 0.035 * (bands - i);
       g.fillStyle(0x1a0d06, a);

@@ -21,7 +21,7 @@ export { rarityInk, rarityInkKey, ensureRarityInk } from './rarityInk';
 export { MBar, type MBarOpts } from './meters';
 export { addSubShell, gearAction, type SubShell, type FramedSubShell, type SubShellOpts } from './subShell';
 export { addTipLine, type TipLineOpts } from './tips';
-export { openParchmentSheet, sheetBox, sheetActionsH, sheetWidth, SHEET_TITLE_H, SHEET_ACTION_H, type ParchmentSheetOpts, type ParchmentSheetHandle } from './ParchmentSheet';
+export { openParchmentSheet, addParchmentPane, sheetBox, sheetActionsH, sheetWidth, SHEET_TITLE_H, SHEET_ACTION_H, type ParchmentSheetOpts, type ParchmentSheetHandle } from './ParchmentSheet';
 export { MIconButton, type MIconButtonOpts, type MIconButtonVariant } from './iconButton';
 export { MActionBar, actionBarH, type BarSlot, type MActionBarOpts } from './ActionBar';
 export { SituationLine, ChipRow, CHIP_ROW_H, situationLineH, type SituationChip } from './SituationLine';

@@ -2,7 +2,7 @@ import { setCosmeticLoadout } from '../game/cosmetics';
 import { addSignInGate, showsSignInGate } from '../ui/account/gate';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { scaleIcon, ScrollArea, addIcon, addText, tappable } from '../ui/kit';
+import { scaleIcon, ScrollArea, addIcon, addText, tappable, type FontKey } from '../ui/kit';
 import { ItemIcon, addScrollHint, confirmDialog, showTooltip, subjectName, toast } from '../ui/widgets';
 import { uiId, uiLayout, uiTransient } from '../ui/layout';
 import { layoutVariant, PANE_GUTTER, type LayoutVariant } from '../ui/mosaic/layout/geometry';
@@ -44,6 +44,19 @@ const FRESCO_FILE = 'ui/fresco_shop.jpg';
 const TIER_W = 24;
 const ROW_H = 46;
 const TAP_H = 22;
+/** The horizontal tier track (compact landscape, expanded): a column's number strip, a reward cell, the whole track. */
+const TRACK_TH = 16;
+const CELL_H = ROW_H - 2;
+const TRACK_H = TRACK_TH + 2 + CELL_H * 2 + GAP;
+/** A tier's column: narrower on a phone held sideways, wider on a laptop. */
+const CELL_W_LAND = 62;
+const CELL_W_WIDE = 72;
+/** The season card left of the track in compact landscape: its share of the width, least and widest. */
+const CARD_LAND_SHARE = 0.4;
+const CARD_LAND_MIN = 120;
+const CARD_LAND_MAX = 150;
+/** The gap between the card and the track under it on a laptop. */
+const TRACK_GAP = 8;
 /** The Shop page's left pane (the tip, the Market door, the map merchants): its share of the width and least width. */
 const SHOP_LEFT = 0.36;
 const SHOP_LEFT_MIN = 110;
@@ -572,7 +585,56 @@ export class ShopScene extends BaseScene {
       addEconState(this, this.page, this.box.x + 4, top, this.box.w - 8, this.pageBottom() - top, 'error', () => void this.fetchAll());
       return;
     }
+    // compact landscape and expanded: the horizontal tier track (landscape-v6 §11.2), where its two rows fit
+    if (this.buildPassTrack(d, p)) return;
     const w = this.box.w - 8 - 4;
+    const sc = this.seasonShape(d, p, w);
+    const { hh } = sc;
+    const head = (this.fixedChip ? 0 : 17) + hh + 4 + 12;
+    // pinned when the track keeps two rows under the card; on the shortest screens everything scrolls
+    // together, opened at the top (the card and Claim all still show on entry)
+    const pinned = this.pageBottom() - top - head >= ROW_H * 2 + GAP;
+    const whole = pinned ? null : this.area(top, this.pageBottom() - top);
+    const c = whole ? whole.content : this.page;
+    const x0 = whole ? 0 : this.box.x + 4;
+    if (whole) top = 1;
+    let y = top;
+    this.seasonCard(c, x0, y, w, d, p, sc, whole);
+    y += hh + 4;
+    // on a short screen the balance chip sits under the card here (the card and Claim all come first: SHP-1)
+    if (!this.fixedChip) {
+      const chip = this.makeChip(x0 + 1, y);
+      c.add(chip);
+      y += chip.h + 4;
+    }
+    // the two tracks' headers (pinned with the card)
+    const cellW = this.cellW(w);
+    const lx = x0 + TIER_W + GAP;
+    c.add(mtext(this, lx + cellW / 2, y, t('pass.free'), 'pSec', { size: 7, align: 0.5, maxW: cellW - 2 }));
+    const premW = mw(t('pass.premium'), 'pInk', 7);
+    const showSeal = premW + 14 <= cellW - 2;
+    const px = lx + GAP + cellW + cellW / 2 + (showSeal ? 6 : 0);
+    c.add(mtext(this, px, y, t('pass.premium'), 'pInk', { size: 7, align: 0.5, maxW: cellW - (showSeal ? 14 : 2) }));
+    if (showSeal) c.add(addIcon(this, Math.round(px - premW / 2 - 13), y - 2, 'pass', p.premium ? '' : 'D'));
+    y += 12;
+    // the track: the only part that scrolls (opened at the player's tier)
+    const area = whole ?? this.area(y, this.pageBottom() - y);
+    let ty = whole ? y : 0;
+    let focusY = 0;
+    p.tiers.forEach((_tier, i) => {
+      const row = this.add.container(0, ty);
+      area.content.add(row);
+      this.tierRow(d, p, i, row, w, ROW_H, area);
+      if (i === focusTier(p) - 1) focusY = ty;
+      ty += ROW_H + GAP;
+    });
+    area.setContentHeight(ty);
+    if (!whole) area.setScroll(Math.max(0, focusY - (area.viewHeight - ROW_H) / 2));
+    else frameScrollTexts(area, this.box.w - 8);
+  }
+
+  /** The season card's shape in a card `w` wide. */
+  private seasonShape(d: Loaded, p: SeasonPassInfo, w: number) {
     const prog = passProgress(p);
     const days = Math.max(0, Math.ceil((p.season.endsAt - Date.now()) / 86_400_000));
     const claimN = claimableCount(p);
@@ -592,16 +654,12 @@ export class ShopScene extends BaseScene {
     const sideBySide = (prem.owned || fits(unlockL, bw)) && fits(claimL, w - 16 - bw - GAP);
     const yx = oneLine ? 17 : 27;
     const hh = yx + 19 + bh + (sideBySide ? 0 : bh + GAP) + 4;
-    const head = (this.fixedChip ? 0 : 17) + hh + 4 + 12;
-    // pinned when the track keeps two rows under the card; on the shortest screens everything scrolls
-    // together, opened at the top (the card and Claim all still show on entry)
-    const pinned = this.pageBottom() - top - head >= ROW_H * 2 + GAP;
-    const whole = pinned ? null : this.area(top, this.pageBottom() - top);
-    const c = whole ? whole.content : this.page;
-    const x0 = whole ? 0 : this.box.x + 4;
-    if (whole) top = 1;
-    // the season card: tier, ends in, XP to the next (tap: how XP is earned), the premium track, Claim all
-    let y = top;
+    return { prog, claimN, prem, endsT, title, oneLine, bh, bw, unlockL, claimL, sideBySide, yx, hh };
+  }
+
+  /** The season card: tier, ends in, XP to the next (tap: how XP is earned), the premium track, Claim all. */
+  private seasonCard(c: Phaser.GameObjects.Container, x0: number, y: number, w: number, d: Loaded, p: SeasonPassInfo, sc: ReturnType<ShopScene['seasonShape']>, whole: ScrollArea | null): void {
+    const { prog, claimN, prem, endsT, title, oneLine, bh, bw, unlockL, claimL, sideBySide, yx, hh } = sc;
     const card = new ParchmentCard(this, x0, y, w, hh);
     c.add(card);
     const box = { owner: card as Phaser.GameObjects.Container, w, h: hh };
@@ -644,37 +702,95 @@ export class ShopScene extends BaseScene {
     const claimW = Math.min(BUTTON_MAX, sideBySide ? w - 16 - bw - GAP : w - 16);
     const cx = sideBySide ? x0 + w - 8 - claimW : x0 + 8;
     c.add(new MButton(this, cx, claimY, claimW, bh, { label: claimL, icon: claimN > 0 ? 'check' : undefined, variant: claimN > 0 ? 'primary' : 'disabled', disabledReason: t('pass.xpHint'), id: 'pass.claimAll', onClick: () => void this.claimAll() }));
-    y += hh + 4;
-    // on a short screen the balance chip sits under the card here (the card and Claim all come first: SHP-1)
-    if (!this.fixedChip) {
-      const chip = this.makeChip(x0 + 1, y);
-      c.add(chip);
-      y += chip.h + 4;
+  }
+
+  /**
+   * Compact landscape and expanded (landscape-v6 §11.2): the horizontal tier track, Free on top and Premium
+   * under it, each tier a column under its number, scrolled sideways a whole column at a time (opened at the
+   * player's tier); the season card left of it in compact landscape, above it on a laptop. The same tiers,
+   * rewards and states as the rows. False where the track's two rows do not fit (Telegram at 844x390): the rows.
+   */
+  private buildPassTrack(d: Loaded, p: SeasonPassInfo): boolean {
+    const v = this.layoutV;
+    if (v !== 'compactLandscape' && v !== 'expanded') return false;
+    const top = this.pageTop;
+    const h = this.pageBottom() - top;
+    if (h < TRACK_H) return false;
+    const x0 = this.box.x + 4;
+    const w = this.box.w - 8;
+    const land = v === 'compactLandscape';
+    if (land) {
+      // the season card in the left pane (its own scroll when taller than the page), the track right of it
+      const cw = Math.max(CARD_LAND_MIN, Math.min(CARD_LAND_MAX, Math.round(w * CARD_LAND_SHARE)));
+      const sc = this.seasonShape(d, p, cw);
+      const fits = sc.hh <= h;
+      const side = fits ? null : this.area(top, h, x0, cw + 2);
+      const cc = side ? side.content : this.page;
+      this.seasonCard(cc, side ? 0 : x0, side ? 0 : top + Math.floor((h - sc.hh) / 2), cw, d, p, sc, side);
+      if (side) side.setContentHeight(sc.hh + 2);
+      inPane(cc, 0);
+      this.passTrack(d, p, x0 + cw + PANE_GUTTER, top + Math.floor((h - TRACK_H) / 2), w - cw - PANE_GUTTER, CELL_W_LAND);
+      return true;
     }
-    // the two tracks' headers (pinned with the card)
-    const cellW = this.cellW(w);
-    const lx = x0 + TIER_W + GAP;
-    c.add(mtext(this, lx + cellW / 2, y, t('pass.free'), 'pSec', { size: 7, align: 0.5, maxW: cellW - 2 }));
-    const premW = mw(t('pass.premium'), 'pInk', 7);
-    const showSeal = premW + 14 <= cellW - 2;
-    const px = lx + GAP + cellW + cellW / 2 + (showSeal ? 6 : 0);
-    c.add(mtext(this, px, y, t('pass.premium'), 'pInk', { size: 7, align: 0.5, maxW: cellW - (showSeal ? 14 : 2) }));
-    if (showSeal) c.add(addIcon(this, Math.round(px - premW / 2 - 13), y - 2, 'pass', p.premium ? '' : 'D'));
-    y += 12;
-    // the track: the only part that scrolls (opened at the player's tier)
-    const area = whole ?? this.area(y, this.pageBottom() - y);
-    let ty = whole ? y : 0;
-    let focusY = 0;
-    p.tiers.forEach((_tier, i) => {
-      const row = this.add.container(0, ty);
-      area.content.add(row);
-      this.tierRow(d, p, i, row, w, ROW_H, area);
-      if (i === focusTier(p) - 1) focusY = ty;
-      ty += ROW_H + GAP;
+    // a laptop: the card across the top, the track under it
+    const cw = w - 4;
+    const sc = this.seasonShape(d, p, cw);
+    this.seasonCard(this.page, x0, top, cw, d, p, sc, null);
+    this.passTrack(d, p, x0, top + sc.hh + TRACK_GAP, w, CELL_W_WIDE);
+    return true;
+  }
+
+  /** The track at x, y, `w` wide: the Free and Premium labels at the left, the tiers' columns scrolling sideways beside them. */
+  private passTrack(d: Loaded, p: SeasonPassInfo, x: number, y: number, w: number, cellW: number): void {
+    const free = t('pass.free');
+    const premium = t('pass.premium');
+    const lw = Math.ceil(Math.max(mw(free, 'pSec', TEXT_MIN), mw(premium, 'pInk', TEXT_MIN))) + 6;
+    // whole columns in the window (a column is never cut at its side: the track snaps to them); the labels and
+    // the window centred together
+    const step = cellW + GAP;
+    const cols = Math.max(1, Math.floor((w - lw + GAP) / step));
+    const viewW = cols * step - GAP;
+    const lx = x + Math.floor((w - lw - viewW) / 2);
+    const sx = lx + lw;
+    const fy = y + TRACK_TH + 2;
+    const py = fy + CELL_H + GAP;
+    const label = (text: string, ink: FontKey, ry: number) => this.page.add(mtext(this, lx, ry + Math.round((CELL_H - 8) / 2), text, ink, { size: TEXT_MIN, maxW: lw - 4 }));
+    label(free, 'pSec', fy);
+    label(premium, 'pInk', py);
+    const area = new ScrollArea(this, this.page, sx, y, viewW, TRACK_H, this.m.S, { axis: 'x', snap: step });
+    this.areas.push(area);
+    p.tiers.forEach((tier, i) => {
+      const cx = i * step;
+      this.tierHead(p, i, area.content, cx, cellW);
+      (['free', 'premium'] as Track[]).forEach((track, k) => {
+        const cell = this.add.container(cx, TRACK_TH + 2 + k * (CELL_H + GAP));
+        area.content.add(cell);
+        this.rewardCell(d, p, tier.tier, track, track === 'free' ? tier.free : tier.premium, cell, 0, cellW, CELL_H, area);
+      });
     });
-    area.setContentHeight(ty);
-    if (!whole) area.setScroll(Math.max(0, focusY - (area.viewHeight - ROW_H) / 2));
-    else frameScrollTexts(area, this.box.w - 8);
+    area.setContentHeight(p.tiers.length * step - GAP);
+    // opened with the player's tier in view (the next one to reach beside it)
+    area.setScroll(Math.max(0, focusTier(p) - 1 - Math.floor((cols - 1) / 2)) * step);
+    inPane(area.content, 1);
+  }
+
+  /** A tier's number over its column: lit when reached, the next one rimmed with its progress, "you" on the current one. */
+  private tierHead(p: SeasonPassInfo, i: number, c: Phaser.GameObjects.Container, x: number, w: number): void {
+    const tier = p.tiers[i];
+    const reached = tier.tier <= p.tier;
+    const next = tier.tier === p.tier + 1;
+    const here = tier.tier === p.tier;
+    c.add(mosaicImage(this, x, 0, w, TRACK_TH, reached ? 'tileBronze' : next ? 'parchmentSel' : 'parchmentWell'));
+    const label = here ? `${tier.tier} · ${t('pass.you')}` : `${tier.tier}`;
+    c.add(mtext(this, x + w / 2, next ? 2 : 4, label, reached ? 'rCream' : next ? 'pInk' : 'pSec', { size: TEXT_MIN, align: 0.5, maxW: w - 4, box: { owner: c, w: x + w, h: TRACK_TH } }));
+    if (!next) return;
+    const prog = passProgress(p);
+    const g = this.add.graphics();
+    g.fillStyle(MOSAIC.stone1, 1);
+    g.fillRect(x + 6, TRACK_TH - 4, w - 12, 2);
+    g.fillStyle(MOSAIC.gold, 1);
+    g.fillRect(x + 6, TRACK_TH - 4, Math.round((w - 12) * (prog.need ? prog.into / prog.need : 0)), 2);
+    c.add(g);
   }
 
   /** Width of a reward cell in a track `w` wide. */

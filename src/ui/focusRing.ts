@@ -37,6 +37,8 @@ type GO = Phaser.GameObjects.GameObject & Partial<Phaser.GameObjects.Components.
 export interface FocusScroll {
   /** Scroll so the world-px span top..bottom is in view, clear of the scroll cue. */
   revealSpan(top: number, bottom: number): void;
+  /** A sideways track: scroll the world-px span left..right into view. */
+  revealX?(left: number, right: number): void;
   /** PageUp / PageDown / Home / End. */
   page(kind: 'up' | 'down' | 'home' | 'end'): void;
   /** The visible window, world px. */
@@ -257,7 +259,10 @@ function afterKey(): void {
   if (!reg) return;
   const area = reg.o.area?.();
   const r = area && shownWorld(reg.obj);
-  if (area && r) area.revealSpan(r.y, r.y + r.h);
+  if (area && r) {
+    area.revealSpan(r.y, r.y + r.h);
+    area.revealX?.(r.x, r.x + r.w);
+  }
   if (!reg.o.tip || !reg.o.showTip) return;
   tipTimer = setTimeout(() => {
     tipTimer = null;
