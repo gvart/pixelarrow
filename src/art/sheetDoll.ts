@@ -350,7 +350,8 @@ function paletteOf(s: Resolved, d: DollSpec): Palette {
     e.metal.forEach((g, i) => {
       const target = (g.kind === 'iron' ? ironOf(ranks[i]) : bronzeOf(ranks[i])).ramp;
       // rarity.metal false: the metal stays as drawn, but still glints (and the outline glows) by rank
-      if (swapMetal) for (const [a, b] of metalSwap(g.colors, target)) p!.swap.set(a, b);
+      // iron at rank 0 is the sheet's own iron (bronze still spreads over dull bronze, as before)
+      if (swapMetal && !(g.kind === 'iron' && ranks[i] === 0)) for (const [a, b] of metalSwap(g.colors, target)) p!.swap.set(a, b);
       if (ranks[i] >= 2) for (const c of g.colors) p!.glint.add(c);
     });
     palettes.set(key, p);
