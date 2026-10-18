@@ -1,0 +1,27 @@
+docs/v5/pixellab/I5a/hoplite/jobs.json
+  s_41b82181a73565::t_d57da8263a7c3c 1-7
+docs/v5/pixellab/I3/hoplite.sheet.json
+  s_41b82181a73565::t_c61d6599633c88 192-193,251-252,319-320,359-360
+docs/v5/pixellab/I3/jobs.json
+  s_41b82181a73565::t_c61d6599633c88 74-79
+src/assets/sheets/hoplite/manifest.json
+  s_41b82181a73565::t_2ef97a59c585dc 15
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_47191bea053a95 96-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6bbf3e936fcd467ead6128975e9a39bc60c5297f",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
