@@ -1,0 +1,23 @@
+scripts/art/pixellab/shots.mjs
+  s_41b82181a73565::t_841946e4cc1adc 1-30
+src/dev/hopliteBakeoff.ts
+  s_41b82181a73565::t_0b6d310843172a 15-19,26-28,58,153,275-377
+scripts/art/pixellab/sheetgifs.mjs
+  s_41b82181a73565::t_4d69121d43abdd 1-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2168c216676acbaa1f4beee0ee2731572471005e",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
