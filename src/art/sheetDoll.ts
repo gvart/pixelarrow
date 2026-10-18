@@ -1,6 +1,6 @@
 /**
- * Sheet-backed soldiers: a class with a sprite sheet (manifest + one image per
- * gear tier, src/art/sheetManifest.ts) is drawn from it behind paperdoll's own
+ * Sheet-backed soldiers: a class with a sprite sheet (manifest + one animated
+ * image, src/art/sheetManifest.ts) is drawn from it behind paperdoll's own
  * API (renderFrame / renderFrameFx / dollKey / renderPortrait, through
  * setSheetHook), so every consumer of those (the battle's atlases, ensureDoll
  * screens, portraits, the camp) shows the sheet once it is loaded. A class
@@ -12,21 +12,26 @@
  *    did. The sheet frame is placed with its anchor on the feet point and
  *    scaled by manifest.scale x (spec scale / BATTLE_SCALE) x res, snapped to a
  *    whole factor (or 1 / n) so art pixels stay square.
- *  - Images load on demand, the first time a figure of that class and tier is
- *    asked for (never all classes up front), and are kept as decoded image
- *    elements; frames are cut from them as the atlases ask (onSheetReady tells
- *    the battle to re-key its men once one arrives).
+ *  - The image loads on demand, the first time a figure of that class is asked
+ *    for (never all classes up front), and is kept as a decoded image element;
+ *    frames are cut from it as the atlases ask (onSheetReady tells the battle
+ *    to re-key its men once one arrives).
+ *  - Tiers are recolours: the gear tier (TIER_RULE) picks the manifest's
+ *    recolour of its colour groups (an elite's black cloak, gilded crest); on
+ *    top, each man's skin tone (Look.skin) and a seeded shade step of cloak
+ *    and crest. Both are in the figure's key, so a class shows at most
+ *    3 tiers x 12 variants per rarity mix.
  *  - Rarity swaps the manifest's metal colours to the rank's ramp (bronzeOf /
  *    ironOf); metal of rank 2+ (or an army skin's polish) is the glint mask the
  *    battle's highlight sweeps across, as on procedural gear.
  */
-import { ANIM, BATTLE_SCALE, NDIRS, PORTRAIT_FRAMES, dollFx, dollGeom, setSheetHook, type DollSpec } from './paperdoll';
+import { ANIM, BATTLE_SCALE, NDIRS, PORTRAIT_FRAMES, dollFx, dollGeom, setSheetHook, type DollSpec, type SheetGeom } from './paperdoll';
 import { Pix } from './pixels';
 import { bronzeOf, ironOf } from './materials';
 import { itemDef, ITEMS } from '../data/items';
 import {
-  CORE_ANIMS, METAL_SLOTS, TIER_RULE, decodeSheetFrame, facingRows, gearTier, hexColor, manifestColumns, metalSwap, parseManifest, resolveAnim, tierImage,
-  type MetalGroup, type SheetAnim, type SheetManifest, type SheetTier,
+  CORE_ANIMS, METAL_SLOTS, TIER_RULE, anchorOf, decodeSheetFrame, facingRows, frameCell, gearTier, hexColor, imageSize, metalSwap, parseManifest, recolorMap, resolveAnim, sheetVariant,
+  type MetalGroup, type SheetAnim, type SheetManifest, type SheetTier, type SheetVariant,
 } from './sheetManifest';
 import type { AnimTable } from './sheetAnim';
 
@@ -37,7 +42,7 @@ export interface SheetPixels {
   read(x: number, y: number, w: number, h: number): Uint8ClampedArray;
 }
 
-interface TierState {
+interface ImageState {
   status: 'idle' | 'loading' | 'ready' | 'error';
   px?: SheetPixels;
 }
@@ -49,7 +54,7 @@ interface Entry {
   rows: number[];
   anims: AnimTable;
   metal: { kind: MetalGroup['kind']; colors: number[]; slots: readonly string[] }[];
-  tiers: Partial<Record<SheetTier, TierState>>;
+  img: ImageState;
 }
 
 const entries = new Map<string, Entry>();
@@ -61,29 +66,31 @@ let loader: ((url: string, m: SheetManifest) => Promise<SheetPixels>) | null = n
 export function registerSheet(raw: unknown, url: (file: string) => string | null = () => null): SheetManifest {
   const m = parseManifest(raw);
   const anims: AnimTable = {};
-  for (const [k, a] of Object.entries(m.anims)) if (a) anims[k as SheetAnim] = { frames: a.frames, fps: a.fps, strike: a.strike };
+  for (const [k, a] of Object.entries(m.anims)) if (a) anims[k as SheetAnim] = { frames: a.frames, fps: a.fps, strike: a.strike, hold: a.hold };
   entries.set(m.class, {
     m,
     url,
     rows: facingRows(m),
     anims,
     metal: (m.metal ?? []).map((g) => ({ kind: g.kind, colors: g.colors.map(hexColor), slots: g.slots ?? METAL_SLOTS })),
-    tiers: {},
+    img: { status: 'idle' },
   });
+  for (const k of [...palettes.keys()]) if (k.startsWith(`${m.class}|`)) palettes.delete(k);
   return m;
 }
 
-/** Give a registered sheet's tier its pixels directly (tests, dev tools). */
-export function setSheetPixels(cls: string, tier: SheetTier, px: SheetPixels | Pix): void {
+/** Give a registered sheet its pixels directly (tests, dev tools). */
+export function setSheetPixels(cls: string, px: SheetPixels | Pix): void {
   const e = entries.get(cls);
   if (!e) throw new Error(`setSheetPixels: no sheet for ${cls}`);
-  e.tiers[tier] = { status: 'ready', px: px instanceof Pix ? pixSource(px) : px };
+  e.img = { status: 'ready', px: px instanceof Pix ? pixSource(px) : px };
   notify();
 }
 
 /** Forget every sheet (tests). */
 export function clearSheets(): void {
   entries.clear();
+  palettes.clear();
 }
 
 /** Sheets off: every figure is procedural (the regression gate; ?sheets=off). */
@@ -137,7 +144,7 @@ export function pixSource(p: Pix): SheetPixels {
 
 // ================================================================ which sheet a figure shows
 
-/** The baked tier a figure's gear calls for (TIER_RULE over its item defs' tiers). */
+/** The tier (recolour) a figure's gear calls for (TIER_RULE over its item defs' tiers). */
 export function tierOfDoll(d: DollSpec): SheetTier {
   const tiers: number[] = [];
   for (const s of TIER_RULE.slots) {
@@ -161,6 +168,7 @@ function metalRanks(e: Entry, d: DollSpec): number[] {
 interface Resolved {
   e: Entry;
   tier: SheetTier;
+  v: SheetVariant;
   px: SheetPixels;
 }
 
@@ -168,29 +176,27 @@ function resolve(d: DollSpec): Resolved | null {
   if (!enabled || d.beast || !d.cls) return null;
   const e = entries.get(d.cls);
   if (!e) return null;
-  const tier = tierImage(e.m, tierOfDoll(d));
-  const ts = (e.tiers[tier] ??= { status: 'idle' });
-  if (ts.status === 'ready' && ts.px) return { e, tier, px: ts.px };
-  if (ts.status === 'idle') load(e, tier, ts);
+  const st = e.img;
+  if (st.status === 'ready' && st.px) return { e, tier: tierOfDoll(d), v: sheetVariant(d.look?.skin, d.seed), px: st.px };
+  if (st.status === 'idle') load(e, st);
   return null;
 }
 
-function load(e: Entry, tier: SheetTier, ts: TierState): void {
-  const file = e.m.tiers[tier];
-  const url = file ? e.url(file) : null;
+function load(e: Entry, st: ImageState): void {
+  const url = e.url(e.m.image);
   if (!url || !loader) return;
-  ts.status = 'loading';
+  st.status = 'loading';
   loader(url, e.m).then(
     (px) => {
-      const need = [manifestColumns(e.m) * e.m.frame.w, e.m.rows.length * e.m.frame.h];
+      const need = imageSize(e.m);
       if (px.w < need[0] || px.h < need[1]) throw new Error(`${url}: ${px.w} x ${px.h}, the manifest needs ${need[0]} x ${need[1]}`);
-      ts.px = px;
-      ts.status = 'ready';
+      st.px = px;
+      st.status = 'ready';
       notify();
     },
   ).catch((err) => {
-    ts.status = 'error';
-    console.warn(`sprite sheet ${e.m.class}/${tier} failed, drawn procedurally:`, err);
+    st.status = 'error';
+    console.warn(`sprite sheet ${e.m.class} failed, drawn procedurally:`, err);
   });
 }
 
@@ -209,7 +215,7 @@ function sheetKey(d: DollSpec): string | null {
   if (!s) return null;
   const fx = dollFx(d);
   const ranks = metalRanks(s.e, d).join('');
-  let k = `sheet_${d.cls}.${s.tier}_${ranks}${d.polish ? 'p' : ''}_${fx.rank}${fx.particles ?? ''}`;
+  let k = `sheet_${d.cls}.${s.tier}.${s.v.skin}${s.v.shade}_${ranks}${d.polish ? 'p' : ''}_${fx.rank}${fx.particles ?? ''}`;
   if (d.scale && d.scale !== 1) k += `@${d.scale}`;
   if (d.res && d.res !== 1) k += `#r${d.res}`;
   return k;
@@ -242,12 +248,14 @@ interface Palette {
 }
 const palettes = new Map<string, Palette>();
 
-function paletteOf(e: Entry, d: DollSpec): Palette {
+/** The figure's colour map: tier recolour and variant on the colour groups, rarity on the metal (bounded: tiers x variants x rank mixes per class). */
+function paletteOf(s: Resolved, d: DollSpec): Palette {
+  const e = s.e;
   const ranks = metalRanks(e, d);
-  const key = `${e.m.class}|${ranks.join('')}`;
+  const key = `${e.m.class}|${s.tier}|${s.v.skin}${s.v.shade}|${ranks.join('')}`;
   let p = palettes.get(key);
   if (!p) {
-    p = { swap: new Map(), glint: new Set() };
+    p = { swap: recolorMap(e.m, s.tier, s.v), glint: new Set() };
     e.metal.forEach((g, i) => {
       const target = (g.kind === 'iron' ? ironOf(ranks[i]) : bronzeOf(ranks[i])).ramp;
       for (const [a, b] of metalSwap(g.colors, target)) p!.swap.set(a, b);
@@ -261,7 +269,8 @@ function paletteOf(e: Entry, d: DollSpec): Palette {
 /** One art frame (art pixels, palette swapped), plus which pixels are glinting metal. */
 function artFrame(s: Resolved, col: number, row: number, pal: Palette): { px: Pix; metal: Uint8Array } {
   const { w, h } = s.e.m.frame;
-  const src = s.px.read(col * w, row * h, w, h);
+  const [x0, y0] = frameCell(s.e.m, col, row);
+  const src = s.px.read(x0, y0, w, h);
   const px = new Pix(w, h);
   const metal = new Uint8Array(w * h);
   const o = px.data;
@@ -293,7 +302,8 @@ function sheetFrame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array):
   const { anim, i } = sheetIndex(frame, s.e.anims);
   const col = m.anims[anim]!.col + i;
   const row = s.e.rows[Math.max(0, Math.min(NDIRS - 1, dir))];
-  const art = artFrame(s, col, row, paletteOf(s.e, d));
+  const an = anchorOf(m, row);
+  const art = artFrame(s, col, row, paletteOf(s, d));
   const k = sheetFactor(m, d);
   const out = new Pix(g.fw, g.fh);
   const cx = Math.floor(g.fw / 2);
@@ -301,10 +311,10 @@ function sheetFrame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array):
   const ad = art.px.data;
   const od = out.data;
   for (let by = 0; by < g.fh; by++) {
-    const sy = m.anchor.y + Math.floor((by - cy) / k);
+    const sy = an.y + Math.floor((by - cy) / k);
     if (sy < 0 || sy >= m.frame.h) continue;
     for (let bx = 0; bx < g.fw; bx++) {
-      const sx = m.anchor.x + Math.floor((bx - cx) / k);
+      const sx = an.x + Math.floor((bx - cx) / k);
       if (sx < 0 || sx >= m.frame.w) continue;
       const si = sy * m.frame.w + sx;
       if (!ad[si * 4 + 3]) continue;
@@ -327,8 +337,8 @@ function sheetPortrait(d: DollSpec, frame: number, res: number, box: number): Pi
   const idle = m.anims.idle!;
   const i = Math.min(idle.frames - 1, name === 'breath1' ? 1 : name === 'breath2' ? 2 : 0);
   // game row 2 faces the viewer
-  const art = artFrame(s, idle.col + i, s.e.rows[2], paletteOf(s.e, d)).px;
-  const crop = m.portrait ?? autoCrop(art, m);
+  const art = artFrame(s, idle.col + i, s.e.rows[2], paletteOf(s, d)).px;
+  const crop = m.portrait ?? autoCrop(art, anchorOf(m, s.e.rows[2]));
   const size = box * res;
   const out = new Pix(size, size);
   for (let y = 0; y < size; y++)
@@ -347,16 +357,39 @@ function sheetPortrait(d: DollSpec, frame: number, res: number, box: number): Pi
  * height, centred on the anchor. The head is the highest pixel within 2 px of
  * the anchor's column, so a spear held at the side or a banner does not count.
  */
-function autoCrop(art: Pix, m: SheetManifest): { x: number; y: number; size: number } {
+function autoCrop(art: Pix, an: { x: number; y: number }): { x: number; y: number; size: number } {
   let top = -1;
-  for (let y = 0; y < art.h && top < 0; y++) for (let x = m.anchor.x - 2; x <= m.anchor.x + 2; x++) if (art.alpha(x, y) > 0) top = y;
+  for (let y = 0; y < art.h && top < 0; y++) for (let x = an.x - 2; x <= an.x + 2; x++) if (art.alpha(x, y) > 0) top = y;
   if (top < 0) return { x: 0, y: 0, size: Math.min(art.w, art.h) };
-  const size = Math.max(4, Math.round((m.anchor.y - top) * 0.4));
-  return { x: m.anchor.x - Math.floor(size / 2), y: Math.max(0, top - 1), size };
+  const size = Math.max(4, Math.round((an.y - top) * 0.4));
+  return { x: an.x - Math.floor(size / 2), y: Math.max(0, top - 1), size };
+}
+
+/**
+ * The frame box of a sheet figure: the procedural box, widened (about the
+ * feet, so plates, rings and overlays stay put) to hold the whole art frame
+ * of every row, e.g. a spear reaching far ahead in a thrust.
+ */
+function sheetGeom(d: DollSpec, base: SheetGeom): SheetGeom | null {
+  const s = resolve(d);
+  if (!s) return null;
+  const m = s.e.m;
+  const k = sheetFactor(m, d);
+  let half = Math.floor(base.fw / 2);
+  let up = base.footY;
+  let down = base.fh - base.footY;
+  for (const row of new Set(s.e.rows)) {
+    const an = anchorOf(m, row);
+    half = Math.max(half, Math.ceil(Math.max(an.x, m.frame.w - an.x) * k));
+    up = Math.max(up, Math.ceil(an.y * k));
+    down = Math.max(down, Math.ceil((m.frame.h - an.y) * k));
+  }
+  if (half * 2 === base.fw && up === base.footY && down === base.fh - base.footY) return null;
+  return { fw: half * 2, fh: up + down, footY: up };
 }
 
 /** Route paperdoll's rendering through the sheets (once, from src/ui/sprites.ts). */
 export function installSheetDolls(): void {
-  setSheetHook({ key: sheetKey, frame: sheetFrame, portrait: sheetPortrait });
+  setSheetHook({ key: sheetKey, frame: sheetFrame, portrait: sheetPortrait, geom: sheetGeom });
 }
 

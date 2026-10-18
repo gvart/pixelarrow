@@ -1,11 +1,12 @@
 /**
  * Sprite-sheet manifests: the format a pre-made (PixelLab) soldier sheet ships
  * with, and the pure rules around it (no DOM, no Phaser): the animation set and
- * its fallbacks, frame ids, the gear-tier rule and the rarity palette swap.
- * The format is documented in docs/v5/art/SHEET_FORMAT.md.
+ * its fallbacks, frame ids, the gear-tier rule, the tier recolour and the
+ * rarity palette swap. The format is documented in docs/v5/art/SHEET_FORMAT.md.
  *
- * A class has one manifest and up to three images (one per gear tier) that
- * share its layout: rows are facings, columns are animation frames.
+ * A class has one manifest and ONE animated image (rows are facings, columns
+ * are animation frames). Its veteran and elite tiers are recolours of named
+ * colour groups (cloak, crest, trim...) of that image, done at runtime.
  */
 
 // ================================================================ animations
@@ -33,47 +34,60 @@ export type SheetAnim = (typeof SHEET_ANIMS)[number];
 export const CORE_ANIMS = ['idle', 'walk', 'run', 'attack', 'block', 'hit', 'die', 'dieB', 'rout', 'win'] as const;
 export type CoreAnim = (typeof CORE_ANIMS)[number];
 
-/** The nearest animation to show when a sheet lacks one; `idle` is required, so every chain ends. */
-export const ANIM_FALLBACK: Record<SheetAnim, SheetAnim | null> = {
-  idle: null,
-  walk: 'idle',
-  run: 'walk',
-  attack: 'idle',
-  block: 'idle',
-  hit: 'idle',
-  die: 'hit',
-  dieB: 'die',
-  rout: 'run',
-  win: 'idle',
-  thrust: 'attack',
-  slash: 'attack',
-  throw: 'attack',
-  shoot: 'attack',
-  sling: 'attack',
-  brace: 'block',
-  charge: 'run',
-  ready: 'idle',
-  stagger: 'hit',
-  fallFwd: 'die',
-  fallBack: 'dieB',
-  kneel: 'die',
-  look: 'idle',
-  adjust: 'idle',
-  cheer: 'win',
+/**
+ * What to show when a sheet lacks an animation: the candidates in order, each
+ * followed through its own fallbacks (depth first, no animation twice), and
+ * `idle` (required) at the end. Pairs like hit / stagger and block / brace
+ * stand in for each other, so a sheet with either serves both.
+ */
+export const ANIM_FALLBACK: Record<SheetAnim, readonly SheetAnim[]> = {
+  idle: [],
+  walk: ['run'],
+  run: ['walk', 'charge'],
+  attack: ['thrust', 'slash'],
+  block: ['brace'],
+  hit: ['stagger'],
+  die: ['fallFwd', 'fallBack', 'hit'],
+  dieB: ['fallBack', 'die'],
+  rout: ['run'],
+  win: ['cheer'],
+  thrust: ['attack'],
+  slash: ['attack'],
+  throw: ['attack'],
+  shoot: ['attack'],
+  sling: ['attack'],
+  brace: ['block'],
+  charge: ['run'],
+  ready: [],
+  stagger: ['hit'],
+  fallFwd: ['die'],
+  fallBack: ['dieB'],
+  kneel: ['die'],
+  look: [],
+  adjust: [],
+  cheer: ['win'],
 };
+
+/** The first animation found from `a` through its fallbacks that satisfies `ok` (null: none). */
+function searchAnim(a: SheetAnim, ok: (a: SheetAnim) => boolean, seen = new Set<SheetAnim>()): SheetAnim | null {
+  if (seen.has(a)) return null;
+  seen.add(a);
+  if (ok(a)) return a;
+  for (const b of ANIM_FALLBACK[a]) {
+    const r = searchAnim(b, ok, seen);
+    if (r) return r;
+  }
+  return null;
+}
 
 /** The animation `a` shows as on a sheet that has `has`. */
 export function resolveAnim(a: SheetAnim, has: (a: SheetAnim) => boolean): SheetAnim {
-  let cur: SheetAnim | null = a;
-  while (cur && !has(cur)) cur = ANIM_FALLBACK[cur];
-  return cur ?? 'idle';
+  return searchAnim(a, has) ?? 'idle';
 }
 
 /** The procedural state an animation falls back to (for a figure drawn without a sheet). */
 export function coreAnimOf(a: SheetAnim): CoreAnim {
-  let cur: SheetAnim = a;
-  while (!(CORE_ANIMS as readonly string[]).includes(cur)) cur = ANIM_FALLBACK[cur]!;
-  return cur as CoreAnim;
+  return (searchAnim(a, (x) => (CORE_ANIMS as readonly string[]).includes(x)) ?? 'idle') as CoreAnim;
 }
 
 // ================================================================ frame ids
@@ -127,8 +141,18 @@ export interface SheetAnimDef {
   col: number;
   frames: number;
   fps: number;
-  /** Missile attacks: the frame the missile leaves on (frames before it are the draw / whirl / aim). Default frames / 2. */
+  /**
+   * Attacks: the frame the blow lands or the missile leaves on, shown at the
+   * sim's attack; the frames before it are the windup / draw / whirl, played
+   * just before. Default frames / 2.
+   */
   strike?: number;
+  /**
+   * Loops with an entry (brace, kneel, cheer, ready): the first frame of the
+   * looping part; the frames before it play once on entering the state.
+   * Default 0 (the whole clip loops).
+   */
+  hold?: number;
 }
 
 export interface MetalGroup {
@@ -139,14 +163,27 @@ export interface MetalGroup {
   slots?: MetalSlot[];
 }
 
+/** A tier's recolour: per colour group, the colours that replace the group's (same length, dark to light). */
+export type TierRecolor = Record<string, string[]>;
+
 export interface SheetManifest {
-  version: 1;
+  version: 2;
   /** Class id (src/data/classes.ts). */
   class: string;
-  /** Frame size in art pixels; every frame of every image has it. */
+  /** The image (relative to the manifest): every animation of the class, in basic tier colours. */
+  image: string;
+  /** Frame size in art pixels; every frame has it. */
   frame: { w: number; h: number };
+  /**
+   * Columns per band (default: all in one band). A wide sheet wraps: column c
+   * sits at x (c % wrap) * frame.w in band floor(c / wrap), and each band
+   * holds every row, so its y is (band * rows.length + row) * frame.h.
+   */
+  wrap?: number;
   /** The art pixel the figure stands on (feet centre for men, between the hooves / wheels otherwise). */
   anchor: { x: number; y: number };
+  /** Per image row (by its name): its own anchor, e.g. feet off centre so a spear reaching ahead fits a narrower frame. Default `anchor`. */
+  anchors?: Partial<Record<SheetDirection, { x: number; y: number }>>;
   /**
    * Game px per art px on the battlefield (a DollSpec at BATTLE_SCALE, res 1).
    * The battle draws at BATTLE_RES 2, so 0.5 and 1 map art pixels to whole
@@ -157,8 +194,15 @@ export interface SheetManifest {
   rows: SheetDirection[];
   /** The row each game facing shows (default DEFAULT_FACINGS); never mirrored. */
   facings?: SheetDirection[];
-  /** Image file per gear tier (relative to the manifest); a missing tier shows the nearest one. */
-  tiers: Partial<Record<SheetTier, string>>;
+  /**
+   * Recolourable groups: the exact colours of each in the image, dark to
+   * light ('#rrggbb'). `skin` takes each man's skin tone, `cloak` and `crest`
+   * a slight per-man shade (SKIN_TONES, SHADE_STEPS); any group can be
+   * recoloured per tier. A colour belongs to one group at most, never to metal.
+   */
+  colorGroups?: Record<string, string[]>;
+  /** Per tier, the groups it recolours (basic is usually {}: the image as drawn). */
+  tiers?: Partial<Record<SheetTier, TierRecolor>>;
   anims: Partial<Record<SheetAnim, SheetAnimDef>>;
   metal?: MetalGroup[];
   /** Bust crop for portraits (art px, a square at x, y): default from the idle frame's bounds. */
@@ -166,6 +210,7 @@ export interface SheetManifest {
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
+const GROUP_NAME = /^[a-z][a-zA-Z0-9]*$/;
 
 /** Check a manifest (from JSON); throws with every problem listed. */
 export function parseManifest(raw: unknown): SheetManifest {
@@ -173,15 +218,42 @@ export function parseManifest(raw: unknown): SheetManifest {
   const errs: string[] = [];
   const num = (v: unknown, min = 0) => typeof v === 'number' && Number.isFinite(v) && v >= min;
   if (!m || typeof m !== 'object') throw new Error('sheet manifest: not an object');
-  if (m.version !== 1) errs.push('version must be 1');
+  if (m.version !== 2) errs.push('version must be 2 (one image, tiers by recolour)');
   if (typeof m.class !== 'string' || !m.class) errs.push('class missing');
   if (!m.frame || !num(m.frame.w, 1) || !num(m.frame.h, 1)) errs.push('frame.w / frame.h must be positive');
   if (!m.anchor || !num(m.anchor.x) || !num(m.anchor.y)) errs.push('anchor.x / anchor.y missing');
+  for (const [r, a] of Object.entries(m.anchors ?? {})) {
+    if (!m.rows?.includes(r as SheetDirection)) errs.push(`anchors.${r}: not a row of the image`);
+    if (!a || !num(a.x) || !num(a.y) || (m.frame && (a.x > m.frame.w || a.y > m.frame.h))) errs.push(`anchors.${r}: x / y inside the frame`);
+  }
   if (!num(m.scale) || m.scale <= 0) errs.push('scale must be positive');
   if (!Array.isArray(m.rows) || !m.rows.length || m.rows.some((r) => !SHEET_DIRECTIONS.includes(r))) errs.push('rows must name directions');
   const facings = m.facings ?? DEFAULT_FACINGS;
   if (facings.length !== 4 || facings.some((f) => !m.rows?.includes(f))) errs.push('facings must name four rows of the image');
-  if (!m.tiers || !SHEET_TIERS.some((t) => typeof m.tiers[t] === 'string')) errs.push('tiers needs at least one image');
+  if (typeof m.image !== 'string' || !m.image) errs.push('image missing');
+  if (m.wrap !== undefined && (!num(m.wrap, 1) || !Number.isInteger(m.wrap))) errs.push('wrap must be a whole number of columns');
+  const owner = new Map<string, string>();
+  for (const g of m.metal ?? []) for (const c of g.colors ?? []) owner.set(String(c).toLowerCase(), 'metal');
+  for (const [name, cs] of Object.entries(m.colorGroups ?? {})) {
+    if (!GROUP_NAME.test(name)) errs.push(`colorGroups.${name}: bad name`);
+    if (!Array.isArray(cs) || !cs.length || cs.some((c) => !HEX.test(c))) {
+      errs.push(`colorGroups.${name} must be #rrggbb colours`);
+      continue;
+    }
+    for (const c of cs) {
+      const o = owner.get(c.toLowerCase());
+      if (o) errs.push(`colorGroups.${name}: ${c} is also in ${o}`);
+      owner.set(c.toLowerCase(), name);
+    }
+  }
+  for (const [t, rc] of Object.entries(m.tiers ?? {})) {
+    if (!(SHEET_TIERS as readonly string[]).includes(t)) errs.push(`unknown tier ${t}`);
+    for (const [name, cs] of Object.entries(rc ?? {})) {
+      const src = m.colorGroups?.[name];
+      if (!src) errs.push(`tiers.${t}.${name}: no such colour group`);
+      else if (!Array.isArray(cs) || cs.length !== src.length || cs.some((c) => !HEX.test(c))) errs.push(`tiers.${t}.${name} must be ${src.length} #rrggbb colours`);
+    }
+  }
   if (!m.anims?.idle) errs.push('anims.idle is required');
   const used: [number, number, string][] = [];
   for (const [name, a] of Object.entries(m.anims ?? {})) {
@@ -191,6 +263,7 @@ export function parseManifest(raw: unknown): SheetManifest {
       continue;
     }
     if (a.strike !== undefined && (!num(a.strike) || a.strike >= a.frames)) errs.push(`anims.${name}.strike out of range`);
+    if (a.hold !== undefined && (!num(a.hold) || a.hold >= a.frames)) errs.push(`anims.${name}.hold out of range`);
     for (const [c0, c1, other] of used) if (a.col < c1 && a.col + a.frames > c0) errs.push(`anims.${name} overlaps ${other}`);
     used.push([a.col, a.col + a.frames, name]);
   }
@@ -203,11 +276,30 @@ export function parseManifest(raw: unknown): SheetManifest {
   return m;
 }
 
-/** Columns the image must have. */
+/** Columns of the layout (frames of every animation, end to end). */
 export function manifestColumns(m: SheetManifest): number {
   let n = 0;
   for (const a of Object.values(m.anims)) if (a) n = Math.max(n, a.col + a.frames);
   return n;
+}
+
+/** Top-left art pixel of a column's frame in an image row (wrapped sheets: its band). */
+export function frameCell(m: SheetManifest, col: number, row: number): [number, number] {
+  const wrap = m.wrap ?? Infinity;
+  const band = Math.floor(col / wrap);
+  return [(col - band * (m.wrap ?? 0)) * m.frame.w, (band * m.rows.length + row) * m.frame.h];
+}
+
+/** The image size the layout needs (art px). */
+export function imageSize(m: SheetManifest): [number, number] {
+  const cols = manifestColumns(m);
+  const per = Math.min(cols, m.wrap ?? cols);
+  return [per * m.frame.w, Math.ceil(cols / per) * m.rows.length * m.frame.h];
+}
+
+/** The anchor of an image row (its own, else the manifest's). */
+export function anchorOf(m: SheetManifest, row: number): { x: number; y: number } {
+  return m.anchors?.[m.rows[row]] ?? m.anchor;
 }
 
 /** The image row of each game facing. */
@@ -215,22 +307,10 @@ export function facingRows(m: SheetManifest): number[] {
   return (m.facings ?? DEFAULT_FACINGS).map((f) => m.rows.indexOf(f));
 }
 
-/** The tier image to show for `t` (the nearest one the manifest has, preferring lower). */
-export function tierImage(m: SheetManifest, t: SheetTier): SheetTier {
-  const i = SHEET_TIERS.indexOf(t);
-  for (let d = 0; d < SHEET_TIERS.length; d++) {
-    for (const j of [i - d, i + d]) {
-      const tt = SHEET_TIERS[j];
-      if (tt && m.tiers[tt]) return tt;
-    }
-  }
-  return 'basic';
-}
-
 // ================================================================ gear tier
 
 /**
- * Which of the three baked tiers a man shows, from what he wears: the mean
+ * Which of the three tiers (recolours) a man shows, from what he wears: the mean
  * item tier (src/data/items.ts ItemDef.tier, 1..3) of his weapon, shield,
  * helmet and armour (empty slots are left out). Rarity does not move the
  * tier: it is the metal's palette swap.
@@ -257,3 +337,68 @@ export function metalSwap(colors: readonly number[], target: readonly number[]):
 }
 
 export const hexColor = (s: string): number => parseInt(s.slice(1), 16);
+
+// ================================================================ tier recolour and per-man variation
+
+/** A colour's channels scaled by k (clamped), 0xrrggbb. */
+export function shadeColor(c: number, k: number): number {
+  const ch = (sh: number) => Math.max(0, Math.min(255, Math.round(((c >> sh) & 255) * k)));
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
+/** `c` moved towards `to` by t (0..1). */
+export function mixColor(c: number, to: number, t: number): number {
+  const ch = (sh: number) => Math.round(((c >> sh) & 255) * (1 - t) + ((to >> sh) & 255) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
+/**
+ * Skin tones by Look.skin (0 fair, 1 olive, 2 tanned, 3 dark) as a change of
+ * the sheet's own skin ramp, which is drawn as tone 1: paler and rosier, as
+ * drawn, browner, deep brown. Four, so a class shows at most four skins.
+ */
+export const SKIN_TONES: readonly ((c: number) => number)[] = [
+  (c) => mixColor(shadeColor(c, 1.1), 0xf6d8c8, 0.18),
+  (c) => c,
+  (c) => mixColor(shadeColor(c, 0.88), 0x8a5030, 0.12),
+  (c) => mixColor(shadeColor(c, 0.66), 0x4a2a1c, 0.15),
+];
+
+/** Per-man shade of the cloak and crest: a step a little darker, none, a little lighter. */
+export const SHADE_STEPS: readonly number[] = [0.9, 1, 1.1];
+/** The groups the per-man shade moves. */
+export const SHADED_GROUPS: readonly string[] = ['cloak', 'crest'];
+
+/** A man's variant: his skin tone (Look.skin) and a seeded shade step; SKIN_TONES x SHADE_STEPS (12) per tier. */
+export interface SheetVariant {
+  skin: number;
+  shade: number;
+}
+
+export function sheetVariant(lookSkin: number | undefined, seed: number | undefined): SheetVariant {
+  const skin = Math.max(0, Math.min(SKIN_TONES.length - 1, Math.round(lookSkin ?? 1)));
+  const shade = (Math.imul((seed ?? 0) + 11, 0x9e3779b1) >>> 16) % SHADE_STEPS.length;
+  return { skin, shade };
+}
+
+/**
+ * The colour map of a sheet figure before the metal's rarity swap: each
+ * colour group to its tier recolour (or its own colours), then the man's skin
+ * tone on `skin` and his shade step on `cloak` / `crest`.
+ */
+export function recolorMap(m: SheetManifest, tier: SheetTier, v: SheetVariant): Map<number, number> {
+  const out = new Map<number, number>();
+  const rc = m.tiers?.[tier] ?? {};
+  for (const [name, src] of Object.entries(m.colorGroups ?? {})) {
+    const to = (rc[name] ?? src).map(hexColor);
+    const tone = name === 'skin' ? SKIN_TONES[v.skin] : null;
+    const k = SHADED_GROUPS.includes(name) ? SHADE_STEPS[v.shade] : 1;
+    src.forEach((c, i) => {
+      let t = to[i];
+      if (tone) t = tone(t);
+      if (k !== 1) t = shadeColor(t, k);
+      out.set(hexColor(c), t);
+    });
+  }
+  return out;
+}

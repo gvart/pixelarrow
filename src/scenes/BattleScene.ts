@@ -13,7 +13,7 @@ import { RARITY_COLOR, SIZE, STRAT, type BattleCategory } from '../ui/theme';
 import { uiBlocker, uiId, uiIgnore } from '../ui/layout';
 import { ellipsize, measureText, wrapText, LINE_H } from '../ui/textfit';
 import { PLATE_W, PLATE_W_BIG, addPortrait, battleDoll, battleFrame, battleRow, battleRowFx, dollDisplayScale, dollOrigin, dollSheetAnims, flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
-import { pickDeathAnim, pickManAnim, type AnimTable } from '../art/sheetAnim';
+import { newAnimMemory, pickDeathAnim, pickManAnim, type AnimMemory, type AnimTable } from '../art/sheetAnim';
 import { sheetFrameId } from '../art/sheetManifest';
 import { onSheetReady } from '../art/sheetDoll';
 import { dollFromHero, dollFx, drawnFrames, ANIM, ANIM_FRAMES, BATTLE_RES, BATTLE_SCALE, NFRAMES, aimFrame, attackFrame, isRangedClass, weaponClass, type DollFx, type DollSpec, type WeaponClass } from '../art/paperdoll';
@@ -149,6 +149,10 @@ interface UnitView {
   spec: DollSpec;
   /** His sprite sheet's animations (null: procedural, manFrame / figureFrame). */
   sheet: AnimTable | null;
+  /** Sheet figures: the stride clock (s of marching at his pace), when it last ran, and the picker's memory. */
+  stride: number;
+  strideAt: number;
+  anim: AnimMemory;
 }
 
 /** Texture origins of the joined formation plates, per strip step. */
@@ -618,7 +622,7 @@ export class BattleScene extends BaseScene {
       const view: UnitView = {
         u, hero, spr, shadow, ring, flag, px: u.x, py: u.y, flip: f.left, back: f.back, deathTick: -1, dir, key, tall, big, man, full, plated, plateTop, strip: -1, topKey: '',
         wc: weaponClass(spec.weapon), rowKey, fx, fxRing, fxGlint, aura: u.side === this.me && man ? myAura : null, dieB: (u.id * 7 + 3) % 3 === 0,
-        spec, sheet: dollSheetAnims(key),
+        spec, sheet: dollSheetAnims(key), stride: 0, strideAt: -1, anim: newAnimMemory(),
       };
       this.views.push(view);
       this.viewById.set(u.id, view);
@@ -989,6 +993,10 @@ export class BattleScene extends BaseScene {
     const u = v.u;
     const g = this.sim.groups[u.group];
     const aiming = isRangedClass(v.wc) && u.ammo > 0 && u.lastShotTick > 0 && (now - u.lastShotTick) / TICK_RATE < u.stats.shotTime * 1.8;
+    const pace = Math.max(0.6, Math.min(1.6, u.spd / Math.max(0.01, u.stats.speed)));
+    // the stride clock runs only while he marches, at his pace of the moment (a change of pace never jumps the cycle)
+    if (moving && v.strideAt >= 0 && now > v.strideAt) v.stride += ((now - v.strideAt) / TICK_RATE) * pace;
+    v.strideAt = now;
     const p = pickManAnim(
       {
         t: now / TICK_RATE,
@@ -1007,9 +1015,13 @@ export class BattleScene extends BaseScene {
         shieldWall: !!g?.shieldWall,
         engaged: u.engaged,
         aimUntil: aiming ? Math.max(0, u.cooldown) / TICK_RATE : -1,
-        pace: Math.max(0.6, Math.min(1.6, u.spd / Math.max(0.01, u.stats.speed))),
+        // the cooldown counts down a tick at a time: what is left of it at this interpolated moment
+        swingIn: u.engaged ? Math.max(0, u.cooldown - (now - this.sim.tick)) / TICK_RATE : -1,
+        pace,
+        stride: v.stride,
       },
       v.sheet!,
+      v.anim,
     );
     return sheetFrameId(p.anim, p.i);
   }
@@ -1023,6 +1035,9 @@ export class BattleScene extends BaseScene {
       v.rowKey = battleRow(this, key, v.dir);
       v.sheet = dollSheetAnims(key);
       v.shown = undefined;
+      // a sheet figure's box may be wider than the procedural one (about the same feet point)
+      const [ox, oy] = dollOrigin(key);
+      for (const s of [v.spr, v.fxRing, v.fxGlint]) s?.setOrigin(ox, oy);
     }
   }
 
