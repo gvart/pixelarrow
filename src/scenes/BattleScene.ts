@@ -1001,6 +1001,7 @@ export class BattleScene extends BaseScene {
       {
         t: now / TICK_RATE,
         id: u.id,
+        mount: v.spec.mount,
         victory: this.sim.phase === 'ended' && u.side === this.victorySide && !moving,
         sinceAtk: (now - Math.max(u.lastAttackTick, u.lastShotTick)) / TICK_RATE,
         shot: u.lastShotTick > u.lastAttackTick,
@@ -1176,7 +1177,7 @@ export class BattleScene extends BaseScene {
         // men, riders and beasts fall in four steps (stagger, topple / crumple, hit the ground, lie still); chariots in three
         const die = v.full ? (v.dieB ? ANIM.dieB : ANIM.die) : ANIM_FRAMES.fall;
         if (v.sheet) {
-          const p = pickDeathAnim(tt, v.dieB, u.ko, u.id, v.sheet);
+          const p = pickDeathAnim(tt, v.dieB, u.ko, u.id, v.sheet, v.spec.mount);
           frame = sheetFrameId(p.anim, p.i);
         } else frame = die[Math.min(die.length - 1, Math.floor(tt / (v.man ? 0.08 : 0.11)))];
         v.spr.setDepth(-50000 + ry);
