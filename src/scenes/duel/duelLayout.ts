@@ -31,7 +31,7 @@ export interface DuelPanes {
  * at 844x390 and on tablets; a third column comes where the pane holds three readable cards.
  */
 const CARD_V5 = 176;
-/** The narrowest mode content beside the profile column on a sub-screen (a leaderboard table, a defender row), UI px. */
+/** The narrowest defender rows beside the profile column, UI px. */
 const MAIN_MIN = 220;
 const CARD_MIN = 150;
 /** Between cards and tiles, UI px (the page's GAP). */
@@ -54,8 +54,8 @@ export function duelPanes(m: ClassOf, region: Box, view: DuelView): DuelPanes | 
   if (v === 'medium' && view !== 'team') return stack(r.w);
   if (v === 'compactLandscape' && view === 'shop') return stack(r.w);
   const sw = SIDE_W[v];
-  // a sub-screen whose list would be squeezed beside the column (Telegram's insets at 844x390) keeps one pane
-  if (v === 'compactLandscape' && view !== 'hub' && view !== 'team' && r.w - sw - PANE_GUTTER < MAIN_MIN) return stack(r.w);
+  // the defender rows would be squeezed beside the column (Telegram's insets at 844x390): one pane
+  if (v === 'compactLandscape' && view === 'raid' && r.w - sw - PANE_GUTTER < MAIN_MIN) return stack(r.w);
   return { side: { x: r.x, y: r.y, w: sw, h: r.h }, main: { x: r.x + sw + PANE_GUTTER, y: r.y, w: r.w - sw - PANE_GUTTER, h: r.h } };
 }
 

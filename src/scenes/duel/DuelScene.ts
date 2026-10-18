@@ -177,7 +177,7 @@ export function leftText(ms: number): string {
 
 const SHOP_TABS: ShopTab[] = ['offers', 'gear', 'sell'];
 /** A leaderboard row this wide is a table (landscape-v6 §9.2), with these columns for the rating and the games, UI px. */
-const BOARD_TABLE_W = 240;
+const BOARD_TABLE_W = 200;
 const BOARD_RATING_W = 36;
 const BOARD_GAMES_W = 36;
 /** Height of an offer card (name, rarity, compare line, three stats, Buy). */
@@ -1914,7 +1914,8 @@ export class DuelScene extends BaseScene {
     const cx = row ? ax + r + 8 : mid;
     const clockSize = [12, 11, 10, 9, 8].find((z) => mw(clock, 'rInk', z) <= (row ? w - cx - 4 : w - 8)) ?? 8;
     if (row) {
-      this.searchText = ptext(this, c, cx, cy - 7, t('duels.searching', { t: fmtClock((Date.now() - s.since) / 1000) }), 'head', { size: clockSize });
+      // the clock in the middle of the room beside the arena
+      this.searchText = ptext(this, c, Math.round((cx + w) / 2), cy - 7, t('duels.searching', { t: fmtClock((Date.now() - s.since) / 1000) }), 'head', { size: clockSize, align: 0.5 });
       y = cy + r + 6;
     } else {
       y = cy + r + 8;
@@ -1977,22 +1978,26 @@ export class DuelScene extends BaseScene {
     const side = this.side;
     if (side) side.y = this.searchTeam(p, f, side.c, side.y, side.w);
     const cs = 36;
-    const h = cs + 66;
+    // a short screen (844x390) names each side and its league on one line above its crest: a shorter card, all in view
+    const top = !this.v5 && this.m.short;
+    const h = top ? cs + 50 : cs + 66;
     const card = new ParchmentCard(this, 1, 8, w, h, { selected: true, id: 'duel.foundCard' });
     c.add(card);
     const mid = w / 2;
-    // one wide pane sets the two sides further apart, facing across the VS
-    const q = this.v5 || side ? 0.25 : 0.2;
+    // outside portrait the two sides sit further apart, facing across the VS (a short single pane keeps v5's quarters)
+    const q = this.v5 || (!side && this.m.short) ? 0.25 : 0.2;
     const sides: [number, string, League | null][] = [
       [w * q, t('duels.board.you'), this.ranked?.league ?? null],
       [w * (1 - q), f.name, f.league],
     ];
-    // a short screen (844x390) names the sides above their crests: the names stay in view over a short card
-    const top = !this.v5 && this.m.short;
     for (const [sx, name, league] of sides) {
-      addCrest(this, card, Math.round(sx - cs / 2), top ? 30 : 10, cs, league);
-      ptext(this, card, sx, top ? 6 : 14 + cs, name, 'ink', { align: 0.5, maxW: w / 2 - 8 });
-      if (league && !this.v5) ptext(this, card, sx, top ? 18 : 27 + cs, leagueName(league), 'sec', { align: 0.5, maxW: w / 2 - 8 });
+      addCrest(this, card, Math.round(sx - cs / 2), top ? 22 : 10, cs, league);
+      if (top) {
+        ptext(this, card, sx, 7, league ? `${name} · ${leagueName(league)}` : name, 'ink', { align: 0.5, maxW: w / 2 - 8 });
+        continue;
+      }
+      ptext(this, card, sx, 14 + cs, name, 'ink', { align: 0.5, maxW: w / 2 - 8 });
+      if (league && !this.v5) ptext(this, card, sx, 27 + cs, leagueName(league), 'sec', { align: 0.5, maxW: w / 2 - 8 });
       else if (league) {
         // centred on the column: measure first (the chip sizes itself to its word)
         const label = leagueName(league);
@@ -2000,7 +2005,7 @@ export class DuelScene extends BaseScene {
         addLeaguePill(this, card, Math.round(sx - lw / 2), 26 + cs, league, label, w / 2 - 8);
       }
     }
-    ptext(this, card, mid, (top ? 30 : 10) + cs / 2 - 5, t('battle.vsShort'), 'head', { size: 9, align: 0.5, maxW: w / 2 - cs - 4 }); // between the crests ('против' is wide)
+    ptext(this, card, mid, (top ? 22 : 10) + cs / 2 - 5, t('battle.vsShort'), 'head', { size: 9, align: 0.5, maxW: w / 2 - cs - 4 }); // between the crests ('против' is wide)
     const prep = ptext(this, card, mid, h - 14, t('duel.preparing'), 'sec', { align: 0.5, maxW: w - 12 });
     this.tweens.add({ targets: prep, alpha: { from: 1, to: 0.4 }, duration: 700, yoyo: true, repeat: -1 });
     // outside portrait the search's lineup and league stay under the VS card while the field is prepared
@@ -2479,9 +2484,9 @@ export class DuelScene extends BaseScene {
     // rating (where the league has one); a phone's row puts the league pill in place of a missing rating
     if (!this.v5 && w >= BOARD_TABLE_W) {
       const rx = w - 8;
-      // the columns spread over the row: league from 42%, games ending at 72% (or before the rating), rating at the right
-      const gx = Math.min(rx - BOARD_RATING_W, Math.round(w * 0.72));
-      const lx = Math.round(w * 0.42);
+      // the columns spread over the row: league from 45%, games ending at 78% (or before the rating), rating at the right
+      const gx = Math.min(rx - BOARD_RATING_W, Math.round(w * 0.78));
+      const lx = Math.round(w * 0.45);
       // the rating where the league has one; a dash for the leagues that play without one
       ptext(this, row, rx, 9, r.rating !== null ? fmtCount(r.rating) : '—', r.rating !== null ? 'ink' : 'muted', { align: 1 });
       // games played: crossed swords and the count (the standing rows' icon-and-number form)
