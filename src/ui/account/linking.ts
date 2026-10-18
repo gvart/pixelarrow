@@ -52,11 +52,11 @@ export interface LinkFail {
   next: 'newCode' | 'close' | 'retry' | 'reopen' | 'support' | 'field';
 }
 
-/** `ctx`: the web sheets, the Mini App's link request (tg), or the Mini App's choice in a conflict (choose). */
-export function linkFail(e: unknown, ctx: 'web' | 'tg' | 'choose'): LinkFail {
+/** `ctx`: the web sheets (browser), the Mini App's link request (tg), or the Mini App's choice in a conflict (choose). */
+export function linkFail(e: unknown, ctx: 'browser' | 'tg' | 'choose'): LinkFail {
   const un: LinkFail = { key: 'auth.err.unavailable', next: 'retry' };
   if (!isApiError(e)) return un;
-  const tg = ctx !== 'web';
+  const tg = ctx !== 'browser';
   switch (e.code) {
     case 'link_expired':
     case 'bad_start_param':

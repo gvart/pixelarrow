@@ -39,6 +39,8 @@ import { openAddEmail } from './addEmail';
 import { openChangeEmail } from './changeEmail';
 import { openChangePassword } from './changePassword';
 import { confirmRemove } from './removeMethod';
+import { openLinkTelegram } from './linkTelegram';
+import { checkTelegramConflicts } from './conflict';
 
 /** Where the page's data comes from: the server (live) or a stand-in (Kit, layout check). */
 export interface AccountSource {
@@ -250,6 +252,9 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
               { label: t('account.remove'), id: 'account.email.remove', off, onClick: () => remove('password') },
             ]),
         };
+      // Link Telegram (AU-13, V6-LINK-06): only where it can complete, a web page that can open t.me (§8.2)
+      else if (r.action === 'link' && canUsePasswordForms())
+        action = { kind: 'button', label: t('account.link'), id: 'account.tg.link', onClick: () => openLinkTelegram(scene, { displayName: a.displayName, hasPassword, onDone: reopen }) };
       else if (r.action === 'pendingMenu')
         action = {
           kind: 'more',
@@ -262,7 +267,6 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
               { label: t('account.cancelPending'), id: 'account.email.cancel', onClick: () => void src.forgetAddPending().then(reopen) },
             ]),
         };
-      // 'link' (Telegram not linked, the web) opens AU-13, which comes with V6-LINK-06: read only until then
       const sub = 'text' in r.sub ? r.sub.text : t(r.sub.key, r.sub.params);
       const row = new AccountRow(scene, 0, yy, iw - 4, { mark: tg ? 'tg' : 'at', title: t(tg ? 'account.tg' : 'account.email'), sub, action });
       into.add(row);
@@ -374,6 +378,8 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
       // the link was opened: the hint has done its job
       if (waiting && a.identities.some((i) => i.kind === 'password')) void src.forgetAddPending();
       if (c.scene) showAccount(a, waiting);
+      // in the Mini App: a link conflict this Telegram account must decide opens over the page (V6-053)
+      if (c.scene && !o.source) void checkTelegramConflicts(scene, { d });
     } catch (e) {
       if (!c.scene) return;
       if (isApiError(e) && e.status === 403 && e.code === 'banned') showBanned();

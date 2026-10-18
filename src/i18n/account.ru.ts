@@ -163,6 +163,7 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   // V6-LINK-05: sign-in method actions, AU-10 Confirm it's you, AU-11, AU-12, AU-15 (§8.2–§8.4, §8.8, §8.10)
   'account.emailPending': 'Не подтверждена: {email}',
   'account.add': 'Добавить',
+  'account.link': 'Привязать',
   'account.remove': 'Отвязать',
   'account.remove.last': 'Это ваш единственный способ входа. Сначала добавьте другой.',
   'account.removed': 'Этот способ входа уже отвязан.',
@@ -227,6 +228,7 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'link.notMeTitle': 'Ничего не привязано',
   'link.notMeBody': 'Если ссылку открывали не вы, она могла попасть к кому-то ещё: смените пароль.',
   'link.done': 'Telegram привязан. Теперь этим аккаунтом можно играть и в Telegram.',
+  'link.doneBtn': 'Готово',
   'link.expired': 'Срок кода истёк. Получите новый.',
   'link.newCode': 'Новый код',
   'link.already': 'Этот аккаунт Telegram уже привязан.',
@@ -245,6 +247,7 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'link.tg.stale': 'Откройте эту ссылку из браузера заново, чтобы продолжить.',
   'link.tg.notMeDone': 'Отменено. Ничего не привязано, а владельцу веб-аккаунта сообщили.',
   'conflict.title': 'Какой аккаунт оставить',
+  'conflict.sheetTitle': 'Оставить один аккаунт',
   'conflict.body': 'В обоих аккаунтах есть прогресс. Объединить их нельзя: один останется с обоими способами входа, другой будет удалён навсегда.',
   'conflict.tg.body': 'Веб-аккаунт просит привязать этот аккаунт Telegram, и в обоих есть прогресс. Один останется с обоими способами входа, другой будет удалён навсегда. Продолжайте, только если сами начали привязку в браузере.',
   'conflict.this': 'Этот аккаунт',

@@ -16,6 +16,8 @@ import { accountDeps, type AccountDeps } from './deps';
 import { openForgot } from './forgot';
 import { openLogin, type SignInOpts } from './login';
 import { openSignup } from './signup';
+import { openLinkRequest } from './linkRequest';
+import { openWebConflict } from './conflict';
 
 export type { AccountDeps } from './deps';
 export type { SignInOpts } from './login';
@@ -33,18 +35,34 @@ export function openAccountForm(scene: UiScene, form: AccountForm, o: SignInOpts
 }
 
 /**
- * A launch route of src/online/deeplink.ts (`data.account` of the menu): `#login` and `#forgot` open
- * their form, once (the hash is cleared so a reload doesn't reopen it). Other views (`account`,
- * `conflict`, `link`) belong to the account page stories; false when this didn't handle the route.
+ * A launch route of src/online/deeplink.ts (`data.account` of the menu), once (a hash route is cleared so
+ * a reload doesn't reopen it): `#login` and `#forgot` open their form; `link` (startapp=link_<code>)
+ * opens AU-14 where the platform has a signed proof to complete it with (the Mini App); `conflict`
+ * (`#account/conflict/<id>`) opens AU-16 where the player signs in with a password (the web). False when
+ * this didn't handle the route (`account` belongs to the menu).
  */
-export function openAccountRoute(scene: UiScene, route: { view?: string } | undefined, o: SignInOpts = {}): boolean {
+export function openAccountRoute(scene: UiScene, route: { view?: string; id?: string; code?: string } | undefined, o: SignInOpts = {}): boolean {
   const view = route?.view;
-  if (view !== 'login' && view !== 'forgot') return false;
-  try {
-    if (location.hash === `#${view}`) history.replaceState(history.state, '', location.pathname + location.search);
-  } catch {
-    /* no history: the route stays in the address */
+  const clear = (hash: string) => {
+    try {
+      if (location.hash === hash) history.replaceState(history.state, '', location.pathname + location.search);
+    } catch {
+      /* no history: the route stays in the address */
+    }
+  };
+  if (view === 'link' && route?.code) {
+    if (!accountDeps().proof()) return false;
+    openLinkRequest(scene, route.code);
+    return true;
   }
+  if (view === 'conflict' && route?.id) {
+    clear(`#account/conflict/${route.id}`);
+    if (!canUsePasswordForms()) return false;
+    openWebConflict(scene, route.id, { hasPassword: true, onDone: () => o.onSignedIn?.() });
+    return true;
+  }
+  if (view !== 'login' && view !== 'forgot') return false;
+  clear(`#${view}`);
   return !!openAccountForm(scene, view, o);
 }
 

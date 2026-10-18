@@ -173,6 +173,7 @@ export const ACCOUNT_EN = {
   // V6-LINK-05: sign-in method actions, AU-10 Confirm it's you, AU-11, AU-12, AU-15 (§8.2–§8.4, §8.8, §8.10)
   'account.emailPending': 'Waiting: {email}',
   'account.add': 'Add',
+  'account.link': 'Link',
   'account.remove': 'Remove',
   'account.remove.last': "It's your only way to sign in. Add another one first.",
   'account.removed': 'That sign-in method was already removed.',
@@ -238,6 +239,7 @@ export const ACCOUNT_EN = {
   'link.notMeTitle': 'Nothing was linked',
   'link.notMeBody': "If you didn't open the link yourself, someone else may have it: change your password.",
   'link.done': 'Telegram linked. You can now play this account in Telegram too.',
+  'link.doneBtn': 'Done',
   'link.expired': 'The code expired. Get a new one.',
   'link.newCode': 'New code',
   'link.already': 'This Telegram account is already linked.',
@@ -258,6 +260,7 @@ export const ACCOUNT_EN = {
   'link.tg.notMeDone': "Cancelled. Nothing was linked, and the web account's owner was told.",
   // AU-16 Choose which account to keep (§8.7; both sides choose, V6-053)
   'conflict.title': 'Choose which account to keep',
+  'conflict.sheetTitle': 'Keep one account',
   'conflict.body': "Both accounts have progress. We can't combine them: one is kept with both sign-ins, and the other is deleted for good.",
   'conflict.tg.body': 'A web account asks to link to this Telegram account, and both have progress. One is kept with both sign-ins, the other is deleted for good. Only continue if you started this on the web yourself.',
   'conflict.this': 'This account',

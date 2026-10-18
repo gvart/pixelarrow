@@ -80,21 +80,21 @@ describe('AU-13: the web sheet follows the status', () => {
 describe('server codes as what to show and what to do next', () => {
   const err = (status: number, code: string) => new ApiError(status, code, code);
   it('the web side', () => {
-    expect(linkFail(err(410, 'link_expired'), 'web')).toMatchObject({ key: 'link.expired', next: 'newCode' });
-    expect(linkFail(err(409, 'already_linked'), 'web')).toMatchObject({ key: 'link.already', next: 'close' });
-    expect(linkFail(err(429, 'rate_limited'), 'web')).toMatchObject({ key: 'link.err.rate', next: 'close' });
-    expect(linkFail(err(409, 'retry'), 'web')).toMatchObject({ key: 'link.err.retry', next: 'retry' });
-    expect(linkFail(err(410, 'link_cancelled'), 'web')).toMatchObject({ key: 'conflict.cancelled', next: 'close' });
-    expect(linkFail(err(410, 'conflict_expired'), 'web')).toMatchObject({ key: 'conflict.expired', next: 'close' });
-    expect(linkFail(err(404, 'not_found'), 'web')).toMatchObject({ key: 'conflict.expired', next: 'close' });
-    expect(linkFail(err(409, 'choices_differ'), 'web')).toMatchObject({ key: 'conflict.differ', next: 'close' });
-    expect(linkFail(err(409, 'busy_try_later'), 'web')).toMatchObject({ key: 'conflict.busy', next: 'close' });
-    expect(linkFail(err(409, 'contact_support'), 'web')).toMatchObject({ key: 'conflict.support', next: 'support' });
-    expect(linkFail(err(400, 'confirm_mismatch'), 'web')).toMatchObject({ key: 'conflict.typeMismatch', next: 'field' });
-    expect(linkFail(err(403, 'banned'), 'web')).toMatchObject({ key: 'auth.banned.body', next: 'close' });
-    expect(linkFail(err(0, 'network'), 'web')).toMatchObject({ key: 'auth.err.offline', next: 'retry' });
-    expect(linkFail(err(500, 'internal'), 'web')).toMatchObject({ key: 'auth.err.unavailable', next: 'retry' });
-    expect(linkFail(new Error('x'), 'web')).toMatchObject({ key: 'auth.err.unavailable', next: 'retry' });
+    expect(linkFail(err(410, 'link_expired'), 'browser')).toMatchObject({ key: 'link.expired', next: 'newCode' });
+    expect(linkFail(err(409, 'already_linked'), 'browser')).toMatchObject({ key: 'link.already', next: 'close' });
+    expect(linkFail(err(429, 'rate_limited'), 'browser')).toMatchObject({ key: 'link.err.rate', next: 'close' });
+    expect(linkFail(err(409, 'retry'), 'browser')).toMatchObject({ key: 'link.err.retry', next: 'retry' });
+    expect(linkFail(err(410, 'link_cancelled'), 'browser')).toMatchObject({ key: 'conflict.cancelled', next: 'close' });
+    expect(linkFail(err(410, 'conflict_expired'), 'browser')).toMatchObject({ key: 'conflict.expired', next: 'close' });
+    expect(linkFail(err(404, 'not_found'), 'browser')).toMatchObject({ key: 'conflict.expired', next: 'close' });
+    expect(linkFail(err(409, 'choices_differ'), 'browser')).toMatchObject({ key: 'conflict.differ', next: 'close' });
+    expect(linkFail(err(409, 'busy_try_later'), 'browser')).toMatchObject({ key: 'conflict.busy', next: 'close' });
+    expect(linkFail(err(409, 'contact_support'), 'browser')).toMatchObject({ key: 'conflict.support', next: 'support' });
+    expect(linkFail(err(400, 'confirm_mismatch'), 'browser')).toMatchObject({ key: 'conflict.typeMismatch', next: 'field' });
+    expect(linkFail(err(403, 'banned'), 'browser')).toMatchObject({ key: 'auth.banned.body', next: 'close' });
+    expect(linkFail(err(0, 'network'), 'browser')).toMatchObject({ key: 'auth.err.offline', next: 'retry' });
+    expect(linkFail(err(500, 'internal'), 'browser')).toMatchObject({ key: 'auth.err.unavailable', next: 'retry' });
+    expect(linkFail(new Error('x'), 'browser')).toMatchObject({ key: 'auth.err.unavailable', next: 'retry' });
   });
 
   it('the Mini App side: stale or reused initData asks for a relaunch', () => {
