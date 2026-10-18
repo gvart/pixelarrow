@@ -73,7 +73,7 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 - [x] **M1b sandbox-view** — `sandbox.html` + `src/war/view/`: Phaser greybox renderer (height shading, contours, water, terrain tint), camera pan/zoom, RTS selection box, right-click orders, formation keys, dev panel (spawn squad/bots, time scale, overlays: height/cost, perf). Runs against a fake `WarSim` until M1a merges, then wired to the real sim in a Worker. verify: Playwright screenshots. depends on: — (integration after M1a)
 - [x] **M1c combat-bots** — melee/ranged combat reusing class stats from `src/sim`, high-ground bonuses, slope/ford penalties, death/wounded flag, simple bot AI (attack-move, hold a point, flank via pass). verify: vitest scenarios (high ground wins equal fight). depends on: M1a
 - [x] **M1e iso-view** — true-iso renderer with height walls, iso picking for select/orders, occlusion fade/outline; same dev panel. depends on: sandbox-wire
-- [ ] **M1f region-256** — test-ridge regenerated at 256×256, pathing perf re-checked (hierarchical if needed). depends on: M1c
+- [x] **M1f region-256** — test-ridge regenerated at 256×256, pathing perf re-checked (hierarchical if needed). depends on: M1c
 - [ ] **M1d scenarios** — `?scenario=` presets (pass ambush, ford crossing, hill assault, 600-unit brawl) + owner checklist. depends on: M1b, M1c
 - [x] **ART-1 world design + prototypes** — `docs/WAR.md` world section: ~35 regions with biome, altitude features, fauna (mobs), resources, adjacency; Gemini prototypes of the world map + 4 sample regions in `shots/war/gemini/`; prompts logged in `docs/playbook/PROMPTS_ART.md`. depends on: —
 
