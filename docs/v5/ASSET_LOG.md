@@ -223,6 +223,55 @@ Sheet: `src/assets/sheets/horse_archer/` 128 columns x 4 rows of 129 x 146, pack
 
 **Rejected and why:** fallFwd SW a1, SE a1/a2, NW a1/a2 (the rider floats up out of the saddle, merges into the lying horse, or his boots run off the canvas); rout SW / SE keyed loops (the rider sits upright: a keyed loop keeps the key's posture, so a rout must come from an entry run); rout NW a1 (the bow vanishes behind the hunched rider). Lesson: for a fall say "never rises above the saddle … slides off … clearly apart from the horse"; a rout prompt needs "bent double … crouched low" and an entry run, not a keyed loop.
 
+#### thessalian (36 gens)
+
+Clips: idle 12 @ 8, walk 16 @ 14, gallop 24 @ 16 (entry strides: SW, SE, NE 8 x 3; NW 12 x 2), throw 12 @ 14, strike 6 (on the gallop: a javelin lifted overhead, head forward and down, flung down at the foe with the rise in the stirrups; the frames where the drawn javelin turned head-back or read as double-ended were cut, see the table), stagger 12 @ 12, fallFwd 16 @ 12, rout 20 @ 16 (leaning low over the neck; 10-frame strides twice, a frame dropped from the 11-frame ones), cheer 16 @ 10, hold 15. No charge (falls back to gallop).
+
+Sheet: `src/assets/sheets/thessalian/` 128 columns x 4 rows of 123 x 139, packed 10.63 MB decoded (core 8.70), 432 KB download. `qc.mjs` with `stature { from: any, px: 90, tol: 4 }` (the javelin heads are above the pilos): 0 failures. Groups: cloak = crimson + teamRed (chlamys and tunic, exclusive); skin = the rider only (the dun-grey coat is umber / metal / iron): the per-man skin tint stays **on**. The coat, pilos, buckler and leather are kept as shadow, so no rarity-relevant metal (`rarity.metal: false` set for the small darkBronze bits the remap still finds on the javelin heads). Dust puffs touching the hooves: `dust.mjs` (light pixels in the bottom rows) then `despeck.mjs`. Per-clip canvas y offsets (gallop, throw, rout) put the horse's ground row where idle has it (`anchorcheck.mjs` within 2 px). The horse archer got the same x/y correction in this commit.
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `35708324` | T-idle-1 | 1 | accepted: two javelins, plain buckler, breathing, tail swish |
+| gallop-entry | SW | a1 | `ca234148` | T-gallop-1 | 1 | accepted: frames 7-14 loop (9.4 %): gallop 7-14 twice; frame 7 keys throw |
+| gallop-entry | SE | a1 | `aff8b784` | T-gallop-1 | 1 | accepted: frames 7-14 loop (7.5 %): gallop 7-14 twice; frame 7 keys throw |
+| throw | SW | a1 | `964f7d98` | T-throw-1 | 1 | REJECTED: frames 3-9 the rider turns his back to the facing and the javelins point backwards; only the release (10-12) is right |
+| stagger | SW | a1 | `bba3aab3` | T-stagger-1 | 1 | accepted: rears and lands; two javelins, buckler |
+| walk | SW | a1 | `42123c8a` | T-walk-1 | 1 | accepted |
+| throw | SW | a2 | `1a872a5c` | T-throw-2 | 1 | fallback: release 10-12 right, but the cock-back (5-9) holds the head behind his hand, pointing backwards |
+| gallop-entry | NE | a1 | `1aa464c8` | T-gallop-2 | 1 | accepted: stride 3-10 loops (19 % vs 55-65 %): gallop 3-10 x3; frame 3 keys throw |
+| gallop-entry | NW | a1 | `092b155c` | T-gallop-2 | 1 | accepted (sheet strip): loops in 12 (0-11): gallop 0-11 twice; frame 3 keys throw |
+| throw | SW | a3 | `941223d6` | T-throw-3 | 1 | REJECTED: the drawn-back javelin (4-11) again has its head behind his hand |
+| idle | SE | a1 | `7aee8f8a` | T-idle-1 | 1 | accepted |
+| walk | SE | a1 | `a1db3e7c` | T-walk-1 | 1 | accepted (sheet strip) |
+| idle | NE | a1 | `77d7b2b2` | T-idle-1 | 1 | accepted (sheet strip) |
+| throw | SW | a4 | `d6a17464` | T-throw-4 | 1 | accepted with cuts: frames 3-7 show the raised javelin with a point at both ends (double-ended): dropped; shipped 0,1,2,2,8-15 (12 frames): lift overhead, then the downward fling with the head leading, release at 10 |
+| idle | NW | a1 | `875c597a` | T-idle-1 | 1 | accepted (sheet strip) |
+| walk | NE | a1 | `03550d2b` | T-walk-2 | 1 | accepted |
+| throw | SE | a1 | `90206c07` | T-throw-4 | 1 | accepted with cuts: 2-5 hold the raised javelin head-back with a pale buckler (drift): dropped; shipped 0,1,6-15, the downward fling with the head leading, release at 10 |
+| throw | NE | a1 | `28d8b1a0` | T-throw-5 | 1 | accepted with cuts: 4-8 the javelins point backwards: dropped; shipped 0-3,3,9-15; release at 10; the buckler flashes orange at 9-11 (cut by colour or remapped) |
+| throw | NW | a1 | `9ab38f2a` | T-throw-5 | 1 | accepted with cuts: shipped 0-3,3,5,6,7,9,11,13,15: raise, release at 6 (the javelin flies off ahead), recover; dust cleared |
+| walk | NW | a1 | `2089c7c9` | T-walk-2 | 1 |  |
+| stagger | SE | a1 | `99ca4e82` | T-stagger-1 | 1 |  |
+| stagger | NE | a1 | `957840d8` | T-stagger-2 | 1 |  |
+| stagger | NW | a1 | `abcf4836` | T-stagger-2 | 1 |  |
+| fallFwd | SW | a1 | `c5f352f1` | T-fall-1 | 1 | cancelled: stuck at 71 % for 13 min (billed 1 regardless) |
+| rout-entry | SW | a1 | `c7428404` | T-rout-1 | 1 | accepted: leaning low over the neck, javelins trailing; stride 4-13 loops (10 frames): rout 4-13 twice; light dust puffs at the hooves cleared by colour/fix |
+| cheer | SW | a1 | `78b3db89` | T-cheer-1 | 1 | accepted: javelins raised, rears 3-9, prances |
+| cheer | SE | a1 | `ee976902` | T-cheer-1 | 1 | accepted: javelins raised and shaken, rears 5-11, prances |
+| rout-entry | SE | a1 | `817b87f8` | T-rout-1 | 1 | accepted: leaning forward, the javelins upright; the buckler drifts lighter (remapped dark); loops in 11 (4-14); dust cleared |
+| rout-entry | NE | a1 | `6f617f48` | T-rout-2 | 1 | accepted: hunched forward, javelins upright; loops in 11 (0-10): rout 0-10 twice + 0,1 (24) |
+| rout-entry | NW | a1 | `bf5237e1` | T-rout-2 | 1 | accepted: hunched forward under the cloak, the two javelins upright (their heads close together, as in the base NW view); loop 4-14 (11) |
+| cheer | NE | a1 | `69d2a4ff` | T-cheer-2 | 1 | accepted: javelins raised and shaken, rears 3-10 |
+| fallFwd | SE | a1 | `7cddf707` | T-fall-1 | 1 | accepted: the horse goes down head first, the rider pitches over its shoulder and lies against its neck, his red tunic, buckler and javelins clearly his own (not merged) |
+| cheer | NW | a1 | `9c3cd13f` | T-cheer-2 | 1 | accepted |
+| fallFwd | SW | a2 | `0cde37f9` | T-fall-1 | 1 | accepted: the horse buckles and rolls, the rider slides off and lies beside it, javelins and buckler beside him |
+| fallFwd | NE | a1 | `3240069d` | T-fall-2 | 1 | accepted: the rider slides off the near side and lies in front of the horse; the buckler drifts orange (remapped dark) and the javelins stay standing like a planted pair (kept: one pair, heads up) |
+| fallFwd | NW | a1 | `08a3104e` | T-fall-2 | 1 | accepted: the horse rolls, the rider slides off and lies beside it, buckler and javelins with him |
+
+36 jobs, 36 gens.
+
+**Rejected and why:** throw SW a1-a3 (the cocked javelin points back over the rider, or he turns his back to the facing); SW fall a1 stuck and cancelled. Fixed by cuts: throw SW a4, SE, NE, NW (head-back and double-ended frames dropped). Lesson: an overhead harpoon throw ("tilting it so its small head points forward and down … flings it forward and down") keeps the head leading better than "draw back along its line".
+
 ### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
 
 **Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated

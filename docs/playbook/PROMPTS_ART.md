@@ -1394,3 +1394,107 @@ Poses (`initial_pose`): haStand: "the horse standing square on four legs, the ri
 
 **Lessons:** a keyed loop keeps the key's posture: a rout or any posture change must be in the entry run. Shoot on the move: pin the clip to the gallop key both ends and rotate frames so the release frame matches across facings.
 
+### thessalian
+
+- **T-idle-1**
+  ```
+  the horse stands at rest and breathes slowly: its barrel swells and sinks, it shifts its weight from one hind leg to the other, lowers and raises its head a little, flicks its ears and swishes its tail; the rider sits calm and still in the saddle, breathing, the two javelins held upright in his right hand with their small heads at the top, the buckler on his left arm; the hooves stay planted where they are; exactly four legs on the horse in every frame
+  ```
+
+- **T-gallop-1**
+  ```
+  the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-1**
+  ```
+  at a full gallop the rider hurls a javelin from the saddle: he lifts one of the two javelins from his right hand, cocks it back above his right shoulder with the point forward, turns his torso and shoulders back, then whips his body round and throws it hard forward with his whole arm and the turn of his torso, his weight surging forward over the horse's neck; the javelin flies off forward and is gone; he recovers upright with the one remaining javelin upright in his right hand; the buckler stays on his left arm; the horse keeps galloping in place with a real horse's gallop the whole time; every javelin has one small head at the front and a plain blunt butt; exactly four legs on the horse in every frame
+  ```
+
+- **T-stagger-1**
+  ```
+  the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-walk-1**
+  ```
+  the horse walks in place in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed, swaying with the horse, the two javelins held upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-2**
+  ```
+  at a full gallop the rider hurls one javelin forward from the saddle without ever turning round: he keeps facing forward the way the horse runs the whole time; he raises one javelin to his right shoulder, point forward, draws his right arm back with the point still aimed ahead, twists his torso a little back, then drives his shoulder and arm forward and throws it hard ahead with the turn of his torso, leaning forward over the horse's neck; the javelin flies off forward and is gone; he settles upright again with the javelins upright in his right hand; the javelin heads always point forward or up, never backwards; the buckler stays on his left arm; the horse keeps galloping in place with a real horse's gallop the whole time; exactly four legs on the horse in every frame
+  ```
+
+- **T-gallop-2**
+  ```
+  seen from behind: the horse gallops in place away from us in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the cloak flapping, the two javelins kept upright in his right hand, the buckler on his left arm; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-3**
+  ```
+  at a full gallop the rider throws one javelin forward like a dart: he brings one javelin down level beside his head, its point aimed straight ahead past the horse's head; keeping the point aimed ahead, he draws it straight back along its own line, his torso twisting back; then he whips torso, shoulder and arm forward and launches it straight ahead, leaning over the horse's neck, and it flies away forward; he settles upright, the remaining javelins upright in his right hand; the javelin head is always in front of his hand, pointing ahead the way the horse runs; the buckler stays on his left arm; the horse keeps galloping in place the whole time; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-4**
+  ```
+  at a full gallop the rider hurls one javelin down at an enemy ahead: he lifts one javelin high above his right shoulder, tilting it so its small head points forward and down towards the ground ahead of the horse, like a harpoon; he rises in the stirrups, twists his torso, then flings it forward and down with all his weight, his arm whipping through and his body leaning over the horse's neck; the javelin leaves his hand point first and is gone; he sits back upright with the other javelin upright in his right hand; the javelin head always points the way the horse runs; the buckler stays on his left arm; the horse keeps galloping in place the whole time; exactly four legs on the horse in every frame
+  ```
+
+- **T-walk-2**
+  ```
+  seen from behind: the horse walks in place away from us in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed with his back to us, swaying with the horse, the two javelins held upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-throw-5**
+  ```
+  seen from behind, the rider faces away the whole time: at a full gallop he hurls one javelin down at an enemy ahead: he lifts one javelin high above his right shoulder, tilting it so its small head points forward and down towards the ground ahead of the horse, away from us; he rises in the stirrups, twists his torso, then flings it forward and down with all his weight, leaning over the horse's neck; the javelin leaves his hand point first and is gone; he sits back upright with the other javelin upright in his right hand; the javelin head always points the way the horse runs, never back towards us; the buckler stays on his left arm; the horse keeps galloping in place the whole time; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **T-stagger-2**
+  ```
+  seen from behind, the rider faces away the whole time: the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
+  ```
+
+- **T-fall-1**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it, clearly apart from the horse, and lies still on his back, the javelins and the buckler on the ground beside him; no blood; exactly four legs on the horse in every frame
+  ```
+
+- **T-rout-1**
+  ```
+  the rider flees in panic at a flat-out gallop: he is bent double, crouched low over the horse's neck, and twists his head to look back over his shoulder in fear, the javelins clutched in his right hand, the buckler on his left arm; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **T-cheer-1**
+  ```
+  victory: the rider thrusts the javelins high above his head in his right hand, heads to the sky, and shakes them in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head; the buckler stays on his left arm; every javelin has one small head at the top; exactly four legs on the horse in every frame
+  ```
+
+- **T-rout-2**
+  ```
+  seen from behind, the rider flees in panic at a flat-out gallop away from us: he is bent double, crouched low over the horse's neck, head down, facing forward away from us the whole time, the javelins clutched upright in his right hand, the buckler on his left arm; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **T-cheer-2**
+  ```
+  seen from behind, the rider faces away the whole time: victory: the rider thrusts the javelins high above his head in his right hand, heads to the sky, and shakes them in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head; the buckler stays on his left arm; every javelin has one small head at the top; exactly four legs on the horse in every frame
+  ```
+
+- **T-fall-2**
+  ```
+  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it, clearly apart from the horse, and lies still on his back, the javelins and the buckler on the ground beside him; no blood; exactly four legs on the horse in every frame
+  ```
+
+Subjects (`subject_description`): thessalian: "a Thessalian light cavalryman with two javelins and a small round buckler seated on a dark dun-grey horse"; thessalianGallop: "a Thessalian light cavalryman with two javelins and a small round buckler on a galloping dark dun-grey horse"; thessalianBack: "a Thessalian light cavalryman with two javelins and a small round buckler seated on a dark dun-grey horse, seen from behind"; thessalianGallopBack: "a Thessalian light cavalryman with two javelins and a small round buckler on a galloping dark dun-grey horse, seen from behind"
+Poses (`initial_pose`): tStand: "the horse standing square on four legs, the rider upright with two javelins held upright in his right hand"; tGallopKey: "mid-gallop, the legs stretched out front and back, the javelins upright in his right hand"; tStandBack: "the horse standing square on four legs facing away, the rider upright with his back to us and two javelins held upright in his right hand"
+
+| Clip | Attempts | Shipped | Main rejections |
+| --- | --- | --- | --- |
+| throw | 7 | T-throw-4 (SW, SE), T-throw-5 (NE, NW), with frame cuts | the drawn-back javelin pointing backwards; the rider turning his back to the facing; a double-ended raised javelin |
+| fallFwd | 5 | T-fall-1 / -2 | one stuck job (cancelled) |
+| gallop, rout | entries only | entry strides | none |
+| idle, walk, stagger, cheer | 1 each | first try | none |
+
+**Lessons:** for a javelin say "lifts it overhead … head points forward and down … flings it forward and down", and cut the frames where the head turns back. Light dust touching the hooves needs a lightness cut in the bottom rows (`dust.mjs`), not only a speck filter.
+

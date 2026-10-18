@@ -4,28 +4,28 @@
  "image": "horse_archer.png",
  "frame": {
   "w": 129,
-  "h": 146
+  "h": 147
  },
  "anchor": {
   "x": 65,
-  "y": 132
+  "y": 131
  },
  "anchors": {
   "south-east": {
    "x": 54,
-   "y": 132
+   "y": 131
   },
   "north-east": {
    "x": 53,
-   "y": 132
+   "y": 131
   },
   "south-west": {
    "x": 65,
-   "y": 132
+   "y": 131
   },
   "north-west": {
    "x": 65,
-   "y": 132
+   "y": 131
   }
  },
  "scale": 0.55,

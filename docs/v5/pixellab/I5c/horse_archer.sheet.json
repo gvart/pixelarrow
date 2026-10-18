@@ -56,6 +56,60 @@
     22,
     44
    ]
+  },
+  "gallop": {
+   "south-east": [
+    26,
+    43
+   ],
+   "north-east": [
+    23,
+    41
+   ],
+   "south-west": [
+    22,
+    42
+   ],
+   "north-west": [
+    22,
+    42
+   ]
+  },
+  "shoot": {
+   "south-east": [
+    26,
+    42
+   ],
+   "north-east": [
+    23,
+    43
+   ],
+   "south-west": [
+    21,
+    41
+   ],
+   "north-west": [
+    24,
+    43
+   ]
+  },
+  "rout": {
+   "south-east": [
+    27,
+    42
+   ],
+   "north-east": [
+    24,
+    42
+   ],
+   "south-west": [
+    21,
+    42
+   ],
+   "north-west": [
+    24,
+    43
+   ]
   }
  },
  "anims": {
@@ -101,7 +155,7 @@
   },
   "gallop": {
    "fps": 16,
-   "canvas": "work",
+   "canvas": "gallop",
    "spear": "upright",
    "align": false,
    "dirs": {
@@ -158,7 +212,7 @@
   "shoot": {
    "fps": 14,
    "strike": 10,
-   "canvas": "work",
+   "canvas": "shoot",
    "spear": "upright",
    "align": false,
    "dirs": {
@@ -272,7 +326,7 @@
   },
   "rout": {
    "fps": 16,
-   "canvas": "work",
+   "canvas": "rout",
    "spear": "upright",
    "align": false,
    "dirs": {
