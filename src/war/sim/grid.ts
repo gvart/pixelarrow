@@ -12,17 +12,24 @@ export interface Grid {
   h: number;
   cost: Float32Array;
   height: Uint8Array;
+  /** Fighting ground per tile: BOG (ford or marsh), FOREST, else 0. */
+  ground: Uint8Array;
 }
+
+export const BOG = 1;
+export const FOREST = 2;
 
 export function buildGrid(r: RegionData): Grid {
   const n = r.w * r.h;
   const cost = new Float32Array(n);
   const height = new Uint8Array(n);
+  const ground = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
     height[i] = r.height[i];
+    ground[i] = r.water[i] === 1 || r.terrain[i] === 'marsh' ? BOG : r.terrain[i] === 'forest' ? FOREST : 0;
     cost[i] = r.water[i] === 2 ? 0 : TERRAIN_COST[r.terrain[i]] * (r.water[i] === 1 ? SHALLOW : 1);
   }
-  return { w: r.w, h: r.h, cost, height };
+  return { w: r.w, h: r.h, cost, height, ground };
 }
 
 export function tileAt(g: Grid, x: number, y: number): number {
