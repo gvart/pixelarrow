@@ -3,7 +3,7 @@
 //  - rows: --rows k rows are removed from the body between --from (default: 12 rows below the crown, past the face)
 //    and 3 rows above the feet, each the row most like its upper neighbour (fewest changed pixels), at least 4 apart;
 //    the figure is re-aligned on its feet row
-//  - cols: --cols c columns are removed from the figure the same way (a thin spear or cord column differs from both
+//  - cols: --cols c columns are removed from the body (within --body px of the knees' centre) the same way (a thin spear or cord column differs from both
 //    neighbours, so it is never picked), half the shift given back so the body stays centred
 // The same k and c go to all 8 views, chosen per view.
 // Usage: node scripts/art/pixellab/rollout/normalise.mjs <rotations dir> <out dir> --rows k [--cols c] [--crown y]
@@ -43,7 +43,12 @@ for (const d of DIRS8) {
   for (let y = 1; y < im.h; y++) { let c = 0; for (let x = 0; x < im.w; x++) if (!same(im, x, y, x, y - 1)) c++; rowCost[y] = c; }
   for (let x = 1; x < im.w; x++) { let c = 0; for (let y = 0; y < im.h; y++) if (!same(im, x, y, x - 1, y)) c++; colCost[x] = c; }
   const dropR = new Set(pick(rowCost, opt('from', crown + 12), feet - 3, K));
-  const dropC = new Set(pick(colCost, x0 + 3, x1 - 3, C));
+  // columns only through the body (the knees' centre +- --body, default 11), never through a weapon held out at the side
+  const ky = feet - 12;
+  let kl = 99, kr = -1;
+  for (let x = 24; x <= 44; x++) if (im.data[px(im, x, ky) + 3] > 128) { kl = Math.min(kl, x); kr = Math.max(kr, x); }
+  const kc = Math.round((kl + kr) / 2), bw = opt('body', 11);
+  const dropC = new Set(pick(colCost, Math.max(x0 + 3, kc - bw), Math.min(x1 - 3, kc + bw), C));
   const keptR = [...Array(im.h).keys()].filter((y) => !dropR.has(y));
   const keptC = [...Array(im.w).keys()].filter((x) => !dropC.has(x));
   const o = blank(im.w, im.h);
