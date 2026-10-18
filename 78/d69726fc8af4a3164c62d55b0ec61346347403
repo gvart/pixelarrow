@@ -1,0 +1,21 @@
+tests/sheetDoll.test.ts
+  s_41b82181a73565::t_eceefd9f306a4e 10-11,14,30-32,34-38,41,43,48-49,59-60,86-101,112-121,127,150-152,154-177,238-265,267-274,277,280-282,328,343,367,385,388,392-395,397-398,400,403-409,418,455,457-473,475
+  s_41b82181a73565::t_309f238232e94f 275-276,278-279,344,389-391,396,399,401-402
+  s_41b82181a73565::t_41245900fc3fd2 266
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "78d69726fc8af4a3164c62d55b0ec61346347403",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
