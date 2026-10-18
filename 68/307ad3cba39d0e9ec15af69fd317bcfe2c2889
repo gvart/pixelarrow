@@ -1,0 +1,36 @@
+scripts/account-privacy-e2e.mjs
+  s_0d98fe904b2e82::t_f776a9707ce62f 19-22,134,171-172,328-375
+scripts/layout-check.mjs
+  s_0d98fe904b2e82::t_37d97da927938f 1013-1014
+src/scenes/MenuScene.ts
+  s_0d98fe904b2e82::t_67c47a4c6b8f77 89-90
+  s_0d98fe904b2e82::t_453258ebd05187 14
+src/ui/account/nameSheet.ts
+  s_0d98fe904b2e82::t_3eb6266a553987 6-8,79-95,98-104
+  s_0d98fe904b2e82::t_453258ebd05187 96-97
+  s_0d98fe904b2e82::t_bfd2946954b101 105
+src/i18n/account.ru.ts
+  s_0d98fe904b2e82::t_b24288c7dcb9c9 349-351
+src/scenes/FirstRunScene.ts
+  s_0d98fe904b2e82::t_3b18a859c8f786 34-35,44-45,56-57,90-91,111,437-440,451,486-489,521-532,534-540,542-543,546-548,550-551,553-554
+  s_0d98fe904b2e82::t_b24288c7dcb9c9 36,58-59,533,541,544-545,549,552
+  s_0d98fe904b2e82::t_2313de40f4f422 555
+src/i18n/account.en.ts
+  s_0d98fe904b2e82::t_b24288c7dcb9c9 362-364
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "68307ad3cba39d0e9ec15af69fd317bcfe2c2889",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
