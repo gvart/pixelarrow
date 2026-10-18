@@ -32,6 +32,7 @@ import { buildIcons } from './kit/iconsPage';
 import { buildArmy } from './kit/armyPage';
 import { buildLayouts, type LayoutDemo, type LayoutSample, type LayoutsPage } from './kit/layoutsPage';
 import { BUTTON_MAX } from '../ui/sizeClass';
+import { uiLayout } from '../ui/layout';
 import { BottomPanel, FrescoBanner, addSubShell, addParchmentEmpty, GAP, MButton, MChip, MIconButton, ParchmentCard, ParchmentRow, ProfileCard, QuestCard, ScreenFrame, SectionTitle, SegmentedSwitch, StoneTile, TabBar, TAB_H, TAP, TopBar, ROW_H, SECTION_TITLE_H, SWITCH_H, openParchmentSheet, type TabId } from '../ui/mosaic';
 
 interface KitData {
@@ -46,6 +47,8 @@ interface KitData {
 
 /** The Layouts page (V6-RFND-02): the one Kit page opted in to the size classes (ADR-0013). */
 const LAYOUTS_TAB = KIT_PAGES.find((p) => p.id === 'layouts')!.tab;
+/** The Overlays page (V6-RSCR-10): opted in too, so its sheets and dialogs show the §3.4 presentations. */
+const OVERLAYS_TAB = KIT_PAGES.find((p) => p.id === 'overlays')!.tab;
 
 /** The v5 pages: their builder on a framed parchment page. */
 const V5_PAGES: Record<number, (cur: Cursor) => void> = { 7: buildTokens, 8: buildType, 9: buildStates, 10: buildOverlays, 11: buildIcons, 12: buildArmy, 14: buildForms };
@@ -67,7 +70,7 @@ export class KitScene extends BaseScene {
 
   create(data: KitData): void {
     this.tab = kitTab(data, location.search);
-    this.responsive = this.tab === LAYOUTS_TAB;
+    this.responsive = this.tab === LAYOUTS_TAB || this.tab === OVERLAYS_TAB;
     this.initUi();
     this.screen({ back: () => this.scene.start('Menu', {}) });
     const { VW } = this.m;
@@ -148,6 +151,7 @@ export class KitScene extends BaseScene {
     const area = new ScrollArea(this, p, c0.x + 4, c0.y + 3, c0.w - 8, c0.h - 3, this.m.S);
     this.cleanup.push(() => area.destroy());
     const cur = new Cursor(this, area, c0.w - 8 - 4);
+    if (this.responsive) uiLayout(this, this.m.cls, this.m.land);
     build(cur);
     cur.done();
   }

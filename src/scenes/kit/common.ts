@@ -19,8 +19,9 @@ export class Cursor {
   y = 2;
   readonly c: C;
 
-  constructor(readonly scene: KitScene, readonly area: ScrollArea, readonly w: number) {
-    this.c = area.content;
+  /** `into`: a column inside the area's content (a page laid out in panes); default the content itself. */
+  constructor(readonly scene: KitScene, readonly area: ScrollArea, readonly w: number, into?: C) {
+    this.c = into ?? area.content;
   }
 
   add<T extends Phaser.GameObjects.GameObject>(o: T): T {

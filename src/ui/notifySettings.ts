@@ -17,6 +17,7 @@ import { ScrollList, type Modal } from './widgets';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { SIZE } from './theme';
 import { MOSAIC } from './tokens';
+import { BUTTON_MAX } from './sizeClass';
 import { uiFrame } from './layout';
 import { openParchmentSheet, sheetWidth } from './mosaic/ParchmentSheet';
 import { MIconButton } from './mosaic/iconButton';
@@ -190,8 +191,10 @@ export function openAbout(scene: UiScene, onClose?: () => void): Phaser.GameObje
   const { c, x, y } = m;
   c.add(addText(scene, x + 8, y + 26, note.lines.join('\n'), 'pInk'));
   let by = y + 26 + note.lines.length * LINE_H + 8;
+  // the legal pages: at most a button's width (§2.3), centred
+  const bw = Math.min(iw, BUTTON_MAX);
   for (const p of PAGES) {
-    c.add(new Button(scene, x + 8, by, iw, SIZE.btnH, { label: t(p.label), id: `about.${p.page}`, onClick: () => platform.share.openExternal(legalUrl(p.page, lang())) }));
+    c.add(new Button(scene, x + 8 + (iw - bw) / 2, by, bw, SIZE.btnH, { label: t(p.label), id: `about.${p.page}`, onClick: () => platform.share.openExternal(legalUrl(p.page, lang())) }));
     by += step;
   }
   return c;

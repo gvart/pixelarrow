@@ -19,6 +19,7 @@ import { MIconButton } from '../mosaic/iconButton';
 import { openParchmentSheet } from '../mosaic/ParchmentSheet';
 import { focus, focusRole } from '../focusRing';
 import { openSettingsPage, settingsSheetW } from '../notifySettings';
+import { BUTTON_MAX } from '../sizeClass';
 import { LINE_H, ellipsize, measureText, wrapText } from '../textfit';
 import { SURFACE, TEXT_MIN } from '../tokens';
 import { SIZE } from '../theme';
@@ -130,8 +131,10 @@ export function openControls(scene: UiScene, onClose?: () => void): Phaser.GameO
   };
   // Reset all stays in view under the list (a virtual list would not build it for Tab, past the fixed rows)
   const footY = y + h - 10 - rowH;
+  // at most a button's width (§2.3), centred under the list
+  const resetW = Math.min(iw - 4, BUTTON_MAX);
   c.add(
-    new Button(scene, x + 8, footY, iw - 4, rowH, {
+    new Button(scene, x + 8 + (iw - 4 - resetW) / 2, footY, resetW, rowH, {
       label: t('controls.resetAll'),
       variant: 'destructive',
       small: true,
