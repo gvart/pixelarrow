@@ -128,6 +128,13 @@ Unit sheets are not hard-snapped (V5-087). Every frame goes through `scripts/art
    "cloak", "metal": "cloak" }`; falx: `{ "skin:0": "shadow" }` (the leather on skin step 0 leaves the skin group).
    Only crimson cloak is split into crest and emblem or dropped as a splat; the spear line also takes the `metal`
    ramp (iron heads).
+   A class with no crest or no shield emblem sets `"crest": false` / `"emblem": false` in the spec: otherwise the
+   highest crimson blob (the cloak at the shoulders) is labelled crest, and crimson enclosed by brown emblem; with the
+   flag that crimson stays `cloak`. The QC stature (`qc.mjs --spec`) is measured from the first metal / trim pixel by
+   default; the spec's `stature` changes that: `{ "skipTop": <rows> }` drops headgear rows (a Phrygian crown: bases.json
+   `headgear_top` to `crown`), `{ "from": "any" }` measures from the first opaque non-weapon pixel (bare-headed archer,
+   falx, slinger, gallic, fanatic; the spear line found by the spear detection and the wood / weapon metal groups are
+   not counted). Both combine.
 4. The manifest lists `colorGroups` (cloak, crest, trim, skin, emblem, wood; dark to light), `metal` (light to dark)
    and the tier ramps (`tiers.veteran`, `tiers.elite`: anchor colours in the spec, interpolated to each group's
    length). Hoplite tiers: veteran = wine cloak, scarlet crest, polished trim; elite = black cloak and crest, gold trim

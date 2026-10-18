@@ -11,7 +11,8 @@
 //                a double-ended spear suspect. A heuristic: it flags frames for the eye, it does not pass them
 // and writes a contact sheet of every clip and a line-up of the class beside E3 and H4.
 // Usage: node scripts/art/pixellab/qc.mjs <manifest.json> [--out dir] [--spec spec.json] [--ref-h4 rot.png] [--ref-e3 rot.png]
-//   --spec  the sheetbuild spec: which clips hold the spear upright or levelled (default: by name)
+//   --spec  the sheetbuild spec: which clips hold the spear upright or levelled (default: by name) and its `stature`
+//           ({ "skipTop": rows, "from": "any" }: how the stature is measured; default from the first metal / trim pixel)
 // Exit code 1 when a hard check fails.
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,7 +20,7 @@ import { readImage, writeImage } from '../lib/png.mjs';
 import { blank, crop, hexToRgb } from '../lib/ops.mjs';
 import { buildSheet } from './sheet.mjs';
 import { loadRamps } from './remap.mjs';
-import { findSpear, LEVEL } from './groups.mjs';
+import { findSpear, distToSeg, LEVEL } from './groups.mjs';
 import { STATURE_PX } from './rig.mjs';
 
 const args = process.argv.slice(2);
@@ -125,15 +126,23 @@ for (const [anim, a] of Object.entries(m.anims)) {
     // stature on idle frame 0
     if (anim === 'idle') {
       const f = frames[0];
+      // spec `stature`: { from: "any" } counts the first opaque non-weapon pixel (bare heads have no metal on top);
+      // { skipTop: n } drops n headgear rows (a Phrygian crown, a plume) from the measure
+      const st = spec?.stature ?? {};
+      const sp = st.from === 'any' ? findSpear(f, { candidate: () => true, headDir: [0, -1] }) : null;
       let top = -1;
       for (let y = 0; y < FH && top < 0; y++) for (let x = 0; x < FW; x++) {
         const k = (y * FW + x) * 4;
         if (!f.data[k + 3]) continue;
         const g = groupOf.get(hex(f.data[k], f.data[k + 1], f.data[k + 2]));
+        if (st.from === 'any') {
+          if (g === 'wood' || g === 'metal1' || (sp && distToSeg(x, y, sp.butt, sp.head).d <= 2.6)) continue;
+          top = y; break;
+        }
         // the helmet's top: the first metal / trim pixel (the crest and the spear are not counted)
         if (g === 'metal0' || g === 'trim') { top = y; break; }
       }
-      stature[dir] = an.y - top;
+      stature[dir] = an.y - top - (st.skipTop ?? 0);
       if (Math.abs(stature[dir] - STATURE_PX) > 3) fail(`${dir}: helmet top to feet ${stature[dir]} px, style lock ${STATURE_PX}`);
     }
     report.anims[anim][dir] = issues;
