@@ -14,7 +14,7 @@ import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, failu
 import { cliArgs, platformMode, applyPlatform, launchUrl, checkPlatform, noTelegramRequests } from './lib/platform.mjs';
 import { untilInPage } from './lib/settle.mjs';
 
-// Every step waits on a state, never on a fixed sleep (docs/v6/qa/FLAKY.md F3): under load (software WebGL at a
+// Every step waits on a state, never on a fixed sleep (docs/FLAKY.md F3): under load (software WebGL at a
 // few frames a second, an audio clock that lags the wall clock) the old 150-3000 ms sleeps ran out before the
 // game or the Web Audio graph got there. The context's resume() and suspend() are asynchronous, gain ramps run on
 // the audio clock, and sheets slide in: each is polled until it holds, with a generous deadline.

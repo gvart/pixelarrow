@@ -1,69 +1,48 @@
 # Art prompt library
 
-Every Gemini prompt used in v5 (AS-08 included), grouped by asset type, quoted word for word from
-[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) and [docs/v5/ux/HUB_DIRECTIONS.md](../v5/ux/HUB_DIRECTIONS.md).
-Where the log kept only a short form of a prompt, this file says so and quotes the short form; nothing here was
-reconstructed or invented. How to run a job: [ART.md](ART.md).
+The reusable image prompts of v5 and v6 and the prompts behind shipped art, in compact form: one template per
+family plus a table of what changed per asset. Gemini makes the painted art (§1–§12), PixelLab the soldier sprites
+(§13–§20). How to run a job: [ART.md](ART.md). Rejected attempts are kept only where the lesson needs them. Where a
+log kept only a short form of a prompt, the short form is quoted; nothing here is reconstructed.
 
-## What is captured
+Word-for-word sources still in the repo: `docs/v5/art/STYLE_LOCK.md` (the PixelLab style block),
+`scripts/art/pixellab/i5a/prompts.mjs` (every I5a clip prompt), `docs/v5/pixellab/I5c/prompts.json` (every I5c clip
+prompt by id), `docs/v5/pixellab/I5b/polish.prompts.json` (every polish job).
 
-| Job | Asset type | Renders | Full prompt recorded | Short form only |
-| --- | --- | --- | --- | --- |
-| AS-01 | Hub screen mockups | 8 | 4 (S + screen prompt + the recorded additions) | 4 (two edits, two "same chat" Codex prompts whose prefix is elided) |
-| AS-02 | Class and beast busts | 23 | 23 (family prompt + the exact SUBJECT) | 0 |
-| AS-03 | Atlas icons (6 grids of 4) | 6 | 6 (grid prompt + the exact SUBJECTs) | 0 |
-| AS-04 | Frescoes, vignettes, splash | 14 | 1 (the seed) | 13 (family F/G verbatim, SUBJECT short) |
-| AS-05 | Beast plates, chests, laurel | 12 | 1 (the seed) | 11 (family F/G verbatim, SUBJECT short; cutouts described in prose) |
-| AS-06 | World pixel sprites | 14 | 1 (the seed) | 13 (follow-up pattern verbatim, specifics quoted in short) |
-| AS-08 | Nikias portraits, app icon mark | 5 | 5 | 0 |
-| I1 | PixelLab hoplite bake-off (characters and clips, §13) | 10 characters + 10 clip jobs | 5 (3 character prompts, 2 attack prompts) + the call settings | 0 |
-| I1b | PixelLab dark-epic hoplite, 16-frame walk, 12-frame thrust, elite state (§14) | 4 characters + 11 clip jobs | 9 prompts + the call settings | 0 |
-| **Total (Gemini)** | | **82** | **41** | **41** |
-
-**Missing.** No v5 render is unrecorded. Not recorded anywhere: the prompts for art that predates v5 and still
-ships or exists (`public/ui/banner_campaign.jpg`, `public/ui/portrait_leader.jpg`, the 101 legacy icons in
-`public/icons/ui.png` and the 189 in `items.png`). The v4 brief that preceded them is quoted in §11; whether it
-produced those files is not recorded. The Nikias portraits (ART-033..035), queued in AS-07, were sent and shipped in AS-08 (§10).
-
-**Gemini settings.** gemini.google.com, "Pro" mode ("Gemini 3.1 Pro"), typed prompts, no tool picker after
-AS-01 (AS-01 used the *Create image* tool with aspect 9:16). Outputs were 2048x2048 (square), 3168x1344
-(wide), 1408x3040 or 1536x2752 (tall), all JPEG.
+**Gemini settings.** gemini.google.com, "Pro" mode, typed prompts, aspect asked in the prompt. Outputs: 2048x2048
+(square), 3168x1344 (wide), 1408x3040 or 1536x2752 (tall), always JPEG (even for magenta-key jobs).
 
 ---
 
 ## 1. Reusable building blocks
 
-Pulled out of the prompts below. Build a new prompt as **opening line + T-STYLE + template + SUBJECT + EXCLUDE
-suffix + ASPECT**.
+Build a prompt as **opening line + T-STYLE + template + SUBJECT + EXCLUDE + ASPECT**. Generate one family seed
+first (busts `bust_hoplite`, plates `plate_hydra`, frescoes `fresco_campaign`, icons the first grid), then attach it
+to the rest. Variants are edits of the approved base. Ask for the largest size; `process.mjs` refuses sources
+smaller than the shipped size.
 
 ### Opening lines
 
 | Use | Text |
 | --- | --- |
-| First asset of a new family (no reference) | `Create an image.` |
-| First asset of a new family, with a reference from another family | `Create a NEW image, not an edit of the reference. The attached portrait is from the same mobile strategy game: match its painting style, palette, brushwork and lighting exactly, but this is a wide landscape scene, not a portrait.` |
-| Later members of a family (seed attached) | `Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject.` |
-| Variant of an approved image | `Edit the attached chest image. Change only: {what}. Keep everything else identical: …` |
-| Follow-up in the same chat, fixing one thing (AS-08) | `Create a NEW image with the same prompt, but fix {what}: … Keep everything else from the first prompt: …` |
-| Follow-up in the same chat (pixel sets) | `Next sprite of the same set, same big cells (one flat colour each), same palette and light from the upper left, flat #FF00FF magenta background` |
+| First of a new family | `Create an image.` |
+| First of a new family, reference from another family | `Create a NEW image, not an edit of the reference. The attached portrait is from the same mobile strategy game: match its painting style, palette, brushwork and lighting exactly, but this is a wide landscape scene, not a portrait.` |
+| Later members (seed attached) | `Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject.` |
+| Variant of an approved image | `Edit the attached {X} image. Change only: {what}. Keep everything else identical: {list what must not move}.` |
+| Same-chat fix | `Create a NEW image with the same prompt, but fix {what}: … Keep everything else from the first prompt: …` |
+| Same-chat pixel set | `Next sprite of the same set, same big cells (one flat colour each), same palette and light from the upper left, flat #FF00FF magenta background` |
 
-### Reusable suffixes
+### Suffixes
 
 | Suffix | Text |
 | --- | --- |
-| No-text guard (painted) | `EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads, blood.` |
-| Shields without letters | `plain bronze shields, NO lambda` and in EXCLUDE `symbols on shields` |
-| Magenta key background | `BACKGROUND: a perfectly flat solid #FF00FF magenta background, edge to edge, with no shadow, no gradient, no glow and no ground plane; no magenta anywhere inside the object.` |
-| Mockup honesty guard | `Nothing else on the screen: no quests, no mail, no energy, no level bar, no gems, no extra buttons` |
+| No-text guard | `EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads, blood.` |
+| Shields without letters | `plain bronze shields, NO lambda`; in EXCLUDE `symbols on shields` |
+| Magenta key | `BACKGROUND: a perfectly flat solid #FF00FF magenta background, edge to edge, with no shadow, no gradient, no glow and no ground plane; no magenta anywhere inside the object.` |
+| Mockup honesty | `Nothing else on the screen: no quests, no mail, no energy, no level bar, no gems, no extra buttons` |
 | Size | `ASPECT: square 1:1, highest resolution available.` / `ASPECT: very wide landscape, 21:9 or the widest available, highest resolution available.` |
 
-### The templates (verbatim from ASSET_LOG › Templates)
-
-**How to use them.** Copy the template named in the asset's manifest row. Replace `{SUBJECT}` with the row's
-Subject, word for word. Paste T-STYLE first, then the template. Generate one family seed first (busts:
-`bust_hoplite`; plates: `plate_hydra`; frescoes: `fresco_campaign`; icons: the first grid), then attach it to
-the rest. Variants are edits of the approved base. Ask for the largest size; `process.mjs` refuses sources
-smaller than the shipped size.
+### Templates
 
 **T-STYLE** (prefix for every painted template)
 
@@ -94,7 +73,7 @@ ASPECT: landscape 21:9, highest resolution available.
 LIGHT: warm afternoon sun from the upper left.
 ```
 
-**T-BUST** (class busts `bust_*` and Nikias `portrait_nikias*`)
+**T-BUST** (class busts `bust_*`, Nikias `portrait_nikias*`)
 
 ```
 [T-STYLE]
@@ -134,7 +113,7 @@ ASPECT: square 1:1, highest resolution available.
 ROLE: a game icon for a mobile strategy game menu, one of a set; it must read at 24 pixels.
 SUBJECT: {SUBJECT}, a single object.
 STYLE: a painted icon with a heavy dark-brown outline (#2a1a12) of even weight around the whole silhouette, three-quarter view, light from the upper left, warm materials (bronze #b08a3a, wood, cloth, stone), soft painted shading, slightly chunky proportions, centred, filling about 85 percent of the square.
-BACKGROUND: a perfectly flat solid #FF00FF magenta background, edge to edge, with no shadow, no gradient, no glow and no ground plane; no magenta anywhere inside the object.
+BACKGROUND: [magenta key]
 EXCLUDE: text, letters, numbers, a frame, a badge or a circle behind the object, more than one object.
 ASPECT: square 1:1, highest resolution available.
 ```
@@ -161,19 +140,19 @@ ASPECT: tall portrait 9:19.5 (or 9:16, the tallest available), highest resolutio
 LIGHT: dawn from the upper left over the sea.
 ```
 
-**T-PIXEL** (world pixel sprites; see §8 for what actually worked)
+**T-PIXEL** (Gemini world pixel sprites; see §8 for what actually worked)
 
 ```
 ROLE: a pixel-art game sprite for an isometric ancient-Mediterranean tactics game.
 SUBJECT: {SUBJECT}, {FACING, e.g. facing down-right in a 2:1 isometric view}.
-PIXEL GRID: true pixel art on a {W}x{H} art-pixel canvas (exact sizes in art bible section 8.5: soldier 32x32, mounted 48x48, lair beast 96x96, world boss 160x128), drawn so that every art pixel is a clean square block of 8x8 screen pixels; hard edges; no anti-aliasing, no blur, no gradients, no dithering noise, no sub-pixel detail.
-PALETTE: only these colours (PA-WORLD): #2a1a12 #442618 #5e2427 #2e3e56 #7b503d #a87464 #dbac99 #f8d5c2 #9c8b78 #d6c0a8 #e8e2d4 #5a4a44 #836c65 #ac9283 #d2b68e #6a4a1e #b08a3a #e0c070 #7a2a2e #a12735 #cc7677 #3d5a78 #7a7a88 #5b3f2a #765d35 #9a8f3b #bba96a #4a5a2e #a8b46a #5d4070 #ae8a9a #978b81 #fde1c8 #d02030 #7fd0e0.
+PIXEL GRID: true pixel art on a {W}x{H} art-pixel canvas, drawn so that every art pixel is a clean square block of 8x8 screen pixels; hard edges; no anti-aliasing, no blur, no gradients, no dithering noise, no sub-pixel detail.
+PALETTE: only these colours (PA-WORLD): {the 35 hex values of docs/v5/art/palette.json › world, space-separated}.
 STYLE: a selective coloured outline (a darker shade of the local colour, never black), 3 to 4 step hue-shifted ramps (shadows toward red-purple, lights toward cream), light from the upper left, chunky-realistic proportions about 6 heads tall, team colour only on shields, crests and standards.
 BACKGROUND: a perfectly flat solid #FF00FF magenta background, edge to edge, with no shadow, no ground and no base plate (the game draws those); feet on one line at the bottom.
 EXCLUDE: text, a frame, several sprites, a scene.
 ```
 
-**T-FRAME** (raster 9-slice chrome; never used in v5, the chrome stayed procedural)
+**T-FRAME** (raster 9-slice chrome; never used, the chrome stayed procedural)
 
 ```
 ROLE: a 9-slice UI frame for a mobile game, carved from {MATERIAL: dark stone with a gold-ochre Greek-key meander / aged bronze with rivets}.
@@ -184,11 +163,11 @@ ASPECT: square 1:1, highest resolution available.
 EXCLUDE: text, a picture in the centre, perspective.
 ```
 
-**T-MARK** (the app icon and favicon mark; AS-08, §12)
+**T-MARK** (the app icon and favicon mark, §10)
 
 ```
 ROLE: the app icon and browser favicon of a mobile strategy game set in the ancient Mediterranean; it must read as one bold shape at 16 pixels and still look rich at 512 pixels.
-SUBJECT: {SUBJECT: one object in side profile, e.g. a bronze Corinthian hoplite helmet facing the viewer's left with a tall arched red horsehair crest}; its one dark opening (eye hole) a single clear shape; the object fills about 70 percent of the disc and is centred in it.
+SUBJECT: {SUBJECT: one object in side profile}; its one dark opening a single clear shape; the object fills about 70 percent of the disc and is centred in it.
 DISC: a perfect circle of dark black-glaze umber (#2a1a12 to #3a2418), like the ground of a red-figure Greek vase, edged by a ring of terracotta (#a8432c) carrying a simple bold Greek key meander band in terracotta and warm cream (#e7d6ad), the band about 8 percent of the diameter wide; the object sits inside the ring and does not touch it.
 STYLE: painted like a red-figure Greek vase but with soft painted shading on the bronze: flat bold shapes, a heavy dark-brown outline (#2a1a12) of even weight around the object, light from the upper left, bronze #b08a3a with warm highlights, warm earth colours, no pure black and no pure white, very few internal details; hand-painted, not a photo, not a 3D render, not glossy digital art, not anime.
 COMPOSITION: the disc centred, seen flat from the front, filling 94 percent of the square, nothing outside the disc.
@@ -199,203 +178,137 @@ ASPECT: square 1:1, highest resolution available.
 
 ---
 
-## 2. Screen mockups (AS-01, hub directions A, B, C)
+## 2. Screen mockups (AS-01)
 
-Mockups are design references, not assets: no ART id, nothing goes to `public/`. Each prompt is an allowlist:
-it names every element the screen may show. Attach `docs/redesign/reference/A1-campaign-hub.jpg` as the style
-reference. Tool: *Create image*, aspect 9:16; outputs 1536x2752.
+Design references, not assets. Each prompt is an allowlist naming every element the screen may show. Attach a
+reference screen; tool *Create image*, 9:16 (outputs 1536x2752). Direction A was picked (V5-047).
 
-**Shared style block S** (sent at the top of every first prompt in a chat; the art-bible-corrected version):
+**Shared style block S** (top of every first prompt in a chat):
 
 ```
 Mobile game screen mockup, tall portrait phone screen 390x844 (9:19.5), in the exact style of the attached reference image: traditional antiquity, mosaic and parchment. Dark warm basalt page (#16120f); a dark carved-stone frame with a gold-ochre Greek-key (meander) border and small round rosettes at the four corners framing the content; warm cream parchment panels (#e7d6ad, selected #f0e3c2, shaded #dcc394) with subtle fibres and a thin dark-brown inked edge; dark ink text (#3a2414). Titles, plaques, buttons and tab labels in Cinzel bold ALL CAPS; body text and every number in Inter medium, sentence case. Top bar: a dark stone strip with a centred glazed teal plaque (#1f4f52) with a gold rim. Bottom tab bar: dark teal-stone (#16333a) with a gold top rim, five slots with an engraved icon and a Cinzel label: CAMPAIGN (banner icon), DUELS (crossed swords), WAR (centre: a big round bronze shield medallion with an engraved crossed-spears glyph, rising above the bar, its WAR label inside the bar), CODEX (closed book), SHOP (market stall). The selected tab is a parchment block. Colour jobs: terracotta (#a8432c) only for the single primary button; aged bronze (#7d5b30) for other live controls; flat grey stone only for the disabled Camp tile; red only for the small count badge (with a cream ring). Painted illustrations sit inside frames, never behind text. Text large and crisp enough to read on a phone; buttons at least 44 px tall. Spell every string exactly as given and show no other text: no screen title heading under the top bar, no watermark.
 ```
 
-**Additions to every screen prompt** (from the log): "nothing on the left" of the top bar; "directly under it,
-with no heading"; a closing "Nothing else on the screen: no quests, no mail, no energy, no level bar, no gems,
-no extra buttons"; B1 and C1 add "No fresco of soldiers on this screen (the map / company scroll replaces it)";
-B1 adds "no other lettering on the map". The Codex prompts drop the last rows that would not fit (A: 5 of 8
-beasts; C: 6 of 8) and add "No fresco, no profile card, no buttons, no search bar, no Units or Lore section".
+**Screen prompt, example A1** (Campaign hub, the picked direction):
 
-**Prompt A1 (Campaign hub, direction A "Fresco Hall")**
+> [S] Screen: the Campaign hub, CAMPAIGN tab selected. From top to bottom inside the frame: (1) the top bar with the plaque "PIXELARROW" and a gear icon on the right; (2) a parchment profile card: a painted bust of a Greek strategos with a bronze helmet and red crest in a bronze-rimmed square at the left; at the right "STRATEGOS EPAMEINON" in Cinzel, then "Day 14 · in Rhegion · Lairs 2/6", then a coin icon "240 Gold", a trophy icon "3 Trophies", a men icon "Warband 9 Men"; (3) a parchment card titled "FIRST STEPS (2 OF 4)" with a 4-segment bar, two segments gold with check marks and two dark brown, and the line "Win a battle" centred under it; (4) a wide painted fresco in a dark bronze riveted frame: ancient Greek wall painting on cracked plaster, hoplites with round shields marching along a sunlit coast at dawn, ships on the sea; (5) one wide terracotta-red stone button with pointed chevron ends and a gold rim: "CONTINUE THE MARCH"; (6) three square carved stone tiles in a row with engraved bronze icons: "ARMY" (Corinthian helmet) with a small red square badge "2" at the top right, "STASH" (chest), and "CAMP" (tent) shown flat grey and faded as unavailable, with the small caption "Pitch camp on the map" under it; (7) the tab bar. Nothing else on the screen.
 
-> [Shared style block] Screen: the Campaign hub, CAMPAIGN tab selected. From top to bottom inside the frame: (1) the top bar with the plaque "PIXELARROW" and a gear icon on the right; (2) a parchment profile card: a painted bust of a Greek strategos with a bronze helmet and red crest in a bronze-rimmed square at the left; at the right "STRATEGOS EPAMEINON" in Cinzel, then "Day 14 · in Rhegion · Lairs 2/6", then a coin icon "240 Gold", a trophy icon "3 Trophies", a men icon "Warband 9 Men"; (3) a parchment card titled "FIRST STEPS (2 OF 4)" with a 4-segment bar, two segments gold with check marks and two dark brown, and the line "Win a battle" centred under it; (4) a wide painted fresco in a dark bronze riveted frame: ancient Greek wall painting on cracked plaster, hoplites with round shields marching along a sunlit coast at dawn, ships on the sea; (5) one wide terracotta-red stone button with pointed chevron ends and a gold rim: "CONTINUE THE MARCH"; (6) three square carved stone tiles in a row with engraved bronze icons: "ARMY" (Corinthian helmet) with a small red square badge "2" at the top right, "STASH" (chest), and "CAMP" (tent) shown flat grey and faded as unavailable, with the small caption "Pitch camp on the map" under it; (7) the tab bar. Nothing else on the screen.
+Add to every screen prompt: "nothing on the left" of the top bar; "directly under it, with no heading"; the honesty
+suffix; for screens without a fresco "No fresco of soldiers on this screen". List screens drop rows that would not fit.
+A second screen in the same chat opens "a NEW, separate image (not an edit): the same {screen} in exactly the same
+style…".
 
-**Prompt A2 (Codex hub)**
-
-> [Shared style block] Screen: the Codex hub, CODEX tab selected. Top bar plaque "CODEX", gear icon at the right, no back arrow. At the top of the content a two-part parchment segmented switch: "BEASTS" (selected, lighter with a bronze rim and a tick) and "DOCTRINES". Then a list of parchment rows, each with a square painted beast portrait at the left, the name in Cinzel, a two-line description in Inter, and a small state at the right: "LERNAEAN HYDRA" — "Five heads strike on long necks; each is a target of its own." — "Level 7"; "CYCLOPS" — "Hurls boulders at the tightest knot of men: stunned, thrown aside, shaken." — "Level 5"; "HARPIES" — "A flock of six circles out of reach." — "Level 4"; "NEMEAN LION" — "Arrows, javelins and sling stones glance off its hide." — "Level 6"; "MINOTAUR" — "Charges straight through lines, trampling and tossing men aside." — "Level 8"; "CHIMERA" — "Breathes fire in a cone: men burn and lose heart." — "Level 6"; "KRAKEN" — "Rooted at the shore: six arms slam men and drag them into the surf." — "World boss"; "TITAN" — "Hurls two boulders at once and stamps on the crowd." — "World boss". The tab bar at the bottom. Nothing else.
-
-**Prompt B1 (Campaign hub, direction B "War Table")**
-
-> [Shared style block] Screen: the Campaign hub, CAMPAIGN tab selected. From top to bottom: (1) the top bar with the plaque "PIXELARROW" and a gear icon on the right; (2) a slim parchment strip: a small painted bust of a Greek strategos (bronze helmet, red crest) at the left, "STRATEGOS EPAMEINON" in Cinzel, then at the right a coin icon "240", a trophy icon "3", a men icon "9"; (3) a parchment card titled "FIRST STEPS (2 OF 4)" with a 4-segment bar, two segments gold with check marks and two dark brown, and the line "Win a battle"; (4) a tall painted map vignette in a dark bronze riveted frame, taking about a third of the screen: an antique hand-drawn map on aged parchment of a rocky Mediterranean coast with a sea in faded blue, small hills and olive trees drawn in ink, a walled town lettered "Rhegion", and a small red banner standing next to it; a dotted ink route leading off toward unexplored fog at the map's edge; at the bottom edge of the map a small parchment cartouche reading "Day 14 · in Rhegion · Lairs 2/6"; (5) one wide terracotta-red stone button with pointed chevron ends: "CONTINUE THE MARCH"; (6) three square carved stone tiles: "ARMY" (helmet) with a small red badge "2", "STASH" (chest), and "CAMP" (tent) flat grey and faded, with the caption "Pitch camp on the map"; (7) the tab bar. Nothing else on the screen.
-
-**Prompt B2 (Codex hub)**
-
-> [Shared style block] Screen: the Codex hub, CODEX tab selected. Top bar plaque "CODEX", gear icon right, no back arrow. The content looks like the pages of an ancient bestiary: a parchment segmented switch "BEASTS" | "DOCTRINES" with "DOCTRINES" selected (lighter, bronze rim, tick). Below, parchment rows, each with an engraved round bronze icon at the left, the name in Cinzel and one line in Inter: "STEADY" — "Flanks at 14 s, presses after 25 s."; "RUSH" — "Charges at once, flanks early, never retreats."; then three rows shown as faded ink with a small lock: "? Unknown doctrine". The tab bar at the bottom. Nothing else.
-
-**Prompt C1 (Campaign hub, direction C "Muster Roll")**
-
-> [Shared style block] Screen: the Campaign hub, CAMPAIGN tab selected. From top to bottom: (1) the top bar with the plaque "PIXELARROW" and a gear icon on the right; (2) a parchment profile card: a painted bust of a Greek strategos (bronze helmet, red crest) in a bronze-rimmed square; "STRATEGOS EPAMEINON"; "Day 14 · in Rhegion · Lairs 2/6"; a coin icon "240 Gold", a trophy icon "3 Trophies", a men icon "Warband 9 Men"; (3) a parchment card "FIRST STEPS (2 OF 4)" with a 4-segment bar (two gold segments with ticks, two dark brown) and the line "Win a battle"; (4) a wide parchment scroll with rolled ends titled "THE COMPANY", holding a row of five small painted head-and-shoulders portraits of ancient Greek soldiers in round bronze frames (two hoplites in Corinthian helmets, a peltast with a light cap, a slinger bare-headed, an older veteran with a beard), each with a first name under it in Inter: "Lykon", "Damon", "Kleon", "Phaidros", "Nikias", and a small "+4" disc at the end of the row; the "Kleon" portrait has a small white bandage glyph on its frame; (5) one wide terracotta-red stone button with pointed chevron ends: "CONTINUE THE MARCH"; (6) three square carved stone tiles: "ARMY" (helmet) with a small red badge "2", "STASH" (chest), and "CAMP" (tent) flat grey and faded, with the caption "Pitch camp on the map"; (7) the tab bar. Nothing else on the screen.
-
-**Prompt C2 (Codex hub)**
-
-> [Shared style block] Screen: the Codex hub, CODEX tab selected. Top bar plaque "CODEX", gear icon right, no back arrow. A parchment segmented switch "BEASTS" (selected) | "DOCTRINES". Below it a grid of two columns of tall parchment cards, each with a painted beast portrait filling the top and the name in Cinzel under it plus one small line: "LERNAEAN HYDRA" / "Level 7"; "CYCLOPS" / "Level 5"; "HARPIES" / "Level 4"; "NEMEAN LION" / "Level 6"; "MINOTAUR" / "Level 8"; "CHIMERA" / "Level 6"; "KRAKEN" / "World boss"; "TITAN" / "World boss" (the last row may be cut by the bottom of the screen, as in a scrolling list). The tab bar at the bottom. Nothing else.
-
-| # | Raw | Prompt | Result | Why |
-| --- | --- | --- | --- | --- |
-| 1 | `hub_A_campaign_1.jpg` | S + A1 | Kept (direction A picked, V5-047) | Every allowlisted element, nothing extra |
-| 2 | `hub_B_campaign_1.jpg` | S + B1 | Kept | Nothing extra; WAR label drawn on the medallion |
-| 3 | `hub_C_campaign_1.jpg` | S + C1 | **Rejected** | "+4" drawn as a badge on Nikias's portrait, reads as a level that does not exist |
-| 4 | `hub_C_campaign_2.jpg` | Short form: edit of #3, "Change only: the "+4" … its own small round bronze disc … after Nikias; portraits slightly smaller; give the strategos bust a red horsehair crest" | Kept | |
-| 5 | `hub_A_codex_1.jpg` | S + A2 (5 beasts) | Kept | Exact hint lines |
-| 6 | `hub_B_codex_1.jpg` | Short form: B2 "in the same chat" as "a NEW, separate image (not an edit): the same Codex hub in exactly the same style…" | **Rejected** | Doctrine icons reused the War medallion's reserved crossed-spears glyph; locked rows not faded |
-| 7 | `hub_B_codex_2.jpg` | Short form: edit of #6, "Steady = shield-wall icon, Rush = spearhead with speed lines; locked rows faded" | Kept | |
-| 8 | `hub_C_codex_1.jpg` | Short form: C2 in the same chat (6 beasts) | Kept | |
-
-Previews: `docs/v5/ux/hub-mockups/`. Pick: `docs/v5/ux/HUB_PICK.md`.
+**Lessons:** two rejects of eight: a "+4" drawn as a badge on a portrait (read as a level), and doctrine icons reusing
+the War medallion's reserved crossed spears. Both were fixed by an edit naming the change ("its own small round
+bronze disc after Nikias"; "Steady = shield-wall icon, Rush = spearhead with speed lines; locked rows faded").
 
 ---
 
 ## 3. Class and beast busts (AS-02)
 
-Seed: `bust_hoplite` from T-STYLE + T-BUST, plus "It shows a CLASS of soldier (a type), not a named hero" and
-"eyes looking toward the viewer's left". Its 1024 px copy was attached to every later prompt.
+Seed `bust_hoplite` = T-STYLE + T-BUST + "It shows a CLASS of soldier (a type), not a named hero" and "eyes looking
+toward the viewer's left"; its 1024 px copy was attached to every later prompt.
 
-**Family prompt (F + SUBJECT + G), soldiers**
+**Family prompt:** `[later-members opening line] It is one of a matching set of soldier-CLASS portraits for a mobile
+strategy game (a type of soldier, not a named hero). [T-STYLE] SUBJECT: {SUBJECT}. FRAMING (same as the reference):
+[T-BUST framing]. BACKGROUND: the same plain dark warm umber with a soft lighter glow behind the head, no scenery.
+EXPRESSION: composed, alert, mouth closed, eyes toward the viewer's left. ASPECT: square 1:1, highest resolution
+available.` Beasts: "change the subject to an animal … a wild animal that fights as a unit (a type of animal, no
+human)", EXCLUDE adds "people, collars, harness, armour, extra legs, two heads, duplicated animals, cropped ears{, or
+tusks}", the head filling the upper two thirds, EXPRESSION {alert, watchful / alert, stubborn / menacing}. Extras:
+fanatic EXCLUDE "blood", EXPRESSION "intense, mouth closed"; chariot EXCLUDE "horses, wheels"; sacred_band EXCLUDE
+"anything red".
 
-```
-Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject. It is one of a matching set of soldier-CLASS portraits for a mobile strategy game (a type of soldier, not a named hero). STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white. Light from the upper left, shadows to the lower right. Hand-painted illustration, not a photo, not a 3D render. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, borders or frames, modern objects, extra limbs, duplicated figures, cropped heads. SUBJECT: {SUBJECT}. FRAMING (same as the reference): head and shoulders, front three-quarter view, turned slightly to the viewer's left, eyes on the upper third of the image, the top of the headgear or hair 6 to 10 percent below the top edge, shoulders cut by the bottom edge, the whole face and headgear inside the central circle; the headgear silhouette and the one listed prop are the clearest, most contrasting shapes. BACKGROUND: the same plain dark warm umber with a soft lighter glow behind the head, no scenery. EXPRESSION: composed, alert, mouth closed, eyes toward the viewer's left. ASPECT: square 1:1, highest resolution available.
-```
+All 21 shipped. SUBJECT (short form; capitals as sent):
 
-Per-subject tweaks: fanatic: EXCLUDE adds "blood", EXPRESSION "intense, mouth closed"; chariot: EXCLUDE adds
-"horses, wheels"; sacred_band: EXCLUDE adds "anything red".
+| File | SUBJECT |
+| --- | --- |
+| hoplite | Spartan hoplite, bronze Corinthian helmet, tall red transverse horsehair crest, red cloak, bronze rim of a round aspis at the shoulder |
+| militia | levy farmer-soldier: brown felt cap (pilos), plain undyed ochre wool tunic, no armour, short wooden spear upright at his shoulder |
+| thureophoros | plain conical bronze pilos helmet, no crest, blue-grey linen tunic, upper edge of a tall OVAL thureos, cream with a red pattern and a vertical spine |
+| celt_sword | iron Montefortino helmet with top knob and cheek guards, long drooping moustache, bronze torc, green checked cloak over mail, hilt and upper blade of a long sword |
+| rhomphaia | tall bronze Phrygian-style helmet curving forward, cheek guards, brown fox-fur cloak, the long curved rhomphaia blade over the shoulder; no shield |
+| archer | Cretan: bare head, short dark curly hair, cream linen tunic, quiver strap, fletchings and bow tip above the shoulder |
+| slinger | Rhodian: bare head, short brown hair, short beard, white tunic, pouch of stones, a braided sling wound round his raised wrist |
+| javelineer | Thracian: grey wolfskin cap (alopekis) with the animal's ears, light green tunic, exactly two javelins over the shoulder |
+| horse_archer | Scythian: tall pointed felt hood with ear flaps tied under the chin, red embroidered kaftan, gorytos bow case with a short recurved bow |
+| peltast | a LOW, ROUNDED open-faced bronze helmet hugging the skull, short brim-like peak, long cheek guards; NO tall crown, NO curving tip, NO crest; the crescent pelte is the main prop (first try shared the rhomphaia's silhouette) |
+| falx | bare head, long dark hair, full beard, brown cloak over a red tunic, the inward-curved falx blade over his shoulder |
+| gallic | limed pale spiky hair, long moustache, bare chest with blue woad swirls, bronze torc, upper edge of a long oval shield with an iron boss |
+| fanatic | shaved head, grey ash on face and scalp, fierce stare, torn white tunic, black cloak, a short curved bronze knife raised |
+| companion | bronze Boeotian helmet (open face, a wide flaring brim all round like a hat, no crest, no plume), short dark beard, deep purple cloak with an ochre-gold border over a bronze muscled cuirass, xyston lance upright beside his shoulder; no shield |
+| thessalian | a pale cream FELT petasos with a very FLAT, very WIDE brim and a LOW crown, tied under the chin (cloth, not metal), clean-shaven, short Egyptian-blue chlamys, exactly two light javelins upright |
+| chariot | Persian-style driver: soft cream-and-ochre felt tiara cap, LOW and ROUNDED, top bending forward, cloth brow band, long loose side flaps (NOT tall, NOT pointed, NOT tied under the chin), black curled beard, bronze SCALE armour, one raised fist gripping the reins |
+| royal_guard | a GILDED Attic helmet, face open, low red crest front to back and two upright white plumes at the sides; grey-flecked beard; the polished SILVER rim and face of a round shield, the brightest cool shape in the image |
+| sacred_band | the same Corinthian helmet as the reference with a tall DARK charcoal-black crest; dark Egyptian-blue cloak, white linen corselet; shield painted dark blue with one large golden Herakles CLUB (drawn as a picture, not a letter). NO red anywhere |
+| wolf | grey and tawny fur, pale muzzle and throat, ears pricked, amber eyes, mouth closed |
+| boar | dark brown-grey coat, a bristling dark mane along the neck and back, long snout, two curved pale ivory tusks, clearly visible |
+| bear | huge, thick reddish-brown fur, heavy brow, small round ears, mouth open in a low roar showing fangs, massive shoulder hump |
 
-**Family prompt, beasts** (T-BUST-BEAST merged into the family)
-
-```
-Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting and background; change the subject to an animal. It is one of a matching set of unit portraits for a mobile strategy game; this one shows a wild animal that fights as a unit (a type of animal, no human). STYLE: [as the family prompt]. EXCLUDE: any text, letters, numbers, signatures, watermarks, logos, borders or frames, people, collars, harness, armour, modern objects, extra legs, two heads, duplicated animals, cropped ears{, or tusks}, blood. SUBJECT: {SUBJECT}. FRAMING: head and shoulders, three-quarter view turned toward the viewer's left, the head filling the upper two thirds of the image, the tips of the ears 6 to 10 percent below the top edge and fully inside the frame, shoulders cut by the bottom edge, the head inside the central circle; the head silhouette {and the tusks / the open mouth} are the clearest, most contrasting shapes. BACKGROUND: the same plain dark warm umber as the reference with a soft lighter glow behind the head, no scenery. EXPRESSION: {alert, watchful / alert, stubborn / menacing}, eyes toward the viewer's left. ASPECT: square 1:1, highest resolution available.
-```
-
-| # | ART | File | SUBJECT as sent | Result | Why |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 013 | bust_hoplite | T-STYLE + T-BUST: a Spartan hoplite, bronze Corinthian helmet with a tall red transverse horsehair crest, red cloak, the bronze rim of a round aspis shield at the shoulder | Seed; **promoted** (ARM-01) | Crest reads red at 21 px |
-| 2 | 012 | bust_militia | a Greek levy militiaman, a farmer-soldier: a brown felt cap (pilos), plain undyed ochre wool tunic, no armour, a short wooden spear with an iron head held upright at his shoulder | **Promoted** (ARM-01) | |
-| 3 | 014 | bust_thureophoros | a Hellenistic thureophoros: plain conical bronze pilos helmet with no crest, dark hair, blue-grey linen tunic, the upper edge of a tall OVAL thureos shield, cream with a red pattern and a vertical spine | **Promoted** (AS-07) | Matches the sprite |
-| 4 | 015 | bust_celt_sword | a Celtic swordsman: iron Montefortino helmet with a top knob and cheek guards, long drooping moustache, bronze torc, green checked cloak over mail, hilt and upper blade of a long sword | **Promoted** (AS-07) | Small unhistorical nasal |
-| 5 | 016 | bust_rhomphaia | a Thracian rhomphaia warrior: tall bronze Phrygian-style helmet curving forward, cheek guards, brown fox-fur cloak, ochre tunic, the long curved blade of a two-handed rhomphaia over the shoulder; no shield | **Promoted** (AS-07) | |
-| 6 | 017 | bust_archer | a Cretan archer: bare head, short dark curly hair, cream linen tunic, leather quiver strap, fletchings and the bow tip above the shoulder | **Promoted** (AS-07) | |
-| 7 | 018 | bust_slinger | a Rhodian slinger: bare head, short straight brown hair, short beard, white tunic, pouch of stones on a strap, a braided sling wound round his raised wrist | **Promoted** (ARM-01) | |
-| 8 | 019 | bust_javelineer | a Thracian javelineer: grey wolfskin cap (alopekis) with the animal's ears, light green tunic, exactly two javelins over the shoulder | **Promoted** (AS-07) | |
-| 9 | 020 | bust_horse_archer | a Scythian horse archer: tall pointed felt hood with ear flaps tied under the chin, red embroidered kaftan, gorytos bow case with a short recurved bow | **Promoted** (AS-07) | |
-| 10 | 021 | bust_peltast (1) | a Thracian peltast: open-faced bronze Thracian helmet, forward-curving crown, short peak, cheek guards, brown cloak, crescent wicker pelte | **Rejected** | Same headgear silhouette as the rhomphaia (bible §3) |
-| 11 | 021 | bust_peltast (2) | as #10 but: a LOW, ROUNDED open-faced bronze helmet hugging the skull, short brim-like peak, long cheek guards; NO tall crown, NO curving tip, NO crest; the crescent pelte is the main prop | **Promoted** (ARM-01) | |
-| 12 | 022 | bust_falx | a Thracian falx warrior: bare head, long dark hair, full beard, brown wool cloak over a red tunic, the inward-curved blade of a two-handed falx over his shoulder | **Promoted** (AS-07) | |
-| 13 | 023 | bust_gallic | a Gallic warband warrior: limed pale spiky hair, long moustache, bare chest with blue woad swirls, bronze torc, the upper edge of a long oval shield with an iron boss | **Promoted** (AS-07) | |
-| 14 | 024 | bust_fanatic (run 1) | a cult fanatic: shaved head, grey ash on face and scalp, fierce stare, torn white tunic, black cloak, a short curved bronze knife raised; expression: intense, mouth closed (the bible's one grimace exception); EXCLUDE adds blood | Not saved | Chrome blocked the download |
-| 15 | 024 | bust_fanatic | a cult fanatic: shaved head, grey ash on face and scalp, fierce stare, torn white tunic, black cloak, a short curved bronze knife raised | **Promoted** (AS-07) | |
-| 16 | 025 | bust_companion | a Macedonian Companion cavalryman: bronze Boeotian helmet (an open face, a wide flaring brim all round like a hat, no crest, no plume), short dark beard, a deep purple cloak with a broad ochre-gold border pinned at the shoulder over a bronze muscled cuirass, the long wooden shaft and iron head of a cavalry lance (xyston) held upright beside his shoulder; no shield | **Promoted** (AS-07) | |
-| 17 | 026 | bust_thessalian | a Thessalian light horseman: a pale cream FELT petasos sun hat with a very FLAT, very WIDE round brim and a LOW shallow crown, tied with a cord under the chin (cloth, not metal), young clean-shaven face, a short Egyptian-blue chlamys cloak pinned at the shoulder over a white tunic, exactly two light javelins held upright beside his shoulder | **Promoted** (AS-07) | Distinct from the companion at 21 px |
-| 18 | 027 | bust_chariot | a Persian-style scythed-chariot driver: a soft cream-and-ochre felt Persian tiara cap, LOW and ROUNDED, its top bending forward, with a cloth band round the brow and long side flaps hanging loose at the cheeks (NOT tall, NOT pointed, NOT tied under the chin), black curled beard, red tunic under a shirt of overlapping bronze SCALE armour, one raised fist gripping the leather reins, the reins running out of the frame | **Promoted** (AS-07) | Cap taller than asked, still distinct |
-| 19 | 028 | bust_royal_guard | a Macedonian royal guardsman (a silver-shield man): a GILDED Attic helmet with the face open, a short brow peak, hinged cheek pieces, a low red horsehair crest running front to back and two upright white feather plumes, one at each side of the helmet; short grey-flecked beard; bronze muscled cuirass, a purple cloak; the polished SILVER rim and face of a round shield at his shoulder, the brightest cool shape in the image | **Promoted** (AS-07) | |
-| 20 | 029 | bust_sacred_band | a Theban Sacred Band hoplite: the same kind of bronze Corinthian helmet as the reference but with a tall DARK charcoal-black horsehair crest; a dark Egyptian-blue cloak, white linen corselet; at his shoulder the round bronze-rimmed shield, its face painted dark blue with one large golden Herakles CLUB emblem (a single knobbly wooden club, drawn as a picture, not a letter), the club clearly visible. NO red anywhere | **Promoted** (AS-07) | Told apart from the hoplite (V5-050) |
-| 21 | 030 | bust_wolf | a grey wolf: grey and tawny fur with a pale muzzle and throat, ears pricked up, amber eyes, mouth closed | **Promoted** (AS-07) | |
-| 22 | 031 | bust_boar | a wild boar: dark brown-grey coarse coat, a bristling dark mane standing up along the neck and back, small dark eye, long snout, two curved pale ivory tusks curling up from the lower jaw, clearly visible | **Promoted** (AS-07) | |
-| 23 | 032 | bust_bear | a huge brown bear: thick reddish-brown fur, a heavy brow ridge, small round ears, mouth open in a low roar showing teeth and fangs, a massive hump of shoulder | **Promoted** (AS-07) | |
-
-**Lessons:** spell out the silhouette in capitals when two classes could look alike ("LOW, ROUNDED … NO tall
-crown"); name a colour rule to separate look-alikes ("NO red anywhere"); follow the game kit over the bible.
+**Lessons:** spell out the silhouette in capitals when two classes could look alike; name a colour rule to separate
+look-alikes ("NO red anywhere"); follow the game kit over the bible.
 
 ---
 
 ## 4. Atlas icons (AS-03)
 
-Each prompt asked for a 2x2 grid of four icons on #FF00FF; a script cut the quadrants and checked no opaque
-pixel touched a quadrant edge. Grid 1 had `public/icons/ui.png` attached; grids 2–6 had grid 1 attached.
-
-**Grid 1 prompt** (T-ICON adapted to a grid)
-
-```
-Create an image. The attached sheet is the existing icon set of my mobile strategy game; the new icons must match it exactly in style. ROLE: four game icons for a mobile strategy game menu, one of a set; each must read at 24 pixels. LAYOUT: a 2x2 grid of four separate icons, one centred in each quarter of the square image, each filling about 80 percent of its quarter, with a wide empty gap between them; no icon touches or overlaps another or the image edge. SUBJECTS (each a single object): top-left: {TL}; top-right: {TR}; bottom-left: {BL}; bottom-right: {BR}. STYLE: a painted icon with a heavy dark-brown outline (#2a1a12) of even weight around the whole silhouette, three-quarter view, light from the upper left, warm materials (bronze #b08a3a, wood, cloth, stone), soft painted shading, slightly chunky proportions. BACKGROUND: a perfectly flat solid #FF00FF magenta background, edge to edge, with no shadow, no gradient, no glow and no ground plane; no magenta anywhere inside the objects. EXCLUDE: text, letters, numbers, a frame, a badge or a circle behind an object, grid lines, more than one object per quarter. ASPECT: square 1:1, highest resolution available.
-```
-
-**Family prompt, grids 2–6**
+One prompt asks for a 2x2 grid of four icons on #FF00FF; a script cuts the quadrants and checks no opaque pixel
+touches a quadrant edge. Grid 1 had `public/icons/ui.png` attached ("The attached sheet is the existing icon set of
+my mobile strategy game; the new icons must match it exactly in style"); grids 2–6 had grid 1 attached.
 
 ```
 Create a NEW image, not an edit of the reference. Match the attached reference exactly in style: the same heavy dark-brown outline (#2a1a12) of even weight, the same soft painted shading, light from the upper left, slightly chunky proportions, three-quarter view, warm materials (bronze #b08a3a, wood, cloth, stone), the same perfectly flat solid #FF00FF magenta background edge to edge, and the same 2x2 layout: one icon centred in each quarter, each filling about 80 percent of its quarter, wide empty gaps, nothing touching another icon or the image edge. ROLE: four more game icons for the same set{ROLE EXTRA}; each must read at 24 pixels. SUBJECTS (each a single object): top-left: {TL}; top-right: {TR}; bottom-left: {BL}; bottom-right: {BR}. EXCLUDE: text, letters, numbers, a frame, a badge, a disc or a circle behind an object, grid lines, shadows or glow on the background, more than one object per quarter{, blood}{, modern tools}; no magenta inside the objects. ASPECT: square 1:1, highest resolution available.
 ```
 
-ROLE EXTRA: grid 3 ", emblems of four enemy battle styles"; grid 5 "ability icons … (special moves of ancient
-soldiers)"; grid 6 "(ancient Mediterranean, 4th century BC)".
+All shipped (frame: SUBJECT, short form): `helmet` bronze Corinthian helmet, tall red crest · `chest` closed wooden
+chest with bronze bands · `tent` canvas army tent with a pennant · `arena` round stone arena from outside, tiers of
+arches, two pennants · `book` thick leather-bound codex, dark red-brown cover, bronze corner caps and clasp · `banner`
+red cloth war banner on a crossbar, bronze disc on the pole top · `war` two crossed spears behind a crested Corinthian
+helmet, one engraved bronze relief, monochrome, no red · `season` bronze hourglass with golden sand in a green laurel
+wreath · `doctrine_steady` tortoise with a high domed bronze-scale shell, walking steadily · `doctrine_rush` ram's head,
+heavy curled horns, lowered to butt · `doctrine_hammer` war hammer, long haft, leather grip, blunt bronze head with a
+back spike, diagonal · `doctrine_swarm` one striped amber-and-brown hornet, spread translucent wings, visible sting ·
+`doctrine_fury` roaring lion's head, mane of flame-like red and gold locks · `standard` pole with a bronze crossbar,
+topped by a sixteen-ray bronze sunburst disc, two purple ribbons, NO cloth flag · `works` a simple ancient wooden spade
+with a plain straight wooden handle (no D-grip, no metal handle), crossed in an X with a sharpened stake (the first try
+drew a modern D-grip) · `captain` a tall curved transverse red horsehair crest on its bronze holder, alone, NO helmet ·
+`push` two levelled pike heads driving into the rim of a round enemy shield that tilts back · `bond` two forearms in
+bronze bracers clasped at the wrist · `warcry` bearded Celt in profile, limed spiky hair, shouting, three curved bronze
+sound strokes · `sunder` inward-curved falx blade splitting a round wooden shield · `aimed` recurved bow drawn taut,
+three arrows nocked, pointing upper right · `recharge` war-horse head with a bronze forehead plate turning sharply,
+circled by a bronze U-turn arrow · `scythe` spoked chariot wheel with a curved scythe blade from its hub.
 
-| Grid | Pos | ART | Frame | SUBJECT as sent | Result |
-| --- | --- | --- | --- | --- | --- |
-| 1 | TL | 049 | `ui:helmet` | a bronze Corinthian helmet with a tall red horsehair crest | Seed; promoted (in `ui.png`) |
-| 1 | TR | 050 | `ui:chest` | a closed wooden chest with bronze bands | Promoted (in `ui.png`) |
-| 1 | BL | 051 | `ui:tent` | a canvas army tent with a small pennant on its pole | Promoted (in `ui.png`) |
-| 1 | BR | 048 | `ui:arena` | a round stone arena seen from outside, tiers of arches, two small pennants on top | Promoted (in `ui.png`) |
-| 2 | TL | 044 | `ui:book` | a closed thick leather-bound book (a codex), dark red-brown leather cover, bronze corner caps and a bronze clasp | **Promoted** (AS-07) |
-| 2 | TR | 045 | `ui:banner` | a red cloth war banner hanging from a short crossbar on a wooden pole, a round bronze disc on top of the pole | **Promoted** (AS-07) |
-| 2 | BL | 046 | `ui:war` | two crossed spears behind a crested Corinthian helmet, all in one engraved bronze relief, monochrome bronze, no red | **Promoted** (AS-07) |
-| 2 | BR | 047 | `ui:season` | an hourglass with a bronze frame and golden sand, wreathed by a green laurel wreath | **Promoted** (AS-07) |
-| 3 | TL | 057 | `ui:doctrine_steady` | a tortoise with a high domed shell plated like bronze scales, walking steadily, head forward | Promoted (CDX-01) |
-| 3 | TR | 058 | `ui:doctrine_rush` | a ram's head with heavy curled horns, lowered as if to butt | Promoted (CDX-01) |
-| 3 | BL | 059 | `ui:doctrine_hammer` | a heavy war hammer with a long wooden haft, a leather-wrapped grip and a blunt bronze head with a spike on the back, shown diagonally | Promoted (CDX-01) |
-| 3 | BR | 060 | `ui:doctrine_swarm` | a single large striped hornet in amber and dark brown with spread translucent wings and a visible sting | Promoted (CDX-01) |
-| 4 | TL | 061 | `ui:doctrine_fury` | a roaring lion's head, mouth wide open with fangs, a wild mane of flame-like red and gold locks | Promoted (CDX-01) |
-| 4 | TR | 069 | `ui:standard` | an ancient army standard: a vertical wooden pole with a short bronze crossbar near the top, topped by a large bronze sixteen-ray sunburst disc, two short purple ribbons, NO cloth flag | **Promoted** (AS-07) |
-| 4 | BL | 070 | `ui:works` | an iron-shod wooden digging spade crossed in an X with a sharpened wooden stake | **Rejected**: modern D-grip and steel shaft |
-| 4 | BR | 071 | `ui:captain` | a tall curved transverse horsehair helmet crest, bright red, on its curved bronze crest holder, the crest alone with NO helmet | **Promoted** (AS-07) |
-| 5 | TL | 062 | `ui:push` | the iron heads of two long pikes held level side by side, driving into the bronze rim of a round enemy shield that tilts backwards | **Promoted** (AS-07) |
-| 5 | TR | 063 | `ui:bond` | two muscular forearms in bronze bracers, hands firmly clasped at the wrist | **Promoted** (AS-07) |
-| 5 | BL | 064 | `ui:warcry` | the head of a bearded Celtic warrior in side profile with pale limed spiky hair, mouth wide open shouting, three curved bronze sound strokes | **Promoted** (AS-07) |
-| 5 | BR | 065 | `ui:sunder` | a long inward-curved iron falx blade with a wooden grip, splitting a round wooden shield that cracks in two | **Promoted** (AS-07) |
-| 6 | TL | 066 | `ui:aimed` | a short recurved composite bow drawn taut, with three arrows nocked together on the string, pointing to the upper right | **Promoted** (AS-07) |
-| 6 | TR | 067 | `ui:recharge` | the head and neck of a brown war horse with a bronze forehead plate, turning sharply, encircled by a thick curved bronze U-turn arrow | **Promoted** (AS-07) |
-| 6 | BL | 068 | `ui:scythe` | a spoked wooden chariot wheel with a bronze rim and a long curved iron scythe blade sticking out from its hub | **Promoted** (AS-07) |
-| 6 | BR | 070 | `ui:works` | a simple ancient wooden spade with a plain straight wooden handle (no D-grip, no metal handle) and a flat iron-edged blade, crossed in an X with a sharpened wooden stake | **Promoted** (AS-07) |
-
-All 14 staged icons shipped in AS-07 (reused, not regenerated; `STAGED_ICONS` is empty).
-**Lessons:** check every new subject against the existing atlas so no glyph repeats a reserved meaning (the bull
-head, Gorgon, red roaring face, horn, stake fence and sun disc were avoided). Dark-outlined icons vanish on
-dark stone (2–53% of pixels at 3:1 on `stone2`): the chrome must give them a light ground.
+**Lessons:** check every new subject against the existing atlas so no glyph repeats a reserved meaning (the bull head,
+Gorgon, red roaring face, horn, stake fence and sun disc were avoided). Dark-outlined icons vanish on dark stone: the
+chrome gives them a light ground.
 
 ---
 
 ## 5. Frescoes and splash key art (AS-04)
 
-**Seed prompt** (`fresco_campaign` #1, `bust_hoplite` attached; T-STYLE + T-FRESCO, composition tightened to a
-3.4:1 band)
+**Family prompt** (the approved `fresco_campaign` attached): F + SUBJECT + LIGHT + COMPOSITION + G.
 
 ```
-Create a NEW image, not an edit of the reference. The attached portrait is from the same mobile strategy game: match its painting style, palette, brushwork and lighting exactly, but this is a wide landscape scene, not a portrait. ROLE: a wide banner illustration for a mobile game menu, shown inside a bronze frame. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white. Light from the upper left, shadows to the lower right. Clear value contrast on the subject so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render, not glossy digital art, not anime, not comic ink. SUBJECT: a column of Greek hoplites marching along a sandy beach at dawn, seen from the side, bronze Corinthian helmets with red crests, red cloaks, round bronze shields, spears upright; two or three warships with oars drawn up on the beach behind them; low green hills in the distance; the early sun low on the left over a calm sea. COMPOSITION: a horizontal frieze in registers like a Greek wall painting: the march runs along one band across the centre of the image; keep every head, crest, shield and spear tip inside the central horizontal band (from 30 to 70 percent of the height), so the image survives a crop to a strip 3.4 times wider than tall; calm pale dawn sky at the top and plain sand at the bottom; 5 to 7 figures, all fully inside the frame, none cut by the left or right edge. PALETTE ANCHORS: warm plaster cream #e7d6ad, ochre, terracotta #a8432c, bronze #b08a3a, sea teal-blue. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads, blood. ASPECT: very wide landscape, 21:9 or the widest available, highest resolution available.
-```
-
-**Fresco family prompt (seed #2 attached): F + SUBJECT + LIGHT + COMPOSITION + G**
-
-```
-F: Create a NEW image, not an edit of the reference. Match the attached reference banner exactly in style, palette, brushwork, fine craquelure and full-bleed framing (no border); change only the subject, the light and the composition as stated. It is one of a matching set of wide banner paintings for a mobile strategy game set in the ancient Mediterranean, 4th century BC. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white; clear value contrast on the subject so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render, not glossy digital art.
+F: Create a NEW image, not an edit of the reference. Match the attached reference banner exactly in style, palette, brushwork, fine craquelure and full-bleed framing (no border); change only the subject, the light and the composition as stated. It is one of a matching set of wide banner paintings for a mobile strategy game set in the ancient Mediterranean, 4th century BC. STYLE: [T-STYLE without EXCLUDE].
 G: EXCLUDE: any text, letters, numbers, runes, symbols on shields, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads, blood. ASPECT: very wide landscape, 21:9 or the widest available, highest resolution available.
 ```
 
-COMPOSITION for thin strips (ladder, arena 6:1; shop 7.8:1), as recorded: "this banner will be cropped to a very
-thin strip six [almost eight] times wider than tall … every [figure, torch, the goods, the merchant's head]
-between 35 and 65 percent of the image height; plain sky above and plain ground below; nothing important at the
-far left or right edges".
+COMPOSITION for thin strips (6:1 to 7.8:1): "this banner will be cropped to a very thin strip six [almost eight] times
+wider than tall … every [figure / torch / the goods] between 35 and 65 percent of the image height; plain sky above and
+plain ground below; nothing important at the far left or right edges".
 
-| # | ART | File | SUBJECT / LIGHT as sent (short form) | Result | Why |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 001 | fresco_campaign | the seed prompt above | **Rejected** | A carved frame painted round the picture; a lambda (Λ) on every shield; the column ran off the right edge |
-| 2 | 001 | fresco_campaign | "same subject … fixing four problems": no frame, full-bleed; column of 6 centred; plain bronze shields, NO lambda; heads to spear tips between 30 and 70% | Family seed, not shipped | Group right of centre; the 3.4:1 crop cut the 6th man |
-| 3 | 001 | fresco_campaign | EDIT of #2: "make the six hoplites about 25 percent smaller, move the whole column to the horizontal centre … more sky above … keep everything else identical" | **Promoted** | Gemini dropped a man instead of shrinking (5, still in range); `--ax 0.6` |
-| 4 | 002 | fresco_ladder | a broad stepped stone tower of five terraces like a low ziggurat, a torch on each terrace, four or five small Greek warriors climbing the central stair; torchlit dusk, violet-blue sky, orange torch pools | Kept, staged | |
-| 5 | 003 | fresco_arena | stone arena, crowd on the tiers, pennants; a Greek hoplite (red crest, red cloak, bronze shield) and a Celtic swordsman (iron helmet, checked green cloak, oval shield, long sword) face each other; torchlit dusk | **Promoted** | `--ay 0.44` keeps the crest in the strip |
-| 6 | 004 | fresco_shop | agora stall under a long cream and terracotta striped awning; amphorae, bronze helmets, shields, spearheads, bowls; one bearded merchant; stoa columns; warm afternoon | **Promoted** | A lambda on one shield lies outside the shipped crop (`--ay 0.56`) |
-| 7 | 005 | fresco_war | a walled Greek hill town with a temple in the centre; two rival camps on the plain, red banners left, dark blue banners right, plain cloth; grey smoke of camp fires; overcast, smoky, cooler light | **Promoted** | Plain banners, no fighting |
-| 14 | 056 | splash_keyart | T-SPLASH via the fresco family prompt: a front rank of about seven hoplites with locked plain bronze shields and levelled spears, more ranks behind, beach at dawn, seen from low; beached warships; a white Doric temple on a headland; top third empty sky; key figures in the central 60% of the width; NO lambda | **Promoted** (quality 62 for the budget) | Sky top third free for the code-set logo |
+| File | SUBJECT / LIGHT (short form) | Note |
+| --- | --- | --- |
+| fresco_campaign | a column of Greek hoplites marching along a sandy beach at dawn, seen from the side, red crests and cloaks, round bronze shields, spears upright; warships drawn up behind; low green hills; early sun low on the left over a calm sea | Seed (opening line "reference from another family", `bust_hoplite` attached). Then: no frame, full-bleed; column of 6 centred; plain bronze shields, NO lambda; heads to spear tips between 30 and 70%; then an EDIT "make the six hoplites about 25 percent smaller, move the whole column to the horizontal centre … more sky above … keep everything else identical". Shipped with `--ax 0.6` |
+| fresco_ladder | a broad stepped stone tower of five terraces like a low ziggurat, a torch on each terrace, four or five small Greek warriors climbing the central stair; torchlit dusk, violet-blue sky, orange torch pools | Staged |
+| fresco_arena | stone arena, crowd on the tiers, pennants; a Greek hoplite (red crest, red cloak, bronze shield) and a Celtic swordsman (iron helmet, checked green cloak, oval shield, long sword) face each other; torchlit dusk | `--ay 0.44` |
+| fresco_shop | agora stall under a long cream and terracotta striped awning; amphorae, bronze helmets, shields, spearheads, bowls; one bearded merchant; stoa columns; warm afternoon | `--ay 0.56` crops out a lettered shield |
+| fresco_war | a walled Greek hill town with a temple in the centre; two rival camps on the plain, red banners left, dark blue banners right, plain cloth; grey smoke of camp fires; overcast, smoky, cooler light | |
+| splash_keyart | T-SPLASH via the family prompt: a front rank of about seven hoplites with locked plain bronze shields and levelled spears, more ranks behind, beach at dawn, seen from low; beached warships; a white Doric temple on a headland; top third empty sky; key figures in the central 60% of the width; NO lambda | Quality 62 for the budget |
 
-**Lessons:** Gemini adds Greek letters to shields and paints a frame round "a banner" unless both are excluded
-by name. Ask for the crop band in percentages of the height. Fix a composition with an edit of the nearly-right
-render ("keep everything else identical") rather than a new render.
+**Lessons:** Gemini adds Greek letters to shields and paints a frame round "a banner" unless both are excluded by name.
+Ask for the crop band in percentages of the height. Fix a composition with an edit of the nearly-right render ("keep
+everything else identical"); Gemini may drop a figure instead of shrinking.
 
 ---
 
@@ -403,1601 +316,448 @@ render ("keep everything else identical") rather than a new render.
 
 Seed `vignette_town_greek` = T-STYLE + T-VIGNETTE with the fresco seed attached; then attached to the other five.
 
-**Vignette family prompt** (as recorded; the log elides the middle with "…")
-
 > Create a NEW image, not an edit of the reference. Match the attached reference settlement view exactly in style, palette, brushwork, fine craquelure, full-bleed framing (no border), viewpoint, distance, warm afternoon light from the upper left and the same horizontal bands (sky in the top quarter, the settlement across the middle third, ground and path in the lower quarter); change only the settlement as stated. … SUBJECT: {below}; seen from a low hill at a slight distance, no people in the foreground; 3 to 5 readable landmarks. The village centred, nothing important at the left and right edges. EXCLUDE: any text, letters, numbers, runes, inscriptions, signs, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, {culture extras}, people in the foreground. ASPECT: landscape 21:9 or the widest available, highest resolution available.
 
-Villages add "NOT a walled town … no fortifications, no towers, no gate" so a village never reads as a town.
+Villages add "NOT a walled town … no fortifications, no towers, no gate". All shipped:
 
-| # | ART | File | SUBJECT as sent (short form) | Result |
-| --- | --- | --- | --- | --- |
-| 8 | 006 | vignette_town_greek | walled Hellenic town: whitewashed walls, gate, square towers, terracotta roofs, small Doric temple on the top, olives (fresco seed attached) | Seed; **promoted** (SET-01) |
-| 9 | 007 | vignette_town_phoenician | walled Punic harbour town: ochre mudbrick walls and towers, flat-roofed ochre and white houses, date palms, round harbour with two ships under purple awnings; EXCLUDE adds domes, minarets | **Promoted** |
-| 10 | 008 | vignette_town_celtic | Galatian hill town: palisade of sharpened logs with a wooden gate tower, round houses with conical thatch, roof smoke, oak woods; EXCLUDE adds stone castles | **Promoted** |
-| 11 | 009 | vignette_village_greek | small Hellenic farming village, NOT walled: about eight whitewashed farmhouses with terracotta roofs and courtyards, a tiny four-column Doric shrine, olives, a threshing floor, grain fields, dry-stone field walls | **Promoted** |
-| 12 | 010 | vignette_village_phoenician | small Punic farming and fishing village, NOT walled: about seven flat-roofed ochre mudbrick houses on the shore, palms, irrigated gardens, a cove with two small boats under purple awnings | **Promoted** |
-| 13 | 011 | vignette_village_celtic | small Galatian village in a forest clearing, NOT a hill fort: five or six round thatched houses, smoke from one roof, a wattle cattle pen, a small grain field, a short partial stake fence, big oaks | **Promoted** |
-
-Culture extras to exclude: domes and minarets (Punic), stone castles (Celtic). Architecture by culture is in the
-art bible §6.
+| File | SUBJECT (short form) |
+| --- | --- |
+| vignette_town_greek | walled Hellenic town: whitewashed walls, gate, square towers, terracotta roofs, small Doric temple on the top, olives |
+| vignette_town_phoenician | walled Punic harbour town: ochre mudbrick walls and towers, flat-roofed ochre and white houses, date palms, round harbour with two ships under purple awnings; EXCLUDE adds domes, minarets |
+| vignette_town_celtic | Galatian hill town: palisade of sharpened logs with a wooden gate tower, round houses with conical thatch, roof smoke, oak woods; EXCLUDE adds stone castles |
+| vignette_village_greek | small Hellenic farming village, NOT walled: about eight whitewashed farmhouses with terracotta roofs and courtyards, a tiny four-column Doric shrine, olives, a threshing floor, grain fields, dry-stone field walls |
+| vignette_village_phoenician | small Punic farming and fishing village, NOT walled: about seven flat-roofed ochre mudbrick houses on the shore, palms, irrigated gardens, a cove with two small boats under purple awnings |
+| vignette_village_celtic | small Galatian village in a forest clearing, NOT a hill fort: five or six round thatched houses, smoke from one roof, a wattle cattle pen, a small grain field, a short partial stake fence, big oaks |
 
 ---
 
 ## 7. Beast plates and reward cutouts (AS-05)
 
-**Hydra seed prompt** (`bust_bear` attached)
+**Hydra seed:** opening line "The attached animal portrait is from the same mobile strategy game: match its painting
+style, palette, brushwork, warm umber background and lighting exactly, but this is a full creature plate, not a
+head-and-shoulders portrait" (`bust_bear` attached) + T-PLATE; EXCLUDE adds "people, extra legs, more or fewer than
+five heads, heads cut by the frame".
+
+**Family prompt (hydra attached):**
 
 ```
-Create a NEW image, not an edit of the reference. The attached animal portrait is from the same mobile strategy game: match its painting style, palette, brushwork, warm umber background and lighting exactly, but this is a full creature plate, not a head-and-shoulders portrait. ROLE: a bestiary plate for a codex in a mobile game, in the manner of a painted tomb fresco or a vase painting: the monster alone, dramatic. STYLE: [T-STYLE, word for word]. SUBJECT: the Lernaean Hydra rising from a swamp: a heavy dark teal-green scaled body with a pale belly and a row of short spines along the back, four short splayed clawed legs half in the water, and exactly FIVE serpent heads on long curving necks rising from the front of the body, fanning out; each head wedge-shaped with a small bony frill, yellow eyes and bared fangs; a coiling tail behind. COMPOSITION: the whole creature centred and filling about 80 percent of the square frame, all five heads fully inside the frame with space above them; one simple ground cue: dark swamp water with a few reeds; a strong silhouette against the background. BACKGROUND: dark warm umber to deep red-brown, a warm key light from the upper left on the creature, chiaroscuro. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, people, modern objects, extra legs, more or fewer than five heads, heads cut by the frame, blood. ASPECT: square 1:1, highest resolution available.
+Create a NEW image, not an edit of the reference. Match the attached reference bestiary plate exactly in style, palette, brushwork, fine craquelure, dark warm umber to red-brown background, warm key light from the upper left, chiaroscuro and full-bleed framing (no border); change only the creature and its ground cue. It is one of a matching set of bestiary plates for a codex in a mobile strategy game set in the ancient Mediterranean: the monster alone, dramatic, in the manner of a painted tomb fresco. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments, visible confident brushwork, soft painted edges, warm and slightly desaturated, no pure black and no pure white; clear value contrast so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render. SUBJECT: {SUBJECT}. COMPOSITION: the whole creature centred and filling about 80 percent of the square frame, {the parts that must stay} fully inside the frame; one simple ground cue: {GROUND}; a strong silhouette against the background. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames, people, modern objects, extra limbs, extra heads, duplicated creatures, parts cut by the frame, blood{, extras}. ASPECT: square 1:1, highest resolution available.
 ```
 
-**Plate family prompt (hydra seed attached): F + SUBJECT + COMPOSITION + G**
+Write each SUBJECT from the manifest row **and** the battle figure (`src/art/beastArt.ts`) and hint
+(`src/i18n/beasts.en.ts`), with exact part counts, so plate and battle agree. All shipped (short form):
 
-```
-F: Create a NEW image, not an edit of the reference. Match the attached reference bestiary plate exactly in style, palette, brushwork, fine craquelure, dark warm umber to red-brown background, warm key light from the upper left, chiaroscuro and full-bleed framing (no border); change only the creature and its ground cue. It is one of a matching set of bestiary plates for a codex in a mobile strategy game set in the ancient Mediterranean: the monster alone, dramatic, in the manner of a painted tomb fresco. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments, visible confident brushwork, soft painted edges, warm and slightly desaturated, no pure black and no pure white; clear value contrast so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render.
-COMPOSITION: the whole creature centred and filling about 80 percent of the square frame, {the parts that must stay} fully inside the frame; one simple ground cue: {GROUND}; a strong silhouette against the background.
-G: EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames, people, modern objects, extra limbs, extra heads, duplicated creatures, parts cut by the frame, blood{, extras}. ASPECT: square 1:1, highest resolution available.
-```
+| File | SUBJECT |
+| --- | --- |
+| plate_hydra | rising from a swamp: dark teal-green scaled body, pale belly, short back spines, four splayed clawed legs half in the water, exactly FIVE serpent heads on long curving necks fanning out, each wedge-shaped with a bony frill, yellow eyes, bared fangs; ground dark swamp water with reeds |
+| plate_cyclops | lifting a huge grey boulder overhead: tan skin, ONE eye under a heavy brow, wild dark hair, short beard, a stubby horn, fur pelt, fur loincloth; a knotted club at his feet |
+| plate_harpies | exactly three diving, talons out: gaunt grey-skinned women's heads and shoulders, dark feathers, screaming, glowing pale eyes; ragged grey-violet wings for arms; bronze talons; a jagged crag below |
+| plate_nemean_lion | crouched to pounce, facing left: glinting golden metallic hide, dark ochre-brown mane; two snapped arrows on the rocks, bounced off its hide |
+| plate_minotaur | charging left, horns first: dark brown bull hide, shaggy hump, bronze nose ring, wide ivory horns, leather kilt, bronze bracers, a double-headed labrys on a long haft |
+| plate_chimera | facing left breathing a cone of orange fire: tawny lion body, goat head with curved horns rising from the back, green serpent tail with the snake head at the tip; exactly three heads, four legs, no wings |
+| plate_kraken | rising from a stormy sea at a sandy beach: dark wine-red mantle out of white surf, two pale yellow eyes, hooked beak; exactly six sucker-lined tentacles, two slamming onto wet sand |
+| plate_titan | hurling two boulders, one in each hand: grey weathered stone body with glowing orange molten cracks, bronze shoulder plates and wide belt, glowing eyes, a crown of bronze spikes, stern bearded face (the belt reads a little modern) |
 
-Each SUBJECT was written from the manifest row **and** the in-game model in `src/art/beastArt.ts` (colours,
-props, part counts) and the hint text in `src/i18n/beasts.en.ts`, so the plate and the battle figure agree.
+**Cutouts:**
 
-| # | ART | File | SUBJECT as sent (short form) | Result |
-| --- | --- | --- | --- | --- |
-| 1 | 036 | plate_hydra | seed prompt above | Seed; **promoted** (CDX-01) |
-| 2 | 037 | plate_cyclops | a one-eyed Cyclops lifting a huge grey boulder overhead with both hands: tan skin, ONE eye under a heavy brow, wild dark hair, short dark beard, a small stubby horn, a shaggy fur pelt over one shoulder, leather belt, fur loincloth; a knotted wooden club at his feet | **Promoted** |
-| 3 | 038 | plate_harpies | exactly three harpies diving, wings swept back, talons out: gaunt grey-skinned woman's heads and shoulders, chest in dark feathers, wild black hair, screaming mouths, glowing pale eyes; ragged dark grey-violet wings instead of arms; bird legs with long curved bronze talons; a jagged rocky crag below | **Promoted** (three read at 32 px; the game's flock is six) |
-| 4 | 039 | plate_nemean_lion | the Nemean Lion crouched to pounce, facing left: glinting golden metallic hide, massive dark ochre-brown mane, golden eyes, fangs, claws out, dark tail tuft; two snapped arrows on the rocks, bounced off its hide | **Promoted** |
-| 5 | 040 | plate_minotaur | the Minotaur charging left, head lowered, horns first: dark brown bull hide, shaggy hump, bronze nose ring, wide ivory horns; plain leather kilt, bronze bracers; a double-headed bronze labrys on a long haft | **Promoted** |
-| 6 | 041 | plate_chimera | the Chimera facing left breathing a cone of orange fire: tawny lion body, dark mane, scorched streaks on the flanks; a grey-brown goat head with curved ivory horns rising from the back; a green scaled serpent tail arcing over with the snake head at the tip; exactly three heads, four legs, no wings | **Promoted** |
-| 7 | 042 | plate_kraken | the Kraken rising from a stormy sea at the edge of a sandy beach: dark wine-red and maroon, a tapering dome mantle out of white surf, two pale yellow eyes, a hooked dark beak; exactly six sucker-lined tentacles, two slamming onto the sand; wet sand foreground | **Promoted** |
-| 8 | 043 | plate_titan | a Titan hurling two boulders, one raised in each hand: a massive body of grey weathered stone with glowing orange molten cracks, bronze shoulder plates and a wide bronze belt, glowing eyes, a crown of bronze spikes, a stern bearded stone face | **Promoted** (belt plate a little modern; regeneration candidate) |
-
-**Cutout prompts** (recorded in prose, not word for word):
-
-- `chest_closed`: "Create a NEW image … Use the attached painting ONLY as the style reference for the brushwork, the warm earth
-  palette and the light from the upper left; do NOT copy its dark background or its creature" + T-STYLE (without
-  background) + T-CUTOUT with the SUBJECT, "three-quarter front view from slightly above", BACKGROUND "perfectly
-  flat solid #FF00FF … no shadow, no cast shadow, no gradient, no glow, no vignette, no texture and no floor; no
-  magenta or pink anywhere inside the chest"; EXCLUDE adds coins, other objects, a table or ground.
-- Open chests: "Edit the attached chest image. Change only: {what}. Keep everything else identical: the same
-  chest, the same oak planks, bronze bands, rivets and lion-head lock plate with its ring, the same three-quarter
-  view, the same size and position in the frame, the same colours, painted style and light from the upper left"
-  + the same BACKGROUND.
-- Laurel: T-CUTOUT, portrait 3:4, "it must read at 26 by 36 pixels", EXCLUDE ribbons, berries, a full wreath, a
-  second branch.
-
-| # | ART | File | SUBJECT as sent (short form) | Result |
-| --- | --- | --- | --- | --- |
-| 9 | 052 | chest_closed | a closed treasure chest of dark warm oak planks, slightly domed lid, three broad bronze bands, bronze corner plates with rivets, a bronze lion-head lock plate with a ring in its mouth; lid shut | Cutout seed; staged |
-| 10 | 053 | chest_open_empty | EDIT of #9: lid open, swung back and standing behind; empty inside, bare dark floor and walls in shadow | **Promoted** (RES-01; re-encoded 134 → 61 KB) |
-| 11 | 054 | chest_open_full | EDIT of #10: heaped above the rim with plain blank gold coins, a few spilling over the front edge; no coins on the background | Staged |
-| 12 | 055 | laurel_branch | a single gilded laurel branch: stem from the bottom, bowing out to the LEFT, tip curling to the upper right (the left half of a victor's wreath); 9 to 11 pairs of pointed gilded leaves; portrait 3:4 | **Promoted**, after flipping (Gemini drew it bowing right) |
+- `chest_closed`: "Create a NEW image … Use the attached painting ONLY as the style reference for the brushwork, the warm
+  earth palette and the light from the upper left; do NOT copy its dark background or its creature" + T-STYLE (without
+  background) + T-CUTOUT, "three-quarter front view from slightly above", BACKGROUND "… no shadow, no cast shadow, no
+  gradient, no glow, no vignette, no texture and no floor; no magenta or pink anywhere inside the chest"; EXCLUDE coins,
+  other objects, a table or ground. SUBJECT: dark warm oak planks, slightly domed lid, three broad bronze bands, riveted
+  bronze corner plates, a bronze lion-head lock plate with a ring in its mouth; lid shut.
+- `chest_open_empty` (shipped), `chest_open_full`: "Edit the attached chest image. Change only: {lid open, swung back and
+  standing behind; empty inside, bare dark floor and walls in shadow / heaped above the rim with plain blank gold coins,
+  a few spilling over the front edge}. Keep everything else identical: the same chest, the same oak planks, bronze
+  bands, rivets and lion-head lock plate with its ring, the same three-quarter view, the same size and position in the
+  frame, the same colours, painted style and light from the upper left" + the same BACKGROUND.
+- `laurel_branch` (shipped, flipped: Gemini drew it bowing right): T-CUTOUT, portrait 3:4, "it must read at 26 by 36
+  pixels", a single gilded laurel branch, stem from the bottom bowing out to the LEFT, tip curling to the upper right
+  (the left half of a victor's wreath), 9 to 11 pairs of pointed gilded leaves; EXCLUDE ribbons, berries, a full
+  wreath, a second branch.
 
 ---
 
 ## 8. World pixel sprites (AS-06)
 
-All in one chat. The first prompt had `ref/ingame_sprites_x4.png` attached: real in-game sprites (two men, both
-group standards, a base plate, a boulder, a tree) captured from the running game and magnified 4x nearest.
+All in one chat. The first prompt had real in-game sprites (two men, both standards, a base plate, a boulder, a tree)
+captured from the running game and magnified 4x nearest attached. Shipped: `tile_stakes`, `tile_ditch`, `tile_laager`,
+`tile_palisade`, `tile_rampart`; the two crests were drawn in code.
 
-**Seed prompt** (stakes #1)
+**Seed prompt:**
 
 ```
-Create an image. ROLE: a pixel-art game sprite for an isometric ancient-Mediterranean tactics game. The attached picture shows sprites already in the game (a hoplite, a skirmisher, two army standards, a unit base, a boulder, a tree) magnified 4 times: match their pixel density, palette, soft sel-out outlines and light from the upper left exactly. SUBJECT: one segment of a field-works line of sharpened wooden STAKES (a chevaux-de-frise row): five or six rough pale-wood poles with dark-brown pointed tips, driven into the ground at a 45 degree slant, all leaning the same way toward the upper right, set in a single row that runs diagonally from the upper left to the lower right like the edge of a 2:1 isometric diamond tile; a little turned dark earth at their feet. PIXEL GRID: true pixel art. The whole sprite is about 36 art pixels wide and 24 art pixels tall, and every art pixel is drawn as one clean, equal, square block of solid colour (very large chunky pixels, about 24 by 24 screen pixels each), aligned to one grid; hard edges; no anti-aliasing, no blur, no gradients, no dithering noise, no sub-pixel detail, no thin lines finer than one block. PALETTE: only these colours: #2a1a12 #442618 #5e2427 #7b503d #a87464 #9c8b78 #d6c0a8 #e8e2d4 #5a4a44 #836c65 #ac9283 #d2b68e #6a4a1e #b08a3a #5b3f2a #765d35 #9a8f3b #bba96a #4a5a2e. STYLE: a selective coloured outline (a darker shade of the local colour, never black), 3 to 4 step ramps, light from the upper left. BACKGROUND: a perfectly flat solid #FF00FF magenta background, edge to edge, with no shadow, no grass and no ground plane beyond the small patch of earth; the sprite centred. EXCLUDE: text, a frame, a grid overlay, several sprites, soldiers, a scene, a cast shadow on the magenta.
+Create an image. ROLE: a pixel-art game sprite for an isometric ancient-Mediterranean tactics game. The attached picture shows sprites already in the game (a hoplite, a skirmisher, two army standards, a unit base, a boulder, a tree) magnified 4 times: match their pixel density, palette, soft sel-out outlines and light from the upper left exactly. SUBJECT: {SUBJECT}. PIXEL GRID: true pixel art. The whole sprite is about {W} art pixels wide and {H} art pixels tall, and every art pixel is drawn as one clean, equal, square block of solid colour (very large chunky pixels, about 24 by 24 screen pixels each), aligned to one grid; hard edges; no anti-aliasing, no blur, no gradients, no dithering noise, no sub-pixel detail, no thin lines finer than one block. PALETTE: only these colours: {PA-WORLD subset}. STYLE: a selective coloured outline (a darker shade of the local colour, never black), 3 to 4 step ramps, light from the upper left. BACKGROUND: a perfectly flat solid #FF00FF magenta background, edge to edge, with no shadow, no grass and no ground plane beyond the small patch of earth; the sprite centred. EXCLUDE: text, a frame, a grid overlay, several sprites, soldiers, a scene, a cast shadow on the magenta.
 ```
 
-**Follow-up pattern** (every later prompt, same chat): "Next sprite of the same set, same big cells (one flat
-colour each), same palette and light from the upper left, flat #FF00FF magenta background" + SUBJECT + a size
-**relative to an approved sprite** ("about half as wide as the wagon and a little taller") or a cell count +
-"No text, no anti-aliasing, no gradients, no detail smaller than one cell". Relative sizes worked better than
-cell counts.
+**Follow-ups:** the same-chat pixel-set opening line + SUBJECT + a size **relative to an approved sprite** or a cell
+count + "No text, no anti-aliasing, no gradients, no detail smaller than one cell". The wordings that shipped:
 
-| # | ART | File | Prompt (short form, as recorded) | Grid → art px | Result |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 072 | tile_stakes | seed prompt above | no grid (~130 px wide) | **Rejected**: crossed X stakes, horizontal row, far too fine |
-| 2 | 072 | tile_stakes | "MUCH lower resolution… a grid of exactly 48 columns by 32 rows… three or four stakes, each 2 cells thick… diagonal row" | 34 → 50x44 | **Rejected**: taller than a man |
-| 3 | 072 | tile_stakes | "even smaller and chunkier… 24 columns by 16 rows… FOUR stakes… 2 cells thick, 6 to 8 long… 2-cell point" | 68 → 27x18 | Family seed; **promoted** |
-| 4 | 073 | tile_ditch | "a flat diamond-shaped patch (2:1 floor tile) about 24x12… a narrow trench… far bank lit, near bank shaded, spoil ridge" | 68 → 34x20 | **Rejected**: dark outline reads as a pasted tile |
-| 5 | 073 | tile_ditch | "only the trench itself… a band 3 to 4 cells wide… 2 across per 1 down… about 24 columns long" | 68 → 35x22 | **Rejected**: reads as a log |
-| 6 | 073 | tile_ditch | "back to the diamond ditch… exactly twice as wide as tall… NO dark outline… trench a 3-cell band of #2a1a12… 1-cell lit lip, 1-cell spoil ridge" | 68 → 32x20 | **Promoted** |
-| 7 | 074 | tile_laager | "one WAGON of a wagon laager… two-axle farm wagon with high plank sides… four disc wheels… rolled hide… about 24x18 cells" | 30 → 72x53 | **Rejected**: one row too tall |
-| 8 | 074 | tile_laager | "cells twice as big… only about 37 cells wide… long side upper left to lower right, two big disc wheels, plank sides 3 to 4 planks high" | 34 → 62x46 | **Promoted** |
-| 9 | 075 | tile_palisade | "same cell size as this last wagon… six to seven upright rough logs… sharpened… one rope band… stepping down along the iso slope… HALF as wide as the wagon and a little TALLER" | 48 → 33x48 | **Promoted** |
-| 10 | 076 | tile_rampart | "earthen RAMPART… low long mound… flat walkway… lit upper face, shaded front face… turf tufts… one third of the palisade's height" | 48 → 36x32 | **Rejected**: reads as a box |
-| 11 | 076 | tile_rampart | "Use the footprint of the approved ditch diamond: an isometric earth BLOCK… top face a flat 2:1 diamond… raised only 4 cells… lower-left face mid earth, lower-right shaded… ragged top edges" | 60 → 36x24 | **Promoted** |
-| 12 | 077 | crest_captain | (first try came back empty) "a very small pixel-art icon… about 12 cells wide and 12 tall… the red horsehair crest… arched red brush on a curved bronze holder" | 64 → 24x24 | **Rejected → code-drawn** |
-| 13 | 078 | crest_standard | "the army STANDARD… pole, crossbar, bronze sun disc, red square banner with a fringe and a cream stripe, two ribbons… 14 cells wide and 44 tall" | ~42 → 21x82 | **Rejected** |
-| 14 | 078 | crest_standard | "cells TWICE as big… only 8 cells wide (plus 3 for ribbons) and 22 tall… disc 4 cells, banner 5x6" | ~24 → 32x117 | **Rejected → code-drawn** |
+| File | Wording that worked (short form) |
+| --- | --- |
+| tile_stakes | "even smaller and chunkier… 24 columns by 16 rows… FOUR stakes… 2 cells thick, 6 to 8 long… 2-cell point" (after two tries too fine and too tall) |
+| tile_ditch | "back to the diamond ditch… exactly twice as wide as tall… NO dark outline… trench a 3-cell band of #2a1a12… 1-cell lit lip, 1-cell spoil ridge" |
+| tile_laager | "cells twice as big… only about 37 cells wide… long side upper left to lower right, two big disc wheels, plank sides 3 to 4 planks high" |
+| tile_palisade | "same cell size as this last wagon… six to seven upright rough logs… sharpened… one rope band… stepping down along the iso slope… HALF as wide as the wagon and a little TALLER" |
+| tile_rampart | "Use the footprint of the approved ditch diamond: an isometric earth BLOCK… top face a flat 2:1 diamond… raised only 4 cells… lower-left face mid earth, lower-right shaded… ragged top edges" |
 
-**Lessons:** tell Gemini the image is "a grid of N columns by M rows of big square cells, each one flat
-colour"; expect it to overshoot the count; process with an explicit `--grid n` read from the image; anything
-under ~16 art px is faster to draw in code.
+**Lessons:** say "a grid of N columns by M rows of big square cells, each one flat colour"; expect it to overshoot the
+count; process with an explicit `--grid n` read from the image; relative sizes beat cell counts; anything under
+~16 art px (a 12x12 crest, an 8x22 standard) is faster to draw in code.
 
 ---
 
-## 9. UI frames and chrome
+## 9. Nikias portraits (AS-08)
 
-No raster frame was generated in v5: the chrome stayed procedural (art bible §7.1). The T-FRAME template above
-and `nineslice.mjs` are ready if a later story needs one. The v4 brief's frame and button specs are in §11.
-
-## 10. Nikias (ART-033..035): queued in AS-07, sent in AS-08
-
-Subjects from the manifest (T-BUST; frames 2 and 3 are edits of frame 1, only the mouth or eyes change):
-
-| ART | File | Subject |
-| --- | --- | --- |
-| 033 | portrait_nikias.jpg (384x384) | Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; mouth closed, eyes open |
-| 034 | portrait_nikias_talk.jpg | … mouth open mid-word |
-| 035 | portrait_nikias_blink.jpg | … eyes closed |
-
-**AS-07 (2026-10-13):** written and queued, not sent (Chrome was not connected). **AS-08 (2026-10-13):** sent in one
-chat, `seed_hoplite.jpg` (the 1024 px `bust_hoplite` raw) attached to #1, the approved frame 1 attached to the two
-edits. Four renders, three shipped; OI-7 (edit drift) did not happen. Details in
-[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › AS-08.
-
-| # | Prompt | Outcome |
-| --- | --- | --- |
-| 1 | family opening line + T-STYLE + T-BUST, the manifest SUBJECT (block 1) | **Rejected:** the helmet was worn down over the face and a shield rim added; it read as the hoplite class bust |
-| 2 | same-chat fix (block 2) | **Accepted**, frame 1 (`portrait_nikias`) |
-| 3 | edit of frame 1, the mouth (block 3) | **Accepted** (`portrait_nikias_talk`); only the mouth changed |
-| 4 | edit of frame 1, the eyes (block 4) | **Accepted** (`portrait_nikias_blink`); only the eyes changed |
-
-**Lesson:** "helmet pushed up on the head" alone is read as a helmet worn normally. Say what shows: "resting high on
-the crown like a cap, the whole face uncovered, the empty eye holes above the forehead". A prop not asked for (the
-shield) came from the hoplite seed; exclude it by name.
-
-```
-Create a NEW image, not an edit of the reference. Match the attached reference exactly in style, palette, brushwork, lighting, background and framing; change only the subject. STYLE: ancient Mediterranean fresco painting on lime plaster: earth pigments (yellow ochre, red ochre, burnt umber, terre verte, a little Egyptian blue), visible confident brushwork, subtle fine craquelure, soft painted edges, warm and slightly desaturated, no pure black and no pure white. Light from the upper left, shadows to the lower right. Clear value contrast on the subject so it reads at small phone size. Hand-painted illustration, not a photo, not a 3D render, not glossy digital art, not anime, not comic ink. EXCLUDE: any text, letters, numbers, runes, signatures, watermarks, logos, UI, borders or frames around the image, modern objects, extra limbs, duplicated figures, cropped heads. ROLE: a character portrait for a small round or square portrait frame in a mobile strategy game; it must be recognisable at 40 pixels. SUBJECT: Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed up on the head, red cloak; mouth closed, eyes open. FRAMING: head and shoulders, front three-quarter view, the figure turned slightly to the viewer's left, eyes on the upper third of the image, the top of the head or crest 6 to 10 percent below the top edge, chin at about 60 percent of the height, shoulders cut by the bottom edge; the whole face and headgear inside the central circle of the image. The headgear silhouette and the one listed prop are the clearest, most contrasting shapes. BACKGROUND: plain dark warm umber (#26211b to #342d25), a soft lighter glow behind the head, no scenery. EXPRESSION: composed, alert, mouth closed. ASPECT: square 1:1, highest resolution available.
-```
+Three frames (`portrait_nikias`, `_talk`, `_blink`, 384x384): frame 1 from T-BUST with the hoplite seed attached,
+frames 2 and 3 edits of frame 1. SUBJECT: "Nikias, an old Greek strategos, white beard, bronze Corinthian helmet pushed
+up on the head, red cloak; mouth closed, eyes open". The first render wore the helmet over the face and added a shield
+(it read as the hoplite bust). The fix and the two edits shipped:
 
 ```
 Create a NEW image with the same prompt, but fix the helmet: the bronze Corinthian helmet is PUSHED UP and tilted back on top of his head, resting high on the crown like a cap, so his WHOLE face is uncovered: forehead, eyes, cheeks, white hair at the temples and the full white beard are all visible; the helmet's empty eye holes and cheek guards sit above his forehead. No shield: only the red cloak, pinned at the shoulder. Keep everything else from the first prompt: the fresco style matching the attached reference, the framing, the plain dark warm umber background with its soft glow, mouth closed, eyes open. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image, a shield. ASPECT: square 1:1, highest resolution available.
 ```
 
 ```
-Edit the attached Nikias portrait. Change only: his mouth, now open mid-word as if speaking, the lower teeth just hidden by the beard. Keep everything else identical: the same face, white beard, bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
+Edit the attached Nikias portrait. Change only: {his mouth, now open mid-word as if speaking, the lower teeth just hidden by the beard / his eyes, now closed in a blink, the eyelids relaxed}. Keep everything else identical: the same face, white beard, {closed mouth,} bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
 ```
 
-```
-Edit the attached Nikias portrait. Change only: his eyes, now closed in a blink, the eyelids relaxed. Keep everything else identical: the same face, white beard, closed mouth, bronze Corinthian helmet pushed up on the head, red cloak, pose, framing, size and position in the frame, plain dark warm umber background with its soft glow, colours, painted fresco style and light from the upper left. EXCLUDE: any text, letters, numbers, signatures, watermarks, borders or frames around the image. ASPECT: square 1:1, highest resolution available.
-```
-
-## 11. Before v5: the v4 brief
-
-[docs/redesign/GEMINI_BRIEF.md](../redesign/GEMINI_BRIEF.md) (v4 "Mosaic & Parchment") is the earlier brief. Its
-mockup prompt, sent with the current screenshot attached:
-
-> Redesign this mobile game screen in the exact style of the attached reference (traditional antiquity, mosaic and parchment, carved stone frame with Greek-key border, parchment panels, terracotta primary button, bottom tab bar "Campaign, Duels, War, Codex, Shop" with War in the center and raised). Keep every piece of information and every action from the current screen. Use the same layout grid and the same component looks as the reference: profile card, plaque title, parchment cards, tile buttons. Real, readable English text only, no placeholder text. Pixel-art game sprites stay pixel art.
-
-It also lists 16 text-free asset specs (frame, panel, basalt tile, three buttons, plaque, tiles, four banners,
-Nikias, tab bar, selected tab, raised War tab), with the rule "no text, no letters; a flat #FF00FF background
-wherever transparency is needed; front view, even lighting from the top-left; exact size". Results of that brief
-were not logged. An early Campaign hub render of that period invented a "Quests" tile (the owner's memory note);
-v5 replaced open-ended mockup prompts with allowlist prompts (§2).
-
-## 12. App icon and mark (AS-08)
-
-A new family, **T-MARK** (§1): one object in profile on a round red-figure disc with a Greek-key ring, on #FF00FF.
-It is the app's own mark (browser tab, home screen, Telegram bot picture), not an in-game icon: it is not in the
-atlas and does not take a `RESERVED_ICONS` meaning. `node scripts/art/appicons.mjs <raw>` builds every size from
-the one render; the favicon sizes (16, 32, 48) use only the inner disc so the helmet still reads.
-
-| # | Prompt | Outcome |
-| --- | --- | --- |
-| 5 | `Create an image.` + T-MARK with the helmet SUBJECT (below) | **Accepted** (`docs/v5/gemini/AS-08/app_mark_1.jpg`). The meander ring came out about 14% of the diameter, not 8%; harmless at 180 px and up, and the favicons crop it away |
-
-```
-Create an image. ROLE: the app icon and browser favicon of a mobile strategy game set in the ancient Mediterranean; it must read as one bold shape at 16 pixels and still look rich at 512 pixels. SUBJECT: a single bronze Corinthian hoplite helmet in side profile, facing the viewer's left, with a tall arched red horsehair crest; the eye opening is one clear dark almond shape; the helmet and crest together fill about 70 percent of the disc and are centred in it. DISC: a perfect circle of dark black-glaze umber (#2a1a12 to #3a2418), like the ground of a red-figure Greek vase, edged by a ring of terracotta (#a8432c) carrying a simple bold Greek key meander band in terracotta and warm cream (#e7d6ad), the band about 8 percent of the diameter wide; the helmet sits inside the ring and does not touch it. STYLE: painted like a red-figure Greek vase but with soft painted shading on the bronze: flat bold shapes, a heavy dark-brown outline (#2a1a12) of even weight around the helmet and crest, light from the upper left, bronze #b08a3a with warm highlights, warm earth colours, no pure black and no pure white, very few internal details; hand-painted, not a photo, not a 3D render, not glossy digital art, not anime. COMPOSITION: the disc centred, seen flat from the front, filling 94 percent of the square, nothing outside the disc. BACKGROUND: a perfectly flat solid #FF00FF magenta background outside the disc, edge to edge, with no shadow, no gradient and no glow; no magenta anywhere inside the disc. EXCLUDE: any text, letters, numbers, signatures, watermarks, a face or a person inside the helmet, spears, more than one object, tiny details, perspective, a drop shadow. ASPECT: square 1:1, highest resolution available.
-```
-
-## 13. PixelLab soldier sprites (I1 hoplite bake-off)
-
-Not Gemini: the PixelLab MCP (`create_character`, `animate_character`), called by the agent. One prompt makes a
-character in 8 directions; clips are made per direction. Full log, ids and the generation count:
-[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I1. Tools: `scripts/art/pixellab/` (`fetch.mjs` download and unpack,
-`build.mjs` strips + PA-WORLD snap + contact sheet + GIF, `sheet.mjs`, `measure.mjs`); preview `/hoplite-bakeoff.html`.
-
-**Call settings** (every character): `mode: standard`, `n_directions: 8`, `outline: selective outline`,
-`shading: basic shading`, `detail: medium detail`, `proportions: {"type": "preset", "name": "realistic_male"}`,
-`size` 48 or 32, `view` `low top-down` or `high top-down`. The game uses 4 of the 8 directions: `south-east`,
-`north-east`, `south-west`, `north-west` (paperdoll DIRS rows 0..3).
-
-**P1**
-
-```
-ancient Greek hoplite soldier: bronze Corinthian helmet covering the face with a red horsehair crest, large round bronze aspis shield on the left arm, long wooden dory spear with a bronze tip held upright in the right hand, white linen linothorax armour, short red tunic skirt, bronze greaves on the shins, sandals
-```
-
-**P2** (the one that worked: the spear first and biggest)
-
-```
-ancient Greek hoplite soldier holding a very long wooden spear (dory) vertically in his right hand, the spear taller than the man with a bronze leaf tip above his head; big round bronze aspis shield on his left arm; bronze Corinthian helmet covering the face with a red horsehair crest; white linen linothorax body armour; short red tunic; bronze greaves; sandals
-```
-
-**P3**
-
-```
-ancient Greek hoplite: bronze muscle cuirass over a short red tunic, bronze greaves covering both shins, bronze Corinthian helmet covering the face with a red horsehair crest, big round bronze aspis shield on the left arm, very long wooden spear (dory) held vertically in the right hand, taller than the man, bronze leaf tip above his head, sandals
-```
-
-| # | Attempt | size, view | Prompt | Outcome |
-| --- | --- | --- | --- | --- |
-| 1 | A | 48, low | P1 | **Rejected:** spear missing in 6/8 views, all 4 game facings among them |
-| 2 | A2 | 48, low | P2 | **Promoted** (variant A): spear 8/8; armour red not white, no greaves |
-| 3 | A3 | 48, low | P3 | **Rejected:** spear missing SE, E, W |
-| 4 | B | 48, high | P3 | **Rejected:** spear missing SE, E, NE, NW, W |
-| 5 | C | 32, low | P3 | **Rejected:** spear missing SE; grey iron cuirass |
-| 6 | D | 32, high | P3 | **Rejected:** spear missing SE, E, NE, NW, W |
-| 7 | B2 | 48, high | P2 | **Rejected:** two spears in 5 views (invented) |
-| 8 | C2 | 32, low | P2 | **Promoted** (variant C) |
-| 9 | D2 | 32, high | P2 | **Promoted** (variant D) |
-| 10 | B3 | 48, high | P2 | **Promoted** (variant B): spear in all 4 game facings |
-
-**Walk:** template `walking-8-frames` on the 4 game facings (no prompt). **Attack, v3 custom** (`frame_count: 8`):
-
-ATK1 (A2)
-
-```
-thrusting the long spear forward overarm at shoulder height while the round shield stays in front of the body, then pulling the spear back
-```
-
-ATK2 (B3, C2, D2)
-
-```
-overarm spear thrust: raises the long spear above the shoulder with the point forward, stabs it straight ahead in the direction he is facing, the round shield kept in front of the chest, then pulls the spear back; he keeps facing the same direction and holds the same spear and shield in every frame
-```
-
-**Mode comparison on D2:** template `lead-jab` (NE, SW) and skeleton-v3 `lead-jab` (all 4); no prompt (the clip
-is the template's).
-
-| # | Variant | Clip, mode | Outcome |
-| --- | --- | --- | --- |
-| 11 | A2 | walk, template | Kept: spear steady; no shield in SE, NE, NW |
-| 12 | B3 | walk, template | Kept, flawed: SE shield pops in; NE shield becomes a white oval, then vanishes (invented) |
-| 13 | C2 | walk, template | Kept, flawed: NE shield pops in; NW loses shield and spear for a frame |
-| 14 | D2 | walk, template | Kept, flawed: SE a big black shield appears in frames 7–8 (invented) |
-| 15 | A2 | attack, v3 ATK1 | Kept, flawed: SE turns to face south, spear across the body; SW fair |
-| 16 | B3 | attack, v3 ATK2 | **Rejected:** facing drifts, the shield jumps and shrinks, a second shield appears in SW, spear double-ended in NW |
-| 17 | C2 | attack, v3 ATK2 | Kept, flawed: shield holds; the spear always stabs to screen-left (wrong in SE, NE) |
-| 18 | D2 | attack, v3 ATK2 | Kept, flawed: shield holds; spear becomes a double-ended staff (SE, NE, NW), vanishes in SW |
-| 19 | D2 | attack, template lead-jab | SW steady but the spear never moves; NE loses the shield |
-| 20 | D2 | attack, skeleton-v3 lead-jab | SW **the only correct thrust**; NE **rejected** (shield gone, ghost scraps); SE turns south; NW spear gone |
-
-**Lessons:** in standard mode a held weapon survives the rotation only when the prompt opens with it and sizes it
-("holding a very long … spear vertically …, taller than the man"); expect about half the characters to come back
-with the spear lost or doubled, and check every one of the 8 views. Say the shield size too (every aspis came out a
-third of the body). v3 custom clips invent the weapon's path (a lateral swing, a double-ended staff); template clips
-hold identity but have no spear motions; skeleton-v3 holds identity best in front views and breaks in the back view.
-Next time pose the thrust ourselves (`animate_with_skeleton_v3`, keypoints from the procedural rig) and check NE first.
-Snap with a ramp-aware remap: the nearest-colour snap turns PixelLab bronze into the grey metal ramp.
-
-## 14. PixelLab dark-epic hoplite (I1b)
-
-The I1 review asked for a darker, *300* / Lord of the Rings look, smooth 12–16-frame clips and a spear whose head always
-leads (V5-087), then one spearhead only and a plain blunt butt. Full log, ids, fixes and costs:
-[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I1b. Rebuild: `bash scripts/art/pixellab/i1b-e3.sh`. Every prompt carries
-"single leaf-shaped spearhead, plain blunt butt end, no butt spike".
-
-**D1** (character, Pro Flash 68x68, high top-down)
-
-```
-  grim battle-hardened Spartan hoplite warrior, muscular build, standing straight and facing the viewer, full body with the feet near the bottom of the canvas: dark weathered bronze Corinthian helmet covering the face with a tall deep crimson horsehair crest; deep crimson cloak hanging from the shoulders behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; a very large round aspis shield on his left arm reaching from his chin to his knees, dark bronze rim and a muted dark-red painted emblem; a very long wooden spear (dory) held vertically in his right hand, taller than the man, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; heavy shadows, desaturated dark warm colours, low-key cinematic light from the upper left, the mood of the film 300 and Lord of the Rings
-```
-
-**D2** (v3 redo of SE and NW from E1, rejected)
-
-```
-  grim muscular Spartan hoplite: dark weathered bronze Corinthian helmet with a tall deep crimson crest, deep crimson cloak, dark bronze cuirass, very large round aspis with a dark bronze rim and a muted red lambda on his left arm, a very long wooden spear held vertically in his right hand beside his body, taller than the man, its single leaf-shaped spearhead clearly visible above his head in every view, plain blunt butt end, no butt spike
-```
-
-**D3** (v3 import of all 8 views: E3)
-
-```
-  grim muscular Spartan hoplite: dark weathered bronze Corinthian helmet with a tall deep crimson crest, deep crimson cloak, dark bronze cuirass, very large round aspis with a dark bronze rim and a muted red lambda on his left arm, a very long wooden spear held vertically in his right hand, single leaf-shaped spearhead, plain blunt butt end, no butt spike
-```
-
-**D4** (elite state, create_character_state)
-
-```
-  elite veteran version of the same hoplite: a black cloak instead of the crimson one, a gilded crest holder with a black horsehair crest trimmed in gold, an ornate dark bronze muscle cuirass with gilded edges; keep the same Corinthian helmet shape, the same very large round aspis with the muted red lambda on the left arm, and the same long spear in the right hand with a single leaf-shaped spearhead, plain blunt butt end, no butt spike; same pose, same dark grim palette
-```
-
-**W1** (walk, pixminimax 16 frames)
-
-```
-  steady disciplined marching walk, the long spear held upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways a little
-```
-
-**W2** (walk SE redo, pixminimax 16 frames from a drawn start frame)
-
-```
-  steady disciplined marching walk, the long spear held in the right hand and leaning a little outward, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm in every frame; the cloak sways a little
-```
-
-**T1** (thrust, skeleton-v3 12 frames, overhand from the upright spear, rejected)
-
-```
-  grim muscular Spartan hoplite in dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze cuirass and greaves, a very large round bronze aspis with a muted red lambda held across his body on his left arm in every frame, a long wooden spear in his right hand gripped overhand above the shoulder, its single leaf-shaped spearhead always at the front end pointing the way he faces, plain blunt butt end, no butt spike
-```
-
-**T2** (thrust, skeleton-v3 12 frames from a couched first frame, front facings)
-
-```
-  grim muscular Spartan hoplite in a dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze cuirass and greaves, one very large round bronze aspis with a muted red lambda held across his body on his left arm, one long wooden spear held level at the hip in his right hand with a single leaf-shaped spearhead at the front end pointing the way he faces, plain blunt butt end, no butt spike
-```
-
-**T2, back facings (NE, NW)**
-
-```
-  grim muscular Spartan hoplite seen from behind in a dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze greaves, one very large round bronze aspis held on his left arm in front of him, one long wooden spear held level at the hip in his right hand with a single leaf-shaped spearhead at the front end pointing the way he faces, plain blunt butt end, no butt spike
-```
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | E1, D1 | **Promoted, patched:** the look in one call; NW spear hidden behind the cloak (pasted from NE by hand) |
-| 2 | E2, D2 | **Rejected:** NW spear still missing |
-| 3 | E3, D3 | **Promoted:** the patched E1 on a 96 canvas (0.25 gens) |
-| 4 | Elite, D4 | **Probe passed:** identity and gear placement hold in 8 views |
-| 5 | walk template SW NE | **Rejected:** the aspis vanishes in every frame |
-| 6 | W1 SW NE NW | **Promoted** |
-| 7 | W1 SE | **Rejected:** no spear in 16 frames |
-| 8 | W2 SE | **Promoted** |
-| 9 | T1 SW | **Rejected:** head carried backwards over the shoulder (6 frames) |
-| 10 | T2 SW SE NW | **Promoted**; SE f2 and NW f7 rejected for a metallic or pointed butt (replaced by the neighbouring frame) |
-| 11 | T2 NE | **Rejected:** head runs off the canvas (3 frames); redone with the figure further left: **promoted** |
-
-**Lessons:** a held weapon is safest when the first frame already shows it the way the clip needs it: draw the couched
-spear head-forward into the first frame (`spear.mjs`) and pose the body with our own skeleton (`skeleton.mjs`, the doll
-rig's joints fitted to the sprite's big-helmet proportions); from an upright spear the model swings the head over the
-shoulder. Template clips drop the shield; pixminimax keeps it but loses whatever the start frame half-hides. Give a thrust
-a canvas its extension fits in. Review both spear ends frame by frame, and keep the fixes in a JSON (`fixframes.mjs`) so a
-re-fetch can replay them. A ramp-aware remap keeps bronze bronze; nearest-colour snapping does not.
-
-## 15. PixelLab hoplite production and the style lock (I3a)
-
-Full log, ids and costs: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I3a. The recipe for the other classes:
-[docs/v5/art/STYLE_LOCK.md](../v5/art/STYLE_LOCK.md). Rebuild: `fetchjobs.mjs docs/v5/pixellab/I3/jobs.json` then
-`sheetbuild.mjs docs/v5/pixellab/I3/hoplite.sheet.json`.
-
-**Base (H4, promoted):** `create_character` `mode: pro`, `style_character_id` E3 `62d4f135-…`, `size: 68`,
-`view: high top-down`, `concept_image_url` = the H3 south view re-proportioned by `proportion.mjs` (4x nearest):
-
-```
-tall grim Spartan hoplite with the realistic adult proportions of the concept: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark weathered bronze Corinthian helmet covering the face with a deep dark crimson horsehair crest; deep dark crimson cloak hanging behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round bronze aspis on his left arm, chin to knee, dark bronze rim and a muted dark-red lambda; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-H1–H3 (rejected) are in the asset log word for word: Pro Flash with E3 as a style image lost the NW spear and
-brightened the crimson; pro with E3 as the style character kept E3's look but also its 4–4.5-head proportions,
-whatever the text said.
-
-**Clip prompts** (pixminimax unless noted). Fixed fields: `view: high top-down`, `direction` = the facing,
-`subject_description` front facings "a tall grim Spartan hoplite in a dark bronze Corinthian helmet with a dark crimson
-crest, dark crimson cloak, a large round bronze shield with a red lambda and a long spear" (back facings: "… seen from
-behind …, a large round bronze shield and a long spear"; levelled clips end "… and a long levelled spear"),
-`initial_pose` "standing upright, the spear held upright in the right hand, the shield on the left arm" (levelled:
-"standing with the spear levelled at the hip pointing forward, the shield on the left arm"). The SW wording below;
-the other facings swap "towards the viewer's lower left" for lower right / "away from the viewer towards the upper
-right / left" and add "seen from behind" in NE and NW.
-
-- idle (12): `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm across the body in every frame`
-- look (16): `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, the face never turns away from the viewer's side; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top; the large round shield stays on the left arm in every frame` (SE NE NW: "never further than over his shoulder")
-- adjust (12): `standing still in place, he hitches the heavy round shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end`
-- walk (16): `steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the long spear held upright in the right hand and swaying a little with each step, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways`
-- run (12): `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the long spear held upright in the right hand and tilted slightly forward, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm in front of the body in every frame; the cloak streams back` (NE redo: "the large round shield stays clearly visible on the left arm at his left side in every frame")
-- rout (12): `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the long spear carried loosely upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield still on the left arm in every frame; the cloak flapping`
-- kneel (12): `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the round shield planted in front of him, head bowed, shoulders heaving with laboured breath; the long spear stays in the right hand, upright, single leaf-shaped spearhead at the top, plain blunt butt end; the shield stays on the left arm in every frame` (NE redo: "the round shield kept on his left arm at his left side and clearly visible in every frame")
-- ready (12, guard frame): `standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the long spear held level at the hip in the right hand and pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up across the body on the left arm in every frame`
-- charge (12, guard): `charging forward at a heavy run in place, leaning into it, the long spear levelled at the hip in the right hand and pointed straight ahead the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up in front on the left arm in every frame; the cloak streams back`
-- brace (12, guard): `braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the big round shield forward in front of his body and leans into it, the long spear kept level low at his right side pointing forward the way he faces; then holds the braced crouch, breathing; single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame`
-- block (12, guard): `blocks a heavy blow in place: snaps the big round shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the long spear stays level in the right hand pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame` (SE NE NW add "no sparks, no effects": sparks came anyway)
-- stagger (12, guard; SE NE NW): `struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the spear level and pointing forward and the shield on the left arm in every frame; no motion blur, no effects, single leaf-shaped spearhead, plain blunt butt end`; SW: skeleton-v3 `rig.mjs stagger`, action "staggered by a heavy blow, knocked back", description as the thrust's
-- fallBack (12, die 128): `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the round shield stays strapped on his left arm and the spear falls with him; no blood spray, no effects`
-- fallFwd (12, die): `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the round shield stays strapped on his left arm and the spear falls with him; no blood, no effects`
-- cheer (12, tall 96 x 112): `victory cheer in place: he thrusts the long spear straight up high over his head in the right hand, spearhead pointing at the sky, keeps the big round shield on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; single leaf-shaped spearhead, plain blunt butt end; the shield stays on the left arm in every frame`
-- **thrust** (skeleton-v3, 14 frames, action "heavy spear thrust", `rig.mjs thrust <dir> guard_<dir>.png --grip x,y`):
-  ```
-  grim muscular Spartan hoplite in a dark weathered bronze Corinthian helmet with a dark crimson crest, dark crimson cloak, dark bronze cuirass and greaves, one very large round bronze aspis with a muted red lambda on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike
-  ```
-  (back facings: "… seen from behind … dark bronze greaves …, away from the viewer, …"; SE redo: "always pointing
-  straight forward the way he faces at the same angle in every frame" from a flatter first frame)
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | H1–H3 | **Rejected:** spear lost in NW (H1); 3.7–4.5 heads (H2, H3) |
-| 2 | H4 | **Promoted:** the style anchor |
-| 3 | thrust SW a1 | **Rejected:** the draw-back pivots the spear; ghost tips; the shield hand was put in front of the body |
-| 4 | thrust SW a2, NE, NW, SE a2 | **Promoted** |
-| 5 | thrust SE a1 | **Rejected:** the spear levels itself (a 30° pivot) |
-| 6 | idle, look, adjust, walk, rout, ready, charge, brace (all 4) | **Promoted** (look NE f8 := f7) |
-| 7 | run NE a1, kneel NE a1, cheer SW a2 | **Rejected:** the shield vanishes |
-| 8 | cheer SW a1 | **Rejected:** no room to raise the spear on 68 |
-| 9 | block, stagger, deaths | **Promoted after the colour cut** (sparks, blood); 9 frames replaced where the cut took the spearhead or left holes |
-| 10 | stagger SW a1 | **Rejected:** a doubled, smeared spear |
-
-**Lessons:** a style character carries its proportions as well as its look: give pro a re-proportioned concept to
-change the body. pixminimax keeps identity at 1 generation per 68-px clip; it adds sparks and blood whatever the
-prompt says, so cut by colour and look at every cut frame. For our own poses, put the skeleton's shield hand where the
-sprite holds the shield and the weapon hand on the drawn fist (`--grip`), or the model turns the man to fit. A first
-frame with the spear at the angle the model likes (level in SE) keeps a thrust from pivoting. Test every clip in SW,
-then check the back views first.
-
-## 16. PixelLab foot-class base characters (I4a)
-
-The 13 foot classes other than the hoplite, as PixelLab base characters (8 rotations, no clips), styled on the hoplite H4.
-Full log, ids, every attempt word for word, the stature fix and costs: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I4a.
-Recipe: [docs/v5/art/STYLE_LOCK.md](../v5/art/STYLE_LOCK.md). Ids and measures: `docs/v5/pixellab/bases.json`. Sheets:
-`docs/v5/art/I4a-roster-facings.png`, `I4a-roster-formation.png`. Tools: `scripts/art/pixellab/rollout/`.
-
-**Call settings** (every class): `create_character`, `mode: pro`, `style_character_id` H4
-`b7624d6d-132a-458c-8e3d-d6960d175988`, `size: 68`, `view: high top-down`, no concept image. Classes that came out
-taller than H4 were normalised by row-drop (`normalise.mjs`) and re-imported (`mode: v3`, all 8 views given, 0.25).
-
-**The promoted prompts** (STYLE_LOCK §3 block; "with realistic adult proportions" since there is no concept):
-
-**militia** (A2)
-
-```
-grim weathered Greek peasant levy spearman with realistic adult proportions: seven heads tall, a small head in a snug cap, long legs, natural arms, broad shoulders, lean wiry build; low rounded dark brown felt pilos cap, no crest, no helmet; short faded dark crimson wool cloak hanging behind him; plain dark umber wool tunic to mid-thigh with a worn dark leather belt, no armour, no white cloth; bare legs, dark leather sandals; no shield, his left hand empty at his side; one wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**thureophoros** (A1)
-
-```
-grim veteran Carthaginian thureophoros infantryman with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; tall conical dark weathered bronze pilos helmet, no crest; deep dark purple-black cloak hanging behind him; dull dark greyed-tan linen linothorax corselet over a dark purple-black tunic, worn dark leather straps, no white cloth; dark bronze greaves; one tall oval thureos shield on his left arm, shoulder to shin, dark umber hide face with a dark iron spine and boss down the middle; one straight iron short sword held in his right hand down at his right side, point down, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**celt_sword** (A3)
-
-```
-grim Celtic warrior swordsman with a long drooping moustache, with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; low dark iron Montefortino helmet with a small knob on top and cheek guards, no crest; dark muted green plaid wool cloak pinned at the right shoulder hanging behind him, the only green he wears; dark iron ring mail shirt to mid-thigh, a twisted bronze torc around his neck; dark brown-and-black checked wool trousers, dark leather shoes; one tall oval Celtic shield on his left arm, shoulder to shin, dark umber-brown wood with a dark iron boss and spine; one long straight iron longsword held in his right hand down at his right side, point down, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**rhomphaia** (A2)
-
-```
-grim tall Thracian rhomphaia warrior with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; open-faced tall dark weathered bronze Phrygian helmet whose high crown curves forward like a Phrygian cap, hinged cheek guards, the face visible, no crest, no face mask; deep dark crimson cloak hanging behind him; dark iron scale corselet over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark brown wool trousers and dark bronze greaves; no shield; one rhomphaia, a long two-handed weapon with a wooden shaft as long as his legs and a long single-edged slightly curved iron blade, gripped upright with both hands in front of his right side, the blade standing up above his head, clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**archer** (A2)
-
-```
-lean grim Cretan archer with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark curly hair and a short dark beard, no helmet; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, one dark leather quiver strap across his chest and one quiver of arrows on his back, no white cloth; bare legs, dark leather sandals; no shield; one large recurved composite bow held vertically in his left hand out at his left side, away from his body and clearly visible in every direction, his right hand empty ready to draw; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**slinger** (A1)
-
-```
-lean grim Rhodian slinger with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark hair and a short dark beard, no helmet; short dark crimson chlamys cloak knotted at the right shoulder hanging behind him; plain dark oxblood-brown wool tunic to mid-thigh with a worn dark leather belt and one small dark leather pouch of lead bullets at the hip, no armour, no white cloth; bare legs, dark leather sandals; no shield; one sling of dark leather cord hanging from his right hand out at his right side, its loaded pouch swinging near his knee, clearly visible in every direction, his left hand empty; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**javelineer** (A1)
-
-```
-grim lean Carthaginian javelin skirmisher with realistic adult proportions: seven heads tall, a small head in a snug cap, long legs, natural arms, broad shoulders, lean wiry build; soft dark umber felt Thracian cap with a tall forward-curving top and ear flaps, no helmet; short deep dark purple-black cloak hanging behind him; plain dark umber wool tunic with a worn dark leather belt, no armour, no white cloth; bare legs, dark leather sandals; one small crescent-shaped pelte shield of dark wicker and hide on his left arm, chest to hip; two javelins held vertically together in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, each with one small leaf-shaped iron head at the top and a plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**peltast** (A2)
-
-```
-grim lean Greek peltast skirmisher with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; open-faced dark weathered bronze Thracian helmet whose crown rises into a forward-curving peak like a Phrygian cap, a short brim over the eyes and hinged cheek guards, the face visible, no crest, no face mask; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, no white cloth; tall dark leather boots; one crescent-shaped pelte shield on his left arm, chest to hip, dark hide face with a dark bronze rim; one wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**falx** (A3)
-
-```
-grim tall Dacian falx warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; bare head with long dark hair to the shoulders and a full dark beard, no helmet; plain dark moss-green wool cloak hanging behind him, the only green he wears; warm dark umber leather jerkin over a dark oxblood-brown tunic, no white cloth; dark brown wool trousers, dark leather shoes; no shield; one falx, a heavy two-handed weapon with a long wooden haft and a long forward-curved iron sickle blade, gripped upright with both hands in front of his right side, the curved blade above his head, clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**gallic** (A1)
-
-```
-grim tall bare-chested Gallic warband warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, thick limed hair stiffened into dull pale-grey spikes standing up from his head, a long drooping moustache; bare muscular chest and arms painted with dark blue woad swirls, one twisted bronze torc around his neck; dark muted green-and-umber plaid wool trousers with a worn dark leather belt, dark leather shoes; one tall oval Celtic hide shield on his left arm, shoulder to knee, dark umber hide with a dark iron boss; one heavy iron war axe on a wooden haft held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**fanatic** (A1)
-
-```
-gaunt grim bare-chested cult fanatic with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; no helmet, a shaved head smeared with grey ash; ragged black wool cloak hanging behind him; bare wiry chest and arms marked with dark blue woad and grey ash, no armour; a dark umber wool kilt with a rope belt; bare legs and bare feet; no shield, his left hand an empty fist; one heavy curved iron kopis blade held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**royal_guard** (A1)
-
-```
-tall grim Macedonian royal guardsman, a silver-shield veteran, with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark gilded bronze Attic helmet with an open face, hinged cheek guards and two tall dull bone-grey feather plumes rising from its sides, no transverse crest; deep dark royal-purple cloak hanging behind him; ornate dark gilded bronze muscle cuirass over a dark crimson tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round aspis on his left arm, chin to knee, faced with dull dark tarnished silver and a dark bronze rim, a muted dark star emblem; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**sacred_band** (A1)
-
-```
-tall grim Theban Sacred Band hoplite with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark weathered bronze Boeotian helmet with a wide flaring brim all round and an open face, no crest; very dark blue-black cloak hanging behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round bronze aspis on his left arm, chin to knee, dark bronze rim and a muted dark-red club of Herakles emblem; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-| Class | Attempts | Promoted | Main rejections |
-| --- | --- | --- | --- |
-| militia | 2 | A2 | A1: the cloak and tunic share one umber (no recolour group) |
-| thureophoros | 1 | A1 | none |
-| celt_sword | 3 (1 cancelled) | A3, normalised −3 rows (N2) | A1: plaid on the cloak, trousers and shield; 3 px too tall |
-| rhomphaia | 2 | A2 | A1: a closed crest-ridged helm reads as the hoplite; all umber |
-| archer | 2 | A2 | A1: the cloak and jerkin one umber |
-| slinger | 4 (1 refused, 1 cancelled) | A1, normalised −5 rows (N1) | B1: the concept shrink only took 2 px; the sling changes hands in SW |
-| javelineer | 1 | A1 | none |
-| peltast | 2 | A2 | A1: a closed crested helm, a hoplite with a crescent shield |
-| falx | 3 | A3 (groups to review) | A1: the umber cloak matches the jerkin; A2: near-black style drift |
-| gallic | 2 (1 cancelled) | A1, normalised −2 rows (N1) | none (only the height) |
-| fanatic | 3 (1 cancelled) | A1, normalised −5 rows (N1) | A3: the cloak still shares the metal ramp; muddy skin |
-| royal_guard | 1 | A1 | none |
-| sacred_band | 1 | A1 | none |
-
-**Lessons:** with H4 as the style character, pro mode lands H4's build in one call, so the concept step is rarely needed.
-The model fits the figure's top to the canvas top. A crest, plume or upright spear gives headroom, but a bare head comes out
-3–7 px tall. Normalise it by dropping rows before the import; do not raise the weapon or re-roll. Give the cloak a hue
-family nothing else on the man uses (crimson for Greeks, purple-black for Carthaginians, green plaid for Celts). A brown
-cloak on a man in leather leaves no recolour group. For a §5.2 helmet the model might draw as a Corinthian, write
-"open-faced …, the face visible, no crest, no face mask".
-
-**Review fixes** (main's review: the archer's doubled bow, the fanatic reading as undead, exclusive groups for falx, fanatic
-and gallic). Retints by `rollout/retint.mjs`; details in ASSET_LOG › I4a review fixes.
-
-**archer A3**
-
-```
-lean grim Cretan archer with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark curly hair and a short dark beard, no helmet; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, one dark leather quiver strap across his chest and one quiver of arrows on his back, no white cloth; bare legs, dark leather sandals; no shield; only one bow: a plain wooden bow with a single thin curved limb and one straight string, held vertically in his left hand out at his left side, away from his body and clearly visible in every direction, no second bow, his right hand empty ready to draw; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**fanatic A4**
-
-```
-grim wild-eyed Celtic religious fanatic, a living man, with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, long wild tangled hair stiffened with lime into a dull pale ash-blond mane, a short rough beard; ragged very dark oxblood-black wool cloak hanging behind him, torn at the hem; bare chest and arms of living warm tan skin painted with bold dark blue woad patterns, no armour; a dark umber wool kilt with a rope belt; bare legs, bare feet; no shield, his left hand an empty fist; one heavy curved iron kopis blade held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**gallic A3**
-
-```
-grim tall bare-chested Gallic warband warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, thick limed hair stiffened into dull pale-grey spikes standing up from his head, a long drooping moustache; bare muscular chest and arms of living tan skin painted with dark blue woad swirls; one thick twisted polished bronze torc around his neck and one wide dark belt with a polished bronze buckle, the only bright bronze he wears; dark muted green plaid wool trousers, dark leather shoes; one tall oval Celtic hide shield on his left arm, shoulder to knee, dark umber hide with a dark iron boss; one heavy iron war axe on a wooden haft held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**falx A4**: falx A3 with "long black hair to the shoulders and a full black beard".
-
-| Class | Attempt | Outcome |
-| --- | --- | --- |
-| archer | A3 | **Promoted** (normalised −3 rows): one plain bow, a back quiver in 8/8 |
-| fanatic | A4 | **Promoted** (kilt retinted to darkBronze): a living man, the cloak the only umber |
-| falx | A4 | **Promoted** (hair specks retinted, normalised −4 rows): the moss cloak the only plaidGreen |
-| gallic | A3 | **Rejected:** 6 colours, no bronze, an invented shadow; N1 got a bronze torc retint instead |
-
-**Lessons:** "recurved composite bow" is drawn as two parallel limbs that read as two bows; ask for "only one bow: a plain
-wooden bow with a single thin curved limb and one straight string … no second bow". "a living man … warm tan skin" keeps a
-grim fanatic alive; grey ash on the body turns him into a ghoul. PixelLab often paints two parts in one exact colour (the
-fanatic's cloak and kilt), so a re-roll rarely separates them; a box retint into a neighbouring ramp does, at no cost.
-
-## 17. PixelLab mounted and chariot bases (I4b)
-
-Companion, thessalian, horse archer and chariot as PixelLab base characters (8 rotations), styled on the hoplite H4, and
-the companion's gallop in the 4 game facings. Full log, every attempt word for word, the probe, scale and costs:
-[docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I4b. Ids, boxes and groups: `docs/v5/pixellab/mounted.json`. Sheets:
-`docs/v5/art/I4b-lineup.png`, `I4b-formation.png`, `I4b-gallop.png` (and `.gif`). Tools: `scripts/art/pixellab/mounted/`.
-
-**Call settings:** `create_character`, `mode: pro`, body humanoid (not the quadruped template), `style_character_id` H4
-`b7624d6d-132a-458c-8e3d-d6960d175988`, `view: high top-down`, **`size: 100` for a rider, `128` for the chariot** (the
-canvas sets the scale: a rider at 128 comes out 1.3–1.45x H4). The rider block is STYLE_LOCK §3's with the horse added:
-"… seated astride a real full-size warhorse, the whole horse seen from muzzle to hooves to tail, … the horse a real horse
-with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head,
-a deep chest, exactly four long slender legs with hooves; …".
-
-**companion** (A5)
-
-```
-grim Macedonian Companion heavy cavalryman seated astride a real full-size warhorse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean muscular build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep chest, exactly four long slender legs with hooves; open-faced dark weathered bronze Boeotian cavalry helmet shaped like a folded sun hat, a wide downturned brim all round, the face visible, no crest, no face mask; deep dark royal-purple cloak hanging from his shoulders over the horse's back, the only purple on the figure; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark leather boots; no shield; one long wooden xyston lance held upright in his right hand out at his right side, slanting a little forward, away from the horse's head and clearly visible in every direction, much taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; weathered dark bay-brown horse, dull and dark like old leather, with a dark umber-brown mane and tail, a dark leather bridle and reins, a plain dark leather saddle; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**thessalian** (A3)
-
-```
-grim lean Thessalian light cavalryman seated astride a real full-size horse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean wiry build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep chest, exactly four long slender legs with hooves; dark weathered bronze conical pilos helmet with a narrow brim, the face visible, no crest; short deep dark crimson chlamys cloak pinned at the right shoulder, hanging behind him; plain dark umber leather jerkin over a dark oxblood-brown tunic, no white cloth; tall dark leather boots; one small plain round dark bronze buckler on his left forearm, no bigger than his chest, no emblem, no painted sign; exactly two javelins held upright together in his right hand out at his right side, away from the horse's head and clearly visible in every direction, a little taller than the man, each with one small leaf-shaped iron head at the top and a plain blunt wooden butt end, no butt spike; dark dun-grey horse with a black mane and tail, a dark leather bridle and reins, a plain dark brown sheepskin saddle cloth; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**horse_archer** (A4)
-
-```
-grim lean Scythian horse archer seated astride a real full-size steppe horse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head, natural arms, broad shoulders, lean wiry build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep chest, exactly four long slender legs with hooves; tall pointed dark umber felt Scythian hood with long ear flaps, a dark beard, no helmet; long-sleeved deep dark crimson felt riding coat to mid-thigh with a worn dark leather belt, the only red he wears, no white cloth; dark umber leather trousers, short dark leather boots; no shield; one large recurved composite bow held up in his raised left hand, out to his left side at the height of his head, the whole bow standing upright above the horse's back and clearly visible in every direction; one dark leather quiver of arrows on his back, the arrow ends above his right shoulder; his right hand holds the reins; dark brown horse with a black mane and tail, a dark leather bridle and reins, a plain dark felt saddle cloth; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**chariot** (A1, `size: 128`)
-
-```
-grim Carthaginian scythed war chariot seen whole from the horses' muzzles to the back of the car: a light two-wheeled chariot pulled by exactly two real full-size horses side by side under one yoke on a single wooden pole, each horse with exactly four long slender legs, real horse proportions, much bigger than the man; one driver standing upright in the open car behind the horses, with realistic adult proportions: seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean muscular build; tall conical dark weathered bronze pilos helmet, no crest; deep dark purple-black cloak hanging behind him; dark umber leather corselet over a dark oxblood-brown tunic, no white cloth; he holds the dark leather reins in both hands; one curved iron kopis sword in a scabbard at his hip; the car a low dark wooden box with a dark bronze rim, two large spoked dark wooden wheels, one long curved iron scythe blade sticking out sideways from each wheel hub; two dark bay horses with black manes and tails and dark leather harness; heavy shadows, desaturated dark warm colours like the style reference
-```
-
-**Gallop** (pixminimax, 16 frames, 1 gen per facing per step at 100 px; `subject_description` "a cavalryman with a lance
-riding a dark bay warhorse"). Step 1 from the rotation:
-
-```
-the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the lance kept upright in his right hand; exactly four legs on the horse in every frame
-```
-
-Step 2, the loop: `custom_start_frame_url` = `end_frame_url` = the widest frame 2..9 of step 1 (`keyframe.mjs`, uploaded),
-`keep_first_frame: false`, `initial_pose` "mid-gallop, the legs stretched out front and back":
-
-```
-one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the lance kept upright in his right hand; exactly four legs on the horse in every frame
-```
-
-| Class | Attempts | Promoted | Main rejections |
-| --- | --- | --- | --- |
-| companion | 6 (2 probes) | A5 | Pa1: 1.3–1.45x H4 at 128; Pb1 (quadruped template): pony horse, ground shadow; A2: Corinthian dome; A3: black mane shares the cloak's colours; A4: bright chestnut drift |
-| thessalian | 3 | A3 | A1: 1.35x H4; A2: the buckler became an aspis with H4's lambda |
-| horse_archer | 4 | A4 | A1: all umber, no group; A2: the bow hidden by the horse in NE and SW; A3: right but at 128 |
-| chariot | 1 (+2 objects) | A1 | O1 (object 168): near-black drift, no scythes; S1: a front view, same scale as A1 |
-
-**Lessons:** one humanoid pro character carries rider and horse; the canvas sets the scale (measure head and withers
-before clips). The style reference's lambda leaks into round shields ("plain …, no emblem"). A weapon at the side hides
-behind the horse: raise it clear of the horse's back. A black mane takes a dark cloak's colours: give the cloak a hue
-the horse lacks. pixminimax gallops start standing: key the loop on a stretched frame.
-
-## 18. PixelLab animation of the shield-bearing foot classes (I5a)
-
-This section covers the six I4a bases (royal_guard, sacred_band, thureophoros, militia, peltast and javelineer), each taken to the hoplite's full sheet.
-
-- **Where the records are.**
-  - The full log, rejections and costs: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I5a.
-  - Every job id: `docs/v5/pixellab/I5a/<class>/jobs.json`.
-  - Every pick and frame fix: `docs/v5/pixellab/I5a/<class>/class.json`.
-- **How the prompts are made.** `scripts/art/pixellab/i5a/prompts.mjs <class> <anim> <dir>` generates them, word for word. They are the §15 hoplite prompts with each class's subject, weapon and shield words.
-- **Other facings.** As in §15, "towards the viewer's lower left" becomes "lower right" or "away from the viewer towards the upper right / left". In NE and NW the subject also gets "seen from behind".
-- **Fixed fields.** `view: high top-down`, and `direction` is the facing. Frame counts follow §15: look and walk have 16, thrust 14, the rest 12.
-- **First frames.** `i5a/prep.mjs` makes them:
-  - the rotation
-  - the 96 x 112 tall canvas, for cheer
-  - the 128 x 128 die canvas, for the falls
-  - the 128 x 112 levelled-spear guard, drawn by `i5a/guard.mjs`
-
-### royal_guard
-- `subject_description` SW and SE: `a tall grim Macedonian royal guardsman in a gilded bronze Attic helmet with two pale plumes, a dark royal-purple cloak, a large round silver-faced shield with a dark star and a long spear`; NE and NW: `a tall grim Macedonian royal guardsman seen from behind in a gilded bronze Attic helmet with two pale plumes, a dark royal-purple cloak, a large round silver-faced shield and a long spear`; levelled clips end "a levelled long spear"
-- `initial_pose` upright: `standing upright, the spear held upright in the right hand, the shield on the left arm`; levelled: `standing with the spear levelled at the hip pointing forward, the shield on the left arm`
-- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm across the body in every frame`
-- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top; the large round shield stays on the left arm in every frame`
-- adjust: `standing still in place, he hitches the large round shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end`
-- walk: `steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the long spear held upright in the right hand and swaying a little with each step, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways`
-- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the long spear held upright in the right hand and tilted slightly forward, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays clearly visible on the left arm in every frame; the cloak streams back`
-- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the long spear carried loosely upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield still on the left arm in every frame; the cloak flapping`
-- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the shield planted in front of him, head bowed, shoulders heaving with laboured breath; the long spear stays in the right hand, upright, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm and clearly visible in every frame`
-- ready: `standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the long spear held level at the hip in the right hand and pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up across the body on the left arm in every frame`
-- charge: `charging forward at a heavy run in place, leaning into it, the long spear levelled at the hip in the right hand and pointed straight ahead the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up in front on the left arm in every frame; the cloak streams back`
-- brace: `braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the large round shield forward in front of his body and leans into it, the long spear kept level low at his right side pointing forward the way he faces; then holds the braced crouch, breathing; single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame`
-- block: `blocks a heavy blow in place: snaps the large round shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the long spear stays level in the right hand pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame; no sparks, no effects`
-- stagger: `struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the spear level and pointing forward and the shield on the left arm in every frame; no motion blur, no effects, single leaf-shaped spearhead, plain blunt butt end`
-- fallBack: `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood spray, no effects`
-- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood, no effects`
-- cheer: `victory cheer in place: he thrusts the long spear straight up high over his head in the right hand, spearhead pointing at the sky, keeps the large round shield on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; single leaf-shaped spearhead, plain blunt butt end; the shield stays on the left arm in every frame`
-- every NE description ends: `; seen from behind, the shield's dark back and rim face the viewer in every frame, never its silver face`
-- thrust (skeleton-v3, action "heavy spear thrust"): `grim muscular Macedonian royal guardsman in a dark gilded bronze Attic helmet with two pale bone-grey plumes, deep dark royal-purple cloak, dark gilded bronze cuirass and greaves, one very large round aspis faced with dull dark silver and a dark star on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike` (NE and NW: "… in his right hand, seen from behind, away from the viewer, …"; SE: "always pointing straight forward the way he faces at the same angle in every frame")
-
-- **Redo wordings.** Each of these replaced part of the standard prompt:
-  - adjust NE a2: `… settles it back down at his left side; the shield never leaves his arm and keeps its back to the viewer in every frame, its face turned away from the viewer; …`
-  - run NE a2: `… the large round shield stays clearly visible on the left arm at his left side in every frame, its dark back and rim towards the viewer, never turning its face round; …`
-  - kneel NE a2: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, head bowed, shoulders heaving with laboured breath; seen from behind, the round shield stays on his left arm at his left side with its dark back and rim towards the viewer in every frame, never turning its face round; …`
-  - block NE a2: adds "never raised upright" after "the long spear stays level …".
-  - fallBack NE p2: `… the shield stays strapped on his left arm with its dark back and rim towards the viewer, dull and dark, and the spear falls with him; …`. The subject's shield becomes "a large round shield of dull dark tarnished silver". fallFwd NE uses the same wording.
-  - fallBack SE p2: `… and his one spear falls with him, only one spear in every frame; …`
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | 16 clips SW | **Promoted.** 3 frames were replaced after the colour cut. |
-| 2 | adjust, run, kneel, brace NE a1 | **Rejected:** in a back view the silver shield face swings round to the viewer. In run the shield nearly vanishes. |
-| 3 | block NE a1 | **Rejected:** the levelled spear swings upright. |
-| 4 | fallBack NE p1 | **Rejected:** the shield face came out near-white and the colour cut hollowed it. |
-| 5 | fallBack SE p1 | **Rejected:** a doubled spear. |
-| 6 | the redos and every other clip-facing | **Promoted.** 15 frames were replaced in all. |
-
-**Lessons:**
-- The model reads a bright shield face as the front, so in NE it swings the shield round to show it. Name the shield's dark back in every NE prompt.
-- "dull and dark" keeps a silver face out of the near-white cut.
-- `guard.mjs` found the same fist and grip for every H4-based spear class, so the thrust keypoints can be reused across them.
-
-### sacred_band
-- `subject_description` SW and SE: `a tall grim Theban Sacred Band hoplite in a dark bronze Boeotian helmet with a wide brim, a very dark blue-black cloak, a large round bronze shield with a dark red club emblem and a long spear`; NE and NW: `a tall grim Theban Sacred Band hoplite seen from behind in a dark bronze Boeotian helmet with a wide brim, a very dark blue-black cloak, a large round bronze shield and a long spear`; levelled clips end "a levelled long spear"
-- `initial_pose` upright: `standing upright, the spear held upright in the right hand, the shield on the left arm`; levelled: `standing with the spear levelled at the hip pointing forward, the shield on the left arm`
-- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm across the body in every frame`
-- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top; the large round shield stays on the left arm in every frame`
-- adjust: `standing still in place, he hitches the large round shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; the long spear stays upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end`
-- walk: `steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the long spear held upright in the right hand and swaying a little with each step, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways`
-- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the long spear held upright in the right hand and tilted slightly forward, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays clearly visible on the left arm in every frame; the cloak streams back`
-- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the long spear carried loosely upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield still on the left arm in every frame; the cloak flapping`
-- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the shield planted in front of him, head bowed, shoulders heaving with laboured breath; the long spear stays in the right hand, upright, single leaf-shaped spearhead at the top, plain blunt butt end; the large round shield stays on the left arm and clearly visible in every frame`
-- ready: `standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the long spear held level at the hip in the right hand and pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up across the body on the left arm in every frame`
-- charge: `charging forward at a heavy run in place, leaning into it, the long spear levelled at the hip in the right hand and pointed straight ahead the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; the large round shield held up in front on the left arm in every frame; the cloak streams back`
-- brace: `braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the large round shield forward in front of his body and leans into it, the long spear kept level low at his right side pointing forward the way he faces; then holds the braced crouch, breathing; single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame`
-- block: `blocks a heavy blow in place: snaps the large round shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the long spear stays level in the right hand pointing forward the way he faces in every frame, single leaf-shaped spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame; no sparks, no effects`
-- stagger: `struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the spear level and pointing forward and the shield on the left arm in every frame; no motion blur, no effects, single leaf-shaped spearhead, plain blunt butt end`
-- fallBack: `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood spray, no effects`
-- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood, no effects`
-- cheer: `victory cheer in place: he thrusts the long spear straight up high over his head in the right hand, spearhead pointing at the sky, keeps the large round shield on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; single leaf-shaped spearhead, plain blunt butt end; the shield stays on the left arm in every frame`
-- every NE description ends: `; seen from behind, the shield's dark back and rim face the viewer in every frame, never its painted face`
-- thrust (skeleton-v3, action "heavy spear thrust"): `grim muscular Theban Sacred Band hoplite in a dark weathered bronze Boeotian helmet with a wide flaring brim and an open face, very dark blue-black cloak, dark bronze muscle cuirass and greaves, one very large round bronze aspis with a muted dark-red club emblem on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike` (NE and NW: "… in his right hand, seen from behind, away from the viewer, …"; SE: "always pointing straight forward the way he faces at the same angle in every frame")
-
-
-- **Redo and standing wordings.** Each of these replaced part of the standard prompt:
-  - adjust, run and kneel NE a1: royal_guard's NE a2 wordings (above), word for word with "large round shield".
-  - block (NE, NW, SE): adds "never raised upright" after "the long spear stays level …".
-  - stagger (NE, NW, SE): `… he keeps his one spear level and pointing forward and the shield on the left arm in every frame, only one spear; no motion blur, no smears, no effects, …`.
-  - fallBack and fallFwd (all facings): `… and his one spear falls with him, only one spear in every frame; …`; NE adds "with its dark back and rim towards the viewer, dull and dark" (fallBack) or "dull and dark" (fallFwd) after "the shield stays strapped on his left arm".
-  - kneel NW: `… the round shield kept on his left arm at his left side and clearly visible in every frame`.
-  - cheer NE: drops "in front of his body".
-  - fallBack NW p2: `… no blood at all, no red spray, no effects, no particles`.
-  - thrust SE: the action label was "spear thrust" (the other facings "heavy spear thrust").
-  - run SE a2: adds `; his head keeps facing the lower right and the wide-brimmed Boeotian helmet keeps the same round shape in every frame, no crest, no plume`.
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | 16 clips SW, NE, NW | **Promoted.** 8 frames replaced after the colour cut. |
-| 2 | fallBack NW p1 | **Rejected:** a heavy blood spray over the body. |
-| 3 | run SE a1 | **Rejected:** the Boeotian helmet morphs into a crested peak. |
-| 4 | the redos and every other SE clip | **Promoted.** 2 frames replaced, 4 `clear` boxes. |
-
-**Lessons:**
-- Putting the dark-back line on every NE prompt from the start cost nothing and removed the NE shield-face rejects.
-- Name a non-generic helmet's shape in fast clips (run, charge), or the model drifts to a crested one.
-
-### thureophoros
-- `subject_description` SW and SE: `a grim lean Hellenistic thureophoros in a tall pointed dark bronze pilos helmet, a dark purple cloak over a pale grey-brown linen corselet, a tall oval dark wooden thureos shield with a central spine and boss and a short straight iron sword`; NE and NW: `a grim lean Hellenistic thureophoros seen from behind in a tall pointed dark bronze pilos helmet, a dark purple cloak over a pale grey-brown linen corselet, a tall oval dark wooden thureos shield and a short straight iron sword`; levelled clips end "a short straight iron sword"
-- `initial_pose` upright: `standing, the short sword held low in the right hand, the shield on the left arm`; levelled: `standing, the short sword held low in the right hand, the shield on the left arm`
-- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the short straight sword hangs low in the right hand, point down, one straight blade; the tall oval shield stays on the left arm in every frame`
-- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; the short straight sword stays low in the right hand, one straight blade; the tall oval shield stays on the left arm in every frame`
-- adjust: `standing still in place, he hitches the tall oval shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; the short straight sword stays low in the right hand, one straight blade`
-- walk: `steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the short straight sword held low in the right hand and swinging a little with each step, one straight blade; the tall oval shield stays on the left arm in every frame; the cloak sways`
-- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the short straight sword held low in the right hand, one straight blade; the tall oval shield stays clearly visible on the left arm in every frame; the cloak streams back`
-- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the short straight sword carried loosely in the right hand, one straight blade; the tall oval shield still on the left arm in every frame; the cloak flapping`
-- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the shield planted in front of him, head bowed, shoulders heaving with laboured breath; the short straight sword stays in the right hand, point resting on the ground, one straight blade; the tall oval shield stays on the left arm and clearly visible in every frame`
-- ready: `he raises the short straight sword to a fighting guard and stands in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the short straight sword held forward at waist height in the right hand, the point toward the enemy the way he faces in every frame, one straight blade; the tall oval shield held up across the body on the left arm in every frame`
-- charge: `charging forward at a heavy run in place, leaning into it, the tall oval shield held up in front on the left arm in every frame, the short straight sword held ready at his right side, point forward, one straight blade; the cloak streams back`
-- brace: `braces in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the tall oval shield forward in front of his body and leans into it, the short straight sword kept ready low at his right side, point forward; then holds the braced crouch, breathing; one straight blade; one shield on the left arm in every frame`
-- block: `blocks a heavy blow in place: snaps the tall oval shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the short straight sword stays in the right hand at his side, point forward, one straight blade; one shield on the left arm in every frame; no sparks, no effects`
-- stagger: `struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; one sword in the right hand and the shield on the left arm in every frame; no motion blur, no smears, no effects, one straight blade`
-- slash: `a heavy one-handed sword cut: he draws the short straight sword back and up behind his right shoulder, steps in on the left foot pushing the tall oval shield forward with the body, then swings the blade down and across in front of him in one diagonal cut, the hips and shoulders turning into the blow, follows through low to his left and recovers to his guard; he keeps facing towards the viewer's lower left the whole time; one short straight blade, perfectly straight and rigid in every frame, never bending or curving; one shield on the left arm in every frame; no swoosh arc, no motion trail, no smear, no blur, no effects`
-- fallBack: `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and his one sword falls with him; no blood, no effects`
-- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and his one sword falls with him; no blood, no effects`
-- cheer: `victory cheer in place: he thrusts the short straight sword straight up high over his head in the right hand, the point at the sky, keeps the tall oval shield on his left arm in front of his body, tips his head back shouting, then pumps the sword up and down twice; one straight blade; the shield stays on the left arm in every frame`
-- every NE description ends: `; seen from behind, the shield's dark back and rim face the viewer in every frame, never its face`
-
-- The levelled-guard clips (charge, brace, block, stagger, slash) start from `gready_<dir>` (ready f4) with `initial_pose` `standing in a fighting stance, the short sword held forward at the waist in the right hand, the shield on the left arm` (SE: "… held low in the right hand …"); ready itself starts from the padded rotation with the upright pose.
-- slash SW a2 said "he keeps facing the lower left the whole time"; the table now says "he keeps facing {t} the whole time".
-- slash SW s1 (skeleton-v3, action "heavy sword cut", `rig5.mjs slash1h south-west gready --weapon sword --grip 75,68`): `grim lean Hellenistic thureophoros in a tall pointed dark weathered bronze pilos helmet, dark purple-black cloak, pale grey-brown linen corselet over a dark purple tunic skirt, dark greaves, one tall oval dark wooden thureos shield with a central spine and an iron boss on his left arm, one short straight iron sword in his right hand, one straight rigid blade in one piece` — rejected (the sword hides through the cut).
-
-- **Redo wordings.**
-  - slash NE a2: starts `seen from behind the whole time, his back to the viewer in every frame: a heavy one-handed sword cut; …`, "never turning round to face the viewer", "one shield on the left arm, its dark back and rim towards the viewer" — rejected (still turned round).
-  - slash NE a3 (promoted, last frame pinned to the guard): `we watch him from behind and he never turns round: he lifts the short straight sword up and back over his right shoulder, steps forward on his left foot with the tall oval shield pushed ahead, then chops the blade down hard in front of him away from the viewer, his back, cloak and helmet towards us in every frame, the shoulders and hips turning with the blow, then he brings the sword back to his guard; one short straight rigid blade; one shield on the left arm with its dark back towards the viewer; no swoosh arc, no motion trail, no smear, no effects`; subject without the corselet; pose `seen from behind, standing in a fighting stance, the short sword held forward in the right hand, the shield on the left arm`.
-  - ready SE a2: `… the short straight sword held low and out at his right side, its point angled forward and down towards the viewer's lower right below the shield, the whole blade clearly visible in every frame, never hidden behind the shield, one straight blade; …`.
-  - charge and brace SE: add "towards the viewer's lower right, the blade clearly visible" to the sword's point.
-  - run NE a2: `… stays clearly visible on the left arm at his left side in every frame, its dark back and rim towards the viewer, never turning edge-on or its face round; …` (rejected); a3: `… the tall oval shield held out on the left arm beside his body, clearly visible at his left side next to the cloak in every frame, never hidden behind the cloak, its dark back and rim towards the viewer; …` (promoted).
-  - brace NW a2: `… the short straight sword kept ready low at his right side with its point forward towards the upper left the way he faces, never pointing backwards; …`.
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | 16 clips SW | **Promoted** (slash a2). slash a1 bent the blade and drew a swoosh; the skeleton slash hid the sword. |
-| 2 | slash NE a1, a2 | **Rejected:** he turns round to face the viewer. a3 promoted. |
-| 3 | run NE a1, a2 | **Rejected:** the shield hides edge-on. a3 promoted. |
-| 4 | brace NW a1 | **Rejected:** the sword points backwards. |
-| 5 | ready SE a1 | **Rejected:** the blade hides behind the shield. |
-| 6 | every other clip-facing | **Promoted.** 22 frames replaced in all (8 of them swooshes). |
-
-**Lessons:** every pixminimax sword cut draws a swoosh, so budget frame replacements; describe a back-view blow from behind and pin the last frame.
-
-### militia
-- `subject_description` SW and SE: `a grim weathered Greek peasant levy spearman in a low dark brown felt cap, a short faded dark crimson cloak and a plain dark umber tunic, no shield, his left hand empty and a wooden spear`; NE and NW: `a grim weathered Greek peasant levy spearman seen from behind in a low dark brown felt cap, a short faded dark crimson cloak and a plain dark umber tunic, no shield, his left hand empty and a wooden spear`; levelled clips end "a levelled wooden spear"
-- `initial_pose` upright: `standing upright, the spear held upright in the right hand, the left hand empty at his side, no shield`; levelled: `standing with the spear levelled at the hip pointing forward, no shield`
-- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the wooden spear stays upright in the right hand, single leaf-shaped iron spearhead at the top, plain blunt butt end; the left hand hangs empty at his side; no shield`
-- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; the wooden spear stays upright in the right hand, single leaf-shaped iron spearhead at the top; the left hand empty; no shield`
-- adjust: `standing still in place, he shifts his grip on the spear: lifts it a little with both hands, slides his right hand to a new hold on the shaft, sets the butt end back down by his right foot and rolls his shoulders; the wooden spear stays upright, single leaf-shaped iron spearhead at the top, plain blunt butt end; no shield`
-- walk: `steady marching walk in place towards the viewer's lower left, long natural strides, the wooden spear held upright in the right hand and swaying a little with each step, single leaf-shaped iron spearhead at the top, plain blunt butt end, no butt spike; the left arm swings free; no shield; the cloak sways`
-- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the wooden spear held upright in the right hand and tilted slightly forward, single leaf-shaped iron spearhead at the top, plain blunt butt end; the left arm pumping; no shield; the cloak streams back`
-- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the wooden spear carried loosely upright in the right hand, single leaf-shaped iron spearhead at the top, plain blunt butt end; the left arm flailing; no shield; the cloak flapping`
-- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the wooden spear planted upright beside him in both hands, head bowed, shoulders heaving with laboured breath; single leaf-shaped iron spearhead at the top, plain blunt butt end on the ground; no shield`
-- ready: `standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the wooden spear held level at the hip in both hands, the left hand forward on the shaft, pointing forward the way he faces in every frame, single leaf-shaped iron spearhead at the front end, plain blunt butt end; no shield`
-- charge: `charging forward at a heavy run in place, leaning into it, the wooden spear levelled at the hip in both hands and pointed straight ahead the way he faces in every frame, single leaf-shaped iron spearhead at the front end, plain blunt butt end; no shield; the cloak streams back`
-- brace: `braces against a charge in place: drops into a low crouch with the left foot forward, grounds the plain blunt butt end of the wooden spear against the ground beside his right foot behind him and angles the spear up and forward the way he faces, gripping it in both hands; then holds the braced crouch, breathing; single leaf-shaped iron spearhead at the front end; no shield`
-- block: `parries a heavy blow in place: raises the wooden spear diagonally across his chest in both hands, the spearhead still towards his front the way he faces, the shaft catching the blow in front of him, the impact jolts him back half a step, then he brings the spear back down level to his guard pointing forward; the spearhead never swings behind him; single leaf-shaped iron spearhead at the front end, plain blunt butt end; no shield; no sparks, no effects`
-- stagger: `struck hard and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the arms jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps his one spear level and pointing forward in every frame, only one spear; no shield; no motion blur, no smears, no effects, single leaf-shaped iron spearhead, plain blunt butt end`
-- fallBack: `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; his one spear falls with him, only one spear in every frame; no shield; no blood at all, no red spray, no splatter, no particles, no effects`
-- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; his one spear falls with him, only one spear in every frame; no shield; no blood at all, no red spray, no splatter, no particles, no effects`
-- cheer: `victory cheer in place: he thrusts the wooden spear straight up high over his head in the right hand, spearhead pointing at the sky, raises his left fist, tips his head back shouting, then pumps the spear up and down twice; single leaf-shaped iron spearhead, plain blunt butt end; no shield`
-- thrust (skeleton-v3, action "heavy spear thrust"): `grim weathered Greek peasant levy spearman in a low dark brown felt cap, short faded dark crimson cloak, plain dark umber wool tunic with a dark leather belt, bare legs, dark sandals, no shield, no armour, one wooden spear held in both hands, always pointing forward the way he faces, single leaf-shaped iron spearhead at the front end, plain blunt wooden butt end, no butt spike` (NE and NW: "… in his right hand, seen from behind, away from the viewer, …"; SE: "always pointing straight forward the way he faces at the same angle in every frame")
-
-- thrust (skeleton-v3, action "heavy two-handed spear thrust"): the description above with "one wooden spear held in both hands" (NE and NW add "seen from behind, away from the viewer"; SE "always pointing straight forward the way he faces at the same angle in every frame"). Keypoints: `i5a/rig5.mjs thrust2 <dir> guard_<dir>.png --weapon spear1 --grip <fist>` (SW 72,62; NE 58,65; NW 87,64; SE 36,65 on guardflat).
-
-- **Earlier wordings.** The table shows the final ones.
-  - block SW a1 (rejected, the spearhead swung behind him): `parries a heavy blow in place: snaps the wooden spear up across his body in both hands, the shaft catching the blow in front of his chest, …`. SW a2 said "the spearhead still towards his front, up and to the viewer's left"; NE, NW and SE use the table's "towards his front the way he faces".
-  - fallBack and fallFwd SW p1 ended "no blood spray, no effects" / "no blood, no effects"; fallBack SW p2 and every other facing use "no blood at all, no red spray, no splatter, no particles, no effects" (the model still paints bursts; they are cut by colour and the broken frames replaced).
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | block SW a1 | **Rejected:** the spearhead swings round behind him. |
-| 2 | fallBack SW p1 | **Rejected:** a blood burst over the body (the crimson cloak class cannot map blood to shadow). |
-| 3 | every other clip-facing (64 + 2 redos) | **Promoted.** 4 frames replaced for blood that broke the body or spear once cut. |
-
-**Lessons:** for a crimson-cloaked class, blood residue joins the cloak group, so review every fall after the cut; a spear parry needs "the spearhead still towards his front … never swings behind him".
-
-### peltast
-- `subject_description` SW and SE: `a grim lean Greek peltast in an open-faced dark bronze Thracian helmet with a forward-curving peak, a short dark crimson cloak, a leather jerkin and tall boots, a crescent-shaped pelte shield and a wooden spear`; NE and NW: `a grim lean Greek peltast seen from behind in an open-faced dark bronze Thracian helmet with a forward-curving peak, a short dark crimson cloak, a leather jerkin and tall boots, a crescent-shaped pelte shield and a wooden spear`; levelled clips end "a levelled wooden spear"
-- `initial_pose` upright: `standing upright, the spear held upright in the right hand, the shield on the left arm`; levelled: `standing with the spear levelled at the hip pointing forward, the shield on the left arm`
-- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the spear stays upright in the right hand, single leaf-shaped iron spearhead at the top, plain blunt butt end; the crescent pelte shield stays on the left arm across the body in every frame`
-- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; the spear stays upright in the right hand, single leaf-shaped iron spearhead at the top; the crescent pelte shield stays on the left arm in every frame`
-- adjust: `standing still in place, he hitches the crescent pelte shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; the spear stays upright in the right hand, single leaf-shaped iron spearhead at the top, plain blunt butt end`
-- walk: `steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the spear held upright in the right hand and swaying a little with each step, single leaf-shaped iron spearhead at the top, plain blunt butt end, no butt spike; the crescent pelte shield stays on the left arm across the body in every frame; the cloak sways`
-- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the spear held upright in the right hand and tilted slightly forward, single leaf-shaped iron spearhead at the top, plain blunt butt end; the crescent pelte shield stays clearly visible on the left arm in every frame; the cloak streams back`
-- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the spear carried loosely upright in the right hand, single leaf-shaped iron spearhead at the top, plain blunt butt end; the crescent pelte shield still on the left arm in every frame; the cloak flapping`
-- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the shield planted in front of him, head bowed, shoulders heaving with laboured breath; the spear stays in the right hand, upright, single leaf-shaped iron spearhead at the top, plain blunt butt end; the crescent pelte shield stays on the left arm and clearly visible in every frame`
-- ready: `standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the spear held level at the hip in the right hand and pointing forward the way he faces in every frame, single leaf-shaped iron spearhead at the front end, plain blunt butt end; the crescent pelte shield held up across the body on the left arm in every frame`
-- charge: `charging forward at a heavy run in place, leaning into it, the spear levelled at the hip in the right hand and pointed straight ahead the way he faces in every frame, single leaf-shaped iron spearhead at the front end, plain blunt butt end; the crescent pelte shield held up in front on the left arm in every frame; the cloak streams back`
-- brace: `braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the crescent pelte shield forward in front of his body and leans into it, the spear kept level low at his right side pointing forward the way he faces; then holds the braced crouch, breathing; single leaf-shaped iron spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame`
-- block: `blocks a heavy blow in place: snaps the crescent pelte shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the spear stays level in the right hand pointing forward the way he faces in every frame, single leaf-shaped iron spearhead at the front end, plain blunt butt end; one shield on the left arm in every frame; no sparks, no effects`
-- stagger: `struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the spear level and pointing forward and the shield on the left arm in every frame; no motion blur, no effects, single leaf-shaped iron spearhead, plain blunt butt end`
-- fallBack: `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood spray, no effects`
-- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood, no effects`
-- cheer: `victory cheer in place: he thrusts the spear straight up high over his head in the right hand, spearhead pointing at the sky, keeps the crescent pelte shield on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; single leaf-shaped iron spearhead, plain blunt butt end; the shield stays on the left arm in every frame`
-- throw: `a powerful overarm javelin throw, facing towards the viewer's lower left the whole time: he raises the spear to his right shoulder, level and pointing forward with single leaf-shaped iron spearhead in front of him and the butt behind his shoulder, draws it back along its own line, plants his left foot forward with the crescent pelte shield held out in front, then whips his hips, shoulders and arm forward and hurls it; the spear leaves his hand and flies off forward out of the frame, spearhead first; he follows through with his empty right hand forward and down and stays facing the same way, never turning round; the spearhead always points forward the way he faces; one spear only; no motion blur, no trail, no effects`
-- every NE description ends: `; seen from behind, the shield's dark back and rim face the viewer in every frame, never its face`
-- thrust (skeleton-v3, action "heavy spear thrust"): `grim lean Greek peltast in an open-faced dark weathered bronze Thracian helmet with a forward-curving peak and cheek guards, short deep dark crimson cloak, dark leather jerkin over a dark oxblood-brown tunic, tall dark leather boots, one crescent-shaped pelte shield of dark hide with a dark bronze rim on his left arm, one wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped iron spearhead at the front end, plain blunt wooden butt end, no butt spike` (NE and NW: "… in his right hand, seen from behind, away from the viewer, …"; SE: "always pointing straight forward the way he faces at the same angle in every frame")
-
-- thrust (skeleton-v3, action "heavy spear thrust"): `grim lean Greek peltast in an open-faced dark weathered bronze Thracian helmet with a forward-curving peak and cheek guards, short deep dark crimson cloak, dark leather jerkin over a dark oxblood-brown tunic, tall dark leather boots, one crescent-shaped pelte shield of dark hide with a dark bronze rim on his left arm, one wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped iron spearhead at the front end, plain blunt wooden butt end, no butt spike` (NE and NW add "seen from behind, away from the viewer"; SE "always pointing straight forward the way he faces at the same angle in every frame"). Keypoints: `rig.mjs thrust <dir> guard_<dir>.png --grip <fist>` (SW 71,63; NE 58,65; NW 87,65; SE 36,62 on guardflat).
-
-- **Wordings actually sent where they differ from the table.**
-  - block, every facing: adds "never raised upright" after "pointing forward the way he faces in every frame" and ends "no sparks, no effects". NE adds "seen from behind, the shield's dark back and rim face the viewer in every frame, never its face" to block, stagger and throw a1.
-  - fallBack and fallFwd, every facing: "… and his one spear falls with him, only one spear in every frame; no blood at all, no red spray, no splatter, no particles, no effects" (the model still paints bursts; cut, and the broken frames replaced).
-  - throw SW a1 (rejected): `a powerful overarm javelin throw: he lifts the spear and draws it back over his right shoulder, the throwing arm cocked and the point aimed forward, plants his left foot forward with the crescent pelte shield held out in front for balance, then whips his hips, shoulders and arm forward and hurls the spear; it leaves his hand and flies away forward the way he faces, out of the frame, single leaf-shaped iron spearhead leading in flight; he follows through with his empty right hand forward and down, then recovers to standing; one spear only; no motion blur, no trail, no effects`
-  - throw NE a2 (rejected): `we watch him from behind and he never turns round: a powerful overarm javelin throw towards the upper right; he raises the spear to his right shoulder, level, its spearhead pointing up and to the right, ahead of him, away from the viewer, and the butt end behind his shoulder towards the viewer; …; the spearhead always points to the upper right and never to the left; …`
-  - throw NE a3 (promoted): `seen from behind, his back to the viewer in every frame: he lowers the spear from upright straight forward into a throwing grip over his right shoulder, the spear lying along the line from his shoulder up and away to the upper right, its spearhead far out at the upper right and the butt just behind his shoulder; he leans back, then lunges forward to the upper right and hurls the spear; it flies away to the upper right out of the frame, spearhead first; his empty right hand follows through towards the upper right; the spear is never across his body and never points left or down; the crescent pelte shield stays on his left arm with its dark back to the viewer; one spear only; no motion blur, no trail, no effects`
-  - throw SE a2 (rejected): as NE a3 with "out to the lower right … never to the left or up; he keeps facing the lower right".
-  - throw SE a3 (promoted; guard first frame, levelled subject and pose): `a powerful overarm javelin throw, facing south-east towards the lower right the whole time: from his guard he lifts the levelled spear up to his right shoulder, the spearhead still pointing down and away to the lower right in front of him, draws his arm back keeping the spearhead pointing to the lower right, steps forward and hurls the spear hard so it flies away to the lower right out of the frame, then his right hand ends empty and follows through; the spear always lies along the line from his shoulder down and away to the lower right and never points up or to the left; one spear only, single leaf-shaped iron spearhead, plain blunt butt end; the shield stays on the left arm; no motion blur, no trail, no effects`
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | throw SW a1 | **Rejected:** the spearhead points backwards in the draw-back; he turns round after. |
-| 2 | throw NE a1, a2 | **Rejected:** the spearhead points left (backwards) in the draw-back. |
-| 3 | throw SE a1, a2 | **Rejected:** the spearhead points up-left in the draw-back. |
-| 4 | every other clip-facing (68) | **Promoted.** 18 frames replaced (blood 13, sparks 2, a block that turns the shield face 3); 4 throw frames cleared of a stuck spear. |
-
-**Lessons:** spell out the javelin's line per facing and start the SE throw from the level guard; check every fall and stagger of a crimson class after the cut.
-
-### javelineer
-- `subject_description` SW and SE: `a grim lean Carthaginian javelin skirmisher in a soft dark umber felt Thracian cap with a tall forward-curving top, a short dark purple-black cloak and a plain dark umber tunic, a small crescent-shaped pelte shield and two javelins`; NE and NW: `a grim lean Carthaginian javelin skirmisher seen from behind in a soft dark umber felt Thracian cap with a tall forward-curving top, a short dark purple-black cloak and a plain dark umber tunic, a small crescent-shaped pelte shield and two javelins`; levelled clips end "two levelled javelins"
-- `initial_pose` upright: `standing upright, the two javelins held upright in the right hand, the shield on the left arm`; levelled: `standing with the two javelins levelled at the hip pointing forward, the shield on the left arm`
-- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the two javelins stays upright in the right hand, each with one small leaf-shaped iron head at the top, plain blunt butt end; the small crescent pelte shield stays on the left arm across the body in every frame`
-- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; the two javelins stays upright in the right hand, each with one small leaf-shaped iron head at the top; the small crescent pelte shield stays on the left arm in every frame`
-- adjust: `standing still in place, he hitches the small crescent pelte shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; the two javelins stays upright in the right hand, each with one small leaf-shaped iron head at the top, plain blunt butt end`
-- walk: `steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the two javelins held upright in the right hand and swaying a little with each step, each with one small leaf-shaped iron head at the top, plain blunt butt end, no butt spike; the small crescent pelte shield stays on the left arm across the body in every frame; the cloak sways`
-- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the two javelins held upright in the right hand and tilted slightly forward, each with one small leaf-shaped iron head at the top, plain blunt butt end; the small crescent pelte shield stays clearly visible on the left arm in every frame; the cloak streams back`
-- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the two javelins carried loosely upright in the right hand, each with one small leaf-shaped iron head at the top, plain blunt butt end; the small crescent pelte shield still on the left arm in every frame; the cloak flapping`
-- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the shield planted in front of him, head bowed, shoulders heaving with laboured breath; the two javelins stays in the right hand, upright, each with one small leaf-shaped iron head at the top, plain blunt butt end; the small crescent pelte shield stays on the left arm and clearly visible in every frame`
-- ready: `standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; the two javelins held level at the hip in the right hand and pointing forward the way he faces in every frame, each with one small leaf-shaped iron head at the front end, plain blunt butt end; the small crescent pelte shield held up across the body on the left arm in every frame`
-- charge: `charging forward at a heavy run in place, leaning into it, the two javelins levelled at the hip in the right hand and pointed straight ahead the way he faces in every frame, each with one small leaf-shaped iron head at the front end, plain blunt butt end; the small crescent pelte shield held up in front on the left arm in every frame; the cloak streams back`
-- brace: `braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the small crescent pelte shield forward in front of his body and leans into it, the two javelins kept level low at his right side pointing forward the way he faces; then holds the braced crouch, breathing; each with one small leaf-shaped iron head at the front end, plain blunt butt end; one shield on the left arm in every frame`
-- block: `blocks a heavy blow in place: snaps the small crescent pelte shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the two javelins stay level in the right hand pointing forward the way he faces in every frame, never raised upright, each with one small leaf-shaped iron head at the front end, plain blunt butt end; one shield on the left arm in every frame; no sparks, no effects`
-- stagger: `struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the two javelins level and pointing forward and the shield on the left arm in every frame, only two javelins; no motion blur, no smears, no effects, each with one small leaf-shaped iron head, plain blunt butt end`
-- fallBack: `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and his two javelins fall with him, only two javelins in every frame; no blood at all, no red spray, no splatter, no particles, no effects`
-- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and his two javelins fall with him, only two javelins in every frame; no blood at all, no red spray, no splatter, no particles, no effects`
-- cheer: `victory cheer in place: he thrusts the two javelins straight up high over his head in the right hand, the iron heads pointing at the sky, keeps the small crescent pelte shield on his left arm in front of his body, tips his head back shouting, then pumps the two javelins up and down twice; each with one small leaf-shaped iron head, plain blunt butt end; the shield stays on the left arm in every frame`
-- throw: `a powerful overarm javelin throw, facing towards the viewer's lower left the whole time: he passes one javelin to his left hand, where it stays upright behind the small crescent pelte shield, raises the other javelin to his right shoulder, level and pointing forward with its small iron head in front of him and the butt behind his shoulder, draws it back along its own line, plants his left foot forward, then whips his hips, shoulders and arm forward and hurls it; the javelin leaves his hand and flies off forward out of the frame, head first; he follows through with his empty right hand forward and down and stays facing the same way, never turning round; the thrown javelin always points forward the way he faces; the spare javelin stays upright in his left hand behind the shield; no motion blur, no trail, no effects`
-- every NE description ends: `; seen from behind, the shield's dark back and rim face the viewer in every frame, never its face`
-- thrust (skeleton-v3, action "heavy spear thrust"): `grim lean Carthaginian javelin skirmisher in a soft dark umber felt Thracian cap with a tall forward-curving top and ear flaps, short deep dark purple-black cloak, plain dark umber wool tunic with a dark leather belt, bare legs, dark sandals, one small crescent-shaped pelte shield of dark wicker and hide on his left arm, two javelins held level together at the hip in his right hand, always pointing forward the way he faces, each with one small leaf-shaped iron head at the front end, plain blunt wooden butt ends, no butt spike` (NE and NW: "… in his right hand, seen from behind, away from the viewer, …"; SE: "always pointing straight forward the way he faces at the same angle in every frame")
-
-- thrust (skeleton-v3, action "heavy spear thrust"): `grim lean Carthaginian javelin skirmisher in a soft dark umber felt Thracian cap with a tall forward-curving top and ear flaps, short deep dark purple-black cloak, plain dark umber wool tunic with a dark leather belt, bare legs, dark sandals, one small crescent-shaped pelte shield of dark wicker and hide on his left arm, two javelins held level together at the hip in his right hand, always pointing forward the way he faces, each with one small leaf-shaped iron head at the front end, plain blunt wooden butt ends, no butt spike` (NE and NW add "seen from behind, away from the viewer"; SE "always pointing straight forward the way he faces at the same angle in every frame"). Keypoints: `rig.mjs thrust <dir> guard_<dir>.png --grip <fist>` (SW 72,62; NE 57,65; NW 87,65; SE 39,61 on guardflat).
-
-- **Wordings actually sent where they differ from the table.**
-  - throw NE a1 (rejected) and NW a1 (promoted), from tpad: `seen from behind, his back to the viewer in every frame: he passes one javelin to his left hand, where it stays upright behind the small crescent pelte shield, and lowers the other from upright straight forward into a throwing grip over his right shoulder, the javelin lying along the line from his shoulder up and away to the upper right [NW: upper left], its small iron head far out at the upper right and the butt just behind his shoulder; he leans back, then lunges forward to the upper right and hurls it; it flies away to the upper right out of the frame, head first; his empty right hand follows through towards the upper right; the thrown javelin is never across his body and never points left or down [NW: never points right or down]; the spare javelin stays upright in his left hand behind the shield, the shield's dark back and rim to the viewer; no motion blur, no trail, no effects`
-  - throw SE a1 (rejected), from tpad: as above towards "the viewer's lower right … never points up or to the left".
-  - throw NE a2 and SE a2 (promoted), from the guard with the levelled subject and pose: `… from his guard he passes one javelin to his left hand, where it stays upright behind the small crescent pelte shield, and lifts the other up to his right shoulder, its small iron head still pointing up and away to the upper right [SE: down and away to the lower right] ahead of him; he draws his arm back keeping the head pointing to the upper right, steps forward and hurls it hard so it flies away to the upper right out of the frame, head first, then his right hand ends empty and follows through; the thrown javelin always lies along the line from his shoulder up and away to the upper right and never points left or down …`
-  - fallBack SE p2 (rejected) adds "the same dark purple-black cloak and dark umber tunic in every frame … no flash"; p3 (promoted): `killed in battle: he slumps, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; no wound is shown; the same dark purple-black cloak and dark umber tunic in every frame; the shield stays strapped on his left arm and his two javelins fall with him, only two javelins in every frame; no blood at all, no red, no spray, no splatter, no particles, no flash, no effects`
-  - stagger SE a2: adds "the small crescent pelte shield stays strapped on his left arm and clearly visible in front of him in every frame".
-  - block NE a2: `blocks a heavy blow in place: raises the small crescent pelte shield on his left arm up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; seen from behind, the shield's dark back and rim stay clearly visible at his left side in every frame, never its face; …`
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | throw NE a1, SE a1 | **Rejected:** the head points backwards in the draw-back (SE also loses the shield). |
-| 2 | fallBack SE p1, p2 | **Rejected:** blood bursts; p1 also recolours the man. |
-| 3 | stagger SE a1, block NE a1 | **Rejected:** the shield vanishes. |
-| 4 | every other clip-facing (67) | **Promoted.** 9 frames replaced, 2 cleared, 2 clips re-timed with `frames`. |
-
-**Lessons:** a javelin pair needs the guard frame by hand; start NE and SE throws from the guard; never clear "red" on a purple-cloaked class.
-
-
-
-
-
-
-## 19. PixelLab shieldless, two-handed and missile foot classes, animation (I5b)
-
-Full log, ids, costs and every rejection: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I5b. Jobs and picks:
-`docs/v5/pixellab/I5b/<class>.jobs.json`, `<class>.picks.json`. Tools: `scripts/art/pixellab/i5b/`.
-
-**Fixed fields** (every clip, pixminimax): `view: high top-down`, `direction` = the facing, `subject_description` per
-class (front facings; the back facings NE and NW add "seen from behind" and drop what only shows from the front),
-`initial_pose` the rest pose (rot, tall, die canvases) or the guard pose (stance clips and the attack). The SW wording is
-given; the other facings swap "towards the viewer's lower left" for "lower right" / "away from the viewer towards the
-upper right / left", and the back facings open with "seen from behind,". Frames: guard 8, look and walk 16, attack 16,
-the rest 12.
-
-### rhomphaia
-
-- subject: `a tall grim Thracian rhomphaia warrior in an open-faced dark bronze Phrygian helmet, a dark crimson cloak, a dark iron scale corselet, dark brown trousers and dark bronze greaves, no shield, one long rhomphaia: a wooden shaft and a long slightly curved single-edged iron blade`
-  (back: `a tall grim Thracian rhomphaia warrior seen from behind, an open-faced dark bronze Phrygian helmet, a dark crimson cloak, dark brown trousers and dark bronze greaves, no shield, one long rhomphaia: a wooden shaft and a long slightly curved single-edged iron blade`)
-- rest pose: `standing upright, the rhomphaia held upright in his right hand at his right side, the long blade standing up above his head, his left hand empty, no shield`; guard pose: `in a low fighting guard, both hands on the shaft, the long curved blade pointed forward low ahead of him, knees bent`
-- guard (a2, tall canvas, last frame = the guard): `he takes his fighting guard in place: he grips the shaft with both hands, right hand at his right hip and left hand in front of his chest, and lowers the rhomphaia forward so the long curved iron blade points ahead of him towards the viewer's lower left at head height, the edge down, ready to strike; knees bent, the left foot a little forward; one rhomphaia only, both hands on the shaft at the end; no shield, no effects` (NE a3: `seen from behind, his back and cloak to the viewer in every frame, … he keeps facing away towards the upper right, he does not turn round; …`)
-- slash (a3, from the guard on the attack canvas): `a heavy two-handed cleaving cut towards the viewer's lower left: from his low guard he heaves the rhomphaia back and up over his right shoulder with both hands on the shaft, steps forward onto his left foot with the hips turning first, and brings the long blade down hard in a diagonal arc from above his right shoulder to low at his left in front of him, the edge leading, the body following through low and bent forward, then he settles back into his low guard with the blade pointed forward; both hands on the shaft the whole time; the blade keeps its own long, slightly curved shape and size in every frame; one rhomphaia only; no smear, no sparks, no motion trails, no blood, no effects` (back facings add "he keeps facing away")
-- idle: `standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; the rhomphaia stays upright in the right hand at his right side, one long curved iron blade at the top above his head, the wooden shaft below; no shield`
-- look: `standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder, the face never turns away from the viewer's side; the rhomphaia stays upright in the right hand at his right side, the long curved iron blade at the top above his head; feet planted; no shield` (back: "his back stays to the viewer")
-- adjust: `standing still in place, he shifts his grip on the heavy rhomphaia: he lifts it a little in his right hand, settles the shaft back against his shoulder side and plants it upright again, rolling his shoulders loose; the feet stay planted; the rhomphaia stays upright in the right hand at his right side in every frame, the long curved iron blade at the top above his head, the wooden shaft below; no shield`
-- walk: `steady marching walk in place towards the viewer's lower left, long natural strides, the rhomphaia held upright in the right hand at his right side and swaying a little with each step, the long curved iron blade at the top above his head; the left arm swings naturally; the cloak sways; no shield`
-- run: `running in place at a steady heavy jog towards the viewer's lower left, knees lifting, leaning a little forward, the rhomphaia held upright in the right hand at his right side and tilted slightly forward, the long curved iron blade at the top above his head; the left arm pumping; the cloak streams back; no shield` (back: "…, clearly visible in every frame")
-- rout: `fleeing in panic, running in place fast towards the viewer's lower left, hunched forward with the head low between the shoulders, the rhomphaia carried loosely upright in the right hand, the long curved iron blade at the top; the left arm flailing; the cloak flapping; no shield`
-- kneel: `badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the rhomphaia planted upright beside him like a staff, head bowed, shoulders heaving with laboured breath; the rhomphaia stays in his right hand, upright, the long curved iron blade at the top; no shield, no blood, no effects`
-- ready (guard): `standing in place in a tense fighting stance, knees bent, the weight shifting slowly from foot to foot, breathing; both hands stay on the shaft and the long curved iron blade stays pointed forward towards the viewer's lower left in every frame, swaying a little; one rhomphaia only; no shield, no effects`
-- charge (guard): `charging forward at a heavy run in place towards the viewer's lower left, leaning into it, knees driving, both hands on the shaft and the long curved iron blade held forward and low ahead of him the way he faces in every frame; one rhomphaia only; the cloak streams back; no shield, no effects` (NE a2 and NW: "the whole rhomphaia clearly visible in every frame, never hidden")
-- brace (guard): `braces to hold the line in place: he drops into a low wide crouch with the left foot forward and the right foot braced back, both hands firm on the shaft, the long curved iron blade set low and pointed forward towards the viewer's lower left like a hedge against a charge; then holds the braced crouch, breathing; one rhomphaia only, both hands on the shaft in every frame; no shield, no effects`
-- block (guard): `parries a heavy blow in place: he snaps the rhomphaia up with both hands on the shaft and holds it across in front of his head and chest to catch the blow on the wooden shaft, the impact jolts him back half a step, then he lowers it back to his guard with the long curved blade pointed forward towards the viewer's lower left; both hands on the shaft in every frame; one rhomphaia only; no shield, no sparks, no effects`
-- stagger (guard): `struck hard and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the arms jolted, nearly losing his balance, then plants his feet and steps forward back into his low guard; both hands stay on the shaft and the long curved iron blade stays pointed forward towards the viewer's lower left in every frame; one rhomphaia only; no motion blur, no blood, no effects; no shield`
-- fallBack (die canvas): `killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the rhomphaia falls from his hands and lies beside him; no blood spray, no effects`
-- fallFwd: `killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the rhomphaia falls from his hands and lies beside him; no blood, no effects`
-- cheer (tall): `victory cheer in place: he thrusts the rhomphaia straight up high over his head in his right hand, the long curved iron blade pointing at the sky, raises his left fist, tips his head back shouting, then pumps the weapon up and down twice; one rhomphaia only, the blade at the top in every frame; no shield, no effects`
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | guard SW a1 | **Rejected:** a port carry, the blade over the left shoulder |
-| 2 | guard NE a2 | **Rejected:** turns round to face the viewer |
-| 3 | slash SW a2 | **Rejected:** crescent smears, a long held low pose |
-| 4 | charge NE a1 | **Rejected:** the weapon vanishes f1–f3 |
-| 5 | everything else | **Promoted** (crescent smear frames dropped from the slash; cut-damaged frames replaced) |
-
-**Lessons:** pixminimax draws a good guard by itself: an 8-frame "takes his guard" clip is a cheap first frame for every
-stance clip and for the attack. Start the attack from that guard, and end it there, so it joins `ready`. At the blow it
-always bends a long blade into a crescent smear: drop those frames and hold the windup's peak instead. "His back and cloak
-to the viewer in every frame … he does not turn round" keeps a back facing from swinging round in a stance.
-
-## 20. PixelLab mounted and chariot clips (I5c)
-
-The four I4b bases animated to game sheets. Full log, every attempt and verdict: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I5c. Jobs: `docs/v5/pixellab/I5c/<class>.jobs.json`; prompts by id: `docs/v5/pixellab/I5c/prompts.json`. Tools: `scripts/art/pixellab/i5c/`.
-
-**Call settings:** `animate_image_pixminimax`, `first_frame_url` = the base rotation pasted on the class's work canvas (riders 144 x 160 at 22,44; chariot 176 x 176 at 24,40; 1 generation per 12-16-frame clip at 144 x 160), `view: high top-down`, `direction` = the facing, `subject_description` and `initial_pose` given. Loops: `last_frame_url` = the first frame (idle, walk, keyed gallop / charge / rout loops on a stretched mid-gallop key). Back views (NE, NW) open with "seen from behind, the rider faces away the whole time" and say "away from us, never back towards us" of the weapon; otherwise the rider turns to the camera mid-clip.
-
-### companion
-
-- **C-idle-1**
-  ```
-  the horse stands at rest and breathes slowly: its barrel swells and sinks, it shifts its weight from one hind leg to the other, lowers and raises its head a little, flicks its ears and swishes its tail; the rider sits calm and still in the saddle, breathing, the lance held upright in his right hand with its single spearhead at the top; the hooves stay planted where they are; exactly four legs on the horse in every frame
-  ```
-
-- **C-thrust-1**
-  ```
-  the rider strikes overarm with the lance and the horse's momentum behind it: the horse gathers itself and surges forward one powerful stride in place, as it does the rider lifts the lance and draws it back above his right shoulder, point aimed forward and down, then rises in the seat, turns his torso into the blow and drives the lance hard forward along its own line, arm fully extended, the horse's weight lunging with him; a held moment at full reach, then the horse settles and he brings the lance back upright; one lance with a single spearhead that always leads, a plain blunt butt; exactly four legs on the horse in every frame
-  ```
-
-- **C-stagger-1**
-  ```
-  the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the lance kept upright in his right hand with its single spearhead at the top; exactly four legs on the horse in every frame
-  ```
-
-- **C-thrust-2**
-  ```
-  a couched lance thrust with the horse's momentum behind it: the rider swings the lance down level under his right arm, the spearhead pointing forward ahead of the horse's head and the butt behind his elbow; the horse gathers and lunges one powerful stride forward in place, and with the lunge the rider leans forward, turns his torso into the blow and drives the lance hard forward along its own line, arm extended; a held moment at full reach, then the horse settles and he raises the lance back upright; the spearhead always points forward in the direction the horse faces, never backwards; one lance with a single spearhead, a plain blunt butt; exactly four legs on the horse in every frame
-  ```
-
-- **C-walk-1**
-  ```
-  the horse walks in place in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed, swaying with the horse, the lance held upright in his right hand with its single spearhead at the top; exactly four legs on the horse in every frame
-  ```
-
-- **C-thrust-3**
-  ```
-  a couched lance thrust with the horse's momentum behind it: the rider tips the lance forward and down, its spearhead swinging down ahead of the horse's head to point forward to the south-east, the butt tucked under his right arm behind him; he never swings the lance back over his shoulder; the horse gathers and lunges one powerful stride forward in place, and with the lunge the rider leans forward, turns his torso into the blow and drives the lance hard forward along its own line, arm extended; a held moment at full reach, then the horse settles and he raises the lance back to slanting upright; the spearhead always points forward in the direction the horse faces; one lance with a single spearhead, a plain blunt butt; exactly four legs on the horse in every frame (the facing name follows the direction)
-  ```
-
-- **C-fall-1**
-  ```
-  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it pitches forward onto its knees, then its hindquarters sink and it rolls heavily over onto its side on the ground, legs folding; the rider is thrown forward out of the saddle and falls to the ground beside the horse, the lance dropping flat on the ground; they come to rest lying still; no blood; exactly four legs on the horse in every frame
-  ```
-
-- **C-thrust-4**
-  ```
-  seen from behind, the rider faces away to the north-east the whole time: a couched lance thrust with the horse's momentum behind it; the rider lowers the lance level under his right arm, the spearhead pointing forward to the north-east past the horse's head and the butt behind his elbow; the horse gathers and lunges one powerful stride forward in place, and with the lunge the rider leans forward, his back to us, and drives the lance hard forward along its own line, arm extended; a held moment at full reach, then the horse settles and he raises the lance back upright; the spearhead always points forward, away from us, never back towards us; one lance with a single spearhead, a plain blunt butt; exactly four legs on the horse in every frame
-  ```
-
-- **C-fall-2**
-  ```
-  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, its four legs stretched out on the ground, its head down; the rider is thrown clear of the saddle and falls hard to the ground in front of the horse, apart from it, and lies still on his back, the lance dropping flat on the ground beside him; no blood; exactly four legs on the horse in every frame
-  ```
-
-- **C-cheer-1**
-  ```
-  victory: the rider thrusts the lance high above his head in his right hand, spearhead to the sky, and shakes it in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the lance raised high; one lance with a single spearhead at the top; exactly four legs on the horse in every frame
-  ```
-
-- **C-charge-1**
-  ```
-  the charge: the horse gallops flat out in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears back, head low and neck stretched; as it gallops the rider lowers the lance into the couched position under his right arm, level, the spearhead pointing forward far ahead of the horse's head, and leans forward low over the neck into the charge, the cloak streaming behind; one lance with a single spearhead that leads; exactly four legs on the horse in every frame
-  ```
-
-- **C-fall-3**
-  ```
-  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, its four legs stretched out on the ground, its head down; the rider is thrown clear of the saddle and falls hard to the ground beside the horse, apart from it, and lies still on his back, the lance dropping flat on the ground beside him; no blood; exactly four legs on the horse in every frame
-  ```
-
-- **C-charge-2**
-  ```
-  the charge, seen from behind: the horse gallops flat out in place away from us in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, head low and neck stretched; as it gallops the rider lowers the lance into the couched position under his right arm, level, the spearhead pointing forward far ahead of the horse's head, away from us, and leans forward low over the neck into the charge, the cloak streaming behind; one lance with a single spearhead that leads; exactly four legs on the horse in every frame
-  ```
-
-- **C-chargeloop-1**
-  ```
-  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider leans forward low into the charge with the lance couched level under his right arm, the spearhead pointing forward ahead of the horse's head in every frame, the cloak streaming; exactly four legs on the horse in every frame
-  ```
-
-- **C-chargeloop-2**
-  ```
-  seen from behind: one full stride of a real horse's heavy gallop in place away from us in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider leans forward low into the charge with the lance couched level under his right arm, the spearhead pointing forward ahead of the horse's head in every frame, the cloak streaming; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **C-cheer-2**
-  ```
-  victory: the rider thrusts the lance high above his head in his right hand, spearhead to the sky, and shakes it in triumph; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the lance raised high; seen from behind the whole time; one lance with a single spearhead at the top; exactly four legs on the horse in every frame
-  ```
-
-- **C-rout-1**
-  ```
-  the rider flees in panic at a flat-out gallop: he hunches low over the horse's neck and twists his head to look back over his shoulder in fear, the lance trailing upright in his right hand with its single spearhead at the top, the cloak flying behind; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; exactly four legs on the horse in every frame
-  ```
-
-- **C-rout-2**
-  ```
-  seen from behind, the rider flees in panic at a flat-out gallop away from us: he hunches low over the horse's neck and twists his head to look back over his shoulder in fear, the lance trailing upright in his right hand with its single spearhead at the top, the cloak flying behind; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **C-routloop-1**
-  ```
-  seen from behind: one full stride of a real horse's heavy gallop in place away from us in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the tail streams back; the rider flees hunched low over the horse's neck, head down, facing forward away from us, the lance trailing upright in his right hand with its single spearhead at the top, the cloak flying; no dust; exactly four legs on the horse in every frame
-  ```
-
-Subjects (`subject_description`): companion: "a Macedonian Companion cavalryman with one long lance seated on a dark bay warhorse"; companionBack: "a Macedonian Companion cavalryman with one long lance seated on a dark bay warhorse, seen from behind"; companionGallop: "a Macedonian Companion cavalryman with one long lance on a galloping dark bay warhorse"; companionGallopBack: "a Macedonian Companion cavalryman with one long lance on a galloping dark bay warhorse, seen from behind"; companionCharge: "a Macedonian Companion cavalryman charging with one long lance couched, on a galloping dark bay warhorse"; companionChargeBack: "a Macedonian Companion cavalryman charging with one long lance couched, on a galloping dark bay warhorse, seen from behind"
-Poses (`initial_pose`): stand: "the horse standing square on four legs, the rider upright with the lance held vertically"; standSlant: "the horse standing square on four legs, the rider upright with the lance slanting forward over the horse's head"; standBack: "the horse standing square on four legs facing away, the rider upright with his back to us and the lance held vertically"; gallopKey: "mid-gallop, the legs stretched out front and back, the lance slanting forward"; gallopKeyBack: "mid-gallop, the legs stretched out front and back, the lance upright"; chargeKey: "mid-gallop, the legs stretched out front and back, the lance couched level and pointing forward"; routKey: "mid-gallop, the rider hunched low with the lance upright"
-
-| Clip | Attempts | Shipped | Main rejections |
-| --- | --- | --- | --- |
-| thrust | 7 | C-thrust-2 (SW), C-thrust-3 (SE), C-thrust-4 (NE, NW) | an overarm draw turned the lance round (head behind, SW a1, SE a1); NE a1 the rider turned to the camera |
-| charge | 4 entries + 3 keyed loops | keyed loops (SE, NE, NW), an entry stride (SW) | dust clumps at the hooves (cleared), no clean couched loop in the SE entry |
-| rout | 4 entries + 2 keyed loops | entries SW, SE; keyed NE, NW | NE entry: a cartoon face turned to the camera |
-| fallFwd | 5 | C-fall-2 / C-fall-3 | SW a1: the rider stayed draped over the lying horse |
-| idle, walk, stagger, cheer | 1-2 each | first try (idle SW re-rolled pinned) | idle SW a1 unpinned: the tail jumped at the wrap |
-
-**Lessons:** a lance prompt must say *couched … the spearhead always points forward … never backwards*; pin loops with `last_frame_url`; a gallop entry run often already holds an 8-frame stride that loops (`loopfind.mjs`), else key a loop on a stretched frame; deaths need "thrown clear … apart from it" or the rider stays on the horse.
-
-### horse_archer
-
-- **H-idle-1**
-  ```
-  the horse stands at rest and breathes slowly: its barrel swells and sinks, it shifts its weight from one hind leg to the other, lowers and raises its head a little, flicks its ears and swishes its tail; the rider sits calm and still in the saddle, breathing, the bow held up in his raised left hand, his right hand on the reins; the hooves stay planted where they are; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-gallop-1**
-  ```
-  the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-shoot-1**
-  ```
-  at a full gallop the rider shoots from the saddle: he reaches back over his right shoulder to the quiver and takes one arrow, nocks it on the bow held in his left hand, turns his torso towards the target ahead, pushes the bow out at arm's length and draws the string back to his cheek with his right hand, holds for a heartbeat, then releases: the string snaps forward and the arrow is gone; he lowers the drawing hand and the bow comes back up to rest; the horse keeps galloping in place with a real horse's gallop the whole time; one bow only, one arrow at a time; exactly four legs on the horse in every frame
-  ```
-
-- **H-stagger-1**
-  ```
-  the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the bow kept in his left hand; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-walk-1**
-  ```
-  the horse walks in place in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed, swaying with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-gallop-2**
-  ```
-  seen from behind: the horse gallops in place away from us in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the bow held up in his left hand; one bow only; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **H-fall-1**
-  ```
-  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, its four legs stretched out on the ground, its head down; the rider is thrown clear of the saddle and falls hard to the ground in front of the horse, apart from it, and lies still on his back, the bow dropping on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-gallopLoop-1**
-  ```
-  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-gallopLoop-2**
-  ```
-  seen from behind: one full stride of a real horse's heavy gallop in place away from us in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the bow held up in his left hand; one bow only; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **H-shoot-2**
-  ```
-  seen from behind, the rider faces away the whole time: at a full gallop he shoots from the saddle: he reaches back over his right shoulder to the quiver and takes one arrow, nocks it on the bow held in his left hand, turns his torso towards the target ahead, pushes the bow out at arm's length and draws the string back to his cheek with his right hand, holds for a heartbeat, then releases: the string snaps forward and the arrow is gone; he lowers the drawing hand and the bow comes back up to rest; the horse keeps galloping in place away from us with a real horse's gallop the whole time; one bow only, one arrow at a time; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **H-fall-2**
-  ```
-  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it and lies still on his back, the bow on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-walk-2**
-  ```
-  seen from behind: the horse walks in place away from us in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed with his back to us, swaying with the horse, the bow held up in his left hand; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-stagger-2**
-  ```
-  seen from behind, the rider faces away the whole time: the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the bow kept in his left hand; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-fall-3**
-  ```
-  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches sideways off the falling horse's shoulder, slides down to the ground beside it and lies still on his back, the bow on the ground beside him; no blood; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-rout-1**
-  ```
-  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the tail streams back, ears pinned; the rider flees in panic, hunched low over the horse's neck, head down, the bow clutched in his left hand; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-fall-4**
-  ```
-  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its far side, legs stretched out on the ground; the rider is thrown off towards us and falls to the ground in front of the horse, clearly apart from it, and lies still on his back on the ground, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-rout-2**
-  ```
-  the rider flees in panic at a flat-out gallop: he is bent double, crouched low over the horse's neck, and twists his head to look back over his shoulder in fear, the bow clutched in his left hand; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-fall-5**
-  ```
-  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider is thrown off over the far side of the horse, away from us, and falls to the ground behind it, clearly apart from it, and lies still, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-fall-6**
-  ```
-  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider is thrown clear off the near side of the horse, towards us, and falls to the ground beside it, clearly apart from the horse, and lies still on his back, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-rout-3**
-  ```
-  seen from behind, the rider flees in panic at a flat-out gallop away from us: he is bent double, crouched low over the horse's neck, head down, facing forward away from us the whole time, the bow clutched in his left hand; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-fall-7**
-  ```
-  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle and never stands up: as the horse goes down he slides sideways off its near side, towards us, drops to the ground beside it, clearly apart from the horse, and lies still on his back, the bow beside him; no blood; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-cheer-1**
-  ```
-  victory: the rider thrusts the bow high above his head in his left hand and shakes it in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the bow raised high; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-cheer-2**
-  ```
-  seen from behind, the rider faces away the whole time: victory: he thrusts the bow high above his head in his left hand and shakes it in triumph; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the bow raised high; one bow only; exactly four legs on the horse in every frame
-  ```
-
-- **H-rout-4**
-  ```
-  seen from behind, the rider flees in panic at a flat-out gallop away from us: he crouches low over the horse's neck, head down, facing forward away from us the whole time, the bow still clearly visible held upright in his left hand out at his left side; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; one bow only; exactly four legs on the horse in every frame
-  ```
-
-Subjects (`subject_description`): horse_archer: "a Scythian horse archer with one recurved bow seated on a dark brown steppe horse"; horse_archerGallop: "a Scythian horse archer with one recurved bow on a galloping dark brown steppe horse"; horse_archerBack: "a Scythian horse archer with one recurved bow seated on a dark brown steppe horse, seen from behind"; horse_archerGallopBack: "a Scythian horse archer with one recurved bow on a galloping dark brown steppe horse, seen from behind"
-Poses (`initial_pose`): haStand: "the horse standing square on four legs, the rider upright with the bow raised in his left hand"; haGallopKey: "mid-gallop, the rider upright with the bow raised in his left hand"; haStandBack: "the horse standing square on four legs facing away, the rider upright with his back to us and the bow raised in his left hand"; haGallopStretch: "mid-gallop, the legs stretched out front and back, the bow raised in his left hand"
-
-| Clip | Attempts | Shipped | Main rejections |
-| --- | --- | --- | --- |
-| shoot | 4 | H-shoot-1 (SE, SW), H-shoot-2 (NE, NW) on the gallop key | none; dust and the flying arrow cleared |
-| gallop | 4 entries + 2 keyed loops | strides SW, NW; keyed SE, NE | entries SE, NE did not loop in 8 or 16 |
-| rout | 2 keyed + 4 entries + 1 | entries (H-rout-2, -3, -4) | keyed loops kept him upright; NW a1 lost the bow |
-| fallFwd | 9 | H-fall-2 (SW), -3 (NE), -5 (SE), -7 (NW) | floating rider, rider merged into the horse, boots off the canvas |
-| idle, walk, stagger, cheer | 1 each | first try | none |
-
-**Lessons:** a keyed loop keeps the key's posture: a rout or any posture change must be in the entry run. Shoot on the move: pin the clip to the gallop key both ends and rotate frames so the release frame matches across facings.
-
-### thessalian
-
-- **T-idle-1**
-  ```
-  the horse stands at rest and breathes slowly: its barrel swells and sinks, it shifts its weight from one hind leg to the other, lowers and raises its head a little, flicks its ears and swishes its tail; the rider sits calm and still in the saddle, breathing, the two javelins held upright in his right hand with their small heads at the top, the buckler on his left arm; the hooves stay planted where they are; exactly four legs on the horse in every frame
-  ```
-
-- **T-gallop-1**
-  ```
-  the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
-  ```
-
-- **T-throw-1**
-  ```
-  at a full gallop the rider hurls a javelin from the saddle: he lifts one of the two javelins from his right hand, cocks it back above his right shoulder with the point forward, turns his torso and shoulders back, then whips his body round and throws it hard forward with his whole arm and the turn of his torso, his weight surging forward over the horse's neck; the javelin flies off forward and is gone; he recovers upright with the one remaining javelin upright in his right hand; the buckler stays on his left arm; the horse keeps galloping in place with a real horse's gallop the whole time; every javelin has one small head at the front and a plain blunt butt; exactly four legs on the horse in every frame
-  ```
-
-- **T-stagger-1**
-  ```
-  the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
-  ```
-
-- **T-walk-1**
-  ```
-  the horse walks in place in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed, swaying with the horse, the two javelins held upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
-  ```
-
-- **T-throw-2**
-  ```
-  at a full gallop the rider hurls one javelin forward from the saddle without ever turning round: he keeps facing forward the way the horse runs the whole time; he raises one javelin to his right shoulder, point forward, draws his right arm back with the point still aimed ahead, twists his torso a little back, then drives his shoulder and arm forward and throws it hard ahead with the turn of his torso, leaning forward over the horse's neck; the javelin flies off forward and is gone; he settles upright again with the javelins upright in his right hand; the javelin heads always point forward or up, never backwards; the buckler stays on his left arm; the horse keeps galloping in place with a real horse's gallop the whole time; exactly four legs on the horse in every frame
-  ```
-
-- **T-gallop-2**
-  ```
-  seen from behind: the horse gallops in place away from us in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, facing away from us, the cloak flapping, the two javelins kept upright in his right hand, the buckler on his left arm; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **T-throw-3**
-  ```
-  at a full gallop the rider throws one javelin forward like a dart: he brings one javelin down level beside his head, its point aimed straight ahead past the horse's head; keeping the point aimed ahead, he draws it straight back along its own line, his torso twisting back; then he whips torso, shoulder and arm forward and launches it straight ahead, leaning over the horse's neck, and it flies away forward; he settles upright, the remaining javelins upright in his right hand; the javelin head is always in front of his hand, pointing ahead the way the horse runs; the buckler stays on his left arm; the horse keeps galloping in place the whole time; exactly four legs on the horse in every frame
-  ```
-
-- **T-throw-4**
-  ```
-  at a full gallop the rider hurls one javelin down at an enemy ahead: he lifts one javelin high above his right shoulder, tilting it so its small head points forward and down towards the ground ahead of the horse, like a harpoon; he rises in the stirrups, twists his torso, then flings it forward and down with all his weight, his arm whipping through and his body leaning over the horse's neck; the javelin leaves his hand point first and is gone; he sits back upright with the other javelin upright in his right hand; the javelin head always points the way the horse runs; the buckler stays on his left arm; the horse keeps galloping in place the whole time; exactly four legs on the horse in every frame
-  ```
-
-- **T-walk-2**
-  ```
-  seen from behind: the horse walks in place away from us in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed with his back to us, swaying with the horse, the two javelins held upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
-  ```
-
-- **T-throw-5**
-  ```
-  seen from behind, the rider faces away the whole time: at a full gallop he hurls one javelin down at an enemy ahead: he lifts one javelin high above his right shoulder, tilting it so its small head points forward and down towards the ground ahead of the horse, away from us; he rises in the stirrups, twists his torso, then flings it forward and down with all his weight, leaning over the horse's neck; the javelin leaves his hand point first and is gone; he sits back upright with the other javelin upright in his right hand; the javelin head always points the way the horse runs, never back towards us; the buckler stays on his left arm; the horse keeps galloping in place the whole time; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **T-stagger-2**
-  ```
-  seen from behind, the rider faces away the whole time: the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the two javelins kept upright in his right hand, the buckler on his left arm; exactly four legs on the horse in every frame
-  ```
-
-- **T-fall-1**
-  ```
-  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it, clearly apart from the horse, and lies still on his back, the javelins and the buckler on the ground beside him; no blood; exactly four legs on the horse in every frame
-  ```
-
-- **T-rout-1**
-  ```
-  the rider flees in panic at a flat-out gallop: he is bent double, crouched low over the horse's neck, and twists his head to look back over his shoulder in fear, the javelins clutched in his right hand, the buckler on his left arm; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **T-cheer-1**
-  ```
-  victory: the rider thrusts the javelins high above his head in his right hand, heads to the sky, and shakes them in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head; the buckler stays on his left arm; every javelin has one small head at the top; exactly four legs on the horse in every frame
-  ```
-
-- **T-rout-2**
-  ```
-  seen from behind, the rider flees in panic at a flat-out gallop away from us: he is bent double, crouched low over the horse's neck, head down, facing forward away from us the whole time, the javelins clutched upright in his right hand, the buckler on his left arm; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; exactly four legs on the horse in every frame
-  ```
-
-- **T-cheer-2**
-  ```
-  seen from behind, the rider faces away the whole time: victory: the rider thrusts the javelins high above his head in his right hand, heads to the sky, and shakes them in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head; the buckler stays on his left arm; every javelin has one small head at the top; exactly four legs on the horse in every frame
-  ```
-
-- **T-fall-2**
-  ```
-  seen from behind: the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, legs stretched out on the ground; the rider never rises above the saddle: he pitches forward and sideways off the falling horse's shoulder, slides down to the ground beside it, clearly apart from the horse, and lies still on his back, the javelins and the buckler on the ground beside him; no blood; exactly four legs on the horse in every frame
-  ```
-
-Subjects (`subject_description`): thessalian: "a Thessalian light cavalryman with two javelins and a small round buckler seated on a dark dun-grey horse"; thessalianGallop: "a Thessalian light cavalryman with two javelins and a small round buckler on a galloping dark dun-grey horse"; thessalianBack: "a Thessalian light cavalryman with two javelins and a small round buckler seated on a dark dun-grey horse, seen from behind"; thessalianGallopBack: "a Thessalian light cavalryman with two javelins and a small round buckler on a galloping dark dun-grey horse, seen from behind"
-Poses (`initial_pose`): tStand: "the horse standing square on four legs, the rider upright with two javelins held upright in his right hand"; tGallopKey: "mid-gallop, the legs stretched out front and back, the javelins upright in his right hand"; tStandBack: "the horse standing square on four legs facing away, the rider upright with his back to us and two javelins held upright in his right hand"
-
-| Clip | Attempts | Shipped | Main rejections |
-| --- | --- | --- | --- |
-| throw | 7 | T-throw-4 (SW, SE), T-throw-5 (NE, NW), with frame cuts | the drawn-back javelin pointing backwards; the rider turning his back to the facing; a double-ended raised javelin |
-| fallFwd | 5 | T-fall-1 / -2 | one stuck job (cancelled) |
-| gallop, rout | entries only | entry strides | none |
-| idle, walk, stagger, cheer | 1 each | first try | none |
-
-**Lessons:** for a javelin say "lifts it overhead … head points forward and down … flings it forward and down", and cut the frames where the head turns back. Light dust touching the hooves needs a lightness cut in the bottom rows (`dust.mjs`), not only a speck filter.
-
-### chariot
-
-- **K-idle-1**
-  ```
-  the chariot stands still: the two horses stand at rest under the yoke and breathe slowly, their barrels swelling and sinking, each shifting its weight, tossing its head a little and swishing its tail; the driver stands in the car holding the reins, breathing, his sword in his right hand; the wheels and the scythe blades stay still; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-drive-1**
-  ```
-  the chariot drives at full speed in place in the direction it faces: both horses gallop side by side with a real horse's heavy gallop, hind legs pushing off, forelegs reaching and striking the ground, heads nodding, manes and tails streaming; the two spoked wheels spin fast and the scythe blades on the hubs whirl round with them; the car bounces on the ground; the driver leans forward braced in the car, holding the reins taut, his sword in his right hand, his cloak streaming; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-drive-2**
-  ```
-  seen from behind: the chariot drives at full speed in place away from us in the direction it faces: both horses gallop side by side with a real horse's heavy gallop, hind legs pushing off, forelegs reaching and striking the ground, heads nodding, manes and tails streaming; the two spoked wheels spin fast and the scythe blades on the hubs whirl round with them; the car bounces on the ground; the driver, his back to us, leans forward braced in the car holding the reins taut, his cloak streaming; no dust; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-hit-1**
-  ```
-  the chariot is struck: both horses shy in fright, throwing up their heads and half rearing in the traces, front hooves pawing the air, then drop back onto all four hooves and stamp; the car jolts and rocks back on its wheels; the driver is thrown back, braces himself and hauls on the reins, the sword still in his right hand; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-charge-1**
-  ```
-  the scythed chariot charges flat out in place in the direction it faces: both horses gallop at full stretch with heads low and necks straining, hind legs driving, forelegs reaching and striking the ground; the wheels spin fast and the long scythe blades on the hubs whirl round, glinting dully; the driver crouches low in the car, lashes the reins and swings his curved sword overhead, ready to cut; manes, tails and his cloak stream behind; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-rout-1**
-  ```
-  the chariot flees in panic at full speed in place in the direction it faces: both horses bolt at a wild gallop, ears pinned back, eyes rolling, heads thrown up, hind legs driving and forelegs reaching; the wheels spin fast and the car bounces and sways; the driver crouches low in the car, hunched in fear, and looks back over his shoulder, hauling at the reins; manes, tails and his cloak stream behind; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-wreck-1**
-  ```
-  the chariot is wrecked: both horses are struck and go down, stumbling and crashing onto their knees and then onto their sides in a tangle of traces; the pole snaps, the car slews round, tips over onto one wheel and crashes down on its side, one wheel spinning loose; the driver is thrown out of the car onto the ground and lies still beside the wreck; no blood, no fire; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-charge-2**
-  ```
-  seen from behind, the driver faces away the whole time: the scythed chariot charges flat out in place away from us in the direction it faces: both horses gallop at full stretch with heads low and necks straining, hind legs driving, forelegs reaching and striking the ground; the wheels spin fast and the long scythe blades on the hubs whirl round; the driver crouches low in the car, lashes the reins and swings his curved sword overhead, ready to cut; manes, tails and his cloak stream behind; no dust; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-idle-2**
-  ```
-  the chariot stands still: the two horses stand at rest under the yoke and breathe slowly, their barrels swelling and sinking, each shifting its weight, tossing its head a little and swishing its tail; the driver stands in the car holding the reins, breathing; the wheels and the scythe blades stay still; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-hit-2**
-  ```
-  seen from behind, the driver faces away the whole time: the chariot is struck: both horses shy in fright, throwing up their heads and half rearing in the traces, front hooves pawing the air, then drop back onto all four hooves and stamp; the car jolts and rocks back on its wheels; the driver is thrown back, braces himself and hauls on the reins; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-rout-2**
-  ```
-  seen from behind, the driver faces away the whole time: the chariot flees in panic at full speed in place away from us in the direction it faces: both horses bolt at a wild gallop, ears pinned back, heads thrown up, hind legs driving and forelegs reaching; the wheels spin fast and the car bounces and sways; the driver crouches low in the car, hunched in fear, hauling at the reins; manes, tails and his cloak stream behind; no dust; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-- **K-wreck-2**
-  ```
-  seen from behind: the chariot is wrecked: both horses are struck and go down, stumbling and crashing onto their knees and then onto their sides in a tangle of traces; the pole snaps, the car slews round, tips over onto one wheel and crashes down on its side, one wheel spinning loose; the driver is thrown out of the car onto the ground and lies still beside the wreck; no blood, no fire; exactly two horses, each with exactly four legs, in every frame
-  ```
-
-Subjects (`subject_description`): chariot: "a Carthaginian scythed war chariot pulled by two dark bay horses, one driver in the car"; chariotBack: "a Carthaginian scythed war chariot pulled by two dark bay horses, one driver in the car, seen from behind"; chariotGallop: "a Carthaginian scythed war chariot pulled by two dark bay horses at the gallop, one driver in the car"; chariotGallopBack: "a Carthaginian scythed war chariot pulled by two dark bay horses at the gallop, one driver in the car, seen from behind"
-Poses (`initial_pose`): cStand: "the two horses standing square under the yoke, the driver upright in the car holding the reins"; cStandBack: "the two horses standing square under the yoke facing away, the driver upright in the car with his back to us holding the reins"; cGallop: "both horses mid-gallop, the driver leaning forward with the reins"
-
-**Lessons:** a two-horse chariot animates as one figure on a 176 canvas at 1 generation per clip; say "exactly two horses, each with exactly four legs". Pin the charge to a drive key with `last_frame_url` so it loops. Earth clods share the coat colours: cut them by shape, not by colour.
-
-
-### celt_sword
-
-- subject: `a grim moustached Celtic swordsman in a low dark iron Montefortino helmet, dark green plaid cloak, iron ring mail, bronze torc, dark checked trousers, one tall oval dark wooden shield with an iron boss on his left arm, one long straight iron longsword in his right hand`
-  (back: `a grim Celtic swordsman seen from behind, a low dark iron Montefortino helmet, dark green plaid cloak, dark checked trousers, one tall oval dark wooden shield on his left arm, one long straight iron longsword in his right hand`)
-- rest pose: `standing upright, the longsword held point down in his right hand at his right side, the tall oval shield on his left arm`; guard pose: `in a fighting guard, the tall oval shield up in front of his body, the longsword raised beside it in his right hand, knees bent`
-- guard: `he takes his fighting guard in place: he brings the tall oval shield up in front of his body on his left arm, rim at his chin, and raises the longsword in his right hand, the blade held up and forward over the shield's right edge, the point towards the viewer's lower left at shoulder height; knees bent, the left foot a little forward; one sword and one shield only, the shield stays on his left arm in every frame; no effects` (other facings: "point up beside the shield's right edge, ready to strike towards …"; back facings: "his back to the viewer in every frame … he keeps facing away")
-- slash (a2; NE a3, NW a2 as noted): `a heavy one-handed cutting blow at an enemy in front of him towards the viewer's lower left: from his guard he draws the longsword back high over his right shoulder, then steps forward onto his left foot with the hips and shoulders turning, driving the tall shield forward with his body, and brings the long blade down hard in a diagonal arc into the enemy in front of him, ending low ahead of his left knee with the point still towards the viewer's lower left, then he recovers back into his guard behind the shield; he keeps facing the viewer's lower left in every frame; the shield stays on his left arm; one sword only, the straight blade keeps its shape and size; no smear, no sparks, no motion trails, no blood, no effects`
-  - NE a3 / NW: opens `seen from behind, his back and cloak to the viewer in every frame, …`, adds `he never turns round to the viewer, his face stays away`; NW a2 also `steps forward onto his left foot towards the upper left … into the enemy ahead of him towards the upper left … his body keeps facing the upper left the whole time, he never turns round or sideways to the viewer`
-- idle, look, walk, run, rout, kneel, ready, charge, block, stagger, fallBack, fallFwd, cheer: the rhomphaia wording with the weapon and shield slot swapped: `the longsword stays point down in the right hand at his right side; the tall oval shield stays on the left arm in every frame` (back facings: "… and clearly visible in every frame"). adjust: `standing still in place, he hitches the heavy tall oval shield up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down at his side; the shield never leaves his arm; the longsword stays point down in the right hand; feet planted`. brace: `braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets the tall oval shield forward in front of his body and leans his shoulder into it, the longsword held ready low at his right side pointing forward; then holds the braced crouch, breathing; one shield on the left arm in every frame; one sword; no effects`. block: `blocks a heavy blow in place: snaps the tall oval shield up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; the longsword stays raised in the right hand; one shield on the left arm in every frame; one sword; no sparks, no effects`. stagger: `struck hard on the shield and knocked back: …` (the rhomphaia's, the shield arm jolted). Deaths: `… the tall oval shield stays strapped on his left arm and the longsword falls with him …`. cheer: `… he thrusts the longsword straight up high over his head in his right hand, point to the sky, keeps the tall oval shield on his left arm …`.
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | slash SW a1 | **Rejected:** turns south mid-cut, the blade ends off the target |
-| 2 | slash NE a2 | **Rejected:** turns round to the camera in the windup |
-| 3 | slash NW a1 | **Rejected:** turns west through the follow-through |
-| 4 | everything else | **Promoted** (crescent smear frames dropped) |
-
-**Lessons:** name the enemy and where the blow ends ("into the enemy in front of him, ending low ahead of his left knee
-with the point still towards …") or the cut drifts across the body and the man turns with it. For the back facings say
-what the body keeps doing ("his body keeps facing the upper left the whole time"), not only "seen from behind".
-
-### archer
-
-- subject: `a lean grim Cretan archer, bare head with short dark curly hair and a short beard, a short dark crimson cloak, a dark leather jerkin over a dark oxblood-brown tunic, a quiver of arrows on his back, bare legs and sandals, one plain wooden bow with a single curved limb, no shield` (back: `a lean grim Cretan archer seen from behind, bare head with short dark curly hair, a short dark crimson cloak, a quiver of arrows on his back, bare legs and sandals, one plain wooden bow with a single curved limb, no shield`)
-- rest pose: `standing upright, the bow held vertically in his left hand at his left side, his right hand empty, no shield`; ready pose: `in a low ready stance, the bow held low in front of him with an arrow nocked, knees bent`
-- shoot (attack canvas, from the rest): `he shoots an arrow at an enemy ahead of him towards the viewer's lower left: he draws one arrow from the quiver over his right shoulder and nocks it on the string, turns side-on and raises the bow in his straight left arm towards the target, pulls the string back with his right hand all the way to his cheek, his back and right shoulder drawn tight, holds a moment, then releases: the string snaps forward, the bow arm recoils and the arrow is gone at once, his right hand flies back past his ear in the follow-through, then he lowers the bow to his side; one bow only, a single curved limb; no second bow, no effects, no motion trails` (back facings: `seen from behind, his back to the viewer in every frame, … from the quiver on his back …`)
-- guard: `he takes a ready stance in place: he draws one arrow from the quiver and nocks it on the string, then holds the bow low in front of his body in his left hand with the arrow pointing down and forward towards the viewer's lower left, his right hand on the string, knees a little bent, ready to draw; one bow only, a single curved limb; no second bow, no effects`
-- stab (attack canvas): `a short hard melee blow at an enemy close in front of him towards the viewer's lower left: he grips the bow with both hands, steps in on his left foot with his weight behind it and rams the end of the bow forward into the enemy's face, the hips and shoulders driving the blow, then pulls it back and steps back to stand upright with the bow in his left hand; one bow only, a single curved limb; no second bow, no sparks, no blood, no effects`
-- adjust (a2): `standing still in place, he reaches up with his right hand and tugs the quiver strap on his chest to settle the quiver on his back, rolls his right shoulder, then lowers the hand again; the one bow never moves from his left hand at his left side, held vertical in every frame; there is only one bow; feet planted; no shield`
-- ready: `standing in place in a tense ready stance, knees bent, the weight shifting slowly from foot to foot, breathing; the one bow held low in front of him with an arrow nocked, pointing forward and down towards the viewer's lower left in every frame, his right hand on the string; no second bow, no shield, no effects`; block: `wards off a blow in place: he flinches and throws the bow up across in front of his head and chest with both hands to catch the blow on the bow, the impact jolts him back half a step, then he lowers it back to his low ready stance; one bow only; no second bow, no shield, no sparks, no effects`; charge: `charging forward at a fast run in place towards the viewer's lower left, leaning into it, knees driving, the one bow gripped in the left hand at his side, the right arm pumping; the quiver stays on his back; the cloak streams back; no second bow, no shield, no effects`; cheer: `victory cheer in place: he thrusts the one bow straight up high over his head in his left hand, raises his right fist, tips his head back shouting, then pumps the bow up and down twice; one bow only; no second bow, no shield, no effects`
-- idle, look, walk, run, rout, kneel, stagger, deaths: the rhomphaia wording with `the one bow … in the left hand at his left side` and `no second bow` (kneel: `leaning on the one bow planted upright beside him in his left hand`; deaths: `the one bow falls from his hand and lies beside him`)
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | adjust SW a1 | **Rejected:** a second bow ("flexes the bow" draws one in each hand) |
-| 2 | everything else | **Promoted** (loosed arrows cleared, the release re-timed to index 10) |
-
-**Lessons:** never ask the archer to handle the bow with both hands at rest ("flexes", "tests the string"): the model
-draws a second bow. Say "the one bow never moves … there is only one bow". The model draws the loosed arrow in flight
-(and sometimes one before the shot): clear the detached pieces, the game draws the missile.
-
-### falx
-
-- subject: `a grim tall Dacian falx warrior, bare head with long black hair and a full black beard, a plain dark moss-green cloak, a warm dark umber leather jerkin, dark brown trousers, no shield, one falx: a long wooden haft and a long forward-curved iron sickle blade` (back: `a grim tall Dacian falx warrior seen from behind, long black hair, a plain dark moss-green cloak, dark brown trousers, no shield, one falx: a long wooden haft and a long forward-curved iron sickle blade`)
-- rest pose: `standing upright, the falx gripped with both hands in front of his right side, no shield`; guard pose: `in a low fighting guard, both hands on the haft, the curved falx blade forward low ahead of him, knees bent`
-- guard: the rhomphaia's with `… lowers the falx forward so the long curved iron sickle blade points ahead of him towards the viewer's lower left at head height, its inner edge towards the enemy …`
-- slash: `a heavy two-handed hooking cut at an enemy in front of him towards the viewer's lower left: from his low guard he heaves the falx back and up over his right shoulder with both hands on the haft, steps forward onto his left foot with the hips turning first, and brings the curved sickle blade down hard in a diagonal arc from above his right shoulder into the enemy in front of him, the inner edge leading, ending low at his left with the body bent forward in the follow-through, then he settles back into his low guard with the blade forward; both hands on the haft the whole time; the curved blade keeps its own shape and size in every frame; he keeps facing the viewer's lower left; one falx only; no smear, no sparks, no motion trails, no blood, no effects` (back facings: `seen from behind, his back and cloak to the viewer in every frame, … he never turns round to the viewer`)
-- look NW (after NE was rejected): `seen from behind, standing still in place, he slowly turns his head a little to his right, holds, then a little to his left, holds, then back; only the head turns slightly, his back and the back of his head stay to the viewer in every frame, his face never shows; …`
-- the other clips: the rhomphaia wording with `the falx … in both hands in front of his right side` (kneel: `leaning his weight on the falx planted upright beside him like a staff`; cheer: `thrusts the falx straight up high over his head with both hands, the curved iron blade at the sky`)
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | look NE a1 | **Rejected frames:** the head turns round to face the viewer |
-| 2 | everything else | **Promoted** (crescent smear frames dropped) |
-
-**Lessons:** "never further than over his shoulder" is not enough for a back-facing look: say "his back and the back of
-his head stay to the viewer in every frame, his face never shows". A leather colour on a skin step is fixed in the spec
-with a per-step `parts` key, no retint needed.
-
-### gallic
-
-- subject: `a grim tall bare-chested Gallic warrior with limed pale-grey spiked hair and a long moustache, blue woad on his chest, a bronze torc, dark trousers, one tall oval plain dark hide shield with a dark iron boss on his left arm, one heavy iron war axe on a wooden haft in his right hand` (back: `a grim tall bare-chested Gallic warrior seen from behind, limed pale-grey spiked hair, bare back, dark trousers, one tall oval dark hide shield on his left arm, one heavy iron war axe on a wooden haft in his right hand`)
-- rest pose: `standing upright, the war axe held down at his right side, the tall oval shield on his left arm`; guard pose: `in a fighting guard, the tall oval shield up in front of his body, the war axe raised beside it in his right hand, knees bent`
-- guard: the celt_sword's with `… raises the war axe in his right hand, the axe head up beside the shield's right edge …`; SE a2 adds `the shield stays plain dark brown hide with only a dark iron boss, no metal rim, no gold`
-- slash (front, a2): `a heavy one-handed chopping blow at an enemy in front of him towards the viewer's lower left: from his guard he lifts the war axe straight up high over his right shoulder without turning away, then steps forward onto his left foot with the hips and shoulders turning towards the viewer's lower left, driving the tall shield forward with his body, and brings the axe down hard in a diagonal chop into the enemy in front of him, the axe blade leading, ending low ahead of his left knee, then he recovers back into his guard behind the shield; his face and chest stay towards the viewer's lower left in every frame, he never turns his back or turns round; the shield stays on his left arm; one axe only, the axe keeps its shape and size; no smear, no sparks, no motion trails, no blood, no effects` (SE a2: `… a short diagonal chop past the shield's edge … the tall oval shield stays on his left arm in front of his body, clearly visible in every frame, it never disappears and never moves to his other side`; back facings: the celt_sword's NW a2 wording with the axe)
-- block: front a3 `takes cover in place: he crouches a little and pulls the tall oval shield up higher in front of his body until its rim is at his eyes, braces behind it with his shoulder for a moment, then lowers it back to his guard; he does not turn …`; SE `he thrusts the tall oval shield up and forward towards the viewer's lower right, his left shoulder leading …`; back `… his back stays to the viewer in every frame, he never turns round …`
-- deaths (a2 and all back facings): `dying in battle: his strength suddenly gives out, his knees buckle and he topples over backwards … his body stays clean, no wounds, no red, no blood at all, no effects`
-- the other clips: the celt_sword wording with `the war axe … down in the right hand` and no cloak
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | guard SE a1 | **Rejected:** a bright gold shield rim and boss |
-| 2 | slash SW a1, SE a1 | **Rejected:** he turns his back in the windup; the shield swings out of sight |
-| 3 | block SW a1, a2 | **Rejected:** he turns his back on the blow |
-| 4 | fallBack SW SE a1 | **Rejected:** blood bursts over the body |
-| 5 | everything else | **Promoted** (turned-round, smear, spark and blood frames dropped by `frames`) |
-
-**Lessons:** "killed … he is struck" brings a blood burst over the chest in most deaths; "his strength suddenly gives
-out … no wounds, no red" gives clean falls. Blood over the body must be dropped by frame, not cut by colour (the cut
-holes the figure). A block "at a blow" makes the model turn side-on to the attacker; "takes cover … he does not turn"
-holds the facing better. A shielded one-hand chop keeps facing only with "his face and chest stay towards … he never
-turns his back".
-
-### slinger
-
-- subject: `a lean grim Rhodian slinger, bare head with short dark hair and a short dark beard, a short dark crimson cloak, a dark oxblood-brown tunic with a leather belt and a bullet pouch, bare legs and sandals, one leather sling hanging from his right hand, no shield` (back: `a lean grim Rhodian slinger seen from behind, short dark hair, a short dark crimson cloak, a dark oxblood-brown tunic, bare legs and sandals, one leather sling hanging from his right hand, no shield`)
-- rest pose: `standing upright, the sling hanging from his right hand at his right side, his left hand empty`; ready pose: `in a low ready stance, knees bent, the loaded sling held low in his right hand, his left arm forward`
-- guard: `he takes a ready stance in place: he fits one lead bullet into the sling's pouch with his left hand, then holds the two cords in his right hand with the loaded pouch hanging low beside his right leg, his left arm reaching forward towards the viewer's lower left at the target, knees a little bent, ready to whirl; one sling only, in the right hand; no shield, no effects`
-- sling (attack canvas, from the rest): `he slings a lead bullet at an enemy far ahead of him towards the viewer's lower left: he turns side-on with his weight on the back foot, raises the loaded sling over his head in his right hand and whirls it round in fast flat circles above his head, the two cords taut and the loaded pouch circling at their end, his left arm pointing at the target; then he steps forward onto his left foot and whips his right arm forward and down, letting one cord go: the pouch snaps open and the bullet is gone at once, the empty sling flicks forward past his left hip in the follow-through, then he lowers it to his side; one sling only, in the right hand; no flying bullet, no motion trails, no effects` (back facings: `seen from behind, his back and cloak to the viewer in every frame, … he never turns round to the viewer`)
-- stab (attack canvas): front `a short hard melee blow at an enemy close in front of him …: he wraps the sling's cords round his right fist, steps in on his left foot with his weight behind it and swings the loaded pouch in a short hard overhand arc down onto the enemy's head like a club …`; back a2 `… he lifts the loaded sling pouch over his right shoulder with the cords wound round his fist, steps in on his left foot towards the upper right and brings the pouch down hard straight ahead of him like a club onto the enemy's head … his body keeps facing the upper right the whole time, he never turns sideways or round to the viewer …`
-- adjust: `he reaches down with his left hand to the bullet pouch at his hip, takes out one lead bullet, looks at it and drops it back, then lets the hand fall; the sling never leaves his right hand …; there is only one sling`; block: `he flinches and throws his left forearm up across in front of his head, ducking behind it …`; rout (back a2): `… running in place on the same spot … he stays in the middle of the frame, his feet pumping in place, he does not move away`
-- the other clips: the archer's wording with the sling, and the gallic's clean deaths (`his strength suddenly gives out … no wounds, no red, no blood at all`)
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | stab NE NW a1 | **Rejected:** he turns and strikes to the west |
-| 2 | walk NW a1 | **Rejected:** the sling hidden behind the cloak |
-| 3 | rout NE a1 | **Rejected:** he runs out of the frame |
-| 4 | everything else | **Promoted** (motion arcs, bullets and sparks cleared or dropped) |
-
-**Lessons:** the whirl comes out clean and loopable from "whirls it round in fast flat circles above his head"; the
-model draws motion arcs and the flying bullet anyway, and both clear as detached pieces. A back-facing melee blow needs
-"straight ahead of him … his body keeps facing … the whole time". A back-facing flee drifts out of the 68 canvas unless
-told "on the same spot … he does not move away". From behind, the cloak hides a sling carried at the side; asking for it
-"clearly visible beside the cloak" did not fix it.
-
-### fanatic
-
-- subject: `a gaunt grim bare-chested cult fanatic with long matted ash-grey hair and grey ash on his skin, dark woad marks on his chest, a ragged black cloak, a dark umber kilt with a rope belt, bare legs and bare feet, no shield, one heavy curved iron kopis blade in his right hand` (back: `a gaunt grim cult fanatic seen from behind, long matted ash-grey hair, a ragged black cloak, a dark umber kilt, bare legs and bare feet, no shield, one heavy curved iron kopis blade in his right hand`)
-- rest pose: `standing upright, the kopis held down in his right hand at his right side, his left hand an empty fist`; guard pose: `in a crouched frenzied fighting stance, the kopis raised beside his head in his right hand, his left fist forward, knees bent`
-- guard: `he drops into a crouched frenzied fighting stance in place: knees bent, shoulders hunched forward, the heavy curved kopis raised high beside his head in his right hand ready to hack down towards the viewer's lower left, his left fist forward; one kopis only, in the right hand; no shield, no effects`
-- slash (front): `a frenzied heavy hacking blow at an enemy in front of him towards the viewer's lower left: from his crouch he rears up and hauls the heavy curved kopis far back over his right shoulder, the whole body coiling, then lunges forward onto his left foot and hacks down hard with all his weight behind it, the forward-curved blade chopping into the enemy in front of him, ending low ahead of his left knee with his body bent forward over it, then he wrenches the blade back up and drops back into his crouch; his face and chest stay towards the viewer's lower left in every frame, he never turns his back; one kopis only, in the right hand, the blade keeps its curved shape and size; no smear, no sparks, no motion trails, no blood, no effects` (back: `seen from behind, his back and cloak to the viewer in every frame, … straight ahead of him … his body keeps facing the upper right the whole time, he never turns sideways or round to the viewer`; NE a2 adds `his chest and face never show … no blood, no red`)
-- block: `parries a blow in place: he snaps the kopis up across in front of his face to catch the enemy's blade on it …`; adjust: `he twitches and rolls his shoulders, grips the kopis hilt tighter and turns the heavy curved blade over once …`; kneel: `leaning his weight on the kopis planted point down beside him`
-- the other clips: the slinger's wording with the kopis, the gallic's clean deaths
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | slash NE a1 | **Rejected:** a huge blood burst |
-| 2 | everything else | **Promoted** (smear, spark and blood frames dropped) |
-
-**Lessons:** a curved one-hand blade gets the same crescent smear at the blow as the long blades; a hack "with all his
-weight" brings blood at the blow in most facings even with "no blood": drop those frames and hold the windup. A parry
-with a blade brings a spark burst nearly every time.
-
-## 21. PixelLab polish of the I5b sheets
-
-Full log and verdicts: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › Polish. Every job word for word, with its first
-frame and verdict: `docs/v5/pixellab/I5b/polish.prompts.json`. Tools: `scripts/art/pixellab/polish/`.
-
-**Fixed fields** as §19 (pixminimax, `view: high top-down`, `direction` the facing, the class's `subject_description`;
-`initial_pose` the rest pose, or the guard pose for stance clips and attacks). The first frame is the exact input of the
-clip being replaced (`polish/first.mjs`), or the new guard's last frame for clips re-run from a new guard.
-
-The prompts that worked (abridged; the full text is in the JSON):
-
-- **A weapon's own shape, from behind** (falx NE guard p2): `… swings the falx forward and down so its curved iron blade
-  reaches ahead of him … the falx keeps the shape it has at rest in every frame: a long blade curving forward with its
-  point turned in at the tip like a sickle, dark iron, the same size as at rest …`. The stance clips from that guard
-  repeat `the falx keeps its shape in every frame: the curved iron blade with its point turned in at the tip like a
-  sickle`.
-- **Which hand, from behind** (gallic NW guard p1): `… the tall oval shield … on his left arm, on the viewer's left, and
-  raises the war axe in his right hand on the viewer's right … clear of the shield and away from it … the axe stays in
-  his right hand on his right side in every frame, it never crosses over the shield …`. Every NW clip from that guard
-  says `on the viewer's left` / `on the viewer's right`.
-- **A sling not hidden by the cloak** (slinger NW walk / run p1): `his right arm swings out a little away from his body
-  at his right side with the leather sling hanging from his right fist, the two cords and the pouch swinging clear of
-  his body on the viewer's right in every frame; the short cloak hangs only down the middle of his back and never covers
-  his right arm or the sling`.
-- **A weighted blow** (slinger SE stab p2, archer NE stab p1): `draws … far back … with his weight on his back foot, then
-  lunges forward onto his left foot … his hips and shoulders turning into the blow and his whole body following through,
-  bent forward over it`; the archer adds `the bow thrusts straight forward, not upward`.
-- **No enemy drawn** (slinger SE stab p2): open with `he alone, no other person in the frame:` and say `at the empty air
-  in front of him …, as if at an enemy's head` and `only him, no enemy drawn`.
-- **A fall backwards from behind** (fanatic NE / NW fallBack p1): `seen from behind, dying in battle: his strength
-  suddenly gives out, he rocks back on his heels with his chest and head thrown back and his arms flung out, and topples
-  over backwards towards the viewer's lower left / right … lying still face up; he falls backwards, never forwards, his
-  head ends nearest the viewer …`.
-
-| # | Attempt | Outcome |
-| --- | --- | --- |
-| 1 | falx guard NE p1 | **Rejected:** "bends sharply forward at the top into a deep hook like a beak" drew a shepherd's crook |
-| 2 | slinger stab SE p1 | **Rejected:** "onto the enemy's head in front of him" drew the enemy |
-| 3 | slinger stab NE p1, p2 | **Rejected:** he turns to the viewer in the windup both times (an overhand arc and a flat hook) |
-| 4 | everything else | **Promoted** (smear, spark and blood frames dropped by `frames`) |
+**Lesson:** "pushed up on the head" alone reads as worn normally: say what shows ("resting high on the crown like a cap,
+the whole face uncovered"). A prop the seed carries (the shield) must be excluded by name.
 
-**Lessons:** name the weapon's shape by the rest pose ("the shape it has at rest … the same size as at rest") rather
-than an image ("a hook like a beak"), which the model exaggerates. From behind, "left / right" alone is ambiguous: add
-"on the viewer's left / right". "Onto the enemy's head" can make the model draw the enemy: say "he alone, no other
-person in the frame". "Lunges … his whole body following through, bent forward over it" gives the weight the old
-"steps in" wording lacked. A back-facing (NE) melee blow with a short weapon still turns him to the camera; two re-runs
-did not fix it.
+## 10. App icon and mark (AS-08)
 
-## 22. Landing page mockups (v6 P2-LAND)
+A family of its own: one object in profile on a round red-figure disc with a Greek-key ring, on #FF00FF. It is the
+app's mark (browser tab, home screen, Telegram bot picture), not an atlas icon, so it takes no `RESERVED_ICONS`
+meaning. `Create an image.` + T-MARK with SUBJECT "a single bronze Corinthian hoplite helmet in side profile, facing the
+viewer's left, with a tall arched red horsehair crest; the eye opening is one clear dark almond shape; the helmet and
+crest together fill about 70 percent of the disc" and EXCLUDE "a face or a person inside the helmet, spears". Accepted
+first try; the meander ring came out about 14% wide, not 8% (harmless; the favicons crop to the inner disc).
+`node scripts/art/appicons.mjs <raw>` builds every size.
 
-Three full-page desktop landing directions (A "Lamplit Chronicle", B "Night Tabletop", C "Wine-dark Dusk") and
-one fix edit. The full prompts are in [docs/v6/ASSET_LOG.md](../v6/ASSET_LOG.md) › P2-LAND, word for word: a shared
-page block (an allowlist of every section and string, ending in "Nothing else on the page: …") plus one
-direction block. Seeds: `splash_keyart.jpg` (painted style) and a real battle screenshot (pixel style).
-Outputs were 1024x4128 or 1088x3904 JPEG, one very tall image per page.
+## 11. Landing page mockups (v6)
 
-**Lessons:**
-- Name what each gameplay still shows. Left open, Gemini invented a pixel smithy for "Forge" (the real forge is a
-  menu row) and used the battlefield for "Campaign" (the real overland map is top-down).
-- Say "plain icon (no badges, no numbers on icons)": a feature icon came back with a round "8", which reads as a
-  level.
-- Edits keep the layout but can garble small text; the copy is set in code, so judge the direction, not the letters.
-- Ask for counters as "—" so no invented numbers appear; tables still get placeholder digits, so note them.
+Three full-page desktop directions (outputs about 1024x4128): a shared page block (an allowlist of every
+section and string, ending "Nothing else on the page: …") plus one direction block, seeded with `splash_keyart.jpg`
+and a real battle screenshot. Lessons: name what each gameplay still shows (left open, Gemini invented a pixel smithy
+for "Forge" and used the battlefield for "Campaign"); say "plain icon (no badges, no numbers on icons)"; edits keep the
+layout but garble small text (copy is set in code, judge the direction); ask for counters as "—".
 
-## 23. Landing hero layers (v6 P5-LAND-ART)
+## 12. Landing hero layers (v6)
 
-Parallax layers for the landing hero: three painted atmosphere layers from Gemini, and the pixel diorama
-**rendered by the game's own code** (`scripts/art/landing/diorama.mjs`), never generated. Full prompts, verdicts and
-processing: [docs/v6/ASSET_LOG.md](../v6/ASSET_LOG.md) › P5-LAND-ART; sizes and budgets:
-[docs/v6/landing/ASSET_SPEC.md](../v6/landing/ASSET_SPEC.md). Seeds: the engine render of the slab (2x, on
-`#100d0b`) and `splash_keyart.jpg`. 3 of 4 renders kept.
+The pixel diorama is **rendered by the game's own code** (`scripts/art/landing/diorama.mjs`:
+`renderGround`, terrain props and the paperdoll `renderFrame` in Node through Vite `ssrLoadModule`); its render on
+`#100d0b` and `splash_keyart.jpg` are the seeds for the painted layers.
 
-**Proven: a sky layer** (accepted first try; reuse for any dark painted backdrop, change the SUBJECT):
+Sky layer (accepted first try; reuse for any dark painted backdrop, change the SUBJECT):
 
 ```
 Create an image. ROLE: the farthest background layer of a website hero for PIXELARROW, a pixel-art formation-tactics game set in the ancient Mediterranean. The first attached picture is the real game battlefield drawn as a small tabletop diorama; on the website it floats in the middle of this background, but it is NOT part of this image. The second attached picture is the game's painted key art: match its painting style, warm palette and soft brushwork. SUBJECT: an empty night sky, a calm painted backdrop: a very dark warm ground (#100d0b to #1d1812, warm basalt brown-black, not blue, not purple), a faint warm haze near the bottom edge, a soft wide band of the Milky Way rising from the lower left to the upper right in warm cream and faint ochre, and many small soft stars in warm cream (#f0e3c2), a few a little brighter, never sharp white points; the upper left corner slightly warmer, as if a lamp glows just off the frame. Keep the whole image very dark: most of the area below 10 percent brightness and the brightest star no brighter than #f0e3c2, so cream text stays readable over any part of it. COMPOSITION: no horizon, no land, no sea, no moon, no clouds with shapes, no figures; detail spread evenly across the whole image so it can be cropped to any shape from 21:9 to 9:16. STYLE: painted, soft, a slight lime-plaster grain, not a photo, not a 3D render, not glossy digital art, no pure black and no pure white. EXCLUDE: any text, letters, numbers, logos, UI, a frame or border, the diorama, planets, comets, constellation lines, people, buildings. ASPECT: landscape 16:9, highest resolution available.
 ```
 
-**Proven: a light-only layer for `mix-blend-mode: screen`** (accepted first try):
+Light-only layer for `mix-blend-mode: screen` (accepted first try):
 
 ```
 Create a NEW image, not an edit of the references. ROLE: a light-only overlay layer for the same website hero; on the page it is blended with the "screen" blend mode, so everything black disappears and only the light shows. SUBJECT: a soft cone of warm lamplight (#f2c879, a little cream at the core) entering from the upper left corner and falling diagonally down toward the centre right, widening as it goes, with soft feathered edges; brightest at the upper left edge where it enters and fading smoothly to nothing before the lower right corner; inside the beam, many tiny dust motes floating in the light: soft warm specks of different sizes, most very small, a few slightly larger and slightly out of focus, more of them inside the beam and almost none outside it. BACKGROUND: perfectly flat pure black #000000 everywhere outside the light, edge to edge, with no texture, no vignette, no stars and no colour noise. No lamp, no window, no objects, no diorama, no people: only the light and the dust. STYLE: painted, soft, gentle; no lens flare, no hard rays, no god-ray stripes, no bloom rings. EXCLUDE: any text, letters, numbers, logos, UI, a frame or border. ASPECT: landscape 16:9, highest resolution available.
 ```
 
-**Proven with one fix: a keyed foreground strip.** The first prompt (ASSET_LOG S3) gave an upright helmet 80% of
-the image tall. The fix that worked, in the same chat:
+Keyed foreground strip (a table edge with a helmet and a scroll): the first render stood the helmet upright at 80% of
+the height. The same-chat fix that worked: "(1) … the table edge must fill only the bottom 12 percent of the image, and
+the helmet and the scroll must lie low on the table, the helmet lying on its side with the crest along the table (not
+standing upright), each prop no taller than 25 percent of the image height; the top two thirds of the image are empty
+magenta; (2) the props and the table must be much darker, nearly silhouettes in a dark room: their faces in deep umber
+shadow (#1d1812 to #342d25), with only a thin warm rim of lamplight on their top-left edges; (3) the magenta must be one
+perfectly flat colour #FF00FF with no texture, no brush marks and no shading."
 
-```
-Create a NEW image with the same prompt, but fix three things: (1) everything is far too tall: the table edge must fill only the bottom 12 percent of the image, and the helmet and the scroll must lie low on the table, the helmet lying on its side with the crest along the table (not standing upright), each prop no taller than 25 percent of the image height; the top two thirds of the image are empty magenta; (2) the props and the table must be much darker, nearly silhouettes in a dark room: their faces in deep umber shadow (#1d1812 to #342d25), with only a thin warm rim of lamplight on their top-left edges; (3) the magenta must be one perfectly flat colour #FF00FF with no texture, no brush marks and no shading. Keep everything else from the first prompt: the same two props at the same sides, the painted style, no text or symbols, the very wide aspect.
-```
+**Lessons:** "keep it very dark … so cream text stays readable" works for skies; light layers on pure black with
+`screen` need no keying and compress to 5–14 kB; Gemini makes props tall and lit, so cap heights in % and plan a CSS
+darken; `keyOut` tol 70 handles JPEG magenta; ship alpha layers as WebP.
 
-**Lessons:**
-- Anything that could pass for gameplay is rendered by the game, not generated: `renderGround`, the terrain props
-  and the paperdoll `renderFrame` run in Node through Vite `ssrLoadModule` (no browser, no Phaser) and give exact,
-  repeatable pixel art. Attach that render as the seed so the painted layers sit around it.
-- "Keep it very dark … so cream text stays readable" works for skies; Gemini kept every value low.
-- For light layers ask for pure black and blend with `screen`; no keying needed, and they compress to 5–14 kB.
-- Gemini makes props tall and lit by default. State a height cap as a percentage of the image and "lying on its
-  side"; even then the fix came back lighter than asked, so plan a CSS darken.
-- Gemini returns JPEG even for magenta-key jobs; `keyOut` tol 70 still left zero residue.
-- `sips` AVIF with alpha does not show in Chromium: ship alpha layers as WebP (lossless for pixel art).
+---
+
+## 13. PixelLab: tools, settings and the hard-won rules
+
+Not Gemini: the PixelLab MCP, called by the agent. One character call makes 8 rotations; clips are made per facing.
+The game uses 4 facings: `south-east`, `north-east`, `south-west`, `north-west` (paperdoll DIRS rows 0..3). Recipe and
+QC checklists: [docs/v5/art/STYLE_LOCK.md](../v5/art/STYLE_LOCK.md); sheet layout `docs/v5/art/SHEET_FORMAT.md`; tools
+in `scripts/art/pixellab/` (`fetch.mjs`, `fetchjobs.mjs`, `build.mjs`, `sheetbuild.mjs`, `remap.mjs`, `rig.mjs`,
+`skeleton.mjs`, `spear.mjs`, `fixframes.mjs`, `proportion.mjs`, and the per-stage folders `rollout/`, `mounted/`,
+`i5a/`, `i5b/`, `i5c/`, `polish/`).
+
+**The style anchor (I1 → I1b → I3a).** A bake-off of standard-mode hoplites (I1) gave way to a darker "*300* / Lord of
+the Rings" look (V5-087): character E3 (Pro Flash 68x68, high top-down), then H4, the production anchor:
+`create_character`, `mode: pro`, `style_character_id` E3, `size: 68`, `view: high top-down`, `concept_image_url` = a
+south view re-proportioned to seven heads by `proportion.mjs`, and the H4 description in STYLE_LOCK §3. Every later
+class uses `style_character_id` H4 `b7624d6d-132a-458c-8e3d-d6960d175988`.
+
+**Clip modes.** `animate_image_pixminimax` (1 generation per 68-px clip; keeps identity; 12–16 frames) for almost
+everything; `animate_with_skeleton_v3` with our own keypoints (`rig.mjs`, `--grip x,y` on the drawn fist) for thrusts;
+template clips drop the shield; v3 custom clips invent the weapon's path.
+
+**Rules learned (I1–I3a):**
+
+- A held weapon survives the rotation only when the prompt opens with it and sizes it ("holding a very long … spear
+  vertically …, taller than the man"; "out at his right side, away from his body and clearly visible in every
+  direction"). Check all 8 views; expect some to lose or double the weapon.
+- Every spear prompt carries "single leaf-shaped spearhead, plain blunt butt end, no butt spike".
+- A style character carries its proportions as well as its look: give pro a re-proportioned concept to change the body.
+- The first frame decides the clip: draw the couched spear head-forward into it (`spear.mjs`) and pose with our own
+  skeleton; from an upright spear the model swings the head over the shoulder. A first frame at the angle the model
+  likes (level in SE) keeps a thrust from pivoting. Give a thrust a canvas its extension fits in.
+- pixminimax adds sparks and blood whatever the prompt says: cut by colour, look at every cut frame, replace broken
+  frames, and keep the fixes in JSON (`fixframes.mjs`) so a re-fetch replays them.
+- Snap with a ramp-aware remap; nearest-colour snapping turns bronze into the grey metal ramp.
+- Test every clip in SW, then check the back views (NE, NW) first: they break most.
+
+## 14. PixelLab foot-class base characters (I4a)
+
+The 13 foot classes as base characters (8 rotations): `create_character`, `mode: pro`, `style_character_id` H4,
+`size: 68`, `view: high top-down`, no concept image. Classes taller than H4 were normalised by row-drop
+(`rollout/normalise.mjs`) and re-imported (`mode: v3`, all 8 views given). Ids: `docs/v5/pixellab/bases.json`.
+
+Prompt = `{WHO} with realistic adult proportions: seven heads tall, a small head{ in a snug helmet / cap}, long legs,
+natural arms, broad shoulders, lean {muscular / wiry} build; {HEAD}; {CLOAK} hanging behind him; {BODY}, no white
+cloth; {LEGS}; {SHIELD}; {WEAPON}, away from his body and clearly visible in every direction{TAIL}; heavy shadows,
+desaturated dark warm colours like the style reference`. TAIL for spears: ", {a little / much} taller than the man,
+single leaf-shaped (iron) spearhead at the top, plain blunt wooden butt end, no butt spike". Every colour is "dark …"
+(dark weathered bronze, dark crimson, oxblood-brown, umber). Shipped fills (short form; exact phrases in quotes):
+
+| Class | WHO | HEAD · CLOAK · BODY · LEGS | SHIELD · WEAPON |
+| --- | --- | --- | --- |
+| militia | grim weathered Greek peasant levy spearman | low rounded brown felt pilos cap, no helmet · short faded crimson wool · plain umber tunic, leather belt, no armour · bare legs, sandals | none, "his left hand empty at his side" · one wooden spear vertically in his right hand out at his right side + TAIL |
+| thureophoros | grim veteran Carthaginian thureophoros infantryman | tall conical bronze pilos, no crest · purple-black · greyed-tan linothorax over a purple-black tunic · bronze greaves | tall oval thureos, shoulder to shin, umber hide, iron spine and boss · straight iron short sword down at his right side, point down |
+| celt_sword | grim Celtic warrior swordsman with a long drooping moustache | low iron Montefortino with knob and cheek guards · muted green plaid, "the only green he wears" · iron ring mail, bronze torc · brown-and-black checked trousers | tall oval Celtic shield, umber-brown wood, iron boss and spine · long straight iron longsword down, point down |
+| rhomphaia | grim tall Thracian rhomphaia warrior | "open-faced tall … bronze Phrygian helmet whose high crown curves forward like a Phrygian cap, hinged cheek guards, the face visible, no crest, no face mask" · crimson · iron scale corselet over oxblood tunic · brown trousers, bronze greaves | no shield · "one rhomphaia, a long two-handed weapon with a wooden shaft as long as his legs and a long single-edged slightly curved iron blade, gripped upright with both hands in front of his right side, the blade standing up above his head" |
+| archer | lean grim Cretan archer | bare head, short curly hair and beard · short crimson · leather jerkin over oxblood tunic, quiver strap, "one quiver of arrows on his back" · bare legs, sandals | no shield · "only one bow: a plain wooden bow with a single thin curved limb and one straight string, held vertically in his left hand out at his left side, … no second bow, his right hand empty ready to draw" |
+| slinger | lean grim Rhodian slinger | bare head, short hair and beard · crimson chlamys knotted at the right shoulder · oxblood tunic, leather belt, a pouch of lead bullets · bare legs, sandals | no shield · "one sling of dark leather cord hanging from his right hand out at his right side, its loaded pouch swinging near his knee" |
+| javelineer | grim lean Carthaginian javelin skirmisher | soft umber felt Thracian cap with a tall forward-curving top and ear flaps · short purple-black · plain umber tunic · bare legs, sandals | small crescent pelte of wicker and hide, chest to hip · "two javelins held vertically together in his right hand …, each with one small leaf-shaped iron head at the top and a plain blunt wooden butt end" |
+| peltast | grim lean Greek peltast skirmisher | "open-faced … Thracian helmet whose crown rises into a forward-curving peak …, a short brim over the eyes and hinged cheek guards, the face visible, no crest, no face mask" · short crimson · leather jerkin over oxblood tunic · tall leather boots | crescent pelte, hide with a bronze rim · one wooden spear + TAIL |
+| falx | grim tall Dacian falx warrior | bare head, long black hair, full black beard · plain moss-green, "the only green he wears" · warm umber leather jerkin · brown trousers | no shield · "one falx, a heavy two-handed weapon with a long wooden haft and a long forward-curved iron sickle blade, gripped upright with both hands in front of his right side" |
+| gallic | grim tall bare-chested Gallic warband warrior | limed hair in dull pale-grey spikes, long moustache · none · bare chest painted with blue woad swirls, bronze torc · green-and-umber plaid trousers | tall oval hide shield, iron boss · heavy iron war axe down at his right side |
+| fanatic | grim wild-eyed Celtic religious fanatic, "a living man," | wild limed ash-blond mane, rough beard · ragged oxblood-black, torn at the hem · "bare chest and arms of living warm tan skin painted with bold dark blue woad patterns" · umber kilt with a rope belt, bare feet | none, "his left hand an empty fist" · heavy curved iron kopis down at his right side |
+| royal_guard | tall grim Macedonian royal guardsman, a silver-shield veteran, | gilded bronze Attic helmet, open face, two tall bone-grey plumes, no transverse crest · royal purple · ornate gilded muscle cuirass over crimson · bronze greaves | very large aspis, chin to knee, "dull dark tarnished silver" face, bronze rim, muted star · very long spear + "much taller" TAIL |
+| sacred_band | tall grim Theban Sacred Band hoplite | bronze Boeotian helmet, wide flaring brim, open face, no crest · very dark blue-black · bronze muscle cuirass over oxblood · bronze greaves | very large bronze aspis, muted dark-red club of Herakles · as royal_guard |
+
+Archer, fanatic and falx are the review-fix versions (A3, A4, A4); falx hair and the fanatic's kilt were then retinted
+(`rollout/retint.mjs`).
+
+**Lessons:** with H4 as the style character, pro mode lands H4's build in one call. The model fits the figure's top to
+the canvas top, so a bare head comes out 3–7 px tall: drop rows before the import, don't re-roll. Give the cloak a hue
+family nothing else on the man uses (crimson Greeks, purple-black Carthaginians, green plaid Celts); a brown cloak on a
+man in leather leaves no recolour group. For a helmet the model might draw as a Corinthian, write "open-faced …, the
+face visible, no crest, no face mask". "Recurved composite bow" draws two limbs that read as two bows. "A living man …
+warm tan skin" keeps a fanatic alive; grey ash on the body makes a ghoul. Two parts in one exact colour separate by a
+box retint into a neighbouring ramp, not a re-roll.
+
+## 15. PixelLab hoplite clip prompts (I3a): the foot-class template
+
+pixminimax unless noted; `view: high top-down`, `direction` = the facing. The 15 clip descriptions, word for word, are
+`CLIPS` in `scripts/art/pixellab/i5a/prompts.mjs`: the hoplite's text with `{W}` = "the long spear", `{S}` = "the
+large round shield", `{H}` = "single leaf-shaped spearhead" and `{t}` = the facing ("towards the viewer's lower left";
+"lower right"; "away from the viewer towards the upper right / left"). Example, walk (16 frames):
+`steady disciplined marching walk in place towards the viewer's lower left, long natural strides, the long spear held upright in the right hand and swaying a little with each step, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways`.
+
+- `subject_description` front: "a tall grim Spartan hoplite in a dark bronze Corinthian helmet with a dark crimson
+  crest, dark crimson cloak, a large round bronze shield with a red lambda and a long spear" (back facings "… seen from
+  behind …, a large round bronze shield and a long spear"; levelled clips end "… and a long levelled spear").
+- `initial_pose` "standing upright, the spear held upright in the right hand, the shield on the left arm"; levelled
+  "standing with the spear levelled at the hip pointing forward, the shield on the left arm".
+- Clips and frames: idle 12, look 16, adjust 12, walk 16, run 12, rout 12, kneel 12 (rotation canvas); ready, charge,
+  brace, block, stagger 12 (the levelled guard frame); fallBack, fallFwd 12 (128 x 128 die canvas); cheer 12 (96 x 112
+  tall canvas).
+- Per-facing additions: look in SE NE NW "never further than over his shoulder"; run and kneel NE "the large round
+  shield stays clearly visible on the left arm at his left side in every frame"; block "no sparks, no effects" (sparks
+  came anyway).
+- thrust (skeleton-v3, 14 frames, action "heavy spear thrust", `rig.mjs thrust <dir> guard_<dir>.png --grip x,y`):
+  `grim muscular Spartan hoplite in a dark weathered bronze Corinthian helmet with a dark crimson crest, dark crimson cloak, dark bronze cuirass and greaves, one very large round bronze aspis with a muted red lambda on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike`
+  (back facings "… seen from behind …, away from the viewer, …"; SE "always pointing straight forward the way he faces
+  at the same angle in every frame", from a flatter first frame).
+- Rebuild: `fetchjobs.mjs docs/v5/pixellab/I3/jobs.json`, `sheetbuild.mjs docs/v5/pixellab/I3/hoplite.sheet.json`.
+
+## 16. PixelLab animation of the shield-bearing foot classes (I5a)
+
+royal_guard, sacred_band, thureophoros, militia, peltast and javelineer, each taken to the hoplite's full sheet.
+`node scripts/art/pixellab/i5a/prompts.mjs <class> <anim> <dir>` prints every prompt word for word: the §15 prompts
+with each class's subject, weapon and shield words (`CLASSES` in that file). Job ids `docs/v5/pixellab/I5a/<class>/jobs.json`,
+picks and frame fixes `class.json`. First frames from `i5a/prep.mjs` (rotation, the 96 x 112 tall canvas, the 128 x 128
+die canvas, the 128 x 112 levelled guard drawn by `i5a/guard.mjs`). `guard.mjs` found the same fist and grip for every
+H4-based spear class, so thrust keypoints carry across them.
+
+Class-specific clips beyond §15: thureophoros `slash` (one-handed sword cut, from the ready frame); peltast and
+javelineer `throw`; militia two-handed spear clips (`rig5.mjs thrust2`) with no shield.
+
+**Wordings that fixed rejects** (sent as redos; most are not in `prompts.mjs`):
+
+- Every NE description ends `; seen from behind, the shield's dark back and rim face the viewer in every frame, never its
+  {silver / painted} face`. Without it the model swings a bright shield face round to the viewer in back views.
+- Silver faces: "dull and dark" keeps them out of the near-white colour cut.
+- Levelled clips in back views: add "never raised upright" after "the long spear stays level …".
+- Falls: "his one spear falls with him, only one spear in every frame; no blood at all, no red spray, no splatter, no
+  particles, no effects" (the model still paints bursts: cut and replace frames). For a cleaner fall: "he slumps … no
+  wound is shown; the same {cloak and tunic} in every frame".
+- A non-generic helmet in fast clips: "his head keeps facing {t} and the wide-brimmed Boeotian helmet keeps the same round
+  shape in every frame, no crest, no plume".
+- A spear parry: "the spearhead still towards his front the way he faces … the spearhead never swings behind him".
+- Sword slash: the SW wording is `SWORD.slash` in `prompts.mjs` ("one short straight blade, perfectly straight and rigid
+  in every frame, never bending or curving … no swoosh arc, no motion trail, no smear"). The back view that shipped (NE
+  a3, last frame pinned to the guard): `we watch him from behind and he never turns round: he lifts the short straight
+  sword up and back over his right shoulder, steps forward on his left foot with the tall oval shield pushed ahead, then
+  chops the blade down hard in front of him away from the viewer, his back, cloak and helmet towards us in every frame,
+  …; one shield on the left arm with its dark back towards the viewer; …`.
+- Javelin throws, back and SE facings: spell out the line per facing and start from the guard: `seen from behind, his
+  back to the viewer in every frame: he lowers the spear from upright straight forward into a throwing grip over his
+  right shoulder, the spear lying along the line from his shoulder up and away to the upper right, its spearhead far
+  out at the upper right and the butt just behind his shoulder; he leans back, then lunges forward to the upper right and
+  hurls the spear; it flies away to the upper right out of the frame, spearhead first; his empty right hand follows
+  through towards the upper right; the spear is never across his body and never points left or down; …` (SE: from the
+  levelled guard, "the spear always lies along the line from his shoulder down and away to the lower right and never
+  points up or to the left"). Javelineer: "he passes one javelin to his left hand, where it stays upright behind the
+  small crescent pelte shield" first.
+- Shield vanishing in a back-view run: "the tall oval shield held out on the left arm beside his body, clearly visible at
+  his left side next to the cloak in every frame, never hidden behind the cloak".
+
+**Lessons:** the dark-back line on every NE prompt from the start costs nothing and removes the NE shield-face rejects.
+Every pixminimax sword cut draws a swoosh: budget frame replacements. Describe a back-view blow from behind and pin the
+last frame. For a crimson-cloaked class blood residue joins the cloak group, so review every fall after the cut; never
+clear "red" on a purple-cloaked class.
+
+## 17. PixelLab mounted and chariot bases (I4b)
+
+`create_character`, `mode: pro`, body humanoid (not the quadruped template), `style_character_id` H4, `view: high
+top-down`, **`size: 100` for a rider, `128` for the chariot** (a rider at 128 came out 1.3–1.45x H4). Ids, boxes and
+groups: `docs/v5/pixellab/mounted.json`.
+
+Rider block after WHO: "seated astride a real full-size {warhorse}, the whole horse seen from muzzle to hooves to tail,
+with realistic adult proportions: the rider seven heads tall, a small head in a snug helmet, natural arms, broad
+shoulders, lean muscular build, his legs hanging down the horse's flanks; the horse a real horse with realistic
+proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep
+chest, exactly four long slender legs with hooves; {GEAR}; {WEAPON}; {HORSE}; heavy shadows, desaturated dark warm
+colours like the style reference". Fills (short form):
+
+- **companion:** open-faced Boeotian cavalry helmet "shaped like a folded sun hat, a wide downturned brim all round";
+  royal-purple cloak over the horse's back, "the only purple on the figure"; bronze cuirass; no shield; "one long wooden
+  xyston lance held upright in his right hand out at his right side, slanting a little forward, away from the horse's
+  head and clearly visible in every direction"; "weathered dark bay-brown horse, dull and dark like old leather, with a
+  dark umber-brown mane and tail".
+- **thessalian:** conical pilos with a narrow brim; short crimson chlamys; umber jerkin; "one small plain round dark
+  bronze buckler on his left forearm, no bigger than his chest, no emblem, no painted sign"; exactly two javelins upright
+  in his right hand; dark dun-grey horse, black mane, sheepskin saddle cloth.
+- **horse_archer:** tall pointed umber felt Scythian hood with ear flaps, no helmet; crimson felt riding coat, "the only
+  red he wears"; no shield; "one large recurved composite bow held up in his raised left hand, out to his left side at
+  the height of his head, the whole bow standing upright above the horse's back"; quiver on his back; right hand on the
+  reins; dark brown horse, black mane.
+- **chariot** (`size: 128`): "grim Carthaginian scythed war chariot seen whole from the horses' muzzles to the back of
+  the car: a light two-wheeled chariot pulled by exactly two real full-size horses side by side under one yoke on a
+  single wooden pole, each horse with exactly four long slender legs …; one driver standing upright in the open car …;
+  he holds the dark leather reins in both hands; one curved iron kopis sword in a scabbard at his hip; the car a low dark
+  wooden box with a dark bronze rim, two large spoked dark wooden wheels, one long curved iron scythe blade sticking out
+  sideways from each wheel hub; two dark bay horses …".
+
+**Lessons:** one humanoid pro character carries rider and horse; measure head and withers before clips. The style
+reference's lambda leaks into round shields ("plain …, no emblem"). A weapon at the side hides behind the horse: raise
+it clear of the horse's back. A black mane takes a dark cloak's colours: give the cloak a hue the horse lacks.
+
+## 18. PixelLab mounted and chariot clips (I5c)
+
+Every prompt word for word, by id, with the `subject_description` and `initial_pose` strings:
+`docs/v5/pixellab/I5c/prompts.json`; jobs `docs/v5/pixellab/I5c/<class>.jobs.json`; tools `scripts/art/pixellab/i5c/`
+and `mounted/` (`keyframe.mjs`, `loopfind.mjs`).
+
+**Call settings:** `animate_image_pixminimax`, `first_frame_url` = the base rotation pasted on the class's work canvas
+(riders 144 x 160 at 22,44; chariot 176 x 176 at 24,40; 1 generation per 12–16-frame clip), `view: high top-down`.
+Loops: `last_frame_url` = the first frame (idle, walk) or a stretched mid-gallop key (`keep_first_frame: false`,
+`initial_pose` "mid-gallop, the legs stretched out front and back") for gallop, charge and rout loops. Every prompt
+ends "exactly four legs on the horse in every frame" (chariot: "exactly two horses, each with exactly four legs, in
+every frame"). Back views open "seen from behind, the rider faces away the whole time", say "away from us, never back
+towards us" of the weapon, and add "no dust". Riders swap one weapon phrase ("the lance held upright in his right hand
+with its single spearhead at the top"; "the bow held up in his left hand; one bow only"; "the two javelins held upright
+in his right hand, the buckler on his left arm").
+
+| Clip | Shipped ids | The wording that matters |
+| --- | --- | --- |
+| idle, walk | C/H/T-idle-1, -walk-1/2, K-idle-1/2 | "a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time" |
+| gallop / charge loops | C-chargeloop-1/2, H-gallopLoop-1/2, entry strides | "one full stride of a real horse's heavy gallop in place …, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose" |
+| lance thrust | C-thrust-2 (SW), -3 (SE), -4 (NE, NW) | "a couched lance thrust with the horse's momentum behind it: the rider swings the lance down level under his right arm … the spearhead always points forward in the direction the horse faces, never backwards" (SE: "he never swings the lance back over his shoulder") |
+| shoot | H-shoot-1, -2 (on the gallop key both ends) | "at a full gallop the rider shoots from the saddle: he reaches back over his right shoulder to the quiver and takes one arrow, nocks it … draws the string back to his cheek … releases … one bow only, one arrow at a time" |
+| javelin throw | T-throw-4, -5 | "lifts one javelin high above his right shoulder, tilting it so its small head points forward and down towards the ground ahead of the horse, like a harpoon … flings it forward and down … the javelin head always points the way the horse runs" |
+| stagger, hit | C/H/T-stagger-1/2, K-hit-1/2 | "the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs … drops heavily back onto all four hooves" |
+| fall | C-fall-2/3, H-fall-2/3/5/7, T-fall-1/2, K-wreck-1/2 | "the rider is thrown clear of the saddle and falls hard to the ground in front of the horse, apart from it, and lies still on his back"; horse archer back views: "the rider never rises above the saddle and never stands up: … slides sideways off its near side, towards us"; chariot: "the pole snaps, the car slews round, tips over onto one wheel … the driver is thrown out … no blood, no fire" |
+| cheer | C/H/T-cheer-1/2 | "the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot" |
+| rout | C-rout-1/2, C-routloop-1, H-rout-2/3/4, T-rout-1/2, K-rout-1/2 | "he hunches low over the horse's neck and twists his head to look back over his shoulder in fear" (back: "head down, facing forward away from us the whole time") |
+| chariot drive, charge | K-drive-1/2, K-charge-1/2 | "the two spoked wheels spin fast and the scythe blades on the hubs whirl round with them; the car bounces"; charge: "the driver crouches low in the car, lashes the reins and swings his curved sword overhead" |
+
+**Lessons:** a lance prompt must say *couched … the spearhead always points forward … never backwards*; an overarm
+draw turns the lance round. Pin loops with `last_frame_url`; a gallop entry run often already holds an 8-frame stride
+that loops (`loopfind.mjs`), else key a loop on a stretched frame. A keyed loop keeps the key's posture, so a rout or any
+posture change must be in the entry run. Deaths need "thrown clear … apart from it" or the rider stays draped on the
+horse. Shoot on the move: pin the clip to the gallop key both ends and rotate frames so the release frame matches
+across facings. For a javelin say "lifts it overhead … head points forward and down … flings it forward and down", and
+cut frames where the head turns back. Light dust at the hooves needs a lightness cut in the bottom rows (`dust.mjs`);
+earth clods share the coat colours, so cut them by shape. A two-horse chariot animates as one figure on a 176 canvas.
+
+## 19. PixelLab shieldless, two-handed and missile foot classes (I5b)
+
+rhomphaia, celt_sword, archer, falx, gallic, slinger, fanatic. pixminimax, `view: high top-down`; jobs and picks
+`docs/v5/pixellab/I5b/<class>.jobs.json`, `.picks.json`; tools `scripts/art/pixellab/i5b/`. `initial_pose` is the rest
+pose (rotation, tall and die canvases) or the guard pose (stance clips, attack). Back facings open "seen from behind,"
+and drop what only shows from the front. Frames: guard 8, look and walk 16, attack 16, the rest 12.
+
+**The recipe:** an 8-frame "takes his guard" clip (tall canvas, last frame = the guard) is the first frame for every
+stance clip and the attack; the attack starts and ends on it so it joins `ready`. Stance and move clips are §15's with
+the weapon slot swapped. The rhomphaia set as the template:
+
+- subject `a tall grim Thracian rhomphaia warrior in an open-faced dark bronze Phrygian helmet, a dark crimson cloak, a dark iron scale corselet, dark brown trousers and dark bronze greaves, no shield, one long rhomphaia: a wooden shaft and a long slightly curved single-edged iron blade`; guard pose `in a low fighting guard, both hands on the shaft, the long curved blade pointed forward low ahead of him, knees bent`
+- guard: `he takes his fighting guard in place: he grips the shaft with both hands, right hand at his right hip and left hand in front of his chest, and lowers the rhomphaia forward so the long curved iron blade points ahead of him towards the viewer's lower left at head height, the edge down, ready to strike; knees bent, the left foot a little forward; one rhomphaia only, both hands on the shaft at the end; no shield, no effects` (back: `seen from behind, his back and cloak to the viewer in every frame, … he keeps facing away towards the upper right, he does not turn round`)
+- slash: `a heavy two-handed cleaving cut towards the viewer's lower left: from his low guard he heaves the rhomphaia back and up over his right shoulder with both hands on the shaft, steps forward onto his left foot with the hips turning first, and brings the long blade down hard in a diagonal arc from above his right shoulder to low at his left in front of him, the edge leading, the body following through low and bent forward, then he settles back into his low guard with the blade pointed forward; both hands on the shaft the whole time; the blade keeps its own long, slightly curved shape and size in every frame; one rhomphaia only; no smear, no sparks, no motion trails, no blood, no effects`
+- stance clips: `both hands stay on the shaft and the long curved iron blade stays pointed forward towards the viewer's lower left in every frame; one rhomphaia only`; block catches the blow "on the wooden shaft"; kneel "leaning his weight on the rhomphaia planted upright beside him like a staff"
+
+**The other attacks** (shipped; the shared tail is "no smear, no sparks, no motion trails, no blood, no effects"):
+
+- **celt_sword** slash (guard: shield rim at his chin, longsword raised over its right edge): `a heavy one-handed cutting blow at an enemy in front of him towards the viewer's lower left: from his guard he draws the longsword back high over his right shoulder, then steps forward onto his left foot with the hips and shoulders turning, driving the tall shield forward with his body, and brings the long blade down hard in a diagonal arc into the enemy in front of him, ending low ahead of his left knee with the point still towards the viewer's lower left, then he recovers back into his guard behind the shield; he keeps facing the viewer's lower left in every frame; the shield stays on his left arm; one sword only, the straight blade keeps its shape and size; …` (back: `… his body keeps facing the upper left the whole time, he never turns round or sideways to the viewer`)
+- **gallic** slash: the celt's with the axe, `he lifts the war axe straight up high over his right shoulder without turning away … his face and chest stay towards the viewer's lower left in every frame, he never turns his back or turns round`; block `takes cover in place: he crouches a little and pulls the tall oval shield up higher in front of his body until its rim is at his eyes … he does not turn`
+- **falx** slash: the rhomphaia's as `a heavy two-handed hooking cut at an enemy in front of him … into the enemy in front of him, the inner edge leading … he keeps facing the viewer's lower left`
+- **fanatic** slash: `a frenzied heavy hacking blow …: from his crouch he rears up and hauls the heavy curved kopis far back over his right shoulder, the whole body coiling, then lunges forward onto his left foot and hacks down hard with all his weight behind it, … ending low ahead of his left knee with his body bent forward over it, then he wrenches the blade back up and drops back into his crouch; his face and chest stay towards the viewer's lower left in every frame, he never turns his back; one kopis only, …`
+- **archer** shoot (from the rest): `he shoots an arrow at an enemy ahead of him towards the viewer's lower left: he draws one arrow from the quiver over his right shoulder and nocks it on the string, turns side-on and raises the bow in his straight left arm towards the target, pulls the string back with his right hand all the way to his cheek, his back and right shoulder drawn tight, holds a moment, then releases: the string snaps forward, the bow arm recoils and the arrow is gone at once, his right hand flies back past his ear in the follow-through, then he lowers the bow to his side; one bow only, a single curved limb; no second bow, no effects, no motion trails`
+- **slinger** sling (from the rest): `he slings a lead bullet at an enemy far ahead of him towards the viewer's lower left: he turns side-on with his weight on the back foot, raises the loaded sling over his head in his right hand and whirls it round in fast flat circles above his head, the two cords taut and the loaded pouch circling at their end, his left arm pointing at the target; then he steps forward onto his left foot and whips his right arm forward and down, letting one cord go: the pouch snaps open and the bullet is gone at once, the empty sling flicks forward past his left hip in the follow-through, then he lowers it to his side; one sling only, in the right hand; no flying bullet, no motion trails, no effects`
+- Clean deaths (gallic, slinger, fanatic): `dying in battle: his strength suddenly gives out, his knees buckle and he topples over backwards … his body stays clean, no wounds, no red, no blood at all, no effects`
+
+**Lessons:** at the blow pixminimax bends any blade into a crescent smear: drop those frames and hold the windup's peak.
+Name the enemy and where the blow ends, or the cut drifts across the body and the man turns with it. For back facings
+say what the body keeps doing, not only "seen from behind"; for a back-view look, "his back and the back of his head
+stay to the viewer in every frame, his face never shows". Never ask the archer to handle the bow with both hands at rest
+("flexes", "tests the string"): it draws a second bow. Loosed arrows, bullets and motion arcs come anyway: clear the
+detached pieces (the game draws the missile). "Killed … he is struck" brings blood over the chest; drop such frames, a
+colour cut holes the figure. A block "at a blow" turns him side-on; "takes cover … he does not turn" holds the facing.
+A back-facing flee drifts off the 68 canvas unless told "on the same spot … he does not move away". A parry with a
+blade brings a spark burst nearly every time. From behind the cloak hides a sling at the side (fixed in §20).
+
+## 20. PixelLab polish of the I5b sheets
+
+Every job word for word, with its first frame: `docs/v5/pixellab/I5b/polish.prompts.json`; tools
+`scripts/art/pixellab/polish/`. Fixed fields as §19; the first frame is the exact input of the clip being replaced
+(`polish/first.mjs`), or the new guard's last frame for clips re-run from a new guard. The wordings that worked:
+
+- **A weapon's own shape, from behind** (falx NE guard): `… swings the falx forward and down so its curved iron blade
+  reaches ahead of him … the falx keeps the shape it has at rest in every frame: a long blade curving forward with its
+  point turned in at the tip like a sickle, dark iron, the same size as at rest …`.
+- **Which hand, from behind** (gallic NW guard): `… the tall oval shield … on his left arm, on the viewer's left, and
+  raises the war axe in his right hand on the viewer's right … clear of the shield and away from it … the axe stays in
+  his right hand on his right side in every frame, it never crosses over the shield …`.
+- **A sling not hidden by the cloak** (slinger NW walk / run): `his right arm swings out a little away from his body at
+  his right side with the leather sling hanging from his right fist, the two cords and the pouch swinging clear of his
+  body on the viewer's right in every frame; the short cloak hangs only down the middle of his back and never covers his
+  right arm or the sling`.
+- **A weighted blow** (slinger SE stab, archer NE stab): `draws … far back … with his weight on his back foot, then
+  lunges forward onto his left foot … his hips and shoulders turning into the blow and his whole body following through,
+  bent forward over it`; the archer adds `the bow thrusts straight forward, not upward`.
+- **No enemy drawn:** open with `he alone, no other person in the frame:` and say `at the empty air in front of him …,
+  as if at an enemy's head` and `only him, no enemy drawn`.
+- **A fall backwards from behind** (fanatic NE / NW): `seen from behind, dying in battle: his strength suddenly gives out,
+  he rocks back on his heels with his chest and head thrown back and his arms flung out, and topples over backwards
+  towards the viewer's lower left / right … lying still face up; he falls backwards, never forwards, his head ends
+  nearest the viewer …`.
+
+**Lessons:** name the weapon's shape by the rest pose ("the shape it has at rest … the same size as at rest") rather than
+an image ("a hook like a beak" drew a shepherd's crook). From behind, "left / right" alone is ambiguous: add "on the
+viewer's left / right". "Onto the enemy's head" can make the model draw the enemy. A back-facing (NE) melee blow with a
+short weapon still turns him to the camera; two re-runs did not fix it.

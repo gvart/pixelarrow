@@ -74,7 +74,7 @@ await ev(() => setInterval(() => {
 /** No event card open on `key` (the answer above takes a moment). */
 const noEventCard = (key) => until(() => ev((k) => !window.__game.scene.getScene(k).eventCard && !window.__state.campaign.world.s.pendingEvent, key), 10000, 100);
 
-// ---- map taps (docs/v6/qa/FLAKY.md F1, F4): WorldScene drops a tap on the ground while a "We found X" cut runs
+// ---- map taps (docs/FLAKY.md F1, F4): WorldScene drops a tap on the ground while a "We found X" cut runs
 // (cine), while a card, an encounter, a sheet or a coach mark is open, while another pointer is down (it reads a
 // pinch) and when the tap lands on an interactive object (onDown `over`); a discovery queued by a reveal only
 // starts its cut on the next frame. The map steps waited on parts of that (or on nothing) and then polled the
@@ -485,7 +485,7 @@ const village = await ev(() => {
 // The reveal above only queues the discovery: WorldScene.update drains it on its next frame and starts the cut
 // then. This waited 200 ms and then for !cine: on a loaded machine (a few frames a second) no frame had run
 // yet, so !cine held at once, the cut started after the village's position was read, the tap was swallowed
-// or missed, and "entered the village" failed now and then (V6-GATE-02, docs/v6/qa/FLAKY.md). Wait on the
+// or missed, and "entered the village" failed now and then (V6-GATE-02, docs/FLAKY.md). Wait on the
 // state instead: no discovery queued, no cut running or pending, the camera's pan over, two frames drawn.
 // mapReady() is that check, and also waits out a card, a sheet, a pointer still down and the camera's fade.
 await checkMap('the village cut is over, the camera still', await mapReady());

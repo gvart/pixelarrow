@@ -1,4 +1,4 @@
-// The doors hub-flows.mjs walks (design/ux/screen-flow.md §3): each opens a
+// The doors hub-flows.mjs walks (docs/SCREEN_FLOW.md §3): each opens a
 // screen from a hub flow and presses Telegram's Back, which must land on the
 // screen-flow target. Pure data, so tests/regression/doors.test.ts can hold the
 // table to src/platform/nav.ts BACK_RULES (every parent/origin screen has a

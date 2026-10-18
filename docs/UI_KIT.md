@@ -1,613 +1,369 @@
 # UI kit
 
-How screens look and are built. The rules come from docs/DESIGN_V2.md ("UI",
-"UX principles", "Localization"); this page says which code implements them.
-Read it before touching a screen.
+How screens look and are built (rules: docs/DESIGN_V2.md "UI", "UX
+principles", "Localization"). Read before touching a screen.
 
-- `src/ui/mosaic/`: the v4 "Mosaic & Parchment" kit: every screen is built from it (see "Components").
-- `src/ui/kit.ts`: fonts, panels, the legacy `Button`, `Meter`, `ScrollArea`, `tappable`, `addText`, `fitText`, `fitCinzel`.
-- `src/ui/widgets.ts`: tabs, lists, grid, item icons, tooltip, toast, badge, stat bar, count-up, `openModal`, confirm dialog, label, first-time hint (the legacy parts the sheets are still built from).
-- `src/ui/v3.ts` + `src/ui/tokens.ts` + `src/ui/motion.ts`: the v3 pieces still in use, design tokens and motion.
-- `src/ui/battleHud.ts`: the battle HUD ("Battle HUD").
-- `src/ui/theme.ts`: rarity and battle-category colours, sizes (`SIZE`, touch rules), `STRAT`.
-- `src/ui/textfit.ts`: measuring and fitting text (pure, unit-tested).
-- `src/ui/layout.ts` + `src/ui/layoutCheck.ts`: the layout registry and rules; `scripts/layout-check.mjs` runs them.
+- `src/ui/mosaic/`: the v4 "Mosaic & Parchment" kit; every screen is built from it.
+- `src/ui/kit.ts`: fonts, panels, legacy `Button`, `Meter`, `ScrollArea`, `tappable`, `addText`, `fitText`, `fitCinzel`.
+- `src/ui/widgets.ts`: legacy tabs, lists, grid, item icons, tooltip, toast, badge, stat bar, count-up, `openModal`, confirm, label, first-time hint.
+- `src/ui/v3.ts`, `tokens.ts`, `motion.ts`: v3 pieces still in use, tokens, motion.
+- `src/ui/battleHud.ts`: "Battle HUD". `src/ui/theme.ts`: rarity and category colours, `SIZE`, `STRAT`.
+- `src/ui/textfit.ts`: text measuring and fitting (pure, tested).
+- `src/ui/layout.ts` + `layoutCheck.ts`: layout registry and rules (`scripts/layout-check.mjs`).
 - `src/i18n/`: `t()`, English and Russian tables.
-- Gallery: `/?scene=Kit` (`src/scenes/KitScene.ts`): tabs Controls, Items, Lists, V3, **Mosaic** and **Parts** (every shared v4 component in its states; the sub-screen shell opens from Parts).
+- Gallery `/?scene=Kit` (`src/scenes/KitScene.ts`): Controls, Items, Lists, V3, Mosaic, Parts (every v4 component in its states).
 
-Coordinates and sizes are **UI pixels** inside the scene's scaled UI root
-(`this.ui`, scale `S` = 2..4, see `uiMetrics`). One UI pixel is `S` CSS
-pixels; 44 pt is 22 UI pixels at `S = 2`, the smallest scale.
+Sizes are **UI pixels** in the scene's scaled root (`this.ui`, scale `S` =
+2..4, `uiMetrics`). 44 pt = 22 UI px at `S = 2`.
 
 ## Look: "Bronze & Stone"
 
-The game world stays pixel art; everything you read or tap is smooth, vector
-and mixed case. Dark stone panels with a fine bronze rim, bevelled bronze
-buttons, **one terracotta button per screen** (the next thing to do), a lit
-bronze state for "the one you picked", light text. Everything is drawn inside
-Phaser on the canvas: no DOM UI, no UI plugin.
+Game world in pixel art; everything read or tapped is smooth, vector, mixed
+case: dark stone panels with a bronze rim, bevelled bronze buttons, **one
+terracotta button per screen**, lit bronze for "the one you picked", light
+text. All drawn in Phaser on the canvas (no DOM UI, no UI plugin), except
+HTML forms.
 
 ### Rendering
 
-| Piece | Where | What it does |
-| --- | --- | --- |
-| Render scale `RS` | `src/platform/renderScale.ts` | The canvas is drawn at device pixels (CSS px × RS, RS = devicePixelRatio, capped at 3). `scene.scale.width`, pointer coordinates and `getBounds()` are device px. |
-| UI scale `S` | `uiMetrics` in `src/ui/kit.ts` | Whole UI px per CSS px (2..4) **times RS**. |
-| World cameras | Battle, World | Zoom in "zoom units" (`camZoom(z)` / `zoomUnits(zoom)`), i.e. 1× = `RS`. |
-| Raw pixel thresholds | drag/tap slop, grab radii | Given in CSS px and multiplied by RS (`px()` or `* RS`). |
-| Layout check | `src/ui/layout.ts` | Reports CSS px (it divides by RS). |
-
-`pixelArt: true` and `roundPixels: true` keep the sprites sharp; UI textures
-sample linearly. Scripts that turn `getBounds()` or a camera projection into a
-tap must divide by RS (the canvas rect width over `game.scale.width`).
+- Canvas at device px: `RS` = DPR capped at 3 (`src/platform/renderScale.ts`);
+  `scene.scale.width`, pointers, `getBounds()` are device px (scripts making
+  taps divide by RS). `S` = (2..4) × RS.
+- Camera zoom units: 1× = RS (`camZoom` / `zoomUnits`). Tap slop and grab radii: CSS px × RS (`px()`).
+- `pixelArt: true`, `roundPixels: true`; UI textures sample linearly.
 
 ### Type
 
-`src/art/vectorFont.ts` draws the faces into Phaser bitmap-font atlases at the
-screen's density, so every `addText` / BitmapText renders smooth type.
+`src/art/vectorFont.ts` draws faces into bitmap-font atlases at screen density.
 
 | Face | Use | Font keys |
 | --- | --- | --- |
-| Inter 500, tabular digits | everything you read and every number | `ink`, `sec`, `muted`, `dim`, `light`, `gold`, `good`, `bad`, `red`, resource fonts, rarity fonts |
-| Cormorant SC 700 | screen and card titles, names, section headings | `head` (bronze), `headL` (light) |
+| Inter 500, tabular digits | all text and numbers | `ink`, `sec`, `muted`, `dim`, `light`, `gold`, `good`, `bad`, `red`, resource, rarity |
+| Cormorant SC 700 | titles, names, section heads | `head` (bronze), `headL` (light) |
 
-- Sizes (`TYPE` in tokens.ts): display 12, title 9, heading 7.5, body 7 (16
-  CSS px at S = 2), caption 6, micro 5.5 (plates only).
-- Tabular digits: every digit has the same advance, so counters do not jitter
-  and number columns line up.
-- `measureText(str, shadow, size, face)` (`src/ui/textfit.ts`) measures from
-  `src/art/fontMetrics.ts`, generated by `npm run fonts:metrics` (`scripts/dev/font-metrics.mjs`) from
-  the bundled `@fontsource` files. Re-run it after changing a face or weight.
-- Both faces cover Russian. A character with no metrics measures as missing
-  (`missingGlyphs`).
+- `TYPE` (tokens.ts): display 12, title 9, heading 7.5, body 7 (16 CSS px at
+  S = 2), caption 6, micro 5.5 (plates only).
+- `measureText(str, shadow, size, face)` uses `src/art/fontMetrics.ts`,
+  generated by `npm run fonts:metrics` from the `@fontsource` files; re-run
+  after changing a face. Both faces cover Russian; unknown chars report via
+  `missingGlyphs`.
 
 ### Surfaces
 
-`src/art/smoothUi.ts` draws every panel style with Canvas 2D at the screen's
-density; `panelTexture` caches them and `panelImage` shows one scaled to UI px
-(an image of a panel texture is scaled by `1 / panelK`: keep that scale when
-swapping its texture).
+`src/art/smoothUi.ts` draws panel styles with Canvas 2D, cached by
+`panelTexture`; `panelImage` scales one to UI px (by `1 / panelK`: keep it
+when swapping textures).
 
-| Style | Look | Use |
-| --- | --- | --- |
-| `parch`, `scroll` | stone gradient, bronze rim | panels, sheets, bars |
-| `dark`, `tooltip` | deeper stone, bronze rim | tips, hint pill, banners, plates |
-| `inset`, `slot`, `tab` | stone well, faint rim | wells, cards, unselected tabs |
-| `slotSel` | lit bronze rim | the selected card or slot |
-| `card`, `cardRaised`, `cardSel`, `cardLocked`, `well`, `track` / `thumb`, `header`, `chip` | v3 materials: mottled stone with grain and a top-left bevel; wells sunken | v3 screens |
-| `header`, `bar`, `stage` | wood planks; `header` carries a Greek-key trim along its bottom, `bar` (the command strip) along its top | screen header, bottom strip, the hero's stage band |
-| `button` | brushed bronze with patina, bevel, 2 px lip | every secondary action |
-| `buttonSel` | lacquered terracotta (gloss band, hot spot, convex shade) in a bronze ring | **the** primary action (`variant: 'primary'`) |
-| `buttonOn`, `tabSel` | lit bronze | selected toggle / tab / the order in force |
-| `buttonGhost` | flat | `variant: 'ghost'` |
-| `buttonBuy` | Telegram blue | `variant: 'purchase'` (real money) |
-| `buttonDanger` | quiet stone | destructive (confirm first) |
-| `buttonOff` | flat dark stone | cannot, with a reason |
+| Style | Use |
+| --- | --- |
+| `parch`, `scroll` | panels, sheets, bars (stone, bronze rim) |
+| `dark`, `tooltip` | tips, hint pill, banners, plates |
+| `inset`, `slot`, `tab` / `slotSel` | wells, cards, unselected tabs / the selected one (lit rim) |
+| `card`, `cardRaised`, `cardSel`, `cardLocked`, `well`, `track`, `thumb`, `chip` | v3 materials (mottled stone, bevel; wells sunken) |
+| `header`, `bar`, `stage` | wood planks; Greek-key trim on `header` bottom, `bar` top |
+| `button` | brushed bronze, every secondary action |
+| `buttonSel` | lacquered terracotta: **the** primary (`variant: 'primary'`) |
+| `buttonOn`, `tabSel` | lit bronze: selected toggle, tab, order in force |
+| `buttonGhost`, `buttonBuy`, `buttonDanger`, `buttonOff` | flat; Telegram blue (real money); quiet stone (destructive, confirm first); dark (cannot, with a reason) |
 
-Materials (iteration 2) are flags on a style's look in `smoothUi.ts`:
-`mottle` (cloudy stone), `grain`, `bevel` (light top-left, shade bottom-right;
-negative = sunken), `brushed` (bronze streaks), `patina` (verdigris flecks),
-`gloss` (lacquer), `planks`, `meander` / `meanderTop`. Each panel size is
-drawn once and cached; nothing is drawn per frame.
+Material flags: `mottle`, `grain`, `bevel` (negative = sunken), `brushed`,
+`patina`, `gloss`, `planks`, `meander` / `meanderTop`.
 
 ### Pixel art in menus
 
-The menus carry the game's pixel art, not only icons
-(`src/art/menuSprites.ts`, `src/ui/modeArt.ts`), drawn 1 art px = 1 UI px
-with nearest filtering:
-
-- **Portraits** (`addPortrait`) in every roster row: Team, the floor
-  sheet's enemy army, the search lineup.
-- **Chests** (`addChestSprite`): closed and grey (locked), closed and hopping
-  (ready), open and empty (claimed), open on its gold (the reward popup).
-- **Mode banners** (`addModeBanner(scene, parent, x, y, w, 26, mode)`): a dusk
-  strip under the header: the ladder's stepped tower with torches, the
-  arena's colosseum with pennants, the market stall (Duels shop, Shop,
-  merchants), the beasts' cave. Torches and pennants step through their
-  frames (`idleFrames`); still under Reduce motion. Not on short screens
-  (VH < 330).
-- **Laurel branches** (`LAUREL`) round a victory.
+`src/art/menuSprites.ts`, `src/ui/modeArt.ts`, 1 art px = 1 UI px, nearest:
+`addPortrait` (every roster row), `addChestSprite` (locked grey, ready hops,
+claimed open, open on gold in the reward popup), `addModeBanner(scene,
+parent, x, y, w, 26, mode)` (dusk strip under the header: ladder tower,
+colosseum, market stall, beast cave; frames via `idleFrames`, still under
+Reduce motion, hidden when VH < 330), `LAUREL` round a victory.
 
 ### Tokens
 
-`src/ui/tokens.ts`: surfaces (bg, sunken, card, raised, rim), text (primary,
-secondary, muted for locks, disabled, on-accent), accents (primary
-terracotta, gold rewards, premium silver-violet, purchase blue, success,
-danger), a role palette for unit roles (no danger red), rarity frames and
-rarity labels, the type scale, spacing (`SPACE`, 4 pt grid), radii and motion
-durations. `tests/tokens.test.ts` checks every text / surface pair in
-`CONTRAST_PAIRS` against WCAG AA.
-
-`src/ui/theme.ts` keeps the older meaning colours: `RARITY_COLOR` /
-`RARITY_GLOW` (grey / green / blue / purple / gold), `CATEGORY_COLOR` for the
-battle panel (Movement bronze, Attack red, Formation blue, Abilities gold),
-`COLOR.good` / `COLOR.bad` for better / worse, bar colours.
+`src/ui/tokens.ts`: surfaces, text (primary, secondary, muted for locks,
+disabled, on-accent), accents (terracotta primary, gold rewards, silver-violet
+premium, blue purchase, success, danger), unit role palette (no red), rarity
+frames and labels, type scale, `SPACE` (4 pt grid), radii, `MOTION`.
+`tests/tokens.test.ts` checks `CONTRAST_PAIRS` against WCAG AA. `theme.ts`:
+`RARITY_COLOR` / `RARITY_GLOW`, `CATEGORY_COLOR` (Movement bronze, Attack red,
+Formation blue, Abilities gold), `COLOR.good` / `COLOR.bad`.
 
 ### Icons
 
-Icons are drawn art: the atlases in `public/icons` (`ui` at 64 px, `items` at
-96 px), drawn by `src/art/iconBitmaps.ts`. The cream look on buttons and the
-grey disabled look are made from each bitmap. Every icon also has a code-drawn
-fallback, the smooth "material" family of `src/art/iconStyle.ts`
-(`vectorIcons.ts`, `uiIcons.ts`, HD item and goods icons in `itemIconsHD.ts`,
-`goodsIcons.ts`). A new icon needs a vector form following these rules; it
-shows that until its drawing is in the atlases (`tests/iconAtlas.test.ts`
-lists icons still waiting):
-
-| Rule | Value |
-| --- | --- |
-| Grid | 24 × 24 unit box, ~2 units margin, shown at 12 UI px |
-| Body | filled parts, one material each (`TONES`: bronze, gold, steel, silver, wood, clay…), at most 4 per icon |
-| Outline | one dark ink outline (2.3 units) round the silhouette, thin ink seams between parts |
-| Light | from the top left: diagonal gradient, gloss on the upper half, inner shade low, soft drop shadow down-right |
-| Details | ink lines or gleams on top, never part of the silhouette |
-| States | `full` (on stone and bronze), `light` (on terracotta / blue buttons), `dim` (disabled, locked) |
-| No | emoji, flat web glyphs, a second outline weight, coloured outlines |
+Atlases in `public/icons` (`ui` 64 px, `items` 96 px) via
+`src/art/iconBitmaps.ts`; cream (on buttons) and grey (disabled) looks derive
+from each bitmap. Every icon has a vector fallback in the "material" family
+(`src/art/iconStyle.ts`, `vectorIcons.ts`, `uiIcons.ts`, `itemIconsHD.ts`,
+`goodsIcons.ts`), shown until its drawing lands (`tests/iconAtlas.test.ts`
+lists those waiting). Vector rules: 24 × 24 box shown at 12 UI px; ≤ 4 parts,
+one `TONES` material each; one 2.3-unit ink outline; light from top left;
+states `full`, `light` (on terracotta / blue), `dim`. No emoji, flat glyphs
+or coloured outlines.
 
 ### One icon, one meaning
 
-`RESOURCES` in tokens.ts: campaign gold `coin`, war gold `wargold` (a bronze
-stater stamped with a helmet), Glory `laurel`, Drachmae `drachma`, Telegram
-Stars `tgstar` (always with the word "Stars"), power `power`, wins `trophy`,
-XP `xp`. `RESERVED_ICONS` adds the gold star (only a ladder floor rating),
-`podium` (leaderboards), `lock`, `shop` and the mode icons. A test fails if two
-resources share an icon or a colour.
-
-`MODE_ICON` in tokens.ts is the one icon of each mode on every screen (tabs,
-cards, Team "Use for", banners): campaign `march`, ladder `ladder`, arena
-`arena`, raids and their defence `raid` (the torch), online `map`, beasts
-`beast`. A test keeps the Duels screen on it. Actions never borrow a resource
-icon: buying is `shop`, selling `amphora`, spoils `chest`.
-
-Campaign gold (`SaveData.gold`) and the war season's gold
-(`profile.resources.gold`) are different balances with different icons and
-names: "gold" in the campaign, "war gold" everywhere online (merchants, the
-market, the war map, the season pass). Real money is its own colour (Telegram
-blue, never terracotta), always reads "N Stars" and always opens a
-confirmation sheet.
+- `RESOURCES`: campaign gold `coin`, war gold `wargold`, Glory `laurel`,
+  Drachmae `drachma`, Stars `tgstar` (always with "Stars"), power `power`,
+  wins `trophy`, XP `xp`. `RESERVED_ICONS`: gold star (ladder floor rating
+  only), `podium`, `lock`, `shop`, mode icons. A test fails on a shared icon
+  or colour.
+- `MODE_ICON`: campaign `march`, ladder `ladder`, arena `arena`, raids
+  `raid`, online `map`, beasts `beast`. Actions never borrow a resource icon:
+  buy `shop`, sell `amphora`, spoils `chest`.
+- Campaign gold (`SaveData.gold`, "gold") and season gold
+  (`profile.resources.gold`, "war gold") are separate. Real money is Telegram
+  blue, reads "N Stars" and always opens a confirmation sheet.
 
 ## Screen chrome
 
-Every screen tells the player **what is happening and what to do next**, has
-**one primary (terracotta) action**, and puts Back in one place. Three shells,
-all drawn on the stone frame with the top bar (`TopBar`: plaque, back arrow,
-gear):
+One terracotta action and one Back per screen. Shells (all with `TopBar`: plaque, back, gear):
 
-| Shell | Use for | Has |
+| Shell | Use | Has |
 | --- | --- | --- |
-| `addHubShell` (hub.ts) | a mode hub: Campaign, Duels, War, Codex, Shop | frame, top bar with the gear, scroll area, **tab bar** (`goTab` navigates), no back arrow |
-| `addSubShell` (subShell.ts) | every sub-screen: Army, Hero, Settlement, Clan, Merchant, Duels' Team / Shop pages | frame, top bar with a back arrow (outside Telegram) and the gear, **no tab bar**; `scroll: false` leaves the content box (`content`) to the screen; `retitle()` swaps the plaque text |
-| `addSubShell({ map: true })` | a full-screen map window: World, Camp | no frame: the top bar on its own stone strip over the map |
+| `addHubShell` (hub.ts) | mode hubs: Campaign, Duels, War, Codex, Shop | frame, scroll area, tab bar (`goTab`), no back arrow |
+| `addSubShell` (subShell.ts) | every sub-screen | back arrow (outside Telegram), no tab bar; `scroll: false`, `retitle()` |
+| `addSubShell({ map: true })` | World, Camp | top bar on its own strip over the map |
 
-Both framed shells are built by `buildPage` (frame, top bar, scroll area), so a hub and a sub-screen differ only in the tab bar and the back arrow.
+Both framed shells use `buildPage`. Rules:
 
-Rules:
-
-- **Numbers have words.** "344 gold", "9 men, 1 hurt", "96% ours". An icon is
-  never the only legend; the word drops before the number does.
-- **No abbreviations** in labels; a long name shows in full when it fits,
-  else its short form (both lead the long-press tip).
-- **Selection is bronze, action is terracotta.** Nothing else is coloured
-  for emphasis.
-- **Cannot = grey with a reason.** A disabled button, chip or slot says why on
-  tap (an `'info'` toast, not an error), or long-press. Lock reasons are never red.
-- **Loading, empty and unavailable states are parchment** (`addParchmentEmpty`,
-  `addEconState`): never a dark well on the page.
-- **One way to close a sheet:** the X (shade tap and Back also close it). A
-  decision (`shadeCloses: false`) has no X: its buttons answer it.
-- **Tips are part of the screen.** `addTipLine` is the one tip: flat on the
-  page or `card: true`; `dismissId` adds the X and remembers it in `settings.seenHints`.
+- **Numbers have words** ("344 gold", "9 men, 1 hurt"); an icon is never the
+  only legend; the word drops before the number.
+- **No abbreviations** unless the full name does not fit.
+- **Selection is bronze, action is terracotta**; nothing else is emphasis.
+- **Cannot = grey with a reason** on tap (`'info'` toast) or long-press; never red.
+- **Loading, empty, unavailable are parchment** (`addParchmentEmpty`, `addEconState`).
+- **One way to close a sheet:** the X (shade and Back too). A decision
+  (`shadeCloses: false`) has no X.
+- **Tips:** `addTipLine` only (`card: true`; `dismissId` remembers in `settings.seenHints`).
 
 ### Navigation
 
-- `src/platform/nav.ts` is one stack wired to Telegram's BackButton; every
-  scene registers its `back`.
-- Inside Telegram the header BackButton is the only Back: the shells draw no
-  arrow (`showInGameBack()`). Outside Telegram the top bar draws one back arrow
-  instead. Never both.
-- Tab hierarchy, one look per level, never a third level:
-  - **Top level: segmented** (`SegmentedSwitch`, a sliding thumb): the sections of
-    a screen (Ladder | Arena; Shop | Pass | Wallet; Stats | Gear | Perks | Skills).
-  - **Sub level: underline** (`UnderlineTabs`, a sliding underline): the pages
-    of one section (Today | Gear | Sell; Live | Legend).
-  - **Entity pickers: cards** (a row of `card` / `cardSel` panels): choosing
-    *which one* (Team presets 1 / 2 / 3, the floors of a chapter).
-  - Filters are quiet stone buttons, lit (bronze) only while they filter (the
-    stash's slot, rarity and sort).
-- Hero sheet: an `MPager` (chevrons, "2 / 8", swipe) to step through heroes.
+- `src/platform/nav.ts`: one stack on Telegram's BackButton; every scene
+  registers `back`. In Telegram the header BackButton is the only Back
+  (`showInGameBack()`); outside, the top bar's arrow. Never both.
+- Tabs, never a third level: **segmented** `SegmentedSwitch` for sections
+  (Ladder | Arena); **underline** `UnderlineTabs` for pages of a section;
+  **cards** (`card` / `cardSel`) for picking which one (presets, floors).
+  Filters are stone buttons, bronze while active.
+- Hero sheet: `MPager` (chevrons, "2 / 8", swipe).
 
 ### Motion
 
-Every UI tween goes through `src/ui/motion.ts` (`tweenTo`, `pulse`,
-`fadeIn`); Settings → Reduce motion (default from `prefers-reduced-motion`)
-turns them into instant changes. Durations are `MOTION` in tokens.ts.
+All UI tweens go through `src/ui/motion.ts` (`tweenTo`, `pulse`, `fadeIn`);
+Settings → Reduce motion (default `prefers-reduced-motion`) makes them
+instant. Durations: `MOTION`.
 
-- Press: scale 0.97, the face drops and darkens, light haptic.
-- Tabs: the indicator slides (200 ms, ease-out). Sheets slide up over a
-  fading backdrop (240 ms). Screens slide in (from the left after Back).
-- Numbers count up; progress fills; claimable rewards pulse; a claimed reward
-  flies into its chip (`flyReward`: pass Drachmae, chest Glory, which the
-  header holds back until the chest popup closes).
-- A ready chest hops (`hop`); opening one shakes it, swaps it open on its
-  gold, bursts sparks and counts its Glory up. Header torches and pennants
-  step through frames (`idleFrames`). The search page's rings widen.
-- No object is created per frame: pulses are tweens on existing objects;
-  scroll fades redraw only on scroll.
+- Press: scale 0.97, darker face, light haptic. Tabs slide 200 ms; sheets 240 ms.
+- Numbers count up, claimables pulse, `flyReward` flies rewards into chips, ready chests `hop`.
+- Nothing created per frame.
 
 ### Stat deltas
 
-A compare line (`deltaParts` in `src/duel/rules.ts`): the arrow follows the
-number (up when it grows), the colour follows the verdict (green better, red
-worse), the text carries its unit ("+0.2 s") and, for times, the word
-("slower" / "faster"). A stat the compared item lacks says "new" instead of
-repeating the value. Deltas name what they compare with ("vs Timon's
-composite bow").
+`deltaParts` (`src/duel/rules.ts`): arrow follows the number, colour follows
+the verdict (green better, red worse), text carries the unit ("+0.2 s") and
+for times "slower" / "faster". A stat the other item lacks says "new". Name
+the comparison ("vs Timon's composite bow").
 
 ## Components
 
 ### The v4 kit (`src/ui/mosaic/`)
 
-One component per job. Positions are UI px; every control is at least 22 UI px
-(44 pt) and says why it is off on tap. Text is Inter (numbers tabular) or
-Cinzel capitals; **a Cinzel label shrinks to its smallest size, then switches
-to Inter at that size, then ends in "..."** (`fitCinzel` in kit.ts, used by
-`MButton`, `SegmentedSwitch`, `TabBar`, `StoneTile`, `KeyButton`, the legacy
-`Button` and `Tabs`).
+Controls ≥ 22 UI px, say why they are off on tap. A Cinzel label shrinks to
+its minimum, then switches to Inter, then ends in "..." (`fitCinzel`: used by
+`MButton`, `SegmentedSwitch`, `TabBar`, `StoneTile`, `KeyButton`, `Button`, `Tabs`).
 
-| Job | Component | Use for |
+| Job | Component | Notes |
 | --- | --- | --- |
-| Shells | `ScreenFrame`, `TopBar`, `TabBar`, `addHubShell`, `addSubShell` | see "Screen chrome". `TabBar`: five mode tabs, War the raised medallion. |
-| Buttons | `MButton` (`primary`, `primaryHero`, `secondary`, `neutral`, `disabled`, `purchase`) | every labelled action. One terracotta per screen; real money is `purchase` (blue). |
-| Icon buttons | `MIconButton` (`secondary`, `neutral`, `primary`, `selected`, `lit`, `disabled`; `badge`, `count`, `text`, `off`) | a square button with one icon or a short glyph (`+`, `III`): rename, filters, the map's build rail. `selected` = lit parchment, `lit` = bronze with a gold rim. |
-| Battle keys | `KeyButton` | the battle HUD's compact command keys (`lit` = the order in force). |
-| Map buttons | `RoundButton` | the war map's round buttons under a disc. |
-| Action bars | `MActionBar` (`surface: 'stone'` on map screens, `'parchment'` on party sub-screens) | the actions at the foot of a screen: `set([{ label, icon, primary, off, selected, iconOnly, ... }])`; `top` is where the content above ends. Stone: one row, labels give way to squares; parchment: wraps to rows. |
-| Switches | `SegmentedSwitch`, `addSwitchBadge` | the sections of a screen. |
-| Sheets | `openParchmentSheet` (`dock: 'center'` or `'bottom'`, `actions`, `shadeCloses`, `closeButton`) | every modal and sheet: title over a rule, X, `body` to fill, action row (`actionRows`: one row, the primary alone, else one per row). `BottomPanel`: the in-place sheet of the war map's hex panel. |
-| Cards and rows | `ParchmentCard`, `ParchmentRow`, `ProfileCard`, `QuestCard`, `OfferCard`, `SectionTitle`, `addRowFace`, `addPortraitWell` | content on parchment. |
-| Banners | `FrescoBanner` (`image`, `pixelKey` or `art`) | the bronze riveted frame round a painted image, a pixel illustration or art you draw. |
-| Tiles | `StoneTile` (`stone`, `terracotta`, `glaze`, `bronze`), `StatTile` | a destination; a counted-up number with its label. |
-| Chips | `MChip` (`tall`, `progress`, `setValue`), `ChipRow`, `SituationLine` | icon + number pills; a row of them; the map's sentence over chips. |
-| Pills | `addPill` (coloured: role, level, league), `addRarityPill` | a word in a small plate. |
-| Meters | `MBar` (`label`, `right`, `preview`, `rightTone`, `tip`) | a bar with a label and value; `preview` shows pending points as a gain or loss. |
-| Tips | `addTipLine` (`tone`, `card`, `dismissId`) | the one contextual tip. |
-| States | `addParchmentEmpty`, `addEconState` (loading, offline, closed) | empty and unavailable states on a parchment well. |
-| Party parts | `GearSlot`, `mountSlot`, `slotGrid`, `MPager`, `MStashGrid`, `addNiche` | Army / Hero / Settlement. |
-| Text | `rarityInk(scene, rarity)`, `mtext`, `mw`, `fit` | item names in their rarity ink; fitted one-line text. |
-| Countdowns | `CountdownLabel`, `runCountdown` | m:ss on the wall clock with a callback at zero (Resend, link codes). |
-| Forms (HTML) | `AuthHost` / `AuthForm` (`src/ui/form/authForm.ts`), `promptFields` | anything typed: real DOM inputs over the canvas (password managers, autofill, paste, the phone keyboard, Turnstile). Field kinds `email`, `newPassword`, `currentPassword`, `nickname`, `confirmWord`, `text`; one card at a time, a form that leads to another replaces it in place; Back, Esc and Cancel go back. Kit: the Forms page. |
+| Shells | `ScreenFrame`, `TopBar`, `TabBar` (five modes), `addHubShell`, `addSubShell` | |
+| Buttons | `MButton` (`primary`, `primaryHero`, `secondary`, `neutral`, `disabled`, `purchase`) | every labelled action |
+| Icon buttons | `MIconButton` (`secondary`, `neutral`, `primary`, `selected`, `lit`, `disabled`; `badge`, `count`, `text`, `off`) | one icon or glyph; `selected` lit parchment, `lit` bronze with gold rim |
+| Battle / map keys | `KeyButton` (`lit` = order in force), `RoundButton` | HUD keys; war map discs |
+| Action bars | `MActionBar` (`surface: 'stone'` maps, `'parchment'` party screens) | `set([{ label, icon, primary, off, selected, iconOnly }])`; `top` = content end; stone one row, parchment wraps |
+| Switches | `SegmentedSwitch`, `addSwitchBadge` | sections |
+| Sheets | `openParchmentSheet` (`dock: 'center'`/`'bottom'`, `actions`, `shadeCloses`, `closeButton`); `BottomPanel` | every modal; `actionRows`: one row, else primary alone, else one per row |
+| Cards, rows | `ParchmentCard`, `ParchmentRow`, `ProfileCard`, `QuestCard`, `OfferCard`, `SectionTitle`, `addRowFace`, `addPortraitWell` | |
+| Banners, tiles | `FrescoBanner` (`image`, `pixelKey`, `art`); `StoneTile` (`stone`, `terracotta`, `glaze`, `bronze`), `StatTile` | |
+| Chips, pills | `MChip` (`tall`, `progress`, `setValue`), `ChipRow`, `SituationLine`; `addPill`, `addRarityPill` | |
+| Meters | `MBar` (`label`, `right`, `preview`, `rightTone`, `tip`) | `preview` = pending gain or loss |
+| Tips, states | `addTipLine`; `addParchmentEmpty`, `addEconState` | |
+| Party parts | `GearSlot`, `mountSlot`, `slotGrid`, `MPager`, `MStashGrid`, `addNiche` | Army, Hero, Settlement |
+| Text | `rarityInk`, `mtext`, `mw`, `fit` | |
+| Countdowns | `CountdownLabel`, `runCountdown` | m:ss, callback at zero |
+| Forms (HTML) | `AuthHost` / `AuthForm` (`src/ui/form/authForm.ts`), `promptFields` | real DOM inputs over the canvas; kinds `email`, `newPassword`, `currentPassword`, `nickname`, `confirmWord`, `text`; one card at a time, replaced in place; Back, Esc, Cancel go back |
 
-Pick: a hub gets `addHubShell`; anything you reach from it gets `addSubShell`;
-a question or a detail is a sheet, not a screen; actions live in a `MActionBar`
-(or a `MButton` in the content), icons alone in `MIconButton`.
+Hubs get `addHubShell`, everything reached from them `addSubShell`; questions
+and details are sheets; actions go in `MActionBar` (or an `MButton`).
 
 ### Legacy parts
 
-Content built before v4 (`src/ui/widgets.ts`, `kit.ts`, `sheet.ts`, `v3.ts`) is
-still used inside modals and sheets: `Button`, `Tabs`, `ScrollList`, `Grid`,
-`ItemIcon`, `StatBar`, `Meter`, `Label`, `Toggle`, `Stepper`, `showTooltip`,
-`toast`, `confirmDialog`, `openItemCard`, `openClassCard`. `openModal` and
-`openSheet` are `openParchmentSheet` with `skin: true`: `src/ui/inkSkin.ts`
-`inkify(container)` re-inks what they hold (light font keys become their ink
-forms, dark `panel_*` textures parchment wells, list fades melt into
-parchment). Only those two sheets use it; v4 screens and their parts use the
-`p*` / `r*` ink font keys directly. A part that draws its own dark surface
-calls `ownSkin(obj)`.
+Pre-v4 parts (`widgets.ts`, `kit.ts`, `sheet.ts`, `v3.ts`) used inside
+modals: `Button`, `Tabs`, `StatBar`, `Meter`, `Label`, `Toggle`, `Stepper`
+and those below. `openModal` / `openSheet` are
+`openParchmentSheet` with `skin: true`: `inkify(container)`
+(`src/ui/inkSkin.ts`) re-inks their content for parchment; v4 parts use `p*`
+/ `r*` ink keys directly; a part with its own dark surface calls `ownSkin(obj)`.
 
-| Piece | API (short) | Use for |
-| --- | --- | --- |
-| `openModal`, `openSheet` | `{ title, w, h, onClose, shadeCloses }` → `{ c, x, y, w, h, body, close }` | dialogs and bottom sheets from legacy content. Long content goes in a `ScrollList` in `body`. `shadeCloses: false` for confirms, tutorial steps, forced choices and forms. |
-| `confirmDialog` | `{ title, body, ok, cancel, destructive, onOk, onCancel }` | yes/no. Cancel left, OK right; every destructive action goes through it. |
-| `ScrollList`, `Grid` | `{ count, rowH / cell, render(i, ...) }` | long collections, virtualised: `render` builds a row from its index alone. |
-| `ItemIcon` | `{ item } / { consumable } / { resource }` | any item or good in its rarity frame. |
-| `tappable` | `tappable(obj, area, onTap, tip?)` | custom tap targets (ignore drags in a scroll area, click, haptic, long-press tip). |
-| `showTooltip`, `toast`, `firstTimeHint` | | explanations; short feedback (`'bad'` only for real problems); the once-per-screen hint. |
-
-Older helpers (`addPanel`, `addScroll`, `addText`, `fitText`, `confirmModal`) still work.
+- `openModal` / `openSheet({ title, w, h, onClose, shadeCloses })` → `{ c, x, y, w, h, body, close }`.
+- `confirmDialog({ title, body, ok, cancel, destructive, onOk, onCancel })`: Cancel left, OK right; every destructive action.
+- `ScrollList` / `Grid({ count, rowH | cell, render(i) })`: virtualised.
+- `ItemIcon({ item | consumable | resource })`; `tappable(obj, area, onTap, tip?)`.
+- `toast` (`'bad'` only for real problems), `showTooltip`, `firstTimeHint`.
 
 ### Onboarding pieces
 
-| Piece | Where | Use for |
-| --- | --- | --- |
-| `Narrator` | `src/ui/tutorial/narrator.ts` | the tutorial narrator: portrait, name, typewriter text with sound, skip, tap-to-go-on. |
-| `Spotlight` | `src/ui/tutorial/spotlight.ts` | dims everything but a hole with a pulsing ring; blocks taps outside it. |
-| `GhostHand` | `src/ui/tutorial/ghost.ts` | a pale hand demonstrating tap, drag or pinch on a loop. |
-| `OnlineCoach` | `src/ui/tutorial/onlineCoach.ts` | anchored coach marks ("2 / 7") for the first online visit; progress in `settings.onlineCoach`. |
-
-The flow: `src/game/tutorial.ts` (steps, checks, progress, scenario),
-`src/ui/tutorial/battleTutorial.ts` (drives the battle scene through
-`BattleScene.tutorialHost()`), `src/scenes/FirstRunScene.ts` (offer, resume,
-reward, modes).
+`src/ui/tutorial/`: `Narrator` (portrait, typewriter, skip), `Spotlight`
+(dims all but a hole, blocks outside taps), `GhostHand` (looped tap / drag /
+pinch demo), `OnlineCoach` ("2 / 7" coach marks, `settings.onlineCoach`).
+Flow: `src/game/tutorial.ts`, `battleTutorial.ts` (via
+`BattleScene.tutorialHost()`), `src/scenes/FirstRunScene.ts`.
 
 ### Army, hero and economy pieces
 
-| Piece | Where | Use for |
-| --- | --- | --- |
-| `Stage` | `src/ui/sheet.ts` | the hero's figure in his gear on a lit stage. |
-| `addSlotTile`, `addMountTile` | `src/ui/sheet.ts` | equipment slots. |
-| `openItemCard` | `src/ui/sheet.ts` | the item card; with `hero` it is the compare popup. |
-| `MStashGrid` | `src/ui/mosaic/StashGrid.ts` | stash grid with filters, sort, upgrade arrows, empty states. |
-| `DragDrop` | `src/ui/sheet.ts` | long-press a stash cell and drop it on a slot. |
-| `openClassCard` | `src/ui/sheet.ts` | a recruit's class: figure, role, strong / weak, stats, hire. |
-| `addStars`, `addGroupBadge`, `addTabBadge` | `src/ui/sheet.ts` | rank stars, group badges, tab counts. |
-| `rarityInk(scene, r)` | `src/ui/mosaic/rarityInk.ts` | item names in their rarity ink on parchment (`rarityFont(r)` in `src/ui/fonts.ts` is the light form for dark stone). |
-| `addPurse`, `addEconState` | `src/ui/econ/widgets.ts` | balances in a top bar; loading / outside-Telegram / offline / closed states on a parchment well. |
-| `pickBattleConsumable(scene)` | `src/ui/econ/consumablePicker.ts` | the one-per-battle consumable picker: resolves an id, `null` (none) or `undefined` (closed). |
-
-The pure logic behind them is unit-tested: `src/game/gear.ts` (stats, compare
-deltas, stash and roster queries) and `src/game/economy.ts` (pass states,
-fees, caps, `walletOverdrawn`). The shop and market scenes take
-`{ demo: true }` to run on the in-memory economy of `src/ui/econ/demo.ts`.
+- `src/ui/sheet.ts`: `Stage`, `addSlotTile`, `addMountTile`, `openItemCard`
+  (compare with `hero`), `DragDrop`, `openClassCard`, `addStars`, `addGroupBadge`, `addTabBadge`.
+- `MStashGrid` (`src/ui/mosaic/StashGrid.ts`), `rarityInk`
+  (`rarityFont(r)` in `src/ui/fonts.ts` for dark stone).
+- `src/ui/econ/`: `addPurse`, `addEconState`, `pickBattleConsumable(scene)`
+  (id, `null` none, `undefined` closed); `demo.ts` backs `{ demo: true }` shop
+  and market scenes.
+- Logic: `src/game/gear.ts`, `src/game/economy.ts` (unit-tested).
 
 ## Patterns: which one when
 
-One clear pattern per screen for long content (never shrink text or buttons
-to make things fit):
-
-- **Tabs** for a few *different* sections (Stats / Gear / Perks).
-- **ScrollList / Grid** for *many items of one kind* (roster, inventory,
-  listings). Fixed row height, virtualised.
-- **Cards** when items need a *one-line summary plus details*.
-- **Modal / sheet** for focused tasks and questions; **toast** for feedback
-  that needs no answer; **tooltip** for explanations.
+Never shrink text or buttons to fit. **Tabs** for a few different sections;
+**ScrollList / Grid** for many of one kind (fixed rows, virtualised);
+**cards** for summary plus details; **sheet** for tasks and questions;
+**toast** for feedback; **tooltip** for explanations.
 
 ## Spacing and touch
 
-- Touch targets at least 44 × 44 pt (`TOUCH_PT`): `SIZE.btnH` (24) UI px
-  tall, never below 22. At least 4 pt between targets (`SIZE.gap`).
-- Rows 26 (`SIZE.rowH`), item cells 24 (`SIZE.cell`), panel padding 6.
-- Never scale text down to fit.
-- The canvas already is the Telegram safe area (`src/platform/safeArea.ts`),
-  so `VW × VH` is all you have. The smallest case is 320 × 568 inside
-  Telegram: about 137 × 214 UI px. Design for it (scroll, tabs, compact
-  variants; `MenuScene` has a compact layout switch).
-- Primary actions at the bottom (thumb zone).
+- Targets ≥ 44 pt (`TOUCH_PT`): `SIZE.btnH` 24, never below 22; ≥ 4 pt apart
+  (`SIZE.gap`). Rows 26 (`SIZE.rowH`), cells 24 (`SIZE.cell`), padding 6.
+- The canvas is the Telegram safe area (`src/platform/safeArea.ts`). Smallest
+  case 320 × 568 in Telegram ≈ 137 × 214 UI px (`MenuScene` has a compact layout).
+- Primary actions at the bottom.
 
 ## Text and i18n
 
-- All UI text goes through `t(key, params)` from `src/i18n`. Plurals: an
-  entry like `{ one: '{n} hero', other: '{n} heroes' }`; Russian needs `one`,
-  `few`, `many`, `other` (`pluralForm`).
-- Add a key to the English table (the typed source) **and** the Russian one
-  under your screen's prefix. `tests/ui.test.ts` checks every key exists in
-  both with the same `{params}` and that the fonts can draw every character.
-- Data names use `tOr('item.<id>.name', def.name)`.
-- Russian strings are ~30% longer. Fit by measuring: `measureText`,
-  `ellipsize`, `wrapText` (`src/ui/textfit.ts`), `Label`, `Button` (auto
-  "…"). Keep `opts.label` the full English text: smoke scripts find buttons
-  by it.
-- Language: `?lang=ru` in the URL, else the setting (Auto / English /
-  Русский), else Telegram's `language_code`, else the browser. Changing it
-  rebuilds the screen.
-- Write strings in sentence case; text renders in the case it is given.
+- `t(key, params)` for all text; plurals `{ one, other }` (Russian adds `few`,
+  `many`; `pluralForm`). Keys go in English (typed) and Russian;
+  `tests/ui.test.ts` checks keys, `{params}`, glyphs. Data names: `tOr('item.<id>.name', def.name)`.
+- Russian is ~30% longer: fit with `measureText`, `ellipsize`, `wrapText`.
+  `opts.label` stays full English (smokes find buttons by it).
+- Language: `?lang=ru`, setting, Telegram `language_code`, browser. Sentence case.
 
 ## Screens
 
 ### Home
 
-`MenuScene`: a cinematic stage on top where the player's own men fight a
-looping skirmish (`src/scenes/menu/MenuBattle.ts`) under the title; then the
-save's card (who, where, campaign gold, campaign battles won, "Warband N":
-the campaign roster, not the Duels army), the one primary action (Continue
-the march; Begin the march without a save), the three modes as `Tile`s
-(Duels, Online, Beasts; a locked part says when it opens), the utility row
-(Shop, Settings) and the first-steps checklist. New campaign lives in
-Settings → Account, a quiet destructive row whose confirmation says what is
-lost (warband, stash, gold, map) and what is kept.
+`MenuScene`: a looping skirmish (`src/scenes/menu/MenuBattle.ts`), the save
+card, Continue / Begin the march, mode `Tile`s (Duels, Online, Beasts), Shop,
+Settings, first-steps checklist. New campaign: Settings → Account (confirmed).
 
 ### Duels
 
-`DuelScene` (rules in docs/DUELS.md):
+`DuelScene` (rules: docs/DUELS.md):
 
-- **Header**: title, then Glory and the duel level (with its XP line) as
-  chips in the band, then **Team** (a "!" while a fighting hero has points or
-  a perk to spend) and **Shop**, lit while their view is open. Leaderboards
-  and the raid picks drop Team and Shop so their titles fit. Under the header
-  the mode's banner (tower, colosseum, market stall).
-- **Ladder | Arena** switch (the two modes). Team, Shop, the raid picks and a
-  leaderboard are full views with a title and back that return where the
-  player came from. Back on a mode leaves for the menu.
-- **Ladder**: a compact next-floor card (medallion, reward, the team against
-  the cap with a tick or a cross; a tap opens the sheet; Fight floor N is the
-  strip's primary), the farm Glory left today, then chapters of five-floor
-  tiles (number, replay Glory "+13" on cleared ones, a skull on the boss,
-  high-contrast star slots, a lock beyond the next floor) with three pixel
-  chests each (grey, hopping when ready, open once claimed; a tap on a
-  closed one previews its reward and the stars it needs). The floor sheet:
-  reward, your team (tick / cross) vs the enemy vs the cap, the stars rule,
-  then "Enemy army · N" and the enemy as portrait rows.
-- **Arena**: the season line, then two cards: **Live PvP** (league or
-  placements, record, "Win +30 · Loss +10 Glory", Find match (primary) and
-  Unranked) and **Raids** (raids left, the defence team, Raid, the raid log).
-  Locked at the same duel level, one card says so ("Unlocks at Duel Lv 5:
-  Ranked matches and Raids", one bar). Each card's Top opens its leaderboard
-  (medals for the podium, league crests, your row pinned). The search takes
-  the page: rings that widen with the search range, the clock, a bar that
-  fills until anyone will do (from `RANKED.window`), copy per mode, your
-  lineup in portraits. Navigation waits during the search (Cancel is on the
-  strip); a tap elsewhere says why.
-- **Team**: "Duel heroes: N" (the Duels army, apart from the campaign
-  warband) with a Symbols legend, preset cards (bronze = edited; "+" while
-  fewer than five), rename, duplicate, delete (confirmed, not the last),
-  "Use for" toggle chips with the mode icons, points against the budget, the
-  heroes, the bench. Strip: Recruit. Dismiss is on the hero sheet (bench
-  only, confirmed).
-- **Shop**: Today / Gear / Sell; offer cards with the item, rarity and slot,
-  price, up to three stats with deltas against the same slot and weapon
-  class on a hero who would use it ("vs Doros's Dory spear (Common)";
-  `offerSummary`, `heroUses`), and Buy (off with the reason when Glory is
-  short). "Compare with" opens a sheet: best user in the team, or one hero
-  (items he would not use say "Not for Lysander" and fall back). Sell shows
-  each item's price on its cell. Two columns where wide enough.
+- **Header:** title, Glory and duel level chips, **Team** ("!" with points to
+  spend) and **Shop** (lit while open; dropped on leaderboards and raid
+  picks), the mode banner below.
+- **Ladder | Arena** switch. Team, Shop, raid picks and leaderboards are full
+  views returning where you came from; Back on a mode goes to the menu.
+- **Ladder:** next-floor card (Fight floor N primary), farm Glory left,
+  chapters of five floor tiles with three chests each; the floor sheet shows
+  reward, team vs enemy vs cap, stars rule, enemy portraits.
+- **Arena:** **Live PvP** and **Raids** cards (one locked card below the
+  unlock level); Top opens leaderboards. Search takes the page (rings, clock,
+  `RANKED.window` bar); navigation waits, Cancel on the strip.
+- **Team:** Duel heroes (not the warband), presets, "Use for" chips, budget,
+  bench; Recruit on the strip; Dismiss on the hero sheet (bench only).
+- **Shop:** Today / Gear / Sell; offers show up to three deltas vs a hero who
+  would use them (`offerSummary`, `heroUses`); "Compare with" picks the hero.
 
 ### Battle HUD
 
 `src/ui/battleHud.ts`, built by `BattleScene.buildHud`:
 
-- **Top bar** (`TopBar`, `TOP_H` 46 UI px): Pause / Play (terracotta while
-  paused), speed (`2×`, lit when fast), the clock with its word, Flee; under
-  them the two armies' strength ("You 86% [bar] vs [bar] 92% Foe"). In
-  deployment: Leave, the men count, Men; online deployment shows the seconds
-  left and a draining bar. Online battles have no pause or speed.
-- **Hint pill** (`HintPill`): the situation sentence under the top bar. A
-  banner (first contact, a terrain tip) takes its place while shown.
-- **Ability medallions** (`Medallion`) down the field's right edge: name and
-  effect on a plate, a gold halo when ready, a sweep and the seconds while
-  recovering, a count bubble for several ready holders.
-- **Bottom sheet**: group cards two per row (`GroupCard` wide layout), a
-  header line ("ORDERS · PHALANX I", the Formation chip, Reset / Alone /
-  Rejoin), then the orders as labelled buttons (the order in force lit) or,
-  in deployment, a full-width Fight / Ready. The Formation chip opens the
-  shape sheet (five rows, each with a line of meaning).
-- On the field: tap a group's card, men or numeral to select it; drag the
-  group to move it, drag the bronze knob ahead of it to turn it, tap ground
-  to send it (docs/GAMEPLAY.md "Controls").
-- `RadialOrders` (`src/ui/radialOrders.ts`, a ring of orders round the
-  selected group) is not built any more; its order list, `ringOrders()`,
-  feeds the order row.
-- The tutorial lights the same keys (`cmdBtns`: advance, charge, hold,
-  loose, fallback, abilities; `tabBtns`: formation, abilities). Scripts find
-  buttons by label (`Fight!`, `Play`, `Leave`...) and ability medallions by
-  icon.
+- **Top bar** (`TopBar`, `TOP_H` 46): Pause / Play, `2×`, clock, Flee,
+  strength bars. Deployment: Leave, men, Men. Online: a timer, no pause or speed.
+- **Hint pill** (`HintPill`): the situation sentence (banners replace it).
+- **Ability medallions** (`Medallion`) on the right: halo when ready, cooldown sweep.
+- **Bottom sheet:** `GroupCard`s two per row, a header (Formation chip, Reset
+  / Alone / Rejoin), the orders, or Fight / Ready in deployment.
+- Field controls: docs/GAMEPLAY.md "Controls".
+- `ringOrders()` (`src/ui/radialOrders.ts`) feeds the order row.
+- The tutorial lights `cmdBtns` and `tabBtns`; scripts find buttons by label
+  (`Fight!`, `Play`, `Leave`) and medallions by icon.
 
 ### Map and party screens
 
 ```
-Army (ArmyScene)       sub-screen shell · hero head with slots · Roster | Stash switch · MActionBar (parchment): Map or Town | Sheet (badge) | Dismiss
-Online (OnlineScene)   hub shell (War) · the hex map in the frame's window · BottomPanel (the hex's actions) · tab bar
-World (WorldScene)     map shell (top bar strip) · SituationLine (sentence + chips) · map · MActionBar (stone): Camp | Rest or Stop | Party
+Army (ArmyScene)       sub shell · hero head with slots · Roster | Stash · MActionBar (parchment): Map or Town | Sheet | Dismiss
+Online (OnlineScene)   hub shell (War) · hex map in the frame · BottomPanel · tab bar
+World (WorldScene)     map shell · SituationLine · map · MActionBar (stone): Camp | Rest or Stop | Party
 ```
 
 ## Layout check
 
-`node scripts/layout-check.mjs <url>` (needs `npm run build` and
-`npx vite preview`, or the dev server) visits every screen across the v6
-screen matrix, in English and Russian, scrolls every list to its end and
-checks again. The sizes live in `scripts/lib/layoutMatrix.mjs`, by group
-(`--matrix`, comma-separated; default `all`):
+`node scripts/layout-check.mjs <url>` (after `npm run build` + `npx vite
+preview`, or the dev server) visits every screen in English and Russian,
+scrolls every list to its end and checks again. Sizes
+(`scripts/lib/layoutMatrix.mjs`, `--matrix`, default `all`):
 
 | Group | Sizes |
 | --- | --- |
-| `phone` | 390x844 (design size), 360x780, 320x693 |
-| `landscape` | 844x390 (phone landscape), 1024x768, 1280x800, 1440x900, 1920x1080 |
+| `phone` | 390x844 (design), 360x780, 320x693 |
+| `landscape` | 844x390, 1024x768, 1280x800, 1440x900, 1920x1080 |
 | `tablet` | 768x1024, 820x1180 |
 | `all` | the ten above |
-| `v5` | 320x568, 375x667, 430x932, 320x640: the v5 phone sizes, outside the matrix; CI still runs them |
+| `v5` | 320x568, 375x667, 430x932, 320x640 (outside the matrix; CI runs them) |
 
-At phone sizes it also runs inside a fake full-screen Telegram: insets top
-59 + 46 and bottom 34 in portrait; sides 59, top 46 and bottom 21 at 844x390.
-Tablets and laptops run plain only. It fails on:
+Phone sizes also run in a fake full-screen Telegram (insets top 59 + 46,
+bottom 34 portrait; sides 59, top 46, bottom 21 at 844x390). Failures:
 
-- `overlap` / `spacing`: interactive elements overlapping or closer than 4 pt;
-- `text-overflow`: text outside its box (its button / panel, or wider than
-  its declared `maxWidth`); `text-overlap`: texts on top of each other;
-  `text-column`: a line of a wrapped block outside its declared column, or
-  the block's lines not sharing a left edge (`uiColumn`);
-  `clipped`: something cut at the side of a scroll area;
-- `outside-safe-area`: anything outside the canvas;
-- `touch-size`: an interactive element under 44 pt.
+- `overlap` / `spacing`: interactive elements overlapping or under 4 pt apart;
+- `text-overflow` (outside its box or `maxWidth`), `text-overlap`,
+  `text-column` (a wrapped line outside its `uiColumn` or off its left edge),
+  `clipped` (cut at a scroll area's side);
+- `outside-safe-area`; `touch-size` (under 44 pt).
 
-Screenshots: `shots/layout/<lang>-<plain|tg>/<W>x<H>/<screen>.png`
-(git-ignored; `$SHOTS` moves them; CI uploads them as artifacts), summary in
-`shots/layout/index.md`: a per-size table (screens clean, with only
-allowlisted violations, or failed, and the browser time) and the violations
-per screen. The console prints the same per-size table. Options: `--matrix`,
-`--sizes` (wins over `--matrix`), `--langs`, `--insets`,
-`--no-shots`, `--verbose`, `--update-allowlist`, `--shard i/n` (every n-th
-configuration) and `--split k` (each configuration's screens in k contexts,
-run in parallel by `--jobs`, default half the CPUs, 2 to 6). CI runs one job
-per size and language (`--sizes WxH --langs xx`). `shots/layout/found.json`
-lists every violation with the configurations it showed in, so two runs
-compare with a plain diff.
+Output in `shots/layout/` (git-ignored, `$SHOTS`): `<lang>-<plain|tg>/<W>x<H>/<screen>.png`,
+`index.md`, `found.json`. Options: `--sizes` (beats `--matrix`), `--langs`,
+`--insets`, `--no-shots`, `--verbose`, `--shard i/n`, `--split k` / `--jobs`,
+`--no-retry`, `--list`. CI runs one job per size and language.
 
-**Which screens (V6-030).** The full matrix is for integrators and final QA.
-Story agents run a subset:
+**Which screens:**
 
-| Mode | Runs | Use |
-| --- | --- | --- |
-| `--quick [base]` | the screens your branch's changes can affect at all ten sizes, plus a smoke subset (`QUICK` in `scripts/lib/layoutScenes.mjs`: menu, settings, a kit sheet, world, army, hero, battle, results, shop, duel ladder, war map) at 390x844 and 1280x800 | story agents, before handing off |
-| `--changed [base]` | only the screens the changes can affect (all sizes, or what `--matrix` / `--sizes` say) | narrowing any run |
-| `--scenes a,kit-*` | these screens: ids or `*` / `?` globs, comma-separated (`--screens` is the older name); with `--quick`, added to the changed ones | a screen family you are fixing |
-| (none) | every screen at every matrix size | integrators, final QA |
+| Mode | Runs |
+| --- | --- |
+| `--quick [base]` | changed screens at all sizes + `QUICK` (`scripts/lib/layoutScenes.mjs`) at 390x844, 1280x800 |
+| `--changed [base]` | only changed screens |
+| `--scenes a,kit-*` | these ids / globs (`--screens` alias); added to `--quick` |
+| (none) | everything; integrators, final QA |
 
-`base` defaults to `v6`, else `main`; the changes are everything since the
-merge base with it, uncommitted and untracked files included. `--list`
-prints what each size would visit and stops (no browser). The map from
-files to screens (`screensForChanges`) is conservative:
+`base`: `v6`, else `main` (since the merge base, uncommitted files
+included). `screensForChanges` follows the import graph and `sceneKeysOf`;
+i18n tables map by key prefix; shared code (`main.ts`, Boot, `BaseScene`,
+minus `SERVICES`), the check, `public/`, configs and unimported files mean
+every screen; files outside `src/` mean none. If `--quick` reaches every
+screen it runs `QUICK` at every size: add `--scenes`.
 
-- a changed `src/` file counts for every scene that imports it, directly or
-  through other modules (an import graph read from the sources), and for the
-  screens whose staging names those scenes (`sceneKeysOf`: the scene keys in
-  the screen's `run` and the helpers it calls); a screen that names no scene
-  is taken for any `src/` change;
-- an i18n dictionary (`src/i18n/*.ts`) counts for the files that use its key
-  prefixes (`'market.`); a prefix no file names means every screen;
-- every screen when the change reaches what all screens share: `main.ts`,
-  the Boot scene, `BaseScene` and their imports (the kit, layout, language,
-  safe area, render scale, sprites, rasters), apart from the services listed
-  in `SERVICES` (state, cloud, navigation, audio, routing, and the widget and
-  duel-invite installers, whose hooks never fire in the check); also for the
-  check itself, `public/`, `index.html`, `package.json` and the Vite and TS
-  configs, a deleted file, or a file nothing imports;
-- a changed allowlist file counts for the screens on its changed lines; files
-  outside `src/` (docs, server, landing, tests) count for none.
+**Speed:** staging waits end once the game is quiet (`scripts/lib/settle.mjs`)
+or at `ms`; `--fixed-waits` restores fixed sleeps, `--timing` shows where time went.
 
-When `--quick`'s change reaches every screen it runs the smoke subset at
-every size instead and says so: name the screens you changed with `--scenes`,
-and the integrator's full run covers the rest.
+**Registering:** kit components and plain objects register themselves (the
+display list is walked; a text's box is the smallest panel or button behind
+it). Help where needed: `uiId(obj, 'army.dismiss')` (stable name),
+`uiFrame(text, container, w, h)`, `uiColumn(line, container, x0, x1, blockId)`,
+`uiBlocker(shade)` (modal backdrop), `uiIgnore(obj)`,
+`uiClip(container, viewportZone)` (`ScrollArea` does it). Objects under a
+scrolling map camera are map content, never compared with the UI over them.
+**New screens** go in `SCREENS` (`scripts/layout-check.mjs`) with an owner
+and a staging function.
 
-**Speed.** Staging waits are state waits (`scripts/lib/settle.mjs`): a
-screen's `wait(p, ms)` ends once the game is quiet (no battle running, no
-scene starting or loading, no camera fade, pan or zoom, no finite tween, no
-Phaser timer or `setTimeout` due before the deadline, no fetch outstanding;
-checked inside the page on two animation frames in a row, two game frames
-on) and never later than `ms`, so a run sees the same states as the old
-fixed sleeps, sooner. A running battle never counts as quiet: what it shows
-depends on the time elapsed. `until` polls inside the page on every frame
-too, with no round trip per poll. `--fixed-waits` brings the sleeps back (to
-compare, or to rule waits out when a screen turns flaky); `--timing` prints
-where the time went (browser, page load, boot, staging, waits, settle,
-check, screenshots, scroll pass) and what kept waits to their deadline.
-Measured on one configuration (en, plain, 390x844, 196 screens, one
-context, a loaded 10-core machine): 417 s with fixed sleeps (265 s of them
-sleeping), 281 s with state waits (113 s waiting), the same violations.
-
-**Registering:** nothing to do for kit components and plain Phaser objects:
-the registry walks the display list (interactive objects and bitmap texts;
-the box of a text is the smallest panel or button behind it). Help it where
-needed:
-
-- `uiId(obj, 'army.dismiss')`: a stable name (otherwise the i18n key of the
-  text, the label or icon of a button, or the normalised text);
-- `uiFrame(text, container, w, h)`: the box a text must stay in;
-- `uiColumn(line, container, x0, x1, blockId)`: one line of a wrapped,
-  left-aligned block must stay in `x0 .. x1` and start where its block's
-  lines start;
-- `uiBlocker(shade)`: a modal backdrop (everything under it is ignored;
-  full-screen interactive rectangles are detected automatically);
-- `uiIgnore(obj)`: not a UI element (e.g. a full-screen drag zone);
-- `uiClip(container, viewportZone)`: custom scroll viewports (`ScrollArea`
-  does it).
-
-Objects under a scrolling map camera (World, Battle, Online maps) are map
-content: clipped to the view, never compared with the UI drawn over them.
-
-**New screens** go into the `SCREENS` table of `scripts/layout-check.mjs`
-with an owner and a staging function (start the scene, open the dialog).
-
-**Allowlist:** `scripts/layout-allowlist/<story>.json` lists known
-violations, one file per owner story (the V6-RSCR story of the screen's
-family, `STORY_OF` in `scripts/lib/layoutMatrix.mjs`), so stories working in
-parallel never edit the same file. Each file is `{ "_doc", "entries" }`.
-Keys are `screen|check|element ids`, or `screen|check|*` for the whole screen
-(the text-size floor only); a trailing `@WxH` scopes an entry to one size, and
-an unscoped entry holds at every size. A violation not listed at the size it
-shows at fails the run (after a second look, see `--no-retry`). Fix your
-entries and delete them; delete your file when it is empty: the lists only
-shrink. Never add entries for new work (`--update-allowlist` rewrites the
-files from the current state, adding new violations scoped to their size:
-review the diff, it should only shrink; run it on the whole matrix, since an
-unscoped entry only counts as fixed after a run of every matrix size). The
-foundation screens (menu, settings, kit gallery) are never allowlisted at the
-phone portrait sizes, apart from the text-size floor; their findings at the
-other matrix sizes belong to their family's story (V6-RSCR-01, -10, -11).
+**Allowlist:** `scripts/layout-allowlist/<story>.json` per owner story
+(`STORY_OF`), `{ "_doc", "entries" }`; keys `screen|check|ids` or
+`screen|check|*` (text-size only), `@WxH` for one size. Unlisted violations
+fail. Lists only shrink; never add for new work. `--update-allowlist`
+rewrites them (whole matrix; review the diff). Menu, settings and kit are
+never allowlisted at phone portrait except the text-size floor.
