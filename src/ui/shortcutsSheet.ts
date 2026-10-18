@@ -12,7 +12,7 @@ import { ScrollList } from './widgets';
 import { openParchmentSheet } from './mosaic/ParchmentSheet';
 import { ellipsize, measureText, wrapText } from './textfit';
 import { SURFACE, TEXT_MIN } from './tokens';
-import { settingsSheetW } from './notifySettings';
+import { settingsSheetOpts } from './notifySettings';
 import { ACTIONS, type ActionId } from './input/actions';
 import type { Binding } from './input/bindings';
 import { keys } from './input/keys';
@@ -48,17 +48,15 @@ export function shortcutsOpen(scene: Phaser.Scene): boolean {
 export function openShortcuts(scene: UiScene, onClose?: () => void): Phaser.GameObjects.Container {
   const was = open.get(scene);
   if (was?.active) return was;
-  const { VW, VH } = scene.m;
+  const { VH } = scene.m;
   const rowH = 16;
   const gap = 2;
-  const w = settingsSheetW(VW);
   const want = 26 + 12 + SHEET_ROWS.length * (rowH + gap) + SIZE.btnH + 16;
   let list: ScrollList | null = null;
   const m = openParchmentSheet(scene, {
+    ...settingsSheetOpts(scene),
     title: t('controls.title'),
-    w,
     h: Math.min(want, VH - 12),
-    dock: 'bottom',
     id: 'shortcuts',
     onClose: () => {
       list?.destroy();

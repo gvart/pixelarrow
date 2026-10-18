@@ -103,18 +103,21 @@ function placeSheet(scene: UiScene, o: ParchmentSheetOpts): { presentation: Pane
   const area = sheetAreas.get(scene) ?? { x: 0, y: 0, w: VW, h: VH };
   const lay = pres === 'auto' ? panelLayout(scene.m, kind, area, o.h) : null;
   const p = lay?.presentation ?? (pres as PanelPresentation);
+  // Settings and its pages take exactly the §3.4 box (the pages lay their content out for it: settingsSheetW)
+  const fixed = kind === 'settings' ? lay : null;
   if (p === 'side') {
     const r = lay?.rect ?? panelLayout({ ...scene.m, cls: 'expanded', land: true }, 'task', area, o.h).rect;
     // never narrower than the sheet the caller laid its content for (up to the side-panel cap and the area)
-    const w = Math.min(Math.max(r.w, o.w ?? 0), SIDE_PANEL_MAX, area.w);
+    const w = Math.min(fixed ? r.w : Math.max(r.w, o.w ?? 0), SIDE_PANEL_MAX, area.w);
     // and never shorter than the content it holds (v5's clamp): a tall page rises over the top bar on a short screen
     const y = Math.min(r.y, VH - Math.min(o.h, VH - 12));
     return { presentation: 'side', x: r.x + r.w - w, y, w, h: r.y + r.h - y };
   }
   // a dialog or a bottom sheet keeps the width it asked for, up to the §2.3 caps
   const cap = p === 'dialog' ? DIALOG_MAX : lay?.rect.w ?? DIALOG_MAX;
-  const w = Math.min(o.w ?? (p === 'bottom' ? 260 : 200), cap, VW - (p === 'bottom' ? 8 : 16));
-  const h = Math.min(o.h, VH - (p === 'dialog' ? 16 : 12));
+  const w = fixed ? fixed.rect.w : Math.min(o.w ?? (p === 'bottom' ? 260 : 200), cap, VW - (p === 'bottom' ? 8 : 16));
+  // the Settings panel on a laptop: at most 80% of the height (§3.4)
+  const h = Math.min(o.h, VH - (p === 'dialog' ? 16 : 12), fixed && p === 'dialog' ? fixed.rect.h : Infinity);
   return { presentation: p, x: Math.round((VW - w) / 2), y: p === 'bottom' ? VH - h : Math.round((VH - h) / 2), w, h };
 }
 

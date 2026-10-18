@@ -19,6 +19,7 @@ import { MIconButton } from '../mosaic/iconButton';
 import { openParchmentSheet } from '../mosaic/ParchmentSheet';
 import { focus, focusRole } from '../focusRing';
 import { openSettingsPage, settingsSheetW } from '../notifySettings';
+import { BUTTON_MAX } from '../sizeClass';
 import { LINE_H, ellipsize, measureText, wrapText } from '../textfit';
 import { SURFACE, TEXT_MIN } from '../tokens';
 import { SIZE } from '../theme';
@@ -114,10 +115,10 @@ function apply(scene: Phaser.Scene, next: BindingMap, msg: string): void {
 
 /** Opens Settings → Keyboard shortcuts. */
 export function openControls(scene: UiScene, onClose?: () => void): Phaser.GameObjects.Container {
-  const { VW, VH } = scene.m;
+  const { VH } = scene.m;
   const rowH = SIZE.btnH;
   const step = rowH + SIZE.gap;
-  const w = settingsSheetW(VW);
+  const w = settingsSheetW(scene);
   const want = 26 + PAGE_ROWS.length * step + step + 12;
   const m = openSettingsPage(scene, { title: t('controls.title'), h: Math.min(want, VH - 12), id: 'controls', onClose });
   const { c, x, y, h } = m;
@@ -130,8 +131,10 @@ export function openControls(scene: UiScene, onClose?: () => void): Phaser.GameO
   };
   // Reset all stays in view under the list (a virtual list would not build it for Tab, past the fixed rows)
   const footY = y + h - 10 - rowH;
+  // at most a button's width (§2.3), centred under the list
+  const resetW = Math.min(iw - 4, BUTTON_MAX);
   c.add(
-    new Button(scene, x + 8, footY, iw - 4, rowH, {
+    new Button(scene, x + 8 + (iw - 4 - resetW) / 2, footY, resetW, rowH, {
       label: t('controls.resetAll'),
       variant: 'destructive',
       small: true,
