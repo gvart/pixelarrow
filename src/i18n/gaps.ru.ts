@@ -2,7 +2,7 @@ import type { GAPS_EN } from './gaps.en';
 
 /** Russian twin of gaps.en.ts (audit G12, story DLG-02). */
 export const GAPS_RU: Record<keyof typeof GAPS_EN, string> = {
-  'gap.net.outside': 'Сетевая игра работает в Telegram.',
+  'gap.net.outside': 'Войдите, чтобы играть онлайн.',
   'gap.net.offline': 'Нет связи с сервером.',
   'gap.net.closed': 'Сетевой мир ещё не открыт.',
   'gap.err.generic': 'Что-то пошло не так. Попробуйте ещё раз.',
@@ -15,7 +15,7 @@ export const GAPS_RU: Record<keyof typeof GAPS_EN, string> = {
   'gap.err.s422': 'Так сделать нельзя.',
   'gap.err.s429': 'Слишком много попыток. Подождите немного.',
   'gap.err.s5xx': 'Сервер недоступен.',
-  'gap.err.outside': 'Сетевая игра работает в Telegram.',
+  'gap.err.outside': 'Войдите, чтобы играть онлайн.',
   'gap.err.network': 'Сервер недоступен.',
   'gap.err.already_owned': 'Это у вас уже есть.',
   'gap.err.army_full': 'Армия заполнена.',

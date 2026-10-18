@@ -27,6 +27,7 @@ import { platform } from '../platform';
 import { haptic } from '../platform/haptics';
 import { lang, t, type TKey } from '../i18n';
 import { legalUrl, type LegalPage } from './legal';
+import { addSignInGate, showsSignInGate } from './account/gate';
 
 interface UiScene extends Phaser.Scene {
   ui: Phaser.GameObjects.Container;
@@ -40,7 +41,9 @@ export interface NotifySource {
 
 const liveSource: NotifySource = {
   async load() {
-    if (!(await online.signIn())) throw new Error('offline');
+    // 'signed_out' (the web with no session) shows the AU-01 sign-in card, 'offline' the note
+    const st = await online.ensureSession();
+    if (st !== 'live') throw new Error(st);
     return online.api.notifySettings();
   },
   save: (change) => online.api.saveNotifySettings(change),
@@ -176,8 +179,18 @@ export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource
       setNote(s.blocked ? t('notify.blocked') : t('notify.note'), s.blocked ? 'pBad' : 'pMuted');
       list?.refresh();
     })
-    .catch(() => {
-      if (c.active) setNote(t('notify.offline'));
+    .catch((e: unknown) => {
+      if (!c.active) return;
+      if ((e as Error)?.message !== 'signed_out' || !showsSignInGate()) return setNote(t('notify.offline'));
+      // AU-01: the web with no session signs in here, then the switches open again
+      note?.destroy();
+      note = null;
+      list?.destroy();
+      list = null;
+      addSignInGate(scene, c, x, y + 24, w, h - 24, 'notify', () => {
+        m.close();
+        openNotifySettings(scene, opts);
+      });
     });
   return c;
 }

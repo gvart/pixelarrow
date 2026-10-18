@@ -253,7 +253,7 @@ export const DUELS_RU: Record<keyof typeof DUELS_EN, string> = {
   'duels.why.searching': 'Сначала отмените поиск',
   'duels.why.busy': 'Секунду...',
   'duels.why.noCandidates': 'Сейчас нападать не на кого',
-  'duels.outsideHint': 'Откройте Pixelarrow из бота в Telegram, чтобы играть в дуэли: ваша армия дуэлей живёт на сервере.',
+  'duels.outsideHint': 'Ваша армия для дуэлей хранится на сервере. Войдите, чтобы играть в дуэли.',
   'duels.offlineHint': 'Сервер дуэлей недоступен. Проверьте связь и попробуйте снова.',
   'duels.closed': 'Дуэли закрыты',
   'duels.closedHint': 'Мир дуэлей ещё не открыт. Загляните позже.',

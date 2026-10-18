@@ -307,7 +307,7 @@ export interface DuelSource {
   leaderboard(board: Board): Promise<LeaderboardView>;
 }
 
-const outside = () => new ApiError(0, 'outside', 'Available in Telegram');
+const outside = () => new ApiError(0, 'outside', 'Signed out');
 
 /** The ticket's deadline on this device's clock (`LadderTicket.deadline`), from the server's answer. */
 function withDeadline<T extends Omit<LadderTicket, 'deadline'>>(tk: T, serverNow: number): T & { deadline: number } {

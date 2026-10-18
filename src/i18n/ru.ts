@@ -289,7 +289,7 @@ export const RU: Table = {
   'notify.title': 'Уведомления',
   'notify.note': 'Сообщения от бота Pixelarrow в Telegram.',
   'notify.blocked': 'Бот не может вам написать. Откройте его в Telegram и отправьте /start.',
-  'notify.offline': 'Уведомления настраиваются в Telegram, при подключении.',
+  'notify.offline': 'Уведомления настраиваются, когда вы вошли в аккаунт и есть связь.',
   'notify.failed': 'Не удалось сохранить. Попробуйте ещё раз.',
   'notify.quiet': 'Тихо ночью',
   'notify.type.attack': 'Атаки',

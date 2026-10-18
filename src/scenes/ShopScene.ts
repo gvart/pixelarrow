@@ -89,7 +89,7 @@ interface Loaded {
  * season card pinned over the track; the wallet (Drachmae packs for Telegram
  * Stars, history). Consumables are sold by the merchants on the war map
  * (MerchantScene, docs/DUELS.md); the shop only points there. All
- * server-owned; outside Telegram or offline it explains why and offers a
+ * server-owned; signed out on the web it shows the AU-01 sign-in card, offline it explains why and offers a
  * retry. A tab hub: always a root (HUB-01), whatever door opened it.
  */
 export class ShopScene extends BaseScene {

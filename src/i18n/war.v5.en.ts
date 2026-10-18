@@ -13,7 +13,7 @@ export const WAR_V5_EN = {
   'war5.rail.centre': 'Centre',
   'war5.rail.zoom': 'Zoom',
   'war5.rail.zoomTip': 'Step the zoom (also pinch or wheel)',
-  'war5.outsideHint': 'The season war runs inside Telegram. Open Pixelarrow from its bot there to march, take hexes and duel.',
+  'war5.outsideHint': 'The season war is played with others on our server. Sign in to march, take hexes and duel.',
   'war5.offlineHint': 'The campaign is still yours to play offline.',
   'war5.codex': 'Codex',
   'war5.sit.collect': 'Income waits on your hexes.',
