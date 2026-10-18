@@ -870,3 +870,31 @@ regions in one chat share one look. Gemini keeps element lists but not counts or
 leaves at four edges", "the causeway crosses the neck"), so ramps, exits and crossings belong in the region editor.
 A same-chat "fix" reuses the old render almost pixel for pixel; use a new chat when the layout must change. Home
 regions came out as circles both times: say "irregular outlines, not circles" in the first prompt.
+
+## 22. Global war — PixelLab map spike (ART-3)
+
+A short spike for W-19: can PixelLab build true-scale iso region art? Raws, the mock-up and its script
+(`mock.mjs`, uses `scripts/art/lib/`) are in `shots/war/pixellab/spike/` (git-ignored). 35 generations
+(2 x 10 for `create_tiles_pro` transition sets, 10 for the independent tiles, 1 per tile/object); VFX and
+`create_map` are free.
+
+| Call | Settings | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| `create_tiles_pro` `92268610-…` | isometric, 64, low top-down, segmentation, max_colors 48, seed 31 | `1). dark muted grass, olive-brown tufts 2). dry umber dirt ground 3). dark grey weathered rock 4). pale dull sand 5). shallow murky slate-blue water over pebbles 6). deep dark slate-blue water 7). grass top with a tall dark brown rock cliff side 8). dirt top with a tall dark brown rock cliff side` | 16 tiles (2 per item), good palette, but the diamond is **64 x 21**, not 2:1: low top-down is ~20 deg. Independent tiles need `tile_view_angle: 30` for 2:1 |
+| `create_tiles_pro` `4dd226e7-…` | isometric, 64, low top-down, `tile_feature: tileset`, seed 31 | `dark muted olive grass to dry umber dirt, dark epic desaturated ancient Greek hillside` | kept: 16-tile corner set, 64 x 48 (2:1 top 64 x 31 + 17 px earth side), mask `NW<<3\|NE<<2\|SW<<1\|SE`, set bit = grass; NW = top vertex, NE = right, SW = left, SE = bottom |
+| `create_tiles_pro` `a7097915-…` | same, tileset | `dark muted olive grass to shallow murky slate-blue water with a narrow muddy bank, dark epic desaturated ancient Greek river` | kept: water bit 0, grass bit 1; its grass is a little yellower than the dirt set's (sets cannot be chained) |
+| `create_isometric_tile` `b72e27c6-…` | 64, block, highly detailed, detailed shading, seed 31 | `block of dark brown layered rock cliff with dark muted olive grass on top, dark epic desaturated colours` | exact 2:1 (64 x 32 top + 32 px side), but reads as brick, not rock; max size 64 |
+| `create_map_object` `e72f6356-…` | 200 x 200, high top-down, high detail, detailed shading | `one gnarled old olive tree, thick twisted grey-brown trunk, wide rounded crown of dark muted grey-green olive leaves, seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows` | kept, 6 m; adds a square grass base: next time add "no ground under it" |
+| `create_map_object` `f4cd85fe-…` | 200 x 400, same | `one tall dark Mediterranean black pine tree, straight dark brown trunk, layered dark muted green needle canopy, seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows` | kept, 12 m; came back on an **opaque grey ground** (keyed out by flood fill; holes inside the crown stay grey) |
+| `create_map_object` `0e450639-…` | 96 x 72, same | `one large weathered dark grey granite boulder with moss in the cracks, seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows` | kept; moss too lime: remap to the dark palette |
+| `create_map_object` `8181ffaf-…` | 176 x 368, same | `one ancient Greek square stone watchtower, rough dark grey ashlar blocks, three storeys, small dark window slits, a wooden door at the bottom, a crenellated top with a dark wooden roof platform, seen from a high isometric three-quarter view showing two walls, dark epic desaturated colours, heavy shadows` | kept, 11 m, true iso walls; opaque grey ground again; a little medieval (crenels) |
+| `vfx_workbench` effect `9d926b0e-…` | preset `smoke_puff`, ramp `#2a2118 #4a3a2a #6b5640 #8a7458`, size 16, canvas 48 x 40 | — | dust puff, 8 frames @ 12 fps, free; last 2 frames blank |
+| `create_map` `11eaa4a5-…` | from tile group `4dd226e7` | — | iso tile map with `place_map_tiles` stacking (levels 0–63), but no auto-tiling (you pick each mask), `view_map` cannot draw tile layers, no export: not a tool for a 512 x 512 region |
+
+**Lessons:** use `create_tiles_pro` with `tile_feature: tileset` (64 px; 128 is allowed) for every terrain pair:
+it is the only call that gives 2:1 diamonds with transitions; each pair costs 10 and pairs do not share a base, so
+pass the same colour words and seed and remap all tiles onto one palette afterwards. Tiles carry a 1-px dark rim:
+strip it (the mock-up repaints the rim from 2 px inward) or the map shows a grid. Height is our renderer's job:
+stack the same tile 1 level = 16 px (half the diamond) and its earth side draws the cliff. Objects: `create_map_object`
+at true pixel size (33 px/m, up to 400 px) in high top-down already reads as iso and matches the soldiers' pixel
+density; always key out a grey ground and ask for no base. FX: `vfx_workbench` presets recoloured to the dark ramp.
