@@ -37,4 +37,6 @@ export interface Platform {
   /** The launch parameter (startapp), parsed by src/online/deeplink.ts; null when there is none. */
   launchParam(): string | null;
   client(): ClientInfo;
+  /** Closes the app (Telegram's Mini App); false when the platform can't, and the caller carries on. */
+  closeApp(): boolean;
 }

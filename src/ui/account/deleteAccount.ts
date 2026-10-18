@@ -125,10 +125,13 @@ export function openDeleteAccount(scene: UiScene, d: AccountDeps, o: DeleteOpts)
   };
 }
 
-/** Step 3: the account is gone. The web starts over as a guest (a reload: a first run); Telegram's Close leaves a fresh campaign. */
+/**
+ * Step 3: the account is gone. The web starts over as a guest (a reload: a first run); Telegram's Close
+ * closes the Mini App (the next launch is a fresh campaign), or opens the menu when the app can't close.
+ */
 export function openDeleteResult(scene: UiScene, o: { hadEmail: boolean; telegram: boolean; onDone?: () => void }): void {
   const sheet = openLinkSheet(scene, { title: t('delete.title'), id: 'delete.done', closeButton: false, h: 170 });
-  const done = o.onDone ?? (() => (o.telegram ? scene.scene.start('Menu', {}) : location.reload()));
+  const done = o.onDone ?? (() => (o.telegram ? platform.closeApp() || scene.scene.start('Menu', {}) : location.reload()));
   sheet.show((b) => {
     b.text(t('delete.done'), 'pGood', 8);
     if (o.hadEmail) b.text(t('delete.doneEmail'));

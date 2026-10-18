@@ -112,6 +112,7 @@ export function fakeTelegram(opts) {
     contentSafeAreaInset: atLaunch ? { top: ins.contentTop, bottom: 0, left: 0, right: 0 } : { ...zero },
     isVersionAtLeast: (v) => parseFloat(v) <= 8.0,
     ready() { log.push('ready'); },
+    close() { log.push('close'); },
     expand() { log.push('expand'); wa.isExpanded = true; },
     setHeaderColor() {},
     setBackgroundColor() {},

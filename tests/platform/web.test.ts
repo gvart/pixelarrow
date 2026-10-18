@@ -71,6 +71,10 @@ describe('web adapter: Back', () => {
     const f = fakeEnv();
     expect(() => createWebPlatform(f.env).back.setSettings(() => {})).not.toThrow();
   });
+
+  it('cannot close the app (V6-LINK-07b): the caller keeps the page', () => {
+    expect(createWebPlatform(fakeEnv().env).closeApp()).toBe(false);
+  });
 });
 
 describe('web adapter: share', () => {
