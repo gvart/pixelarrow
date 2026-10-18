@@ -12,11 +12,11 @@
  */
 
 /** Pixels of wheel travel per zoom step (a mouse notch is 100 in Chromium and WebKit). */
-export const WHEEL_STEP_PX = 100;
+const WHEEL_STEP_PX = 100;
 /** At most one zoom step this often (ms), so a flick or a trackpad's momentum doesn't run away. */
-export const WHEEL_STEP_MS = 120;
+const WHEEL_STEP_MS = 120;
 /** One `DOM_DELTA_LINE` in pixels. */
-export const WHEEL_LINE_PX = 16;
+const WHEEL_LINE_PX = 16;
 
 /** The fields of a DOM `WheelEvent` the accumulator reads. */
 export interface WheelIn {
@@ -28,7 +28,7 @@ export interface WheelIn {
   shiftKey: boolean;
 }
 
-export interface WheelOut {
+interface WheelOut {
   /** A whole zoom step: 1 in, -1 out. */
   zoom?: 1 | -1;
   /** A sideways pan, in CSS px (positive: the view moves right). */
@@ -38,7 +38,7 @@ export interface WheelOut {
 }
 
 /** A delta in CSS px, whatever its `deltaMode`. */
-export function wheelPx(d: number, mode: number, viewH: number): number {
+function wheelPx(d: number, mode: number, viewH: number): number {
   return mode === 1 ? d * WHEEL_LINE_PX : mode === 2 ? d * viewH : d;
 }
 

@@ -5,7 +5,7 @@ import { ISO_HH, ISO_HW } from './iso';
 import { terrainPixel, warpedField } from './terrainArt';
 import type { Terrain } from '../sim/terrain';
 
-export interface GroundOpts {
+interface GroundOpts {
   /** world-pixel position of the image's top-left corner */
   originX: number;
   originY: number;
@@ -18,7 +18,7 @@ export interface GroundOpts {
 }
 
 /** Dry steppe grass, light to dark: straw highlight .. soil shadow (docs/ART_STYLE.md §6). */
-export const GRASS = [0xbba96a, 0xaa9a51, 0xa19045, 0x9a8f3b, 0x938739, 0x8d7d38, 0x7d6c36, 0x6b6038, 0x5b4a2c];
+const GRASS = [0xbba96a, 0xaa9a51, 0xa19045, 0x9a8f3b, 0x938739, 0x8d7d38, 0x7d6c36, 0x6b6038, 0x5b4a2c];
 /** Straw tuft tones (lit tops of the wind-combed clumps). */
 const STRAW = [0xd2c286, 0xc4b474, 0xbba96a, 0xaa9a51];
 
@@ -236,14 +236,14 @@ export function renderPlateRing(color: number, w = 20): Pix {
 /** Facing steps for the joined formation plates (a rectangle is symmetric, so 8 cover all 16). */
 export const STRIP_STEPS = 8;
 /** Lateral and depth size (field units) of one man's plate inside a formation strip. */
-export const STRIP_LAT = 1.04;
-export const STRIP_DEP = 0.5;
+const STRIP_LAT = 1.04;
+const STRIP_DEP = 0.5;
 
 /** Plate tones when selected (cyan, docs/ART_STYLE.md §9) and when singled out (gold). */
 const PLATE_SEL = [0xc0dcc8, 0x9cbcae, 0x7a9e96, 0x5e807c, 0x4a6666];
 const PLATE_ONE = [0xf6e4a0, 0xdcc070, 0xb09048, 0x8a7038, 0x6a5428];
 
-export interface StripPlate {
+interface StripPlate {
   /** Side + shadow layer (drawn under every top so a strip has no seams). */
   side: Pix;
   /** Top faces: plain, selected (cyan), singled out (gold). */

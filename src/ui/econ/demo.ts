@@ -90,7 +90,7 @@ export function demoCatalog(): EconomyCatalog {
 
 const NAMES = ['Phokion', 'Tanaquil', 'Brennos', 'Hamilcar', 'Lysandra', 'Kleon', 'Orgetorix', 'Myrto'];
 
-export interface DemoOpts {
+interface DemoOpts {
   heroes?: Hero[];
   stash?: Item[];
   /** Start with a working API (default) or one that answers 503. */

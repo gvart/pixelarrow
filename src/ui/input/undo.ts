@@ -21,7 +21,7 @@ export const UNDO_S = 3;
 export const DEPLOY_UNDO_DEPTH = 10;
 
 /** What undo reads of a group (SimGroup satisfies it). */
-export interface UndoGroup {
+interface UndoGroup {
   order: GroupOrder;
   formation: { type: FormationType; cx: number; cy: number; fx: number; fy: number; frontage: number };
   shieldWall: boolean;
@@ -31,7 +31,7 @@ export interface UndoGroup {
 }
 
 /** The read-only state an inverse is captured from (a Battle satisfies it). */
-export interface UndoView {
+interface UndoView {
   readonly groups: readonly UndoGroup[];
   readonly units: readonly { group: number }[];
 }

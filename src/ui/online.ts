@@ -108,7 +108,7 @@ function bannerIcon(K: number): HTMLCanvasElement {
 }
 
 /** Registers the sync/supporter textures once per game (smooth, at this screen's density). */
-export function registerOnlineAssets(scene: Phaser.Scene): void {
+function registerOnlineAssets(scene: Phaser.Scene): void {
   if (scene.textures.exists('sync_synced')) return;
   const K = panelK(scene);
   const add = (key: string, c: HTMLCanvasElement) => scene.textures.addCanvas(key, c)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
@@ -159,7 +159,7 @@ export function addSyncBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Con
   return img;
 }
 
-export function isSupporter(): boolean {
+function isSupporter(): boolean {
   return online.has(SUPPORTER_BANNER);
 }
 
@@ -180,24 +180,5 @@ export function playerPartyTexture(scene: Phaser.Scene): string {
     for (let f = 0; f < PARTY_FRAMES; f++) tex.add(f, 0, f * PARTY_FW, 0, PARTY_FW, PARTY_FH);
   }
   return key;
-}
-
-/** Golden trim along a header bar plus the supporter standard beside the title. */
-export function addSupporterTrim(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, w: number, h: number, titleX: number, titleW: number): void {
-  if (!isSupporter()) return;
-  registerOnlineAssets(scene);
-  const g = scene.add.graphics();
-  g.fillStyle(GOLD, 1);
-  g.fillRect(0, h - 2, w, 1);
-  g.fillRect(0, 0, w, 1);
-  g.fillStyle(GOLD_DARK, 1);
-  g.fillRect(0, h - 1, w, 1);
-  for (let x = 3; x < w; x += 8) {
-    g.fillStyle(GOLD_LIGHT, 1);
-    g.fillRect(x, h - 2, 2, 1);
-  }
-  parent.add(g);
-  parent.add(scene.add.image(Math.round(titleX - titleW / 2 - 12), 5, 'supporter_banner').setOrigin(0, 0).setScale(1 / panelK(scene)));
-  parent.add(scene.add.image(Math.round(titleX + titleW / 2 + 4), 5, 'supporter_banner').setOrigin(0, 0).setScale(1 / panelK(scene)).setFlipX(true));
 }
 

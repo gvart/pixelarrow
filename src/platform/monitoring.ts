@@ -11,7 +11,7 @@ import { platform } from './index';
 
 const CONSENT_KEY = 'pa_analytics_consent_synced';
 
-export interface MonitoringDeps {
+interface MonitoringDeps {
   /** The Settings "Analytics" toggle. */
   analyticsEnabled: () => boolean;
   lang: () => string;

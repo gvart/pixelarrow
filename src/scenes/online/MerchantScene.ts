@@ -33,7 +33,7 @@ import { uiCoin } from '../../audio/hooks';
 import { t, tOr, type TKey } from '../../i18n';
 import { fmtDuration } from '../../util/format';
 
-export interface MerchantData {
+interface MerchantData {
   /** The merchant's region. */
   loc: number;
   /** The demo shard's merchant; 'held' / 'far' stage it in reach with the discount, or out of reach. */

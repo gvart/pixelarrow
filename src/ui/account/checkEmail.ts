@@ -20,7 +20,7 @@ import { openForgot } from './forgot';
 import type { SignInOpts } from './login';
 import { openSignup } from './signup';
 
-export interface CheckEmailOpts {
+interface CheckEmailOpts {
   email: string;
   variant: 'signup' | 'reset' | 'addEmail' | 'changeEmail';
   /** Carried to the forms it reopens (Change it, the reset Resend). */

@@ -38,7 +38,7 @@ export function overlaps(a: Context, b: Context): boolean {
 }
 
 /** press: once per key down; repeat: also on OS auto-repeat; hold: a level read each frame. */
-export type ActionKind = 'press' | 'repeat' | 'hold';
+type ActionKind = 'press' | 'repeat' | 'hold';
 
 const GROUPS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
@@ -107,7 +107,7 @@ export const ACTION_IDS = [
 ] as const;
 export type ActionId = (typeof ACTION_IDS)[number];
 
-export interface ActionDef {
+interface ActionDef {
   id: ActionId;
   context: Context;
   kind: ActionKind;

@@ -23,7 +23,7 @@ export interface PlayerInfo {
   [k: string]: unknown;
 }
 
-export interface AuthResponse {
+interface AuthResponse {
   token: string;
   /** Epoch ms. */
   expiresAt: number;
@@ -31,19 +31,19 @@ export interface AuthResponse {
 }
 
 /** GET /api/me: whoever the session (a bearer token or the web's cookie) belongs to. */
-export interface MeResponse {
+interface MeResponse {
   player: PlayerInfo;
   session: { expiresAt: number; transport: 'bearer' | 'cookie' };
 }
 
-export interface RemoteSave {
+interface RemoteSave {
   revision: number;
   version: number | null;
   data: unknown;
   updatedAt: number | null;
 }
 
-export interface PutSaveResponse {
+interface PutSaveResponse {
   revision: number;
   updatedAt: number;
 }
@@ -199,12 +199,12 @@ export function newRequestId(): string {
   return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export interface Entitlement {
+interface Entitlement {
   productId: string;
   grantedAt: number;
 }
 
-export interface EntitlementsResponse {
+interface EntitlementsResponse {
   entitlements: Entitlement[];
   purchases: { productId: string; stars: number; currency: string; createdAt: number; refunded: boolean }[];
 }
@@ -256,7 +256,7 @@ export function isApiError(e: unknown): e is ApiError {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-export interface ApiOptions {
+interface ApiOptions {
   /** Prefix for every path, e.g. '' (same origin) or 'http://localhost:8787'. */
   base?: string;
   fetch?: FetchLike;
@@ -279,7 +279,7 @@ interface RequestOpts {
 }
 
 /** Default base: `VITE_API_BASE` at build time, else same origin. */
-export function defaultApiBase(): string {
+function defaultApiBase(): string {
   try {
     const v = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE;
     return v ? v.replace(/\/+$/, '') : '';
@@ -376,7 +376,7 @@ export interface TelegramConflict {
   expiresAt: number;
 }
 
-export type ResolveResult = { status: 'waiting_telegram' } | { status: 'resolved'; kept: 'this' | 'other'; switched: boolean };
+type ResolveResult = { status: 'waiting_telegram' } | { status: 'resolved'; kept: 'this' | 'other'; switched: boolean };
 
 export class ApiClient {
   token: string | null = null;

@@ -35,7 +35,7 @@ export const beastLevel = (enc: EncounterId): number => beastLevelFor(enc, state
 
 /** Beasts whose painted plate is shipped under public/ui/beasts/ (tests/codex.test.ts checks the files). */
 export const SHIPPED_PLATES: ReadonlySet<EncounterId> = new Set<EncounterId>(['hydra', 'cyclops', 'harpies', 'nemean_lion', 'minotaur', 'chimera', 'kraken', 'titan']);
-export const plateKey = (enc: EncounterId): string => `plate_${enc}`;
+const plateKey = (enc: EncounterId): string => `plate_${enc}`;
 export const plateUrl = (enc: EncounterId): string => `ui/beasts/plate_${enc}.jpg`;
 
 /** Plates already asked for (a file that failed to load is not asked for again). */
@@ -101,7 +101,7 @@ export function encounterName(enc: EncounterId): string {
 }
 
 /** The beast standing on a small stage (w x h), drawn into a container at (x, y). */
-export function beastStage(scene: Phaser.Scene, c: Phaser.GameObjects.Container, enc: EncounterId, x: number, y: number, w: number, h: number): void {
+function beastStage(scene: Phaser.Scene, c: Phaser.GameObjects.Container, enc: EncounterId, x: number, y: number, w: number, h: number): void {
   const key = `myth_stage_${w}x${h}_${enc}`;
   if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderStage(w, h, ENCOUNTERS[enc].color).toCanvas());
   c.add(scene.add.image(x, y, key).setOrigin(0, 0));

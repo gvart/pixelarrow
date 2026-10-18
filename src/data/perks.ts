@@ -18,13 +18,6 @@ export const POINTS_PER_LEVEL = 2;
 /** Levels at which a hero earns a perk point. */
 export const PERK_LEVELS = [2, 4, 6, 8, 10];
 
-export const ATTRS: Record<AttrId, { name: string; short: string; desc: string }> = {
-  str: { name: 'Strength', short: 'STR', desc: '+melee damage, +HP, +charge impact' },
-  agi: { name: 'Agility', short: 'AGI', desc: '+speed, +accuracy, faster blows, +missile damage' },
-  end: { name: 'Endurance', short: 'END', desc: '+HP, +stamina, more likely to survive a mortal blow' },
-  wil: { name: 'Will', short: 'WIL', desc: '+morale, steadier, wider auras and shouts, faster cooldowns' },
-};
-
 /** Per point above ATTR_BASE (negative below). Applied in computeStats. */
 export const ATTR_EFFECT = {
   strDmg: 0.35,
@@ -61,7 +54,7 @@ export function defaultAttrs(): Attrs {
 export type AbilityId = 'bash' | 'volley' | 'berserk' | 'rally' | 'push' | 'bond' | 'warcry' | 'sunder' | 'aimed' | 'recharge' | 'scythe';
 export const ABILITY_IDS: AbilityId[] = ['bash', 'volley', 'berserk', 'rally', 'push', 'bond', 'warcry', 'sunder', 'aimed', 'recharge', 'scythe'];
 
-export interface AbilityDef {
+interface AbilityDef {
   id: AbilityId;
   name: string;
   /** Short HUD label. */
@@ -190,7 +183,7 @@ export const ABILITY_RULES = {
 export const MAX_MEDALLIONS = 3;
 
 /** A selection's ability for the medallion rail: whether a holder can use it now, and how many hold it. */
-export interface MedallionEntry {
+interface MedallionEntry {
   id: AbilityId;
   ready: boolean;
   holders: number;
@@ -212,7 +205,7 @@ export function rankMedallions(entries: readonly MedallionEntry[]): AbilityId[] 
 export type AuraId = 'steady' | 'eagle' | 'warlord';
 export const AURA_IDS: AuraId[] = ['steady', 'eagle', 'warlord'];
 
-export interface AuraDef {
+interface AuraDef {
   id: AuraId;
   name: string;
   desc: string;
@@ -246,8 +239,6 @@ export const AURA_RULES = {
  * colours a perk and orders the legacy trees.
  */
 export type TreeId = 'hoplite' | 'skirmisher' | 'warrior' | 'rider';
-/** The three legacy trees (heroes without a class still follow them). */
-export const TREE_IDS: TreeId[] = ['hoplite', 'skirmisher', 'warrior'];
 export const TREES: Record<TreeId, { name: string; desc: string; color: number }> = {
   hoplite: { name: 'Hoplite', desc: 'Shield wall and spear', color: 0x4a6b8a },
   skirmisher: { name: 'Skirmisher', desc: 'Missiles and speed', color: 0x5f7a45 },
@@ -342,7 +333,7 @@ export const PERKS: Record<PerkId, PerkDef> = Object.fromEntries(perkList.map((p
 export const PERK_LIST: readonly PerkDef[] = perkList;
 
 /** A legacy tree (heroes without a class): its five perks in tier order. */
-export function treePerks(tree: TreeId): PerkDef[] {
+function treePerks(tree: TreeId): PerkDef[] {
   return perkList.filter((p) => p.tree === tree && !p.classOnly).sort((a, b) => a.tier - b.tier);
 }
 

@@ -23,7 +23,7 @@ import { openLinkSheet } from './linkSheet';
 import { moderationUnseen, nameDate } from './nameRules';
 import { openRename } from './rename';
 
-export const NAME_OFFER_HINT = 'nameOffer';
+const NAME_OFFER_HINT = 'nameOffer';
 export const MOD_SEEN_KEY = 'account.modSeen';
 
 const staged = (): boolean => hintStore.seen().includes('*') || !!(window as { __noFirstRun?: boolean }).__noFirstRun;
@@ -96,11 +96,6 @@ export async function noticeModerationAtLaunch(scene: UiScene, o: { kv?: KV; api
   // the player already left the menu: the next hub or Account visit shows it
   if (!scene.sys.isActive()) return (modCheckedThisLaunch = false);
   return noticeModeration(scene, a, o.kv ?? deviceKV);
-}
-
-/** Tests: a fresh launch. */
-export function resetLaunchChecks(): void {
-  modCheckedThisLaunch = false;
 }
 
 /**

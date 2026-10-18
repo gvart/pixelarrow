@@ -43,9 +43,9 @@ export type StartRoute =
   | { kind: 'link'; code: string };
 
 /** Routes only the web's address hash carries. */
-export type HashRoute = { kind: 'login' } | { kind: 'forgot' } | { kind: 'account' } | { kind: 'conflict'; id: string };
+type HashRoute = { kind: 'login' } | { kind: 'forgot' } | { kind: 'account' } | { kind: 'conflict'; id: string };
 
-export type LaunchRoute = StartRoute | HashRoute;
+type LaunchRoute = StartRoute | HashRoute;
 
 /** A link code or conflict id: 16 random bytes in base64url (server/src/account). */
 const TOKEN = '[A-Za-z0-9_-]{22}';

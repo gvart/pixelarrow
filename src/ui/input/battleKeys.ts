@@ -11,14 +11,14 @@ import type { Pt } from './hitTest';
 import { FACING_DIRS } from './singleTap';
 
 /** What the scene shows: which control ids are on screen, the ability medallions top to bottom, and the card numerals (key 1 is the first). */
-export interface BattleKeyHud {
+interface BattleKeyHud {
   has(id: string): boolean;
   readonly medallions: readonly string[];
   readonly numerals: readonly string[];
 }
 
 /** Press this control; or say why there is none to press; or null: nothing to do. */
-export type BattleKeyTarget = { press: string } | { why: TKey; n?: number } | null;
+type BattleKeyTarget = { press: string } | { why: TKey; n?: number } | null;
 
 /** The controls each hotkey presses (the first one shown), and what it says when none is. */
 const KEYS: Partial<Record<ActionId, { ids: readonly string[]; why?: TKey }>> = {

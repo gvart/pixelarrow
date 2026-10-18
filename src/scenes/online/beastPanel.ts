@@ -46,7 +46,7 @@ export function bossBoard(b: BossView): BoardRow[] {
 }
 
 /** The status lines of a world boss under the table: the clans, your tally, your chest, the segment. */
-export function bossLines(b: BossView): string[] {
+function bossLines(b: BossView): string[] {
   const out: string[] = [];
   if (b.status === 'dead') out.push(t('boss.dead'));
   if (!b.top.length) out.push(t('boss.none'));
@@ -56,7 +56,7 @@ export function bossLines(b: BossView): string[] {
   return out;
 }
 
-export interface WarBeastOpts {
+interface WarBeastOpts {
   level: number;
   boss?: BossView;
   /** A lair away from home: when it returns. */
@@ -68,7 +68,7 @@ export interface WarBeastOpts {
 }
 
 /** The War beast sheet (docked, X and Back close it). */
-export function openWarBeast(scene: UiScene, enc: EncounterId, o: WarBeastOpts): Modal {
+function openWarBeast(scene: UiScene, enc: EncounterId, o: WarBeastOpts): Modal {
   const { VW, VH } = scene.m;
   // v5: docked across the screen; medium: a bottom sheet ≤ 320; landscape: the side panel's own width (§3.4).
   // The content is laid out for the width the sheet will get; in landscape it stays under the top bar (it scrolls).

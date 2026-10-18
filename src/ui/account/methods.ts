@@ -18,7 +18,7 @@ import type { LoginGuard } from './flows';
 export type MethodKind = 'telegram' | 'password';
 
 /** One row of Sign-in methods (§8.2 "Sign-in method rows, by state"). */
-export interface MethodRow {
+interface MethodRow {
   kind: MethodKind;
   state: 'linked' | 'notLinked' | 'pending';
   /** The quieter line: the player's own handle or masked address, or a status. */
@@ -76,7 +76,7 @@ export async function withReauth<T>(call: () => Promise<T>, confirm: () => Promi
   return call();
 }
 
-export type SilentProof = { ok: true } | { ok: false; why: 'none' | 'expired' | 'error'; error?: unknown };
+type SilentProof = { ok: true } | { ok: false; why: 'none' | 'expired' | 'error'; error?: unknown };
 
 /** Re-sends Telegram's initData (no screen). `none` where the platform has no signed proof (the web). */
 export async function proveSilently(api: Pick<ApiClient, 'reauthWith'>, initData: string | null): Promise<SilentProof> {

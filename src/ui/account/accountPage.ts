@@ -65,7 +65,7 @@ export interface AccountSource {
   logOutEverywhere(): Promise<boolean>;
 }
 
-export function liveAccountSource(d: AccountDeps = accountDeps()): AccountSource {
+function liveAccountSource(d: AccountDeps = accountDeps()): AccountSource {
   return {
     async session() {
       const s = await online.ensureSession();

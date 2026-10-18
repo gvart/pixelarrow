@@ -13,7 +13,7 @@ import type { UiScene } from '../mosaic/subShell';
 import { toast } from '../widgets';
 import { costLine, localNameError, NAME_MAX, renameError, sameName, type NameMessage } from './nameRules';
 
-export interface RenameOpts {
+interface RenameOpts {
   current: string;
   status: NameStatus;
   api?: Pick<ApiClient, 'rename'>;

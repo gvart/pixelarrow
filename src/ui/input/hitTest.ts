@@ -61,7 +61,7 @@ export interface HitState {
   unitR: number;
 }
 
-export type TapHit =
+type TapHit =
   | { kind: 'tag'; gid: number }
   | { kind: 'own'; unit: number; group: number }
   | { kind: 'enemy'; unit: number; group: number }
@@ -115,7 +115,7 @@ export function hitTest(s: HitState, p: Pt): Hit {
   return { grab: grabAt(s, p), tap: tapAt(s, p) };
 }
 
-export interface Selection {
+interface Selection {
   group: number;
   /** A single soldier picked out of his group (-1: the whole group). */
   unit: number;

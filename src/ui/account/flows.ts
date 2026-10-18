@@ -109,7 +109,7 @@ export interface FlowDeps {
   now?: () => number;
 }
 
-export type Outcome = { ok: true; email?: string } | { ok: false; error: FormError };
+type Outcome = { ok: true; email?: string } | { ok: false; error: FormError };
 
 const fieldErr = (field: 'email' | 'password', key: TKey): Outcome => ({ ok: false, error: { field, key } });
 

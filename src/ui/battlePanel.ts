@@ -47,12 +47,12 @@ function goldFrame(scene: Phaser.Scene, w: number, h: number): Phaser.GameObject
 }
 
 /** The first candidate (upper-cased) whose width fits `maxW`; else the last one. */
-export function firstFit(cands: (string | undefined | false | null)[], maxW: number, shadow = false, face: 'body' | 'roman' = 'body'): string {
+function firstFit(cands: (string | undefined | false | null)[], maxW: number, shadow = false, face: 'body' | 'roman' = 'body'): string {
   const list = cands.filter((c): c is string => !!c).map((c) => (face === 'roman' ? caps(c) : c));
   return list.find((c) => measureText(c, shadow, 7, face) <= maxW) ?? list[list.length - 1] ?? '';
 }
 
-export interface GroupCardInfo {
+interface GroupCardInfo {
   /** "I", "II"... or "*" for a detached hero. */
   numeral: string;
   men: number;
@@ -89,7 +89,7 @@ let seenScene: Phaser.Scene | null = null;
 let seenN = 1;
 
 /** The battle count for `scene`'s run: read and bumped once per run (a per-player convenience, kept in localStorage). */
-export function barsSeen(scene: Phaser.Scene): number {
+function barsSeen(scene: Phaser.Scene): number {
   if (seenScene === scene) return seenN;
   seenScene = scene;
   const ls = safeLocalStorage();
@@ -427,7 +427,7 @@ export function strokeReticle(g: Phaser.GameObjects.Graphics, cx: number, cy: nu
 }
 
 /** The focus reticle as its own object (a group card's corner). */
-export function reticle(scene: Phaser.Scene, cx: number, cy: number, r: number): Phaser.GameObjects.Graphics {
+function reticle(scene: Phaser.Scene, cx: number, cy: number, r: number): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics();
   strokeReticle(g, cx, cy, r * 0.8, 0.9);
   return g;
@@ -482,7 +482,7 @@ export function numeralBadge(scene: Phaser.Scene, x: number, y: number, h: numbe
 }
 
 /** One row of the works tray. */
-export interface WorksTrayRow {
+interface WorksTrayRow {
   id: string;
   title: string;
   subtitle: string;
@@ -550,7 +550,7 @@ export function worksTray(
   return { c, top: y, rows: out };
 }
 
-export interface TrayRowOpts {
+interface TrayRowOpts {
   title: string;
   /** The quieter line under the title. */
   subtitle?: string;

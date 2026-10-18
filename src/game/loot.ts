@@ -30,7 +30,7 @@ export interface HeroOutcome {
 }
 
 /** Hours of rest a knocked-out hero needs (see src/world for healing rates). */
-export const WOUND_HOURS = 36;
+const WOUND_HOURS = 36;
 
 export interface Outcome {
   victory: boolean;
@@ -72,7 +72,7 @@ export function lootPicks(winner: number, playerTotal: number, playerDead: numbe
 
 const WEAR_SLOT: Partial<Record<Slot, keyof Wear>> = { weapon: 'weapon', shield: 'shield', helmet: 'helmet', armor: 'armor' };
 
-export function applyWear(item: Item, slot: Slot, wear: Wear): void {
+function applyWear(item: Item, slot: Slot, wear: Wear): void {
   const k = WEAR_SLOT[slot];
   if (!k) return;
   const durable = Math.min(0.75, itemMods(item).durable ?? 0);

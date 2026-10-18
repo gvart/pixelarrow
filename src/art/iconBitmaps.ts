@@ -87,10 +87,6 @@ export function resolveIconId(id: string): string | null {
   return s && FRAMES.has(s) ? s : null;
 }
 
-export function hasIconBitmap(id: string): boolean {
-  return typeof document !== 'undefined' && resolveIconId(id) !== null;
-}
-
 /**
  * Sizes to draw a `from` px bitmap through on its way to `to` px: halvings while the
  * remaining ratio is above 2, then `to`. One bilinear step that skips more than half the
@@ -146,13 +142,7 @@ export function itemIconId(def: { id: string; slot: string }): string {
   return def.slot === 'trinket' && FRAMES.has(`trinket:${def.id}`) ? `trinket:${def.id}` : `item:${def.id}`;
 }
 
-/** Size of an icon's bitmap (the sync badges are not square), or null. */
-export function iconBitmapSize(id: string): { w: number; h: number } | null {
-  const f = FRAMES.get(id);
-  return f ? { w: f.w, h: f.h } : null;
-}
-
-export interface BitmapOpts {
+interface BitmapOpts {
   look?: IconLook;
   /** Canvas size; default square n x n. */
   w?: number;

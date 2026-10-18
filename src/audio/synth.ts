@@ -28,7 +28,7 @@ function lcg(seed: number): () => number {
 /** Start offsets into the noise buffers (deterministic, so offline renders repeat). */
 const offRand = lcg(4242);
 
-export function whiteNoise(c: Ctx): AudioBuffer {
+function whiteNoise(c: Ctx): AudioBuffer {
   const k = cache(c);
   if (!k.white) {
     const n = Math.floor(c.sampleRate * 2);
@@ -41,7 +41,7 @@ export function whiteNoise(c: Ctx): AudioBuffer {
 }
 
 /** Brown (integrated) noise: deep rumbles, crowds, hooves on earth. */
-export function brownNoise(c: Ctx): AudioBuffer {
+function brownNoise(c: Ctx): AudioBuffer {
   const k = cache(c);
   if (!k.brown) {
     const n = Math.floor(c.sampleRate * 2);
@@ -59,7 +59,7 @@ export function brownNoise(c: Ctx): AudioBuffer {
 
 const curves = new Map<number, Float32Array<ArrayBuffer>>();
 /** tanh soft clip; `amount` ~1 (warm) .. 8 (crunchy). */
-export function shaperCurve(amount: number): Float32Array<ArrayBuffer> {
+function shaperCurve(amount: number): Float32Array<ArrayBuffer> {
   let cv = curves.get(amount);
   if (!cv) {
     cv = new Float32Array(1024);
@@ -82,13 +82,13 @@ export function grit(c: Ctx, out: AudioNode, amount = 3): AudioNode {
 }
 
 /** Percussive envelope: linear attack to `peak`, exponential decay to silence. */
-export function perc(p: AudioParam, t: number, a: number, peak: number, d: number): void {
+function perc(p: AudioParam, t: number, a: number, peak: number, d: number): void {
   p.setValueAtTime(0.0001, t);
   p.linearRampToValueAtTime(Math.max(0.0001, peak), t + Math.max(0.001, a));
   p.exponentialRampToValueAtTime(0.0001, t + Math.max(0.001, a) + Math.max(0.005, d));
 }
 
-export interface NoiseOpts {
+interface NoiseOpts {
   dur: number;
   gain: number;
   /** Filter frequency (and sweep target). */
@@ -121,7 +121,7 @@ export function noise(c: Ctx, out: AudioNode, t: number, o: NoiseOpts): number {
   return t + (o.a ?? 0.002) + o.dur;
 }
 
-export interface OscOpts {
+interface OscOpts {
   type?: OscillatorType;
   f: number;
   f1?: number;
@@ -172,7 +172,7 @@ export function metal(c: Ctx, out: AudioNode, t: number, f: number, ratios: read
  * the lyre / kithara of the music and the bow-string twang. The loop length
  * is rounded to whole samples; the playback rate corrects the pitch.
  */
-export function pluckBuffer(c: Ctx, freq: number, dur: number, bright = 0.5): { buf: AudioBuffer; rate: number } {
+function pluckBuffer(c: Ctx, freq: number, dur: number, bright = 0.5): { buf: AudioBuffer; rate: number } {
   const key = `${freq.toFixed(2)}:${dur}:${bright}`;
   const k = cache(c);
   const hit = k.plucks.get(key);

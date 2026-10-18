@@ -29,11 +29,10 @@ import { columns, edgeClusters, grid, gridColumns, layoutVariant, masterDetail, 
 import type { C, KitScene } from './common';
 
 export type LayoutDemo = 'panes' | 'list' | 'panels' | 'field';
-export const LAYOUT_DEMOS: readonly LayoutDemo[] = ['panes', 'list', 'panels', 'field'];
 /** The samples scripts open (`s.layoutsSample(id)`, the kit-layouts-* checks). */
 export type LayoutSample = 'task' | 'decision' | 'inspector' | 'settings' | 'rotate' | 'folded' | 'detail';
 
-export interface LayoutsOpts {
+interface LayoutsOpts {
   /** Top of the page (under the Kit's pager). */
   top: number;
   demo: LayoutDemo;

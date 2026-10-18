@@ -116,8 +116,3 @@ export function installDuelInvites(game: Phaser.Game): void {
     }
   });
 }
-
-/** For tests and the layout check: is a challenge dialog open? */
-export function challengeOpen(): boolean {
-  return popup !== null;
-}

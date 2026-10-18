@@ -116,7 +116,7 @@ export function decodeTerrain(m: Pick<MapJson, 'terrain' | 'w' | 'h'>): Uint8Arr
 }
 
 /** The cell of a map pixel point, or -1 outside the grid. */
-export function cellAt(m: Pick<MapJson, 'cell' | 'w' | 'h'>, x: number, y: number): number {
+function cellAt(m: Pick<MapJson, 'cell' | 'w' | 'h'>, x: number, y: number): number {
   const cx = Math.floor(x / m.cell);
   const cy = Math.floor(y / m.cell);
   if (cx < 0 || cy < 0 || cx >= m.w || cy >= m.h) return -1;
@@ -125,7 +125,7 @@ export function cellAt(m: Pick<MapJson, 'cell' | 'w' | 'h'>, x: number, y: numbe
 
 // ------------------------------------------------------------------ validation
 
-export interface ValidateOptions {
+interface ValidateOptions {
   /** Fewest spawn plots (default 1). */
   minSpawns?: number;
 }

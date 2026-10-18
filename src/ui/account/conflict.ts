@@ -100,7 +100,7 @@ function finish(sheet: LinkSheet, f: LinkFail | { key: Parameters<typeof t>[0] }
 
 // ------------------------------------------------------------------ the web side
 
-export interface WebConflictOpts {
+interface WebConflictOpts {
   hasPassword: boolean;
   onDone: () => void;
   api?: ConflictApi;
@@ -254,7 +254,7 @@ export function openWebConflict(scene: UiScene, id: string, o: WebConflictOpts):
 
 // ------------------------------------------------------------------ the Mini App side
 
-export interface TelegramConflictOpts {
+interface TelegramConflictOpts {
   api?: TelegramApi;
   d?: AccountDeps;
 }

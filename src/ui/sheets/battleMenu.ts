@@ -20,7 +20,7 @@ type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container }
 
 export type BattleMenuItem = 'retreat' | 'leave' | 'resetAll' | 'skip' | 'sound' | 'settings';
 
-export interface BattleMenuState {
+interface BattleMenuState {
   phase: 'deploy' | 'battle' | 'ended';
   /** The battle cannot pause (live duel, raid, war attack). */
   realtimeLocked: boolean;
@@ -51,7 +51,7 @@ const LABEL: Record<Exclude<BattleMenuItem, 'sound'>, TKey> = {
   settings: 'battle.menu.settings',
 };
 
-export interface BattleMenuOpts {
+interface BattleMenuOpts {
   state: BattleMenuState;
   /** Sound is on now. */
   soundOn: () => boolean;
@@ -157,7 +157,7 @@ export function openBattleMenu(scene: UiScene, o: BattleMenuOpts): BattleMenuHan
   };
 }
 
-export interface AbilitySheetItem {
+interface AbilitySheetItem {
   key: string;
   icon: string;
   label: string;

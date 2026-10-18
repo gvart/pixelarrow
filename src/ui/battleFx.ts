@@ -76,14 +76,14 @@ const PIP_DEFS: { key: string; kind: 'up' | 'fang' | 'shield'; color: number }[]
  * `fxicon_power_<id>`): a power's own drawn icon (`power:<id>` in the atlas),
  * else this UI icon (set specials, and the fallback without the atlas).
  */
-export const PROC_ICON: Record<ProcId, string> = {
+const PROC_ICON: Record<ProcId, string> = {
   blood_price: 'berserk', frenzy: 'bolt', sunder: 'anvil', rend: 'armor', second_wind: 'heart', aegis: 'shield',
   retribution: 'swords', hunger: 'beast', terror: 'skull', steadfast: 'morale', eagle_eye: 'eye', twin_shot: 'volley',
   unshaken: 'wall', momentum: 'charge', last_stand: 'flag', executioner: 'sword',
   war_cry: 'horn', rain_of_arrows: 'volley', bond_of_the_band: 'people', heel_of_achilles: 'shield', born_to_rule: 'rally',
 };
 
-export function registerFxTextures(scene: Phaser.Scene): void {
+function registerFxTextures(scene: Phaser.Scene): void {
   if (scene.textures.exists('fx_star')) return;
   scene.textures.addCanvas('fx_star', renderStar().toCanvas());
   for (const p of PIP_DEFS) scene.textures.addCanvas(p.key, renderPip(p.kind, p.color).toCanvas());
@@ -407,7 +407,7 @@ export function drawFlankArc(g: Phaser.GameObjects.Graphics, cx: number, cy: num
 /** The field events that get feel, smallest first (R4). */
 export type JuiceKind = 'kill' | 'ability' | 'impact' | 'stakes' | 'standard' | 'rout' | 'armyBreak';
 
-export interface JuiceTier {
+interface JuiceTier {
   /** Shake trauma the event adds (F1), 0..1. */
   trauma: number;
   /** Hit-stop on the sprites of the groups involved, real ms at 1×. */

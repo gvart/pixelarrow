@@ -15,7 +15,7 @@ import { battleDoll, battleFrame, battleRow, dollOrigin } from './sprites';
 import { CampLife } from './campLife';
 import { renderBird, renderGoat, renderHen } from '../art/campIso';
 
-export type FigureRole = 'stroll' | 'sit' | 'spar' | 'smith' | 'keep' | 'rest' | 'guard' | 'drill';
+type FigureRole = 'stroll' | 'sit' | 'spar' | 'smith' | 'keep' | 'rest' | 'guard' | 'drill';
 
 interface Figure {
   key: string;
@@ -59,7 +59,7 @@ interface Bird {
   phase: number;
 }
 
-export interface CampIsoLifeOpts {
+interface CampIsoLifeOpts {
   /** The world container (pannable); objects are added to it and depth-sorted by their feet. */
   add: (o: Phaser.GameObjects.GameObject) => void;
   /** Depth of a thing whose feet are at world y. */

@@ -171,12 +171,6 @@ export function uiListIds<T extends Phaser.GameObjects.GameObject>(content: T, i
   return content;
 }
 
-/** Custom bounds for an object (world coordinates), e.g. a container with a hit area. */
-export function uiRect<T extends Phaser.GameObjects.GameObject>(obj: T, fn: () => Rect): T {
-  (obj as GO).__uiRect = fn;
-  return obj;
-}
-
 /** A local rect of a transformed object in world coordinates. */
 export function worldRect(obj: Phaser.GameObjects.Components.Transform, x: number, y: number, w: number, h: number): Rect {
   const m = (obj as unknown as Phaser.GameObjects.Components.Transform).getWorldTransformMatrix();
@@ -531,7 +525,7 @@ interface WideOpts {
 }
 
 /** The landscape side of a check: the findings, plus what the script compares across sizes and reports. */
-export interface WideResult {
+interface WideResult {
   violations: Violation[];
   /** `uiId`s on show (element-parity). */
   ids: string[];

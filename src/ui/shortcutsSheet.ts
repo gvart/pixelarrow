@@ -29,10 +29,10 @@ interface UiScene extends Phaser.Scene {
 type SheetRow = { kind: 'section'; label: TKey } | { kind: 'action'; id: ActionId };
 
 /** The sheet's rows: every section of §1.1 with its actions (the unbound confirm flows included, "no key"). */
-export const SHEET_ROWS: readonly SheetRow[] = SECTIONS.flatMap((s): SheetRow[] => [{ kind: 'section', label: s.label }, ...s.actions.map((id): SheetRow => ({ kind: 'action', id }))]);
+const SHEET_ROWS: readonly SheetRow[] = SECTIONS.flatMap((s): SheetRow[] => [{ kind: 'section', label: s.label }, ...s.actions.map((id): SheetRow => ({ kind: 'action', id }))]);
 
 /** An action's keys as the sheet lists them: "W", "U · Ctrl+Z", or "no key". */
-export function keysText(id: ActionId): string {
+function keysText(id: ActionId): string {
   const list = keys.bindings[id].filter((b): b is Binding => !!b).map(bindingLabel);
   return list.length ? list.join(' · ') : t('controls.none');
 }

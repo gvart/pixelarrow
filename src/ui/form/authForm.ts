@@ -22,7 +22,7 @@ import { motion } from '../motion';
 import { FOCUS, MOSAIC } from '../tokens';
 import { passwordLength, PASSWORD_MAX, PASSWORD_MIN, validEmail } from '../account/flows';
 
-export type FieldKind = 'email' | 'newPassword' | 'currentPassword' | 'nickname' | 'confirmWord' | 'text';
+type FieldKind = 'email' | 'newPassword' | 'currentPassword' | 'nickname' | 'confirmWord' | 'text';
 
 export interface FieldSpec {
   name: string;

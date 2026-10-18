@@ -34,7 +34,7 @@ function sheetButton(scene: KitScene, m: ParchmentSheetHandle, label: string, va
 
 const SAMPLE_ITEM = { uid: 'kit-item', def: 'bronze_dory', rarity: 'epic' as const, cond: 90 };
 
-export interface OverlaySample {
+interface OverlaySample {
   id: string;
   label: string;
   /** What it shows, under the label. */
@@ -44,7 +44,7 @@ export interface OverlaySample {
 }
 
 /** The samples, in the page's order. */
-export const OVERLAY_SAMPLES: readonly OverlaySample[] = [
+const OVERLAY_SAMPLES: readonly OverlaySample[] = [
   { id: 'sheet', label: 'Sheet', what: 'An X, Back or a tap outside closes it', icon: 'log', open: (s) => void sheet(s, 'Optional sheet', 'A sheet over a 45% basalt scrim. Close it with the X, Back or a tap outside.') },
   {
     id: 'sheet-actions',

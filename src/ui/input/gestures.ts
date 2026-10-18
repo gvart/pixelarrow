@@ -38,7 +38,7 @@ export interface Ptr {
   wasTouch?: boolean;
 }
 
-export type PressMode = 'pending' | 'pan' | 'formation' | 'info';
+type PressMode = 'pending' | 'pan' | 'formation' | 'info';
 
 export interface Press {
   id: number;
@@ -100,12 +100,12 @@ interface OrderPress {
 }
 
 /** What the recogniser is doing now, for the cursor (input-v6.md §2.4). */
-export type ActiveGesture = DragKind | 'pan' | 'order' | null;
+type ActiveGesture = DragKind | 'pan' | 'order' | null;
 
 const SNAP_COS = Math.cos((SNAP_DEG * Math.PI) / 180);
 
 /** The facing from a field vector: one of the eight directions when within SNAP_DEG of it, else the vector itself; null when too short. */
-export function snapFacing(dx: number, dy: number): { fx: number; fy: number; snapped: boolean } | null {
+function snapFacing(dx: number, dy: number): { fx: number; fy: number; snapped: boolean } | null {
   const len = Math.hypot(dx, dy);
   if (len < 1e-6) return null;
   const fx = dx / len;

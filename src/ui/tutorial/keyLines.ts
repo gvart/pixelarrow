@@ -9,7 +9,7 @@ import type { ActionId } from '../input/actions';
 import { hasKey, t, type Params, type TKey } from '../../i18n';
 
 /** What the device offers (InputHints.keyboard() and finePointer()). */
-export interface TutDevice {
+interface TutDevice {
   keyboard: boolean;
   fine: boolean;
 }

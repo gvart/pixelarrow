@@ -40,17 +40,17 @@ export const SIDE_PANEL_MIN = 240;
 export const SIDE_PANEL_MAX = 320;
 
 /** §1 thresholds, CSS px. */
-export const MEDIUM_MIN_SHORT = 480;
-export const EXPANDED_MIN_ASPECT = 1.1;
-export const EXPANDED_MIN_W = 960;
+const MEDIUM_MIN_SHORT = 480;
+const EXPANDED_MIN_ASPECT = 1.1;
+const EXPANDED_MIN_W = 960;
 /** S = 4 outside compact only from this short side (TVs, 4K at DPR 1). */
-export const S4_MIN_SHORT = 1800;
+const S4_MIN_SHORT = 1800;
 /** §3.1 nav rail widths, UI px. */
 export const RAIL_W = 72;
 export const RAIL_W_COMPACT = 84;
 
 /** v5's cap (index.html until v6): the canvas was at most 0.64 x its height wide. */
-export const LEGACY_ASPECT = 0.64;
+const LEGACY_ASPECT = 0.64;
 
 /** The size class and orientation of a W × H CSS px safe area (§1). */
 export function sizeClass(w: number, h: number): { cls: SizeClass; land: boolean } {
@@ -68,7 +68,7 @@ const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.m
 const v5Scale = (w: number, h: number): number => clamp(Math.floor(Math.min(w / 190, h / 400)), 2, 4);
 
 /** CSS px per UI px for a class (§2.1). */
-export function classScale(cls: SizeClass, w: number, h: number): number {
+function classScale(cls: SizeClass, w: number, h: number): number {
   if (cls === 'compact') return v5Scale(w, h);
   if (cls === 'medium') return clamp(Math.floor(Math.min(w / 384, h / 480)), 2, 3);
   return clamp(Math.floor(Math.min(w / 480, h / 360)), 2, Math.min(w, h) >= S4_MIN_SHORT ? 4 : 3);

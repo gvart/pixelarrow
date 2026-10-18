@@ -2,7 +2,7 @@
 import type { BackButton } from '../core/back';
 import type { TgWebApp } from './sdk';
 
-export interface TgBack extends BackButton {
+interface TgBack extends BackButton {
   /** Forget the handlers (a new WebApp was attached). */
   reset(): void;
 }

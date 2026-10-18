@@ -21,7 +21,7 @@ import { readPending } from './flows';
 import { openResend } from './checkEmail';
 
 /** Whose body line the card shows (§4.4). */
-export type GateFor = 'duels' | 'war' | 'shop' | 'market' | 'notify';
+type GateFor = 'duels' | 'war' | 'shop' | 'market' | 'notify';
 
 /** The online screen's scene key → its body line (Clan, Merchant and the war army read as the war). */
 export function gateForScene(key: string): GateFor {

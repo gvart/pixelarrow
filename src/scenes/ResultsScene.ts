@@ -58,7 +58,7 @@ import { t, tOr, type TKey } from '../i18n';
 import { localDecimals } from '../i18n/numbers';
 import { foeName, heroName } from '../i18n/names';
 
-export interface ResultsData {
+interface ResultsData {
   /** Online battles bring their own report... */
   report?: BattleReport;
   /** ...and where to go afterwards. */

@@ -56,7 +56,7 @@ export const SECTIONS: readonly { label: TKey; actions: readonly ActionId[] }[] 
 const MODIFIER_CODES = new Set(['ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight', 'OSLeft', 'OSRight']);
 
 /** What a key pressed during a capture does (input-v6.md §5.3). */
-export type CaptureResult =
+type CaptureResult =
   | { kind: 'wait' }
   | { kind: 'cancel' }
   | { kind: 'refused'; why: 'reserved' | 'browser' | 'fixed'; binding: Binding; other?: ActionId }

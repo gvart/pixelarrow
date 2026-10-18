@@ -39,7 +39,7 @@ export const MIN_TURN = 0.6;
 /** Snap the facing to one of the eight field directions within this angle (degrees). */
 export const SNAP_DEG = 8;
 /** A turn smaller than this (degrees) is no order. */
-export const TURN_MIN_DEG = 4;
+const TURN_MIN_DEG = 4;
 
 export type DragKind = 'move' | 'turn';
 
@@ -81,7 +81,7 @@ export interface DragEvents {
   snapped?: boolean;
 }
 
-export interface DragPlan {
+interface DragPlan {
   cx: number;
   cy: number;
   fx: number;
@@ -188,7 +188,7 @@ export const DEPLOY_GAP = 1;
 /** A drop onto another group slides at most this far (paces) to the nearest free spot; farther, it is refused. */
 export const MAX_NUDGE = 6;
 
-export interface Spot {
+interface Spot {
   x: number;
   y: number;
 }

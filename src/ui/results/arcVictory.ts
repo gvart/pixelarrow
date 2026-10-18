@@ -20,7 +20,7 @@ import { t, tOr } from '../../i18n';
 import { sfx } from '../../audio';
 import { haptic } from '../../platform/haptics';
 
-export interface ArcVictoryOpts {
+interface ArcVictoryOpts {
   survivors: string[];
   fallen: string[];
   piece: Item | null;

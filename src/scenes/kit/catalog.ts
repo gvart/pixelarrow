@@ -15,7 +15,7 @@ import { ACCENT, COLOR_ROLE, GROUP_COLOR, MOSAIC, RARITY_FRAME, RARITY_INK, RARI
  * theirs, so scripts that open them still do); `id` is what `?scene=Kit&kit=<id>` and
  * `scene.start('Kit', { page: id })` take.
  */
-export interface KitPage {
+interface KitPage {
   id: string;
   tab: number;
   name: string;
@@ -57,12 +57,12 @@ export function stepPage(tab: number, dir: 1 | -1): number {
   return KIT_PAGES[(i + dir + KIT_PAGES.length) % KIT_PAGES.length].tab;
 }
 
-export interface Swatch {
+interface Swatch {
   name: string;
   color: number;
 }
 
-export interface TokenGroup {
+interface TokenGroup {
   title: string;
   /** Where the tokens live, for the reader: `tokens.ts` export name. */
   source: string;
@@ -100,7 +100,7 @@ export const SURFACES: readonly MosaicStyle[] = [
 /** "#a8432c" */
 export const hexOf = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
 
-export interface TypeRole {
+interface TypeRole {
   name: string;
   size: number;
   /** Cinzel caps (display) or Inter (text); `micro` is decoration only and exempt from the text floor. */

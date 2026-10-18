@@ -16,22 +16,14 @@ import { presetFrontage, rightOf } from '../../sim/formation';
 import type { DoctrineId, Side, SimGroup, SimUnit, WorkType } from '../../sim/types';
 import { rallyRadius } from '../../sim/stats';
 import { clamp } from '../../util/math';
-import { DOCTRINES, RETREAT_SHARE, SKIRMISH_RIDER_EXTRA, battleTimers, doctrineOf, type Doctrine, type DoctrineTimers } from '../../data/doctrines';
-
-/**
- * The steady defaults. Every doctrine timer and threshold is read from the
- * army's doctrine (src/data/doctrines.ts, ai-doctrines.md R1); these names
- * stay exported as the steady values, today's AI.
- */
-/** Seconds without any combat before the bot commits everything to an attack. */
-export const PRESS_IDLE_S = DOCTRINES.steady.pressIdleS;
+import { RETREAT_SHARE, SKIRMISH_RIDER_EXTRA, battleTimers, doctrineOf, type Doctrine, type DoctrineTimers } from '../../data/doctrines';
 /** A line holding a hill under missiles gives it up after this long. */
-export const HILL_SHOT_S = 22;
+const HILL_SHOT_S = 22;
 /** Riders wait this long for the lines to meet (or less when the enemy shoots). */
-export const CAV_WAIT_S = 10;
-export const CAV_SHOOTER_WAIT_S = 3;
+const CAV_WAIT_S = 10;
+const CAV_SHOOTER_WAIT_S = 3;
 /** Animals leave their lair by this time at the latest. */
-export const BEAST_WAIT_S = 45;
+const BEAST_WAIT_S = 45;
 
 interface GroupMemo {
   stage: number;
@@ -45,9 +37,9 @@ interface GroupMemo {
 }
 
 /** What a group is made of, for the tactics the bot uses with it. */
-export type GroupKind = 'foot' | 'cavalry' | 'horse_archers' | 'beasts';
+type GroupKind = 'foot' | 'cavalry' | 'horse_archers' | 'beasts';
 
-export function groupKind(mem: SimUnit[]): GroupKind {
+function groupKind(mem: SimUnit[]): GroupKind {
   let riders = 0;
   let shooters = 0;
   let beasts = 0;
@@ -64,22 +56,18 @@ export function groupKind(mem: SimUnit[]): GroupKind {
 }
 
 /** Riders stop and pull back after this long locked in a melee they are not winning. */
-export const CAV_MELEE_S = 4;
+const CAV_MELEE_S = 4;
 /** ... and regroup this long before the next charge. */
-export const CAV_REGROUP_S = 3;
-
-/** Seconds a bot line will hold a hill (or wait at a contested ford) before it gives up and attacks. */
-export const HOLD_HILL_S = DOCTRINES.steady.holdHillS;
-export const FORD_WAIT_S = DOCTRINES.steady.fordWaitS;
+const CAV_REGROUP_S = 3;
 
 /** The doctrines that answer a turtle with a stand-off (ai-doctrines.md R5). */
-export const STAND_OFF_DOCTRINES: readonly DoctrineId[] = ['swarm', 'hammer'];
+const STAND_OFF_DOCTRINES: readonly DoctrineId[] = ['swarm', 'hammer'];
 /** Seconds the enemy must have held still, behind works or in an orb, before a stand-off (R5). */
-export const STAND_OFF_S = 20;
+const STAND_OFF_S = 20;
 /** A stand-off ends once our missile-men have loosed nothing for this long (out of reach, or out of ammo). */
-export const STAND_OFF_QUIET_S = 10;
+const STAND_OFF_QUIET_S = 10;
 /** Paces in front of the line (or out from a palisade gate) that a bot lays its works (field-works.md R6). */
-export const WORKS_OUT = 2;
+const WORKS_OUT = 2;
 
 export class BotAI {
   readonly side: Side;
@@ -1218,7 +1206,7 @@ function gateGaps(b: Battle, side: Side): { x: number; y: number; w: number }[] 
  * - Laager: never in v5.
  * Exported so a harness can lay a human side's works by the same rule.
  */
-export function placeWorks(b: Battle, side: Side): void {
+function placeWorks(b: Battle, side: Side): void {
   if (b.phase !== 'deploy') return;
   const stakes = worksLeft(b, side, 'stakes');
   const ditch = worksLeft(b, side, 'ditch');

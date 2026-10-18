@@ -195,12 +195,12 @@ export function sweepPanels(game: Phaser.Game): number {
 }
 
 /** An image of a panel texture, scaled to UI px (origin top-left). */
-export function panelImage(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle): Phaser.GameObjects.Image {
+function panelImage(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle): Phaser.GameObjects.Image {
   return scene.add.image(x, y, panelTexture(scene, w, h, style)).setOrigin(0, 0).setScale(1 / panelK(scene));
 }
 
 /** Texture key of a v4 surface (the same cache as src/ui/mosaic/base.ts `mosaicTexture`). */
-export function mosaicPanelTexture(scene: Phaser.Scene, w: number, h: number, style: MosaicStyle): string {
+function mosaicPanelTexture(scene: Phaser.Scene, w: number, h: number, style: MosaicStyle): string {
   w = Math.max(4, Math.round(w));
   h = Math.max(4, Math.round(h));
   const K = panelK(scene);
@@ -216,15 +216,6 @@ export function mosaicPanelImage(scene: Phaser.Scene, x: number, y: number, w: n
 
 export function addPanel(scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: SmoothStyle = 'parch'): Phaser.GameObjects.Image {
   return panelImage(scene, Math.round(x), Math.round(y), w, h, style);
-}
-
-/** A title plaque (it was a parchment scroll): a stone panel with a fine bronze rule inside. */
-export function addScroll(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number): void {
-  parent.add(addPanel(scene, x, y, w, h, 'parch'));
-  const g = scene.add.graphics();
-  g.lineStyle(0.5, BRONZE_D2.lo, 1);
-  g.strokeRoundedRect(x + 2.5, y + 2.5, w - 5, h - 5, 2.5);
-  parent.add(g);
 }
 
 export function addText(
@@ -251,7 +242,7 @@ export const SHADOW_FONTS: ReadonlySet<FontKey> = new Set<FontKey>(['light', 'go
 /** The Inter font that reads on the same surface as a Cinzel one (cream on stone, ink on a lit block, gold on dark). */
 const INTER_OF: Partial<Record<FontKey, FontKey>> = { rCream: 'light', rOff: 'dim', rInk: 'pInk', rGold: 'gold' };
 
-export interface FittedLabel {
+interface FittedLabel {
   text: string;
   /** The font to draw `text` in: the Cinzel one, or its Inter twin. */
   font: FontKey;
@@ -278,21 +269,6 @@ export function fitBody(label: string, font: FontKey, room: number, size: number
   return { text, font: inter, size, truncated: text !== label };
 }
 
-/**
- * Shortens a one-line text until it fits the width, ending it with "…". The
- * full text stays in the object's data (`fullText`) for a tooltip.
- */
-export function fitText(txt: Phaser.GameObjects.BitmapText, w: number): Phaser.GameObjects.BitmapText {
-  if (txt.width <= w) return txt;
-  txt.setData('fullText', txt.text);
-  let str = txt.text;
-  while (str.length > 1 && txt.width > w) {
-    str = str.slice(0, -1).trimEnd();
-    txt.setText(str + '…');
-  }
-  return txt;
-}
-
 /** Icon edge in UI px (the pixel icons' size; smooth icons are drawn denser and scaled down to it). */
 export const ICON_PX = 12;
 
@@ -317,7 +293,7 @@ export function scaleIcon(img: Phaser.GameObjects.Image, n: number): Phaser.Game
 /** 'ghost': a quiet outlined action; 'purchase': real money (Telegram Stars), its own blue. */
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost' | 'purchase';
 
-export interface ButtonOpts {
+interface ButtonOpts {
   label?: string;
   icon?: string;
   /** Legacy look: 'buttonSel' = selected / primary, 'buttonOff' = disabled. */
@@ -358,7 +334,7 @@ export interface HoldTimer {
 }
 
 /** Longest frame that counts in full towards a long-press (longer ones are stalls). */
-export const HOLD_FRAME_CAP = 100;
+const HOLD_FRAME_CAP = 100;
 
 /**
  * Calls `cb` once the finger has been held for `ms` of *smooth* frame time.
@@ -719,7 +695,7 @@ export function scrollAllAreas(v: number): number {
 }
 
 /** Height of the scroll cue's shade, UI px. */
-export const SCROLL_CUE_H = 10;
+const SCROLL_CUE_H = 10;
 /** A snapping track moves at most a column per this many ms of wheel events. */
 const WHEEL_STEP_MS = 120;
 
@@ -763,7 +739,7 @@ if (inputProto && !inputProto.__clipPatched) {
 }
 
 /** The innermost scroll area holding `obj`, or null. */
-export function scrollAreaOf(obj: Phaser.GameObjects.GameObject): ScrollArea | null {
+function scrollAreaOf(obj: Phaser.GameObjects.GameObject): ScrollArea | null {
   for (let o = obj.parentContainer; o; o = o.parentContainer) {
     const a = wheelAreas.get(o as unknown as WheelNode);
     if (a) return a;

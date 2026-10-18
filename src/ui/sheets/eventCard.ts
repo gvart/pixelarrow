@@ -68,7 +68,7 @@ const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `-${-n}` : '0')
 const gainFont = (n: number): FontKey => (n < 0 ? 'pBad' : 'pGood');
 
 /** One effect as a token, or null for the bookkeeping the player doesn't see (flags, the silent garrison cut: EV-02 decision 7). */
-export function effectToken(e: Effect): Token | null {
+function effectToken(e: Effect): Token | null {
   switch (e.k) {
     case 'gold':
       return { icon: 'coin', text: t('evc.fx.gold', { n: signed(e.n) }), font: gainFont(e.n) };
@@ -185,7 +185,7 @@ export interface EventCardHandle {
   readonly closed: boolean;
 }
 
-export interface EventCardOpts {
+interface EventCardOpts {
   /** The card is done: the result page closed (`res`), or the event vanished (null). */
   onDone?: (res: EventResolution | null) => void;
 }

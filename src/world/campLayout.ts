@@ -21,7 +21,7 @@
 import { G, type GroundKind } from '../art/campIso';
 import { hash2 } from '../art/pixels';
 import { T, isWater, type WorldMap } from './map';
-import { STRUCTURES, type CampState, type StructureId } from './camp';
+import { type CampState, type StructureId } from './camp';
 import { CAMP_RULES as ONLINE_CAMP, campLevelCost, type CampBuildingId } from '../online/rules';
 import type { CampView } from '../online/camps';
 
@@ -470,7 +470,7 @@ export function fieldLayout(m: WorldMap, c: CampState, rosterSize: number, placi
   return { w, h, kinds: b.kinds, clearing: b.clearing, things: b.things, spots: b.spots, routes: b.routes, coastal, pasture: b.pasture, ...noSlots, toIso, toMap };
 }
 
-export interface OnlineLayoutOpts {
+interface OnlineLayoutOpts {
   coast: boolean;
   seed: number;
   home: boolean;
@@ -582,10 +582,4 @@ export function onlineLayout(camp: CampView | null, o: OnlineLayoutOpts): IsoLay
   if (o.coast) b.ship();
   if (camp && camp.buildings.some((x) => x.kind === 'palisade' && x.level > 0)) b.palisade();
   return { w: W, h: H, kinds: b.kinds, clearing: b.clearing, things: b.things, spots: b.spots, routes: b.routes, coastal: o.coast, pasture: b.pasture, slotAt, slotTile, toIso: (x, y) => ({ x, y }), toMap: (x, y) => ({ x, y }) };
-}
-
-/** The footprint (iso tiles) of a field structure. */
-export function fieldFootprint(id: StructureId): { w: number; h: number } {
-  const d = STRUCTURES[id];
-  return { w: d.w * 2, h: d.h * 2 };
 }

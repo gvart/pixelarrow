@@ -14,7 +14,7 @@ import type { AccountDeps } from './deps';
 import { manageError, ReauthCancelled, type MethodKind } from './methods';
 import { sensitive } from './reauth';
 
-export interface RemoveOpts {
+interface RemoveOpts {
   kind: MethodKind;
   /** The masked address, for the email body. */
   emailMasked?: string;
@@ -25,7 +25,7 @@ export interface RemoveOpts {
 }
 
 /** This session came from `kind`: removing it signs this device out. */
-export const endsThisSession = (kind: MethodKind, transport: 'bearer' | 'cookie'): boolean => (kind === 'password' ? transport === 'cookie' : transport === 'bearer');
+const endsThisSession = (kind: MethodKind, transport: 'bearer' | 'cookie'): boolean => (kind === 'password' ? transport === 'cookie' : transport === 'bearer');
 
 export function confirmRemove(scene: UiScene, d: AccountDeps, o: RemoveOpts): void {
   const here = endsThisSession(o.kind, d.transport());

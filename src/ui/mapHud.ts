@@ -20,7 +20,7 @@
  */
 import { edgeClusters, layoutVariant, EDGE_PAD, type Box, type ClassOf, type LayoutVariant } from './mosaic/layout/geometry';
 
-export interface MapHudMetrics extends ClassOf {
+interface MapHudMetrics extends ClassOf {
   VW: number;
   VH: number;
 }
@@ -75,7 +75,7 @@ const KEY_W_MAX = 120;
 /** A key of the row: 48 pt, v5's strip key. */
 const ROW_KEY_H = 24;
 /** Between two stacked keys: ≥ 4 pt (§15). */
-export const STACK_GAP = 3;
+const STACK_GAP = 3;
 
 const area = (b: Box): number => Math.max(0, b.w) * Math.max(0, b.h);
 

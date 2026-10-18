@@ -7,7 +7,7 @@
  */
 import type { CursorKind } from '../input/cursor';
 
-export interface DropRect {
+interface DropRect {
   x: number;
   y: number;
   w: number;
@@ -17,7 +17,7 @@ export interface DropRect {
 /** The outline's strength on a valid slot away from the cursor. */
 export const DROP_FAR_ALPHA = 0.5;
 /** The release margin around a slot, UI px. */
-export const DROP_MARGIN = 4;
+const DROP_MARGIN = 4;
 
 const over = (r: DropRect, x: number, y: number): boolean => x >= r.x - DROP_MARGIN && x <= r.x + r.w + DROP_MARGIN && y >= r.y - DROP_MARGIN && y <= r.y + r.h + DROP_MARGIN;
 

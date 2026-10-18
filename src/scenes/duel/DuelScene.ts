@@ -96,14 +96,14 @@ import { demoName, heroName } from '../../i18n/names';
 import { fmtAgoText, fmtClock, fmtSigned } from '../../util/format';
 
 /** The hub's views: the two game modes and the two places behind the header's buttons. */
-export type DuelTab = 'ladder' | 'ranked' | 'team' | 'shop';
+type DuelTab = 'ladder' | 'ranked' | 'team' | 'shop';
 /** The game modes on the switch (Team and Shop go back to the last one). */
-export type HubMode = 'ladder' | 'ranked';
+type HubMode = 'ladder' | 'ranked';
 type ShopTab = 'offers' | 'gear' | 'sell';
 /** The Arena's views: the two mode cards, the defender picks of a raid, a leaderboard. */
-export type ArenaTab = 'home' | 'raid' | 'board';
+type ArenaTab = 'home' | 'raid' | 'board';
 
-export interface DuelSceneData {
+interface DuelSceneData {
   tab?: DuelTab;
   /** Where Team and Shop go back to (default: the last mode). */
   mode?: HubMode;
@@ -150,24 +150,24 @@ const MAIN_H = 30;
 const SHEET_PAD = SHEET_TITLE_H + SPACE.sm;
 
 /** "Gold II", "Legend". */
-export function leagueName(l: League): string {
+function leagueName(l: League): string {
   const name = t(`duels.league.${l.id}` as TKey);
   return l.division ? t('duels.leagueDiv', { league: name, div: divisionRoman(l.division) }) : name;
 }
 
 /** "Gold II" of a league id alone (titles, rewards: the league, no division). */
-export function leagueTitle(id: LeagueId): string {
+function leagueTitle(id: LeagueId): string {
   return t(`duels.league.${id}` as TKey);
 }
 
 /** "October 2026" of a season id. */
-export function seasonName(id: number): string {
+function seasonName(id: number): string {
   const { year, month } = seasonMonth(id);
   return t('duels.seasonName', { month: t(`duels.month.${month}` as TKey), year });
 }
 
 /** "12d 5h" / "5h 20m" / "20m" until a time. */
-export function leftText(ms: number): string {
+function leftText(ms: number): string {
   const m = Math.max(0, Math.floor(ms / 60_000));
   const d = Math.floor(m / 1440);
   const h = Math.floor((m % 1440) / 60);
@@ -190,7 +190,7 @@ function matchResult(glory: number, winner: number, side: number, draw = false):
 }
 
 /** "Team 2" or the name a preset was given. */
-export function presetLabel(l: Pick<Loadout, 'slot' | 'name'>): string {
+function presetLabel(l: Pick<Loadout, 'slot' | 'name'>): string {
   return l.name?.trim() || t('duels.loadout', { n: l.slot });
 }
 
@@ -3399,7 +3399,7 @@ function sample(o: ShopOffer): Item {
  * error here must not leave every scene stopped (a blank screen): the menu
  * opens instead.
  */
-export function backToDuel(game: Phaser.Game, data: DuelSceneData): void {
+function backToDuel(game: Phaser.Game, data: DuelSceneData): void {
   for (const sc of game.scene.getScenes(true)) game.scene.stop(sc.scene.key);
   try {
     game.scene.start('Duel', data);
@@ -3411,7 +3411,7 @@ export function backToDuel(game: Phaser.Game, data: DuelSceneData): void {
 }
 
 /** The report of a finished duel battle, then back to the hub; a report that cannot be shown goes straight back. */
-export function reportThenHub(game: Phaser.Game, build: () => BattleReport, data: DuelSceneData): void {
+function reportThenHub(game: Phaser.Game, build: () => BattleReport, data: DuelSceneData): void {
   try {
     showReport(game, build(), () => backToDuel(game, data));
   } catch (e) {
@@ -3421,7 +3421,7 @@ export function reportThenHub(game: Phaser.Game, build: () => BattleReport, data
 }
 
 /** The battle scene's source for a ladder floor: submit the order log, then the report and back to the ladder. */
-export function ladderSource(game: Phaser.Game, src: DuelSource, tk: LadderTicket): BattleSource {
+function ladderSource(game: Phaser.Game, src: DuelSource, tk: LadderTicket): BattleSource {
   const label = tk.boss ? t('duels.floorBoss', { n: tk.floor }) : t('duels.floor', { n: tk.floor });
   return {
     setup: tk.setup,
@@ -3445,7 +3445,7 @@ export function ladderSource(game: Phaser.Game, src: DuelSource, tk: LadderTicke
 }
 
 /** The post-battle report of a ladder floor (Glory and account XP as notes, or that the ticket ran out; no deaths in duels). */
-export function ladderReport(r: LadderReport, label: string, demo = false): BattleReport {
+function ladderReport(r: LadderReport, label: string, demo = false): BattleReport {
   const notes = ladderNotes(r, demo);
   return buildReport({
     result: resultFor(r.winner, 0),
@@ -3472,7 +3472,7 @@ export function ladderReport(r: LadderReport, label: string, demo = false): Batt
 let opening: string | null = null;
 
 /** Opens the match socket and starts the battle (or shows the report of a match already over). */
-export async function playLiveMatch(game: Phaser.Game, src: DuelSource, id: string, mode: DuelMode): Promise<void> {
+async function playLiveMatch(game: Phaser.Game, src: DuelSource, id: string, mode: DuelMode): Promise<void> {
   if (opening === id) return;
   opening = id;
   const link = new MatchLink(id);
@@ -3509,7 +3509,7 @@ const REPORT_RETRY_MS = 2000;
  * missed it; the server may still be settling, 409 match_live), then back to
  * the Ranked tab.
  */
-export function finishMatch(game: Phaser.Game, src: DuelSource, id: string, o: MatchOutcome, tries = 1): void {
+function finishMatch(game: Phaser.Game, src: DuelSource, id: string, o: MatchOutcome, tries = 1): void {
   forgetMatch(id);
   const label = t('battle.vs', { name: o.names[1 - o.side] });
   const report = o.report;
@@ -3527,7 +3527,7 @@ export function finishMatch(game: Phaser.Game, src: DuelSource, id: string, o: M
 }
 
 /** The demo's live match: the same screens, a local battle against the bot, settled by the demo source. */
-export function demoMatchSource(game: Phaser.Game, src: DemoDuelSource, m: DemoMatch): BattleSource {
+function demoMatchSource(game: Phaser.Game, src: DemoDuelSource, m: DemoMatch): BattleSource {
   return {
     setup: m.setup,
     heroes: [...m.heroes[0], ...m.heroes[1]],
@@ -3546,7 +3546,7 @@ export function demoMatchSource(game: Phaser.Game, src: DemoDuelSource, m: DemoM
 }
 
 /** The battle scene's source for a raid: submit the order log, then the report and back to Raids. */
-export function raidSource(game: Phaser.Game, src: DuelSource, tk: AsyncTicket): BattleSource {
+function raidSource(game: Phaser.Game, src: DuelSource, tk: AsyncTicket): BattleSource {
   return {
     setup: tk.setup,
     heroes: [...tk.team, ...tk.enemies],
@@ -3568,7 +3568,7 @@ export function raidSource(game: Phaser.Game, src: DuelSource, tk: AsyncTicket):
 }
 
 /** The post-battle report of a raid: the raid rating change, league, Glory and XP (no deaths in duels). */
-export function raidReport(r: AsyncReport, demo = false): BattleReport {
+function raidReport(r: AsyncReport, demo = false): BattleReport {
   const notes: string[] = [];
   const d = r.rating.after - r.rating.before;
   const ds = d >= 0 ? `+${d}` : `-${-d}`;
@@ -3600,7 +3600,7 @@ export function raidReport(r: AsyncReport, demo = false): BattleReport {
 }
 
 /** The post-battle report of a live match: rating change, league, placements, Glory and XP (no deaths in duels). */
-export function rankedReport(r: MatchReport, label: string, demo = false): BattleReport {
+function rankedReport(r: MatchReport, label: string, demo = false): BattleReport {
   const notes: string[] = [];
   const foe = r.names[1 - r.side];
   if (r.end === 'void') notes.push(t('duels.note.void'));

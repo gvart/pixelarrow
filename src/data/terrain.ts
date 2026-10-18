@@ -24,7 +24,6 @@ export type TerrainKind =
   | 'laager'
   | 'palisade'
   | 'rampart';
-export const TERRAIN_KINDS: TerrainKind[] = ['open', 'scrub', 'forest', 'water', 'ford', 'rough', 'rocks', 'sand', 'sea', 'stakes', 'ditch', 'laager', 'palisade', 'rampart'];
 
 export interface TerrainDef {
   kind: TerrainKind;

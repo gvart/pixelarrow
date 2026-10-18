@@ -34,7 +34,7 @@ type C = Phaser.GameObjects.Container;
 export const PF = { ink: 'pInk', sec: 'pSec', muted: 'pMuted', good: 'pGood', bad: 'pBad', off: 'pOff', head: 'rInk' } as const satisfies Record<string, FontKey>;
 export type PFont = keyof typeof PF;
 
-export interface PTextOpts {
+interface PTextOpts {
   align?: 0 | 0.5 | 1;
   size?: number;
   maxW?: number;
@@ -63,7 +63,7 @@ export function pwrap(scene: Phaser.Scene, parent: C, x: number, y: number, str:
 // ------------------------------------------------------------------ stars
 
 /** Where stars sit: on parchment or grey stone, or on the terracotta of the next floor. */
-export type StarTone = 'paper' | 'stone' | 'terra';
+type StarTone = 'paper' | 'stone' | 'terra';
 
 /** `n` of `max` stars centred on `cx` (earned: gold with a brown edge; the rest sunken wells), `size` px each. */
 export function drawStars(g: Phaser.GameObjects.Graphics, cx: number, y: number, n: number, max = 3, size = 6, tone: StarTone = 'paper'): void {
@@ -117,7 +117,7 @@ export function addFocusRing(scene: Phaser.Scene, parent: C, x: number, y: numbe
 }
 
 /** A soft gold glow behind a claimable thing. */
-export function addGlow(scene: Phaser.Scene, parent: C, x: number, y: number, w: number, h: number): Phaser.GameObjects.Graphics {
+function addGlow(scene: Phaser.Scene, parent: C, x: number, y: number, w: number, h: number): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics();
   g.fillStyle(MOSAIC.goldHi, 0.22);
   g.fillRoundedRect(x - 1.5, y - 1.5, w + 3, h + 3, 3);
@@ -130,7 +130,7 @@ export function addGlow(scene: Phaser.Scene, parent: C, x: number, y: number, w:
 
 // ------------------------------------------------------------------ floor tiles and chests
 
-export interface FloorTileOpts {
+interface FloorTileOpts {
   n: number;
   state: 'cleared' | 'next' | 'locked';
   boss: boolean;
@@ -197,7 +197,7 @@ export class FloorTile extends Phaser.GameObjects.Container {
   }
 }
 
-export interface ChestSlotOpts {
+interface ChestSlotOpts {
   state: ChestState;
   /** Stars the chest needs (its label until it is claimed). */
   need: number;
@@ -242,7 +242,7 @@ export class ChestSlot extends Phaser.GameObjects.Container {
 // ------------------------------------------------------------------ crests and faces
 
 /** League id to the pill colour of its name (a pill with light text on parchment). */
-export const LEAGUE_COLOR: Record<LeagueId, number> = {
+const LEAGUE_COLOR: Record<LeagueId, number> = {
   bronze: MOSAIC.bronze,
   silver: MOSAIC.slabLo,
   gold: MOSAIC.bronzeLo,
@@ -285,7 +285,7 @@ export function addFace(scene: Phaser.Scene, parent: C, x: number, y: number, si
 
 // ------------------------------------------------------------------ chips and cards
 
-export interface PresetChipOpts {
+interface PresetChipOpts {
   label?: string;
   /** Icons of what the preset fights on. */
   uses?: string[];
@@ -344,7 +344,7 @@ export class PresetChip extends Phaser.GameObjects.Container {
   }
 }
 
-export interface LockedCardOpts {
+interface LockedCardOpts {
   title: string;
   icon: string;
   reason: string;
@@ -432,7 +432,7 @@ export function addCrispIcon(scene: Phaser.Scene, x: number, y: number, name: st
 
 // ------------------------------------------------------------------ numbers
 
-export interface InlineNumber {
+interface InlineNumber {
   icon: string;
   value: string;
   word?: string;

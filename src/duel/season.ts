@@ -110,7 +110,7 @@ export function idleRating(r: Rating, playedAt: number, now: number): Rating {
   return { ...r, rd: Math.min(RANKED.start.rd, rd) };
 }
 
-export interface SeasonReward {
+interface SeasonReward {
   league: LeagueId;
   glory: number;
   cosmetic: string;
@@ -119,7 +119,7 @@ export interface SeasonReward {
 }
 
 /** Leagues whose live season reward includes a piece of SEASON_SET of the player's choice. */
-export const PICK_LEAGUES: LeagueId[] = ['strategos', 'legend'];
+const PICK_LEAGUES: LeagueId[] = ['strategos', 'legend'];
 
 /** What a season pays on a ladder by its peak rating (null: never placed in it, nothing to pay). */
 export function seasonReward(peak: number | null, ladder: Ladder): SeasonReward | null {
@@ -138,7 +138,7 @@ export function bestLeague(a: LeagueId | null, b: LeagueId | null): LeagueId | n
 
 // ------------------------------------------------------------------ async ladder
 
-export interface Defender {
+interface Defender {
   pid: number;
   rating: number;
 }

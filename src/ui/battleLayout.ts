@@ -45,7 +45,7 @@ export const MEDAL_W = 50;
 /** Compact landscape (422 × 195 at 844x390; 363 × 161 inside Telegram's insets). */
 export const LAND = { top: 22, pad: 4, vpad: 2, cardW: 100, cardH: 28, railW: 66, keyMax: 24, badgeH: 14, chipH: 22, fightH: 44 } as const;
 /** Expanded (640 × 400 at 1280x800; 512–720 wide, 360–450 tall). */
-export const WIDE = { top: 26, pad: 6, cardW: 132, cardH: 30, keyW: 56, keyH: 30, headH: 22, fightW: 200 } as const;
+const WIDE = { top: 26, pad: 6, cardW: 132, cardH: 30, keyW: 56, keyH: 30, headH: 22, fightW: 200 } as const;
 /** Medium portrait (384 × 512 at 768x1024): the v5 sheet with these limits. */
 export const MEDIUM = { cols: 3, ordersMax: 360, fightMax: 300, sheetShare: 0.36 } as const;
 
@@ -97,7 +97,7 @@ export interface SideHud {
   panel: Rect;
 }
 
-export interface SideHudOpts {
+interface SideHudOpts {
   /** Group cards (1..4). */
   cards: number;
   /** Mirror for left-hand mode. */
@@ -115,7 +115,7 @@ export function mirror(r: Rect, VW: number): Rect {
  * The land order rail's keys: the numeral badge at its head, five keys as tall as fit (22–24), and the
  * Formation chip at its foot when it still fits (else it goes into the chip row; landscape-v6 §18 risks).
  */
-export function railOrders(rail: Rect): OrdersLayout {
+function railOrders(rail: Rect): OrdersLayout {
   const inner = { x: rail.x + 3, w: rail.w - 6 };
   const gaps = 4 * RAIL_GAP;
   // the roomy rail: a 14-tall badge, 2 px clear of the rail's ends; the tight one (Telegram's insets) packs them to 1
@@ -270,7 +270,7 @@ export function centredRow(VW: number, max: number): { x: number; w: number } {
 }
 
 /** A keycap's slot (input-v6.md §6.1): the control's top-right corner, overlapping its rim, so it takes no width. */
-export const KEYCAP = { w: 12, h: 9, inset: 3 } as const;
+const KEYCAP = { w: 12, h: 9, inset: 3 } as const;
 export function keycapSlot(r: Rect): Rect {
   return { x: r.x + r.w - KEYCAP.w + KEYCAP.inset, y: r.y - KEYCAP.inset, w: KEYCAP.w, h: KEYCAP.h };
 }

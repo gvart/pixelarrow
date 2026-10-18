@@ -24,7 +24,7 @@ export type LookState =
   | { kind: 'owned'; text: string }
   | { kind: 'locked'; text: string };
 
-export interface LookCardOpts {
+interface LookCardOpts {
   name: string;
   state: LookState;
   art: (card: C, cx: number, cy: number, size: number) => void;
@@ -191,7 +191,7 @@ export class MarketCard extends Phaser.GameObjects.Container {
 
 // ================================================================== Drachmae packs (real money: pixel-perfect)
 
-export interface PackCardData {
+interface PackCardData {
   id: string;
   stars: number;
   drachmae: number;
@@ -199,7 +199,7 @@ export interface PackCardData {
   best: boolean;
 }
 
-export interface PackLayout {
+interface PackLayout {
   cols: 1 | 2;
   /** Card width. */
   pw: number;

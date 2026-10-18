@@ -32,7 +32,7 @@ export interface ArcLairRow {
   men: number;
 }
 
-export interface ArcModel {
+interface ArcModel {
   /** The goal sentence for the arc stage. */
   goal: string;
   /** "{town} is sacked..." while the start town burns. */

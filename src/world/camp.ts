@@ -13,7 +13,7 @@ import { hash3 } from './noise';
 
 export type StructureId = 'tent' | 'fire' | 'palisade' | 'forge' | 'training';
 
-export interface StructureDef {
+interface StructureDef {
   id: StructureId;
   name: string;
   /** Footprint in tiles. */
@@ -167,7 +167,7 @@ export function countBuilt(c: CampState, id: StructureId): number {
   return c.built.filter((b) => b.id === id).length;
 }
 
-export function hasBuilt(c: CampState | null | undefined, id: StructureId): boolean {
+function hasBuilt(c: CampState | null | undefined, id: StructureId): boolean {
   return !!c && c.built.some((b) => b.id === id);
 }
 
@@ -197,7 +197,7 @@ export function freeSpot(m: WorldMap, c: CampState, id: StructureId): { x: numbe
   return pick ?? null;
 }
 
-export interface CampEffects {
+interface CampEffects {
   /** Wound-hours healed per hour. */
   heal: number;
   /** Food foraged per hour. */

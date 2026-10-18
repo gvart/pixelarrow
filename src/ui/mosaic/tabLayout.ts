@@ -38,17 +38,17 @@ export const TAB_FRAME_GAP = 10;
 /** Gap between neighbouring touch areas, UI px (the layout check wants 4 pt = 2 UI px). */
 export const TAB_GAP = 3;
 /** Room a label keeps in its slot, UI px (half on each side): inside the selected tab's block (1 UI px in from the slot) by 1 UI px, and two labels >= 4 apart. */
-export const TAB_LABEL_PAD = 4;
+const TAB_LABEL_PAD = 4;
 /** Narrowest slot, UI px: its icon and a touch area of >= 22 after the gap; the medallion's neighbours also give up the strip it covers. */
-export const TAB_MIN_SLOT = 26;
+const TAB_MIN_SLOT = 26;
 /** Extra width a neighbour of the medallion needs for the strip the medallion covers, UI px. */
-export const TAB_MEDALLION_SHARE = 3;
+const TAB_MEDALLION_SHARE = 3;
 /** Narrowest slot of the medallion, UI px (a medallion of 31 across). */
-export const MEDALLION_MIN_SLOT = 26;
+const MEDALLION_MIN_SLOT = 26;
 /** Widest medallion, UI px. */
-export const MEDALLION_MAX = 46;
+const MEDALLION_MAX = 46;
 
-export interface TabSlotBox {
+interface TabSlotBox {
   /** The slot (its parchment block when selected). */
   x: number;
   w: number;
@@ -146,7 +146,7 @@ export const TAB_LABEL_STYLES: readonly TabLabelStyle[] = [
 ];
 
 /** A label as the style writes it: capitals in Cinzel, the words as written in Inter. */
-export function tabLabelText(label: string, style: TabLabelStyle): string {
+function tabLabelText(label: string, style: TabLabelStyle): string {
   return style.face === 'roman' ? label.toUpperCase() : label;
 }
 
@@ -177,14 +177,14 @@ export function fitTabLabels(VW: number, labels: readonly string[], measure: (te
 // ------------------------------------------------------------------ nav rail (landscape-v6 §3.1)
 
 /** One rail item: its block (the parchment when selected) and its touch area, UI px from the rail's top. */
-export interface RailItemBox {
+interface RailItemBox {
   y: number;
   h: number;
   hitY: number;
   hitH: number;
 }
 
-export interface RailLayout {
+interface RailLayout {
   /** Rail width, UI px (84 at compact landscape, 72 elsewhere). */
   w: number;
   /** Icon left of the label (compact landscape) or above it (medium, expanded). */
@@ -223,7 +223,7 @@ export function railLayout(VH: number, compact: boolean, count = 5): RailLayout 
   return { w, compact, items, medallionD: compact ? RAIL_MEDALLION.compact : RAIL_MEDALLION.wide, labelX, labelW: w - labelX - 4 - RAIL_BAR };
 }
 
-export interface RailLabelFit {
+interface RailLabelFit {
   style: TabLabelStyle;
   texts: string[];
   widths: number[];

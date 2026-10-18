@@ -18,7 +18,7 @@ export type DuelView = 'hub' | 'team' | 'shop' | 'raid' | 'board' | 'search' | '
 /** The profile column's width per variant (§9.2). */
 export const SIDE_W = { compactLandscape: 130, medium: 180, expanded: 180 } as const;
 
-export interface DuelPanes {
+interface DuelPanes {
   /** The profile column (null: one pane). */
   side: Box | null;
   /** The mode content. */

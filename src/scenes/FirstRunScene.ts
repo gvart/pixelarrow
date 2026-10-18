@@ -35,9 +35,9 @@ import { online } from '../platform/cloud';
 import { openRename } from '../ui/account/rename';
 import type { NameStatus } from '../platform/api';
 
-export type FirstRunMode = 'offer' | 'resume' | 'reward' | 'modes';
+type FirstRunMode = 'offer' | 'resume' | 'reward' | 'modes';
 
-export interface FirstRunData {
+interface FirstRunData {
   mode?: FirstRunMode;
   /** The reward item (mode 'reward'). */
   item?: Item;

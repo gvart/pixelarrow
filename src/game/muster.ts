@@ -60,7 +60,7 @@ export function fieldHeroes(heroes: readonly Hero[]): Hero[] {
   return heroes.filter((h) => ids.has(h.id));
 }
 
-export interface ClassRow {
+interface ClassRow {
   cls: ClassId;
   /** In the formation now. */
   field: number;
@@ -96,7 +96,7 @@ export function canField(m: readonly MusterHero[], id: string): MusterWhy | null
 }
 
 /** Why a fielded hero cannot be sent to the reserve, or null (someone must stay in the formation). */
-export function canReserve(m: readonly MusterHero[], id: string): MusterWhy | null {
+function canReserve(m: readonly MusterHero[], id: string): MusterWhy | null {
   const field = fieldIds(m);
   if (field.length <= 1 && field.includes(id)) return 'last';
   return null;

@@ -19,7 +19,7 @@ export interface Formation {
   rs?: number;
 }
 
-export interface Vec {
+interface Vec {
   x: number;
   y: number;
 }
@@ -95,12 +95,6 @@ export function presetFrontage(type: FormationType, n: number): number {
   }
 }
 
-/** Frontage (in files) that fits a drawn line of given length. */
-export function frontageForWidth(type: FormationType, width: number, n: number): number {
-  const f = Math.round(width / SPACING[type].file) + 1;
-  return Math.max(1, Math.min(n, f));
-}
-
 /** Right-hand lateral vector for a facing: facing up (0,-1) gives right = (1,0). */
 export function rightOf(fx: number, fy: number): Vec {
   return { x: -fy, y: fx };
@@ -161,22 +155,7 @@ export function formationSlots(f: Formation, n: number): Vec[] {
   return out;
 }
 
-/** Number of ranks a formation needs. */
-export function formationDepth(f: Formation, n: number): number {
-  if (f.type === 'orb') return n > ORB.twoDeep ? 2 : 1;
-  if (f.type === 'wedge') {
-    let rows = 0;
-    let placed = 0;
-    while (placed < n) {
-      placed += rows + 1;
-      rows++;
-    }
-    return rows;
-  }
-  return Math.ceil(n / Math.max(1, Math.min(n, Math.round(f.frontage))));
-}
-
-export interface SlotCandidate {
+interface SlotCandidate {
   id: number;
   x: number;
   y: number;

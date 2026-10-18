@@ -35,12 +35,12 @@ export function effectiveLevel(b: Pick<CampBuildingState, 'level' | 'doneAt'>, n
 }
 
 /** The building under construction in a camp (one at a time), if any. */
-export function underConstruction<T extends Pick<CampBuildingState, 'doneAt'>>(list: readonly T[], now: number): T | null {
+function underConstruction<T extends Pick<CampBuildingState, 'doneAt'>>(list: readonly T[], now: number): T | null {
   return list.find((b) => b.doneAt > now) ?? null;
 }
 
 /** Level of a kind of building in a camp now (0: none). */
-export function levelOf(list: readonly CampBuildingState[], kind: CampBuildingId, now: number): number {
+function levelOf(list: readonly CampBuildingState[], kind: CampBuildingId, now: number): number {
   const b = list.find((x) => x.kind === kind);
   return b ? Math.max(0, effectiveLevel(b, now)) : 0;
 }
@@ -111,7 +111,7 @@ export type CampReason =
   | 'notHere'
   | 'resting';
 
-export type CampCheck = { ok: true; level: number; cost: Resources; minutes: number } | { ok: false; reason: CampReason };
+type CampCheck = { ok: true; level: number; cost: Resources; minutes: number } | { ok: false; reason: CampReason };
 
 /**
  * Can `kind` be built on `slot` of a camp (a new building, level 1), or the
@@ -161,7 +161,7 @@ export function checkClaim(i: {
 }
 
 /** When a camp may be rested at next (null: now). */
-export function restReadyAt(restedAt: number | null, now: number): number | null {
+function restReadyAt(restedAt: number | null, now: number): number | null {
   if (restedAt === null) return null;
   const at = restedAt + CAMP_RULES.restCooldownMs;
   return at > now ? at : null;

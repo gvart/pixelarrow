@@ -12,9 +12,9 @@ import type { Box } from '../mosaic';
 import { PANE_GUTTER, type LayoutVariant } from '../mosaic/layout/variant';
 
 /** The v5 column's width (compact portrait). */
-export const V5_COL = 200;
+const V5_COL = 200;
 /** The medium column's width. */
-export const MEDIUM_COL = 360;
+const MEDIUM_COL = 360;
 /** The stage's width on laptops (fresco and words together). */
 const STAGE_MAX = 600;
 const ART_MAX = 300;
@@ -29,7 +29,7 @@ export function columnBox(v: LayoutVariant, inner: Box): Box {
   return { x: inner.x + Math.round((inner.w - w) / 2), y: inner.y, w, h: inner.h };
 }
 
-export type OfferLayout = { kind: 'column'; col: Box } | { kind: 'stage'; art: Box; side: Box };
+type OfferLayout = { kind: 'column'; col: Box } | { kind: 'stage'; art: Box; side: Box };
 
 /** The offer and resume screens: a column (portrait) or a stage (landscape). */
 export function offerLayout(v: LayoutVariant, inner: Box): OfferLayout {

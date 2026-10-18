@@ -16,7 +16,7 @@
  */
 import { EDGE_PAD, layoutVariant, type Box, type ClassOf, type LayoutVariant } from '../../ui/mosaic/layout/geometry';
 
-export interface WarHudMetrics extends ClassOf {
+interface WarHudMetrics extends ClassOf {
   VW: number;
   VH: number;
   navW: number;

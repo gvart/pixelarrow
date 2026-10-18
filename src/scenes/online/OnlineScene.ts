@@ -135,9 +135,9 @@ const CARD_PAD = 1;
 type View = { kind: 'loading'; msg: string } | { kind: 'unavailable'; msg: string; detail: string; outside: boolean } | { kind: 'join' } | { kind: 'map' };
 
 /** Staged states of the preview map (layout check, screenshots). */
-export type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result' | 'lair' | 'lairInfo' | 'boss' | 'bossInfo' | 'market' | 'post' | 'camp';
+type PreviewKind = 'map' | 'own' | 'neutral' | 'far' | 'rival' | 'town' | 'lobby' | 'challenge' | 'join' | 'march' | 'result' | 'lair' | 'lairInfo' | 'boss' | 'bossInfo' | 'market' | 'post' | 'camp';
 
-export interface OnlineSceneData {
+interface OnlineSceneData {
   /** Show the outcome of an attack that just came back from the battle scene. */
   attack?: AttackResult | { error: string };
   duel?: DuelOutcome;
@@ -1911,7 +1911,7 @@ export function backToOnline(game: Phaser.Game, data: OnlineSceneData): void {
 }
 
 /** The battle scene's source for an attack: submit the order log, then back to the map with the verdict. */
-export function attackSource(game: Phaser.Game, tk: AttackTicket, label: string): BattleSource {
+function attackSource(game: Phaser.Game, tk: AttackTicket, label: string): BattleSource {
   return {
     setup: tk.setup,
     heroes: [...tk.attackers, ...tk.defenders],

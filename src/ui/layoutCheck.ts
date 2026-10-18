@@ -64,7 +64,7 @@ export interface UiElement {
 
 /** The landscape checks (design/ux/landscape-v6.md §5), in the order the spec lists them. */
 export const WIDE_CHECKS = ['letterbox', 'class-match', 'wasted-width', 'empty-column', 'stretched', 'field-coverage', 'above-fold', 'element-parity', 'nav-labels'] as const;
-export type WideCheck = (typeof WIDE_CHECKS)[number];
+type WideCheck = (typeof WIDE_CHECKS)[number];
 
 export type CheckKind = 'overlap' | 'spacing' | 'text-overflow' | 'text-column' | 'text-overlap' | 'outside-safe-area' | 'touch-size' | 'clipped' | 'text-size' | 'tap' | WideCheck;
 
@@ -74,7 +74,7 @@ export interface Violation {
   detail: string;
 }
 
-export interface CheckOpts {
+interface CheckOpts {
   /** Canvas size in CSS px (the canvas already sits inside the safe area). */
   width: number;
   height: number;
@@ -197,11 +197,6 @@ export function checkLayout(els: readonly UiElement[], o: CheckOpts): Violation[
  */
 export function shownIds(els: readonly UiElement[], lists: readonly string[] = []): string[] {
   return [...new Set([...els.filter((e) => e.named && (e.clip || (e.visible.w > 0.5 && e.visible.h > 0.5))).map((e) => e.id), ...lists])];
-}
-
-/** Allowlist key of a violation on a screen. */
-export function violationKey(screen: string, v: Violation): string {
-  return [screen, v.check, ...v.ids].join('|');
 }
 
 // ------------------------------------------------------------------ landscape checks (§5, V6-RFND-03)

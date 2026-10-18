@@ -22,7 +22,7 @@ import { platform } from '../platform';
 import { state } from '../state';
 
 /** The keycap's text size (the A11Y text floor, 6.5 UI px) and its padding. */
-export const CAP_TEXT = 6.5;
+const CAP_TEXT = 6.5;
 const PAD = 2;
 const CAP_H = 11;
 /** How far the keycap reaches out over the control's rim, UI px. */
@@ -31,18 +31,18 @@ const RIM_OUT = 4;
 type Host = Phaser.GameObjects.Container & { w?: number; h?: number; __keyAction?: ActionId };
 
 /** The label a keycap shows for `id`: the shorter of its bindings' labels ("" with none). */
-export function capLabel(id: ActionId): string {
+function capLabel(id: ActionId): string {
   const labels = keys.bindings[id].filter((b): b is Binding => !!b).map(bindingLabel);
   return labels.reduce((a, b) => (!a || measureText(b, false, CAP_TEXT) < measureText(a, false, CAP_TEXT) ? b : a), '');
 }
 
 /** Show key hints (Settings → Controls, §5.1; missing = on). */
-export function keyHintsOn(): boolean {
+function keyHintsOn(): boolean {
   return state.campaign?.data.settings.keyHints !== false;
 }
 
 /** Keycaps are shown now (a keyboard, the hints on); `w`: the control's width, `phone`: a compact portrait screen. */
-export function keycapsShown(w: number, phone: boolean): boolean {
+function keycapsShown(w: number, phone: boolean): boolean {
   return capShown({ keyboard: platform.input.keyboard(), hints: keyHintsOn(), w, phone });
 }
 

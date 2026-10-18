@@ -13,7 +13,7 @@
  *  4. at most `max` voices in total: the lowest-priority (then oldest) voice is
  *     stolen if the new one has a higher priority, otherwise the request is dropped.
  */
-export interface Voice {
+interface Voice {
   id: string;
   priority: number;
   start: number;
@@ -29,9 +29,9 @@ export interface LimiterOpts {
   urgent: number;
 }
 
-export const DEFAULT_LIMITS: LimiterOpts = { max: 12, perSound: 3, minGap: 0.045, urgent: 8 };
+const DEFAULT_LIMITS: LimiterOpts = { max: 12, perSound: 3, minGap: 0.045, urgent: 8 };
 
-export type Admit = { ok: false } | { ok: true; voice: Voice; stolen: Voice | null };
+type Admit = { ok: false } | { ok: true; voice: Voice; stolen: Voice | null };
 
 export class VoiceLimiter {
   readonly opts: LimiterOpts;

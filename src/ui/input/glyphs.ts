@@ -15,7 +15,7 @@ import type { Binding, BindingMap } from './bindings';
 import { keys } from './keys';
 
 /** The platform's answers labels are made with. */
-export interface Glyphs {
+interface Glyphs {
   /** KeyboardEvent.code → the layout's character; null: the US table. */
   layout: ReadonlyMap<string, string> | null;
   cmd: 'ctrl' | 'meta';

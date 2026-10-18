@@ -14,9 +14,9 @@ import { makeHero, setBotLevel, rollRarity, type Archetype, type IdSource } from
 import { Rng, hashString } from '../sim/rng';
 import type { RegionInfo } from './world';
 
-export type AnimalKind = 'wolf' | 'boar' | 'bear';
+type AnimalKind = 'wolf' | 'boar' | 'bear';
 
-export interface DefenderUnit {
+interface DefenderUnit {
   /** Soldier archetype, or an animal (placeholder soldier). */
   arch: Archetype | `animal:${AnimalKind}`;
   /** Battle group (0 main, 1 skirmish, 2 reserve, 3 flank). */
@@ -24,7 +24,7 @@ export interface DefenderUnit {
   weight: number;
 }
 
-export interface DefenderDef {
+interface DefenderDef {
   id: string;
   label: string;
   culture: Culture | 'local';
@@ -33,7 +33,7 @@ export interface DefenderDef {
   gear: number;
 }
 
-export const DEFENDERS: Record<string, DefenderDef> = {
+const DEFENDERS: Record<string, DefenderDef> = {
   militia: { id: 'militia', label: 'Peasant militia and brigands', culture: 'local', gear: 0, units: [
     { arch: 'raw', group: 0, weight: 5 }, { arch: 'swordsman', group: 0, weight: 2 }, { arch: 'peltast', group: 1, weight: 2 }, { arch: 'slinger', group: 1, weight: 1 },
   ] },
@@ -80,7 +80,7 @@ export function defenderFor(seed: number, r: Pick<RegionInfo, 'id' | 'kind' | 's
 }
 
 /** Size and level by region tier (1 plain .. 5 capital); see defenderStrength for the depth scaling. */
-export const NPC_TIERS: Record<number, { min: number; max: number; level: number; gear: number }> = {
+const NPC_TIERS: Record<number, { min: number; max: number; level: number; gear: number }> = {
   1: { min: 2, max: 3, level: 1, gear: 1 },
   2: { min: 3, max: 5, level: 2, gear: 1 },
   3: { min: 5, max: 7, level: 3, gear: 2 },

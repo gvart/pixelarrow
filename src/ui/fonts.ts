@@ -55,8 +55,5 @@ export function ensureFonts(scene: Phaser.Scene): void {
 export function rarityFont(r: Rarity | string, onDark = false): FontKey {
   return `${onDark ? 'rarL' : 'rar'}_${normalizeRarity(r)}` as FontKey;
 }
-
-export const FONT_BLUE = 'blue' as FontKey;
-export const FONT_BRONZE = 'bronze' as FontKey;
 export const FONT_GOOD_LIGHT = 'goodL' as FontKey;
 export const FONT_RED_LIGHT = 'redL' as FontKey;

@@ -11,10 +11,10 @@ import type { UiScene } from '../mosaic/subShell';
 import { measureText } from '../textfit';
 import type { FontKey } from '../kit';
 
-export const BTN_H = 24;
+const BTN_H = 24;
 const TEXT = 7;
 
-export interface BodyButton {
+interface BodyButton {
   label: string;
   id: string;
   variant: MButtonVariant | 'destructive';

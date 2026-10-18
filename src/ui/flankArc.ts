@@ -65,7 +65,7 @@ export function arcPath(a: ArcShape, cx: number, cy: number, rx: number, ry: num
 }
 
 /** A chevron: its tip on the arc, its arms outside, pointing in at the badge. */
-export interface Chevron {
+interface Chevron {
   tip: Vec;
   l: Vec;
   r: Vec;

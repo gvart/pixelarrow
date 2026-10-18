@@ -57,7 +57,7 @@ export interface SubShellOpts {
 /** The gear that opens Settings. */
 export const gearAction = (scene: UiScene): TopAction => ({ icon: 'gear', label: t('menu.settings'), onClick: () => openSettings(scene) });
 
-export interface PageOpts {
+interface PageOpts {
   title: string;
   id: string;
   /** Height of the tab bar under the frame (a hub). */

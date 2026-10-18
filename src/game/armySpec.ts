@@ -4,7 +4,7 @@ import { computeStats } from '../sim/stats';
 import type { ArmySpec, GroupRole } from '../sim/types';
 import type { FormationType } from '../sim/formation';
 
-export const GROUP_ROLES: GroupRole[] = ['main', 'skirmish', 'reserve', 'flank'];
+const GROUP_ROLES: GroupRole[] = ['main', 'skirmish', 'reserve', 'flank'];
 const DEFAULT_FORMATION: FormationType[] = ['line', 'skirmish', 'line', 'column'];
 
 export function armySpec(heroes: Hero[], bot: boolean, formations?: FormationType[]): ArmySpec {

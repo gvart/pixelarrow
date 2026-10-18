@@ -18,7 +18,7 @@ export interface Rect {
   h: number;
 }
 
-export interface SpotOpts {
+interface SpotOpts {
   /** The lit area (UI px); null: nothing lit. */
   hole: Rect | null;
   /** Darkness of the rest, 0..1. */

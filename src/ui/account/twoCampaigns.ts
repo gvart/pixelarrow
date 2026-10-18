@@ -22,7 +22,7 @@ import { state } from '../../state';
 
 export type Keep = 'local' | 'cloud';
 
-export interface TwoCampaignsOpts {
+interface TwoCampaignsOpts {
   local: SaveData;
   cloud: SaveData;
   prefer: Keep;
@@ -35,7 +35,7 @@ const TEXT = 7;
 const CARD_PAD = 6;
 
 /** "Day 12 · 9 men · 344 gold · 6 battles won". */
-export function statsLine(s: SaveData): string {
+function statsLine(s: SaveData): string {
   const v = summarize(s);
   return t('sync.two.stats', { day: v.day, men: t('sync.two.men', { n: v.men }), gold: v.gold, won: t('sync.two.won', { n: v.won }) });
 }

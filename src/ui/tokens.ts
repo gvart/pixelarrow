@@ -217,7 +217,6 @@ export const COLOR_ROLE = {
   group3: GROUP_COLOR[2],
   group4: GROUP_COLOR[3],
 } as const;
-export type ColorRole = keyof typeof COLOR_ROLE;
 
 // ================================================================== resources
 
@@ -238,7 +237,6 @@ export const RESOURCES = {
   wins: { icon: 'trophy', color: 0xe2c48c },
   xp: { icon: 'xp', color: 0x8fc7e8 },
 } as const;
-export type ResourceId = keyof typeof RESOURCES;
 
 /**
  * One icon per game mode, used on every screen that names the mode (tabs,
@@ -254,19 +252,6 @@ export const MODE_ICON = {
   online: 'map',
   beasts: 'beast',
 } as const;
-export type ModeId = keyof typeof MODE_ICON;
-
-/** Icons reserved for one meaning each (a resource, a mode): never reused for anything else. */
-export const RESERVED_ICONS: Record<string, string> = {
-  ...Object.fromEntries(Object.entries(RESOURCES).map(([k, v]) => [v.icon, `resource:${k}`])),
-  star: 'ladder floor rating',
-  podium: 'leaderboard',
-  lock: 'locked',
-  shop: 'shop',
-  ladder: 'mode:ladder',
-  arena: 'mode:arena',
-  raid: 'mode:raid',
-};
 
 // ================================================================== type, spacing, motion
 
@@ -334,7 +319,7 @@ export const MOTION = {
 // ================================================================== contrast
 
 /** Relative luminance (WCAG 2.x) of 0xRRGGBB. */
-export function luminance(c: number): number {
+function luminance(c: number): number {
   const ch = [(c >> 16) & 255, (c >> 8) & 255, c & 255].map((v) => {
     const s = v / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;

@@ -34,7 +34,7 @@ interface UiScene extends Phaser.Scene {
   m: UIMetrics;
 }
 
-export interface NotifySource {
+interface NotifySource {
   load(): Promise<NotifySettings>;
   save(change: { on?: Partial<Record<NotifyType, boolean>>; quiet?: boolean }): Promise<NotifySettings>;
 }

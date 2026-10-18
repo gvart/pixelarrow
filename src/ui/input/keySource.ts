@@ -10,7 +10,7 @@ import type { Context } from './actions';
 import type { KeyInput, KeyRouter } from './keys';
 
 /** The parts of a DOM KeyboardEvent this reads. */
-export interface DomKey {
+interface DomKey {
   code: string;
   ctrlKey: boolean;
   metaKey: boolean;
@@ -24,7 +24,7 @@ export interface DomKey {
 }
 
 /** The parts of `window` this listens to. */
-export interface KeyWindow {
+interface KeyWindow {
   addEventListener(type: string, fn: (e: KeyboardEvent) => void): void;
   document: { visibilityState: string; addEventListener(type: string, fn: () => void): void };
 }

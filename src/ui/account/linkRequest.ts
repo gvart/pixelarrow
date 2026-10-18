@@ -20,7 +20,7 @@ import { followLinkedAccount, type FollowDeps } from './follow';
 
 type RequestApi = Pick<ApiClient, 'linkPeek' | 'linkComplete' | 'linkNotMe'>;
 
-export interface LinkRequestOpts {
+interface LinkRequestOpts {
   api?: RequestApi;
   d?: AccountDeps;
   onClose?: () => void;

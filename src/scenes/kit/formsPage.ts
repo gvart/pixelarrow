@@ -78,7 +78,7 @@ function kitDeps(o: { check?: HumanCheckState; login?: unknown; signup?: unknown
   };
 }
 
-export interface FormSample {
+interface FormSample {
   id: string;
   label: string;
   what: string;
@@ -91,7 +91,7 @@ const SAMPLE_EMAIL = 'ana@example.com';
 /** Submits the open form (the stand-in server answers in 0.4 s). */
 const submitTop = () => (AuthHost.top()?.form?.el.querySelector('[data-act=submit]') as HTMLButtonElement | null)?.click();
 
-export const FORM_SAMPLES: readonly FormSample[] = [
+const FORM_SAMPLES: readonly FormSample[] = [
   { id: 'login', label: 'Log in', what: 'Email, password with the eye, links', icon: 'people', open: (s) => void openLogin(s, kitDeps()) },
   {
     id: 'login-creds',

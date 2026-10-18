@@ -16,7 +16,7 @@ import { resolveAbandoned } from './game/campaignBattle';
 import { hasProgress } from './platform/saveSync';
 
 /** Device storage key of the last campaign with progress that a cloud copy replaced (kept, never read by the game). */
-export const REPLACED_KEY = 'px_save_replaced';
+const REPLACED_KEY = 'px_save_replaced';
 
 /** Longest the boot screen waits for the cloud save before starting with the local one. */
 const PULL_WAIT_MS = 6000;

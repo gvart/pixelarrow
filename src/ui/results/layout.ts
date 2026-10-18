@@ -13,7 +13,7 @@ export interface PaneBox {
 }
 
 /** The left pane at expanded (§7.5: 260); at compact landscape the two panes share the width. */
-export const SUMMARY_PANE_W = 260;
+const SUMMARY_PANE_W = 260;
 /** A tablet upright: the Summary stacked over the tabs takes at most this share of the page's height. */
 export const SUMMARY_STACK_SHARE = 0.4;
 /** The space between the panes (landscape-v6 §3.2). */

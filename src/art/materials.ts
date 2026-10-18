@@ -43,7 +43,7 @@ export const CLOTH: Record<string, Material> = {
 };
 
 export const BRONZE: Material = { ramp: [0xe9cf8a, 0xc59a52, 0x9a7036, 0x6e4c26, 0x46301a], metal: true, grit: 0.35, contrast: 1.15 };
-export const SILVER: Material = { ramp: [0xf0eee6, 0xc4c6c2, 0x92969a, 0x62666c, 0x3c3e44], metal: true, grit: 0.2, contrast: 1.15 };
+const SILVER: Material = { ramp: [0xf0eee6, 0xc4c6c2, 0x92969a, 0x62666c, 0x3c3e44], metal: true, grit: 0.2, contrast: 1.15 };
 export const IRON: Material = { ramp: [0xcfd0c8, 0x8e9090, 0x666a6c, 0x45484c, 0x2c2e32], metal: true, grit: 0.3, contrast: 1.1 };
 export const LINEN: Material = m(0xc8bb9a, { grit: 0.45, contrast: 0.9 });
 export const LEATHER: Material = m(0x7a5a3c, { grit: 0.5 });
@@ -111,15 +111,15 @@ export const EYE: Material = { ramp: [0x1a1412, 0x1a1412] };
 /** Gold leaf / gilded trim (epic and legendary accents). */
 export const GOLD: Material = { ramp: [0xfff2b0, 0xf0c860, 0xc8963a, 0x8e6224, 0x5a3a1a], metal: true, grit: 0.1, contrast: 1.2, glint: true };
 /** Tarnished bronze: common gear, dull and spotted. */
-export const DULL_BRONZE: Material = { ramp: [0xc8b07a, 0xa48450, 0x7e6036, 0x5a4226, 0x3c2c1a], metal: true, grit: 0.6, contrast: 1.0 };
+const DULL_BRONZE: Material = { ramp: [0xc8b07a, 0xa48450, 0x7e6036, 0x5a4226, 0x3c2c1a], metal: true, grit: 0.6, contrast: 1.0 };
 /** Burnished bronze: rare gear, bright and clean. */
-export const BRIGHT_BRONZE: Material = { ramp: [0xfbe6a6, 0xdcb060, 0xae7c3a, 0x7a5228, 0x4a321c], metal: true, grit: 0.12, contrast: 1.25, glint: true };
+const BRIGHT_BRONZE: Material = { ramp: [0xfbe6a6, 0xdcb060, 0xae7c3a, 0x7a5228, 0x4a321c], metal: true, grit: 0.12, contrast: 1.25, glint: true };
 /** Orichalcum: the legendary metal, a pale fiery gold. */
 export const ORICHALCUM: Material = { ramp: [0xfffbe0, 0xffe08a, 0xf0a848, 0xb46a2c, 0x6e3a1e], metal: true, grit: 0, contrast: 1.3, glint: true };
 /** Dull iron (common), bright steel (rare+) and starmetal (legendary). */
-export const DULL_IRON: Material = { ramp: [0xa8a49a, 0x7a7872, 0x5a5a58, 0x403f40, 0x2a2a2c], metal: true, grit: 0.55, contrast: 1.0 };
-export const STEEL: Material = { ramp: [0xf0f2ec, 0xb4bcc0, 0x7e8890, 0x52585e, 0x30343a], metal: true, grit: 0.08, contrast: 1.25, glint: true };
-export const STARMETAL: Material = { ramp: [0xffffff, 0xd0f0ff, 0x8ec0e0, 0x5a80a8, 0x34466a], metal: true, grit: 0, contrast: 1.3, glint: true };
+const DULL_IRON: Material = { ramp: [0xa8a49a, 0x7a7872, 0x5a5a58, 0x403f40, 0x2a2a2c], metal: true, grit: 0.55, contrast: 1.0 };
+const STEEL: Material = { ramp: [0xf0f2ec, 0xb4bcc0, 0x7e8890, 0x52585e, 0x30343a], metal: true, grit: 0.08, contrast: 1.25, glint: true };
+const STARMETAL: Material = { ramp: [0xffffff, 0xd0f0ff, 0x8ec0e0, 0x5a80a8, 0x34466a], metal: true, grit: 0, contrast: 1.3, glint: true };
 /** Glowing cores of legendary weapons (a fixed bright ramp, barely shaded). */
 export const EMBER: Material = { ramp: [0xfff4c0, 0xffd060, 0xf09030, 0xc85a20], contrast: 0.4, glint: true };
 export const DIVINE: Material = { ramp: [0xffffff, 0xe8fcff, 0xb0e8ff, 0x7ac0f0], contrast: 0.4, glint: true };

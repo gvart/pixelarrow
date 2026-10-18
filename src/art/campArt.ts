@@ -10,14 +10,14 @@
  */
 import type Phaser from 'phaser';
 import { P } from './palette';
-import { Pix, hash2 } from './pixels';
+import { Pix } from './pixels';
 import { renderIcon } from './uiTextures';
 import type { CampBuildingId } from '../online/rules';
 
 export const CAMP_SPRITE = 24;
 
 /** Camp palette (sampled from the map and UI language of ART_STYLE §6). */
-export const CAMP_COLOR = {
+const CAMP_COLOR = {
   rim: 0x4a2e2a,
   shadow: 0x5e4a6a,
   checkA: 0xfde0ae,
@@ -264,7 +264,7 @@ export function renderCampGhost(kind: CampBuildingId, level = 1): Pix {
  * pegs) over the trodden ground; the selected plot gets the footage's pink
  * 2x2 checker and orange-brown dots.
  */
-export function renderCampTile(size: number, active = false): Pix {
+function renderCampTile(size: number, active = false): Pix {
   const px = new Pix(size, size);
   if (active) {
     for (let y = 1; y < size - 1; y++)
@@ -287,88 +287,6 @@ export function renderCampTile(size: number, active = false): Pix {
   return px;
 }
 
-/** The camp ground's blob: inset (px) of each edge per 6 px block, stair-stepped like the footage's plots. */
-function groundInside(w: number, h: number, seed: number): (x: number, y: number) => boolean {
-  const ins = (side: number, k: number) => 1 + Math.floor(hash2(side, k, seed) * 4);
-  return (x, y) => {
-    if (x < ins(0, Math.floor(y / 6)) || x >= w - ins(1, Math.floor(y / 6))) return false;
-    if (y < ins(2, Math.floor(x / 6)) - 1 || y >= h - ins(3, Math.floor(x / 6)) + 1) return false;
-    // chamfered corners
-    const cx = Math.min(x, w - 1 - x);
-    const cy = Math.min(y, h - 1 - y);
-    return cx + cy >= 5;
-  };
-}
-
-/**
- * The camp's trodden ground for the panel (w x h): worn tan earth under a
- * faint tan / pink checker, grass tufts surviving at the rim, a few pebbles,
- * inside a stair-stepped blob (its dotted border is renderCampGroundBorder).
- */
-export function renderCampGround(w: number, h: number, seed = 7): Pix {
-  const px = new Pix(w, h);
-  const inside = groundInside(w, h, seed);
-  const edge = (x: number, y: number) => {
-    for (let d = 1; d <= 3; d++) if (!inside(x - d, y) || !inside(x + d, y) || !inside(x, y - d) || !inside(x, y + d)) return d;
-    return 9;
-  };
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++) {
-      if (!inside(x, y)) continue;
-      const n = hash2(x, y, seed + 3);
-      const e = edge(x, y);
-      let c: number = n > 0.985 ? KIT.earth[3] : n > 0.95 ? KIT.earth[0] : KIT.earth[1];
-      if (e <= 2 && n > 0.5) c = 0xd7cb88;
-      px.set(x, y, c);
-      const ch = ((x >> 1) + (y >> 1)) % 2 === 0;
-      px.set(x, y, ch ? CAMP_COLOR.checkA : CAMP_COLOR.checkB, ch ? 70 : 40);
-    }
-  // trodden-grass strokes in wind-combed clumps (2 px vertical, lit tip)
-  for (let i = 0; i < (w * h) / 45; i++) {
-    const x0 = Math.floor(hash2(i, 5, seed) * w);
-    const y0 = Math.floor(hash2(i, 6, seed) * h);
-    for (let k = 0; k < 3; k++) {
-      const x = x0 + k * 2 + (k === 1 ? 0 : 0);
-      const y = y0 + (k % 2);
-      if (!inside(x, y) || !inside(x, y - 1) || edge(x, y) < 2) continue;
-      px.set(x, y, KIT.earth[2]);
-      px.set(x, y - 1, KIT.earth[2]);
-      px.set(x, y - 2, KIT.earth[0]);
-    }
-  }
-  // tufts at the rim
-  for (let i = 0; i < (w * h) / 60; i++) {
-    const x = Math.floor(hash2(i, 1, seed) * w);
-    const y = Math.floor(hash2(i, 2, seed) * h);
-    if (!inside(x, y) || edge(x, y) > 4) continue;
-    px.set(x, y, 0x86924e);
-    px.set(x, y - 1, 0xa8b46a);
-    px.set(x + 1, y, 0xa8b46a);
-  }
-  return px;
-}
-
-/** The ground blob's 1 gp dotted orange-brown border; `phase` 0/1 marches the dots. */
-export function renderCampGroundBorder(w: number, h: number, seed = 7, phase = 0): Pix {
-  const px = new Pix(w, h);
-  const inside = groundInside(w, h, seed);
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++) {
-      if (!inside(x, y)) continue;
-      if (inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1)) continue;
-      if ((x + y + phase) % 2 === 0) px.set(x, y, CAMP_COLOR.border);
-      else px.set(x, y, 0x8a4a28, 90);
-    }
-  return px;
-}
-
-/** Where a building's smoke, sparks and worker go (sprite px, for the panel's live layer). */
-export const CAMP_FX: Partial<Record<CampBuildingId, { smoke?: [number, number]; sparks?: [number, number]; work?: [number, number]; coals?: [number, number] }>> = {
-  forge: { smoke: [4, 1], sparks: [16, 14], work: [12, 18], coals: [3, 17] },
-  granary: {},
-  barracks: {},
-};
-
 /** A 1 gp dotted rectangle border; `phase` 0/1 shifts the dots by one pixel (marching ants). */
 export function renderDottedBorder(w: number, h: number, color: number, phase = 0): Pix {
   const px = new Pix(w, h);
@@ -384,7 +302,7 @@ export function renderDottedBorder(w: number, h: number, color: number, phase = 
 }
 
 /** The slot marker under a placement ghost: dotted cyan (valid) or red (invalid) diamond-cornered square. */
-export function renderSlotMarker(size: number, valid: boolean): Pix {
+function renderSlotMarker(size: number, valid: boolean): Pix {
   const px = renderDottedBorder(size - 4, size - 4, valid ? CAMP_COLOR.cyan : CAMP_COLOR.invalid);
   const out = new Pix(size, size);
   out.blit(px, 2, 2);
@@ -456,13 +374,6 @@ export function registerCampTextures(scene: Phaser.Scene, tile: number): void {
   add(`camp_hover_${tile}_1`, () => renderDottedBorder(tile, tile, CAMP_COLOR.border, 1));
 }
 
-/** Key of the zone's outer dotted border (registered on demand). */
-export function campBorderKey(scene: Phaser.Scene, w: number, h: number, phase: 0 | 1): string {
-  const key = `camp_ants_${w}x${h}_${phase}`;
-  if (!scene.textures.exists(key)) scene.textures.addCanvas(key, renderDottedBorder(w, h, CAMP_COLOR.border, phase).toCanvas());
-  return key;
-}
-
 // =====================================================================
 // Camp kit: the living-camp props shared by the offline field camp (world
 // map, 8 gp tiles) and the online camp panel. Small 3/4 top-down pixel
@@ -521,7 +432,7 @@ export function kitOutline(px: Pix, c: number = KIT.ink): void {
 }
 
 /** Tent cloth looks: plain cream, cream with an oxblood hem, ochre, striped red. */
-export type TentLook = 0 | 1 | 2 | 3;
+type TentLook = 0 | 1 | 2 | 3;
 
 /**
  * A Greek ridge tent seen 3/4 from the south: two roof slopes (lit west,
@@ -672,7 +583,7 @@ export function renderCampfire(frame: number, lit = true): Pix {
 }
 
 /** The camp standard: a pole with a gilded finial and a swallow-tailed cloth waving (frame 0..3). 13x20 gp, foot at (1, 19). */
-export function renderStandard(frame: number, cloth = KIT.red as readonly number[], emblem: number = KIT.canvas[0]): Pix {
+function renderStandard(frame: number, cloth = KIT.red as readonly number[], emblem: number = KIT.canvas[0]): Pix {
   const px = new Pix(13, 20);
   const f = ((frame % 4) + 4) % 4;
   kitShadow(px, 0, 17, 5, 3, 80);
@@ -891,61 +802,6 @@ export function drawStake(px: Pix, x: number, y: number, h: number): void {
   px.set(x, y, KIT.wood[3]);
 }
 
-/**
- * Construction scaffold over a footprint `w` x `h` gp (art may rise `lift`
- * above it), stage 0 = pegs, string and a timber pile; 1 = a pole frame with
- * cross braces and a ladder; 2 = the frame with planks going up.
- */
-export function renderScaffold(w: number, h: number, lift: number, stage: number): Pix {
-  const px = new Pix(w + 2, h + lift + 2);
-  const y0 = lift;
-  const bx = 1;
-  const by = y0 + h - 1;
-  // pegs and string
-  for (let x = bx; x < bx + w; x += 2) {
-    px.set(x, y0 + 1, KIT.rope, 220);
-    px.set(x, by, KIT.rope, 220);
-  }
-  for (let y = y0 + 1; y <= by; y += 2) {
-    px.set(bx, y, KIT.rope, 220);
-    px.set(bx + w - 1, y, KIT.rope, 220);
-  }
-  for (const [x, y] of [[bx, y0 + 1], [bx + w - 1, y0 + 1], [bx, by], [bx + w - 1, by]]) px.set(x, y, KIT.wood[3]);
-  if (stage <= 0) {
-    // timber pile
-    const tx = bx + Math.floor(w / 2) - 3;
-    const ty = by - 3;
-    for (let i = 0; i < 3; i++) {
-      px.hline(tx + i, tx + 5, ty + i, i === 0 ? KIT.wood[0] : KIT.wood[1 + (i % 2)]);
-      px.set(tx + 5, ty + i, KIT.straw[1]);
-    }
-    kitOutline(px, KIT.rim);
-    return px;
-  }
-  // poles at the corners and the middle, rising into the lift
-  const top = Math.max(0, y0 - Math.min(lift, 6) + 1);
-  const poles = [bx + 1, bx + Math.floor(w / 2), bx + w - 2];
-  for (const x of poles) {
-    px.vline(x, top, by - 1, KIT.wood[2]);
-    px.set(x, top, KIT.wood[0]);
-    px.set(x + 1, by - 1, KIT.shade, 80);
-  }
-  const mid = Math.floor((top + by) / 2);
-  px.hline(poles[0], poles[2], top + 1, KIT.wood[1]);
-  px.hline(poles[0], poles[2], mid, KIT.wood[1]);
-  px.line(poles[0], mid, poles[1], top + 1, KIT.wood[3]);
-  px.line(poles[1], by - 1, poles[2], mid, KIT.wood[3]);
-  // ladder
-  px.vline(poles[2] - 2, mid, by - 1, KIT.wood[3]);
-  for (let y = mid + 1; y < by; y += 2) px.set(poles[2] - 1, y, KIT.wood[0]);
-  if (stage >= 2) {
-    for (let y = mid + 1; y < by - 1; y++) for (let x = poles[0] + 1; x < poles[1]; x++) px.set(x, y, (y + x) % 3 ? KIT.wood[1] : KIT.wood[0]);
-    px.hline(poles[0] + 1, poles[1] - 1, by - 1, KIT.wood[3]);
-  }
-  kitOutline(px, KIT.rim);
-  return px;
-}
-
 // --------------------------------------------------------------- soldiers
 
 /** Soldier poses (2 frames each). */
@@ -955,7 +811,7 @@ export type SoldierPose = (typeof SOLDIER_POSES)[number];
 export const SOLDIER_W = 13;
 export const SOLDIER_H = 15;
 /** Distinct looks (tunic, crest, skin, shield). */
-export const SOLDIER_LOOKS = 6;
+const SOLDIER_LOOKS = 6;
 
 const LOOKS = [
   { tunic: [0xf2e8d2, 0xd8c8a8, 0xb0a084], crest: KIT.red[1], skin: P.skin[0], shield: KIT.team, hair: P.hair[1] },
@@ -1107,7 +963,7 @@ export function renderSoldier(look: number, pose: SoldierPose, frame: number): P
 }
 
 /** All soldier frames of one look side by side: pose p, frame f at x = (p * 2 + f) * SOLDIER_W. */
-export function renderSoldierSheet(look: number): Pix {
+function renderSoldierSheet(look: number): Pix {
   const out = new Pix(SOLDIER_W * SOLDIER_POSES.length * 2, SOLDIER_H);
   SOLDIER_POSES.forEach((p, i) => {
     for (let f = 0; f < 2; f++) out.blit(renderSoldier(look, p, f), (i * 2 + f) * SOLDIER_W, 0);

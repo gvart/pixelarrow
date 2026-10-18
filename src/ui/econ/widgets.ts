@@ -4,12 +4,11 @@
  * offline / closed" states (built on the kit's empty state).
  */
 import Phaser from 'phaser';
-import { addIcon, addText, registerUiAssets, scaleIcon } from '../kit';
+import { addIcon, registerUiAssets, scaleIcon } from '../kit';
 import { subjectName } from '../widgets';
 import { addParchmentEmpty } from '../mosaic/EmptyState';
 import { mosaicImage, mtext, mw, wrapWords } from '../mosaic/base';
 import { TEXT_MIN, lineHeight } from '../tokens';
-import { measureText } from '../textfit';
 import type { CosmeticInfo, EconomyCatalog, PassReward } from '../../platform/api';
 import type { EconState } from '../../game/economy';
 import { t, tOr } from '../../i18n';
@@ -46,34 +45,6 @@ export function rewardName(r: PassReward, cat: EconomyCatalog | null): string {
 /** Price text with its currency: "80 gold" / "15 Dr". */
 export function priceText(n: number, c: 'gold' | 'drachmae'): string {
   return c === 'gold' ? t('econ.gold', { n }) : t('econ.dr', { n });
-}
-
-export interface Purse {
-  drachmae: number | null;
-  gold: number | null;
-}
-
-/**
- * The purse in a top bar, right-aligned at x: Drachmae (and season gold when
- * known), each with its icon. Returns the width used.
- */
-export function addPurse(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, p: Purse, maxW: number): number {
-  ensureEconIcons(scene);
-  const parts: [string, string][] = [];
-  if (p.gold !== null) parts.push(['wargold', `${p.gold}`]);
-  parts.push(['drachma', p.drachmae === null ? '-' : `${p.drachmae}`]);
-  let cx = x;
-  let used = 0;
-  for (const [icon, txt] of parts.reverse()) {
-    const w = measureText(txt) + 14;
-    if (used + w > maxW) break;
-    const tx = addText(scene, cx, y + 2, txt, 'ink', 1);
-    parent.add(tx);
-    parent.add(addIcon(scene, cx - tx.width - 13, y, icon));
-    cx -= w + 4;
-    used += w + 4;
-  }
-  return used;
 }
 
 /**

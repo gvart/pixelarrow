@@ -23,7 +23,7 @@ export type { AccountDeps } from './deps';
 export type { SignInOpts } from './login';
 export { openCheckEmail } from './checkEmail';
 
-export type AccountForm = 'login' | 'signup' | 'forgot';
+type AccountForm = 'login' | 'signup' | 'forgot';
 
 /** This platform signs in with email and password (the web). */
 export const canUsePasswordForms = (): boolean => platform.auth.methods().includes('password');

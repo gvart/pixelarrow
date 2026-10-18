@@ -85,7 +85,7 @@ export function switchLabelStyle(
 }
 
 /** A segment of a switch as `switchLayout` sizes it: its label, whether it has an icon, whether that icon is a lock (always kept). */
-export interface SwitchItem {
+interface SwitchItem {
   label: string;
   icon: boolean;
   lock?: boolean;

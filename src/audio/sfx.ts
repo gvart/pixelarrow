@@ -8,7 +8,7 @@
 import type { AudioRng } from './rng';
 import { grit, metal, midiHz, noise, osc, pluck, type Ctx } from './synth';
 
-export type Recipe = (c: Ctx, out: AudioNode, t: number, r: AudioRng) => number;
+type Recipe = (c: Ctx, out: AudioNode, t: number, r: AudioRng) => number;
 
 const BRONZE = [1, 1.47, 2.09, 2.76, 3.41] as const;
 const SHIELD = [1, 1.58, 2.31, 3.1] as const;

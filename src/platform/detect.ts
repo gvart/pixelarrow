@@ -38,7 +38,7 @@ export function readLaunchHints(env: PlatformEnv, build: { build: string | undef
   return { ...telegramLaunchHints(env), ...build };
 }
 
-export interface PlatformOptions {
+interface PlatformOptions {
   /** The bot's username: Telegram invite links become t.me/<bot>/<app>?startapp=... */
   telegramBot?: string;
   /** The Mini App's short name in BotFather (the adapter defaults to "play"). */

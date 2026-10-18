@@ -31,7 +31,7 @@ export function cosmeticOffer(cm: CosmeticInfo, wallet: Pick<WalletInfo, 'cosmet
 }
 
 /** The one action of a look's sheet: equip / take off, buy (or "Need n Dr" when short), or go where it is earned. */
-export type CosmeticAction =
+type CosmeticAction =
   | { id: 'shop.equip'; equip: boolean }
   | { id: 'shop.buyCosmetic'; price: number; short: boolean }
   | { id: 'shop.earnGo'; to: 'pass' | 'duels' }
@@ -52,7 +52,7 @@ export function cosmeticsBySlot(cat: Pick<EconomyCatalog, 'slots' | 'cosmetics'>
   return cat.slots.map((slot) => ({ slot, list: cat.cosmetics.filter((x) => x.slot === slot) })).filter((g) => g.list.length > 0);
 }
 
-export interface PackOffer {
+interface PackOffer {
   id: string;
   stars: number;
   drachmae: number;

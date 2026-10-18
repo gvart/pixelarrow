@@ -106,7 +106,7 @@ export function linkFail(e: unknown, ctx: 'browser' | 'tg' | 'choose'): LinkFail
 
 export type Side = 'this' | 'other';
 
-export interface Fact {
+interface Fact {
   key: TKey;
   params?: Record<string, string | number>;
 }

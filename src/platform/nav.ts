@@ -26,7 +26,7 @@ export interface ScreenOpts {
 }
 
 /** What the stack drives: the platform's Back control plus a feedback cue; a mock in tests. */
-export interface NavHost extends Omit<BackButton, 'native'> {
+interface NavHost extends Omit<BackButton, 'native'> {
   feedback(): void;
 }
 
@@ -238,7 +238,7 @@ export interface BackTarget {
  * - `battle`: Back opens the battle menu (⋯).
  * - `none`: nothing to go back to (Boot).
  */
-export type BackRule = { kind: 'root' } | { kind: 'parent'; to: string } | { kind: 'origin'; fallback: string } | { kind: 'battle' } | { kind: 'none' };
+type BackRule = { kind: 'root' } | { kind: 'parent'; to: string } | { kind: 'origin'; fallback: string } | { kind: 'battle' } | { kind: 'none' };
 
 /** The Back rule of every screen, by scene key. Camp is the field camp's (`parent` World); the War camp is `origin` (screen-flow S05). */
 export const BACK_RULES: Readonly<Record<string, BackRule>> = {

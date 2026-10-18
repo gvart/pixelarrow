@@ -31,7 +31,7 @@ const SHORE_FAR = [0.48];
  * How far (field units) the drawn terrain boundaries wobble from the sim's cell
  * edges at pixel (x, y); axis 1 = field x, 2 = field y. Drawing only.
  */
-export function terrainWobble(x: number, y: number, axis: number): number {
+function terrainWobble(x: number, y: number, axis: number): number {
   return (valueNoise(x + axis * 977, y * 2 + axis * 331, 9, 71) - 0.5) * 0.5 + (valueNoise(x + axis * 131, y * 2, 3, 72) - 0.5) * 0.12;
 }
 
@@ -367,7 +367,7 @@ export interface WorkSprite {
 }
 
 /** A field and its grid (cells across and down, the field in paces). */
-export interface WorkArtGrid {
+interface WorkArtGrid {
   w: number;
   h: number;
   width: number;

@@ -105,11 +105,6 @@ export function setLang(l: Lang): void {
   for (const cb of listeners) cb(l);
 }
 
-export function onLangChange(cb: (l: Lang) => void): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
 /** Map an IETF tag ("ru", "ru-RU", "be", "en-GB") to a supported language. */
 export function langFromTag(tag: string | null | undefined): Lang | null {
   if (!tag) return null;

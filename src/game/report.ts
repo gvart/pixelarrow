@@ -29,7 +29,7 @@ export interface UnitStat {
 }
 
 /** What the rules decided for one of the player's heroes (game/loot.ts HeroOutcome or the server's). */
-export interface HeroResult {
+interface HeroResult {
   heroId?: string;
   name: string;
   died: boolean;
@@ -119,7 +119,7 @@ export function pickMvp(lines: readonly HeroLine[]): HeroLine | null {
 }
 
 /** "1:05" (minutes and seconds). */
-export interface ReportInput {
+interface ReportInput {
   result: ReportResult;
   vs: string;
   ticks: number;
@@ -236,15 +236,15 @@ export const lastBattle: { stats: UnitStat[]; ticks: number; side: Side; heroes:
  */
 
 /** Seconds before a group's rout in which a `flanked` event on it explains the rout (R5 rule 2). */
-export const WHY_FLANK_S = 10;
+const WHY_FLANK_S = 10;
 /** Head-count ratio at first contact at or below which a side was outnumbered (R5 rule 3). */
-export const WHY_OUTNUMBERED = 0.75;
+const WHY_OUTNUMBERED = 0.75;
 /** Share of the missile groups' time out of range that blames the missiles (R5 rule 4). */
-export const WHY_OUT_OF_RANGE = 0.3;
+const WHY_OUT_OF_RANGE = 0.3;
 /** Seconds without a target that count as out of range (formations-orders.md R4, noTargetS > 3). */
-export const WHY_NO_TARGET_S = 3;
+const WHY_NO_TARGET_S = 3;
 /** Seconds after a group's rout and cohesion shock in which more routs make it a cascade. */
-export const WHY_CASCADE_S = 10;
+const WHY_CASCADE_S = 10;
 /** Lines the Results why-line may wrap to (never an ellipsis, A11Y-10); a retreat's cause plus "We withdrew" needs 3 at 320 px. */
 export const WHY_MAX_LINES = 3;
 
@@ -312,7 +312,7 @@ function logState(sim: Battle): LogState {
 }
 
 /** Add a batch of the sim's events (and its state right now) to its log. */
-export function observeBattle(sim: Battle, events: readonly SimEvent[]): BattleLog {
+function observeBattle(sim: Battle, events: readonly SimEvent[]): BattleLog {
   const st = logState(sim);
   const log = st.log;
   log.ticks = sim.tick;
@@ -345,7 +345,7 @@ export function observeBattle(sim: Battle, events: readonly SimEvent[]): BattleL
 }
 
 /** The finished battle's log, with any events not drained yet (an abandoned battle fought out is never drained). */
-export function finishLog(sim: Battle): BattleLog {
+function finishLog(sim: Battle): BattleLog {
   return observeBattle(sim, sim.events);
 }
 
@@ -449,7 +449,7 @@ function until(log: BattleLog, tick: number): BattleLog {
   return { ...log, ticks: tick, events: log.events.filter((e) => e.tick <= tick), focus: log.focus.filter((f) => f.tick <= tick) };
 }
 
-export interface WhyOpts {
+interface WhyOpts {
   enemyRetreated?: boolean;
   captains?: readonly string[];
   /** The battle ran out of time with both armies standing (campaignBattle.ts timedOut): a draw says so (QAFIX-WORLD S3-4). */

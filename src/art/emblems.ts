@@ -13,18 +13,3 @@ export const EMBLEM_BITMAPS: Record<string, string[]> = {
   club: ['.....##', '....###', '...###.', '..##...', '.##....', '##.....', '#......'],
   star: ['#..#..#', '.#.#.#.', '..###..', '#######', '..###..', '.#.#.#.', '#..#..#'],
 };
-
-export const EMBLEM_NAMES: Record<string, string> = {
-  lambda: 'Lambda',
-  owl: 'Owl',
-  horse: 'Horse',
-  trident: 'Trident',
-  sunwheel: 'Sun wheel',
-  lion: 'Lion',
-  eye: 'Eye',
-  scorpion: 'Scorpion',
-  boar: 'Boar',
-  crescent: 'Tanit',
-  club: 'Club',
-  star: 'Star',
-};

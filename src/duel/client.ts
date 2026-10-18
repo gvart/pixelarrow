@@ -1139,11 +1139,6 @@ export interface DemoMatch {
   names: [string, string];
 }
 
-/** Total attribute points a pending spend uses. */
-export function attrTotal(a: Partial<Attrs>): number {
-  return ATTR_IDS.reduce((n, k) => n + (a[k] ?? 0), 0);
-}
-
 let source: DuelSource | null = null;
 
 /** The duel source of the running game: the demo or the API when asked, else whichever is open (the API at first). */

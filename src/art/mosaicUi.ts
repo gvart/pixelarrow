@@ -25,7 +25,7 @@ export type MosaicStyle =
 /** Frame band thickness in UI px (the stone band round the content, V4_SPEC "Screen frame"). */
 export const FRAME_T = 7;
 /** Fresco frame thickness in UI px. */
-export const FRESCO_T = 4;
+const FRESCO_T = 4;
 /** Extra room round a lit medallion for its glow, as a fraction of its diameter. */
 export const MEDALLION_GLOW = 0.14;
 
@@ -451,7 +451,7 @@ function renderPlaque(w: number, h: number, K: number): HTMLCanvasElement {
 
 // ================================================================== buttons
 
-export interface BtnLook {
+interface BtnLook {
   hi: number;
   mid: number;
   lo: number;

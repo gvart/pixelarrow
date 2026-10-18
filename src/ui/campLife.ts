@@ -58,7 +58,7 @@ interface Figure {
   speed?: number;
 }
 
-export interface CampLifeOpts {
+interface CampLifeOpts {
   /** Adds an object to its parent (world layer or modal container). */
   add: (o: Phaser.GameObjects.GameObject) => void;
   /** Sort by y with this depth offset (world map); null keeps the add order (containers). */

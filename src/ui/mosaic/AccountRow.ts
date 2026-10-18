@@ -19,7 +19,7 @@ export interface AccountRowOpts {
   action?: { kind: 'button'; label: string; onClick: () => void; off?: string; id: string } | { kind: 'more'; label: string; onClick: () => void; id: string };
 }
 
-export const ACCOUNT_ROW_H = 24;
+const ACCOUNT_ROW_H = 24;
 const BTN_W = 68;
 const MORE_W = 26;
 

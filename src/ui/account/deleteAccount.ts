@@ -32,7 +32,7 @@ import { openLinkSheet } from './linkSheet';
 import { sensitive } from './reauth';
 import { confirmRemove } from './removeMethod';
 
-export interface DeleteOpts {
+interface DeleteOpts {
   account: AccountSummary;
   api?: Pick<ApiClient, 'deleteAccount'>;
   /** After the server deleted the account: this device forgets it (stand-ins skip it). */
@@ -42,7 +42,7 @@ export interface DeleteOpts {
 }
 
 /** UXA-11: the device keeps nothing of the deleted account but the player's own preferences. */
-export async function forgetDeletedAccount(d: AccountDeps): Promise<void> {
+async function forgetDeletedAccount(d: AccountDeps): Promise<void> {
   await online.forgetSession();
   await state.forgetCampaign();
   for (const k of [PENDING_KEY, ADD_PENDING_KEY, MOD_SEEN_KEY]) await d.kv.remove(k).catch(() => undefined);

@@ -65,7 +65,7 @@ export function setNarratorFrame(img: Phaser.GameObjects.Image, f: 0 | 1 | 2, si
 }
 
 /** Greedy word wrap where each line has its own width (the first lines beside the keys are shorter). */
-export function wrapWidths(text: string, widths: (i: number) => number): string[] {
+function wrapWidths(text: string, widths: (i: number) => number): string[] {
   const lines: string[] = [];
   let line = '';
   for (const word of text.split(/\s+/).filter(Boolean)) {
@@ -81,7 +81,7 @@ export function wrapWidths(text: string, widths: (i: number) => number): string[
   return lines;
 }
 
-export interface SayOpts {
+interface SayOpts {
   /** Top edge (UI px) of the panel, or 'bottom' to sit on the bottom edge of the screen. */
   y: number | 'bottom';
   /** A tap goes on: show the bouncing arrow. */
@@ -93,7 +93,7 @@ export interface SayOpts {
 }
 
 /** What the narrator's two keys do. */
-export interface NarratorKeys {
+interface NarratorKeys {
   /** "Skip": ask, then leave the tutorial. */
   skip: () => void;
   /** ✕: hide the bubble. */

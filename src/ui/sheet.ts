@@ -7,18 +7,18 @@
  */
 import Phaser from 'phaser';
 import { scaleIcon, Button, Meter, ScrollArea, addIcon, addText, mosaicPanelImage, tappable, type FontKey } from './kit';
-import { Badge, ItemIcon, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
+import { ItemIcon, openModal, showTooltip, subjectName, type Modal, type UiScene } from './widgets';
 import { uiFrame, uiId } from './layout';
 import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
-import { SIZE, COLOR, RARITY_COLOR } from './theme';
+import { SIZE, COLOR } from './theme';
 import { addPill } from './mosaic/pill';
 import { ensureFonts, FONT_GOOD_LIGHT, FONT_RED_LIGHT } from './fonts';
 import { rarityInkKey } from './mosaic/rarityInk';
 import { dollFrame, dollFxKey, dollFxOf, dollGeomOf, dollOrigin, ensureDoll, ensureItemIcon, fitItemIcon } from './sprites';
 import { cosmeticLoadout } from '../game/cosmetics';
-import { renderStage, renderGroupBadge, GROUP_COLOR, ROLE_COLOR } from '../art/sheetArt';
+import { renderStage, ROLE_COLOR } from '../art/sheetArt';
 import { ANIM, attackLength, dollFromHero, dollGeom, weaponClass } from '../art/paperdoll';
-import { isBound, itemDef, itemValue, normalizeRarity, salvageValue, SLOTS, type Item, type Slot, type StatMods } from '../data/items';
+import { isBound, itemDef, itemValue, normalizeRarity, salvageValue, type Item, type Slot, type StatMods } from '../data/items';
 import { POWERS, itemPower, powerText } from '../data/affixes';
 import { SETS, SET_SPECIAL_TEXT, setPieces } from '../data/sets';
 import { classesFor, gearPenalty, requirements, shortfall } from '../data/gearRules';
@@ -69,7 +69,7 @@ function tex(scene: Phaser.Scene, key: string, make: () => { toCanvas(): HTMLCan
   return key;
 }
 
-export function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: number): string {
+function stageTexture(scene: Phaser.Scene, w: number, h: number, accent: number): string {
   return tex(scene, `stage_${w}x${h}_${accent.toString(16)}`, () => renderStage(w, h, accent));
 }
 
@@ -102,14 +102,6 @@ export function addStars(scene: Phaser.Scene, parent: Phaser.GameObjects.Contain
   return max * 8 - 1;
 }
 
-/** A round group badge with its roman numeral (12 x 12). With `legend`, a tap says which battle group it is. */
-export function addGroupBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, group: number, legend?: { area?: ScrollArea | null }): void {
-  parent.add(scene.add.image(Math.round(x), Math.round(y), tex(scene, `gbadge_${group}`, () => renderGroupBadge(group))).setOrigin(0, 0));
-  const n = ROMAN[group] ?? '?';
-  parent.add(addText(scene, Math.round(x + 6), Math.round(y + 2), n, 'light', 0.5));
-  if (legend) addLegend(scene, parent, x - 5, y - 5, 22, 22, t('legend.group', { n, name: tOr(`group.${group}`, n) }), legend.area ?? null, 'legend.group');
-}
-
 /**
  * An invisible tap target over a symbol that explains it (a legend on tap:
  * rank diamonds, group numerals, the sync cloud). Inside a scroll list pass
@@ -128,7 +120,7 @@ export const roleColor = (role: string): number => (ROLE as Record<string, numbe
 
 // ------------------------------------------------------------------ portrait stage
 
-export interface StageOpts {
+interface StageOpts {
   /** Facing row (default 0: three-quarter view, weapon side). */
   dir?: number;
   /** Doll scale (1 or 2). */
@@ -246,52 +238,9 @@ export class Stage extends Phaser.GameObjects.Container {
   }
 }
 
-// ------------------------------------------------------------------ equipment slot tiles
-
-export interface SlotTileOpts {
-  size?: number;
-  selected?: boolean;
-  onTap: () => void;
-  area?: ScrollArea | null;
-}
-
-/** An equipment slot: the item in its rarity frame (with a condition pip), or an empty slot with the slot icon. */
-export function addSlotTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, slot: Slot, it: Item | undefined, o: SlotTileOpts): Phaser.GameObjects.GameObject {
-  const size = o.size ?? SIZE.cell;
-  if (it) {
-    const ic = new ItemIcon(scene, x, y, { item: it }, { size, onTap: o.onTap, area: o.area, selected: o.selected });
-    uiId(ic, `slot:${slot}`);
-    parent.add(ic);
-    // condition pip along the bottom edge
-    const cm = new Meter(scene, x + 3, y + size - 4, size - 6, 2, it.cond > 66 ? COLOR.good : it.cond > 33 ? COLOR.xp : COLOR.bad).setValue(it.cond, 100);
-    parent.add(cm);
-    return ic;
-  }
-  const bg = mosaicPanelImage(scene, x, y, size, size, o.selected ? 'parchmentSel' : 'parchmentWell');
-  bg.setInteractive();
-  uiId(bg, `slot:${slot}`);
-  tappable(bg, o.area ?? null, o.onTap, t(`slot.${slot}` as TKey));
-  parent.add(bg);
-  parent.add(addIcon(scene, x + Math.round((size - 12) / 2), y + Math.round((size - 12) / 2), SLOT_ICON[slot], o.selected ? '' : 'D'));
-  return bg;
-}
-
-/** The mount of a riding class: a framed tile (not an item: the class rides it). */
-export function addMountTile(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, hero: Hero, size: number = SIZE.cell): void {
-  const cls = heroClass(hero);
-  if (!cls.mount) return;
-  const bg = mosaicPanelImage(scene, x, y, size, size, 'parchmentWell');
-  bg.setInteractive();
-  uiId(bg, 'slot:mount');
-  const name = tOr(`mount.${cls.mount}`, cls.mount);
-  tappable(bg, null, () => showTooltip(scene, `${name}\n${t('hero.mountTip')}`, bg), name);
-  parent.add(bg);
-  parent.add(addIcon(scene, x + Math.round((size - 12) / 2), y + Math.round((size - 12) / 2), cls.mount === 'chariot' ? 'f_wedge' : 'advance', 'D'));
-}
-
 // ------------------------------------------------------------------ drag and drop
 
-export interface DropTarget {
+interface DropTarget {
   rect: () => { x: number; y: number; w: number; h: number };
   accepts: (it: Item) => boolean;
   drop: (it: Item) => void;
@@ -476,7 +425,7 @@ function modsText(m: StatMods): string {
  * bonuses the hero has lit, what it asks for (red when the hero is short, with
  * the penalty) and which classes may use it (red when the hero's may not).
  */
-export function itemRuleLines(it: Item, hero: Hero | undefined, w: number): { text: string; font: FontKey }[] {
+function itemRuleLines(it: Item, hero: Hero | undefined, w: number): { text: string; font: FontKey }[] {
   const def = itemDef(it.def);
   const out: { text: string; font: FontKey }[] = [];
   const add = (text: string, font: FontKey, max = 2) => {
@@ -712,26 +661,7 @@ export interface StashGridOpts {
   price?: (it: Item) => { text: string; font: FontKey } | null;
 }
 
-/** Rarity colour of an item (for frames drawn by hand). */
-export const rarityColor = (it: Item): number => RARITY_COLOR[normalizeRarity(it.rarity)];
-
-/** Group colour (roster badges, group buttons). */
-export const groupColor = (g: number): number => GROUP_COLOR[g] ?? 0x8a7a6a;
-
-/** The equipment slots a hero shows, in sheet order. */
-export const heroSlots = (): Slot[] => SLOTS;
-
 export { FONT_GOOD_LIGHT, FONT_RED_LIGHT };
-
-/**
- * A count badge on the top edge of tab `i` of a Tabs bar at (x, y), width w,
- * n tabs: above the label so it never covers it.
- */
-export function addTabBadge(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, x: number, y: number, w: number, n: number, i: number, count: number | string): void {
-  const tw = Math.floor((w - SIZE.gap * (n - 1)) / n);
-  const right = i === n - 1 ? x + w : x + i * (tw + SIZE.gap) + tw;
-  parent.add(new Badge(scene, right - 6, y + 1, count));
-}
 
 /** An item icon drawn at twice its pixel size inside its rarity frame (cards, details). */
 export function bigItemIcon(scene: Phaser.Scene, x: number, y: number, it: Item, size = 34, opts: { onTap?: () => void } = {}): ItemIcon {
@@ -777,7 +707,7 @@ export function frameScrollTexts(area: ScrollArea, w: number): void {
 
 // ------------------------------------------------------------------ class card (recruiting)
 
-export interface ClassCardOpts {
+interface ClassCardOpts {
   /** A sample hero of the class (his gear is shown). */
   hero: Hero;
   title?: string;

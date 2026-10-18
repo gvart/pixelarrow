@@ -28,7 +28,7 @@ type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container }
 /** 'assault' fights; 'march' goes there first; 'burn' razes a lair with no garrison left. */
 export type AssaultChoiceKey = 'assault' | 'march' | 'burn' | 'leave';
 
-export interface AssaultModel {
+interface AssaultModel {
   title: string;
   /** The garrison's map figure (texture key, frame 0). */
   tex: string;

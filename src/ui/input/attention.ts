@@ -24,9 +24,9 @@ export const FEINT_ORB_AFTER = 3;
 export const KIND_BUDGET = 4;
 
 /** Where this battle is fought, as the budget sees it. */
-export type BattleKind = 'campaign' | 'tutorial' | 'online';
+type BattleKind = 'campaign' | 'tutorial' | 'online';
 
-export interface AttentionCtx {
+interface AttentionCtx {
   kind: BattleKind;
   /** Campaign battles fought before this one (SaveData.fought when the battle opened). */
   fought: number;
@@ -97,7 +97,7 @@ export function fifthKey(s: {
 }
 
 /** The i18n keys raiseState answers with (attention.en.ts). */
-export type RaiseWhy = 'attn.std.why.raised' | 'attn.std.why.lost' | 'attn.std.why.routing' | 'attn.std.why.stunned';
+type RaiseWhy = 'attn.std.why.raised' | 'attn.std.why.lost' | 'attn.std.why.routing' | 'attn.std.why.stunned';
 
 /**
  * The Raise-the-standard control: shown in battle to an army that fielded a
@@ -131,7 +131,7 @@ export function raiseState(s: {
 }
 
 /** Within this many paces a line facing the group counts as "head-on" for the orb warning. */
-export const ORB_WARN_PACES = 14;
+const ORB_WARN_PACES = 14;
 
 /**
  * V5-041: the orb is all-round defence and the wrong answer to a frontal line.

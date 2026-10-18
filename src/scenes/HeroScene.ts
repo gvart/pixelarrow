@@ -1364,7 +1364,7 @@ function classLines(name: string, w: number, size: number): string[] {
 }
 
 /** Tab widths for labels `lw` wide across `total`: each its label plus an equal share of what is left. */
-export function tabWidths(lw: readonly number[], total: number): number[] {
+function tabWidths(lw: readonly number[], total: number): number[] {
   const spare = Math.max(0, total - lw.reduce((a, b) => a + b, 0));
   const ws = lw.map((w) => Math.floor(w + spare / lw.length));
   ws[ws.length - 1] += total - ws.reduce((a, b) => a + b, 0);

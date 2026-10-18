@@ -16,13 +16,13 @@
  * free text. Strings are enums or short [a-z0-9_] ids; numbers are bounded.
  */
 
-export type PropSpec =
+type PropSpec =
   | { kind: 'enum'; values: readonly string[] }
   | { kind: 'id' }
   | { kind: 'int'; min: number; max: number }
   | { kind: 'bool' };
 
-export interface EventSpec {
+interface EventSpec {
   /** Who may emit it: the client through POST /api/telemetry/events, or only the server. */
   source: 'client' | 'server' | 'both';
   /** String props (blob5, blob6, ...), in order. bool props are stored as '1' / '0'. */
@@ -34,8 +34,8 @@ export interface EventSpec {
 const int = (min: number, max: number): PropSpec => ({ kind: 'int', min, max });
 const en = (...values: string[]): PropSpec => ({ kind: 'enum', values });
 
-export const BATTLE_MODES = ['offline', 'trial', 'online', 'beast', 'boss', 'duel', 'ladder', 'ranked', 'unranked', 'async'] as const;
-export const BATTLE_RESULTS = ['win', 'loss', 'draw'] as const;
+const BATTLE_MODES = ['offline', 'trial', 'online', 'beast', 'boss', 'duel', 'ladder', 'ranked', 'unranked', 'async'] as const;
+const BATTLE_RESULTS = ['win', 'loss', 'draw'] as const;
 
 export const ANALYTICS_EVENTS = {
   /** Client boot (once per app launch). */
@@ -76,11 +76,9 @@ type Nums<E extends AnalyticsEvent> = (typeof ANALYTICS_EVENTS)[E] extends { num
 /** The props an event accepts (all optional; unknown keys are dropped). */
 export type EventProps<E extends AnalyticsEvent> = Strs<E> & Nums<E>;
 
-export const ID_RE = /^[a-z0-9_.-]{1,40}$/;
-/** Max string / number props per event (Analytics Engine allows 20 blobs and 20 doubles). */
-export const MAX_PROPS = 6;
+const ID_RE = /^[a-z0-9_.-]{1,40}$/;
 
-export interface NormalizedEvent {
+interface NormalizedEvent {
   event: AnalyticsEvent;
   strings: string[];
   numbers: number[];

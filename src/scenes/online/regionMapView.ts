@@ -86,11 +86,11 @@ export interface WorldMapView {
 
 /** Territory colours. */
 /** The tint of the unexplored parchment around the map (WAR-3: toned, not a white band). */
-export const FOG_TONE = 0xd9c8aa;
+const FOG_TONE = 0xd9c8aa;
 
-export const TERRITORY = { mine: 0x3f78c0, clan: 0x2ea89a, others: [0xb83a2c, 0x8a4aa0, 0xc8762a, 0xa02f5a, 0xb89a2c, 0x7a5a48, 0x6a3a8a, 0x9a6a3a] };
+const TERRITORY = { mine: 0x3f78c0, clan: 0x2ea89a, others: [0xb83a2c, 0x8a4aa0, 0xc8762a, 0xa02f5a, 0xb89a2c, 0x7a5a48, 0x6a3a8a, 0x9a6a3a] };
 
-export function territoryColor(map: Pick<MapView, 'you'>, r: Pick<RegionView, 'owner' | 'clan'>): number | null {
+function territoryColor(map: Pick<MapView, 'you'>, r: Pick<RegionView, 'owner' | 'clan'>): number | null {
   if (r.owner === null) return null;
   if (r.owner === map.you.id) return TERRITORY.mine;
   if (map.you.clan !== null && r.clan === map.you.clan) return TERRITORY.clan;

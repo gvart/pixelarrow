@@ -45,7 +45,7 @@ import { t } from '../../i18n';
 import { heroName } from '../../i18n/names';
 import { placeName } from '../../i18n/places';
 
-export interface WarArmyData {
+interface WarArmyData {
   /** Garrison mode: pick who holds this hex (its loc; 0 is a hex like any other, OAR-5). */
   garrison?: number;
   tab?: 'roster' | 'stash';
@@ -54,7 +54,7 @@ export interface WarArmyData {
 }
 
 /** Seconds a hire can be undone before it is sent (N21: nothing is spent until then). */
-export const HIRE_UNDO_MS = 4000;
+const HIRE_UNDO_MS = 4000;
 
 /** Back from the War army: the garrison's hex on the War hub, else the screen that opened it (War hub by default). */
 export function warArmyBack(d: WarArmyData): BackTarget {
@@ -67,7 +67,7 @@ export function warArmyBack(d: WarArmyData): BackTarget {
  * go to the server through `send` (the scene redraws from its answer), so the sync answers say "asked".
  * The status reads busy (in battle), wounded (the one loss: error ink) and holding a hex.
  */
-export function warArmySource(p: ProfileView, o: { regionName: (loc: number) => string; send: (fn: () => Promise<unknown>, ok?: string) => void }): ArmySource {
+function warArmySource(p: ProfileView, o: { regionName: (loc: number) => string; send: (fn: () => Promise<unknown>, ok?: string) => void }): ArmySource {
   const owned = (id: string): OwnedHeroView | undefined => p.heroes.find((h) => h.hero.id === id);
   return {
     kind: 'war',

@@ -20,7 +20,7 @@ import type { KV, SaveData } from '../game/save';
 import { SYNC_META_KEY, decideOnLoad, parseSyncMeta, remoteSaveData, resolveConflict, seqOf, type SyncMeta } from './saveSync';
 
 /** AU-08: this device's campaign and the account's both have progress; the player keeps one. */
-export interface TwoCampaigns {
+interface TwoCampaigns {
   local: SaveData;
   cloud: SaveData;
   /** The server revision the cloud copy was read at. */
@@ -57,9 +57,9 @@ export interface OnlineDeps {
 }
 
 /** Where the player stands for online play: signed in, signed out with no way to sign in here, or the server was not reached. */
-export type SessionState = 'live' | 'signed_out' | 'offline';
+type SessionState = 'live' | 'signed_out' | 'offline';
 
-export type BuyResult = 'granted' | 'pending' | 'cancelled' | 'failed' | 'owned' | 'offline' | 'unavailable';
+type BuyResult = 'granted' | 'pending' | 'cancelled' | 'failed' | 'owned' | 'offline' | 'unavailable';
 
 export class Online {
   status: SyncStatus = 'local';

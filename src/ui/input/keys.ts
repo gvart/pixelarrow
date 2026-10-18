@@ -26,10 +26,10 @@ export interface KeyInput extends KeyEvent {
 }
 
 /** A handler; returning false means "not mine now", and the key goes to the handler registered before it. */
-export type KeyHandler = () => unknown;
+type KeyHandler = () => unknown;
 
 /** What owns a registration: a Phaser scene's `events` (removed on shutdown). */
-export interface KeyOwner {
+interface KeyOwner {
   once(ev: 'shutdown', fn: () => void): unknown;
 }
 

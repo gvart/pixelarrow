@@ -2,7 +2,7 @@ import type { StatMods } from './items';
 
 export type TraitId = 'veteran' | 'steady' | 'swift' | 'brute' | 'keen' | 'stalwart' | 'tough' | 'skittish';
 
-export interface TraitDef {
+interface TraitDef {
   id: TraitId;
   name: string;
   desc: string;

@@ -33,14 +33,14 @@ export function anchoredScroll(cam: CamView, z: number, sx: number, sy: number):
 }
 
 /** The world point under screen (sx, sy). */
-export function worldUnder(cam: CamView, sx: number, sy: number): { x: number; y: number } {
+function worldUnder(cam: CamView, sx: number, sy: number): { x: number; y: number } {
   const ox = cam.width * cam.originX;
   const oy = cam.height * cam.originY;
   return { x: (sx - cam.x - ox) / cam.zoom + ox + cam.scrollX, y: (sy - cam.y - oy) / cam.zoom + oy + cam.scrollY };
 }
 
 /** The scroll that puts world point `w` under screen (sx, sy) at zoom `z`. */
-export function scrollToHold(cam: CamView, z: number, sx: number, sy: number, w: { x: number; y: number }): { x: number; y: number } {
+function scrollToHold(cam: CamView, z: number, sx: number, sy: number, w: { x: number; y: number }): { x: number; y: number } {
   const ox = cam.width * cam.originX;
   const oy = cam.height * cam.originY;
   return { x: w.x - (sx - cam.x - ox) / z - ox, y: w.y - (sy - cam.y - oy) / z - oy };
@@ -75,7 +75,7 @@ export function zoomCamAt(scene: Phaser.Scene, cam: Phaser.Cameras.Scene2D.Camer
 }
 
 /** What a map does with the wheel: zoom one step about the cursor, pan sideways (canvas px), or ignore it over UI. */
-export interface MapWheel {
+interface MapWheel {
   /** The wheel is over a control, a sheet or a dialog: leave it to them. */
   blocked?(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]): boolean;
   zoom(dir: 1 | -1, sx: number, sy: number): void;

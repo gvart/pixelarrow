@@ -6,7 +6,7 @@ export interface Tile {
 }
 
 /** Cost of entering tile (x, y); Infinity = impassable. */
-export type CostFn = (x: number, y: number) => number;
+type CostFn = (x: number, y: number) => number;
 
 class Heap {
   private items: number[] = [];

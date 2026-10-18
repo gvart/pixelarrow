@@ -5,14 +5,14 @@
  */
 import type { SizeClass } from '../sizeClass';
 
-export interface Rect {
+interface Rect {
   x: number;
   y: number;
   w: number;
   h: number;
 }
 
-export type BubbleSide = 'above' | 'below' | 'left' | 'right';
+type BubbleSide = 'above' | 'below' | 'left' | 'right';
 
 /** A coach card's widest (§13.1): 176 UI px, 240 on laptops. */
 export function bubbleMaxW(m: { cls: SizeClass; land: boolean }): number {

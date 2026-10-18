@@ -22,7 +22,7 @@ const ROW_H = 26;
 const DAY = 864e5;
 
 /** "today", "yesterday" or the short date, in the game's language. */
-export function whenLabel(at: number, now: number, l: string = lang()): string {
+function whenLabel(at: number, now: number, l: string = lang()): string {
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
   if (at >= start.getTime()) return t('devices.today');
@@ -30,7 +30,7 @@ export function whenLabel(at: number, now: number, l: string = lang()): string {
   return shortDate(at, l);
 }
 
-export function shortDate(at: number, l: string = lang()): string {
+function shortDate(at: number, l: string = lang()): string {
   try {
     return new Intl.DateTimeFormat(l === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'short' }).format(new Date(at));
   } catch {
@@ -39,7 +39,7 @@ export function shortDate(at: number, l: string = lang()): string {
 }
 
 /** This device first, then the most recently active. */
-export function orderSessions(list: SessionInfo[]): SessionInfo[] {
+function orderSessions(list: SessionInfo[]): SessionInfo[] {
   return [...list].sort((a, b) => Number(b.current) - Number(a.current) || b.lastSeenAt - a.lastSeenAt);
 }
 

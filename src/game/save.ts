@@ -310,7 +310,7 @@ export async function writeSave(kv: KV, s: SaveData): Promise<void> {
   for (let i = parts.length; i < (old?.pn ?? 0); i++) await kv.remove(PART(slot, i));
 }
 
-export type ReadResult =
+type ReadResult =
   | { kind: 'ok'; data: SaveData; fromBackup?: boolean }
   | { kind: 'empty' }
   /** `raw` is what was stored (null when not even that could be read), kept for the backup. */

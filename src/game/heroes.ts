@@ -15,12 +15,12 @@ export interface IdSource {
   nextId: number;
 }
 
-export function newId(ids: IdSource, prefix: string): string {
+function newId(ids: IdSource, prefix: string): string {
   return `${prefix}${(ids.nextId++).toString(36)}`;
 }
 
-export const EMBLEMS = ['lambda', 'owl', 'horse', 'trident', 'sunwheel', 'lion', 'eye', 'scorpion', 'boar', 'crescent', 'club', 'star'] as const;
-export type Emblem = (typeof EMBLEMS)[number];
+const EMBLEMS = ['lambda', 'owl', 'horse', 'trident', 'sunwheel', 'lion', 'eye', 'scorpion', 'boar', 'crescent', 'club', 'star'] as const;
+type Emblem = (typeof EMBLEMS)[number];
 
 const CULTURE_EMBLEMS: Record<Culture, Emblem[]> = {
   greek: ['lambda', 'owl', 'trident', 'club', 'star', 'scorpion', 'lion'],
@@ -36,12 +36,12 @@ const FIELD_INK: [string, string[]][] = [
   ['blue', ['cream', 'bronze']],
 ];
 
-export function shieldPaint(rng: Rng, culture: Culture, emblem?: Emblem, field?: string): ItemPaint {
+function shieldPaint(rng: Rng, culture: Culture, emblem?: Emblem, field?: string): ItemPaint {
   const fi = field ? FIELD_INK.find(([f]) => f === field) ?? rng.pick(FIELD_INK) : rng.pick(FIELD_INK);
   return { emblem: emblem ?? rng.pick(CULTURE_EMBLEMS[culture]), field: fi[0], ink: rng.pick(fi[1]) };
 }
 
-export function crestPaint(rng: Rng): ItemPaint {
+function crestPaint(rng: Rng): ItemPaint {
   return { field: rng.pick(['red', 'ink', 'cream', 'red']) };
 }
 
@@ -73,7 +73,7 @@ export function makeItem(rng: Rng, ids: IdSource, defId: string, rarity: Rarity 
   return item;
 }
 
-export function randomLook(rng: Rng, culture: Culture): Look {
+function randomLook(rng: Rng, culture: Culture): Look {
   const skinW: [number, number][] =
     culture === 'celtic' ? [[0, 5], [1, 3], [2, 1]] : culture === 'phoenician' ? [[1, 2], [2, 4], [3, 3]] : [[0, 1], [1, 4], [2, 3], [3, 1]];
   const hairW: [number, number][] = culture === 'celtic' ? [[1, 2], [2, 3], [3, 4]] : [[0, 5], [1, 4], [2, 1]];
@@ -103,7 +103,7 @@ function heroCls(h: Hero): ClassDef {
 }
 
 /** Rolled starting attributes: the class spread with a little personal variation. */
-export function rollAttrs(rng: Rng, arch: Archetype): Attrs {
+function rollAttrs(rng: Rng, arch: Archetype): Attrs {
   const a = { ...CLASSES[toClass(arch)].attrs };
   for (let i = 0; i < 2; i++) {
     const up = rng.pick(ATTR_IDS);
@@ -116,7 +116,7 @@ export function rollAttrs(rng: Rng, arch: Archetype): Attrs {
 }
 
 /** What autoDevelop needs to know about the hero's army. */
-export interface DevelopContext {
+interface DevelopContext {
   /** The army already has a standard bearer: take path A at the standard_bearer tier. */
   standard?: boolean;
 }

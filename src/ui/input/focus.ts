@@ -59,9 +59,9 @@ interface ScopeState {
 }
 
 /** Reading-order band height, UI px (input-v6.md §4.2). */
-export const BAND = 8;
+const BAND = 8;
 /** How much the off-axis offset counts against a candidate for an arrow (input-v6.md §4.3). */
-export const OFF_AXIS = 3;
+const OFF_AXIS = 3;
 
 const centre = (r: Rect) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 

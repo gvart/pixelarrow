@@ -49,7 +49,7 @@ export function remoteSaveData(data: unknown): SaveData | null {
 }
 
 /** A server blob written by a newer build (V5-011): this build must not overwrite it. */
-export function remoteIsNewer(data: unknown): boolean {
+function remoteIsNewer(data: unknown): boolean {
   if (!data || typeof data !== 'object') return false;
   try {
     const r = migrateResult(JSON.parse(JSON.stringify(data)));
@@ -59,7 +59,7 @@ export function remoteIsNewer(data: unknown): boolean {
   }
 }
 
-export type LoadDecision =
+type LoadDecision =
   /** Server copy wins: replace the local campaign with it. */
   | { action: 'adopt'; data: SaveData; revision: number }
   /** Local copy wins (or the server has none): upload it on top of `revision`. */
@@ -79,7 +79,7 @@ export type LoadDecision =
 export const hasProgress = (s: SaveData | null | undefined): boolean => (s?.won ?? 0) > 0;
 
 /** More progress first: battles won, then the save order (compareSaves). >0: a has more. */
-export function compareProgress(a: SaveData, b: SaveData): number {
+function compareProgress(a: SaveData, b: SaveData): number {
   return (a.won ?? 0) - (b.won ?? 0) || compareSaves(a, b);
 }
 

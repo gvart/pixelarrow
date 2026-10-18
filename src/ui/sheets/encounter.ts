@@ -43,7 +43,7 @@ export interface EncounterChoice {
   onPick: () => void;
 }
 
-export interface EncounterModel {
+interface EncounterModel {
   title: string;
   /** The band's map figure (texture key, frame 0). */
   tex: string;

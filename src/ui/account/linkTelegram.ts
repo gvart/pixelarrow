@@ -31,9 +31,9 @@ import { linkFail, POLL_MS, webView, type WebView } from './linking';
 import { Body, openLinkSheet } from './linkSheet';
 import { openWebConflict } from './conflict';
 
-export type LinkApi = Pick<ApiClient, 'linkStart' | 'linkAbandon' | 'linkStatus' | 'linkConfirm' | 'conflict' | 'resolveConflict'>;
+type LinkApi = Pick<ApiClient, 'linkStart' | 'linkAbandon' | 'linkStatus' | 'linkConfirm' | 'conflict' | 'resolveConflict'>;
 
-export interface LinkTelegramOpts {
+interface LinkTelegramOpts {
   /** The account's name ("…wants to link to SwiftArcher4821"). */
   displayName: string;
   /** Confirm it's you asks for the password (a web account always has one). */

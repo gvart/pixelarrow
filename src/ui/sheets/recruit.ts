@@ -35,7 +35,7 @@ type C = Phaser.GameObjects.Container;
 export const HIRE_UNDO_S = 4;
 
 /** What a hire needs to be taken back. */
-export interface HireReceipt {
+interface HireReceipt {
   /** The settlement. */
   sid: number;
   /** The offer's index in the settlement's pool. */

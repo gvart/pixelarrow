@@ -26,12 +26,6 @@ export const showFresco = (vh: number): boolean => vh >= FRESCO_MIN_VH;
  */
 export const showChestTip = (vh: number): boolean => vh >= FRESCO_MIN_VH;
 
-/** One box of the header row: its natural width and whether it may grow into what is left. */
-export interface HeaderBox {
-  w: number;
-  grow: boolean;
-}
-
 /**
  * The header row (M-2, DUE-4): the Glory and level chips at their natural
  * widths, then the Team and Armoury buttons sharing the rest, all on ONE row.

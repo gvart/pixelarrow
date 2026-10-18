@@ -66,7 +66,7 @@ function slotButton(scene: Phaser.Scene, x: number, y: number, w: number, h: num
 }
 
 /** The HUD's text floor (A11Y-09: meaningful text >= 13 CSS px = 6.5 UI px). */
-export const HUD_TEXT = 6.5;
+const HUD_TEXT = 6.5;
 
 /**
  * Z1 of hud.md §C: the ⋯ battle menu at one end, Pause/Play and the speed at
@@ -87,7 +87,7 @@ export interface TopBarOpts {
 }
 
 /** Width of a top bar key (UI px) for a bar `w` wide: a little slimmer on a narrow phone. */
-export function topKeyW(w: number): number {
+function topKeyW(w: number): number {
   return w < 170 ? 30 : 32;
 }
 
@@ -96,7 +96,7 @@ export function topKeyW(w: number): number {
  * expanded) with Menu and the clock at one end, the strength row in the middle (bars at most
  * `barMax` UI px each) and Pause and Speed at the other. `compact` draws Menu and Pause as icons.
  */
-export interface TopRow {
+interface TopRow {
   h: number;
   compact: boolean;
   barMax: number;
@@ -462,7 +462,7 @@ export class HintPill extends Phaser.GameObjects.Container {
 /** The hint pill's glyph: info (a hint), paused (hourglass), alert (red "!"). */
 export type HintTone = 'info' | 'paused' | 'alert';
 
-export interface MedallionOpts {
+interface MedallionOpts {
   icon: string;
   label: string;
   /** What it does, in a few words. */
@@ -473,7 +473,7 @@ export interface MedallionOpts {
 }
 
 /** Medallion diameter and the plate under it (UI px). */
-export const MED_D = 26;
+const MED_D = 26;
 export const MED_W = 50;
 export const MED_H = MED_D + 2 + 19;
 const HALO = 4;
@@ -622,7 +622,7 @@ export function railLayout(n: number, fieldH: number, room: number): { shown: nu
 }
 
 /** A facing pip's touch target (UI px): 44 pt (A11Y-06). Its disc is smaller. */
-export const PIP_D = 22;
+const PIP_D = 22;
 
 /**
  * A facing pip (A11Y-14, CT-07): tap the knob, then tap one of these to turn
@@ -667,7 +667,7 @@ export class FacingPip extends Phaser.GameObjects.Container {
 export const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 /** What the HUD rules read from the battle (a `Battle` fits). */
-export interface HudSim {
+interface HudSim {
   groups: readonly SimGroup[];
   units: readonly SimUnit[];
   members(gid: number): readonly SimUnit[];
@@ -763,7 +763,7 @@ export function isMissileGroup(sim: HudSim, gid: number): boolean {
 }
 
 /** What a tap on an enemy of group `foe` does for the selected group `gid` (R3.1, R3.2). */
-export type EnemyTap = { kind: 'attack' } | { kind: 'focus'; target: number };
+type EnemyTap = { kind: 'attack' } | { kind: 'focus'; target: number };
 
 /** Melee groups attack; missile groups focus on that group, and a tap on the focused group again clears it (-1). */
 export function enemyTap(sim: HudSim, gid: number, foe: number): EnemyTap {
@@ -860,7 +860,7 @@ export function chargeTarget(sim: HudSim, gid: number, from?: { x: number; y: nu
 }
 
 /** "Advance to range" stops the group's centre at this share of its median range from the target (R3.4). */
-export const ADVANCE_RANGE_K = 0.9;
+const ADVANCE_RANGE_K = 0.9;
 
 /**
  * The `form` that "Advance to range" sends (R3.4): the group's centre moves
@@ -906,7 +906,7 @@ export function orderKeyWidths(labels: readonly string[], total: number, gap: nu
 }
 
 /** Do `labels` fit an order bar `total` wide at the text floor? */
-export function orderLabelsFit(labels: readonly string[], total: number, gap: number): boolean {
+function orderLabelsFit(labels: readonly string[], total: number, gap: number): boolean {
   const room = total - gap * (labels.length - 1);
   return labels.reduce((a, l) => a + Math.max(KEY_MIN_W, Math.ceil(measureText(l, true, HUD_TEXT)) + 4), 0) <= room;
 }
@@ -974,9 +974,9 @@ export function nextSelection(cards: readonly number[], before: readonly number[
 export type MoraleState = 'steady' | 'wavering' | 'routing';
 
 /** F2: wavering when at least this share of the non-routing men... */
-export const WAVER_SHARE = 1 / 3;
+const WAVER_SHARE = 1 / 3;
 /** ...are below this share of their max morale. */
-export const WAVER_MORALE = 0.5;
+const WAVER_MORALE = 0.5;
 
 /** The glyph of each state: shapes that read without colour (A11Y-04; src/art/vectorIcons.ts). */
 export const MORALE_GLYPH: Record<MoraleState, string> = {
@@ -1016,7 +1016,7 @@ export function groupState(routed: boolean, men: readonly Pick<SimUnit, 'state' 
 export const FLANK_CARD_S = 2;
 
 /** What the readout reads from the battle beyond the HUD rules (a `Battle` fits). */
-export interface ReadoutSim extends HudSim {
+interface ReadoutSim extends HudSim {
   tick: number;
   phase: string;
   isBroken(side: Side): boolean;
@@ -1093,7 +1093,7 @@ export interface BadgeSpec {
 }
 
 /** A field badge's markers, in hud.md §G priority order (the flank arc is drawn round the badge, not on it). */
-export type BadgeMarker = 'reticle' | 'crest' | 'standard' | 'disordered' | 'feint' | 'queued';
+type BadgeMarker = 'reticle' | 'crest' | 'standard' | 'disordered' | 'feint' | 'queued';
 
 /** At most this many markers on a badge besides the numeral and the glyph (hud.md §G visual budget). */
 export const BADGE_MARKERS_MAX = 2;
@@ -1272,7 +1272,7 @@ export class BannerLife {
 }
 
 /** Why the battle paused itself; `live` false once the reason no longer holds (none: it holds). */
-export interface PauseReason {
+interface PauseReason {
   text: string;
   live?: () => boolean;
 }
@@ -1367,7 +1367,7 @@ export function damageNumberHits(events: readonly SimEvent[]): HitEvent[] {
  * More, Pause/Play, Speed, Follow, Zoom, the ⋯ menu, FIGHT/READY, Shape, Groups and Works. Group cards
  * show none (their numeral is the key); medallions are added by their place on the rail.
  */
-export const KEYCAP_ACTIONS: Readonly<Record<string, ActionId>> = {
+const KEYCAP_ACTIONS: Readonly<Record<string, ActionId>> = {
   'battle.cmd.advance': 'order.advance',
   'battle.cmd.charge': 'order.charge',
   'battle.cmd.hold': 'order.hold',
@@ -1391,7 +1391,7 @@ export const KEYCAP_ACTIONS: Readonly<Record<string, ActionId>> = {
 };
 
 /** The action a HUD control's key runs, by its uiId (`medallions`: the rail's ids, top to bottom). */
-export function keycapAction(id: string, medallions: readonly string[]): ActionId | null {
+function keycapAction(id: string, medallions: readonly string[]): ActionId | null {
   const m = medallions.indexOf(id);
   if (m >= 0 && m < 3) return `ability.${m + 1}` as ActionId;
   return KEYCAP_ACTIONS[id] ?? null;

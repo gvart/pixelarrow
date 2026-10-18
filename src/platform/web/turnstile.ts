@@ -11,7 +11,7 @@ export const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api
 /** Cloudflare's published always-pass testing site key (local and CI only; the server counts its tokens only with DEV_AUTH=1). */
 export const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA';
 /** How long Submit waits for a token before it gives up (accounts-v6.md §1.3: at most 10 s). */
-export const TOKEN_WAIT_MS = 10_000;
+const TOKEN_WAIT_MS = 10_000;
 
 /** The part of `window.turnstile` the widget uses. */
 interface TurnstileApi {

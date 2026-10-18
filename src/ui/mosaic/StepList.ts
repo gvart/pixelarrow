@@ -11,7 +11,7 @@ import { mtext } from './base';
 
 export type StepState = 'pending' | 'current' | 'done';
 
-export interface Step {
+interface Step {
   title: string;
   state: StepState;
   /** Height of the controls under this step (its slot), UI px. */

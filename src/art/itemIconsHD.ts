@@ -22,11 +22,11 @@ import { P, hex, mix } from './palette';
 import { drawIconBitmap, itemIconId } from './iconBitmaps';
 
 /** Drawing space edge: 16 UI px of icon = 64 units. */
-export const ICON_UNITS = 64;
+const ICON_UNITS = 64;
 
 // ------------------------------------------------------------------ materials
 
-export interface Ramp {
+interface Ramp {
   hi: string;
   base: string;
   lo: string;
@@ -45,7 +45,7 @@ function flatRamp(c: number, metal = false): Ramp {
 
 type MatKey = ItemMaterial | 'orichalcum' | 'blued' | 'lead' | 'olive' | 'darkwood' | 'cord' | 'cream';
 
-export const RAMPS: Record<MatKey, Ramp> = {
+const RAMPS: Record<MatKey, Ramp> = {
   bronze: ramp(0xf4d690, 0xc48f3e, 0x80561f, 0x4a3012, true, 0xfff6d0),
   iron: ramp(0xdde1e1, 0x9da3a5, 0x5e6467, 0x34393c, true),
   steel: ramp(0xf0f4f7, 0xb2bcc4, 0x6a7680, 0x3b454d, true),

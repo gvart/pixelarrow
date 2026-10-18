@@ -56,8 +56,6 @@ export const COLOR = {
 export const TOUCH_PT = 44;
 /** Minimum spacing between touch targets in CSS points. */
 export const TOUCH_GAP_PT = 4;
-/** Minimum touch target in UI pixels at scale S. */
-export const touchMin = (S: number): number => Math.ceil(TOUCH_PT / S);
 
 /** Standard sizes in UI pixels; all satisfy the touch rules at every scale (S >= 2). */
 export const SIZE = {
@@ -75,19 +73,6 @@ export const SIZE = {
   rowH: 26,
   /** Tab bar height. */
   tabH: 24,
-} as const;
-
-// ------------------------------------------------------------ Strategos (docs/UI_KIT.md "Screen chrome")
-
-/**
- * Bronze is the one "selected / next" accent: the radial ring, its facing
- * handle, the focus ring round the next thing to tap, selected chips. Red
- * stays the one primary action; grey dither means "cannot" (with a reason).
- */
-export const BRONZE = {
-  main: 0xb8863b,
-  dark: 0x6e4f22,
-  hi: 0xe8c26a,
 } as const;
 
 /** Fixed chrome of every Strategos screen, in UI pixels. */

@@ -5,7 +5,7 @@
  */
 type Listener = (e: Event) => void;
 
-export interface EnvEvents {
+interface EnvEvents {
   addEventListener(type: string, cb: Listener, opts?: boolean | AddEventListenerOptions): void;
   removeEventListener(type: string, cb: Listener, opts?: boolean | EventListenerOptions): void;
 }

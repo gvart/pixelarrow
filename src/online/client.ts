@@ -349,7 +349,7 @@ export function simSocketPath(path: string): string {
 type Listener<S> = (m: S) => void;
 
 /** A socket's heartbeat (ShardSocket): half-open sockets never fire onclose, so silence is the only sign. */
-export interface Heartbeat {
+interface Heartbeat {
   /** How often a `ping` text frame goes out (the server's auto-response answers `pong`). */
   everyMs: number;
   /** Nothing received for this long: the socket is dead (a phone put away, a network switch) and is replaced. */

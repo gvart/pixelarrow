@@ -14,7 +14,7 @@ import type { Battle } from '../sim/battle';
 import type { Order, Side } from '../sim/types';
 import { DELAY_TURNS, HASH_EVERY, TURN_TICKS, type ClientMsg, type SealedOrder, type ServerMsg } from './protocol';
 
-export interface LockstepOptions {
+interface LockstepOptions {
   turnTicks?: number;
   hashEvery?: number;
   delayTurns?: number;

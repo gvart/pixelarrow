@@ -589,7 +589,7 @@ export function isBound(it: Pick<Item, 'def'>): boolean {
 }
 
 /** What salvaging a bound item pays (gold, or Glory in duels): a quarter of its value. */
-export const SALVAGE_SHARE = 0.25;
+const SALVAGE_SHARE = 0.25;
 
 export function salvageValue(item: Item): number {
   return Math.max(1, Math.floor(itemValue(item) * SALVAGE_SHARE));

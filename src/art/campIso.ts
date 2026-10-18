@@ -20,15 +20,15 @@
 import { Pix, hash2, valueNoise } from './pixels';
 import { Scene, ramp, type Material, type Shader, type V3 } from './model3d';
 
-export const CELL = 2;
-export const ISO_SCALE = 0.5;
+const CELL = 2;
+const ISO_SCALE = 0.5;
 /** Pixels per metre along a tile axis (x and y on screen). */
 const PX = 8;
 const PY = 4;
 /** Pixels per metre of height. */
 const PZ = Math.cos(Math.PI / 6) * 16 * Math.SQRT2 * ISO_SCALE; // 9.8
 export const TILE_W = CELL * PX * 2; // 32
-export const TILE_H = CELL * PY * 2; // 16
+const TILE_H = CELL * PY * 2; // 16
 
 /** Screen offset of the top corner of tile (tx, ty) from the origin tile's. */
 export function tileScreen(tx: number, ty: number): { x: number; y: number } {
@@ -49,7 +49,7 @@ export function screenTile(sx: number, sy: number): { x: number; y: number } {
 
 const M = (base: number, extra: Partial<Material> = {}): Material => ({ ramp: ramp(base), ...extra });
 
-export const MAT = {
+const MAT = {
   canvas: M(0xe8d6b4, { contrast: 0.75 }),
   canvasOld: M(0xd6c09c, { contrast: 0.8, grit: 0.4 }),
   olive: M(0xa09e6c, { contrast: 0.85, grit: 0.35 }),
@@ -99,7 +99,7 @@ export interface IsoSprite {
   oy: number;
 }
 
-export interface ModelOpts {
+interface ModelOpts {
   /** Footprint in tiles. */
   w: number;
   h: number;
@@ -113,7 +113,7 @@ export interface ModelOpts {
 }
 
 /** Ray-casts a scene posed in metres on a footprint of w x h tiles. */
-export function renderModel(build: (sc: Scene) => void, o: ModelOpts): IsoSprite {
+function renderModel(build: (sc: Scene) => void, o: ModelOpts): IsoSprite {
   const pad = o.pad ?? 10;
   const ox = o.h * TILE_W / 2 + pad;
   const oy = pad + Math.ceil(o.height * PZ);
@@ -415,9 +415,6 @@ export function renderForge(level = 1): IsoSprite {
     { w: 2, h: 2, height: 4.4, pad: 12 },
   );
 }
-
-/** Where the forge's smoke (chimney) and sparks (anvil) rise, relative to its origin corner (px). */
-export const FORGE_FX = { chimney: groundScreen(0.5, 0.5), anvil: groundScreen(1.35, 1.2), hearth: groundScreen(0.95, 0.55) };
 
 /** The granary: a round stone store with a conical thatch roof, sacks and amphorae. 2 x 2 tiles. */
 export function renderGranary(level = 1): IsoSprite {
@@ -846,26 +843,6 @@ export function renderPlot(active = false): Pix {
   return px;
 }
 
-/** Slot marker: a dotted diamond, cyan when the structure may go there, red when not. 2 x 2 tiles. */
-export function renderSlotMark(ok: boolean): Pix {
-  const w = TILE_W * 2;
-  const h = TILE_H * 2;
-  const px = new Pix(w + 2, h + 2);
-  const c = ok ? 0x7fd0e0 : 0xb83d4a;
-  for (let k = 0; k < w; k += 2) {
-    const yy = Math.round(Math.abs(k - w / 2) * (h / w));
-    px.set(k + 1, yy + 1, c);
-    px.set(k + 1, h - yy, c);
-  }
-  for (let y = 1; y < h; y++)
-    for (let x = 1; x < w; x++) {
-      const u = (x - w / 2) / (w / 2);
-      const v = (y - h / 2) / (h / 2);
-      if (Math.abs(u) + Math.abs(v) < 0.92 && (x + y) % 4 === 0) px.set(x + 1, y + 1, c, 90);
-    }
-  return px;
-}
-
 /** A w x h tile diamond tint (the footprint of a placement ghost per tile). */
 export function renderTileTint(ok: boolean): Pix {
   const px = new Pix(TILE_W + 2, TILE_H + 2);
@@ -1007,7 +984,7 @@ export function renderFoam(frame: number): Pix {
 export const G = { grass: 0, mown: 1, dirt: 2, sand: 3, sea: 4, forest: 5, rock: 6, deep: 7 } as const;
 export type GroundKind = (typeof G)[keyof typeof G];
 
-export interface GroundSpec {
+interface GroundSpec {
   /** Tiles. */
   w: number;
   h: number;
@@ -1174,77 +1151,5 @@ export function renderIsoGround(spec: GroundSpec): Pix {
         }
       }
   }
-  return px;
-}
-
-// ---------------------------------------------------------------- UI chrome
-
-/** The vertical column toolbar (ref: an Ionic column in rose stone): capital, fluted shaft, base. */
-export function renderColumn(w: number, h: number): Pix {
-  const px = new Pix(w, h);
-  const C = { lit: 0xf2dcd4, base: 0xe4c4bc, flute: 0xd0a8a4, dark: 0xb8888a, ink: 0x8a4a48, cream: 0xf8ece4 };
-  const capH = 12;
-  const baseH = 9;
-  // shaft with flutes
-  px.rect(2, capH, w - 4, h - capH - baseH, C.base);
-  for (let x = 3; x < w - 3; x += 4) {
-    px.vline(x, capH, h - baseH - 1, C.flute);
-    px.vline(x + 1, capH, h - baseH - 1, C.lit);
-  }
-  px.vline(2, capH, h - baseH - 1, C.lit);
-  px.vline(w - 3, capH, h - baseH - 1, C.dark);
-  // capital: abacus slab and two volutes
-  px.rect(0, 0, w, 3, C.lit);
-  px.rect(0, 3, w, 2, C.base);
-  px.rect(1, 5, w - 2, 7, C.base);
-  px.hline(0, w - 1, 2, C.dark);
-  for (const vx of [3, w - 4]) {
-    px.ellipse(vx - 3, 4, 7, 7, (_x, _y, edge, u, v) => (edge ? C.ink : u * u + v * v < 0.25 ? C.dark : C.lit));
-  }
-  // base: a torus and a plinth
-  px.rect(1, h - baseH, w - 2, 3, C.lit);
-  px.rect(0, h - baseH + 3, w, 4, C.base);
-  px.rect(0, h - 2, w, 2, C.dark);
-  px.hline(0, w - 1, h - baseH + 3, C.dark);
-  // ink sel-out
-  px.outline(C.ink);
-  return px;
-}
-
-/** A parchment strip with a stitched edge for the resource bar / bottom panel (rose-parchment like the ref). */
-export function renderStrip(w: number, h: number): Pix {
-  const px = new Pix(w, h);
-  const C = { base: 0xf0dccc, light: 0xf8ece0, dark: 0xd8b8a8, ink: 0x8a4a48 };
-  px.rect(0, 0, w, h, C.base);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (hash2(x, y, 3) < 0.05) px.set(x, y, hash2(y, x, 4) < 0.5 ? C.light : C.dark);
-  px.hline(0, w - 1, 0, C.light);
-  px.hline(0, w - 1, h - 1, C.dark);
-  px.vline(0, 0, h - 1, C.light);
-  px.vline(w - 1, 0, h - 1, C.dark);
-  // stitched inner border (dotted)
-  for (let x = 2; x < w - 2; x += 2) {
-    px.set(x, 2, C.ink);
-    px.set(x, h - 3, C.ink);
-  }
-  for (let y = 2; y < h - 2; y += 2) {
-    px.set(2, y, C.ink);
-    px.set(w - 3, y, C.ink);
-  }
-  return px;
-}
-
-/** A sunburst "end day" badge (the ref's bottom-right medallion), 22 x 16. */
-export function renderSunburst(w = 22, h = 16): Pix {
-  const px = new Pix(w, h);
-  const C = { ray: 0xd8a870, sun: 0xf0cc80, ink: 0x8a4a48, sky: 0xf4e0cc };
-  px.rect(0, 0, w, h, C.sky);
-  const cx = (w - 1) / 2;
-  const cy = h - 2;
-  for (let i = 0; i < 9; i++) {
-    const a = Math.PI + (i / 8) * Math.PI;
-    px.line(cx, cy, cx + Math.cos(a) * (w / 2 + 2), cy + Math.sin(a) * (h + 2), C.ray);
-  }
-  px.ellipse(Math.floor(cx) - 3, cy - 3, 7, 6, (_x, _y, edge) => (edge ? C.ink : C.sun));
-  px.outline(C.ink);
   return px;
 }

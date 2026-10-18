@@ -75,10 +75,10 @@ export function canAffordWork(supplies: number, placed: readonly { type: WorkTyp
 }
 
 /** What became of the band's captain in a battle. */
-export type CaptainFate = 'none' | 'alive' | 'killed' | 'captured';
+type CaptainFate = 'none' | 'alive' | 'killed' | 'captured';
 
 /** What a battle against a band paid and did beyond the plain outcome (ai-doctrines.md R6, R8). */
-export interface PartySpoils {
+interface PartySpoils {
   /** The band quit the field: a victory without the win bonus, and the band gets away weakened. */
   enemyRetreated: boolean;
   captain: CaptainFate;
@@ -87,7 +87,7 @@ export interface PartySpoils {
 }
 
 /** What an assault on a lair did (campaign-arc.md R2.4, R2.5): the band's spoils, whether it fell, and its hoard (already first in the loot). */
-export interface LairSpoils extends PartySpoils {
+interface LairSpoils extends PartySpoils {
   fallen: boolean;
   hoard: Item[];
 }

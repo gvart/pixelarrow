@@ -196,7 +196,7 @@ export function drawCypress(p: Pix, cx: number, by: number, h: number): void {
 }
 
 /** A date palm (Punic and African towns). */
-export function drawPalm(p: Pix, cx: number, by: number, h: number): void {
+function drawPalm(p: Pix, cx: number, by: number, h: number): void {
   for (let y = by - h; y <= by; y++) p.set(cx + ((y - by) % 3 === 0 ? 0 : 0), y, y % 2 ? MP.woodDk : MP.wood);
   const top = by - h;
   const fronds: [number, number][] = [
@@ -258,7 +258,7 @@ export function gullPix(frame: number): Pix {
 // ------------------------------------------------------------------ fields
 
 /** Crop colours by field kind: wheat, green, ploughed, vineyard, olives. */
-export const FIELD_KINDS: [number, number][] = [
+const FIELD_KINDS: [number, number][] = [
   [0xe4cc84, 0xcbae68],
   [0xc8c27a, 0xadaa64],
   [0xc4a07c, 0xa8845e],

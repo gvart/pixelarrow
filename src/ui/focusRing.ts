@@ -45,7 +45,7 @@ export interface FocusScroll {
   viewWorld(): Rect;
 }
 
-export interface FocusOpts {
+interface FocusOpts {
   /** What Enter / Space do: exactly what a tap does (a disabled control says why). */
   activate(): void;
   enabled(): boolean;

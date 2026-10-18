@@ -31,13 +31,13 @@ import { TICK_RATE } from '../sim/battle';
 const BAR_X = 29;
 
 /** Where the boss bar goes on a landscape HUD (UI px): its left edge and width. */
-export interface BarPlace {
+interface BarPlace {
   x: number;
   w: number;
 }
 
 /** What BattleScene keeps per figure (structural: its UnitView). */
-export interface BeastUnitView {
+interface BeastUnitView {
   u: SimUnit;
   hero: Hero;
   spr: Phaser.GameObjects.Sprite;
