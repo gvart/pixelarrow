@@ -365,7 +365,7 @@ export function openTelegramConflict(scene: UiScene, c: TelegramConflict, o: Tel
               notMeButton(bb);
             });
             // keeping the web account: once the web posts the same choice, this launch follows it (V6-LINK-07)
-            if (keep === 'web') followLinkedAccount(scene, sheet);
+            if (({ web: true, telegram: false } as const)[keep]) followLinkedAccount(scene, sheet);
           }),
       });
     });

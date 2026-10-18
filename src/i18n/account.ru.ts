@@ -314,7 +314,6 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'name.mod.rules': 'Правила имён',
   'account.rename': 'Сменить',
   // V6-LINK-07: удаление аккаунта (§10.2)
-  'account.delete': 'Удалить аккаунт',
   'delete.title': 'Удаление аккаунта',
   'delete.lead': 'Удаление {name} происходит сразу, отменить его нельзя.',
   'delete.goneHead': 'Удаляется',
@@ -334,7 +333,6 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'delete.altTg': 'Хотите только перестать играть в Telegram? Отвяжите его и продолжайте в браузере.',
   'delete.altEmailBtn': 'Отвязать почту',
   'delete.altTgBtn': 'Отвязать Telegram',
-  'delete.continue': 'Продолжить',
   'delete.typeLabel': 'Введите {word} для подтверждения.',
   'delete.typeField': 'Подтверждение',
   'delete.typeMismatch': 'Введите {word}, чтобы продолжить.',
@@ -344,7 +342,6 @@ export const ACCOUNT_RU: Record<keyof typeof ACCOUNT_EN, Entry> = {
   'delete.doneEmail': 'Мы отправили подтверждение на вашу почту.',
   'delete.doneTg': 'Если снова открыть Pixelarrow, начнётся новый пустой аккаунт.',
   'delete.startOver': 'Начать заново',
-  'delete.close': 'Закрыть',
   'delete.busy': 'Вы сейчас в бою, очереди или схватке с боссом. Закончите и попробуйте снова.',
   'delete.failed': 'Не удалось удалить аккаунт. Ничего не изменилось.',
   // V6-LINK-07 (из LINK-06): Mini App переходит на аккаунт, привязку которого подтвердили в браузере

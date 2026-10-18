@@ -98,7 +98,7 @@ export function liveAccountSource(d: AccountDeps = accountDeps()): AccountSource
  * (V6-LINK-05) a Telegram-only account with no email, and the same with an add-email link waiting.
  */
 export function demoAccountSource(kind: 'live' | 'guest' | 'pending' | 'telegram' | 'waiting' | 'renamed' = 'live'): AccountSource {
-  const tgOnly = kind === 'telegram' || kind === 'waiting';
+  const tgOnly = (['telegram', 'waiting'] as const).some((k) => k === kind);
   const now = Date.now();
   let boards = true;
   let sessions: SessionInfo[] = [
@@ -384,7 +384,7 @@ export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onC
     }
     yy = privacy(into, yy);
     // AU-19, the last row (§10.1): a danger button; the steps say what is lost before anything happens
-    finish(wide(into, yy + 2, t('account.delete'), 'destructive', 'account.delete', () => openDeleteAccount(scene, d, { account: a, onReload: reopen })));
+    finish(wide(into, yy + 2, t('delete.title'), 'destructive', 'account.delete', () => openDeleteAccount(scene, d, { account: a, onReload: reopen })));
   };
 
   const load = async (): Promise<void> => {

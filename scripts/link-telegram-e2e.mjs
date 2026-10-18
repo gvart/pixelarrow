@@ -11,7 +11,8 @@
 // Flows:
 // A. No conflict: the web's Link (QR on a mouse device, the deep link) → the Mini App's request names the
 //    web account (masked email) → Link → the web turns to "Is this you?" within a poll → Confirm → linked;
-//    the empty Telegram-side player is removed; one player with both identities. Keyboard only on the web.
+//    the Telegram-side player, with only its day-1 cloud save (V6-LINK-07), is removed; the open Mini App
+//    switches to the web account by itself with a toast; one player with both identities. Keyboard only on the web.
 // B. A conflict where both sides choose the same account → resolved (the web waits, 202, until the Mini
 //    App, from a newer launch, chooses the same; typed names on both sides).
 // C. Different choices → nothing changes (the Mini App reads choices_differ, the web "chose differently").
@@ -112,14 +113,13 @@ function helpers(p, tag) {
       await until(() => ev(() => !!window.__game?.scene.isActive('Menu')), 60000, 250);
       await p.waitForTimeout(800);
     },
-    /** The account has a cloud save (progress): the game's own upload, or this one. */
+    /** The account has a cloud save with progress past day 1 (a won battle; V6-LINK-07's day1Only), on top of the game's own upload. */
     async progress() {
       return ev(async () => {
         for (let i = 0; i < 3; i++) {
           const r = await window.__online.api.getSave();
-          if (r.revision > 0) return r.revision;
           try {
-            return (await window.__online.api.putSave(r.revision, window.__state.campaign.sync())).revision;
+            return (await window.__online.api.putSave(r.revision, { ...window.__state.campaign.sync(), won: 3, fought: 3, seq: 1000 + i })).revision;
           } catch {
             /* the game uploaded meanwhile: look again */
           }
@@ -127,6 +127,8 @@ function helpers(p, tag) {
         return 0;
       });
     },
+    /** The cloud save as the server holds it (null without one). */
+    cloud: () => ev(async () => (await window.__online.api.getSave()).data ?? null),
     shot: async (name) => {
       if (!SHOTS || shots >= 10) return;
       shots++;
@@ -256,13 +258,23 @@ const alive = (pid) => d1(`SELECT deleted_at FROM players WHERE id = ${pid}`)[0]
   const dt = Date.now() - t0;
   check(`A: once the Mini App completed, the web turns to "Is this you?" within 3 s (${dt} ms; a 3 s poll), naming @username`, dt <= 3000 && (await w.W.text()).includes(`@${tg.user.username.toLowerCase()}`), String(dt));
   await w.W.shot('02-web-link-confirm');
-  // a Telegram account with nothing at all (the game uploads a day-1 campaign on its first launch: remove it)
-  d1(`DELETE FROM saves WHERE player_id = ${tg.id}`);
+  // V6-LINK-07: the Mini App uploaded its day-1 campaign on its first launch; that alone counts as empty
+  const day1 = await until(async () => {
+    const r = d1(`SELECT json_extract(data, '$.won') AS won, json_extract(data, '$.fought') AS fought, json_extract(data, '$.world.time') AS hours FROM saves WHERE player_id = ${tg.id}`)[0];
+    return r && r.won === 0 && r.fought === 0 && r.hours < 24 ? r : null;
+  }, 15000, 500);
+  check('A: the Telegram side has its own day-1 cloud save (kept, not deleted by the script)', !!day1, JSON.stringify(day1));
   await confirmOnWeb(w, { keyboard: true });
   await until(() => w.W.text().then((x) => x.includes('telegram linked')), 15000);
   check('A: linked; the empty Telegram-side account was removed (the note says so)', (await w.W.text()).includes('empty pixelarrow account'), (await w.W.text()).slice(-400));
   check('A: one player with both identities', identities(w.id) === 'password,telegram', identities(w.id));
-  check('A: the empty Telegram-side player is being deleted', !alive(tg.id));
+  check('A: the day-1-only Telegram-side player is being deleted, and its save with it', !alive(tg.id) && d1(`SELECT COUNT(*) AS n FROM saves WHERE player_id = ${tg.id}`)[0]?.n === 0);
+  // the Mini App, still open on "Almost done", follows by itself: the web account, and the toast
+  const switched = await until(() => tg.T.ev((id) => window.__online.playerId === id, w.id), 20000, 250);
+  check('A: the open Mini App switches to the web account by itself (no relaunch)', switched, String(await tg.T.ev(() => window.__online.playerId)));
+  const toastSeen = await until(() => tg.T.text().then((x) => x.includes(`you now play as ${w.name.toLowerCase()} here too`)), 10000, 150);
+  check('A: … and says so (account.link.switched)', toastSeen, (await tg.T.text()).slice(0, 300));
+  await tg.T.shot('02b-tg-switched');
   await tg.launch();
   check('A: Telegram now signs in to the web account', (await tg.T.me()).id === w.id);
   await w.p.keyboard.press('Escape');
@@ -319,9 +331,9 @@ async function webChoose(w, keep, loser, { keyboard = false } = {}) {
   await until(() => w.W.text().then((x) => x.includes('choose the same account')), 15000);
 }
 
-/** The Mini App, from a newer launch (the bot's button: startapp=settings), finds the conflict and picks `keep`. */
+/** The Mini App, from a newer launch (the bot's button: startapp=account, V6-LINK-07), finds the conflict and picks `keep`. */
 async function telegramChoose(tg, keep, loser) {
-  await tg.launch('settings');
+  await tg.launch('account');
   await until(() => tg.T.has(`conflict.tg.card.${keep}`), 15000, 250);
   await tg.T.tap(`conflict.tg.card.${keep}`);
   await tg.T.tap('conflict.tg.go');
@@ -418,7 +430,7 @@ async function telegramChoose(tg, keep, loser) {
   }, [d1(`SELECT id FROM link_conflicts WHERE player_id = ${atk.id}`)[0]?.id, vic.name]);
   check("F: the attacker can't resolve alone: 202 waiting_telegram again; the victim's account is intact", again === 202 && alive(vic.id) && identities(vic.id) === 'telegram', String(again));
   // the bot asks the victim; the Mini App shows who asks and what would be deleted
-  await vic.launch('settings');
+  await vic.launch('account');
   await until(() => vic.T.has('conflict.tg.card.web'), 15000, 250);
   const shown = await vic.T.text();
   const masked = atk.email.replace(/^(.).*@(.).*(\.[a-z]+)$/, '$1***@$2***$3');

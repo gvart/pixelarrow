@@ -85,7 +85,7 @@ export function openDeleteAccount(scene: UiScene, d: AccountDeps, o: DeleteOpts)
     b.gap(4);
     b.pair(
       { label: t('common.cancel'), id: 'delete.cancel', variant: 'secondary', onClick: () => sheet.close() },
-      { label: t('delete.continue'), id: 'delete.continue', variant: 'destructive', onClick: () => void confirmStep() },
+      { label: t('menu.continue'), id: 'delete.continue', variant: 'destructive', onClick: () => void confirmStep() },
     );
   });
 
@@ -134,6 +134,6 @@ export function openDeleteResult(scene: UiScene, o: { hadEmail: boolean; telegra
     if (o.hadEmail) b.text(t('delete.doneEmail'));
     if (o.telegram) b.text(t('delete.doneTg'));
     b.gap(4);
-    b.button({ label: t(o.telegram ? 'delete.close' : 'delete.startOver'), id: 'delete.startOver', variant: 'primary', onClick: () => (sheet.close(), done()) });
+    b.button({ label: t(o.telegram ? 'common.close' : 'delete.startOver'), id: 'delete.startOver', variant: 'primary', onClick: () => (sheet.close(), done()) });
   });
 }

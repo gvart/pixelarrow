@@ -327,7 +327,6 @@ export const ACCOUNT_EN = {
   'name.mod.rules': 'Naming rules',
   'account.rename': 'Rename',
   // V6-LINK-07: account deletion (§10.2)
-  'account.delete': 'Delete account',
   'delete.title': 'Delete account',
   'delete.lead': "Deleting {name} is immediate and can't be undone.",
   'delete.goneHead': 'Deleted',
@@ -347,7 +346,6 @@ export const ACCOUNT_EN = {
   'delete.altTg': 'Only want to stop using Telegram? Unlink it instead and keep playing on the web.',
   'delete.altEmailBtn': 'Remove email',
   'delete.altTgBtn': 'Unlink Telegram',
-  'delete.continue': 'Continue',
   'delete.typeLabel': 'Type {word} to confirm.',
   'delete.typeField': 'Confirmation',
   'delete.typeMismatch': 'Type {word} to continue.',
@@ -357,7 +355,6 @@ export const ACCOUNT_EN = {
   'delete.doneEmail': 'We sent a confirmation to your email.',
   'delete.doneTg': 'Opening Pixelarrow again starts a new, empty account.',
   'delete.startOver': 'Start over',
-  'delete.close': 'Close',
   'delete.busy': "You're in a live match, queue or boss attempt. Finish it, then try again.",
   'delete.failed': "We couldn't delete the account. Nothing was changed.",
   // V6-LINK-07 (from LINK-06): the Mini App follows the link the web confirmed
