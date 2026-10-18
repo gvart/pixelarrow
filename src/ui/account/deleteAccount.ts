@@ -64,7 +64,7 @@ export function openDeleteAccount(scene: UiScene, d: AccountDeps, o: DeleteOpts)
     for (const k of KEPT) b.text(`• ${t(k, { years: PURCHASE_RETENTION_YEARS })}`, 'pInk', 6.5);
     if (a.hasPurchases) {
       b.gap(2);
-      b.text(`⚠ ${t('delete.paid')}`, 'pBad');
+      b.text(t('delete.paid'), 'pBad', 8);
       b.button({ label: t('delete.refunds'), id: 'delete.refunds', variant: 'neutral', onClick: () => platform.share.openExternal(legalUrl('refunds', lang())) });
     }
     if (alt) {
