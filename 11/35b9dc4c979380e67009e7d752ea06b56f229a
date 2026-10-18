@@ -1,0 +1,42 @@
+sandbox.html
+  s_cfc22b058125c4::t_db334c3e0429bd 1-11
+src/war/view/worker.ts
+  s_cfc22b058125c4::t_3d9d46d62e6ada 1-55
+src/war/view/main.ts
+  s_cfc22b058125c4::t_ac92502d419413 19-31
+  s_cfc22b058125c4::t_a87166159b4024 1-18,32
+vite.config.ts
+  s_cfc22b058125c4::t_f4196e1f644325 44
+src/war/view/terrain.ts
+  s_cfc22b058125c4::t_330bf6b0bdf4ca 1-86
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_2d6948c805b58d 252
+  s_cfc22b058125c4::t_ebdb317a7f9246 29,145,203
+  s_cfc22b058125c4::t_5b559f44cac265 212-217
+  s_cfc22b058125c4::t_3773064d2ec7d1 209-211
+  s_cfc22b058125c4::t_6dc981490290e5 77
+  s_cfc22b058125c4::t_de70492dc2368b 1-28,31-76,78-144,146-202,204-208,218-251,253-261
+  s_cfc22b058125c4::t_d817f5963f97fb 30
+src/war/view/simClient.ts
+  s_cfc22b058125c4::t_e8510978fa3e01 12,21,54
+  s_cfc22b058125c4::t_5e07f14bb5e406 1-11,13-20,22-53,55-60
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_b9e423b36b3248 58-59
+  s_cfc22b058125c4::t_9c36990cd3fb9e 1-57,60-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1135b9dc4c979380e67009e7d752ea06b56f229a",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
