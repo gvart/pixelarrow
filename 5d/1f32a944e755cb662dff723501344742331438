@@ -1,0 +1,76 @@
+docs/v5/pixellab/I5a/royal_guard/class.json
+  s_41b82181a73565::t_a5932e1d344603 33
+  s_41b82181a73565::t_922f4872aed6cf 42
+  s_41b82181a73565::t_83a3b223de4a97 3
+  s_41b82181a73565::t_3f03fffefe0e01 5-6,10-26,28-32,35,37-41,43-54
+  s_41b82181a73565::t_64c479eee70582 4
+  s_41b82181a73565::t_de1eb1316af63a 7
+  s_41b82181a73565::t_e2f228ae4d20c1 27,34,36
+  s_41b82181a73565::t_0b2a22c79f0cde 1-2,8-9,55-56
+src/assets/sheets/royal_guard/manifest.json
+  s_41b82181a73565::t_64c479eee70582 137,208-210,221-223
+  s_41b82181a73565::t_83a3b223de4a97 162
+  s_41b82181a73565::t_2a4aa824d4500b 1-132,134-136,138-143,145-160,163-207,211-220,224-232
+  s_41b82181a73565::t_83c56d66923f34 133,144,161
+docs/v5/pixellab/I5a/royal_guard/royal_guard.sheet.json
+  s_41b82181a73565::t_2b8b6847d795eb 1-17,20-23,25-323,330-331,351,353-354,357,359-360,362-363,365-366,369,371-372,380,385-391,393,402-403,407-409,431-433,437-438,450-455,459-462,481-484,488-490,494-495,505-589
+  s_41b82181a73565::t_922f4872aed6cf 355-356,358,367-368,370,441-449,463-471
+  s_41b82181a73565::t_83c56d66923f34 324-329,332-350,352,361,364,373-379,381-384,392,394-401,404-406,410-430,434-436,439-440,456-458,472-480,485-487,491-493,496-504
+  s_41b82181a73565::t_de1eb1316af63a 24
+  s_41b82181a73565::t_64c479eee70582 18-19
+scripts/art/pixellab/i5a/spec.mjs
+  s_41b82181a73565::t_4633bc66eaefcd 42
+  s_41b82181a73565::t_fa832598378b4a 24-26,28-29
+  s_41b82181a73565::t_4b5a494b0173da 27
+  s_41b82181a73565::t_dece2213ea3c9a 1-23,30-41,43-49
+docs/v5/pixellab/I5a/royal_guard/jobs.json
+  s_41b82181a73565::t_2e59799318c861 1-73
+scripts/art/pixellab/i5a/battle.mjs
+  s_41b82181a73565::t_f2bfa4b7908e7c 15
+  s_41b82181a73565::t_d81b5c06dd1d15 32
+  s_41b82181a73565::t_cad300649bddc2 56-57
+  s_41b82181a73565::t_a66322466e3c29 1-14,16-31,33-42,44-45,55,58-60
+  s_41b82181a73565::t_8da32c3876874c 43,46-54
+docs/playbook/PROMPTS_ART.md
+  s_41b82181a73565::t_8da4b9511269b2 1037-1096
+scripts/art/pixellab/i5a/insertlog.mjs
+  s_41b82181a73565::t_62d38be5147ef4 1-31
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_17455697ca7665 11-87
+scripts/art/pixellab/i5a/feet.mjs
+  s_41b82181a73565::t_a4048db0f43657 1-16
+scripts/art/pixellab/i5a/guard.mjs
+  s_0d98fe904b2e82::t_35e20d3596b264 1-138
+scripts/art/pixellab/i5a/job.mjs
+  s_41b82181a73565::t_e2e6d1e27299df 1-17
+scripts/art/pixellab/i5a/partsview.mjs
+  s_0d98fe904b2e82::t_65d8a721c45dfb 1-33
+scripts/art/pixellab/i5a/prep.mjs
+  s_41b82181a73565::t_7c4177479a4230 1-57
+scripts/art/pixellab/i5a/prompts.mjs
+  s_0d98fe904b2e82::t_848d0fb38246c6 1-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5d1f32a944e755cb662dff723501344742331438",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    },
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
