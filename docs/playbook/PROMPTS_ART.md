@@ -2,7 +2,7 @@
 
 The reusable image prompts of v5 and v6 and the prompts behind shipped art, in compact form: one template per
 family plus a table of what changed per asset. Gemini makes the painted art (§1–§12), PixelLab the soldier sprites
-(§13–§20). How to run a job: [ART.md](ART.md). Rejected attempts are kept only where the lesson needs them. Where a
+(§13–§20); the global war world prototypes are §21. How to run a job: [ART.md](ART.md). Rejected attempts are kept only where the lesson needs them. Where a
 log kept only a short form of a prompt, the short form is quoted; nothing here is reconstructed.
 
 Word-for-word sources still in the repo: `docs/v5/art/STYLE_LOCK.md` (the PixelLab style block),
@@ -761,3 +761,59 @@ Every job word for word, with its first frame: `docs/v5/pixellab/I5b/polish.prom
 an image ("a hook like a beak" drew a shepherd's crook). From behind, "left / right" alone is ambiguous: add "on the
 viewer's left / right". "Onto the enemy's head" can make the model draw the enemy. A back-facing (NE) melee blow with a
 short weapon still turns him to the camera; two re-runs did not fix it.
+
+---
+
+## 21. Global war world (ART-1)
+
+Design prototypes for [docs/WAR.md](../WAR.md) § World, not assets. Raw renders: `shots/war/gemini/<job>/`
+(git-ignored). Gemini 3.1 Pro, typed prompts; one chat for the world map, one chat for the four region maps so they
+share a style. **Downloads failed this run:** "Download full size" fetched the file but nothing reached `~/Downloads`
+(not even an `<a download>` of the blob), so each render was saved as its 1024x1024 in-page preview: shown 1:1 in a
+fixed overlay, captured in 512 px tiles, stitched with `ffmpeg … hstack/vstack`. Regenerate at full size once
+downloads work.
+
+**World map, first prompt** (`worldmap/ART1_worldmap_1.png`: rejected, about 15 regions, no home tints, no visible pass):
+
+```
+Create an image. ROLE: a design prototype of the strategic world map for a dark, epic ancient-Mediterranean war strategy game, seen straight from above like a satellite view painted by hand. ASPECT: square 1:1, highest resolution available. STYLE: top-down hand-painted terrain map, dark muted epic palette (weathered bronze, umber, olive, slate blue sea, dark crimson accents), soft painted relief shading with light from the upper left so mountains and cliffs read as raised; everything organic and natural: irregular coastlines, meandering rivers with tributaries, mountain chains with foothills; no grid, no hexes, no geometric shapes, no straight lines except borders that follow terrain. GEOGRAPHY (one continent filling most of the square, dark sea all around): (1) CENTRE: a high flat-topped mesa plateau with sheer cliff edges, a small round crater lake on top and the ruins of a small temple city beside it; four ramps lead down from it, to the north, east, south and west. (2) NORTH: a jagged snowy mountain chain runs from the plateau straight north to the north coast, ending in glaciers at a cape; it has exactly one narrow pass in its middle. (3) SOUTH: one big river rises on the plateau, drops through a gorge with a waterfall, flows south across the land (with one long island in its widest part) and ends in a wide marshy delta at the south coast. (4) WEST: a smaller river flows west from a dense dark forest below the plateau into a big reed-fringed lake, then on to an estuary with sea stacks on the west coast. (5) EAST: a sand dune sea and a maze of red rock canyons with mesas east of the plateau, reaching white salt flats on the east coast. (6) NORTH-WEST quadrant: cold pine and oak forested hills, a lake valley, fjords on the coast; one small walled town in the middle. (7) NORTH-EAST quadrant: open green-gold grass steppe with small round burial mounds, chalk cliffs on the coast; one small walled town in the middle. (8) SOUTH-EAST quadrant: desert edge with a green palm oasis on a river terrace, red cliffs, lagoons and dunes on the coast; one small walled town in the middle. (9) SOUTH-WEST quadrant: terraced olive hills round a sheltered bay, rocky coves and a cape; one small walled town on the bay. REGION BORDERS: the land is divided into about 37 regions of different, irregular, organic shapes by thin pale dotted lines that follow ridges, rivers and coasts; the four home regions with the walled towns have their border line tinted in a faint colour each (north-west dark green, north-east bronze-gold, south-east terracotta, south-west deep blue); every other border line is pale cream. Nothing else: no text, no labels, no letters, no numbers, no legend, no compass rose, no icons, no units, no armies, no animals, no ships, no roads, no extra towns or villages, no frame or border around the image, no UI; nothing else.
+```
+
+**World map, same-chat fix** (`worldmap/ART1_worldmap_2.png`: kept):
+
+```
+Create a NEW image with the same prompt, but fix three things: (1) REGION BORDERS: the land must be cut into many more regions, about 37 in total, each roughly the same size (like the provinces of a strategy board game but with organic shapes); draw every border as a clearly visible pale cream dashed line, thicker than now, following ridges, rivers and coasts; there are no other lines on the map (no roads, no paths radiating from the towns); (2) the four home regions around the four walled towns must each be filled with a faint transparent colour wash inside their border: north-west dark green, north-east bronze-gold, south-east terracotta, south-west deep blue; (3) the snowy mountain chain in the north must show one clearly visible narrow pass (a thin gorge cutting across the chain from west to east) halfway between the plateau and the north coast. Keep everything else from the first prompt: the same geography, style, palette and the same list of what must not appear; nothing else.
+```
+
+**Region map block R** (the body of every region prompt, word for word; `{…}` is the per-region part in the table):
+
+```
+ROLE: a design prototype of one detailed region map for a dark, epic ancient-Mediterranean real-time war strategy game; armies of tiny soldiers will later move across it. ASPECT: square 1:1, highest resolution available. VIEW: strictly top-down (straight down, no perspective, no horizon, no sky). STYLE: detailed top-down pixel-art game terrain, dark muted epic palette (weathered bronze, umber, olive, slate, dark crimson accents), no pure black or white, soft relief shading with light from the upper left so height reads clearly: higher ground lighter, cliffs drawn as dark rock faces on their lower-right side; everything organic and natural: irregular shorelines, meandering water, ridges with foothills; no grid, no hexes, no tiles visible, no geometric shapes. The map fills the whole square edge to edge. REGION: {REGION}. ELEMENTS (only these): {ELEMENTS}. Nothing else: no text, no labels, no letters, no numbers, no icons, no soldiers, no people, no animals, no monsters, no carts, no ships, no flags, no frame or border around the image, no UI, no compass, no legend; nothing else.
+```
+
+Openings: the first region `Create an image.`; the entry and pass `Create a NEW image, not an edit of the previous one.
+Match the previous image exactly in style, palette, pixel density, lighting and top-down view; change only the
+region.`; the river `Create a NEW image, not an edit of the previous one. Match the Ladon Oakwood map exactly in
+style, palette, pixel density, lighting and strictly top-down view (looking straight down, no sky, no horizon); change
+only the region.`
+
+| Job / file | REGION | ELEMENTS | Verdict |
+| --- | --- | --- | --- |
+| region-home / `ART1_elaia_1.png` | `Elaia, the south-west home region of one alliance: terraced olive hills round a sheltered bay` | `(1) a sheltered bay of dark blue sea in the lower-left third, with a pale sand beach along its inner shore; (2) a rocky headland on the bay's west side rising high above the sea with cliffs, and on its top a small walled citadel with stone walls and a few tiled roofs; (3) a small walled town of tiled-roof houses and one temple on the bay shore below the headland, with a small stone harbour mole; (4) the rest of the land: rising hills stepped into many curving olive terraces that follow the contour lines, olive trees in rows on the terraces, a few dark cypress trees; (5) one shallow stream winding from the hills in the upper right down to the bay; (6) one dirt road from the town that forks and leaves the map at four points: the top edge, the right edge, the bottom edge east of the bay, and the left edge north of the headland; (7) a few grey rock outcrops on the highest hilltop in the upper right` | kept, first try; sea runs down the whole left edge, the road leaves only at the top, right and bottom |
+| region-entry / `ART1_ladon-oakwood_1.png` | `Ladon Oakwood, a big neutral entry region in front of a home: an old oak forest along a shallow river` | `(1) dense dark old oak forest covering about half of the map in irregular organic patches, with clearings of grass between them; (2) one shallow clear river winding from the top edge down to the bottom edge in wide meanders, with gravel banks; two fords where it is visibly shallow and wide with pebbles; (3) one forested hill clearly higher than the rest in the upper-left quarter, with a rocky top; (4) low wooded banks along the river; (5) one wide dirt road crossing the map from the left edge to the right edge through both fords, with a broad band of open grass about four times the road's width on both sides of it, kept free of trees; (6) a few fallen logs and mossy boulders in the forest` | kept, first try; one ford instead of two, the open no-build band is narrow |
+| region-pass / `ART1_kleisoura_1_rejected.png` | `Kleisoura Pass, the only gap through a chain of impassable snowy mountains` | `(1) huge jagged grey mountains with snow on their peaks filling the top third and the bottom third of the map, clearly impassable, with sheer cliffs; (2) between them a narrow rocky gorge running from the left edge to the right edge; at its narrowest point in the left half the gorge floor is only a thin strip between two vertical cliff walls; (3) in the right half the gorge widens and a dirt road climbs in switchbacks up to a high saddle; (4) on the saddle the ruins of a small square stone fort with broken walls; (5) along both gorge walls, a few narrow rock ledges above the gorge floor, reachable by short side paths; (6) one small fast mountain stream along the gorge floor with patches of scree and boulders; (7) a few twisted pine trees on the ledges and on the saddle` | rejected: the top half is a side view of peaks against a sky |
+| region-pass / `ART1_kleisoura_2.png` | same-chat fix, below | — | kept: the bottom range is truly top-down; the top range stays oblique, with a sliver of sky in the top-left corner |
+| region-river / `ART1_achelous-ford_1.png` | `Achelous Ford, a neutral river region where a great river is at its widest, with a marshy floodplain` | `(1) one very wide, deep, dark-blue river flowing from the top edge to the bottom edge in a gentle curve, filling about a third of the map; (2) a long narrow island in the middle of the river with grass and a few willow trees; (3) one ford: a band of visibly shallow, light-coloured water with sandbars crossing from the left bank to the island and from the island to the right bank, in the upper half; (4) one ruined stone bridge in the lower half with a broken gap in its middle span; (5) on both banks a reed marsh floodplain with small pools, reed beds and muddy channels; (6) beyond the marsh, firm grass land along the left and right edges with a few trees; (7) one dirt road reaching the river from the left edge and from the right edge at the ford and at the ruined bridge` | kept, first try; the ford crosses bank to bank above the island instead of through it; captured at device-pixel ratio 1.5 and scaled back to 1024 |
+
+Pass fix (same chat):
+
+```
+Create a NEW image with the same prompt, but fix the view: the top half was drawn as a side view of mountains with sky. Draw the whole map strictly from directly overhead like the Ladon Oakwood map before it: we look straight down on the mountain tops, so the peaks are seen from above as snowy ridgelines with shaded slopes falling away on both sides, never as triangles against a sky; no sky, no horizon anywhere. Keep everything else from the first prompt: the gorge running from the left edge to the right edge between mountains filling the top and bottom thirds, its narrowest point in the left half, the switchback road up to the saddle with the ruined square fort in the right half, the ledges, the stream, the scree and the few pines, the same style and palette, and the same list of what must not appear; nothing else.
+```
+
+**Lessons:** ask for the region count *and* "roughly the same size, like the provinces of a strategy board game" and
+"no other lines": the first render had about 15 regions and roads radiating from the towns. Gemini washes a whole
+quadrant (the home plus its entries) rather than one region, so ownership colour belongs in code. Mountains drift to a
+side view (peaks against a sky) even with "strictly top-down"; "seen from above as ridgelines, never triangles against
+a sky" fixes the near range, the far range stays oblique. Counts of small features (two fords) and wide clear bands
+are not held.
