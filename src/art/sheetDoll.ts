@@ -191,14 +191,15 @@ export function pixSource(p: Pix): SheetPixels {
 
 // ================================================================ which sheet a figure shows
 
-/** The tier (recolour) a figure's gear calls for (TIER_RULE over its item defs' tiers). */
+/** The tier (recolour) a figure shows: its forced `sheetTier`, else what its gear calls for (TIER_RULE over its item defs' tiers, against its class). */
 export function tierOfDoll(d: DollSpec): SheetTier {
+  if (d.sheetTier) return d.sheetTier;
   const tiers: number[] = [];
   for (const s of TIER_RULE.slots) {
     const def = d.gear?.[s]?.def;
     if (def && ITEMS[def]) tiers.push(itemDef(def).tier);
   }
-  return gearTier(tiers);
+  return gearTier(d.cls ?? '', tiers);
 }
 
 const rankOf = (r?: number) => Math.max(0, Math.min(4, r ?? 1));

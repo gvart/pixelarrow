@@ -144,10 +144,20 @@ chariot drives on.
 
 The colour map of a figure is built once per key and cached:
 
-1. **Tier** (V5-088): `TIER_RULE` takes the mean item tier (`ItemDef.tier`,
-   1..3) of the worn weapon, shield, helmet and armour, leaving empty slots out.
-   Below 1.75 is basic, below 2.5 veteran, otherwise elite. Each group then
-   takes its tier ramp, or keeps its own colours.
+1. **Tier** (V5-088, revised): the gear score is the summed item tier
+   (`ItemDef.tier`, 1..3) of the worn weapon, shield, helmet and armour,
+   divided by the number of those slots the class may fill (`CLASS_GEAR`), an
+   empty slot counting 0. Each class has its own band (`TIER_BANDS`, worked
+   out once at load from its kit in `src/data/classes.ts`): the score range
+   of its three kit tiers, split in thirds, so basic is the bottom third,
+   veteran the middle, elite the top. A class whose kit never varies (the
+   royal guard) splits the range of everything it may equip instead. A fixed
+   1.75 / 2.5 cut left most classes' own kits unable to reach elite (the
+   thessalian's best kit averages 2.0, the rhomphaia's 2.33), and leaving
+   empty slots out made a bow-only levy archer outrank a fully kitted one.
+   Rarity still never moves the tier. Each group then takes its tier ramp,
+   or keeps its own colours. A `DollSpec.sheetTier` forces the tier (the sheet
+   preview uses it to show all three).
 2. **Skin** (V5-095): the man's `Look.skin` (0..3, already seeded at
    recruitment) picks one of `SKIN_TONES`. The sheet's skin ramp is drawn as
    tone 1 (olive); 0 is paler, 2 browner, 3 deep brown. Off with

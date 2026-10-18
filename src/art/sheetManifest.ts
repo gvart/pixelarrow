@@ -8,6 +8,9 @@
  * are animation frames). Its veteran and elite tiers are recolours of named
  * colour groups (cloak, crest, trim...) of that image, done at runtime.
  */
+import { CLASSES, type ClassId } from '../data/classes';
+import { CLASS_GEAR, classGearBlocker } from '../data/gearRules';
+import { ITEMS } from '../data/items';
 
 // ================================================================ animations
 
@@ -421,17 +424,66 @@ export function facingRows(m: SheetManifest): number[] {
 // ================================================================ gear tier
 
 /**
- * Which of the three tiers (recolours) a man shows, from what he wears: the mean
- * item tier (src/data/items.ts ItemDef.tier, 1..3) of his weapon, shield,
- * helmet and armour (empty slots are left out). Rarity does not move the
- * tier: it is the metal's palette swap.
+ * Which of the three tiers (recolours) a man shows, from what he wears, judged
+ * against his own class. His gear score is the summed item tier
+ * (src/data/items.ts ItemDef.tier, 1..3) of his weapon, shield, helmet and
+ * armour over the slots his class may fill (src/data/gearRules.ts CLASS_GEAR),
+ * an empty slot counting 0, so more or better gear never lowers the look.
+ * The class's band is the score range of its kit (src/data/classes.ts, all
+ * three kit tiers): basic is its bottom third, veteran the middle, elite the
+ * top. A kit that never varies (royal guard) takes the range of everything
+ * the class may equip instead. Rarity does not move the tier: it is the
+ * metal's palette swap.
  */
-export const TIER_RULE = { slots: ['weapon', 'shield', 'helmet', 'armor'] as const, veteranFrom: 1.75, eliteFrom: 2.5 };
+export const TIER_RULE = { slots: ['weapon', 'shield', 'helmet', 'armor'] as const };
 
-export function gearTier(itemTiers: readonly number[]): SheetTier {
-  if (!itemTiers.length) return 'basic';
-  const mean = itemTiers.reduce((a, b) => a + b, 0) / itemTiers.length;
-  return mean >= TIER_RULE.eliteFrom ? 'elite' : mean >= TIER_RULE.veteranFrom ? 'veteran' : 'basic';
+export interface TierBand {
+  /** Slots the class may fill: the score's divisor. */
+  slots: number;
+  /** Score range the thirds split. */
+  lo: number;
+  hi: number;
+  veteranFrom: number;
+  eliteFrom: number;
+}
+
+const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
+
+function tierBand(cls: string): TierBand | null {
+  const c = CLASSES[cls as ClassId];
+  if (!c || !CLASS_GEAR[cls]) return null;
+  const defs = Object.values(ITEMS);
+  const slots = TIER_RULE.slots.filter((s) => defs.some((d) => d.slot === s && classGearBlocker(cls, d) === null));
+  const n = slots.length;
+  const tierOf = (id: string) => (id && ITEMS[id] ? ITEMS[id].tier : 0);
+  const kitSums = [0, 1, 2].flatMap((t) => {
+    const opts = slots.map((s) => (c.kit[s]?.[t]?.length ? c.kit[s]![t].map(tierOf) : [0]));
+    return [sum(opts.map((o) => Math.min(...o))), sum(opts.map((o) => Math.max(...o)))];
+  });
+  let lo = Math.min(...kitSums) / n;
+  let hi = Math.max(...kitSums) / n;
+  if (hi - lo < 1 / n) {
+    const equip = slots.map((s) => defs.filter((d) => d.slot === s && classGearBlocker(cls, d) === null).map((d) => d.tier));
+    lo = sum(equip.map((e) => Math.min(...e))) / n;
+    hi = sum(equip.map((e) => Math.max(...e))) / n;
+  }
+  return { slots: n, lo, hi, veteranFrom: lo + (hi - lo) / 3, eliteFrom: lo + (2 * (hi - lo)) / 3 };
+}
+
+/** Per class (every class with gear), its tier band, worked out once from the data. */
+export const TIER_BANDS: Readonly<Record<string, TierBand>> = Object.fromEntries(
+  Object.keys(CLASS_GEAR).flatMap((c) => {
+    const b = tierBand(c);
+    return b ? [[c, b]] : [];
+  }),
+);
+
+/** The tier of a man of class `cls` wearing items of these tiers (one per filled TIER_RULE slot). A class without gear is basic. */
+export function gearTier(cls: string, itemTiers: readonly number[]): SheetTier {
+  const b = TIER_BANDS[cls];
+  if (!b) return 'basic';
+  const score = sum(itemTiers) / b.slots + 1e-9;
+  return score >= b.eliteFrom ? 'elite' : score >= b.veteranFrom ? 'veteran' : 'basic';
 }
 
 // ================================================================ rarity palette swap
