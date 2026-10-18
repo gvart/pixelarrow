@@ -184,3 +184,18 @@ Then `node scripts/art/pixellab/qc.mjs src/assets/sheets/<class>/manifest.json -
 (palette legal, groups exclusive and used, tier ramps sized, stature 58 ± 3 on the idle frames, feet on the anchor,
 nothing clipped, the spear-end heuristic; it writes `<class>_contact.png` and `<class>_lineup.png` beside H4 and E3)
 and `sheetgifs.mjs` for GIFs at real fps. Log every rejected frame with the reason.
+
+## 8. Cost per class (measured on the hoplite)
+
+| item | generations |
+| --- | --- |
+| base: pro 68 with H4 style (+ a second pro call when step B is needed), v3 import if normalised | 10–20 |
+| 7 clips on the 68 canvas x 4 facings (pixminimax 1) | 28 |
+| 7 clips on 128 canvases x 4 (pixminimax 2) | 56 |
+| cheer on 96 x 112 x 4 (pixminimax 1) | 4 |
+| thrust x 4 (skeleton-v3 3) | 12 |
+| redos (about 1 clip-direction in 6) | ~20 |
+| **total, quoted** | **~130–140** |
+
+Billing ran about 12 % over the quotes: plan **~150 per foot class**, ~2,500 for the other 17. Tiers cost nothing
+(runtime recolours). Riders and chariots need bigger canvases: expect pixminimax 2 for every clip and more redos.
