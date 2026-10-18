@@ -342,15 +342,17 @@ function sheetPortrait(d: DollSpec, frame: number, res: number, box: number): Pi
   return out;
 }
 
-/** Head and shoulders: a square from just above the figure's top, 45% of its height, centred on the anchor. */
+/**
+ * Head and shoulders: a square from just above the head, 40% of the figure's
+ * height, centred on the anchor. The head is the highest pixel within 2 px of
+ * the anchor's column, so a spear held at the side or a banner does not count.
+ */
 function autoCrop(art: Pix, m: SheetManifest): { x: number; y: number; size: number } {
-  let y0 = -1;
-  let y1 = -1;
-  for (let y = 0; y < art.h && y0 < 0; y++) for (let x = 0; x < art.w; x++) if (art.alpha(x, y) > 0) y0 = y;
-  for (let y = art.h - 1; y >= 0 && y1 < 0; y--) for (let x = 0; x < art.w; x++) if (art.alpha(x, y) > 0) y1 = y;
-  if (y0 < 0) return { x: 0, y: 0, size: Math.min(art.w, art.h) };
-  const size = Math.max(4, Math.round((y1 - y0 + 1) * 0.45));
-  return { x: m.anchor.x - Math.floor(size / 2), y: Math.max(0, y0 - 1), size };
+  let top = -1;
+  for (let y = 0; y < art.h && top < 0; y++) for (let x = m.anchor.x - 2; x <= m.anchor.x + 2; x++) if (art.alpha(x, y) > 0) top = y;
+  if (top < 0) return { x: 0, y: 0, size: Math.min(art.w, art.h) };
+  const size = Math.max(4, Math.round((m.anchor.y - top) * 0.4));
+  return { x: m.anchor.x - Math.floor(size / 2), y: Math.max(0, top - 1), size };
 }
 
 /** Route paperdoll's rendering through the sheets (once, from src/ui/sprites.ts). */
