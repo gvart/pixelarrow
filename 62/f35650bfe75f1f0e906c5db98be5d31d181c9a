@@ -1,0 +1,29 @@
+tests/war/sim.test.ts
+  s_cfc22b058125c4::t_d1e6c519bd1393 10,32
+src/war/regions/test-ridge.json
+  s_cfc22b058125c4::t_e703720d74457c 1
+tests/war/region.test.ts
+  s_cfc22b058125c4::t_d1c4c95564e0ed 8,20,48,74,78,85,89-90,94,98
+src/war/regions/test-ridge.spots.ts
+  s_cfc22b058125c4::t_e703720d74457c 3-26
+tests/war/combat.test.ts
+  s_cfc22b058125c4::t_d1e6c519bd1393 11,103,172,180
+  s_cfc22b058125c4::t_5ced6ed0ee2463 73,83,85-86
+  s_cfc22b058125c4::t_7e1ffb15aaf003 49-58,60-62,84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "62f35650bfe75f1f0e906c5db98be5d31d181c9a",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
