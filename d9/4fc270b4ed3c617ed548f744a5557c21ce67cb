@@ -1,0 +1,21 @@
+src/scenes/CampScene.ts
+  s_0d98fe904b2e82::t_567b93d60201db 831-840,912-914,917
+src/scenes/MenuScene.ts
+  s_0d98fe904b2e82::t_f824def900dbd1 225,227-228,236-247
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d94fc270b4ed3c617ed548f744a5557c21ce67cb",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
