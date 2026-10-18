@@ -1,0 +1,54 @@
+scripts/art/pixellab/i5c/build.mjs
+  s_41b82181a73565::t_99e6fb355f2983 1-35
+scripts/art/pixellab/i5c/anchorcheck.mjs
+  s_41b82181a73565::t_36d021a8b9d41b 1-31
+scripts/art/pixellab/i5c/log.mjs
+  s_41b82181a73565::t_b323e9c13c83d7 1-18,20-22
+  s_41b82181a73565::t_11a90c60b99f03 19
+scripts/art/pixellab/i5c/derive.mjs
+  s_41b82181a73565::t_cba09c3c0b705d 1-11,15-25
+  s_41b82181a73565::t_727d6a515c0763 12-14
+scripts/art/pixellab/i5c/despeck.mjs
+  s_41b82181a73565::t_713493c1fecb11 1-40
+scripts/art/pixellab/i5c/finish.mjs
+  s_41b82181a73565::t_191a7322254866 1-13
+scripts/art/pixellab/i5c/fetchall.mjs
+  s_41b82181a73565::t_b66dfa48fcc3e9 24
+  s_0d98fe904b2e82::t_17880a64c64d4d 1-23,25-28
+scripts/art/pixellab/i5c/align.mjs
+  s_41b82181a73565::t_7bf4e1280d53fe 1-33
+scripts/art/pixellab/i5c/get.mjs
+  s_0d98fe904b2e82::t_46b8b045a11ba6 1-20
+scripts/art/pixellab/i5c/job.mjs
+  s_41b82181a73565::t_70258e38c0eae6 1-24
+scripts/art/pixellab/i5c/lib.mjs
+  s_41b82181a73565::t_d3aaefc2e1d69b 1-84
+scripts/art/pixellab/i5c/parts.mjs
+  s_0d98fe904b2e82::t_7b74777f856796 1-38
+scripts/art/pixellab/i5c/start.mjs
+  s_0d98fe904b2e82::t_0efaa1726a3c1c 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cba106b7a7d43b253fc326e6d4299ad4185e5ff5",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    },
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
