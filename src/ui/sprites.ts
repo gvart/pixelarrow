@@ -26,6 +26,15 @@
  * Every sheet is keyed by the full loadout (dollKey: gear, rarity, paint,
  * cosmetics, look), so identical men share one texture and a changed item
  * shows at once.
+ *
+ * Classes with a sprite sheet (src/art/sheetDoll.ts, registered by
+ * src/art/sheetRegistry.ts) go through the same paths: dollKey and renderFrame
+ * answer from the sheet once its image is loaded, and battle rows take the
+ * sheet's frame ids (src/art/sheetManifest.ts sheetFrameId) as they are.
+ * A clip whose packed page is still loading is drawn (and cached) as its
+ * fallback under the fallback's id, so the clip itself is drawn once its page
+ * is in; a UI row drawn that way is redrawn when the page arrives. The atlas
+ * sweep also bounds the sheet caches (sweepSheets).
  */
 import Phaser from 'phaser';
 import {
@@ -39,6 +48,12 @@ import { renderBasePlate, renderBlood, renderPlateRing, renderRing, renderShadow
 import { Pix } from '../art/pixels';
 import { P } from '../art/palette';
 import type { Item } from '../data/items';
+import { initSheets } from '../art/sheetRegistry';
+import { onSheetReady, sheetAnimsOf, sheetDrawFrame, sheetIndex, sheetPendingDraws, sweepSheets } from '../art/sheetDoll';
+import { sheetFrameId } from '../art/sheetManifest';
+import type { AnimTable } from '../art/sheetAnim';
+
+initSheets();
 
 /** Widest texture we create (safe on every phone GPU). */
 const MAX_TEX_W = 4096;
@@ -54,6 +69,8 @@ interface DollTex {
   fx: DollFx;
   /** Effect sheet key (rare+ gear only). */
   fxKey: string | null;
+  /** The animations of its sprite sheet (null: drawn procedurally). */
+  sheet: AnimTable | null;
 }
 
 const dolls = new Map<string, DollTex>();
@@ -67,7 +84,7 @@ function info(spec: DollSpec, key: string): DollTex {
     const fx = dollFx(spec);
     const geom = dollGeom(spec);
     const cols = sheetFrames(spec);
-    d = { spec, geom, cols, perRow: Math.max(1, Math.min(cols, Math.floor(MAX_TEX_W / geom.fw))), rows: [false, false, false, false], fx, fxKey: hasFx(fx) && !spec.beast ? `${key}#fx` : null };
+    d = { spec, geom, cols, perRow: Math.max(1, Math.min(cols, Math.floor(MAX_TEX_W / geom.fw))), rows: [false, false, false, false], fx, fxKey: hasFx(fx) && !spec.beast ? `${key}#fx` : null, sheet: key.startsWith('sheet_') ? sheetAnimsOf(spec) : null };
     dolls.set(key, d);
   }
   return d;
@@ -128,8 +145,20 @@ function refresh(scene: Phaser.Scene, key: string, fxKey: string | null): void {
   if (fxKey && scene.textures.exists(fxKey)) (scene.textures.get(fxKey) as Phaser.Textures.CanvasTexture).refresh();
 }
 
+/** UI rows drawn with a clip's fallback while its sheet page loaded: redrawn when a page arrives. */
+const staleRows: { scene: Phaser.Scene; key: string; dir: number }[] = [];
+onSheetReady(() => {
+  for (const q of staleRows.splice(0)) {
+    const d = dolls.get(q.key);
+    if (!d || !q.scene.sys || !q.scene.textures.exists(q.key)) continue;
+    d.rows[q.dir] = false;
+    queue.push(q);
+  }
+});
+
 function drawRow(scene: Phaser.Scene, key: string, d: DollTex, dir: number): boolean {
   if (d.rows[dir]) return false;
+  const pending = sheetPendingDraws();
   const ctx = (scene.textures.get(key) as Phaser.Textures.CanvasTexture).getContext();
   const fctx = d.fxKey ? (scene.textures.get(d.fxKey) as Phaser.Textures.CanvasTexture).getContext() : null;
   const wrapH = Math.ceil(d.cols / d.perRow) * d.geom.fh;
@@ -144,6 +173,7 @@ function drawRow(scene: Phaser.Scene, key: string, d: DollTex, dir: number): boo
     } else put(ctx, renderFrame(d.spec, f, dir), x, y);
   }
   d.rows[dir] = true;
+  if (sheetPendingDraws() !== pending) staleRows.push({ scene, key, dir });
   return true;
 }
 
@@ -391,10 +421,11 @@ export function battleRow(scene: Phaser.Scene, key: string, dir: number): string
   if (r && r.scene === scene) return rk;
   const d = dolls.get(key);
   if (!d) throw new Error(`battleRow: unknown figure ${key}`);
-  const common = drawnFrames(d.spec) >= NFRAMES ? COMMON_COLS : COMMON_COLS_LEGACY;
-  rowTex.set(rk, { scene, doll: d, dir, frames: new Map(), pending: common.filter((c) => c !== 0), gen: 0 });
+  const idle = d.sheet?.idle;
+  const common = idle ? Array.from({ length: idle.frames }, (_, i) => sheetFrameId('idle', i)) : drawnFrames(d.spec) >= NFRAMES ? COMMON_COLS : COMMON_COLS_LEGACY;
+  rowTex.set(rk, { scene, doll: d, dir, frames: new Map(), pending: common.filter((c) => c !== common[0]), gen: 0 });
   rowQueue.push(rk);
-  battleFrame(rk, 0);
+  battleFrame(rk, common[0]);
   return rk;
 }
 
@@ -414,7 +445,9 @@ export function battleRowFx(rk: string): boolean {
 export function battleFrame(rk: string, frame: number): FrameRef & { ring?: string; glint?: string } {
   const r = rowTex.get(rk);
   if (!r) return { key: '__MISSING', frame: '__BASE' };
-  const col = sheetColumn(frame, drawnFrames(r.doll.spec));
+  // a sheet figure's frames by their sheet id (a procedural column shows its state's sheet frame)
+  const sh = r.doll.sheet;
+  const col = sh ? (sheetDrawFrame(r.doll.spec, frame) ?? sheetIdOf(frame, sh)) : sheetColumn(frame, drawnFrames(r.doll.spec));
   const have = r.frames.get(col);
   const now = performance.now();
   if (have) {
@@ -452,6 +485,11 @@ export function battleFrame(rk: string, frame: number): FrameRef & { ring?: stri
   return ref;
 }
 
+function sheetIdOf(frame: number, anims: AnimTable): number {
+  const s = sheetIndex(frame, anims);
+  return sheetFrameId(s.anim, s.i);
+}
+
 function dropFrame(r: RowTex, col: number, f: DrawnFrame): void {
   const tex = r.scene.textures.exists(f.key) ? (r.scene.textures.get(f.key) as Phaser.Textures.CanvasTexture) : null;
   if (tex) {
@@ -473,10 +511,13 @@ function dropFrame(r: RowTex, col: number, f: DrawnFrame): void {
 function sweepFrames(now: number): void {
   if (now - sweptAt < SWEEP_MS) return;
   sweptAt = now;
+  const sheetsInUse = new Set<string>();
   for (const r of rowTex.values()) {
+    if (r.doll.sheet && r.doll.spec.cls) sheetsInUse.add(r.doll.spec.cls);
     if (!r.scene.sys.isActive() || !r.frames.size) continue;
     for (const [col, f] of r.frames) if (now - f.last > FRAME_TTL_MS) dropFrame(r, col, f);
   }
+  sweepSheets(now, sheetsInUse);
 }
 
 /** Upload every atlas drawn into since the last call (once per game frame, before rendering). */
@@ -520,6 +561,11 @@ export function pumpDolls(budgetMs = 6): void {
 /** Sheet geometry of a registered figure (frame size and feet line, in rendered pixels). */
 export function dollGeomOf(key: string): SheetGeom {
   return dolls.get(key)?.geom ?? { fw: 56, fh: 72, footY: 64 };
+}
+
+/** The sprite sheet animations of a registered figure (null: procedural); the battle picks its frames from them. */
+export function dollSheetAnims(key: string): AnimTable | null {
+  return dolls.get(key)?.sheet ?? null;
 }
 
 /** Sprite origin that puts the feet on the sprite's position. */

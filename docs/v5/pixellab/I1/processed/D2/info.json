@@ -1,0 +1,241 @@
+{
+ "variant": "D2",
+ "id": "a295f28c-5b7e-460b-a8ff-7ebb894621ca",
+ "view": "high top-down",
+ "canvas": {
+  "width": 48,
+  "height": 48
+ },
+ "rot": {
+  "south": {
+   "box": {
+    "x": 15,
+    "y": 4,
+    "w": 19,
+    "h": 38
+   },
+   "colors": 23,
+   "snapped": 15
+  },
+  "south-east": {
+   "box": {
+    "x": 15,
+    "y": 4,
+    "w": 16,
+    "h": 40
+   },
+   "colors": 22,
+   "snapped": 14
+  },
+  "east": {
+   "box": {
+    "x": 16,
+    "y": 6,
+    "w": 15,
+    "h": 38
+   },
+   "colors": 22,
+   "snapped": 14
+  },
+  "north-east": {
+   "box": {
+    "x": 16,
+    "y": 5,
+    "w": 18,
+    "h": 39
+   },
+   "colors": 22,
+   "snapped": 14
+  },
+  "north": {
+   "box": {
+    "x": 15,
+    "y": 4,
+    "w": 19,
+    "h": 39
+   },
+   "colors": 23,
+   "snapped": 15
+  },
+  "north-west": {
+   "box": {
+    "x": 15,
+    "y": 5,
+    "w": 17,
+    "h": 39
+   },
+   "colors": 20,
+   "snapped": 13
+  },
+  "west": {
+   "box": {
+    "x": 17,
+    "y": 5,
+    "w": 16,
+    "h": 39
+   },
+   "colors": 22,
+   "snapped": 14
+  },
+  "south-west": {
+   "box": {
+    "x": 16,
+    "y": 4,
+    "w": 18,
+    "h": 40
+   },
+   "colors": 23,
+   "snapped": 15
+  }
+ },
+ "anims": {
+  "attack_skeleton": {
+   "south-east": {
+    "frames": 3,
+    "w": 64,
+    "h": 64,
+    "feetY": [
+     49,
+     50
+    ],
+    "colors": 20
+   },
+   "north-west": {
+    "frames": 3,
+    "w": 64,
+    "h": 64,
+    "feetY": [
+     50,
+     50
+    ],
+    "colors": 31
+   },
+   "north-east": {
+    "frames": 3,
+    "w": 64,
+    "h": 64,
+    "feetY": [
+     54,
+     56
+    ],
+    "colors": 27
+   },
+   "south-west": {
+    "frames": 3,
+    "w": 64,
+    "h": 64,
+    "feetY": [
+     52,
+     53
+    ],
+    "colors": 22
+   }
+  },
+  "attack_template": {
+   "south-west": {
+    "frames": 3,
+    "w": 48,
+    "h": 48,
+    "feetY": [
+     43,
+     44
+    ],
+    "colors": 35
+   },
+   "north-east": {
+    "frames": 3,
+    "w": 48,
+    "h": 48,
+    "feetY": [
+     44,
+     46
+    ],
+    "colors": 40
+   }
+  },
+  "attack": {
+   "south-west": {
+    "frames": 9,
+    "w": 56,
+    "h": 56,
+    "feetY": [
+     47,
+     47
+    ],
+    "colors": 35
+   },
+   "north-west": {
+    "frames": 9,
+    "w": 56,
+    "h": 56,
+    "feetY": [
+     47,
+     47
+    ],
+    "colors": 31
+   },
+   "south-east": {
+    "frames": 9,
+    "w": 56,
+    "h": 56,
+    "feetY": [
+     47,
+     47
+    ],
+    "colors": 34
+   },
+   "north-east": {
+    "frames": 9,
+    "w": 56,
+    "h": 56,
+    "feetY": [
+     47,
+     47
+    ],
+    "colors": 32
+   }
+  },
+  "walk": {
+   "north-east": {
+    "frames": 8,
+    "w": 48,
+    "h": 48,
+    "feetY": [
+     41,
+     45
+    ],
+    "colors": 32
+   },
+   "south-east": {
+    "frames": 8,
+    "w": 48,
+    "h": 48,
+    "feetY": [
+     42,
+     43
+    ],
+    "colors": 38
+   },
+   "north-west": {
+    "frames": 8,
+    "w": 48,
+    "h": 48,
+    "feetY": [
+     41,
+     44
+    ],
+    "colors": 30
+   },
+   "south-west": {
+    "frames": 8,
+    "w": 48,
+    "h": 48,
+    "feetY": [
+     41,
+     43
+    ],
+    "colors": 32
+   }
+  }
+ }
+}

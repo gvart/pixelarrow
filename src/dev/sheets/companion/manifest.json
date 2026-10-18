@@ -1,0 +1,176 @@
+{
+  "version": 2,
+  "class": "companion",
+  "image": "companion.png",
+  "frame": {
+    "w": 88,
+    "h": 83
+  },
+  "anchor": {
+    "x": 36,
+    "y": 75
+  },
+  "anchors": {
+    "south-east": {
+      "x": 36,
+      "y": 75
+    },
+    "north-east": {
+      "x": 36,
+      "y": 75
+    },
+    "south-west": {
+      "x": 52,
+      "y": 75
+    },
+    "north-west": {
+      "x": 52,
+      "y": 75
+    }
+  },
+  "scale": 1,
+  "rows": [
+    "south-east",
+    "north-east",
+    "south-west",
+    "north-west"
+  ],
+  "colorGroups": {
+    "trim": [
+      "#362921",
+      "#4a3829",
+      "#634a34",
+      "#7c5e40",
+      "#94704c"
+    ],
+    "skin": [
+      "#64402e",
+      "#8e5c48",
+      "#b47e64",
+      "#d6a282",
+      "#f0c8a6"
+    ],
+    "cloak": [
+      "#31242b",
+      "#423139",
+      "#57414a",
+      "#6f535b",
+      "#85636b"
+    ]
+  },
+  "tiers": {
+    "basic": {},
+    "veteran": {
+      "cloak": [
+        "#4b1b18",
+        "#6a231c",
+        "#8f2d21",
+        "#b03a2a",
+        "#cf4832"
+      ],
+      "trim": [
+        "#4b3b26",
+        "#6b5431",
+        "#91713f",
+        "#b28c4d",
+        "#d1a55b"
+      ]
+    },
+    "elite": {
+      "cloak": [
+        "#1d181b",
+        "#241f20",
+        "#2d2727",
+        "#3d3430",
+        "#4c403a"
+      ],
+      "trim": [
+        "#5a3a1a",
+        "#8e6224",
+        "#c8963a",
+        "#f0c860",
+        "#fff2b0"
+      ]
+    }
+  },
+  "anims": {
+    "idle": {
+      "col": 0,
+      "frames": 4,
+      "fps": 4
+    },
+    "walk": {
+      "col": 4,
+      "frames": 8,
+      "fps": 12
+    },
+    "gallop": {
+      "col": 12,
+      "frames": 6,
+      "fps": 14
+    },
+    "thrust": {
+      "col": 18,
+      "frames": 5,
+      "fps": 14
+    },
+    "hit": {
+      "col": 23,
+      "frames": 2,
+      "fps": 8
+    },
+    "fallFwd": {
+      "col": 25,
+      "frames": 4,
+      "fps": 10
+    },
+    "fallBack": {
+      "col": 29,
+      "frames": 4,
+      "fps": 10
+    },
+    "rout": {
+      "col": 33,
+      "frames": 6,
+      "fps": 16
+    },
+    "cheer": {
+      "col": 39,
+      "frames": 3,
+      "fps": 3
+    }
+  },
+  "metal": [
+    {
+      "kind": "bronze",
+      "colors": [
+        "#fbe6a6",
+        "#dcb060",
+        "#ae7c3a",
+        "#7a5228",
+        "#4a321c"
+      ],
+      "slots": [
+        "shield",
+        "helmet",
+        "armor"
+      ]
+    },
+    {
+      "kind": "iron",
+      "colors": [
+        "#f0f2ec",
+        "#b4bcc0",
+        "#7e8890",
+        "#52585e",
+        "#30343a"
+      ],
+      "slots": [
+        "weapon"
+      ]
+    }
+  ],
+  "variation": {
+    "skin": false
+  }
+}

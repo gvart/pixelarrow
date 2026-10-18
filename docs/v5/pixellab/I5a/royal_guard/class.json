@@ -1,0 +1,334 @@
+{
+ "class": "royal_guard",
+ "ramps": [
+  "outline",
+  "umber",
+  "darkBronze",
+  "purpleBlack",
+  "metal",
+  "skin",
+  "crimson"
+ ],
+ "parts": {
+  "purpleBlack": "cloak",
+  "metal": "metal",
+  "crimson": "shadow"
+ },
+ "crest": false,
+ "emblem": false,
+ "stature": {
+  "skipTop": 5
+ },
+ "rowsFeet": {
+  "south-east": [
+   35,
+   66
+  ],
+  "north-east": [
+   33,
+   66
+  ],
+  "south-west": [
+   35,
+   66
+  ],
+  "north-west": [
+   35,
+   66
+  ]
+ },
+ "picks": {
+  "idle": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "look": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "adjust": {
+   "south-east": "a1",
+   "north-east": "a2",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "walk": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "run": {
+   "south-east": "a1",
+   "north-east": "a2",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "rout": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "kneel": {
+   "south-east": "a1",
+   "north-east": "a2",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "ready": {
+   "south-east": "a2",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "charge": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "brace": {
+   "south-east": "a1",
+   "north-east": "a2",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "block": {
+   "south-east": "a2",
+   "north-east": {
+    "attempt": "a2",
+    "fixes": [
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: the shield turns its bright silver face to the viewer in a back view"
+     },
+     {
+      "frame": 4,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: as f3, with sparks"
+     }
+    ]
+   },
+   "south-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 4,
+      "why": "REJECTED frame: an impact spark burst over the shield; once cut, the shield face is shredded"
+     }
+    ]
+   },
+   "north-west": "a1"
+  },
+  "stagger": {
+   "south-east": {
+    "attempt": "a2",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "clear",
+      "box": [
+       73,
+       59,
+       110,
+       68
+      ],
+      "why": "motion-streak lines behind the shield (an invented effect)"
+     }
+    ]
+   },
+   "north-east": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: the shield shows its silver face to the viewer for one frame"
+     }
+    ]
+   },
+   "south-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: the spear pivots to point at the ground for one frame"
+     }
+    ]
+   },
+   "north-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: the man turns to face west, the spear smeared"
+     },
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: as f0"
+     }
+    ]
+   }
+  },
+  "fallBack": {
+   "south-east": {
+    "attempt": "p2",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: a blood burst over the shield; once cut, the shield is shredded"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: as f1"
+     }
+    ]
+   },
+   "north-east": {
+    "attempt": "p2",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: blood over the spear; once cut, the spearhead floats loose"
+     }
+    ]
+   },
+   "south-west": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: a blood burst over the chest; once cut, holes in the body"
+     }
+    ]
+   },
+   "north-west": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: blood over the spear; once cut, the spearhead floats loose"
+     }
+    ]
+   }
+  },
+  "fallFwd": {
+   "south-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: a blood burst over the shield; once cut, the shield is broken"
+     },
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: as f0"
+     }
+    ]
+   },
+   "north-east": "p1",
+   "south-west": "p1",
+   "north-west": "p1"
+  },
+  "cheer": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "thrust": {
+   "south-east": "a2",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  }
+ },
+ "rejected": [
+  {
+   "clip": "adjust north-east a1",
+   "why": "shield face",
+   "detail": "the shield swings round and shows its silver face to the viewer in a back view (f1-f4)"
+  },
+  {
+   "clip": "run north-east a1",
+   "why": "shield vanishing",
+   "detail": "the shield almost vanishes (f2-f3), then turns its bright face round (f4-f7)"
+  },
+  {
+   "clip": "kneel north-east a1",
+   "why": "shield face",
+   "detail": "the shield turns its silver face and a saturated gold rim to the viewer in a back view"
+  },
+  {
+   "clip": "brace north-east a1",
+   "why": "shield face",
+   "detail": "the man turns side-on and the shield shows its silver face and a gold rim"
+  },
+  {
+   "clip": "block north-east a1",
+   "why": "weapon pivot",
+   "detail": "the levelled spear swings upright (f1-f3); the shield shows its silver face"
+  },
+  {
+   "clip": "fallBack north-east p1",
+   "why": "shield vanishing",
+   "detail": "the shield face comes out near-white, so the invented-colour cut hollows it out; blood over the spear takes its head"
+  },
+  {
+   "clip": "fallBack south-east p1",
+   "why": "weapon doubled",
+   "detail": "two spear shafts while he falls (f5-f7); blood over the shield (cut hollows it)"
+  },
+  {
+   "clip": "ready south-east a1",
+   "why": "spear reads trailing",
+   "detail": "from the 38/20 SE guard the leaf hides behind the shield rim and the long butt up-left reads as the point (main review); redone a2 from the grip-back SE guard"
+  },
+  {
+   "clip": "block south-east a1",
+   "why": "spear reads trailing",
+   "detail": "from the 38/20 SE guard the leaf hides behind the shield rim and the long butt up-left reads as the point (main review); redone a2 from the grip-back SE guard"
+  },
+  {
+   "clip": "stagger south-east a1",
+   "why": "spear reads trailing",
+   "detail": "from the 38/20 SE guard the leaf hides behind the shield rim and the long butt up-left reads as the point (main review); redone a2 from the grip-back SE guard"
+  },
+  {
+   "clip": "thrust south-east a1",
+   "why": "spear reads trailing",
+   "detail": "from the 38/20 SE guard the leaf hides behind the shield rim and the long butt up-left reads as the point (main review); redone a2 from the grip-back SE guard"
+  }
+ ]
+}

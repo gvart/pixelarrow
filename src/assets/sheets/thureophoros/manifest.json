@@ -1,0 +1,208 @@
+{
+ "version": 2,
+ "class": "thureophoros",
+ "image": "thureophoros.png",
+ "frame": {
+  "w": 99,
+  "h": 111
+ },
+ "anchor": {
+  "x": 62,
+  "y": 102
+ },
+ "anchors": {
+  "south-east": {
+   "x": 37,
+   "y": 102
+  },
+  "north-east": {
+   "x": 34,
+   "y": 102
+  },
+  "south-west": {
+   "x": 62,
+   "y": 102
+  },
+  "north-west": {
+   "x": 51,
+   "y": 102
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "facings": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 41,
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "look": {
+   "col": 12,
+   "frames": 16,
+   "fps": 8
+  },
+  "adjust": {
+   "col": 28,
+   "frames": 12,
+   "fps": 10
+  },
+  "walk": {
+   "col": 40,
+   "frames": 16,
+   "fps": 16
+  },
+  "run": {
+   "col": 56,
+   "frames": 12,
+   "fps": 16
+  },
+  "rout": {
+   "col": 68,
+   "frames": 12,
+   "fps": 16
+  },
+  "kneel": {
+   "col": 80,
+   "frames": 12,
+   "fps": 8,
+   "hold": 4
+  },
+  "ready": {
+   "col": 92,
+   "frames": 12,
+   "fps": 8
+  },
+  "charge": {
+   "col": 104,
+   "frames": 12,
+   "fps": 16
+  },
+  "brace": {
+   "col": 116,
+   "frames": 12,
+   "fps": 10,
+   "hold": 5
+  },
+  "block": {
+   "col": 128,
+   "frames": 12,
+   "fps": 14
+  },
+  "slash": {
+   "col": 140,
+   "frames": 12,
+   "fps": 14,
+   "strike": 6
+  },
+  "stagger": {
+   "col": 152,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallBack": {
+   "col": 164,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallFwd": {
+   "col": 176,
+   "frames": 12,
+   "fps": 12
+  },
+  "cheer": {
+   "col": 188,
+   "frames": 12,
+   "fps": 10,
+   "hold": 3
+  }
+ },
+ "colorGroups": {
+  "cloak": [
+   "#100810",
+   "#160c16",
+   "#2a1f2a",
+   "#3e2c3e"
+  ],
+  "trim": [
+   "#7b5e44",
+   "#dcc08a"
+  ],
+  "skin": [
+   "#4e3024",
+   "#7b503d",
+   "#a87464",
+   "#dbac99"
+  ]
+ },
+ "metal": [
+  {
+   "kind": "bronze",
+   "colors": [
+    "#bb9a60",
+    "#977848",
+    "#735a34",
+    "#5e4632",
+    "#544024",
+    "#463426",
+    "#30241a"
+   ],
+   "slots": [
+    "shield",
+    "helmet",
+    "armor"
+   ]
+  },
+  {
+   "kind": "iron",
+   "colors": [
+    "#b0adab",
+    "#8a8789",
+    "#666364",
+    "#484647",
+    "#2f2e2f"
+   ],
+   "slots": [
+    "weapon"
+   ]
+  }
+ ],
+ "tiers": {
+  "basic": {},
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ],
+   "trim": [
+    "#b08a3a",
+    "#e0c070"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#181b1d",
+    "#282c2d",
+    "#3b4141"
+   ],
+   "trim": [
+    "#966c3d",
+    "#e0b867"
+   ]
+  }
+ }
+}

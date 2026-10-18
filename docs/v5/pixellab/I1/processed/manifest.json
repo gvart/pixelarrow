@@ -1,0 +1,16 @@
+{
+ "$doc": "Hoplite bake-off variants for /hoplite-bakeoff.html (docs/v5/ASSET_LOG.md I1, I1b). body = crest-to-feet height in sprite px, measured on the south-west rotation; the preview scales it to the procedural man's. anims maps the page's walk/attack to the variant's clips; post = the post-processed folder (?snap=1). modes = the I1b animation-mode comparison on E3. I1's A2, C2 and D2 stay in processed/ but are no longer shown.",
+ "variants": [
+  { "id": "B3", "label": "I1 B3: size 48, high top-down (bright)", "size": 48, "view": "high top-down", "body": 53, "post": "snap" },
+  { "id": "E3", "label": "I1b E3: dark-epic, pro flash 68 + import, high top-down", "size": 68, "view": "high top-down", "body": 62, "post": "remap", "anims": { "walk": "walk_pixminimax", "attack": "thrust2" } },
+  { "id": "E3elite", "label": "I1b E3 elite state (rotations only)", "size": 68, "view": "high top-down", "body": 62, "post": "remap" }
+ ],
+ "modes": [
+  { "id": "tpl-sw", "variant": "E3", "label": "walk template", "anim": "walk_template", "dir": "south-west" },
+  { "id": "pmm-sw", "variant": "E3", "label": "walk pixminimax", "anim": "walk_pixminimax", "dir": "south-west" },
+  { "id": "tpl-ne", "variant": "E3", "label": "walk template", "anim": "walk_template", "dir": "north-east" },
+  { "id": "pmm-ne", "variant": "E3", "label": "walk pixminimax", "anim": "walk_pixminimax", "dir": "north-east" },
+  { "id": "t1-sw", "variant": "E3", "label": "thrust1 (rejected)", "anim": "thrust", "dir": "south-west" },
+  { "id": "t2-sw", "variant": "E3", "label": "thrust2", "anim": "thrust2", "dir": "south-west" }
+ ]
+}

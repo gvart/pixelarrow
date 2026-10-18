@@ -1,0 +1,51 @@
+{
+ "$doc": "I5b rhomphaia: which reviewed attempt of every clip and facing ships, with its frame fixes (scripts/art/pixellab/i5b/mkspec.mjs writes rhomphaia.sheet.json from it). Rejections: ASSET_LOG I5b.",
+ "class": "rhomphaia",
+ "scale": 0.55,
+ "ramps": ["outline", "crimson", "umber", "darkBronze", "skin", "metal", "iron"],
+ "parts": { "iron": "weaponMetal" },
+ "spear": false,
+ "greyCut": 0.8,
+ "metalKind": { "metal": "bronze", "weaponMetal": "iron" },
+ "metalSlots": { "metal": ["helmet"], "weaponMetal": ["weapon", "armor"] },
+ "crest": false,
+ "emblem": false,
+ "stature": { "skipTop": 4, "why": "the Phrygian crown (rows 4-9 of the base, bases.json) is not counted" },
+ "anims": {
+  "idle": { "fps": 8, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "look": { "fps": 8, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "adjust": { "fps": 10, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "walk": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "run": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "rout": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "kneel": { "fps": 8, "hold": 4, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "ready": { "fps": 8, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "charge": { "fps": 16, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a2", "sw": "a1", "nw": "a1" } },
+  "brace": { "fps": 10, "hold": 5, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "block": { "fps": 14, "canvas": "guard", "spear": "level", "dirs": {
+   "se": { "attempt": "a1", "fixes": [{ "frame": 2, "op": "copy", "from": 3, "why": "REJECTED frame: impact sparks over the shaft; once cut, the blade floats loose" }] },
+   "ne": { "attempt": "a1", "fixes": [{ "frame": 2, "op": "copy", "from": 3, "why": "REJECTED frame: as SE f2" }] },
+   "sw": "a1", "nw": "a1" } },
+  "slash": { "fps": 16, "strike": 6, "canvas": "gatk", "spear": "level", "dirs": {
+   "se": { "attempt": "a3", "frames": [0, 1, 2, 3, 4, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15], "why": "f5-f6 REJECTED: the blade bent into a crescent smear; the windup peak f4 is held a frame, then the blow (f7)" },
+   "ne": { "attempt": "a3", "frames": [0, 0, 1, 2, 3, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "why": "f4 REJECTED: crescent smear; the windup peak f3 held, the blow f5" },
+   "sw": { "attempt": "a3", "frames": [0, 1, 2, 3, 4, 5, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15], "why": "f6 REJECTED: crescent smear; the windup peak f5 held, the blow f7" },
+   "nw": { "attempt": "a3", "frames": [0, 1, 2, 3, 4, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15], "why": "f5-f6 REJECTED: crescent smears; the windup peak f4 held, the blow f7" } } },
+  "stagger": { "fps": 12, "canvas": "guard", "spear": "level", "dirs": {
+   "se": { "attempt": "a1", "fixes": [{ "frame": 0, "op": "copy", "from": 1, "why": "REJECTED frame: a dark blood burst over the blade; once cut, the rhomphaia has no blade" }] },
+   "ne": { "attempt": "a1", "fixes": [{ "frame": 0, "op": "copy", "from": 1, "why": "REJECTED frame: blood over the blade; once cut, the blade is broken in pieces" }] },
+   "sw": "a1",
+   "nw": { "attempt": "a1", "fixes": [{ "frame": 0, "op": "copy", "from": 2, "why": "REJECTED frame: blood and a white flash over the blade; once cut, the blade floats loose of the hands" }, { "frame": 1, "op": "copy", "from": 2, "why": "REJECTED frame: as f0" }] } } },
+  "fallBack": { "fps": 12, "canvas": "die", "spear": "level", "dirs": {
+   "se": { "attempt": "a1", "fixes": [{ "frame": 0, "op": "copy", "from": 1, "why": "REJECTED frame: a blood burst over the weapon; once cut, the rhomphaia is gone" }] },
+   "ne": "a1",
+   "sw": { "attempt": "a1", "fixes": [{ "frame": 3, "op": "copy", "from": 2, "why": "REJECTED frame: blood over the blade; once cut, the blade is broken" }] },
+   "nw": "a1" } },
+  "fallFwd": { "fps": 12, "canvas": "die", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "cheer": { "fps": 10, "hold": 3, "canvas": "tall", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } }
+ },
+ "tiers": {
+  "veteran": { "cloak": ["#1c0710", "#3a0d1c", "#5c1428", "#7c2236"], "trim": ["#b08a3a", "#e0c070"] },
+  "elite": { "cloak": ["#0b0c0e", "#151719", "#1e2224", "#2d3131", "#3b4141"], "trim": ["#966c3d", "#cc9554", "#e0b867"] }
+ }
+}

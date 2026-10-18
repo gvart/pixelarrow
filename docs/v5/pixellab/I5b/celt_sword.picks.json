@@ -1,0 +1,40 @@
+{
+ "$doc": "I5b celt_sword: which reviewed attempt of every clip and facing ships, with its frame fixes (scripts/art/pixellab/i5b/mkspec.mjs writes celt_sword.sheet.json from it). Rejections: ASSET_LOG I5b.",
+ "class": "celt_sword",
+ "scale": 0.55,
+ "ramps": ["outline", "umber", "darkBronze", "skin", "plaidGreen", "bronze", "iron"],
+ "parts": { "plaidGreen": "cloak", "bronze": "trim", "umber": "shadow", "darkBronze": "shadow", "iron": "metal" },
+ "spear": false,
+ "greyCut": 0.8,
+ "metalKind": { "metal": "iron" },
+ "metalSlots": { "metal": ["helmet", "armor", "weapon"] },
+ "crest": false,
+ "emblem": false,
+ "stature": { "from": "any", "why": "the iron Montefortino is not a metal group (iron stays unrecoloured until metalKind iron); measured from the first opaque non-weapon pixel" },
+ "anims": {
+  "idle": { "fps": 8, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "look": { "fps": 8, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "adjust": { "fps": 10, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "walk": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "run": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "rout": { "fps": 16, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "kneel": { "fps": 8, "hold": 4, "canvas": "rot", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "ready": { "fps": 8, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "charge": { "fps": 16, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "brace": { "fps": 10, "hold": 5, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "block": { "fps": 14, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "slash": { "fps": 16, "strike": 6, "canvas": "gatk", "spear": "level", "dirs": {
+   "se": { "attempt": "a2", "frames": [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15], "why": "f6 REJECTED: crescent smear; the blow f7" },
+   "ne": { "attempt": "a3", "frames": [0, 1, 2, 3, 4, 5, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15], "why": "f6 REJECTED: a fiery flash over the blade (cut) leaves the sword broken; the blow f7 held" },
+   "sw": { "attempt": "a2", "frames": [0, 1, 1, 2, 3, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], "why": "f4-f5 REJECTED: crescent smears; the windup eased in, the blow f6" },
+   "nw": { "attempt": "a2", "frames": [0, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 15, 15], "why": "f7 REJECTED: crescent smear; f5 dropped to keep the strike on index 6; the blow f8" } } },
+  "stagger": { "fps": 12, "canvas": "guard", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "fallBack": { "fps": 12, "canvas": "die", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "fallFwd": { "fps": 12, "canvas": "die", "spear": "level", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } },
+  "cheer": { "fps": 10, "hold": 3, "canvas": "tall", "spear": "upright", "dirs": { "se": "a1", "ne": "a1", "sw": "a1", "nw": "a1" } }
+ },
+ "tiers": {
+  "veteran": { "cloak": ["#1c0710", "#3a0d1c", "#5c1428", "#7c2236"], "trim": ["#b08a3a", "#e0c070"] },
+  "elite": { "cloak": ["#0b0c0e", "#151719", "#1e2224", "#2d3131", "#3b4141"], "trim": ["#966c3d", "#cc9554", "#e0b867"] }
+ }
+}

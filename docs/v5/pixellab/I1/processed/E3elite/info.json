@@ -1,0 +1,92 @@
+{
+ "variant": "E3elite",
+ "id": "9618a1bf-fffc-4357-96d0-c4fb67bf698e",
+ "view": "high top-down",
+ "canvas": {
+  "width": 96,
+  "height": 96
+ },
+ "rot": {
+  "south": {
+   "box": {
+    "x": 29,
+    "y": 18,
+    "w": 39,
+    "h": 64
+   },
+   "colors": 10,
+   "post": 9
+  },
+  "south-east": {
+   "box": {
+    "x": 31,
+    "y": 18,
+    "w": 36,
+    "h": 64
+   },
+   "colors": 10,
+   "post": 9
+  },
+  "east": {
+   "box": {
+    "x": 29,
+    "y": 18,
+    "w": 38,
+    "h": 64
+   },
+   "colors": 9,
+   "post": 8
+  },
+  "north-east": {
+   "box": {
+    "x": 31,
+    "y": 18,
+    "w": 39,
+    "h": 64
+   },
+   "colors": 9,
+   "post": 8
+  },
+  "north": {
+   "box": {
+    "x": 28,
+    "y": 18,
+    "w": 39,
+    "h": 64
+   },
+   "colors": 8,
+   "post": 7
+  },
+  "north-west": {
+   "box": {
+    "x": 28,
+    "y": 18,
+    "w": 45,
+    "h": 64
+   },
+   "colors": 10,
+   "post": 9
+  },
+  "west": {
+   "box": {
+    "x": 31,
+    "y": 18,
+    "w": 34,
+    "h": 64
+   },
+   "colors": 10,
+   "post": 9
+  },
+  "south-west": {
+   "box": {
+    "x": 26,
+    "y": 18,
+    "w": 40,
+    "h": 64
+   },
+   "colors": 10,
+   "post": 9
+  }
+ },
+ "anims": {}
+}

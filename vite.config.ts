@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 // @ts-ignore -- node built-in; the browser tsconfig has no @types/node
 import { execSync } from 'node:child_process';
+import { sheetPackPlugin } from './scripts/art/pack/vite-plugin.mjs';
 
 // `process` without pulling in @types/node for the browser tsconfig.
 const penv = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -23,6 +24,8 @@ function appVersion(): string {
 // All art is generated in code, so there are no runtime asset URLs to fix up.
 export default defineConfig({
   base: './',
+  // class sprite sheets ship packed (scripts/art/pack/, docs/v5/art/SHEET_FORMAT.md)
+  plugins: [sheetPackPlugin()],
   define: { __APP_VERSION__: JSON.stringify(appVersion()) },
   build: {
     target: 'es2020',

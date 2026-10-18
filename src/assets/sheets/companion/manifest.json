@@ -1,0 +1,203 @@
+{
+ "version": 2,
+ "class": "companion",
+ "image": "companion.png",
+ "frame": {
+  "w": 129,
+  "h": 138
+ },
+ "anchor": {
+  "x": 64,
+  "y": 124
+ },
+ "anchors": {
+  "south-east": {
+   "x": 65,
+   "y": 124
+  },
+  "north-east": {
+   "x": 48,
+   "y": 124
+  },
+  "south-west": {
+   "x": 64,
+   "y": 124
+  },
+  "north-west": {
+   "x": 61,
+   "y": 124
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "facings": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 31,
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 16,
+   "fps": 14
+  },
+  "gallop": {
+   "col": 28,
+   "frames": 16,
+   "fps": 16
+  },
+  "thrust": {
+   "col": 44,
+   "frames": 16,
+   "fps": 14,
+   "strike": 7
+  },
+  "stagger": {
+   "col": 60,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallFwd": {
+   "col": 72,
+   "frames": 16,
+   "fps": 12
+  },
+  "charge": {
+   "col": 88,
+   "frames": 16,
+   "fps": 16
+  },
+  "cheer": {
+   "col": 104,
+   "frames": 16,
+   "fps": 10,
+   "hold": 15
+  },
+  "rout": {
+   "col": 120,
+   "frames": 16,
+   "fps": 16
+  }
+ },
+ "colorGroups": {
+  "cloak": [
+   "#100810",
+   "#160c16",
+   "#240c0e",
+   "#3e1216",
+   "#2a1f2a",
+   "#3e2c3e",
+   "#54405a",
+   "#7e2428",
+   "#b84a40"
+  ],
+  "crest": [
+   "#240d0e",
+   "#3e1316",
+   "#5e1a1e",
+   "#7e2528",
+   "#9c3432",
+   "#b84b40"
+  ],
+  "trim": [
+   "#7b5e44",
+   "#dcc08a"
+  ],
+  "skin": [
+   "#4e3024",
+   "#7b503d",
+   "#a87464",
+   "#dbac99"
+  ],
+  "wood": [
+   "#100811",
+   "#160c17",
+   "#1c1411",
+   "#2a1f2b",
+   "#30241b",
+   "#463427",
+   "#4e3025",
+   "#54405b",
+   "#5e4633",
+   "#7b503e",
+   "#7b5e45",
+   "#a87465",
+   "#bb9a61",
+   "#dbac9a",
+   "#dcc08b"
+  ]
+ },
+ "metal": [
+  {
+   "kind": "bronze",
+   "colors": [
+    "#bb9a60",
+    "#977848",
+    "#5e4632",
+    "#463426",
+    "#30241a"
+   ],
+   "slots": [
+    "shield",
+    "helmet",
+    "armor"
+   ]
+  },
+  {
+   "kind": "bronze",
+   "colors": [
+    "#5e4732",
+    "#2a202a",
+    "#1c1510"
+   ],
+   "slots": [
+    "weapon"
+   ]
+  }
+ ],
+ "tiers": {
+  "basic": {},
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#270915",
+    "#330c19",
+    "#3e0e1e",
+    "#4b1122",
+    "#581327",
+    "#64182c",
+    "#701d31",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#101214",
+    "#151719",
+    "#1a1d1f",
+    "#1e2224",
+    "#262a2b",
+    "#2d3131",
+    "#343939",
+    "#3b4141"
+   ]
+  }
+ },
+ "variation": {
+  "skin": false
+ },
+ "notes": "I5c companion: the bay coat is the rider skin ramp (skin 0-2, the same hexes as his face and arms), so the per-man skin tint is off; the cloak (purpleBlack) is exclusive; metal (umber 3) is the helmet, cuirass and some bridle pixels, not the coat, so the rarity swap stays on. No trim group: the bronze has no separate highlight step. Clips on a 144x160 work canvas, see docs/v5/pixellab/I5c/companion.sheet.json."
+}

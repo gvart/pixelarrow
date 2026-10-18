@@ -10,6 +10,10 @@
  * Corinthian helmet's eye-slits, gilded trim, rivets, amulets) are placed as
  * depth-tested single pixels (Scene.dot), so they stay crisp.
  *
+ * Pre-made sprite sheets (PixelLab) replace a class's figure through
+ * setSheetHook (src/art/sheetDoll.ts, format in docs/v5/art/SHEET_FORMAT.md);
+ * a class without a loaded sheet is drawn here as below.
+ *
  * SHEET FORMAT (what a hand-drawn replacement must follow):
  *   - One sheet per figure, 4 rows (facings) of frames. A man has NFRAMES (40)
  *     columns, every other figure LEGACY_FRAMES (16); frame ids are always
@@ -66,6 +70,7 @@ import type { Hero } from '../data/units';
 import { CLASSES, classOfHero, type BeastId, type MountId } from '../data/classes';
 import { isMythId } from '../data/beasts';
 import { MYTH_GEOM, buildMyth, mythBasis } from './beastArt';
+import { coreAnimOf, decodeSheetFrame, type SheetTier } from './sheetManifest';
 
 export const FRAME_NAMES = [
   // 0..15: the original columns (indices kept for older callers)
@@ -145,8 +150,17 @@ export function legacyFrame(frame: number): number {
   return 0;
 }
 
+/** The procedural column of a sprite-sheet frame id (src/art/sheetManifest.ts): its fallback state's frame. */
+export function procColumn(frame: number): number {
+  const f = decodeSheetFrame(frame);
+  if (!f) return frame;
+  const seq = ANIM[coreAnimOf(f.anim)];
+  return seq[f.i % seq.length];
+}
+
 /** The sheet column that holds a frame on a sheet with `cols` columns. */
 export function sheetColumn(frame: number, cols: number): number {
+  frame = procColumn(frame);
   if (cols >= NFRAMES) return frame;
   const lf = legacyFrame(frame);
   return lf < cols ? lf : 0;
@@ -304,6 +318,26 @@ export interface DollSpec {
   victory?: string;
   /** Culture of the wearer (a Celt's bowl helmet is the Celtic kind). */
   culture?: string;
+  /** Class id: a class with a sprite sheet is drawn from it (src/art/sheetDoll.ts), else procedurally. */
+  cls?: string;
+  /** Sheet tier override (dev previews): draw this recolour whatever the gear says. */
+  sheetTier?: SheetTier;
+}
+
+/**
+ * Sprite-sheet figures: src/art/sheetDoll.ts installs this; each call returns
+ * null for a figure without a loaded sheet, which is then drawn as before.
+ */
+export interface SheetHook {
+  key(d: DollSpec): string | null;
+  frame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array): Pix | null;
+  portrait(d: DollSpec, frame: number, res: number, box: number): Pix | null;
+  /** The frame box of a sheet figure, from the procedural one (null: unchanged). */
+  geom?(d: DollSpec, base: SheetGeom): SheetGeom | null;
+}
+let sheetHook: SheetHook | null = null;
+export function setSheetHook(h: SheetHook | null): void {
+  sheetHook = h;
 }
 
 /** Scale of the battlefield's figures: small, chunky miniatures on 36 x 18 tiles. */
@@ -390,6 +424,7 @@ export function dollFromHero(h: Pick<Hero, 'look' | 'equip' | 'cls' | 'arch' | '
       trinket: tag(h.equip.trinket),
     },
     culture: h.culture,
+    cls: cls.id,
   };
   return applyCosmetics(spec, cosmetics);
 }
@@ -404,6 +439,8 @@ const hashId = (s: string): number => hashString(s) % 100000;
 const gearKey = (g?: GearTag) => (g ? `${g.def ?? ''}${g.r ?? ''}` : '');
 
 export function dollKey(d: DollSpec): string {
+  const sk = sheetHook?.key(d);
+  if (sk) return sk;
   const l = d.look;
   const p = (x?: ItemPaint) => (x ? `${x.emblem ?? ''}.${x.field ?? ''}.${x.ink ?? ''}` : '');
   if (d.res && d.res !== 1) return `${dollKey({ ...d, res: undefined })}#r${d.res}`;
@@ -415,14 +452,20 @@ export function dollKey(d: DollSpec): string {
   return `doll3_${l.skin}${l.hair}${l.hairStyle}${l.beard}${l.tunic}_${d.weapon ?? '-'}_${d.shield?.art ?? '-'}${p(d.shield?.paint)}_${d.helmet?.art ?? '-'}${p(d.helmet?.paint)}_${d.armor ?? '-'}_${d.cloak ?? ''}${d.trousers ?? ''}${d.bare ? 'b' : ''}_${d.mount ?? ''}${d.coat ?? ''}_${(d.seed ?? 0) % 8}${gk}${extra}`;
 }
 
+/** Frame geometry of a figure; a sprite-sheet figure may widen it to hold its art (SheetHook.geom). */
 export function dollGeom(d: DollSpec): SheetGeom {
+  const g = procGeom(d);
+  return sheetHook?.geom?.(d, g) ?? g;
+}
+
+function procGeom(d: DollSpec): SheetGeom {
   if (d.res && d.res !== 1) {
-    const g = dollGeom({ ...d, res: undefined });
+    const g = procGeom({ ...d, res: undefined });
     return { fw: g.fw * d.res, fh: g.fh * d.res, footY: g.footY * d.res };
   }
   if (isMythId(d.beast)) return MYTH_GEOM[d.beast];
   if (d.scale && d.scale !== 1) {
-    const g = dollGeom({ ...d, scale: undefined });
+    const g = procGeom({ ...d, scale: undefined });
     return { fw: Math.ceil((g.fw * d.scale) / 2) * 2, fh: Math.ceil(g.fh * d.scale), footY: Math.round(g.footY * d.scale) };
   }
   if (d.beast === 'bear') return GEOM.bear;
@@ -499,10 +542,14 @@ export function renderSheet(d: DollSpec): Pix {
   return sheet;
 }
 
-export function renderFrame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array): Pix {
+/** `facing` turns the figure off its row's facing (field vector; the placeholder sheets' look-around). */
+export function renderFrame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array, facing?: [number, number]): Pix {
+  const sp = facing ? null : sheetHook?.frame(d, frame, dir, mask);
+  if (sp) return sp;
+  frame = procColumn(frame);
   const g = dollGeom(d);
   const sc = new Scene();
-  const [fx, fy] = DIRS[dir];
+  const [fx, fy] = facing ?? DIRS[dir];
   const B = basis(fx, fy);
   // figures that draw every column get the frame as is; sixteen-column ones its legacy column
   const lf = drawnFrames(d) >= NFRAMES ? frame : legacyFrame(frame);
@@ -3139,6 +3186,8 @@ const PORTRAIT_TILT = 0.42;
  * show the whole beast. `frame` picks an idle variant (PORTRAIT_FRAMES).
  */
 export function renderPortrait(d: DollSpec, frame = 0, res = PORTRAIT_RES, box = PORTRAIT_PX): Pix {
+  const sp = sheetHook?.portrait(d, frame, res, box);
+  if (sp) return sp;
   const size = box * res;
   const name = PORTRAIT_FRAMES[frame] ?? 'neutral';
   if (d.beast) {

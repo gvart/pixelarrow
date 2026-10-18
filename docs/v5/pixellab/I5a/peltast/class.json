@@ -1,0 +1,387 @@
+{
+ "class": "peltast",
+ "ramps": [
+  "outline",
+  "umber",
+  "darkBronze",
+  "crimson",
+  "metal",
+  "skin",
+  "iron"
+ ],
+ "crest": false,
+ "emblem": false,
+ "metalKind": {
+  "weaponMetal": "iron"
+ },
+ "stature": {
+  "skipTop": 4
+ },
+ "rowsFeet": {
+  "south-east": [
+   35,
+   66
+  ],
+  "north-east": [
+   33,
+   66
+  ],
+  "south-west": [
+   35,
+   66
+  ],
+  "north-west": [
+   35,
+   66
+  ]
+ },
+ "clips": {
+  "throw": {
+   "fps": 14,
+   "strike": 9,
+   "canvas": "guard",
+   "spear": "upright"
+  }
+ },
+ "picks": {
+  "idle": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "look": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "adjust": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "walk": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "run": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "rout": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "kneel": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "ready": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "charge": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "brace": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "block": {
+   "south-east": "a1",
+   "north-east": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: the spear swings upright and the shield face turns to the viewer"
+     },
+     {
+      "frame": 4,
+      "op": "copy",
+      "from": 2,
+      "why": "REJECTED frame: as f3"
+     },
+     {
+      "frame": 5,
+      "op": "copy",
+      "from": 6,
+      "why": "REJECTED frame: as f3"
+     }
+    ]
+   },
+   "south-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 4,
+      "why": "REJECTED frame: spark residue over the helmet"
+     }
+    ]
+   },
+   "north-west": "a1"
+  },
+  "thrust": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 7,
+      "op": "copy",
+      "from": 8,
+      "why": "REJECTED frame: a pink glint at the spearhead"
+     }
+    ]
+   }
+  },
+  "stagger": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: blood streak over the spear; once cut, the shaft breaks and the head is lost"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: as f1"
+     }
+    ]
+   },
+   "north-west": {
+    "attempt": "a1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: blood spray at the spearhead"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: blood drops by the spearhead"
+     }
+    ]
+   }
+  },
+  "fallBack": {
+   "south-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: spark and blood streaks over the chest"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: a blood burst over the body; once cut, the body is hollowed"
+     },
+     {
+      "frame": 3,
+      "op": "copy",
+      "from": 4,
+      "why": "REJECTED frame: a blood burst over the body; once cut, the body is hollowed and the shield broken"
+     }
+    ]
+   },
+   "north-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: blood over the spear; once cut, the shaft breaks up"
+     }
+    ]
+   },
+   "south-west": "p1",
+   "north-west": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: a blood burst over the body; once cut, the body is hollowed"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: blood speckles left on the cloak"
+     }
+    ]
+   }
+  },
+  "fallFwd": {
+   "south-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: a blood burst over the body; once cut, the body is hollowed and the spear"
+     }
+    ]
+   },
+   "north-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: blood over the spear; once cut, the shaft breaks up"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: as f1"
+     }
+    ]
+   },
+   "south-west": "p1",
+   "north-west": "p1"
+  },
+  "cheer": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "throw": {
+   "south-east": {
+    "attempt": "a3",
+    "fixes": [
+     {
+      "frame": 8,
+      "op": "clear",
+      "box": [
+       90,
+       60,
+       127,
+       111
+      ],
+      "why": "the thrown spear hangs in the air by his feet; it has flown out of the frame"
+     },
+     {
+      "frame": 9,
+      "op": "clear",
+      "box": [
+       90,
+       60,
+       127,
+       111
+      ],
+      "why": "the thrown spear hangs in the air by his feet; it has flown out of the frame"
+     },
+     {
+      "frame": 10,
+      "op": "clear",
+      "box": [
+       90,
+       60,
+       127,
+       111
+      ],
+      "why": "the thrown spear hangs in the air by his feet; it has flown out of the frame"
+     },
+     {
+      "frame": 11,
+      "op": "clear",
+      "box": [
+       90,
+       60,
+       127,
+       111
+      ],
+      "why": "the thrown spear hangs in the air by his feet; it has flown out of the frame"
+     }
+    ],
+    "frames": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     5,
+     6,
+     6,
+     7,
+     8,
+     9
+    ]
+   },
+   "north-east": "a3",
+   "south-west": "a2",
+   "north-west": "a1"
+  }
+ },
+ "rejected": [
+  {
+   "clip": "throw south-west a1",
+   "why": "weapon reversed",
+   "detail": "the spearhead points backwards while drawn back (f1-f5); he turns round after the throw (f8-f10)"
+  },
+  {
+   "clip": "throw north-east a1",
+   "why": "weapon reversed",
+   "detail": "the spearhead points left (backwards) while drawn back (f1-f5)"
+  },
+  {
+   "clip": "throw north-east a2",
+   "why": "weapon reversed",
+   "detail": "still turns sideways with the spearhead pointing left (f1-f5)"
+  },
+  {
+   "clip": "throw south-east a1",
+   "why": "weapon reversed",
+   "detail": "the spearhead points up-left (backwards) while drawn back (f1-f6)"
+  },
+  {
+   "clip": "throw south-east a2",
+   "why": "weapon reversed",
+   "detail": "the spearhead points up-left while drawn back (f1-f5); a3 starts from the guard, spear level and head forward"
+  }
+ ]
+}
