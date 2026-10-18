@@ -1,0 +1,24 @@
+src/art/sheetRegistry.ts
+  s_41b82181a73565::t_375980c358f286 13-14,56-58,74-76
+src/art/sheetDoll.ts
+  s_41b82181a73565::t_5c907d50155f13 503-506,509-511,513-516
+  s_41b82181a73565::t_1af8d381629e82 474,501,507-508,517-518
+  s_41b82181a73565::t_dde0fad0fcbc2c 502,512
+  s_41b82181a73565::t_d92d3dcea9a83c 519-520
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5d441e1ad8c9b69ec2365deeb0686991a70b6378",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
