@@ -173,6 +173,44 @@ All 13 classes passed the hard-reject list in every promoted set: one weapon and
 - §5.2 headgear words that the model reads as a hoplite's ("Thracian helmet", "Phrygian-style … peak") need "open-faced …, the face visible, no crest, no face mask".
 - Pro output often has only 6–10 colours. The remap then has little to lose, but groups collapse fast.
 
+#### I4a review fixes (main's review of the roster, same day)
+
+Three fixes: the archer carried two bows in SE, NE and NW (the recurved bow is drawn as two parallel limbs); the fanatic read as undead (ash-grey skin, a gaunt face); and the cloak, crest and trim groups of falx, fanatic and gallic were not exclusive. **Gens:** 4 pro characters (40) and 4 imports (1), so 41 this round; **262.25 in all for I4a** (cap 650). Account: 4,313.50 left after.
+
+**Prompts, word for word:**
+
+- **archer A3**
+  ```
+  lean grim Cretan archer with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark curly hair and a short dark beard, no helmet; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, one dark leather quiver strap across his chest and one quiver of arrows on his back, no white cloth; bare legs, dark leather sandals; no shield; only one bow: a plain wooden bow with a single thin curved limb and one straight string, held vertically in his left hand out at his left side, away from his body and clearly visible in every direction, no second bow, his right hand empty ready to draw; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **fanatic A4**
+  ```
+  grim wild-eyed Celtic religious fanatic, a living man, with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, long wild tangled hair stiffened with lime into a dull pale ash-blond mane, a short rough beard; ragged very dark oxblood-black wool cloak hanging behind him, torn at the hem; bare chest and arms of living warm tan skin painted with bold dark blue woad patterns, no armour; a dark umber wool kilt with a rope belt; bare legs, bare feet; no shield, his left hand an empty fist; one heavy curved iron kopis blade held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **falx A4**: falx A3 with "long black hair to the shoulders and a full black beard".
+- **gallic A3**
+  ```
+  grim tall bare-chested Gallic warband warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, thick limed hair stiffened into dull pale-grey spikes standing up from his head, a long drooping moustache; bare muscular chest and arms of living tan skin painted with dark blue woad swirls; one thick twisted polished bronze torc around his neck and one wide dark belt with a polished bronze buckle, the only bright bronze he wears; dark muted green plaid wool trousers, dark leather shoes; one tall oval Celtic hide shield on his left arm, shoulder to knee, dark umber hide with a dark iron boss; one heavy iron war axe on a wooden haft held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+
+**Retints** (`scripts/art/pixellab/rollout/retint.mjs`). Each one moves a part into a ramp of its own: the pixels of the named ramps inside a box per view go to the target ramp's step nearest in lightness, a small hue or value shift. Each result was checked with `groups.mjs`.
+
+- **fanatic A4:** the cloak and kilt were one raw colour (`#231616`). The kilt (S, SE, SW rows 36–49 within 8 px of the centre; E columns 33–40 and W columns 28–37, rows 37–49) goes from umber to darkBronze. The cloak is now the only umber.
+- **falx A4:** a few lit hair pixels (rows 4–16) go from plaidGreen to umber. The moss-green cloak is then the only plaidGreen.
+- **gallic N1:** the torc was drawn in outline black, so its inner pixels on the neck row (row 20 in S, SE, E; row 21 in the others; `--inner` keeps the edge outline) go to the bronze ramp. Nothing else on him is bronze, so it is the exclusive trim group.
+
+| # | Class | Attempt | Character id | Outcome |
+| --- | --- | --- | --- | --- |
+| 29 | archer | A3 | `5dabb376` | **Promoted after normalising:** one plain bow and a back quiver in 8/8 (W, not a game facing, holds the bow level); 61 to 58 px (−3 rows, −1 column) → **N1 `199cd6bb`** |
+| 30 | fanatic | A4 | `7de14182` | **Promoted after the retint:** a living man (warm tan skin, blue woad, a wild limed mane, ragged dark cloak, kopis in 8/8); body at H4's height (the mane is not counted) → **N2 `fe0b0a2d`** |
+| 31 | falx | A4 | `60c71589` | **Promoted after the retint and normalising:** black hair and beard, falx in 8/8; 62 to 58 px (−4 rows, −2 columns) → **N1 `63527404`** |
+| 32 | gallic | A3 | `28d7356a` | **Rejected:** only 6 colours, no bronze on the torc, an invented ground shadow in W, feet on row 64 |
+| 33 | gallic | N1 + torc | `2ef012ad` | **Promoted:** N1 with the bronze torc retint → **N2 `2ef012ad`** |
+
+`normalise.mjs` now drops columns only within 11 px of the knees' centre, so a weapon held out at the side is never thinned (falx A4's first pass had cut two columns from the blade).
+
+**Groups after the fixes:** archer, cloak crimson (exclusive); falx, cloak plaidGreen (exclusive); fanatic, cloak umber (exclusive; kilt darkBronze); gallic, trim bronze (exclusive; no cloak or crest by the data). **Still open:** falx's jerkin remaps to the skin ramp, so a per-man skin recolour (V5-095) would tint his jerkin. Other leather-clad classes may do the same; that is a check for sheetbuild's skin group.
+
 ### I1b Dark-epic hoplite: the restyle, 12–16-frame walk and thrust, frame-by-frame review, the elite probe (2026-10-18)
 
 **Brief** (user review of I1, V5-087): darker, *300* / Lord of the Rings mood on the I1 pick B3 (high top-down, 48); smooth 12–16-frame clips; a spearhead pointing away from the facing or the attack is never allowed; then, mid-round, a hard rule: exactly one spearhead at the leading end, a plain blunt wooden butt (no sauroter), and every frame with a pointed or metallic butt rejected. Every prompt below carries "single leaf-shaped spearhead, plain blunt butt end, no butt spike".

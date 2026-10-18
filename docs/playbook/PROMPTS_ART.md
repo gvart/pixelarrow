@@ -867,3 +867,38 @@ The model fits the figure's top to the canvas top. A crest, plume or upright spe
 family nothing else on the man uses (crimson for Greeks, purple-black for Carthaginians, green plaid for Celts). A brown
 cloak on a man in leather leaves no recolour group. For a §5.2 helmet the model might draw as a Corinthian, write
 "open-faced …, the face visible, no crest, no face mask".
+
+**Review fixes** (main's review: the archer's doubled bow, the fanatic reading as undead, exclusive groups for falx, fanatic
+and gallic). Retints by `rollout/retint.mjs`; details in ASSET_LOG › I4a review fixes.
+
+**archer A3**
+
+```
+lean grim Cretan archer with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark curly hair and a short dark beard, no helmet; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, one dark leather quiver strap across his chest and one quiver of arrows on his back, no white cloth; bare legs, dark leather sandals; no shield; only one bow: a plain wooden bow with a single thin curved limb and one straight string, held vertically in his left hand out at his left side, away from his body and clearly visible in every direction, no second bow, his right hand empty ready to draw; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**fanatic A4**
+
+```
+grim wild-eyed Celtic religious fanatic, a living man, with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, long wild tangled hair stiffened with lime into a dull pale ash-blond mane, a short rough beard; ragged very dark oxblood-black wool cloak hanging behind him, torn at the hem; bare chest and arms of living warm tan skin painted with bold dark blue woad patterns, no armour; a dark umber wool kilt with a rope belt; bare legs, bare feet; no shield, his left hand an empty fist; one heavy curved iron kopis blade held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**gallic A3**
+
+```
+grim tall bare-chested Gallic warband warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, thick limed hair stiffened into dull pale-grey spikes standing up from his head, a long drooping moustache; bare muscular chest and arms of living tan skin painted with dark blue woad swirls; one thick twisted polished bronze torc around his neck and one wide dark belt with a polished bronze buckle, the only bright bronze he wears; dark muted green plaid wool trousers, dark leather shoes; one tall oval Celtic hide shield on his left arm, shoulder to knee, dark umber hide with a dark iron boss; one heavy iron war axe on a wooden haft held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**falx A4**: falx A3 with "long black hair to the shoulders and a full black beard".
+
+| Class | Attempt | Outcome |
+| --- | --- | --- |
+| archer | A3 | **Promoted** (normalised −3 rows): one plain bow, a back quiver in 8/8 |
+| fanatic | A4 | **Promoted** (kilt retinted to darkBronze): a living man, the cloak the only umber |
+| falx | A4 | **Promoted** (hair specks retinted, normalised −4 rows): the moss cloak the only plaidGreen |
+| gallic | A3 | **Rejected:** 6 colours, no bronze, an invented shadow; N1 got a bronze torc retint instead |
+
+**Lessons:** "recurved composite bow" is drawn as two parallel limbs that read as two bows; ask for "only one bow: a plain
+wooden bow with a single thin curved limb and one straight string … no second bow". "a living man … warm tan skin" keeps a
+grim fanatic alive; grey ash on the body turns him into a ghoul. PixelLab often paints two parts in one exact colour (the
+fanatic's cloak and kilt), so a re-roll rarely separates them; a box retint into a neighbouring ramp does, at no cost.

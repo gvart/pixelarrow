@@ -113,23 +113,29 @@
   },
   "archer": {
    "culture": "greek",
-   "character_id": "b8f323c8-cfc6-44b3-a9cf-0639fa075125",
-   "prompt_id": "I4a-archer-A2",
-   "rotations": "docs/v5/pixellab/I4a/raw/archer/A2/zip/Idle/rotations",
-   "crown": 7,
-   "chin": 18,
+   "character_id": "199cd6bb-bddd-493c-b21c-690ab8e65d11",
+   "prompt_id": "I4a-archer-A3",
+   "source_character_id": "5dabb376-d60c-48e9-bf72-aa4c86239e51",
+   "normalise": {
+    "rows": 3,
+    "cols": 1,
+    "from": 19
+   },
+   "rotations": "docs/v5/pixellab/I4a/raw/archer/N1/zip/Idle/rotations",
+   "crown": 9,
+   "chin": 20,
    "groups": {
     "cloak": "crimson (exclusive)",
     "jerkin": "umber"
    },
-   "status": "approved",
-   "note": "stature 60 (+2, the tolerance edge)",
+   "status": "approved (review fix: one bow; v3 import of A3 minus 3 rows, 1 column)",
+   "note": "W (not a game facing) holds the bow level",
    "size": 68,
    "canvas": 68,
    "view": "high top-down",
    "feet": 66,
-   "height_px": 60,
-   "heads": 5
+   "height_px": 58,
+   "heads": 4.83
   },
   "slinger": {
    "culture": "greek",
@@ -198,27 +204,33 @@
   },
   "falx": {
    "culture": "celtic",
-   "character_id": "c9bdfe6f-045d-41da-89be-fa7f154565b4",
-   "prompt_id": "I4a-falx-A3",
-   "rotations": "docs/v5/pixellab/I4a/raw/falx/A3/zip/Idle/rotations",
-   "crown": 10,
+   "character_id": "63527404-13f8-4ae2-b22c-21d17afc960a",
+   "prompt_id": "I4a-falx-A4",
+   "source_character_id": "60c71589-662f-40aa-afd2-8a47de387317",
+   "normalise": {
+    "rows": 4,
+    "cols": 2
+   },
+   "retint": "hair rows 4-16: plaidGreen specks -> umber",
+   "rotations": "docs/v5/pixellab/I4a/raw/falx/N1/zip/Idle/rotations",
+   "crown": 9,
    "chin": 20,
    "groups": {
-    "cloak": "plaidGreen (also the darkest hair steps)",
-    "jerkin": "umber"
+    "cloak": "plaidGreen (exclusive)",
+    "jerkin": "skin + umber",
+    "hair": "outline + umber"
    },
-   "status": "approved, colour group needs review",
-   "note": "hair shares plaidGreen with the cloak",
+   "status": "approved (review fix: black hair, cloak ramp exclusive; v3 import of A4 retinted, minus 4 rows, 2 columns)",
    "size": 68,
    "canvas": 68,
    "view": "high top-down",
    "feet": 66,
-   "height_px": 57,
-   "heads": 5.18
+   "height_px": 58,
+   "heads": 4.83
   },
   "gallic": {
    "culture": "celtic",
-   "character_id": "462072a6-497a-4058-a66d-2af2d2b49263",
+   "character_id": "2ef012ad-8000-40ae-a4fe-2bd7761bbb05",
    "prompt_id": "I4a-gallic-A1",
    "source_character_id": "ec8e285a-b264-4dd5-b1f1-1019afd22b4b",
    "normalise": {
@@ -226,15 +238,17 @@
     "cols": 1,
     "from": 17
    },
-   "rotations": "docs/v5/pixellab/I4a/raw/gallic/N1/zip/Idle/rotations",
+   "retint": "torc (inner outline px of the neck row 20 or 21) -> bronze",
+   "rotations": "docs/v5/pixellab/I4a/raw/gallic/N2/zip/Idle/rotations",
    "crown": 8,
    "chin": 18,
    "headgear_top": 4,
    "groups": {
+    "trim": "bronze (the torc, exclusive)",
     "hair": "linen + metal",
-    "trousers": "darkBronze (shared with the torc and shield rim)"
+    "trousers": "darkBronze"
    },
-   "status": "approved, colour group needs review",
+   "status": "approved (review fix: exclusive trim; v3 import of N1 with a bronze torc)",
    "note": "bare per the data: no cloak or crest group; limed spikes (rows 4-7) not counted",
    "size": 68,
    "canvas": 68,
@@ -245,27 +259,28 @@
   },
   "fanatic": {
    "culture": "any",
-   "character_id": "9ae28d60-9313-4774-b98b-70c3854a5a20",
-   "prompt_id": "I4a-fanatic-A1",
-   "source_character_id": "9e6425ee-a034-40cf-864d-3d18e9851f1f",
-   "normalise": {
-    "rows": 5,
-    "cols": 2
-   },
-   "rotations": "docs/v5/pixellab/I4a/raw/fanatic/N1/zip/Idle/rotations",
+   "character_id": "fe0b0a2d-0c78-444e-8257-ef52ad16d0ec",
+   "prompt_id": "I4a-fanatic-A4",
+   "source_character_id": "7de14182-880a-4c33-b390-9b64faa25192",
+   "retint": "kilt (S, SE, SW rows 36-49; E, W rows 37-49): umber -> darkBronze",
+   "rotations": "docs/v5/pixellab/I4a/raw/fanatic/N2/zip/Idle/rotations",
    "crown": 8,
-   "chin": 19,
+   "chin": 18,
+   "headgear_top": 4,
    "groups": {
-    "cloak": "metal (shared with the ash-grey skin)"
+    "cloak": "umber (exclusive)",
+    "kilt": "darkBronze",
+    "hair": "plaidGreen + linen",
+    "woad": "enemySlate + metal"
    },
-   "status": "approved, colour group needs review",
-   "note": "the black cloak and the ash skin both remap to metal",
+   "status": "approved (review fix: a living Celtic fanatic; v3 import of A4 with the kilt retinted)",
+   "note": "wild limed mane (rows 4-7) not counted",
    "size": 68,
    "canvas": 68,
    "view": "high top-down",
    "feet": 66,
    "height_px": 59,
-   "heads": 4.92
+   "heads": 5.36
   },
   "royal_guard": {
    "culture": "greek",
