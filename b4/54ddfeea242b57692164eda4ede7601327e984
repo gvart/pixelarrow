@@ -1,0 +1,43 @@
+scripts/art/pixellab/mounted/loopfind.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-29
+docs/v5/pixellab/mounted.json
+  s_41b82181a73565::t_f95ef51b7c458f 1-123
+scripts/art/pixellab/mounted/clip.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-34
+scripts/art/pixellab/mounted/cutcheck.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-25
+scripts/art/pixellab/mounted/sheets.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-97
+scripts/art/pixellab/mounted/upload1.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-14
+scripts/art/pixellab/mounted/review.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-31
+docs/playbook/PROMPTS_ART.md
+  s_41b82181a73565::t_f95ef51b7c458f 973-1036
+scripts/art/pixellab/mounted/anchors.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-17
+scripts/art/pixellab/mounted/facings.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-22
+scripts/art/pixellab/mounted/keyframe.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-16
+scripts/art/pixellab/mounted/lib.mjs
+  s_41b82181a73565::t_f95ef51b7c458f 1-27
+docs/v5/ASSET_LOG.md
+  s_41b82181a73565::t_cdacb2f4ac43eb 111-206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b454ddfeea242b57692164eda4ede7601327e984",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
