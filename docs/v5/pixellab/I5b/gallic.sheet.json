@@ -13,16 +13,17 @@
   "iron",
   "linen",
   "metal",
-  "enemySlate"
+  "woad"
  ],
  "parts": {
   "bronze": "trim",
+  "bronze:1-2": "shadow",
   "iron": "metal",
   "umber": "shadow",
   "darkBronze": "shadow",
   "linen": "shadow",
   "metal": "shadow",
-  "enemySlate": "shadow"
+  "woad": "shadow"
  },
  "crest": false,
  "emblem": false,
@@ -726,15 +727,12 @@
  "tiers": {
   "veteran": {
    "trim": [
-    "#b08a3a",
-    "#e0c070"
+    "#9a7434"
    ]
   },
   "elite": {
    "trim": [
-    "#966c3d",
-    "#cc9554",
-    "#e0b867"
+    "#c8963a"
    ]
   }
  }
