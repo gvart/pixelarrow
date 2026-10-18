@@ -173,7 +173,7 @@ export class MerchantScene extends BaseScene {
     if (!ready) {
       const s = this.st === 'ready' ? 'error' : this.st;
       // the state card fills the content (centred in it, never a stretched column, §15)
-      addEconState(this, this.page, c.x + 3, top + 2, c.w - 6, c.y + c.h - top - 6, s, () => ((this.st = 'loading'), this.render(), void this.fetch()));
+      addEconState(this, this.page, c.x + 3, top + 2, c.w - 6, c.y + c.h - top - 6, s, () => ((this.st = 'loading'), this.render(), void this.fetch()), variant === 'compactPortrait' ? undefined : Math.round(this.m.contentW * 0.9));
       return;
     }
     if (split) this.buildSplit(v!, c);

@@ -12,7 +12,7 @@
  */
 import Phaser from 'phaser';
 import { BaseScene } from '../BaseScene';
-import { ScrollArea } from '../../ui/kit';
+import { ScrollArea, tappable } from '../../ui/kit';
 import { ScrollList, addScrollHint, confirmDialog, toast } from '../../ui/widgets';
 import { uiClip, uiCollapsed, uiId, uiIgnore, uiLayout } from '../../ui/layout';
 import { layoutVariant, masterDetail, type Box as PaneBox } from '../../ui/mosaic/layout/geometry';
@@ -22,7 +22,7 @@ import { ensureFonts } from '../../ui/fonts';
 import { GAP, MButton, MChip, MStashGrid, SegmentedSwitch, SWITCH_H, TAP, addParchmentEmpty, addSubShell, mosaicImage, mtext, mw, openParchmentSheet, type Box, type FramedSubShell, type MButtonOpts } from '../../ui/mosaic';
 import { MOSAIC, TEXT_MIN } from '../../ui/tokens';
 import { wrapText } from '../../ui/textfit';
-import { ARMY_LH, ARMY_ROW_H, addArmyHead, addMiniHead, addRosterRow, armyPill, collapsed, ensureBusts, tappableRow, type ArmySource, type HeroStatus } from '../../ui/army';
+import { ARMY_LH, ARMY_ROW_H, HEAD_NICHE, addArmyHead, addMiniHead, addRosterRow, armyPill, collapsed, ensureBusts, tappableRow, type ArmySource, type HeroStatus } from '../../ui/army';
 import { armyPillH } from '../../ui/army/parts';
 import { equipRefusal, DragDrop, className, defaultStashState, groupName, itemName, openClassCard, openItemCard, roleColor, roleName, roleTraits, uiBoundsOf, type StashState } from '../../ui/sheet';
 import { addEconState } from '../../ui/econ/widgets';
@@ -131,6 +131,8 @@ export function footerWidths(labels: string[], room: number): { icons: boolean; 
 const DETAIL_MAX = 340;
 /** The footer's height. */
 const FOOT_H = 32;
+/** The API-down state's band in two panes, as a share of contentW (§15: a card across the content, its action at the right end). */
+const STATE_ROW = 0.9;
 /** Stash cells in the master pane, UI px (28 at phone sizes), as the Army's. */
 const STASH_CELL_MEDIUM = 40;
 const STASH_CELL_WIDE = 34;
@@ -299,7 +301,7 @@ export class OnlineArmyScene extends BaseScene {
         this.st = 'loading';
         this.render();
         void this.fetchData();
-      });
+      }, this.split ? Math.round(this.m.contentW * STATE_ROW) : undefined);
       return;
     }
     this.refresh();
@@ -458,6 +460,12 @@ export class OnlineArmyScene extends BaseScene {
     }
     for (const [s, o] of r.slots) this.slotObjs.set(s, o);
     ensureBusts(this, [heroClass(h).id], r.addBust);
+    if (this.split) {
+      // in two panes the niche is a way in, as the recruit sheet's figures are: a tap shows the class card
+      const z = uiId(this.add.zone(HEAD_NICHE.x, y0 + HEAD_NICHE.y, HEAD_NICHE.w, HEAD_NICHE.h).setOrigin(0, 0).setInteractive(), 'oarmy.class');
+      tappable(z, null, () => !this.detail?.moved && openClassCard(this, { hero: h, title: className(h) }), className(h));
+      L.add(z);
+    }
     return y0 + r.h + 4;
   }
 
@@ -548,7 +556,9 @@ export class OnlineArmyScene extends BaseScene {
     c.add(mosaicImage(this, 0, 0, b.w, H, 'sheet'));
     uiId(c, 'oarmy.footer');
     if (this.garrisonHex !== null) {
-      c.add(new MButton(this, 4, 4, b.w - 8, 24, { label: t('oarmy.station'), icon: 'check', variant: 'primary', id: 'oarmy.station', onClick: () => void this.saveGarrison() }));
+      // v5 spans the footer; in two panes it keeps a button's width (§2.3), centred
+      const sw = this.split ? Math.min(b.w - 8, 240) : b.w - 8;
+      c.add(new MButton(this, Math.round((b.w - sw) / 2), 4, sw, 24, { label: t('oarmy.station'), icon: 'check', variant: 'primary', id: 'oarmy.station', onClick: () => void this.saveGarrison() }));
       return c;
     }
     const specs: MButtonOpts[] = [

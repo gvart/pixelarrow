@@ -178,7 +178,7 @@ export class ClanScene extends BaseScene {
         const tx = mtext(this, box.x + box.w / 2, box.y + 40, t('clan.loading'), 'pSec', { align: 0.5, maxW: box.w - 12 });
         this.ui.add(tx);
         this.tweens.add({ targets: tx, alpha: { from: 1, to: 0.35 }, duration: 500, yoyo: true, repeat: -1 });
-      } else addEconState(this, this.ui, box.x, box.y, box.w, box.h, this.st, () => this.retry());
+      } else addEconState(this, this.ui, box.x, box.y, box.w, box.h, this.st, () => this.retry(), this.split ? Math.round(this.m.contentW * 0.9) : undefined);
       return;
     }
     // two panes (and the no-clan card with its art beside the words) outside compact portrait, at most CONTENT_MAX wide
