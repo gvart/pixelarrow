@@ -234,9 +234,9 @@ async function guided(tag, ctxOpts, fake, main) {
   }
 
   // the morale glyph: lit on the enemy badge, a tap goes on
-  // the step waits up to 45 s of its own clock for a group to waver (preTimeout), then goes on without it. That
-  // clock takes at most 100 ms a frame, so at a few frames a second (1920x1080 under load) 45 s is minutes of
-  // wall time: wait on the tutorial's clock, not the wall's (a stalled clock still fails after 20 s)
+  // the step waits up to 45 s of battle time for a group to waver (preTimeout), then goes on without it. That
+  // clock counts sim steps (BattleTutorial.afterStep), at most 250 ms of them a frame, so under load 45 s can still
+  // be minutes of wall time: wait on the tutorial's clock, not the wall's (a stalled clock still fails after 20 s)
   const moraleSeen = async () => {
     let last = -1;
     let stalled = Date.now();

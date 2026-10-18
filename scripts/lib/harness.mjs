@@ -66,7 +66,9 @@ export async function prepContext(c) {
  * took most of the runner's 30 minutes). With this, each frame passes its real time, capped at `capMs`
  * (the battle's own cap a frame, BattleScene.update): the game runs as on a slow phone, not in slow motion.
  * An init script on the context sets it on `window.__game` as main.ts publishes it (every load and
- * reload); the game build has no such switch.
+ * reload); the game build has no such switch. The battle and the tutorial's battle script already run on
+ * real time in the game (BattleScene: loop.rawDelta, which this leaves alone); this still covers what reads
+ * Phaser's delta: tweens, the deployment clock and the narrator's timers.
  */
 export async function realClock(ctx, capMs = 250) {
   await ctx.addInitScript((cap) => {
