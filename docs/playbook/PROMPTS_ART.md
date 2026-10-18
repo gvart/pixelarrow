@@ -1035,7 +1035,7 @@ before clips). The style reference's lambda leaks into round shields ("plain …
 behind the horse: raise it clear of the horse's back. A black mane takes a dark cloak's colours: give the cloak a hue
 the horse lacks. pixminimax gallops start standing: key the loop on a stretched frame.
 
-## 17. PixelLab animation of the shield-bearing foot classes (I5a)
+## 18. PixelLab animation of the shield-bearing foot classes (I5a)
 
 This section covers the six I4a bases (royal_guard, sacred_band, thureophoros, militia, peltast and javelineer), each taken to the hoplite's full sheet.
 
@@ -1185,7 +1185,7 @@ This section covers the six I4a bases (royal_guard, sacred_band, thureophoros, m
 
 
 
-## I5b. PixelLab shieldless, two-handed and missile foot classes (animation)
+## 19. PixelLab shieldless, two-handed and missile foot classes, animation (I5b)
 
 Full log, ids, costs and every rejection: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I5b. Jobs and picks:
 `docs/v5/pixellab/I5b/<class>.jobs.json`, `<class>.picks.json`. Tools: `scripts/art/pixellab/i5b/`.
@@ -1233,7 +1233,7 @@ stance clip and for the attack. Start the attack from that guard, and end it the
 always bends a long blade into a crescent smear: drop those frames and hold the windup's peak instead. "His back and cloak
 to the viewer in every frame … he does not turn round" keeps a back facing from swinging round in a stance.
 
-## 18. PixelLab mounted and chariot clips (I5c)
+## 20. PixelLab mounted and chariot clips (I5c)
 
 The four I4b bases animated to game sheets. Full log, every attempt and verdict: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I5c. Jobs: `docs/v5/pixellab/I5c/<class>.jobs.json`; prompts by id: `docs/v5/pixellab/I5c/prompts.json`. Tools: `scripts/art/pixellab/i5c/`.
 
