@@ -1,0 +1,25 @@
+src/assets/sheets/hoplite/manifest.json
+  s_41b82181a73565::t_d25cbb2400e52c 1-5,8-9,11-14,16-18,20-22,24-26,28-43,45-113,129-135,139-142,145-170,173-211,216-219,222-231,236-239,242-250
+  s_41b82181a73565::t_96e92e4692d139 6-7,44,114-128,136-138,143-144,171-172,212-215,220-221,232-235,240-241
+  s_41b82181a73565::t_1c75d325fd6b81 10,15,19,23,27
+docs/v5/pixellab/I3/hoplite.sheet.json
+  s_41b82181a73565::t_96e92e4692d139 429-435,437-458
+  s_41b82181a73565::t_15ddcf63945d2e 256-264,365-379,412-426,459-473
+  s_41b82181a73565::t_198171fbd9adab 427-428
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f400e338055745b4e39befd8c59901aa6c7805c4",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
