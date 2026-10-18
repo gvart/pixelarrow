@@ -41,6 +41,7 @@ export default defineConfig({
         preview: 'preview.html',
         store: 'store.html',
         audio: 'audio.html',
+        sandbox: 'sandbox.html', // war region sandbox (src/war/view/main.ts)
         'auth-signup': 'auth/signup.html',
         'auth-add_email': 'auth/add_email.html',
         'auth-change_email': 'auth/change_email.html',
