@@ -1,0 +1,26 @@
+scripts/tutorial-smoke.mjs
+  s_0d98fe904b2e82::t_fbd9745263cc07 304-308,310,312-330,332,336-337,340,346-347,349,353,355-403,405-408,410-419
+  s_0d98fe904b2e82::t_da72e4db8c6516 37-38,301,331,339,348,354,404,409,424
+  s_0d98fe904b2e82::t_3aebb69b4328d3 20,36,40,300
+  s_0d98fe904b2e82::t_71a2fd8739a936 173-175,338
+  s_0d98fe904b2e82::t_48ddebf426a2ab 420
+scripts/lib/harness.mjs
+  s_0d98fe904b2e82::t_48748902d6de4f 63-82
+  s_0d98fe904b2e82::t_6fe1db9df8cb02 62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f1f9a815a30ed8f773bad08e8634a4c35d256769",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
