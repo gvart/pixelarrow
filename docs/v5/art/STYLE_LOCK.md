@@ -188,6 +188,8 @@ extends last, the hand moving along the spear's own line (same height and side; 
 lunge) → a held follow-through with the rear heel up → back up to guard. In SE the first frame's spear must be drawn
 flatter (`spear.mjs --vec 1,0.22`): from the camera-true angle PixelLab levels the spear during the clip (a pivot).
 
+**SE guard** (I5a): move the grip back. The head should be at least ~50 px ahead of the fist and clearly visible beyond the shield rim (`spear.mjs --ahead 52 --behind 10`). With 38 / 20 the leaf hides behind the shield and the long butt behind the man reads as the point. This applies to every levelled SE clip (ready, charge, brace, block, stagger, thrust).
+
 Order of work per class: base QC → SW test of every clip (cheapest; reject before rolling out) → the other three
 facings, the back views (NE, NW) checked first → review → spec → `sheetbuild.mjs` → `qc.mjs` → preview.
 
