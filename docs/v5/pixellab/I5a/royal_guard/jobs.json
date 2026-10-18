@@ -69,5 +69,9 @@
  {"anim":"fallBack","dir":"south-east","attempt":"p1","job":"f6556cb5-2dbb-4994-b23b-131ad9a7c2c1","mode":"pixminimax","frames":12,"gens":2},
  {"anim":"fallFwd","dir":"south-east","attempt":"p1","job":"5e7e34c8-f936-4975-a18e-7183fb3757f1","mode":"pixminimax","frames":12,"gens":2},
  {"anim":"cheer","dir":"south-east","attempt":"a1","job":"28eeb34f-ea9a-43d2-b732-832e7ca25ad0","mode":"pixminimax","frames":12,"gens":1},
- {"anim":"fallBack","dir":"south-east","attempt":"p2","job":"9b8f8532-2d31-4adc-80ad-dbc29006774c","mode":"pixminimax","frames":12,"gens":2,"note":"redo: p1 a doubled spear (f5-f6) and blood over the shield (cut hollows it)"}
+ {"anim":"fallBack","dir":"south-east","attempt":"p2","job":"9b8f8532-2d31-4adc-80ad-dbc29006774c","mode":"pixminimax","frames":12,"gens":2,"note":"redo: p1 a doubled spear (f5-f6) and blood over the shield (cut hollows it)"},
+ {"anim":"ready","dir":"south-east","attempt":"a2","job":"183d6026-cbeb-4c84-af2a-92f1fd4835fb","mode":"pixminimax","frames":12,"gens":2,"note":"redo from guard2 SE (grip back: head 52 ahead, butt 10): a1's head hid behind the shield rim, the long butt read as the point (main's review)"},
+ {"anim":"block","dir":"south-east","attempt":"a2","job":"a97450b2-8ae4-43c8-a032-9482f2b31616","mode":"pixminimax","frames":12,"gens":2,"note":"redo from guard2 SE"},
+ {"anim":"thrust","dir":"south-east","attempt":"a2","job":"538a369d-683b-46b9-8b68-ef30cfe124b4","mode":"skeleton","frames":14,"gens":3,"note":"redo from guard2flat SE (grip back)"},
+ {"anim":"stagger","dir":"south-east","attempt":"a2","job":"0482aee7-0505-462f-946d-2069b53eaf00","mode":"pixminimax","frames":12,"gens":2,"note":"redo from guard2 SE"}
 ]

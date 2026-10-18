@@ -35,12 +35,15 @@ for (const d of DIRS) {
   if (want('tall')) { node(join(HERE, '..', 'pad.mjs'), rot, join(first, `tall_${d}.png`), '96', '112', '14', '40'); files.push(`tall_${d}`); }
   if (want('die')) { node(join(HERE, '..', 'pad.mjs'), rot, join(first, `die_${d}.png`), '128', '128', '30', '30'); files.push(`die_${d}`); }
   if (want('guard')) {
-    if (spear) console.log(node(join(HERE, 'guard.mjs'), rot, join(first, `guard_${d}.png`), '--facing', d, '--count', String(spear)).split('\n').at(-1));
+    // SE: the grip moved back (head 52 px ahead of the fist, butt 10 behind) so the leaf clears the shield rim and leads
+    // visibly (main's review of royal_guard: with 38 / 20 the long butt up-left read as the point)
+    const se = d === 'south-east' ? ['--ahead', '52', '--behind', '10'] : [];
+    if (spear) console.log(node(join(HERE, 'guard.mjs'), rot, join(first, `guard_${d}.png`), '--facing', d, '--count', String(spear), ...se).split('\n').at(-1));
     else node(join(HERE, '..', 'pad.mjs'), rot, join(first, `guard_${d}.png`), '128', '112', ...GUARD[d].map(String));
     files.push(`guard_${d}`);
   }
   if (spear && d === 'south-east' && want('guardflat')) {
-    console.log(node(join(HERE, 'guard.mjs'), rot, join(first, `guardflat_${d}.png`), '--facing', d, '--count', String(spear), '--vec', '1,0.22').split('\n').at(-1));
+    console.log(node(join(HERE, 'guard.mjs'), rot, join(first, `guardflat_${d}.png`), '--facing', d, '--count', String(spear), '--vec', '1,0.22', '--ahead', '52', '--behind', '10').split('\n').at(-1));
     files.push(`guardflat_${d}`);
   }
 }

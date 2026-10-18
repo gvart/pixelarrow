@@ -239,7 +239,7 @@
    "spear": "level",
    "dirs": {
     "south-east": {
-     "attempt": "a1"
+     "attempt": "a2"
     },
     "north-east": {
      "attempt": "a1"
@@ -297,15 +297,7 @@
    "spear": "level",
    "dirs": {
     "south-east": {
-     "attempt": "a1",
-     "fixes": [
-      {
-       "frame": 2,
-       "op": "copy",
-       "from": 1,
-       "why": "REJECTED frame: an impact spark streak across the shield"
-      }
-     ]
+     "attempt": "a2"
     },
     "north-east": {
      "attempt": "a2",
@@ -346,31 +338,18 @@
    "spear": "level",
    "dirs": {
     "south-east": {
-     "attempt": "a1",
+     "attempt": "a2",
      "fixes": [
       {
        "frame": 0,
        "op": "clear",
        "box": [
-        50,
-        54,
-        127,
-        72
+        73,
+        59,
+        110,
+        68
        ],
-       "red": true,
-       "why": "a red streak (blood) across the shield"
-      },
-      {
-       "frame": 1,
-       "op": "clear",
-       "box": [
-        96,
-        58,
-        127,
-        70
-       ],
-       "red": true,
-       "why": "the end of the streak"
+       "why": "motion-streak lines behind the shield (an invented effect)"
       }
      ]
     },
@@ -532,7 +511,7 @@
    "spear": "level",
    "dirs": {
     "south-east": {
-     "attempt": "a1"
+     "attempt": "a2"
     },
     "north-east": {
      "attempt": "a1"

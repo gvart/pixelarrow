@@ -85,6 +85,14 @@ There were **0** reversed or double-ended spears, heads turned backwards, heads 
 - Bright silver also goes near-white in the falls, and the colour cut then hollows it: say "dull and dark".
 - In death clips, a class with no crimson of its own should map `crimson→shadow`, so blood left on the body never joins the cloak group.
 
+#### royal_guard SE guard fix (main's review, same day)
+
+The SE leaf head did lead (it was at the down-right end in every frame), but the spear read as trailing. With the I3a guard geometry (head 38 px ahead of the fist, butt 20 behind), the leaf sat behind the shield's lower rim and the long butt up-left looked like the point. The hoplite has the same geometry.
+
+The fix is a new SE guard and SE flat-guard frame from `i5a/guard.mjs --ahead 52 --behind 10`, which `prep.mjs` now uses for every spear class. ready, block, stagger and thrust SE were redone from it as **a2**: 9 gens, and **120 gens in all for the class**. The leaf now clears the rim and leads in every frame. Stagger SE a2 f0 has a `clear` over motion-streak lines behind the shield. charge and brace SE keep a1, because the model levels the spear with its head clearly ahead from f1.
+
+STYLE_LOCK §6 gained an additive "SE guard" note. Zooms are in the scratchpad: `se_zoom_royal_guard_v2.png`. QC: 0 failures.
+
 ### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
 
 **Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated
