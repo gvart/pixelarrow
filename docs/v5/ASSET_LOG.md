@@ -8,6 +8,83 @@ Empty. The AS-07 Nikias prompts were sent in AS-08 (below).
 
 ## Done
 
+### I5a Shield-bearing foot classes animated: royal_guard, sacred_band, thureophoros, militia, peltast, javelineer (2026-10-18)
+
+**Brief.** I5a takes each of the six classes from its approved I4a base (`docs/v5/pixellab/bases.json`) to a full packed sheet, matching the shipped hoplite. That means the hoplite's 16 clips (frame counts, fps, scale and anchors), 12–16 frames each, and dark-epic art that stays identical to the base. Each class's melee attack is a weighted full-body one-hand attack moving with the shield: the hoplite thrust recipe for spears, a cut along the blade for the sword, and a javelin `throw` for javelineer and peltast. Every frame passes the I3a hard-reject list. Tiers are runtime recolours (V5-092, V5-098). The budget cap is 1,050 generations for the six, with at most 3 PixelLab jobs at a time on the shared Tier 2 account.
+
+**Tools.** The new scripts are in `scripts/art/pixellab/i5a/`. The shared scripts are unchanged, apart from main's additive `parts` / `crest` / `emblem` / `stature` spec options (STYLE_LOCK §5).
+
+| script | what it does |
+| --- | --- |
+| `prep.mjs <class> [--upload url]` | Builds the first frames from the base rotations and uploads them. `rot` is 68, `tall` is 96 x 112, `die` is 128 x 128, `guard` is 128 x 112 with the spear levelled, and `guardflat` is SE with `--vec 1,0.22`. |
+| `guard.mjs` | Makes a levelled-spear guard frame with no hand measuring. It finds the upright spear (`findSpear`), takes the fist from the skin on the line and erases the old spear along its line. Then `spear.mjs` redraws it in the class's own shaft and head colours. |
+| `prompts.mjs <class> <anim> <dir>` | Prints the fields of every call. These are the hoplite's §15 prompts with each class's subject, shield and weapon words. |
+| `job.mjs` | Logs every job to `docs/v5/pixellab/I5a/<class>/jobs.json`, in the `fetchjobs.mjs` format, with the gens quoted. |
+| `spec.mjs <class>` | Writes the sheetbuild spec from `class.json` (picks, frame fixes with the reason for each, ramps, parts) and the hoplite's clip table, so the timings are the same. |
+| `partsview.mjs` | Shows false-colour colour groups, to check a spec's `parts` before a build. |
+| `feet.mjs` | Measures `rowsFeet`. |
+| `battle.mjs` | Takes real-battle screenshots with the men's classes swapped. |
+
+Rebuild a class: `node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I5a/<class>/jobs.json docs/v5/pixellab/I5a/raw/<class> && node scripts/art/pixellab/i5a/spec.mjs <class> && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I5a/<class>/<class>.sheet.json`. Raws are in `docs/v5/pixellab/I5a/raw/` (gitignored). The base rotations are refetched with `fetch.mjs <character id>`.
+
+#### royal_guard (base `49cc24c8`, A1)
+
+The hoplite's full set of 16 clips in 4 facings: idle, look, adjust, walk, run, rout, kneel, ready, charge, brace, block, stagger, fallBack, fallFwd, cheer and thrust. Every clip was tested in SW first and passed. Then came NE and NW, then SE.
+
+- **Calls and costs.** 71 jobs, **111 gens quoted**: 64 pixminimax (1 at 68, 1 at 96 x 112, 2 at 128) and 4 skeleton-v3 thrusts (3 each). The prompts are `i5a/prompts.mjs royal_guard …`, and every job id is in `jobs.json`.
+- **Thrust.** The skeleton-v3 keypoints are `rig.mjs thrust <dir> guard_<dir>.png --grip <fist>`. The fist comes from `guard.mjs`: SW `71,62`, NE `58,65`, NW `87,65`, SE `36,61` on `guardflat`. The strike is on frame 6.
+- **Sheet.** Shipped as `src/assets/sheets/royal_guard/{royal_guard.png, manifest.json}`.
+  - 202 columns of 129 x 114, wrap 31: a 3999 x 3192 image, **48.7 MB decoded**.
+  - Packed by the build to **10.11 MB decoded** (core 8.41 MB) and a 278.5 KB download.
+- **Colour groups.**
+  - The `parts` are `purpleBlack→cloak` (the royal-purple cloak, exclusive), `metal→metal` and `crimson→shadow`. The class has no crimson, so any crimson left after the cut is blood; mapped to shadow, it is never recoloured.
+  - `crest` and `emblem` are false.
+  - Main's suggested `linen→crest` was dropped: on this base the linen steps are the silver shield's highlights, not the plumes. In the remap the plumes and the silver face are in `metal`.
+  - `linen` is left out of `ramps` because it cast the silver shield cream. Even so, PA-WORLD-DARK has no neutral grey, so the "dull tarnished silver" shield shows as warm grey-tan. The I4a roster, which was approved, has the same remap.
+  - Tiers are the I3a anchors: veteran is a wine cloak with polished trim, elite a black cloak with gold trim. There is no crest group.
+- **QC.** `qc.mjs`: **0 failures**, 62 warnings.
+  - Every warning is the spear-end heuristic: "both ends wide" or "thin end leads" on lying bodies, on levelled shafts that pass behind the shield, and on the cut stubs of the spear the brace grounds. Each was checked by eye on the strips.
+  - Stature (spec `"stature": {"skipTop": 5}`, which drops the plume rows) is 58, 56, 57 and 56 px for SE, NE, SW and NW. The feet are on the anchor and nothing is clipped.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | all 16, SW | a1 / p1 | **Promoted.** Block f3 is replaced by f4, because the spark burst shredded the shield face once cut. Stagger f0 is replaced by f1 (the spear pivots to the ground for one frame). In fallBack, f2 is replaced by f3 (blood over the chest left holes once cut). |
+| 2 | idle, look, walk, rout, ready, charge, brace, stagger, fallFwd, cheer, thrust, NE and NW | a1 / p1 | **Promoted.** In stagger NE, f0 is replaced by f1 (the shield showed its silver face). In stagger NW, f0 and f1 are replaced by f2 (he turned west and the spear smeared). |
+| 3 | adjust NE | a1 | **Rejected (shield face):** in a back view the shield swings round and shows its silver face (f1–f4). |
+| 4 | adjust NE | a2 | **Promoted.** The prompt adds "keeps its back to the viewer in every frame, its face turned away from the viewer". |
+| 5 | run NE | a1 | **Rejected (shield vanishing):** the shield is almost gone in f2–f3, then turns its bright face round. |
+| 6 | run NE | a2 | **Promoted.** The prompt adds "clearly visible … at his left side …, its dark back and rim towards the viewer, never turning its face round". |
+| 7 | kneel NE | a1 | **Rejected (shield face):** the silver face and a saturated gold rim show in a back view. |
+| 8 | kneel NE | a2 | **Promoted.** |
+| 9 | brace NE | a1 | **Rejected (shield face):** he turns side-on and shows the silver face and a gold rim. |
+| 10 | brace NE | a2 | **Promoted.** The NE line "seen from behind, the shield's dark back and rim face the viewer in every frame, never its silver face" is now added to every royal_guard NE prompt. |
+| 11 | block NE | a1 | **Rejected (weapon pivot):** the levelled spear swings upright (f1–f3) and the shield shows its face. |
+| 12 | block NE | a2 | **Promoted.** f3 and f4 are replaced by f2 (the silver face and sparks again). |
+| 13 | fallBack NE | p1 | **Rejected (shield vanishing):** the shield face came out near-white, so the invented-colour cut hollowed it out. Blood also took the spearhead. |
+| 14 | fallBack NE | p2 | **Promoted.** The prompt adds "dull and dark". f1 is replaced by f2 (blood had cut the spearhead loose). |
+| 15 | fallBack NW | p1 | **Promoted.** f1 is replaced by f2 (the same loose spearhead). |
+| 16 | all 16, SE | a1 / p1 | **Promoted.** In block SE, f2 is replaced by f1 (the spark streak). In stagger SE, a red `clear` was needed on f0 and f1 (a blood streak across the shield). In fallFwd SE, f0 and f1 are replaced by f2 (blood had broken the shield). |
+| 17 | fallBack SE | p1 | **Rejected (weapon doubled):** two spear shafts while he falls (f5–f7), and blood over the shield. |
+| 18 | fallBack SE | p2 | **Promoted.** The prompt adds "his one spear …, only one spear in every frame". f1 is replaced by f0 and f2 by f3 (blood over the shield). |
+
+**Rejection count.** Whole clips:
+- shield face or shield vanishing: 5 (adjust, run, kneel and brace NE; fallBack NE)
+- weapon pivot: 1 (block NE)
+- weapon doubled: 1 (fallBack SE)
+
+Frames replaced: 15.
+- 8 for invented sparks or blood that broke the shield or spear once cut
+- 3 for a pivoting or smeared spear
+- 2 for the shield face
+- 2 more held frames in block NE
+
+There were **0** reversed or double-ended spears, heads turned backwards, heads clipped by the canvas, or proportion drifts. The cloak, helmet and plumes keep the base's shapes in every frame.
+
+**Lessons.**
+- A bright shield face is a problem in the NE back view. pixminimax keeps swinging the shield round to show its face (5 of the 7 rejects), so name its dark back in every NE prompt.
+- Bright silver also goes near-white in the falls, and the colour cut then hollows it: say "dull and dark".
+- In death clips, a class with no crimson of its own should map `crimson→shadow`, so blood left on the body never joins the cloak group.
+
 ### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
 
 **Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated

@@ -1,0 +1,93 @@
+// I5a: the clip prompts of the shield-bearing foot classes, from the hoplite's (PROMPTS_ART §15) with each class's
+// subject, weapon and shield words, so every call of a class says the same thing. Prints the pixminimax fields (or the
+// skeleton-v3 description) of one clip and facing as JSON.
+// Usage: node scripts/art/pixellab/i5a/prompts.mjs <class> <anim> <dir> [--variant k]
+import { fileURLToPath } from 'node:url';
+
+const TOWARD = {
+  'south-west': "towards the viewer's lower left",
+  'south-east': "towards the viewer's lower right",
+  'north-east': 'away from the viewer towards the upper right',
+  'north-west': 'away from the viewer towards the upper left',
+};
+const back = (d) => d.startsWith('north');
+
+// per class: who (front subject), gear (after "in"), shield and weapon words
+export const CLASSES = {
+  royal_guard: {
+    who: 'a tall grim Macedonian royal guardsman',
+    look: 'in a gilded bronze Attic helmet with two pale plumes, a dark royal-purple cloak',
+    shieldN: 'a large round silver-faced shield with a dark star',
+    shieldNb: 'a large round silver-faced shield',
+    weaponN: 'a long spear',
+    shield: 'the large round shield',
+    spear: 'the long spear',
+    head: 'single leaf-shaped spearhead',
+    backNE: "seen from behind, the shield's dark back and rim face the viewer in every frame, never its silver face",
+    skel: 'grim muscular Macedonian royal guardsman in a dark gilded bronze Attic helmet with two pale bone-grey plumes, deep dark royal-purple cloak, dark gilded bronze cuirass and greaves, one very large round aspis faced with dull dark silver and a dark star on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike',
+  },
+  sacred_band: {
+    who: 'a tall grim Theban Sacred Band hoplite',
+    look: 'in a dark bronze Boeotian helmet with a wide brim, a very dark blue-black cloak',
+    shieldN: 'a large round bronze shield with a dark red club emblem',
+    shieldNb: 'a large round bronze shield',
+    weaponN: 'a long spear',
+    shield: 'the large round shield',
+    spear: 'the long spear',
+    head: 'single leaf-shaped spearhead',
+    skel: 'grim muscular Theban Sacred Band hoplite in a dark weathered bronze Boeotian helmet with a wide flaring brim and an open face, very dark blue-black cloak, dark bronze muscle cuirass and greaves, one very large round bronze aspis with a muted dark-red club emblem on his left arm, one long heavy wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped spearhead at the front end, plain blunt wooden butt end, no butt spike',
+  },
+  peltast: {
+    who: 'a grim lean Greek peltast',
+    look: 'in an open-faced dark bronze Thracian helmet with a forward-curving peak, a short dark crimson cloak, a leather jerkin and tall boots',
+    shieldN: 'a crescent-shaped pelte shield',
+    shieldNb: 'a crescent-shaped pelte shield',
+    weaponN: 'a wooden spear',
+    shield: 'the crescent pelte shield',
+    spear: 'the spear',
+    head: 'single leaf-shaped iron spearhead',
+    skel: 'grim lean Greek peltast in an open-faced dark weathered bronze Thracian helmet with a forward-curving peak and cheek guards, short deep dark crimson cloak, dark leather jerkin over a dark oxblood-brown tunic, tall dark leather boots, one crescent-shaped pelte shield of dark hide with a dark bronze rim on his left arm, one wooden spear held level at the hip in his right hand, always pointing forward the way he faces, single leaf-shaped iron spearhead at the front end, plain blunt wooden butt end, no butt spike',
+  },
+};
+
+/** The clips: [first-frame pose kind, description template]. {t} the direction, {S} the shield, {W} the weapon, {H} the head. */
+const UP = 'standing upright, the spear held upright in the right hand, the shield on the left arm';
+const LV = 'standing with the spear levelled at the hip pointing forward, the shield on the left arm';
+const CLIPS = {
+  idle: [UP, 'standing at rest in place, slow calm breathing: the chest and shoulders rise and fall gently and the cloak stirs a little; the feet stay planted, no stepping; {W} stays upright in the right hand, {H} at the top, plain blunt butt end; {S} stays on the left arm across the body in every frame'],
+  look: [UP, 'standing still in place, he slowly turns his head to look to his right, holds, then turns it to look to his left, holds, then back to the front; only the head and shoulders turn, never further than over his shoulder; {W} stays upright in the right hand, {H} at the top; {S} stays on the left arm in every frame'],
+  adjust: [UP, 'standing still in place, he hitches {S} up on his left arm with a shrug of the left shoulder, shifts its weight and settles it back down in front of his body; the shield never leaves his arm; {W} stays upright in the right hand, {H} at the top, plain blunt butt end'],
+  walk: [UP, 'steady disciplined marching walk in place {t}, long natural strides, {W} held upright in the right hand and swaying a little with each step, {H} at the top, plain blunt butt end, no butt spike; {S} stays on the left arm across the body in every frame; the cloak sways'],
+  run: [UP, 'running in place at a steady heavy jog {t}, knees lifting, leaning a little forward, {W} held upright in the right hand and tilted slightly forward, {H} at the top, plain blunt butt end; {S} stays clearly visible on the left arm in every frame; the cloak streams back'],
+  rout: [UP, 'fleeing in panic, running in place fast {t}, hunched forward with the head low between the shoulders, {W} carried loosely upright in the right hand, {H} at the top, plain blunt butt end; {S} still on the left arm in every frame; the cloak flapping'],
+  kneel: [UP, 'badly wounded, he sinks slowly down onto his right knee and stays kneeling, leaning his weight on the shield planted in front of him, head bowed, shoulders heaving with laboured breath; {W} stays in the right hand, upright, {H} at the top, plain blunt butt end; {S} stays on the left arm and clearly visible in every frame'],
+  ready: [LV, 'standing in place in a tense fighting stance, knees a little bent, the weight shifting slowly from foot to foot, breathing; {W} held level at the hip in the right hand and pointing forward the way he faces in every frame, {H} at the front end, plain blunt butt end; {S} held up across the body on the left arm in every frame'],
+  charge: [LV, 'charging forward at a heavy run in place, leaning into it, {W} levelled at the hip in the right hand and pointed straight ahead the way he faces in every frame, {H} at the front end, plain blunt butt end; {S} held up in front on the left arm in every frame; the cloak streams back'],
+  brace: [LV, 'braces for a shield wall in place: drops into a low crouch with the left foot forward and the right foot braced back, sets {S} forward in front of his body and leans into it, {W} kept level low at his right side pointing forward the way he faces; then holds the braced crouch, breathing; {H} at the front end, plain blunt butt end; one shield on the left arm in every frame'],
+  block: [LV, 'blocks a heavy blow in place: snaps {S} up and forward to cover his head and chest, the impact jolts him back half a step, then he lowers the shield back to his guard; {W} stays level in the right hand pointing forward the way he faces in every frame, {H} at the front end, plain blunt butt end; one shield on the left arm in every frame; no sparks, no effects'],
+  stagger: [LV, 'struck hard on the shield and knocked back: he reels backwards with two heavy stumbling steps, the head snapping back and the shield arm jolted, nearly losing his balance, then plants his feet and steps forward back into his guard; he keeps the spear level and pointing forward and the shield on the left arm in every frame; no motion blur, no effects, {H}, plain blunt butt end'],
+  fallBack: [UP, 'killed in battle: he is struck, his knees buckle and he topples over backwards, falling heavily onto his back on the ground behind him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood spray, no effects'],
+  fallFwd: [UP, 'killed in battle: he is struck, doubles over and pitches forward, falling heavily face down onto the ground in front of him and lying still; the shield stays strapped on his left arm and the spear falls with him; no blood, no effects'],
+  cheer: [UP, 'victory cheer in place: he thrusts {W} straight up high over his head in the right hand, spearhead pointing at the sky, keeps {S} on his left arm in front of his body, tips his head back shouting, then pumps the spear up and down twice; {H}, plain blunt butt end; the shield stays on the left arm in every frame'],
+};
+
+export function promptOf(cls, anim, dir) {
+  const c = CLASSES[cls];
+  if (!c) throw new Error(`no class ${cls}`);
+  const [pose, tpl] = CLIPS[anim] ?? [];
+  if (!tpl) throw new Error(`no clip ${anim}`);
+  const lv = pose === LV;
+  const subject = back(dir)
+    ? `${c.who} seen from behind ${c.look}, ${c.shieldNb} and ${lv ? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`
+    : `${c.who} ${c.look}, ${c.shieldN} and ${lv ? c.weaponN.replace(/^a /, 'a levelled ') : c.weaponN}`;
+  let description = tpl.replaceAll('{t}', TOWARD[dir]).replaceAll('{S}', c.shield).replaceAll('{W}', c.spear).replaceAll('{H}', c.head);
+  // NE (the shield on the far side of a back view): the model swings a bright shield face round to the viewer
+  if (dir === 'north-east' && c.backNE) description += `; ${c.backNE}`;
+  return { subject_description: subject, initial_pose: pose, description, view: 'high top-down', direction: dir };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [cls, anim, dir] = process.argv.slice(2);
+  if (anim === 'skel') console.log(JSON.stringify({ description: CLASSES[cls].skel.replace('his right hand,', back(dir) ? 'his right hand, seen from behind, away from the viewer,' : 'his right hand,') }, null, 1));
+  else console.log(JSON.stringify(promptOf(cls, anim, dir), null, 1));
+}
