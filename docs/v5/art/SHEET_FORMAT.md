@@ -20,7 +20,8 @@ src/assets/sheets/<class>/<image>.png      the one image the manifest names
 Anything placed there ships. Manifests are bundled; the image is an asset URL,
 fetched the first time a figure of that class is drawn. Dev placeholders live
 in `src/dev/sheets/` (V5-091) and load only on the dev server with
-`?sheets=dev`. `?sheets=off` draws everything procedurally.
+`?sheets=dev`; `?sheets=dev:companion,thessalian` loads only those (the other
+classes keep their shipped art). `?sheets=off` draws everything procedurally.
 
 ## Image layout
 
@@ -90,12 +91,54 @@ so crop frames tight.
 | `tiers` | per tier, the groups it recolours: a ramp of the same length, dark to light, replacing the group's colours by position. A group a tier leaves out keeps its colours; `basic` is usually `{}` |
 | `anims` | per animation: first column, frame count (1..64), fps. `strike` is the attack's impact or release frame (default frames/2). `hold` is the first frame of the looping part of a clip with an entry (default 0: the whole clip loops) |
 | `metal` | exact metal colours, **light to dark**, per group. `kind` picks the rarity ramps (`bronzeOf` / `ironOf`); `slots` says whose rarity sets it (the highest; default all four) |
-| `portrait` | optional bust crop (an art-px square) of the front idle frame. Default: 40% of the figure's height from just above its head |
+| `portrait` | optional bust crop (an art-px square) of the front idle frame. Default: 40% of the figure's height from just above its head (riders and chariots: the crew's, see Riders and chariots) |
+| `variation` | optional `{ "skin": false, "shade": false }`, each default `true`. `skin: false` keeps the `skin` group as drawn (no per-man tone); `shade: false` keeps `cloak` and `crest` as drawn (no shade step). Every man of the sheet is then the same variant for that part |
+| `rarity` | optional `{ "metal": false }`, default `true`. `false` keeps the metal colours as drawn (no rarity ramp swap). Metal of rank 2 and up still glints, and the epic outline still glows |
 
 Only `idle` is required. `parseManifest` checks the manifest on load. It
 rejects unknown names, overlapping columns, bad or shared colours, tier ramps
 of the wrong length and an image smaller than the layout, listing every
 problem; that class then stays procedural.
+
+## Riders and chariots
+
+A mounted class (`companion`, `thessalian`, `horse_archer`, `chariot`) ships the
+same manifest. Its frame is as big as the art needs: about 96 x 112 for a rider,
+128 x 112 for the chariot. `anchor` / `anchors` sit between the hooves or the
+wheels, per row.
+
+The figure's box starts from the procedural rider's (96 x 84, hooves at 74) or
+chariot's (128 x 96, wheels at 84) and is widened about that point to hold
+every row's frame. Plates, selection rings, flags and rarity overlays stay on the
+same ground point.
+
+`scale` works as for men: the same art px per metre as the foot sheets means the
+same `scale`.
+
+A PixelLab horse often shares hex colours with the rider's skin or bronze. The
+per-man skin tone and the rarity swap would then recolour the horse too. To
+prevent that, set `"variation": { "skin": false }` and/or
+`"rarity": { "metal": false }`, or give the rider colours the coat does not use.
+There is no per-pixel group mask.
+
+| state (battle) | rider | chariot |
+| --- | --- | --- |
+| standing | idle | idle |
+| moving | walk; gallop above 1.3x its walking speed | drive |
+| charge order | charge | charge |
+| attack | thrust (lance, spear), throw (javelins), shoot (bow), slash (blade) | its weapon's clip; none: it drives on |
+| hit / stunned | hit / stagger | hit |
+| routing | rout | rout |
+| death | fallFwd / fallBack (never kneels) | wreck |
+| victory | cheer / win | cheer / win |
+
+Portraits: without `portrait`, a mounted bust is centred on the highest solid
+6 x 6 px block of the front idle frame (the head; a lance or bow is too thin)
+and spans 30% of the height from it to the anchor.
+
+A sheet with no attack clip at all (no thrust, slash, attack...) skips the
+attack states. The figure keeps doing what it is otherwise doing, e.g. a
+chariot drives on.
 
 ## Tiers and per-man variation
 
@@ -107,12 +150,15 @@ The colour map of a figure is built once per key and cached:
    takes its tier ramp, or keeps its own colours.
 2. **Skin** (V5-095): the man's `Look.skin` (0..3, already seeded at
    recruitment) picks one of `SKIN_TONES`. The sheet's skin ramp is drawn as
-   tone 1 (olive); 0 is paler, 2 browner, 3 deep brown.
+   tone 1 (olive); 0 is paler, 2 browner, 3 deep brown. Off with
+   `variation.skin: false`.
 3. **Shade** (V5-095): the man's seed picks one of `SHADE_STEPS` (x0.9, x1,
-   x1.1), applied to `cloak` and `crest` after the tier.
-4. **Rarity**: each metal group is spread over its rank's 5-colour ramp. Metal
-   of rank 2 and up is the glint mask, and the epic outline ring is the
-   silhouette; `dollFx` animates both as before.
+   x1.1), applied to `cloak` and `crest` after the tier. Off with
+   `variation.shade: false`.
+4. **Rarity**: each metal group is spread over its rank's 5-colour ramp (off
+   with `rarity.metal: false`). Metal of rank 2 and up is the glint mask, and
+   the epic outline ring is the silhouette; `dollFx` animates both as before,
+   with or without the swap.
 
 The key is `sheet_<class>.<tier>.<skin><shade>_<metal ranks>...`. That gives at
 most 3 tiers x 4 skins x 3 shades = 36 looks per rarity mix per class. Atlases
@@ -129,17 +175,25 @@ clip's own `fps`. Loops wrap cleanly, and a man's loop has a phase of its own.
 | idle | standing | (required) |
 | look / adjust | idle, seeded per man: one window in two of 7-11 s plays one | idle (not played) |
 | walk / run | moving, run above 1.3x marching speed; strides on a stride clock at his pace | run <-> walk, then idle |
-| charge | moving under a charge order | run |
+| gallop | riders: moving above 1.3x walking speed | run |
+| drive | chariots: moving | gallop, run |
+| charge | moving under a charge order | gallop, run |
 | ready | standing in contact (`u.engaged`) | idle |
 | brace | group in shield wall, standing; a blow taken in the wall keeps the stance | block |
 | block | a blocked blow (0.22 s) | brace, idle |
-| thrust / slash / throw / shoot / sling | attack by weapon class (spear+lance / blade+chop+two / javelins / bow / sling) | attack |
-| attack | any other attack | thrust, slash, idle |
+| thrust | attack: spear, lance | attack |
+| slash | attack: blade, chop, two-handed (a one-hand or two-hand cut) | thrust, attack |
+| throw | shot: javelins | shoot, attack |
+| shoot | shot: bow | attack |
+| sling | shot: sling | throw (then shoot, attack) |
+| stab | a missile man's blow at close quarters (bow, sling, javelins; not a shot) | thrust (then attack) |
+| attack | any other attack (no weapon class) | thrust, slash, idle |
 | stagger | stunned (`u.stun > 0`) | hit |
 | hit | hit (0.24 s) | stagger, idle |
-| rout | routing | run |
+| rout | routing | gallop, run |
 | fallFwd / fallBack | death (the man's seeded side) | die / dieB |
 | die / dieB | (generic deaths) | fallFwd, fallBack, hit / fallBack, die |
+| wreck | chariots: death | die |
 | kneel | knocked out (`u.ko`), once down (V5-090) | (none: lies still) |
 | cheer / win | victory | each other, then idle |
 
@@ -147,12 +201,19 @@ Fallbacks are tried depth first, never visiting an animation twice, and end at
 `idle`. A sheet that has only the new names (stagger, brace, fallFwd, cheer...)
 therefore serves the old states too.
 
+The attack clip follows the sim's weapon class: `weaponClass` of the weapon's art,
+the same class that times the procedural attack in `ATTACK_TIMES`. A blow
+(`lastAttackTick`) and a shot (`lastShotTick`) are told apart as the sim does.
+`isRangedClass` weapons (bow, sling, javelins) shoot, and their blows at close
+quarters are the `stab`.
+
 **Strike timing.** An attack's `strike` frame is on screen at the sim's attack.
 The frames before it are the windup, played over the last `strike / fps`
 seconds of the cooldown while the man is in contact. The frames after it are
 the follow-through. Missiles use the same rule: the draw is spread over the aim
 window before the shot (a sling whirls), and the release plays from the strike
-frame.
+frame. The battle spawns the projectile on the shot's tick, so `strike` should be
+the frame where the missile leaves the hand or the string.
 
 **Held loops.** A clip with `hold` plays frames `0..hold-1` once on entering the
 state, then loops `hold..frames-1`. Coming back to the same state within 0.5 s

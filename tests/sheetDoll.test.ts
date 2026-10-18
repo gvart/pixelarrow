@@ -210,7 +210,7 @@ describe('sheet animation picker', () => {
     expect(want({ victory: true })).toBe('cheer');
     expect(want({ sinceAtk: 0.1 })).toBe('thrust');
     expect(want({ sinceAtk: 0.1, wc: 'blade' })).toBe('slash');
-    expect(want({ sinceAtk: 0.1, wc: 'bow' })).toBe('attack'); // an archer at close quarters jabs
+    expect(want({ sinceAtk: 0.1, wc: 'bow' })).toBe('stab'); // an archer's blow at close quarters: the short jab
     expect(want({ sinceAtk: 0.05, wc: 'bow', shot: true })).toBe('shoot');
     expect(want({ sinceBlock: 0.1 })).toBe('block');
     expect(want({ sinceBlock: 0.1, shieldWall: true })).toBe('brace');
@@ -230,7 +230,7 @@ describe('sheet animation picker', () => {
   it('shows fallbacks where the sheet lacks an animation', () => {
     const pick = (o: Partial<ManState>) => pickManAnim(man(o), T);
     expect(pick({ victory: true }).anim).toBe('win');
-    expect(pick({ sinceAtk: 0.1, wc: 'blade' }).anim).toBe('attack');
+    expect(pick({ sinceAtk: 0.1, wc: 'blade' }).anim).toBe('thrust'); // slash -> thrust -> attack
     expect(pick({ shieldWall: true }).anim).toBe('block');
     expect(pick({ moving: true, charging: true }).anim).toBe('walk'); // no charge, no run
     expect(pick({ stunned: true }).anim).toBe('hit');

@@ -16,6 +16,11 @@
  * Strides run on an accumulated stride clock (ManState.stride), so a change
  * of pace never jumps the cycle; clips with a `hold` play their entry once,
  * then loop from it (AnimMemory remembers when the state began).
+ *
+ * Riders and chariots (ManState.mount) take the same states with their own
+ * moving clips: a rider walks or gallops, a chariot drives; a chariot's
+ * death is its wreck. A sheet with no attack clip at all (a chariot whose
+ * scythes do the work) skips the attack states instead of standing idle.
  */
 import { resolveAnim, type SheetAnim } from './sheetManifest';
 import type { WeaponClass } from './paperdoll';
@@ -39,6 +44,8 @@ export interface ManState {
   t: number;
   /** Unit id (phase and cadence of his own). */
   id: number;
+  /** Riders and chariots (DollSpec.mount): their moving and death clips. */
+  mount?: 'horse' | 'chariot';
   /** His side won and he is standing. */
   victory: boolean;
   /** Since his last attack or shot (< 0: none yet). */
@@ -107,6 +114,21 @@ export function attackAnimOf(wc: WeaponClass): SheetAnim {
   }
 }
 
+/**
+ * The attack clip a weapon class shows on a sheet (before fallbacks): its
+ * attack by weapon class; a missile man's blow at close quarters (not a
+ * shot) is the short `stab`.
+ */
+export function attackWant(wc: WeaponClass, shot: boolean): SheetAnim {
+  return !shot && RANGED.includes(wc) ? 'stab' : attackAnimOf(wc);
+}
+
+/** The attack clip as the sheet resolves it, or null when the sheet has no attack of any kind (it would only show idle). */
+function attackClip(want: SheetAnim, anims: AnimTable): AnimInfo | null {
+  const got = resolveAnim(want, (x) => !!anims[x]);
+  return got === 'idle' ? null : anims[got]!;
+}
+
 /** How long before a shot the draw / whirl / cock begins (s), as paperdoll aimFrame. */
 const AIM_WINDOW: Partial<Record<WeaponClass, number>> = { bow: 0.5, sling: 0.6, jav: 0.45 };
 
@@ -143,12 +165,10 @@ export function chooseManAnim(s: ManState, anims: AnimTable): { want: SheetAnim;
   if (s.victory) return { want: 'cheer', mode: 'loop', since: s.t, rate: 1 };
   if (s.sinceAtk >= 0) {
     // missile men at close quarters jab with the weapon in hand
-    const ranged = RANGED.includes(s.wc);
-    const wc: WeaponClass = !s.shot && ranged ? 'none' : s.wc;
-    const want = attackAnimOf(wc);
-    const a = anims[resolveAnim(want, (x) => !!anims[x])]!;
+    const want = attackWant(s.wc, s.shot);
+    const a = attackClip(want, anims);
     // the blow lands / the missile leaves on the strike frame, at the sim's attack; the rest of the clip follows
-    if (s.sinceAtk * a.fps < a.frames - strikeOf(a)) return { want, mode: 'release', since: s.sinceAtk, rate: 1 };
+    if (a && s.sinceAtk * a.fps < a.frames - strikeOf(a)) return { want, mode: 'release', since: s.sinceAtk, rate: 1 };
   }
   if (s.sinceBlock >= 0 && s.sinceBlock < 0.22) {
     // in a shield wall the brace takes the blow: the stance holds on
@@ -161,16 +181,17 @@ export function chooseManAnim(s: ManState, anims: AnimTable): { want: SheetAnim;
   if (s.moving) {
     const since = s.stride ?? s.t * s.pace;
     if (s.charging) return { want: 'charge', mode: 'loop', since, rate: cadence };
-    return { want: s.running ? 'run' : 'walk', mode: 'loop', since, rate: cadence };
+    if (s.mount === 'chariot') return { want: 'drive', mode: 'loop', since, rate: cadence };
+    return { want: s.running ? (s.mount ? 'gallop' : 'run') : 'walk', mode: 'loop', since, rate: cadence };
   }
   // the windup of the next blow, timed so its strike frame meets the sim's attack
   if (s.swingIn !== undefined && s.swingIn >= 0 && !RANGED.includes(s.wc)) {
     const want = attackAnimOf(s.wc);
-    const a = anims[resolveAnim(want, (x) => !!anims[x])]!;
-    if (s.swingIn * a.fps < strikeOf(a)) return { want, mode: 'windup', since: s.swingIn, rate: 1 };
+    const a = attackClip(want, anims);
+    if (a && s.swingIn * a.fps < strikeOf(a)) return { want, mode: 'windup', since: s.swingIn, rate: 1 };
   }
   const win = AIM_WINDOW[s.wc];
-  if (win !== undefined && s.aimUntil >= 0 && s.aimUntil < win) return { want: attackAnimOf(s.wc), mode: 'aim', since: s.aimUntil, rate: 1 };
+  if (win !== undefined && s.aimUntil >= 0 && s.aimUntil < win && attackClip(attackAnimOf(s.wc), anims)) return { want: attackAnimOf(s.wc), mode: 'aim', since: s.aimUntil, rate: 1 };
   if (s.shieldWall) return { want: 'brace', mode: 'loop', since: s.t, rate: 1 };
   if (s.engaged) return { want: 'ready', mode: 'loop', since: s.t, rate: 1 };
   const amb = ambientAt(s.t, s.id, anims);
@@ -232,13 +253,14 @@ export function pickManAnim(s: ManState, anims: AnimTable, mem?: AnimMemory): Pi
 /**
  * A fallen man: forwards or backwards (dieB) at the sheet's pace, lying
  * still on the last frame; a man knocked out (sim u.ko) kneels, wounded, once
- * down, if the sheet has the loop.
+ * down, if the sheet has the loop. A chariot wrecks (its `wreck`, else a
+ * death); riders fall as men do (the horse goes over) and never kneel.
  */
-export function pickDeathAnim(tt: number, back: boolean, ko: boolean, id: number, anims: AnimTable): Pick {
-  const anim = resolveAnim(back ? 'fallBack' : 'fallFwd', (x) => !!anims[x]);
+export function pickDeathAnim(tt: number, back: boolean, ko: boolean, id: number, anims: AnimTable, mount?: ManState['mount']): Pick {
+  const anim = resolveAnim(mount === 'chariot' ? 'wreck' : back ? 'fallBack' : 'fallFwd', (x) => !!anims[x]);
   const a = anims[anim]!;
   const down = a.frames / a.fps;
   const kn = anims.kneel;
-  if (ko && kn && tt >= down) return { anim: 'kneel', i: holdFrame(tt - down, kn, frac(id * 0.618)) };
+  if (ko && kn && !mount && tt >= down) return { anim: 'kneel', i: holdFrame(tt - down, kn, frac(id * 0.618)) };
   return { anim, i: Math.min(a.frames - 1, Math.floor(tt * a.fps)) };
 }
