@@ -1,0 +1,33 @@
+scripts/art/pixellab/mounted/upload1.mjs
+  s_41b82181a73565::t_48a950c48371dc 1-14
+scripts/art/pixellab/mounted/facings.mjs
+  s_41b82181a73565::t_04814845bea01e 1-22
+scripts/art/pixellab/mounted/loopfind.mjs
+  s_41b82181a73565::t_565ee2ae5bccec 1-29
+scripts/art/pixellab/mounted/review.mjs
+  s_41b82181a73565::t_bc99b06861f0d4 1-31
+scripts/art/pixellab/mounted/clip.mjs
+  s_41b82181a73565::t_ce53c0a87733ba 1-34
+scripts/art/pixellab/mounted/cutcheck.mjs
+  s_41b82181a73565::t_d9442f2ed8a7d8 1-25
+scripts/art/pixellab/mounted/sheets.mjs
+  s_41b82181a73565::t_20baabcf229030 1-97
+scripts/art/pixellab/mounted/lib.mjs
+  s_41b82181a73565::t_56377e46b7326f 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b83e623cdf46a5606345f0065cb86d5f481b292c",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
