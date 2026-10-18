@@ -13,6 +13,9 @@
 //                                    "frames"?: [indices to keep, in order] } } } },
 //   "parts"?: { "<ramp>" | "<ramp>:<step>" | "<ramp>:<from>-<to>": "<part>" } (overrides the default ramp -> part map,
 //              docs/v5/art/STYLE_LOCK.md › Colour),
+//   "crest"?: false, "emblem"?: false (no crest / no shield emblem: that crimson stays cloak),
+//   "stature"?: { "skipTop"?: rows, "from"?: "any", "px"?, "tol"? } (read by qc.mjs --spec: how helmet top to feet is
+//              measured and its target, default 58 ± 3),
 //   "tiers": { "veteran": { "<group>": [anchor hex dark->light] }, "elite": { ... } }
 // }
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -57,7 +60,7 @@ for (const [anim, a] of Object.entries(spec.anims)) {
     const headDir = a.spear === 'level' ? LEVEL[dir] : [0, -1];
     let prev = null;
     const frames = fr.map((img) => {
-      const r = splitFrame(img, map, { prev, headDir, parts: spec.parts });
+      const r = splitFrame(img, map, { prev, headDir, parts: spec.parts, crest: spec.crest !== false, emblem: spec.emblem !== false });
       prev = r.parts;
       return { img, parts: r.parts, info: r.info, spear: r.spear, dropped: r.dropped };
     });

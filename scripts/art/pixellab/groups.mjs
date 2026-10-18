@@ -158,7 +158,7 @@ export function findSpear(img, { candidate, headDir, minLen = 18 }) {
   return { butt: A, head: B, support: best.support, len: best.L, headW: width(B, A), buttW: width(A, B) };
 }
 
-function distToSeg(x, y, A, B) {
+export function distToSeg(x, y, A, B) {
   const vx = B[0] - A[0], vy = B[1] - A[1];
   const t = Math.max(0, Math.min(1, ((x - A[0]) * vx + (y - A[1]) * vy) / (vx * vx + vy * vy || 1)));
   return { d: Math.hypot(x - A[0] - vx * t, y - A[1] - vy * t), t };
@@ -239,9 +239,10 @@ function dropSpecks(parts, w, h, isRed) {
 
 /**
  * Parts of one frame: Array(w*h) of part names (null = transparent). `prev` is the previous frame's parts of the
- * same clip (or null). `headDir` the screen direction the spearhead must lead in ([0,-1] upright).
+ * same clip (or null). `headDir` the screen direction the spearhead must lead in ([0,-1] upright). `crest` / `emblem`
+ * false (spec flags): a class with no crest / no shield emblem keeps that crimson in the cloak.
  */
-export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = true, parts: partMap = null } = {}) {
+export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = true, parts: partMap = null, crest = true, emblem = true } = {}) {
   const { w, h, data } = img;
   const parts = new Array(w * h).fill(null);
   const info = new Array(w * h).fill(null);
@@ -325,9 +326,10 @@ export function splitFrame(img, map, { prev = null, headDir = [0, -1], spear = t
   const labelOf = stats.map((s) => {
     if (process.env.GROUPS_DEBUG) console.log('crimson comp', s.y0, s.size, s.brown, s.outline, s.clear);
     // painted on the shield: bordered by its bronze face, hardly by outline, never by the background
-    if (!s.clear && s.brown >= 0.6 * (s.brown + s.outline) && s.size >= 6 && s.size < 120) return 'emblem';
+    if (emblem && !s.clear && s.brown >= 0.6 * (s.brown + s.outline) && s.size >= 6 && s.size < 120) return 'emblem';
     // crest or cloak: what it was in the previous frame, else by height
     delete s.prevVotes.emblem;
+    if (!crest) return 'cloak';
     const votes = Object.entries(s.prevVotes).sort((a, b) => b[1] - a[1]);
     if (votes.length) return votes[0][0];
     if (s.y0 <= topRed + 3) return 'crest';
