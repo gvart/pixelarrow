@@ -1,0 +1,44 @@
+scripts/art/pixellab/rollout/colours.mjs
+  s_41b82181a73565::t_90fa602208d2df 1-19
+scripts/art/pixellab/rollout/normalise.mjs
+  s_41b82181a73565::t_fd8efaa1e4f4e9 1-59
+docs/v5/pixellab/I4a/palette-dark-i4a.json
+  s_41b82181a73565::t_0fa507411e6092 1-81
+scripts/art/pixellab/rollout/upscale.mjs
+  s_41b82181a73565::t_264514a6b0e47c 1-9
+scripts/art/pixellab/rollout/roster.mjs
+  s_41b82181a73565::t_15ba3b033d730b 39,43,51
+  s_41b82181a73565::t_8ee3d15fb9e004 57
+  s_41b82181a73565::t_8b1500e5913831 1-38,40-42,44-50,52-56,58-67
+scripts/art/pixellab/rollout/review.mjs
+  s_41b82181a73565::t_18f37569d7a113 3,13,15
+  s_41b82181a73565::t_fe45288a813912 1-2,4-12,14,16-34
+scripts/art/pixellab/rollout/stature.mjs
+  s_41b82181a73565::t_eb1a8d67a0adf8 4-5,26,29
+  s_41b82181a73565::t_9492169cdbdbeb 1-3,6-25,27-28,30-32
+scripts/art/pixellab/rollout/overlay.mjs
+  s_41b82181a73565::t_6599e0905a66cb 1-28
+scripts/art/pixellab/rollout/upload.mjs
+  s_41b82181a73565::t_ee245a5dab4932 1-18
+scripts/art/pixellab/rollout/groupsall.mjs
+  s_41b82181a73565::t_b48e6cbf78a0d3 1-38
+scripts/art/pixellab/rollout/groups.mjs
+  s_41b82181a73565::t_0fa507411e6092 4,12-13,15
+  s_41b82181a73565::t_c342a7e83d4eb2 1-3,5-11,14,16-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "05a9bceda860b3fb8651b0574cd897b0477c5bf6",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
