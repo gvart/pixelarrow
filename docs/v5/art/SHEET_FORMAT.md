@@ -42,9 +42,10 @@ so crop frames tight.
   "version": 2,
   "class": "hoplite",
   "image": "hoplite.png",
-  "frame": { "w": 64, "h": 80 },
+  "frame": { "w": 96, "h": 80 },
   "wrap": 42,
-  "anchor": { "x": 32, "y": 74 },
+  "anchor": { "x": 48, "y": 74 },
+  "anchors": { "south-east": { "x": 30, "y": 74 }, "north-east": { "x": 30, "y": 74 }, "south-west": { "x": 66, "y": 74 }, "north-west": { "x": 66, "y": 74 } },
   "scale": 0.5,
   "rows": ["south-east", "north-east", "south-west", "north-west"],
   "colorGroups": {
@@ -81,6 +82,7 @@ so crop frames tight.
 | `frame` | frame size in art px |
 | `wrap` | optional: columns per band of a wide sheet (see Image layout) |
 | `anchor` | the art pixel the figure stands on (feet centre; riders and chariots: between hooves or wheels). It lands on the procedural feet line, so plates, rings and FX line up |
+| `anchors` | optional per image row (by row name): that row's own anchor, e.g. feet left of centre on the rows facing right, so a spear reaching ahead fits a narrower frame. Default `anchor`. A sheet figure's box is the procedural box widened about the feet to hold the whole frame of every row, so nothing is clipped |
 | `scale` | game px per art px relative to the battle scale (V5-089): a figure at `BATTLE_SCALE`, res 1. The battle draws at res 2, so `0.5` and `1` map art px to whole rendered px. Other screens scale by their model scale / `BATTLE_SCALE`, snapped to a whole factor (or 1/n) |
 | `rows` | directions of the image rows (PixelLab's 8 names) |
 | `facings` | the row for game facing 0..3 (field +x, -y, +y, -x). Default `south-east, north-east, south-west, north-west`. Never mirrored |
