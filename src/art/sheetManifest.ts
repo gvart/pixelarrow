@@ -182,6 +182,8 @@ export interface SheetManifest {
   wrap?: number;
   /** The art pixel the figure stands on (feet centre for men, between the hooves / wheels otherwise). */
   anchor: { x: number; y: number };
+  /** Per image row (by its name): its own anchor, e.g. feet off centre so a spear reaching ahead fits a narrower frame. Default `anchor`. */
+  anchors?: Partial<Record<SheetDirection, { x: number; y: number }>>;
   /**
    * Game px per art px on the battlefield (a DollSpec at BATTLE_SCALE, res 1).
    * The battle draws at BATTLE_RES 2, so 0.5 and 1 map art pixels to whole
@@ -220,6 +222,10 @@ export function parseManifest(raw: unknown): SheetManifest {
   if (typeof m.class !== 'string' || !m.class) errs.push('class missing');
   if (!m.frame || !num(m.frame.w, 1) || !num(m.frame.h, 1)) errs.push('frame.w / frame.h must be positive');
   if (!m.anchor || !num(m.anchor.x) || !num(m.anchor.y)) errs.push('anchor.x / anchor.y missing');
+  for (const [r, a] of Object.entries(m.anchors ?? {})) {
+    if (!m.rows?.includes(r as SheetDirection)) errs.push(`anchors.${r}: not a row of the image`);
+    if (!a || !num(a.x) || !num(a.y) || (m.frame && (a.x > m.frame.w || a.y > m.frame.h))) errs.push(`anchors.${r}: x / y inside the frame`);
+  }
   if (!num(m.scale) || m.scale <= 0) errs.push('scale must be positive');
   if (!Array.isArray(m.rows) || !m.rows.length || m.rows.some((r) => !SHEET_DIRECTIONS.includes(r))) errs.push('rows must name directions');
   const facings = m.facings ?? DEFAULT_FACINGS;
@@ -289,6 +295,11 @@ export function imageSize(m: SheetManifest): [number, number] {
   const cols = manifestColumns(m);
   const per = Math.min(cols, m.wrap ?? cols);
   return [per * m.frame.w, Math.ceil(cols / per) * m.rows.length * m.frame.h];
+}
+
+/** The anchor of an image row (its own, else the manifest's). */
+export function anchorOf(m: SheetManifest, row: number): { x: number; y: number } {
+  return m.anchors?.[m.rows[row]] ?? m.anchor;
 }
 
 /** The image row of each game facing. */

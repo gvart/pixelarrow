@@ -25,12 +25,12 @@
  *    ironOf); metal of rank 2+ (or an army skin's polish) is the glint mask the
  *    battle's highlight sweeps across, as on procedural gear.
  */
-import { ANIM, BATTLE_SCALE, NDIRS, PORTRAIT_FRAMES, dollFx, dollGeom, setSheetHook, type DollSpec } from './paperdoll';
+import { ANIM, BATTLE_SCALE, NDIRS, PORTRAIT_FRAMES, dollFx, dollGeom, setSheetHook, type DollSpec, type SheetGeom } from './paperdoll';
 import { Pix } from './pixels';
 import { bronzeOf, ironOf } from './materials';
 import { itemDef, ITEMS } from '../data/items';
 import {
-  CORE_ANIMS, METAL_SLOTS, TIER_RULE, decodeSheetFrame, facingRows, frameCell, gearTier, hexColor, imageSize, metalSwap, parseManifest, recolorMap, resolveAnim, sheetVariant,
+  CORE_ANIMS, METAL_SLOTS, TIER_RULE, anchorOf, decodeSheetFrame, facingRows, frameCell, gearTier, hexColor, imageSize, metalSwap, parseManifest, recolorMap, resolveAnim, sheetVariant,
   type MetalGroup, type SheetAnim, type SheetManifest, type SheetTier, type SheetVariant,
 } from './sheetManifest';
 import type { AnimTable } from './sheetAnim';
@@ -302,6 +302,7 @@ function sheetFrame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array):
   const { anim, i } = sheetIndex(frame, s.e.anims);
   const col = m.anims[anim]!.col + i;
   const row = s.e.rows[Math.max(0, Math.min(NDIRS - 1, dir))];
+  const an = anchorOf(m, row);
   const art = artFrame(s, col, row, paletteOf(s, d));
   const k = sheetFactor(m, d);
   const out = new Pix(g.fw, g.fh);
@@ -310,10 +311,10 @@ function sheetFrame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array):
   const ad = art.px.data;
   const od = out.data;
   for (let by = 0; by < g.fh; by++) {
-    const sy = m.anchor.y + Math.floor((by - cy) / k);
+    const sy = an.y + Math.floor((by - cy) / k);
     if (sy < 0 || sy >= m.frame.h) continue;
     for (let bx = 0; bx < g.fw; bx++) {
-      const sx = m.anchor.x + Math.floor((bx - cx) / k);
+      const sx = an.x + Math.floor((bx - cx) / k);
       if (sx < 0 || sx >= m.frame.w) continue;
       const si = sy * m.frame.w + sx;
       if (!ad[si * 4 + 3]) continue;
@@ -337,7 +338,7 @@ function sheetPortrait(d: DollSpec, frame: number, res: number, box: number): Pi
   const i = Math.min(idle.frames - 1, name === 'breath1' ? 1 : name === 'breath2' ? 2 : 0);
   // game row 2 faces the viewer
   const art = artFrame(s, idle.col + i, s.e.rows[2], paletteOf(s, d)).px;
-  const crop = m.portrait ?? autoCrop(art, m);
+  const crop = m.portrait ?? autoCrop(art, anchorOf(m, s.e.rows[2]));
   const size = box * res;
   const out = new Pix(size, size);
   for (let y = 0; y < size; y++)
@@ -356,16 +357,39 @@ function sheetPortrait(d: DollSpec, frame: number, res: number, box: number): Pi
  * height, centred on the anchor. The head is the highest pixel within 2 px of
  * the anchor's column, so a spear held at the side or a banner does not count.
  */
-function autoCrop(art: Pix, m: SheetManifest): { x: number; y: number; size: number } {
+function autoCrop(art: Pix, an: { x: number; y: number }): { x: number; y: number; size: number } {
   let top = -1;
-  for (let y = 0; y < art.h && top < 0; y++) for (let x = m.anchor.x - 2; x <= m.anchor.x + 2; x++) if (art.alpha(x, y) > 0) top = y;
+  for (let y = 0; y < art.h && top < 0; y++) for (let x = an.x - 2; x <= an.x + 2; x++) if (art.alpha(x, y) > 0) top = y;
   if (top < 0) return { x: 0, y: 0, size: Math.min(art.w, art.h) };
-  const size = Math.max(4, Math.round((m.anchor.y - top) * 0.4));
-  return { x: m.anchor.x - Math.floor(size / 2), y: Math.max(0, top - 1), size };
+  const size = Math.max(4, Math.round((an.y - top) * 0.4));
+  return { x: an.x - Math.floor(size / 2), y: Math.max(0, top - 1), size };
+}
+
+/**
+ * The frame box of a sheet figure: the procedural box, widened (about the
+ * feet, so plates, rings and overlays stay put) to hold the whole art frame
+ * of every row, e.g. a spear reaching far ahead in a thrust.
+ */
+function sheetGeom(d: DollSpec, base: SheetGeom): SheetGeom | null {
+  const s = resolve(d);
+  if (!s) return null;
+  const m = s.e.m;
+  const k = sheetFactor(m, d);
+  let half = Math.floor(base.fw / 2);
+  let up = base.footY;
+  let down = base.fh - base.footY;
+  for (const row of new Set(s.e.rows)) {
+    const an = anchorOf(m, row);
+    half = Math.max(half, Math.ceil(Math.max(an.x, m.frame.w - an.x) * k));
+    up = Math.max(up, Math.ceil(an.y * k));
+    down = Math.max(down, Math.ceil((m.frame.h - an.y) * k));
+  }
+  if (half * 2 === base.fw && up === base.footY && down === base.fh - base.footY) return null;
+  return { fw: half * 2, fh: up + down, footY: up };
 }
 
 /** Route paperdoll's rendering through the sheets (once, from src/ui/sprites.ts). */
 export function installSheetDolls(): void {
-  setSheetHook({ key: sheetKey, frame: sheetFrame, portrait: sheetPortrait });
+  setSheetHook({ key: sheetKey, frame: sheetFrame, portrait: sheetPortrait, geom: sheetGeom });
 }
 

@@ -1035,6 +1035,9 @@ export class BattleScene extends BaseScene {
       v.rowKey = battleRow(this, key, v.dir);
       v.sheet = dollSheetAnims(key);
       v.shown = undefined;
+      // a sheet figure's box may be wider than the procedural one (about the same feet point)
+      const [ox, oy] = dollOrigin(key);
+      for (const s of [v.spr, v.fxRing, v.fxGlint]) s?.setOrigin(ox, oy);
     }
   }
 

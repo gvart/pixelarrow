@@ -331,6 +331,8 @@ export interface SheetHook {
   key(d: DollSpec): string | null;
   frame(d: DollSpec, frame: number, dir: number, mask?: Uint8Array): Pix | null;
   portrait(d: DollSpec, frame: number, res: number, box: number): Pix | null;
+  /** The frame box of a sheet figure, from the procedural one (null: unchanged). */
+  geom?(d: DollSpec, base: SheetGeom): SheetGeom | null;
 }
 let sheetHook: SheetHook | null = null;
 export function setSheetHook(h: SheetHook | null): void {
@@ -449,14 +451,20 @@ export function dollKey(d: DollSpec): string {
   return `doll3_${l.skin}${l.hair}${l.hairStyle}${l.beard}${l.tunic}_${d.weapon ?? '-'}_${d.shield?.art ?? '-'}${p(d.shield?.paint)}_${d.helmet?.art ?? '-'}${p(d.helmet?.paint)}_${d.armor ?? '-'}_${d.cloak ?? ''}${d.trousers ?? ''}${d.bare ? 'b' : ''}_${d.mount ?? ''}${d.coat ?? ''}_${(d.seed ?? 0) % 8}${gk}${extra}`;
 }
 
+/** Frame geometry of a figure; a sprite-sheet figure may widen it to hold its art (SheetHook.geom). */
 export function dollGeom(d: DollSpec): SheetGeom {
+  const g = procGeom(d);
+  return sheetHook?.geom?.(d, g) ?? g;
+}
+
+function procGeom(d: DollSpec): SheetGeom {
   if (d.res && d.res !== 1) {
-    const g = dollGeom({ ...d, res: undefined });
+    const g = procGeom({ ...d, res: undefined });
     return { fw: g.fw * d.res, fh: g.fh * d.res, footY: g.footY * d.res };
   }
   if (isMythId(d.beast)) return MYTH_GEOM[d.beast];
   if (d.scale && d.scale !== 1) {
-    const g = dollGeom({ ...d, scale: undefined });
+    const g = procGeom({ ...d, scale: undefined });
     return { fw: Math.ceil((g.fw * d.scale) / 2) * 2, fh: Math.ceil(g.fh * d.scale), footY: Math.round(g.footY * d.scale) };
   }
   if (d.beast === 'bear') return GEOM.bear;
