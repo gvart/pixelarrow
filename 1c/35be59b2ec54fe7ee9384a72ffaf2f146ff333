@@ -1,0 +1,61 @@
+src/ui/account/linkTelegram.ts
+  s_0d98fe904b2e82::t_d9d6e2d9232361 31,61-62,81,113,199,201,203,219-221,270
+  s_0d98fe904b2e82::t_6c8ee7d593e6d2 92,231
+  s_0d98fe904b2e82::t_73b0f956c887e4 166,257
+  s_0d98fe904b2e82::t_06da57293148cb 1-30,32-60,63-80,82-91,93-112,114-165,167-198,200,202,204-218,222-230,232-256,258-269,271-299
+src/ui/account/linkSheet.ts
+  s_0d98fe904b2e82::t_5205e130e12fe9 1-121
+src/ui/account/index.ts
+  s_0d98fe904b2e82::t_bea3ce44c4e505 19-20,38-42,44,46-62,64-65
+src/ui/mosaic/StepList.ts
+  s_0d98fe904b2e82::t_6689e62d6b4dee 41
+  s_0d98fe904b2e82::t_9466b2cac7410e 1-36,38-40,42-58
+  s_0d98fe904b2e82::t_0c26a2c5c7393d 37
+src/i18n/account.en.ts
+  s_0d98fe904b2e82::t_66ea1e7fc5b871 176
+  s_0d98fe904b2e82::t_d9d6e2d9232361 242
+  s_0d98fe904b2e82::t_73b0f956c887e4 263
+src/scenes/MenuScene.ts
+  s_0d98fe904b2e82::t_d09b7512055569 11-12,72-76,410-412
+  s_0d98fe904b2e82::t_2c58ba781b4300 413-414
+src/i18n/account.ru.ts
+  s_0d98fe904b2e82::t_d9d6e2d9232361 231
+  s_0d98fe904b2e82::t_73b0f956c887e4 250
+  s_0d98fe904b2e82::t_e531d1e82865ba 166
+src/ui/account/conflict.ts
+  s_0d98fe904b2e82::t_6c8ee7d593e6d2 18,126,181,225,280-283,290,325,328
+  s_0d98fe904b2e82::t_27718baac0b526 1-17,19-43,45-116,118-125,127-180,182-202,204-209,212-214,216-219,224,226-242,245-279,284-286,289,291-316,319-324,326-327,329-367
+  s_0d98fe904b2e82::t_73b0f956c887e4 44,117,287-288,317-318
+  s_0d98fe904b2e82::t_d44f55b39171d4 203,210-211,215,220-223,243-244
+src/ui/account/accountPage.ts
+  s_0d98fe904b2e82::t_553b73cd2546df 42-43,255-257,381-382
+src/ui/mosaic/ChoiceCard.ts
+  s_0d98fe904b2e82::t_badf8c59eb2237 81,83
+  s_0d98fe904b2e82::t_2c62e284ca60bd 45-46,73,82,91-92,100,102,110,118-119
+  s_0d98fe904b2e82::t_7716d344e5958a 1-44,47-72,74-80,84-90,93-99,101,103-109,111-117,120-121
+src/ui/account/linkDemo.ts
+  s_0d98fe904b2e82::t_bd094fe3b27895 1-69
+src/ui/account/linking.ts
+  s_0d98fe904b2e82::t_6c8ee7d593e6d2 55-56,59
+tests/linking.test.ts
+  s_0d98fe904b2e82::t_6c8ee7d593e6d2 83-96
+  s_0d98fe904b2e82::t_b161cb7d84266c 97
+src/ui/account/linkRequest.ts
+  s_0d98fe904b2e82::t_b38b3717e39978 1-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1c35be59b2ec54fe7ee9384a72ffaf2f146ff333",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
