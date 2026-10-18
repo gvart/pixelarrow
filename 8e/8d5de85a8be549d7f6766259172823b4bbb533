@@ -1,0 +1,25 @@
+src/ui/account/accountPage.ts
+  s_0d98fe904b2e82::t_1685fc6e3cc24c 101,387
+src/ui/account/deleteAccount.ts
+  s_0d98fe904b2e82::t_1685fc6e3cc24c 88,137
+src/ui/account/conflict.ts
+  s_0d98fe904b2e82::t_1685fc6e3cc24c 368
+scripts/link-telegram-e2e.mjs
+  s_0d98fe904b2e82::t_48b44fac4fe19f 14-15,116,122,130-131,261-266,271-277,334,336,433
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8e8d5de85a8be549d7f6766259172823b4bbb533",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
