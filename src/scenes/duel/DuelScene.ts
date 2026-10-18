@@ -1768,10 +1768,15 @@ export class DuelScene extends BaseScene {
         ly += 26 + 7;
       } else {
         ly = this.standingRow(k, ly, w, r);
-        if (match) line(t('duels.rejoinHint'), 'ink');
-        else if (cooldown) line(t('duels.cooldown', { t: fmtClock((cooldown - now) / 1000) }), 'bad');
-        else if (problem) line(why!, 'bad');
-        else line(t('duels.payRanked', { w: fmtSigned(RANKED.glory.ranked.win), l: fmtSigned(RANKED.glory.ranked.loss) }), 'sec');
+        const status = () => {
+          if (match) line(t('duels.rejoinHint'), 'ink');
+          else if (cooldown) line(t('duels.cooldown', { t: fmtClock((cooldown - now) / 1000) }), 'bad');
+          else if (problem) line(why!, 'bad');
+          else line(t('duels.payRanked', { w: fmtSigned(RANKED.glory.ranked.win), l: fmtSigned(RANKED.glory.ranked.loss) }), 'sec');
+        };
+        // a short screen (844x390) puts Find match before the line under it, so it shows without a scroll
+        const first = !this.v5 && this.m.short;
+        if (!first) status();
         const unLabel = t('duels.unranked');
         const uw = match ? 0 : Math.min(Math.floor(iw / 2), Math.ceil(mw(unLabel.toUpperCase(), 'rCream', 7)) + 18);
         const mwid = iw - (uw ? uw + GAP : 0);
@@ -1789,6 +1794,10 @@ export class DuelScene extends BaseScene {
           k.add(un);
         }
         ly += 26 + 7;
+        if (first) {
+          ly -= 3;
+          status();
+        }
       }
       return ly;
     });
@@ -1873,36 +1882,45 @@ export class DuelScene extends BaseScene {
     const side = this.side;
     const { c, w, area } = page;
     const mid = 1 + w / 2;
+    // a short screen (844x390) sets the arena beside the clock, one row, so the range and the hint stay in view
+    const row = !this.v5 && this.m.short;
     let y = 6;
     // the arena and its rings (tweens on two graphics: nothing is created per frame)
-    const big = area.viewHeight >= 230 ? 3 : 2;
+    const big = row ? 1 : area.viewHeight >= 230 ? 3 : 2;
     const r = 6 * big + 10;
     const cy = y + r + 2;
+    const ax = row ? 1 + r : mid;
     const rings = [0, 1].map(() => {
-      const g = this.add.graphics({ x: mid, y: cy });
+      const g = this.add.graphics({ x: ax, y: cy });
       g.lineStyle(1.5, MOSAIC.bronze, 0.9);
       g.strokeCircle(0, 0, r);
       c.add(g);
       return g;
     });
-    const disc = this.add.graphics({ x: mid, y: cy });
+    const disc = this.add.graphics({ x: ax, y: cy });
     disc.fillStyle(MOSAIC.stone1, 1);
     disc.fillCircle(0, 0, r - 3);
     disc.lineStyle(1.2, MOSAIC.meander, 0.9);
     disc.strokeCircle(0, 0, r - 3);
     c.add(disc);
     // painted at its shown size, not a 12 px icon blown up (DUE-6)
-    const icon = addCrispIcon(this, mid, cy, MODE_ICON.arena, 12 * big);
+    const icon = addCrispIcon(this, ax, cy, MODE_ICON.arena, 12 * big);
     c.add(icon);
     if (!motion.reduced) {
       rings.forEach((g, i) => this.tweens.add({ targets: g, scale: { from: 1, to: 1.9 }, alpha: { from: 0.9, to: 0 }, duration: 1800, delay: i * 900, repeat: -1, ease: 'Cubic.easeOut' }));
       this.tweens.add({ targets: icon, scale: { from: icon.scale, to: icon.scale * 1.08 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     } else rings.forEach((g) => g.setAlpha(0));
-    y = cy + r + 8;
     const clock = t('duels.searching', { t: '00:00' });
-    const clockSize = [12, 11, 10, 9, 8].find((z) => mw(clock, 'rInk', z) <= w - 8) ?? 8;
-    this.searchText = ptext(this, c, mid, y, t('duels.searching', { t: fmtClock((Date.now() - s.since) / 1000) }), 'head', { size: clockSize, align: 0.5 });
-    y += 20;
+    const cx = row ? ax + r + 8 : mid;
+    const clockSize = [12, 11, 10, 9, 8].find((z) => mw(clock, 'rInk', z) <= (row ? w - cx - 4 : w - 8)) ?? 8;
+    if (row) {
+      this.searchText = ptext(this, c, cx, cy - 7, t('duels.searching', { t: fmtClock((Date.now() - s.since) / 1000) }), 'head', { size: clockSize });
+      y = cy + r + 6;
+    } else {
+      y = cy + r + 8;
+      this.searchText = ptext(this, c, mid, y, t('duels.searching', { t: fmtClock((Date.now() - s.since) / 1000) }), 'head', { size: clockSize, align: 0.5 });
+      y += 20;
+    }
     // how the range widens: a bar that fills until anyone will do (an honest wait, not a guess)
     const openMs = RANKED.window[s.mode].openAfterMs;
     const el = Date.now() - s.since;
@@ -1969,10 +1987,12 @@ export class DuelScene extends BaseScene {
       [w * q, t('duels.board.you'), this.ranked?.league ?? null],
       [w * (1 - q), f.name, f.league],
     ];
+    // a short screen (844x390) names the sides above their crests: the names stay in view over a short card
+    const top = !this.v5 && this.m.short;
     for (const [sx, name, league] of sides) {
-      addCrest(this, card, Math.round(sx - cs / 2), 10, cs, league);
-      ptext(this, card, sx, 14 + cs, name, 'ink', { align: 0.5, maxW: w / 2 - 8 });
-      if (league && !this.v5) ptext(this, card, sx, 27 + cs, leagueName(league), 'sec', { align: 0.5, maxW: w / 2 - 8 });
+      addCrest(this, card, Math.round(sx - cs / 2), top ? 30 : 10, cs, league);
+      ptext(this, card, sx, top ? 6 : 14 + cs, name, 'ink', { align: 0.5, maxW: w / 2 - 8 });
+      if (league && !this.v5) ptext(this, card, sx, top ? 18 : 27 + cs, leagueName(league), 'sec', { align: 0.5, maxW: w / 2 - 8 });
       else if (league) {
         // centred on the column: measure first (the chip sizes itself to its word)
         const label = leagueName(league);
@@ -1980,7 +2000,7 @@ export class DuelScene extends BaseScene {
         addLeaguePill(this, card, Math.round(sx - lw / 2), 26 + cs, league, label, w / 2 - 8);
       }
     }
-    ptext(this, card, mid, 10 + cs / 2 - 5, t('battle.vsShort'), 'head', { size: 9, align: 0.5, maxW: w / 2 - cs - 4 }); // between the crests ('против' is wide)
+    ptext(this, card, mid, (top ? 30 : 10) + cs / 2 - 5, t('battle.vsShort'), 'head', { size: 9, align: 0.5, maxW: w / 2 - cs - 4 }); // between the crests ('против' is wide)
     const prep = ptext(this, card, mid, h - 14, t('duel.preparing'), 'sec', { align: 0.5, maxW: w - 12 });
     this.tweens.add({ targets: prep, alpha: { from: 1, to: 0.4 }, duration: 700, yoyo: true, repeat: -1 });
     // outside portrait the search's lineup and league stay under the VS card while the field is prepared
@@ -3100,6 +3120,8 @@ export class DuelScene extends BaseScene {
         state: this.stashState,
         onTap: (it) => this.openSell(it),
         price: (it) => ({ text: `+${fmtCount(sellPrice(it))}`, font: 'glory' }),
+        // the price tag at the text floor (A11Y-09; the kit default 5.5 was allowlisted)
+        priceSize: TEXT_MIN,
         empty: { title: t('stash.emptyTitle'), hint: t('d5.sellEmpty') },
       });
       this.collapseSlotFilters();
@@ -3164,6 +3186,7 @@ export class DuelScene extends BaseScene {
       state: this.stashState,
       onTap: (it) => this.openSell(it),
       price: (it) => ({ text: `+${fmtCount(sellPrice(it))}`, font: 'glory' }),
+      priceSize: TEXT_MIN,
       empty: { title: t('stash.emptyTitle'), hint: t('d5.sellEmpty') },
       inline: area,
     });
