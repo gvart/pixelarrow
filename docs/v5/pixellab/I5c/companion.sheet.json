@@ -1,0 +1,367 @@
+{
+ "$doc": "I5c companion sheet spec for scripts/art/pixellab/sheetbuild.mjs. Every clip is on the work canvas (scripts/art/pixellab/i5c/lib.mjs CANVAS: the 100 rotation at 22,44 on 144x160). Rebuild: node scripts/art/pixellab/i5c/fetchall.mjs companion && node scripts/art/pixellab/i5c/derive.mjs companion && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I5c/companion.sheet.json",
+ "class": "companion",
+ "raw": "docs/v5/pixellab/I5c/raw/companion",
+ "out": "src/assets/sheets/companion",
+ "scale": 0.55,
+ "ramps": [
+  "outline",
+  "crimson",
+  "umber",
+  "darkBronze",
+  "skin",
+  "purpleBlack"
+ ],
+ "parts": {
+  "purpleBlack": "cloak"
+ },
+ "rowsFeet": {
+  "south-east": [
+   50,
+   94
+  ],
+  "north-east": [
+   42,
+   96
+  ],
+  "south-west": [
+   49,
+   94
+  ],
+  "north-west": [
+   57,
+   96
+  ]
+ },
+ "canvases": {
+  "work": {
+   "south-east": [
+    22,
+    44
+   ],
+   "north-east": [
+    22,
+    44
+   ],
+   "south-west": [
+    22,
+    44
+   ],
+   "north-west": [
+    22,
+    44
+   ]
+  },
+  "gallop": {
+   "south-east": [
+    22,
+    40
+   ],
+   "north-east": [
+    22,
+    44
+   ],
+   "south-west": [
+    22,
+    44
+   ],
+   "north-west": [
+    22,
+    42
+   ]
+  },
+  "charge": {
+   "south-east": [
+    22,
+    40
+   ],
+   "north-east": [
+    22,
+    42
+   ],
+   "south-west": [
+    22,
+    36
+   ],
+   "north-west": [
+    22,
+    39
+   ]
+  },
+  "rout": {
+   "south-east": [
+    22,
+    40
+   ],
+   "north-east": [
+    22,
+    44
+   ],
+   "south-west": [
+    22,
+    40
+   ],
+   "north-west": [
+    22,
+    38
+   ]
+  }
+ },
+ "anims": {
+  "idle": {
+   "fps": 8,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a2"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "walk": {
+   "fps": 14,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "gallop": {
+   "fps": 16,
+   "canvas": "gallop",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "thrust": {
+   "fps": 14,
+   "strike": 7,
+   "canvas": "work",
+   "spear": "level",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a2"
+    },
+    "north-east": {
+     "attempt": "a2"
+    },
+    "south-west": {
+     "attempt": "a2"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "stagger": {
+   "fps": 12,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "fallFwd": {
+   "fps": 12,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a2"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "charge": {
+   "fps": 16,
+   "canvas": "charge",
+   "spear": "level",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "e1",
+     "frames": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "cheer": {
+   "fps": 10,
+   "hold": 15,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 2,
+       "op": "copy",
+       "from": 1,
+       "why": "the lance lower end reads as a second head"
+      }
+     ]
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "rout": {
+   "fps": 16,
+   "canvas": "rout",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "e1",
+     "frames": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+     ]
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "e1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  }
+ },
+ "tiers": {
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#151719",
+    "#1e2224",
+    "#2d3131",
+    "#3b4141"
+   ]
+  }
+ },
+ "stature": {
+  "px": 85,
+  "tol": 5
+ },
+ "manifest": {
+  "variation": {
+   "skin": false
+  },
+  "notes": "I5c companion: the bay coat is the rider skin ramp (skin 0-2, the same hexes as his face and arms), so the per-man skin tint is off; the cloak (purpleBlack) is exclusive; metal (umber 3) is the helmet, cuirass and some bridle pixels, not the coat, so the rarity swap stays on. No trim group: the bronze has no separate highlight step. Clips on a 144x160 work canvas, see docs/v5/pixellab/I5c/companion.sheet.json."
+ }
+}

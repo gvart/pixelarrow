@@ -1034,3 +1034,120 @@ one full stride of a real horse's heavy gallop in place in the direction it face
 before clips). The style reference's lambda leaks into round shields ("plain …, no emblem"). A weapon at the side hides
 behind the horse: raise it clear of the horse's back. A black mane takes a dark cloak's colours: give the cloak a hue
 the horse lacks. pixminimax gallops start standing: key the loop on a stretched frame.
+
+## 18. PixelLab mounted and chariot clips (I5c)
+
+The four I4b bases animated to game sheets. Full log, every attempt and verdict: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I5c. Jobs: `docs/v5/pixellab/I5c/<class>.jobs.json`; prompts by id: `docs/v5/pixellab/I5c/prompts.json`. Tools: `scripts/art/pixellab/i5c/`.
+
+**Call settings:** `animate_image_pixminimax`, `first_frame_url` = the base rotation pasted on the class's work canvas (riders 144 x 160 at 22,44; chariot 176 x 176 at 24,40; 1 generation per 12-16-frame clip at 144 x 160), `view: high top-down`, `direction` = the facing, `subject_description` and `initial_pose` given. Loops: `last_frame_url` = the first frame (idle, walk, keyed gallop / charge / rout loops on a stretched mid-gallop key). Back views (NE, NW) open with "seen from behind, the rider faces away the whole time" and say "away from us, never back towards us" of the weapon; otherwise the rider turns to the camera mid-clip.
+
+### companion
+
+- **C-idle-1**
+  ```
+  the horse stands at rest and breathes slowly: its barrel swells and sinks, it shifts its weight from one hind leg to the other, lowers and raises its head a little, flicks its ears and swishes its tail; the rider sits calm and still in the saddle, breathing, the lance held upright in his right hand with its single spearhead at the top; the hooves stay planted where they are; exactly four legs on the horse in every frame
+  ```
+
+- **C-thrust-1**
+  ```
+  the rider strikes overarm with the lance and the horse's momentum behind it: the horse gathers itself and surges forward one powerful stride in place, as it does the rider lifts the lance and draws it back above his right shoulder, point aimed forward and down, then rises in the seat, turns his torso into the blow and drives the lance hard forward along its own line, arm fully extended, the horse's weight lunging with him; a held moment at full reach, then the horse settles and he brings the lance back upright; one lance with a single spearhead that always leads, a plain blunt butt; exactly four legs on the horse in every frame
+  ```
+
+- **C-stagger-1**
+  ```
+  the horse is struck and shies in fright: it flinches, throws up its head and rears half up on its hind legs, front hooves pawing the air, then drops heavily back onto all four hooves, stamps and stands again; the rider is jolted back, leans forward over the neck to keep his seat, the lance kept upright in his right hand with its single spearhead at the top; exactly four legs on the horse in every frame
+  ```
+
+- **C-thrust-2**
+  ```
+  a couched lance thrust with the horse's momentum behind it: the rider swings the lance down level under his right arm, the spearhead pointing forward ahead of the horse's head and the butt behind his elbow; the horse gathers and lunges one powerful stride forward in place, and with the lunge the rider leans forward, turns his torso into the blow and drives the lance hard forward along its own line, arm extended; a held moment at full reach, then the horse settles and he raises the lance back upright; the spearhead always points forward in the direction the horse faces, never backwards; one lance with a single spearhead, a plain blunt butt; exactly four legs on the horse in every frame
+  ```
+
+- **C-walk-1**
+  ```
+  the horse walks in place in the direction it faces with a real horse's calm four-beat walk: left hind, left fore, right hind, right fore, one hoof lifting and setting down at a time while the other three stay on the ground; the head and neck nod with each step, the back sways gently, the tail hangs and swings; the rider sits relaxed, swaying with the horse, the lance held upright in his right hand with its single spearhead at the top; exactly four legs on the horse in every frame
+  ```
+
+- **C-thrust-3**
+  ```
+  a couched lance thrust with the horse's momentum behind it: the rider tips the lance forward and down, its spearhead swinging down ahead of the horse's head to point forward to the south-east, the butt tucked under his right arm behind him; he never swings the lance back over his shoulder; the horse gathers and lunges one powerful stride forward in place, and with the lunge the rider leans forward, turns his torso into the blow and drives the lance hard forward along its own line, arm extended; a held moment at full reach, then the horse settles and he raises the lance back to slanting upright; the spearhead always points forward in the direction the horse faces; one lance with a single spearhead, a plain blunt butt; exactly four legs on the horse in every frame (the facing name follows the direction)
+  ```
+
+- **C-fall-1**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it pitches forward onto its knees, then its hindquarters sink and it rolls heavily over onto its side on the ground, legs folding; the rider is thrown forward out of the saddle and falls to the ground beside the horse, the lance dropping flat on the ground; they come to rest lying still; no blood; exactly four legs on the horse in every frame
+  ```
+
+- **C-thrust-4**
+  ```
+  seen from behind, the rider faces away to the north-east the whole time: a couched lance thrust with the horse's momentum behind it; the rider lowers the lance level under his right arm, the spearhead pointing forward to the north-east past the horse's head and the butt behind his elbow; the horse gathers and lunges one powerful stride forward in place, and with the lunge the rider leans forward, his back to us, and drives the lance hard forward along its own line, arm extended; a held moment at full reach, then the horse settles and he raises the lance back upright; the spearhead always points forward, away from us, never back towards us; one lance with a single spearhead, a plain blunt butt; exactly four legs on the horse in every frame
+  ```
+
+- **C-fall-2**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, its four legs stretched out on the ground, its head down; the rider is thrown clear of the saddle and falls hard to the ground in front of the horse, apart from it, and lies still on his back, the lance dropping flat on the ground beside him; no blood; exactly four legs on the horse in every frame
+  ```
+
+- **C-cheer-1**
+  ```
+  victory: the rider thrusts the lance high above his head in his right hand, spearhead to the sky, and shakes it in triumph, shouting; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the lance raised high; one lance with a single spearhead at the top; exactly four legs on the horse in every frame
+  ```
+
+- **C-charge-1**
+  ```
+  the charge: the horse gallops flat out in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears back, head low and neck stretched; as it gallops the rider lowers the lance into the couched position under his right arm, level, the spearhead pointing forward far ahead of the horse's head, and leans forward low over the neck into the charge, the cloak streaming behind; one lance with a single spearhead that leads; exactly four legs on the horse in every frame
+  ```
+
+- **C-fall-3**
+  ```
+  the horse is mortally wounded and goes down with all its weight: it stumbles, its forelegs buckle and it crashes forward onto its knees, then rolls heavily over onto its side, its four legs stretched out on the ground, its head down; the rider is thrown clear of the saddle and falls hard to the ground beside the horse, apart from it, and lies still on his back, the lance dropping flat on the ground beside him; no blood; exactly four legs on the horse in every frame
+  ```
+
+- **C-charge-2**
+  ```
+  the charge, seen from behind: the horse gallops flat out in place away from us in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, head low and neck stretched; as it gallops the rider lowers the lance into the couched position under his right arm, level, the spearhead pointing forward far ahead of the horse's head, away from us, and leans forward low over the neck into the charge, the cloak streaming behind; one lance with a single spearhead that leads; exactly four legs on the horse in every frame
+  ```
+
+- **C-chargeloop-1**
+  ```
+  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider leans forward low into the charge with the lance couched level under his right arm, the spearhead pointing forward ahead of the horse's head in every frame, the cloak streaming; exactly four legs on the horse in every frame
+  ```
+
+- **C-chargeloop-2**
+  ```
+  seen from behind: one full stride of a real horse's heavy gallop in place away from us in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider leans forward low into the charge with the lance couched level under his right arm, the spearhead pointing forward ahead of the horse's head in every frame, the cloak streaming; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **C-cheer-2**
+  ```
+  victory: the rider thrusts the lance high above his head in his right hand, spearhead to the sky, and shakes it in triumph; the horse rears up proudly on its hind legs, forelegs pawing the air, then comes down and prances on the spot, tossing its head, while the rider keeps the lance raised high; seen from behind the whole time; one lance with a single spearhead at the top; exactly four legs on the horse in every frame
+  ```
+
+- **C-rout-1**
+  ```
+  the rider flees in panic at a flat-out gallop: he hunches low over the horse's neck and twists his head to look back over his shoulder in fear, the lance trailing upright in his right hand with its single spearhead at the top, the cloak flying behind; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; exactly four legs on the horse in every frame
+  ```
+
+- **C-rout-2**
+  ```
+  seen from behind, the rider flees in panic at a flat-out gallop away from us: he hunches low over the horse's neck and twists his head to look back over his shoulder in fear, the lance trailing upright in his right hand with its single spearhead at the top, the cloak flying behind; the horse gallops in place in the direction it faces with a real horse's heavy gallop, hind legs driving, forelegs reaching and striking the ground, ears pinned back, neck stretched; no dust; exactly four legs on the horse in every frame
+  ```
+
+- **C-routloop-1**
+  ```
+  seen from behind: one full stride of a real horse's heavy gallop in place away from us in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the tail streams back; the rider flees hunched low over the horse's neck, head down, facing forward away from us, the lance trailing upright in his right hand with its single spearhead at the top, the cloak flying; no dust; exactly four legs on the horse in every frame
+  ```
+
+Subjects (`subject_description`): companion: "a Macedonian Companion cavalryman with one long lance seated on a dark bay warhorse"; companionBack: "a Macedonian Companion cavalryman with one long lance seated on a dark bay warhorse, seen from behind"; companionGallop: "a Macedonian Companion cavalryman with one long lance on a galloping dark bay warhorse"; companionGallopBack: "a Macedonian Companion cavalryman with one long lance on a galloping dark bay warhorse, seen from behind"; companionCharge: "a Macedonian Companion cavalryman charging with one long lance couched, on a galloping dark bay warhorse"; companionChargeBack: "a Macedonian Companion cavalryman charging with one long lance couched, on a galloping dark bay warhorse, seen from behind"
+Poses (`initial_pose`): stand: "the horse standing square on four legs, the rider upright with the lance held vertically"; standSlant: "the horse standing square on four legs, the rider upright with the lance slanting forward over the horse's head"; standBack: "the horse standing square on four legs facing away, the rider upright with his back to us and the lance held vertically"; gallopKey: "mid-gallop, the legs stretched out front and back, the lance slanting forward"; gallopKeyBack: "mid-gallop, the legs stretched out front and back, the lance upright"; chargeKey: "mid-gallop, the legs stretched out front and back, the lance couched level and pointing forward"; routKey: "mid-gallop, the rider hunched low with the lance upright"
+
+| Clip | Attempts | Shipped | Main rejections |
+| --- | --- | --- | --- |
+| thrust | 7 | C-thrust-2 (SW), C-thrust-3 (SE), C-thrust-4 (NE, NW) | an overarm draw turned the lance round (head behind, SW a1, SE a1); NE a1 the rider turned to the camera |
+| charge | 4 entries + 3 keyed loops | keyed loops (SE, NE, NW), an entry stride (SW) | dust clumps at the hooves (cleared), no clean couched loop in the SE entry |
+| rout | 4 entries + 2 keyed loops | entries SW, SE; keyed NE, NW | NE entry: a cartoon face turned to the camera |
+| fallFwd | 5 | C-fall-2 / C-fall-3 | SW a1: the rider stayed draped over the lying horse |
+| idle, walk, stagger, cheer | 1-2 each | first try (idle SW re-rolled pinned) | idle SW a1 unpinned: the tail jumped at the wrap |
+
+**Lessons:** a lance prompt must say *couched … the spearhead always points forward … never backwards*; pin loops with `last_frame_url`; a gallop entry run often already holds an 8-frame stride that loops (`loopfind.mjs`), else key a loop on a stretched frame; deaths need "thrown clear … apart from it" or the rider stays on the horse.
+
