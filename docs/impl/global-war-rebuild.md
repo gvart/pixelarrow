@@ -73,7 +73,7 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 - [ ] **M1e iso-view** — true-iso renderer with height walls, iso picking for select/orders, occlusion fade/outline; same dev panel. depends on: sandbox-wire
 - [ ] **M1f region-256** — test-ridge regenerated at 256×256, pathing perf re-checked (hierarchical if needed). depends on: M1c
 - [ ] **M1d scenarios** — `?scenario=` presets (pass ambush, ford crossing, hill assault, 600-unit brawl) + owner checklist. depends on: M1b, M1c
-- [ ] **ART-1 world design + prototypes** — `docs/WAR.md` world section: ~35 regions with biome, altitude features, fauna (mobs), resources, adjacency; Gemini prototypes of the world map + 4 sample regions in `shots/war/gemini/`; prompts logged in `docs/playbook/PROMPTS_ART.md`. depends on: —
+- [x] **ART-1 world design + prototypes** — `docs/WAR.md` world section: ~35 regions with biome, altitude features, fauna (mobs), resources, adjacency; Gemini prototypes of the world map + 4 sample regions in `shots/war/gemini/`; prompts logged in `docs/playbook/PROMPTS_ART.md`. depends on: —
 
 ### M2 Region gameplay — resources, gather orders, building placement, mobs, claiming, entry no-build band
 ### M3 Server — RegionDO live sim, quotas, offline hold AI, interest management, 600-soldier load test
