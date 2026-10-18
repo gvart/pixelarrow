@@ -412,6 +412,31 @@ describe('sheet-backed figures', () => {
     expect(dollKey(elite)).toMatch(/^doll3_/);
   });
 
+  it('widens the box for art reaching past it, with per-row anchors, about the same feet point', () => {
+    const { m, px } = tinySheet(FULL);
+    const base = dollGeom(HOPLITE);
+    registerSheet(m);
+    setSheetPixels('hoplite', px);
+    expect(dollGeom(HOPLITE)).toEqual(base); // the tiny frame fits the procedural box
+    // game row 2 (south-west) stands at art x 1: its block (art x 3..4) is drawn 2..3 px right of the feet
+    clearSheets();
+    const wide = { ...m, frame: { w: 8, h: 10 }, anchors: { 'south-west': { x: 1, y: 9 } }, scale: 6 };
+    registerSheet(wide);
+    setSheetPixels('hoplite', px);
+    const g = dollGeom(HOPLITE);
+    const k = sheetFactor(wide, HOPLITE);
+    expect(k).toBe(12);
+    expect(g.fw).toBeGreaterThan(base.fw);
+    expect(g.footY).toBeGreaterThanOrEqual(9 * k);
+    const f = renderFrame(HOPLITE, sheetFrameId('idle', 0), 2);
+    const cx = Math.floor(g.fw / 2);
+    expect([f.w, f.h]).toEqual([g.fw, g.fh]);
+    expect(f.alpha(cx + 2 * k, g.footY - 1)).toBe(255);
+    expect(f.alpha(cx + 4 * k - 1, g.footY - 1)).toBe(255);
+    expect(f.alpha(cx + 1, g.footY - 1)).toBe(0);
+    expect(() => parseManifest({ ...m, anchors: { east: { x: 1, y: 1 } } })).toThrow(/not a row/);
+  });
+
   it('cuts a portrait bust from the front idle frame', () => {
     const { m, px } = tinySheet(FULL);
     registerSheet(m);
