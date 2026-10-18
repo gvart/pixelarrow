@@ -821,3 +821,152 @@ prompt says, so cut by colour and look at every cut frame. For our own poses, pu
 sprite holds the shield and the weapon hand on the drawn fist (`--grip`), or the model turns the man to fit. A first
 frame with the spear at the angle the model likes (level in SE) keeps a thrust from pivoting. Test every clip in SW,
 then check the back views first.
+
+## 16. PixelLab foot-class base characters (I4a)
+
+The 13 foot classes other than the hoplite, as PixelLab base characters (8 rotations, no clips), styled on the hoplite H4.
+Full log, ids, every attempt word for word, the stature fix and costs: [docs/v5/ASSET_LOG.md](../v5/ASSET_LOG.md) › I4a.
+Recipe: [docs/v5/art/STYLE_LOCK.md](../v5/art/STYLE_LOCK.md). Ids and measures: `docs/v5/pixellab/bases.json`. Sheets:
+`docs/v5/art/I4a-roster-facings.png`, `I4a-roster-formation.png`. Tools: `scripts/art/pixellab/rollout/`.
+
+**Call settings** (every class): `create_character`, `mode: pro`, `style_character_id` H4
+`b7624d6d-132a-458c-8e3d-d6960d175988`, `size: 68`, `view: high top-down`, no concept image. Classes that came out
+taller than H4 were normalised by row-drop (`normalise.mjs`) and re-imported (`mode: v3`, all 8 views given, 0.25).
+
+**The promoted prompts** (STYLE_LOCK §3 block; "with realistic adult proportions" since there is no concept):
+
+**militia** (A2)
+
+```
+grim weathered Greek peasant levy spearman with realistic adult proportions: seven heads tall, a small head in a snug cap, long legs, natural arms, broad shoulders, lean wiry build; low rounded dark brown felt pilos cap, no crest, no helmet; short faded dark crimson wool cloak hanging behind him; plain dark umber wool tunic to mid-thigh with a worn dark leather belt, no armour, no white cloth; bare legs, dark leather sandals; no shield, his left hand empty at his side; one wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**thureophoros** (A1)
+
+```
+grim veteran Carthaginian thureophoros infantryman with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; tall conical dark weathered bronze pilos helmet, no crest; deep dark purple-black cloak hanging behind him; dull dark greyed-tan linen linothorax corselet over a dark purple-black tunic, worn dark leather straps, no white cloth; dark bronze greaves; one tall oval thureos shield on his left arm, shoulder to shin, dark umber hide face with a dark iron spine and boss down the middle; one straight iron short sword held in his right hand down at his right side, point down, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**celt_sword** (A3)
+
+```
+grim Celtic warrior swordsman with a long drooping moustache, with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; low dark iron Montefortino helmet with a small knob on top and cheek guards, no crest; dark muted green plaid wool cloak pinned at the right shoulder hanging behind him, the only green he wears; dark iron ring mail shirt to mid-thigh, a twisted bronze torc around his neck; dark brown-and-black checked wool trousers, dark leather shoes; one tall oval Celtic shield on his left arm, shoulder to shin, dark umber-brown wood with a dark iron boss and spine; one long straight iron longsword held in his right hand down at his right side, point down, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**rhomphaia** (A2)
+
+```
+grim tall Thracian rhomphaia warrior with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; open-faced tall dark weathered bronze Phrygian helmet whose high crown curves forward like a Phrygian cap, hinged cheek guards, the face visible, no crest, no face mask; deep dark crimson cloak hanging behind him; dark iron scale corselet over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark brown wool trousers and dark bronze greaves; no shield; one rhomphaia, a long two-handed weapon with a wooden shaft as long as his legs and a long single-edged slightly curved iron blade, gripped upright with both hands in front of his right side, the blade standing up above his head, clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**archer** (A2)
+
+```
+lean grim Cretan archer with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark curly hair and a short dark beard, no helmet; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, one dark leather quiver strap across his chest and one quiver of arrows on his back, no white cloth; bare legs, dark leather sandals; no shield; one large recurved composite bow held vertically in his left hand out at his left side, away from his body and clearly visible in every direction, his right hand empty ready to draw; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**slinger** (A1)
+
+```
+lean grim Rhodian slinger with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark hair and a short dark beard, no helmet; short dark crimson chlamys cloak knotted at the right shoulder hanging behind him; plain dark oxblood-brown wool tunic to mid-thigh with a worn dark leather belt and one small dark leather pouch of lead bullets at the hip, no armour, no white cloth; bare legs, dark leather sandals; no shield; one sling of dark leather cord hanging from his right hand out at his right side, its loaded pouch swinging near his knee, clearly visible in every direction, his left hand empty; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**javelineer** (A1)
+
+```
+grim lean Carthaginian javelin skirmisher with realistic adult proportions: seven heads tall, a small head in a snug cap, long legs, natural arms, broad shoulders, lean wiry build; soft dark umber felt Thracian cap with a tall forward-curving top and ear flaps, no helmet; short deep dark purple-black cloak hanging behind him; plain dark umber wool tunic with a worn dark leather belt, no armour, no white cloth; bare legs, dark leather sandals; one small crescent-shaped pelte shield of dark wicker and hide on his left arm, chest to hip; two javelins held vertically together in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, each with one small leaf-shaped iron head at the top and a plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**peltast** (A2)
+
+```
+grim lean Greek peltast skirmisher with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; open-faced dark weathered bronze Thracian helmet whose crown rises into a forward-curving peak like a Phrygian cap, a short brim over the eyes and hinged cheek guards, the face visible, no crest, no face mask; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, no white cloth; tall dark leather boots; one crescent-shaped pelte shield on his left arm, chest to hip, dark hide face with a dark bronze rim; one wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**falx** (A3)
+
+```
+grim tall Dacian falx warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; bare head with long dark hair to the shoulders and a full dark beard, no helmet; plain dark moss-green wool cloak hanging behind him, the only green he wears; warm dark umber leather jerkin over a dark oxblood-brown tunic, no white cloth; dark brown wool trousers, dark leather shoes; no shield; one falx, a heavy two-handed weapon with a long wooden haft and a long forward-curved iron sickle blade, gripped upright with both hands in front of his right side, the curved blade above his head, clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**gallic** (A1)
+
+```
+grim tall bare-chested Gallic warband warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, thick limed hair stiffened into dull pale-grey spikes standing up from his head, a long drooping moustache; bare muscular chest and arms painted with dark blue woad swirls, one twisted bronze torc around his neck; dark muted green-and-umber plaid wool trousers with a worn dark leather belt, dark leather shoes; one tall oval Celtic hide shield on his left arm, shoulder to knee, dark umber hide with a dark iron boss; one heavy iron war axe on a wooden haft held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**fanatic** (A1)
+
+```
+gaunt grim bare-chested cult fanatic with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; no helmet, a shaved head smeared with grey ash; ragged black wool cloak hanging behind him; bare wiry chest and arms marked with dark blue woad and grey ash, no armour; a dark umber wool kilt with a rope belt; bare legs and bare feet; no shield, his left hand an empty fist; one heavy curved iron kopis blade held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**royal_guard** (A1)
+
+```
+tall grim Macedonian royal guardsman, a silver-shield veteran, with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark gilded bronze Attic helmet with an open face, hinged cheek guards and two tall dull bone-grey feather plumes rising from its sides, no transverse crest; deep dark royal-purple cloak hanging behind him; ornate dark gilded bronze muscle cuirass over a dark crimson tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round aspis on his left arm, chin to knee, faced with dull dark tarnished silver and a dark bronze rim, a muted dark star emblem; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**sacred_band** (A1)
+
+```
+tall grim Theban Sacred Band hoplite with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark weathered bronze Boeotian helmet with a wide flaring brim all round and an open face, no crest; very dark blue-black cloak hanging behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round bronze aspis on his left arm, chin to knee, dark bronze rim and a muted dark-red club of Herakles emblem; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+| Class | Attempts | Promoted | Main rejections |
+| --- | --- | --- | --- |
+| militia | 2 | A2 | A1: the cloak and tunic share one umber (no recolour group) |
+| thureophoros | 1 | A1 | none |
+| celt_sword | 3 (1 cancelled) | A3, normalised −3 rows (N2) | A1: plaid on the cloak, trousers and shield; 3 px too tall |
+| rhomphaia | 2 | A2 | A1: a closed crest-ridged helm reads as the hoplite; all umber |
+| archer | 2 | A2 | A1: the cloak and jerkin one umber |
+| slinger | 4 (1 refused, 1 cancelled) | A1, normalised −5 rows (N1) | B1: the concept shrink only took 2 px; the sling changes hands in SW |
+| javelineer | 1 | A1 | none |
+| peltast | 2 | A2 | A1: a closed crested helm, a hoplite with a crescent shield |
+| falx | 3 | A3 (groups to review) | A1: the umber cloak matches the jerkin; A2: near-black style drift |
+| gallic | 2 (1 cancelled) | A1, normalised −2 rows (N1) | none (only the height) |
+| fanatic | 3 (1 cancelled) | A1, normalised −5 rows (N1) | A3: the cloak still shares the metal ramp; muddy skin |
+| royal_guard | 1 | A1 | none |
+| sacred_band | 1 | A1 | none |
+
+**Lessons:** with H4 as the style character, pro mode lands H4's build in one call, so the concept step is rarely needed.
+The model fits the figure's top to the canvas top. A crest, plume or upright spear gives headroom, but a bare head comes out
+3–7 px tall. Normalise it by dropping rows before the import; do not raise the weapon or re-roll. Give the cloak a hue
+family nothing else on the man uses (crimson for Greeks, purple-black for Carthaginians, green plaid for Celts). A brown
+cloak on a man in leather leaves no recolour group. For a §5.2 helmet the model might draw as a Corinthian, write
+"open-faced …, the face visible, no crest, no face mask".
+
+**Review fixes** (main's review: the archer's doubled bow, the fanatic reading as undead, exclusive groups for falx, fanatic
+and gallic). Retints by `rollout/retint.mjs`; details in ASSET_LOG › I4a review fixes.
+
+**archer A3**
+
+```
+lean grim Cretan archer with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark curly hair and a short dark beard, no helmet; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, one dark leather quiver strap across his chest and one quiver of arrows on his back, no white cloth; bare legs, dark leather sandals; no shield; only one bow: a plain wooden bow with a single thin curved limb and one straight string, held vertically in his left hand out at his left side, away from his body and clearly visible in every direction, no second bow, his right hand empty ready to draw; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**fanatic A4**
+
+```
+grim wild-eyed Celtic religious fanatic, a living man, with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, long wild tangled hair stiffened with lime into a dull pale ash-blond mane, a short rough beard; ragged very dark oxblood-black wool cloak hanging behind him, torn at the hem; bare chest and arms of living warm tan skin painted with bold dark blue woad patterns, no armour; a dark umber wool kilt with a rope belt; bare legs, bare feet; no shield, his left hand an empty fist; one heavy curved iron kopis blade held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**gallic A3**
+
+```
+grim tall bare-chested Gallic warband warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, thick limed hair stiffened into dull pale-grey spikes standing up from his head, a long drooping moustache; bare muscular chest and arms of living tan skin painted with dark blue woad swirls; one thick twisted polished bronze torc around his neck and one wide dark belt with a polished bronze buckle, the only bright bronze he wears; dark muted green plaid wool trousers, dark leather shoes; one tall oval Celtic hide shield on his left arm, shoulder to knee, dark umber hide with a dark iron boss; one heavy iron war axe on a wooden haft held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+```
+
+**falx A4**: falx A3 with "long black hair to the shoulders and a full black beard".
+
+| Class | Attempt | Outcome |
+| --- | --- | --- |
+| archer | A3 | **Promoted** (normalised −3 rows): one plain bow, a back quiver in 8/8 |
+| fanatic | A4 | **Promoted** (kilt retinted to darkBronze): a living man, the cloak the only umber |
+| falx | A4 | **Promoted** (hair specks retinted, normalised −4 rows): the moss cloak the only plaidGreen |
+| gallic | A3 | **Rejected:** 6 colours, no bronze, an invented shadow; N1 got a bronze torc retint instead |
+
+**Lessons:** "recurved composite bow" is drawn as two parallel limbs that read as two bows; ask for "only one bow: a plain
+wooden bow with a single thin curved limb and one straight string … no second bow". "a living man … warm tan skin" keeps a
+grim fanatic alive; grey ash on the body turns him into a ghoul. PixelLab often paints two parts in one exact colour (the
+fanatic's cloak and kilt), so a re-roll rarely separates them; a box retint into a neighbouring ramp does, at no cost.
