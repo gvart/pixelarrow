@@ -273,6 +273,10 @@ async function run(label, { noAudio }) {
       const done = await ev(() => {
         const s = window.__game.scene.getScene('Battle');
         if (!s || !s.sim || s.sim.phase !== 'battle') return true;
+        // a flank or a rout of ours auto-pauses (default on): the steps below would run on under a closed
+        // world gate, and the scene drains their events only after the battle ends, every one gated.
+        // Which fight comes up (and when it breaks) varies run to run: resume, as a player taps Play.
+        if (s.paused) s.setPaused(false);
         // march the lines into each other quickly (test staging), a few sim steps per frame
         for (let k = 0; k < 20 && s.sim.phase === 'battle'; k++) s.sim.step();
         return false;
@@ -283,7 +287,7 @@ async function run(label, { noAudio }) {
       await nextFrame(ev);
     }
     const after = await dbg();
-    check(`[${label}] battle sounds played`, after.played - before > 10, `played ${after.played - before}, dropped ${after.dropped}`);
+    check(`[${label}] battle sounds played`, after.played - before > 10, `played ${after.played - before}, dropped ${after.dropped}, gated ${after.gated}`);
     check(`[${label}] voice cap held`, maxVoices <= 12, `max ${maxVoices}`);
   }
   check(`[${label}] no console errors`, errors.length === 0, errors.join(' | '));
