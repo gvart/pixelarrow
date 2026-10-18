@@ -1,0 +1,24 @@
+src/ui/notifySettings.ts
+  s_0d98fe904b2e82::t_fc8dcc685b9fe6 22,77-85,94-95,199-200
+src/ui/settings.ts
+  s_0d98fe904b2e82::t_fc8dcc685b9fe6 22,156
+tests/settingsPanel.test.ts
+  s_0d98fe904b2e82::t_be679b7759201a 15-16,21,81-90
+  s_0d98fe904b2e82::t_99fae8acb89a81 91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a81e765684157d3378282352d85def121afac99c",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
