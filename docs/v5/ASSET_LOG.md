@@ -8,6 +8,1397 @@ Empty. The AS-07 Nikias prompts were sent in AS-08 (below).
 
 ## Done
 
+### Polish: the I5b sheets of fanatic, gallic, falx, slinger and archer (2026-10-18)
+
+**Brief.** A polish pass on the shipped I5b sheets: fanatic tiers that read, the woad off the enemy slate, the gallic SE
+shield rim out of the tier recolour, and cheap re-runs of the clips the I5b review flagged (falx NE stance, slinger NW
+walk / run, slinger SE / NE and archer NE `stab`, gallic NW guard, fanatic NE / NW fallBack). Rule: test one facing first,
+replace a clip only when the new one is clearly better. **Budget:** cap 120 generations, at most 3 of my jobs at once.
+**Used: 33 generations quoted, 24 jobs** (balance 2,747.5 before; the account is shared, so the receipt is the jobs list).
+**Raws:** the I5b raws were refetched for free (`fetchjobs.mjs` on each `<class>.jobs.json`); re-runs start from the
+exact input frame of the clip they replace (`scripts/art/pixellab/polish/first.mjs`, pixminimax image 0). Every job and
+its description word for word: `docs/v5/pixellab/I5b/polish.prompts.json` (attempts `p1`, `p2` in the class jobs files).
+**Tools** (`scripts/art/pixellab/polish/`): `first.mjs`, `log.mjs` (logs a job in both files, sets its verdict),
+`tiers.mjs` (basic / veteran / elite side by side from a manifest), `strip.mjs` (shipped frames of chosen clips, a tier
+forced), `shots.mjs` (`shots5b.mjs` with long timeouts). Rebuilding all five specs from the refetched raws first gave
+byte-identical sheets.
+
+**1. Fanatic tiers.** The cloak's pixels sit almost all on umber step 0 (`#1c1410`), and the old tier ramps started
+near-black too (`#1c0710`, `#0b0c0e`), so veteran and elite looked like basic. A pre-pass that would have repainted the
+outline-black cloak masses was tried on two frames and dropped (it caught the kilt hem and the back views are umber
+already). Fix in the spec: the ramps lift every step, and the darkBronze kilt (`#241a10`, a big block at the waist in
+front views) joins the cloak group (`parts` darkBronze → cloak), so the tier also shows from the front. Veteran
+`#36120f … #964434` (oxblood / umber), elite `#3a3632 … #a39a8e` (ash-grey pelt). No gold trim: he has no torc or other
+metal trim to carry it. Checked in the preview with the tiers forced and in the 5x3 formations at zoom 1 and 2.
+
+**2. Woad and the gallic rim.** An additive `woad` ramp in PA-WORLD-DARK, `#102d3a`, `#244853`, `#45676d`: OKLab hue
+-124° … -143° against enemySlate's -103° … -110°, and darker, so it no longer reads as the enemy team colour; chroma
+chosen so the fanatic's raw woad `#2b2e45` lands on it, not on iron. Gallic and fanatic take `woad` instead of
+`enemySlate`. Gallic trim was bronze steps 0-2: step 0 is the torc, steps 1-2 are only the SE shield rim (checked on
+every clip and row of the sheet); `parts` `"bronze:1-2": "shadow"`, so the trim group is the torc alone and the tiers
+no longer tint the rim. Torc tiers: veteran `#9a7434` (polished bronze), elite `#c8963a` (gold).
+
+**3. Clip re-runs.**
+
+| # | Class | Clip | Dir | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | fanatic | fallBack | NW | p1 | 2 | **Promoted:** rocks back and falls on his back, face up (a1 pitched forward face down) |
+| 2 | fanatic | fallBack | NE | p1 | 2 | **Promoted:** arms flung out from f1, falls on his back (a1 hunched forward f3-f4 first) |
+| 3 | falx | guard | NE | p1 | 1 | **Rejected:** the hook overdone into a shepherd's crook, a bright blade held upright, no low guard |
+| 4 | falx | guard | NE | p2 | 1 | **Promoted** (f7 the new NE guard): a low guard, the blade hooked in at the tip like the base |
+| 5 | falx | ready, charge, brace, block, stagger | NE | p1 | 5 | **Promoted:** the hook reads in every frame; block sparks cut; stagger has no blood (a1 had a burst) |
+| 6 | falx | slash | NE | p1 | 2 | **Promoted after frame drops:** crescent smear f7 dropped, the peak f6 straight into the blow f8 (index 6); the follow-through turns side-on as a1 did |
+| 7 | slinger | walk | NW | p1 | 1 | **Promoted:** the sling clear on his right in 10 of 16 frames (a2: 7); still behind the cloak f0-f2, f13-f15 |
+| 8 | slinger | run | NW | p1 | 1 | **Promoted:** the sling clear in every frame (a1 hid it f1-f4) |
+| 9 | slinger | stab | SE | p1 | 2 | **Rejected:** a second man (the enemy) drawn and knocked down |
+| 10 | slinger | stab | SE | p2 | 2 | **Promoted after frame drops:** "he alone, no other person in the frame"; f0 (a red flash) and f4 (smear) dropped; crouch, the pouch reared high behind the shoulder (held), a lunge bent low over the blow (f5, index 4) |
+| 11 | slinger | stab | NE | p1 | 2 | **Rejected:** turns to the viewer in the windup, the blow still up over his head, the sling vanishes f7-f9 |
+| 12 | slinger | stab | NE | p2 | 2 | **Rejected:** turns to the viewer and to profile, a blood burst; not better than a2, which is kept |
+| 13 | archer | stab | NE | p1 | 2 | **Promoted:** draws the bow to his chest and lunges, driving it forward with both hands (f4-f7), where a1 swung it up with a blood burst; f2-f3 a little side-on |
+| 14 | gallic | guard | NW | p1 | 1 | **Promoted** (f7 the new NW guard): the axe raised in his right hand on the viewer's right, clear of the shield; the axe head a little bigger than the base's |
+| 15 | gallic | ready, charge, brace, block | NW | p1 | 4 | **Promoted:** axe on his right, shield on his left in every frame; charge's shield face a lighter brown in 5 frames (kept); block sparks cut |
+| 16 | gallic | stagger | NW | p1 | 1 | **Promoted after a frame drop:** f2 a blood burst over the shield, f1 held |
+| 17 | gallic | slash | NW | p1 | 2 | **Promoted after frame drops:** smear f5, smear and blood f6 dropped, the raised axe f4 held into the chop f7 (index 6); his back stays to the viewer (a1 turned round f2-f3) |
+
+The new falx NE and gallic NW guard frames sit elsewhere on the tall canvas, so each spec's `guard` / `gatk` offset for
+that facing was re-measured as `mkspec.mjs` does (fitOf against `rowsFeet`): falx NE [13, 43] / [19, 43], gallic NW
+[11, 39] / [37, 39], written into the sheet spec by hand (noted under `polish` in the picks). **Rejections:** invented
+enemy 1 clip; facing drift 2 clips; over-drawn weapon 1 clip. **Still open:** slinger NE stab (a2: the blow reads as an
+upward swing from behind); slinger NW walk hides the sling in 6 frames.
+
+**Sheets.** QC 0 failures for all five (statures unchanged: fanatic 58-59, gallic 61, falx 57, slinger 57, archer 57-60);
+`tsc --noEmit` and `vite build` clean. Before / after strips and preview shots (tiers forced) are in the session
+scratchpad (`polish/`).
+
+### I5a Shield-bearing foot classes animated: royal_guard, sacred_band, thureophoros, militia, peltast, javelineer (2026-10-18)
+
+**Brief.** I5a takes each of the six classes from its approved I4a base (`docs/v5/pixellab/bases.json`) to a full packed sheet, matching the shipped hoplite. That means the hoplite's 16 clips (frame counts, fps, scale and anchors), 12–16 frames each, and dark-epic art that stays identical to the base. Each class's melee attack is a weighted full-body one-hand attack moving with the shield: the hoplite thrust recipe for spears, a cut along the blade for the sword, and a javelin `throw` for javelineer and peltast. Every frame passes the I3a hard-reject list. Tiers are runtime recolours (V5-092, V5-098). The budget cap is 1,050 generations for the six, with at most 3 PixelLab jobs at a time on the shared Tier 2 account.
+
+**Tools.** The new scripts are in `scripts/art/pixellab/i5a/`. The shared scripts are unchanged, apart from main's additive `parts` / `crest` / `emblem` / `stature` spec options (STYLE_LOCK §5).
+
+| script | what it does |
+| --- | --- |
+| `prep.mjs <class> [--upload url]` | Builds the first frames from the base rotations and uploads them. `rot` is 68, `tall` is 96 x 112, `die` is 128 x 128, `guard` is 128 x 112 with the spear levelled, and `guardflat` is SE with `--vec 1,0.22`. |
+| `guard.mjs` | Makes a levelled-spear guard frame with no hand measuring. It finds the upright spear (`findSpear`), takes the fist from the skin on the line and erases the old spear along its line. Then `spear.mjs` redraws it in the class's own shaft and head colours. A pair the search misses takes `--grip`, `--colors` and `--erase` boxes, read by `prep.mjs` from `<class>/guard.json`. |
+| `prompts.mjs <class> <anim> <dir>` | Prints the fields of every call. These are the hoplite's §15 prompts with each class's subject, shield and weapon words. |
+| `job.mjs` | Logs every job to `docs/v5/pixellab/I5a/<class>/jobs.json`, in the `fetchjobs.mjs` format, with the gens quoted. |
+| `spec.mjs <class>` | Writes the sheetbuild spec from `class.json` (picks, frame fixes with the reason for each, ramps, parts) and the hoplite's clip table, so the timings are the same. |
+| `partsview.mjs` | Shows false-colour colour groups, to check a spec's `parts` before a build. |
+| `feet.mjs` | Measures `rowsFeet`. |
+| `battle.mjs` | Takes real-battle screenshots with the men's classes swapped. |
+| `tpad.mjs <class> [--upload url]` | Pads the rotation onto the guard canvas (`tpad_<dir>`), the first frame of a `throw`. |
+| `rig5.mjs` | Skeleton-v3 rigs that `rig.mjs` lacks: the two-hand thrust (`thrust2`). |
+
+Rebuild a class: `node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I5a/<class>/jobs.json docs/v5/pixellab/I5a/raw/<class> && node scripts/art/pixellab/i5a/spec.mjs <class> && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I5a/<class>/<class>.sheet.json`. Raws are in `docs/v5/pixellab/I5a/raw/` (gitignored). The base rotations are refetched with `fetch.mjs <character id>`.
+
+#### royal_guard (base `49cc24c8`, A1)
+
+The hoplite's full set of 16 clips in 4 facings: idle, look, adjust, walk, run, rout, kneel, ready, charge, brace, block, stagger, fallBack, fallFwd, cheer and thrust. Every clip was tested in SW first and passed. Then came NE and NW, then SE.
+
+- **Calls and costs.** 71 jobs, **111 gens quoted**: 64 pixminimax (1 at 68, 1 at 96 x 112, 2 at 128) and 4 skeleton-v3 thrusts (3 each). The prompts are `i5a/prompts.mjs royal_guard …`, and every job id is in `jobs.json`.
+- **Thrust.** The skeleton-v3 keypoints are `rig.mjs thrust <dir> guard_<dir>.png --grip <fist>`. The fist comes from `guard.mjs`: SW `71,62`, NE `58,65`, NW `87,65`, SE `36,61` on `guardflat`. The strike is on frame 6.
+- **Sheet.** Shipped as `src/assets/sheets/royal_guard/{royal_guard.png, manifest.json}`.
+  - 202 columns of 129 x 114, wrap 31: a 3999 x 3192 image, **48.7 MB decoded**.
+  - Packed by the build to **10.11 MB decoded** (core 8.41 MB) and a 278.5 KB download.
+- **Colour groups.**
+  - The `parts` are `purpleBlack→cloak` (the royal-purple cloak, exclusive), `metal→metal` and `crimson→shadow`. The class has no crimson, so any crimson left after the cut is blood; mapped to shadow, it is never recoloured.
+  - `crest` and `emblem` are false.
+  - Main's suggested `linen→crest` was dropped: on this base the linen steps are the silver shield's highlights, not the plumes. In the remap the plumes and the silver face are in `metal`.
+  - `linen` is left out of `ramps` because it cast the silver shield cream. Even so, PA-WORLD-DARK has no neutral grey, so the "dull tarnished silver" shield shows as warm grey-tan. The I4a roster, which was approved, has the same remap.
+  - Tiers are the I3a anchors: veteran is a wine cloak with polished trim, elite a black cloak with gold trim. There is no crest group.
+- **QC.** `qc.mjs`: **0 failures**, 62 warnings.
+  - Every warning is the spear-end heuristic: "both ends wide" or "thin end leads" on lying bodies, on levelled shafts that pass behind the shield, and on the cut stubs of the spear the brace grounds. Each was checked by eye on the strips.
+  - Stature (spec `"stature": {"skipTop": 5}`, which drops the plume rows) is 58, 56, 57 and 56 px for SE, NE, SW and NW. The feet are on the anchor and nothing is clipped.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | all 16, SW | a1 / p1 | **Promoted.** Block f3 is replaced by f4, because the spark burst shredded the shield face once cut. Stagger f0 is replaced by f1 (the spear pivots to the ground for one frame). In fallBack, f2 is replaced by f3 (blood over the chest left holes once cut). |
+| 2 | idle, look, walk, rout, ready, charge, brace, stagger, fallFwd, cheer, thrust, NE and NW | a1 / p1 | **Promoted.** In stagger NE, f0 is replaced by f1 (the shield showed its silver face). In stagger NW, f0 and f1 are replaced by f2 (he turned west and the spear smeared). |
+| 3 | adjust NE | a1 | **Rejected (shield face):** in a back view the shield swings round and shows its silver face (f1–f4). |
+| 4 | adjust NE | a2 | **Promoted.** The prompt adds "keeps its back to the viewer in every frame, its face turned away from the viewer". |
+| 5 | run NE | a1 | **Rejected (shield vanishing):** the shield is almost gone in f2–f3, then turns its bright face round. |
+| 6 | run NE | a2 | **Promoted.** The prompt adds "clearly visible … at his left side …, its dark back and rim towards the viewer, never turning its face round". |
+| 7 | kneel NE | a1 | **Rejected (shield face):** the silver face and a saturated gold rim show in a back view. |
+| 8 | kneel NE | a2 | **Promoted.** |
+| 9 | brace NE | a1 | **Rejected (shield face):** he turns side-on and shows the silver face and a gold rim. |
+| 10 | brace NE | a2 | **Promoted.** The NE line "seen from behind, the shield's dark back and rim face the viewer in every frame, never its silver face" is now added to every royal_guard NE prompt. |
+| 11 | block NE | a1 | **Rejected (weapon pivot):** the levelled spear swings upright (f1–f3) and the shield shows its face. |
+| 12 | block NE | a2 | **Promoted.** f3 and f4 are replaced by f2 (the silver face and sparks again). |
+| 13 | fallBack NE | p1 | **Rejected (shield vanishing):** the shield face came out near-white, so the invented-colour cut hollowed it out. Blood also took the spearhead. |
+| 14 | fallBack NE | p2 | **Promoted.** The prompt adds "dull and dark". f1 is replaced by f2 (blood had cut the spearhead loose). |
+| 15 | fallBack NW | p1 | **Promoted.** f1 is replaced by f2 (the same loose spearhead). |
+| 16 | all 16, SE | a1 / p1 | **Promoted.** In block SE, f2 is replaced by f1 (the spark streak). In stagger SE, a red `clear` was needed on f0 and f1 (a blood streak across the shield). In fallFwd SE, f0 and f1 are replaced by f2 (blood had broken the shield). |
+| 17 | fallBack SE | p1 | **Rejected (weapon doubled):** two spear shafts while he falls (f5–f7), and blood over the shield. |
+| 18 | fallBack SE | p2 | **Promoted.** The prompt adds "his one spear …, only one spear in every frame". f1 is replaced by f0 and f2 by f3 (blood over the shield). |
+
+**Rejection count.** Whole clips:
+- shield face or shield vanishing: 5 (adjust, run, kneel and brace NE; fallBack NE)
+- weapon pivot: 1 (block NE)
+- weapon doubled: 1 (fallBack SE)
+
+Frames replaced: 15.
+- 8 for invented sparks or blood that broke the shield or spear once cut
+- 3 for a pivoting or smeared spear
+- 2 for the shield face
+- 2 more held frames in block NE
+
+There were **0** reversed or double-ended spears, heads turned backwards, heads clipped by the canvas, or proportion drifts. The cloak, helmet and plumes keep the base's shapes in every frame.
+
+**Lessons.**
+- A bright shield face is a problem in the NE back view. pixminimax keeps swinging the shield round to show its face (5 of the 7 rejects), so name its dark back in every NE prompt.
+- Bright silver also goes near-white in the falls, and the colour cut then hollows it: say "dull and dark".
+- In death clips, a class with no crimson of its own should map `crimson→shadow`, so blood left on the body never joins the cloak group.
+
+#### royal_guard SE guard fix (main's review, same day)
+
+The SE leaf head did lead (it was at the down-right end in every frame), but the spear read as trailing. With the I3a guard geometry (head 38 px ahead of the fist, butt 20 behind), the leaf sat behind the shield's lower rim and the long butt up-left looked like the point. The hoplite has the same geometry.
+
+The fix is a new SE guard and SE flat-guard frame from `i5a/guard.mjs --ahead 52 --behind 10`, which `prep.mjs` now uses for every spear class. ready, block, stagger and thrust SE were redone from it as **a2**: 9 gens, and **120 gens in all for the class**. The leaf now clears the rim and leads in every frame. Stagger SE a2 f0 has a `clear` over motion-streak lines behind the shield. charge and brace SE keep a1, because the model levels the spear with its head clearly ahead from f1.
+
+STYLE_LOCK §6 gained an additive "SE guard" note. Zooms are in the scratchpad: `se_zoom_royal_guard_v2.png`. QC: 0 failures.
+
+#### hoplite SE guard fix (routed to I5a by main)
+
+The shipped hoplite had the same SE geometry as royal_guard: its leaf head led, but behind the shield rim. I redid four of its SE clips from an equivalent grip-back SE guard, made with `i5a/guard.mjs --ahead 52 --behind 10` on the H4 SE rotation (`docs/v5/pixellab/I3/raw/first5/`):
+
+- ready **s2** and block **s2** (pixminimax 2 each)
+- thrust **s2** (skeleton-v3, 3: `rig.mjs thrust south-east guard2flat --grip 35,61`)
+- stagger **s3** (pixminimax 2). stagger s2 was **rejected (invented item / weapon doubled)**: an invented brown smear came off the shield in f0, and a second spear tip appeared in f1.
+
+That is **11 gens**. The jobs were added to `docs/v5/pixellab/I3/jobs.json` (and also logged in `docs/v5/pixellab/I5a/hoplite/jobs.json`), and the picks are in `hoplite.sheet.json`.
+
+The rebuild leaves the NE, SW and NW rows byte-identical; the check was a pixel diff, with 0 changed pixels outside the SE row. The colour groups and tiers are unchanged too. The SE anchor moved from x 49 to 42 because the shorter butt shrank the row's left extent, so all SE frames sit 7 px further left in the image. On screen they are identical, because the runtime draws them from the anchor. QC: 0 failures. Zoom: scratchpad `se_zoom_hoplite_v2.png`.
+
+#### sacred_band (base `2b900b89`, A1)
+
+The hoplite's 16 clips in 4 facings, built the way royal_guard was: every clip tested in SW first (all passed), then NE and NW, then SE. The guard frames came from the grip-back SE guard from the start (`prep.mjs`: head 52 px ahead of the fist, butt 10 behind), so no SE redo was needed for the spear's reading.
+
+- **Calls and costs.** 68 jobs, **105 gens quoted**: 64 pixminimax (1 at 68, 1 at 96 x 112, 2 at 128) and 4 skeleton-v3 thrusts (3 each). The prompts are `i5a/prompts.mjs sacred_band …`, and every job id is in `jobs.json`.
+- **Thrust.** `guard.mjs` found the same fist as on royal_guard (both bases come from H4), so the royal_guard keypoint files were reused: SW, NE and NW are identical, and SE differs by 0.5 px. The strike is on frame 6.
+- **Sheet.** Shipped as `src/assets/sheets/sacred_band/{sacred_band.png, manifest.json}`.
+  - 202 columns of 122 x 112, wrap 33: a 4026 x 3136 image, **48.2 MB decoded**.
+  - Packed by the build to **9.97 MB decoded** (core 8.17 MB) and a 266.8 KB download.
+- **Colour groups.** The `parts` are `purpleBlack→cloak` and `metal→cloak` (the blue-black cloak spans both ramps in the remap) and `crimson→shadow`, so blood left after the cut and the dark-red club emblem are never recoloured. `crest` and `emblem` are false. Tiers are the I3a anchors (veteran wine cloak, elite black cloak).
+- **QC.** `qc.mjs`: **0 failures**, 91 warnings.
+  - Every warning is the spear-end heuristic ("thin end leads" on upright spears whose butt meets the feet in idle, look, adjust, run and kneel; "both ends wide" on charge NW, brace SE and the run SE shaft behind the shield) or brace SE feet 105 vs anchor 102 (the braced crouch's wide stance). Each was checked by eye on the strips.
+  - Stature is 57, 58, 57 and 58 px for SE, NE, SW and NW. Nothing is clipped.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | all 16, SW | a1 / p1 | **Promoted.** In fallBack, f0 and f1 are replaced by f2 (a blood burst; holes in the body once cut). In stagger, f2 is replaced by f3 (motion lines along the spear read as a forked second head). In block, f2 is replaced by f3 (spark residue over the rim). |
+| 2 | all 16, NE and NW | a1 / p1 | **Promoted.** adjust, run and kneel NE used royal_guard's a2 wordings from the start, and every NE prompt ends with the dark-back line, so no NE shield-face rejects this time. In fallBack NE, f1 is replaced by f2 (the spearhead cut loose by blood). In block NW, f0 is replaced by f1 (the shield hollowed by a cut spark) and f2 by f3 (spark dashes). |
+| 3 | fallBack NW | p1 | **Rejected (blood):** a heavy red spray over the cloak and body f0–f5; once cut, the body is shredded. |
+| 4 | fallBack NW | p2 | **Promoted.** The prompt adds "no blood at all, no red spray, no effects, no particles". f0 and f1 are replaced by f2 (a red streak across the spear), and f3 has a `clear` over a blood speck. |
+| 5 | walk, look SE | a1 | **Not used:** submitted at 12 frames by mistake (the clips are 16). Redone as a2 at 16; 2 gens lost. |
+| 6 | run SE | a1 | **Rejected (head / helmet drift):** the wide-brimmed Boeotian helmet morphs into a tall crested peak (f4–f11). |
+| 7 | run SE | a2 | **Promoted.** The prompt adds "his head keeps facing the lower right and the wide-brimmed Boeotian helmet keeps the same round shape in every frame, no crest, no plume". |
+| 8 | every other clip, SE | a1 / p1 | **Promoted.** In stagger SE, f0 is replaced by f11 (an invented second shaft through the shield), and f1 and f2 have a `clear` over a dark smear and a speck. The block SE spark burst and the fall SE blood cut cleanly. |
+
+**Rejection count.** Whole clips:
+- blood: 1 (fallBack NW)
+- head / helmet drift: 1 (run SE)
+- (plus 2 SE clips redone for my wrong frame count)
+
+Frames replaced: 10, plus 4 `clear` boxes.
+- 7 for invented sparks or blood that broke the shield, spear or body once cut
+- 3 for an invented streak, a forked-looking head or a second shaft
+
+There were **0** reversed or double-ended spears, missing or doubled shields, heads turned backwards or clipped, or proportion drifts.
+
+**Lessons.**
+- Naming the shield's dark back in every NE prompt from the first call removed the NE shield-face rejects (5 on royal_guard, 0 here).
+- pixminimax can reinvent a helmet in a fast clip; name the helmet's shape when it is not the generic crested one.
+- Check the clip table's frame count per clip (walk and look are 16) before submitting.
+
+#### thureophoros (base `270a1787`, A1)
+
+The hoplite's 16 clips with `slash` (a one-hand sword cut) in place of `thrust`. Every clip was tested in SW first. A sword class has no levelled-spear guard, so `ready` was made first from the padded rotation (sword low), and its f4 (the sword forward at the waist) became each facing's guard first frame (`first/gready_<dir>.png`) for charge, brace, block, stagger and slash.
+
+- **Calls and costs.** 72 jobs, **111 gens quoted**: 71 pixminimax and 1 skeleton-v3 test. Prompts are `i5a/prompts.mjs thureophoros …` (the `SWORD` table); every job id is in `jobs.json`.
+- **Slash.** pixminimax draws a weighted full-body cut (draw back over the right shoulder, step in behind the shield, diagonal cut, follow-through low), but in every facing it also paints a swoosh arc on the cut frames, and in SW a1 it bent the blade. The arc frames are replaced by their neighbours, so the cut snaps from high to low across one frame at 14 fps; the strike is on frame 6. NE needed a3 ("we watch him from behind and he never turns round … chops the blade down hard in front of him away from the viewer", last frame pinned to the guard) because a1 and a2 turned round to face the viewer.
+- **Skeleton test.** `i5a/rig5.mjs` gained `WEAPONS.sword` and `CLIPS.slash1h` (I5b's `rig5b.mjs` documents a slash1h but does not define it). SW s1 kept the facing, but the sword hides behind the body and shield through the whole cut, so the blow does not read; rejected, and kept in the rig for later tuning.
+- **Sheet.** `src/assets/sheets/thureophoros/{thureophoros.png, manifest.json}`: 200 columns of 99 x 111, wrap 41, a 4059 x 2220 image, **34.4 MB decoded**; packed by the build to **8.37 MB decoded** (core 6.63 MB), a 238.0 KB download.
+- **Colour groups.** `parts`: `purpleBlack→cloak` (cloak and tunic skirt, as in I4a), `iron→weaponMetal` with `metalKind.weaponMetal: iron` (the iron blade follows the weapon's rarity on the iron ramp), `crimson→shadow` (blood is never recoloured). `spear: false`, `greyCut: 0.8` (keeps the lit blade), `crest`/`emblem` false. The lightest linen steps fall in `trim`, so the elite tier gilds the corselet's highlights.
+- **QC.** `qc.mjs`: **0 failures**, 196 warnings, all the spear-line heuristic, which still runs on a sword class's clips ("both ends wide" / "no spear found"); checked by eye on the strips. Stature (spec `"stature": {"skipTop": 4}`, the pilos point) is 58, 56, 58 and 56 px.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | all 16, SW | a1 / p1 (slash a2) | **Promoted.** slash a1 **rejected (weapon deformed / invented effect)**: the blade bends (f5) and a big swoosh (f6). a2 adds "perfectly straight and rigid … no swoosh arc, no motion trail"; f5←f4 (the curve again) and f6←f7 (the swoosh). Frames replaced: cheer f0←f1 (the sword shrinks to a stub), rout f9←f8 (the shield splits), fallBack f3←f4 and fallFwd f3←f2 (blood over the shield). |
+| 2 | slash SW | s1 | **Rejected (weapon missing):** skeleton-v3 `slash1h`, the sword hidden through the cut. |
+| 3 | slash NE | a1, a2 | **Rejected (facing flip):** he turns round to face the viewer (a1 f4–f11, a2 f6–f10), with swooshes. |
+| 4 | slash NE | a3 | **Promoted.** f3←f2, f4←f5 (swooshes). |
+| 5 | run NE | a1, a2 | **Rejected (shield vanishing):** the shield turns edge-on / hides behind the cloak (f4–f7). |
+| 6 | run NE | a3 | **Promoted.** "the tall oval shield held out on the left arm beside his body, clearly visible … never hidden behind the cloak". |
+| 7 | brace NW | a1 | **Rejected (weapon reversed):** the sword points backwards (east) f1–f11. a2 ("its point forward towards the upper left … never pointing backwards") promoted. |
+| 8 | ready SE | a1 | **Rejected (weapon hidden):** the blade hides behind the shield. a2 ("held low and out at his right side … the whole blade clearly visible") promoted; its f4 is the SE guard. |
+| 9 | every other clip, NE / NW / SE | a1 / p1 | **Promoted.** Frames replaced: slash NW f4←f3, f5←f6 and SE f3←f4 (swooshes); block NE f1←f0, f2←f3 (the shield's red face swings round in a back view); rout NW f1←f0, f7←f6 (the sword jumps past the shield); stagger NW f0←f11 and SE f0←f11 (streaks), NE f1 `clear` over a dark streak; fallBack SE f2←f1, f3←f4 (blood over the shield). The block sparks and fall blood elsewhere cut cleanly. |
+
+**Rejection count.** Whole clips: invented effect / weapon deformed 1, weapon missing 1 (skeleton), facing flip 2, shield vanishing 2, weapon reversed 1, weapon hidden 1. Frames replaced: 22 plus 1 `clear` (8 swoosh, 6 blood or sparks, 4 weapon or shield glitches, 3 streaks, 1 stub). No doubled weapons or shields, no heads turned backwards or clipped, no proportion drift.
+
+**Process note.** For a few minutes 4 of my jobs ran at once (run NE a2 was submitted while 3 were running); every other submission kept to 3.
+
+**Lessons.**
+- pixminimax paints a swoosh on any sword cut whatever the prompt says; plan on replacing those frames.
+- In back views (NE) the model turns a cutting man round to face the viewer; describe the blow from behind ("we watch him from behind … chops away from the viewer") and pin the last frame.
+- A sword's SE guard hides behind the shield unless the prompt holds it "out at his right side … the whole blade clearly visible".
+
+#### militia (base `4860b1e6`, A2)
+
+The hoplite's 16 clips for a shieldless levy spearman. The `MILITIA` prompt table replaces the shield beats: adjust is a grip shift on the spear, kneel leans on the planted spear, block parries with the shaft, brace grounds the butt and angles the spear up and forward. The attack is `thrust`, the two-hand thrust of a man with no shield (V5-093): skeleton-v3 on `i5a/rig5.mjs thrust2` (the left hand takes the shaft ahead of the right, a draw-back, the step in with hips and shoulders driving both hands forward, a held follow-through). Strike frame 6.
+
+- **Calls and costs.** 66 jobs, **104 gens quoted**: 62 pixminimax and 4 skeleton-v3 thrusts.
+- **Sheet.** `src/assets/sheets/militia/{militia.png, manifest.json}`: 202 columns of 120 x 114, wrap 34, a 4080 x 2736 image, **42.6 MB decoded**; packed by the build to **9.06 MB decoded** (core 7.55 MB), a 223.9 KB download.
+- **Colour groups.** ramps outline, umber, darkBronze, crimson, metal, skin, iron. The crimson cloak is the exclusive `cloak` group (the default map); `metalKind.weaponMetal: iron` puts the iron spearhead on the iron ramp. crest and emblem false. Blood left after the cut would join the cloak (the class's own crimson), so every fall was checked after the cut and broken frames replaced.
+- **QC.** `qc.mjs`: **0 failures**, 48 warnings: the spear-end heuristic on upright and parrying spears (adjust, kneel, block NE/NW, walk SW) and brace NE feet 105 vs 102 (the wide braced stance); checked by eye. Stature 58, 57, 59, 57 px.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | block SW | a1 | **Rejected (weapon reversed):** the spearhead swings round behind him while he parries (f5–f7). a2 ("the spearhead still towards his front … never swings behind him") promoted; the wording is now the table's. |
+| 2 | fallBack SW | p1 | **Rejected (blood):** a blood burst over the body f3–f5. p2 ("no blood at all, no red spray, no splatter, no particles") promoted; the model still paints a small burst, cut cleanly. |
+| 3 | every other clip, all facings | a1 / p1 | **Promoted.** Frames replaced: fallBack SE f1←f0, f2←f3 (body hollowed by a cut blood burst), fallBack NW f0←f1 and fallFwd NE f2←f1 (spearhead floating loose after the cut). |
+
+**Rejection count.** Whole clips: weapon reversed 1, blood 1. Frames replaced: 4 (all blood). No doubled or double-ended spears, no heads turned backwards or clipped, no drift; the NE/NW look turns stay in profile.
+
+**Process note.** For a few minutes 4 of my jobs ran at once (cheer NE was submitted with 3 running).
+
+**Lessons.**
+- A shieldless spearman works from the hoplite clips with the shield beats rewritten around the spear.
+- The two-hand thrust rig reads cleanly in all four facings at the first try.
+- "No blood" wording barely helps; for a crimson class, check every fall after the cut.
+
+#### peltast (base `4739f237`, A2)
+
+The hoplite's 16 clips plus `throw`, for a light javelin-armed skirmisher with the crescent pelte. The melee `stab` falls back to `thrust` at runtime, so the attack set is the hoplite one-hand thrust (skeleton-v3 on `rig.mjs thrust`; strike 6) and the new `throw` (pixminimax, 12 frames at 14 fps, strike 9, guard canvas): he raises the spear to his right shoulder with the head forward, draws back, steps in and hurls it; the spear flies out of the frame and the hand ends empty. The throw starts from the rotation padded onto the guard canvas (`i5a/tpad.mjs`); SE starts from the guard (spear level, head forward).
+
+- **Calls and costs.** 73 jobs, **118 gens quoted**: 69 pixminimax and 4 skeleton-v3 thrusts.
+- **Sheet.** `src/assets/sheets/peltast/{peltast.png, manifest.json}`: 214 columns of 117 x 113, wrap 35, a 4095 x 3164 image, **49.4 MB decoded**; packed by the build to **10.41 MB decoded** (core 8.70 MB), a 306.2 KB download.
+- **Colour groups.** ramps outline, umber, darkBronze, crimson, metal, skin, iron. The crimson cloak is the exclusive `cloak` group; `metalKind.weaponMetal: iron` puts the iron spearhead on the iron ramp. crest and emblem false. `stature.skipTop: 4` drops the Thracian helmet's forward-curving apex from the measure (62 to 58 px). Blood left after the cut joins the cloak, so every fall and stagger was checked after the cut and broken frames replaced.
+- **QC.** `qc.mjs`: **0 failures**, 62 warnings: the spear-end heuristic on upright, parrying and thrown spears, and the wide braced and blocking stances (feet 105 vs 102); checked by eye. Stature 58, 56, 58, 56 px.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | throw SW | a1 | **Rejected (weapon reversed):** the spearhead points backwards while drawn back (f1–f5) and he turns round after the throw (f8–f10). a2 ("facing the viewer's lower left the whole time … never turning round; the spearhead always points forward") promoted; now the table's wording. |
+| 2 | throw NE | a1, a2 | **Rejected (weapon reversed):** the spearhead points left, backwards, while drawn back (f1–f5); a2 still turns sideways. a3 (the explicit line "from his shoulder up and away to the upper right … never points left or down") promoted. |
+| 3 | throw SE | a1, a2 | **Rejected (weapon reversed):** the spearhead points up-left while drawn back (f1–f6, f1–f5). a3 starts from the guard (spear level, head forward) with "the spear always lies along the line from his shoulder down and away to the lower right"; promoted. Frames 8–11 cleared of the thrown spear hanging by his feet, and the timing held (`frames` 0–5, 5, 6, 6, 7–9) so the release lands on the strike frame. |
+| 4 | every other clip, all facings | a1 / p1 | **Promoted.** Frames replaced: fallBack SE f1←f0, f2←f1, f3←f4; fallBack NE f1←f0; fallBack NW f1←f0, f2←f3; fallFwd SE f2←f1; fallFwd NE f1←f0, f2←f3; stagger SW f1←f0, f2←f3; stagger NW f1←f0, f2←f3 (all blood, which hollows the body or breaks the shaft once cut); block SW f3←f4 and thrust NW f7←f8 (spark and glint residue); block NE f3, f4←f2, f5←f6 (the spear swings upright and the shield face turns to the viewer). |
+
+**Rejection count.** Whole clips: weapon reversed 5 (all throws). Frames replaced: 18 (blood 13, sparks 2, weapon upright with the shield face turned 3), plus 4 frames cleared of a stuck thrown spear. No doubled or double-ended spears, no doubled or vanishing shields, no heads turned backwards or clipped, no drift. The front-facing block, stagger and kneel draw the pelte face-on as a round shield; accepted as the same shield seen square.
+
+**Process note.** For a few minutes 4 of my jobs ran at once (cheer SW was submitted with 3 running).
+
+**Lessons.**
+- A javelin throw needs the line spelled out per facing ("the spear lying along the line from his shoulder … towards <corner> … never points <back>"); "pointing forward" alone lets the model flip the head in the draw-back.
+- Starting the throw from the level guard (head already forward) keeps the head forward far better than starting from the upright rotation.
+- For a crimson-cloaked class the cut leaves blood in the cloak group; check every fall and stagger after the cut.
+
+#### javelineer (base `a0b21d96`, A1)
+
+The hoplite's 16 clips plus `throw`, for a Carthaginian skirmisher with a pair of javelins and a small pelte. The melee `stab` falls back to `thrust` (skeleton-v3 on `rig.mjs thrust`, the pair held level; strike 6). The `throw` (12 frames at 14 fps, strike 9, guard canvas) passes one javelin to the shield hand, where it stays upright, and hurls the other: it flies out of the frame and the hand ends empty. SW and NW start from the rotation padded onto the guard canvas (`i5a/tpad.mjs`); NE and SE start from the guard.
+
+- **First frames.** The pair defeats the line search (`guard.mjs` found half a javelin or none), so `guard.mjs` gained `--erase` boxes, `--colors` and a found-nothing path with `--grip`, and `prep.mjs` reads the per-facing arguments from `docs/v5/pixellab/I5a/javelineer/guard.json` (fists and erased javelins measured by hand from the rotations).
+- **Calls and costs.** 74 jobs, **120 gens quoted**: 70 pixminimax and 4 skeleton-v3 thrusts.
+- **Sheet.** `src/assets/sheets/javelineer/{javelineer.png, manifest.json}`: 214 columns of 133 x 117, wrap 30, a 3990 x 3744 image, **57.0 MB decoded** (the thrown javelins widen the cell); packed by the build to **10.58 MB decoded** (core 8.76 MB), a 291.1 KB download.
+- **Colour groups.** ramps outline, umber, darkBronze, purpleBlack, metal, skin, iron, crimson. parts: purpleBlack → cloak (exclusive), iron → weaponMetal, crimson → shadow (the class has no crimson, so blood left after the cut falls into shadow). crest and emblem false; `metalKind.weaponMetal: iron`; `stature.skipTop: 4` (the soft cap's peak), 58 px in every facing.
+- **QC.** `qc.mjs`: **0 failures**, 81 warnings: the spear-end heuristic on the pair (two parallel shafts read as double-ended), upright and thrown javelins, and the wide stances; checked by eye.
+
+| # | Clip / facing | Attempt | Outcome |
+| --- | --- | --- | --- |
+| 1 | throw NE | a1 | **Rejected (weapon reversed):** the head points down-left, backwards, in the draw-back (f4–f8). a2 (from the guard, "the thrown javelin always lies along the line from his shoulder up and away to the upper right") promoted with `frames` 0, 1, 2, 2, 3×4, 7, 8, 9, 11: f4–f6, where the head still swings back, drop out. |
+| 2 | throw SE | a1 | **Rejected (weapon reversed, shield vanishing):** the head points up-left in the draw-back (f2–f7) and the shield vanishes after the throw (f8–f11). a2 from the guard promoted; `frames` hold the draw-back so the release lands on the strike frame. |
+| 3 | throw SW | a1 | **Promoted** with f9 cleared of the javelin in flight (drawn tail first) and f10 of a speck. NW a1 promoted as is. |
+| 4 | fallBack SE | p1, p2 | **Rejected:** p1 a blood flash and the whole man recoloured orange-brown, the cloak lost (f1–f11); p2 a blood burst over the body f0–f4 (the first frame broken once cut). p3 ("he slumps … no wound is shown … no red") promoted. |
+| 5 | stagger SE | a1 | **Rejected (shield vanishing, weapon missing):** the shield vanishes (f2–f5) and one javelin is lost. a2 ("the shield stays strapped on his left arm and clearly visible") promoted. |
+| 6 | block NE | a1 | **Rejected (shield vanishing):** the shield face turns to the viewer (f1), then the shield vanishes (f2–f11). a2 promoted with `frames` 0, 1, 1, 3×6, 1, 1, 0: the shield goes behind him again after f3, so the block is held at f3. |
+| 7 | every other clip, all facings | a1 / p1 | **Promoted.** Frames replaced: fallBack NE f2←f1, f3←f4; fallBack SW f1←f0; fallBack NW f1←f0; fallFwd NW f2←f1; stagger SW f0←f1 (blood over the shafts or body); block SE f2←f3, block SW f2←f1 (spark residue). |
+
+**Rejection count.** Whole clips: weapon reversed 2, shield vanishing 3 (one also weapon missing), blood 2 (one also recoloured). Frames replaced 9 (blood 7, sparks 2); 2 frames cleared; 2 clips re-timed with `frames` to drop bad frames (throw NE: 3 reversed; block NE: the shieldless f4–f11 and a spark frame). No heads turned backwards or clipped, no drift.
+
+**Process notes.** I sent several calls in one message (look, adjust, walk NE; at most 3 running), so the 2 s gap between those submissions is not assured.
+
+**Lessons.**
+- A pair of javelins needs the guard frame by hand: erase boxes and a measured fist.
+- Starting the throw from the level guard keeps the head forward (NE, SE), as for the peltast.
+- The pair read as two parallel spears in the levelled clips; the spear QC heuristic warns on them, which is expected.
+- A red-only clear also eats purple and dark umber pixels; replace frames instead.
+
+### I5c Mounted and chariot clips: companion, horse archer, thessalian, chariot, from the I4b bases to game sheets (2026-10-18)
+
+**Brief.** Animate the four approved I4b bases (`docs/v5/pixellab/mounted.json`) to the hoplite's standard: 12-16 frames a clip, dark-epic, each class identical to its base in every frame, real rider and horse proportions, weight in every attack (a lance driven with the horse's momentum, a javelin thrown with the torso turned, a bow drawn to the cheek), real gaits, spearheads lead, one head, one bow. Hard rejects frame by frame: extra or missing horse legs, rider merged into the horse, a doubled, reversed or missing weapon, a second bow, style or proportion drift, canvas clipping, unrequested sparks or blood. Tiers by runtime recolour (V5-092, V5-098); horse coats kept out of the skin and metal groups where the colours allow, the runtime flags (`variation`, `rarity`, I6) set where they do not.
+
+**Tool and budget.** PixelLab MCP `animate_image_pixminimax`, at most 3 of my jobs at once, cap 330 generations for the four. Balance before: 3,917.50 left (985.50 used); after: 3,230.50 left (1,672.50 used), a change of 687 that includes other agents' jobs in parallel. **Mine by receipt: 145 gens** (companion 42, horse archer 42, thessalian 36, chariot 25; every clip 1 generation at 144 x 160 or 176 x 176, two jobs cancelled) of the 330 cap. Nothing left for review: every requested clip shipped in 4 facings (companion 9 clips, horse archer and thessalian 8, chariot 6); not made because the battle falls back: look, adjust, ready, block, and charge for the two missile riders (charge falls back to gallop). Battle screenshots with the runtime-mounted picker: `docs/v5/art/I5c-battle-riders.png`, `I5c-battle-chariot.png`; sheet previews `I5c-preview-<class>.png`.
+
+**Recipe.** Every clip is generated on one **work canvas** per class (`scripts/art/pixellab/i5c/lib.mjs` CANVAS: riders 144 x 160 with the 100 rotation at 22,44, room to rear, fall and raise the weapon; chariot 176 x 176 at 24,40): `start.mjs` pastes the rotation (or a loop key) there, it is uploaded and passed as `first_frame_url`, `view: high top-down`, `direction` the facing, `subject_description` and `initial_pose` set (prompts.json). 144 x 160 at 12-16 frames bills **1 generation**. Results are aligned on the work canvas (`align.mjs`; the stored I4b gallop on its grown canvases by matching its keys), so the sheet spec has one canvas offset per clip family and `align: false`. Loops: idle and walk pinned (`last_frame_url` = the first frame); gallop, charge and rout keyed (start = end = a stretched mid-gallop frame) or an 8-frame stride cut from an entry run that already loops (`loopfind.mjs`). Detached dust clumps are cleared by `despeck.mjs`; sparks, white streaks, grey trails and blood splats by the pipeline's invented-colour cut. Jobs and verdicts: `docs/v5/pixellab/I5c/<class>.jobs.json`; prompts word for word: `docs/v5/pixellab/I5c/prompts.json` and `docs/playbook/PROMPTS_ART.md` › 20. Raws: `docs/v5/pixellab/I5c/raw/` (gitignored; `fetchall.mjs <class>` refetches). Build: `node scripts/art/pixellab/i5c/build.mjs <class> --qc <dir>` (derive, sheetbuild, finish, anchorcheck, qc).
+
+#### companion (42 gens)
+
+Clips (16 frames unless said): idle 12 @ 8, walk @ 14, gallop @ 16 (the I4b loop, reused), charge @ 16 (lance couched; SE/NE/NW keyed loops, SW an 8-frame stride twice), thrust @ 14 (strike 7: a couched drive with the horse lunging one stride), stagger 12 @ 12 (the horse shies and rears half up), fallFwd @ 12 (the horse goes down, the rider is thrown clear; serves fallBack and die), rout @ 16, cheer @ 10, hold 15 (lance raised, the horse rears once and stands). Not made: look, adjust, ready, block (the battle falls back to idle / stagger).
+
+Sheet: `src/assets/sheets/companion/` 136 columns x 4 rows of 129 x 138, packed 14.55 MB decoded (core 12.58), 513 KB download. `qc.mjs`: 0 failures; warnings are the spear heuristic catching horse legs and reins as the longest thin line, and cheer's rearing frames off the feet row (expected); every frame checked by eye on the review sheets. Groups: cloak = purpleBlack (exclusive), skin = the rider's skin **and the bay coat** (the same three hexes), metal = umber 3 (helmet, cuirass, a few bridle pixels; not the coat), weaponMetal the lance head. Manifest: `variation.skin: false` (the coat would take the man's skin tone), rarity swap kept; no trim group (the bronze has no separate highlight step), so the elite tier is the black cloak only.
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `b114c90c` | C-idle-1 | 1 | usable: calm breathing, 4 legs, one lance; but the tail is out at frame 11 and down at 0 (a jump at the wrap). Re-rolled pinned (a2) |
+| thrust | SW | a1 | `c11bc241` | C-thrust-1 | 1 | REJECTED: frames 3-7 the spear is reversed (leaf head at the back, behind the rider, while drawing back overarm) |
+| stagger | SW | a1 | `6e0c67f2` | C-stagger-1 | 1 | accepted: shies, rears half up, drops back; 4 legs, one lance upright throughout |
+| idle | SW | a2 | `3a339cc0` | C-idle-1 | 1 | accepted: pinned loop (last frame = the rotation), breathing, weight shift, tail swish; 4 legs, one lance |
+| thrust | SW | a2 | `e1410f5a` | C-thrust-2 | 1 | accepted: lance couched, head leads in 16/16, the horse lunges a stride (5-9), held reach 8-9, back upright; a stray light blob at frame 11 is cut by colour |
+| walk | SW | a1 | `79e3bdb3` | C-walk-1 | 1 | accepted: a high-stepping walk in place, pinned loop, 4 legs, one lance upright; a grey speck at the mouth (frame 8) cut by colour |
+| idle | SE | a1 | `61c08bed` | C-idle-1 | 1 | accepted: pinned loop, tail swish and breathing, 4 legs, one lance |
+| thrust | SE | a1 | `2171d812` | C-thrust-2 | 1 | REJECTED: frames 1-5 the lance swings back, its head behind the rider (reversed); 6-12 right |
+| stagger | SE | a1 | `ae859c17` | C-stagger-1 | 1 | accepted: rears and drops back; an orange slash arc at frame 0 (invented) is cut by colour |
+| idle | NE | a1 | `8f3f8d14` | C-idle-1 | 1 | accepted |
+| thrust | SE | a2 | `9f627c21` | C-thrust-3 | 1 | accepted: the lance cocked back high (butt up behind, point forward, the head hidden by the horse's neck in 1-3, not reversed), then the lunge and a couched drive, head leading 4-15; white sparks at 5-6 cut by colour |
+| idle | NW | a1 | `6ad6ec43` | C-idle-1 | 1 | accepted |
+| stagger | NE | a1 | `f9ce17a6` | C-stagger-1 | 1 | accepted: rears and drops back; grey specks at the bit (9-11) cut by colour |
+| walk | SE | a1 | `affbac17` | C-walk-1 | 1 | accepted: the lance comes upright during the walk and slants back for the pinned end |
+| walk | NE | a1 | `397490f3` | C-walk-1 | 1 | accepted |
+| fallFwd | SW | a1 | `4c60ec74` | C-fall-1 | 1 | fallback: the horse sinks to its knees and lies on its belly, the rider sprawled across its back (distinct, not merged); lance flat. Re-rolled for a clearer fall (a2) |
+| thrust | NE | a1 | `e42f544e` | C-thrust-3 | 1 | REJECTED: from frame 6 the rider turns to face the camera and the lance points back (south-west) |
+| walk | NW | a1 | `c5372094` | C-walk-1 | 1 | accepted |
+| stagger | NW | a1 | `d03a4726` | C-stagger-1 | 1 | accepted: rears and lands; a white slash streak in 0-1 is cut by colour |
+| thrust | NE | a2 | `51dad0ad` | C-thrust-4 | 1 | accepted: seen from behind throughout, the lance couched and leading north-east 0-11, the lunge at 7-8, back upright 13-15 |
+| fallFwd | SW | a2 | `79c83ef1` | C-fall-2 | 1 | accepted: the horse buckles and goes down, the rider is thrown clear and lies on his back, the lance flat beside him; one lance, 4 legs while visible; grey specks cut by colour |
+| thrust | NW | a1 | `58ceddbc` | C-thrust-4 | 1 | accepted: seen from behind, couched, head leads north-west 2-13, plain blunt butt behind; the lunge 6-9 |
+| cheer | SW | a1 | `4025f171` | C-cheer-1 | 1 | accepted with a fix: lance raised and shaken, the horse rears (6-10) and prances, ends standing with the lance aloft (hold 15); frame 2 the lower end looks like a second head: copied from frame 1 |
+| charge-entry | SW | a1 | `893ae3ee` | C-charge-1 | 1 | accepted: lance couched from frame 5, a real gallop; the 8-frame stride 7..14 loops (wrap 50% vs 60-69% between neighbours): charge = frames 7-14 twice |
+| fallFwd | SE | a1 | `6dedaf95` | C-fall-2 | 1 | accepted: thrown off as the horse goes down, lies beside it; red specks at 12-15 cut as splats |
+| cheer | SE | a1 | `dddb0684` | C-cheer-1 | 1 | accepted: lance raised upright high, the horse rears (4-8) and settles; hold on the last frame |
+| fallFwd | NE | a1 | `7d1d84df` | C-fall-3 | 1 | accepted: goes down, rider thrown beside it; a red splat at frame 0 cut |
+| charge-entry | SE | a1 | `68150aa0` | C-charge-1 | 1 | partly: couched and leading from 6, but no clean couched loop (best 6..14, 9 frames) and an odd raised rear arm at 8-11; frame 6 used as the key of a step-2 loop |
+| charge-entry | NE | a1 | `ee31e563` | C-charge-2 | 1 | partly: couched from 3, but dust clumps at the hooves; frame 6 keys a step-2 loop |
+| charge-entry | NW | a1 | `85057299` | C-charge-2 | 1 | partly: couched from 7; frame 8 keys a step-2 loop |
+| fallFwd | NW | a1 | `a1bdd555` | C-fall-3 | 1 | accepted: the horse goes down on its side, the rider slides off and lies beside it, the lance flat |
+| charge | SE | a1 | `10be9348` | C-chargeloop-1 | 1 | accepted: keyed loop, two strides, the lance couched and leading in 16/16, held two-handed (the left hand on the butt, raised behind) |
+| charge | NE | a1 | `b372ad80` | C-chargeloop-2 | 1 | accepted after despeck: keyed loop, the lance leads north-east; dust clumps at the hooves cleared (despeck 60) |
+| charge | NW | a1 | `39bf8f19` | C-chargeloop-2 | 1 | accepted: keyed loop, couched, leads north-west |
+| cheer | NE | a1 | `2d910301` | C-cheer-2 | 1 | accepted: lance raised overhead, rears 3-7, prances |
+| cheer | NW | a1 | `5def6b89` | C-cheer-2 | 1 | accepted: lance raised, rears 5-11, settles |
+| rout-entry | SW | a1 | `986ea194` | C-rout-1 | 1 | accepted as rout: hunched, cloak flying, the lance trailing upright; frames 0-15 loop (frame 8 = frame 0, 7.6 %) |
+| rout-entry | SE | a1 | `719d087a` | C-rout-1 | 1 | accepted: the stride 3..10 loops (10 %): rout = frames 3-10 twice |
+| rout-entry | NE | a1 | `d1c88a3d` | C-rout-2 | 1 | REJECTED: the rider twists round to face the camera with a cartoon face (style drift) and the brim changes |
+| rout-entry | NW | a1 | `30cde16b` | C-rout-2 | 1 | partly: good, but its loop is 10 frames (4..13): frame 4 keys a 16-frame loop |
+| rout | NE | a1 | `35e4859f` | C-routloop-1 | 1 | accepted: keyed loop, hunched low, head forward, lance trailing upright |
+| rout | NW | a1 | `2900e63f` | C-routloop-1 | 1 | accepted: keyed loop on rout-entry frame 4 |
+
+42 jobs, 42 gens.
+
+**Rejected and why:** thrust SW a1 and SE a1, the lance swung back with its head behind the rider (reversed); thrust NE a1, the rider turns to face the camera with the lance pointing back; rout NE (entry), a cartoon face turned to the camera (style drift). Fixed: cheer SW frame 2 (the lower end read as a second head: copied from frame 1). Lesson: an overarm draw invites a reversed lance; say "couched … the spearhead always points forward … never backwards", and for the back views "seen from behind, the rider faces away the whole time".
+
+#### horse_archer (42 gens)
+
+Clips: idle 12 @ 8, walk 16 @ 14, gallop 16 @ 16 (SE, NE keyed loops; SW, NW an 8-frame stride of the entry run twice), shoot 16 @ 14, strike 10 (on the gallop: an arrow from the back quiver, nocked, the bow pushed out and drawn to the cheek, loosed; pinned to the gallop key, so it plays over a moving horse, which the sim's Parthian shot needs; frames rotated per facing so the release is frame 10 in all four), stagger 12 @ 12, fallFwd 16 @ 12, rout 24 @ 16 (bent low, glancing back; entry strides 8 x 3 or 12 x 2), cheer 16 @ 10, hold 15 (bow raised, the horse rears). No charge (the battle falls back to gallop).
+
+Sheet: `src/assets/sheets/horse_archer/` 128 columns x 4 rows of 129 x 146, packed 13.42 MB decoded (core 11.12), 485 KB download. `qc.mjs` with `stature { from: any, px: 94, tol: 4 }` (no metal on the hood): 0 failures; the warnings are the spear heuristic run by qc on bow and legs, and cheer's rear off the feet row. Groups: cloak = the crimson riding coat (crimson + teamRed, 9 steps), skin = the rider's skin **and the brown coat** (the same hexes). Hood, leather, bow and quiver are umber / darkBronze kept as shadow, so no metal group (no rarity swap, nothing to flag) and no trim. Spec: `spear: false`, `crest: false`, `emblem: false`. Manifest: `variation.skin: false`. Dust: clumps at the hooves cleared by `despeck.mjs` (60-150 px); the arrow in flight after the release is cleared with them (it left the canvas in SW and SE). A few hoof-attached dust pixels remain in NW rout (tiny, dark).
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `3878c15a` | H-idle-1 | 1 | accepted: pinned loop, breathing, tail swish, one bow |
+| gallop-entry | SW | a1 | `fc97c281` | H-gallop-1 | 1 | accepted: a real gallop, one bow; frames 7-14 loop (8.5 %): gallop = 7-14 twice; frame 7 keys shoot |
+| shoot | SW | a1 | `d1c4b65e` | H-shoot-1 | 1 | accepted with fixes: an arrow from the quiver, nocked, the bow pushed out and drawn to the cheek (8-11, shooting to his left side, the steppe way), released at 8, the horse galloping throughout and pinned back to the gallop key; the arrow in flight at 8 and the string trail at 12 reach the canvas edge: cleared |
+| stagger | SW | a1 | `9bb950fa` | H-stagger-1 | 1 | accepted: rears and lands; a grey arrow streak at frame 0 cut by colour |
+| walk | SW | a1 | `3df7848c` | H-walk-1 | 1 | accepted |
+| gallop-entry | SE | a1 | `280a541f` | H-gallop-1 | 1 | partly: a real gallop but no clean loop (best 10 frames, 35 %): frame 7 keys a 16-frame loop |
+| gallop-entry | NE | a1 | `18c2138e` | H-gallop-2 | 1 | partly: loops in 12 (1..12), not 16: frame 3 keys a 16-frame loop |
+| gallop-entry | NW | a1 | `30d2fcf3` | H-gallop-2 | 1 | accepted: frames 3-10 loop (6 %): gallop = 3-10 twice; frame 3 keys shoot |
+| fallFwd | SW | a1 | `0503ae3d` | H-fall-1 | 1 | fallback only: the horse falls well, but the rider stands up out of the saddle and floats in the air (3-9) before landing; re-rolled (a2) |
+| gallop | SE | a1 | `d7578c61` | H-gallopLoop-1 | 1 | accepted: keyed loop, two strides, one bow |
+| gallop | NE | a1 | `d321249e` | H-gallopLoop-2 | 1 | accepted: keyed loop, rider faces away, one bow |
+| shoot | NW | a1 | `0db881c3` | H-shoot-2 | 1 | accepted after despeck: seen from behind, arrow from the quiver (2-3), drawn to the cheek (6-9), loosed at 10, horse galloping; dust cleared |
+| fallFwd | SW | a2 | `a69460e2` | H-fall-2 | 1 | accepted: the horse buckles and rolls, the rider slides off its shoulder and lies beside it, the bow beside him |
+| shoot | SE | a1 | `22721609` | H-shoot-1 | 1 | accepted with a fix: arrow from the quiver overhead (2-3), drawn to the cheek (7-10), loosed at 11; the arrow in flight at frame 11 reaches the canvas edge: cleared |
+| shoot | NE | a1 | `e7f64eea` | H-shoot-2 | 1 | accepted after despeck: seen from behind, arrow drawn overhead from the quiver (1-3), nocked, drawn to the cheek (8-11), loosed at 12 |
+| idle | SE | a1 | `0a7e0630` | H-idle-1 | 1 | accepted |
+| idle | NE | a1 | `279610b5` | H-idle-1 | 1 | accepted (checked on the sheet strip) |
+| idle | NW | a1 | `09008f42` | H-idle-1 | 1 | accepted |
+| walk | SE | a1 | `616687e9` | H-walk-1 | 1 | accepted |
+| walk | NE | a1 | `cc80088e` | H-walk-2 | 1 | accepted: grey bit streaks at 5-7 cut by colour |
+| walk | NW | a1 | `d1b2a98f` | H-walk-2 | 1 | accepted (checked on the sheet strip) |
+| stagger | SE | a1 | `ec35169a` | H-stagger-1 | 1 | accepted |
+| stagger | NE | a1 | `3836c0da` | H-stagger-2 | 1 | accepted: the bow dips behind the rider at 9-11, one bow throughout |
+| stagger | NW | a1 | `790a32ed` | H-stagger-2 | 1 | accepted: shies with a buck-like leap (4-5), lands; one bow |
+| fallFwd | SE | a1 | `4e8c932d` | H-fall-2 | 1 | REJECTED: from frame 8 the rider lies flat on the horse, merged into its body |
+| fallFwd | NE | a1 | `9189ea0a` | H-fall-3 | 1 | accepted: the horse sinks and rolls, the rider is thrown forward and lies in front of it, the bow beside him |
+| fallFwd | NW | a1 | `a52236b4` | H-fall-3 | 1 | REJECTED: the rider stays sprawled on the lying horse, merged with its back |
+| rout | SW | a1 | `2cb3a8f5` | H-rout-1 | 1 | REJECTED: the rider sits upright (a plain gallop) |
+| fallFwd | SE | a2 | `2f98c1c1` | H-fall-4 | 1 | REJECTED: good fall, rider clear of the horse, but his boots run off the bottom of the canvas (9 px on row 159, frames 11-15) |
+| rout | SE | a1 | `f0d329e8` | H-rout-1 | 1 | REJECTED: keyed loop, but the rider sits upright (a plain gallop): the keyed-loop rout prompt (H-rout-1) does not bend him |
+| rout-entry | SW | a1 | `cdb411d5` | H-rout-2 | 1 | accepted: bent low over the neck, looking back in fear, the bow along his body |
+| fallFwd | SE | a3 | `35c2dd5b` | H-fall-5 | 1 | accepted: the horse goes down, the rider is thrown back over it and lies behind it (his red coat clear of the coat), the bow beside him |
+| fallFwd | NW | a2 | `eb20c389` | H-fall-6 | 1 | fallback: the rider stands up out of the saddle and hangs in the air (5-9) before falling clear; kept as the fallback, re-rolled (a3) |
+| rout-entry | SE | a1 | `efc771ff` | H-rout-2 | 1 | accepted: bent low, looking back, the bow along his body; stride 7-14 (wrap 46 % vs 48-65 % between neighbours): rout = 7-14 twice |
+| rout-entry | NE | a1 | `fa6d1aa2` | H-rout-3 | 1 | accepted after despeck: bent low, glancing back, the bow along the flank; loops in 12 (2-13): rout = 24 frames, 2-13 twice |
+| fallFwd | NW | a3 | `3437d9c7` | H-fall-7 | 1 | accepted: no floating; the rider rises in the stirrups as the horse drops, then slides off its near side and lies beside it, the bow beside him |
+| rout-entry | NW | a1 | `1cf6c078` | H-rout-3 | 1 | REJECTED: the bow vanishes behind the hunched rider from frame 1 (missing weapon) |
+| cheer | SW | a1 | `9c5c19b9` | H-cheer-1 | 1 | accepted: bow raised, shouting, rears 4-11, prances |
+| cheer | SE | a1 | `e375ec76` | H-cheer-1 | 1 | accepted: bow raised and shaken, shouting, the horse rears (4-10) and prances off; held on the last frame |
+| cheer | NE | a1 | `2cfbf868` | H-cheer-2 | 1 | accepted: bow raised overhead, rears 3-8, prances |
+| rout-entry | NW | a2 | `327cf18d` | H-rout-4 | 1 | accepted after despeck: leaning low and forward, the bow visible in his left hand; loops in 12 (3-14): rout 3-14 twice |
+| cheer | NW | a1 | `190fdd3d` | H-cheer-2 | 1 | accepted: bow raised overhead, rears 2-9, settles |
+
+42 jobs, 42 gens.
+
+**Rejected and why:** fallFwd SW a1, SE a1/a2, NW a1/a2 (the rider floats up out of the saddle, merges into the lying horse, or his boots run off the canvas); rout SW / SE keyed loops (the rider sits upright: a keyed loop keeps the key's posture, so a rout must come from an entry run); rout NW a1 (the bow vanishes behind the hunched rider). Lesson: for a fall say "never rises above the saddle … slides off … clearly apart from the horse"; a rout prompt needs "bent double … crouched low" and an entry run, not a keyed loop.
+
+#### thessalian (36 gens)
+
+Clips: idle 12 @ 8, walk 16 @ 14, gallop 24 @ 16 (entry strides: SW, SE, NE 8 x 3; NW 12 x 2), throw 12 @ 14, strike 6 (on the gallop: a javelin lifted overhead, head forward and down, flung down at the foe with the rise in the stirrups; the frames where the drawn javelin turned head-back or read as double-ended were cut, see the table), stagger 12 @ 12, fallFwd 16 @ 12, rout 20 @ 16 (leaning low over the neck; 10-frame strides twice, a frame dropped from the 11-frame ones), cheer 16 @ 10, hold 15. No charge (falls back to gallop).
+
+Sheet: `src/assets/sheets/thessalian/` 128 columns x 4 rows of 123 x 139, packed 10.63 MB decoded (core 8.70), 432 KB download. `qc.mjs` with `stature { from: any, px: 90, tol: 4 }` (the javelin heads are above the pilos): 0 failures. Groups: cloak = crimson + teamRed (chlamys and tunic, exclusive); skin = the rider only (the dun-grey coat is umber / metal / iron): the per-man skin tint stays **on**. The coat, pilos, buckler and leather are kept as shadow, so no rarity-relevant metal (`rarity.metal: false` set for the small darkBronze bits the remap still finds on the javelin heads). Dust puffs touching the hooves: `dust.mjs` (light pixels in the bottom rows) then `despeck.mjs`. Per-clip canvas y offsets (gallop, throw, rout) put the horse's ground row where idle has it (`anchorcheck.mjs` within 2 px). The horse archer got the same x/y correction in this commit.
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `35708324` | T-idle-1 | 1 | accepted: two javelins, plain buckler, breathing, tail swish |
+| gallop-entry | SW | a1 | `ca234148` | T-gallop-1 | 1 | accepted: frames 7-14 loop (9.4 %): gallop 7-14 twice; frame 7 keys throw |
+| gallop-entry | SE | a1 | `aff8b784` | T-gallop-1 | 1 | accepted: frames 7-14 loop (7.5 %): gallop 7-14 twice; frame 7 keys throw |
+| throw | SW | a1 | `964f7d98` | T-throw-1 | 1 | REJECTED: frames 3-9 the rider turns his back to the facing and the javelins point backwards; only the release (10-12) is right |
+| stagger | SW | a1 | `bba3aab3` | T-stagger-1 | 1 | accepted: rears and lands; two javelins, buckler |
+| walk | SW | a1 | `42123c8a` | T-walk-1 | 1 | accepted |
+| throw | SW | a2 | `1a872a5c` | T-throw-2 | 1 | fallback: release 10-12 right, but the cock-back (5-9) holds the head behind his hand, pointing backwards |
+| gallop-entry | NE | a1 | `1aa464c8` | T-gallop-2 | 1 | accepted: stride 3-10 loops (19 % vs 55-65 %): gallop 3-10 x3; frame 3 keys throw |
+| gallop-entry | NW | a1 | `092b155c` | T-gallop-2 | 1 | accepted (sheet strip): loops in 12 (0-11): gallop 0-11 twice; frame 3 keys throw |
+| throw | SW | a3 | `941223d6` | T-throw-3 | 1 | REJECTED: the drawn-back javelin (4-11) again has its head behind his hand |
+| idle | SE | a1 | `7aee8f8a` | T-idle-1 | 1 | accepted |
+| walk | SE | a1 | `a1db3e7c` | T-walk-1 | 1 | accepted (sheet strip) |
+| idle | NE | a1 | `77d7b2b2` | T-idle-1 | 1 | accepted (sheet strip) |
+| throw | SW | a4 | `d6a17464` | T-throw-4 | 1 | accepted with cuts: frames 3-7 show the raised javelin with a point at both ends (double-ended): dropped; shipped 0,1,2,2,8-15 (12 frames): lift overhead, then the downward fling with the head leading, release at 10 |
+| idle | NW | a1 | `875c597a` | T-idle-1 | 1 | accepted (sheet strip) |
+| walk | NE | a1 | `03550d2b` | T-walk-2 | 1 | accepted |
+| throw | SE | a1 | `90206c07` | T-throw-4 | 1 | accepted with cuts: 2-5 hold the raised javelin head-back with a pale buckler (drift): dropped; shipped 0,1,6-15, the downward fling with the head leading, release at 10 |
+| throw | NE | a1 | `28d8b1a0` | T-throw-5 | 1 | accepted with cuts: 4-8 the javelins point backwards: dropped; shipped 0-3,3,9-15; release at 10; the buckler flashes orange at 9-11 (cut by colour or remapped) |
+| throw | NW | a1 | `9ab38f2a` | T-throw-5 | 1 | accepted with cuts: shipped 0-3,3,5,6,7,9,11,13,15: raise, release at 6 (the javelin flies off ahead), recover; dust cleared |
+| walk | NW | a1 | `2089c7c9` | T-walk-2 | 1 |  |
+| stagger | SE | a1 | `99ca4e82` | T-stagger-1 | 1 |  |
+| stagger | NE | a1 | `957840d8` | T-stagger-2 | 1 |  |
+| stagger | NW | a1 | `abcf4836` | T-stagger-2 | 1 |  |
+| fallFwd | SW | a1 | `c5f352f1` | T-fall-1 | 1 | cancelled: stuck at 71 % for 13 min (billed 1 regardless) |
+| rout-entry | SW | a1 | `c7428404` | T-rout-1 | 1 | accepted: leaning low over the neck, javelins trailing; stride 4-13 loops (10 frames): rout 4-13 twice; light dust puffs at the hooves cleared by colour/fix |
+| cheer | SW | a1 | `78b3db89` | T-cheer-1 | 1 | accepted: javelins raised, rears 3-9, prances |
+| cheer | SE | a1 | `ee976902` | T-cheer-1 | 1 | accepted: javelins raised and shaken, rears 5-11, prances |
+| rout-entry | SE | a1 | `817b87f8` | T-rout-1 | 1 | accepted: leaning forward, the javelins upright; the buckler drifts lighter (remapped dark); loops in 11 (4-14); dust cleared |
+| rout-entry | NE | a1 | `6f617f48` | T-rout-2 | 1 | accepted: hunched forward, javelins upright; loops in 11 (0-10): rout 0-10 twice + 0,1 (24) |
+| rout-entry | NW | a1 | `bf5237e1` | T-rout-2 | 1 | accepted: hunched forward under the cloak, the two javelins upright (their heads close together, as in the base NW view); loop 4-14 (11) |
+| cheer | NE | a1 | `69d2a4ff` | T-cheer-2 | 1 | accepted: javelins raised and shaken, rears 3-10 |
+| fallFwd | SE | a1 | `7cddf707` | T-fall-1 | 1 | accepted: the horse goes down head first, the rider pitches over its shoulder and lies against its neck, his red tunic, buckler and javelins clearly his own (not merged) |
+| cheer | NW | a1 | `9c3cd13f` | T-cheer-2 | 1 | accepted |
+| fallFwd | SW | a2 | `0cde37f9` | T-fall-1 | 1 | accepted: the horse buckles and rolls, the rider slides off and lies beside it, javelins and buckler beside him |
+| fallFwd | NE | a1 | `3240069d` | T-fall-2 | 1 | accepted: the rider slides off the near side and lies in front of the horse; the buckler drifts orange (remapped dark) and the javelins stay standing like a planted pair (kept: one pair, heads up) |
+| fallFwd | NW | a1 | `08a3104e` | T-fall-2 | 1 | accepted: the horse rolls, the rider slides off and lies beside it, buckler and javelins with him |
+
+36 jobs, 36 gens.
+
+**Rejected and why:** throw SW a1-a3 (the cocked javelin points back over the rider, or he turns his back to the facing); SW fall a1 stuck and cancelled. Fixed by cuts: throw SW a4, SE, NE, NW (head-back and double-ended frames dropped). Lesson: an overhead harpoon throw ("tilting it so its small head points forward and down … flings it forward and down") keeps the head leading better than "draw back along its line".
+
+#### chariot (25 gens)
+
+Clips on a 176 x 176 work canvas (1 generation each): idle 12 @ 8, drive 16 @ 16 (both horses galloping, wheels and scythes turning; entry strides 8 x 2, SE a 14-frame loop with two frames held), charge 16 @ 16 (pinned to the drive key: the driver whirls his one kopis overhead and cuts), hit 12 @ 12 (both horses half rear in the traces, the car jolts), wreck 16 @ 12 (the horses go down, the pole snaps, the car overturns, the driver is thrown out), rout 14 @ 16 (the driver crouches low, the horses bolt; 11-14-frame loops, short ones stretched by held frames). First try in every clip and facing.
+
+Sheet: `src/assets/sheets/chariot/` 86 columns x 4 rows of 163 x 153, packed 15.78 MB decoded (all core), 579 KB download. `qc.mjs` with `stature { from: any, px: 108, tol: 4 }`: 0 failures. Groups: cloak = the driver's purple-black cloak; skin = the driver's skin **and both bay coats** (same hexes). Everything else (car, wheels, scythes, pilos, kopis, harness) is shadow: no metal group. Manifest: `variation.skin: false`, `rarity.metal: false`. Earth clods thrown up behind the wheels (they share the coats' light browns) are cleared by shape (`dust.mjs --clods`: warm light blobs in the bottom 30 rows bordered by background or their own outline), plus everything below the wheels' ground row; a few dark specks remain in NE / NW drive (2-3 px). `anchorcheck.mjs` prints dy,dx: drive, charge and rout sit within 1 px of idle after per-clip canvas offsets.
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `06fa4984` | K-idle-1 | 1 | accepted: both horses breathe and shift, two horses x 4 legs, the driver with the reins and kopis |
+| drive-entry | SW | a1 | `d568b18e` | K-drive-1 | 1 | accepted: both horses gallop, wheels and scythes turn, cloak streams; frames 7-14 loop (2.6 %): drive 7-14 twice |
+| drive-entry | SE | a1 | `a6bc9b0e` | K-drive-1 | 1 | accepted: loops in 14 (1-14); two frames held to make 16 |
+| drive-entry | NE | a1 | `11420a4f` | K-drive-2 | 1 |  |
+| drive-entry | NW | a1 | `f9bd4763` | K-drive-2 | 1 |  |
+| hit | SW | a1 | `850718e4` | K-hit-1 | 1 | accepted: the horses lurch and half rear in the traces, the car jolts, the driver swings his kopis up and braces; 2 x 4 legs |
+| charge | SW | a1 | `7e244973` | K-charge-1 | 1 | accepted: pinned loop on the drive key; horses at full stretch, the driver whirls one kopis overhead and cuts (4-13) |
+| rout-entry | SW | a1 | `c2ccb4fd` | K-rout-1 | 1 | accepted: the driver crouches low in the car, horses bolting; loops in 14 (0-13), two frames held to make 16 |
+| wreck | SW | a1 | `5ef05615` | K-wreck-1 | 1 | accepted: both horses go down, the pole snaps, the car is flung up and over and crashes on its side, the driver thrown out lies beside it; 2 x 4 legs |
+| idle | SE | x1 | `1221a9b1` | K-drive-1 | 1 | cancelled at once: sent with the drive prompt by mistake (may bill 1) |
+| idle | SE | a1 | `c6dc1727` | K-idle-1 | 1 | accepted (sheet strip) |
+| charge | SE | a1 | `605a2eb8` | K-charge-1 | 1 | accepted: the driver rises with the kopis overhead (4-8) and slashes down; one blade; pinned loop |
+| charge | NE | a1 | `0bf77675` | K-charge-2 | 1 | accepted: seen from behind, the kopis swung overhead and cut (3-12); one blade; dust cleared |
+| charge | NW | a1 | `fe20b914` | K-charge-2 | 1 | accepted: the driver swings the kopis out to the side (9-12), one blade, horses at full stretch |
+| hit | SE | a1 | `f0c725d9` | K-hit-1 | 1 | accepted: the horses lurch and toss their heads, the car jolts, the driver is thrown back with the kopis out and recovers |
+| rout-entry | SE | a1 | `81ac207f` | K-rout-1 | 1 | accepted: driver crouched low, horses bolting; loops in 12 (3-14), four frames held to make 16 |
+| idle | NE | a1 | `64183b7e` | K-idle-2 | 1 | accepted (sheet strip) |
+| wreck | SE | a1 | `3c7da97b` | K-wreck-1 | 1 | accepted: the horses tear loose and go down in the traces, the pole snaps, the car slews back and tips, the driver falls out behind it; 2 x 4 legs |
+| hit | NE | a1 | `7cf46b30` | K-hit-2 | 1 | accepted: both horses rear in the traces and drop, the car rocks; red specks (blood, unrequested) cleared by despeck |
+| rout-entry | NE | a1 | `6c57d9d6` | K-rout-2 | 1 | accepted: driver crouched under his cloak, horses bolting; loops in 12 (2-13), four frames held; dust cleared |
+| rout-entry | NW | a1 | `f25654d0` | K-rout-2 | 1 | accepted: hunched driver, bolting horses; loops in 11 (2-12), five frames held |
+| idle | NW | a1 | `4bb60878` | K-idle-2 | 1 | accepted (sheet strip) |
+| hit | NW | a1 | `1084e890` | K-hit-2 | 1 | accepted: both horses rear in the traces and drop, the car rocks |
+| wreck | NE | a1 | `d0f1e7b7` | K-wreck-2 | 1 | accepted: the horses go down, the pole snaps, the car overturns, the driver lies beside it |
+| wreck | NW | a1 | `992f42b1` | K-wreck-2 | 1 | accepted: the horses go down in the traces, the car tips, the driver tumbles out and lies beside it |
+
+25 jobs, 25 gens.
+
+**Rejected:** none (one idle SE job sent with the drive prompt by mistake, cancelled at once).
+
+### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
+
+**Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated
+body per class (veteran and elite are runtime recolours, I3b), the full clip set at 12–16 frames, a thrust driven by
+the whole body (no "only the arm stretches"), every hard reject of I1b checked frame by frame, and a recipe the other
+17 classes can follow (`docs/v5/art/STYLE_LOCK.md`).
+
+**Tool and budget.** PixelLab MCP, Tier 2. Balance before 4,803.75; after 4,408.50 (the account was shared from
+mid-run with the I4a base-rotation agent). This round's own jobs: **36 base + 118 clip generations quoted** (72 clip
+jobs: 63 pixminimax, 9 skeleton-v3); billing ran about 12 % over the quotes in the stretch measured alone (107 quoted,
+120 billed), so about **170 generations** (cap 450). **Raws:** `docs/v5/pixellab/I3/raw/` (gitignored): `H1`–`H4`,
+`ref/`, `first/` (first frames and skeleton JSON), `clips/<anim>/<dir>/<attempt>/`. **Rebuild:**
+`node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I3/jobs.json docs/v5/pixellab/I3/raw && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I3/hoplite.sheet.json`
+(every job is in `jobs.json`, every pick and frame fix in `hoplite.sheet.json`). **Shipped:**
+`src/assets/sheets/hoplite/{hoplite.png, manifest.json}`. **Contact sheets:** `docs/v5/art/I3-bases.png`,
+`I3-lineup.png` (the sheet's idle beside H4 and E3), `I3-thrust.png`, `I3-rejected.png`. **Preview:**
+`/hoplite-bakeoff.html?sheet=hoplite` (through the runtime; `?z=1..3`, `&anim=` for the formations).
+
+**Base character prompts, word for word** (all 68 x 68, `high top-down`):
+
+- **H1** (`create_character_pro_flash`, `style_image` = E3 south cropped to 68, usage "the approved style: copy its
+  colours, dark bronze and crimson ramps, outline, shading, pixel density and gear design exactly; but draw the man
+  with realistic adult proportions (a smaller head and helmet, longer legs) instead of this sprite's big helmet and
+  short legs")
+  ```
+  grim battle-hardened Spartan hoplite warrior with realistic adult human proportions, about seven heads tall: a normal-sized head and helmet, long legs, natural arm length, broad shoulders, muscular athletic build; standing straight and facing the viewer, full body with the feet near the bottom of the canvas: dark weathered bronze Corinthian helmet covering the face with a deep crimson horsehair crest; deep crimson cloak hanging from the shoulders behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round aspis shield on his left arm reaching from his chin to his knees, dark bronze rim and a muted dark-red lambda emblem; one very long wooden spear (dory) held vertically in his right hand, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours, low-key cinematic light from the upper left, the mood of the film 300
+  ```
+- **H2** (`create_character` pro, `style_character_id` E3 `62d4f135`)
+  ```
+  grim battle-hardened Spartan hoplite with realistic adult human proportions, seven heads tall: a normal-sized head and a close-fitting helmet, long legs, natural arm length, broad shoulders, muscular athletic build; dark weathered bronze Corinthian helmet covering the face with a deep dark crimson horsehair crest; deep dark crimson cloak hanging behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round bronze aspis on his left arm, chin to knee, dark bronze rim and a muted dark-red lambda; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **H3** (pro, style E3): H2 with the opening "tall grim Spartan hoplite drawn with true realistic adult anatomy,
+  seven and a half heads tall like a real man: a small head and a snug helmet only one seventh of his height, a long
+  torso, long legs (half his height), natural arm length, broad shoulders, lean muscular build, not chibi, not heroic
+  big-head proportions;" and the rest as H2.
+- **H4** (pro, style E3, `concept_image_url` = H3's south re-proportioned by `proportion.mjs`, bands
+  `3:10:0.6:0.75:7:33,11:24:0.68:0.78:8:33,25:48:0.86,49:65:1.55`, 4x nearest): the verbatim block in
+  STYLE_LOCK §3.
+
+| # | Attempt | id | Call | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | H1 | e752da6b | H1, Pro Flash + style image | 6 | **Rejected:** the spear is gone in NW; the crimson came out saturated, brighter than E3; helmet still big |
+| 2 | H2 | 852ef75e | H2, pro + E3 style | 10 | **Rejected (proportions):** E3's colours exactly and the spear in 8/8, but 4.5 heads; a flat 9-colour palette |
+| 3 | H3 | 4a5c84b4 | H3, pro + E3 style | 10 | **Rejected (proportions):** measured 3.7 heads (helmet 15 of 55 px), legs 31 % of the height |
+| 4 | H4 | b7624d6d | H4, pro + E3 style + concept | 10 | **Promoted:** a small head, legs about 45 %, 52 colours in E3's ramps; spear visible, head up, butt plain in all 8 views; one shield |
+
+**Clips.** Mode, frames, fps and prompts per clip: STYLE_LOCK §6 and PROMPTS_ART §15. Every clip was tested in SW
+first, then rolled out. The thrust is the only skeleton-v3 clip shipped (rig.mjs keypoints, the spear redrawn
+levelled into the first frame); everything else is pixminimax from the rotation, the levelled-spear frame, a tall
+canvas or a big centred canvas.
+
+| # | Clip | Mode | Dirs | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 5 | thrust a1 | skeleton-v3 | SW | 3 | **Rejected (spear pivots, ghost tips):** the draw-back swung the spear round (f1–f4), grey ghost tips, the figure turned to face south (the skeleton's shield hand was put in front of the body, not at his left) |
+| 6 | thrust a2 | skeleton-v3 | SW | 3 | **Promoted:** spear level and head-first in 14/14, lunge on the lead foot, shield driven forward with the body |
+| 7 | thrust a1 | skeleton-v3 | NE, NW | 6 | **Promoted** (NE f2 a grey ghost: cut by the colour step) |
+| 8 | thrust a1 | skeleton-v3 | SE | 3 | **Rejected (pivot):** the spear rotates about 30° from the camera-true downward angle to level |
+| 9 | thrust a2 | skeleton-v3 | SE | 3 | **Promoted:** first frame drawn flatter (`--vec 1,0.22`): the angle holds |
+| 10 | walk, idle, look, adjust, rout | pixminimax | all 4 | 20 | **Promoted;** look NE f8 rejected (lumpy, doubled head; := f7) |
+| 11 | run a1 | pixminimax | 4 | 4 | **Promoted SE SW NW; NE rejected:** the shield almost vanishes (f3) |
+| 12 | run a2 | pixminimax | NE | 1 | **Promoted** ("the shield stays clearly visible on the left arm") |
+| 13 | kneel a1 | pixminimax | 4 | 4 | **Promoted SE SW NW; NE rejected:** shield gone f1–f2 |
+| 14 | kneel a2 | pixminimax | NE | 1 | **Promoted** |
+| 15 | cheer a1 | pixminimax | SW | 1 | **Rejected:** on the 68 canvas the spear is never raised (no room overhead) |
+| 16 | cheer a2 | skeleton-v3 | SW | 3 | **Rejected:** the shield vanishes in every frame |
+| 17 | cheer a3 | pixminimax, tall 96 x 112 | all 4 | 4 | **Promoted** (SW turns a little towards the viewer: kept) |
+| 18 | ready, charge, brace | pixminimax, guard | all 4 | 24 | **Promoted** (the charge's lambda flickers in 2 frames: kept) |
+| 19 | block | pixminimax, guard | all 4 | 8 | **Promoted after the cut:** impact sparks in f2–f5 of every facing (invented effect, cut by colour); SW f2 spikes left (:= f1) |
+| 20 | stagger a1 | pixminimax | SW | 2 | **Rejected:** a doubled, smeared spear f0–f2 |
+| 21 | stagger a2 | skeleton-v3 | SW | 3 | **Promoted:** a weak but clean reel back (grey ghost f2 cut) |
+| 22 | stagger p1 | pixminimax | SE NE NW | 6 | **Promoted after the cut:** blood (cut); NW f0–f1 lost the spearhead with the blood (:= f2) |
+| 23 | fallBack a1 | skeleton-v3 | SW | 3 | Kept as the A/B: a sitting fall, spear still held level; the pixminimax fall reads better and costs 2 |
+| 24 | fallBack p1, fallFwd p1 | pixminimax, die 128 x 128 | all 4 | 16 | **Promoted after the cut:** blood in 7 of 8 (bright cut; fallBack NE f0 splat cleared, `red` fix); NW fallBack f1–f2 and fallFwd f0–f1, fallFwd SW f0–f1 holes or a headless spear after the cut (:= neighbour) |
+
+**Rejection count** (whole clips / frames): proportions 2 bases; spear missing in a game facing 1 base (H1 NW);
+spear pivoting instead of travelling along its axis 2 clips (thrust SW a1, SE a1); doubled or ghost spear 1 clip
+(stagger SW a1) + 1 frame (look NE f8), grey ghosts cut in 2 clips; spearhead lost with cut blood 6 frames; shield
+vanishing 3 clips (run NE, kneel NE, cheer SW a2); action not performed 1 clip (cheer a1); invented effects: sparks in
+4 clips and blood in 10 clips, all cut, 3 frames replaced; spear tip backwards, double-ended butt, head turned
+backwards, head cut by the canvas, proportion or style drift: **0** (QC stature 56–59 px in all 4 facings).
+
+**Colours.** The sheet uses 46 colours, all PA-WORLD-DARK steps or their 1-step group nudges; groups (dark→light):
+cloak 6, crest 4, emblem 3, trim 2, skin 4, wood 11; metal: bronze 5 (shield, helmet, armour), spearhead 7. Tiers:
+veteran = wine cloak, scarlet crest, polished trim; elite = black cloak and crest, gold trim (I1b elite probe colours).
+
+**QC** (`qc.mjs`): 0 failures; 12 warnings, all eyeballed false positives of the spear-end heuristic (an end over
+the legs or a lying body) and one walk frame with a lifted foot. Frame 142 x 117 (the raised cheer spear and the
+lying dead set it), 202 columns, wrap 28: a 3976 x 3744 PNG, **57 MB decoded**: it needs the trim-and-pack step
+before phones. Preview through the v2 runtime: no console errors; `tsc`, `vite build` and the 1,568 tests pass.
+
+**Verdict.** H4 is the style anchor for every class (STYLE_LOCK §1). pixminimax is the workhorse (1 generation at
+68, 2 at 128, identity steady, 1 in 6 clip-directions redone); skeleton-v3 is kept for the attack, where the pose must
+be ours. PixelLab adds sparks and blood whatever the prompt says: the colour cut removes them, but where blood covered
+the spear it takes the spearhead with it, so check every cut frame.
+
+**Cost per class, measured** (the full basic set, 16 clips x 4 facings): base 10–20 + 0.25 import; clips 100 quoted
+(28 at 1, 60 at 2, 12 at 3) + about 20 % redos ≈ 120; ≈ **135–150 generations per class with billing**, **≈ 2,500
+for the other 17 foot classes** (tiers are free recolours now). Riders and chariots need bigger canvases (pixminimax
+2 per clip at 128, more above).
+
+### I4b Mounted and chariot probe: companion, thessalian, horse archer, chariot bases on the H4 anchor, the companion's gallop in 4 facings (2026-10-18)
+
+**Brief.** Find a PixelLab approach for riders and the chariot that matches the I4a foot roster (dark-epic, H4 style, real human and real horse proportions at H4's scale, never chibi), then make 8-rotation bases for companion, thessalian, horse_archer and chariot, and a smooth gallop (12–16 frames, a real gait) for the companion in the 4 game facings (SE, NE, SW, NW). Hard rejects: extra or missing horse legs, rider merged into the horse, a doubled or missing weapon, style drift, head or hooves cut off. Cloak, crest and trim stay clean colour groups (V5-092).
+
+**Tool and budget.** PixelLab MCP, at most 3 of my jobs at once (Tier 2 shared with other agents). Account balance before: 4,378.50 left (524.50 used). After: 3,941.50 left (961.50 used), a change of 437 that includes other agents' jobs running in parallel. **Mine by receipt: about 319 gens** (cap 400; the probe 56 of its 120): 7 pro characters at 25 (size 128) = 175, 7 at 15 (size 100) = 105, 2 pro-flash objects about 16 (estimated 10 and 6), 23 for clips (probe 6, Pa1's other facings 6, A3 1, A5's gallop 10). **Raws:** `docs/v5/pixellab/I4b/raw/<class>/<attempt>/` (gitignored; `review.png`, `facings.png`, `groups.png` beside each). **Machine-readable:** `docs/v5/pixellab/mounted.json` (ids, approach, canvas, boxes per facing, groups, status, every rejection). **Sheets:** `docs/v5/art/I4b-lineup.png` (the 4 game facings: H4, militia, peltast, sacred_band, then the 4 mounted bases, one scale, PA-WORLD-DARK-I4a remap), `docs/v5/art/I4b-formation.png` (a mixed army on the 2:1 field, SW and NE, zoom 1 and 3), `docs/v5/art/I4b-gallop.png` and `.gif` (the companion's gallop loop, 4 facings × 16 frames). **Tools:** `scripts/art/pixellab/mounted/` (`review.mjs`, `facings.mjs`, `clip.mjs`, `loopfind.mjs`, `keyframe.mjs`, `anchors.mjs`, `cutcheck.mjs`, `upload1.mjs`, `sheets.mjs`).
+
+**Probe (companion, 56 gens).**
+
+| approach | call | result |
+| --- | --- | --- |
+| (a) rider and horse as one humanoid pro character | `create_character` `mode: pro`, `style_character_id` H4, `size: 128`, `view: high top-down` (25) | **Wins.** H4's outline, shading and ramps; a real horse, 4 legs in all 8 views, the rider sits on it (no merging), one lance in 8/8; turnaround consistent in SE, NE, SW, NW. Only fault: at 128 the whole figure is 1.3–1.45x H4 (fixed by size 100) |
+| (b) quadruped `template: horse`, pro, H4 style | same, `body_type: quadruped` (25) | Rejected: a pony-sized horse, an invented grey ground shadow, the helm drawn as a Corinthian. It unlocks the horse templates (`running-8-frames` etc.), but its skeleton-v3 gallop (3) has 8 frames, shrinks the figure in a 176 canvas and adds ground shadows |
+| gallop on (a), SE | pixminimax 16 frames from the rotation (1) | A real two-stride gallop (gather, push-off, extension, suspension) at H4 style, but it starts from the standing pose, so it has no clean loop (best wrap 37 % vs 58 % per frame) |
+| keyed loop on (a), SE | pixminimax 16, `custom_start_frame_url` = `end_frame_url` = the most stretched frame of the first run, `keep_first_frame: false` (1 + 1) | **Wins.** Two strides of 8 frames, the wrap as smooth as any step; legs, lance and cloak hold. "One stride" and "two strides" prompts both give two |
+
+**Verdict:** approach (a), one pro humanoid character per figure with H4 as the style, **size 100 for riders and 128 for the chariot**; gallop by a 16-frame pixminimax run followed by a keyed 16-frame loop (2 gens per facing).
+
+**Scale.** Pro fits the whole figure to the canvas. At 128 a rider came out 1.3–1.45x H4 (companion Pa1: head 14 px crown to chin against H4's 9–10, withers 62 px = 1.9 m). At 100 the head is 10–11 px and the withers about 47 px above the hooves (1.42 m at 58 px = 1.76 m), a real Greek warhorse beside H4. A chariot is long enough that at 128 its crew is at H4 scale (driver's pilos bowl to chin 8–9 px, shoulders 20–22 px). A 168 px object (`create_object_pro_flash`) drifted off style; a "full scale" front view came back the same size as A1, which confirmed A1.
+
+**Prompts, word for word.** The I4a block, with the horse and its tack added. Riders at `size: 100`, chariot at `size: 128`.
+
+- **companion Pa1 / Pb1** (Pa1 humanoid, Pb1 `body_type: quadruped, template: horse`; both at 128)
+  ```
+  grim Macedonian Companion heavy cavalryman seated astride a real full-size warhorse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean muscular build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, a long neck and head, a deep chest, exactly four long slender legs with hooves; dark weathered bronze Boeotian helmet with a wide flaring brim all round and an open face, no crest; deep dark purple-black cloak hanging from his shoulders over the horse's back; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark leather boots; no shield; one long wooden xyston lance held upright in his right hand out at his right side, slanting a little forward, away from the horse's head and clearly visible in every direction, much taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; dark bay horse with a black mane and tail, a dark leather bridle and reins, a dark crimson saddle cloth; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **companion A2** (100): Pa1 with ", its back as high as a standing man's shoulders" after "much bigger than the man".
+- **companion A3** (100): A2 with the helmet "open-faced dark weathered bronze Boeotian cavalry helmet shaped like a folded sun hat, a wide downturned brim all round, the face visible, no crest, no face mask".
+- **companion A4** (100): A3 with "deep dark royal-purple cloak hanging from his shoulders over the horse's back, the only purple on the figure" and "warm chestnut-brown horse with a dark brown mane and tail, no black on the horse, a dark leather bridle and reins, a plain dark leather saddle".
+- **companion A5** (100, promoted)
+  ```
+  grim Macedonian Companion heavy cavalryman seated astride a real full-size warhorse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean muscular build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep chest, exactly four long slender legs with hooves; open-faced dark weathered bronze Boeotian cavalry helmet shaped like a folded sun hat, a wide downturned brim all round, the face visible, no crest, no face mask; deep dark royal-purple cloak hanging from his shoulders over the horse's back, the only purple on the figure; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark leather boots; no shield; one long wooden xyston lance held upright in his right hand out at his right side, slanting a little forward, away from the horse's head and clearly visible in every direction, much taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; weathered dark bay-brown horse, dull and dark like old leather, with a dark umber-brown mane and tail, a dark leather bridle and reins, a plain dark leather saddle; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **thessalian A1** (128) / **A2** (100, with "its back as high as a standing man's shoulders")
+  ```
+  grim lean Thessalian light cavalryman seated astride a real full-size horse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean wiry build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, a long neck and head, a deep chest, exactly four long slender legs with hooves; dark weathered bronze conical pilos helmet with a narrow brim, the face visible, no crest; short deep dark crimson chlamys cloak pinned at the right shoulder, hanging behind him; plain dark umber leather jerkin over a dark oxblood-brown tunic, no white cloth; tall dark leather boots; one small round dark bronze buckler on his left arm; two javelins held upright together in his right hand out at his right side, away from the horse's head and clearly visible in every direction, a little taller than the man, each with one small leaf-shaped iron head at the top and a plain blunt wooden butt end, no butt spike; dark dun-grey horse with a black mane and tail, a dark leather bridle and reins, a plain dark brown sheepskin saddle cloth; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **thessalian A3** (100, promoted): A2 with "one small plain round dark bronze buckler on his left forearm, no bigger than his chest, no emblem, no painted sign" and "exactly two javelins held upright together …".
+- **horse_archer A1** (128)
+  ```
+  grim lean Scythian horse archer seated astride a real full-size steppe horse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head, natural arms, broad shoulders, lean wiry build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, a long neck and head, a deep chest, exactly four long slender legs with hooves; tall pointed dark umber felt Scythian hood with long ear flaps, a dark beard, no helmet; long-sleeved dark umber leather riding coat with a worn dark leather belt, no white cloth; dark crimson-and-black checked wool trousers, the only red he wears, short dark leather boots; no shield; one recurved composite bow held upright in his left hand out at his left side, away from the horse's head and clearly visible in every direction; one dark leather gorytos quiver of arrows hanging at his left hip; his right hand on the reins; dark brown horse with a black mane and tail, a dark leather bridle and reins, a plain dark felt saddle cloth; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **horse_archer A2** (128): A1 with "long-sleeved deep dark crimson felt riding coat to mid-thigh with a worn dark leather belt, the only red he wears, no white cloth; dark umber leather trousers, short dark leather boots" and "one dark leather quiver full of arrows hanging at his right hip, clearly visible".
+- **horse_archer A3** (128) / **A4** (100, with "its back as high as a standing man's shoulders"; promoted)
+  ```
+  grim lean Scythian horse archer seated astride a real full-size steppe horse, the whole horse seen from muzzle to hooves to tail, with realistic adult proportions: the rider seven heads tall, a small head, natural arms, broad shoulders, lean wiry build, his legs hanging down the horse's flanks; the horse a real horse with realistic proportions, much bigger than the man, its back as high as a standing man's shoulders, a long neck and head, a deep chest, exactly four long slender legs with hooves; tall pointed dark umber felt Scythian hood with long ear flaps, a dark beard, no helmet; long-sleeved deep dark crimson felt riding coat to mid-thigh with a worn dark leather belt, the only red he wears, no white cloth; dark umber leather trousers, short dark leather boots; no shield; one large recurved composite bow held up in his raised left hand, out to his left side at the height of his head, the whole bow standing upright above the horse's back and clearly visible in every direction; one dark leather quiver of arrows on his back, the arrow ends above his right shoulder; his right hand holds the reins; dark brown horse with a black mane and tail, a dark leather bridle and reins, a plain dark felt saddle cloth; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **chariot A1** (128, promoted)
+  ```
+  grim Carthaginian scythed war chariot seen whole from the horses' muzzles to the back of the car: a light two-wheeled chariot pulled by exactly two real full-size horses side by side under one yoke on a single wooden pole, each horse with exactly four long slender legs, real horse proportions, much bigger than the man; one driver standing upright in the open car behind the horses, with realistic adult proportions: seven heads tall, a small head in a snug helmet, natural arms, broad shoulders, lean muscular build; tall conical dark weathered bronze pilos helmet, no crest; deep dark purple-black cloak hanging behind him; dark umber leather corselet over a dark oxblood-brown tunic, no white cloth; he holds the dark leather reins in both hands; one curved iron kopis sword in a scabbard at his hip; the car a low dark wooden box with a dark bronze rim, two large spoked dark wooden wheels, one long curved iron scythe blade sticking out sideways from each wheel hub; two dark bay horses with black manes and tails and dark leather harness; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **chariot O1** (`create_object_pro_flash`, 168 x 168, 8 directions, `style_image` H4 south-east "copy this pixel-art style exactly … the chariot driver is the same size as this man"): the A1 prompt rephrased for an object, the driver "exactly as tall and as big as the man in the style image (about 58 pixels from head to feet)", "no ground shadow".
+- **chariot S1** (`create_object_pro_flash`, 128, 1 direction, `style_image` A1 south "the same chariot … drawn bigger"): a front view of A1's prompt with "58 pixels tall from head to feet".
+- **Gallop, step 1** (pixminimax, 16 frames, `subject_description` "a cavalryman with a lance riding a dark bay warhorse"; SE used "towards the south-east")
+  ```
+  the horse gallops in place in the direction it faces with a real horse's heavy gallop: the hind legs push off one after the other, then the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly; the head and neck nod with each stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the lance kept upright in his right hand; exactly four legs on the horse in every frame
+  ```
+- **Gallop, step 2** (pixminimax, 16 frames, start = end = the widest frame 2..9 of step 1 (`keyframe.mjs`), `keep_first_frame: false`, `initial_pose` "mid-gallop, the legs stretched out front and back")
+  ```
+  one full stride of a real horse's heavy gallop in place in the direction it faces, a seamless loop: the hind legs push off one after the other, the front legs reach forward and strike the ground one after the other, then a moment of suspension with all four legs gathered under the belly, back to the stretched pose; the head and neck nod with the stride, the body rises and falls with weight, the tail streams back; the rider sits deep in the saddle leaning a little forward, moving with the horse, the cloak flapping, the lance kept upright in his right hand; exactly four legs on the horse in every frame
+  ```
+
+| # | Class | Attempt | Id | Outcome |
+| --- | --- | --- | --- | --- |
+| 1 | companion | Pa1 | `fe66ab96` | **Probe (a) winner, rejected for scale:** 1.3–1.45x H4. Its SE/NE/SW/NW gallop loops proved the recipe |
+| 2 | companion | Pb1 | `86b445a7` | **Rejected (probe b):** pony horse, ground shadow, Corinthian-looking helm |
+| 3 | companion | A2 | `1df70e8f` | **Rejected:** scale right, the helm a closed Corinthian dome |
+| 4 | companion | A3 | `db742ca7` | **Rejected:** the cloak's two source colours are also the black mane and tail (no clean cloak group) |
+| 5 | companion | A4 | `7eb8f6be` | **Rejected:** clean purple cloak, but a bright orange chestnut horse (drift; remaps to crimson) |
+| 6 | companion | A5 | `04c31c65` | **Promoted:** Boeotian brim, one lance 8/8, purple only on the cloak, dull dark bay |
+| 7 | thessalian | A1 | `d20a0238` | **Rejected:** 1.35x H4 (size 128) |
+| 8 | thessalian | A2 | `7e21f8b0` | **Rejected:** the buckler grew into an aspis with H4's lambda |
+| 9 | thessalian | A3 | `1fb01c02` | **Promoted:** pilos, small plain buckler, exactly two javelins (2 heads in every facing), crimson cloak in its own ramp, dun-grey horse |
+| 10 | horse_archer | A1 | `d126eafb` | **Rejected:** all umber (trousers hidden by the horse: no colour group), quiver unclear; 128 |
+| 11 | horse_archer | A2 | `169fbd9b` | **Rejected:** the bow missing in NE and SW, two arrow bundles in NE |
+| 12 | horse_archer | A3 | `148bc653` | **Rejected for scale only** (128): one bow and one back quiver in all 4 facings |
+| 13 | horse_archer | A4 | `afba45aa` | **Promoted:** A3 at 100; one bow raised clear of the horse in 4/4, quiver on the back, crimson coat in its own ramp |
+| 14 | chariot | A1 | `bceaa28b` | **Promoted:** two horses (4 legs each), car, 2 wheels with scythes, driver with reins in 8/8; crew at H4 scale. The kopis is drawn in his hand in SE/SW (prompt said scabbard): one blade, kept |
+| 15 | chariot | O1 | object `91b243f5` | **Rejected:** near-black style drift, no scythes, hooded driver |
+| 16 | chariot | S1 | object `1b8e1167` | **Discarded:** the "full scale" front view came back at A1's scale |
+
+**Gallop (companion A5).** Step 1 in SE, NE, SW, NW (16 frames each, 5 gens). Step 2 keyed on SE frame 4, NE 5, SW 4, NW 5 (5 gens). The result is 16 frames per facing at 16 fps: two strides of 8, with gather, push-off, extension and suspension. The head nods and the cloak streams. One lance and one rider in every frame; 4 legs (a far leg is sometimes hidden behind a near one, never doubled). The wrap 15 → 0 differs 51–63 % against 35–65 % between neighbours (`loopfind.mjs`), so it loops without a jump. Stored canvases are 128–144 px; the cropped content is 77–85 x 92–104. A few stray light pixels on hooves are taken by the invented-colour cut. Checked frame by frame on `clip.mjs` sheets: no rejects. On size-100 riders, step 1 alone already loops (frame 16 ≈ frame 0, 3.7 %), but it passes through the standing pose every stride (a hop), so it is used only for the key. Sheet: `docs/v5/art/I4b-gallop.png` / `.gif`.
+
+**Colour groups (PA-WORLD-DARK-I4a remap).** Clean: companion A5 cloak (purpleBlack), thessalian A3 cloak (crimson), horse archer A4 coat (teamRed + crimson; the class's "cloak" group), chariot driver's cloak (purpleBlack, a few harness pixels). **Shared, for the runtime to decide:** pro at size 100 draws a rider with only 10–14 colours, so the bay coat is the rider's skin ramp (companion, horse archer, chariot), and the companion's bronze shares the horse's browns. Per-man skin tinting (V5-095) would tint the horse; metal rarity would recolour the coat. A horse ramp in the palette (tried: hue 44, chroma 0.06–0.11) does not separate them, because the source colours themselves are shared (it also takes the rider's arms). Pa1 at 128 had 24 colours: a bigger canvas gives more colours, but the wrong scale.
+
+**Runtime needs.** Rider rotations sit in a 100 x 100 canvas, hooves on row 94–98, the figure 62–71 x 85–98 px; the gallop frames come back on 128–140 canvases and need about 96 x 112 after cropping (today's rider frame is 96 x 84, hooves at 74: too short). Chariot: 128 x 128, wheels on row 117–118, the figure 113–118 x 108–110 (today 128 x 96: too short). Per-row anchors (the box centre x, the ground row) are in `mounted.json`; the manifest `scale` is the same as the H4-based foot sheets (same art px per metre).
+
+**Cost of the full mounted set** (per class, all 4 facings): pixminimax at 100 px is 1 gen per facing per 16 frames (2 for SE once: the canvas grew); a keyed loop costs 1 more. About 25 clips (idle, look, walk, trot, gallop, charge, rout, ready, shoot / throw / thrust, hit, rear, 2 deaths, cheer …) × 4 facings × 1–2 = 100–200 gens per class, about 120 with keyed loops only on the 5 cycles; the chariot at 128 about 1.5x. **About 500–600 gens for the 4 mounted classes**, plus about 30 for re-rolls.
+
+**Lessons.**
+- One humanoid pro character carries a rider and his horse; the quadruped template is the worse choice for a mounted figure.
+- The canvas sets the scale: riders at 100, the chariot at 128. Measure the head (crown to chin) and the withers before paying for clips.
+- The H4 style reference leaks its lambda into any round shield: say "plain …, no emblem, no painted sign".
+- A weapon held at the side vanishes behind the horse in two facings: raise it ("held up in his raised left hand … above the horse's back").
+- Give the cloak a hue nothing on the horse has (purple on a bay with a brown mane); a black mane takes a dark cloak's colours.
+- pixminimax gallops start from the standing pose; key the loop on a stretched frame for a clean cycle.
+
+### I5b Shieldless, two-handed and missile foot classes: full packed sheets from the I4a bases (2026-10-18)
+
+**Brief.** Take rhomphaia, celt_sword, archer, falx, gallic, slinger and fanatic from their approved I4a bases to full
+sheets at the hoplite's standard (16 clips, 12–16 frames, 4 facings, runtime tiers), with physically real attacks: a
+two-handed cleave for the two-handed blades, a weighted one-hand cut with the shield moving with the body for the shield
+classes, a nock-draw-release bow shot, an overhead whirl and whip release for the sling, and a short melee `stab` for the
+missile men (the sim lets them fight at close quarters). Hard rejects checked frame by frame on contact sheets.
+
+**Tool and budget.** PixelLab MCP, Tier 2, at most 4 of my jobs at once (the account shared with other agents). Balance
+before: 4,236.50 generations left. Cap 1,250 for the 7 classes. **Raws:** `docs/v5/pixellab/I5b/raw/<class>/`
+(gitignored): `base/` (the I4a rotations, refetched), `first/` (first frames), `clips/<anim>/<dir>/<attempt>/`.
+**Machine-readable:** `docs/v5/pixellab/I5b/<class>.jobs.json` (every job, its first frame and quoted gens),
+`<class>.picks.json` (which attempt ships per clip and facing, frame fixes, with the reason of every rejected frame),
+`<class>.sheet.json` (the sheetbuild spec, written from the picks by `scripts/art/pixellab/i5b/mkspec.mjs`). **Rebuild:**
+`node scripts/art/pixellab/i5b/prep.mjs <class>` (first frames), `node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I5b/<class>.jobs.json docs/v5/pixellab/I5b/raw/<class>`,
+then the guard frames (`i5b/setfirst.mjs`, below), `i5b/mkspec.mjs <class>` and `sheetbuild.mjs docs/v5/pixellab/I5b/<class>.sheet.json`.
+**Tools** (`scripts/art/pixellab/i5b/`): `prep.mjs` (rot / tall / atk / die canvases), `setfirst.mjs` + `repad.mjs` (a clip
+frame promoted to a first frame, also moved onto the attack canvas), `upload.mjs`, `addjob.mjs`, `rv.mjs` (contact sheet
+of clips), `rampdump.mjs` (which raw colour lands in which ramp step), `feet.mjs`, `mkspec.mjs`, `shots5b.mjs`
+(preview screenshots), `rig5b.mjs` (two-handed and one-hand cut skeletons on the shared rig, kept for an A/B; not
+needed in the end).
+
+**Recipe (what changed against STYLE_LOCK §6).** All clips are pixminimax (1 gen at 68 and 96 x 112, 2 at 128).
+- **The guard frame.** The bases carry the weapon at rest (upright, or point down), so the stance clips (ready, charge,
+  brace, block, stagger) start from a guard frame that PixelLab draws itself: an 8-frame "he takes his fighting guard"
+  clip on the tall canvas (1 gen per facing), whose last frame is the guard. Its look is the model's own, so no pixel
+  editing (the hoplite's `spear.mjs`) is needed.
+- **The attack** starts from that guard moved onto a 128 x 112 attack canvas (the man set back 20 px from his facing,
+  40 px ahead of him, 40 above) and ends back in it, so the runtime's windup flows out of `ready` and the recovery flows
+  back in. 16 frames at 16 fps, `strike` 6.
+- **The crescent smear.** At the moment of the blow pixminimax bends a long blade into a big crescent (a motion smear
+  drawn as metal) in every facing, whatever the prompt says. Those 1–2 frames are dropped by the spec's `frames` list,
+  the windup's peak held a frame instead (an anticipation hold), so the blow lands in one frame from the top of the
+  swing, the blade in its own shape.
+- **Blood and sparks** come anyway; the colour cut removes them, and every frame where the cut took the blade with it is
+  replaced by its neighbour (`fixes`).
+- Stature: classes whose headgear rises above the skull set the spec's `stature.skipTop`; crestless classes set
+  `"crest": false, "emblem": false` (both added to the shared scripts for I5b by pipeline-fix2).
+
+#### rhomphaia
+
+Base: I4a A2 `440f945a` (open Phrygian helm, crimson cloak, iron scale, rhomphaia upright). Ramps outline, crimson, umber,
+darkBronze, skin, metal; the helmet is umber (its lightest step the trim, the rest metal), the iron scale and blade the
+metal ramp (not recoloured), skin only the face and arms (no leather in the skin ramp). Subject: "a tall grim Thracian
+rhomphaia warrior in an open-faced dark bronze Phrygian helmet, a dark crimson cloak, a dark iron scale corselet, dark
+brown trousers and dark bronze greaves, no shield, one long rhomphaia: a wooden shaft and a long slightly curved
+single-edged iron blade" (back facings: "… seen from behind, …"). Prompts: PROMPTS_ART › 19 (I5b).
+
+**The attack (`slash`, 16 @ 16, strike 6).** From the low two-handed guard (blade forward at the enemy, both hands on
+the shaft) he heaves the blade up and back over his right shoulder (f1–f5, the peak held a frame), steps in on the left
+foot with the hips turning and brings it down in one frame to low at his left in front of him (f6), follows through low
+and bent forward (f7–f11), and settles back into the guard (f12–f15). Both hands stay on the shaft in every frame.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | SW | a1 | 1 | **Rejected:** the blade carried up over the left shoulder (a port), not at the target |
+| 2 | guard | SW SE NW | a2 | 3 | **Promoted** (f7): blade forward low, both hands on the shaft |
+| 3 | guard | NE | a2 | 1 | **Rejected:** facing drift, he turns round to the right, chest to the viewer |
+| 4 | guard | NE | a3 | 1 | **Promoted** (f7): side-on, back to the viewer ("his back and cloak to the viewer in every frame … he does not turn round") |
+| 5 | slash | SW | a1 | 2 | Kept as the A/B: a good cut from the upright rest; superseded by a3 (starts and ends in the guard) |
+| 6 | slash | SW | a2 | 2 | **Rejected:** crescent smears f6–f7, a long held low pose |
+| 7 | slash | all 4 | a3 | 8 | **Promoted after frame drops:** crescent smears SE f5–f6, NE f4, SW f6, NW f5–f6 dropped (the peak held instead) |
+| 8 | idle, look, adjust, walk, run, rout, kneel | all 4 | a1 | 28 | **Promoted** (walk NE drifts towards facing north mid-cycle: kept) |
+| 9 | ready, brace, block, stagger | all 4 | a1 | 16 | **Promoted after the cut:** block sparks f2–f4 in every facing (cut; SE f2, NE f2 lost the blade: := f3); stagger blood SE f0, NE f0, NW f0–f1 (cut took the blade: := next frame) |
+| 10 | charge | SE SW NW | a1 | 3 | **Promoted** |
+| 11 | charge | NE | a1 | 1 | **Rejected:** the rhomphaia vanishes f1–f3 |
+| 12 | charge | NE | a2 | 1 | **Promoted** ("the whole rhomphaia clearly visible in every frame, never hidden") |
+| 13 | fallBack, fallFwd | all 4 | a1 | 16 | **Promoted after the cut:** blood in 6 of 8 (cut); fallBack SE f0 and SW f3 lost the blade (:= neighbour) |
+| 14 | cheer | all 4 | a1 | 4 | **Promoted** |
+
+**Rejections** (whole clip-directions / frames): weapon not at the target 1 clip; facing drift 1 clip; weapon missing
+1 clip; gear drift (crescent smear) 1 clip + 6 frames; blade lost to the blood or spark cut 8 frames. Reversed or doubled
+weapon, a hand off the haft, head backwards, clipped by the canvas, proportion drift: **0**. Invented effects cut: sparks
+in 4 clips, blood in 10.
+
+**Sheet.** 16 clips, 204 columns, frame 118 x 113, 4012 x 2712 (41.5 MB decoded as v2); packed **9.06 MB decoded
+(core 7.56 MB), 252 KB download**. 48 colours; groups cloak 6, trim 2, skin, wood; metal: bronze (helmet), weapon. Tiers
+(V5-098 colours): veteran wine cloak and polished trim, elite black cloak and gold trim. **QC:** 0 failures (stature 57–58
+with `skipTop` 4 for the Phrygian crown); 51 warnings, all the spear-end heuristic on a blade (a blade's tip is thinner
+than a spearhead, so "the leading end is the thin one" fires on the upright carry; checked by eye on the strips: blade at
+the top or at the target in every frame). **Gens:** 87 quoted (73 jobs).
+**Rebuilt** after the iron work below (`iron` ramp, `metalKind`, `spear: false`, `greyCut` 0.8): the iron scale and blade
+are one iron metal group (weapon, armor), the bronze helmet a bronze one (helmet); 32 colours; packed 9.07 MB decoded
+(core 7.56), 248 KB; QC 0 failures, 53 warnings (spear heuristic on the blade).
+
+**Iron.** PA-WORLD-DARK had no neutral iron: the `metal` ramp's light steps are warm tan, so lit iron came out bronze,
+and `foreign()` cut every light neutral grey (L > 0.55) as a ghost trail, which hollowed out lit blades (two outline lines
+with the ground showing through). Fixes, each a separate commit: an additive `iron` ramp in `palette-dark.json`
+(`#1c1b1c … #b0adab`, matched to the bases' iron; main logs it as V5-105), and an opt-in `greyCut` spec field in the shared
+sheet pipeline (default 0.55; iron classes 0.8; the hoplite rebuilt from its raws byte-identical). With pipeline-fix3's
+`metalKind` / `metalSlots` / `spear: false`, iron is its own rarity group (`ironOf`) and the spear-line heuristic no
+longer tags cloak or leather pixels on swords, axes and bows.
+
+#### celt_sword
+
+Base: I4a N2 `73d12bee` (iron Montefortino, green plaid cloak, ring mail, bronze torc, checked trousers, oval shield,
+longsword). The data gives him a shield, so the attack is a **weighted one-hand cut with the shield moving with the
+body**. Ramps outline, umber, darkBronze, skin, plaidGreen, bronze, iron; parts: plaidGreen → cloak, bronze (the torc) →
+trim, umber and darkBronze (shield wood, leather, trousers) → shadow, iron → metal (`metalKind` iron, slots helmet,
+armor, weapon); crest and emblem off; `stature.from: any`.
+
+**The attack (`slash`, 16 @ 16, strike 6).** From the guard behind the tall shield he draws the sword back high over his
+right shoulder (f1–f5), steps in on the left foot with the hips and shoulders turning and the shield driving forward,
+and cuts down into the man in front of him (f6, the blow low ahead of his left knee, the point at the target), follows
+through low (f7–f11) and comes back up behind the shield (f12–f15).
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | all 4 | a1 | 4 | **Promoted** (f7): SW sword up beside the shield, SE forward low, NE / NW raised |
+| 2 | slash | SW | a1 | 2 | **Rejected:** he turns to face south mid-cut and the blade ends pointing to the lower right, off the target; crescent smears, an orange trail |
+| 3 | slash | SW SE | a2 | 4 | **Promoted after frame drops:** "at an enemy in front of him … ending low ahead of his left knee with the point still towards …"; crescent smears SW f4–f5, SE f6 dropped |
+| 4 | slash | NE | a2 | 2 | **Rejected:** he turns round to the viewer in the windup (face to the camera, f1–f4) |
+| 5 | slash | NE | a3 | 2 | **Promoted:** "his back and cloak to the viewer in every frame … he never turns round"; a fiery flash f6 (cut) := f7 |
+| 6 | slash | NW | a1 | 2 | **Rejected:** facing drift, he turns to face west and south-west through the follow-through |
+| 7 | slash | NW | a2 | 2 | **Promoted:** "his body keeps facing the upper left the whole time"; crescent smear f7 dropped |
+| 8 | idle, look, adjust, walk, run, rout, kneel | all 4 | a1 | 28 | **Promoted** |
+| 9 | ready, charge, brace, block, stagger | all 4 | a1 | 20 | **Promoted after the cut** (block sparks f1–f4, stagger blood specks) |
+| 10 | fallBack, fallFwd | all 4 | a1 | 16 | **Promoted after the cut** (blood in 4 of 8) |
+| 11 | cheer | all 4 | a1 | 4 | **Promoted** |
+
+**Rejections:** facing drift (turned round or sideways) 3 clips; blade off the target 1 clip; gear drift (crescent smear)
+4 frames, flash-damaged blade 1 frame. Doubled or reversed weapon, shield missing, head backwards, clipping, proportion
+drift: **0**. Invented effects cut: sparks in 4 clips, blood in 6, one fire trail.
+
+**Sheet.** 16 clips, frame 83 x 110, 4067 x 2200 (34.1 MB decoded as v2); packed **7.65 MB decoded (core 6.04 MB), 257 KB**.
+29 colours; groups cloak 5 (plaid green), trim 3 (the torc), skin 4; metal: iron (helmet, mail, sword). Tiers: veteran
+wine cloak and polished torc, elite black cloak and gold torc (checked in the preview through the runtime). **QC:** 0
+failures, stature 56–59; 184 warnings, all the spear-end heuristic on a sword and a shield edge (both free ends wide).
+**Gens:** 86 quoted (71 jobs).
+
+**Rebuilt** after `alignMax` (below): the guard canvases are now measured on the model-drawn guard frame itself
+(`mkspec.mjs`), and clips whose frame 0 is redrawn 7–16 px off are re-anchored (`alignMax` [18, 8], a new opt-in field in
+the shared sheetbuild, hoplite byte-identical), so ready, block and stagger no longer slide sideways off the anchor.
+celt_sword packed 7.65 MB decoded, rhomphaia 9.07 MB; QC 0 failures for both.
+
+#### archer
+
+Base: I4a N1 `199cd6bb` (bare curly head, crimson cloak, leather jerkin, one plain bow, back quiver). The data gives him a
+bow and a melee fight at close quarters (`attack` → the runtime's `stab`), so the sheet has `shoot` and `stab`; no
+`brace` (no shield wall: the runtime falls back to `block`). Ramps outline, crimson, umber, darkBronze, skin, iron; the
+leather and wood go to shadow (no metal, no rarity group), crimson is the cloak, skin is skin only (his leather is
+umber, not in the skin ramp). Crest, emblem and the spear heuristic off; `stature.from: any`.
+
+**The shot (`shoot`, 16 @ 16, strike 10).** He draws an arrow from the quiver over his shoulder (f0–f2), nocks it (f3),
+turns side-on and raises the bow arm straight at the target while the string comes back to the cheek, back and shoulder
+tight (f4–f9, the full draw held), releases at f10 (the string snaps forward, the bow arm recoils, the right hand flies
+back past the ear) and lowers the bow (f11–f15). The runtime spreads f0–f9 over the aim window and plays the release at
+the shot. The loosed arrow PixelLab draws in flight is cleared (`i5b/detached.mjs` lists the detached pieces as `clear`
+fixes): the sim draws the missile. Every shoot was re-timed with `frames` so the release lands on index 10 in all four
+facings.
+
+**The melee (`stab`, 12 @ 14, strike 4).** A two-handed bow ram: he grips the bow with both hands, steps in on the left
+foot and drives its end into the face of the man in front of him, then steps back with the bow in his left hand.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | shoot | all 4 | a1 | 8 | **Promoted after the cut:** arrows in flight cleared; SE f0–f1 an arrow already flying before he shoots (REJECTED pieces, cleared); NE the loosed arrow flies the wrong way (cleared) |
+| 2 | guard (nocked ready) | all 4 | a1 | 4 | **Promoted** (SW SE NE f7 / f6; NW f7 the arrow low to his left, kept as a low ready) |
+| 3 | adjust | SW | a1 | 1 | **Rejected:** a second bow appears f5–f9 ("flexes the bow": one bow in each hand) |
+| 4 | adjust | SW | a2 | 1 | **Promoted** ("the one bow never moves from his left hand … there is only one bow") |
+| 5 | stab | all 4 | a1 | 8 | **Promoted after the cut:** sparks and blood in every facing; NE f5–f6 lost the bow with the cut (:= neighbours); NE swings the bow up rather than ramming it forward (kept, **weak**) |
+| 6 | idle, look, walk, run, rout, kneel, charge, ready, block, stagger | all 4 | a1 | 40 | **Promoted** (stagger SW f0 an arrow pops out of the hand: := f1; a hollow-drawn bow in walk SE f6, look NE f14, adjust NE f9: := neighbour; block sparks cut) |
+| 7 | fallBack, fallFwd | all 4 | a1 | 16 | **Promoted after the cut** (blood in 5 of 8) |
+| 8 | cheer | all 4 | a1 | 4 | **Promoted** (the bow raised overhead) |
+
+**Rejections:** a second bow 1 clip; a second missile (arrow already flying or popping out) 2 pieces + 1 frame; bow lost
+to the cut 2 frames; hollow bow 3 frames. Head backwards, clipping, proportion drift: **0**.
+
+**Sheet.** 16 clips, frame 120 x 109, 4080 x 2616 (40.7 MB as v2); packed **8.23 MB decoded (core 6.69 MB), 285 KB**.
+28 colours; groups cloak 6 (crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0
+failures, stature 57–60; 146 warnings, all the spear-end heuristic on the bow and arrow. **Gens:** 85 quoted (69 jobs).
+
+#### falx
+
+Base: I4a N1 `63527404` (black hair and beard, moss-green cloak, umber leather jerkin, brown trousers, falx in both hands).
+**Groups (the open question from I4a):** his leather jerkin, trousers and boots are raw `#412a22`, which lands on skin
+step 0, while his real skin lands on steps 2–3. `parts` `{ "skin:0": "shadow" }` takes step 0 out of the skin group, so
+the per-man skin recolour (V5-095) can no longer tint his leather; the skin group is now `#7b503d … #f8d5c2` only (checked
+in the manifest). The other leather-clad classes were checked the same way with `i5b/rampdump.mjs`: the archer's and
+celt_sword's leather is umber, not skin; slinger, gallic and fanatic are checked in their own sections. Also: plaidGreen
+→ cloak, umber and darkBronze → shadow, iron → the iron metal group (weapon), crest and emblem off, `greyCut` 0.8.
+
+**The attack (`slash`, 16 @ 16, strike 6).** The same two-handed cleave as the rhomphaia, with the falx's hook: from
+the low guard he heaves the falx up and back over his right shoulder with both hands on the haft (f1–f5), steps in on
+the left foot with the hips leading and brings the sickle blade down into the man in front of him, the inner edge
+first (f6), follows through low at his left (f7–f11) and comes back to the guard (f12–f15).
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | all 4 | a1 | 4 | **Promoted** (f7) |
+| 2 | slash | all 4 | a1 | 8 | **Promoted after frame drops:** crescent smears SW f5–f6, SE f8, NE f7, NW f6 dropped |
+| 3 | look | NE | a1 | 1 | **Promoted after frame drops:** f8–f15 REJECTED, the head turns round to face the viewer; the first half is played out and back |
+| 4 | everything else | all 4 | a1 | 59 | **Promoted** (block sparks and death blood cut) |
+
+**Rejections:** head turned backwards 8 frames; gear drift (crescent smear) 5 frames. **Needs review:** in the NE
+stance clips (ready, charge, brace, block, stagger) the falx reads as a long curved blade with a smaller hook than the
+base's; one weapon, held right, but a softer silhouette.
+
+**Sheet.** 16 clips, frame 112 x 113, 4032 x 2712 (41.7 MB as v2); packed **8.68 MB decoded (core 7.19 MB), 243 KB**.
+27 colours; groups cloak 4 (moss green), skin 4 (leather excluded); metal: iron (weapon). Tiers: veteran wine cloak, elite
+black cloak. **QC:** 0 failures, stature 57 in all four facings; 139 warnings (the spear-end heuristic on the falx).
+**Gens:** 80 quoted (68 jobs).
+
+#### gallic
+
+Base: I4a N1 (bare-chested, limed spiked hair, long moustache, blue woad, bronze torc, dark trousers, tall oval hide
+shield with an iron boss, one iron war axe). The data gives him a shield, so the attack is a **weighted one-hand chop
+with the shield moving with the body**. **Groups:** `i5b/rampdump.mjs` on the base and the slash: his trousers and the
+hide shield are raw `#352b26` (metal step 0) and `#241913` / umber, not skin, so the skin group is his body only; the
+hair lands on linen; the woad lands on enemySlate. Ramps outline, umber, darkBronze, skin, bronze, iron, linen, metal,
+enemySlate; parts: bronze (the torc, the SE shield rim) → trim, iron → the iron metal group (weapon), the rest → shadow;
+crest, emblem and the spear heuristic off; `greyCut` 0.8; `stature.from: any`.
+
+**The attack (`slash`, 16 @ 16, strike 6).** From the guard behind the tall shield he lifts the axe high over his right
+shoulder (f1–f5), steps in on the left foot with the hips and shoulders turning and the shield driven forward, and chops
+down into the man in front of him (f6, low ahead of the left knee), follows through low (f7–f11) and comes back up
+behind the shield (f12–f15). Every facing was re-timed with `frames` so the chop lands on index 6.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard | SE | a1 | 1 | **Rejected:** gear drift, a bright gold shield rim and boss |
+| 2 | guard | all 4 | a1 / SE a2 | 4 | **Promoted** (f7); SE a2's dark-orange rim is on the approved SE base |
+| 3 | slash | SW | a1 | 2 | **Rejected:** he turns his back in the windup (f2–f6); blood at the blow |
+| 4 | slash | SW | a2 | 2 | **Promoted after frame drops:** f3–f5 REJECTED (turned away again); the raised axe f2 is held into the overhead f6 |
+| 5 | slash | SE | a1 | 2 | **Rejected:** the shield swings out of sight behind him for the follow-through; crescent smear |
+| 6 | slash | SE | a2 | 2 | **Promoted after frame drops:** crescent smear f4 dropped |
+| 7 | slash | NE NW | a1 | 4 | **Promoted after frame drops:** NE crescent smears f6–f7; NW f2–f3 REJECTED (turned round to the viewer) |
+| 8 | block | SW | a1 a2 | 2 | **Rejected:** he turns his back on the blow / the shield jumps to his other side |
+| 9 | block | SW | a3 | 1 | **Promoted:** the shield thrust out left shoulder first; f8 (a back view in passing) dropped |
+| 10 | block | SE NE NW | a1 | 3 | **Promoted after frame drops:** SE f5–f11 REJECTED (the hair turns blond, sparks over the shield), the raise played out and back; NE f1–f2, NW f2 spark bursts over the shield |
+| 11 | fallBack | SW SE | a1 | 4 | **Rejected:** blood bursts over the chest and shield in the first frames (a colour cut would hole the body) |
+| 12 | fallBack | SW SE | a2 | 4 | **Promoted:** "his strength suddenly gives out … no wounds, no red" (used for NE and NW too) |
+| 13 | cheer | SE | a1 | 1 | Re-run on a false alarm (the raised axe made him look taller; the body measures the same); a2 used |
+| 14 | everything else | all 4 | a1 | 59 | **Promoted** (blood dropped by frame: stagger SW SE NE, fallFwd SW SE, kneel NE; one black-hair frame in adjust SE) |
+
+**Rejections:** facing drift (turned his back or round) 3 clips + 2 frame runs; shield out of sight 1 clip; gear drift
+(gold rim 1 clip, blond hair 7 frames, black hair 1 frame, crescent smears 3 frames); blood over the body 2 clips + 9
+frames. Doubled or reversed weapon, a second shield, clipping, proportion drift: **0**. **Needs review:** in the NW guard
+stance (ready, charge's first frame, block, the slash's windup) the axe is held up across his body over the shield's top
+edge, which from behind reads like the left hand; the SE shield has the dark-orange rim of its base (the other facings
+have none), and that rim is trim, so the tiers tint it; the woad stays enemySlate blue (shadow, not tinted). One slot
+over the cap: five jobs ran at once for a few minutes (cheer SE a2), then back to four.
+
+**Sheet.** 16 clips, frame 88 x 112, 4048 x 2240 (34.6 MB as v2); packed **7.76 MB decoded (core 6.05 MB), 259 KB**. 35 colours; groups trim 3
+(the torc), skin 4 (the body only); metal: iron (weapon). Tiers: veteran polished torc, elite gold torc (he has no cloak).
+**QC:** 0 failures, stature 61 in all four facings; 374 warnings, all the spear-end heuristic on the axe and the shield
+edge. **Gens:** 92 quoted (76 jobs).
+
+#### slinger
+
+Base: I4a N1 `d15d6271` (bare head, short dark hair and beard, crimson cloak, oxblood tunic, belt and bullet pouch,
+sandals, one leather sling in the right hand). The data gives him a sling and a melee fight at close quarters, so the
+sheet has `sling` and `stab` (no `brace`: no shield wall, the runtime falls back to `block`). **Groups:**
+`i5b/rampdump.mjs`: his tunic is outline / umber, his belt a few px of skin step 1; the skin group is his arms and legs.
+Ramps outline, crimson, umber, skin, darkBronze; parts: crimson → cloak, umber and darkBronze → shadow; no metal; crest,
+emblem and the spear heuristic off; `stature.from: any`.
+
+**The shot (`sling`, 16 @ 16, strike 10).** From the rest he turns side-on with his weight back, lifts the loaded sling
+over his head and whirls it in flat circles (f1–f9: the whirl, which loops, so the runtime can hold it through the aim),
+steps in on the left foot and whips the arm forward and down at f10, one cord let go, the pouch snapping open, and
+follows through past the left hip and lowers the sling (f11–f15). The whirl's motion arcs and the loosed bullet are
+cleared (`i5b/detached.mjs`): the sim draws the missile. NE and NW were re-timed with `frames` so the release lands on
+index 10. **The melee (`stab`, 12 @ 14, strike 4).** The cords wound round his fist, he steps in and brings the loaded
+pouch down on the man in front of him like a club, then steps back.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard (ready) | all 4 | a1 | 4 | **Promoted** (SW SE NE f6, NW f7); SW f7 REJECTED (the sling drawn as a stick), NE f7 (a bullet in flight) |
+| 2 | sling | all 4 | a1 | 8 | **Promoted after the cut and re-timing:** motion arcs and the loosed bullet cleared; NE turns side-on to whirl (kept) |
+| 3 | stab | NE NW | a1 | 4 | **Rejected:** facing drift, he turns and strikes to the west; NW his face turns to the viewer |
+| 4 | stab | all 4 | SW SE a1, NE NW a2 | 8 | **Promoted after frame drops:** spark bursts over the pouch dropped, loose sparks cut; SE (a low swing) and NE (an upward swing) are **weak** |
+| 5 | walk | NW | a1 | 1 | **Rejected:** the sling hidden behind the cloak for six frames |
+| 6 | walk | NW | a2 | 1 | **Promoted, needs review:** still hidden f1–f6 ("clearly visible beside the cloak" did not hold) |
+| 7 | rout | NE | a1 | 1 | **Rejected:** he runs out of the frame (clipped by the canvas) |
+| 8 | rout | NE | a2 | 1 | **Promoted:** "running in place on the same spot … he does not move away" |
+| 9 | everything else | all 4 | a1 | 62 | **Promoted** (block spark frames dropped in all 4; cheer SE f2 the sling drawn as a huge whip, dropped; the dropped bullet in adjust cleared) |
+
+**Rejections:** facing drift 2 clips; sling hidden 1 clip; clipped by the canvas 1 clip; gear drift 3 frames (a stick, a
+huge whip); a second missile 1 frame; sparks over the body 6 frames. Doubled or reversed weapon, head backwards,
+proportion drift: **0**. **Needs review:** the NW walk (sling hidden by the cloak f1–f6), the NW run (f1–f4 the same),
+the SE and NE stab swings; the NE cheer turns to profile; the NW fallBack falls forward like the fallFwd. Twice more
+five jobs ran at once for a few minutes (a slip in counting), then back to four.
+
+**Sheet.** 16 clips, frame 120 x 113, 4080 x 2712 (42.2 MB as v2); packed **6.78 MB decoded (core 5.45 MB), 225 KB**. 21 colours; groups cloak 6
+(crimson), skin 4; no metal group. Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 57 in all
+four facings; 454 warnings, all the spear-end heuristic on the sling. **Gens:** 90 quoted (72 jobs).
+
+#### fanatic
+
+Base: I4a N2 `fe0b0a2d` (gaunt, matted ash-grey hair, woad and ash on a bare chest, ragged black cloak, umber kilt
+retinted darkBronze, bare feet, one heavy curved iron kopis, no shield). **Groups** (bases.json and `i5b/rampdump.mjs`):
+cloak umber (exclusive), kilt darkBronze, hair plaidGreen and linen, woad enemySlate and metal, the blade iron. His skin
+lands on the skin ramp alone (no leather), so the skin group is his body. Ramps outline, umber, darkBronze, skin, linen,
+plaidGreen, metal, iron, enemySlate; parts: umber → cloak, iron → the iron metal group (weapon), the rest → shadow; crest,
+emblem and the spear heuristic off; `greyCut` 0.8; `stature { from: any, skipTop: 5 }` (the hair stands up above the
+crown and measured 63–64 against the lock's 58; with the top 5 rows skipped, 58–59). No `brace` (no shield: the runtime
+falls back to `block`), so 15 clips.
+
+**The attack (`slash`, 16 @ 16, strike 6).** A frenzied, weighty kopis hack: from his crouch, the blade raised beside
+his head, he rears up and hauls the kopis far back over his right shoulder, the body coiling (f1–f5), lunges onto the
+left foot and hacks down with all his weight into the man in front of him (f6), bent forward over the blow, then wrenches
+the blade back up and drops into the crouch (f7–f15). Each facing is re-timed with `frames` so the hack lands on index 6.
+
+| # | Clip | Dirs | Attempt | Gens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | guard (frenzied crouch) | all 4 | a1 | 4 | **Promoted** (f7); NW f2 a white smear (not used) |
+| 2 | slash | NE | a1 | 2 | **Rejected:** a huge blood burst over the blow and the body (a colour cut would hole him) |
+| 3 | slash | all 4 | SW SE NW a1, NE a2 | 8 | **Promoted after frame drops:** crescent smears (SW f4, SE f3, NE f6, NW f5) and blood or sparks at the blow (SW f5–f6, SE f4–f5, NW f6) dropped, loose specks cleared |
+| 4 | block | all 4 | a1 | 4 | **Promoted after frame drops:** smears and spark bursts on the parry (SW f2–f4, SE f1–f2, NE f3, NW f1) |
+| 5 | stagger | SW | a1 | 1 | **Promoted after frame drops:** f1–f2 a blood burst |
+| 6 | everything else | all 4 | a1 | 59 | **Promoted** (the clean-death wording from the gallic gave no blood in any fall) |
+
+**Rejections:** blood over the body 1 clip + 7 frames; gear drift (crescent smear) 7 frames; sparks 7 frames. Doubled or
+reversed weapon, head backwards, clipping, proportion drift: **0**. **Needs review:** the cloak is mostly drawn in outline
+black, so the tier recolour of its umber group shows only on its folds (veteran and elite read close to basic); the NE
+fallBack and the NW fallBack fall more forward than back; the NE rout turns to profile in passing.
+
+**Sheet.** 15 clips, frame 113 x 115, 4068 x 2760 (42.8 MB as v2); packed **9.24 MB decoded (core 7.29 MB), 281 KB**. 28 colours; groups cloak 5
+(umber), skin 4; metal: iron (weapon). Tiers: veteran wine cloak, elite black cloak. **QC:** 0 failures, stature 58–59;
+168 warnings (the spear heuristic on the kopis). **Gens:** 78 quoted (65 jobs).
+
+### I4a Foot-class base characters: 13 classes on the H4 anchor, 8 rotations each, no animations (2026-10-18)
+
+**Brief.** One approved base character per foot class other than the hoplite (militia, thureophoros, celt_sword, rhomphaia, archer, slinger, javelineer, peltast, falx, gallic, fanatic, royal_guard, sacred_band), matching H4 (`b7624d6d`) in style, shape and proportion, following `docs/v5/art/STYLE_LOCK.md`. Mood is dark-epic: Greeks in bronze and crimson; Carthaginians in purple-black, bronze and linen; Celts in plaid, iron, woad and torcs. Every class must read at battle scale by its headgear and silhouette (art bible §5.2). The cloak, crest and trim stay clean colour groups for the tier recolour (V5-092). Hard rejects are checked in all 8 views.
+
+**Tool and budget.** PixelLab MCP, at most 5 of my jobs at once. Account balance before: 4,683.75 left (219.25 used). After: 4,408.50 left (494.50 used), a change of 275.25 that includes hoplite-prod's animation jobs running in parallel. **Mine by receipt: 221.25 gens** (cap 650). That is 22 pro characters at 10 each and 5 v3 imports at 0.25 each. Four more pro jobs were cancelled mid-run (the raised-weapon re-rolls, see below). The slinger at size 62 was refused at once at no cost. **Raws:** `docs/v5/pixellab/I4a/raw/<class>/<attempt>/` (gitignored), `review.png` beside each. **Machine-readable:** `docs/v5/pixellab/bases.json`. **Ramps:** `docs/v5/pixellab/I4a/palette-dark-i4a.json` is PA-WORLD-DARK plus `purpleBlack` and `plaidGreen`; hoplite-prod is adding them to `palette-dark.json`. **Sheets:** `docs/v5/art/I4a-roster-facings.png` (all 14 classes, the 4 game facings, scale 3, PA-WORLD-DARK-I4a remap, iso ground) and `docs/v5/art/I4a-roster-formation.png` (a mixed 5x3 block, SW front and NE back, zoom 1 and 3). **Tools:** `scripts/art/pixellab/rollout/` holds `review.mjs` (fetch plus a sheet under H4), `stature.mjs`, `overlay.mjs` (H4's silhouette over the class), `groups.mjs` and `groupsall.mjs` (ramp false-colour), `normalise.mjs`, `upload.mjs`, `upscale.mjs`, `colours.mjs` and `roster.mjs`.
+
+**Fixed call** (every attempt unless noted): `create_character`, `mode: pro`, `style_character_id: b7624d6d-132a-458c-8e3d-d6960d175988` (H4), `size: 68`, `view: high top-down`. Step A only: no concept image, except slinger B1. The prompts use STYLE_LOCK §3's block, but say "with realistic adult proportions" because there is no concept to refer to.
+
+**Headgear** (§5.2 wins over the item data where they differ, so no two classes share H4's helmet; main logs this as a decision):
+
+| class | headgear | shield | weapon |
+| --- | --- | --- | --- |
+| militia | felt pilos cap | none | short spear |
+| thureophoros | bronze pilos | oval thureos | short sword |
+| celt_sword | iron Montefortino | oval Celtic | longsword |
+| rhomphaia | open Phrygian helm | none | rhomphaia |
+| archer | bare curly head | none | composite bow |
+| slinger | bare head | none | sling |
+| javelineer | soft Thracian cap | pelte | 2 javelins |
+| peltast | open Thracian helm | pelte | spear |
+| falx | long hair | none | falx |
+| gallic | limed spikes | oval hide | war axe |
+| fanatic | shaved, ash | none | kopis |
+| royal_guard | gilded Attic helm with plumes | silver aspis | long spear |
+| sacred_band | Boeotian helm | aspis with a club | long spear |
+
+**Prompts, word for word:**
+
+- **militia A1**
+  ```
+  grim weathered Greek peasant levy spearman with realistic adult proportions: seven heads tall, a small head in a snug cap, long legs, natural arms, broad shoulders, lean wiry build; low rounded dark brown felt pilos cap, no crest, no helmet; short dark umber wool cloak hanging behind him; plain dark oxblood-brown wool tunic to mid-thigh with a worn dark leather belt, no armour, no white cloth; bare legs, dark leather sandals; no shield, his left hand empty at his side; one wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **militia A2** (A1 with the cloak and tunic swapped)
+  ```
+  grim weathered Greek peasant levy spearman with realistic adult proportions: seven heads tall, a small head in a snug cap, long legs, natural arms, broad shoulders, lean wiry build; low rounded dark brown felt pilos cap, no crest, no helmet; short faded dark crimson wool cloak hanging behind him; plain dark umber wool tunic to mid-thigh with a worn dark leather belt, no armour, no white cloth; bare legs, dark leather sandals; no shield, his left hand empty at his side; one wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **thureophoros A1**
+  ```
+  grim veteran Carthaginian thureophoros infantryman with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; tall conical dark weathered bronze pilos helmet, no crest; deep dark purple-black cloak hanging behind him; dull dark greyed-tan linen linothorax corselet over a dark purple-black tunic, worn dark leather straps, no white cloth; dark bronze greaves; one tall oval thureos shield on his left arm, shoulder to shin, dark umber hide face with a dark iron spine and boss down the middle; one straight iron short sword held in his right hand down at his right side, point down, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **celt_sword A1**
+  ```
+  grim tall Celtic warrior swordsman with a long drooping moustache, with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark iron Montefortino helmet with a knob on top and cheek guards, no crest; dark muted green-and-umber plaid wool cloak pinned at the right shoulder hanging behind him; dark iron ring mail shirt to mid-thigh, a twisted bronze torc around his neck; dark muted green-and-umber plaid wool trousers, dark leather shoes; one tall oval Celtic shield on his left arm, shoulder to shin, dark green-brown painted wood with a dark iron boss and spine; one long straight iron longsword held in his right hand down at his right side, point down, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **celt_sword A2** (cancelled)
+  ```
+  grim Celtic warrior swordsman with a long drooping moustache, with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build, the same height as the style reference hoplite; low dark iron Montefortino helmet with a small knob on top and cheek guards, no crest; dark muted green-and-umber plaid wool cloak pinned at the right shoulder hanging behind him; dark iron ring mail shirt to mid-thigh, a twisted bronze torc around his neck; dark muted green-and-umber plaid wool trousers, dark leather shoes; one tall oval Celtic shield on his left arm, shoulder to shin, dark umber-brown wood with a dark iron boss and spine; one long straight iron longsword held upright in his right hand out at his right side, the point raised high above his head, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **celt_sword A3**
+  ```
+  grim Celtic warrior swordsman with a long drooping moustache, with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; low dark iron Montefortino helmet with a small knob on top and cheek guards, no crest; dark muted green plaid wool cloak pinned at the right shoulder hanging behind him, the only green he wears; dark iron ring mail shirt to mid-thigh, a twisted bronze torc around his neck; dark brown-and-black checked wool trousers, dark leather shoes; one tall oval Celtic shield on his left arm, shoulder to shin, dark umber-brown wood with a dark iron boss and spine; one long straight iron longsword held in his right hand down at his right side, point down, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **rhomphaia A1**
+  ```
+  grim tall Thracian rhomphaia warrior with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; tall dark weathered bronze Phrygian-style Thracian helmet with a high forward-curving peak and cheek guards, no crest; dark umber-brown wool cloak hanging behind him; dark bronze scale corselet over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark brown wool trousers and dark bronze greaves; no shield; one rhomphaia, a long two-handed weapon with a wooden shaft as long as his legs and a long single-edged slightly curved iron blade, gripped upright with both hands in front of his right side, the blade standing up above his head, clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **rhomphaia A2**
+  ```
+  grim tall Thracian rhomphaia warrior with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; open-faced tall dark weathered bronze Phrygian helmet whose high crown curves forward like a Phrygian cap, hinged cheek guards, the face visible, no crest, no face mask; deep dark crimson cloak hanging behind him; dark iron scale corselet over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark brown wool trousers and dark bronze greaves; no shield; one rhomphaia, a long two-handed weapon with a wooden shaft as long as his legs and a long single-edged slightly curved iron blade, gripped upright with both hands in front of his right side, the blade standing up above his head, clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **archer A1**
+  ```
+  lean grim Cretan archer with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark curly hair and a short dark beard, no helmet; short dark umber wool cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, one dark leather quiver strap across his chest and one quiver of arrows on his back, no white cloth; bare legs, dark leather sandals; no shield; one large recurved composite bow held vertically in his left hand out at his left side, away from his body and clearly visible in every direction, his right hand empty ready to draw; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **archer A2**: A1 with "short deep dark crimson cloak hanging behind him" in place of "short dark umber wool cloak hanging behind him".
+- **slinger A1**
+  ```
+  lean grim Rhodian slinger with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark hair and a short dark beard, no helmet; short dark crimson chlamys cloak knotted at the right shoulder hanging behind him; plain dark oxblood-brown wool tunic to mid-thigh with a worn dark leather belt and one small dark leather pouch of lead bullets at the hip, no armour, no white cloth; bare legs, dark leather sandals; no shield; one sling of dark leather cord hanging from his right hand out at his right side, its loaded pouch swinging near his knee, clearly visible in every direction, his left hand empty; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **slinger A2**: A1 word for word at `size: 62`. Refused: "the selected style character is 45x66 cropped to content".
+- **slinger B1** (`concept_image_url`: A1 south shrunk to 55 px by `proportion.mjs --bands 4:66:0.873:0.873`, 4x nearest)
+  ```
+  lean grim Rhodian slinger with the realistic adult proportions and the size of the concept: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build, the same height as the style reference hoplite with empty space above his head; bare head with short dark hair and a short dark beard, no helmet; short dark crimson chlamys cloak knotted at the right shoulder hanging behind him; plain dark oxblood-brown wool tunic to mid-thigh with a worn dark leather belt and one small dark leather pouch of lead bullets at the hip, no armour, no white cloth; bare legs, dark leather sandals; no shield; one sling of dark leather cord hanging from his right hand out at his right side, its loaded pouch swinging near his knee, clearly visible in every direction, his left hand empty; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **slinger A3** (cancelled): A1 with ", the same height as the style reference hoplite" after "lean wiry build", and the sling slot "one sling of dark leather cord held up in his raised right hand high above his head, its loaded pouch hanging down beside his head, out at his right side and clearly visible in every direction, his left hand empty".
+- **javelineer A1**
+  ```
+  grim lean Carthaginian javelin skirmisher with realistic adult proportions: seven heads tall, a small head in a snug cap, long legs, natural arms, broad shoulders, lean wiry build; soft dark umber felt Thracian cap with a tall forward-curving top and ear flaps, no helmet; short deep dark purple-black cloak hanging behind him; plain dark umber wool tunic with a worn dark leather belt, no armour, no white cloth; bare legs, dark leather sandals; one small crescent-shaped pelte shield of dark wicker and hide on his left arm, chest to hip; two javelins held vertically together in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, each with one small leaf-shaped iron head at the top and a plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **peltast A1**
+  ```
+  grim lean Greek peltast skirmisher with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark weathered bronze Thracian helmet with a forward-curving peak, a low dark crimson crest along its top and cheek guards; dark umber-brown wool cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, no white cloth; tall dark leather boots; one crescent-shaped pelte shield on his left arm, chest to hip, dark hide face with a dark bronze rim; one wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **peltast A2**
+  ```
+  grim lean Greek peltast skirmisher with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; open-faced dark weathered bronze Thracian helmet whose crown rises into a forward-curving peak like a Phrygian cap, a short brim over the eyes and hinged cheek guards, the face visible, no crest, no face mask; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, no white cloth; tall dark leather boots; one crescent-shaped pelte shield on his left arm, chest to hip, dark hide face with a dark bronze rim; one wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, a little taller than the man, single leaf-shaped iron spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **falx A1**
+  ```
+  grim tall Dacian falx warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; bare head with long dark hair to the shoulders and a full dark beard, no helmet; dark umber-brown wool cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, no white cloth; dark muted green-and-umber plaid wool trousers, dark leather shoes; no shield; one falx, a heavy two-handed weapon with a long wooden haft and a long forward-curved iron sickle blade, gripped upright with both hands in front of his right side, the curved blade above his head, clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **falx A2**: A1 with "dark muted green-and-black plaid wool cloak hanging behind him" and "dark brown wool trousers, dark leather shoes".
+- **falx A3**
+  ```
+  grim tall Dacian falx warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; bare head with long dark hair to the shoulders and a full dark beard, no helmet; plain dark moss-green wool cloak hanging behind him, the only green he wears; warm dark umber leather jerkin over a dark oxblood-brown tunic, no white cloth; dark brown wool trousers, dark leather shoes; no shield; one falx, a heavy two-handed weapon with a long wooden haft and a long forward-curved iron sickle blade, gripped upright with both hands in front of his right side, the curved blade above his head, clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **gallic A1**
+  ```
+  grim tall bare-chested Gallic warband warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, thick limed hair stiffened into dull pale-grey spikes standing up from his head, a long drooping moustache; bare muscular chest and arms painted with dark blue woad swirls, one twisted bronze torc around his neck; dark muted green-and-umber plaid wool trousers with a worn dark leather belt, dark leather shoes; one tall oval Celtic hide shield on his left arm, shoulder to knee, dark umber hide with a dark iron boss; one heavy iron war axe on a wooden haft held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **gallic A2** (cancelled): A1 with ", the same height as the style reference hoplite", "short limed hair stiffened into dull ash-grey spikes", and "one heavy iron war axe on a long wooden haft held upright in his right hand out at his right side, the axe head raised high above his head, away from his body and clearly visible in every direction".
+- **fanatic A1**
+  ```
+  gaunt grim bare-chested cult fanatic with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; no helmet, a shaved head smeared with grey ash; ragged black wool cloak hanging behind him; bare wiry chest and arms marked with dark blue woad and grey ash, no armour; a dark umber wool kilt with a rope belt; bare legs and bare feet; no shield, his left hand an empty fist; one heavy curved iron kopis blade held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **fanatic A2** (cancelled): A1 with ", the same height as the style reference hoplite" and "one heavy curved iron kopis blade held upright in his right hand out at his right side, the blade raised high above his head, away from his body and clearly visible in every direction".
+- **fanatic A3**: A1 with "a shaved head with streaks of grey ash on the scalp" and "bare wiry chest and arms of weathered warm tan skin marked with dark blue woad lines, no armour".
+- **royal_guard A1**
+  ```
+  tall grim Macedonian royal guardsman, a silver-shield veteran, with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark gilded bronze Attic helmet with an open face, hinged cheek guards and two tall dull bone-grey feather plumes rising from its sides, no transverse crest; deep dark royal-purple cloak hanging behind him; ornate dark gilded bronze muscle cuirass over a dark crimson tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round aspis on his left arm, chin to knee, faced with dull dark tarnished silver and a dark bronze rim, a muted dark star emblem; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **sacred_band A1**
+  ```
+  tall grim Theban Sacred Band hoplite with realistic adult proportions: seven heads tall, a small head in a snug helmet, long legs, natural arms, broad shoulders, lean muscular build; dark weathered bronze Boeotian helmet with a wide flaring brim all round and an open face, no crest; very dark blue-black cloak hanging behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; one very large round bronze aspis on his left arm, chin to knee, dark bronze rim and a muted dark-red club of Herakles emblem; one very long wooden spear held vertically in his right hand out at his right side, away from his body and clearly visible in every direction, much taller than the man, single leaf-shaped spearhead at the top, plain blunt wooden butt end, no butt spike; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **Imports** (`create_character`, `mode: v3`, `reference_image_url` = the normalised south, all 7 other views as `direction_images`, nothing generated, 0.25 each). The description is a one-line summary of the class, e.g. slinger N1: "lean grim Rhodian slinger: bare head with short dark hair and beard, short dark crimson cloak, dark oxblood-brown tunic with a leather belt and bullet pouch, sandals, a leather sling hanging from his right hand, no shield". The imports were checked pixel for pixel against the normalised files: identical.
+
+**Stature.** Measured from the crown (the skull, or the helmet bowl; a crest, plume, pilos point, Phrygian crown or hair spikes is not counted) to the feet row. Target 58 ± 2 (H4: 57, crown row 10, chin 19, shoulders 21, feet 66). With H4 as the style character, pro mode lands H4's build at once: the shoulder line sits about 45 px above the feet. So STYLE_LOCK step B (the concept re-proportioning) was not needed for any class. Bare heads and low caps were the exception: pro fits the figure's top to rows 3–5, so a head with nothing above it came out 60–64 px. A spear tip, falx or rhomphaia blade, crest or plume gives the headroom. Size < 66 is refused (H4's content is 45x66), and a concept shrunk to 55 px only took 2 px off (B1: 63 to 61). A raised weapon would fix it but was overruled by main, because it changes the pose for a framing reason. **The fix is `normalise.mjs`.** It drops whole rows below the chin (the rows most like their upper neighbour, at least 4 apart) and a few columns, the same count in all 8 views, then re-aligns the feet. No pixel is resampled and no colour is invented. The 8 views then go back to PixelLab as a v3 import, so the animations start from them.
+
+| # | Class | Attempt | Character id | Outcome |
+| --- | --- | --- | --- | --- |
+| 1 | militia | A1 | `4fc70201` | **Rejected:** the umber cloak and tunic share one ramp (no cloak group). Otherwise fine: felt cap, single-headed spear, blunt butt |
+| 2 | militia | A2 | `4860b1e6` | **Promoted:** crimson cloak in its own ramp; stature 58 at the skull (60 with the cap); spear in 8/8 |
+| 3 | thureophoros | A1 | `270a1787` | **Promoted:** pilos, oval thureos, sword in 8/8; purple-black cloak (the tunic skirt shares it) |
+| 4 | celt_sword | A1 | `9049c2d3` | **Rejected:** plaid green on the cloak, trousers and shield (no cloak group); body 3 px tall (shoulders row 18) |
+| 5 | celt_sword | N1 | `f8b89542` | Superseded: an import of A1 normalised (−3 rows, −1 column) |
+| 6 | celt_sword | A2 | (cancelled) | **Cancelled:** a raised sword for headroom (overruled) |
+| 7 | celt_sword | A3 | `ddf1d88b` | **Promoted after normalising:** green only on the cloak; 61 to 58 px (−3 rows, −1 column) → **N2 `73d12bee`** |
+| 8 | rhomphaia | A1 | `eca2ca8d` | **Rejected:** a closed, crest-ridged helmet reads as the hoplite's; everything umber, no cloak group |
+| 9 | rhomphaia | A2 | `440f945a` | **Promoted:** open Phrygian helm, crimson cloak, iron scale, the blade above the head in 8/8 |
+| 10 | archer | A1 | `92d171f9` | **Rejected:** 6 colours, the cloak and jerkin one umber; 62 px |
+| 11 | archer | A2 | `b8f323c8` | **Promoted:** crimson cloak, one strung bow, a quiver on the back; 60 px (+2, at the tolerance edge, kept) |
+| 12 | slinger | A1 | `83bbfaea` | **Promoted after normalising:** 63 to 58 px (−5 rows, −2 columns) → **N1 `d15d6271`**; the sling in 8/8 |
+| 13 | slinger | A2 | (refused) | size 62 is below the style character's 66 |
+| 14 | slinger | B1 | `01f2d84b` | **Rejected:** the concept only took it to 61 px, and the sling moves to his left hand in SW |
+| 15 | slinger | A3 | (cancelled) | **Cancelled:** a raised sling for headroom (overruled) |
+| 16 | javelineer | A1 | `a0b21d96` | **Promoted:** soft Thracian cap, crescent pelte, exactly two javelins with plain butts in 8/8, purple-black cloak in its own ramp |
+| 17 | peltast | A1 | `1ae2bc87` | **Rejected:** a closed helm with a crest, umber everything: a hoplite with a crescent shield |
+| 18 | peltast | A2 | `4739f237` | **Promoted:** open Thracian helm, crimson cloak, pelte, spear 8/8 |
+| 19 | falx | A1 | `5c53fcd8` | **Rejected:** the umber cloak and jerkin share one ramp; 60 px |
+| 20 | falx | A2 | `b22ab9d0` | **Rejected (style drift):** near-black front, a cloak of green and grey checks spread over two ramps |
+| 21 | falx | A3 | `c9bdfe6f` | **Promoted, groups need review:** warm umber, a moss-green cloak, 57 px, the falx carried naturally; the darkest hair steps share the cloak's plaidGreen |
+| 22 | gallic | A1 | `ec8e285a` | **Promoted after normalising:** limed spikes, axe, oval hide shield in 8/8; 62 to 60 px (−2 rows, −1 column) → **N1 `462072a6`**. Bare per the data, so no cloak or crest group; the trousers share darkBronze with the torc |
+| 23 | gallic | A2 | (cancelled) | **Cancelled:** a raised axe (overruled) |
+| 24 | fanatic | A1 | `9e6425ee` | **Promoted after normalising, groups need review:** shaved ash head, ragged black cloak, kopis in 8/8; 64 to 59 px (−5 rows, −2 columns) → **N1 `9ae28d60`**. The black cloak and the ash skin both remap to metal |
+| 25 | fanatic | A2 | (cancelled) | **Cancelled:** a raised kopis (overruled) |
+| 26 | fanatic | A3 | `1a2158d3` | **Rejected:** the cloak still remaps to metal, now shared with the kilt and blade; muddy skin; 64 px |
+| 27 | royal_guard | A1 | `49cc24c8` | **Promoted:** gilded Attic helm, two pale plumes, silver aspis with a star, royal-purple cloak in its own ramp, spear 8/8 |
+| 28 | sacred_band | A1 | `2b900b89` | **Promoted:** Boeotian brim, a club emblem, blue-black cloak in its own ramp (remapped to dark metal), spear 8/8 |
+
+All 13 classes passed the hard-reject list in every promoted set: one weapon and the right shield (or none) in all 8 views; spear heads leaf-shaped at the top and butts plain wood; no head cut off; every reference facing straight south.
+
+**Verdict.**
+- **Consistency:** `I4a-roster-facings.png` reads as one army with H4: the same outline weight, shading steps, pixel density and bronze and crimson ramps, with Carthaginian purple-black and Celtic green as the only new hues.
+- **Distinctness:** in the formation (`I4a-roster-formation.png`) every class is told apart at zoom 1 by headgear and shield shape. The closest pair is javelineer and peltast (both crescent shields; told apart by cap against bronze, purple against crimson, two javelins against one spear).
+- **The bright accents:** the gallic limed hair and the royal guard's plumes and silver shield are the brightest pixels in the set, on purpose (§5.2 markers), but they are worth a look in game.
+- **Colour groups:** clean, own-ramp cloaks for militia, rhomphaia, archer, slinger, peltast, celt_sword, javelineer, royal_guard and sacred_band. Thureophoros (tunic skirt in the cloak's purple) is acceptable. **Needs review:** falx (hair in the cloak ramp), fanatic (cloak and skin both metal), gallic (no cloak; trousers share darkBronze).
+
+**Lessons for the animation rollout.**
+- H4 as `style_character_id` carries its proportions. Step A is enough, and one prompt in two lands.
+- For a bare head, measure the stature and normalise rows before the import; do not re-roll for height.
+- Name the cloak colour so that nothing else on the man shares its hue family. A brown cloak on a man in leather gives no recolour group.
+- §5.2 headgear words that the model reads as a hoplite's ("Thracian helmet", "Phrygian-style … peak") need "open-faced …, the face visible, no crest, no face mask".
+- Pro output often has only 6–10 colours. The remap then has little to lose, but groups collapse fast.
+
+#### I4a review fixes (main's review of the roster, same day)
+
+Three fixes: the archer carried two bows in SE, NE and NW (the recurved bow is drawn as two parallel limbs); the fanatic read as undead (ash-grey skin, a gaunt face); and the cloak, crest and trim groups of falx, fanatic and gallic were not exclusive. **Gens:** 4 pro characters (40) and 4 imports (1), so 41 this round; **262.25 in all for I4a** (cap 650). Account: 4,313.50 left after.
+
+**Prompts, word for word:**
+
+- **archer A3**
+  ```
+  lean grim Cretan archer with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean wiry build; bare head with short dark curly hair and a short dark beard, no helmet; short deep dark crimson cloak hanging behind him; dark leather jerkin over a dark oxblood-brown tunic, one dark leather quiver strap across his chest and one quiver of arrows on his back, no white cloth; bare legs, dark leather sandals; no shield; only one bow: a plain wooden bow with a single thin curved limb and one straight string, held vertically in his left hand out at his left side, away from his body and clearly visible in every direction, no second bow, his right hand empty ready to draw; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **fanatic A4**
+  ```
+  grim wild-eyed Celtic religious fanatic, a living man, with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, long wild tangled hair stiffened with lime into a dull pale ash-blond mane, a short rough beard; ragged very dark oxblood-black wool cloak hanging behind him, torn at the hem; bare chest and arms of living warm tan skin painted with bold dark blue woad patterns, no armour; a dark umber wool kilt with a rope belt; bare legs, bare feet; no shield, his left hand an empty fist; one heavy curved iron kopis blade held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+- **falx A4**: falx A3 with "long black hair to the shoulders and a full black beard".
+- **gallic A3**
+  ```
+  grim tall bare-chested Gallic warband warrior with realistic adult proportions: seven heads tall, a small head, long legs, natural arms, broad shoulders, lean muscular build; no helmet, thick limed hair stiffened into dull pale-grey spikes standing up from his head, a long drooping moustache; bare muscular chest and arms of living tan skin painted with dark blue woad swirls; one thick twisted polished bronze torc around his neck and one wide dark belt with a polished bronze buckle, the only bright bronze he wears; dark muted green plaid wool trousers, dark leather shoes; one tall oval Celtic hide shield on his left arm, shoulder to knee, dark umber hide with a dark iron boss; one heavy iron war axe on a wooden haft held in his right hand down at his right side, away from his body and clearly visible in every direction; heavy shadows, desaturated dark warm colours like the style reference
+  ```
+
+**Retints** (`scripts/art/pixellab/rollout/retint.mjs`). Each one moves a part into a ramp of its own: the pixels of the named ramps inside a box per view go to the target ramp's step nearest in lightness, a small hue or value shift. Each result was checked with `groups.mjs`.
+
+- **fanatic A4:** the cloak and kilt were one raw colour (`#231616`). The kilt (S, SE, SW rows 36–49 within 8 px of the centre; E columns 33–40 and W columns 28–37, rows 37–49) goes from umber to darkBronze. The cloak is now the only umber.
+- **falx A4:** a few lit hair pixels (rows 4–16) go from plaidGreen to umber. The moss-green cloak is then the only plaidGreen.
+- **gallic N1:** the torc was drawn in outline black, so its inner pixels on the neck row (row 20 in S, SE, E; row 21 in the others; `--inner` keeps the edge outline) go to the bronze ramp. Nothing else on him is bronze, so it is the exclusive trim group.
+
+| # | Class | Attempt | Character id | Outcome |
+| --- | --- | --- | --- | --- |
+| 29 | archer | A3 | `5dabb376` | **Promoted after normalising:** one plain bow and a back quiver in 8/8 (W, not a game facing, holds the bow level); 61 to 58 px (−3 rows, −1 column) → **N1 `199cd6bb`** |
+| 30 | fanatic | A4 | `7de14182` | **Promoted after the retint:** a living man (warm tan skin, blue woad, a wild limed mane, ragged dark cloak, kopis in 8/8); body at H4's height (the mane is not counted) → **N2 `fe0b0a2d`** |
+| 31 | falx | A4 | `60c71589` | **Promoted after the retint and normalising:** black hair and beard, falx in 8/8; 62 to 58 px (−4 rows, −2 columns) → **N1 `63527404`** |
+| 32 | gallic | A3 | `28d7356a` | **Rejected:** only 6 colours, no bronze on the torc, an invented ground shadow in W, feet on row 64 |
+| 33 | gallic | N1 + torc | `2ef012ad` | **Promoted:** N1 with the bronze torc retint → **N2 `2ef012ad`** |
+
+`normalise.mjs` now drops columns only within 11 px of the knees' centre, so a weapon held out at the side is never thinned (falx A4's first pass had cut two columns from the blade).
+
+**Groups after the fixes:** archer, cloak crimson (exclusive); falx, cloak plaidGreen (exclusive); fanatic, cloak umber (exclusive; kilt darkBronze); gallic, trim bronze (exclusive; no cloak or crest by the data). **Still open:** falx's jerkin remaps to the skin ramp, so a per-man skin recolour (V5-095) would tint his jerkin. Other leather-clad classes may do the same; that is a check for sheetbuild's skin group.
+
+### I1b Dark-epic hoplite: the restyle, 12–16-frame walk and thrust, frame-by-frame review, the elite probe (2026-10-18)
+
+**Brief** (user review of I1, V5-087): darker, *300* / Lord of the Rings mood on the I1 pick B3 (high top-down, 48); smooth 12–16-frame clips; a spearhead pointing away from the facing or the attack is never allowed; then, mid-round, a hard rule: exactly one spearhead at the leading end, a plain blunt wooden butt (no sauroter), and every frame with a pointed or metallic butt rejected. Every prompt below carries "single leaf-shaped spearhead, plain blunt butt end, no butt spike".
+
+**Tool and budget.** PixelLab MCP. Balance before: 1,948 left (52 used, I1); after: 1,900.75 left (99.25 used): **47.25 generations** this round (cap 120). The receipts quoted 3 per 12-frame skeleton-v3 direction, 2 per 16-frame pixminimax direction, 6 for the Pro Flash character, 1 for the v3 redo, 0.25 for the import; the elite state took the remaining ~10. **Raws:** `docs/v5/pixellab/I1/raw/{E1,E1fix,E1pad96,E1guard128,E2,E3,E3w,E3elite}/` (gitignored). **Rebuild:** `bash scripts/art/pixellab/i1b-e3.sh [sheets dir]` (re-fetch, add the skeleton jobs, apply `docs/v5/pixellab/I1/fixes-E3.json`, build). **Processed:** `docs/v5/pixellab/I1/processed/E3/` and `E3elite/` (raw strips and `remap/`). **Skeletons:** `docs/v5/pixellab/I1/skeletons/thrustLow_<dir>.json`. **Contact sheets:** `docs/v5/art/I1b-rotations.png`, `I1b-walk.png`, `I1b-thrust.png`, `I1b-rejected.png`, `I1b-lineup-raw-vs-remap.png`. **Preview:** `/hoplite-bakeoff.html` (today, B3, E3, E3 elite; single, 5x3 both sides, zoom 1–3; a mode panel).
+
+**Character prompts, word for word:**
+
+- **D1** (`create_character_pro_flash`, 68x68, `view: high top-down`; a south image first, then 8 v3 views)
+  ```
+  grim battle-hardened Spartan hoplite warrior, muscular build, standing straight and facing the viewer, full body with the feet near the bottom of the canvas: dark weathered bronze Corinthian helmet covering the face with a tall deep crimson horsehair crest; deep crimson cloak hanging from the shoulders behind him; dark bronze muscle cuirass over a dark oxblood-brown tunic, worn dark leather straps, no white cloth; dark bronze greaves; a very large round aspis shield on his left arm reaching from his chin to his knees, dark bronze rim and a muted dark-red painted emblem; a very long wooden spear (dory) held vertically in his right hand, taller than the man, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; heavy shadows, desaturated dark warm colours, low-key cinematic light from the upper left, the mood of the film 300 and Lord of the Rings
+  ```
+- **D2** (`create_character` v3, reference = E1 south, E1's E, N, W, NE, SW given; SE and NW regenerated)
+  ```
+  grim muscular Spartan hoplite: dark weathered bronze Corinthian helmet with a tall deep crimson crest, deep crimson cloak, dark bronze cuirass, very large round aspis with a dark bronze rim and a muted red lambda on his left arm, a very long wooden spear held vertically in his right hand beside his body, taller than the man, its single leaf-shaped spearhead clearly visible above his head in every view, plain blunt butt end, no butt spike
+  ```
+- **D3** (`create_character` v3 import: all 8 views given, nothing generated)
+  ```
+  grim muscular Spartan hoplite: dark weathered bronze Corinthian helmet with a tall deep crimson crest, deep crimson cloak, dark bronze cuirass, very large round aspis with a dark bronze rim and a muted red lambda on his left arm, a very long wooden spear held vertically in his right hand, single leaf-shaped spearhead, plain blunt butt end, no butt spike
+  ```
+- **D4** (`create_character_state` on E3, `state_name: Elite`)
+  ```
+  elite veteran version of the same hoplite: a black cloak instead of the crimson one, a gilded crest holder with a black horsehair crest trimmed in gold, an ornate dark bronze muscle cuirass with gilded edges; keep the same Corinthian helmet shape, the same very large round aspis with the muted red lambda on the left arm, and the same long spear in the right hand with a single leaf-shaped spearhead, plain blunt butt end, no butt spike; same pose, same dark grim palette
+  ```
+
+| # | Attempt | Call | Outcome |
+| --- | --- | --- | --- |
+| 1 | E1 69c457a8 | D1, Pro Flash | **Promoted as the base, patched:** dark bronze, crimson cloak and crest, a big lambda aspis, a muscular build (a big helmet and short legs: heroic proportions). The spear is single-headed with a plain butt in S, NE, SW; in SE it crosses the face (kept, then redrawn); **in NW it is hidden behind the cloak** (spear missing in a game facing) |
+| 2 | E2 a5e62c6e | D2, v3 redo of SE and NW | **Rejected:** NW spear still missing, SE unchanged |
+| 3 | E3 62d4f135 | D3, import | **Promoted:** E1 with NW patched by hand (NE's spear arm pasted, columns 43–56 shifted 3 px, `i1b-prep.mjs`), padded to a 96 canvas so clips have room |
+| 4 | E3 elite 9618a1bf | D4, state | **Probe passed:** identity, pose, silhouette and gear placement hold in all 8 views; black cloak and crest, gilt trim; the hand-patched NW spear arm carried over |
+
+**Clips.** The game facings only (SE, NE, SW, NW). Frame rates for the GIFs: walk 16 frames at 20 fps (a 0.8 s cycle), thrust 12 frames at 14 fps (0.86 s).
+
+- **W1** (pixminimax, `frame_count: 16`, `keep_first_frame: false`; subject "a grim Spartan hoplite in dark bronze Corinthian helmet, crimson cloak, large round bronze shield and a long spear"; initial pose "standing upright, spear vertical in the right hand, shield on the left arm")
+  ```
+  steady disciplined marching walk, the long spear held upright in the right hand, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm across the body in every frame; the cloak sways a little
+  ```
+- **W2** (the SE redo, from a start frame with the spear redrawn by `spear.mjs`; initial pose "standing upright, the spear in the right hand leaning outward with its head above his left shoulder, shield on the left arm" — "left" is a slip, the head is over his right shoulder)
+  ```
+  steady disciplined marching walk, the long spear held in the right hand and leaning a little outward, single leaf-shaped spearhead at the top, plain blunt butt end, no butt spike; the large round shield stays on the left arm in every frame; the cloak sways a little
+  ```
+- **T1** (`animate_with_skeleton_v3`, `action: overhand spear thrust`, 12 frames, our overhand keypoints, first frame = the upright rotation)
+  ```
+  grim muscular Spartan hoplite in dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze cuirass and greaves, a very large round bronze aspis with a muted red lambda held across his body on his left arm in every frame, a long wooden spear in his right hand gripped overhand above the shoulder, its single leaf-shaped spearhead always at the front end pointing the way he faces, plain blunt butt end, no butt spike
+  ```
+- **T2** (`animate_with_skeleton_v3`, `action: spear thrust`, 12 frames, `thrustLow` keypoints, first frame = `spear.mjs` couched spear on a 128 canvas). Front facings (SE, SW):
+  ```
+  grim muscular Spartan hoplite in a dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze cuirass and greaves, one very large round bronze aspis with a muted red lambda held across his body on his left arm, one long wooden spear held level at the hip in his right hand with a single leaf-shaped spearhead at the front end pointing the way he faces, plain blunt butt end, no butt spike
+  ```
+  Back facings (NE, NW):
+  ```
+  grim muscular Spartan hoplite seen from behind in a dark weathered bronze Corinthian helmet with a deep crimson crest, deep crimson cloak, dark bronze greaves, one very large round bronze aspis held on his left arm in front of him, one long wooden spear held level at the hip in his right hand with a single leaf-shaped spearhead at the front end pointing the way he faces, plain blunt butt end, no butt spike
+  ```
+
+| # | Clip | Mode | Dirs | Gens | Outcome (frame by frame, both spear ends checked) |
+| --- | --- | --- | --- | --- | --- |
+| 5 | walk_template | template `walking-8-frames` (8 frames) | SW NE | 2 | **Rejected:** the aspis vanishes in every frame of both facings |
+| 6 | walk_pixminimax | W1 | SW NE | 4 | **Promoted:** one shield and one spear in all 16 frames, head up, butt plain; the shaft is dashed in SW f1/f9 and gapped in NE f5 (cosmetic) |
+| 7 | walk_pixminimax | W1 | SE | 2 | **Rejected:** the spear is gone in all 16 frames (the rotation's spear crossed the face) |
+| 8 | walk_pixminimax | W1 | NW | 2 | **Promoted:** spear (the patched one) and shield in all 16 |
+| 9 | walk_pixminimax_se2 | W2 | SE | 2 | **Promoted:** spear in all 16, head top-left, one shield |
+| 10 | thrust | T1 | SW | 3 | **Rejected (tip rule):** the head is carried backwards over the shoulder in f1–f4 and f9–f10; the spear vanishes in f0 and goes thin and doubled in f5 |
+| 11 | thrust2 | T2 | SW | 3 | **Promoted:** the head leads in 12/12, one shield, no butt seen; f2 had a grey ghost scrap (cleared, 38 px) |
+| 12 | thrust2 | T2 | SE | 3 | **Promoted with 1 frame rejected:** f2's butt is flat and metallic and its head doubles (f2 := f1) |
+| 13 | thrust2 | T2 | NE | 3 | **Rejected:** the head runs off the 128 canvas in f5–f7 (a truncated head) |
+| 14 | thrust2 | T2 | NE, figure 16 px further left | 3 | **Promoted:** whole head leads in 12/12; f3 a light-bronze glint on the butt recoloured to the shaft (18 px), a crest speck cleared |
+| 15 | thrust2 | T2 | NW | 3 | **Promoted with 1 frame rejected:** f7 has a detached light-bronze piece at the butt that reads as a butt spike (f7 := f6, inside the held extension); f0–f2 the head is hidden behind the body (the man faces away) |
+
+**Rejection count.** Spear tip backwards: 1 clip (T1, 6 frames). Butt end pointed or metallic (the new rule, counted apart): **3 frames** (SE f2, NW f7 rejected; NE f3 glint recoloured), plus the doubled head in SE f2. Shield vanishing: 2 clips (template walk SW, NE). Spear missing: E1 NW and E2 NW (rotations), SE walk v1 (16 frames). Head cut off by the canvas: NE thrust v1 (3 frames). Stray scraps: SW f2, NW f7.
+
+**Palette.** The I1 hard snap is dropped for units (V5-087). `scripts/art/pixellab/remap.mjs` maps each colour to the PA-WORLD-DARK ramp (`docs/v5/pixellab/palette-dark.json`: PA-WORLD plus dark bronze, crimson, umber, dark skin and steel ramps) nearest in OKLab hue and chroma, then to that ramp's step nearest in lightness. On E3 it halves the colours (turnaround 52 → 25, walk 41 → 22, thrust 38 → 20) and is hard to tell from raw at zoom 1–3 (`I1b-lineup-raw-vs-remap.png`): the bronze stays bronze, the crimson stays crimson; only the elite's blue-black cloak warms to umber-black. **Recommendation: the remap** (one battle palette at no visible cost); raw is the fallback if a later class has a hue the ramps lack.
+
+**Verdict.**
+- **Style:** E3 reads as the brief at battle scale and in a crowd: dark bronze, crimson cloaks and crests, the lambda aspis (now about chin to knee); the elite state is a clean black-and-gold step up.
+- **Animation mode:** template is out (it drops the aspis). **Walk: pixminimax 16 frames** (2 per direction), steady identity, fluid cloak; it can lose an item the rotation half-hides, so the start frame must show the spear clearly. **Thrust: skeleton-v3 with our own skeletons and a hand-drawn first frame with the spear already couched head-forward** (3 per direction at 12 frames): the only mode that kept the head leading in every frame; an overhand start from the upright spear (T1) flips the head backwards. Expect about one frame in twelve to need a fix (`fixframes.mjs`), and give the thrust a canvas the extension fits in.
+- **Not done:** idle (8+ frames) and the other clips; the elite state is not animated.
+
+**Cost per class at 12–16 frames (estimate).** Base: Pro Flash 6 + a v3 import 0.25 + hand fixes ≈ 7; two tier states ≈ 20. Clips: about 16 per tier × 4 facings × 3 tiers = 192 clip-directions; 6 locomotion/idle clips by pixminimax at 2 = 144; 10 action clips by skeleton-v3 at 3–4 (12–15 frames) ≈ 420; × 1.25 for the redos seen here (1 of 4 directions per clip) ≈ 705. **≈ 730 per class; 18 classes ≈ 13,000 generations (about 6.5 months of Tier 1).** With the full set on the basic tier only and idle, walk and thrust on the other two tiers: ≈ 330 per class, ≈ 6,000 for 18 (3 months).
+
+### I1 Hoplite bake-off: PixelLab, 2 sizes × 2 views, walk and attack, three animation modes (2026-10-18)
+
+**Tool.** The PixelLab MCP (Tier 1, 2,000 generations a month), called from the agent; no browser. Balance before: 2,000 left, 0 used; after: 1,948 left, **52 used** (cap 60). At most 8 jobs at once. The old "ancient roman soldier" character in the account was ignored. **Raws:** `docs/v5/pixellab/I1/raw/<attempt>/` (gitignored, V5-086; `char.zip` plus the unpacked zip, fetched with `scripts/art/pixellab/fetch.mjs`). **Processed:** `docs/v5/pixellab/I1/processed/<variant>/` (`build.mjs`: the 8-view `rot.png`, one strip per animation and facing, the same under `snap/` snapped to PA-WORLD, and `info.json`), `manifest.json` for the preview. **Contact sheets:** `docs/v5/art/I1-rotations.png` (the 4 promoted turnarounds), `I1-rejected.png` (the 6 rejected), `I1-modes.png` (D2 attack: v3 custom vs template vs skeleton-v3, SW and NE), `I1-lineup-raw-vs-snap.png` (the battle line-up at zoom 1 ×3, raw over snapped). **Preview:** `/hoplite-bakeoff.html` on the dev server (`src/dev/hopliteBakeoff.ts`): the variants next to today's procedural hoplite on the iso ground at the battle's scale, zoom 1–3, RS 2, 5x3 formations from both sides, the mode comparison; `?snap=1` for the snapped strips.
+
+**Game facings.** The sheet contract (`src/art/paperdoll.ts` DIRS) has 4 true facings, all diagonals of the 2:1 field: row 0 = PixelLab `south-east`, row 1 = `north-east` (the player's army, back view), row 2 = `south-west` (the enemy, front view), row 3 = `north-west`. Every character was made with 8 directions; walks and attacks only in these 4.
+
+**Shared settings** (every `create_character` call): `mode: standard` (1 generation), `n_directions: 8`, `outline: selective outline`, `shading: basic shading`, `detail: medium detail`, `proportions: {"type": "preset", "name": "realistic_male"}`, `size` 48 or 32 (stored on a 68x68 or 48x48 canvas; the figure is 53–57 or 36–38 px from the crest to the feet), `view` low or high top-down. Prompts word for word:
+
+- **P1**
+  ```
+  ancient Greek hoplite soldier: bronze Corinthian helmet covering the face with a red horsehair crest, large round bronze aspis shield on the left arm, long wooden dory spear with a bronze tip held upright in the right hand, white linen linothorax armour, short red tunic skirt, bronze greaves on the shins, sandals
+  ```
+- **P2**
+  ```
+  ancient Greek hoplite soldier holding a very long wooden spear (dory) vertically in his right hand, the spear taller than the man with a bronze leaf tip above his head; big round bronze aspis shield on his left arm; bronze Corinthian helmet covering the face with a red horsehair crest; white linen linothorax body armour; short red tunic; bronze greaves; sandals
+  ```
+- **P3**
+  ```
+  ancient Greek hoplite: bronze muscle cuirass over a short red tunic, bronze greaves covering both shins, bronze Corinthian helmet covering the face with a red horsehair crest, big round bronze aspis shield on the left arm, very long wooden spear (dory) held vertically in the right hand, taller than the man, bronze leaf tip above his head, sandals
+  ```
+
+**Characters** (1 generation each):
+
+| # | Attempt | id | size, view | Prompt | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 1 | A | e4d7cd01 | 48, low | P1 | **Rejected:** the spear is missing in 6 of 8 views, all 4 game facings among them; the linothorax came out red |
+| 2 | A2 | c1c0a877 | 48, low | P2 | **Promoted (variant A):** spear in 8/8; the linothorax is red, not white, and the shins bare (no greaves); the shield is hidden behind the body in SE, NE, NW |
+| 3 | A3 | f4ac5d3c | 48, low | P3 | **Rejected:** spear missing in SE, E, W |
+| 4 | B | e01ad163 | 48, high | P3 | **Rejected:** spear missing in SE, E, NE, NW, W |
+| 5 | C | a5dc4b0b | 32, low | P3 | **Rejected:** spear missing in SE; a grey iron cuirass, not bronze |
+| 6 | D | 7faec689 | 32, high | P3 | **Rejected:** spear missing in SE, E, NE, NW, W |
+| 7 | B2 | c4abda50 | 48, high | P2 | **Rejected (invented feature):** two spears in S, SE, N, NW, SW |
+| 8 | C2 | 43fec036 | 32, low | P2 | **Promoted (variant C):** spear and shield 8/8, white linothorax, red crest; at 32 px the Corinthian helmet reads open-faced (a beard shows) |
+| 9 | D2 | a295f28c | 32, high | P2 | **Promoted (variant D):** spear and shield 8/8, white linothorax, gold-bronze aspis; near-black outline |
+| 10 | B3 | 88c59d93 | 48, high | P2 | **Promoted (variant B):** spear in all 4 game facings (missing only in E and W), red-faced aspis, white front and red back |
+
+**Animations.** Walk: template `walking-8-frames` (8 frames, 1 generation per direction). Attack: v3 custom, 8 frames plus the reference (9 stored), 1 generation per direction; v3 stores the clip on a bigger canvas (A2 88/84, B3 80/84, C2 60, D2 56), so the strips keep their own size and feet line. Mode comparison on D2: template `lead-jab` and skeleton-v3 `lead-jab` (3 frames each; there is no spear-thrust template).
+
+- **ATK1** (A2 only)
+  ```
+  thrusting the long spear forward overarm at shoulder height while the round shield stays in front of the body, then pulling the spear back
+  ```
+- **ATK2** (B3, C2, D2)
+  ```
+  overarm spear thrust: raises the long spear above the shoulder with the point forward, stabs it straight ahead in the direction he is facing, the round shield kept in front of the chest, then pulls the spear back; he keeps facing the same direction and holds the same spear and shield in every frame
+  ```
+
+| # | Variant | Clip, mode | Directions | Charged | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| 11 | A2 | walk, template | SE NE SW NW | 4 | **Kept:** the spear is steady in each facing; no shield in SE, NE, NW (hidden in the rotations too); SW good |
+| 12 | B3 | walk, template | SE NE SW NW | 4 | **Kept, flawed:** in SE the shield pops in at frame 4; in NE it turns into a **white oval and vanishes** (invented); SW, NW good |
+| 13 | C2 | walk, template | SE NE SW NW | 4 | **Kept, flawed:** SE and SW steady; in NE the shield pops in; NW frame 6 loses shield and spear |
+| 14 | D2 | walk, template | SE NE SW NW | 4 | **Kept, flawed:** in SE frames 7–8 a **big black shield** appears (invented); in NE the shield comes late; NW loses shield and spear at the end |
+| 15 | A2 | attack, v3 ATK1 | SE NE SW NW | 4 | **Kept, flawed:** SE turns to face south, the spear swung level across the body and a small shield appears in the far hand; NW spear across the body; SW a fair overarm thrust |
+| 16 | B3 | attack, v3 ATK2 | SE NE SW NW | 4 | **Rejected in review:** SE turns to face south, the shield jumps to the front; NE the spear flips left and right and the shield shrinks to a crescent and goes; SW thrusts the wrong way and a **second shield** appears behind; NW the spear reads double-ended |
+| 17 | C2 | attack, v3 ATK2 | SE NE SW NW | 4 | **Kept, flawed:** the shield holds in every frame; the spear always stabs to screen-left, so SE and NE point the wrong way; SW last frame turns south |
+| 18 | D2 | attack, v3 ATK2 | SE SW, then NE NW appended | 4 | **Kept, flawed:** the shield holds; the spear becomes a double-ended staff across the body in SE, NE, NW; in SW it vanishes |
+| 19 | D2 | attack_template, template `lead-jab` | NE SW | 2 | SW steady but the spear does not move (a boxing jab); NE loses the shield |
+| 20 | D2 | attack_skeleton, skeleton-v3 `lead-jab` | NE SW, then SE NW appended | 4 + 4 quoted (charge below) | **SW: the only correct spear thrust of the run** (levelled down-left, shield in front, identity steady). NE **rejected:** shield gone, spear in pieces, grey ghost scraps; SE turns to face south; NW the spear is gone (an empty fist) |
+
+The receipts quoted 56 generations; the balance fell by 52 (the skeleton-v3 jobs seem to have been billed below the quoted 2 per direction).
+
+**Palette snap.** `build.mjs` snaps with `ops.mjs snapToPalette` (the same weighted nearest colour as `process.mjs`) and binary alpha. It **hurts**: PixelLab's saturated bronze goes to the grey-khaki metal ramp (`#ac9283`/`#d2b68e`) instead of the bronze ramp, so helmets and the D2 shields lose their bronze; B3's red shield and the A2 tunics go darker; D2's near-black outline softens to `#2a1a12` and loses some punch. Reds, linen and skin survive. Snapping is still needed for the battle palette; it needs a ramp-aware remap (bronze to bronze) or generation on the palette (`palette` on `create_character_state`, or Pro mode).
+
+**Verdict.**
+- **View: high top-down.** It is closer to the battle camera's 30° elevation (`model3d.ts`), the shields face the viewer and both armies read in a crowd. Low top-down (A2, C2) hides the shield behind the body in the side and back facings and reads as a red or grey smear in formation.
+- **Size: 48** (B3) over 32 (D2). At the battle's scale a 48 figure is drawn at 0.55 (about one sprite px per device px at zoom 1 on RS 2, the density of today's BATTLE_RES 2 dolls) and stays crisp at zoom 2–3; a 32 figure is drawn at 0.8, so its pixels come out unevenly doubled at every zoom. Both cost 1 generation per direction for template and v3 clips. D2 is the fallback if the 48 tier states cost more.
+- **Animation mode:** none holds both spear and shield in every facing. Template keeps identity best for locomotion but pops or loses the shield in the back facings. v3 custom keeps the shield (C2, D2) but invents the spear's direction (always lateral) and doubles it. skeleton-v3 made the only correct thrust (SW) but broke the back view; `lead-jab` is a boxing clip. Next try: `animate_with_skeleton_v3` with our own spear-thrust keypoints for each facing (the procedural rig in `paperdoll.ts` already has the joints), template for walk and run, and a free `pixelart_workbench` touch-up of the frames where the shield pops.
+- **Not done:** the optional elite-state probe (`create_character_state` costs 10–25 and would have broken the 60 cap); tier consistency is still unmeasured.
+- **Cost per class, estimated** for the full set (V5-081, V5-084): 3 tiers × 4 facings × about 16 clips (idle, walk, run, attack, block, hit, 2 deaths, rout, victory, 2 per-weapon attacks, 2 formation stances, a richer hit, an ambient idle) = 192 clip-directions. Base character about 2.5 tries = **~3**; 2 tier states at 10–25 = **20–50**; clips at 1 per direction (template, v3) = 192, at 2 (skeleton-v3) = 384; with I1's re-roll rate (about half the clip-directions flawed) ×1.5. Template/v3 only: **~320** per class; skeleton-v3 for the 10 non-locomotion clips and template for the 6 locomotion clips: **~505**; skeleton-v3 for all: **~610**. For 18 classes that is about 5,800–11,000 generations, 3 to 5.5 months of Tier 1 (riders and chariots on bigger canvases cost more). Animating only the basic tier in full and the other two tiers with idle, walk and attack would cut the clip-directions to 88 (~170–260 per class).
+
+**Lessons.** Standard mode loses a held spear in the rotated views unless the prompt makes it the first, largest thing ("holding a very long … spear vertically … taller than the man"); 6 of 10 characters were rejected for that or for a doubled spear. Ask for the shield size too: every aspis came out about a third of the body, against the procedural ~half. v3 attacks come back on a larger canvas than the rotations: read the feet line per strip. Back views (NE) fail most in every mode; check them first.
+
 ### AS-08 The Nikias portraits ART-033..035 and the app icon set (2026-10-13)
 
 **Tool.** gemini.google.com, "Gemini 3.1 Pro", in Claude in Chrome, one new tab, two chats (Nikias, then the icon), typed prompts, no tool picker. References attached through the page's hidden `image/*` input. Every output was a 2048x2048 JPEG. Downloads were moved by the AS-02 safe mover (one new `Gemini_Generated_Image_*` newer than the start, else refuse); `~/Downloads` matched its start listing at the end. No CAPTCHA, quota message or download block. The tab was closed. **Raws:** `docs/v5/gemini/AS-08/` in the main checkout (gitignored). **Processed:** `docs/v5/gemini/AS-08/processed/portrait_nikias[_talk|_blink].png`. **Contact sheet:** `docs/v5/art/AS-08-contact.jpg` (the three frames at 384, the in-game card with frames 0/1/2 at 390, 360 and 320 DPR 3, the icon set at real size and zoomed, the maskable safe circle, the Telegram circle crop, the 640x360 image).

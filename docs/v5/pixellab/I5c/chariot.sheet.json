@@ -1,0 +1,410 @@
+{
+ "$doc": "I5c chariot sheet spec for scripts/art/pixellab/sheetbuild.mjs. Every clip is on the work canvas (scripts/art/pixellab/i5c/lib.mjs CANVAS: the 128 rotation at 24,40 on 176x176). Rebuild: node scripts/art/pixellab/i5c/fetchall.mjs chariot && node scripts/art/pixellab/i5c/build.mjs chariot --qc <dir>",
+ "class": "chariot",
+ "raw": "docs/v5/pixellab/I5c/raw/chariot",
+ "out": "src/assets/sheets/chariot",
+ "scale": 0.55,
+ "ramps": [
+  "outline",
+  "crimson",
+  "umber",
+  "darkBronze",
+  "skin",
+  "purpleBlack",
+  "iron",
+  "metal"
+ ],
+ "parts": {
+  "purpleBlack": "cloak",
+  "umber": "shadow",
+  "metal": "shadow",
+  "iron": "shadow",
+  "darkBronze": "shadow"
+ },
+ "rowsFeet": {
+  "south-east": [
+   66,
+   118
+  ],
+  "north-east": [
+   54,
+   117
+  ],
+  "south-west": [
+   61,
+   118
+  ],
+  "north-west": [
+   73,
+   117
+  ]
+ },
+ "canvases": {
+  "work": {
+   "south-east": [
+    24,
+    40
+   ],
+   "north-east": [
+    24,
+    40
+   ],
+   "south-west": [
+    24,
+    40
+   ],
+   "north-west": [
+    24,
+    40
+   ]
+  },
+  "drive": {
+   "south-east": [
+    26,
+    39
+   ],
+   "north-east": [
+    22,
+    40
+   ],
+   "south-west": [
+    24,
+    36
+   ],
+   "north-west": [
+    27,
+    41
+   ]
+  },
+  "charge": {
+   "south-east": [
+    25,
+    32
+   ],
+   "north-east": [
+    22,
+    40
+   ],
+   "south-west": [
+    24,
+    35
+   ],
+   "north-west": [
+    26,
+    40
+   ]
+  },
+  "rout": {
+   "south-east": [
+    22,
+    34
+   ],
+   "north-east": [
+    22,
+    40
+   ],
+   "south-west": [
+    25,
+    34
+   ],
+   "north-west": [
+    27,
+    40
+   ]
+  }
+ },
+ "anims": {
+  "idle": {
+   "fps": 8,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "drive": {
+   "fps": 16,
+   "canvas": "drive",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-west": {
+     "attempt": "e1",
+     "frames": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    },
+    "south-east": {
+     "attempt": "e1",
+     "frames": [
+      1,
+      2,
+      3,
+      4,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      12,
+      13,
+      14
+     ]
+    },
+    "north-east": {
+     "attempt": "e1",
+     "frames": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    },
+    "north-west": {
+     "attempt": "e1",
+     "frames": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    }
+   }
+  },
+  "charge": {
+   "fps": 16,
+   "canvas": "charge",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "hit": {
+   "fps": 12,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "wreck": {
+   "fps": 12,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "rout": {
+   "fps": 16,
+   "canvas": "rout",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-west": {
+     "attempt": "e1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+     ]
+    },
+    "south-east": {
+     "attempt": "e1",
+     "frames": [
+      3,
+      4,
+      5,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      12,
+      13,
+      14
+     ]
+    },
+    "north-east": {
+     "attempt": "e1",
+     "frames": [
+      2,
+      3,
+      4,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      10,
+      11,
+      12,
+      13
+     ]
+    },
+    "north-west": {
+     "attempt": "e1",
+     "frames": [
+      2,
+      3,
+      3,
+      4,
+      5,
+      6,
+      7,
+      7,
+      8,
+      9,
+      10,
+      10,
+      11,
+      12
+     ]
+    }
+   }
+  }
+ },
+ "tiers": {
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#151719",
+    "#1e2224",
+    "#2d3131",
+    "#3b4141"
+   ]
+  }
+ },
+ "stature": {
+  "from": "any",
+  "px": 108,
+  "tol": 4
+ },
+ "manifest": {
+  "variation": {
+   "skin": false
+  },
+  "rarity": {
+   "metal": false
+  },
+  "notes": "I5c chariot: both bay horses are the driver's skin ramp (skin 0-2: the same hexes as his face and arms), so the per-man skin tint is off. The driver's purple-black cloak (purpleBlack) is the class cloak group. Car, wheels, scythes, pilos, kopis and harness are umber / iron / metal, kept as shadow: no metal group, so no rarity swap (flag set). Clips: idle, drive, charge (kopis swung overhead), hit, wreck, rout. Work canvas 176x176, see docs/v5/pixellab/I5c/chariot.sheet.json."
+ },
+ "spear": false,
+ "crest": false,
+ "emblem": false
+}

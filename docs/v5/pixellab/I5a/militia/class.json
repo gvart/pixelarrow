@@ -1,0 +1,181 @@
+{
+ "class": "militia",
+ "ramps": [
+  "outline",
+  "umber",
+  "darkBronze",
+  "crimson",
+  "metal",
+  "skin",
+  "iron"
+ ],
+ "crest": false,
+ "emblem": false,
+ "metalKind": {
+  "weaponMetal": "iron"
+ },
+ "rowsFeet": {
+  "south-east": [
+   35,
+   66
+  ],
+  "north-east": [
+   33,
+   66
+  ],
+  "south-west": [
+   35,
+   66
+  ],
+  "north-west": [
+   35,
+   66
+  ]
+ },
+ "picks": {
+  "idle": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "look": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "adjust": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "walk": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "run": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "rout": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "kneel": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "ready": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "charge": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "brace": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "block": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a2",
+   "north-west": "a1"
+  },
+  "thrust": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "stagger": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  },
+  "fallBack": {
+   "south-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 1,
+      "op": "copy",
+      "from": 0,
+      "why": "REJECTED frame: a blood burst over the body; once cut, the body is hollowed"
+     },
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 3,
+      "why": "REJECTED frame: as f1"
+     }
+    ]
+   },
+   "north-east": "p1",
+   "south-west": "p2",
+   "north-west": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 0,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: blood over the spear; once cut, the spearhead floats loose"
+     }
+    ]
+   }
+  },
+  "fallFwd": {
+   "south-east": "p1",
+   "north-east": {
+    "attempt": "p1",
+    "fixes": [
+     {
+      "frame": 2,
+      "op": "copy",
+      "from": 1,
+      "why": "REJECTED frame: blood over the spear; once cut, the spearhead floats loose"
+     }
+    ]
+   },
+   "south-west": "p1",
+   "north-west": "p1"
+  },
+  "cheer": {
+   "south-east": "a1",
+   "north-east": "a1",
+   "south-west": "a1",
+   "north-west": "a1"
+  }
+ },
+ "rejected": [
+  {
+   "clip": "block south-west a1",
+   "why": "weapon reversed",
+   "detail": "the spearhead swings round behind him while he parries (f5-f7)"
+  },
+  {
+   "clip": "fallBack south-west p1",
+   "why": "blood",
+   "detail": "a blood burst over the body f3-f5 (the cloak is crimson, so blood cannot be mapped to shadow); p2 adds no blood at all, no red spray, no splatter, no particles"
+  }
+ ]
+}

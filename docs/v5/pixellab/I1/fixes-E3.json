@@ -1,0 +1,66 @@
+[
+ {
+  "anim": "walk_pixminimax",
+  "dir": "south-east",
+  "op": "clip",
+  "fromAnim": "walk_pixminimax_se2",
+  "why": "REJECTED clip: the first SE walk lost the spear in all 16 frames; redone from a start frame with the spear redrawn outside the face (spear.mjs)"
+ },
+ {
+  "anim": "thrust2",
+  "dir": "south-west",
+  "frame": 2,
+  "op": "clear",
+  "box": [
+   18,
+   64,
+   48,
+   76
+  ],
+  "why": "a grey ghost scrap left of the shield (not part of the man or the spear)"
+ },
+ {
+  "anim": "thrust2",
+  "dir": "south-east",
+  "frame": 2,
+  "op": "copy",
+  "from": 1,
+  "why": "REJECTED frame: the butt end looks flat and metallic and the head doubles into two blades"
+ },
+ {
+  "anim": "thrust2",
+  "dir": "north-west",
+  "frame": 7,
+  "op": "copy",
+  "from": 6,
+  "why": "REJECTED frame: a detached light-bronze piece on the butt end (reads as a butt spike) and loose scraps on the shaft; f6-f8 are the held extension"
+ },
+ {
+  "anim": "thrust2",
+  "dir": "north-east",
+  "frame": 3,
+  "op": "recolor",
+  "box": [
+   64,
+   78,
+   74,
+   86
+  ],
+  "color": "#653722",
+  "why": "a light-bronze glint on the butt end under the hand"
+ },
+ {
+  "anim": "thrust2",
+  "dir": "north-east",
+  "frame": 3,
+  "op": "clear",
+  "box": [
+   55,
+   41,
+   61,
+   46
+  ],
+  "light": true,
+  "why": "a light speck on top of the crest"
+ }
+]

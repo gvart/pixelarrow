@@ -1,0 +1,648 @@
+{
+ "$doc": "I5b rhomphaia sheet spec for scripts/art/pixellab/sheetbuild.mjs, written by scripts/art/pixellab/i5b/mkspec.mjs from rhomphaia.picks.json. Rebuild: node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I5b/rhomphaia.jobs.json docs/v5/pixellab/I5b/raw/rhomphaia && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I5b/rhomphaia.sheet.json",
+ "class": "rhomphaia",
+ "raw": "docs/v5/pixellab/I5b/raw/rhomphaia",
+ "out": "src/assets/sheets/rhomphaia",
+ "scale": 0.55,
+ "ramps": [
+  "outline",
+  "crimson",
+  "umber",
+  "darkBronze",
+  "skin",
+  "metal",
+  "iron"
+ ],
+ "parts": {
+  "iron": "weaponMetal"
+ },
+ "crest": false,
+ "emblem": false,
+ "stature": {
+  "skipTop": 4,
+  "why": "the Phrygian crown (rows 4-9 of the base, bases.json) is not counted"
+ },
+ "spear": false,
+ "metalKind": {
+  "metal": "bronze",
+  "weaponMetal": "iron"
+ },
+ "metalSlots": {
+  "metal": [
+   "helmet"
+  ],
+  "weaponMetal": [
+   "weapon",
+   "armor"
+  ]
+ },
+ "greyCut": 0.8,
+ "alignMax": [
+  18,
+  8
+ ],
+ "rowsFeet": {
+  "south-east": [
+   33,
+   66
+  ],
+  "north-east": [
+   33,
+   66
+  ],
+  "south-west": [
+   35,
+   66
+  ],
+  "north-west": [
+   35,
+   66
+  ]
+ },
+ "canvases": {
+  "rot": {
+   "south-east": [
+    0,
+    0
+   ],
+   "north-east": [
+    0,
+    0
+   ],
+   "south-west": [
+    0,
+    0
+   ],
+   "north-west": [
+    0,
+    0
+   ]
+  },
+  "tall": {
+   "south-east": [
+    14,
+    40
+   ],
+   "north-east": [
+    14,
+    40
+   ],
+   "south-west": [
+    14,
+    40
+   ],
+   "north-west": [
+    14,
+    40
+   ]
+  },
+  "atk": {
+   "south-east": [
+    20,
+    40
+   ],
+   "north-east": [
+    20,
+    40
+   ],
+   "south-west": [
+    40,
+    40
+   ],
+   "north-west": [
+    40,
+    40
+   ]
+  },
+  "die": {
+   "south-east": [
+    30,
+    30
+   ],
+   "north-east": [
+    30,
+    30
+   ],
+   "south-west": [
+    30,
+    30
+   ],
+   "north-west": [
+    30,
+    30
+   ]
+  },
+  "guard": {
+   "south-east": [
+    17,
+    40
+   ],
+   "north-east": [
+    16,
+    40
+   ],
+   "south-west": [
+    20,
+    39
+   ],
+   "north-west": [
+    13,
+    40
+   ]
+  },
+  "gatk": {
+   "south-east": [
+    23,
+    40
+   ],
+   "north-east": [
+    22,
+    40
+   ],
+   "south-west": [
+    46,
+    39
+   ],
+   "north-west": [
+    39,
+    40
+   ]
+  }
+ },
+ "anims": {
+  "idle": {
+   "fps": 8,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "look": {
+   "fps": 8,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "adjust": {
+   "fps": 10,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "walk": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "run": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "rout": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "kneel": {
+   "fps": 8,
+   "hold": 4,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "ready": {
+   "fps": 8,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "charge": {
+   "fps": 16,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a2"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "brace": {
+   "fps": 10,
+   "hold": 5,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "block": {
+   "fps": 14,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 2,
+       "op": "copy",
+       "from": 3,
+       "why": "REJECTED frame: impact sparks over the shaft; once cut, the blade floats loose"
+      }
+     ]
+    },
+    "north-east": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 2,
+       "op": "copy",
+       "from": 3,
+       "why": "REJECTED frame: as SE f2"
+      }
+     ]
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "slash": {
+   "fps": 16,
+   "strike": 6,
+   "canvas": "gatk",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a3",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      4,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15
+     ],
+     "why": "f5-f6 REJECTED: the blade bent into a crescent smear; the windup peak f4 is held a frame, then the blow (f7)"
+    },
+    "north-east": {
+     "attempt": "a3",
+     "frames": [
+      0,
+      0,
+      1,
+      2,
+      3,
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ],
+     "why": "f4 REJECTED: crescent smear; the windup peak f3 held, the blow f5"
+    },
+    "south-west": {
+     "attempt": "a3",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      5,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+     ],
+     "why": "f6 REJECTED: crescent smear; the windup peak f5 held, the blow f7"
+    },
+    "north-west": {
+     "attempt": "a3",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      4,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15
+     ],
+     "why": "f5-f6 REJECTED: crescent smears; the windup peak f4 held, the blow f7"
+    }
+   }
+  },
+  "stagger": {
+   "fps": 12,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "copy",
+       "from": 1,
+       "why": "REJECTED frame: a dark blood burst over the blade; once cut, the rhomphaia has no blade"
+      }
+     ]
+    },
+    "north-east": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "copy",
+       "from": 1,
+       "why": "REJECTED frame: blood over the blade; once cut, the blade is broken in pieces"
+      }
+     ]
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: blood and a white flash over the blade; once cut, the blade floats loose of the hands"
+      },
+      {
+       "frame": 1,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: as f0"
+      }
+     ]
+    }
+   }
+  },
+  "fallBack": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 0,
+       "op": "copy",
+       "from": 1,
+       "why": "REJECTED frame: a blood burst over the weapon; once cut, the rhomphaia is gone"
+      }
+     ]
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1",
+     "fixes": [
+      {
+       "frame": 3,
+       "op": "copy",
+       "from": 2,
+       "why": "REJECTED frame: blood over the blade; once cut, the blade is broken"
+      }
+     ]
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "fallFwd": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "cheer": {
+   "fps": 10,
+   "hold": 3,
+   "canvas": "tall",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  }
+ },
+ "tiers": {
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ],
+   "trim": [
+    "#b08a3a",
+    "#e0c070"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#151719",
+    "#1e2224",
+    "#2d3131",
+    "#3b4141"
+   ],
+   "trim": [
+    "#966c3d",
+    "#cc9554",
+    "#e0b867"
+   ]
+  }
+ }
+}

@@ -1,0 +1,250 @@
+{
+ "version": 2,
+ "class": "hoplite",
+ "image": "hoplite.png",
+ "frame": {
+  "w": 142,
+  "h": 117
+ },
+ "anchor": {
+  "x": 77,
+  "y": 102
+ },
+ "anchors": {
+  "south-east": {
+   "x": 42,
+   "y": 102
+  },
+  "north-east": {
+   "x": 58,
+   "y": 102
+  },
+  "south-west": {
+   "x": 77,
+   "y": 102
+  },
+  "north-west": {
+   "x": 62,
+   "y": 102
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "facings": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 28,
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "look": {
+   "col": 12,
+   "frames": 16,
+   "fps": 8
+  },
+  "adjust": {
+   "col": 28,
+   "frames": 12,
+   "fps": 10
+  },
+  "walk": {
+   "col": 40,
+   "frames": 16,
+   "fps": 16
+  },
+  "run": {
+   "col": 56,
+   "frames": 12,
+   "fps": 16
+  },
+  "ready": {
+   "col": 68,
+   "frames": 12,
+   "fps": 8
+  },
+  "charge": {
+   "col": 80,
+   "frames": 12,
+   "fps": 16
+  },
+  "brace": {
+   "col": 92,
+   "frames": 12,
+   "fps": 10,
+   "hold": 5
+  },
+  "block": {
+   "col": 104,
+   "frames": 12,
+   "fps": 14
+  },
+  "kneel": {
+   "col": 116,
+   "frames": 12,
+   "fps": 8,
+   "hold": 4
+  },
+  "rout": {
+   "col": 128,
+   "frames": 12,
+   "fps": 16
+  },
+  "thrust": {
+   "col": 140,
+   "frames": 14,
+   "fps": 14,
+   "strike": 6
+  },
+  "cheer": {
+   "col": 154,
+   "frames": 12,
+   "fps": 10,
+   "hold": 3
+  },
+  "stagger": {
+   "col": 166,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallBack": {
+   "col": 178,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallFwd": {
+   "col": 190,
+   "frames": 12,
+   "fps": 12
+  }
+ },
+ "colorGroups": {
+  "cloak": [
+   "#240c0e",
+   "#3e1216",
+   "#5e1a1e",
+   "#7e2428",
+   "#9c3432",
+   "#b84a40"
+  ],
+  "crest": [
+   "#240d0e",
+   "#3e1316",
+   "#5e1b1e",
+   "#7e2528"
+  ],
+  "trim": [
+   "#7b5e44",
+   "#dcc08a"
+  ],
+  "skin": [
+   "#4e3024",
+   "#7b503d",
+   "#a87464",
+   "#dbac99"
+  ],
+  "emblem": [
+   "#240c0f",
+   "#3e1217",
+   "#5e1a1f"
+  ],
+  "wood": [
+   "#1c1411",
+   "#241a11",
+   "#30241b",
+   "#463427",
+   "#4e3025",
+   "#5e4633",
+   "#7b503e",
+   "#7b5e45",
+   "#977849",
+   "#a87465",
+   "#dbac9a"
+  ]
+ },
+ "metal": [
+  {
+   "kind": "bronze",
+   "colors": [
+    "#bb9a60",
+    "#977848",
+    "#5e4632",
+    "#463426",
+    "#30241a"
+   ],
+   "slots": [
+    "shield",
+    "helmet",
+    "armor"
+   ]
+  },
+  {
+   "kind": "bronze",
+   "colors": [
+    "#977948",
+    "#7b5f44",
+    "#5e4732",
+    "#463526",
+    "#30251a",
+    "#241b10",
+    "#1c1510"
+   ],
+   "slots": [
+    "weapon"
+   ]
+  }
+ ],
+ "tiers": {
+  "basic": {},
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#2e0b17",
+    "#410e1e",
+    "#551326",
+    "#691a2e",
+    "#7c2236"
+   ],
+   "crest": [
+    "#3e0a0c",
+    "#8a1a1c",
+    "#c02a24",
+    "#e04a34"
+   ],
+   "trim": [
+    "#b08a3a",
+    "#e0c070"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#131517",
+    "#1a1e20",
+    "#242829",
+    "#303434",
+    "#3b4141"
+   ],
+   "crest": [
+    "#0b0b0b",
+    "#141212",
+    "#1f1c1b",
+    "#2d2928"
+   ],
+   "trim": [
+    "#966c3d",
+    "#e0b867"
+   ]
+  }
+ }
+}

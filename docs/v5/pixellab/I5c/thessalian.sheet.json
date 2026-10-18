@@ -1,0 +1,560 @@
+{
+ "$doc": "I5c thessalian sheet spec for scripts/art/pixellab/sheetbuild.mjs. Every clip is on the work canvas (scripts/art/pixellab/i5c/lib.mjs CANVAS: the 100 rotation at 22,44 on 144x160). Rebuild: node scripts/art/pixellab/i5c/fetchall.mjs thessalian && node scripts/art/pixellab/i5c/derive.mjs thessalian && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I5c/thessalian.sheet.json",
+ "class": "thessalian",
+ "raw": "docs/v5/pixellab/I5c/raw/thessalian",
+ "out": "src/assets/sheets/thessalian",
+ "scale": 0.55,
+ "ramps": [
+  "outline",
+  "crimson",
+  "teamRed",
+  "umber",
+  "darkBronze",
+  "skin",
+  "metal",
+  "iron"
+ ],
+ "parts": {
+  "crimson": "cloak",
+  "teamRed": "cloak",
+  "umber": "shadow",
+  "metal": "shadow",
+  "iron": "shadow"
+ },
+ "rowsFeet": {
+  "south-east": [
+   48,
+   95
+  ],
+  "north-east": [
+   40,
+   97
+  ],
+  "south-west": [
+   51,
+   95
+  ],
+  "north-west": [
+   59,
+   97
+  ]
+ },
+ "canvases": {
+  "work": {
+   "south-east": [
+    22,
+    44
+   ],
+   "north-east": [
+    22,
+    44
+   ],
+   "south-west": [
+    22,
+    44
+   ],
+   "north-west": [
+    22,
+    44
+   ]
+  },
+  "gallop": {
+   "south-east": [
+    22,
+    43
+   ],
+   "north-east": [
+    22,
+    41
+   ],
+   "south-west": [
+    22,
+    42
+   ],
+   "north-west": [
+    22,
+    38
+   ]
+  },
+  "rout": {
+   "south-east": [
+    22,
+    40
+   ],
+   "north-east": [
+    22,
+    39
+   ],
+   "south-west": [
+    22,
+    41
+   ],
+   "north-west": [
+    22,
+    35
+   ]
+  },
+  "throw": {
+   "south-east": [
+    22,
+    39
+   ],
+   "north-east": [
+    22,
+    42
+   ],
+   "south-west": [
+    22,
+    42
+   ],
+   "north-west": [
+    22,
+    42
+   ]
+  }
+ },
+ "anims": {
+  "idle": {
+   "fps": 8,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "walk": {
+   "fps": 14,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "gallop": {
+   "fps": 16,
+   "canvas": "gallop",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-west": {
+     "attempt": "e1",
+     "frames": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    },
+    "south-east": {
+     "attempt": "e1",
+     "frames": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    },
+    "north-east": {
+     "attempt": "e1",
+     "frames": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+     ]
+    },
+    "north-west": {
+     "attempt": "e1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   }
+  },
+  "throw": {
+   "fps": 14,
+   "strike": 6,
+   "canvas": "throw",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-west": {
+     "attempt": "a4",
+     "frames": [
+      0,
+      1,
+      2,
+      2,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+     ]
+    },
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+     ]
+    },
+    "north-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      3,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      3,
+      5,
+      6,
+      7,
+      9,
+      11,
+      13,
+      15
+     ]
+    }
+   }
+  },
+  "stagger": {
+   "fps": 12,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "fallFwd": {
+   "fps": 12,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a2"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "rout": {
+   "fps": 16,
+   "canvas": "rout",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-west": {
+     "attempt": "e1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+     ]
+    },
+    "south-east": {
+     "attempt": "e1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11,
+      12,
+      13,
+      14,
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    },
+    "north-east": {
+     "attempt": "e1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      0,
+      1,
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10
+     ]
+    },
+    "north-west": {
+     "attempt": "e1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11,
+      12,
+      13,
+      14,
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    }
+   }
+  },
+  "cheer": {
+   "fps": 10,
+   "hold": 15,
+   "canvas": "work",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  }
+ },
+ "tiers": {
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#151719",
+    "#1e2224",
+    "#2d3131",
+    "#3b4141"
+   ]
+  }
+ },
+ "stature": {
+  "from": "any",
+  "px": 90,
+  "tol": 4
+ },
+ "manifest": {
+  "rarity": {
+   "metal": false
+  },
+  "notes": "I5c thessalian: the dun-grey coat, the pilos, the buckler and the leather all sit in umber / metal / iron and are kept as shadow (no metal group, so no rarity swap; flag set anyway). Skin is only the rider (skin 2): the per-man skin tint stays on. The crimson chlamys and tunic (crimson + teamRed) are the cloak group. Javelin heads lead the throw; the throw clip plays over a galloping horse (thrown on the move). Clips on a 144x160 work canvas, see docs/v5/pixellab/I5c/thessalian.sheet.json."
+ },
+ "crest": false,
+ "emblem": false
+}

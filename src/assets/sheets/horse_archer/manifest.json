@@ -1,0 +1,143 @@
+{
+ "version": 2,
+ "class": "horse_archer",
+ "image": "horse_archer.png",
+ "frame": {
+  "w": 129,
+  "h": 147
+ },
+ "anchor": {
+  "x": 65,
+  "y": 131
+ },
+ "anchors": {
+  "south-east": {
+   "x": 54,
+   "y": 131
+  },
+  "north-east": {
+   "x": 53,
+   "y": 131
+  },
+  "south-west": {
+   "x": 65,
+   "y": 131
+  },
+  "north-west": {
+   "x": 65,
+   "y": 131
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "facings": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 31,
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 16,
+   "fps": 14
+  },
+  "gallop": {
+   "col": 28,
+   "frames": 16,
+   "fps": 16
+  },
+  "shoot": {
+   "col": 44,
+   "frames": 16,
+   "fps": 14,
+   "strike": 10
+  },
+  "stagger": {
+   "col": 60,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallFwd": {
+   "col": 72,
+   "frames": 16,
+   "fps": 12
+  },
+  "rout": {
+   "col": 88,
+   "frames": 24,
+   "fps": 16
+  },
+  "cheer": {
+   "col": 112,
+   "frames": 16,
+   "fps": 10,
+   "hold": 15
+  }
+ },
+ "colorGroups": {
+  "cloak": [
+   "#240c0e",
+   "#3e1216",
+   "#5e1a1e",
+   "#5e2427",
+   "#7e2428",
+   "#7a2a2e",
+   "#9c3432",
+   "#b84a40",
+   "#cc7677"
+  ],
+  "skin": [
+   "#4e3024",
+   "#7b503d",
+   "#a87464",
+   "#dbac99",
+   "#f8d5c2"
+  ]
+ },
+ "metal": [],
+ "tiers": {
+  "basic": {},
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#270915",
+    "#330c19",
+    "#3e0e1e",
+    "#4b1122",
+    "#581327",
+    "#64182c",
+    "#701d31",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#101214",
+    "#151719",
+    "#1a1d1f",
+    "#1e2224",
+    "#262a2b",
+    "#2d3131",
+    "#343939",
+    "#3b4141"
+   ]
+  }
+ },
+ "variation": {
+  "skin": false
+ },
+ "notes": "I5c horse archer: the brown coat is the rider skin ramp (skin 0, the same hexes as his face and hands), so the per-man skin tint is off. The crimson riding coat (crimson + teamRed) is the class cloak group. Hood, leather, bow and quiver are umber and darkBronze, kept as shadow (not recoloured), so there is no metal group and no rarity swap; no trim. Bow class: spear-line detection off. Clips on a 144x160 work canvas, see docs/v5/pixellab/I5c/horse_archer.sheet.json."
+}

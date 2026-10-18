@@ -1,0 +1,740 @@
+{
+ "$doc": "I5b gallic sheet spec for scripts/art/pixellab/sheetbuild.mjs, written by scripts/art/pixellab/i5b/mkspec.mjs from gallic.picks.json. Rebuild: node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/I5b/gallic.jobs.json docs/v5/pixellab/I5b/raw/gallic && node scripts/art/pixellab/sheetbuild.mjs docs/v5/pixellab/I5b/gallic.sheet.json",
+ "class": "gallic",
+ "raw": "docs/v5/pixellab/I5b/raw/gallic",
+ "out": "src/assets/sheets/gallic",
+ "scale": 0.55,
+ "ramps": [
+  "outline",
+  "umber",
+  "darkBronze",
+  "skin",
+  "bronze",
+  "iron",
+  "linen",
+  "metal",
+  "woad"
+ ],
+ "parts": {
+  "bronze": "trim",
+  "bronze:1-2": "shadow",
+  "iron": "metal",
+  "umber": "shadow",
+  "darkBronze": "shadow",
+  "linen": "shadow",
+  "metal": "shadow",
+  "woad": "shadow"
+ },
+ "crest": false,
+ "emblem": false,
+ "stature": {
+  "from": "any",
+  "why": "bare head, limed spiked hair"
+ },
+ "spear": false,
+ "metalKind": {
+  "metal": "iron"
+ },
+ "metalSlots": {
+  "metal": [
+   "weapon"
+  ]
+ },
+ "greyCut": 0.8,
+ "alignMax": [
+  18,
+  8
+ ],
+ "rowsFeet": {
+  "south-east": [
+   33,
+   66
+  ],
+  "north-east": [
+   34,
+   66
+  ],
+  "south-west": [
+   36,
+   66
+  ],
+  "north-west": [
+   35,
+   66
+  ]
+ },
+ "canvases": {
+  "rot": {
+   "south-east": [
+    0,
+    0
+   ],
+   "north-east": [
+    0,
+    0
+   ],
+   "south-west": [
+    0,
+    0
+   ],
+   "north-west": [
+    0,
+    0
+   ]
+  },
+  "tall": {
+   "south-east": [
+    14,
+    40
+   ],
+   "north-east": [
+    14,
+    40
+   ],
+   "south-west": [
+    14,
+    40
+   ],
+   "north-west": [
+    14,
+    40
+   ]
+  },
+  "atk": {
+   "south-east": [
+    20,
+    40
+   ],
+   "north-east": [
+    20,
+    40
+   ],
+   "south-west": [
+    40,
+    40
+   ],
+   "north-west": [
+    40,
+    40
+   ]
+  },
+  "die": {
+   "south-east": [
+    30,
+    30
+   ],
+   "north-east": [
+    30,
+    30
+   ],
+   "south-west": [
+    30,
+    30
+   ],
+   "north-west": [
+    30,
+    30
+   ]
+  },
+  "guard": {
+   "south-east": [
+    14,
+    41
+   ],
+   "north-east": [
+    19,
+    39
+   ],
+   "south-west": [
+    14,
+    44
+   ],
+   "north-west": [
+    11,
+    39
+   ]
+  },
+  "gatk": {
+   "south-east": [
+    20,
+    41
+   ],
+   "north-east": [
+    25,
+    39
+   ],
+   "south-west": [
+    40,
+    44
+   ],
+   "north-west": [
+    37,
+    39
+   ]
+  }
+ },
+ "anims": {
+  "idle": {
+   "fps": 8,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "look": {
+   "fps": 8,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "adjust": {
+   "fps": 10,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ],
+     "why": "f5 REJECTED: the hair drawn black for one frame (style drift)"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "walk": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "run": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "rout": {
+   "fps": 16,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "kneel": {
+   "fps": 8,
+   "hold": 4,
+   "canvas": "rot",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      7,
+      9,
+      10,
+      11
+     ],
+     "why": "f8 REJECTED: blood on the face"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "ready": {
+   "fps": 8,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "p1"
+    }
+   }
+  },
+  "charge": {
+   "fps": 16,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "p1"
+    }
+   }
+  },
+  "brace": {
+   "fps": 10,
+   "hold": 5,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "p1"
+    }
+   }
+  },
+  "block": {
+   "fps": 14,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-west": {
+     "attempt": "a3",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      7,
+      9,
+      10,
+      11
+     ],
+     "why": "a1 and a2 REJECTED: he turns his back on the blow; a3 thrusts the shield out left shoulder first, f8 (a back view in passing) dropped, the loose sparks cut"
+    },
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      4,
+      4,
+      3,
+      2,
+      1,
+      0,
+      0
+     ],
+     "why": "f5-f11 REJECTED: the hair turns blond and sparks burst over the shield; the shield raised across the body played out and back"
+    },
+    "north-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      3,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11
+     ],
+     "why": "f1-f2 REJECTED: a spark burst over the shield"
+    },
+    "north-west": {
+     "attempt": "p1",
+     "why": "polish: from the new NW guard (guard nw p1 f7), the axe carried on his right; sparks cut"
+    }
+   }
+  },
+  "slash": {
+   "fps": 16,
+   "strike": 6,
+   "canvas": "gatk",
+   "spear": "level",
+   "dirs": {
+    "south-west": {
+     "attempt": "a2",
+     "frames": [
+      0,
+      1,
+      1,
+      2,
+      2,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15
+     ],
+     "why": "a1 REJECTED: he turns his back in the windup, blood at the blow; a2 f3-f5 REJECTED the same: the axe raised (f2) to over the head (f6), the chop f7 (the spark and blood cut)"
+    },
+    "south-east": {
+     "attempt": "a2",
+     "frames": [
+      0,
+      1,
+      2,
+      2,
+      3,
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      15
+     ],
+     "why": "a1 REJECTED: the shield swings out of sight behind him through the follow-through (crescent smear f6); a2 keeps its edge in view, f4 REJECTED: crescent smear; the windup peak f3 held, the chop f5"
+    },
+    "north-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15,
+      15
+     ],
+     "why": "f6-f7 REJECTED: crescent smears; the chop f8"
+    },
+    "north-west": {
+     "attempt": "p1",
+     "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      4,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15
+     ],
+     "why": "polish: f5 REJECTED (crescent smear), f6 REJECTED (smear and blood); the raised axe f4 held, the chop f7 on index 6"
+    }
+   }
+  },
+  "stagger": {
+   "fps": 12,
+   "canvas": "guard",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      0,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11
+     ],
+     "why": "f1-f2 REJECTED: blood over the shield"
+    },
+    "north-east": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11
+     ],
+     "why": "f0-f1 REJECTED: blood over the shield rim"
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      0,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11
+     ],
+     "why": "f1-f2 REJECTED: a blood mark over the shield"
+    },
+    "north-west": {
+     "attempt": "p1",
+     "frames": [
+      0,
+      1,
+      1,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ],
+     "why": "polish: f2 REJECTED (a blood burst over the shield), f1 held"
+    }
+   }
+  },
+  "fallBack": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a2"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a2"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "fallFwd": {
+   "fps": 12,
+   "canvas": "die",
+   "spear": "level",
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      1,
+      1,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11
+     ],
+     "why": "f2-f3 REJECTED: a blood burst over the chest"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      0,
+      0,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ],
+     "why": "f1 REJECTED: a blood burst"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  },
+  "cheer": {
+   "fps": 10,
+   "hold": 3,
+   "canvas": "tall",
+   "spear": "upright",
+   "dirs": {
+    "south-east": {
+     "attempt": "a2"
+    },
+    "north-east": {
+     "attempt": "a1"
+    },
+    "south-west": {
+     "attempt": "a1"
+    },
+    "north-west": {
+     "attempt": "a1"
+    }
+   }
+  }
+ },
+ "tiers": {
+  "veteran": {
+   "trim": [
+    "#9a7434"
+   ]
+  },
+  "elite": {
+   "trim": [
+    "#c8963a"
+   ]
+  }
+ }
+}

@@ -1,0 +1,214 @@
+{
+ "version": 2,
+ "class": "rhomphaia",
+ "image": "rhomphaia.png",
+ "frame": {
+  "w": 118,
+  "h": 113
+ },
+ "anchor": {
+  "x": 62,
+  "y": 102
+ },
+ "anchors": {
+  "south-east": {
+   "x": 49,
+   "y": 102
+  },
+  "north-east": {
+   "x": 49,
+   "y": 102
+  },
+  "south-west": {
+   "x": 62,
+   "y": 102
+  },
+  "north-west": {
+   "x": 68,
+   "y": 102
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "facings": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 34,
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "look": {
+   "col": 12,
+   "frames": 16,
+   "fps": 8
+  },
+  "adjust": {
+   "col": 28,
+   "frames": 12,
+   "fps": 10
+  },
+  "walk": {
+   "col": 40,
+   "frames": 16,
+   "fps": 16
+  },
+  "run": {
+   "col": 56,
+   "frames": 12,
+   "fps": 16
+  },
+  "rout": {
+   "col": 68,
+   "frames": 12,
+   "fps": 16
+  },
+  "kneel": {
+   "col": 80,
+   "frames": 12,
+   "fps": 8,
+   "hold": 4
+  },
+  "ready": {
+   "col": 92,
+   "frames": 12,
+   "fps": 8
+  },
+  "charge": {
+   "col": 104,
+   "frames": 12,
+   "fps": 16
+  },
+  "brace": {
+   "col": 116,
+   "frames": 12,
+   "fps": 10,
+   "hold": 5
+  },
+  "block": {
+   "col": 128,
+   "frames": 12,
+   "fps": 14
+  },
+  "slash": {
+   "col": 140,
+   "frames": 16,
+   "fps": 16,
+   "strike": 6
+  },
+  "stagger": {
+   "col": 156,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallBack": {
+   "col": 168,
+   "frames": 12,
+   "fps": 12
+  },
+  "fallFwd": {
+   "col": 180,
+   "frames": 12,
+   "fps": 12
+  },
+  "cheer": {
+   "col": 192,
+   "frames": 12,
+   "fps": 10,
+   "hold": 3
+  }
+ },
+ "colorGroups": {
+  "cloak": [
+   "#240c0e",
+   "#3e1216",
+   "#5e1a1e",
+   "#7e2428",
+   "#9c3432",
+   "#b84a40"
+  ],
+  "trim": [
+   "#7b5e44",
+   "#dcc08a"
+  ],
+  "skin": [
+   "#4e3024",
+   "#7b503d",
+   "#a87464",
+   "#dbac99"
+  ]
+ },
+ "metal": [
+  {
+   "kind": "bronze",
+   "colors": [
+    "#bb9a60",
+    "#977848",
+    "#735a34",
+    "#5e4632",
+    "#463426",
+    "#3a2a18",
+    "#30241a"
+   ],
+   "slots": [
+    "helmet"
+   ]
+  },
+  {
+   "kind": "iron",
+   "colors": [
+    "#b0adab",
+    "#8a8789",
+    "#666364",
+    "#484647",
+    "#2f2e2f",
+    "#1c1b1c"
+   ],
+   "slots": [
+    "weapon",
+    "armor"
+   ]
+  }
+ ],
+ "tiers": {
+  "basic": {},
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#2e0b17",
+    "#410e1e",
+    "#551326",
+    "#691a2e",
+    "#7c2236"
+   ],
+   "trim": [
+    "#b08a3a",
+    "#e0c070"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#131517",
+    "#1a1e20",
+    "#242829",
+    "#303434",
+    "#3b4141"
+   ],
+   "trim": [
+    "#966c3d",
+    "#e0b867"
+   ]
+  }
+ }
+}
