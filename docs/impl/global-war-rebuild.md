@@ -26,6 +26,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-17 ~~Region size 256×256~~ superseded by W-18.
 - W-18 Real scale: soldier sprite 58 px = 1.76 m (≈33 px/m). 1 tile = 2 m; region 512×512 tiles ≈ 1 km. Trees, forts, rivers, roads sized true to the soldiers; mountains may be compressed. Zoomed-out LOD (dots/banners) for 600 units (owner 2026-10-19).
 - W-19 Gemini images are prototypes only. Real region art is built with PixelLab: map generation, tile generation (iso tilesets/transitions), map objects (trees, rocks, buildings) and FX (owner 2026-10-19).
+- W-20 Art pipeline (ART-3 spike): iso tiles 64×32 px, 16 px per height level. Terrain = one PixelLab create_tiles_pro iso Wang set (16 tiles, 64×48) per terrain pair, remapped to one dark palette, rim stripped; our renderer autotiles (corner mask NW<<3|NE<<2|SW<<1|SE) and stacks height. Objects = create_map_object (high top-down, 33 px/m, ≤400 px, no ground base) as trimmed PNGs with foot anchor. FX = vfx_workbench. create_map is not used (no autotile/export). Details: docs/playbook/PROMPTS_ART.md §22.
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
