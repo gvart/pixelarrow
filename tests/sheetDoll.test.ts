@@ -382,6 +382,19 @@ describe('sheet-backed figures', () => {
     expect(at({ ...HOPLITE, gear: { ...HOPLITE.gear, weapon: { def: 'dory', r: 4 } } }).px.get(cx, metalY)).toBe(bronzeOf(0).ramp[2]);
   });
 
+  it('keeps an iron group as drawn at rank 0 and spreads it over the iron ramp above', () => {
+    const { m, px } = tinySheet(FULL);
+    registerSheet({ ...m, metal: [{ kind: 'iron', colors: BRONZE_SRC, slots: ['helmet'] }] });
+    setSheetPixels('hoplite', px);
+    const g = dollGeom(HOPLITE);
+    const cx = Math.floor(g.fw / 2);
+    const metalY = g.footY - 5;
+    expect(renderFrameFx(HOPLITE, 0, 0).px.get(cx, metalY)).toBe(0xccaa88);
+    const rank = (r: number) => renderFrameFx({ ...HOPLITE, gear: { ...HOPLITE.gear, helmet: { def: 'pilos', r } } }, 0, 0).px.get(cx, metalY);
+    expect(rank(1)).toBe(ironOf(1).ramp[2]);
+    expect(rank(4)).toBe(ironOf(4).ramp[2]);
+  });
+
   it('recolours the one image by the tier the gear calls for and the man, and none when sheets are off', () => {
     const { m, px } = tinySheet(FULL);
     registerSheet(m);
