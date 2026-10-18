@@ -1,0 +1,23 @@
+scripts/art/pixellab/sheetbuild.mjs
+  s_41b82181a73565::t_6fcdf6cb5921a5 26-27
+  s_41b82181a73565::t_b0865a0d63ccf5 46-47
+  s_41b82181a73565::t_90e43a2f633878 97-98
+docs/v5/art/STYLE_LOCK.md
+  s_41b82181a73565::t_82c755c30de32c 142-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "40202a1100141bbc2a1cb1d214e405e531dfc307",
+  "prompts": {},
+  "sessions": {
+    "s_41b82181a73565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38a612c1-e1f8-4765-a2d8-1b979b437a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
