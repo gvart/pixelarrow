@@ -1,0 +1,40 @@
+PASS 1280 recruits: portraits listed (4)
+PASS 1280 click on the 2nd portrait shows him in the detail pane
+PASS 1280 detail pane has Hire
+PASS 1280 Tab reaches the detail pane Hire (recruit.card > town.hire > recruit.card > town.hire > recruit.card > town.hire > recruit.card > town.hire > town.hireCard)
+PASS 1280 Enter on Hire hires (9 -> 10)
+PASS 1280 Undo toast shown
+PASS 1280 Undo toast clear of Army and Leave ({"x":742,"y":720,"w":114,"h":44})
+PASS 1280 Undo takes the hire back
+PASS 1280 click on a ware chooses it
+PASS 1280 ware pane has Buy
+PASS 1280 Buy asks to confirm
+PASS 1280 hovering the fresco names the place
+PASS 1280 click on a stash item chooses it
+PASS 1280 item pane has Sell
+PASS 1280 Market: a row’s price chooses the listing
+PASS 1280 Market: the detail pane shows
+PASS 1280 Market: the wheel scrolls the listings
+PASS 1280 Pass: a sideways track (150)
+PASS 1280 Pass: the wheel moves the track one column (150 -> 225)
+PASS 1280 Pass: a drag moves the track and rests on a column (300)
+PASS 1280 Pass: Tab to a far tier brings its column into view (pass:15:free)
+PASS 1280 no page errors
+PASS 768 tap Hire hires
+PASS 768 tap a portrait opens the recruit sheet
+PASS 768 Pass (rows): Claim all claims
+PASS 768 no page errors
+PASS tg844 tap Hire hires
+PASS tg844 Undo toast clear of Army
+PASS tg844 tap the fresco says the place
+PASS tg844 Pass: rows (too short for the track)
+PASS tg844 Market: a tap on a listing opens its card as a side panel
+PASS tg844 no page errors
+PASS p844 tap Hire hires
+PASS p844 Undo toast clear of Army
+PASS p844 tap the fresco says the place
+PASS p844 Pass: the sideways track
+PASS p844 Pass: a swipe moves the track (260 -> 325)
+PASS p844 Market: a tap on a listing opens its card as a side panel
+PASS p844 no page errors
+ALL PASS
