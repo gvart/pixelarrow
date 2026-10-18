@@ -1,0 +1,24 @@
+src/ui/mosaic/StashGrid.ts
+  s_0d98fe904b2e82::t_165d23617bd5aa 40-41,200-202
+src/scenes/duel/DuelScene.ts
+  s_0d98fe904b2e82::t_a37c1820b16cf1 1885-1886,1889,1892,1894,1900,1907,1914-1923
+  s_0d98fe904b2e82::t_34be4bc811fb1f 1990-1991,1993-1995,2003
+  s_0d98fe904b2e82::t_d7687563d6e88d 3123-3124,3189
+  s_0d98fe904b2e82::t_130264d08c9951 1771-1779,1797-1800
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0c9dc342c2d1cba56984d364996914eb09ddf009",
+  "prompts": {},
+  "sessions": {
+    "s_0d98fe904b2e82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b1b9d8f-c5a7-46aa-88fa-6e797ce234d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
