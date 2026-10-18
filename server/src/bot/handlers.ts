@@ -170,7 +170,7 @@ export async function handleCommand(env: Env, db: D1Database, msg: BotMessage, g
       await send(env, {
         chat_id: msg.chat.id,
         text: t.deleteOpen,
-        reply_markup: { inline_keyboard: [[{ text: t.deleteOpenButton, web_app: { url: buttonUrl(gameUrl, { kind: 'settings' }) } }]] },
+        reply_markup: { inline_keyboard: [[{ text: t.deleteOpenButton, web_app: { url: buttonUrl(gameUrl, { kind: 'account' }) } }]] },
       });
     return true;
   }

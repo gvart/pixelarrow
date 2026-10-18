@@ -4,8 +4,8 @@
  * of game state: one player survives with the sign-ins of both, the other is
  * deleted under §7.
  *
- * - The other side is strictly empty (no save at all, no purchases, no duel or
- *   war history, no clan, no Drachmae, only the one sign-in) → it is deleted
+ * - The other side is strictly empty (no save beyond day 1 — see day1Only —, no
+ *   purchases, no duel or war history, no clan, no Drachmae, only the one sign-in) → it is deleted
  *   at once and the link completes.
  * - Otherwise a `link_conflicts` row (15 minutes) needs the SAME choice from
  *   both sides: the web session that asked (re-authed), and the Telegram owner
@@ -82,6 +82,8 @@ interface FactsRow {
   saved: number;
   heroes: number | null;
   hours: number | null;
+  won: number | null;
+  fought: number | null;
   rating: number | null;
   war: number;
   regions: number;
@@ -101,6 +103,8 @@ export async function facts(db: D1Database, pid: number): Promise<Facts | null> 
               EXISTS (SELECT 1 FROM saves WHERE player_id = p.id) AS saved,
               ${save(`json_array_length(data, '$.heroes')`)} AS heroes,
               ${save(`json_extract(data, '$.world.time')`)} AS hours,
+              ${save(`json_extract(data, '$.won')`)} AS won,
+              ${save(`json_extract(data, '$.fought')`)} AS fought,
               (SELECT rating FROM duel_ratings WHERE player_id = p.id AND ladder = 'live') AS rating,
               EXISTS (SELECT 1 FROM online_profiles WHERE player_id = p.id) AS war,
               (SELECT COUNT(*) FROM online_regions WHERE owner_id = p.id) AS regions,
@@ -117,8 +121,8 @@ export async function facts(db: D1Database, pid: number): Promise<Facts | null> 
     .first<FactsRow>();
   if (!r) return null;
   const kinds = (r.kinds ? r.kinds.split(',') : []) as IdentityKind[];
-  // Strict (V6-053): any cloud save, purchase, duel or war history, clan, or Drachmae movement is progress.
-  const progress = !!r.saved || !!r.war || !!r.duel || !!r.paid || r.drachmae !== 0 || !!r.ledger || !!r.clan;
+  // Strict (V6-053): any cloud save past day 1, purchase, duel or war history, clan, or Drachmae movement is progress.
+  const progress = (!!r.saved && !day1Only(r)) || !!r.war || !!r.duel || !!r.paid || r.drachmae !== 0 || !!r.ledger || !!r.clan;
   return {
     id: r.id,
     displayName: r.display_name,
@@ -138,6 +142,19 @@ export async function facts(db: D1Database, pid: number): Promise<Facts | null> 
       createdAt: r.created_at,
     },
   };
+}
+
+/**
+ * A cloud save with day-1 progress only (V6-LINK-07): the game uploads a campaign the first time the
+ * Mini App opens, so without this nearly every link would become a conflict. "Day 1 only" is exact:
+ * the save is readable JSON, no campaign battle was fought or won (`fought` and `won` are 0; the
+ * tutorial's battle counts toward neither, its small reward is not earned progress), and the campaign
+ * clock is still on its first day (`world.time` < 24 hours). A missing or non-numeric field, or an
+ * unreadable save, is progress (when in doubt, the player chooses).
+ */
+export function day1Only(s: { hours: unknown; won: unknown; fought: unknown }): boolean {
+  const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  return num(s.won) && s.won === 0 && num(s.fought) && s.fought === 0 && num(s.hours) && s.hours >= 0 && s.hours < 24;
 }
 
 /** True when the player has anything to lose. */
