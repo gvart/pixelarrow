@@ -17,7 +17,7 @@
 // `<baseUrl> [--platform telegram|web|both]`; with `both` it runs itself once
 // per mode. `platform()` is this process's mode.
 import { pathToFileURL } from 'node:url';
-import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, until, settled } from '../lib/harness.mjs';
+import { launch, phoneContext, captureErrors, apiDown, makePageApi, check, finish, until, settled, realClock } from '../lib/harness.mjs';
 import { cliArgs, platformMode, applyPlatform, launchUrl, noTelegramRequests } from '../lib/platform.mjs';
 
 const cli = cliArgs(process.argv.slice(2), 'scripts/regression/<script>.mjs');
@@ -44,10 +44,12 @@ export const entryUrl = (base, path = '') => launchUrl(base, mode, path);
  * A fresh phone page on `base` in this run's mode (Telegram: the fake WebApp,
  * Back and Settings through its buttons; web: a plain page), the API down (503,
  * so no step depends on a backend), first run skipped. Waits until the
- * Campaign hub has settled.
+ * Campaign hub has settled. `real`: the game clock on real frame time (harness.mjs realClock), so timers
+ * and tweens do not crawl when the machine draws a few frames a second.
  */
-export async function openGame(browser, base, { lang = 'en', viewport } = {}) {
+export async function openGame(browser, base, { lang = 'en', viewport, real = false } = {}) {
   const ctx = await phoneContext(browser, viewport ? { viewport } : {});
+  if (real) await realClock(ctx);
   await usePlatform(ctx, { languageCode: lang });
   const page = await ctx.newPage();
   const errors = captureErrors(page, { ignoreNetwork: true, stack: true });

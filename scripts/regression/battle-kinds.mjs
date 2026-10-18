@@ -16,7 +16,9 @@ import { launch, check, until, baseUrl, openGame, settled, running, pressBack, s
 const base = baseUrl();
 const browser = await launch();
 const t0 = Date.now();
-const { errors, api, ok } = await openGame(browser, base);
+// the game clock on real frame time: the battle's end (1.8 s to the report), the report's motion and the
+// deployment clock ran in slow motion under CI's software GL, and the six battles outlasted the runner's cap
+const { errors, api, ok } = await openGame(browser, base, { real: true });
 check('boot: the Campaign hub settles', ok);
 
 const B = (body) => api.call('Battle', body);
@@ -29,6 +31,9 @@ const battleUp = () => until(async () => (await settled(api, 'Battle', 1000)) &&
 
 /** Deployment -> fight through the Fight (offline) or Ready (online) key. */
 async function toFight(name, online) {
+  // no auto-pauses (first contact, a flank, a rout, a death: default on): on the battle's real-time clock one
+  // could land between Play and the check, or turn the Pause key to Play before it is tapped; pace is tested here
+  await api.ev(() => Object.assign(window.__state.campaign.data.settings, { pauseContact: false, pauseFlank: false, pauseRout: false, pauseDeath: false }));
   need(`${name}: ${online ? 'Ready' : 'Fight'} tapped`, await tapId(api, 'Battle', online ? 'battle.ready' : 'battle.fight'));
   need(`${name}: the fight starts`, await until(async () => (await battleInfo()).phase === 'battle', 20000, 200), JSON.stringify(await battleInfo()));
 }
@@ -74,8 +79,11 @@ async function leaveReport(name, origin, state) {
       const r = b.getBounds();
       return window.__css(r.centerX, r.centerY);
     });
+    // the tap either opens the Spoils page or leaves the report: wait for that state, one cheap read a poll
+    // (a nested settled() poll made each try take ~27 s, not 6, while the report stayed on Spoils)
+    const page = await api.ev(() => window.__game.scene.getScene('Results').page);
     if (pos) await api.tap(pos[0], pos[1]);
-    await until(async () => (await settled(api, origin, 500)) || !(await api.active('Results')), 6000, 200);
+    await until(() => api.ev((p) => { const s = window.__game.scene.getScene('Results'); return !s.sys.isActive() || s.page !== p; }, page), 6000, 200);
   }
   const back = (await settled(api, origin)) && (await running(api)).join('+') === origin && (!state || (await until(() => api.call(origin, state), 8000, 150)));
   check(`${name}: Results -> ${origin}`, back, JSON.stringify(await running(api)));
