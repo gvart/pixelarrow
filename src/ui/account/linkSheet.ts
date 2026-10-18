@@ -6,7 +6,7 @@
  */
 import Phaser from 'phaser';
 import { Button, ScrollArea } from '../kit';
-import { MButton, mtext, openParchmentSheet, sheetWidth, GAP, SHEET_TITLE_H, type MButtonVariant, type ParchmentSheetHandle } from '../mosaic';
+import { MButton, mtext, mw, openParchmentSheet, sheetWidth, GAP, SHEET_TITLE_H, type MButtonVariant, type ParchmentSheetHandle } from '../mosaic';
 import type { UiScene } from '../mosaic/subShell';
 import { measureText } from '../textfit';
 import type { FontKey } from '../kit';
@@ -38,6 +38,21 @@ export class Body {
     this.into.add(tx);
     this.y += tx.height + 5;
     return tx;
+  }
+
+  /** A string with no spaces (a link, a code), broken between characters to fit: never cut (it gets copied by eye). */
+  token(s: string, font: FontKey = 'pMuted', size = 6.5): void {
+    const lines: string[] = [];
+    let cur = '';
+    for (const ch of s) {
+      if (cur && mw(cur + ch, font, size) > this.w) {
+        lines.push(cur);
+        cur = '';
+      }
+      cur += ch;
+    }
+    if (cur) lines.push(cur);
+    this.text(lines.join('\n'), font, size);
   }
 
   gap(n = 4): void {

@@ -151,7 +151,7 @@ export function openLinkTelegram(scene: UiScene, o: LinkTelegramOpts): void {
     if (!link) {
       // no bot username configured: no link to open or draw; the start code is the fallback
       s.text(t('link.noBot'), 'pSec');
-      s.text(`link_${c.code}`, 'pInk', 7.5);
+      s.token(`link_${c.code}`, 'pInk', 7.5);
       s.button({ label: t('link.copyCode'), id: 'link.copyCode', variant: 'secondary', onClick: () => void copy(`link_${c.code}`) });
       return;
     }
@@ -166,7 +166,7 @@ export function openLinkTelegram(scene: UiScene, o: LinkTelegramOpts): void {
     const code = new QrCode(scene, s.x, s.y, link, side, 'link.qr');
     s.put(code, code.side);
     // the link itself next to the code: what a screen reader and a careful eye can check (§13.5)
-    s.text(link.replace('?', '\n?'), 'pMuted', 6.5);
+    s.token(link);
     s.button({ label: t('link.copy'), id: 'link.copy', variant: 'secondary', onClick: () => void copy(link) });
   };
 
