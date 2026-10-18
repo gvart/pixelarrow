@@ -19,7 +19,7 @@ import { audio } from '../audio';
 import { t, type LangSetting, type TKey } from '../i18n';
 import { refreshLang } from './lang';
 import { canResume, progressOf } from '../game/tutorial';
-import { openAbout, openNotifySettings, settingsSheetW } from './notifySettings';
+import { openAbout, openNotifySettings, settingsSheetOpts } from './notifySettings';
 import { addSyncBadge } from './online';
 import { online } from '../platform/cloud';
 import { analyticsToggled } from '../platform/monitoring';
@@ -148,13 +148,13 @@ const accountRowNow = () => accountRow({ signedIn: online.signedIn, name: online
 export function openSettings(scene: UiScene, onClose?: () => void): Phaser.GameObjects.Container {
   open.get(scene)?.destroy();
   const s = state.campaign.data.settings;
-  const { VW, VH } = scene.m;
+  const { VH } = scene.m;
   const rowH = 24;
   const step = rowH + SIZE.gap;
-  const w = settingsSheetW(VW);
   let rows = settingsRows(platform.input.keyboard());
   const want = 26 + rows.length * step + 14;
-  const m = openParchmentSheet(scene, { title: t('settings.title'), w, h: Math.min(want, VH - 12), dock: 'bottom', onClose });
+  // §13.3: the v5 sheet on phones upright, a side panel sideways, a centred panel on a laptop
+  const m = openParchmentSheet(scene, { ...settingsSheetOpts(scene), title: t('settings.title'), h: Math.min(want, VH - 12), onClose });
   const { c, body } = m;
   const listH = body.h;
   let list: ScrollList | null = null;

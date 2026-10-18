@@ -136,8 +136,8 @@ const SECTION_ICON: Record<string, string> = { profile: 'people', methods: 'flag
 export function openAccountPage(scene: UiScene, o: { source?: AccountSource; onClose?: () => void; d?: AccountDeps } = {}): Phaser.GameObjects.Container {
   const src = o.source ?? liveAccountSource(o.d);
   const d = o.d ?? accountDeps();
-  const { VW, VH } = scene.m;
-  const w = settingsSheetW(VW);
+  const { VH } = scene.m;
+  const w = settingsSheetW(scene);
   const m = openSettingsPage(scene, { title: t('account.title'), h: Math.min(360, VH - 12), id: 'account', onClose: o.onClose });
   const { c, x, y, h } = m;
   const iw = w - 16;

@@ -18,7 +18,7 @@ import { ellipsize, measureText, wrapText, LINE_H } from './textfit';
 import { SIZE } from './theme';
 import { MOSAIC } from './tokens';
 import { uiFrame } from './layout';
-import { openParchmentSheet } from './mosaic/ParchmentSheet';
+import { openParchmentSheet, sheetWidth } from './mosaic/ParchmentSheet';
 import { MIconButton } from './mosaic/iconButton';
 import { online } from '../platform/cloud';
 import { NOTIFY_TYPES, type NotifySettings, type NotifyType } from '../platform/api';
@@ -61,8 +61,17 @@ export function demoNotifySource(over: Partial<NotifySettings> = {}): NotifySour
   };
 }
 
-/** Width of the settings sheet and of its pages (they take each other's place). */
-export const settingsSheetW = (VW: number): number => Math.min(VW - 8, 240);
+/**
+ * Where Settings and its pages open (they take each other's place): docked like v5's sheet, of the
+ * `settings` kind, so outside compact portrait they get the §3.4 box (landscape-v6.md §13.3).
+ */
+export const settingsSheetOpts = (scene: UiScene): { w: number; dock: 'bottom'; panel: 'settings' } => ({ w: Math.min(scene.m.VW - 8, 240), dock: 'bottom', panel: 'settings' });
+
+/**
+ * Width of the settings sheet and of its pages: v5's `min(VW - 8, 240)` for a bare width, else the width of
+ * the panel they open in on this screen, so their content fills it.
+ */
+export const settingsSheetW = (at: number | UiScene): number => (typeof at === 'number' ? Math.min(at - 8, 240) : sheetWidth(at, settingsSheetOpts(at)));
 
 /** Title sizes of a page, largest first; 6.5 UI px is the readable floor (A11Y-09). */
 const TITLE_SIZES = [9, 8.5, 8, 7.5, 7, 6.5];
@@ -73,9 +82,8 @@ const TITLE_SIZES = [9, 8.5, 8, 7.5, 7, 6.5];
  * Closing it (chevron, Back, a tap outside) uncovers the settings again.
  */
 export function openSettingsPage(scene: UiScene, o: { title: string; h: number; id: string; onClose?: () => void }): Modal {
-  const w = settingsSheetW(scene.m.VW);
-  const m = openParchmentSheet(scene, { w, h: o.h, dock: 'bottom', closeButton: false, onClose: o.onClose, id: o.id });
-  const { c, x, y } = m;
+  const m = openParchmentSheet(scene, { ...settingsSheetOpts(scene), h: o.h, closeButton: false, onClose: o.onClose, id: o.id });
+  const { c, x, y, w } = m;
   c.add(new MIconButton(scene, x + 3, y + 1, 22, 22, { icon: 'chevL', label: t('common.back'), variant: 'secondary', id: `${o.id}.back`, onClick: () => m.close() }));
   // centred like every sheet title; moved right of the chevron when it would not fit there at a readable size
   const fit = (room: number) => TITLE_SIZES.find((z) => measureText(o.title, false, z, 'roman') <= room);
@@ -98,10 +106,10 @@ const ROWS: Row[] = [...NOTIFY_TYPES.map((type) => ({ kind: 'type' as const, typ
 /** Opens the notification switches. */
 export function openNotifySettings(scene: UiScene, opts: { source?: NotifySource; onClose?: () => void } = {}): Phaser.GameObjects.Container {
   const src = opts.source ?? liveSource;
-  const { VW, VH } = scene.m;
+  const { VH } = scene.m;
   const rowH = SIZE.btnH;
   const step = rowH + SIZE.gap;
-  const w = settingsSheetW(VW);
+  const w = settingsSheetW(scene);
   const noteLines = 3;
   const want = 26 + noteLines * LINE_H + 6 + ROWS.length * step + 12;
   const m = openSettingsPage(scene, { title: t('notify.title'), h: Math.min(want, VH - 12), id: 'notify', onClose: opts.onClose });
@@ -172,8 +180,8 @@ const PAGES: { page: LegalPage; label: TKey }[] = [
 
 /** Settings → About: what the game is, the legal pages, where to get help with a purchase. */
 export function openAbout(scene: UiScene, onClose?: () => void): Phaser.GameObjects.Container {
-  const { VW, VH } = scene.m;
-  const w = settingsSheetW(VW);
+  const { VH } = scene.m;
+  const w = settingsSheetW(scene);
   const iw = w - 16;
   const note = wrapText(t('about.note'), iw, 6);
   const step = SIZE.btnH + SIZE.gap;

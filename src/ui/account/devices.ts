@@ -45,8 +45,8 @@ export function orderSessions(list: SessionInfo[]): SessionInfo[] {
 
 export function openDevices(scene: UiScene, o: { source: AccountSource; onSignedOut?: () => void; onClose?: () => void }): Phaser.GameObjects.Container {
   const src = o.source;
-  const { VW, VH } = scene.m;
-  const w = settingsSheetW(VW);
+  const { VH } = scene.m;
+  const w = settingsSheetW(scene);
   const m = openSettingsPage(scene, { title: t('devices.title'), h: Math.min(320, VH - 12), id: 'devices', onClose: o.onClose });
   const { c, x, y, h } = m;
   const iw = w - 16;

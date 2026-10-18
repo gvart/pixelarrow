@@ -114,10 +114,10 @@ function apply(scene: Phaser.Scene, next: BindingMap, msg: string): void {
 
 /** Opens Settings → Keyboard shortcuts. */
 export function openControls(scene: UiScene, onClose?: () => void): Phaser.GameObjects.Container {
-  const { VW, VH } = scene.m;
+  const { VH } = scene.m;
   const rowH = SIZE.btnH;
   const step = rowH + SIZE.gap;
-  const w = settingsSheetW(VW);
+  const w = settingsSheetW(scene);
   const want = 26 + PAGE_ROWS.length * step + step + 12;
   const m = openSettingsPage(scene, { title: t('controls.title'), h: Math.min(want, VH - 12), id: 'controls', onClose });
   const { c, x, y, h } = m;
