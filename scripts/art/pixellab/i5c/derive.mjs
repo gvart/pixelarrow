@@ -23,6 +23,9 @@ const DERIVED = {
     ['rout', 'north-east', 'e1', 'rout-entry', 'a1'],
     ['rout', 'north-west', 'e1', 'rout-entry', 'a2'],
   ],
+  chariot: [
+    ...['south-east', 'north-east', 'south-west', 'north-west'].flatMap((d) => [['drive', d, 'e1', 'drive-entry', 'a1'], ['rout', d, 'e1', 'rout-entry', 'a1']]),
+  ],
   thessalian: [
     ...['south-east', 'north-east', 'south-west', 'north-west'].flatMap((d) => [['gallop', d, 'e1', 'gallop-entry', 'a1'], ['rout', d, 'e1', 'rout-entry', 'a1']]),
   ],

@@ -1,0 +1,108 @@
+{
+ "version": 2,
+ "class": "chariot",
+ "image": "chariot.png",
+ "frame": {
+  "w": 163,
+  "h": 153
+ },
+ "anchor": {
+  "x": 68,
+  "y": 138
+ },
+ "anchors": {
+  "south-east": {
+   "x": 84,
+   "y": 138
+  },
+  "north-east": {
+   "x": 61,
+   "y": 138
+  },
+  "south-west": {
+   "x": 68,
+   "y": 138
+  },
+  "north-west": {
+   "x": 85,
+   "y": 138
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "facings": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 25,
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "drive": {
+   "col": 12,
+   "frames": 16,
+   "fps": 16
+  },
+  "charge": {
+   "col": 28,
+   "frames": 16,
+   "fps": 16
+  },
+  "hit": {
+   "col": 44,
+   "frames": 12,
+   "fps": 12
+  },
+  "wreck": {
+   "col": 56,
+   "frames": 16,
+   "fps": 12
+  },
+  "rout": {
+   "col": 72,
+   "frames": 14,
+   "fps": 16
+  }
+ },
+ "colorGroups": {
+  "cloak": [
+   "#2a1f2a"
+  ],
+  "skin": [
+   "#4e3024",
+   "#7b503d",
+   "#a87464"
+  ]
+ },
+ "metal": [],
+ "tiers": {
+  "basic": {},
+  "veteran": {
+   "cloak": [
+    "#5c1428"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#1e2224"
+   ]
+  }
+ },
+ "variation": {
+  "skin": false
+ },
+ "rarity": {
+  "metal": false
+ },
+ "notes": "I5c chariot: both bay horses are the driver's skin ramp (skin 0-2: the same hexes as his face and arms), so the per-man skin tint is off. The driver's purple-black cloak (purpleBlack) is the class cloak group. Car, wheels, scythes, pilos, kopis and harness are umber / iron / metal, kept as shadow: no metal group, so no rarity swap (flag set). Clips: idle, drive, charge (kopis swung overhead), hit, wreck, rout. Work canvas 176x176, see docs/v5/pixellab/I5c/chariot.sheet.json."
+}

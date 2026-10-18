@@ -272,6 +272,44 @@ Sheet: `src/assets/sheets/thessalian/` 128 columns x 4 rows of 123 x 139, packed
 
 **Rejected and why:** throw SW a1-a3 (the cocked javelin points back over the rider, or he turns his back to the facing); SW fall a1 stuck and cancelled. Fixed by cuts: throw SW a4, SE, NE, NW (head-back and double-ended frames dropped). Lesson: an overhead harpoon throw ("tilting it so its small head points forward and down … flings it forward and down") keeps the head leading better than "draw back along its line".
 
+#### chariot (25 gens)
+
+Clips on a 176 x 176 work canvas (1 generation each): idle 12 @ 8, drive 16 @ 16 (both horses galloping, wheels and scythes turning; entry strides 8 x 2, SE a 14-frame loop with two frames held), charge 16 @ 16 (pinned to the drive key: the driver whirls his one kopis overhead and cuts), hit 12 @ 12 (both horses half rear in the traces, the car jolts), wreck 16 @ 12 (the horses go down, the pole snaps, the car overturns, the driver is thrown out), rout 14 @ 16 (the driver crouches low, the horses bolt; 11-14-frame loops, short ones stretched by held frames). First try in every clip and facing.
+
+Sheet: `src/assets/sheets/chariot/` 86 columns x 4 rows of 163 x 153, packed 15.78 MB decoded (all core), 579 KB download. `qc.mjs` with `stature { from: any, px: 108, tol: 4 }`: 0 failures. Groups: cloak = the driver's purple-black cloak; skin = the driver's skin **and both bay coats** (same hexes). Everything else (car, wheels, scythes, pilos, kopis, harness) is shadow: no metal group. Manifest: `variation.skin: false`, `rarity.metal: false`. Earth clods thrown up behind the wheels (they share the coats' light browns) are cleared by shape (`dust.mjs --clods`: warm light blobs in the bottom 30 rows bordered by background or their own outline), plus everything below the wheels' ground row; a few dark specks remain in NE / NW drive (2-3 px). `anchorcheck.mjs` prints dy,dx: drive, charge and rout sit within 1 px of idle after per-clip canvas offsets.
+
+| clip | facing | attempt | job | prompt | gens | outcome |
+| --- | --- | --- | --- | --- | --- | --- |
+| idle | SW | a1 | `06fa4984` | K-idle-1 | 1 | accepted: both horses breathe and shift, two horses x 4 legs, the driver with the reins and kopis |
+| drive-entry | SW | a1 | `d568b18e` | K-drive-1 | 1 | accepted: both horses gallop, wheels and scythes turn, cloak streams; frames 7-14 loop (2.6 %): drive 7-14 twice |
+| drive-entry | SE | a1 | `a6bc9b0e` | K-drive-1 | 1 | accepted: loops in 14 (1-14); two frames held to make 16 |
+| drive-entry | NE | a1 | `11420a4f` | K-drive-2 | 1 |  |
+| drive-entry | NW | a1 | `f9bd4763` | K-drive-2 | 1 |  |
+| hit | SW | a1 | `850718e4` | K-hit-1 | 1 | accepted: the horses lurch and half rear in the traces, the car jolts, the driver swings his kopis up and braces; 2 x 4 legs |
+| charge | SW | a1 | `7e244973` | K-charge-1 | 1 | accepted: pinned loop on the drive key; horses at full stretch, the driver whirls one kopis overhead and cuts (4-13) |
+| rout-entry | SW | a1 | `c2ccb4fd` | K-rout-1 | 1 | accepted: the driver crouches low in the car, horses bolting; loops in 14 (0-13), two frames held to make 16 |
+| wreck | SW | a1 | `5ef05615` | K-wreck-1 | 1 | accepted: both horses go down, the pole snaps, the car is flung up and over and crashes on its side, the driver thrown out lies beside it; 2 x 4 legs |
+| idle | SE | x1 | `1221a9b1` | K-drive-1 | 1 | cancelled at once: sent with the drive prompt by mistake (may bill 1) |
+| idle | SE | a1 | `c6dc1727` | K-idle-1 | 1 | accepted (sheet strip) |
+| charge | SE | a1 | `605a2eb8` | K-charge-1 | 1 | accepted: the driver rises with the kopis overhead (4-8) and slashes down; one blade; pinned loop |
+| charge | NE | a1 | `0bf77675` | K-charge-2 | 1 | accepted: seen from behind, the kopis swung overhead and cut (3-12); one blade; dust cleared |
+| charge | NW | a1 | `fe20b914` | K-charge-2 | 1 | accepted: the driver swings the kopis out to the side (9-12), one blade, horses at full stretch |
+| hit | SE | a1 | `f0c725d9` | K-hit-1 | 1 | accepted: the horses lurch and toss their heads, the car jolts, the driver is thrown back with the kopis out and recovers |
+| rout-entry | SE | a1 | `81ac207f` | K-rout-1 | 1 | accepted: driver crouched low, horses bolting; loops in 12 (3-14), four frames held to make 16 |
+| idle | NE | a1 | `64183b7e` | K-idle-2 | 1 | accepted (sheet strip) |
+| wreck | SE | a1 | `3c7da97b` | K-wreck-1 | 1 | accepted: the horses tear loose and go down in the traces, the pole snaps, the car slews back and tips, the driver falls out behind it; 2 x 4 legs |
+| hit | NE | a1 | `7cf46b30` | K-hit-2 | 1 | accepted: both horses rear in the traces and drop, the car rocks; red specks (blood, unrequested) cleared by despeck |
+| rout-entry | NE | a1 | `6c57d9d6` | K-rout-2 | 1 | accepted: driver crouched under his cloak, horses bolting; loops in 12 (2-13), four frames held; dust cleared |
+| rout-entry | NW | a1 | `f25654d0` | K-rout-2 | 1 | accepted: hunched driver, bolting horses; loops in 11 (2-12), five frames held |
+| idle | NW | a1 | `4bb60878` | K-idle-2 | 1 | accepted (sheet strip) |
+| hit | NW | a1 | `1084e890` | K-hit-2 | 1 | accepted: both horses rear in the traces and drop, the car rocks |
+| wreck | NE | a1 | `d0f1e7b7` | K-wreck-2 | 1 | accepted: the horses go down, the pole snaps, the car overturns, the driver lies beside it |
+| wreck | NW | a1 | `992f42b1` | K-wreck-2 | 1 | accepted: the horses go down in the traces, the car tips, the driver tumbles out and lies beside it |
+
+25 jobs, 25 gens.
+
+**Rejected:** none (one idle SE job sent with the drive prompt by mistake, cancelled at once).
+
 ### I3a Hoplite production and style lock: realistic H4 base, 16 clips in 4 facings, recolour tiers (2026-10-18)
 
 **Brief** (user, after I1b): the E3 look at realistic adult proportions (about 7 heads, no big helmet), one animated

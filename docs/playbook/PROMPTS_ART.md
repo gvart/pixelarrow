@@ -1498,3 +1498,70 @@ Poses (`initial_pose`): tStand: "the horse standing square on four legs, the rid
 
 **Lessons:** for a javelin say "lifts it overhead … head points forward and down … flings it forward and down", and cut the frames where the head turns back. Light dust touching the hooves needs a lightness cut in the bottom rows (`dust.mjs`), not only a speck filter.
 
+### chariot
+
+- **K-idle-1**
+  ```
+  the chariot stands still: the two horses stand at rest under the yoke and breathe slowly, their barrels swelling and sinking, each shifting its weight, tossing its head a little and swishing its tail; the driver stands in the car holding the reins, breathing, his sword in his right hand; the wheels and the scythe blades stay still; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-drive-1**
+  ```
+  the chariot drives at full speed in place in the direction it faces: both horses gallop side by side with a real horse's heavy gallop, hind legs pushing off, forelegs reaching and striking the ground, heads nodding, manes and tails streaming; the two spoked wheels spin fast and the scythe blades on the hubs whirl round with them; the car bounces on the ground; the driver leans forward braced in the car, holding the reins taut, his sword in his right hand, his cloak streaming; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-drive-2**
+  ```
+  seen from behind: the chariot drives at full speed in place away from us in the direction it faces: both horses gallop side by side with a real horse's heavy gallop, hind legs pushing off, forelegs reaching and striking the ground, heads nodding, manes and tails streaming; the two spoked wheels spin fast and the scythe blades on the hubs whirl round with them; the car bounces on the ground; the driver, his back to us, leans forward braced in the car holding the reins taut, his cloak streaming; no dust; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-hit-1**
+  ```
+  the chariot is struck: both horses shy in fright, throwing up their heads and half rearing in the traces, front hooves pawing the air, then drop back onto all four hooves and stamp; the car jolts and rocks back on its wheels; the driver is thrown back, braces himself and hauls on the reins, the sword still in his right hand; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-charge-1**
+  ```
+  the scythed chariot charges flat out in place in the direction it faces: both horses gallop at full stretch with heads low and necks straining, hind legs driving, forelegs reaching and striking the ground; the wheels spin fast and the long scythe blades on the hubs whirl round, glinting dully; the driver crouches low in the car, lashes the reins and swings his curved sword overhead, ready to cut; manes, tails and his cloak stream behind; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-rout-1**
+  ```
+  the chariot flees in panic at full speed in place in the direction it faces: both horses bolt at a wild gallop, ears pinned back, eyes rolling, heads thrown up, hind legs driving and forelegs reaching; the wheels spin fast and the car bounces and sways; the driver crouches low in the car, hunched in fear, and looks back over his shoulder, hauling at the reins; manes, tails and his cloak stream behind; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-wreck-1**
+  ```
+  the chariot is wrecked: both horses are struck and go down, stumbling and crashing onto their knees and then onto their sides in a tangle of traces; the pole snaps, the car slews round, tips over onto one wheel and crashes down on its side, one wheel spinning loose; the driver is thrown out of the car onto the ground and lies still beside the wreck; no blood, no fire; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-charge-2**
+  ```
+  seen from behind, the driver faces away the whole time: the scythed chariot charges flat out in place away from us in the direction it faces: both horses gallop at full stretch with heads low and necks straining, hind legs driving, forelegs reaching and striking the ground; the wheels spin fast and the long scythe blades on the hubs whirl round; the driver crouches low in the car, lashes the reins and swings his curved sword overhead, ready to cut; manes, tails and his cloak stream behind; no dust; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-idle-2**
+  ```
+  the chariot stands still: the two horses stand at rest under the yoke and breathe slowly, their barrels swelling and sinking, each shifting its weight, tossing its head a little and swishing its tail; the driver stands in the car holding the reins, breathing; the wheels and the scythe blades stay still; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-hit-2**
+  ```
+  seen from behind, the driver faces away the whole time: the chariot is struck: both horses shy in fright, throwing up their heads and half rearing in the traces, front hooves pawing the air, then drop back onto all four hooves and stamp; the car jolts and rocks back on its wheels; the driver is thrown back, braces himself and hauls on the reins; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-rout-2**
+  ```
+  seen from behind, the driver faces away the whole time: the chariot flees in panic at full speed in place away from us in the direction it faces: both horses bolt at a wild gallop, ears pinned back, heads thrown up, hind legs driving and forelegs reaching; the wheels spin fast and the car bounces and sways; the driver crouches low in the car, hunched in fear, hauling at the reins; manes, tails and his cloak stream behind; no dust; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+- **K-wreck-2**
+  ```
+  seen from behind: the chariot is wrecked: both horses are struck and go down, stumbling and crashing onto their knees and then onto their sides in a tangle of traces; the pole snaps, the car slews round, tips over onto one wheel and crashes down on its side, one wheel spinning loose; the driver is thrown out of the car onto the ground and lies still beside the wreck; no blood, no fire; exactly two horses, each with exactly four legs, in every frame
+  ```
+
+Subjects (`subject_description`): chariot: "a Carthaginian scythed war chariot pulled by two dark bay horses, one driver in the car"; chariotBack: "a Carthaginian scythed war chariot pulled by two dark bay horses, one driver in the car, seen from behind"; chariotGallop: "a Carthaginian scythed war chariot pulled by two dark bay horses at the gallop, one driver in the car"; chariotGallopBack: "a Carthaginian scythed war chariot pulled by two dark bay horses at the gallop, one driver in the car, seen from behind"
+Poses (`initial_pose`): cStand: "the two horses standing square under the yoke, the driver upright in the car holding the reins"; cStandBack: "the two horses standing square under the yoke facing away, the driver upright in the car with his back to us holding the reins"; cGallop: "both horses mid-gallop, the driver leaning forward with the reins"
+
+**Lessons:** a two-horse chariot animates as one figure on a 176 canvas at 1 generation per clip; say "exactly two horses, each with exactly four legs". Pin the charge to a drive key with `last_frame_url` so it loops. Earth clods share the coat colours: cut them by shape, not by colour.
+

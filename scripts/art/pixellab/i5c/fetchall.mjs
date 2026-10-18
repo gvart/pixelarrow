@@ -21,7 +21,7 @@ for (const j of loadJobs(cls)) {
   try {
     execFileSync('node', a, { stdio: ['ignore', 'pipe', 'pipe'] })
       .toString().split('\n').filter((l) => l.includes('moved')).forEach((l) => console.log(l.replace(/.*clips\//, '')));
-    if (j.dust) console.log(execFileSync('node', [join(here, 'dust.mjs'), out]).toString().trim().replace(/.*clips\//, ''));
+    if (j.dust) console.log(execFileSync('node', [join(here, 'dust.mjs'), out, ...(j.dust === '1' ? [] : j.dust.split(' '))]).toString().trim().replace(/.*clips\//, ''));
     if (j.despeck) console.log(execFileSync('node', [join(here, 'despeck.mjs'), out, String(j.despeck)]).toString().trim().replace(/.*clips\//, ''));
   } catch (e) {
     console.log(`${j.anim} ${j.dir} ${j.attempt}: not ready (${String(e.stderr ?? e.message).split('\n').find((l) => l.trim()) ?? ''})`);

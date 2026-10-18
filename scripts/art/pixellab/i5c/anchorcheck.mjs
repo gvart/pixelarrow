@@ -27,5 +27,6 @@ m.rows.forEach((dir, row) => {
     if (!base) base = r;
     line.push(`${anim} ${r[0] - base[0] >= 0 ? '+' : ''}${r[0] - base[0]},${r[1] - base[1] >= 0 ? '+' : ''}${r[1] - base[1]}`);
   }
+  // each entry: anim dy,dx (lowest row, then mean x of the lowest 40 rows) against idle
   console.log(`${dir.padEnd(10)} ${line.join('  ')}`);
 });
