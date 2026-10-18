@@ -169,6 +169,48 @@
    "feet": 66,
    "height_px": 58,
    "heads": 5.27
+  },
+  "royal_guard": {
+   "culture": "greek",
+   "character_id": "49cc24c8-3fe3-40e5-ab4a-9e10b5f05d84",
+   "prompt_id": "I4a-royal_guard-A1",
+   "rotations": "docs/v5/pixellab/I4a/raw/royal_guard/A1/zip/Idle/rotations",
+   "crown": 10,
+   "chin": 19,
+   "headgear_top": 2,
+   "groups": {
+    "cloak": "purpleBlack (exclusive)",
+    "plumes": "linen",
+    "shield": "linen + metal"
+   },
+   "status": "approved",
+   "note": "plumes not counted",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 57,
+   "heads": 5.7
+  },
+  "sacred_band": {
+   "culture": "greek",
+   "character_id": "2b900b89-68f3-43ca-8301-382f1b453464",
+   "prompt_id": "I4a-sacred_band-A1",
+   "rotations": "docs/v5/pixellab/I4a/raw/sacred_band/A1/zip/Idle/rotations",
+   "crown": 8,
+   "chin": 18,
+   "groups": {
+    "cloak": "metal (blue-black; exclusive)",
+    "emblem": "crimson"
+   },
+   "status": "approved",
+   "note": "Boeotian brim at rows 13-14",
+   "size": 68,
+   "canvas": 68,
+   "view": "high top-down",
+   "feet": 66,
+   "height_px": 59,
+   "heads": 5.36
   }
  }
 }
