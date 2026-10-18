@@ -18,4 +18,6 @@ export const MARKET_RU: Record<keyof typeof MARKET_EN, string> = {
   'market.presetTip': 'Стоимость x{n}',
   'market.keyDel': 'Стереть',
   'market.keyClear': 'Сброс',
+  'market.freeSlot': 'Свободное место',
+  'market.freeSlotHint': 'Выставьте товар во вкладке «Продать»',
 };

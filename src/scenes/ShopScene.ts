@@ -2,9 +2,12 @@ import { setCosmeticLoadout } from '../game/cosmetics';
 import { addSignInGate, showsSignInGate } from '../ui/account/gate';
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { scaleIcon, ScrollArea, addIcon, addText, tappable } from '../ui/kit';
+import { scaleIcon, ScrollArea, addIcon, addText, tappable, type FontKey } from '../ui/kit';
 import { ItemIcon, addScrollHint, confirmDialog, showTooltip, subjectName, toast } from '../ui/widgets';
-import { uiId } from '../ui/layout';
+import { uiId, uiLayout, uiTransient } from '../ui/layout';
+import { layoutVariant, PANE_GUTTER, type LayoutVariant } from '../ui/mosaic/layout/geometry';
+import { BUTTON_MAX, ROW_MAX } from '../ui/sizeClass';
+import { focusPane } from '../ui/focusRing';
 import { wrapText, LINE_H } from '../ui/textfit';
 import { confirmPurchase, flyReward, addClaimGlow, type FlyTarget } from '../ui/mosaic';
 import { MODE_ICON, MOSAIC, TEXT_MIN, lineHeight } from '../ui/tokens';
@@ -41,6 +44,29 @@ const FRESCO_FILE = 'ui/fresco_shop.jpg';
 const TIER_W = 24;
 const ROW_H = 46;
 const TAP_H = 22;
+/** The horizontal tier track (compact landscape, expanded): a column's number strip, a reward cell, the whole track. */
+const TRACK_TH = 16;
+const CELL_H = ROW_H - 2;
+const TRACK_H = TRACK_TH + 2 + CELL_H * 2 + GAP;
+/** A tier's column: narrower on a phone held sideways, wider on a laptop. */
+const CELL_W_LAND = 62;
+const CELL_W_WIDE = 72;
+/** The season card left of the track in compact landscape: its share of the width, least and widest. */
+const CARD_LAND_SHARE = 0.4;
+const CARD_LAND_MIN = 120;
+const CARD_LAND_MAX = 150;
+/** The gap between the card and the track under it on a laptop. */
+const TRACK_GAP = 8;
+/** The Shop page's left pane (the tip, the Market door, the map merchants): its share of the width and least width. */
+const SHOP_LEFT = 0.36;
+const SHOP_LEFT_MIN = 110;
+/** Looks a row in the looks' pane (larger cards rather than a row of few cards and many gaps). */
+const LOOK_COLS_PANE = 3;
+const LOOK_COLS_MEDIUM = 3;
+/** The Wallet's left pane (the balance and the packs; the history beside it). */
+const WALLET_LEFT = 0.58;
+/** The state card's height between the Market door and the map merchants (a tablet, the economy down). */
+const DOWN_H = 150;
 
 interface ShopData {
   tab?: Tab;
@@ -67,6 +93,8 @@ interface Loaded {
  * retry. A tab hub: always a root (HUB-01), whatever door opened it.
  */
 export class ShopScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-06). */
+  protected override readonly responsive = true;
   private tab: Tab = 'shop';
   private loaded: Loaded | null = null;
   private st: EconState | 'loading' | 'ready' = 'loading';
@@ -103,6 +131,9 @@ export class ShopScene extends BaseScene {
     this.busy = false;
     // a hub: always a root (Telegram shows Close); a door that brought us here switched tabs (ia.md §1.2)
     this.screen({ back: null });
+    uiLayout(this, this.m.cls, this.m.land);
+    // the loading line shows until the server answers (or fails): when a capture catches it is the clock's doing
+    uiTransient(this, 'shop.loading');
     const shell = addHubShell(this, { title: t('tab.shop'), active: 'shop' });
     shell.area.destroy(); // the pages bring their own scroll areas under the fixed header
     this.box = shell.frame.content;
@@ -162,7 +193,15 @@ export class ShopScene extends BaseScene {
     let y = by + 4;
     this.fixedChip = this.box.h >= 170;
     this.drChip = null;
-    if (this.fixedChip) {
+    // a short landscape screen: the balance beside the tabs, so the panes under them keep the height
+    const inRow = !this.fixedChip && this.layoutV === 'compactLandscape';
+    let sx = x0;
+    if (inRow) {
+      const chip = this.makeChip(x0, y + Math.round((SWITCH_H - TAP_H) / 2));
+      H.add(chip);
+      sx = x0 + chip.w + GAP;
+      this.fixedChip = true;
+    } else if (this.fixedChip) {
       const chip = this.makeChip(x0, y);
       H.add(chip);
       y += chip.h + 3;
@@ -173,8 +212,9 @@ export class ShopScene extends BaseScene {
       y += 30 + 3;
     }
     const claim = d?.pass ? claimableCount(d.pass) : 0;
-    const sw = new SegmentedSwitch(this, x0, y, w, {
-      options: TABS.map((k) => ({ id: k, label: t(`shop.tab.${k}` as TKey), icon: w >= 156 ? (k === 'shop' ? 'shop' : k === 'pass' ? 'pass' : 'drachma') : undefined })),
+    const tw = x0 + w - sx;
+    const sw = new SegmentedSwitch(this, sx, y, tw, {
+      options: TABS.map((k) => ({ id: k, label: t(`shop.tab.${k}` as TKey), icon: tw >= 156 ? (k === 'shop' ? 'shop' : k === 'pass' ? 'pass' : 'drachma') : undefined })),
       selected: this.tab,
       id: 'shop.tab',
       onChange: (id) => {
@@ -184,7 +224,7 @@ export class ShopScene extends BaseScene {
       },
     });
     H.add(sw);
-    if (claim) H.add(new MBadge(this, x0 + 1 + 2 * Math.floor((w - 2) / 3) - 6, y + 3, claim));
+    if (claim) H.add(new MBadge(this, sx + 1 + 2 * Math.floor((tw - 2) / 3) - 6, y + 3, claim));
     this.pageTop = y + SWITCH_H + 4;
     this.buildPage();
   }
@@ -241,6 +281,9 @@ export class ShopScene extends BaseScene {
       return;
     }
     if (this.st !== 'ready' || !this.loaded) {
+      // outside compact portrait the Shop page keeps what needs no server (the tip, the Market door, the map
+      // merchants); the state card takes the looks' place, in their pane (landscape-v6 §15)
+      if (this.tab === 'shop' && this.layoutV !== 'compactPortrait') return this.buildShop(null);
       addEconState(this, this.page, this.box.x + 4, top, this.box.w - 8, this.pageBottom() - top, this.st as EconState | 'loading', () => void this.fetchAll());
       return;
     }
@@ -249,9 +292,9 @@ export class ShopScene extends BaseScene {
     else this.buildWallet(this.loaded);
   }
 
-  private area(y: number, h: number): ScrollArea {
+  private area(y: number, h: number, x = this.box.x + 4, w = this.box.w - 8): ScrollArea {
     const { S } = this.m;
-    const a = new ScrollArea(this, this.page, this.box.x + 4, y, this.box.w - 8, h, S);
+    const a = new ScrollArea(this, this.page, x, y, w, h, S);
     this.areas.push(a);
     addScrollHint(this, this.page, a, MOSAIC.parch);
     return a;
@@ -259,26 +302,87 @@ export class ShopScene extends BaseScene {
 
   // ------------------------------------------------------------------ shop: cosmetics (consumables point to the map)
 
-  private buildShop(d: Loaded): void {
+  /** The layout variant (ADR-0013): compact portrait keeps the v5 pages. */
+  private get layoutV(): LayoutVariant {
+    return layoutVariant(this.m);
+  }
+
+  /** Compact landscape and expanded: a page in two panes (landscape-v6 §11.2); the left one's share of the width. */
+  private panes(left: number, min: number): { l: Box; r: Box } | null {
+    const v = this.layoutV;
+    if (v !== 'compactLandscape' && v !== 'expanded') return null;
+    const x = this.box.x + 4;
+    const w = this.box.w - 8;
+    const lw = Math.max(min, Math.round((w - PANE_GUTTER) * left));
     const top = this.pageTop;
+    const h = this.pageBottom() - top;
+    return { l: { x, y: top, w: lw, h }, r: { x: x + lw + PANE_GUTTER, y: top, w: w - lw - PANE_GUTTER, h } };
+  }
+
+  /**
+   * The Shop page. Compact portrait and medium: one scrolling column (v5). Compact landscape and expanded: the
+   * tip, the Market door and the map merchants in a left pane, the looks beside it. `d` null: the economy is
+   * down (outside compact portrait), the state card in the looks' place.
+   */
+  private buildShop(d: Loaded | null): void {
+    const top = this.pageTop;
+    const two = this.panes(SHOP_LEFT, SHOP_LEFT_MIN);
+    if (two) {
+      const la = this.area(two.l.y, two.l.h, two.l.x, two.l.w);
+      const lw = two.l.w - 4;
+      let ly = this.shopIntro(la.content, lw, this.pageHead(la.content, 1));
+      // (the economy down on a short screen: the state card and the Market door only, as the phone shows the card alone)
+      if (d || this.layoutV === 'expanded') ly = this.shopMerchants(la.content, lw, ly + 2);
+      la.setContentHeight(ly);
+      frameScrollTexts(la, two.l.w);
+      if (!d) {
+        addEconState(this, this.page, two.r.x, two.r.y, two.r.w, two.r.h, this.st as EconState, () => void this.fetchAll());
+        return;
+      }
+      const ra = this.area(two.r.y, two.r.h, two.r.x, two.r.w);
+      ra.setContentHeight(this.shopLooks(ra.content, two.r.w - 4, 1, d, LOOK_COLS_PANE));
+      frameScrollTexts(ra, two.r.w);
+      // Tab reads the left pane, then the looks
+      inPane(ra.content, 1);
+      return;
+    }
     const area = this.area(top, this.pageBottom() - top);
     const c = area.content;
     const w = this.box.w - 8 - 4;
-    let y = this.pageHead(c, 1);
+    let y = this.shopIntro(c, w, this.pageHead(c, 1));
+    if (d) y = this.shopLooks(c, w, y, d, this.layoutV === 'medium' ? LOOK_COLS_MEDIUM : Infinity);
+    else {
+      // a tablet with the economy down: the state card between the Market door and the map merchants
+      addEconState(this, c, 0, y, w, DOWN_H, this.st as EconState, () => void this.fetchAll());
+      y += DOWN_H + 6;
+    }
+    y = this.shopMerchants(c, w, y);
+    area.setContentHeight(y);
+    frameScrollTexts(area, this.box.w - 8);
+  }
+
+  /** What this shop is (a tip the player can hide) and the Market door. Returns the y under them. */
+  private shopIntro(c: Phaser.GameObjects.Container, w: number, y: number): number {
     // what this shop is (and is not): a tip the player can hide
     const tipH = addTipLine(this, c, 0, y, w, { text: t('shop.v5.tip'), dismissId: 'shop.what', card: true });
     if (tipH) y += tipH + 5;
     // the player market: a door of its own (D5); Back from it returns here
-    const market = new MarketCard(this, 0, y, w, t('shop.v5.market'), t('shop.v5.marketSub'), () => this.scene.start('Market', { back: { scene: 'Shop', data: { tab: 'shop' } } }));
+    // (at most a list row's width, §2.3, centred: a tablet's column is wider)
+    const mw0 = Math.min(w, ROW_MAX);
+    const market = new MarketCard(this, Math.floor((w - mw0) / 2), y, mw0, t('shop.v5.market'), t('shop.v5.marketSub'), () => this.scene.start('Market', { back: { scene: 'Shop', data: { tab: 'shop' } } }));
     c.add(market);
-    y += market.h + 6;
+    return y + market.h + 6;
+  }
+
+  /** The looks by slot, from `y`. Returns the y under them. */
+  private shopLooks(c: Phaser.GameObjects.Container, w: number, y: number, d: Loaded, maxCols = Infinity): number {
     // cosmetics by slot: cards with their art
     c.add(new SectionTitle(this, 0, y, w, t('shop.cosmetics')));
     y += SECTION_TITLE_H + 2;
     const ch = wrapText(t('shop.cosmeticsHint'), w, 2);
     c.add(addText(this, 1, y, ch.lines.join('\n'), 'pSec'));
     y += ch.lines.length * LINE_H + 5;
-    const cols = Math.max(2, Math.floor((w + GAP) / (58 + GAP)));
+    const cols = Math.max(2, Math.min(maxCols, Math.floor((w + GAP) / (58 + GAP))));
     const tw = Math.floor((w - (cols - 1) * GAP) / cols);
     for (const { slot, list } of cosmeticsBySlot(d.cat)) {
       const lab = this.add.container(0, y);
@@ -290,11 +394,18 @@ export class ShopScene extends BaseScene {
         const rowItems = list.slice(r0, r0 + cols);
         const locks = rowItems.map((cm) => cosmeticOffer(cm, d.wallet, d.pass)).flatMap((o) => (o.kind === 'earn' ? [this.earnInfo(o).short] : []));
         const rh = LookCard.height(rowItems.map(cosmeticName), tw, locks);
-        rowItems.forEach((cm, k) => c.add(this.cosmeticTile(k * (tw + GAP), y, tw, rh, cm, d)));
+        // outside compact portrait a short row is centred (a wide pane leaves no empty column at its right)
+        const off = this.layoutV === 'compactPortrait' ? 0 : Math.floor(((cols - rowItems.length) * (tw + GAP)) / 2);
+        rowItems.forEach((cm, k) => c.add(this.cosmeticTile(off + k * (tw + GAP), y, tw, rh, cm, d)));
         y += rh + GAP;
       }
       y += 4;
     }
+    return y;
+  }
+
+  /** Supplies are sold on the war map: where. Returns the y under it. */
+  private shopMerchants(c: Phaser.GameObjects.Container, w: number, y: number): number {
     // supplies moved onto the war map: the merchants of towns and trading posts (docs/DUELS.md)
     y += 2;
     c.add(new SectionTitle(this, 0, y, w, t('shop.consumables')));
@@ -306,9 +417,7 @@ export class ShopScene extends BaseScene {
     c.add(mosaicImage(this, ix, y + Math.round((mh - 26) / 2), 26, 26, 'parchmentWell'));
     c.add(new ItemIcon(this, ix + 1, y + Math.round((mh - 24) / 2), { consumable: 'morale_wine' }, { rarity: 'rare', tip: false }));
     c.add(addText(this, 38, y + Math.round((mh - mm.lines.length * LINE_H) / 2) + 1, mm.lines.join('\n'), 'pInk'));
-    y += mh + 4;
-    area.setContentHeight(y);
-    frameScrollTexts(area, this.box.w - 8);
+    return y + mh + 4;
   }
 
   /** Where an earned-only look comes from: the pass tier that gives it, the Duels seasons, or nowhere (not for sale). */
@@ -476,25 +585,11 @@ export class ShopScene extends BaseScene {
       addEconState(this, this.page, this.box.x + 4, top, this.box.w - 8, this.pageBottom() - top, 'error', () => void this.fetchAll());
       return;
     }
+    // compact landscape and expanded: the horizontal tier track (landscape-v6 §11.2), where its two rows fit
+    if (this.buildPassTrack(d, p)) return;
     const w = this.box.w - 8 - 4;
-    const prog = passProgress(p);
-    const days = Math.max(0, Math.ceil((p.season.endsAt - Date.now()) / 86_400_000));
-    const claimN = claimableCount(p);
-    const prem = premiumOffer(p, d.wallet);
-    // the season card's shape: the title beside "Ends in" when both fit (else "Ends in" under it); the two
-    // buttons side by side when both labels fit at their first size (else one a row): nothing is cut
-    const endsT = t('pass.endsIn', { d: days });
-    const title = `${t('pass.season', { n: p.season.id })} · ${t('pass.tierOf', { n: p.tier, max: p.tiers.length })}`;
-    const oneLine = mw(title, 'rInk', 7.5) + 8 + mw(endsT, 'pSec', TEXT_MIN) <= w - 16;
-    const bh = 24;
-    const bw = Math.floor((w - 16 - GAP) / 2);
-    const unlockL = prem.short ? t('pass.needDr', { n: prem.price }) : t('pass.unlock', { n: prem.price });
-    const claimL = claimN > 0 ? t('pass.claimAll', { n: claimN }) : t('pass.nothing');
-    // a label fits in Cinzel capitals at the 6.5 floor (MButton drops an icon that would cost it that)
-    const fits = (label: string, bwid: number) => mw(label.toUpperCase(), 'rCream', TEXT_MIN) <= bwid - 14;
-    const sideBySide = (prem.owned || fits(unlockL, bw)) && fits(claimL, w - 16 - bw - GAP);
-    const yx = oneLine ? 17 : 27;
-    const hh = yx + 19 + bh + (sideBySide ? 0 : bh + GAP) + 4;
+    const sc = this.seasonShape(d, p, w);
+    const { hh } = sc;
     const head = (this.fixedChip ? 0 : 17) + hh + 4 + 12;
     // pinned when the track keeps two rows under the card; on the shortest screens everything scrolls
     // together, opened at the top (the card and Claim all still show on entry)
@@ -503,48 +598,8 @@ export class ShopScene extends BaseScene {
     const c = whole ? whole.content : this.page;
     const x0 = whole ? 0 : this.box.x + 4;
     if (whole) top = 1;
-    // the season card: tier, ends in, XP to the next (tap: how XP is earned), the premium track, Claim all
     let y = top;
-    const card = new ParchmentCard(this, x0, y, w, hh);
-    c.add(card);
-    const box = { owner: card as Phaser.GameObjects.Container, w, h: hh };
-    c.add(mtext(this, x0 + 8, y + 5, title, 'rInk', { size: 7.5, maxW: w - 16 - (oneLine ? mw(endsT, 'pSec', TEXT_MIN) + 8 : 0), box }));
-    if (oneLine) c.add(mtext(this, x0 + w - 8, y + 6, endsT, 'pSec', { size: TEXT_MIN, align: 1, box }));
-    else c.add(mtext(this, x0 + 8, y + 16, endsT, 'pSec', { size: TEXT_MIN, maxW: w - 16, box }));
-    // the XP bar: how it is earned at the left (a tap opens it), where it stands at the right, the bar under
-    const xpT = t('pass.xp', { into: prog.into, need: prog.need });
-    const xpW = prog.maxed ? 0 : mw(xpT, 'pInk', TEXT_MIN) + 6;
-    const how = prog.maxed ? t('pass.maxed') : t('shop.v5.xpHow');
-    c.add(mtext(this, x0 + 8, y + yx, how, 'pSec', { size: TEXT_MIN, maxW: w - 16 - xpW, box }));
-    if (!prog.maxed) c.add(mtext(this, x0 + w - 8, y + yx, xpT, 'pInk', { size: TEXT_MIN, align: 1, box }));
-    const g = this.add.graphics();
-    const bw0 = w - 16;
-    const gy = y + yx + 11;
-    g.fillStyle(MOSAIC.stone1, 1);
-    g.fillRect(x0 + 8, gy, bw0, 5);
-    g.fillStyle(MOSAIC.gold, 1);
-    g.fillRect(x0 + 9, gy + 1, Math.round((bw0 - 2) * (prog.maxed ? 1 : prog.need ? prog.into / prog.need : 0)), 3);
-    g.lineStyle(0.6, MOSAIC.parchEdge, 1);
-    g.strokeRect(x0 + 7.5, gy - 0.5, bw0 + 1, 6);
-    c.add(g);
-    const xz = this.add.zone(x0 + 4, y + yx - 5, w - 8, 22).setOrigin(0, 0).setInteractive();
-    uiId(xz, 'pass.xpInfo');
-    tappable(xz, whole, () => this.openPassXp());
-    c.add(xz);
-    // side by side: Unlock at the left, Claim all under the thumb; one a row: Claim all first (the primary
-    // action while there is something to claim, so a short screen shows it without scrolling)
-    const by = y + yx + 19;
-    const claimFirst = !sideBySide && claimN > 0;
-    const unlockY = claimFirst ? by + bh + GAP : by;
-    const claimY = sideBySide || claimFirst ? by : by + bh + GAP;
-    const unlockW = sideBySide ? bw : w - 16;
-    if (prem.owned) c.add(new MChip(this, x0 + 8, unlockY + 3, { icon: 'pass', value: t('pass.unlocked'), w: unlockW, id: 'pass.unlocked' }));
-    else {
-      // not enough Drachmae: the button says what is missing and goes to the wallet
-      c.add(new MButton(this, x0 + 8, unlockY, unlockW, bh, { label: unlockL, icon: 'drachma', variant: prem.short ? 'secondary' : 'primary', id: 'pass.unlock', tip: prem.short ? t('pass.needDrTip', { n: prem.price - d.wallet.drachmae }) : undefined, onClick: () => this.unlockPremium(p) }));
-    }
-    const cx = sideBySide ? x0 + 8 + bw + GAP : x0 + 8;
-    c.add(new MButton(this, cx, claimY, sideBySide ? w - 16 - bw - GAP : w - 16, bh, { label: claimL, icon: claimN > 0 ? 'check' : undefined, variant: claimN > 0 ? 'primary' : 'disabled', disabledReason: t('pass.xpHint'), id: 'pass.claimAll', onClick: () => void this.claimAll() }));
+    this.seasonCard(c, x0, y, w, d, p, sc, whole);
     y += hh + 4;
     // on a short screen the balance chip sits under the card here (the card and Claim all come first: SHP-1)
     if (!this.fixedChip) {
@@ -576,6 +631,166 @@ export class ShopScene extends BaseScene {
     area.setContentHeight(ty);
     if (!whole) area.setScroll(Math.max(0, focusY - (area.viewHeight - ROW_H) / 2));
     else frameScrollTexts(area, this.box.w - 8);
+  }
+
+  /** The season card's shape in a card `w` wide. */
+  private seasonShape(d: Loaded, p: SeasonPassInfo, w: number) {
+    const prog = passProgress(p);
+    const days = Math.max(0, Math.ceil((p.season.endsAt - Date.now()) / 86_400_000));
+    const claimN = claimableCount(p);
+    const prem = premiumOffer(p, d.wallet);
+    // the season card's shape: the title beside "Ends in" when both fit (else "Ends in" under it); the two
+    // buttons side by side when both labels fit at their first size (else one a row): nothing is cut
+    const endsT = t('pass.endsIn', { d: days });
+    const title = `${t('pass.season', { n: p.season.id })} · ${t('pass.tierOf', { n: p.tier, max: p.tiers.length })}`;
+    const oneLine = mw(title, 'rInk', 7.5) + 8 + mw(endsT, 'pSec', TEXT_MIN) <= w - 16;
+    const bh = 24;
+    // (each at most a button's width, §2.3: on a laptop the card is wider than two buttons)
+    const bw = Math.min(BUTTON_MAX, Math.floor((w - 16 - GAP) / 2));
+    const unlockL = prem.short ? t('pass.needDr', { n: prem.price }) : t('pass.unlock', { n: prem.price });
+    const claimL = claimN > 0 ? t('pass.claimAll', { n: claimN }) : t('pass.nothing');
+    // a label fits in Cinzel capitals at the 6.5 floor (MButton drops an icon that would cost it that)
+    const fits = (label: string, bwid: number) => mw(label.toUpperCase(), 'rCream', TEXT_MIN) <= bwid - 14;
+    const sideBySide = (prem.owned || fits(unlockL, bw)) && fits(claimL, w - 16 - bw - GAP);
+    const yx = oneLine ? 17 : 27;
+    const hh = yx + 19 + bh + (sideBySide ? 0 : bh + GAP) + 4;
+    return { prog, claimN, prem, endsT, title, oneLine, bh, bw, unlockL, claimL, sideBySide, yx, hh };
+  }
+
+  /** The season card: tier, ends in, XP to the next (tap: how XP is earned), the premium track, Claim all. */
+  private seasonCard(c: Phaser.GameObjects.Container, x0: number, y: number, w: number, d: Loaded, p: SeasonPassInfo, sc: ReturnType<ShopScene['seasonShape']>, whole: ScrollArea | null): void {
+    const { prog, claimN, prem, endsT, title, oneLine, bh, bw, unlockL, claimL, sideBySide, yx, hh } = sc;
+    const card = new ParchmentCard(this, x0, y, w, hh);
+    c.add(card);
+    const box = { owner: card as Phaser.GameObjects.Container, w, h: hh };
+    c.add(mtext(this, x0 + 8, y + 5, title, 'rInk', { size: 7.5, maxW: w - 16 - (oneLine ? mw(endsT, 'pSec', TEXT_MIN) + 8 : 0), box }));
+    if (oneLine) c.add(mtext(this, x0 + w - 8, y + 6, endsT, 'pSec', { size: TEXT_MIN, align: 1, box }));
+    else c.add(mtext(this, x0 + 8, y + 16, endsT, 'pSec', { size: TEXT_MIN, maxW: w - 16, box }));
+    // the XP bar: how it is earned at the left (a tap opens it), where it stands at the right, the bar under
+    const xpT = t('pass.xp', { into: prog.into, need: prog.need });
+    const xpW = prog.maxed ? 0 : mw(xpT, 'pInk', TEXT_MIN) + 6;
+    const how = prog.maxed ? t('pass.maxed') : t('shop.v5.xpHow');
+    c.add(mtext(this, x0 + 8, y + yx, how, 'pSec', { size: TEXT_MIN, maxW: w - 16 - xpW, box }));
+    if (!prog.maxed) c.add(mtext(this, x0 + w - 8, y + yx, xpT, 'pInk', { size: TEXT_MIN, align: 1, box }));
+    const g = this.add.graphics();
+    const bw0 = w - 16;
+    const gy = y + yx + 11;
+    g.fillStyle(MOSAIC.stone1, 1);
+    g.fillRect(x0 + 8, gy, bw0, 5);
+    g.fillStyle(MOSAIC.gold, 1);
+    g.fillRect(x0 + 9, gy + 1, Math.round((bw0 - 2) * (prog.maxed ? 1 : prog.need ? prog.into / prog.need : 0)), 3);
+    g.lineStyle(0.6, MOSAIC.parchEdge, 1);
+    g.strokeRect(x0 + 7.5, gy - 0.5, bw0 + 1, 6);
+    c.add(g);
+    const xz = this.add.zone(x0 + 4, y + yx - 5, Math.min(w - 8, BUTTON_MAX), 22).setOrigin(0, 0).setInteractive();
+    uiId(xz, 'pass.xpInfo');
+    tappable(xz, whole, () => this.openPassXp());
+    c.add(xz);
+    // side by side: Unlock at the left, Claim all under the thumb; one a row: Claim all first (the primary
+    // action while there is something to claim, so a short screen shows it without scrolling)
+    const by = y + yx + 19;
+    const claimFirst = !sideBySide && claimN > 0;
+    const unlockY = claimFirst ? by + bh + GAP : by;
+    const claimY = sideBySide || claimFirst ? by : by + bh + GAP;
+    const unlockW = sideBySide ? bw : Math.min(BUTTON_MAX, w - 16);
+    if (prem.owned) c.add(new MChip(this, x0 + 8, unlockY + 3, { icon: 'pass', value: t('pass.unlocked'), w: unlockW, id: 'pass.unlocked' }));
+    else {
+      // not enough Drachmae: the button says what is missing and goes to the wallet
+      c.add(new MButton(this, x0 + 8, unlockY, unlockW, bh, { label: unlockL, icon: 'drachma', variant: prem.short ? 'secondary' : 'primary', id: 'pass.unlock', tip: prem.short ? t('pass.needDrTip', { n: prem.price - d.wallet.drachmae }) : undefined, onClick: () => this.unlockPremium(p) }));
+    }
+    // Claim all at the card's right edge when side by side
+    const claimW = Math.min(BUTTON_MAX, sideBySide ? w - 16 - bw - GAP : w - 16);
+    const cx = sideBySide ? x0 + w - 8 - claimW : x0 + 8;
+    c.add(new MButton(this, cx, claimY, claimW, bh, { label: claimL, icon: claimN > 0 ? 'check' : undefined, variant: claimN > 0 ? 'primary' : 'disabled', disabledReason: t('pass.xpHint'), id: 'pass.claimAll', onClick: () => void this.claimAll() }));
+  }
+
+  /**
+   * Compact landscape and expanded (landscape-v6 §11.2): the horizontal tier track, Free on top and Premium
+   * under it, each tier a column under its number, scrolled sideways a whole column at a time (opened at the
+   * player's tier); the season card left of it in compact landscape, above it on a laptop. The same tiers,
+   * rewards and states as the rows. False where the track's two rows do not fit (Telegram at 844x390): the rows.
+   */
+  private buildPassTrack(d: Loaded, p: SeasonPassInfo): boolean {
+    const v = this.layoutV;
+    if (v !== 'compactLandscape' && v !== 'expanded') return false;
+    const top = this.pageTop;
+    const h = this.pageBottom() - top;
+    if (h < TRACK_H) return false;
+    const x0 = this.box.x + 4;
+    const w = this.box.w - 8;
+    const land = v === 'compactLandscape';
+    if (land) {
+      // the season card in the left pane (its own scroll when taller than the page), the track right of it
+      const cw = Math.max(CARD_LAND_MIN, Math.min(CARD_LAND_MAX, Math.round(w * CARD_LAND_SHARE)));
+      const sc = this.seasonShape(d, p, cw);
+      const fits = sc.hh <= h;
+      const side = fits ? null : this.area(top, h, x0, cw + 2);
+      const cc = side ? side.content : this.page;
+      this.seasonCard(cc, side ? 0 : x0, side ? 0 : top + Math.floor((h - sc.hh) / 2), cw, d, p, sc, side);
+      if (side) side.setContentHeight(sc.hh + 2);
+      inPane(cc, 0);
+      this.passTrack(d, p, x0 + cw + PANE_GUTTER, top + Math.floor((h - TRACK_H) / 2), w - cw - PANE_GUTTER, CELL_W_LAND);
+      return true;
+    }
+    // a laptop: the card across the top, the track under it
+    const cw = w - 4;
+    const sc = this.seasonShape(d, p, cw);
+    this.seasonCard(this.page, x0, top, cw, d, p, sc, null);
+    this.passTrack(d, p, x0, top + sc.hh + TRACK_GAP, w, CELL_W_WIDE);
+    return true;
+  }
+
+  /** The track at x, y, `w` wide: the Free and Premium labels at the left, the tiers' columns scrolling sideways beside them. */
+  private passTrack(d: Loaded, p: SeasonPassInfo, x: number, y: number, w: number, cellW: number): void {
+    const free = t('pass.free');
+    const premium = t('pass.premium');
+    const lw = Math.ceil(Math.max(mw(free, 'pSec', TEXT_MIN), mw(premium, 'pInk', TEXT_MIN))) + 6;
+    // whole columns in the window (a column is never cut at its side: the track snaps to them); the labels and
+    // the window centred together
+    const step = cellW + GAP;
+    const cols = Math.max(1, Math.floor((w - lw + GAP) / step));
+    const viewW = cols * step - GAP;
+    const lx = x + Math.floor((w - lw - viewW) / 2);
+    const sx = lx + lw;
+    const fy = y + TRACK_TH + 2;
+    const py = fy + CELL_H + GAP;
+    const label = (text: string, ink: FontKey, ry: number) => this.page.add(mtext(this, lx, ry + Math.round((CELL_H - 8) / 2), text, ink, { size: TEXT_MIN, maxW: lw - 4 }));
+    label(free, 'pSec', fy);
+    label(premium, 'pInk', py);
+    const area = new ScrollArea(this, this.page, sx, y, viewW, TRACK_H, this.m.S, { axis: 'x', snap: step });
+    this.areas.push(area);
+    p.tiers.forEach((tier, i) => {
+      const cx = i * step;
+      this.tierHead(p, i, area.content, cx, cellW);
+      (['free', 'premium'] as Track[]).forEach((track, k) => {
+        const cell = this.add.container(cx, TRACK_TH + 2 + k * (CELL_H + GAP));
+        area.content.add(cell);
+        this.rewardCell(d, p, tier.tier, track, track === 'free' ? tier.free : tier.premium, cell, 0, cellW, CELL_H, area);
+      });
+    });
+    area.setContentHeight(p.tiers.length * step - GAP);
+    // opened with the player's tier in view (the next one to reach beside it)
+    area.setScroll(Math.max(0, focusTier(p) - 1 - Math.floor((cols - 1) / 2)) * step);
+    inPane(area.content, 1);
+  }
+
+  /** A tier's number over its column: lit when reached, the next one rimmed with its progress, "you" on the current one. */
+  private tierHead(p: SeasonPassInfo, i: number, c: Phaser.GameObjects.Container, x: number, w: number): void {
+    const tier = p.tiers[i];
+    const reached = tier.tier <= p.tier;
+    const next = tier.tier === p.tier + 1;
+    const here = tier.tier === p.tier;
+    c.add(mosaicImage(this, x, 0, w, TRACK_TH, reached ? 'tileBronze' : next ? 'parchmentSel' : 'parchmentWell'));
+    const label = here ? `${tier.tier} · ${t('pass.you')}` : `${tier.tier}`;
+    c.add(mtext(this, x + w / 2, next ? 2 : 4, label, reached ? 'rCream' : next ? 'pInk' : 'pSec', { size: TEXT_MIN, align: 0.5, maxW: w - 4, box: { owner: c, w: x + w, h: TRACK_TH } }));
+    if (!next) return;
+    const prog = passProgress(p);
+    const g = this.add.graphics();
+    g.fillStyle(MOSAIC.stone1, 1);
+    g.fillRect(x + 6, TRACK_TH - 4, w - 12, 2);
+    g.fillStyle(MOSAIC.gold, 1);
+    g.fillRect(x + 6, TRACK_TH - 4, Math.round((w - 12) * (prog.need ? prog.into / prog.need : 0)), 2);
+    c.add(g);
   }
 
   /** Width of a reward cell in a track `w` wide. */
@@ -772,11 +987,30 @@ export class ShopScene extends BaseScene {
 
   // ------------------------------------------------------------------ wallet
 
+  /** The Wallet: one column (compact portrait, medium); in compact landscape and expanded the history in a pane of its own. */
   private buildWallet(d: Loaded): void {
+    const two = this.panes(WALLET_LEFT, 0);
+    if (two) {
+      const la = this.area(two.l.y, two.l.h, two.l.x, two.l.w);
+      la.setContentHeight(this.walletMain(la.content, two.l.w - 4, d) + 4);
+      frameScrollTexts(la, two.l.w);
+      const ra = this.area(two.r.y, two.r.h, two.r.x, two.r.w);
+      ra.setContentHeight(this.walletHistory(ra.content, two.r.w - 4, 1, d) + 4);
+      frameScrollTexts(ra, two.r.w);
+      inPane(ra.content, 1);
+      return;
+    }
     const top = this.pageTop;
     const area = this.area(top, this.pageBottom() - top);
     const c = area.content;
     const w = this.box.w - 8 - 4;
+    const y = this.walletHistory(c, w, this.walletMain(c, w, d), d);
+    area.setContentHeight(y + 4);
+    frameScrollTexts(area, this.box.w - 8);
+  }
+
+  /** The balance, the packs and the legal pages. Returns the y under them. */
+  private walletMain(c: Phaser.GameObjects.Container, w: number, d: Loaded): number {
     let y = this.pageHead(c, 1);
     // the balance, big
     const over = walletOverdrawn(d.wallet);
@@ -829,7 +1063,11 @@ export class ShopScene extends BaseScene {
     const lw = Math.floor((w - GAP) / 2);
     c.add(new MButton(this, 0, y, lw, 24, { label: t('wallet.terms'), variant: 'secondary', id: 'wallet.terms', onClick: () => platform.share.openExternal(legalUrl('terms', lang())) }));
     c.add(new MButton(this, lw + GAP, y, w - lw - GAP, 24, { label: t('wallet.refunds'), variant: 'secondary', id: 'wallet.refunds', onClick: () => platform.share.openExternal(legalUrl('refunds', lang())) }));
-    y += 24 + 8;
+    return y + 24 + 8;
+  }
+
+  /** The wallet's history, from `y`. Returns the y under it. */
+  private walletHistory(c: Phaser.GameObjects.Container, w: number, y: number, d: Loaded): number {
     // history
     c.add(new SectionTitle(this, 0, y, w, t('wallet.history')));
     y += SECTION_TITLE_H + 3;
@@ -848,8 +1086,7 @@ export class ShopScene extends BaseScene {
       c.add(mtext(this, 6, y + 7, tOr(`wallet.kind.${l.kind}`, l.kind), 'pInk', { maxW: w - 22 - delta.width - when.width, box: { owner: row, w, h: 22 } }));
       y += 22 + 2;
     }
-    area.setContentHeight(y + 4);
-    frameScrollTexts(area, this.box.w - 8);
+    return y;
   }
 
   /** Real money: the confirmation sheet says so, then Telegram's own payment. */
@@ -890,3 +1127,10 @@ export class ShopScene extends BaseScene {
   }
 }
 
+/** Every object under `c` (a container tree) reads in pane `n` (focus order, landscape-v6 §4). */
+function inPane(c: Phaser.GameObjects.Container, n: number): void {
+  for (const o of c.list) {
+    focusPane(o, n);
+    if (o instanceof Phaser.GameObjects.Container) inPane(o, n);
+  }
+}

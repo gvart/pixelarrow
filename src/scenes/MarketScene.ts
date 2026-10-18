@@ -1,17 +1,20 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { addIcon, ICON_PX, ScrollArea, type FontKey } from '../ui/kit';
-import { Grid, ItemIcon, ScrollList, confirmDialog, showTooltip, subjectName, toast, type IconSubject } from '../ui/widgets';
-import { uiId } from '../ui/layout';
+import { addIcon, ICON_PX, ScrollArea, scaleIcon, tappable, type FontKey } from '../ui/kit';
+import { Grid, ItemIcon, ScrollList, addScrollHint, confirmDialog, showTooltip, subjectName, toast, type IconSubject } from '../ui/widgets';
+import { uiCollapsed, uiId, uiLayout } from '../ui/layout';
+import { columns, layoutVariant, DETAIL_MIN, PANE_GUTTER, THREE_PANES_W, type LayoutVariant, type PaneSpec } from '../ui/mosaic/layout/geometry';
+import { BUTTON_MAX, CONTENT_MAX, DIALOG_MAX, ROW_MAX } from '../ui/sizeClass';
+import { focusPane } from '../ui/focusRing';
 import { wrapText, LINE_H } from '../ui/textfit';
 import { MOSAIC, TEXT_MIN } from '../ui/tokens';
 import { makePressable } from '../ui/mosaic/base';
 import { ensureFonts } from '../ui/fonts';
 import {
-  GAP, addParchmentEmpty, fit, MButton, oneFace, MChip, MIconButton, SHEET_ACTION_H, SHEET_TITLE_H, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, openParchmentSheet, rarityInk, sheetActionsH, wrapWords,
+  GAP, addParchmentEmpty, addParchmentPane, fit, MButton, oneFace, MChip, MIconButton, SHEET_ACTION_H, SHEET_TITLE_H, SWITCH_H, SegmentedSwitch, TAP, ScreenFrame, TopBar, mosaicImage, mtext, mw, openParchmentSheet, rarityInk, sheetActionsH, wrapWords,
   type Box, type MButtonOpts,
 } from '../ui/mosaic';
-import { bigItemIcon, itemName, openItemCard } from '../ui/sheet';
+import { addItemCardPane, bigItemIcon, itemName, openItemCard, type ItemCardOpts } from '../ui/sheet';
 import { econ, setEconSource, type ConsumableInfo } from '../ui/econ/source';
 import { DemoEconSource } from '../ui/econ/demo';
 import { addEconState, currencyIcon, ensureEconIcons, priceText } from '../ui/econ/widgets';
@@ -20,7 +23,7 @@ import {
 } from '../game/economy';
 import { isApiError, type Currency, type EconomyCatalog, type MarketListing, type MarketQuery, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
-import { ITEM_LIST, isBound, itemValue, normalizeItem, type Item } from '../data/items';
+import { ITEM_LIST, isBound, itemDef, itemValue, normalizeItem, type Item } from '../data/items';
 import { CONSUMABLES, CONSUMABLE_IDS, type ConsumableId } from '../data/consumables';
 import { hapticNotify } from '../platform/haptics';
 import { resolveBack } from '../platform/nav';
@@ -49,6 +52,8 @@ const RES_VALUE: Record<string, number> = { food: 1, wood: 1, bronze: 3 };
 const ROW_TX = 33;
 /** Line steps of a row's name (7) and sub-lines (6.5). */
 const NAME_LH = 9;
+/** A table row's name lines: a full line apart (at S = 3 a 7-size line is 10 UI px tall). */
+const TABLE_LH = 10;
 const SUB_LH = 8.5;
 
 /**
@@ -60,6 +65,22 @@ type RowText = { stacked: boolean; name: string[]; sub: string[]; h: number };
 
 /** Height of the right-hand control (price button, Cancel listing). */
 const SIDE_H = 24;
+/** A row this wide (tablets, laptops) is a table: name, then one column per fact (landscape-v6 §11.2). */
+const TABLE_MIN = 300;
+/** The price button's column in a table row (the widest, "Expired"). */
+const TABLE_BTN = 64;
+/** The id an item icon registers (widgets.ts ItemIcon), for a virtualised list's element-parity ids. */
+const s0 = (s: IconSubject): string => ('item' in s ? s.item.def : 'consumable' in s ? s.consumable : s.resource);
+/** The status column of a wide My listings row (the status is at most 60 wide in every row). */
+const MINE_STATUS_W = 60;
+/** The filter sidebar's width, UI px (compact landscape, expanded); beside a detail pane at most SIDEBAR_THREE (§11.2: 150). */
+const SIDEBAR_MIN = 110;
+const SIDEBAR_MAX = 170;
+const SIDEBAR_THREE = 150;
+/** The detail pane (§3.3): at least DETAIL_MIN, at most a side panel's least width (§3.4). */
+const DETAIL: PaneSpec = { min: DETAIL_MIN, max: 240 };
+/** The chevron's room at the end of the chosen row. */
+const CHEV_W = 9;
 
 /**
  * Lay out a row's text: `beside` is the text width next to the right-hand control, `full` the width across
@@ -118,6 +139,8 @@ type Sellable = { kind: 'item'; item: Item } | { kind: 'resource'; id: string; h
  * the Shop hub.
  */
 export class MarketScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-06). */
+  protected override readonly responsive = true;
   private tab: Tab = 'browse';
   private base: Base | null = null;
   private st: EconState | 'loading' | 'ready' = 'loading';
@@ -136,6 +159,10 @@ export class MarketScene extends BaseScene {
   /** The framed content area (inside the stone band, under the top bar). */
   private box!: Box;
   private gen = 0;
+  /** Expanded laptops (§11.2: three panes): the listing the detail pane shows, per tab (the first until one is chosen). */
+  private sel: { browse?: MarketListing; mine?: MarketListing } = {};
+  /** The detail pane's box on this page (null: the listing opens as a sheet). */
+  private detailBox: Box | null = null;
 
   constructor() {
     super('Market');
@@ -157,7 +184,10 @@ export class MarketScene extends BaseScene {
     this.towns = null;
     this.areas = [];
     this.busy = false;
+    this.sel = {};
+    this.detailBox = null;
     this.screen({ back: () => this.leave() });
+    uiLayout(this, this.m.cls, this.m.land);
     const { VW, VH } = this.m;
     // a sub-screen of the Shop: the framed page, a back arrow, no tab bar
     const frame = new ScreenFrame(this, VW, VH);
@@ -256,9 +286,14 @@ export class MarketScene extends BaseScene {
       H.add(chip);
       cx += chip.w + GAP;
     });
-    y += TAP + 3;
-    const sw = new SegmentedSwitch(this, x0, y, w, {
-      options: TABS.map((k) => ({ id: k, label: t(`market.tab.${k}` as TKey), icon: w >= 156 ? (k === 'browse' ? 'eye' : k === 'mine' ? 'flag' : 'amphora') : undefined })),
+    // beside a sidebar (compact landscape, expanded) the tabs share the purse's row (landscape-v6 §11.2)
+    const row = this.sidebar;
+    const tx = row ? cx + GAP : x0;
+    const tw = row ? x0 + w - tx : w;
+    if (row) y += Math.round((TAP - SWITCH_H) / 2);
+    else y += TAP + 3;
+    const sw = new SegmentedSwitch(this, tx, y, tw, {
+      options: TABS.map((k) => ({ id: k, label: t(`market.tab.${k}` as TKey), icon: tw >= 156 ? (k === 'browse' ? 'eye' : k === 'mine' ? 'flag' : 'amphora') : undefined })),
       selected: this.tab,
       id: 'market.tab',
       onChange: (id) => {
@@ -268,8 +303,19 @@ export class MarketScene extends BaseScene {
       },
     });
     H.add(sw);
-    this.pageTop = y + SWITCH_H + 4;
+    this.pageTop = row ? by + 4 + Math.max(TAP, SWITCH_H) + 4 : y + SWITCH_H + 4;
     this.buildPage();
+  }
+
+  /** The layout variant (ADR-0013): compact portrait keeps the v5 page. */
+  private get variant(): LayoutVariant {
+    return layoutVariant(this.m);
+  }
+
+  /** Compact landscape and expanded: the filters in a sidebar left of the listings, the purse and tabs on one row. */
+  private get sidebar(): boolean {
+    const v = this.variant;
+    return v === 'compactLandscape' || v === 'expanded';
   }
 
   /** Bottom edge of the page. */
@@ -281,6 +327,52 @@ export class MarketScene extends BaseScene {
     for (const a of this.areas) a.destroy();
     this.areas = [];
     this.page.removeAll(true);
+    this.detailBox = null;
+  }
+
+  /**
+   * The panes of a page `w` wide at `x0` with a detail pane last (landscape-v6 §11.2, §3.2): expanded and at
+   * least THREE_PANES_W wide (a laptop), the region at most CONTENT_MAX, centred; else null (a sheet).
+   */
+  private detailPanes(x0: number, w: number, specs: PaneSpec[]): Box[] | null {
+    if (this.variant !== 'expanded') return null;
+    const iw = Math.min(w, CONTENT_MAX);
+    if (iw < THREE_PANES_W) return null;
+    const c = columns({ x: x0 + Math.floor((w - iw) / 2), y: 0, w: iw, h: 0 }, [...specs, DETAIL]);
+    return c.shown.length === specs.length + 1 ? (c.panes as Box[]) : null;
+  }
+
+  /** The listing the detail pane shows on this tab: the chosen one, else the first. */
+  private chosen(list: readonly MarketListing[]): MarketListing | undefined {
+    const c = this.tab === 'mine' ? this.sel.mine : this.sel.browse;
+    return list.find((l) => l === c) ?? list.find((l) => l.id === c?.id) ?? list[0];
+  }
+
+  /** The detail pane: the chosen listing's card, as the sheet shows it (Buy, Cancel listing), in place. */
+  private buildDetail(b: Base, l: MarketListing | undefined): void {
+    const box = this.detailBox;
+    if (!box || !l) return;
+    const card = this.listingCard(b, l, box.w);
+    const pane = card.kind === 'item' ? addItemCardPane(this, this.page, box, { ...card.opts, id: 'market.detailPane' }) : this.goodsPane(box, card);
+    // the card's X has nothing to close in a pane: the rows that choose the listing replace it (element-parity)
+    uiCollapsed(this, card.kind === 'item' ? 'sheet.close' : 'market.goods.close', this.tab === 'mine' ? 'market.tab.mine' : 'market.price');
+    // Tab reads the filters, the listings, then the detail pane (landscape-v6 §4)
+    focusPane(pane, 2);
+    inPane(pane, 2);
+  }
+
+  /** Show `l` in the detail pane (its row takes the selected rim). */
+  private choose(l: MarketListing): void {
+    if (this.tab === 'mine') this.sel.mine = l;
+    else this.sel.browse = l;
+    const keep = (this.areas.find((a) => a instanceof ScrollList) as ScrollList | undefined)?.area.scrollY ?? 0;
+    this.buildPage();
+    (this.areas.find((a) => a instanceof ScrollList) as ScrollList | undefined)?.area.setScroll(keep);
+  }
+
+  /** The chosen row's chevron (§3.3: the selected rim and a chevron), at the row's right end. */
+  private chevron(row: Phaser.GameObjects.Container, rw: number, rh: number): void {
+    row.add(scaleIcon(addIcon(this, rw - CHEV_W + 1, Math.round((rh - 9) / 2), 'chevR'), 0.75));
   }
 
   private buildPage(): void {
@@ -298,8 +390,8 @@ export class MarketScene extends BaseScene {
   // ------------------------------------------------------------------ browse
 
   private buildBrowse(b: Base): void {
-    const w = this.box.w - 8;
-    const x0 = this.box.x + 4;
+    let w = this.box.w - 8;
+    let x0 = this.box.x + 4;
     let y = this.pageTop;
     const n = 3;
     const bw = Math.floor((w - (n - 1) * GAP) / n);
@@ -309,6 +401,57 @@ export class MarketScene extends BaseScene {
       { id: 'cur', label: t(`market.cur.${this.q.cur}` as TKey), icon: this.q.cur === 'all' ? 'coin' : currencyIcon(this.q.cur), tip: t('market.curTip') },
       { id: 'sort', label: t(`market.sort.${this.q.sort}` as TKey), icon: 'log', tip: t('market.sortTip') },
     ];
+    const refName = this.q.ref ? this.refLabel(this.q.ref) : t('market.anyItem');
+    const find = (fx: number, fy: number, fw: number) => {
+      const findW = this.q.ref ? fw - FILTER_H - GAP : fw;
+      this.page.add(new MButton(this, fx, fy, findW, FILTER_H, { variant: 'secondary', label: this.q.ref ? refName : t('market.find'), icon: 'eye', id: 'market.find', tip: t('market.findTip'), onClick: () => this.openFind((ref) => this.setQuery({ ref })) }));
+      if (this.q.ref) this.page.add(this.clearButton(fx + findW + GAP, fy, () => this.setQuery({ ref: null }), 'market.clearRef'));
+    };
+    // a laptop: the sidebar, the listings' table and the chosen listing's detail pane (§11.2: three panes)
+    const three = this.sidebar && this.listLoaded && this.listings.length ? this.detailPanes(x0, w, [{ min: SIDEBAR_MIN, max: SIDEBAR_THREE }, { min: TABLE_MIN + 3, max: ROW_MAX }]) : null;
+    if (three) x0 = three[0].x;
+    if (this.sidebar) {
+      // the filter sidebar (landscape-v6 §11.2): each filter under its name when the height allows, then the listings beside it
+      const sw = three ? three[0].w : Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, Math.round(w * 0.3)));
+      const titles = [t('market.kindTitle'), t('market.curTitle'), t('market.sortTitle'), t('market.findTitle')];
+      const room = this.pageBottom() - y;
+      const named = room >= titles.length * (LINE_H + FILTER_H + GAP * 2);
+      const step = (named ? LINE_H : 0) + FILTER_H + GAP * (named ? 2 : 1);
+      const need = titles.length * step - GAP;
+      // too short for all four (Telegram's landscape): the sidebar scrolls on its own (§3.2)
+      const side = need > room ? new ScrollArea(this, this.page, x0, y, sw, room, this.m.S) : null;
+      if (side) {
+        side.setContentHeight(need);
+        addScrollHint(this, this.page, side, MOSAIC.parch);
+        this.areas.push(side);
+      }
+      const into = side?.content ?? this.page;
+      const [sx, sy] = side ? [0, 0] : [x0, y];
+      const prev = this.page;
+      this.page = into;
+      titles.forEach((title, i) => {
+        const fy = sy + i * step;
+        if (named) this.page.add(mtext(this, sx + 1, fy, title, 'pSec', { size: TEXT_MIN, maxW: sw - 2 }));
+        const by = fy + (named ? LINE_H : 0);
+        if (i < filters.length) {
+          const f = filters[i];
+          this.page.add(new MButton(this, sx, by, sw, FILTER_H, { variant: 'secondary', label: f.label, icon: f.icon, id: `market.${f.id}`, tip: f.tip, onClick: () => this.openFilter(f.id) }));
+        } else find(sx, by, sw);
+      });
+      this.page = prev;
+      x0 += sw + PANE_GUTTER;
+      w -= sw + PANE_GUTTER;
+      if (three) {
+        w = three[1].w;
+        this.detailBox = { x: three[2].x, y, w: three[2].w, h: this.pageBottom() - y };
+      }
+    } else if (this.variant === 'medium') {
+      // a tablet: the three filters and Find on one row (§11.2: filters as a chip row)
+      const fw = Math.floor((w - 3 * GAP) / 4);
+      filters.forEach((f, i) => this.page.add(new MButton(this, x0 + i * (fw + GAP), y, fw, FILTER_H, { variant: 'secondary', label: f.label, icon: f.icon, id: `market.${f.id}`, tip: f.tip, onClick: () => this.openFilter(f.id) })));
+      find(x0 + 3 * (fw + GAP), y, w - 3 * (fw + GAP));
+      y += FILTER_H + GAP;
+    } else {
     const row = filters.map((f, i) => {
       const fx = x0 + i * (bw + GAP);
       return new MButton(this, fx, y, i === n - 1 ? x0 + w - fx : bw, FILTER_H, { variant: 'secondary', label: f.label, icon: f.icon, id: `market.${f.id}`, tip: f.tip, onClick: () => this.openFilter(f.id) });
@@ -316,11 +459,9 @@ export class MarketScene extends BaseScene {
     oneFace(row);
     this.page.add(row);
     y += FILTER_H + GAP;
-    const refName = this.q.ref ? this.refLabel(this.q.ref) : t('market.anyItem');
-    const findW = this.q.ref ? w - FILTER_H - GAP : w;
-    this.page.add(new MButton(this, x0, y, findW, FILTER_H, { variant: 'secondary', label: this.q.ref ? refName : t('market.find'), icon: 'eye', id: 'market.find', tip: t('market.findTip'), onClick: () => this.openFind((ref) => this.setQuery({ ref })) }));
-    if (this.q.ref) this.page.add(this.clearButton(x0 + findW + GAP, y, () => this.setQuery({ ref: null }), 'market.clearRef'));
+    find(x0, y, w);
     y += FILTER_H + GAP;
+    }
     const h = this.pageBottom() - y;
     if (!this.listLoaded) {
       addEconState(this, this.page, x0, y, w, h, 'loading', () => {});
@@ -333,20 +474,41 @@ export class MarketScene extends BaseScene {
     }
     const rows = this.listings.length + (this.next !== null ? 1 : 0);
     const now = Date.now();
+    // beside the detail pane the chosen row ends in a chevron: the rows' content leaves it room
+    const chev = this.detailBox ? CHEV_W : 0;
+    const chosen = this.detailBox ? this.chosen(this.listings) : undefined;
+    const table = this.variant !== 'compactPortrait' && w - 3 - chev >= TABLE_MIN;
     const list = new ScrollList(this, this.page, x0, y, w, h, {
       count: rows,
+      // element-parity counts every row's ids, built or not (V6-066)
+      ids: (i) => (i < this.listings.length ? [`item:${s0(this.subject(this.listings[i]))}`, 'market.price'] : ['market.more']),
       // ScrollList renders rows `w - 3` wide
-      rowH: Math.max(...this.listings.map((l) => this.browseRow(b, l, w - 3, now).text.h)),
+      rowH: Math.max(...this.listings.map((l) => (table ? this.browseTable(b, l, w - 3 - chev, now).h : this.browseRow(b, l, w - 3 - chev, now).text.h))),
       fade: MOSAIC.parch,
-      render: (i, row, rw, rh, area) => {
+      render: (i, row, rw0, rh, area) => {
+        const rw = rw0 - chev;
         if (i === this.listings.length) {
-          row.add(new MButton(this, 0, 4, rw, FILTER_H, { variant: 'secondary', label: t('market.more'), icon: 'plus', id: 'market.more', onClick: () => void this.more() }));
+          // (a button's width at most, centred: §2.3)
+          const mw0 = Math.min(rw, BUTTON_MAX);
+          row.add(new MButton(this, Math.floor((rw - mw0) / 2), 4, mw0, FILTER_H, { variant: 'secondary', label: t('market.more'), icon: 'plus', id: 'market.more', onClick: () => void this.more() }));
+          if (this.sidebar) inPane(row, 1);
           return;
         }
-        this.listingRow(b, this.listings[i], row, rw, rh, area, now);
+        if (table) this.tableRow(b, this.listings[i], row, rw, rh, area, now);
+        else this.listingRow(b, this.listings[i], row, rw, rh, area, now);
+        if (chev) {
+          // the row's face across its whole width (the chevron's room included), the chosen one's with the selected rim
+          const l = this.listings[i];
+          row.list[0].destroy();
+          row.addAt(mosaicImage(this, 0, 0, rw0, rh, l === chosen ? 'parchmentSel' : l.mine ? 'parchmentWell' : 'parchment'), 0);
+          if (l === chosen) this.chevron(row, rw0, rh);
+        }
+        // Tab reads the sidebar's filters before the listings beside them
+        if (this.sidebar) inPane(row, 1);
       },
     });
     this.areas.push(list);
+    this.buildDetail(b, chosen);
   }
 
   /** Change the Browse filters and search again from the first page. */
@@ -452,7 +614,75 @@ export class MarketScene extends BaseScene {
       : { label, icon: currencyIcon(l.currency), variant: 'secondary', id: 'market.price', onClick: () => this.openListing(b, l) });
     if (act === 'buy' && !can) pb.setEnabled(false, t('econ.noFunds'));
     row.add(pb);
+    if (this.variant !== 'compactPortrait' && !text.stacked) {
+      // beside the filter sidebar: the seller at the left, the time (or price) right by the button, so the row reads across
+      const box = { owner: row, w: rw, h: rh };
+      const [seller, when] = [l.seller.name ?? '?', act === 'none' ? priceText(l.price, l.currency) : fmtDuration(timeLeft(l.expiresAt, now).ms)];
+      const y0 = Math.round((rh - NAME_LH - SUB_LH) / 2);
+      row.add(mtext(this, ROW_TX, y0, text.name[0], font, { box }));
+      const right = rw - bw - 8;
+      const ww = mw(when, 'pSec', TEXT_MIN);
+      row.add(mtext(this, right, y0 + NAME_LH + 1, when, 'pSec', { size: TEXT_MIN, align: 1, box }));
+      row.add(mtext(this, ROW_TX, y0 + NAME_LH + 1, fit(seller, 'pSec', TEXT_MIN, right - ROW_TX - ww - 6), 'pSec', { size: TEXT_MIN, box }));
+      return;
+    }
     this.drawRowText(row, rw, rh, text, font);
+  }
+
+  /**
+   * A wide row (tablets, laptops; landscape-v6 §11.2 "a table"): the name, the seller and the time left
+   * (or the price, once ended) in three columns of equal width, the price button at the right. The name
+   * wraps in its column, never cut.
+   */
+  private browseTable(b: Base, l: MarketListing, rw: number, now: number): { cols: number[]; cw: number; name: string[]; facts: string[]; h: number } {
+    const { font } = this.browseRow(b, l, rw, now);
+    const cw = Math.floor((rw - ROW_TX - TABLE_BTN - 8) / 3);
+    // beside the detail pane (a narrower table) the facts' columns are as wide as their longest, the name takes the rest
+    const fw = this.detailBox ? this.factCols(rw, now) : null;
+    const nw = fw ? rw - ROW_TX - TABLE_BTN - 8 - fw[0] - fw[1] : cw;
+    const name = wrapWords(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, nw - 6, (x) => mw(x, font)).map((x) => fit(x, font, 7, nw - 6));
+    const facts = this.tableFacts(l, now).map((f, i) => fit(f, 'pSec', TEXT_MIN, (fw ? fw[i] : cw) - 6));
+    return { cols: fw ? [ROW_TX, ROW_TX + nw, ROW_TX + nw + fw[0]] : [ROW_TX, ROW_TX + cw, ROW_TX + 2 * cw], cw, name, facts, h: Math.max(32, 8 + name.length * TABLE_LH) };
+  }
+
+  /** A table row's facts: the seller, and the time left (the price, once ended). */
+  private tableFacts(l: MarketListing, now: number): string[] {
+    const ended = listingAction(l, now) === 'none';
+    return [l.seller.name ?? '?', ended ? priceText(l.price, l.currency) : fmtDuration(timeLeft(l.expiresAt, now).ms)];
+  }
+
+  /** The facts' column widths for the listings in a table `rw` wide: each its longest, the name keeping at least a third. */
+  private factCols(rw: number, now: number): [number, number] {
+    const room = rw - ROW_TX - TABLE_BTN - 8;
+    const need = [0, 1].map((i) => Math.max(...this.listings.map((l) => mw(this.tableFacts(l, now)[i], 'pSec', TEXT_MIN))) + 8);
+    const cap = Math.floor((room * 2) / 3);
+    const total = need[0] + need[1];
+    if (total <= cap) return [need[0], need[1]];
+    return [Math.floor((need[0] * cap) / total), Math.floor((need[1] * cap) / total)];
+  }
+
+  private tableRow(b: Base, l: MarketListing, row: Phaser.GameObjects.Container, rw: number, rh: number, area: import('../ui/kit').ScrollArea, now: number): void {
+    row.add(mosaicImage(this, 0, 0, rw, rh, l.mine ? 'parchmentWell' : 'parchment'));
+    row.add(new ItemIcon(this, 4, Math.round((rh - 24) / 2), this.subject(l), { size: 24, area, qty: l.qty, rarity: l.kind === 'item' ? undefined : 'common', onTap: () => this.openListing(b, l) }));
+    const { act, can, label, bw, font } = this.browseRow(b, l, rw, now);
+    const pb = new MButton(this, rw - bw - 3, Math.round((rh - SIDE_H) / 2), bw, SIDE_H, act === 'none'
+      ? { label, variant: 'disabled', disabledReason: t('market.expiredHint'), id: 'market.price' }
+      : { label, icon: currencyIcon(l.currency), variant: 'secondary', id: 'market.price', onClick: () => this.openListing(b, l) });
+    if (act === 'buy' && !can) pb.setEnabled(false, t('econ.noFunds'));
+    row.add(pb);
+    const tb = this.browseTable(b, l, rw, now);
+    this.drawColumns(row, rw, rh, tb.cols, tb.name, font, tb.facts);
+  }
+
+  /** A table row's text: the name lines in the first column, one fact per further column, all centred in the row's height. */
+  private drawColumns(row: Phaser.GameObjects.Container, rw: number, rh: number, cols: number[], name: string[], font: FontKey, facts: string[]): void {
+    const box = { owner: row, w: rw, h: rh };
+    let y = Math.round((rh - name.length * TABLE_LH) / 2);
+    for (const line of name) {
+      row.add(mtext(this, cols[0], y, line, font, { box }));
+      y += TABLE_LH;
+    }
+    facts.forEach((f, i) => row.add(mtext(this, cols[i + 1], Math.round((rh - SUB_LH) / 2) + 1, f, 'pSec', { size: TEXT_MIN, box })));
   }
 
   /** The name lines and fact lines of a row: centred (compact), or the name on top and the facts centred in the lower block. */
@@ -486,7 +716,19 @@ export class MarketScene extends BaseScene {
     return c;
   }
 
+  /** A listing's card: in the detail pane on a laptop (three panes), else a sheet. */
   openListing(b: Base, l: MarketListing): void {
+    if (this.detailBox && (this.tab === 'browse' || this.tab === 'mine')) {
+      this.choose(l);
+      return;
+    }
+    const card = this.listingCard(b, l, Math.min(this.m.VW - 12, 210));
+    if (card.kind === 'item') openItemCard(this, card.opts);
+    else this.goodsCard(card.s, card.qty, card.name, card.notes, card.actions);
+  }
+
+  /** What a listing's card shows, for a card `cardW` wide: the item card's options, or the goods card's parts. */
+  private listingCard(b: Base, l: MarketListing, cardW: number): { kind: 'item'; opts: ItemCardOpts } | { kind: 'goods'; s: IconSubject; qty: number; name: string; notes: Note[]; actions: MButtonOpts[] } {
     const now = Date.now();
     const act = listingAction(l, now);
     const s = this.subject(l);
@@ -507,10 +749,9 @@ export class MarketScene extends BaseScene {
           : act === 'cancel'
             ? [{ label: t('market.cancelListing'), icon: 'close', variant: 'destructive' as const, id: 'market.cancel', onClick: () => this.askCancel(l) }]
             : [];
-      // the item card's text column (sheet.ts openItemCard: min(VW - 12, 210) less its padding)
-      const noteW = Math.min(this.m.VW - 12, 210) - 16 - 3;
-      openItemCard(this, { item: s.item, hero: b.profile?.heroes[0]?.hero, title: this.listingName(l), notes: notes.flatMap((n) => wrapText(n.text, noteW, 3).lines.map((text) => ({ text, font: n.font === 'red' ? ('pBad' as const) : undefined }))), actions });
-      return;
+      // the item card's text column (sheet.ts openItemCard: the card's width less its padding)
+      const noteW = cardW - 16 - 3;
+      return { kind: 'item', opts: { item: s.item, hero: b.profile?.heroes[0]?.hero, title: this.listingName(l), notes: notes.flatMap((n) => wrapText(n.text, noteW, 3).lines.map((text) => ({ text, font: n.font === 'red' ? ('pBad' as const) : undefined }))), actions } };
     }
     const actions: MButtonOpts[] =
       act === 'buy'
@@ -518,7 +759,7 @@ export class MarketScene extends BaseScene {
         : act === 'cancel'
           ? [{ label: t('market.cancelListing'), icon: 'close', variant: 'secondary', id: 'market.cancel', onClick: () => this.askCancel(l) }]
           : [];
-    this.goodsCard(s, l.qty, this.listingName(l), notes, actions);
+    return { kind: 'goods', s, qty: l.qty, name: this.listingName(l), notes, actions };
   }
 
   /**
@@ -528,6 +769,27 @@ export class MarketScene extends BaseScene {
   private goodsCard(s: IconSubject, qty: number, name: string, notes: Note[], actions: MButtonOpts[]): void {
     const w = Math.min(this.m.VW - 16, 200);
     const inner = w - 16;
+    const { desc, noteLines } = this.goodsLines(s, notes, inner);
+    let m: ReturnType<typeof openParchmentSheet> | null = null;
+    const acts = actions.map((a) => ({ ...a, onClick: a.onClick && (() => (m?.close(), a.onClick!())) }));
+    const want = SHEET_TITLE_H + 32 + desc.length * LINE_H + (desc.length ? 4 : 0) + noteLines.length * LINE_H + 6 + sheetActionsH(acts, w);
+    m = openParchmentSheet(this, { title: name, w, h: want, actions: acts, id: 'market.goods' });
+    this.fillGoods(m.c, m.body, s, qty, name, inner, desc, noteLines);
+  }
+
+  /** The goods card in place, as the detail pane (a laptop, §11.2): as tall as its words, centred in the pane's height. */
+  private goodsPane(box: Box, card: { s: IconSubject; qty: number; name: string; notes: Note[]; actions: MButtonOpts[] }): Phaser.GameObjects.Container {
+    const inner = box.w - 16;
+    const { desc, noteLines } = this.goodsLines(card.s, card.notes, inner);
+    const want = SHEET_TITLE_H + 32 + desc.length * LINE_H + (desc.length ? 4 : 0) + noteLines.length * LINE_H + 6 + sheetActionsH(card.actions, box.w);
+    const h = Math.min(box.h, want);
+    const pane = addParchmentPane(this, this.page, { ...box, y: box.y + Math.floor((box.h - h) / 2), h }, { title: card.name, actions: card.actions, id: 'market.goodsPane' });
+    this.fillGoods(pane.c, pane.body, card.s, card.qty, card.name, inner, desc, noteLines);
+    return pane.c;
+  }
+
+  /** The goods card's description and note lines wrapped to `inner`. */
+  private goodsLines(s: IconSubject, notes: Note[], inner: number): { desc: string[]; noteLines: { text: string; font: FontKey }[] } {
     const lines = (text: string, font: FontKey, max = 0) => {
       const out = wrapWords(text, inner, (x) => mw(x, font));
       return max ? out.slice(0, max) : out;
@@ -535,11 +797,11 @@ export class MarketScene extends BaseScene {
     const desc = 'consumable' in s ? lines(tOr(`consumable.${s.consumable}.desc`, CONSUMABLES[s.consumable as ConsumableId]?.desc ?? ''), 'pInk', 3) : [];
     const ink = (n: Note): FontKey => (n.font === 'red' ? 'pBad' : 'pSec');
     const noteLines = notes.flatMap((n) => lines(n.text, ink(n)).map((text) => ({ text, font: ink(n) })));
-    let m: ReturnType<typeof openParchmentSheet> | null = null;
-    const acts = actions.map((a) => ({ ...a, onClick: a.onClick && (() => (m?.close(), a.onClick!())) }));
-    const want = SHEET_TITLE_H + 32 + desc.length * LINE_H + (desc.length ? 4 : 0) + noteLines.length * LINE_H + 6 + sheetActionsH(acts, w);
-    m = openParchmentSheet(this, { title: name, w, h: want, actions: acts, id: 'market.goods' });
-    const { c, body } = m;
+    return { desc, noteLines };
+  }
+
+  /** The goods card's content at `body`: the icon and the count, the description, the notes. */
+  private fillGoods(c: Phaser.GameObjects.Container, body: Box, s: IconSubject, qty: number, name: string, inner: number, desc: string[], noteLines: { text: string; font: FontKey }[]): void {
     c.add(new ItemIcon(this, body.x, body.y, s, { size: 26, qty, tip: false }));
     c.add(mtext(this, body.x + 32, body.y + 9, `${qty}x ${name}`, 'pInk', { maxW: inner - 32 }));
     let cy = body.y + 32;
@@ -674,12 +936,62 @@ export class MarketScene extends BaseScene {
       const text = rowText(name, font, facts, right - stW - 4 - ROW_TX, rw - ROW_TX - 8 - stW, right - ROW_TX, right - ROW_TX);
       return { status, act, bw, right, stT, stF, font, text };
     };
-    const list = new ScrollList(this, this.page, x0, y, w, h, {
-      count: mine.listings.length,
-      rowH: Math.max(...mine.listings.map((l) => lay(l, w - 3).text.h)),
+    // a wide row is a table (§11.2): the name, the price and what you get in columns, the status before Cancel listing;
+    // outside compact portrait the list is at most a row wide (§2.3), centred, and shows every free slot after the
+    // listings (a tap: Sell), so the page says how much more can be listed
+    const wide = this.variant !== 'compactPortrait';
+    // a laptop: the list and the chosen listing's detail pane (§11.2)
+    const two = this.detailPanes(x0, w, [{ min: TABLE_MIN + 3 + CHEV_W, max: ROW_MAX }]);
+    const lw = two ? two[0].w : w;
+    const lx = two ? two[0].x : x0;
+    if (two) this.detailBox = { x: two[1].x, y, w: two[1].w, h };
+    const chev = two ? CHEV_W : 0;
+    const chosen = two ? this.chosen(mine.listings) : undefined;
+    const free = wide ? Math.max(0, mine.maxOpen - mine.open) : 0;
+    const table = wide && lw - 3 - chev >= TABLE_MIN;
+    const cols = (l: MarketListing, rw: number) => {
+      const { font, stT, stF } = lay(l, rw);
+      const cw = Math.floor((rw - ROW_TX - FILTER_H - 7 - MINE_STATUS_W - 6) / 3);
+      const name = wrapWords(`${l.qty > 1 ? `${l.qty}x ` : ''}${this.listingName(l)}`, cw - 6, (x) => mw(x, font)).map((x) => fit(x, font, 7, cw - 6));
+      const facts = [priceText(l.price, l.currency), t('market.youGet', { n: sellerGets(l.price, b.cat.market.feeRate) })].map((f) => fit(f, 'pSec', TEXT_MIN, cw - 6));
+      return { cols: [ROW_TX, ROW_TX + cw, ROW_TX + 2 * cw], name, facts, font, stT, stF, h: Math.max(32, 8 + name.length * TABLE_LH) };
+    };
+    const toSell = () => ((this.tab = 'sell'), this.render(), void this.refreshTab());
+    const list = new ScrollList(this, this.page, lx, y, lw, h, {
+      count: mine.listings.length + free,
+      rowH: Math.max(...mine.listings.map((l) => (table ? cols(l, lw - 3 - chev).h : lay(l, lw - 3 - chev).text.h))),
       fade: MOSAIC.parch,
-      render: (i, row, rw, rh, area) => {
+      ids: (i) => (i >= mine.listings.length ? ['market.slot'] : []),
+      render: (i, row, rw0, rh, area) => {
+        const rw = i >= mine.listings.length ? rw0 : rw0 - chev;
+        if (i >= mine.listings.length) {
+          // a free slot: the whole row goes to Sell
+          row.add(mosaicImage(this, 0, 0, rw, rh, 'parchmentWell'));
+          // (its tap area at most a row wide, §2.3, centred under the words)
+          const zw = Math.min(rw, ROW_MAX);
+          const z = this.add.zone(Math.floor((rw - zw) / 2), 0, zw, rh).setOrigin(0, 0).setInteractive();
+          tappable(z, area, toSell, t('market.mineEmptyHint'));
+          row.add(uiId(z, 'market.slot'));
+          // "Free slot" at the left, where to fill it at the right
+          const fy = Math.round((rh - SUB_LH) / 2);
+          const hint = mtext(this, rw - 6, fy, t('market.freeSlotHint'), 'pMuted', { size: TEXT_MIN, align: 1, maxW: rw / 2 - 8, box: { owner: row, w: rw, h: rh } });
+          row.add(hint);
+          row.add(mtext(this, ROW_TX, fy, t('market.freeSlot'), 'pSec', { size: TEXT_MIN, maxW: rw - ROW_TX - hint.width - 12, box: { owner: row, w: rw, h: rh } }));
+          return;
+        }
         const l = mine.listings[i];
+        if (table) {
+          const { status, act } = lay(l, rw);
+          const c = cols(l, rw);
+          row.add(mosaicImage(this, 0, 0, rw0, rh, l === chosen ? 'parchmentSel' : status === 'open' ? 'parchment' : 'parchmentWell'));
+          if (l === chosen) this.chevron(row, rw0, rh);
+          row.add(new ItemIcon(this, 4, Math.round((rh - 24) / 2), this.subject(l), { size: 24, area, qty: l.qty, onTap: () => this.openListing(b, l) }));
+          if (act === 'cancel') row.add(this.clearButton(rw - FILTER_H - 3, Math.round((rh - FILTER_H) / 2), () => this.askCancel(l), 'market.cancelRow', t('market.cancelListing')));
+          row.add(mtext(this, rw - FILTER_H - 7, Math.round((rh - SUB_LH) / 2) + 1, c.stT, c.stF, { size: TEXT_MIN, align: 1, maxW: MINE_STATUS_W, box: { owner: row, w: rw, h: rh } }));
+          this.drawColumns(row, rw, rh, c.cols, c.name, c.font, c.facts);
+          if (two) inPane(row, 1);
+          return;
+        }
         const { status, act, bw, right, stT, stF, font, text } = lay(l, rw);
         row.add(mosaicImage(this, 0, 0, rw, rh, status === 'open' ? 'parchment' : 'parchmentWell'));
         row.add(new ItemIcon(this, 4, Math.round((rh - 24) / 2), this.subject(l), { size: 24, area, qty: l.qty, onTap: () => this.openListing(b, l) }));
@@ -691,6 +1003,7 @@ export class MarketScene extends BaseScene {
       },
     });
     this.areas.push(list);
+    this.buildDetail(b, chosen);
   }
 
   askCancel(l: MarketListing): void {
@@ -748,6 +1061,7 @@ export class MarketScene extends BaseScene {
     }
     this.page.add(mtext(this, x0 + w / 2, top + 1, t('market.sellHint'), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: w }));
     const y = top + 12;
+    if (this.variant !== 'compactPortrait') return this.sellRows(b, list, x0, y, w, bottom - y);
     this.page.add(mosaicImage(this, x0, y, w, bottom - y, 'parchmentWell'));
     const grid = new Grid(this, this.page, x0 + 3, y + 3, w - 6, bottom - y - 6, {
       count: list.length,
@@ -759,6 +1073,47 @@ export class MarketScene extends BaseScene {
       },
     });
     this.areas.push(grid);
+  }
+
+  /**
+   * Outside compact portrait, what can be sold as rows at most a row wide (§2.3), centred: the icon, the name and
+   * what it is worth (or how many you have), and List, which opens the listing form as the icon does.
+   */
+  private sellRows(b: Base, list: Sellable[], x0: number, y: number, w: number, h: number): void {
+    const lw = w;
+    const table = lw - 3 >= TABLE_MIN;
+    const subj = (s: Sellable): IconSubject => (s.kind === 'item' ? { item: s.item } : s.kind === 'resource' ? { resource: s.id } : { consumable: s.id });
+    const rows = new ScrollList(this, this.page, x0, y, lw, h, {
+      count: list.length,
+      rowH: 32,
+      fade: MOSAIC.parch,
+      ids: (i) => [`item:${s0(subj(list[i]))}`, 'market.sellRow'],
+      render: (i, row, rw, rh, area) => {
+        const s = list[i];
+        const box = { owner: row, w: rw, h: rh };
+        row.add(mosaicImage(this, 0, 0, rw, rh, 'parchment'));
+        row.add(new ItemIcon(this, 4, Math.round((rh - 24) / 2), subj(s), { size: 24, area, qty: s.kind === 'item' ? undefined : s.have, tip: false, onTap: () => this.openSellForm(b, s) }));
+        const bw = Math.min(TABLE_BTN + 16, Math.max(TABLE_BTN, mw(t('market.list').toUpperCase(), 'rCream', 7) + ICON_W + 14));
+        row.add(new MButton(this, rw - bw - 3, Math.round((rh - SIDE_H) / 2), bw, SIDE_H, { label: t('market.list'), icon: 'coin', variant: 'secondary', id: 'market.sellRow', onClick: () => this.openSellForm(b, s) }));
+        const tw = rw - ROW_TX - bw - 8;
+        const name = s.kind === 'item' ? itemName(s.item) : subjectName(subj(s));
+        const font = s.kind === 'item' ? rarityInk(this, s.item.rarity) : 'pInk';
+        const sub = s.kind === 'item' ? t('stash.worth', { n: itemValue(s.item) }) : `${s.have}×`;
+        if (table) {
+          // a table (§11.2): the name, the rarity (or the kind of goods), the slot (or how many you have), what one is worth
+          const cw = Math.floor((rw - ROW_TX - bw - 8) / 4);
+          const facts =
+            s.kind === 'item'
+              ? [t(`rarity.${s.item.rarity}` as TKey), t(`slot.${itemDef(s.item.def).slot}` as TKey), sub]
+              : [t(s.kind === 'resource' ? 'market.kind.resource' : 'market.kind.consumable'), `${s.have}×`, t('stash.worth', { n: s.kind === 'resource' ? RES_VALUE[s.id] ?? 1 : CONSUMABLES[s.id].gold ?? 50 })];
+          this.drawColumns(row, rw, rh, [0, 1, 2, 3].map((k) => ROW_TX + k * cw), [fit(name, font, 7, cw - 6)], font, facts.map((f) => fit(f, 'pSec', TEXT_MIN, cw - 6)));
+          return;
+        }
+        row.add(mtext(this, ROW_TX, Math.round((rh - NAME_LH - SUB_LH) / 2), fit(name, font, 7, tw), font, { box }));
+        row.add(mtext(this, ROW_TX, Math.round((rh - NAME_LH - SUB_LH) / 2) + NAME_LH + 1, fit(sub, 'pSec', TEXT_MIN, tw), 'pSec', { size: TEXT_MIN, box }));
+      },
+    });
+    this.areas.push(rows);
   }
 
   /**
@@ -803,7 +1158,9 @@ export class MarketScene extends BaseScene {
       },
     });
     sheet.c.add(listBtn);
-    const area = viewH < bodyH ? new ScrollArea(this, sheet.c, x0, sheet.body.y, iw, viewH, this.m.S) : null;
+    // (the sheet can be shorter than asked: a centred dialog on a short landscape screen; the fields keep a gap above the actions)
+    const fitH = Math.min(viewH, ay - GAP - sheet.body.y);
+    const area = fitH < bodyH ? new ScrollArea(this, sheet.c, x0, sheet.body.y, iw, fitH, this.m.S) : null;
     if (area) {
       area.setContentHeight(bodyH);
       sheet.c.once('destroy', () => area.destroy());
@@ -899,6 +1256,11 @@ export class MarketScene extends BaseScene {
    * it closes (one sheet at a time, V5-029).
    */
   openNumberSheet(o: { title: string; value: number; min: number; max: number; icon?: string; presets?: { label: string; tip: string; value: number }[]; info?: (v: number) => string; id: string; onDone: (v: number) => void }): void {
+    // a short landscape screen (the phone on its side, Telegram) has no room for the four-row pad: a wider
+    // dialog with the digits in two rows and the presets, Cancel and OK in a third (every key stays)
+    const tall = (cw: number) => SHEET_TITLE_H + 18 + LINE_H + 4 + 4 * (TAP + GAP) + sheetActionsH([{ label: t('common.cancel') }, { label: t('common.ok') }], cw) + 2;
+    const short = this.variant !== 'compactPortrait' && tall(Math.min(this.m.VW - 16, 200)) > this.m.VH - 16;
+    if (short) return this.openNumberPad(o);
     const w = Math.min(this.m.VW - 16, 200);
     const cols = o.presets?.length ? 4 : 3;
     const digits = String(o.max).length;
@@ -975,6 +1337,85 @@ export class MarketScene extends BaseScene {
     show();
   }
 
+  /** The numeric entry of a short landscape screen (see openNumberSheet): the same keys, value and rules in three rows. */
+  private openNumberPad(o: Parameters<MarketScene['openNumberSheet']>[0]): void {
+    const w = Math.min(this.m.VW - 16, DIALOG_MAX);
+    const digits = String(o.max).length;
+    let typed = String(o.value);
+    let fresh = true;
+    const value = () => Number(typed || '0');
+    const inside = (v: number) => v >= o.min && v <= o.max;
+    const headH = 18 + LINE_H + 4;
+    const h = SHEET_TITLE_H + headH + 3 * (TAP + GAP) + 6;
+    const sheet = openParchmentSheet(this, { title: o.title, w, h, shadeCloses: false, closeButton: false, id: o.id });
+    const { x, y, w: iw } = sheet.body;
+    const head = this.add.container(0, 0);
+    sheet.c.add(head);
+    const ky = y + headH;
+    const kw = Math.floor((iw - GAP * 5) / 6);
+    const key = (i: number, r: number) => ({ kx: x + i * (kw + GAP), kyy: ky + r * (TAP + GAP) });
+    let ok: MButton | null = null;
+    const show = () => {
+      head.removeAll(true);
+      const v = value();
+      head.add(mosaicImage(this, x, y, iw, 18, 'parchmentWell'));
+      const txt = mtext(this, x + iw / 2, y + 4, typed || '0', inside(v) ? 'pInk' : 'pBad', { size: 9, align: 0.5, maxW: iw - 30 });
+      head.add(txt);
+      if (o.icon) head.add(addIcon(this, Math.round(txt.x - txt.width / 2 - 14), y + 3, o.icon, ''));
+      const line = `${t('market.bounds', { min: o.min, max: o.max })}${o.info && inside(v) ? ` · ${o.info(v)}` : ''}`;
+      head.add(mtext(this, x + iw / 2, y + 20, line, inside(v) ? 'pSec' : 'pBad', { size: TEXT_MIN, align: 0.5, maxW: iw }));
+      ok?.setEnabled(inside(v), t('market.bounds', { min: o.min, max: o.max }));
+    };
+    const press = (k: string) => {
+      if (k === 'del') typed = fresh ? '' : typed.slice(0, -1);
+      else if (k === 'clr') typed = '';
+      else typed = (fresh ? '' : typed.replace(/^0+/, '')) + k;
+      typed = typed.slice(0, digits);
+      fresh = false;
+      show();
+    };
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'clr', 'del'].forEach((k, i) => {
+      const { kx, kyy } = key(i % 6, Math.floor(i / 6));
+      if (k === 'del') sheet.c.add(new MIconButton(this, kx, kyy, kw, TAP, { icon: 'back', label: t('market.keyDel'), variant: 'secondary', id: `${o.id}.del`, onClick: () => press('del') }));
+      else sheet.c.add(new MButton(this, kx, kyy, kw, TAP, { label: k === 'clr' ? 'C' : k, variant: 'secondary', tip: k === 'clr' ? t('market.keyClear') : undefined, id: `${o.id}.key${k}`, onClick: () => press(k) }));
+    });
+    // the third row: the presets (when the entry has them), then Cancel and OK
+    const presets = o.presets ?? [];
+    const n = presets.length + 2;
+    const bw = Math.floor((iw - GAP * (n - 1)) / n);
+    const r3 = ky + 2 * (TAP + GAP);
+    presets.forEach((p, i) =>
+      sheet.c.add(
+        new MButton(this, x + i * (bw + GAP), r3, bw, TAP, {
+          label: p.label,
+          variant: 'neutral',
+          tip: p.tip,
+          id: `${o.id}.preset${i}`,
+          onClick: () => {
+            typed = String(p.value);
+            fresh = true;
+            show();
+          },
+        }),
+      ),
+    );
+    const cx = x + presets.length * (bw + GAP);
+    sheet.c.add(new MButton(this, cx, r3, bw, TAP, { label: t('common.cancel'), variant: 'secondary', id: `${o.id}.cancel`, onClick: () => sheet.close() }));
+    ok = new MButton(this, cx + bw + GAP, r3, x + iw - (cx + bw + GAP), TAP, {
+      label: t('common.ok'),
+      icon: 'check',
+      variant: 'primary',
+      id: `${o.id}.ok`,
+      onClick: () => {
+        if (!inside(value())) return;
+        sheet.close();
+        o.onDone(value());
+      },
+    });
+    sheet.c.add(ok);
+    show();
+  }
+
   async list(s: Sellable, qty: number, currency: Currency, price: number, town: { loc: number; name: string }): Promise<boolean> {
     if (this.busy) return false;
     this.busy = true;
@@ -996,3 +1437,10 @@ export class MarketScene extends BaseScene {
   }
 }
 
+/** Every object under `c` (a container tree) reads in pane `n` (focus order, landscape-v6 §4). */
+function inPane(c: Phaser.GameObjects.Container, n: number): void {
+  for (const o of c.list) {
+    focusPane(o, n);
+    if (o instanceof Phaser.GameObjects.Container) inPane(o, n);
+  }
+}

@@ -37,7 +37,7 @@ import { SCRIM_ALPHA, closeAffordance, sheetMotion, visibleOverlays, type Overla
 import type { Box } from './ScreenFrame';
 import { panelLayout, type PanelKind, type PanelPresentation } from './layout/panels';
 import { layoutVariant } from './layout/variant';
-import { DIALOG_MAX, SIDE_PANEL_MAX } from '../sizeClass';
+import { BUTTON_MAX, DIALOG_MAX, SIDE_PANEL_MAX } from '../sizeClass';
 
 type UiScene = Phaser.Scene & { m: UIMetrics; ui: Phaser.GameObjects.Container };
 
@@ -260,10 +260,13 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   const actionsH = rows.length ? rows.length * (SHEET_ACTION_H + GAP) + SPACE.sm : 0;
   const buttons: MButton[] = [];
   rows.forEach((row, ri) => {
-    const aw = Math.floor((w - SPACE.md * 2 - GAP * (row.length - 1)) / row.length);
+    // at most a button's width (§2.3: a lone action across a wide side panel), the row centred
+    const fill = Math.floor((w - SPACE.md * 2 - GAP * (row.length - 1)) / row.length);
+    const aw = Math.min(BUTTON_MAX, fill);
+    const ax = x + SPACE.md + Math.floor(((fill - aw) * row.length) / 2);
     row.forEach((a, i) => {
       const by = y + h - SPACE.md - (rows.length - ri) * SHEET_ACTION_H - (rows.length - ri - 1) * GAP;
-      const b = new MButton(scene, x + SPACE.md + i * (aw + GAP), by, aw, SHEET_ACTION_H, { variant: 'neutral', ...a });
+      const b = new MButton(scene, ax + i * (aw + GAP), by, aw, SHEET_ACTION_H, { variant: 'neutral', ...a });
       box.add(b);
       buttons.push(b);
     });
@@ -298,4 +301,34 @@ export function openParchmentSheet(scene: UiScene, o: ParchmentSheetOpts): Parch
   restack(scene);
   uiId(c, id);
   return { c: box, x, y, w, h, body: { x: x + PAD, y: top, w: w - PAD * 2, h: y + h - PAD - top - actionsH }, buttons, close };
+}
+
+/**
+ * A detail pane in place (design/ux/landscape-v6.md §3.3): the sheet's parchment, title and action row,
+ * drawn into `parent` at `box` with no shade, no X and no navigation layer, because in two or three panes
+ * the detail is not a layer (Back leaves the screen). A screen fills `body` with what its sheet shows.
+ */
+export function addParchmentPane(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, box: Box, o: { title: string; actions?: MButtonOpts[]; id?: string }): { c: Phaser.GameObjects.Container; body: Box; buttons: MButton[] } {
+  const { x, y, w, h } = box;
+  const c = scene.add.container(0, 0);
+  parent.add(c);
+  c.add(mosaicImage(scene, x, y, w, h, 'sheet'));
+  const top = addTitle(scene, c, x, y, w, o.title, undefined, o.id ?? 'pane').top;
+  const rows = o.actions?.length ? actionRows(o.actions, w - SPACE.md * 2) : [];
+  const actionsH = rows.length ? rows.length * (SHEET_ACTION_H + GAP) + SPACE.sm : 0;
+  const buttons: MButton[] = [];
+  rows.forEach((row, ri) => {
+    const fill = Math.floor((w - SPACE.md * 2 - GAP * (row.length - 1)) / row.length);
+    const aw = Math.min(BUTTON_MAX, fill);
+    const ax = x + SPACE.md + Math.floor(((fill - aw) * row.length) / 2);
+    row.forEach((a, i) => {
+      const by = y + h - SPACE.md - (rows.length - ri) * SHEET_ACTION_H - (rows.length - ri - 1) * GAP;
+      const b = new MButton(scene, ax + i * (aw + GAP), by, aw, SHEET_ACTION_H, { variant: 'neutral', ...a });
+      c.add(b);
+      buttons.push(b);
+    });
+  });
+  markSurface(c, MOSAIC.parch);
+  if (o.id) uiId(c, o.id);
+  return { c, body: { x: x + PAD, y: top, w: w - PAD * 2, h: y + h - PAD - top - actionsH }, buttons };
 }

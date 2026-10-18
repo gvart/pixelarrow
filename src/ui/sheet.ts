@@ -36,7 +36,7 @@ import { MOSAIC, ROLE } from './tokens';
 import { CURSOR_CSS } from './input/cursor';
 import { dropView } from './army/drop';
 import { arrangeActions } from './mosaic/overlays';
-import { sheetBox } from './mosaic/ParchmentSheet';
+import { addParchmentPane, sheetBox } from './mosaic/ParchmentSheet';
 import { BUTTON_MAX } from './sizeClass';
 
 export const SLOT_ICON: Record<Slot, string> = { weapon: 'spear', shield: 'shield', helmet: 'helmet', armor: 'armor', trinket: 'ring' };
@@ -526,15 +526,38 @@ export function equipRefusal(h: Hero, it: Item): string | undefined {
 export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   ensureFonts(scene);
   const { VW, VH } = scene.m;
-  const it = o.item;
-  const def = itemDef(it.def);
-  const rarity = normalizeRarity(it.rarity);
   // v5's card width; a side panel (landscape, V6-RSCR-05) lays the card out across the panel it is given
   const v5w = Math.min(VW - 12, 210);
   const box = sheetBox(scene, { w: v5w, h: VH });
   const w = box.presentation === 'side' ? box.w : v5w;
+  const k = measureItemCard(o, w);
+  const m = openModal(scene, { title: o.title ?? (k.cmp ? t('stash.compare') : t('stash.item')), w, h: Math.min(k.want, VH - 12) });
+  const area = drawItemCard(scene, m.c, m.x, m.y, w, m.h, o, k, box.presentation === 'side', m.close);
+  m.c.once('destroy', () => area.destroy());
+  return m;
+}
+
+/**
+ * The item card in place, as a detail pane beside a list (design/ux/landscape-v6.md §3.3): the card's
+ * parchment and title in `box`, its content laid out across the pane; an action does what it does on the
+ * card (nothing closes). Returns the pane's container (`destroy` takes its scroll area with it).
+ */
+export function addItemCardPane(scene: UiScene, parent: Phaser.GameObjects.Container, box: { x: number; y: number; w: number; h: number }, o: ItemCardOpts & { id?: string }): Phaser.GameObjects.Container {
+  ensureFonts(scene);
+  const k = measureItemCard(o, box.w);
+  const pane = addParchmentPane(scene, parent, box, { title: o.title ?? (k.cmp ? t('stash.compare') : t('stash.item')), id: o.id });
+  const area = drawItemCard(scene, pane.c, box.x, box.y, box.w, box.h, o, k, true, () => {});
+  pane.c.once('destroy', () => area.destroy());
+  return pane.c;
+}
+
+type ItemCardLayout = ReturnType<typeof measureItemCard>;
+
+/** The item card's content measured for a card `w` wide. */
+function measureItemCard(o: ItemCardOpts, w: number) {
+  const it = o.item;
+  const def = itemDef(it.def);
   const inner = w - 16;
-  // ---- measure the content
   const cmp = o.hero && !o.equipped ? compareItem(o.hero, it) : null;
   const changed = cmp ? cmp.deltas.filter((d) => d.better !== null) : [];
   const mods = itemModLines(it, o.hero?.attrs).map((ml) => ({ ...ml, text: localDecimals(ml.text) }));
@@ -550,8 +573,16 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
   const bodyH = cmpH + modsH + rules.length * LINE_H + (rules.length ? 4 : 0) + desc.lines.length * LINE_H + 4 + notes.length * LINE_H;
   const footH = o.actions.length ? SIZE.btnH + 10 : 0;
   const want = 26 + headH + bodyH + footH + 8;
-  const m = openModal(scene, { title: o.title ?? (cmp ? t('stash.compare') : t('stash.item')), w, h: Math.min(want, VH - 12) });
-  const { c, x, y, h } = m;
+  return { cmp, changed, mods, desc, notes, rules, headH, cmpH, modName, modCols, footH, want };
+}
+
+/** The card's content into `c` (header, scrolling body, actions) in the card box x, y, w, h; returns its scroll area. */
+function drawItemCard(scene: UiScene, c: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number, o: ItemCardOpts, k: ItemCardLayout, side: boolean, close: () => void): ScrollArea {
+  const { cmp, changed, mods, desc, notes, rules, headH, cmpH, modName, modCols, footH } = k;
+  const it = o.item;
+  const def = itemDef(it.def);
+  const rarity = normalizeRarity(it.rarity);
+  const inner = w - 16;
   const bx = x + 8;
   let cy = y + 24;
   // ---- header: icon, name, rarity + slot, condition, value
@@ -632,7 +663,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
     const { order, gaps } = arrangeActions(o.actions.map((a) => (a.variant === 'primary' || a.variant === 'destructive' ? a.variant : 'other')), SIZE.gap);
     // in a wide side panel the row keeps each button within the §2.3 cap, at the right (primary under the thumb)
     const gapW = gaps.reduce((s, g) => s + g, 0);
-    const rowW = box.presentation === 'side' ? Math.min(inner, n * BUTTON_MAX + gapW) : inner;
+    const rowW = side ? Math.min(inner, n * BUTTON_MAX + gapW) : inner;
     const bw = Math.floor((rowW - gapW) / n);
     let ax = bx + inner - rowW;
     order.forEach((ai, i) => {
@@ -644,7 +675,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
         variant: a.variant ?? 'secondary',
         id: a.id,
         onClick: () => {
-          m.close();
+          close();
           a.onClick();
         },
       });
@@ -652,8 +683,7 @@ export function openItemCard(scene: UiScene, o: ItemCardOpts): Modal {
       c.add(btn);
     });
   }
-  c.once('destroy', () => area.destroy());
-  return m;
+  return area;
 }
 
 // ------------------------------------------------------------------ stash grid with filters

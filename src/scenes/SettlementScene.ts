@@ -1,14 +1,18 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene';
-import { ScrollArea, addIcon, panelK } from '../ui/kit';
-import { ScrollList, ItemIcon, addScrollHint, confirmDialog, toast } from '../ui/widgets';
-import { uiId } from '../ui/layout';
+import { ScrollArea, addIcon, panelK, scaleIcon, tappable } from '../ui/kit';
+import { SIZE } from '../ui/theme';
+import { ScrollList, ItemIcon, addScrollHint, confirmDialog, showTooltip, toast } from '../ui/widgets';
+import { uiCollapsed, uiId, uiLayout } from '../ui/layout';
+import { columns, layoutVariant, DETAIL_MIN, MASTER_MAX, MASTER_MIN, PANE_GUTTER, type Box } from '../ui/mosaic/layout/geometry';
+import { focusPane } from '../ui/focusRing';
+import { BUTTON_MAX, CONTENT_MAX, ROW_MAX } from '../ui/sizeClass';
 import { measureText, wrapText, LINE_H } from '../ui/textfit';
 import { ensureFonts } from '../ui/fonts';
-import { className, defaultStashState, itemName, openItemCard, saleText, roleColor, roleName, roleTraits, type StashState } from '../ui/sheet';
+import { addItemCardPane, className, defaultStashState, itemName, openItemCard, saleText, roleColor, roleName, roleTraits, type ItemCardOpts, type StashState } from '../ui/sheet';
 import { addPortrait } from '../ui/sprites';
 import { ARMY_LH, armyPill, armyPillW } from '../ui/army/parts';
-import { canRetrainAny, openRecruitSheet, showUndoToast, undoHire } from '../ui/sheets/recruit';
+import { addRecruitPane, canRetrainAny, openRecruitSheet, showUndoToast, undoHire, type RecruitSheetOpts } from '../ui/sheets/recruit';
 import { heroClass } from '../sim/stats';
 import { dollFromHero } from '../art/paperdoll';
 import { renderGround } from '../art/ground';
@@ -54,6 +58,8 @@ let lastTab: { id: number; tab: Tab } | null = null;
 
 /** Village / town screen (screens-campaign.md C-6): hire volunteers, buy and sell gear, services (rest, provisions, physician, drillmaster). */
 export class SettlementScene extends BaseScene {
+  /** Migrated to the size classes (ADR-0013, V6-RSCR-06). */
+  protected override readonly responsive = true;
   private id = 0;
   private tab: Tab = 'recruits';
   private tabList: Tab[] = [];
@@ -68,8 +74,19 @@ export class SettlementScene extends BaseScene {
   private bodyTop = 0;
   private bodyBottom = 0;
   private chipsY = 0;
+  /** The banner pane (compact landscape, expanded): the purse is laid out across its width, row by row. */
+  private chipBox: { x: number; w: number } | null = null;
   private restArea: ScrollArea | null = null;
   private eventCard: EventCardHandle | null = null;
+  /** The body pane beside the banner (the tabs span it): the list's, or the list's and the detail's. */
+  private region = { x: 0, w: 0 };
+  /** Expanded with room for three panes (landscape-v6 §11.2, §3.2): the list pane and the detail pane. */
+  private split: { list: Box; detail: Box } | null = null;
+  /** The recruit, ware or stash item the detail pane shows, per tab (the first one until a row is chosen). */
+  private sel: { recruits?: number; market?: number; sell?: string } = {};
+  /** The detail pane's box this tab (three panes and something to show), and the pane drawn there. */
+  private detailBox: Box | null = null;
+  private detailPane: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super('Settlement');
@@ -93,23 +110,61 @@ export class SettlementScene extends BaseScene {
     this.tab = want && this.tabList.includes(want) ? want : 'recruits';
     this.list = null;
     this.stash = null;
+    this.sel = {};
     this.screen({ back: () => this.leave() });
     const { VH } = this.m;
     const compact = VH < 300;
+    // compact landscape and expanded: a banner pane at the left (the fresco, who lives here, the purse, Army
+    // and Leave at its foot) beside the tabs and their body (landscape-v6 §11.2); compact portrait (v5) and
+    // medium stack them
+    const v = layoutVariant(this.m);
+    uiLayout(this, this.m.cls, this.m.land);
+    const paned = v === 'compactLandscape' || v === 'expanded';
 
     const shell = addSubShell(this, { title: placeName(def.name), back: () => this.leave(), id: 'town.topbar', scroll: false });
     const b = shell.content;
     this.ax = b.x + 4;
     this.aw = b.w - 8;
     let y = b.y + 4;
+    // expanded with room for three (§3.2: from 560): the banner, the list and the selected recruit or ware as a
+    // detail pane (§11.2), the three at most CONTENT_MAX wide, centred
+    const iw = Math.min(this.aw, CONTENT_MAX);
+    const cols = v === 'expanded' ? columns({ x: this.ax + Math.floor((this.aw - iw) / 2), y, w: iw, h: b.h - 7 }, PANES) : null;
+    const three = cols && cols.shown.length === 3 ? (cols.panes as Box[]) : null;
+    this.split = three ? { list: three[1], detail: three[2] } : null;
+    // the banner pane and the body pane, centred in the frame together
+    const lw = v === 'expanded' ? BANNER_W_WIDE : BANNER_W;
+    const bodyW = three ? three[2].x + three[2].w - three[1].x : Math.min(this.aw - lw - PANE_GUTTER, ROW_MAX);
+    const px = three ? three[0].x : this.ax + Math.floor((this.aw - lw - PANE_GUTTER - bodyW) / 2);
+    this.chipBox = paned ? { x: px, w: lw } : null;
+    // Army and Leave: across the foot of the page, or of the banner pane
+    const actions: MButtonOpts[] = [
+      { label: t('town.party'), icon: 'people', variant: 'secondary', id: 'town.party', onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id }) },
+      { label: t('town.leave'), icon: 'map', variant: 'secondary', id: 'town.leave', onClick: () => this.leave() },
+    ];
+    const bar = paned ? new MActionBar(this, lw, b.y + b.h, { surface: 'parchment', x: px }).set(actions) : new MActionBar(this, b.w, b.y + b.h, { surface: 'parchment', x: b.x }).set(actions);
 
     // the settlement's painted vignette in the fresco frame (the map tile drawn large until it has loaded)
-    // shorter on a short screen, so the tab's first rows (the Drillmaster in Services) stay in view
-    const artH = compact ? 38 : VH < 380 ? 58 : 78;
+    // shorter on a short screen, so the tab's first rows (the Drillmaster in Services) stay in view; in the
+    // banner pane it takes the pane's full height above who lives here, the purse and the actions (§11.2)
+    const chipsH = paned ? this.chipRowsNeeded() * (CHIP_ROW_H + 3) : 0;
+    const room = bar.top - 3 - chipsH - 11 - 3 - y;
+    const artH = paned ? room : v === 'medium' ? ART_H_MEDIUM : compact ? 38 : VH < 380 ? 58 : 78;
+    const artX = paned ? px : this.ax;
+    const artW = paned ? lw : this.aw;
     const vk = vignetteKey(def.kind, def.culture);
     const artY = y;
-    const banner = (art: { image: string } | { pixelKey: string }) => new FrescoBanner(this, this.ax, artY, this.aw, artH, { ...art, label: placeName(def.name), id: 'town.art' });
-    const first = banner(hasRaster(this, vk) ? { image: vk } : { pixelKey: this.artTexture(def, this.aw - 8, artH - 8) });
+    const people = tOr(`culture.${def.culture}`, CULTURE_LABEL[def.culture]);
+    const who = t(def.kind === 'town' ? 'town.town' : 'town.village', { people });
+    // in the pane the painting answers a press, the pointer and focus with the place and its people (it is
+    // the pane's content, not an empty column: landscape-v6 §5)
+    const tip = `${placeName(def.name)} · ${who}`;
+    const banner = (art: { image: string } | { pixelKey: string }) => {
+      const f: FrescoBanner = new FrescoBanner(this, artX, artY, artW, artH, { ...art, label: paned ? tip : placeName(def.name), id: 'town.art', ...(paned ? { onClick: () => showTooltip(this, tip, f) } : {}) });
+      if (paned) focusPane(f, 2);
+      return f;
+    };
+    const first = banner(hasRaster(this, vk) ? { image: vk } : { pixelKey: this.artTexture(def, artW - 8, artH - 8) });
     this.ui.add(first);
     // downloaded on the first visit to a place of this kind and people, without holding the page up
     if (!hasRaster(this, vk) && !askedVignettes.has(vk)) {
@@ -123,14 +178,21 @@ export class SettlementScene extends BaseScene {
       this.load.start();
     }
     y += artH + 3;
-    const people = tOr(`culture.${def.culture}`, CULTURE_LABEL[def.culture]);
-    this.ui.add(mtext(this, b.x + b.w / 2, y + 1, t(def.kind === 'town' ? 'town.town' : 'town.village', { people }), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: this.aw, box: { owner: this.ui, w: this.m.VW, h: VH } }));
+    const kindX = paned ? px + lw / 2 : b.x + b.w / 2;
+    this.ui.add(mtext(this, kindX, y + 1, who, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: artW, box: { owner: this.ui, w: this.m.VW, h: VH } }));
     y += 11;
 
     // gold, men, wounded
     this.chipsY = y;
     y += 18 + 3;
 
+    // the tabs and their body: under the purse, or at the top of the body pane
+    if (paned) {
+      this.ax = px + lw + PANE_GUTTER;
+      this.aw = bodyW;
+      y = b.y + 4;
+    }
+    this.region = { x: this.ax, w: this.aw };
     // tabs: Hire / Buy / Sell / Services in a town, Hire / Rest in a village (V5-029)
     const town = def.kind === 'town';
     this.ui.add(
@@ -151,13 +213,11 @@ export class SettlementScene extends BaseScene {
     this.ui.add(this.status);
 
     // Leave is bronze (SET-3): the page's primary is per tab (Hire, Buy, Sell, Rest 8 hours)
-    const actions: MButtonOpts[] = [
-      { label: t('town.party'), icon: 'people', variant: 'secondary', id: 'town.party', onClick: () => this.scene.start('Army', { from: 'Settlement', id: this.id }) },
-      { label: t('town.leave'), icon: 'map', variant: 'secondary', id: 'town.leave', onClick: () => this.leave() },
-    ];
-    const bar = new MActionBar(this, b.w, b.y + b.h, { surface: 'parchment', x: b.x }).set(actions);
     this.ui.add(bar);
-    this.bodyBottom = bar.top - 3;
+    this.bodyBottom = paned ? b.y + b.h - 3 : bar.top - 3;
+    // Tab reads the top bar, the tabs and their body (the list, then the detail pane), then the banner pane:
+    // the painting, Army and Leave (landscape-v6 §4)
+    if (paned) bar.buttons.forEach((o) => focusPane(o, 2));
     this.events.once('shutdown', () => this.clearBody());
     this.refresh();
     // an arrival event (campaign-events.md R3) is answered before the page is used (screens-campaign.md C-6)
@@ -222,12 +282,32 @@ export class SettlementScene extends BaseScene {
       new MChip(this, 0, 0, { icon: 'coin', value: camp.data.gold, tip: t('menu.tip.gold'), id: 'town.gold' }),
       new MChip(this, 0, 0, { icon: 'people', value: `${camp.data.heroes.length}/${MAX_ARMY}`, tip: t('menu.tip.army'), id: 'town.men' }),
     ];
+    const pane = this.chipBox;
     if (wounded) {
-      // the word goes before the chip does not fit
+      // the word goes before the chip does not fit (in the banner pane: before it needs a row more than the pane keeps)
       const room = this.aw - chips.reduce((a, c) => a + c.w, 0) - GAP * 2;
       const word = t('town.hurt', { n: wounded });
-      const value = MChip.width({ icon: 'cross', value: word }) <= room ? word : `${wounded}`;
+      const ww = MChip.width({ icon: 'cross', value: word });
+      const fits = pane ? chipRows([...chips.map((c) => c.w), ww], pane.w).length <= this.chipRowsNeeded() : ww <= room;
+      const value = fits ? word : `${wounded}`;
       chips.push(new MChip(this, 0, 0, { icon: 'cross', value, tip: t('town.wounded'), id: 'town.hurt' }));
+    }
+    if (pane) {
+      // in the banner pane: as many to a row as fit, each row centred
+      let i = 0;
+      chipRows(chips.map((c) => c.w), pane.w).forEach((row, r) => {
+        const total = row.reduce((a, w) => a + w, 0) + GAP * (row.length - 1);
+        let x = Math.round(pane.x + (pane.w - total) / 2);
+        for (const w of row) {
+          const c = chips[i++];
+          c.x = x;
+          c.y = this.chipsY + r * (CHIP_ROW_H + 3);
+          this.status.add(c);
+          x += w + GAP;
+        }
+      });
+      this.buildBody();
+      return;
     }
     const total = chips.reduce((a, c) => a + c.w, 0) + GAP * (chips.length - 1);
     let x = Math.round(this.ax + (this.aw - total) / 2);
@@ -240,6 +320,17 @@ export class SettlementScene extends BaseScene {
     this.buildBody();
   }
 
+  /** Rows the purse takes in the banner pane now (the wounded chip with its word when that fits on a second row). */
+  private chipRowsNeeded(): number {
+    const pane = this.chipBox;
+    if (!pane) return 1;
+    const camp = state.campaign;
+    const widths = [MChip.width({ icon: 'coin', value: camp.data.gold }), MChip.width({ icon: 'people', value: `${camp.data.heroes.length}/${MAX_ARMY}` })];
+    const wounded = camp.wounded().length;
+    if (wounded) widths.push(MChip.width({ icon: 'cross', value: `${wounded}` }));
+    return chipRows(widths, pane.w).length;
+  }
+
   private clearBody(): void {
     this.restArea?.destroy();
     this.restArea = null;
@@ -247,6 +338,7 @@ export class SettlementScene extends BaseScene {
     this.list = null;
     this.stash?.destroy();
     this.stash = null;
+    this.detailPane = null;
     this.body.removeAll(true);
   }
 
@@ -255,16 +347,104 @@ export class SettlementScene extends BaseScene {
     this.clearBody();
     const y = this.bodyTop;
     const h = this.bodyBottom - y;
+    // three panes: the list in the list pane and its selected recruit or ware beside it; a tab with nothing to
+    // show there (Services, a closed or empty tab) takes the body pane, a row wide at most (§2.3), centred
+    const split = this.split;
+    const detail = split && this.hasDetail() ? split.detail : null;
+    if (split && detail) {
+      this.ax = split.list.x;
+      this.aw = split.list.w;
+    } else if (split) {
+      this.aw = Math.min(this.region.w, ROW_MAX);
+      this.ax = this.region.x + Math.floor((this.region.w - this.aw) / 2);
+    }
+    this.detailBox = detail ? { x: detail.x, y, w: detail.w, h } : null;
     if (this.tab === 'recruits') this.buildRecruits(y, h);
     else if (this.tab === 'market') this.buildMarket(y, h);
     else if (this.tab === 'sell') this.buildSell(y, h);
     else this.buildServices(y, h);
     this.list?.area.setScroll(keep);
     this.restArea?.setScroll(keep);
+    this.buildDetail();
   }
 
-  private newList(y: number, h: number, count: number, rowH: number, render: ConstructorParameters<typeof ScrollList>[6]['render']): ScrollList {
-    return new ScrollList(this, this.body, this.ax, y, this.aw, h, { count, rowH, render, fade: MOSAIC.parch });
+  /** Whether the tab has a recruit, a ware or an item to show in the detail pane. */
+  private hasDetail(): boolean {
+    const camp = state.campaign;
+    const w = camp.world;
+    if (this.tab === 'recruits') return !w.isClosed(this.id) && w.recruits(this.id, camp.data.heroes).length > 0;
+    if (this.tab === 'market') return !w.isClosed(this.id) && w.wares(this.id, camp.armyClasses()).length > 0;
+    return this.tab === 'sell' && camp.data.stash.length > 0;
+  }
+
+  /** The detail pane (three panes): the chosen recruit's card with Hire, a ware's card with Buy, an item's with Sell. */
+  private buildDetail(): void {
+    this.detailPane?.destroy();
+    this.detailPane = null;
+    const box = this.detailBox;
+    if (!box) return;
+    const camp = state.campaign;
+    let pane: Phaser.GameObjects.Container | null = null;
+    if (this.tab === 'recruits') {
+      const r = this.chosenRecruit();
+      if (r) pane = addRecruitPane(this, this.body, box, this.recruitOpts(r.index)!);
+    } else if (this.tab === 'market') {
+      const ware = this.chosenWare();
+      if (ware) pane = addItemCardPane(this, this.body, box, { ...this.wareCard(ware.index)!, id: 'town.wareCard' });
+    } else if (this.tab === 'sell') {
+      const it = camp.data.stash.find((x) => x.uid === this.sel.sell) ?? camp.data.stash[0];
+      if (it) pane = addItemCardPane(this, this.body, box, { ...this.sellCard(it), id: 'town.sellCard' });
+    }
+    this.detailPane = pane;
+    // the card's X has nothing to close in a pane: the chosen row's control is what replaces it (element-parity)
+    if (pane) uiCollapsed(this, this.tab === 'recruits' ? 'recruit.sheet.close' : 'sheet.close', this.tab === 'recruits' ? 'recruit.card' : this.tab === 'market' ? 'town.buy' : 'stash.sell');
+    // Tab reads the list, then the detail pane, then the banner pane (landscape-v6 §4)
+    if (pane) eachChild(pane, (o) => focusPane(o, 1));
+  }
+
+  /** The recruit the detail pane shows: the chosen one, else the first. */
+  private chosenRecruit() {
+    const camp = state.campaign;
+    const pool = camp.world.recruits(this.id, camp.data.heroes);
+    return pool.find((x) => x.index === this.sel.recruits) ?? pool[0];
+  }
+
+  private chosenWare() {
+    const camp = state.campaign;
+    const wares = camp.world.wares(this.id, camp.armyClasses());
+    return wares.find((x) => x.index === this.sel.market) ?? wares[0];
+  }
+
+  /** The detail pane shows this one now (its row takes the selected rim). */
+  private choose(patch: SettlementScene['sel']): void {
+    Object.assign(this.sel, patch);
+    if (this.tab === 'sell' && this.stash) {
+      this.stash.rebuild(true);
+      this.buildDetail();
+      return;
+    }
+    this.buildBody();
+  }
+
+  /** Room at a row's right end for the chevron of the chosen row (three panes, §3.3: the rim and a chevron). */
+  private get chev(): number {
+    return this.detailBox ? CHEV_W : 0;
+  }
+
+  /** The selected rim and the chevron on the chosen row. */
+  private chosenRow(row: Phaser.GameObjects.Container, rw: number, rh: number, on: boolean): void {
+    addRowFace(this, row, rw, rh, on);
+    if (on) row.add(scaleIcon(addIcon(this, rw - CHEV_W + 1, Math.round((rh - 9) / 2), 'chevR'), 0.75));
+  }
+
+  private newList(y: number, h: number, count: number, rowH: number, render: ConstructorParameters<typeof ScrollList>[6]['render'], ids?: (i: number) => string[]): ScrollList {
+    // beside the banner pane a list shorter than the body sits in the middle of its height, not at the top of an empty page
+    const total = count * (rowH + LIST_GAP) - LIST_GAP;
+    if (this.chipBox && total < h) {
+      y += Math.floor((h - total) / 2);
+      h = total;
+    }
+    return new ScrollList(this, this.body, this.ax, y, this.aw, h, { count, rowH, render, fade: MOSAIC.parch, ids });
   }
 
   /**
@@ -299,38 +479,42 @@ export class SettlementScene extends BaseScene {
     // name and class across the row; the role pill beside the price; the trait whole under them (SET-2)
     const ps = this.aw < 150 ? 30 : 40;
     const tx = 5 + ps + 6;
-    const fw = this.aw - 3 - tx - 5;
+    const fw = this.aw - 3 - this.chev - tx - 5;
     const trait = (cls: string) => wrapWords(`+${roleTraits(cls).good}`, fw, (s) => mw(s, 'pGood', TEXT_MIN)).slice(0, 2);
     const lines = Math.max(1, ...pool.map((r) => trait(heroClass(r.hero).role).length));
     // the pills beside the price when they fit there, else on a line of their own under it (narrow screens)
-    const bw = 50;
+    const bw = this.priceW(t('town.hire'), pool.map((r) => r.price));
     const pillsW = (r: (typeof pool)[number]) => armyPillW(roleName(heroClass(r.hero).role)) + (r.index >= VOLUNTEER_RULES.floorIndex ? armyPillW(t('set.volunteer')) + 3 : 0);
     const below = (r: (typeof pool)[number]) => pillsW(r) > fw - bw - 4;
     const extra = pool.some(below) ? 16 : 0;
     const rowH = 51 + extra + lines * ARMY_LH + 3;
-    this.list = this.newList(y, h, pool.length + 1, rowH, (i, row, rw) => {
-      const box = { owner: row, w: rw, h: rowH };
+    const chosen = this.detailBox ? this.chosenRecruit()?.index : undefined;
+    this.list = this.newList(y, h, pool.length + 1, rowH, (i, row, rw0, _rh, area) => {
+      const box = { owner: row, w: rw0, h: rowH };
       if (i === pool.length) {
-        row.add(mtext(this, rw / 2, 8, t('town.newVolunteers', { h: refresh }), 'pMuted', { size: TEXT_MIN, align: 0.5, maxW: rw - 4, box }));
+        row.add(mtext(this, rw0 / 2, 8, t('town.newVolunteers', { h: refresh }), 'pMuted', { size: TEXT_MIN, align: 0.5, maxW: rw0 - 4, box }));
         return;
       }
+      const rw = rw0 - this.chev;
       const r = pool[i];
       const hero = r.hero;
       const cls = heroClass(hero);
-      addRowFace(this, row, rw, rowH);
+      this.chosenRow(row, rw0, rowH, r.index === chosen);
       // his own portrait in his role colour: tap for the recruit sheet
       addPortraitWell(this, row, 5, 5, ps, roleColor(cls.role));
       const img = addPortrait(this, dollFromHero(hero), 5, 5, { size: ps }).setInteractive();
       uiId(img, 'recruit.card');
       row.add(img);
-      img.on('pointerup', () => !this.list?.area.moved && this.openRecruit(r.index));
+      // beside the detail pane the portrait chooses him there, by a tap, a click or Enter (a focus stop, §4)
+      if (this.detailBox) tappable(img, area, () => this.openRecruit(r.index), heroName(hero.name));
+      else img.on('pointerup', () => !this.list?.area.moved && this.openRecruit(r.index));
       const can = camp.data.gold >= r.price && !full;
       const w0 = rw - tx - 5;
       row.add(mtext(this, tx, 4, `${heroName(hero.name)} · ${t('hero.level', { n: hero.level })}`, 'rInk', { size: 7, maxW: w0, box }));
       row.add(mtext(this, tx, 15, className(hero), 'pSec', { size: TEXT_MIN, maxW: w0, box }));
       row.add(
         new MButton(this, rw - bw - 4, 26, bw, TAP, {
-          label: `${r.price}`,
+          label: this.priceLabel(t('town.hire'), r.price),
           icon: 'coin',
           variant: can ? 'secondary' : 'disabled',
           disabledReason: full ? t('town.armyFull') : t('stash.noGold'),
@@ -347,21 +531,45 @@ export class SettlementScene extends BaseScene {
       const pw = armyPill(this, row, tx, py, roleName(cls.role), roleColor(cls.role), pr);
       if (vol) armyPill(this, row, tx + pw + 3, py, t('set.volunteer'), MOSAIC.bronze, pr - pw - 3);
       trait(cls.role).forEach((l, k) => row.add(mtext(this, tx, 51 + (low ? extra : 0) + k * ARMY_LH, l, 'pGood', { size: TEXT_MIN, maxW: w0, box })));
-    });
+    }, (i) => (i < pool.length ? ['recruit.card', 'town.hire'] : []));
   }
 
+  /** A row this wide names its price button's action ("Hire 56"; the phone's rows show the price alone). */
+  private get wideRows(): boolean {
+    return this.aw >= WIDE_ROW;
+  }
+
+  private priceLabel(verb: string, price: number): string {
+    return this.wideRows ? `${verb} ${price}` : `${price}`;
+  }
+
+  /** The price buttons' one width in a list: 50, or what the longest "verb price" needs in a wide row. */
+  private priceW(verb: string, prices: number[]): number {
+    if (!this.wideRows) return 50;
+    const need = Math.max(...prices.map((p) => mw(this.priceLabel(verb, p).toUpperCase(), 'rCream', 7)));
+    return Math.max(50, Math.min(WIDE_BTN_MAX, Math.ceil(need) + 30));
+  }
+
+  /** A volunteer's card: in the detail pane beside the list (three panes), else the recruit sheet. */
   openRecruit(index: number): void {
+    const o = this.recruitOpts(index);
+    if (!o) return;
+    if (this.detailBox && this.tab === 'recruits') this.choose({ recruits: index });
+    else openRecruitSheet(this, o);
+  }
+
+  private recruitOpts(index: number): RecruitSheetOpts | null {
     const camp = state.campaign;
     const r = camp.world.recruits(this.id, camp.data.heroes).find((x) => x.index === index);
-    if (!r) return;
+    if (!r) return null;
     const full = camp.data.heroes.length >= MAX_ARMY;
-    openRecruitSheet(this, {
+    return {
       hero: r.hero,
       price: r.price,
       volunteer: r.index >= VOLUNTEER_RULES.floorIndex,
       blocked: full ? t('town.armyFull') : camp.data.gold < r.price ? t('stash.noGold') : undefined,
       onHire: () => this.hire(index),
-    });
+    };
   }
 
   /** Hire at once (no confirm) with a 4 s Undo toast (controls.md R4.3). */
@@ -378,13 +586,20 @@ export class SettlementScene extends BaseScene {
     void state.save();
     this.refresh();
     const receipt = { sid: this.id, index, heroId: h.id, price: offer.price };
-    showUndoToast(this, t('town.hired', { name: heroName(h.name) }), this.bodyBottom, () => {
-      if (!undoHire(state.campaign, receipt)) return;
-      haptic('light');
-      void state.save();
-      this.refresh();
-      toast(this, t('set.undone', { name: heroName(h.name), n: receipt.price }), 'info');
-    });
+    showUndoToast(
+      this,
+      t('town.hired', { name: heroName(h.name) }),
+      this.bodyBottom,
+      () => {
+        if (!undoHire(state.campaign, receipt)) return;
+        haptic('light');
+        void state.save();
+        this.refresh();
+        toast(this, t('set.undone', { name: heroName(h.name), n: receipt.price }), 'info');
+      },
+      // beside the banner pane: over the list, clear of Army and Leave at the pane's foot
+      this.chipBox ? { x: this.ax, w: this.aw } : undefined,
+    );
   }
 
   // ------------------------------------------------------------------ buy
@@ -400,22 +615,24 @@ export class SettlementScene extends BaseScene {
       return;
     }
     const rowH = 42;
-    this.list = this.newList(y, h, wares.length + 1, rowH, (i, row, rw, rh, area) => {
-      const box = { owner: row, w: rw, h: rh };
+    const chosen = this.detailBox ? this.chosenWare()?.index : undefined;
+    this.list = this.newList(y, h, wares.length + 1, rowH, (i, row, rw0, rh, area) => {
+      const box = { owner: row, w: rw0, h: rh };
       if (i === wares.length) {
-        row.add(mtext(this, rw / 2, 8, t('town.newWares', { h: refresh }), 'pMuted', { size: TEXT_MIN, align: 0.5, maxW: rw - 4, box }));
+        row.add(mtext(this, rw0 / 2, 8, t('town.newWares', { h: refresh }), 'pMuted', { size: TEXT_MIN, align: 0.5, maxW: rw0 - 4, box }));
         return;
       }
+      const rw = rw0 - this.chev;
       const ware = wares[i];
       const it = ware.item;
-      addRowFace(this, row, rw, rh);
+      this.chosenRow(row, rw0, rh, ware.index === chosen);
       const isz = 28;
       row.add(new ItemIcon(this, 5, Math.round((rh - isz) / 2), { item: it }, { size: isz, area, glow: false, onTap: () => this.openWare(ware.index) }));
       const can = camp.data.gold >= ware.price;
-      const bw = 50;
+      const bw = this.priceW(t('town.tab.buy'), wares.map((x) => x.price));
       row.add(
         new MButton(this, rw - bw - 4, Math.round((rh - TAP) / 2), bw, TAP, {
-          label: `${ware.price}`,
+          label: this.priceLabel(t('town.tab.buy'), ware.price),
           icon: 'coin',
           variant: can ? 'secondary' : 'disabled',
           disabledReason: t('stash.noGold'),
@@ -425,28 +642,44 @@ export class SettlementScene extends BaseScene {
       );
       const tx = 5 + isz + 6;
       const tw = rw - tx - bw - 8;
-      row.add(mtext(this, tx, 4, itemName(it), rarityInk(this, it.rarity), { size: 7, maxW: tw, box }));
       const def = itemDef(it.def);
       // the slot, then its main stats on their own line (whole; a long one drops before it is cut)
       const mods = itemModLines(it).slice(0, 2).map((m) => `${tOr(`mod.${m.key}`, m.key)} ${localDecimals(m.text)}`);
+      if (this.wideRows) {
+        // a wide row: the name and slot at the left, each stat on its own line in a second column
+        const cw = Math.floor(tw / 2);
+        row.add(mtext(this, tx, 9, itemName(it), rarityInk(this, it.rarity), { size: 7, maxW: cw - 4, box }));
+        row.add(mtext(this, tx, 21, t(`slot.${def.slot}` as TKey), 'pSec', { size: TEXT_MIN, maxW: cw - 4, box }));
+        mods.forEach((m, k) => row.add(mtext(this, tx + cw, (mods.length > 1 ? 9 : 15) + k * 12, m, 'pMuted', { size: TEXT_MIN, maxW: tw - cw, box })));
+        return;
+      }
+      row.add(mtext(this, tx, 4, itemName(it), rarityInk(this, it.rarity), { size: 7, maxW: tw, box }));
       const fits = (s: string) => measureText(s, false, TEXT_MIN) <= tw;
       const ml = fits(mods.join(' · ')) ? mods.join(' · ') : (mods[0] ?? '');
       row.add(mtext(this, tx, 16, t(`slot.${def.slot}` as TKey), 'pSec', { size: TEXT_MIN, maxW: tw, box }));
       row.add(mtext(this, tx, 27, ml, 'pMuted', { size: TEXT_MIN, maxW: tw, box }));
-    });
+    }, (i) => (i < wares.length ? [`item:${wares[i].item.def}`, 'town.buy'] : []));
   }
 
+  /** A ware's card: in the detail pane beside the list (three panes), else the item card. */
   openWare(index: number): void {
+    const o = this.wareCard(index);
+    if (!o) return;
+    if (this.detailBox && this.tab === 'market') this.choose({ market: index });
+    else openItemCard(this, o);
+  }
+
+  private wareCard(index: number): ItemCardOpts | null {
     const camp = state.campaign;
     const ware = camp.world.wares(this.id, camp.armyClasses()).find((x) => x.index === index);
-    if (!ware) return;
+    if (!ware) return null;
     const hero = camp.data.heroes[0];
-    openItemCard(this, {
+    return {
       item: ware.item,
       hero,
       title: t('town.buyTitle', { name: itemName(ware.item) }),
       actions: [{ label: `${ware.price}`, icon: 'coin', variant: 'primary', id: 'town.buyCard', disabled: camp.data.gold < ware.price ? t('stash.noGold') : undefined, onClick: () => this.askBuy(index) }],
-    });
+    };
   }
 
   /** Buying confirms (C-6 AC: Sell and Buy confirm): name, price and the gold left to judge by. */
@@ -482,15 +715,24 @@ export class SettlementScene extends BaseScene {
 
   private buildSell(y: number, h: number): void {
     this.stash = new MStashGrid(this, this.body, this.ax, y, this.aw, h, {
+      // larger cells in a wide body (a tablet, beside the banner pane), as the Army's stash (V6-RSCR-05)
+      ...(this.wideRows ? { cell: STASH_CELL_WIDE } : {}),
       items: () => state.campaign.data.stash,
       state: this.stashState,
       onTap: (it) => this.openSell(it),
+      ...(this.detailBox ? { selected: () => (state.campaign.data.stash.find((x) => x.uid === this.sel.sell) ?? state.campaign.data.stash[0])?.uid ?? null } : {}),
     });
   }
 
+  /** An item's card with Sell: in the detail pane beside the stash (three panes), else the item card. */
   openSell(it: Item): void {
+    if (this.detailBox && this.tab === 'sell') this.choose({ sell: it.uid });
+    else openItemCard(this, this.sellCard(it));
+  }
+
+  private sellCard(it: Item): ItemCardOpts {
     const s = saleText(it);
-    openItemCard(this, {
+    return {
       item: it,
       hero: state.campaign.data.heroes[0],
       notes: [{ text: s.bound ? t('stash.boundHint') : t('town.sellHint') }],
@@ -503,7 +745,7 @@ export class SettlementScene extends BaseScene {
           onClick: () => confirmDialog(this, { title: s.title, body: s.body, ok: s.label, cancel: t('common.cancel'), onOk: () => this.sell(it, s.value) }),
         },
       ],
-    });
+    };
   }
 
   private sell(it: Item, val: number): void {
@@ -531,7 +773,9 @@ export class SettlementScene extends BaseScene {
     const wounded = camp.wounded();
     const BH = TAP + 2;
     // the primary, pinned at the foot of the tab
-    this.body.add(new MButton(this, this.ax, y + h - BH, this.aw, BH, { label: t('town.rest8'), icon: 'tent', variant: 'primary', id: 'town.rest', onClick: () => this.rest(8) }));
+    // (at most a button's width, §2.3: a full-pane bar reads as a banner on a tablet)
+    const rw = Math.min(this.aw, BUTTON_MAX);
+    this.body.add(new MButton(this, this.ax + Math.floor((this.aw - rw) / 2), y + h - BH, rw, BH, { label: t('town.rest8'), icon: 'tent', variant: 'primary', id: 'town.rest', onClick: () => this.rest(8) }));
     const area = new ScrollArea(this, this.body, this.ax, y, this.aw, h - BH - GAP, this.m.S);
     this.restArea = area;
     addScrollHint(this, this.body, area, MOSAIC.parch);
@@ -725,3 +969,50 @@ export class SettlementScene extends BaseScene {
   }
 }
 
+/** The banner pane's width, UI px (landscape-v6 §11.2): compact landscape, expanded. */
+const BANNER_W = 150;
+const BANNER_W_WIDE = 220;
+/** A body this wide (tablets, beside the banner pane) names the price buttons' action; their widest. */
+const WIDE_ROW = 300;
+const WIDE_BTN_MAX = 110;
+/** ScrollList's gap between rows (SIZE.gap). */
+const LIST_GAP = SIZE.gap;
+/** The Sell tab's stash cells in a wide body, UI px (28 on a phone). */
+const STASH_CELL_WIDE = 40;
+/** The fresco band on a tablet (§11.2: at most 120). */
+const ART_H_MEDIUM = 120;
+/** The detail pane's widest (a side panel's width, §3.4). */
+const DETAIL_MAX = 240;
+/** Expanded, three panes (§3.2, §3.3): the banner pane, the list (a master) and the detail pane. */
+const PANES = [
+  { min: BANNER_W_WIDE, max: BANNER_W_WIDE, priority: 3 },
+  { min: MASTER_MIN, max: MASTER_MAX, priority: 2 },
+  { min: DETAIL_MIN, max: DETAIL_MAX, priority: 1 },
+];
+/** The chevron's room at the end of the chosen row. */
+const CHEV_W = 9;
+/** A purse chip's height (MChip without a tap). */
+const CHIP_ROW_H = 18;
+
+/** Chips of these widths in rows at most `w` wide (each row at least one chip). */
+function chipRows(widths: number[], w: number): number[][] {
+  const rows: number[][] = [];
+  let used = 0;
+  for (const cw of widths) {
+    const row = rows[rows.length - 1];
+    if (row && used + GAP + cw <= w) {
+      row.push(cw);
+      used += GAP + cw;
+    } else {
+      rows.push([cw]);
+      used = cw;
+    }
+  }
+  return rows;
+}
+
+/** Every object under `c` (a pane's controls take its focus pane). */
+function eachChild(c: Phaser.GameObjects.GameObject, fn: (o: Phaser.GameObjects.GameObject) => void): void {
+  fn(c);
+  if (c instanceof Phaser.GameObjects.Container) for (const o of c.list) eachChild(o, fn);
+}

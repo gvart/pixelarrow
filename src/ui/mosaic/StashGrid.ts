@@ -12,7 +12,7 @@ import { t, type TKey } from '../../i18n';
 import type { Hero } from '../../data/units';
 import { ACCENT, MOSAIC, TEXT_MIN, lineHeight } from '../tokens';
 import { wrapText } from '../textfit';
-import { uiFrame } from '../layout';
+import { uiCollapsed, uiFrame } from '../layout';
 import { GAP, TAP, mosaicImage, mtext } from './base';
 import { MButton, oneFace } from './controls';
 import { MIconButton } from './iconButton';
@@ -124,6 +124,8 @@ export class MStashGrid {
       });
       cy += FILTER_H + GAP;
     }
+    // one row: the six slot filters fold into the one slot button that cycles them (element-parity)
+    if (!twoRows) SLOT_FILTERS.forEach((f) => uiCollapsed(scene, `filter:${f}`, 'filter:slot'));
     const n = twoRows ? 2 : 3;
     const bw = Math.floor((w - (n - 1) * GAP) / n);
     let bx = x;
