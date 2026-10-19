@@ -1,0 +1,40 @@
+scripts/war/art/ui.mjs
+  s_cfc22b058125c4::t_6ef9f3bcb3f8fd 192,194-196
+  s_cfc22b058125c4::t_ef91a62e8fa652 1-43,46-191,197-228,230-236,243-267,269-323,329-337
+  s_cfc22b058125c4::t_78dd9774cf0ca3 268
+  s_cfc22b058125c4::t_1b8ef9bb8f8925 229
+  s_cfc22b058125c4::t_6b96bab1d21ac6 44
+  s_cfc22b058125c4::t_990fb46d3985c4 193
+  s_cfc22b058125c4::t_ce47425a7497fc 324-328
+  s_cfc22b058125c4::t_eddf888b5b5693 45
+  s_cfc22b058125c4::t_2ad3471a68c057 237-242
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_0c8ffdf1804101 1683-1743
+scripts/war/art/ui-jobs.json
+  s_cfc22b058125c4::t_a54f81a6fe293e 1-17,33-34
+  s_cfc22b058125c4::t_f04bbd549909d2 28-32
+  s_cfc22b058125c4::t_9d44145cc0cf87 18-22,24-27
+  s_cfc22b058125c4::t_b8feab7d8ee0f6 23
+public/war/ui/ui.json
+  s_cfc22b058125c4::t_1b5e410fef01bd 1-11,13,24,30,35,51,64-95,104-706,713-719,721-725,733-800
+  s_cfc22b058125c4::t_30633323271156 12,14-23,25-29,31-34,36-50,52-63,96-103,707-712,720,726-732
+scripts/war/art/ui-preview.mjs
+  s_cfc22b058125c4::t_d72087088808e3 1-106,108-125
+  s_cfc22b058125c4::t_d6aab652f65f77 107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "17ec6cd003b503ba07e0d45b0c86ed8f2c556c83",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
