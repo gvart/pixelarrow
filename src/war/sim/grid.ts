@@ -16,6 +16,12 @@ export interface Grid {
   /** Fighting ground per tile: BOG (ford or marsh), FOREST, else 0. */
   ground: Uint8Array;
   sectors: Sectors;
+  /** Gate tiles: team + 1 of the owner who may pass, 0 none (src/war/sim/works.ts). */
+  gate: Int8Array;
+  /** Team of the mover the next canEnter / findPath / lineClear calls are for; -1 = gates open to all. */
+  team: number;
+  /** Tiles (flat x,y) opened or closed since the last flushSectors. */
+  dirty: number[];
 }
 
 /**
@@ -37,6 +43,8 @@ export interface Sectors {
   bw: number; // blocks per row
   bh: number;
   blockNodes: Int32Array[]; // block (row-major) -> its nodes
+  links: number[][]; // node -> linked nodes (the source of start/adj, kept for updateSectors)
+  meanCost: number[];
 }
 
 export const SECTOR = 8;
@@ -58,7 +66,7 @@ export function buildGrid(r: RegionData): Grid {
     const fp = OBJECT_BLOCKS[o.id];
     if (fp) for (const [x, y] of footprintTiles(o.x, o.y, fp)) if (x >= 0 && y >= 0 && x < r.w && y < r.h) cost[y * r.w + x] = 0;
   }
-  const g = { w: r.w, h: r.h, cost, height, ground } as Grid;
+  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), team: -1, dirty: [] as number[] } as Grid;
   g.sectors = buildSectors(g);
   ensureScratch(g); // allocate the search scratch now, not in the first tick
   return g;
@@ -76,74 +84,151 @@ function stepTo(g: Grid, a: number, ax: number, ay: number, k: number): number {
 }
 
 function buildSectors(g: Grid): Sectors {
-  const { w, h } = g;
-  const node = new Int32Array(w * h).fill(-1);
-  const bw = Math.ceil(w / SECTOR);
-  const bh = Math.ceil(h / SECTOR);
-  const blockNodes: number[][] = Array.from({ length: bw * bh }, () => []);
-  const bx: number[] = [];
-  const by: number[] = [];
-  const cx: number[] = [];
-  const cy: number[] = [];
-  const meanCost: number[] = [];
+  const bw = Math.ceil(g.w / SECTOR);
+  const bh = Math.ceil(g.h / SECTOR);
+  const sc: Sectors = {
+    node: new Int32Array(g.w * g.h).fill(-1), n: 0, bx: new Int32Array(0), by: new Int32Array(0), cx: new Float32Array(0), cy: new Float32Array(0),
+    start: new Int32Array(1), adj: new Int32Array(0), adjCost: new Float32Array(0), bw, bh, blockNodes: Array.from({ length: bw * bh }, () => new Int32Array(0)),
+    links: [], meanCost: [],
+  };
+  g.sectors = sc;
+  const all: number[] = [];
+  for (let b = 0; b < bw * bh; b++) all.push(b);
+  rebuildBlocks(g, all, all);
+  return sc;
+}
+
+/**
+ * Re-cut the nodes of the given blocks (after tiles in them opened or closed) and re-link them and their
+ * neighbours. Old nodes of a re-cut block stay in the arrays as dead ids (no tiles, no links). Gates count
+ * as open: the sector layer is shared by all teams.
+ */
+/** Re-cut the sectors for the tiles changed since the last flush (once per tick, however many sites changed). */
+export function flushSectors(g: Grid): void {
+  if (!g.dirty.length) return;
+  updateSectors(g, g.dirty);
+  g.dirty = [];
+}
+
+export function updateSectors(g: Grid, tiles: number[]): void {
+  const sc = g.sectors;
+  const dirty = new Set<number>();
+  for (let i = 0; i < tiles.length; i += 2) {
+    const bx = Math.floor(tiles[i] / SECTOR), by = Math.floor(tiles[i + 1] / SECTOR);
+    if (bx >= 0 && by >= 0 && bx < sc.bw && by < sc.bh) dirty.add(by * sc.bw + bx);
+  }
+  if (!dirty.size) return;
+  if (sc.n > (g.w * g.h) / 4) { // too many dead ids: start over
+    g.sectors = buildSectors(g);
+    return;
+  }
+  const ring = new Set<number>();
+  for (const b of dirty) {
+    const bx = b % sc.bw, by = (b / sc.bw) | 0;
+    for (let y = Math.max(0, by - 1); y <= Math.min(sc.bh - 1, by + 1); y++)
+      for (let x = Math.max(0, bx - 1); x <= Math.min(sc.bw - 1, bx + 1); x++) ring.add(y * sc.bw + x);
+  }
+  rebuildBlocks(g, [...dirty].sort((a, b) => a - b), [...ring].sort((a, b) => a - b));
+}
+
+function rebuildBlocks(g: Grid, cut: number[], relink: number[]): void {
+  const sc = g.sectors;
+  const { w } = g;
+  const team = g.team;
+  g.team = -1; // gates open
+  const bx = Array.from(sc.bx), by = Array.from(sc.by), cx = Array.from(sc.cx), cy = Array.from(sc.cy);
   const stack: number[] = [];
-  for (let i = 0; i < w * h; i++) {
-    if (node[i] >= 0 || g.cost[i] === 0) continue;
-    const id = bx.length;
-    const bcol = Math.floor((i % w) / SECTOR);
-    const brow = Math.floor(i / w / SECTOR);
-    let sx = 0, sy = 0, sc = 0, count = 0;
-    node[i] = id;
-    stack.push(i);
-    while (stack.length) {
-      const t = stack.pop()!;
-      const tx = t % w;
-      const ty = (t / w) | 0;
-      sx += tx + 0.5;
-      sy += ty + 0.5;
-      sc += g.cost[t];
-      count++;
-      for (let k = 0; k < 8; k++) {
-        const b = stepTo(g, t, tx, ty, k);
-        if (b < 0 || node[b] >= 0 || Math.floor((b % w) / SECTOR) !== bcol || Math.floor(b / w / SECTOR) !== brow) continue;
-        node[b] = id;
-        stack.push(b);
+  for (const b of cut) {
+    for (const k of sc.blockNodes[b]) sc.links[k] = [];
+    const bcol = b % sc.bw, brow = (b / sc.bw) | 0;
+    const x0 = bcol * SECTOR, y0 = brow * SECTOR, x1 = Math.min(w, x0 + SECTOR), y1 = Math.min(g.h, y0 + SECTOR);
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) sc.node[y * w + x] = -1;
+    const nodes: number[] = [];
+    for (let y = y0; y < y1; y++)
+      for (let x = x0; x < x1; x++) {
+        const i = y * w + x;
+        if (sc.node[i] >= 0 || g.cost[i] === 0) continue;
+        const id = bx.length;
+        let sx = 0, sy = 0, sco = 0, count = 0;
+        sc.node[i] = id;
+        stack.push(i);
+        while (stack.length) {
+          const t = stack.pop()!;
+          const tx = t % w;
+          const ty = (t / w) | 0;
+          sx += tx + 0.5;
+          sy += ty + 0.5;
+          sco += g.cost[t];
+          count++;
+          for (let k = 0; k < 8; k++) {
+            const nb = stepTo(g, t, tx, ty, k);
+            if (nb < 0 || sc.node[nb] >= 0 || Math.floor((nb % w) / SECTOR) !== bcol || Math.floor(nb / w / SECTOR) !== brow) continue;
+            sc.node[nb] = id;
+            stack.push(nb);
+          }
+        }
+        bx.push(bcol);
+        by.push(brow);
+        cx.push(sx / count);
+        cy.push(sy / count);
+        sc.meanCost.push(sco / count);
+        sc.links.push([]);
+        nodes.push(id);
       }
-    }
-    bx.push(bcol);
-    by.push(brow);
-    cx.push(sx / count);
-    cy.push(sy / count);
-    meanCost.push(sc / count);
-    blockNodes[brow * bw + bcol].push(id);
+    sc.blockNodes[b] = Int32Array.from(nodes);
   }
-  const n = bx.length;
-  const links: Set<number>[] = Array.from({ length: n }, () => new Set());
-  for (let t = 0; t < w * h; t++) {
-    const a = node[t];
-    if (a < 0) continue;
-    const tx = t % w;
-    const ty = (t / w) | 0;
-    for (let k = 0; k < 8; k++) {
-      const b = stepTo(g, t, tx, ty, k);
-      if (b >= 0 && node[b] !== a) links[a].add(node[b]);
-    }
+  sc.n = bx.length;
+  sc.bx = Int32Array.from(bx);
+  sc.by = Int32Array.from(by);
+  sc.cx = Float32Array.from(cx);
+  sc.cy = Float32Array.from(cy);
+  // links of every node in the relinked blocks, from the steps out of their tiles (steps are symmetric)
+  const sets = new Map<number, Set<number>>();
+  for (const b of relink) for (const k of sc.blockNodes[b]) sets.set(k, new Set());
+  for (const b of relink) {
+    const x0 = (b % sc.bw) * SECTOR, y0 = ((b / sc.bw) | 0) * SECTOR;
+    for (let y = y0; y < Math.min(g.h, y0 + SECTOR); y++)
+      for (let x = x0; x < Math.min(w, x0 + SECTOR); x++) {
+        const t = y * w + x;
+        const a = sc.node[t];
+        if (a < 0) continue;
+        for (let k = 0; k < 8; k++) {
+          const nb = stepTo(g, t, x, y, k);
+          if (nb < 0 || sc.node[nb] === a) continue;
+          const o = sc.node[nb];
+          sets.get(a)!.add(o);
+          const back = sets.get(o);
+          if (back) back.add(a);
+          else if (!sc.links[o].includes(a)) sc.links[o].push(a); // a neighbour block outside the relinked set
+        }
+      }
   }
+  // outer nodes drop links to nodes that no longer exist (dead ids from re-cut blocks)
+  const alive = (k: number) => sc.bx[k] >= 0 && sc.blockNodes[sc.by[k] * sc.bw + sc.bx[k]].includes(k);
+  for (const b of relink) {
+    const bcol = b % sc.bw, brow = (b / sc.bw) | 0;
+    for (let y = Math.max(0, brow - 1); y <= Math.min(sc.bh - 1, brow + 1); y++)
+      for (let x = Math.max(0, bcol - 1); x <= Math.min(sc.bw - 1, bcol + 1); x++)
+        for (const k of sc.blockNodes[y * sc.bw + x]) if (!sets.has(k)) sc.links[k] = sc.links[k].filter(alive);
+  }
+  for (const [k, set] of sets) sc.links[k] = [...set].sort((a, b) => a - b);
+  // CSR
+  const n = sc.n;
   const start = new Int32Array(n + 1);
-  for (let k = 0; k < n; k++) start[k + 1] = start[k] + links[k].size;
+  for (let k = 0; k < n; k++) start[k + 1] = start[k] + sc.links[k].length;
   const adj = new Int32Array(start[n]);
   const adjCost = new Float32Array(start[n]);
   for (let k = 0; k < n; k++) {
     let j = start[k];
-    for (const o of links[k]) {
+    for (const o of sc.links[k]) {
       adj[j] = o;
-      adjCost[j++] = Math.hypot(cx[o] - cx[k], cy[o] - cy[k]) * 0.5 * (meanCost[k] + meanCost[o]);
+      adjCost[j++] = Math.hypot(sc.cx[o] - sc.cx[k], sc.cy[o] - sc.cy[k]) * 0.5 * (sc.meanCost[k] + sc.meanCost[o]);
     }
   }
-  return {
-    node, n, bx: Int32Array.from(bx), by: Int32Array.from(by), cx: Float32Array.from(cx), cy: Float32Array.from(cy),
-    start, adj, adjCost, bw, bh, blockNodes: blockNodes.map((b) => Int32Array.from(b)),
-  };
+  sc.start = start;
+  sc.adj = adj;
+  sc.adjCost = adjCost;
+  g.team = team;
 }
 
 export function tileAt(g: Grid, x: number, y: number): number {
@@ -152,9 +237,9 @@ export function tileAt(g: Grid, x: number, y: number): number {
   return tx < 0 || ty < 0 || tx >= g.w || ty >= g.h ? -1 : ty * g.w + tx;
 }
 
-/** Can a unit step from tile a into the adjacent tile b (open, and not a cliff of 2+ levels)? */
+/** Can a unit (of team g.team) step from tile a into the adjacent tile b (open, not a foe's gate, not a cliff of 2+ levels)? */
 export function canEnter(g: Grid, a: number, b: number): boolean {
-  return b >= 0 && g.cost[b] > 0 && Math.abs(g.height[b] - g.height[a]) < 2;
+  return b >= 0 && g.cost[b] > 0 && (g.gate[b] === 0 || g.team < 0 || g.gate[b] === g.team + 1) && Math.abs(g.height[b] - g.height[a]) < 2;
 }
 
 /** Cost multiplier for moving from tile a into tile b (terrain of b, slower uphill). */
