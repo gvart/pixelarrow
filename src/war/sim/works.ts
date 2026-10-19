@@ -18,6 +18,12 @@
  * raised walk levels over its ground. Nothing reaches a deck but placed access pieces: stairs (a ramp against the inside
  * face of a walkway wall), ladders (beside any wall or tower, slow, one man at a time) and a stone tower's own door.
  * Inside: the wall order's `inside` point, else the centre of the team's claims and influence buildings.
+ *
+ * Siege (M2c, W-29): fire and breaches. A burnable piece set alight (kindle: torches; fireHit: fire arrows) burns at an
+ * intensity that grows to 1, losing up to maxHp / FIRE.life per second, and every second may catch each burnable piece
+ * beside it (chance FIRE.spread x intensity); men beat it out (douse) slowly; stone never burns. A wall, gate or tower
+ * brought to 0 hp lies as rubble: its deck goes, its tiles open at ground level at FIRE.rubble cost. A siege ladder raised
+ * against a foe walkway is a ladder building of the attackers' team, done at once (raiseLadder); defenders push it off.
  */
 import type { BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
 import { BUILDINGS, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
@@ -33,6 +39,18 @@ const WAIT_OFF = 2.5; // workers with no free slot wait this far off the footpri
 const REPATH_NEAR = 6; // a site closing re-paths the workers headed this near its footprint
 const LADDER_COST = 4; // move cost multiplier on a ladder (a slow climb)
 const DOOR_COST = 2; // ... through a stone tower's door and inner stair
+/** Fire, ladder and breach rules (M2c). */
+export const FIRE = {
+  start: 0.25, // intensity when it catches
+  grow: 0.02, // intensity per second while it burns
+  life: 120, // seconds a piece burning at full intensity lasts from full hp
+  spread: 0.06, // chance per second x intensity to catch each burnable piece beside it (from intensity spreadMin)
+  spreadMin: 0.4,
+  kindle: 3, // torch-seconds to set a piece alight
+  douse: 0.025, // intensity per second each man beating it out takes off
+  push: 4, // man-seconds to push a ladder off
+  rubble: 3, // move cost multiplier over rubble
+};
 
 export interface WorkSquad { team: number; sites: number[]; node: number }
 /** The part of a sim unit the works drive. */
@@ -70,11 +88,17 @@ interface Building {
   door: number; // stone tower: its door tile, -1 none
   /** Upgrade under way: what stood before (restored by cancel); n: footprint tiles before the upgrade grew it. */
   prev: { type: BuildingType; def: BuildingDef; maxHp: number; hp: number; need: number; cost: Partial<Record<ResourceKind, number>>; costSum: number; delivered: Partial<Record<ResourceKind, number>>; n: number } | null;
+  burn: number; // fire intensity, 0 not burning
+  kindle: number; // torch-seconds put into it
+  rubble: boolean;
+  siege: number; // a ladder raised by this siege engine, -1
+  push: number; // defenders' push on a ladder, 0..1
 }
+export type Piece = Readonly<Building>;
 
 export type Act = [number, number] | null | 'here';
 
-export function createWorks(grid: Grid, region: RegionData, path: (team: number, x0: number, y0: number, x1: number, y1: number) => number[], evict: (tiles: number[]) => void) {
+export function createWorks(grid: Grid, region: RegionData, path: (team: number, x0: number, y0: number, x1: number, y1: number) => number[], evict: (tiles: number[]) => void, chance: (p: number) => boolean = () => false) {
   const { w, h } = grid;
   const nodes: Node[] = [];
   const nodeAt = new Int32Array(w * h).fill(-1); // foot tile -> object node (blocks placement while it has any left)
@@ -253,6 +277,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       ti: [], state: 'foundation', labour: 0, need: def.labour * k, cost, delivered: {}, incoming: {}, costSum,
       hp: maxHp * 0.1, maxHp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [], inside: inside ?? homeOf(team), decked: false, attach, door: -1, prev: null,
+      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0,
     };
     for (let i = 0; i < tiles.length; i += 2) {
       const t = tiles[i + 1] * w + tiles[i];
@@ -550,10 +575,13 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     b.state = 'destroyed';
     b.hp = 0;
     b.prev = null;
+    b.burn = 0;
+    b.rubble = closed && !!b.def.wall; // a breach
     lowerDeck(b);
     for (const [i, t] of b.ti.entries()) {
       occ[t] = -1;
       if (closed && grid.cost[t] === 0) grid.cost[t] = b.saved[i];
+      if (b.rubble && grid.cost[t] > 0) grid.cost[t] *= FIRE.rubble;
       grid.gate[t] = 0;
     }
     if (closed) grid.dirty.push(...b.tiles);
@@ -567,6 +595,64 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     b.hp -= dmg;
     if (b.hp <= 0) destroy(b);
     else if (b.state === 'done' && b.hp < b.maxHp / 2) b.state = 'damaged';
+  };
+
+  // --- fire (M2c) ---
+  const burning: Building[] = [];
+  const canBurn = (b: Building | undefined): b is Building => !!b && !!b.def.burnable && !b.cancelled && b.state !== 'destroyed' && b.state !== 'foundation';
+  const ignite = (b: Building) => {
+    if (b.burn > 0) return;
+    b.burn = FIRE.start;
+    burning.push(b);
+  };
+  /** Pieces sharing a tile edge with b, by id. */
+  const besides = (b: Building): Building[] => {
+    const ids = new Set<number>();
+    for (const t of b.ti) {
+      const x = t % w, y = (t / w) | 0;
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const o = occ[ny * w + nx];
+        if (o >= 0 && o !== b.id) ids.add(o);
+      }
+    }
+    return [...ids].sort((a, c) => a - c).map((i) => buildings[i]);
+  };
+  const fireTick = () => {
+    if (!burning.length) return;
+    const spread = tick % 10 === 0;
+    for (const b of burning.slice()) {
+      if (b.burn <= 0 || b.state === 'destroyed') continue;
+      b.burn = Math.min(1, b.burn + FIRE.grow * DT);
+      damage(b.id, (b.burn * b.maxHp * DT) / FIRE.life);
+      if (!spread || b.burn < FIRE.spreadMin || (b.state as BuildState) === 'destroyed') continue;
+      for (const o of besides(b)) if (canBurn(o) && o.burn <= 0 && chance(FIRE.spread * b.burn)) ignite(o);
+    }
+    for (let i = burning.length - 1; i >= 0; i--)
+      if (burning[i].burn <= 0 || burning[i].state === 'destroyed') {
+        burning[i].burn = 0;
+        burning.splice(i, 1);
+      }
+  };
+
+  // --- siege ladders (M2c) ---
+  /** The open ground tile at the outer foot of a foe (not `team`'s) walkway wall or tower tile (x,y), -1 none. */
+  const ladderFoot = (team: number, x: number, y: number): number => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return -1;
+    const o = buildings[occ[y * w + x]];
+    if (!o || o.team === team || !o.def.walk || o.def.access || !o.decked || (o.state !== 'done' && o.state !== 'damaged')) return -1;
+    let best = -1, bs = Infinity;
+    const ix = o.inside[0] - x - 0.5, iy = o.inside[1] - y - 0.5, il = Math.hypot(ix, iy) || 1;
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const t = ny * w + nx;
+      if (grid.cost[t] === 0 || occ[t] >= 0 || grid.deck[t] !== 0 || grid.gate[t]) continue;
+      const sc = (dx * ix + dy * iy) / il; // most outward
+      if (sc < bs) (bs = sc), (best = t);
+    }
+    return best;
   };
 
   // --- workers ---
@@ -979,6 +1065,100 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.users = 0;
       return true;
     },
+    /** M2c: a building by id (read only), undefined if none. */
+    piece: (id: number): Piece | undefined => buildings[id],
+    /** Squared distance from (x,y) to the nearest footprint tile centre of building id (Infinity if none). */
+    dist2: (id: number, x: number, y: number) => (buildings[id] ? near2(buildings[id].tiles, x, y) : Infinity),
+    /** Nearest footprint tile centre of building id to (x,y). */
+    nearestTile(id: number, x: number, y: number): [number, number] {
+      const b = buildings[id];
+      let best: [number, number] = [b.x, b.y], bd = Infinity;
+      for (let i = 0; i < b.tiles.length; i += 2) {
+        const d = (b.tiles[i] + 0.5 - x) ** 2 + (b.tiles[i + 1] + 0.5 - y) ** 2;
+        if (d < bd) (bd = d), (best = [b.tiles[i] + 0.5, b.tiles[i + 1] + 0.5]);
+      }
+      return best;
+    },
+    /** Pay `cost` from the team's stockpile; false (nothing taken) when it lacks any of it. */
+    takeStock(team: number, cost: Partial<Record<ResourceKind, number>>): boolean {
+      const st = stockOf(team);
+      for (const [r, v] of Object.entries(cost) as [ResourceKind, number][]) if ((st[r] ?? 0) < v) return false;
+      for (const [r, v] of Object.entries(cost) as [ResourceKind, number][]) st[r]! -= v;
+      return true;
+    },
+    /**
+     * Up to n standing points (flat x,y) on open ground round building id (its 8-neighbour ring, off decks), nearest (x,y)
+     * first; repeated when the ring is shorter than n.
+     */
+    ringPoints(id: number, n: number, x: number, y: number): number[] {
+      const b = buildings[id];
+      if (!b) return [];
+      const own = new Set(b.ti);
+      const ring: number[] = [];
+      for (const t0 of b.ti)
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const tx = (t0 % w) + dx, ty = ((t0 / w) | 0) + dy;
+            if (tx < 0 || ty < 0 || tx >= w || ty >= h) continue;
+            const t = ty * w + tx;
+            if (own.has(t) || ring.includes(t) || grid.cost[t] === 0 || occ[t] >= 0 || grid.deck[t] !== 0) continue;
+            ring.push(t);
+          }
+      const d = (t: number) => ((t % w) + 0.5 - x) ** 2 + (((t / w) | 0) + 0.5 - y) ** 2;
+      ring.sort((a, c) => d(a) - d(c) || a - c);
+      const out: number[] = [];
+      for (let i = 0; i < n && ring.length; i++) {
+        const t = ring[i % ring.length];
+        out.push((t % w) + 0.5, ((t / w) | 0) + 0.5);
+      }
+      return out;
+    },
+    /** Torches on building id for dt seconds: it catches after FIRE.kindle. False when it cannot burn (stone, gone, a bare foundation). */
+    kindle(id: number, dt: number): boolean {
+      const b = buildings[id];
+      if (!canBurn(b)) return false;
+      if (b.burn > 0) return true;
+      b.kindle += dt;
+      if (b.kindle >= FIRE.kindle) ignite(b);
+      return true;
+    },
+    /** A fire arrow lands on building id: it catches with chance p if it can burn. */
+    fireHit(id: number, p: number) {
+      const b = buildings[id];
+      if (canBurn(b) && b.burn <= 0 && chance(p)) ignite(b);
+    },
+    /** Men beat out the fire on building id for dt man-seconds; false when it is not burning. */
+    douse(id: number, dt: number): boolean {
+      const b = buildings[id];
+      if (!b || b.burn <= 0) return false;
+      b.burn = Math.max(0, b.burn - FIRE.douse * dt);
+      if (b.burn <= 0) b.kindle = 0;
+      return true;
+    },
+    ladderFoot,
+    /** Raise siege engine `siege`'s ladder at the foot of foe wall tile (x,y): a done ladder building of `team`; its id, or -1. */
+    raiseLadder(team: number, x: number, y: number, siege: number): number {
+      const foot = ladderFoot(team, x, y);
+      if (foot < 0) return -1;
+      const id = add(team, 'ladder', [foot % w, (foot / w) | 0], 0, undefined, occ[y * w + x]);
+      const b = buildings[id];
+      b.saved = [grid.cost[foot]];
+      b.siege = siege;
+      b.state = 'done';
+      b.labour = b.need;
+      b.hp = b.maxHp;
+      raiseDeck(b);
+      grid.gate[foot] = team + 1; // the attackers' way up: defenders push it, they do not climb down it
+      return id;
+    },
+    /** Defenders push foe ladder `id` for dt man-seconds; true once it is pushed off (destroyed). */
+    push(id: number, dt: number): boolean {
+      const b = buildings[id];
+      if (!b || b.def.access !== 'ladder' || b.state === 'destroyed' || b.cancelled) return false;
+      b.push += dt / FIRE.push;
+      if (b.push >= 1) destroy(b);
+      return (b.state as BuildState) === 'destroyed';
+    },
     /** Platform capacity of tower `id` (0: not a tower). */
     platCap: (id: number) => buildings[id]?.def.cap ?? 0,
     /** The building whose deck or stair tile t is, -1 none. */
@@ -1049,6 +1229,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         u.wpath = path(u.squad.team, u.x, u.y, u.wgx, u.wgy);
         u.wpi = 1;
       }
+      fireTick();
       if (++tick % REGROW_TICKS === 0)
         for (const n of regrowing) if (n.amount < n.max) n.amount = Math.min(n.max, n.amount + n.regrow * DT * REGROW_TICKS);
     },
@@ -1069,6 +1250,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.door >= 0 ? { door: [b.door % w, (b.door / w) | 0] } : {}),
           ...(b.def.cap ? { cap: b.def.cap } : {}),
           ...(b.prev ? { upgradeFrom: b.prev.type } : {}),
+          ...(b.burn > 0 ? { burning: b.burn } : {}),
+          ...(b.rubble ? { rubble: true as const } : {}),
+          ...(b.siege >= 0 ? { siege: b.siege } : {}),
+          ...(b.push > 0 && b.state !== 'destroyed' ? { push: Math.min(1, b.push) } : {}),
         };
       }),
     stockSnap: () => {

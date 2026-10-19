@@ -25,15 +25,21 @@
  * standing points along the deck (`fixed`) instead of its formation; units climb by placed stairs, a ladder or a stone
  * tower's door and fight from the top with the height rules above (a foe on the ground is 2+ levels below: no melee either
  * way). A tower platform or ladder takes at most its cap.
+ *
+ * Siege (M2c, ./siege.ts, fire and breaches in ./works.ts): a crewing squad (`siege`) stands at its engine's crew points and
+ * drives it with its orders; it does not fight while the engine has work. Task orders (ignite, extinguish, pushLadder,
+ * attackBuilding without an engine, buildSiege) send the squad's men to standing points round the target (`fixed`); each
+ * man there does the task, and the squad holds once it is done. Men under a ram's roof dodge RAM.cover of missiles.
  */
 import { Rng } from '../../sim/rng';
-import type { Order, RegionData, ShotSnap, Snapshot, SquadId, WarBuildSim } from '../types';
+import type { Order, RegionData, ShotSnap, Snapshot, SquadId, UnitSnap, WarBuildSim } from '../types';
 import { warStats, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
 import { WORK_DEFENCE } from './economy';
 import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
+import { createSiege, LADDER, RAM } from './siege';
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -68,6 +74,14 @@ const CLIMB_LOOK = 1.5; // tiles ahead a climb is felt
 const FACE = 18; // a standing squad turns to face enemies this near
 const FACE_TURN = 0.08; // rad per tick
 const EVICT_R = 4; // a closing site moves the units on it to the nearest open tile on their level this near
+const TASK_AT = 1.6; // a man this near a target's footprint tile (or engine) works on it
+const BUILDING_MELEE = 0.08; // share of a blow's damage a building or engine takes
+const ARROW_BUILDING = 0.05; // ... of an arrow's
+const FIRE_RELOAD = 1.5; // fire arrows: slower reload
+const FIRE_ARROW = 0.2; // chance a fire arrow sets the wood it is shot at alight
+const FIRE_DECK = 0.08; // ... the wood deck under the man it is shot at
+const RAM_ROOF = 2; // crew this near their ram are under its roof
+const TASK_REPOINT = 10; // ticks between standing point updates for a task on a moving engine
 
 interface Unit extends Worker {
   id: number;
@@ -104,7 +118,11 @@ interface Unit extends Worker {
   oy: number;
   want: number; // distance it set out to walk this tick, -1 when it stood to strike
   toSlot: boolean; // walking to its slot (not closing on a foe)
+  doing: UnitSnap['task'] | null; // its siege task this tick
 }
+
+/** A task order (M2c): the target building b or engine e (-1 none). */
+interface Task { kind: 'ignite' | 'extinguish' | 'pushLadder' | 'attackBuilding' | 'buildSiege'; b: number; e: number }
 
 interface Squad {
   id: SquadId;
@@ -131,14 +149,20 @@ interface Squad {
   sites: number[]; // build order: the sites it works on
   node: number; // gather order: the node it was sent to
   fixed: number[] | null; // standing points (flat x,y) on a wall walkway, by slot, instead of the formation
+  siege: number; // the engine it crews, -1 none
+  task: Task | null;
+  fire: boolean; // fire arrows
 }
 
 interface Missile {
   at: number;
   by: Unit;
-  t: Unit;
+  t: Unit | null; // null: at a building b or engine e, or a fire arrow that missed its man
   raw: number;
   ap: number;
+  b?: number;
+  e?: number;
+  fb?: number; // fire arrow: the wood deck under its man
 }
 
 export function createSim(region: RegionData, seed: number): WarBuildSim {
@@ -188,7 +212,31 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         u.y = Math.floor(o / grid.w) + 0.5;
       }
     },
+    (p) => rng.chance(p),
   );
+
+  const siege = createSiege(works, rng, {
+    path: (team, x0, y0, x1, y1) => {
+      grid.team = team;
+      return cornerPath(x0, y0, x1, y1);
+    },
+    crewNear(crew, x, y, r) {
+      let n = 0;
+      for (const u of squads[crew]?.units ?? []) if (u.alive && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) n++;
+      return n;
+    },
+    splash(x, y, r, dmg, ap) {
+      for (const u of units) if (u.alive && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) hurt(u, afterArmour(dmg, u.st.armor, ap));
+    },
+    open(x, y) {
+      const t = tileAt(grid, x, y);
+      return t >= 0 && grid.cost[t] > 0 && grid.deck[t] === 0;
+    },
+    cost(x, y) {
+      const t = tileAt(grid, x, y);
+      return t >= 0 && grid.cost[t] > 0 ? grid.cost[t] : 1;
+    },
+  });
 
   const hAt = (x: number, y: number) => grid.height[tileAt(grid, x, y)];
   const groundAt = (x: number, y: number) => grid.ground[tileAt(grid, x, y)];
@@ -268,7 +316,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const [ax, ay] = openPoint(x / picked.length, y / picked.length);
     const ns: Squad = {
       ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1, fixed: null,
+      near: [], sites: [], node: -1, fixed: null, siege: -1, task: null,
     };
     squads.push(ns);
     move(s, ns, picked);
@@ -312,6 +360,62 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     const s = squads[o.squad ?? -1];
     if (!s) return;
+    if (o.kind === 'fireArrows') {
+      s.fire = o.on;
+      return;
+    }
+    if (s.siege >= 0 && (o.kind === 'move' || o.kind === 'hold' || o.kind === 'attackBuilding' || o.kind === 'deploy' || o.kind === 'raiseLadder')) {
+      // the crew drives its engine
+      const id = s.siege;
+      if (o.kind === 'move') siege.move(id, o.x, o.y);
+      else if (o.kind === 'hold') siege.hold(id);
+      else if (o.kind === 'deploy') siege.deploy(id, !!o.pack);
+      else if (o.kind === 'raiseLadder') {
+        if (!siege.raise(id, o.wallTile[0], o.wallTile[1])) return;
+      } else if (o.building === undefined || !siege.attack(id, o.building)) return;
+      s.order = o.kind;
+      return;
+    }
+    if (o.kind === 'deploy' || o.kind === 'raiseLadder') return; // no engine
+    if (o.kind !== 'formation' && o.kind !== 'detach') {
+      if (s.siege >= 0) uncrew(s);
+      s.task = null;
+    }
+    if (o.kind === 'uncrew') {
+      if (s.order === 'crew' || s.order === 'move' || s.order === 'attackBuilding' || s.order === 'deploy' || s.order === 'raiseLadder') s.order = 'hold';
+      return;
+    }
+    if (o.kind === 'crew') {
+      if (!siege.crew(o.siege, s.id, s.team)) return;
+      if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+      s.siege = o.siege;
+      s.order = 'crew';
+      s.path = [];
+      s.goal = null;
+      return;
+    }
+    if (o.kind === 'buildSiege' || o.kind === 'ignite' || o.kind === 'extinguish' || o.kind === 'pushLadder' || o.kind === 'attackBuilding') {
+      let k: Task;
+      if (o.kind === 'buildSiege') {
+        const id = siege.build(s.team, o.type, o.x, o.y);
+        if (id < 0) return;
+        k = { kind: o.kind, b: -1, e: id };
+      } else if (o.kind === 'pushLadder') {
+        const l = works.piece(o.ladder);
+        if (!l || l.def.access !== 'ladder' || l.team === s.team) return;
+        k = { kind: o.kind, b: o.ladder, e: -1 };
+      } else {
+        k = { kind: o.kind, b: o.building ?? -1, e: o.building === undefined ? o.siege ?? -1 : -1 };
+        const tt = k.b >= 0 ? works.piece(k.b)?.team : siege.get(k.e)?.team;
+        if (tt === undefined || (o.kind !== 'extinguish' && tt === s.team)) return;
+      }
+      if (!taskLive(k)) return;
+      if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+      s.task = k;
+      s.order = o.kind;
+      taskPoints(s);
+      return;
+    }
     if (o.kind === 'detach') {
       const alive = s.units.filter((u) => u.alive);
       const ids = o.unitIds ? new Set(o.unitIds) : null;
@@ -390,6 +494,136 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
 
   const dist2 = (a: { cx: number; cy: number }, b: { cx: number; cy: number }) => (a.cx - b.cx) ** 2 + (a.cy - b.cy) ** 2;
+
+  // --- siege (M2c) ---
+  const uncrew = (s: Squad) => {
+    if (siege.get(s.siege)?.crew === s.id) siege.uncrew(s.siege);
+    s.siege = -1;
+    s.fixed = null;
+  };
+
+  /** Is there still something to do for task k? */
+  const taskLive = (k: Task): boolean => {
+    const b = k.b >= 0 ? works.piece(k.b) : undefined;
+    const e = k.e >= 0 ? siege.get(k.e) : undefined;
+    if (k.b >= 0 && (!b || b.cancelled || b.state === 'destroyed')) return false;
+    if (k.e >= 0 && (!e || e.state === 'destroyed')) return false;
+    if (!b && !e) return false;
+    if (k.kind === 'buildSiege') return e!.state === 'building';
+    if (k.kind === 'ignite') return b ? !!b.def.burnable && b.state !== 'foundation' && b.burn <= 0 : e!.burn <= 0;
+    if (k.kind === 'extinguish') return (b ?? e)!.burn > 0;
+    return true;
+  };
+
+  /** A deck tile beside ladder building id (where defenders push it from), -1 none. */
+  const ladderTop = (id: number): number => {
+    const l = works.piece(id);
+    if (!l) return -1;
+    const lx = l.tiles[0], ly = l.tiles[1];
+    for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+      const t = tileAt(grid, lx + dx, ly + dy);
+      if (t >= 0 && grid.deck[t] === DECK) return t;
+    }
+    return -1;
+  };
+
+  /** The squad's standing points for its task (round the target; on the deck by a ladder); a ranged attacker takes a spot in range. */
+  const taskPoints = (s: Squad) => {
+    const k = s.task!;
+    const n = Math.max(1, s.alive);
+    if (k.kind === 'attackBuilding' && s.ranged) {
+      s.fixed = null;
+      const [tx, ty] = k.b >= 0 ? works.nearestTile(k.b, s.cx, s.cy) : [siege.get(k.e)!.x, siege.get(k.e)!.y];
+      const d = Math.hypot(s.cx - tx, s.cy - ty), r = warRange(s) * 0.7;
+      if (d > r) requestPath(s, tx + ((s.cx - tx) * r) / d, ty + ((s.cy - ty) * r) / d);
+      return;
+    }
+    const pts = k.kind === 'pushLadder' ? works.deckPoints(ladderTop(k.b), n) : k.b >= 0 ? works.ringPoints(k.b, n, s.cx, s.cy) : siege.crewPoints(k.e, n);
+    s.fixed = pts.length ? pts : null;
+    if (pts.length) requestPath(s, pts[0], pts[1]);
+  };
+
+  /** A man's task this tick: the unit itself when it works at the target (stands), null to walk to its point. */
+  const taskAct = (u: Unit): Unit | null => {
+    const s = u.squad, k = s.task!;
+    u.fighting = u.striking = false;
+    u.tgt = null;
+    if (u.cd > 0) u.cd--;
+    const e = k.e >= 0 ? siege.get(k.e) : undefined;
+    const [tx, ty] = k.b >= 0 ? works.nearestTile(k.b, u.x, u.y) : [e!.x, e!.y];
+    const d = Math.hypot(tx - u.x, ty - u.y);
+    if (k.kind === 'attackBuilding' && u.ammo > 0 && u.st.range > 0) {
+      const dh = hAt(u.x, u.y) - hAt(tx, ty);
+      const range = u.st.range + heightRange(dh);
+      if (d > range) return null;
+      u.striking = true;
+      u.facing = Math.atan2(ty - u.y, tx - u.x);
+      if (u.cd <= 0) shootAt(u, tx, ty, d, dh, range, k);
+      return u;
+    }
+    if (d > TASK_AT) return null;
+    const here = tileAt(grid, u.x, u.y);
+    if (k.kind === 'pushLadder' && grid.deck[here] !== DECK) return null;
+    if (k.kind !== 'pushLadder' && grid.deck[here] === DECK) return null; // up on a wall: not at its foot
+    u.facing = Math.atan2(ty - u.y, tx - u.x);
+    if (k.kind === 'attackBuilding') {
+      u.striking = true;
+      if (u.cd > 0) return u;
+      u.cd = u.st.atkTicks;
+      u.swingAt = tick;
+      const dmg = u.st.dmg * BUILDING_MELEE;
+      if (k.b >= 0) works.damage(k.b, dmg);
+      else siege.damage(k.e, dmg);
+    } else if (k.kind === 'buildSiege') {
+      if (siege.labour(k.e, DT)) u.working = true;
+    } else if (k.kind === 'ignite') {
+      u.doing = 'ignite';
+      if (k.b >= 0) works.kindle(k.b, DT);
+      else siege.kindle(k.e, DT);
+    } else if (k.kind === 'extinguish') {
+      u.doing = 'extinguish';
+      if (k.b >= 0) works.douse(k.b, DT);
+      else siege.douse(k.e, DT);
+    } else {
+      u.doing = 'push';
+      const l = works.piece(k.b)!;
+      const lt = l.ti[0];
+      if (works.push(k.b, DT)) for (const o of units) if (o.alive && tileAt(grid, o.x, o.y) === lt) hurt(o, o.maxHp * LADDER.fall); // climbers fall
+    }
+    return u;
+  };
+
+  /** Crews stand by their engines; tasks that are done end (the squad holds). */
+  const siegeSquads = () => {
+    for (const s of squads) {
+      if (s.alive === 0) continue;
+      if (s.siege >= 0) {
+        const e = siege.get(s.siege);
+        if (!e || e.state === 'destroyed' || e.crew !== s.id) {
+          s.siege = -1;
+          s.fixed = null;
+          s.order = 'hold';
+          continue;
+        }
+        s.fixed = siege.crewPoints(s.siege, s.alive);
+        s.ax = e.x;
+        s.ay = e.y;
+        s.path = [];
+        s.pi = 0;
+        s.goal = null;
+        for (const u of s.units) if (u.alive && (u.x - e.x) ** 2 + (u.y - e.y) ** 2 < 6.25) u.doing = 'crew';
+      } else if (s.task) {
+        if (!taskLive(s.task)) {
+          s.task = null;
+          s.fixed = null;
+          s.order = 'hold';
+          s.path = [];
+          s.goal = null;
+        } else if (s.task.e >= 0 && (tick + s.id) % TASK_REPOINT === 0 && s.task.kind !== 'attackBuilding') s.fixed = siege.crewPoints(s.task.e, Math.max(1, s.alive));
+        else if (s.task.kind === 'attackBuilding' && s.ranged && (tick + s.id) % REPATH_TICKS === 0 && s.pi >= s.path.length / 2 && !s.goal) taskPoints(s);
+      }
+    }
+  };
 
   const scanNear = () => {
     for (const s of squads) {
@@ -614,15 +848,37 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
 
   const shoot = (u: Unit, t: Unit, d: number, dh: number, range: number) => {
+    const fire = u.squad.fire && u.st.missile === 'arrow';
     u.ammo--;
-    u.cd = u.st.shotTicks;
+    u.cd = Math.round(u.st.shotTicks * (fire ? FIRE_RELOAD : 1));
     u.swingAt = tick;
     const land = tick + Math.max(1, Math.round(d / u.st.shotSpeed / DT));
-    shots.push({ x0: u.x, y0: u.y, x1: t.x, y1: t.y, t0: tick, t1: land, z0: hAt(u.x, u.y), z1: hAt(t.x, t.y), by: u.id, kind: u.st.missile });
+    shots.push({ x0: u.x, y0: u.y, x1: t.x, y1: t.y, t0: tick, t1: land, z0: hAt(u.x, u.y), z1: hAt(t.x, t.y), by: u.id, kind: u.st.missile, ...(fire ? { fire: true as const } : {}) });
     if (u.ammo === 0) reslotQueue.add(u.squad);
-    if (!rng.chance(hitChance(u.st.accuracy, d, range, groundAt(t.x, t.y) === FOREST))) return;
+    const fb = fire ? works.onBuilding(tileAt(grid, t.x, t.y)) : -1;
+    const hit = rng.chance(hitChance(u.st.accuracy, d, range, groundAt(t.x, t.y) === FOREST));
+    if (!hit && fb < 0) return;
     const bog = groundAt(u.x, u.y) === BOG;
-    missiles.push({ at: land, by: u, t, raw: u.st.rangedDmg * COMBAT.missileDmg * missileHeight(dh) * (bog ? COMBAT.bogDmg : 1), ap: u.st.ap });
+    missiles.push({ at: land, by: u, t: hit ? t : null, raw: u.st.rangedDmg * COMBAT.missileDmg * missileHeight(dh) * (bog ? COMBAT.bogDmg : 1), ap: u.st.ap, ...(fb >= 0 ? { fb } : {}) });
+  };
+
+  /** A shot at a building or engine (attackBuilding): arrows barely scratch it, fire arrows may set it alight. */
+  const shootAt = (u: Unit, tx: number, ty: number, d: number, dh: number, range: number, k: Task) => {
+    const fire = u.squad.fire && u.st.missile === 'arrow';
+    u.ammo--;
+    u.cd = Math.round(u.st.shotTicks * (fire ? FIRE_RELOAD : 1));
+    u.swingAt = tick;
+    const land = tick + Math.max(1, Math.round(d / u.st.shotSpeed / DT));
+    shots.push({ x0: u.x, y0: u.y, x1: tx, y1: ty, t0: tick, t1: land, z0: hAt(u.x, u.y), z1: hAt(tx, ty), by: u.id, kind: u.st.missile, ...(fire ? { fire: true as const } : {}) });
+    if (u.ammo === 0) reslotQueue.add(u.squad);
+    if (!rng.chance(hitChance(u.st.accuracy, d, range, false))) return;
+    missiles.push({ at: land, by: u, t: null, raw: u.st.rangedDmg * COMBAT.missileDmg * missileHeight(dh) * (fire ? -1 : 1), ap: u.st.ap, ...(k.b >= 0 ? { b: k.b } : { e: k.e }) });
+  };
+
+  /** Crew under their ram's roof. */
+  const underRoof = (t: Unit) => {
+    const e = t.squad.siege >= 0 ? siege.get(t.squad.siege) : undefined;
+    return !!e && e.type === 'ram' && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= RAM_ROOF * RAM_ROOF;
   };
 
   const land = () => {
@@ -633,8 +889,22 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         keep.push(m);
         continue;
       }
+      if (m.fb !== undefined) works.fireHit(m.fb, FIRE_DECK);
+      if (m.b !== undefined || m.e !== undefined) {
+        // at a building or engine: raw < 0 marks a fire arrow
+        const dmg = Math.abs(m.raw) * ARROW_BUILDING;
+        if (m.b !== undefined) {
+          works.damage(m.b, dmg);
+          if (m.raw < 0) works.fireHit(m.b, FIRE_ARROW);
+        } else {
+          siege.damage(m.e!, dmg);
+          if (m.raw < 0 && rng.chance(FIRE_ARROW)) siege.kindle(m.e!, 99);
+        }
+        continue;
+      }
       const t = m.t;
-      if (!t.alive) continue;
+      if (!t || !t.alive) continue;
+      if (underRoof(t) && rng.chance(RAM.cover)) continue;
       if (!working(t) && rng.chance(blockChance(t.st.block, t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
       hurt(t, afterArmour(m.raw, t.st.armor, m.ap));
     }
@@ -650,8 +920,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     u.fighting = false;
     u.striking = false;
     if (u.cd > 0) u.cd--;
-    if (s.order === 'move' && (s.goal || s.pi < s.path.length / 2)) {
-      u.tgt = null; // marching: no fighting
+    if ((s.order === 'move' && (s.goal || s.pi < s.path.length / 2)) || (s.siege >= 0 && siege.busy(s.siege))) {
+      u.tgt = null; // marching (or crewing a working engine): no fighting
       return null;
     }
     if (!s.near.length) {
@@ -784,6 +1054,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.oi = 1;
     }
     for (const s of squads) stepSquad(s);
+    for (const u of units) u.doing = null;
+    siegeSquads();
 
     countPlatforms();
     head.fill(-1);
@@ -817,7 +1089,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         u.tgt = null;
         const w = works.work(u);
         act = w === 'here' ? u : w;
-      } else act = fight(u);
+      } else if (u.squad.task) {
+        u.working = false;
+        act = taskAct(u);
+      } else {
+        u.working = false;
+        act = fight(u);
+      }
       let dx = 0;
       let dy = 0;
       let d = 0;
@@ -829,7 +1107,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         // squad at rest: settle in the slot, or as near as it gets when another unit stands on it
         // (two units pulled to one spot otherwise push and sidestep round each other for ever)
         const s = u.squad;
-        if (act === null && s.pi >= s.path.length / 2 && !s.goal) {
+        if (act === null && s.pi >= s.path.length / 2 && !s.goal && s.siege < 0) {
           if (u.settled) {
             const k = Math.min(1, (3 * RADIUS) / Math.max(d, 1e-6)); // the way into the slot must be open too
             const retry = d > ARRIVE && (tick + u.id) % RETRY === 0 && free(tx, ty, i) && free(u.x + dx * k, u.y + dy * k, i);
@@ -948,6 +1226,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       } else u.stuck = 0;
     }
     land();
+    siege.tick(tick);
     for (const s of reslotQueue) reslot(s);
     reslotQueue.clear();
     if (shots.length) shots = shots.filter((sh) => sh.t1 > tick);
@@ -963,7 +1242,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
-        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null,
+        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, siege: -1, task: null, fire: false,
       };
       grid.team = team;
       squads.push(s);
@@ -974,7 +1253,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: st.maxHp, maxHp: st.maxHp, cls, st, moving: false, wp: 0,
           alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
           settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
-          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false,
+          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null,
         };
         units.push(u);
         s.units.push(u);
@@ -991,23 +1270,25 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         tick,
         units: units.map((u) => {
           // in reach of a foe still standing, or the blow just dealt felled it
-          const atk = u.alive && u.striking && (!!u.tgt?.alive || u.swingAt === tick - 1);
+          const atk = u.alive && u.striking && (!!u.tgt?.alive || u.swingAt === tick - 1 || !!u.squad.task);
           const t = tileAt(grid, u.x, u.y);
           const on = works.onBuilding(t);
           return {
             id: u.id, squad: u.squad.id, x: u.x, y: u.y, facing: u.facing, hp: u.hp, maxHp: u.maxHp, cls: u.cls, z: grid.height[t],
             ...(on >= 0 ? { on } : {}),
-            state: !u.alive ? 'dead' : atk ? 'attack' : u.working ? u.job! : u.moving ? 'move' : 'idle',
+            state: !u.alive ? 'dead' : atk ? 'attack' : u.working ? (u.job ?? 'build') : u.moving ? 'move' : 'idle',
+            ...(u.alive && u.doing ? { task: u.doing } : {}),
             ...(u.alive ? {} : { wounded: u.wounded }),
             ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
         }),
         squads: squads.map((s) => ({ id: s.id, owner: s.owner, team: s.team, units: s.units.map((u) => u.id), order: s.order })),
-        shots: shots.map((sh) => ({ ...sh })),
+        shots: [...shots, ...siege.shots()].map((sh) => ({ ...sh })),
         buildings: works.buildingSnaps(),
         stock: works.stockSnap(),
         influenceVersion: works.influence().version,
+        sieges: siege.snaps(tick),
       };
     },
     stats() {
