@@ -91,6 +91,7 @@ export class BuildMode {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       const k = e.key.toLowerCase();
       if (k === 'b') this.toggle();
+      else if (k === 'v') this.layer.cutaway = !this.layer.cutaway;
       else if (k === 'escape') this.cancel();
       else if (!this.active) return;
       else if (k === 'r') this.rotate();
@@ -458,6 +459,7 @@ export class BuildMode {
     const placing = this.active && !!this.tool;
     this.layer.selected = this.selected;
     this.layer.grids = this.active;
+    this.layer.cutNear = placing ? this.s.pointerTile : null; // the ghost inside a fort always shows
     const hb = placing ? undefined : this.buildingAt(this.s.pointerTile);
     this.layer.hovered = hb && isSite(hb) ? hb.id : -1;
     this.layer.draw(buildings, this.s.drawn, view, zoom);
