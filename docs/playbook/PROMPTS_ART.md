@@ -1680,3 +1680,64 @@ translucent: a checker of holes, since QA allows only binary alpha. (3) Smoke fr
 overlapping, widening puffs, dithered, read as wisps. (4) A second flame sheet halfway up the face reads as a stripe,
 so keep the sheet at the foot only. (5) Charring must darken the wood's own pixels. Flat char colours turn the wall
 into a black slab.
+
+## 32. UI kit (W-25)
+
+The war game UI in `public/war/ui/` + `ui.json`: 10 frames (meander panel, riveted iron small panel and bar, parchment
+tooltip, hover label, plaque, square and round minimap, divider + ornament), 5 buttons (large, small, icon: normal /
+hover / pressed / disabled; tab active / inactive / hover; toggle on / off / disabled), bars (track, fills hp,
+construction, burn, ok, water; slider track + knob), 58 icons at 32 and 24 px (11 resources, 6 unit classes, 21
+buildings, 20 actions) and 7 cursors with hotspots. Every PNG has an `@2x` twin; everything is snapped to one palette
+(`ui.json` `palette`). `ui.json` records the 9-slice margins (`slice {l,t,r,b}`; `edges: "tile"` + `period` for the
+meander panel, whose edges repeat rather than stretch), fixed heights, the bar fill rect and the minimap window.
+Build: `node scripts/war/art/ui.mjs` (fetches raws from `scripts/war/art/ui-jobs.json` into
+`shots/war/pixellab/ui/raw/`, ends with the QA gate: sizes, @2x, binary alpha, palette, no icon background, slices leave
+a centre). Preview: `node scripts/war/art/ui-preview.mjs` -> `shots/war/ui/UI_contact.png`, `UI_hud_mock.png` (1440x900
+HUD over a `?scenario=build-test` sandbox shot, drawn as HTML with CSS `border-image` from the recorded slices).
+**60 PixelLab generations** (cap 60): 25 for the sheet, 35 pixen icons.
+
+**Method.** One `create_ui_asset` sheet, with `pieces` laid out so every element sits at a known rect, gives the frames
+and controls one look; the build cuts them, rebuilds stretchable edges (a clean column / row copied over rivets),
+clears the drawn sword from the icon button, and derives the button states by tone (hover +18% warm, pressed -22% and 1 px
+down, disabled desaturated). Icons with a subject (resources, units, buildings) are pixen 32x32 one per call; pictograms
+(actions, formations, cursors, stairs, ladders, ram, thrower, stone bridge, camp, tin) are drawn in `ui.mjs` from shapes
+on a 32 grid with the glyph shader (light edge up-left, dark down-right, 1 px outline) and rasterised at 32 and 24.
+
+| Asset | Call | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| kit sheet | `create_ui_asset` 512x512, 18 `pieces` (main panel, small panel, tooltip, label plate, button, 2 icon buttons, 2 tabs, toggle + knob, minimap, health bar, slider + knob, divider, toolbar, resource bar), `color_palette: dark iron grey, aged bronze, dull gold highlights, charcoal stone, parchment cream, oxblood red`; `4e07c490` | `dark epic ancient Greek war game UI kit sheet: heavy dark iron and aged bronze frames with riveted corners, a Greek meander (key pattern) border engraved in bronze along the frame edges, dark charcoal stone panel fill, parchment inset accents, desaturated gritty colours, crisp pixel art, no text` | kept; binary alpha; 25 generations |
+| (rejected) | pixen 256x32 | `game UI icon strip, a single row of 8 separate square 32x32 resource icons ...` | 13 tiny unrelated tiles: pixen does not lay out sheets |
+| icons | pixen 32x32, `no_background`, `outline: single color outline` | `game UI icon, <subject>, <name> icon, dark epic ancient Greek style, desaturated gritty colours, thick dark outline, readable silhouette` | kept, ids in `ui-jobs.json` |
+
+Subjects (verbatim): food `a sheaf of golden wheat with a round loaf of bread`; wood `a bundle of three cut timber logs`;
+stone `a pile of rough grey quarried stone blocks`; marble `a smooth white polished marble block with pale grey veins`;
+copper `a lump of raw copper ore, orange copper and green patina on dark rock`; iron `a dark grey forged iron bar ingot
+with a rough hammered surface`; bronze `a gleaming golden-brown bronze oxhide ingot (four-cornered ancient ingot shape)`;
+silver `a small stack of shiny silver ancient Greek drachma coins`; salt `a small brown sack overflowing with white salt
+crystals`; olives `a sprig of dark green olives with silver-green leaves`; hoplite `a bronze Corinthian helmet with a dark
+red horsehair crest in front of a round bronze hoplite shield`; archer `a wooden recurve bow drawn with an arrow nocked`;
+slinger `a leather sling with a round grey stone in its pouch, cords swinging`; javelineer `three light throwing javelins
+with iron tips bundled diagonally`; militia `a rough wooden club crossed with a farmer's pitchfork`; swordsman `a long
+iron sword pointing up diagonally with a small round wooden shield behind it` (style `dark epic ancient style`);
+storehouse `a small timber storehouse barn with a tiled roof and sacks and amphorae at its door`; outpost `a small wooden
+watch post with a lookout platform and a red pennant on top`; fort `a square stone fort with thick grey walls and corner
+towers`; barracks (2nd try, prefix `isolated object on transparent background:`, suffix `, no ground`) `a long timber
+barracks hall with a red tiled roof and a round bronze shield and crossed spears on its front wall`; farm `a small farm: a
+field of golden wheat rows with a little thatched hut`; olive press `an ancient olive press: a round stone basin with a
+heavy upright millstone and a wooden beam, a clay jar of oil beside it`; palisade `a short section of palisade fence of
+sharpened wooden stakes lashed with rope`; rampart `a timber rampart: a thick wall of horizontal logs with a plank walkway
+and log parapet on top`; stone wall `a section of massive grey cyclopean stone city wall of large fitted blocks`; wood
+tower `a tall wooden watchtower of log posts with a railed platform on top`; stone tower `a square grey stone defensive
+tower with battlements on top and a dark arrow slit`; gate `a heavy wooden double gate with iron bands set in a stone
+gateway`; wooden bridge `a small wooden plank bridge on log trestles with a rope railing, side view`.
+Rejected: tin `two pale bluish-silver tin ingots stacked` (a horn shape; drawn instead), camp `an army field camp: two
+small canvas tents beside a campfire` (opaque ground square) and its retry (a red bat shape; drawn instead), barracks 1st
+try (a grey wall on an opaque block).
+
+**Lessons:** (1) `create_ui_asset` costs 25 generations but one sheet with explicit `pieces` gives every frame and control
+in one consistent style at known rects; ask for each control once and derive states in code. (2) Its frames carry
+rivets and a meander that are not periodic enough to stretch: flatten stretched edges from a clean column / row, and
+mark meander edges as tiled. (3) pixen at 32x32 makes good single icons (1 generation) but ignores sheet layouts and
+sometimes paints a ground square: QA the border ring of every icon. (4) Pictograms (actions, formations, cursors) are
+cheaper and more readable drawn from shapes than generated; give them the same outline and light direction. (5) Other
+agents share the 10-job PixelLab queue: submit a few at a time.

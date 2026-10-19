@@ -1,0 +1,800 @@
+{
+ "note": "War UI kit (W-25). Sizes are 1x art px; every PNG has an @2x twin (nearest). slice = 9-slice margins {l, t, r, b}: corners fixed, edges and centre stretch; edges \"tile\" = repeat the edge strip (period px) instead of stretching (meander borders). Icons: 32 and 24 px. Cursors: 32 px with hotspot.",
+ "scale": [
+  1,
+  2
+ ],
+ "palette": [
+  "#32323a",
+  "#c3965b",
+  "#000000",
+  "#875c3f",
+  "#bbccd3",
+  "#9cff02",
+  "#61636c",
+  "#613737",
+  "#8a9595",
+  "#f9fcfc",
+  "#4c4e59",
+  "#f3d588",
+  "#ca2834",
+  "#f19d1f",
+  "#861f03",
+  "#2d1a17",
+  "#40934a",
+  "#de6f1a",
+  "#f4c35c",
+  "#c7bfad",
+  "#eafec0",
+  "#2b5628",
+  "#788521",
+  "#bd7133",
+  "#2b5499",
+  "#171020",
+  "#4e345f",
+  "#41aee4",
+  "#59699a",
+  "#a7ae8d",
+  "#ad3708",
+  "#83765a",
+  "#5b3823",
+  "#7d4024",
+  "#791a2d",
+  "#e9b97b",
+  "#c2fc9c",
+  "#3a242d",
+  "#893647",
+  "#a2a9ad",
+  "#b1ad3f",
+  "#e5a458",
+  "#ebebe4",
+  "#d1cc10",
+  "#e77778",
+  "#7d7e7f",
+  "#122c1c",
+  "#180705",
+  "#925c2c",
+  "#f4e1af",
+  "#b75e1f",
+  "#481106",
+  "#522818",
+  "#a36444",
+  "#5e5342",
+  "#c18543",
+  "#4f3219",
+  "#8a5a2c",
+  "#c08a48",
+  "#e6c27a",
+  "#25252b",
+  "#47474f",
+  "#6e6e78",
+  "#a2a2aa",
+  "#3a2416",
+  "#664226",
+  "#8e6236",
+  "#b4884f",
+  "#3e3c42",
+  "#625e66",
+  "#8a868c",
+  "#b6b2b2",
+  "#3e1012",
+  "#74201e",
+  "#a8352a",
+  "#d0644a",
+  "#7a2a14",
+  "#c0501c",
+  "#e8962e",
+  "#f6d48a",
+  "#1f3446",
+  "#365a74",
+  "#5a88a2",
+  "#a0c8d6",
+  "#1f3a1c",
+  "#3c6430",
+  "#68904a",
+  "#a4c070",
+  "#464c56",
+  "#7a828c",
+  "#a8b0b8",
+  "#dce2e6",
+  "#5a4630",
+  "#8a7254",
+  "#b49c78",
+  "#d8c4a0",
+  "#16120e"
+ ],
+ "frames": {
+  "panel": {
+   "file": "frames/panel.png",
+   "w": 241,
+   "h": 161,
+   "slice": {
+    "l": 56,
+    "t": 57,
+    "r": 68,
+    "b": 65
+   },
+   "edges": "tile",
+   "period": [
+    13,
+    13
+   ],
+   "use": "main window, scenario and site panels (meander bronze)"
+  },
+  "panel-small": {
+   "file": "frames/panel-small.png",
+   "w": 121,
+   "h": 89,
+   "slice": {
+    "l": 14,
+    "t": 14,
+    "r": 14,
+    "b": 14
+   },
+   "edges": "stretch",
+   "use": "selection panel, siege box, sub-panels (riveted iron)"
+  },
+  "bar": {
+   "file": "frames/bar.png",
+   "w": 96,
+   "h": 67,
+   "slice": {
+    "l": 16,
+    "t": 16,
+    "r": 16,
+    "b": 16
+   },
+   "edges": "stretch",
+   "use": "top resource bar, command card, build toolbar (riveted iron)"
+  },
+  "tooltip": {
+   "file": "frames/tooltip.png",
+   "w": 89,
+   "h": 57,
+   "slice": {
+    "l": 8,
+    "t": 8,
+    "r": 8,
+    "b": 8
+   },
+   "edges": "stretch",
+   "use": "tooltip (parchment, dark ink text)"
+  },
+  "label": {
+   "file": "frames/label.png",
+   "w": 52,
+   "h": 31,
+   "slice": {
+    "l": 24,
+    "t": 0,
+    "r": 24,
+    "b": 0
+   },
+   "edges": "stretch",
+   "fixedHeight": 31,
+   "use": "hover label (3-slice, fixed height)"
+  },
+  "plaque": {
+   "file": "frames/plaque.png",
+   "w": 200,
+   "h": 41,
+   "slice": {
+    "l": 96,
+    "t": 8,
+    "r": 96,
+    "b": 8
+   },
+   "edges": "stretch",
+   "fixedHeight": 41,
+   "use": "title plaque / banner (bronze, meander ends)"
+  },
+  "minimap-round": {
+   "file": "frames/minimap-round.png",
+   "w": 137,
+   "h": 137,
+   "window": {
+    "cx": 68,
+    "cy": 68,
+    "r": 47
+   },
+   "use": "round minimap frame, fixed size"
+  },
+  "minimap": {
+   "file": "frames/minimap.png",
+   "w": 137,
+   "h": 137,
+   "window": {
+    "x": 21,
+    "y": 21,
+    "w": 95,
+    "h": 95
+   },
+   "use": "square minimap frame, fixed size"
+  },
+  "divider": {
+   "file": "frames/divider.png",
+   "w": 48,
+   "h": 15,
+   "slice": {
+    "l": 20,
+    "t": 0,
+    "r": 20,
+    "b": 0
+   },
+   "edges": "stretch",
+   "fixedHeight": 15,
+   "use": "horizontal divider (3-slice)"
+  },
+  "divider-ornament": {
+   "file": "frames/divider-ornament.png",
+   "w": 53,
+   "h": 15,
+   "use": "centre ornament laid over a divider"
+  }
+ },
+ "buttons": {
+  "button": {
+   "states": {
+    "normal": "buttons/button-normal.png",
+    "hover": "buttons/button-hover.png",
+    "pressed": "buttons/button-pressed.png",
+    "disabled": "buttons/button-disabled.png"
+   },
+   "slice": {
+    "l": 10,
+    "t": 10,
+    "r": 10,
+    "b": 10
+   },
+   "use": "text button (large); label Cinzel / Cormorant SC",
+   "w": 64,
+   "h": 41
+  },
+  "button-small": {
+   "states": {
+    "normal": "buttons/button-small-normal.png",
+    "hover": "buttons/button-small-hover.png",
+    "pressed": "buttons/button-small-pressed.png",
+    "disabled": "buttons/button-small-disabled.png"
+   },
+   "slice": {
+    "l": 10,
+    "t": 10,
+    "r": 10,
+    "b": 10
+   },
+   "use": "small text button (site panel Assign / Stop / Cancel)",
+   "w": 64,
+   "h": 28
+  },
+  "button-icon": {
+   "states": {
+    "normal": "buttons/button-icon-normal.png",
+    "hover": "buttons/button-icon-hover.png",
+    "pressed": "buttons/button-icon-pressed.png",
+    "disabled": "buttons/button-icon-disabled.png"
+   },
+   "slice": {
+    "l": 10,
+    "t": 10,
+    "r": 10,
+    "b": 10
+   },
+   "content": {
+    "x": 4,
+    "y": 4,
+    "w": 33,
+    "h": 33
+   },
+   "use": "square icon button (command card, build toolbar); icon 32 inside",
+   "w": 41,
+   "h": 41
+  },
+  "tab": {
+   "states": {
+    "active": "buttons/tab-active.png",
+    "inactive": "buttons/tab-inactive.png",
+    "hover": "buttons/tab-hover.png"
+   },
+   "w": 95,
+   "h": 33,
+   "slice": {
+    "l": 14,
+    "t": 10,
+    "r": 14,
+    "b": 6
+   }
+  },
+  "toggle": {
+   "states": {
+    "on": "buttons/toggle-on.png",
+    "off": "buttons/toggle-off.png",
+    "disabled": "buttons/toggle-disabled.png"
+   },
+   "w": 73,
+   "h": 33
+  }
+ },
+ "bars": {
+  "track": {
+   "file": "bars/track.png",
+   "w": 24,
+   "h": 22,
+   "slice": {
+    "l": 6,
+    "t": 0,
+    "r": 6,
+    "b": 0
+   },
+   "fixedHeight": 22,
+   "fill": {
+    "x": 5,
+    "y": 4,
+    "h": 13
+   },
+   "use": "progress bar track; draw a fill strip at fill.x, fill.y, stretched to value"
+  },
+  "fill-hp": {
+   "file": "bars/fill-hp.png",
+   "w": 4,
+   "h": 13,
+   "stretch": "x"
+  },
+  "fill-construction": {
+   "file": "bars/fill-construction.png",
+   "w": 4,
+   "h": 13,
+   "stretch": "x"
+  },
+  "fill-burn": {
+   "file": "bars/fill-burn.png",
+   "w": 4,
+   "h": 13,
+   "stretch": "x"
+  },
+  "fill-ok": {
+   "file": "bars/fill-ok.png",
+   "w": 4,
+   "h": 13,
+   "stretch": "x"
+  },
+  "fill-water": {
+   "file": "bars/fill-water.png",
+   "w": 4,
+   "h": 13,
+   "stretch": "x"
+  },
+  "slider-track": {
+   "file": "bars/slider-track.png",
+   "w": 48,
+   "h": 25,
+   "slice": {
+    "l": 12,
+    "t": 0,
+    "r": 12,
+    "b": 0
+   },
+   "fixedHeight": 25
+  },
+  "slider-knob": {
+   "file": "bars/slider-knob.png",
+   "w": 25,
+   "h": 25
+  }
+ },
+ "icons": {
+  "res-food": {
+   "24": "icons/24/res-food.png",
+   "32": "icons/32/res-food.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-wood": {
+   "24": "icons/24/res-wood.png",
+   "32": "icons/32/res-wood.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-stone": {
+   "24": "icons/24/res-stone.png",
+   "32": "icons/32/res-stone.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-marble": {
+   "24": "icons/24/res-marble.png",
+   "32": "icons/32/res-marble.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-copper": {
+   "24": "icons/24/res-copper.png",
+   "32": "icons/32/res-copper.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-iron": {
+   "24": "icons/24/res-iron.png",
+   "32": "icons/32/res-iron.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-bronze": {
+   "24": "icons/24/res-bronze.png",
+   "32": "icons/32/res-bronze.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-silver": {
+   "24": "icons/24/res-silver.png",
+   "32": "icons/32/res-silver.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-salt": {
+   "24": "icons/24/res-salt.png",
+   "32": "icons/32/res-salt.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "res-olives": {
+   "24": "icons/24/res-olives.png",
+   "32": "icons/32/res-olives.png",
+   "group": "resource",
+   "src": "pixellab"
+  },
+  "unit-hoplite": {
+   "24": "icons/24/unit-hoplite.png",
+   "32": "icons/32/unit-hoplite.png",
+   "group": "unit",
+   "src": "pixellab"
+  },
+  "unit-archer": {
+   "24": "icons/24/unit-archer.png",
+   "32": "icons/32/unit-archer.png",
+   "group": "unit",
+   "src": "pixellab"
+  },
+  "unit-slinger": {
+   "24": "icons/24/unit-slinger.png",
+   "32": "icons/32/unit-slinger.png",
+   "group": "unit",
+   "src": "pixellab"
+  },
+  "unit-javelineer": {
+   "24": "icons/24/unit-javelineer.png",
+   "32": "icons/32/unit-javelineer.png",
+   "group": "unit",
+   "src": "pixellab"
+  },
+  "unit-militia": {
+   "24": "icons/24/unit-militia.png",
+   "32": "icons/32/unit-militia.png",
+   "group": "unit",
+   "src": "pixellab"
+  },
+  "unit-swordsman": {
+   "24": "icons/24/unit-swordsman.png",
+   "32": "icons/32/unit-swordsman.png",
+   "group": "unit",
+   "src": "pixellab"
+  },
+  "bld-storehouse": {
+   "24": "icons/24/bld-storehouse.png",
+   "32": "icons/32/bld-storehouse.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-outpost": {
+   "24": "icons/24/bld-outpost.png",
+   "32": "icons/32/bld-outpost.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-fort": {
+   "24": "icons/24/bld-fort.png",
+   "32": "icons/32/bld-fort.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-barracks": {
+   "24": "icons/24/bld-barracks.png",
+   "32": "icons/32/bld-barracks.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-farm": {
+   "24": "icons/24/bld-farm.png",
+   "32": "icons/32/bld-farm.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-olive-press": {
+   "24": "icons/24/bld-olive-press.png",
+   "32": "icons/32/bld-olive-press.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-palisade": {
+   "24": "icons/24/bld-palisade.png",
+   "32": "icons/32/bld-palisade.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-rampart": {
+   "24": "icons/24/bld-rampart.png",
+   "32": "icons/32/bld-rampart.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-stone-wall": {
+   "24": "icons/24/bld-stone-wall.png",
+   "32": "icons/32/bld-stone-wall.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-tower-wood": {
+   "24": "icons/24/bld-tower-wood.png",
+   "32": "icons/32/bld-tower-wood.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-tower-stone": {
+   "24": "icons/24/bld-tower-stone.png",
+   "32": "icons/32/bld-tower-stone.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-gate": {
+   "24": "icons/24/bld-gate.png",
+   "32": "icons/32/bld-gate.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "bld-bridge-wood": {
+   "24": "icons/24/bld-bridge-wood.png",
+   "32": "icons/32/bld-bridge-wood.png",
+   "group": "building",
+   "src": "pixellab"
+  },
+  "act-move": {
+   "24": "icons/24/act-move.png",
+   "32": "icons/32/act-move.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-attack": {
+   "24": "icons/24/act-attack.png",
+   "32": "icons/32/act-attack.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-hold": {
+   "24": "icons/24/act-hold.png",
+   "32": "icons/32/act-hold.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-line": {
+   "24": "icons/24/act-line.png",
+   "32": "icons/32/act-line.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-column": {
+   "24": "icons/24/act-column.png",
+   "32": "icons/32/act-column.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-wedge": {
+   "24": "icons/24/act-wedge.png",
+   "32": "icons/32/act-wedge.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-loose": {
+   "24": "icons/24/act-loose.png",
+   "32": "icons/32/act-loose.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-build": {
+   "24": "icons/24/act-build.png",
+   "32": "icons/32/act-build.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-gather": {
+   "24": "icons/24/act-gather.png",
+   "32": "icons/32/act-gather.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-crew": {
+   "24": "icons/24/act-crew.png",
+   "32": "icons/32/act-crew.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-deploy": {
+   "24": "icons/24/act-deploy.png",
+   "32": "icons/32/act-deploy.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-raise-ladder": {
+   "24": "icons/24/act-raise-ladder.png",
+   "32": "icons/32/act-raise-ladder.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-push-ladder": {
+   "24": "icons/24/act-push-ladder.png",
+   "32": "icons/32/act-push-ladder.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-ignite": {
+   "24": "icons/24/act-ignite.png",
+   "32": "icons/32/act-ignite.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-extinguish": {
+   "24": "icons/24/act-extinguish.png",
+   "32": "icons/32/act-extinguish.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-fire-arrows": {
+   "24": "icons/24/act-fire-arrows.png",
+   "32": "icons/32/act-fire-arrows.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-upgrade": {
+   "24": "icons/24/act-upgrade.png",
+   "32": "icons/32/act-upgrade.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-cancel": {
+   "24": "icons/24/act-cancel.png",
+   "32": "icons/32/act-cancel.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-assign": {
+   "24": "icons/24/act-assign.png",
+   "32": "icons/32/act-assign.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-stop": {
+   "24": "icons/24/act-stop.png",
+   "32": "icons/32/act-stop.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "bld-stairs-wood": {
+   "24": "icons/24/bld-stairs-wood.png",
+   "32": "icons/32/bld-stairs-wood.png",
+   "group": "building",
+   "src": "drawn"
+  },
+  "bld-stairs-stone": {
+   "24": "icons/24/bld-stairs-stone.png",
+   "32": "icons/32/bld-stairs-stone.png",
+   "group": "building",
+   "src": "drawn"
+  },
+  "bld-ladder": {
+   "24": "icons/24/bld-ladder.png",
+   "32": "icons/32/bld-ladder.png",
+   "group": "building",
+   "src": "drawn"
+  },
+  "bld-siege-ladder": {
+   "24": "icons/24/bld-siege-ladder.png",
+   "32": "icons/32/bld-siege-ladder.png",
+   "group": "building",
+   "src": "drawn"
+  },
+  "bld-bridge-stone": {
+   "24": "icons/24/bld-bridge-stone.png",
+   "32": "icons/32/bld-bridge-stone.png",
+   "group": "building",
+   "src": "drawn"
+  },
+  "bld-camp": {
+   "24": "icons/24/bld-camp.png",
+   "32": "icons/32/bld-camp.png",
+   "group": "building",
+   "src": "drawn"
+  },
+  "bld-ram": {
+   "24": "icons/24/bld-ram.png",
+   "32": "icons/32/bld-ram.png",
+   "group": "building",
+   "src": "drawn"
+  },
+  "bld-stone-thrower": {
+   "24": "icons/24/bld-stone-thrower.png",
+   "32": "icons/32/bld-stone-thrower.png",
+   "group": "building",
+   "src": "drawn"
+  },
+  "res-tin": {
+   "24": "icons/24/res-tin.png",
+   "32": "icons/32/res-tin.png",
+   "group": "resource",
+   "src": "drawn"
+  }
+ },
+ "cursors": {
+  "default": {
+   "file": "cursors/default.png",
+   "w": 32,
+   "h": 32,
+   "hotspot": [
+    2,
+    2
+   ]
+  },
+  "move": {
+   "file": "cursors/move.png",
+   "w": 32,
+   "h": 32,
+   "hotspot": [
+    16,
+    16
+   ]
+  },
+  "attack": {
+   "file": "cursors/attack.png",
+   "w": 32,
+   "h": 32,
+   "hotspot": [
+    3,
+    3
+   ]
+  },
+  "build": {
+   "file": "cursors/build.png",
+   "w": 32,
+   "h": 32,
+   "hotspot": [
+    24,
+    6
+   ]
+  },
+  "gather": {
+   "file": "cursors/gather.png",
+   "w": 32,
+   "h": 32,
+   "hotspot": [
+    27,
+    15
+   ]
+  },
+  "interact": {
+   "file": "cursors/interact.png",
+   "w": 32,
+   "h": 32,
+   "hotspot": [
+    2,
+    2
+   ]
+  },
+  "invalid": {
+   "file": "cursors/invalid.png",
+   "w": 32,
+   "h": 32,
+   "hotspot": [
+    16,
+    16
+   ]
+  }
+ }
+}
