@@ -32,13 +32,22 @@ export type Order =
   // merge: every unit of `squad` joins `into` (same owner and team) and takes up its order; `squad` is left empty.
   | { kind: 'gather'; squad: SquadId; node: number }
   | { kind: 'build'; squad: SquadId; site: number }
+  // placeBuilding of an access piece (W-28): woodStairs (1x2) / stoneStairs (1x3) must run straight into the inside face of
+  // the team's walkway wall (rampart, stoneWall) with open ground below their foot, else reason 'attach'; a ladder (1x1) goes
+  // beside any walkway wall or tower, any team's (no influence needed: attackers scale foe walls). Towers stand anywhere.
   | { kind: 'placeBuilding'; squad?: SquadId; team?: number; type: BuildingType; x: number; y: number; rot?: 0 | 1 }
   | { kind: 'stopWork'; squad: SquadId }
   | { kind: 'cancelSite'; site: number; squad?: undefined }
   | { kind: 'detach'; squad: SquadId; count?: number; unitIds?: UnitId[] }
   | { kind: 'merge'; squad: SquadId; into: SquadId }
+  // upgrade (W-27): a finished wall piece of the team becomes a site for its next tier in place (palisade -> rampart ->
+  // stoneWall, woodTower -> stoneTower, woodGate -> stoneGate); the old piece keeps standing (blocking, its walkway open)
+  // until the new tier is done (palisade -> rampart grows the inner row). With a squad it builds it, without one (`team`) it stays planned. cancelSite reverts it.
+  | { kind: 'upgrade'; building: number; squad?: SquadId; team?: number }
   | WallOrder;
-export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; swing?: number; ready?: number; carry?: ResourceKind; load?: number }
+export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; swing?: number; ready?: number; carry?: ResourceKind; load?: number;
+  /** Height level it stands on (ground, stair or walkway). on: the building whose walkway, platform or stair it stands on. */
+  z?: number; on?: number }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while
@@ -71,12 +80,16 @@ export interface WarSim {
 export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt';
 export type BuildingType =
   | 'camp' | 'storehouse' | 'outpost' | 'fort' | 'barracks' | 'farm' | 'olivePress'
-  | 'palisade' | 'stoneWall' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate';
+  | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate';
 /** foundation: marked out, materials arriving; scaffold: labour under way (the footprint blocks); damaged: done below half hp. */
 export type BuildState = 'foundation' | 'scaffold' | 'done' | 'damaged' | 'destroyed';
-export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short';
+export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach';
 /** A dragged wall line (flat x,y points, tiles): split into segments; towers and gates (flat x,y) snap onto the line. */
-export interface WallOrder { kind: 'placeWall'; squad?: SquadId; team?: number; material: 'wood' | 'stone'; points: number[]; towers?: number[]; gates?: number[] }
+export interface WallOrder {
+  kind: 'placeWall'; squad?: SquadId; team?: number; material: 'wood' | 'timber' | 'stone'; points: number[]; towers?: number[]; gates?: number[];
+  /** A point on the inside (x,y): a thick wall's inner row and its stairs go on that side. Default: the centre of the team's claims and influence buildings. */
+  inside?: number[];
+}
 /** tiles: the footprint as flat tile x,y. */
 export interface PlaceResult { ok: boolean; reason?: PlaceReason; tiles: number[] }
 export interface WallPlan { ok: boolean; reason?: PlaceReason; pieces: { type: BuildingType; tiles: number[]; ok: boolean; reason?: PlaceReason }[] }
@@ -89,6 +102,19 @@ export interface BuildingSnap {
   state: BuildState; progress: number; delivered: number; hp: number; maxHp: number;
   /** Workers holding a work slot now (labouring, hauling or walking to it); most it takes at once. */
   workers: number; maxWorkers: number;
+  /**
+   * Wall tier (economy.ts BuildingDef.tier); walk: walkway / platform height in levels above the ground over the whole
+   * footprint (0 until done); depth: wall thickness in tiles (1 palisade, 2 rampart / stone wall: line + inner row).
+   */
+  tier?: number; walk?: number; depth?: number;
+  /** woodStairs / stoneStairs / ladder: the wall or tower they lean on. Stairs' tiles run bottom first, steps: their levels above the ground. */
+  attach?: number; steps?: number[];
+  /** Stone tower: its door tile (x,y), at ground level, with the inner stair to the platform. */
+  door?: number[];
+  /** Tower platform (ladder: 1) capacity. */
+  cap?: number;
+  /** While an upgrade is under way (state scaffold): the tier still standing. */
+  upgradeFrom?: BuildingType;
 }
 /** A gatherable node: a region object (obj = index into region.objects) or a finished farm/press (building = its id). */
 export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; obj?: number; building?: number }
