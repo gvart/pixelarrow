@@ -110,9 +110,16 @@ function globalFull(terrain) {
   return crop(readImage(join(GLOBAL_T, s.file)), { x: (s.first === terrain ? 15 : 0) * TW, y: 0, w: TW, h: TH });
 }
 // A fill's colour shift on the raw top: tone (value x) and/or grade { sat, val }; applied to the fill and the raw edge px.
+// Rotate a pixel's hue by deg degrees (luma-preserving matrix); grade.hue on a fill (a teal PixelLab turf made green).
+function hueRotate(d, i, deg) {
+  const c = Math.cos((deg * Math.PI) / 180), s = Math.sin((deg * Math.PI) / 180), [r, g, b] = [d[i], d[i + 1], d[i + 2]];
+  const m = [0.213 + c * 0.787 - s * 0.213, 0.715 - c * 0.715 - s * 0.715, 0.072 - c * 0.072 + s * 0.928, 0.213 - c * 0.213 + s * 0.143, 0.715 + c * 0.285 + s * 0.14, 0.072 - c * 0.072 - s * 0.283, 0.213 - c * 0.213 - s * 0.787, 0.715 - c * 0.715 + s * 0.715, 0.072 + c * 0.928 + s * 0.072];
+  for (let k = 0; k < 3; k++) d[i + k] = Math.max(0, Math.min(255, Math.round(m[3 * k] * r + m[3 * k + 1] * g + m[3 * k + 2] * b)));
+}
 function shade(d, i, f) {
   if (!f) return;
   if (f.tone) for (let c = 0; c < 3; c++) d[i + c] = Math.round(d[i + c] * f.tone);
+  if (f.grade?.hue) hueRotate(d, i, f.grade.hue);
   if (f.grade) { const l = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]; for (let c = 0; c < 3; c++) d[i + c] = Math.max(0, Math.min(255, Math.round((l + (d[i + c] - l) * f.grade.sat) * f.grade.val))); }
 }
 function fill(terrain) {
@@ -143,7 +150,8 @@ function buildSet(set, sides) {
         else im.data.set(F[c].data.subarray(i, i + 4), i);
       } else if (side) im.data.set(side.data.subarray(i, i + 4), i);
     }
-    return deline(im);
+    // set.globalFull: its full tiles of global terrains stay the built global tiles (delining again changes dark rims, e.g. rock)
+    return set.globalFull && ((mask === 15 && !FILLS[set.first]) || (mask === 0 && !FILLS[set.second])) ? im : deline(im);
   });
 }
 
@@ -265,13 +273,19 @@ function keyBorder(im, tol = 18, all = false) {
 const isGreen = (r, g, b) => g > r + 4 && g >= b - 4;
 const isNeutral = (r, g, b) => Math.max(r, g, b) - Math.min(r, g, b) < 30 && !isGreen(r, g, b);
 const KEEP = { notgreen: (r, g, b) => !(g >= r - 2 && g >= b - 4), green: (r, g, b) => isGreen(r, g, b) || (g >= r - 6 && b < g + 30 && r < g + 10), neutral: isNeutral };
+function footLine(pts, x) {
+  if (x <= pts[0][0]) return pts[0][1];
+  for (let k = 1; k < pts.length; k++) { const [x0, y0] = pts[k - 1], [x1, y1] = pts[k]; if (x <= x1) return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0); }
+  return pts[pts.length - 1][1];
+}
 function dropBase(im, b) {
   if (!b) return im;
   const d = im.data;
   for (let y = b.y0; y < im.h; y++) for (let x = 0; x < im.w; x++) {
     const i = px(im, x, y); if (!d[i + 3]) continue;
     const near = (b.drop ?? []).some(([hex, tol]) => { const c = hexToRgb(hex); return Math.abs(d[i] - c[0]) + Math.abs(d[i + 1] - c[1]) + Math.abs(d[i + 2] - c[2]) <= tol; });
-    if (y >= (b.cut ?? 1e9) || x < (b.x0 ?? 0) || x > (b.x1 ?? 1e9) || near || (b.keep && !KEEP[b.keep](d[i], d[i + 1], d[i + 2]))) d[i + 3] = 0;
+    const below = b.below && y > footLine(b.below, x); // under the polyline [[x, y], ...] (left to right; flat beyond its ends)
+    if (y >= (b.cut ?? 1e9) || x < (b.x0 ?? 0) || x > (b.x1 ?? 1e9) || near || below || (b.keep && !KEEP[b.keep](d[i], d[i + 1], d[i + 2]))) d[i + 3] = 0;
   }
   return dropSpecks(im);
 }
@@ -308,9 +322,21 @@ function footOf(im) {
   return { x: Math.round(s / n), y: im.h - 1 };
 }
 const objImages = [];
+const mirrorX = (im) => { const m = blank(im.w, im.h); for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) m.data.set(im.data.subarray(px(im, x, y), px(im, x, y) + 4), px(m, im.w - 1 - x, y)); return m; };
+// compose = { w, h, parts: [{ id, x, y, mirror }] }: one sprite pasted back to front from objects built earlier in the list
+// (trimmed, graded), e.g. a mountain massif taller and wider than one 400 px PixelLab canvas.
 for (const o of OBJECTS) {
-  const f = join(rawDir(o.batch), 'objects', `${o.raw}.png`); if (!existsSync(f)) { errors.push(`missing object raw ${o.batch ?? A.BATCH ?? 'art4'}/${o.raw}`); continue; }
-  let im = grade(dropBase(keyBorder(readImage(f), o.keyTol, o.keyAll), o.base), o.grade);
+  let im;
+  if (o.compose) {
+    const miss = o.compose.parts.find((p) => !objImages.some(([q]) => q.id === p.id));
+    if (miss) { errors.push(`${o.id}: compose part ${miss.id} is not built before it`); continue; }
+    im = blank(o.compose.w, o.compose.h);
+    for (const p of o.compose.parts) { const src = objImages.find(([q]) => q.id === p.id)[1]; paste(im, p.mirror ? mirrorX(src) : src, p.x, p.y); }
+  } else {
+    const f = join(rawDir(o.batch), 'objects', `${o.raw}.png`); if (!existsSync(f)) { errors.push(`missing object raw ${o.batch ?? A.BATCH ?? 'art4'}/${o.raw}`); continue; }
+    im = dropBase(keyBorder(readImage(f), o.keyTol, o.keyAll), o.base);
+  }
+  im = grade(im, o.grade);
   if (o.mirrorJoin) { // an end piece cut off at its right edge: append its mirror image, joined at that column (a long ridge)
     const j = blank(im.w * 2, im.h); paste(j, im, 0, 0);
     for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) j.data.set(im.data.subarray(px(im, x, y), px(im, x, y) + 4), px(j, 2 * im.w - 1 - x, y));
@@ -323,7 +349,7 @@ for (const o of OBJECTS) {
     for (let i = 3; i < im.data.length; i += 4) im.data[i] = im.data[i] >= 128 ? 255 : 0;
     im = crop(im, alphaBox(im, 1));
   }
-  if (o.mirror) { const m = blank(im.w, im.h); for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) m.data.set(im.data.subarray(px(im, x, y), px(im, x, y) + 4), px(m, im.w - 1 - x, y)); im = m; } // a piece along the other tile axis
+  if (o.mirror) im = mirrorX(im); // a piece along the other tile axis
   objImages.push([o, im, footOf(im)]);
 }
 // Biome: the global object palette (first, unchanged) + up to 64 own colours far from the tile and global object palettes.

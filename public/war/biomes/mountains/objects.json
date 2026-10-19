@@ -1,0 +1,856 @@
+{
+ "pxPerMetre": 33,
+ "tileMetres": 2,
+ "note": "anchor = foot point in the PNG (px): centre of the bottom rows; draw at the ground point minus anchor; no ground patch; metres = design height (h = metres x 33 +-10%); colours = tiles.json palette + palette",
+ "palette": [
+  "#16161e",
+  "#171e21",
+  "#1f362d",
+  "#233c3a",
+  "#324142",
+  "#45503a",
+  "#646b60",
+  "#c7c7c8",
+  "#10181f",
+  "#21212c",
+  "#423f43",
+  "#4a6051",
+  "#16151b",
+  "#171d21",
+  "#222e2f",
+  "#1f3538",
+  "#33433f",
+  "#39483f",
+  "#5c5c5f",
+  "#96999f",
+  "#091221",
+  "#1f2128",
+  "#4d5455",
+  "#1c1a1f",
+  "#191b20",
+  "#182b28",
+  "#24282d",
+  "#1c3232",
+  "#223b32",
+  "#29453e",
+  "#30433e",
+  "#34473d",
+  "#56585b",
+  "#57595c",
+  "#837f7c",
+  "#8d908f",
+  "#0a0e1d",
+  "#11111d",
+  "#1f2028",
+  "#4d3930",
+  "#4b3b3c",
+  "#474d53",
+  "#505255",
+  "#141318",
+  "#141319",
+  "#15161b",
+  "#19171b",
+  "#25151a",
+  "#19181d",
+  "#19181c",
+  "#1d2428",
+  "#24242c",
+  "#24242b",
+  "#202832",
+  "#202c35",
+  "#252c33",
+  "#314739",
+  "#2e463e",
+  "#37453e",
+  "#52423d",
+  "#565456",
+  "#624f4f",
+  "#55585b",
+  "#5f6468",
+  "#626369",
+  "#696c70",
+  "#72817b",
+  "#0a0908",
+  "#0c0a0f",
+  "#0f0e11",
+  "#111015",
+  "#211e27",
+  "#202028",
+  "#3a2c2c",
+  "#362f35",
+  "#38363c",
+  "#3a3c40",
+  "#404446",
+  "#454346",
+  "#424449",
+  "#434851",
+  "#020101",
+  "#020202",
+  "#040303",
+  "#070505",
+  "#070709",
+  "#08070e",
+  "#151925",
+  "#132225",
+  "#1d1d24",
+  "#1c1e26",
+  "#1d1f25",
+  "#1e1f25",
+  "#1f1f25",
+  "#1e2027",
+  "#2b2026",
+  "#2a292e",
+  "#2a2f2f",
+  "#2d3035",
+  "#29352c",
+  "#29352e",
+  "#3c3e45",
+  "#3d3d48",
+  "#3c3f47",
+  "#3e3f46",
+  "#3e4044",
+  "#3f4045",
+  "#443e44",
+  "#838587",
+  "#8a8488",
+  "#c9cbca",
+  "#ced3d4",
+  "#cfd3d4",
+  "#c3c1ba",
+  "#8e796d",
+  "#bab5ab",
+  "#bbb6ac",
+  "#50282b",
+  "#7d4c43",
+  "#786f62",
+  "#82726b",
+  "#978e7b",
+  "#a19c99",
+  "#b9b3a9",
+  "#bcb8ae",
+  "#8b505b",
+  "#927c73",
+  "#b8b2a9",
+  "#32141b",
+  "#68464d",
+  "#766b56",
+  "#71706b",
+  "#828488",
+  "#828684"
+ ],
+ "objects": [
+  {
+   "id": "ridge-a",
+   "kind": "massif",
+   "file": "ridge-a.png",
+   "w": 400,
+   "h": 290,
+   "metres": 8.5,
+   "anchor": {
+    "x": 130,
+    "y": 289
+   },
+   "footprint": [
+    3,
+    10
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux dfdc3263 (img2img, Gemini Kleisoura crop)"
+  },
+  {
+   "id": "ridge-a-x",
+   "kind": "massif",
+   "file": "ridge-a-x.png",
+   "w": 400,
+   "h": 290,
+   "metres": 8.5,
+   "anchor": {
+    "x": 269,
+    "y": 289
+   },
+   "footprint": [
+    10,
+    3
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux dfdc3263, mirrored"
+  },
+  {
+   "id": "ridge-b",
+   "kind": "massif",
+   "file": "ridge-b.png",
+   "w": 394,
+   "h": 284,
+   "metres": 8.5,
+   "anchor": {
+    "x": 97,
+    "y": 283
+   },
+   "footprint": [
+    3,
+    10
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux ab1339c9 (img2img, masked crop)"
+  },
+  {
+   "id": "ridge-b-x",
+   "kind": "massif",
+   "file": "ridge-b-x.png",
+   "w": 394,
+   "h": 284,
+   "metres": 8.5,
+   "anchor": {
+    "x": 296,
+    "y": 283
+   },
+   "footprint": [
+    10,
+    3
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux ab1339c9, mirrored"
+  },
+  {
+   "id": "peak-big",
+   "kind": "massif",
+   "file": "peak-big.png",
+   "w": 345,
+   "h": 310,
+   "metres": 10,
+   "anchor": {
+    "x": 118,
+    "y": 309
+   },
+   "footprint": [
+    5,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux f2c391cb (img2img, Gemini Kleisoura crop)"
+  },
+  {
+   "id": "peak-twin",
+   "kind": "massif",
+   "file": "peak-twin.png",
+   "w": 336,
+   "h": 334,
+   "metres": 11.1,
+   "anchor": {
+    "x": 119,
+    "y": 333
+   },
+   "footprint": [
+    5,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux 52aed892 (img2img, masked crop)"
+  },
+  {
+   "id": "peak-big-x",
+   "kind": "massif",
+   "file": "peak-big-x.png",
+   "w": 345,
+   "h": 310,
+   "metres": 10,
+   "anchor": {
+    "x": 226,
+    "y": 309
+   },
+   "footprint": [
+    5,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux f2c391cb, mirrored"
+  },
+  {
+   "id": "peak-twin-x",
+   "kind": "massif",
+   "file": "peak-twin-x.png",
+   "w": 336,
+   "h": 334,
+   "metres": 11.1,
+   "anchor": {
+    "x": 216,
+    "y": 333
+   },
+   "footprint": [
+    5,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux 52aed892, mirrored"
+  },
+  {
+   "id": "ridge-c",
+   "kind": "massif",
+   "file": "ridge-c.png",
+   "w": 400,
+   "h": 262,
+   "metres": 8.5,
+   "anchor": {
+    "x": 91,
+    "y": 261
+   },
+   "footprint": [
+    3,
+    10
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux 40248f1a (img2img, Gemini Kleisoura crop, seed 21)"
+  },
+  {
+   "id": "ridge-c-x",
+   "kind": "massif",
+   "file": "ridge-c-x.png",
+   "w": 400,
+   "h": 262,
+   "metres": 8.5,
+   "anchor": {
+    "x": 308,
+    "y": 261
+   },
+   "footprint": [
+    10,
+    3
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux 40248f1a, mirrored"
+  },
+  {
+   "id": "peak-d",
+   "kind": "massif",
+   "file": "peak-d.png",
+   "w": 346,
+   "h": 327,
+   "metres": 10,
+   "anchor": {
+    "x": 123,
+    "y": 326
+   },
+   "footprint": [
+    5,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux 64f107f6 (img2img, Gemini Kleisoura crop, seed 5)"
+  },
+  {
+   "id": "peak-d-x",
+   "kind": "massif",
+   "file": "peak-d-x.png",
+   "w": 346,
+   "h": 327,
+   "metres": 10,
+   "anchor": {
+    "x": 222,
+    "y": 326
+   },
+   "footprint": [
+    5,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "source": "pixflux 64f107f6, mirrored"
+  },
+  {
+   "id": "massif-a",
+   "kind": "massif",
+   "file": "massif-a.png",
+   "w": 644,
+   "h": 480,
+   "metres": 15,
+   "anchor": {
+    "x": 122,
+    "y": 479
+   },
+   "footprint": [
+    4,
+    16
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "source": "composed: peak-big behind ridge-b and ridge-a"
+  },
+  {
+   "id": "massif-a-x",
+   "kind": "massif",
+   "file": "massif-a-x.png",
+   "w": 644,
+   "h": 480,
+   "metres": 15,
+   "anchor": {
+    "x": 521,
+    "y": 479
+   },
+   "footprint": [
+    16,
+    4
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "source": "massif-a mirrored"
+  },
+  {
+   "id": "massif-b",
+   "kind": "massif",
+   "file": "massif-b.png",
+   "w": 624,
+   "h": 480,
+   "metres": 15,
+   "anchor": {
+    "x": 122,
+    "y": 479
+   },
+   "footprint": [
+    4,
+    16
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "source": "composed: peak-twin behind ridge-b and ridge-a"
+  },
+  {
+   "id": "massif-b-x",
+   "kind": "massif",
+   "file": "massif-b-x.png",
+   "w": 624,
+   "h": 480,
+   "metres": 15,
+   "anchor": {
+    "x": 501,
+    "y": 479
+   },
+   "footprint": [
+    16,
+    4
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "source": "massif-b mirrored"
+  },
+  {
+   "id": "massif-c",
+   "kind": "massif",
+   "file": "massif-c.png",
+   "w": 650,
+   "h": 474,
+   "metres": 14.5,
+   "anchor": {
+    "x": 97,
+    "y": 473
+   },
+   "footprint": [
+    4,
+    16
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "source": "composed: peak-d behind ridge-c and ridge-b"
+  },
+  {
+   "id": "massif-c-x",
+   "kind": "massif",
+   "file": "massif-c-x.png",
+   "w": 650,
+   "h": 474,
+   "metres": 14.5,
+   "anchor": {
+    "x": 552,
+    "y": 473
+   },
+   "footprint": [
+    16,
+    4
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "source": "massif-c mirrored"
+  },
+  {
+   "id": "massif-high",
+   "kind": "massif",
+   "file": "massif-high.png",
+   "w": 716,
+   "h": 650,
+   "metres": 19.7,
+   "anchor": {
+    "x": 116,
+    "y": 649
+   },
+   "footprint": [
+    6,
+    16
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "source": "composed: peak-big and peak-twin behind massif-b"
+  },
+  {
+   "id": "massif-high-x",
+   "kind": "massif",
+   "file": "massif-high-x.png",
+   "w": 716,
+   "h": 650,
+   "metres": 19.7,
+   "anchor": {
+    "x": 599,
+    "y": 649
+   },
+   "footprint": [
+    16,
+    6
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "source": "massif-high mirrored"
+  },
+  {
+   "id": "fir",
+   "kind": "tree",
+   "file": "fir.png",
+   "w": 120,
+   "h": 331,
+   "metres": 10.6,
+   "anchor": {
+    "x": 64,
+    "y": 330
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object af526cc7"
+  },
+  {
+   "id": "fir-snow",
+   "kind": "tree",
+   "file": "fir-snow.png",
+   "w": 96,
+   "h": 219,
+   "metres": 6.6,
+   "anchor": {
+    "x": 46,
+    "y": 218
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object c8f302f0"
+  },
+  {
+   "id": "black-pine",
+   "kind": "tree",
+   "file": "black-pine.png",
+   "w": 145,
+   "h": 287,
+   "metres": 9,
+   "anchor": {
+    "x": 76,
+    "y": 286
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object e085861a"
+  },
+  {
+   "id": "juniper",
+   "kind": "bush",
+   "file": "juniper.png",
+   "w": 41,
+   "h": 25,
+   "metres": 0.7,
+   "anchor": {
+    "x": 19,
+    "y": 24
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object ef41dc3d"
+  },
+  {
+   "id": "rhododendron",
+   "kind": "bush",
+   "file": "rhododendron.png",
+   "w": 56,
+   "h": 32,
+   "metres": 0.9,
+   "anchor": {
+    "x": 16,
+    "y": 31
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 0be79a71"
+  },
+  {
+   "id": "alpine-grass",
+   "kind": "bush",
+   "file": "alpine-grass.png",
+   "w": 25,
+   "h": 18,
+   "metres": 0.5,
+   "anchor": {
+    "x": 15,
+    "y": 17
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 9dfd1bc8"
+  },
+  {
+   "id": "cliff-face",
+   "kind": "stone",
+   "file": "cliff-face.png",
+   "w": 276,
+   "h": 255,
+   "metres": 7.8,
+   "anchor": {
+    "x": 155,
+    "y": 254
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object 6fc08c1a"
+  },
+  {
+   "id": "boulder-field",
+   "kind": "stone",
+   "file": "boulder-field.png",
+   "w": 181,
+   "h": 95,
+   "metres": 2.9,
+   "anchor": {
+    "x": 97,
+    "y": 94
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object 945b7d93"
+  },
+  {
+   "id": "rockfall",
+   "kind": "stone",
+   "file": "rockfall.png",
+   "w": 166,
+   "h": 98,
+   "metres": 3,
+   "anchor": {
+    "x": 79,
+    "y": 97
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object 442d7848"
+  },
+  {
+   "id": "road-edge",
+   "kind": "stone",
+   "file": "road-edge.png",
+   "w": 73,
+   "h": 49,
+   "metres": 1.5,
+   "anchor": {
+    "x": 19,
+    "y": 48
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object 50639405"
+  },
+  {
+   "id": "road-edge-x",
+   "kind": "stone",
+   "file": "road-edge-x.png",
+   "w": 73,
+   "h": 49,
+   "metres": 1.5,
+   "anchor": {
+    "x": 54,
+    "y": 48
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object 50639405, mirrored"
+  },
+  {
+   "id": "cairn",
+   "kind": "stone",
+   "file": "cairn.png",
+   "w": 50,
+   "h": 51,
+   "metres": 1.5,
+   "anchor": {
+    "x": 25,
+    "y": 50
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object 5bbd7f16 (afa4ef4c drew two pine trees)"
+  },
+  {
+   "id": "watch-post",
+   "kind": "stone",
+   "file": "watch-post.png",
+   "w": 126,
+   "h": 161,
+   "metres": 5,
+   "anchor": {
+    "x": 37,
+    "y": 160
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object 8c9cffbd"
+  },
+  {
+   "id": "iron-ore",
+   "kind": "stone",
+   "file": "iron-ore.png",
+   "w": 98,
+   "h": 76,
+   "metres": 2.4,
+   "anchor": {
+    "x": 54,
+    "y": 75
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "resource": "iron",
+   "source": "map_object 5b6d418d"
+  },
+  {
+   "id": "tin-ore",
+   "kind": "stone",
+   "file": "tin-ore.png",
+   "w": 104,
+   "h": 81,
+   "metres": 2.5,
+   "anchor": {
+    "x": 40,
+    "y": 80
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "resource": "tin",
+   "source": "map_object 4581ab3f (11410032 had no visible veins)"
+  },
+  {
+   "id": "ibex",
+   "kind": "fauna",
+   "file": "ibex.png",
+   "w": 34,
+   "h": 40,
+   "metres": 1.2,
+   "anchor": {
+    "x": 16,
+    "y": 39
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "fauna": "ibex",
+   "animateLater": true,
+   "source": "map_object b70f2d24"
+  },
+  {
+   "id": "bear",
+   "kind": "fauna",
+   "file": "bear.png",
+   "w": 73,
+   "h": 55,
+   "metres": 1.6,
+   "anchor": {
+    "x": 30,
+    "y": 54
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "fauna": "bear",
+   "mob": true,
+   "animateLater": true,
+   "source": "map_object 177ad7da"
+  },
+  {
+   "id": "eagle-nest",
+   "kind": "stone",
+   "file": "eagle-nest.png",
+   "w": 66,
+   "h": 82,
+   "metres": 2.5,
+   "anchor": {
+    "x": 36,
+    "y": 81
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "fauna": "eagle",
+   "animateLater": true,
+   "source": "map_object d88753c5"
+  }
+ ]
+}

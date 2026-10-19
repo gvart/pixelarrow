@@ -121,6 +121,71 @@ function soldier(cls, row, col) {
   const a = m.anchors?.[row] ?? m.anchor; return { im, anchor: { x: a.x, y: a.y } };
 }
 
+// ---- mountains (ART-8), 1:1: a stretch of the Iron Teeth with the Kleisoura Pass. The mountain mass is massif sprites (kind
+// 'massif') over the impassable rock area instead of stacked cliff levels: footprint [fw, fh] tiles at (x0, y0) is rock
+// ground, drawn flat; the sprite's anchor sits on the footprint's south vertex (x0 + fw, y0 + fh). An object is hidden by a
+// massif when it stands in the massif's back quadrant (x < x0 + fw and y < y0 + fh); otherwise it is drawn after it.
+if (BIOME === 'mountains') {
+  const n = 56, V = [];
+  const vn = (x, y, s, k) => { const X = Math.floor(x / s), Y = Math.floor(y / s), fx = x / s - X, fy = y / s - Y, h = (a, b) => (hash(a, b, k) % 1000) / 1000, sm = (t) => t * t * (3 - 2 * t), u = sm(fx), v = sm(fy); return (h(X, Y) * (1 - u) + h(X + 1, Y) * u) * (1 - v) + (h(X, Y + 1) * (1 - u) + h(X + 1, Y + 1) * u) * v; };
+  // two chains along the tile x axis, north and south of the pass, plus single peaks at the ends
+  // north: a back row and a front row, staggered; south: the front row of the other side (its peaks rise over the pass)
+  const M = [['massif-high-x', -8, -2], ['massif-high-x', 9, -3], ['massif-high-x', 26, -2], ['massif-high-x', 43, -3],
+    ['massif-c-x', -2, 5], ['massif-high-x', 15, 5], ['massif-c-x', 33, 6], ['peak-d', 50, 7],
+    ['massif-b-x', -6, 13], ['peak-big-x', 10, 13], ['massif-a-x', 16, 14], ['ridge-c-x', 33, 14], ['massif-c-x', 42, 13],
+    ['massif-a-x', -4, 36], ['massif-c-x', 13, 37], ['peak-twin-x', 29, 36], ['massif-a-x', 34, 37], ['massif-b-x', 50, 36],
+    ['massif-c-x', 4, 42], ['massif-a-x', 22, 43], ['massif-b-x', 40, 42], ['massif-a-x', -8, 48], ['massif-c-x', 12, 49], ['massif-a-x', 30, 48], ['massif-b-x', 46, 49]]
+    .map(([id, x0, y0]) => ({ s: objs[id], x0, y0, fw: objs[id].footprint[0], fh: objs[id].footprint[1] }));
+  const inM = (x, y, pad = 0) => M.some((m) => x >= m.x0 - pad && x < m.x0 + m.fw + pad && y >= m.y0 - pad && y < m.y0 + m.fh + pad);
+  const road = (x) => 26 + Math.round(2.5 * Math.sin(x / 4)); // a winding track along x
+  const at0 = (x, y) => {
+    if (inM(x, y)) return 'rock';
+    if (Math.abs(y - road(x)) <= 0 || Math.abs(y - road(x + 1)) <= 0) return 'road';
+    if (Math.abs(y - road(x)) <= 2 && vn(x, y, 3, 5) > 0.5) return 'gravel';
+    if (inM(x, y, 1 + Math.round(2 * vn(x, y, 3, 1)))) return 'scree';
+    if (y < 21 || y > 31) return vn(x, y, 5, 3) > 0.35 ? 'meadow' : 'grass';
+    return vn(x, y, 6, 4) > 0.7 ? 'meadow' : 'grass';
+  };
+  for (let y = 0; y <= n; y++) for (let x = 0; x <= n; x++) V.push(at0(x, y));
+  const at = resolve(V, n), cell = (x, y) => { const c = [at(x, y), at(x + 1, y), at(x, y + 1), at(x + 1, y + 1)]; return c.every((t) => t === c[0]) ? c[0] : null; };
+  const items = [], used = new Set();
+  const put = (id, x, y, ox = 0.5, oy = 0.5) => { if (!objs[id] || used.has(`${x},${y}`) || inM(x, y)) return false; used.add(`${x},${y}`); items.push([objs[id], x + ox, y + oy]); return true; };
+  const pick = (ids, x, y) => ids[hash(x, y, 9) % ids.length];
+  // the pass: watch post on a knoll, cairns and road edges along the road, a rockfall, the tin and iron nodes, a squad
+  for (const x of [12, 20, 33, 45]) put('road-edge', x, road(x) + 2, 0.5, 0.2);
+  put('watch-post', 30, 21); put('cairn', 22, road(22) - 1); put('cairn', 40, road(40) + 2); put('cairn', 9, road(9) - 1);
+  put('rockfall', 17, road(17) + 3); put('boulder-field', 35, road(35) - 4); put('tin-ore', 24, 33); put('iron-ore', 8, 20);
+  put('eagle-nest', 39, 20); put('ibex', 21, 21); put('ibex', 47, 33); put('bear', 50, 21); put('alpine-grass', 24, 27);
+  const hop = soldier('hoplite', 'south-east', 0), hop2 = soldier('hoplite', 'south-west', 40), arc = soldier('archer', 'south-east', 0);
+  const sq = [27, road(27)]; for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) hop && items.push([(i + j) % 2 && hop2 ? hop2 : hop, sq[0] - 1 + i * 0.6, sq[1] + 0.2 + j * 0.5]);
+  if (arc) items.push([arc, sq[0] + 2.4, sq[1] + 0.3], [arc, sq[0] + 2.9, sq[1] + 0.8]);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const t = cell(x, y), h = hash(x, y, 7) % 1000; if (!t || Math.abs(y - road(x)) <= 3) continue;
+    let id = null;
+    if ((t === 'grass' || t === 'meadow') && inM(x, y, 5) && h < 200) id = pick(['fir', 'fir', 'black-pine', 'fir-snow', 'fir'], x, y);
+    else if (t === 'meadow' && h < 90) id = pick(['juniper', 'rhododendron', 'alpine-grass', 'alpine-grass'], x, y);
+    else if (t === 'grass' && h < 40) id = pick(['juniper', 'black-pine', 'alpine-grass'], x, y);
+    else if (t === 'scree' && h < 40) id = pick(['juniper', 'cairn', 'boulder-field'], x, y);
+    if (id) put(id, x, y, 0.3 + (hash(x, y, 3) % 40) / 100, 0.3 + (hash(x, y, 5) % 40) / 100);
+  }
+  // draw: ground, objects behind a massif, massifs back to front, the rest
+  const W = 2 * n * HW + 40, H = 2 * n * HH + 600, OX = n * HW + 20, OY = 560, img = fill(blank(W, H));
+  const sx = (x, y) => OX + (x - y) * HW, sy = (x, y) => OY + (x + y) * HH;
+  for (let d = 0; d <= 2 * (n - 1); d++) for (let x = 0; x < n; x++) { const y = d - x; if (y < 0 || y >= n) continue; const t = tileFor(at, x, y, true); if (t) paste(img, t, Math.round(sx(x, y) - HW), Math.round(sy(x, y))); }
+  const drawItem = ([s, x, y]) => paste(img, s.im, Math.round(sx(x, y) - s.anchor.x), Math.round(sy(x, y) + HH - s.anchor.y));
+  const behind = ([, x, y]) => M.some((m) => x < m.x0 + m.fw && y < m.y0 + m.fh && x > m.x0 - 8 && y > m.y0 - 8);
+  const byDepth = (a, b) => a[1] + a[2] - (b[1] + b[2]);
+  items.filter(behind).sort(byDepth).forEach(drawItem);
+  [...M].sort((a, b) => a.x0 + a.fw + a.y0 + a.fh - (b.x0 + b.fw + b.y0 + b.fh)).forEach((m) => drawItem([m.s, m.x0 + m.fw - 0.5, m.y0 + m.fh - 0.5]));
+  items.filter((i) => !behind(i)).sort(byDepth).forEach(drawItem);
+  const out = crop(img, { x: 0, y: 40, w: img.w, h: img.h - 120 });
+  writeImage(join(OUT, 'MOUNTAINS_range_1x.png'), out);
+  const z = crop(img, { x: Math.round(sx(27, 25)) - 800, y: Math.round(sy(27, 25)) - 560, w: 1600, h: 900 });
+  writeImage(join(OUT, 'MOUNTAINS_pass_1x.png'), z);
+  console.log(`mountains range ${n}x${n}: ${M.length} massifs, ${items.length} items ->`, OUT);
+  process.exit(0);
+}
+
 // ---- biome patch, 1:1: an Elaia hillside over a bay (dry grass, terra rossa vineyard, olive grove behind dry-stone walls,
 // marble outcrops with the quarry and the marble node, a pebble beach), its objects, goats, a boar and a squad of soldiers.
 // Organic borders come from value noise; the tiles.json fallback settles the pairs with no sheet.

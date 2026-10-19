@@ -1259,3 +1259,103 @@ fringes, cobbles). About 220–320 keeps the drawn geometry and turns it into pi
 of cells comes back as bricks; scatter irregular boulders instead. (9) A rock bigger than 400 px is an end piece cut
 flat at one edge plus its mirror (`mirrorJoin`), so the seam matches pixel for pixel. (10) pro_flash draws the acacia
 shape correctly but small and at ~9 generations; use it as an init, not as the asset.
+
+## 29. Biome: Iron Teeth mountains (ART-8)
+
+Owner: "mountains must look more real, more tall" (the sandbox drew them as stacked flat cliff levels, a terraced layer
+cake). The mountain mass is now painted **massif sprites** (kind `massif`) drawn over the impassable rock area; tiles are
+the ground round and under them. Raws: `shots/war/pixellab/mountains/raw/` (git-ignored). List:
+`scripts/war/art/biomes/mountains.mjs`; built by `node scripts/war/art/build.mjs --biome mountains` into
+`public/war/biomes/mountains/`. Preview: `node scripts/war/art/preview.mjs --biome mountains` ->
+`MOUNTAINS_contact.png`, `MOUNTAINS_range_1x.png` (56 x 56 tiles of the chain round the Kleisoura Pass, 25 massifs, a
+squad on the road), `MOUNTAINS_pass_1x.png` (1600 x 900 crop). 92 generations (6 tile calls x 10, 10 pixflux, 22 map objects).
+
+**Mountains: pixflux img2img over the approved Gemini art.** `create_map_object` draws a mountain as a smooth blue
+pyramid on a diamond base (rejected: `fe62eb0c` "one huge isolated alpine mountain peak ...", `18255ffc` "a wide
+mountain massif, three jagged snow-capped ... peaks"). `create_image_pixflux` (1 generation, 400 px) with an init crop of
+`shots/war/gemini/art2/kleisoura/ART2_kleisoura_1.png` (scaled 0.65–0.95, `isometric`, high top-down, highly detailed,
+highly detailed shading, `no_background`) keeps the prototype's painted rock and snow. The result is opaque on the dark
+background anyway: the build floods the background, drops the background colour, and drops everything under a hand-read
+foot polyline (`base.below`: ledges, cliffs, river, trees PixelLab kept from the crop); ridge-a and peak-big also keep
+only neutral greys (brown cliffs out; the other pieces' snow is lilac, so they skip that). Prompt (ridges): `a long
+mountain ridge of jagged snow-capped dark grey rock peaks, steep fractured rock faces with snow in the gullies, dark cliff
+bands, isometric pixel art, dark epic desaturated colours, only the mountains on a transparent background, no ground`;
+peaks: `a huge tall mountain massif with two jagged snow-capped dark grey rock summits, steep fractured rock faces with
+snow in the gullies, sharp ridges, dark cliff bands, ...` (same tail).
+
+| id | Call | Init crop (x, y, w, h of the 1024 px Gemini image) | Strength | Result |
+| --- | --- | --- | --- | --- |
+| ridge-a | `dfdc3263` | 20, 80, 620, 460 | 250 | kept: the best; runs along the tile y axis |
+| ridge-b | `ab1339c9` (seed 7) | same, brown pixels painted background first (masked) | 200 | kept; masked inits get streaks and a river drawn into the empty part, and lilac snow |
+| (rejected) | `73a9d818` (seed 11) | 380, 370, 630, 430, masked | 220 | peaks on a cliff block over a grey plateau |
+| peak-twin | `52aed892` (seed 13) | 300, 70, 420, 407, masked | 220 | kept; left side cut flat by the crop (cut to a slope by the foot line) |
+| (unused) | `3a1bb017` (seed 17) | 0, 300, 420, 328, masked | 220 | new peaks cut off by the top edge |
+| peak-big | `f2c391cb` | 300, 70, 420, 407 | 250 | kept: the tallest piece |
+| (unused) | `4f2374ab` | 0, 300, 420, 328 | 250 | right summit cut off by the top edge |
+| ridge-c | `40248f1a` (seed 21) | 20, 80, 620, 460 | 230 | kept |
+| (rejected) | `2053d876` | 380, 370, 630, 430 | 250 | a row of peaks on a sheer cliff wall |
+| peak-d | `64f107f6` (seed 5) | 300, 70, 420, 407 | 230 | kept |
+
+**Massifs** (`compose`: one sprite pasted back to front from pieces built earlier in the list, so it can exceed one 400 px
+canvas): `massif-a` = peak-big behind ridge-b and ridge-a (644 x 480), `massif-b` = peak-twin + ridge-b + ridge-a,
+`massif-c` = peak-d + ridge-c + ridge-b, `massif-high` = peak-big and peak-twin behind massif-b (720 x 650, four
+canvases). Every piece and massif has an `-x` mirror for a chain along the tile x axis. Pieces overlap so the back
+piece's foot is always under a front piece (the peaks' foot ends at a ledge, so the back ridge sits up to ~60 px above
+the peak's foot).
+
+**Tiles.** Sets vs the global grass (plus rock-scree), `create_tiles_pro`, isometric 64, low top-down,
+`tile_feature: tileset`, seed 31:
+
+| Pair | Call | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| grass-scree | `13c4f212` | `dark muted olive grass to loose dark grey mountain scree of small broken angular stones and gravel, dark epic desaturated ancient Greek mountain slope` | kept; side `rock` |
+| grass-meadow | `2af39b25` | `dark muted olive grass to short cold blue-green alpine meadow turf with small grey stones and tiny pale flowers, dark epic desaturated ancient Greek high mountain pasture` | teal: `grade.hue -75` (new) turns it to a cool dark green |
+| grass-gravel | `a3f7d872` | `dark muted olive grass to packed pale grey-brown mountain gravel with small rounded pebbles and grit, dark epic desaturated ancient Greek mountain pass` | kept |
+| grass-snow | `4418d45e` | `dark muted olive grass to old grey-white mountain snow patches with thin melt edges, dark epic desaturated ancient Greek high mountain meadow` | kept; snow = the global snow; reads as hard white squares in a meadow, use sparingly |
+| rock-scree | `d316baf4` | `dark grey weathered mountain rock with deep cracks to loose dark grey mountain scree of small broken angular stones and gravel, dark epic desaturated ancient Greek mountain slope` | kept: the commonest mountain pair; `globalFull` (new) keeps the global rock tile un-delined |
+| fills | `c6456277` (`tile_view_angle: 30`, no tileset) | `1). loose dark grey mountain scree of small broken angular stones 2). dark grey scree with a few larger fallen rocks and grit 3). short cold blue-green alpine meadow turf with small grey stones 4). cold blue-green alpine turf with tiny pale flowers and moss 5). packed pale grey-brown mountain gravel with small rounded pebbles 6). pale grey-brown gravel with wheel ruts and grit 7). steep dark grey rock slab with long tilted cracks and ledges 8). dark grey rock with patches of alpine grass and lichen, dark epic desaturated ancient Greek mountain` | item order ignored: 0–3 scree, 4–7 rock with boulders (rock variants), 8–15 teal turf (unused: stays teal after the colour match); no gravel, no slab |
+
+Objects: `create_map_object`, high top-down, high detail, detailed shading; tail as §25 (`seen from a high isometric
+three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent background, no
+ground, no grass, no base under it`; plants `no ground, no soil, no base under it`; animals `standing side-on facing left`).
+
+| id | Call | Canvas | Subject (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| fir | `af526cc7` | 120 x 360 | `one tall dark mountain silver fir tree, a narrow dense dark blackish-green conical crown of drooping tiered branches down to the ground, a straight dark brown trunk` | white bg + shadow disc: keyed, dropped |
+| fir-snow | `c8f302f0` | 112 x 280 | `one medium dark mountain fir tree with old grey-white snow lying on its tiered branches, a dense dark blackish-green conical crown, short dark brown trunk` | clean |
+| black-pine | `e085861a` | 180 x 340 | `one tall old black pine of the Greek mountains, a straight dark grey scaly trunk, a dark green crown of dense needle clumps in uneven flat tiers, wind-bent irregular top` | grass slab dropped |
+| juniper | `ef41dc3d` | 96 x 56 | `one low creeping dwarf mountain juniper shrub, a wide flat mat of dense dark blue-green scaly foliage with a few dull blue berries, twisted grey woody stems, wider than tall` | `scale: 0.6` |
+| rhododendron | `0be79a71` | 80 x 56 | `one low rounded alpine shrub, dwarf mountain rhododendron, a dense clump of small dark leathery green leaves with a few dull pink flower clusters` | clean |
+| alpine-grass | `9dfd1bc8` | 56 x 40 | `one small clump of tough alpine grass tussocks, stiff dull green and straw blades with a few small dull blue gentian flowers` | kind `bush` (the grass ground test reads it as a patch) |
+| cliff-face | `6fc08c1a` | 320 x 280 | `one tall sheer mountain cliff face of dark grey fractured rock, a long jagged rock wall with deep vertical cracks and chimneys, narrow ledges with old snow, a broken uneven top edge, the wall runs diagonally from the upper left to the lower right, rough organic natural silhouette` | a blocky wedge; kept, use sparingly |
+| rockfall | `442d7848` | 176 x 104 | `a fresh mountain rockfall: a heap of big fallen angular dark grey boulders and smaller broken rock fragments spilled in a wide fan, sharp fresh broken faces` | kept |
+| boulder-field | `945b7d93` | 200 x 120 | `a field of big scattered rounded grey granite boulders of different sizes lying apart from each other, some half sunk, a few small stones between them` | kept |
+| (rejected) | `96f2da4f` | 280 x 160 | `a long wide fan of loose grey mountain scree spilling down a slope, countless small broken angular grey rock fragments ...` | a volcano cone on a grey disc |
+| road-edge | `50639405` | 128 x 80 | `one straight piece of the outer edge of a mountain switchback road: a low dry-stone retaining wall of rough grey fieldstones about one metre tall holding up the road shoulder, a few loose stones on top, the wall runs diagonally from the upper left to the lower right` | a walled box with an earth top; `scale: 0.7`, `-x` mirror |
+| (rejected) | `afa4ef4c` | 80 x 72 | `two mountain pass cairns: rough cone-shaped piles of flat grey stones stacked by travellers, one taller and one small, standing close together` | two little pine trees |
+| cairn | `5bbd7f16` | 64 x 64 | `one mountain pass cairn: a rough waist-high pile of flat grey stones stacked into a lumpy cone, flat slabs with gaps between them, a long thin standing stone on top` (+ `not a tree`) | kept; grass base dropped |
+| watch-post | `8c9cffbd` | 160 x 200 | `one ruined ancient mountain watch post: a small square tower of rough dark grey fieldstone broken down to about two storeys, one corner collapsed, a dark empty doorway, no roof, the broken top is jagged rubble, a spill of fallen stones at one side` | crenellated and open (a ruin, reads less broken than asked); slab dropped |
+| iron-ore | `5b6d418d` | 128 x 96 | `an iron ore resource deposit: a low outcrop of dark grey-black rock streaked with rusty red-brown iron oxide stains and veins, broken chunks of heavy reddish-black ore heaped in front with a woven basket and an iron pick lying on them` | mauve slab dropped by colour; `resource: iron` |
+| (rejected) | `11410032` | 128 x 96 | `a tin ore resource deposit: a low outcrop of pale grey granite cut by bands of white quartz and dark glossy black cassiterite tin veins, a small heap of dark tin ore pebbles ...` | grey boulders, no veins |
+| tin-ore | `4581ab3f` | 128 x 96 | `a tin ore resource deposit: a broken face of pale grey granite rock with thick shiny black-brown tin ore veins and white quartz bands running through it, a heap of dark lustrous black ore lumps in front, a leather sack and a bronze pick lying beside it` | kept; `resource: tin` |
+| ibex | `b70f2d24` | 64 x 56 | `one alpine ibex wild mountain goat, stocky dull grey-brown body, huge backward-curving ridged horns` | `scale: 0.8`; `fauna`, `animateLater` |
+| bear | `177ad7da` | 96 x 68 | `one big brown bear, heavy shaggy dark brown fur, a shoulder hump, walking on four legs` | `fauna`, `mob`, `animateLater` |
+| eagle-nest | `d88753c5` | 96 x 112 | `a golden eagle nest: a big bowl of piled dry sticks on top of a small jagged grey rock crag, one dark brown eagle with a pale head perched on the rim of the nest` | `fauna: eagle`, `animateLater` |
+
+**Placement (renderer, not done here).** A massif covers footprint `[fw, fh]` tiles at `(x0, y0)` of impassable rock: the
+footprint is drawn as flat rock ground at the foot height (no cliff strips inside it) and the sprite's `anchor` (its foot)
+sits on the footprint's south vertex `(x0 + fw, y0 + fh)`. Chains along the tile x axis use the `-x` sprites, along y the
+plain ones; rows 6–8 tiles apart stack into depth (back rows `massif-high`). An object stands behind a massif (drawn
+before it) when `x < x0 + fw && y < y0 + fh`, else after it. Scree (1–3 tiles, rock-scree / grass-scree) rings every
+footprint. Reference: the mountains branch of `preview.mjs`.
+
+**Build changes.** `base.below` (foot polyline), `compose` (a sprite from earlier pieces), `grade.hue` on fills,
+`globalFull` on a set (its global full tiles are not delined again: rock has dark rims).
+
+**Lessons:** (1) PixelLab map objects cannot draw a mountain; img2img over an approved painting can, at 230–250 strength.
+(2) Masking the init (painting the unwanted part background) makes pixflux invent streaks, rivers and trees there and
+tints the snow lilac; crop unmasked and cut along a foot line instead. (3) Every crop cut by an image edge gives a piece
+with a flat side: hide it behind another piece or cut it to a slope. (4) A 400 px mountain next to an 11 m fir reads as
+a hill; height comes from stacking pieces back to front (massif-high) and rows of massifs, not from one sprite. (5) A
+biome fill that comes back teal needs a hue turn, not desaturation (desaturated it reads as wet slate). (6) Fill sheets
+ignore the item order when items are close in colour: check every frame.
