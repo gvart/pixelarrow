@@ -9,7 +9,8 @@
  *   enemy walkway wall or tower, a ladder carried     raise the ladder on that face
  *   enemy building                                    burnable wood not yet alight: ignite (as engines), else attack
  *   own building                                      burning: extinguish; unfinished: build / resume; damaged: repair
- *   resource node                                     gather
+ *   claim banner (neutral region)                    open: claim the region (channel); locked: move there
+ *   resource node                                     gather (guarded by a lair: move there)
  *   walkway, platform or stair top                    move up
  *   ground                                            move
  */
@@ -23,6 +24,7 @@ export interface Action { label: string; run(): void }
 type P = { x: number; y: number };
 const TEAM = 0;
 const LADDER_R = 1.1;
+const CLAIM_PICK = 2.5; // tiles round a claim banner's foot
 const nameOf = (b: BuildingSnap) => b.type.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
 
 export class Interact {
@@ -94,7 +96,11 @@ export class Interact {
         return act(label, b, 0x60d060, () => { for (const q of own) s.build.sendTo(q, b.id); });
       }
     }
+    const cp = (s.sim.cur?.claims ?? []).find((c) => Math.hypot(c.x - t.x, c.y - t.y) < CLAIM_PICK);
+    if (cp && (cp.state === 'open' || cp.state === 'contested' || cp.state === 'channel')) return act('claim region', cp, 0xffe070, () => s.sim.order({ kind: 'claimRegion', squad: own[0], point: cp.id }));
+    if (cp && cp.state === 'locked') return { label: 'move (claim locked: clear the lairs)', run: () => s.moveTo(s.target(p)) };
     const n = s.build.hover;
+    if (n?.guarded) return { label: `move (${n.res} guarded by a lair)`, run: () => s.moveTo(s.target(p)) };
     if (n && n.amount >= 1) return act(`gather ${n.res}`, n, 0xffe070, () => order((squad) => ({ kind: 'gather', squad, node: n.id })));
     const g = s.target(p);
     return { label: g.px ? 'move up' : 'move', run: () => s.moveTo(g) };

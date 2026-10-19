@@ -25,7 +25,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     ${s.region.id === 'test-ridge' ? `<div class="row">go to <select id="spot">${Object.keys(s.spots).map((k) => `<option>${k}</option>`).join('')}</select></div>` : ''}
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
     <div class="row"><button id="cut">Walls: full (V)</button></div>
-    <div class="row">${(['height', 'cost', 'grid', 'zones'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
+    <div class="row">${(['height', 'cost', 'grid', 'zones', 'mobs'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
     <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
@@ -93,6 +93,7 @@ export function tally(s: SandboxScene): { tick: number; rows: { team: number; al
 export function applyScenario(s: SandboxScene, sc: Scenario): void {
   if (sc.id === 'brawl-600') brawl(s);
   const e = sc.economy;
+  if (sc.neutral) s.sim.spawnMobs();
   for (const c of e?.claims ?? []) s.sim.claim(c.team, c.x, c.y, c.r);
   for (const [r, n] of Object.entries(e?.stock ?? {})) s.sim.addStock(0, r as ResourceKind, n);
   for (const [r, n] of Object.entries(e?.foeStock ?? {})) s.sim.addStock(1, r as ResourceKind, n);

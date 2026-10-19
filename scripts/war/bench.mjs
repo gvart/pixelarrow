@@ -124,3 +124,19 @@ console.log(
   `build (warm): units ${site.stats().units}, ticks ${ticks}: ${summary(sms)}; sites ${bs.length} (done ${count('done')}, ` +
     `scaffold ${count('scaffold')}, foundation ${count('foundation')})`,
 );
+
+// neutral: the region's lairs (mobs.ts) against 8 squads sent at them from the claim point (neutral-clear)
+{
+  const war = sim.createSim(region, 1);
+  war.spawnMobs();
+  const cp = region.claimPoints[0], lairs = region.lairs;
+  for (let k = 0; k < 8; k++) {
+    const id = war.spawnSquad('you', 0, ['hoplite', 'archer', 'celt_sword', 'militia'][k % 4], 20, cp.x + (k % 4) * 4, cp.y + 4 + Math.floor(k / 4) * 4);
+    const l = lairs[cp.lairs[k % cp.lairs.length]];
+    war.order({ kind: 'move', squad: id, x: l.x, y: l.y });
+  }
+  const ms = [];
+  for (let t = 0; t < ticks; t++) war.step(), ms.push(war.stats().stepMs);
+  const ls = war.snapshot().lairs;
+  console.log(`neutral: units ${war.stats().units}, ticks ${ticks}: ${summary(ms)}; lairs ${ls.length} (cleared ${ls.filter((l) => l.state === 'cleared').length})`);
+}
