@@ -142,7 +142,7 @@ await fps('brawl 600, overview');
 await shot('06-overview-banners');
 
 // height overlay at the overview
-await page.check('[data-ov=height]');
+await page.evaluate(() => window.__sandbox.setMode('altitude'));
 await page.waitForFunction(() => window.__sandbox.overviewReady, null, { timeout: 60000 });
 await wait(300);
 await shot('07-overlay-height');

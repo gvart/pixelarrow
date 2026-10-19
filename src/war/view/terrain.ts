@@ -7,9 +7,9 @@
  * altitude, back rims catch light, front rims and the SE faces fall in shadow; tall walls carry a
  * line per level.
  */
-import { buildGrid } from '../sim/grid';
 import type { RegionData, TerrainKind } from '../types';
 import { HH, HW, IsoMap, LH, ZBASE } from './iso';
+import type { MapData, Tint } from './mapModes';
 
 export const CHUNK_PX = 512;
 export const OVERVIEW_SCALE = 1 / 8;
@@ -25,15 +25,14 @@ const CLIFF: RGB = [118, 108, 98];
 const ZONE_NOBUILD: RGB = [255, 255, 255];
 const ZONE_ENTRY: RGB = [255, 224, 112];
 
-export interface BakeOpts { ov: 'none' | 'height' | 'cost'; grid: boolean; zones: boolean }
+/** tint: the view mode's (./mapModes.ts), baked over the ground by `map`; grid: the dev tile grid; zones: no-build and entry borders. */
+export interface BakeOpts { tint: Tint | null; map: MapData | null; grid: boolean; zones: boolean }
 
 /** Per-region data shared by every bake. */
 export class TerrainBaker {
-  private cost: Float32Array;
   private zone: Uint8Array; // 0 none, 1 no-build, 2 entry
 
   constructor(readonly r: RegionData, readonly iso: IsoMap) {
-    this.cost = buildGrid(r).cost;
     this.zone = new Uint8Array(r.w * r.h);
     const mark = (b: { x: number; y: number; w: number; h: number }, k: number) => {
       for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) this.zone[y * r.w + x] = k;
@@ -76,13 +75,9 @@ export class TerrainBaker {
         const base: RGB = wtr === 2 ? DEEP : wtr === 1 ? SHALLOW : TINT[r.terrain[i]];
         const tx = sx(x, y), ty = sy(x, y, z);
         const zE = iso.zt(x + 1, y), zS = iso.zt(x, y + 1);
-        // top: overlay or terrain colour, shaded by slope toward the NW light and by altitude
+        // top: terrain colour, shaded by slope toward the NW light and by altitude
         let c = base, k = 1;
-        if (o.ov === 'height') c = [255 * (r.height[i] / 7), 80 + 60 * Math.sin((r.height[i] / 7) * Math.PI), 255 * (1 - r.height[i] / 7)];
-        else if (o.ov === 'cost') {
-          const m = this.cost[i];
-          c = m === 0 ? [0, 0, 0] : [Math.min(255, (m - 0.7) * 140), Math.max(0, 230 - (m - 0.7) * 100), 40];
-        } else if (!wtr) {
+        if (!wtr) {
           // hillsides: the gradient over +-3 tiles (each step clamped to 1, so a cliff foot or top is
           // not a slope) shades a whole slope, not just its risers. Light from the NW (-x): ground
           // rising toward +x / +y faces it
@@ -110,7 +105,7 @@ export class TerrainBaker {
         ctx.strokeStyle = col; ctx.lineWidth = seam; ctx.stroke();
 
         if (!fine) continue;
-        if (r.terrain[i] === 'forest' && !wtr && o.ov === 'none' && ((x * 7 + y * 13) % 3 === 0)) {
+        if (r.terrain[i] === 'forest' && !wtr && !o.tint && ((x * 7 + y * 13) % 3 === 0)) {
           ctx.fillStyle = fill(base, 0.62 * k); // a canopy blob
           ctx.beginPath(); ctx.ellipse(tx, ty + HH - 2, HW * 0.42, HH * 0.6, 0, 0, Math.PI * 2); ctx.fill();
         }
@@ -140,6 +135,7 @@ export class TerrainBaker {
         }
       }
     }
+    if (o.tint && o.map) o.map.drawTint(ctx, iso, o.tint, x0, y0, w, h, scale);
     ctx.restore();
   }
 

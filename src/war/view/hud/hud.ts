@@ -2,7 +2,8 @@
  * The player HUD in the red-figure kit (W-32; art: public/war/ui/, ./kit.ts). HTML over the canvas, anchored:
  *
  *   top centre     resource band: the 11 resources (icon + own stock), runner and horse at its ends
- *   bottom left    round minimap (./minimap.ts)
+ *   bottom left    round minimap (./minimap.ts), over it the view mode bar (F2-F7) and the mode's legend (./modes.ts)
+ *   centre         the full map on M (./fullMap.ts)
  *   bottom centre  command card, shown with a selection (a selected building or site wins over squads), in groups:
  *                  selection (class icon, name, men, hp) | orders (move, attack, hold H, stop X) over the formation
  *                  segments (1-4) | squad-specific slots only while relevant (deploy / pack Y, let go while crewing).
@@ -13,7 +14,7 @@
  *   bottom right   the Build (hammer, B) button; the build bar (tabs Camp / Walls / Siege, a tool per building, a
  *                  tooltip with cost and labour; wall tools add gate / tower / order / undo / flip, the status line
  *                  above) opens bottom centre, over the card, only in build mode: B / Esc close it
- *   top right      DEV (F1) and the UI scale (auto by window / 1x / 1.5x / 2x, kept in localStorage; ./kit.ts)
+ *   top right      DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
  *   at the cursor  the E context label (../interact.ts) and the kit's cursors
  *
  * The dev panel (../devPanel.ts) hides behind F1 and the DEV corner button. It only calls BuildMode, SiegeControls and
@@ -29,6 +30,8 @@ import { costText, isSite, labourText, TOOLBAR, WALL_NAME, type BuildMode, type 
 import { SIEGE_NAME } from '../siege/siegeControls';
 import { bar, BUILDING_ICON, cursor, CSS, icon, setUiScale, SIEGE_ICON, snapW, UI, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
 import { Minimap } from './minimap';
+import { ModeBar } from './modes';
+import { FullMap } from './fullMap';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
@@ -87,6 +90,10 @@ export function hud(s: SandboxScene): void {
   document.body.appendChild(mini.el);
   els.push(mini.el);
   mini.el.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const modes = new ModeBar(s);
+  document.body.appendChild(modes.el);
+  els.push(modes.el);
+  new FullMap(s); // M
 
   // ---------- tooltip ----------
   const tip = mk('rfTip', 'display:none;z-index:6');
@@ -222,7 +229,7 @@ export function hud(s: SandboxScene): void {
   // ---------- top right: dev panel (F1) and the UI scale ----------
   const corner = mk('rfDev', 'top:4px;right:4px;pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px', '');
   const dbtn = tb('DEV', 'dev panel (F1)', () => setDev(dev?.style.display === 'none'));
-  const sbtn = tb('', 'UI scale: auto (by window) / 1x / 1.5x / 2x', () => { const v = UI_SCALES[(UI_SCALES.indexOf(uiScale()) + 1) % UI_SCALES.length]; setUiScale(v); scale(); });
+  const sbtn = tb('', 'UI scale: auto (by window) / 0.75x / 1x / 1.25x / 1.5x / 2x', () => { const v = UI_SCALES[(UI_SCALES.indexOf(uiScale()) + 1) % UI_SCALES.length]; setUiScale(v); scale(); });
   sbtn.id = 'uiScale';
   corner.append(dbtn, sbtn);
   const dev = document.getElementById('dev');
@@ -266,6 +273,7 @@ export function hud(s: SandboxScene): void {
   const refresh = () => {
     // a button removed or hidden under the pointer never sends pointerleave
     if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent)) { tipAt = null; hideTip(); }
+    modes.refresh();
     const st = s.sim.cur?.stock?.[0] ?? {};
     counts.forEach((el) => { const v = Math.floor(st[el.dataset.r as ResourceKind] ?? 0); el.textContent = String(v); el.classList.toggle('rf-dim', !v); });
 

@@ -14,6 +14,7 @@
  *   fire arrows, build, gather, move)
  *   H hold; 1-4 formation line / column / wedge / loose
  *   B build mode; click a building: its panel (./build/buildMode.ts)
+ *   F2-F7 view modes (./mapModes.ts, the HUD's mode bar), M the full map (./hud/fullMap.ts)
  *   siege (./siege/siegeControls.ts): Y deploy / pack, Q fire arrows; the rest is context (E / radial). Engines, fire, rubble
  *   and siege ladders are drawn by ./siege/siegeLayer.ts
  */
@@ -35,6 +36,7 @@ import { SiegeArt } from './siege/siegeArt';
 import { SiegeControls } from './siege/siegeControls';
 import { SiegeLayer } from './siege/siegeLayer';
 import { Interact } from './interact';
+import { MapData, type Live, type MapMode } from './mapModes';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLIMB = ['climb', 'walk'] as const;
@@ -57,7 +59,6 @@ const BAKE_MS = 6;
 /** World px per overview band (one band bakes per frame until the overview is done). */
 const BAND = 256;
 
-export type Overlay = 'height' | 'cost' | 'grid' | 'zones' | 'mobs';
 
 interface Chunk { key: string; tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string; ver: number; used: number }
 interface View { x: number; y: number; right: number; bottom: number }
@@ -91,7 +92,14 @@ export class SandboxScene extends Phaser.Scene {
   private artBaker: ArtBaker | null = null;
   private objects: ObjectLayer | null = null;
   massifs: Massifs | null = null;
-  private opts: BakeOpts = { ov: 'none', grid: false, zones: true };
+  /** The view mode (./mapModes.ts: F2-F7 or the HUD's mode bar), baked over the ground of the chunks and the overview. */
+  mode: MapMode = 'normal';
+  /** The region's static map layers and the modes' tints (the minimap and the full map paint from it too). */
+  map!: MapData;
+  /** The full map (M) is open: no keyboard or edge pan under it. */
+  mapOpen = false;
+  private modeKey = '';
+  private opts: BakeOpts = { tint: null, map: null, grid: false, zones: false };
   private ver = 0; // bumps when opts change: chunks baked earlier are stale
   private chunks: Chunk[][] = LEVELS.map(() => []);
   private overviewTex!: Phaser.Textures.CanvasTexture;
@@ -124,8 +132,10 @@ export class SandboxScene extends Phaser.Scene {
     this.iso = new IsoMap(r, mask, mask && Massifs.screeOf(r, mask));
     this.massifs = mask && this.art ? new Massifs(r, mask, this.art.massifs) : null;
     this.baker = new TerrainBaker(r, this.iso);
+    this.map = new MapData(r);
+    this.opts.map = this.map;
     if (this.art) {
-      this.artBaker = new ArtBaker(r, this.iso, this.art, this.baker, this.massifs);
+      this.artBaker = new ArtBaker(r, this.iso, this.art, this.massifs);
       this.objects = new ObjectLayer(this, this.iso, r, this.art, this.massifs);
     }
     const { W, H } = this.iso;
@@ -142,7 +152,7 @@ export class SandboxScene extends Phaser.Scene {
     cam.setBackgroundColor('#1b1e22').setRoundPixels(true);
     // open on the ford, soldiers about 29 px tall: units and ground both read
     if (r.id === 'test-ridge') this.focus(SPOTS.ford[0], SPOTS.ford[1], 1 / 2);
-    else cam.setZoom(this.fitZoom()).centerOn(W / 2, H / 2);
+    else cam.setZoom(this.minZoom()).centerOn(W / 2, H / 2);
 
     this.sim = new SimClient(r);
     this.input.mouse!.disableContextMenu();
@@ -174,13 +184,38 @@ export class SandboxScene extends Phaser.Scene {
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => this.zoomAt(p.x, p.y, dy > 0 ? -1 : 1));
   }
 
-  setOverlay(k: Overlay, on: boolean): void {
-    if (k === 'mobs') {
-      this.neutral.debug = on; // drawn live, nothing to bake
-      return;
-    }
-    if (k === 'height' || k === 'cost') this.opts.ov = on ? k : this.opts.ov === k ? 'none' : this.opts.ov;
-    else this.opts[k] = on;
+  /** Switch the view mode: the chunks and the overview rebake with its tint. */
+  setMode(m: MapMode): void {
+    if (m === this.mode) return;
+    this.mode = m;
+    this.neutral.debug = m === 'resources'; // the lairs' aggro, leash and guard rings, drawn live
+    this.retint();
+  }
+
+  /** Dev: the tile grid. */
+  setGrid(on: boolean): void {
+    this.opts.grid = on;
+    this.rebake();
+  }
+
+  /** What the live modes read from the sim. */
+  live(): Live {
+    const c = this.sim?.cur;
+    return { influence: this.sim?.influence ?? null, nodes: this.sim?.nodes ?? [], lairs: c?.lairs ?? [], claims: c?.claims ?? [], buildings: c?.buildings ?? [] };
+  }
+
+  /** Rebuild the mode's tint; rebake if it changed. */
+  private retint(): void {
+    const l = this.live(), key = this.mode + '|' + this.map.key(this.mode, l);
+    const tint = this.map.tint(this.mode, l);
+    this.opts.zones = this.mode === 'ownership';
+    if (key === this.modeKey && tint === this.opts.tint) return;
+    this.modeKey = key;
+    this.opts.tint = tint;
+    this.rebake();
+  }
+
+  private rebake(): void {
     this.ver++;
     this.band = 0;
     this.overviewReady = false;
@@ -207,11 +242,6 @@ export class SandboxScene extends Phaser.Scene {
     cam.centerOn(this.iso.sx(x, y), this.iso.sy(x, y, this.iso.zAt(x, y)));
   }
 
-  /** The terrain overview (1/8 of the world px), for the minimap. */
-  overviewCanvas(): HTMLCanvasElement {
-    return this.overviewTex.getSourceImage() as HTMLCanvasElement;
-  }
-
   /** The world px rect the camera shows. */
   viewRect(): View {
     const cam = this.cameras.main, a = this.wpx(0, 0), b = this.wpx(cam.width, cam.height);
@@ -230,14 +260,15 @@ export class SandboxScene extends Phaser.Scene {
     return { x: (wx - cam.scrollX - w) * cam.zoom + w, y: (wy - cam.scrollY - h) * cam.zoom + h };
   }
 
-  private fitZoom(): number {
-    const cam = this.cameras.main, fit = Math.min(cam.width / this.iso.W, cam.height / this.iso.H);
-    return [...LADDER].reverse().find((z) => z <= fit) ?? LADDER[0];
+  /** The lowest zoom: the first ladder step at which the region's shorter side still covers the viewport's shorter side (no void round it). */
+  minZoom(): number {
+    const cam = this.cameras.main, need = Math.min(cam.width, cam.height) / Math.min(this.iso.W, this.iso.H);
+    return LADDER.find((z) => z >= need - 1e-6) ?? LADDER[LADDER.length - 1];
   }
 
   zoomAt(px: number, py: number, dir: 1 | -1): void {
     const cam = this.cameras.main, z = cam.zoom;
-    const nz = dir > 0 ? LADDER.find((v) => v > z + 1e-3) ?? z : [...LADDER].reverse().find((v) => v < z - 1e-3 && v >= this.fitZoom() / 2) ?? z;
+    const nz = dir > 0 ? LADDER.find((v) => v > z + 1e-3) ?? z : [...LADDER].reverse().find((v) => v < z - 1e-3 && v >= this.minZoom() - 1e-6) ?? z;
     if (nz === z) return;
     const w = cam.width / 2, h = cam.height / 2;
     const wx = cam.scrollX + w + (px - w) / z, wy = cam.scrollY + h + (py - h) / z;
@@ -383,6 +414,8 @@ export class SandboxScene extends Phaser.Scene {
   update(_t: number, dt: number): void {
     const cam = this.cameras.main, k = this.keys;
     this.frame++;
+    // a resize can leave the zoom below the floor
+    if (this.frame % 15 === 0 && cam.zoom < this.minZoom() - 1e-6) cam.setZoom(this.minZoom());
     // keyboard and edge pan
     const sp = (dt * 0.9) / cam.zoom;
     let vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
@@ -392,11 +425,14 @@ export class SandboxScene extends Phaser.Scene {
       if (p.x < m) vx = -1; else if (p.x > cam.width - m) vx = 1;
       if (p.y < m) vy = -1; else if (p.y > cam.height - m) vy = 1;
     }
+    if (this.mapOpen) vx = vy = 0;
     if (vx || vy) cam.setScroll(cam.scrollX + vx * sp, cam.scrollY + vy * sp);
 
     // the visible world rect (zoom is about the camera centre); cam.worldView lags a frame
     const a = this.wpx(0, 0), b = this.wpx(cam.width, cam.height);
     const view: View = { x: a.x, y: a.y, right: b.x, bottom: b.y };
+    // a live mode follows the sim (influence, nodes, lairs, walls): checked twice a second
+    if (this.mode !== 'normal' && this.frame % 30 === 0) this.retint();
     this.updateChunks(view, cam.zoom);
     // the ground under the cursor follows the camera too (pan, zoom), not just pointer moves
     if (this.moved && (vx || vy || this.frame % 4 === 0)) this.pointerTile = this.world(p);
