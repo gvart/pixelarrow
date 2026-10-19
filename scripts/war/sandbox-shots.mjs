@@ -10,8 +10,8 @@
 // them), the overview, and the 600-unit brawl fps at mid zoom.
 // Mode `anim`: frame sequences at 1:1 (100 ms apart) of a ford fight (archers and slingers shooting,
 // spears and swords striking, deaths) and of a squad idling, then the 600-unit brawl fps at 1/2.
-// Mode `biome`, `build`: see below.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome|build] [id,id...]
+// Mode `biome`, `build`, `buildux`: see below.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome|build|buildux] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
@@ -354,6 +354,148 @@ if (mode === 'build') {
   await fps('build mode brawl 600, zoom 1/2');
 }
 
+// Mode `buildux` (W-26, scenario build-test): footprint grid under the finished camp in build mode, the storehouse
+// ghost (its sprite, green / red with the reason) with nothing selected, a click that lays it out as a planned site,
+// a palisade ghost of kit pieces, the site panel (a squad selected, Assign 5), a planned fort that squads get by right
+// click with workers round it, a storehouse and a barracks laid side by side under construction, then 600-unit fps.
+if (mode === 'buildux') {
+  await boot('&scenario=build-test');
+  await page.waitForFunction(() => window.__sandbox.sim.cur.buildings?.some((b) => b.type === 'camp') && window.__sandbox.build.layer.art, null, { timeout: 60000 });
+  const home = await page.evaluate(() => {
+    const c = window.__sandbox.sim.cur.buildings.find((b) => b.type === 'camp');
+    return { x: c.x, y: c.y };
+  });
+  const scr = (dx, dy) => page.evaluate(([x, y]) => window.__sandbox.toScreen(x, y), [home.x + dx, home.y + dy]);
+  const focus = (dx, dy, z) => page.evaluate(([x, y, z]) => window.__sandbox.focus(x, y, z), [home.x + dx, home.y + dy, z]);
+  const site = (pred, arg) => page.waitForFunction(pred, arg, { timeout: 180000, polling: 250 });
+  const speed = (v) => page.evaluate((v) => window.__sandbox.sim.speed(v), v);
+  /** The nearest spot round home where `type` passes the sim's placement check (centre snapped for its size). */
+  const spot = (type, from = [0, 0], skip = []) => page.evaluate(async ([type, hx, hy, skip]) => {
+    const s = window.__sandbox;
+    for (let r = 0; r < 16; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const [w, h] = { fort: [10, 10], barracks: [4, 3], storehouse: [3, 3] }[type] ?? [3, 3];
+      const x = Math.floor(hx) + dx + (w % 2 ? 0.5 : 0), y = Math.floor(hy) + dy + (h % 2 ? 0.5 : 0);
+      if (skip.some(([a, b, m]) => Math.abs(a - x) < m && Math.abs(b - y) < m)) continue;
+      const res = await s.sim.checkPlacement(0, type, x, y, 0);
+      if (res?.ok) return [x, y];
+    }
+    return null;
+  }, [type, home.x + from[0], home.y + from[1], skip]);
+
+  await page.evaluate(() => { const s = window.__sandbox; s.build.addResources(); s.sim.speed(8); });
+  await site(() => window.__sandbox.sim.cur.buildings.find((b) => b.type === 'camp')?.state === 'done');
+  await speed(1);
+  // 1: build mode with nothing selected: grids under the art (the squads stepped aside)
+  await page.evaluate(([x, y]) => { const s = window.__sandbox; [0, 1, 2].forEach((q, i) => s.sim.order({ kind: 'move', squad: q, x: x - 10 + i * 7, y: y + 9 })); }, [home.x, home.y]);
+  await wait(4000);
+  await page.evaluate(() => { const s = window.__sandbox; s.selected.clear(); s.build.toggle(true); });
+  await focus(0, 1, 1);
+  let p = await scr(-5, 5);
+  await page.mouse.move(p.x, p.y);
+  await wait(800);
+  await shot('bux-01-grid-under-camp');
+  await focus(0, 0.5, 2);
+  await wait(500);
+  await shot('bux-01b-grid-under-camp-2x');
+  await focus(0, 1, 1);
+  // 2, 3: storehouse ghost, valid (east of the camp) and over the camp (invalid)
+  await page.evaluate(() => window.__sandbox.build.setTool({ kind: 'building', type: 'storehouse' }));
+  const st = await spot('storehouse', [6, 0]);
+  p = await scr(st[0] - home.x, st[1] - home.y);
+  await page.mouse.move(p.x, p.y);
+  await wait(1000);
+  await shot('bux-02-ghost-valid');
+  const c = await scr(0.6, 0.6);
+  await page.mouse.move(c.x, c.y);
+  await wait(1000);
+  await shot('bux-03-ghost-invalid');
+  // lay the storehouse out with no squad selected: a planned site
+  await page.mouse.move(p.x, p.y);
+  await wait(1000);
+  await page.mouse.click(p.x, p.y);
+  await site(() => window.__sandbox.sim.cur.buildings.some((b) => b.type === 'storehouse'));
+  // 4: palisade ghost of kit pieces south of the camp
+  await page.evaluate(() => window.__sandbox.build.setTool({ kind: 'wall', material: 'wood' }));
+  const a = await scr(-6, 6), b = await scr(4, 6);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await wait(1000);
+  await shot('bux-04-wall-ghost-kit');
+  await page.mouse.up();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  // 5: site panel: militia squad 0 selected, click the planned storehouse, assign 5
+  const sh = await page.evaluate(() => { const b = window.__sandbox.sim.cur.buildings.find((q) => q.type === 'storehouse'); return { id: b.id, x: b.x, y: b.y }; });
+  await page.evaluate(() => { const s = window.__sandbox; s.selected.clear(); s.selected.add(0); });
+  p = await page.evaluate(([x, y]) => window.__sandbox.toScreen(x, y), [sh.x, sh.y]);
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.click(p.x, p.y);
+  await wait(400);
+  const sel = await page.evaluate(() => ({ b: window.__sandbox.build.selected, squads: [...window.__sandbox.selected] }));
+  console.log('site click: selected building', sel.b, 'squads', sel.squads.join(','));
+  if (sel.b !== sh.id || !sel.squads.includes(0)) problems.push('site click did not select the site with the squad kept');
+  await page.fill('#sn', '5');
+  await page.click('#sassign');
+  await site((id) => (window.__sandbox.sim.cur.buildings.find((q) => q.id === id)?.workers ?? 0) > 0, sh.id);
+  await wait(1500);
+  await shot('bux-05-site-panel');
+  const split = await page.evaluate(() => window.__sandbox.sim.cur.squads.map((q) => `${q.id}:${q.units.length}:${q.order}`).join(' '));
+  console.log('squads after assign', split);
+  // 6: a planned fort, the hoplites and the rest of the militia sent by right click
+  const ft = await spot('fort', [0, -12], [[sh.x, sh.y, 8], [home.x, home.y, 8]]);
+  console.log('fort at', ft);
+  await page.evaluate(([x, y]) => window.__sandbox.sim.order({ kind: 'placeBuilding', team: 0, type: 'fort', x, y }), ft);
+  await site(() => window.__sandbox.sim.cur.buildings.some((b) => b.type === 'fort'));
+  await page.evaluate(([x, y]) => { const s = window.__sandbox; s.selected.clear(); s.selected.add(0); s.selected.add(1); s.selected.add(2); s.focus(x, y, 1 / 2); }, ft);
+  await wait(300);
+  p = await page.evaluate(([x, y]) => window.__sandbox.toScreen(x + 1, y + 1), ft);
+  await page.mouse.move(p.x, p.y);
+  await wait(100);
+  await page.mouse.click(p.x, p.y, { button: 'right' });
+  await speed(4);
+  await site(() => { const f = window.__sandbox.sim.cur.buildings.find((b) => b.type === 'fort'); return f && f.workers >= 12 && f.progress > 0.04; });
+  await speed(1);
+  await page.evaluate(([x, y]) => { const s = window.__sandbox; s.selected.clear(); s.build.toggle(false); s.focus(x, y + 1, 1); }, ft);
+  await page.mouse.move(20, 450);
+  await wait(1500);
+  await shot('bux-06-workers-round-fort');
+  console.log('fort', await page.evaluate(() => { const f = window.__sandbox.sim.cur.buildings.find((b) => b.type === 'fort'); return `${f.state} ${f.progress.toFixed(2)} workers ${f.workers}/${f.maxWorkers}`; }));
+  // 7: a barracks laid right against the storehouse (footprints touching), both under labour
+  const bx = sh.x + 1.5 + 2, by = sh.y;
+  const ok = await page.evaluate(([x, y]) => window.__sandbox.sim.checkPlacement(0, 'barracks', x, y, 0), [bx, by]);
+  console.log('barracks next to the storehouse', bx, by, JSON.stringify(ok?.ok ?? ok), ok?.reason ?? '');
+  await page.evaluate(([x, y]) => { const s = window.__sandbox; s.sim.order({ kind: 'placeBuilding', team: 0, type: 'barracks', x, y }); }, [bx, by]);
+  await site(() => window.__sandbox.sim.cur.buildings.some((b) => b.type === 'barracks'));
+  await page.evaluate(() => { const s = window.__sandbox; s.build.sendTo(1, s.sim.cur.buildings.find((b) => b.type === 'barracks').id); });
+  await speed(8);
+  await site(() => { const bs = window.__sandbox.sim.cur.buildings; return bs.some((b) => b.type === 'barracks' && b.progress > 0.3) && bs.some((b) => b.type === 'storehouse' && b.progress > 0.3); });
+  await speed(1);
+  await page.evaluate(([x, y]) => { const s = window.__sandbox; s.build.toggle(true); s.focus(x, y + 1, 1); }, [sh.x + 2, sh.y]);
+  await wait(1200);
+  await shot('bux-07-adjacent-sites');
+  await page.evaluate(([x, y]) => window.__sandbox.focus(x, y + 1, 2), [bx, by]);
+  await wait(800);
+  await shot('bux-07b-workers-2x');
+  await site(() => { const bs = window.__sandbox.sim.cur.buildings; return ['barracks', 'storehouse'].every((t) => bs.find((b) => b.type === t)?.state === 'done'); }).catch(() => {});
+  await page.evaluate(() => { const s = window.__sandbox; s.build.toggle(false); s.build.selected = s.sim.cur.buildings.find((b) => b.type === 'storehouse').id; });
+  await wait(800);
+  await shot('bux-08-adjacent-done-selected-ring');
+  console.log('buildings', JSON.stringify(await page.evaluate(() => window.__sandbox.sim.cur.buildings.map((b) => `${b.type}:${b.state}:${b.progress.toFixed(2)}:${b.w}x${b.h}`))));
+  await page.click('#brawl');
+  await page.waitForFunction(() => window.__sandbox.sim.stats.units >= 600);
+  await page.evaluate(() => {
+    const s = window.__sandbox, q = s.sim.cur.squads;
+    const mine = q.filter((x) => x.team === 0 && x.units.length), foes = q.filter((x) => x.team === 1);
+    mine.forEach((x, i) => s.sim.order({ kind: 'attack', squad: x.id, target: foes[i % foes.length].id }));
+    s.focus(s.spots.ford[0], s.spots.ford[1], 1 / 2);
+  });
+  await wait(6000);
+  await fps('buildux brawl 600, zoom 1/2');
+}
+
 if (mode === 'biome') {
   const obj = (id) => page.evaluate((id) => window.__sandbox.region.objects.find((o) => o.id === id), id);
   await boot();
@@ -503,7 +645,7 @@ const attackAll = () => page.evaluate(() => {
 });
 const score = () => page.evaluate(() => document.getElementById('score').textContent);
 for (const [id, plan] of Object.entries(PLANS)) {
-  if (mode === 'art' || mode === 'anim' || mode === 'biome' || mode === 'build' || (only && !only.includes(id))) continue;
+  if (mode === 'art' || mode === 'anim' || mode === 'biome' || mode === 'build' || mode === 'buildux' || (only && !only.includes(id))) continue;
   await boot(`&scenario=${id}`);
   if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
   await wait(2500);

@@ -1,11 +1,15 @@
 /**
- * Buildings, sites and the build-mode overlays on the iso map (M2b). Each building is drawn with its ART-B sprite
- * (./buildArt.ts) when there is one, else a placeholder iso box over its footprint tinted by state: foundation (marked
- * out ground, stakes), scaffold (poles and hatching, risen with progress), done (solid, team band), damaged (dark,
- * cracked), destroyed (rubble). Each one sits at the depth of its footprint's south side, sorted with the units and map
- * objects (10 + v / 4096 + 0.25, as ./units.ts). Gates draw open while a unit of their team is near.
- * Overlays: progress bars, the own influence area (a canvas baked per influence version), the placement ghost
- * (footprint tiles green / red) and the hovered resource node.
+ * Buildings, sites and the build-mode overlays on the iso map (M2b, W-26). Each building is drawn with its ART-B sprite
+ * (./buildArt.ts; under construction the stage its labour reached) when there is one, fitted inside its sim footprint
+ * (art drawn for a bigger footprint is scaled down and centred, with a dev warning), else a placeholder iso box over its
+ * footprint tinted by state: foundation (marked out ground, stakes), scaffold (poles and hatching, risen with progress),
+ * done (solid, team band), damaged (dark, cracked), destroyed (rubble). Each one sits at the depth of its footprint's
+ * south side, sorted with the units and map objects (10 + v / 4096 + 0.25, as ./units.ts). Gates draw open while a unit
+ * of their team is near.
+ * Ground overlays (under every object): footprint grids in build mode and on a hovered or selected site, a ring round a
+ * selected finished building, the ghost's footprint. Over them: progress bars, the own influence area (a canvas baked per
+ * influence version), the placement ghost (the real done sprite, or wall kit pieces, tinted green / red, with the sim's
+ * reason) and the hovered resource node.
  */
 import Phaser from 'phaser';
 import type { BuildingSnap, BuildingType, InfluenceMap, NodeSnap } from '../../types';
@@ -13,10 +17,13 @@ import { BUILDINGS } from '../../sim/economy';
 import { HH, HW, type IsoMap } from '../iso';
 import type { DrawUnit } from '../simClient';
 import { TEAM_COLOR } from '../units';
-import type { BuildArt } from './buildArt';
+import type { BuildArt, BuildSprite, KitSprite } from './buildArt';
 
+/** Ground overlays: over the terrain chunks (1) and the influence area (2), under objects and units (10+). */
+const GROUND = 2.5;
+const OK = 0x50e060, BAD = 0xff4040;
 /** Placeholder heights in world px (~33 px a metre). */
-const HEIGHT: Record<BuildingType, number> = {
+const HEIGHT: Partial<Record<BuildingType, number>> = {
   camp: 36, storehouse: 52, outpost: 80, fort: 120, barracks: 60, farm: 8, olivePress: 48,
   palisade: 56, stoneWall: 84, woodTower: 120, stoneTower: 150, woodGate: 70, stoneGate: 100,
 };
@@ -31,21 +38,29 @@ type P = { x: number; y: number };
 
 export class BuildingLayer {
   art: BuildArt | null = null;
-  /** Building drawn with a white outline (the HUD's selection). */
+  /** The HUD's selected building (ground ring when finished, footprint grid while a site), -1 none. */
   selected = -1;
+  /** Site under the pointer (footprint grid), -1 none. */
+  hovered = -1;
+  /** Build mode: every footprint shows its grid. */
+  grids = false;
   private gfx: Phaser.GameObjects.Graphics[] = [];
   private imgs: Phaser.GameObjects.Image[] = [];
+  private ghostImgs: Phaser.GameObjects.Image[] = [];
   private gBars: Phaser.GameObjects.Graphics;
   private gGhost: Phaser.GameObjects.Graphics;
+  private gGround: Phaser.GameObjects.Graphics;
   private label: Phaser.GameObjects.Text;
   private nodeLabel: Phaser.GameObjects.Text;
   private inflImg: Phaser.GameObjects.Image | null = null;
   private inflVer = -1;
   private inflShown = false;
+  private warned = new Set<string>();
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, private depthOf: (x: number, y: number) => number) {
     this.gBars = scene.add.graphics().setDepth(11.5);
     this.gGhost = scene.add.graphics().setDepth(11.4);
+    this.gGround = scene.add.graphics().setDepth(GROUND);
     const style = { fontFamily: 'monospace', fontSize: '12px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 };
     this.label = scene.add.text(0, 0, '', style).setOrigin(0.5, 1).setDepth(12).setVisible(false);
     this.nodeLabel = scene.add.text(0, 0, '', style).setOrigin(0.5, 1).setDepth(12).setVisible(false);
@@ -61,28 +76,25 @@ export class BuildingLayer {
     return this.iso.zAt(b.x, b.y);
   }
 
+  /** Buildings and their ground overlays; clears the ghost's ground (draw the ghost after this). */
   draw(buildings: readonly BuildingSnap[], units: readonly DrawUnit[], v: { x: number; y: number; right: number; bottom: number }, zoom: number): void {
     let ng = 0, ni = 0;
-    const bars = this.gBars.clear();
+    const bars = this.gBars.clear(), ground = this.gGround.clear(), lw = Math.max(1, 1.25 / zoom);
     const walls = this.wallTiles(buildings);
     for (const b of buildings) {
       const c = this.pt(b.x, b.y, this.z(b));
       if (!view(v, c.x, c.y, Math.max(b.w, b.h) * HW + 200)) continue;
       const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = 10 + this.depthOf(x1 - 0.5, y1 - 0.5) / 4096 + 0.25;
-      const axis = b.w >= b.h ? 'x' : 'y';
-      const kit = BUILDINGS[b.type].wall === 'segment' ? this.art?.kit(b.type, b.state) : undefined;
-      const spr = kit ? undefined : this.art?.sprite(b.type, b.state, axis);
+      const axis = b.w >= b.h ? 'x' : 'y', stage = this.art?.stage(b.state, b.progress) ?? b.state;
+      const kit = BUILDINGS[b.type].wall === 'segment' ? this.art?.kit(b.type, stage) : undefined;
+      const spr = kit ? undefined : this.art?.sprite(b.type, stage, axis);
       if (kit) {
         for (let i = 0; i < b.tiles.length; i += 2) {
-          const tx = b.tiles[i], ty = b.tiles[i + 1], top = this.pt(tx, ty, this.iso.zAt(tx + 0.5, ty + 0.5));
-          const mask = (walls.has(key(tx + 1, ty)) ? 1 : 0) | (walls.has(key(tx, ty + 1)) ? 2 : 0) | (walls.has(key(tx - 1, ty)) ? 4 : 0) | (walls.has(key(tx, ty - 1)) ? 8 : 0);
-          const img = this.img(ni++, kit.key, mask);
-          img.setPosition(Math.round(top.x - kit.tileOrigin.x), Math.round(top.y - kit.tileOrigin.y)).setDepth(10 + this.depthOf(tx + 0.5, ty + 0.5) / 4096 + 0.25);
+          const tx = b.tiles[i], ty = b.tiles[i + 1];
+          this.kitPiece(this.img(ni++, kit.key), kit, tx, ty, walls).setDepth(10 + this.depthOf(tx + 0.5, ty + 0.5) / 4096 + 0.25);
         }
       } else if (spr) {
-        // centre the art's footprint on the sim's (they may differ in size)
-        const ox = b.x - spr.fw / 2, oy = b.y - spr.fh / 2, top = this.pt(ox, oy, this.z(b));
-        this.img(ni++, spr.key).setPosition(Math.round(top.x - spr.tileOrigin.x), Math.round(top.y - spr.tileOrigin.y)).setDepth(depth);
+        this.fit(this.img(ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b)).setDepth(depth);
       } else {
         let g = this.gfx[ng];
         if (!g) this.gfx.push((g = this.scene.add.graphics()));
@@ -90,17 +102,54 @@ export class BuildingLayer {
         g.clear().setVisible(true).setDepth(depth);
         this.placeholder(g, b, units, zoom);
       }
-      if (b.id === this.selected) this.outline(bars, b.tiles, 0xffffff, zoom);
+      const site = b.state === 'foundation' || b.state === 'scaffold';
+      if (b.id === this.selected && !site) this.ring(ground, b, zoom);
+      else if (b.id === this.selected || b.id === this.hovered) this.grid(ground, b.tiles, 0xffffff, 0.9, lw);
+      else if (this.grids && b.state !== 'destroyed') this.grid(ground, b.tiles, TEAM_COLOR[b.team] ?? 0xcccccc, 0.45, lw);
       this.bar(bars, b, c, zoom);
     }
     for (let i = ng; i < this.gfx.length; i++) this.gfx[i].setVisible(false);
     for (let i = ni; i < this.imgs.length; i++) this.imgs[i].setVisible(false);
   }
 
+  /**
+   * Place a building sprite on a w x h footprint centred on (x, y): art drawn for a bigger footprint is scaled down to
+   * fit inside it (a dev warning names the type), smaller art stays 1:1; either way centred on the footprint.
+   */
+  private fit(img: Phaser.GameObjects.Image, spr: BuildSprite, type: BuildingType, x: number, y: number, w: number, h: number, z: number): Phaser.GameObjects.Image {
+    const k = Math.min(1, w / spr.fw, h / spr.fh), tag = `${type}${w}x${h}`;
+    if ((spr.fw !== w || spr.fh !== h) && !this.warned.has(tag) && import.meta.env?.DEV) {
+      this.warned.add(tag);
+      console.warn(`[build art] ${type}: art footprint ${spr.fw}x${spr.fh} != sim ${w}x${h}; drawn at ${k.toFixed(2)}x`);
+    }
+    const top = this.pt(x - (spr.fw * k) / 2, y - (spr.fh * k) / 2, z);
+    return img.setScale(k).setPosition(Math.round(top.x - spr.tileOrigin.x * k), Math.round(top.y - spr.tileOrigin.y * k));
+  }
+
+  /** A wall kit piece on tile (tx, ty), its frame by the wall neighbours in `walls`. */
+  private kitPiece(img: Phaser.GameObjects.Image, kit: KitSprite, tx: number, ty: number, walls: Set<number>): Phaser.GameObjects.Image {
+    const top = this.pt(tx, ty, this.iso.zAt(tx + 0.5, ty + 0.5));
+    const mask = (walls.has(key(tx + 1, ty)) ? 1 : 0) | (walls.has(key(tx, ty + 1)) ? 2 : 0) | (walls.has(key(tx - 1, ty)) ? 4 : 0) | (walls.has(key(tx, ty - 1)) ? 8 : 0);
+    return img.setFrame(mask).setPosition(Math.round(top.x - kit.tileOrigin.x), Math.round(top.y - kit.tileOrigin.y));
+  }
+
+  /** Each footprint tile outlined on the ground (under the art). */
+  private grid(g: Phaser.GameObjects.Graphics, tiles: readonly number[], col: number, a: number, lw: number): void {
+    g.lineStyle(lw, col, a);
+    for (const [x, y] of pairs(tiles)) g.strokePoints(this.corners(x, y, x + 1, y + 1, this.iso.zAt(x + 0.5, y + 0.5), 0), true);
+  }
+
+  /** A subtle ellipse on the ground round a finished building's footprint. */
+  private ring(g: Phaser.GameObjects.Graphics, b: BuildingSnap, zoom: number): void {
+    const c = this.pt(b.x, b.y, this.z(b)), rw = (b.w + b.h) * HW * 0.6;
+    g.lineStyle(Math.max(1.5, 2 / zoom), 0xffffff, 0.5).strokeEllipse(c.x, c.y, rw * 2, rw);
+    g.lineStyle(Math.max(1, 1 / zoom), TEAM_COLOR[b.team] ?? 0xcccccc, 0.8).strokeEllipse(c.x, c.y, rw * 2 + 8 / zoom, rw + 4 / zoom);
+  }
+
   private img(i: number, texture: string, frame?: number): Phaser.GameObjects.Image {
     let img = this.imgs[i];
     if (!img) this.imgs.push((img = this.scene.add.image(0, 0, texture).setOrigin(0)));
-    return img.setTexture(texture, frame).setVisible(true);
+    return img.setTexture(texture, frame).setScale(1).setVisible(true);
   }
 
   /** Tiles of standing wall pieces per team (the kit's neighbour mask joins to walls, gates and towers). */
@@ -113,7 +162,7 @@ export class BuildingLayer {
   private placeholder(g: Phaser.GameObjects.Graphics, b: BuildingSnap, units: readonly DrawUnit[], zoom: number): void {
     const def = BUILDINGS[b.type], team = TEAM_COLOR[b.team] ?? 0xcccccc, z = this.z(b), lw = Math.max(1, 1 / zoom);
     const col = b.state === 'damaged' ? shade(MAT[def.material], 0.62) : MAT[def.material];
-    const H = HEIGHT[b.type];
+    const H = HEIGHT[b.type] ?? 60;
     // wall segments: one box per tile; others: the footprint rect
     const rects: [number, number, number, number][] = def.wall === 'segment'
       ? pairs(b.tiles).sort((p, q) => p[0] + p[1] - q[0] - q[1]).map(([x, y]) => [x + 0.15, y + 0.15, x + 0.85, y + 0.85])
@@ -204,7 +253,7 @@ export class BuildingLayer {
     const building = b.state === 'foundation' || b.state === 'scaffold';
     if (!building && b.state !== 'damaged') return;
     if (building && BUILDINGS[b.type].wall === 'segment' && b.delivered === 0) return; // a wall line of empty bars is noise
-    const k = 1 / Math.max(zoom, 1 / 4), w = 44 * k, h = 4 * k, x = c.x - w / 2, y = c.y - HEIGHT[b.type] - 14 * k;
+    const k = 1 / Math.max(zoom, 1 / 4), w = 44 * k, h = 4 * k, x = c.x - w / 2, y = c.y - (HEIGHT[b.type] ?? 60) - 14 * k;
     g.fillStyle(0x000000, 0.7).fillRect(x - k, y - k, w + 2 * k, (building ? 2 * h + 1 * k : h) + 2 * k);
     if (building) {
       g.fillStyle(0xe0a030, 1).fillRect(x, y, w * b.delivered, h);
@@ -212,44 +261,56 @@ export class BuildingLayer {
     } else g.fillStyle(0xd04030, 1).fillRect(x, y, (w * b.hp) / b.maxHp, h);
   }
 
-  private outline(g: Phaser.GameObjects.Graphics, tiles: readonly number[], col: number, zoom: number): void {
-    g.lineStyle(Math.max(1.5, 1.5 / zoom), col, 1);
-    for (const [x, y] of pairs(tiles)) g.strokePoints(this.corners(x, y, x + 1, y + 1, this.iso.zAt(x + 0.5, y + 0.5), 0), true);
-  }
-
   /**
-   * The placement ghost: footprint tiles green (ok; wall gates blue, towers gold) or red, and a label (reason, cost)
-   * over it. pieces: groups of tiles with their own ok (a wall plan); null hides it.
+   * The placement ghost: each piece's footprint on the ground (green / red; wall gates blue, towers gold), its art (the
+   * done sprite; wall segments as kit pieces joined along the plan and the standing walls) over it, semi-transparent and
+   * tinted, and a label (reason, cost) above. A piece without art gets a wire box of its type's height. null hides it.
    */
-  ghost(pieces: { tiles: readonly number[]; ok: boolean; type?: BuildingType }[] | null, text: string, height: number, zoom: number): void {
+  ghost(pieces: { tiles: readonly number[]; ok: boolean; type?: BuildingType }[] | null, text: string, zoom: number, standing: readonly BuildingSnap[] = []): void {
     const g = this.gGhost.clear();
-    if (!pieces?.length) { this.label.setVisible(false); return; }
-    const lw = Math.max(1, 1.5 / zoom);
-    let top = Infinity, cx = 0, n = 0;
-    for (const p of pieces) {
-      const wall = p.type && BUILDINGS[p.type].wall, col = !p.ok ? 0xff4040 : wall === 'gate' ? 0x60b0ff : wall === 'tower' ? 0xffc040 : 0x50e060;
-      for (const [x, y] of pairs(p.tiles)) {
-        const c = this.corners(x, y, x + 1, y + 1, this.iso.zAt(x + 0.5, y + 0.5), 0);
-        g.fillStyle(col, 0.35).fillPoints(c, true).lineStyle(lw, col, 0.95).strokePoints(c, true);
-        top = Math.min(top, c[0].y);
-        cx += c[0].x; n++;
+    let ni = 0;
+    if (pieces?.length) {
+      const lw = Math.max(1, 1.5 / zoom), walls = this.wallTiles(standing);
+      for (const p of pieces) if (p.type && BUILDINGS[p.type].wall) for (const [x, y] of pairs(p.tiles)) walls.add(key(x, y));
+      let top = Infinity, cx = 0, n = 0;
+      for (const p of pieces) {
+        const wall = p.type && BUILDINGS[p.type].wall, col = !p.ok ? BAD : wall === 'gate' ? 0x60b0ff : wall === 'tower' ? 0xffc040 : OK;
+        const ts = pairs(p.tiles), xs = ts.map((q) => q[0]), ys = ts.map((q) => q[1]);
+        const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs) + 1, y1 = Math.max(...ys) + 1, z = this.iso.zAt((x0 + x1) / 2, (y0 + y1) / 2);
+        for (const [x, y] of ts) {
+          const c = this.corners(x, y, x + 1, y + 1, this.iso.zAt(x + 0.5, y + 0.5), 0);
+          this.gGround.fillStyle(col, 0.3).fillPoints(c, true).lineStyle(lw, col, 0.9).strokePoints(c, true);
+          top = Math.min(top, c[0].y);
+          cx += c[0].x; n++;
+        }
+        const tint = p.ok ? 0x90ff90 : 0xff7070;
+        const kit = wall === 'segment' && p.type ? this.art?.kit(p.type, 'done') : undefined;
+        const spr = !kit && p.type ? this.art?.sprite(p.type, 'done', x1 - x0 >= y1 - y0 ? 'x' : 'y') : undefined;
+        if (kit) {
+          for (const [x, y] of ts) {
+            const img = this.kitPiece(this.ghostImg(ni++, kit.key), kit, x, y, walls);
+            img.setDepth(11.3 + (x + y) / 1e6).setTint(tint);
+          }
+        } else if (spr && p.type) {
+          const img = this.fit(this.ghostImg(ni++, spr.key), spr, p.type, (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0, z);
+          img.setDepth(11.3 + (x1 + y1) / 1e6).setTint(tint);
+          top = Math.min(top, img.y + 8);
+        } else if (p.type && !wall) {
+          const h = HEIGHT[p.type] ?? 60, b = this.corners(x0, y0, x1, y1, z, 0), u = this.corners(x0, y0, x1, y1, z, h);
+          g.lineStyle(lw, col, 0.6).strokePoints(u, true);
+          for (const i of [1, 2, 3]) g.lineBetween(b[i].x, b[i].y, u[i].x, u[i].y);
+          top = Math.min(top, u[0].y);
+        }
       }
-    }
-    // a wire box of the building's height over a single footprint
-    if (pieces.length === 1 && height > 0) {
-      const t = pieces[0].tiles, xs = pairs(t).map((p) => p[0]), ys = pairs(t).map((p) => p[1]);
-      const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs) + 1, y1 = Math.max(...ys) + 1;
-      const z = this.iso.zAt((x0 + x1) / 2, (y0 + y1) / 2), b = this.corners(x0, y0, x1, y1, z, 0), u = this.corners(x0, y0, x1, y1, z, height);
-      g.lineStyle(lw, pieces[0].ok ? 0x50e060 : 0xff4040, 0.6).strokePoints(u, true);
-      for (const i of [1, 2, 3]) g.lineBetween(b[i].x, b[i].y, u[i].x, u[i].y);
-      top = Math.min(top, u[0].y);
-    }
-    this.label.setText(text).setScale(1 / zoom).setPosition(cx / n, top - 6 / zoom).setVisible(!!text);
+      this.label.setText(text).setScale(1 / zoom).setPosition(cx / n, top - 6 / zoom).setVisible(!!text);
+    } else this.label.setVisible(false);
+    for (let i = ni; i < this.ghostImgs.length; i++) this.ghostImgs[i].setVisible(false);
   }
 
-  /** Ghost height for a building type (0 for wall lines). */
-  heightOf(type: BuildingType): number {
-    return HEIGHT[type];
+  private ghostImg(i: number, texture: string): Phaser.GameObjects.Image {
+    let img = this.ghostImgs[i];
+    if (!img) this.ghostImgs.push((img = this.scene.add.image(0, 0, texture).setOrigin(0).setAlpha(0.65)));
+    return img.setTexture(texture).setScale(1).clearTint().setVisible(true);
   }
 
   /** Ring and amount label on a hovered resource node; null hides them. */
