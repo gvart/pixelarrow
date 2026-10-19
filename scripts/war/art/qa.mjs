@@ -252,7 +252,7 @@ export function runQa(biome) {
   const T = biome ? JSON.parse(readFileSync(join(dir, 'tiles.json'))) : G, O = biome ? JSON.parse(readFileSync(join(dir, 'objects.json'))) : GO;
   const fail = [...qaTiles(T, dir ?? undefined, biome ? G : null).map((f) => `tile  ${f}`), ...qaObjects(O, T.palette, dir ?? undefined, biome ? GO : null).map((f) => `object ${f}`)];
   const n = `${biome ? `biome ${biome}: ` : ''}${T.sheets.length} tile sets, ${(T.variants ?? []).length} variant fills, ${O.objects.length} objects`;
-  if (fail.length) console.error(`QA FAIL (${fail.length}) over ${n}\n  ` + fail.join('\n  '));
+  if (fail.length) console.error(`QA FAIL (${fail.length}) over ${n}\n  ` + fail.join('\n  ') + (biome ? '\n  (a biome is built on the global set: after any global change run node scripts/war/art/build.mjs, which rebuilds every biome)' : ''));
   else console.log(`QA OK: ${n}`);
   return fail;
 }
