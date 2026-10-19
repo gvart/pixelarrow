@@ -1,0 +1,277 @@
+{
+ "pxPerMetre": 33,
+ "tileMetres": 2,
+ "note": "anchor = foot point in the PNG (px); draw at the ground point minus anchor; no ground patch",
+ "objects": [
+  {
+   "id": "pine-a",
+   "kind": "tree",
+   "file": "pine-a.png",
+   "w": 166,
+   "h": 359,
+   "metres": 10.9,
+   "anchor": {
+    "x": 97,
+    "y": 358
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 5f138634"
+  },
+  {
+   "id": "pine-b",
+   "kind": "tree",
+   "file": "pine-b.png",
+   "w": 171,
+   "h": 362,
+   "metres": 11,
+   "anchor": {
+    "x": 97,
+    "y": 361
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object f4cd85fe (ART-3)"
+  },
+  {
+   "id": "tall-tree",
+   "kind": "tree",
+   "file": "tall-tree.png",
+   "w": 201,
+   "h": 348,
+   "metres": 10.5,
+   "anchor": {
+    "x": 108,
+    "y": 347
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object f7af9159"
+  },
+  {
+   "id": "cypress",
+   "kind": "tree",
+   "file": "cypress.png",
+   "w": 61,
+   "h": 323,
+   "metres": 9.8,
+   "anchor": {
+    "x": 31,
+    "y": 322
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 22d1629c"
+  },
+  {
+   "id": "olive-a",
+   "kind": "tree",
+   "file": "olive-a.png",
+   "w": 176,
+   "h": 172,
+   "metres": 5.2,
+   "anchor": {
+    "x": 88,
+    "y": 171
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 05b4c48b"
+  },
+  {
+   "id": "olive-b",
+   "kind": "tree",
+   "file": "olive-b.png",
+   "w": 125,
+   "h": 165,
+   "metres": 5,
+   "anchor": {
+    "x": 63,
+    "y": 164
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object f4cb5094"
+  },
+  {
+   "id": "oak",
+   "kind": "tree",
+   "file": "oak.png",
+   "w": 264,
+   "h": 269,
+   "metres": 8.2,
+   "anchor": {
+    "x": 142,
+    "y": 268
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object ad7a2a11"
+  },
+  {
+   "id": "dead-tree",
+   "kind": "tree",
+   "file": "dead-tree.png",
+   "w": 139,
+   "h": 201,
+   "metres": 6.1,
+   "anchor": {
+    "x": 70,
+    "y": 200
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 9aa1eab1"
+  },
+  {
+   "id": "bush-a",
+   "kind": "bush",
+   "file": "bush-a.png",
+   "w": 59,
+   "h": 46,
+   "metres": 1.4,
+   "anchor": {
+    "x": 30,
+    "y": 45
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object bef56f03"
+  },
+  {
+   "id": "bush-b",
+   "kind": "bush",
+   "file": "bush-b.png",
+   "w": 53,
+   "h": 72,
+   "metres": 2.2,
+   "anchor": {
+    "x": 27,
+    "y": 71
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object cf0ce6b4"
+  },
+  {
+   "id": "reeds",
+   "kind": "reeds",
+   "file": "reeds.png",
+   "w": 46,
+   "h": 61,
+   "metres": 1.8,
+   "anchor": {
+    "x": 23,
+    "y": 60
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 5a5372ee"
+  },
+  {
+   "id": "boulder-a",
+   "kind": "stone",
+   "file": "boulder-a.png",
+   "w": 61,
+   "h": 58,
+   "metres": 1.8,
+   "anchor": {
+    "x": 31,
+    "y": 57
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object 27f2ba41"
+  },
+  {
+   "id": "boulder-b",
+   "kind": "stone",
+   "file": "boulder-b.png",
+   "w": 64,
+   "h": 40,
+   "metres": 1.2,
+   "anchor": {
+    "x": 32,
+    "y": 39
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object 65ddf82b"
+  },
+  {
+   "id": "wall-ruin",
+   "kind": "stone",
+   "file": "wall-ruin.png",
+   "w": 70,
+   "h": 81,
+   "metres": 2.5,
+   "anchor": {
+    "x": 35,
+    "y": 80
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object c93797f6"
+  },
+  {
+   "id": "watchtower",
+   "kind": "stone",
+   "file": "watchtower.png",
+   "w": 183,
+   "h": 380,
+   "metres": 11.5,
+   "anchor": {
+    "x": 92,
+    "y": 379
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object 65e341c4"
+  }
+ ]
+}
