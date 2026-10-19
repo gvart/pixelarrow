@@ -12,6 +12,8 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const abs = (p) => (isAbsolute(p) ? p : join(ROOT, p));
 
 export const readText = (p) => readFileSync(abs(p), 'utf8');
+/** A PNG (or any image macOS sips reads) as RGBA: { w, h, data }. */
+export const readRgba = (p) => readImage(abs(p));
 export const sha256 = (p) => createHash('sha256').update(readFileSync(abs(p))).digest('hex');
 /** Two PNGs decode to the same size and the same RGBA bytes. Not a byte compare: the deflate stream
  * inside a PNG depends on the zlib build (macOS system zlib vs Node's bundled SIMD zlib on Linux). */

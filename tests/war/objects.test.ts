@@ -10,14 +10,15 @@ import { footprintTiles, OBJECT_BLOCKS } from '../../src/war/region/objects';
 import { buildGrid } from '../../src/war/sim/grid';
 import type { RegionData } from '../../src/war/types';
 
-type Def = { id: string; footprint: number[]; blocksMovement: boolean };
+type Def = { id: string; kind?: string; footprint: number[]; blocksMovement: boolean };
 const globalDefs = objectsJson.objects as Def[];
 // biome objects are named `<biome>/<id>` in regions
 const defs = [...globalDefs, ...Object.entries({ elaia: elaiaJson, kyrene: kyreneJson, mountains: mountainsJson }).flatMap(([b, j]) => (j.objects as Def[]).map((d) => ({ ...d, id: `${b}/${d.id}` })))];
 
 describe('map objects', () => {
   it('the sim table matches objects.json (every global blocker; the biome blockers regions place)', () => {
-    const blocking = Object.fromEntries(defs.filter((d) => d.blocksMovement).map((d) => [d.id, d.footprint]));
+    // massifs close the ground their sprite stands on instead (RegionData.blocked, tests/war/massifs.test.ts)
+    const blocking = Object.fromEntries(defs.filter((d) => d.blocksMovement && d.kind !== 'massif').map((d) => [d.id, d.footprint]));
     for (const d of globalDefs) if (d.blocksMovement) expect(OBJECT_BLOCKS[d.id]).toEqual(d.footprint);
     for (const [id, fp] of Object.entries(OBJECT_BLOCKS)) expect([id, fp]).toEqual([id, blocking[id]]);
     for (const o of parseRegion(ridgeJson).objects!) if (blocking[o.id]) expect([o.id, OBJECT_BLOCKS[o.id]]).toEqual([o.id, blocking[o.id]]);

@@ -16,7 +16,8 @@ export const regionSchema = z
     water: z.array(z.union([z.literal(0), z.literal(1), z.literal(2)])),
     entries: z.array(z.object({ side: z.enum(['N', 'E', 'S', 'W']), ...rect })),
     noBuild: z.array(z.object(rect)),
-    objects: z.array(z.object({ id: z.string().min(1), x: z.number().min(0), y: z.number().min(0) })).optional(),
+    objects: z.array(z.object({ id: z.string().min(1), x: z.number().min(0), y: z.number().min(0), shade: z.number().min(0).max(1).optional() })).optional(),
+    blocked: z.array(z.number().int().min(0)).optional(),
     visual: z.object({ scale: z.literal(2), rle: z.array(z.number().int().min(0)) }).optional(),
     biomes: z.object({ names: z.array(z.string().min(1)).min(1), rle: z.array(z.number().int().min(0)) }).optional(),
   })

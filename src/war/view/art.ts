@@ -122,7 +122,7 @@ export class ArtBaker {
     const defs = new Map(art.defs.map((d) => [d.id, d]));
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
-      if (!def || def.metres < LOD_METRES || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
+      if (!def || def.kind === 'massif' || def.metres < LOD_METRES || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
       // past the massifs it stands in front of
       const v = massifs ? Math.max(Math.floor(2 * o.x) + Math.floor(2 * o.y), Math.floor(2 * massifs.depth(o.x, o.y))) : Math.floor(2 * o.x) + Math.floor(2 * o.y);
       this.rows[Math.min(nRows - 1, v)].push({ def, img: art.objImg.get(o.id)!, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))) });

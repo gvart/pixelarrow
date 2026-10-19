@@ -6,7 +6,9 @@ export interface RegionData {
   entries: { side: 'N' | 'E' | 'S' | 'W'; x: number; y: number; w: number; h: number }[];
   noBuild: { x: number; y: number; w: number; h: number }[];
   /** Map objects (public/war/objects/objects.json ids) by foot point in tiles; blocking ones close their footprint (src/war/region/objects.ts). */
-  objects?: { id: string; x: number; y: number }[];
+  objects?: { id: string; x: number; y: number; /** Massifs: brightness 0..1 (src/war/region/massifs.ts). */ shade?: number }[];
+  /** Tiles closed to movement besides terrain and objects (the ground massifs stand on), as runs [start, length, ...] of row-major indices. */
+  blocked?: number[];
   /** Visual-only terrain at 2x the grid (1 m cells), run-length encoded (src/war/regions/visual.ts); the sim ignores it. */
   visual?: { scale: 2; rle: number[] };
   /** Biome per sim tile: index into `names`, run-length encoded (src/war/regions/visual.ts); picks the art library. Visual only. */

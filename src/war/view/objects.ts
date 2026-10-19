@@ -20,6 +20,8 @@ const BUCKET = 16; // tiles per bucket side
 const MASK = 4; // px per alpha mask cell
 const CELL = 64; // px per unit hash cell
 const FADE = 0.35;
+/** Depth step between objects of one depth key, by list index (well under a key step of 1/4096 for 10^5 objects). */
+const TIE = 1e-8;
 
 interface Def extends ObjDef { key: string; mask: Uint8Array; mw: number; mh: number; fades: boolean; hides: boolean }
 interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number; tint?: number }
@@ -63,14 +65,16 @@ export class ObjectLayer {
     this.buckets = Array.from({ length: this.bw * this.bh }, () => []);
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
-      if (!def || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
+      if (!def || def.kind === 'massif' || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
       this.buckets[((ty / BUCKET) | 0) * this.bw + ((tx / BUCKET) | 0)].push(this.objs.length);
-      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: massifs ? massifs.depth(o.x, o.y) : o.x + o.y, alpha: 1 });
+      // ties (one depth) break by list order, never by which pooled image a sprite got
+      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: (massifs ? massifs.depth(o.x, o.y) : o.x + o.y) + this.objs.length * TIE, alpha: 1 });
     }
-    for (const m of massifs?.list ?? []) {
+    // massifs just before their south vertex row, in the region's order (as the baked levels draw them)
+    massifs?.list.forEach((m, k) => {
       const xs = m.x0 + m.fw, ys = m.y0 + m.fh;
-      this.big.push({ def: defs.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, iso.zf(2 * xs - 1, 2 * ys - 1))), v: m.v - 0.001, alpha: 1, tint: Math.round(255 * m.shade) * 0x010101 });
-    }
+      this.big.push({ def: defs.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, iso.zf(2 * xs - 1, 2 * ys - 1))), v: m.v - 0.001 + k * TIE, alpha: 1, tint: Math.round(255 * m.shade) * 0x010101 });
+    });
   }
 
   /** Depth key of a point: x + y, past the massifs it stands in front of. */
