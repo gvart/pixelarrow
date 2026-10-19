@@ -95,7 +95,7 @@ export class SandboxScene extends Phaser.Scene {
     const r = this.region;
     // mountains as massif sprites over flat rock (?mountains=terrace: the stacked cliff levels of the visual layer)
     const mask = this.art && new URLSearchParams(location.search).get('mountains') !== 'terrace' ? Massifs.maskOf(r) : null;
-    this.iso = new IsoMap(r, mask);
+    this.iso = new IsoMap(r, mask, mask && Massifs.screeOf(r, mask));
     this.massifs = mask && this.art ? new Massifs(r, mask, this.art.massifs) : null;
     this.baker = new TerrainBaker(r, this.iso);
     if (this.art) {

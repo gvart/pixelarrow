@@ -22,7 +22,7 @@ const CELL = 64; // px per unit hash cell
 const FADE = 0.35;
 
 interface Def extends ObjDef { key: string; mask: Uint8Array; mw: number; mh: number; fades: boolean; hides: boolean }
-interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number }
+interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number; tint?: number }
 
 export class ObjectLayer {
   private objs: Obj[] = [];
@@ -69,7 +69,7 @@ export class ObjectLayer {
     }
     for (const m of massifs?.list ?? []) {
       const xs = m.x0 + m.fw, ys = m.y0 + m.fh;
-      this.big.push({ def: defs.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, iso.zf(2 * xs - 1, 2 * ys - 1))), v: m.v - 0.001, alpha: 1 });
+      this.big.push({ def: defs.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, iso.zf(2 * xs - 1, 2 * ys - 1))), v: m.v - 0.001, alpha: 1, tint: Math.round(255 * m.shade) * 0x010101 });
     }
   }
 
@@ -128,7 +128,7 @@ export class ObjectLayer {
         if (!img) this.pool.push((img = this.scene.add.image(0, 0, d.key)));
         n++;
         const half = d.kind === 'massif' && zoom < 1;
-        img.setTexture(half ? d.key + '-half' : d.key).setScale(half ? 2 : 1).setOrigin(d.anchor.x / d.w, d.anchor.y / d.h).setPosition(o.sx, o.sy).setAlpha(o.alpha).setVisible(true);
+        img.setTexture(half ? d.key + '-half' : d.key).setScale(half ? 2 : 1).setOrigin(d.anchor.x / d.w, d.anchor.y / d.h).setPosition(o.sx, o.sy).setAlpha(o.alpha).setTint(o.tint ?? 0xffffff).setVisible(true);
         img.setDepth(10 + o.v / 4096 + 0.25);
       };
       const { iso } = this;
