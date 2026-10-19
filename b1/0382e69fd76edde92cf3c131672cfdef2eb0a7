@@ -1,0 +1,38 @@
+src/war/sim/grid.ts
+  s_cfc22b058125c4::t_679191bb335af5 1,57-59
+  s_cfc22b058125c4::t_95d8f7ab183648 60
+tests/war/objects.test.ts
+  s_cfc22b058125c4::t_ea2bcd81ca8cde 1-37
+src/war/types.ts
+  s_cfc22b058125c4::t_55ab321252662b 8-9
+src/war/region/objects.ts
+  s_cfc22b058125c4::t_7e2beeddf94503 1-18
+src/war/view/autotile.ts
+  s_cfc22b058125c4::t_1b8b2580e97e3c 136-141
+  s_cfc22b058125c4::t_b736a4b7313d3b 116-121,126-127
+  s_cfc22b058125c4::t_4dad9edc06006a 1-115,122-125,128-135,142-148
+tests/war/autotile.test.ts
+  s_cfc22b058125c4::t_070fb00ac1ea82 1-45
+src/war/region/schema.ts
+  s_cfc22b058125c4::t_55ab321252662b 19
+scripts/war/buildTestRidge.ts
+  s_cfc22b058125c4::t_efe835d7c6b80c 224-305
+src/war/regions/test-ridge.json
+  s_cfc22b058125c4::t_65e6a9b8f53a59 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b10382e69fd76edde92cf3c131672cfdef2eb0a7",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
