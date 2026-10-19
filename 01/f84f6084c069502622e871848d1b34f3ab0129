@@ -1,0 +1,21 @@
+src/war/sim/grid.ts
+  s_cfc22b058125c4::t_0c24026efd318e 69
+  s_cfc22b058125c4::t_68fb6946610a28 19-22,46-47,87-139,141-176,178,180-204,206-216,218,223,225,228-231,240,242
+  s_cfc22b058125c4::t_5cfa93d3c8058a 23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "01f84f6084c069502622e871848d1b34f3ab0129",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
