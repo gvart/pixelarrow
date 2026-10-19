@@ -259,9 +259,9 @@ export const SCENARIOS: Scenario[] = [
         you('hoplite', [124, 468]),
         you('hoplite', [131, 468]),
         you('archer', [127.5, 472], 16),
-        you('militia', [127.5, 461], 8), // ram crew
-        you('militia', [118.5, 464], 6), // ladder squad
-        you('militia', [138.5, 466], 8), // thrower crew
+        you('militia', [127.5, 461], 16), // ram crew (the roof covers half the arrows)
+        you('militia', [118.5, 464], 12), // ladder squad
+        you('militia', [138.5, 466], 10), // thrower crew
         bot('archer', at(RC, -2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 16),
         bot('archer', at(RC, 2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 12),
         bot('hoplite', at(RC, 0, 1), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 16),
