@@ -48,6 +48,12 @@ export class SimClient {
     this.send({ t: 'speed', scale });
   }
 
+  /** Render time for the clips (./anim.ts): the fractional tick drawn (one behind the newest snapshot). */
+  time(now: number): { now: number; tick: number; snap: number; tickMs: number } {
+    const snap = this.cur?.tick ?? 0;
+    return { now, tick: snap - 1 + Math.min(1, (performance.now() - this.at) / this.interval), snap, tickMs: this.interval };
+  }
+
   /** Units at render time, positions in tiles. */
   units(): DrawUnit[] {
     if (!this.cur) return [];

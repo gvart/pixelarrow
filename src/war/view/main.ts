@@ -13,12 +13,13 @@ import { scenarioById, SCENARIOS } from '../scenarios';
 import { loadArt } from './art';
 import { applyScenario, devPanel } from './devPanel';
 import { SandboxScene } from './SandboxScene';
+import { loadSheetImages } from './units';
 
 const q = new URLSearchParams(location.search);
 const id = q.get('region') ?? 'test-ridge';
 
 // no top-level await: the build targets es2020
-void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id), q.get('art') === 'grey' ? null : loadArt()]).then(([region, art]) => {
+void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id), q.get('art') === 'grey' ? null : loadArt(), loadSheetImages()]).then(([region, art, sheets]) => {
   const scene = new SandboxScene();
   const game = new Phaser.Game({
     type: Phaser.WEBGL,
@@ -28,8 +29,8 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
     render: { mipmapFilter: 'LINEAR_MIPMAP_LINEAR' },
   });
   const sc = id === 'test-ridge' ? (scenarioById(q.get('scenario')) ?? SCENARIOS.find((s) => s.id === 'free')!) : null;
-  game.scene.add('Sandbox', scene, true, { region, art });
-  // once create() ran (the sheets load first, so the sim client exists only then)
+  game.scene.add('Sandbox', scene, true, { region, art, sheets });
+  // once create() ran (the sim client exists only then)
   const ready = () => {
     if (!scene.sim) return;
     game.events.off('poststep', ready);

@@ -8,7 +8,9 @@
 // Mode `art` (PixelLab terrain and objects, ART-R): the ford at 1:1 with a fight, the pass with the
 // ruins, the plateau with the tower (a squad behind it), units at a forest edge (trees fade over
 // them), the overview, and the 600-unit brawl fps at mid zoom.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art] [id,id...]
+// Mode `anim`: frame sequences at 1:1 (100 ms apart) of a ford fight (archers and slingers shooting,
+// spears and swords striking, deaths) and of a squad idling, then the 600-unit brawl fps at 1/2.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
@@ -232,6 +234,67 @@ if (mode === 'art') {
   await shot('art-6-overview');
 }
 
+if (mode === 'anim') {
+  const seq = async (name, n) => {
+    for (let i = 0; i < n; i++) {
+      await page.screenshot({ path: `${out}/${name}-${String(i).padStart(3, '0')}.png`, clip: { x: 270, y: 200, width: 900, height: 500 } });
+      await wait(100);
+    }
+    console.log('saved', `${out}/${name}-*.png`);
+  };
+  const frameFight = () => page.evaluate(() => {
+    const s = window.__sandbox, f = s.drawn.filter((d) => d.u.state === 'attack' && (d.u.cls === 'hoplite' || d.u.cls === 'celt_sword'));
+    const c = f.length ? f : s.drawn.filter((d) => d.u.state === 'attack');
+    s.focus(c.reduce((a, d) => a + d.x, 0) / c.length, c.reduce((a, d) => a + d.y, 0) / c.length, 1);
+  });
+  await boot();
+  await page.evaluate(() => {
+    const s = window.__sandbox, { ford, fordW, fordE } = s.spots;
+    s.sim.spawn('you', 0, 'hoplite', 16, fordW[0] + 4, fordW[1]);
+    s.sim.spawn('you', 0, 'archer', 12, fordW[0] - 1, fordW[1] + 2);
+    s.sim.spawn('bot', 1, 'celt_sword', 16, fordE[0] - 4, fordE[1]);
+    s.sim.spawn('bot', 1, 'slinger', 12, fordE[0] + 1, fordE[1] - 2);
+    s.sim.order({ kind: 'attack', squad: 0, target: 2 });
+    s.sim.order({ kind: 'attack', squad: 1, target: 2 });
+    s.sim.order({ kind: 'attack', squad: 2, target: 0 });
+    s.sim.order({ kind: 'attack', squad: 3, target: 1 });
+    s.focus(ford[0], ford[1], 1);
+  });
+  await page.waitForFunction(() => window.__sandbox.sim.cur.shots?.length > 0, null, { timeout: 60000 });
+  await seq('anim-volley', 20);
+  await page.waitForFunction(() => window.__sandbox.drawn.filter((d) => d.u.state === 'attack' && d.u.cls === 'hoplite').length >= 4, null, { timeout: 60000 });
+  await frameFight();
+  await seq('anim-ford', 40);
+  await page.waitForFunction(() => window.__sandbox.drawn.filter((d) => d.u.state === 'dead').length >= 6, null, { timeout: 60000 });
+  await frameFight();
+  await seq('anim-deaths', 30);
+
+  await boot();
+  await page.evaluate(() => {
+    const s = window.__sandbox, [x, y] = s.spots.fordW;
+    s.sim.spawn('you', 0, 'militia', 20, x - 6, y + 6);
+    s.focus(x - 6, y + 6, 1);
+  });
+  await wait(2500);
+  await seq('anim-idle', 40);
+
+  await page.click('#brawl');
+  await page.waitForFunction(() => window.__sandbox.sim.stats.units >= 600);
+  await page.evaluate(() => {
+    const s = window.__sandbox, q = s.sim.cur.squads;
+    const mine = q.filter((x) => x.team === 0), foes = q.filter((x) => x.team === 1);
+    mine.forEach((x, i) => s.sim.order({ kind: 'attack', squad: x.id, target: foes[i % foes.length].id }));
+    s.focus(s.spots.ford[0], s.spots.ford[1], 1 / 2);
+  });
+  await page.waitForFunction(() => window.__sandbox.drawn.filter((d) => d.u.state === 'attack').length >= 150, null, { timeout: 120000, polling: 500 });
+  await page.evaluate(() => {
+    const s = window.__sandbox, f = s.drawn.filter((d) => d.u.state === 'attack');
+    s.focus(f.reduce((a, d) => a + d.x, 0) / f.length, f.reduce((a, d) => a + d.y, 0) / f.length, 1 / 2);
+  });
+  await fps('anim brawl 600 in melee, zoom 1/2');
+  await shot('anim-brawl-600-half');
+}
+
 // scenarios: opening, the player's plan, mid fight, end score
 const PLANS = {
   'pass-ambush': 'stand', // hold the pass where placed
@@ -248,7 +311,7 @@ const attackAll = () => page.evaluate(() => {
 });
 const score = () => page.evaluate(() => document.getElementById('score').textContent);
 for (const [id, plan] of Object.entries(PLANS)) {
-  if (mode === 'art' || (only && !only.includes(id))) continue;
+  if (mode === 'art' || mode === 'anim' || (only && !only.includes(id))) continue;
   await boot(`&scenario=${id}`);
   if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
   await wait(2500);

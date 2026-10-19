@@ -19,7 +19,8 @@ import { ArtBaker, type WarArt } from './art';
 import { IsoMap } from './iso';
 import { LIVE_ZOOM, ObjectLayer } from './objects';
 import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain';
-import { BODY, SPRITE_ZOOM, UnitLayer, loadSheets } from './units';
+import { ShotLayer } from './shots';
+import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 /** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above. */
@@ -70,6 +71,8 @@ export class SandboxScene extends Phaser.Scene {
   private overviewTex!: Phaser.Textures.CanvasTexture;
   private band = 0;
   private units!: UnitLayer;
+  private shots!: ShotLayer;
+  private sheetImages = new Map<string, HTMLImageElement>();
   private gUi!: Phaser.GameObjects.Graphics;
   private markers: { x: number; y: number; t: number; c: number }[] = [];
   private box: { x0: number; y0: number; x1: number; y1: number } | null = null;
@@ -80,13 +83,10 @@ export class SandboxScene extends Phaser.Scene {
     super('Sandbox');
   }
 
-  init(data: { region: RegionData; art?: WarArt | null }): void {
+  init(data: { region: RegionData; art?: WarArt | null; sheets: Map<string, HTMLImageElement> }): void {
     this.region = data.region;
     this.art = data.art ?? null;
-  }
-
-  preload(): void {
-    loadSheets(this);
+    this.sheetImages = data.sheets;
   }
 
   create(): void {
@@ -100,7 +100,8 @@ export class SandboxScene extends Phaser.Scene {
     const { W, H } = this.iso;
     this.overviewTex = this.textures.createCanvas('overview', Math.ceil(W * OVERVIEW_SCALE), Math.ceil(H * OVERVIEW_SCALE))!;
     this.add.image(0, 0, 'overview').setOrigin(0).setScale(1 / OVERVIEW_SCALE);
-    this.units = new UnitLayer(this, this.iso);
+    this.units = new UnitLayer(this, this.iso, this.sheetImages);
+    this.shots = new ShotLayer(this, this.iso);
     this.gUi = this.add.graphics().setDepth(11);
 
     const cam = this.cameras.main;
@@ -296,7 +297,10 @@ export class SandboxScene extends Phaser.Scene {
     for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
     this.drawn = this.sim.units();
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY);
-    this.units.draw(this.drawn, view, cam.zoom, this.selected, this.time.now, occluded);
+    const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
+    this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
+    this.shots.update(at.snap, shots);
+    this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.drawUi();
   }
 
