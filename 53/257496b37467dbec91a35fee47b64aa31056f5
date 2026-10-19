@@ -1,0 +1,26 @@
+scripts/war/buildTestRidge.ts
+  s_cfc22b058125c4::t_6de876609bac5f 618-619,621,636,645,647,652
+  s_cfc22b058125c4::t_7d150b463ad232 637
+  s_cfc22b058125c4::t_a8dd7e7604db7b 622
+  s_cfc22b058125c4::t_eb387e6e9f57ec 633,644
+  s_cfc22b058125c4::t_a7a426115f7921 36,593-617,620,623-632,634,638-643,646,648-651,653-663
+  s_cfc22b058125c4::t_ae1d3a9cb11873 635
+src/war/regions/test-ridge.json
+  s_cfc22b058125c4::t_af8c6cf622a8b0 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "53257496b37467dbec91a35fee47b64aa31056f5",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
