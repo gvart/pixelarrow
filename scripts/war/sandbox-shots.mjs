@@ -3,13 +3,17 @@
 // (checks the picked tile), a 600-unit brawl at mid zoom (sprites), at dot zoom and at the
 // overview (squad banners) with fps for each, the height overlay. Spots come from the scene
 // (src/war/regions/test-ridge.spots.ts), so this targets test-ridge.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim]
+// Then each ?scenario= preset (src/war/scenarios): its opening, the player side playing a simple
+// plan at 4x speed, a mid-fight shot and the end-of-fight score from the panel.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
 const out = shotsDir('war/sandbox', process.argv[3]);
 const sim = process.argv[4] ?? 'real';
+const mode = process.argv[5] ?? 'all';
+const only = process.argv[6]?.split(',');
 const url = `${base}sandbox.html?region=test-ridge&sim=${sim}`;
 
 const browser = await launch({ args: ['--use-gl=angle', '--ignore-gpu-blocklist'] });
@@ -20,8 +24,8 @@ const shot = async (name) => {
   await page.screenshot({ path: `${out}/${name}.png` });
   console.log('saved', `${out}/${name}.png`);
 };
-const boot = async () => {
-  await page.goto(url);
+const boot = async (q = '') => {
+  await page.goto(url + q);
   await page.waitForFunction(() => window.__sandbox?.sim?.cur && document.getElementById('dev'), null, { timeout: 60000 });
 };
 /** Average and minimum fps over n half seconds. */
@@ -35,6 +39,7 @@ const fps = async (label, n = 12) => {
   console.log(`${label}: zoom ${st.zoom.toFixed(3)} fps avg ${(v.reduce((a, b) => a + b, 0) / v.length).toFixed(1)} min ${Math.min(...v).toFixed(1)}; sim ${st.stepMs.toFixed(2)} ms/step; units ${st.units}`);
 };
 
+if (mode === 'all') {
 // 1. soldiers at 1:1 at the ford: own hoplites wading east, enemy swordsmen waiting on the far bank
 await boot();
 await page.evaluate(() => {
@@ -135,6 +140,58 @@ await page.check('[data-ov=height]');
 await page.waitForFunction(() => window.__sandbox.overviewReady, null, { timeout: 60000 });
 await wait(300);
 await shot('07-overlay-height');
+}
+
+// scenarios: opening, the player's plan, mid fight, end score
+const PLANS = {
+  'pass-ambush': 'stand', // hold the pass where placed
+  'ford-crossing': 'attack',
+  'hill-assault': 'attack',
+  'bridge-vs-ford': 'ford', // block the ford, then hunt the rest
+  'brawl-600': 'attack',
+  free: null,
+};
+const attackAll = () => page.evaluate(() => {
+  const s = window.__sandbox, q = [...s.sim.squads.values()], alive = new Set(s.drawn.filter((d) => d.u.state !== 'dead').map((d) => d.u.squad));
+  const foes = q.filter((x) => x.team !== 0 && alive.has(x.id));
+  q.filter((x) => x.team === 0).forEach((x, i) => foes.length && s.sim.order({ kind: 'attack', squad: x.id, target: foes[i % foes.length].id }));
+});
+const score = () => page.evaluate(() => document.getElementById('score').textContent);
+for (const [id, plan] of Object.entries(PLANS)) {
+  if (only && !only.includes(id)) continue;
+  await boot(`&scenario=${id}`);
+  if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
+  await wait(2500);
+  await shot(`s-${id}-1-open`);
+  if (!plan) continue;
+  await page.evaluate(() => window.__sandbox.sim.speed(4));
+  if (plan === 'attack') await attackAll();
+  if (plan === 'ford') {
+    await page.evaluate(() => {
+      const s = window.__sandbox, [x, y] = s.spots.fordW;
+      [...s.sim.squads.values()].filter((q) => q.team === 0).forEach((q, i) => s.sim.order({ kind: 'move', squad: q.id, x: x - 4 - Math.floor(i / 3) * 6, y: y + ((i % 3) - 1) * 6 }));
+    });
+  }
+  // mid fight: the first moment a tenth of the units are down, framed on the melee
+  await page.waitForFunction(() => {
+    const d = window.__sandbox.drawn;
+    return d.length && d.filter((x) => x.u.state === 'dead').length >= d.length / 10;
+  }, null, { timeout: 240000, polling: 500 }).catch(() => console.log(id, 'no casualties yet'));
+  await page.evaluate(() => {
+    const s = window.__sandbox, f = s.drawn.filter((x) => x.u.state === 'attack');
+    const c = f.length ? f : s.drawn;
+    s.focus(c.reduce((a, x) => a + x.x, 0) / c.length, c.reduce((a, x) => a + x.y, 0) / c.length, 1 / 2);
+  });
+  await wait(1500);
+  await shot(`s-${id}-2-mid`);
+  // play on to the end (bots that won their fight stand; then the player hunts the rest)
+  for (let i = 0; i < 60 && !/won|all down/.test(await score()); i++) {
+    await wait(4000);
+    if (plan !== 'stand' && i % 3 === 2) await attackAll();
+  }
+  console.log(`${id}:\n${await score()}`);
+  await shot(`s-${id}-3-end`);
+}
 
 await browser.close();
 if (problems.length) {

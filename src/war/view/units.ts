@@ -4,6 +4,7 @@
  * has four facings (the iso diagonals); a unit shows the one nearest its heading on screen, and
  * plays idle, walk, its class's attack and, once fallen, its death clip held on the last frame.
  * Units are depth sorted by x + y; behind higher ground they show as a team-coloured silhouette.
+ * The sheets wear red; team 0 (blue) draws through TEAM_SWAP, a shader that turns the red cloth blue.
  *
  * LOD by zoom: sprites from SPRITE_ZOOM up, team-coloured dots down to BANNER_ZOOM, below that
  * one banner per squad with its unit count.
@@ -14,7 +15,7 @@ import type { DrawUnit } from './simClient';
 import type { IsoMap } from './iso';
 
 export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
-/** A light multiply per team on the sprites: the sheets are one army's colours. */
+/** A light multiply per team on the sprites (team 0 is also hue-swapped, see TEAM_SWAP). */
 const TEAM_TINT = [0xd0e4ff, 0xffd4c8, 0xfff0c0, 0xecd8ff];
 export const SPRITE_ZOOM = 1 / 3;
 export const BANNER_ZOOM = 1 / 12;
@@ -22,6 +23,39 @@ export const BANNER_ZOOM = 1 / 12;
 export const BODY = 28;
 const RANGED_ANIMS: Record<string, SheetAnim> = { archer: 'shoot', slinger: 'sling', javelineer: 'throw' };
 const FALLBACK_CLASS = 'militia';
+const TEAM_SWAP = 'WarTeamBlue';
+
+/**
+ * Phaser's single-texture sprite shader plus a red -> blue swap of saturated red pixels (cloaks,
+ * crests, shield paint); skin, bronze and leather (green well above blue) keep their colours.
+ * Textures are premultiplied, so the swap runs on un-premultiplied colour.
+ */
+const SWAP_FRAG = `
+precision mediump float;
+uniform sampler2D uMainSampler;
+varying vec2 outTexCoord;
+varying float outTintEffect;
+varying vec4 outTint;
+void main() {
+  vec4 t = texture2D(uMainSampler, outTexCoord);
+  vec3 c = t.a > 0.0 ? t.rgb / t.a : t.rgb;
+  float r = max(c.r, 0.001);
+  float w = smoothstep(0.3, 0.55, (c.r - max(c.g, c.b)) / r) * (1.0 - smoothstep(0.1, 0.25, (c.g - c.b) / r));
+  c = mix(c, vec3(c.b * 0.6, c.g * 0.8 + c.r * 0.3, c.r * 1.2 + 0.06), w);
+  t.rgb = c * t.a;
+  vec4 texel = vec4(outTint.bgr * outTint.a, outTint.a);
+  vec4 color = t * texel;
+  if (outTintEffect == 1.0) color.rgb = mix(t.rgb, outTint.bgr * outTint.a, t.a);
+  else if (outTintEffect == 2.0) color = texel;
+  gl_FragColor = color;
+}`;
+
+function addSwapPipeline(scene: Phaser.Scene): boolean {
+  const r = scene.renderer;
+  if (!(r instanceof Phaser.Renderer.WebGL.WebGLRenderer)) return false;
+  if (!r.pipelines.has(TEAM_SWAP)) r.pipelines.add(TEAM_SWAP, new Phaser.Renderer.WebGL.Pipelines.SinglePipeline({ game: scene.game, fragShader: SWAP_FRAG }));
+  return true;
+}
 
 const manifests = import.meta.glob<SheetManifest>('../../assets/sheets/*/manifest.json', { eager: true, import: 'default' });
 const images = import.meta.glob<string>(
@@ -81,8 +115,10 @@ export class UnitLayer {
   private gOver: Phaser.GameObjects.Graphics;
   private fell = new Map<number, number>(); // unit id -> time it was first seen dead
   private filter = -1;
+  private swap: boolean;
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap) {
+    this.swap = addSwapPipeline(scene);
     for (const [path, m] of Object.entries(manifests)) {
       const cls = path.split('/').at(-2)!;
       if (scene.textures.exists(`war-${cls}`)) this.sheets.set(cls, buildSheet(scene, cls, m));
@@ -142,6 +178,8 @@ export class UnitLayer {
       n++;
       img.setTexture(sheet.key, `${clip}${q.row}_${i}`).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setVisible(true);
       img.setDepth(10 + (d.x + d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25));
+      if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
+      else if (this.swap) img.resetPipeline();
       if (hidden) img.setTintFill(team).setAlpha(0.45);
       else img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);
     }

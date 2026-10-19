@@ -2,6 +2,7 @@
  * Main-thread side of the sim worker: sends spawns and orders, keeps the last two Snapshots and
  * interpolates unit positions between them (rendering runs one 10 Hz tick behind).
  */
+import type { Behaviour } from '../sim/bots';
 import type { Order, RegionData, Snapshot, SquadSnap, UnitSnap } from '../types';
 import type { ToWorker } from './worker';
 
@@ -32,8 +33,9 @@ export class SimClient {
     this.worker.postMessage(m);
   }
 
-  spawn(owner: string, team: number, cls: string, count: number, x: number, y: number): void {
-    this.send({ t: 'spawn', owner, team, cls, count, x, y });
+  /** `bot`: a bot behaviour that drives the squad (../sim/bots.ts). */
+  spawn(owner: string, team: number, cls: string, count: number, x: number, y: number, bot?: Behaviour): void {
+    this.send({ t: 'spawn', owner, team, cls, count, x, y, bot });
   }
 
   order(o: Order): void {

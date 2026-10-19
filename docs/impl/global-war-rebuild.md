@@ -76,7 +76,7 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 - [x] **M1c combat-bots** — melee/ranged combat reusing class stats from `src/sim`, high-ground bonuses, slope/ford penalties, death/wounded flag, simple bot AI (attack-move, hold a point, flank via pass). verify: vitest scenarios (high ground wins equal fight). depends on: M1a
 - [x] **M1e iso-view** — true-iso renderer with height walls, iso picking for select/orders, occlusion fade/outline; same dev panel. depends on: sandbox-wire
 - [x] **M1f region-256** — test-ridge regenerated at 256×256, pathing perf re-checked (hierarchical if needed). depends on: M1c
-- [ ] **M1d scenarios** — `?scenario=` presets (pass ambush, ford crossing, hill assault, 600-unit brawl) + owner checklist. depends on: M1b, M1c
+- [x] **M1d scenarios** — `sandbox.html?scenario=pass-ambush|ford-crossing|hill-assault|bridge-vs-ford|brawl-600|free` (src/war/scenarios), picker + goal + alive/wounded/killed score in the panel; team 0 drawn blue. Owner checklist: each scenario reads at a glance (blue you, red enemy); bots do their job (march / hold / split); orders feel responsive; the score ends with a winner.
 - [x] **ART-1 world design + prototypes** — `docs/WAR.md` world section: ~35 regions with biome, altitude features, fauna (mobs), resources, adjacency; Gemini prototypes of the world map + 4 sample regions in `shots/war/gemini/`; prompts logged in `docs/playbook/PROMPTS_ART.md`. depends on: —
 
 - [ ] **ART-5 asset fixes + QA gate** — roofed watchtower, true umbrella pine, variant tiles so marsh/forest floor don't repeat, sand/water + sand/shallow sets, automated asset QA script. depends on: ART-4

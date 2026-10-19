@@ -1,23 +1,29 @@
-/** The sandbox dev panel (HTML overlay): spawning, time, overlays, perf. */
+/** The sandbox dev panel (HTML overlay): scenarios, spawning, time, overlays, perf, the fight score. */
 import type Phaser from 'phaser';
+import { SCENARIOS, type Scenario } from '../scenarios';
 import type { SandboxScene, Overlay } from './SandboxScene';
 
 const CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer'];
 
-export function devPanel(game: Phaser.Game, s: SandboxScene): void {
+const TEAMS = ['you', 'enemy', 'gold', 'violet'];
+
+export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null): void {
   const el = document.createElement('div');
   el.id = 'dev';
   el.innerHTML = `
     <b>${s.region.name}</b> <span class="dim">${s.region.w}x${s.region.h}</span>
+    ${sc ? `<div class="row">scenario <select id="scn">${SCENARIOS.map((q) => `<option value="${q.id}" ${q.id === sc.id ? 'selected' : ''}>${q.name}</option>`).join('')}</select></div>
+    <div class="row" id="goal">${sc.goal}</div>` : ''}
     <div class="row">team <select id="team"><option value="0">0 you</option><option value="1">1 red</option><option value="2">2 gold</option><option value="3">3 violet</option></select>
     <select id="cls">${CLASSES.map((c) => `<option>${c}</option>`).join('')}</select>
     <input id="count" type="number" min="1" max="20" value="20"></div>
     <div class="row"><button id="place">Place squad (click map)</button></div>
     <div class="row"><button id="bots">+4 bot squads at cursor (E)</button></div>
-    <div class="row"><button id="brawl">600 brawl</button> <button id="clear">Reload</button></div>
+    <div class="row"><button id="brawl">600 brawl</button> <button id="clear">Restart</button></div>
     ${s.region.id === 'test-ridge' ? `<div class="row">go to <select id="spot">${Object.keys(s.spots).map((k) => `<option>${k}</option>`).join('')}</select></div>` : ''}
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
     <div class="row">${(['height', 'cost', 'grid', 'zones'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
+    <pre id="score"></pre>
     <pre id="perf"></pre>
     <div class="dim">L click/box select, shift add · R click move / attack<br>H hold · 1-4 line/column/wedge/loose<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
   document.body.appendChild(el);
@@ -33,6 +39,8 @@ export function devPanel(game: Phaser.Game, s: SandboxScene): void {
   window.addEventListener('keydown', (e) => { if (e.key === 'e' || e.key === 'E') bots(); });
   $('brawl').onclick = () => brawl(s);
   $('clear').onclick = () => location.reload();
+  const scn = el.querySelector<HTMLSelectElement>('#scn');
+  if (scn) scn.onchange = () => { const q = new URLSearchParams(location.search); q.set('scenario', scn.value); location.search = q.toString(); };
   const spot = el.querySelector<HTMLSelectElement>('#spot');
   if (spot) spot.onchange = () => { const [x, y] = s.spots[spot.value as keyof typeof s.spots]; s.focus(x, y); };
   let paused = false;
@@ -46,11 +54,42 @@ export function devPanel(game: Phaser.Game, s: SandboxScene): void {
   // panel clicks never reach the map
   el.addEventListener('pointerdown', (e) => e.stopPropagation());
 
-  const perf = $('perf');
+  const perf = $('perf'), score = $('score'), t0 = s.sim.cur?.tick ?? 0;
+  let end: number | null = null;
   setInterval(() => {
+    const r = tally(s);
+    if (r.rows.length) {
+      const live = r.rows.filter((q) => q.alive);
+      if (end === null && r.rows.length > 1 && live.length <= 1) end = r.tick;
+      const sec = Math.max(0, (end ?? r.tick) - t0) / 10;
+      const head = end === null ? '' : live.length ? `  ${TEAMS[live[0].team] ?? live[0].team} won` : '  all down';
+      score.textContent = `team     alive wnd kill\n${r.rows.map((q) => `${(TEAMS[q.team] ?? String(q.team)).padEnd(8)} ${String(q.alive).padStart(5)} ${String(q.wounded).padStart(3)} ${String(q.killed).padStart(4)}`).join('\n')}\ntime   ${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}${head}`;
+    }
+
     const st = s.sim.stats;
     perf.textContent = `fps    ${game.loop.actualFps.toFixed(0)}\nsim    ${st.stepMs.toFixed(2)} ms/step\nunits  ${st.units}  squads ${s.sim.squads.size}\ntick   ${s.sim.cur?.tick ?? 0}  zoom ${s.cameras.main.zoom.toFixed(2)}\nsel    ${s.selected.size}`;
   }, 250);
+}
+
+/** Alive / wounded / killed per team (teams with units only), and the current tick. */
+export function tally(s: SandboxScene): { tick: number; rows: { team: number; alive: number; wounded: number; killed: number }[] } {
+  const by = new Map<number, { team: number; alive: number; wounded: number; killed: number }>();
+  for (const u of s.sim.cur?.units ?? []) {
+    const team = s.sim.squads.get(u.squad)?.team ?? 0;
+    let r = by.get(team);
+    if (!r) by.set(team, (r = { team, alive: 0, wounded: 0, killed: 0 }));
+    if (u.state !== 'dead') r.alive++;
+    else if (u.wounded) r.wounded++;
+    else r.killed++;
+  }
+  return { tick: s.sim.cur?.tick ?? 0, rows: [...by.values()].sort((a, b) => a.team - b.team) };
+}
+
+/** Place a scenario's squads (with their bot behaviours) and set its camera. */
+export function applyScenario(s: SandboxScene, sc: Scenario): void {
+  if (sc.id === 'brawl-600') brawl(s);
+  for (const q of sc.squads) s.sim.spawn(q.team === 0 ? 'you' : 'bot', q.team, q.cls, q.count, q.x, q.y, q.bot);
+  s.focus(sc.camera.x, sc.camera.y, sc.camera.zoom);
 }
 
 /**
