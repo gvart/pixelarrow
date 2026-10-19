@@ -1,0 +1,30 @@
+public/war/biomes/kyrene/tiles.json
+  s_cfc22b058125c4::t_e54528c11dce34 1-482
+scripts/war/art/build.mjs
+  s_cfc22b058125c4::t_e54528c11dce34 273-274
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_e54528c11dce34 1155-1228
+  s_cfc22b058125c4::t_89ea0af858d1fb 1229-1230
+scripts/war/art/preview.mjs
+  s_cfc22b058125c4::t_e54528c11dce34 57,66,74,78-79,134,143-156,162-190,197,207,211
+public/war/biomes/kyrene/objects.json
+  s_cfc22b058125c4::t_e54528c11dce34 1-665
+scripts/war/art/biomes/kyrene.mjs
+  s_cfc22b058125c4::t_e54528c11dce34 1-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "01de960ee72ad4c1c2f63dacc17e88b8dd66177f",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
