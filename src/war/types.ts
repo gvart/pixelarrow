@@ -70,7 +70,8 @@ export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder';
  * (BuildingSnap siege) joins the ground to that deck while it stands. pushLadder: defenders on the deck beside a foe
  * ladder push it off (takes time; climbers on it fall). ignite: men with torches walk up to a wood building or engine and
  * set it burning (stone does not burn); extinguish: they beat out the fire (slow). fireArrows: archers loose fire arrows
- * (slower reload) that set wood alight where they land.
+ * (slower reload) that set wood alight where they land; W-35: only a man within BRAZIER.radius of a lit brazier of his team
+ * does, and each fire arrow takes BRAZIER.pitch from the stockpile; else plain arrows (SquadSnap.fireArrows.reason).
  */
 export type SiegeOrder =
   | { kind: 'buildSiege'; squad: SquadId; type: SiegeType; x: number; y: number }
@@ -112,7 +113,13 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while
 // 'attack' once it has struck; ready: steps before the one that strikes or shoots next (0 = the next step), if it stays in reach. Play the attack clip once per swing.
-export interface SquadSnap { id: SquadId; owner: string; team: number; units: UnitId[]; order: Order['kind'] }
+export interface SquadSnap { id: SquadId; owner: string; team: number; units: UnitId[]; order: Order['kind'];
+  /**
+   * W-35, archer squads only: fire arrows toggled `on`; available: a living man stands within BRAZIER.radius of a lit
+   * brazier of his team and the stockpile holds pitch for a shot; else they loose plain arrows and reason says why.
+   */
+  fireArrows?: FireArrowsSnap }
+export interface FireArrowsSnap { on: boolean; available: boolean; reason?: 'noBrazier' | 'noPitch' }
 export type MissileKind = 'arrow' | 'stone' | 'javelin';
 /**
  * A missile in flight: loosed by unit `by` at tick t0 from (x0,y0) on ground height z0 (levels), lands at (x1,y1)
@@ -158,14 +165,17 @@ export interface WarSim {
 }
 
 // --- M2a: resources, gathering, construction (rules: src/war/sim/economy.ts) ---
-export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt';
+export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt' | 'pitch';
 export type BuildingType =
   | 'camp' | 'storehouse' | 'outpost' | 'fort' | 'barracks' | 'farm' | 'olivePress'
   | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate'
-  | 'woodBridge' | 'stoneBridge';
+  | 'woodBridge' | 'stoneBridge'
+  // W-35: brazier (1x1 on open ground, or on the team's own walkway / tower platform deck; paid at once, done and lit on
+  // placement, burns BRAZIER.life seconds; no squad needed); pitchKiln: a pitch node fed by the team's wood
+  | 'brazier' | 'pitchKiln';
 /** foundation: marked out, materials arriving; scaffold: labour under way (the footprint blocks); damaged: done below half hp. */
 export type BuildState = 'foundation' | 'scaffold' | 'done' | 'damaged' | 'destroyed';
-export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach' | 'span' | 'bank';
+export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach' | 'span' | 'bank' | 'cost';
 /** A dragged wall line (flat x,y points, tiles): split into segments; towers and gates (flat x,y) snap onto the line. */
 export interface WallOrder {
   kind: 'placeWall'; squad?: SquadId; team?: number; material: 'wood' | 'timber' | 'stone'; points: number[]; towers?: number[]; gates?: number[];
@@ -227,6 +237,8 @@ export interface BuildingSnap {
   upgradeFrom?: BuildingType;
   /** M2c: fire intensity 0..1 while it burns. */
   burning?: number;
+  /** W-35 brazier: lit (archers near it may loose fire arrows); fuel left 0..1. attach: the wall or tower it stands on. */
+  lit?: boolean; fuel?: number;
   /** M2c: a destroyed wall, gate or tower lies as rubble (walkable at ground level, slow; no deck). */
   rubble?: true;
   /** M2c: a ladder raised by siege engine `siege`; push: defenders' progress pushing it off 0..1. */

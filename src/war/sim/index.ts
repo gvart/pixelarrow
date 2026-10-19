@@ -35,11 +35,11 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { Order, RegionData, ShotSnap, Snapshot, SquadId, UnitSnap, WarBuildSim } from '../types';
+import type { Order, RegionData, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim } from '../types';
 import { warStats, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
-import { WORK_DEFENCE } from './economy';
+import { BRAZIER, BUILDINGS, WORK_DEFENCE } from './economy';
 import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER, RAM } from './siege';
@@ -500,6 +500,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       reslot(s);
       return;
     }
+    if (o.kind === 'placeBuilding' && BUILDINGS[o.type].brazier) {
+      works.place(s.team, o.type, o.x, o.y, o.rot ?? 0); // W-35: set down done and lit; the squad carries on
+      return;
+    }
     if (o.kind === 'placeBuilding' || o.kind === 'placeWall' || o.kind === 'placeBridge' || o.kind === 'build' || o.kind === 'gather') {
       const sites =
         o.kind === 'placeBuilding' ? [works.place(s.team, o.type, o.x, o.y, o.rot ?? 0)].filter((id) => id >= 0)
@@ -897,8 +901,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
   };
 
+  /** W-35: why the squad's fire arrows are out, null when they may loose them (a man by a lit brazier, pitch in stock). */
+  const fireBlock = (s: Squad): 'noBrazier' | 'noPitch' | null => {
+    let near = false;
+    for (const u of s.units) if (u.alive && works.litNear(s.team, u.x, u.y, hAt(u.x, u.y))) { near = true; break; }
+    return !near ? 'noBrazier' : works.pitch(s.team) < BRAZIER.pitch - 1e-9 ? 'noPitch' : null;
+  };
+  /** A fire arrow for this shot? Only by a lit brazier, and it takes its pitch (else a plain arrow). */
+  const fireShot = (u: Unit) =>
+    u.squad.fire && u.st.missile === 'arrow' && works.litNear(u.squad.team, u.x, u.y, hAt(u.x, u.y)) && works.takeStock(u.squad.team, { pitch: BRAZIER.pitch });
+
   const shoot = (u: Unit, t: Unit, d: number, dh: number, range: number) => {
-    const fire = u.squad.fire && u.st.missile === 'arrow';
+    const fire = fireShot(u);
     u.ammo--;
     u.cd = Math.round(u.st.shotTicks * (fire ? FIRE_RELOAD : 1));
     u.swingAt = tick;
@@ -914,7 +928,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   /** A shot at a building or engine (attackBuilding): arrows barely scratch it, fire arrows may set it alight. */
   const shootAt = (u: Unit, tx: number, ty: number, d: number, dh: number, range: number, k: Task) => {
-    const fire = u.squad.fire && u.st.missile === 'arrow';
+    const fire = fireShot(u);
     u.ammo--;
     u.cd = Math.round(u.st.shotTicks * (fire ? FIRE_RELOAD : 1));
     u.swingAt = tick;
@@ -1334,7 +1348,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
         }),
-        squads: squads.map((s) => ({ id: s.id, owner: s.owner, team: s.team, units: s.units.map((u) => u.id), order: s.order })),
+        squads: squads.map((s) => {
+          const snap: SquadSnap = { id: s.id, owner: s.owner, team: s.team, units: s.units.map((u) => u.id), order: s.order };
+          const st = s.units[0]?.st;
+          if (st && st.range > 0 && st.missile === 'arrow') {
+            const why = fireBlock(s);
+            snap.fireArrows = { on: s.fire, available: !why, ...(why ? { reason: why } : {}) };
+          }
+          return snap;
+        }),
         shots: [...shots, ...siege.shots()].map((sh) => ({ ...sh })),
         buildings: works.buildingSnaps(),
         stock: works.stockSnap(),
