@@ -1,0 +1,25 @@
+src/war/sim/bots.ts
+  s_cfc22b058125c4::t_8d0da3e02a891f 16-25,27-28,33-35,42-45,54-57,64-66,76-99,158-355,362-367,394-395
+  s_cfc22b058125c4::t_43f1c0576e4cfd 374
+tests/war/siege.test.ts
+  s_cfc22b058125c4::t_2f38ab5e03f38b 318-349
+  s_cfc22b058125c4::t_52eb53a79e6870 313
+  s_cfc22b058125c4::t_f6c246e3a20ab1 3
+  s_cfc22b058125c4::t_308fbca10f8d51 288-312,314-317,350-351
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5b05117b39f4743e2d8411cf013c78df45c0d0b6",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
