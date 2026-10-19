@@ -1,0 +1,76 @@
+src/assets/sheets/archer/manifest.json
+  s_cfc22b058125c4::t_5cc883d19c1676 129-138
+tests/sheetMounted.test.ts
+  s_cfc22b058125c4::t_abc61121365332 139-140
+docs/v5/pixellab/ANIM1/militia.jobs.json
+  s_cfc22b058125c4::t_abdd423c3c5582 15-17
+  s_cfc22b058125c4::t_e9391364149334 5-14
+  s_cfc22b058125c4::t_2f4045b61415d3 1-4,18
+scripts/art/pixellab/anim1/spec.mjs
+  s_cfc22b058125c4::t_e0c68b2cbf33a4 1-17,19-25,27-46
+  s_cfc22b058125c4::t_08a48bb8cfaf78 18,26
+src/assets/sheets/militia/manifest.json
+  s_cfc22b058125c4::t_2b4c8ba0920352 129-148
+docs/v5/pixellab/ANIM1/archer.jobs.json
+  s_cfc22b058125c4::t_9e7f707f508779 7-9
+  s_cfc22b058125c4::t_e793a46aa54a03 1-2,10
+  s_cfc22b058125c4::t_0a665ae0ebf3e7 3-6
+src/art/sheetManifest.ts
+  s_cfc22b058125c4::t_abc61121365332 35-36,80-83
+docs/v5/pixellab/ANIM1/slinger.sheet.json
+  s_cfc22b058125c4::t_395632e34329e9 1-217
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_aed1c4ec1de0ce 1004-1054
+docs/v5/pixellab/ANIM1/archer.sheet.json
+  s_cfc22b058125c4::t_5cc883d19c1676 1-218
+docs/v5/art/SHEET_FORMAT.md
+  s_cfc22b058125c4::t_aed1c4ec1de0ce 179-180
+docs/v5/art/STYLE_LOCK.md
+  s_cfc22b058125c4::t_aed1c4ec1de0ce 113-114
+src/assets/sheets/slinger/manifest.json
+  s_cfc22b058125c4::t_395632e34329e9 129-138
+docs/v5/pixellab/ANIM1/hoplite.jobs.json
+  s_cfc22b058125c4::t_0a665ae0ebf3e7 3-9
+  s_cfc22b058125c4::t_edf294bc6178c2 1-2,10
+scripts/art/pixellab/anim1/prompts.mjs
+  s_cfc22b058125c4::t_91a7e635f32ac1 46
+  s_cfc22b058125c4::t_84daf1fdc0f8d9 1-27,31-32,36-45,48-56,58-64
+  s_cfc22b058125c4::t_e4d3a7988a9e18 28-30,33-35
+  s_cfc22b058125c4::t_6bb1ee32b826f4 47,57
+scripts/art/pixellab/anim1/append.mjs
+  s_cfc22b058125c4::t_3c213bd9b774bf 1-124
+scripts/art/pixellab/anim1/prep.mjs
+  s_cfc22b058125c4::t_ac377ce4475592 1-38
+scripts/art/pack/pack.mjs
+  s_cfc22b058125c4::t_abc61121365332 25
+docs/v5/pixellab/ANIM1/militia.sheet.json
+  s_cfc22b058125c4::t_08a48bb8cfaf78 179
+  s_cfc22b058125c4::t_2b4c8ba0920352 1-178,180-259
+docs/v5/pixellab/ANIM1/hoplite.sheet.json
+  s_cfc22b058125c4::t_7465c629b64a55 1-162
+scripts/art/pixellab/anim1/job.mjs
+  s_cfc22b058125c4::t_20dc7d565a1da8 1-23
+scripts/art/pixellab/anim1/motion.mjs
+  s_cfc22b058125c4::t_22758df2a4c416 1-28
+docs/v5/pixellab/ANIM1/slinger.jobs.json
+  s_cfc22b058125c4::t_9e7f707f508779 3-9
+  s_cfc22b058125c4::t_e793a46aa54a03 1-2,10
+src/assets/sheets/hoplite/manifest.json
+  s_cfc22b058125c4::t_7465c629b64a55 129-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "82266744c542e292070fe34038608e382628aedd",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
