@@ -27,6 +27,7 @@ import { BuildMode } from './build/buildMode';
 import { workClip } from './build/work';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
+const CLIMB = ['climb', 'walk'] as const;
 /** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above. */
 const LADDER = [1 / 32, 1 / 24, 1 / 16, 1 / 12, 1 / 8, 1 / 6, 1 / 4, 1 / 3, 1 / 2, 1, 2, 3];
 /**
@@ -135,6 +136,11 @@ export class SandboxScene extends Phaser.Scene {
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
     this.build = new BuildMode(this);
+    // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk)
+    const layer = this.build.layer;
+    this.units.lift = (d) => layer.lift(d);
+    this.shots.lift = (x, y) => layer.lift({ x, y })?.px ?? 0;
+    this.units.anim.override = (u) => (layer.climbing.has(u.id) ? CLIMB : workClip(u));
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => this.zoomAt(p.x, p.y, dy > 0 ? -1 : 1));
   }
 
@@ -327,12 +333,14 @@ export class SandboxScene extends Phaser.Scene {
 
     for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
     this.drawn = this.sim.units();
-    const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY);
+    // buildings first: this frame's walks, stairs and ladders lift the units
+    this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
+    const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
+    if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
     const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
     this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
-    this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
     this.drawUi();
   }
 

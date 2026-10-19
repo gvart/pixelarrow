@@ -2,7 +2,7 @@
  "pxPerMetre": 33,
  "tileMetres": 2,
  "borderMax": 0.75,
- "note": "Build-mode art (W-22..W-28). objects[]: one sprite per building state; anchor = foot (bottom centre); tileOrigin = px of the top (north) vertex of the footprint's north tile: draw at that tile's top vertex minus tileOrigin; metres = height above the footprint (h = metres x 33 + basePx, basePx = (fw + fh) x 16). kits[]: one sheet per state, frames in rows of `columns` (frame n at column n % columns, row floor(n / columns)), tileOrigin = the top vertex of the NW tile in every frame. Palisade: frame = neighbour mask (+x 1, +y 2, -x 4, -y 8; a wall, gate or tower tile). Layered kits (layered: true; rampart, stone-wall, tower-stone, tower-wood) have two sheets per state: states[s] = BACK layer (faces, walk surface, the -x / -y parapets), front[s] = FRONT layer (the +x / +y parapets or rails, the wood tower's roof and front posts). Draw per tile: back, then the units standing on that tile (on the walk at walkwayPx above the ground, on a tower at platformPx), then front, all before anything on tiles further south. Walls: frame = frameOf[mask | open << 4]; mask = sides with a wall or gate tile of the same walk (no face, no parapet there); open = exposed sides with no parapet (a stair top, a joined tower, a ladder head; the face stays). A wall is built 2 tiles deep (walkwayWidthM). Towers: frame = open mask (sides joined to a walk at platform height, or with a ladder). Stairs: pieces <axis><+/-><length tiles>, rising towards the wall at wallAt; a unit stands at topM x (distance from the low end / length). Ladder: pieces <target>-<side of the face it leans on (n -y, e +x, s +y, w -x)>, top at topM[target]. Bridge frames = pieces. States: buildOrder (foundation -> rising -> scaffold -> done), each shown from progress[state] (share of the labour done), then damaged; gates also have open (leaves swung in). Colours = tiles.json palette + objects.json palette + palette.",
+ "note": "Build-mode art (W-22..W-28). objects[]: one sprite per building state; anchor = foot (bottom centre); tileOrigin = px of the top (north) vertex of the footprint's north tile: draw at that tile's top vertex minus tileOrigin; metres = height above the footprint (h = metres x 33 + basePx, basePx = (fw + fh) x 16). kits[]: one sheet per state, frames in rows of `columns` (frame n at column n % columns, row floor(n / columns)), tileOrigin = the top vertex of the NW tile in every frame. Palisade: frame = neighbour mask (+x 1, +y 2, -x 4, -y 8; a wall, gate or tower tile). Layered kits (layered: true; rampart, stone-wall, tower-stone, tower-wood) have two sheets per state: states[s] = BACK layer (faces, walk surface, the -x / -y parapets), front[s] = FRONT layer (the +x / +y parapets or rails, the wood tower's roof and front posts). Draw per tile: back, then the units standing on that tile (on the walk at walkwayPx above the ground, on a tower at platformPx), then front, all before anything on tiles further south. Walls: frame = frameOf[mask | open << 4]; post (done walls): one frame, drawn over the back of a tile whose -x and -y sides are joined but whose -x -y diagonal is not (closes the parapet of that inner corner); mask = sides with a wall or gate tile of the same walk (no face, no parapet there); open = exposed sides with no parapet (a stair top, a joined tower, a ladder head; the face stays). A wall is built 2 tiles deep (walkwayWidthM). Towers: frame = open mask (sides joined to a walk at platform height, or with a ladder). Stairs: pieces <axis><+/-><length tiles>, rising towards the wall at wallAt; a unit stands at topM x (distance from the low end / length). Ladder: pieces <target>-<side of the face it leans on (n -y, e +x, s +y, w -x)>, top at topM[target]. Bridge frames = pieces. States: buildOrder (foundation -> rising -> scaffold -> done), each shown from progress[state] (share of the labour done), then damaged; gates also have open (leaves swung in). Colours = tiles.json palette + objects.json palette + palette.",
  "buildOrder": [
   "foundation",
   "rising",
@@ -207,6 +207,7 @@
    "id": "rampart",
    "kind": "wall",
    "layered": true,
+   "post": "rampart-post.png",
    "material": "wood",
    "burnable": true,
    "heightM": 4,
@@ -508,6 +509,7 @@
    "id": "stone-wall",
    "kind": "wall",
    "layered": true,
+   "post": "stone-wall-post.png",
    "material": "stone",
    "burnable": false,
    "heightM": 6,
@@ -1313,6 +1315,182 @@
     "done": "wood-gate-y-done",
     "damaged": "wood-gate-y-damaged",
     "open": "wood-gate-y-open"
+   }
+  },
+  {
+   "id": "stone-gate-x-deep-s",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "x",
+   "deep": "s",
+   "inline": "2-deep wall gate: the stone-gate-x on the line, its passage on the inner row (s side)",
+   "heightM": 6,
+   "states": {
+    "foundation": "stone-gate-x-deep-s-foundation",
+    "rising": "stone-gate-x-deep-s-rising",
+    "scaffold": "stone-gate-x-deep-s-scaffold",
+    "done": "stone-gate-x-deep-s-done",
+    "damaged": "stone-gate-x-deep-s-damaged",
+    "open": "stone-gate-x-deep-s-open"
+   }
+  },
+  {
+   "id": "stone-gate-x-deep-n",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "x",
+   "deep": "n",
+   "inline": "2-deep wall gate: the stone-gate-x on the line, its passage on the inner row (n side)",
+   "heightM": 6,
+   "states": {
+    "foundation": "stone-gate-x-deep-n-foundation",
+    "rising": "stone-gate-x-deep-n-rising",
+    "scaffold": "stone-gate-x-deep-n-scaffold",
+    "done": "stone-gate-x-deep-n-done",
+    "damaged": "stone-gate-x-deep-n-damaged",
+    "open": "stone-gate-x-deep-n-open"
+   }
+  },
+  {
+   "id": "stone-gate-y-deep-e",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "y",
+   "deep": "e",
+   "inline": "2-deep wall gate: the stone-gate-y on the line, its passage on the inner row (e side)",
+   "heightM": 6,
+   "states": {
+    "foundation": "stone-gate-y-deep-e-foundation",
+    "rising": "stone-gate-y-deep-e-rising",
+    "scaffold": "stone-gate-y-deep-e-scaffold",
+    "done": "stone-gate-y-deep-e-done",
+    "damaged": "stone-gate-y-deep-e-damaged",
+    "open": "stone-gate-y-deep-e-open"
+   }
+  },
+  {
+   "id": "stone-gate-y-deep-w",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "y",
+   "deep": "w",
+   "inline": "2-deep wall gate: the stone-gate-y on the line, its passage on the inner row (w side)",
+   "heightM": 6,
+   "states": {
+    "foundation": "stone-gate-y-deep-w-foundation",
+    "rising": "stone-gate-y-deep-w-rising",
+    "scaffold": "stone-gate-y-deep-w-scaffold",
+    "done": "stone-gate-y-deep-w-done",
+    "damaged": "stone-gate-y-deep-w-damaged",
+    "open": "stone-gate-y-deep-w-open"
+   }
+  },
+  {
+   "id": "wood-gate-x-deep-s",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "x",
+   "deep": "s",
+   "inline": "2-deep wall gate: the wood-gate-x on the line, its passage on the inner row (s side)",
+   "heightM": 4.9,
+   "states": {
+    "foundation": "wood-gate-x-deep-s-foundation",
+    "rising": "wood-gate-x-deep-s-rising",
+    "scaffold": "wood-gate-x-deep-s-scaffold",
+    "done": "wood-gate-x-deep-s-done",
+    "damaged": "wood-gate-x-deep-s-damaged",
+    "open": "wood-gate-x-deep-s-open"
+   }
+  },
+  {
+   "id": "wood-gate-x-deep-n",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "x",
+   "deep": "n",
+   "inline": "2-deep wall gate: the wood-gate-x on the line, its passage on the inner row (n side)",
+   "heightM": 4.9,
+   "states": {
+    "foundation": "wood-gate-x-deep-n-foundation",
+    "rising": "wood-gate-x-deep-n-rising",
+    "scaffold": "wood-gate-x-deep-n-scaffold",
+    "done": "wood-gate-x-deep-n-done",
+    "damaged": "wood-gate-x-deep-n-damaged",
+    "open": "wood-gate-x-deep-n-open"
+   }
+  },
+  {
+   "id": "wood-gate-y-deep-e",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "y",
+   "deep": "e",
+   "inline": "2-deep wall gate: the wood-gate-y on the line, its passage on the inner row (e side)",
+   "heightM": 4.9,
+   "states": {
+    "foundation": "wood-gate-y-deep-e-foundation",
+    "rising": "wood-gate-y-deep-e-rising",
+    "scaffold": "wood-gate-y-deep-e-scaffold",
+    "done": "wood-gate-y-deep-e-done",
+    "damaged": "wood-gate-y-deep-e-damaged",
+    "open": "wood-gate-y-deep-e-open"
+   }
+  },
+  {
+   "id": "wood-gate-y-deep-w",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "y",
+   "deep": "w",
+   "inline": "2-deep wall gate: the wood-gate-y on the line, its passage on the inner row (w side)",
+   "heightM": 4.9,
+   "states": {
+    "foundation": "wood-gate-y-deep-w-foundation",
+    "rising": "wood-gate-y-deep-w-rising",
+    "scaffold": "wood-gate-y-deep-w-scaffold",
+    "done": "wood-gate-y-deep-w-done",
+    "damaged": "wood-gate-y-deep-w-damaged",
+    "open": "wood-gate-y-deep-w-open"
    }
   },
   {
@@ -2533,6 +2711,1302 @@
    "material": "wood",
    "burnable": true,
    "source": "renderer + palisade elevation"
+  },
+  {
+   "id": "stone-gate-x-deep-s-foundation",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-foundation.png",
+   "w": 130,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-x-deep-s",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-rising",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-rising.png",
+   "w": 131,
+   "h": 107,
+   "metres": 1.3,
+   "basePx": 64,
+   "anchor": {
+    "x": 56,
+    "y": 106
+   },
+   "tileOrigin": {
+    "x": 68,
+    "y": 43
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-scaffold.png",
+   "w": 137,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 71,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 74,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-done",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-done.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-damaged",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-damaged.png",
+   "w": 151,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 76,
+    "y": 110
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-open",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-open.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-foundation",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-foundation.png",
+   "w": 130,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-x-deep-n",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-rising",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-rising.png",
+   "w": 131,
+   "h": 108,
+   "metres": 1.33,
+   "basePx": 64,
+   "anchor": {
+    "x": 56,
+    "y": 107
+   },
+   "tileOrigin": {
+    "x": 68,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-scaffold.png",
+   "w": 137,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 71,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 74,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-done",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-done.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-damaged",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-damaged.png",
+   "w": 154,
+   "h": 185,
+   "metres": 3.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 184
+   },
+   "tileOrigin": {
+    "x": 76,
+    "y": 115
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-open",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-open.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-foundation",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-foundation.png",
+   "w": 130,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 65,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-y-deep-e",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-rising",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-rising.png",
+   "w": 131,
+   "h": 107,
+   "metres": 1.3,
+   "basePx": 64,
+   "anchor": {
+    "x": 74,
+    "y": 106
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 43
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-scaffold.png",
+   "w": 137,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-done",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-done.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 62,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-damaged",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-damaged.png",
+   "w": 151,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 87,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 75,
+    "y": 110
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-open",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-open.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 62,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-foundation",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-foundation.png",
+   "w": 130,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 65,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-y-deep-w",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-rising",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-rising.png",
+   "w": 131,
+   "h": 108,
+   "metres": 1.33,
+   "basePx": 64,
+   "anchor": {
+    "x": 74,
+    "y": 107
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-scaffold.png",
+   "w": 137,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-done",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-done.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 62,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-damaged",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-damaged.png",
+   "w": 154,
+   "h": 185,
+   "metres": 3.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 90,
+    "y": 184
+   },
+   "tileOrigin": {
+    "x": 78,
+    "y": 115
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-open",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-open.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 62,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-foundation",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-foundation.png",
+   "w": 106,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-x-deep-s",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-rising",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-rising.png",
+   "w": 106,
+   "h": 102,
+   "metres": 1.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-scaffold.png",
+   "w": 117,
+   "h": 198,
+   "metres": 4.06,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 197
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-done",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-done.png",
+   "w": 118,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-damaged",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-damaged.png",
+   "w": 108,
+   "h": 199,
+   "metres": 4.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 58,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-open",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-open.png",
+   "w": 118,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-foundation",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-foundation.png",
+   "w": 106,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-x-deep-n",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-rising",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-rising.png",
+   "w": 106,
+   "h": 102,
+   "metres": 1.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-scaffold.png",
+   "w": 117,
+   "h": 198,
+   "metres": 4.06,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 197
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-done",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-done.png",
+   "w": 118,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 69,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-damaged",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-damaged.png",
+   "w": 108,
+   "h": 199,
+   "metres": 4.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 58,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-open",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-open.png",
+   "w": 118,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 69,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-foundation",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-foundation.png",
+   "w": 106,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 41,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-y-deep-e",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-rising",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-rising.png",
+   "w": 106,
+   "h": 102,
+   "metres": 1.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 46,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-scaffold.png",
+   "w": 117,
+   "h": 198,
+   "metres": 4.06,
+   "basePx": 64,
+   "anchor": {
+    "x": 50,
+    "y": 197
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-done",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-done.png",
+   "w": 118,
+   "h": 211,
+   "metres": 4.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 47,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-damaged",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-damaged.png",
+   "w": 108,
+   "h": 199,
+   "metres": 4.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 49,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-open",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-open.png",
+   "w": 118,
+   "h": 211,
+   "metres": 4.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 47,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-foundation",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-foundation.png",
+   "w": 106,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 41,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-y-deep-w",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-rising",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-rising.png",
+   "w": 106,
+   "h": 102,
+   "metres": 1.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 46,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-scaffold.png",
+   "w": 117,
+   "h": 198,
+   "metres": 4.06,
+   "basePx": 64,
+   "anchor": {
+    "x": 50,
+    "y": 197
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-done",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-done.png",
+   "w": 118,
+   "h": 211,
+   "metres": 4.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 48,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-damaged",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-damaged.png",
+   "w": 108,
+   "h": 199,
+   "metres": 4.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 49,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-open",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-open.png",
+   "w": 118,
+   "h": 211,
+   "metres": 4.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 48,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer + palisade elevation, composed 2 deep"
   },
   {
    "id": "keep-foundation",

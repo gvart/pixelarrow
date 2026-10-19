@@ -4,7 +4,7 @@
  * ../sim/bots.ts, and sets the camera. Points are tile coords, mostly named spots.
  */
 import type { Behaviour } from '../sim/bots';
-import type { BuildingType, ResourceKind } from '../types';
+import type { BuildingType, Order, ResourceKind, WallOrder } from '../types';
 import { SPOTS } from '../regions/test-ridge.spots';
 
 export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour }
@@ -19,8 +19,20 @@ export interface Scenario {
   economy?: {
     claims: { team: number; x: number; y: number; r?: number }[];
     stock?: Partial<Record<ResourceKind, number>>;
-    sites?: { squad: number; type: BuildingType; x: number; y: number }[];
+    /** Wall lines a squad lays out (before the sites, so stairs and ladders find their wall). */
+    walls?: (Omit<WallOrder, 'kind' | 'squad'> & { squad: number; phase?: number })[];
+    sites?: { squad: number; type: BuildingType; x: number; y: number; rot?: 0 | 1; phase?: number }[];
+    /**
+     * Fast-forward up to this many ticks per phase before play, the team's squads building every site (a standing
+     * base): walls and sites go down by `phase` (default 0), each phase built before the next is laid out.
+     */
+    prebuild?: number;
   };
+  /**
+   * After the prebuild: orders, `settle` ticks stepped at once (squads take post), then more squads (ids go on from
+   * `squads`) and the orders `then`.
+   */
+  after?: { orders: Order[]; settle?: number; squads: ScenarioSquad[]; then?: Order[] };
 }
 
 type P = readonly [number, number];
@@ -33,6 +45,13 @@ const S = SPOTS;
 const HOME = [342, 338] as const;
 const [passSx, passSy] = S.passS;
 const [fwx, fwy] = S.fieldW;
+/**
+ * wall-defense: the one flat open stretch of test-ridge (28 x 28 tiles of grass at height 1, south-west). A stone wall
+ * ring, line x 119..135, y 425..440 (inner row inside), a gate in its south side, stone stairs up the north and west
+ * walls, a free wood tower with its ladder inside, the camp in the middle.
+ */
+const RING = { x0: 119.5, y0: 425.5, x1: 135.5, y1: 440.5 } as const;
+const RC = [127.5, 433] as const;
 
 export const SCENARIOS: Scenario[] = [
   {
@@ -130,6 +149,58 @@ export const SCENARIOS: Scenario[] = [
       claims: [{ team: 0, x: HOME[0], y: HOME[1], r: 24 }],
       stock: { wood: 150, stone: 100, food: 50 },
       sites: [{ squad: 0, type: 'camp', x: HOME[0] + 0.5, y: HOME[1] + 0.5 }],
+    },
+  },
+  {
+    id: 'wall-defense',
+    name: 'Wall defense',
+    goal: 'Hold the walled camp: your archers man the south wall-walk, spears wait inside the gate. The enemy comes from the south and raises ladders.',
+    squads: [
+      you('hoplite', at(RC, -3, -3)),
+      you('hoplite', at(RC, 3, -3)),
+      // archers in fours: a big squad files up a one-man stair badly (some stall at its foot)
+      ...[-3, -1, 1, 3].map((dx) => you('archer', at(RC, dx, 4), 4)),
+    ],
+    camera: { x: RC[0], y: RC[1] + 4, zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 0, x: RC[0], y: RC[1], r: 26 }],
+      stock: { stone: 3000, wood: 1000 },
+      sites: [
+        { squad: 0, type: 'camp', x: 127, y: 434 },
+        { squad: 1, type: 'stoneStairs', x: 123.5, y: 428.5, phase: 2 },
+        { squad: 1, type: 'stoneStairs', x: 122.5, y: 431.5, rot: 1, phase: 2 },
+        { squad: 2, type: 'woodTower', x: 127, y: 428, phase: 2 },
+        { squad: 2, type: 'ladder', x: 126.5, y: 429.5, phase: 2 },
+      ],
+      // four lines, not one closed loop: the sim's inner rows overlap at a loop's corners. North and south bands take
+      // the corners, west and east run between them.
+      walls: [
+        { squad: 0, material: 'stone', points: [RING.x0, RING.y0, RING.x1, RING.y0], inside: [RC[0], RC[1]] },
+        { squad: 0, material: 'stone', points: [RING.x0, RING.y1, RING.x1, RING.y1], gates: [127.5, RING.y1], inside: [RC[0], RC[1]] },
+        { squad: 1, material: 'stone', points: [RING.x0, RING.y0 + 2, RING.x0, RING.y1 - 2], inside: [RC[0], RC[1]], phase: 1 },
+        { squad: 1, material: 'stone', points: [RING.x1, RING.y0 + 2, RING.x1, RING.y1 - 2], inside: [RC[0], RC[1]], phase: 1 },
+      ],
+      prebuild: 20000,
+    },
+    after: {
+      squads: [
+        bot('celt_sword', at(RC, -6, 22), { kind: 'attackMove', x: RC[0], y: RC[1] }),
+        bot('javelineer', at(RC, 6, 22), { kind: 'attackMove', x: RC[0], y: RC[1] }, 16),
+        bot('archer', at(RC, 0, 26), { kind: 'attackMove', x: RC[0], y: RC[1] }, 16),
+        { team: 1, cls: 'militia', count: 20, x: RC[0] - 2, y: RC[1] + 18 }, // raiders: raise the ladders, then climb
+      ],
+      orders: [
+        { kind: 'move', squad: 0, x: 127.5, y: 436.5 }, // spears behind the gate
+        { kind: 'move', squad: 1, x: 130.5, y: 433 },
+        // archers up the stairs, along the south walk; four up the wood tower's ladder
+        ...[2, 3, 4].map((squad, i): Order => ({ kind: 'move', squad, x: 121.5 + 2 * i, y: 439.5 })),
+        { kind: 'move', squad: 5, x: 127, y: 427.6 },
+      ],
+      settle: 1200,
+      then: [
+        { kind: 'placeBuilding', squad: 9, type: 'ladder', x: 123.5, y: 441.5 },
+        { kind: 'placeBuilding', squad: 9, type: 'ladder', x: 132.5, y: 441.5 },
+      ],
     },
   },
   {

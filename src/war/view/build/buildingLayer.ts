@@ -1,22 +1,29 @@
 /**
- * Buildings, sites and the build-mode overlays on the iso map (M2b, W-26). Each building is drawn with its ART-B sprite
- * (./buildArt.ts; under construction the stage its labour reached) when there is one, fitted inside its sim footprint
- * (art drawn for a bigger footprint is scaled down and centred, with a dev warning), else a placeholder iso box over its
- * footprint tinted by state: foundation (marked out ground, stakes), scaffold (poles and hatching, risen with progress),
- * done (solid, team band), damaged (dark, cracked), destroyed (rubble). Each one sits at the depth of its footprint's
- * south side, sorted with the units and map objects (10 + v / 4096 + 0.25, as ./units.ts). Gates draw open while a unit
- * of their team is near.
+ * Buildings, sites and the build-mode overlays on the iso map (M2b, W-26..W-28). Each building is drawn with its ART-B
+ * art (./buildArt.ts; under construction the stage its labour reached: foundation, rising, scaffold) when there is one,
+ * else a placeholder iso box over its footprint tinted by state.
+ *
+ * Wall-walks (W-28): walls with a walkway (rampart, stone wall) and towers are layered kits drawn per tile: the back
+ * layer, then the units standing on that tile's walk (walkwayPx / platformPx above the ground: the art's heights, not the
+ * sim's levels), then the front layer (the outer parapets over their legs), all sorted with the units and map objects
+ * (10 + depth / 4096 + 0.25, as ./units.ts). Frames: walls by frameOf[mask | open << 4] (mask: sides joined to a wall or
+ * gate of the same walk; open: a stair top, a joined tower or a ladder head there), towers by their open sides. Stairs
+ * and ladders are kit pieces; units on a stair stand at its top height x the distance from its low end, on a ladder they
+ * climb straight up its foot; in a stone tower's door they are inside (not drawn). lift() gives the units layer those
+ * heights and depths; occluded() names the units a wall or tower hides (drawn as a silhouette). Gates in a 2-deep wall
+ * use the 2-deep art (the passage over the inner row); gates draw open while a unit of their team is near. An upgrade
+ * keeps the old tier drawn until the new one reaches its scaffold stage (a grown inner row shows its own stage).
  * Ground overlays (under every object): footprint grids in build mode and on a hovered or selected site, a ring round a
  * selected finished building, the ghost's footprint. Over them: progress bars, the own influence area (a canvas baked per
- * influence version), the placement ghost (the real done sprite, or wall kit pieces, tinted green / red, with the sim's
- * reason) and the hovered resource node.
+ * influence version), the placement ghost (the real sprites or kit pieces, tinted green / red, with the sim's reason)
+ * and the hovered resource node.
  */
 import Phaser from 'phaser';
 import type { BuildingSnap, BuildingType, InfluenceMap, NodeSnap } from '../../types';
 import { BUILDINGS } from '../../sim/economy';
 import { HH, HW, type IsoMap } from '../iso';
 import type { DrawUnit } from '../simClient';
-import { TEAM_COLOR } from '../units';
+import { BODY, TEAM_COLOR } from '../units';
 import type { BuildArt, BuildSprite, KitSprite } from './buildArt';
 
 /** Ground overlays: over the terrain chunks (1) and the influence area (2), under objects and units (10+). */
@@ -25,16 +32,36 @@ const OK = 0x50e060, BAD = 0xff4040;
 /** Placeholder heights in world px (~33 px a metre). */
 const HEIGHT: Partial<Record<BuildingType, number>> = {
   camp: 36, storehouse: 52, outpost: 80, fort: 120, barracks: 60, farm: 8, olivePress: 48,
-  palisade: 56, stoneWall: 84, woodTower: 120, stoneTower: 150, woodGate: 70, stoneGate: 100,
+  palisade: 56, rampart: 100, stoneWall: 160, woodTower: 120, stoneTower: 150, woodGate: 70, stoneGate: 100, woodStairs: 50, stoneStairs: 80, ladder: 120,
 };
 const MAT = { wood: 0x8a6a44, stone: 0xa8a294 };
 const GATE_NEAR = 3; // tiles: a gate opens while one of its team stands this near
+/** Depth steps inside a tile's layers (a tile's depth key spans ~1 / 4096). */
+const IN = 1e-6, FRONT = 2e-5;
 const view = (o: { x: number; y: number; right: number; bottom: number }, x: number, y: number, m: number) => x > o.x - m && x < o.right + m && y > o.y - m && y < o.bottom + m * 2;
+/** Neighbour sides: +x 1, +y 2, -x 4, -y 8. */
+const SIDES: [number, number, number][] = [[1, 0, 1], [0, 1, 2], [-1, 0, 4], [0, -1, 8]];
+const sideOf = (dx: number, dy: number) => (dx > 0 ? 1 : dy > 0 ? 2 : dx < 0 ? 4 : 8);
+const LETTER: Record<number, string> = { 1: 'e', 2: 's', 4: 'w', 8: 'n' };
 
 /** Multiply a colour's channels by k. */
 const shade = (c: number, k: number) => (Math.min(255, ((c >> 16) & 255) * k) << 16) | (Math.min(255, ((c >> 8) & 255) * k) << 8) | Math.min(255, (c & 255) * k);
 
 type P = { x: number; y: number };
+/** Where a unit is drawn: a tile point (x, y) on ground level z, raised px; depth key, hidden (inside), climbing. */
+export interface Lift { x: number; y: number; z: number; px: number; depth?: number; hide?: boolean; climb?: boolean; facing?: number }
+/** A raised tile: what a unit standing there is drawn on. */
+interface Deck {
+  kind: 'deck' | 'stair' | 'ladder' | 'door'; px: number; z: number; depth: number; b: number;
+  /** stair: low-end edge (ox, oy), rising direction, length; ladder: side towards its wall. */
+  ox: number; oy: number; dx: number; dy: number; n: number;
+}
+/** How a building is drawn this frame: the type and stage shown (an upgrade shows the old tier), and the grown tiles' stage. */
+interface Look { type: BuildingType; stage: string; grown: number; grownStage: string }
+/** A placement ghost piece. tiles: stairs bottom first; attach: the tile of the wall or tower a ladder leans on. */
+export interface GhostPiece { tiles: readonly number[]; ok: boolean; type?: BuildingType; attach?: readonly number[]; rot?: 0 | 1 }
+/** A ground arrow (tile point, direction) in the ghost: the wall's inside. */
+export interface GhostMark { x: number; y: number; dx: number; dy: number }
 
 export class BuildingLayer {
   art: BuildArt | null = null;
@@ -44,6 +71,8 @@ export class BuildingLayer {
   hovered = -1;
   /** Build mode: every footprint shows its grid. */
   grids = false;
+  /** Units on a ladder this frame (the climb clip). */
+  readonly climbing = new Set<number>();
   private gfx: Phaser.GameObjects.Graphics[] = [];
   private imgs: Phaser.GameObjects.Image[] = [];
   private ghostImgs: Phaser.GameObjects.Image[] = [];
@@ -56,6 +85,22 @@ export class BuildingLayer {
   private inflVer = -1;
   private inflShown = false;
   private warned = new Set<string>();
+  // per frame (prepare)
+  private occ = new Map<number, BuildingSnap>();
+  private looks = new Map<number, Look>();
+  /** Walk tiles of layered walls and towers: their kit id and walk px. */
+  private walks = new Map<number, { kit: string; px: number; b: number }>();
+  /** Gate tiles and the passages of 2-deep gates (wall masks join them). */
+  private gateJoin = new Set<number>();
+  /** Gate id -> the side of its 2-deep passage (n e s w), and the passage tiles. */
+  private deep = new Map<number, { side: string; tiles: number[] }>();
+  /** Open sides (no parapet) per wall or tower tile. */
+  private open = new Map<number, number>();
+  /** Tall tiles (px) that hide what stands behind them. */
+  private heights = new Map<number, number>();
+  private decks = new Map<number, Deck>();
+  /** Footprint size of each wall before an upgrade grew it (tiles). */
+  private orig = new Map<number, number>();
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, private depthOf: (x: number, y: number) => number) {
     this.gBars = scene.add.graphics().setDepth(11.5);
@@ -76,61 +121,320 @@ export class BuildingLayer {
     return this.iso.zAt(b.x, b.y);
   }
 
+  /** Ground level of a tile (as its kit piece is drawn). */
+  private zt(tx: number, ty: number): number {
+    return this.iso.zAt(tx + 0.5, ty + 0.5);
+  }
+
+  /** Display depth of a tile point (units and objects sort the same way). */
+  private D(x: number, y: number): number {
+    return 10 + this.depthOf(x, y) / 4096 + 0.25;
+  }
+
+  // --- per frame: what stands where ---
+
+  /** How b shows this frame (see Look). */
+  private look(b: BuildingSnap): Look {
+    const stage = this.art?.stage(b.state, b.progress) ?? b.state, n = b.tiles.length / 2;
+    if (!b.upgradeFrom) {
+      if (BUILDINGS[b.type].wall === 'segment') this.orig.set(b.id, n);
+      return { type: b.type, stage, grown: n, grownStage: stage };
+    }
+    const scaf = this.art ? b.progress >= this.art.threshold('scaffold') : b.progress >= 0.5;
+    if (b.state !== 'scaffold' || scaf) return { type: b.type, stage, grown: n, grownStage: stage };
+    const grown = Math.min(n, this.orig.get(b.id) ?? (b.upgradeFrom === 'palisade' ? Math.ceil(n / 2) : n));
+    return { type: b.upgradeFrom, stage: 'done', grown, grownStage: stage };
+  }
+
+  /** The type and stage drawn on tile index i of b. */
+  private tileLook(b: BuildingSnap, i: number): [BuildingType, string] {
+    const l = this.looks.get(b.id)!;
+    return i < l.grown ? [l.type, l.stage] : [b.type, l.grownStage];
+  }
+
+  /** Index the standing buildings: tiles, walks, gate passages, open sides, tall tiles and the raised tiles units use. */
+  private prepare(buildings: readonly BuildingSnap[]): void {
+    const occ = this.occ, walks = this.walks, open = this.open;
+    occ.clear(); this.looks.clear(); walks.clear(); this.gateJoin.clear(); this.deep.clear(); open.clear(); this.heights.clear(); this.decks.clear();
+    const live = buildings.filter((b) => b.state !== 'destroyed');
+    for (const b of live) {
+      this.looks.set(b.id, this.look(b));
+      for (const [x, y] of pairs(b.tiles)) occ.set(key(x, y), b);
+    }
+    // walk tiles of the layered walls (as drawn) and towers; heights for silhouettes
+    for (const b of live) {
+      const def = BUILDINGS[b.type];
+      pairs(b.tiles).forEach(([x, y], i) => {
+        const [type, stage] = this.tileLook(b, i), m = this.art?.meta(type), k = key(x, y);
+        if ((def.wall === 'segment' || def.wall === 'tower') && m?.layered) walks.set(k, { kit: m.id, px: m.walkPx, b: b.id });
+        if (def.wall && stage !== 'foundation') this.heights.set(k, (m?.heightPx || (HEIGHT[type] ?? 60)) * (stage === 'rising' ? 0.4 : 1));
+        if (def.wall === 'gate') this.gateJoin.add(k);
+      });
+    }
+    // 2-deep gates: the passage lies on the side where the walls beside the gate have their inner row
+    for (const b of live) {
+      if (BUILDINGS[b.type].wall !== 'gate') continue;
+      const d = this.deepOf(pairs(b.tiles), b.w >= b.h, (k) => !!walks.get(k) && BUILDINGS[occ.get(k)!.type].wall === 'segment', (k) => occ.has(k));
+      if (!d) continue;
+      this.deep.set(b.id, d);
+      for (const [x, y] of pairs(d.tiles)) { this.gateJoin.add(key(x, y)); this.heights.set(key(x, y), this.heights.get(key(b.tiles[0], b.tiles[1])) ?? 100); }
+    }
+    const setOpen = (x: number, y: number, side: number) => open.set(key(x, y), (open.get(key(x, y)) ?? 0) | side);
+    for (const b of live) {
+      const def = BUILDINGS[b.type], ts = pairs(b.tiles), l = this.looks.get(b.id)!, up = b.state === 'done' || b.state === 'damaged';
+      if (def.access === 'stairs' && ts.length > 1) {
+        // the wall tile beyond the top end: no parapet there
+        const [bx, by] = ts[0], [tx, ty] = ts[ts.length - 1], dx = Math.sign(tx - bx), dy = Math.sign(ty - by);
+        if (walks.has(key(tx + dx, ty + dy))) setOpen(tx + dx, ty + dy, sideOf(-dx, -dy));
+        const top = this.walkTile(tx + dx, ty + dy) || this.art?.meta(b.type)?.walkPx || 99;
+        if (up) for (const [x, y] of ts) this.decks.set(key(x, y), { kind: 'stair', px: top, z: this.zt(x, y), depth: this.D(b.x, b.y), b: b.id, ox: bx + (dx < 0 ? 1 : 0), oy: by + (dy < 0 ? 1 : 0), dx, dy, n: ts.length });
+      } else if (def.access === 'ladder') {
+        const [x, y] = ts[0];
+        for (const [dx, dy, side] of SIDES) {
+          const o = occ.get(key(x + dx, y + dy));
+          if (!o || (b.attach !== undefined && o.id !== b.attach)) continue;
+          if (walks.has(key(x + dx, y + dy))) setOpen(x + dx, y + dy, sideOf(-dx, -dy));
+          if (up) this.decks.set(key(x, y), { kind: 'ladder', px: this.walkTile(x + dx, y + dy) || 99, z: this.zt(x, y), depth: this.D(x + 0.8, y + 0.8), b: b.id, ox: 0, oy: 0, dx, dy, n: side });
+          break;
+        }
+      } else if (def.wall === 'tower') {
+        const m = this.art?.meta(l.type), x0 = Math.min(...ts.map((t) => t[0])), y0 = Math.min(...ts.map((t) => t[1]));
+        // joined to a walk at the same height
+        for (const [x, y] of ts) for (const [dx, dy, side] of SIDES) {
+          const w = walks.get(key(x + dx, y + dy));
+          if (w && w.b !== b.id && m && w.px === m.walkPx) { setOpen(x, y, side); setOpen(x + dx, y + dy, sideOf(-dx, -dy)); }
+        }
+        if (b.walk && m?.layered) {
+          const z = this.zt(x0, y0), depth = this.D(x0 + 1, y0 + 1);
+          for (const [x, y] of ts) this.decks.set(key(x, y), { kind: 'deck', px: m.walkPx, z, depth, b: b.id, ox: x0, oy: y0, dx: 0, dy: 0, n: 0 });
+          if (b.door) this.decks.set(key(b.door[0], b.door[1]), { kind: 'door', px: 0, z, depth, b: b.id, ox: 0, oy: 0, dx: 0, dy: 0, n: 0 });
+        }
+      } else if (def.wall === 'segment' && b.walk) {
+        pairs(b.tiles).forEach(([x, y]) => {
+          const w = walks.get(key(x, y));
+          if (w) this.decks.set(key(x, y), { kind: 'deck', px: w.px, z: this.zt(x, y), depth: this.D(x + 0.495, y + 0.495), b: b.id, ox: x, oy: y, dx: 0, dy: 0, n: 0 });
+        });
+      }
+    }
+  }
+
+  /**
+   * The 2-deep passage of a gate on tiles ts (along x or y): the side (n e s w) where a wall beside it has its inner
+   * row (`wall`: a 2-deep wall tile there) and the passage tiles are free (`taken`), or null.
+   */
+  private deepOf(ts: [number, number][], alongX: boolean, wall: (k: number) => boolean, taken: (k: number) => boolean): { side: string; tiles: number[] } | null {
+    const xs = ts.map((t) => t[0]), ys = ts.map((t) => t[1]);
+    for (const s of [1, -1]) {
+      const pass = ts.map(([x, y]) => (alongX ? [x, y + s] : [x + s, y]));
+      const ends = alongX ? [[Math.min(...xs) - 1, ys[0] + s], [Math.max(...xs) + 1, ys[0] + s]] : [[xs[0] + s, Math.min(...ys) - 1], [xs[0] + s, Math.max(...ys) + 1]];
+      if (!ends.some(([x, y]) => wall(key(x, y))) || pass.some(([x, y]) => taken(key(x, y)))) continue;
+      return { side: alongX ? (s > 0 ? 's' : 'n') : s > 0 ? 'e' : 'w', tiles: pass.flat() };
+    }
+    return null;
+  }
+
+  /** Walk px of the layered wall or tower tile at (x, y) as drawn, 0 none. */
+  private walkTile(x: number, y: number): number {
+    return this.walks.get(key(x, y))?.px ?? 0;
+  }
+
+  /**
+   * Where a unit at tile point d is drawn: on a walk or platform (raised, between its tile's layers), up a stair (its
+   * share of the top height), on a ladder (straight up its foot, climbing) or in a door (hidden); null on the ground.
+   */
+  lift(d: { x: number; y: number }): Lift | null {
+    const tx = Math.floor(d.x), ty = Math.floor(d.y), t = this.decks.get(key(tx, ty));
+    if (!t) return null;
+    if (t.kind === 'deck') {
+      return { x: d.x, y: d.y, z: t.z, px: t.px, depth: t.depth + IN * (1 + d.x - t.ox + d.y - t.oy) };
+    }
+    if (t.kind === 'door') return { x: d.x, y: d.y, z: t.z, px: 0, hide: true };
+    if (t.kind === 'stair') {
+      const dist = (d.x - t.ox) * t.dx + (d.y - t.oy) * t.dy;
+      return { x: d.x, y: d.y, z: t.z, px: t.px * Math.max(0, Math.min(1, dist / t.n)), depth: t.depth + IN * (1 + dist) };
+    }
+    // ladder: f = how far across the tile towards the wall; the man steps to the ladder's foot, then climbs straight up
+    const f = t.dx ? (t.dx > 0 ? d.x - tx : tx + 1 - d.x) : t.dy > 0 ? d.y - ty : ty + 1 - d.y;
+    const k = Math.min(1, f / 0.3), up = Math.max(0, Math.min(1, (f - 0.3) / 0.7));
+    let x = d.x, y = d.y;
+    if (t.dx) x += (tx + (t.dx > 0 ? 0.7 : 0.3) - x) * k;
+    else y += (ty + (t.dy > 0 ? 0.7 : 0.3) - y) * k;
+    return { x, y, z: t.z, px: t.px * up, depth: t.depth + IN * (1 + f), climb: true, facing: Math.atan2(t.dy, t.dx) };
+  }
+
+  /** Ids of living units that a wall, tower or gate in front of them hides (each drawn as a silhouette over it). */
+  occluded(units: readonly DrawUnit[], out: Set<number>): void {
+    this.climbing.clear();
+    if (!this.heights.size && !this.decks.size) return;
+    for (const d of units) {
+      if (d.u.state === 'dead') continue;
+      const l = this.lift(d);
+      if (l?.climb) this.climbing.add(d.u.id);
+      if (l?.hide) continue;
+      const px = l?.px ?? 0, own = l ? this.decks.get(key(Math.floor(d.x), Math.floor(d.y)))?.b : -1;
+      for (let s = 0.5; s <= 7; s += 0.5) {
+        const k = key(Math.floor(d.x + s), Math.floor(d.y + s)), h = this.heights.get(k);
+        if (h !== undefined && h >= 32 * s + px + BODY && this.occ.get(k)?.id !== own) { out.add(d.u.id); break; }
+      }
+    }
+  }
+
   /** Buildings and their ground overlays; clears the ghost's ground (draw the ghost after this). */
   draw(buildings: readonly BuildingSnap[], units: readonly DrawUnit[], v: { x: number; y: number; right: number; bottom: number }, zoom: number): void {
-    let ng = 0, ni = 0;
+    let ng = 0;
+    this.ni = 0;
     const bars = this.gBars.clear(), ground = this.gGround.clear(), lw = Math.max(1, 1.25 / zoom);
+    this.prepare(buildings);
     const walls = this.wallTiles(buildings);
     for (const b of buildings) {
       const c = this.pt(b.x, b.y, this.z(b));
-      if (!view(v, c.x, c.y, Math.max(b.w, b.h) * HW + 200)) continue;
-      const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = 10 + this.depthOf(x1 - 0.5, y1 - 0.5) / 4096 + 0.25;
-      const axis = b.w >= b.h ? 'x' : 'y', stage = this.art?.stage(b.state, b.progress) ?? b.state;
-      const kit = BUILDINGS[b.type].wall === 'segment' ? this.art?.kit(b.type, stage) : undefined;
-      const spr = kit ? undefined : this.art?.sprite(b.type, stage, axis);
-      if (kit) {
-        for (let i = 0; i < b.tiles.length; i += 2) {
-          const tx = b.tiles[i], ty = b.tiles[i + 1];
-          this.kitPiece(this.img(ni++, kit.key), kit, tx, ty, walls).setDepth(10 + this.depthOf(tx + 0.5, ty + 0.5) / 4096 + 0.25);
+      const site = b.state === 'foundation' || b.state === 'scaffold';
+      if (b.id === this.selected && !site) this.ring(ground, b, zoom);
+      else if (b.id === this.selected || b.id === this.hovered) this.grid(ground, b.tiles, 0xffffff, 0.9, lw);
+      else if (this.grids && b.state !== 'destroyed') this.grid(ground, b.tiles, TEAM_COLOR[b.team] ?? 0xcccccc, 0.45, lw);
+      if (!view(v, c.x, c.y, Math.max(b.w, b.h) * HW + 300)) continue;
+      const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = this.D(x1 - 0.5, y1 - 0.5);
+      const def = BUILDINGS[b.type], l = this.looks.get(b.id) ?? this.look(b), axis = b.w >= b.h ? 'x' : 'y';
+      let drawn = false;
+      if (this.art && b.state !== 'destroyed') {
+        if (def.wall === 'segment') drawn = this.drawWall(b, walls);
+        else if (def.wall === 'tower') drawn = this.drawTower(b, l);
+        else if (def.access) drawn = this.drawAccess(b, l);
+        if (!drawn) {
+          const deep = def.wall === 'gate' ? this.deep.get(b.id) : undefined;
+          const near = def.wall === 'gate' && b.state === 'done' && units.some((d) => d.team === b.team && d.u.state !== 'dead' && Math.abs(d.x - b.x) < GATE_NEAR && Math.abs(d.y - b.y) < GATE_NEAR);
+          const spr = this.art.sprite(l.type, near ? 'open' : l.stage, axis, deep?.side);
+          if (spr) {
+            if (deep) {
+              const all = pairs([...b.tiles, ...deep.tiles]), x0 = Math.min(...all.map((t) => t[0])), y0 = Math.min(...all.map((t) => t[1]));
+              this.fit(this.img(this.ni++, spr.key), spr, b.type, x0 + 1, y0 + 1, 2, 2, this.zt(x0, y0)).setDepth(this.D(x0 + 1.5, y0 + 1.5));
+            } else this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), !def.wall && b.rot === 1).setDepth(depth);
+            drawn = true;
+          }
         }
-      } else if (spr) {
-        this.fit(this.img(ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b)).setDepth(depth);
-      } else {
+      }
+      if (!drawn) {
         let g = this.gfx[ng];
         if (!g) this.gfx.push((g = this.scene.add.graphics()));
         ng++;
         g.clear().setVisible(true).setDepth(depth);
         this.placeholder(g, b, units, zoom);
       }
-      const site = b.state === 'foundation' || b.state === 'scaffold';
-      if (b.id === this.selected && !site) this.ring(ground, b, zoom);
-      else if (b.id === this.selected || b.id === this.hovered) this.grid(ground, b.tiles, 0xffffff, 0.9, lw);
-      else if (this.grids && b.state !== 'destroyed') this.grid(ground, b.tiles, TEAM_COLOR[b.team] ?? 0xcccccc, 0.45, lw);
       this.bar(bars, b, c, zoom);
     }
     for (let i = ng; i < this.gfx.length; i++) this.gfx[i].setVisible(false);
-    for (let i = ni; i < this.imgs.length; i++) this.imgs[i].setVisible(false);
+    for (let i = this.ni; i < this.imgs.length; i++) this.imgs[i].setVisible(false);
+  }
+
+  private ni = 0;
+
+  /** A wall segment tile by tile: palisade by its neighbour mask, layered kits back and front. */
+  private drawWall(b: BuildingSnap, walls: Set<number>): boolean {
+    const ts = pairs(b.tiles);
+    let any = false;
+    ts.forEach(([x, y], i) => {
+      const [type, stage] = this.tileLook(b, i), kit = this.art!.kit(type, stage), m = this.art!.meta(type);
+      if (!kit || !m) return;
+      any = true;
+      const frame = this.wallFrame(type, x, y, walls);
+      const base = this.D(x + 0.495, y + 0.495), z = this.zt(x, y);
+      this.piece(this.img(this.ni++, kit.key, frame), kit, x, y, z).setDepth(m.layered ? base : this.D(x + 0.5, y + 0.5));
+      // a back-facing inner corner: -x and -y joined, the diagonal between them open
+      if (m.post && stage === 'done' && this.joins(m.id, x - 1, y) && this.joins(m.id, x, y - 1) && !this.joins(m.id, x - 1, y - 1)) {
+        this.piece(this.img(this.ni++, m.post, 0), kit, x, y, z).setDepth(base + IN / 2);
+      }
+      if (kit.front) this.piece(this.img(this.ni++, kit.front, frame), kit, x, y, z).setDepth(base + FRONT);
+    });
+    return any;
+  }
+
+  /** Does tile (x, y) join a layered wall of kit `kit` (a wall of that kit or a gate)? */
+  private joins(kit: string, x: number, y: number): boolean {
+    const k = key(x, y);
+    return this.walks.get(k)?.kit === kit || this.gateJoin.has(k);
+  }
+
+  /** Kit frame of a wall tile: palisade by its neighbour mask, layered by frameOf[mask | open << 4]. */
+  private wallFrame(type: BuildingType, x: number, y: number, walls: Set<number>, walk = this.walks): number {
+    const m = this.art!.meta(type)!;
+    let mask = 0, open = 0;
+    if (!m.layered) {
+      for (const [dx, dy, s] of SIDES) if (walls.has(key(x + dx, y + dy))) mask |= s;
+      return mask;
+    }
+    for (const [dx, dy, s] of SIDES) {
+      const k = key(x + dx, y + dy), w = walk.get(k);
+      if ((w && w.kit === m.id) || this.gateJoin.has(k)) mask |= s;
+    }
+    open = (this.open.get(key(x, y)) ?? 0) & ~mask;
+    return m.frameOf?.[mask | (open << 4)] ?? mask;
+  }
+
+  /** A tower: its layered kit (2 x 2 frame at the NW tile) by its open sides, back and front round its platform. */
+  private drawTower(b: BuildingSnap, l: Look): boolean {
+    const kit = this.art!.kit(l.type, l.stage);
+    if (!kit) return false;
+    const ts = pairs(b.tiles), x0 = Math.min(...ts.map((t) => t[0])), y0 = Math.min(...ts.map((t) => t[1]));
+    let open = 0;
+    for (const [x, y] of ts) open |= this.open.get(key(x, y)) ?? 0;
+    const z = this.zt(x0, y0), base = this.D(x0 + 1, y0 + 1);
+    this.piece(this.img(this.ni++, kit.key, open), kit, x0, y0, z).setDepth(base);
+    if (kit.front) this.piece(this.img(this.ni++, kit.front, open), kit, x0, y0, z).setDepth(base + FRONT);
+    return true;
+  }
+
+  /** Stairs (piece <axis><+/-><length>, rising towards their wall) and ladders (piece <target>-<side>). */
+  private drawAccess(b: BuildingSnap, l: Look): boolean {
+    const kit = this.art!.kit(l.type, l.stage), m = this.art!.meta(l.type);
+    if (!kit || !m) return false;
+    const ts = pairs(b.tiles);
+    if (BUILDINGS[b.type].access === 'stairs') {
+      const f = stairFrame(m.pieces, ts);
+      if (f < 0) return false;
+      const x0 = Math.min(...ts.map((t) => t[0])), y0 = Math.min(...ts.map((t) => t[1]));
+      this.piece(this.img(this.ni++, kit.key, f), kit, x0, y0, this.zt(x0, y0)).setDepth(this.D(b.x, b.y));
+      return true;
+    }
+    const [x, y] = ts[0], f = this.ladderFrame(m.pieces, x, y, b.attach);
+    if (f < 0) return false;
+    this.piece(this.img(this.ni++, kit.key, f), kit, x, y, this.zt(x, y)).setDepth(this.D(x + 0.8, y + 0.8));
+    return true;
+  }
+
+  /** Ladder frame on tile (x, y) leaning on building `attach` (or any wall or tower beside it); -1 none. */
+  private ladderFrame(pieces: string[], x: number, y: number, attach?: number): number {
+    for (const [dx, dy, side] of SIDES) {
+      const o = this.occ.get(key(x + dx, y + dy));
+      if (!o || (attach !== undefined && o.id !== attach) || BUILDINGS[o.type].access) continue;
+      const [type] = this.tileLook(o, pairs(o.tiles).findIndex(([a, c]) => a === x + dx && c === y + dy));
+      const target = { rampart: 'rampart', stoneWall: 'stone-wall', woodTower: 'tower-wood', stoneTower: 'stone-wall' }[type as string];
+      if (target) return pieces.indexOf(`${target}-${LETTER[side]}`);
+    }
+    return -1;
   }
 
   /**
    * Place a building sprite on a w x h footprint centred on (x, y): art drawn for a bigger footprint is scaled down to
-   * fit inside it (a dev warning names the type), smaller art stays 1:1; either way centred on the footprint.
+   * fit inside it (a dev warning names the type), smaller art stays 1:1; either way centred on the footprint. `turned`
+   * (a building at rot 1; there is no rotated art for buildings): the sprite mirrored left to right, which swaps the
+   * footprint's x and y sides on screen.
    */
-  private fit(img: Phaser.GameObjects.Image, spr: BuildSprite, type: BuildingType, x: number, y: number, w: number, h: number, z: number): Phaser.GameObjects.Image {
-    const k = Math.min(1, w / spr.fw, h / spr.fh), tag = `${type}${w}x${h}`;
-    if ((spr.fw !== w || spr.fh !== h) && !this.warned.has(tag) && import.meta.env?.DEV) {
+  private fit(img: Phaser.GameObjects.Image, spr: BuildSprite, type: BuildingType, x: number, y: number, w: number, h: number, z: number, turned = false): Phaser.GameObjects.Image {
+    const fw = turned ? spr.fh : spr.fw, fh = turned ? spr.fw : spr.fh;
+    const k = Math.min(1, w / fw, h / fh), tag = `${type}${w}x${h}`;
+    if ((fw !== w || fh !== h) && !this.warned.has(tag) && import.meta.env?.DEV) {
       this.warned.add(tag);
-      console.warn(`[build art] ${type}: art footprint ${spr.fw}x${spr.fh} != sim ${w}x${h}; drawn at ${k.toFixed(2)}x`);
+      console.warn(`[build art] ${type}: art footprint ${fw}x${fh} != sim ${w}x${h}; drawn at ${k.toFixed(2)}x`);
     }
-    const top = this.pt(x - (spr.fw * k) / 2, y - (spr.fh * k) / 2, z);
-    return img.setScale(k).setPosition(Math.round(top.x - spr.tileOrigin.x * k), Math.round(top.y - spr.tileOrigin.y * k));
+    const ox = turned ? img.frame.realWidth - spr.tileOrigin.x : spr.tileOrigin.x;
+    const top = this.pt(x - (fw * k) / 2, y - (fh * k) / 2, z);
+    return img.setFlipX(turned).setScale(k).setPosition(Math.round(top.x - ox * k), Math.round(top.y - spr.tileOrigin.y * k));
   }
 
-  /** A wall kit piece on tile (tx, ty), its frame by the wall neighbours in `walls`. */
-  private kitPiece(img: Phaser.GameObjects.Image, kit: KitSprite, tx: number, ty: number, walls: Set<number>): Phaser.GameObjects.Image {
-    const top = this.pt(tx, ty, this.iso.zAt(tx + 0.5, ty + 0.5));
-    const mask = (walls.has(key(tx + 1, ty)) ? 1 : 0) | (walls.has(key(tx, ty + 1)) ? 2 : 0) | (walls.has(key(tx - 1, ty)) ? 4 : 0) | (walls.has(key(tx, ty - 1)) ? 8 : 0);
-    return img.setFrame(mask).setPosition(Math.round(top.x - kit.tileOrigin.x), Math.round(top.y - kit.tileOrigin.y));
+  /** A kit frame with its NW tile on (tx, ty) at ground level z. */
+  private piece(img: Phaser.GameObjects.Image, kit: KitSprite, tx: number, ty: number, z: number): Phaser.GameObjects.Image {
+    const top = this.pt(tx, ty, z);
+    return img.setPosition(Math.round(top.x - kit.tileOrigin.x), Math.round(top.y - kit.tileOrigin.y));
   }
 
   /** Each footprint tile outlined on the ground (under the art). */
@@ -149,10 +453,10 @@ export class BuildingLayer {
   private img(i: number, texture: string, frame?: number): Phaser.GameObjects.Image {
     let img = this.imgs[i];
     if (!img) this.imgs.push((img = this.scene.add.image(0, 0, texture).setOrigin(0)));
-    return img.setTexture(texture, frame).setScale(1).setVisible(true);
+    return img.setTexture(texture, frame).setScale(1).setFlipX(false).setVisible(true);
   }
 
-  /** Tiles of standing wall pieces per team (the kit's neighbour mask joins to walls, gates and towers). */
+  /** Tiles of standing wall pieces (the palisade's neighbour mask joins to walls, gates and towers). */
   private wallTiles(buildings: readonly BuildingSnap[]): Set<number> {
     const s = new Set<number>();
     for (const b of buildings) if (BUILDINGS[b.type].wall && b.state !== 'destroyed') for (let i = 0; i < b.tiles.length; i += 2) s.add(key(b.tiles[i], b.tiles[i + 1]));
@@ -253,28 +557,40 @@ export class BuildingLayer {
     const building = b.state === 'foundation' || b.state === 'scaffold';
     if (!building && b.state !== 'damaged') return;
     if (building && BUILDINGS[b.type].wall === 'segment' && b.delivered === 0) return; // a wall line of empty bars is noise
-    const k = 1 / Math.max(zoom, 1 / 4), w = 44 * k, h = 4 * k, x = c.x - w / 2, y = c.y - (HEIGHT[b.type] ?? 60) - 14 * k;
+    const tall = this.art?.meta(b.type)?.heightPx || HEIGHT[b.type] || 60;
+    const k = 1 / Math.max(zoom, 1 / 4), w = 44 * k, h = 4 * k, x = c.x - w / 2, y = c.y - tall - 14 * k;
     g.fillStyle(0x000000, 0.7).fillRect(x - k, y - k, w + 2 * k, (building ? 2 * h + 1 * k : h) + 2 * k);
     if (building) {
       g.fillStyle(0xe0a030, 1).fillRect(x, y, w * b.delivered, h);
-      g.fillStyle(0x60d060, 1).fillRect(x, y + h + k, w * b.progress, h);
+      g.fillStyle(b.upgradeFrom ? 0x60c0f0 : 0x60d060, 1).fillRect(x, y + h + k, w * b.progress, h);
     } else g.fillStyle(0xd04030, 1).fillRect(x, y, (w * b.hp) / b.maxHp, h);
   }
 
   /**
-   * The placement ghost: each piece's footprint on the ground (green / red; wall gates blue, towers gold), its art (the
-   * done sprite; wall segments as kit pieces joined along the plan and the standing walls) over it, semi-transparent and
-   * tinted, and a label (reason, cost) above. A piece without art gets a wire box of its type's height. null hides it.
+   * The placement ghost: each piece's footprint on the ground (green / red; wall gates blue, towers gold), its art over it
+   * (the done sprite; wall segments as kit pieces joined along the plan and the standing walls, 2 deep with both layers;
+   * towers with their sides joined to a walk at their height, drawn in green on the ground; stairs and ladders as their
+   * pieces), semi-transparent and tinted, ground arrows (`marks`: the wall's inside) and a label (reason, cost) above. A
+   * piece without art gets a wire box of its type's height. null hides it.
    */
-  ghost(pieces: { tiles: readonly number[]; ok: boolean; type?: BuildingType }[] | null, text: string, zoom: number, standing: readonly BuildingSnap[] = []): void {
+  ghost(pieces: GhostPiece[] | null, text: string, zoom: number, standing: readonly BuildingSnap[] = [], marks: GhostMark[] = [], labelAt?: P): void {
     const g = this.gGhost.clear();
     let ni = 0;
     if (pieces?.length) {
-      const lw = Math.max(1, 1.5 / zoom), walls = this.wallTiles(standing);
-      for (const p of pieces) if (p.type && BUILDINGS[p.type].wall) for (const [x, y] of pairs(p.tiles)) walls.add(key(x, y));
+      const lw = Math.max(1, 1.5 / zoom), walls = this.wallTiles(standing), walk = new Map(this.walks);
+      for (const p of pieces) if (p.type && BUILDINGS[p.type].wall) for (const [x, y] of pairs(p.tiles)) {
+        walls.add(key(x, y));
+        const m = this.art?.meta(p.type);
+        if (m?.layered && BUILDINGS[p.type].wall !== 'gate') walk.set(key(x, y), { kit: m.id, px: m.walkPx, b: -1 });
+      }
       let top = Infinity, cx = 0, n = 0;
+      const put = (key: string, frame: number, kit: KitSprite, x: number, y: number, depth: number, tint: number) => {
+        const img = this.piece(this.ghostImg(ni++, key, frame), kit, x, y, this.zt(x, y));
+        img.setDepth(depth).setTint(tint);
+        top = Math.min(top, img.y + 8);
+      };
       for (const p of pieces) {
-        const wall = p.type && BUILDINGS[p.type].wall, col = !p.ok ? BAD : wall === 'gate' ? 0x60b0ff : wall === 'tower' ? 0xffc040 : OK;
+        const def = p.type ? BUILDINGS[p.type] : undefined, wall = def?.wall, col = !p.ok ? BAD : wall === 'gate' ? 0x60b0ff : wall === 'tower' ? 0xffc040 : OK;
         const ts = pairs(p.tiles), xs = ts.map((q) => q[0]), ys = ts.map((q) => q[1]);
         const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs) + 1, y1 = Math.max(...ys) + 1, z = this.iso.zAt((x0 + x1) / 2, (y0 + y1) / 2);
         for (const [x, y] of ts) {
@@ -283,34 +599,75 @@ export class BuildingLayer {
           top = Math.min(top, c[0].y);
           cx += c[0].x; n++;
         }
-        const tint = p.ok ? 0x90ff90 : 0xff7070;
-        const kit = wall === 'segment' && p.type ? this.art?.kit(p.type, 'done') : undefined;
-        const spr = !kit && p.type ? this.art?.sprite(p.type, 'done', x1 - x0 >= y1 - y0 ? 'x' : 'y') : undefined;
-        if (kit) {
+        const tint = p.ok ? 0x90ff90 : 0xff7070, d = 11.3 + (x1 + y1) / 1e6;
+        const kit = p.type ? this.art?.kit(p.type, 'done') : undefined, m = p.type ? this.art?.meta(p.type) : undefined;
+        if (kit && m && wall === 'segment') {
           for (const [x, y] of ts) {
-            const img = this.kitPiece(this.ghostImg(ni++, kit.key), kit, x, y, walls);
-            img.setDepth(11.3 + (x + y) / 1e6).setTint(tint);
+            const f = this.wallFrame(p.type!, x, y, walls, walk);
+            put(kit.key, f, kit, x, y, 11.3 + (x + y) / 1e6, tint);
+            if (kit.front) put(kit.front, f, kit, x, y, 11.3 + (x + y + 0.5) / 1e6, tint);
           }
-        } else if (spr && p.type) {
-          const img = this.fit(this.ghostImg(ni++, spr.key), spr, p.type, (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0, z);
-          img.setDepth(11.3 + (x1 + y1) / 1e6).setTint(tint);
-          top = Math.min(top, img.y + 8);
-        } else if (p.type && !wall) {
-          const h = HEIGHT[p.type] ?? 60, b = this.corners(x0, y0, x1, y1, z, 0), u = this.corners(x0, y0, x1, y1, z, h);
-          g.lineStyle(lw, col, 0.6).strokePoints(u, true);
-          for (const i of [1, 2, 3]) g.lineBetween(b[i].x, b[i].y, u[i].x, u[i].y);
-          top = Math.min(top, u[0].y);
+        } else if (kit && m && wall === 'tower') {
+          let open = 0;
+          for (const [x, y] of ts) for (const [dx, dy, s] of SIDES) {
+            const w = walk.get(key(x + dx, y + dy));
+            if (!w || w.b === -1 || w.px !== m.walkPx || ts.some(([a, c]) => a === x + dx && c === y + dy)) continue;
+            open |= s;
+            const e = this.edge(x, y, dx, dy);
+            this.gGround.lineStyle(Math.max(2, 3 / zoom), 0x60ff80, 1).lineBetween(e[0].x, e[0].y, e[1].x, e[1].y);
+          }
+          put(kit.key, open, kit, x0, y0, d, tint);
+          if (kit.front) put(kit.front, open, kit, x0, y0, d + 1e-7, tint);
+        } else if (kit && m && def?.access === 'stairs') {
+          const f = stairFrame(m.pieces, ts);
+          if (f >= 0) put(kit.key, f, kit, x0, y0, d, tint);
+        } else if (kit && m && def?.access === 'ladder' && p.attach) {
+          const o = this.occ.get(key(p.attach[0], p.attach[1])), f = this.ladderFrame(m.pieces, ts[0][0], ts[0][1], o?.id);
+          if (f >= 0) put(kit.key, f, kit, ts[0][0], ts[0][1], d, tint);
+        } else {
+          const alongX = x1 - x0 >= y1 - y0, deep = wall === 'gate' ? this.deepOf(ts, alongX, (k) => walk.has(k) && !this.occ.has(k) || (!!this.walks.get(k) && BUILDINGS[this.occ.get(k)!.type].wall === 'segment'), (k) => this.occ.has(k)) : null;
+          const spr = p.type && !def?.access ? this.art?.sprite(p.type, 'done', alongX ? 'x' : 'y', deep?.side) : undefined;
+          if (spr && p.type && deep) {
+            const all = [...ts, ...pairs(deep.tiles)], gx = Math.min(...all.map((q) => q[0])), gy = Math.min(...all.map((q) => q[1]));
+            const img = this.fit(this.ghostImg(ni++, spr.key), spr, p.type, gx + 1, gy + 1, 2, 2, this.zt(gx, gy));
+            img.setDepth(d).setTint(tint);
+          } else if (spr && p.type) {
+            const img = this.fit(this.ghostImg(ni++, spr.key), spr, p.type, (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0, z, !wall && p.rot === 1);
+            img.setDepth(d).setTint(tint);
+            top = Math.min(top, img.y + 8);
+          } else if (p.type) {
+            const h = HEIGHT[p.type] ?? 60, b = this.corners(x0, y0, x1, y1, z, 0), u = this.corners(x0, y0, x1, y1, z, h);
+            g.lineStyle(lw, col, 0.6).strokePoints(u, true);
+            for (const i of [1, 2, 3]) g.lineBetween(b[i].x, b[i].y, u[i].x, u[i].y);
+            top = Math.min(top, u[0].y);
+          }
         }
       }
-      this.label.setText(text).setScale(1 / zoom).setPosition(cx / n, top - 6 / zoom).setVisible(!!text);
+      // the wall's inside: an arrow on each inner-row tile, pointing in
+      for (const mk of marks) {
+        const zz = this.iso.zAt(mk.x, mk.y), tip = this.pt(mk.x + mk.dx * 0.4, mk.y + mk.dy * 0.4, zz);
+        const sx = this.pt(mk.x - mk.dy * 0.22, mk.y + mk.dx * 0.22, zz), sy = this.pt(mk.x + mk.dy * 0.22, mk.y - mk.dx * 0.22, zz);
+        this.gGround.fillStyle(0xffffff, 0.85).fillTriangle(tip.x, tip.y, sx.x, sx.y, sy.x, sy.y);
+        this.gGround.lineStyle(Math.max(1, 1 / zoom), 0x203020, 0.9).strokeTriangle(tip.x, tip.y, sx.x, sx.y, sy.x, sy.y);
+      }
+      const at = labelAt && this.pt(labelAt.x, labelAt.y, this.iso.zAt(labelAt.x, labelAt.y));
+      this.label.setText(text).setScale(1 / zoom).setPosition(at ? at.x : cx / n, at ? at.y - 230 : top - 6 / zoom).setVisible(!!text);
     } else this.label.setVisible(false);
     for (let i = ni; i < this.ghostImgs.length; i++) this.ghostImgs[i].setVisible(false);
   }
 
-  private ghostImg(i: number, texture: string): Phaser.GameObjects.Image {
+  /** The two ground points of tile (x, y)'s edge towards (dx, dy). */
+  private edge(x: number, y: number, dx: number, dy: number): [P, P] {
+    const z = this.zt(x, y);
+    if (dx) { const ex = x + (dx > 0 ? 1 : 0); return [this.pt(ex, y, z), this.pt(ex, y + 1, z)]; }
+    const ey = y + (dy > 0 ? 1 : 0);
+    return [this.pt(x, ey, z), this.pt(x + 1, ey, z)];
+  }
+
+  private ghostImg(i: number, texture: string, frame?: number): Phaser.GameObjects.Image {
     let img = this.ghostImgs[i];
     if (!img) this.ghostImgs.push((img = this.scene.add.image(0, 0, texture).setOrigin(0).setAlpha(0.65)));
-    return img.setTexture(texture).setScale(1).clearTint().setVisible(true);
+    return img.setTexture(texture, frame).setScale(1).setFlipX(false).clearTint().setVisible(true);
   }
 
   /** Ring and amount label on a hovered resource node; null hides them. */
@@ -367,7 +724,14 @@ export class BuildingLayer {
 
 const key = (x: number, y: number) => y * 65536 + x;
 
-function pairs(t: readonly number[]): [number, number][] {
+/** Stair piece index for tiles bottom first (piece <axis><+/-><length>: rising towards the wall), -1 none. */
+export function stairFrame(pieces: string[], ts: [number, number][]): number {
+  if (ts.length < 2) return -1;
+  const dx = Math.sign(ts[ts.length - 1][0] - ts[0][0]), dy = Math.sign(ts[ts.length - 1][1] - ts[0][1]);
+  return pieces.indexOf(`${dx ? 'x' : 'y'}${(dx || dy) > 0 ? '+' : '-'}${ts.length}`);
+}
+
+export function pairs(t: readonly number[]): [number, number][] {
   const out: [number, number][] = [];
   for (let i = 0; i + 1 < t.length; i += 2) out.push([t[i], t[i + 1]]);
   return out;

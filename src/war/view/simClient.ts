@@ -61,6 +61,16 @@ export class SimClient {
     this.send({ t: 'claim', team, x, y, r });
   }
 
+  /** Scenarios: fast-forward up to `max` ticks, the team's squads building its unfinished sites, until none is left. */
+  prebuild(team: number, max: number): void {
+    this.send({ t: 'prebuild', team, max });
+  }
+
+  /** Scenarios: step `ticks` ticks at once (squads settle before play). */
+  skip(ticks: number): void {
+    this.send({ t: 'skip', ticks });
+  }
+
   /** Dev: add to a team's stockpile. */
   addStock(team: number, res: ResourceKind, n: number): void {
     this.send({ t: 'stock', team, res, n });
