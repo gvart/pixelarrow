@@ -207,6 +207,17 @@ export class SandboxScene extends Phaser.Scene {
     return this.iso.pick(v.x, v.y);
   }
 
+  /**
+   * Where a move order under the pointer goes: the top of a walkway, tower platform or stair drawn there (the sim paths
+   * up its stairs and ladders), the ground in front of a wall face, else the ground.
+   */
+  private target(p: { x: number; y: number }): { x: number; y: number; px: number; z: number } {
+    const v = this.wpx(p.x, p.y), s = this.cameras.main.zoom >= SPRITE_ZOOM ? this.build.layer.surfaceAt(v.x, v.y) : null;
+    if (s) return s;
+    const g = this.iso.pick(v.x, v.y);
+    return { ...g, px: 0, z: this.iso.zDraw(g.x, g.y) };
+  }
+
   /** World px of a unit's middle as drawn: half a man above the feet for sprites, the feet for dots and banners. */
   private body(d: { x: number; y: number }): { x: number; y: number } {
     const f = this.units.feet(d);
@@ -283,7 +294,7 @@ export class SandboxScene extends Phaser.Scene {
       this.lastCommand = { kind: 'attack', x: foe.x, y: foe.y };
       return;
     }
-    const { x, y } = this.world(p);
+    const { x, y } = this.target(p);
     const ids = [...this.selected];
     let cx = 0, cy = 0, n = 0;
     for (const d of this.drawn) if (this.selected.has(d.u.squad)) { cx += d.x; cy += d.y; n++; }
@@ -335,6 +346,7 @@ export class SandboxScene extends Phaser.Scene {
     this.drawn = this.sim.units();
     // buildings first: this frame's walks, stairs and ladders lift the units
     this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
+    this.units.settle(this.drawn, this.time.now);
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
     const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
@@ -414,6 +426,12 @@ export class SandboxScene extends Phaser.Scene {
     for (const mk of this.markers) {
       const f = (now - mk.t) / 700, s = (18 * (1 - f) + 4) / z, p = this.units.feet(mk);
       g.lineStyle(3 / z, mk.c, 1 - f * 0.7).strokeEllipse(p.x, p.y, s * 2, s);
+    }
+    // with squads selected (no build tool), the surface a right click would send them to: its tile, raised to its top
+    if (this.selected.size && !this.build.tool && !this.box && this.moved && this.input.isOver && z >= SPRITE_ZOOM) {
+      const t = this.target(this.input.activePointer), tx = Math.floor(t.x), ty = Math.floor(t.y);
+      const c = [[tx, ty], [tx + 1, ty], [tx + 1, ty + 1], [tx, ty + 1]].map(([x, y]) => ({ x: this.iso.sx(x, y), y: this.iso.sy(x, y, t.z) - t.px }));
+      g.fillStyle(0xffffff, 0.12).fillPoints(c, true).lineStyle(Math.max(1, 1.5 / z), t.px ? 0xffe080 : 0xffffff, 0.85).strokePoints(c, true);
     }
     if (this.box) {
       const { x0, y0, x1, y1 } = this.box;

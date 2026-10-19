@@ -5,7 +5,8 @@
  *
  * Wall-walks (W-28): walls with a walkway (rampart, stone wall) and towers are layered kits drawn per tile: the back
  * layer, then the units standing on that tile's walk (walkwayPx / platformPx above the ground: the art's heights, not the
- * sim's levels), then the front layer (the outer parapets over their legs), all sorted with the units and map objects
+ * sim's levels; each sorted at its own point, so a man near a tile's edge draws over the walk floor beside it), then the
+ * front layer keyed at the tile's front corner (the outer parapets over their legs), all sorted with the units and map objects
  * (10 + depth / 4096 + 0.25, as ./units.ts). Frames: walls by frameOf[mask | open << 4] (mask: sides joined to a wall or
  * gate of the same walk; open: a stair top, a joined tower or a ladder head there), towers by their open sides. Stairs
  * and ladders are kit pieces; units on a stair stand at its top height x the distance from its low end, on a ladder they
@@ -21,7 +22,7 @@
 import Phaser from 'phaser';
 import type { BuildingSnap, BuildingType, InfluenceMap, NodeSnap } from '../../types';
 import { BUILDINGS } from '../../sim/economy';
-import { HH, HW, type IsoMap } from '../iso';
+import { HH, HW, LH, type IsoMap } from '../iso';
 import type { DrawUnit } from '../simClient';
 import { BODY, TEAM_COLOR } from '../units';
 import type { BuildArt, BuildSprite, KitSprite } from './buildArt';
@@ -37,7 +38,7 @@ const HEIGHT: Partial<Record<BuildingType, number>> = {
 const MAT = { wood: 0x8a6a44, stone: 0xa8a294 };
 const GATE_NEAR = 3; // tiles: a gate opens while one of its team stands this near
 /** Depth steps inside a tile's layers (a tile's depth key spans ~1 / 4096). */
-const IN = 1e-6, FRONT = 2e-5;
+const IN = 1e-6;
 const view = (o: { x: number; y: number; right: number; bottom: number }, x: number, y: number, m: number) => x > o.x - m && x < o.right + m && y > o.y - m && y < o.bottom + m * 2;
 /** Neighbour sides: +x 1, +y 2, -x 4, -y 8. */
 const SIDES: [number, number, number][] = [[1, 0, 1], [0, 1, 2], [-1, 0, 4], [0, -1, 8]];
@@ -246,7 +247,7 @@ export class BuildingLayer {
     const tx = Math.floor(d.x), ty = Math.floor(d.y), t = this.decks.get(key(tx, ty));
     if (!t) return null;
     if (t.kind === 'deck') {
-      return { x: d.x, y: d.y, z: t.z, px: t.px, depth: t.depth + IN * (1 + d.x - t.ox + d.y - t.oy) };
+      return { x: d.x, y: d.y, z: t.z, px: t.px, depth: Math.max(t.depth + IN, this.D(d.x, d.y) + IN) };
     }
     if (t.kind === 'door') return { x: d.x, y: d.y, z: t.z, px: 0, hide: true };
     if (t.kind === 'stair') {
@@ -260,6 +261,37 @@ export class BuildingLayer {
     if (t.dx) x += (tx + (t.dx > 0 ? 0.7 : 0.3) - x) * k;
     else y += (ty + (t.dy > 0 ? 0.7 : 0.3) - y) * k;
     return { x, y, z: t.z, px: t.px * up, depth: t.depth + IN * (1 + f), climb: true, facing: Math.atan2(t.dy, t.dx) };
+  }
+
+  /**
+   * The raised surface under world px (wx, wy), front-most first: the top of a walkway, tower platform or stair tile
+   * (a point on it, with its tile and px), or the face of a wall or tower (the ground tile just in front of that face,
+   * px 0). null: nothing raised there (pick the ground).
+   */
+  surfaceAt(wx: number, wy: number): { x: number; y: number; tx: number; ty: number; z: number; px: number } | null {
+    const iso = this.iso, u = (wx - iso.OX) / HW;
+    let best: { x: number; y: number; tx: number; ty: number; z: number; px: number } | null = null, bd = -Infinity;
+    for (const [k, t] of this.decks) {
+      if (t.kind !== 'deck' && t.kind !== 'stair') continue;
+      const tx = k % 65536, ty = (k - tx) / 65536;
+      if (tx + ty + 1 <= bd) continue;
+      const px = t.kind === 'stair' ? this.lift({ x: tx + 0.5, y: ty + 0.5 })!.px : t.px;
+      // v along the column through the cursor: v0 on the tile's ground, v1 on its top; the tile spans [lo, hi) in v
+      const v0 = (wy - iso.OY + t.z * LH) / HH, v1 = v0 + px / HH;
+      const lo = Math.max(2 * tx - u, 2 * ty + u), hi = Math.min(2 * tx + 2 - u, 2 * ty + 2 + u);
+      if (hi <= lo || v1 < lo || v0 >= hi) continue;
+      const top = v1 < hi, d = tx + ty + (top ? 0.5 : 0);
+      if (d <= bd) continue;
+      bd = d;
+      if (top) best = { x: (u + v1) / 2, y: (v1 - u) / 2, tx, ty, z: t.z, px };
+      else {
+        // the face: the column leaves the tile by its +x or +y edge (whichever bounds hi); the ground just past it
+        const ex = (u + hi) / 2 - tx, ey = (hi - u) / 2 - ty, cl = (q: number) => Math.max(0.1, Math.min(0.9, q));
+        const [gx, gy] = 2 * tx + 2 - u <= 2 * ty + 2 + u ? [tx + 1.5, ty + cl(ey)] : [tx + cl(ex), ty + 1.5];
+        best = { x: gx, y: gy, tx: Math.floor(gx), ty: Math.floor(gy), z: iso.zAt(gx, gy), px: 0 };
+      }
+    }
+    return best;
   }
 
   /** Ids of living units that a wall, tower or gate in front of them hides (each drawn as a silhouette over it). */
@@ -343,7 +375,7 @@ export class BuildingLayer {
       if (m.post && stage === 'done' && this.joins(m.id, x - 1, y) && this.joins(m.id, x, y - 1) && !this.joins(m.id, x - 1, y - 1)) {
         this.piece(this.img(this.ni++, m.post, 0), kit, x, y, z).setDepth(base + IN / 2);
       }
-      if (kit.front) this.piece(this.img(this.ni++, kit.front, frame), kit, x, y, z).setDepth(base + FRONT);
+      if (kit.front) this.piece(this.img(this.ni++, kit.front, frame), kit, x, y, z).setDepth(this.D(x + 1, y + 1) + 2 * IN);
     });
     return any;
   }
@@ -379,7 +411,7 @@ export class BuildingLayer {
     for (const [x, y] of ts) open |= this.open.get(key(x, y)) ?? 0;
     const z = this.zt(x0, y0), base = this.D(x0 + 1, y0 + 1);
     this.piece(this.img(this.ni++, kit.key, open), kit, x0, y0, z).setDepth(base);
-    if (kit.front) this.piece(this.img(this.ni++, kit.front, open), kit, x0, y0, z).setDepth(base + FRONT);
+    if (kit.front) this.piece(this.img(this.ni++, kit.front, open), kit, x0, y0, z).setDepth(this.D(x0 + 2, y0 + 2) + 2 * IN);
     return true;
   }
 
