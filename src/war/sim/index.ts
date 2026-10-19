@@ -4,7 +4,9 @@
  *
  * A squad has an anchor that walks its A* path; each unit steers to its formation slot
  * around the anchor, or, when the slot is out of sight (behind a corner or cliff), along the
- * squad path. Units are pushed apart through a spatial hash and never step onto blocked tiles.
+ * squad path. Units are pushed apart through a spatial hash, never end a tick inside another
+ * body (`separate`) and never step onto blocked tiles. Once the squad is at rest each unit
+ * settles in its slot, or as near as it gets when another unit stands there, and stops steering.
  *
  * Combat (M1c): units fight as individuals. A marching squad (move order under way) does
  * not fight. Any other squad picks targets among enemy squads nearby: holding or idle units
@@ -29,6 +31,9 @@ const RADIUS = 0.35; // units closer than 2*RADIUS are pushed apart
 const PUSH = 0.5; // fraction of the overlap resolved per tick
 const TURN = 0.35; // max anchor turn per tick (rad)
 const ARRIVE = 0.05;
+const STALL = 10; // squad at rest: a unit that gets no nearer its slot this many ticks settles where it stands
+const WAKE = 0.5; // a settled unit walks again when its slot moves this much further off
+const RETRY = 10; // ticks between a settled unit's checks whether its taken slot has come free
 const REPATH_TICKS = 20; // attack: re-path to the moving target
 /**
  * Squad A* work per tick, in tiles of straight-line distance (deterministic, unlike a time budget):
@@ -45,6 +50,7 @@ const CHARGE = 10; // attacking units break formation for a target this near
 const MELEE_STOP = 1.5; // attack: the anchor stops this near the foe's centre
 const REACH_PAD = 0.3; // body: reach is measured centre to centre
 const YIELD = 0.08; // keep-right sidestep per tick when meeting another squad head-on
+const YIELD_R = 1.2; // ... felt this far ahead (bodies never touch, see `separate`)
 const STUCK_TICKS = 8;
 const CLIMB_LOOK = 1.5; // tiles ahead a climb is felt
 const FACE = 18; // a standing squad turns to face enemies this near
@@ -77,6 +83,14 @@ interface Unit {
   own: number[]; // personal detour (flat x,y) when stuck
   oi: number;
   ownReq: boolean;
+  settled: boolean; // squad at rest and the unit is in its slot (or as near as it gets): no steering, not pushed
+  settleD: number; // distance to its slot when it settled
+  best: number; // nearest it has come to its slot since the squad came to rest
+  stall: number; // ticks without getting nearer
+  ox: number; // position at the start of the tick
+  oy: number;
+  want: number; // distance it set out to walk this tick, -1 when it stood to strike
+  toSlot: boolean; // walking to its slot (not closing on a foe)
 }
 
 interface Squad {
@@ -485,6 +499,53 @@ export function createSim(region: RegionData, seed: number): WarSim {
     return null;
   };
 
+  /**
+   * Hard spacing: no two living units end a tick closer than a body (2*RADIUS), whatever squad,
+   * except two that are both fighting (the press of a melee). A unit standing (settled or
+   * striking) holds its spot and the other one gives way.
+   */
+  const separate = () => {
+    head.fill(-1);
+    for (let i = 0; i < units.length; i++) {
+      if (!units[i].alive) continue;
+      const c = tileAt(grid, units[i].x, units[i].y);
+      next[i] = head[c];
+      head[c] = i;
+    }
+    const MIN = 2 * RADIUS;
+    for (let i = 0; i < units.length; i++) {
+      const u = units[i];
+      if (!u.alive) continue;
+      const cx = Math.floor(u.x);
+      const cy = Math.floor(u.y);
+      for (let yy = Math.max(0, cy - 1); yy <= Math.min(grid.h - 1, cy + 1); yy++) {
+        for (let xx = Math.max(0, cx - 1); xx <= Math.min(grid.w - 1, cx + 1); xx++) {
+          for (let j = head[yy * grid.w + xx]; j !== -1; j = next[j]) {
+            if (j <= i) continue;
+            const o = units[j];
+            let ex = u.x - o.x;
+            let ey = u.y - o.y;
+            const e = Math.hypot(ex, ey);
+            if (e >= MIN || (u.fighting && o.fighting)) continue;
+            if (e < 1e-8) {
+              ex = u.id < o.id ? 1 : -1;
+              ey = 0;
+            } else {
+              ex /= e;
+              ey /= e;
+            }
+            const uFix = u.settled || u.striking;
+            const oFix = o.settled || o.striking;
+            const k = uFix === oFix ? 0.5 : uFix ? 0 : 1;
+            const gap = MIN - e;
+            if (k > 0) tryMove(u, ex * gap * k, ey * gap * k);
+            if (k < 1) tryMove(o, -ex * gap * (1 - k), -ey * gap * (1 - k));
+          }
+        }
+      }
+    }
+  };
+
   const step = () => {
     const t0 = performance.now();
     for (const o of queue.splice(0)) apply(o);
@@ -528,6 +589,15 @@ export function createSim(region: RegionData, seed: number): WarSim {
     }
 
     const R2 = 4 * RADIUS * RADIUS;
+    /** No other unit stands within a body of (x,y). */
+    const free = (x: number, y: number, i: number) => {
+      const cx = Math.floor(x);
+      const cy = Math.floor(y);
+      for (let yy = Math.max(0, cy - 1); yy <= Math.min(grid.h - 1, cy + 1); yy++)
+        for (let xx = Math.max(0, cx - 1); xx <= Math.min(grid.w - 1, cx + 1); xx++)
+          for (let j = head[yy * grid.w + xx]; j !== -1; j = next[j]) if (j !== i && (units[j].x - x) ** 2 + (units[j].y - y) ** 2 < R2) return false;
+      return true;
+    };
     for (let i = 0; i < units.length; i++) {
       const u = units[i];
       if (!u.alive) continue;
@@ -542,7 +612,33 @@ export function createSim(region: RegionData, seed: number): WarSim {
         dx = tx - u.x;
         dy = ty - u.y;
         d = Math.hypot(dx, dy);
-      }
+        // squad at rest: settle in the slot, or as near as it gets when another unit stands on it
+        // (two units pulled to one spot otherwise push and sidestep round each other for ever)
+        const s = u.squad;
+        if (act === null && s.pi >= s.path.length / 2 && !s.goal) {
+          if (u.settled) {
+            const k = Math.min(1, (3 * RADIUS) / Math.max(d, 1e-6)); // the way into the slot must be open too
+            const retry = d > ARRIVE && (tick + u.id) % RETRY === 0 && free(tx, ty, i) && free(u.x + dx * k, u.y + dy * k, i);
+            if (d > u.settleD + WAKE || (retry && lineClear(grid, u.x, u.y, tx, ty))) {
+              u.settled = false;
+              u.best = d;
+              u.stall = 0;
+            }
+          } else if (d < u.best - 0.02) {
+            u.best = d;
+            u.stall = 0;
+          } else if (++u.stall > STALL) u.best = 0;
+          if (!u.settled && (d <= ARRIVE || u.best === 0)) {
+            u.settled = true;
+            u.settleD = d;
+          }
+        } else {
+          u.settled = false;
+          u.best = Infinity;
+          u.stall = 0;
+        }
+        if (u.settled) d = 0;
+      } else u.settled = false;
       if (d > ARRIVE) {
         const cost = moveCost(u.x, u.y, dx / d, dy / d);
         const step = Math.min(d, (SPEED * u.st.speed * CATCH_UP * DT) / cost);
@@ -556,11 +652,11 @@ export function createSim(region: RegionData, seed: number): WarSim {
         u.vx = 0;
         u.vy = 0;
       }
-      // separation from every unit in the 3x3 tiles around
+      // separation from every unit in the 3x3 tiles around (a settled unit stands; movers go round it)
       let yielded = false;
       const cx = Math.floor(u.x);
       const cy = Math.floor(u.y);
-      for (let yy = cy - 1; yy <= cy + 1; yy++) {
+      for (let yy = u.settled ? grid.h : cy - 1; yy <= cy + 1; yy++) {
         if (yy < 0 || yy >= grid.h) continue;
         for (let xx = cx - 1; xx <= cx + 1; xx++) {
           if (xx < 0 || xx >= grid.w) continue;
@@ -570,6 +666,12 @@ export function createSim(region: RegionData, seed: number): WarSim {
             const ex = u.x - o.x;
             const ey = u.y - o.y;
             const e2 = ex * ex + ey * ey;
+            // head-on with another unit just ahead: both keep to their right and slip past
+            if (!yielded && e2 < YIELD_R * YIELD_R && u.vx * o.vx + u.vy * o.vy < -0.3 && ex * u.vx + ey * u.vy < 0) {
+              yielded = true;
+              dx -= u.vy * YIELD;
+              dy += u.vx * YIELD;
+            }
             if (e2 >= R2) continue;
             if (e2 < 1e-8) {
               // exact overlap: split by id so the result is deterministic
@@ -580,22 +682,47 @@ export function createSim(region: RegionData, seed: number): WarSim {
             const push = ((2 * RADIUS - e) * PUSH) / 2;
             dx += (ex / e) * push;
             dy += (ey / e) * push;
-            // head-on with another squad: both keep to their right and slip past
-            if (!yielded && o.squad !== u.squad && u.vx * o.vx + u.vy * o.vy < -0.3) {
-              yielded = true;
-              dx -= u.vy * YIELD;
-              dy += u.vx * YIELD;
+          }
+        }
+      }
+      // never step closer into a body: slide along it instead
+      if (dx || dy) {
+        for (let yy = cy - 1; yy <= cy + 1; yy++) {
+          if (yy < 0 || yy >= grid.h) continue;
+          for (let xx = cx - 1; xx <= cx + 1; xx++) {
+            if (xx < 0 || xx >= grid.w) continue;
+            for (let j = head[yy * grid.w + xx]; j !== -1; j = next[j]) {
+              if (j === i) continue;
+              const o = units[j];
+              const px = u.x + dx - o.x;
+              const py = u.y + dy - o.y;
+              const p2 = px * px + py * py;
+              if (p2 >= R2 || p2 < 1e-8 || (u.fighting && o.fighting)) continue;
+              const now = Math.hypot(u.x - o.x, u.y - o.y);
+              const p = Math.sqrt(p2);
+              if (p >= now) continue;
+              const keep = Math.min(2 * RADIUS, now) / p;
+              dx = o.x + px * keep - u.x;
+              dy = o.y + py * keep - u.y;
             }
           }
         }
       }
       tryMove(u, dx, dy);
-      const mx = u.x - ox;
-      const my = u.y - oy;
+      u.ox = ox;
+      u.oy = oy;
+      u.want = act === u ? -1 : d;
+      u.toSlot = act === null;
+    }
+    for (let k = 0; k < 3; k++) separate();
+    for (const u of units) {
+      if (!u.alive) continue;
+      const mx = u.x - u.ox;
+      const my = u.y - u.oy;
       u.moving = mx * mx + my * my > 1e-4;
-      if (act !== u) u.facing = u.moving && d > ARRIVE ? Math.atan2(my, mx) : u.squad.facing;
+      if (u.want >= 0) u.facing = u.moving && u.want > ARRIVE ? Math.atan2(my, mx) : u.squad.facing;
       // walled in on the way to its slot: find a detour of its own
-      if (act === null && d > 0.5 && mx * mx + my * my < 1e-4) {
+      if (u.toSlot && u.want > 0.5 && !u.moving) {
         if (++u.stuck > STUCK_TICKS && !u.ownReq && !u.own.length) {
           u.ownReq = true;
           unitPathQueue.push(u);
@@ -627,6 +754,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
         const u: Unit = {
           id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: st.maxHp, maxHp: st.maxHp, cls, st, moving: false, wp: 0,
           alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
+          settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
         };
         units.push(u);
         s.units.push(u);
