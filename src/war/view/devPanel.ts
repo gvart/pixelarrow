@@ -15,6 +15,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene): void {
     <div class="row"><button id="place">Place squad (click map)</button></div>
     <div class="row"><button id="bots">+4 bot squads at cursor (E)</button></div>
     <div class="row"><button id="brawl">600 brawl</button> <button id="clear">Reload</button></div>
+    ${s.region.id === 'test-ridge' ? `<div class="row">go to <select id="spot">${Object.keys(s.spots).map((k) => `<option>${k}</option>`).join('')}</select></div>` : ''}
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
     <div class="row">${(['height', 'cost', 'grid', 'zones'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
     <pre id="perf"></pre>
@@ -32,6 +33,8 @@ export function devPanel(game: Phaser.Game, s: SandboxScene): void {
   window.addEventListener('keydown', (e) => { if (e.key === 'e' || e.key === 'E') bots(); });
   $('brawl').onclick = () => brawl(s);
   $('clear').onclick = () => location.reload();
+  const spot = el.querySelector<HTMLSelectElement>('#spot');
+  if (spot) spot.onchange = () => { const [x, y] = s.spots[spot.value as keyof typeof s.spots]; s.focus(x, y); };
   let paused = false;
   $('pause').onclick = () => {
     paused = !paused;
@@ -51,18 +54,19 @@ export function devPanel(game: Phaser.Game, s: SandboxScene): void {
 }
 
 /**
- * 15 own squads in the west against 15 bot squads in the east: 600 units. On test-ridge the sides
- * face each other across the river (x 96..104), clear of the mountain wall (y 78..86), so the
- * fight has to go through the ford (y 36..39), the bridge (y 118..120) or, from the north, the pass.
+ * 15 own squads against 15 bot squads: 600 units. On test-ridge they stand in 5 x 3 blocks on
+ * either bank of the ford (SPOTS fordW / fordE), so the fight goes through the ford; elsewhere
+ * west and east of the map centre.
  */
 export function brawl(s: SandboxScene): void {
   const { w, h, id } = s.region;
   const ridge = id === 'test-ridge';
-  const ys = ridge ? [30, 52, 68, 100, 134] : [0.2, 0.35, 0.5, 0.65, 0.8].map((f) => h * f);
-  const [west, east] = ridge ? [86, 114] : [w * 0.38, w * 0.62];
+  // block centres and the step away from the river, in tiles
+  const [wx, wy] = ridge ? [s.spots.fordW[0] - 8, s.spots.fordW[1]] : [w * 0.38, h * 0.5];
+  const [ex, ey] = ridge ? [s.spots.fordE[0] + 8, s.spots.fordE[1]] : [w * 0.62, h * 0.5];
   for (let i = 0; i < 15; i++) {
-    const y = ys[i % 5], dx = Math.floor(i / 5) * 6;
-    s.sim.spawn('you', 0, CLASSES[i % CLASSES.length], 20, west - dx, y);
-    s.sim.spawn('bot', 1, CLASSES[(i + 2) % CLASSES.length], 20, east + dx, y);
+    const dy = ((i % 5) - 2) * 9, dx = Math.floor(i / 5) * 8;
+    s.sim.spawn('you', 0, CLASSES[i % CLASSES.length], 20, wx - dx, wy + dy);
+    s.sim.spawn('bot', 1, CLASSES[(i + 2) % CLASSES.length], 20, ex + dx, ey + dy);
   }
 }

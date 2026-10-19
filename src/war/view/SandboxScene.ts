@@ -1,9 +1,10 @@
 /**
- * The region sandbox in true iso with raised height (W-16): greybox terrain baked into 512 px
- * screen-space chunks on demand (LRU pool, culled to the camera) over a 1/4-scale overview that
- * stands alone when zoomed out; 10 Hz sim snapshots drawn interpolated as team-coloured markers
- * on their tile's level, back to front, as outlines where higher ground hides them; RTS camera
- * and squad controls picking through the height field (src/war/view/iso.ts).
+ * The region sandbox in true iso with raised height (W-16) at real scale (W-18: 64 x 32 tiles of
+ * 2 m, a 512-tile region is ~33k px wide): greybox terrain baked into 512 px chunks on demand
+ * (LRU pools, culled to the camera) at 1x zoomed in and 1/4 at mid zoom, over a 1/8 overview baked
+ * in bands that stands alone zoomed out; 10 Hz sim snapshots drawn interpolated as PixelLab
+ * soldier sprites with dot and banner LOD (./units.ts); RTS camera and squad controls picking
+ * through the height field (./iso.ts).
  *
  *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
  *   left click / box: select own squads (shift adds); right click: move, or attack an enemy squad
@@ -11,20 +12,26 @@
  */
 import Phaser from 'phaser';
 import type { Order, RegionData, SquadId } from '../types';
+import { SPOTS } from '../regions/test-ridge.spots';
 import { SimClient, type DrawUnit } from './simClient';
-import { HH, HW, IsoMap } from './iso';
+import { IsoMap } from './iso';
 import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain';
+import { BODY, SPRITE_ZOOM, UnitLayer, loadSheets } from './units';
 
-export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
-const RANGED = /archer|sling|javelin/;
 /** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above. */
-const LADDER = [1 / 8, 1 / 6, 1 / 5, 1 / 4, 1 / 3, 1 / 2, 1, 2, 3, 4];
-/** Below this zoom only the overview is drawn. */
-const CHUNK_ZOOM = 0.5;
-/** Chunk canvases kept (1 MB each): a 1440x900 view at CHUNK_ZOOM needs ~40. */
-const POOL = 64;
-const BAKES_PER_FRAME = 4;
+const LADDER = [1 / 32, 1 / 24, 1 / 16, 1 / 12, 1 / 8, 1 / 6, 1 / 4, 1 / 3, 1 / 2, 1, 2, 3];
+/**
+ * Chunk levels, finest first: canvas px per world px and the lowest zoom each shows at. Below
+ * 1/6 the overview (1/8) stands alone. Each pool keeps 48 canvases (1 MB each): a 1440x900 view
+ * at a level's lowest zoom needs ~35.
+ */
+const LEVELS = [{ scale: 1, zoom: 1 / 2 }, { scale: 1 / 4, zoom: 1 / 6 }] as const;
+const POOL = 48;
+/** Terrain baking per frame (ms); at least one bake runs. */
+const BAKE_MS = 6;
+/** World px per overview band (one band bakes per frame until the overview is done). */
+const BAND = 256;
 
 export type Overlay = 'height' | 'cost' | 'grid' | 'zones';
 
@@ -42,15 +49,19 @@ export class SandboxScene extends Phaser.Scene {
   /** The last right-click order, in tiles (for scripts). */
   lastCommand: { kind: 'move' | 'attack'; x: number; y: number } | null = null;
   drawn: DrawUnit[] = [];
+  readonly spots = SPOTS;
+  /** True once the overview has been baked for the current overlays. */
+  overviewReady = false;
   private moved = false; // no edge pan before the first real pointer move
   private filterZoom = 0;
   private frame = 0;
   private baker!: TerrainBaker;
   private opts: BakeOpts = { ov: 'none', grid: false, zones: true };
   private ver = 0; // bumps when opts change: chunks baked earlier are stale
-  private chunks: Chunk[] = [];
+  private chunks: Chunk[][] = LEVELS.map(() => []);
   private overviewTex!: Phaser.Textures.CanvasTexture;
-  private gUnits!: Phaser.GameObjects.Graphics;
+  private band = 0;
+  private units!: UnitLayer;
   private gUi!: Phaser.GameObjects.Graphics;
   private markers: { x: number; y: number; t: number; c: number }[] = [];
   private box: { x0: number; y0: number; x1: number; y1: number } | null = null;
@@ -65,6 +76,10 @@ export class SandboxScene extends Phaser.Scene {
     this.region = data.region;
   }
 
+  preload(): void {
+    loadSheets(this);
+  }
+
   create(): void {
     const r = this.region;
     this.iso = new IsoMap(r);
@@ -72,13 +87,14 @@ export class SandboxScene extends Phaser.Scene {
     const { W, H } = this.iso;
     this.overviewTex = this.textures.createCanvas('overview', Math.ceil(W * OVERVIEW_SCALE), Math.ceil(H * OVERVIEW_SCALE))!;
     this.add.image(0, 0, 'overview').setOrigin(0).setScale(1 / OVERVIEW_SCALE);
-    this.bakeOverview();
-    this.gUnits = this.add.graphics().setDepth(10);
+    this.units = new UnitLayer(this, this.iso);
     this.gUi = this.add.graphics().setDepth(11);
 
     const cam = this.cameras.main;
     cam.setBackgroundColor('#1b1e22').setRoundPixels(true);
-    cam.setZoom(this.fitZoom()).centerOn(W / 2, H / 2);
+    // open on the ford, soldiers about 29 px tall: units and ground both read
+    if (r.id === 'test-ridge') this.focus(SPOTS.ford[0], SPOTS.ford[1], 1 / 2);
+    else cam.setZoom(this.fitZoom()).centerOn(W / 2, H / 2);
 
     this.sim = new SimClient(r);
     this.input.mouse!.disableContextMenu();
@@ -99,13 +115,17 @@ export class SandboxScene extends Phaser.Scene {
     if (k === 'height' || k === 'cost') this.opts.ov = on ? k : this.opts.ov === k ? 'none' : this.opts.ov;
     else this.opts[k] = on;
     this.ver++;
-    this.bakeOverview();
+    this.band = 0;
+    this.overviewReady = false;
   }
 
-  private bakeOverview(): void {
-    const { W, H } = this.iso;
-    this.baker.bake(this.overviewTex.context, 0, 0, W, H, OVERVIEW_SCALE, this.opts);
+  /** Bake the next band of the overview; upload it once the last band is done. */
+  private bakeOverviewBand(): void {
+    const { W, H } = this.iso, y = this.band * BAND;
+    this.baker.bake(this.overviewTex.context, 0, y, W, BAND, OVERVIEW_SCALE, this.opts, 0, y * OVERVIEW_SCALE);
+    if (++this.band * BAND < H) return;
     this.overviewTex.refresh();
+    this.overviewReady = true;
   }
 
   /** Centre the camera on a tile point (at its level), optionally zooming. */
@@ -149,22 +169,19 @@ export class SandboxScene extends Phaser.Scene {
     return this.iso.pick(v.x, v.y);
   }
 
-  private radius(): number {
-    return 5 * Math.max(1, 0.6 / this.cameras.main.zoom);
-  }
-
-  /** World px of a unit's feet, on its tile's level. */
-  private feet(d: { x: number; y: number }): { x: number; y: number } {
-    return { x: this.iso.sx(d.x, d.y), y: this.iso.sy(d.x, d.y, this.iso.zAt(d.x, d.y)) };
+  /** World px of a unit's middle as drawn: half a man above the feet for sprites, the feet for dots and banners. */
+  private body(d: { x: number; y: number }): { x: number; y: number } {
+    const f = this.units.feet(d);
+    return this.cameras.main.zoom >= SPRITE_ZOOM ? { x: f.x, y: f.y - BODY } : f;
   }
 
   /** The live unit drawn nearest the pointer (screen space, so hills don't skew it), of / not of team 0. */
   private pick(p: { x: number; y: number }, own: boolean): DrawUnit | null {
-    const w = this.wpx(p.x, p.y), r = this.radius();
-    let best: DrawUnit | null = null, bd = Math.max(r * 1.6, 8 / this.cameras.main.zoom);
+    const w = this.wpx(p.x, p.y);
+    let best: DrawUnit | null = null, bd = Math.max(BODY, 10 / this.cameras.main.zoom);
     for (const d of this.drawn) {
       if (d.u.state === 'dead' || (d.team === 0) !== own) continue;
-      const f = this.feet(d), dist = Math.hypot(f.x - w.x, f.y - r - w.y);
+      const f = this.body(d), dist = Math.hypot(f.x - w.x, f.y - w.y);
       if (dist < bd) { bd = dist; best = d; }
     }
     return best;
@@ -199,11 +216,11 @@ export class SandboxScene extends Phaser.Scene {
     this.down = null;
     if (!this.keys.SHIFT.isDown) this.selected.clear();
     if (this.box) {
-      const { x0, y0, x1, y1 } = this.box, r = this.radius();
+      const { x0, y0, x1, y1 } = this.box;
       for (const d of this.drawn) {
         if (d.team !== 0 || d.u.state === 'dead') continue;
-        const f = this.feet(d), y = f.y - r;
-        if (f.x >= Math.min(x0, x1) && f.x <= Math.max(x0, x1) && y >= Math.min(y0, y1) && y <= Math.max(y0, y1)) this.selected.add(d.u.squad);
+        const f = this.body(d);
+        if (f.x >= Math.min(x0, x1) && f.x <= Math.max(x0, x1) && f.y >= Math.min(y0, y1) && f.y <= Math.max(y0, y1)) this.selected.add(d.u.squad);
       }
       this.box = null;
       return;
@@ -260,99 +277,79 @@ export class SandboxScene extends Phaser.Scene {
 
     for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
     this.drawn = this.sim.units();
-    this.drawUnits(view);
+    this.units.draw(this.drawn, view, cam.zoom, this.selected, this.time.now);
     this.drawUi();
   }
 
-  /** Show baked chunks over the view (bake missing / stale ones a few per frame; the overview fills in meanwhile). */
+  /**
+   * Show baked chunks of the level for this zoom over the view; bake missing / stale ones within
+   * the frame's budget (the overview fills in meanwhile), then one overview band if it is not done.
+   */
   private updateChunks(view: View, zoom: number): void {
+    const t0 = performance.now();
     if (zoom !== this.filterZoom) {
       this.filterZoom = zoom;
       // crisp tiles (and no seams between chunks) zoomed in, smooth zoomed out
-      const f = zoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
-      for (const c of this.chunks) c.tex.setFilter(f);
+      for (const [l, pool] of this.chunks.entries()) for (const c of pool) c.tex.setFilter(this.filterFor(l));
       this.overviewTex.setFilter(zoom >= 1 / OVERVIEW_SCALE ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR);
     }
-    for (const c of this.chunks) c.img.setVisible(false);
-    if (zoom < CHUNK_ZOOM) return;
-    const { W, H } = this.iso;
-    const cx0 = Math.max(0, Math.floor(view.x / CHUNK_PX)), cx1 = Math.min(Math.ceil(W / CHUNK_PX) - 1, Math.floor(view.right / CHUNK_PX));
-    const cy0 = Math.max(0, Math.floor(view.y / CHUNK_PX)), cy1 = Math.min(Math.ceil(H / CHUNK_PX) - 1, Math.floor(view.bottom / CHUNK_PX));
-    let budget = BAKES_PER_FRAME;
-    for (let cy = cy0; cy <= cy1; cy++) {
-      for (let cx = cx0; cx <= cx1; cx++) {
-        const at = `${cx},${cy}`;
-        let c = this.chunks.find((q) => q.at === at);
-        if (!c || c.ver !== this.ver) {
-          if (budget <= 0) continue;
-          budget--;
-          c ??= this.claimChunk(at);
-          // 1 px of overlap all round: no seams between neighbours (or the overview showing through)
-          this.baker.bake(c.tex.context, cx * CHUNK_PX - 1, cy * CHUNK_PX - 1, CHUNK_PX + 2, CHUNK_PX + 2, 1, this.opts);
-          c.tex.refresh();
-          c.img.setPosition(cx * CHUNK_PX - 1, cy * CHUNK_PX - 1);
-          c.ver = this.ver;
+    for (const pool of this.chunks) for (const c of pool) c.img.setVisible(false);
+    const l = LEVELS.findIndex((v) => zoom >= v.zoom);
+    if (l >= 0) {
+      const { scale } = LEVELS[l], span = CHUNK_PX / scale, { W, H } = this.iso;
+      const cx0 = Math.max(0, Math.floor(view.x / span)), cx1 = Math.min(Math.ceil(W / span) - 1, Math.floor(view.right / span));
+      const cy0 = Math.max(0, Math.floor(view.y / span)), cy1 = Math.min(Math.ceil(H / span) - 1, Math.floor(view.bottom / span));
+      let baked = 0;
+      for (let cy = cy0; cy <= cy1; cy++) {
+        for (let cx = cx0; cx <= cx1; cx++) {
+          const at = `${cx},${cy}`;
+          let c = this.chunks[l].find((q) => q.at === at);
+          if (!c || c.ver !== this.ver) {
+            if (baked && performance.now() - t0 > BAKE_MS) continue;
+            baked++;
+            c ??= this.claimChunk(l, at);
+            // 1 canvas px of overlap all round: no seams between neighbours (or the overview showing through)
+            const m = 1 / scale;
+            this.baker.bake(c.tex.context, cx * span - m, cy * span - m, span + 2 * m, span + 2 * m, scale, this.opts);
+            c.tex.refresh();
+            c.img.setPosition(cx * span - m, cy * span - m).setScale(1 / scale);
+            c.ver = this.ver;
+          }
+          c.used = this.frame;
+          c.img.setVisible(true);
         }
-        c.used = this.frame;
-        c.img.setVisible(true);
       }
     }
+    if (!this.overviewReady) this.bakeOverviewBand();
   }
 
-  /** A canvas for the chunk at `at`: a new one while the pool has room, else the least recently shown. */
-  private claimChunk(at: string): Chunk {
+  private filterFor(level: number): Phaser.Textures.FilterMode {
+    return this.filterZoom / LEVELS[level].scale >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
+  }
+
+  /** A canvas for the chunk at `at` of a level: a new one while the pool has room, else the least recently shown. */
+  private claimChunk(level: number, at: string): Chunk {
+    const pool = this.chunks[level];
     let c: Chunk | undefined;
-    if (this.chunks.length < POOL) {
-      const key = `chunk-${this.chunks.length}`;
+    if (pool.length < POOL) {
+      const key = `chunk-${level}-${pool.length}`;
       const tex = this.textures.createCanvas(key, CHUNK_PX + 2, CHUNK_PX + 2)!;
-      tex.setFilter(this.filterZoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR);
+      tex.setFilter(this.filterFor(level));
       c = { key, tex, img: this.add.image(0, 0, key).setOrigin(0).setDepth(1), at, ver: -1, used: 0 };
-      this.chunks.push(c);
+      pool.push(c);
     } else {
-      c = this.chunks.reduce((o, q) => (q.used < o.used ? q : o));
+      c = pool.reduce((o, q) => (q.used < o.used ? q : o));
       c.at = at;
       c.ver = -1;
     }
     return c;
   }
 
-  private drawUnits(view: View): void {
-    const g = this.gUnits.clear(), z = this.cameras.main.zoom, iso = this.iso;
-    const r = this.radius(), bars = z >= 2, pad = r * 2;
-    // back to front: units further up the screen first
-    const list = this.drawn.slice().sort((p, q) => p.x + p.y - (q.x + q.y));
-    for (const d of list) {
-      const lvl = iso.zAt(d.x, d.y), x = iso.sx(d.x, d.y), feet = iso.sy(d.x, d.y, lvl), y = feet - r;
-      if (x < view.x - pad || x > view.right + pad || y < view.y - pad || y > view.bottom + pad) continue;
-      const u = d.u, col = TEAM_COLOR[d.team] ?? 0xcccccc;
-      if (u.state === 'dead') { g.fillStyle(0x2a2a2a, 0.6).fillEllipse(x, feet, r * 1.4, r * 0.7); continue; }
-      // behind higher ground: only a silhouette outline shows through
-      if (iso.hidden(x, y - r * 0.5, d.x + d.y, lvl)) {
-        g.lineStyle(Math.max(1, 1.2 / z), col, 0.85);
-        if (RANGED.test(u.cls)) g.strokeRect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7); else g.strokeCircle(x, y, r);
-        if (this.selected.has(u.squad)) g.lineStyle(Math.max(1, 1 / z), 0xffffff, 0.6).strokeCircle(x, y, r + 2.5);
-        continue;
-      }
-      g.fillStyle(0x000000, 0.3).fillEllipse(x, feet, r * 1.8, r * 0.9);
-      if (this.selected.has(u.squad)) g.lineStyle(1.5, 0xffffff, 1).strokeEllipse(x, feet, (r + 3) * 2, r + 3);
-      g.fillStyle(col, 1).lineStyle(1, 0x101010, 0.9);
-      if (RANGED.test(u.cls)) g.fillRect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7).strokeRect(x - r * 0.85, y - r * 0.85, r * 1.7, r * 1.7);
-      else g.fillCircle(x, y, r).strokeCircle(x, y, r);
-      // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
-      const fx = Math.cos(d.facing), fy = Math.sin(d.facing), sx = (fx - fy) * HW, sy = (fx + fy) * HH, n = Math.hypot(sx, sy) || 1;
-      g.lineStyle(Math.max(1.5, r * 0.3), 0x101010, 1).lineBetween(x, y, x + (sx / n) * (r + 3), y + (sy / n) * (r + 3));
-      if (bars) {
-        g.fillStyle(0x200000, 0.8).fillRect(x - 6, y - r - 5, 12, 2);
-        g.fillStyle(u.hp / u.maxHp > 0.5 ? 0x60e060 : 0xe0a030, 1).fillRect(x - 6, y - r - 5, (12 * u.hp) / u.maxHp, 2);
-      }
-    }
-  }
-
   private drawUi(): void {
     const g = this.gUi.clear(), z = this.cameras.main.zoom, now = this.time.now;
     this.markers = this.markers.filter((mk) => now - mk.t < 700);
     for (const mk of this.markers) {
-      const f = (now - mk.t) / 700, s = (18 * (1 - f) + 4) / z, p = this.feet(mk);
+      const f = (now - mk.t) / 700, s = (18 * (1 - f) + 4) / z, p = this.units.feet(mk);
       g.lineStyle(3 / z, mk.c, 1 - f * 0.7).strokeEllipse(p.x, p.y, s * 2, s);
     }
     if (this.box) {
