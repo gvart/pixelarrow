@@ -176,6 +176,8 @@ Timing uses the battle clock and each clip's `fps`; a man's loop has its own pha
 | wreck | chariots: death | die |
 | kneel | knocked out (`u.ko`), once down | (none: lies still) |
 | cheer / win | victory | each other, then idle |
+| breathe / shift | idle variants (ANIM-1: militia, hoplite, archer, slinger), bigger than look / adjust | idle |
+| build / carry | construction work (militia) | idle / walk |
 
 Fallbacks are tried depth first, never twice, ending at `idle`.
 

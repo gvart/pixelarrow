@@ -1,0 +1,10 @@
+[
+ {"anim":"breathe","dir":"south-west","attempt":"a1","job":"f5555ff8-2579-44bc-bb6a-12e5c2bb9ea1","mode":"pixminimax","frames":16,"gens":1,"first":"rot"},
+ {"anim":"shift","dir":"south-west","attempt":"a1","job":"79c308f2-3c54-4ca3-8cd0-b7401f84c363","mode":"pixminimax","frames":16,"gens":1,"first":"rot"},
+ {"anim":"breathe","dir":"south-east","attempt":"a1","job":"8b1a1524-4dbf-4391-bce4-838ef3b0076d","mode":"pixminimax","frames":16,"gens":1,"first":"rot"},
+ {"anim":"breathe","dir":"north-east","attempt":"a1","job":"894dd725-6a2b-4877-8ba2-290f301e598d","mode":"pixminimax","frames":16,"gens":1,"first":"rot"},
+ {"anim":"shift","dir":"south-east","attempt":"a1","job":"bf65473b-55db-4eaa-851f-bbc58b7db2a0","mode":"pixminimax","frames":16,"gens":1,"first":"rot"},
+ {"anim":"shift","dir":"north-east","attempt":"a1","job":"6aa3cc39-61cc-4a76-ab99-b063af372740","mode":"pixminimax","frames":16,"gens":1,"first":"rot"},
+ {"anim":"breathe","dir":"north-west","attempt":"a1","job":"7ebcfe9d-e0f7-4715-9e72-f2483f760f0e","mode":"pixminimax","frames":16,"gens":1,"first":"rot"},
+ {"anim":"shift","dir":"north-west","attempt":"a1","job":"c1d8ea03-a534-4b8b-9188-050ce7b11bbc","mode":"pixminimax","frames":16,"gens":1,"first":"rot"}
+]

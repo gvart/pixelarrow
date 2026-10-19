@@ -126,6 +126,16 @@
    "col": 190,
    "frames": 12,
    "fps": 12
+  },
+  "breathe": {
+   "col": 202,
+   "frames": 16,
+   "fps": 8
+  },
+  "shift": {
+   "col": 218,
+   "frames": 16,
+   "fps": 8
   }
  },
  "colorGroups": {

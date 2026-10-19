@@ -110,6 +110,8 @@ Clips start from the class's own frames: the 68 rotation (`rot`), the rotation w
 | fallBack / fallFwd | pixminimax | 12 @ 12 | die | blood: cut, or a `red` clear fix |
 | cheer | pixminimax | 12 @ 10, hold 3 | tall | 68 has no room for a spear overhead |
 | thrust | **skeleton-v3** | 14 @ 14, strike 6 | guard | `rig.mjs thrust <dir> guard.png --grip x,y` |
+| breathe / shift | pixminimax | 16 @ 8 | rot | a big readable idle (PROMPTS_ART §25); added to a shipped sheet with `anim1/append.mjs` |
+| build / carry | pixminimax | 12 @ 10 / 9 @ 12 | tall | mallet on a stake; log on the shoulder (frames 3–11) |
 
 **Skeletons without hand-fitting** (`rig.mjs`): the doll rig's body (paperdoll skeleton(), 1.76 m), posed per clip and weapon (`WEAPONS.spear` one hand + shield, `WEAPONS.pike` two hands), projected through the battle camera and warped to STATURE_PX / SHAPE_PX; only the shins' centre column is measured. `--grip x,y` (the fist `spear.mjs` prints) moves every frame's weapon hand by the rest frame's miss. A hand never leaves arm's reach. Print the payload with `kp.mjs`; check with `--sheet overlay.png --ghost 1`.
 

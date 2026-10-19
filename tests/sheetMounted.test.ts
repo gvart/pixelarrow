@@ -136,7 +136,8 @@ describe('new attack clips and their fallbacks', () => {
 
   it('keeps the frame ids of the older clips', () => {
     expect(SHEET_ANIMS.indexOf('cheer')).toBe(24);
-    expect(SHEET_ANIMS.slice(25)).toEqual(['stab', 'gallop', 'drive', 'wreck']);
+    expect(SHEET_ANIMS.slice(25, 29)).toEqual(['stab', 'gallop', 'drive', 'wreck']);
+    expect(SHEET_ANIMS.slice(29)).toEqual(['breathe', 'shift', 'build', 'carry']);
   });
 });
 
