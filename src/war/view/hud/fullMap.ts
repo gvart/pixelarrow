@@ -2,12 +2,12 @@
  * The full map (W-36): M opens the whole region, centred in a red-figure card, in the current view mode with the markers
  * of the minimap (./mapDraw.ts) and the mode's legend beside it. Wheel zooms at the cursor, drag pans, hover names what
  * is there (ground, biome, movement, owner; lair, building, resource, claim point, squad), a click moves the camera there
- * and closes it; M or Esc closes. F2-F7 switch the mode while it is open.
+ * and closes it; M or Esc closes. In Resources mode an icon marks each patch of scarce nodes (stone, metals, marble, salt...). F2-F7 switch the mode while it is open.
  */
 import { MOB_TEAM } from '../../sim/mobs';
 import { MODES } from '../mapModes';
 import type { SandboxScene } from '../SandboxScene';
-import { uiZoom } from './kit';
+import { UI, uiZoom } from './kit';
 import { drawMap, squads, type MapXf } from './mapDraw';
 import { legendHtml } from './modes';
 
@@ -28,6 +28,7 @@ export class FullMap {
   private hover: { x: number; y: number } | null = null;
   private raf = 0;
   private dirty = false;
+  private icons: Record<string, HTMLImageElement> = {};
 
   constructor(private s: SandboxScene) {
     this.root = document.createElement('div');
@@ -140,6 +141,7 @@ export class FullMap {
     g.fillStyle = '#1a120d';
     g.fillRect(0, 0, this.cv.width, this.cv.height);
     drawMap(g, this.s, this.f, this.px, this.f.k >= 2 * this.px);
+    if (this.s.mode === 'resources') this.drawIcons(g);
     if (this.hover) {
       const x = (Math.floor(this.hover.x) - this.f.x0) * this.f.k, y = (Math.floor(this.hover.y) - this.f.y0) * this.f.k;
       g.strokeStyle = '#f0d9b5'; g.lineWidth = this.px;
@@ -149,6 +151,27 @@ export class FullMap {
     if (this.title.textContent !== name) this.title.textContent = name;
     const lg = legendHtml(this.s) || '<div class="rf-name" style="margin-bottom:4px">Normal</div><div class="rf-dim" style="font-size:10px;line-height:12px">F3-F7: altitude, movement, ownership, biomes, resources</div>';
     if (this.legend.dataset.html !== lg) { this.legend.dataset.html = lg; this.legend.innerHTML = lg + this.keyHtml(); }
+  }
+
+  /** Resources mode: an icon per kind per patch of nodes (a grid of about 64 art px), at the patch's centre; wood and food, everywhere, keep the tint only. */
+  private drawIcons(g: CanvasRenderingContext2D): void {
+    const cellT = (64 * this.px) / this.f.k, at = new Map<string, { res: string; x: number; y: number; n: number }>();
+    for (const nd of this.s.sim.nodes) {
+      if (nd.res === 'wood' || nd.res === 'food') continue;
+      const key = `${nd.res}|${Math.floor(nd.x / cellT)},${Math.floor(nd.y / cellT)}`;
+      const q = at.get(key) ?? at.set(key, { res: nd.res, x: 0, y: 0, n: 0 }).get(key)!;
+      q.x += nd.x; q.y += nd.y; q.n++;
+    }
+    const sz = 16 * this.px;
+    for (const q of at.values()) {
+      const img = (this.icons[q.res] ??= Object.assign(new Image(), { src: `${UI}icons/24/res-${q.res}.png` }));
+      if (!img.complete || !img.naturalWidth) continue;
+      const x = (q.x / q.n - this.f.x0) * this.f.k, y = (q.y / q.n - this.f.y0) * this.f.k;
+      g.fillStyle = 'rgba(14,9,7,0.55)';
+      g.beginPath(); g.arc(x, y, sz * 0.62, 0, Math.PI * 2); g.fill();
+      g.imageSmoothingEnabled = false;
+      g.drawImage(img, x - sz / 2, y - sz / 2, sz, sz);
+    }
   }
 
   /** The markers' key under the legend. */
