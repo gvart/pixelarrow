@@ -5,6 +5,8 @@ export interface RegionData {
   height: number[]; terrain: TerrainKind[]; water: WaterKind[]; // row-major, length w*h
   entries: { side: 'N' | 'E' | 'S' | 'W'; x: number; y: number; w: number; h: number }[];
   noBuild: { x: number; y: number; w: number; h: number }[];
+  /** Map objects (public/war/objects/objects.json ids) by foot point in tiles; blocking ones close their footprint (src/war/region/objects.ts). */
+  objects?: { id: string; x: number; y: number }[];
 }
 export type SquadId = number; export type UnitId = number;
 export type Order =

@@ -1,3 +1,4 @@
+import { footprintTiles, OBJECT_BLOCKS } from '../region/objects';
 import type { RegionData, TerrainKind } from '../types';
 
 /** Move cost per tile (1 = grass); 0 = impassable. */
@@ -52,6 +53,10 @@ export function buildGrid(r: RegionData): Grid {
     height[i] = r.height[i];
     ground[i] = r.water[i] === 1 || r.terrain[i] === 'marsh' ? BOG : r.terrain[i] === 'forest' ? FOREST : 0;
     cost[i] = r.water[i] === 2 ? 0 : TERRAIN_COST[r.terrain[i]] * (r.water[i] === 1 ? SHALLOW : 1);
+  }
+  for (const o of r.objects ?? []) { // boulders, ruins, towers close their footprint
+    const fp = OBJECT_BLOCKS[o.id];
+    if (fp) for (const [x, y] of footprintTiles(o.x, o.y, fp)) if (x >= 0 && y >= 0 && x < r.w && y < r.h) cost[y * r.w + x] = 0;
   }
   const g = { w: r.w, h: r.h, cost, height, ground } as Grid;
   g.sectors = buildSectors(g);
