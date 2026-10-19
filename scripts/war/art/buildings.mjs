@@ -423,6 +423,14 @@ function cellBoxes(id, mask, open, state) {
   if (state === 'rising' && hash(mask, 3, 1) < 0.5) { const n = exposed.find(([, s]) => s[0] === '+')?.[1]; if (n) B.push(...(n === '+y' ? stack(0.5, 2.12, wood, mask) : stack(2.12, 0.5, wood, mask))); }
   return B;
 }
+// the post that closes a back-facing inner corner (W-28): where a tile's -x and -y sides join walls but its -x -y diagonal
+// is open, the -y parapet of the tile to -x and the -x parapet of the tile to -y both end at its NW corner, short of each
+// other by the parapet's thickness (the frames see no diagonals); the view draws this post there, over the tile's back
+function postBoxes(id) {
+  const K = KITS[id], W = K.walkM, pal = palisadeMat();
+  const pm = K.material === 'wood' ? (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.wood[0], 1.1) : pal(f, x, y, z, u, palRow(r, K.paraH))) : masonry(TEX.cyclo, { row0: Math.round(W * PPM), top: capTop });
+  return [{ x0: 0, x1: K.para, y0: 0, y1: K.para, z0: W, z1: W + K.paraH, mat: pm }];
+}
 const layerSplit = (B, w, h, ox, oy) => [renderBoxes(B.filter((b) => b.layer !== 'front'), w, h, ox, oy), renderBoxes(B.filter((b) => b.layer === 'front'), w, h, ox, oy)];
 const LK = (id) => { const y0 = Math.ceil(KITS[id].heightM * PPM) + 34; return { w: 96, y0, h: y0 + 60 }; };
 function renderLayered(id, state) {
@@ -926,7 +934,8 @@ for (const id of Object.keys(KITS)) {
   }
   const g = LK(id);
   for (const s of STATES) { const L = renderLayered(id, s); files[s] = sheetOut(`${id}-${s}.png`, gridSheet(L.back, g.w, g.h, LK_COLS)); front[s] = sheetOut(`${id}-${s}-front.png`, gridSheet(L.front, g.w, g.h, LK_COLS)); }
-  kits.push({ id, kind: 'wall', layered: true, material: K.material, burnable: K.burnable, heightM: K.heightM, thicknessM: K.thick, walkwayM: K.walkM, walkwayPx: Math.round(K.walkM * PPM), parapetM: K.paraH, parapetPx: Math.round(K.paraH * PPM), parapetThickM: K.para, walkwayWidthM: { oneDeep: +(2 - 2 * K.para).toFixed(2), twoDeep: +(4 - 2 * K.para).toFixed(2) }, frames: COMBOS.length, columns: LK_COLS, frameOf: FRAME_OF, frame: { w: g.w, h: g.h }, tileOrigin: { x: g.w / 2, y: g.y0 }, states: files, front, source: K.source });
+  const post = sheetOut(`${id}-post.png`, renderBoxes(postBoxes(id), g.w, g.h, g.w / 2, g.y0));
+  kits.push({ id, kind: 'wall', layered: true, post, material: K.material, burnable: K.burnable, heightM: K.heightM, thicknessM: K.thick, walkwayM: K.walkM, walkwayPx: Math.round(K.walkM * PPM), parapetM: K.paraH, parapetPx: Math.round(K.paraH * PPM), parapetThickM: K.para, walkwayWidthM: { oneDeep: +(2 - 2 * K.para).toFixed(2), twoDeep: +(4 - 2 * K.para).toFixed(2) }, frames: COMBOS.length, columns: LK_COLS, frameOf: FRAME_OF, frame: { w: g.w, h: g.h }, tileOrigin: { x: g.w / 2, y: g.y0 }, states: files, front, source: K.source });
 }
 for (const id of Object.keys(STAIRS)) { // player-placed stairs up to the walk
   const S = STAIRS[id], K = KITS[S.wall], files = {};
@@ -1036,12 +1045,12 @@ for (const o of all) {
 }
 // palette + write
 const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), GO = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));
-// the 2-deep gates are composed of the gates' own colours: they snap to the palette without picking it
-const pal = extendPalette([...G.palette, ...GO.palette], sprites.filter((s) => !s.meta?.id.includes('-deep-')).map((s) => s.im), 64);
+// the 2-deep gates and the corner posts are composed of the kits' own colours: they snap to the palette without picking it
+const pal = extendPalette([...G.palette, ...GO.palette], sprites.filter((s) => !s.meta?.id.includes('-deep-') && !s.file.endsWith('-post.png')).map((s) => s.im), 64);
 for (const s of sprites) writeImage(join(OUT, s.file), snapToPalette(s.im, pal));
 const json = {
   pxPerMetre: PPM, tileMetres: 2, borderMax: 0.75,
-  note: 'Build-mode art (W-22..W-28). objects[]: one sprite per building state; anchor = foot (bottom centre); tileOrigin = px of the top (north) vertex of the footprint\'s north tile: draw at that tile\'s top vertex minus tileOrigin; metres = height above the footprint (h = metres x 33 + basePx, basePx = (fw + fh) x 16). kits[]: one sheet per state, frames in rows of `columns` (frame n at column n % columns, row floor(n / columns)), tileOrigin = the top vertex of the NW tile in every frame. Palisade: frame = neighbour mask (+x 1, +y 2, -x 4, -y 8; a wall, gate or tower tile). Layered kits (layered: true; rampart, stone-wall, tower-stone, tower-wood) have two sheets per state: states[s] = BACK layer (faces, walk surface, the -x / -y parapets), front[s] = FRONT layer (the +x / +y parapets or rails, the wood tower\'s roof and front posts). Draw per tile: back, then the units standing on that tile (on the walk at walkwayPx above the ground, on a tower at platformPx), then front, all before anything on tiles further south. Walls: frame = frameOf[mask | open << 4]; mask = sides with a wall or gate tile of the same walk (no face, no parapet there); open = exposed sides with no parapet (a stair top, a joined tower, a ladder head; the face stays). A wall is built 2 tiles deep (walkwayWidthM). Towers: frame = open mask (sides joined to a walk at platform height, or with a ladder). Stairs: pieces <axis><+/-><length tiles>, rising towards the wall at wallAt; a unit stands at topM x (distance from the low end / length). Ladder: pieces <target>-<side of the face it leans on (n -y, e +x, s +y, w -x)>, top at topM[target]. Bridge frames = pieces. States: buildOrder (foundation -> rising -> scaffold -> done), each shown from progress[state] (share of the labour done), then damaged; gates also have open (leaves swung in). Colours = tiles.json palette + objects.json palette + palette.',
+  note: 'Build-mode art (W-22..W-28). objects[]: one sprite per building state; anchor = foot (bottom centre); tileOrigin = px of the top (north) vertex of the footprint\'s north tile: draw at that tile\'s top vertex minus tileOrigin; metres = height above the footprint (h = metres x 33 + basePx, basePx = (fw + fh) x 16). kits[]: one sheet per state, frames in rows of `columns` (frame n at column n % columns, row floor(n / columns)), tileOrigin = the top vertex of the NW tile in every frame. Palisade: frame = neighbour mask (+x 1, +y 2, -x 4, -y 8; a wall, gate or tower tile). Layered kits (layered: true; rampart, stone-wall, tower-stone, tower-wood) have two sheets per state: states[s] = BACK layer (faces, walk surface, the -x / -y parapets), front[s] = FRONT layer (the +x / +y parapets or rails, the wood tower\'s roof and front posts). Draw per tile: back, then the units standing on that tile (on the walk at walkwayPx above the ground, on a tower at platformPx), then front, all before anything on tiles further south. Walls: frame = frameOf[mask | open << 4]; post (done walls): one frame, drawn over the back of a tile whose -x and -y sides are joined but whose -x -y diagonal is not (closes the parapet of that inner corner); mask = sides with a wall or gate tile of the same walk (no face, no parapet there); open = exposed sides with no parapet (a stair top, a joined tower, a ladder head; the face stays). A wall is built 2 tiles deep (walkwayWidthM). Towers: frame = open mask (sides joined to a walk at platform height, or with a ladder). Stairs: pieces <axis><+/-><length tiles>, rising towards the wall at wallAt; a unit stands at topM x (distance from the low end / length). Ladder: pieces <target>-<side of the face it leans on (n -y, e +x, s +y, w -x)>, top at topM[target]. Bridge frames = pieces. States: buildOrder (foundation -> rising -> scaffold -> done), each shown from progress[state] (share of the labour done), then damaged; gates also have open (leaves swung in). Colours = tiles.json palette + objects.json palette + palette.',
   buildOrder: BUILD_ORDER, progress: PROGRESS,
   palette: pal.slice(G.palette.length), kits, buildings, objects: sprites.filter((s) => s.meta).map((s) => s.meta),
 };
