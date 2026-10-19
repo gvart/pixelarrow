@@ -1,24 +1,27 @@
-// Assemble the war region art (ART-4, W-20) from PixelLab raws into game assets.
-// Usage: node scripts/war/art/build.mjs [raw dir]   (default: shots/war/pixellab/art4/raw of the main checkout)
+// Assemble the war region art (ART-4/5, W-20, W-21) from PixelLab raws into game assets, then run the QA gate.
+// Usage: node scripts/war/art/build.mjs [pixellab dir]   (default: shots/war/pixellab of the main checkout; raws in <batch>/raw)
 //
 // Tiles: each raw set is a create_tiles_pro iso Wang set, 16 tiles of 64x48 (top diamond 64x32 + 16 px side),
-// tile_i = corner mask i = NW<<3|NE<<2|SW<<1|SE, a set bit = the pair's first terrain. Every pair has grass first
-// (or shallow water for the water/deep pair). To make grass identical across sets, each top pixel is classed as
-// "first" or "second" terrain and grass pixels are replaced by the reference grass tile; the side band is replaced
-// by the set's side source; the 1 px dark rim is repainted; all tiles snap to one shared palette.
-// Out: public/war/tiles/<pair>.png (16 frames in a row, frame = mask) + tiles.json + cliff side strips.
+// tile_i = corner mask i = NW<<3|NE<<2|SW<<1|SE, a set bit = the pair's first terrain. Each top pixel is classed as
+// "first" or "second" terrain and replaced by that terrain's fill (assets.mjs FILLS) at the same place, so every terrain
+// is pixel-identical in every set and same-terrain edges line up; the 1 px boundary between the two keeps the raw
+// pixels (the drawn bank/edge). The side band is replaced by the set's side source; the dark rim is repainted; all
+// tiles snap to one shared palette. Variants: extra full tiles per terrain (assets.mjs VARIANTS).
+// Out: public/war/tiles/<pair>.png (16 frames in a row, frame = mask), var-<terrain>.png, tiles.json, cliff side strips.
 // Objects: trimmed PNG per object with a foot anchor -> public/war/objects/<id>.png + objects.json.
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readImage, writeImage } from '../../art/lib/png.mjs';
 import { blank, crop, paste, alphaBox, snapToPalette, rgbToHex } from '../../art/lib/ops.mjs';
-import { SETS, CLIFFS, OBJECTS, PX_PER_M, TILE_M } from './assets.mjs';
+import { SETS, FILLS, VARIANTS, FALLBACK, CLIFFS, OBJECTS, PX_PER_M, TILE_M } from './assets.mjs';
+import { runQa } from './qa.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
-const RAW = process.argv[2] ?? '/Users/v.gladis/Workspace/Personal/pixelarrow/shots/war/pixellab/art4/raw';
+const PIX = process.argv[2] ?? '/Users/v.gladis/Workspace/Personal/pixelarrow/shots/war/pixellab';
+const rawDir = (batch) => join(PIX, batch ?? 'art4', 'raw');
 const OUT_T = join(ROOT, 'public/war/tiles'), OUT_O = join(ROOT, 'public/war/objects');
-const TW = 64, TH = 48, HW = 32, HH = 16, SIDE = 16;
+const TW = 64, TH = 48, HW = 32, HH = 16, SIDE = 16, BAND_E = 0.88;
 const errors = [];
 const check = (ok, msg) => { if (!ok) errors.push(msg); };
 
@@ -26,7 +29,8 @@ const inTop = (x, y) => Math.abs(x + 0.5 - HW) / HW + Math.abs(y + 0.5 - HH) / H
 const rimE = (x, y) => Math.abs(x + 0.5 - HW) / HW + Math.abs(y + 0.5 - HH) / HH;
 const px = (im, x, y) => (y * im.w + x) * 4;
 const dist2 = (a, b) => 2 * (a[0] - b[0]) ** 2 + 4 * (a[1] - b[1]) ** 2 + 3 * (a[2] - b[2]) ** 2;
-const loadSet = (dir) => [...Array(16)].map((_, i) => readImage(join(RAW, 'tiles', dir, `tile_${i}.png`)));
+const loadSet = (dir, batch) => [...Array(16)].map((_, i) => readImage(join(rawDir(batch), 'tiles', dir, `tile_${i}.png`)));
+const batchOf = (dir) => SETS.find((s) => s.dir === dir)?.batch;
 
 // Repaint the tile's dark outline round the top diamond with the pixel 2 steps inward (else the map shows a grid).
 function deline(im) {
@@ -55,7 +59,7 @@ function samples(im) {
 
 // Class map of one tile's top: 1 = first terrain. Nearest sample colour, gated by the corner mask (a pixel far from
 // every first-terrain corner cannot be first), then two 3x3 majority passes.
-function classify(im, mask, A, B) {
+function classify(im, mask, A, B, gate = 0.12) {
   const cls = new Uint8Array(TW * TH), near = (c, S) => Math.min(...S.map((s) => dist2(c, s)));
   const corner = [[HW, 0, 8], [TW, HH, 4], [0, HH, 2], [HW, 2 * HH, 1]]; // NW top, NE right, SW left, SE bottom
   for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) {
@@ -64,8 +68,8 @@ function classify(im, mask, A, B) {
     const u = (x + 0.5) / TW + (y + 0.5) / (2 * HH) - 0.5, v = (y + 0.5) / (2 * HH) - (x + 0.5) / TW + 0.5; // u: NW->NE, v: NW->SW
     const w = (1 - u) * (1 - v) * !!(mask & 8) + u * (1 - v) * !!(mask & 4) + (1 - u) * v * !!(mask & 2) + u * v * !!(mask & 1);
     if (mask === 15) { cls[y * TW + x] = 1; continue; }
-    if (mask === 0 || w < 0.12) continue;
-    if (w > 0.88) { cls[y * TW + x] = 1; continue; }
+    if (mask === 0 || w < gate) continue;
+    if (w > 1 - gate) { cls[y * TW + x] = 1; continue; }
     cls[y * TW + x] = near(c, A) <= near(c, B) ? 1 : 0;
   }
   for (let pass = 0; pass < 2; pass++) {
@@ -78,26 +82,72 @@ function classify(im, mask, A, B) {
       cls[y * TW + x] = s * 2 > n ? 1 : s * 2 < n ? 0 : prev[y * TW + x];
     }
   }
+  // Outer band (seams): along an edge the class is the nearer corner's, so the two terrains meet at the edge midpoint
+  // in every tile and neighbours always line up.
+  for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) {
+    if (!inTop(x, y) || rimE(x, y) < BAND_E) continue;
+    let best = 1e9, bit = 0;
+    for (const [cx, cy, b] of corner) { const d = Math.hypot(x + 0.5 - cx, (y + 0.5 - cy) * 2); if (d < best) { best = d; bit = b; } }
+    cls[y * TW + x] = mask & bit ? 1 : 0;
+  }
   return cls;
 }
 
-function buildSet(set, ref) {
-  const raw = loadSet(set.dir).map((t) => (check(t.w === TW && t.h === TH, `${set.pair}: tile ${t.w}x${t.h}`), t));
-  const side = set.side === 'own' ? raw[0] : ref.sides[set.side ?? 'earth'];
+// The fill of a terrain: its raw full tile, rim repainted, top toned. Cached.
+const fills = new Map();
+function fill(terrain) {
+  if (fills.has(terrain)) return fills.get(terrain);
+  const f = FILLS[terrain]; if (!f) throw new Error(`no fill for ${terrain}`);
+  const t = loadSet(f.dir, f.batch ?? batchOf(f.dir))[f.frame], im = deline({ w: TW, h: TH, data: new Uint8Array(t.data) });
+  if (f.tone) for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) if (inTop(x, y)) for (let c = 0; c < 3; c++) im.data[px(im, x, y) + c] = Math.round(im.data[px(im, x, y) + c] * f.tone);
+  fills.set(terrain, im); return im;
+}
+
+function buildSet(set, sides) {
+  const raw = loadSet(set.dir, set.batch).map((t) => (check(t.w === TW && t.h === TH, `${set.pair}: tile ${t.w}x${t.h}`), t));
+  const side = set.side === 'own' ? raw[0] : sides[set.side ?? 'earth'];
   const A = samples(raw[15]), B = samples(raw[0]);
-  const fill = set.unifyFrom ? deline(loadSet(set.unifyFrom.dir)[set.unifyFrom.frame]) : ref.grass;
-  const out = raw.map((t, mask) => {
+  const F = [fill(set.second), fill(set.first)], tone = [FILLS[set.second].tone, FILLS[set.first].tone];
+  return raw.map((t, mask) => {
     const im = { w: TW, h: TH, data: new Uint8Array(t.data) };
-    const cls = set.unify ? classify(t, mask, A, B) : null;
+    const cls = classify(t, mask, A, B, set.gate);
     for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
       const i = px(im, x, y);
       if (inTop(x, y)) {
-        if (cls && cls[y * TW + x]) im.data.set(fill.data.subarray(i, i + 4), i);
-        else if (set.tone) for (let c = 0; c < 3; c++) im.data[i + c] = Math.round(im.data[i + c] * set.tone);
+        const c = cls[y * TW + x];
+        let edge = false; // the 1 px boundary between the terrains keeps the raw (toned) pixel (the drawn bank / edge), except in the outer band
+        if (rimE(x, y) < BAND_E) for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (inTop(X, Y) && cls[Y * TW + X] !== c) { edge = true; break; } }
+        if (edge) { if (tone[c]) for (let k = 0; k < 3; k++) im.data[i + k] = Math.round(im.data[i + k] * tone[c]); }
+        else im.data.set(F[c].data.subarray(i, i + 4), i);
       } else if (side) im.data.set(side.data.subarray(i, i + 4), i);
     }
     return deline(im);
   });
+}
+
+// A full-tile variant: the base's outer band (seams) with a new interior from `src`, joined along a noisy line.
+const hash = (x, y, k) => (((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)) >>> 0) % 1000 / 1000;
+function planeAt(base, x, y) { // the base tiled over the iso lattice, sampled at (x, y)
+  for (let n = -2; n <= 2; n++) for (let m = -2; m <= 2; m++) {
+    const X = x - HW * (n - m), Y = y - HH * (n + m); if (X >= 0 && Y >= 0 && X < TW && Y < 2 * HH && inTop(X, Y)) return px(base, X, Y);
+  }
+  return px(base, HW, HH);
+}
+function colourMatch(t, ref) { // per-channel mean/std transfer of t's top onto ref's
+  const st = (im) => [0, 1, 2].map((c) => { let s = 0, q = 0, n = 0; for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) if (inTop(x, y)) { const v = im.data[px(im, x, y) + c]; s += v; q += v * v; n++; } const m = s / n; return [m, Math.sqrt(Math.max(1, q / n - m * m))]; });
+  const a = st(t), b = st(ref), out = { w: TW, h: TH, data: new Uint8Array(t.data) };
+  for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) if (inTop(x, y)) for (let c = 0; c < 3; c++) { const i = px(out, x, y) + c; out.data[i] = Math.max(0, Math.min(255, Math.round(b[c][0] + ((t.data[i] - a[c][0]) / a[c][1]) * b[c][1]))); }
+  return out;
+}
+function variant(base, src, k) {
+  const out = { w: TW, h: TH, data: new Uint8Array(base.data) };
+  const rawSrc = typeof src === 'object' ? loadSet(src.dir, src.batch ?? batchOf(src.dir))[src.frame] : null; // src.y: top vertex row of a non-set tile (64x64)
+  const s = rawSrc ? deline(colourMatch(src.y ? crop(rawSrc, { x: 0, y: src.y, w: TW, h: TH }) : rawSrc, base)) : null;
+  for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) {
+    if (!inTop(x, y) || rimE(x, y) >= 0.84 + 0.05 * hash(x, y, k)) continue;
+    const j = src === 'mirror' ? px(base, TW - 1 - x, y) : src === 'shift' ? planeAt(base, x + HW, y) : px(s, x, y);
+    out.data.set((s ?? base).data.subarray(j, j + 4), px(out, x, y));
+  }
   return out;
 }
 
@@ -122,24 +172,36 @@ function medianCut(images, n) {
 
 // ---- tiles
 mkdirSync(OUT_T, { recursive: true });
-const refSet = loadSet(SETS[0].dir).map((t) => ({ w: t.w, h: t.h, data: new Uint8Array(t.data) }));
-const ref = { grass: deline(refSet[15]), sides: {} };
+const sides = {};
 const built = [];
 for (const set of SETS) {
-  if (!existsSync(join(RAW, 'tiles', set.dir))) { errors.push(`missing raw set ${set.dir}`); continue; }
-  if (set.sideName) ref.sides[set.sideName] = loadSet(set.dir)[set.sideFrom];
-  built.push([set, buildSet(set, ref)]);
+  if (!existsSync(join(rawDir(set.batch), 'tiles', set.dir))) { errors.push(`missing raw set ${set.batch ?? 'art4'}/${set.dir}`); continue; }
+  if (set.sideName) sides[set.sideName] = loadSet(set.dir, set.batch)[set.sideFrom];
+  built.push([set, buildSet(set, sides)]);
 }
-const palette = medianCut(built.flatMap(([, t]) => t), 128);
-const tilesJson = { tile: { w: TW, h: TH, topH: 2 * HH, levelPx: SIDE, metres: TILE_M }, mask: 'NW<<3|NE<<2|SW<<1|SE, set bit = first terrain; frame index = mask; NW is the top vertex', anchor: { x: HW, y: 0, note: 'top vertex of the top diamond' }, palette, sheets: [] };
+const fullOf = (t) => { for (const [s, tiles] of built) { if (s.first === t) return tiles[15]; if (s.second === t) return tiles[0]; } return null; };
+const variants = Object.entries(VARIANTS).map(([terrain, srcs]) => {
+  const base = fullOf(terrain); if (!base) { errors.push(`variant ${terrain}: no set has it`); return null; }
+  return [terrain, [base, ...srcs.map((s, k) => variant(base, s, k + 1))], srcs];
+}).filter(Boolean);
+const palette = medianCut([...built.flatMap(([, t]) => t), ...variants.flatMap(([, f]) => f)], 128);
+const tilesJson = {
+  tile: { w: TW, h: TH, topH: 2 * HH, levelPx: SIDE, metres: TILE_M }, mask: 'NW<<3|NE<<2|SW<<1|SE, set bit = first terrain; frame index = mask; NW is the top vertex', anchor: { x: HW, y: 0, note: 'top vertex of the top diamond' }, palette, sheets: [],
+  variants: [], fallback: FALLBACK,
+};
 for (const [set, tiles] of built) {
   const snapped = tiles.map((t) => snapToPalette(t, palette));
   writeImage(join(OUT_T, `${set.pair}.png`), sheet(snapped));
   tilesJson.sheets.push({ pair: set.pair, first: set.first, second: set.second, file: `${set.pair}.png`, frames: 16, frame: { w: TW, h: TH }, maskToFrame: [...Array(16).keys()], source: set.source });
 }
+for (const [terrain, frames, srcs] of variants) {
+  const im = blank(TW * frames.length, TH); frames.forEach((t, i) => paste(im, snapToPalette(t, palette), i * TW, 0));
+  writeImage(join(OUT_T, `var-${terrain}.png`), im);
+  tilesJson.variants.push({ terrain, file: `var-${terrain}.png`, frames: frames.length, frame: { w: TW, h: TH }, sources: ['fill', ...srcs.map((s) => (typeof s === 'string' ? s : `${s.batch ?? 'art4'}/${s.dir}#${s.frame}`))], note: `full ${terrain} tiles; wherever a sheet would draw the full ${terrain} tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile` });
+}
 // Cliff side strips: the 16 px side band of a full tile (left + right faces), one per material; stack per level.
 for (const c of CLIFFS) {
-  const src = ref.sides[c.from]; if (!src) { errors.push(`cliff ${c.id}: no side ${c.from}`); continue; }
+  const src = sides[c.from]; if (!src) { errors.push(`cliff ${c.id}: no side ${c.from}`); continue; }
   const side = { w: TW, h: TH, data: new Uint8Array(src.data) };
   for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) if (inTop(x, y)) side.data[px(side, x, y) + 3] = 0;
   const strip = snapToPalette(crop(side, { x: 0, y: HH, w: TW, h: TH - HH }), palette);
@@ -202,27 +264,29 @@ function grade(im, g) {
   }
   return im;
 }
-const objJson = { pxPerMetre: PX_PER_M, tileMetres: TILE_M, note: 'anchor = foot point in the PNG (px); draw at the ground point minus anchor; no ground patch', objects: [] };
+const objJson = { pxPerMetre: PX_PER_M, tileMetres: TILE_M, note: 'anchor = foot point in the PNG (px): centre of the bottom rows; draw at the ground point minus anchor; no ground patch; metres = design height (h = metres x 33 +-10%); colours = tiles.json palette + palette', palette: [], objects: [] };
+// Foot point: mean x of the opaque pixels in the bottom rows (trunk base / base centre), bottom row.
+function footOf(im) {
+  const rows = Math.max(3, Math.round(im.h * 0.03)); let s = 0, n = 0;
+  for (let y = im.h - rows; y < im.h; y++) for (let x = 0; x < im.w; x++) if (im.data[px(im, x, y) + 3]) { s += x; n++; }
+  return { x: Math.round(s / n), y: im.h - 1 };
+}
 const objImages = [];
 for (const o of OBJECTS) {
-  const f = join(RAW, 'objects', `${o.raw}.png`); if (!existsSync(f)) { errors.push(`missing object raw ${o.raw}`); continue; }
+  const f = join(rawDir(o.batch), 'objects', `${o.raw}.png`); if (!existsSync(f)) { errors.push(`missing object raw ${o.batch ?? 'art4'}/${o.raw}`); continue; }
   let im = grade(dropBase(keyBorder(readImage(f), o.keyTol, o.keyAll), o.base), o.grade);
   for (let i = 3; i < im.data.length; i += 4) im.data[i] = im.data[i] >= 128 ? 255 : 0;
-  const b = alphaBox(im, 1); im = crop(im, b);
-  const foot = { x: o.foot?.x != null ? o.foot.x - b.x : Math.round(b.w / 2), y: o.foot?.y != null ? Math.min(o.foot.y - b.y, b.h - 1) : b.h - 1 };
-  check(foot.x >= 0 && foot.x < b.w, `${o.id}: foot x ${foot.x} outside ${b.w}`);
-  objImages.push([o, im, foot]);
+  im = crop(im, alphaBox(im, 1));
+  objImages.push([o, im, footOf(im)]);
 }
 const objPalette = medianCut(objImages.map(([, im]) => im), 128);
+objJson.palette = objPalette;
 for (const [o, im, foot] of objImages) {
-  const s = snapToPalette(im, [...palette, ...objPalette]);
-  writeImage(join(OUT_O, `${o.id}.png`), s);
-  const metres = +(im.h / PX_PER_M).toFixed(1);
-  check(!o.metres || Math.abs(metres - o.metres) / o.metres < 0.35, `${o.id}: ${metres} m, want ~${o.metres} m`);
-  objJson.objects.push({ id: o.id, kind: o.kind, file: `${o.id}.png`, w: im.w, h: im.h, metres, anchor: foot, footprint: o.footprint, blocksMovement: o.blocks, source: o.source });
+  writeImage(join(OUT_O, `${o.id}.png`), snapToPalette(im, [...palette, ...objPalette]));
+  objJson.objects.push({ id: o.id, kind: o.kind, file: `${o.id}.png`, w: im.w, h: im.h, metres: o.metres, anchor: foot, footprint: o.footprint, blocksMovement: o.blocks, source: o.source });
 }
 writeFileSync(join(OUT_O, 'objects.json'), JSON.stringify(objJson, null, 1) + '\n');
 
-console.log(`tiles: ${built.length} sets, palette ${palette.length}; objects: ${objImages.length}`);
-if (errors.length) { console.error('FAIL\n  ' + errors.join('\n  ')); process.exit(1); }
-console.log('OK');
+console.log(`tiles: ${built.length} sets, ${variants.length} variant fills, palette ${palette.length}; objects: ${objImages.length}`);
+if (errors.length) { console.error('BUILD FAIL\n  ' + errors.join('\n  ')); process.exit(1); }
+process.exit(runQa().length ? 1 : 0);

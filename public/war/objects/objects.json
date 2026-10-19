@@ -1,7 +1,106 @@
 {
  "pxPerMetre": 33,
  "tileMetres": 2,
- "note": "anchor = foot point in the PNG (px); draw at the ground point minus anchor; no ground patch",
+ "note": "anchor = foot point in the PNG (px): centre of the bottom rows; draw at the ground point minus anchor; no ground patch; metres = design height (h = metres x 33 +-10%); colours = tiles.json palette + palette",
+ "palette": [
+  "#29453e",
+  "#73827c",
+  "#8a8f8d",
+  "#27423d",
+  "#7c7e6c",
+  "#203834",
+  "#23383a",
+  "#525e4c",
+  "#57666a",
+  "#212732",
+  "#242c37",
+  "#222e2f",
+  "#1e2f36",
+  "#454346",
+  "#664e43",
+  "#594a4f",
+  "#56565e",
+  "#1d1c1f",
+  "#171e21",
+  "#201c24",
+  "#162323",
+  "#162928",
+  "#22282a",
+  "#1e392d",
+  "#3a3d41",
+  "#423f43",
+  "#32423e",
+  "#344243",
+  "#364548",
+  "#3a564d",
+  "#020101",
+  "#030202",
+  "#070606",
+  "#08070e",
+  "#0d0b0e",
+  "#131117",
+  "#1b1317",
+  "#091222",
+  "#11131c",
+  "#16151b",
+  "#27151a",
+  "#191722",
+  "#29352c",
+  "#372b2a",
+  "#323337",
+  "#413539",
+  "#563d38",
+  "#33463c",
+  "#34473d",
+  "#32473d",
+  "#5a433a",
+  "#243e35",
+  "#716967",
+  "#1e3530",
+  "#1e3636",
+  "#5b5b5b",
+  "#566563",
+  "#1e2732",
+  "#222b35",
+  "#1d2f32",
+  "#444044",
+  "#474045",
+  "#484a4b",
+  "#565255",
+  "#121b1d",
+  "#171d21",
+  "#122323",
+  "#171c28",
+  "#22222b",
+  "#1b2d2b",
+  "#21312f",
+  "#314042",
+  "#413e42",
+  "#3b3b46",
+  "#354340",
+  "#29453f",
+  "#3c4943",
+  "#060303",
+  "#08070d",
+  "#0b0909",
+  "#0f0d11",
+  "#141219",
+  "#090b1c",
+  "#0a1221",
+  "#0f1821",
+  "#1b151b",
+  "#18161e",
+  "#29342c",
+  "#2a2d31",
+  "#2d2023",
+  "#352732",
+  "#3f302d",
+  "#4f3a30",
+  "#2f4737",
+  "#38473d",
+  "#36483b",
+  "#385237"
+ ],
  "objects": [
   {
    "id": "pine-a",
@@ -9,9 +108,9 @@
    "file": "pine-a.png",
    "w": 166,
    "h": 359,
-   "metres": 10.9,
+   "metres": 11,
    "anchor": {
-    "x": 97,
+    "x": 89,
     "y": 358
    },
    "footprint": [
@@ -29,7 +128,7 @@
    "h": 362,
    "metres": 11,
    "anchor": {
-    "x": 97,
+    "x": 90,
     "y": 361
    },
    "footprint": [
@@ -40,22 +139,22 @@
    "source": "map_object f4cd85fe (ART-3)"
   },
   {
-   "id": "tall-tree",
+   "id": "stone-pine",
    "kind": "tree",
-   "file": "tall-tree.png",
-   "w": 201,
-   "h": 348,
-   "metres": 10.5,
+   "file": "stone-pine.png",
+   "w": 224,
+   "h": 331,
+   "metres": 10,
    "anchor": {
-    "x": 108,
-    "y": 347
+    "x": 110,
+    "y": 330
    },
    "footprint": [
     1,
     1
    ],
    "blocksMovement": false,
-   "source": "map_object f7af9159"
+   "source": "map_object 5a38a8c6 (ART-5)"
   },
   {
    "id": "cypress",
@@ -63,9 +162,9 @@
    "file": "cypress.png",
    "w": 61,
    "h": 323,
-   "metres": 9.8,
+   "metres": 10,
    "anchor": {
-    "x": 31,
+    "x": 28,
     "y": 322
    },
    "footprint": [
@@ -83,7 +182,7 @@
    "h": 172,
    "metres": 5.2,
    "anchor": {
-    "x": 88,
+    "x": 84,
     "y": 171
    },
    "footprint": [
@@ -101,7 +200,7 @@
    "h": 165,
    "metres": 5,
    "anchor": {
-    "x": 63,
+    "x": 68,
     "y": 164
    },
    "footprint": [
@@ -117,9 +216,9 @@
    "file": "oak.png",
    "w": 264,
    "h": 269,
-   "metres": 8.2,
+   "metres": 8,
    "anchor": {
-    "x": 142,
+    "x": 122,
     "y": 268
    },
    "footprint": [
@@ -135,9 +234,9 @@
    "file": "dead-tree.png",
    "w": 139,
    "h": 201,
-   "metres": 6.1,
+   "metres": 6,
    "anchor": {
-    "x": 70,
+    "x": 65,
     "y": 200
    },
    "footprint": [
@@ -155,7 +254,7 @@
    "h": 46,
    "metres": 1.4,
    "anchor": {
-    "x": 30,
+    "x": 29,
     "y": 45
    },
    "footprint": [
@@ -173,7 +272,7 @@
    "h": 72,
    "metres": 2.2,
    "anchor": {
-    "x": 27,
+    "x": 26,
     "y": 71
    },
    "footprint": [
@@ -191,7 +290,7 @@
    "h": 61,
    "metres": 1.8,
    "anchor": {
-    "x": 23,
+    "x": 21,
     "y": 60
    },
    "footprint": [
@@ -209,7 +308,7 @@
    "h": 58,
    "metres": 1.8,
    "anchor": {
-    "x": 31,
+    "x": 21,
     "y": 57
    },
    "footprint": [
@@ -227,7 +326,7 @@
    "h": 40,
    "metres": 1.2,
    "anchor": {
-    "x": 32,
+    "x": 34,
     "y": 39
    },
    "footprint": [
@@ -245,7 +344,7 @@
    "h": 81,
    "metres": 2.5,
    "anchor": {
-    "x": 35,
+    "x": 16,
     "y": 80
    },
    "footprint": [
@@ -259,19 +358,19 @@
    "id": "watchtower",
    "kind": "stone",
    "file": "watchtower.png",
-   "w": 183,
-   "h": 380,
-   "metres": 11.5,
+   "w": 206,
+   "h": 383,
+   "metres": 12,
    "anchor": {
-    "x": 92,
-    "y": 379
+    "x": 102,
+    "y": 382
    },
    "footprint": [
     2,
     2
    ],
    "blocksMovement": true,
-   "source": "map_object 65e341c4"
+   "source": "map_object 9a04562b (ART-5)"
   }
  ]
 }
