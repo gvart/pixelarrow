@@ -87,7 +87,8 @@
   "charge": {
    "col": 104,
    "frames": 12,
-   "fps": 16
+   "fps": 16,
+   "hold": 3
   },
   "brace": {
    "col": 116,
