@@ -221,7 +221,88 @@ const spots = {
   forest: [200, 180], marsh: MARSH, sand: SAND, fieldE: [212, 126], fieldW: [44, 104],
 };
 
-const region = { id: 'test-ridge', name: 'Test Ridge', w: W, h: H, height, terrain, water, entries, noBuild };
+// ---- map objects (public/war/objects/objects.json ids), foot points in tiles; deterministic per tile hash.
+// Hand-tuned density per terrain: dense pines and oaks in the woods, olives on dry slopes, a few lone trees
+// and bushes on grass, reeds in the marsh, boulders on the rock's edge, a watchtower on the plateau, ruins at
+// the pass. Nothing on water, roads or named spots; only boulders (on rock, already impassable), the tower
+// and the ruins block movement.
+const objects: { id: string; x: number; y: number }[] = [];
+{
+  const hsh = (x: number, y: number, k: number) => {
+    let n = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(k, 1274126177);
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  };
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? -1 : y * W + x);
+  const spotTiles = new Set(Object.values(spots).map(([u, v]) => at(Math.floor(toTile(u)), Math.floor(toTile(v)))));
+  const ring = (x: number, y: number, f: (j: number) => boolean) => {
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const j = at(x + dx, y + dy); if (j >= 0 && (dx || dy) && f(j)) return true; }
+    return false;
+  };
+  const pick = (ids: string[], r: number) => ids[Math.floor(r * ids.length)];
+  const put = (id: string, x: number, y: number) => objects.push({ id, x: r1(x * 10) / 10, y: r1(y * 10) / 10 });
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, t = terrain[i];
+    if (water[i] || t === 'road' || spotTiles.has(i)) continue;
+    const p = hsh(x, y, 1), q = hsh(x, y, 2), fx = x + 0.3 + 0.4 * hsh(x, y, 3), fy = y + 0.3 + 0.4 * hsh(x, y, 4);
+    const nearWater = ring(x, y, (j) => water[j] > 0);
+    if (t === 'forest') {
+      const edge = ring(x, y, (j) => terrain[j] !== 'forest');
+      if (p < (edge ? 0.16 : 0.3)) put(pick(['pine-a', 'pine-b', 'pine-a', 'oak', 'stone-pine', 'pine-b', 'oak'], q), fx, fy);
+      else if (p < 0.34) put(pick(['bush-a', 'bush-b'], q), fx, fy);
+    } else if (t === 'marsh') {
+      if (p < 0.2) put(pick(['reeds', 'reeds', 'reeds', 'bush-b'], q), fx, fy);
+      else if (p < 0.212) put('dead-tree', fx, fy);
+    } else if (t === 'rock') {
+      if (p < 0.12 && ring(x, y, (j) => terrain[j] !== 'rock' && !water[j])) put(pick(['boulder-a', 'boulder-b'], q), fx, fy);
+    } else if (t === 'grass' && !nearWater) {
+      const dry = height[i] >= 2; // foothills and hill slopes
+      if (dry && p < 0.05) put(pick(['olive-a', 'olive-b', 'olive-a', 'cypress'], q), fx, fy);
+      else if (p < (dry ? 0.065 : 0.008)) put(pick(['bush-a', 'bush-b', 'stone-pine', 'olive-b', 'cypress', 'dead-tree'], q), fx, fy);
+    } else if (t === 'sand') {
+      if (p < 0.006) put(pick(['bush-a', 'boulder-b'], q), fx, fy);
+    } else if (t === 'dirt' && p < 0.004) put('bush-a', fx, fy);
+  }
+  // keep blocking boulders on rock only (the generator's paths and the tests rely on open ground elsewhere)
+  for (let k = objects.length - 1; k >= 0; k--) {
+    const o = objects[k];
+    if (o.id.startsWith('boulder') && terrain[at(Math.floor(o.x), Math.floor(o.y))] !== 'rock') objects.splice(k, 1);
+  }
+  // clear room for the set pieces, then place them
+  const clear = (x0: number, y0: number, x1: number, y1: number) => {
+    for (let k = objects.length - 1; k >= 0; k--) if (objects[k].x >= x0 && objects[k].x < x1 && objects[k].y >= y0 && objects[k].y < y1) objects.splice(k, 1);
+  };
+  // the watchtower stands on the plateau, east of the fort ground, on a flat 2 x 2 of plateau grass
+  const [ptx, pty] = spots.plateauTop.map(toTile);
+  let tower: Pt | null = null;
+  for (let r = 6; r < 40 && !tower; r++) for (let d = -r; d <= r && !tower; d++) {
+    const x = Math.round(ptx + r), y = Math.round(pty + d);
+    let ok = true;
+    for (let dy = -2; dy <= 1; dy++) for (let dx = -2; dx <= 1; dx++) {
+      const j = at(x + dx, y + dy);
+      if (j < 0 || height[j] !== 5 || terrain[j] === 'road' || spotTiles.has(j)) ok = false;
+    }
+    if (ok) tower = [x, y];
+  }
+  if (tower) { clear(tower[0] - 3, tower[1] - 3, tower[0] + 3, tower[1] + 3); objects.push({ id: 'watchtower', x: tower[0], y: tower[1] }); }
+  // ruins: broken wall pieces on the road verge round the pass saddle (outermost road tiles, the road stays open)
+  const [sx, sy] = spots.passSaddle.map(toTile);
+  const verge: Pt[] = [];
+  for (let y = Math.floor(sy - 14); y <= sy + 14; y++) for (let x = Math.floor(sx - 14); x <= sx + 14; x++) {
+    const i = at(x, y), e = at(x + 1, y);
+    if (i < 0 || e < 0 || spotTiles.has(i) || spotTiles.has(e)) continue;
+    // a 2 x 1 piece on two road tiles whose north side is rock and whose south side is road (the road goes on past it)
+    const rockN = terrain[at(x, y - 1)] === 'rock' && terrain[at(x + 1, y - 1)] === 'rock', roadS = terrain[at(x, y + 2)] === 'road' && terrain[at(x + 1, y + 2)] === 'road';
+    if (terrain[i] === 'road' && terrain[e] === 'road' && height[i] === height[e] && rockN && roadS && terrain[at(x, y + 1)] === 'road') verge.push([x, y]);
+  }
+  verge.sort((a, b) => Math.hypot(a[0] - sx, a[1] - sy) - Math.hypot(b[0] - sx, b[1] - sy));
+  const ruins: Pt[] = [];
+  for (const v of verge) if (ruins.length < 3 && ruins.every((r) => Math.hypot(r[0] - v[0], r[1] - v[1]) > 5)) ruins.push(v);
+  for (const [x, y] of ruins) objects.push({ id: 'wall-ruin', x: x + 1, y: y + 0.5 });
+  console.log(`objects ${objects.length}; tower ${tower}; ruins ${ruins.map((r) => r.join(',')).join(' ')}`);
+}
+
+const region = { id: 'test-ridge', name: 'Test Ridge', w: W, h: H, height, terrain, water, entries, noBuild, objects };
 const dir = new URL(process.argv[3] ? `file://${resolve(process.argv[3])}/` : '../../src/war/regions/', import.meta.url);
 const out = new URL('test-ridge.json', dir);
 writeFileSync(out, JSON.stringify(region) + '\n');
