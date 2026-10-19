@@ -1,0 +1,23 @@
+scripts/war/sandbox-shots.mjs
+  s_cfc22b058125c4::t_45d411a2b6b09e 662-666,668
+  s_cfc22b058125c4::t_07ac40d07bc095 736
+  s_cfc22b058125c4::t_3932621eeb672f 711,715-716,724
+  s_cfc22b058125c4::t_27e30f0f28f573 13-14,632-639,641-661,667,669-710,712-714,717-723,725-735,737-740,757
+  s_cfc22b058125c4::t_77e1656ee938f8 640
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0615e71a196b2c9d0cab10101d9c5d61d4e16c8c",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
