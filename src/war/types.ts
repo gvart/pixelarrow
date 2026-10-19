@@ -45,6 +45,7 @@ export type Order =
   // until the new tier is done (palisade -> rampart grows the inner row). With a squad it builds it, without one (`team`) it stays planned. cancelSite reverts it.
   | { kind: 'upgrade'; building: number; squad?: SquadId; team?: number }
   | WallOrder
+  | BridgeOrder
   | SiegeOrder;
 // --- M2c siege (src/war/sim/siege.ts, fire and breaches in works.ts; docs/impl/global-war-rebuild.md W-29) ---
 export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder';
@@ -135,15 +136,34 @@ export interface WarSim {
 export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt';
 export type BuildingType =
   | 'camp' | 'storehouse' | 'outpost' | 'fort' | 'barracks' | 'farm' | 'olivePress'
-  | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate';
+  | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate'
+  | 'woodBridge' | 'stoneBridge';
 /** foundation: marked out, materials arriving; scaffold: labour under way (the footprint blocks); damaged: done below half hp. */
 export type BuildState = 'foundation' | 'scaffold' | 'done' | 'damaged' | 'destroyed';
-export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach';
+export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach' | 'span' | 'bank';
 /** A dragged wall line (flat x,y points, tiles): split into segments; towers and gates (flat x,y) snap onto the line. */
 export interface WallOrder {
   kind: 'placeWall'; squad?: SquadId; team?: number; material: 'wood' | 'timber' | 'stone'; points: number[]; towers?: number[]; gates?: number[];
   /** A point on the inside (x,y): a thick wall's inner row and its stairs go on that side. Default: the centre of the team's claims and influence buildings. */
   inside?: number[];
+}
+/**
+ * M2d bridges (W-24, src/war/sim/works.ts): a drag from bank to bank (`points`: first and last tile points; the line snaps
+ * to the axis it runs along most). The bridge is 2 tiles wide (the line's row and the next one, +y along x, +x along y):
+ * a ramp piece on each bank (the last dry tiles before the water) and deck pieces over the water between them, 2 tiles
+ * along per piece. Valid when it starts on a dry bank ('bank'), reaches a dry far bank within the line ('bank'), spans at
+ * most BRIDGE.maxSpan tiles of water ('span'), its ramps sit on open ground ('water', 'blocked', 'overlap', 'noBuild',
+ * banks more than a level apart: 'slope') and at least one ramp lies in the team's influence ('influence'; the water and
+ * the far bank need none). Pieces are built like walls (per-tile cost and labour) from the banks inwards: a deck piece
+ * takes workers only once the piece before it (towards either bank) is done, so they stand on the finished deck.
+ */
+export interface BridgeOrder { kind: 'placeBridge'; squad?: SquadId; team?: number; material: 'wood' | 'stone'; points: number[] }
+export interface BridgePlan {
+  ok: boolean; reason?: PlaceReason; axis: 'x' | 'y';
+  /** Water tiles bank to bank along the line (0 when there is none). */
+  span: number;
+  /** Ramps (end0: the drag's start bank, end1: the far one) and decks, in order along the line. */
+  pieces: { type: BuildingType; part: 'end0' | 'end1' | 'deck'; tiles: number[]; ok: boolean }[];
 }
 /** tiles: the footprint as flat tile x,y. */
 export interface PlaceResult { ok: boolean; reason?: PlaceReason; tiles: number[] }
@@ -176,6 +196,11 @@ export interface BuildingSnap {
   rubble?: true;
   /** M2c: a ladder raised by siege engine `siege`; push: defenders' progress pushing it off 0..1. */
   siege?: number; push?: number;
+  /**
+   * M2d: a bridge piece: its axis, part (a ramp on the start / far bank, or deck) and deck level (the higher bank's
+   * height; finished tiles walk at it over the water). Units on it have `on` = this piece.
+   */
+  bridge?: { axis: 'x' | 'y'; part: 'end0' | 'end1' | 'deck'; deck: number };
 }
 /** A gatherable node: a region object (obj = index into region.objects) or a finished farm/press (building = its id). */
 export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; obj?: number; building?: number }
@@ -184,6 +209,7 @@ export interface InfluenceMap { w: number; h: number; mask: Uint8Array; version:
 export interface WarBuildSim extends WarSim {
   checkPlacement(team: number, type: BuildingType, x: number, y: number, rot?: 0 | 1): PlaceResult;
   checkWall(team: number, o: Omit<WallOrder, 'kind' | 'squad'>): WallPlan;
+  checkBridge(team: number, o: Omit<BridgeOrder, 'kind' | 'squad'>): BridgePlan;
   resourceNodes(): NodeSnap[];
   influence(): InfluenceMap;
   /** A claim anchor (claimed region, scenario start): projects influence radius r around (x,y). */

@@ -25,6 +25,8 @@ export function buildPanel(s: SandboxScene): void {
     ['wood stairs', { kind: 'access', type: 'woodStairs' }, `${cost('woodStairs')} · up an own walkway wall's inside`],
     ['stone stairs', { kind: 'access', type: 'stoneStairs' }, `${cost('stoneStairs')} · up an own walkway wall's inside`],
     ['ladder', { kind: 'access', type: 'ladder' }, `${cost('ladder')} · beside any walkway wall or tower`],
+    ['wood bridge', { kind: 'bridge', material: 'wood' }, `${cost('woodBridge')}/tile · drag bank to bank, fast, burns`],
+    ['stone bridge', { kind: 'bridge', material: 'stone' }, `${cost('stoneBridge')}/tile · drag bank to bank, slow, fireproof`],
     ...siegeTools().map(([t, tip]): [string, Tool, string] => [SIEGE_NAME[t], { kind: 'siege', type: t }, tip]),
   ];
   bar.innerHTML = `

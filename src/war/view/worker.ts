@@ -8,7 +8,7 @@
 import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
-import type { BuildingType, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarSim } from '../types';
+import type { BridgeOrder, BuildingType, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarSim } from '../types';
 
 export type ToWorker =
   | { t: 'init'; region: RegionData; seed: number; sim: 'real' | 'fake' }
@@ -22,7 +22,8 @@ export type ToWorker =
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
   | { t: 'check'; id: number; team: number; type: BuildingType; x: number; y: number; rot: 0 | 1 }
-  | { t: 'checkWall'; id: number; team: number; wall: Omit<WallOrder, 'kind' | 'squad'> };
+  | { t: 'checkWall'; id: number; team: number; wall: Omit<WallOrder, 'kind' | 'squad'> }
+  | { t: 'checkBridge'; id: number; team: number; bridge: Omit<BridgeOrder, 'kind' | 'squad'> };
 
 /** Ticks between resource node posts (amounts change slowly). */
 const NODES_EVERY = 10;
@@ -110,6 +111,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'skip') { for (let i = 0; i < m.ticks; i++) { sim.step(); brains!.tick(); } tick(); }
   else if (m.t === 'check') postMessage({ reply: m.id, place: build(sim)?.checkPlacement(m.team, m.type, m.x, m.y, m.rot) ?? null });
   else if (m.t === 'checkWall') postMessage({ reply: m.id, wall: build(sim)?.checkWall(m.team, m.wall) ?? null });
+  else if (m.t === 'checkBridge') postMessage({ reply: m.id, bridge: build(sim)?.checkBridge(m.team, m.bridge) ?? null });
   else if (m.t === 'speed') {
     clearInterval(timer);
     if (m.scale > 0) timer = setInterval(tick, 100 / m.scale) as unknown as number;

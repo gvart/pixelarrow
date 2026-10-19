@@ -40,7 +40,7 @@ const levelOf = (k: number): Level => (k < 0.34 ? 'low' : k < 0.67 ? 'medium' : 
 const ZMAX: Record<Level, number> = { low: 0.25, medium: 0.6, high: 0.95 };
 const CHAR: Record<Level, string> = { low: 'scorch', medium: 'charred', high: 'smoulder' };
 /** Height of the burning wood (m): walls whole, towers up to the platform, engines their frame. */
-const WOOD_M: Partial<Record<BuildingType, number>> = { palisade: 3, rampart: 4, woodGate: 3.5, woodTower: 4.4, woodStairs: 1.4, ladder: 3 };
+const WOOD_M: Partial<Record<BuildingType, number>> = { palisade: 3, rampart: 4, woodGate: 3.5, woodTower: 4.4, woodStairs: 1.4, ladder: 3, woodBridge: 2.4 };
 const ENGINE_M = 2.2;
 /** Where a wall's burning face sits across its tile (palisade: the stakes; the rest: the outer face). */
 const FACE: Partial<Record<BuildingType, number>> = { palisade: 0.6 };

@@ -24,9 +24,15 @@
  * beside it (chance FIRE.spread x intensity); men beat it out (douse) slowly; stone never burns. A wall, gate or tower
  * brought to 0 hp lies as rubble: its deck goes, its tiles open at ground level at FIRE.rubble cost. A siege ladder raised
  * against a foe walkway is a ladder building of the attackers' team, done at once (raiseLadder); defenders push it off.
+ *
+ * Bridges (M2d, W-24, types.ts BridgeOrder): ramps on both banks and 2 x 2 deck pieces over the water. A deck piece is
+ * ready for workers once a neighbour piece along the line is done (from either bank inwards); workers stand on the done
+ * deck (a done bridge tile is standable though a building holds it). A done piece opens its tiles at the deck level (the
+ * higher bank) at BRIDGE.cost; unbuilt water stays closed. A piece brought to 0 hp (fire, stone throwers) collapses: its
+ * tiles go back to water and `fall` drops the men on them.
  */
-import type { BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BUILDINGS, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
+import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
+import { BRIDGE, BUILDINGS, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 
 const DT = 0.1;
@@ -39,6 +45,7 @@ const WAIT_OFF = 2.5; // workers with no free slot wait this far off the footpri
 const REPATH_NEAR = 6; // a site closing re-paths the workers headed this near its footprint
 const LADDER_COST = 4; // move cost multiplier on a ladder (a slow climb)
 const DOOR_COST = 2; // ... through a stone tower's door and inner stair
+const DETOUR = 3, DETOUR_PAD = 16; // a builder's way to its slot longer than DETOUR x straight + pad tiles: left to others
 /** Fire, ladder and breach rules (M2c). */
 export const FIRE = {
   start: 0.25, // intensity when it catches
@@ -93,12 +100,14 @@ interface Building {
   rubble: boolean;
   siege: number; // a ladder raised by this siege engine, -1
   push: number; // defenders' push on a ladder, 0..1
+  /** M2d bridge piece: the pieces of its bridge in line order, its index, axis, part, deck level. */
+  bridge: { ids: number[]; i: number; axis: 'x' | 'y'; part: 'end0' | 'end1' | 'deck'; deck: number } | null;
 }
 export type Piece = Readonly<Building>;
 
 export type Act = [number, number] | null | 'here';
 
-export function createWorks(grid: Grid, region: RegionData, path: (team: number, x0: number, y0: number, x1: number, y1: number) => number[], evict: (tiles: number[]) => void, chance: (p: number) => boolean = () => false) {
+export function createWorks(grid: Grid, region: RegionData, path: (team: number, x0: number, y0: number, x1: number, y1: number) => number[], evict: (tiles: number[]) => void, chance: (p: number) => boolean = () => false, fall: (tiles: number[]) => void = () => {}) {
   const { w, h } = grid;
   const nodes: Node[] = [];
   const nodeAt = new Int32Array(w * h).fill(-1); // foot tile -> object node (blocks placement while it has any left)
@@ -113,7 +122,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const pathQueue: Worker[] = [];
   const waits = new Map<number, [number, number, number]>(); // worker id -> [site, x, y]: where it waits for a free slot
   const active = new Set<Worker>(); // workers with a job
-  const cutOff = new Map<number, number>(); // worker id -> a site it found no way to (until its next order)
+  const cutOff = new Map<number, Set<number>>(); // worker id -> sites it found no way to (until its next order)
+  const isCut = (u: Worker, id: number) => !!cutOff.get(u.id)?.has(id);
+  const cut = (u: Worker, id: number) => { let c = cutOff.get(u.id); if (!c) cutOff.set(u.id, (c = new Set())); c.add(id); };
   const waitAt = new Set<number>(); // tiles taken as wait spots
   const unwait = (u: Worker) => {
     const p = waits.get(u.id);
@@ -277,7 +288,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       ti: [], state: 'foundation', labour: 0, need: def.labour * k, cost, delivered: {}, incoming: {}, costSum,
       hp: maxHp * 0.1, maxHp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [], inside: inside ?? homeOf(team), decked: false, attach, door: -1, prev: null,
-      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0,
+      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null,
     };
     for (let i = 0; i < tiles.length; i += 2) {
       const t = tiles[i + 1] * w + tiles[i];
@@ -292,7 +303,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   };
 
   /** A worker of `team` can stand on tile t to work a site: open, no building marked out there, not a foe's gate. */
-  const standable = (t: number, team: number) => grid.cost[t] > 0 && occ[t] < 0 && (!grid.gate[t] || grid.gate[t] === team + 1);
+  const standable = (t: number, team: number) => grid.cost[t] > 0 && (occ[t] < 0 || onDeck(t)) && (!grid.gate[t] || grid.gate[t] === team + 1);
+  /** Tile t is the open deck of a finished bridge piece. */
+  const onDeck = (t: number) => { const o = buildings[occ[t]]; return !!o && !!o.bridge && o.decked; };
 
   /**
    * Work slots of a site: the tiles round its footprint (8-neighbour ring) a worker can stand on and step off (an open
@@ -309,7 +322,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           const x = (t0 % w) + dx, y = ((t0 / w) | 0) + dy;
           if (x < 0 || y < 0 || x >= w || y >= h) continue;
           const t = y * w + x;
-          if (inside.has(t) || seen.has(t) || !standable(t, b.team) || Math.abs(grid.height[t] - b.base[i0]) > 1) continue;
+          if (inside.has(t) || seen.has(t) || !standable(t, b.team) || Math.abs(grid.height[t] - (b.bridge?.deck ?? b.base[i0])) > 1) continue;
           let out = false;
           for (const [ex, ey] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const nx = x + ex, ny = y + ey;
@@ -348,6 +361,83 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     return ids;
   };
 
+  // --- bridges (M2d) ---
+  const checkBridge = (team: number, o: Omit<BridgeOrder, 'kind' | 'squad'>): BridgePlan => {
+    const p = o.points, n2 = p.length;
+    const sx = Math.floor(p[0] ?? 0), sy = Math.floor(p[1] ?? 0), ex = Math.floor(p[n2 - 2] ?? 0), ey = Math.floor(p[n2 - 1] ?? 0);
+    const alongX = Math.abs(ex - sx) >= Math.abs(ey - sy), axis = alongX ? 'x' : 'y';
+    const dx = alongX ? Math.sign(ex - sx) : 0, dy = alongX ? 0 : Math.sign(ey - sy), ox = alongX ? 0 : 1, oy = alongX ? 1 : 0;
+    const len = Math.abs(alongX ? ex - sx : ey - sy) + 1;
+    const fail = (reason: PlaceReason, span = 0, pieces: BridgePlan['pieces'] = []): BridgePlan => ({ ok: false, reason, axis, span, pieces });
+    if (len < 3 || n2 < 4) return fail('short');
+    const row = (k: number) => [sx + dx * k, sy + dy * k, sx + dx * k + ox, sy + dy * k + oy];
+    const inMap = (k: number) => row(k).every((v, i) => v >= 0 && v < (i % 2 ? h : w));
+    const wet = (k: number) => { const r = row(k); return region.water[r[1] * w + r[0]] > 0 || region.water[r[3] * w + r[2]] > 0; };
+    if (!inMap(0) || !inMap(len - 1)) return fail('bounds');
+    if (wet(0)) return fail('bank');
+    let k0 = 1;
+    while (k0 < len && !wet(k0)) k0++;
+    if (k0 >= len) return fail('short'); // no water on the line
+    let k1 = k0;
+    while (k1 + 1 < len && wet(k1 + 1)) k1++;
+    const span = k1 - k0 + 1, type = BRIDGE.kit[o.material];
+    const pieces: BridgePlan['pieces'] = [{ type, part: 'end0', tiles: row(k0 - 1), ok: true }];
+    for (let k = k0; k <= k1; k += BRIDGE.piece) {
+      const tiles: number[] = [];
+      for (let j = k; j <= Math.min(k1, k + BRIDGE.piece - 1); j++) tiles.push(...row(j));
+      pieces.push({ type, part: 'deck', tiles, ok: true });
+    }
+    if (k1 + 1 < len) pieces.push({ type, part: 'end1', tiles: row(k1 + 1), ok: true });
+    const bad = (reason: PlaceReason) => { for (const q of pieces) q.ok = false; return fail(reason, span, pieces); };
+    if (span > BRIDGE.maxSpan) return bad('span');
+    if (k1 + 1 >= len) return bad('bank'); // the drag ends in the water
+    // ramps: open dry ground, banks at most a level apart, one of them in the team's influence
+    const ends = [pieces[0], pieces[pieces.length - 1]];
+    let lo = Infinity, hi = -Infinity, own = false;
+    for (const e of ends) {
+      const r = checkTiles(team, e.tiles, false, true);
+      if (r) { e.ok = false; return fail(r, span, pieces); }
+      let mine = true;
+      for (let i = 0; i < e.tiles.length; i += 2) {
+        const t = e.tiles[i + 1] * w + e.tiles[i];
+        lo = Math.min(lo, grid.height[t]); hi = Math.max(hi, grid.height[t]);
+        if (!(infl.mask[t] & (1 << team))) mine = false;
+      }
+      own ||= mine;
+    }
+    if (hi - lo > 1) return bad('slope');
+    if (!own) return bad('influence');
+    // deck: free of buildings, no-build bands and rock; a dry tile beside the water open
+    for (const q of pieces) if (q.part === 'deck') for (let i = 0; i < q.tiles.length; i += 2) {
+      const t = q.tiles[i + 1] * w + q.tiles[i];
+      const r: PlaceReason | null = noBuild[t] ? 'noBuild' : occ[t] >= 0 ? 'overlap' : region.terrain[t] === 'rock' ? 'rock' : !region.water[t] && grid.cost[t] === 0 ? 'blocked' : null;
+      if (r) { q.ok = false; return fail(r, span, pieces); }
+    }
+    return { ok: true, axis, span, pieces };
+  };
+
+  const placeBridge = (team: number, o: Omit<BridgeOrder, 'kind' | 'squad'>): number[] => {
+    const plan = checkBridge(team, o);
+    if (!plan.ok) return [];
+    let deck = 0;
+    for (const q of [plan.pieces[0], plan.pieces[plan.pieces.length - 1]]) for (let i = 0; i < q.tiles.length; i += 2) deck = Math.max(deck, grid.height[q.tiles[i + 1] * w + q.tiles[i]]);
+    const ids = plan.pieces.map((q) => add(team, q.type, q.tiles, 0));
+    ids.forEach((id, i) => {
+      const b = buildings[id];
+      b.bridge = { ids, i, axis: plan.axis, part: plan.pieces[i].part, deck };
+      b.slots = workSlots(b);
+      b.slotUser = b.slots.map(() => -1);
+    });
+    return ids;
+  };
+
+  /** A bridge piece takes workers: a ramp always, a deck piece once a neighbour along the line is done. */
+  const ready = (b: Building) => {
+    const br = b.bridge;
+    if (!br || br.part !== 'deck') return true;
+    return [br.ids[br.i - 1], br.ids[br.i + 1]].some((id) => id !== undefined && buildings[id].decked);
+  };
+
   // --- site life ---
   const delivered = (b: Building) => {
     if (b.costSum === 0) return 1;
@@ -365,9 +455,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       grid.dirty.push(t % w, (t / w) | 0);
     }
     evict(fresh);
-    // workers headed near it search their way again (the old path may run through it, or the goal is now cut off)
+    // workers headed near it, or holding one of its slots, search their way again (the old path may run through it, or
+    // the goal is now cut off or a long detour away)
     const r = Math.max(b.w, b.h) / 2 + REPATH_NEAR;
-    for (const u of active) if (u.alive && Math.abs(u.wgx - b.x) < r && Math.abs(u.wgy - b.y) < r) u.wgx = u.wgy = -1;
+    for (const u of active) if (u.alive && (u.wsite === b.id || (Math.abs(u.wgx - b.x) < r && Math.abs(u.wgy - b.y) < r))) u.wgx = u.wgy = -1;
   };
 
   // --- walkways (W-27, W-28) ---
@@ -493,6 +584,24 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
    */
   const raiseDeck = (b: Building) => {
     const d = b.def;
+    if (b.bridge) {
+      const br = b.bridge;
+      b.ti.forEach((t) => {
+        grid.height[t] = br.deck;
+        grid.cost[t] = BRIDGE.cost;
+      });
+      b.decked = true;
+      grid.dirty.push(...b.tiles);
+      // the next pieces get their work slots on this deck; workers cut off before may find a way now
+      for (const id of [br.ids[br.i - 1], br.ids[br.i + 1]]) {
+        const o = buildings[id];
+        if (!o || o.users > 0 || o.decked) continue;
+        o.slots = workSlots(o);
+        o.slotUser = o.slots.map(() => -1);
+      }
+      cutOff.clear();
+      return;
+    }
     if (d.access === 'stairs') return ramp(b);
     if (d.access === 'ladder') {
       const t = b.ti[0];
@@ -585,6 +694,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       grid.gate[t] = 0;
     }
     if (closed) grid.dirty.push(...b.tiles);
+    if (b.bridge && wasDone) fall(b.ti); // the deck collapses under the men on it
     if (b.node >= 0) nodes[b.node].amount = nodes[b.node].max = nodes[b.node].regrow = 0;
     if (wasDone && b.def.influence > 0) repaint();
   };
@@ -827,7 +937,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     let best: [Building, number] | null = null, bd = Infinity;
     for (const id of u.squad.sites) {
       const b = buildings[id];
-      if (!b || b.team !== u.squad.team || !unfinished(b) || b.users >= b.slots.length || cutOff.get(u.id) === id) continue;
+      if (!b || b.team !== u.squad.team || !unfinished(b) || b.users >= b.slots.length || isCut(u, id) || !ready(b)) continue;
       const d = near2(b.tiles, u.x, u.y);
       if (d >= bd) continue;
       const k = freeSlot(b, u);
@@ -841,7 +951,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     let site: Building | null = null, bd = Infinity;
     for (const id of u.squad.sites) {
       const b = buildings[id];
-      if (!b || b.team !== u.squad.team || !unfinished(b) || cutOff.get(u.id) === id) continue;
+      if (!b || b.team !== u.squad.team || !unfinished(b) || isCut(u, id)) continue;
       const d = near2(b.tiles, u.x, u.y);
       if (d < bd) (bd = d), (site = b);
     }
@@ -883,7 +993,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (!ended) return walkTo(u, sx, sy);
     if (!at(b.tiles, u)) {
       // no way to the site from here (another level, cut off): leave it to others; a load for it goes back to the store
-      cutOff.set(u.id, b.id);
+      cut(u, b.id);
       if (u.wfor === b.id && u.carry) (b.incoming[u.carry]! -= u.load), (u.wfor = -1);
       leave(u);
       return null;
@@ -896,6 +1006,28 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     b.slotUser[k] = u.id;
     u.wslot = k;
     return walkTo(u, kx, ky);
+  };
+
+  /**
+   * A builder whose way to its site's slot is a long detour (the far bank of a river it is bridging, the far side of
+   * its wall, reached only round by a ford) leaves that site to others for now: workers build from their own side.
+   */
+  const detour = (u: Worker) => {
+    if (u.job !== 'build' || u.wpath.length < 4) return;
+    const p = waits.get(u.id), waiting = u.wsite < 0 && !!p && p[1] === u.wgx && p[2] === u.wgy;
+    const b = u.wsite >= 0 ? buildings[u.wsite] : waiting ? buildings[p![0]] : null;
+    if (!b || (!waiting && near2(b.tiles, u.wgx, u.wgy) > AT * AT)) return;
+    let len = 0;
+    for (let i = 2; i < u.wpath.length; i += 2) len += Math.hypot(u.wpath[i] - u.wpath[i - 2], u.wpath[i + 1] - u.wpath[i - 1]);
+    if (len <= DETOUR * Math.hypot(u.wgx - u.x, u.wgy - u.y) + DETOUR_PAD) return;
+    cut(u, b.id);
+    if (waiting) unwait(u);
+    else {
+      if (u.wfor === b.id && u.carry) (b.incoming[u.carry]! -= u.load), (u.wfor = -1);
+      leave(u);
+    }
+    u.wgx = u.wgy = -1;
+    u.wpath = [];
   };
 
   const build = (u: Worker): Act => {
@@ -974,8 +1106,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   return {
     checkPlacement,
     checkWall,
+    checkBridge,
     place,
     placeWall,
+    placeBridge,
     damage,
     setJob,
     release,
@@ -1162,7 +1296,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     /** Platform capacity of tower `id` (0: not a tower). */
     platCap: (id: number) => buildings[id]?.def.cap ?? 0,
     /** The building whose deck or stair tile t is, -1 none. */
-    onBuilding: (t: number) => (t >= 0 && grid.deck[t] !== 0 ? occ[t] : -1),
+    onBuilding: (t: number) => (t >= 0 && (grid.deck[t] !== 0 || onDeck(t)) ? occ[t] : -1),
     /**
      * Standing points (flat x,y) for up to n units on the walkway reached from deck tile t, nearest first along the deck: a
      * tower's platform (its cap in a grid) and the wall's outer face (the parapet) first, then the inner row, the tiles at
@@ -1228,6 +1362,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         if (!u.alive || !u.job) continue;
         u.wpath = path(u.squad.team, u.x, u.y, u.wgx, u.wgy);
         u.wpi = 1;
+        detour(u);
       }
       fireTick();
       if (++tick % REGROW_TICKS === 0)
@@ -1254,6 +1389,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.rubble ? { rubble: true as const } : {}),
           ...(b.siege >= 0 ? { siege: b.siege } : {}),
           ...(b.push > 0 && b.state !== 'destroyed' ? { push: Math.min(1, b.push) } : {}),
+          ...(b.bridge ? { bridge: { axis: b.bridge.axis, part: b.bridge.part, deck: b.bridge.deck } } : {}),
         };
       }),
     stockSnap: () => {

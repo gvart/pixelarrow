@@ -76,6 +76,14 @@ const ringSites = (a: number, b: number) => [
   { squad: b, type: 'stoneStairs' as const, x: 122.5, y: 431.5, rot: 1 as const, phase: 3 },
 ];
 
+/**
+ * bridge-test (M2d): the narrowest reach of the southern river (8-9 tiles of deep water at y 396..397, BRIDGE_DRAG), just
+ * upstream of the old road crossing between the two river arms, which the enemy has walled off with a palisade
+ * (y 402, x 301..309): the next way over is the ford, far north.
+ */
+export const BRIDGE_DRAG = [296.5, 396.5, 308.5, 396.5] as const;
+const BRIDGE_HOME = [289, 393] as const;
+
 export const SCENARIOS: Scenario[] = [
   {
     id: 'pass-ambush',
@@ -315,6 +323,32 @@ export const SCENARIOS: Scenario[] = [
         bot('celt_sword', [133, 476], { kind: 'assault', x: RC[0], y: RC[1] }),
       ],
     },
+  },
+  {
+    id: 'bridge-test',
+    name: 'Bridge test',
+    goal: 'Cross the river: the old road crossing is walled off and the ford is far north. Build a bridge (B, wood or stone bridge: drag from your bank across the water, at most 10 tiles), then march the hoplites over.',
+    squads: [
+      you('militia', at(BRIDGE_HOME, 2, 4)),
+      you('hoplite', at(BRIDGE_HOME, -4, 9)),
+      // the enemy walls the crossing from both sides, then the pickets fall back to their camp and the south woods
+      { team: 1, cls: 'militia', count: 12, x: 312, y: 397, owner: 'foe' },
+      { team: 1, cls: 'militia', count: 6, x: 305, y: 406, owner: 'foe' },
+    ],
+    camera: { x: 302, y: 397, zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 0, x: BRIDGE_HOME[0], y: BRIDGE_HOME[1] + 2, r: 14 }, { team: 1, x: 312, y: 398, r: 14 }, { team: 1, x: 302, y: 407, r: 8 }],
+      stock: { wood: 400, stone: 800 },
+      foeStock: { wood: 200 },
+      // a camp (store) on each side of the crossing; each picket walls its part from its side
+      sites: [{ squad: 0, type: 'camp', x: BRIDGE_HOME[0] - 2, y: BRIDGE_HOME[1] - 2 }, { squad: 2, type: 'camp', x: 320, y: 392 }, { squad: 3, type: 'camp', x: 300, y: 408 }],
+      walls: [
+        { squad: 3, material: 'wood', points: [301.5, 402.5, 304.5, 402.5], phase: 1 },
+        { squad: 2, material: 'wood', points: [305.5, 402.5, 309.5, 402.5], phase: 1 },
+      ],
+      prebuild: 6000,
+    },
+    after: { orders: [{ kind: 'move', squad: 2, x: 322, y: 388 }, { kind: 'move', squad: 3, x: 300, y: 440 }], squads: [] },
   },
   {
     id: 'free',

@@ -3,7 +3,7 @@
  * interpolates unit positions between them (rendering runs one 10 Hz tick behind).
  */
 import type { Behaviour } from '../sim/bots';
-import type { BuildingType, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan } from '../types';
+import type { BridgeOrder, BridgePlan, BuildingType, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan } from '../types';
 import type { ToWorker } from './worker';
 
 export interface DrawUnit { u: UnitSnap; x: number; y: number; facing: number; team: number }
@@ -23,11 +23,11 @@ export class SimClient {
   private askId = 0;
 
   constructor(region: RegionData) {
-    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; nodes?: NodeSnap[]; influence?: InfluenceMap } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null };
+    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; nodes?: NodeSnap[]; influence?: InfluenceMap } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null };
     this.worker.onmessage = (e: MessageEvent<Msg>) => {
       if ('reply' in e.data) {
         const r = e.data;
-        this.asks.get(r.reply)?.(r.place ?? r.wall ?? null);
+        this.asks.get(r.reply)?.(r.place ?? r.wall ?? r.bridge ?? null);
         this.asks.delete(r.reply);
         return;
       }
@@ -89,6 +89,11 @@ export class SimClient {
   /** The sim's checkWall, answered off the worker (null on the fake sim). */
   checkWall(team: number, wall: Omit<WallOrder, 'kind' | 'squad'>): Promise<WallPlan | null> {
     return this.ask((id) => ({ t: 'checkWall', id, team, wall }));
+  }
+
+  /** The sim's checkBridge, answered off the worker (null on the fake sim). */
+  checkBridge(team: number, bridge: Omit<BridgeOrder, 'kind' | 'squad'>): Promise<BridgePlan | null> {
+    return this.ask((id) => ({ t: 'checkBridge', id, team, bridge }));
   }
 
   private ask<T>(m: (id: number) => ToWorker): Promise<T | null> {
