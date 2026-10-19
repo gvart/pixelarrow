@@ -83,7 +83,10 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 - [ ] **ART-6.. biome libraries** — one biome per item (tile sets + variants + 15–25 objects/props), owner approves each. depends on: ART-5
 - [ ] **ART-R render integration** — renderer draws PixelLab tiles (autotile by corner mask), cliff strips, objects from region data. depends on: M1d, ART-4
 
-### M2 Region gameplay — resources, gather orders, building placement, mobs, claiming, entry no-build band
+### M2 Region gameplay — resources, gather orders, building, mobs, claiming, entry no-build band
+- W-22 Building (owner 2026-10-19): a separate **build mode** (own UI and camera/placement overlay). Buildable: home base/camp, castle/fortress, walls + gates + towers, basic economy buildings (to expand territory), bridges across rivers. Soldiers do the construction with new **build/carry animations** on the existing soldier sheets. Every structure has **intermediate construction states** (foundation → scaffold → done) and can be damaged/razed. No building in entry no-build bands.
+- Open questions to settle at M2 kickoff: who builds (any soldier vs dedicated builders); placement (free with footprint vs grid snap; walls drawn as a line/path); costs and build time; does territory grow from buildings (influence radius) or only from claiming; bridge rules (span length, shallow vs deep water); siege interaction (rams/ladders vs walls).
+- Items (draft): M2a build mode + placement + footprints in sim; M2b construction states + worker orders; M2c walls/gates/towers (line placement, pathing blocks, gates open for owners); M2d bridges (change water passability); ART-B building art (PixelLab objects per state, per biome style) and soldier build/carry clips.
 ### M3 Server — RegionDO live sim, quotas, offline hold AI, interest management, 600-soldier load test
 ### M4 World map — strategic view, alliances, transfers, borders, home-can't-fall; delete old war code
 ### M5 Soldiers — recruits, wounded/heal, veteran XP, prisoners
