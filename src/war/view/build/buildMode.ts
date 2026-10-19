@@ -2,15 +2,17 @@
  * Build mode and economy controls of the sandbox (M2b, W-22..W-24). The UI around it (./buildPanel.ts) is a dev
  * skin that only calls the methods here and reads `status`, so the PixelLab UI kit (W-25) can replace it.
  *
- *   B toggles build mode (own influence shown); pick a tool on the toolbar
- *   building: a ghost footprint snapped to tiles follows the cursor, green / red with the sim's reason; click places
- *     it for the first selected squad (shift keeps the tool); R rotates
+ *   B toggles build mode (own influence and every footprint shown), with or without a selection; pick a tool
+ *   building: the building's sprite snapped to tiles follows the cursor, tinted green / red with the sim's reason;
+ *     click lays the site out (W-26): with an own squad selected that squad builds it, else it stays planned (team 0)
+ *     until a squad is sent; shift keeps the tool; R rotates
  *   wall: drag a straight run, drag again from its end to extend; G / T then click on the line inserts a gate /
- *     tower; Enter (or the toolbar) orders it, the preview shows segments and cost
- *   Esc drops the wall line, then the tool, then build mode
- *   any mode: right click a resource node with squads selected gathers it; left click a building selects it (HUD)
+ *     tower; Enter (or the toolbar) orders it, the preview shows the wall kit pieces, segments and cost
+ *   Esc drops the wall line, then the tool, then the selected site, then build mode
+ *   any mode: right click a resource node with squads selected gathers it; right click an unfinished (or damaged) own
+ *   site builds / resumes it; left click a building selects it (site panel: assign N, stop work, cancel)
  */
-import { BUILDINGS, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
+import { BUILDINGS, CANCEL_REFUND, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
 import type { BuildingSnap, BuildingType, NodeSnap, PlaceReason, PlaceResult, ResourceKind, WallPlan } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { BuildingLayer } from './buildingLayer';
@@ -22,10 +24,11 @@ export type Cost = Partial<Record<ResourceKind, number>>;
 export const RESOURCES: ResourceKind[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt'];
 /** Buildings on the toolbar (wall pieces come with the wall tools). */
 export const TOOLBAR: BuildingType[] = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress'];
-const REASON: Record<PlaceReason, string> = {
+const REASON: Partial<Record<PlaceReason, string>> = {
   bounds: 'off the map', noBuild: 'no-build zone', water: 'water', rock: 'rock', blocked: 'blocked', overlap: 'overlaps a building',
   influence: 'outside your influence', slope: 'too steep', node: 'on a resource', short: 'line too short',
 };
+const reasonText = (r: PlaceReason) => REASON[r] ?? r;
 const RECHECK_MS = 500;
 const TEAM = 0;
 
@@ -53,6 +56,10 @@ export class BuildMode {
   private pending = false;
   private place: PlaceResult | null = null;
   private plan: WallPlan | null = null;
+  /** Site each squad was sent to from here (stop work finds the squads of a site by it and by proximity). */
+  private sent = new Map<number, number>();
+  /** Next squad id the sim hands out (detach): at least the snapshot's count, bumped per detach not yet seen. */
+  private nextSquad = 0;
 
   constructor(private s: SandboxScene) {
     this.layer = new BuildingLayer(s, s.iso, (x, y) => s.depthAt(x, y));
@@ -88,11 +95,12 @@ export class BuildMode {
     this.rot = this.rot ? 0 : 1;
   }
 
-  /** Esc: drop the wall line, then the tool, then leave build mode. */
+  /** Esc: drop the wall line, then the tool, then the selected building (closes its panel), then leave build mode. */
   cancel(): void {
     this.claimArmed = false;
     if (this.tool?.kind === 'wall' && this.wall.points.length) this.setTool(this.tool);
     else if (this.tool) this.setTool(null);
+    else if (this.selected >= 0) this.selected = -1;
     else this.toggle(false);
   }
 
@@ -105,21 +113,97 @@ export class BuildMode {
     this.claimArmed = true;
   }
 
-  private squad(): number | null {
+  /** The first selected own squad, if any. */
+  squad(): number | null {
     for (const q of this.s.selected) if (this.s.sim.squads.get(q)?.team === TEAM) return q;
-    this.status = 'select a squad to build';
     return null;
+  }
+
+  /** Who lays a site out: the selected own squad (it builds it), else the own team (a planned site). */
+  private builder(): { squad: number } | { team: number } {
+    const squad = this.squad();
+    return squad === null ? { team: TEAM } : { squad };
   }
 
   /** Order the wall line laid out (if the preview is valid). */
   confirmWall(): void {
     if (this.tool?.kind !== 'wall' || this.wall.points.length < 4) return;
-    if (!this.plan?.ok) { this.status = `wall: ${this.plan?.reason ? REASON[this.plan.reason] : 'checking'}`; return; }
-    const squad = this.squad();
-    if (squad === null) return;
+    if (!this.plan?.ok) { this.status = `wall: ${this.plan?.reason ? reasonText(this.plan.reason) : 'checking'}`; return; }
     const { points, towers, gates } = this.wall;
-    this.s.sim.order({ kind: 'placeWall', squad, material: this.tool.material, points, towers, gates });
+    this.s.sim.order({ kind: 'placeWall', ...this.builder(), material: this.tool.material, points, towers, gates });
     this.setTool(null);
+  }
+
+  // --- site orders (W-26) ---
+
+  /** Send own squad `squad` to build / resume site `site`. */
+  sendTo(squad: number, site: number): void {
+    this.s.sim.order({ kind: 'build', squad, site });
+    this.sent.set(squad, site);
+    const b = this.s.sim.cur?.buildings?.find((q) => q.id === site);
+    if (b) this.s.mark(b.x, b.y, 0x60d060);
+  }
+
+  /**
+   * Assign n soldiers of the selected own squad to the selected site: the last n detach as a new squad (its id is the
+   * sim's next one) and are sent; n at or over the squad's size sends the whole squad. Returns how many went.
+   */
+  assign(n: number): number {
+    const b = this.selectedBuilding(), squad = this.squad(), q = squad === null ? undefined : this.s.sim.squads.get(squad);
+    if (!b || !q || squad === null) { this.status = 'select a squad, then assign'; return 0; }
+    const alive = this.s.drawn.filter((d) => d.u.squad === squad && d.u.state !== 'dead').length;
+    n = Math.floor(n);
+    if (n <= 0 || !alive) return 0;
+    if (n >= alive) { this.sendTo(squad, b.id); return alive; }
+    const id = Math.max(this.nextSquad, this.s.sim.cur?.squads.length ?? 0);
+    this.nextSquad = id + 1;
+    this.s.sim.order({ kind: 'detach', squad, count: n });
+    this.sendTo(id, b.id);
+    return n;
+  }
+
+  /** Own squads working the site: sent to it from here (still on a build order) or labouring at it. */
+  squadsAt(b: BuildingSnap): number[] {
+    const out = new Set<number>(), r = Math.max(b.w, b.h) / 2 + 3;
+    for (const [q, site] of this.sent) if (site === b.id && this.s.sim.squads.get(q)?.order === 'build') out.add(q);
+    for (const d of this.s.drawn) {
+      if (d.team !== TEAM || d.u.state !== 'build' || Math.abs(d.x - b.x) > r || Math.abs(d.y - b.y) > r) continue;
+      if (this.s.sim.squads.get(d.u.squad)?.order === 'build') out.add(d.u.squad);
+    }
+    return [...out];
+  }
+
+  /** Stop the squads working the selected site (they hold; the site keeps what it has). */
+  stopWork(): void {
+    const b = this.selectedBuilding();
+    if (!b) return;
+    for (const q of this.squadsAt(b)) { this.s.sim.order({ kind: 'stopWork', squad: q }); this.sent.delete(q); }
+  }
+
+  /** Cancel the selected unfinished site (refund: see refund()). */
+  cancelSite(): void {
+    const b = this.selectedBuilding();
+    if (!b || !isSite(b)) return;
+    this.s.sim.order({ kind: 'cancelSite', site: b.id });
+    for (const [q, site] of this.sent) if (site === b.id) this.sent.delete(q);
+    this.selected = -1;
+  }
+
+  /** Materials a site needs in all (cost x tiles for wall segments). */
+  need(b: BuildingSnap): Cost {
+    const d = BUILDINGS[b.type], k = d.perTile ? b.tiles.length / 2 : 1, c: Cost = {};
+    for (const [r, v] of Object.entries(d.cost) as [ResourceKind, number][]) c[r] = v * k;
+    return c;
+  }
+
+  /** What cancelling gives back of the materials on site (loads still on the way come back in full besides). */
+  refund(b: BuildingSnap): Cost {
+    const c: Cost = {};
+    for (const [r, v] of Object.entries(this.need(b)) as [ResourceKind, number][]) {
+      const n = Math.floor(v * b.delivered * CANCEL_REFUND);
+      if (n > 0) c[r] = n;
+    }
+    return c;
   }
 
   // --- pointer (the scene calls these first; true = handled) ---
@@ -132,11 +216,9 @@ export class BuildMode {
     }
     if (!this.active || !this.tool) return false;
     if (this.tool.kind === 'building') {
-      if (!this.place?.ok) { this.status = this.place?.reason ? `can't build: ${REASON[this.place.reason]}` : 'checking...'; return true; }
-      const squad = this.squad();
-      if (squad === null) return true;
+      if (!this.place?.ok) { this.status = this.place?.reason ? `can't build: ${reasonText(this.place.reason)}` : 'checking...'; return true; }
       const [x, y] = this.centre(this.tool.type, t);
-      this.s.sim.order({ kind: 'placeBuilding', squad, type: this.tool.type, x, y, rot: this.rot });
+      this.s.sim.order({ kind: 'placeBuilding', ...this.builder(), type: this.tool.type, x, y, rot: this.rot });
       if (!shift) this.setTool(null);
       return true;
     }
@@ -162,9 +244,18 @@ export class BuildMode {
     return true;
   }
 
-  /** Right click: gather the hovered node with the selected squads; in build mode with a tool, drop the tool. */
+  /**
+   * Right click: in build mode with a tool, drop the tool; with own squads selected, build / resume the own unfinished
+   * or damaged site under the cursor, else gather the hovered node.
+   */
   command(): boolean {
     if (this.active && this.tool) { this.cancel(); return true; }
+    const own = [...this.s.selected].filter((q) => this.s.sim.squads.get(q)?.team === TEAM);
+    const site = this.siteAt(this.s.pointerTile);
+    if (site && own.length) {
+      for (const q of own) this.sendTo(q, site.id);
+      return true;
+    }
     const n = this.hover;
     if (!n || n.amount < 1 || !this.s.selected.size) return false;
     for (const q of this.s.selected) if (this.s.sim.squads.get(q)?.team === TEAM) this.s.sim.order({ kind: 'gather', squad: q, node: n.id });
@@ -172,9 +263,21 @@ export class BuildMode {
     return true;
   }
 
-  /** Left click outside build mode that hit no unit: select the building there (or none). */
-  selectAt(t: { x: number; y: number }): void {
-    this.selected = this.layer.at(this.s.sim.cur?.buildings ?? [], t.x, t.y)?.id ?? -1;
+  /** Left click outside build mode that hit no unit: select the building there (or none); true if one was hit. */
+  selectAt(t: { x: number; y: number }): boolean {
+    this.selected = this.buildingAt(t)?.id ?? -1;
+    return this.selected >= 0;
+  }
+
+  /** The standing building under tile point t. */
+  buildingAt(t: { x: number; y: number }): BuildingSnap | undefined {
+    return this.layer.at(this.s.sim.cur?.buildings ?? [], t.x, t.y);
+  }
+
+  /** An own site under t that a squad can work: unfinished or damaged. */
+  private siteAt(t: { x: number; y: number }): BuildingSnap | undefined {
+    const b = this.buildingAt(t);
+    return b && b.team === TEAM && (isSite(b) || b.state === 'damaged') ? b : undefined;
   }
 
   /** Footprint centre for a type snapped so the tiles are whole. */
@@ -187,29 +290,38 @@ export class BuildMode {
 
   update(wp: { x: number; y: number }, zoom: number, view: { x: number; y: number; right: number; bottom: number }): void {
     const sim = this.s.sim, buildings = sim.cur?.buildings ?? [];
+    if (this.selected >= 0 && !buildings.some((b) => b.id === this.selected)) this.selected = -1; // cancelled or gone
+    if (this.s.sim.cur && this.nextSquad <= this.s.sim.cur.squads.length) this.nextSquad = 0;
+    const placing = this.active && !!this.tool;
     this.layer.selected = this.selected;
+    this.layer.grids = this.active;
+    const hb = placing ? undefined : this.buildingAt(this.s.pointerTile);
+    this.layer.hovered = hb && isSite(hb) ? hb.id : -1;
     this.layer.draw(buildings, this.s.drawn, view, zoom);
     this.layer.influence(sim.influence, TEAM, this.active || this.claimArmed);
-    this.hover = this.active && this.tool ? null : this.pickNode(wp);
-    this.layer.ghost(null, '', 0, zoom);
-    this.layer.node(this.hover, zoom);
-    if (!this.active || !this.tool) return;
-    const t = this.s.pointerTile;
+    this.hover = placing ? null : this.pickNode(wp);
+    if (!placing || !this.tool) {
+      this.layer.ghost(null, '', zoom);
+      this.layer.node(this.hover, zoom);
+      return;
+    }
+    this.layer.node(null, zoom);
+    const t = this.s.pointerTile, who = this.squad() === null ? ' · planned (no squad)' : '';
     if (this.tool.kind === 'building') {
       const type = this.tool.type, [x, y] = this.centre(type, t), [w, h] = rotated(type, this.rot);
       this.check(`${type},${x},${y},${this.rot}`, () => sim.checkPlacement(TEAM, type, x, y, this.rot).then((r) => (this.place = r)));
       const d = BUILDINGS[type], ok = !!this.place?.ok;
-      const why = this.place && !ok && this.place.reason ? REASON[this.place.reason] : '';
-      this.status = why ? `can't build: ${why}` : `${type}: ${costText(d.cost)} · ${labourText(d.labour)}`;
-      this.layer.ghost([{ tiles: rectTiles(x, y, w, h), ok }], why || `${type} ${costText(d.cost)}`, this.layer.heightOf(type), zoom);
+      const why = this.place && !ok && this.place.reason ? reasonText(this.place.reason) : '';
+      this.status = why ? `can't build: ${why}` : `${type}: ${costText(d.cost)} · ${labourText(d.labour)}${who}`;
+      this.layer.ghost([{ tiles: rectTiles(x, y, w, h), ok, type }], why ? `can't build: ${why}` : `${type} ${costText(d.cost)}`, zoom);
       return;
     }
     // wall: the committed line plus the run being dragged
-    const pts = [...this.wall.points];
+    const pts = [...this.wall.points], seg = WALL_KIT[this.tool.material].segment;
     if (this.drag) pts.push(...snap(t));
     if (pts.length < 4) {
       this.status = this.wall.points.length ? 'drag from the end to extend' : 'drag to draw a wall';
-      this.layer.ghost([{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true }], '', 0, zoom);
+      this.layer.ghost([{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true, type: seg }], '', zoom, buildings);
       return;
     }
     const o = { material: this.tool.material, points: pts, towers: this.wall.towers, gates: this.wall.gates };
@@ -226,9 +338,9 @@ export class BuildMode {
     }
     const kit = WALL_KIT[this.tool.material];
     const extra = [plan.pieces.filter((p) => p.type === kit.gate).length + ' gate', plan.pieces.filter((p) => p.type === kit.tower).length + ' tower'].join(' ');
-    const why = !plan.ok && plan.reason ? `can't build: ${REASON[plan.reason]} · ` : '';
-    this.status = `${why}${segs} segments ${extra} · ${costText(cost)} · ${labourText(labour)}${this.wall.insert ? ` · click the line: ${this.wall.insert}` : ' · Enter to order'}`;
-    this.layer.ghost(plan.pieces, `${why}${segs} seg · ${costText(cost)}`, 0, zoom);
+    const why = !plan.ok && plan.reason ? `can't build: ${reasonText(plan.reason)} · ` : '';
+    this.status = `${why}${segs} segments ${extra} · ${costText(cost)} · ${labourText(labour)}${who}${this.wall.insert ? ` · click the line: ${this.wall.insert}` : ' · Enter to order'}`;
+    this.layer.ghost(plan.pieces, `${why}${segs} seg · ${costText(cost)}`, zoom, buildings);
   }
 
   /** Ask the sim (in the worker) when the query changed or got stale; the answer lands in place / plan. */
@@ -262,12 +374,11 @@ export class BuildMode {
     return this.s.sim.cur?.buildings?.find((b) => b.id === this.selected);
   }
 
-  /** Units labouring at a building (state build next to its footprint). */
-  workers(b: BuildingSnap): number {
-    const r = Math.max(b.w, b.h) / 2 + 2;
-    return this.s.drawn.filter((d) => d.u.state === 'build' && d.team === b.team && Math.abs(d.x - b.x) < r && Math.abs(d.y - b.y) < r).length;
-  }
 }
+
+/** An unfinished site (planned, half built or under way). */
+export const isSite = (b: BuildingSnap) => b.state === 'foundation' || b.state === 'scaffold';
+export { costText };
 
 /** A tile centre under a tile point. */
 const snap = (t: { x: number; y: number }): [number, number] => [Math.floor(t.x) + 0.5, Math.floor(t.y) + 0.5];

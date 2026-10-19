@@ -10,7 +10,7 @@
  *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
  *   left click / box: select own squads (shift adds); right click: move, or attack an enemy squad
  *   H hold; 1-4 formation line / column / wedge / loose
- *   B build mode, right click a resource node: gather (./build/buildMode.ts)
+ *   B build mode, right click a resource node: gather, a site: build it; click a building: its panel (./build/buildMode.ts)
  */
 import Phaser from 'phaser';
 import type { Order, RegionData, SquadId } from '../types';
@@ -248,6 +248,9 @@ export class SandboxScene extends Phaser.Scene {
     if (this.build.onUp(this.world(p))) return;
     if (!this.down || this.down.pan) { this.down = null; return; }
     this.down = null;
+    const hit = this.box ? null : this.pick(p, true);
+    // a click on a building selects it and keeps the squads selected (the site panel assigns from them)
+    if (!this.box && !hit && this.build.selectAt(this.world(p))) return;
     if (!this.keys.SHIFT.isDown) this.selected.clear();
     if (this.box) {
       const { x0, y0, x1, y1 } = this.box;
@@ -259,9 +262,8 @@ export class SandboxScene extends Phaser.Scene {
       this.box = null;
       return;
     }
-    const hit = this.pick(p, true);
     if (hit) this.selected.add(hit.u.squad);
-    this.build.selectAt(hit ? { x: -1, y: -1 } : this.world(p));
+    if (hit) this.build.selectAt({ x: -1, y: -1 });
   }
 
   /** Right click: attack the enemy squad under the cursor, else move to the ground there (squads side by side). */
@@ -320,6 +322,8 @@ export class SandboxScene extends Phaser.Scene {
     const a = this.wpx(0, 0), b = this.wpx(cam.width, cam.height);
     const view: View = { x: a.x, y: a.y, right: b.x, bottom: b.y };
     this.updateChunks(view, cam.zoom);
+    // the ground under the cursor follows the camera too (pan, zoom), not just pointer moves
+    if (this.moved && (vx || vy || this.frame % 4 === 0)) this.pointerTile = this.world(p);
 
     for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
     this.drawn = this.sim.units();
