@@ -629,7 +629,10 @@ function rdTowerBoxes(state, k = 5) {
 // ---- gates: 2 tiles along the wall line (the sim's), 4 m: a 2.8 m opening. Stone: the Lion Gate (monolithic jambs, a
 // massive lintel, the relieving triangle with its relief), its block 1.7 m deep; wood: two heavy posts, a beam with a
 // fighting walk, two log leaves. Modelled along u (the wall axis) / v (across), then mapped. state 'open': leaves swung in.
-function gateBoxes(material, axis, state, k = 3) {
+// opt (2-deep variants, gate2Boxes): leaves false = a passage without doors; sides: which faces across the wall ('-' / '+'
+// along v) keep their parapets / rails.
+function gateBoxes(material, axis, state, k = 3, opt = {}) {
+  const withLeaves = opt.leaves ?? true, sides = opt.sides ?? ['-', '+'];
   const stone = material === 'stone', L = 4, out = [];
   const map = (b) => (axis === 'x' ? { ...b, x0: b.u0, x1: b.u1, y0: b.v0, y1: b.v1 } : { ...b, x0: b.v0, x1: b.v1, y0: b.u0, y1: b.u1 });
   const add = (b) => out.push(map(b)), uv = (b) => map({ ...b, u0: b.x0, u1: b.x1, v0: b.y0, v1: b.y1 });
@@ -641,6 +644,7 @@ function gateBoxes(material, axis, state, k = 3) {
   const doorMat = (f, x, y, z) => { const a = (axis === 'x' ? x : y) + (axis === 'x' ? y : x), n = Math.floor(a * 3.3); if ((z > 0.8 && z < 0.92) || (z > 2.3 && z < 2.42)) return mul(TEX.wood[0], 1.2); if (stone && (z * 4) % 1 < 0.12 && n % 2) return [96, 78, 52, 255]; return n % 2 ? TEX.wood[1] : TEX.wood[2]; };
   const hinge = stone ? 1.45 : 1.3, dz = stone ? 3.2 : 3.0;
   const leaves = () => {
+    if (!withLeaves) return;
     if (open) { add({ u0: o0, u1: o0 + 0.14, v0: hinge - (o1 - o0) / 2, v1: hinge, z0: 0, z1: dz, mat: doorMat }); add({ u0: o1 - 0.14, u1: o1, v0: hinge - (o1 - o0) / 2, v1: hinge, z0: 0, z1: dz, mat: doorMat }); }
     else add({ u0: o0, u1: o1, v0: hinge - 0.14, v1: hinge, z0: 0, z1: dz, mat: (f, x, y, z, u, r) => (Math.abs((axis === 'x' ? x : y) - L / 2) < 0.03 ? DOORDARK : stone ? doorMat(f, x, y, z) : f === 'top' ? CHAR : palisadeMat()(f, x, y, z, u, palRow(r, dz))) });
   };
@@ -661,7 +665,7 @@ function gateBoxes(material, axis, state, k = 3) {
       jamb(0, o0, lin); jamb(o1, L, lin);
       add({ u0: o0, u1: o1, v0, v1, z0: passH, z1: lin, mat: lionMat });
       add({ u0: 0, u1: L, v0, v1, z0: lin, z1: walk, mat: lionMat });
-      for (const e of [[0, v0, L, v0, '-y'], [0, v1, L, v1, '+y']]) { const [p, q, r, s, n] = e; out.push(...parapet(axis === 'x' ? e : [q, p, s, r, n === '-y' ? '-x' : '+x'], { walkM: walk, heightM: top, para: 0.45 }, TEX.cyclo, 165)); }
+      for (const e of [[0, v0, L, v0, '-y'], [0, v1, L, v1, '+y']].filter((q) => sides.includes(q[4][0]))) { const [p, q, r, s, n] = e; out.push(...parapet(axis === 'x' ? e : [q, p, s, r, n === '-y' ? '-x' : '+x'], { walkM: walk, heightM: top, para: 0.45 }, TEX.cyclo, 165)); }
       leaves();
     } else { // wrecked: the lintel down across the passage, the triangle and walk collapsed, a jamb broken, doors smashed
       jamb(0, o0, walk * 0.92); jamb(o1, L, lin * 0.75);
@@ -684,7 +688,7 @@ function gateBoxes(material, axis, state, k = 3) {
     if (!dmg) {
       add({ u0: 0, u1: L, v0: v0 - 0.1, v1: v1 + 0.1, z0: bm, z1: bm + 0.3, mat: planks('x', 2) });
       add({ u0: -0.1, u1: L + 0.1, v0: 0.4, v1: 1.6, z0: bm + 0.3, z1: bm + 0.42, mat: planks(axis === 'x' ? 'y' : 'x', 6) });
-      for (const v of [[0.4, 0.52], [1.48, 1.6]]) add({ u0: -0.1, u1: L + 0.1, v0: v[0], v1: v[1], z0: bm + 0.42, z1: bm + 1.3, mat: (f, x, y, z, u, r) => (f === 'top' ? null : pal(f, x, y, z, u, palRow(r, 0.88))) });
+      for (const v of [[0.4, 0.52, '-'], [1.48, 1.6, '+']].filter((q) => sides.includes(q[2]))) add({ u0: -0.1, u1: L + 0.1, v0: v[0], v1: v[1], z0: bm + 0.42, z1: bm + 1.3, mat: (f, x, y, z, u, r) => (f === 'top' ? null : pal(f, x, y, z, u, palRow(r, 0.88))) });
       leaves();
     } else { // the beam down, one leaf flat on the ground, the other hanging half burnt
       add({ u0: 0.3, u1: L - 0.2, v0: v1 + 0.15, v1: v1 + 0.45, z0: 0, z1: 0.3, mat: woodSolid(1) });
@@ -692,6 +696,22 @@ function gateBoxes(material, axis, state, k = 3) {
       out.push(...sliced(map({ u0: L / 2, u1: o1, v0: hinge - 0.14, v1: hinge, z0: 0, z1: dz, mat: (f, x, y, z, u, r) => (f === 'top' ? CHAR : pal(f, x, y, z, u, palRow(r, dz))) }), axis, stakeProf(dz, k)));
       out.push(...wreckage(axis, 0.6, k + 9, true, 0, L, 1));
     }
+  }
+  return out;
+}
+
+// ---- 2-deep gates (W-28): walls with a walkway are 2 tiles deep, the sim's gate stays on the line (2 x 1) and the inner
+// row behind it is the open passage. Composed from the gate above: the gate on the line (doors, outer parapet / rail) and a
+// copy without doors on the inner row (inner parapet / rail), joined into one deep gatehouse; wood bridges the walk
+// between the two beams. inner: the side of the inner row across the line ('+' or '-' along y for axis x, x for axis y).
+function gate2Boxes(material, axis, state, inner, k = 3) {
+  const out = [], shift = (bs, d) => bs.map((b) => (axis === 'x' ? { ...b, y0: b.y0 + d, y1: b.y1 + d } : { ...b, x0: b.x0 + d, x1: b.x1 + d }));
+  const lineAt = inner === '+' ? 0 : 2, innerAt = 2 - lineAt, outer = inner === '+' ? '-' : '+';
+  out.push(...shift(gateBoxes(material, axis, state, k, { sides: [outer] }), lineAt));
+  out.push(...shift(gateBoxes(material, axis, state === 'open' ? 'done' : state, k + 7, { leaves: false, sides: [inner] }), innerAt));
+  if (material === 'wood' && (state === 'done' || state === 'open')) { // the walk across between the two beams
+    const bm = 3.5, b = { u0: -0.1, u1: 4.1, v0: 1.6, v1: 2.4, z0: bm + 0.3, z1: bm + 0.42, mat: planks(axis === 'x' ? 'y' : 'x', 6) };
+    out.push(axis === 'x' ? { ...b, x0: b.u0, x1: b.u1, y0: b.v0, y1: b.v1 } : { ...b, x0: b.v0, x1: b.v1, y0: b.u0, y1: b.u1 });
   }
   return out;
 }
@@ -938,6 +958,11 @@ const PROC = [
   { id: 'stone-gate-y', kind: 'gate', material: 'stone', burnable: false, footprint: [1, 2], axis: 'y', heightM: 6, inline: '2 wall tiles along y, opening along x', boxes: (s) => gateBoxes('stone', 'y', s), source: 'renderer + Lion Gate elevation (pixflux f1d20a40)' },
   { id: 'wood-gate-x', kind: 'gate', material: 'wood', burnable: true, footprint: [2, 1], axis: 'x', heightM: 4.9, inline: '2 wall tiles along x', boxes: (s) => gateBoxes('wood', 'x', s), source: 'renderer + palisade elevation' },
   { id: 'wood-gate-y', kind: 'gate', material: 'wood', burnable: true, footprint: [1, 2], axis: 'y', heightM: 4.9, inline: '2 wall tiles along y', boxes: (s) => gateBoxes('wood', 'y', s), source: 'renderer + palisade elevation' },
+  ...['stone', 'wood'].flatMap((m) => [['x', '+', 's'], ['x', '-', 'n'], ['y', '+', 'e'], ['y', '-', 'w']].map(([axis, inner, side]) => ({
+    id: `${m}-gate-${axis}-deep-${side}`, kind: 'gate', material: m, burnable: m === 'wood', footprint: [2, 2], axis, deep: side, heightM: m === 'stone' ? 6 : 4.9,
+    inline: `2-deep wall gate: the ${m}-gate-${axis} on the line, its passage on the inner row (${side} side)`, boxes: (s) => gate2Boxes(m, axis, s, inner),
+    source: m === 'stone' ? 'renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep' : 'renderer + palisade elevation, composed 2 deep',
+  }))),
   { id: 'keep', kind: 'keep', material: 'stone', burnable: false, footprint: [4, 4], heightM: 5.6, inline: 'the fort\'s citadel: a megaron on its terrace', boxes: megaronBoxes, source: 'renderer + cyclopean / isodomic elevations, drawn roof tiles' },
 ];
 const rendered = {}; // id -> state -> { im, tileOrigin }
@@ -1007,11 +1032,12 @@ for (const o of all) {
     sprites.push({ file: `${sid}.png`, im: r.im, meta: { id: sid, kind: o.kind, file: `${sid}.png`, w: r.im.w, h: r.im.h, metres: Math.max(0.05, metres), basePx: base, anchor: a, tileOrigin: r.tileOrigin, footprint: o.footprint, blocksMovement: s !== 'foundation' && o.kind !== 'farm', building: o.id, state: s, material: o.material, burnable: !!o.burnable, source: o.source ?? 'renderer' } });
     states[s] = sid;
   }
-  buildings.push({ id: o.id, kind: o.kind, material: o.material, burnable: !!o.burnable, footprint: o.footprint, ...(o.axis && { axis: o.axis }), ...(o.inline && { inline: o.inline }), ...(o.heightM && { heightM: o.heightM }), ...(o.platformM && { platformM: o.platformM, platformPx: Math.round(o.platformM * PPM) }), states });
+  buildings.push({ id: o.id, kind: o.kind, material: o.material, burnable: !!o.burnable, footprint: o.footprint, ...(o.axis && { axis: o.axis }), ...(o.deep && { deep: o.deep }), ...(o.inline && { inline: o.inline }), ...(o.heightM && { heightM: o.heightM }), ...(o.platformM && { platformM: o.platformM, platformPx: Math.round(o.platformM * PPM) }), states });
 }
 // palette + write
 const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), GO = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));
-const pal = extendPalette([...G.palette, ...GO.palette], sprites.map((s) => s.im), 64);
+// the 2-deep gates are composed of the gates' own colours: they snap to the palette without picking it
+const pal = extendPalette([...G.palette, ...GO.palette], sprites.filter((s) => !s.meta?.id.includes('-deep-')).map((s) => s.im), 64);
 for (const s of sprites) writeImage(join(OUT, s.file), snapToPalette(s.im, pal));
 const json = {
   pxPerMetre: PPM, tileMetres: 2, borderMax: 0.75,
