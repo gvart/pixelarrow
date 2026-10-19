@@ -8,7 +8,7 @@
 import { BUILDINGS } from '../../sim/economy';
 import type { BuildingType } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
-import { costText, isSite, labourText, RESOURCES, TOOLBAR, type BuildMode, type Tool } from './buildMode';
+import { costText, isSite, labourText, RESOURCES, TOOLBAR, WALL_NAME, type BuildMode, type Tool } from './buildMode';
 
 const cost = (t: BuildingType) => Object.entries(BUILDINGS[t].cost).map(([r, v]) => `${v} ${r}`).join(', ') || 'free';
 
@@ -18,13 +18,18 @@ export function buildPanel(s: SandboxScene): void {
   bar.id = 'build';
   const tools: [string, Tool, string][] = [
     ...TOOLBAR.map((t): [string, Tool, string] => [t, { kind: 'building', type: t }, `${cost(t)} · ${labourText(BUILDINGS[t].labour)}`]),
-    ['palisade', { kind: 'wall', material: 'wood' }, `${cost('palisade')}/tile · gate ${cost('woodGate')} · tower ${cost('woodTower')}`],
-    ['stone wall', { kind: 'wall', material: 'stone' }, `${cost('stoneWall')}/tile · gate ${cost('stoneGate')} · tower ${cost('stoneTower')}`],
+    [WALL_NAME.wood, { kind: 'wall', material: 'wood' }, `${cost('palisade')}/tile · gate ${cost('woodGate')} · tower ${cost('woodTower')}`],
+    [WALL_NAME.timber, { kind: 'wall', material: 'timber' }, `${cost('rampart')}/tile (2 deep, walkway) · gate ${cost('woodGate')} · tower ${cost('woodTower')}`],
+    [WALL_NAME.stone, { kind: 'wall', material: 'stone' }, `${cost('stoneWall')}/tile (2 deep, walkway) · gate ${cost('stoneGate')} · tower ${cost('stoneTower')}`],
+    ['wood stairs', { kind: 'access', type: 'woodStairs' }, `${cost('woodStairs')} · up an own walkway wall's inside`],
+    ['stone stairs', { kind: 'access', type: 'stoneStairs' }, `${cost('stoneStairs')} · up an own walkway wall's inside`],
+    ['ladder', { kind: 'access', type: 'ladder' }, `${cost('ladder')} · beside any walkway wall or tower`],
   ];
   bar.innerHTML = `
     <div class="row"><button id="bmode">Build (B)</button>
-    <span id="btools">${tools.map(([name, , tip], i) => `<button data-tool="${i}" title="${tip}">${name}<br><span class="dim">${tip.split(' · ')[0]}</span></button>`).join('')}</span></div>
-    <div class="row" id="bwall"><button id="bgate">+ gate (G)</button> <button id="btower">+ tower (T)</button> <button id="bok">Order wall (Enter)</button> <span class="dim">R rotate · Esc cancel · shift-click keeps the tool</span></div>
+    <span id="btools">${tools.map(([name, , tip], i) => `<button data-tool="${i}" title="${tip}">${name}</button>`).join('')}</span></div>
+    <div class="row" id="bwall"><button id="bgate">+ gate (G)</button> <button id="btower">+ tower (T)</button> <button id="bok">Order walls (Enter)</button> <button id="bundo">Remove last (Backspace)</button> <button id="bflip">Flip inside (F)</button> <span class="dim">Esc cancel</span></div>
+    <div class="row dim" id="bhint">R rotate / next place · Esc cancel · shift-click keeps the tool</div>
     <div id="bstatus"></div>`;
   const hud = document.createElement('div');
   hud.id = 'hud';
@@ -33,7 +38,7 @@ export function buildPanel(s: SandboxScene): void {
       <div class="row">Assign <input id="sn" type="number" min="1" value="5"> <button id="sassign">Assign</button></div>
       <div class="row"><button id="sstop">Stop work</button> <button id="scancel">Cancel site</button></div>
       <div class="dim" id="srefund"></div><div class="dim">right click with a squad: build · Esc closes</div></div>
-    <pre id="bsel"></pre>
+    <pre id="bsel"></pre><div class="row" id="bupr"><button id="bup">Upgrade</button></div>
     <div class="row"><button id="b500">+500 resources</button> <button id="bclaim">Claim here</button></div>`;
   document.body.append(bar, hud);
   for (const el of [bar, hud]) el.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -42,9 +47,12 @@ export function buildPanel(s: SandboxScene): void {
 
   $('bmode').onclick = () => m.toggle();
   bar.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => (b.onclick = () => m.setTool(tools[Number(b.dataset.tool)][1])));
-  $('bgate').onclick = () => (m.wall.insert = 'gate');
-  $('btower').onclick = () => (m.wall.insert = 'tower');
+  $('bgate').onclick = () => (m.insert = 'gate');
+  $('btower').onclick = () => (m.insert = 'tower');
   $('bok').onclick = () => m.confirmWall();
+  $('bundo').onclick = () => m.removeLine(m.lines.length - 1);
+  $('bflip').onclick = () => m.flipInside();
+  $('bup').onclick = () => m.upgrade();
   $('b500').onclick = () => m.addResources();
   $('bclaim').onclick = () => m.armClaim();
   $('sassign').onclick = () => m.assign(Number(($('sn') as HTMLInputElement).value));
@@ -55,6 +63,7 @@ export function buildPanel(s: SandboxScene): void {
     bar.classList.toggle('on', m.active);
     $('btools').style.display = m.active ? '' : 'none';
     $('bwall').style.display = m.tool?.kind === 'wall' ? '' : 'none';
+    $('bhint').style.display = m.active ? '' : 'none';
     bar.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => b.classList.toggle('sel', JSON.stringify(tools[Number(b.dataset.tool)][1]) === JSON.stringify(m.tool)));
     $('bstatus').textContent = m.claimArmed ? 'click the map to claim (influence r 20)' : m.active ? m.status || 'pick a building' : '';
     const st = s.sim.cur?.stock?.[0] ?? {};
@@ -80,6 +89,14 @@ export function buildPanel(s: SandboxScene): void {
     } else if (b) {
       $('bsel').textContent = `${b.type} #${b.id} team ${b.team}\nstate   ${b.state}\nhp      ${Math.ceil(b.hp)}/${b.maxHp}`;
     }
+    // upgrade a finished wall, tower or gate: the next tier and its cost
+    const up = b && !site ? m.upgradeOf(b) : null;
+    $('bupr').style.display = up ? '' : 'none';
+    if (up) {
+      btn('bup').textContent = `Upgrade to ${up.to}: ${costText(up.cost)} · ${labourText(up.labour)}`;
+      btn('bup').title = sq === null ? 'planned: send a squad to build it' : `squad #${sq} builds it`;
+    }
+    if (b && site && b.upgradeFrom) $('stitle').textContent = `${b.upgradeFrom} -> ${b.type} upgrade #${b.id}`;
   };
   setInterval(tick, 200);
   tick();
