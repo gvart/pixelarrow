@@ -59,7 +59,11 @@ interface Deck {
   kind: 'deck' | 'stair' | 'ladder' | 'door'; px: number; z: number; depth: number; b: number;
   /** stair: low-end edge (ox, oy), rising direction, length; ladder: side towards its wall. */
   ox: number; oy: number; dx: number; dy: number; n: number;
+  /** A siege ladder: its foot's distance from the wall face (tiles); climbers lean in with it. */
+  foot?: number;
 }
+/** Siege ladder foot from the wall face in tiles (public/war/siege/objects.json ladders.targets footM / 2 m). */
+const SIEGE_FOOT: Partial<Record<BuildingType, number>> = { stoneWall: 0.945, stoneTower: 0.945, stoneGate: 0.945, rampart: 0.645, woodTower: 0.645, woodGate: 0.645 };
 /** How a building is drawn this frame: the type and stage shown (an upgrade shows the old tier), and the grown tiles' stage. */
 interface Look { type: BuildingType; stage: string; grown: number; grownStage: string }
 /** A placement ghost piece. tiles: stairs bottom first; attach: the tile of the wall or tower a ladder leans on. */
@@ -81,6 +85,8 @@ export class BuildingLayer {
   cutNear: { x: number; y: number } | null = null;
   /** Units on a ladder this frame (the climb clip). */
   readonly climbing = new Set<number>();
+  /** Buildings another layer draws (siege ladders, rubble: ../siege/siegeLayer.ts). */
+  skip: ((b: BuildingSnap) => boolean) | null = null;
   private gfx: Phaser.GameObjects.Graphics[] = [];
   private imgs: Phaser.GameObjects.Image[] = [];
   private ghostImgs: Phaser.GameObjects.Image[] = [];
@@ -218,7 +224,7 @@ export class BuildingLayer {
           const o = occ.get(key(x + dx, y + dy));
           if (!o || (b.attach !== undefined && o.id !== b.attach)) continue;
           if (walks.has(key(x + dx, y + dy))) setOpen(x + dx, y + dy, sideOf(-dx, -dy));
-          if (up) this.decks.set(key(x, y), { kind: 'ladder', px: this.walkTile(x + dx, y + dy) || 99, z: this.zt(x, y), depth: this.D(x + 0.8, y + 0.8), b: b.id, ox: 0, oy: 0, dx, dy, n: side });
+          if (up) this.decks.set(key(x, y), { kind: 'ladder', px: this.walkTile(x + dx, y + dy) || 99, z: this.zt(x, y), depth: this.D(x + 0.8, y + 0.8), b: b.id, ox: 0, oy: 0, dx, dy, n: side, ...(b.siege !== undefined ? { foot: SIEGE_FOOT[o.type] ?? 0.9 } : {}) });
           break;
         }
       } else if (def.wall === 'tower') {
@@ -301,6 +307,12 @@ export class BuildingLayer {
     }
     // ladder: f = how far across the tile towards the wall; the man steps to the ladder's foot, then climbs straight up
     const f = t.dx ? (t.dx > 0 ? d.x - tx : tx + 1 - d.x) : t.dy > 0 ? d.y - ty : ty + 1 - d.y;
+    if (t.foot !== undefined) {
+      // a siege ladder leans out from the face: up it from its foot, centred on its tile across
+      const at = Math.max(0.05, 1 - t.foot), k = Math.min(1, f / at), up = Math.max(0, Math.min(1, (f - at) / (1 - at)));
+      const x = t.dx ? d.x : d.x + (tx + 0.5 - d.x) * k, y = t.dx ? d.y + (ty + 0.5 - d.y) * k : d.y;
+      return { x, y, z: t.z, px: t.px * up, depth: t.depth + IN * (1 + f), climb: up > 0, facing: Math.atan2(t.dy, t.dx) };
+    }
     const k = Math.min(1, f / 0.3), up = Math.max(0, Math.min(1, (f - 0.3) / 0.7));
     let x = d.x, y = d.y;
     if (t.dx) x += (tx + (t.dx > 0 ? 0.7 : 0.3) - x) * k;
@@ -376,6 +388,7 @@ export class BuildingLayer {
       else if (b.id === this.selected || b.id === this.hovered) this.grid(ground, b.tiles, 0xffffff, 0.9, lw);
       else if (this.grids && b.state !== 'destroyed') this.grid(ground, b.tiles, TEAM_COLOR[b.team] ?? 0xcccccc, 0.45, lw);
       if (!view(v, c.x, c.y, Math.max(b.w, b.h) * HW + 300)) continue;
+      if (this.skip?.(b)) continue;
       const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = this.D(x1 - 0.5, y1 - 0.5);
       const def = BUILDINGS[b.type], l = this.looks.get(b.id) ?? this.look(b), axis = b.w >= b.h ? 'x' : 'y';
       let drawn = false;

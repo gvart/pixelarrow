@@ -9,6 +9,7 @@ import { BUILDINGS } from '../../sim/economy';
 import type { BuildingType } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { costText, isSite, labourText, RESOURCES, TOOLBAR, WALL_NAME, type BuildMode, type Tool } from './buildMode';
+import { SIEGE_NAME, siegeTools } from '../siege/siegeControls';
 
 const cost = (t: BuildingType) => Object.entries(BUILDINGS[t].cost).map(([r, v]) => `${v} ${r}`).join(', ') || 'free';
 
@@ -24,6 +25,7 @@ export function buildPanel(s: SandboxScene): void {
     ['wood stairs', { kind: 'access', type: 'woodStairs' }, `${cost('woodStairs')} · up an own walkway wall's inside`],
     ['stone stairs', { kind: 'access', type: 'stoneStairs' }, `${cost('stoneStairs')} · up an own walkway wall's inside`],
     ['ladder', { kind: 'access', type: 'ladder' }, `${cost('ladder')} · beside any walkway wall or tower`],
+    ...siegeTools().map(([t, tip]): [string, Tool, string] => [SIEGE_NAME[t], { kind: 'siege', type: t }, tip]),
   ];
   bar.innerHTML = `
     <div class="row"><button id="bmode">Build (B)</button>
