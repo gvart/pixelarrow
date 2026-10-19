@@ -1,7 +1,8 @@
 /**
  * The red-figure UI kit (W-32, public/war/ui/ui.json): its CSS (9-slice frames as border-image, buttons with their
  * states, bars, the hover label, the tooltip, the radial menu) and the scale. 1 art px = `zoom` CSS px: the UI scale
- * setting (auto by viewport, 1x / 1.5x / 2x; W-34) snapped to device pixels, so the pixel art stays crisp.
+ * setting (auto by viewport, 0.75x / 1x / 1.25x / 1.5x / 2x; W-34) snapped to quarter device pixels and drawn nearest-neighbour
+ * (image-rendering: pixelated, the @1x / @2x asset by device pixel ratio), so the pixel art stays sharp.
  */
 import type { BuildingType, SiegeType } from '../../types';
 
@@ -11,26 +12,26 @@ const url = (f: string) => `url(${UI}${f})`;
 const set = (f: string) => `image-set(${url(f)} 1x, ${url(f.replace('.png', '@2x.png'))} 2x)`;
 
 /** UI scale steps a player can pick (W-34); 'auto' picks by viewport. Persisted in localStorage. */
-export type UiScale = 'auto' | 1 | 1.5 | 2;
-export const UI_SCALES: UiScale[] = ['auto', 1, 1.5, 2];
+export type UiScale = 'auto' | 0.75 | 1 | 1.25 | 1.5 | 2;
+export const UI_SCALES: UiScale[] = ['auto', 0.75, 1, 1.25, 1.5, 2];
 const SCALE_KEY = 'war.uiScale';
 export function uiScale(): UiScale {
   try {
     const v = Number(localStorage.getItem(SCALE_KEY));
-    if (v === 1 || v === 1.5 || v === 2) return v;
+    if ((UI_SCALES as number[]).includes(v)) return v as UiScale;
   } catch { /* storage blocked: auto */ }
   return 'auto';
 }
 export function setUiScale(v: UiScale): void {
   try { localStorage.setItem(SCALE_KEY, String(v)); } catch { /* storage blocked: this session only */ }
 }
-/** Auto: the largest step whose 720 x 450 art-px layout fits the viewport (1440 x 900: 2, 1280 x 720: 1.5). */
-export const autoStep = (w = innerWidth, h = innerHeight) => [3, 2.5, 2, 1.5].find((k) => w >= 720 * k && h >= 450 * k) ?? 1;
+/** Auto: the largest step whose 900 x 560 art-px layout fits the viewport (1440 x 900: 1.5, 1280 x 720: 1.25, 1920 x 1080: 1.75). */
+export const autoStep = (w = innerWidth, h = innerHeight) => [2.5, 2, 1.75, 1.5, 1.25, 1].find((k) => w >= 900 * k && h >= 560 * k) ?? 0.75;
 
-/** CSS px per art px: the step snapped to whole (or half) device pixels so the nearest-neighbour art stays crisp. */
+/** CSS px per art px: the step snapped to quarter device pixels; nearest-neighbour keeps the art sharp at the fractional steps. */
 export function uiZoom(): number {
   const set = uiScale(), step = set === 'auto' ? autoStep() : set, dpr = devicePixelRatio || 1;
-  return Math.max(1, Math.round(step * dpr * 2) / 2) / dpr;
+  return Math.max(0.5, Math.round(step * dpr * 4) / 4) / dpr;
 }
 
 /** Meander frames tile with this period: the width minus the side slices must be a multiple of it. */

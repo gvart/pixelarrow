@@ -13,7 +13,7 @@
  *   bottom right   the Build (hammer, B) button; the build bar (tabs Camp / Walls / Siege, a tool per building, a
  *                  tooltip with cost and labour; wall tools add gate / tower / order / undo / flip, the status line
  *                  above) opens bottom centre, over the card, only in build mode: B / Esc close it
- *   top right      DEV (F1) and the UI scale (auto by window / 1x / 1.5x / 2x, kept in localStorage; ./kit.ts)
+ *   top right      DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
  *   at the cursor  the E context label (../interact.ts) and the kit's cursors
  *
  * The dev panel (../devPanel.ts) hides behind F1 and the DEV corner button. It only calls BuildMode, SiegeControls and
@@ -226,7 +226,7 @@ export function hud(s: SandboxScene): void {
   // ---------- top right: dev panel (F1) and the UI scale ----------
   const corner = mk('rfDev', 'top:4px;right:4px;pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px', '');
   const dbtn = tb('DEV', 'dev panel (F1)', () => setDev(dev?.style.display === 'none'));
-  const sbtn = tb('', 'UI scale: auto (by window) / 1x / 1.5x / 2x', () => { const v = UI_SCALES[(UI_SCALES.indexOf(uiScale()) + 1) % UI_SCALES.length]; setUiScale(v); scale(); });
+  const sbtn = tb('', 'UI scale: auto (by window) / 0.75x / 1x / 1.25x / 1.5x / 2x', () => { const v = UI_SCALES[(UI_SCALES.indexOf(uiScale()) + 1) % UI_SCALES.length]; setUiScale(v); scale(); });
   sbtn.id = 'uiScale';
   corner.append(dbtn, sbtn);
   const dev = document.getElementById('dev');
