@@ -56,26 +56,29 @@ export const SCENARIOS: Scenario[] = [
       bot('celt_sword', at(S.fordE, 4, 4), { kind: 'hold', x: S.fordE[0] + 4, y: S.fordE[1] + 4, radius: 10 }),
       bot('archer', at(S.fordE, 12, -4), { kind: 'hold', x: S.fordE[0] + 12, y: S.fordE[1] - 4, radius: 12 }, 16),
       bot('javelineer', at(S.fordE, 12, 5), { kind: 'hold', x: S.fordE[0] + 12, y: S.fordE[1] + 5, radius: 12 }, 16),
+      bot('militia', at(S.fordE, 18, 0), { kind: 'hold', x: S.fordE[0] + 18, y: S.fordE[1], radius: 12 }),
     ],
-    camera: { x: S.ford[0] - 4, y: S.ford[1], zoom: 1 / 3 },
+    camera: { x: S.ford[0], y: S.ford[1] - 6, zoom: 1 / 3 },
   },
   {
     id: 'hill-assault',
     name: 'Hill assault',
     goal: 'Take the plateau: the enemy holds the top. Storm the ramp or flank round the hill.',
     squads: [
-      you('hoplite', at(S.rampFoot, -6, -4)),
-      you('hoplite', at(S.rampFoot, -6, 4)),
-      you('celt_sword', at(S.rampFoot, -12, 0)),
-      you('militia', at(S.rampFoot, -12, 8)),
-      you('archer', at(S.rampFoot, -18, -4), 16),
-      you('slinger', at(S.rampFoot, -18, 5), 16),
+      // in column halfway up the ramp
+      you('hoplite', at(S.rampMid, 22, -22)),
+      you('hoplite', at(S.rampMid, 18, -18)),
+      you('celt_sword', at(S.rampMid, 14, -14)),
+      you('militia', at(S.rampMid, 10, -10)),
+      you('archer', at(S.rampMid, 6, -6), 16),
+      you('slinger', at(S.rampMid, 2, -2), 16),
       bot('hoplite', at(S.plateauTop, -10, 0), { kind: 'hold', x: S.plateauTop[0] - 10, y: S.plateauTop[1], radius: 12 }),
       bot('celt_sword', at(S.plateauTop, -4, 6), { kind: 'hold', x: S.plateauTop[0] - 4, y: S.plateauTop[1] + 6, radius: 12 }),
-      bot('archer', at(S.plateauTop, -4, -6), { kind: 'hold', x: S.plateauTop[0] - 4, y: S.plateauTop[1] - 6, radius: 14 }, 16),
-      bot('slinger', at(S.plateauTop, 2, 0), { kind: 'hold', x: S.plateauTop[0] + 2, y: S.plateauTop[1], radius: 14 }, 16),
+      bot('militia', at(S.plateauTop, -10, 8), { kind: 'hold', x: S.plateauTop[0] - 10, y: S.plateauTop[1] + 8, radius: 12 }),
+      bot('archer', at(S.plateauTop, -4, -6), { kind: 'hold', x: S.plateauTop[0] - 4, y: S.plateauTop[1] - 6, radius: 14 }),
+      bot('slinger', at(S.plateauTop, 2, 0), { kind: 'hold', x: S.plateauTop[0] + 2, y: S.plateauTop[1], radius: 14 }),
     ],
-    camera: { x: S.rampMid[0], y: S.rampMid[1], zoom: 1 / 3 },
+    camera: { x: 409, y: 116, zoom: 1 / 3 },
   },
   {
     id: 'bridge-vs-ford',
@@ -93,7 +96,7 @@ export const SCENARIOS: Scenario[] = [
       ...['celt_sword', 'militia', 'javelineer'].map((c, i) =>
         bot(c, at(S.bridgeE, 14 + i * 6, -10 - i * 6), { kind: 'flank', via: at(S.bridgeW, -6, 2), x: passSx, y: passSy })),
     ],
-    camera: { x: S.marsh[0] - 30, y: S.marsh[1], zoom: 1 / 6 },
+    camera: { x: 291, y: 261, zoom: 1 / 12 }, // both crossings in view
   },
   {
     id: 'brawl-600',

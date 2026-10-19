@@ -5,7 +5,7 @@
 // (src/war/regions/test-ridge.spots.ts), so this targets test-ridge.
 // Then each ?scenario= preset (src/war/scenarios): its opening, the player side playing a simple
 // plan at 4x speed, a mid-fight shot and the end-of-fight score from the panel.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios]
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
@@ -13,6 +13,7 @@ const base = process.argv[2] ?? 'http://localhost:5173/';
 const out = shotsDir('war/sandbox', process.argv[3]);
 const sim = process.argv[4] ?? 'real';
 const mode = process.argv[5] ?? 'all';
+const only = process.argv[6]?.split(',');
 const url = `${base}sandbox.html?region=test-ridge&sim=${sim}`;
 
 const browser = await launch({ args: ['--use-gl=angle', '--ignore-gpu-blocklist'] });
@@ -157,6 +158,7 @@ const attackAll = () => page.evaluate(() => {
 });
 const score = () => page.evaluate(() => document.getElementById('score').textContent);
 for (const [id, plan] of Object.entries(PLANS)) {
+  if (only && !only.includes(id)) continue;
   await boot(`&scenario=${id}`);
   if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
   await wait(2500);
