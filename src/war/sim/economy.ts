@@ -31,6 +31,8 @@ export interface BuildingDef {
   /** Stone tower: a door with an inner stair up to its platform (its own team only). */
   door?: boolean;
   burnable?: boolean;
+  /** M2d: a bridge piece (ramp or deck, perTile), laid out by placeBridge. */
+  bridge?: boolean;
   /** `upgrade {building}`: the next tier, built in place (cost and labour per tile for wall segments). */
   upgrade?: { to: BuildingType; cost: Partial<Record<ResourceKind, number>>; labour: number };
 }
@@ -53,7 +55,13 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   ladder: { w: 1, h: 1, hp: 60, cost: {}, labour: 30, workers: 1, influence: 0, material: 'wood', access: 'ladder', cap: 1, burnable: true },
   woodGate: { w: 2, h: 1, hp: 600, cost: { wood: 30 }, labour: 400, workers: 3, influence: 0, material: 'wood', wall: 'gate', tier: 1, burnable: true, upgrade: { to: 'stoneGate', cost: { stone: 60 }, labour: 1500 } },
   stoneGate: { w: 2, h: 1, hp: 2500, cost: { stone: 60, wood: 20 }, labour: 1800, workers: 3, influence: 0, material: 'stone', wall: 'gate', tier: 2 },
+  // W-24: wood fast and burnable, stone slow and permanent (fire-proof; only a stone thrower brings it down)
+  woodBridge: { w: 1, h: 1, hp: 150, cost: { wood: 6 }, labour: 15, workers: 3, influence: 0, material: 'wood', perTile: true, burnable: true, bridge: true },
+  stoneBridge: { w: 1, h: 1, hp: 1500, cost: { stone: 16, wood: 2 }, labour: 90, workers: 3, influence: 0, material: 'stone', perTile: true, bridge: true },
 };
+
+/** Bridges (M2d, W-24): most water tiles bank to bank (20 m), deck tiles along the line per piece, move cost on a deck. */
+export const BRIDGE = { maxSpan: 10, piece: 2, cost: 0.8, kit: { wood: 'woodBridge', stone: 'stoneBridge' } as const };
 
 /** Wall pieces by material. */
 export const WALL_KIT = {

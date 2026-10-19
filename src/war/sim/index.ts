@@ -58,6 +58,7 @@ const REPATH_TICKS = 20; // attack: re-path to the moving target
  * the rest wait in FIFO order.
  */
 const PATH_BUDGET = 900;
+const FALL = 0.4; // share of max hp a man loses when the bridge under him collapses over a ford
 const UNIT_PATHS_PER_TICK = 2; // short A* searches for stuck units
 const SCAN = 5; // ticks between squad-level scans for enemy squads nearby
 const NEAR = 26; // enemy squads whose centre is this close are target candidates
@@ -213,6 +214,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       }
     },
     (p) => rng.chance(p),
+    (tiles) => {
+      // a bridge piece collapsed: men on its tiles fall in; deep water drowns them (killed or wounded), a ford hurts
+      const down = new Set(tiles);
+      for (const u of units) {
+        const t = tileAt(grid, u.x, u.y);
+        if (!u.alive || !down.has(t)) continue;
+        hurt(u, grid.cost[t] === 0 ? Infinity : u.maxHp * FALL);
+      }
+    },
   );
 
   const siege = createSiege(works, rng, {
@@ -351,10 +361,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (o.team !== undefined) works.upgrade(o.building, o.team);
       return;
     }
-    if ((o.kind === 'placeBuilding' || o.kind === 'placeWall') && o.squad === undefined) {
+    if ((o.kind === 'placeBuilding' || o.kind === 'placeWall' || o.kind === 'placeBridge') && o.squad === undefined) {
       // no squad: a planned site, built once a squad gets a build order for it
       if (o.team === undefined) return;
       if (o.kind === 'placeBuilding') works.place(o.team, o.type, o.x, o.y, o.rot ?? 0);
+      else if (o.kind === 'placeBridge') works.placeBridge(o.team, o);
       else works.placeWall(o.team, o);
       return;
     }
@@ -459,10 +470,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       reslot(s);
       return;
     }
-    if (o.kind === 'placeBuilding' || o.kind === 'placeWall' || o.kind === 'build' || o.kind === 'gather') {
+    if (o.kind === 'placeBuilding' || o.kind === 'placeWall' || o.kind === 'placeBridge' || o.kind === 'build' || o.kind === 'gather') {
       const sites =
         o.kind === 'placeBuilding' ? [works.place(s.team, o.type, o.x, o.y, o.rot ?? 0)].filter((id) => id >= 0)
         : o.kind === 'placeWall' ? works.placeWall(s.team, o)
+        : o.kind === 'placeBridge' ? works.placeBridge(s.team, o)
         : o.kind === 'build' ? (works.siteOk(o.site, s.team) ? [o.site] : [])
         : [];
       if (o.kind !== 'gather' && !sites.length) return; // invalid placement: the squad carries on
@@ -1296,6 +1308,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     checkPlacement: works.checkPlacement,
     checkWall: works.checkWall,
+    checkBridge: works.checkBridge,
     resourceNodes: works.resourceNodes,
     influence: works.influence,
     claim: works.claim,
