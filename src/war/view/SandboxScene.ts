@@ -159,6 +159,7 @@ export class SandboxScene extends Phaser.Scene {
     // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk); ram crews and ladder
     // bearers on their engine's offsets
     const layer = this.build.layer, sl = this.siegeLayer;
+    layer.charOf = (b, kit, l) => sl.charOf(b, kit, l);
     layer.skip = (b) => !!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble));
     this.units.lift = (d) => sl.lift(d) ?? layer.lift(d);
     this.units.ground = (d) => layer.groundDepth(d);

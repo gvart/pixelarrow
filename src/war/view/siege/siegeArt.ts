@@ -1,13 +1,22 @@
 /**
  * Siege art (W-29, public/war/siege/objects.json) for the view, loaded on demand; absent art leaves the engines as
- * placeholders (./siegeLayer.ts). Single sprites by id (`sg-<id>`, drawn at a footprint's north tile top vertex minus
+ * placeholders (./siegeLayer.ts). Charring overlays (char[]) by kit, level and layer. Single sprites by id (`sg-<id>`, drawn at a footprint's north tile top vertex minus
  * tileOrigin), horizontal strips (ram swing, thrower throw, ladder push-off, fx loops) as sprite sheets.
  */
 import type Phaser from 'phaser';
 
 export interface SiegeSprite { key: string; tileOrigin: { x: number; y: number }; footprint: [number, number]; w: number; h: number }
 export interface Strip { key: string; frames: number; fps: number; tileOrigin: { x: number; y: number }; w: number; h: number; hitFrame?: number; releaseFrame?: number }
-export interface Fx { key: string; frames: number; fps: number; anchor: { x: number; y: number }; w: number; h: number }
+type Level = 'low' | 'medium' | 'high';
+export interface Fx {
+  key: string; frames: number; fps: number; anchor: { x: number; y: number }; w: number; h: number;
+  /** 'add': blended additively (glow, embers). */
+  blend?: 'normal' | 'add';
+  /** Alpha per fire intensity. */
+  alpha?: Partial<Record<Level, number>>;
+  /** Count per burning wall tile per intensity (tongues: per shape). */
+  density?: { perTile: Partial<Record<Level | 'dying', number>> };
+}
 type Facing = 'e' | 's' | 'w' | 'n';
 interface EngineJson {
   id: string; layered: boolean; footprint: Record<Facing, [number, number]>; crew?: Record<Facing, [number, number][]>;
@@ -23,7 +32,8 @@ interface Json {
     pushOff: Record<string, { file: string; frames: number; fps: number; frame: { w: number; h: number }; tileOrigin: { x: number; y: number } }>;
   };
   rubble: { id: string; wall?: string; tower?: string; axis?: string; variant?: string; footprint: [number, number]; sprite: string }[];
-  fx: { id: string; file: string; frames: number; fps: number; frame: { w: number; h: number }; anchor: { x: number; y: number } }[];
+  fx: { id: string; file: string; frames: number; fps: number; frame: { w: number; h: number }; anchor: { x: number; y: number }; blend?: 'normal' | 'add'; alpha?: Fx['alpha']; density?: Fx['density'] }[];
+  char?: { kit: string; layer: 'back' | 'front'; level: string; file: string; frame: { w: number; h: number } }[];
   objects: { id: string; file: string; w: number; h: number; tileOrigin: { x: number; y: number }; footprint: [number, number] }[];
 }
 
@@ -35,6 +45,8 @@ export class SiegeArt {
   engines = new Map<string, EngineJson>();
   ladders!: Json['ladders'];
   rubble: Json['rubble'] = [];
+  /** Charring overlays over a kit's frames: texture key by `<kit>-<scorch|charred|smoulder>-<back|front>`. */
+  readonly char = new Map<string, string>();
 
   static async load(scene: Phaser.Scene, base = 'war/siege/'): Promise<SiegeArt | null> {
     try {
@@ -72,8 +84,13 @@ export class SiegeArt {
       }
       for (const f of j.fx) {
         const key = `sg-fx-${f.id}`;
-        a.fx.set(f.id, { key, frames: f.frames, fps: f.fps, anchor: f.anchor, w: f.frame.w, h: f.frame.h });
+        a.fx.set(f.id, { key, frames: f.frames, fps: f.fps, anchor: f.anchor, w: f.frame.w, h: f.frame.h, blend: f.blend, alpha: f.alpha, density: f.density });
         jobs.push(sheet(key, f.file, f.frame.w, f.frame.h));
+      }
+      for (const c of j.char ?? []) {
+        const key = `sg-char-${c.kit}-${c.level}-${c.layer}`;
+        a.char.set(`${c.kit}-${c.level}-${c.layer}`, key);
+        jobs.push(sheet(key, c.file, c.frame.w, c.frame.h));
       }
       await Promise.all(jobs);
       return a;

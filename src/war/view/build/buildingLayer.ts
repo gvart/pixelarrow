@@ -87,6 +87,8 @@ export class BuildingLayer {
   readonly climbing = new Set<number>();
   /** Buildings another layer draws (siege ladders, rubble: ../siege/siegeLayer.ts). */
   skip: ((b: BuildingSnap) => boolean) | null = null;
+  /** A charring overlay over b's kit frames (texture key, same frames and origin; ../siege/siegeLayer.ts), or none. */
+  charOf: ((b: BuildingSnap, kit: string, layer: 'back' | 'front') => string | undefined) | null = null;
   private gfx: Phaser.GameObjects.Graphics[] = [];
   private imgs: Phaser.GameObjects.Image[] = [];
   private ghostImgs: Phaser.GameObjects.Image[] = [];
@@ -440,6 +442,8 @@ export class BuildingLayer {
       const base = this.D(x + 0.495, y + 0.495), z = this.zt(x, y);
       const back = this.piece(this.img(this.ni++, kit.key, frame), kit, x, y, z).setDepth(m.layered ? base : this.D(x + 0.5, y + 0.5));
       if (cut) { this.stub(back, kit.tileOrigin.y, 1); return; }
+      const ch = this.charOf?.(b, m.id, 'back');
+      if (ch) this.piece(this.img(this.ni++, ch, frame), kit, x, y, z).setDepth(back.depth + IN / 4);
       // a back-facing inner corner: -x and -y joined, the diagonal between them open
       if (m.post && stage === 'done' && this.joins(m.id, x - 1, y) && this.joins(m.id, x, y - 1) && !this.joins(m.id, x - 1, y - 1)) {
         this.piece(this.img(this.ni++, m.post, 0), kit, x, y, z).setDepth(base + IN / 2);
@@ -481,7 +485,10 @@ export class BuildingLayer {
     const z = this.zt(x0, y0), base = this.D(x0 + 1, y0 + 1);
     const back = this.piece(this.img(this.ni++, kit.key, open), kit, x0, y0, z).setDepth(base);
     if (this.cut(b)) { this.stub(back, kit.tileOrigin.y, 2); return true; }
+    const id = this.art!.meta(l.type)?.id ?? '', cb = this.charOf?.(b, id, 'back'), cf = this.charOf?.(b, id, 'front');
+    if (cb) this.piece(this.img(this.ni++, cb, open), kit, x0, y0, z).setDepth(base + IN / 4);
     if (kit.front) this.piece(this.img(this.ni++, kit.front, open), kit, x0, y0, z).setDepth(this.D(x0 + 2, y0 + 2) + 2 * IN);
+    if (kit.front && cf) this.piece(this.img(this.ni++, cf, open), kit, x0, y0, z).setDepth(this.D(x0 + 2, y0 + 2) + 2.25 * IN);
     return true;
   }
 
