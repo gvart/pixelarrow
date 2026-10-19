@@ -8,6 +8,7 @@ import type { Shape } from '../../src/war/sim/formation';
 import type { WarSim } from '../../src/war/types';
 
 const ridge = parseRegion(ridgeJson);
+const K = ridge.w / 256; // features are authored on a 256 map and scale with it
 const [FX, FY] = SPOTS.fieldE; // open flat field east of the river
 const H = (x: number, y: number) => ridge.height[Math.floor(y) * ridge.w + Math.floor(x)];
 
@@ -45,11 +46,20 @@ describe('class stats', () => {
 });
 
 describe('combat', () => {
+  /** The first point walking from `a` toward `b` where `stop` holds, and the unit direction. */
+  const walk = (a: readonly [number, number], b: readonly [number, number], stop: (x: number, y: number) => boolean) => {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
+    let t = 0;
+    while (t < L && !stop(a[0] + ux * t, a[1] + uy * t)) t += 0.5;
+    return { x: a[0] + ux * t, y: a[1] + uy * t, ux, uy };
+  };
+  // the brow: where the flat crest ends and the gentle side starts down (the ridge top is wide at real scale)
+  const brow = walk(SPOTS.ridgeCrest, SPOTS.ridgeFoot, (x, y) => H(x, y) < 5);
+
   it('equal squads: the side holding high ground wins clearly', () => {
-    const [cx, cy] = SPOTS.ridgeCrest;
-    const k = 22 / 26; // 22 tiles down the gentle side (ridgeFoot is 26)
-    const [fx, fy] = [cx + (SPOTS.ridgeFoot[0] - cx) * k, cy + (SPOTS.ridgeFoot[1] - cy) * k];
-    expect(H(cx, cy)).toBe(5);
+    const { x: cx, y: cy, ux, uy } = brow;
+    const [fx, fy] = [cx + ux * 22, cy + uy * 22]; // 22 tiles down the gentle side
+    expect(H(cx, cy)).toBe(4);
     expect(H(fx, fy)).toBe(1);
     for (const seed of SEEDS) {
       const r = battle(seed, { cls: 'militia', n: 20, x: cx, y: cy }, { cls: 'militia', n: 20, x: fx, y: fy });
@@ -60,7 +70,7 @@ describe('combat', () => {
 
   it('archers on the plateau beat melee climbing at them, but lose the same fight on the flat', () => {
     for (const seed of SEEDS) {
-      const hill = battle(seed, { cls: 'archer', n: 20, x: SPOTS.ridgeCrest[0], y: SPOTS.ridgeCrest[1] }, { cls: 'militia', n: 14, x: SPOTS.ridgeFoot[0], y: SPOTS.ridgeFoot[1] });
+      const hill = battle(seed, { cls: 'archer', n: 20, x: brow.x + brow.ux, y: brow.y + brow.uy }, { cls: 'militia', n: 14, x: SPOTS.ridgeFoot[0], y: SPOTS.ridgeFoot[1] });
       expect(hill.att).toBe(0);
       expect(hill.def).toBeGreaterThanOrEqual(8);
       const flat = battle(seed, { cls: 'archer', n: 20, x: FX, y: FY - 12 }, { cls: 'militia', n: 14, x: FX, y: FY + 12 });
@@ -70,9 +80,10 @@ describe('combat', () => {
 
   it('a squad fighting from a ford does much worse than on dry ground', () => {
     for (const seed of SEEDS) {
-      // attackers 12 tiles off: on the east bank beyond fordE (10 off), and on the flat
-      const [ox, oy] = SPOTS.ford;
-      const [ex, ey] = [ox + (SPOTS.fordE[0] - ox) * 1.2, oy + (SPOTS.fordE[1] - oy) * 1.2];
+      // defenders in the ford 4 tiles short of the east bank, attackers 16 tiles off on dry ground; and on the flat 12 off
+      const bank = walk(SPOTS.ford, SPOTS.fordE, (x, y) => ridge.water[Math.floor(y) * ridge.w + Math.floor(x)] === 0);
+      const [ox, oy] = [bank.x - bank.ux * 4, bank.y - bank.uy * 4];
+      const [ex, ey] = [ox + bank.ux * 16, oy + bank.uy * 16];
       const ford = battle(seed, { cls: 'militia', n: 10, x: ox, y: oy, shape: 'column' }, { cls: 'militia', n: 10, x: ex, y: ey, shape: 'column' });
       const dry = battle(seed, { cls: 'militia', n: 10, x: FX, y: FY, shape: 'column' }, { cls: 'militia', n: 10, x: FX + 12, y: FY, shape: 'column' });
       expect(ford.def).toBe(0);
@@ -89,7 +100,7 @@ describe('combat', () => {
       return sim.snapshot().units.filter((u) => u.squad === t).reduce((a, u) => a + u.maxHp - u.hp, 0);
     };
     const [wx, wy] = SPOTS.forest;
-    expect(ridge.terrain[wy * ridge.w + wx]).toBe('forest');
+    expect(ridge.terrain[Math.floor(wy) * ridge.w + Math.floor(wx)]).toBe('forest');
     const inForest = volley(wx, wy);
     const inOpen = volley(FX, FY);
     expect(inOpen).toBeGreaterThan(0);
@@ -158,7 +169,7 @@ describe('head-on jams', () => {
     ['ford', SPOTS.fordW, SPOTS.fordE, 'loose'],
     ['bridge', SPOTS.bridgeW, SPOTS.bridgeE, 'line'],
   ] as const;
-  it.each(cases)('two friendly squads meeting head-on at the %s (%s) pass each other within 450 ticks', (_, p0, p1, shape) => {
+  it.each(cases)('two friendly squads meeting head-on at the %s (%s) pass each other within 450 ticks per 256 tiles of map', (_, p0, p1, shape) => {
     const sim = createSim(ridge, 4);
     const a = sim.spawnSquad('a', 0, 'militia', 20, p0[0], p0[1]);
     const b = sim.spawnSquad('b', 0, 'militia', 20, p1[0], p1[1]);
@@ -166,7 +177,7 @@ describe('head-on jams', () => {
     sim.order({ kind: 'move', squad: a, x: p1[0], y: p1[1] });
     sim.order({ kind: 'move', squad: b, x: p0[0], y: p0[1] });
     let done = -1;
-    for (let t = 0; t < 450 && done < 0; t++) {
+    for (let t = 0; t < 450 * K && done < 0; t++) {
       sim.step();
       const ok = sim.snapshot().units.every((u) => {
         const g = u.squad === a ? p1 : p0;

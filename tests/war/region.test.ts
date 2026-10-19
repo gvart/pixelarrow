@@ -5,6 +5,7 @@ import { parseRegion } from '../../src/war/region/schema';
 import { buildGrid, canEnter, findPath, nearestOpen } from '../../src/war/sim/grid';
 
 const ridge = parseRegion(ridgeJson);
+const K = ridge.w / 256; // features are authored on a 256 map and scale with it
 const grid = buildGrid(ridge);
 const T = ([x, y]: readonly [number, number]) => Math.floor(y) * ridge.w + Math.floor(x);
 const near = (t: number, p: readonly [number, number], r: number) => Math.hypot((t % ridge.w) + 0.5 - p[0], Math.floor(t / ridge.w) + 0.5 - p[1]) <= r;
@@ -16,7 +17,7 @@ function legal(path: number[]) {
 
 describe('test-ridge region', () => {
   it('validates against the schema', () => {
-    expect([ridge.w, ridge.h]).toEqual([256, 256]);
+    expect([ridge.w, ridge.h]).toEqual([512, 512]);
     expect(ridge.entries.map((e) => e.side).sort()).toEqual(['E', 'N', 'S', 'W']);
     expect(ridge.noBuild).toHaveLength(4);
   });
@@ -44,7 +45,7 @@ describe('pathfinding', () => {
     const path = findPath(grid, T(SPOTS.passN), T(SPOTS.passS));
     expect(path.at(-1)).toBe(T(SPOTS.passS));
     legal(path);
-    expect(path.some((t) => near(t, SPOTS.passSaddle, 2))).toBe(true);
+    expect(path.some((t) => near(t, SPOTS.passSaddle, 2 * K))).toBe(true);
     expect(path.some((t) => ridge.terrain[t] === 'rock')).toBe(false);
     // the road winds: much longer than the straight line
     expect(path.length).toBeGreaterThan(1.5 * Math.hypot(SPOTS.passS[0] - SPOTS.passN[0], SPOTS.passS[1] - SPOTS.passN[1]));
@@ -70,31 +71,31 @@ describe('pathfinding', () => {
     const up = findPath(grid, T(SPOTS.ridgeFoot), T(SPOTS.ridgeCrest));
     expect(up.at(-1)).toBe(T(SPOTS.ridgeCrest));
     legal(up);
-    expect(up.length).toBeLessThan(30);
+    expect(up.length).toBeLessThan(30 * K);
     const cliff = findPath(grid, T(SPOTS.ridgeCliffFoot), T(SPOTS.ridgeCrest));
     expect(cliff.at(-1)).toBe(T(SPOTS.ridgeCrest));
     legal(cliff);
-    expect(cliff.length).toBeGreaterThan(40); // around the ridge end, not up the face
+    expect(cliff.length).toBeGreaterThan(40 * K); // around the ridge end, not up the face
   });
 
   it('reaches the plateau only by the ramp', () => {
     const path = findPath(grid, T(SPOTS.fieldE), T(SPOTS.plateauTop));
     expect(path.at(-1)).toBe(T(SPOTS.plateauTop));
     legal(path);
-    expect(path.some((t) => near(t, SPOTS.rampMid, 2))).toBe(true);
+    expect(path.some((t) => near(t, SPOTS.rampMid, 2 * K))).toBe(true);
   });
 
   it('long searches through the sector layer match a plain search closely', () => {
-    const a = nearestOpen(grid, 12, 30);
-    const b = nearestOpen(grid, 244, 230);
+    const a = nearestOpen(grid, 12 * K, 30 * K);
+    const b = nearestOpen(grid, 244 * K, 230 * K);
     const path = findPath(grid, a, b);
     expect(path.at(-1)).toBe(b);
     legal(path);
-    expect(path.length).toBeLessThan(380);
+    expect(path.length).toBeLessThan(380 * K);
   });
 
   it('stops at the closest reachable tile when the goal is walled off', () => {
-    const rock = ridge.terrain.findIndex((t, i) => t === 'rock' && Math.floor(i / ridge.w) === 146);
+    const rock = ridge.terrain.findIndex((t, i) => t === 'rock' && Math.floor(i / ridge.w) === 146 * K);
     const path = findPath(grid, T(SPOTS.passN), rock);
     expect(ridge.terrain[path.at(-1)!]).not.toBe('rock');
     legal(path);

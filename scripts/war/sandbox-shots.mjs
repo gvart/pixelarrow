@@ -1,17 +1,16 @@
-// War sandbox screenshots (iso view): overview, height overlay, plateau edge close-up, box selection
-// and a right-click order on a hill (checks the picked tile), squads pathing through the pass and
-// the ford (test-ridge only), 600-unit brawl with perf, cost overlay.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [region] [sim]
-//   (default outDir: shots/war/sandbox, region: test-ridge, sim: real)
-// Requires a running dev server (npm run dev).
+// War sandbox screenshots at real scale (iso, 64 x 32 tiles, 1:1 soldier sprites): soldiers at
+// zoom 1 at the ford, a squad on the plateau rim, box selection and a right-click order on a hill
+// (checks the picked tile), a 600-unit brawl at mid zoom (sprites), at dot zoom and at the
+// overview (squad banners) with fps for each, the height overlay. Spots come from the scene
+// (src/war/regions/test-ridge.spots.ts), so this targets test-ridge.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim]
+//   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
 const out = shotsDir('war/sandbox', process.argv[3]);
-const region = process.argv[4] ?? 'test-ridge';
-const sim = process.argv[5] ?? 'real';
-const url = `${base}sandbox.html?region=${region}&sim=${sim}`;
-const ridge = region === 'test-ridge';
+const sim = process.argv[4] ?? 'real';
+const url = `${base}sandbox.html?region=test-ridge&sim=${sim}`;
 
 const browser = await launch({ args: ['--use-gl=angle', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -23,102 +22,119 @@ const shot = async (name) => {
 };
 const boot = async () => {
   await page.goto(url);
-  await page.waitForFunction(() => window.__sandbox?.sim?.cur && document.getElementById('dev'));
+  await page.waitForFunction(() => window.__sandbox?.sim?.cur && document.getElementById('dev'), null, { timeout: 60000 });
+};
+/** Average and minimum fps over n half seconds. */
+const fps = async (label, n = 12) => {
+  const v = [];
+  for (let i = 0; i < n; i++) {
+    await wait(500);
+    v.push(await page.evaluate(() => window.__sandbox.game.loop.actualFps));
+  }
+  const st = await page.evaluate(() => ({ ...window.__sandbox.sim.stats, zoom: window.__sandbox.cameras.main.zoom }));
+  console.log(`${label}: zoom ${st.zoom.toFixed(3)} fps avg ${(v.reduce((a, b) => a + b, 0) / v.length).toFixed(1)} min ${Math.min(...v).toFixed(1)}; sim ${st.stepMs.toFixed(2)} ms/step; units ${st.units}`);
 };
 
+// 1. soldiers at 1:1 at the ford: own hoplites wading east, enemy swordsmen waiting on the far bank
 await boot();
-await wait(500);
-await shot('01-overview');
-await page.check('[data-ov=height]');
-await wait(300);
-await shot('01b-overlay-height');
-await page.uncheck('[data-ov=height]');
+await page.evaluate(() => {
+  const s = window.__sandbox, { ford, fordW, fordE } = s.spots;
+  s.sim.spawn('you', 0, 'hoplite', 20, fordW[0] - 2, fordW[1]);
+  s.sim.spawn('you', 0, 'archer', 16, fordW[0] - 8, fordW[1] + 6);
+  s.sim.spawn('bot', 1, 'celt_sword', 20, fordE[0] + 6, fordE[1]);
+  s.sim.order({ kind: 'move', squad: 0, x: ford[0], y: ford[1] });
+  s.focus((fordW[0] + ford[0]) / 2, (fordW[1] + ford[1]) / 2, 1);
+});
+await page.waitForFunction(() => {
+  const s = window.__sandbox, [fx, fy] = s.spots.ford;
+  return s.drawn.some((d) => d.u.squad === 0 && Math.hypot(d.x - fx, d.y - fy) < 6);
+}, null, { timeout: 30000 });
+await wait(600);
+await shot('01-ford-1x');
 
-// plateau edge: the round hill (levels 1..5) with the mountain wall (level 6) beyond
-await page.evaluate((ridge) => {
-  const s = window.__sandbox, { w, h } = s.region;
-  if (ridge) s.focus(48, 58, 1); else s.focus(w * 0.4, h * 0.45, 2);
-}, ridge);
-await wait(800);
-await shot('02a-plateau-edge');
+// 2. a squad on the plateau rim, the cliff below it toward the viewer
+await boot();
+const rim = await page.evaluate(() => {
+  const s = window.__sandbox, r = s.region, [px, py] = s.spots.plateauTop;
+  const H = (x, y) => r.height[Math.floor(y) * r.w + Math.floor(x)];
+  // walk south-east (screen down) from the plateau top to its edge, then step back inside
+  let t = 0;
+  while (H(px + t, py + t) === 5 && t < 60) t += 0.5;
+  const x = px + t - 4, y = py + t - 4;
+  s.sim.spawn('you', 0, 'hoplite', 20, x, y);
+  s.focus(x + 2, y + 2, 1);
+  return { x, y, t };
+});
+await page.waitForFunction(() => window.__sandbox.drawn.length >= 20);
+await wait(1500);
+console.log(`plateau rim squad at (${rim.x.toFixed(1)}, ${rim.y.toFixed(1)}), edge ${rim.t} tiles from plateauTop`);
+await shot('02-plateau-edge');
 
-// two own squads up on the hill and an enemy squad below; box-select ours, right-click a hilltop tile
-const [ax, ay, bx, by, ex, ey, tx, ty] = ridge ? [36, 38, 44, 43, 58, 48, 46.5, 37.5] : [64, 72, 64, 88, 99, 80, 75.5, 70.5];
-await page.evaluate(([ax, ay, bx, by, ex, ey]) => {
-  const s = window.__sandbox;
-  s.sim.spawn('you', 0, 'hoplite', 20, ax, ay);
-  s.sim.spawn('you', 0, 'archer', 16, bx, by);
-  s.sim.spawn('bot', 1, 'celt_sword', 20, ex, ey);
-  s.focus((ax + ex) / 2, (ay + ey) / 2, 2);
-}, [ax, ay, bx, by, ex, ey]);
+// 3. two own squads on the ridge's gentle side, an enemy below; box-select ours, right-click the crest
+await boot();
+const pts = await page.evaluate(() => {
+  const s = window.__sandbox, { ridgeCrest: c, ridgeFoot: f } = s.spots;
+  const at = (k) => [c[0] + (f[0] - c[0]) * k, c[1] + (f[1] - c[1]) * k];
+  const a = at(0.3), b = at(0.4), e = at(0.75), t = at(0.08);
+  s.sim.spawn('you', 0, 'hoplite', 20, a[0] - 4, a[1]);
+  s.sim.spawn('you', 0, 'archer', 16, b[0] + 4, b[1]);
+  s.sim.spawn('bot', 1, 'celt_sword', 20, e[0], e[1]);
+  s.focus((a[0] + e[0]) / 2, (a[1] + e[1]) / 2, 1 / 2);
+  return t;
+});
 await page.waitForFunction(() => window.__sandbox.drawn.length >= 56);
 await page.evaluate(() => window.__sandbox.sim.speed(0));
 await wait(300);
 const bb = await page.evaluate(() => {
-  const s = window.__sandbox, pts = s.drawn.filter((d) => d.team === 0).map((d) => s.toScreen(d.x, d.y));
-  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
-  return { x0: Math.min(...xs) - 15, y0: Math.min(...ys) - 25, x1: Math.max(...xs) + 15, y1: Math.max(...ys) + 10 };
+  const s = window.__sandbox, p = s.drawn.filter((d) => d.team === 0).map((d) => s.toScreen(d.x, d.y));
+  const xs = p.map((q) => q.x), ys = p.map((q) => q.y);
+  return { x0: Math.min(...xs) - 20, y0: Math.min(...ys) - 40, x1: Math.max(...xs) + 20, y1: Math.max(...ys) + 10 };
 });
 await page.mouse.move(bb.x0, bb.y0);
 await page.mouse.down();
 await page.mouse.move(bb.x1, bb.y1, { steps: 8 });
 await page.mouse.up();
 const sel = await page.evaluate(() => window.__sandbox.selected.size);
-const tp = await page.evaluate(([x, y]) => window.__sandbox.toScreen(x, y), [tx, ty]);
+const tp = await page.evaluate(([x, y]) => window.__sandbox.toScreen(x, y), pts);
 await page.mouse.click(tp.x, tp.y, { button: 'right' });
 await wait(100);
 const cmd = await page.evaluate(() => window.__sandbox.lastCommand);
-const lvl = await page.evaluate(([x, y]) => window.__sandbox.iso.zAt(x, y), [tx, ty]);
-const ok = sel === 2 && cmd && Math.hypot(cmd.x - tx, cmd.y - ty) < 0.5;
-console.log(`selection: ${sel} squads; right-click at tile (${tx}, ${ty}) level ${lvl} -> ordered (${cmd?.x.toFixed(2)}, ${cmd?.y.toFixed(2)}) ${ok ? 'OK' : 'MISS'}`);
+const ok = sel === 2 && cmd && Math.hypot(cmd.x - pts[0], cmd.y - pts[1]) < 0.5;
+console.log(`selection: ${sel} squads; right-click at tile (${pts[0].toFixed(2)}, ${pts[1].toFixed(2)}) -> ordered (${cmd?.x.toFixed(2)}, ${cmd?.y.toFixed(2)}) ${ok ? 'OK' : 'MISS'}`);
 if (!ok) problems.push('iso selection / order picking missed');
 await page.evaluate(() => window.__sandbox.sim.speed(1));
 await wait(1500);
-await shot('02-zoom-selection');
+await shot('03-ridge-selection');
 
-if (ridge) {
-  // spawn one squad, order a move, and shoot once one of its units stands inside the box (tiles)
-  const crossing = async (name, spawn, to, box) => {
-    await boot();
-    await page.evaluate(([spawn, to, box]) => {
-      const s = window.__sandbox;
-      s.sim.spawn('you', 0, 'hoplite', 20, ...spawn);
-      s.sim.order({ kind: 'move', squad: 0, x: to[0], y: to[1] });
-      s.sim.speed(4);
-      s.focus((box[0] + box[2]) / 2, (box[1] + box[3]) / 2, 2);
-    }, [spawn, to, box]);
-    await page.waitForFunction(([x0, y0, x1, y1]) => window.__sandbox.drawn.some((d) => d.x >= x0 && d.x <= x1 && d.y >= y0 && d.y <= y1), box, { timeout: 30000 });
-    await wait(400);
-    await shot(name);
-  };
-  await crossing('02b-pass', [60, 66], [60, 102], [37, 80, 42, 84]);
-  await crossing('02c-ford', [80, 52], [122, 50], [97, 36, 103, 40]);
-}
-
-// 600 units fighting, perf panel in view
+// 4. 600 units fighting through the ford: mid zoom (sprites), dot zoom, overview (banners)
 await boot();
 await page.click('#brawl');
-await wait(1500);
-await page.evaluate((ridge) => {
-  const s = window.__sandbox;
-  const mine = s.sim.cur.squads.filter((q) => q.team === 0);
-  const foes = s.sim.cur.squads.filter((q) => q.team === 1);
-  mine.forEach((q, i) => s.sim.order({ kind: 'attack', squad: q.id, target: foes[i % foes.length].id }));
-  if (ridge) s.focus(100, 75, 0.5);
-}, ridge);
-const fps = [];
-for (let i = 0; i < 18; i++) {
-  await wait(500);
-  fps.push(await page.evaluate(() => window.__sandbox.game.loop.actualFps));
-}
-const stats = await page.evaluate(() => window.__sandbox.sim.stats);
-await shot('03-brawl-600');
-console.log(`fps avg ${(fps.reduce((a, b) => a + b, 0) / fps.length).toFixed(1)} min ${Math.min(...fps).toFixed(1)}; sim ${stats.stepMs.toFixed(2)} ms/step; units ${stats.units}`);
+await page.waitForFunction(() => window.__sandbox.sim.stats.units >= 600);
+await page.evaluate(() => {
+  const s = window.__sandbox, q = s.sim.cur.squads;
+  const mine = q.filter((x) => x.team === 0), foes = q.filter((x) => x.team === 1);
+  mine.forEach((x, i) => s.sim.order({ kind: 'attack', squad: x.id, target: foes[i % foes.length].id }));
+  s.focus(s.spots.ford[0], s.spots.ford[1], 1 / 2);
+});
+await wait(6000);
+await fps('brawl 600, sprites');
+await shot('04-brawl-600-mid');
+await page.evaluate(() => window.__sandbox.focus(window.__sandbox.spots.ford[0], window.__sandbox.spots.ford[1], 1 / 6));
+await fps('brawl 600, dots', 6);
+await shot('05-brawl-600-dots');
+await page.waitForFunction(() => window.__sandbox.overviewReady, null, { timeout: 60000 });
+await page.evaluate(() => {
+  const s = window.__sandbox, cam = s.cameras.main;
+  cam.setZoom(1 / 24).centerOn(s.iso.W / 2, s.iso.H / 2);
+});
+await fps('brawl 600, overview');
+await shot('06-overview-banners');
 
-// move-cost overlay
-await page.check('[data-ov=cost]');
+// height overlay at the overview
+await page.check('[data-ov=height]');
+await page.waitForFunction(() => window.__sandbox.overviewReady, null, { timeout: 60000 });
 await wait(300);
-await shot('04-overlay-cost');
+await shot('07-overlay-height');
 
 await browser.close();
 if (problems.length) {

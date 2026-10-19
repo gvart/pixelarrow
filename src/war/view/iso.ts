@@ -5,15 +5,17 @@
  *   world.x = OX + (x - y) * HW
  *   world.y = OY + (x + y) * HH - z * LH      z: the tile's surface level (height, water lower)
  *
- * 2:1 diamonds (HW = 2 * HH) and one height level lifts a tile by LH = HH, so a screen pixel's
- * view ray steps one level up for every unit of x + y toward the viewer: picking marches down
- * that ray from the highest level and takes the first solid column it meets.
+ * Real scale (W-18): a tile is 2 m, drawn as a 64 x 32 diamond at zoom 1 next to 58 px (1.76 m)
+ * soldier sprites. One height level lifts a tile by LH = 16 px (about 1 m at the tile's ground
+ * scale), the earth side of a PixelLab iso tile, so tile sides stack exactly. LH = HH, so a screen
+ * pixel's view ray steps one level up for every unit of x + y toward the viewer: picking marches
+ * down that ray from the highest level and takes the first solid column it meets.
  */
 import type { RegionData } from '../types';
 
-export const HW = 16;
-export const HH = 8;
-export const LH = 8;
+export const HW = 32;
+export const HH = 16;
+export const LH = 16;
 export const ZMAX = 7;
 /** The slab's underside: walls along the map edge drop to this level. */
 export const ZBASE = -1.5;
@@ -48,6 +50,22 @@ export class IsoMap {
   /** Surface level under a fractional tile point. */
   zAt(x: number, y: number): number {
     return this.zt(Math.floor(x), Math.floor(y));
+  }
+
+  /**
+   * Level a unit is drawn at: its tile's level, eased toward a neighbour one level up or down (a
+   * walkable step) over the half tile next to the shared edge, so a man walking a slope rises
+   * smoothly and meets the neighbour's value halfway up the riser. Cliffs and water stay hard.
+   */
+  zDraw(x: number, y: number): number {
+    const tx = Math.floor(x), ty = Math.floor(y), z = this.zt(tx, ty);
+    if (tx < 0 || ty < 0 || tx >= this.w || ty >= this.h || this.z[ty * this.w + tx] % 1) return z;
+    const fx = x - tx - 0.5, fy = y - ty - 0.5;
+    const ease = (nx: number, ny: number, f: number) => {
+      const n = this.zt(nx, ny), d = n - z;
+      return d !== 0 && Math.abs(d) <= 1 && n % 1 === 0 ? d * Math.abs(f) : 0;
+    };
+    return z + ease(tx + Math.sign(fx), ty, fx) + ease(tx, ty + Math.sign(fy), fy);
   }
 
   sx(x: number, y: number): number {

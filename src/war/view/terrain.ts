@@ -1,7 +1,7 @@
 /**
- * Greybox iso terrain baked into canvases. Any world-px rectangle can be baked at any scale: the
- * scene bakes 512 px screen-space chunks at 1x on demand (LRU pool) and one whole-map overview at
- * 1/4 for zoomed-out views. Tiles are painted back to front (x + y ascending); each draws its own
+ * Greybox iso terrain baked into canvases. Any world-px rectangle can be baked at any scale (only
+ * that rectangle of the canvas is cleared and painted): the scene bakes 512 px chunks on demand at
+ * 1x (zoomed in) and 1/4 (mid zoom), and a whole-map overview at 1/8 in bands over several frames. Tiles are painted back to front (x + y ascending); each draws its own
  * front walls down to the lower neighbour (or the slab base at the map edge), so cliffs, plateau
  * edges and riverbanks stand as vertical faces. Light from the NW: tops shade by slope and
  * altitude, back rims catch light, front rims and the SE faces fall in shadow; tall walls carry a
@@ -12,7 +12,7 @@ import type { RegionData, TerrainKind } from '../types';
 import { HH, HW, IsoMap, LH, ZBASE } from './iso';
 
 export const CHUNK_PX = 512;
-export const OVERVIEW_SCALE = 0.25;
+export const OVERVIEW_SCALE = 1 / 8;
 
 type RGB = [number, number, number];
 const TINT: Record<TerrainKind, RGB> = {
@@ -42,17 +42,25 @@ export class TerrainBaker {
     r.entries.forEach((b) => mark(b, 2));
   }
 
-  /** Paint the world rect (x0, y0, w, h) into ctx (cleared first) at `scale` canvas px per world px. */
-  bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, o: BakeOpts): void {
+  /**
+   * Paint the world rect (x0, y0, w, h) at `scale` canvas px per world px, its top-left at canvas
+   * (cx, cy); only that canvas rect is cleared and painted.
+   */
+  bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, o: BakeOpts, cx = 0, cy = 0): void {
     const { r, iso } = this;
+    ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
+    ctx.beginPath();
+    ctx.rect(cx, cy, Math.ceil(w * scale), Math.ceil(h * scale));
+    ctx.clip();
+    ctx.clearRect(cx, cy, Math.ceil(w * scale), Math.ceil(h * scale));
+    ctx.setTransform(scale, 0, 0, scale, cx - x0 * scale, cy - y0 * scale);
+    const fine = scale >= 0.5; // rims, canopy blobs and strata lines only show close up
     ctx.lineJoin = 'round';
     const seam = 1 / scale; // a 1 canvas-px stroke in the fill colour closes antialias seams
     const umin = Math.floor((x0 - iso.OX) / HW) - 1, umax = Math.ceil((x0 + w - iso.OX) / HW) + 1;
     const vmin = Math.floor((y0 - iso.OY - 2 * HH + ZBASE * LH) / HH) - 1;
-    const vmax = Math.ceil((y0 + h - iso.OY + 8 * LH) / HH);
+    const vmax = Math.ceil((y0 + h - iso.OY + 8 * LH) / HH) + 2;
     const sx = (x: number, y: number) => iso.OX + (x - y) * HW;
     const sy = (x: number, y: number, z: number) => iso.OY + (x + y) * HH - z * LH;
     const fill = (c: RGB, k: number) => `rgb(${Math.min(255, c[0] * k) | 0},${Math.min(255, c[1] * k) | 0},${Math.min(255, c[2] * k) | 0})`;
@@ -67,12 +75,7 @@ export class TerrainBaker {
         const i = y * r.w + x, z = iso.z[i], wtr = r.water[i];
         const base: RGB = wtr === 2 ? DEEP : wtr === 1 ? SHALLOW : TINT[r.terrain[i]];
         const tx = sx(x, y), ty = sy(x, y, z);
-        // front walls: SE face toward (x+1, y), SW face toward (x, y+1)
         const zE = iso.zt(x + 1, y), zS = iso.zt(x, y + 1);
-        const wall = (dz: number): RGB => (dz >= 2 && !wtr ? CLIFF : base);
-        if (zE < z) this.face(ctx, tx + HW, ty + HH, tx, ty + 2 * HH, z - zE, fill(wall(z - zE), 0.52), seam);
-        if (zS < z) this.face(ctx, tx, ty + 2 * HH, tx - HW, ty + HH, z - zS, fill(wall(z - zS), 0.7), seam);
-
         // top: overlay or terrain colour, shaded by slope toward the NW light and by altitude
         let c = base, k = 1;
         if (o.ov === 'height') c = [255 * (r.height[i] / 7), 80 + 60 * Math.sin((r.height[i] / 7) * Math.PI), 255 * (1 - r.height[i] / 7)];
@@ -80,10 +83,12 @@ export class TerrainBaker {
           const m = this.cost[i];
           c = m === 0 ? [0, 0, 0] : [Math.min(255, (m - 0.7) * 140), Math.max(0, 230 - (m - 0.7) * 100), 40];
         } else if (!wtr) {
-          // gentle slopes only (each step clamped to 1): a cliff foot or top is not a slope
+          // hillsides: the gradient over +-3 tiles (each step clamped to 1, so a cliff foot or top is
+          // not a slope) shades a whole slope, not just its risers. Light from the NW (-x): ground
+          // rising toward +x / +y faces it
           const d = (nx: number, ny: number) => Math.max(-1, Math.min(1, H(nx, ny) - r.height[i]));
-          const slope = d(x + 1, y) + d(x, y + 1) - d(x - 1, y) - d(x, y - 1);
-          k = 0.8 + r.height[i] * 0.04 - slope * 0.05;
+          const gx = (d(x + 3, y) - d(x - 3, y)) / 6, gy = (d(x, y + 3) - d(x, y - 3)) / 6;
+          k = 0.8 + r.height[i] * 0.035 + gx * 0.9 + gy * 0.45;
         }
         const zk = o.zones ? this.zone[i] : 0;
         if (zk) {
@@ -92,11 +97,19 @@ export class TerrainBaker {
           k = 1;
         }
         const col = fill(c, k);
+        // front walls: SE face toward (x+1, y), SW face toward (x, y+1). A one-level step between
+        // land tiles (a walkable slope) is a soft riser in the top's own colour, so a hillside reads
+        // as one slope; cliffs, banks and the map edge are dark walls with rims
+        const soft = (n: number) => !wtr && z - n <= 1 && n % 1 === 0;
+        const wall = (n: number, shade: number) => (soft(n) ? fill(c, k * (shade + 0.32)) : fill(z - n >= 2 && !wtr ? CLIFF : base, shade));
+        if (zE < z) this.face(ctx, tx + HW, ty + HH, tx, ty + 2 * HH, z - zE, wall(zE, 0.52), seam);
+        if (zS < z) this.face(ctx, tx, ty + 2 * HH, tx - HW, ty + HH, z - zS, wall(zS, 0.62), seam);
         ctx.beginPath();
         ctx.moveTo(tx, ty); ctx.lineTo(tx + HW, ty + HH); ctx.lineTo(tx, ty + 2 * HH); ctx.lineTo(tx - HW, ty + HH); ctx.closePath();
         ctx.fillStyle = col; ctx.fill();
         ctx.strokeStyle = col; ctx.lineWidth = seam; ctx.stroke();
 
+        if (!fine) continue;
         if (r.terrain[i] === 'forest' && !wtr && o.ov === 'none' && ((x * 7 + y * 13) % 3 === 0)) {
           ctx.fillStyle = fill(base, 0.62 * k); // a canopy blob
           ctx.beginPath(); ctx.ellipse(tx, ty + HH - 2, HW * 0.42, HH * 0.6, 0, 0, Math.PI * 2); ctx.fill();
@@ -106,10 +119,11 @@ export class TerrainBaker {
         const rim = (ax: number, ay: number, bx: number, by: number, s: string) => {
           ctx.strokeStyle = s; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
         };
-        if (iso.zt(x - 1, y) < z - 0.5) rim(tx - HW, ty + HH, tx, ty, 'rgba(255,250,230,0.35)');
-        if (iso.zt(x, y - 1) < z - 0.5) rim(tx, ty, tx + HW, ty + HH, 'rgba(255,250,230,0.35)');
-        if (zE < z - 0.5) rim(tx + HW, ty + HH, tx, ty + 2 * HH, 'rgba(20,16,10,0.45)');
-        if (zS < z - 0.5) rim(tx, ty + 2 * HH, tx - HW, ty + HH, 'rgba(20,16,10,0.45)');
+        const drop = (n: number) => n < z - 0.5 && !soft(n);
+        if (drop(iso.zt(x - 1, y))) rim(tx - HW, ty + HH, tx, ty, 'rgba(255,250,230,0.35)');
+        if (drop(iso.zt(x, y - 1))) rim(tx, ty, tx + HW, ty + HH, 'rgba(255,250,230,0.35)');
+        if (drop(zE)) rim(tx + HW, ty + HH, tx, ty + 2 * HH, 'rgba(20,16,10,0.45)');
+        if (drop(zS)) rim(tx, ty + 2 * HH, tx - HW, ty + HH, 'rgba(20,16,10,0.45)');
         if (zk) {
           const ec = zk === 2 ? 'rgba(255,224,112,0.9)' : 'rgba(255,255,255,0.6)';
           const zn = (nx: number, ny: number) => (nx < 0 || ny < 0 || nx >= r.w || ny >= r.h ? 0 : this.zone[ny * r.w + nx]);
@@ -126,6 +140,7 @@ export class TerrainBaker {
         }
       }
     }
+    ctx.restore();
   }
 
   /** A vertical wall under the top edge a -> b, dz levels tall, with a strata line per level. */
