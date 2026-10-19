@@ -10,8 +10,8 @@
 // them), the overview, and the 600-unit brawl fps at mid zoom.
 // Mode `anim`: frame sequences at 1:1 (100 ms apart) of a ford fight (archers and slingers shooting,
 // spears and swords striking, deaths) and of a squad idling, then the 600-unit brawl fps at 1/2.
-// Mode `biome`, `build`, `buildux`, `walls`, `siege`: see below.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome|build|buildux|walls|siege] [id,id...]
+// Mode `biome`, `build`, `buildux`, `walls`, `siege`, `interact`: see below.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome|build|buildux|walls|siege|interact] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
@@ -848,6 +848,104 @@ if (mode === 'siege') {
   await fps('siege 600 brawl 1/2', 16);
 }
 
+// Mode `interact` (W-30 and fire v2): the context action label at the cursor for an own engine (uncrew), a carried
+// ladder at an enemy wall (raise), enemy wood (ignite), an enemy stone gate (attack), own fire (extinguish), the ground
+// (move); E runs it. The palisade burning low and high and an own wooden tower burning (the sim paused, intensities
+// set on the snapshot), the enemy fort with its garrison hidden behind the walls (no outlines), the own walled camp
+// with own men outlined; the siege view fps at 1.
+if (mode === 'interact') {
+  const sv = (f, a) => page.evaluate(f, a);
+  const hover = async (name, squad, x, y) => {
+    await sv(([q]) => { const s = window.__sandbox; s.selected.clear(); s.selected.add(q); }, [squad]);
+    const p = await sv(([px, py]) => window.__sandbox.toScreen(px, py), [x, y]);
+    await page.mouse.move(p.x - 3, p.y - 3);
+    await page.mouse.move(p.x, p.y, { steps: 2 });
+    await wait(300);
+    console.log(name, '->', await sv(() => document.getElementById('hoverAct').textContent));
+    await shot(name);
+  };
+  await boot('&scenario=siege');
+  await page.waitForFunction(() => { const s = window.__sandbox; return s.sim.cur.squads.length >= 13 && (s.sim.cur.sieges ?? []).filter((e) => e.crew >= 0).length >= 3; }, null, { timeout: 600000, polling: 500 });
+  await sv(() => window.__sandbox.sim.speed(0));
+  await wait(500);
+  const at = await sv(() => {
+    const s = window.__sandbox, b = s.sim.cur.buildings.filter((q) => q.team === 1 && q.state !== 'destroyed');
+    const gate = b.find((q) => q.type === 'stoneGate'), pal = b.filter((q) => q.type === 'palisade').sort((p, q) => p.x - q.x);
+    const ram = s.sim.cur.sieges[0];
+    return { gate: [gate.x, gate.y], ram: [ram.x, ram.y], pal: pal.map((q) => [q.id, q.x, q.y]), wall: [121.5, 440.5] };
+  });
+  await sv(([x, y]) => window.__sandbox.focus(x, y - 3, 1), at.ram);
+  await hover('ia-01-uncrew-ram', 7, at.ram[0], at.ram[1]);
+  await sv(([x, y]) => window.__sandbox.focus(x, y + 2, 1), at.wall);
+  await hover('ia-02-raise-ladder', 8, at.wall[0], at.wall[1]);
+  const p0 = at.pal[Math.floor(at.pal.length / 2)];
+  await sv(([, x, y]) => window.__sandbox.focus(x, y - 1, 1), p0);
+  await hover('ia-03-ignite-palisade', 4, p0[1], p0[2]);
+  await sv(([x, y]) => window.__sandbox.focus(x, y + 2, 1), at.gate);
+  await hover('ia-04-attack-gate', 4, at.gate[0], at.gate[1]);
+  await hover('ia-05-move', 4, at.gate[0] - 3, at.gate[1] + 8);
+  // E runs the label's action: ignite the palisade
+  await sv(([, x, y]) => window.__sandbox.focus(x, y - 1, 1), p0);
+  const pp = await sv(([, x, y]) => window.__sandbox.toScreen(x, y), p0);
+  await sv(() => { const s = window.__sandbox; s.selected.clear(); s.selected.add(4); });
+  await page.mouse.move(pp.x, pp.y, { steps: 2 });
+  await wait(200);
+  await page.keyboard.press('e');
+  await sv(() => window.__sandbox.sim.speed(1));
+  await wait(400);
+  console.log('E on the palisade: squad 4 order', await sv(() => window.__sandbox.sim.squads.get(4)?.order));
+  await sv(() => window.__sandbox.sim.speed(0));
+  await wait(400);
+  // the palisade burning: low on its west half, high on its east half (the snapshot held while paused)
+  const set = (ids, k) => sv(([ids, k]) => { for (const b of window.__sandbox.sim.cur.buildings) if (ids.includes(b.id)) b.burning = k; }, [ids, k]);
+  const ids = at.pal.map((q) => q[0]), half = Math.ceil(ids.length / 2);
+  await set(ids.slice(0, half), 0.2);
+  await set(ids.slice(half), 0.95);
+  await page.mouse.move(700, 880); // off the map's middle, clear of the edge pan
+  await sv(() => { const s = window.__sandbox; s.selected.clear(); });
+  const lo = at.pal[Math.floor(half / 2)], hi = at.pal[half + Math.floor((ids.length - half) / 2)];
+  await sv(([, x, y]) => window.__sandbox.focus(x, y - 1.5, 1), lo);
+  await wait(800);
+  await shot('ia-06-palisade-low');
+  await sv(([, x, y]) => window.__sandbox.focus(x, y - 1.5, 1), hi);
+  await wait(800);
+  await shot('ia-07-palisade-high');
+  await sv(([, x, y]) => window.__sandbox.focus(x, y - 1.5, 2), hi);
+  await wait(800);
+  await shot('ia-08-palisade-high-2x');
+  await sv(([, x, y]) => window.__sandbox.focus(x, y - 1.5, 1), hi);
+  await fps('palisade burning 1x', 8);
+  // out: smouldering, then charred
+  await set(ids, 0);
+  await wait(1500);
+  await shot('ia-09-palisade-smoulder');
+  // the fort: the garrison behind the walls is not outlined
+  await sv(([x, y]) => window.__sandbox.focus(x - 4, y - 4, 1), at.gate);
+  await sv(() => window.__sandbox.sim.speed(1));
+  await wait(1500);
+  await shot('ia-10-fort-no-foe-outlines');
+  await fps('siege fort 1x', 8);
+  // own walled camp: own men behind the walls outlined; the wooden tower burning; extinguish
+  await boot('&scenario=wall-defense');
+  await page.waitForFunction(() => window.__sandbox.sim.cur.buildings.some((q) => q.type === 'woodTower' && q.state === 'done') && window.__sandbox.sim.cur.squads.length >= 6, null, { timeout: 600000, polling: 500 });
+  await wait(3000);
+  await sv(() => window.__sandbox.sim.speed(0));
+  const tw = await sv(() => { const t = window.__sandbox.sim.cur.buildings.find((q) => q.type === 'woodTower'); t.burning = 0.9; return [t.x, t.y]; });
+  await sv(([x, y]) => window.__sandbox.focus(x, y - 2, 1), tw);
+  await wait(800);
+  await shot('ia-11-tower-burning');
+  await hover('ia-12-extinguish-tower', 0, tw[0], tw[1]);
+  await sv(() => window.__sandbox.selected.clear());
+  await page.mouse.move(700, 880); // off the map's middle, clear of the edge pan
+  await sv(() => { const t = window.__sandbox.sim.cur.buildings.find((q) => q.type === 'woodTower'); t.burning = 0.25; });
+  await wait(500);
+  await shot('ia-13-tower-low');
+  await sv(([x, y]) => window.__sandbox.focus(x, y + 3, 1), tw);
+  await sv(() => window.__sandbox.sim.speed(1));
+  await wait(1500);
+  await shot('ia-14-own-camp-outlines');
+}
+
 // scenarios: opening, the player's plan, mid fight, end score
 const PLANS = {
   'pass-ambush': 'stand', // hold the pass where placed
@@ -864,7 +962,7 @@ const attackAll = () => page.evaluate(() => {
 });
 const score = () => page.evaluate(() => document.getElementById('score').textContent);
 for (const [id, plan] of Object.entries(PLANS)) {
-  if (mode === 'art' || mode === 'anim' || mode === 'biome' || mode === 'build' || mode === 'buildux' || mode === 'walls' || mode === 'siege' || (only && !only.includes(id))) continue;
+  if (mode === 'art' || mode === 'anim' || mode === 'biome' || mode === 'build' || mode === 'buildux' || mode === 'walls' || mode === 'siege' || mode === 'interact' || (only && !only.includes(id))) continue;
   await boot(`&scenario=${id}`);
   if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
   await wait(2500);
