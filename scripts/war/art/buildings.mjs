@@ -10,7 +10,7 @@
 // states are pixflux img2img over a prepared init (raws listed in BUILDINGS). Foundations are drawn by the renderer.
 // Every sprite snaps to the global tile + object palette plus up to 64 own colours. QA: qa.mjs (qaBuildings).
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readImage, writeImage } from '../../art/lib/png.mjs';
 import { blank, crop, paste, alphaBox, snapToPalette, rgbToHex, hexToRgb, resizeArea, resizeNearest } from '../../art/lib/ops.mjs';
@@ -911,7 +911,11 @@ function stateInit(im, state, k) {
   return dropSpecks(out, 0.003);
 }
 
-// ======== main
+// shared with siege.mjs (siege engines, ladders, rubble: the same renderer, textures and palette)
+export { PPM, MX, MY, TEX, hash, mul, clamp, Canvas, drawBox, renderBoxes, cells, heap, ramp, beam, roof, sliced, masonry, rubMat, rough, flags, planks, woodSolid, solid, scorch, burn, soot, wreckProf, stakeProf, palisadeMat, foundation, loadTextures, extendPalette, footOf, hard, CHAR, EMBER, EARTH, STRING, DOORDARK, KITS };
+
+// ======== main (only when run directly)
+function main() {
 if (process.argv.includes('--inits')) { // write the state inits for the PixelLab buildings
   loadTextures(); mkdirSync(join(INITS, 'states'), { recursive: true });
   for (const o of BUILDINGS) { const f = join(RAW, 'objects', `${o.raw}.png`); if (!existsSync(f)) continue; const im = prepBuilding(o, f); for (const s of ['scaffold', 'damaged']) { // pixflux wants sides divisible by 4 and <= 400: shrink, then pad at the top-left
@@ -1057,3 +1061,5 @@ const json = {
 writeFileSync(join(OUT, 'objects.json'), JSON.stringify(json, null, 1) + '\n');
 console.log(`buildings: ${kits.length} kits, ${buildings.length} buildings, ${json.objects.length} sprites, palette +${pal.length - G.palette.length - GO.palette.length}`);
 process.exit(runBuildingsQa().length ? 1 : 0);
+}
+if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) main();

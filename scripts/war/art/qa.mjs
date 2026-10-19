@@ -226,7 +226,7 @@ export function qaObjects(O, tilePalette, dir = join(ROOT, 'public/war/objects')
     const a = (x, y) => d[(y * w + x) * 4 + 3];
     const corners = [a(0, 0), a(w - 1, 0), a(0, h - 1), a(w - 1, h - 1)].filter(Boolean).length;
     let per = 0, pn = 0; for (let x = 0; x < w; x++) { per += !!a(x, 0) + !!a(x, h - 1); pn += 2; } for (let y = 0; y < h; y++) { per += !!a(0, y) + !!a(w - 1, y); pn += 2; }
-    if (corners > 1 || per / pn > (O.borderMax ?? 0.5)) fail.push(`${id}: background not transparent (${corners} opaque corners, ${Math.round((100 * per) / pn)}% opaque border)`);
+    if ((corners > 1 && !o.thin) || per / pn > (O.borderMax ?? 0.5)) fail.push(`${id}: background not transparent (${corners} opaque corners, ${Math.round((100 * per) / pn)}% opaque border)`);
     const rowHas = (y) => { for (let x = 0; x < w; x++) if (a(x, y)) return true; return false; };
     const colHas = (x) => { for (let y = 0; y < h; y++) if (a(x, y)) return true; return false; };
     if (!rowHas(0) || !rowHas(h - 1) || !colHas(0) || !colHas(w - 1)) fail.push(`${id}: not trimmed (empty border row/column)`);
@@ -322,9 +322,37 @@ export function runBuildingsQa() {
   return fail;
 }
 
-// CLI: the global set, every biome folder and the build-mode set.
+// Siege art (public/war/siege): every sprite passes the object checks; every strip (engine anims, ladder push-offs, fx):
+// size = frames x frame, binary alpha, palette, no empty frame; every engine facing has all its states.
+export function qaSiege(dir = join(ROOT, 'public/war/siege')) {
+  const read = (f) => JSON.parse(readFileSync(join(ROOT, f)));
+  const G = read('public/war/tiles/tiles.json'), GO = read('public/war/objects/objects.json'), S = JSON.parse(readFileSync(join(dir, 'objects.json')));
+  const fail = qaObjects(S, G.palette, dir, GO), pal = palSet([...G.palette, ...(S.palette ?? [])]), ids = new Set(S.objects.map((o) => o.id));
+  for (const e of S.engines ?? []) for (const f of e.facings) for (const s of [...S.buildOrder, 'damaged', 'destroyed']) if (!ids.has(e.states?.[f]?.[s])) fail.push(`${e.id} ${f}: no ${s} sprite`);
+  const strips = [...(S.engines ?? []).flatMap((e) => Object.values(e.anims ?? {}).flatMap((a) => Object.values(a))), ...Object.values(S.ladders?.pushOff ?? {}), ...(S.fx ?? [])];
+  for (const t of strips) {
+    const f = join(dir, t.file); if (!existsSync(f)) { fail.push(`${t.file}: missing`); continue; }
+    const im = readImage(f), { w, h, data: d } = im;
+    if (w !== t.frame.w * t.frames || h !== t.frame.h) { fail.push(`${t.file}: ${w}x${h}, want ${t.frame.w * t.frames}x${t.frame.h}`); continue; }
+    let soft = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] && d[i + 3] < 255) soft++; if (d[i + 3] && !pal.has(key(d, i))) off++; }
+    if (soft) fail.push(`${t.file}: ${soft} semi-transparent px`);
+    if (off) fail.push(`${t.file}: ${off} px outside the shared palette`);
+    for (let n = 0; n < t.frames; n++) { let any = false; for (let y = 0; y < h && !any; y++) for (let x = n * t.frame.w; x < (n + 1) * t.frame.w; x++) if (d[(y * w + x) * 4 + 3]) { any = true; break; } if (!any) fail.push(`${t.file}: frame ${n} empty`); }
+  }
+  return fail;
+}
+export function runSiegeQa() {
+  const dir = join(ROOT, 'public/war/siege'); if (!existsSync(join(dir, 'objects.json'))) return [];
+  const fail = qaSiege(dir), S = JSON.parse(readFileSync(join(dir, 'objects.json')));
+  const n = `siege: ${(S.engines ?? []).length} engines, ${S.objects.length} sprites, ${(S.fx ?? []).length} fx`;
+  if (fail.length) console.error(`QA FAIL (${fail.length}) over ${n}\n  ` + fail.join('\n  '));
+  else console.log(`QA OK: ${n}`);
+  return fail;
+}
+
+// CLI: the global set, every biome folder, the build-mode set and the siege set.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const bdir = join(ROOT, 'public/war/biomes');
   const biomes = existsSync(bdir) ? readdirSync(bdir).filter((b) => existsSync(join(bdir, b, 'tiles.json'))) : [];
-  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length].some(Boolean) ? 1 : 0);
+  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length, runSiegeQa().length].some(Boolean) ? 1 : 0);
 }

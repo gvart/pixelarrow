@@ -1608,3 +1608,46 @@ renderer over the existing elevations (cyclopean, isodomic, palisade). Mock-ups:
 **Lessons:** (16) Split a structure men stand on into back and front layers by face orientation (+x / +y in front): one
 depth buffer per layer, the renderer interleaves units. (17) A roof in the front layer must clear a standing man's head
 seen from the far side of the platform: eave >= platform + 2.9 m at this view.
+
+## 31. Siege (W-29)
+
+Siege art in `public/war/siege/`: the ram, the stone thrower, siege ladders, breach and tower rubble, the stone shot and
+the fire FX. Build: `node scripts/war/art/siege.mjs` (ends with the QA gate, `qa.mjs` `qaSiege`, also run by the qa CLI).
+Preview: `node scripts/war/art/siege-preview.mjs` -> `shots/war/pixellab/siege/SIEGE_contact.png`, `SIEGE_states_1x.png`,
+`SIEGE_mock_1x.png` (a ram at the Lion Gate with its crew, a raised ladder with a climber, a carried ladder, a thrower
+firing, a breach with rubble, a burning palisade with smoke, a burnt ram) and `SIEGE_mock_2x_crop.png`. FX raws:
+`shots/war/pixellab/siege/raw/fx/` (git-ignored). **0 PixelLab generations** (the FX are free vfx_workbench exports).
+
+**Method: the box renderer, not sprites.** Engines need four exact facings, construction states, a wreck and moving parts
+(the log, the arm), all at true scale; PixelLab ignores asked directions (§25) and cannot animate a part of an object. So
+everything is modelled in `siege.mjs` with the buildings renderer (exported from `buildings.mjs`), along +x once, and
+turned (e as built, w mirrored, s / n swapped axes); textures and palette are the walls' (palisade wood, cyclopean and
+isodomic stone).
+
+| Piece | Model |
+| --- | --- |
+| ram (3 x 2 tiles along its facing) | Greek "tortoise": 6 x 3.2 m wheeled shed, six solid disc wheels, posts to 1.3 m eaves, a 2.7 m gable of lashed rawhide panels (drawn texture: 18 x 13 px hides, stitches, a lashing rope every metre) hanging to 0.7 m on the long sides, a log slung from the ridge on ropes with a bronze ram head 0.9 m past the front. Back / front layers: front = the roof and the near side, crew (two files of four) between. Swing: 8 frames, log offsets -0.5..+0.55 m, hit at frame 6 |
+| thrower (2 x 1) | onager-type torsion engine: timber bed 4 x 1.4 m, a rope skein in bronze-capped side frames, one arm with a cup throwing forward against a padded buffer frame, a windlass at the back. Throw: 8 frames, arm -100 deg (cocked, loaded) -> +24 deg (hits the pad), stone released at frame 3 (`release` = tile offsets + zM per facing) |
+| siege ladder | 0.76 m wide, rungs every 0.36 m, iron hooks at the head; long (stone wall) / short (rampart) from the kits' `walkwayM` + `parapetM` + 0.3 m, foot 0.3 x the height out; raised on every side, carried flat on both axes (bearers, `carryPx`), push-off (7 frames, rotating on its foot) and knocked down broken |
+| rubble | breach heaps per wall tile (1 along the run x the wall's depth: stone 2 deep, rampart 2 deep, palisade 1 deep; variants a / b), profile by depth only at the run ends so neighbours join; tower rubble 2 x 2 (stone: a socle corner standing, big blocks, charred beams; wood: post stumps and fallen beams) |
+| states | foundation (sills / rails laid out, hides stacked), rising (chassis, wheels, posts / bed, skein), scaffold (bare rafters / buffer frame, the arm lying by it), done (= moving), damaged (holes in the hides, scorched), destroyed (burnt out: stumps, the roof fallen in, the log on the ground / the arm broken) |
+
+FX: `vfx_workbench`, free, exported to My effects and downloaded as sheets; the build trims each to a horizontal strip.
+Fire ramp `#3a1a10 #7a2a14 #b0461c #d8762c #eeae52 #f6d48a`, `light: false`.
+
+| FX | Call | Result |
+| --- | --- | --- |
+| flame-m | `campfire` part, fire ramp; effect `7d27726f` | 38 x 39, 8 frames @ 12 fps loop, ~1.1 m |
+| flame-s | same, `size: 0.55`; `ac61623c` | ~0.7 m |
+| flame-l | same, `size: 1.8`; `f0259104` | 63 x 65, ~1.9 m |
+| (rejected) | `fire_wall` part, fire ramp | a flat-bottomed block of flame: reads as a box |
+| smoke | `smoke_column`, ramp `#1c1916 #2e2925 #433c35 #5a5148 #716659`, `size: 2.2`; `9492055b` | 52 x 163, 16 frames @ 10 fps, ~4.9 m |
+| embers | `ember_rise`, ramp `#5a1e10 #a8401a #e0822e #f6c46a`, `size: 1.6, amount: 1.5`; `e1486346` | 12 frames |
+| fire-arrow-trail | `smoke_trail` in the fire ramp, `size: 0.5`; `e94a3acb` | 44 x 18, flies +x (rotate to the flight) |
+| scorch | `scorch_mark`, `size: 1.4, heat: 0.5` (the minimum); `c125a78b` | smouldering decal loop; `scorch-cold` = frame 0 with the reds burnt to char |
+
+**Lessons:** (1) Machines with moving parts and facings: model them in the box renderer; a part is a set of boxes keyed
+by one parameter (log offset, arm angle, ladder angle), so animations are free and exact. (2) A thin diagonal piece (a
+raised ladder) has opaque opposite corners when trimmed: the object QA takes `thin: true` for it. (3) Big hide panels
+(1 m) read as plaid on a roof at this scale; 0.5 m panels with close tones read as leather. (4) A tall gable makes the
+ram a house on wheels: keep the ridge under 3 m and the hides low so the wheels half show.
