@@ -12,6 +12,7 @@ import { readImage, writeImage } from '../../art/lib/png.mjs';
 import { blank, crop, paste, alphaBox, snapToPalette } from '../../art/lib/ops.mjs';
 import { PPM, TEX, hash, mul, clamp, renderBoxes, cells, roof, masonry, rubMat, rough, planks, woodSolid, solid, scorch, burn, loadTextures, extendPalette, footOf, CHAR, EMBER, EARTH } from './buildings.mjs';
 import { runSiegeQa } from './qa.mjs';
+import { fireArt, FIRE_NOTE } from './fire.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const PIX = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? '/Users/v.gladis/Workspace/Personal/pixelarrow/shots/war/pixellab';
@@ -287,22 +288,23 @@ for (const [mat, deep, kitId] of [['stone', 2, 'stone-wall'], ['wood', 2, 'rampa
 for (const mat of ['stone', 'wood']) { const id = `tower-rubble-${mat}`; rubble.push({ id, tower: `tower-${mat}`, footprint: [2, 2], walkable: true, sprite: sprite(id, 'rubble', one(towerRubble(mat, 90), 3, mat === 'wood' ? (im) => burn(im, 90) : null), [2, 2], { material: mat, burnable: false, source: 'renderer + cyclopean / isodomic elevations' }) }); }
 
 // ---- FX: vfx_workbench exports (grid sheets) -> horizontal strips trimmed to the union of their frames
-const FX = [
-  { id: 'flame-s', raw: 'flame-s', w: 38, h: 39, n: 8, fps: 12, anchor: [19, 34], use: 'small burning piece (a ladder, a cart, one log); ~0.7 m' },
-  { id: 'flame-m', raw: 'flame-m', w: 38, h: 39, n: 8, fps: 12, anchor: [19, 34], use: 'a burning wall tile, an engine on fire; ~1.1 m' },
-  { id: 'flame-l', raw: 'flame-l', w: 63, h: 65, n: 8, fps: 12, anchor: [31, 58], use: 'a blaze (a ram, a tower, a gate); ~1.9 m' },
-  { id: 'smoke', raw: 'smoke', w: 52, h: 163, n: 16, fps: 10, anchor: [26, 162], use: 'smoke plume over a fire, ~4.9 m' },
-  { id: 'embers', raw: 'embers', w: 55, h: 86, n: 12, fps: 12, anchor: [24, 80], use: 'embers rising over a fire or a burnt piece' },
+const FX = [ // old: the v1 flames / smoke / embers, replaced by fire.mjs; read only so the shared palette stays put
+  { old: true, id: 'flame-s', raw: 'flame-s', w: 38, h: 39, n: 8, fps: 12, anchor: [19, 34], use: 'small burning piece (a ladder, a cart, one log); ~0.7 m' },
+  { old: true, id: 'flame-m', raw: 'flame-m', w: 38, h: 39, n: 8, fps: 12, anchor: [19, 34], use: 'a burning wall tile, an engine on fire; ~1.1 m' },
+  { old: true, id: 'flame-l', raw: 'flame-l', w: 63, h: 65, n: 8, fps: 12, anchor: [31, 58], use: 'a blaze (a ram, a tower, a gate); ~1.9 m' },
+  { old: true, id: 'smoke', raw: 'smoke', w: 52, h: 163, n: 16, fps: 10, anchor: [26, 162], use: 'smoke plume over a fire, ~4.9 m' },
+  { old: true, id: 'embers', raw: 'embers', w: 55, h: 86, n: 12, fps: 12, anchor: [24, 80], use: 'embers rising over a fire or a burnt piece' },
   { id: 'fire-arrow-trail', raw: 'arrow-trail', w: 44, h: 18, n: 8, fps: 12, anchor: [41, 10], use: 'trail behind a fire arrow; drawn flying +x (head at the anchor), rotate to the flight' },
   { id: 'scorch', raw: 'scorch', w: 61, h: 27, n: 12, fps: 10, anchor: [31, 14], decal: true, use: 'ground decal, smouldering loop' },
 ];
-const fx = [];
+const fx = [], oldFx = [];
 for (const f of FX) {
   const raw = readImage(join(FXRAW, `${f.raw}.png`)), cols = Math.floor(raw.w / f.w);
   let ims = [...Array(f.n)].map((_, i) => crop(raw, { x: (i % cols) * f.w, y: Math.floor(i / cols) * f.h, w: f.w, h: f.h }));
   ims.forEach((im) => { for (let i = 3; i < im.data.length; i += 4) im.data[i] = im.data[i] >= 128 ? 255 : 0; });
   const bb = ims.map((im) => alphaBox(im, 1)).filter((b) => b.w > 0), x0 = Math.min(...bb.map((b) => b.x)), y0 = Math.min(...bb.map((b) => b.y)), x1 = Math.max(...bb.map((b) => b.x + b.w)), y1 = Math.max(...bb.map((b) => b.y + b.h));
   ims = ims.map((im) => crop(im, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }));
+  if (f.old) { oldFx.push(strip(ims)); continue; }
   const file = `fx-${f.id}.png`; sheets.push({ file, im: strip(ims) });
   fx.push({ id: f.id, file, frames: f.n, fps: f.fps, loop: true, frame: { w: x1 - x0, h: y1 - y0 }, anchor: { x: f.anchor[0] - x0, y: Math.min(f.anchor[1], y1 - 1) - y0 }, ...(f.decal && { decal: true }), use: f.use, source: `vfx_workbench (${f.raw})` });
   if (f.id === 'scorch') { // the cold decal: frame 0 with the hot reds burnt down to char
@@ -313,19 +315,24 @@ for (const f of FX) {
   }
 }
 
+// ---- fire v2: procedural tongues, embers, glow, smoke wisps, smoulder, legacy clusters, charring overlays (fire.mjs)
+const FIRE = fireArt(ROOT); fx.push(...FIRE.fx);
+
 // ---- palette + write
 const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), GO = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));
-const pal = extendPalette([...G.palette, ...GO.palette, ...B.palette], [...sprites.map((s) => s.im), ...sheets.map((s) => s.im)], 64);
+const pal = extendPalette([...G.palette, ...GO.palette, ...B.palette], [...sprites.map((s) => s.im), ...sheets.map((s) => s.im), ...oldFx], 64);
+const firePal = extendPalette(pal, FIRE.sheets.map((s) => s.im), 16); // fire colours added after: the other art's palette stays put
 mkdirSync(OUT, { recursive: true });
 for (const s of sprites) writeImage(join(OUT, s.meta.file), snapToPalette(s.im, pal));
 for (const s of sheets) writeImage(join(OUT, s.file), snapToPalette(s.im, pal));
+for (const s of FIRE.sheets) writeImage(join(OUT, s.file), snapToPalette(s.im, firePal));
 const json = {
   pxPerMetre: PPM, tileMetres: 2, borderMax: 0.75,
   note: 'Siege art (W-29). objects[]: every single sprite (anchor = foot; tileOrigin = px of the top vertex of the footprint\'s north tile: draw at that tile\'s top vertex minus tileOrigin; metres = h above the footprint diamond basePx). engines[]: per facing (e +x, s +y, w -x, n -y: the way the ram / thrower points) footprint and states (buildOrder + progress as buildings, then damaged, destroyed); done = built and moving. Ram is layered: states = BACK sprite, front = FRONT sprite (roof, near side): draw back, the crew at crew[] (tile offsets from the footprint NW corner), then front. anims[facing]: horizontal strips (frame n at x = n * frame.w), drawn at their own tileOrigin: ram swing (back layer; hitFrame = the log fully out), thrower throw (frame 0 = cocked + loaded; releaseFrame: spawn stone-shot at release[facing], tile offsets + zM). ladders: see ladders.note. rubble[]: walkable heaps for breached wall tiles (wall run axis, the wall\'s depth across; variants a/b alternate along a run) and fallen towers. fx[]: looping strips with an anchor (flames and smoke: the anchor sits on the burning point; scorch decals on the ground). Colours = tiles.json palette + palette.',
   buildOrder: BUILD_ORDER, progress: PROGRESS,
-  palette: pal.slice(G.palette.length), engines, ladders, rubble, projectiles, fx,
+  palette: firePal.slice(G.palette.length), engines, ladders, rubble, projectiles, fx, fireNote: FIRE_NOTE, char: FIRE.char,
   objects: sprites.map((s) => s.meta),
 };
 writeFileSync(join(OUT, 'objects.json'), JSON.stringify(json, null, 1) + '\n');
-console.log(`siege: ${engines.length} engines, ${Object.keys(ladders.pieces).length} ladder pieces, ${rubble.length} rubble, ${fx.length} fx, ${sprites.length} sprites, ${sheets.length} sheets, palette +${pal.length - G.palette.length - GO.palette.length - B.palette.length}`);
+console.log(`siege: ${engines.length} engines, ${Object.keys(ladders.pieces).length} ladder pieces, ${rubble.length} rubble, ${fx.length} fx, ${sprites.length} sprites, ${sheets.length + FIRE.sheets.length} sheets, palette +${firePal.length - G.palette.length - GO.palette.length - B.palette.length}`);
 process.exit(runSiegeQa().length ? 1 : 0);

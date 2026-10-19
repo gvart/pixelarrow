@@ -1276,91 +1276,6 @@
  ],
  "fx": [
   {
-   "id": "flame-s",
-   "file": "fx-flame-s.png",
-   "frames": 8,
-   "fps": 12,
-   "loop": true,
-   "frame": {
-    "w": 18,
-    "h": 19
-   },
-   "anchor": {
-    "x": 9,
-    "y": 17
-   },
-   "use": "small burning piece (a ladder, a cart, one log); ~0.7 m",
-   "source": "vfx_workbench (flame-s)"
-  },
-  {
-   "id": "flame-m",
-   "file": "fx-flame-m.png",
-   "frames": 8,
-   "fps": 12,
-   "loop": true,
-   "frame": {
-    "w": 32,
-    "h": 33
-   },
-   "anchor": {
-    "x": 16,
-    "y": 31
-   },
-   "use": "a burning wall tile, an engine on fire; ~1.1 m",
-   "source": "vfx_workbench (flame-m)"
-  },
-  {
-   "id": "flame-l",
-   "file": "fx-flame-l.png",
-   "frames": 8,
-   "fps": 12,
-   "loop": true,
-   "frame": {
-    "w": 57,
-    "h": 60
-   },
-   "anchor": {
-    "x": 28,
-    "y": 56
-   },
-   "use": "a blaze (a ram, a tower, a gate); ~1.9 m",
-   "source": "vfx_workbench (flame-l)"
-  },
-  {
-   "id": "smoke",
-   "file": "fx-smoke.png",
-   "frames": 16,
-   "fps": 10,
-   "loop": true,
-   "frame": {
-    "w": 46,
-    "h": 157
-   },
-   "anchor": {
-    "x": 23,
-    "y": 156
-   },
-   "use": "smoke plume over a fire, ~4.9 m",
-   "source": "vfx_workbench (smoke)"
-  },
-  {
-   "id": "embers",
-   "file": "fx-embers.png",
-   "frames": 12,
-   "fps": 12,
-   "loop": true,
-   "frame": {
-    "w": 49,
-    "h": 80
-   },
-   "anchor": {
-    "x": 21,
-    "y": 77
-   },
-   "use": "embers rising over a fire or a burnt piece",
-   "source": "vfx_workbench (embers)"
-  },
-  {
    "id": "fire-arrow-trail",
    "file": "fx-fire-arrow-trail.png",
    "frames": 8,
@@ -1412,6 +1327,732 @@
    "decal": true,
    "use": "ground decal after a fire",
    "source": "vfx_workbench (scorch), cooled"
+  },
+  {
+   "id": "tongue-s-a",
+   "file": "fx-tongue-s-a.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 11,
+    "h": 17
+   },
+   "anchor": {
+    "x": 6,
+    "y": 16
+   },
+   "blend": "normal",
+   "sizeClass": "s",
+   "heightM": 0.33,
+   "density": {
+    "perTile": {
+     "low": 4,
+     "medium": 6,
+     "high": 6
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~0.33 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "tongue-s-b",
+   "file": "fx-tongue-s-b.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 11,
+    "h": 17
+   },
+   "anchor": {
+    "x": 6,
+    "y": 16
+   },
+   "blend": "normal",
+   "sizeClass": "s",
+   "heightM": 0.33,
+   "density": {
+    "perTile": {
+     "low": 4,
+     "medium": 6,
+     "high": 6
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~0.33 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "tongue-s-c",
+   "file": "fx-tongue-s-c.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 13,
+    "h": 17
+   },
+   "anchor": {
+    "x": 7,
+    "y": 16
+   },
+   "blend": "normal",
+   "sizeClass": "s",
+   "heightM": 0.33,
+   "density": {
+    "perTile": {
+     "low": 4,
+     "medium": 6,
+     "high": 6
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~0.33 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "tongue-m-a",
+   "file": "fx-tongue-m-a.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 15,
+    "h": 30
+   },
+   "anchor": {
+    "x": 8,
+    "y": 29
+   },
+   "blend": "normal",
+   "sizeClass": "m",
+   "heightM": 0.6,
+   "density": {
+    "perTile": {
+     "low": 1,
+     "medium": 4,
+     "high": 5
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~0.6 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "tongue-m-b",
+   "file": "fx-tongue-m-b.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 16,
+    "h": 30
+   },
+   "anchor": {
+    "x": 8,
+    "y": 29
+   },
+   "blend": "normal",
+   "sizeClass": "m",
+   "heightM": 0.6,
+   "density": {
+    "perTile": {
+     "low": 1,
+     "medium": 4,
+     "high": 5
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~0.6 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "tongue-m-c",
+   "file": "fx-tongue-m-c.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 19,
+    "h": 30
+   },
+   "anchor": {
+    "x": 10,
+    "y": 29
+   },
+   "blend": "normal",
+   "sizeClass": "m",
+   "heightM": 0.6,
+   "density": {
+    "perTile": {
+     "low": 1,
+     "medium": 4,
+     "high": 5
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~0.6 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "tongue-l-a",
+   "file": "fx-tongue-l-a.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 21,
+    "h": 50
+   },
+   "anchor": {
+    "x": 11,
+    "y": 49
+   },
+   "blend": "normal",
+   "sizeClass": "l",
+   "heightM": 1,
+   "density": {
+    "perTile": {
+     "low": 0,
+     "medium": 1,
+     "high": 4
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~1 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "tongue-l-b",
+   "file": "fx-tongue-l-b.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 22,
+    "h": 50
+   },
+   "anchor": {
+    "x": 11,
+    "y": 49
+   },
+   "blend": "normal",
+   "sizeClass": "l",
+   "heightM": 1,
+   "density": {
+    "perTile": {
+     "low": 0,
+     "medium": 1,
+     "high": 4
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~1 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "tongue-l-c",
+   "file": "fx-tongue-l-c.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 27,
+    "h": 50
+   },
+   "anchor": {
+    "x": 14,
+    "y": 49
+   },
+   "blend": "normal",
+   "sizeClass": "l",
+   "heightM": 1,
+   "density": {
+    "perTile": {
+     "low": 0,
+     "medium": 1,
+     "high": 4
+    },
+    "note": "per burning wall tile, split over the 3 shapes"
+   },
+   "use": "one flame tongue licking up the wood, ~1 m; anchor = its root on the wood face",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "embers",
+   "file": "fx-embers.png",
+   "frames": 12,
+   "fps": 10,
+   "loop": true,
+   "frame": {
+    "w": 28,
+    "h": 72
+   },
+   "anchor": {
+    "x": 10,
+    "y": 71
+   },
+   "blend": "add",
+   "density": {
+    "perTile": {
+     "low": 0,
+     "medium": 0.5,
+     "high": 1
+    }
+   },
+   "use": "sparks rising off a fire, ~2.2 m; anchor at the flames' top",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "fire-sheet-x-m",
+   "file": "fx-fire-sheet-x-m.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 34,
+    "h": 32
+   },
+   "anchor": {
+    "x": 0,
+    "y": 14
+   },
+   "blend": "normal",
+   "sizeClass": "m",
+   "heightM": 0.35,
+   "density": {
+    "perTile": {
+     "medium": 1
+    }
+   },
+   "use": "the burning foot of one wall tile running along x (its base on the run line), ~0.35 m; anchor = the face's start (lower x) at the foot (z 0)",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "fire-sheet-x-l",
+   "file": "fx-fire-sheet-x-l.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 34,
+    "h": 42
+   },
+   "anchor": {
+    "x": 0,
+    "y": 24
+   },
+   "blend": "normal",
+   "sizeClass": "l",
+   "heightM": 0.65,
+   "density": {
+    "perTile": {
+     "high": 1
+    }
+   },
+   "use": "the burning foot of one wall tile running along x (its base on the run line), ~0.65 m; anchor = the face's start (lower x) at the foot (z 0)",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "fire-sheet-y-m",
+   "file": "fx-fire-sheet-y-m.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 34,
+    "h": 32
+   },
+   "anchor": {
+    "x": 33,
+    "y": 14
+   },
+   "blend": "normal",
+   "sizeClass": "m",
+   "heightM": 0.35,
+   "density": {
+    "perTile": {
+     "medium": 1
+    }
+   },
+   "use": "the burning foot of one wall tile running along y (its base on the run line), ~0.35 m; anchor = the face's start (lower y) at the foot (z 0)",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "fire-sheet-y-l",
+   "file": "fx-fire-sheet-y-l.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 34,
+    "h": 42
+   },
+   "anchor": {
+    "x": 33,
+    "y": 24
+   },
+   "blend": "normal",
+   "sizeClass": "l",
+   "heightM": 0.65,
+   "density": {
+    "perTile": {
+     "high": 1
+    }
+   },
+   "use": "the burning foot of one wall tile running along y (its base on the run line), ~0.65 m; anchor = the face's start (lower y) at the foot (z 0)",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "heat-glow",
+   "file": "fx-heat-glow.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 64,
+    "h": 26
+   },
+   "anchor": {
+    "x": 32,
+    "y": 13
+   },
+   "blend": "add",
+   "alpha": {
+    "low": 0.25,
+    "medium": 0.4,
+    "high": 0.55
+   },
+   "decal": true,
+   "density": {
+    "perTile": {
+     "low": 1,
+     "medium": 1,
+     "high": 1
+    }
+   },
+   "use": "ground heat glow under a burning tile (a tile-sized iso ellipse); anchor = tile centre",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "smoke-wisp-a",
+   "file": "fx-smoke-wisp-a.png",
+   "frames": 20,
+   "fps": 8,
+   "loop": true,
+   "frame": {
+    "w": 100,
+    "h": 150
+   },
+   "anchor": {
+    "x": 22,
+    "y": 148
+   },
+   "blend": "normal",
+   "alpha": {
+    "low": 0.45,
+    "medium": 0.6,
+    "high": 0.75
+   },
+   "sizeClass": "l",
+   "heightM": 4.5,
+   "density": {
+    "perTile": {
+     "low": 0.34,
+     "medium": 0.5,
+     "high": 0.5
+    }
+   },
+   "use": "translucent smoke drifting +x (downwind; flipX for -x wind) and widening, ~4.5 m; anchor at the flames' top",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "smoke-wisp-b",
+   "file": "fx-smoke-wisp-b.png",
+   "frames": 20,
+   "fps": 8,
+   "loop": true,
+   "frame": {
+    "w": 100,
+    "h": 150
+   },
+   "anchor": {
+    "x": 22,
+    "y": 148
+   },
+   "blend": "normal",
+   "alpha": {
+    "low": 0.45,
+    "medium": 0.6,
+    "high": 0.75
+   },
+   "sizeClass": "l",
+   "heightM": 4.5,
+   "density": {
+    "perTile": {
+     "low": 0.34,
+     "medium": 0.5,
+     "high": 0.5
+    }
+   },
+   "use": "translucent smoke drifting +x (downwind; flipX for -x wind) and widening, ~4.5 m; anchor at the flames' top",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "smoke",
+   "file": "fx-smoke-wisp-a.png",
+   "frames": 20,
+   "fps": 8,
+   "loop": true,
+   "frame": {
+    "w": 100,
+    "h": 150
+   },
+   "anchor": {
+    "x": 22,
+    "y": 148
+   },
+   "blend": "normal",
+   "alpha": {
+    "low": 0.45,
+    "medium": 0.6,
+    "high": 0.75
+   },
+   "sizeClass": "l",
+   "heightM": 4.5,
+   "density": {
+    "perTile": {
+     "low": 0.34,
+     "medium": 0.5,
+     "high": 0.5
+    }
+   },
+   "use": "legacy alias of smoke-wisp-a (the old renderer's plume id)",
+   "source": "procedural (fire.mjs)",
+   "legacy": true
+  },
+  {
+   "id": "smoulder",
+   "file": "fx-smoulder.png",
+   "frames": 12,
+   "fps": 8,
+   "loop": true,
+   "frame": {
+    "w": 40,
+    "h": 34
+   },
+   "anchor": {
+    "x": 20,
+    "y": 33
+   },
+   "blend": "normal",
+   "density": {
+    "perTile": {
+     "dying": 2
+    }
+   },
+   "use": "dying fire: an ember bed and sputtering stubs on the wood's foot after the fire ends (with smoke-wisp-b at alpha 0.3 per 2 tiles)",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "flame-s",
+   "file": "fx-flame-s.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 26,
+    "h": 22
+   },
+   "anchor": {
+    "x": 13,
+    "y": 21
+   },
+   "blend": "normal",
+   "sizeClass": "s",
+   "legacy": true,
+   "use": "legacy: a cluster of tongues for one-sprite-per-tile placement; prefer tongue-* emitters (fireNote)",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "flame-m",
+   "file": "fx-flame-m.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 44,
+    "h": 42
+   },
+   "anchor": {
+    "x": 22,
+    "y": 41
+   },
+   "blend": "normal",
+   "sizeClass": "m",
+   "legacy": true,
+   "use": "legacy: a cluster of tongues for one-sprite-per-tile placement; prefer tongue-* emitters (fireNote)",
+   "source": "procedural (fire.mjs)"
+  },
+  {
+   "id": "flame-l",
+   "file": "fx-flame-l.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 60,
+    "h": 66
+   },
+   "anchor": {
+    "x": 30,
+    "y": 65
+   },
+   "blend": "normal",
+   "sizeClass": "l",
+   "legacy": true,
+   "use": "legacy: a cluster of tongues for one-sprite-per-tile placement; prefer tongue-* emitters (fireNote)",
+   "source": "procedural (fire.mjs)"
+  }
+ ],
+ "fireNote": "Fire v2 (procedural, fire.mjs). Emitters, not stickers: a burning wall tile gets many tongue-<s|m|l>-<a|b|c> at their density.perTile[intensity] (low k < 0.34, medium < 0.67, high), each with a seed fixed per (piece, tile, i): shape = seed % 3, a spot u = rand along the tile's visible face (on the face plane, not the tile centre), height z = zMax * rand^1.6 (most at the foot, a few high: zMax = 0.25 / 0.6 / 0.95 of the wood's height at low / medium / high; at high 1-2 l tongues at the top edge), frame = (floor(now * fps / 1000) + seed * 5) % frames (phase offsets: never in step). Draw at scale 1 (intensity changes count and size, never scale), the anchor on the wood, depth just in front of the face. Per tile also: 1 heat-glow (ground, add), embers per density (add, at the flames' top), smoke-wisp-a|b per density (alpha per intensity, flipX for wind -x). Building footprint: treat each visible face as a wall run of its tiles (heightM of the piece), plus 2-3 tongues on the roof/platform edge at high. Charring: char[] overlays drawn over the kit frame (same frame, tileOrigin): scorch at low, charred at medium, smoulder at high and while dying; after the fire: smoulder fx 2 per tile for ~20 s with the smoulder overlay, then charred. flame-s/m/l: legacy clusters for the old one-per-tile placement.",
+ "char": [
+  {
+   "kit": "palisade",
+   "layer": "back",
+   "level": "scorch",
+   "file": "char-palisade-scorch.png",
+   "frames": 16,
+   "frame": {
+    "w": 96,
+    "h": 254
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 206
+   }
+  },
+  {
+   "kit": "palisade",
+   "layer": "back",
+   "level": "charred",
+   "file": "char-palisade-charred.png",
+   "frames": 16,
+   "frame": {
+    "w": 96,
+    "h": 254
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 206
+   }
+  },
+  {
+   "kit": "palisade",
+   "layer": "back",
+   "level": "smoulder",
+   "file": "char-palisade-smoulder.png",
+   "frames": 16,
+   "frame": {
+    "w": 96,
+    "h": 254
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 206
+   }
+  },
+  {
+   "kit": "tower-wood",
+   "layer": "back",
+   "level": "scorch",
+   "file": "char-tower-wood-scorch.png",
+   "frames": 16,
+   "frame": {
+    "w": 176,
+    "h": 465
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 301
+   }
+  },
+  {
+   "kit": "tower-wood",
+   "layer": "back",
+   "level": "charred",
+   "file": "char-tower-wood-charred.png",
+   "frames": 16,
+   "frame": {
+    "w": 176,
+    "h": 465
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 301
+   }
+  },
+  {
+   "kit": "tower-wood",
+   "layer": "back",
+   "level": "smoulder",
+   "file": "char-tower-wood-smoulder.png",
+   "frames": 16,
+   "frame": {
+    "w": 176,
+    "h": 465
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 301
+   }
+  },
+  {
+   "kit": "tower-wood",
+   "layer": "front",
+   "level": "scorch",
+   "file": "char-tower-wood-scorch-front.png",
+   "frames": 16,
+   "frame": {
+    "w": 176,
+    "h": 465
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 301
+   }
+  },
+  {
+   "kit": "tower-wood",
+   "layer": "front",
+   "level": "charred",
+   "file": "char-tower-wood-charred-front.png",
+   "frames": 16,
+   "frame": {
+    "w": 176,
+    "h": 465
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 301
+   }
+  },
+  {
+   "kit": "tower-wood",
+   "layer": "front",
+   "level": "smoulder",
+   "file": "char-tower-wood-smoulder-front.png",
+   "frames": 16,
+   "frame": {
+    "w": 176,
+    "h": 465
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 301
+   }
   }
  ],
  "objects": [

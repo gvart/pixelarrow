@@ -1651,3 +1651,32 @@ by one parameter (log offset, arm angle, ladder angle), so animations are free a
 raised ladder) has opaque opposite corners when trimmed: the object QA takes `thin: true` for it. (3) Big hide panels
 (1 m) read as plaid on a roof at this scale; 0.5 m panels with close tones read as leather. (4) A tall gable makes the
 ram a house on wheels: keep the ridge under 3 m and the hides low so the wheels half show.
+
+### 31.1 Fire redo (fire v2)
+
+Owner: "the fire looks off": one big cartoon flame blob per tile at one height in front of the wall, smoke as solid grey
+columns. Target: flames that cling to the wood, smoke as drifting wisps, charring, a dying loop.
+Build: `scripts/war/art/fire.mjs` (called by `siege.mjs`); mock-up `node scripts/war/art/fire-preview.mjs` ->
+`shots/war/pixellab/siege/fire2/` (`FIRE2_mock_1x.png`, `FIRE2_mock_2x_crop.png`, `FIRE2.gif`: palisade runs at low,
+medium, high and dying, and a burning wooden tower). **0 PixelLab generations**: drawn procedurally, so no prompts.
+The v1 vfx flames are only read for the shared palette (the other siege art stays unchanged).
+
+| FX | How it is drawn |
+| --- | --- |
+| tongue-s/m/l-a/b/c | One tapering, swaying column (0.33 / 0.6 / 1.0 m), 12 frames. Heat comes from the column's axis and its base: dark red edges and tips, orange, then a yellow core drawn as a checker with holes so the wood shows through. Shape a is plain, b has a forked tip, c leans and throws off a lick |
+| fire-sheet-x/y-m/l | The burning foot of one wall tile, its base on the 1:2 iso run line. A row of joined tongues whose peaks wander, so the base of the fire is continuous |
+| embers | 9 sparks rising with drift, each cooling from yellow to red on its own phase |
+| heat-glow | A dithered iso ellipse in reds, blend `add` |
+| smoke-wisp-a/b | 20 puffs rising, widening (r 4-28 px) and drifting +x. Each frame is ordered-dithered to binary alpha and drawn at a renderer alpha of 0.45-0.75 |
+| smoulder | A pulsing ember bed with flame stubs sunk into it (only their tips show) |
+| flame-s/m/l, smoke | Legacy ids for the old one-per-tile placement: clusters of tongues, and an alias of smoke-wisp-a |
+| char-palisade/tower-wood-* | Overlays matched frame by frame to the kit sheets. The wood is darkened, keeping its grain, below a ragged burn line that rises from each column's foot: scorch at 35%, charred at 65%, smoulder at 75% with short glowing cracks along the grain |
+
+Placement is in `objects.json` `fireNote`, with density per tile and per intensity on each fx entry.
+
+**Lessons:** (1) One big flame per tile reads as a sticker at any quality. Fire reads as wood burning when it is many
+small emitters spread along the face and up the height, plus a continuous burning foot. (2) Keep a flame's core
+translucent: a checker of holes, since QA allows only binary alpha. (3) Smoke from a few puffs reads as beads. 20
+overlapping, widening puffs, dithered, read as wisps. (4) A second flame sheet halfway up the face reads as a stripe,
+so keep the sheet at the foot only. (5) Charring must darken the wood's own pixels. Flat char colours turn the wall
+into a black slab.
