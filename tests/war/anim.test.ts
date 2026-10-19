@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Animator, frameAt, pickClip, type ClipDef } from '../../src/war/view/anim';
+import { Animator, frameAt, pickClip, workClips, type ClipDef } from '../../src/war/view/anim';
 import type { DrawUnit } from '../../src/war/view/simClient';
 import type { UnitSnap } from '../../src/war/types';
 
@@ -45,5 +45,24 @@ describe('war clip selection', () => {
     const a = new Animator(), frames = new Set<number>();
     for (let id = 0; id < 12; id++) frames.add(a.pick(unit({ id }), clips, at(0, 1), [], []).frame);
     expect(frames.size).toBeGreaterThan(3);
+  });
+
+  it('plays work clips by the resource gathered, never the attack', () => {
+    const work = new Map([...clips, ['chop', C(12, 10)], ['mine', C(12, 10)], ['harvest', C(12, 10)], ['build', C(12, 10)], ['carry', C(9, 12)]]);
+    const pick = (o: Partial<UnitSnap>, cs = work) => {
+      const a = new Animator();
+      a.override = workClips;
+      return a.pick(unit(o), cs, at(0, 1), [], []).clip;
+    };
+    expect(pick({ state: 'gather', carry: 'wood', load: 1 })).toBe('chop');
+    expect(pick({ state: 'gather', carry: 'marble', load: 1 })).toBe('mine');
+    expect(pick({ state: 'gather', carry: 'iron', load: 1 })).toBe('mine');
+    expect(pick({ state: 'gather', carry: 'food', load: 1 })).toBe('harvest');
+    expect(pick({ state: 'build' })).toBe('build');
+    expect(pick({ state: 'move', carry: 'stone', load: 2 })).toBe('carry');
+    // a sheet without work clips idles at work and walks with its load
+    expect(pick({ state: 'gather', carry: 'wood', load: 1 }, clips)).toBe('idle');
+    expect(pick({ state: 'build' }, clips)).toBe('idle');
+    expect(pick({ state: 'move', carry: 'wood', load: 1 }, clips)).toBe('walk');
   });
 });
