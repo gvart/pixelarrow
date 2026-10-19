@@ -13,7 +13,12 @@ export interface RegionData {
   visual?: { scale: 2; rle: number[] };
   /** Biome per sim tile: index into `names`, run-length encoded (src/war/regions/visual.ts); picks the art library. Visual only. */
   biomes?: { names: string[]; rle: number[] };
+  /** Neutral fauna (W-12, src/war/sim/mobs.ts): a lair or camp of one mob kind at (x,y), its pack size (default per kind). */
+  lairs?: { kind: MobKind; x: number; y: number; count?: number }[];
+  /** Region claim banners: open once every guard lair of `lairs` (indices into lairs) is cleared; r: influence radius once claimed. */
+  claimPoints?: { x: number; y: number; lairs: number[]; r?: number }[];
 }
+export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex';
 export type SquadId = number; export type UnitId = number;
 export type Order =
   | { kind: 'move'; squad: SquadId; x: number; y: number }
@@ -44,6 +49,9 @@ export type Order =
   // stoneWall, woodTower -> stoneTower, woodGate -> stoneGate); the old piece keeps standing (blocking, its walkway open)
   // until the new tier is done (palisade -> rampart grows the inner row). With a squad it builds it, without one (`team`) it stays planned. cancelSite reverts it.
   | { kind: 'upgrade'; building: number; squad?: SquadId; team?: number }
+  // claimRegion (W-12, src/war/sim/mobs.ts): the squad walks to claim point `point` (index into region.claimPoints) and
+  // channels there; dropped unless the point is unowned and its zone's guard lairs are cleared.
+  | { kind: 'claimRegion'; squad: SquadId; point: number }
   | WallOrder
   | BridgeOrder
   | SiegeOrder;
@@ -122,7 +130,24 @@ export interface Snapshot {
   influenceVersion?: number;
   /** M2c siege engines (destroyed ones stay as wrecks). */
   sieges?: SiegeSnap[];
+  /** Neutral lairs (after spawnMobs) and region claim points. */
+  lairs?: LairSnap[];
+  claims?: ClaimSnap[];
 }
+/**
+ * A lair: its mob squad (team MOB_TEAM), mobs alive of `count`; state home (idle, wandering), chase, return (leashed back,
+ * healing), flee (a herd), cleared (respawnIn: ticks until it may come back while its area is unclaimed). aggro, leash,
+ * guard: radii in tiles (guard 0: a herd, it locks no nodes); nodes: resource nodes it locks while it lives.
+ */
+export interface LairSnap {
+  id: number; kind: MobKind; x: number; y: number; squad: SquadId; alive: number; count: number;
+  state: 'home' | 'chase' | 'return' | 'flee' | 'cleared'; aggro: number; leash: number; guard: number; nodes: number; respawnIn?: number;
+}
+/**
+ * A claim point: locked (a guard lair of its zone lives), open, channel (squad channelling, progress 0..1), contested
+ * (foes near: progress reset), claimed (by team).
+ */
+export interface ClaimSnap { id: number; x: number; y: number; team: number; squad: SquadId; progress: number; lairs: number[]; state: 'locked' | 'open' | 'channel' | 'contested' | 'claimed' }
 export interface WarSim {
   readonly region: RegionData;
   spawnSquad(owner: string, team: number, cls: string, count: number, x: number, y: number): SquadId;
@@ -203,7 +228,9 @@ export interface BuildingSnap {
   bridge?: { axis: 'x' | 'y'; part: 'end0' | 'end1' | 'deck'; deck: number };
 }
 /** A gatherable node: a region object (obj = index into region.objects) or a finished farm/press (building = its id). */
-export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; obj?: number; building?: number }
+export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; obj?: number; building?: number;
+  /** A living guard lair stands near: no gathering. */
+  guarded?: true }
 /** Team influence: bit `team` of mask[y*w+x] is set where the team may build. */
 export interface InfluenceMap { w: number; h: number; mask: Uint8Array; version: number }
 export interface WarBuildSim extends WarSim {
@@ -216,5 +243,7 @@ export interface WarBuildSim extends WarSim {
   claim(team: number, x: number, y: number, r?: number): void;
   addStock(team: number, res: ResourceKind, n: number): void;
   damageBuilding(id: number, dmg: number): void;
+  /** Spawn the region's lairs (neutral play; once). */
+  spawnMobs(): void;
 }
 export declare function createSim(region: RegionData, seed: number): WarBuildSim; // implemented in src/war/sim/index.ts

@@ -9,6 +9,7 @@ import { BASE, type Equipment } from '../../data/units';
 import type { Rarity } from '../../data/items';
 import type { MissileKind } from '../types';
 import { computeStats } from '../../sim/stats';
+import { mobKindOf, MOBS } from './mobs';
 
 export interface WarStats {
   maxHp: number;
@@ -26,6 +27,7 @@ export interface WarStats {
   block: number;
   ap: number; // armour pierce of missiles, 0..1
   speed: number; // multiplier over a man on foot
+  knock?: number; // tiles a landed blow throws the target back (mobs.ts: boar)
 }
 
 const cache = new Map<string, WarStats>();
@@ -34,6 +36,18 @@ const COMMON: Rarity = 'common';
 export function warStats(cls: string): WarStats {
   let s = cache.get(cls);
   if (s) return s;
+  const mob = mobKindOf(cls);
+  if (mob) {
+    // fauna and bandits (./mobs.ts, class mob_<kind>): their base class scaled; beasts carry no missiles
+    const m = MOBS[mob], b = warStats(m.base), beast = mob !== 'bandit';
+    s = {
+      ...b, maxHp: Math.round(b.maxHp * m.hp), dmg: b.dmg * m.dmg, speed: m.speed, armor: m.armor ?? b.armor, block: m.block ?? b.block,
+      reach: m.reach ?? b.reach, atkTicks: m.atk ? Math.max(1, Math.round(m.atk * 10)) : b.atkTicks,
+      ...(beast ? { range: 0, ammo: 0, rangedDmg: 0 } : {}), ...(m.knock ? { knock: m.knock } : {}),
+    };
+    cache.set(cls, s);
+    return s;
+  }
   const id: ClassId = isClassId(cls) ? cls : 'militia';
   const def = CLASSES[id];
   const equip: Equipment = {};
