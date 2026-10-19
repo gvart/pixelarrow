@@ -10,8 +10,8 @@
 // them), the overview, and the 600-unit brawl fps at mid zoom.
 // Mode `anim`: frame sequences at 1:1 (100 ms apart) of a ford fight (archers and slingers shooting,
 // spears and swords striking, deaths) and of a squad idling, then the 600-unit brawl fps at 1/2.
-// Mode `biome`, `build`, `buildux`: see below.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome|build|buildux] [id,id...]
+// Mode `biome`, `build`, `buildux`, `walls`: see below.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome|build|buildux|walls] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
@@ -629,6 +629,115 @@ if (mode === 'anim') {
   await shot('anim-brawl-600-half');
 }
 
+// Mode `walls` (W-28 wall-walks, scenario wall-defense): a squad climbing the stone stairs, archers on the south walk
+// behind the parapet, archers up the wood tower's ladder, the build tools (two pending stone wall lines with the inside
+// arrows, flipped; a gate ghost on a line; a stone tower ghost joined to the walk; stairs and ladder snapped to the
+// wall; barracks turned with R), an upgrade under way (rampart -> stone wall at its rising and scaffold stages,
+// palisade -> rampart), the defense mid-fight, and the 600-unit brawl fps at 1/2.
+if (mode === 'walls') {
+  const bootWalls = async () => {
+    await boot('&scenario=wall-defense');
+    await page.waitForFunction(() => window.__sandbox.sim.cur.squads.length >= 10, null, { timeout: 300000 });
+  };
+  const scr = (x, y) => page.evaluate(([x, y]) => window.__sandbox.toScreen(x, y), [x, y]);
+  const move = async (x, y) => { const p = await scr(x, y); await page.mouse.move(p.x, p.y, { steps: 3 }); };
+  const drag = async (a, b) => { await move(...a); await page.mouse.down(); await move(...b); await wait(100); await page.mouse.up(); };
+  /** Wait for at least n units lifted with px in [lo, hi] (and pred on the unit). */
+  const lifted = (n, lo, hi, pred = 'true', ms = 60000) => page.waitForFunction(([n, lo, hi, pred]) => {
+    const s = window.__sandbox, f = new Function('d', `return ${pred}`);
+    return s.drawn.filter((d) => { const l = s.build.layer.lift(d); return l && !l.hide && l.px >= lo && l.px <= hi && d.u.state !== 'dead' && f(d); }).length >= n;
+  }, [n, lo, hi, pred], { timeout: ms, polling: 100 });
+  await bootWalls();
+  // four archers down from the south walk, then up the stairs to the north walk
+  await page.evaluate(() => window.__sandbox.sim.order({ kind: 'move', squad: 4, x: 124.5, y: 434.5 }));
+  await page.waitForFunction(() => { const s = window.__sandbox; return s.drawn.filter((d) => d.u.squad === 4 && !s.build.layer.lift(d)).length >= 4; }, null, { timeout: 90000 }).catch(() => console.log('archers not all down'));
+  await page.evaluate(() => window.__sandbox.sim.order({ kind: 'move', squad: 4, x: 126.5, y: 426.5 }));
+  await lifted(1, 20, 150, 'd.x < 124.5 && d.u.squad === 4', 90000).catch(() => console.log('no stair climber caught'));
+  await page.evaluate(() => {
+    const s = window.__sandbox, d = s.drawn.find((q) => { const l = s.build.layer.lift(q); return q.u.squad === 4 && l && l.px >= 20 && l.px <= 150; });
+    s.focus(d ? d.x + 1 : 123, d ? d.y + 1 : 430, 1);
+  });
+  await wait(300);
+  await shot('walls-01-stairs-climb');
+  // the tower's archers down its ladder and up again
+  await page.evaluate(() => { const s = window.__sandbox; s.sim.order({ kind: 'move', squad: 5, x: 127.5, y: 431.5 }); s.focus(127, 430, 1); });
+  await page.waitForFunction(() => { const s = window.__sandbox; return s.drawn.filter((d) => d.u.squad === 5 && !s.build.layer.lift(d)).length >= 4; }, null, { timeout: 90000 }).catch(() => console.log('tower archers not all down'));
+  await page.evaluate(() => window.__sandbox.sim.order({ kind: 'move', squad: 5, x: 127, y: 427.6 }));
+  await lifted(1, 15, 90, 'd.u.squad === 5 && d.y > 428.9', 90000).catch(() => console.log('no climber caught'));
+  await shot('walls-02-ladder-climb');
+  await lifted(3, 99, 99, 'd.u.squad === 5', 90000).catch(() => console.log('tower: fewer than 3 up'));
+  await wait(500);
+  await shot('walls-03-ladder-tower');
+  await page.evaluate(() => window.__sandbox.focus(125, 440, 1));
+  await lifted(6, 165, 165, 'd.y > 438.9', 120000).catch(() => console.log('walk: fewer than 6 archers on the south walk'));
+  await wait(1500);
+  await shot('walls-04-archers-walkway');
+  // build tools, the sim paused
+  await page.evaluate(() => { const s = window.__sandbox; s.sim.speed(0); s.focus(111, 440, 1); s.build.setTool({ kind: 'wall', material: 'stone' }); });
+  await drag([104.5, 426.5], [104.5, 438.5]);
+  await drag([108.5, 442.5], [116.5, 442.5]);
+  await move(110, 437); await wait(1500);
+  await shot('walls-05-wall-tool-two-lines');
+  await page.keyboard.press('f'); await wait(1500);
+  await shot('walls-06-wall-tool-flipped');
+  await page.keyboard.press('g'); await move(112.5, 442.5); await wait(1500);
+  await shot('walls-07-gate-ghost');
+  await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
+  await page.evaluate(() => window.__sandbox.build.setTool({ kind: 'building', type: 'stoneTower' }));
+  await move(118, 427); await wait(1500);
+  await shot('walls-08-tower-ghost');
+  await page.evaluate(() => { const s = window.__sandbox; s.focus(127, 434, 1); s.build.setTool({ kind: 'access', type: 'stoneStairs' }); });
+  await move(128, 430); await wait(1500);
+  await shot('walls-09-stairs-tool');
+  await page.evaluate(() => window.__sandbox.build.setTool({ kind: 'access', type: 'ladder' }));
+  await move(127, 443); await wait(1500);
+  await shot('walls-10-ladder-tool');
+  await page.evaluate(() => { const s = window.__sandbox; s.focus(110, 434, 1); s.build.setTool({ kind: 'building', type: 'barracks' }); });
+  await move(110, 434); await wait(1200);
+  await shot('walls-11-rotate-0');
+  await page.keyboard.press('r'); await wait(1200);
+  await shot('walls-12-rotate-1');
+  await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
+  // the defense mid-fight
+  await page.evaluate(() => window.__sandbox.sim.speed(2));
+  await page.waitForFunction(() => window.__sandbox.drawn.filter((d) => d.u.state === 'attack').length >= 12, null, { timeout: 120000 }).catch(() => console.log('few attacking'));
+  await wait(4000);
+  await page.evaluate(() => window.__sandbox.focus(127.5, 438, 1 / 2));
+  await wait(1500);
+  await shot('walls-13-defense-mid');
+  await page.evaluate(() => window.__sandbox.focus(126, 440, 1));
+  await wait(1200);
+  await shot('walls-14-defense-mid-1x');
+  // an upgrade under way: a timber rampart and a palisade built east of the ring, then upgraded by the spears
+  await bootWalls();
+  await page.evaluate(() => {
+    const s = window.__sandbox;
+    s.sim.order({ kind: 'placeWall', team: 0, material: 'timber', points: [139.5, 428.5, 139.5, 436.5], inside: [127, 432] });
+    s.sim.order({ kind: 'placeWall', team: 0, material: 'wood', points: [142.5, 428.5, 142.5, 436.5], inside: [127, 432] });
+    s.sim.prebuild(0, 20000);
+  });
+  await page.waitForFunction(() => { const b = window.__sandbox.sim.cur.buildings; return b.filter((q) => q.type === 'rampart' || q.type === 'palisade').length >= 4 && b.every((q) => q.state !== 'foundation' && q.state !== 'scaffold' || q.type === 'ladder'); }, null, { timeout: 120000 });
+  await page.evaluate(() => {
+    const s = window.__sandbox, b = s.sim.cur.buildings;
+    for (const q of b.filter((q) => q.type === 'rampart' || q.type === 'palisade')) s.sim.order({ kind: 'upgrade', building: q.id, squad: q.type === 'rampart' ? 0 : 1 });
+    s.sim.speed(4);
+    s.focus(140, 433, 1);
+  });
+  await page.waitForFunction(() => window.__sandbox.sim.cur.buildings.some((q) => q.upgradeFrom === 'rampart' && q.progress >= 0.3), null, { timeout: 240000 });
+  await page.evaluate(() => window.__sandbox.sim.speed(0)); await wait(1200);
+  await shot('walls-15-upgrade-rising');
+  await page.evaluate(() => window.__sandbox.sim.speed(4));
+  await page.waitForFunction(() => window.__sandbox.sim.cur.buildings.some((q) => q.upgradeFrom === 'rampart' && q.progress >= 0.65), null, { timeout: 240000 });
+  await page.evaluate(() => { const s = window.__sandbox; s.sim.speed(0); s.build.selected = s.sim.cur.buildings.find((q) => q.upgradeFrom === 'rampart').id; }); await wait(1200);
+  await shot('walls-16-upgrade-scaffold');
+  // 600 units
+  await boot('&scenario=brawl-600');
+  await page.waitForFunction(() => window.__sandbox.drawn.length >= 600, null, { timeout: 60000 });
+  await page.evaluate(() => { const s = window.__sandbox, [x, y] = s.spots.ford; s.sim.speed(1); s.focus(x, y, 1 / 2); });
+  await wait(3000);
+  await fps('walls 600 brawl 1/2', 16);
+}
+
 // scenarios: opening, the player's plan, mid fight, end score
 const PLANS = {
   'pass-ambush': 'stand', // hold the pass where placed
@@ -645,7 +754,7 @@ const attackAll = () => page.evaluate(() => {
 });
 const score = () => page.evaluate(() => document.getElementById('score').textContent);
 for (const [id, plan] of Object.entries(PLANS)) {
-  if (mode === 'art' || mode === 'anim' || mode === 'biome' || mode === 'build' || mode === 'buildux' || (only && !only.includes(id))) continue;
+  if (mode === 'art' || mode === 'anim' || mode === 'biome' || mode === 'build' || mode === 'buildux' || mode === 'walls' || (only && !only.includes(id))) continue;
   await boot(`&scenario=${id}`);
   if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
   await wait(2500);
