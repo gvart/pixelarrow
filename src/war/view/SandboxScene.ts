@@ -142,7 +142,7 @@ export class SandboxScene extends Phaser.Scene {
     cam.setBackgroundColor('#1b1e22').setRoundPixels(true);
     // open on the ford, soldiers about 29 px tall: units and ground both read
     if (r.id === 'test-ridge') this.focus(SPOTS.ford[0], SPOTS.ford[1], 1 / 2);
-    else cam.setZoom(this.fitZoom()).centerOn(W / 2, H / 2);
+    else cam.setZoom(this.minZoom()).centerOn(W / 2, H / 2);
 
     this.sim = new SimClient(r);
     this.input.mouse!.disableContextMenu();
@@ -230,14 +230,15 @@ export class SandboxScene extends Phaser.Scene {
     return { x: (wx - cam.scrollX - w) * cam.zoom + w, y: (wy - cam.scrollY - h) * cam.zoom + h };
   }
 
-  private fitZoom(): number {
-    const cam = this.cameras.main, fit = Math.min(cam.width / this.iso.W, cam.height / this.iso.H);
-    return [...LADDER].reverse().find((z) => z <= fit) ?? LADDER[0];
+  /** The lowest zoom: the first ladder step at which the region's shorter side still covers the viewport's shorter side (no void round it). */
+  minZoom(): number {
+    const cam = this.cameras.main, need = Math.min(cam.width, cam.height) / Math.min(this.iso.W, this.iso.H);
+    return LADDER.find((z) => z >= need - 1e-6) ?? LADDER[LADDER.length - 1];
   }
 
   zoomAt(px: number, py: number, dir: 1 | -1): void {
     const cam = this.cameras.main, z = cam.zoom;
-    const nz = dir > 0 ? LADDER.find((v) => v > z + 1e-3) ?? z : [...LADDER].reverse().find((v) => v < z - 1e-3 && v >= this.fitZoom() / 2) ?? z;
+    const nz = dir > 0 ? LADDER.find((v) => v > z + 1e-3) ?? z : [...LADDER].reverse().find((v) => v < z - 1e-3 && v >= this.minZoom() - 1e-6) ?? z;
     if (nz === z) return;
     const w = cam.width / 2, h = cam.height / 2;
     const wx = cam.scrollX + w + (px - w) / z, wy = cam.scrollY + h + (py - h) / z;
@@ -383,6 +384,8 @@ export class SandboxScene extends Phaser.Scene {
   update(_t: number, dt: number): void {
     const cam = this.cameras.main, k = this.keys;
     this.frame++;
+    // a resize can leave the zoom below the floor
+    if (this.frame % 15 === 0 && cam.zoom < this.minZoom() - 1e-6) cam.setZoom(this.minZoom());
     // keyboard and edge pan
     const sp = (dt * 0.9) / cam.zoom;
     let vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
