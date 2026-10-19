@@ -20,10 +20,12 @@
  * and the hovered resource node.
  * Bridges (M2d): per tile kit pieces (deck-<axis> over the water, end-<axis><0|1> ramps on the banks rising towards the
  * deck: 0 at the low end of the axis) at the tile's surface level; units on a done deck walk deckM over it (as on a
- * wall-walk), up a ramp as on a stair. A collapsed piece leaves the stumps of its damaged art at the waterline.
+ * wall-walk), up a ramp as on a stair. A collapsed piece leaves the stumps of its damaged art at the waterline. A wider
+ * axis bridge keeps rails on its outer tiles only; a bridge along a grid diagonal (W-33) draws one row segment of the
+ * diagonal kit per row centre, at the depth of the row's back-most tile.
  */
 import Phaser from 'phaser';
-import type { BuildingSnap, BuildingType, InfluenceMap, NodeSnap } from '../../types';
+import type { BridgeAxis, BuildingSnap, BuildingType, InfluenceMap, NodeSnap } from '../../types';
 import { BUILDINGS } from '../../sim/economy';
 import { HH, HW, LH, type IsoMap } from '../iso';
 import type { DrawUnit } from '../simClient';
@@ -72,11 +74,26 @@ interface Look { type: BuildingType; stage: string; grown: number; grownStage: s
 /** A placement ghost piece. tiles: stairs bottom first; attach: the tile of the wall or tower a ladder leans on. */
 export interface GhostPiece {
   tiles: readonly number[]; ok: boolean; type?: BuildingType; attach?: readonly number[]; rot?: 0 | 1;
-  /** A bridge piece: its axis, part and, for a ramp, the way it rises (towards the deck, +1 / -1 along the axis). */
-  bridge?: { axis: 'x' | 'y'; part: 'end0' | 'end1' | 'deck'; rise: number };
+  /**
+   * A bridge piece: its axis, part and, for an axis ramp, the way it rises (towards the deck, +1 / -1 along the axis); a
+   * diagonal one also its step along the line, width and row centres (BridgePlan).
+   */
+  bridge?: { axis: BridgeAxis; part: 'end0' | 'end1' | 'deck'; rise: number; dir?: readonly number[]; width?: number; rows?: readonly number[] };
 }
-/** Bridge kit piece name (objects.json kits bridge-*: deck-x, deck-y, end-x0, end-x1, end-y0, end-y1). */
-export const bridgePiece = (axis: 'x' | 'y', part: 'end0' | 'end1' | 'deck', rise: number): string => (part === 'deck' ? `deck-${axis}` : `end-${axis}${rise > 0 ? 0 : 1}`);
+/** A bridge along a grid diagonal (screen-horizontal h or screen-vertical v): drawn with the diagonal kit. */
+export const isDiag = (axis: BridgeAxis): axis is 'h' | 'v' => axis === 'h' || axis === 'v';
+/**
+ * Axis bridge kit piece for tile (x, y) of a piece on `tiles` (objects.json kits bridge-*: deck-<axis>, end-<axis><0|1>):
+ * rails only on the sides across with no tile of the piece beside it (suffix .l / .h: the low / high side only, .n none).
+ */
+export const bridgePiece = (axis: 'x' | 'y', part: 'end0' | 'end1' | 'deck', rise: number, tiles: readonly number[] = [], x = 0, y = 0): string => {
+  const has = (a: number, c: number) => { for (let i = 0; i < tiles.length; i += 2) if (tiles[i] === a && tiles[i + 1] === c) return true; return false; };
+  const lo = axis === 'x' ? has(x, y - 1) : has(x - 1, y), hi = axis === 'x' ? has(x, y + 1) : has(x + 1, y);
+  return (part === 'deck' ? `deck-${axis}` : `end-${axis}${rise > 0 ? 0 : 1}`) + (lo && hi ? '.n' : lo ? '.h' : hi ? '.l' : '');
+};
+/** Diagonal bridge kit piece (kits bridge-*-diag): <h|v><width>-deck, or a ramp rising along the drag (end0) or against it (end1): end+ rises towards +a (h) / +b (v). */
+export const diagPiece = (axis: 'h' | 'v', width: number, part: 'end0' | 'end1' | 'deck', dir: readonly number[]): string =>
+  `${axis}${width}-${part === 'deck' ? 'deck' : (part === 'end0') === dir[0] > 0 ? 'end+' : 'end-'}`;
 /** Bridge stumps: the bottom px of the damaged art left standing in the water after a collapse. */
 const STUMP = 22;
 /** A ground arrow (tile point, direction) in the ghost: the wall's inside. */
@@ -252,8 +269,20 @@ export class BuildingLayer {
           for (const [x, y] of ts) this.decks.set(key(x, y), { kind: 'deck', px: m.walkPx, z, depth, b: b.id, ox: x0, oy: y0, dx: 0, dy: 0, n: 0 });
           if (b.door) this.decks.set(key(b.door[0], b.door[1]), { kind: 'door', px: 0, z, depth, b: b.id, ox: 0, oy: 0, dx: 0, dy: 0, n: 0 });
         }
+      } else if (def.bridge && b.bridge && up && isDiag(b.bridge.axis)) {
+        // a diagonal bridge row by row: its deck tiles at the deck height, a ramp row rising along the drag (end0, from
+        // the start bank) or against it (end1) over one row step from half a step before its centre
+        const m = this.art?.meta(b.type, true), px = m?.walkPx || 66, br = b.bridge, rows = pairs(br.rows), n = ts.length / rows.length;
+        const [rx, ry] = br.part === 'end1' ? [-br.dir[0], -br.dir[1]] : br.dir;
+        rows.forEach(([cx, cy], i) => {
+          const depth = this.rowDepth(b.tiles, i, n);
+          for (const [x, y] of ts.slice(i * n, (i + 1) * n)) {
+            if (br.part === 'deck') this.decks.set(key(x, y), { kind: 'deck', px, z: this.zt(x, y), depth, b: b.id, ox: x, oy: y, dx: 0, dy: 0, n: 0 });
+            else this.decks.set(key(x, y), { kind: 'stair', px, z: this.zt(x, y), depth, b: b.id, ox: cx - rx / 2, oy: cy - ry / 2, dx: rx, dy: ry, n: 2 });
+          }
+        });
       } else if (def.bridge && b.bridge && up) {
-        const m = this.art?.meta(b.type), px = m?.walkPx || 66, br = b.bridge;
+        const m = this.art?.meta(b.type), px = m?.walkPx || 66, br = b.bridge as typeof b.bridge & { axis: 'x' | 'y' };
         for (const [x, y] of ts) {
           if (br.part === 'deck') { this.decks.set(key(x, y), { kind: 'deck', px, z: this.zt(x, y), depth: this.D(x + 0.495, y + 0.495), b: b.id, ox: x, oy: y, dx: 0, dy: 0, n: 0 }); continue; }
           const r = this.rise(x, y, br.axis), dx = br.axis === 'x' ? r : 0, dy = br.axis === 'y' ? r : 0;
@@ -535,13 +564,36 @@ export class BuildingLayer {
     return o && BUILDINGS[o.type].bridge ? 1 : -1;
   }
 
-  /** A bridge piece tile by tile (its stage's kit; destroyed: stumps of the damaged art). */
+  /** Display depth of row i (n tiles a row) of a diagonal bridge piece: its back-most tile's (units on it draw over it). */
+  private rowDepth(tiles: readonly number[], i: number, n: number): number {
+    let d = Infinity;
+    for (let k = i * n; k < (i + 1) * n; k++) d = Math.min(d, this.D(tiles[2 * k] + 0.495, tiles[2 * k + 1] + 0.495));
+    return d;
+  }
+
+  /**
+   * A bridge piece (its stage's kit; destroyed: stumps of the damaged art): along an axis tile by tile, its rails on the
+   * sides with no tile of the piece beside them; along a diagonal one row segment of the diagonal kit per row centre.
+   */
   private drawBridge(b: BuildingSnap, l: Look): boolean {
-    const gone = b.state === 'destroyed', kit = this.art!.kit(b.type, gone ? 'damaged' : l.stage), m = this.art!.meta(b.type);
-    if (!kit || !m || !b.bridge) return false;
-    const br = b.bridge;
+    const br = b.bridge, diag = !!br && isDiag(br.axis);
+    const gone = b.state === 'destroyed', kit = this.art!.kit(b.type, gone ? 'damaged' : l.stage, diag), m = this.art!.meta(b.type, diag);
+    if (!kit || !m || !br) return false;
+    if (isDiag(br.axis)) {
+      const rows = pairs(br.rows), n = b.tiles.length / 2 / rows.length, f = m.pieces.indexOf(diagPiece(br.axis, br.width, br.part, br.dir));
+      if (f < 0) return false;
+      rows.forEach(([cx, cy], i) => {
+        const im = this.piece(this.img(this.ni++, kit.key, f), kit, cx, cy, this.zt(Math.floor(cx), Math.floor(cy))).setDepth(this.rowDepth(b.tiles, i, n));
+        if (gone) {
+          const top = kit.tileOrigin.y - STUMP + 8;
+          im.setCrop(0, top, im.frame.realWidth, im.frame.realHeight - top);
+        }
+      });
+      return true;
+    }
+    const axis = br.axis;
     for (const [x, y] of pairs(b.tiles)) {
-      const f = m.pieces.indexOf(bridgePiece(br.axis, br.part, br.part === 'deck' ? 0 : this.rise(x, y, br.axis)));
+      const f = m.pieces.indexOf(bridgePiece(axis, br.part, br.part === 'deck' ? 0 : this.rise(x, y, axis), b.tiles, x, y));
       if (f < 0) continue;
       const im = this.piece(this.img(this.ni++, kit.key, f), kit, x, y, this.zt(x, y)).setDepth(this.D(x + 0.495, y + 0.495));
       if (gone) {
@@ -735,8 +787,8 @@ export class BuildingLayer {
         if (m?.layered && BUILDINGS[p.type].wall !== 'gate') walk.set(key(x, y), { kit: m.id, px: m.walkPx, b: -1 });
       }
       let top = Infinity, cx = 0, n = 0;
-      const put = (key: string, frame: number, kit: KitSprite, x: number, y: number, depth: number, tint: number) => {
-        const img = this.piece(this.ghostImg(ni++, key, frame), kit, x, y, this.zt(x, y));
+      const put = (key: string, frame: number, kit: KitSprite, x: number, y: number, depth: number, tint: number, z = this.zt(x, y)) => {
+        const img = this.piece(this.ghostImg(ni++, key, frame), kit, x, y, z);
         img.setDepth(depth).setTint(tint);
         top = Math.min(top, img.y + 8);
       };
@@ -753,8 +805,13 @@ export class BuildingLayer {
         const tint = p.ok ? 0x90ff90 : 0xff7070, d = 11.3 + (x1 + y1) / 1e6;
         const kit = p.type ? this.art?.kit(p.type, 'done') : undefined, m = p.type ? this.art?.meta(p.type) : undefined;
         if (kit && m && p.bridge) {
-          for (const [x, y] of ts) {
-            const f = m.pieces.indexOf(bridgePiece(p.bridge.axis, p.bridge.part, p.bridge.rise));
+          const br = p.bridge, axis = br.axis;
+          if (isDiag(axis)) { // one row segment of the diagonal kit per row centre
+            const dk = this.art?.kit(p.type!, 'done', true), dm = this.art?.meta(p.type!, true);
+            const f = dm ? dm.pieces.indexOf(diagPiece(axis, br.width ?? 2, br.part, br.dir ?? [1, 1])) : -1;
+            if (dk && f >= 0) for (const [cx, cy] of pairs(br.rows ?? [])) put(dk.key, f, dk, cx, cy, 11.3 + (cx + cy) / 1e6, tint, this.zt(Math.floor(cx), Math.floor(cy)));
+          } else for (const [x, y] of ts) {
+            const f = m.pieces.indexOf(bridgePiece(axis, br.part, br.rise, p.tiles, x, y));
             if (f >= 0) put(kit.key, f, kit, x, y, 11.3 + (x + y) / 1e6, tint);
           }
         } else if (kit && m && wall === 'segment') {

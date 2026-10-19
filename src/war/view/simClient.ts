@@ -81,6 +81,11 @@ export class SimClient {
     this.send({ t: 'damage', id, dmg });
   }
 
+  /** Scenarios: the team's unfinished bridges done at once. */
+  finishBridges(team: number): void {
+    this.send({ t: 'finishBridges', team });
+  }
+
   /** Dev: add to a team's stockpile. */
   addStock(team: number, res: ResourceKind, n: number): void {
     this.send({ t: 'stock', team, res, n });

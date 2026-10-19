@@ -254,6 +254,8 @@ export interface WarBuildSim extends WarSim {
   claim(team: number, x: number, y: number, r?: number): void;
   addStock(team: number, res: ResourceKind, n: number): void;
   damageBuilding(id: number, dmg: number): void;
+  /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
+  finishBridges(team: number): void;
   /** Spawn the region's lairs (neutral play; once). */
   spawnMobs(): void;
 }

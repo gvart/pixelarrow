@@ -3,7 +3,7 @@ import { createSim } from '../../src/war/sim';
 import { BRIDGE } from '../../src/war/sim/economy';
 import { parseRegion } from '../../src/war/region/schema';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
-import { BRIDGE_DRAG, scenarioById } from '../../src/war/scenarios';
+import { BRIDGE_DRAG, BRIDGE_STONE, scenarioById } from '../../src/war/scenarios';
 import type { BuildingSnap, RegionData, ResourceKind, WarBuildSim } from '../../src/war/types';
 
 /**
@@ -307,7 +307,7 @@ describe('bridge determinism and budget', () => {
 });
 
 describe('bridge-test scenario (test-ridge)', () => {
-  it('the walled crossing leaves no way over nearby; a wood bridge at BRIDGE_DRAG takes the squad across', () => {
+  it('a 3-wide stone bridge and a 1-wide footbridge stand, BRIDGE_DRAG is free, the hoplites cross', () => {
     const sc = scenarioById('bridge-test')!, e = sc.economy!;
     const sim = createSim(parseRegion(ridgeJson), 11);
     for (const c of e.claims) sim.claim(c.team, c.x, c.y, c.r);
@@ -335,20 +335,22 @@ describe('bridge-test scenario (test-ridge)', () => {
     prebuild(e.prebuild!);
     for (const o of sc.after!.orders) sim.order(o);
     expect(sim.snapshot().buildings!.every((b) => b.state === 'done')).toBe(true);
-    const drag = { material: 'wood' as const, points: [...BRIDGE_DRAG] };
-    const plan = sim.checkBridge(0, drag);
+    // the standing bridges (as the sandbox: laid out, then done at once)
+    for (const { team, ...b } of e.bridges ?? []) sim.order({ kind: 'placeBridge', team, ...b });
+    sim.step(); // orders apply on the next step
+    sim.finishBridges(0);
+    sim.step();
+    const bs = bridges(sim);
+    expect(bs.every((b) => b.state === 'done')).toBe(true);
+    expect(new Set(bs.map((b) => `${b.bridge!.axis}${b.bridge!.width}${b.type}`))).toEqual(new Set(['h3stoneBridge', 'h1woodBridge']));
+    expect(sim.checkBridge(0, { material: 'stone', points: [...BRIDGE_STONE], width: 3 }).reason).toBe('overlap');
+    // a free reach for a bridge of your own
+    const plan = sim.checkBridge(0, { material: 'wood', points: [...BRIDGE_DRAG] });
     expect(plan.ok).toBe(true);
     expect(plan.span).toBeLessThanOrEqual(BRIDGE.maxSpan.wood);
-    // the hoplites cannot get over: after a minute they are still on the west bank
-    sim.order({ kind: 'move', squad: 1, x: 313, y: 397 });
-    run(sim, 600);
-    expect(unitsOf(sim, 1).every((u) => u.x < 300)).toBe(true);
-    // the militia bridge it from their bank; the hoplites go over
-    sim.order({ kind: 'placeBridge', squad: 0, ...drag });
-    run(sim, 6000, () => sim.snapshot().tick % 50 === 0 && bridges(sim).every((b) => b.state === 'done'));
-    expect(bridges(sim).every((b) => b.state === 'done')).toBe(true);
-    sim.order({ kind: 'move', squad: 1, x: 313, y: 397 });
-    run(sim, 900, () => unitsOf(sim, 1).every((u) => u.x > 308));
-    expect(unitsOf(sim, 1).filter((u) => u.x > 308).length).toBeGreaterThanOrEqual(18);
+    // the hoplites go over to the east bank on a standing bridge
+    sim.order({ kind: 'move', squad: 1, x: 312, y: 384 });
+    run(sim, 2400, () => unitsOf(sim, 1).every((u) => u.x > 309));
+    expect(unitsOf(sim, 1).filter((u) => u.x > 309).length).toBeGreaterThanOrEqual(18);
   });
 });

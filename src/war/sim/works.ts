@@ -1133,6 +1133,16 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     place,
     placeWall,
     placeBridge,
+    /** Scenarios: every unfinished bridge piece of `team` done at once (materials and labour free). */
+    finishBridges(team: number) {
+      for (const b of buildings) {
+        if (!b.bridge || b.team !== team || (b.state !== 'foundation' && b.state !== 'scaffold')) continue;
+        b.delivered = { ...b.cost };
+        if (b.state === 'foundation') (b.state = 'scaffold'), close(b);
+        b.labour = b.need;
+        finish(b);
+      }
+    },
     damage,
     setJob,
     release,
