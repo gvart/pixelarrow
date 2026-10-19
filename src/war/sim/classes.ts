@@ -7,6 +7,7 @@
 import { CLASSES, isClassId, type ClassId } from '../../data/classes';
 import { BASE, type Equipment } from '../../data/units';
 import type { Rarity } from '../../data/items';
+import type { MissileKind } from '../types';
 import { computeStats } from '../../sim/stats';
 
 export interface WarStats {
@@ -19,6 +20,7 @@ export interface WarStats {
   ammo: number;
   shotTicks: number;
   shotSpeed: number; // tiles/s
+  missile: MissileKind;
   accuracy: number;
   armor: number;
   block: number;
@@ -49,6 +51,7 @@ export function warStats(cls: string): WarStats {
     maxHp: c.maxHp, dmg: c.dmg, reach: c.reach, atkTicks: ticks(c.atkTime),
     rangedDmg: c.rangedDmg, range: c.ammo > 0 ? c.range : 0, ammo: c.ammo, shotTicks: ticks(c.shotTime),
     shotSpeed: c.weapon === 'sling' ? 16 : c.weapon === 'javelins' ? 12 : 20,
+    missile: c.weapon === 'sling' ? 'stone' : c.weapon === 'javelins' ? 'javelin' : 'arrow',
     accuracy: c.accuracy, armor: c.armor, block: c.block, ap: c.armorPierce ?? 0, speed: c.speed / BASE.speed,
   };
   cache.set(cls, s);
