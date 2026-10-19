@@ -17,8 +17,8 @@
  *   siege (ram / stone thrower / siege ladder, M2c): the engine's sprite follows the cursor; click: the selected own squad
  *     builds it there (its cost paid at once; ../siege/siegeControls.ts)
  *   Esc drops the drag, then the pending lines, then the tool, then the selected site, then build mode
- *   any mode: right click a resource node with squads selected gathers it; right click an unfinished (or damaged) own
- *   site builds / resumes it; left click a building selects it (panel: assign N, stop work, cancel; upgrade a finished
+ *   any mode: E / right click a resource node with squads selected gathers it, an unfinished (or damaged) own site
+ *   builds / resumes it (../interact.ts); left click a building selects it (panel: assign N, stop work, cancel; upgrade a finished
  *   wall, tower or gate to its next tier)
  */
 import { BUILDINGS, CANCEL_REFUND, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
@@ -337,8 +337,7 @@ export class BuildMode {
 
   /**
    * Right click: in build mode with the wall tool, remove the pending line under the cursor (else drop the tool); with
-   * another tool, drop it; with own squads selected, build / resume the own unfinished or damaged site under the
-   * cursor, else gather the hovered node.
+   * another tool, drop it; false without a tool (the context action of ../interact.ts runs: build a site, gather a node).
    */
   command(): boolean {
     if (this.active && this.tool) {
@@ -352,17 +351,7 @@ export class BuildMode {
       this.cancel();
       return true;
     }
-    const own = [...this.s.selected].filter((q) => this.s.sim.squads.get(q)?.team === TEAM);
-    const site = this.siteAt(this.s.pointerTile);
-    if (site && own.length) {
-      for (const q of own) this.sendTo(q, site.id);
-      return true;
-    }
-    const n = this.hover;
-    if (!n || n.amount < 1 || !this.s.selected.size) return false;
-    for (const q of this.s.selected) if (this.s.sim.squads.get(q)?.team === TEAM) this.s.sim.order({ kind: 'gather', squad: q, node: n.id });
-    this.s.mark(n.x, n.y, 0xffe070);
-    return true;
+    return false;
   }
 
   /** Left click outside build mode that hit no unit: select the building there (or none); true if one was hit. */
@@ -374,12 +363,6 @@ export class BuildMode {
   /** The standing building under tile point t. */
   buildingAt(t: { x: number; y: number }): BuildingSnap | undefined {
     return this.layer.at(this.s.sim.cur?.buildings ?? [], t.x, t.y);
-  }
-
-  /** An own site under t that a squad can work: unfinished or damaged. */
-  private siteAt(t: { x: number; y: number }): BuildingSnap | undefined {
-    const b = this.buildingAt(t);
-    return b && b.team === TEAM && (isSite(b) || b.state === 'damaged') ? b : undefined;
   }
 
   /** Footprint centre for a type snapped so the tiles are whole. */

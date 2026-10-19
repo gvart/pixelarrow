@@ -8,12 +8,13 @@
  * through the height field (./iso.ts).
  *
  *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
- *   left click / box: select own squads (shift adds); right click: move, or attack an enemy squad
+ *   left click / box: select own squads (shift adds)
+ *   E or right click: the context action on the hovered target, named by the label at the cursor (./interact.ts:
+ *   attack, crew / uncrew, raise / push ladder, ignite, extinguish, build, gather, move)
  *   H hold; 1-4 formation line / column / wedge / loose
- *   B build mode, right click a resource node: gather, a site: build it; click a building: its panel (./build/buildMode.ts)
- *   siege (./siege/siegeControls.ts): C crew / U uncrew, Y deploy / pack, L raise ladder, P push ladder, I ignite,
- *   O extinguish, Q fire arrows; right click an enemy building or engine: attack it. Engines, fire, rubble and siege
- *   ladders are drawn by ./siege/siegeLayer.ts
+ *   B build mode; click a building: its panel (./build/buildMode.ts)
+ *   siege (./siege/siegeControls.ts): Y deploy / pack, Q fire arrows; HUD buttons for the rest. Engines, fire, rubble
+ *   and siege ladders are drawn by ./siege/siegeLayer.ts
  */
 import Phaser from 'phaser';
 import type { Order, RegionData, SquadId } from '../types';
@@ -31,6 +32,7 @@ import { workClip } from './build/work';
 import { SiegeArt } from './siege/siegeArt';
 import { SiegeControls } from './siege/siegeControls';
 import { SiegeLayer } from './siege/siegeLayer';
+import { Interact } from './interact';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLIMB = ['climb', 'walk'] as const;
@@ -75,6 +77,8 @@ export class SandboxScene extends Phaser.Scene {
   /** Siege engines, fire, rubble and siege ladders on the map; the siege orders. */
   siegeLayer!: SiegeLayer;
   siege!: SiegeControls;
+  /** The context action of E and right click, its label at the cursor. */
+  interact!: Interact;
   /** True once the overview has been baked for the current overlays. */
   overviewReady = false;
   private moved = false; // no edge pan before the first real pointer move
@@ -151,6 +155,7 @@ export class SandboxScene extends Phaser.Scene {
     void SiegeArt.load(this).then((a) => (this.siegeLayer.art = a));
     this.build = new BuildMode(this);
     this.siege = new SiegeControls(this);
+    this.interact = new Interact(this);
     // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk); ram crews and ladder
     // bearers on their engine's offsets
     const layer = this.build.layer, sl = this.siegeLayer;
@@ -221,6 +226,10 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /** The tile point on the ground under a pointer. */
+  tileAt(p: { x: number; y: number }): { x: number; y: number } {
+    return this.world(p);
+  }
+
   private world(p: { x: number; y: number }): { x: number; y: number } {
     const v = this.wpx(p.x, p.y);
     return this.iso.pick(v.x, v.y);
@@ -230,7 +239,7 @@ export class SandboxScene extends Phaser.Scene {
    * Where a move order under the pointer goes: the top of a walkway, tower platform or stair drawn there (the sim paths
    * up its stairs and ladders), the ground in front of a wall face, else the ground.
    */
-  private target(p: { x: number; y: number }): { x: number; y: number; px: number; z: number } {
+  target(p: { x: number; y: number }): { x: number; y: number; px: number; z: number } {
     const v = this.wpx(p.x, p.y), s = this.cameras.main.zoom >= SPRITE_ZOOM ? this.build.layer.surfaceAt(v.x, v.y) : null;
     if (s) return s;
     const g = this.iso.pick(v.x, v.y);
@@ -244,7 +253,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /** The live unit drawn nearest the pointer (screen space, so hills don't skew it), of / not of team 0. */
-  private pick(p: { x: number; y: number }, own: boolean): DrawUnit | null {
+  pick(p: { x: number; y: number }, own: boolean): DrawUnit | null {
     const w = this.wpx(p.x, p.y);
     let best: DrawUnit | null = null, bd = Math.max(BODY, 10 / this.cameras.main.zoom);
     for (const d of this.drawn) {
@@ -303,19 +312,22 @@ export class SandboxScene extends Phaser.Scene {
     if (hit) this.build.selectAt({ x: -1, y: -1 });
   }
 
-  /** Right click: attack the enemy squad under the cursor, else move to the ground there (squads side by side). */
+  /** Right click: the build tool's, else drop an armed siege button, else the context action (./interact.ts). */
   command(p: { x: number; y: number }): void {
     if (this.build.command()) return;
-    if (!this.selected.size) return;
-    const foe = this.pick(p, false);
-    if (foe) {
-      this.orderAll((squad) => ({ kind: 'attack', squad, target: foe.u.squad }));
-      this.markers.push({ x: foe.x, y: foe.y, t: this.time.now, c: 0xff4040 });
-      this.lastCommand = { kind: 'attack', x: foe.x, y: foe.y };
-      return;
-    }
-    if (this.siege.attackAt(this.world(p))) return;
-    const { x, y } = this.target(p);
+    if (this.siege.armed) { this.siege.armed = null; this.siege.status = ''; return; }
+    this.interact.at(p)?.run();
+  }
+
+  /** The selected squads attack the squad of unit foe. */
+  attackSquad(foe: DrawUnit): void {
+    this.orderAll((squad) => ({ kind: 'attack', squad, target: foe.u.squad }));
+    this.markers.push({ x: foe.x, y: foe.y, t: this.time.now, c: 0xff4040 });
+    this.lastCommand = { kind: 'attack', x: foe.x, y: foe.y };
+  }
+
+  /** The selected squads move to tile point (x, y), side by side. */
+  moveTo({ x, y }: { x: number; y: number }): void {
     const ids = [...this.selected];
     let cx = 0, cy = 0, n = 0;
     for (const d of this.drawn) if (this.selected.has(d.u.squad)) { cx += d.x; cy += d.y; n++; }
@@ -376,6 +388,7 @@ export class SandboxScene extends Phaser.Scene {
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.drawUi();
+    this.interact.label(this.moved && this.input.isOver && !this.build.tool && !this.box && !this.siege.armed ? p : null);
   }
 
   /**
