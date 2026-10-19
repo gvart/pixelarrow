@@ -1,0 +1,46 @@
+src/war/view/main.ts
+  s_cfc22b058125c4::t_a94b8bbb28e765 15,40
+src/war/view/build/buildMode.ts
+  s_cfc22b058125c4::t_898f1fc9897f3b 2-3
+sandbox.html
+  s_cfc22b058125c4::t_a94b8bbb28e765 6
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_a9120e3de12e04 93,95
+  s_cfc22b058125c4::t_d02df3e3b32204 1-88,90-92,94,96-114,116-120,122-126,128-169,172-187,189-209,211-300
+  s_cfc22b058125c4::t_898f1fc9897f3b 210
+  s_cfc22b058125c4::t_ab4e240adceb3f 115,121,127,170-171,188
+  s_cfc22b058125c4::t_5311ff06bc1cfa 89
+src/war/view/hud/kit.ts
+  s_cfc22b058125c4::t_666be4aac32c3f 1-79
+src/war/view/hud/minimap.ts
+  s_cfc22b058125c4::t_a9120e3de12e04 37
+  s_cfc22b058125c4::t_2d43ac454665cf 63
+  s_cfc22b058125c4::t_f4b12148c09de9 1-36,38-62,64-88
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_812b4a017cfb5f 209-224
+src/war/view/siege/siegeControls.ts
+  s_cfc22b058125c4::t_5dccd53ecb566f 18,23,170-176
+  s_cfc22b058125c4::t_e1526264fba577 2,8
+src/war/view/interact.ts
+  s_cfc22b058125c4::t_909d7a46589162 32-33,38-39,50,52-55
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_a94b8bbb28e765 1,28,56-57
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_f71bfd31eb33ab 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2a4ffe24c6f03769e4ed7acb57860d9fdea70812",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
