@@ -79,7 +79,7 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 - [x] **M1d scenarios** — `sandbox.html?scenario=pass-ambush|ford-crossing|hill-assault|bridge-vs-ford|brawl-600|free` (src/war/scenarios), picker + goal + alive/wounded/killed score in the panel; team 0 drawn blue. Owner checklist: each scenario reads at a glance (blue you, red enemy); bots do their job (march / hold / split); orders feel responsive; the score ends with a winner.
 - [x] **ART-1 world design + prototypes** — `docs/WAR.md` world section: ~35 regions with biome, altitude features, fauna (mobs), resources, adjacency; Gemini prototypes of the world map + 4 sample regions in `shots/war/gemini/`; prompts logged in `docs/playbook/PROMPTS_ART.md`. depends on: —
 
-- [ ] **ART-5 asset fixes + QA gate** — roofed watchtower, true umbrella pine, variant tiles so marsh/forest floor don't repeat, sand/water + sand/shallow sets, automated asset QA script. depends on: ART-4
+- [x] **ART-5 asset fixes + QA gate** — roofed watchtower, true umbrella pine, variant tiles so marsh/forest floor don't repeat, sand/water + sand/shallow sets, automated asset QA script. depends on: ART-4
 - [ ] **ART-6.. biome libraries** — one biome per item (tile sets + variants + 15–25 objects/props), owner approves each. depends on: ART-5
 - [ ] **ART-R render integration** — renderer draws PixelLab tiles (autotile by corner mask), cliff strips, objects from region data. depends on: M1d, ART-4
 
