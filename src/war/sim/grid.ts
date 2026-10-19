@@ -354,7 +354,7 @@ const DY = [0, 0, 1, -1, 1, -1, 1, -1];
 /**
  * 8-way A* over tiles with terrain and uphill costs; diagonals may not cut a blocked corner.
  * Returns tile indices from start to goal, or to the explored tile closest to the goal when it
- * is unreachable. Searches between blocks more than one apart go through the sector layer first.
+ * is unreachable. Searches between different sector nodes go through the sector layer first.
  */
 export function findPath(g: Grid, start: number, goal: number): number[] {
   ensureScratch(g);
@@ -362,9 +362,11 @@ export function findPath(g: Grid, start: number, goal: number): number[] {
   const sc = g.sectors;
   const a = sc.node[start];
   const b = sc.node[goal];
-  const far = a >= 0 && b >= 0 && Math.max(Math.abs(sc.bx[a] - sc.bx[b]), Math.abs(sc.by[a] - sc.by[b])) > 1;
-  if (far) corridor(sc, a, b);
-  return tileSearch(g, start, goal, far);
+  // any goal in another node goes through the node layer: a near one may lie across a river or a wall, reached only
+  // round a long detour (or not at all), and the tile search keeps to that corridor instead of flooding the map
+  const nodes = a >= 0 && b >= 0 && a !== b;
+  if (nodes) corridor(sc, a, b);
+  return tileSearch(g, start, goal, nodes);
 }
 
 function ensureScratch(g: Grid) {

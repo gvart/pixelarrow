@@ -18,6 +18,9 @@
  * selected finished building, the ghost's footprint. Over them: progress bars, the own influence area (a canvas baked per
  * influence version), the placement ghost (the real sprites or kit pieces, tinted green / red, with the sim's reason)
  * and the hovered resource node.
+ * Bridges (M2d): per tile kit pieces (deck-<axis> over the water, end-<axis><0|1> ramps on the banks rising towards the
+ * deck: 0 at the low end of the axis) at the tile's surface level; units on a done deck walk deckM over it (as on a
+ * wall-walk), up a ramp as on a stair. A collapsed piece leaves the stumps of its damaged art at the waterline.
  */
 import Phaser from 'phaser';
 import type { BuildingSnap, BuildingType, InfluenceMap, NodeSnap } from '../../types';
@@ -67,7 +70,15 @@ const SIEGE_FOOT: Partial<Record<BuildingType, number>> = { stoneWall: 0.945, st
 /** How a building is drawn this frame: the type and stage shown (an upgrade shows the old tier), and the grown tiles' stage. */
 interface Look { type: BuildingType; stage: string; grown: number; grownStage: string }
 /** A placement ghost piece. tiles: stairs bottom first; attach: the tile of the wall or tower a ladder leans on. */
-export interface GhostPiece { tiles: readonly number[]; ok: boolean; type?: BuildingType; attach?: readonly number[]; rot?: 0 | 1 }
+export interface GhostPiece {
+  tiles: readonly number[]; ok: boolean; type?: BuildingType; attach?: readonly number[]; rot?: 0 | 1;
+  /** A bridge piece: its axis, part and, for a ramp, the way it rises (towards the deck, +1 / -1 along the axis). */
+  bridge?: { axis: 'x' | 'y'; part: 'end0' | 'end1' | 'deck'; rise: number };
+}
+/** Bridge kit piece name (objects.json kits bridge-*: deck-x, deck-y, end-x0, end-x1, end-y0, end-y1). */
+export const bridgePiece = (axis: 'x' | 'y', part: 'end0' | 'end1' | 'deck', rise: number): string => (part === 'deck' ? `deck-${axis}` : `end-${axis}${rise > 0 ? 0 : 1}`);
+/** Bridge stumps: the bottom px of the damaged art left standing in the water after a collapse. */
+const STUMP = 22;
 /** A ground arrow (tile point, direction) in the ghost: the wall's inside. */
 export interface GhostMark { x: number; y: number; dx: number; dy: number }
 
@@ -241,6 +252,13 @@ export class BuildingLayer {
           for (const [x, y] of ts) this.decks.set(key(x, y), { kind: 'deck', px: m.walkPx, z, depth, b: b.id, ox: x0, oy: y0, dx: 0, dy: 0, n: 0 });
           if (b.door) this.decks.set(key(b.door[0], b.door[1]), { kind: 'door', px: 0, z, depth, b: b.id, ox: 0, oy: 0, dx: 0, dy: 0, n: 0 });
         }
+      } else if (def.bridge && b.bridge && up) {
+        const m = this.art?.meta(b.type), px = m?.walkPx || 66, br = b.bridge;
+        for (const [x, y] of ts) {
+          if (br.part === 'deck') { this.decks.set(key(x, y), { kind: 'deck', px, z: this.zt(x, y), depth: this.D(x + 0.495, y + 0.495), b: b.id, ox: x, oy: y, dx: 0, dy: 0, n: 0 }); continue; }
+          const r = this.rise(x, y, br.axis), dx = br.axis === 'x' ? r : 0, dy = br.axis === 'y' ? r : 0;
+          this.decks.set(key(x, y), { kind: 'stair', px, z: this.zt(x, y), depth: this.D(x + 0.5, y + 0.5), b: b.id, ox: x + (dx < 0 ? 1 : 0), oy: y + (dy < 0 ? 1 : 0), dx, dy, n: 1 });
+        }
       } else if (def.wall === 'segment' && b.walk) {
         pairs(b.tiles).forEach(([x, y]) => {
           const w = walks.get(key(x, y));
@@ -394,7 +412,8 @@ export class BuildingLayer {
       const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = this.D(x1 - 0.5, y1 - 0.5);
       const def = BUILDINGS[b.type], l = this.looks.get(b.id) ?? this.look(b), axis = b.w >= b.h ? 'x' : 'y';
       let drawn = false;
-      if (this.art && b.state !== 'destroyed') {
+      if (this.art && def.bridge) drawn = this.drawBridge(b, l);
+      else if (this.art && b.state !== 'destroyed') {
         if (def.wall === 'segment') drawn = this.drawWall(b, walls);
         else if (def.wall === 'tower') drawn = this.drawTower(b, l);
         else if (def.access) drawn = this.drawAccess(b, l);
@@ -507,6 +526,29 @@ export class BuildingLayer {
     const [x, y] = ts[0], f = this.ladderFrame(m.pieces, x, y, b.attach);
     if (f < 0) return false;
     this.piece(this.img(this.ni++, kit.key, f), kit, x, y, this.zt(x, y)).setDepth(this.D(x + 0.8, y + 0.8));
+    return true;
+  }
+
+  /** Which way a ramp tile rises along its axis: towards the bridge piece beside it (+1 / -1). */
+  private rise(x: number, y: number, axis: 'x' | 'y'): number {
+    const o = axis === 'x' ? this.occ.get(key(x + 1, y)) : this.occ.get(key(x, y + 1));
+    return o && BUILDINGS[o.type].bridge ? 1 : -1;
+  }
+
+  /** A bridge piece tile by tile (its stage's kit; destroyed: stumps of the damaged art). */
+  private drawBridge(b: BuildingSnap, l: Look): boolean {
+    const gone = b.state === 'destroyed', kit = this.art!.kit(b.type, gone ? 'damaged' : l.stage), m = this.art!.meta(b.type);
+    if (!kit || !m || !b.bridge) return false;
+    const br = b.bridge;
+    for (const [x, y] of pairs(b.tiles)) {
+      const f = m.pieces.indexOf(bridgePiece(br.axis, br.part, br.part === 'deck' ? 0 : this.rise(x, y, br.axis)));
+      if (f < 0) continue;
+      const im = this.piece(this.img(this.ni++, kit.key, f), kit, x, y, this.zt(x, y)).setDepth(this.D(x + 0.495, y + 0.495));
+      if (gone) {
+        const top = kit.tileOrigin.y + HH - STUMP;
+        im.setCrop(0, top, im.frame.realWidth, im.frame.realHeight - top);
+      }
+    }
     return true;
   }
 
@@ -665,7 +707,7 @@ export class BuildingLayer {
   private bar(g: Phaser.GameObjects.Graphics, b: BuildingSnap, c: P, zoom: number): void {
     const building = b.state === 'foundation' || b.state === 'scaffold';
     if (!building && b.state !== 'damaged') return;
-    if (building && BUILDINGS[b.type].wall === 'segment' && b.delivered === 0) return; // a wall line of empty bars is noise
+    if (building && (BUILDINGS[b.type].wall === 'segment' || BUILDINGS[b.type].bridge) && b.delivered === 0) return; // a wall line of empty bars is noise
     const tall = this.art?.meta(b.type)?.heightPx || HEIGHT[b.type] || 60;
     const k = 1 / Math.max(zoom, 1 / 4), w = 44 * k, h = 4 * k, x = c.x - w / 2, y = c.y - tall - 14 * k;
     g.fillStyle(0x000000, 0.7).fillRect(x - k, y - k, w + 2 * k, (building ? 2 * h + 1 * k : h) + 2 * k);
@@ -710,7 +752,12 @@ export class BuildingLayer {
         }
         const tint = p.ok ? 0x90ff90 : 0xff7070, d = 11.3 + (x1 + y1) / 1e6;
         const kit = p.type ? this.art?.kit(p.type, 'done') : undefined, m = p.type ? this.art?.meta(p.type) : undefined;
-        if (kit && m && wall === 'segment') {
+        if (kit && m && p.bridge) {
+          for (const [x, y] of ts) {
+            const f = m.pieces.indexOf(bridgePiece(p.bridge.axis, p.bridge.part, p.bridge.rise));
+            if (f >= 0) put(kit.key, f, kit, x, y, 11.3 + (x + y) / 1e6, tint);
+          }
+        } else if (kit && m && wall === 'segment') {
           for (const [x, y] of ts) {
             const f = this.wallFrame(p.type!, x, y, walls, walk);
             put(kit.key, f, kit, x, y, 11.3 + (x + y) / 1e6, tint);

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createSim } from '../../src/war/sim';
 import { BRIDGE } from '../../src/war/sim/economy';
-import type { BuildingSnap, RegionData, WarBuildSim } from '../../src/war/types';
+import { parseRegion } from '../../src/war/region/schema';
+import ridgeJson from '../../src/war/regions/test-ridge.json';
+import { BRIDGE_DRAG, scenarioById } from '../../src/war/scenarios';
+import type { BuildingSnap, RegionData, ResourceKind, WarBuildSim } from '../../src/war/types';
 
 /**
  * Flat grass (height 1), w x 32, with a deep river (height 0) running north-south over columns x0 .. x0 + width - 1.
@@ -190,5 +193,52 @@ describe('bridge determinism and budget', () => {
     expect(a.snap).toBe(b.snap);
     const avg = b.ms.reduce((x, y) => x + y, 0) / b.ms.length;
     expect(avg).toBeLessThan(2); // ms per tick for 20 builders on two bridges
+  });
+});
+
+describe('bridge-test scenario (test-ridge)', () => {
+  it('the walled crossing leaves no way over nearby; a wood bridge at BRIDGE_DRAG takes the squad across', () => {
+    const sc = scenarioById('bridge-test')!, e = sc.economy!;
+    const sim = createSim(parseRegion(ridgeJson), 11);
+    for (const c of e.claims) sim.claim(c.team, c.x, c.y, c.r);
+    for (const [r, n] of Object.entries(e.stock ?? {})) sim.addStock(0, r as ResourceKind, n);
+    for (const [r, n] of Object.entries(e.foeStock ?? {})) sim.addStock(1, r as ResourceKind, n);
+    for (const q of sc.squads) sim.spawnSquad(q.owner ?? 'you', q.team, q.cls, q.count, q.x, q.y);
+    // as the sandbox's prebuild: idle squads of each team take the nearest open site of theirs
+    const prebuild = (max: number) => run(sim, max, () => {
+      const snap = sim.snapshot();
+      if (snap.tick % 20) return false;
+      const open = snap.buildings!.filter((b) => b.state === 'foundation' || b.state === 'scaffold');
+      if (!open.length) return true;
+      for (const q of snap.squads) {
+        const u = snap.units.find((v) => v.squad === q.id);
+        const mine = open.filter((b) => b.team === q.team);
+        if (!u || q.order === 'build' || !mine.length) continue;
+        const site = mine.reduce((a, b) => (Math.hypot(b.x - u.x, b.y - u.y) < Math.hypot(a.x - u.x, a.y - u.y) ? b : a));
+        sim.order({ kind: 'build', squad: q.id, site: site.id });
+      }
+      return false;
+    });
+    for (const t of e.sites ?? []) sim.order({ kind: 'placeBuilding', squad: t.squad, type: t.type, x: t.x, y: t.y });
+    prebuild(e.prebuild!);
+    for (const { squad, phase: _, ...w } of e.walls ?? []) sim.order({ kind: 'placeWall', squad, ...w });
+    prebuild(e.prebuild!);
+    for (const o of sc.after!.orders) sim.order(o);
+    expect(sim.snapshot().buildings!.every((b) => b.state === 'done')).toBe(true);
+    const drag = { material: 'wood' as const, points: [...BRIDGE_DRAG] };
+    const plan = sim.checkBridge(0, drag);
+    expect(plan.ok).toBe(true);
+    expect(plan.span).toBeLessThanOrEqual(BRIDGE.maxSpan);
+    // the hoplites cannot get over: after a minute they are still on the west bank
+    sim.order({ kind: 'move', squad: 1, x: 313, y: 397 });
+    run(sim, 600);
+    expect(unitsOf(sim, 1).every((u) => u.x < 300)).toBe(true);
+    // the militia bridge it from their bank; the hoplites go over
+    sim.order({ kind: 'placeBridge', squad: 0, ...drag });
+    run(sim, 6000, () => sim.snapshot().tick % 50 === 0 && bridges(sim).every((b) => b.state === 'done'));
+    expect(bridges(sim).every((b) => b.state === 'done')).toBe(true);
+    sim.order({ kind: 'move', squad: 1, x: 313, y: 397 });
+    run(sim, 900, () => unitsOf(sim, 1).every((u) => u.x > 308));
+    expect(unitsOf(sim, 1).filter((u) => u.x > 308).length).toBeGreaterThanOrEqual(18);
   });
 });

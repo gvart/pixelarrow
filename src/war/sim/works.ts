@@ -45,6 +45,7 @@ const WAIT_OFF = 2.5; // workers with no free slot wait this far off the footpri
 const REPATH_NEAR = 6; // a site closing re-paths the workers headed this near its footprint
 const LADDER_COST = 4; // move cost multiplier on a ladder (a slow climb)
 const DOOR_COST = 2; // ... through a stone tower's door and inner stair
+const DETOUR = 3, DETOUR_PAD = 16; // a builder's way to its slot longer than DETOUR x straight + pad tiles: left to others
 /** Fire, ladder and breach rules (M2c). */
 export const FIRE = {
   start: 0.25, // intensity when it catches
@@ -121,7 +122,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const pathQueue: Worker[] = [];
   const waits = new Map<number, [number, number, number]>(); // worker id -> [site, x, y]: where it waits for a free slot
   const active = new Set<Worker>(); // workers with a job
-  const cutOff = new Map<number, number>(); // worker id -> a site it found no way to (until its next order)
+  const cutOff = new Map<number, Set<number>>(); // worker id -> sites it found no way to (until its next order)
+  const isCut = (u: Worker, id: number) => !!cutOff.get(u.id)?.has(id);
+  const cut = (u: Worker, id: number) => { let c = cutOff.get(u.id); if (!c) cutOff.set(u.id, (c = new Set())); c.add(id); };
   const waitAt = new Set<number>(); // tiles taken as wait spots
   const unwait = (u: Worker) => {
     const p = waits.get(u.id);
@@ -452,9 +455,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       grid.dirty.push(t % w, (t / w) | 0);
     }
     evict(fresh);
-    // workers headed near it search their way again (the old path may run through it, or the goal is now cut off)
+    // workers headed near it, or holding one of its slots, search their way again (the old path may run through it, or
+    // the goal is now cut off or a long detour away)
     const r = Math.max(b.w, b.h) / 2 + REPATH_NEAR;
-    for (const u of active) if (u.alive && Math.abs(u.wgx - b.x) < r && Math.abs(u.wgy - b.y) < r) u.wgx = u.wgy = -1;
+    for (const u of active) if (u.alive && (u.wsite === b.id || (Math.abs(u.wgx - b.x) < r && Math.abs(u.wgy - b.y) < r))) u.wgx = u.wgy = -1;
   };
 
   // --- walkways (W-27, W-28) ---
@@ -933,7 +937,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     let best: [Building, number] | null = null, bd = Infinity;
     for (const id of u.squad.sites) {
       const b = buildings[id];
-      if (!b || b.team !== u.squad.team || !unfinished(b) || b.users >= b.slots.length || cutOff.get(u.id) === id || !ready(b)) continue;
+      if (!b || b.team !== u.squad.team || !unfinished(b) || b.users >= b.slots.length || isCut(u, id) || !ready(b)) continue;
       const d = near2(b.tiles, u.x, u.y);
       if (d >= bd) continue;
       const k = freeSlot(b, u);
@@ -947,7 +951,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     let site: Building | null = null, bd = Infinity;
     for (const id of u.squad.sites) {
       const b = buildings[id];
-      if (!b || b.team !== u.squad.team || !unfinished(b) || cutOff.get(u.id) === id) continue;
+      if (!b || b.team !== u.squad.team || !unfinished(b) || isCut(u, id)) continue;
       const d = near2(b.tiles, u.x, u.y);
       if (d < bd) (bd = d), (site = b);
     }
@@ -989,7 +993,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (!ended) return walkTo(u, sx, sy);
     if (!at(b.tiles, u)) {
       // no way to the site from here (another level, cut off): leave it to others; a load for it goes back to the store
-      cutOff.set(u.id, b.id);
+      cut(u, b.id);
       if (u.wfor === b.id && u.carry) (b.incoming[u.carry]! -= u.load), (u.wfor = -1);
       leave(u);
       return null;
@@ -1002,6 +1006,28 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     b.slotUser[k] = u.id;
     u.wslot = k;
     return walkTo(u, kx, ky);
+  };
+
+  /**
+   * A builder whose way to its site's slot is a long detour (the far bank of a river it is bridging, the far side of
+   * its wall, reached only round by a ford) leaves that site to others for now: workers build from their own side.
+   */
+  const detour = (u: Worker) => {
+    if (u.job !== 'build' || u.wpath.length < 4) return;
+    const p = waits.get(u.id), waiting = u.wsite < 0 && !!p && p[1] === u.wgx && p[2] === u.wgy;
+    const b = u.wsite >= 0 ? buildings[u.wsite] : waiting ? buildings[p![0]] : null;
+    if (!b || (!waiting && near2(b.tiles, u.wgx, u.wgy) > AT * AT)) return;
+    let len = 0;
+    for (let i = 2; i < u.wpath.length; i += 2) len += Math.hypot(u.wpath[i] - u.wpath[i - 2], u.wpath[i + 1] - u.wpath[i - 1]);
+    if (len <= DETOUR * Math.hypot(u.wgx - u.x, u.wgy - u.y) + DETOUR_PAD) return;
+    cut(u, b.id);
+    if (waiting) unwait(u);
+    else {
+      if (u.wfor === b.id && u.carry) (b.incoming[u.carry]! -= u.load), (u.wfor = -1);
+      leave(u);
+    }
+    u.wgx = u.wgy = -1;
+    u.wpath = [];
   };
 
   const build = (u: Worker): Act => {
@@ -1336,6 +1362,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         if (!u.alive || !u.job) continue;
         u.wpath = path(u.squad.team, u.x, u.y, u.wgx, u.wgy);
         u.wpi = 1;
+        detour(u);
       }
       fireTick();
       if (++tick % REGROW_TICKS === 0)

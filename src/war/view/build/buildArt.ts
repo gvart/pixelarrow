@@ -1,7 +1,7 @@
 /**
  * Building art (ART-B, public/war/buildings/objects.json) for the build view, loaded on demand: absent or broken
  * art leaves the placeholders of ./buildingLayer.ts. Sprites are matched by sim building type + art stage; wall
- * pieces, towers, stairs and ladders use the kits (one sheet per state, frames by neighbour mask or piece).
+ * pieces, towers, stairs, ladders and bridges use the kits (one sheet per state, frames by neighbour mask or piece).
  * Placement (art note): `tileOrigin` is the PNG pixel of the top vertex of the footprint's north tile (a kit: of the
  * frame's NW tile). Layered kits (rampart, stone wall, towers, W-28) have a back sheet and a front sheet per state:
  * draw back, then the units on the walk (walkwayPx / platformPx above the ground), then front.
@@ -15,7 +15,7 @@ interface ArtObj { id: string; building: string; state: string; file: string; w:
 interface ArtKit {
   id: string; kind: string; frames: number; columns?: number; frame: { w: number; h: number }; tileOrigin: { x: number; y: number };
   states: Record<string, string>; front?: Record<string, string>; layered?: boolean; frameOf?: number[] | string; post?: string;
-  heightM?: number; walkwayPx?: number; platformPx?: number; topPx?: number; topM?: number | Record<string, number>; pieces?: string[];
+  heightM?: number; deckM?: number; walkwayPx?: number; platformPx?: number; topPx?: number; topM?: number | Record<string, number>; pieces?: string[];
 }
 interface ArtJson { buildings: { id: string; states: Record<string, string> }[]; objects: ArtObj[]; kits: ArtKit[]; buildOrder?: string[]; progress?: Record<string, number>; pxPerMetre?: number }
 
@@ -42,7 +42,7 @@ const ART_ID: Partial<Record<BuildingType, string>> = {
 /** Kit ids per sim type. */
 export const KIT_ID: Partial<Record<BuildingType, string>> = {
   palisade: 'palisade', rampart: 'rampart', stoneWall: 'stone-wall', woodTower: 'tower-wood', stoneTower: 'tower-stone',
-  woodStairs: 'stair-wood', stoneStairs: 'stair-stone', ladder: 'ladder',
+  woodStairs: 'stair-wood', stoneStairs: 'stair-stone', ladder: 'ladder', woodBridge: 'bridge-wood', stoneBridge: 'bridge-stone',
 };
 const FALLBACK_STAGES: [string, number][] = [['foundation', 0], ['scaffold', 0.5], ['done', 1]];
 
@@ -76,11 +76,13 @@ export class BuildArt {
       const sheet = async (key: string, file: string, k: ArtKit) => {
         if (!scene.textures.exists(key)) scene.textures.addSpriteSheet(key, await img(file), { frameWidth: k.frame.w, frameHeight: k.frame.h });
       };
-      const kits = j.kits.filter((k) => k.kind !== 'bridge');
+      const kits = j.kits;
       for (const k of kits) {
+        // bridges (M2d): the deck stands deckM over the water, the ramps rise to it
+        const deck = k.deckM ? Math.round(k.deckM * ppm) : 0;
         art.metas.set(k.id, {
           id: k.id, kind: k.kind, layered: !!k.layered, frameOf: Array.isArray(k.frameOf) ? k.frameOf : null, pieces: k.pieces ?? [],
-          walkPx: k.walkwayPx ?? k.platformPx ?? k.topPx ?? 0, heightPx: Math.round((k.heightM ?? 0) * ppm), post: k.post ? `kit-${k.id}-post` : undefined,
+          walkPx: k.walkwayPx ?? k.platformPx ?? k.topPx ?? deck, heightPx: Math.round((k.heightM ?? 0) * ppm) || deck, post: k.post ? `kit-${k.id}-post` : undefined,
         });
         if (k.kind === 'ladder' && k.topM && typeof k.topM === 'object') for (const [t, m] of Object.entries(k.topM)) art.ladderTop[t] = Math.round(m * ppm);
       }

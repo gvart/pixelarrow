@@ -14,6 +14,9 @@
  *     removes it; Enter (or the toolbar) orders every line
  *   stairs / ladder: the piece snaps to the nearest place it can lean on (stairs: the inside face of an own walkway
  *     wall; ladder: beside any walkway wall or tower); R cycles the places near the cursor; red with 'attach' when none
+ *   bridge (wood / stone, M2d): drag from a bank straight across the water to the far bank; the real deck pieces and
+ *     ramps follow the drag (2 wide, snapped to the axis it runs along most), green / red with the span (most
+ *     BRIDGE.maxSpan tiles of water) and the sim's reason; release orders it (the selected squad builds it, else planned)
  *   siege (ram / stone thrower / siege ladder, M2c): the engine's sprite follows the cursor; click: the selected own squad
  *     builds it there (its cost paid at once; ../siege/siegeControls.ts)
  *   Esc drops the drag, then the pending lines, then the tool, then the selected site, then build mode
@@ -21,8 +24,8 @@
  *   builds / resumes it (../interact.ts); left click a building selects it (panel: assign N, stop work, cancel; upgrade a finished
  *   wall, tower or gate to its next tier)
  */
-import { BUILDINGS, CANCEL_REFUND, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
-import type { BuildingSnap, BuildingType, NodeSnap, PlaceReason, PlaceResult, ResourceKind, SiegeType, WallPlan } from '../../types';
+import { BRIDGE, BUILDINGS, CANCEL_REFUND, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
+import type { BridgePlan, BuildingSnap, BuildingType, NodeSnap, PlaceReason, PlaceResult, ResourceKind, SiegeType, WallPlan } from '../../types';
 import { SIEGE } from '../../sim/siege';
 import { SIEGE_NAME } from '../siege/siegeControls';
 import type { SandboxScene } from '../SandboxScene';
@@ -35,6 +38,7 @@ export type Tool =
   | { kind: 'wall'; material: WallMaterial }
   | { kind: 'access'; type: 'woodStairs' | 'stoneStairs' | 'ladder' }
   | { kind: 'siege'; type: SiegeType }
+  | { kind: 'bridge'; material: 'wood' | 'stone' }
   | null;
 export type Cost = Partial<Record<ResourceKind, number>>;
 /** A wall line being planned: flat tile-centre points, its gates and towers (points on it), an explicit inside point. */
@@ -47,7 +51,7 @@ export const WALL_NAME: Record<WallMaterial, string> = { wood: 'palisade', timbe
 const REASON: Partial<Record<PlaceReason, string>> = {
   bounds: 'off the map', noBuild: 'no-build zone', water: 'water', rock: 'rock', blocked: 'blocked', overlap: 'overlaps a building',
   influence: 'outside your influence', slope: 'too steep', node: 'on a resource', short: 'line too short',
-  attach: 'attach: needs a wall to lean on',
+  attach: 'attach: needs a wall to lean on', span: `too long: over ${BRIDGE.maxSpan} tiles of water`, bank: 'needs dry banks at both ends',
 };
 export const reasonText = (r: PlaceReason) => REASON[r] ?? r;
 const RECHECK_MS = 500;
@@ -80,7 +84,7 @@ export class BuildMode {
   readonly layer: BuildingLayer;
   private drag: { x: number; y: number } | null = null; // wall run start while dragging
   /** Sim answers by query key (placement, wall plans), refreshed every RECHECK_MS. */
-  private answers = new Map<string, { at: number; r: PlaceResult | WallPlan | null }>();
+  private answers = new Map<string, { at: number; r: PlaceResult | WallPlan | BridgePlan | null }>();
   private pending = false;
   /** Access tools: the spot index R picked among those near the cursor. */
   private pick = 0;
@@ -309,6 +313,10 @@ export class BuildMode {
       return true;
     }
     const p = snap(t);
+    if (this.tool.kind === 'bridge') {
+      this.drag = { x: p[0], y: p[1] };
+      return true;
+    }
     if (this.insert) {
       const l = this.nearestLine(p);
       if (l) (this.insert === 'gate' ? l.gates : l.towers).push(p[0], p[1]);
@@ -328,6 +336,16 @@ export class BuildMode {
 
   onUp(t: { x: number; y: number }): boolean {
     if (!this.drag) return false;
+    if (this.tool?.kind === 'bridge') {
+      const o = this.bridgeQuery(t), who = this.builder();
+      this.drag = null;
+      void this.s.sim.checkBridge(TEAM, o).then((plan) => {
+        if (!plan?.ok) { this.status = `can't build: ${plan?.reason ? reasonText(plan.reason) : 'no sim'}`; return; }
+        this.s.sim.order({ kind: 'placeBridge', ...who, ...o });
+        this.setTool(null);
+      });
+      return true;
+    }
     const p = snap(t), l = this.lines.at(-1)!;
     if (Math.hypot(p[0] - this.drag.x, p[1] - this.drag.y) >= 1) l.points.push(p[0], p[1]);
     else if (l.points.length === 2) this.lines.pop();
@@ -369,6 +387,40 @@ export class BuildMode {
   private centre(type: BuildingType, t: { x: number; y: number }): [number, number] {
     const [w, h] = rotated(type, this.rot);
     return [Math.round(t.x - w / 2) + w / 2, Math.round(t.y - h / 2) + h / 2];
+  }
+
+  // --- bridges ---
+
+  /** The bridge query for the drag from its start to tile point t. */
+  private bridgeQuery(t: { x: number; y: number }): { material: 'wood' | 'stone'; points: number[] } {
+    const material = this.tool?.kind === 'bridge' ? this.tool.material : 'wood', d = this.drag ?? { x: t.x, y: t.y };
+    return { material, points: [d.x, d.y, ...snap(t)] };
+  }
+
+  /** The bridge tool's ghost and status: the sim's plan of the drag, or a single deck tile at the cursor. */
+  private bridgeGhost(t: { x: number; y: number }, zoom: number, buildings: readonly BuildingSnap[], who: string): void {
+    const material = this.tool?.kind === 'bridge' ? this.tool.material : 'wood', type = BRIDGE.kit[material];
+    if (!this.drag) {
+      this.status = `${material} bridge: drag from a bank straight across the water (at most ${BRIDGE.maxSpan} tiles)${who}`;
+      this.layer.ghost([{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true, type }], '', zoom, buildings);
+      return;
+    }
+    const o = this.bridgeQuery(t), plan = this.ask(`b:${JSON.stringify(o)}`, () => this.s.sim.checkBridge(TEAM, o)) as BridgePlan | null;
+    if (!plan) { this.layer.ghost(null, '', zoom); return; }
+    const d = BUILDINGS[type], cost: Cost = {};
+    let n = 0;
+    for (const p of plan.pieces) n += p.tiles.length / 2;
+    for (const [r, v] of Object.entries(d.cost) as [ResourceKind, number][]) cost[r] = v * n;
+    const pieces: GhostPiece[] = plan.pieces.map((p, i) => {
+      // a ramp rises towards the piece beside it
+      const near = plan.pieces[i === 0 ? 1 : i - 1], k = plan.axis === 'x' ? 0 : 1;
+      const rise = near ? Math.sign(near.tiles[k] - p.tiles[k]) : 1;
+      return { tiles: p.tiles, ok: p.ok && plan.ok, type: p.type, bridge: { axis: plan.axis, part: p.part, rise } };
+    });
+    const span = plan.span ? `span ${plan.span}/${BRIDGE.maxSpan}` : 'no water';
+    const why = plan.ok ? '' : `can't build: ${plan.reason ? reasonText(plan.reason) : '?'} · `;
+    this.status = `${why}${material} bridge: ${span} · ${costText(cost)} · ${labourText(d.labour * n)}${who} · release to order`;
+    this.layer.ghost(pieces.length ? pieces : [{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: false, type }], `${why}${span}${plan.ok ? ' · ' + costText(cost) : ''}`, zoom, buildings);
   }
 
   // --- wall lines ---
@@ -473,6 +525,7 @@ export class BuildMode {
       this.status = this.squad() === null ? `${SIEGE_NAME[type]}: select a squad to build it` : ok ? `${SIEGE_NAME[type]}: ${costText(d.cost)} · ${labourText(d.labour)} · crew ${d.crew}` : `can't build: ${reasonText('blocked')}`;
       return;
     }
+    if (this.tool.kind === 'bridge') return this.bridgeGhost(t, zoom, buildings, who);
     if (this.tool.kind === 'building') {
       const type = this.tool.type, [x, y] = this.centre(type, t), [w, h] = rotated(type, this.rot);
       const r = this.ask(`p:${type},${x},${y},${this.rot}`, () => sim.checkPlacement(TEAM, type, x, y, this.rot)) as PlaceResult | null;
@@ -555,7 +608,7 @@ export class BuildMode {
    * The sim's answer for a query key (placement or wall plan), asked off the worker when missing or older than
    * RECHECK_MS (one query in flight at a time); the last answer for the key meanwhile, null before the first.
    */
-  private ask(k: string, q: () => Promise<PlaceResult | WallPlan | null>): PlaceResult | WallPlan | null {
+  private ask(k: string, q: () => Promise<PlaceResult | WallPlan | BridgePlan | null>): PlaceResult | WallPlan | BridgePlan | null {
     const now = performance.now(), a = this.answers.get(k);
     if (!this.pending && (!a || now - a.at > RECHECK_MS)) {
       this.pending = true;
@@ -565,7 +618,7 @@ export class BuildMode {
     return a?.r ?? null;
   }
 
-  private answer(k: string): PlaceResult | WallPlan | null {
+  private answer(k: string): PlaceResult | WallPlan | BridgePlan | null {
     return this.answers.get(k)?.r ?? null;
   }
 
