@@ -4,6 +4,7 @@
  * ../sim/bots.ts, and sets the camera. Points are tile coords, mostly named spots.
  */
 import type { Behaviour } from '../sim/bots';
+import type { BuildingType, ResourceKind } from '../types';
 import { SPOTS } from '../regions/test-ridge.spots';
 
 export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour }
@@ -14,6 +15,12 @@ export interface Scenario {
   goal: string;
   squads: ScenarioSquad[];
   camera: { x: number; y: number; zoom: number };
+  /** Economy start (M2b): claim anchors, own stock, and sites a squad (index into squads) lays out and builds. */
+  economy?: {
+    claims: { team: number; x: number; y: number; r?: number }[];
+    stock?: Partial<Record<ResourceKind, number>>;
+    sites?: { squad: number; type: BuildingType; x: number; y: number }[];
+  };
 }
 
 type P = readonly [number, number];
@@ -22,6 +29,8 @@ const you = (cls: string, [x, y]: [number, number], count = 20): ScenarioSquad =
 const bot = (cls: string, [x, y]: [number, number], b: Behaviour, count = 20): ScenarioSquad => ({ team: 1, cls, count, x, y, bot: b });
 
 const S = SPOTS;
+/** build-test: a flat clearing in the south-east woods (trees all round, boulders near). */
+const HOME = [342, 338] as const;
 const [passSx, passSy] = S.passS;
 const [fwx, fwy] = S.fieldW;
 
@@ -104,6 +113,24 @@ export const SCENARIOS: Scenario[] = [
     goal: '300 v 300 across the ford: the bots attack the nearest squad. Win the melee.',
     squads: [], // built by devPanel brawl()
     camera: { x: S.ford[0], y: S.ford[1], zoom: 1 / 3 },
+  },
+  {
+    id: 'build-test',
+    name: 'Build test',
+    goal: 'Build up a base: your militia raise a camp on the claimed ground; gather wood and stone, place buildings and walls (B).',
+    squads: [
+      you('militia', at(HOME, -4, 4)),
+      you('militia', at(HOME, 4, 6)),
+      you('hoplite', at(HOME, 0, 10)),
+      bot('celt_sword', at(S.fieldE, 0, 0), { kind: 'hold', x: S.fieldE[0], y: S.fieldE[1], radius: 8 }),
+      bot('archer', at(S.fieldE, 6, 4), { kind: 'hold', x: S.fieldE[0] + 6, y: S.fieldE[1] + 4, radius: 8 }, 16),
+    ],
+    camera: { x: HOME[0], y: HOME[1] + 4, zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 0, x: HOME[0], y: HOME[1], r: 24 }],
+      stock: { wood: 150, stone: 100, food: 50 },
+      sites: [{ squad: 0, type: 'camp', x: HOME[0] + 0.5, y: HOME[1] + 0.5 }],
+    },
   },
   {
     id: 'free',
