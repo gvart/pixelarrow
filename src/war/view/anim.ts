@@ -14,7 +14,7 @@
  *
  * Clips are found on the sheet by name and fall back through ANIM_FALLBACK, so a clip added to a
  * manifest is used as soon as it ships. `override` is the hook for work clips (build, carry): it
- * names a clip for a unit, used when the sheet has it.
+ * names clips for a unit, the first the sheet has is used.
  */
 import { resolveAnim, SHEET_ANIMS, type SheetAnim } from '../../art/sheetManifest';
 import type { SquadSnap, UnitSnap } from '../types';
@@ -63,8 +63,8 @@ interface SquadAnim { team: number; order: string; foeNear: boolean; fought: num
 export interface Pick { clip: string; frame: number }
 
 export class Animator {
-  /** Work clips (build, carry, ...): a clip name for the unit, used if its sheet has it. */
-  override: ((u: UnitSnap) => string | undefined) | null = null;
+  /** Work clips (build, carry, ...): clip names for the unit, the first its sheet has is used (none: the usual pick). */
+  override: ((u: UnitSnap) => readonly string[] | undefined) | null = null;
   private mem = new Map<number, Mem>();
   private squads = new Map<number, SquadAnim>();
   private sheet = new Map<Clips, { idles: string[] }>();
@@ -163,8 +163,8 @@ export class Animator {
     m.hp = u.hp;
     if (m.one && now >= m.one.start) return { clip: m.one.name, frame: frameAt(clips.get(m.one.name)!, now - m.one.start) };
 
-    const work = this.override?.(u);
-    if (work && clips.has(work)) return this.loop(m, clips, work, now, u.id);
+    const work = this.override?.(u)?.find((n) => clips.has(n));
+    if (work) return this.loop(m, clips, work, now, u.id);
     const s = this.squads.get(u.squad);
     if (u.state === 'move') {
       const name = s?.order === 'attack' ? pickClip(clips, 'charge') : m.v > RUN ? pickClip(clips, 'run') : pickClip(clips, 'walk');

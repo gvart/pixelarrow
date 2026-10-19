@@ -1,6 +1,7 @@
 /** The sandbox dev panel (HTML overlay): scenarios, spawning, time, overlays, perf, the fight score. */
 import type Phaser from 'phaser';
 import { SCENARIOS, type Scenario } from '../scenarios';
+import type { ResourceKind } from '../types';
 import type { SandboxScene, Overlay } from './SandboxScene';
 
 const CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer'];
@@ -88,7 +89,12 @@ export function tally(s: SandboxScene): { tick: number; rows: { team: number; al
 /** Place a scenario's squads (with their bot behaviours) and set its camera. */
 export function applyScenario(s: SandboxScene, sc: Scenario): void {
   if (sc.id === 'brawl-600') brawl(s);
+  const e = sc.economy;
+  for (const c of e?.claims ?? []) s.sim.claim(c.team, c.x, c.y, c.r);
+  for (const [r, n] of Object.entries(e?.stock ?? {})) s.sim.addStock(0, r as ResourceKind, n);
   for (const q of sc.squads) s.sim.spawn(q.team === 0 ? 'you' : 'bot', q.team, q.cls, q.count, q.x, q.y, q.bot);
+  // squad ids follow the spawn order
+  for (const t of e?.sites ?? []) s.sim.order({ kind: 'placeBuilding', squad: t.squad, type: t.type, x: t.x, y: t.y });
   s.focus(sc.camera.x, sc.camera.y, sc.camera.zoom);
 }
 

@@ -3,7 +3,7 @@
  * interpolates unit positions between them (rendering runs one 10 Hz tick behind).
  */
 import type { Behaviour } from '../sim/bots';
-import type { Order, RegionData, Snapshot, SquadSnap, UnitSnap } from '../types';
+import type { BuildingType, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan } from '../types';
 import type { ToWorker } from './worker';
 
 export interface DrawUnit { u: UnitSnap; x: number; y: number; facing: number; team: number }
@@ -16,9 +16,23 @@ export class SimClient {
   private interval = 100;
   stats = { stepMs: 0, units: 0 };
   squads = new Map<number, SquadSnap>();
+  /** Economy (real sim only): the influence mask (latest version) and the resource nodes (posted every second). */
+  influence: InfluenceMap | null = null;
+  nodes: NodeSnap[] = [];
+  private asks = new Map<number, (r: unknown) => void>();
+  private askId = 0;
 
   constructor(region: RegionData) {
-    this.worker.onmessage = (e: MessageEvent<{ snap: Snapshot; stats: { stepMs: number; units: number } }>) => {
+    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; nodes?: NodeSnap[]; influence?: InfluenceMap } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null };
+    this.worker.onmessage = (e: MessageEvent<Msg>) => {
+      if ('reply' in e.data) {
+        const r = e.data;
+        this.asks.get(r.reply)?.(r.place ?? r.wall ?? null);
+        this.asks.delete(r.reply);
+        return;
+      }
+      if (e.data.nodes) this.nodes = e.data.nodes;
+      if (e.data.influence) this.influence = e.data.influence;
       this.old = new Map(this.cur?.units.map((u) => [u.id, u]));
       this.cur = e.data.snap;
       this.stats = e.data.stats;
@@ -40,6 +54,34 @@ export class SimClient {
 
   order(o: Order): void {
     this.send({ t: 'order', o });
+  }
+
+  /** Dev: a claim anchor (influence radius r) for a team. */
+  claim(team: number, x: number, y: number, r?: number): void {
+    this.send({ t: 'claim', team, x, y, r });
+  }
+
+  /** Dev: add to a team's stockpile. */
+  addStock(team: number, res: ResourceKind, n: number): void {
+    this.send({ t: 'stock', team, res, n });
+  }
+
+  /** The sim's checkPlacement, answered off the worker (null on the fake sim). */
+  checkPlacement(team: number, type: BuildingType, x: number, y: number, rot: 0 | 1): Promise<PlaceResult | null> {
+    return this.ask((id) => ({ t: 'check', id, team, type, x, y, rot }));
+  }
+
+  /** The sim's checkWall, answered off the worker (null on the fake sim). */
+  checkWall(team: number, wall: Omit<WallOrder, 'kind' | 'squad'>): Promise<WallPlan | null> {
+    return this.ask((id) => ({ t: 'checkWall', id, team, wall }));
+  }
+
+  private ask<T>(m: (id: number) => ToWorker): Promise<T | null> {
+    const id = ++this.askId;
+    return new Promise((ok) => {
+      this.asks.set(id, ok as (r: unknown) => void);
+      this.send(m(id));
+    });
   }
 
   /** Time scale; 0 pauses. */

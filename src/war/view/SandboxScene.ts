@@ -10,6 +10,7 @@
  *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
  *   left click / box: select own squads (shift adds); right click: move, or attack an enemy squad
  *   H hold; 1-4 formation line / column / wedge / loose
+ *   B build mode, right click a resource node: gather (./build/buildMode.ts)
  */
 import Phaser from 'phaser';
 import type { Order, RegionData, SquadId } from '../types';
@@ -22,6 +23,8 @@ import { LIVE_ZOOM, ObjectLayer } from './objects';
 import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain';
 import { ShotLayer } from './shots';
 import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
+import { BuildMode } from './build/buildMode';
+import { workClip } from './build/work';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 /** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above. */
@@ -57,6 +60,8 @@ export class SandboxScene extends Phaser.Scene {
   lastCommand: { kind: 'move' | 'attack'; x: number; y: number } | null = null;
   drawn: DrawUnit[] = [];
   readonly spots = SPOTS;
+  /** Build mode, buildings and the economy controls. */
+  build!: BuildMode;
   /** True once the overview has been baked for the current overlays. */
   overviewReady = false;
   private moved = false; // no edge pan before the first real pointer move
@@ -108,6 +113,7 @@ export class SandboxScene extends Phaser.Scene {
     this.units = new UnitLayer(this, this.iso, this.sheetImages);
     if (this.objects) this.units.depthOf = (x, y) => this.objects!.depth(x, y);
     this.shots = new ShotLayer(this, this.iso);
+    this.units.anim.override = workClip;
     this.gUi = this.add.graphics().setDepth(11);
 
     const cam = this.cameras.main;
@@ -128,6 +134,7 @@ export class SandboxScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
+    this.build = new BuildMode(this);
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => this.zoomAt(p.x, p.y, dy > 0 ? -1 : 1));
   }
 
@@ -215,6 +222,7 @@ export class SandboxScene extends Phaser.Scene {
   private onDown(p: Phaser.Input.Pointer): void {
     if (p.rightButtonDown()) return this.command(p);
     const pan = p.middleButtonDown() || this.keys.SPACE.isDown;
+    if (!pan && this.build.onDown(this.world(p), this.keys.SHIFT.isDown)) return;
     if (!pan && this.placing) {
       const t = this.world(p), { team, cls, count } = this.placing;
       this.sim.spawn(team === 0 ? 'you' : 'bot', team, cls, count, t.x, t.y);
@@ -237,6 +245,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private onUp(p: Phaser.Input.Pointer): void {
+    if (this.build.onUp(this.world(p))) return;
     if (!this.down || this.down.pan) { this.down = null; return; }
     this.down = null;
     if (!this.keys.SHIFT.isDown) this.selected.clear();
@@ -252,10 +261,12 @@ export class SandboxScene extends Phaser.Scene {
     }
     const hit = this.pick(p, true);
     if (hit) this.selected.add(hit.u.squad);
+    this.build.selectAt(hit ? { x: -1, y: -1 } : this.world(p));
   }
 
   /** Right click: attack the enemy squad under the cursor, else move to the ground there (squads side by side). */
   command(p: { x: number; y: number }): void {
+    if (this.build.command()) return;
     if (!this.selected.size) return;
     const foe = this.pick(p, false);
     if (foe) {
@@ -275,6 +286,16 @@ export class SandboxScene extends Phaser.Scene {
     });
     this.markers.push({ x, y, t: this.time.now, c: 0x80ff80 });
     this.lastCommand = { kind: 'move', x, y };
+  }
+
+  /** A fading ring on the ground at a tile point. */
+  mark(x: number, y: number, c: number): void {
+    this.markers.push({ x, y, t: this.time.now, c });
+  }
+
+  /** Depth key of a tile point (as the units and objects sort). */
+  depthAt(x: number, y: number): number {
+    return this.objects ? this.objects.depth(x, y) : x + y;
   }
 
   private orderAll(f: (s: SquadId) => Order): void {
@@ -307,6 +328,7 @@ export class SandboxScene extends Phaser.Scene {
     this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
+    this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
     this.drawUi();
   }
 
