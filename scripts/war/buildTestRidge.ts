@@ -9,19 +9,32 @@
  *  - NE: a high plateau ringed by cliffs, reached only by a ramp road (the fort spot);
  *  - forest (big wood SE plus copses), marsh with pools on the west bank, a sand patch with dunes (SE);
  *  - roads linking the four entries over the ford, the bridge and the pass.
- * Heights: grass 1, river bed 0, foothills 2, ridge crest and plateau 5, mountains 5..7.
+ * Heights: grass 1, river bed 0, foothills 2, ridge crest and plateau 5, mountains 5 (rim) and 7 (core).
  * Every 2+ level step between walkable tiles is a deliberate cliff (ridge north face, plateau rim).
+ *
+ * The visual layer (RegionData.visual, src/war/regions/visual.ts) is the same land generated again at
+ * twice the size (1 m cells, the script runs itself with `fine`), so coasts and borders follow the
+ * shapes' sub-tile curves. There the mountain rock rises far above the sim's levels (a 1-level scree
+ * foot, then steep flanks in 3-level cliff steps up to ridged summits of up to ZVIS, snow on the
+ * highest; never tall enough in front of a road to hide it); the sim keeps rock impassable at 5..7. Map objects stand only where the fine cell under the foot has
+ * their terrain and no ground in front hides the foot.
  *
  * Features are authored in units of a 256-wide map (one unit = one tile at the default size); SIZE
  * scales them all, widths and slope lengths included, so a bigger map is the same land in finer tiles.
  *
  *   node scripts/war/buildTestRidge.ts [size] [outDir]   (default 256, src/war/regions)
  */
-import { writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { blob, curveField, fbm, nearestSample, spline, type Pt, type Sample } from './shapes.ts';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { blob, curveField, fbm, nearestSample, noise, spline, type Pt, type Sample } from './shapes.ts';
+import { decodeVisual, encodeVisual, KINDS, ZVIS } from '../../src/war/regions/visual.ts';
 
 const SIZE = Number(process.argv[2] ?? 256);
+/** `fine`: write only the visual layer of this size (test-ridge.fine.json) and stop. */
+const FINE = process.argv[4] === 'fine';
 const K = SIZE / 256; // tiles per authoring unit
 const W = SIZE;
 const H = SIZE;
@@ -86,7 +99,7 @@ const chainDepth = new Float32Array(N).fill(-Infinity);
     if (e === -Infinity) return;
     chainDepth[i] = e;
     if (e > 0) {
-      height[i] = Math.min(7, 5 + Math.floor(e / 4));
+      height[i] = e < 4 ? 5 : 7; // two tall bands, no 1-level terraces (the visual layer draws the real mass)
       terrain[i] = 'rock';
     } else if (e > -5 && height[i] < 2) height[i] = 2;
   });
@@ -183,6 +196,50 @@ ROADS.forEach((pts, k) => {
   });
 });
 
+// ---- fine mode: the visual layer. Mountain rock gets its visual height from the chain depth: a scree
+// foot one level over the foothills, then steep flanks (SLOPE levels per unit of depth, about 1.5 per
+// metre) up to a ridged summit height (PEAK_LO..ZVIS), cut into cliff steps of STEP levels; snow from SNOW_Z.
+const SLOPE = 6, STEP = 3, PEAK_LO = 18, SNOW_Z = 33;
+const ridged = (x: number, y: number, scale: number, seed: number) => 1 - Math.abs(noise(x / scale, y / scale, seed));
+if (FINE) {
+  const kind = new Uint8Array(N), zv = new Uint8Array(N);
+  each((i, x, y) => {
+    const t = water[i] === 2 ? 'deep' : water[i] === 1 ? 'shallow' : terrain[i];
+    let z = height[i];
+    if (t === 'rock') {
+      const e = chainDepth[i] + 1.2 * fbm(x, y, 5, 41);
+      const peak = PEAK_LO + (ZVIS - PEAK_LO) * (0.65 * ridged(x, y, 11, 43) + 0.35 * ridged(x, y, 5, 44)) ** 1.6;
+      z = e < 0.6 ? 3 : 3 + STEP * Math.floor(Math.min(SLOPE * (e - 0.6), peak - 3) / STEP);
+    }
+    zv[i] = z;
+  });
+  // keep the roads in sight: rock in front of a road (toward the viewer, +x +y) rises at most half a
+  // level per cell step, so it never hides the road (the pass is a cut with a low near side)
+  const lim = new Float32Array(N).fill(Infinity);
+  for (let v = 0; v < W + H - 1; v++) for (let x = Math.max(0, v - H + 1); x <= Math.min(W - 1, v); x++) {
+    const y = v - x, i = y * W + x;
+    let l = terrain[i] === 'road' ? zv[i] : Infinity;
+    if (x > 0) l = Math.min(l, lim[i - 1] + 0.5);
+    if (y > 0) l = Math.min(l, lim[i - W] + 0.5);
+    lim[i] = l;
+    if (terrain[i] === 'rock' && zv[i] > l) zv[i] = Math.max(3, 3 + STEP * Math.floor((l - 3) / STEP)); // in cliff steps too, no 1-level terraces
+  }
+  each((i) => {
+    const t = water[i] === 2 ? 'deep' : water[i] === 1 ? 'shallow' : terrain[i];
+    kind[i] = KINDS.indexOf((t === 'rock' && zv[i] >= SNOW_Z ? 'snow' : t) as (typeof KINDS)[number]);
+  });
+  writeFileSync(join(process.argv[3], 'test-ridge.fine.json'), JSON.stringify({ rle: encodeVisual(kind, zv) }));
+  process.exit(0);
+}
+const fineDir = mkdtempSync(join(tmpdir(), 'ridge-fine-'));
+execFileSync(process.execPath, [fileURLToPath(import.meta.url), String(2 * SIZE), fineDir, 'fine'], { stdio: 'inherit' });
+const visual = { scale: 2 as const, rle: JSON.parse(readFileSync(join(fineDir, 'test-ridge.fine.json'), 'utf8')).rle as number[] };
+rmSync(fineDir, { recursive: true });
+const FW = 2 * W, FH = 2 * H;
+const fine = decodeVisual(visual.rle, FW * FH);
+const fAt = (fx: number, fy: number) => (fx < 0 || fy < 0 || fx >= FW || fy >= FH ? -1 : fy * FW + fx);
+const fzAt = (fx: number, fy: number) => { const j = fAt(fx, fy); return j < 0 ? 0 : fine.z[j]; };
+
 // ---- check: walkable neighbours more than one level apart are only the deliberate cliffs
 const open = (i: number) => water[i] !== 2 && terrain[i] !== 'rock';
 let cliffs = 0;
@@ -241,6 +298,15 @@ const objects: { id: string; x: number; y: number }[] = [];
   };
   const pick = (ids: string[], r: number) => ids[Math.floor(r * ids.length)];
   const put = (id: string, x: number, y: number) => objects.push({ id, x: r1(x * 10) / 10, y: r1(y * 10) / 10 });
+  // the fine cell under a foot point, and whether ground in front of it (toward the viewer, +x +y) rises over the foot
+  const cellOf = (x: number, y: number) => fAt(Math.floor(2 * x), Math.floor(2 * y));
+  const footSeen = (x: number, y: number) => {
+    const fx = Math.floor(2 * x), fy = Math.floor(2 * y), z = fzAt(fx, fy);
+    for (let d = 1; d <= ZVIS; d++) for (let j = -1; j <= 1; j++) {
+      if (fzAt(fx + d + Math.max(0, j), fy + d + Math.max(0, -j)) - z > d + Math.abs(j) / 2 - 0.5) return false;
+    }
+    return true;
+  };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x, t = terrain[i];
     if (water[i] || t === 'road' || spotTiles.has(i)) continue;
@@ -262,6 +328,30 @@ const objects: { id: string; x: number; y: number }[] = [];
     } else if (t === 'sand') {
       if (p < 0.006) put(pick(['bush-a', 'boulder-b'], q), fx, fy);
     } else if (t === 'dirt' && p < 0.004) put('bush-a', fx, fy);
+  }
+  // the fine layer decides at the foot: same terrain there, and the foot in sight
+  for (let k = objects.length - 1; k >= 0; k--) {
+    const o = objects[k], t = terrain[at(Math.floor(o.x), Math.floor(o.y))], c = cellOf(o.x, o.y);
+    if (KINDS[fine.kind[c]] !== t || !footSeen(o.x, o.y)) objects.splice(k, 1);
+  }
+  // mountains: crags and spires on the lips of the cliff bands, snowy crags on the snow, outcrops inside, scree
+  // fans at the foot of the walls facing the viewer. Crags stand on rock (already impassable) and block nothing.
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    if (water[i] || terrain[i] === 'road' || spotTiles.has(i)) continue;
+    const p = hsh(x, y, 5), q = hsh(x, y, 6), ox = x + 0.25 + 0.5 * hsh(x, y, 7), oy = y + 0.25 + 0.5 * hsh(x, y, 8);
+    const c = cellOf(ox, oy), k = KINDS[fine.kind[c]], fx = Math.floor(2 * ox), fy = Math.floor(2 * oy), z = fine.z[c];
+    if (terrain[i] === 'rock' && (k === 'rock' || k === 'snow')) {
+      const lip = Math.max(z - fzAt(fx + 1, fy), z - fzAt(fx, fy + 1), z - fzAt(fx + 1, fy + 1)) >= 3;
+      let id = '';
+      if (k === 'snow') id = p < 0.012 ? 'crag-snow' : '';
+      else if (lip) id = p < 0.03 ? pick(z >= 18 ? ['spire', 'crag-a', 'crag-b'] : ['crag-b', 'outcrop', 'crag-a'], q) : '';
+      else if (p < 0.008) id = pick(['outcrop', 'crag-b', 'boulder-a'], q);
+      if (id && footSeen(ox, oy)) put(id, ox, oy);
+    } else if (terrain[i] !== 'rock' && height[i] >= 2) {
+      const wall = Math.max(fzAt(fx - 1, fy), fzAt(fx, fy - 1), fzAt(fx - 1, fy - 1)) - z >= 3;
+      if (wall && p < 0.1 && footSeen(ox, oy)) put('scree', ox, oy);
+    }
   }
   // keep blocking boulders on rock only (the generator's paths and the tests rely on open ground elsewhere)
   for (let k = objects.length - 1; k >= 0; k--) {
@@ -302,7 +392,7 @@ const objects: { id: string; x: number; y: number }[] = [];
   console.log(`objects ${objects.length}; tower ${tower}; ruins ${ruins.map((r) => r.join(',')).join(' ')}`);
 }
 
-const region = { id: 'test-ridge', name: 'Test Ridge', w: W, h: H, height, terrain, water, entries, noBuild, objects };
+const region = { id: 'test-ridge', name: 'Test Ridge', w: W, h: H, height, terrain, water, entries, noBuild, objects, visual };
 const dir = new URL(process.argv[3] ? `file://${resolve(process.argv[3])}/` : '../../src/war/regions/', import.meta.url);
 const out = new URL('test-ridge.json', dir);
 writeFileSync(out, JSON.stringify(region) + '\n');

@@ -7,6 +7,8 @@ export interface RegionData {
   noBuild: { x: number; y: number; w: number; h: number }[];
   /** Map objects (public/war/objects/objects.json ids) by foot point in tiles; blocking ones close their footprint (src/war/region/objects.ts). */
   objects?: { id: string; x: number; y: number }[];
+  /** Visual-only terrain at 2x the grid (1 m cells), run-length encoded (src/war/regions/visual.ts); the sim ignores it. */
+  visual?: { scale: 2; rle: number[] };
 }
 export type SquadId = number; export type UnitId = number;
 export type Order =

@@ -9,7 +9,8 @@ export const FILLS = {
   grass: { dir: 'grass-dirt', frame: 15 },
   dirt: { dir: 'grass-dirt', frame: 0 },
   sand: { dir: 'grass-sand', frame: 0, tone: 0.82 },
-  rock: { dir: 'grass-rock', frame: 0 },
+  rock: { dir: 'rock-snow', batch: 'tfix', frame: 15 }, // terrain-fix: cracked mountain rock (was grass-rock #0, read as flagstones)
+  snow: { dir: 'rock-snow', batch: 'tfix', frame: 0, tone: 0.8 },
   forest: { dir: 'grass-forest-2', frame: 0 },
   marsh: { dir: 'grass-marsh', frame: 0 },
   road: { dir: 'grass-road', frame: 0, tone: 0.7 },
@@ -30,6 +31,7 @@ export const SETS = [
   { pair: 'shallow-deep', first: 'shallow', second: 'deep', dir: 'shallow-deep', side: 'own', gate: 0.4, source: 'tiles_pro 05ee02ca' },
   { pair: 'sand-shallow', first: 'sand', second: 'shallow', dir: 'sand-shallow', batch: 'art5', side: 'earth', source: 'tiles_pro 8292629f (ART-5)' },
   { pair: 'road-rock', first: 'road', second: 'rock', dir: 'road-rock', batch: 'art5', side: 'rock', source: 'tiles_pro 2fb9aac7 (ART-5)' },
+  { pair: 'rock-snow', first: 'rock', second: 'snow', dir: 'rock-snow', batch: 'tfix', side: 'own', sideName: 'crag', sideFrom: 15, source: 'tiles_pro 222eaec1 (terrain-fix)' },
 ];
 
 // Full-tile variants (W-21 repetition): frame 0 = the fill, then one frame per source. A source is the fill itself
@@ -37,22 +39,26 @@ export const SETS = [
 // terrain ({ dir, frame, batch }) colour-matched to the fill. Each variant keeps the fill's outer band (seams) and swaps the interior.
 // 'fills' = tiles_pro 7038755a (ART-5): independent 64x64 tiles, top vertex at y 11.
 const fills = (frame) => ({ dir: 'fills', batch: 'art5', frame, y: 11 });
+// 'rock-fills' = tiles_pro 89795ea4 (terrain-fix): independent 64x64 rock and snow tiles, top vertex at y 11.
+const rockFills = (frame) => ({ dir: 'rock-fills', batch: 'tfix', frame, y: 11 });
 export const VARIANTS = {
   grass: [fills(12), fills(14), fills(15), { dir: 'grass-rock', frame: 15 }],
   forest: [fills(0), fills(4), fills(5)],
   marsh: [fills(6), fills(7), 'shift'],
   sand: [{ dir: 'sand-shallow', frame: 15, batch: 'art5' }, 'shift'],
   dirt: [fills(8), fills(9), fills(10)],
+  rock: [rockFills(0), rockFills(1), rockFills(2), rockFills(3)],
+  snow: [rockFills(14), rockFills(15), rockFills(12)],
 };
 
 // Pairs test-ridge has with no set of their own: the renderer moves the corner terrain instead (see tiles.json fallback).
 export const FALLBACK = {
   note: 'Corner terrain is per map vertex (water: 2 deep, 1 shallow, else the terrain). Before autotiling: (1) a deep vertex with any land vertex among its 8 neighbours becomes shallow, so shores always get a shallow band (grass-deep, sand-deep, rock-deep, marsh-deep, road-deep become X-shallow). (2) Repeat over tiles until stable (cap 30 passes): a corner pair with no sheet -> the land corner of a land/water pair, else the lower of the two in `order`, becomes grass (road-sand gets a grass verge; rock-, marsh-, road-shallow a grass bank; forest-rock a grass edge); a tile with 3+ corner terrains -> its grass corners take its commonest other terrain, or with no grass its rarest terrain does. (3) A tile still holding 3 terrains: draw the commonest pair that has a sheet, other corners count as that sheet\'s first terrain. Full tiles: draw a variant (variants[]). Reference implementation: scripts/war/art/preview.mjs resolve()/tileFor().',
-  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'forest', 'rock', 'road', 'grass'],
+  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'forest', 'snow', 'rock', 'road', 'grass'],
   buffer: { water: 'shallow', land: 'grass' },
 };
 
-export const CLIFFS = [{ id: 'earth', from: 'earth' }, { id: 'rock', from: 'rock' }];
+export const CLIFFS = [{ id: 'earth', from: 'earth' }, { id: 'rock', from: 'rock' }, { id: 'crag', from: 'crag' }];
 
 // raw = raw/objects/<raw>.png. metres = design height (QA: sprite height = metres x 33 +-10%). footprint in tiles (2 m).
 // blocks = blocks movement. grade = { sat, val } darken/desaturate to the dark palette. keyAll = also key the background
@@ -61,6 +67,7 @@ export const CLIFFS = [{ id: 'earth', from: 'earth' }, { id: 'rock', from: 'rock
 // `keep` ('notgreen' trees, 'green' reeds/bushes, 'neutral' stone); rows >= cut are dropped.
 const tree = { kind: 'tree', blocks: false, footprint: [1, 1] };
 const stone = { kind: 'stone', blocks: true };
+const crag = { kind: 'stone', blocks: false, footprint: [1, 1], grade: { sat: 0.45, val: 0.82 } };
 export const OBJECTS = [
   { id: 'pine-a', raw: 'pine-a', ...tree, metres: 11, keyAll: true, keyTol: 30, base: { y0: 350, x0: 92, x1: 136, cut: 378, keep: 'notgreen' }, source: 'map_object 5f138634' },
   { id: 'pine-b', raw: 'pine', ...tree, metres: 11, keyAll: true, base: { y0: 352, x0: 88, x1: 136, cut: 380, keep: 'notgreen' }, source: 'map_object f4cd85fe (ART-3)' },
@@ -77,4 +84,11 @@ export const OBJECTS = [
   { id: 'boulder-b', raw: 'boulder-b', ...stone, footprint: [1, 1], metres: 1.2, base: { y0: 36, keep: 'neutral' }, source: 'map_object 65ddf82b' },
   { id: 'wall-ruin', raw: 'wall-ruin', ...stone, footprint: [2, 1], metres: 2.5, base: { y0: 62, keep: 'neutral' }, source: 'map_object c93797f6' },
   { id: 'watchtower', raw: 'watchtower-floor', batch: 'art5', ...stone, footprint: [2, 2], metres: 12, grade: { sat: 0.8, val: 0.68 }, source: 'map_object 9a04562b (ART-5)' },
+  // terrain-fix mountain objects: they stand on rock (impassable already), so they block nothing themselves
+  { id: 'crag-a', raw: 'crag-a', batch: 'tfix', ...crag, metres: 11, base: { y0: 318, keep: 'notgreen', cut: 384 }, source: 'map_object 077bc3da (terrain-fix)' },
+  { id: 'crag-b', raw: 'crag-b', batch: 'tfix', ...crag, metres: 6, grade: { sat: 0.25, val: 0.8 }, source: 'map_object 18bb71ba (terrain-fix)' },
+  { id: 'spire', raw: 'spire', batch: 'tfix', ...crag, metres: 11, base: { y0: 352, keep: 'notgreen', cut: 390 }, source: 'map_object cd81b899 (terrain-fix)' },
+  { id: 'outcrop', raw: 'outcrop', batch: 'tfix', ...crag, metres: 5, base: { y0: 120, keep: 'notgreen', cut: 186 }, source: 'map_object 95ee5d7f (terrain-fix)' },
+  { id: 'crag-snow', raw: 'crag-snow', batch: 'tfix', ...crag, metres: 10.2, source: 'map_object d5672e21 (terrain-fix)' },
+  { id: 'scree', raw: 'scree', batch: 'tfix', kind: 'scree', blocks: false, footprint: [2, 1], metres: 3.5, grade: { sat: 0.3, val: 0.85 }, source: 'map_object 25a29771 (terrain-fix)' },
 ];

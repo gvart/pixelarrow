@@ -3,6 +3,7 @@ import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { SPOTS } from '../../src/war/regions/test-ridge.spots';
 import { parseRegion } from '../../src/war/region/schema';
 import { buildGrid, canEnter, findPath, nearestOpen } from '../../src/war/sim/grid';
+import { decodeVisual, KINDS, ZVIS } from '../../src/war/regions/visual';
 
 const ridge = parseRegion(ridgeJson);
 const K = ridge.w / 256; // features are authored on a 256 map and scale with it
@@ -26,6 +27,16 @@ describe('test-ridge region', () => {
     expect(() => parseRegion({ ...ridge, height: ridge.height.slice(1) })).toThrow(/height/);
     expect(() => parseRegion({ ...ridge, terrain: ['lava', ...ridge.terrain.slice(1)] })).toThrow();
     expect(() => parseRegion({ ...ridge, height: [9, ...ridge.height.slice(1)] })).toThrow();
+  });
+
+  it('carries a 1 m visual layer whose tall mountains are rock', () => {
+    const fw = 2 * ridge.w, { kind, z } = decodeVisual(ridge.visual!.rle, fw * 2 * ridge.h);
+    let tall = 0;
+    for (let j = 0; j < kind.length; j++) {
+      if (z[j] > 7) { tall++; expect(['rock', 'snow']).toContain(KINDS[kind[j]]); }
+      expect(z[j]).toBeLessThanOrEqual(ZVIS);
+    }
+    expect(tall).toBeGreaterThan(10000);
   });
 
   it('every named spot is open ground', () => {

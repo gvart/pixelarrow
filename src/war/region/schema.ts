@@ -17,6 +17,7 @@ export const regionSchema = z
     entries: z.array(z.object({ side: z.enum(['N', 'E', 'S', 'W']), ...rect })),
     noBuild: z.array(z.object(rect)),
     objects: z.array(z.object({ id: z.string().min(1), x: z.number().min(0), y: z.number().min(0) })).optional(),
+    visual: z.object({ scale: z.literal(2), rle: z.array(z.number().int().min(0)) }).optional(),
   })
   .superRefine((r, ctx) => {
     const n = r.w * r.h;
