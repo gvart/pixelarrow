@@ -1,0 +1,21 @@
+scripts/art/pixellab/anim2/ground.mjs
+  s_cfc22b058125c4::t_564aadc155c3ab 1-39
+src/assets/sheets/celt_sword/manifest.json
+  s_cfc22b058125c4::t_6675f2fcfd5ed9 90-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0c0f689ef8f166e9356acc639e09750d2553b477",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
