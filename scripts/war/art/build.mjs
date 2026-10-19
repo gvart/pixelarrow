@@ -270,7 +270,8 @@ function dropBase(im, b) {
   const d = im.data;
   for (let y = b.y0; y < im.h; y++) for (let x = 0; x < im.w; x++) {
     const i = px(im, x, y); if (!d[i + 3]) continue;
-    if (y >= (b.cut ?? 1e9) || x < (b.x0 ?? 0) || x > (b.x1 ?? 1e9) || !KEEP[b.keep](d[i], d[i + 1], d[i + 2])) d[i + 3] = 0;
+    const near = (b.drop ?? []).some(([hex, tol]) => { const c = hexToRgb(hex); return Math.abs(d[i] - c[0]) + Math.abs(d[i + 1] - c[1]) + Math.abs(d[i + 2] - c[2]) <= tol; });
+    if (y >= (b.cut ?? 1e9) || x < (b.x0 ?? 0) || x > (b.x1 ?? 1e9) || near || (b.keep && !KEEP[b.keep](d[i], d[i + 1], d[i + 2]))) d[i + 3] = 0;
   }
   return dropSpecks(im);
 }
