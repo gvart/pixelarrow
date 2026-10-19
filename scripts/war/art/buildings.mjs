@@ -765,6 +765,104 @@ function megaronBoxes(state, k = 4, P = 1.0) {
   return B;
 }
 
+// ---- W-35 fire arrows: the brazier (1 tile) and the pitch kiln (2 x 2). Drawn here, 0 generations.
+// vox: a solid sampled on a 1/16 m grid (fn(x, y, z) -> material key | null), merged into columns per key (finer columns
+// than 1 px drop out of the renderer, which samples pixel centres)
+function vox(x0, x1, y0, y1, z0, z1, fn, M, s = 1 / 16, sz = 1 / 48) {
+  const out = [];
+  for (let x = x0; x < x1 - 1e-9; x += s) for (let y = y0; y < y1 - 1e-9; y += s) {
+    let run = null;
+    for (let z = z0; z < z1 - 1e-9; z += sz) {
+      const k = fn(x + s / 2, y + s / 2, z + sz / 2);
+      if (k && run && run.k === k) { run.z1 = z + sz; continue; }
+      if (run) out.push(run); run = k ? { k, x0: x, x1: x + s, y0: y, y1: y + s, z0: z, z1: z + sz, ...M[k] } : null;
+    }
+    if (run) out.push(run);
+  }
+  return out;
+}
+const BRONZE = [[40, 27, 18], [72, 46, 26], [112, 72, 36], [156, 106, 54], [206, 158, 88]].map((c) => [...c, 255]);
+const FIREC = { deep: [92, 30, 18, 255], red: [150, 54, 26, 255], or: [204, 104, 40, 255], yel: [232, 168, 80, 255] };
+const ASH = [[46, 42, 40, 255], [78, 72, 68, 255], [112, 106, 100, 255]];
+// the brazier, upright, centred on its tile: a 1.2 m bronze tripod, lion-paw feet, a ring brace, a shallow bowl of coals
+const BZ = { zb: 0.84, zr: 1.16, R: 0.4, coal: 1.06 };
+function brazierShape(x, y, z) {
+  const dx = x - 1, dy = y - 1, d = Math.hypot(dx, dy);
+  if (z >= BZ.zr - 0.035 && z <= BZ.zr + 0.015 && d <= BZ.R + 0.035 && d >= BZ.R - 0.03) return 'rim';
+  if (z >= BZ.zb && z <= BZ.zr) {
+    const Ro = 0.14 + (BZ.R - 0.14) * Math.sqrt((z - BZ.zb) / (BZ.zr - BZ.zb));
+    if (d <= Ro) return d < Ro - 0.035 && z > BZ.zb + 0.05 ? (z < BZ.coal + 0.05 * (1 - d / BZ.R) ? 'coal' : null) : 'bowl';
+  }
+  if (Math.abs(z - 0.36) <= 0.025 && Math.abs(d - 0.45) <= 0.035) return 'leg'; // ring brace
+  for (let i = 0; i < 3; i++) {
+    const a = Math.PI / 4 + (i * 2 * Math.PI) / 3, ca = Math.cos(a), sa = Math.sin(a);
+    if (Math.hypot(dx - 0.5 * ca, dy - 0.5 * sa, (z - 0.05) * 1.2) <= 0.07) return 'paw';
+    for (let t = 0; t <= 1; t += 1 / 40) { // the leg: foot to the bowl's belly, bowed out
+      const r = 0.5 - 0.27 * t + 0.07 * Math.sin(Math.PI * t), lz = 0.06 + t * (BZ.zb + 0.1 - 0.06);
+      if (Math.hypot(dx - r * ca, dy - r * sa, z - lz) <= 0.05) return 'leg';
+    }
+  }
+  return null;
+}
+function brazierMats(lit) {
+  const bowl = (f, x, y, z) => { const dx = x - 1, dy = y - 1, d = Math.hypot(dx, dy) || 1; const c = BRONZE[f === 'top' ? 3 : 2 + (hash(Math.floor(x * 40), Math.floor(z * 40), 3) > 0.85 ? -1 : 0)]; return mul(c, f === 'top' ? 1 : lightOf(dx / d, dy / d)); };
+  const coal = (f, x, y, z) => {
+    const h = hash(Math.floor(x * 28), Math.floor(y * 28), 7), h2 = hash(Math.floor(x * 56), Math.floor(y * 56), 8);
+    if (!lit) return h2 < 0.3 ? ASH[2] : h < 0.5 ? CHAR : ASH[h < 0.8 ? 0 : 1];
+    const d = Math.hypot(x - 1, y - 1) / BZ.R; return h < 0.22 ? CHAR : h < 0.45 ? FIREC.deep : h2 < 0.25 + 0.4 * (1 - d) ? FIREC.yel : h < 0.75 ? FIREC.red : FIREC.or;
+  };
+  return { rim: { mat: (f, x, y) => (f === 'top' ? BRONZE[3] : mul(BRONZE[3], lightOf((x - 1) / BZ.R, (y - 1) / BZ.R))), lit: true }, bowl: { mat: bowl, lit: true }, coal: { mat: coal, lit: true }, leg: { mat: solid(BRONZE[2]) }, paw: { mat: solid(BRONZE[3]) },
+    ash: { mat: (f, x, y) => { const h = hash(Math.floor(x * 30), Math.floor(y * 30), 9); return h < 0.35 ? CHAR : h < 0.42 ? EMBER : ASH[h < 0.7 ? 0 : 1]; }, lit: true } };
+}
+// state: unlit | lit | destroyed (knocked over: the tripod lies on its side, its coals and ash spilt beside it)
+function brazierBoxes(state) {
+  if (state !== 'destroyed') return vox(0.4, 1.6, 0.4, 1.6, 0, 1.2, brazierShape, brazierMats(state === 'lit'));
+  const th = (100 * Math.PI) / 180, f = [Math.SQRT1_2, -Math.SQRT1_2], P0 = [0.5, 1.5], c = Math.cos(th), s = Math.sin(th);
+  const tipped = (x, y, z) => { // world -> upright: undo the fall (about the horizontal axis across f, through P0 at z = 0.12)
+    const px = x - P0[0], py = y - P0[1], pz = z - 0.12, a = px * f[0] + py * f[1], b = -px * f[1] + py * f[0];
+    const a0 = a * c - pz * s, z0 = a * s + pz * c; return brazierShape(1 + a0 * f[0] - b * f[1], 1 + a0 * f[1] + b * f[0], z0);
+  };
+  const sc = [P0[0] + f[0] * 1.3, P0[1] + f[1] * 1.3];
+  const spill = (x, y, z) => { const u = ((x - sc[0]) * f[0] + (y - sc[1]) * f[1]) / 0.42, v = (-(x - sc[0]) * f[1] + (y - sc[1]) * f[0]) / 0.3, q = u * u + v * v; return q < 1 && z < 0.025 + 0.06 * (1 - q) * hash(Math.floor(x * 20), Math.floor(y * 20), 5) ? 'ash' : null; };
+  return vox(0, 2, 0, 2, 0, 1.0, (x, y, z) => (z < 0.1 && spill(x, y, z)) || tipped(x, y, z), brazierMats(false));
+}
+// the pitch kiln: a clay dome on a stone ring, a stoking mouth to the south-west (+y), a vent on top; a woodstack and
+// pitch jars by it. Footprint 2 x 2 (4 m), dome 2.7 m across, 2.3 m to the vent's lip.
+const CLAY = [[70, 48, 34], [102, 72, 50], [134, 98, 68], [160, 124, 88]].map((c) => [...c, 255]);
+const KL = { cx: 2, cy: 2, R: 1.35, z0: 0.3, H: 1.65, vent: 0.26, ventTop: 2.2 };
+function kilnBoxes(state, k = 9) {
+  if (state === 'foundation') return [...foundation(rectEdges(0.2, 0.2, 3.8, 3.8), 'stone', k, 1.2), ...stack(2.9, 0.15, true)];
+  const { cx, cy, R, z0, H } = KL, L = [0.3, 0.75, 0.9], ln = Math.hypot(...L), mdir = Math.atan2(1, 0.35);
+  const top = { rising: z0 + 0.6, scaffold: z0 + 1.25, done: 9, damaged: 9 }[state];
+  const domeZ = (x, y) => { const q = 1 - (Math.hypot(x - cx, y - cy) / R) ** 2; return q > 0 ? z0 + H * Math.sqrt(q) : -1; };
+  const hole = (x, y) => state === 'damaged' && Math.hypot(x - cx + 0.35, y - cy + 0.25) < 0.55 + 0.15 * hash(Math.floor(x * 6), Math.floor(y * 6), k);
+  const clay = (f, x, y, z) => {
+    const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1, zz = Math.max(0, z - z0) / H;
+    if (f === 'top' && z < domeZ(x, y) - 0.04) return d < R - 0.22 ? DOORDARK : mul(CLAY[2], 0.95 + 0.1 * hash(Math.floor(x * 9), Math.floor(y * 9), 4)); // a cut top: the hollow inside a 0.2 m wall
+    const n = [dx / R, dy / R, zz], nl = Math.hypot(...n) || 1, li = 0.5 + 0.72 * Math.max(0, (n[0] * L[0] + n[1] * L[1] + n[2] * L[2]) / (nl * ln));
+    const th = Math.atan2(dy, dx), dth = Math.abs(((th - mdir + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+    const arch = 0.62 * Math.sqrt(Math.max(0, 1 - (dth / 0.3) ** 2)); // the stoking mouth: an arch 0.6 m high
+    if (z - z0 < arch && d > R * 0.6) return z - z0 < 0.14 && hash(Math.floor(x * 30), Math.floor(y * 30), 6) < (state === 'done' ? 0.35 : 0.1) ? EMBER : DOORDARK;
+    if (dth < 0.42 && z - z0 < arch + 0.5 && z - z0 > 0.5) return mul(CHAR, 1.2 + 0.4 * hash(Math.floor(x * 20), Math.floor(z * 20), 2)); // soot over the mouth
+    const coil = (z - z0) % 0.22 < 0.03 ? 0 : 1, c = CLAY[coil + (hash(Math.floor(th * 9), Math.floor(z * 6), 5) > 0.6 ? 1 : 0) + 1];
+    return mul(c, li * (0.92 + 0.12 * hash(Math.floor(x * 18), Math.floor(y * 18) + Math.floor(z * 18), 3)));
+  };
+  const B = [...cylinder(cx, cy, R + 0.15, 0, z0, TEX.cyclo, { row0: 12, top: rough })];
+  B.push(...cells(cx - R, cx + R, cy - R, cy + R, (x, y) => { const z = Math.min(domeZ(x, y), top, hole(x, y) ? z0 + 0.35 : 9); return z > z0 ? { z0, z1: z, mat: clay, lit: true } : null; }));
+  if (state === 'damaged') B.push(...heap(cx + 0.3, cy + 1.75, 0.8, 0.35, 0.45, k + 3, (f, x, y) => mul(CLAY[1 + Math.floor(hash(Math.floor(x * 5), Math.floor(y * 5), 3) * 3)], f === 'top' ? 1.05 : 0.85)));
+  if (state === 'done' || state === 'damaged') { // the vent: a clay collar, black inside
+    const vm = (f, x, y) => (f === 'top' && Math.hypot(x - cx, y - cy) < KL.vent - 0.08 ? DOORDARK : mul(CLAY[f === 'top' ? 3 : 2], f === 'top' ? 1 : lightOf((x - cx) / KL.vent, (y - cy) / KL.vent)));
+    if (state === 'done') B.push(...cells(cx - KL.vent, cx + KL.vent, cy - KL.vent, cy + KL.vent, (x, y) => (Math.hypot(x - cx, y - cy) <= KL.vent ? { z0: z0 + H - 0.1, z1: KL.ventTop, mat: vm, lit: true } : null)));
+  }
+  if (state === 'scaffold') B.push(...scaffold('x', 0.6, 3.4, 3.4, 1, z0 + 1.0), ...scaffold('y', 0.6, 3.4, 3.4, 1, z0 + 1.0));
+  B.push(...stack(2.9, 0.15, true), ...(state === 'rising' ? stack(0.15, 2.9, true, 2) : []));
+  if (state !== 'rising') { // pitch jars: squat pots with black pitch to the brim (one knocked over when damaged)
+    const jar = (jx, jy, h) => cells(jx - 0.18, jx + 0.18, jy - 0.18, jy + 0.18, (x, y) => { const d = Math.hypot(x - jx, y - jy); if (d > 0.17) return null; return { z0: 0, z1: d < 0.11 ? h : h - 0.08 * ((d - 0.11) / 0.06), mat: (f, xx, yy, z) => (f === 'top' ? (d < 0.12 ? mul(CHAR, 1.2) : CLAY[3]) : mul(z > h - 0.1 ? CLAY[3] : CLAY[2], lightOf((xx - jx) / d || 0, (yy - jy) / d || 0))), lit: true }; });
+    B.push(...jar(3.35, 2.75, 0.42), ...jar(3.55, 3.2, 0.36), ...(state === 'damaged' ? [] : jar(3.05, 3.45, 0.4)));
+  }
+  return B;
+}
+
 // render a model of footprint fw x fh tiles; returns { im, anchor, tileOrigin }
 function renderModel(boxes, fw, fh, Hm, post) {
   const W = (fw + fh) * 32 + 40, ox = fh * 32 + 20, oy = Math.ceil(Hm * PPM) + 30, Ht = oy + (fw + fh) * 16 + 20;
@@ -1105,6 +1203,7 @@ const PROC = [
     inline: `2-deep wall gate: the ${m}-gate-${axis} on the line, its passage on the inner row (${side} side)`, boxes: (s) => gate2Boxes(m, axis, s, inner),
     source: m === 'stone' ? 'renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep' : 'renderer + palisade elevation, composed 2 deep',
   }))),
+  { id: 'pitch-kiln', kind: 'kiln', material: 'stone', burnable: false, footprint: [2, 2], heightM: KL.ventTop, boxes: (s) => kilnBoxes(s), source: 'renderer (W-35): clay dome on a stone ring, woodstack, pitch jars' },
   { id: 'keep', kind: 'keep', material: 'stone', burnable: false, footprint: [4, 4], heightM: 5.6, inline: 'the fort\'s citadel: a megaron on its terrace', boxes: megaronBoxes, source: 'renderer + cyclopean / isodomic elevations, drawn roof tiles' },
 ];
 const rendered = {}; // id -> state -> { im, tileOrigin }
@@ -1115,6 +1214,15 @@ for (const p of PROC) {
     rendered[p.id][s] = renderModel(p.boxes(s), p.footprint[0], p.footprint[1], p.heightM + 1, post);
   }
 }
+// brazier (W-35): placed whole (buildOrder done only), unlit = done, destroyed = knocked over
+const BRAZIER = { id: 'brazier', kind: 'brazier', material: 'bronze', burnable: false, footprint: [1, 1], heightM: 1.2, alias: { done: 'unlit', damaged: 'destroyed' }, source: 'renderer (W-35): bronze tripod brazier' };
+rendered.brazier = {}; for (const s of ['unlit', 'lit', 'destroyed']) rendered.brazier[s] = renderModel(brazierBoxes(s), 1, 1, 1.6);
+// fx anchors: siege fx[] ids drawn with their anchor on sprite px `at` (world point (x, y, z) m from the NW tile's top vertex)
+const pxAt = (r, x, y, z, dx = 0, dy = 0) => ({ x: Math.round(r.tileOrigin.x + (x - y) * MX) + dx, y: Math.round(r.tileOrigin.y + (x + y) * MY - z * PPM) + dy });
+{ const r = rendered.brazier.lit, c = (dx, dy) => pxAt(r, 1, 1, BZ.coal, dx, dy);
+  BRAZIER.extra = { buildOrder: ['done'], progress: { done: 0 }, fx: { lit: [{ id: 'tongue-m-a', at: c(0, 0) }, { id: 'tongue-s-b', at: c(-5, 1) }, { id: 'tongue-s-c', at: c(5, 1) }, { id: 'embers', at: c(0, -16) }] } }; }
+{ const P = PROC.find((p) => p.id === 'pitch-kiln'), r = rendered['pitch-kiln'].done, m = Math.atan2(1, 0.35);
+  P.extra = { fx: { working: [{ id: 'smoke-wisp-b', at: pxAt(r, KL.cx, KL.cy, KL.ventTop), alpha: 0.45 }, { id: 'tongue-s-a', at: pxAt(r, KL.cx + KL.R * Math.cos(m), KL.cy + KL.R * Math.sin(m), KL.z0) }] } }; }
 // props (one state); also the material piles of the PixelLab buildings' rising state
 for (const o of PROPS) { const f = join(RAW, 'objects', `${o.raw}.png`); if (!existsSync(f)) continue; const im = prepBuilding(o, f); const a = footOf(im); rendered[o.id] = { done: { im, tileOrigin: { x: a.x, y: im.h - 32 } } }; }
 // rising (composited, no generation): the scaffold sprite cut down to its lower part along a 2:1 V line, a pile of its
@@ -1165,16 +1273,17 @@ function composeFort(state) {
 rendered.fort = {}; for (const s of STATES) rendered.fort[s] = composeFort(s);
 
 // sprites + metadata
-const all = [...PROC, ...BUILDINGS, FORT, ...PROPS];
+const all = [...PROC, ...BUILDINGS, FORT, BRAZIER, ...PROPS];
 for (const o of all) {
   if (!rendered[o.id]) continue; const states = {};
   for (const [s, r] of Object.entries(rendered[o.id])) {
     const sid = `${o.id}-${s}`, a = footOf(r.im);
     const base = Math.min((o.footprint[0] + o.footprint[1]) * 16, r.im.h - 4), metres = +((r.im.h - base) / PPM).toFixed(2); // flat states (a field, a pitched-down camp) draw less than the diamond
-    sprites.push({ file: `${sid}.png`, im: r.im, meta: { id: sid, kind: o.kind, file: `${sid}.png`, w: r.im.w, h: r.im.h, metres: Math.max(0.05, metres), basePx: base, anchor: a, tileOrigin: r.tileOrigin, footprint: o.footprint, blocksMovement: s !== 'foundation' && o.kind !== 'farm', building: o.id, state: s, material: o.material, burnable: !!o.burnable, source: o.source ?? 'renderer' } });
+    sprites.push({ file: `${sid}.png`, im: r.im, meta: { id: sid, kind: o.kind, file: `${sid}.png`, w: r.im.w, h: r.im.h, metres: Math.max(0.05, metres), basePx: base, anchor: a, tileOrigin: r.tileOrigin, footprint: o.footprint, blocksMovement: s !== 'foundation' && s !== 'destroyed' && o.kind !== 'farm', building: o.id, state: s, material: o.material, burnable: !!o.burnable, source: o.source ?? 'renderer' } });
     states[s] = sid;
   }
-  buildings.push({ id: o.id, kind: o.kind, material: o.material, burnable: !!o.burnable, footprint: o.footprint, ...(o.axis && { axis: o.axis }), ...(o.deep && { deep: o.deep }), ...(o.inline && { inline: o.inline }), ...(o.heightM && { heightM: o.heightM }), ...(o.platformM && { platformM: o.platformM, platformPx: Math.round(o.platformM * PPM) }), states });
+  for (const [a, s] of Object.entries(o.alias ?? {})) states[a] = states[s];
+  buildings.push({ id: o.id, kind: o.kind, material: o.material, burnable: !!o.burnable, footprint: o.footprint, ...(o.axis && { axis: o.axis }), ...(o.deep && { deep: o.deep }), ...(o.inline && { inline: o.inline }), ...(o.heightM && { heightM: o.heightM }), ...(o.platformM && { platformM: o.platformM, platformPx: Math.round(o.platformM * PPM) }), ...o.extra, states });
 }
 // palette + write
 const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), GO = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));
@@ -1183,7 +1292,7 @@ const pal = extendPalette([...G.palette, ...GO.palette], sprites.filter((s) => !
 for (const s of sprites) writeImage(join(OUT, s.file), snapToPalette(s.im, pal));
 const json = {
   pxPerMetre: PPM, tileMetres: 2, borderMax: 0.75,
-  note: 'Build-mode art (W-22..W-28). objects[]: one sprite per building state; anchor = foot (bottom centre); tileOrigin = px of the top (north) vertex of the footprint\'s north tile: draw at that tile\'s top vertex minus tileOrigin; metres = height above the footprint (h = metres x 33 + basePx, basePx = (fw + fh) x 16). kits[]: one sheet per state, frames in rows of `columns` (frame n at column n % columns, row floor(n / columns)), tileOrigin = the top vertex of the NW tile in every frame. Palisade: frame = neighbour mask (+x 1, +y 2, -x 4, -y 8; a wall, gate or tower tile). Layered kits (layered: true; rampart, stone-wall, tower-stone, tower-wood) have two sheets per state: states[s] = BACK layer (faces, walk surface, the -x / -y parapets), front[s] = FRONT layer (the +x / +y parapets or rails, the wood tower\'s roof and front posts). Draw per tile: back, then the units standing on that tile (on the walk at walkwayPx above the ground, on a tower at platformPx), then front, all before anything on tiles further south. Walls: frame = frameOf[mask | open << 4]; post (done walls): one frame, drawn over the back of a tile whose -x and -y sides are joined but whose -x -y diagonal is not (closes the parapet of that inner corner); mask = sides with a wall or gate tile of the same walk (no face, no parapet there); open = exposed sides with no parapet (a stair top, a joined tower, a ladder head; the face stays). A wall is built 2 tiles deep (walkwayWidthM). Towers: frame = open mask (sides joined to a walk at platform height, or with a ladder). Stairs: pieces <axis><+/-><length tiles>, rising towards the wall at wallAt; a unit stands at topM x (distance from the low end / length). Ladder: pieces <target>-<side of the face it leans on (n -y, e +x, s +y, w -x)>, top at topM[target]. Bridges: axis kits (bridge-*): frame = piece, one tile each (deck-<axis>, end-<axis><0|1>; suffix .l / .h / .n = rails on the low side across only / the high side only / none, for 2- and 3-wide bridges). Diagonal kits (bridge-*-diag): one frame per row segment of a bridge along a grid diagonal, <h|v><width>-<deck|end+|end->; tileOrigin = the row centre on the ground; rowStepPx = screen px from one row to the next. States: buildOrder (foundation -> rising -> scaffold -> done), each shown from progress[state] (share of the labour done), then damaged; gates also have open (leaves swung in). Colours = tiles.json palette + objects.json palette + palette.',
+  note: 'Build-mode art (W-22..W-28). objects[]: one sprite per building state; anchor = foot (bottom centre); tileOrigin = px of the top (north) vertex of the footprint\'s north tile: draw at that tile\'s top vertex minus tileOrigin; metres = height above the footprint (h = metres x 33 + basePx, basePx = (fw + fh) x 16). kits[]: one sheet per state, frames in rows of `columns` (frame n at column n % columns, row floor(n / columns)), tileOrigin = the top vertex of the NW tile in every frame. Palisade: frame = neighbour mask (+x 1, +y 2, -x 4, -y 8; a wall, gate or tower tile). Layered kits (layered: true; rampart, stone-wall, tower-stone, tower-wood) have two sheets per state: states[s] = BACK layer (faces, walk surface, the -x / -y parapets), front[s] = FRONT layer (the +x / +y parapets or rails, the wood tower\'s roof and front posts). Draw per tile: back, then the units standing on that tile (on the walk at walkwayPx above the ground, on a tower at platformPx), then front, all before anything on tiles further south. Walls: frame = frameOf[mask | open << 4]; post (done walls): one frame, drawn over the back of a tile whose -x and -y sides are joined but whose -x -y diagonal is not (closes the parapet of that inner corner); mask = sides with a wall or gate tile of the same walk (no face, no parapet there); open = exposed sides with no parapet (a stair top, a joined tower, a ladder head; the face stays). A wall is built 2 tiles deep (walkwayWidthM). Towers: frame = open mask (sides joined to a walk at platform height, or with a ladder). Stairs: pieces <axis><+/-><length tiles>, rising towards the wall at wallAt; a unit stands at topM x (distance from the low end / length). Ladder: pieces <target>-<side of the face it leans on (n -y, e +x, s +y, w -x)>, top at topM[target]. Bridges: axis kits (bridge-*): frame = piece, one tile each (deck-<axis>, end-<axis><0|1>; suffix .l / .h / .n = rails on the low side across only / the high side only / none, for 2- and 3-wide bridges). Diagonal kits (bridge-*-diag): one frame per row segment of a bridge along a grid diagonal, <h|v><width>-<deck|end+|end->; tileOrigin = the row centre on the ground; rowStepPx = screen px from one row to the next. States: buildOrder (foundation -> rising -> scaffold -> done), each shown from progress[state] (share of the labour done), then damaged; gates also have open (leaves swung in). A building\'s own buildOrder / progress override these (brazier: placed whole, done only). Brazier (W-35, 1 tile): states unlit (= done), lit, destroyed (= damaged: knocked over, does not block); it has no ground of its own, so it stands on the ground or on a wall walk (draw it at walkwayPx up, like a unit). fx[state]: siege fx (public/war/siege/objects.json fx[] ids) drawn with their anchor on sprite px `at` of that state\'s sprite (phase per instance, alpha when given): brazier fx.lit = the flames and embers in the bowl; pitch-kiln fx.working = over the done sprite while it works (smoke from the vent, a flame in the stoking mouth). Colours = tiles.json palette + objects.json palette + palette.',
   buildOrder: BUILD_ORDER, progress: PROGRESS,
   palette: pal.slice(G.palette.length), kits, buildings, objects: sprites.filter((s) => s.meta).map((s) => s.meta),
 };

@@ -2,7 +2,7 @@
  "pxPerMetre": 33,
  "tileMetres": 2,
  "borderMax": 0.75,
- "note": "Build-mode art (W-22..W-28). objects[]: one sprite per building state; anchor = foot (bottom centre); tileOrigin = px of the top (north) vertex of the footprint's north tile: draw at that tile's top vertex minus tileOrigin; metres = height above the footprint (h = metres x 33 + basePx, basePx = (fw + fh) x 16). kits[]: one sheet per state, frames in rows of `columns` (frame n at column n % columns, row floor(n / columns)), tileOrigin = the top vertex of the NW tile in every frame. Palisade: frame = neighbour mask (+x 1, +y 2, -x 4, -y 8; a wall, gate or tower tile). Layered kits (layered: true; rampart, stone-wall, tower-stone, tower-wood) have two sheets per state: states[s] = BACK layer (faces, walk surface, the -x / -y parapets), front[s] = FRONT layer (the +x / +y parapets or rails, the wood tower's roof and front posts). Draw per tile: back, then the units standing on that tile (on the walk at walkwayPx above the ground, on a tower at platformPx), then front, all before anything on tiles further south. Walls: frame = frameOf[mask | open << 4]; post (done walls): one frame, drawn over the back of a tile whose -x and -y sides are joined but whose -x -y diagonal is not (closes the parapet of that inner corner); mask = sides with a wall or gate tile of the same walk (no face, no parapet there); open = exposed sides with no parapet (a stair top, a joined tower, a ladder head; the face stays). A wall is built 2 tiles deep (walkwayWidthM). Towers: frame = open mask (sides joined to a walk at platform height, or with a ladder). Stairs: pieces <axis><+/-><length tiles>, rising towards the wall at wallAt; a unit stands at topM x (distance from the low end / length). Ladder: pieces <target>-<side of the face it leans on (n -y, e +x, s +y, w -x)>, top at topM[target]. Bridges: axis kits (bridge-*): frame = piece, one tile each (deck-<axis>, end-<axis><0|1>; suffix .l / .h / .n = rails on the low side across only / the high side only / none, for 2- and 3-wide bridges). Diagonal kits (bridge-*-diag): one frame per row segment of a bridge along a grid diagonal, <h|v><width>-<deck|end+|end->; tileOrigin = the row centre on the ground; rowStepPx = screen px from one row to the next. States: buildOrder (foundation -> rising -> scaffold -> done), each shown from progress[state] (share of the labour done), then damaged; gates also have open (leaves swung in). Colours = tiles.json palette + objects.json palette + palette.",
+ "note": "Build-mode art (W-22..W-28). objects[]: one sprite per building state; anchor = foot (bottom centre); tileOrigin = px of the top (north) vertex of the footprint's north tile: draw at that tile's top vertex minus tileOrigin; metres = height above the footprint (h = metres x 33 + basePx, basePx = (fw + fh) x 16). kits[]: one sheet per state, frames in rows of `columns` (frame n at column n % columns, row floor(n / columns)), tileOrigin = the top vertex of the NW tile in every frame. Palisade: frame = neighbour mask (+x 1, +y 2, -x 4, -y 8; a wall, gate or tower tile). Layered kits (layered: true; rampart, stone-wall, tower-stone, tower-wood) have two sheets per state: states[s] = BACK layer (faces, walk surface, the -x / -y parapets), front[s] = FRONT layer (the +x / +y parapets or rails, the wood tower's roof and front posts). Draw per tile: back, then the units standing on that tile (on the walk at walkwayPx above the ground, on a tower at platformPx), then front, all before anything on tiles further south. Walls: frame = frameOf[mask | open << 4]; post (done walls): one frame, drawn over the back of a tile whose -x and -y sides are joined but whose -x -y diagonal is not (closes the parapet of that inner corner); mask = sides with a wall or gate tile of the same walk (no face, no parapet there); open = exposed sides with no parapet (a stair top, a joined tower, a ladder head; the face stays). A wall is built 2 tiles deep (walkwayWidthM). Towers: frame = open mask (sides joined to a walk at platform height, or with a ladder). Stairs: pieces <axis><+/-><length tiles>, rising towards the wall at wallAt; a unit stands at topM x (distance from the low end / length). Ladder: pieces <target>-<side of the face it leans on (n -y, e +x, s +y, w -x)>, top at topM[target]. Bridges: axis kits (bridge-*): frame = piece, one tile each (deck-<axis>, end-<axis><0|1>; suffix .l / .h / .n = rails on the low side across only / the high side only / none, for 2- and 3-wide bridges). Diagonal kits (bridge-*-diag): one frame per row segment of a bridge along a grid diagonal, <h|v><width>-<deck|end+|end->; tileOrigin = the row centre on the ground; rowStepPx = screen px from one row to the next. States: buildOrder (foundation -> rising -> scaffold -> done), each shown from progress[state] (share of the labour done), then damaged; gates also have open (leaves swung in). A building's own buildOrder / progress override these (brazier: placed whole, done only). Brazier (W-35, 1 tile): states unlit (= done), lit, destroyed (= damaged: knocked over, does not block); it has no ground of its own, so it stands on the ground or on a wall walk (draw it at walkwayPx up, like a unit). fx[state]: siege fx (public/war/siege/objects.json fx[] ids) drawn with their anchor on sprite px `at` of that state's sprite (phase per instance, alpha when given): brazier fx.lit = the flames and embers in the bowl; pitch-kiln fx.working = over the done sprite while it works (smoke from the vent, a flame in the stoking mouth). Colours = tiles.json palette + objects.json palette + palette.",
  "buildOrder": [
   "foundation",
   "rising",
@@ -124,55 +124,57 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#311528",
-  "#5c3f33",
-  "#5c443d",
-  "#584e49",
-  "#644438",
-  "#645b55",
-  "#6e5754",
-  "#835948",
-  "#766d61",
-  "#726e64",
-  "#9b874a",
-  "#9f8755",
-  "#726e65",
-  "#7c7978",
-  "#a59a8c",
-  "#4f261f",
-  "#5c2c24",
-  "#7b3a1b",
   "#6f6c65",
-  "#726d65",
-  "#44211b",
-  "#604236",
-  "#271328",
-  "#4b222b",
-  "#583c34",
-  "#52504b",
-  "#624337",
-  "#64483d",
-  "#75584c",
-  "#8b664b",
-  "#967940",
-  "#956653",
-  "#7a7169",
-  "#9b836b",
-  "#4b241a",
-  "#582a23",
-  "#6c3320",
-  "#793b1b",
-  "#706c65",
-  "#422017",
-  "#5f4135",
-  "#706c64",
-  "#200c13",
-  "#351914",
+  "#a78969",
+  "#a6998a",
+  "#7c7877",
+  "#6e5754",
+  "#726e64",
+  "#726e65",
+  "#614236",
+  "#644538",
+  "#604843",
+  "#6a5854",
+  "#726d64",
+  "#381b16",
+  "#492316",
+  "#311629",
+  "#4d2521",
+  "#5c2c24",
   "#683116",
-  "#643726",
-  "#676259",
-  "#706c62",
-  "#6f6a65"
+  "#5c3f33",
+  "#5e4135",
+  "#7a3a1a",
+  "#745a4b",
+  "#88624c",
+  "#97674c",
+  "#716d63",
+  "#7b6f5f",
+  "#9b7b4f",
+  "#7e7369",
+  "#635e57",
+  "#6f6560",
+  "#614232",
+  "#634437",
+  "#564f49",
+  "#58544c",
+  "#706b65",
+  "#230e12",
+  "#42201a",
+  "#261227",
+  "#431e26",
+  "#572921",
+  "#623218",
+  "#64302a",
+  "#5d4034",
+  "#773e1d",
+  "#825545",
+  "#8e634b",
+  "#706b63",
+  "#907246",
+  "#988245",
+  "#a08754",
+  "#a9815a"
  ],
  "kits": [
   {
@@ -1643,6 +1645,43 @@
    }
   },
   {
+   "id": "pitch-kiln",
+   "kind": "kiln",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "heightM": 2.2,
+   "fx": {
+    "working": [
+     {
+      "id": "smoke-wisp-b",
+      "at": {
+       "x": 34,
+       "y": 3
+      },
+      "alpha": 0.45
+     },
+     {
+      "id": "tongue-s-a",
+      "at": {
+       "x": 21,
+       "y": 80
+      }
+     }
+    ]
+   },
+   "states": {
+    "foundation": "pitch-kiln-foundation",
+    "rising": "pitch-kiln-rising",
+    "scaffold": "pitch-kiln-scaffold",
+    "done": "pitch-kiln-done",
+    "damaged": "pitch-kiln-damaged"
+   }
+  },
+  {
    "id": "keep",
    "kind": "keep",
    "material": "stone",
@@ -1778,6 +1817,62 @@
     "scaffold": "fort-scaffold",
     "done": "fort-done",
     "damaged": "fort-damaged"
+   }
+  },
+  {
+   "id": "brazier",
+   "kind": "brazier",
+   "material": "bronze",
+   "burnable": false,
+   "footprint": [
+    1,
+    1
+   ],
+   "heightM": 1.2,
+   "buildOrder": [
+    "done"
+   ],
+   "progress": {
+    "done": 0
+   },
+   "fx": {
+    "lit": [
+     {
+      "id": "tongue-m-a",
+      "at": {
+       "x": 12,
+       "y": 8
+      }
+     },
+     {
+      "id": "tongue-s-b",
+      "at": {
+       "x": 7,
+       "y": 9
+      }
+     },
+     {
+      "id": "tongue-s-c",
+      "at": {
+       "x": 17,
+       "y": 9
+      }
+     },
+     {
+      "id": "embers",
+      "at": {
+       "x": 12,
+       "y": -8
+      }
+     }
+    ]
+   },
+   "states": {
+    "unlit": "brazier-unlit",
+    "lit": "brazier-lit",
+    "destroyed": "brazier-destroyed",
+    "done": "brazier-unlit",
+    "damaged": "brazier-destroyed"
    }
   },
   {
@@ -4158,6 +4253,141 @@
    "source": "renderer + palisade elevation, composed 2 deep"
   },
   {
+   "id": "pitch-kiln-foundation",
+   "kind": "kiln",
+   "file": "pitch-kiln-foundation.png",
+   "w": 120,
+   "h": 69,
+   "metres": 0.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 68
+   },
+   "tileOrigin": {
+    "x": 60,
+    "y": 8
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "pitch-kiln",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (W-35): clay dome on a stone ring, woodstack, pitch jars"
+  },
+  {
+   "id": "pitch-kiln-rising",
+   "kind": "kiln",
+   "file": "pitch-kiln-rising.png",
+   "w": 112,
+   "h": 61,
+   "metres": 0.12,
+   "basePx": 57,
+   "anchor": {
+    "x": 54,
+    "y": 60
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 12
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "pitch-kiln",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (W-35): clay dome on a stone ring, woodstack, pitch jars"
+  },
+  {
+   "id": "pitch-kiln-scaffold",
+   "kind": "kiln",
+   "file": "pitch-kiln-scaffold.png",
+   "w": 113,
+   "h": 100,
+   "metres": 1.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 57,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "pitch-kiln",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (W-35): clay dome on a stone ring, woodstack, pitch jars"
+  },
+  {
+   "id": "pitch-kiln-done",
+   "kind": "kiln",
+   "file": "pitch-kiln-done.png",
+   "w": 92,
+   "h": 100,
+   "metres": 1.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 36,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 34,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "pitch-kiln",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (W-35): clay dome on a stone ring, woodstack, pitch jars"
+  },
+  {
+   "id": "pitch-kiln-damaged",
+   "kind": "kiln",
+   "file": "pitch-kiln-damaged.png",
+   "w": 95,
+   "h": 87,
+   "metres": 0.7,
+   "basePx": 64,
+   "anchor": {
+    "x": 33,
+    "y": 86
+   },
+   "tileOrigin": {
+    "x": 37,
+    "y": 31
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "pitch-kiln",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (W-35): clay dome on a stone ring, woodstack, pitch jars"
+  },
+  {
    "id": "keep-foundation",
    "kind": "keep",
    "file": "keep-foundation.png",
@@ -5236,6 +5466,87 @@
    "material": "stone",
    "burnable": false,
    "source": "renderer"
+  },
+  {
+   "id": "brazier-unlit",
+   "kind": "brazier",
+   "file": "brazier-unlit.png",
+   "w": 24,
+   "h": 49,
+   "metres": 0.52,
+   "basePx": 32,
+   "anchor": {
+    "x": 12,
+    "y": 48
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "brazier",
+   "state": "unlit",
+   "material": "bronze",
+   "burnable": false,
+   "source": "renderer (W-35): bronze tripod brazier"
+  },
+  {
+   "id": "brazier-lit",
+   "kind": "brazier",
+   "file": "brazier-lit.png",
+   "w": 24,
+   "h": 49,
+   "metres": 0.52,
+   "basePx": 32,
+   "anchor": {
+    "x": 12,
+    "y": 48
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "brazier",
+   "state": "lit",
+   "material": "bronze",
+   "burnable": false,
+   "source": "renderer (W-35): bronze tripod brazier"
+  },
+  {
+   "id": "brazier-destroyed",
+   "kind": "brazier",
+   "file": "brazier-destroyed.png",
+   "w": 40,
+   "h": 29,
+   "metres": 0.12,
+   "basePx": 25,
+   "anchor": {
+    "x": 12,
+    "y": 28
+   },
+   "tileOrigin": {
+    "x": 17,
+    "y": 7
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "brazier",
+   "state": "destroyed",
+   "material": "bronze",
+   "burnable": false,
+   "source": "renderer (W-35): bronze tripod brazier"
   },
   {
    "id": "lumber-pile-done",

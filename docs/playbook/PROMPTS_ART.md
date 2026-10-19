@@ -1609,6 +1609,31 @@ renderer over the existing elevations (cyclopean, isodomic, palisade). Mock-ups:
 depth buffer per layer, the renderer interleaves units. (17) A roof in the front layer must clear a standing man's head
 seen from the far side of the platform: eave >= platform + 2.9 m at this view.
 
+### Fire-arrow kit (W-35): brazier, pitch kiln, pitch icon
+
+0 generations: all drawn in `buildings.mjs` (box renderer) and `ui.mjs` (glyph). Mock-up:
+`node scripts/war/art/brazier-preview.mjs` -> `shots/war/pixellab/brazier/BRAZIER_mock_1x.png` (a lit brazier on a
+stone wall walk between archers, one lit on the ground, the kiln working), `BRAZIER_states_1x.png`, `BRAZIER.gif`.
+
+- **Brazier** (`brazier`, 1 x 1, 1.2 m): a bronze tripod (lion-paw feet, ring brace, legs bowed out) under a shallow
+  bowl of coals 0.8 m across, voxelised on a 1/16 m grid (`vox`). States `unlit` (= `done`), `lit` (glowing coals),
+  `destroyed` (= `damaged`: the same solid turned 100 degrees about a horizontal axis, ash and coals spilt beside it;
+  does not block). Placed whole: its own `buildOrder: ['done']`, `progress.done 0`. No ground of its own, so it stands on
+  a wall walk at `walkwayPx` like a unit. Flames are the siege fire v2 emitters, not baked in: `fx.lit` = tongue-m-a +
+  tongue-s-b / -c on the coals, embers above (anchor at sprite px `at`).
+- **Pitch kiln** (`pitch-kiln`, 2 x 2, 2.2 m to the vent's lip): a coiled clay dome on a cyclopean ring, a stoking
+  mouth to the south-west with soot over it, a clay vent collar on top, a woodstack and pitch jars by it. Foundation =
+  trench and first course; rising = the ring and the dome's lower 0.6 m (hollow, 0.2 m wall); scaffold = 1.25 m with
+  poles on the two near sides; damaged = the crown broken in, sherds in front, soot. `fx.working` (over `done`):
+  smoke-wisp-b from the vent at alpha 0.45, a small tongue in the mouth.
+- **Pitch icon** `res-pitch` (32 / 24 + @2x): a terracotta jar brimming with black pitch running down it, drawn from
+  shapes in two late ramps (`pitch`, `clay`).
+
+**Lessons:** (18) Boxes narrower than 1 screen px drop out (the renderer samples pixel centres): voxelise thin parts at
+1/16 m, not finer. (19) Adding colours to a shared snap palette moves earlier art: put new ramps after the snap set
+(`LATE` in `ui.mjs`) and snap only the new, exact-colour art to them. The buildings palette is a median cut over every
+sprite, so new sprites re-pick it: rerun the full `buildings.mjs` (it rewrites every PNG).
+
 ## 31. Siege (W-29)
 
 Siege art in `public/war/siege/`: the ram, the stone thrower, siege ladders, breach and tower rubble, the stone shot and
