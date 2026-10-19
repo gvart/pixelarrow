@@ -2,7 +2,7 @@
 
 The reusable image prompts of v5 and v6 and the prompts behind shipped art, in compact form: one template per
 family plus a table of what changed per asset. Gemini makes the painted art (§1–§12), PixelLab the soldier sprites
-(§13–§20); the global war world prototypes are §21. How to run a job: [ART.md](ART.md). Rejected attempts are kept only where the lesson needs them. Where a
+(§13–§20); the global war world prototypes are §21, its PixelLab tiles and objects §22–§24, biome libraries §25 on. How to run a job: [ART.md](ART.md). Rejected attempts are kept only where the lesson needs them. Where a
 log kept only a short form of a prompt, the short form is quoted; nothing here is reconstructed.
 
 Word-for-word sources still in the repo: `docs/v5/art/STYLE_LOCK.md` (the PixelLab style block),
@@ -1001,3 +1001,71 @@ species — still an eye check on the contact sheet.
 painting — mirrored or shifted copies of the same tile still read as a grid (forest, dirt). (4) For land pairs with no
 set, a grass buffer vertex reads fine; shores get a shallow band. Moving vertices can loop at 3-terrain spots, so grass
 only ever gives way there.
+
+## 25. Biome: Elaia (ART-6)
+
+The first biome library (W-21): terraced olive hills round a bay, marble. Raws: `shots/war/pixellab/elaia/raw/`
+(git-ignored). List: `scripts/war/art/biomes/elaia.mjs` (same format as `assets.mjs`). `node scripts/war/art/build.mjs`
+builds the global set, then every biome with `--biome <name>` into `public/war/biomes/<name>/` (`tiles.json`,
+`objects.json`, PNGs). A biome set's grass and every other global terrain it names is the **built global full tile**,
+its cliffs can use the global sides, and its palettes are the global ones (first, unchanged) plus its own colours
+(median cut over pixels > 12 away from the global palette: tiles +25, objects +64 max), so it joins the global sheets
+pixel for pixel. QA (`qa.mjs`, which now also checks every biome folder) adds: palette starts with the global one, every
+full tile shared with the global set is identical. Preview: `node scripts/war/art/preview.mjs --biome elaia` ->
+`shots/war/pixellab/elaia/ELAIA_contact.png`, `ELAIA_patch_1x.png` (40 x 40 patch, noise borders, soldiers),
+`ELAIA_patch_zoom2x.png`. 78 generations (4 sets + 1 fill sheet x 10, 28 objects x 1; 3 failed calls are free).
+
+Tile sets: `create_tiles_pro`, isometric 64, low top-down, `tile_feature: tileset`, seed 31 (as §23). They came back
+much brighter than the dark palette: each fill gets `grade: { sat, val }` (dry 0.75/0.6, rossa 0.8/0.68, marble 0.5/0.6,
+grove 0.75/0.75). A first pass at dry 0.55/0.5 snapped to the global greens: dry grass read as grass.
+
+| Pair | Call | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| grass-dry | `1d78f560` | `dark muted olive grass to dry dull straw-yellow Mediterranean summer grass with sparse brown tufts, dark epic desaturated ancient Greek hillside` | kept; earth side |
+| grass-rossa | `eab57a4f` | `dark muted olive grass to dark rusty red terra rossa earth with small pale limestone pebbles, dark epic desaturated ancient Greek olive hillside` | kept; earth side (its own red side is too loud) |
+| grass-marble | `4138d83c` | `dark muted olive grass to pale weathered grey-white limestone and marble bedrock slabs with dark cracks, dark epic desaturated ancient Greek hillside` | kept; its side is the `marble` cliff (graded); the slabs read a little like paving |
+| grass-grove | `bb9d82ae` | `dark muted olive grass to olive grove ground of dark reddish-brown earth strewn with fallen dry grey-green olive leaves and small dry grass tufts, dark epic desaturated ancient Greek olive grove` | kept |
+| fills | `a8909d68` (`tile_view_angle: 30`, no tileset) | `1). dry dull straw-yellow Mediterranean summer grass with sparse brown tufts 2). dry straw-yellow grass with small pale stones and dry thistles 3). dark rusty red terra rossa earth with small pale limestone pebbles 4). dark rusty red terra rossa earth with fine cracks and a few dry grass blades 5). pale weathered grey-white limestone bedrock slabs with dark cracks 6). pale grey-white marble rock with dark lichen spots and loose rubble 7). olive grove ground of dark reddish-brown earth strewn with fallen grey-green olive leaves 8). pale dull dry sand with scattered rounded grey pebbles and small shells, dark epic desaturated ancient Greek hillside` | 16 tiles, top vertex y 11: variant interiors of dry, rossa, marble, grove and the bay's pebble beach (sand variants inside Elaia) |
+
+The beach is the global sand / sand-shallow pair with Elaia's pebble-and-shell sand variants: no new beach set.
+
+Objects: `create_map_object`, high top-down, high detail, detailed shading, basic mode; every prompt ends with
+`seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully
+transparent background, no ground, no grass, no base under it` (plants: `no ground, no soil, no base under it`). Subject:
+
+| id | Call | Canvas | Subject (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| olive-ancient | `e67a8531` | 220 x 200 | `one ancient gnarled olive tree, very thick hollow twisted grey trunk split into three, wide low irregular crown of dark muted silver-grey-green olive leaves` | white bg + grass slab: keyed, base dropped, graded grey-green |
+| olive-orchard | `d181e4d7` | 180 x 180 | `one tended olive tree in an orchard, short leaning twisted grey-brown trunk, rounded pruned open crown of dark muted grey-green olive leaves with a few small dark olives` | clean |
+| olive-tall | `d38dc264` | 180 x 232 | `one tall old olive tree, a single tall twisted grey trunk leaning to one side, tall uneven wind-swept crown of dark muted silver-green olive leaves` | slab dropped (180 x 230 failed: canvas must be divisible by 4) |
+| cypress-tall | `e088c969` | 88 x 380 | `one very tall slender Italian cypress tree, narrow pointed column-shaped dense dark muted blue-green crown, short dark brown trunk` | clean, 10.5 m |
+| cypress-flame | `5b4c60f0` | 112 x 280 | `one medium Mediterranean cypress tree, wider flame-shaped dense dark muted green crown with a slightly uneven tip, short dark brown trunk` | clean |
+| stone-pine | `5a38a8c6` (ART-5) | — | reused from the global raw (§24) | — |
+| (rejected) holm oak | `990480c5` | 260 x 280 | `one old holm oak tree (evergreen Quercus ilex), short thick dark grey trunk, dense dark round crown of small dark leathery blackish-green leaves` | palmate leaves (reads as chestnut / hemp) |
+| holm-oak | `a8afba0d` | 240 x 260 | `one old evergreen holm oak tree, short thick gnarled dark grey trunk with a few spreading branches, a dense dark rounded dome crown made of many small dark blackish-green leaf clumps, like a dark Mediterranean ilex` | kept: clumped dome; pale bg keyed, grass disc dropped |
+| maquis-a | `e631e831` | 96 x 72 | `one dense low Mediterranean maquis shrub, mastic and myrtle, rounded clump of small dark glossy grey-green leaves` | clean |
+| maquis-b | `4eb56e7b` | 80 x 96 | `one tall Mediterranean tree heath maquis bush, upright spiky dark olive-green twigs with dull pinkish-white flower tips, irregular tall clump` | clean |
+| maquis-c | `119b5c90` | 128 x 80 | `one wide sprawling kermes oak and broom maquis thicket, low tangled dark green leaves with a few dull yellow broom flowers` | lime: graded sat 0.4 |
+| herbs | `8e20f9f2` | 64 x 48 | `one small low clump of wild rosemary and thyme, tiny grey-green needle leaves with small dull lavender-purple flowers` | drawn 1 m tall: `scale: 0.65` |
+| vines | `e46652d4` | 160 x 112 | `one short straight row of three grapevines on wooden stakes, gnarled dark brown vine trunks with dark muted green leaves and small dark purple grape bunches, the row runs diagonally from the upper left to the lower right` | kept; the row runs along the tile y axis anyway |
+| (rejected) | `eac0e0ef`, `2de1f6fc` | 144–160 x 112 | `one large weathered outcrop of pale grey-white marble rock, blocky fractured layers ...`; `... irregular natural outcrop ... rough organic silhouette, not a cube` | both a white cube ("not a cube" does not help) |
+| marble-outcrop-a | `f769bb66` | 160 x 112 | `one low jagged ridge of weathered pale grey limestone crags, several sharp tilted rock fins and broken slabs of different heights leaning together, rough irregular silhouette with dark crevices` | kept: crags; grass base dropped (keep neutral) |
+| marble-outcrop-b | `16026d8f` | 112 x 72 | `a low cluster of three weathered pale grey limestone and marble boulders, rounded and pitted with dark lichen spots` | clean |
+| (rejected) | `9fe54328`, `ebe4d07c` | 176–200 x 180 | `one ancient marble quarry face, a tall stepped wall ... cut into flat vertical faces and square ledges ...`; `one tall cut cliff face of an ancient marble quarry ... showing two faces like the corner of a big block` | a brick wall on a slab; a cracked cube |
+| marble-quarry | `d54f3bef` | 200 x 168 | `one rough natural hill of pale grey marble rock whose front has been cut away by quarrymen into a giant staircase of flat square steps and smooth sheer cut faces, rough broken natural rock on top and at the sides, a few loose cut blocks lying at the bottom step` | kept: a stepped cut block (still blocky, no natural top); moss dropped |
+| wall-a / wall-b | `ef0ea0ce` / `acc796ff` | 112 x 80 | `one straight piece of a low dry-stone field wall, about one metre tall, rough stacked pale grey limestone fieldstones without mortar, the wall runs diagonally from the upper left to the lower right` (b: `upper right to the lower left`) | both came out along the tile y axis: wall-b is `mirror`ed for the x axis; b's grass strip dropped |
+| shrine | `c83847e6` | 112 x 120 | `one small ancient Greek rural roadside shrine, a weathered marble herm pillar on a low stepped stone base with a small stone offering altar beside it, a clay oil lamp and a few olive sprigs on the altar` (+ `no base slab`) | kept: column on a plinth (plinth is the shrine's, not ground) |
+| (rejected) | `2bef1460` | 96 x 72 | `a small group of three ancient Greek beehives, horizontal clay pipe hives stacked under a low flat stone slab roof ...` | three tiny pots |
+| beehives | `8db371d9` | 112 x 72 | `three ancient Greek beehives in a row: tall upright woven straw skep hives shaped like domes, dull straw-brown, each standing on a flat grey stone` | kept, `scale: 0.8` |
+| marble-deposit | `bbbe3413` | 128 x 104 | `a marble resource deposit: a pile of large rough-cut gleaming white marble blocks with grey veins stacked on wooden sledge rails, an iron wedge and a mallet lying on the top block` (+ `with the marble a little brighter`) | kept; `resource: marble` |
+| olive-harvest | `b1d19d12` | 112 x 112 | `an olive harvest spot: two woven wicker baskets heaped with dark purple-black olives, a tall clay amphora and a wooden ladder leaning on a short wooden tripod` (+ `no cloth`) | kept (no ladder drawn), `scale: 0.75`; `resource: food` |
+| goats | `4d90e5b6` | 128 x 80 | `a small herd of three shaggy dark brown and grey long-horned goats grazing close together` | kept (draws 2–3), `scale: 0.7`; `fauna`, `animateLater` |
+| boar | `1a2ffbf2` | 96 x 64 | `one big bristly dark grey-brown wild boar with pale curved tusks, standing side-on facing left` | kept, `scale: 0.65`; `fauna`, `mob`, `animateLater` |
+
+**Lessons:** (1) Small subjects fill the canvas whatever their size: pick the canvas from metres x 33 (a 1 m boar wants
+~48 x 36) or downscale (`scale`, area resample + hard alpha). (2) PixelLab ignores the asked direction of linear pieces
+(walls, vine rows): generate one, `mirror` for the other axis. (3) "Not a cube" still gives a cube for any marble or
+quarry; crags, fins and a "hill cut into a giant staircase" get organic rock. (4) Canvas sides must be divisible by 4
+(the call fails, free). (5) Biome fills need stronger colour than looks right on the raw: the palette snap pulls
+near-global hues onto the global greens, so use a small "far" threshold (12) for the biome's own colours.
+(6) Goats and boar are static props; animate them later as PixelLab characters if they move.

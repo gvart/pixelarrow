@@ -1,4 +1,5 @@
-// Asset QA gate for the war region art (W-21). Checks public/war/tiles + public/war/objects; build.mjs runs it last.
+// Asset QA gate for the war region art (W-21). Checks public/war/tiles + public/war/objects and every biome folder
+// public/war/biomes/<name>/ (against the global set); build.mjs runs it last.
 // Usage: node scripts/war/art/qa.mjs   -> prints every failure, exits 1 if any.
 //
 // Tiles (per sheet): 16 frames, mask->frame complete, sizes, opaque top diamond, shared palette, no dark 1 px rim,
@@ -7,7 +8,7 @@
 // identical in every sheet (grass base identical across sets). Variants: same edge band as the base, new interior.
 // Objects: metadata, PNG size, transparent background, binary alpha, trimmed bounds, shared palette,
 // height_px ~ metres x 33 (+-10%), foot anchor near the bottom, no ground patch round the foot.
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readImage } from '../../art/lib/png.mjs';
@@ -77,9 +78,23 @@ export function rimCheck(t) {
   return (dark - base) / rn;
 }
 
-export function qaTiles(T, dir = join(ROOT, 'public/war/tiles')) {
+// The full tile of every terrain in a set's sheets: terrain -> [{ sheet, im }].
+function fullTiles(T, dir, full = new Map(), tag = '') {
+  for (const s of T.sheets ?? []) {
+    const f = join(dir, s.file); if (!existsSync(f)) continue;
+    const img = readImage(f); if (img.w !== TW * 16 || img.h !== TH || (s.maskToFrame ?? []).length !== 16) continue;
+    const fr = frames(img, 16);
+    for (const [t, m] of [[s.first, 15], [s.second, 0]]) (full.get(t) ?? full.set(t, []).get(t)).push({ sheet: tag + s.pair, im: fr[s.maskToFrame[m]] });
+  }
+  return full;
+}
+
+// G = the global tiles.json when T is a biome set: its palette must start with the global palette, every full tile it shares
+// with the global set must be identical to the global one (grass base), and variants of global terrains use the global base.
+export function qaTiles(T, dir = join(ROOT, 'public/war/tiles'), G = null) {
   const fail = [], pal = palSet(T.palette ?? []);
-  const full = new Map(); // terrain -> [{ sheet, im }]
+  const full = G ? fullTiles(G, join(ROOT, 'public/war/tiles'), new Map(), 'global ') : new Map(); // terrain -> [{ sheet, im }]
+  if (G && (G.palette ?? []).some((h, i) => T.palette?.[i] !== h)) fail.push('tiles.json: palette does not start with the global palette');
   const offPalette = (name, im) => {
     let n = 0; for (let i = 0; i < im.data.length; i += 4) if (im.data[i + 3] && !pal.has(key(im.data, i))) n++;
     if (n) fail.push(`${name}: ${n} px outside the shared tile palette`);
@@ -194,8 +209,9 @@ export function groundPatch(im, anchor, kind) {
 }
 
 const FIELDS = ['id', 'kind', 'file', 'w', 'h', 'metres', 'anchor', 'footprint', 'blocksMovement', 'source'];
-export function qaObjects(O, tilePalette, dir = join(ROOT, 'public/war/objects')) {
+export function qaObjects(O, tilePalette, dir = join(ROOT, 'public/war/objects'), GO = null) {
   const fail = [], pal = palSet([...(tilePalette ?? []), ...(O.palette ?? [])]), ppm = O.pxPerMetre;
+  if (GO && (GO.palette ?? []).some((h, i) => O.palette?.[i] !== h)) fail.push('objects.json: palette does not start with the global object palette');
   if (!O.palette?.length) fail.push('objects.json: no palette');
   if (ppm !== 33) fail.push(`objects.json: pxPerMetre ${ppm}, want 33 (W-18)`);
   for (const o of O.objects ?? []) {
@@ -228,14 +244,22 @@ export function qaObjects(O, tilePalette, dir = join(ROOT, 'public/war/objects')
   return fail;
 }
 
-export function runQa() {
-  const T = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json')));
-  const O = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));
-  const fail = [...qaTiles(T).map((f) => `tile  ${f}`), ...qaObjects(O, T.palette).map((f) => `object ${f}`)];
-  const n = `${T.sheets.length} tile sets, ${(T.variants ?? []).length} variant fills, ${O.objects.length} objects`;
+// runQa() checks the global set, runQa('<biome>') public/war/biomes/<biome>/ against it.
+export function runQa(biome) {
+  const read = (f) => JSON.parse(readFileSync(join(ROOT, f)));
+  const G = read('public/war/tiles/tiles.json'), GO = read('public/war/objects/objects.json');
+  const dir = biome && join(ROOT, 'public/war/biomes', biome);
+  const T = biome ? JSON.parse(readFileSync(join(dir, 'tiles.json'))) : G, O = biome ? JSON.parse(readFileSync(join(dir, 'objects.json'))) : GO;
+  const fail = [...qaTiles(T, dir ?? undefined, biome ? G : null).map((f) => `tile  ${f}`), ...qaObjects(O, T.palette, dir ?? undefined, biome ? GO : null).map((f) => `object ${f}`)];
+  const n = `${biome ? `biome ${biome}: ` : ''}${T.sheets.length} tile sets, ${(T.variants ?? []).length} variant fills, ${O.objects.length} objects`;
   if (fail.length) console.error(`QA FAIL (${fail.length}) over ${n}\n  ` + fail.join('\n  '));
   else console.log(`QA OK: ${n}`);
   return fail;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) process.exit(runQa().length ? 1 : 0);
+// CLI: the global set and every biome folder.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const bdir = join(ROOT, 'public/war/biomes');
+  const biomes = existsSync(bdir) ? readdirSync(bdir).filter((b) => existsSync(join(bdir, b, 'tiles.json'))) : [];
+  process.exit([undefined, ...biomes].map((b) => runQa(b).length).some(Boolean) ? 1 : 0);
+}
