@@ -1,0 +1,41 @@
+src/war/view/art.ts
+  s_cfc22b058125c4::t_01802d22b43736 21,102-103,105,276-285,314,316-317
+  s_cfc22b058125c4::t_e9833e1703f455 190
+scripts/war/sandbox-shots.mjs
+  s_cfc22b058125c4::t_239daa7570d5ad 145
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_239daa7570d5ad 95-102,135-136,138,187-218,433,439-440
+  s_cfc22b058125c4::t_7d533ef184f16b 17,39
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_239daa7570d5ad 1,5,29,59
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_2ed1370e757b4b 5,32,91-92
+  s_cfc22b058125c4::t_9062f72a276565 93,273
+src/war/view/terrain.ts
+  s_cfc22b058125c4::t_e9833e1703f455 12,28-29,78,80,108,138
+src/war/view/hud/modes.ts
+  s_cfc22b058125c4::t_abd574974a2c66 37
+  s_cfc22b058125c4::t_74813ea826007b 1-36,38-59
+src/war/view/mapModes.ts
+  s_cfc22b058125c4::t_1105ebd80244f7 277-279,281-283,285-286
+  s_cfc22b058125c4::t_b744ca790c6c35 1-191,215-232,240-276,280,284,287-307
+  s_cfc22b058125c4::t_9ab925cdab325d 192-214,233-239
+src/war/view/hud/kit.ts
+  s_cfc22b058125c4::t_9dfa86b2bb5be1 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8003f4105eb1362112a1a3dbee5b38af6aa56376",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
