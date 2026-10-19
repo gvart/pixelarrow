@@ -123,7 +123,7 @@ describe('gather and build', () => {
       expect(building(sim, 1).delivered).toBe(1);
       return t;
     };
-    const few = time(3), many = time(12);
+    const few = time(2), many = time(12); // 12 on a storehouse: 6 work, 6 wait
     expect(many).toBeLessThan(few * 0.5);
   });
 
@@ -159,6 +159,214 @@ describe('gather and build', () => {
     sim.damageBuilding(0, hp);
     expect(building(sim, 0).state).toBe('destroyed');
     expect(sim.checkPlacement(0, 'camp', 20, 20).ok).toBe(true);
+  });
+});
+
+describe('work slots', () => {
+  it('workers spread round the site, one per slot; the rest wait nearby', () => {
+    const sim = createSim(flat(), 21);
+    sim.claim(0, 20, 20, 30);
+    const s = sim.spawnSquad('a', 0, 'militia', 10, 24, 24);
+    sim.order({ kind: 'placeBuilding', squad: s, type: 'camp', x: 20, y: 20 });
+    let full = false;
+    run(sim, 1500, () => {
+      const snap = sim.snapshot();
+      const b = snap.buildings![0];
+      expect(b.maxWorkers).toBe(6);
+      expect(b.workers).toBeLessThanOrEqual(6);
+      const at = snap.units.filter((u) => u.state === 'build');
+      expect(at.length).toBeLessThanOrEqual(6);
+      if (at.length === 6) {
+        full = true;
+        for (let i = 0; i < at.length; i++)
+          for (let j = i + 1; j < at.length; j++) expect(Math.hypot(at[i].x - at[j].x, at[i].y - at[j].y)).toBeGreaterThan(0.9);
+        // they stand all round the footprint, not on one side
+        expect(at.some((u) => u.x < b.x - 1) && at.some((u) => u.x > b.x + 1)).toBe(true);
+        expect(at.some((u) => u.y < b.y - 1) && at.some((u) => u.y > b.y + 1)).toBe(true);
+        // the other four wait near the site, off its slots
+        for (const u of snap.units.filter((u) => u.state !== 'build')) expect(Math.hypot(u.x - b.x, u.y - b.y)).toBeLessThan(9);
+      }
+      return b.state === 'done';
+    });
+    expect(full).toBe(true);
+    expect(building(sim, 0).state).toBe('done');
+  });
+
+  it('slots per type are capped: camp 6, wall segment 2, tower 4, fort 20', () => {
+    const sim = createSim(flat(64), 22);
+    sim.claim(0, 32, 32, 40);
+    sim.order({ kind: 'placeBuilding', team: 0, type: 'camp', x: 20, y: 20 });
+    sim.order({ kind: 'placeBuilding', team: 0, type: 'fort', x: 40, y: 40 });
+    sim.order({ kind: 'placeWall', team: 0, material: 'wood', points: [10.5, 50.5, 30.5, 50.5], towers: [20, 50.5] });
+    sim.step();
+    const max = (t: string) => sim.snapshot().buildings!.filter((b) => b.type === t).map((b) => b.maxWorkers);
+    expect(max('camp')).toEqual([6]);
+    expect(max('fort')).toEqual([20]);
+    expect(max('woodTower')).toEqual([4]);
+    expect(new Set(max('palisade'))).toEqual(new Set([2]));
+    for (const b of sim.snapshot().buildings!) expect(b.workers).toBe(0);
+  });
+});
+
+describe('planned sites, resume and cancel', () => {
+  it('a site at any state blocks placement over it (camp site under a fort)', () => {
+    const sim = createSim(flat(), 23);
+    sim.claim(0, 24, 24, 40);
+    sim.order({ kind: 'placeBuilding', team: 0, type: 'camp', x: 20, y: 20 });
+    sim.step();
+    expect(building(sim, 0).state).toBe('foundation');
+    expect(sim.checkPlacement(0, 'fort', 22, 22)).toMatchObject({ ok: false, reason: 'overlap' });
+    sim.order({ kind: 'placeBuilding', team: 0, type: 'fort', x: 22, y: 22 });
+    sim.order({ kind: 'placeWall', team: 0, material: 'stone', points: [15.5, 20.5, 25.5, 20.5] });
+    sim.step();
+    expect(sim.snapshot().buildings).toHaveLength(1);
+    // walls and gates too
+    sim.order({ kind: 'placeWall', team: 0, material: 'wood', points: [10.5, 30.5, 30.5, 30.5], gates: [20, 30.5] });
+    sim.step();
+    expect(sim.checkPlacement(0, 'camp', 20, 31).reason).toBe('overlap');
+    expect(sim.checkPlacement(0, 'camp', 14, 30).reason).toBe('overlap');
+  });
+
+  it('a planned site waits for workers; a build order takes it up; stopWork and build again resume it', () => {
+    const sim = createSim(flat(), 24);
+    campAt(sim, 20, 20, 6);
+    sim.addStock(0, 'wood', 60);
+    sim.order({ kind: 'placeBuilding', team: 0, type: 'storehouse', x: 27, y: 20 });
+    run(sim, 200);
+    expect(building(sim, 1)).toMatchObject({ state: 'foundation', progress: 0, delivered: 0, workers: 0 });
+    const s = sim.spawnSquad('b', 0, 'militia', 6, 28, 28);
+    sim.order({ kind: 'build', squad: s, site: 1 });
+    run(sim, 3000, () => building(sim, 1).progress > 0.3);
+    expect(building(sim, 1).state).toBe('scaffold');
+    sim.order({ kind: 'stopWork', squad: s });
+    run(sim, 2);
+    const p = building(sim, 1).progress;
+    expect(sim.snapshot().squads[s].order).toBe('hold');
+    run(sim, 300);
+    expect(building(sim, 1)).toMatchObject({ state: 'scaffold', progress: p, workers: 0 });
+    expect(sim.snapshot().units.filter((u) => u.squad === s).every((u) => u.state !== 'build')).toBe(true);
+    // another squad may finish it
+    sim.order({ kind: 'build', squad: 0, site: 1 });
+    run(sim, 6000, () => building(sim, 1).state === 'done');
+    expect(building(sim, 1).state).toBe('done');
+    // a finished or foreign site takes no build order
+    sim.order({ kind: 'build', squad: s, site: 1 });
+    run(sim, 1);
+    expect(sim.snapshot().squads[s].order).toBe('hold');
+  });
+
+  it('cancelSite removes the site, refunds loads on the way in full and delivered materials at 75%', () => {
+    const sim = createSim(flat(), 25);
+    campAt(sim, 20, 20, 6);
+    sim.addStock(0, 'wood', 60);
+    const s = sim.spawnSquad('b', 0, 'militia', 6, 28, 28);
+    sim.order({ kind: 'placeBuilding', squad: s, type: 'storehouse', x: 27, y: 20 });
+    // cancel while some wood is delivered and some still on the way
+    run(sim, 3000, () => building(sim, 1).delivered > 0.2 && sim.snapshot().units.some((u) => u.squad === s && u.carry === 'wood'));
+    const del = building(sim, 1).delivered * 60;
+    expect(del).toBeGreaterThan(0);
+    sim.order({ kind: 'cancelSite', site: 1 });
+    run(sim, 1);
+    expect(sim.snapshot().buildings!.map((b) => b.id)).toEqual([0]);
+    expect(sim.snapshot().stock![0].wood).toBeCloseTo(60 - 0.25 * del, 6);
+    expect(sim.snapshot().units.some((u) => u.squad === s && u.carry)).toBe(false);
+    expect(sim.checkPlacement(0, 'storehouse', 27, 20).ok).toBe(true);
+    run(sim, 300);
+    expect(sim.snapshot().stock![0].wood).toBeCloseTo(60 - 0.25 * del, 6); // nothing counted twice
+    expect(sim.snapshot().units.filter((u) => u.squad === s).every((u) => u.state !== 'build')).toBe(true);
+    // a planned site with nothing delivered: all back (nothing left the stockpile), its scaffold tiles open again
+    sim.order({ kind: 'placeBuilding', team: 0, type: 'outpost', x: 30, y: 30 });
+    sim.step();
+    const id = sim.snapshot().buildings!.at(-1)!.id;
+    sim.order({ kind: 'cancelSite', site: id });
+    sim.step();
+    expect(sim.snapshot().buildings!.some((b) => b.id === id)).toBe(false);
+    // a finished building cannot be cancelled
+    sim.order({ kind: 'cancelSite', site: 0 });
+    sim.step();
+    expect(building(sim, 0).state).toBe('done');
+  });
+});
+
+describe('squad split and merge', () => {
+  it('detach makes a new squad of the same owner and team; merge joins them again', () => {
+    const sim = createSim(flat(), 26);
+    const a = sim.spawnSquad('p', 0, 'militia', 10, 20, 20);
+    const b = sim.spawnSquad('q', 1, 'militia', 3, 40, 40);
+    sim.order({ kind: 'detach', squad: a, count: 4 });
+    sim.step();
+    let snap = sim.snapshot();
+    expect(snap.squads).toHaveLength(3);
+    const c = snap.squads[2];
+    expect(c).toMatchObject({ id: 2, owner: 'p', team: 0, order: 'hold' });
+    expect(c.units).toHaveLength(4);
+    expect(snap.squads[a].units).toHaveLength(6);
+    for (const id of c.units) expect(snap.units[id].squad).toBe(2);
+    // by unit ids; never the whole squad
+    sim.order({ kind: 'detach', squad: a, unitIds: [snap.squads[a].units[0], snap.squads[a].units[1], 999] });
+    sim.order({ kind: 'detach', squad: b, count: 5 });
+    sim.step();
+    snap = sim.snapshot();
+    expect(snap.squads[3].units).toEqual(sim.snapshot().squads[3].units);
+    expect(snap.squads[3].units).toHaveLength(2);
+    expect(snap.squads[4]).toMatchObject({ owner: 'q', team: 1 });
+    expect(snap.squads[4].units).toHaveLength(2);
+    expect(snap.squads[b].units).toHaveLength(1);
+    // merge: only same owner and team
+    sim.order({ kind: 'merge', squad: 4, into: a });
+    sim.order({ kind: 'merge', squad: 3, into: a });
+    sim.order({ kind: 'merge', squad: c.id, into: a });
+    sim.step();
+    snap = sim.snapshot();
+    expect(snap.squads[a].units).toHaveLength(10);
+    expect(snap.squads[3].units).toHaveLength(0);
+    expect(snap.squads[4].units).toHaveLength(2);
+    // the merged squad moves as one
+    sim.order({ kind: 'move', squad: a, x: 30, y: 20 });
+    run(sim, 300);
+    for (const id of sim.snapshot().squads[a].units) expect(Math.hypot(sim.snapshot().units[id].x - 30, sim.snapshot().units[id].y - 20)).toBeLessThan(5);
+  });
+
+  it('part of an army detaches to build while the rest holds; merging into a building squad puts them to work', () => {
+    const sim = createSim(flat(), 27);
+    sim.claim(0, 20, 20, 30);
+    const army = sim.spawnSquad('p', 0, 'militia', 12, 26, 26);
+    sim.order({ kind: 'detach', squad: army, count: 3 });
+    sim.step();
+    const crew = 1;
+    sim.order({ kind: 'placeBuilding', squad: crew, type: 'camp', x: 20, y: 20 });
+    run(sim, 200);
+    let snap = sim.snapshot();
+    expect(snap.squads[army].order).toBe('hold');
+    expect(snap.buildings![0].workers).toBe(3);
+    sim.order({ kind: 'detach', squad: army, count: 3 });
+    sim.step();
+    sim.order({ kind: 'merge', squad: 2, into: crew });
+    run(sim, 300);
+    snap = sim.snapshot();
+    expect(snap.squads[crew].units).toHaveLength(6);
+    expect(snap.buildings![0].workers).toBe(6);
+  });
+});
+
+describe('determinism (slots, planned sites, split)', () => {
+  it('the same orders give the same snapshot', () => {
+    const go = () => {
+      const sim = createSim(flat(), 28);
+      campAt(sim, 20, 20, 10);
+      sim.addStock(0, 'wood', 200);
+      sim.order({ kind: 'placeBuilding', team: 0, type: 'storehouse', x: 27, y: 20 });
+      sim.order({ kind: 'placeWall', team: 0, material: 'wood', points: [10.5, 30.5, 30.5, 30.5] });
+      sim.order({ kind: 'detach', squad: 0, count: 4 });
+      sim.step();
+      sim.order({ kind: 'build', squad: 1, site: 1 });
+      sim.order({ kind: 'build', squad: 0, site: 2 });
+      run(sim, 600);
+      sim.order({ kind: 'cancelSite', site: 1 });
+      run(sim, 600);
+      return JSON.stringify(sim.snapshot());
+    };
+    expect(go()).toBe(go());
   });
 });
 

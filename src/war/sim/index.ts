@@ -61,6 +61,7 @@ const STUCK_TICKS = 8;
 const CLIMB_LOOK = 1.5; // tiles ahead a climb is felt
 const FACE = 18; // a standing squad turns to face enemies this near
 const FACE_TURN = 0.08; // rad per tick
+const EVICT_R = 4; // a closing site moves the units on it to the nearest open tile on their level this near
 
 interface Unit extends Worker {
   id: number;
@@ -162,8 +163,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       // a site closed its footprint: units standing on it step to the nearest open tile
       const shut = new Set(tiles);
       for (const u of units) {
-        if (!u.alive || !shut.has(tileAt(grid, u.x, u.y))) continue;
-        const o = nearestOpen(grid, Math.floor(u.x), Math.floor(u.y));
+        const here = tileAt(grid, u.x, u.y);
+        if (!u.alive || !shut.has(here)) continue;
+        // the nearest open tile on its own level (not up on a cliff beside the site), else any
+        let o = -1;
+        let bd = Infinity;
+        const tx = Math.floor(u.x);
+        const ty = Math.floor(u.y);
+        for (let y = Math.max(0, ty - EVICT_R); y <= Math.min(grid.h - 1, ty + EVICT_R); y++)
+          for (let x = Math.max(0, tx - EVICT_R); x <= Math.min(grid.w - 1, tx + EVICT_R); x++) {
+            const t = y * grid.w + x;
+            const d = (x + 0.5 - u.x) ** 2 + (y + 0.5 - u.y) ** 2;
+            if (d < bd && grid.cost[t] > 0 && Math.abs(grid.height[t] - grid.height[here]) <= 1) (bd = d), (o = t);
+          }
+        if (o < 0) o = nearestOpen(grid, tx, ty);
         u.x = (o % grid.w) + 0.5;
         u.y = Math.floor(o / grid.w) + 0.5;
       }
@@ -234,9 +247,81 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     s.ranged = ranged * 2 > k;
   };
 
+  /** A new squad of s's owner and team takes these living units of s, holding where they stand. */
+  const detach = (s: Squad, picked: Unit[]) => {
+    if (!picked.length) return;
+    let x = 0;
+    let y = 0;
+    for (const u of picked) (x += u.x), (y += u.y);
+    const [ax, ay] = openPoint(x / picked.length, y / picked.length);
+    const ns: Squad = {
+      ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
+      near: [], sites: [], node: -1,
+    };
+    squads.push(ns);
+    move(s, ns, picked);
+    if (s.order === 'gather' || s.order === 'build') for (const u of ns.units) works.setJob(u, null);
+    scanNear();
+  };
+
+  /** Living units leave s for t (and take up t's work order, if any); both re-form. */
+  const move = (s: Squad, t: Squad, picked: Unit[]) => {
+    const set = new Set(picked);
+    s.units = s.units.filter((u) => !set.has(u));
+    s.alive -= picked.length;
+    for (const u of picked) {
+      u.squad = t;
+      u.settled = false;
+      u.own = [];
+      u.wp = 0;
+      u.tgt = null;
+      t.units.push(u);
+    }
+    t.alive += picked.length;
+    if (s.alive > 0) reslot(s);
+    reslot(t);
+  };
+
   const apply = (o: Order) => {
-    const s = squads[o.squad];
+    if (o.kind === 'cancelSite') {
+      works.cancel(o.site);
+      return;
+    }
+    if ((o.kind === 'placeBuilding' || o.kind === 'placeWall') && o.squad === undefined) {
+      // no squad: a planned site, built once a squad gets a build order for it
+      if (o.team === undefined) return;
+      if (o.kind === 'placeBuilding') works.place(o.team, o.type, o.x, o.y, o.rot ?? 0);
+      else works.placeWall(o.team, o);
+      return;
+    }
+    const s = squads[o.squad ?? -1];
     if (!s) return;
+    if (o.kind === 'detach') {
+      const alive = s.units.filter((u) => u.alive);
+      const ids = o.unitIds ? new Set(o.unitIds) : null;
+      const n = Math.min(alive.length - 1, ids ? alive.length : Math.floor(o.count ?? 0));
+      detach(s, n <= 0 ? [] : ids ? alive.filter((u) => ids.has(u.id)).slice(0, n) : alive.slice(alive.length - n));
+      return;
+    }
+    if (o.kind === 'merge') {
+      const t = squads[o.into];
+      if (!t || t === s || t.team !== s.team || t.owner !== s.owner || s.alive === 0) return;
+      const picked = s.units.filter((u) => u.alive);
+      for (const u of picked) if (u.job) works.setJob(u, null);
+      move(s, t, picked);
+      s.order = 'hold';
+      s.path = [];
+      s.goal = null;
+      if (t.order === 'gather' || t.order === 'build') for (const u of picked) works.setJob(u, t.order);
+      return;
+    }
+    if (o.kind === 'stopWork') {
+      if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+      s.order = 'hold';
+      s.path = [];
+      s.goal = null;
+      return;
+    }
     if (o.kind === 'formation') {
       s.shape = o.shape;
       reslot(s);
@@ -246,7 +331,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const sites =
         o.kind === 'placeBuilding' ? [works.place(s.team, o.type, o.x, o.y, o.rot ?? 0)].filter((id) => id >= 0)
         : o.kind === 'placeWall' ? works.placeWall(s.team, o)
-        : o.kind === 'build' ? [o.site]
+        : o.kind === 'build' ? (works.siteOk(o.site, s.team) ? [o.site] : [])
         : [];
       if (o.kind !== 'gather' && !sites.length) return; // invalid placement: the squad carries on
       if (o.kind === 'gather' && !works.nodeOk(o.node)) return;
@@ -791,6 +876,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           u.ownReq = true;
           unitPathQueue.push(u);
         }
+      } else if (u.job && u.want > 0.5 && !u.moving) {
+        // a worker caught on a corner of its path (a cliff edge): it searches again from where it stands
+        if (++u.stuck > STUCK_TICKS) (u.stuck = 0), (u.wgx = u.wgy = -1);
       } else u.stuck = 0;
     }
     land();
@@ -820,7 +908,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: st.maxHp, maxHp: st.maxHp, cls, st, moving: false, wp: 0,
           alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
           settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
-          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false,
+          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false,
         };
         units.push(u);
         s.units.push(u);

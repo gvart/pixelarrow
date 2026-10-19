@@ -11,6 +11,7 @@ export interface BuildingDef {
   hp: number;
   cost: Partial<Record<ResourceKind, number>>;
   labour: number; // worker-seconds
+  workers: number; // most workers at once (one per work slot round the footprint; a wall piece: per piece)
   influence: number; // radius in tiles once done, 0 = none
   material: 'wood' | 'stone'; // for the fire rules (M2c)
   store?: boolean; // drop point for gatherers, source for builders
@@ -20,19 +21,19 @@ export interface BuildingDef {
 }
 
 export const BUILDINGS: Record<BuildingType, BuildingDef> = {
-  camp: { w: 3, h: 3, hp: 400, cost: {}, labour: 300, influence: 12, material: 'wood', store: true },
-  storehouse: { w: 3, h: 3, hp: 600, cost: { wood: 60 }, labour: 900, influence: 0, material: 'wood', store: true },
-  outpost: { w: 2, h: 2, hp: 600, cost: { wood: 40, stone: 30 }, labour: 1200, influence: 18, material: 'wood' },
-  fort: { w: 6, h: 6, hp: 5000, cost: { stone: 400, wood: 150 }, labour: 24000, influence: 32, material: 'stone', store: true },
-  barracks: { w: 4, h: 3, hp: 1200, cost: { wood: 120, stone: 40 }, labour: 3000, influence: 0, material: 'wood' },
-  farm: { w: 4, h: 4, hp: 300, cost: { wood: 30 }, labour: 600, influence: 0, material: 'wood', yields: { res: 'food', max: 60, regrow: 0.5, rate: 1 } },
-  olivePress: { w: 3, h: 3, hp: 700, cost: { wood: 30, stone: 60 }, labour: 1500, influence: 0, material: 'stone', yields: { res: 'food', max: 100, regrow: 0.8, rate: 1.2 } },
-  palisade: { w: 1, h: 1, hp: 300, cost: { wood: 6 }, labour: 60, influence: 0, material: 'wood', wall: 'segment', perTile: true },
-  stoneWall: { w: 1, h: 1, hp: 1500, cost: { stone: 15 }, labour: 300, influence: 0, material: 'stone', wall: 'segment', perTile: true },
-  woodTower: { w: 2, h: 2, hp: 800, cost: { wood: 40 }, labour: 600, influence: 0, material: 'wood', wall: 'tower' },
-  stoneTower: { w: 2, h: 2, hp: 2500, cost: { stone: 80 }, labour: 2400, influence: 0, material: 'stone', wall: 'tower' },
-  woodGate: { w: 2, h: 1, hp: 600, cost: { wood: 30 }, labour: 400, influence: 0, material: 'wood', wall: 'gate' },
-  stoneGate: { w: 2, h: 1, hp: 2500, cost: { stone: 60, wood: 20 }, labour: 1800, influence: 0, material: 'stone', wall: 'gate' },
+  camp: { w: 3, h: 3, hp: 400, cost: {}, labour: 300, workers: 6, influence: 12, material: 'wood', store: true },
+  storehouse: { w: 3, h: 3, hp: 600, cost: { wood: 60 }, labour: 900, workers: 6, influence: 0, material: 'wood', store: true },
+  outpost: { w: 2, h: 2, hp: 600, cost: { wood: 40, stone: 30 }, labour: 1200, workers: 4, influence: 18, material: 'wood' },
+  fort: { w: 6, h: 6, hp: 5000, cost: { stone: 400, wood: 150 }, labour: 24000, workers: 20, influence: 32, material: 'stone', store: true },
+  barracks: { w: 4, h: 3, hp: 1200, cost: { wood: 120, stone: 40 }, labour: 3000, workers: 8, influence: 0, material: 'wood' },
+  farm: { w: 4, h: 4, hp: 300, cost: { wood: 30 }, labour: 600, workers: 6, influence: 0, material: 'wood', yields: { res: 'food', max: 60, regrow: 0.5, rate: 1 } },
+  olivePress: { w: 3, h: 3, hp: 700, cost: { wood: 30, stone: 60 }, labour: 1500, workers: 6, influence: 0, material: 'stone', yields: { res: 'food', max: 100, regrow: 0.8, rate: 1.2 } },
+  palisade: { w: 1, h: 1, hp: 300, cost: { wood: 6 }, labour: 60, workers: 2, influence: 0, material: 'wood', wall: 'segment', perTile: true },
+  stoneWall: { w: 1, h: 1, hp: 1500, cost: { stone: 15 }, labour: 300, workers: 2, influence: 0, material: 'stone', wall: 'segment', perTile: true },
+  woodTower: { w: 2, h: 2, hp: 800, cost: { wood: 40 }, labour: 600, workers: 4, influence: 0, material: 'wood', wall: 'tower' },
+  stoneTower: { w: 2, h: 2, hp: 2500, cost: { stone: 80 }, labour: 2400, workers: 4, influence: 0, material: 'stone', wall: 'tower' },
+  woodGate: { w: 2, h: 1, hp: 600, cost: { wood: 30 }, labour: 400, workers: 3, influence: 0, material: 'wood', wall: 'gate' },
+  stoneGate: { w: 2, h: 1, hp: 2500, cost: { stone: 60, wood: 20 }, labour: 1800, workers: 3, influence: 0, material: 'stone', wall: 'gate' },
 };
 
 /** Wall pieces by material. */
@@ -44,6 +45,8 @@ export const WALL_KIT = {
 export const SEGMENT = 4; // wall line tiles per segment
 export const CARRY = 10; // a worker's load
 export const CLAIM_RADIUS = 20; // default influence of a claim anchor
+/** cancelSite: share of the materials already delivered that goes back to the stockpile (loads still on the way: all). */
+export const CANCEL_REFUND = 0.75;
 export const WORK_DEFENCE = 1.5; // a gathering or building squad takes this much more damage and never blocks
 
 export interface NodeDef { res: ResourceKind; max: number; regrow: number; rate: number; slots: number } // regrow, rate: per second

@@ -5,19 +5,25 @@
  * Gather: a worker walks to its node, harvests up to CARRY, carries the load to the nearest own store (camp,
  * storehouse, fort) and goes back; an empty node sends it to the nearest node of the same resource with a free slot.
  * Build: a worker takes what the site still lacks from the nearest store (the team stockpile), carries it to the site,
- * and labours once there is nothing to fetch. Labour never runs ahead of the materials delivered. The footprint
+ * and labours once there is nothing to fetch. Labour never runs ahead of the materials delivered. Each site has work slots,
+ * open tiles round its footprint spread evenly (at most def.workers): a worker holds one slot, carries to it and labours
+ * there; with no slot free it waits a little off the site. A site needs no workers to exist (planned), any squad of its
+ * team may take it up, and cancel() removes an unfinished one with a refund. The footprint
  * blocks from the first labour (scaffold); a finished gate opens again for its owner team only (grid.gate).
  * Influence: done buildings with a radius and claim anchors paint bit `team` of the mask.
  */
 import type { BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BUILDINGS, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
-import { tileAt, type Grid } from './grid';
+import { BUILDINGS, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
+import { lineClear, tileAt, type Grid } from './grid';
 
 const DT = 0.1;
 const NEAR_NODE = 15; // an empty node's workers look this far for another of the same resource
 const AT = 1.6; // a worker this near a footprint tile centre (or a node) is there
 const WORK_PATHS = 6; // worker A* searches per tick
 const REGROW_TICKS = 10;
+const AT_SLOT = 0.3; // a worker this near its work slot is there
+const WAIT_OFF = 2.5; // workers with no free slot wait this far off the footprint edge
+const REPATH_NEAR = 6; // a site closing re-paths the workers headed this near its footprint
 
 export interface WorkSquad { team: number; sites: number[]; node: number }
 /** The part of a sim unit the works drive. */
@@ -28,6 +34,7 @@ export interface Worker {
   carry: ResourceKind | null; load: number;
   wnode: number; // node it harvests, -1 none
   wsite: number; // site it builds, -1 none
+  wslot: number; // its work slot at wsite (index into the site's slots), -1 none
   wfor: number; // site its load is reserved for, -1 none
   working: boolean; // harvesting or labouring this tick
   wgx: number; wgy: number; // where it walks
@@ -44,6 +51,9 @@ interface Building {
   cost: Partial<Record<ResourceKind, number>>; delivered: Partial<Record<ResourceKind, number>>; incoming: Partial<Record<ResourceKind, number>>;
   costSum: number; hp: number; maxHp: number; saved: number[]; // grid cost of its tiles before they closed
   users: number; node: number;
+  slots: number[]; // work slots: tile indices round the footprint
+  slotUser: number[]; // worker id per slot, -1 free
+  cancelled: boolean; // cancel(): gone from the snapshot
 }
 
 export type Act = [number, number] | null | 'here';
@@ -61,6 +71,15 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const claims: { team: number; x: number; y: number; r: number }[] = [];
   const infl: InfluenceMap = { w, h, mask: new Uint8Array(w * h), version: 0 };
   const pathQueue: Worker[] = [];
+  const waits = new Map<number, [number, number, number]>(); // worker id -> [site, x, y]: where it waits for a free slot
+  const active = new Set<Worker>(); // workers with a job
+  const cutOff = new Map<number, number>(); // worker id -> a site it found no way to (until its next order)
+  const waitAt = new Set<number>(); // tiles taken as wait spots
+  const unwait = (u: Worker) => {
+    const p = waits.get(u.id);
+    if (p && p[1] >= 0) waitAt.delete(Math.floor(p[2]) * w + Math.floor(p[1]));
+    waits.delete(u.id);
+  };
   let tick = 0;
 
   (region.objects ?? []).forEach((o, i) => {
@@ -197,15 +216,55 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const b: Building = {
       id: buildings.length, type, def, team, rot, x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0, tiles,
       ti: [], state: 'foundation', labour: 0, need: def.labour * k, cost, delivered: {}, incoming: {}, costSum,
-      hp: maxHp * 0.1, maxHp, saved: [], users: 0, node: -1,
+      hp: maxHp * 0.1, maxHp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
     };
     for (let i = 0; i < tiles.length; i += 2) {
       const t = tiles[i + 1] * w + tiles[i];
       b.ti.push(t);
       occ[t] = b.id;
     }
+    b.slots = workSlots(b);
+    b.slotUser = b.slots.map(() => -1);
     buildings.push(b);
     return b.id;
+  };
+
+  /** A worker of `team` can stand on tile t to work a site: open, no building marked out there, not a foe's gate. */
+  const standable = (t: number, team: number) => grid.cost[t] > 0 && occ[t] < 0 && (!grid.gate[t] || grid.gate[t] === team + 1);
+
+  /**
+   * Work slots of a site: the tiles round its footprint (8-neighbour ring) a worker can stand on and step off (an open
+   * 4-neighbour within a level), at most one level from the footprint tile beside it; ordered round the centre and thinned
+   * evenly to def.workers, so workers spread all round.
+   */
+  const workSlots = (b: Building): number[] => {
+    const inside = new Set(b.ti);
+    const ring: number[] = [];
+    const seen = new Set<number>();
+    for (const t0 of b.ti)
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = (t0 % w) + dx, y = ((t0 / w) | 0) + dy;
+          if (x < 0 || y < 0 || x >= w || y >= h) continue;
+          const t = y * w + x;
+          if (inside.has(t) || seen.has(t) || !standable(t, b.team) || Math.abs(grid.height[t] - grid.height[t0]) > 1) continue;
+          let out = false;
+          for (const [ex, ey] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + ex, ny = y + ey;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const n = ny * w + nx;
+            if (!inside.has(n) && standable(n, b.team) && Math.abs(grid.height[n] - grid.height[t]) < 2) out = true;
+          }
+          if (!out) continue;
+          seen.add(t);
+          ring.push(t);
+        }
+    const ang = (t: number) => Math.atan2(((t / w) | 0) + 0.5 - b.y, (t % w) + 0.5 - b.x);
+    ring.sort((a, c) => ang(a) - ang(c) || a - c);
+    const k = Math.min(b.def.workers, ring.length);
+    const out: number[] = [];
+    for (let i = 0; i < k; i++) out.push(ring[Math.floor((i * ring.length) / k)]);
+    return out;
   };
 
   const place = (team: number, type: BuildingType, x: number, y: number, rot: 0 | 1 = 0): number => {
@@ -215,7 +274,14 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
 
   const placeWall = (team: number, o: Omit<WallOrder, 'kind' | 'squad'>): number[] => {
     const plan = checkWall(team, o);
-    return plan.ok ? plan.pieces.map((p) => add(team, p.type, p.tiles, 0)) : [];
+    if (!plan.ok) return [];
+    const ids = plan.pieces.map((p) => add(team, p.type, p.tiles, 0));
+    for (const id of ids) {
+      const b = buildings[id]; // slots again, now that every piece is marked out
+      b.slots = workSlots(b);
+      b.slotUser = b.slots.map(() => -1);
+    }
+    return ids;
   };
 
   // --- site life ---
@@ -233,6 +299,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     }
     grid.dirty.push(...b.tiles);
     evict(b.ti);
+    // workers headed near it search their way again (the old path may run through it, or the goal is now cut off)
+    const r = Math.max(b.w, b.h) / 2 + REPATH_NEAR;
+    for (const u of active) if (u.alive && Math.abs(u.wgx - b.x) < r && Math.abs(u.wgy - b.y) < r) u.wgx = u.wgy = -1;
   };
 
   const finish = (b: Building) => {
@@ -334,17 +403,40 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     return best;
   };
 
+  /** The worker gives up its site and slot. */
+  const leave = (u: Worker) => {
+    if (u.wsite < 0) return;
+    const b = buildings[u.wsite];
+    b.users--;
+    if (u.wslot >= 0) b.slotUser[u.wslot] = -1;
+    u.wsite = u.wslot = -1;
+  };
+
+  /** A load reserved for a cancelled site was refunded already: it is gone. */
+  const dropRefunded = (u: Worker) => {
+    if (u.wfor >= 0 && buildings[u.wfor].cancelled) {
+      u.carry = null;
+      u.load = 0;
+      u.wfor = -1;
+    }
+  };
+
   const release = (u: Worker) => {
     if (u.wnode >= 0) nodes[u.wnode].users--;
-    if (u.wsite >= 0) buildings[u.wsite].users--;
+    leave(u);
+    dropRefunded(u);
     if (u.wfor >= 0 && u.carry) buildings[u.wfor].incoming[u.carry]! -= u.load;
-    u.wnode = u.wsite = u.wfor = -1;
+    u.wnode = u.wfor = -1;
     u.working = false;
+    unwait(u);
   };
 
   const setJob = (u: Worker, job: 'gather' | 'build' | null) => {
     release(u);
+    cutOff.delete(u.id);
     u.job = job;
+    if (job) active.add(u);
+    else active.delete(u);
     u.wgx = u.wgy = -1;
     u.wpath = [];
   };
@@ -408,27 +500,112 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   };
 
   const unfinished = (b: Building) => b.state === 'foundation' || b.state === 'scaffold' || (b.state === 'damaged' && b.hp < b.maxHp);
-  const siteCap = (b: Building) => Math.max(4, 2 * (b.w + b.h));
+  const slotOk = (b: Building, k: number) => standable(b.slots[k], b.team);
 
-  const pickSite = (u: Worker): Building | null => {
-    let best: Building | null = null, bd = Infinity;
-    for (const id of u.squad.sites) {
-      const b = buildings[id];
-      if (!b || b.team !== u.squad.team || !unfinished(b) || b.users >= siteCap(b)) continue;
-      const d = near2(b.tiles, u.x, u.y);
-      if (d < bd) (bd = d), (best = b);
+  /** The free usable slot of b nearest the worker, -1 none. */
+  const freeSlot = (b: Building, u: Worker): number => {
+    let best = -1, bd = Infinity;
+    for (let k = 0; k < b.slots.length; k++) {
+      if (b.slotUser[k] >= 0 || !slotOk(b, k)) continue;
+      const t = b.slots[k];
+      const d = ((t % w) + 0.5 - u.x) ** 2 + (((t / w) | 0) + 0.5 - u.y) ** 2;
+      if (d < bd) (bd = d), (best = k);
     }
     return best;
   };
 
+  /** Nearest site of the squad's with a free slot, and that slot; null when every one is full or done. */
+  const pickSite = (u: Worker): [Building, number] | null => {
+    let best: [Building, number] | null = null, bd = Infinity;
+    for (const id of u.squad.sites) {
+      const b = buildings[id];
+      if (!b || b.team !== u.squad.team || !unfinished(b) || b.users >= b.slots.length || cutOff.get(u.id) === id) continue;
+      const d = near2(b.tiles, u.x, u.y);
+      if (d >= bd) continue;
+      const k = freeSlot(b, u);
+      if (k >= 0) (bd = d), (best = [b, k]);
+    }
+    return best;
+  };
+
+  /** No free slot: wait off the nearest unfinished site of the squad's (spread round it by worker id); null if none is left. */
+  const wait = (u: Worker): Act => {
+    let site: Building | null = null, bd = Infinity;
+    for (const id of u.squad.sites) {
+      const b = buildings[id];
+      if (!b || b.team !== u.squad.team || !unfinished(b) || cutOff.get(u.id) === id) continue;
+      const d = near2(b.tiles, u.x, u.y);
+      if (d < bd) (bd = d), (site = b);
+    }
+    if (!site) return null;
+    let p = waits.get(u.id);
+    if (!p || p[0] !== site.id) {
+      // a free spot round the site (golden-angle spread by worker id, two rings) with a clear walk to one of its slots;
+      // none: back to the squad
+      unwait(u);
+      p = [site.id, -1, -1];
+      for (let i = 0; i < 24 && p[1] < 0; i++) {
+        const a = u.id * 2.399963 + i * 0.52, r = Math.max(site.w, site.h) / 2 + WAIT_OFF + (i >= 12 ? 1.5 : 0);
+        const x = Math.floor(site.x + Math.cos(a) * r), y = Math.floor(site.y + Math.sin(a) * r);
+        if (x < 0 || y < 0 || x >= w || y >= h || waitAt.has(y * w + x) || !standable(y * w + x, site.team)) continue;
+        for (const t of site.slots)
+          if (lineClear(grid, x + 0.5, y + 0.5, (t % w) + 0.5, ((t / w) | 0) + 0.5)) {
+            p = [site.id, x + 0.5, y + 0.5];
+            waitAt.add(y * w + x);
+            break;
+          }
+      }
+      waits.set(u.id, p);
+    }
+    if (p[1] < 0) return null;
+    return (u.x - p[1]) ** 2 + (u.y - p[2]) ** 2 <= 0.25 ? 'here' : walkTo(u, p[1], p[2]);
+  };
+
+  /**
+   * 'here' at its slot, else the point to walk to. When its path ends short of the slot (cut off, say behind the wall
+   * it builds) next to the footprint, it takes a free slot nearer, or else works from where it stands.
+   */
+  const toSlot = (u: Worker, b: Building): Act => {
+    const pos = (k: number): [number, number] => [(b.slots[k] % w) + 0.5, ((b.slots[k] / w) | 0) + 0.5];
+    const [sx, sy] = pos(u.wslot);
+    const d2 = (u.x - sx) ** 2 + (u.y - sy) ** 2;
+    if (d2 <= AT_SLOT * AT_SLOT) return 'here';
+    const n = u.wpath.length / 2;
+    const ended = n > 0 && !u.wreq && u.wgx === sx && u.wgy === sy && u.wpi >= n - 1 && Math.hypot(u.wpath[n * 2 - 2] - u.x, u.wpath[n * 2 - 1] - u.y) <= AT_SLOT;
+    if (!ended) return walkTo(u, sx, sy);
+    if (!at(b.tiles, u)) {
+      // no way to the site from here (another level, cut off): leave it to others; a load for it goes back to the store
+      cutOff.set(u.id, b.id);
+      if (u.wfor === b.id && u.carry) (b.incoming[u.carry]! -= u.load), (u.wfor = -1);
+      leave(u);
+      return null;
+    }
+    const k = freeSlot(b, u);
+    if (k < 0) return 'here';
+    const [kx, ky] = pos(k);
+    if ((u.x - kx) ** 2 + (u.y - ky) ** 2 >= d2) return 'here';
+    b.slotUser[u.wslot] = -1;
+    b.slotUser[k] = u.id;
+    u.wslot = k;
+    return walkTo(u, kx, ky);
+  };
+
   const build = (u: Worker): Act => {
     let b = u.wsite >= 0 ? buildings[u.wsite] : null;
-    if (!b || !unfinished(b)) {
-      if (b) (b.users--, (u.wsite = -1));
-      b = pickSite(u);
-      if (!b) return u.load > 0 && u.wfor < 0 ? deliver(u) : null;
+    if (b && (!unfinished(b) || !slotOk(b, u.wslot))) {
+      leave(u);
+      b = null;
+    }
+    if (!b) {
+      const pick = pickSite(u);
+      if (!pick) return u.load > 0 && u.wfor < 0 ? deliver(u) : wait(u);
+      const k = pick[1];
+      b = pick[0];
       u.wsite = b.id;
+      u.wslot = k;
+      b.slotUser[k] = u.id;
       b.users++;
+      unwait(u);
     }
     if (u.load > 0) {
       if (u.wfor !== b.id) {
@@ -436,7 +613,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         u.wfor = -1;
         return deliver(u);
       }
-      if (!at(b.tiles, u)) return walkTo(u, ...spot(b.tiles, u, b.x, b.y));
+      const go = toSlot(u, b);
+      if (go !== 'here') return go;
       const r = u.carry!;
       b.delivered[r] = (b.delivered[r] ?? 0) + u.load;
       b.incoming[r]! -= u.load;
@@ -463,7 +641,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         return 'here';
       }
     }
-    if (!at(b.tiles, u)) return walkTo(u, ...spot(b.tiles, u, b.x, b.y));
+    const go = toSlot(u, b);
+    if (go !== 'here') return go;
     u.facing = Math.atan2(b.y - u.y, b.x - u.x);
     if (b.state === 'damaged') {
       u.working = true;
@@ -502,9 +681,27 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     },
     influence: () => infl,
     nodeOk: (id: number) => id >= 0 && id < nodes.length && nodes[id].max > 0,
+    /** A site of `team` with work left (planned, half built or damaged). */
+    siteOk: (id: number, team: number) => id >= 0 && id < buildings.length && buildings[id].team === team && unfinished(buildings[id]),
+    /**
+     * Remove an unfinished site (foundation or scaffold): its tiles open, its workers move on, loads on the way go back to
+     * the stockpile in full and delivered materials at CANCEL_REFUND. False if there is no such site.
+     */
+    cancel(id: number): boolean {
+      const b = buildings[id];
+      if (!b || (b.state !== 'foundation' && b.state !== 'scaffold')) return false;
+      const st = stockOf(b.team);
+      for (const [r, v] of Object.entries(b.incoming) as [ResourceKind, number][]) if (v > 0) st[r] = (st[r] ?? 0) + v;
+      for (const [r, v] of Object.entries(b.delivered) as [ResourceKind, number][]) st[r] = (st[r] ?? 0) + v * CANCEL_REFUND;
+      b.incoming = {};
+      destroy(b);
+      b.cancelled = true;
+      return true;
+    },
     /** What a worker does this tick: walk to a point, 'here' (stand: working, dropping or waiting), or null (no work: back to its slot). */
     work(u: Worker): Act {
       u.working = false;
+      dropRefunded(u);
       return u.job === 'gather' ? gather(u) : u.job === 'build' ? build(u) : null;
     },
     /** Per tick, before the units: worker paths, node regrowth. */
@@ -521,10 +718,15 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     resourceNodes: (): NodeSnap[] =>
       nodes.map((n) => ({ id: n.id, res: n.res, x: n.x, y: n.y, amount: n.amount, max: n.max, ...(n.obj !== undefined ? { obj: n.obj } : {}), ...(n.building !== undefined ? { building: n.building } : {}) })),
     buildingSnaps: (): BuildingSnap[] =>
-      buildings.map((b) => ({
-        id: b.id, type: b.type, team: b.team, x: b.x, y: b.y, w: b.w, h: b.h, rot: b.rot, tiles: b.tiles, state: b.state,
-        progress: b.state === 'destroyed' ? 0 : b.labour / b.need, delivered: delivered(b), hp: b.hp, maxHp: b.maxHp,
-      })),
+      buildings.filter((b) => !b.cancelled).map((b) => {
+        let maxWorkers = 0;
+        for (let k = 0; k < b.slots.length; k++) if (slotOk(b, k)) maxWorkers++;
+        return {
+          id: b.id, type: b.type, team: b.team, x: b.x, y: b.y, w: b.w, h: b.h, rot: b.rot, tiles: b.tiles, state: b.state,
+          progress: b.state === 'destroyed' ? 0 : b.labour / b.need, delivered: delivered(b), hp: b.hp, maxHp: b.maxHp,
+          workers: b.users, maxWorkers,
+        };
+      }),
     stockSnap: () => {
       const out: Record<number, Partial<Record<ResourceKind, number>>> = {};
       for (const [team, s] of stock) out[team] = { ...s };
