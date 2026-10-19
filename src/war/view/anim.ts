@@ -14,7 +14,7 @@
  *
  * Clips are found on the sheet by name and fall back through ANIM_FALLBACK, so a clip added to a
  * manifest is used as soon as it ships. `override` is the hook for work clips: it names clips for a
- * unit, the first the sheet has is used. `workClips` is the stock one: gathering plays chop (wood),
+ * unit, the first the sheet has is used. `workClips` is the stock one: gathering plays chop (wood, pitch),
  * mine (stone, marble, ores, salt) or harvest (food) by the resource it takes in, labouring at a site
  * plays build, walking with a load plays carry; never an attack clip (a sheet without them idles).
  */
@@ -46,7 +46,7 @@ const HARVEST = ['harvest', 'idle'] as const;
 const BUILD = ['build', 'chop', 'idle'] as const;
 const CARRY = ['carry', 'walk'] as const;
 const GATHER: Record<ResourceKind, readonly string[]> = {
-  wood: CHOP, food: HARVEST,
+  wood: CHOP, pitch: CHOP, food: HARVEST,
   stone: MINE, marble: MINE, copper: MINE, tin: MINE, iron: MINE, bronze: MINE, silver: MINE, salt: MINE,
 };
 
