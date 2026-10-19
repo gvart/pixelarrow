@@ -1,0 +1,33 @@
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_919fef53c78f53 1612-1636
+scripts/war/art/brazier-preview.mjs
+  s_cfc22b058125c4::t_b777dc5c377bb3 67,92
+  s_cfc22b058125c4::t_ae6c08cb2beb87 1-42,45-65,68,72-77,79-80,82-91,93-94
+  s_cfc22b058125c4::t_eac989afcc92e9 43-44,66,69-71,78,81
+scripts/war/art/buildings.mjs
+  s_cfc22b058125c4::t_c1a62677f1b81a 1295
+  s_cfc22b058125c4::t_dfd8842e637bf5 768,772-783,785-790,792-793,795,797-801,803-813,815-850,852-865
+  s_cfc22b058125c4::t_2321b03c27c158 769-771,784,796,802
+  s_cfc22b058125c4::t_2505f76981a024 791,794,814
+  s_cfc22b058125c4::t_f9b129233c416a 851,1206,1217-1225,1276,1282,1285-1286
+public/war/buildings/objects.json
+  s_cfc22b058125c4::t_c1a62677f1b81a 5,1647-1683,1822-1842,1844-1849,1851-1856,1858-1863,1865-1877,4255-4389,5470-5473,5475-5478,5480-5482,5484-5500,5502-5505,5507-5509,5511-5528,5530,5532,5535-5550
+  s_cfc22b058125c4::t_2321b03c27c158 145,149,154,166-167,169-170,1843,1850,1857,1864,5474,5479,5483,5501,5506,5510,5529,5531,5533-5534
+  s_cfc22b058125c4::t_8fb23ab2fad743 127-130,134-142,146-148,150-153,155-165,168,171-177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0f486dff43ca4275d8102efb5c1909c63e63105d",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
