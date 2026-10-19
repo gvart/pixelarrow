@@ -1,0 +1,482 @@
+{
+ "biome": "kyrene",
+ "extends": "public/war/tiles/tiles.json",
+ "note": "biome set: draw with the global sheets, variants and cliffs plus these; a biome variant list replaces the global one for its terrain; palette = the global palette (first entries, unchanged) + this biome's colours",
+ "tile": {
+  "w": 64,
+  "h": 48,
+  "topH": 32,
+  "levelPx": 16,
+  "metres": 2
+ },
+ "mask": "NW<<3|NE<<2|SW<<1|SE, set bit = first terrain; frame index = mask; NW is the top vertex",
+ "anchor": {
+  "x": 32,
+  "y": 0,
+  "note": "top vertex of the top diamond"
+ },
+ "palette": [
+  "#171913",
+  "#1d1a16",
+  "#10161b",
+  "#1a1a1c",
+  "#231b12",
+  "#181f18",
+  "#1e251d",
+  "#202121",
+  "#262920",
+  "#28211d",
+  "#2d251c",
+  "#322a20",
+  "#161d2e",
+  "#212124",
+  "#1f2828",
+  "#1d2c35",
+  "#252829",
+  "#2f3031",
+  "#353b26",
+  "#383726",
+  "#363c26",
+  "#263339",
+  "#324249",
+  "#334249",
+  "#393226",
+  "#443422",
+  "#403a2e",
+  "#3b3c3d",
+  "#3f462f",
+  "#4c452f",
+  "#3a4141",
+  "#3f433e",
+  "#52563b",
+  "#585e41",
+  "#595e41",
+  "#77593d",
+  "#786141",
+  "#444645",
+  "#454949",
+  "#5c6248",
+  "#676348",
+  "#444c50",
+  "#5d6e74",
+  "#727555",
+  "#67797e",
+  "#766c55",
+  "#776f58",
+  "#a39978",
+  "#a49978",
+  "#95988a",
+  "#9ba9ab",
+  "#a7b4b4",
+  "#15130d",
+  "#1c1b16",
+  "#080e1d",
+  "#1d1c1b",
+  "#1e241e",
+  "#26231e",
+  "#28211a",
+  "#111829",
+  "#19232b",
+  "#18252e",
+  "#192833",
+  "#242527",
+  "#2c2d30",
+  "#32302d",
+  "#303525",
+  "#343a2a",
+  "#293841",
+  "#334046",
+  "#3c3023",
+  "#3b3b3b",
+  "#3e412e",
+  "#50402d",
+  "#535138",
+  "#585d3f",
+  "#5c4f36",
+  "#6a5037",
+  "#434645",
+  "#444746",
+  "#494b49",
+  "#685b47",
+  "#3f4d55",
+  "#4d5557",
+  "#6c6b4f",
+  "#756c57",
+  "#7c6447",
+  "#97825f",
+  "#90a2aa",
+  "#a4a491",
+  "#a7b4b5",
+  "#bbcdd0",
+  "#35492b",
+  "#58534b",
+  "#66472d",
+  "#5f544e",
+  "#5a5956",
+  "#5c5a58",
+  "#666563",
+  "#686866",
+  "#82562f",
+  "#715847",
+  "#6d6d69",
+  "#6d6d6c",
+  "#72726f",
+  "#857c6a",
+  "#7d7c78",
+  "#9d927c",
+  "#c2b18e",
+  "#d2b88c",
+  "#ceb491",
+  "#d3bf97",
+  "#dbc99f",
+  "#40231e",
+  "#452621",
+  "#4b3b36",
+  "#533228",
+  "#684225",
+  "#784e2a",
+  "#784f2a",
+  "#7a502b",
+  "#7f542e",
+  "#2c311f",
+  "#3d241e",
+  "#774d2a",
+  "#3d211b",
+  "#3f231f",
+  "#704a27",
+  "#371e1a",
+  "#321a17",
+  "#6a4423",
+  "#6f4725"
+ ],
+ "sheets": [
+  {
+   "pair": "sand-dune",
+   "first": "sand",
+   "second": "dune",
+   "file": "sand-dune.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 73a5c978 (ART-7)"
+  },
+  {
+   "pair": "sand-hardpan",
+   "first": "sand",
+   "second": "hardpan",
+   "file": "sand-hardpan.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 4570c4d8 (ART-7)"
+  },
+  {
+   "pair": "sand-redrock",
+   "first": "sand",
+   "second": "redrock",
+   "file": "sand-redrock.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 056704a9 (ART-7)"
+  },
+  {
+   "pair": "sand-reg",
+   "first": "sand",
+   "second": "reg",
+   "file": "sand-reg.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro ebedeac5 (ART-7)"
+  },
+  {
+   "pair": "sand-salt",
+   "first": "sand",
+   "second": "salt",
+   "file": "sand-salt.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 1c47a090 (ART-7)"
+  },
+  {
+   "pair": "sand-oasis",
+   "first": "sand",
+   "second": "oasis",
+   "file": "sand-oasis.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 83db5c22 (ART-7)"
+  }
+ ],
+ "variants": [
+  {
+   "terrain": "dune",
+   "file": "var-dune.png",
+   "frames": 5,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "kyrene/fills#0",
+    "kyrene/fills#1",
+    "kyrene/fills#2",
+    "kyrene/fills#3"
+   ],
+   "note": "full dune tiles; wherever a sheet would draw the full dune tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "hardpan",
+   "file": "var-hardpan.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "kyrene/fills#4",
+    "kyrene/fills#5",
+    "shift"
+   ],
+   "note": "full hardpan tiles; wherever a sheet would draw the full hardpan tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "redrock",
+   "file": "var-redrock.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "kyrene/fills#6",
+    "kyrene/fills#7",
+    "shift"
+   ],
+   "note": "full redrock tiles; wherever a sheet would draw the full redrock tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "reg",
+   "file": "var-reg.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "kyrene/fills#8",
+    "kyrene/fills#9",
+    "shift"
+   ],
+   "note": "full reg tiles; wherever a sheet would draw the full reg tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "salt",
+   "file": "var-salt.png",
+   "frames": 3,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "kyrene/fills#10",
+    "kyrene/fills#11"
+   ],
+   "note": "full salt tiles; wherever a sheet would draw the full salt tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "oasis",
+   "file": "var-oasis.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "kyrene/fills#12",
+    "kyrene/fills#13",
+    "shift"
+   ],
+   "note": "full oasis tiles; wherever a sheet would draw the full oasis tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "sand",
+   "file": "var-sand.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "kyrene/fills#14",
+    "kyrene/fills#15",
+    "art5/sand-shallow#15"
+   ],
+   "note": "full sand tiles; wherever a sheet would draw the full sand tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  }
+ ],
+ "fallback": {
+  "note": "Same rule as the global tiles.json fallback, over the global sheets plus these, but the land buffer is sand: Kyrene terrains only have a set with sand, so any other pair (dune-hardpan, oasis-shallow, redrock-grass, ...) gets a sand verge; order says which corner gives way first.",
+  "order": [
+   "deep",
+   "shallow",
+   "marsh",
+   "grass",
+   "dirt",
+   "oasis",
+   "salt",
+   "hardpan",
+   "reg",
+   "dune",
+   "forest",
+   "redrock",
+   "rock",
+   "road",
+   "sand"
+  ],
+  "buffer": {
+   "water": "shallow",
+   "land": "sand"
+  }
+ },
+ "cliffs": [
+  {
+   "id": "redrock",
+   "file": "cliff-redrock.png",
+   "w": 64,
+   "h": 32,
+   "levelPx": 16,
+   "note": "side faces only (left + right), 64x32; its top edge follows the lower half of the diamond; for a cliff of n levels draw it n times, 16 px apart, at tile origin y + 16"
+  }
+ ]
+}

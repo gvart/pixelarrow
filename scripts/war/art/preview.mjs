@@ -54,6 +54,7 @@ const hash = (x, y, k = 0) => (((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)
 const pairOf = new Map(T.sheets.map((s) => [[s.first, s.second].sort().join('|'), s]));
 const WATER = new Set(['deep', 'shallow']);
 const rank = (t) => T.fallback.order.indexOf(t);
+const BUF = T.fallback.buffer?.land ?? 'grass'; // the land buffer terrain (grass; sand in a desert biome)
 function resolve(V, n) {
   const at = (x, y) => (x >= 0 && y >= 0 && x <= n && y <= n ? V[y * (n + 1) + x] : null);
   const set = (x, y, t) => { V[y * (n + 1) + x] = t; };
@@ -62,7 +63,7 @@ function resolve(V, n) {
     let land = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = at(x + dx, y + dy); if (t && !WATER.has(t)) land = true; }
     if (land) set(x, y, 'shallow');
   }
-  for (let pass = 0, changed = true; changed && pass < 30; pass++) { // (2) pairs with no sheet get a grass buffer; 3+ terrains: minority joins the majority
+  for (let pass = 0, changed = true; changed && pass < 30; pass++) { // (2) pairs with no sheet get a buffer (grass); 3+ terrains: minority joins the majority
     changed = false;
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
       const c = [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]], ts = c.map(([a, b]) => at(a, b)), kinds = [...new Set(ts)];
@@ -70,12 +71,12 @@ function resolve(V, n) {
       for (let i = 0; i < kinds.length; i++) for (let j = i + 1; j < kinds.length; j++) {
         const a = kinds[i], b = kinds[j]; if (pairOf.has([a, b].sort().join('|'))) continue;
         const lose = WATER.has(a) !== WATER.has(b) ? (WATER.has(a) ? b : a) : rank(a) < rank(b) ? a : b;
-        c.forEach(([u, v], k) => { if (ts[k] === lose) { set(u, v, 'grass'); changed = true; } });
+        c.forEach(([u, v], k) => { if (ts[k] === lose) { set(u, v, BUF); changed = true; } });
       }
       const ts2 = c.map(([a, b]) => at(a, b)), cnt = {}; ts2.forEach((t) => (cnt[t] = (cnt[t] ?? 0) + 1));
       const ks = Object.keys(cnt); if (ks.length < 3) continue;
-      // 3+ terrains: grass corners give way to the commonest other terrain (grass only shrinks, so this ends); else the rarest gives way
-      const lose = cnt.grass ? 'grass' : ks.sort((a, b) => cnt[a] - cnt[b] || rank(a) - rank(b))[0];
+      // 3+ terrains: buffer corners give way to the commonest other terrain (the buffer only shrinks, so this ends); else the rarest gives way
+      const lose = cnt[BUF] ? BUF : ks.sort((a, b) => cnt[a] - cnt[b] || rank(a) - rank(b))[0];
       const to = ks.filter((k) => k !== lose).sort((a, b) => cnt[b] - cnt[a] || rank(b) - rank(a))[0];
       c.forEach(([u, v], k) => { if (ts2[k] === ks[0]) { set(u, v, to); changed = true; } });
     }
@@ -130,7 +131,7 @@ if (BIOME) {
     const sm = (t) => t * t * (3 - 2 * t), u = sm(fx), v = sm(fy);
     return (h(X, Y) * (1 - u) + h(X + 1, Y) * u) * (1 - v) + (h(X, Y + 1) * (1 - u) + h(X + 1, Y + 1) * u) * v;
   };
-  const terrainAt = (x, y) => {
+  const elaiaAt = (x, y) => {
     const coast = 0.42 * n - Math.hypot(x - n - 2, y - n + 4) + 7 * (vn(x, y, 5, 1) - 0.5); // a round bay in the south corner
     if (coast > 7) return 'deep'; if (coast > 3.5) return 'shallow'; if (coast > 0) return 'sand';
     if (Math.hypot(x - 8, y - 9) < 6.5 + 4 * (vn(x, y, 4, 2) - 0.5)) return 'marble';
@@ -139,25 +140,62 @@ if (BIOME) {
     if (vn(x, y, 7, 5) > 0.5) return 'dry';
     return 'grass';
   };
+  // Kyrene: an oasis pool ringed by oasis grass on desert sand, dunes to the north-east, a red-rock shelf with a mesa and
+  // the copper node to the south-east, a hardpan pan, stony reg and a salt flat in the west corner.
+  const kyreneAt = (x, y) => {
+    const pool = Math.hypot(x - 12, y - 13) + 2 * (vn(x, y, 3, 1) - 0.5);
+    if (pool < 3) return 'shallow';
+    if (pool < 8 + 3 * (vn(x, y, 4, 2) - 0.5)) return 'oasis';
+    if (Math.hypot(x - 30, y - 29) < 8 + 4 * (vn(x, y, 4, 3) - 0.5)) return 'redrock';
+    if (Math.hypot(x - 7, y - 33) < 5.5 + 3 * (vn(x, y, 3, 4) - 0.5)) return 'salt';
+    if (Math.hypot(x - 18, y - 32) < 4.5 + 2 * (vn(x, y, 3, 6) - 0.5)) return 'hardpan';
+    if (x > 22 && y < 20 && vn(x, y, 5, 5) > 0.35) return 'dune';
+    if (vn(x, y, 6, 7) > 0.72) return 'reg';
+    return 'sand';
+  };
+  const terrainAt = BIOME === 'kyrene' ? kyreneAt : elaiaAt;
   for (let y = 0; y <= n; y++) for (let x = 0; x <= n; x++) V.push(terrainAt(x, y));
   const at = resolve(V, n), cell = (x, y) => { const c = [at(x, y), at(x + 1, y), at(x, y + 1), at(x + 1, y + 1)]; return c.every((t) => t === c[0]) ? c[0] : null; };
   const items = [], used = new Set(), free = (x, y, w = 1, h = 1) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (used.has(`${x + i},${y + j}`)) return false; return true; };
   const put = (id, x, y, w = 1, h = 1, ox = 0.5, oy = 0.5) => { if (!objs[id] || !free(x, y, w, h)) return false; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) used.add(`${x + i},${y + j}`); items.push([objs[id], x + ox, y + oy]); return true; };
   const pick = (ids, x, y) => ids[hash(x, y, 9) % ids.length];
+  const hop = soldier('hoplite', 'south-east', 0), hop2 = soldier('hoplite', 'south-west', 40), arc = soldier('archer', 'south-east', 0);
+  const squad = (sq) => { // 2 files of 4 hoplites and 2 archers
+    for (let j = -2; j <= 5; j++) for (let i = -2; i <= 4; i++) used.add(`${sq[0] + i},${sq[1] + j}`);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) hop && items.push([(i + j) % 2 && hop2 ? hop2 : hop, sq[0] - 1 + i * 0.55 + j * 0.5, sq[1] + 1 - i * 0.55 + j * 0.5]);
+    if (arc) items.push([arc, sq[0] + 2, sq[1] + 2], [arc, sq[0] + 2.5, sq[1] + 2.4]);
+  };
+  let placed = 0;
+  const jitter = (id, x, y) => put(id, x, y, 1, 1, 0.3 + (hash(x, y, 3) % 40) / 100, 0.3 + (hash(x, y, 5) % 40) / 100) && placed++;
+  if (BIOME === 'kyrene') {
+    // set pieces: the mesa, pillar, copper node and boulders on the red rock; spring, well, tent and camels round the oasis
+    put('mesa', 29, 27, 4, 4, 2, 2); put('rock-pillar', 25, 31); put('copper-ore', 33, 23, 2, 1, 1, 0.5); put('boulder-red', 27, 25); put('rocks-red', 34, 33);
+    put('oasis-spring', 15, 7, 2, 1, 1, 0.5); put('well', 20, 14); put('nomad-tent', 22, 7, 2, 2, 1, 1); put('camels', 25, 10, 2, 1, 1, 0.5);
+    put('ruin-wall', 4, 22, 2, 1, 1, 0.5); put('ruin-corner', 6, 24, 2, 2, 1, 1); put('gazelle', 36, 12); put('jackal', 13, 30);
+    squad([14, 21]);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const t = cell(x, y), h = hash(x, y, 7) % 1000; if (!t) continue;
+      const shore = [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) => at(x + dx, y + dy) === 'shallow' || at(x + 1 + dx, y + 1 + dy) === 'shallow');
+      let id = null;
+      if (t === 'oasis' && shore && h < 600) id = 'reeds';
+      else if (t === 'oasis' && (x + 2 * y) % 3 === 0 && h < 700) id = pick(['date-palm-tall', 'date-palm-mid', 'date-palm-fruit', 'date-palm-young', 'date-palm-clump', 'tamarisk'], x, y);
+      else if (t === 'oasis' && h < 120) id = pick(['saltbush', 'reeds', 'dry-grass'], x, y);
+      else if (t === 'redrock' && h < 60) id = pick(['rocks-red', 'boulder-red', 'camelthorn'], x, y);
+      else if (t === 'dune' && h < 25) id = pick(['dry-grass', 'camelthorn'], x, y);
+      else if (t === 'reg' && h < 50) id = pick(['saltbush', 'camelthorn', 'dry-grass', 'rocks-red'], x, y);
+      else if (t === 'hardpan' && h < 30) id = pick(['dry-grass', 'thorn-tree'], x, y);
+      else if (t === 'sand' && h < 45) id = pick(['acacia', 'acacia-old', 'thorn-tree', 'broom', 'saltbush', 'camelthorn', 'dry-grass', 'dry-grass', 'tamarisk'], x, y);
+      if (id) jitter(id, x, y);
+    }
+  } else {
   // set pieces first: quarry + marble node + crags + goats, the grove's walls, harvest spot, shrine and hives, vineyard rows
   put('marble-quarry', 6, 6, 2, 2, 1, 1); put('marble-deposit', 9, 9, 2, 1, 1, 0.5); put('marble-outcrop-a', 3, 11, 2, 1, 1, 0.5); put('goats', 11, 13, 2, 1, 1, 0.5);
   for (let x = 18; x < 32; x += 2) put('wall-b', x, 16, 2, 1, 1.9, 0.5); // wall-b runs along x, wall-a along y; anchor = lower end
   for (let y = 4; y < 16; y += 2) put('wall-a', 16, y, 1, 2, 0.5, 1.9);
   put('olive-harvest', 24, 10); put('shrine', 19, 19); put('beehives', 23, 18);
   for (let x = 4; x <= 14; x += 2) for (let y = 21; y <= 32; y += 2) if (cell(x, y) === 'rossa' && cell(x, y + 1) === 'rossa') put('vines', x, y, 1, 2, 0.5, 1.9); // rows along y
-  // the squad: 2 files of 4 hoplites and 2 archers on open ground in the middle
-  const hop = soldier('hoplite', 'south-east', 0), hop2 = soldier('hoplite', 'south-west', 40), arc = soldier('archer', 'south-east', 0);
-  const sq = [14, 18];
-  for (let j = -2; j <= 5; j++) for (let i = -2; i <= 4; i++) used.add(`${sq[0] + i},${sq[1] + j}`);
-  for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) hop && items.push([(i + j) % 2 && hop2 ? hop2 : hop, sq[0] - 1 + i * 0.55 + j * 0.5, sq[1] + 1 - i * 0.55 + j * 0.5]);
-  if (arc) items.push([arc, sq[0] + 2, sq[1] + 2], [arc, sq[0] + 2.5, sq[1] + 2.4]);
+  squad([14, 18]); // on open ground in the middle
   // scatter by terrain
-  let placed = 0;
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const t = cell(x, y), h = hash(x, y, 7) % 1000; if (!t) continue;
     let id = null;
@@ -166,10 +204,11 @@ if (BIOME) {
     else if (t === 'dry' && h < 45) id = pick(['maquis-a', 'maquis-b', 'maquis-c', 'herbs', 'herbs', 'olive-orchard'], x, y);
     else if (t === 'grass' && h < 30) id = pick(['cypress-tall', 'cypress-flame', 'stone-pine', 'holm-oak', 'maquis-a', 'olive-tall'], x, y);
     else if (t === 'sand' && h < 15) id = 'herbs';
-    if (id && put(id, x, y, 1, 1, 0.3 + (hash(x, y, 3) % 40) / 100, 0.3 + (hash(x, y, 5) % 40) / 100)) placed++;
+    if (id) jitter(id, x, y);
   }
   for (const [x, y] of [[30, 2], [31, 4], [33, 3]]) put(pick(['cypress-tall', 'cypress-flame'], x, y), x, y); // a cypress line behind the grove
   if (!put('boar', 27, 21)) put('boar', 26, 19);
+  }
   approx = 0;
   const { img, missing } = render(at, n, items, true);
   writeImage(join(OUT, `${PFX}_patch_1x.png`), crop(img, { x: 0, y: 160, w: img.w, h: img.h - 180 }));

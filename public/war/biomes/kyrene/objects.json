@@ -1,0 +1,665 @@
+{
+ "pxPerMetre": 33,
+ "tileMetres": 2,
+ "note": "anchor = foot point in the PNG (px): centre of the bottom rows; draw at the ground point minus anchor; no ground patch; metres = design height (h = metres x 33 +-10%); colours = tiles.json palette + palette",
+ "palette": [
+  "#16161e",
+  "#171e21",
+  "#1f362d",
+  "#233c3a",
+  "#324142",
+  "#45503a",
+  "#646b60",
+  "#c7c7c8",
+  "#10181f",
+  "#21212c",
+  "#423f43",
+  "#4a6051",
+  "#16151b",
+  "#171d21",
+  "#222e2f",
+  "#1f3538",
+  "#33433f",
+  "#39483f",
+  "#5c5c5f",
+  "#96999f",
+  "#091221",
+  "#1f2128",
+  "#4d5455",
+  "#1c1a1f",
+  "#191b20",
+  "#182b28",
+  "#24282d",
+  "#1c3232",
+  "#223b32",
+  "#29453e",
+  "#30433e",
+  "#34473d",
+  "#56585b",
+  "#57595c",
+  "#837f7c",
+  "#8d908f",
+  "#0a0e1d",
+  "#11111d",
+  "#1f2028",
+  "#4d3930",
+  "#4b3b3c",
+  "#474d53",
+  "#505255",
+  "#141318",
+  "#141319",
+  "#15161b",
+  "#19171b",
+  "#25151a",
+  "#19181d",
+  "#19181c",
+  "#1d2428",
+  "#24242c",
+  "#24242b",
+  "#202832",
+  "#202c35",
+  "#252c33",
+  "#314739",
+  "#2e463e",
+  "#37453e",
+  "#52423d",
+  "#565456",
+  "#624f4f",
+  "#55585b",
+  "#5f6468",
+  "#626369",
+  "#696c70",
+  "#72817b",
+  "#0a0908",
+  "#0c0a0f",
+  "#0f0e11",
+  "#111015",
+  "#211e27",
+  "#202028",
+  "#3a2c2c",
+  "#362f35",
+  "#38363c",
+  "#3a3c40",
+  "#404446",
+  "#454346",
+  "#424449",
+  "#434851",
+  "#020101",
+  "#020202",
+  "#040303",
+  "#070505",
+  "#070709",
+  "#08070e",
+  "#151925",
+  "#132225",
+  "#1d1d24",
+  "#1c1e26",
+  "#1d1f25",
+  "#1e1f25",
+  "#1f1f25",
+  "#1e2027",
+  "#2b2026",
+  "#2a292e",
+  "#2a2f2f",
+  "#2d3035",
+  "#29352c",
+  "#29352e",
+  "#3c3e45",
+  "#3d3d48",
+  "#3c3f47",
+  "#3e3f46",
+  "#3e4044",
+  "#3f4045",
+  "#443e44",
+  "#191523",
+  "#250f23",
+  "#513035",
+  "#583639",
+  "#5e3737",
+  "#643937",
+  "#653f3f",
+  "#694143",
+  "#335643",
+  "#3e5541",
+  "#3f5746",
+  "#425b49",
+  "#5e4e43",
+  "#445c4b",
+  "#556559",
+  "#6f3e3a",
+  "#6d3f3d",
+  "#71413e",
+  "#704740",
+  "#74413e",
+  "#75413f",
+  "#815449",
+  "#8e5a4d",
+  "#845b52",
+  "#806459",
+  "#8e5d4f",
+  "#97625d",
+  "#676a50",
+  "#826654",
+  "#846d4f",
+  "#836754",
+  "#816c66",
+  "#876c60",
+  "#69816a",
+  "#5ba684",
+  "#8c7361",
+  "#8e7865",
+  "#966c57",
+  "#9a705d",
+  "#9c6f61",
+  "#a16e6a",
+  "#94775c",
+  "#9d816c",
+  "#9d8a75",
+  "#af997b",
+  "#aca086",
+  "#b5aa97",
+  "#b9b4a0",
+  "#b9b5a9",
+  "#bdbdbd",
+  "#bfbfbf",
+  "#bfc0c0",
+  "#c0c1c0"
+ ],
+ "objects": [
+  {
+   "id": "date-palm-tall",
+   "kind": "tree",
+   "file": "date-palm-tall.png",
+   "w": 181,
+   "h": 353,
+   "metres": 11.4,
+   "anchor": {
+    "x": 94,
+    "y": 352
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 5be1a05c"
+  },
+  {
+   "id": "date-palm-mid",
+   "kind": "tree",
+   "file": "date-palm-mid.png",
+   "w": 160,
+   "h": 243,
+   "metres": 7.4,
+   "anchor": {
+    "x": 92,
+    "y": 242
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 82202c8f"
+  },
+  {
+   "id": "date-palm-fruit",
+   "kind": "tree",
+   "file": "date-palm-fruit.png",
+   "w": 204,
+   "h": 264,
+   "metres": 8.8,
+   "anchor": {
+    "x": 100,
+    "y": 263
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 5784fd97 (asked for a doum palm)"
+  },
+  {
+   "id": "date-palm-young",
+   "kind": "tree",
+   "file": "date-palm-young.png",
+   "w": 181,
+   "h": 263,
+   "metres": 8.6,
+   "anchor": {
+    "x": 90,
+    "y": 262
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 2c726ba0 (asked for a doum palm)"
+  },
+  {
+   "id": "date-palm-clump",
+   "kind": "tree",
+   "file": "date-palm-clump.png",
+   "w": 138,
+   "h": 129,
+   "metres": 3.9,
+   "anchor": {
+    "x": 71,
+    "y": 128
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 3dfe73c1"
+  },
+  {
+   "id": "acacia",
+   "kind": "tree",
+   "file": "acacia.png",
+   "w": 167,
+   "h": 164,
+   "metres": 5,
+   "anchor": {
+    "x": 84,
+    "y": 163
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 37b04b8c"
+  },
+  {
+   "id": "acacia-old",
+   "kind": "tree",
+   "file": "acacia-old.png",
+   "w": 189,
+   "h": 175,
+   "metres": 5.5,
+   "anchor": {
+    "x": 91,
+    "y": 174
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object ebc71f21"
+  },
+  {
+   "id": "thorn-tree",
+   "kind": "tree",
+   "file": "thorn-tree.png",
+   "w": 94,
+   "h": 99,
+   "metres": 3,
+   "anchor": {
+    "x": 39,
+    "y": 98
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object a6145348"
+  },
+  {
+   "id": "tamarisk",
+   "kind": "tree",
+   "file": "tamarisk.png",
+   "w": 129,
+   "h": 138,
+   "metres": 4.2,
+   "anchor": {
+    "x": 54,
+    "y": 137
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object ba6827ea"
+  },
+  {
+   "id": "saltbush",
+   "kind": "bush",
+   "file": "saltbush.png",
+   "w": 40,
+   "h": 29,
+   "metres": 0.9,
+   "anchor": {
+    "x": 17,
+    "y": 28
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object c1763a97"
+  },
+  {
+   "id": "camelthorn",
+   "kind": "bush",
+   "file": "camelthorn.png",
+   "w": 42,
+   "h": 32,
+   "metres": 1,
+   "anchor": {
+    "x": 16,
+    "y": 31
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 3b3a43ff"
+  },
+  {
+   "id": "broom",
+   "kind": "bush",
+   "file": "broom.png",
+   "w": 59,
+   "h": 47,
+   "metres": 1.4,
+   "anchor": {
+    "x": 31,
+    "y": 46
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 79ab144e"
+  },
+  {
+   "id": "dry-grass",
+   "kind": "grass",
+   "file": "dry-grass.png",
+   "w": 22,
+   "h": 16,
+   "metres": 0.5,
+   "anchor": {
+    "x": 10,
+    "y": 15
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 6443d446"
+  },
+  {
+   "id": "reeds",
+   "kind": "reeds",
+   "file": "reeds.png",
+   "w": 53,
+   "h": 66,
+   "metres": 2.2,
+   "anchor": {
+    "x": 26,
+    "y": 65
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 3efd5b01"
+  },
+  {
+   "id": "mesa",
+   "kind": "stone",
+   "file": "mesa.png",
+   "w": 258,
+   "h": 297,
+   "metres": 9.4,
+   "anchor": {
+    "x": 127,
+    "y": 296
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "source": "map_object baf32d19"
+  },
+  {
+   "id": "rock-pillar",
+   "kind": "stone",
+   "file": "rock-pillar.png",
+   "w": 92,
+   "h": 290,
+   "metres": 9,
+   "anchor": {
+    "x": 46,
+    "y": 289
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object 61089733"
+  },
+  {
+   "id": "boulder-red",
+   "kind": "stone",
+   "file": "boulder-red.png",
+   "w": 74,
+   "h": 57,
+   "metres": 1.8,
+   "anchor": {
+    "x": 37,
+    "y": 56
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object 433d39a3"
+  },
+  {
+   "id": "rocks-red",
+   "kind": "stone",
+   "file": "rocks-red.png",
+   "w": 54,
+   "h": 42,
+   "metres": 1.3,
+   "anchor": {
+    "x": 32,
+    "y": 41
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object c23bdc41"
+  },
+  {
+   "id": "well",
+   "kind": "stone",
+   "file": "well.png",
+   "w": 72,
+   "h": 79,
+   "metres": 2.4,
+   "anchor": {
+    "x": 28,
+    "y": 78
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object f4771a4e"
+  },
+  {
+   "id": "ruin-wall",
+   "kind": "stone",
+   "file": "ruin-wall.png",
+   "w": 87,
+   "h": 82,
+   "metres": 2.6,
+   "anchor": {
+    "x": 18,
+    "y": 81
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object f192a057"
+  },
+  {
+   "id": "ruin-corner",
+   "kind": "stone",
+   "file": "ruin-corner.png",
+   "w": 112,
+   "h": 71,
+   "metres": 2.2,
+   "anchor": {
+    "x": 52,
+    "y": 70
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object 6242db63"
+  },
+  {
+   "id": "nomad-tent",
+   "kind": "stone",
+   "file": "nomad-tent.png",
+   "w": 115,
+   "h": 90,
+   "metres": 2.6,
+   "anchor": {
+    "x": 56,
+    "y": 89
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object 38218516"
+  },
+  {
+   "id": "copper-ore",
+   "kind": "stone",
+   "file": "copper-ore.png",
+   "w": 92,
+   "h": 74,
+   "metres": 2.2,
+   "anchor": {
+    "x": 41,
+    "y": 73
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "resource": "copper",
+   "source": "map_object 9a64c0ca"
+  },
+  {
+   "id": "oasis-spring",
+   "kind": "prop",
+   "file": "oasis-spring.png",
+   "w": 96,
+   "h": 67,
+   "metres": 2,
+   "anchor": {
+    "x": 56,
+    "y": 66
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "resource": "water",
+   "source": "map_object ff6716cd"
+  },
+  {
+   "id": "camels",
+   "kind": "fauna",
+   "file": "camels.png",
+   "w": 76,
+   "h": 68,
+   "metres": 2.1,
+   "anchor": {
+    "x": 35,
+    "y": 67
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "fauna": "camel",
+   "animateLater": true,
+   "source": "map_object 7d986561"
+  },
+  {
+   "id": "jackal",
+   "kind": "fauna",
+   "file": "jackal.png",
+   "w": 22,
+   "h": 21,
+   "metres": 0.65,
+   "anchor": {
+    "x": 6,
+    "y": 20
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "fauna": "jackal",
+   "mob": true,
+   "animateLater": true,
+   "source": "map_object 6212438c"
+  },
+  {
+   "id": "gazelle",
+   "kind": "fauna",
+   "file": "gazelle.png",
+   "w": 32,
+   "h": 44,
+   "metres": 1.3,
+   "anchor": {
+    "x": 14,
+    "y": 43
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "fauna": "gazelle",
+   "animateLater": true,
+   "source": "map_object acc6c5b8"
+  }
+ ]
+}

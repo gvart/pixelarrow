@@ -1152,3 +1152,79 @@ dropping, a hip sway); "slow calm breathing" gives ≈1 px. (2) New props (malle
 generated frame or are lifted in over 2–3 frames; drop those frames for a loop. (3) The log comes out longer than the
 man in every facing; consistent, so it was kept. (4) Back-view idles still turn the head to a profile mid-clip (archer,
 slinger NE / NW); the body stays turned away, so they were kept. (5) Build sparks are cut by the colour pipeline.
+
+## 28. Biome: Kyrene (ART-7)
+
+The desert biome (W-21): Kyrene's oasis town on a river terrace with red cliffs and copper, plus its entries and
+neighbours from docs/WAR.md (Southern Dunes, Lagoon Coast salt lagoons, Ammos dunes, Ammon salt flats, Red Canyons).
+Raws: `shots/war/pixellab/kyrene/raw/` (git-ignored). List: `scripts/war/art/biomes/kyrene.mjs`; built into
+`public/war/biomes/kyrene/` by `node scripts/war/art/build.mjs --biome kyrene` (or the full build), same rules as §25.
+Preview: `node scripts/war/art/preview.mjs --biome kyrene` -> `shots/war/pixellab/kyrene/KYRENE_contact.png`,
+`KYRENE_patch_1x.png` (40 x 40: oasis pool in oasis grass, dunes, red-rock shelf with the mesa and copper, hardpan, reg,
+salt flat, a squad), `KYRENE_patch_zoom2x.png`. 99 generations (6 sets + 1 fill sheet x 10, 29 objects x 1).
+
+**Shared base.** Every Kyrene set is `sand-<terrain>` (first terrain = the global sand), so the sand of every Kyrene
+sheet is the built global sand pixel for pixel; grass, shallow water and every other global terrain are the global
+ones; the palette is the global palette (first, unchanged) + Kyrene colours. The land buffer of the fallback is
+**sand**, not grass (`fallback.buffer.land`): dune-hardpan, oasis-shallow and the like get a sand verge / bank.
+`preview.mjs` now reads `buffer.land`; the game's `src/war/view/autotile.ts` still hardcodes grass (follow-up).
+
+Tile sets: `create_tiles_pro`, isometric 64, low top-down, `tile_feature: tileset`, seed 31 (as §23). Fill grades
+(`{ sat, val }`): dune 0.8/0.74, hardpan 1.1/0.9, red rock 0.62/0.6, reg 0.9/0.95, salt 0.5/0.6, oasis 0.85/0.82. A
+first pass at hardpan 0.7/0.66 and reg 0.75/0.75 snapped to dark olive (hardpan read as grass, reg as holes).
+
+| Pair | Call | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| sand-dune | `73a5c978` | `pale dull dry sand to deep dull ochre-orange wind-rippled dune sand with long soft curved ripple lines, dark epic desaturated ancient North African desert` | kept; ripples read; straight block splits |
+| sand-hardpan | `4570c4d8` | `pale dull dry sand to dark tan cracked dry clay hardpan with a network of polygon mud cracks, dark epic desaturated ancient North African desert` | kept |
+| sand-redrock | `056704a9` | `pale dull dry sand to dark rusty red sandstone desert bedrock with flat layered ledges and dark cracks, dark epic desaturated ancient North African red canyon` | kept; its red side (graded) is the `redrock` cliff (red cliffs h5) |
+| sand-reg | `ebedeac5` | `pale dull dry sand to dark brown stony desert pavement of densely packed small grey-brown and black gravel pebbles, dark epic desaturated ancient North African desert` | kept |
+| sand-salt | `1c47a090` | `pale dull dry sand to a flat dull grey-white salt flat crust with raised polygon salt ridges, dark epic desaturated ancient North African salt pan` | kept; the polygons read a little like paving |
+| sand-oasis | `83db5c22` | `pale dull dry sand to lush dark green oasis grass with damp dark earth and small leafy weeds, dark epic desaturated ancient North African oasis` | kept; the most organic edges of the six |
+| fills | `3fa738fa` (`tile_view_angle: 30`, no tileset) | `1). deep dull ochre-orange wind-rippled dune sand with long soft curved ripple lines 2). dull ochre-orange dune sand with a sharp wind-scoured crest and fine ripples 3). dark tan cracked dry clay hardpan with polygon mud cracks and a few pebbles 4). dark rusty red sandstone desert bedrock with flat layered ledges and loose red rubble 5). dark brown stony desert pavement of packed small grey-brown and black gravel pebbles 6). flat dull grey-white salt flat crust with raised polygon salt ridges 7). lush dark green oasis grass with fallen dry palm fronds and dark damp earth 8). pale dull dry sand with scattered small dark stones and a few dry grass blades, dark epic desaturated ancient North African desert` | 16 tiles, top vertex y 11: variants of all six terrains + Kyrene's stony sand (replaces the global sand variants inside Kyrene) |
+
+Objects: `create_map_object`, high top-down, high detail, detailed shading, basic mode; every prompt ends with
+`seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully
+transparent background, no ground, no sand, no base under it` (plants: `no ground, no sand, no soil, no base under it`;
+animals: `standing side-on facing left` before the tail). Subject:
+
+| id | Call | Canvas | Subject (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| date-palm-tall | `5be1a05c` | 200 x 380 | `one very tall old date palm tree, a long slender slightly curving rough grey-brown ringed trunk, a crown of long arching feathery dark muted green fronds with hanging clusters of dull orange dates` | kept, 11.4 m; white bg, shadow disc dropped |
+| date-palm-mid | `82202c8f` | 180 x 280 | `one medium date palm tree, a straight rough grey-brown trunk covered in old frond stubs, a full round crown of long arching feathery dark muted green fronds` | kept; sand diamond under it dropped (x0..x1 + keep neutral) |
+| date-palm-clump | `3dfe73c1` | 160 x 160 | `one young date palm clump, three short thick rough brown trunks leaning apart from one root, each with a bushy crown of stiff arching dark muted green fronds` | kept (drew two trunks) |
+| (rejected) doum palm | `2c726ba0`, `5784fd97` | 220–240 x 300 | `one Egyptian doum palm tree, a grey-brown trunk that forks into two and then four branches like a Y, ...`; `one Egyptian doum palm (Hyphaene thebaica), a branching palm ... like a candelabra with four green tufts` | both a plain single-trunk palm: kept as `date-palm-young` and `date-palm-fruit`; **no doum palm** |
+| acacia | `37b04b8c` | 260 x 200 | `one umbrella thorn acacia of the African savanna (Acacia tortilis), a thin crooked dark trunk that splits low into a few long bare branches spreading out sideways, holding one very wide, very thin, perfectly flat-topped table-shaped canopy ... like a tabletop, three times wider than it is thick` | a dome, not a table; kept |
+| acacia-old | `ebc71f21` | 240 x 200 | `one flat-topped savanna umbrella thorn acacia tree, a short dark twisted trunk splitting into several bare spreading branches, one very wide thin flat-topped canopy of small dark muted olive-green leaves, much wider than tall` | a dome (reads oak-like); kept |
+| thorn-tree | `a6145348` | 180 x 140 | `one small scrubby desert thorn acacia tree, a crooked dark grey trunk with thorny zigzag branches and a sparse uneven crown of tiny dull olive-green leaves` | round leaf blobs, not thorny; kept |
+| tamarisk | `ba6827ea` | 180 x 172 | `one tamarisk tree, several thin dark reddish-brown trunks, a soft feathery wispy crown of fine dull grey-green needle foliage with faint dull pink flower plumes` | kept (blue-grey) |
+| saltbush | `c1763a97` | 72 x 48 | `one low round desert saltbush shrub, dense clump of small dull silver-grey-green leaves` | kept |
+| camelthorn | `3b3a43ff` | 64 x 44 | `one low spiky camelthorn desert bush, tangled thorny dull brown-green twigs with a few tiny leaves` | kept |
+| (rejected) | `38892e1a` | 80 x 72 | `one tall white broom retama desert bush, many thin upright leafless dull grey-green switch stems in a loose fountain-shaped clump` | a saguaro cactus |
+| broom | `79ab144e` | 88 x 64 | `one rounded desert broom shrub (Retama), a loose airy tangle of many thin leafless dull grey-green twiggy stems, wider than tall, like a witch's broom, not a cactus` | kept |
+| dry-grass | `6443d446` | 48 x 32 | `one small clump of dry desert grass tufts, thin pale straw-yellow and dull brown blades sticking up and bending over` | kept, `scale: 0.7`; kind `grass` (the bush ground test reads straw as soil) |
+| reeds | `3efd5b01` | 64 x 80 | `one clump of tall oasis papyrus reeds and rushes, thin dull green stalks with feathery dark green tufts on top and a few brown seed heads` (+ `no water`) | kept |
+| mesa | `baf32d19` | 300 x 380 | `one tall isolated red sandstone mesa butte, a flat rough top with a few loose rocks, sheer cliff sides cut by deep vertical fluted grooves and cracks, rust-red and dark brown layered rock, a ragged rocky apron of fallen red boulders at its foot, rough organic natural silhouette` | kept, 9.4 m, close to the Gemini mesa; red-earth apron dropped by colour (`base.drop`) |
+| rock-pillar | `61089733` | 120 x 320 | `one tall thin red sandstone rock pillar, a weathered hoodoo spire of stacked rust-red and dark brown rock layers, narrower in the middle, a slightly wider cap rock on top, rough jagged sides with dark cracks` | kept, 9 m; reads as stacked blocks |
+| (rejected) red-crags | `3f068aa8` | 200 x 160 | `one low jagged ridge of weathered rust-red sandstone crags, several sharp tilted rock fins and broken layered slabs ...` | a diorama on a thick ground slab with sides |
+| boulder-red | `433d39a3` | 96 x 72 | `one large weathered rust-red sandstone boulder, rounded by wind with dark horizontal layer lines and cracks` | kept |
+| rocks-red | `c23bdc41` | 88 x 56 | `a small cluster of three angular dark red-brown desert rocks with a dark desert varnish, sharp broken edges` | kept |
+| well | `f4771a4e` | 112 x 112 | `one ancient desert well, a round low wall of rough mud-brick and pale stone, a wooden beam frame over it with a rope and a leather bucket, a clay water jar beside it` | kept |
+| ruin-wall | `f192a057` | 112 x 96 | `one straight piece of a ruined ancient mud-brick wall, about two metres tall, sun-dried dull tan-brown mud bricks with crumbling eroded rounded top and a few fallen bricks, the wall runs diagonally from the upper left to the lower right` | kept (runs along x) |
+| ruin-corner | `6242db63` | 136 x 120 | `one ruined corner of an ancient mud-brick house, two short crumbling walls ... one with a broken doorway arch ...` (+ `no floor`) | sand floor anyway: dropped by colour |
+| nomad-tent | `38218516` | 160 x 104 | `one black Bedouin nomad tent woven of dark goat hair, a long low sagging roof held up by wooden poles and guy ropes, one side open showing striped rugs and a clay jar inside` | kept |
+| copper-ore | `9a64c0ca` | 128 x 88 | `a copper ore resource deposit: a low outcrop of dark red-brown rock streaked with bright green malachite and blue-green copper stains, broken chunks of ore heaped in front with a woven basket and a bronze pick lying on them` (+ `with the green ore a little brighter`) | kept; `resource: copper` |
+| oasis-spring | `ff6716cd` | 112 x 80 | `an oasis spring water source: a small round pool of dark clear water ringed by flat pale stones, a few tall green reeds at one side and two clay water jars standing on the stones` | kept; `resource: water` |
+| camels | `7d986561` | 112 x 80 | `two dromedary camels standing close together, dusty dull tan-brown fur, one hump each, long necks, one with a striped woven saddle blanket` | kept; `fauna`, `animateLater` |
+| jackal | `6212438c` | 48 x 36 | `one lean golden jackal, dull sandy-tan and grey fur, big ears, bushy dark-tipped tail` | kept, `scale: 0.7`; `fauna`, `mob`, `animateLater` |
+| gazelle | `acc6c5b8` | 56 x 48 | `one slender dorcas gazelle, dull sandy-fawn back, pale belly, a dark side stripe, thin curved ringed horns` | kept; `fauna`, `animateLater` |
+
+**Build change.** `base.drop: [[hex, tol], ...]` drops pixels near a colour (manhattan) in rows >= y0, and `keep` is
+optional: sand floors and red-earth aprons are neither green nor grey, so `keep` alone cannot remove them.
+
+**Lessons:** (1) PixelLab has one palm: forked doum palms, "candelabra" or not, come back as a date palm. (2) Every
+acacia prompt (flat, table, tortilis) gives a dome; the §24 acacia trick works for stone pines, not for acacias. (3)
+"Retama / broom" alone gives a saguaro; name the shape and say "not a cactus". (4) Sand-paired sets come back as
+straight block splits (as road-rock in §24); oasis grass is the exception. (5) The QA ground test only looks for green
+(trees, stone) or soil (plants): sand floors and red aprons pass it, so look at the contact sheet. (6) Desaturating a tan
+or grey-brown fill lands it on the global olive greens after the palette snap: keep sat >= 0.9 for earth tones.
