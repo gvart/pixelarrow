@@ -1,0 +1,74 @@
+scripts/art/pixellab/mobs/bandit.mjs
+  s_cfc22b058125c4::t_1dd97517d3ffe5 1-28
+docs/v5/pixellab/MOBS/ibex.sheet.json
+  s_cfc22b058125c4::t_77dda6f1ef52c7 1-16
+docs/v5/pixellab/MOBS/wolf.sheet.json
+  s_cfc22b058125c4::t_b7e3562630d079 1-17
+docs/v5/pixellab/MOBS/bear.jobs.json
+  s_cfc22b058125c4::t_1bcb0c16b8ea85 1-6
+scripts/art/pixellab/mobs/shrink.mjs
+  s_cfc22b058125c4::t_02d5b2f6106457 7
+  s_cfc22b058125c4::t_69992d8e81af0e 1-6,8-83
+docs/v5/pixellab/MOBS/jackal.sheet.json
+  s_cfc22b058125c4::t_60790716b80356 7
+  s_cfc22b058125c4::t_9627f9e75962fb 1-6,8-18
+scripts/art/pixellab/mobs/scale.mjs
+  s_cfc22b058125c4::t_0eca3bf59992c3 1-27
+scripts/art/pixellab/mobs/contact.mjs
+  s_cfc22b058125c4::t_9e98be115fa13c 1-88
+public/war/mobs.json
+  s_cfc22b058125c4::t_b7ec97427d30ab 1-11
+scripts/art/pixellab/mobs/lineup.mjs
+  s_cfc22b058125c4::t_0ae1f500e545af 1-29
+docs/v5/pixellab/MOBS/bear.sheet.json
+  s_cfc22b058125c4::t_f8c58efea6c1c4 1-5,7-18
+  s_cfc22b058125c4::t_d802189c2f3dc7 6
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_db214323d957b0 1683,1745-1795
+src/assets/sheets/mob_wolf/manifest.json
+  s_cfc22b058125c4::t_34d91d2a4c040b 1-83
+docs/v5/pixellab/MOBS/boar.jobs.json
+  s_cfc22b058125c4::t_a681c079c441b6 1-10
+src/assets/sheets/mob_jackal/manifest.json
+  s_cfc22b058125c4::t_9627f9e75962fb 1-83
+src/assets/sheets/mob_bear/manifest.json
+  s_cfc22b058125c4::t_f41b3c0d0f8308 1-9,12-15,17-19,21-22,25-27,29-83
+  s_cfc22b058125c4::t_6cc04f73b8a88c 10-11,16,20,23-24,28
+src/assets/sheets/mob_ibex/manifest.json
+  s_cfc22b058125c4::t_1ea1016c5ec2cb 6-7,10,16,20,23,27-28
+  s_cfc22b058125c4::t_c9c0d2d832577a 1-5,8-9,11-15,17-19,21-22,24-26,29-77
+src/assets/sheets/mob_bandit/manifest.json
+  s_cfc22b058125c4::t_0fb7a3643a91b6 1-223
+docs/v5/pixellab/MOBS/wolf.jobs.json
+  s_cfc22b058125c4::t_286988421d2de0 3-10
+  s_cfc22b058125c4::t_be29c66c4dbbc4 1-2,11
+docs/v5/pixellab/MOBS/boar.sheet.json
+  s_cfc22b058125c4::t_e09c34d605cf04 1-17
+src/assets/sheets/mob_boar/manifest.json
+  s_cfc22b058125c4::t_89f4e47bb621e5 1-83
+scripts/art/pixellab/mobs/build.mjs
+  s_cfc22b058125c4::t_407daa701b7379 22,48-62,91-124,147,161,163-165
+  s_cfc22b058125c4::t_cac77f7e8bf15a 1-12,16-19,21,23-47,125-134,136-141,143,168,170,187-194,197-271
+  s_cfc22b058125c4::t_2866fc060cc004 13,144-146,148-160,162,166-167,195-196
+  s_cfc22b058125c4::t_9193275d01f70d 14,20,142,169,171-186
+  s_cfc22b058125c4::t_d802189c2f3dc7 15
+  s_cfc22b058125c4::t_b4a96b65b86225 63,67-70,72,75-76,78,83,87,89-90
+  s_cfc22b058125c4::t_6cc04f73b8a88c 64-66,71,73-74,77,79-82,84-86,88
+  s_cfc22b058125c4::t_07b725227f0bad 135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "97e8afc7f0669d4abf5b67d1361b091fb22eb75b",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
