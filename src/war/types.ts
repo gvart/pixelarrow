@@ -173,22 +173,32 @@ export interface WallOrder {
   inside?: number[];
 }
 /**
- * M2d bridges (W-24, src/war/sim/works.ts): a drag from bank to bank (`points`: first and last tile points; the line snaps
- * to the axis it runs along most). The bridge is 2 tiles wide (the line's row and the next one, +y along x, +x along y):
- * a ramp piece on each bank (the last dry tiles before the water) and deck pieces over the water between them, 2 tiles
- * along per piece. Valid when it starts on a dry bank ('bank'), reaches a dry far bank within the line ('bank'), spans at
- * most BRIDGE.maxSpan tiles of water ('span'), its ramps sit on open ground ('water', 'blocked', 'overlap', 'noBuild',
- * banks more than a level apart: 'slope') and at least one ramp lies in the team's influence ('influence'; the water and
- * the far bank need none). Pieces are built like walls (per-tile cost and labour) from the banks inwards: a deck piece
- * takes workers only once the piece before it (towards either bank) is done, so they stand on the finished deck.
+ * Bridges (M2d W-24, v2 W-33, src/war/sim/works.ts): a drag from bank to bank (`points`: first and last tile points). The
+ * line snaps to the nearest of 4 directions: a grid axis ('x', 'y': diagonal on screen) or a grid diagonal ('h': along
+ * +-(1,-1), screen-horizontal; 'v': along +-(1,1), screen-vertical). The bridge is `width` tiles wide (1-3, default 2)
+ * across the line, laid out in rows one step along it: an axis row is `width` tiles beside the line (+y along x, +x along
+ * y; a 3-wide one centred on it); a diagonal row is a staircase band of round(width x sqrt 2) + 1 tiles (its core about
+ * `width` tiles wide) centred on the line. A ramp row on each bank (the last dry rows before the water) and deck pieces of
+ * 2 rows over the water between them. Valid when it starts on a dry bank ('bank'), reaches a dry far bank within the line
+ * ('bank'), spans at most BRIDGE.maxSpan[material] tiles of water bank to bank ('span'; a diagonal row step is sqrt 2
+ * tiles), its ramps sit on open ground ('water', 'blocked', 'overlap', 'noBuild', banks more than a level apart: 'slope')
+ * and at least one ramp lies in the team's influence ('influence'; the water and the far bank need none). Pieces are built
+ * like walls (per-tile cost and labour) from both banks inwards: a deck piece takes workers only once the piece before it
+ * (towards either bank) is done, so they stand on the finished deck.
  */
-export interface BridgeOrder { kind: 'placeBridge'; squad?: SquadId; team?: number; material: 'wood' | 'stone'; points: number[] }
+export type BridgeAxis = 'x' | 'y' | 'h' | 'v';
+export interface BridgeOrder { kind: 'placeBridge'; squad?: SquadId; team?: number; material: 'wood' | 'stone'; points: number[]; width?: number }
 export interface BridgePlan {
-  ok: boolean; reason?: PlaceReason; axis: 'x' | 'y';
-  /** Water tiles bank to bank along the line (0 when there is none). */
-  span: number;
-  /** Ramps (end0: the drag's start bank, end1: the far one) and decks, in order along the line. */
-  pieces: { type: BuildingType; part: 'end0' | 'end1' | 'deck'; tiles: number[]; ok: boolean }[];
+  ok: boolean; reason?: PlaceReason; axis: BridgeAxis;
+  /** The snapped step along the line (from the drag's start) and the width in tiles. */
+  dir: [number, number]; width: number;
+  /** Water bank to bank along the line in tiles (0 when there is none); maxSpan: the material's limit. */
+  span: number; maxSpan: number;
+  /**
+   * Ramps (end0: the drag's start bank, end1: the far one) and decks, in order along the line. rows: each row's centre
+   * (flat tile x,y, continuous) in line order.
+   */
+  pieces: { type: BuildingType; part: 'end0' | 'end1' | 'deck'; tiles: number[]; rows: number[]; ok: boolean }[];
 }
 /** tiles: the footprint as flat tile x,y. */
 export interface PlaceResult { ok: boolean; reason?: PlaceReason; tiles: number[] }
@@ -222,10 +232,11 @@ export interface BuildingSnap {
   /** M2c: a ladder raised by siege engine `siege`; push: defenders' progress pushing it off 0..1. */
   siege?: number; push?: number;
   /**
-   * M2d: a bridge piece: its axis, part (a ramp on the start / far bank, or deck) and deck level (the higher bank's
-   * height; finished tiles walk at it over the water). Units on it have `on` = this piece.
+   * M2d: a bridge piece: its axis, step along the line (dir), width, part (a ramp on the start / far bank, or deck), deck
+   * level (the higher bank's height; finished tiles walk at it over the water) and row centres (as BridgePlan pieces).
+   * Units on it have `on` = this piece.
    */
-  bridge?: { axis: 'x' | 'y'; part: 'end0' | 'end1' | 'deck'; deck: number };
+  bridge?: { axis: BridgeAxis; dir: [number, number]; width: number; part: 'end0' | 'end1' | 'deck'; deck: number; rows: number[] };
 }
 /** A gatherable node: a region object (obj = index into region.objects) or a finished farm/press (building = its id). */
 export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; obj?: number; building?: number;

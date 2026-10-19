@@ -31,11 +31,13 @@
  * higher bank) at BRIDGE.cost; unbuilt water stays closed. A piece brought to 0 hp (fire, stone throwers) collapses: its
  * tiles go back to water and `fall` drops the men on them.
  */
-import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
+import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
 import { BRIDGE, BUILDINGS, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 
 const DT = 0.1;
+/** Bridge line steps by octant of the drag angle (+x first, turning towards +y). */
+const STEPS: [number, number][] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
 const NEAR_NODE = 15; // an empty node's workers look this far for another of the same resource
 const AT = 1.6; // a worker this near a footprint tile centre (or a node) is there
 const WORK_PATHS = 6; // worker A* searches per tick
@@ -101,7 +103,7 @@ interface Building {
   siege: number; // a ladder raised by this siege engine, -1
   push: number; // defenders' push on a ladder, 0..1
   /** M2d bridge piece: the pieces of its bridge in line order, its index, axis, part, deck level. */
-  bridge: { ids: number[]; i: number; axis: 'x' | 'y'; part: 'end0' | 'end1' | 'deck'; deck: number } | null;
+  bridge: { ids: number[]; i: number; axis: BridgeAxis; dir: [number, number]; width: number; part: 'end0' | 'end1' | 'deck'; deck: number; rows: number[] } | null;
 }
 export type Piece = Readonly<Building>;
 
@@ -365,14 +367,26 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const checkBridge = (team: number, o: Omit<BridgeOrder, 'kind' | 'squad'>): BridgePlan => {
     const p = o.points, n2 = p.length;
     const sx = Math.floor(p[0] ?? 0), sy = Math.floor(p[1] ?? 0), ex = Math.floor(p[n2 - 2] ?? 0), ey = Math.floor(p[n2 - 1] ?? 0);
-    const alongX = Math.abs(ex - sx) >= Math.abs(ey - sy), axis = alongX ? 'x' : 'y';
-    const dx = alongX ? Math.sign(ex - sx) : 0, dy = alongX ? 0 : Math.sign(ey - sy), ox = alongX ? 0 : 1, oy = alongX ? 1 : 0;
-    const len = Math.abs(alongX ? ex - sx : ey - sy) + 1;
-    const fail = (reason: PlaceReason, span = 0, pieces: BridgePlan['pieces'] = []): BridgePlan => ({ ok: false, reason, axis, span, pieces });
+    // the nearest of the 8 steps (4 lines) to the drag; a diagonal step is sqrt 2 tiles long
+    const oct = (((Math.round(Math.atan2(ey - sy, ex - sx) / (Math.PI / 4)) % 8) + 8) % 8);
+    const [dx, dy] = STEPS[oct], diag = dx !== 0 && dy !== 0, stepLen = diag ? Math.SQRT2 : 1;
+    const axis: BridgeAxis = !diag ? (dx ? 'x' : 'y') : dx === dy ? 'v' : 'h';
+    const width = Math.max(1, Math.min(3, Math.round(o.width ?? BRIDGE.width))), maxSpan = BRIDGE.maxSpan[o.material];
+    const len = Math.round(((ex - sx) * dx + (ey - sy) * dy) / (dx * dx + dy * dy)) + 1;
+    // a row's tiles beside the line: an axis row `width` tiles (+y along x, +x along y; 3 wide centred); a diagonal row a
+    // staircase band: tiles on every other diagonal across (px, py) and between them the 4-neighbour half a step ahead
+    const offs: [number, number][] = [];
+    if (!diag) for (let j = -Math.floor((width - 1) / 2), n = 0; n < width; j++, n++) offs.push(dx ? [0, j] : [j, 0]);
+    else {
+      const px = -dy, py = dx, [qx, qy] = px * dx > 0 ? [px, 0] : [0, py], n = Math.round(width * Math.SQRT2) + 1;
+      for (let j = -Math.floor((n - 1) / 2), c = 0; c < n; j++, c++) { const m = Math.floor(j / 2), odd = j - 2 * m; offs.push([px * m + qx * odd, py * m + qy * odd]); }
+    }
+    const fail = (reason: PlaceReason, span = 0, pieces: BridgePlan['pieces'] = []): BridgePlan => ({ ok: false, reason, axis, dir: [dx, dy], width, span, maxSpan, pieces });
     if (len < 3 || n2 < 4) return fail('short');
-    const row = (k: number) => [sx + dx * k, sy + dy * k, sx + dx * k + ox, sy + dy * k + oy];
+    const row = (k: number) => offs.flatMap(([ox, oy]) => [sx + dx * k + ox, sy + dy * k + oy]);
+    const centre = (k: number) => { const r = row(k); let cx = 0, cy = 0; for (let i = 0; i < r.length; i += 2) (cx += r[i]), (cy += r[i + 1]); return [cx / offs.length + 0.5, cy / offs.length + 0.5]; };
     const inMap = (k: number) => row(k).every((v, i) => v >= 0 && v < (i % 2 ? h : w));
-    const wet = (k: number) => { const r = row(k); return region.water[r[1] * w + r[0]] > 0 || region.water[r[3] * w + r[2]] > 0; };
+    const wet = (k: number) => { const r = row(k); for (let i = 0; i < r.length; i += 2) if (region.water[r[i + 1] * w + r[i]] > 0) return true; return false; };
     if (!inMap(0) || !inMap(len - 1)) return fail('bounds');
     if (wet(0)) return fail('bank');
     let k0 = 1;
@@ -380,16 +394,16 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (k0 >= len) return fail('short'); // no water on the line
     let k1 = k0;
     while (k1 + 1 < len && wet(k1 + 1)) k1++;
-    const span = k1 - k0 + 1, type = BRIDGE.kit[o.material];
-    const pieces: BridgePlan['pieces'] = [{ type, part: 'end0', tiles: row(k0 - 1), ok: true }];
+    const span = Math.round((k1 - k0 + 1) * stepLen), type = BRIDGE.kit[o.material];
+    const pieces: BridgePlan['pieces'] = [{ type, part: 'end0', tiles: row(k0 - 1), rows: centre(k0 - 1), ok: true }];
     for (let k = k0; k <= k1; k += BRIDGE.piece) {
-      const tiles: number[] = [];
-      for (let j = k; j <= Math.min(k1, k + BRIDGE.piece - 1); j++) tiles.push(...row(j));
-      pieces.push({ type, part: 'deck', tiles, ok: true });
+      const tiles: number[] = [], rows: number[] = [];
+      for (let j = k; j <= Math.min(k1, k + BRIDGE.piece - 1); j++) tiles.push(...row(j)), rows.push(...centre(j));
+      pieces.push({ type, part: 'deck', tiles, rows, ok: true });
     }
-    if (k1 + 1 < len) pieces.push({ type, part: 'end1', tiles: row(k1 + 1), ok: true });
+    if (k1 + 1 < len) pieces.push({ type, part: 'end1', tiles: row(k1 + 1), rows: centre(k1 + 1), ok: true });
     const bad = (reason: PlaceReason) => { for (const q of pieces) q.ok = false; return fail(reason, span, pieces); };
-    if (span > BRIDGE.maxSpan) return bad('span');
+    if (span > maxSpan) return bad('span');
     if (k1 + 1 >= len) return bad('bank'); // the drag ends in the water
     // ramps: open dry ground, banks at most a level apart, one of them in the team's influence
     const ends = [pieces[0], pieces[pieces.length - 1]];
@@ -413,7 +427,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       const r: PlaceReason | null = noBuild[t] ? 'noBuild' : occ[t] >= 0 ? 'overlap' : region.terrain[t] === 'rock' ? 'rock' : !region.water[t] && grid.cost[t] === 0 ? 'blocked' : null;
       if (r) { q.ok = false; return fail(r, span, pieces); }
     }
-    return { ok: true, axis, span, pieces };
+    return { ok: true, axis, dir: [dx, dy], width, span, maxSpan, pieces };
   };
 
   const placeBridge = (team: number, o: Omit<BridgeOrder, 'kind' | 'squad'>): number[] => {
@@ -424,7 +438,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const ids = plan.pieces.map((q) => add(team, q.type, q.tiles, 0));
     ids.forEach((id, i) => {
       const b = buildings[id];
-      b.bridge = { ids, i, axis: plan.axis, part: plan.pieces[i].part, deck };
+      b.bridge = { ids, i, axis: plan.axis, dir: plan.dir, width: plan.width, part: plan.pieces[i].part, deck, rows: plan.pieces[i].rows };
       b.slots = workSlots(b);
       b.slotUser = b.slots.map(() => -1);
     });
@@ -586,9 +600,11 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const d = b.def;
     if (b.bridge) {
       const br = b.bridge;
+      const diag = br.axis === 'h' || br.axis === 'v';
       b.ti.forEach((t) => {
         grid.height[t] = br.deck;
         grid.cost[t] = BRIDGE.cost;
+        if (diag) grid.span[t] = 1;
       });
       b.decked = true;
       grid.dirty.push(...b.tiles);
@@ -692,6 +708,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       if (closed && grid.cost[t] === 0) grid.cost[t] = b.saved[i];
       if (b.rubble && grid.cost[t] > 0) grid.cost[t] *= FIRE.rubble;
       grid.gate[t] = 0;
+      grid.span[t] = 0;
     }
     if (closed) grid.dirty.push(...b.tiles);
     if (b.bridge && wasDone) fall(b.ti); // the deck collapses under the men on it
@@ -1399,7 +1416,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.rubble ? { rubble: true as const } : {}),
           ...(b.siege >= 0 ? { siege: b.siege } : {}),
           ...(b.push > 0 && b.state !== 'destroyed' ? { push: Math.min(1, b.push) } : {}),
-          ...(b.bridge ? { bridge: { axis: b.bridge.axis, part: b.bridge.part, deck: b.bridge.deck } } : {}),
+          ...(b.bridge ? { bridge: { axis: b.bridge.axis, dir: b.bridge.dir, width: b.bridge.width, part: b.bridge.part, deck: b.bridge.deck, rows: b.bridge.rows } } : {}),
         };
       }),
     stockSnap: () => {

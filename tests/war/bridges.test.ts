@@ -46,18 +46,77 @@ function base(sim: WarBuildSim, n = 12) {
 }
 
 describe('bridge placement', () => {
-  it('spans at most BRIDGE.maxSpan tiles of water bank to bank', () => {
-    const ok = createSim(river(BRIDGE.maxSpan), 1);
-    ok.claim(0, 8, 16, 14);
-    const plan = ok.checkBridge(0, { material: 'wood', points: [12.5, 16.5, 28.5, 16.5] });
-    expect(plan).toMatchObject({ ok: true, axis: 'x', span: BRIDGE.maxSpan });
-    // ramps on the last dry tiles, 2 wide, decks 2 x 2 over the water
-    expect(plan.pieces[0]).toMatchObject({ part: 'end0', tiles: [14, 16, 14, 17] });
-    expect(plan.pieces.at(-1)).toMatchObject({ part: 'end1', tiles: [25, 16, 25, 17] });
-    expect(plan.pieces.filter((p) => p.part === 'deck')).toHaveLength(BRIDGE.maxSpan / 2);
-    const wide = createSim(river(BRIDGE.maxSpan + 1), 1);
-    wide.claim(0, 8, 16, 14);
-    expect(wide.checkBridge(0, { material: 'wood', points: [12.5, 16.5, 28.5, 16.5] })).toMatchObject({ ok: false, reason: 'span', span: BRIDGE.maxSpan + 1 });
+  it('spans at most BRIDGE.maxSpan tiles of water bank to bank, per material (wood 12, stone 24)', () => {
+    expect(BRIDGE.maxSpan).toEqual({ wood: 12, stone: 24 });
+    for (const material of ['wood', 'stone'] as const) {
+      const max = BRIDGE.maxSpan[material], W = 15 + max + 8;
+      const ok = createSim(river(max, W, 15), 1);
+      ok.claim(0, 8, 16, 14);
+      const plan = ok.checkBridge(0, { material, points: [12.5, 16.5, 15 + max + 1.5, 16.5] });
+      expect(plan).toMatchObject({ ok: true, axis: 'x', dir: [1, 0], width: 2, span: max, maxSpan: max });
+      // ramps on the last dry tiles, 2 wide, decks 2 x 2 over the water
+      expect(plan.pieces[0]).toMatchObject({ part: 'end0', tiles: [14, 16, 14, 17], rows: [14.5, 17] });
+      expect(plan.pieces.at(-1)).toMatchObject({ part: 'end1', tiles: [15 + max, 16, 15 + max, 17] });
+      expect(plan.pieces.filter((p) => p.part === 'deck')).toHaveLength(max / 2);
+      const wide = createSim(river(max + 1, W, 15), 1);
+      wide.claim(0, 8, 16, 14);
+      expect(wide.checkBridge(0, { material, points: [12.5, 16.5, 15 + max + 2.5, 16.5] })).toMatchObject({ ok: false, reason: 'span', span: max + 1 });
+    }
+    // a wood bridge cannot take a stone bridge's span
+    const sim = createSim(river(16, 40, 15), 1);
+    sim.claim(0, 8, 16, 14);
+    expect(sim.checkBridge(0, { material: 'wood', points: [12.5, 16.5, 32.5, 16.5] }).reason).toBe('span');
+    expect(sim.checkBridge(0, { material: 'stone', points: [12.5, 16.5, 32.5, 16.5] }).ok).toBe(true);
+  });
+
+  it('is 1, 2 or 3 tiles wide', () => {
+    const sim = createSim(river(6), 1);
+    sim.claim(0, 8, 16, 14);
+    const at = (width: number, points = [12.5, 16.5, 24.5, 16.5]) => sim.checkBridge(0, { material: 'wood', points, width });
+    expect(at(1).pieces[0].tiles).toEqual([14, 16]);
+    expect(at(2).pieces[0].tiles).toEqual([14, 16, 14, 17]);
+    expect(at(3).pieces[0].tiles).toEqual([14, 15, 14, 16, 14, 17]); // centred on the line
+    expect(at(3).pieces[1].tiles).toEqual([15, 15, 15, 16, 15, 17, 16, 15, 16, 16, 16, 17]);
+    for (const w of [1, 2, 3]) expect(at(w)).toMatchObject({ ok: true, width: w });
+    expect(at(7).width).toBe(3); // clamped
+    // along y: beside the line in x
+    const ns = createSim(river(6), 1); // the water runs north-south: a y bridge stays on its bank
+    ns.claim(0, 8, 16, 14);
+    expect(ns.checkBridge(0, { material: 'wood', points: [8.5, 10.5, 8.5, 20.5], width: 3 })).toMatchObject({ axis: 'y', reason: 'short' });
+  });
+
+  it('snaps the drag to the nearest of 4 directions; the diagonals lay a staircase band of rows', () => {
+    const sim = createSim(river(8), 1);
+    sim.claim(0, 8, 16, 14);
+    const plan = (points: number[], width = 2) => sim.checkBridge(0, { material: 'stone', points, width });
+    expect(plan([12.5, 16.5, 26.5, 17.5])).toMatchObject({ axis: 'x', dir: [1, 0] });
+    expect(plan([12.5, 10.5, 26.5, 22.5])).toMatchObject({ axis: 'v', dir: [1, 1] }); // screen-vertical
+    expect(plan([12.5, 22.5, 26.5, 10.5])).toMatchObject({ axis: 'h', dir: [1, -1] }); // screen-horizontal
+    expect(plan([14.5, 30.5, 14.5, 2.5])).toMatchObject({ axis: 'y', dir: [0, -1] });
+    // 1 wide along (1, 1): 2 diagonals, each row a tile and the 4-neighbour half a step ahead (no corner-only joins)
+    const v1 = plan([12.5, 10.5, 26.5, 24.5], 1);
+    expect(v1.ok).toBe(true);
+    expect(v1.pieces[0]).toMatchObject({ part: 'end0', tiles: [14, 12, 14, 13] });
+    expect(v1.span).toBe(Math.round(8 * Math.SQRT2)); // 8 rows of water, sqrt 2 tiles each
+    const set = new Set(v1.pieces.flatMap((p) => p.tiles.flatMap((v, i) => (i % 2 ? [] : [`${v},${p.tiles[i + 1]}`]))));
+    for (const p of v1.pieces) for (let i = 0; i < p.tiles.length; i += 2) {
+      const [x, y] = [p.tiles[i], p.tiles[i + 1]];
+      expect([`${x + 1},${y}`, `${x - 1},${y}`, `${x},${y + 1}`, `${x},${y - 1}`].some((k) => set.has(k))).toBe(true);
+    }
+    // wider: round(w sqrt 2) + 1 tiles per row, the row centres one step apart along the line
+    for (const [w, n] of [[1, 2], [2, 4], [3, 5]]) {
+      const p = plan([12.5, 22.5, 26.5, 8.5], w);
+      expect(p.ok).toBe(true);
+      expect(p.pieces[0].tiles.length / 2).toBe(n);
+      const r = p.pieces[1].rows;
+      expect(r[2] - r[0]).toBeCloseTo(1);
+      expect(r[3] - r[1]).toBeCloseTo(-1);
+    }
+    // a diagonal span counts sqrt 2 tiles a row: 9 rows of water (13 tiles) is over the wood limit, under the stone one
+    const nine = createSim(river(9), 1);
+    nine.claim(0, 8, 16, 14);
+    expect(nine.checkBridge(0, { material: 'wood', points: [12.5, 10.5, 26.5, 24.5], width: 1 })).toMatchObject({ ok: false, reason: 'span', span: 13 });
+    expect(nine.checkBridge(0, { material: 'stone', points: [12.5, 10.5, 26.5, 24.5], width: 1 }).ok).toBe(true);
   });
 
   it('needs a dry start bank, a far bank within the drag, own influence on one bank and snaps to its axis', () => {
@@ -161,6 +220,57 @@ describe('bridge construction', () => {
     expect(bridges(stone).some((b) => b.burning)).toBe(false);
   });
 
+  it('a 1-wide diagonal footbridge: built from the bank, crossed on the deck along the diagonal, collapses when burnt', () => {
+    const sim = createSim(river(6), 6);
+    const s = base(sim);
+    // along (1, 1): 6 rows of water (x 15..20), ramps on rows 2 and 9
+    sim.order({ kind: 'placeBridge', squad: s, material: 'wood', points: [12.5, 10.5, 24.5, 22.5], width: 1 });
+    sim.step();
+    const bs = bridges(sim);
+    expect(bs.map((b) => b.bridge!.part)).toEqual(['end0', 'deck', 'deck', 'deck', 'end1']);
+    expect(bs[0].bridge).toMatchObject({ axis: 'v', dir: [1, 1], width: 1 });
+    run(sim, 9000, () => bridges(sim).every((b) => b.state === 'done'));
+    expect(bridges(sim).every((b) => b.state === 'done')).toBe(true);
+    // over the deck to the far bank; on the way every man on the water stands on the deck level
+    const deckTiles = new Set(bs.flatMap((b) => b.tiles.flatMap((v, i) => (i % 2 ? [] : [`${v},${b.tiles[i + 1]}`]))));
+    sim.order({ kind: 'move', squad: s, x: 30, y: 26 });
+    let onDeck = 0, wet = 0;
+    run(sim, 1500, () => {
+      for (const u of unitsOf(sim, s)) if (u.x >= 15 && u.x < 21) {
+        if (deckTiles.has(`${Math.floor(u.x)},${Math.floor(u.y)}`)) (onDeck++, expect(u.z).toBe(1));
+        else wet++;
+      }
+      return unitsOf(sim, s).every((u) => u.x > 22);
+    });
+    expect(onDeck).toBeGreaterThan(0);
+    expect(wet).toBe(0); // no corner cut into the water
+    expect(unitsOf(sim, s).every((u) => u.x > 22 && u.state !== 'dead')).toBe(true);
+    // the builders go back; foes torch the near ramp and the fire takes the deck: the way over closes
+    sim.order({ kind: 'move', squad: s, x: 26, y: 4 });
+    const torches = sim.spawnSquad('a', 1, 'militia', 4, 11, 8);
+    sim.order({ kind: 'ignite', squad: torches, building: bs[0].id });
+    run(sim, 12000, () => bridges(sim).some((b) => b.bridge!.part === 'deck' && b.state === 'destroyed'));
+    const gone = bridges(sim).find((b) => b.bridge!.part === 'deck' && b.state === 'destroyed');
+    expect(gone).toBeDefined();
+    const walkers = sim.spawnSquad('a', 0, 'militia', 4, 10, 17);
+    sim.order({ kind: 'move', squad: walkers, x: 30, y: 17 });
+    run(sim, 600);
+    expect(unitsOf(sim, walkers).every((u) => u.x < 16)).toBe(true);
+  });
+
+  it('a 3-wide wood bridge along the screen-horizontal diagonal takes a squad over', () => {
+    const sim = createSim(river(5), 8);
+    const s = base(sim);
+    sim.order({ kind: 'placeBridge', squad: s, material: 'wood', points: [12.5, 22.5, 23.5, 11.5], width: 3 });
+    sim.step();
+    expect(bridges(sim)[0].bridge).toMatchObject({ axis: 'h', dir: [1, -1], width: 3 });
+    run(sim, 40000, () => sim.snapshot().tick % 50 === 0 && bridges(sim).every((b) => b.state === 'done'));
+    expect(bridges(sim).every((b) => b.state === 'done')).toBe(true);
+    sim.order({ kind: 'move', squad: s, x: 28, y: 10 });
+    run(sim, 1500, () => unitsOf(sim, s).every((u) => u.x > 21));
+    expect(unitsOf(sim, s).every((u) => u.x > 21 && u.state !== 'dead')).toBe(true);
+  });
+
   it('wood is much faster to build than stone', () => {
     const time = (material: 'wood' | 'stone') => {
       const sim = createSim(river(6), 5);
@@ -228,7 +338,7 @@ describe('bridge-test scenario (test-ridge)', () => {
     const drag = { material: 'wood' as const, points: [...BRIDGE_DRAG] };
     const plan = sim.checkBridge(0, drag);
     expect(plan.ok).toBe(true);
-    expect(plan.span).toBeLessThanOrEqual(BRIDGE.maxSpan);
+    expect(plan.span).toBeLessThanOrEqual(BRIDGE.maxSpan.wood);
     // the hoplites cannot get over: after a minute they are still on the west bank
     sim.order({ kind: 'move', squad: 1, x: 313, y: 397 });
     run(sim, 600);
