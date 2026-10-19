@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import objectsJson from '../../public/war/objects/objects.json';
+import elaiaJson from '../../public/war/biomes/elaia/objects.json';
+import kyreneJson from '../../public/war/biomes/kyrene/objects.json';
+import mountainsJson from '../../public/war/biomes/mountains/objects.json';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { SPOTS } from '../../src/war/regions/test-ridge.spots';
 import { parseRegion } from '../../src/war/region/schema';
@@ -7,12 +10,17 @@ import { footprintTiles, OBJECT_BLOCKS } from '../../src/war/region/objects';
 import { buildGrid } from '../../src/war/sim/grid';
 import type { RegionData } from '../../src/war/types';
 
-const defs = objectsJson.objects as { id: string; footprint: number[]; blocksMovement: boolean }[];
+type Def = { id: string; footprint: number[]; blocksMovement: boolean };
+const globalDefs = objectsJson.objects as Def[];
+// biome objects are named `<biome>/<id>` in regions
+const defs = [...globalDefs, ...Object.entries({ elaia: elaiaJson, kyrene: kyreneJson, mountains: mountainsJson }).flatMap(([b, j]) => (j.objects as Def[]).map((d) => ({ ...d, id: `${b}/${d.id}` })))];
 
 describe('map objects', () => {
-  it('the sim table matches objects.json', () => {
+  it('the sim table matches objects.json (every global blocker; the biome blockers regions place)', () => {
     const blocking = Object.fromEntries(defs.filter((d) => d.blocksMovement).map((d) => [d.id, d.footprint]));
-    expect(OBJECT_BLOCKS).toEqual(blocking);
+    for (const d of globalDefs) if (d.blocksMovement) expect(OBJECT_BLOCKS[d.id]).toEqual(d.footprint);
+    for (const [id, fp] of Object.entries(OBJECT_BLOCKS)) expect([id, fp]).toEqual([id, blocking[id]]);
+    for (const o of parseRegion(ridgeJson).objects!) if (blocking[o.id]) expect([o.id, OBJECT_BLOCKS[o.id]]).toEqual([o.id, blocking[o.id]]);
   });
 
   it('blocking objects close their footprint, others stay open', () => {

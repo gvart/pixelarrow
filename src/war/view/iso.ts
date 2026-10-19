@@ -55,6 +55,37 @@ function flush(w: number, h: number, height: ArrayLike<number>, wet: (i: number)
   return z;
 }
 
+/**
+ * Cells `low` take the level of the nearest other cell (breadth first), then no two of them differ by
+ * more than a level, so the flat mountain ground has no cliff inside.
+ */
+function lower(z: Float32Array, w: number, low: (j: number) => boolean): void {
+  const q: number[] = [], done = new Uint8Array(z.length);
+  for (let j = 0; j < z.length; j++) if (!low(j)) { done[j] = 1; q.push(j); }
+  const N = [1, -1, w, -w];
+  for (let k = 0; k < q.length; k++) {
+    const j = q[k], x = j % w;
+    for (const d of N) {
+      const i = j + d;
+      if (i < 0 || i >= z.length || (d === 1 && x === w - 1) || (d === -1 && x === 0) || done[i]) continue;
+      done[i] = 1; z[i] = z[j]; q.push(i);
+    }
+  }
+  const set = q.filter((j) => low(j));
+  for (let it = 0, changed = true; changed && it < 8; it++) {
+    changed = false;
+    for (const pass of [set, [...set].reverse()]) for (const j of pass) {
+      const x = j % w;
+      let m = z[j];
+      if (x > 0 && low(j - 1)) m = Math.min(m, z[j - 1] + 1);
+      if (x < w - 1 && low(j + 1)) m = Math.min(m, z[j + 1] + 1);
+      if (j >= w && low(j - w)) m = Math.min(m, z[j - w] + 1);
+      if (j + w < z.length && low(j + w)) m = Math.min(m, z[j + w] + 1);
+      if (m < z[j]) { z[j] = m; changed = true; }
+    }
+  }
+}
+
 const SHALLOW = KINDS.indexOf('shallow'), DEEP = KINDS.indexOf('deep');
 
 export class IsoMap {
@@ -75,7 +106,8 @@ export class IsoMap {
   readonly W: number;
   readonly H: number;
 
-  constructor(r: RegionData) {
+  /** `flat`: per tile, 1 = mountain drawn flat at its foot height under massif sprites (./massifs.ts). */
+  constructor(r: RegionData, flat: Uint8Array | null = null) {
     this.w = r.w;
     this.h = r.h;
     this.z = flush(r.w, r.h, r.height, (i) => r.water[i] > 0);
@@ -92,6 +124,18 @@ export class IsoMap {
     }
     this.fk = kind;
     this.fz = flush(fw, fh, height, (j) => kind[j] === SHALLOW || kind[j] === DEEP);
+    if (flat) {
+      // the mountain's tiles, and rock cells on the tiles round them (the cells' curves overhang the tiles')
+      const SNOW = KINDS.indexOf('snow'), ROCK = KINDS.indexOf('rock'), near = new Uint8Array(flat.length);
+      for (let i = 0; i < flat.length; i++) if (flat[i]) {
+        const x = i % r.w, y = (i / r.w) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < r.w && y + dy < r.h) near[i + dy * r.w + dx] = 1;
+      }
+      const tile = (j: number) => ((j / fw / 2) | 0) * r.w + ((j % fw) >> 1);
+      const low = (j: number) => flat[tile(j)] === 1 || (near[tile(j)] === 1 && (kind[j] === ROCK || kind[j] === SNOW));
+      lower(this.fz, fw, low);
+      for (let j = 0; j < n; j++) if (kind[j] === SNOW && low(j)) kind[j] = ROCK; // the summits' snow is on the sprites now
+    }
     let top = 0;
     for (let j = 0; j < n; j++) if (this.fz[j] > top) top = this.fz[j];
     this.top = top;
