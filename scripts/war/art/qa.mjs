@@ -258,31 +258,43 @@ export function runQa(biome) {
 }
 
 // Build-mode art (public/war/buildings): every building-state sprite passes the object checks (palette = tiles + global
-// objects + own colours). Kit sheets (walls, bridges): sizes, binary alpha, palette, and no gap where two pieces meet:
-// pieces are laid out as the map lays them (straight runs along both axes, a corner, bridge spans with abutments), and at
-// every tile boundary the composite's columns must stay >= 85% as tall as the columns 12 px either side.
+// objects + own colours). Kit sheets (walls, bridges, stairs, ladders, towers; layered kits also their front sheets):
+// sizes (frames in rows of `columns`), binary alpha, palette, and no gap where two pieces meet: pieces are laid out as the
+// map lays them (palisade: straight runs along both axes and a corner; layered walls: 2-deep runs along both axes and a
+// 2-deep L, back then front per tile; bridge spans with abutments), and every tile boundary is searched for cracks.
 export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
   const read = (f) => JSON.parse(readFileSync(join(ROOT, f)));
   const G = read('public/war/tiles/tiles.json'), GO = read('public/war/objects/objects.json'), B = JSON.parse(readFileSync(join(dir, 'objects.json')));
   const fail = qaObjects(B, G.palette, dir, GO), pal = palSet([...G.palette, ...(B.palette ?? [])]);
   for (const k of B.kits ?? []) for (const [state, file] of Object.entries(k.states ?? {})) {
-    const f = join(dir, file); if (!existsSync(f)) { fail.push(`${k.id} ${state}: missing ${file}`); continue; }
-    const im = readImage(f), { w, h, data: d } = im, tag = `${k.id} ${state}`;
-    if (w !== k.frame.w * k.frames || h !== k.frame.h) { fail.push(`${tag}: sheet ${w}x${h}, want ${k.frame.w * k.frames}x${k.frame.h}`); continue; }
-    let soft = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] && d[i + 3] < 255) soft++; if (d[i + 3] && !pal.has(key(d, i))) off++; }
-    if (soft) fail.push(`${tag}: ${soft} semi-transparent px`);
-    if (off) fail.push(`${tag}: ${off} px outside the shared palette`);
-    if (k.kind === 'stair') continue; // stairs stand alone: no seams to test
-    const fr = (n) => crop(im, { x: n * k.frame.w, y: 0, w: k.frame.w, h: k.frame.h }), o = k.tileOrigin;
+    const cols = k.columns ?? k.frames, sheets = { back: file, ...(k.front ? { front: k.front[state] } : {}) }, ims = {};
+    for (const [layer, fl] of Object.entries(sheets)) {
+      const f = join(dir, fl ?? ''), tag = `${k.id} ${state} ${layer}`; if (!fl || !existsSync(f)) { fail.push(`${tag}: missing ${fl}`); continue; }
+      const im = readImage(f), { w, h, data: d } = im;
+      if (w !== k.frame.w * Math.min(cols, k.frames) || h !== k.frame.h * Math.ceil(k.frames / cols)) { fail.push(`${tag}: sheet ${w}x${h}, want ${k.frame.w * Math.min(cols, k.frames)}x${k.frame.h * Math.ceil(k.frames / cols)}`); continue; }
+      let soft = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] && d[i + 3] < 255) soft++; if (d[i + 3] && !pal.has(key(d, i))) off++; }
+      if (soft) fail.push(`${tag}: ${soft} semi-transparent px`);
+      if (off) fail.push(`${tag}: ${off} px outside the shared palette`);
+      ims[layer] = im;
+    }
+    const tag = `${k.id} ${state}`;
+    if (!ims.back || (k.front && !ims.front) || !['wall', 'bridge'].includes(k.kind)) continue; // stairs, ladders and towers stand alone: no seams to test
+    const fr = (im, n) => crop(im, { x: (n % cols) * k.frame.w, y: Math.floor(n / cols) * k.frame.h, w: k.frame.w, h: k.frame.h }), o = k.tileOrigin;
+    const fi = (n) => (k.frameOf ? k.frameOf[n] : n); // layered walls: frame of (mask, nothing open)
+    // blob layouts from tile sets: [[frame, tile x, tile y], ...] with their masks
+    const blob = (cells) => { const S = new Set(cells.map(([x, y]) => `${x},${y}`)), has = (x, y) => S.has(`${x},${y}`); return cells.map(([x, y]) => [(has(x + 1, y) ? 1 : 0) | (has(x, y + 1) ? 2 : 0) | (has(x - 1, y) ? 4 : 0) | (has(x, y - 1) ? 8 : 0), x, y]); };
+    const two = (n, ax) => [...Array(n)].flatMap((_, i) => (ax === 'x' ? [[i, 0], [i, 1]] : [[0, i], [1, i]]));
     // layouts: [[frame, tile x, tile y], ...] and the tile pairs whose boundary is tested
-    const L = k.kind === 'wall'
-      ? { 'run x': [[[5, 0, 0], [5, 1, 0], [5, 2, 0]], [[0, 1], [1, 2]]], 'run y': [[[10, 0, 0], [10, 0, 1], [10, 0, 2]], [[0, 1], [1, 2]]], corner: [[[3, 0, 0], [5, 1, 0], [10, 0, 1]], [[0, 1], [0, 2]]] }
-      : { 'span x': [[[2, 0, 0], [0, 1, 0], [0, 2, 0], [3, 3, 0]], [[0, 1], [1, 2], [2, 3]]], 'span y': [[[4, 0, 0], [1, 0, 1], [1, 0, 2], [5, 0, 3]], [[0, 1], [1, 2], [2, 3]]] };
+    const L = k.kind === 'wall' && k.layered
+      ? { '2-deep run x': [blob(two(3, 'x')), [[0, 2], [2, 4], [1, 3], [3, 5]]], '2-deep run y': [blob(two(3, 'y')), [[0, 2], [2, 4], [1, 3], [3, 5]]], '2-deep L': [blob([...two(3, 'x'), [0, 2], [1, 2], [0, 3], [1, 3]]), [[0, 2], [1, 6], [6, 8]]] }
+      : k.kind === 'wall'
+        ? { 'run x': [[[5, 0, 0], [5, 1, 0], [5, 2, 0]], [[0, 1], [1, 2]]], 'run y': [[[10, 0, 0], [10, 0, 1], [10, 0, 2]], [[0, 1], [1, 2]]], corner: [[[3, 0, 0], [5, 1, 0], [10, 0, 1]], [[0, 1], [0, 2]]] }
+        : { 'span x': [[[2, 0, 0], [0, 1, 0], [0, 2, 0], [3, 3, 0]], [[0, 1], [1, 2], [2, 3]]], 'span y': [[[4, 0, 0], [1, 0, 1], [1, 0, 2], [5, 0, 3]], [[0, 1], [1, 2], [2, 3]]] };
     for (const [name, [tiles, pairs]] of Object.entries(L)) {
       const W = 9 * 64, H = k.frame.h + 6 * 32, OX = 4 * 64, cmp = { w: W, h: H, data: new Uint8Array(W * H * 4) };
       const sx = (x, y) => OX + (x - y) * 32, sy = (x, y) => (x + y) * 16;
-      for (const [n, x, y] of [...tiles].sort((a, b) => a[1] + a[2] - b[1] - b[2])) {
-        const t = fr(n), X = sx(x, y) - o.x, Y = sy(x, y);
+      for (const [n, x, y] of [...tiles].sort((a, b) => a[1] + a[2] - b[1] - b[2])) for (const im of [ims.back, ims.front].filter(Boolean)) {
+        const t = fr(im, fi(n)), X = sx(x, y) - o.x, Y = sy(x, y);
         for (let yy = 0; yy < t.h; yy++) for (let xx = 0; xx < t.w; xx++) { const i = (yy * t.w + xx) * 4; if (t.data[i + 3]) cmp.data.set(t.data.subarray(i, i + 4), ((Y + yy) * W + X + xx) * 4); }
       }
       // a crack = a transparent px with opaque px within 2 to its left and right in its row and within 3 above and below in
