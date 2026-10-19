@@ -10,7 +10,8 @@
 // them), the overview, and the 600-unit brawl fps at mid zoom.
 // Mode `anim`: frame sequences at 1:1 (100 ms apart) of a ford fight (archers and slingers shooting,
 // spears and swords striking, deaths) and of a squad idling, then the 600-unit brawl fps at 1/2.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim] [id,id...]
+// Mode `biome`: see below.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
@@ -234,6 +235,77 @@ if (mode === 'art') {
   await shot('art-6-overview');
 }
 
+// Mode `biome` (the biome libraries): the pass at 1:1 with a squad by the watch post and cairns, the mountain range at 1/4
+// (massif sprites; again with ?mountains=terrace, the stacked levels, for comparison), the Kyrene oasis, the Elaia plateau
+// with the tower and the marble, the overview, and the 600-unit brawl fps at 1/2 and at the overview.
+if (mode === 'biome') {
+  const obj = (id) => page.evaluate((id) => window.__sandbox.region.objects.find((o) => o.id === id), id);
+  await boot();
+  const post = await obj('mountains/watch-post');
+  await page.evaluate((p) => {
+    const s = window.__sandbox, [sx, sy] = s.spots.passN;
+    s.sim.spawn('you', 0, 'hoplite', 20, sx, sy - 3);
+    s.sim.spawn('you', 0, 'archer', 12, sx - 3, sy - 6);
+    s.sim.order({ kind: 'move', squad: 0, x: sx + 4, y: sy + 8 });
+    s.focus((sx + p.x) / 2 + 2, (sy + p.y) / 2 + 4, 1);
+  }, post);
+  await wait(5000);
+  await shot('b1b-pass-watch-post-1x');
+  await boot();
+  await page.evaluate(() => {
+    const s = window.__sandbox, [x, y] = s.spots.passSaddle;
+    // a column marching along the switchback past the ruined walls
+    s.sim.spawn('you', 0, 'hoplite', 20, x - 8, y);
+    s.sim.order({ kind: 'move', squad: 0, x: x + 8, y });
+    s.focus(x, y + 1, 1);
+  });
+  await wait(6000);
+  await shot('b1-pass-saddle-squad-1x');
+  for (const [name, q] of [['b2-mountains-quarter', ''], ['b2t-mountains-quarter-terrace', '&mountains=terrace']]) {
+    await boot(q);
+    await page.evaluate(() => { const s = window.__sandbox, [x, y] = s.spots.passSaddle; s.focus(x - 10, y + 10, 1 / 4); });
+    await wait(4000);
+    await shot(name);
+  }
+  await boot();
+  console.log('massifs', await page.evaluate(() => window.__sandbox.massifs?.list.length));
+  const spring = await obj('kyrene/oasis-spring');
+  await page.evaluate((o) => window.__sandbox.focus(o.x, o.y + 2, 1 / 2), spring);
+  await wait(3000);
+  await shot('b3-desert-oasis-half');
+  await page.evaluate((o) => window.__sandbox.focus(o.x, o.y + 1, 1), spring);
+  await wait(2000);
+  await shot('b3b-oasis-1x');
+  const tower = await obj('watchtower');
+  await page.evaluate((t) => window.__sandbox.focus(t.x - 4, t.y + 2, 1 / 2), tower);
+  await wait(3000);
+  await shot('b4-elaia-plateau-half');
+  const vines = await obj('elaia/vines');
+  await page.evaluate((t) => window.__sandbox.focus(t.x + 4, t.y + 2, 1), vines);
+  await wait(2000);
+  await shot('b4b-elaia-vineyard-1x');
+  await page.click('#brawl');
+  await page.waitForFunction(() => window.__sandbox.sim.stats.units >= 600);
+  await page.evaluate(() => {
+    const s = window.__sandbox, q = s.sim.cur.squads;
+    const mine = q.filter((x) => x.team === 0), foes = q.filter((x) => x.team === 1);
+    mine.forEach((x, i) => s.sim.order({ kind: 'attack', squad: x.id, target: foes[i % foes.length].id }));
+    s.focus(s.spots.ford[0], s.spots.ford[1], 1 / 2);
+  });
+  await wait(6000);
+  await fps('biome brawl 600, zoom 1/2');
+  await page.evaluate(() => { const s = window.__sandbox, [x, y] = s.spots.passSaddle; s.focus(x, y, 1 / 2); });
+  await wait(3000);
+  await fps('biome brawl 600 running, mountains at 1/2', 6);
+  await page.waitForFunction(() => window.__sandbox.overviewReady, null, { timeout: 180000 });
+  await page.evaluate(() => {
+    const s = window.__sandbox, cam = s.cameras.main;
+    cam.setZoom(1 / 24).centerOn(s.iso.W / 2, s.iso.H / 2);
+  });
+  await fps('biome overview, 600 units', 6);
+  await shot('b5-overview');
+}
+
 if (mode === 'anim') {
   const seq = async (name, n) => {
     for (let i = 0; i < n; i++) {
@@ -311,7 +383,7 @@ const attackAll = () => page.evaluate(() => {
 });
 const score = () => page.evaluate(() => document.getElementById('score').textContent);
 for (const [id, plan] of Object.entries(PLANS)) {
-  if (mode === 'art' || mode === 'anim' || (only && !only.includes(id))) continue;
+  if (mode === 'art' || mode === 'anim' || mode === 'biome' || (only && !only.includes(id))) continue;
   await boot(`&scenario=${id}`);
   if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
   await wait(2500);

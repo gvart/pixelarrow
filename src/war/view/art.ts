@@ -14,47 +14,75 @@
  */
 import { autotile, hash, VARIANT, type TilesMeta } from './autotile';
 import type { RegionData, TerrainKind } from '../types';
-import { KINDS } from '../regions/visual';
+import { decodeBiomes, KINDS } from '../regions/visual';
+import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, OFFS, SmoothFrames, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, ZBASE } from './iso';
 import type { BakeOpts, TerrainBaker } from './terrain';
 
-export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number } }
+export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string }
+/** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
+export interface TileSet { name: string; tiles: TilesMeta; sheetIx: number[]; varIx: number[]; earth: string; crag: string }
 export interface WarArt {
+  /** Every sheet and variant of every set (fallback: the global one). */
   tiles: TilesMeta;
   sheets: HTMLImageElement[];
   variants: HTMLImageElement[];
   cliffs: Record<string, HTMLImageElement>;
+  /** Global objects, then each biome's as `<biome>/<id>`. */
   defs: ObjDef[];
   objImg: Map<string, HTMLImageElement>;
+  /** [0] the global set, then one per biome. */
+  sets: TileSet[];
+  /** The mountains' massif pieces (./massifs.ts). */
+  massifs: MassifDef[];
 }
 
+/** The biome libraries under public/war/biomes/. */
+export const BIOMES = ['elaia', 'kyrene', 'mountains'] as const;
 const PIECE = 2048;
 
-/** Fetch tiles.json, objects.json and every image they name (relative to the page: public/war/). */
+interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string }[] }
+
+/** Fetch the global and every biome's tiles.json and objects.json and every image they name (relative to the page: public/war/). */
 export async function loadArt(base = 'war/'): Promise<WarArt> {
   const json = (p: string) => fetch(base + p).then((r) => r.json());
   const img = (p: string) => { const im = new Image(); im.src = base + p; return im.decode().then(() => im); };
-  const [tiles, objs] = await Promise.all([json('tiles/tiles.json'), json('objects/objects.json')]);
-  const T = tiles as TilesMeta;
-  const defs = objs.objects as ObjDef[];
-  const [sheets, variants, cliffs, oi] = await Promise.all([
-    Promise.all(T.sheets.map((s) => img('tiles/' + s.file))),
-    Promise.all((T.variants ?? []).map((v) => img('tiles/' + v.file))),
-    Promise.all((T.cliffs ?? []).map((c) => img('tiles/' + c.file))),
-    Promise.all(defs.map((d) => img('objects/' + d.file))),
+  const libs = [{ name: 'global', tiles: 'tiles/', objs: 'objects/' }, ...BIOMES.map((b) => ({ name: b as string, tiles: `biomes/${b}/`, objs: `biomes/${b}/` }))];
+  const metas = await Promise.all(libs.map((l) => Promise.all([json(l.tiles + 'tiles.json') as Promise<TilesJson>, json(l.objs + 'objects.json') as Promise<{ objects: ObjDef[] }>])));
+  const sheets: TilesMeta['sheets'] = [], variants: NonNullable<TilesMeta['variants']> = [], cliffs: { id: string; file: string }[] = [], defs: ObjDef[] = [];
+  const sets: TileSet[] = [];
+  libs.forEach((l, k) => {
+    const [T, O] = metas[k], s0 = sheets.length, v0 = variants.length;
+    sheets.push(...T.sheets.map((s) => ({ ...s, file: l.tiles + s.file })));
+    variants.push(...(T.variants ?? []).map((v) => ({ ...v, file: l.tiles + v.file })));
+    cliffs.push(...(T.cliffs ?? []).map((c) => ({ ...c, file: l.tiles + c.file })));
+    defs.push(...O.objects.map((d) => ({ ...d, id: k ? `${l.name}/${d.id}` : d.id, file: l.objs + d.file })));
+    const own = new Set((T.variants ?? []).map((v) => v.terrain)), g = sets[0];
+    const sheetIx = k ? [...g.sheetIx, ...T.sheets.map((_, i) => s0 + i)] : T.sheets.map((_, i) => i);
+    const varIx = k ? [...g.varIx.filter((i) => !own.has(variants[i].terrain)), ...(T.variants ?? []).map((_, i) => v0 + i)] : (T.variants ?? []).map((_, i) => i);
+    const tiles = { sheets: sheetIx.map((i) => sheets[i]), variants: varIx.map((i) => variants[i]), fallback: T.fallback };
+    sets.push({ name: l.name, tiles, sheetIx, varIx, earth: k && T.cliffs?.length ? T.cliffs[0].id : 'earth', crag: 'crag' });
+  });
+  const [si, vi, ci, oi] = await Promise.all([
+    Promise.all(sheets.map((s) => img(s.file))),
+    Promise.all(variants.map((v) => img(v.file))),
+    Promise.all(cliffs.map((c) => img(c.file))),
+    Promise.all(defs.map((d) => img(d.file))),
   ]);
+  const objImg = new Map(defs.map((d, i) => [d.id, oi[i]]));
   return {
-    tiles: T, sheets, variants, defs,
-    cliffs: Object.fromEntries((T.cliffs ?? []).map((c, i) => [c.id, cliffs[i]])),
-    objImg: new Map(defs.map((d, i) => [d.id, oi[i]])),
+    tiles: { sheets, variants, fallback: metas[0][0].fallback }, sheets: si, variants: vi, defs, objImg, sets,
+    cliffs: Object.fromEntries(cliffs.map((c, i) => [c.id, ci[i]])),
+    massifs: defs.filter((d) => d.kind === 'massif' && d.footprint).map((d) => ({ ...d, footprint: d.footprint!, top: columnTops(objImg.get(d.id)!) })),
   };
 }
-
 interface Placed { def: ObjDef; img: HTMLImageElement; sx: number; sy: number }
 
 const FW = 16, FH = 8; // half the 1 m cell diamond
 const ROCKY = new Set([KINDS.indexOf('rock'), KINDS.indexOf('snow')]);
+/** Zoomed out (the baked levels) objects shorter than this (m) are left out. */
+export const LOD_METRES = 2;
 
 export class ArtBaker {
   /** Per visual cell: atlas frame (sheet * 64 + mask * 4 + quadrant, or VARIANT + variant * 64 + frame * 4 + quadrant), -1 none. */
@@ -64,13 +92,22 @@ export class ArtBaker {
   /** Per transition cell: its corner values in eighths, 4 bits each (NW, NE, SW, SE); 0xffff = draw the mask frame. */
   private corners: Uint16Array;
   private zone: Uint8Array;
-  /** Objects by the x + y row of the visual cell under their foot. */
+  /** Per tile: its tile set (art.sets index). */
+  private setOf: Uint8Array;
+  /** Objects and massifs by the x + y row of the visual cell they are drawn after. */
   private rows: Placed[][];
+  /** Rows of cells an object may reach above its foot. */
+  private reach: number;
   private tmp: HTMLCanvasElement | null = null;
 
-  constructor(readonly r: RegionData, readonly iso: IsoMap, readonly art: WarArt, private grey: TerrainBaker) {
+  constructor(readonly r: RegionData, readonly iso: IsoMap, readonly art: WarArt, private grey: TerrainBaker, massifs: Massifs | null = null) {
     this.fine = buildFineArt(art);
     this.smooth = new SmoothFrames(art);
+    this.setOf = new Uint8Array(r.w * r.h);
+    if (r.biomes) {
+      const b = decodeBiomes(r.biomes.rle, r.w * r.h), map = r.biomes.names.map((nm) => Math.max(0, art.sets.findIndex((s) => s.name === nm)));
+      for (let i = 0; i < b.length; i++) this.setOf[i] = map[b[i]];
+    }
     this.code = this.fineCodes();
     this.corners = this.cornerValues();
     this.zone = new Uint8Array(r.w * r.h);
@@ -79,26 +116,59 @@ export class ArtBaker {
     };
     r.noBuild.forEach((b) => mark(b, 1));
     r.entries.forEach((b) => mark(b, 2));
-    this.rows = Array.from({ length: iso.fw + iso.fh - 1 }, () => []);
+    const nRows = iso.fw + iso.fh - 1;
+    this.rows = Array.from({ length: nRows }, () => []);
+    let maxH = 0;
     const defs = new Map(art.defs.map((d) => [d.id, d]));
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
-      if (!def || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h) continue;
-      this.rows[Math.floor(2 * o.x) + Math.floor(2 * o.y)].push({ def, img: art.objImg.get(o.id)!, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))) });
+      if (!def || def.metres < LOD_METRES || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
+      // past the massifs it stands in front of
+      const v = massifs ? Math.max(Math.floor(2 * o.x) + Math.floor(2 * o.y), Math.floor(2 * massifs.depth(o.x, o.y))) : Math.floor(2 * o.x) + Math.floor(2 * o.y);
+      this.rows[Math.min(nRows - 1, v)].push({ def, img: art.objImg.get(o.id)!, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))) });
+      maxH = Math.max(maxH, def.h);
     }
+    // a massif after the last cell of its footprint (the one at its south vertex)
+    for (const m of massifs?.list ?? []) {
+      const xs = m.x0 + m.fw, ys = m.y0 + m.fh, z = iso.zf(2 * xs - 1, 2 * ys - 1);
+      this.rows[2 * m.v - 2].push({ def: m.def, img: art.objImg.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, z)) });
+      maxH = Math.max(maxH, m.def.h);
+    }
+    this.reach = Math.ceil(maxH / FH) + 2;
   }
 
-  /** Autotile the visual cells; full cells of one 2 m tile share a variant frame (variants keep only the tile's outer band). */
+  /**
+   * Autotile the visual cells, each with its tile's set (a biome's set over the cells of that biome,
+   * autotiled over their bounding box); full cells of one 2 m tile share a variant frame (variants
+   * keep only the tile's outer band).
+   */
   private fineCodes(): Int32Array {
-    const { iso, art } = this, { fw, fh, fk } = iso, n = fw * fh;
-    const terrain: TerrainKind[] = new Array(n), water: (0 | 1 | 2)[] = new Array(n);
-    for (let j = 0; j < n; j++) {
-      const k = KINDS[fk[j]];
-      water[j] = k === 'deep' ? 2 : k === 'shallow' ? 1 : 0;
-      terrain[j] = water[j] ? 'dirt' : (k as TerrainKind);
-    }
-    const cells: RegionData = { id: 'cells', name: 'cells', w: fw, h: fh, height: [], terrain, water, entries: [], noBuild: [] };
-    const raw = autotile(cells, iso.fz, art.tiles).code, code = new Int32Array(n);
+    const { iso, art, r, setOf } = this, { fw, fh, fk } = iso, n = fw * fh, M = 6;
+    const raw = new Int32Array(n).fill(-1), code = new Int32Array(n);
+    art.sets.forEach((set, si) => {
+      let x0 = r.w, y0 = r.h, x1 = -1, y1 = -1;
+      for (let i = 0; i < setOf.length; i++) if (setOf[i] === si) {
+        const x = i % r.w, y = (i / r.w) | 0;
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+      }
+      if (x1 < 0) return;
+      const fx0 = Math.max(0, 2 * x0 - M), fy0 = Math.max(0, 2 * y0 - M), cw = Math.min(fw, 2 * x1 + 2 + M) - fx0, ch = Math.min(fh, 2 * y1 + 2 + M) - fy0;
+      const terrain: TerrainKind[] = new Array(cw * ch), water: (0 | 1 | 2)[] = new Array(cw * ch), z = new Float32Array(cw * ch);
+      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+        const j = (fy0 + y) * fw + fx0 + x, k = KINDS[fk[j]], c = y * cw + x;
+        water[c] = k === 'deep' ? 2 : k === 'shallow' ? 1 : 0;
+        terrain[c] = water[c] ? 'dirt' : (k as TerrainKind);
+        z[c] = iso.fz[j];
+      }
+      const cells: RegionData = { id: 'cells', name: 'cells', w: cw, h: ch, height: [], terrain, water, entries: [], noBuild: [] };
+      const sub = autotile(cells, z, set.tiles).code;
+      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+        const fx = fx0 + x, fy = fy0 + y;
+        if (setOf[(fy >> 1) * r.w + (fx >> 1)] !== si) continue;
+        const c = sub[y * cw + x];
+        raw[fy * fw + fx] = c < 0 ? -1 : c < VARIANT ? set.sheetIx[c >> 4] * 16 + (c & 15) : VARIANT + set.varIx[(c - VARIANT) >> 4] * 16 + ((c - VARIANT) & 15);
+      }
+    });
     const vars = art.tiles.variants ?? [];
     for (let fy = 0; fy < fh; fy++) for (let fx = 0; fx < fw; fx++) {
       const j = fy * fw + fx, c = raw[j], q = (fy & 1) * 2 + (fx & 1);
@@ -198,9 +268,9 @@ export class ArtBaker {
     const umin = Math.floor((x0 - iso.OX) / FW) - 1, umax = Math.ceil((x0 + w - iso.OX) / FW) + 1;
     const vmin = Math.floor((y0 - iso.OY - 4 * FH + ZBASE * LH) / FH) - 1;
     const vmax = Math.ceil((y0 + h - iso.OY + iso.top * LH) / FH) + 2;
-    const vmaxO = objects ? vmax + 52 : vmax; // the tallest object stands ~400 px over its foot
+    const vmaxO = objects ? vmax + this.reach : vmax; // the tallest object or massif stands this many rows over its foot
     const zt = (x: number, y: number) => (x < 0 || y < 0 || x >= fw || y >= fh ? ZBASE : fz[y * fw + x]);
-    const cl = fine.cliffs, earth = cl.earth, crag = cl.crag ?? cl.rock ?? earth, NO = OFFS.length;
+    const cl = fine.cliffs, NO = OFFS.length, sets = this.art.sets.map((s) => [cl[s.crag] ?? cl.rock ?? cl.earth, cl[s.earth] ?? cl.earth]);
     for (let v = Math.max(0, vmin); v <= Math.min(fw + fh - 2, vmaxO); v++) {
       if (v <= vmax) {
         let u = Math.max(umin, -v, v - 2 * (fh - 1));
@@ -214,7 +284,7 @@ export class ArtBaker {
           if (ty + 2 * LH + Math.max(0, drop - 1) * LH < y0) continue;
           const tx = iso.OX + u * FW - FW;
           if (drop > 1) {
-            const img = ROCKY.has(fk[i]) ? crag : earth, n = Math.ceil(drop) - 1;
+            const img = sets[this.setOf[(y >> 1) * this.r.w + (x >> 1)]][ROCKY.has(fk[i]) ? 0 : 1], n = Math.ceil(drop) - 1;
             for (let k = n; k >= 1; k--) {
               const h = hash(x, y, k), t = k / n + ((h >> 8) % 100) / 400; // darker toward the foot, dithered so no band line shows
               const f = (t < 0.4 ? 0 : t < 0.75 ? 1 : 2) * NO + (h % NO);

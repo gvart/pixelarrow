@@ -9,6 +9,8 @@ export interface RegionData {
   objects?: { id: string; x: number; y: number }[];
   /** Visual-only terrain at 2x the grid (1 m cells), run-length encoded (src/war/regions/visual.ts); the sim ignores it. */
   visual?: { scale: 2; rle: number[] };
+  /** Biome per sim tile: index into `names`, run-length encoded (src/war/regions/visual.ts); picks the art library. Visual only. */
+  biomes?: { names: string[]; rle: number[] };
 }
 export type SquadId = number; export type UnitId = number;
 export type Order =

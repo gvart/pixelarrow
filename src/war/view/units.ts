@@ -176,6 +176,8 @@ export class UnitLayer {
   }
 
   private nGhost = 0;
+  /** Depth key of a tile point (x + y; the scene sorts past massifs with ./massifs.ts). */
+  depthOf: (x: number, y: number) => number = (x, y) => x + y;
 
   private sprites(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, at: AnimTime, shots: readonly ShotSnap[], g: Phaser.GameObjects.Graphics, occluded: Set<number>): number {
     const iso = this.iso, padX = 80, padTop = 120, padBot = 40;
@@ -201,7 +203,7 @@ export class UnitLayer {
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
       n++;
       img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setVisible(true);
-      img.setDepth(10 + (d.x + d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25));
+      img.setDepth(10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25));
       if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
       else if (this.swap) img.resetPipeline();
       if (hidden) img.setTintFill(team).setAlpha(0.45);

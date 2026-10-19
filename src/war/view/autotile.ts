@@ -6,7 +6,8 @@
  * terrain of the cells sharing the vertex on that level, ties to the earlier terrain in
  * `fallback.order` (water, then marsh, sand ... grass last). Tiles on different levels meet only
  * across a wall, so a plateau, a mountain or a bank keeps its own edge and the ground below too. Then the tiles.json fallback
- * rule (scripts/war/art/preview.mjs resolve()) settles pairs with no sheet, and each tile draws the
+ * rule (scripts/war/art/preview.mjs resolve()) settles pairs with no sheet (a biome set's
+ * fallback.buffer.land, e.g. Kyrene's sand, takes grass's place as the buffer), and each tile draws the
  * frame of its corner mask NW<<3|NE<<2|SW<<1|SE (NW = top vertex, set bit = the sheet's first
  * terrain); full tiles draw a variant by position hash.
  */
@@ -16,7 +17,8 @@ export interface TileSheetMeta { pair: string; first: string; second: string; fi
 export interface TilesMeta {
   sheets: TileSheetMeta[];
   variants?: { terrain: string; file: string; frames: number }[];
-  fallback: { order: string[] };
+  /** buffer.land: the land terrain pairs with no sheet give way to (grass; sand in a desert biome). */
+  fallback: { order: string[]; buffer?: { land?: string } };
   cliffs?: { id: string; file: string }[];
 }
 
@@ -37,14 +39,17 @@ export interface Autotile { code: Int16Array; missing: number; approx: number }
  */
 export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Autotile {
   const order = T.fallback.order, K = order.length;
-  const id = (t: string) => { const i = order.indexOf(t); return i < 0 ? order.indexOf('grass') : i; };
-  const DEEP = id('deep'), SHALLOW = id('shallow'), GRASS = id('grass'), ROAD = id('road');
+  const BUF = order.indexOf(T.fallback.buffer?.land ?? 'grass'); // terrains this set does not know draw as the buffer
+  const id = (t: string) => { const i = order.indexOf(t); return i < 0 ? BUF : i; };
+  const DEEP = id('deep'), SHALLOW = id('shallow'), GRASS = BUF, ROAD = id('road');
   const isWater = (t: number) => t === DEEP || t === SHALLOW;
   const pair = new Int16Array(K * K).fill(-1);
-  T.sheets.forEach((s, i) => { pair[id(s.first) * K + id(s.second)] = i; pair[id(s.second) * K + id(s.first)] = i; });
+  // sheets and variants of terrains the set's order leaves out are not used
+  const known = (t: string) => order.indexOf(t);
+  T.sheets.forEach((s, i) => { const a = known(s.first), b = known(s.second); if (a >= 0 && b >= 0) { pair[a * K + b] = i; pair[b * K + a] = i; } });
   const variant = new Int16Array(K).fill(-1);
-  (T.variants ?? []).forEach((v, i) => (variant[id(v.terrain)] = i));
-  const sheetFirst = T.sheets.map((s) => id(s.first)), sheetSecond = T.sheets.map((s) => id(s.second));
+  (T.variants ?? []).forEach((v, i) => { if (known(v.terrain) >= 0) variant[known(v.terrain)] = i; });
+  const sheetFirst = T.sheets.map((s) => known(s.first)), sheetSecond = T.sheets.map((s) => known(s.second));
 
   const { w, h } = r, vw = w + 1, n = w * h;
   const cell = new Uint8Array(n);
@@ -118,7 +123,7 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
     }
   }
 
-  // (2) pairs with no sheet get a grass buffer; 3+ terrains: the minority joins the majority
+  // (2) pairs with no sheet get the buffer (GRASS: grass, or the set's buffer.land); 3+ terrains: the minority joins the majority
   const ci = new Int32Array(4), ts = new Uint8Array(4), c4 = new Uint8Array(K);
   const corners = (x: number, y: number) => {
     const t4 = (y * w + x) * 4;
