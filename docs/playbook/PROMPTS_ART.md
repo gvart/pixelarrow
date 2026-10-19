@@ -1449,3 +1449,91 @@ with y jittered by a tile. The bases overlap, so each foot hides under the piece
 bricks, battlements or tartan. Shade with soft noise and a painted texture instead. (8) The init's slope sets the
 result: a long ridge more than ~60 px tall per tile of half-width comes back as a wall. (9) PixelLab still flutes rock
 vertically. Varied silhouettes and overlapping rows, not one better piece, make a range read as a chain.
+
+## 30. Buildings (ART-B)
+
+Build-mode art (W-22..W-24) in `public/war/buildings/`: wall kits, gates, towers, bridges, seven buildings, two site
+props, each in four states (foundation, scaffold, done, damaged). Raws: `shots/war/pixellab/buildings/raw/` (git-ignored;
+`tex/` elevations, `objects/` map objects and state raws). Inits: `node scripts/war/art/kit-inits.mjs <dir>/inits` (wall
+and bridge elevations) and `node scripts/war/art/buildings.mjs --inits` (state inits). Build: `node
+scripts/war/art/buildings.mjs` (ends with the QA gate). Preview: `node scripts/war/art/buildings-preview.mjs` ->
+`BUILDINGS_contact.png`, `BUILDINGS_outpost_1x.png`, `BUILDINGS_fort_scaffold_1x.png`, `BUILDINGS_bridges_1x.png`,
+`BUILDINGS_seams_3x.png`. 31 generations (5 elevations, 12 map objects, 14 state img2img).
+
+**Method: textured boxes, not sprites, for anything that must join.** PixelLab cannot draw a wall piece that tiles, and
+it ignores the asked direction of linear pieces (§25). So walls, gates, towers and bridges come from a small iso box
+renderer in `buildings.mjs` at true scale (1 m along a tile axis = 16 px across + 8 px down, 1 m up = 33 px), with a
+depth buffer. Its faces are textured with PixelLab front elevations. Each elevation is pixflux img2img over a periodic
+init drawn at 33 px/m with a 66 px (2 m) period. The build quilts it back to an exact period along a min-cost vertical
+seam, then squeezes it to 32 face columns per tile. Every face samples the texture by world position, and box extents
+are half-open, so pieces drawn tile by tile join pixel for pixel on both axes. Damaged and half-built tops are boxes cut
+into 1/16 m slices.
+
+| Texture | Call | Init (strength) | Prompt (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| palisade | pixflux `7eb5a5c5`, side, no_background, seed 31 | 264 x 128 logs with pointed tips and two rope bands (220) | `flat front view of a long ancient palisade wall of sharpened dark weathered timber logs standing side by side, bark texture, pale cut points, two bands of rope lashing, dark epic desaturated colours, pixel art` | kept |
+| ashlar | pixflux `51ecb6e0`, same | 264 x 176 coursed blocks + 0.8 m merlons (220) | `flat front view of a long ancient Greek city wall of large dark grey ashlar stone blocks in even courses with dark joints, weathered chipped edges, a row of square merlons on top, dark epic desaturated colours, pixel art` | kept; opaque grey background (the init's alpha is used) |
+| (rejected) | pixflux `99ba697c`, same | 264 x 116 arch bays (220) | `flat side view of an ancient stone arch bridge, a row of round arches on square piers ...` | white line art |
+| arches | pixflux `a55d882b`, side, opaque, lineless, seed 7 | same (280) | `side elevation of an ancient Roman stone arch bridge built of dark grey weathered ashlar blocks, round arches on square piers, wedge-shaped voussoir stones round each arch, moss in the joints, a low stone parapet along the top, shaded pixel art texture, dark epic desaturated colours` | kept |
+| trestle | pixflux `b5ffd7c7`, side, no_background, seed 31 | 264 x 104 piles, X braces, deck beam, railing (220) | `flat side view of a rough wooden trestle bridge, dark weathered timber piles with diagonal cross bracing, a heavy deck beam, a simple post and rail railing on top, rope lashings, dark epic desaturated colours, pixel art` | kept |
+
+Kits (`kits[]`): `palisade` (3 m, 0.4 m thick, wood), `stone-wall` (4.3 m walk + crenellated parapet to 5.1 m, 1.4 m
+thick), one sheet per state, 16 frames of 96 x 224 indexed by the neighbour mask (+x 1, +y 2, -x 4, -y 8; gates and
+towers count as neighbours), tile top vertex at (48, 190). Bridges: `bridge-wood` (trestle, deck 2 m) and `bridge-stone`
+(2 m arch bays, deck 2.5 m), frames `deck-x`, `deck-y`, `end-x0`, `end-x1`, `end-y0`, `end-y1` (abutment ramps). Towers
+and gates are renderer models: `stone-tower` 3 x 3 (6 m square, 12 m, centred on a wall-line tile), `wood-tower` 1 x 1
+(8 m, posts, platform, roof), `stone-gate-x/-y` 3 x 3 (two 6.5 m bastions, a 2 m gateway with doors), `wood-gate-x/-y`
+3 x 1 (two log gate towers). States: foundation = trench lines, a string on stakes (wood) or a first course of stones;
+scaffold = half height with a ragged course line, poles, ledgers and a plank stage; damaged = a broken top (78% at tile
+edges, so damaged runs join), rubble, charred (wood) or sooted (stone).
+
+Buildings: `create_map_object`, high top-down, high detail, detailed shading, tail as §25 (`seen from a high isometric
+three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent background, no
+ground, no grass, no base under it`). Each sprite is scaled to its footprint width ((fw + fh) x 32 px).
+
+| id (footprint) | Call | Canvas | Subject (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| (rejected) | `a9339583` | 256 x 224 | `an ancient Greek army field camp: three small pitched tents of dark undyed canvas and leather on wooden poles arranged round a stone-ringed camp fire with a cooking pot on a tripod, a few rolled bedrolls, a weapon rack with spears and round shields` | tents on a grass and dirt slab |
+| camp (4 x 4) | `883da2cc` | 256 x 200 | `an ancient Greek army field camp: three small ridge tents of dark undyed canvas on wooden poles with guy ropes, around a small camp fire ringed with stones with a bronze cooking pot on an iron tripod, a rack of spears and round shields, a few rolled bedrolls and sacks, each item standing directly on the transparent background` (+ `no dirt, no floor`) | kept; its sand patch flooded out (`ground: sand`) |
+| storehouse (3 x 3) | `c9e1eb41` | 192 x 256 | `an ancient Greek storehouse: a long rectangular building of rough dark grey fieldstone walls with a low-pitched roof of dark weathered terracotta tiles, one wide wooden door, a few clay amphorae and sacks stacked by the door, showing two walls` | kept; two-tone grey background (keyed from two corners), grass rim dropped |
+| outpost (3 x 3) | `c7fa4bf4` | 192 x 280 | `an ancient frontier outpost: a tall wooden banner pole with a long dark red cloth banner, standing inside a small square ring of sharpened timber palisade stakes about chest high with a gap for an entrance, a small wooden lookout platform and a brazier beside the pole` | kept; grass slab inside the ring dropped by colour (`groundAll`) |
+| barracks (4 x 3) | `eedd6c92` | 224 x 280 | `an ancient Greek barracks: a long low hall of dark grey fieldstone and timber with a low-pitched roof of dark weathered terracotta tiles, a covered wooden porch on posts along the long side, racks of spears and round bronze shields by the door, showing two walls` | clean |
+| keep (4 x 4) | `a9e4232c` | 256 x 400 | `one massive ancient Greek stone keep: a big square fortified tower house of rough dark grey ashlar blocks, three storeys, small dark window slits, a heavy wooden door at the bottom, a crenellated top whose inside is a solid flat floor of dark wooden planks at the level of the battlements, the top is filled, not hollow, showing two walls` | kept (a little medieval, as §24) |
+| farm (4 x 4) | `d8a727c4` | 256 x 160 | `a small square ancient farm plot: neat parallel furrows of dark tilled brown earth with rows of ripe dull golden barley, enclosed by a low fence of rough wooden stakes and woven wattle, a wooden hand plough leaning on the fence` (+ `only the field and its fence ..., no grass round it, nothing outside the fence`) | kept; grass rim dropped |
+| (rejected) | `7b168539`, `b7d38ee6` | 192 x 224 / 176 | `an ancient Greek olive press: a round stone crushing basin with a big upright stone millstone wheel ...`; `an ancient Greek olive oil press workshop: a wide round stone trapetum basin ...` | both a well on a paved slab |
+| olive-press (3 x 3) | `23e61811` | 192 x 176 | `an ancient olive mill: one huge grey millstone wheel standing upright on its edge inside a wide shallow round stone basin, a wooden pole through the wheel's centre for turning it, next to it a tall wooden frame press with a heavy horizontal wooden beam and a big square stone weight, two tall clay amphorae of oil` (+ `no paving, no floor`) | kept: wheel in a basin (no frame press) |
+| lumber-pile (1 x 1) | `c872b491` | 96 x 72 | `a construction site lumber pile: a neat stack of rough dark brown cut timber logs and a few sawn planks on two cross beams, an axe stuck in the top log` | clean |
+| stone-pile (1 x 1) | `594dd609` | 96 x 72 | `a construction site stone pile: a heap of rough-cut dark grey building stone blocks stacked on each other, a few smaller broken stones, a wooden mallet and an iron chisel on the top block` | clean (a stepped pyramid) |
+
+State raws: `create_image_pixflux` img2img, 200 strength (farm scaffold 180), `isometric`, high top-down, highly
+detailed, detailed shading, no_background, seed 31, over the `--inits` images (the done sprite; scaffold: upper half
+erased along a 2:1 V line + drawn poles and planks; damaged: holes in the top third + charring; sides padded to a multiple
+of 4, the keep shrunk to 400 px). Every prompt ends with `high isometric three-quarter view, dark epic desaturated
+colours, pixel art, transparent background`. Calls (scaffold / damaged): barracks `3f015178` / `93fd3dd9`, camp
+`255b2696` / `d88a46b7`, farm `27a9cb23` / `1fffc692`, keep `b4e76bed` / `183c9a5d`, olive-press `f1b129e9` / `67456a79`,
+outpost `da7f7bce` / `31c524ed`, storehouse `fd58f803` / `4c18e2d8`. Prompt starts: scaffold `<building> under
+construction: half-built ... walls with ragged unfinished tops, no roof yet, wooden scaffolding poles and planks` (camp:
+`tents half pitched, bare wooden tent poles ...`; farm: `half the field freshly ploughed ..., a half-built fence`; mill:
+`basin half built ..., the big millstone wheel ... lying on wooden rollers`); damaged `a burnt and ruined <building>:
+... blackened with soot, the roof collapsed with charred broken beams and holes, ... rubble` (keep: `broken battlements,
+a collapsed corner`; farm: `the barley field scorched black and trampled`). The fort (10 x 10) is composed: a stone-wall
+ring on the line 1..8, stone towers on the corners, a stone gate in the +y side and the keep, each part in the same state.
+
+**Format.** `objects[]` = one sprite per building state (`<id>-<state>`), the shared object fields plus `tileOrigin`
+(px of the top vertex of the footprint's north tile: draw there), `basePx` (the footprint diamond under the structure;
+QA: h = metres x 33 + basePx), `building`, `state`, `material`, `burnable`. `buildings[]` groups the states per building
+with footprint, material and (gates) axis. Palette: tile palette + global object palette + 48 own colours.
+
+**QA** (`qa.mjs` `qaBuildings`, also run by the CLI): every sprite passes the object checks (border limit 0.75 for
+boxy sprites, `borderMax`); every kit sheet: size, binary alpha, palette, and the seam test: straight runs along both
+axes and a corner (bridges: spans with abutments) are laid out as on the map and every tile boundary is searched for
+cracks (a transparent px with opaque px within 2 left and right and within 3 above and below, more than inside the
+tiles) and empty columns. It caught a scaffold that ran past the 64 px frame (frames are now 96 wide), 1 px ledgers that
+rasterised with holes and slice tops without their side faces.
+
+**Lessons:** (1) Anything that must tile: render it from textured boxes; use PixelLab for the texture (img2img over a
+periodic init) and quilt the result back to the period. (2) pixflux "no_background" over an init with holes still paints
+its grey background into them: char what is left inside (`charHoles`) or keep the init closed. (3) pixflux wants sides
+divisible by 4 and at most 400 (the call fails, free). (4) "Olive press" and "trapetum" give a well; "a millstone wheel
+standing on its edge in a basin" gives a mill. (5) Map objects again came on slabs (camp, outpost, farm): flood the slab
+from the outside by colour; inside a fence drop it by colour.

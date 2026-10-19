@@ -226,11 +226,11 @@ export function qaObjects(O, tilePalette, dir = join(ROOT, 'public/war/objects')
     const a = (x, y) => d[(y * w + x) * 4 + 3];
     const corners = [a(0, 0), a(w - 1, 0), a(0, h - 1), a(w - 1, h - 1)].filter(Boolean).length;
     let per = 0, pn = 0; for (let x = 0; x < w; x++) { per += !!a(x, 0) + !!a(x, h - 1); pn += 2; } for (let y = 0; y < h; y++) { per += !!a(0, y) + !!a(w - 1, y); pn += 2; }
-    if (corners > 1 || per / pn > 0.5) fail.push(`${id}: background not transparent (${corners} opaque corners, ${Math.round((100 * per) / pn)}% opaque border)`);
+    if (corners > 1 || per / pn > (O.borderMax ?? 0.5)) fail.push(`${id}: background not transparent (${corners} opaque corners, ${Math.round((100 * per) / pn)}% opaque border)`);
     const rowHas = (y) => { for (let x = 0; x < w; x++) if (a(x, y)) return true; return false; };
     const colHas = (x) => { for (let y = 0; y < h; y++) if (a(x, y)) return true; return false; };
     if (!rowHas(0) || !rowHas(h - 1) || !colHas(0) || !colHas(w - 1)) fail.push(`${id}: not trimmed (empty border row/column)`);
-    const hm = h / ppm; if (Math.abs(hm - o.metres) / o.metres > 0.1) fail.push(`${id}: ${h} px = ${hm.toFixed(1)} m, metadata ${o.metres} m (want +-10%)`);
+    const hm = (h - (o.basePx ?? 0)) / ppm; if (Math.abs(hm - o.metres) / o.metres > 0.1) fail.push(`${id}: ${h} px = ${hm.toFixed(1)} m, metadata ${o.metres} m (want +-10%)`); // basePx: the footprint diamond under a building
     const an = o.anchor;
     if (!(an.x >= 0 && an.x < w && an.y >= h * 0.85 && an.y < h)) fail.push(`${id}: anchor (${an.x}, ${an.y}) not at the foot of ${w}x${h}`);
     else {
@@ -257,9 +257,61 @@ export function runQa(biome) {
   return fail;
 }
 
-// CLI: the global set and every biome folder.
+// Build-mode art (public/war/buildings): every building-state sprite passes the object checks (palette = tiles + global
+// objects + own colours). Kit sheets (walls, bridges): sizes, binary alpha, palette, and no gap where two pieces meet:
+// pieces are laid out as the map lays them (straight runs along both axes, a corner, bridge spans with abutments), and at
+// every tile boundary the composite's columns must stay >= 85% as tall as the columns 12 px either side.
+export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
+  const read = (f) => JSON.parse(readFileSync(join(ROOT, f)));
+  const G = read('public/war/tiles/tiles.json'), GO = read('public/war/objects/objects.json'), B = JSON.parse(readFileSync(join(dir, 'objects.json')));
+  const fail = qaObjects(B, G.palette, dir, GO), pal = palSet([...G.palette, ...(B.palette ?? [])]);
+  for (const k of B.kits ?? []) for (const [state, file] of Object.entries(k.states ?? {})) {
+    const f = join(dir, file); if (!existsSync(f)) { fail.push(`${k.id} ${state}: missing ${file}`); continue; }
+    const im = readImage(f), { w, h, data: d } = im, tag = `${k.id} ${state}`;
+    if (w !== k.frame.w * k.frames || h !== k.frame.h) { fail.push(`${tag}: sheet ${w}x${h}, want ${k.frame.w * k.frames}x${k.frame.h}`); continue; }
+    let soft = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] && d[i + 3] < 255) soft++; if (d[i + 3] && !pal.has(key(d, i))) off++; }
+    if (soft) fail.push(`${tag}: ${soft} semi-transparent px`);
+    if (off) fail.push(`${tag}: ${off} px outside the shared palette`);
+    const fr = (n) => crop(im, { x: n * k.frame.w, y: 0, w: k.frame.w, h: k.frame.h }), o = k.tileOrigin;
+    // layouts: [[frame, tile x, tile y], ...] and the tile pairs whose boundary is tested
+    const L = k.kind === 'wall'
+      ? { 'run x': [[[5, 0, 0], [5, 1, 0], [5, 2, 0]], [[0, 1], [1, 2]]], 'run y': [[[10, 0, 0], [10, 0, 1], [10, 0, 2]], [[0, 1], [1, 2]]], corner: [[[3, 0, 0], [5, 1, 0], [10, 0, 1]], [[0, 1], [0, 2]]] }
+      : { 'span x': [[[2, 0, 0], [0, 1, 0], [0, 2, 0], [3, 3, 0]], [[0, 1], [1, 2], [2, 3]]], 'span y': [[[4, 0, 0], [1, 0, 1], [1, 0, 2], [5, 0, 3]], [[0, 1], [1, 2], [2, 3]]] };
+    for (const [name, [tiles, pairs]] of Object.entries(L)) {
+      const W = 9 * 64, H = k.frame.h + 6 * 32, OX = 4 * 64, cmp = { w: W, h: H, data: new Uint8Array(W * H * 4) };
+      const sx = (x, y) => OX + (x - y) * 32, sy = (x, y) => (x + y) * 16;
+      for (const [n, x, y] of [...tiles].sort((a, b) => a[1] + a[2] - b[1] - b[2])) {
+        const t = fr(n), X = sx(x, y) - o.x, Y = sy(x, y);
+        for (let yy = 0; yy < t.h; yy++) for (let xx = 0; xx < t.w; xx++) { const i = (yy * t.w + xx) * 4; if (t.data[i + 3]) cmp.data.set(t.data.subarray(i, i + 4), ((Y + yy) * W + X + xx) * 4); }
+      }
+      // a crack = a transparent px with opaque px within 2 to its left and right in its row and within 3 above and below in
+      // its column (texture gaps such as palisade tips, crenels and arches are open on one side); an empty column = a slit
+      const op = (x, y) => x >= 0 && y >= 0 && x < W && y < H && cmp.data[(y * W + x) * 4 + 3] > 0;
+      const near = (x, y, dx, dy, n) => { for (let k = 1; k <= n; k++) if (op(x + dx * k, y + dy * k)) return true; return false; };
+      const cracks = (c) => { let n = 0; for (let x = c - 4; x <= c + 4; x++) for (let y = 0; y < H; y++) if (!op(x, y) && near(x, y, -1, 0, 2) && near(x, y, 1, 0, 2) && near(x, y, 0, -1, 3) && near(x, y, 0, 1, 3)) n++; return n; };
+      const colH = (x) => { let n = 0; for (let y = 0; y < H; y++) if (op(x, y)) n++; return n; };
+      for (const [ia, ib] of pairs) {
+        const [, ax, ay] = tiles[ia], [, bx, by] = tiles[ib], mid = Math.round((sx(ax, ay) + sx(bx, by)) / 2); // the boundary, halfway between the tile centres
+        const inner = Math.max(cracks(sx(ax, ay)), cracks(sx(bx, by))), atB = cracks(mid);
+        if (atB > inner + 2) fail.push(`${tag}: ${name}: ${atB} crack px where tiles ${ia} and ${ib} meet (${inner} inside the tiles)`);
+        for (let x = mid - 3; x <= mid + 3; x++) if (!colH(x) && colH(x - 4) && colH(x + 4)) { fail.push(`${tag}: ${name}: empty column where tiles ${ia} and ${ib} meet`); break; }
+      }
+    }
+  }
+  return fail;
+}
+export function runBuildingsQa() {
+  const dir = join(ROOT, 'public/war/buildings'); if (!existsSync(join(dir, 'objects.json'))) return [];
+  const fail = qaBuildings(dir), B = JSON.parse(readFileSync(join(dir, 'objects.json')));
+  const n = `buildings: ${(B.kits ?? []).length} kits, ${(B.buildings ?? []).length} buildings, ${B.objects.length} sprites`;
+  if (fail.length) console.error(`QA FAIL (${fail.length}) over ${n}\n  ` + fail.join('\n  '));
+  else console.log(`QA OK: ${n}`);
+  return fail;
+}
+
+// CLI: the global set, every biome folder and the build-mode set.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const bdir = join(ROOT, 'public/war/biomes');
   const biomes = existsSync(bdir) ? readdirSync(bdir).filter((b) => existsSync(join(bdir, b, 'tiles.json'))) : [];
-  process.exit([undefined, ...biomes].map((b) => runQa(b).length).some(Boolean) ? 1 : 0);
+  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length].some(Boolean) ? 1 : 0);
 }
