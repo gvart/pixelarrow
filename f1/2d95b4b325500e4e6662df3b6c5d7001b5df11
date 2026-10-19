@@ -1,0 +1,23 @@
+src/war/scenarios/index.ts
+  s_cfc22b058125c4::t_ec8158bc8a35e2 262-264
+scripts/war/sandbox-shots.mjs
+  s_cfc22b058125c4::t_ab5760159ee237 769-771,803
+  s_cfc22b058125c4::t_6b1bce7eab71f8 748,752,757,766-768,781,814
+  s_cfc22b058125c4::t_199267f17f76b7 13-14,741-747,749-751,753-756,758-765,772-780,782-802,804-813,815-850,867
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f12d95b4b325500e4e6662df3b6c5d7001b5df11",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
