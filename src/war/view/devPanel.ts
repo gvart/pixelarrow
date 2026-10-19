@@ -23,6 +23,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row"><button id="brawl">600 brawl</button> <button id="clear">Restart</button></div>
     ${s.region.id === 'test-ridge' ? `<div class="row">go to <select id="spot">${Object.keys(s.spots).map((k) => `<option>${k}</option>`).join('')}</select></div>` : ''}
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
+    <div class="row"><button id="cut">Walls: full (V)</button></div>
     <div class="row">${(['height', 'cost', 'grid', 'zones'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
@@ -50,6 +51,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     $('pause').textContent = paused ? 'Resume' : 'Pause';
     s.sim.speed(paused ? 0 : Number(val('speed')));
   };
+  $('cut').onclick = () => (s.build.layer.cutaway = !s.build.layer.cutaway);
   $('speed').onchange = () => { if (!paused) s.sim.speed(Number(val('speed'))); };
   el.querySelectorAll<HTMLInputElement>('[data-ov]').forEach((c) => (c.onchange = () => s.setOverlay(c.dataset.ov as Overlay, c.checked)));
   // panel clicks never reach the map
@@ -58,6 +60,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
   const perf = $('perf'), score = $('score'), t0 = s.sim.cur?.tick ?? 0;
   let end: number | null = null;
   setInterval(() => {
+    $('cut').textContent = `Walls: ${s.build.layer.cutaway ? 'cut away' : 'full'} (V)`;
     const r = tally(s);
     if (r.rows.length) {
       const live = r.rows.filter((q) => q.alive);

@@ -141,6 +141,8 @@ export class UnitLayer {
   private pool: Phaser.GameObjects.Image[] = [];
   private ghosts: Phaser.GameObjects.Image[] = [];
   private labels: Phaser.GameObjects.Text[] = [];
+  /** Shadow and ring of each raised unit, drawn in its layer slot (gUnder lies under every wall). */
+  private rings: Phaser.GameObjects.Graphics[] = [];
   private gUnder: Phaser.GameObjects.Graphics;
   private gOver: Phaser.GameObjects.Graphics;
   private swap: boolean;
@@ -161,6 +163,8 @@ export class UnitLayer {
    * ground, and their depth between the layers of the tile they stand on. null: on the ground.
    */
   lift: ((d: { x: number; y: number }) => Lift | null) | null = null;
+  /** Units on the ground: the least depth to draw over the wall faces they stand in front of (./build/buildingLayer.ts). */
+  ground: ((d: { x: number; y: number }) => number) | null = null;
 
   /** Per unit: its drawn lift eased towards this frame's (offset from its sim point, px), so steps never snap. */
   private eased = new Map<number, { ox: number; oy: number; px: number; z: number }>();
@@ -204,6 +208,7 @@ export class UnitLayer {
     const under = this.gUnder.clear(), over = this.gOver.clear();
     let used = 0, labels = 0;
     this.nGhost = 0;
+    this.nRing = 0;
     this.anim.frame(units, squads, at.now);
     if (this.ids !== units.length) { this.ids = units.length; this.anim.prune(new Set(units.map((d) => d.u.id))); }
     if (zoom >= SPRITE_ZOOM) used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
@@ -211,10 +216,12 @@ export class UnitLayer {
     else labels = this.banners(units, zoom, selected, over);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
+    for (let i = this.nRing; i < this.rings.length; i++) this.rings[i].setVisible(false);
     for (let i = labels; i < this.labels.length; i++) this.labels[i].setVisible(false);
   }
 
   private nGhost = 0;
+  private nRing = 0;
   /** Depth key of a tile point (x + y; the scene sorts past massifs with ./massifs.ts). */
   depthOf: (x: number, y: number) => number = (x, y) => x + y;
 
@@ -235,16 +242,24 @@ export class UnitLayer {
       const [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
       const team = TEAM_COLOR[d.team] ?? 0xcccccc;
       const hidden = u.state !== 'dead' && iso.hidden(f.x, f.y - BODY, d.x + d.y, l ? l.z + l.px / LH : iso.zAt(d.x, d.y));
+      const depth = l?.depth ?? Math.max(10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25), (u.state === 'dead' ? 0 : this.ground?.(d)) || 0);
       if (!hidden && u.state !== 'dead') {
-        g.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26, 12);
+        // a raised man's shadow and ring go in his own layer slot, just under him (over the walk floor, under the parapets)
+        let r = g;
+        if (l?.depth !== undefined) {
+          r = this.rings[this.nRing] ?? this.rings[this.rings.push(this.scene.add.graphics()) - 1];
+          this.nRing++;
+          r.clear().setDepth(l.depth - 1e-7).setVisible(true);
+        }
+        if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26, 12); // no shadow in mid-air on a ladder
         const sel = selected.has(u.squad), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
-        g.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30, 14);
+        r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30, 14);
       }
       let img = this.pool[n];
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
       n++;
       img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setVisible(true);
-      img.setDepth(l?.depth ?? 10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25));
+      img.setDepth(depth);
       if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
       else if (this.swap) img.resetPipeline();
       img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);

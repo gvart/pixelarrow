@@ -26,6 +26,7 @@ import { HH, HW, LH, type IsoMap } from '../iso';
 import type { DrawUnit } from '../simClient';
 import { BODY, TEAM_COLOR } from '../units';
 import type { BuildArt, BuildSprite, KitSprite } from './buildArt';
+import { frontDepth, type Back } from './wallDepth';
 
 /** Ground overlays: over the terrain chunks (1) and the influence area (2), under objects and units (10+). */
 const GROUND = 2.5;
@@ -37,6 +38,8 @@ const HEIGHT: Partial<Record<BuildingType, number>> = {
 };
 const MAT = { wood: 0x8a6a44, stone: 0xa8a294 };
 const GATE_NEAR = 3; // tiles: a gate opens while one of its team stands this near
+/** Cutaway: walls, towers and gates drawn as stubs this high (px, ~1 m at a side vertex); build mode cuts within CUT_NEAR tiles of the cursor. */
+const STUB = 33, CUT_NEAR = 4;
 /** Depth steps inside a tile's layers (a tile's depth key spans ~1 / 4096). */
 const IN = 1e-6;
 const view = (o: { x: number; y: number; right: number; bottom: number }, x: number, y: number, m: number) => x > o.x - m && x < o.right + m && y > o.y - m && y < o.bottom + m * 2;
@@ -72,6 +75,10 @@ export class BuildingLayer {
   hovered = -1;
   /** Build mode: every footprint shows its grid. */
   grids = false;
+  /** Cutaway (V): every wall, tower and gate drawn as a low stub, so the inside of a fort shows. */
+  cutaway = false;
+  /** Build mode's cursor tile: the walls near it are cut away too (null: none). */
+  cutNear: { x: number; y: number } | null = null;
   /** Units on a ladder this frame (the climb clip). */
   readonly climbing = new Set<number>();
   private gfx: Phaser.GameObjects.Graphics[] = [];
@@ -100,6 +107,8 @@ export class BuildingLayer {
   /** Tall tiles (px) that hide what stands behind them. */
   private heights = new Map<number, number>();
   private decks = new Map<number, Deck>();
+  /** Per footprint tile (not stairs or ladders): its footprint's max corner and the depth its back art is drawn at. */
+  private backs = new Map<number, Back>();
   /** Footprint size of each wall before an upgrade grew it (tiles). */
   private orig = new Map<number, number>();
 
@@ -156,7 +165,7 @@ export class BuildingLayer {
   /** Index the standing buildings: tiles, walks, gate passages, open sides, tall tiles and the raised tiles units use. */
   private prepare(buildings: readonly BuildingSnap[]): void {
     const occ = this.occ, walks = this.walks, open = this.open;
-    occ.clear(); this.looks.clear(); walks.clear(); this.gateJoin.clear(); this.deep.clear(); open.clear(); this.heights.clear(); this.decks.clear();
+    occ.clear(); this.looks.clear(); walks.clear(); this.gateJoin.clear(); this.deep.clear(); open.clear(); this.heights.clear(); this.decks.clear(); this.backs.clear();
     const live = buildings.filter((b) => b.state !== 'destroyed');
     for (const b of live) {
       this.looks.set(b.id, this.look(b));
@@ -168,7 +177,7 @@ export class BuildingLayer {
       pairs(b.tiles).forEach(([x, y], i) => {
         const [type, stage] = this.tileLook(b, i), m = this.art?.meta(type), k = key(x, y);
         if ((def.wall === 'segment' || def.wall === 'tower') && m?.layered) walks.set(k, { kit: m.id, px: m.walkPx, b: b.id });
-        if (def.wall && stage !== 'foundation') this.heights.set(k, (m?.heightPx || (HEIGHT[type] ?? 60)) * (stage === 'rising' ? 0.4 : 1));
+        if (def.wall && stage !== 'foundation') this.heights.set(k, this.cut(b) ? STUB : (m?.heightPx || (HEIGHT[type] ?? 60)) * (stage === 'rising' ? 0.4 : 1));
         if (def.wall === 'gate') this.gateJoin.add(k);
       });
     }
@@ -179,6 +188,20 @@ export class BuildingLayer {
       if (!d) continue;
       this.deep.set(b.id, d);
       for (const [x, y] of pairs(d.tiles)) { this.gateJoin.add(key(x, y)); this.heights.set(key(x, y), this.heights.get(key(b.tiles[0], b.tiles[1])) ?? 100); }
+    }
+    // the depths the art is drawn at (draw()): wall tiles one by one, towers and 2-deep gates as one box
+    for (const b of live) {
+      const def = BUILDINGS[b.type], ts = pairs(b.tiles);
+      if (def.access) continue;
+      const deep = this.deep.get(b.id), all = deep ? [...ts, ...pairs(deep.tiles)] : ts;
+      if (def.wall === 'segment') {
+        for (const [x, y] of ts) this.backs.set(key(x, y), { x1: x + 1, y1: y + 1, depth: this.D(x + 0.495, y + 0.495) });
+        continue;
+      }
+      const x0 = Math.min(...all.map((t) => t[0])), y0 = Math.min(...all.map((t) => t[1]));
+      const x1 = Math.max(...all.map((t) => t[0])) + 1, y1 = Math.max(...all.map((t) => t[1])) + 1;
+      const depth = def.wall === 'tower' ? this.D(x0 + 1, y0 + 1) : deep ? this.D(x0 + 1.5, y0 + 1.5) : this.D(b.x + b.w / 2 - 0.5, b.y + b.h / 2 - 0.5);
+      for (const [x, y] of all) this.backs.set(key(x, y), { x1, y1, depth });
     }
     const setOpen = (x: number, y: number, side: number) => open.set(key(x, y), (open.get(key(x, y)) ?? 0) | side);
     for (const b of live) {
@@ -234,6 +257,23 @@ export class BuildingLayer {
     return null;
   }
 
+  /** Is building b drawn cut away (a wall, tower or gate; everywhere, or near build mode's cursor)? */
+  private cut(b: BuildingSnap): boolean {
+    const w = BUILDINGS[b.type].wall;
+    if (!w || BUILDINGS[b.type].access) return false;
+    if (this.cutaway) return true;
+    const c = this.cutNear;
+    if (!c) return false;
+    for (const [x, y] of pairs(b.tiles)) if (Math.abs(x + 0.5 - c.x) <= CUT_NEAR && Math.abs(y + 0.5 - c.y) <= CUT_NEAR) return true;
+    return false;
+  }
+
+  /** Crop a kit or building image to its bottom: a stub STUB px high at the side vertices of an n-tile-wide footprint whose top vertex is at frame row y0. */
+  private stub(img: Phaser.GameObjects.Image, y0: number, n: number): Phaser.GameObjects.Image {
+    const top = Math.max(0, Math.round(y0 + n * HH - STUB));
+    return img.setCrop(0, top, img.frame.realWidth, img.frame.realHeight - top);
+  }
+
   /** Walk px of the layered wall or tower tile at (x, y) as drawn, 0 none. */
   private walkTile(x: number, y: number): number {
     return this.walks.get(key(x, y))?.px ?? 0;
@@ -247,7 +287,12 @@ export class BuildingLayer {
     const tx = Math.floor(d.x), ty = Math.floor(d.y), t = this.decks.get(key(tx, ty));
     if (!t) return null;
     if (t.kind === 'deck') {
-      return { x: d.x, y: d.y, z: t.z, px: t.px, depth: Math.max(t.depth + IN, this.D(d.x, d.y) + IN) };
+      // over the walk floor of the wall tiles beside it on the same walk (+x, +y; still under its own front parapets): a
+      // man at his tile's edge is not cut by theirs
+      let depth = Math.max(t.depth, this.D(d.x, d.y));
+      const front = this.D(tx + 1, ty + 1);
+      for (const n of [this.decks.get(key(tx + 1, ty)), this.decks.get(key(tx, ty + 1))]) if (n?.kind === 'deck' && n.px === t.px && n.depth < front) depth = Math.max(depth, n.depth);
+      return { x: d.x, y: d.y, z: t.z, px: t.px, depth: depth + IN };
     }
     if (t.kind === 'door') return { x: d.x, y: d.y, z: t.z, px: 0, hide: true };
     if (t.kind === 'stair') {
@@ -263,6 +308,11 @@ export class BuildingLayer {
     return { x, y, z: t.z, px: t.px * up, depth: t.depth + IN * (1 + f), climb: true, facing: Math.atan2(t.dy, t.dx) };
   }
 
+  /** The least display depth of a man on the ground at d: over the wall and building faces he stands in front of (0 none). */
+  groundDepth(d: { x: number; y: number }): number {
+    return frontDepth(d.x, d.y, this.backs, IN);
+  }
+
   /**
    * The raised surface under world px (wx, wy), front-most first: the top of a walkway, tower platform or stair tile
    * (a point on it, with its tile and px), or the face of a wall or tower (the ground tile just in front of that face,
@@ -275,7 +325,8 @@ export class BuildingLayer {
       if (t.kind !== 'deck' && t.kind !== 'stair') continue;
       const tx = k % 65536, ty = (k - tx) / 65536;
       if (tx + ty + 1 <= bd) continue;
-      const px = t.kind === 'stair' ? this.lift({ x: tx + 0.5, y: ty + 0.5 })!.px : t.px;
+      const cut = t.kind === 'deck' && this.heights.get(k) === STUB; // a cut-away wall: its stub's top is picked
+      const px = t.kind === 'stair' ? this.lift({ x: tx + 0.5, y: ty + 0.5 })!.px : cut ? STUB : t.px;
       // v along the column through the cursor: v0 on the tile's ground, v1 on its top; the tile spans [lo, hi) in v
       const v0 = (wy - iso.OY + t.z * LH) / HH, v1 = v0 + px / HH;
       const lo = Math.max(2 * tx - u, 2 * ty + u), hi = Math.min(2 * tx + 2 - u, 2 * ty + 2 + u);
@@ -339,8 +390,12 @@ export class BuildingLayer {
           if (spr) {
             if (deep) {
               const all = pairs([...b.tiles, ...deep.tiles]), x0 = Math.min(...all.map((t) => t[0])), y0 = Math.min(...all.map((t) => t[1]));
-              this.fit(this.img(this.ni++, spr.key), spr, b.type, x0 + 1, y0 + 1, 2, 2, this.zt(x0, y0)).setDepth(this.D(x0 + 1.5, y0 + 1.5));
-            } else this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), !def.wall && b.rot === 1).setDepth(depth);
+              const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, x0 + 1, y0 + 1, 2, 2, this.zt(x0, y0)).setDepth(this.D(x0 + 1.5, y0 + 1.5));
+              if (this.cut(b)) this.stub(im, spr.tileOrigin.y, 2);
+            } else {
+              const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), !def.wall && b.rot === 1).setDepth(depth);
+              if (this.cut(b)) this.stub(im, spr.tileOrigin.y, (b.w + b.h) / 2);
+            }
             drawn = true;
           }
         }
@@ -362,7 +417,7 @@ export class BuildingLayer {
 
   /** A wall segment tile by tile: palisade by its neighbour mask, layered kits back and front. */
   private drawWall(b: BuildingSnap, walls: Set<number>): boolean {
-    const ts = pairs(b.tiles);
+    const ts = pairs(b.tiles), cut = this.cut(b);
     let any = false;
     ts.forEach(([x, y], i) => {
       const [type, stage] = this.tileLook(b, i), kit = this.art!.kit(type, stage), m = this.art!.meta(type);
@@ -370,7 +425,8 @@ export class BuildingLayer {
       any = true;
       const frame = this.wallFrame(type, x, y, walls);
       const base = this.D(x + 0.495, y + 0.495), z = this.zt(x, y);
-      this.piece(this.img(this.ni++, kit.key, frame), kit, x, y, z).setDepth(m.layered ? base : this.D(x + 0.5, y + 0.5));
+      const back = this.piece(this.img(this.ni++, kit.key, frame), kit, x, y, z).setDepth(m.layered ? base : this.D(x + 0.5, y + 0.5));
+      if (cut) { this.stub(back, kit.tileOrigin.y, 1); return; }
       // a back-facing inner corner: -x and -y joined, the diagonal between them open
       if (m.post && stage === 'done' && this.joins(m.id, x - 1, y) && this.joins(m.id, x, y - 1) && !this.joins(m.id, x - 1, y - 1)) {
         this.piece(this.img(this.ni++, m.post, 0), kit, x, y, z).setDepth(base + IN / 2);
@@ -410,7 +466,8 @@ export class BuildingLayer {
     let open = 0;
     for (const [x, y] of ts) open |= this.open.get(key(x, y)) ?? 0;
     const z = this.zt(x0, y0), base = this.D(x0 + 1, y0 + 1);
-    this.piece(this.img(this.ni++, kit.key, open), kit, x0, y0, z).setDepth(base);
+    const back = this.piece(this.img(this.ni++, kit.key, open), kit, x0, y0, z).setDepth(base);
+    if (this.cut(b)) { this.stub(back, kit.tileOrigin.y, 2); return true; }
     if (kit.front) this.piece(this.img(this.ni++, kit.front, open), kit, x0, y0, z).setDepth(this.D(x0 + 2, y0 + 2) + 2 * IN);
     return true;
   }
@@ -485,7 +542,7 @@ export class BuildingLayer {
   private img(i: number, texture: string, frame?: number): Phaser.GameObjects.Image {
     let img = this.imgs[i];
     if (!img) this.imgs.push((img = this.scene.add.image(0, 0, texture).setOrigin(0)));
-    return img.setTexture(texture, frame).setScale(1).setFlipX(false).setVisible(true);
+    return img.setTexture(texture, frame).setScale(1).setFlipX(false).setCrop().setVisible(true);
   }
 
   /** Tiles of standing wall pieces (the palisade's neighbour mask joins to walls, gates and towers). */
