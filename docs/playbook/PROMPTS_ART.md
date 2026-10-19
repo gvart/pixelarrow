@@ -955,3 +955,49 @@ grass is pixel-identical and no grid shows. (3) "no base" in the prompt is ignor
 discs, slabs, soil mounds, opaque white/grey backgrounds): the build keys the border colour (and inside the crown with
 `keyAll`) and drops the base per object (`base: { y0, x0, x1, cut, keep }` in `assets.mjs`), then removes specks. (4) PixelLab
 objects are brighter and greener than the tiles: grade them (`grade: { sat, val }`).
+
+## 24. Global war — art fixes, variant fills and the asset QA gate (ART-5)
+
+Fixes to the ART-4 library plus the W-21 QA gate. Raws: `shots/war/pixellab/art5/raw/` (git-ignored). `build.mjs` now
+reads `<pixellab dir>/<batch>/raw` (`batch` in `assets.mjs`, default `art4`) and ends with `qa.mjs`. Preview:
+`node scripts/war/art/preview.mjs` -> `shots/war/pixellab/art5/` (contact sheet, variants field without/with variants,
+two 40 x 40 test-ridge windows at 1:1 with the fallback rule). 47 generations (3 sets x 10, 1 fill sheet x 10, 7 objects x 1).
+
+| Asset | Call | Settings | Prompt (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| watchtower | `create_map_object` `9a04562b` | 220 x 400, high top-down, high detail, detailed shading | `one ancient square stone watchtower of rough dark grey ashlar blocks, three storeys tall, small dark window slits, a low wooden door at the bottom, a crenellated top whose inside is a solid flat floor of dark wooden planks at the level of the battlements, the top is filled, not hollow, showing two walls, seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the tower on a fully transparent background, no ground, no grass, no base under it` | kept: closed planked top, 12 m, clean; graded sat 0.8 val 0.68 |
+| (rejected) | `create_map_object` `067c491f` | same | `one ancient Greek stone watchtower (pyrgos), ... the top is closed by a solid low-pitched pyramid roof of dark weathered terracotta tiles that covers the whole tower, no opening at the top, no battlements, ...` | closed, but a bright red roof sitting on battlements anyway (reads medieval) |
+| (rejected) | `create_map_object` `a71ca474`, `a9eb4178`, `2a0f8ff0`, `f0f8a54d` | 260–300 x 400, same | `one Mediterranean umbrella stone pine tree (Pinus pinea), a very tall straight bare reddish-brown trunk ... broad flat umbrella-shaped crown ... much wider than it is tall, flat on top`; `one Italian stone pine ... like an open umbrella or a parasol`; `... a thin flat horizontal canopy ... like a tabletop ... a giant mushroom`; `one stone pine (Pinus pinea) of the Roman campagna ...` | all broadleaf blob crowns (dome, lollipop), three with a grass square |
+| stone-pine | `create_map_object` `5a38a8c6` | 300 x 400, same | `one umbrella stone pine tree shaped like a flat-topped savanna acacia: a very tall thin bare reddish-brown trunk, near the top it splits into a few bare branches that spread out sideways, holding one very wide, thin, flat-topped canopy of dark muted green pine needle clumps, the canopy is a flattened dome much wider than tall,` + the usual view/no-base tail | kept: the acacia comparison gives the flat umbrella crown; grey bg keyed (`keyAll`), 10 m, graded sat 0.8 val 0.85 |
+| sand-shallow | `create_tiles_pro` `8292629f` | iso 64, low top-down, `tileset`, seed 31 | `pale dull dry sand to shallow murky slate-blue water over pebbles with a narrow wet sand edge, dark epic desaturated ancient Greek river bank` | kept; masks 6/9 are hard checkers |
+| road-rock | `create_tiles_pro` `2fb9aac7` | same | `a packed pale earth road with worn ruts and small stones to dark grey weathered rock, dark epic desaturated ancient Greek mountain pass` | kept; straight block splits, not organic |
+| (rejected) road-sand | `create_tiles_pro` `02180484` | same | `a packed pale earth road with worn ruts and small stones to pale dull dry sand, dark epic desaturated ancient Greek coast` | road and sand the same colour: no readable edge; road-sand uses the fallback (grass verge) |
+| fills | `create_tiles_pro` `7038755a` | iso 64, `tile_view_angle: 30`, no tileset, seed 31 | `1). dark forest floor of scattered brown pine needles, dry leaf litter and twigs 2). dark forest floor with fallen pine cones, thin roots and patches of dark moss 3). dark marsh of black mud, murky puddles and sedge tufts 4). dark marsh with broken reed stubble, wet black mud and small puddles 5). dry umber dirt ground with small pebbles 6). dry umber dirt ground with cracks and a few dry grass blades 7). dark muted olive grass with dry tufts 8). dark muted olive grass with small stones and clover, dark epic desaturated ancient Greek hillside` | 16 independent tiles, 2 per item (64 x 64, 2:1 top from y 11); item 2 came out grassy (unused). Interiors of the variant fills |
+
+**Build changes.** (1) Both terrains of every set are replaced by one shared fill per terrain (`FILLS`), pixel for
+pixel; only the 1 px class boundary keeps the raw (toned) pixel, so the drawn bank survives. (2) In the outer band
+(rimE >= 0.88) the class is the nearer corner's, so two terrains always meet at the edge midpoint and any two neighbour
+tiles line up (ART-4 left raw second-terrain pixels on the edges: 64 edge mismatches). (3) `gate` per set widens the
+corner gating of the classifier (shallow-deep 0.4: its raw deep patches were tiny). (4) Variants (`VARIANTS`): frame 0 =
+the fill; others keep the fill's outer band (rimE >= 0.84–0.89, noisy line) and take the interior from a new painting
+colour-matched (per-channel mean/std) to the fill, or the fill mirrored / shifted half a tile. (5) Object anchor = mean x
+of the bottom rows (ART-4 foot overrides put several anchors beside the trunk); `metres` in `objects.json` is the design
+height and the object palette is stored next to the tile palette.
+
+**QA gate** (`scripts/war/art/qa.mjs`, run alone or at the end of the build; exit 1 with the list): tiles — 16 frames
+and mask map, sizes, opaque top, every pixel in the palette, dark rim (outermost px vs 2 px inward, minus the same test
+4 px in; raw PixelLab tiles score 0.2–0.6, gate 0.12), every same-terrain edge equals the terrain's full tile (>= 90%),
+the colour step across every legal neighbour pair <= 1.8 x the full tile's own + 12, each terrain's full tile identical
+in all sheets, variants share the band and change >= half the base's detail; objects — metadata, PNG size, binary alpha,
+transparent border, trimmed, palette, `h = metres x 33` +-10%, anchor under the foot, no ground patch (bottom 12% rows:
+a green run >= 25% of the width for trees/stone, an earth run >= 35% for bushes/reeds; catches 8 of the 9 ART-4 raws
+that had bases, misses boulder-b's thin moss). Before ART-5: 89 failures (64 edge mismatches + 1 seam, 15 objects off
+palette + no object palette, 7 heights vs the ART-4 targets, 2 anchors); after: 0. Not automated: open tops / wrong
+species — still an eye check on the contact sheet.
+
+**Lessons:** (1) PixelLab draws any "umbrella / stone pine" as a broadleaf; naming a flat-topped acacia gets the shape.
+(2) Asking for a roof gets battlements plus a roof; a crenellated top "whose inside is a solid floor of planks" closes it.
+(3) A full-tile variant cannot change its edge without seams; keep a thin edge band and swap the interior with a separate
+painting — mirrored or shifted copies of the same tile still read as a grid (forest, dirt). (4) For land pairs with no
+set, a grass buffer vertex reads fine; shores get a shallow band. Moving vertices can loop at 3-terrain spots, so grass
+only ever gives way there.
