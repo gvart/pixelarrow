@@ -1,0 +1,23 @@
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_83942810caaae7 12-14,17,294
+src/war/view/interact.ts
+  s_cfc22b058125c4::t_cf34a7fadffc7a 2-5,8-9,12-13,21,23,28-29,34-35,37-39,43,46-47,55-59,61-65,67,71,73-142,147-148,157,159-163,165,170-185,188,192-199,204-208,211-219,221-222,225-227,230-231,234,236,239-240,242-244
+  s_cfc22b058125c4::t_ad548ff4c521f2 68-70
+  s_cfc22b058125c4::t_aa71cfb5d73e91 72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "42af299d7dc9b5e736e174201537f6dc15c941a2",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
