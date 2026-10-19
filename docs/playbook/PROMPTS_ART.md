@@ -1001,3 +1001,35 @@ species — still an eye check on the contact sheet.
 painting — mirrored or shifted copies of the same tile still read as a grid (forest, dirt). (4) For land pairs with no
 set, a grass buffer vertex reads fine; shores get a shallow band. Moving vertices can loop at 3-terrain spots, so grass
 only ever gives way there.
+
+## 25. Global war — 1 m terrain cells and real mountains (terrain fix)
+
+Raws: `shots/war/pixellab/tfix/raw/` (git-ignored), listed in `assets.mjs` (batch `tfix`). 27 generations (2 tile calls x 10,
+7 objects; the first spire failed because canvas sides must be divisible by 4).
+
+| Asset | Call | Settings | Prompt (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| rock-snow | `create_tiles_pro` `222eaec1` | iso 64, low top-down, `tileset`, seed 31 | `dark grey weathered mountain rock with deep cracks and scree to old grey-white mountain snow, dark epic desaturated ancient Greek mountain peak` | kept: its rock (#15) is the new rock fill everywhere (the old one read as flagstones), its side the `crag` cliff; snow toned x0.8 |
+| rock-fills | `create_tiles_pro` `89795ea4` | iso 64, `tile_view_angle: 30`, no tileset, seed 31 | `1). dark grey fractured mountain rock with deep jagged cracks 2). dark grey rock with loose scree and angular gravel 3). dark grey-brown weathered limestone with pale lichen spots 4). dark grey rock with small broken boulders and a few dry grass tufts 5). dark grey rock with long parallel strata cracks 6). dark grey rock rubble and scree, dark shadows between stones 7). old grey-white snow with dark rock poking through 8). old grey-white wind-packed snow with faint ripples, dark epic desaturated ancient Greek mountain` | rock variants #0–3, snow variants #12, 14, 15; strata (#8, 9) read as planks, rubble (#10, 11) too busy |
+| crag-a | `create_map_object` `077bc3da` | 240 x 400, high top-down, high detail, detailed shading | `one tall jagged dark grey mountain rock crag, a broken pinnacle of fractured weathered grey rock with sharp vertical cracks and ledges,` + tail | kept, 11 m; grass slab anyway (dropped), blue-grey: graded |
+| spire | `create_map_object` `cd81b899` | 128 x 400, same | `one thin tall needle-shaped rock spire of dark grey weathered stone, a narrow eroded natural pillar with cracks and small ledges,` + tail | kept, 11 m; a little obelisk-like; grass base dropped |
+| crag-b | `create_map_object` `18bb71ba` | 180 x 220, same | `one medium jagged dark grey rock crag, a cluster of three sharp fractured grey rock teeth of different heights,` + tail | kept, 6 m; lime moss graded to sat 0.25 |
+| (rejected) | `create_map_object` `541c9179` | 300 x 240, same | `one broad low outcrop of dark grey mountain rock, stacked broken angular slabs with deep cracks, wider than tall,` + tail | a stack of cubes |
+| outcrop | `create_map_object` `95ee5d7f` | 280 x 200, same | `one rough natural outcrop of dark grey mountain rock, an irregular rounded mass of weathered fractured stone with jagged broken edges and deep cracks, no straight lines, no cubes, wider than tall,` + tail | kept, 5 m; still blocky; grass slab dropped |
+| crag-snow | `create_map_object` `d5672e21` | 260 x 400, same | `one jagged dark grey mountain peak crag whose top and ledges are capped with old grey-white snow, fractured rock with snow in the cracks,` + tail | kept, 10 m, used sparsely (boxy tower shape) |
+| scree | `create_map_object` `25a29771` | 240 x 128, same | `a wide low fan of loose grey scree, a spill of small broken angular grey rock fragments and pebbles spreading out in a cone shape,` + view part of the tail + `only the stones on a fully transparent background, no grass, no soil` | kept as a scree cone at wall feet (kind `scree`, walkable) |
+
+Tail = `seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the rock on a fully
+transparent background, no ground, no grass, no base under it`.
+
+**Renderer (no art needed):** the ground is drawn in 1 m cells (the region's visual layer, 2 x 2 per sim tile) with
+32 x 32 frames cut at runtime from the 2 m sheets (`src/war/view/fineArt.ts`). The transition shape is the 2 m frame
+scaled to half size; the colours are the fills at full size at the cell's place in its tile, so texel density stays the
+soldiers'. Transition cells draw a curved edge: Gaussian-weighted corner values interpolated over the cell and cut at 0.5,
+so coasts are contours, not corner-mask teeth. Tall cliffs draw the `crag` side strip per level with varied column
+offsets and dithered shades.
+
+**Lessons:** (1) PixelLab rock objects come out blue-grey and often on a grass slab: grade sat ~0.45 and drop the slab
+with `keep: 'notgreen'` plus a `cut`. (2) "Outcrop" and "snowy peak" tend to come out as stacked cubes or a tower;
+pinnacles, teeth and spires come out well. (3) The mountain mass has to be terrain (tall cliff steps); objects only break
+up the lips. A forest of crags reads as a field of rock trees.
