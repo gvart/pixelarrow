@@ -389,8 +389,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     }
     if (k1 + 1 < len) pieces.push({ type, part: 'end1', tiles: row(k1 + 1), ok: true });
     const bad = (reason: PlaceReason) => { for (const q of pieces) q.ok = false; return fail(reason, span, pieces); };
-    if (k1 + 1 >= len) return bad('bank'); // the drag ends in the water
     if (span > BRIDGE.maxSpan) return bad('span');
+    if (k1 + 1 >= len) return bad('bank'); // the drag ends in the water
     // ramps: open dry ground, banks at most a level apart, one of them in the team's influence
     const ends = [pieces[0], pieces[pieces.length - 1]];
     let lo = Infinity, hi = -Infinity, own = false;
