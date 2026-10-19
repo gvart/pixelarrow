@@ -39,6 +39,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-33 Bridges v2 (owner 2026-10-20): span limit wood 12 tiles, stone 24 tiles (supersedes W-24's 10); widths 1/2/3 tiles; 4 directions — the 2 grid axes plus the 2 grid diagonals (screen-horizontal/vertical), tool picks the direction closest to the drag; diagonal decks need new art.
 - W-34 HUD v2 (owner 2026-10-20): HUD much bigger and readable (default ~2× current, user UI-scale setting); command card regrouped (orders | formations | squad-specific), short; build bar hidden until B / Build button; situational actions (raise/push ladder, ignite, extinguish, crew…) are not permanent buttons — E/right-click does the recommended one shown at the cursor, holding E (or right-mouse) opens a radial menu of all valid actions for the hovered target.
 - W-35 Fire arrows (owner 2026-10-20): archers can shoot fire arrows only within a few metres of a lit brazier (cheap placeable on ground, walkway or tower); each volley consumes pitch (new resource, made from pine wood at a pitch kiln or gathered from pines). Torches still ignite up close.
+- W-36 Map views (owner 2026-10-20): switchable view modes (normal, altitude, movement cost/terrain, ownership/influence, biomes, resources), a readable minimap, a zoom-out limit, and M opens a full-map view to investigate. Queued after hud-v2.
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
