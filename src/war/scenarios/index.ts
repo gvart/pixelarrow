@@ -311,7 +311,7 @@ export const SCENARIOS: Scenario[] = [
     economy: {
       claims: [{ team: 0, x: RC[0], y: RC[1], r: 26 }],
       stock: { stone: 4000, wood: 1500 },
-      foeStock: { wood: 1000, stone: 200 },
+      foeStock: { wood: 1000, stone: 200, pitch: 60 }, // pitch: the siege archers' fire arrows (W-35)
       walls: ringWalls(0, 1),
       sites: ringSites(0, 1),
       prebuild: 20000,

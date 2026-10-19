@@ -208,14 +208,15 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   };
 
   /**
-   * W-35: a brazier goes on the team's own finished walkway or tower platform deck (no influence needed), or else on open
-   * ground like any building; never two on a tile; the team must have its cost in stock.
+   * W-35: a brazier goes on the team's own finished walkway or tower platform deck, or else on open ground (no influence
+   * needed either way); never two on a tile; the team must have its cost in stock.
    */
   const checkBrazier = (team: number, tiles: number[]): PlaceResult => {
     const [x, y] = tiles, t = y * w + x;
     const under = x >= 0 && y >= 0 && x < w && y < h ? buildings[occ[t]] : undefined;
     let reason: PlaceReason | null = null;
-    if (!(under && under.team === team && under.decked && grid.deck[t] === DECK)) reason = checkTiles(team, tiles, true);
+    // a field piece: on the ground it needs no influence (attackers set them down before foe walls)
+    if (!(under && under.team === team && under.decked && grid.deck[t] === DECK)) reason = checkTiles(team, tiles, true, true);
     if (!reason && braziers.some((b) => b.state !== 'destroyed' && b.ti[0] === t)) reason = 'overlap';
     if (!reason && Object.entries(BUILDINGS.brazier.cost).some(([r, v]) => (stockOf(team)[r as ResourceKind] ?? 0) < v)) reason = 'cost';
     return reason ? { ok: false, reason, tiles } : { ok: true, tiles };

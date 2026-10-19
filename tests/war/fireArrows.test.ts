@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSim } from '../../src/war/sim';
+import { createBots } from '../../src/war/sim/bots';
 import { BRAZIER, BUILDINGS } from '../../src/war/sim/economy';
 import type { RegionData, WarBuildSim } from '../../src/war/types';
 
@@ -205,5 +206,31 @@ describe('braziers and fire arrows (W-35)', () => {
       return JSON.stringify(sim.snapshot());
     };
     expect(go()).toBe(go());
+  });
+});
+
+describe('siege archer bots (W-35)', () => {
+  it('set a brazier down behind them and loose fire arrows', () => {
+    const [sim, s] = base(8);
+    build(sim, () => sim.order({ kind: 'placeWall', squad: s, material: 'wood', points: [14.5, 20.5, 25.5, 20.5] }));
+    sim.order({ kind: 'move', squad: s, x: 20, y: 37 });
+    run(sim, 150);
+    sim.addStock(1, 'wood', 100);
+    sim.addStock(1, 'pitch', 50);
+    const a = sim.spawnSquad('a', 1, 'archer', 10, 20, 8);
+    const bots = createBots(sim);
+    bots.set(a, { kind: 'siegeArchers', x: 20, y: 30 });
+    const mine = new Set(sim.snapshot().squads[a].units);
+    let fire = 0;
+    run(sim, 1500, () => {
+      bots.tick();
+      const snap = sim.snapshot();
+      for (const sh of snap.shots ?? []) if (sh.t0 === snap.tick - 1 && mine.has(sh.by) && sh.fire) fire++;
+      return fire >= 5;
+    });
+    const br = bs(sim).filter((b) => b.type === 'brazier' && b.team === 1);
+    expect(br.length).toBeGreaterThan(0);
+    expect(br.every((b) => b.y < 20)).toBe(true); // on the attackers' side
+    expect(fire).toBeGreaterThanOrEqual(5);
   });
 });

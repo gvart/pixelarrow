@@ -170,7 +170,7 @@ export type BuildingType =
   | 'camp' | 'storehouse' | 'outpost' | 'fort' | 'barracks' | 'farm' | 'olivePress'
   | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate'
   | 'woodBridge' | 'stoneBridge'
-  // W-35: brazier (1x1 on open ground, or on the team's own walkway / tower platform deck; paid at once, done and lit on
+  // W-35: brazier (1x1 on open ground, or on the team's own walkway / tower platform deck, no influence needed; paid at once, done and lit on
   // placement, burns BRAZIER.life seconds; no squad needed); pitchKiln: a pitch node fed by the team's wood
   | 'brazier' | 'pitchKiln';
 /** foundation: marked out, materials arriving; scaffold: labour under way (the footprint blocks); damaged: done below half hp. */
