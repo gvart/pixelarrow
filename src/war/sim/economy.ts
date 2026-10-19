@@ -20,10 +20,16 @@ export interface BuildingDef {
   yields?: { res: ResourceKind; max: number; regrow: number; rate: number }; // a farm: a node once done
   /** Wall tier (W-27): segments 1 palisade, 2 timber rampart, 3 stone wall; towers and gates 1 wood, 2 stone. */
   tier?: number;
-  /** Walkway (segment) or platform (tower) height in levels above the ground once done; reached by inside stairs. */
+  /** Walkway (segment) or platform (tower) height in levels above the ground once done; reached only by stairs, ladders or a door. */
   walk?: number;
-  /** Tower platform: most units on it at once. */
+  /** Tower platform (or ladder): most units on it at once. */
   cap?: number;
+  /** Walls with a walkway are 2 tiles deep (W-28): the line plus an inner row. */
+  depth?: 2;
+  /** Access piece (W-28): stairs ramp up to a walkway wall's inside face; a ladder leans on any wall or tower. */
+  access?: 'stairs' | 'ladder';
+  /** Stone tower: a door with an inner stair up to its platform (its own team only). */
+  door?: boolean;
   burnable?: boolean;
   /** `upgrade {building}`: the next tier, built in place (cost and labour per tile for wall segments). */
   upgrade?: { to: BuildingType; cost: Partial<Record<ResourceKind, number>>; labour: number };
@@ -38,10 +44,13 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   farm: { w: 4, h: 4, hp: 300, cost: { wood: 30 }, labour: 600, workers: 6, influence: 0, material: 'wood', yields: { res: 'food', max: 60, regrow: 0.5, rate: 1 } },
   olivePress: { w: 3, h: 3, hp: 700, cost: { wood: 30, stone: 60 }, labour: 1500, workers: 6, influence: 0, material: 'stone', yields: { res: 'food', max: 100, regrow: 0.8, rate: 1.2 } },
   palisade: { w: 1, h: 1, hp: 300, cost: { wood: 6 }, labour: 60, workers: 2, influence: 0, material: 'wood', wall: 'segment', perTile: true, tier: 1, burnable: true, upgrade: { to: 'rampart', cost: { wood: 8 }, labour: 100 } },
-  rampart: { w: 1, h: 1, hp: 700, cost: { wood: 14 }, labour: 160, workers: 2, influence: 0, material: 'wood', wall: 'segment', perTile: true, tier: 2, walk: 2, burnable: true, upgrade: { to: 'stoneWall', cost: { stone: 15 }, labour: 300 } },
-  stoneWall: { w: 1, h: 1, hp: 1500, cost: { stone: 15 }, labour: 300, workers: 2, influence: 0, material: 'stone', wall: 'segment', perTile: true, tier: 3, walk: 3 },
+  rampart: { w: 1, h: 1, hp: 700, cost: { wood: 14 }, labour: 160, workers: 4, influence: 0, material: 'wood', wall: 'segment', perTile: true, tier: 2, walk: 2, depth: 2, burnable: true, upgrade: { to: 'stoneWall', cost: { stone: 15 }, labour: 300 } },
+  stoneWall: { w: 1, h: 1, hp: 1500, cost: { stone: 15 }, labour: 300, workers: 4, influence: 0, material: 'stone', wall: 'segment', perTile: true, tier: 3, walk: 3, depth: 2 },
   woodTower: { w: 2, h: 2, hp: 800, cost: { wood: 40 }, labour: 600, workers: 4, influence: 0, material: 'wood', wall: 'tower', tier: 1, walk: 3, cap: 6, burnable: true, upgrade: { to: 'stoneTower', cost: { stone: 80 }, labour: 2000 } },
-  stoneTower: { w: 2, h: 2, hp: 2500, cost: { stone: 80 }, labour: 2400, workers: 4, influence: 0, material: 'stone', wall: 'tower', tier: 2, walk: 4, cap: 9 },
+  stoneTower: { w: 2, h: 2, hp: 2500, cost: { stone: 80 }, labour: 2400, workers: 4, influence: 0, material: 'stone', wall: 'tower', tier: 2, walk: 4, cap: 9, door: true },
+  woodStairs: { w: 1, h: 2, hp: 200, cost: { wood: 12 }, labour: 120, workers: 2, influence: 0, material: 'wood', access: 'stairs', burnable: true },
+  stoneStairs: { w: 1, h: 3, hp: 900, cost: { stone: 24 }, labour: 450, workers: 2, influence: 0, material: 'stone', access: 'stairs' },
+  ladder: { w: 1, h: 1, hp: 60, cost: {}, labour: 30, workers: 1, influence: 0, material: 'wood', access: 'ladder', cap: 1, burnable: true },
   woodGate: { w: 2, h: 1, hp: 600, cost: { wood: 30 }, labour: 400, workers: 3, influence: 0, material: 'wood', wall: 'gate', tier: 1, burnable: true, upgrade: { to: 'stoneGate', cost: { stone: 60 }, labour: 1500 } },
   stoneGate: { w: 2, h: 1, hp: 2500, cost: { stone: 60, wood: 20 }, labour: 1800, workers: 3, influence: 0, material: 'stone', wall: 'gate', tier: 2 },
 };
@@ -54,8 +63,6 @@ export const WALL_KIT = {
 } as const satisfies Record<'wood' | 'timber' | 'stone', Record<'segment' | 'tower' | 'gate', BuildingType>>;
 
 export const SEGMENT = 4; // wall line tiles per segment
-/** A finished walkway piece gets its own inside stair unless one of a piece it connects to by walkway lies this near (tiles). */
-export const STAIR_EVERY = 8;
 export const CARRY = 10; // a worker's load
 export const CLAIM_RADIUS = 20; // default influence of a claim anchor
 /** cancelSite: share of the materials already delivered that goes back to the stockpile (loads still on the way: all). */

@@ -21,9 +21,10 @@
  * (harvest, carry, fetch, labour) and take WORK_DEFENCE more damage without blocking. Path searches and gates go by
  * the mover's team (grid.team).
  *
- * Wall-walks (W-27, ./works.ts, grid.deck): a move order onto a walkway or tower platform gives the squad fixed standing
- * points along the deck (`fixed`) instead of its formation; units climb by the inside stairs and fight from the top with the
- * height rules above (a foe on the ground is 2+ levels below: no melee either way). A tower platform takes at most its cap.
+ * Wall-walks (W-27, W-28, ./works.ts, grid.deck): a move order onto a walkway or tower platform gives the squad fixed
+ * standing points along the deck (`fixed`) instead of its formation; units climb by placed stairs, a ladder or a stone
+ * tower's door and fight from the top with the height rules above (a foe on the ground is 2+ levels below: no melee either
+ * way). A tower platform or ladder takes at most its cap.
  */
 import { Rng } from '../../sim/rng';
 import type { Order, RegionData, ShotSnap, Snapshot, SquadId, WarBuildSim } from '../types';
@@ -31,7 +32,7 @@ import { warStats, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
 import { WORK_DEFENCE } from './economy';
-import { BOG, buildGrid, canEnter, findPath, flushSectors, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
+import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 
 const DT = 0.1;
@@ -496,7 +497,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const unitTarget = (u: Unit): [number, number] => {
     const s = u.squad;
     if (u.own.length) {
-      while (u.oi < u.own.length / 2 - 1 && Math.hypot(u.own[u.oi * 2] - u.x, u.own[u.oi * 2 + 1] - u.y) < 0.3) u.oi++;
+      while (u.oi < u.own.length / 2 - 1 && Math.hypot(u.own[u.oi * 2] - u.x, u.own[u.oi * 2 + 1] - u.y) < (s.fixed ? 0.5 : 0.3)) u.oi++; // wall-walk climbers: a looser hold on waypoints at a crowded stair foot
       const ox = u.own[u.oi * 2];
       const oy = u.own[u.oi * 2 + 1];
       if (u.oi < u.own.length / 2 - 1 || Math.hypot(ox - u.x, oy - u.y) > 0.3) return [ox, oy];
@@ -692,10 +693,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
    */
   /**
    * Workers walk through their own side's bodies (a standing squad would fence them off their store or site), and so do men
-   * on a wall-walk or stair (one tile wide: they squeeze past each other to their places).
+   * on a stair or ladder (one file: they squeeze past whoever stands at its head or foot).
    */
   const ghost = (a: Unit, b: Unit) =>
-    a.squad.team === b.squad.team && (a.job !== null || b.job !== null || grid.deck[tileAt(grid, a.x, a.y)] !== 0 || grid.deck[tileAt(grid, b.x, b.y)] !== 0);
+    a.squad.team === b.squad.team && (a.job !== null || b.job !== null || grid.deck[tileAt(grid, a.x, a.y)] > DECK || grid.deck[tileAt(grid, b.x, b.y)] > DECK);
 
   const separate = () => {
     head.fill(-1);
@@ -774,7 +775,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       grid.team = u.squad.team;
       const [tx, ty] = u.squad.fixed ? slotPos(u.squad, u.slot) : unitTarget(u);
       u.own = cornerPath(u.x, u.y, tx, ty);
-      if (u.squad.fixed) u.settled = false;
+      if (u.squad.fixed) (u.settled = false), (u.best = Infinity), (u.stall = 0); // walk it, however long it stood
       u.oi = 1;
     }
     for (const s of squads) stepSquad(s);

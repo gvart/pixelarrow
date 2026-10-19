@@ -21,9 +21,10 @@ export interface Grid {
   /** Team of the mover the next canEnter / findPath / lineClear calls are for; -1 = gates open to all. */
   team: number;
   /**
-   * Raised layer (W-27): DECK on a wall walkway or tower platform tile, STAIR on an inside stair tile, else 0. Its height is
-   * the raised one. A deck tile is entered only from another deck or a stair tile (so from outside the wall is a cliff
-   * even where the ground runs high), and left only to one.
+   * Raised layer (W-27, W-28): DECK on a wall walkway or tower platform tile, STAIR on a placed stair ramp, LADDER on a ladder
+   * or tower door, else 0. Height: the raised one (a ladder stays on the ground). A deck tile is entered only from another
+   * deck, a stair (height rules) or a ladder (any height), and left only to one; so from outside a wall is a cliff even
+   * where the ground runs high. Steps on or off a deck, stair or ladder are straight (no diagonals).
    */
   deck: Uint8Array;
   /** Tower platform tiles: the tower's building id, -1 none (capacity: src/war/sim/index.ts). */
@@ -59,6 +60,7 @@ export const SECTOR = 8;
 
 export const DECK = 1;
 export const STAIR = 2;
+export const LADDER = 3; // ladder or tower door: joins ground to the deck beside it whatever the height
 
 export const BOG = 1;
 export const FOREST = 2;
@@ -255,8 +257,10 @@ export function tileAt(g: Grid, x: number, y: number): number {
  * onto or off a deck only by a deck or stair)?
  */
 export function canEnter(g: Grid, a: number, b: number): boolean {
-  if (b < 0 || g.cost[b] <= 0 || (g.gate[b] !== 0 && g.team >= 0 && g.gate[b] !== g.team + 1) || Math.abs(g.height[b] - g.height[a]) >= 2) return false;
+  if (b < 0 || g.cost[b] <= 0 || (g.gate[b] !== 0 && g.team >= 0 && g.gate[b] !== g.team + 1)) return false;
   const da = g.deck[a], db = g.deck[b];
+  if ((da === LADDER && db === DECK) || (da === DECK && db === LADDER)) return true;
+  if (Math.abs(g.height[b] - g.height[a]) >= 2) return false;
   return (da !== DECK && db !== DECK) || (da !== 0 && db !== 0);
 }
 
