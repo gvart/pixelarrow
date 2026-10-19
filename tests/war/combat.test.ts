@@ -188,3 +188,110 @@ describe('head-on jams', () => {
     expect(done).toBeGreaterThan(0);
   });
 });
+
+describe('reach and attack state', () => {
+  // the plateau's cliff edge: walk south from the top until the ground drops (5 -> 1, no ramp there)
+  const [px, py] = SPOTS.plateauTop;
+  let ey = py;
+  while (H(px, ey + 1) === H(px, py)) ey++;
+  const top: [number, number] = [px, Math.floor(ey) + 0.5];
+  const foot: [number, number] = [px, Math.floor(ey) + 1.5];
+  const reach = warStats('militia').reach + 0.3;
+
+  /** Every unit shown attacking is in reach of a living foe it could hit (melee: at most 1 level apart). */
+  const checkAttackers = (sim: WarSim) => {
+    const snap = sim.snapshot();
+    const team = (u: { squad: number }) => snap.squads[u.squad].team;
+    for (const u of snap.units) {
+      if (u.state !== 'attack') continue;
+      const near = snap.units.some(
+        (o) =>
+          (o.state !== 'dead' || u.swing === 0) && // a foe felled by this very blow still counts
+          team(o) !== team(u) && Math.hypot(o.x - u.x, o.y - u.y) <= reach + 0.2 && Math.abs(H(o.x, o.y) - H(u.x, u.y)) <= 1,
+      );
+      expect(near).toBe(true);
+      expect(u.ready).toBeGreaterThanOrEqual(0);
+    }
+    return snap;
+  };
+
+  it('a melee pair split by a cliff never trade blows while holding', () => {
+    expect(H(...top) - H(...foot)).toBeGreaterThanOrEqual(2);
+    const sim = createSim(ridge, 3);
+    sim.spawnSquad('t', 0, 'militia', 1, ...top);
+    sim.spawnSquad('f', 1, 'militia', 1, ...foot);
+    for (let k = 0; k < 300; k++) {
+      sim.step();
+      for (const u of sim.snapshot().units) {
+        expect(u.hp).toBe(u.maxHp);
+        expect(u.state).not.toBe('attack');
+      }
+    }
+  });
+
+  it('attackers under a cliff go round by the ramp, then fight on the top', () => {
+    const play = (seed: number) => {
+      const sim = createSim(ridge, seed);
+      const d = sim.spawnSquad('t', 0, 'militia', 3, ...top);
+      const a = sim.spawnSquad('f', 1, 'militia', 3, ...foot);
+      sim.order({ kind: 'attack', squad: a, target: d });
+      let hitAt = -1;
+      for (let k = 0; k < 4000 && hitAt < 0; k++) {
+        sim.step();
+        const snap = checkAttackers(sim);
+        if (snap.units.some((u) => u.squad === d && u.hp < u.maxHp)) {
+          hitAt = k;
+          // the blow came from an attacker up on the plateau
+          expect(snap.units.some((u) => u.squad === a && u.state === 'attack' && H(u.x, u.y) >= H(...top) - 1)).toBe(true);
+        }
+      }
+      expect(hitAt).toBeGreaterThan(100); // not across the cliff on arrival: they had to walk round
+      return JSON.stringify(sim.snapshot());
+    };
+    expect(play(7)).toBe(play(7)); // deterministic
+  });
+
+  it('closing in shows move, attack only in reach, and a swing per blow', () => {
+    const sim = createSim(ridge, 8);
+    const a = sim.spawnSquad('a', 0, 'militia', 10, FX, FY - 5);
+    const b = sim.spawnSquad('b', 1, 'militia', 10, FX, FY + 5);
+    sim.order({ kind: 'attack', squad: a, target: b });
+    sim.order({ kind: 'attack', squad: b, target: a });
+    let movers = 0;
+    let swings = 0;
+    for (let k = 0; k < 400; k++) {
+      sim.step();
+      const snap = checkAttackers(sim);
+      for (const u of snap.units) {
+        if (k < 5 && u.state !== 'dead') {
+          expect(u.state).not.toBe('attack'); // 10 tiles apart, closing
+          if (u.state === 'move') movers++;
+        }
+        if (u.state === 'attack' && u.swing === 0) swings++;
+        if (u.state !== 'attack') expect(u.swing).toBeUndefined();
+      }
+    }
+    expect(movers).toBeGreaterThan(10);
+    expect(swings).toBeGreaterThan(10);
+  });
+
+  it('shots carry heights, the shooter and the missile kind', () => {
+    const kinds = new Set<string>();
+    for (const cls of ['archer', 'slinger', 'javelineer']) {
+      const sim = createSim(ridge, 5);
+      sim.spawnSquad('t', 0, 'militia', 10, FX, FY);
+      const a = sim.spawnSquad('a', 1, cls, 10, FX, FY + 8);
+      for (let k = 0; k < 60; k++) {
+        sim.step();
+        const snap = sim.snapshot();
+        for (const s of snap.shots ?? []) {
+          expect(snap.units[s.by].squad).toBe(a);
+          expect(s.z0).toBe(H(s.x0, s.y0));
+          expect(s.z1).toBe(H(s.x1, s.y1));
+          kinds.add(s.kind);
+        }
+      }
+    }
+    expect([...kinds].sort()).toEqual(['arrow', 'javelin', 'stone']);
+  });
+});

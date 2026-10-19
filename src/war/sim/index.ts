@@ -11,7 +11,9 @@
  * fight what comes into reach (melee may leave their slot by LEASH), attacking units break
  * formation to close on the target squad, whose centre the anchor chases. Missiles land
  * after a travel delay. Terrain rules live in ./combat.ts. A unit at 0 hp is dead (wounded or
- * killed), leaves the collision hash and its squad closes ranks.
+ * killed), leaves the collision hash and its squad closes ranks. Melee needs real reach: the foe within
+ * reach, at most one height level apart and no cliff between (see `reachable`); a foe across a cliff is
+ * gone round by the squad path. A unit shows 'attack' only while it strikes in reach or shoots in range.
  */
 import { Rng } from '../../sim/rng';
 import type { Order, RegionData, ShotSnap, Snapshot, SquadId, WarSim } from '../types';
@@ -63,7 +65,9 @@ interface Unit {
   wp: number; // index into squad.path when following it
   alive: boolean;
   wounded: boolean;
-  fighting: boolean;
+  fighting: boolean; // engaged: closing on or striking a foe
+  striking: boolean; // in reach (melee) or in range (missiles) of its foe this tick
+  swingAt: number; // tick of its last blow or shot, -1 none yet
   cd: number; // ticks to the next blow or shot
   ammo: number;
   tgt: Unit | null;
@@ -235,7 +239,8 @@ export function createSim(region: RegionData, seed: number): WarSim {
       t = best;
     }
     const stop = s.ranged ? Math.max(MELEE_STOP, warRange(s) * 0.8) : MELEE_STOP;
-    if (Math.hypot(t.cx - s.ax, t.cy - s.ay) < stop) {
+    // melee stop only with a walkable line to the foe: under a cliff they go round
+    if (Math.hypot(t.cx - s.ax, t.cy - s.ay) < stop && (s.ranged || lineClear(grid, s.ax, s.ay, t.cx, t.cy))) {
       s.path = [];
       s.goal = null;
     } else if (tick >= s.repathAt) {
@@ -366,7 +371,13 @@ export function createSim(region: RegionData, seed: number): WarSim {
     reslotQueue.add(t.squad);
   };
 
-  /** Nearest living enemy among the squads nearby; a holding unit only looks as far as it may fight. */
+  /** Melee can land: at most one height level apart and a walkable line between (no cliff, no blocked tile). */
+  const reachable = (u: Unit, t: Unit) => Math.abs(hAt(u.x, u.y) - hAt(t.x, t.y)) <= 1 && lineClear(grid, u.x, u.y, t.x, t.y);
+
+  /**
+   * Nearest living enemy among the squads nearby; a holding unit only looks as far as it may fight.
+   * Melee skip foes near at hand they cannot reach (across a cliff): they go round with the squad instead.
+   */
   const pickTarget = (u: Unit, attacking: boolean, foe: Squad | null): Unit | null => {
     const s = u.squad;
     const shoot = u.ammo > 0 && u.st.range > 0;
@@ -379,6 +390,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
         if (!t.alive) continue;
         const d2 = (t.x - u.x) ** 2 + (t.y - u.y) ** 2 + bias;
         if (d2 < bestScore) {
+          if (!shoot && d2 < CHARGE * CHARGE && !reachable(u, t)) continue;
           bestScore = d2;
           best = t;
         }
@@ -390,6 +402,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
   const strike = (u: Unit, t: Unit, dh: number) => {
     const bog = groundAt(u.x, u.y) === BOG;
     u.cd = Math.round(u.st.atkTicks * (bog ? COMBAT.bogAtk : 1) * (dh < 0 ? COMBAT.uphillAtk : 1));
+    u.swingAt = tick;
     if (rng.chance(blockChance(t.st.block, t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
     hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1), t.st.armor, 0));
   };
@@ -397,8 +410,9 @@ export function createSim(region: RegionData, seed: number): WarSim {
   const shoot = (u: Unit, t: Unit, d: number, dh: number, range: number) => {
     u.ammo--;
     u.cd = u.st.shotTicks;
+    u.swingAt = tick;
     const land = tick + Math.max(1, Math.round(d / u.st.shotSpeed / DT));
-    shots.push({ x0: u.x, y0: u.y, x1: t.x, y1: t.y, t0: tick, t1: land });
+    shots.push({ x0: u.x, y0: u.y, x1: t.x, y1: t.y, t0: tick, t1: land, z0: hAt(u.x, u.y), z1: hAt(t.x, t.y), by: u.id, kind: u.st.missile });
     if (u.ammo === 0) reslotQueue.add(u.squad);
     if (!rng.chance(hitChance(u.st.accuracy, d, range, groundAt(t.x, t.y) === FOREST))) return;
     const bog = groundAt(u.x, u.y) === BOG;
@@ -428,6 +442,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
   const fight = (u: Unit): [number, number] | null | Unit => {
     const s = u.squad;
     u.fighting = false;
+    u.striking = false;
     if (u.cd > 0) u.cd--;
     if (s.order === 'move' && (s.goal || s.pi < s.path.length / 2)) {
       u.tgt = null; // marching: no fighting
@@ -446,8 +461,9 @@ export function createSim(region: RegionData, seed: number): WarSim {
     const dh = hAt(u.x, u.y) - hAt(t.x, t.y);
     const missile = u.ammo > 0 && u.st.range > 0;
     const range = missile ? u.st.range + heightRange(dh) : u.st.reach + REACH_PAD;
-    if (d <= range) {
+    if (d <= range && (missile || reachable(u, t))) {
       u.fighting = true;
+      u.striking = true;
       u.facing = Math.atan2(t.y - u.y, t.x - u.x);
       if (u.cd <= 0) {
         if (missile) shoot(u, t, d, dh, range);
@@ -610,7 +626,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
         const [px, py] = lineClear(grid, ax, ay, sx, sy) ? [sx, sy] : [ax + rng.range(-0.2, 0.2), ay + rng.range(-0.2, 0.2)];
         const u: Unit = {
           id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: st.maxHp, maxHp: st.maxHp, cls, st, moving: false, wp: 0,
-          alive: true, wounded: false, fighting: false, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
+          alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
         };
         units.push(u);
         s.units.push(u);
@@ -625,11 +641,16 @@ export function createSim(region: RegionData, seed: number): WarSim {
     snapshot(): Snapshot {
       return {
         tick,
-        units: units.map((u) => ({
-          id: u.id, squad: u.squad.id, x: u.x, y: u.y, facing: u.facing, hp: u.hp, maxHp: u.maxHp, cls: u.cls,
-          state: !u.alive ? 'dead' : u.fighting ? 'attack' : u.moving ? 'move' : 'idle',
-          ...(u.alive ? {} : { wounded: u.wounded }),
-        })),
+        units: units.map((u) => {
+          // in reach of a foe still standing, or the blow just dealt felled it
+          const atk = u.alive && u.striking && (!!u.tgt?.alive || u.swingAt === tick - 1);
+          return {
+            id: u.id, squad: u.squad.id, x: u.x, y: u.y, facing: u.facing, hp: u.hp, maxHp: u.maxHp, cls: u.cls,
+            state: !u.alive ? 'dead' : atk ? 'attack' : u.moving ? 'move' : 'idle',
+            ...(u.alive ? {} : { wounded: u.wounded }),
+            ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
+          };
+        }),
         squads: squads.map((s) => ({ id: s.id, owner: s.owner, team: s.team, units: s.units.map((u) => u.id), order: s.order })),
         shots: shots.map((sh) => ({ ...sh })),
       };
