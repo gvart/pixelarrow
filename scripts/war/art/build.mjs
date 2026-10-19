@@ -311,6 +311,11 @@ const objImages = [];
 for (const o of OBJECTS) {
   const f = join(rawDir(o.batch), 'objects', `${o.raw}.png`); if (!existsSync(f)) { errors.push(`missing object raw ${o.batch ?? A.BATCH ?? 'art4'}/${o.raw}`); continue; }
   let im = grade(dropBase(keyBorder(readImage(f), o.keyTol, o.keyAll), o.base), o.grade);
+  if (o.mirrorJoin) { // an end piece cut off at its right edge: append its mirror image, joined at that column (a long ridge)
+    const j = blank(im.w * 2, im.h); paste(j, im, 0, 0);
+    for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) j.data.set(im.data.subarray(px(im, x, y), px(im, x, y) + 4), px(j, 2 * im.w - 1 - x, y));
+    im = j;
+  }
   for (let i = 3; i < im.data.length; i += 4) im.data[i] = im.data[i] >= 128 ? 255 : 0;
   im = crop(im, alphaBox(im, 1));
   if (o.scale) { // drawn too big for 33 px/m: area-downscale, then hard alpha again

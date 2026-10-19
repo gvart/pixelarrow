@@ -169,7 +169,7 @@ if (BIOME) {
   const jitter = (id, x, y) => put(id, x, y, 1, 1, 0.3 + (hash(x, y, 3) % 40) / 100, 0.3 + (hash(x, y, 5) % 40) / 100) && placed++;
   if (BIOME === 'kyrene') {
     // set pieces: the mesa, pillar, copper node and boulders on the red rock; spring, well, tent and camels round the oasis
-    put('mesa', 29, 27, 4, 4, 2, 2); put('rock-pillar', 25, 31); put('copper-ore', 33, 23, 2, 1, 1, 0.5); put('boulder-red', 27, 25); put('rocks-red', 34, 33);
+    put('mesa', 26, 26, 8, 8, 4, 4); put('rock-pillar', 21, 35); put('copper-ore', 35, 29, 2, 1, 1, 0.5); put('boulder-red', 27, 24); put('rocks-red', 35, 35); // the mesa is a 33 m ridge across the shelf
     put('oasis-spring', 15, 7, 2, 1, 1, 0.5); put('well', 20, 14); put('nomad-tent', 22, 7, 2, 2, 1, 1); put('camels', 25, 10, 2, 1, 1, 0.5);
     put('ruin-wall', 4, 22, 2, 1, 1, 0.5); put('ruin-corner', 6, 24, 2, 2, 1, 1); put('gazelle', 36, 12); put('jackal', 13, 30);
     squad([14, 21]);
@@ -178,7 +178,7 @@ if (BIOME) {
       const shore = [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) => at(x + dx, y + dy) === 'shallow' || at(x + 1 + dx, y + 1 + dy) === 'shallow');
       let id = null;
       if (t === 'oasis' && shore && h < 600) id = 'reeds';
-      else if (t === 'oasis' && (x + 2 * y) % 3 === 0 && h < 700) id = pick(['date-palm-tall', 'date-palm-mid', 'date-palm-fruit', 'date-palm-young', 'date-palm-clump', 'tamarisk'], x, y);
+      else if (t === 'oasis' && (x + 2 * y) % 3 === 0 && h < 700) id = pick(['date-palm-tall', 'date-palm-mid', 'date-palm-fruit', 'doum-palm', 'date-palm-young', 'date-palm-clump', 'tamarisk'], x, y);
       else if (t === 'oasis' && h < 120) id = pick(['saltbush', 'reeds', 'dry-grass'], x, y);
       else if (t === 'redrock' && h < 60) id = pick(['rocks-red', 'boulder-red', 'camelthorn'], x, y);
       else if (t === 'dune' && h < 25) id = pick(['dry-grass', 'camelthorn'], x, y);

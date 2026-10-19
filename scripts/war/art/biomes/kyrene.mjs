@@ -53,6 +53,7 @@ export const FALLBACK = {
 // Objects: create_map_object, high top-down, high detail, detailed shading, true scale (33 px/m). Field meanings: assets.mjs;
 // base.drop = [[hex, manhattan tol], ...]: also drop pixels near these colours (a sand floor or red-earth apron that is
 // neither green nor grey; keep may be left out). extra = metadata copied into objects.json (resource nodes, fauna).
+// mirrorJoin = the raw is an end piece cut flat at its right edge: the sprite is it + its mirror image (the mesa ridge).
 const tree = { kind: 'tree', blocks: false, footprint: [1, 1] };
 const bush = { kind: 'bush', blocks: false, footprint: [1, 1] };
 const stone = { kind: 'stone', blocks: true };
@@ -64,9 +65,10 @@ export const OBJECTS = [
   { id: 'date-palm-mid', raw: 'date-palm-mid', ...tree, metres: 7.4, keyAll: true, base: { y0: 236, x0: 80, x1: 116, cut: 254, keep: 'neutral' }, grade: palm, source: 'map_object 82202c8f' },
   { id: 'date-palm-fruit', raw: 'doum-try2', ...tree, metres: 8.8, keyAll: true, grade: palm, source: 'map_object 5784fd97 (asked for a doum palm)' },
   { id: 'date-palm-young', raw: 'date-palm-c', ...tree, metres: 8.6, keyAll: true, grade: palm, source: 'map_object 2c726ba0 (asked for a doum palm)' },
+  { id: 'doum-palm', raw: 'doum-forked', ...tree, metres: 8, keyAll: true, grade: palm, source: 'pixflux 84b2f490 (img2img over a hand-drawn forked palm)' },
   { id: 'date-palm-clump', raw: 'date-palm-clump', ...tree, metres: 3.9, grade: palm, source: 'map_object 3dfe73c1' },
-  { id: 'acacia', raw: 'acacia-flat', ...tree, metres: 5, keyAll: true, grade: { sat: 0.7, val: 0.8 }, source: 'map_object 37b04b8c' },
-  { id: 'acacia-old', raw: 'acacia-dome', ...tree, metres: 5.5, keyAll: true, grade: { sat: 0.7, val: 0.8 }, source: 'map_object ebc71f21' },
+  { id: 'acacia', raw: 'acacia-table', ...tree, metres: 4.5, keyAll: true, grade: { sat: 0.7, val: 0.8 }, source: 'pixflux 76440984 (img2img over pro_flash 530a7839)' },
+  { id: 'acacia-old', raw: 'acacia-table-old', ...tree, metres: 4.5, keyAll: true, grade: { sat: 0.7, val: 0.8 }, source: 'pixflux 8ed7998d (img2img over acacia, mirrored)' },
   { id: 'thorn-tree', raw: 'acacia-scrub', ...tree, metres: 3, grade: { sat: 0.6, val: 0.8 }, source: 'map_object a6145348' },
   { id: 'tamarisk', raw: 'tamarisk', ...tree, metres: 4.2, grade: { sat: 0.6, val: 0.8 }, source: 'map_object ba6827ea' },
   { id: 'saltbush', raw: 'saltbush', ...bush, metres: 0.9, grade: { sat: 0.6, val: 0.8 }, source: 'map_object c1763a97' },
@@ -74,8 +76,8 @@ export const OBJECTS = [
   { id: 'broom', raw: 'broom', ...bush, metres: 1.4, grade: { sat: 0.6, val: 0.8 }, source: 'map_object 79ab144e' },
   { id: 'dry-grass', raw: 'dry-grass', kind: 'grass', blocks: false, footprint: [1, 1], metres: 0.5, scale: 0.7, grade: { sat: 0.6, val: 0.75 }, source: 'map_object 6443d446' },
   { id: 'reeds', raw: 'reeds', kind: 'reeds', blocks: false, footprint: [1, 1], metres: 2.2, grade: { sat: 0.65, val: 0.8 }, source: 'map_object 3efd5b01' },
-  { id: 'mesa', raw: 'mesa', ...stone, footprint: [4, 4], metres: 9.4, keyAll: true, base: { y0: 250, drop: [['#a95b4d', 40], ['#b8705e', 40]] }, grade: red, source: 'map_object baf32d19' },
-  { id: 'rock-pillar', raw: 'pillar', ...stone, footprint: [1, 1], metres: 9, grade: red, source: 'map_object 61089733' },
+  { id: 'mesa', raw: 'mesa-end', ...stone, footprint: [12, 12], metres: 10, keyAll: true, mirrorJoin: true, grade: { sat: 0.85, val: 0.66 }, source: 'pixflux 78bf3391 (img2img over a hand-drawn end piece; + its mirror)' },
+  { id: 'rock-pillar', raw: 'hoodoo', ...stone, footprint: [1, 1], metres: 8, keyAll: true, grade: red, source: 'pixflux 9e60a699 (img2img over a hand-drawn hoodoo)' },
   { id: 'boulder-red', raw: 'boulder-a', ...stone, footprint: [1, 1], metres: 1.8, grade: red, source: 'map_object 433d39a3' },
   { id: 'rocks-red', raw: 'boulder-b', ...stone, footprint: [1, 1], metres: 1.3, grade: red, source: 'map_object c23bdc41' },
   { id: 'well', raw: 'well', ...stone, footprint: [1, 1], metres: 2.4, grade: mud, source: 'map_object f4771a4e' },
