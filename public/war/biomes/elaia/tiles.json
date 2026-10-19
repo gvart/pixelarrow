@@ -1,0 +1,366 @@
+{
+ "biome": "elaia",
+ "extends": "public/war/tiles/tiles.json",
+ "note": "biome set: draw with the global sheets, variants and cliffs plus these; a biome variant list replaces the global one for its terrain; palette = the global palette (first entries, unchanged) + this biome's colours",
+ "tile": {
+  "w": 64,
+  "h": 48,
+  "topH": 32,
+  "levelPx": 16,
+  "metres": 2
+ },
+ "mask": "NW<<3|NE<<2|SW<<1|SE, set bit = first terrain; frame index = mask; NW is the top vertex",
+ "anchor": {
+  "x": 32,
+  "y": 0,
+  "note": "top vertex of the top diamond"
+ },
+ "palette": [
+  "#15130d",
+  "#141812",
+  "#1c1b16",
+  "#1d1a16",
+  "#080e1d",
+  "#0d111c",
+  "#231a12",
+  "#181f18",
+  "#191e18",
+  "#211e1d",
+  "#29211a",
+  "#28211d",
+  "#1e251c",
+  "#1e251d",
+  "#22241f",
+  "#2a241c",
+  "#2c291e",
+  "#101728",
+  "#161d2e",
+  "#17212e",
+  "#18252e",
+  "#1e2224",
+  "#212223",
+  "#1e252a",
+  "#242527",
+  "#202b26",
+  "#292f2d",
+  "#303525",
+  "#2f3030",
+  "#322a20",
+  "#323327",
+  "#363c26",
+  "#1a2834",
+  "#1d2c35",
+  "#24333b",
+  "#273338",
+  "#2f3031",
+  "#304048",
+  "#324249",
+  "#3e3021",
+  "#3c3124",
+  "#393226",
+  "#383526",
+  "#3a3327",
+  "#3b3c3d",
+  "#3f3f2f",
+  "#3d432c",
+  "#404234",
+  "#4f3d29",
+  "#50402e",
+  "#4c452f",
+  "#4b4d39",
+  "#52553b",
+  "#53583c",
+  "#595e41",
+  "#5e4a31",
+  "#5a5d41",
+  "#6d5239",
+  "#77593d",
+  "#5a5f41",
+  "#444645",
+  "#474a44",
+  "#5b5c41",
+  "#4b4d4d",
+  "#504f4d",
+  "#625e49",
+  "#5f684a",
+  "#4d4e4f",
+  "#606251",
+  "#45555d",
+  "#6f5e47",
+  "#736b53",
+  "#756d55",
+  "#727555",
+  "#766c54",
+  "#766c55",
+  "#7e6244",
+  "#846444",
+  "#918362",
+  "#a39978",
+  "#a49978",
+  "#a29878",
+  "#a69c7c",
+  "#46271f",
+  "#736e60",
+  "#787773",
+  "#898987",
+  "#46261f",
+  "#45261f",
+  "#787775",
+  "#656460",
+  "#787772",
+  "#8e897d",
+  "#44261d",
+  "#482921",
+  "#50372e",
+  "#797770",
+  "#797771",
+  "#7a7a77",
+  "#3f231d",
+  "#381e16",
+  "#371e18",
+  "#381e18",
+  "#3e221c",
+  "#6b6b67",
+  "#70706e",
+  "#71706d",
+  "#777672"
+ ],
+ "sheets": [
+  {
+   "pair": "grass-dry",
+   "first": "grass",
+   "second": "dry",
+   "file": "grass-dry.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 1d78f560 (ART-6)"
+  },
+  {
+   "pair": "grass-rossa",
+   "first": "grass",
+   "second": "rossa",
+   "file": "grass-rossa.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro eab57a4f (ART-6)"
+  },
+  {
+   "pair": "grass-marble",
+   "first": "grass",
+   "second": "marble",
+   "file": "grass-marble.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 4138d83c (ART-6)"
+  },
+  {
+   "pair": "grass-grove",
+   "first": "grass",
+   "second": "grove",
+   "file": "grass-grove.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro bb9d82ae (ART-6)"
+  }
+ ],
+ "variants": [
+  {
+   "terrain": "dry",
+   "file": "var-dry.png",
+   "frames": 5,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "elaia/fills#0",
+    "elaia/fills#1",
+    "elaia/fills#2",
+    "elaia/fills#3"
+   ],
+   "note": "full dry tiles; wherever a sheet would draw the full dry tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "rossa",
+   "file": "var-rossa.png",
+   "frames": 5,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "elaia/fills#4",
+    "elaia/fills#5",
+    "elaia/fills#6",
+    "elaia/fills#7"
+   ],
+   "note": "full rossa tiles; wherever a sheet would draw the full rossa tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "marble",
+   "file": "var-marble.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "elaia/fills#8",
+    "elaia/fills#9",
+    "elaia/fills#10"
+   ],
+   "note": "full marble tiles; wherever a sheet would draw the full marble tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "grove",
+   "file": "var-grove.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "elaia/fills#12",
+    "elaia/fills#13",
+    "shift"
+   ],
+   "note": "full grove tiles; wherever a sheet would draw the full grove tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "sand",
+   "file": "var-sand.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "elaia/fills#14",
+    "elaia/fills#15",
+    "art5/sand-shallow#15"
+   ],
+   "note": "full sand tiles; wherever a sheet would draw the full sand tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  }
+ ],
+ "fallback": {
+  "note": "Same rule as the global tiles.json fallback, over the global sheets plus these. Elaia terrains only have a set with grass, so any other pair (dry-rossa, marble-sand, ...) gets a grass verge; order says which corner gives way first.",
+  "order": [
+   "deep",
+   "shallow",
+   "marsh",
+   "sand",
+   "dirt",
+   "grove",
+   "dry",
+   "rossa",
+   "forest",
+   "marble",
+   "rock",
+   "road",
+   "grass"
+  ],
+  "buffer": {
+   "water": "shallow",
+   "land": "grass"
+  }
+ },
+ "cliffs": [
+  {
+   "id": "marble",
+   "file": "cliff-marble.png",
+   "w": 64,
+   "h": 32,
+   "levelPx": 16,
+   "note": "side faces only (left + right), 64x32; its top edge follows the lower half of the diamond; for a cliff of n levels draw it n times, 16 px apart, at tile origin y + 16"
+  }
+ ]
+}

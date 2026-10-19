@@ -1,0 +1,563 @@
+{
+ "pxPerMetre": 33,
+ "tileMetres": 2,
+ "note": "anchor = foot point in the PNG (px): centre of the bottom rows; draw at the ground point minus anchor; no ground patch; metres = design height (h = metres x 33 +-10%); colours = tiles.json palette + palette",
+ "palette": [
+  "#29453e",
+  "#73827c",
+  "#8a8f8d",
+  "#27423d",
+  "#7c7e6c",
+  "#203834",
+  "#23383a",
+  "#525e4c",
+  "#57666a",
+  "#212732",
+  "#242c37",
+  "#222e2f",
+  "#1e2f36",
+  "#454346",
+  "#664e43",
+  "#594a4f",
+  "#56565e",
+  "#1d1c1f",
+  "#171e21",
+  "#201c24",
+  "#162323",
+  "#162928",
+  "#22282a",
+  "#1e392d",
+  "#3a3d41",
+  "#423f43",
+  "#32423e",
+  "#344243",
+  "#364548",
+  "#3a564d",
+  "#020101",
+  "#030202",
+  "#070606",
+  "#08070e",
+  "#0d0b0e",
+  "#131117",
+  "#1b1317",
+  "#091222",
+  "#11131c",
+  "#16151b",
+  "#27151a",
+  "#191722",
+  "#29352c",
+  "#372b2a",
+  "#323337",
+  "#413539",
+  "#563d38",
+  "#33463c",
+  "#34473d",
+  "#32473d",
+  "#5a433a",
+  "#243e35",
+  "#716967",
+  "#1e3530",
+  "#1e3636",
+  "#5b5b5b",
+  "#566563",
+  "#1e2732",
+  "#222b35",
+  "#1d2f32",
+  "#444044",
+  "#474045",
+  "#484a4b",
+  "#565255",
+  "#121b1d",
+  "#171d21",
+  "#122323",
+  "#171c28",
+  "#22222b",
+  "#1b2d2b",
+  "#21312f",
+  "#314042",
+  "#413e42",
+  "#3b3b46",
+  "#354340",
+  "#29453f",
+  "#3c4943",
+  "#060303",
+  "#08070d",
+  "#0b0909",
+  "#0f0d11",
+  "#141219",
+  "#090b1c",
+  "#0a1221",
+  "#0f1821",
+  "#1b151b",
+  "#18161e",
+  "#29342c",
+  "#2a2d31",
+  "#2d2023",
+  "#352732",
+  "#3f302d",
+  "#4f3a30",
+  "#2f4737",
+  "#38473d",
+  "#36483b",
+  "#385237",
+  "#454c27",
+  "#443f4f",
+  "#546d59",
+  "#59725e",
+  "#7d7055",
+  "#6a6c65",
+  "#627857",
+  "#968765",
+  "#9d9996",
+  "#9f9a96",
+  "#aea39a",
+  "#ada39a",
+  "#ababa5",
+  "#acaca6",
+  "#adada7",
+  "#afafa9",
+  "#afafaa",
+  "#aeaeab",
+  "#b6b5b5",
+  "#c7c6c4",
+  "#d3d2cf",
+  "#d5d4d1",
+  "#2d2b1d",
+  "#321d37",
+  "#475a3e",
+  "#6f584f",
+  "#837c69",
+  "#9d9594",
+  "#9c9a9a",
+  "#a6a6a0",
+  "#a8a8a2",
+  "#a9a8a6",
+  "#aaa9a7",
+  "#afafab",
+  "#b7b6b6",
+  "#d0cfcc"
+ ],
+ "objects": [
+  {
+   "id": "olive-ancient",
+   "kind": "tree",
+   "file": "olive-ancient.png",
+   "w": 178,
+   "h": 169,
+   "metres": 5.4,
+   "anchor": {
+    "x": 99,
+    "y": 168
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object e67a8531"
+  },
+  {
+   "id": "olive-orchard",
+   "kind": "tree",
+   "file": "olive-orchard.png",
+   "w": 118,
+   "h": 141,
+   "metres": 4.4,
+   "anchor": {
+    "x": 59,
+    "y": 140
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object d181e4d7"
+  },
+  {
+   "id": "olive-tall",
+   "kind": "tree",
+   "file": "olive-tall.png",
+   "w": 148,
+   "h": 185,
+   "metres": 5.6,
+   "anchor": {
+    "x": 86,
+    "y": 184
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object d38dc264"
+  },
+  {
+   "id": "cypress-tall",
+   "kind": "tree",
+   "file": "cypress-tall.png",
+   "w": 72,
+   "h": 344,
+   "metres": 10.5,
+   "anchor": {
+    "x": 36,
+    "y": 343
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object e088c969"
+  },
+  {
+   "id": "cypress-flame",
+   "kind": "tree",
+   "file": "cypress-flame.png",
+   "w": 81,
+   "h": 236,
+   "metres": 7.2,
+   "anchor": {
+    "x": 39,
+    "y": 235
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 5b4c60f0"
+  },
+  {
+   "id": "stone-pine",
+   "kind": "tree",
+   "file": "stone-pine.png",
+   "w": 224,
+   "h": 331,
+   "metres": 10,
+   "anchor": {
+    "x": 110,
+    "y": 330
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 5a38a8c6 (ART-5, shared with the global set)"
+  },
+  {
+   "id": "holm-oak",
+   "kind": "tree",
+   "file": "holm-oak.png",
+   "w": 190,
+   "h": 194,
+   "metres": 5.9,
+   "anchor": {
+    "x": 94,
+    "y": 193
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object a8afba0d"
+  },
+  {
+   "id": "maquis-a",
+   "kind": "bush",
+   "file": "maquis-a.png",
+   "w": 69,
+   "h": 48,
+   "metres": 1.45,
+   "anchor": {
+    "x": 36,
+    "y": 47
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object e631e831"
+  },
+  {
+   "id": "maquis-b",
+   "kind": "bush",
+   "file": "maquis-b.png",
+   "w": 44,
+   "h": 82,
+   "metres": 2.4,
+   "anchor": {
+    "x": 22,
+    "y": 81
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 4eb56e7b"
+  },
+  {
+   "id": "maquis-c",
+   "kind": "bush",
+   "file": "maquis-c.png",
+   "w": 99,
+   "h": 65,
+   "metres": 2,
+   "anchor": {
+    "x": 50,
+    "y": 64
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 119b5c90"
+  },
+  {
+   "id": "herbs",
+   "kind": "bush",
+   "file": "herbs.png",
+   "w": 35,
+   "h": 22,
+   "metres": 0.65,
+   "anchor": {
+    "x": 16,
+    "y": 21
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 8e20f9f2"
+  },
+  {
+   "id": "vines",
+   "kind": "crop",
+   "file": "vines.png",
+   "w": 126,
+   "h": 86,
+   "metres": 2.6,
+   "anchor": {
+    "x": 9,
+    "y": 85
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "source": "map_object e46652d4"
+  },
+  {
+   "id": "marble-outcrop-a",
+   "kind": "stone",
+   "file": "marble-outcrop-a.png",
+   "w": 97,
+   "h": 83,
+   "metres": 2.6,
+   "anchor": {
+    "x": 55,
+    "y": 82
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object f769bb66"
+  },
+  {
+   "id": "marble-outcrop-b",
+   "kind": "stone",
+   "file": "marble-outcrop-b.png",
+   "w": 69,
+   "h": 53,
+   "metres": 1.6,
+   "anchor": {
+    "x": 13,
+    "y": 52
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object 16026d8f"
+  },
+  {
+   "id": "marble-quarry",
+   "kind": "stone",
+   "file": "marble-quarry.png",
+   "w": 171,
+   "h": 138,
+   "metres": 4.3,
+   "anchor": {
+    "x": 89,
+    "y": 137
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object d54f3bef"
+  },
+  {
+   "id": "wall-a",
+   "kind": "stone",
+   "file": "wall-a.png",
+   "w": 92,
+   "h": 65,
+   "metres": 2,
+   "anchor": {
+    "x": 11,
+    "y": 64
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "source": "map_object ef0ea0ce"
+  },
+  {
+   "id": "wall-b",
+   "kind": "stone",
+   "file": "wall-b.png",
+   "w": 85,
+   "h": 62,
+   "metres": 1.9,
+   "anchor": {
+    "x": 74,
+    "y": 61
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object acc796ff"
+  },
+  {
+   "id": "shrine",
+   "kind": "stone",
+   "file": "shrine.png",
+   "w": 70,
+   "h": 94,
+   "metres": 2.6,
+   "anchor": {
+    "x": 37,
+    "y": 93
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object c83847e6"
+  },
+  {
+   "id": "beehives",
+   "kind": "stone",
+   "file": "beehives.png",
+   "w": 84,
+   "h": 36,
+   "metres": 1.1,
+   "anchor": {
+    "x": 41,
+    "y": 35
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "source": "map_object 8db371d9"
+  },
+  {
+   "id": "marble-deposit",
+   "kind": "stone",
+   "file": "marble-deposit.png",
+   "w": 107,
+   "h": 92,
+   "metres": 2.6,
+   "anchor": {
+    "x": 56,
+    "y": 91
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "resource": "marble",
+   "source": "map_object bbbe3413"
+  },
+  {
+   "id": "olive-harvest",
+   "kind": "prop",
+   "file": "olive-harvest.png",
+   "w": 63,
+   "h": 65,
+   "metres": 2,
+   "anchor": {
+    "x": 30,
+    "y": 64
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "resource": "food",
+   "source": "map_object b1d19d12"
+  },
+  {
+   "id": "goats",
+   "kind": "fauna",
+   "file": "goats.png",
+   "w": 60,
+   "h": 39,
+   "metres": 1.15,
+   "anchor": {
+    "x": 22,
+    "y": 38
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "fauna": "goat",
+   "animateLater": true,
+   "source": "map_object 4d90e5b6"
+  },
+  {
+   "id": "boar",
+   "kind": "fauna",
+   "file": "boar.png",
+   "w": 41,
+   "h": 33,
+   "metres": 1.05,
+   "anchor": {
+    "x": 19,
+    "y": 32
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "fauna": "boar",
+   "mob": true,
+   "animateLater": true,
+   "source": "map_object 1a2ffbf2"
+  }
+ ]
+}

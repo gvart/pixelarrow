@@ -1,4 +1,5 @@
-// War art preview (ART-5): contact sheet of public/war/tiles + objects, a 1:1 variants field (same field without and
+// War art preview (ART-5/6): contact sheet of public/war/tiles + objects (or of a biome with --biome <name>, plus a 1:1
+// biome patch with soldiers), a 1:1 variants field (same field without and
 // with variant fills), and 1:1 renders of test-ridge windows autotiled with the tiles.json fallback rule, with objects
 // and soldiers. Flat (heights are the renderer's job). Usage: node scripts/war/art/preview.mjs [out dir]
 import { readFileSync, mkdirSync, existsSync } from 'node:fs';
@@ -8,32 +9,45 @@ import { readImage, writeImage } from '../../art/lib/png.mjs';
 import { blank, crop, paste, resizeNearest } from '../../art/lib/ops.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
-const OUT = process.argv[2] ?? '/Users/v.gladis/Workspace/Personal/pixelarrow/shots/war/pixellab/art5';
+// --biome <name>: contact sheet of public/war/biomes/<name>/ and a 1:1 patch of that biome drawn with the global + biome set.
+const argv = process.argv.slice(2), bi = argv.indexOf('--biome');
+const BIOME = bi >= 0 ? argv.splice(bi, 2)[1] : null, PFX = BIOME ? BIOME.toUpperCase() : 'ART5';
+const OUT = argv[0] ?? `/Users/v.gladis/Workspace/Personal/pixelarrow/shots/war/pixellab/${BIOME ?? 'art5'}`;
 mkdirSync(OUT, { recursive: true });
-const T = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json')));
-const O = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));
+const GDIR = join(ROOT, 'public/war/tiles'), ODIR = join(ROOT, 'public/war/objects'), BDIR = BIOME && join(ROOT, 'public/war/biomes', BIOME);
+const tag = (list, dir) => (list ?? []).map((e) => ({ ...e, dir }));
+const G = JSON.parse(readFileSync(join(GDIR, 'tiles.json'))), GO = JSON.parse(readFileSync(join(ODIR, 'objects.json')));
+const BT = BIOME && JSON.parse(readFileSync(join(BDIR, 'tiles.json'))), BO = BIOME && JSON.parse(readFileSync(join(BDIR, 'objects.json')));
+// T / O = what gets drawn (biome: global + biome, a biome variant list replaces the global one); C / CO = what the contact sheet shows
+const bVar = new Set((BT?.variants ?? []).map((v) => v.terrain));
+const T = BIOME
+  ? { ...G, sheets: [...tag(G.sheets, GDIR), ...tag(BT.sheets, BDIR)], variants: [...tag(G.variants, GDIR).filter((v) => !bVar.has(v.terrain)), ...tag(BT.variants, BDIR)], cliffs: [...tag(G.cliffs, GDIR), ...tag(BT.cliffs, BDIR)], fallback: BT.fallback }
+  : { ...G, sheets: tag(G.sheets, GDIR), variants: tag(G.variants, GDIR), cliffs: tag(G.cliffs, GDIR) };
+const O = { objects: [...tag(GO.objects, ODIR), ...tag(BO?.objects, BDIR)] };
+const C = BIOME ? { sheets: T.sheets.filter((s) => s.dir === BDIR), variants: T.variants.filter((v) => v.dir === BDIR), cliffs: T.cliffs.filter((c) => c.dir === BDIR) } : T;
 const { w: TW, h: TH } = T.tile, HW = TW / 2, HH = T.tile.topH / 2;
 const BG = [22, 17, 13, 255];
 const fill = (im) => { for (let i = 0; i < im.w * im.h; i++) im.data.set(BG, i * 4); return im; };
-const frames = (file, n) => { const im = readImage(join(ROOT, 'public/war/tiles', file)); return [...Array(n)].map((_, i) => crop(im, { x: i * TW, y: 0, w: TW, h: TH })); };
-const sheets = Object.fromEntries(T.sheets.map((s) => [s.pair, { ...s, f: frames(s.file, 16) }]));
-const variants = Object.fromEntries((T.variants ?? []).map((v) => [v.terrain, frames(v.file, v.frames)]));
-const objs = Object.fromEntries(O.objects.map((o) => [o.id, { ...o, im: readImage(join(ROOT, 'public/war/objects', o.file)) }]));
+const frames = (e, n) => { const im = readImage(join(e.dir, e.file)); return [...Array(n)].map((_, i) => crop(im, { x: i * TW, y: 0, w: TW, h: TH })); };
+const sheets = Object.fromEntries(T.sheets.map((s) => [s.pair, { ...s, f: frames(s, 16) }]));
+const variants = Object.fromEntries((T.variants ?? []).map((v) => [v.terrain, frames(v, v.frames)]));
+const objs = Object.fromEntries(O.objects.map((o) => [o.id, { ...o, im: readImage(join(o.dir, o.file)) }]));
+const CO = BIOME ? BO.objects.map((o) => objs[o.id]) : Object.values(objs);
 const hash = (x, y, k = 0) => (((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)) >>> 0);
 
 // ---- contact sheet: every tile set row, the variant rows, cliffs (x2) and every object (x1) on dark ground
 {
-  const rows = T.sheets.length + (T.variants ?? []).length, cw = 16 * 68;
-  const objW = O.objects.reduce((s, o) => s + o.w + 12, 0), objH = Math.max(...O.objects.map((o) => o.h));
+  const rows = C.sheets.length + (C.variants ?? []).length, cw = 16 * 68;
+  const objW = CO.reduce((s, o) => s + o.w + 12, 0), objH = Math.max(...CO.map((o) => o.h));
   const im = fill(blank(Math.max(cw, Math.min(objW, 2000)), rows * 52 + 70 + (objH + 8) * Math.ceil(objW / 2000) + 20));
-  T.sheets.forEach((s, r) => sheets[s.pair].f.forEach((t, i) => paste(im, t, i * 68 + 2, r * 52 + 2)));
-  (T.variants ?? []).forEach((v, r) => variants[v.terrain].forEach((t, i) => paste(im, t, i * 68 + 2, (T.sheets.length + r) * 52 + 2)));
+  C.sheets.forEach((s, r) => sheets[s.pair].f.forEach((t, i) => paste(im, t, i * 68 + 2, r * 52 + 2)));
+  (C.variants ?? []).forEach((v, r) => variants[v.terrain].forEach((t, i) => paste(im, t, i * 68 + 2, (C.sheets.length + r) * 52 + 2)));
   let x = 2, y = rows * 52 + 8;
-  (T.cliffs ?? []).forEach((c) => { const ci = readImage(join(ROOT, 'public/war/tiles', c.file)); for (let k = 0; k < 3; k++) paste(im, ci, x, y + k * 16); x += 72; });
+  (C.cliffs ?? []).forEach((c) => { const ci = readImage(join(c.dir, c.file)); for (let k = 0; k < 3; k++) paste(im, ci, x, y + k * 16); x += 72; });
   x = 2; y += 64; let rowH = 0;
-  for (const o of Object.values(objs)) { if (x + o.w > im.w) { x = 2; y += rowH + 8; rowH = 0; } paste(im, o.im, x, y); x += o.w + 12; rowH = Math.max(rowH, o.h); }
+  for (const o of CO) { if (x + o.w > im.w) { x = 2; y += rowH + 8; rowH = 0; } paste(im, o.im, x, y); x += o.w + 12; rowH = Math.max(rowH, o.h); }
   const out = crop(im, { x: 0, y: 0, w: im.w, h: Math.min(im.h, y + rowH + 4) });
-  writeImage(join(OUT, 'ART5_contact.png'), resizeNearest(out, out.w * 2, out.h * 2));
+  writeImage(join(OUT, `${PFX}_contact.png`), resizeNearest(out, out.w * 2, out.h * 2));
 }
 
 // ---- the fallback rule of tiles.json on a vertex grid V (terrain per vertex), then autotile
@@ -106,6 +120,65 @@ function soldier(cls, row, col) {
   const a = m.anchors?.[row] ?? m.anchor; return { im, anchor: { x: a.x, y: a.y } };
 }
 
+// ---- biome patch, 1:1: an Elaia hillside over a bay (dry grass, terra rossa vineyard, olive grove behind dry-stone walls,
+// marble outcrops with the quarry and the marble node, a pebble beach), its objects, goats, a boar and a squad of soldiers.
+// Organic borders come from value noise; the tiles.json fallback settles the pairs with no sheet.
+if (BIOME) {
+  const n = 40, V = [];
+  const vn = (x, y, s, k) => { // smooth value noise in 0..1
+    const X = Math.floor(x / s), Y = Math.floor(y / s), fx = x / s - X, fy = y / s - Y, h = (a, b) => (hash(a, b, k) % 1000) / 1000;
+    const sm = (t) => t * t * (3 - 2 * t), u = sm(fx), v = sm(fy);
+    return (h(X, Y) * (1 - u) + h(X + 1, Y) * u) * (1 - v) + (h(X, Y + 1) * (1 - u) + h(X + 1, Y + 1) * u) * v;
+  };
+  const terrainAt = (x, y) => {
+    const coast = 0.42 * n - Math.hypot(x - n - 2, y - n + 4) + 7 * (vn(x, y, 5, 1) - 0.5); // a round bay in the south corner
+    if (coast > 7) return 'deep'; if (coast > 3.5) return 'shallow'; if (coast > 0) return 'sand';
+    if (Math.hypot(x - 8, y - 9) < 6.5 + 4 * (vn(x, y, 4, 2) - 0.5)) return 'marble';
+    if (x > 17 && x < 32 && y > 3 && y < 15 && vn(x, y, 5, 3) > 0.25) return 'grove';
+    if (Math.hypot(x - 9, y - 27) < 6 + 3 * (vn(x, y, 4, 4) - 0.5)) return 'rossa';
+    if (vn(x, y, 7, 5) > 0.5) return 'dry';
+    return 'grass';
+  };
+  for (let y = 0; y <= n; y++) for (let x = 0; x <= n; x++) V.push(terrainAt(x, y));
+  const at = resolve(V, n), cell = (x, y) => { const c = [at(x, y), at(x + 1, y), at(x, y + 1), at(x + 1, y + 1)]; return c.every((t) => t === c[0]) ? c[0] : null; };
+  const items = [], used = new Set(), free = (x, y, w = 1, h = 1) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (used.has(`${x + i},${y + j}`)) return false; return true; };
+  const put = (id, x, y, w = 1, h = 1, ox = 0.5, oy = 0.5) => { if (!objs[id] || !free(x, y, w, h)) return false; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) used.add(`${x + i},${y + j}`); items.push([objs[id], x + ox, y + oy]); return true; };
+  const pick = (ids, x, y) => ids[hash(x, y, 9) % ids.length];
+  // set pieces first: quarry + marble node + crags + goats, the grove's walls, harvest spot, shrine and hives, vineyard rows
+  put('marble-quarry', 6, 6, 2, 2, 1, 1); put('marble-deposit', 9, 9, 2, 1, 1, 0.5); put('marble-outcrop-a', 3, 11, 2, 1, 1, 0.5); put('goats', 11, 13, 2, 1, 1, 0.5);
+  for (let x = 18; x < 32; x += 2) put('wall-b', x, 16, 2, 1, 1.9, 0.5); // wall-b runs along x, wall-a along y; anchor = lower end
+  for (let y = 4; y < 16; y += 2) put('wall-a', 16, y, 1, 2, 0.5, 1.9);
+  put('olive-harvest', 24, 10); put('shrine', 19, 19); put('beehives', 23, 18);
+  for (let x = 4; x <= 14; x += 2) for (let y = 21; y <= 32; y += 2) if (cell(x, y) === 'rossa' && cell(x, y + 1) === 'rossa') put('vines', x, y, 1, 2, 0.5, 1.9); // rows along y
+  // the squad: 2 files of 4 hoplites and 2 archers on open ground in the middle
+  const hop = soldier('hoplite', 'south-east', 0), hop2 = soldier('hoplite', 'south-west', 40), arc = soldier('archer', 'south-east', 0);
+  const sq = [14, 18];
+  for (let j = -2; j <= 5; j++) for (let i = -2; i <= 4; i++) used.add(`${sq[0] + i},${sq[1] + j}`);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) hop && items.push([(i + j) % 2 && hop2 ? hop2 : hop, sq[0] - 1 + i * 0.55 + j * 0.5, sq[1] + 1 - i * 0.55 + j * 0.5]);
+  if (arc) items.push([arc, sq[0] + 2, sq[1] + 2], [arc, sq[0] + 2.5, sq[1] + 2.4]);
+  // scatter by terrain
+  let placed = 0;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const t = cell(x, y), h = hash(x, y, 7) % 1000; if (!t) continue;
+    let id = null;
+    if (t === 'grove' && x % 3 === 0 && y % 3 === 1) id = pick(['olive-ancient', 'olive-orchard', 'olive-tall', 'olive-orchard'], x, y);
+    else if (t === 'marble' && h < 70) id = pick(['marble-outcrop-b', 'herbs', 'maquis-a', 'marble-outcrop-b'], x, y);
+    else if (t === 'dry' && h < 45) id = pick(['maquis-a', 'maquis-b', 'maquis-c', 'herbs', 'herbs', 'olive-orchard'], x, y);
+    else if (t === 'grass' && h < 30) id = pick(['cypress-tall', 'cypress-flame', 'stone-pine', 'holm-oak', 'maquis-a', 'olive-tall'], x, y);
+    else if (t === 'sand' && h < 15) id = 'herbs';
+    if (id && put(id, x, y, 1, 1, 0.3 + (hash(x, y, 3) % 40) / 100, 0.3 + (hash(x, y, 5) % 40) / 100)) placed++;
+  }
+  for (const [x, y] of [[30, 2], [31, 4], [33, 3]]) put(pick(['cypress-tall', 'cypress-flame'], x, y), x, y); // a cypress line behind the grove
+  if (!put('boar', 27, 21)) put('boar', 26, 19);
+  approx = 0;
+  const { img, missing } = render(at, n, items, true);
+  writeImage(join(OUT, `${PFX}_patch_1x.png`), crop(img, { x: 0, y: 160, w: img.w, h: img.h - 180 }));
+  const z = crop(img, { x: Math.round(img.w / 2) - 420, y: 400 + 32 * HH - 240, w: 760, h: 420 });
+  writeImage(join(OUT, `${PFX}_patch_zoom2x.png`), resizeNearest(z, z.w * 2, z.h * 2));
+  console.log(`${BIOME} patch ${n}x${n}: ${missing} tiles without a sheet, ${approx} 3-terrain tiles drawn as a pair, ${placed} scattered objects, ${items.length} items ->`, OUT);
+  process.exit(0); // the variants field and the test-ridge windows below are for the global set
+}
+
 // ---- variants field: 24 x 24 of big single-terrain patches, without (left) and with (right) variant fills
 {
   const n = 24, V = [];
@@ -121,7 +194,7 @@ function soldier(cls, row, col) {
   const cut = (im) => crop(im, { x: 0, y: 380, w: im.w, h: im.h - 400 });
   const A = cut(a), B = cut(b), both = fill(blank(A.w * 2 + 20, A.h));
   paste(both, A, 0, 0); paste(both, B, A.w + 20, 0);
-  writeImage(join(OUT, 'ART5_variants_1x.png'), both);
+  writeImage(join(OUT, `${PFX}_variants_1x.png`), both);
 }
 
 // ---- test-ridge windows, 1:1
@@ -154,9 +227,9 @@ for (const [name, x0, y0, n] of [['ford', 248, 104, 40], ['marsh-ridge', 264, 21
   if (sq) { for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) hop && items.push([(i + j) % 2 && hop2 ? hop2 : hop, sq[0] - 1 + i * 0.55 + j * 0.5, sq[1] + 1 - i * 0.55 + j * 0.5]); arc && items.push([arc, sq[0] + 2, sq[1] + 2], [arc, sq[0] + 2.5, sq[1] + 2.4]); }
   approx = 0;
   const { img, missing } = render(at, n, items, true);
-  writeImage(join(OUT, `ART5_ridge_${name}_1x.png`), crop(img, { x: 0, y: 200, w: img.w, h: img.h - 220 }));
+  writeImage(join(OUT, `${PFX}_ridge_${name}_1x.png`), crop(img, { x: 0, y: 200, w: img.w, h: img.h - 220 }));
   const z = crop(img, { x: Math.round(img.w / 2) - 300, y: Math.round(img.h / 2) - 60, w: 600, h: 340 });
-  writeImage(join(OUT, `ART5_ridge_${name}_zoom2x.png`), resizeNearest(z, z.w * 2, z.h * 2));
+  writeImage(join(OUT, `${PFX}_ridge_${name}_zoom2x.png`), resizeNearest(z, z.w * 2, z.h * 2));
   report.push(`${name} (${x0},${y0} ${n}x${n}): ${moved} vertices moved by the fallback, ${missing} tiles without a sheet, ${approx} 3-terrain tiles drawn as a pair, ${placed} objects`);
 }
 console.log(report.join('\n') + '\n->', OUT);
