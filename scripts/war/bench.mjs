@@ -1,7 +1,9 @@
 // War sim bench (docs/impl/global-war-rebuild.md M1a, M1c), two runs on the test-ridge region:
 //  - march: 30 squads x 20 units cross the map west <-> east (over the ford, the bridge and
 //    the pass), all re-pathing at once halfway;
-//  - brawl: 300 vs 300 (15 bot squads a side, mixed classes) attack-move into each other on the east field.
+//  - brawl: 300 vs 300 (15 bot squads a side, mixed classes) attack-move into each other on the east field;
+//  - build: 30 squads x 20 workers each raise a camp, then a fort (fetching stone and wood from the camp): 30 sites
+//    under construction at once (M2a); run twice, the second (JIT warm) is reported.
 // Prints the step time of each. Usage: npm run bench:war [-- ticks [regionDir]]   (default 2400 ticks = 4 min of game time;
 // regionDir holds a test-ridge.json + test-ridge.spots.ts, e.g. from scripts/war/buildTestRidge.ts 512 <dir>)
 import { readFileSync } from 'node:fs';
@@ -78,3 +80,47 @@ const snap = brawl.snapshot();
 const dead = snap.units.filter((u) => u.state === 'dead');
 const left = [0, 1].map((side) => snap.units.filter((u) => u.state !== 'dead' && snap.squads[u.squad].team === side).length);
 console.log(`brawl: units ${snap.units.length}, ticks ${ticks}: ${summary(bms)}; fallen ${dead.length} (${dead.filter((u) => u.wounded).length} wounded), left ${left[0]} vs ${left[1]}`);
+
+// build: 30 claims spread over the map, a camp each, then a fort next to it (stone and wood fetched from the camp)
+const buildRun = () => {
+  const site = sim.createSim(region, 3);
+  const near = (type, x, y) => {
+    for (let r = 0; r < 24; r++)
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++)
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && site.checkPlacement(0, type, x + dx, y + dy).ok) return [x + dx, y + dy];
+    return null;
+  };
+  const crews = [];
+  for (let k = 0; k < 30; k++) {
+    const x = 40 + (k % 6) * Math.floor((region.w - 80) / 5);
+    const y = 40 + Math.floor(k / 6) * Math.floor((region.h - 80) / 4);
+    site.claim(0, x, y, 30);
+    const camp = near('camp', x, y);
+    if (!camp) continue;
+    const id = site.spawnSquad(`b${k}`, 0, 'militia', 20, camp[0] + 3, camp[1] + 3);
+    site.order({ kind: 'placeBuilding', squad: id, type: 'camp', x: camp[0], y: camp[1] });
+    crews.push([id, camp]);
+  }
+  site.addStock(0, 'wood', 1e6);
+  site.addStock(0, 'stone', 1e6);
+  const ms = [];
+  for (let t = 0; t < ticks; t++) {
+    if (t === 400)
+      for (const [id, [cx, cy]] of crews) {
+        const fort = near('fort', cx + 9, cy);
+        if (fort) site.order({ kind: 'placeBuilding', squad: id, type: 'fort', x: fort[0], y: fort[1] });
+      }
+    site.step();
+    ms.push(site.stats().stepMs);
+  }
+  return { site, ms };
+};
+buildRun(); // JIT warm-up
+const { site, ms: sms } = buildRun();
+const bs = site.snapshot().buildings;
+const count = (st) => bs.filter((b) => b.state === st).length;
+console.log(
+  `build (warm): units ${site.stats().units}, ticks ${ticks}: ${summary(sms)}; sites ${bs.length} (done ${count('done')}, ` +
+    `scaffold ${count('scaffold')}, foundation ${count('foundation')})`,
+);
