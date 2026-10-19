@@ -27,6 +27,7 @@ import { LIVE_ZOOM, ObjectLayer } from './objects';
 import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain';
 import { ShotLayer } from './shots';
 import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
+import { NeutralLayer } from './neutral';
 import { BuildMode } from './build/buildMode';
 import { workClip } from './build/work';
 import { SiegeArt } from './siege/siegeArt';
@@ -55,7 +56,7 @@ const BAKE_MS = 6;
 /** World px per overview band (one band bakes per frame until the overview is done). */
 const BAND = 256;
 
-export type Overlay = 'height' | 'cost' | 'grid' | 'zones';
+export type Overlay = 'height' | 'cost' | 'grid' | 'zones' | 'mobs';
 
 interface Chunk { key: string; tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; at: string; ver: number; used: number }
 interface View { x: number; y: number; right: number; bottom: number }
@@ -95,6 +96,8 @@ export class SandboxScene extends Phaser.Scene {
   private overviewTex!: Phaser.Textures.CanvasTexture;
   private band = 0;
   private units!: UnitLayer;
+  /** Lairs and claim banners (neutral regions). */
+  private neutral!: NeutralLayer;
   private shots!: ShotLayer;
   private sheetImages = new Map<string, HTMLImageElement>();
   private gUi!: Phaser.GameObjects.Graphics;
@@ -128,6 +131,7 @@ export class SandboxScene extends Phaser.Scene {
     this.overviewTex = this.textures.createCanvas('overview', Math.ceil(W * OVERVIEW_SCALE), Math.ceil(H * OVERVIEW_SCALE))!;
     this.add.image(0, 0, 'overview').setOrigin(0).setScale(1 / OVERVIEW_SCALE);
     this.units = new UnitLayer(this, this.iso, this.sheetImages);
+    this.neutral = new NeutralLayer(this, (p) => this.units.feet(p), (x, y) => this.depthAt(x, y));
     if (this.objects) this.units.depthOf = (x, y) => this.objects!.depth(x, y);
     this.shots = new ShotLayer(this, this.iso);
     this.units.anim.override = workClip;
@@ -170,6 +174,10 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   setOverlay(k: Overlay, on: boolean): void {
+    if (k === 'mobs') {
+      this.neutral.debug = on; // drawn live, nothing to bake
+      return;
+    }
     if (k === 'height' || k === 'cost') this.opts.ov = on ? k : this.opts.ov === k ? 'none' : this.opts.ov;
     else this.opts[k] = on;
     this.ver++;
@@ -386,6 +394,8 @@ export class SandboxScene extends Phaser.Scene {
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
     this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
+    const cur = this.sim.cur;
+    if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.drawUi();

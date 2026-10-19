@@ -30,6 +30,9 @@
  * drives it with its orders; it does not fight while the engine has work. Task orders (ignite, extinguish, pushLadder,
  * attackBuilding without an engine, buildSiege) send the squad's men to standing points round the target (`fixed`); each
  * man there does the task, and the squad holds once it is done. Men under a ram's roof dodge RAM.cover of missiles.
+ *
+ * Neutral regions (W-12, ./mobs.ts): spawnMobs() puts a squad of team MOB_TEAM on every region lair; the mob controller
+ * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
 import type { Order, RegionData, ShotSnap, Snapshot, SquadId, UnitSnap, WarBuildSim } from '../types';
@@ -40,6 +43,7 @@ import { WORK_DEFENCE } from './economy';
 import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER, RAM } from './siege';
+import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -153,6 +157,7 @@ interface Squad {
   siege: number; // the engine it crews, -1 none
   task: Task | null;
   fire: boolean; // fire arrows
+  claimPt: number; // claimRegion: the claim point it goes to and channels at, -1 none
 }
 
 interface Missile {
@@ -248,6 +253,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
   });
 
+  const mobs = createMobs(region, {
+    squads,
+    spawn: (kind, count, x, y) => api.spawnSquad(MOB_OWNER, MOB_TEAM, mobClass(kind), count, x, y),
+    order: (o) => apply(o),
+    arrived: (id) => !squads[id].goal && squads[id].pi >= squads[id].path.length / 2,
+    nodes: () => works.resourceNodes(),
+    lockNodes: works.lockNodes,
+    claim: (team, x, y, r) => works.claim(team, x, y, r),
+    influenced: (x, y) => works.influence().mask[tileAt(grid, x, y)] !== 0,
+    range: (lo, hi) => rng.range(lo, hi),
+    w: grid.w,
+    h: grid.h,
+  });
+
   const hAt = (x: number, y: number) => grid.height[tileAt(grid, x, y)];
   const groundAt = (x: number, y: number) => grid.ground[tileAt(grid, x, y)];
 
@@ -326,7 +345,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const [ax, ay] = openPoint(x / picked.length, y / picked.length);
     const ns: Squad = {
       ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1, fixed: null, siege: -1, task: null,
+      near: [], sites: [], node: -1, fixed: null, siege: -1, task: null, claimPt: -1,
     };
     squads.push(ns);
     move(s, ns, picked);
@@ -391,6 +410,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (o.kind !== 'formation' && o.kind !== 'detach') {
       if (s.siege >= 0) uncrew(s);
       s.task = null;
+      s.claimPt = -1;
+    }
+    if (o.kind === 'claimRegion') {
+      if (!mobs.startClaim(s.id, o.point)) return;
+      if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+      const c = mobs.claimPoint(o.point);
+      s.order = 'claimRegion';
+      s.claimPt = o.point;
+      s.fixed = null;
+      requestPath(s, c.x, c.y);
+      return;
     }
     if (o.kind === 'uncrew') {
       if (s.order === 'crew' || s.order === 'move' || s.order === 'attackBuilding' || s.order === 'deploy' || s.order === 'raiseLadder') s.order = 'hold';
@@ -857,6 +887,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     u.swingAt = tick;
     if (!working(t) && rng.chance(blockChance(t.st.block, t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
     hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1), t.st.armor, 0));
+    if (u.st.knock && t.alive) {
+      // a charge (boar): the man is thrown back, in short steps so no wall is jumped
+      const d = Math.hypot(t.x - u.x, t.y - u.y) || 1, k = u.st.knock / 3;
+      grid.team = t.squad.team;
+      for (let i = 0; i < 3; i++) tryMove(t, ((t.x - u.x) / d) * k, ((t.y - u.y) / d) * k);
+      grid.team = u.squad.team;
+      t.settled = false;
+    }
   };
 
   const shoot = (u: Unit, t: Unit, d: number, dh: number, range: number) => {
@@ -1046,6 +1084,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     flushSectors(grid); // sites that closed or opened tiles last tick
     if (tick % SCAN === 0) scanNear();
+    mobs.tick(tick);
     for (const s of squads) if (s.order === 'attack' && s.alive > 0) (grid.team = s.team), updateAttack(s);
     for (let budget = PATH_BUDGET; budget > 0 && pathQueue.length > 0; ) {
       const s = pathQueue.shift()!;
@@ -1246,7 +1285,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     stepMs = performance.now() - t0;
   };
 
-  return {
+  const api: WarBuildSim = {
     region,
     spawnSquad(owner, team, cls, count, x, y) {
       const [ax, ay] = openPoint(x, y);
@@ -1254,7 +1293,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
-        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, siege: -1, task: null, fire: false,
+        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, siege: -1, task: null, fire: false, claimPt: -1,
       };
       grid.team = team;
       squads.push(s);
@@ -1301,6 +1340,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         stock: works.stockSnap(),
         influenceVersion: works.influence().version,
         sieges: siege.snaps(tick),
+        ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
       };
     },
     stats() {
@@ -1314,7 +1354,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     claim: works.claim,
     addStock: works.addStock,
     damageBuilding: works.damage,
+    spawnMobs: () => mobs.spawn(),
   };
+  return api;
 }
 
 /** Shorten a flat point path by `by` along its length from the end (never past its first segment's start). */

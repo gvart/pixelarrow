@@ -5,7 +5,7 @@
  */
 import type { Behaviour } from '../sim/bots';
 import type { BuildingType, Order, ResourceKind, WallOrder } from '../types';
-import { SPOTS } from '../regions/test-ridge.spots';
+import { CLAIM_POINT as ridgeClaim, SPOTS } from '../regions/test-ridge.spots';
 
 /** owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
 export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string }
@@ -16,6 +16,8 @@ export interface Scenario {
   goal: string;
   squads: ScenarioSquad[];
   camera: { x: number; y: number; zoom: number };
+  /** Neutral play (W-12): spawn the region's lairs (src/war/sim/mobs.ts); no claim anchor, the claim point gives the first. */
+  neutral?: true;
   /** Economy start (M2b): claim anchors, own stock, and sites a squad (index into squads) lays out and builds. */
   economy?: {
     claims: { team: number; x: number; y: number; r?: number }[];
@@ -48,6 +50,8 @@ const you = (cls: string, [x, y]: [number, number], count = 20): ScenarioSquad =
 const bot = (cls: string, [x, y]: [number, number], b: Behaviour, count = 20): ScenarioSquad => ({ team: 1, cls, count, x, y, bot: b });
 
 const S = SPOTS;
+/** neutral-clear: test-ridge's claim point (scripts/war/buildTestRidge.ts; its zone holds the lairs round it). */
+const CLAIM = [ridgeClaim.x, ridgeClaim.y] as const;
 /** build-test: a flat clearing in the south-east woods (trees all round, boulders near). */
 const HOME = [342, 338] as const;
 const [passSx, passSy] = S.passS;
@@ -349,6 +353,19 @@ export const SCENARIOS: Scenario[] = [
       prebuild: 6000,
     },
     after: { orders: [{ kind: 'move', squad: 2, x: 322, y: 388 }, { kind: 'move', squad: 3, x: 300, y: 440 }], squads: [] },
+  },
+  {
+    id: 'neutral-clear',
+    name: 'Neutral clear',
+    goal: 'Clear the region: kill the wolves, boars, bears and bandits round the claim banner (the mobs overlay shows aggro and leash), then right-click the banner with a squad to claim it (30 s, no foes near). Gathering near a living lair is blocked.',
+    squads: [
+      you('hoplite', at(CLAIM, -6, 6)),
+      you('celt_sword', at(CLAIM, 0, 8)),
+      you('archer', at(CLAIM, 6, 6), 16),
+      you('militia', at(CLAIM, 0, 12), 12),
+    ],
+    camera: { x: CLAIM[0], y: CLAIM[1], zoom: 1 / 2 },
+    neutral: true,
   },
   {
     id: 'free',

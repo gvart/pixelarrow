@@ -75,7 +75,7 @@ export interface Worker {
   wpath: number[]; wpi: number; wreq: boolean;
 }
 
-interface Node { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; regrow: number; rate: number; slots: number; users: number; tiles: number[]; obj?: number; building?: number }
+interface Node { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; regrow: number; rate: number; slots: number; users: number; tiles: number[]; obj?: number; building?: number; locked?: boolean }
 
 interface Building {
   id: number; type: BuildingType; def: BuildingDef; team: number; rot: 0 | 1; x: number; y: number; w: number; h: number;
@@ -868,10 +868,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   /** Nearest node of resource res with a free slot within r of (x,y), the given one first. */
   const findNode = (res: ResourceKind, x: number, y: number, r: number, first: number): Node | null => {
     const f = nodes[first];
-    if (f && f.res === res && f.amount >= 1 && f.users < f.slots) return f;
+    if (f && f.res === res && f.amount >= 1 && f.users < f.slots && !f.locked) return f;
     let best: Node | null = null, bd = r * r;
     for (const n of nodes) {
-      if (n.res !== res || n.amount < 1 || n.users >= n.slots) continue;
+      if (n.res !== res || n.amount < 1 || n.users >= n.slots || n.locked) continue;
       const d = (n.x - x) ** 2 + (n.y - y) ** 2;
       if (d < bd) (bd = d), (best = n);
     }
@@ -893,6 +893,12 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const gather = (u: Worker): Act => {
     let n = u.wnode >= 0 ? nodes[u.wnode] : null;
     if (u.load > 0 && (u.load >= CARRY - 1e-6 || (n && u.carry !== n.res))) return deliver(u);
+    if (n?.locked) {
+      // a guard lair came back: off this node
+      n.users--;
+      u.wnode = -1;
+      n = null;
+    }
     if (!n || n.amount < 1) {
       const from = n ?? nodes[u.squad.node];
       const next = from ? findNode(from.res, from.x, from.y, NEAR_NODE, u.squad.node) : null;
@@ -1122,7 +1128,11 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       s[res] = (s[res] ?? 0) + n;
     },
     influence: () => infl,
-    nodeOk: (id: number) => id >= 0 && id < nodes.length && nodes[id].max > 0,
+    nodeOk: (id: number) => id >= 0 && id < nodes.length && nodes[id].max > 0 && !nodes[id].locked,
+    /** Mobs (./mobs.ts): a living guard lair locks its nodes (no gathering), clearing it frees them. */
+    lockNodes(ids: number[], on: boolean) {
+      for (const id of ids) if (nodes[id]) nodes[id].locked = on;
+    },
     /** A site of `team` with work left (planned, half built or damaged). */
     siteOk: (id: number, team: number) => id >= 0 && id < buildings.length && buildings[id].team === team && unfinished(buildings[id]),
     /**
@@ -1369,7 +1379,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
         for (const n of regrowing) if (n.amount < n.max) n.amount = Math.min(n.max, n.amount + n.regrow * DT * REGROW_TICKS);
     },
     resourceNodes: (): NodeSnap[] =>
-      nodes.map((n) => ({ id: n.id, res: n.res, x: n.x, y: n.y, amount: n.amount, max: n.max, ...(n.obj !== undefined ? { obj: n.obj } : {}), ...(n.building !== undefined ? { building: n.building } : {}) })),
+      nodes.map((n) => ({ id: n.id, res: n.res, x: n.x, y: n.y, amount: n.amount, max: n.max, ...(n.obj !== undefined ? { obj: n.obj } : {}), ...(n.building !== undefined ? { building: n.building } : {}), ...(n.locked ? { guarded: true as const } : {}) })),
     buildingSnaps: (): BuildingSnap[] =>
       buildings.filter((b) => !b.cancelled).map((b) => {
         let maxWorkers = 0;

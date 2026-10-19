@@ -61,6 +61,11 @@ export class SimClient {
     this.send({ t: 'claim', team, x, y, r });
   }
 
+  /** Neutral play: spawn the region's lairs. */
+  spawnMobs(): void {
+    this.send({ t: 'mobs' });
+  }
+
   /** Scenarios: fast-forward up to `max` ticks, the team's squads building its unfinished sites, until none is left. */
   prebuild(team: number, max: number): void {
     this.send({ t: 'prebuild', team, max });

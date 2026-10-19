@@ -20,6 +20,8 @@ export const regionSchema = z
     blocked: z.array(z.number().int().min(0)).optional(),
     visual: z.object({ scale: z.literal(2), rle: z.array(z.number().int().min(0)) }).optional(),
     biomes: z.object({ names: z.array(z.string().min(1)).min(1), rle: z.array(z.number().int().min(0)) }).optional(),
+    lairs: z.array(z.object({ kind: z.enum(['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex']), x: z.number().min(0), y: z.number().min(0), count: z.number().int().positive().optional() })).optional(),
+    claimPoints: z.array(z.object({ x: z.number().min(0), y: z.number().min(0), lairs: z.array(z.number().int().min(0)), r: z.number().positive().optional() })).optional(),
   })
   .superRefine((r, ctx) => {
     const n = r.w * r.h;

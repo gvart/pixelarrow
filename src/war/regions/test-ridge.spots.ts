@@ -25,3 +25,5 @@ export const SPOTS = {
   fieldE: [424.5, 252.5],
   fieldW: [88.5, 208.5],
 } as const satisfies Record<string, readonly [number, number]>;
+/** The region claim point (neutral play, src/war/sim/mobs.ts), tiles. */
+export const CLAIM_POINT = { x: 176.5, y: 224.5 } as const;
