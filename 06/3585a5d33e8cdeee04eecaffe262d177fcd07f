@@ -1,0 +1,61 @@
+src/war/types.ts
+  s_cfc22b058125c4::t_2dd173f91acca6 10-11
+tests/war/region.test.ts
+  s_cfc22b058125c4::t_ad2ede721c9678 6,33-39
+  s_cfc22b058125c4::t_e4ec16da8fa394 32
+  s_cfc22b058125c4::t_30f2a7a945ace9 40-41
+src/war/view/art.ts
+  s_cfc22b058125c4::t_f8aed943b16a77 18,63-65,73,75,148-150,154-156,167-173,175-181,184-193,227-229
+  s_cfc22b058125c4::t_1909d6d11a0d49 7-13,15-17,56-58,60-62,67,72,74,82,87-111,113,196,198-204,206,208-209,211-212,214-215,217-218,221-222,224-226,230,234,240,245,259
+  s_cfc22b058125c4::t_36bd2b6b662ce6 151-153,157-166,174,182-183
+  s_cfc22b058125c4::t_45c0d0ca515505 219-220
+src/war/region/schema.ts
+  s_cfc22b058125c4::t_2dd173f91acca6 20
+src/war/view/objects.ts
+  s_cfc22b058125c4::t_1fb1ec2a309828 33,55,85,87
+scripts/war/buildTestRidge.ts
+  s_cfc22b058125c4::t_45c0d0ca515505 225
+  s_cfc22b058125c4::t_eb04c4629daf9c 215-224,226-229
+  s_cfc22b058125c4::t_71d603da203a4d 12,15-16,20-21,27-31,33,36-37,102,199,204-209,213-214,230-242,301-309,332-346,350-355,395
+  s_cfc22b058125c4::t_530709efa42dde 17-19
+  s_cfc22b058125c4::t_4a92b44579094f 32,200-203,210-212,347-349
+src/war/regions/visual.ts
+  s_cfc22b058125c4::t_4ae4e01ca12669 1-35
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_1fb1ec2a309828 98
+public/war/tiles/tiles.json
+  s_cfc22b058125c4::t_47158c58ac809d 16,18-20,23-26,28-30,32,34-37,39,41-42,44,46-49,52,54-58,60,62,65-107,409-438,521-553,565,591-594
+  s_cfc22b058125c4::t_813c754618a58e 595-598
+scripts/war/art/assets.mjs
+  s_cfc22b058125c4::t_9226cfaa91a069 92
+  s_cfc22b058125c4::t_47158c58ac809d 12-13,34,42-43,50-51,57,61,70,87-91,93
+public/war/objects/objects.json
+  s_cfc22b058125c4::t_47158c58ac809d 6,8-15,17-86,88-91,93-104,106-113,385-463,465-492
+  s_cfc22b058125c4::t_9226cfaa91a069 464
+src/war/view/iso.ts
+  s_cfc22b058125c4::t_3d332641e2bda3 13-17,20,25-26,30-59,63,65-71,81-90,93-97,108-113,115,119-122,125-128,130-131,133-134,151,154,163,165-167
+src/war/view/fineArt.ts
+  s_cfc22b058125c4::t_f8aed943b16a77 184
+  s_cfc22b058125c4::t_e7c93f3da15576 1-14,16-30,37-131
+  s_cfc22b058125c4::t_40e270eccaac54 132-183,185-195
+  s_cfc22b058125c4::t_4be9e53f5e86ec 31-36
+  s_cfc22b058125c4::t_4859870fbe76b7 15
+src/war/regions/test-ridge.json
+  s_cfc22b058125c4::t_e2f62a7423b26b 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "063585a5d33e8cdeee04eecaffe262d177fcd07f",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
