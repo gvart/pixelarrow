@@ -26,6 +26,7 @@ import { HH, HW, LH, type IsoMap } from '../iso';
 import type { DrawUnit } from '../simClient';
 import { BODY, TEAM_COLOR } from '../units';
 import type { BuildArt, BuildSprite, KitSprite } from './buildArt';
+import { frontDepth, type Back } from './wallDepth';
 
 /** Ground overlays: over the terrain chunks (1) and the influence area (2), under objects and units (10+). */
 const GROUND = 2.5;
@@ -100,6 +101,8 @@ export class BuildingLayer {
   /** Tall tiles (px) that hide what stands behind them. */
   private heights = new Map<number, number>();
   private decks = new Map<number, Deck>();
+  /** Per footprint tile (not stairs or ladders): its footprint's max corner and the depth its back art is drawn at. */
+  private backs = new Map<number, Back>();
   /** Footprint size of each wall before an upgrade grew it (tiles). */
   private orig = new Map<number, number>();
 
@@ -156,7 +159,7 @@ export class BuildingLayer {
   /** Index the standing buildings: tiles, walks, gate passages, open sides, tall tiles and the raised tiles units use. */
   private prepare(buildings: readonly BuildingSnap[]): void {
     const occ = this.occ, walks = this.walks, open = this.open;
-    occ.clear(); this.looks.clear(); walks.clear(); this.gateJoin.clear(); this.deep.clear(); open.clear(); this.heights.clear(); this.decks.clear();
+    occ.clear(); this.looks.clear(); walks.clear(); this.gateJoin.clear(); this.deep.clear(); open.clear(); this.heights.clear(); this.decks.clear(); this.backs.clear();
     const live = buildings.filter((b) => b.state !== 'destroyed');
     for (const b of live) {
       this.looks.set(b.id, this.look(b));
@@ -179,6 +182,20 @@ export class BuildingLayer {
       if (!d) continue;
       this.deep.set(b.id, d);
       for (const [x, y] of pairs(d.tiles)) { this.gateJoin.add(key(x, y)); this.heights.set(key(x, y), this.heights.get(key(b.tiles[0], b.tiles[1])) ?? 100); }
+    }
+    // the depths the art is drawn at (draw()): wall tiles one by one, towers and 2-deep gates as one box
+    for (const b of live) {
+      const def = BUILDINGS[b.type], ts = pairs(b.tiles);
+      if (def.access) continue;
+      const deep = this.deep.get(b.id), all = deep ? [...ts, ...pairs(deep.tiles)] : ts;
+      if (def.wall === 'segment') {
+        for (const [x, y] of ts) this.backs.set(key(x, y), { x1: x + 1, y1: y + 1, depth: this.D(x + 0.495, y + 0.495) });
+        continue;
+      }
+      const x0 = Math.min(...all.map((t) => t[0])), y0 = Math.min(...all.map((t) => t[1]));
+      const x1 = Math.max(...all.map((t) => t[0])) + 1, y1 = Math.max(...all.map((t) => t[1])) + 1;
+      const depth = def.wall === 'tower' ? this.D(x0 + 1, y0 + 1) : deep ? this.D(x0 + 1.5, y0 + 1.5) : this.D(b.x + b.w / 2 - 0.5, b.y + b.h / 2 - 0.5);
+      for (const [x, y] of all) this.backs.set(key(x, y), { x1, y1, depth });
     }
     const setOpen = (x: number, y: number, side: number) => open.set(key(x, y), (open.get(key(x, y)) ?? 0) | side);
     for (const b of live) {
@@ -247,7 +264,12 @@ export class BuildingLayer {
     const tx = Math.floor(d.x), ty = Math.floor(d.y), t = this.decks.get(key(tx, ty));
     if (!t) return null;
     if (t.kind === 'deck') {
-      return { x: d.x, y: d.y, z: t.z, px: t.px, depth: Math.max(t.depth + IN, this.D(d.x, d.y) + IN) };
+      // over the walk floor of the wall tiles beside it on the same walk (+x, +y; still under its own front parapets): a
+      // man at his tile's edge is not cut by theirs
+      let depth = Math.max(t.depth, this.D(d.x, d.y));
+      const front = this.D(tx + 1, ty + 1);
+      for (const n of [this.decks.get(key(tx + 1, ty)), this.decks.get(key(tx, ty + 1))]) if (n?.kind === 'deck' && n.px === t.px && n.depth < front) depth = Math.max(depth, n.depth);
+      return { x: d.x, y: d.y, z: t.z, px: t.px, depth: depth + IN };
     }
     if (t.kind === 'door') return { x: d.x, y: d.y, z: t.z, px: 0, hide: true };
     if (t.kind === 'stair') {
@@ -261,6 +283,11 @@ export class BuildingLayer {
     if (t.dx) x += (tx + (t.dx > 0 ? 0.7 : 0.3) - x) * k;
     else y += (ty + (t.dy > 0 ? 0.7 : 0.3) - y) * k;
     return { x, y, z: t.z, px: t.px * up, depth: t.depth + IN * (1 + f), climb: true, facing: Math.atan2(t.dy, t.dx) };
+  }
+
+  /** The least display depth of a man on the ground at d: over the wall and building faces he stands in front of (0 none). */
+  groundDepth(d: { x: number; y: number }): number {
+    return frontDepth(d.x, d.y, this.backs, IN);
   }
 
   /**

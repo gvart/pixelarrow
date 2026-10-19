@@ -139,6 +139,7 @@ export class SandboxScene extends Phaser.Scene {
     // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk)
     const layer = this.build.layer;
     this.units.lift = (d) => layer.lift(d);
+    this.units.ground = (d) => layer.groundDepth(d);
     this.shots.lift = (x, y) => layer.lift({ x, y })?.px ?? 0;
     this.units.anim.override = (u) => (layer.climbing.has(u.id) ? CLIMB : workClip(u));
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => this.zoomAt(p.x, p.y, dy > 0 ? -1 : 1));

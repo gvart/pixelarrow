@@ -161,6 +161,8 @@ export class UnitLayer {
    * ground, and their depth between the layers of the tile they stand on. null: on the ground.
    */
   lift: ((d: { x: number; y: number }) => Lift | null) | null = null;
+  /** Units on the ground: the least depth to draw over the wall faces they stand in front of (./build/buildingLayer.ts). */
+  ground: ((d: { x: number; y: number }) => number) | null = null;
 
   /** Per unit: its drawn lift eased towards this frame's (offset from its sim point, px), so steps never snap. */
   private eased = new Map<number, { ox: number; oy: number; px: number; z: number }>();
@@ -235,6 +237,7 @@ export class UnitLayer {
       const [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
       const team = TEAM_COLOR[d.team] ?? 0xcccccc;
       const hidden = u.state !== 'dead' && iso.hidden(f.x, f.y - BODY, d.x + d.y, l ? l.z + l.px / LH : iso.zAt(d.x, d.y));
+      const depth = l?.depth ?? Math.max(10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25), (u.state === 'dead' ? 0 : this.ground?.(d)) || 0);
       if (!hidden && u.state !== 'dead') {
         g.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26, 12);
         const sel = selected.has(u.squad), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
@@ -244,7 +247,7 @@ export class UnitLayer {
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
       n++;
       img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setVisible(true);
-      img.setDepth(l?.depth ?? 10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25));
+      img.setDepth(depth);
       if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
       else if (this.swap) img.resetPipeline();
       img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);
