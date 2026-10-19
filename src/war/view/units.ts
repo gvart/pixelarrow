@@ -16,7 +16,8 @@ import type { SheetManifest } from '../../art/sheetManifest';
 import type { ShotSnap, SquadSnap } from '../types';
 import { Animator, type AnimTime, type ClipDef } from './anim';
 import type { DrawUnit } from './simClient';
-import type { IsoMap } from './iso';
+import { LH, type IsoMap } from './iso';
+import type { Lift } from './build/buildingLayer';
 
 export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
 /** A light multiply per team on the sprites (team 0 is also hue-swapped, see TEAM_SWAP). */
@@ -155,8 +156,16 @@ export class UnitLayer {
     this.gOver = scene.add.graphics().setDepth(10.9);
   }
 
-  /** World px of a unit's feet, at its eased level. */
+  /**
+   * Units up on a wall-walk, tower, stair or ladder (./build/buildingLayer.ts lift): where they are drawn instead of the
+   * ground, and their depth between the layers of the tile they stand on. null: on the ground.
+   */
+  lift: ((d: { x: number; y: number }) => Lift | null) | null = null;
+
+  /** World px of a unit's feet, at its eased level (raised on a wall-walk, stair or ladder). */
   feet(d: { x: number; y: number }): { x: number; y: number } {
+    const l = this.lift?.(d);
+    if (l) return { x: this.iso.sx(l.x, l.y), y: this.iso.sy(l.x, l.y, l.z) - l.px };
     return { x: this.iso.sx(d.x, d.y), y: this.iso.sy(d.x, d.y, this.iso.zDraw(d.x, d.y)) };
   }
 
@@ -183,17 +192,19 @@ export class UnitLayer {
     const iso = this.iso, padX = 80, padTop = 120, padBot = 40;
     let n = 0;
     for (const d of units) {
-      const u = d.u, f = this.feet(d);
+      const u = d.u, l = this.lift?.(d) ?? null;
+      if (l?.hide) continue; // inside a tower
+      const f = this.feet(d);
       if (f.x < view.x - padX || f.x > view.right + padX || f.y < view.y - padBot || f.y > view.bottom + padTop) continue;
       const sheet = this.sheets.get(u.cls) ?? this.sheets.get(FALLBACK_CLASS);
       if (!sheet) continue;
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
-      const fx = Math.cos(d.facing), fy = Math.sin(d.facing), sx = fx - fy, sy = fx + fy;
+      const facing = l?.facing ?? d.facing, fx = Math.cos(facing), fy = Math.sin(facing), sx = fx - fy, sy = fx + fy;
       const q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)];
       const p = this.anim.pick(d, sheet.clips, at, units, shots);
       const [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
       const team = TEAM_COLOR[d.team] ?? 0xcccccc;
-      const hidden = u.state !== 'dead' && iso.hidden(f.x, f.y - BODY, d.x + d.y, iso.zAt(d.x, d.y));
+      const hidden = u.state !== 'dead' && iso.hidden(f.x, f.y - BODY, d.x + d.y, l ? l.z + l.px / LH : iso.zAt(d.x, d.y));
       if (!hidden && u.state !== 'dead') {
         g.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26, 12);
         const sel = selected.has(u.squad), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
@@ -203,7 +214,7 @@ export class UnitLayer {
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
       n++;
       img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setVisible(true);
-      img.setDepth(10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25));
+      img.setDepth(l?.depth ?? 10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25));
       if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
       else if (this.swap) img.resetPipeline();
       if (hidden) img.setTintFill(team).setAlpha(0.45);

@@ -27,6 +27,8 @@ export class ShotLayer {
   private seen = -1;
   private gGround: Phaser.GameObjects.Graphics;
   private gAir: Phaser.GameObjects.Graphics;
+  /** Px a shooter or target at tile point (x, y) stands raised (on a wall-walk), 0 on the ground. */
+  lift: (x: number, y: number) => number = () => 0;
 
   constructor(scene: Phaser.Scene, private iso: IsoMap) {
     this.gGround = scene.add.graphics().setDepth(9.05);
@@ -82,8 +84,9 @@ export class ShotLayer {
     const gx = s.x0 + (s.x1 - s.x0) * p, gy = s.y0 + (s.y1 - s.y0) * p, z = za + (zb - za) * p;
     const sx = iso.sx(gx, gy), sy = iso.sy(gx, gy, z);
     const d = Math.hypot(iso.sx(s.x1, s.y1) - iso.sx(s.x0, s.y0), iso.sy(s.x1, s.y1, zb) - iso.sy(s.x0, s.y0, za));
-    const h = LAUNCH + (IMPACT - LAUNCH) * p + 4 * Math.min(140, d * ARC[s.kind]) * p * (1 - p);
-    return [sx, sy - h, sy];
+    const ra = this.lift(s.x0, s.y0), rb = this.lift(s.x1, s.y1);
+    const h = ra + (rb - ra) * p + LAUNCH + (IMPACT - LAUNCH) * p + 4 * Math.min(140, d * ARC[s.kind]) * p * (1 - p);
+    return [sx, sy - h, sy - (ra + (rb - ra) * p)];
   }
 
   /** The missile with its point at (x, y), pointing along (dx, dy); `part` of its length shows. */
