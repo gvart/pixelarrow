@@ -3,17 +3,9 @@
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#1b1e22}
 #game{position:fixed;inset:0}
-#dev{position:fixed;top:8px;right:8px;width:250px;padding:8px;background:rgba(16,18,22,.88);color:#e6e2d6;font:12px/1.4 monospace;border:1px solid #444;border-radius:4px;user-select:none}
+#dev{position:fixed;top:30px;right:4px;z-index:7;width:250px;padding:8px;background:rgba(16,18,22,.88);color:#e6e2d6;font:12px/1.4 monospace;border:1px solid #444;border-radius:4px;user-select:none}
 #dev .row{margin:4px 0} #dev .dim{color:#9a968c} #dev pre{margin:6px 0;color:#9fe0a0}
 #dev button,#dev select,#dev input{font:inherit;background:#2a2e34;color:inherit;border:1px solid #555;border-radius:3px}
 #dev input[type=number]{width:40px}
-#build,#hud{position:fixed;padding:6px 8px;background:rgba(16,18,22,.88);color:#e6e2d6;font:12px/1.4 monospace;border:1px solid #444;border-radius:4px;user-select:none}
-#build{bottom:8px;left:50%;transform:translateX(-50%);max-width:calc(100vw - 300px)}
-#build.on{border-color:#c8a060} #build .row{margin:2px 0} #build .dim{color:#9a968c;font-size:11px}
-#build button,#hud button{font:inherit;background:#2a2e34;color:inherit;border:1px solid #555;border-radius:3px;margin:1px;vertical-align:top}
-#build button.sel{border-color:#ffd060;background:#4a3e24} #build.on #bmode{background:#4a3e24}
-#bstatus{color:#ffd890;min-height:1.4em}
-#hud{top:8px;left:8px;width:220px} #hud pre{margin:0 0 6px;color:#9fe0a0} #hud input{font:inherit;width:44px;background:#2a2e34;color:inherit;border:1px solid #555;border-radius:3px}
-#hud .hint{color:#ffd890} #site{border-top:1px solid #444;margin-top:6px;padding-top:6px} #site b{color:#ffd890} #site .dim{color:#9a968c}
 </style></head>
 <body><div id="game"></div><script type="module" src="/src/war/view/main.ts"></script></body></html>

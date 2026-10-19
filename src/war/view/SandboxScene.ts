@@ -206,6 +206,22 @@ export class SandboxScene extends Phaser.Scene {
     cam.centerOn(this.iso.sx(x, y), this.iso.sy(x, y, this.iso.zAt(x, y)));
   }
 
+  /** The terrain overview (1/8 of the world px), for the minimap. */
+  overviewCanvas(): HTMLCanvasElement {
+    return this.overviewTex.getSourceImage() as HTMLCanvasElement;
+  }
+
+  /** The world px rect the camera shows. */
+  viewRect(): View {
+    const cam = this.cameras.main, a = this.wpx(0, 0), b = this.wpx(cam.width, cam.height);
+    return { x: a.x, y: a.y, right: b.x, bottom: b.y };
+  }
+
+  /** The selected squads take order f (HUD buttons). */
+  orderSelected(f: (s: SquadId) => Order): void {
+    this.orderAll(f);
+  }
+
   /** A tile point on its level -> canvas px (for scripts). */
   toScreen(x: number, y: number): { x: number; y: number } {
     const cam = this.cameras.main, w = cam.width / 2, h = cam.height / 2;

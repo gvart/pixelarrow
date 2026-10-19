@@ -1,6 +1,6 @@
 /**
- * Build mode and economy controls of the sandbox (M2b, W-22..W-28). The UI around it (./buildPanel.ts) is a dev
- * skin that only calls the methods here and reads `status`, so the PixelLab UI kit (W-25) can replace it.
+ * Build mode and economy controls of the sandbox (M2b, W-22..W-28). The UI around it (the HUD's build bar and command
+ * card, ../hud/hud.ts) only calls the methods here and reads `status`.
  *
  *   B toggles build mode (own influence and every footprint shown), with or without a selection; pick a tool
  *   building / tower: the real sprite snapped to tiles follows the cursor, tinted green / red with the sim's reason; R

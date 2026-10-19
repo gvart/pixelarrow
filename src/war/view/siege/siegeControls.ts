@@ -1,11 +1,11 @@
 /**
- * Siege orders for the selected own squads (M2c, W-29), keys and a box in the HUD (the build panel's style). The
+ * Siege orders for the selected own squads (M2c, W-29), keys and the command card buttons (../hud/hud.ts). The
  * targeted orders (crew / uncrew, raise / push ladder, ignite, extinguish, attack) are the context action of E and right
  * click (../interact.ts, W-30); only the toggles keep their own keys, and the HUD buttons stay as a fallback:
  *
  *   Y  deploy / pack the stone thrower the squad crews
  *   Q  fire arrows on / off (archers)
- *   buttons: Crew (the nearest own engine), Uncrew; Raise ladder, Push ladder, Ignite, Extinguish arm a click on the map
+ *   buttons: Crew (the nearest own engine), Uncrew; Raise ladder, Push ladder, Ignite, Extinguish, Move, Attack arm a click on the map
  *   move / hold to a crewing squad drive its engine (the sim's rule)
  *
  * Build mode's siege tools (ram, stone thrower, siege ladder) are BuildMode tools; buildSiege() lays one out here.
@@ -15,11 +15,12 @@ import { SIEGE } from '../../sim/siege';
 import type { BuildingSnap, SiegeSnap, SiegeType, SquadId } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 
-export type Armed = 'raise' | 'push' | 'ignite' | 'extinguish';
+export type Armed = 'raise' | 'push' | 'ignite' | 'extinguish' | 'move' | 'attack';
 const TEAM = 0;
 const PICK_R = 1.6;
 const CREW_FIND = 14;
 const ARMED_TEXT: Record<Armed, string> = {
+  move: 'click the map to move there', attack: 'click an enemy squad to attack it',
   raise: 'click an enemy wall face to raise the ladder', push: 'click an enemy ladder on your wall',
   ignite: 'click an enemy wood building or engine to set it alight', extinguish: 'click a burning own building or engine',
 };
@@ -166,6 +167,13 @@ export class SiegeControls {
     this.armed = null;
     const qs = this.own();
     if (!qs.length) return true;
+    if (a === 'move') { this.s.moveTo(t); this.status = ''; return true; }
+    if (a === 'attack') {
+      const foe = this.s.pick(this.s.input.activePointer, false);
+      if (foe) this.s.attackSquad(foe);
+      this.status = foe ? '' : 'attack: no enemy there';
+      return true;
+    }
     if (a === 'raise') {
       const w = this.tileNear(t, (b) => b.team !== TEAM && !!BUILDINGS[b.type].walk && !BUILDINGS[b.type].access && (b.state === 'done' || b.state === 'damaged'));
       if (!w) { this.status = 'raise ladder: no enemy walkway wall or tower there'; return true; }
@@ -189,43 +197,6 @@ export class SiegeControls {
     return true;
   }
 
-}
-
-/** The siege box of the HUD: the selected squad's engine, buttons with their keys, the status line. */
-export function siegePanel(s: SandboxScene): void {
-  const c: SiegeControls = s.siege;
-  const hud = document.getElementById('hud')!;
-  const box = document.createElement('div');
-  box.id = 'siege';
-  box.innerHTML = `<b>siege</b> <span id="geng" class="dim"></span>
-    <div class="row"><button id="gcrew">Crew</button> <button id="guncrew">Uncrew</button> <button id="gdeploy">Deploy / pack (Y)</button></div>
-    <div class="row"><button id="graise">Raise ladder</button> <button id="gpush">Push ladder</button></div>
-    <div class="row"><button id="gignite">Ignite</button> <button id="gdouse">Extinguish</button> <button id="gfire">Fire arrows (Q)</button></div>
-    <div class="dim" id="gstatus"></div><div class="dim">E / right click: the action at the cursor</div>`;
-  hud.insertBefore(box, document.getElementById('bsel'));
-  const $ = (id: string) => document.getElementById(id) as HTMLButtonElement;
-  $('gcrew').onclick = () => c.crew();
-  $('guncrew').onclick = () => c.uncrew();
-  $('gdeploy').onclick = () => c.deploy();
-  $('graise').onclick = () => c.arm('raise');
-  $('gpush').onclick = () => c.arm('push');
-  $('gignite').onclick = () => c.arm('ignite');
-  $('gdouse').onclick = () => c.arm('extinguish');
-  $('gfire').onclick = () => c.fireArrows();
-  setInterval(() => {
-    const qs = c.own();
-    box.style.display = qs.length ? '' : 'none';
-    if (!qs.length) return;
-    const e = c.engineOf(qs[0]);
-    $('geng').textContent = e ? `#${qs[0]} crews ${SIEGE_NAME[e.type]} · ${e.state} · hp ${Math.ceil(e.hp)}/${e.maxHp} · crew ${e.crewHere}/${e.crewNeed}${e.burning ? ' · burning' : ''}` : '';
-    $('gdeploy').disabled = e?.type !== 'stoneThrower';
-    $('guncrew').disabled = !e;
-    $('gcrew').textContent = e ? 'Let go' : 'Crew';
-    const on = qs.every((q) => c.fire.has(q));
-    $('gfire').textContent = `Fire arrows: ${on ? 'on' : 'off'} (Q)`;
-    for (const [id, a] of [['graise', 'raise'], ['gpush', 'push'], ['gignite', 'ignite'], ['gdouse', 'extinguish']] as const) $(id).classList.toggle('sel', c.armed === a);
-    $('gstatus').textContent = c.status;
-  }, 200);
 }
 
 /** Toolbar entries of build mode's siege tools: name, cost text. */

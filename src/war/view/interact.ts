@@ -29,11 +29,14 @@ const nameOf = (b: BuildingSnap) => b.type.replace(/[A-Z]/g, (c) => ' ' + c.toLo
 
 export class Interact {
   private el: HTMLDivElement;
+  /** The action the label shows now (null: none), for the cursor. */
+  shown: string | null = null;
 
   constructor(private s: SandboxScene) {
     this.el = document.createElement('div');
     this.el.id = 'hoverAct';
-    this.el.style.cssText = 'position:fixed;pointer-events:none;padding:1px 5px;background:rgba(16,18,22,.85);color:#ffe8a8;font:12px/1.4 monospace;border:1px solid #555;border-radius:3px;white-space:nowrap;display:none;z-index:5';
+    this.el.className = 'rf rf-label'; // the kit's hover label (./hud/kit.ts)
+    this.el.style.cssText = 'display:none;z-index:5';
     document.body.appendChild(this.el);
     s.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || e.key.toLowerCase() !== 'e' || s.build.tool) return;
@@ -44,11 +47,12 @@ export class Interact {
   /** The label by the cursor: shown while own squads are selected and the pointer is over the map. */
   label(p: P | null): void {
     const a = p && this.at(p);
+    this.shown = a?.label ?? null;
     if (!a) { this.el.style.display = 'none'; return; }
-    const r = this.s.game.canvas.getBoundingClientRect();
-    this.el.textContent = `E: ${a.label}`;
-    this.el.style.left = `${Math.round(r.left + p!.x + 14)}px`;
-    this.el.style.top = `${Math.round(r.top + p!.y + 12)}px`;
+    const r = this.s.game.canvas.getBoundingClientRect(), z = Number(this.el.style.zoom) || 1;
+    if (this.el.dataset.t !== a.label) { this.el.dataset.t = a.label; this.el.innerHTML = '<b>E:</b> '; this.el.append(a.label); }
+    this.el.style.left = `${Math.round((r.left + p!.x + 16) / z)}px`;
+    this.el.style.top = `${Math.round((r.top + p!.y + 14) / z)}px`;
     this.el.style.display = '';
   }
 
