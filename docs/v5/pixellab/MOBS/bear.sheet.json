@@ -1,0 +1,18 @@
+{
+ "class": "mob_bear",
+ "character": "68bea633-63d6-4446-baed-e1ea44e9be81",
+ "raw": "docs/v5/pixellab/MOBS/raw/bear",
+ "shrink": 0.75,
+ "shadow": true,
+ "scale": 0.55,
+ "canvas": [80, 80],
+ "pad": [6, 8],
+ "clips": {
+  "idle": { "fps": 6, "template": "mob_bear_idle" },
+  "walk": { "fps": 8, "template": "mob_bear_walk" },
+  "run": { "fps": 12, "template": "mob_bear_run" },
+  "attack": { "fps": 12, "strike": 4, "template": "mob_bear_attack" },
+  "die": { "fps": 10, "job": { "south-east": "a1", "north-east": "a1", "south-west": "a1", "north-west": "a1" } },
+  "hit": { "fps": 12, "of": "die", "frames": [0, 1, 1, 0] }
+ }
+}

@@ -1,0 +1,16 @@
+{
+ "class": "mob_ibex",
+ "character": "106440b3-1b29-4219-83f6-2af6b5d6e0b3",
+ "raw": "docs/v5/pixellab/MOBS/raw/ibex",
+ "shrink": 0.62,
+ "scale": 0.55,
+ "canvas": [80, 80],
+ "pad": [6, 8],
+ "clips": {
+  "idle": { "fps": 8, "template": "mob_ibex_idle" },
+  "walk": { "fps": 10, "template": "mob_ibex_walk" },
+  "run": { "fps": 14, "template": "mob_ibex_run" },
+  "die": { "fps": 10, "template": "mob_ibex_die" },
+  "hit": { "fps": 12, "of": "die", "frames": [0, 1, 1, 0] }
+ }
+}

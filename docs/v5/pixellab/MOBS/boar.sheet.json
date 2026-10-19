@@ -1,0 +1,17 @@
+{
+ "class": "mob_boar",
+ "character": "21f40bc0-ea4e-47d6-809c-a6d3d3960f06",
+ "raw": "docs/v5/pixellab/MOBS/raw/boar",
+ "shrink": 0.55,
+ "scale": 0.55,
+ "canvas": [80, 80],
+ "pad": [6, 8],
+ "clips": {
+  "idle": { "fps": 6, "template": "mob_boar_idle" },
+  "walk": { "fps": 10, "template": "mob_boar_walk" },
+  "run": { "fps": 14, "template": "mob_boar_run" },
+  "attack": { "fps": 12, "strike": 4, "job": { "south-east": "a1", "north-east": "a1", "south-west": "a1", "north-west": "a1" } },
+  "die": { "fps": 10, "job": { "south-east": "a1", "north-east": "a1", "south-west": "a1", "north-west": "a1" } },
+  "hit": { "fps": 12, "of": "die", "frames": [0, 1, 1, 0] }
+ }
+}

@@ -1,0 +1,18 @@
+{
+ "class": "mob_jackal",
+ "character": "e4ee44f4-a23e-498f-b6ae-c06a5dc15c13",
+ "raw": "docs/v5/pixellab/MOBS/raw/wolf",
+ "shrink": 0.45,
+ "scale": 0.55,
+ "tint": { "hue": 70, "chroma": 0.07, "lift": 0.08 },
+ "canvas": [80, 80],
+ "pad": [6, 8],
+ "clips": {
+  "idle": { "fps": 6, "template": "mob_wolf_idle" },
+  "walk": { "fps": 10, "template": "mob_wolf_walk" },
+  "run": { "fps": 14, "template": "mob_wolf_run" },
+  "attack": { "fps": 12, "strike": 4, "job": { "south-east": "a1", "north-east": "a1", "south-west": "a1", "north-west": "a1" } },
+  "die": { "fps": 10, "job": { "south-east": "a2", "north-east": "a2", "south-west": "a2", "north-west": "a2" } },
+  "hit": { "fps": 12, "of": "die", "frames": [0, 1, 1, 0] }
+ }
+}
