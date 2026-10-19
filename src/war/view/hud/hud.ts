@@ -3,6 +3,7 @@
  *
  *   top centre     resource band: the 11 resources (icon + own stock), runner and horse at its ends
  *   bottom left    round minimap (./minimap.ts), over it the view mode bar (F2-F7) and the mode's legend (./modes.ts)
+ *   centre         the full map on M (./fullMap.ts)
  *   bottom centre  command card, shown with a selection (a selected building or site wins over squads), in groups:
  *                  selection (class icon, name, men, hp) | orders (move, attack, hold H, stop X) over the formation
  *                  segments (1-4) | squad-specific slots only while relevant (deploy / pack Y, let go while crewing).
@@ -30,6 +31,7 @@ import { SIEGE_NAME } from '../siege/siegeControls';
 import { bar, BUILDING_ICON, cursor, CSS, icon, setUiScale, SIEGE_ICON, snapW, UI, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
 import { Minimap } from './minimap';
 import { ModeBar } from './modes';
+import { FullMap } from './fullMap';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
@@ -91,6 +93,7 @@ export function hud(s: SandboxScene): void {
   const modes = new ModeBar(s);
   document.body.appendChild(modes.el);
   els.push(modes.el);
+  new FullMap(s); // M
 
   // ---------- tooltip ----------
   const tip = mk('rfTip', 'display:none;z-index:6');

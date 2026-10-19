@@ -5,6 +5,13 @@
 import type { SandboxScene } from '../SandboxScene';
 import { hex, MODES } from '../mapModes';
 
+/** The current mode's name and legend rows ('' in Normal). */
+export function legendHtml(s: SandboxScene): string {
+  const t = s.map.tint(s.mode, s.live());
+  return t ? `<div class="rf-name" style="margin-bottom:4px">${MODES.find((m) => m.id === s.mode)!.name}</div>` + t.legend.map((q) =>
+    `<div style="display:flex;align-items:center;gap:4px;margin-top:2px;font-size:10px;line-height:11px"><i style="width:9px;height:9px;flex:none;background:${hex(q.c)};box-shadow:0 0 0 1px #0e0907"></i>${q.label}</div>`).join('') : '';
+}
+
 export class ModeBar {
   readonly el: HTMLDivElement;
   private legend: HTMLDivElement;
@@ -48,9 +55,7 @@ export class ModeBar {
   refresh(): void {
     const mode = this.s.mode;
     for (const b of this.btns) b.classList.toggle('on', b.dataset.mode === mode);
-    const t = this.s.map.tint(mode, this.s.live());
-    const html = t ? `<div class="rf-name" style="margin-bottom:4px">${MODES.find((m) => m.id === mode)!.name}</div>` + t.legend.map((q) =>
-      `<div style="display:flex;align-items:center;gap:4px;margin-top:2px;font-size:10px;line-height:11px"><i style="width:9px;height:9px;flex:none;background:${hex(q.c)};box-shadow:0 0 0 1px #0e0907"></i>${q.label}</div>`).join('') : '';
+    const html = legendHtml(this.s);
     if (html === this.shown) return;
     this.shown = html;
     this.legend.innerHTML = html;
