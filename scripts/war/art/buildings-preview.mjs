@@ -1,6 +1,6 @@
 // Build-mode art preview (Buildings, PROMPTS_ART.md): contact sheet of public/war/buildings and 1:1 mock-ups on the
-// global tiles with soldiers: a walled outpost (palisade, wood gate and towers; a stone wall with its gate and towers), a
-// fort under construction (scaffold) with a squad, and bridges over a river. Usage: node scripts/war/art/buildings-preview.mjs [out dir]
+// global tiles with soldiers: walled outposts (a cyclopean ring with its Lion Gate open; a palisade ring), the Greek fort
+// in four states with squads, every piece's construction order (greek/), and bridges over a river. Usage: node scripts/war/art/buildings-preview.mjs [out dir]
 import { readFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -72,38 +72,52 @@ function walls(id, state, cells, solid) { // cells: set "x,y" of wall tiles; sol
 const hop = soldier('hoplite', 'south-east', 0), hop2 = soldier('hoplite', 'south-west', 40), arc = soldier('archer', 'south-east', 0);
 const land = () => 0;
 
-// 1) walled outpost: a palisade square with a wood gate and wood towers, a stone wall square with a stone gate and towers
+// a wall ring [x0, x1] x [y0, y1] with 2 x 2 corner towers (their NW tile on the ring corner, so they stand out to +x/+y
+// at the far corners: placed so they cover the corner tile) and gates: [{ id, x, y, fw, fh }]; returns kit + obj items
+function ring(kitId, state, x0, x1, y0, y1, towerId, gates, extra = []) {
+  const cells = new Set(), solid = new Set(), items = [], K = (x, y) => `${x},${y}`;
+  for (let x = x0; x <= x1; x++) { cells.add(K(x, y0)); cells.add(K(x, y1)); }
+  for (let y = y0; y <= y1; y++) { cells.add(K(x0, y)); cells.add(K(x1, y)); }
+  const block = (x, y, fw, fh) => { for (let i = 0; i < fw; i++) for (let j = 0; j < fh; j++) { cells.delete(K(x + i, y + j)); solid.add(K(x + i, y + j)); } };
+  for (const [x, y] of [[x0 - 1, y0 - 1], [x1, y0 - 1], [x0 - 1, y1], [x1, y1]]) { block(x, y, 2, 2); items.push({ kind: 'obj', id: `${towerId}-${state}`, x, y }); }
+  for (const g of gates) { block(g.x, g.y, g.fw, g.fh); items.push({ kind: 'obj', id: g.id, x: g.x, y: g.y }); }
+  for (const e of extra) { block(e.x, e.y, e.fw, e.fh); items.push({ kind: 'obj', id: e.id, x: e.x, y: e.y }); }
+  items.push(...walls(kitId, state, cells, solid));
+  return items;
+}
+const squad = (s, x, y, n, cols = 5, dx = 0.55, dy = 0.55) => [...Array(n)].map((_, i) => ({ kind: 'unit', s: Array.isArray(s) ? s[i % s.length] : s, x: x + (i % cols) * dx, y: y + Math.floor(i / cols) * dy }));
+const GREEK = join(OUT, 'greek'); mkdirSync(GREEK, { recursive: true });
+
+// 1) walled outposts: a cyclopean ring with square towers and the Lion Gate open (a squad marching in), the outpost and a
+// storehouse inside; a palisade ring with wood towers and its gate open
 {
-  const items = [], cellsP = new Set(), solidP = new Set();
-  const P0 = 3, P1 = 12; // palisade ring x, y in [3, 12]
-  for (let t = P0; t <= P1; t++) for (const c of [[t, P0], [t, P1], [P0, t], [P1, t]]) cellsP.add(c.join(','));
-  for (const c of [[P0, P0], [P1, P0], [P0, P1], [P1, P1]]) { cellsP.delete(c.join(',')); solidP.add(c.join(',')); items.push({ kind: 'obj', id: 'wood-tower-done', x: c[0], y: c[1] }); }
-  for (const x of [7, 8, 9]) { cellsP.delete(`${x},${P1}`); solidP.add(`${x},${P1}`); } items.push({ kind: 'obj', id: 'wood-gate-x-done', x: 7, y: P1 });
-  for (const y of [6, 7, 8]) { cellsP.delete(`${P0},${y}`); solidP.add(`${P0},${y}`); } items.push({ kind: 'obj', id: 'wood-gate-y-done', x: P0, y: 6 });
-  items.push(...walls('palisade', 'done', cellsP, solidP));
-  items.push({ kind: 'obj', id: 'outpost-done', x: 8, y: 5 }, { kind: 'obj', id: 'camp-done', x: 4, y: 7 }, { kind: 'obj', id: 'storehouse-done', x: 8, y: 8 }, { kind: 'obj', id: 'lumber-pile-done', x: 5, y: 5 });
-  // stone ring to the east (clear of the palisade front): x in [21, 31], y in [3, 13], corner towers, a gate in the +y side and in the +x side
-  const cellsS = new Set(), solidS = new Set(), S0x = 21, S1x = 31, S0y = 3, S1y = 13;
-  for (let x = S0x; x <= S1x; x++) { cellsS.add(`${x},${S0y}`); cellsS.add(`${x},${S1y}`); }
-  for (let y = S0y; y <= S1y; y++) { cellsS.add(`${S0x},${y}`); cellsS.add(`${S1x},${y}`); }
-  const blockS = (cx, cy) => { for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { cellsS.delete(`${cx + dx},${cy + dy}`); solidS.add(`${cx + dx},${cy + dy}`); } };
-  for (const [cx, cy] of [[S0x, S0y], [S1x, S0y], [S0x, S1y], [S1x, S1y]]) { blockS(cx, cy); items.push({ kind: 'obj', id: 'stone-tower-done', x: cx - 1, y: cy - 1 }); }
-  blockS(26, S1y); items.push({ kind: 'obj', id: 'stone-gate-x-done', x: 25, y: S1y - 1 });
-  blockS(S1x, 8); items.push({ kind: 'obj', id: 'stone-gate-y-done', x: S1x - 1, y: 7 });
-  items.push(...walls('stone-wall', 'done', cellsS, solidS));
-  items.push({ kind: 'obj', id: 'barracks-done', x: 23, y: 5 }, { kind: 'obj', id: 'olive-press-done', x: 27, y: 5 }, { kind: 'obj', id: 'farm-done', x: 23, y: 8 });
-  for (let i = 0; i < 6; i++) items.push({ kind: 'unit', s: i % 2 ? hop2 : hop, x: 7.6 + i * 0.6, y: P1 + 2.2 + (i % 2) * 0.5 }, { kind: 'unit', s: arc, x: 25 + i * 0.5, y: S1y + 2.6 });
-  scene(36, land, items, 'BUILDINGS_outpost_1x');
+  const items = [];
+  items.push(...ring('stone-wall', 'done', 20, 29, 4, 13, 'stone-tower', [{ id: 'stone-gate-x-open', x: 24, y: 13, fw: 2, fh: 1 }, { id: 'stone-gate-y-done', x: 29, y: 8, fw: 1, fh: 2 }]));
+  items.push({ kind: 'obj', id: 'outpost-done', x: 23, y: 7 }, { kind: 'obj', id: 'storehouse-done', x: 26, y: 6 }, { kind: 'obj', id: 'stone-pile-done', x: 22, y: 11 });
+  items.push(...squad([hop, hop2], 24.2, 12.6, 6, 2, 0.8, 0.7), ...squad(arc, 24.1, 15.2, 6, 3, 0.6, 0.6));
+  items.push(...ring('palisade', 'done', 4, 12, 5, 13, 'wood-tower', [{ id: 'wood-gate-x-open', x: 8, y: 13, fw: 2, fh: 1 }, { id: 'wood-gate-y-done', x: 4, y: 8, fw: 1, fh: 2 }]));
+  items.push({ kind: 'obj', id: 'camp-done', x: 6, y: 7 }, { kind: 'obj', id: 'lumber-pile-done', x: 10, y: 7 });
+  items.push(...squad([hop, hop2], 8.2, 14.4, 6, 3, 0.6, 0.6));
+  const im = scene(34, land, items, 'BUILDINGS_outpost_1x');
+  writeImage(join(GREEK, 'GREEK_outpost_open_1x.png'), crop(im, { x: 0, y: 200, w: im.w, h: im.h - 200 }));
 }
 
-// 2) fort under construction (scaffold) with a building squad, a foundation and a finished wall stub
+// 2) the Greek fort (citadel) done, wrecked and under construction (scaffold, with a building squad and material piles)
 {
-  const items = [{ kind: 'obj', id: 'fort-scaffold', x: 3, y: 3 }, { kind: 'obj', id: 'stone-pile-done', x: 14, y: 6 }, { kind: 'obj', id: 'lumber-pile-done', x: 14, y: 8 }, { kind: 'obj', id: 'lumber-pile-done', x: 7, y: 15 }, { kind: 'obj', id: 'storehouse-foundation', x: 15, y: 11 }, { kind: 'obj', id: 'camp-done', x: 4, y: 16 }];
-  const run = new Set(), none = new Set(); for (let x = 13; x <= 19; x++) run.add(`${x},3`);
-  items.push(...walls('stone-wall', 'scaffold', run, none).map((w) => (+w.x > 16 ? { ...w, state: 'foundation' } : w)));
-  for (let i = 0; i < 10; i++) items.push({ kind: 'unit', s: i % 3 ? hop : hop2, x: 13.3 + (i % 5) * 0.55, y: 9 + Math.floor(i / 5) * 0.6 });
-  for (let i = 0; i < 4; i++) items.push({ kind: 'unit', s: hop2, x: 9 + i * 0.6, y: 14.2 });
-  scene(22, land, items, 'BUILDINGS_fort_scaffold_1x');
+  const items = [{ kind: 'obj', id: 'fort-done', x: 2, y: 2 }, { kind: 'obj', id: 'fort-damaged', x: 16, y: 2 }, { kind: 'obj', id: 'fort-scaffold', x: 2, y: 16 }, { kind: 'obj', id: 'fort-rising', x: 16, y: 16 }];
+  items.push({ kind: 'obj', id: 'stone-pile-done', x: 13, y: 18 }, { kind: 'obj', id: 'stone-pile-done', x: 13, y: 20 }, { kind: 'obj', id: 'lumber-pile-done', x: 7, y: 27 });
+  items.push(...squad([hop, hop2], 12.3, 21.5, 10, 5), ...squad(hop2, 4, 27.3, 4, 4));
+  items.push(...squad([hop, hop2], 5, 12.6, 6, 6, 0.6), ...squad(arc, 18.5, 13, 5, 5, 0.6));
+  const im = scene(28, land, items, 'BUILDINGS_fort_scaffold_1x');
+  writeImage(join(GREEK, 'GREEK_fort_states_1x.png'), crop(im, { x: 0, y: 200, w: im.w, h: im.h - 200 }));
+}
+
+// 2b) construction order of every procedural piece: foundation -> rising -> scaffold -> done -> damaged (+ open gates)
+{
+  const ids = ['stone-tower', 'stone-tower-round', 'stone-gate-x', 'keep', 'wood-tower', 'wood-gate-x'], st = ['foundation', 'rising', 'scaffold', 'done', 'damaged', 'open'];
+  const cw = 300, rh = 360, im = fill(blank(cw * st.length + 20, rh * ids.length + 20));
+  ids.forEach((id, r) => st.forEach((s, c) => { const o = spr[`${id}-${s}`]; if (o) paste(im, o.im, 10 + c * cw + Math.round((cw - o.w) / 2), 10 + r * rh + rh - o.h - 10); }));
+  writeImage(join(GREEK, 'GREEK_states_1x.png'), im);
 }
 
 // 3) bridges over a river: a stone bridge along x and a wooden one along y; deep water 8 tiles bank to bank
@@ -122,9 +136,9 @@ const land = () => 0;
 }
 // 4) seam check at 3x: straight runs and corners of every wall state, on both axes
 {
-  const im = fill(blank(4 * 300, 4 * 330));
-  ['palisade', 'stone-wall'].forEach((id, r) => ['foundation', 'scaffold', 'done', 'damaged'].forEach((s, c) => {
-    const ox = c * 300 + 150, oy = r * 600 + 230, k = kit[id];
+  const ST = ['foundation', 'rising', 'scaffold', 'done', 'damaged'], im = fill(blank(ST.length * 300, 2 * 330));
+  ['palisade', 'stone-wall'].forEach((id, r) => ST.forEach((s, c) => {
+    const ox = c * 300 + 150, oy = r * 330 + 250, k = kit[id];
     const cells = new Set(['0,0', '1,0', '2,0', '3,0', '0,1', '0,2', '0,3', '3,1', '3,2']);
     for (const w of walls(id, s, cells, new Set()).sort((a, b) => a.x + a.y - b.x - b.y)) paste(im, frame(id, s, w.n), ox + (w.x - w.y) * 32 - k.tileOrigin.x, oy + (w.x + w.y) * 16 - k.tileOrigin.y);
   }));

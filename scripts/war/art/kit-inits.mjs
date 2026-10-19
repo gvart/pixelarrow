@@ -100,5 +100,97 @@ function trestle(w = 264, h = 104) {
   return im;
 }
 
-for (const [name, im] of Object.entries({ palisade: palisade(), ashlar: ashlar(), arches: arches(), trestle: trestle() })) writeImage(join(OUT, `${name}.png`), im);
+// ---- Greek set (Buildings, Greek redo). Long textures repeat every 4 tiles (264 px = 8 m) so the masonry does not
+// repeat block for block every 2 m; they are drawn 400 px wide so the build can quilt 400 -> 264.
+export const PL = 264;
+const LIME = hexToRgb('#6a645a'), JOINT = hexToRgb('#1c1a17');
+// Voronoi blocks, periodic in x (period pw), from seeds [{x, y, f}]; xs: x squash (wider blocks); returns per px
+// { s: seed index, e: distance to the joint }. Each block is lit from the upper left and darkens towards its lower edge.
+function blocks(im, seeds, pw, y0, y1, xs = 0.7, base = LIME, jw = 1.6) {
+  for (let y = y0; y < y1; y++) for (let x = 0; x < im.w; x++) {
+    let d1 = 1e9, d2 = 1e9, s1 = -1;
+    for (let i = 0; i < seeds.length; i++) {
+      const s = seeds[i]; let dx = Math.abs(((x % pw) - s.x)); dx = Math.min(dx, pw - dx) * xs; const dy = y - s.y, d = Math.hypot(dx, dy);
+      if (d < d1) { d2 = d1; d1 = d; s1 = i; } else if (d < d2) d2 = d;
+    }
+    const e = (d2 - d1) / 2, s = seeds[s1]; let dx = (x % pw) - s.x; if (dx > pw / 2) dx -= pw; if (dx < -pw / 2) dx += pw;
+    let c = mul(base, s.f * (1 - 0.22 * (dx / s.r + (y - s.y) / s.r) * 0.5) * (0.93 + 0.14 * hash(x >> 1, y >> 1, 11)));
+    if (e < jw) c = JOINT;
+    else if (e < jw + 2.2) c = mul(c, y > s.y || dx > 0 ? 0.72 : 1.22); // bevel: lit top-left rim, shadowed lower-right rim
+    set(im, x, y, c);
+  }
+}
+function seedRows(pw, y0, y1, hMin, hMax, wMin, wMax, k) {
+  const seeds = [];
+  for (let y = y1, r = 0; y > y0; r++) {
+    const ch = hMin + (hMax - hMin) * hash(r, k, 1); let x = pw * hash(r, k, 2);
+    for (let n = 0; n < 40; n++) { const bw = wMin + (wMax - wMin) * hash(r, n, k + 3); seeds.push({ x: (x + bw / 2) % pw, y: y - ch / 2 + (hash(r, n, k + 4) - 0.5) * ch * 0.5, f: 0.78 + 0.4 * hash(r, n, k + 5), r: Math.max(bw, ch) / 2 }); x += bw; if (x >= pw * hash(r, k, 2) + pw - wMin * 0.6) break; }
+    y -= ch;
+  }
+  return seeds;
+}
+// Cyclopean wall elevation: 5.0 m of huge irregular polygonal blocks (bigger low down) and a 0.9 m parapet of smaller
+// stones with a capping course. Rows from the bottom: 0..164 wall, 165..196 parapet.
+function cyclopean(w = 400, h = 200) {
+  const im = blank(w, h), walk = h - 165, top = h - 197;
+  blocks(im, seedRows(PL, walk, h, 34, 52, 50, 92, 21), PL, walk, h, 0.62);
+  blocks(im, seedRows(PL, top + 6, walk, 24, 26, 34, 60, 23), PL, top + 6, walk, 0.7);
+  for (let x = 0; x < w; x++) for (let y = top; y < top + 6; y++) set(im, x, y, y === top + 5 || (x % 59) === 0 ? JOINT : mul(LIME, (y === top ? 1.25 : 1.02) * (0.95 + 0.1 * hash(x >> 2, 1, 12))));
+  return im;
+}
+// Isodomic ashlar (towers, the megaron, gate faces): even courses 0.55 m, blocks 0.9-1.6 m, drafted margins.
+function isodomic(w = 400, h = 200) {
+  const im = blank(w, h), ch = 18;
+  for (let y0 = h, r = 0; y0 > 0; r++, y0 -= ch) {
+    const J = []; for (let x = PL * hash(r, 31), n = 0; n < 12; n++) { J.push(Math.round(x) % PL); x += 30 + 22 * hash(r, n, 32); if (x >= PL * hash(r, 31) + PL - 26) break; }
+    J.sort((a, b) => a - b);
+    for (let x = 0; x < w; x++) {
+      const px = x % PL, bi = J.filter((j) => j <= px).length, f = 0.8 + 0.35 * hash(bi, r, 33), dj = Math.min(...J.map((j) => Math.min(Math.abs(px - j), PL - Math.abs(px - j))));
+      for (let y = Math.max(0, y0 - ch); y < y0; y++) {
+        let c = mul(LIME, f * (0.94 + 0.12 * hash(x >> 1, y >> 1, 34)));
+        if (dj === 0 || y === y0 - ch) c = JOINT;
+        else if (dj <= 2 || y <= y0 - ch + 2) c = mul(c, 1.15); else if (y >= y0 - 2) c = mul(c, 0.75);
+        set(im, x, y, c);
+      }
+    }
+  }
+  return im;
+}
+// Terracotta roof (seen square on): courses of flat pan tiles 0.3 m deep, round cover tiles every 0.4 m, eaves at the bottom.
+function rooftiles(w = 264, h = 264) { // courses 0.45 m (15 px), cover tiles every 0.5 m (16.5 px), lit from the left
+  const im = blank(w, h), TC = hexToRgb('#7b4a36');
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const cy = y % 15, row = Math.floor(y / 15), px = x % 16.5, k = row * 31 + Math.floor(x / 16.5);
+    let c = mul(TC, (0.8 + 0.35 * hash(k, 41)) * (1.05 - cy * 0.02));
+    if (px >= 11) { const t = (px - 11) / 5.5; c = mul(TC, (0.75 + 0.35 * hash(k, 42)) * (t < 0.3 ? 1.45 : t < 0.65 ? 1.15 : 0.7)); } // the half-round cover tile
+    else if (px < 1.5) c = mul(TC, 0.5); // shadow of the cover tile on its right
+    if (cy >= 13) c = mul(c, 0.5); // course shadow
+    set(im, x, y, c);
+  }
+  return im;
+}
+// Lion Gate front (4 m wide x 5.9 m): two monolithic jambs, a 2.8 m x 3.2 m opening, a massive lintel, above it the
+// relieving triangle filled with a relief slab of two rampant lions at a column, ashlar round it, the parapet on top.
+function liongate(w = 132, h = 196) {
+  const im = isodomic(w, h), base = h, open = [20, 112], oTop = h - 106, lin = [oTop - 30, oTop];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (x >= open[0] && x < open[1] && y >= oTop) { set(im, x, y, [0, 0, 0], 0); continue; }
+    if ((x < open[0] || x >= open[1]) && y >= oTop - 2) set(im, x, y, mul(LIME, (x < open[0] ? 1.1 - x * 0.006 : 0.85) * (0.95 + 0.1 * hash(x >> 1, y >> 2, 51)))); // monolith jambs
+    if ((x === open[0] - 1 || x === open[1]) && y >= oTop) set(im, x, y, JOINT);
+    if (y >= lin[0] && y < lin[1] && x >= 6 && x < w - 6) set(im, x, y, y === lin[0] || y === lin[1] - 1 ? JOINT : mul(LIME, 1.05 * (0.95 + 0.1 * hash(x >> 2, y >> 1, 52)))); // lintel
+    const ty = lin[0] - y;
+    if (ty > 0 && ty < 54 && Math.abs(x - w / 2) < 46 - ty * 0.85) { // relieving triangle with the relief slab
+      const ax = x - w / 2, a = Math.abs(ax);
+      const lion = (a > 12 && a < 22 && ty > 2 && ty < 22) || Math.hypot((a - 13) / 9, (ty - 24) / 6) < 1 || Math.hypot((a - 7) / 4.5, (ty - 32) / 4.5) < 1; // hind legs, body, head
+      const col = (a < 3.5 && ty > 2 && ty < 28) || (a < 6 && ty >= 28 && ty < 31);
+      let c = mul(LIME, 0.55 + 0.06 * hash(x >> 1, y >> 1, 53));
+      if (lion) c = mul(LIME, (ax < 0 ? 1.15 : 0.95) * (1 - (ty - 2) * 0.004)); if (col) c = mul(LIME, 1.2);
+      if (Math.abs(Math.abs(ax) - (46 - ty * 0.85)) < 1.2) c = JOINT;
+      set(im, x, y, c);
+    }
+  }
+  return im;
+}
+
+for (const [name, im] of Object.entries({ palisade: palisade(), ashlar: ashlar(), arches: arches(), trestle: trestle(), cyclopean: cyclopean(), isodomic: isodomic(), rooftiles: rooftiles(), liongate: liongate() })) writeImage(join(OUT, `${name}.png`), im);
 console.log('inits ->', OUT);

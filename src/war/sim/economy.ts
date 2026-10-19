@@ -20,10 +20,10 @@ export interface BuildingDef {
 }
 
 export const BUILDINGS: Record<BuildingType, BuildingDef> = {
-  camp: { w: 3, h: 3, hp: 400, cost: {}, labour: 300, influence: 12, material: 'wood', store: true },
+  camp: { w: 4, h: 4, hp: 400, cost: {}, labour: 300, influence: 12, material: 'wood', store: true },
   storehouse: { w: 3, h: 3, hp: 600, cost: { wood: 60 }, labour: 900, influence: 0, material: 'wood', store: true },
-  outpost: { w: 2, h: 2, hp: 600, cost: { wood: 40, stone: 30 }, labour: 1200, influence: 18, material: 'wood' },
-  fort: { w: 6, h: 6, hp: 5000, cost: { stone: 400, wood: 150 }, labour: 24000, influence: 32, material: 'stone', store: true },
+  outpost: { w: 3, h: 3, hp: 600, cost: { wood: 40, stone: 30 }, labour: 1200, influence: 18, material: 'wood' },
+  fort: { w: 10, h: 10, hp: 5000, cost: { stone: 400, wood: 150 }, labour: 24000, influence: 32, material: 'stone', store: true },
   barracks: { w: 4, h: 3, hp: 1200, cost: { wood: 120, stone: 40 }, labour: 3000, influence: 0, material: 'wood' },
   farm: { w: 4, h: 4, hp: 300, cost: { wood: 30 }, labour: 600, influence: 0, material: 'wood', yields: { res: 'food', max: 60, regrow: 0.5, rate: 1 } },
   olivePress: { w: 3, h: 3, hp: 700, cost: { wood: 30, stone: 60 }, labour: 1500, influence: 0, material: 'stone', yields: { res: 'food', max: 100, regrow: 0.8, rate: 1.2 } },
