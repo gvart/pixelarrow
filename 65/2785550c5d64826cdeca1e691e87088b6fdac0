@@ -1,0 +1,45 @@
+src/war/types.ts
+  s_cfc22b058125c4::t_e5bae6100d7921 47-96,98-99,112-114,122-123,173-178
+src/war/sim/siege.ts
+  s_cfc22b058125c4::t_a880f94e9d106d 1-130,136-156,158-389
+  s_cfc22b058125c4::t_00eebd09823195 131-135,157
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_570e6ea773cfc8 28-32,35,42,77-84,121,124-126,152-154,160,163-165,215,218-240,319,363-378,380-383,388-418,498-627,851,853,856,858-860,862-881,892-904,906-907,923-924,1057-1058,1092-1094,1110,1229,1245,1256,1273,1279-1280,1287,1291
+  s_cfc22b058125c4::t_a62b40a7eac9ac 1095-1098
+  s_cfc22b058125c4::t_edaf3f1513e03a 379,384-387
+tests/war/siege.test.ts
+  s_cfc22b058125c4::t_b276847e2920bf 229
+  s_cfc22b058125c4::t_3eda2d0b2a199b 257
+  s_cfc22b058125c4::t_de91da924c5013 1-2,4-108,110-122,124-226,230-240,242-256,258-286
+  s_cfc22b058125c4::t_b2bc9b6ac5eb71 3
+  s_cfc22b058125c4::t_a62b40a7eac9ac 109,123,227-228,241
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_fc449ea41d8058 280
+  s_cfc22b058125c4::t_24592a3d999cd9 1253-1256
+  s_cfc22b058125c4::t_009434425b4db8 42-53
+  s_cfc22b058125c4::t_7ca0d8ddad9309 1068-1150,1152-1159,1161
+  s_cfc22b058125c4::t_3cf260917b08cf 101
+  s_cfc22b058125c4::t_7dd862a831ac81 21-26
+  s_cfc22b058125c4::t_0b9fd650933757 1232
+  s_cfc22b058125c4::t_0ea79a25d702d7 578-579,584
+  s_cfc22b058125c4::t_8a1c272111bc78 600-628,630-657
+  s_cfc22b058125c4::t_d8159f25ae6342 91-95,97
+  s_cfc22b058125c4::t_5e0ea91ecec73e 629,1160
+  s_cfc22b058125c4::t_af97169bb95836 1151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "652785550c5d64826cdeca1e691e87088b6fdac0",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
