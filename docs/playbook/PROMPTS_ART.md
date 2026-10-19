@@ -898,3 +898,60 @@ strip it (the mock-up repaints the rim from 2 px inward) or the map shows a grid
 stack the same tile 1 level = 16 px (half the diamond) and its earth side draws the cliff. Objects: `create_map_object`
 at true pixel size (33 px/m, up to 400 px) in high top-down already reads as iso and matches the soldiers' pixel
 density; always key out a grey ground and ask for no base. FX: `vfx_workbench` presets recoloured to the dark ramp.
+
+## 23. Global war — test-ridge tiles and objects (ART-4)
+
+Real terrain sets and an object library for test-ridge (W-20). Raws: `shots/war/pixellab/art4/raw/` (git-ignored;
+`tiles/<dir>/tile_<mask>.png`, `objects/<raw>.png`), fetched with `scripts/war/art/fetch.mjs`. `scripts/war/art/build.mjs`
+(list in `assets.mjs`) writes `public/war/tiles/<pair>.png` + `tiles.json` and `public/war/objects/<id>.png` +
+`objects.json`; `scripts/war/art/preview.mjs` draws the contact sheet and the 1:1 mock-up into `shots/war/pixellab/art4/`.
+76 generations (7 sets x 10, objects ~0.4–1 each).
+
+All tile sets: `create_tiles_pro`, isometric, `tile_size` 64, `low top-down`, `tile_feature: tileset`, seed 31, no palette
+(unless noted). Tiles come back 64 x 48 (2:1 top + 16 px side), `tile_i` = mask i, set bit = the first terrain.
+
+| Pair | Call | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| grass-dirt | `4dd226e7` (ART-3) | see §22 | reference: its full-grass tile is the grass of every set; its side is the `earth` side |
+| grass-sand | `15ee8a0d` | `dark muted olive grass to pale dull dry sand` + `palette` (66 colours median-cut from the ART-3 tiles), `palette_name: dark epic ancient Greece` | **palette lock hurt**: grass came out brown with blue specks. Kept only because grass is replaced anyway; sand toned x0.82 |
+| grass-rock | `11b1a38c` | `dark muted olive grass to dark grey weathered rock` | kept; its rock side is the `rock` cliff |
+| grass-forest | `adbc0d25` | `dark muted olive grass to dark forest floor of brown pine needles, fallen leaves and roots` | rejected: reads as tilled soil in a grid |
+| grass-forest | `dbdd9898` (seed 32) | `dark muted olive grass to dark forest floor of scattered brown pine needles, dry leaf litter and twigs` | kept |
+| grass-marsh | `5f02d0cd` | `dark muted olive grass to dark marsh of black mud, murky puddles and sedge tufts` | kept; full marsh tile repeats visibly over big areas |
+| grass-road | `dc427abc` | `dark muted olive grass to a packed pale earth road with worn ruts and small stones` | kept, toned x0.7 (raw is as pale as sand) |
+| grass-shallow | `a7097915` (ART-3) | see §22 | kept; its full-water tile is the shallow water of shallow-deep |
+| shallow-deep | `05ee02ca` | `shallow murky slate-blue water over pebbles to deep dark slate-blue water` | kept; shallow replaced by grass-shallow's water, deep toned x0.72 |
+
+Objects: `create_map_object`, high top-down, high detail, detailed shading, basic mode. Every prompt ends with
+`seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows,` + the no-base clause
+(`isolated on a transparent background, no ground, no grass, no base under it`, later `only the <thing> on a fully
+transparent background, no ground, no grass, no base under it`). Subject part below.
+
+| id | Call | Canvas | Subject (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| pine-a | `5f138634` | 200 x 400 | `one tall dark Mediterranean black pine tree, straight dark brown trunk, layered dark muted green needle canopy` | small grass square anyway, opaque white bg; base dropped |
+| pine-b | `f4cd85fe` (ART-3) | 200 x 400 | see §22 | grey bg keyed (also inside the crown), base dropped |
+| tall-tree | `f7af9159` | 240 x 400 | `one tall Mediterranean umbrella stone pine tree, tall bare reddish-brown trunk, flat wide dark muted green canopy on top` | not an umbrella pine (reads broadleaf); grass square + grey bg; graded sat 0.65 val 0.72 |
+| cypress | `22d1629c` | 100 x 340 | `one tall slender dark Mediterranean cypress tree, narrow flame-shaped dense dark muted green crown, short dark brown trunk` | clean, no base |
+| olive-a | `05b4c48b` | 200 x 200 | `one gnarled old olive tree, thick twisted grey-brown trunk, wide rounded crown of dark muted grey-green olive leaves` | clean |
+| olive-b | `f4cb5094` | 180 x 200 | `one young olive tree, slender twisted grey trunk split in two, airy irregular crown of dark muted silver-grey-green olive leaves` | clean |
+| oak | `ad7a2a11` | 300 x 340 | `one broad old oak tree, thick dark brown trunk and spreading branches, dense rounded crown of dark muted green oak leaves` | big grass disc anyway; base dropped |
+| dead-tree | `9aa1eab1` | 160 x 240 | `one dead leafless tree, cracked pale grey-brown trunk, bare twisted branches` | clean |
+| bush-a | `bef56f03` | 80 x 64 | `one low dense Mediterranean mastic shrub, small dark grey-green leaves, rounded clump` | clean |
+| bush-b | `cf0ce6b4` | 72 x 80 | `one spiky dark juniper bush, dark blue-green needles, irregular upright clump` | too blue, soil ring; graded and dropped |
+| reeds | `5a5372ee` | 64 x 80 | `one clump of tall marsh reeds and bulrushes, thin dull olive-brown stalks with dark brown seed heads` (+ `no water`) | dirt mound; dropped |
+| boulder-a | `27f2ba41` | 96 x 80 | `one large weathered dark grey granite boulder with dark moss in the cracks` | clean |
+| boulder-b | `65ddf82b` | 80 x 56 | `a small cluster of three rough dark grey limestone rocks, angular and weathered` | mossy base; dropped (keep neutral grey) |
+| (rejected) | `59762e36` | 160 x 112 | `one short ruined ancient stone wall section, rough dark grey fieldstone blocks, broken uneven top, a few fallen stones` | an L-shaped ruin on a ground slab |
+| wall-ruin | `c93797f6` | 144 x 112 | `one single straight free-standing piece of a ruined ancient stone wall, about two metres tall, rough dark grey fieldstone blocks, broken jagged top` + `only the wall itself on a fully transparent background, nothing under it: no floor, no ground slab, no grass, no base` | still a grass slab; dropped (keep neutral grey) |
+| (rejected) | `715cbd3f` | 220 x 400 | `one ancient Greek square stone watchtower, ... a flat timber roof with a low stone parapet and no crenellations, ...` | crenellated castle tower anyway |
+| watchtower | `65e341c4` | 220 x 400 | `one ancient Greek stone watchtower (pyrgos), square tower of rough dark grey ashlar blocks, three storeys tall, a few small dark window slits, a low wooden door at the bottom, a low-pitched roof of dark weathered terracotta tiles on top, no battlements, showing two walls` + `no ground, no base` | kept: no battlements, but an open top instead of the roof; ~11.5 m; graded val 0.68 |
+
+**Lessons:** (1) do not pass `palette` to `create_tiles_pro`: the colours lock but the terrain reading is lost. (2) Grass
+cannot be matched by prompt or seed, so the build replaces it: each top pixel is classed first/second terrain (nearest
+colour to the set's full tiles, gated by the corner mask, two 3x3 majority passes) and first-terrain pixels take the
+reference full tile's pixel at the same place, then the rim is repainted and everything snaps to one palette; across sets
+grass is pixel-identical and no grid shows. (3) "no base" in the prompt is ignored about half the time (grass squares,
+discs, slabs, soil mounds, opaque white/grey backgrounds): the build keys the border colour (and inside the crown with
+`keyAll`) and drops the base per object (`base: { y0, x0, x1, cut, keep }` in `assets.mjs`), then removes specks. (4) PixelLab
+objects are brighter and greener than the tiles: grade them (`grade: { sat, val }`).
