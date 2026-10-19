@@ -71,6 +71,11 @@ export class SimClient {
     this.send({ t: 'skip', ticks });
   }
 
+  /** Dev: damage a building (scripts: a breach). */
+  damageBuilding(id: number, dmg: number): void {
+    this.send({ t: 'damage', id, dmg });
+  }
+
   /** Dev: add to a team's stockpile. */
   addStock(team: number, res: ResourceKind, n: number): void {
     this.send({ t: 'stock', team, res, n });

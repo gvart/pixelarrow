@@ -20,6 +20,7 @@ export type ToWorker =
   | { t: 'stock'; team: number; res: ResourceKind; n: number }
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
+  | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
   | { t: 'check'; id: number; team: number; type: BuildingType; x: number; y: number; rot: 0 | 1 }
   | { t: 'checkWall'; id: number; team: number; wall: Omit<WallOrder, 'kind' | 'squad'> };
 
@@ -104,6 +105,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'order') sim.order(m.o);
   else if (m.t === 'claim') { build(sim)?.claim(m.team, m.x, m.y, m.r); }
   else if (m.t === 'stock') build(sim)?.addStock(m.team, m.res, m.n);
+  else if (m.t === 'damage') build(sim)?.damageBuilding(m.id, m.dmg);
   else if (m.t === 'prebuild') prebuild(sim, m.team, m.max);
   else if (m.t === 'skip') { for (let i = 0; i < m.ticks; i++) { sim.step(); brains!.tick(); } tick(); }
   else if (m.t === 'check') postMessage({ reply: m.id, place: build(sim)?.checkPlacement(m.team, m.type, m.x, m.y, m.rot) ?? null });
