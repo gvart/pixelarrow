@@ -1,0 +1,68 @@
+docs/v5/pixellab/ANIM1/archer.jobs.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-10
+scripts/art/pixellab/anim1/spec.mjs
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-46
+.github/workflows/deploy.yml
+  s_cfc22b058125c4::t_2ec9f5838c6275 157-158
+scripts/art/pack/pack.mjs
+  s_cfc22b058125c4::t_2ec9f5838c6275 25
+scripts/art/pixellab/anim1/append.mjs
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-124
+docs/v5/art/SHEET_FORMAT.md
+  s_cfc22b058125c4::t_2ec9f5838c6275 179-180
+docs/v5/pixellab/ANIM1/militia.jobs.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-18
+scripts/art/pixellab/anim1/prep.mjs
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-38
+docs/v5/art/STYLE_LOCK.md
+  s_cfc22b058125c4::t_2ec9f5838c6275 113-114
+src/art/sheetManifest.ts
+  s_cfc22b058125c4::t_2ec9f5838c6275 35-36,80-83
+src/assets/sheets/hoplite/manifest.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 129-138
+src/assets/sheets/militia/manifest.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 129-148
+docs/v5/pixellab/ANIM1/slinger.sheet.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-217
+scripts/art/pixellab/anim1/job.mjs
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-23
+src/assets/sheets/slinger/manifest.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 129-138
+docs/v5/pixellab/ANIM1/slinger.jobs.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-10
+tests/sheetMounted.test.ts
+  s_cfc22b058125c4::t_2ec9f5838c6275 139-140
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_e686ad962b5ba0 1104
+  s_cfc22b058125c4::t_2ec9f5838c6275 1105-1154
+docs/v5/pixellab/ANIM1/militia.sheet.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-259
+scripts/art/pixellab/anim1/motion.mjs
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-28
+scripts/art/pixellab/anim1/prompts.mjs
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-64
+src/assets/sheets/archer/manifest.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 129-138
+docs/v5/pixellab/ANIM1/hoplite.jobs.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-10
+docs/v5/pixellab/ANIM1/archer.sheet.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-218
+docs/v5/pixellab/ANIM1/hoplite.sheet.json
+  s_cfc22b058125c4::t_2ec9f5838c6275 1-162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2734d95250d9dd3b93025888ddc5841f728c20ff",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
