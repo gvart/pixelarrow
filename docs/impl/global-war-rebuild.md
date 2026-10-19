@@ -81,7 +81,7 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 
 - [x] **ART-5 asset fixes + QA gate** — roofed watchtower, true umbrella pine, variant tiles so marsh/forest floor don't repeat, sand/water + sand/shallow sets, automated asset QA script. depends on: ART-4
 - [ ] **ART-6.. biome libraries** — one biome per item (tile sets + variants + 15–25 objects/props), owner approves each. depends on: ART-5
-- [ ] **ART-R render integration** — renderer draws PixelLab tiles (autotile by corner mask), cliff strips, objects from region data. depends on: M1d, ART-4
+- [x] **ART-R render integration** — renderer draws PixelLab tiles (autotile by corner mask), cliff strips, objects from region data. depends on: M1d, ART-4
 
 ### M2 Region gameplay — resources, gather orders, building, mobs, claiming, entry no-build band
 - W-22 Building (owner 2026-10-19): a separate **build mode** (own UI and camera/placement overlay). Buildable: home base/camp, castle/fortress, walls + gates + towers, basic economy buildings (to expand territory), bridges across rivers. Soldiers do the construction with new **build/carry animations** on the existing soldier sheets. Every structure has **intermediate construction states** (foundation → scaffold → done) and can be damaged/razed. No building in entry no-build bands.
