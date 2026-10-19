@@ -1,4 +1,4 @@
-/** The sandbox dev panel (HTML overlay): scenarios, spawning, time, overlays, perf, the fight score. */
+/** The sandbox dev panel (HTML overlay, F1 / the DEV button of ./hud/hud.ts): scenarios, spawning, time, overlays, perf, the fight score, +500 resources, claim. */
 import type Phaser from 'phaser';
 import { SCENARIOS, type Scenario } from '../scenarios';
 import type { ResourceKind } from '../types';
@@ -25,6 +25,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     ${s.region.id === 'test-ridge' ? `<div class="row">go to <select id="spot">${Object.keys(s.spots).map((k) => `<option>${k}</option>`).join('')}</select></div>` : ''}
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
     <div class="row"><button id="cut">Walls: full (V)</button></div>
+    <div class="row"><button id="b500">+500 resources</button> <button id="bclaim">Claim here</button></div>
     <div class="row">${(['height', 'cost', 'grid', 'zones', 'mobs'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
@@ -52,6 +53,8 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     s.sim.speed(paused ? 0 : Number(val('speed')));
   };
   $('cut').onclick = () => (s.build.layer.cutaway = !s.build.layer.cutaway);
+  $('b500').onclick = () => s.build.addResources();
+  $('bclaim').onclick = () => s.build.armClaim();
   $('speed').onchange = () => { if (!paused) s.sim.speed(Number(val('speed'))); };
   el.querySelectorAll<HTMLInputElement>('[data-ov]').forEach((c) => (c.onchange = () => s.setOverlay(c.dataset.ov as Overlay, c.checked)));
   // panel clicks never reach the map
