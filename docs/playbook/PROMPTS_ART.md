@@ -1101,3 +1101,54 @@ offsets and dithered shades.
 with `keep: 'notgreen'` plus a `cut`. (2) "Outcrop" and "snowy peak" tend to come out as stacked cubes or a tower;
 pinnacles, teeth and spires come out well. (3) The mountain mass has to be terrain (tall cliff steps); objects only break
 up the lips. A forest of crags reads as a field of rock trees.
+
+## 27. Livelier idles and construction clips (ANIM-1)
+
+Owner feedback: "idle, walking, fighting all look the same". The audit showed the shipped sheets already have 16
+distinct clips per class in 4 facings; the war sandbox (`src/war/view/units.ts`) plays only idle / walk / attack /
+fallFwd, shows thrust while closing on a foe (the sim's `fighting` is set while charging), loops the attack regardless
+of the blow, and the stock idle is a near-still breath (≈260 px change over the clip). So ANIM-1 added only what was
+missing: two bigger idles per class and, for the militia, construction clips (W-22). 40 pixminimax jobs, 40 generations
+quoted, no redos.
+
+| clip | classes | first frame | frames @ fps | notes |
+| --- | --- | --- | --- | --- |
+| `breathe` | militia, hoplite, archer, slinger | rot | 16 @ 8 | deep breath, sigh, head dips, neck roll; 3x the stock idle's pixel change |
+| `shift` | same | rot | 16 @ 8 | weight from foot to foot, hip sway, glance down and up; ≈4.5x |
+| `build` | militia | tall (96 x 112) | 12 @ 10 | spear to the left shoulder, mallet on a stake, two blows; `align: false` (the stake throws off the feet search) |
+| `carry` | militia | tall | 9 @ 12 | a log on the left shoulder, walking in place; frames 3–11 kept (0–2 lift the log or pop it in) |
+
+Prompts word for word: `node scripts/art/pixellab/anim1/prompts.mjs <class> <anim> <dir>` (fields: subject, initial
+pose, description, `view: high top-down`, direction = the facing). Back facings open "seen from behind, his back to the
+viewer in every frame, he never turns round:" and add ", seen from behind" to the subject; hoplite NE keeps §16's
+dark-back shield line. Job ids: `docs/v5/pixellab/ANIM1/<class>.jobs.json`; append specs `<class>.sheet.json`
+(`anim1/spec.mjs`). The idle wordings:
+
+- breathe: `standing at rest in place, tired after a long march: he takes a deep slow breath, the chest swelling and the
+  shoulders lifting high, then lets it out with a heavy sigh, the shoulders dropping and the head dipping forward, then
+  rolls his head and neck once and straightens up again; the cloak stirs with the movement; the feet stay on the same
+  spot, he does not walk away; {what the hands keep}; no effects`
+- shift: `standing at rest in place, restless: he shifts his weight onto his left leg, the hips swaying over and the right
+  knee bending loose, glances down and to the side, then shifts his weight back across onto his right leg, the left knee
+  relaxing, and looks up ahead again; a slow easy sway of the whole body from foot to foot; …same tail`
+- build: `he alone, at work in place: he passes his one spear across into his left hand and holds it upright against his
+  left shoulder, then with his right hand swings a short wooden mallet up over his right shoulder and brings it down hard
+  onto the top of one wooden stake standing in the ground in front of his feet, bending forward from the hips with the
+  blow, two heavy blows, his whole body behind each one; … one spear only …; one mallet, one stake; no shield; no sparks,
+  no dust, no effects`
+- carry: `walking in place {toward} with steady heavy steps, carrying one long rough wooden log on his left shoulder,
+  steadied by his left hand, the log lying along his shoulder and bobbing with each step, his back a little bent under
+  the weight; the one wooden spear held upright in his right hand …; one log only; no shield; no effects`
+
+**Pipeline.** The old clip jobs' downloads have expired (404), so `sheetbuild.mjs` cannot rebuild a whole class any more.
+`anim1/append.mjs <spec>` runs sheetbuild on the new clips only (the class's own ramps, parts and feet) and appends them
+to the shipped sheet: old frames are copied unchanged, every new colour goes to the nearest (OKLab) colour of the same
+colour group or metal group already in the sheet (outline / shadow to the nearest ungrouped one), so `colorGroups`,
+`metal` and `tiers` stay valid. Then `qc.mjs` (0 failures on all four; the spear-end warnings are the same heuristic noise
+the stock clips give) and `sheetgifs.mjs --strips`. `anim1/motion.mjs` measures how much a clip moves.
+
+**Lessons:** (1) pixminimax's idle stays tiny unless the prompt names a big readable action (a sigh with the head
+dropping, a hip sway); "slow calm breathing" gives ≈1 px. (2) New props (mallet, stake, log) appear from the first
+generated frame or are lifted in over 2–3 frames; drop those frames for a loop. (3) The log comes out longer than the
+man in every facing; consistent, so it was kept. (4) Back-view idles still turn the head to a profile mid-clip (archer,
+slinger NE / NW); the body stays turned away, so they were kept. (5) Build sparks are cut by the colour pipeline.

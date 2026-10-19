@@ -22,7 +22,7 @@ import { createHash } from 'node:crypto';
 
 export const MAX_PAGE = 2048;
 /** Clips that go on the `extra` pages: ambient idles and victory. */
-export const EXTRA_ANIMS = ['look', 'adjust', 'cheer', 'win'];
+export const EXTRA_ANIMS = ['look', 'adjust', 'cheer', 'win', 'breathe', 'shift', 'build', 'carry'];
 
 /** Columns of the layout (as sheetManifest.manifestColumns). */
 export function manifestColumns(m) {

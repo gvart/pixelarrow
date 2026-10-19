@@ -32,6 +32,8 @@ export const SHEET_ANIMS = [
   'look', 'adjust', 'cheer',
   // a missile man's short melee jab; riders' gallop; the chariot's drive and wreck
   'stab', 'gallop', 'drive', 'wreck',
+  // livelier idle variants (deep breath, weight shift) and construction work (mallet, log on the shoulder)
+  'breathe', 'shift', 'build', 'carry',
 ] as const;
 export type SheetAnim = (typeof SHEET_ANIMS)[number];
 
@@ -75,6 +77,10 @@ export const ANIM_FALLBACK: Record<SheetAnim, readonly SheetAnim[]> = {
   gallop: ['run'],
   drive: ['gallop', 'run'],
   wreck: ['die'],
+  breathe: ['idle'],
+  shift: ['idle'],
+  build: ['idle'],
+  carry: ['walk'],
 };
 
 /** The first animation found from `a` through its fallbacks that satisfies `ok` (null: none). */

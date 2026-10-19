@@ -126,6 +126,16 @@
    "frames": 12,
    "fps": 10,
    "hold": 3
+  },
+  "breathe": {
+   "col": 204,
+   "frames": 16,
+   "fps": 8
+  },
+  "shift": {
+   "col": 220,
+   "frames": 16,
+   "fps": 8
   }
  },
  "colorGroups": {
