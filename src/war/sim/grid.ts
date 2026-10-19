@@ -20,6 +20,14 @@ export interface Grid {
   gate: Int8Array;
   /** Team of the mover the next canEnter / findPath / lineClear calls are for; -1 = gates open to all. */
   team: number;
+  /**
+   * Raised layer (W-27): DECK on a wall walkway or tower platform tile, STAIR on an inside stair tile, else 0. Its height is
+   * the raised one. A deck tile is entered only from another deck or a stair tile (so from outside the wall is a cliff
+   * even where the ground runs high), and left only to one.
+   */
+  deck: Uint8Array;
+  /** Tower platform tiles: the tower's building id, -1 none (capacity: src/war/sim/index.ts). */
+  plat: Int32Array;
   /** Tiles (flat x,y) opened or closed since the last flushSectors. */
   dirty: number[];
 }
@@ -49,6 +57,9 @@ export interface Sectors {
 
 export const SECTOR = 8;
 
+export const DECK = 1;
+export const STAIR = 2;
+
 export const BOG = 1;
 export const FOREST = 2;
 
@@ -68,7 +79,7 @@ export function buildGrid(r: RegionData): Grid {
   }
   const b = r.blocked ?? []; // the ground massifs stand on
   for (let k = 0; k + 1 < b.length; k += 2) cost.fill(0, b[k], Math.min(n, b[k] + b[k + 1]));
-  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), team: -1, dirty: [] as number[] } as Grid;
+  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), deck: new Uint8Array(n), plat: new Int32Array(n).fill(-1), team: -1, dirty: [] as number[] } as Grid;
   g.sectors = buildSectors(g);
   ensureScratch(g); // allocate the search scratch now, not in the first tick
   return g;
@@ -81,7 +92,7 @@ function stepTo(g: Grid, a: number, ax: number, ay: number, k: number): number {
   if (nx < 0 || ny < 0 || nx >= g.w || ny >= g.h) return -1;
   const b = ny * g.w + nx;
   if (!canEnter(g, a, b)) return -1;
-  if (k >= 4 && (!canEnter(g, a, ay * g.w + nx) || !canEnter(g, a, ny * g.w + ax))) return -1;
+  if (k >= 4 && (g.deck[a] !== g.deck[b] || !canEnter(g, a, ay * g.w + nx) || !canEnter(g, a, ny * g.w + ax))) return -1; // on or off a deck or stair: straight only
   return b;
 }
 
@@ -239,9 +250,14 @@ export function tileAt(g: Grid, x: number, y: number): number {
   return tx < 0 || ty < 0 || tx >= g.w || ty >= g.h ? -1 : ty * g.w + tx;
 }
 
-/** Can a unit (of team g.team) step from tile a into the adjacent tile b (open, not a foe's gate, not a cliff of 2+ levels)? */
+/**
+ * Can a unit (of team g.team) step from tile a into the adjacent tile b (open, not a foe's gate, not a cliff of 2+ levels,
+ * onto or off a deck only by a deck or stair)?
+ */
 export function canEnter(g: Grid, a: number, b: number): boolean {
-  return b >= 0 && g.cost[b] > 0 && (g.gate[b] === 0 || g.team < 0 || g.gate[b] === g.team + 1) && Math.abs(g.height[b] - g.height[a]) < 2;
+  if (b < 0 || g.cost[b] <= 0 || (g.gate[b] !== 0 && g.team >= 0 && g.gate[b] !== g.team + 1) || Math.abs(g.height[b] - g.height[a]) >= 2) return false;
+  const da = g.deck[a], db = g.deck[b];
+  return (da !== DECK && db !== DECK) || (da !== 0 && db !== 0);
 }
 
 /** Cost multiplier for moving from tile a into tile b (terrain of b, slower uphill). */

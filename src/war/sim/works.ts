@@ -11,10 +11,16 @@
  * team may take it up, and cancel() removes an unfinished one with a refund. The footprint
  * blocks from the first labour (scaffold); a finished gate opens again for its owner team only (grid.gate).
  * Influence: done buildings with a radius and claim anchors paint bit `team` of the mask.
+ *
+ * Wall tiers and wall-walks (W-27): `upgrade` turns a done wall piece into a site for its next tier in place (prev keeps
+ * what stands: the old piece blocks, its walkway stays open, cancel restores it). A done piece with def.walk opens its
+ * footprint as a deck (grid.deck) raised walk levels over its ground, and gets an inside stair (grid STAIR tiles against
+ * the inside face of the wall, max(2, walk - 1) tiles rising to walk - 1) unless a piece it reaches by walkway within
+ * STAIR_EVERY has one. Inside: the order's `inside` point, else the centre of the team's claims and influence buildings.
  */
 import type { BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BUILDINGS, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
-import { lineClear, tileAt, type Grid } from './grid';
+import { BUILDINGS, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, STAIR_EVERY, WALL_KIT, type BuildingDef } from './economy';
+import { DECK, lineClear, STAIR, tileAt, type Grid } from './grid';
 
 const DT = 0.1;
 const NEAR_NODE = 15; // an empty node's workers look this far for another of the same resource
@@ -54,6 +60,13 @@ interface Building {
   slots: number[]; // work slots: tile indices round the footprint
   slotUser: number[]; // worker id per slot, -1 free
   cancelled: boolean; // cancel(): gone from the snapshot
+  base: number[]; // ground height of each footprint tile
+  inside: [number, number]; // a point on its inside (walkway stairs face it)
+  decked: boolean; // its footprint is a raised deck now
+  stairs: number[]; // stair tile indices, top first
+  stairSave: number[]; // height, cost of each stair tile before
+  /** Upgrade under way: what stood before (restored by cancel). */
+  prev: { type: BuildingType; def: BuildingDef; maxHp: number; hp: number; need: number; cost: Partial<Record<ResourceKind, number>>; costSum: number; delivered: Partial<Record<ResourceKind, number>> } | null;
 }
 
 export type Act = [number, number] | null | 'here';
@@ -65,6 +78,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const regrowing: Node[] = [];
   const buildings: Building[] = [];
   const occ = new Int32Array(w * h).fill(-1); // tile -> building that stands or is marked out there
+  const stairAt = new Int32Array(w * h).fill(-1); // tile -> building whose stair it is
   const noBuild = new Uint8Array(w * h);
   for (const r of region.noBuild) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) noBuild[y * w + x] = 1;
   const stock = new Map<number, Partial<Record<ResourceKind, number>>>();
@@ -125,7 +139,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       if (noBuild[t]) return 'noBuild';
       if (region.water[t] > 0) return 'water';
       if (region.terrain[t] === 'rock') return 'rock';
-      if (occ[t] >= 0) return 'overlap';
+      if (occ[t] >= 0 || stairAt[t] >= 0) return 'overlap';
       if (grid.cost[t] === 0) return 'blocked';
       if (nodeAt[t] >= 0 && nodes[nodeAt[t]].amount > 0) return 'node';
       if (!(infl.mask[t] & (1 << team))) return 'influence';
@@ -199,7 +213,15 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     return bad ? { ok: false, reason: bad.reason, pieces } : { ok: true, pieces };
   };
 
-  const add = (team: number, type: BuildingType, tiles: number[], rot: 0 | 1): number => {
+  /** Centre of the team's claims and influence buildings (the default inside of its walls); the map centre if none. */
+  const homeOf = (team: number): [number, number] => {
+    let x = 0, y = 0, n = 0;
+    for (const c of claims) if (c.team === team) (x += c.x), (y += c.y), n++;
+    for (const b of buildings) if (b.team === team && b.def.influence > 0 && !b.cancelled && b.state !== 'destroyed') (x += b.x), (y += b.y), n++;
+    return n ? [x / n, y / n] : [w / 2, h / 2];
+  };
+
+  const add = (team: number, type: BuildingType, tiles: number[], rot: 0 | 1, inside?: [number, number]): number => {
     const def = BUILDINGS[type];
     const k = def.perTile ? tiles.length / 2 : 1;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -217,10 +239,12 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       id: buildings.length, type, def, team, rot, x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0, tiles,
       ti: [], state: 'foundation', labour: 0, need: def.labour * k, cost, delivered: {}, incoming: {}, costSum,
       hp: maxHp * 0.1, maxHp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
+      base: [], inside: inside ?? [0, 0], decked: false, stairs: [], stairSave: [], prev: null,
     };
     for (let i = 0; i < tiles.length; i += 2) {
       const t = tiles[i + 1] * w + tiles[i];
       b.ti.push(t);
+      b.base.push(grid.height[t]);
       occ[t] = b.id;
     }
     b.slots = workSlots(b);
@@ -241,13 +265,13 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const inside = new Set(b.ti);
     const ring: number[] = [];
     const seen = new Set<number>();
-    for (const t0 of b.ti)
+    for (const [i0, t0] of b.ti.entries())
       for (let dy = -1; dy <= 1; dy++)
         for (let dx = -1; dx <= 1; dx++) {
           const x = (t0 % w) + dx, y = ((t0 / w) | 0) + dy;
           if (x < 0 || y < 0 || x >= w || y >= h) continue;
           const t = y * w + x;
-          if (inside.has(t) || seen.has(t) || !standable(t, b.team) || Math.abs(grid.height[t] - grid.height[t0]) > 1) continue;
+          if (inside.has(t) || seen.has(t) || !standable(t, b.team) || Math.abs(grid.height[t] - b.base[i0]) > 1) continue;
           let out = false;
           for (const [ex, ey] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const nx = x + ex, ny = y + ey;
@@ -275,7 +299,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const placeWall = (team: number, o: Omit<WallOrder, 'kind' | 'squad'>): number[] => {
     const plan = checkWall(team, o);
     if (!plan.ok) return [];
-    const ids = plan.pieces.map((p) => add(team, p.type, p.tiles, 0));
+    const inside: [number, number] = o.inside && o.inside.length >= 2 ? [o.inside[0], o.inside[1]] : homeOf(team);
+    const ids = plan.pieces.map((p) => add(team, p.type, p.tiles, 0, inside));
     for (const id of ids) {
       const b = buildings[id]; // slots again, now that every piece is marked out
       b.slots = workSlots(b);
@@ -304,9 +329,141 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     for (const u of active) if (u.alive && Math.abs(u.wgx - b.x) < r && Math.abs(u.wgy - b.y) < r) u.wgx = u.wgy = -1;
   };
 
+  // --- walkways ---
+  const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  const nodeLeft = (t: number) => nodeAt[t] >= 0 && nodes[nodeAt[t]].amount > 0;
+  /** Ground tile t may take a stair step of a piece standing on height `base`. */
+  const stairOk = (t: number, base: number) =>
+    grid.cost[t] > 0 && occ[t] < 0 && stairAt[t] < 0 && grid.deck[t] === 0 && grid.gate[t] === 0 && region.water[t] === 0 && !noBuild[t] && !nodeLeft(t) &&
+    Math.abs(grid.height[t] - base) <= 1;
+
+  /** Another piece reached from b along the walkway within STAIR_EVERY already has a stair. */
+  const stairNear = (b: Building): boolean => {
+    const seen = new Set<number>(b.ti);
+    const queue = [...b.ti];
+    for (let q = 0; q < queue.length; q++) {
+      const t = queue[q];
+      const x = t % w, y = (t / w) | 0;
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || Math.max(Math.abs(nx + 0.5 - b.x), Math.abs(ny + 0.5 - b.y)) > STAIR_EVERY) continue;
+        const n = ny * w + nx;
+        if (seen.has(n) || grid.deck[n] !== DECK || Math.abs(grid.height[n] - grid.height[t]) > 1) continue;
+        seen.add(n);
+        const o = buildings[occ[n]];
+        if (o && o !== b && o.stairs.length) return true;
+        queue.push(n);
+      }
+    }
+    return false;
+  };
+
+  /**
+   * The stair of b: n = max(2, walk - 1) ground tiles in a row against an inside face of the footprint, the top one beside
+   * a footprint tile, with an open way onto the bottom one. The face most toward b.inside wins, then the tile nearest b's
+   * centre. Tiles top first, [] if none fits.
+   */
+  const stairRun = (b: Building): number[] => {
+    const n = Math.max(2, (b.def.walk ?? 0) - 1);
+    const [px, py] = b.inside;
+    const inside = new Set(b.ti);
+    let best: number[] = [], bs = -Infinity;
+    b.ti.forEach((f, fi) => {
+      const fx = f % w, fy = (f / w) | 0;
+      const ix = px - fx - 0.5, iy = py - fy - 0.5, il = Math.hypot(ix, iy) || 1;
+      for (const [nx, ny] of DIRS) {
+        const dot = (nx * ix + ny * iy) / il;
+        if (dot <= 0.2) continue;
+        for (const sgn of [1, -1]) {
+          const ax = -ny * sgn, ay = nx * sgn; // along the face, from the top down
+          const run: number[] = [];
+          for (let i = 0; i < n; i++) {
+            const x = fx + nx + ax * i, y = fy + ny + ay * i;
+            if (x < 0 || y < 0 || x >= w || y >= h || inside.has(y * w + x) || !stairOk(y * w + x, b.base[fi])) break;
+            run.push(y * w + x);
+          }
+          if (run.length < n) continue;
+          // a way onto the bottom step: on along the row, or in from the inside
+          const bx = fx + nx + ax * (n - 1), by = fy + ny + ay * (n - 1);
+          const ok = [[bx + ax, by + ay], [bx + nx, by + ny]].some(([x, y]) => x >= 0 && y >= 0 && x < w && y < h && stairOk(y * w + x, b.base[fi]));
+          if (!ok) continue;
+          const score = dot * 4 - Math.hypot(fx + 0.5 - b.x, fy + 0.5 - b.y) * 0.1;
+          if (score > bs) (bs = score), (best = run);
+        }
+      }
+    });
+    return best;
+  };
+
+  const placeStair = (b: Building) => {
+    if (b.stairs.length || stairNear(b)) return;
+    const run = stairRun(b);
+    if (!run.length) return;
+    const walk = b.def.walk!;
+    const base = Math.min(...b.base);
+    const n = run.length;
+    run.forEach((t, i) => {
+      b.stairSave.push(grid.height[t], grid.cost[t]);
+      stairAt[t] = b.id;
+      grid.deck[t] = STAIR;
+      grid.height[t] = base + Math.round(1 + ((walk - 2) * (n - 1 - i)) / (n - 1));
+      grid.dirty.push(t % w, (t / w) | 0);
+    });
+    b.stairs = run;
+  };
+
+  const removeStairs = (b: Building) => {
+    b.stairs.forEach((t, i) => {
+      grid.height[t] = b.stairSave[i * 2];
+      grid.cost[t] = b.stairSave[i * 2 + 1];
+      grid.deck[t] = 0;
+      stairAt[t] = -1;
+      grid.dirty.push(t % w, (t / w) | 0);
+    });
+    b.stairs = [];
+    b.stairSave = [];
+  };
+
+  /** The footprint becomes (or, after an upgrade, stays) a deck at its ground + walk; its stair is laid again. */
+  const raiseDeck = (b: Building) => {
+    const walk = b.def.walk ?? 0;
+    if (!walk) return;
+    b.ti.forEach((t, i) => {
+      grid.height[t] = b.base[i] + walk;
+      if (grid.cost[t] === 0) grid.cost[t] = b.saved[i] || 1;
+      grid.deck[t] = DECK;
+      if (b.def.wall === 'tower') grid.plat[t] = b.id;
+    });
+    b.decked = true;
+    grid.dirty.push(...b.tiles);
+    removeStairs(b);
+    placeStair(b);
+  };
+
+  const lowerDeck = (b: Building) => {
+    if (!b.decked) return;
+    b.ti.forEach((t, i) => {
+      grid.height[t] = b.base[i];
+      grid.deck[t] = 0;
+      grid.plat[t] = -1;
+    });
+    b.decked = false;
+    grid.dirty.push(...b.tiles);
+    removeStairs(b);
+    // pieces that reached the walkway by this stair look for one of their own
+    for (const o of buildings)
+      if (o !== b && o.decked && !o.stairs.length && o.state !== 'destroyed' && Math.max(Math.abs(o.x - b.x), Math.abs(o.y - b.y)) <= STAIR_EVERY + 4) placeStair(o);
+  };
+
   const finish = (b: Building) => {
     b.state = 'done';
     b.hp = b.maxHp;
+    if (b.prev) {
+      b.prev = null;
+      b.need = b.def.labour * (b.def.perTile ? b.ti.length : 1);
+      b.labour = b.need;
+    }
+    raiseDeck(b);
     if (b.def.wall === 'gate') {
       b.ti.forEach((t, i) => {
         grid.cost[t] = b.saved[i];
@@ -329,6 +486,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const wasDone = b.state === 'done' || b.state === 'damaged';
     b.state = 'destroyed';
     b.hp = 0;
+    b.prev = null;
+    lowerDeck(b);
     for (const [i, t] of b.ti.entries()) {
       occ[t] = -1;
       if (closed && grid.cost[t] === 0) grid.cost[t] = b.saved[i];
@@ -658,7 +817,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       close(b);
     }
     b.labour = Math.min(cap, b.labour + DT);
-    b.hp = b.maxHp * Math.max(0.1, b.labour / b.need);
+    b.hp = b.prev ? b.prev.hp + (b.maxHp - b.prev.hp) * (b.labour / b.need) : b.maxHp * Math.max(0.1, b.labour / b.need);
     if (b.labour >= b.need - 1e-9) finish(b);
     return 'here';
   };
@@ -694,9 +853,79 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       for (const [r, v] of Object.entries(b.incoming) as [ResourceKind, number][]) if (v > 0) st[r] = (st[r] ?? 0) + v;
       for (const [r, v] of Object.entries(b.delivered) as [ResourceKind, number][]) st[r] = (st[r] ?? 0) + v * CANCEL_REFUND;
       b.incoming = {};
+      if (b.prev) {
+        // an upgrade: the old piece stands on as it was (its workers leave: it is no longer unfinished)
+        const p = b.prev;
+        Object.assign(b, { type: p.type, def: p.def, maxHp: p.maxHp, hp: Math.min(p.maxHp, b.hp), need: p.need, labour: p.need, cost: p.cost, costSum: p.costSum, delivered: p.delivered, prev: null });
+        b.state = b.hp < b.maxHp / 2 ? 'damaged' : 'done';
+        return true;
+      }
       destroy(b);
       b.cancelled = true;
       return true;
+    },
+    /**
+     * A done wall piece of `team` with a next tier becomes a site for it in place: new materials and labour, the old piece
+     * standing meanwhile (state scaffold, upgradeFrom in the snapshot). False if it cannot.
+     */
+    upgrade(id: number, team: number): boolean {
+      const b = buildings[id];
+      if (!b || b.cancelled || b.team !== team || b.state !== 'done' || !b.def.upgrade) return false;
+      const up = b.def.upgrade;
+      const k = b.def.perTile ? b.ti.length : 1;
+      b.prev = { type: b.type, def: b.def, maxHp: b.maxHp, hp: b.hp, need: b.need, cost: b.cost, costSum: b.costSum, delivered: b.delivered };
+      b.type = up.to;
+      b.def = BUILDINGS[up.to];
+      b.cost = {};
+      b.costSum = 0;
+      for (const [r, v] of Object.entries(up.cost) as [ResourceKind, number][]) (b.cost[r] = v * k), (b.costSum += v * k);
+      b.delivered = {};
+      b.incoming = {};
+      b.labour = 0;
+      b.need = up.labour * k;
+      b.maxHp = b.def.hp * k;
+      b.state = 'scaffold'; // already standing: no close()
+      b.slots = workSlots(b);
+      b.slotUser = b.slots.map(() => -1);
+      b.users = 0;
+      return true;
+    },
+    /** Platform capacity of tower `id` (0: not a tower). */
+    platCap: (id: number) => buildings[id]?.def.cap ?? 0,
+    /** The building whose deck or stair tile t is, -1 none. */
+    onBuilding: (t: number) => (grid.deck[t] === DECK ? occ[t] : grid.deck[t] === STAIR ? stairAt[t] : -1),
+    /**
+     * Standing points (flat x,y) for up to n units on the walkway reached from deck tile t: tile centres outward along the
+     * deck, a tower's platform taking its cap in a grid.
+     */
+    deckPoints(t: number, n: number): number[] {
+      const out: number[] = [];
+      if (t < 0 || grid.deck[t] !== DECK) return out;
+      const seen = new Set<number>([t]);
+      const towers = new Set<number>();
+      const queue = [t];
+      for (let q = 0; q < queue.length && out.length < n * 2; q++) {
+        const c = queue[q];
+        const p = grid.plat[c];
+        if (p < 0) out.push((c % w) + 0.5, ((c / w) | 0) + 0.5);
+        else if (!towers.has(p)) {
+          towers.add(p);
+          const b = buildings[p];
+          const cap = b.def.cap ?? 1, cols = Math.ceil(Math.sqrt(cap)), rows = Math.ceil(cap / cols);
+          const x0 = b.x - b.w / 2, y0 = b.y - b.h / 2;
+          for (let i = 0; i < cap; i++) out.push(x0 + ((i % cols) + 0.5) * (b.w / cols), y0 + (Math.floor(i / cols) + 0.5) * (b.h / rows));
+        }
+        const x = c % w, y = (c / w) | 0;
+        for (const [dx, dy] of DIRS) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const o = ny * w + nx;
+          if (seen.has(o) || grid.deck[o] !== DECK || Math.abs(grid.height[o] - grid.height[c]) > 1) continue;
+          seen.add(o);
+          queue.push(o);
+        }
+      }
+      return out.slice(0, n * 2);
     },
     /** What a worker does this tick: walk to a point, 'here' (stand: working, dropping or waiting), or null (no work: back to its slot). */
     work(u: Worker): Act {
@@ -725,6 +954,11 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           id: b.id, type: b.type, team: b.team, x: b.x, y: b.y, w: b.w, h: b.h, rot: b.rot, tiles: b.tiles, state: b.state,
           progress: b.state === 'destroyed' ? 0 : b.labour / b.need, delivered: delivered(b), hp: b.hp, maxHp: b.maxHp,
           workers: b.users, maxWorkers,
+          ...(b.def.tier ? { tier: b.def.tier } : {}),
+          ...(b.def.walk ? { walk: b.decked ? b.def.walk : 0 } : {}),
+          ...(b.stairs.length ? { stairs: [...b.stairs].reverse().flatMap((t) => [t % w, (t / w) | 0]) } : {}),
+          ...(b.def.cap ? { cap: b.def.cap } : {}),
+          ...(b.prev ? { upgradeFrom: b.prev.type } : {}),
         };
       }),
     stockSnap: () => {

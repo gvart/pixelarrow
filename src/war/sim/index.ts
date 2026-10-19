@@ -20,6 +20,10 @@
  * Economy and building (M2a, ./works.ts): a squad on a gather or build order does not fight; its units work one by one
  * (harvest, carry, fetch, labour) and take WORK_DEFENCE more damage without blocking. Path searches and gates go by
  * the mover's team (grid.team).
+ *
+ * Wall-walks (W-27, ./works.ts, grid.deck): a move order onto a walkway or tower platform gives the squad fixed standing
+ * points along the deck (`fixed`) instead of its formation; units climb by the inside stairs and fight from the top with the
+ * height rules above (a foe on the ground is 2+ levels below: no melee either way). A tower platform takes at most its cap.
  */
 import { Rng } from '../../sim/rng';
 import type { Order, RegionData, ShotSnap, Snapshot, SquadId, WarBuildSim } from '../types';
@@ -124,6 +128,7 @@ interface Squad {
   near: Squad[];
   sites: number[]; // build order: the sites it works on
   node: number; // gather order: the node it was sent to
+  fixed: number[] | null; // standing points (flat x,y) on a wall walkway, by slot, instead of the formation
 }
 
 interface Missile {
@@ -194,6 +199,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   };
 
   const slotPos = (s: Squad, slot: number): [number, number] => {
+    if (s.fixed && slot * 2 < s.fixed.length) return [s.fixed[slot * 2], s.fixed[slot * 2 + 1]];
     const f = s.offsets[slot * 2];
     const r = s.offsets[slot * 2 + 1];
     const c = Math.cos(s.facing);
@@ -209,7 +215,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const pts = [x0, y0];
     for (let i = 1; i < tiles.length - 1; i++) {
       const a = tiles[i - 1], b = tiles[i], c = tiles[i + 1];
-      if (b - a !== c - b) pts.push((b % grid.w) + 0.5, Math.floor(b / grid.w) + 0.5);
+      if (b - a !== c - b || grid.deck[a] !== grid.deck[b] || grid.deck[c] !== grid.deck[b]) pts.push((b % grid.w) + 0.5, Math.floor(b / grid.w) + 0.5); // corners, and both ends of a step on or off a stair or deck
     }
     const last = tiles[tiles.length - 1];
     if (last === goal) pts.push(gx, gy);
@@ -256,7 +262,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const [ax, ay] = openPoint(x / picked.length, y / picked.length);
     const ns: Squad = {
       ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1,
+      near: [], sites: [], node: -1, fixed: null,
     };
     squads.push(ns);
     move(s, ns, picked);
@@ -285,6 +291,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const apply = (o: Order) => {
     if (o.kind === 'cancelSite') {
       works.cancel(o.site);
+      return;
+    }
+    if (o.kind === 'upgrade' && o.squad === undefined) {
+      if (o.team !== undefined) works.upgrade(o.building, o.team);
       return;
     }
     if ((o.kind === 'placeBuilding' || o.kind === 'placeWall') && o.squad === undefined) {
@@ -322,6 +332,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.goal = null;
       return;
     }
+    if (o.kind === 'upgrade') {
+      if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+      if (!works.upgrade(o.building, s.team) && !works.siteOk(o.building, s.team)) return;
+      s.order = 'build';
+      s.fixed = null;
+      s.sites = [o.building];
+      s.node = -1;
+      s.path = [];
+      s.goal = null;
+      for (const u of s.units) if (u.alive) works.setJob(u, 'build');
+      return;
+    }
     if (o.kind === 'formation') {
       s.shape = o.shape;
       reslot(s);
@@ -337,6 +359,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (o.kind === 'gather' && !works.nodeOk(o.node)) return;
       s.order = o.kind === 'gather' ? 'gather' : 'build';
       s.sites = sites;
+      s.fixed = null;
       s.node = o.kind === 'gather' ? o.node : -1;
       s.path = [];
       s.goal = null;
@@ -345,7 +368,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
     s.order = o.kind;
-    if (o.kind === 'move') requestPath(s, o.x, o.y);
+    if (o.kind !== 'hold') s.fixed = null; // holding on a wall stays up there
+    if (o.kind === 'move') {
+      requestPath(s, o.x, o.y);
+      const pts = works.deckPoints(tileAt(grid, o.x, o.y), s.alive);
+      if (pts.length) s.fixed = pts;
+    }
     else if (o.kind === 'hold') {
       s.path = [];
       s.goal = null;
@@ -476,6 +504,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     const [sx, sy] = slotPos(s, u.slot);
     if (lineClear(grid, u.x, u.y, sx, sy)) return [sx, sy];
+    if (s.fixed && !u.ownReq) {
+      // a wall-walk point out of sight (up a stair, round a tower): a way of its own there
+      u.ownReq = true;
+      unitPathQueue.push(u);
+    }
     const last = Math.min(s.pi, s.path.length / 2 - 1);
     for (let j = last; j > u.wp; j--) {
       if (lineClear(grid, u.x, u.y, s.path[j * 2], s.path[j * 2 + 1])) {
@@ -487,18 +520,39 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     return [s.ax, s.ay];
   };
 
-  /** Move by (dx,dy), sliding along blocked tiles and cliffs. */
+  /** Units on each tower platform (tower id -> count), kept up to date as units step on and off. */
+  const platLoad = new Map<number, number>();
+  const countPlatforms = () => {
+    platLoad.clear();
+    for (const u of units) {
+      if (!u.alive) continue;
+      const p = grid.plat[tileAt(grid, u.x, u.y)];
+      if (p >= 0) platLoad.set(p, (platLoad.get(p) ?? 0) + 1);
+    }
+  };
+
+  /** Move by (dx,dy), sliding along blocked tiles and cliffs; a full tower platform takes no one else. */
   const tryMove = (u: Unit, dx: number, dy: number) => {
     const from = tileAt(grid, u.x, u.y);
+    const pf = grid.plat[from];
     const ok = (x: number, y: number) => {
       const t = tileAt(grid, x, y);
-      return t === from || (t >= 0 && canEnter(grid, from, t));
+      if (t === from) return true;
+      if (t < 0 || !canEnter(grid, from, t)) return false;
+      const p = grid.plat[t];
+      return p < 0 || p === pf || (platLoad.get(p) ?? 0) < works.platCap(p);
     };
     if (ok(u.x + dx, u.y + dy)) {
       u.x += dx;
       u.y += dy;
     } else if (ok(u.x + dx, u.y)) u.x += dx;
     else if (ok(u.x, u.y + dy)) u.y += dy;
+    else return;
+    const p = grid.plat[tileAt(grid, u.x, u.y)];
+    if (p !== pf) {
+      if (pf >= 0) platLoad.set(pf, platLoad.get(pf)! - 1);
+      if (p >= 0) platLoad.set(p, (platLoad.get(p) ?? 0) + 1);
+    }
   };
 
   const working = (u: Unit) => u.squad.order === 'gather' || u.squad.order === 'build';
@@ -636,8 +690,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
    * except two that are both fighting (the press of a melee). A unit standing (settled or
    * striking) holds its spot and the other one gives way.
    */
-  /** Workers walk through their own side's bodies (a standing squad would fence them off their store or site). */
-  const ghost = (a: Unit, b: Unit) => (a.job !== null || b.job !== null) && a.squad.team === b.squad.team;
+  /**
+   * Workers walk through their own side's bodies (a standing squad would fence them off their store or site), and so do men
+   * on a wall-walk or stair (one tile wide: they squeeze past each other to their places).
+   */
+  const ghost = (a: Unit, b: Unit) =>
+    a.squad.team === b.squad.team && (a.job !== null || b.job !== null || grid.deck[tileAt(grid, a.x, a.y)] !== 0 || grid.deck[tileAt(grid, b.x, b.y)] !== 0);
 
   const separate = () => {
     head.fill(-1);
@@ -714,12 +772,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.ownReq = false;
       if (!u.alive) continue;
       grid.team = u.squad.team;
-      const [tx, ty] = unitTarget(u);
+      const [tx, ty] = u.squad.fixed ? slotPos(u.squad, u.slot) : unitTarget(u);
       u.own = cornerPath(u.x, u.y, tx, ty);
+      if (u.squad.fixed) u.settled = false;
       u.oi = 1;
     }
     for (const s of squads) stepSquad(s);
 
+    countPlatforms();
     head.fill(-1);
     if (next.length !== units.length) next = new Int32Array(units.length);
     for (let i = 0; i < units.length; i++) {
@@ -897,7 +957,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
-        repathAt: 0, goal: null, near: [], sites: [], node: -1,
+        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null,
       };
       grid.team = team;
       squads.push(s);
@@ -926,8 +986,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         units: units.map((u) => {
           // in reach of a foe still standing, or the blow just dealt felled it
           const atk = u.alive && u.striking && (!!u.tgt?.alive || u.swingAt === tick - 1);
+          const t = tileAt(grid, u.x, u.y);
+          const on = works.onBuilding(t);
           return {
-            id: u.id, squad: u.squad.id, x: u.x, y: u.y, facing: u.facing, hp: u.hp, maxHp: u.maxHp, cls: u.cls,
+            id: u.id, squad: u.squad.id, x: u.x, y: u.y, facing: u.facing, hp: u.hp, maxHp: u.maxHp, cls: u.cls, z: grid.height[t],
+            ...(on >= 0 ? { on } : {}),
             state: !u.alive ? 'dead' : atk ? 'attack' : u.working ? u.job! : u.moving ? 'move' : 'idle',
             ...(u.alive ? {} : { wounded: u.wounded }),
             ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
