@@ -60,6 +60,7 @@ const LEASH = 4; // holding melee leave their slot this far to fight
 const CHARGE = 10; // attacking units break formation for a target this near
 const MELEE_STOP = 1.5; // attack: the anchor stops this near the foe's centre
 const REACH_PAD = 0.3; // body: reach is measured centre to centre
+const HOLD_OFF = 2.5; // an attack path that cannot reach its foe (cut off): melee stop this far back along it
 const YIELD = 0.08; // keep-right sidestep per tick when meeting another squad head-on
 const YIELD_R = 1.2; // ... felt this far ahead (bodies never touch, see `separate`)
 const STUCK_TICKS = 8;
@@ -226,6 +227,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   const pathTo = (s: Squad, x: number, y: number) => {
     s.path = cornerPath(s.ax, s.ay, x, y);
+    // melee attacking a foe they cannot get to (up on a wall with no way up from their side): stand off short of the
+    // wall's foot, not pressed against it
+    const n = s.path.length;
+    if (s.order === 'attack' && !s.ranged && n >= 4 && tileAt(grid, s.path[n - 2], s.path[n - 1]) !== tileAt(grid, ...openPoint(x, y))) trimEnd(s.path, HOLD_OFF);
     s.pi = 1;
     for (const u of s.units) {
       u.wp = 0;
@@ -1016,4 +1021,19 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     addStock: works.addStock,
     damageBuilding: works.damage,
   };
+}
+
+/** Shorten a flat point path by `by` along its length from the end (never past its first segment's start). */
+function trimEnd(pts: number[], by: number): void {
+  while (pts.length >= 4 && by > 0) {
+    const n = pts.length, dx = pts[n - 2] - pts[n - 4], dy = pts[n - 1] - pts[n - 3], l = Math.hypot(dx, dy);
+    if (l > by) {
+      pts[n - 2] -= (dx / l) * by;
+      pts[n - 1] -= (dy / l) * by;
+      return;
+    }
+    by -= l;
+    if (n === 4) { pts[2] = pts[0]; pts[3] = pts[1]; return; }
+    pts.length = n - 2;
+  }
 }
