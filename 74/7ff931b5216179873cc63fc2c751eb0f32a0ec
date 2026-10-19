@@ -1,0 +1,41 @@
+src/assets/sheets/militia/manifest.json
+  s_cfc22b058125c4::t_433a64a7e83dd2 6,19,44,149-163
+docs/v5/pixellab/ANIM2/militia.jobs.json
+  s_cfc22b058125c4::t_3bf0c2633e3040 4-13
+  s_cfc22b058125c4::t_3fab90c1180e83 14
+  s_cfc22b058125c4::t_cdc8993ba7f31d 15-17
+  s_cfc22b058125c4::t_9aff612f7a105c 1,18
+  s_cfc22b058125c4::t_f903fb8ee723fc 2-3
+scripts/art/pixellab/anim1/prompts.mjs
+  s_cfc22b058125c4::t_ce3184af4f63d6 60
+  s_cfc22b058125c4::t_5254804b14e77a 63-64,71,73
+  s_cfc22b058125c4::t_b2f33b263c9d95 72
+  s_cfc22b058125c4::t_f898d755d3082a 56
+  s_cfc22b058125c4::t_65de07e25bf7ca 2-4,22,30,46,55,57-59
+  s_cfc22b058125c4::t_c8e03274bd2426 23,31
+scripts/art/pixellab/anim1/job.mjs
+  s_cfc22b058125c4::t_971379ca143fca 9,23
+scripts/art/pixellab/anim1/spec.mjs
+  s_cfc22b058125c4::t_3f2c043b271ee7 34-42,52-54,59,61,66
+  s_cfc22b058125c4::t_82bccee693aa9d 43-51
+docs/v5/pixellab/ANIM2/militia.sheet.json
+  s_cfc22b058125c4::t_b7897e186d77a9 1-342
+scripts/art/pixellab/anim1/prep.mjs
+  s_cfc22b058125c4::t_971379ca143fca 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "747ff931b5216179873cc63fc2c751eb0f32a0ec",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
