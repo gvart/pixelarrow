@@ -133,17 +133,17 @@ export class BuildArt {
     return this.sprites.get(`${id}/${stage}`) ?? this.earlier(stage, (s) => this.sprites.get(`${id}/${s}`)) ?? this.sprites.get(`${id}/done`);
   }
 
-  /** The kit sheet for a sim type at an art stage. */
-  kit(type: BuildingType, stage: string): KitSprite | undefined {
-    const id = KIT_ID[type];
+  /** The kit sheet for a sim type at an art stage (diag: a bridge's diagonal kit, <id>-diag). */
+  kit(type: BuildingType, stage: string, diag = false): KitSprite | undefined {
+    const id = KIT_ID[type] && KIT_ID[type] + (diag ? '-diag' : '');
     if (!id || stage === 'destroyed') return undefined;
     return this.kits.get(`${id}/${stage}`) ?? this.earlier(stage, (s) => this.kits.get(`${id}/${s}`)) ?? this.kits.get(`${id}/done`);
   }
 
-  /** Stage-free kit data for a sim type. */
-  meta(type: BuildingType): KitMeta | undefined {
+  /** Stage-free kit data for a sim type (diag: a bridge's diagonal kit). */
+  meta(type: BuildingType, diag = false): KitMeta | undefined {
     const id = KIT_ID[type];
-    return id ? this.metas.get(id) : undefined;
+    return id ? this.metas.get(id + (diag ? '-diag' : '')) : undefined;
   }
 
   /** The nearest earlier construction stage that has art. */

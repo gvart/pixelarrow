@@ -1354,6 +1354,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     claim: works.claim,
     addStock: works.addStock,
     damageBuilding: works.damage,
+    finishBridges: works.finishBridges,
     spawnMobs: () => mobs.spawn(),
   };
   return api;

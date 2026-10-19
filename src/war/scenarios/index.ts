@@ -4,7 +4,7 @@
  * ../sim/bots.ts, and sets the camera. Points are tile coords, mostly named spots.
  */
 import type { Behaviour } from '../sim/bots';
-import type { BuildingType, Order, ResourceKind, WallOrder } from '../types';
+import type { BridgeOrder, BuildingType, Order, ResourceKind, WallOrder } from '../types';
 import { CLAIM_POINT as ridgeClaim, SPOTS } from '../regions/test-ridge.spots';
 
 /** owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
@@ -27,6 +27,8 @@ export interface Scenario {
     /** Wall lines a squad lays out (before the sites, so stairs and ladders find their wall). */
     walls?: (Omit<WallOrder, 'kind' | 'squad'> & { squad: number; phase?: number })[];
     sites?: { squad: number; type: BuildingType; x: number; y: number; rot?: 0 | 1; phase?: number }[];
+    /** Bridges standing at the start: laid out for `team` after the prebuild and done at once. */
+    bridges?: (Omit<BridgeOrder, 'kind' | 'squad' | 'team'> & { team: number })[];
     /**
      * Fast-forward up to this many ticks per phase before play, each team's squads building its sites (a standing
      * base): walls and sites go down by `phase` (default 0), each phase built before the next is laid out.
@@ -81,11 +83,14 @@ const ringSites = (a: number, b: number) => [
 ];
 
 /**
- * bridge-test (M2d): the narrowest reach of the southern river (8-9 tiles of deep water at y 396..397, BRIDGE_DRAG), just
- * upstream of the old road crossing between the two river arms, which the enemy has walled off with a palisade
- * (y 402, x 301..309): the next way over is the ford, far north.
+ * bridge-test (M2d, v2 W-33): the southern river below the ford. The old road crossing between the two river arms is
+ * walled off by the enemy (palisade y 402, x 301..309). Two bridges of yours stand: a 3-wide stone road bridge running
+ * screen-horizontally over the wide reach (23 tiles of water, BRIDGE_STONE) and a 1-wide wood footbridge over the narrow
+ * reach (BRIDGE_FOOT). BRIDGE_DRAG: a free reach between them for a bridge of your own (11 tiles along x at y 376).
  */
-export const BRIDGE_DRAG = [296.5, 396.5, 308.5, 396.5] as const;
+export const BRIDGE_DRAG = [287.5, 376.5, 305.5, 376.5] as const;
+export const BRIDGE_STONE = [282.5, 370.5, 306.5, 346.5] as const;
+export const BRIDGE_FOOT = [297.5, 400.5, 317.5, 380.5] as const;
 const BRIDGE_HOME = [289, 393] as const;
 
 export const SCENARIOS: Scenario[] = [
@@ -331,7 +336,7 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'bridge-test',
     name: 'Bridge test',
-    goal: 'Cross the river: the old road crossing is walled off and the ford is far north. Build a bridge (B, wood or stone bridge: drag from your bank across the water, at most 10 tiles), then march the hoplites over.',
+    goal: 'Cross the river: the old road crossing is walled off, but a stone road bridge spans the wide reach to the north and a wood footbridge the narrow one. March the hoplites over, or build a bridge of your own (B, wood or stone bridge: drag from your bank across the water, along the grid or screen-straight; [ ] width 1-3; wood spans 12 tiles, stone 24).',
     squads: [
       you('militia', at(BRIDGE_HOME, 2, 4)),
       you('hoplite', at(BRIDGE_HOME, -4, 9)),
@@ -339,9 +344,13 @@ export const SCENARIOS: Scenario[] = [
       { team: 1, cls: 'militia', count: 12, x: 312, y: 397, owner: 'foe' },
       { team: 1, cls: 'militia', count: 6, x: 305, y: 406, owner: 'foe' },
     ],
-    camera: { x: 302, y: 397, zoom: 1 / 2 },
+    camera: { x: 298, y: 378, zoom: 1 / 2 },
     economy: {
-      claims: [{ team: 0, x: BRIDGE_HOME[0], y: BRIDGE_HOME[1] + 2, r: 14 }, { team: 1, x: 312, y: 398, r: 14 }, { team: 1, x: 302, y: 407, r: 8 }],
+      claims: [{ team: 0, x: BRIDGE_HOME[0], y: BRIDGE_HOME[1] + 2, r: 14 }, { team: 0, x: 285, y: 373, r: 10 }, { team: 1, x: 312, y: 398, r: 14 }, { team: 1, x: 302, y: 407, r: 8 }],
+      bridges: [
+        { team: 0, material: 'stone', points: [...BRIDGE_STONE], width: 3 },
+        { team: 0, material: 'wood', points: [...BRIDGE_FOOT], width: 1 },
+      ],
       stock: { wood: 400, stone: 800 },
       foeStock: { wood: 200 },
       // a camp (store) on each side of the crossing; each picket walls its part from its side

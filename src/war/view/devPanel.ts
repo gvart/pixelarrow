@@ -110,6 +110,11 @@ export function applyScenario(s: SandboxScene, sc: Scenario): void {
     for (const t of e?.sites ?? []) if ((t.phase ?? 0) === p) s.sim.order({ kind: 'placeBuilding', squad: t.squad, type: t.type, x: t.x, y: t.y, rot: t.rot });
     if (e?.prebuild) for (const t of teams) s.sim.prebuild(t, e.prebuild);
   }
+  if (e?.bridges?.length) {
+    for (const { team, ...b } of e.bridges) s.sim.order({ kind: 'placeBridge', team, ...b });
+    s.sim.skip(1); // orders apply on the next step
+    for (const t of new Set(e.bridges.map((b) => b.team))) s.sim.finishBridges(t);
+  }
   for (const o of sc.after?.orders ?? []) s.sim.order(o);
   if (sc.after?.settle) s.sim.skip(sc.after.settle);
   for (const q of sc.after?.squads ?? []) s.sim.spawn(q.team === 0 ? 'you' : q.bot ? 'bot' : 'raiders', q.team, q.cls, q.count, q.x, q.y, q.bot);

@@ -278,6 +278,7 @@ export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
       ims[layer] = im;
     }
     const tag = `${k.id} ${state}`;
+    if (k.kind === 'bridge-diag' && ims.back) { fail.push(...diagSeams(k, ims.back, tag)); continue; }
     if (!ims.back || (k.front && !ims.front) || !['wall', 'bridge'].includes(k.kind)) continue; // stairs, ladders and towers stand alone: no seams to test
     const fr = (im, n) => crop(im, { x: (n % cols) * k.frame.w, y: Math.floor(n / cols) * k.frame.h, w: k.frame.w, h: k.frame.h }), o = k.tileOrigin;
     const fi = (n) => (k.frameOf ? k.frameOf[n] : n); // layered walls: frame of (mask, nothing open)
@@ -309,6 +310,27 @@ export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
         if (atB > inner + 2) fail.push(`${tag}: ${name}: ${atB} crack px where tiles ${ia} and ${ib} meet (${inner} inside the tiles)`);
         for (let x = mid - 3; x <= mid + 3; x++) if (!colH(x) && colH(x - 4) && colH(x + 4)) { fail.push(`${tag}: ${name}: empty column where tiles ${ia} and ${ib} meet`); break; }
       }
+    }
+  }
+  return fail;
+}
+// Diagonal bridge segments (kind bridge-diag): runs of ramp, 3 decks, ramp laid one row step apart (h: rowStepPx along
+// screen x, v: along screen y, drawn north to south); no crack or slit where two segments meet.
+function diagSeams(k, im, tag) {
+  const fail = [], cols = k.columns ?? k.frames, fw = k.frame.w, fh = k.frame.h;
+  const fr = (n) => crop(im, { x: (n % cols) * fw, y: Math.floor(n / cols) * fh, w: fw, h: fh });
+  for (const d of ['h', 'v']) for (const w of [1, 2, 3]) {
+    const seq = [`${d}${w}-end+`, `${d}${w}-deck`, `${d}${w}-deck`, `${d}${w}-deck`, `${d}${w}-end-`].map((p) => k.pieces.indexOf(p));
+    if (seq.some((n) => n < 0)) { fail.push(`${tag}: ${d}${w}: pieces missing`); continue; }
+    const [sx, sy] = k.rowStepPx[d], W = fw + sx * 4, H = fh + sy * 4, cmp = { w: W, h: H, data: new Uint8Array(W * H * 4) };
+    seq.forEach((n, i) => { const t = fr(n); for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const s = (y * fw + x) * 4; if (t.data[s + 3]) cmp.data.set(t.data.subarray(s, s + 4), ((y + i * sy) * W + x + i * sx) * 4); } });
+    const op = (x, y) => x >= 0 && y >= 0 && x < W && y < H && cmp.data[(y * W + x) * 4 + 3] > 0;
+    const near = (x, y, dx, dy, n) => { for (let q = 1; q <= n; q++) if (op(x + dx * q, y + dy * q)) return true; return false; };
+    for (let i = 1; i < 5; i++) { // the boundary between segments i - 1 and i: a column (h) or a row (v)
+      let n = 0;
+      if (d === 'h') { const c = k.tileOrigin.x + (i - 0.5) * sx; for (let x = c - 2; x <= c + 2; x++) for (let y = 0; y < H; y++) if (!op(x, y) && near(x, y, -1, 0, 2) && near(x, y, 1, 0, 2) && near(x, y, 0, -1, 3) && near(x, y, 0, 1, 3)) n++; }
+      else { const r = k.tileOrigin.y + (i - 0.5) * sy; for (let y = r - 2; y <= r + 2; y++) for (let x = 0; x < W; x++) if (!op(x, y) && near(x, y, -1, 0, 3) && near(x, y, 1, 0, 3) && near(x, y, 0, -1, 2) && near(x, y, 0, 1, 2)) n++; }
+      if (n > 2) fail.push(`${tag}: ${d}${w}: ${n} crack px where segments ${i - 1} and ${i} meet`);
     }
   }
   return fail;

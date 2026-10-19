@@ -27,6 +27,11 @@ export interface Grid {
    * where the ground runs high. Steps on or off a deck, stair or ladder are straight (no diagonals).
    */
   deck: Uint8Array;
+  /**
+   * Open tiles of a diagonal bridge (a done deck or ramp piece): 1, else 0. A deck along a grid diagonal is a staircase of
+   * tiles, so a diagonal step between two of them may pass a corner of water while its other corner is one of them too.
+   */
+  span: Uint8Array;
   /** Tower platform tiles: the tower's building id, -1 none (capacity: src/war/sim/index.ts). */
   plat: Int32Array;
   /** Tiles (flat x,y) opened or closed since the last flushSectors. */
@@ -81,7 +86,7 @@ export function buildGrid(r: RegionData): Grid {
   }
   const b = r.blocked ?? []; // the ground massifs stand on
   for (let k = 0; k + 1 < b.length; k += 2) cost.fill(0, b[k], Math.min(n, b[k] + b[k + 1]));
-  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), deck: new Uint8Array(n), plat: new Int32Array(n).fill(-1), team: -1, dirty: [] as number[] } as Grid;
+  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), deck: new Uint8Array(n), span: new Uint8Array(n), plat: new Int32Array(n).fill(-1), team: -1, dirty: [] as number[] } as Grid;
   g.sectors = buildSectors(g);
   ensureScratch(g); // allocate the search scratch now, not in the first tick
   return g;
@@ -94,7 +99,11 @@ function stepTo(g: Grid, a: number, ax: number, ay: number, k: number): number {
   if (nx < 0 || ny < 0 || nx >= g.w || ny >= g.h) return -1;
   const b = ny * g.w + nx;
   if (!canEnter(g, a, b)) return -1;
-  if (k >= 4 && (g.deck[a] !== g.deck[b] || !canEnter(g, a, ay * g.w + nx) || !canEnter(g, a, ny * g.w + ax))) return -1; // on or off a deck or stair: straight only
+  if (k >= 4) {
+    const c1 = ay * g.w + nx, c2 = ny * g.w + ax;
+    if (g.span[a] && g.span[b] && ((g.span[c1] && canEnter(g, a, c1)) || (g.span[c2] && canEnter(g, a, c2)))) return b; // along a diagonal bridge
+    if (g.deck[a] !== g.deck[b] || !canEnter(g, a, c1) || !canEnter(g, a, c2)) return -1; // on or off a deck or stair: straight only
+  }
   return b;
 }
 

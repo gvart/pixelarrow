@@ -14,9 +14,10 @@
  *     removes it; Enter (or the toolbar) orders every line
  *   stairs / ladder: the piece snaps to the nearest place it can lean on (stairs: the inside face of an own walkway
  *     wall; ladder: beside any walkway wall or tower); R cycles the places near the cursor; red with 'attach' when none
- *   bridge (wood / stone, M2d): drag from a bank straight across the water to the far bank; the real deck pieces and
- *     ramps follow the drag (2 wide, snapped to the axis it runs along most), green / red with the span (most
- *     BRIDGE.maxSpan tiles of water) and the sim's reason; release orders it (the selected squad builds it, else planned)
+ *   bridge (wood / stone, M2d, v2 W-33): drag from a bank straight across the water to the far bank; the real deck pieces
+ *     and ramps follow the drag, snapped to the nearest of 4 directions (the grid axes, or the grid diagonals that run
+ *     straight across the screen), [ / ] narrower / wider (1-3 tiles), green / red with the span (most
+ *     BRIDGE.maxSpan[material] tiles of water) and the sim's reason; release orders it (the selected squad builds it, else planned)
  *   siege (ram / stone thrower / siege ladder, M2c): the engine's sprite follows the cursor; click: the selected own squad
  *     builds it there (its cost paid at once; ../siege/siegeControls.ts)
  *   Esc drops the drag, then the pending lines, then the tool, then the selected site, then build mode
@@ -25,7 +26,7 @@
  *   wall, tower or gate to its next tier)
  */
 import { BRIDGE, BUILDINGS, CANCEL_REFUND, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
-import type { BridgePlan, BuildingSnap, BuildingType, NodeSnap, PlaceReason, PlaceResult, ResourceKind, SiegeType, WallPlan } from '../../types';
+import type { BridgeAxis, BridgePlan, BuildingSnap, BuildingType, NodeSnap, PlaceReason, PlaceResult, ResourceKind, SiegeType, WallPlan } from '../../types';
 import { SIEGE } from '../../sim/siege';
 import { SIEGE_NAME } from '../siege/siegeControls';
 import type { SandboxScene } from '../SandboxScene';
@@ -51,8 +52,10 @@ export const WALL_NAME: Record<WallMaterial, string> = { wood: 'palisade', timbe
 const REASON: Partial<Record<PlaceReason, string>> = {
   bounds: 'off the map', noBuild: 'no-build zone', water: 'water', rock: 'rock', blocked: 'blocked', overlap: 'overlaps a building',
   influence: 'outside your influence', slope: 'too steep', node: 'on a resource', short: 'line too short',
-  attach: 'attach: needs a wall to lean on', span: `too long: over ${BRIDGE.maxSpan} tiles of water`, bank: 'needs dry banks at both ends',
+  attach: 'attach: needs a wall to lean on', span: 'too long: over the span limit', bank: 'needs dry banks at both ends',
 };
+/** Bridge directions in the tool's status (BridgePlan axis). */
+const AXIS_NAME: Record<BridgeAxis, string> = { x: 'along x', y: 'along y', h: 'screen-horizontal', v: 'screen-vertical' };
 export const reasonText = (r: PlaceReason) => REASON[r] ?? r;
 const RECHECK_MS = 500;
 const TEAM = 0;
@@ -88,6 +91,8 @@ export class BuildMode {
   private pending = false;
   /** Access tools: the spot index R picked among those near the cursor. */
   private pick = 0;
+  /** Bridge tool: the width in tiles ([ / ] narrower / wider). */
+  bridgeWidth = BRIDGE.width;
   /** Site each squad was sent to from here (stop work finds the squads of a site by it and by proximity). */
   private sent = new Map<number, number>();
   /** Next squad id the sim hands out (detach): at least the snapshot's count, bumped per detach not yet seen. */
@@ -107,6 +112,7 @@ export class BuildMode {
       else if (k === 'enter') this.confirmWall();
       else if (k === 'backspace') this.removeLine(this.lines.length - 1);
       else if (k === 'f') this.flipInside();
+      else if ((k === '[' || k === ']') && this.tool?.kind === 'bridge') this.bridgeWidth = Math.max(1, Math.min(3, this.bridgeWidth + (k === ']' ? 1 : -1)));
       else if ((k === 'g' || k === 't') && this.tool?.kind === 'wall' && this.lines.some((l) => l.points.length >= 4)) this.insert = k === 'g' ? 'gate' : 'tower';
     });
   }
@@ -392,16 +398,17 @@ export class BuildMode {
   // --- bridges ---
 
   /** The bridge query for the drag from its start to tile point t. */
-  private bridgeQuery(t: { x: number; y: number }): { material: 'wood' | 'stone'; points: number[] } {
+  private bridgeQuery(t: { x: number; y: number }): { material: 'wood' | 'stone'; points: number[]; width: number } {
     const material = this.tool?.kind === 'bridge' ? this.tool.material : 'wood', d = this.drag ?? { x: t.x, y: t.y };
-    return { material, points: [d.x, d.y, ...snap(t)] };
+    return { material, points: [d.x, d.y, ...snap(t)], width: this.bridgeWidth };
   }
 
   /** The bridge tool's ghost and status: the sim's plan of the drag, or a single deck tile at the cursor. */
   private bridgeGhost(t: { x: number; y: number }, zoom: number, buildings: readonly BuildingSnap[], who: string): void {
     const material = this.tool?.kind === 'bridge' ? this.tool.material : 'wood', type = BRIDGE.kit[material];
+    const wide = `${this.bridgeWidth} wide ([ ] width)`;
     if (!this.drag) {
-      this.status = `${material} bridge: drag from a bank straight across the water (at most ${BRIDGE.maxSpan} tiles)${who}`;
+      this.status = `${material} bridge, ${wide}: drag from a bank straight across the water (at most ${BRIDGE.maxSpan[material]} tiles; along the grid or screen-straight)${who}`;
       this.layer.ghost([{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true, type }], '', zoom, buildings);
       return;
     }
@@ -415,11 +422,11 @@ export class BuildMode {
       // a ramp rises towards the piece beside it
       const near = plan.pieces[i === 0 ? 1 : i - 1], k = plan.axis === 'x' ? 0 : 1;
       const rise = near ? Math.sign(near.tiles[k] - p.tiles[k]) : 1;
-      return { tiles: p.tiles, ok: p.ok && plan.ok, type: p.type, bridge: { axis: plan.axis, part: p.part, rise } };
+      return { tiles: p.tiles, ok: p.ok && plan.ok, type: p.type, bridge: { axis: plan.axis, part: p.part, rise, dir: plan.dir, width: plan.width, rows: p.rows } };
     });
-    const span = plan.span ? `span ${plan.span}/${BRIDGE.maxSpan}` : 'no water';
+    const span = plan.span ? `span ${plan.span}/${plan.maxSpan}` : 'no water';
     const why = plan.ok ? '' : `can't build: ${plan.reason ? reasonText(plan.reason) : '?'} · `;
-    this.status = `${why}${material} bridge: ${span} · ${costText(cost)} · ${labourText(d.labour * n)}${who} · release to order`;
+    this.status = `${why}${material} bridge ${AXIS_NAME[plan.axis]}, ${wide}: ${span} · ${costText(cost)} · ${labourText(d.labour * n)}${who} · release to order`;
     this.layer.ghost(pieces.length ? pieces : [{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: false, type }], `${why}${span}${plan.ok ? ' · ' + costText(cost) : ''}`, zoom, buildings);
   }
 

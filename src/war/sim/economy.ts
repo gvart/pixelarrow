@@ -60,8 +60,11 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   stoneBridge: { w: 1, h: 1, hp: 1500, cost: { stone: 16, wood: 2 }, labour: 90, workers: 3, influence: 0, material: 'stone', perTile: true, bridge: true },
 };
 
-/** Bridges (M2d, W-24): most water tiles bank to bank (20 m), deck tiles along the line per piece, move cost on a deck. */
-export const BRIDGE = { maxSpan: 10, piece: 2, cost: 0.8, kit: { wood: 'woodBridge', stone: 'stoneBridge' } as const };
+/**
+ * Bridges (M2d W-24, v2 W-33): most tiles of water bank to bank per material, widths in tiles across (default `width`),
+ * rows along the line per deck piece, move cost on a deck.
+ */
+export const BRIDGE = { maxSpan: { wood: 12, stone: 24 }, widths: [1, 2, 3], width: 2, piece: 2, cost: 0.8, kit: { wood: 'woodBridge', stone: 'stoneBridge' } as const };
 
 /** Wall pieces by material. */
 export const WALL_KIT = {
