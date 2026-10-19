@@ -30,7 +30,7 @@ export class ObjectLayer {
   private filter = -1;
   private cells = new Map<number, number[]>();
 
-  constructor(private scene: Phaser.Scene, private iso: IsoMap, r: RegionData, art: WarArt, zs: Float32Array) {
+  constructor(private scene: Phaser.Scene, private iso: IsoMap, r: RegionData, art: WarArt) {
     const defs = new Map<string, Def>();
     for (const d of art.defs) {
       const img = art.objImg.get(d.id)!, key = `obj-${d.id}`;
@@ -52,7 +52,7 @@ export class ObjectLayer {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
       if (!def || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h) continue;
       this.buckets[((ty / BUCKET) | 0) * this.bw + ((tx / BUCKET) | 0)].push(this.objs.length);
-      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, zs[ty * r.w + tx])), v: o.x + o.y, alpha: 1 });
+      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: o.x + o.y, alpha: 1 });
     }
   }
 
@@ -82,9 +82,9 @@ export class ObjectLayer {
         pts.push(p);
       }
       const { iso } = this;
-      // tile bounds of the view (objects reach ~400 px above their foot, ground up to 8 levels)
+      // tile bounds of the view (objects reach ~400 px above their foot, ground up to iso.top levels)
       const u0 = (view.x - iso.OX) / 32 - 6, u1 = (view.right - iso.OX) / 32 + 6;
-      const v0 = (view.y - iso.OY) / 16 - 2, v1 = (view.bottom - iso.OY) / 16 + 34;
+      const v0 = (view.y - iso.OY) / 16 - 2, v1 = (view.bottom - iso.OY) / 16 + iso.top + 26;
       const bx0 = Math.max(0, Math.floor((u0 + v0) / 2 / BUCKET)), bx1 = Math.min(this.bw - 1, Math.floor((u1 + v1) / 2 / BUCKET));
       const by0 = Math.max(0, Math.floor((v0 - u1) / 2 / BUCKET)), by1 = Math.min(this.bh - 1, Math.floor((v1 - u0) / 2 / BUCKET));
       for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) {

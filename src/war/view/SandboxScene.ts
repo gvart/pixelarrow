@@ -95,7 +95,7 @@ export class SandboxScene extends Phaser.Scene {
     this.baker = new TerrainBaker(r, this.iso);
     if (this.art) {
       this.artBaker = new ArtBaker(r, this.iso, this.art, this.baker);
-      this.objects = new ObjectLayer(this, this.iso, r, this.art, this.artBaker.zs);
+      this.objects = new ObjectLayer(this, this.iso, r, this.art);
     }
     const { W, H } = this.iso;
     this.overviewTex = this.textures.createCanvas('overview', Math.ceil(W * OVERVIEW_SCALE), Math.ceil(H * OVERVIEW_SCALE))!;

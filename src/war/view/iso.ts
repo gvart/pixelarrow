@@ -10,25 +10,65 @@
  * scale), the earth side of a PixelLab iso tile, so tile sides stack exactly. LH = HH, so a screen
  * pixel's view ray steps one level up for every unit of x + y toward the viewer: picking marches
  * down that ray from the highest level and takes the first solid column it meets.
+ *
+ * The ground is drawn from the visual layer (RegionData.visual, src/war/regions/visual.ts): 1 m
+ * cells, 2 x 2 per tile, drawn as 32 x 16 diamonds, whose levels may rise far above the sim's 0..7
+ * on impassable mountains (up to ZMAX). Picking, occlusion and the objects use those cells; units
+ * stand on them too but never more than a level off their tile's sim height.
  */
 import type { RegionData } from '../types';
+import { decodeVisual, KINDS, ZVIS } from '../regions/visual';
 
 export const HW = 32;
 export const HH = 16;
 export const LH = 16;
-export const ZMAX = 7;
+/** Highest visual level. */
+export const ZMAX = ZVIS;
 /** The slab's underside: walls along the map edge drop to this level. */
 export const ZBASE = -1.5;
+
+/**
+ * Surface level per cell: its height; water lies flush with its banks (each connected body at the
+ * commonest height of the land round it), so shores are drawn as organic transitions, not walls
+ * along cell edges. Rock banks above it stay cliffs.
+ */
+function flush(w: number, h: number, height: ArrayLike<number>, wet: (i: number) => boolean): Float32Array {
+  const z = new Float32Array(w * h);
+  for (let i = 0; i < z.length; i++) z[i] = height[i];
+  const seen = new Uint8Array(w * h);
+  for (let s = 0; s < seen.length; s++) {
+    if (!wet(s) || seen[s]) continue;
+    const body = [s], shore = new Map<number, number>();
+    seen[s] = 1;
+    for (let k = 0; k < body.length; k++) {
+      const i = body[k], x = i % w, y = (i / w) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy, j = ny * w + nx;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || seen[j] === 1) continue;
+        if (wet(j)) { seen[j] = 1; body.push(j); } else shore.set(height[j], (shore.get(height[j]) ?? 0) + 1);
+      }
+    }
+    let level = 0, best = -1;
+    for (const [hgt, c] of shore) if (c > best || (c === best && hgt < level)) { level = hgt; best = c; }
+    for (const i of body) z[i] = Math.max(height[i], level);
+  }
+  return z;
+}
+
+const SHALLOW = KINDS.indexOf('shallow'), DEEP = KINDS.indexOf('deep');
 
 export class IsoMap {
   readonly w: number;
   readonly h: number;
-  /**
-   * Surface level per tile: its height; water lies flush with its banks (each connected body at
-   * the commonest height of the land round it), so shores are drawn as organic tile transitions,
-   * not walls along tile edges. Rock banks above it stay cliffs.
-   */
+  /** Surface level per tile (sim heights, water flush with its banks). */
   readonly z: Float32Array;
+  /** The visual cells: 2w x 2h, kind (KINDS index) and surface level. */
+  readonly fw: number;
+  readonly fh: number;
+  readonly fk: Uint8Array;
+  readonly fz: Float32Array;
+  /** Highest surface level. */
+  readonly top: number;
   readonly OX: number;
   readonly OY = (ZMAX + 1) * LH;
   /** World size in px. */
@@ -38,25 +78,23 @@ export class IsoMap {
   constructor(r: RegionData) {
     this.w = r.w;
     this.h = r.h;
-    this.z = new Float32Array(r.w * r.h);
-    for (let i = 0; i < this.z.length; i++) this.z[i] = r.height[i];
-    const seen = new Uint8Array(r.w * r.h);
-    for (let s = 0; s < seen.length; s++) {
-      if (!r.water[s] || seen[s]) continue;
-      const body = [s], shore = new Map<number, number>();
-      seen[s] = 1;
-      for (let k = 0; k < body.length; k++) {
-        const i = body[k], x = i % r.w, y = (i / r.w) | 0;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx, ny = y + dy, j = ny * r.w + nx;
-          if (nx < 0 || ny < 0 || nx >= r.w || ny >= r.h || seen[j] === 1) continue;
-          if (r.water[j]) { seen[j] = 1; body.push(j); } else shore.set(r.height[j], (shore.get(r.height[j]) ?? 0) + 1);
-        }
+    this.z = flush(r.w, r.h, r.height, (i) => r.water[i] > 0);
+    const fw = (this.fw = 2 * r.w), fh = (this.fh = 2 * r.h), n = fw * fh;
+    let kind: Uint8Array, height: Uint8Array;
+    if (r.visual) ({ kind, z: height } = decodeVisual(r.visual.rle, n));
+    else { // no visual layer: each tile's 4 cells copy it
+      kind = new Uint8Array(n); height = new Uint8Array(n);
+      for (let fy = 0; fy < fh; fy++) for (let fx = 0; fx < fw; fx++) {
+        const i = (fy >> 1) * r.w + (fx >> 1), j = fy * fw + fx;
+        kind[j] = r.water[i] === 2 ? DEEP : r.water[i] === 1 ? SHALLOW : KINDS.indexOf(r.terrain[i]);
+        height[j] = r.height[i];
       }
-      let level = 0, best = -1;
-      for (const [hgt, c] of shore) if (c > best || (c === best && hgt < level)) { level = hgt; best = c; }
-      for (const i of body) this.z[i] = Math.max(r.height[i], level);
     }
+    this.fk = kind;
+    this.fz = flush(fw, fh, height, (j) => kind[j] === SHALLOW || kind[j] === DEEP);
+    let top = 0;
+    for (let j = 0; j < n; j++) if (this.fz[j] > top) top = this.fz[j];
+    this.top = top;
     this.OX = r.h * HW;
     this.W = (r.w + r.h) * HW;
     this.H = this.OY + (r.w + r.h) * HH - ZBASE * LH + 4;
@@ -67,25 +105,33 @@ export class IsoMap {
     return x < 0 || y < 0 || x >= this.w || y >= this.h ? ZBASE : this.z[y * this.w + x];
   }
 
-  /** Surface level under a fractional tile point. */
+  /** Surface level of the visual cell at integer (fx, fy); ZBASE off the map. */
+  zf(fx: number, fy: number): number {
+    return fx < 0 || fy < 0 || fx >= this.fw || fy >= this.fh ? ZBASE : this.fz[fy * this.fw + fx];
+  }
+
+  /** Visual surface level under a fractional tile point. */
   zAt(x: number, y: number): number {
-    return this.zt(Math.floor(x), Math.floor(y));
+    return this.zf(Math.floor(2 * x), Math.floor(2 * y));
   }
 
   /**
-   * Level a unit is drawn at: its tile's level, eased toward a neighbour one level up or down (a
-   * walkable step) over the half tile next to the shared edge, so a man walking a slope rises
-   * smoothly and meets the neighbour's value halfway up the riser. Cliffs and water stay hard.
+   * Level a unit is drawn at: its cell's level, eased toward a neighbour one level up or down (a
+   * walkable step) over the half cell next to the shared edge, so a man walking a slope rises
+   * smoothly and meets the neighbour's value halfway up the riser. Cliffs and water stay hard. Kept
+   * within a level of the tile's sim height (the cells follow finer curves than the sim).
    */
   zDraw(x: number, y: number): number {
-    const tx = Math.floor(x), ty = Math.floor(y), z = this.zt(tx, ty);
-    if (tx < 0 || ty < 0 || tx >= this.w || ty >= this.h || this.z[ty * this.w + tx] % 1) return z;
-    const fx = x - tx - 0.5, fy = y - ty - 0.5;
+    const X = 2 * x, Y = 2 * y, cx = Math.floor(X), cy = Math.floor(Y), z = this.zf(cx, cy);
+    const zs = this.zt(Math.floor(x), Math.floor(y));
+    if (cx < 0 || cy < 0 || cx >= this.fw || cy >= this.fh) return z;
+    const fx = X - cx - 0.5, fy = Y - cy - 0.5;
     const ease = (nx: number, ny: number, f: number) => {
-      const n = this.zt(nx, ny), d = n - z;
-      return d !== 0 && Math.abs(d) <= 1 && n % 1 === 0 ? d * Math.abs(f) : 0;
+      const n = this.zf(nx, ny), d = n - z;
+      return d !== 0 && Math.abs(d) <= 1 ? d * Math.abs(f) : 0;
     };
-    return z + ease(tx + Math.sign(fx), ty, fx) + ease(tx, ty + Math.sign(fy), fy);
+    const d = z + ease(cx + Math.sign(fx), cy, fx) + ease(cx, cy + Math.sign(fy), fy);
+    return Math.max(zs - 1, Math.min(zs + 1, d));
   }
 
   sx(x: number, y: number): number {
@@ -102,10 +148,10 @@ export class IsoMap {
    */
   pick(wx: number, wy: number): { x: number; y: number } {
     const u = (wx - this.OX) / HW;
-    for (let z = ZMAX; z >= ZBASE; z -= 0.125) {
+    for (let z = this.top; z >= ZBASE; z -= 0.125) {
       const v = (wy - this.OY + z * LH) / HH, x = (u + v) / 2, y = (v - u) / 2;
       if (x < 0 || y < 0 || x >= this.w || y >= this.h) continue;
-      if (this.z[Math.floor(y) * this.w + Math.floor(x)] >= z - 1e-4) return { x, y };
+      if (this.fz[Math.floor(2 * y) * this.fw + Math.floor(2 * x)] >= z - 1e-4) return { x, y };
     }
     const v = (wy - this.OY) / HH;
     return { x: Math.max(0, Math.min(this.w - 0.01, (u + v) / 2)), y: Math.max(0, Math.min(this.h - 0.01, (v - u) / 2)) };
@@ -114,11 +160,11 @@ export class IsoMap {
   /** Is the world point (wx, wy), standing at x + y = v0 and level z0, hidden by ground in front of it? */
   hidden(wx: number, wy: number, v0: number, z0: number): boolean {
     const u = (wx - this.OX) / HW;
-    for (let z = ZMAX; z > z0; z -= 0.25) {
+    for (let z = this.top; z > z0; z -= 0.25) {
       const v = (wy - this.OY + z * LH) / HH;
-      if (v <= v0 + 0.5) return false;
-      const x = Math.floor((u + v) / 2), y = Math.floor((v - u) / 2);
-      if (x >= 0 && y >= 0 && x < this.w && y < this.h && this.z[y * this.w + x] >= z) return true;
+      if (v <= v0 + 0.25) return false;
+      const x = Math.floor(u + v), y = Math.floor(v - u); // visual cells
+      if (x >= 0 && y >= 0 && x < this.fw && y < this.fh && this.fz[y * this.fw + x] >= z) return true;
     }
     return false;
   }
