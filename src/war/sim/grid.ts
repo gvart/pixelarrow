@@ -66,6 +66,8 @@ export function buildGrid(r: RegionData): Grid {
     const fp = OBJECT_BLOCKS[o.id];
     if (fp) for (const [x, y] of footprintTiles(o.x, o.y, fp)) if (x >= 0 && y >= 0 && x < r.w && y < r.h) cost[y * r.w + x] = 0;
   }
+  const b = r.blocked ?? []; // the ground massifs stand on
+  for (let k = 0; k + 1 < b.length; k += 2) cost.fill(0, b[k], Math.min(n, b[k] + b[k + 1]));
   const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), team: -1, dirty: [] as number[] } as Grid;
   g.sectors = buildSectors(g);
   ensureScratch(g); // allocate the search scratch now, not in the first tick

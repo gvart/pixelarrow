@@ -32,6 +32,8 @@ import { fileURLToPath } from 'node:url';
 import { blob, curveField, fbm, nearestSample, noise, spline, type Pt, type Sample } from './shapes.ts';
 import { decodeVisual, encodeBiomes, encodeVisual, KINDS, ZVIS } from '../../src/war/regions/visual.ts';
 import { footprintTiles, OBJECT_BLOCKS } from '../../src/war/region/objects.ts';
+import { columnSpans, massifBase, placeMassifs, type MassifPiece } from '../../src/war/region/massifs.ts';
+import { readImage } from '../art/lib/png.mjs';
 
 const SIZE = Number(process.argv[2] ?? 256);
 /** `fine`: write only the visual layer of this size (test-ridge.fine.json) and stop. */
@@ -363,7 +365,7 @@ const spots = {
 // and bushes on grass, reeds in the marsh, boulders on the rock's edge, a watchtower on the plateau, ruins at
 // the pass. Nothing on water, roads or named spots; only boulders (on rock, already impassable), the tower
 // and the ruins block movement.
-const objects: { id: string; x: number; y: number }[] = [];
+const objects: { id: string; x: number; y: number; shade?: number }[] = [];
 {
   const hsh = (x: number, y: number, k: number) => {
     let n = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(k, 1274126177);
@@ -563,7 +565,31 @@ const objects: { id: string; x: number; y: number }[] = [];
   console.log(`objects ${objects.length}; tower ${tower}; ruins ${ruins.map((r) => r.join(',')).join(' ')}`);
 }
 
-const region = { id: 'test-ridge', name: 'Test Ridge', w: W, h: H, height, terrain, water, entries, noBuild, objects, visual, biomes: { names: [...BIOMES], rle: encodeBiomes(biome) } };
+// ---- massifs over the mountains' rock, placed once here (src/war/region/massifs.ts) and drawn as listed: objects of
+// kind 'massif' with the footprint's south vertex as foot point, in placement order. The ground they stand on is closed.
+const blocked: number[] = [];
+{
+  const lib = fileURLToPath(new URL('../../public/war/biomes/mountains/', import.meta.url));
+  const json = JSON.parse(readFileSync(join(lib, 'objects.json'), 'utf8')) as { objects: (Omit<MassifPiece, 'top'> & { kind: string; file: string })[] };
+  const pieces: MassifPiece[] = json.objects.filter((d) => d.kind === 'massif' && d.footprint).map((d) => {
+    return { ...d, id: `mountains/${d.id}`, ...columnSpans(readImage(join(lib, d.file))) };
+  });
+  const M = BIOMES.indexOf('mountains'), mask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (biome[i] === M && terrain[i] === 'rock' && !water[i]) mask[i] = 1;
+  const land = { w: W, h: H, terrain, water }, placed = placeMassifs(land, mask, pieces);
+  for (const m of placed) objects.push({ id: m.def.id, x: m.x0 + m.fw, y: m.y0 + m.fh, ...(m.shade < 1 ? { shade: Math.round(m.shade * 100) / 100 } : {}) });
+  const base = massifBase(land, placed);
+  let open = 0;
+  for (let i = 0; i < N; i++) {
+    if (!base[i]) continue;
+    if (terrain[i] !== 'rock' && water[i] !== 2) open++;
+    if (blocked.length && blocked.at(-2)! + blocked.at(-1)! === i) blocked[blocked.length - 1]++;
+    else blocked.push(i, 1);
+  }
+  console.log(`massifs ${placed.length}; their base closes ${open} open tiles`);
+}
+
+const region = { id: 'test-ridge', name: 'Test Ridge', w: W, h: H, height, terrain, water, entries, noBuild, objects, blocked, visual, biomes: { names: [...BIOMES], rle: encodeBiomes(biome) } };
 const dir = new URL(process.argv[3] ? `file://${resolve(process.argv[3])}/` : '../../src/war/regions/', import.meta.url);
 const out = new URL('test-ridge.json', dir);
 writeFileSync(out, JSON.stringify(region) + '\n');
