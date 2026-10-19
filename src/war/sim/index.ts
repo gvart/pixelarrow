@@ -16,13 +16,19 @@
  * killed), leaves the collision hash and its squad closes ranks. Melee needs real reach: the foe within
  * reach, at most one height level apart and no cliff between (see `reachable`); a foe across a cliff is
  * gone round by the squad path. A unit shows 'attack' only while it strikes in reach or shoots in range.
+ *
+ * Economy and building (M2a, ./works.ts): a squad on a gather or build order does not fight; its units work one by one
+ * (harvest, carry, fetch, labour) and take WORK_DEFENCE more damage without blocking. Path searches and gates go by
+ * the mover's team (grid.team).
  */
 import { Rng } from '../../sim/rng';
-import type { Order, RegionData, ShotSnap, Snapshot, SquadId, WarSim } from '../types';
+import type { Order, RegionData, ShotSnap, Snapshot, SquadId, WarBuildSim } from '../types';
 import { warStats, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
-import { BOG, buildGrid, canEnter, findPath, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
+import { WORK_DEFENCE } from './economy';
+import { BOG, buildGrid, canEnter, findPath, flushSectors, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
+import { createWorks, type Worker } from './works';
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -56,7 +62,7 @@ const CLIMB_LOOK = 1.5; // tiles ahead a climb is felt
 const FACE = 18; // a standing squad turns to face enemies this near
 const FACE_TURN = 0.08; // rad per tick
 
-interface Unit {
+interface Unit extends Worker {
   id: number;
   squad: Squad;
   slot: number;
@@ -115,6 +121,8 @@ interface Squad {
   repathAt: number;
   goal: [number, number] | null; // queued path request
   near: Squad[];
+  sites: number[]; // build order: the sites it works on
+  node: number; // gather order: the node it was sent to
 }
 
 interface Missile {
@@ -125,7 +133,7 @@ interface Missile {
   ap: number;
 }
 
-export function createSim(region: RegionData, seed: number): WarSim {
+export function createSim(region: RegionData, seed: number): WarBuildSim {
   const grid: Grid = buildGrid(region);
   const rng = new Rng(seed);
   const squads: Squad[] = [];
@@ -142,6 +150,25 @@ export function createSim(region: RegionData, seed: number): WarSim {
   // spatial hash, one cell per tile
   const head = new Int32Array(grid.w * grid.h);
   let next = new Int32Array(0);
+
+  const works = createWorks(
+    grid,
+    region,
+    (team, x0, y0, x1, y1) => {
+      grid.team = team;
+      return cornerPath(x0, y0, x1, y1);
+    },
+    (tiles) => {
+      // a site closed its footprint: units standing on it step to the nearest open tile
+      const shut = new Set(tiles);
+      for (const u of units) {
+        if (!u.alive || !shut.has(tileAt(grid, u.x, u.y))) continue;
+        const o = nearestOpen(grid, Math.floor(u.x), Math.floor(u.y));
+        u.x = (o % grid.w) + 0.5;
+        u.y = Math.floor(o / grid.w) + 0.5;
+      }
+    },
+  );
 
   const hAt = (x: number, y: number) => grid.height[tileAt(grid, x, y)];
   const groundAt = (x: number, y: number) => grid.ground[tileAt(grid, x, y)];
@@ -215,6 +242,23 @@ export function createSim(region: RegionData, seed: number): WarSim {
       reslot(s);
       return;
     }
+    if (o.kind === 'placeBuilding' || o.kind === 'placeWall' || o.kind === 'build' || o.kind === 'gather') {
+      const sites =
+        o.kind === 'placeBuilding' ? [works.place(s.team, o.type, o.x, o.y, o.rot ?? 0)].filter((id) => id >= 0)
+        : o.kind === 'placeWall' ? works.placeWall(s.team, o)
+        : o.kind === 'build' ? [o.site]
+        : [];
+      if (o.kind !== 'gather' && !sites.length) return; // invalid placement: the squad carries on
+      if (o.kind === 'gather' && !works.nodeOk(o.node)) return;
+      s.order = o.kind === 'gather' ? 'gather' : 'build';
+      s.sites = sites;
+      s.node = o.kind === 'gather' ? o.node : -1;
+      s.path = [];
+      s.goal = null;
+      for (const u of s.units) if (u.alive) works.setJob(u, s.order);
+      return;
+    }
+    if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
     s.order = o.kind;
     if (o.kind === 'move') requestPath(s, o.x, o.y);
     else if (o.kind === 'hold') {
@@ -372,11 +416,14 @@ export function createSim(region: RegionData, seed: number): WarSim {
     else if (ok(u.x, u.y + dy)) u.y += dy;
   };
 
+  const working = (u: Unit) => u.squad.order === 'gather' || u.squad.order === 'build';
+
   const hurt = (t: Unit, dmg: number) => {
-    t.hp -= dmg;
+    t.hp -= dmg * (working(t) ? WORK_DEFENCE : 1);
     if (t.hp > 0) return;
     t.hp = 0;
     t.alive = false;
+    works.release(t);
     t.fighting = false;
     t.moving = false;
     t.tgt = null;
@@ -417,7 +464,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
     const bog = groundAt(u.x, u.y) === BOG;
     u.cd = Math.round(u.st.atkTicks * (bog ? COMBAT.bogAtk : 1) * (dh < 0 ? COMBAT.uphillAtk : 1));
     u.swingAt = tick;
-    if (rng.chance(blockChance(t.st.block, t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
+    if (!working(t) && rng.chance(blockChance(t.st.block, t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
     hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1), t.st.armor, 0));
   };
 
@@ -443,7 +490,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
       }
       const t = m.t;
       if (!t.alive) continue;
-      if (rng.chance(blockChance(t.st.block, t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
+      if (!working(t) && rng.chance(blockChance(t.st.block, t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
       hurt(t, afterArmour(m.raw, t.st.armor, m.ap));
     }
     missiles = keep;
@@ -504,6 +551,9 @@ export function createSim(region: RegionData, seed: number): WarSim {
    * except two that are both fighting (the press of a melee). A unit standing (settled or
    * striking) holds its spot and the other one gives way.
    */
+  /** Workers walk through their own side's bodies (a standing squad would fence them off their store or site). */
+  const ghost = (a: Unit, b: Unit) => (a.job !== null || b.job !== null) && a.squad.team === b.squad.team;
+
   const separate = () => {
     head.fill(-1);
     for (let i = 0; i < units.length; i++) {
@@ -526,7 +576,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
             let ex = u.x - o.x;
             let ey = u.y - o.y;
             const e = Math.hypot(ex, ey);
-            if (e >= MIN || (u.fighting && o.fighting)) continue;
+            if (e >= MIN || (u.fighting && o.fighting) || ghost(u, o)) continue;
             if (e < 1e-8) {
               ex = u.id < o.id ? 1 : -1;
               ey = 0;
@@ -534,11 +584,13 @@ export function createSim(region: RegionData, seed: number): WarSim {
               ex /= e;
               ey /= e;
             }
-            const uFix = u.settled || u.striking;
-            const oFix = o.settled || o.striking;
+            const uFix = u.settled || u.striking || u.working;
+            const oFix = o.settled || o.striking || o.working;
             const k = uFix === oFix ? 0.5 : uFix ? 0 : 1;
             const gap = MIN - e;
+            grid.team = u.squad.team;
             if (k > 0) tryMove(u, ex * gap * k, ey * gap * k);
+            grid.team = o.squad.team;
             if (k < 1) tryMove(o, -ex * gap * (1 - k), -ey * gap * (1 - k));
           }
         }
@@ -561,18 +613,22 @@ export function createSim(region: RegionData, seed: number): WarSim {
       s.cx = x / s.alive;
       s.cy = y / s.alive;
     }
+    flushSectors(grid); // sites that closed or opened tiles last tick
     if (tick % SCAN === 0) scanNear();
-    for (const s of squads) if (s.order === 'attack' && s.alive > 0) updateAttack(s);
+    for (const s of squads) if (s.order === 'attack' && s.alive > 0) (grid.team = s.team), updateAttack(s);
     for (let budget = PATH_BUDGET; budget > 0 && pathQueue.length > 0; ) {
       const s = pathQueue.shift()!;
       if (!s.goal) continue; // cancelled by hold
       budget -= Math.hypot(s.goal[0] - s.ax, s.goal[1] - s.ay);
+      grid.team = s.team;
       pathTo(s, s.goal[0], s.goal[1]);
       s.goal = null;
     }
+    works.tick();
     for (const u of unitPathQueue.splice(0, UNIT_PATHS_PER_TICK)) {
       u.ownReq = false;
       if (!u.alive) continue;
+      grid.team = u.squad.team;
       const [tx, ty] = unitTarget(u);
       u.own = cornerPath(u.x, u.y, tx, ty);
       u.oi = 1;
@@ -603,7 +659,14 @@ export function createSim(region: RegionData, seed: number): WarSim {
       if (!u.alive) continue;
       const ox = u.x;
       const oy = u.y;
-      const act = fight(u);
+      grid.team = u.squad.team;
+      let act: [number, number] | null | Unit;
+      if (u.job) {
+        u.fighting = u.striking = false;
+        u.tgt = null;
+        const w = works.work(u);
+        act = w === 'here' ? u : w;
+      } else act = fight(u);
       let dx = 0;
       let dy = 0;
       let d = 0;
@@ -663,6 +726,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
           for (let j = head[yy * grid.w + xx]; j !== -1; j = next[j]) {
             if (j === i) continue;
             const o = units[j];
+            if (ghost(u, o)) continue;
             const ex = u.x - o.x;
             const ey = u.y - o.y;
             const e2 = ex * ex + ey * ey;
@@ -697,7 +761,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
               const px = u.x + dx - o.x;
               const py = u.y + dy - o.y;
               const p2 = px * px + py * py;
-              if (p2 >= R2 || p2 < 1e-8 || (u.fighting && o.fighting)) continue;
+              if (p2 >= R2 || p2 < 1e-8 || (u.fighting && o.fighting) || ghost(u, o)) continue;
               const now = Math.hypot(u.x - o.x, u.y - o.y);
               const p = Math.sqrt(p2);
               if (p >= now) continue;
@@ -745,8 +809,9 @@ export function createSim(region: RegionData, seed: number): WarSim {
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
-        repathAt: 0, goal: null, near: [],
+        repathAt: 0, goal: null, near: [], sites: [], node: -1,
       };
+      grid.team = team;
       squads.push(s);
       for (let k = 0; k < count; k++) {
         const [sx, sy] = slotPos(s, k);
@@ -755,6 +820,7 @@ export function createSim(region: RegionData, seed: number): WarSim {
           id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: st.maxHp, maxHp: st.maxHp, cls, st, moving: false, wp: 0,
           alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
           settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
+          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false,
         };
         units.push(u);
         s.units.push(u);
@@ -774,17 +840,28 @@ export function createSim(region: RegionData, seed: number): WarSim {
           const atk = u.alive && u.striking && (!!u.tgt?.alive || u.swingAt === tick - 1);
           return {
             id: u.id, squad: u.squad.id, x: u.x, y: u.y, facing: u.facing, hp: u.hp, maxHp: u.maxHp, cls: u.cls,
-            state: !u.alive ? 'dead' : atk ? 'attack' : u.moving ? 'move' : 'idle',
+            state: !u.alive ? 'dead' : atk ? 'attack' : u.working ? u.job! : u.moving ? 'move' : 'idle',
             ...(u.alive ? {} : { wounded: u.wounded }),
+            ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
         }),
         squads: squads.map((s) => ({ id: s.id, owner: s.owner, team: s.team, units: s.units.map((u) => u.id), order: s.order })),
         shots: shots.map((sh) => ({ ...sh })),
+        buildings: works.buildingSnaps(),
+        stock: works.stockSnap(),
+        influenceVersion: works.influence().version,
       };
     },
     stats() {
       return { stepMs, units: units.filter((u) => u.alive).length };
     },
+    checkPlacement: works.checkPlacement,
+    checkWall: works.checkWall,
+    resourceNodes: works.resourceNodes,
+    influence: works.influence,
+    claim: works.claim,
+    addStock: works.addStock,
+    damageBuilding: works.damage,
   };
 }
