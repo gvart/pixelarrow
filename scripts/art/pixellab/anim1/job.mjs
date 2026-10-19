@@ -6,7 +6,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'docs/v5/pixellab/ANIM1');
+const DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'docs/v5/pixellab', process.env.ROUND ?? 'ANIM1');
 const [cls, anim, dir, attempt, job, frames, gens, first, ...note] = process.argv.slice(2);
 if (job) {
   const p = join(DIR, `${cls}.jobs.json`);
@@ -20,4 +20,4 @@ for (const f of readdirSync(DIR).filter((f) => f.endsWith('.jobs.json'))) {
   console.log(`${f}: ${g}`);
   total += g;
 }
-console.log(`ANIM1 total: ${total} gens quoted`);
+console.log(`${process.env.ROUND ?? 'ANIM1'} total: ${total} gens quoted`);

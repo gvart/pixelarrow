@@ -3,7 +3,7 @@
  "class": "militia",
  "image": "militia.png",
  "frame": {
-  "w": 120,
+  "w": 124,
   "h": 114
  },
  "anchor": {
@@ -16,7 +16,7 @@
    "y": 102
   },
   "north-east": {
-   "x": 39,
+   "x": 43,
    "y": 102
   },
   "south-west": {
@@ -41,7 +41,7 @@
   "south-west",
   "north-west"
  ],
- "wrap": 34,
+ "wrap": 33,
  "anims": {
   "idle": {
    "col": 0,
@@ -146,6 +146,21 @@
    "col": 246,
    "frames": 9,
    "fps": 12
+  },
+  "chop": {
+   "col": 255,
+   "frames": 10,
+   "fps": 10
+  },
+  "mine": {
+   "col": 265,
+   "frames": 10,
+   "fps": 10
+  },
+  "harvest": {
+   "col": 275,
+   "frames": 10,
+   "fps": 8
   }
  },
  "colorGroups": {

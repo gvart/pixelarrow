@@ -1,0 +1,18 @@
+[
+ {"anim":"chop","dir":"south-east","attempt":"a1","job":"dcf8a083-befe-4926-a334-dbc41a0d0595","mode":"pixminimax","frames":16,"gens":2,"first":"tall"},
+ {"anim":"mine","dir":"south-east","attempt":"a1","job":"9503ce78-b1e6-4e80-8468-f6bf9499b8cb","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"harvest","dir":"south-east","attempt":"a1","job":"95808401-e677-4e6e-a06a-078f154b3bf6","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"chop","dir":"south-east","attempt":"a2","job":"5b350fdd-c685-46d8-8774-8eeb050c23de","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"log"},
+ {"anim":"chop","dir":"north-east","attempt":"a2","job":"4a1ddc18-31c3-48bd-a16e-cede59e7665c","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"log"},
+ {"anim":"chop","dir":"south-west","attempt":"a2","job":"82f668dc-2c16-43ea-9150-c0d2d54f9d74","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"log"},
+ {"anim":"chop","dir":"north-west","attempt":"a2","job":"0ec2de9c-e6a2-448f-8223-8c78b2b4467a","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"log"},
+ {"anim":"mine","dir":"north-east","attempt":"a1","job":"150dd9a9-e653-4113-93e9-f3de89d4c5b1","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"mine","dir":"south-west","attempt":"a1","job":"7e62afd1-4fa4-42f3-8902-febaa582a194","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"mine","dir":"north-west","attempt":"a1","job":"96ac62af-cfcc-419c-9154-f2c7f801a8e2","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"harvest","dir":"north-east","attempt":"a1","job":"0c471e63-6034-4d3b-851e-cbd14a052307","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"harvest","dir":"south-west","attempt":"a1","job":"fad84a6a-5691-4748-90ca-e98255aad88b","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"harvest","dir":"north-west","attempt":"a1","job":"405f2e2e-4c6d-4ef8-8d25-97e73e89c582","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"chop","dir":"north-east","attempt":"a3","job":"5222e357-d500-4f4f-9140-0b8cdba8b73c","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"log, AWAY"},
+ {"anim":"mine","dir":"north-east","attempt":"a2","job":"15c8ce5c-3fcd-43d4-b135-c09b38b98faa","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"AWAY"},
+ {"anim":"harvest","dir":"north-east","attempt":"a2","job":"fd16c2fe-bfea-4f20-96b5-d67b7fd7f98f","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"AWAY"}
+]

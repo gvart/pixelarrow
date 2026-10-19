@@ -16,7 +16,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..
 const DIRS = ['south-east', 'north-east', 'south-west', 'north-west'];
 const args = process.argv.slice(2);
 const cls = args[0];
-const raw = join(ROOT, 'docs/v5/pixellab/ANIM1/raw', cls);
+const raw = join(ROOT, 'docs/v5/pixellab', process.env.ROUND ?? 'ANIM1', 'raw', cls);
 const first = join(raw, 'first');
 mkdirSync(first, { recursive: true });
 const files = [];
