@@ -128,7 +128,15 @@
   "#8a7254",
   "#b49c78",
   "#d8c4a0",
-  "#16120e"
+  "#16120e",
+  "#241b16",
+  "#3a2c23",
+  "#5e4a3a",
+  "#c4ae8c",
+  "#5a2a16",
+  "#94482a",
+  "#c06a3c",
+  "#e09a64"
  ],
  "frames": {
   "band": {
@@ -654,6 +662,12 @@
    "24": "icons/24/bld-stone-thrower.png",
    "32": "icons/32/bld-stone-thrower.png",
    "group": "building",
+   "src": "drawn"
+  },
+  "res-pitch": {
+   "24": "icons/24/res-pitch.png",
+   "32": "icons/32/res-pitch.png",
+   "group": "resource",
    "src": "drawn"
   },
   "res-tin": {

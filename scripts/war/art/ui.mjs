@@ -43,6 +43,8 @@ const RAMP = {
   green: ['#1f3a1c', '#3c6430', '#68904a', '#a4c070'],
   tin: ['#464c56', '#7a828c', '#a8b0b8', '#dce2e6'],
   canvas: ['#5a4630', '#8a7254', '#b49c78', '#d8c4a0'],
+  pitch: ['#241b16', '#3a2c23', '#5e4a3a', '#c4ae8c'], // black pitch, a warm gloss
+  clay: ['#5a2a16', '#94482a', '#c06a3c', '#e09a64'], // terracotta
 };
 const OUTLINE = '#16120e';
 const key = (d, i) => (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
@@ -67,8 +69,10 @@ function kmeans(imgs, n) {
   }
   return cs.map(rgbToHex);
 }
-const PALETTE = [...new Set([...kmeans([[sheet, 1], ...Object.values(rawIcons).map((im) => [im, 6])], 56), ...Object.values(RAMP).flat(), OUTLINE])];
-const snap = (img) => snapToPalette(hardAlpha(img, 128), PALETTE);
+// LATE ramps came after the kit: only drawn glyphs use them, and they stay out of the snap, so the earlier art stays put
+const LATE = ['pitch', 'clay'], SNAP = [...new Set([...kmeans([[sheet, 1], ...Object.values(rawIcons).map((im) => [im, 6])], 56), ...Object.entries(RAMP).filter(([k]) => !LATE.includes(k)).flatMap(([, r]) => r), OUTLINE])];
+const PALETTE = [...new Set([...SNAP, ...LATE.flatMap((k) => RAMP[k])])];
+const snap = (img, pal = SNAP) => snapToPalette(hardAlpha(img, 128), pal);
 
 // ---------- helpers ----------
 const lumOf = (d, i) => 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
@@ -193,6 +197,8 @@ const GLYPHS = {
   'bld-camp': [P('canvas', [13, 22], [21, 7], [30, 22]), L('wood', 21, 4, 21, 8, 1.6), P('canvas', [2, 27], [11, 9], [21, 27]), L('wood', 11, 5, 11, 10, 1.6), P('wood', [9, 27], [11, 19], [13, 27]), R('stone', 22, 28, 9, 2), flame('fire', 26.5, 28, 9, 6)],
   'bld-ram': [P('wood', [3, 15], [15, 5], [27, 15]), R('wood', 5, 15, 20, 8), E(L(null, 3, 15.5, 27, 15.5, 1)), L('wood', 21, 19, 28, 19, 3.2), P('bronze', [27, 16], [31, 19], [27, 22]), C('wood', 9, 25, 4.2), C('wood', 21, 25, 4.2), C('iron', 9, 25, 1.4), C('iron', 21, 25, 1.4)],
   'bld-stone-thrower': [R('wood', 3, 23, 26, 4), L('wood', 13, 23, 13, 13, 3), L('wood', 21, 23, 21, 13, 3), L('wood', 21, 13, 26, 8, 2.6), L('wood', 17, 18, 7, 6, 2.6), C('iron', 17, 18, 3.4), C('wood', 6, 6, 3.4), C('stone', 6, 4.5, 2.4), C('wood', 7, 28, 2.6), C('wood', 25, 28, 2.6)],
+  // a clay pot brimming with pitch, black runs down its neck and belly (W-35)
+  'res-pitch': [C('clay', 16, 21.5, 10), R('clay', 10, 9, 12, 5), P('pitch', [8, 9], [9, 5], [12, 2.5], [16, 1.5], [20, 2.5], [23, 5], [24, 9]), R('clay', 7.5, 8, 17, 3), P('pitch', [7.5, 8], [24.5, 8], [24.5, 10], [23, 10], [23, 18], [21.5, 19.5], [20, 18], [20, 11], [14, 11], [14, 14], [12.5, 15.5], [11, 14], [11, 11], [9, 11], [9, 13.5], [7.5, 13.5]), C('pitch', 21.5, 23.5, 1.8), L(null, 9, 21, 9.5, 25, 1.2), P('pitch', [8, 30], [24, 30], [25.5, 31.5], [6.5, 31.5])],
   'res-tin': [P('tin', [3, 23], [7, 18], [25, 18], [29, 23], [29, 28], [3, 28]), E(L(null, 3, 23, 29, 23, 0.9)), E(L(null, 4, 17, 28, 17, 1.2)), P('tin', [7, 15], [11, 9], [21, 9], [25, 15], [25, 16], [7, 16]), E(L(null, 7, 15, 25, 15, 0.9))],
 };
 const CURSORS = {
@@ -209,8 +215,8 @@ const CURSORS = {
 rmSync(OUT, { recursive: true, force: true });
 for (const d of ['frames', 'buttons', 'bars', 'icons/32', 'icons/24', 'cursors']) mkdirSync(join(OUT, d), { recursive: true });
 const manifest = { note: 'War UI kit (W-25). Sizes are 1x art px; every PNG has an @2x twin (nearest). slice = 9-slice margins {l, t, r, b}: corners fixed, edges and centre stretch; edges "tile" = repeat the edge strip (period px) instead of stretching (meander borders). Icons: 32 and 24 px. Cursors: 32 px with hotspot.', scale: [1, 2], palette: PALETTE, frames: {}, buttons: {}, bars: {}, icons: {}, cursors: {} };
-const save = (rel, img) => {
-  const im = snap(img);
+const save = (rel, img, pal) => {
+  const im = snap(img, pal);
   writeImage(join(OUT, rel + '.png'), im);
   writeImage(join(OUT, rel + '@2x.png'), resizeNearest(im, im.w * 2, im.h * 2));
   return { file: rel + '.png', w: im.w, h: im.h };
@@ -300,9 +306,9 @@ function states(name, img, extra) {
 // icons
 const fit32 = (img, size) => { const t = trim(img); const k = Math.min((size - 2) / t.w, (size - 2) / t.h, 1); const r = k < 1 ? hardAlpha(resizeArea(t, Math.max(1, Math.round(t.w * k)), Math.max(1, Math.round(t.h * k))), 110) : t; const o = blank(size, size); paste(o, r, Math.floor((size - r.w) / 2), Math.floor((size - r.h) / 2)); return o; };
 const ICON_GROUP = (id) => id.split('-')[0];
-const addIcon = (id, src, f32, f24) => { manifest.icons[id] = { group: { res: 'resource', unit: 'unit', bld: 'building', act: 'action' }[ICON_GROUP(id)], src, 32: save(`icons/32/${id}`, f32).file, 24: save(`icons/24/${id}`, f24).file }; };
+const addIcon = (id, src, f32, f24, pal) => { manifest.icons[id] = { group: { res: 'resource', unit: 'unit', bld: 'building', act: 'action' }[ICON_GROUP(id)], src, 32: save(`icons/32/${id}`, f32, pal).file, 24: save(`icons/24/${id}`, f24, pal).file }; };
 for (const [id, img] of Object.entries(rawIcons)) addIcon(id, 'pixellab', fit32(img, 32), fit32(img, 24));
-for (const [id, shapes] of Object.entries(GLYPHS)) addIcon(id, 'drawn', glyph(32, shapes), glyph(24, shapes));
+for (const [id, shapes] of Object.entries(GLYPHS)) addIcon(id, 'drawn', glyph(32, shapes), glyph(24, shapes), PALETTE); // glyphs: exact ramp colours
 // cursors
 for (const [id, c] of Object.entries(CURSORS)) manifest.cursors[id] = { ...save(`cursors/${id}`, glyph(32, c.shapes)), hotspot: c.hot };
 
