@@ -1,0 +1,68 @@
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_4deb37f162dfbf 879-881
+  s_cfc22b058125c4::t_6b021052636ad7 911
+  s_cfc22b058125c4::t_d73ea76098aaf3 166-179
+  s_cfc22b058125c4::t_c1dad789784e1d 334
+  s_cfc22b058125c4::t_5482a9805083d9 250-284,286-297,299-324
+  s_cfc22b058125c4::t_47fcecc0e956e3 64
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_d7a67cbd8d1613 431,608
+  s_cfc22b058125c4::t_9b5c2a6e275d77 24-25
+  s_cfc22b058125c4::t_88ce5c04ba489e 522
+  s_cfc22b058125c4::t_1ef9aa7dc421ed 546,549,551-553,555-557,560
+  s_cfc22b058125c4::t_cd4e6942c7958e 564-572,574,583-590
+  s_cfc22b058125c4::t_9e622e7412cdd4 684-700
+  s_cfc22b058125c4::t_839d3c9287d386 279-283
+  s_cfc22b058125c4::t_6492b021d64154 575-582
+  s_cfc22b058125c4::t_ba31bfc0581b9c 616-617,644-645
+  s_cfc22b058125c4::t_8b103375763740 54-56
+  s_cfc22b058125c4::t_038867bcfeef63 76
+  s_cfc22b058125c4::t_162441db57e62d 16
+  s_cfc22b058125c4::t_ed9b3787f298b1 543-545,547-548,550,554
+  s_cfc22b058125c4::t_645bc71d643186 75
+  s_cfc22b058125c4::t_b42df4158d0632 277-278,284
+  s_cfc22b058125c4::t_69957925f8ec23 438-439
+  s_cfc22b058125c4::t_58c0b748aaef9a 704
+  s_cfc22b058125c4::t_c05d49aa31ba19 536
+  s_cfc22b058125c4::t_efe076a258611c 219,226-227,232-267
+  s_cfc22b058125c4::t_d9c59a0fa96988 74
+  s_cfc22b058125c4::t_ec759b26020314 268,503-515,517-519,524-526,531-535,537-542,558-559,561-563,573,591,595-603,605-606
+  s_cfc22b058125c4::t_63fa3236e82dbb 8-11
+  s_cfc22b058125c4::t_b07829522a4495 26
+  s_cfc22b058125c4::t_d73af11a507853 302-304
+  s_cfc22b058125c4::t_031b9e156244e4 436
+  s_cfc22b058125c4::t_3367bef5da5474 721-729
+  s_cfc22b058125c4::t_3368fcd7e5dacb 77-82
+  s_cfc22b058125c4::t_a6b12febed180c 37
+  s_cfc22b058125c4::t_ba841cd7846be8 406-423,426-427,429
+  s_cfc22b058125c4::t_d5d9819685828f 17,269,592
+tests/war/works.test.ts
+  s_cfc22b058125c4::t_6338450dfad22c 165-372
+  s_cfc22b058125c4::t_b1d328e052ac33 126
+src/war/sim/economy.ts
+  s_cfc22b058125c4::t_adca12813dab4a 14,24-36,48-49
+src/war/fake/sim.ts
+  s_cfc22b058125c4::t_8e0950896869eb 45
+scripts/war/bench.mjs
+  s_cfc22b058125c4::t_cecc797aca5b5e 109
+src/war/types.ts
+  s_cfc22b058125c4::t_fd3fd3792f1496 22-30,33-37
+  s_cfc22b058125c4::t_6bdf998a65508d 77
+  s_cfc22b058125c4::t_270d1c4958d54c 88-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2f64c4c177f65613f082993646aebf746d85a4bf",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
