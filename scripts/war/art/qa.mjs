@@ -322,14 +322,14 @@ export function runBuildingsQa() {
   return fail;
 }
 
-// Siege art (public/war/siege): every sprite passes the object checks; every strip (engine anims, ladder push-offs, fx):
+// Siege art (public/war/siege): every sprite passes the object checks; every strip (engine anims, ladder push-offs, fx, char):
 // size = frames x frame, binary alpha, palette, no empty frame; every engine facing has all its states.
 export function qaSiege(dir = join(ROOT, 'public/war/siege')) {
   const read = (f) => JSON.parse(readFileSync(join(ROOT, f)));
   const G = read('public/war/tiles/tiles.json'), GO = read('public/war/objects/objects.json'), S = JSON.parse(readFileSync(join(dir, 'objects.json')));
   const fail = qaObjects(S, G.palette, dir, GO), pal = palSet([...G.palette, ...(S.palette ?? [])]), ids = new Set(S.objects.map((o) => o.id));
   for (const e of S.engines ?? []) for (const f of e.facings) for (const s of [...S.buildOrder, 'damaged', 'destroyed']) if (!ids.has(e.states?.[f]?.[s])) fail.push(`${e.id} ${f}: no ${s} sprite`);
-  const strips = [...(S.engines ?? []).flatMap((e) => Object.values(e.anims ?? {}).flatMap((a) => Object.values(a))), ...Object.values(S.ladders?.pushOff ?? {}), ...(S.fx ?? [])];
+  const strips = [...(S.engines ?? []).flatMap((e) => Object.values(e.anims ?? {}).flatMap((a) => Object.values(a))), ...Object.values(S.ladders?.pushOff ?? {}), ...(S.fx ?? []), ...(S.char ?? [])];
   for (const t of strips) {
     const f = join(dir, t.file); if (!existsSync(f)) { fail.push(`${t.file}: missing`); continue; }
     const im = readImage(f), { w, h, data: d } = im;
