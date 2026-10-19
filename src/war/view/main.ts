@@ -13,6 +13,7 @@ import { scenarioById, SCENARIOS } from '../scenarios';
 import { loadArt } from './art';
 import { applyScenario, devPanel } from './devPanel';
 import { buildPanel } from './build/buildPanel';
+import { siegePanel } from './siege/siegeControls';
 import { SandboxScene } from './SandboxScene';
 import { loadSheetImages } from './units';
 
@@ -38,6 +39,7 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
     if (sc) applyScenario(scene, sc);
     devPanel(game, scene, sc);
     buildPanel(scene);
+    siegePanel(scene);
   };
   game.events.on('poststep', ready);
   (window as unknown as { __sandbox: SandboxScene }).__sandbox = scene;

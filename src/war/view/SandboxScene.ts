@@ -11,6 +11,9 @@
  *   left click / box: select own squads (shift adds); right click: move, or attack an enemy squad
  *   H hold; 1-4 formation line / column / wedge / loose
  *   B build mode, right click a resource node: gather, a site: build it; click a building: its panel (./build/buildMode.ts)
+ *   siege (./siege/siegeControls.ts): C crew / U uncrew, Y deploy / pack, L raise ladder, P push ladder, I ignite,
+ *   O extinguish, Q fire arrows; right click an enemy building or engine: attack it. Engines, fire, rubble and siege
+ *   ladders are drawn by ./siege/siegeLayer.ts
  */
 import Phaser from 'phaser';
 import type { Order, RegionData, SquadId } from '../types';
@@ -25,9 +28,15 @@ import { ShotLayer } from './shots';
 import { BODY, SPRITE_ZOOM, UnitLayer } from './units';
 import { BuildMode } from './build/buildMode';
 import { workClip } from './build/work';
+import { SiegeArt } from './siege/siegeArt';
+import { SiegeControls } from './siege/siegeControls';
+import { SiegeLayer } from './siege/siegeLayer';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLIMB = ['climb', 'walk'] as const;
+const CARRY = ['carry', 'walk'] as const;
+/** Torching, beating out a fire, pushing a ladder off: a work swing. */
+const TASK = ['build', 'thrust', 'attack'] as const;
 /** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above. */
 const LADDER = [1 / 32, 1 / 24, 1 / 16, 1 / 12, 1 / 8, 1 / 6, 1 / 4, 1 / 3, 1 / 2, 1, 2, 3];
 /**
@@ -63,6 +72,9 @@ export class SandboxScene extends Phaser.Scene {
   readonly spots = SPOTS;
   /** Build mode, buildings and the economy controls. */
   build!: BuildMode;
+  /** Siege engines, fire, rubble and siege ladders on the map; the siege orders. */
+  siegeLayer!: SiegeLayer;
+  siege!: SiegeControls;
   /** True once the overview has been baked for the current overlays. */
   overviewReady = false;
   private moved = false; // no edge pan before the first real pointer move
@@ -135,13 +147,19 @@ export class SandboxScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
+    this.siegeLayer = new SiegeLayer(this, this.iso, (x, y) => this.depthAt(x, y));
+    void SiegeArt.load(this).then((a) => (this.siegeLayer.art = a));
     this.build = new BuildMode(this);
-    // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk)
-    const layer = this.build.layer;
-    this.units.lift = (d) => layer.lift(d);
+    this.siege = new SiegeControls(this);
+    // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk); ram crews and ladder
+    // bearers on their engine's offsets
+    const layer = this.build.layer, sl = this.siegeLayer;
+    layer.skip = (b) => !!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble));
+    this.units.lift = (d) => sl.lift(d) ?? layer.lift(d);
     this.units.ground = (d) => layer.groundDepth(d);
     this.shots.lift = (x, y) => layer.lift({ x, y })?.px ?? 0;
-    this.units.anim.override = (u) => (layer.climbing.has(u.id) ? CLIMB : workClip(u));
+    this.units.anim.override = (u) => (layer.climbing.has(u.id) ? CLIMB : sl.bearing.has(u.id) ? CARRY : u.task && u.task !== 'crew' ? TASK : workClip(u));
+    this.shots.launch = (id) => sl.launch(id);
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => this.zoomAt(p.x, p.y, dy > 0 ? -1 : 1));
   }
 
@@ -240,6 +258,7 @@ export class SandboxScene extends Phaser.Scene {
   private onDown(p: Phaser.Input.Pointer): void {
     if (p.rightButtonDown()) return this.command(p);
     const pan = p.middleButtonDown() || this.keys.SPACE.isDown;
+    if (!pan && this.siege.onDown(this.world(p))) return;
     if (!pan && this.build.onDown(this.world(p), this.keys.SHIFT.isDown)) return;
     if (!pan && this.placing) {
       const t = this.world(p), { team, cls, count } = this.placing;
@@ -295,6 +314,7 @@ export class SandboxScene extends Phaser.Scene {
       this.lastCommand = { kind: 'attack', x: foe.x, y: foe.y };
       return;
     }
+    if (this.siege.attackAt(this.world(p))) return;
     const { x, y } = this.target(p);
     const ids = [...this.selected];
     let cx = 0, cy = 0, n = 0;
@@ -347,10 +367,11 @@ export class SandboxScene extends Phaser.Scene {
     this.drawn = this.sim.units();
     // buildings first: this frame's walks, stairs and ladders lift the units
     this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
+    const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
+    this.siegeLayer.draw(this.sim.cur?.sieges ?? [], this.sim.cur?.buildings ?? [], this.drawn, at, this.sim.cur?.tick ?? 0, view);
     this.units.settle(this.drawn, this.time.now);
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
-    const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
     this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);

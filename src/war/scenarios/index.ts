@@ -7,7 +7,8 @@ import type { Behaviour } from '../sim/bots';
 import type { BuildingType, Order, ResourceKind, WallOrder } from '../types';
 import { SPOTS } from '../regions/test-ridge.spots';
 
-export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour }
+/** owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
+export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string }
 
 export interface Scenario {
   id: string;
@@ -19,11 +20,13 @@ export interface Scenario {
   economy?: {
     claims: { team: number; x: number; y: number; r?: number }[];
     stock?: Partial<Record<ResourceKind, number>>;
+    /** Team 1's stockpile (its walls, its siege bots' engines). */
+    foeStock?: Partial<Record<ResourceKind, number>>;
     /** Wall lines a squad lays out (before the sites, so stairs and ladders find their wall). */
     walls?: (Omit<WallOrder, 'kind' | 'squad'> & { squad: number; phase?: number })[];
     sites?: { squad: number; type: BuildingType; x: number; y: number; rot?: 0 | 1; phase?: number }[];
     /**
-     * Fast-forward up to this many ticks per phase before play, the team's squads building every site (a standing
+     * Fast-forward up to this many ticks per phase before play, each team's squads building its sites (a standing
      * base): walls and sites go down by `phase` (default 0), each phase built before the next is laid out.
      */
     prebuild?: number;
@@ -32,7 +35,11 @@ export interface Scenario {
    * After the prebuild: orders, `settle` ticks stepped at once (squads take post), then more squads (ids go on from
    * `squads`) and the orders `then`.
    */
-  after?: { orders: Order[]; settle?: number; squads: ScenarioSquad[]; then?: Order[] };
+  after?: {
+    orders: Order[]; settle?: number; squads: ScenarioSquad[]; then?: Order[];
+    /** Then `settle` more ticks at once (engines get built) and these orders. */
+    later?: { settle: number; orders: Order[] };
+  };
 }
 
 type P = readonly [number, number];
@@ -52,6 +59,22 @@ const [fwx, fwy] = S.fieldW;
  */
 const RING = { x0: 119.5, y0: 425.5, x1: 135.5, y1: 440.5 } as const;
 const RC = [127.5, 433] as const;
+/** The ring's walls (as wall-defense): four lines, north and south take the corners, a gate in the south. */
+const ringWalls = (a: number, b: number) => [
+  { squad: a, material: 'stone' as const, points: [RING.x0, RING.y0, RING.x1, RING.y0], towers: [RING.x0 + 3, RING.y0, RING.x1 - 3, RING.y0], inside: [RC[0], RC[1]], phase: 1 },
+  { squad: a, material: 'stone' as const, points: [RING.x0, RING.y1, RING.x1, RING.y1], gates: [127.5, RING.y1], towers: [RING.x0 + 3, RING.y1, RING.x1 - 3, RING.y1], inside: [RC[0], RC[1]], phase: 1 },
+  { squad: b, material: 'stone' as const, points: [RING.x0, RING.y0 + 2, RING.x0, RING.y1 - 2], inside: [RC[0], RC[1]], phase: 2 },
+  { squad: b, material: 'stone' as const, points: [RING.x1, RING.y0 + 2, RING.x1, RING.y1 - 2], inside: [RC[0], RC[1]], phase: 2 },
+  // the palisade outwork south of the gate, open in front of it
+  { squad: a, material: 'wood' as const, points: [113.5, 446.5, 124.5, 446.5], phase: 1 },
+  { squad: b, material: 'wood' as const, points: [130.5, 446.5, 141.5, 446.5], phase: 1 },
+];
+/** The camp first (the store the builders haul from), then stairs up the north and west walls. */
+const ringSites = (a: number, b: number) => [
+  { squad: a, type: 'camp' as const, x: 127, y: 434 },
+  { squad: b, type: 'stoneStairs' as const, x: 123.5, y: 428.5, phase: 3 },
+  { squad: b, type: 'stoneStairs' as const, x: 122.5, y: 431.5, rot: 1 as const, phase: 3 },
+];
 
 export const SCENARIOS: Scenario[] = [
   {
@@ -200,6 +223,96 @@ export const SCENARIOS: Scenario[] = [
       then: [
         { kind: 'placeBuilding', squad: 9, type: 'ladder', x: 123.5, y: 441.5 },
         { kind: 'placeBuilding', squad: 9, type: 'ladder', x: 132.5, y: 441.5 },
+      ],
+    },
+  },
+  {
+    id: 'siege',
+    name: 'Siege',
+    goal: 'Take the stone fort: batter the gate with the ram (C crew, right click the gate), raise the ladder on the wall (L), shell the towers with the stone thrower, burn the palisade with fire arrows (Q), then storm the breach.',
+    squads: [
+      // the garrison's builders (they raise the fort before play, then stand inside)
+      { team: 1, cls: 'militia', count: 20, x: RC[0] - 3, y: RC[1], owner: 'garrison' },
+      { team: 1, cls: 'militia', count: 20, x: RC[0] + 3, y: RC[1], owner: 'garrison' },
+      { team: 1, cls: 'militia', count: 20, x: RC[0] - 3, y: RC[1] + 3, owner: 'garrison' },
+      { team: 1, cls: 'militia', count: 20, x: RC[0] + 3, y: RC[1] + 3, owner: 'garrison' },
+    ],
+    camera: { x: 127.5, y: 450, zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 1, x: RC[0], y: RC[1], r: 26 }],
+      stock: { wood: 300, stone: 100 },
+      foeStock: { stone: 4000, wood: 1500 },
+      walls: ringWalls(0, 1),
+      sites: ringSites(0, 1),
+      prebuild: 30000,
+    },
+    after: {
+      orders: [
+        { kind: 'move', squad: 0, x: RC[0] - 2, y: RC[1] - 2 },
+        { kind: 'move', squad: 1, x: RC[0] + 2, y: RC[1] - 2 },
+        { kind: 'move', squad: 2, x: RC[0] - 2, y: RC[1] + 1 },
+        { kind: 'move', squad: 3, x: RC[0] + 2, y: RC[1] + 1 },
+      ],
+      settle: 100,
+      // your army (squads 4..9) and the wall defenders (10..12)
+      squads: [
+        you('hoplite', [124, 468]),
+        you('hoplite', [131, 468]),
+        you('archer', [127.5, 472], 16),
+        you('militia', [127.5, 461], 16), // ram crew (the roof covers half the arrows)
+        you('militia', [118.5, 464], 12), // ladder squad
+        you('militia', [138.5, 466], 10), // thrower crew
+        bot('archer', at(RC, -2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 16),
+        bot('archer', at(RC, 2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 12),
+        bot('hoplite', at(RC, 0, 1), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 16),
+      ],
+      then: [
+        { kind: 'buildSiege', squad: 7, type: 'ram', x: 127.5, y: 458.5 },
+        { kind: 'buildSiege', squad: 8, type: 'siegeLadder', x: 118.5, y: 461.5 },
+        { kind: 'buildSiege', squad: 9, type: 'stoneThrower', x: 138.5, y: 463.5 },
+      ],
+      later: {
+        settle: 1300,
+        orders: [
+          { kind: 'crew', squad: 7, siege: 0 },
+          { kind: 'crew', squad: 8, siege: 1 },
+          { kind: 'crew', squad: 9, siege: 2 },
+        ],
+      },
+    },
+  },
+  {
+    id: 'siege-defend',
+    name: 'Siege defend',
+    goal: 'Hold the stone fort: the enemy builds a ram and ladders, shoots fire arrows and storms when a breach or a ladder opens. Man the walls, push ladders off (P), sally out to burn the ram (I), beat out fires (O).',
+    squads: [
+      you('hoplite', at(RC, -3, -3)),
+      you('hoplite', at(RC, 3, -3)),
+      ...[-3, -1, 1, 3].map((dx) => you('archer', at(RC, dx, 4), 4)),
+    ],
+    camera: { x: RC[0], y: RC[1] + 10, zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 0, x: RC[0], y: RC[1], r: 26 }],
+      stock: { stone: 4000, wood: 1500 },
+      foeStock: { wood: 1000, stone: 200 },
+      walls: ringWalls(0, 1),
+      sites: ringSites(0, 1),
+      prebuild: 20000,
+    },
+    after: {
+      orders: [
+        { kind: 'move', squad: 0, x: 127.5, y: 437.5 },
+        { kind: 'move', squad: 1, x: 130.5, y: 433 },
+        ...[2, 3, 4, 5].map((squad, i): Order => ({ kind: 'move', squad, x: 121.5 + 3 * i, y: 439.5 })),
+      ],
+      settle: 1200,
+      squads: [
+        bot('militia', [127, 470], { kind: 'siegeRam', x: RC[0], y: RC[1] }, 8),
+        bot('militia', [119, 468], { kind: 'siegeLadder', x: RC[0], y: RC[1] }, 6),
+        bot('militia', [136, 468], { kind: 'siegeLadder', x: RC[0], y: RC[1] }, 6),
+        bot('archer', [128, 474], { kind: 'siegeArchers', x: RC[0], y: RC[1] }, 16),
+        bot('hoplite', [122, 476], { kind: 'assault', x: RC[0], y: RC[1] }),
+        bot('celt_sword', [133, 476], { kind: 'assault', x: RC[0], y: RC[1] }),
       ],
     },
   },

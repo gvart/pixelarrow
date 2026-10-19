@@ -10,8 +10,8 @@
 // them), the overview, and the 600-unit brawl fps at mid zoom.
 // Mode `anim`: frame sequences at 1:1 (100 ms apart) of a ford fight (archers and slingers shooting,
 // spears and swords striking, deaths) and of a squad idling, then the 600-unit brawl fps at 1/2.
-// Mode `biome`, `build`, `buildux`, `walls`: see below.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome|build|buildux|walls] [id,id...]
+// Mode `biome`, `build`, `buildux`, `walls`, `siege`: see below.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art|anim|biome|build|buildux|walls|siege] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
@@ -738,6 +738,116 @@ if (mode === 'walls') {
   await fps('walls 600 brawl 1/2', 16);
 }
 
+// Mode `siege` (M2c, scenarios siege and siege-defend): the siege tools in build mode, the ladder rising and raised with
+// climbers, the ram at the gate mid-swing, the stone thrower mid-throw with a boulder in the air, the palisade burning
+// (fire arrows), a breach (the gate battered down; dev damage once the ram has had its go) with units pouring in, a
+// fallen tower, scorch and rubble; siege-defend mid-fight; the 600-unit brawl fps at 1/2.
+if (mode === 'siege') {
+  const sv = (f, a) => page.evaluate(f, a);
+  await boot('&scenario=siege');
+  await page.waitForFunction(() => { const s = window.__sandbox; return s.sim.cur.squads.length >= 13 && (s.sim.cur.sieges ?? []).filter((e) => e.crew >= 0).length >= 3; }, null, { timeout: 600000, polling: 500 });
+  await wait(1500);
+  await shot('siege-01-open');
+  // build mode: the siege tools with a squad selected
+  await sv(() => { const s = window.__sandbox; s.sim.speed(0); s.selected.clear(); s.selected.add(4); s.focus(124, 462, 1); s.build.setTool({ kind: 'siege', type: 'ram' }); });
+  const sp = await sv(() => window.__sandbox.toScreen(121, 470));
+  await page.mouse.move(sp.x, sp.y, { steps: 2 });
+  await wait(800);
+  await shot('siege-02-build-ram-tool');
+  await sv(() => { const s = window.__sandbox; s.build.setTool(null); s.build.toggle(false); s.selected.clear(); s.selected.add(7); s.sim.speed(2); });
+  // the plan: ram on the gate, ladder on the south wall, thrower on the south-east tower, fire arrows on the palisade
+  const plan = await sv(() => {
+    const s = window.__sandbox, b = s.sim.cur.buildings.filter((q) => q.team === 1 && q.state !== 'destroyed');
+    const gate = b.find((q) => q.type === 'stoneGate'), towers = b.filter((q) => q.type === 'stoneTower' && q.y > 436).sort((p, q) => q.x - p.x);
+    const pal = b.filter((q) => q.type === 'palisade').sort((p, q) => p.x - q.x);
+    // a south wall line tile west of the gate, off the towers
+    const tiles = b.filter((q) => q.type === 'stoneWall').flatMap((q) => { const t = []; for (let i = 0; i < q.tiles.length; i += 2) t.push([q.tiles[i], q.tiles[i + 1]]); return t; });
+    const wall = tiles.filter(([x, y]) => y === 440 && x >= 123 && x <= 125)[0] ?? tiles.find(([, y]) => y === 440);
+    s.sim.order({ kind: 'attackBuilding', squad: 7, building: gate.id });
+    s.sim.order({ kind: 'raiseLadder', squad: 8, wallTile: wall });
+    s.sim.order({ kind: 'attackBuilding', squad: 9, building: towers[0].id });
+    // the archers first shoot the wall archers off the crews; the spears close up behind the ram
+    s.sim.order({ kind: 'attack', squad: 6, target: 10 });
+    s.sim.order({ kind: 'move', squad: 4, x: 124, y: 450 });
+    return { gate: gate.id, tower: towers[0].id, wall, pal: pal.map((q) => q.id) };
+  });
+  console.log('siege plan', JSON.stringify(plan));
+  // the ladder up: shot rising, then with climbers
+  await page.waitForFunction(() => (window.__sandbox.sim.cur.sieges ?? [])[1]?.state === 'raising', null, { timeout: 240000, polling: 100 }).catch(() => console.log('ladder never raising'));
+  await sv(() => { const s = window.__sandbox, e = s.sim.cur.sieges[1]; s.focus(e.x, e.y - 2, 1); });
+  await wait(1200);
+  await shot('siege-03-ladder-raising');
+  await page.waitForFunction(() => window.__sandbox.sim.cur.buildings.some((q) => q.siege !== undefined && q.state === 'done'), null, { timeout: 240000, polling: 200 }).catch(() => console.log('ladder never raised'));
+  await sv((w) => { const s = window.__sandbox; for (const q of [8, 4]) s.sim.order({ kind: 'move', squad: q, x: w[0] + 0.5, y: w[1] - 0.5 }); }, plan.wall);
+  await page.waitForFunction(() => window.__sandbox.build.layer.climbing.size >= 2, null, { timeout: 120000, polling: 100 }).catch(() => console.log('no climbers caught'));
+  await sv(() => window.__sandbox.sim.speed(0));
+  await wait(600);
+  await shot('siege-04-ladder-climbers');
+  // the ram mid-swing at the gate (speed 1 so a frame of the swing is caught)
+  await sv(() => window.__sandbox.sim.speed(1));
+  await page.waitForFunction(() => { const e = window.__sandbox.sim.cur.sieges[0]; return e.state === 'attack' && e.swing !== undefined; }, null, { timeout: 240000, polling: 100 }).catch(() => console.log('ram never swung'));
+  await sv(() => { const s = window.__sandbox, e = s.sim.cur.sieges[0]; s.focus(e.x, e.y - 1.5, 1); });
+  await page.waitForFunction(() => { const e = window.__sandbox.sim.cur.sieges[0]; return e.state === 'attack' && (e.swing === 0 || e.swing === 1); }, null, { timeout: 60000, polling: 20 }).catch(() => console.log('no swing frame'));
+  await wait(60);
+  await shot('siege-05-ram-swing');
+  // the thrower: deployed, shooting; caught as the boulder leaves
+  await sv(() => window.__sandbox.sim.speed(2));
+  await page.waitForFunction(() => { const e = window.__sandbox.sim.cur.sieges[2]; return e.state === 'deployed' && e.swing !== undefined; }, null, { timeout: 300000, polling: 100 }).catch(() => console.log('thrower never shot'));
+  await sv(() => { const s = window.__sandbox, e = s.sim.cur.sieges[2]; s.focus(e.x - 2, e.y - 5, 1 / 2); s.sim.speed(1); });
+  await page.waitForFunction(() => { const e = window.__sandbox.sim.cur.sieges[2]; return e.swing >= 2 && e.swing <= 4; }, null, { timeout: 60000, polling: 20 }).catch(() => console.log('no throw frame'));
+  await shot('siege-06-thrower-throw');
+  await sv(() => { const s = window.__sandbox, e = s.sim.cur.sieges[2]; s.focus(e.x, e.y - 1, 1); });
+  await page.waitForFunction(() => { const e = window.__sandbox.sim.cur.sieges[2]; return e.swing >= 0 && e.swing <= 1; }, null, { timeout: 60000, polling: 20 }).catch(() => console.log('no release frame'));
+  await shot('siege-07-thrower-release-1x');
+  // the palisade burning (fire arrows)
+  await sv((pal) => { const s = window.__sandbox; s.sim.order({ kind: 'fireArrows', squad: 6, on: true }); s.sim.order({ kind: 'attackBuilding', squad: 6, building: pal[pal.length - 1] }); s.sim.speed(2); }, plan.pal);
+  await page.waitForFunction(() => window.__sandbox.sim.cur.buildings.some((q) => q.type === 'palisade' && (q.burning ?? 0) >= 0.5), null, { timeout: 300000, polling: 200 }).catch(() => console.log('palisade never burning'));
+  await sv(() => { const s = window.__sandbox, p = s.sim.cur.buildings.filter((q) => q.type === 'palisade' && q.burning).sort((a, b) => b.burning - a.burning)[0]; if (p) s.focus(p.x, p.y - 1, 1); });
+  await wait(1200);
+  await shot('siege-08-palisade-burning');
+  await sv(() => window.__sandbox.focus(134, 446, 1 / 2));
+  await wait(600);
+  await shot('siege-09-fire-half');
+  // the breach: the gate battered down, the army pours in
+  await sv((g) => { const s = window.__sandbox; s.sim.speed(4); s.sim.damageBuilding(g, 1e5); }, plan.gate);
+  await page.waitForFunction((g) => window.__sandbox.sim.cur.buildings.find((q) => q.id === g)?.state === 'destroyed', plan.gate, { timeout: 60000 });
+  await sv(() => { const s = window.__sandbox; for (const q of [4, 5, 7, 9, 6]) s.sim.order({ kind: 'move', squad: q, x: 127.5 + (q % 3) - 1, y: 432 }); s.sim.speed(1); s.focus(127.5, 441, 1); });
+  await page.waitForFunction(() => window.__sandbox.drawn.filter((d) => d.team === 0 && d.u.state !== 'dead' && d.y > 437.5 && d.y < 443 && Math.abs(d.x - 127.5) < 3).length >= 8, null, { timeout: 120000, polling: 100 }).catch(() => console.log('few in the breach'));
+  await wait(300);
+  await shot('siege-10-breach-pouring-in');
+  await sv(() => window.__sandbox.focus(127.5, 438, 1 / 2));
+  await wait(800);
+  await shot('siege-11-breach-half');
+  // a fallen tower, the scorched outwork
+  await sv((t) => window.__sandbox.sim.damageBuilding(t, 1e5), plan.tower);
+  await wait(2500);
+  await sv(() => { const s = window.__sandbox, t = s.sim.cur.buildings.find((q) => q.type === 'stoneTower' && q.state === 'destroyed'); if (t) s.focus(t.x, t.y, 1); });
+  await wait(800);
+  await shot('siege-12-tower-rubble');
+  await sv(() => window.__sandbox.sim.speed(4));
+  await page.waitForFunction(() => !window.__sandbox.sim.cur.buildings.some((q) => q.type === 'palisade' && q.burning), null, { timeout: 120000, polling: 500 }).catch(() => console.log('palisade still burning'));
+  await sv(() => window.__sandbox.focus(134, 446, 1));
+  await wait(800);
+  await shot('siege-13-scorch-rubble');
+  // siege-defend: the bots' siege mid-fight
+  await boot('&scenario=siege-defend');
+  await page.waitForFunction(() => window.__sandbox.sim.cur.squads.length >= 12, null, { timeout: 600000, polling: 500 });
+  await sv(() => window.__sandbox.sim.speed(4));
+  await page.waitForFunction(() => (window.__sandbox.sim.cur.sieges ?? []).some((e) => e.state === 'raised' || e.state === 'attack'), null, { timeout: 240000, polling: 200 }).catch(() => console.log('defend: no ladder or ram at work'));
+  await sv(() => { const s = window.__sandbox; s.sim.speed(1); s.focus(127.5, 443, 1 / 2); });
+  await wait(2500);
+  await shot('siege-14-defend-mid');
+  await sv(() => window.__sandbox.focus(126, 442, 1));
+  await wait(1200);
+  await shot('siege-15-defend-mid-1x');
+  // 600 units
+  await boot('&scenario=brawl-600');
+  await page.waitForFunction(() => window.__sandbox.drawn.length >= 600, null, { timeout: 60000 });
+  await sv(() => { const s = window.__sandbox, [x, y] = s.spots.ford; s.sim.speed(1); s.focus(x, y, 1 / 2); });
+  await wait(3000);
+  await fps('siege 600 brawl 1/2', 16);
+}
+
 // scenarios: opening, the player's plan, mid fight, end score
 const PLANS = {
   'pass-ambush': 'stand', // hold the pass where placed
@@ -754,7 +864,7 @@ const attackAll = () => page.evaluate(() => {
 });
 const score = () => page.evaluate(() => document.getElementById('score').textContent);
 for (const [id, plan] of Object.entries(PLANS)) {
-  if (mode === 'art' || mode === 'anim' || mode === 'biome' || mode === 'build' || mode === 'buildux' || mode === 'walls' || (only && !only.includes(id))) continue;
+  if (mode === 'art' || mode === 'anim' || mode === 'biome' || mode === 'build' || mode === 'buildux' || mode === 'walls' || mode === 'siege' || (only && !only.includes(id))) continue;
   await boot(`&scenario=${id}`);
   if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
   await wait(2500);

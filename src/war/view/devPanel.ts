@@ -3,6 +3,7 @@ import type Phaser from 'phaser';
 import { SCENARIOS, type Scenario } from '../scenarios';
 import type { ResourceKind } from '../types';
 import type { SandboxScene, Overlay } from './SandboxScene';
+import { SIEGE_HELP } from './siege/siegeControls';
 
 const CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer'];
 
@@ -27,7 +28,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row">${(['height', 'cost', 'grid', 'zones'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
-    <div class="dim">L click/box select, shift add · R click move / attack<br>H hold · 1-4 line/column/wedge/loose<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
+    <div class="dim">L click/box select, shift add · R click move / attack<br>H hold · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
   document.body.appendChild(el);
   const $ = <T extends HTMLElement>(id: string) => el.querySelector<T>('#' + id)!;
   const val = (id: string) => $<HTMLInputElement>(id).value;
@@ -95,18 +96,23 @@ export function applyScenario(s: SandboxScene, sc: Scenario): void {
   const e = sc.economy;
   for (const c of e?.claims ?? []) s.sim.claim(c.team, c.x, c.y, c.r);
   for (const [r, n] of Object.entries(e?.stock ?? {})) s.sim.addStock(0, r as ResourceKind, n);
-  for (const q of sc.squads) s.sim.spawn(q.team === 0 ? 'you' : 'bot', q.team, q.cls, q.count, q.x, q.y, q.bot);
+  for (const [r, n] of Object.entries(e?.foeStock ?? {})) s.sim.addStock(1, r as ResourceKind, n);
+  for (const q of sc.squads) s.sim.spawn(q.owner ?? (q.team === 0 ? 'you' : 'bot'), q.team, q.cls, q.count, q.x, q.y, q.bot);
+  // each team that lays out walls or sites builds its own before play
+  const teams = [...new Set([...(e?.walls ?? []), ...(e?.sites ?? [])].map((q) => sc.squads[q.squad]?.team ?? 0))];
   // squad ids follow the spawn order; walls before the sites (stairs and ladders lean on them)
   const phases = [...new Set([...(e?.walls ?? []), ...(e?.sites ?? [])].map((q) => q.phase ?? 0))].sort((a, b) => a - b);
   for (const p of phases) {
     for (const { squad, phase, ...w } of e?.walls ?? []) if ((phase ?? 0) === p) s.sim.order({ kind: 'placeWall', squad, ...w });
     for (const t of e?.sites ?? []) if ((t.phase ?? 0) === p) s.sim.order({ kind: 'placeBuilding', squad: t.squad, type: t.type, x: t.x, y: t.y, rot: t.rot });
-    if (e?.prebuild) s.sim.prebuild(0, e.prebuild);
+    if (e?.prebuild) for (const t of teams) s.sim.prebuild(t, e.prebuild);
   }
   for (const o of sc.after?.orders ?? []) s.sim.order(o);
   if (sc.after?.settle) s.sim.skip(sc.after.settle);
   for (const q of sc.after?.squads ?? []) s.sim.spawn(q.team === 0 ? 'you' : q.bot ? 'bot' : 'raiders', q.team, q.cls, q.count, q.x, q.y, q.bot);
   for (const o of sc.after?.then ?? []) s.sim.order(o);
+  if (sc.after?.later) s.sim.skip(sc.after.later.settle);
+  for (const o of sc.after?.later?.orders ?? []) s.sim.order(o);
   s.focus(sc.camera.x, sc.camera.y, sc.camera.zoom);
 }
 

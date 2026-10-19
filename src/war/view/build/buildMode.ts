@@ -14,13 +14,17 @@
  *     removes it; Enter (or the toolbar) orders every line
  *   stairs / ladder: the piece snaps to the nearest place it can lean on (stairs: the inside face of an own walkway
  *     wall; ladder: beside any walkway wall or tower); R cycles the places near the cursor; red with 'attach' when none
+ *   siege (ram / stone thrower / siege ladder, M2c): the engine's sprite follows the cursor; click: the selected own squad
+ *     builds it there (its cost paid at once; ../siege/siegeControls.ts)
  *   Esc drops the drag, then the pending lines, then the tool, then the selected site, then build mode
  *   any mode: right click a resource node with squads selected gathers it; right click an unfinished (or damaged) own
  *   site builds / resumes it; left click a building selects it (panel: assign N, stop work, cancel; upgrade a finished
  *   wall, tower or gate to its next tier)
  */
 import { BUILDINGS, CANCEL_REFUND, rectTiles, rotated, WALL_KIT } from '../../sim/economy';
-import type { BuildingSnap, BuildingType, NodeSnap, PlaceReason, PlaceResult, ResourceKind, WallPlan } from '../../types';
+import type { BuildingSnap, BuildingType, NodeSnap, PlaceReason, PlaceResult, ResourceKind, SiegeType, WallPlan } from '../../types';
+import { SIEGE } from '../../sim/siege';
+import { SIEGE_NAME } from '../siege/siegeControls';
 import type { SandboxScene } from '../SandboxScene';
 import { BuildingLayer, pairs, type GhostMark, type GhostPiece } from './buildingLayer';
 import { BuildArt } from './buildArt';
@@ -30,6 +34,7 @@ export type Tool =
   | { kind: 'building'; type: BuildingType }
   | { kind: 'wall'; material: WallMaterial }
   | { kind: 'access'; type: 'woodStairs' | 'stoneStairs' | 'ladder' }
+  | { kind: 'siege'; type: SiegeType }
   | null;
 export type Cost = Partial<Record<ResourceKind, number>>;
 /** A wall line being planned: flat tile-centre points, its gates and towers (points on it), an explicit inside point. */
@@ -284,6 +289,11 @@ export class BuildMode {
       return true;
     }
     if (!this.active || !this.tool) return false;
+    if (this.tool.kind === 'siege') {
+      if (!this.s.siege.canBuild(t)) { this.status = `can't build: ${reasonText('blocked')}`; return true; }
+      if (this.s.siege.buildSiege(this.tool.type, t) && !shift) this.setTool(null);
+      return true;
+    }
     if (this.tool.kind === 'building') {
       const type = this.tool.type, [x, y] = this.centre(type, t), r = this.answer(`p:${type},${x},${y},${this.rot}`) as PlaceResult | null;
       if (!r?.ok) { this.status = r?.reason ? `can't build: ${reasonText(r.reason)}` : 'checking...'; return true; }
@@ -457,6 +467,7 @@ export class BuildMode {
     if (this.selected >= 0 && !buildings.some((b) => b.id === this.selected)) this.selected = -1; // cancelled or gone
     if (this.s.sim.cur && this.nextSquad <= this.s.sim.cur.squads.length) this.nextSquad = 0;
     const placing = this.active && !!this.tool;
+    this.s.siegeLayer.ghost = null;
     this.layer.selected = this.selected;
     this.layer.grids = this.active;
     this.layer.cutNear = placing ? this.s.pointerTile : null; // the ghost inside a fort always shows
@@ -472,6 +483,13 @@ export class BuildMode {
     }
     this.layer.node(null, zoom);
     const t = this.s.pointerTile, who = this.squad() === null ? ' · planned (no squad)' : '';
+    if (this.tool.kind === 'siege') {
+      const type = this.tool.type, ok = this.s.siege.canBuild(t) && this.squad() !== null, d = SIEGE[type];
+      this.s.siegeLayer.ghost = { type, x: Math.floor(t.x) + 0.5, y: Math.floor(t.y) + 0.5, ok };
+      this.layer.ghost(null, '', zoom);
+      this.status = this.squad() === null ? `${SIEGE_NAME[type]}: select a squad to build it` : ok ? `${SIEGE_NAME[type]}: ${costText(d.cost)} · ${labourText(d.labour)} · crew ${d.crew}` : `can't build: ${reasonText('blocked')}`;
+      return;
+    }
     if (this.tool.kind === 'building') {
       const type = this.tool.type, [x, y] = this.centre(type, t), [w, h] = rotated(type, this.rot);
       const r = this.ask(`p:${type},${x},${y},${this.rot}`, () => sim.checkPlacement(TEAM, type, x, y, this.rot)) as PlaceResult | null;
