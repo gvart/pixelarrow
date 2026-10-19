@@ -1,0 +1,29 @@
+src/war/view/siege/siegeControls.ts
+  s_cfc22b058125c4::t_aa3db60b2c7bac 2-4,8,27,39,75,149-151,201-204,223
+src/war/view/interact.ts
+  s_cfc22b058125c4::t_ec4d3fed20e6b7 1-92,94-102
+  s_cfc22b058125c4::t_ffa1338fe8fbe8 93
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_ffa1338fe8fbe8 11-13,15-17,35,80-81,158,229-232,242,256,315,318-330,391
+src/war/view/build/buildMode.ts
+  s_cfc22b058125c4::t_a0036a17e162e2 20-21
+  s_cfc22b058125c4::t_b16ea677caaffd 340,354
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_a7dcaa8507c4bd 23,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "900eb8dd2a9ed6cb52749203ac15ace627ec304f",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
