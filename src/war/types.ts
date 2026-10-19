@@ -44,8 +44,59 @@ export type Order =
   // stoneWall, woodTower -> stoneTower, woodGate -> stoneGate); the old piece keeps standing (blocking, its walkway open)
   // until the new tier is done (palisade -> rampart grows the inner row). With a squad it builds it, without one (`team`) it stays planned. cancelSite reverts it.
   | { kind: 'upgrade'; building: number; squad?: SquadId; team?: number }
-  | WallOrder;
+  | WallOrder
+  | SiegeOrder;
+// --- M2c siege (src/war/sim/siege.ts, fire and breaches in works.ts; docs/impl/global-war-rebuild.md W-29) ---
+export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder';
+/**
+ * buildSiege: the team pays the engine's cost from its stockpile at once (SIEGE in siege.ts) and the squad builds it at
+ * (x,y) on open ground (labour like a site); it then stands idle, uncrewed. crew: the squad becomes the engine's crew (it
+ * needs SIEGE.crew living men beside it to move or work; extra men follow it); move / hold / attackBuilding / deploy /
+ * raiseLadder sent to a crewing squad drive its engine; any other order (or uncrew) leaves the engine where it stands.
+ * attackBuilding: a ram rolls up to the building and batters it; a stone thrower closes into range, deploys and shoots;
+ * a squad with no engine hacks at it (melee, weak) or shoots it (arrows: next to nothing, but fire arrows set wood alight).
+ * `siege` instead of `building`: the target is an enemy engine. deploy: a stone thrower sets up where it stands (pack: packs
+ * up to move again; a move order packs it first). raiseLadder: a crewed siege ladder is carried to the foot of the enemy
+ * walkway wall or tower tile `wallTile` (flat x,y) on its outer face and raised: a ladder building of the crew's team
+ * (BuildingSnap siege) joins the ground to that deck while it stands. pushLadder: defenders on the deck beside a foe
+ * ladder push it off (takes time; climbers on it fall). ignite: men with torches walk up to a wood building or engine and
+ * set it burning (stone does not burn); extinguish: they beat out the fire (slow). fireArrows: archers loose fire arrows
+ * (slower reload) that set wood alight where they land.
+ */
+export type SiegeOrder =
+  | { kind: 'buildSiege'; squad: SquadId; type: SiegeType; x: number; y: number }
+  | { kind: 'crew'; squad: SquadId; siege: number }
+  | { kind: 'uncrew'; squad: SquadId }
+  | { kind: 'deploy'; squad: SquadId; pack?: boolean }
+  | { kind: 'attackBuilding'; squad: SquadId; building?: number; siege?: number }
+  | { kind: 'raiseLadder'; squad: SquadId; wallTile: number[] }
+  | { kind: 'pushLadder'; squad: SquadId; ladder: number }
+  | { kind: 'ignite'; squad: SquadId; building?: number; siege?: number }
+  | { kind: 'extinguish'; squad: SquadId; building?: number; siege?: number }
+  | { kind: 'fireArrows'; squad: SquadId; on: boolean };
+/**
+ * building: under construction (progress = labour 0..1); idle: built, standing; move: rolling or carried; deploying /
+ * packing: a stone thrower setting up or packing (progress 0..1); deployed: set up, stationary; attack: battering (ram) or
+ * shooting (thrower) its target; raising: a ladder going up (progress 0..1); raised: the ladder stands (`ladder`: its ladder
+ * building, draw that and not the engine); destroyed: wreck.
+ */
+export type SiegeState = 'building' | 'idle' | 'move' | 'deploying' | 'deployed' | 'packing' | 'attack' | 'raising' | 'raised' | 'destroyed';
+export interface SiegeSnap {
+  id: number; type: SiegeType; team: number; x: number; y: number; facing: number; hp: number; maxHp: number; state: SiegeState;
+  progress: number;
+  /** Crewing squad (-1 none); crew needed to move or work; crew men beside it now. */
+  crew: SquadId; crewNeed: number; crewHere: number;
+  /** Ticks to its next blow or shot (0 = ready), and since its last (0 = this tick), set once it struck. */
+  reload?: number; swing?: number;
+  /** Building it attacks (or the wall a ladder goes up / stands on). */
+  target?: number;
+  /** Fire intensity 0..1 while it burns. */
+  burning?: number;
+  ladder?: number;
+}
 export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; swing?: number; ready?: number; carry?: ResourceKind; load?: number;
+  /** M2c: what it does at its target while standing there: torching, beating out a fire, pushing a ladder, crewing an engine (state build: building one). */
+  task?: 'ignite' | 'extinguish' | 'push' | 'crew';
   /** Height level it stands on (ground, stair or walkway). on: the building whose walkway, platform or stair it stands on. */
   z?: number; on?: number }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
@@ -58,7 +109,9 @@ export type MissileKind = 'arrow' | 'stone' | 'javelin';
  * A missile in flight: loosed by unit `by` at tick t0 from (x0,y0) on ground height z0 (levels), lands at (x1,y1)
  * on height z1 on tick t1 (flight t1 - t0 ticks). kind: arrow (bow), stone (sling), javelin.
  */
-export interface ShotSnap { x0: number; y0: number; x1: number; y1: number; t0: number; t1: number; z0: number; z1: number; by: UnitId; kind: MissileKind }
+export interface ShotSnap { x0: number; y0: number; x1: number; y1: number; t0: number; t1: number; z0: number; z1: number; by: UnitId; kind: MissileKind;
+  /** M2c: a fire arrow. siege: a stone thrower's boulder (kind 'stone', by = -1 - siege id), lands with a splash. */
+  fire?: true; siege?: number }
 export interface Snapshot {
   tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots?: ShotSnap[];
   buildings?: BuildingSnap[];
@@ -66,6 +119,8 @@ export interface Snapshot {
   stock?: Record<number, Partial<Record<ResourceKind, number>>>;
   /** Bumped whenever influence() changes: re-read the overlay then. */
   influenceVersion?: number;
+  /** M2c siege engines (destroyed ones stay as wrecks). */
+  sieges?: SiegeSnap[];
 }
 export interface WarSim {
   readonly region: RegionData;
@@ -115,6 +170,12 @@ export interface BuildingSnap {
   cap?: number;
   /** While an upgrade is under way (state scaffold): the tier still standing. */
   upgradeFrom?: BuildingType;
+  /** M2c: fire intensity 0..1 while it burns. */
+  burning?: number;
+  /** M2c: a destroyed wall, gate or tower lies as rubble (walkable at ground level, slow; no deck). */
+  rubble?: true;
+  /** M2c: a ladder raised by siege engine `siege`; push: defenders' progress pushing it off 0..1. */
+  siege?: number; push?: number;
 }
 /** A gatherable node: a region object (obj = index into region.objects) or a finished farm/press (building = its id). */
 export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; obj?: number; building?: number }
