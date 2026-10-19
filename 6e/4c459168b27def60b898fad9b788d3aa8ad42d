@@ -1,0 +1,43 @@
+src/war/sim/grid.ts
+  s_cfc22b058125c4::t_8e3f9b59b4c44c 89
+  s_cfc22b058125c4::t_e1f80f63a668b6 102-106
+  s_cfc22b058125c4::t_b2e2fe21e1a2a8 30-34
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_0eedb49f68176c 370-384,386-387,389,397-398,400-402,404,406
+  s_cfc22b058125c4::t_b4d069736569db 106
+  s_cfc22b058125c4::t_7037f47b06466b 711
+  s_cfc22b058125c4::t_4e39e3b625c635 1419
+  s_cfc22b058125c4::t_9e7b06c8d3e3b0 603,607
+  s_cfc22b058125c4::t_4c9a4f8f95b24a 34
+  s_cfc22b058125c4::t_b290d4fef758a4 39-40
+  s_cfc22b058125c4::t_d9ee370ff3d003 430
+  s_cfc22b058125c4::t_0b9e94fe84834d 441
+tests/war/bridges.test.ts
+  s_cfc22b058125c4::t_a5fa917bf2c018 49-51,53-57,59-90,92-119
+  s_cfc22b058125c4::t_1ec5d4e4b23ce6 223-260,262-263,265-273
+  s_cfc22b058125c4::t_31309082ad7672 91,261,264
+  s_cfc22b058125c4::t_84c6bcd5151e25 58
+  s_cfc22b058125c4::t_625adaee25e17f 341
+  s_cfc22b058125c4::t_a92bb066dafafc 52
+src/war/sim/economy.ts
+  s_cfc22b058125c4::t_89f95d12d24581 63-67
+src/war/types.ts
+  s_cfc22b058125c4::t_e16b4a71fe97c9 176-187,189-190,192-201
+  s_cfc22b058125c4::t_e33754a799d432 235-237,239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6e4c459168b27def60b898fad9b788d3aa8ad42d",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
