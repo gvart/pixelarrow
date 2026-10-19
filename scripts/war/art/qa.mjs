@@ -272,6 +272,7 @@ export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
     let soft = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] && d[i + 3] < 255) soft++; if (d[i + 3] && !pal.has(key(d, i))) off++; }
     if (soft) fail.push(`${tag}: ${soft} semi-transparent px`);
     if (off) fail.push(`${tag}: ${off} px outside the shared palette`);
+    if (k.kind === 'stair') continue; // stairs stand alone: no seams to test
     const fr = (n) => crop(im, { x: n * k.frame.w, y: 0, w: k.frame.w, h: k.frame.h }), o = k.tileOrigin;
     // layouts: [[frame, tile x, tile y], ...] and the tile pairs whose boundary is tested
     const L = k.kind === 'wall'

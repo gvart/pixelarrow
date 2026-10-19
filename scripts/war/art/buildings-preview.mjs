@@ -120,6 +120,25 @@ const GREEK = join(OUT, 'greek'); mkdirSync(GREEK, { recursive: true });
   writeImage(join(GREEK, 'GREEK_states_1x.png'), im);
 }
 
+// 2c) the three wall tiers (W-27): palisade, timber rampart, Greek stone wall, each a run with a tower; inside stairs up to
+// the walks; men on the walks and archers on the tower platforms
+{
+  const items = [], K = Object.fromEntries(B.kits.map((k) => [k.id, k])), T = Object.fromEntries(B.buildings.map((b) => [b.id, b]));
+  const tiers = [['palisade', 'wood-tower', null, 3], ['rampart', 'wood-tower', 'stair-wood', 11], ['stone-wall', 'stone-tower', 'stair-stone', 19]];
+  for (const [kid, tid, sid, y] of tiers) {
+    const cells = new Set(), solid = new Set(); for (let x = 3; x <= 14; x++) cells.add(`${x},${y}`);
+    for (const d of [[15, y], [16, y], [15, y + 1], [16, y + 1]]) solid.add(d.join(','));
+    items.push(...walls(kid, 'done', cells, solid), { kind: 'obj', id: `${tid}-done`, x: 15, y });
+    if (sid) items.push({ kind: 'kit', id: sid, state: 'done', n: K[sid].pieces.indexOf('x+n'), x: 6, y: y + 1 }, { kind: 'kit', id: sid, state: 'damaged', n: K[sid].pieces.indexOf('x-n'), x: 11, y: y + 1 });
+    const walk = K[kid].walkwayM;
+    if (walk) items.push(...squad([hop, hop2], 3.3, y + 0.5, 5, 5, 0.6).map((u) => ({ ...u, z: walk })), ...squad(arc, 9.0, y + 0.55, 3, 3, 0.6).map((u) => ({ ...u, z: walk })));
+    items.push(...squad(arc, 15.6, y + 0.9, 2, 2, 0.7).map((u) => ({ ...u, z: T[tid].platformM })));
+    items.push(...squad([hop, hop2], 3.5, y + 2.6, 4, 4, 0.6));
+  }
+  const im = scene(24, land, items, 'BUILDINGS_walls_1x');
+  writeImage(join(GREEK, 'GREEK_walls_tiers_1x.png'), crop(im, { x: 0, y: 200, w: im.w, h: im.h - 200 }));
+}
+
 // 3) bridges over a river: a stone bridge along x and a wooden one along y; deep water 8 tiles bank to bank
 {
   const n = 26, river = (x, y) => { const c = 12 + Math.round(1.2 * Math.sin(y / 5)); const d = Math.abs(x - c); return d <= 3 ? 2 : d <= 4 ? 1 : 0; };
@@ -136,8 +155,8 @@ const GREEK = join(OUT, 'greek'); mkdirSync(GREEK, { recursive: true });
 }
 // 4) seam check at 3x: straight runs and corners of every wall state, on both axes
 {
-  const ST = ['foundation', 'rising', 'scaffold', 'done', 'damaged'], im = fill(blank(ST.length * 300, 2 * 330));
-  ['palisade', 'stone-wall'].forEach((id, r) => ST.forEach((s, c) => {
+  const ST = ['foundation', 'rising', 'scaffold', 'done', 'damaged'], im = fill(blank(ST.length * 300, 3 * 330));
+  ['palisade', 'rampart', 'stone-wall'].forEach((id, r) => ST.forEach((s, c) => {
     const ox = c * 300 + 150, oy = r * 330 + 250, k = kit[id];
     const cells = new Set(['0,0', '1,0', '2,0', '3,0', '0,1', '0,2', '0,3', '3,1', '3,2']);
     for (const w of walls(id, s, cells, new Set()).sort((a, b) => a.x + a.y - b.x - b.y)) paste(im, frame(id, s, w.n), ox + (w.x - w.y) * 32 - k.tileOrigin.x, oy + (w.x + w.y) * 16 - k.tileOrigin.y);

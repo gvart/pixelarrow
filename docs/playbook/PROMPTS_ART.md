@@ -1458,7 +1458,7 @@ props, each in four states (foundation, scaffold, done, damaged). Raws: `shots/w
 and bridge elevations) and `node scripts/war/art/buildings.mjs --inits` (state inits). Build: `node
 scripts/war/art/buildings.mjs` (ends with the QA gate). Preview: `node scripts/war/art/buildings-preview.mjs` ->
 `BUILDINGS_contact.png`, `BUILDINGS_outpost_1x.png`, `BUILDINGS_fort_scaffold_1x.png`, `BUILDINGS_bridges_1x.png`,
-`BUILDINGS_seams_3x.png`. 31 generations (5 elevations, 12 map objects, 14 state img2img).
+`BUILDINGS_seams_3x.png`, `BUILDINGS_walls_1x.png`. 31 generations (5 elevations, 12 map objects, 14 state img2img).
 
 **Method: textured boxes, not sprites, for anything that must join.** PixelLab cannot draw a wall piece that tiles, and
 it ignores the asked direction of linear pieces (§25). So walls, gates, towers and bridges come from a small iso box
@@ -1477,15 +1477,18 @@ into 1/16 m slices.
 | arches | pixflux `a55d882b`, side, opaque, lineless, seed 7 | same (280) | `side elevation of an ancient Roman stone arch bridge built of dark grey weathered ashlar blocks, round arches on square piers, wedge-shaped voussoir stones round each arch, moss in the joints, a low stone parapet along the top, shaded pixel art texture, dark epic desaturated colours` | kept |
 | trestle | pixflux `b5ffd7c7`, side, no_background, seed 31 | 264 x 104 piles, X braces, deck beam, railing (220) | `flat side view of a rough wooden trestle bridge, dark weathered timber piles with diagonal cross bracing, a heavy deck beam, a simple post and rail railing on top, rope lashings, dark epic desaturated colours, pixel art` | kept |
 
-Kits (`kits[]`): `palisade` (3 m, 0.4 m thick, wood), `stone-wall` (4.3 m walk + crenellated parapet to 5.1 m, 1.4 m
-thick), one sheet per state, 16 frames of 96 x 224 indexed by the neighbour mask (+x 1, +y 2, -x 4, -y 8; gates and
-towers count as neighbours), tile top vertex at (48, 190). Bridges: `bridge-wood` (trestle, deck 2 m) and `bridge-stone`
-(2 m arch bays, deck 2.5 m), frames `deck-x`, `deck-y`, `end-x0`, `end-x1`, `end-y0`, `end-y1` (abutment ramps). Towers
-and gates are renderer models: `stone-tower` 3 x 3 (6 m square, 12 m, centred on a wall-line tile), `wood-tower` 1 x 1
-(8 m, posts, platform, roof), `stone-gate-x/-y` 3 x 3 (two 6.5 m bastions, a 2 m gateway with doors), `wood-gate-x/-y`
-3 x 1 (two log gate towers). States: foundation = trench lines, a string on stakes (wood) or a first course of stones;
-scaffold = half height with a ragged course line, poles, ledgers and a plank stage; damaged = a broken top (78% at tile
-edges, so damaged runs join), rubble, charred (wood) or sooted (stone).
+Kits (`kits[]`), three wall tiers upgraded in place (W-27): `palisade` (3 m, 0.4 m thick, no walk), `rampart` (log
+facing to a 2.6 m plank walk behind log parapets to 3.8 m, 1.4 m thick, burnable) and `stone-wall` (Greek cyclopean,
+a 5.0 m flagged walk 1.1 m wide between plain parapets to 5.97 m, 1.8 m thick); `walkwayM` / `walkwayPx` /
+`walkwayWidthM` in objects.json. One sheet per state, 16 frames of 96 x 254 indexed by the neighbour mask (+x 1, +y 2,
+-x 4, -y 8; gates and towers count as neighbours), tile top vertex at (48, 206). Stairs (`stair-stone`, `stair-wood`,
+kind `stair`): a 2 x 1 flight along the wall's inner face up to a landing at walk height, pieces `x+n x-n x+s x-s y+w
+y-w y+e y-e` (axis, rising towards +/-, the wall on the n/s or w/e side), frames 176 x 278, the NW tile's top vertex at
+(88, 214); no seam test. Bridges: `bridge-wood` (trestle, deck 2 m) and `bridge-stone` (2 m arch bays, deck 2.5 m),
+frames `deck-x`, `deck-y`, `end-x0`, `end-x1`, `end-y0`, `end-y1` (abutment ramps). Towers, gates and the keep are
+renderer models at the sim's footprints (see the Greek redo below). States: `buildOrder` foundation (trench, string on
+stakes or a first course of big blocks) -> rising (~1/3, materials stacked by it) -> scaffold (~2/3, poles, ledgers,
+plank stage) -> done, each shown from `progress` (0, 0.25, 0.6, 1 of the labour); then damaged; gates also `open`.
 
 Buildings: `create_map_object`, high top-down, high detail, detailed shading, tail as §25 (`seen from a high isometric
 three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent background, no
@@ -1498,7 +1501,7 @@ ground, no grass, no base under it`). Each sprite is scaled to its footprint wid
 | storehouse (3 x 3) | `c9e1eb41` | 192 x 256 | `an ancient Greek storehouse: a long rectangular building of rough dark grey fieldstone walls with a low-pitched roof of dark weathered terracotta tiles, one wide wooden door, a few clay amphorae and sacks stacked by the door, showing two walls` | kept; two-tone grey background (keyed from two corners), grass rim dropped |
 | outpost (3 x 3) | `c7fa4bf4` | 192 x 280 | `an ancient frontier outpost: a tall wooden banner pole with a long dark red cloth banner, standing inside a small square ring of sharpened timber palisade stakes about chest high with a gap for an entrance, a small wooden lookout platform and a brazier beside the pole` | kept; grass slab inside the ring dropped by colour (`groundAll`) |
 | barracks (4 x 3) | `eedd6c92` | 224 x 280 | `an ancient Greek barracks: a long low hall of dark grey fieldstone and timber with a low-pitched roof of dark weathered terracotta tiles, a covered wooden porch on posts along the long side, racks of spears and round bronze shields by the door, showing two walls` | clean |
-| keep (4 x 4) | `a9e4232c` | 256 x 400 | `one massive ancient Greek stone keep: a big square fortified tower house of rough dark grey ashlar blocks, three storeys, small dark window slits, a heavy wooden door at the bottom, a crenellated top whose inside is a solid flat floor of dark wooden planks at the level of the battlements, the top is filled, not hollow, showing two walls` | kept (a little medieval, as §24) |
+| (replaced by the megaron) keep (4 x 4) | `a9e4232c` | 256 x 400 | `one massive ancient Greek stone keep: a big square fortified tower house of rough dark grey ashlar blocks, three storeys, small dark window slits, a heavy wooden door at the bottom, a crenellated top whose inside is a solid flat floor of dark wooden planks at the level of the battlements, the top is filled, not hollow, showing two walls` | kept (a little medieval, as §24) |
 | farm (4 x 4) | `d8a727c4` | 256 x 160 | `a small square ancient farm plot: neat parallel furrows of dark tilled brown earth with rows of ripe dull golden barley, enclosed by a low fence of rough wooden stakes and woven wattle, a wooden hand plough leaning on the fence` (+ `only the field and its fence ..., no grass round it, nothing outside the fence`) | kept; grass rim dropped |
 | (rejected) | `7b168539`, `b7d38ee6` | 192 x 224 / 176 | `an ancient Greek olive press: a round stone crushing basin with a big upright stone millstone wheel ...`; `an ancient Greek olive oil press workshop: a wide round stone trapetum basin ...` | both a well on a paved slab |
 | olive-press (3 x 3) | `23e61811` | 192 x 176 | `an ancient olive mill: one huge grey millstone wheel standing upright on its edge inside a wide shallow round stone basin, a wooden pole through the wheel's centre for turning it, next to it a tall wooden frame press with a heavy horizontal wooden beam and a big square stone weight, two tall clay amphorae of oil` (+ `no paving, no floor`) | kept: wheel in a basin (no frame press) |
@@ -1516,8 +1519,8 @@ construction: half-built ... walls with ragged unfinished tops, no roof yet, woo
 `tents half pitched, bare wooden tent poles ...`; farm: `half the field freshly ploughed ..., a half-built fence`; mill:
 `basin half built ..., the big millstone wheel ... lying on wooden rollers`); damaged `a burnt and ruined <building>:
 ... blackened with soot, the roof collapsed with charred broken beams and holes, ... rubble` (keep: `broken battlements,
-a collapsed corner`; farm: `the barley field scorched black and trampled`). The fort (10 x 10) is composed: a stone-wall
-ring on the line 1..8, stone towers on the corners, a stone gate in the +y side and the keep, each part in the same state.
+a collapsed corner`; farm: `the barley field scorched black and trampled`). The fort is composed (see the Greek redo below). PixelLab buildings get `rising` without a generation: the scaffold
+sprite cut to ~1/3 over the footprint's middle line, a stone or lumber pile pasted by it.
 
 **Format.** `objects[]` = one sprite per building state (`<id>-<state>`), the shared object fields plus `tileOrigin`
 (px of the top vertex of the footprint's north tile: draw there), `basePx` (the footprint diamond under the structure;
@@ -1537,3 +1540,40 @@ its grey background into them: char what is left inside (`charHoles`) or keep th
 divisible by 4 and at most 400 (the call fails, free). (4) "Olive press" and "trapetum" give a well; "a millstone wheel
 standing on its edge in a basin" gives a mill. (5) Map objects again came on slabs (camp, outpost, farm): flood the slab
 from the outside by colour; inside a fence drop it by colour.
+
+### Greek redo (ART-B2): stone fortifications are Mycenaean, not medieval
+
+Owner decision: the stone set read as a European castle (square crenellated towers, flat machine-made ashlar). Now: a
+cyclopean wall (huge fitted polygonal blocks, plain parapets, no crenels), square and round towers (cyclopean socle,
+isodomic ashlar shaft, arrow slits, shuttered ports, terracotta roofs at a Greek pitch), the Lion Gate (monolithic
+jambs, a massive lintel, the relieving triangle with its relief) and the keep as a megaron (columned porch with red
+shafts, timber band, tiled gable roof, pediment to the front) on a terrace; the fort (10 x 10, 20 m) is the citadel:
+the cyclopean ring, round towers on the corners, the Lion Gate in the +y side, the megaron on a 2.6 m terrace. 5
+generations. Inits: `node scripts/war/art/kit-inits.mjs <pixellab>/buildings/inits` (the long textures repeat every 4
+tiles: 400 px drawn, quilted to 264 = 8 m, squeezed to 128 face px).
+
+| Texture | Call | Init (strength) | Prompt (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| cyclopean | pixflux `7055aa08`, side, opaque, lineless, highly detailed shading, seed 7 | 400 x 200 periodic Voronoi blocks lit top-left, 5 m wall + 0.9 m parapet with capping (230) | `flat front elevation of an ancient Mycenaean cyclopean fortification wall: huge irregular polygonal limestone boulders fitted tightly together, rough weathered hand-cut faces, each block lit from the upper left with a dark shadowed lower edge, small stones wedged in the gaps, a low parapet of smaller stones with flat capping slabs on top, dark grey and warm beige stone, dark epic desaturated colours, shaded pixel art texture` | kept: painted blocks with real light and shadow |
+| isodomic | pixflux `b1c53889`, same | 400 x 200 even 0.55 m courses, drafted margins (230) | `flat front elevation of an ancient Greek isodomic ashlar wall: even horizontal courses of large rectangular limestone blocks with drafted margins and rough picked centres, tight dark joints, chipped weathered edges, each block lit from the upper left, dark grey and warm beige stone, dark epic desaturated colours, shaded pixel art texture` | kept (towers, megaron, stairs) |
+| liongate | pixflux `f1d20a40`, same | 132 x 196: jambs, 2.8 x 3.2 m opening, lintel, relieving triangle with two lions at a column (200) | `flat front elevation of the Lion Gate of Mycenae: two massive monolithic stone door jambs, a huge single stone lintel across them, above it a triangular relieving niche filled with a carved relief slab of two rampant lions facing a central column, big ashlar limestone blocks around it, a dark open gateway below, weathered grey and beige stone, dark epic desaturated colours, shaded pixel art` | kept (front faces of the gate; the opening is geometry) |
+| (rejected) rooftiles | pixflux `81a88bf1`, `8486590b`, opaque, lineless, seeds 7 / 11 | 264 x 264 pan and cover tiles (220, 200) | `flat texture of an ancient Greek terracotta tiled roof seen straight on: rows of flat pan tiles with long half-round cover tiles running down the slope ...` | plaid both times (lesson (11) again): the drawn init is the texture |
+
+**Renderer additions** (`buildings.mjs`): `cells()` (a grid of 1/16 m columns) gives round towers (`cylinder`, textured
+by angle, lit by the normal), sloped roofs (`roof` with `pyramid` / `cone` / gable height fields, shaded by slope),
+rubble heaps and talus, and sloped rafters (`beam`). Footprints are the sim's (src/war/sim/economy.ts): `stone-tower`
+(+ art variant `stone-tower-round`) and `wood-tower` 2 x 2 (4 m, NW tile on the wall line; fighting platform at 7.2 m
+behind a plain parapet with a small tiled shelter over the back corner / 5.65 m under a shingle roof: `platformM`),
+gates 2 x 1 (4 m, a 2.8 m opening; `open` = leaves swung in), `keep` 4 x 4, fort 10 x 10; camp 4 x 4 and outpost 3 x 3
+(the sim moved to the art). Damaged reads wrecked: stone thrown down to about half height in whole courses with a
+continuous talus of fallen stones and big blocks on both faces, soot on the broken tops, tower roofs fallen in with
+charred beams, the megaron's front fallen with rafters down into it; wood snapped per log (stumps, half-burnt and
+standing logs), charred black from every top with embers, fallen logs. Mock-ups: `greek/GREEK_fort_states_1x.png`,
+`GREEK_outpost_open_1x.png`, `GREEK_walls_tiers_1x.png`, `GREEK_states_1x.png`.
+
+**Lessons:** (12) A damage profile that dips inside every tile repeats as teeth (crenels!) along a run, because a run
+reuses one frame per mask: throw the whole run down to one height and vary it by a little smooth noise, in whole
+courses (1 px steps between 1/16 m slices show as hatching). (13) Rubble as per-tile heaps repeats as bumps: lay a
+continuous talus along the face. (14) Slender towers with steep cones read as a fairy-tale castle: stocky shafts and
+low-pitched roofs read Greek. (15) Bigger textures beat tile-period repeats: a 4-tile period with the same quilting.
+

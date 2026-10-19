@@ -201,8 +201,11 @@ const beam = (axis, a0, a1, at, w, f, mat) => (axis === 'x' ? cells(a0, a1, at, 
 
 // ---- wall kits: frame per neighbour mask (+x 1, +y 2, -x 4, -y 8). Wall centred in the tile, arms to the tile edges.
 const KITS = {
+  // three tiers, upgraded in place (W-27): palisade (no walk) -> timber rampart (a walk behind a log parapet, burnable) ->
+  // Greek stone wall (tall, a wide walk between plain parapets). walkM: the walk surface soldiers stand on.
   palisade: { material: 'wood', burnable: true, heightM: 3.0, thick: 0.4, source: 'pixflux 7eb5a5c5 (palisade elevation)' },
-  'stone-wall': { material: 'stone', burnable: false, heightM: 5.97, walkM: 5.0, thick: 1.4, para: 0.45, source: 'pixflux 7055aa08 (cyclopean elevation)' },
+  rampart: { material: 'wood', burnable: true, heightM: 3.8, walkM: 2.6, thick: 1.4, para: 0.22, source: 'renderer + palisade elevation' },
+  'stone-wall': { material: 'stone', burnable: false, heightM: 5.97, walkM: 5.0, thick: 1.8, para: 0.35, source: 'pixflux 7055aa08 (cyclopean elevation)' },
 };
 const KIT_W = 96, KIT_Y0 = 206, KIT_H = KIT_Y0 + 48; // frame 96 x 254 (room either side for scaffolds and rubble), tile top vertex at (48, 206)
 const DIRS = [[1, 'x', 1], [2, 'y', 1], [4, 'x', -1], [8, 'y', -1]]; // bit, axis, sign
@@ -342,11 +345,12 @@ function wreckage(axis, T, k, wood, u0 = 0, u1 = 2, vc = 1) {
 function kitBoxes(id, mask, state) {
   const K = KITS[id], T = K.thick, rects = wallRects(mask, T), edges = wallEdges(mask, T), wood = K.material === 'wood';
   if (state === 'foundation') return foundation(edges, K.material, mask, 1);
-  const H = wood ? K.heightM : K.walkM, B = [];
-  const mat = wood ? palisadeMat() : masonry(TEX.cyclo, { top: state === 'done' ? flags : rough });
+  const H = K.walkM ?? K.heightM, B = [], pal = palisadeMat();
+  const mat = !wood ? masonry(TEX.cyclo, { top: state === 'done' ? flags : rough }) : K.walkM ? (f, x, y, z, u, r) => (f === 'top' ? (state === 'done' ? planks(mask & 10 && !(mask & 5) ? 'y' : 'x', 5)(f, x, y) : mul(TEX.wood[0], 1.1)) : (r % 22 < 3 ? mul(TEX.wood[0], 0.9) : pal(f, x, y, z, u, (r % 60) + 12))) : pal; // rampart: log facing with timber bands, a plank walk
   const prof = state === 'scaffold' ? halfProf(H, mask, SCAF) : state === 'rising' ? halfProf(H, mask, RISE) : state === 'damaged' ? (wood ? stakeProf(H, mask + 7) : wreckProf(H, mask + 7)) : null;
   for (const r of rects) { const b = { ...r, z0: 0, z1: H, mat }; B.push(...(prof ? sliced(b, r.axis, prof) : [b])); }
   if (!wood && state === 'done') for (const e of edges) B.push(...parapet(e, K, TEX.cyclo, 165)); // damaged: the parapet is gone
+  if (wood && K.walkM && state === 'done') for (const e of edges) B.push(...parapet(e, K, null, 0).map((b) => ({ ...b, mat: (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.wood[0], 1.1) : pal(f, x, y, z, u, palRow(r, K.heightM - K.walkM))) })));
   if (state === 'scaffold') { // stage on the outward (viewer) side of every run
     const top = H * SCAF + 0.5;
     for (const [x0, y0, x1, y1, n] of edges) if (n === '+y' || n === '+x') { const ax = n === '+y' ? 'x' : 'y'; B.push(...scaffold(ax, ax === 'x' ? x0 : y0, ax === 'x' ? x1 : y1, ax === 'x' ? y0 : x0, 1, top)); }
@@ -363,6 +367,47 @@ function renderKit(id, state) {
   });
 }
 
+// ---- inside stairs up to a wall walk (W-27): a 2 x 1 tile flight along the wall's inner face, rising along its axis to a
+// landing at walk height that bridges to the walk. Pieces <axis><rise +/-><wall side>: x+n = along x, rising towards +x,
+// the wall on its -y side (n) / +y side (s); y pieces: the wall on its -x side (w) / +x side (e). tileOrigin: the top vertex of
+// the piece's NW tile.
+const STAIR_PIECES = ['x+n', 'x-n', 'x+s', 'x-s', 'y+w', 'y-w', 'y+e', 'y-e'];
+const STAIRS = {
+  'stair-stone': { material: 'stone', burnable: false, wall: 'stone-wall', source: 'renderer + isodomic elevation' },
+  'stair-wood': { material: 'wood', burnable: true, wall: 'rampart', source: 'renderer + palisade elevation' },
+};
+const ST_W = 176, ST_X0 = 88, ST_Y0 = 214, ST_H = ST_Y0 + 64;
+function stairBoxes(id, piece, state, k) {
+  const S = STAIRS[id], K = KITS[S.wall], stone = S.material === 'stone', walk = K.walkM, gap = 1 - K.thick / 2; // wall face to the tile edge
+  const axis = piece[0], up = piece[1] === '+', far = piece[2] === 'n' || piece[2] === 'w'; // far: the wall on the low side of v
+  const L = 4, W = 1.25, land = stone ? 0.7 : 0.8, n = Math.ceil(walk / (stone ? 0.3 : 0.26)), run = (L - land) / n;
+  const tf = (u0, u1, v0, v1) => { const [a0, a1] = up ? [u0, u1] : [L - u1, L - u0], [b0, b1] = far ? [v0, v1] : [2 - v1, 2 - v0]; return axis === 'x' ? { x0: a0, x1: a1, y0: b0, y1: b1 } : { x0: b0, x1: b1, y0: a0, y1: a1 }; };
+  const cut = { foundation: 0, rising: 0.35, scaffold: 0.68, done: 1, damaged: 1 }[state], top = walk * cut;
+  const out = [];
+  const M = (b) => ({ ...b, ...tf(b.x0, b.x1, b.y0, b.y1) }); // built along x (u) with the wall at v < 0, then placed
+  if (state === 'foundation') return foundation(rectEdges(0, 0, L, W), S.material, k, 1).map(M);
+  if (stone) {
+    const m = masonry(TEX.iso, { mod: 180, top: state === 'done' ? flags : rough }), dmg = state === 'damaged';
+    for (let i = 0; i < n; i++) { const z = (i + 1) * (walk / n); if (z > top + 1e-6) break; out.push({ ...tf(i * run, (i + 1) * run, 0, W), z0: 0, z1: dmg && i > n * 0.45 ? z * (0.55 + 0.2 * hash(i, k, 3)) : z, mat: m }); }
+    if (top >= walk) { const zz = state === 'damaged' ? walk * 0.6 : walk; out.push({ ...tf(L - land, L, -gap, W), z0: 0, z1: zz, mat: m }); }
+    if (state === 'damaged') out.push(...cells(0, L, 0, W + 0.9, (x, y, i, j) => { if (y < W) return null; const hh = 0.7 * (1 - (y - W) / 0.9) * (0.5 + 0.7 * hash(i, j, k)); return hh > 0.05 ? { z0: 0, z1: hh, mat: rubMat(k) } : null; }, 0.2).map(M));
+    if (state === 'scaffold') out.push(...scaffold('x', 0, L, W, 1, top + 0.2).map(M));
+    if (state === 'rising') out.push(...stack(0.3, W + 0.15, false, k).map(M));
+  } else {
+    const dmg = state === 'damaged', tread = planks(axis === 'x' ? 'y' : 'x', 4), slope = (x) => Math.min(top, (x / (L - land)) * walk), uEnd = Math.min(L - land, (top / walk) * (L - land));
+    for (let i = 0; i < n; i++) { const z = (i + 1) * (walk / n); if (z > top + 1e-6) break; if (dmg && hash(i, k, 5) < 0.35) continue; out.push({ ...tf(i * run, (i + 1) * run + 0.04, 0.1, W - 0.1), z0: z - 0.07, z1: z, mat: tread }); }
+    for (const v of [0.02, W - 0.14]) out.push(...beam('x', 0, uEnd, v, 0.12, slope, woodSolid(1)).map(M)); // stringers
+    if (top >= walk) {
+      for (const [a, b] of [[L - land, 0.05], [L - 0.15, 0.05], [L - land, W - 0.2], [L - 0.15, W - 0.2]]) out.push({ ...tf(a, a + 0.15, b, b + 0.15), z0: 0, z1: dmg && a > L - 0.5 ? walk * 0.5 : walk, mat: woodSolid(1) });
+      if (!dmg) out.push({ ...tf(L - land, L, -gap, W), z0: walk - 0.1, z1: walk, mat: planks(axis === 'x' ? 'x' : 'y', 6) });
+    }
+    if (dmg) out.push({ ...tf(0.4, 1.9, W + 0.1, W + 0.4), z0: 0, z1: 0.2, mat: woodSolid(0) });
+    if (state === 'rising') out.push(...stack(0.3, W + 0.15, true, k).map(M));
+  }
+  return out;
+}
+
+
 // ---- towers (2 x 2 tiles, 4 m: inline on a wall line). Greek: a cyclopean socle, an ashlar shaft with arrow slits,
 // an upper chamber with shuttered ports, a cornice and a terracotta roof (pyramidal / conical). Models in metres from
 // the footprint's NW corner.
@@ -378,8 +423,12 @@ function sqTowerBoxes(state, k = 1) {
   const B = [{ x0: i0 - 0.12, x1: i1 + 0.12, y0: i0 - 0.12, y1: i1 + 0.12, z0: 0, z1: socle, mat: masonry(TEX.cyclo, { row0: 6, top: rough }) }];
   const body = { x0: i0, x1: i1, y0: i0, y1: i1, z0: socle, z1: H, mat: shaft };
   if (state === 'done') {
-    B.push(body, { x0: i0 - 0.14, x1: i1 + 0.14, y0: i0 - 0.14, y1: i1 + 0.14, z0: H, z1: H + 0.22, mat: masonry(TEX.iso, { row0: 3 }) });
-    const [f, d] = pyramid(c, c, c - i0 + 0.42, H + 0.22, 1.0); B.push(...roof(i0 - 0.42, i1 + 0.42, i0 - 0.42, i1 + 0.42, f, d));
+    // the fighting platform (W-27): flagged, at H, behind a plain parapet; a little tiled shelter on posts over its back corner
+    B.push({ ...body, mat: (f, x, y, z, u, r) => (f === 'top' ? flags(f, x, y) : shaft(f, x, y, z, u, r)) });
+    for (const e of rectEdges(i0, i0, i1, i1)) B.push(...parapet(e, { walkM: H, heightM: H + 0.95, para: 0.3 }, TEX.iso, 40));
+    const sh = c + 0.1, post = (x, y) => ({ x0: x, x1: x + 0.18, y0: y, y1: y + 0.18, z0: H, z1: H + 2.0, mat: woodSolid(1) });
+    B.push(post(sh - 0.18, sh - 0.18), post(sh - 0.18, i0 + 0.3), post(i0 + 0.3, sh - 0.18));
+    const [f, d] = pyramid((i0 + sh) / 2 - 0.1, (i0 + sh) / 2 - 0.1, (sh - i0) / 2 + 0.3, H + 2.0, 0.55); B.push(...roof(i0 - 0.3, sh + 0.1, i0 - 0.3, sh + 0.1, f, d));
   } else if (state === 'rising') {
     B.push(...sliced(body, 'x', (a) => socle + halfProf(H - socle, k, 0.2)(a)), ...stack(1.0, S - 0.1, false, k), ...stack(S - 0.05, 1.2, false, k + 3));
   } else if (state === 'scaffold') {
@@ -443,7 +492,7 @@ function gateBoxes(material, axis, state, k = 3) {
   const add = (b) => out.push(map(b)), uv = (b) => map({ ...b, u0: b.x0, u1: b.x1, v0: b.y0, v1: b.y1 });
   const front = (face) => (axis === 'x' ? face === '+y' || face === '-y' : face === '+x' || face === '-x');
   const ua = (face, x, y) => { const a = axis === 'x' ? x : y; return axis === 'x' ? a : L - a; }; // left to right as seen
-  const v0 = stone ? 0.15 : 0.7, v1 = stone ? 1.85 : 1.3, o0 = stone ? 0.6 : 0.55, o1 = L - o0;
+  const v0 = stone ? 0.05 : 0.7, v1 = stone ? 1.95 : 1.3, o0 = stone ? 0.6 : 0.55, o1 = L - o0;
   if (state === 'foundation') return foundation(rectEdges(0, v0, L, v1), material, k, stone ? 1.3 : 1).map((b) => (axis === 'x' ? b : { ...b, x0: b.y0, x1: b.y1, y0: b.x0, y1: b.x1 }));
   const half = state === 'scaffold' || state === 'rising', low = state === 'rising', dmg = state === 'damaged', open = state === 'open';
   const doorMat = (f, x, y, z) => { const a = (axis === 'x' ? x : y) + (axis === 'x' ? y : x), n = Math.floor(a * 3.3); if ((z > 0.8 && z < 0.92) || (z > 2.3 && z < 2.42)) return mul(TEX.wood[0], 1.2); if (stone && (z * 4) % 1 < 0.12 && n % 2) return [96, 78, 52, 255]; return n % 2 ? TEX.wood[1] : TEX.wood[2]; };
@@ -707,7 +756,13 @@ const kits = [], buildings = [];
 for (const id of Object.keys(KITS)) {
   const K = KITS[id], files = {};
   for (const s of STATES) { const fr = renderKit(id, s), sheet = blank(KIT_W * 16, KIT_H); fr.forEach((f, i) => paste(sheet, f, i * KIT_W, 0)); files[s] = `${id}-${s}.png`; sprites.push({ sheet: true, file: files[s], im: sheet }); }
-  kits.push({ id, kind: 'wall', material: K.material, burnable: K.burnable, heightM: K.heightM, thicknessM: K.thick, frames: 16, frame: { w: KIT_W, h: KIT_H }, tileOrigin: { x: KIT_W / 2, y: KIT_Y0 }, states: files, source: K.source });
+  const walk = K.walkM ? { walkwayM: K.walkM, walkwayPx: Math.round(K.walkM * PPM), walkwayWidthM: +(K.thick - 2 * K.para).toFixed(2) } : { walkwayM: null };
+  kits.push({ id, kind: 'wall', material: K.material, burnable: K.burnable, heightM: K.heightM, thicknessM: K.thick, ...walk, frames: 16, frame: { w: KIT_W, h: KIT_H }, tileOrigin: { x: KIT_W / 2, y: KIT_Y0 }, states: files, source: K.source });
+}
+for (const id of Object.keys(STAIRS)) { // inside stairs up to the walk
+  const S = STAIRS[id], K = KITS[S.wall], files = {};
+  for (const s of STATES) { const sheet = blank(ST_W * STAIR_PIECES.length, ST_H); STAIR_PIECES.forEach((p, i) => { let im = renderBoxes(stairBoxes(id, p, s, i + 1), ST_W, ST_H, ST_X0, ST_Y0); if (s === 'damaged') im = S.material === 'wood' ? burn(im, i) : soot(im, i); paste(sheet, im, i * ST_W, 0); }); files[s] = `${id}-${s}.png`; sprites.push({ sheet: true, file: files[s], im: sheet }); }
+  kits.push({ id, kind: 'stair', material: S.material, burnable: S.burnable, wall: S.wall, topM: K.walkM, topPx: Math.round(K.walkM * PPM), pieces: STAIR_PIECES, footprints: STAIR_PIECES.map((p) => (p[0] === 'x' ? [2, 1] : [1, 2])), frames: STAIR_PIECES.length, frame: { w: ST_W, h: ST_H }, tileOrigin: { x: ST_X0, y: ST_Y0 }, states: files, source: S.source });
 }
 for (const id of Object.keys(BRIDGES)) {
   const Bd = BRIDGES[id], files = {};
@@ -716,9 +771,9 @@ for (const id of Object.keys(BRIDGES)) {
 }
 // procedural structures: towers, gates and the keep (true scale; footprints = the sim's, src/war/sim/economy.ts)
 const PROC = [
-  { id: 'stone-tower', kind: 'tower', material: 'stone', burnable: false, footprint: [2, 2], heightM: 8.5, inline: '2 x 2 on the wall line (its NW tile on the line)', boxes: sqTowerBoxes, source: 'renderer + cyclopean / isodomic elevations (pixflux 7055aa08, b1c53889)' },
+  { id: 'stone-tower', kind: 'tower', material: 'stone', burnable: false, footprint: [2, 2], heightM: 9.8, platformM: 7.2, inline: '2 x 2 on the wall line (its NW tile on the line)', boxes: sqTowerBoxes, source: 'renderer + cyclopean / isodomic elevations (pixflux 7055aa08, b1c53889)' },
   { id: 'stone-tower-round', kind: 'tower', material: 'stone', burnable: false, footprint: [2, 2], heightM: 8.6, inline: 'variant of stone-tower', boxes: rdTowerBoxes, source: 'renderer + cyclopean / isodomic elevations' },
-  { id: 'wood-tower', kind: 'tower', material: 'wood', burnable: true, footprint: [2, 2], heightM: 9.4, inline: '2 x 2 on the wall line', boxes: woodTowerBoxes, source: 'renderer + palisade elevation' },
+  { id: 'wood-tower', kind: 'tower', material: 'wood', burnable: true, footprint: [2, 2], heightM: 9.4, platformM: 5.65, inline: '2 x 2 on the wall line', boxes: woodTowerBoxes, source: 'renderer + palisade elevation' },
   { id: 'stone-gate-x', kind: 'gate', material: 'stone', burnable: false, footprint: [2, 1], axis: 'x', heightM: 6, inline: '2 wall tiles along x, opening along y', boxes: (s) => gateBoxes('stone', 'x', s), source: 'renderer + Lion Gate elevation (pixflux f1d20a40)' },
   { id: 'stone-gate-y', kind: 'gate', material: 'stone', burnable: false, footprint: [1, 2], axis: 'y', heightM: 6, inline: '2 wall tiles along y, opening along x', boxes: (s) => gateBoxes('stone', 'y', s), source: 'renderer + Lion Gate elevation (pixflux f1d20a40)' },
   { id: 'wood-gate-x', kind: 'gate', material: 'wood', burnable: true, footprint: [2, 1], axis: 'x', heightM: 4.9, inline: '2 wall tiles along x', boxes: (s) => gateBoxes('wood', 'x', s), source: 'renderer + palisade elevation' },
@@ -792,7 +847,7 @@ for (const o of all) {
     sprites.push({ file: `${sid}.png`, im: r.im, meta: { id: sid, kind: o.kind, file: `${sid}.png`, w: r.im.w, h: r.im.h, metres: Math.max(0.05, metres), basePx: base, anchor: a, tileOrigin: r.tileOrigin, footprint: o.footprint, blocksMovement: s !== 'foundation' && o.kind !== 'farm', building: o.id, state: s, material: o.material, burnable: !!o.burnable, source: o.source ?? 'renderer' } });
     states[s] = sid;
   }
-  buildings.push({ id: o.id, kind: o.kind, material: o.material, burnable: !!o.burnable, footprint: o.footprint, ...(o.axis && { axis: o.axis }), ...(o.inline && { inline: o.inline }), ...(o.heightM && { heightM: o.heightM }), states });
+  buildings.push({ id: o.id, kind: o.kind, material: o.material, burnable: !!o.burnable, footprint: o.footprint, ...(o.axis && { axis: o.axis }), ...(o.inline && { inline: o.inline }), ...(o.heightM && { heightM: o.heightM }), ...(o.platformM && { platformM: o.platformM, platformPx: Math.round(o.platformM * PPM) }), states });
 }
 // palette + write
 const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), GO = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));

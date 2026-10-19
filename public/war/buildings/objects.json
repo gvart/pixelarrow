@@ -124,62 +124,61 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#4e251f",
-  "#58423a",
-  "#753c21",
-  "#6f493c",
-  "#956754",
-  "#a09153",
-  "#957d67",
-  "#a8a297",
-  "#3b1628",
+  "#644539",
+  "#765248",
+  "#9f866b",
+  "#aba193",
   "#5c4845",
-  "#815949",
-  "#726e64",
-  "#4d241e",
-  "#582a22",
-  "#6e3226",
-  "#64473c",
-  "#8c6452",
-  "#9c894b",
-  "#956f5d",
-  "#a78d75",
-  "#3f1b21",
-  "#5f4239",
-  "#735c52",
-  "#45211a",
-  "#46231d",
-  "#4d232b",
-  "#51423d",
-  "#614034",
-  "#624336",
-  "#624437",
-  "#644438",
-  "#8e6e40",
-  "#8a5f4d",
-  "#957c43",
-  "#9b8448",
-  "#746f66",
   "#787475",
-  "#8a8075",
-  "#361a15",
-  "#3f1e19",
-  "#5e4034",
-  "#5f4135",
-  "#6e5754",
-  "#250f14",
-  "#200d21",
-  "#271328",
-  "#5c2c24",
-  "#5c3c31",
-  "#5d4033",
-  "#5e5a51",
-  "#625e54",
-  "#695c55",
-  "#6a6362",
+  "#5d4034",
+  "#793d1d",
+  "#706c65",
+  "#726e64",
+  "#401f19",
+  "#4f261f",
+  "#592a22",
+  "#524f4d",
+  "#6a5c57",
+  "#706b63",
+  "#9b874a",
+  "#a18756",
+  "#634437",
+  "#674a42",
+  "#87766a",
+  "#958a7e",
+  "#614439",
+  "#757067",
+  "#5c3f33",
+  "#703327",
   "#6f6c65",
-  "#706c63",
-  "#706c65"
+  "#3b1d18",
+  "#4d251f",
+  "#401e25",
+  "#514542",
+  "#6e5754",
+  "#988245",
+  "#997c55",
+  "#5f4135",
+  "#614236",
+  "#5c2c24",
+  "#5c2d25",
+  "#663321",
+  "#6f6b65",
+  "#190719",
+  "#311712",
+  "#452119",
+  "#49231c",
+  "#271328",
+  "#3b1628",
+  "#4f262d",
+  "#605c53",
+  "#635e55",
+  "#715b53",
+  "#7e5a4b",
+  "#8c6544",
+  "#937a42",
+  "#8b6250",
+  "#946553"
  ],
  "kits": [
   {
@@ -189,6 +188,7 @@
    "burnable": true,
    "heightM": 3,
    "thicknessM": 0.4,
+   "walkwayM": null,
    "frames": 16,
    "frame": {
     "w": 96,
@@ -208,12 +208,43 @@
    "source": "pixflux 7eb5a5c5 (palisade elevation)"
   },
   {
+   "id": "rampart",
+   "kind": "wall",
+   "material": "wood",
+   "burnable": true,
+   "heightM": 3.8,
+   "thicknessM": 1.4,
+   "walkwayM": 2.6,
+   "walkwayPx": 86,
+   "walkwayWidthM": 0.96,
+   "frames": 16,
+   "frame": {
+    "w": 96,
+    "h": 254
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 206
+   },
+   "states": {
+    "foundation": "rampart-foundation.png",
+    "rising": "rampart-rising.png",
+    "scaffold": "rampart-scaffold.png",
+    "done": "rampart-done.png",
+    "damaged": "rampart-damaged.png"
+   },
+   "source": "renderer + palisade elevation"
+  },
+  {
    "id": "stone-wall",
    "kind": "wall",
    "material": "stone",
    "burnable": false,
    "heightM": 5.97,
-   "thicknessM": 1.4,
+   "thicknessM": 1.8,
+   "walkwayM": 5,
+   "walkwayPx": 165,
+   "walkwayWidthM": 1.1,
    "frames": 16,
    "frame": {
     "w": 96,
@@ -231,6 +262,146 @@
     "damaged": "stone-wall-damaged.png"
    },
    "source": "pixflux 7055aa08 (cyclopean elevation)"
+  },
+  {
+   "id": "stair-stone",
+   "kind": "stair",
+   "material": "stone",
+   "burnable": false,
+   "wall": "stone-wall",
+   "topM": 5,
+   "topPx": 165,
+   "pieces": [
+    "x+n",
+    "x-n",
+    "x+s",
+    "x-s",
+    "y+w",
+    "y-w",
+    "y+e",
+    "y-e"
+   ],
+   "footprints": [
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "frames": 8,
+   "frame": {
+    "w": 176,
+    "h": 278
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 214
+   },
+   "states": {
+    "foundation": "stair-stone-foundation.png",
+    "rising": "stair-stone-rising.png",
+    "scaffold": "stair-stone-scaffold.png",
+    "done": "stair-stone-done.png",
+    "damaged": "stair-stone-damaged.png"
+   },
+   "source": "renderer + isodomic elevation"
+  },
+  {
+   "id": "stair-wood",
+   "kind": "stair",
+   "material": "wood",
+   "burnable": true,
+   "wall": "rampart",
+   "topM": 2.6,
+   "topPx": 86,
+   "pieces": [
+    "x+n",
+    "x-n",
+    "x+s",
+    "x-s",
+    "y+w",
+    "y-w",
+    "y+e",
+    "y-e"
+   ],
+   "footprints": [
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     2
+    ]
+   ],
+   "frames": 8,
+   "frame": {
+    "w": 176,
+    "h": 278
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 214
+   },
+   "states": {
+    "foundation": "stair-wood-foundation.png",
+    "rising": "stair-wood-rising.png",
+    "scaffold": "stair-wood-scaffold.png",
+    "done": "stair-wood-done.png",
+    "damaged": "stair-wood-damaged.png"
+   },
+   "source": "renderer + palisade elevation"
   },
   {
    "id": "bridge-wood",
@@ -310,7 +481,9 @@
     2
    ],
    "inline": "2 x 2 on the wall line (its NW tile on the line)",
-   "heightM": 8.5,
+   "heightM": 9.8,
+   "platformM": 7.2,
+   "platformPx": 238,
    "states": {
     "foundation": "stone-tower-foundation",
     "rising": "stone-tower-rising",
@@ -349,6 +522,8 @@
    ],
    "inline": "2 x 2 on the wall line",
    "heightM": 9.4,
+   "platformM": 5.65,
+   "platformPx": 186,
    "states": {
     "foundation": "wood-tower-foundation",
     "rising": "wood-tower-rising",
@@ -692,17 +867,17 @@
    "id": "stone-tower-done",
    "kind": "tower",
    "file": "stone-tower-done.png",
-   "w": 136,
-   "h": 308,
-   "metres": 7.39,
+   "w": 116,
+   "h": 366,
+   "metres": 9.15,
    "basePx": 64,
    "anchor": {
-    "x": 68,
-    "y": 307
+    "x": 58,
+    "y": 365
    },
    "tileOrigin": {
-    "x": 68,
-    "y": 247
+    "x": 58,
+    "y": 305
    },
    "footprint": [
     2,
@@ -1016,17 +1191,17 @@
    "id": "stone-gate-x-foundation",
    "kind": "gate",
    "file": "stone-gate-x-foundation.png",
-   "w": 96,
-   "h": 65,
-   "metres": 0.52,
+   "w": 98,
+   "h": 66,
+   "metres": 0.55,
    "basePx": 48,
    "anchor": {
-    "x": 66,
-    "y": 64
+    "x": 64,
+    "y": 65
    },
    "tileOrigin": {
-    "x": 32,
-    "y": 18
+    "x": 33,
+    "y": 19
    },
    "footprint": [
     2,
@@ -1043,17 +1218,17 @@
    "id": "stone-gate-x-rising",
    "kind": "gate",
    "file": "stone-gate-x-rising.png",
-   "w": 98,
-   "h": 90,
-   "metres": 1.27,
+   "w": 99,
+   "h": 91,
+   "metres": 1.3,
    "basePx": 48,
    "anchor": {
-    "x": 53,
-    "y": 89
+    "x": 56,
+    "y": 90
    },
    "tileOrigin": {
     "x": 36,
-    "y": 42
+    "y": 43
    },
    "footprint": [
     2,
@@ -1070,17 +1245,17 @@
    "id": "stone-gate-x-scaffold",
    "kind": "gate",
    "file": "stone-gate-x-scaffold.png",
-   "w": 102,
+   "w": 105,
    "h": 164,
    "metres": 3.52,
    "basePx": 48,
    "anchor": {
-    "x": 70,
+    "x": 71,
     "y": 163
    },
    "tileOrigin": {
-    "x": 40,
-    "y": 117
+    "x": 42,
+    "y": 116
    },
    "footprint": [
     2,
@@ -1097,7 +1272,7 @@
    "id": "stone-gate-x-done",
    "kind": "gate",
    "file": "stone-gate-x-done.png",
-   "w": 92,
+   "w": 94,
    "h": 243,
    "metres": 5.91,
    "basePx": 48,
@@ -1106,7 +1281,7 @@
     "y": 242
    },
    "tileOrigin": {
-    "x": 30,
+    "x": 31,
     "y": 196
    },
    "footprint": [
@@ -1124,17 +1299,17 @@
    "id": "stone-gate-x-damaged",
    "kind": "gate",
    "file": "stone-gate-x-damaged.png",
-   "w": 116,
-   "h": 162,
-   "metres": 3.45,
+   "w": 119,
+   "h": 164,
+   "metres": 3.52,
    "basePx": 48,
    "anchor": {
-    "x": 63,
-    "y": 161
+    "x": 64,
+    "y": 163
    },
    "tileOrigin": {
-    "x": 42,
-    "y": 109
+    "x": 44,
+    "y": 110
    },
    "footprint": [
     2,
@@ -1151,7 +1326,7 @@
    "id": "stone-gate-x-open",
    "kind": "gate",
    "file": "stone-gate-x-open.png",
-   "w": 92,
+   "w": 94,
    "h": 243,
    "metres": 5.91,
    "basePx": 48,
@@ -1160,7 +1335,7 @@
     "y": 242
    },
    "tileOrigin": {
-    "x": 30,
+    "x": 31,
     "y": 196
    },
    "footprint": [
@@ -1178,17 +1353,17 @@
    "id": "stone-gate-y-foundation",
    "kind": "gate",
    "file": "stone-gate-y-foundation.png",
-   "w": 96,
-   "h": 65,
-   "metres": 0.52,
+   "w": 98,
+   "h": 66,
+   "metres": 0.55,
    "basePx": 48,
    "anchor": {
-    "x": 29,
-    "y": 64
+    "x": 33,
+    "y": 65
    },
    "tileOrigin": {
-    "x": 64,
-    "y": 18
+    "x": 65,
+    "y": 19
    },
    "footprint": [
     1,
@@ -1205,17 +1380,17 @@
    "id": "stone-gate-y-rising",
    "kind": "gate",
    "file": "stone-gate-y-rising.png",
-   "w": 98,
-   "h": 90,
-   "metres": 1.27,
+   "w": 99,
+   "h": 91,
+   "metres": 1.3,
    "basePx": 48,
    "anchor": {
-    "x": 44,
-    "y": 89
+    "x": 42,
+    "y": 90
    },
    "tileOrigin": {
-    "x": 62,
-    "y": 42
+    "x": 63,
+    "y": 43
    },
    "footprint": [
     1,
@@ -1232,17 +1407,17 @@
    "id": "stone-gate-y-scaffold",
    "kind": "gate",
    "file": "stone-gate-y-scaffold.png",
-   "w": 102,
+   "w": 105,
    "h": 164,
    "metres": 3.52,
    "basePx": 48,
    "anchor": {
-    "x": 31,
+    "x": 34,
     "y": 163
    },
    "tileOrigin": {
-    "x": 62,
-    "y": 117
+    "x": 63,
+    "y": 116
    },
    "footprint": [
     1,
@@ -1259,16 +1434,16 @@
    "id": "stone-gate-y-done",
    "kind": "gate",
    "file": "stone-gate-y-done.png",
-   "w": 92,
+   "w": 94,
    "h": 243,
    "metres": 5.91,
    "basePx": 48,
    "anchor": {
-    "x": 27,
+    "x": 30,
     "y": 242
    },
    "tileOrigin": {
-    "x": 62,
+    "x": 63,
     "y": 196
    },
    "footprint": [
@@ -1286,17 +1461,17 @@
    "id": "stone-gate-y-damaged",
    "kind": "gate",
    "file": "stone-gate-y-damaged.png",
-   "w": 116,
-   "h": 162,
-   "metres": 3.45,
+   "w": 119,
+   "h": 164,
+   "metres": 3.52,
    "basePx": 48,
    "anchor": {
-    "x": 52,
-    "y": 161
+    "x": 55,
+    "y": 163
    },
    "tileOrigin": {
-    "x": 74,
-    "y": 109
+    "x": 75,
+    "y": 110
    },
    "footprint": [
     1,
@@ -1313,16 +1488,16 @@
    "id": "stone-gate-y-open",
    "kind": "gate",
    "file": "stone-gate-y-open.png",
-   "w": 92,
+   "w": 94,
    "h": 243,
    "metres": 5.91,
    "basePx": 48,
    "anchor": {
-    "x": 27,
+    "x": 30,
     "y": 242
    },
    "tileOrigin": {
-    "x": 62,
+    "x": 63,
     "y": 196
    },
    "footprint": [
