@@ -42,7 +42,7 @@ export function createSim(region: RegionData, _seed: number): WarSim {
       return id;
     },
     order(o) {
-      const s = squads.get(o.squad);
+      const s = squads.get(o.squad ?? -1);
       if (!s) return;
       if (o.kind === 'formation') { s.shape = o.shape; return; }
       s.order = o;

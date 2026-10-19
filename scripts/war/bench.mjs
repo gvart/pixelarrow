@@ -106,7 +106,7 @@ const buildRun = () => {
   site.addStock(0, 'stone', 1e6);
   const ms = [];
   for (let t = 0; t < ticks; t++) {
-    if (t === 400)
+    if (t === 800) // camps take 6 workers at once: about 600 ticks
       for (const [id, [cx, cy]] of crews) {
         const fort = near('fort', cx + 9, cy);
         if (fort) site.order({ kind: 'placeBuilding', squad: id, type: 'fort', x: fort[0], y: fort[1] });
