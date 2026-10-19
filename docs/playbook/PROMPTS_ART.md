@@ -1228,3 +1228,34 @@ acacia prompt (flat, table, tortilis) gives a dome; the §24 acacia trick works 
 straight block splits (as road-rock in §24); oasis grass is the exception. (5) The QA ground test only looks for green
 (trees, stone) or soil (plants): sand floors and red aprons pass it, so look at the contact sheet. (6) Desaturating a tan
 or grey-brown fill lands it on the global olive greens after the palette snap: keep sat >= 0.9 for earth tones.
+
+**Art fix (mesa, pillar, acacias, doum palm).** The ART-7 mesa read as a tree stump, the pillar as stacked bricks, the
+acacias as domes, and there was no doum palm. 23 generations (6 `create_map_object`, 1 `create_object_pro_flash` at
+~9, 8 `create_image_pixflux` img2img). `create_map_object` keeps drawing rock as cubes, cakes and bricks, whatever the
+prompt says. What worked was `create_image_pixflux` img2img (1 generation, up to 400 x 400) over a rough init image:
+either another model's output or a shape drawn in code (silhouette, flat colours, shading, noise). Inits go up with
+`get_upload_url` and are passed as `init_image_url: upload:<id>`. The pixflux "transparent" output is a flat grey
+background, so these raws use `keyAll`. Common settings: `no_background`, high top-down, highly detailed, detailed
+shading, selective outline. Each prompt ends with `dark epic desaturated colours, heavy shadows, detailed pixel art`.
+
+| id | Call | Init (strength) | Prompt (verbatim, before the shared tail) | Result |
+| --- | --- | --- | --- | --- |
+| (rejected) mesa | `45112a69` map_object 400 x 320 | — | `one huge broad flat-topped red sandstone mesa, much wider than tall, a perfectly flat level caprock table on top with a hard pale rim, sheer cliff walls banded by many horizontal sedimentary strata layers ... a wide sloping skirt of talus scree ... like a desert butte of Monument Valley` | a striped cube on a slab with bricks |
+| (rejected) mesa | `59f14e84` map_object 400 x 300 | — | `one big rough natural desert hill of red sandstone eroded into a mesa: a wide irregular kidney-shaped flat plateau top with a ragged broken crumbling rim, steep eroded cliff faces cut by gullies and buttresses ...` | a layer cake / tree stump on a ground slab |
+| (rejected) mesa | `3fcc3cc5`, `efb385ae`, `2932d462` pixflux | drawn mesa end (180, 100, 140) | as below (`... eroded gullies and buttresses, a skirt of talus scree ...`) | 180: the striped init unchanged; 100 and 140: flared, fibrous bottoms with a log-grain top, a stump again |
+| mesa | `78bf3391` pixflux 400 x 400, seed 5 | drawn mesa end (320) | `the end of a huge red sandstone mesa seen from a high isometric three-quarter view: a flat pale caprock plateau top with a ragged rim, a sheer weathered cliff face of horizontal sedimentary rock strata in rust-red, ochre and dark brown, at its foot a heap of loose fallen rock rubble, broken boulders and gravel scree, rough natural rock` (`isometric: true`) | kept as raw `mesa-end`. `mirrorJoin` adds its mirror image at the cut right edge, giving a 746 x 332 ridge (about 33 m along the diagonal, 10 m tall). Footprint 12 x 12 |
+| (rejected) rock-pillar | `cfb3e13c`, `5e90d7f6` map_object 128 / 112 x 300 | — | `one tall natural desert hoodoo rock spire ... no bricks, no blocks`; `... shaped like a melting candle or a termite mound ... like the hoodoos of Bryce Canyon` | stacked blocks both times ("no bricks" adds bricks) |
+| (rejected) rock-pillar | `f0ff71e5` pixflux | drawn hoodoo (150) | `a tall natural red sandstone hoodoo rock spire, irregular wind-eroded knobbly column ...` | a cairn of round boulders |
+| rock-pillar | `9e60a699` pixflux 112 x 300 | drawn hoodoo (230) | `one tall natural hoodoo of red sandstone, a single solid monolithic rock spire, smooth wind-sculpted wavy sides with bulges and a pinched neck, soft horizontal sedimentary bands, a darker flat cap rock on top, a little rubble at its foot` | kept (raw `hoodoo`), 8 m |
+| (rejected) acacia | `1e7e9a06` map_object 320 x 168 | — | `one African umbrella thorn acacia tree, a thin dark trunk forking low into several long thin bare branches that fan out wide like the ribs of an open umbrella ... one very flat thin horizontal layer of dark muted olive-green foliage like a flat table top ...` | a dome again (a wide, short canvas does not help) |
+| (seed) | `530a7839` pro_flash 256 x 160, 1 direction (~9 gens) | — | `umbrella thorn acacia tree (Acacia tortilis) of the African savanna: thin dark trunk splitting into long thin bare branches spreading outward, one very flat, very thin, wide table-shaped canopy ... canopy four times wider than thick ...` | a correct flat table, but tiny (135 x 71). Used as the init after a 2x nearest upscale |
+| acacia | `76440984` pixflux 320 x 192 | pro_flash acacia x2 (220) | `an umbrella thorn acacia tree (Acacia tortilis): thin dark crooked trunk, long thin bare branches spreading out wide like umbrella ribs, one very flat thin wide table-top canopy of small dark muted olive-green leaves, flat top and flat underside` | kept (raw `acacia-table`), 4.3 m |
+| acacia-old | `8ed7998d` pixflux 320 x 192, seed 11 | `acacia` mirrored (110) | `an old umbrella thorn acacia tree (Acacia tortilis): crooked dark trunk leaning, long thin bare spreading branches, a very wide flat thin table-top canopy ..., slightly lopsided, flat top and flat underside` | kept (raw `acacia-table-old`) |
+| doum-palm | `84b2f490` pixflux 200 x 300 | drawn Y-fork trunk with 4 fan tufts (110) | `one Egyptian doum palm tree (Hyphaene thebaica): a grey-brown ringed trunk that forks into two branches, each forking again, four crowns of stiff round fan-shaped palm leaves, dark muted grey-green` | kept (raw `doum-forked`), 8 m, the first real doum palm. Its fan crowns are small |
+
+**Lessons (fix):** (7) When `create_map_object` gets a shape wrong, draw the shape and run pixflux img2img over it.
+Strength sets how much of the drawing survives. About 100–150 restyles the drawing but invents detail (stump flares,
+fringes, cobbles). About 220–320 keeps the drawn geometry and turns it into pixel art. (8) Rubble drawn as a regular grid
+of cells comes back as bricks; scatter irregular boulders instead. (9) A rock bigger than 400 px is an end piece cut
+flat at one edge plus its mirror (`mirrorJoin`), so the seam matches pixel for pixel. (10) pro_flash draws the acacia
+shape correctly but small and at ~9 generations; use it as an init, not as the asset.

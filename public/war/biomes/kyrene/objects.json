@@ -111,59 +111,32 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#191523",
-  "#250f23",
-  "#513035",
-  "#583639",
-  "#5e3737",
-  "#643937",
-  "#653f3f",
-  "#694143",
-  "#335643",
-  "#3e5541",
-  "#3f5746",
-  "#425b49",
-  "#5e4e43",
-  "#445c4b",
-  "#556559",
-  "#6f3e3a",
-  "#6d3f3d",
-  "#71413e",
-  "#704740",
-  "#74413e",
-  "#75413f",
-  "#815449",
-  "#8e5a4d",
-  "#845b52",
-  "#806459",
-  "#8e5d4f",
-  "#97625d",
-  "#676a50",
-  "#826654",
-  "#846d4f",
-  "#836754",
-  "#816c66",
-  "#876c60",
-  "#69816a",
-  "#5ba684",
-  "#8c7361",
-  "#8e7865",
-  "#966c57",
-  "#9a705d",
-  "#9c6f61",
-  "#a16e6a",
-  "#94775c",
-  "#9d816c",
-  "#9d8a75",
-  "#af997b",
-  "#aca086",
-  "#b5aa97",
-  "#b9b4a0",
-  "#b9b5a9",
-  "#bdbdbd",
+  "#708367",
   "#bfbfbf",
-  "#bfc0c0",
-  "#c0c1c0"
+  "#8d6654",
+  "#866d54",
+  "#b6ae9b",
+  "#876b50",
+  "#926f60",
+  "#a18c72",
+  "#8a7055",
+  "#8d7055",
+  "#8c5e4c",
+  "#736e4c",
+  "#886b50",
+  "#866c53",
+  "#886f54",
+  "#8c7253",
+  "#75473b",
+  "#836651",
+  "#3a1e29",
+  "#603224",
+  "#613325",
+  "#385340",
+  "#425b49",
+  "#633627",
+  "#585241",
+  "#663c34"
  ],
  "objects": [
   {
@@ -239,6 +212,24 @@
    "source": "map_object 2c726ba0 (asked for a doum palm)"
   },
   {
+   "id": "doum-palm",
+   "kind": "tree",
+   "file": "doum-palm.png",
+   "w": 140,
+   "h": 260,
+   "metres": 8,
+   "anchor": {
+    "x": 69,
+    "y": 259
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "pixflux 84b2f490 (img2img over a hand-drawn forked palm)"
+  },
+  {
    "id": "date-palm-clump",
    "kind": "tree",
    "file": "date-palm-clump.png",
@@ -260,37 +251,37 @@
    "id": "acacia",
    "kind": "tree",
    "file": "acacia.png",
-   "w": 167,
-   "h": 164,
-   "metres": 5,
+   "w": 269,
+   "h": 142,
+   "metres": 4.5,
    "anchor": {
-    "x": 84,
-    "y": 163
+    "x": 135,
+    "y": 141
    },
    "footprint": [
     1,
     1
    ],
    "blocksMovement": false,
-   "source": "map_object 37b04b8c"
+   "source": "pixflux 76440984 (img2img over pro_flash 530a7839)"
   },
   {
    "id": "acacia-old",
    "kind": "tree",
    "file": "acacia-old.png",
-   "w": 189,
-   "h": 175,
-   "metres": 5.5,
+   "w": 256,
+   "h": 143,
+   "metres": 4.5,
    "anchor": {
-    "x": 91,
-    "y": 174
+    "x": 130,
+    "y": 142
    },
    "footprint": [
     1,
     1
    ],
    "blocksMovement": false,
-   "source": "map_object ebc71f21"
+   "source": "pixflux 8ed7998d (img2img over acacia, mirrored)"
   },
   {
    "id": "thorn-tree",
@@ -422,37 +413,37 @@
    "id": "mesa",
    "kind": "stone",
    "file": "mesa.png",
-   "w": 258,
-   "h": 297,
-   "metres": 9.4,
+   "w": 746,
+   "h": 332,
+   "metres": 10,
    "anchor": {
-    "x": 127,
-    "y": 296
+    "x": 373,
+    "y": 331
    },
    "footprint": [
-    4,
-    4
+    12,
+    12
    ],
    "blocksMovement": true,
-   "source": "map_object baf32d19"
+   "source": "pixflux 78bf3391 (img2img over a hand-drawn end piece; + its mirror)"
   },
   {
    "id": "rock-pillar",
    "kind": "stone",
    "file": "rock-pillar.png",
-   "w": 92,
-   "h": 290,
-   "metres": 9,
+   "w": 81,
+   "h": 264,
+   "metres": 8,
    "anchor": {
-    "x": 46,
-    "y": 289
+    "x": 47,
+    "y": 263
    },
    "footprint": [
     1,
     1
    ],
    "blocksMovement": true,
-   "source": "map_object 61089733"
+   "source": "pixflux 9e60a699 (img2img over a hand-drawn hoodoo)"
   },
   {
    "id": "boulder-red",
