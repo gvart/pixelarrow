@@ -1,7 +1,7 @@
 /**
  * The red-figure UI kit (W-32, public/war/ui/ui.json): its CSS (9-slice frames as border-image, buttons with their
- * states, bars, the hover label, the tooltip) and the scale. 1 art px = `zoom` CSS px: whole device pixels per art pixel
- * (round(devicePixelRatio), doubled on very large viewports), so the pixel art stays crisp at 1x and 2x.
+ * states, bars, the hover label, the tooltip, the radial menu) and the scale. 1 art px = `zoom` CSS px: the UI scale
+ * setting (auto by viewport, 1x / 1.5x / 2x; W-34) snapped to device pixels, so the pixel art stays crisp.
  */
 import type { BuildingType, SiegeType } from '../../types';
 
@@ -10,10 +10,27 @@ const url = (f: string) => `url(${UI}${f})`;
 /** Image-set of a kit PNG and its @2x twin. */
 const set = (f: string) => `image-set(${url(f)} 1x, ${url(f.replace('.png', '@2x.png'))} 2x)`;
 
-/** CSS px per art px. */
+/** UI scale steps a player can pick (W-34); 'auto' picks by viewport. Persisted in localStorage. */
+export type UiScale = 'auto' | 1 | 1.5 | 2;
+export const UI_SCALES: UiScale[] = ['auto', 1, 1.5, 2];
+const SCALE_KEY = 'war.uiScale';
+export function uiScale(): UiScale {
+  try {
+    const v = Number(localStorage.getItem(SCALE_KEY));
+    if (v === 1 || v === 1.5 || v === 2) return v;
+  } catch { /* storage blocked: auto */ }
+  return 'auto';
+}
+export function setUiScale(v: UiScale): void {
+  try { localStorage.setItem(SCALE_KEY, String(v)); } catch { /* storage blocked: this session only */ }
+}
+/** Auto: the largest step whose 720 x 450 art-px layout fits the viewport (1440 x 900: 2, 1280 x 720: 1.5). */
+export const autoStep = (w = innerWidth, h = innerHeight) => [3, 2.5, 2, 1.5].find((k) => w >= 720 * k && h >= 450 * k) ?? 1;
+
+/** CSS px per art px: the step snapped to whole (or half) device pixels so the nearest-neighbour art stays crisp. */
 export function uiZoom(): number {
-  const dpr = devicePixelRatio || 1, dev = Math.max(1, Math.round(dpr)), big = innerWidth >= 2400 && innerHeight >= 1350 ? 2 : 1;
-  return (dev * big) / dpr;
+  const set = uiScale(), step = set === 'auto' ? autoStep() : set, dpr = devicePixelRatio || 1;
+  return Math.max(1, Math.round(step * dpr * 2) / 2) / dpr;
 }
 
 /** Meander frames tile with this period: the width minus the side slices must be a multiple of it. */
@@ -24,10 +41,12 @@ export const snapW = (w: number) => SIDE * 2 + Math.ceil((w - SIDE * 2) / PERIOD
 export const UNIT_ICON: Record<string, string> = {
   militia: 'unit-militia', hoplite: 'unit-hoplite', celt_sword: 'unit-swordsman', archer: 'unit-archer', slinger: 'unit-slinger', javelineer: 'unit-javelineer',
 };
-export const BUILDING_ICON: Record<BuildingType, string> = {
+/** Keyed loosely: sim branches add building types (brazier, pitch kiln) ahead of their icons. */
+export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string> = {
   camp: 'bld-camp', storehouse: 'bld-storehouse', outpost: 'bld-outpost', fort: 'bld-fort', barracks: 'bld-barracks', farm: 'bld-farm', olivePress: 'bld-olive-press',
   palisade: 'bld-palisade', rampart: 'bld-rampart', stoneWall: 'bld-stone-wall', woodStairs: 'bld-stairs-wood', stoneStairs: 'bld-stairs-stone', ladder: 'bld-ladder',
   woodTower: 'bld-tower-wood', stoneTower: 'bld-tower-stone', woodGate: 'bld-gate', stoneGate: 'bld-gate', woodBridge: 'bld-bridge-wood', stoneBridge: 'bld-bridge-stone',
+  brazier: 'bld-brazier', pitchKiln: 'bld-pitch-kiln',
 };
 export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder' };
 
@@ -60,7 +79,6 @@ export const CSS = `
 .rf-btn.on{background-image:${set('buttons/button-icon-active.png')}}
 .rf-btn:disabled{background-image:${set('buttons/button-icon-disabled.png')};cursor:default}
 .rf-btn:disabled .ic{opacity:.4;filter:grayscale(.7)}
-.rf-btn .key{position:absolute;right:2px;bottom:1px;font-size:8px;color:#f0d9b5;text-shadow:0 1px 0 #0e0907}
 .rf-tbtn{height:18px;padding:0 6px;color:#f0d9b5;font:600 10px/1 Inter,sans-serif;cursor:pointer;background:none;${nine('buttons/button-normal.png', 3, 3, 3, 3)}}
 .rf-tbtn:hover{border-image-source:${set('buttons/button-hover.png')}}
 .rf-tbtn:active{border-image-source:${set('buttons/button-pressed.png')}}
@@ -72,6 +90,19 @@ export const CSS = `
 .rf-bar i{position:absolute;left:-1px;top:1px;height:4px;background-size:2px 4px;background-repeat:repeat-x}
 .rf-bar i.hp{background-image:${url('bars/fill-hp.png')}} .rf-bar i.construction{background-image:${url('bars/fill-construction.png')}}
 .rf-bar i.burn{background-image:${url('bars/fill-burn.png')}} .rf-bar i.ok{background-image:${url('bars/fill-ok.png')}}
+.rf-sep{width:1px;align-self:stretch;background:#7a3418;box-shadow:1px 0 0 #0e0907;margin:0 4px}
+.rf-cap{font:700 10px/1 'Cormorant SC',serif;color:#a8907a;letter-spacing:.04em;margin:0 0 2px 1px}
+.rf-seg{display:flex}
+.rf-seg button{width:28px;height:26px;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;background:none;${nine('buttons/button-icon-normal.png', 3, 3, 3, 3)}}
+.rf-seg button:hover{border-image-source:${set('buttons/button-icon-hover.png')}}
+.rf-seg button.on{border-image-source:${set('buttons/button-icon-active.png')}}
+.rf-seg button .key,.rf-btn .key{position:absolute;right:2px;bottom:1px;font-size:8px;color:#f0d9b5;text-shadow:0 1px 0 #0e0907}
+.rf-radial{z-index:7;pointer-events:none}
+.rf-radial .rf-btn{position:absolute}
+.rf-radial .rf-btn.sel{background-image:${set('buttons/button-icon-active.png')}}
+.rf-radial .rf-btn.sel:disabled{background-image:${set('buttons/button-icon-hover.png')}}
+.rf-radial .hub{position:absolute;width:12px;height:12px;border-radius:50%;background:#0e0907;border:2px solid #b8592a}
+.rf-radial .rf-label{position:absolute;transform:translateX(-50%)}
 .rf input{font:600 10px/1 Inter,sans-serif;width:26px;height:18px;background:#0e0907;color:#f0d9b5;border:1px solid #7a3418;padding:0 2px}
 `;
 

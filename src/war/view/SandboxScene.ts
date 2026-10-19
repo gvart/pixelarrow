@@ -9,11 +9,12 @@
  *
  *   drag / middle-drag / space+drag pan, WASD/arrows, screen-edge pan; wheel zooms to the cursor
  *   left click / box: select own squads (shift adds)
- *   E or right click: the context action on the hovered target, named by the label at the cursor (./interact.ts:
- *   attack, crew / uncrew, raise / push ladder, ignite, extinguish, build, gather, move)
+ *   E or right click: the context action on the hovered target, named by the label at the cursor; hold either for a
+ *   radial menu of every action there (./interact.ts: attack, crew / uncrew, raise / push ladder, ignite, extinguish,
+ *   fire arrows, build, gather, move)
  *   H hold; 1-4 formation line / column / wedge / loose
  *   B build mode; click a building: its panel (./build/buildMode.ts)
- *   siege (./siege/siegeControls.ts): Y deploy / pack, Q fire arrows; HUD buttons for the rest. Engines, fire, rubble
+ *   siege (./siege/siegeControls.ts): Y deploy / pack, Q fire arrows; the rest is context (E / radial). Engines, fire, rubble
  *   and siege ladders are drawn by ./siege/siegeLayer.ts
  */
 import Phaser from 'phaser';
@@ -290,7 +291,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private onDown(p: Phaser.Input.Pointer): void {
-    if (p.rightButtonDown()) return this.command(p);
+    if (p.rightButtonDown()) return this.build.tool || this.siege.armed ? this.command(p) : this.interact.press(p, 'mouse');
     const pan = p.middleButtonDown() || this.keys.SPACE.isDown;
     if (!pan && this.siege.onDown(this.world(p))) return;
     if (!pan && this.build.onDown(this.world(p), this.keys.SHIFT.isDown)) return;
