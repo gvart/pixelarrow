@@ -30,5 +30,9 @@
     "bld-tower-stone": "c98ac677-ee8c-483a-ac5f-54ba9ac3cf82",
     "bld-gate": "42d69062-303c-42cd-8b3e-517e4ed6a4ee",
     "bld-bridge-wood": "7e067c46-8c10-436e-a474-ebf9ca776f6a"
+  },
+  "redfigure": {
+    "runner": "ed349cca-1294-4007-a9df-50370e27b5ab",
+    "horse": "3ac04da3-e4c3-4ee0-949a-05a52e7d2909"
   }
 }

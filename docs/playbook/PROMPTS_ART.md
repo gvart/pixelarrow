@@ -1742,6 +1742,25 @@ sometimes paints a ground square: QA the border ring of every icon. (4) Pictogra
 cheaper and more readable drawn from shapes than generated; give them the same outline and light direction. (5) Other
 agents share the 10-job PixelLab queue: submit a few at a time.
 
+**Red-figure theme (W-32, kit 2).** `node scripts/war/art/ui-redfigure.mjs` runs after `ui.mjs` (which still makes the
+icons and cursors; `ui-preview.mjs` is gone, the live HUD shots replace it): it replaces `frames/`, `buttons/`, `bars/`
+and adds `accents/`, sets `theme: "redfigure"` in `ui.json`. Frames, buttons, tabs, bars and the round minimap ring are
+drawn from a 5 x 6 px running key (`#####.` / `#...#.` / `#.###.` / `#.#...` / `#.####`), terracotta on black, 0
+generations: `band` (key top and bottom), `card` (key top, thin border), `tooltip`, `label`, `minimap-round` (168 px,
+the key at 2x mapped to polar coordinates; window r 70). Meander edges tile with period 6: box widths minus the side
+slices must be a multiple of 6 (the HUD snaps them). Buttons: normal / hover / pressed / disabled / active by fill and
+border tone. Accents: pixen 40x40, `no_background`, side view, trimmed and area-scaled to 26 px tall, snapped to the
+terracotta ramp. **4 generations**, 2 kept:
+
+| Asset | Prompt (verbatim) | Result |
+| --- | --- | --- |
+| runner | `ancient Greek red-figure vase painting style: a running Greek hoplite with a round shield and spear, mid-stride, flat terracotta orange figure with thin black line details, side view, isolated on transparent background` (east) | kept |
+| horse | `ancient Greek red-figure vase painting style: a galloping horse, flat terracotta orange silhouette with thin black line details for mane and legs, side view, isolated on transparent background` (west, `lineless`) | kept (walks rather than gallops; reads well) |
+| (rejected) | the runner as `a running Greek warrior athlete with a round shield and a crested helmet` (`lineless`) | muddy, the shield swallows the body |
+| (rejected) | the horse as `a galloping horse with flowing mane and tail, terracotta orange body with black outline` | thin and yellow |
+
+**Lessons:** a geometric ornament is exact and periodic only when drawn in code; generate only the painted figures.
+
 ## 33. Mobs (W-12)
 
 Neutral-region creatures as soldier-format sheets (`src/assets/sheets/mob_<mob>/`, SHEET_FORMAT v2; rows SE, NE, SW,

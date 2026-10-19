@@ -1,10 +1,37 @@
 {
- "note": "War UI kit (W-25). Sizes are 1x art px; every PNG has an @2x twin (nearest). slice = 9-slice margins {l, t, r, b}: corners fixed, edges and centre stretch; edges \"tile\" = repeat the edge strip (period px) instead of stretching (meander borders). Icons: 32 and 24 px. Cursors: 32 px with hotspot.",
+ "note": "War UI kit, red-figure theme (W-32). Sizes are 1x art px; every PNG has an @2x twin (nearest). slice = 9-slice margins {l, t, r, b}: corners fixed, edges and centre stretch; edges \"tile\" + period = the horizontal edges repeat (meander) and the box width minus l + r must be a multiple of the period. Icons: 32 and 24 px (full colour). Cursors: 32 px with hotspot.",
  "scale": [
   1,
   2
  ],
  "palette": [
+  "#0e0907",
+  "#17100d",
+  "#251812",
+  "#33201a",
+  "#4a2414",
+  "#7a3418",
+  "#b8592a",
+  "#de8a4e",
+  "#f2b27a",
+  "#f0d9b5",
+  "#5d4c42",
+  "#8a786a",
+  "#e05a3c",
+  "#b42c22",
+  "#6e1712",
+  "#f0c050",
+  "#c8861e",
+  "#7a4c12",
+  "#ffb040",
+  "#e0661a",
+  "#8a2a08",
+  "#86c058",
+  "#4c8c34",
+  "#2c5a22",
+  "#64a8d8",
+  "#2e6c9c",
+  "#1c3c5c",
   "#32323a",
   "#c3965b",
   "#000000",
@@ -104,191 +131,120 @@
   "#16120e"
  ],
  "frames": {
-  "panel": {
-   "file": "frames/panel.png",
-   "w": 241,
-   "h": 161,
+  "band": {
+   "file": "frames/band.png",
+   "w": 24,
+   "h": 24,
    "slice": {
-    "l": 56,
-    "t": 57,
-    "r": 68,
-    "b": 65
+    "l": 6,
+    "t": 10,
+    "r": 6,
+    "b": 10
    },
    "edges": "tile",
    "period": [
-    13,
-    13
+    6,
+    1
    ],
-   "use": "main window, scenario and site panels (meander bronze)"
+   "use": "top resource band (meander top and bottom)"
   },
-  "panel-small": {
-   "file": "frames/panel-small.png",
-   "w": 121,
-   "h": 89,
+  "card": {
+   "file": "frames/card.png",
+   "w": 24,
+   "h": 18,
    "slice": {
-    "l": 14,
-    "t": 14,
-    "r": 14,
-    "b": 14
+    "l": 6,
+    "t": 10,
+    "r": 6,
+    "b": 4
    },
-   "edges": "stretch",
-   "use": "selection panel, siege box, sub-panels (riveted iron)"
-  },
-  "bar": {
-   "file": "frames/bar.png",
-   "w": 96,
-   "h": 67,
-   "slice": {
-    "l": 16,
-    "t": 16,
-    "r": 16,
-    "b": 16
-   },
-   "edges": "stretch",
-   "use": "top resource bar, command card, build toolbar (riveted iron)"
+   "edges": "tile",
+   "period": [
+    6,
+    1
+   ],
+   "use": "command card, build bar (meander top, thin border)"
   },
   "tooltip": {
    "file": "frames/tooltip.png",
-   "w": 89,
-   "h": 57,
+   "w": 12,
+   "h": 12,
    "slice": {
-    "l": 8,
-    "t": 8,
-    "r": 8,
-    "b": 8
+    "l": 4,
+    "t": 4,
+    "r": 4,
+    "b": 4
    },
    "edges": "stretch",
-   "use": "tooltip (parchment, dark ink text)"
+   "use": "tooltip (cost, labour); cream text"
   },
   "label": {
    "file": "frames/label.png",
-   "w": 52,
-   "h": 31,
+   "w": 8,
+   "h": 8,
    "slice": {
-    "l": 24,
-    "t": 0,
-    "r": 24,
-    "b": 0
+    "l": 3,
+    "t": 3,
+    "r": 3,
+    "b": 3
    },
    "edges": "stretch",
-   "fixedHeight": 31,
-   "use": "hover label (3-slice, fixed height)"
-  },
-  "plaque": {
-   "file": "frames/plaque.png",
-   "w": 200,
-   "h": 41,
-   "slice": {
-    "l": 96,
-    "t": 8,
-    "r": 96,
-    "b": 8
-   },
-   "edges": "stretch",
-   "fixedHeight": 41,
-   "use": "title plaque / banner (bronze, meander ends)"
+   "use": "hover label (E: action); cream text, key letter terracotta"
   },
   "minimap-round": {
    "file": "frames/minimap-round.png",
-   "w": 137,
-   "h": 137,
+   "w": 168,
+   "h": 168,
    "window": {
-    "cx": 68,
-    "cy": 68,
-    "r": 47
+    "cx": 84,
+    "cy": 84,
+    "r": 68
    },
-   "use": "round minimap frame, fixed size"
-  },
-  "minimap": {
-   "file": "frames/minimap.png",
-   "w": 137,
-   "h": 137,
-   "window": {
-    "x": 21,
-    "y": 21,
-    "w": 95,
-    "h": 95
-   },
-   "use": "square minimap frame, fixed size"
-  },
-  "divider": {
-   "file": "frames/divider.png",
-   "w": 48,
-   "h": 15,
-   "slice": {
-    "l": 20,
-    "t": 0,
-    "r": 20,
-    "b": 0
-   },
-   "edges": "stretch",
-   "fixedHeight": 15,
-   "use": "horizontal divider (3-slice)"
-  },
-  "divider-ornament": {
-   "file": "frames/divider-ornament.png",
-   "w": 53,
-   "h": 15,
-   "use": "centre ornament laid over a divider"
+   "use": "round minimap frame (meander ring), fixed size; draw the map in the window circle under it"
   }
  },
  "buttons": {
-  "button": {
-   "states": {
-    "normal": "buttons/button-normal.png",
-    "hover": "buttons/button-hover.png",
-    "pressed": "buttons/button-pressed.png",
-    "disabled": "buttons/button-disabled.png"
-   },
-   "slice": {
-    "l": 10,
-    "t": 10,
-    "r": 10,
-    "b": 10
-   },
-   "use": "text button (large); label Cinzel / Cormorant SC",
-   "w": 64,
-   "h": 41
-  },
-  "button-small": {
-   "states": {
-    "normal": "buttons/button-small-normal.png",
-    "hover": "buttons/button-small-hover.png",
-    "pressed": "buttons/button-small-pressed.png",
-    "disabled": "buttons/button-small-disabled.png"
-   },
-   "slice": {
-    "l": 10,
-    "t": 10,
-    "r": 10,
-    "b": 10
-   },
-   "use": "small text button (site panel Assign / Stop / Cancel)",
-   "w": 64,
-   "h": 28
-  },
   "button-icon": {
    "states": {
     "normal": "buttons/button-icon-normal.png",
     "hover": "buttons/button-icon-hover.png",
     "pressed": "buttons/button-icon-pressed.png",
-    "disabled": "buttons/button-icon-disabled.png"
+    "disabled": "buttons/button-icon-disabled.png",
+    "active": "buttons/button-icon-active.png"
+   },
+   "w": 30,
+   "h": 30,
+   "content": {
+    "x": 3,
+    "y": 3,
+    "w": 24,
+    "h": 24
    },
    "slice": {
-    "l": 10,
-    "t": 10,
-    "r": 10,
-    "b": 10
+    "l": 3,
+    "t": 3,
+    "r": 3,
+    "b": 3
    },
-   "content": {
-    "x": 4,
-    "y": 4,
-    "w": 33,
-    "h": 33
+   "use": "square icon button (command card, build bar); icon 24 inside, 1 px down when pressed; active = toggled / current tool"
+  },
+  "button": {
+   "states": {
+    "normal": "buttons/button-normal.png",
+    "hover": "buttons/button-hover.png",
+    "pressed": "buttons/button-pressed.png",
+    "disabled": "buttons/button-disabled.png",
+    "active": "buttons/button-active.png"
    },
-   "use": "square icon button (command card, build toolbar); icon 32 inside",
-   "w": 41,
-   "h": 41
+   "w": 12,
+   "h": 12,
+   "slice": {
+    "l": 3,
+    "t": 3,
+    "r": 3,
+    "b": 3
+   },
+   "use": "text button (9-slice); cream label"
   },
   "tab": {
    "states": {
@@ -296,90 +252,65 @@
     "inactive": "buttons/tab-inactive.png",
     "hover": "buttons/tab-hover.png"
    },
-   "w": 95,
-   "h": 33,
+   "w": 12,
+   "h": 12,
    "slice": {
-    "l": 14,
-    "t": 10,
-    "r": 14,
-    "b": 6
-   }
-  },
-  "toggle": {
-   "states": {
-    "on": "buttons/toggle-on.png",
-    "off": "buttons/toggle-off.png",
-    "disabled": "buttons/toggle-disabled.png"
+    "l": 3,
+    "t": 3,
+    "r": 3,
+    "b": 2
    },
-   "w": 73,
-   "h": 33
+   "use": "build bar tab (Camp / Walls / Siege); active joins the card"
   }
  },
  "bars": {
   "track": {
    "file": "bars/track.png",
-   "w": 24,
-   "h": 22,
+   "w": 6,
+   "h": 6,
    "slice": {
-    "l": 6,
+    "l": 2,
     "t": 0,
-    "r": 6,
+    "r": 2,
     "b": 0
    },
-   "fixedHeight": 22,
+   "fixedHeight": 6,
    "fill": {
-    "x": 5,
-    "y": 4,
-    "h": 13
+    "x": 1,
+    "y": 1,
+    "h": 4
    },
    "use": "progress bar track; draw a fill strip at fill.x, fill.y, stretched to value"
   },
   "fill-hp": {
    "file": "bars/fill-hp.png",
-   "w": 4,
-   "h": 13,
+   "w": 2,
+   "h": 4,
    "stretch": "x"
   },
   "fill-construction": {
    "file": "bars/fill-construction.png",
-   "w": 4,
-   "h": 13,
+   "w": 2,
+   "h": 4,
    "stretch": "x"
   },
   "fill-burn": {
    "file": "bars/fill-burn.png",
-   "w": 4,
-   "h": 13,
+   "w": 2,
+   "h": 4,
    "stretch": "x"
   },
   "fill-ok": {
    "file": "bars/fill-ok.png",
-   "w": 4,
-   "h": 13,
+   "w": 2,
+   "h": 4,
    "stretch": "x"
   },
   "fill-water": {
    "file": "bars/fill-water.png",
-   "w": 4,
-   "h": 13,
+   "w": 2,
+   "h": 4,
    "stretch": "x"
-  },
-  "slider-track": {
-   "file": "bars/slider-track.png",
-   "w": 48,
-   "h": 25,
-   "slice": {
-    "l": 12,
-    "t": 0,
-    "r": 12,
-    "b": 0
-   },
-   "fixedHeight": 25
-  },
-  "slider-knob": {
-   "file": "bars/slider-knob.png",
-   "w": 25,
-   "h": 25
   }
  },
  "icons": {
@@ -795,6 +726,21 @@
     16,
     16
    ]
+  }
+ },
+ "theme": "redfigure",
+ "accents": {
+  "runner": {
+   "file": "accents/runner.png",
+   "w": 23,
+   "h": 26,
+   "use": "red-figure runner, left end of a band (faces right)"
+  },
+  "horse": {
+   "file": "accents/horse.png",
+   "w": 26,
+   "h": 26,
+   "use": "red-figure horse, right end of a band (faces left)"
   }
  }
 }
