@@ -6,7 +6,7 @@ import { readFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readImage, writeImage } from '../../art/lib/png.mjs';
-import { blank, crop, paste, resizeNearest } from '../../art/lib/ops.mjs';
+import { blank, crop, paste, resizeNearest, resizeArea } from '../../art/lib/ops.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 // --biome <name>: contact sheet of public/war/biomes/<name>/ and a 1:1 patch of that biome drawn with the global + biome set.
@@ -128,13 +128,19 @@ function soldier(cls, row, col) {
 if (BIOME === 'mountains') {
   const n = 56, V = [];
   const vn = (x, y, s, k) => { const X = Math.floor(x / s), Y = Math.floor(y / s), fx = x / s - X, fy = y / s - Y, h = (a, b) => (hash(a, b, k) % 1000) / 1000, sm = (t) => t * t * (3 - 2 * t), u = sm(fx), v = sm(fy); return (h(X, Y) * (1 - u) + h(X + 1, Y) * u) * (1 - v) + (h(X, Y + 1) * (1 - u) + h(X + 1, Y + 1) * u) * v; };
-  // two chains along the tile x axis, north and south of the pass, plus single peaks at the ends
-  // north: a back row and a front row, staggered; south: the front row of the other side (its peaks rise over the pass)
-  const M = [['massif-high-x', -8, -2], ['massif-high-x', 9, -3], ['massif-high-x', 26, -2], ['massif-high-x', 43, -3],
-    ['massif-c-x', -2, 5], ['massif-high-x', 15, 5], ['massif-c-x', 33, 6], ['peak-d', 50, 7],
-    ['massif-b-x', -6, 13], ['peak-big-x', 10, 13], ['massif-a-x', 16, 14], ['ridge-c-x', 33, 14], ['massif-c-x', 42, 13],
-    ['massif-a-x', -4, 36], ['massif-c-x', 13, 37], ['peak-twin-x', 29, 36], ['massif-a-x', 34, 37], ['massif-b-x', 50, 36],
-    ['massif-c-x', 4, 42], ['massif-a-x', 22, 43], ['massif-b-x', 40, 42], ['massif-a-x', -8, 48], ['massif-c-x', 12, 49], ['massif-a-x', 30, 48], ['massif-b-x', 46, 49]]
+  // two chains along the tile x axis, north and south of the pass, each three rows deep and mixed (ART-8 refine: one piece
+  // repeated reads as an egg carton): big massifs at the back, peaks / saddles / ridges in the middle with spurs falling
+  // towards the pass, foothills, shoulders, crags and cliffs in front. Footprints overlap so the bases merge into one mass.
+  // A row walks along x placing the next piece of its list 0.6-0.75 of the previous footprint further on (the bases overlap),
+  // its y jittered by a tile; rows 5-6 tiles apart, so every piece's foot hides under the piece in front.
+  const row = (ids, y, k, x = -8) => { const out = []; let i = 0; while (x < n + 2) { const id = ids[i++ % ids.length], fw = objs[id].footprint[0]; out.push([id, x, y + (hash(x, y, k) % 3) - 1]); x += Math.max(3, Math.round(fw * (0.6 + 0.15 * ((hash(x, k, 3) % 100) / 100)))); } return out; };
+  const M = [
+    ...row(['core-a-x', 'massif-great-x', 'core-b-x', 'ridge-long-a-x', 'massif-high-x', 'core-a-x', 'peak-horn-x'], -6, 1, -5), // north crest
+    ...row(['saddle-long-x', 'peak-lean-x', 'spur', 'ridge-broken-x', 'massif-twin-x', 'spur', 'peak-lean-x', 'saddle-long-x', 'ridge-broken-x'], 2, 2, -5),
+    ...row(['foothill-b-x', 'shoulder-x', 'crags', 'foothill-a-x', 'cliff-face-x', 'shoulder-x', 'foothill-b-x', 'crags'], 8, 3, -3), // north foothills over the pass
+    ...row(['crags', 'foothill-b-x', 'shoulder-x', 'foothill-a-x', 'cliff-face-x', 'foothill-b-x', 'crags', 'shoulder-x'], 32, 4, -2), // south foothills
+    ...row(['ridge-broken-x', 'peak-lean-x', 'saddle-long-x', 'massif-twin-x', 'peak-horn-x', 'ridge-broken-x', 'saddle-long-x', 'peak-lean-x'], 36, 5, -6),
+    ...row(['ridge-long-b-x', 'core-b-x', 'massif-great-x', 'core-a-x', 'massif-high-x', 'ridge-long-a-x'], 41, 6, -4)] // south crest
     .map(([id, x0, y0]) => ({ s: objs[id], x0, y0, fw: objs[id].footprint[0], fh: objs[id].footprint[1] }));
   const inM = (x, y, pad = 0) => M.some((m) => x >= m.x0 - pad && x < m.x0 + m.fw + pad && y >= m.y0 - pad && y < m.y0 + m.fh + pad);
   const road = (x) => 26 + Math.round(2.5 * Math.sin(x / 4)); // a winding track along x
@@ -182,6 +188,7 @@ if (BIOME === 'mountains') {
   writeImage(join(OUT, 'MOUNTAINS_range_1x.png'), out);
   const z = crop(img, { x: Math.round(sx(27, 25)) - 800, y: Math.round(sy(27, 25)) - 560, w: 1600, h: 900 });
   writeImage(join(OUT, 'MOUNTAINS_pass_1x.png'), z);
+  writeImage(join(OUT, 'MOUNTAINS_range_quarter.png'), resizeArea(out, Math.round(out.w / 4), Math.round(out.h / 4))); // the range at 1/4 zoom
   console.log(`mountains range ${n}x${n}: ${M.length} massifs, ${items.length} items ->`, OUT);
   process.exit(0);
 }
@@ -234,7 +241,7 @@ if (BIOME) {
   const jitter = (id, x, y) => put(id, x, y, 1, 1, 0.3 + (hash(x, y, 3) % 40) / 100, 0.3 + (hash(x, y, 5) % 40) / 100) && placed++;
   if (BIOME === 'kyrene') {
     // set pieces: the mesa, pillar, copper node and boulders on the red rock; spring, well, tent and camels round the oasis
-    put('mesa', 26, 26, 8, 8, 4, 4); put('rock-pillar', 21, 35); put('copper-ore', 35, 29, 2, 1, 1, 0.5); put('boulder-red', 27, 24); put('rocks-red', 35, 35); // the mesa is a 33 m ridge across the shelf
+    put('mesa', 24, 25, 6, 6, 6, 6); put('butte', 32, 31, 4, 4, 4, 4); put('rock-pillar', 21, 35); put('copper-ore', 35, 29, 2, 1, 1, 0.5); put('boulder-red', 27, 24); put('rocks-red', 35, 35); // the mesa and the butte stand on the shelf
     put('oasis-spring', 15, 7, 2, 1, 1, 0.5); put('well', 20, 14); put('nomad-tent', 22, 7, 2, 2, 1, 1); put('camels', 25, 10, 2, 1, 1, 0.5);
     put('ruin-wall', 4, 22, 2, 1, 1, 0.5); put('ruin-corner', 6, 24, 2, 2, 1, 1); put('gazelle', 36, 12); put('jackal', 13, 30);
     squad([14, 21]);

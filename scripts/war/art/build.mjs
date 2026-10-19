@@ -68,7 +68,10 @@ function samples(im) {
 
 // Class map of one tile's top: 1 = first terrain. Nearest sample colour, gated by the corner mask (a pixel far from
 // every first-terrain corner cannot be first), then two 3x3 majority passes.
-function classify(im, mask, A, B, gate = 0.12) {
+// set.organic = amp: ignore the raw split (PixelLab drew straight block edges, e.g. snow as hard squares) and split by the
+// corner weight warped with smooth noise instead, so patches get lobed, melting edges; the outer band still follows the corners.
+const vnoise = (x, y, k) => { const X = Math.floor(x), Y = Math.floor(y), fx = x - X, fy = y - Y, s = (t) => t * t * (3 - 2 * t), u = s(fx), v = s(fy), h = (a, b) => hash(a, b, k); return (h(X, Y) * (1 - u) + h(X + 1, Y) * u) * (1 - v) + (h(X, Y + 1) * (1 - u) + h(X + 1, Y + 1) * u) * v; };
+function classify(im, mask, A, B, gate = 0.12, organic = 0) {
   const cls = new Uint8Array(TW * TH), near = (c, S) => Math.min(...S.map((s) => dist2(c, s)));
   const corner = [[HW, 0, 8], [TW, HH, 4], [0, HH, 2], [HW, 2 * HH, 1]]; // NW top, NE right, SW left, SE bottom
   for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) {
@@ -77,7 +80,9 @@ function classify(im, mask, A, B, gate = 0.12) {
     const u = (x + 0.5) / TW + (y + 0.5) / (2 * HH) - 0.5, v = (y + 0.5) / (2 * HH) - (x + 0.5) / TW + 0.5; // u: NW->NE, v: NW->SW
     const w = (1 - u) * (1 - v) * !!(mask & 8) + u * (1 - v) * !!(mask & 4) + (1 - u) * v * !!(mask & 2) + u * v * !!(mask & 1);
     if (mask === 15) { cls[y * TW + x] = 1; continue; }
-    if (mask === 0 || w < gate) continue;
+    if (mask === 0) continue;
+    if (organic) { const n = 0.65 * vnoise(x / 9, y / 4.5, mask + 1) + 0.35 * vnoise(x / 4, y / 2, mask + 31) - 0.5; cls[y * TW + x] = w + organic * n > 0.5 ? 1 : 0; continue; }
+    if (w < gate) continue;
     if (w > 1 - gate) { cls[y * TW + x] = 1; continue; }
     cls[y * TW + x] = near(c, A) <= near(c, B) ? 1 : 0;
   }
@@ -139,14 +144,15 @@ function buildSet(set, sides) {
   const F = [fill(set.second), fill(set.first)], tone = [FILLS[set.second], FILLS[set.first]];
   return raw.map((t, mask) => {
     const im = { w: TW, h: TH, data: new Uint8Array(t.data) };
-    const cls = classify(t, mask, A, B, set.gate);
+    const cls = classify(t, mask, A, B, set.gate, set.organic);
     for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
       const i = px(im, x, y);
       if (inTop(x, y)) {
         const c = cls[y * TW + x];
         let edge = false; // the 1 px boundary between the terrains keeps the raw (toned) pixel (the drawn bank / edge), except in the outer band
         if (rimE(x, y) < BAND_E) for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (inTop(X, Y) && cls[Y * TW + X] !== c) { edge = true; break; } }
-        if (edge) shade(im.data, i, tone[c]);
+        if (edge && set.organic) for (let k = 0; k < 3; k++) im.data[i + k] = Math.round(0.45 * F[0].data[i + k] + 0.55 * F[1].data[i + k]); // a soft melt line
+        else if (edge) shade(im.data, i, tone[c]);
         else im.data.set(F[c].data.subarray(i, i + 4), i);
       } else if (side) im.data.set(side.data.subarray(i, i + 4), i);
     }
@@ -287,6 +293,10 @@ function dropBase(im, b) {
     const below = b.below && y > footLine(b.below, x); // under the polyline [[x, y], ...] (left to right; flat beyond its ends)
     if (y >= (b.cut ?? 1e9) || x < (b.x0 ?? 0) || x > (b.x1 ?? 1e9) || near || below || (b.keep && !KEEP[b.keep](d[i], d[i + 1], d[i + 2]))) d[i + 3] = 0;
   }
+  if (b.trimFoot) for (let x = 0; x < im.w; x++) { // drop the bottom n px of every column (the scree rim PixelLab paints round a relief's base)
+    let y1 = im.h - 1; while (y1 >= 0 && !d[px(im, x, y1) + 3]) y1--;
+    for (let y = Math.max(0, y1 - b.trimFoot + 1); y <= y1; y++) d[px(im, x, y) + 3] = 0;
+  }
   return dropSpecks(im);
 }
 // Remove small detached bits (< 1% of the sprite) left by the base drop.
@@ -325,23 +335,25 @@ const objImages = [];
 const mirrorX = (im) => { const m = blank(im.w, im.h); for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) m.data.set(im.data.subarray(px(im, x, y), px(im, x, y) + 4), px(m, im.w - 1 - x, y)); return m; };
 // compose = { w, h, parts: [{ id, x, y, mirror }] }: one sprite pasted back to front from objects built earlier in the list
 // (trimmed, graded), e.g. a mountain massif taller and wider than one 400 px PixelLab canvas.
+// part: true = built only as a compose part (e.g. a summit whose foot is cut off by its canvas), not written out.
 for (const o of OBJECTS) {
   let im;
   if (o.compose) {
     const miss = o.compose.parts.find((p) => !objImages.some(([q]) => q.id === p.id));
     if (miss) { errors.push(`${o.id}: compose part ${miss.id} is not built before it`); continue; }
-    im = blank(o.compose.w, o.compose.h);
-    for (const p of o.compose.parts) { const src = objImages.find(([q]) => q.id === p.id)[1]; paste(im, p.mirror ? mirrorX(src) : src, p.x, p.y); }
+    // a part with `at: [u, v]` (tiles) puts its foot anchor there, as the map would; the canvas is sized to fit them all
+    const parts = o.compose.parts.map((p) => {
+      const [, src, f] = objImages.find(([q]) => q.id === p.id), s = p.mirror ? mirrorX(src) : src, fx = p.mirror ? src.w - 1 - f.x : f.x;
+      return p.at ? { s, x: Math.round((p.at[0] - p.at[1]) * HW - fx), y: Math.round((p.at[0] + p.at[1]) * HH - f.y) } : { s, x: p.x, y: p.y };
+    });
+    const x0 = Math.min(0, ...parts.map((p) => p.x)), y0 = Math.min(0, ...parts.map((p) => p.y));
+    im = blank(o.compose.w ?? Math.max(...parts.map((p) => p.x + p.s.w)) - x0, o.compose.h ?? Math.max(...parts.map((p) => p.y + p.s.h)) - y0);
+    for (const p of parts) paste(im, p.s, p.x - x0, p.y - y0);
   } else {
     const f = join(rawDir(o.batch), 'objects', `${o.raw}.png`); if (!existsSync(f)) { errors.push(`missing object raw ${o.batch ?? A.BATCH ?? 'art4'}/${o.raw}`); continue; }
     im = dropBase(keyBorder(readImage(f), o.keyTol, o.keyAll), o.base);
   }
   im = grade(im, o.grade);
-  if (o.mirrorJoin) { // an end piece cut off at its right edge: append its mirror image, joined at that column (a long ridge)
-    const j = blank(im.w * 2, im.h); paste(j, im, 0, 0);
-    for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) j.data.set(im.data.subarray(px(im, x, y), px(im, x, y) + 4), px(j, 2 * im.w - 1 - x, y));
-    im = j;
-  }
   for (let i = 3; i < im.data.length; i += 4) im.data[i] = im.data[i] >= 128 ? 255 : 0;
   im = crop(im, alphaBox(im, 1));
   if (o.scale) { // drawn too big for 33 px/m: area-downscale, then hard alpha again
@@ -356,7 +368,7 @@ for (const o of OBJECTS) {
 const GO = BIOME ? JSON.parse(readFileSync(join(GLOBAL_O, 'objects.json'))) : null;
 const objPalette = BIOME ? extendPalette([...palette, ...GO.palette], objImages.map(([, im]) => im), 64).slice(palette.length) : medianCut(objImages.map(([, im]) => im), 128);
 objJson.palette = objPalette;
-for (const [o, im, foot] of objImages) {
+for (const [o, im, foot] of objImages.filter(([o]) => !o.part)) {
   writeImage(join(OUT_O, `${o.id}.png`), snapToPalette(im, [...palette, ...objPalette]));
   objJson.objects.push({ id: o.id, kind: o.kind, file: `${o.id}.png`, w: im.w, h: im.h, metres: o.metres, anchor: foot, footprint: o.footprint, blocksMovement: o.blocks, ...o.extra, source: o.source });
 }

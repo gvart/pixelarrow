@@ -53,7 +53,6 @@ export const FALLBACK = {
 // Objects: create_map_object, high top-down, high detail, detailed shading, true scale (33 px/m). Field meanings: assets.mjs;
 // base.drop = [[hex, manhattan tol], ...]: also drop pixels near these colours (a sand floor or red-earth apron that is
 // neither green nor grey; keep may be left out). extra = metadata copied into objects.json (resource nodes, fauna).
-// mirrorJoin = the raw is an end piece cut flat at its right edge: the sprite is it + its mirror image (the mesa ridge).
 const tree = { kind: 'tree', blocks: false, footprint: [1, 1] };
 const bush = { kind: 'bush', blocks: false, footprint: [1, 1] };
 const stone = { kind: 'stone', blocks: true };
@@ -76,7 +75,11 @@ export const OBJECTS = [
   { id: 'broom', raw: 'broom', ...bush, metres: 1.4, grade: { sat: 0.6, val: 0.8 }, source: 'map_object 79ab144e' },
   { id: 'dry-grass', raw: 'dry-grass', kind: 'grass', blocks: false, footprint: [1, 1], metres: 0.5, scale: 0.7, grade: { sat: 0.6, val: 0.75 }, source: 'map_object 6443d446' },
   { id: 'reeds', raw: 'reeds', kind: 'reeds', blocks: false, footprint: [1, 1], metres: 2.2, grade: { sat: 0.65, val: 0.8 }, source: 'map_object 3efd5b01' },
-  { id: 'mesa', raw: 'mesa-end', ...stone, footprint: [12, 12], metres: 10, keyAll: true, mirrorJoin: true, grade: { sat: 0.85, val: 0.66 }, source: 'pixflux 78bf3391 (img2img over a hand-drawn end piece; + its mirror)' },
+  // the mesa and the butte: relief.mjs heightfields (flat caprock, sheer walls, a banded slope, a talus skirt) in the game's iso
+  // projection, both side faces in view (SW lit, SE shaded), textured with the ART-7 mesa raw (pixflux 78bf3391) reprojected
+  // onto each face (strata follow the face in perspective). No new generation: pixflux over these brought back plaid stumps.
+  { id: 'mesa', raw: 'mesa-iso', ...stone, footprint: [6, 6], metres: 7.6, grade: { sat: 0.85, val: 0.66 }, source: 'relief.mjs mesa-big (texture: pixflux 78bf3391)' },
+  { id: 'butte', raw: 'butte-iso', ...stone, footprint: [4, 4], metres: 6.6, grade: { sat: 0.85, val: 0.66 }, source: 'relief.mjs mesa-butte (texture: pixflux 78bf3391)' },
   { id: 'rock-pillar', raw: 'hoodoo', ...stone, footprint: [1, 1], metres: 8, keyAll: true, grade: red, source: 'pixflux 9e60a699 (img2img over a hand-drawn hoodoo)' },
   { id: 'boulder-red', raw: 'boulder-a', ...stone, footprint: [1, 1], metres: 1.8, grade: red, source: 'map_object 433d39a3' },
   { id: 'rocks-red', raw: 'boulder-b', ...stone, footprint: [1, 1], metres: 1.3, grade: red, source: 'map_object c23bdc41' },
