@@ -1260,6 +1260,25 @@ of cells comes back as bricks; scatter irregular boulders instead. (9) A rock bi
 flat at one edge plus its mirror (`mirrorJoin`), so the seam matches pixel for pixel. (10) pro_flash draws the acacia
 shape correctly but small and at ~9 generations; use it as an init, not as the asset.
 
+**Mesa redo (ART-8 refine).** The fix mesa read as a flat, front-facing striped slab with no iso side face. Now `mesa` (6 x 6,
+7.6 m) and `butte` (4 x 4, 6.6 m) are heightfields drawn by `scripts/war/art/relief.mjs` (`mesa-big`, `mesa-butte`) in the
+game's projection: a superellipse caprock aligned to the tile axes (so the SW and SE faces both show; SW lit, SE shaded by
+the rim normal), a sheer cliff to 0.55 h, a banded slope to 0.25 h, and a talus skirt. They are textured with the kept
+ART-7 raw `mesa-end` (`78bf3391`) reprojected onto each face. The wall is sampled by (screen x, depth below the rim), so
+the strata follow each face in perspective. The cap and talus are sampled by screen position. Raws `mesa-iso`,
+`butte-iso` are these renders, with no new generation. `mirrorJoin` is gone from the build. Four pixflux tries over the
+same reliefs were rejected:
+
+| Call | Strength | Prompt (start) | Result |
+| --- | --- | --- | --- |
+| `4f9c30df` | 230 | `a big isolated red sandstone mesa butte ... two sheer cliff faces in perspective, the left face sunlit ...` | tartan stump (the init had crack lines) |
+| `b8613711` | 200 | `an isolated red sandstone butte of the desert, a flat caprock top, sheer weathered cliff walls ...` | tartan stump |
+| `65c0e04b`, `0e0fbb76` | 290 | `a red sandstone mesa / tall butte seen from a high isometric three-quarter view ...` | two faces, but plaid |
+| `02fffb57`, `2ed52922` | 300 | as above + `uneven horizontal ... layers ... with weathered ledges` (init with no buttress streaks) | still plaid |
+
+**Lesson (11):** pixflux turns banded rock with any vertical streaks into plaid or a tree stump at every strength. When a
+kept raw already has the right texture, reproject it onto a drawn shape instead.
+
 ## 29. Biome: Iron Teeth mountains (ART-8)
 
 Owner: "mountains must look more real, more tall" (the sandbox drew them as stacked flat cliff levels, a terraced layer
@@ -1359,3 +1378,74 @@ with a flat side: hide it behind another piece or cut it to a slope. (4) A 400 p
 a hill; height comes from stacking pieces back to front (massif-high) and rows of massifs, not from one sprite. (5) A
 biome fill that comes back teal needs a hue turn, not desaturation (desaturated it reads as wet slate). (6) Fill sheets
 ignore the item order when items are close in colour: check every frame.
+
+**Refine: varied relief pieces (ART-8 refine).** The owner approved the direction. The problem was that every massif
+was built from the same six cone pieces, so a range read as a field of cones (an egg carton). 29 generations, all
+`create_image_pixflux`. Eleven new pieces and their `-x` mirrors give varied silhouettes and sizes. Each init is a
+heightfield drawn by `scripts/war/art/relief.mjs` (`node scripts/war/art/relief.mjs <out dir>` writes the inits and
+`below.json`, the foot lines). The heightfield is rendered in the game's projection (1 tile = 64 x 32, height in px),
+lit from the upper left. It has a broad massif body under the summits (separate cones read as teeth), ridged-noise
+aretes and snow above a line. It is textured by the luminance of `shots/war/gemini/region-pass/ART1_kleisoura_2.png`
+(fractures, snow streaks, mirror-wrapped). Settings: 220 strength, `isometric`, `no_background`, high top-down, highly
+detailed, highly detailed shading, seed as below. Every prompt ends with `isometric pixel art, dark epic desaturated
+colours, only the mountain(s) / hill / rocks on a transparent background, no ground`.
+
+Build: `R_FOOT` = the init's foot line moved 6 px up, plus `trimFoot` (new in the build: drop the bottom n px of every
+column, 12 by default). That removes the light scree rim PixelLab paints round the base, which reads as a plinth.
+
+| id (footprint) | Call (seed) | Prompt (start, verbatim) | Result |
+| --- | --- | --- | --- |
+| (rejected) | `85fdc7af` (3) | `a tall asymmetric mountain peak ... tilted rock strata and deep cracks ...` | bricks: the init's strata and crack lines formed a grid |
+| (rejected) | `16c0fc1c` (31), 200 | `a huge mountain massif with three jagged snow-capped dark grey rock summits ...` | smooth cones (an untextured, blurred init) |
+| (rejected) | `a5d58c6c` (31), `3a03c695` (7) | as massif-great / saddle-long | first textured inits: closer, still separate cones |
+| peak-lean (5 x 7) | `b05b0ce4` (3) | `an asymmetric mountain peak with a long sloping shoulder on one side and a steep broken rock face on the other, fractured dark grey rock with cliff bands, tilted rock layers and cracks, snow on the summit and in the gullies` | kept |
+| peak-horn (6 x 6) | `0c4c2304` (5) | `a tall sharp horn-shaped mountain summit with three steep rock aretes, fractured dark grey rock faces with cliff bands and cracks, snow on the top and in the gullies` | kept: the most natural |
+| saddle-long (4 x 9) | `0d261581` (7) | `a long mountain ridge with two unequal snow-capped dark grey rock summits joined by a low saddle, steep fractured rock faces with cliff bands and snow in the gullies` | kept (fluted) |
+| (rejected) | `e1628788` (9) | `a long jagged knife-edge mountain ridge with many small sharp rock teeth along its crest ...` | a fortress wall with battlements (init too steep) |
+| ridge-broken (4 x 8) | `3411e052` (9) | `a long broken mountain ridge with two rocky humps and a ragged crest, fractured dark grey rock faces with ledges, cracks and gullies, old snow along the crest` | kept, over a wider and lower init |
+| spur (4 x 8) | `94ef0361` (13) | `a mountain spur, a rocky ridge falling from a high snowy end down to low foothills, fractured dark grey rock faces with cliff bands and gullies, scree at its foot` | kept; plain = high end at the back, falls along +y |
+| shoulder (5 x 7) | `bf60ba24` (17) | `a broad rounded mountain shoulder, a wide massive slope of weathered dark grey rock with broken ledges, cracks and gullies, a little old snow on the crest, scree at its foot` | kept |
+| foothill-a (4 x 5) | `ef843d7a` (19) | `a low rounded rocky foothill, weathered dark grey rock outcrops and broken ledges with loose scree and a few small stones, no snow` | kept, trim 18 |
+| foothill-b (3 x 7) | `fa6d0b07` (23) | `a long low rocky foothill ridge, weathered dark grey rock outcrops, broken ledges and loose scree slopes, no snow` | kept |
+| crags (4 x 5) | `b1814f87` (29) | `a cluster of broken jagged rock crags, tilted sharp dark grey rock fins and splintered pinnacles with deep cracks, loose rubble and scree between them` | kept, trim 20 (it had a ground disc) |
+| massif-great (6 x 6) | `0fe030ab` (31) | `a huge mountain massif with one great snow-capped summit and two lower summits on a broad base, steep fractured dark grey rock faces with cliff bands, tilted rock layers, snow in the gullies` | kept: the biggest single piece |
+| (rejected) | `b03ae53c` (37) | `a massive mountain wall, a long high snow-capped crest ...` | a sheer slab |
+| massif-twin (6 x 7) | `e321846c` (37) | `a big mountain massif with two snow-capped dark grey rock summits side by side on a broad base, steep fractured rock faces with ledges, cracks and snow-filled gullies` | kept |
+
+Fixes, same settings unless noted:
+
+| id | Call | Init (strength) | Prompt (start, verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| cliff-face (3 x 7, + `-x`) | `3ac98ab3` (47) | relief `cliff`: a fin with bulging steep sides (220) | `a tall natural mountain cliff, a long jagged wall of fractured dark grey rock with deep cracks, chimneys, broken ledges and a ragged uneven top, a little old snow on the ledges, scree at its foot` | kept: a natural rock wall, not a wedge |
+| road-edge (4 x 1, + `-x`) | `9fa05507` (3) | drawn row of lumpy shaded fieldstones in courses along the x axis (200) | `a low dry-stone retaining wall along a mountain road, rough rounded grey fieldstones stacked without mortar in uneven courses, an irregular broken top, a few fallen stones lying in front` (detailed shading) | kept: an organic stone edge, no box (reads low, more like a stone row than a wall) |
+| (rejected) | `1fa1c0ff` (8) | same (150) | `a short stretch of a low ancient dry-stone wall about one metre high ... the front face of the stacked stones visible ...` | the same stone row |
+| watch-post | `5d09a711` (5) | the old raw `8c9cffbd`, cut along a jagged line (back-left wall stump, collapsed front-right corner), with a drawn rubble heap (200) | `a ruined ancient mountain watch post, the broken stump of a square tower of rough dark grey fieldstone, one corner collapsed, jagged broken walls with no roof and no battlements, a dark empty doorway, a heap of fallen stones and rubble spilling down one side` (detailed shading) | kept: broken walls, rubble |
+
+**Cores, long ridges and roles.** At 1/4 zoom the sandbox showed a carpet of small, equal cones. A range needs big
+dominant masses in the middle and small pieces at the rim. Two summit tops were made for this. Their relief init pushes
+the foot off the bottom of the canvas (`oy`), so only the top ~400 px are drawn. Settings as above:
+`summit-a` `0e84dced` (51) `the upper part of a huge towering mountain, one great snow-capped dark grey rock summit with
+sharp aretes, steep fractured rock faces with cliff bands and snow-filled gullies, a big snowfield below the top`, and
+`summit-b` `54fd6558` (53) `the upper part of a huge towering mountain with two great snow-capped dark grey rock summits,
+..., a big snowfield between the tops`. They are `part: true` (new in the build): built for `compose` only, never
+written out. Compose parts may now give `at: [u, v]`, the tile where the part's foot goes, as on the map. The canvas is
+then sized to fit, so pieces stack the way the map stacks them and their bases merge. `core-a` and `core-b` (14 x 14,
+~570 px, 17 m) are a summit over 7–8 relief pieces. `ridge-long-a` and `ridge-long-b` (6 x 24, ~800 px wide) are four
+pieces chained along y. All four have `-x` mirrors. Every massif sprite has `role` in objects.json: `core` (core-*,
+massif-a/b/c, massif-high: the middle of a wide rock area), `ridge` (single peaks, ridges, spurs, massif-great/twin), or
+`foothill` (foothill-*, crags, shoulder: the rim).
+
+**Snow patches.** `grass-snow` now has `organic: 0.6` (new in the build). The raw split is ignored. Instead, the
+corner weight is warped by smooth noise, with a soft melt line between snow and grass. The patches get lobed edges
+instead of hard squares, and the outer band still follows the corners, so seams pass QA. No new generation.
+
+**Range mock-up.** `preview.mjs` builds each chain from three rows (cores and long ridges on the crest, then the middle,
+then foothills), with rows 5–6 tiles
+apart. A row walks along x and places the next piece of its mixed list 0.6–0.75 of the previous footprint further on,
+with y jittered by a tile. The bases overlap, so each foot hides under the piece in front. Outputs:
+`MOUNTAINS_range_1x.png`, `MOUNTAINS_range_quarter.png` (1/4 zoom), `MOUNTAINS_pass_1x.png`.
+
+**Lessons (refine):** (7) Regular line patterns in an init (strata lines, crack lines, column streaks) come back as
+bricks, battlements or tartan. Shade with soft noise and a painted texture instead. (8) The init's slope sets the
+result: a long ridge more than ~60 px tall per tile of half-width comes back as a wall. (9) PixelLab still flutes rock
+vertically. Varied silhouettes and overlapping rows, not one better piece, make a range read as a chain.

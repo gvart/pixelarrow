@@ -111,34 +111,471 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
+  "#818388",
+  "#838488",
+  "#b4b6b7",
+  "#b5b8ba",
+  "#b6b9b9",
+  "#b7b8ba",
+  "#b8b9b8",
+  "#c0c0c1",
+  "#d3d3d3",
+  "#d4d4d4",
+  "#bcbcbd",
+  "#d1d1d0",
   "#838587",
-  "#8a8488",
-  "#c9cbca",
-  "#ced3d4",
-  "#cfd3d4",
-  "#c3c1ba",
-  "#8e796d",
-  "#bab5ab",
-  "#bbb6ac",
-  "#50282b",
-  "#7d4c43",
-  "#786f62",
-  "#82726b",
-  "#978e7b",
-  "#a19c99",
-  "#b9b3a9",
-  "#bcb8ae",
-  "#8b505b",
-  "#927c73",
-  "#b8b2a9",
-  "#32141b",
-  "#68464d",
-  "#766b56",
-  "#71706b",
-  "#828488",
-  "#828684"
+  "#848587",
+  "#979694",
+  "#b7b9b8",
+  "#808289",
+  "#bababb",
+  "#726464",
+  "#867f81",
+  "#868686",
+  "#b8b8b4",
+  "#c9c8c7"
  ],
  "objects": [
+  {
+   "id": "peak-lean",
+   "kind": "massif",
+   "file": "peak-lean.png",
+   "w": 267,
+   "h": 291,
+   "metres": 9.2,
+   "anchor": {
+    "x": 81,
+    "y": 290
+   },
+   "footprint": [
+    5,
+    7
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux b05b0ce4 (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "peak-lean-x",
+   "kind": "massif",
+   "file": "peak-lean-x.png",
+   "w": 267,
+   "h": 291,
+   "metres": 9.2,
+   "anchor": {
+    "x": 185,
+    "y": 290
+   },
+   "footprint": [
+    7,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux b05b0ce4, mirrored"
+  },
+  {
+   "id": "peak-horn",
+   "kind": "massif",
+   "file": "peak-horn.png",
+   "w": 250,
+   "h": 282,
+   "metres": 8.9,
+   "anchor": {
+    "x": 152,
+    "y": 281
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 0c4c2304 (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "peak-horn-x",
+   "kind": "massif",
+   "file": "peak-horn-x.png",
+   "w": 250,
+   "h": 282,
+   "metres": 8.9,
+   "anchor": {
+    "x": 97,
+    "y": 281
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 0c4c2304, mirrored"
+  },
+  {
+   "id": "saddle-long",
+   "kind": "massif",
+   "file": "saddle-long.png",
+   "w": 312,
+   "h": 249,
+   "metres": 7.9,
+   "anchor": {
+    "x": 44,
+    "y": 248
+   },
+   "footprint": [
+    4,
+    9
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 0d261581 (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "saddle-long-x",
+   "kind": "massif",
+   "file": "saddle-long-x.png",
+   "w": 312,
+   "h": 249,
+   "metres": 7.9,
+   "anchor": {
+    "x": 267,
+    "y": 248
+   },
+   "footprint": [
+    9,
+    4
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 0d261581, mirrored"
+  },
+  {
+   "id": "ridge-broken",
+   "kind": "massif",
+   "file": "ridge-broken.png",
+   "w": 317,
+   "h": 188,
+   "metres": 6.1,
+   "anchor": {
+    "x": 68,
+    "y": 187
+   },
+   "footprint": [
+    4,
+    8
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 3411e052 (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "ridge-broken-x",
+   "kind": "massif",
+   "file": "ridge-broken-x.png",
+   "w": 317,
+   "h": 188,
+   "metres": 6.1,
+   "anchor": {
+    "x": 248,
+    "y": 187
+   },
+   "footprint": [
+    8,
+    4
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 3411e052, mirrored"
+  },
+  {
+   "id": "spur",
+   "kind": "massif",
+   "file": "spur.png",
+   "w": 278,
+   "h": 251,
+   "metres": 8,
+   "anchor": {
+    "x": 56,
+    "y": 250
+   },
+   "footprint": [
+    4,
+    8
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 94ef0361 (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "spur-x",
+   "kind": "massif",
+   "file": "spur-x.png",
+   "w": 278,
+   "h": 251,
+   "metres": 8,
+   "anchor": {
+    "x": 221,
+    "y": 250
+   },
+   "footprint": [
+    8,
+    4
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 94ef0361, mirrored"
+  },
+  {
+   "id": "shoulder",
+   "kind": "massif",
+   "file": "shoulder.png",
+   "w": 289,
+   "h": 196,
+   "metres": 6.3,
+   "anchor": {
+    "x": 80,
+    "y": 195
+   },
+   "footprint": [
+    5,
+    7
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "foothill",
+   "source": "pixflux bf60ba24 (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "shoulder-x",
+   "kind": "massif",
+   "file": "shoulder-x.png",
+   "w": 289,
+   "h": 196,
+   "metres": 6.3,
+   "anchor": {
+    "x": 208,
+    "y": 195
+   },
+   "footprint": [
+    7,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "foothill",
+   "source": "pixflux bf60ba24, mirrored"
+  },
+  {
+   "id": "foothill-a",
+   "kind": "massif",
+   "file": "foothill-a.png",
+   "w": 183,
+   "h": 103,
+   "metres": 3.1,
+   "anchor": {
+    "x": 75,
+    "y": 102
+   },
+   "footprint": [
+    4,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "foothill",
+   "source": "pixflux ef843d7a (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "foothill-a-x",
+   "kind": "massif",
+   "file": "foothill-a-x.png",
+   "w": 183,
+   "h": 103,
+   "metres": 3.1,
+   "anchor": {
+    "x": 107,
+    "y": 102
+   },
+   "footprint": [
+    5,
+    4
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "foothill",
+   "source": "pixflux ef843d7a, mirrored"
+  },
+  {
+   "id": "foothill-b",
+   "kind": "massif",
+   "file": "foothill-b.png",
+   "w": 245,
+   "h": 152,
+   "metres": 5,
+   "anchor": {
+    "x": 37,
+    "y": 151
+   },
+   "footprint": [
+    3,
+    7
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "foothill",
+   "source": "pixflux fa6d0b07 (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "foothill-b-x",
+   "kind": "massif",
+   "file": "foothill-b-x.png",
+   "w": 245,
+   "h": 152,
+   "metres": 5,
+   "anchor": {
+    "x": 207,
+    "y": 151
+   },
+   "footprint": [
+    7,
+    3
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "foothill",
+   "source": "pixflux fa6d0b07, mirrored"
+  },
+  {
+   "id": "crags",
+   "kind": "massif",
+   "file": "crags.png",
+   "w": 188,
+   "h": 142,
+   "metres": 4.3,
+   "anchor": {
+    "x": 64,
+    "y": 141
+   },
+   "footprint": [
+    4,
+    5
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "foothill",
+   "source": "pixflux b1814f87 (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "crags-x",
+   "kind": "massif",
+   "file": "crags-x.png",
+   "w": 188,
+   "h": 142,
+   "metres": 4.3,
+   "anchor": {
+    "x": 123,
+    "y": 141
+   },
+   "footprint": [
+    5,
+    4
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "foothill",
+   "source": "pixflux b1814f87, mirrored"
+  },
+  {
+   "id": "massif-great",
+   "kind": "massif",
+   "file": "massif-great.png",
+   "w": 312,
+   "h": 341,
+   "metres": 10.7,
+   "anchor": {
+    "x": 140,
+    "y": 340
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 0fe030ab (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "massif-great-x",
+   "kind": "massif",
+   "file": "massif-great-x.png",
+   "w": 312,
+   "h": 341,
+   "metres": 10.7,
+   "anchor": {
+    "x": 171,
+    "y": 340
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux 0fe030ab, mirrored"
+  },
+  {
+   "id": "massif-twin",
+   "kind": "massif",
+   "file": "massif-twin.png",
+   "w": 274,
+   "h": 244,
+   "metres": 7.8,
+   "anchor": {
+    "x": 125,
+    "y": 243
+   },
+   "footprint": [
+    6,
+    7
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux e321846c (img2img over a relief.mjs heightfield init)"
+  },
+  {
+   "id": "massif-twin-x",
+   "kind": "massif",
+   "file": "massif-twin-x.png",
+   "w": 274,
+   "h": 244,
+   "metres": 7.8,
+   "anchor": {
+    "x": 148,
+    "y": 243
+   },
+   "footprint": [
+    7,
+    6
+   ],
+   "blocksMovement": true,
+   "massif": "piece",
+   "role": "ridge",
+   "source": "pixflux e321846c, mirrored"
+  },
   {
    "id": "ridge-a",
    "kind": "massif",
@@ -156,6 +593,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux dfdc3263 (img2img, Gemini Kleisoura crop)"
   },
   {
@@ -175,6 +613,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux dfdc3263, mirrored"
   },
   {
@@ -194,6 +633,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux ab1339c9 (img2img, masked crop)"
   },
   {
@@ -213,6 +653,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux ab1339c9, mirrored"
   },
   {
@@ -232,6 +673,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux f2c391cb (img2img, Gemini Kleisoura crop)"
   },
   {
@@ -251,6 +693,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux 52aed892 (img2img, masked crop)"
   },
   {
@@ -270,6 +713,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux f2c391cb, mirrored"
   },
   {
@@ -289,6 +733,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux 52aed892, mirrored"
   },
   {
@@ -308,6 +753,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux 40248f1a (img2img, Gemini Kleisoura crop, seed 21)"
   },
   {
@@ -327,6 +773,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux 40248f1a, mirrored"
   },
   {
@@ -346,6 +793,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux 64f107f6 (img2img, Gemini Kleisoura crop, seed 5)"
   },
   {
@@ -365,6 +813,7 @@
    ],
    "blocksMovement": true,
    "massif": "piece",
+   "role": "ridge",
    "source": "pixflux 64f107f6, mirrored"
   },
   {
@@ -384,6 +833,7 @@
    ],
    "blocksMovement": true,
    "massif": "composite",
+   "role": "core",
    "source": "composed: peak-big behind ridge-b and ridge-a"
   },
   {
@@ -403,6 +853,7 @@
    ],
    "blocksMovement": true,
    "massif": "composite",
+   "role": "core",
    "source": "massif-a mirrored"
   },
   {
@@ -422,6 +873,7 @@
    ],
    "blocksMovement": true,
    "massif": "composite",
+   "role": "core",
    "source": "composed: peak-twin behind ridge-b and ridge-a"
   },
   {
@@ -441,6 +893,7 @@
    ],
    "blocksMovement": true,
    "massif": "composite",
+   "role": "core",
    "source": "massif-b mirrored"
   },
   {
@@ -460,6 +913,7 @@
    ],
    "blocksMovement": true,
    "massif": "composite",
+   "role": "core",
    "source": "composed: peak-d behind ridge-c and ridge-b"
   },
   {
@@ -479,6 +933,7 @@
    ],
    "blocksMovement": true,
    "massif": "composite",
+   "role": "core",
    "source": "massif-c mirrored"
   },
   {
@@ -498,6 +953,7 @@
    ],
    "blocksMovement": true,
    "massif": "composite",
+   "role": "core",
    "source": "composed: peak-big and peak-twin behind massif-b"
   },
   {
@@ -517,7 +973,168 @@
    ],
    "blocksMovement": true,
    "massif": "composite",
+   "role": "core",
    "source": "massif-high mirrored"
+  },
+  {
+   "id": "core-a",
+   "kind": "massif",
+   "file": "core-a.png",
+   "w": 673,
+   "h": 567,
+   "metres": 17.2,
+   "anchor": {
+    "x": 465,
+    "y": 566
+   },
+   "footprint": [
+    14,
+    14
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "role": "core",
+   "source": "composed: summit-a over the relief pieces"
+  },
+  {
+   "id": "core-b",
+   "kind": "massif",
+   "file": "core-b.png",
+   "w": 685,
+   "h": 554,
+   "metres": 16.8,
+   "anchor": {
+    "x": 255,
+    "y": 553
+   },
+   "footprint": [
+    14,
+    14
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "role": "core",
+   "source": "composed: summit-b over the relief pieces"
+  },
+  {
+   "id": "ridge-long-a",
+   "kind": "massif",
+   "file": "ridge-long-a.png",
+   "w": 767,
+   "h": 563,
+   "metres": 17.1,
+   "anchor": {
+    "x": 37,
+    "y": 562
+   },
+   "footprint": [
+    6,
+    24
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "role": "ridge",
+   "source": "composed: a chain of relief pieces along y"
+  },
+  {
+   "id": "ridge-long-b",
+   "kind": "massif",
+   "file": "ridge-long-b.png",
+   "w": 781,
+   "h": 500,
+   "metres": 15.2,
+   "anchor": {
+    "x": 62,
+    "y": 499
+   },
+   "footprint": [
+    6,
+    24
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "role": "ridge",
+   "source": "composed: a chain of relief pieces along y"
+  },
+  {
+   "id": "core-a-x",
+   "kind": "massif",
+   "file": "core-a-x.png",
+   "w": 673,
+   "h": 567,
+   "metres": 17.2,
+   "anchor": {
+    "x": 207,
+    "y": 566
+   },
+   "footprint": [
+    14,
+    14
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "role": "core",
+   "source": "composed: summit-a over the relief pieces, mirrored"
+  },
+  {
+   "id": "core-b-x",
+   "kind": "massif",
+   "file": "core-b-x.png",
+   "w": 685,
+   "h": 554,
+   "metres": 16.8,
+   "anchor": {
+    "x": 429,
+    "y": 553
+   },
+   "footprint": [
+    14,
+    14
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "role": "core",
+   "source": "composed: summit-b over the relief pieces, mirrored"
+  },
+  {
+   "id": "ridge-long-a-x",
+   "kind": "massif",
+   "file": "ridge-long-a-x.png",
+   "w": 767,
+   "h": 563,
+   "metres": 17.1,
+   "anchor": {
+    "x": 729,
+    "y": 562
+   },
+   "footprint": [
+    24,
+    6
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "role": "ridge",
+   "source": "composed: a chain of relief pieces along y, mirrored"
+  },
+  {
+   "id": "ridge-long-b-x",
+   "kind": "massif",
+   "file": "ridge-long-b-x.png",
+   "w": 781,
+   "h": 500,
+   "metres": 15.2,
+   "anchor": {
+    "x": 718,
+    "y": 499
+   },
+   "footprint": [
+    24,
+    6
+   ],
+   "blocksMovement": true,
+   "massif": "composite",
+   "role": "ridge",
+   "source": "composed: a chain of relief pieces along y, mirrored"
   },
   {
    "id": "fir",
@@ -631,19 +1248,37 @@
    "id": "cliff-face",
    "kind": "stone",
    "file": "cliff-face.png",
-   "w": 276,
-   "h": 255,
-   "metres": 7.8,
+   "w": 211,
+   "h": 219,
+   "metres": 6.6,
    "anchor": {
-    "x": 155,
-    "y": 254
+    "x": 34,
+    "y": 218
    },
    "footprint": [
     3,
-    2
+    7
    ],
    "blocksMovement": true,
-   "source": "map_object 6fc08c1a"
+   "source": "pixflux 3ac98ab3 (img2img over a relief.mjs rock-wall init; map_object 6fc08c1a was a blocky wedge)"
+  },
+  {
+   "id": "cliff-face-x",
+   "kind": "stone",
+   "file": "cliff-face-x.png",
+   "w": 211,
+   "h": 219,
+   "metres": 6.6,
+   "anchor": {
+    "x": 176,
+    "y": 218
+   },
+   "footprint": [
+    7,
+    3
+   ],
+   "blocksMovement": true,
+   "source": "pixflux 3ac98ab3, mirrored"
   },
   {
    "id": "boulder-field",
@@ -685,37 +1320,37 @@
    "id": "road-edge",
    "kind": "stone",
    "file": "road-edge.png",
-   "w": 73,
-   "h": 49,
-   "metres": 1.5,
+   "w": 145,
+   "h": 97,
+   "metres": 2.9,
    "anchor": {
-    "x": 19,
-    "y": 48
+    "x": 115,
+    "y": 96
    },
    "footprint": [
-    2,
+    4,
     1
    ],
    "blocksMovement": true,
-   "source": "map_object 50639405"
+   "source": "pixflux 9fa05507 (img2img over a drawn dry-stone row; map_object 50639405 was a walled box)"
   },
   {
    "id": "road-edge-x",
    "kind": "stone",
    "file": "road-edge-x.png",
-   "w": 73,
-   "h": 49,
-   "metres": 1.5,
+   "w": 145,
+   "h": 97,
+   "metres": 2.9,
    "anchor": {
-    "x": 54,
-    "y": 48
+    "x": 29,
+    "y": 96
    },
    "footprint": [
     1,
-    2
+    4
    ],
    "blocksMovement": true,
-   "source": "map_object 50639405, mirrored"
+   "source": "pixflux 9fa05507, mirrored"
   },
   {
    "id": "cairn",
@@ -739,19 +1374,19 @@
    "id": "watch-post",
    "kind": "stone",
    "file": "watch-post.png",
-   "w": 126,
-   "h": 161,
-   "metres": 5,
+   "w": 155,
+   "h": 148,
+   "metres": 4.5,
    "anchor": {
-    "x": 37,
-    "y": 160
+    "x": 73,
+    "y": 147
    },
    "footprint": [
     2,
     2
    ],
    "blocksMovement": true,
-   "source": "map_object 8c9cffbd"
+   "source": "pixflux 5d09a711 (img2img over map_object 8c9cffbd cut down to a broken stump with a rubble heap)"
   },
   {
    "id": "iron-ore",
