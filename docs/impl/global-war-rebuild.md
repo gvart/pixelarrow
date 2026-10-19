@@ -27,6 +27,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-18 Real scale: soldier sprite 58 px = 1.76 m (≈33 px/m). 1 tile = 2 m; region 512×512 tiles ≈ 1 km. Trees, forts, rivers, roads sized true to the soldiers; mountains may be compressed. Zoomed-out LOD (dots/banners) for 600 units (owner 2026-10-19).
 - W-19 Gemini images are prototypes only. Real region art is built with PixelLab: map generation, tile generation (iso tilesets/transitions), map objects (trees, rocks, buildings) and FX (owner 2026-10-19).
 - W-20 Art pipeline (ART-3 spike): iso tiles 64×32 px, 16 px per height level. Terrain = one PixelLab create_tiles_pro iso Wang set (16 tiles, 64×48) per terrain pair, remapped to one dark palette, rim stripped; our renderer autotiles (corner mask NW<<3|NE<<2|SW<<1|SE) and stacks height. Objects = create_map_object (high top-down, 33 px/m, ≤400 px, no ground base) as trimmed PNGs with foot anchor; objects must have NO ground patch (owner: tree bases clashed with the terrain) — key out any base before promoting. Look approved by owner 2026-10-19. FX = vfx_workbench. create_map is not used (no autotile/export). Details: docs/playbook/PROMPTS_ART.md §22.
+- W-21 Art library grows per biome (~8 biomes from docs/WAR.md), ~100 generations each, one biome at a time with owner approval before the next. Every asset passes an automated QA gate (no ground patch, shared palette, no seams/grid, true-scale metadata, roofs/closed shapes) before promotion (owner 2026-10-19).
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
@@ -77,6 +78,10 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 - [x] **M1f region-256** — test-ridge regenerated at 256×256, pathing perf re-checked (hierarchical if needed). depends on: M1c
 - [ ] **M1d scenarios** — `?scenario=` presets (pass ambush, ford crossing, hill assault, 600-unit brawl) + owner checklist. depends on: M1b, M1c
 - [x] **ART-1 world design + prototypes** — `docs/WAR.md` world section: ~35 regions with biome, altitude features, fauna (mobs), resources, adjacency; Gemini prototypes of the world map + 4 sample regions in `shots/war/gemini/`; prompts logged in `docs/playbook/PROMPTS_ART.md`. depends on: —
+
+- [ ] **ART-5 asset fixes + QA gate** — roofed watchtower, true umbrella pine, variant tiles so marsh/forest floor don't repeat, sand/water + sand/shallow sets, automated asset QA script. depends on: ART-4
+- [ ] **ART-6.. biome libraries** — one biome per item (tile sets + variants + 15–25 objects/props), owner approves each. depends on: ART-5
+- [ ] **ART-R render integration** — renderer draws PixelLab tiles (autotile by corner mask), cliff strips, objects from region data. depends on: M1d, ART-4
 
 ### M2 Region gameplay — resources, gather orders, building placement, mobs, claiming, entry no-build band
 ### M3 Server — RegionDO live sim, quotas, offline hold AI, interest management, 600-soldier load test
