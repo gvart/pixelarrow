@@ -1577,3 +1577,34 @@ courses (1 px steps between 1/16 m slices show as hatching). (13) Rubble as per-
 continuous talus along the face. (14) Slender towers with steep cones read as a fairy-tale castle: stocky shafts and
 low-pitched roofs read Greek. (15) Bigger textures beat tile-period repeats: a 4-tile period with the same quilting.
 
+
+### Wall-walks rebuilt (W-28): thick walls, front layer, placed stairs, free towers
+
+Owner play-test of the W-27 mock-ups: men on walls and towers floated on top (nothing in front of them), walls 1 tile
+thin (no passing), the stair did not reach the walk, the wood tower had no way up. 0 generations: everything is the box
+renderer over the existing elevations (cyclopean, isodomic, palisade). Mock-ups: `walls2/WALLS2_stone_1x.png`,
+`WALLS2_wood_1x.png`, `WALLS2_tiers_1x.png`, `WALLS2_states_1x.png`.
+
+- **Blob wall kits** (`rampart` walk 3.0 m, `stone-wall` walk 5.0 m; parapet 1.0 m, 0.25 / 0.45 m thick): every wall
+  tile is a full 2 x 2 m block to the walk, so walls are built 2 tiles deep (4 m walk, two files pass). 81 frames per
+  state (rows of 16): `frameOf[mask | open << 4]`; mask = sides with a wall or gate tile (no face, no parapet), open =
+  exposed sides without a parapet (a stair top, a joined tower, a ladder head; the face stays). A parapet runs on by its
+  thickness past its -x / -y end when that side is connected: it closes an inner corner's notch in the tile drawn before
+  it (extending both ends narrowed stair openings).
+- **Layers**: `states[s]` = back (faces, walk, -x / -y parapets), `front[s]` = the +x / +y parapets (towers: the rails,
+  the wood tower's roof and front posts). Draw per tile back -> units at `walkwayPx` -> front. The front parapet hides a
+  man's legs to the thigh on the near file and to the shins on the far one.
+- **Stairs** `stair-stone` / `stair-wood` (ramp-stair: plank ramp with cleats on stringers, posts under the high end):
+  1 x 2 and 1 x 3, square to the wall, both axes and both directions (`x+2 ... y-3`, `wallAt`), top step flush with the
+  walk at the face; a unit's z = topM x distance from the low end / length.
+- **Ladder** (1 x 1): `<rampart|stone-wall|tower-wood>-<n|e|s|w>`, leaning on the face on that side, top at `topM`;
+  construction states lie on the ground.
+- **Towers** `tower-stone` / `tower-wood` (kits, 16 frames by open mask, 2 x 2, flush with the footprint): platform =
+  the tier's walk height, so a 2-deep walk placed against a side joins level. Stone: cyclopean socle, isodomic body, a
+  door with a threshold on the first non-open side of +y, +x, -x, -y, a roofed stair-house over the internal stair.
+  Wood: braced posts, plank platform, log rail, shingle roof 2.9 m above the platform (lower eaves hid the archers).
+  `stone-tower-done` / `wood-tower-done` objects are the standalone (nothing open) renders.
+
+**Lessons:** (16) Split a structure men stand on into back and front layers by face orientation (+x / +y in front): one
+depth buffer per layer, the renderer interleaves units. (17) A roof in the front layer must clear a standing man's head
+seen from the far side of the platform: eave >= platform + 2.9 m at this view.
