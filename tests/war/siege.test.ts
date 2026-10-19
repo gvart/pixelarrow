@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSim } from '../../src/war/sim';
+import { createBots } from '../../src/war/sim/bots';
 import type { RegionData, SiegeSnap, WarBuildSim } from '../../src/war/types';
 
 /**
@@ -281,6 +282,70 @@ describe('determinism', () => {
       return JSON.stringify(sim.snapshot());
     };
     expect(go()).toBe(go());
+  });
+});
+
+describe('siege bots', () => {
+  it('take a small walled camp from passive defenders', () => {
+    const [sim, s] = base(10);
+    const ids = build(sim, () => sim.order({ kind: 'placeWall', squad: s, material: 'timber', points: [14.5, 20.5, 25.5, 20.5], gates: [20, 20.5] }));
+    build(sim, () => sim.order({ kind: 'placeBuilding', squad: s, type: 'woodStairs', x: 15.5, y: 23 }));
+    away(sim, s);
+    const archers = sim.spawnSquad('d', 0, 'archer', 6, 17, 26);
+    sim.order({ kind: 'move', squad: archers, x: 17.5, y: 20.5 });
+    run(sim, 600);
+    sim.order({ kind: 'hold', squad: archers });
+    const guard = sim.spawnSquad('g', 0, 'hoplite', 6, 22, 27);
+    const bots = createBots(sim);
+    const atk = [
+      [sim.spawnSquad('r', 1, 'militia', 8, 22, 8), 'siegeRam'],
+      [sim.spawnSquad('l', 1, 'militia', 6, 16, 8), 'siegeLadder'],
+      [sim.spawnSquad('a', 1, 'archer', 10, 24, 6), 'siegeArchers'],
+      [sim.spawnSquad('h', 1, 'hoplite', 14, 20, 3), 'assault'],
+    ] as const;
+    for (const [q, kind] of atk) bots.set(q, { kind, x: 20, y: 30 });
+    const inside = () => atk.some(([q]) => alive(sim, q).some((u) => u.y > 24));
+    const t = run(sim, 9000, () => {
+      bots.tick();
+      return inside() && alive(sim, guard).length === 0 && alive(sim, archers).length === 0;
+    });
+    const gate = ids.find((id) => piece(sim, id).type === 'woodGate')!;
+    expect(t).toBeLessThan(9000);
+    expect(inside()).toBe(true);
+    expect(piece(sim, gate).state === 'destroyed' || (sim.snapshot().sieges ?? []).some((e) => e.ladder !== undefined)).toBe(true);
+    expect(alive(sim, guard).length + alive(sim, archers).length).toBe(0);
+  });
+
+  it('defenders man the walk, push off ladders and sally out to burn a ram', () => {
+    const [sim, s] = base(11);
+    build(sim, () => sim.order({ kind: 'placeWall', squad: s, material: 'timber', points: [14.5, 20.5, 25.5, 20.5], gates: [20, 20.5] }));
+    build(sim, () => sim.order({ kind: 'placeBuilding', squad: s, type: 'woodStairs', x: 15.5, y: 23 }));
+    away(sim, s);
+    const bots = createBots(sim);
+    const walk = sim.spawnSquad('d', 0, 'hoplite', 6, 17, 26);
+    const sally = sim.spawnSquad('g', 0, 'hoplite', 8, 22, 27);
+    bots.set(walk, { kind: 'defendWalls', x: 20, y: 24 });
+    const ladder = sim.spawnSquad('l', 1, 'militia', 6, 17, 8);
+    bots.set(ladder, { kind: 'siegeLadder', x: 20, y: 30 });
+    let pushed = false, manned = false;
+    run(sim, 2500, () => {
+      bots.tick();
+      manned ||= alive(sim, walk).some((u) => u.z === 3);
+      pushed ||= bs(sim).some((b) => b.siege !== undefined && b.state === 'destroyed');
+      return pushed;
+    });
+    expect(manned).toBe(true);
+    expect(pushed).toBe(true);
+    // a ram at the gate: the melee defenders go out and set it alight
+    const [, ram] = engineAt(sim, 'ram', 20, 12);
+    bots.set(sally, { kind: 'defendWalls', x: 20, y: 24 });
+    let burnt = false;
+    run(sim, 2000, () => {
+      bots.tick();
+      burnt ||= (engine(sim, ram).burning ?? 0) > 0;
+      return burnt;
+    });
+    expect(burnt).toBe(true);
   });
 });
 
