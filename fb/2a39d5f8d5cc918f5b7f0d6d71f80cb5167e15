@@ -1,0 +1,27 @@
+public/war/buildings/objects.json
+  s_cfc22b058125c4::t_38d69ef507c481 127-132,134,137-138,140-143,145-146,148,150,153-175,1112,1119-1137,1139,1157-1213,1220,1227-1245,1247,1263-1320
+  s_cfc22b058125c4::t_e30f706359b3af 5
+scripts/war/art/buildings.mjs
+  s_cfc22b058125c4::t_2bd4f21989a6ef 838-847,850,852-877,880-882,887,890-893,896-898,900,905,908-999,1003-1007
+  s_cfc22b058125c4::t_67db1d1ba11784 1088-1092
+  s_cfc22b058125c4::t_5e54bb08216d0a 1186
+scripts/war/art/qa.mjs
+  s_cfc22b058125c4::t_bd04c0ecb88f74 317-337
+  s_cfc22b058125c4::t_6a6fddf0bf6120 281
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fb2a39d5f8d5cc918f5b7f0d6d71f80cb5167e15",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
