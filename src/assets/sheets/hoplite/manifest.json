@@ -3,7 +3,7 @@
  "class": "hoplite",
  "image": "hoplite.png",
  "frame": {
-  "w": 142,
+  "w": 144,
   "h": 117
  },
  "anchor": {
@@ -12,7 +12,7 @@
  },
  "anchors": {
   "south-east": {
-   "x": 42,
+   "x": 44,
    "y": 102
   },
   "north-east": {
@@ -136,6 +136,31 @@
    "col": 218,
    "frames": 16,
    "fps": 8
+  },
+  "chop": {
+   "col": 234,
+   "frames": 10,
+   "fps": 10
+  },
+  "mine": {
+   "col": 244,
+   "frames": 10,
+   "fps": 10
+  },
+  "harvest": {
+   "col": 254,
+   "frames": 10,
+   "fps": 8
+  },
+  "build": {
+   "col": 264,
+   "frames": 10,
+   "fps": 10
+  },
+  "carry": {
+   "col": 274,
+   "frames": 10,
+   "fps": 12
   }
  },
  "colorGroups": {

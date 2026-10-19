@@ -1153,6 +1153,51 @@ generated frame or are lifted in over 2–3 frames; drop those frames for a loop
 man in every facing; consistent, so it was kept. (4) Back-view idles still turn the head to a profile mid-clip (archer,
 slinger NE / NW); the body stays turned away, so they were kept. (5) Build sparks are cut by the colour pipeline.
 
+### 27b. Work clips and the swordsman's jump (ANIM-2)
+
+Owner play-test: gathering played the attack (work.ts fell back build -> thrust -> attack), building looked like
+attacking, and swordsmen "jumped" when attacking on the move.
+
+**The jump** was the art: celt_sword's `charge` (played while closing on an attack order) climbs up to 25 px over
+its 12 frames in the back facings (feet row 101 -> 76) and snaps down on the loop; javelineer's NE charge drifts 16.
+`anim2/ground.mjs <class> <anim>` shifts every frame so its lowest opaque row sits on the row's anchor; celt_sword's
+charge also got `hold: 3` (the crouch plays once). Strips: `shots/war/anim2/celt_before/`, `celt_after/`.
+
+**Work clips** (`workClips`, src/war/view/anim.ts): gather plays `chop` (wood), `mine` (stone, marble, ores, salt) or
+`harvest` (food) by the carried resource, which the sim sets from the node on the gatherer's first tick; `build` while
+labouring (else chop); `carry` while walking loaded (else walk); never an attack. Classes without them idle at work.
+
+| clip | classes | frames @ fps | notes |
+| --- | --- | --- | --- |
+| `chop` | militia, hoplite | 10 @ 10 | axe onto a log at his feet; the log splits and pops back on the loop |
+| `mine` | militia, hoplite | 10 @ 10 | pickaxe onto a rock; the sparks are cut by the colour pipeline |
+| `harvest` | militia, hoplite | 10 @ 8 | bends to a low bush, olives into a basket at the hip |
+| `build` | hoplite (militia: §27) | 10 @ 10 | mallet on a stake |
+| `carry` | hoplite (militia: §27) | 10 @ 12 | log on the left shoulder, shield on his back, spear upright |
+
+pixminimax, tall canvas (96 x 112), 12 frames = 1 generation (16 = 2), `view: high top-down`. Prompts word for word:
+`[AWAY=1] [SHORT=1] node scripts/art/pixellab/anim1/prompts.mjs <class> <chop|mine|harvest|mallet|haul> <dir>`
+(`mallet` / `haul` are the build / carry wordings with the weapon put away); every work wording opens `he alone, at work
+in place: {stow};` where stow is militia `first he lays his spear down on the ground behind him, and from then on his
+hands hold no spear; no shield`, hoplite `first he swings the large round shield onto his back and lays his long spear
+down on the ground behind him, and from then on the shield hangs on his back and his hands hold no spear`. Jobs:
+`docs/v5/pixellab/ANIM2/<class>.jobs.json` (`ROUND=ANIM2 anim1/job.mjs`); append specs `ROUND=ANIM2 anim1/spec.mjs
+<class>` then `anim1/append.mjs docs/v5/pixellab/ANIM2/<class>.sheet.json`. 40 generations (a1 tests and redos
+included); archer, slinger, javelineer and celt_sword got none (budget: militia + hoplite first, per the brief).
+
+**Lessons:** (1) The weapon is set down in 1-2 frames and stays lying on the ground for the whole clip (reads as put
+down; drop frames 0-1). (2) "into a tree just out of the picture" still draws a tree trunk as tall as the man; a log at
+his feet is a small prop that reads. (3) Rocks, bushes, stakes appear unasked; kept, they show what he works on. (4)
+North-east work clips turn to face the viewer or a right profile by frame 2-5 for both classes, the "seen from behind
+... never turns round" opening notwithstanding; appending `AWAY=1` (`he keeps facing away from the viewer towards the
+upper right in every frame: only his back, the back of his head and his cloak are seen, never his face or chest; what
+he works on lies beyond him, on the far side of his body`) helped the militia chop (a3); hoplite chop / mine with it
+are over pixminimax's 1000-character cap. (5) The carry log comes out twice his height in SE; `SHORT=1` adds `a short
+log no longer than he is tall, its ends close to his shoulder`. (6) The hoplite's shield goes onto his back in most
+clips, but vanishes in a few (mine SE / SW). (7) The hoplite sheet has no warm wood ramp, so its logs, stake and
+mallet land on dark crimson; the militia bush lands on brown (no green in either sheet). Follow-up if they jar.
+QC (`qc.mjs`): 0 failures on both sheets.
+
 ## 28. Biome: Kyrene (ART-7)
 
 The desert biome (W-21): Kyrene's oasis town on a river terrace with red cliffs and copper, plus its entries and

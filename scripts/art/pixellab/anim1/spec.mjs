@@ -31,16 +31,37 @@ const ANIMS = {
   archer: IDLES,
   slinger: IDLES,
 };
+// ANIM-2 work clips (ROUND=ANIM2): tall canvas, align false (the log, rock or bush at his feet throws off the feet
+// search); frames = the loop after he puts his weapon away, the blow's end held a frame where a clip runs short.
+const W = (fps, picks) => ({ fps, canvas: 'tall', spear: 'upright', align: false, dirs: Object.fromEntries(Object.entries(picks).map(([d, [attempt, frames]]) => [d, { attempt, frames }])) });
+const ANIMS2 = {
+  militia: {
+    chop: W(10, { 'south-east': ['a2', [3, 4, 5, 6, 7, 8, 9, 10, 11, 11]], 'north-east': ['a3', range(2, 11)], 'south-west': ['a2', range(2, 11)], 'north-west': ['a2', [3, 4, 5, 6, 7, 8, 9, 10, 11, 11]] }),
+    mine: W(10, { 'south-east': ['a1', range(2, 11)], 'north-east': ['a2', range(2, 11)], 'south-west': ['a1', range(2, 11)], 'north-west': ['a1', range(2, 11)] }),
+    harvest: W(8, { 'south-east': ['a1', range(2, 11)], 'north-east': ['a2', range(2, 11)], 'south-west': ['a1', range(2, 11)], 'north-west': ['a1', range(2, 11)] }),
+  },
+  hoplite: {
+    // chop and mine north-east (a2, a1) turn to a right profile from frame 5; the AWAY retry is over the 1000-character cap
+    chop: W(10, { 'south-east': ['a1', [3, 4, 5, 6, 7, 8, 9, 10, 11, 11]], 'north-east': ['a2', range(2, 11)], 'south-west': ['a2', range(2, 11)], 'north-west': ['a2', range(2, 11)] }),
+    mine: W(10, { 'south-east': ['a1', range(2, 11)], 'north-east': ['a1', range(2, 11)], 'south-west': ['a1', range(2, 11)], 'north-west': ['a1', range(2, 11)] }),
+    harvest: W(8, { 'south-east': ['a1', range(2, 11)], 'north-east': ['a2', range(2, 11)], 'south-west': ['a1', range(2, 11)], 'north-west': ['a1', range(2, 11)] }),
+    build: W(10, { 'south-east': ['a1', range(2, 11)], 'north-east': ['a1', range(2, 11)], 'south-west': ['a1', range(2, 11)], 'north-west': ['a1', range(2, 11)] }),
+    // frames 0-1 lift the log on; the loop is the walk from frame 2
+    carry: { ...W(12, { 'south-east': ['a2', range(2, 11)], 'north-east': ['a1', range(2, 11)], 'south-west': ['a1', range(2, 11)], 'north-west': ['a1', range(2, 11)] }), align: true },
+  },
+};
+const ROUND = process.env.ROUND ?? 'ANIM1';
+if (ROUND === 'ANIM2') Object.assign(ANIMS, ANIMS2);
 const cls = process.argv[2];
 const src = JSON.parse(readFileSync(join(ROOT, SOURCE[cls]), 'utf8'));
 const { $doc, anims, raw, out, ...rest } = src;
 const spec = {
-  $doc: `ANIM-1 append spec for ${cls} (scripts/art/pixellab/anim1/spec.mjs, from ${SOURCE[cls]}). Rebuild: node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/ANIM1/${cls}.jobs.json docs/v5/pixellab/ANIM1/raw/${cls} && node scripts/art/pixellab/anim1/append.mjs docs/v5/pixellab/ANIM1/${cls}.sheet.json`,
+  $doc: `${ROUND} append spec for ${cls} (ROUND=${ROUND} scripts/art/pixellab/anim1/spec.mjs, from ${SOURCE[cls]}). Rebuild: node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/${ROUND}/${cls}.jobs.json docs/v5/pixellab/${ROUND}/raw/${cls} && node scripts/art/pixellab/anim1/append.mjs docs/v5/pixellab/${ROUND}/${cls}.sheet.json`,
   class: cls,
-  raw: `docs/v5/pixellab/ANIM1/raw/${cls}`,
+  raw: `docs/v5/pixellab/${ROUND}/raw/${cls}`,
   base: `${out}/manifest.json`,
   ...rest,
   anims: ANIMS[cls],
 };
-writeFileSync(join(ROOT, 'docs/v5/pixellab/ANIM1', `${cls}.sheet.json`), JSON.stringify(spec, null, 1) + '\n');
+writeFileSync(join(ROOT, 'docs/v5/pixellab', ROUND, `${cls}.sheet.json`), JSON.stringify(spec, null, 1) + '\n');
 console.log(`${cls}: ${Object.keys(spec.anims).join(', ')}`);

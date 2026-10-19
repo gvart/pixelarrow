@@ -13,11 +13,13 @@
  *                     shift, or any clip named idle*), per unit by a hash, start frames desynced
  *
  * Clips are found on the sheet by name and fall back through ANIM_FALLBACK, so a clip added to a
- * manifest is used as soon as it ships. `override` is the hook for work clips (build, carry): it
- * names clips for a unit, the first the sheet has is used.
+ * manifest is used as soon as it ships. `override` is the hook for work clips: it names clips for a
+ * unit, the first the sheet has is used. `workClips` is the stock one: gathering plays chop (wood),
+ * mine (stone, marble, ores, salt) or harvest (food) by the resource it takes in, labouring at a site
+ * plays build, walking with a load plays carry; never an attack clip (a sheet without them idles).
  */
 import { resolveAnim, SHEET_ANIMS, type SheetAnim } from '../../art/sheetManifest';
-import type { SquadSnap, UnitSnap } from '../types';
+import type { ResourceKind, SquadSnap, UnitSnap } from '../types';
 import type { DrawUnit } from './simClient';
 
 export interface ClipDef { n: number; fps: number; strike: number; hold: number }
@@ -37,6 +39,25 @@ const CHEER_MS = 2600;
 /** Idle slots: each one in IDLE_ODDS plays a variant once from the slot's start (+ jitter). */
 const SLOT_MS = 4000;
 const IDLE_ODDS = 3;
+
+const CHOP = ['chop', 'build', 'idle'] as const;
+const MINE = ['mine', 'chop', 'build', 'idle'] as const;
+const HARVEST = ['harvest', 'idle'] as const;
+const BUILD = ['build', 'chop', 'idle'] as const;
+const CARRY = ['carry', 'walk'] as const;
+const GATHER: Record<ResourceKind, readonly string[]> = {
+  wood: CHOP, food: HARVEST,
+  stone: MINE, marble: MINE, copper: MINE, tin: MINE, iron: MINE, bronze: MINE, silver: MINE, salt: MINE,
+};
+
+/** Work clips for a gathering, labouring or loaded unit (the Animator override); undefined: the usual pick. */
+export function workClips(u: UnitSnap): readonly string[] | undefined {
+  // a gatherer's carry is the resource of the node it works (set from its first tick there)
+  if (u.state === 'gather') return u.carry ? GATHER[u.carry] : BUILD;
+  if (u.state === 'build') return BUILD;
+  if (u.carry && u.state === 'move') return CARRY;
+  return undefined;
+}
 
 export function hash(a: number, b = 0): number {
   let h = (a * 374761393 + b * 668265263) | 0;
