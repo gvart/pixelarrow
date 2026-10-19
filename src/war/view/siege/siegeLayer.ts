@@ -9,8 +9,15 @@
  *    art's bearer offsets, carry clip), lies flat while built or uncrewed, rises (the push-off strip backwards) and, raised,
  *    is drawn as its ladder building (piece <stone-wall|rampart>-<side>, shaking while defenders push it); pushed off it
  *    falls (the push-off strip) and lies broken (-down) until carried again.
- *  - fire: flame loops on each burning piece sized by intensity (s / m / l), a smoke plume and embers over it; a scorch
- *    decal on the ground where it burned (smouldering a while once it fell).
+ *  - fire (objects.json fireNote): emitters fixed per burning piece and intensity (low k < 0.34, medium < 0.67, high).
+ *    Each visible face is a wall run (a wall segment: its run's front face; a tower, gate, stairs, ladder or engine: its
+ *    south and east faces); per face tile 5 / 11 / 15 flame tongues of 3 sizes x 3 shapes along the face, mostly low (up
+ *    to 25 / 60 / 95 % of the wood's height, a few l at the top edge at high), each with a fixed phase, drawn at scale 1
+ *    (intensity changes count and size); a foot fire sheet at medium / high; a heat glow on the ground (add); embers
+ *    (add) and smoke wisps over it, alpha by intensity; at high a few tongues on the platform / roof edge. Charring
+ *    overlays over the kit (scorch low, charred medium, smoulder high; ../build/buildingLayer.ts charOf); once out it
+ *    smoulders ~20 s (smoulder fx, a faint wisp, the smoulder overlay), then stays charred. A scorch decal on the
+ *    ground where a piece burned down (smouldering a while once it fell).
  *  - rubble: breached wall tiles (breach-<wall>-<axis>-<a|b>, alternating along a run) and fallen towers.
  */
 import Phaser from 'phaser';
@@ -25,9 +32,22 @@ import { facingOf, type SiegeArt, type SiegeSprite, type Strip } from './siegeAr
 
 const IN = 1e-6;
 const TILE = 1 / 4096;
-/** Px tall per type (the burning point sits at about half of it). */
-const TALL: Partial<Record<BuildingType, number>> = { palisade: 56, rampart: 100, stoneWall: 160, woodTower: 120, stoneTower: 200, woodGate: 70, stoneGate: 100, ladder: 120, woodStairs: 40 };
 const SCORCH_HOT_MS = 20000;
+const SMOULDER_MS = 20000;
+type Level = 'low' | 'medium' | 'high';
+const levelOf = (k: number): Level => (k < 0.34 ? 'low' : k < 0.67 ? 'medium' : 'high');
+/** Tongues reach up to this share of the wood's height, by level. */
+const ZMAX: Record<Level, number> = { low: 0.25, medium: 0.6, high: 0.95 };
+const CHAR: Record<Level, string> = { low: 'scorch', medium: 'charred', high: 'smoulder' };
+/** Height of the burning wood (m): walls whole, towers up to the platform, engines their frame. */
+const WOOD_M: Partial<Record<BuildingType, number>> = { palisade: 3, rampart: 4, woodGate: 3.5, woodTower: 4.4, woodStairs: 1.4, ladder: 3 };
+const ENGINE_M = 2.2;
+/** Where a wall's burning face sits across its tile (palisade: the stakes; the rest: the outer face). */
+const FACE: Partial<Record<BuildingType, number>> = { palisade: 0.6 };
+/** One fx loop placed at world px (x, y) (anchor), its phase seed, alpha, depth. */
+interface Emitter { id: string; x: number; y: number; ph: number; alpha: number; depth: number; flip?: boolean }
+/** A face of a burning piece from (ax, ay) to (bx, by) (tile points), `tiles` long, with its ground level and depth. */
+interface Face { ax: number; ay: number; bx: number; by: number; tiles: number; z: number; depth: number }
 const RUBBLE_WALL: Partial<Record<BuildingType, string>> = { palisade: 'palisade', rampart: 'rampart', stoneWall: 'stone-wall', woodGate: 'palisade', stoneGate: 'stone-wall' };
 const LADDER_TARGET: Partial<Record<BuildingType, string>> = { stoneWall: 'stone-wall', rampart: 'rampart', stoneTower: 'stone-wall', woodTower: 'rampart', stoneGate: 'stone-wall', woodGate: 'rampart' };
 const SIDES: [number, number, string][] = [[1, 0, 'e'], [0, 1, 's'], [-1, 0, 'w'], [0, -1, 'n']];
@@ -53,6 +73,11 @@ export class SiegeLayer {
   /** Pieces seen burning: their tiles get a scorch decal (hot a while after they fell). */
   private burnt = new Map<number, { tiles: number[]; at: number; fell: number }>();
   private release = new Map<number, { x: number; y: number; px: number }>();
+  /** Fire emitters per burning piece (key: building id, or -1 - engine id), rebuilt when its level changes. */
+  private fires = new Map<number, { level: Level; list: Emitter[] }>();
+  /** Pieces whose fire went out (not burnt down): since when (smoulder, then charred). */
+  private out = new Map<number, number>();
+  private now = 0;
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, private depthOf: (x: number, y: number) => number) {}
 
@@ -68,7 +93,7 @@ export class SiegeLayer {
     let im = this.imgs[this.ni];
     if (!im) this.imgs.push((im = this.scene.add.image(0, 0, texture).setOrigin(0)));
     this.ni++;
-    return im.setTexture(texture, frame).setOrigin(0).setScale(1).setAngle(0).setAlpha(1).clearTint().setFlipX(false).setVisible(true);
+    return im.setTexture(texture, frame).setOrigin(0).setScale(1).setAngle(0).setAlpha(1).clearTint().setFlipX(false).setBlendMode(Phaser.BlendModes.NORMAL).setVisible(true);
   }
 
   /** A sprite with its footprint's north tile top vertex at tile (tx, ty) on level z, raised px. */
@@ -95,8 +120,17 @@ export class SiegeLayer {
     return d.u ? this.lifts.get(d.u.id) ?? null : null;
   }
 
+  /** The charring overlay over building b's kit `kit` (../build/buildingLayer.ts), by its fire or how long it has been out. */
+  charOf(b: BuildingSnap, kit: string, layer: 'back' | 'front'): string | undefined {
+    if (!this.art || b.state === 'destroyed') return undefined;
+    const out = this.out.get(b.id);
+    const level = b.burning ? CHAR[levelOf(b.burning)] : out === undefined ? null : this.now - out < SMOULDER_MS ? 'smoulder' : 'charred';
+    return level ? this.art.char.get(`${kit}-${level}-${layer}`) : undefined;
+  }
+
   draw(sieges: readonly SiegeSnap[], buildings: readonly BuildingSnap[], units: readonly DrawUnit[], at: AnimTime, snapTick: number, v: V): void {
     this.ni = 0;
+    this.now = at.now;
     this.lifts.clear();
     this.bearing.clear();
     this.release.clear();
@@ -161,7 +195,8 @@ export class SiegeLayer {
         this.lifts.set(d.u.id, { x: x0 + ox, y: y0 + oy, z, px: 0, depth: base + (1 + i) * IN, facing: e.facing });
       });
     }
-    if (e.burning) this.blaze(e.x, e.y, z, 40, e.burning, base + 60 * IN, now, e.id + 9000, 2);
+    if (e.burning) this.burn(-1 - e.id, e.burning, [this.face(x0, y0 + h, x0 + w, y0 + h, w, z, base + 60 * IN), this.face(x0 + w, y0 + h, x0 + w, y0, h, z, base + 60 * IN)], ENGINE_M, null, now, v);
+    else this.fires.delete(-1 - e.id);
   }
 
   private drawGhost(g: { type: SiegeType; x: number; y: number; ok: boolean }): void {
@@ -269,8 +304,11 @@ export class SiegeLayer {
       if (b.burning && b.state !== 'destroyed' && !this.burnt.has(b.id)) this.burnt.set(b.id, { tiles: b.tiles, at: now, fell: 0 });
       const scorch = this.burnt.get(b.id);
       if (scorch && b.state === 'destroyed' && !scorch.fell) scorch.fell = now;
+      if (b.burning) this.out.delete(b.id);
+      else if (scorch && !scorch.fell && b.state !== 'destroyed' && !this.out.has(b.id)) this.out.set(b.id, now);
+      if (!b.burning || b.state === 'destroyed') this.fires.delete(b.id);
       if (!this.visible(v, b.x, b.y, Math.max(b.w, b.h) * 32 + 300)) continue;
-      if (scorch) for (const [x, y] of pairs(b.tiles)) {
+      if (scorch?.fell) for (const [x, y] of pairs(b.tiles)) {
         const hot = scorch.fell && now - scorch.fell < SCORCH_HOT_MS, p = this.pt(x + 0.5, y + 0.5);
         this.fx(hot ? 'scorch' : 'scorch-cold', p.x, p.y, 2.6, now, x * 7 + y, 1, b.burning || hot ? 1 : 0.85);
       }
@@ -283,19 +321,114 @@ export class SiegeLayer {
         }
       }
       if (b.state === 'destroyed' && b.rubble) this.rubble(b);
-      if (b.burning && b.state !== 'destroyed') this.burnPiece(b, now);
+      if (b.burning && b.state !== 'destroyed') this.burnPiece(b, now, v);
+      else if (b.state !== 'destroyed' && this.out.has(b.id) && now - this.out.get(b.id)! < SMOULDER_MS) this.smoulder(b, now);
     }
   }
 
-  /** Flames on each burning tile of a piece (walls: every tile of the line; buildings: a few over the footprint), smoke over it. */
-  private burnPiece(b: BuildingSnap, now: number): void {
-    const def = BUILDINGS[b.type], tall = TALL[b.type] ?? 50, ts = pairs(b.tiles);
-    const line = def.wall === 'segment' && (b.depth ?? 1) > 1 ? ts.slice(0, ts.length / 2) : ts;
-    const pts = def.wall || def.access ? line.map(([x, y]) => [x + 0.5, y + 0.5]) : [[b.x, b.y], [b.x - b.w / 4, b.y + b.h / 4], [b.x + b.w / 4, b.y - b.h / 4]];
-    pts.forEach(([x, y], i) => {
-      const z = this.iso.zAt(x, y), lead = i === Math.floor(pts.length / 2);
-      this.blaze(x, y, z, tall * 0.45, b.burning! * (0.75 + 0.25 * ((i * 37) % 4) / 3), this.D(x + 0.5, y + 0.5) + 30 * IN, now, b.id * 31 + i, lead ? 2 : i % 3 === 0 ? 1 : 0);
+  /** The visible faces of a piece: a wall segment's run front (one per run tile), else its south and east faces. */
+  private faces(b: BuildingSnap): Face[] {
+    const def = BUILDINGS[b.type], ts = pairs(b.tiles);
+    if (def.wall === 'segment') {
+      const alongX = b.w >= b.h, f = FACE[b.type] ?? 0.95, front = new Map<number, [number, number]>();
+      // per run tile the outermost row (+y for a run along x, +x along y): its face
+      for (const [x, y] of ts) {
+        const k = alongX ? x : y, o = front.get(k);
+        if (!o || (alongX ? y > o[1] : x > o[0])) front.set(k, [x, y]);
+      }
+      return [...front.values()].map(([x, y]) => alongX
+        ? this.face(x, y + f, x + 1, y + f, 1, this.iso.zAt(x + 0.5, y + 0.5), this.D(x + 0.5, y + 0.5) + 30 * IN)
+        : this.face(x + f, y, x + f, y + 1, 1, this.iso.zAt(x + 0.5, y + 0.5), this.D(x + 0.5, y + 0.5) + 30 * IN));
+    }
+    const x0 = Math.min(...ts.map((t) => t[0])), y0 = Math.min(...ts.map((t) => t[1])), x1 = Math.max(...ts.map((t) => t[0])) + 1, y1 = Math.max(...ts.map((t) => t[1])) + 1;
+    const z = this.iso.zAt(x0 + 0.5, y0 + 0.5), d = this.D(x1, y1) + 3 * IN;
+    return [this.face(x0 + 0.1, y1, x1, y1, x1 - x0, z, d), this.face(x1, y1, x1, y0 + 0.1, y1 - y0, z, d)];
+  }
+
+  private face(ax: number, ay: number, bx: number, by: number, tiles: number, z: number, depth: number): Face {
+    return { ax, ay, bx, by, tiles: Math.max(1, Math.round(tiles)), z, depth };
+  }
+
+  /** A burning piece: its emitters (fixed per piece and level), drawn where in view. */
+  private burnPiece(b: BuildingSnap, now: number, v: V): void {
+    const def = BUILDINGS[b.type], top = def.wall === 'tower' || def.wall === 'gate' ? (WOOD_M[b.type] ?? 3) : null;
+    this.burn(b.id, b.burning!, this.faces(b), WOOD_M[b.type] ?? 3, top, now, v);
+  }
+
+  /**
+   * Fire of piece `id` at intensity k over its faces, wood hM metres high; topM: the platform / roof edge (2-3 tongues
+   * there at high). Emitters are laid out once per level (fireNote) and drawn as loops with their own phase.
+   */
+  private burn(id: number, k: number, faces: Face[], hM: number, topM: number | null, now: number, v: V): void {
+    const level = levelOf(k);
+    let f = this.fires.get(id);
+    if (!f || f.level !== level) this.fires.set(id, (f = { level, list: this.emitters(id, level, faces, hM, topM) }));
+    const art = this.art!;
+    for (const e of f.list) {
+      if (e.x < v.x - 80 || e.x > v.right + 80 || e.y < v.y - 40 || e.y > v.bottom + 160) continue;
+      const fx = art.fx.get(e.id);
+      if (!fx) continue;
+      const frame = (Math.floor((now * fx.fps) / 1000) + e.ph * 5) % fx.frames;
+      const im = this.img(fx.key, frame).setPosition(Math.round(e.x - fx.anchor.x), Math.round(e.y - fx.anchor.y)).setDepth(e.depth).setAlpha(e.alpha).setFlipX(!!e.flip);
+      if (fx.blend === 'add') im.setBlendMode(Phaser.BlendModes.ADD);
+    }
+  }
+
+  /** The emitters of a fire (fireNote): per face tile tongues, a foot sheet, a glow, embers, smoke. */
+  private emitters(id: number, level: Level, faces: Face[], hM: number, topM: number | null): Emitter[] {
+    const art = this.art!, hPx = hM * art.ppm, out: Emitter[] = [];
+    let seed = Math.abs(id * 7919 + 13) % 2147483646 + 1;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const per = (q: string) => Math.max(0, ...['a', 'b', 'c'].map((c) => art.fx.get(`tongue-${q}-${c}`)?.density?.perTile[level] ?? 0));
+    const at = (x: number, y: number, z: number, up: number) => { const p = this.pt(x, y, z); return { x: p.x, y: p.y - up }; };
+    const alpha = (fx: string) => art.fx.get(fx)?.alpha?.[level] ?? 1;
+    const em = art.fx.get('embers')?.density?.perTile[level] ?? 0;
+    faces.forEach((fc, fi) => {
+      const axis = fc.ay === fc.by ? 'x' : 'y', lerp = (u: number) => [fc.ax + (fc.bx - fc.ax) * u, fc.ay + (fc.by - fc.ay) * u];
+      for (let t = 0; t < fc.tiles; t++) {
+        for (const size of ['s', 'm', 'l']) for (let i = 0; i < per(size); i++) {
+          const u = (t + rnd()) / fc.tiles, high = size === 'l' && level === 'high' && i === 0 && rnd() < 0.6;
+          const z = high ? hPx * (0.85 + 0.1 * rnd()) : hPx * ZMAX[level] * rnd() ** 2;
+          const [x, y] = lerp(u);
+          out.push({ id: `tongue-${size}-${'abc'[Math.floor(rnd() * 3)]}`, ...at(x, y, fc.z, z), ph: Math.floor(rnd() * 60), alpha: 1, depth: fc.depth + 2 * IN });
+        }
+        // the foot sheet from the tile's face start (its lower x / y end), under the tongues
+        if (level !== 'low') {
+          const [ux, uy] = lerp(t / fc.tiles), [vx, vy] = lerp((t + 1) / fc.tiles);
+          out.push({ id: `fire-sheet-${axis}-${level === 'high' ? 'l' : 'm'}`, ...at(Math.min(ux, vx), Math.min(uy, vy), fc.z, 0), ph: t * 3 + fi, alpha: 1, depth: fc.depth + IN });
+        }
+        const [mx, my] = lerp((t + 0.5) / fc.tiles), top = hPx * ZMAX[level] + 6;
+        out.push({ id: 'heat-glow', ...at(mx, my + 0.2, fc.z, 0), ph: t * 5 + fi, alpha: alpha('heat-glow'), depth: 2.62 });
+        if (em >= 1 || (em > 0 && t % Math.round(1 / em) === 0)) out.push({ id: 'embers', ...at(mx, my, fc.z, top), ph: t * 7 + fi, alpha: 1, depth: 10.87 });
+        if (t % 2 === 0 && (level !== 'low' || t === 0)) {
+          out.push({ id: `smoke-wisp-${'ab'[(t >> 1) % 2]}`, ...at(mx + rnd() * 0.4, my, fc.z, top + 4), ph: t * 9 + fi, alpha: alpha('smoke-wisp-a') * (0.8 + 0.2 * rnd()), depth: 10.88, flip: rnd() < 0.5 });
+        }
+      }
     });
+    // at high, a few tongues on the platform / roof edge
+    if (topM !== null && level === 'high' && faces[0]) {
+      const fc = faces[0];
+      for (let i = 0; i < 3; i++) {
+        const u = 0.3 + 0.2 * i;
+        out.push({ id: `tongue-m-${'abc'[i]}`, ...at(fc.ax + (fc.bx - fc.ax) * u, fc.ay + (fc.by - fc.ay) * u - 0.3, fc.z, topM * art.ppm + 2), ph: i * 13, alpha: 1, depth: fc.depth + 3 * IN });
+      }
+    }
+    return out;
+  }
+
+  /** A fire gone out: smoulder fx (2 per face tile) and a faint wisp per 2 tiles, for SMOULDER_MS. */
+  private smoulder(b: BuildingSnap, now: number): void {
+    for (const fc of this.faces(b)) for (let t = 0; t < fc.tiles; t++) {
+      const along = (u: number) => this.pt(fc.ax + (fc.bx - fc.ax) * u, fc.ay + (fc.by - fc.ay) * u, fc.z);
+      for (let i = 0; i < 2; i++) {
+        const p = along((t + 0.25 + 0.5 * i) / fc.tiles);
+        this.fx('smoulder', p.x, p.y, fc.depth + 2 * IN, now, b.id * 31 + t * 5 + i * 3);
+      }
+      if (t % 2) {
+        const p = along((t + 0.5) / fc.tiles);
+        this.fx('smoke-wisp-b', p.x, p.y - 4, 10.88, now, b.id + t * 7, 1, 0.3);
+      }
+    }
   }
 
   /**

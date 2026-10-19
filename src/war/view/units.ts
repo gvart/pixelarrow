@@ -4,8 +4,9 @@
  * has four facings (the iso diagonals); a unit shows the one nearest its heading on screen and
  * the clip ./anim.ts picks. Sprites sample NEAREST at every zoom: no blur, small motions stay
  * visible at 1/2.
- * Units are depth sorted by x + y (with the map objects, ./objects.ts); behind higher ground they
- * show as a team-coloured silhouette, behind a stone object a silhouette is drawn over it.
+ * Units are depth sorted by x + y (with the map objects, ./objects.ts); the player's own men hidden
+ * behind higher ground, a wall or a stone object show as a team-coloured outline over it; hidden
+ * foes are simply hidden.
  * The sheets wear red; team 0 (blue) draws through TEAM_SWAP, a shader that turns the red cloth blue.
  *
  * LOD by zoom: sprites from SPRITE_ZOOM up, team-coloured dots down to BANNER_ZOOM, below that
@@ -294,9 +295,10 @@ export class UnitLayer {
       else if (this.swap) img.resetPipeline();
       img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);
       // hidden behind higher ground (the sprite would draw over the baked terrain: not drawn) or behind a wall or object
-      // (drawn under it): a thin team-coloured outline over everything, no fill
+      // (drawn under it): the player's own men (and the selected) get a thin team-coloured outline over everything, no
+      // fill; a hidden foe is simply hidden
       if (hidden) img.setVisible(false);
-      if (hidden || occluded.has(u.id)) {
+      if ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.squad))) {
         let gh = this.ghosts[this.nGhost];
         if (!gh) {
           this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));

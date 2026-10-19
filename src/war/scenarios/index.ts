@@ -229,7 +229,7 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'siege',
     name: 'Siege',
-    goal: 'Take the stone fort: batter the gate with the ram (C crew, right click the gate), raise the ladder on the wall (L), shell the towers with the stone thrower, burn the palisade with fire arrows (Q), then storm the breach.',
+    goal: 'Take the stone fort: batter the gate with the ram (E on the ram to crew it, then E on the gate), raise the ladder on the wall (E on the wall face), shell the towers with the stone thrower, burn the palisade (E with torches, or fire arrows: Q), then storm the breach.',
     squads: [
       // the garrison's builders (they raise the fort before play, then stand inside)
       { team: 1, cls: 'militia', count: 20, x: RC[0] - 3, y: RC[1], owner: 'garrison' },

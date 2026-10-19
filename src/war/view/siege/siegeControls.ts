@@ -1,14 +1,11 @@
 /**
- * Siege orders for the selected own squads (M2c, W-29), keys and a dev panel box in the HUD (the build panel's style):
+ * Siege orders for the selected own squads (M2c, W-29), keys and a box in the HUD (the build panel's style). The
+ * targeted orders (crew / uncrew, raise / push ladder, ignite, extinguish, attack) are the context action of E and right
+ * click (../interact.ts, W-30); only the toggles keep their own keys, and the HUD buttons stay as a fallback:
  *
- *   C  crew the nearest own engine (uncrewed, built), or uncrew if the squad crews one (U: uncrew)
  *   Y  deploy / pack the stone thrower the squad crews
- *   L  raise ladder: then click an enemy walkway wall or tower face (the crewed siege ladder is carried there)
- *   P  push ladder: then click an enemy ladder raised on an own wall (the squad goes up and pushes it off)
- *   I  ignite: then click an enemy wood building or engine (torches)
- *   O  extinguish: then click a burning own building or engine
  *   Q  fire arrows on / off (archers)
- *   right click an enemy building or engine: attackBuilding (a crewed ram or thrower drives its engine at it)
+ *   buttons: Crew (the nearest own engine), Uncrew; Raise ladder, Push ladder, Ignite, Extinguish arm a click on the map
  *   move / hold to a crewing squad drive its engine (the sim's rule)
  *
  * Build mode's siege tools (ram, stone thrower, siege ladder) are BuildMode tools; buildSiege() lays one out here.
@@ -27,7 +24,7 @@ const ARMED_TEXT: Record<Armed, string> = {
   ignite: 'click an enemy wood building or engine to set it alight', extinguish: 'click a burning own building or engine',
 };
 export const SIEGE_NAME: Record<SiegeType, string> = { ram: 'ram', stoneThrower: 'stone thrower', siegeLadder: 'siege ladder' };
-export const SIEGE_HELP = 'Siege: C crew / U uncrew · Y deploy / pack · L raise ladder · P push ladder · I ignite · O extinguish · Q fire arrows · right click an enemy building or engine: attack it';
+export const SIEGE_HELP = 'Siege: E / right click crews, raises or pushes ladders, ignites, puts out, attacks (as the cursor label says) · Y deploy / pack · Q fire arrows';
 
 export class SiegeControls {
   armed: Armed | null = null;
@@ -39,13 +36,7 @@ export class SiegeControls {
     s.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || s.build.active) return;
       const k = e.key.toLowerCase();
-      if (k === 'c') this.crew();
-      else if (k === 'u') this.uncrew();
-      else if (k === 'y') this.deploy();
-      else if (k === 'l') this.arm('raise');
-      else if (k === 'p') this.arm('push');
-      else if (k === 'i') this.arm('ignite');
-      else if (k === 'o') this.arm('extinguish');
+      if (k === 'y') this.deploy();
       else if (k === 'q') this.fireArrows();
       else if (k === 'escape') this.armed = null;
     });
@@ -81,7 +72,7 @@ export class SiegeControls {
     this.status = ARMED_TEXT[a];
   }
 
-  /** C: crew the nearest free own engine; a squad already crewing lets go. */
+  /** Crew: the nearest free own engine; a squad already crewing lets go. */
   crew(): void {
     const taken = new Set<number>();
     for (const q of this.own()) {
@@ -155,9 +146,9 @@ export class SiegeControls {
     return best;
   }
 
-  /** The tile of a building (filter) nearest t within PICK_R. */
-  private tileNear(t: { x: number; y: number }, ok: (b: BuildingSnap) => boolean): { b: BuildingSnap; x: number; y: number } | null {
-    let best: { b: BuildingSnap; x: number; y: number } | null = null, bd = PICK_R;
+  /** The tile of a building (filter) nearest t within r. */
+  tileNear(t: { x: number; y: number }, ok: (b: BuildingSnap) => boolean, r = PICK_R): { b: BuildingSnap; x: number; y: number } | null {
+    let best: { b: BuildingSnap; x: number; y: number } | null = null, bd = r;
     for (const b of this.buildings()) {
       if (b.state === 'destroyed' || !ok(b)) continue;
       for (let i = 0; i + 1 < b.tiles.length; i += 2) {
@@ -198,19 +189,6 @@ export class SiegeControls {
     return true;
   }
 
-  /** Right click: attack the enemy engine or building at t with the selected squads; true if there was one. */
-  attackAt(t: { x: number; y: number }): boolean {
-    if (this.armed) { this.armed = null; this.status = ''; return true; }
-    const qs = this.own();
-    if (!qs.length) return false;
-    const e = this.engineAt(t, true), b = e ? undefined : this.s.build.buildingAt(t);
-    if (!e && (!b || b.team === TEAM)) return false;
-    for (const q of qs) this.s.sim.order(e ? { kind: 'attackBuilding', squad: q, siege: e.id } : { kind: 'attackBuilding', squad: q, building: b!.id });
-    const at = e ?? b!;
-    this.s.mark(at.x, at.y, 0xff4040);
-    this.status = `attack the ${e ? SIEGE_NAME[e.type] : b!.type}`;
-    return true;
-  }
 }
 
 /** The siege box of the HUD: the selected squad's engine, buttons with their keys, the status line. */
@@ -220,10 +198,10 @@ export function siegePanel(s: SandboxScene): void {
   const box = document.createElement('div');
   box.id = 'siege';
   box.innerHTML = `<b>siege</b> <span id="geng" class="dim"></span>
-    <div class="row"><button id="gcrew">Crew (C)</button> <button id="guncrew">Uncrew (U)</button> <button id="gdeploy">Deploy / pack (Y)</button></div>
-    <div class="row"><button id="graise">Raise ladder (L)</button> <button id="gpush">Push ladder (P)</button></div>
-    <div class="row"><button id="gignite">Ignite (I)</button> <button id="gdouse">Extinguish (O)</button> <button id="gfire">Fire arrows (Q)</button></div>
-    <div class="dim" id="gstatus"></div><div class="dim">right click an enemy building / engine: attack</div>`;
+    <div class="row"><button id="gcrew">Crew</button> <button id="guncrew">Uncrew</button> <button id="gdeploy">Deploy / pack (Y)</button></div>
+    <div class="row"><button id="graise">Raise ladder</button> <button id="gpush">Push ladder</button></div>
+    <div class="row"><button id="gignite">Ignite</button> <button id="gdouse">Extinguish</button> <button id="gfire">Fire arrows (Q)</button></div>
+    <div class="dim" id="gstatus"></div><div class="dim">E / right click: the action at the cursor</div>`;
   hud.insertBefore(box, document.getElementById('bsel'));
   const $ = (id: string) => document.getElementById(id) as HTMLButtonElement;
   $('gcrew').onclick = () => c.crew();
@@ -242,7 +220,7 @@ export function siegePanel(s: SandboxScene): void {
     $('geng').textContent = e ? `#${qs[0]} crews ${SIEGE_NAME[e.type]} · ${e.state} · hp ${Math.ceil(e.hp)}/${e.maxHp} · crew ${e.crewHere}/${e.crewNeed}${e.burning ? ' · burning' : ''}` : '';
     $('gdeploy').disabled = e?.type !== 'stoneThrower';
     $('guncrew').disabled = !e;
-    $('gcrew').textContent = e ? 'Let go (C)' : 'Crew (C)';
+    $('gcrew').textContent = e ? 'Let go' : 'Crew';
     const on = qs.every((q) => c.fire.has(q));
     $('gfire').textContent = `Fire arrows: ${on ? 'on' : 'off'} (Q)`;
     for (const [id, a] of [['graise', 'raise'], ['gpush', 'push'], ['gignite', 'ignite'], ['gdouse', 'extinguish']] as const) $(id).classList.toggle('sel', c.armed === a);

@@ -20,7 +20,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <select id="cls">${CLASSES.map((c) => `<option>${c}</option>`).join('')}</select>
     <input id="count" type="number" min="1" max="20" value="20"></div>
     <div class="row"><button id="place">Place squad (click map)</button></div>
-    <div class="row"><button id="bots">+4 bot squads at cursor (E)</button></div>
+    <div class="row"><button id="bots">+4 bot squads at cursor</button></div>
     <div class="row"><button id="brawl">600 brawl</button> <button id="clear">Restart</button></div>
     ${s.region.id === 'test-ridge' ? `<div class="row">go to <select id="spot">${Object.keys(s.spots).map((k) => `<option>${k}</option>`).join('')}</select></div>` : ''}
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
@@ -28,7 +28,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row">${(['height', 'cost', 'grid', 'zones'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
-    <div class="dim">L click/box select, shift add · R click move / attack<br>H hold · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
+    <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
   document.body.appendChild(el);
   const $ = <T extends HTMLElement>(id: string) => el.querySelector<T>('#' + id)!;
   const val = (id: string) => $<HTMLInputElement>(id).value;
@@ -39,7 +39,6 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     for (let i = 0; i < 4; i++) s.sim.spawn('bot', team, CLASSES[i % CLASSES.length], 20, x + (i % 2) * 8, y + Math.floor(i / 2) * 6);
   };
   $('bots').onclick = bots;
-  window.addEventListener('keydown', (e) => { if (e.key === 'e' || e.key === 'E') bots(); });
   $('brawl').onclick = () => brawl(s);
   $('clear').onclick = () => location.reload();
   const scn = el.querySelector<HTMLSelectElement>('#scn');
