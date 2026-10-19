@@ -2,7 +2,7 @@
  * The player HUD in the red-figure kit (W-32; art: public/war/ui/, ./kit.ts). HTML over the canvas, anchored:
  *
  *   top centre     resource band: the 11 resources (icon + own stock), runner and horse at its ends
- *   bottom left    round minimap (./minimap.ts)
+ *   bottom left    round minimap (./minimap.ts), over it the view mode bar (F2-F7) and the mode's legend (./modes.ts)
  *   bottom centre  command card, shown with a selection (a selected building or site wins over squads), in groups:
  *                  selection (class icon, name, men, hp) | orders (move, attack, hold H, stop X) over the formation
  *                  segments (1-4) | squad-specific slots only while relevant (deploy / pack Y, let go while crewing).
@@ -29,6 +29,7 @@ import { costText, isSite, labourText, TOOLBAR, WALL_NAME, type BuildMode, type 
 import { SIEGE_NAME } from '../siege/siegeControls';
 import { bar, BUILDING_ICON, cursor, CSS, icon, setUiScale, SIEGE_ICON, snapW, UI, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
 import { Minimap } from './minimap';
+import { ModeBar } from './modes';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
@@ -87,6 +88,9 @@ export function hud(s: SandboxScene): void {
   document.body.appendChild(mini.el);
   els.push(mini.el);
   mini.el.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const modes = new ModeBar(s);
+  document.body.appendChild(modes.el);
+  els.push(modes.el);
 
   // ---------- tooltip ----------
   const tip = mk('rfTip', 'display:none;z-index:6');
@@ -266,6 +270,7 @@ export function hud(s: SandboxScene): void {
   const refresh = () => {
     // a button removed or hidden under the pointer never sends pointerleave
     if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent)) { tipAt = null; hideTip(); }
+    modes.refresh();
     const st = s.sim.cur?.stock?.[0] ?? {};
     counts.forEach((el) => { const v = Math.floor(st[el.dataset.r as ResourceKind] ?? 0); el.textContent = String(v); el.classList.toggle('rf-dim', !v); });
 

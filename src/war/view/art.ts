@@ -18,7 +18,7 @@ import { decodeBiomes, KINDS } from '../regions/visual';
 import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, OFFS, SmoothFrames, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, ZBASE } from './iso';
-import type { BakeOpts, TerrainBaker } from './terrain';
+import type { BakeOpts } from './terrain';
 
 export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
 /** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
@@ -99,8 +99,10 @@ export class ArtBaker {
   /** Rows of cells an object may reach above its foot. */
   private reach: number;
   private tmp: HTMLCanvasElement | null = null;
+  /** Canvas px per world px of the bake in progress (the tint's line width). */
+  private scale = 1;
 
-  constructor(readonly r: RegionData, readonly iso: IsoMap, readonly art: WarArt, private grey: TerrainBaker, massifs: Massifs | null = null) {
+  constructor(readonly r: RegionData, readonly iso: IsoMap, readonly art: WarArt, massifs: Massifs | null = null) {
     this.fine = buildFineArt(art);
     this.smooth = new SmoothFrames(art);
     this.setOf = new Uint8Array(r.w * r.h);
@@ -185,7 +187,7 @@ export class ArtBaker {
 
   /** As TerrainBaker.bake; `objects` bakes the map objects in too (the zoomed-out levels). */
   bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, o: BakeOpts, cx = 0, cy = 0, objects = false): void {
-    if (o.ov !== 'none') return this.grey.bake(ctx, x0, y0, w, h, scale, o, cx, cy);
+    this.scale = scale;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const cw = Math.ceil(w * scale), ch = Math.ceil(h * scale);
@@ -271,7 +273,16 @@ export class ArtBaker {
     const vmaxO = objects ? vmax + this.reach : vmax; // the tallest object or massif stands this many rows over its foot
     const zt = (x: number, y: number) => (x < 0 || y < 0 || x >= fw || y >= fh ? ZBASE : fz[y * fw + x]);
     const cl = fine.cliffs, NO = OFFS.length, sets = this.art.sets.map((s) => [cl[s.crag] ?? cl.rock ?? cl.earth, cl[s.earth] ?? cl.earth]);
-    for (let v = Math.max(0, vmin); v <= Math.min(fw + fh - 2, vmaxO); v++) {
+    // with a view mode's tint: the ground, the tint over it, then the objects over both
+    const split = !!o.tint && objects;
+    const drawObjects = (v: number) => {
+      for (const p of this.rows[v] ?? []) {
+        const d = p.def, ox = p.sx - d.anchor.x, oy = p.sy - d.anchor.y;
+        if (ox > x0 + w || ox + d.w < x0 || oy > y0 + h || oy + d.h < y0) continue;
+        if (p.shade !== undefined && p.shade < 1) { ctx.filter = `brightness(${p.shade})`; ctx.drawImage(p.img, ox, oy); ctx.filter = 'none'; } else ctx.drawImage(p.img, ox, oy);
+      }
+    };
+    for (let v = Math.max(0, vmin); v <= Math.min(fw + fh - 2, split ? vmax : vmaxO); v++) {
       if (v <= vmax) {
         let u = Math.max(umin, -v, v - 2 * (fh - 1));
         if ((u + v) & 1) u++;
@@ -300,13 +311,10 @@ export class ArtBaker {
           } else ctx.drawImage(fine.sheets[c >> 6], (c & 63) * 32, 0, 32, 32, tx, ty, 32, 32);
         }
       }
-      if (!objects) continue;
-      for (const p of this.rows[v] ?? []) {
-        const d = p.def, ox = p.sx - d.anchor.x, oy = p.sy - d.anchor.y;
-        if (ox > x0 + w || ox + d.w < x0 || oy > y0 + h || oy + d.h < y0) continue;
-        if (p.shade !== undefined && p.shade < 1) { ctx.filter = `brightness(${p.shade})`; ctx.drawImage(p.img, ox, oy); ctx.filter = 'none'; } else ctx.drawImage(p.img, ox, oy);
-      }
+      if (objects && !split) drawObjects(v);
     }
+    if (o.tint && o.map) o.map.drawTint(ctx, iso, o.tint, x0, y0, w, h, this.scale);
+    if (split) for (let v = Math.max(0, vmin); v <= Math.min(fw + fh - 2, vmaxO); v++) drawObjects(v);
     if (o.zones || o.grid) this.lines(ctx, Math.floor(umin / 2) - 1, Math.ceil(umax / 2) + 1, Math.floor(vmin / 2) - 1, Math.ceil(vmax / 2) + 1, o);
   }
 

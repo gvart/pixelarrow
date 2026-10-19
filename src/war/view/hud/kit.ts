@@ -82,6 +82,7 @@ export const CSS = `
 .rf-tbtn{height:18px;padding:0 6px;color:#f0d9b5;font:600 10px/1 Inter,sans-serif;cursor:pointer;background:none;${nine('buttons/button-normal.png', 3, 3, 3, 3)}}
 .rf-tbtn:hover{border-image-source:${set('buttons/button-hover.png')}}
 .rf-tbtn:active{border-image-source:${set('buttons/button-pressed.png')}}
+.rf-tbtn.on{border-image-source:${set('buttons/button-pressed.png')};color:#f2b27a}
 .rf-tbtn:disabled{border-image-source:${set('buttons/button-disabled.png')};color:#8a786a;cursor:default}
 .rf-tab{height:16px;padding:0 8px;margin-right:2px;color:#a8907a;font:700 11px/1 'Cormorant SC',serif;cursor:pointer;background:none;${nine('buttons/tab-inactive.png', 3, 3, 3, 2)}}
 .rf-tab:hover{border-image-source:${set('buttons/tab-hover.png')};color:#f0d9b5}

@@ -1,8 +1,8 @@
-/** The sandbox dev panel (HTML overlay, F1 / the DEV button of ./hud/hud.ts): scenarios, spawning, time, overlays, perf, the fight score, +500 resources, claim. */
+/** The sandbox dev panel (HTML overlay, F1 / the DEV button of ./hud/hud.ts): scenarios, spawning, time, the tile grid, perf, the fight score, +500 resources, claim. */
 import type Phaser from 'phaser';
 import { SCENARIOS, type Scenario } from '../scenarios';
 import type { ResourceKind } from '../types';
-import type { SandboxScene, Overlay } from './SandboxScene';
+import type { SandboxScene } from './SandboxScene';
 import { SIEGE_HELP } from './siege/siegeControls';
 
 const CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer'];
@@ -26,7 +26,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
     <div class="row"><button id="cut">Walls: full (V)</button></div>
     <div class="row"><button id="b500">+500 resources</button> <button id="bclaim">Claim here</button></div>
-    <div class="row">${(['height', 'cost', 'grid', 'zones', 'mobs'] as Overlay[]).map((k) => `<label><input type="checkbox" data-ov="${k}" ${k === 'zones' ? 'checked' : ''}>${k}</label>`).join(' ')}</div>
+    <div class="row"><label><input type="checkbox" id="grid">tile grid</label> <span class="dim">view modes: F2-F7, M full map</span></div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
     <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
@@ -56,7 +56,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
   $('b500').onclick = () => s.build.addResources();
   $('bclaim').onclick = () => s.build.armClaim();
   $('speed').onchange = () => { if (!paused) s.sim.speed(Number(val('speed'))); };
-  el.querySelectorAll<HTMLInputElement>('[data-ov]').forEach((c) => (c.onchange = () => s.setOverlay(c.dataset.ov as Overlay, c.checked)));
+  $<HTMLInputElement>('grid').onchange = (e) => s.setGrid((e.target as HTMLInputElement).checked);
   // panel clicks never reach the map
   el.addEventListener('pointerdown', (e) => e.stopPropagation());
 
