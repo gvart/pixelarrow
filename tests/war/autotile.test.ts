@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { parseRegion } from '../../src/war/region/schema';
 import { autotile, VARIANT, type TilesMeta } from '../../src/war/view/autotile';
 import type { RegionData, TerrainKind } from '../../src/war/types';
+import tilesJson from '../../public/war/tiles/tiles.json';
 
-const T = JSON.parse(readFileSync('public/war/tiles/tiles.json', 'utf8')) as TilesMeta;
+const T = tilesJson as TilesMeta;
 const flatZ = (r: RegionData) => r.height.map((h, i) => h - (r.water[i] ? 0.3 : 0));
 const region = (w: number, h: number, f: (x: number, y: number) => TerrainKind): RegionData => {
   const terrain: TerrainKind[] = [];
@@ -30,12 +30,12 @@ describe('autotile', () => {
     expect(c % 16 & 1).toBe(0);
   });
 
-  it('a raised plateau keeps its own edge; the ground below takes its corners', () => {
+  it('tiles on different levels keep their own edges', () => {
     const r = region(8, 8, (x, y) => (x < 4 && y < 4 ? 'dirt' : 'grass'));
     r.height = r.terrain.map((_, i) => (i % 8 < 4 && i < 32 ? 5 : 1));
     const { code } = autotile(r, flatZ(r), T);
     expect(code[3 * 8 + 3]).toBeGreaterThanOrEqual(VARIANT); // the plateau's corner tile is full dirt
-    expect(code[4 * 8 + 4]).toBeLessThan(VARIANT); // the tile below it takes a dirt corner
+    expect(code[4 * 8 + 4]).toBeGreaterThanOrEqual(VARIANT); // the grass below the wall stays whole
   });
 
   it('autotiles test-ridge with every tile drawn', () => {

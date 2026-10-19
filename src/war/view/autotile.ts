@@ -2,10 +2,10 @@
  * Autotiling of a region onto the PixelLab iso Wang sets of public/war/tiles/tiles.json (W-20).
  * Pure (no DOM): the art baker and the tests share it.
  *
- * Corner terrain lives on the map's vertices: a vertex takes the terrain of the cells sharing it
- * whose surface is highest (so a plateau, a mountain or a bank keeps its own edge and the ground
- * below a wall takes the scree or the bank fringe), the commonest of those, ties to the earlier
- * terrain in `fallback.order` (water, then marsh, sand ... grass last). Then the tiles.json fallback
+ * Corner terrain lives on the map's vertices, one value per vertex and surface level: the commonest
+ * terrain of the cells sharing the vertex on that level, ties to the earlier terrain in
+ * `fallback.order` (water, then marsh, sand ... grass last). Tiles on different levels meet only
+ * across a wall, so a plateau, a mountain or a bank keeps its own edge and the ground below too. Then the tiles.json fallback
  * rule (scripts/war/art/preview.mjs resolve()) settles pairs with no sheet, and each tile draws the
  * frame of its corner mask NW<<3|NE<<2|SW<<1|SE (NW = top vertex, set bit = the sheet's first
  * terrain); full tiles draw a variant by position hash.
@@ -22,6 +22,10 @@ export interface TilesMeta {
 
 /** Per tile: sheet * 16 + frame, VARIANT + variant * 16 + frame, or -1 (no sheet fits). */
 export const VARIANT = 1024;
+/** Majority passes over the vertex terrain. */
+const SMOOTH = 2;
+/** Their radius in vertices. */
+const R = 2;
 
 export const hash = (x: number, y: number, k = 0) => ((x * 73856093) ^ (y * 19349663) ^ (k * 83492791)) >>> 0;
 
@@ -34,7 +38,7 @@ export interface Autotile { code: Int16Array; missing: number; approx: number }
 export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Autotile {
   const order = T.fallback.order, K = order.length;
   const id = (t: string) => { const i = order.indexOf(t); return i < 0 ? order.indexOf('grass') : i; };
-  const DEEP = id('deep'), SHALLOW = id('shallow'), GRASS = id('grass');
+  const DEEP = id('deep'), SHALLOW = id('shallow'), GRASS = id('grass'), ROAD = id('road');
   const isWater = (t: number) => t === DEEP || t === SHALLOW;
   const pair = new Int16Array(K * K).fill(-1);
   T.sheets.forEach((s, i) => { pair[id(s.first) * K + id(s.second)] = i; pair[id(s.second) * K + id(s.first)] = i; });
@@ -46,42 +50,79 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
   const cell = new Uint8Array(n);
   for (let i = 0; i < n; i++) cell[i] = r.water[i] === 2 ? DEEP : r.water[i] === 1 ? SHALLOW : id(r.terrain[i]);
 
-  // vertex terrain: the commonest terrain among the highest cells round the vertex
-  const V = new Uint8Array(vw * (h + 1));
-  const cnt = new Uint8Array(K);
+  // corner groups: the tile corners at one vertex on one surface level share a terrain (tiles on
+  // other levels meet them only across a wall, so each level keeps its own edge)
+  const G = new Int32Array(n * 4); // tile * 4 + corner (0 NW, 1 NE, 2 SW, 3 SE) -> group
+  const GV: number[] = [], GZ: number[] = [];
+  const vStart = new Int32Array(vw * (h + 1) + 1), vGroups: number[] = [];
+  const cnt = new Uint8Array(K), lz: number[] = [], lc: number[][] = [];
   for (let vy = 0; vy <= h; vy++) for (let vx = 0; vx <= w; vx++) {
-    let top = -Infinity;
+    vStart[vy * vw + vx] = vGroups.length;
+    lz.length = 0; lc.length = 0;
     for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) {
       const x = vx + dx, y = vy + dy;
-      if (x >= 0 && y >= 0 && x < w && y < h) top = Math.max(top, z[y * w + x]);
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const c = y * w + x, k = (dx ? 1 : 0) + (dy ? 2 : 0);
+      let j = lz.indexOf(z[c]);
+      if (j < 0) { j = lz.length; lz.push(z[c]); lc.push([]); }
+      lc[j].push(c * 4 + k);
     }
-    cnt.fill(0);
-    for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) {
-      const x = vx + dx, y = vy + dy;
-      if (x >= 0 && y >= 0 && x < w && y < h && z[y * w + x] >= top - 1e-3) cnt[cell[y * w + x]]++;
+    for (let j = 0; j < lz.length; j++) {
+      // the commonest terrain of the group's cells, ties to the earlier one in `order`
+      cnt.fill(0);
+      for (const ck of lc[j]) cnt[cell[ck >> 2]]++;
+      let best = 0;
+      for (let t = 1; t < K; t++) if (cnt[t] > cnt[best]) best = t;
+      const g = GV.length;
+      GV.push(best); GZ.push(lz[j]); vGroups.push(g);
+      for (const ck of lc[j]) G[ck] = g;
     }
-    let best = 0;
-    for (let t = 1; t < K; t++) if (cnt[t] > cnt[best]) best = t;
-    V[vy * vw + vx] = best;
+  }
+  vStart[vw * (h + 1)] = vGroups.length;
+
+  // smoothing: a vertex outvoted by its 3 x 3 neighbourhood on its level joins the majority, so the
+  // cells' steps and single-tile teeth become runs of straight and diagonal edges
+  for (let it = 0; it < SMOOTH; it++) {
+    const prev = GV.slice();
+    for (let vy = 0; vy <= h; vy++) for (let vx = 0; vx <= w; vx++) {
+      for (let a = vStart[vy * vw + vx]; a < vStart[vy * vw + vx + 1]; a++) {
+        const g = vGroups[a];
+        cnt.fill(0);
+        let all = 0;
+        if (prev[g] === ROAD) continue; // roads are lines: they keep their width
+        for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+          const x = vx + dx, y = vy + dy;
+          if (x < 0 || y < 0 || x > w || y > h || dx * dx + dy * dy > R * R + 1) continue;
+          for (let b = vStart[y * vw + x]; b < vStart[y * vw + x + 1]; b++) if (GZ[vGroups[b]] === GZ[g]) { cnt[prev[vGroups[b]]]++; all++; }
+        }
+        let best = prev[g];
+        for (let t = 0; t < K; t++) if (t !== ROAD && cnt[t] > cnt[best]) best = t;
+        if (best !== prev[g] && cnt[best] * 2 > all) GV[g] = best;
+      }
+    }
   }
 
   // (1) shores get a shallow band
-  const V0 = V.slice();
+  const V0 = GV.slice();
   for (let vy = 0; vy <= h; vy++) for (let vx = 0; vx <= w; vx++) {
-    if (V0[vy * vw + vx] !== DEEP) continue;
-    let land = false;
-    for (let dy = -1; dy <= 1 && !land; dy++) for (let dx = -1; dx <= 1; dx++) {
-      const x = vx + dx, y = vy + dy;
-      if (x >= 0 && y >= 0 && x <= w && y <= h && !isWater(V0[y * vw + x])) { land = true; break; }
+    for (let a = vStart[vy * vw + vx]; a < vStart[vy * vw + vx + 1]; a++) {
+      const g = vGroups[a];
+      if (V0[g] !== DEEP) continue;
+      let land = false;
+      for (let dy = -1; dy <= 1 && !land; dy++) for (let dx = -1; dx <= 1 && !land; dx++) {
+        const x = vx + dx, y = vy + dy;
+        if (x < 0 || y < 0 || x > w || y > h) continue;
+        for (let b = vStart[y * vw + x]; b < vStart[y * vw + x + 1]; b++) if (GZ[vGroups[b]] === GZ[g] && !isWater(V0[vGroups[b]])) land = true;
+      }
+      if (land) GV[g] = SHALLOW;
     }
-    if (land) V[vy * vw + vx] = SHALLOW;
   }
 
   // (2) pairs with no sheet get a grass buffer; 3+ terrains: the minority joins the majority
   const ci = new Int32Array(4), ts = new Uint8Array(4), c4 = new Uint8Array(K);
   const corners = (x: number, y: number) => {
-    ci[0] = y * vw + x; ci[1] = ci[0] + 1; ci[2] = ci[0] + vw; ci[3] = ci[2] + 1;
-    for (let k = 0; k < 4; k++) ts[k] = V[ci[k]];
+    const t4 = (y * w + x) * 4;
+    for (let k = 0; k < 4; k++) { ci[k] = G[t4 + k]; ts[k] = GV[ci[k]]; }
   };
   for (let pass = 0, changed = true; changed && pass < 30; pass++) {
     changed = false;
@@ -93,7 +134,7 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
         if (a >= b || pair[a * K + b] >= 0) continue;
         const lose = isWater(a) !== isWater(b) ? (isWater(a) ? b : a) : Math.min(a, b);
         if (lose === GRASS) continue;
-        for (let k = 0; k < 4; k++) if (V[ci[k]] === lose) { V[ci[k]] = GRASS; changed = true; }
+        for (let k = 0; k < 4; k++) if (GV[ci[k]] === lose) { GV[ci[k]] = GRASS; changed = true; }
       }
       corners(x, y);
       c4.fill(0);
@@ -106,7 +147,7 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
       else for (let t = 0; t < K; t++) if (c4[t] && (lose < 0 || c4[t] < c4[lose] || (c4[t] === c4[lose] && t < lose))) lose = t;
       let to = -1;
       for (let t = K - 1; t >= 0; t--) if (t !== lose && c4[t] && (to < 0 || c4[t] > c4[to])) to = t;
-      for (let k = 0; k < 4; k++) if (ts[k] === lose) { V[ci[k]] = to; changed = true; }
+      for (let k = 0; k < 4; k++) if (ts[k] === lose) { GV[ci[k]] = to; changed = true; }
     }
   }
 

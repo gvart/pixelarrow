@@ -5,7 +5,10 @@
 // (src/war/regions/test-ridge.spots.ts), so this targets test-ridge.
 // Then each ?scenario= preset (src/war/scenarios): its opening, the player side playing a simple
 // plan at 4x speed, a mid-fight shot and the end-of-fight score from the panel.
-// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios] [id,id...]
+// Mode `art` (PixelLab terrain and objects, ART-R): the ford at 1:1 with a fight, the pass with the
+// ruins, the plateau with the tower (a squad behind it), units at a forest edge (trees fade over
+// them), the overview, and the 600-unit brawl fps at mid zoom.
+// Usage: node scripts/war/sandbox-shots.mjs [baseUrl] [outDir] [sim] [all|scenarios|art] [id,id...]
 //   (default outDir: shots/war/sandbox, sim: real). Requires a running dev server (npm run dev).
 import { launch, captureErrors, shotsDir } from '../lib/harness.mjs';
 
@@ -142,6 +145,93 @@ await wait(300);
 await shot('07-overlay-height');
 }
 
+if (mode === 'art') {
+  const obj = (id) => page.evaluate((id) => window.__sandbox.region.objects.find((o) => o.id === id), id);
+  // the ford at 1:1, hoplites and swordsmen meeting mid-stream
+  await boot();
+  await page.evaluate(() => {
+    const s = window.__sandbox, { ford, fordW, fordE } = s.spots;
+    s.sim.spawn('you', 0, 'hoplite', 20, fordW[0] + 4, fordW[1]);
+    s.sim.spawn('bot', 1, 'celt_sword', 20, fordE[0] - 4, fordE[1]);
+    s.sim.order({ kind: 'attack', squad: 0, target: 1 });
+    s.sim.order({ kind: 'attack', squad: 1, target: 0 });
+    s.focus(ford[0], ford[1], 1);
+  });
+  await page.waitForFunction(() => window.__sandbox.drawn.filter((d) => d.u.state === 'attack').length >= 6, null, { timeout: 60000 });
+  await page.evaluate(() => {
+    const s = window.__sandbox, f = s.drawn.filter((d) => d.u.state === 'attack');
+    s.focus(f.reduce((a, d) => a + d.x, 0) / f.length, f.reduce((a, d) => a + d.y, 0) / f.length, 1);
+  });
+  await wait(1200);
+  await shot('art-1-ford-fight-1x');
+
+  // the pass: a column marching by the ruined wall pieces
+  await boot();
+  const ruin = await obj('wall-ruin');
+  await page.evaluate((r) => {
+    const s = window.__sandbox;
+    s.sim.spawn('you', 0, 'hoplite', 20, r.x - 6, r.y + 2);
+    s.sim.order({ kind: 'move', squad: 0, x: r.x + 10, y: r.y + 2 });
+    s.focus(r.x, r.y + 1, 1);
+  }, ruin);
+  await wait(3000);
+  await shot('art-2-pass-ruin-1x');
+
+  // the plateau tower, a squad standing behind it shows through as a silhouette
+  await boot();
+  const tower = await obj('watchtower');
+  await page.evaluate((t) => {
+    const s = window.__sandbox;
+    s.sim.spawn('you', 0, 'archer', 12, t.x - 3, t.y - 3);
+    s.sim.spawn('bot', 1, 'hoplite', 12, t.x + 4, t.y + 3);
+    s.focus(t.x + 1, t.y + 1, 1);
+  }, tower);
+  await wait(2500);
+  await shot('art-3-plateau-tower-1x');
+
+  // a forest edge: a squad walking in under the trees, which fade over it
+  await boot();
+  const edge = await page.evaluate(() => {
+    const s = window.__sandbox, r = s.region, [fx, fy] = s.spots.forest;
+    const T = (x, y) => r.terrain[Math.floor(y) * r.w + Math.floor(x)];
+    let x = fx, y = fy;
+    while (T(x, y) === 'forest' && y < r.h - 1) { x -= 0.5; y += 0.5; } // toward the viewer's lower left
+    s.sim.spawn('you', 0, 'hoplite', 20, x - 4, y + 4);
+    s.sim.spawn('you', 0, 'archer', 16, x - 8, y + 6);
+    s.sim.order({ kind: 'move', squad: 0, x: x + 3, y: y - 3 });
+    s.sim.order({ kind: 'move', squad: 1, x: x - 1, y: y - 1 });
+    s.focus(x, y, 1);
+    return { x, y };
+  });
+  await wait(7000);
+  console.log(`forest edge at (${edge.x.toFixed(1)}, ${edge.y.toFixed(1)})`);
+  await shot('art-4-forest-edge-1x');
+
+  // 600 units at the ford, mid zoom: fps
+  await page.click('#brawl');
+  await page.waitForFunction(() => window.__sandbox.sim.stats.units >= 600);
+  await page.evaluate(() => {
+    const s = window.__sandbox, q = s.sim.cur.squads;
+    const mine = q.filter((x) => x.team === 0), foes = q.filter((x) => x.team === 1);
+    mine.forEach((x, i) => s.sim.order({ kind: 'attack', squad: x.id, target: foes[i % foes.length].id }));
+    s.focus(s.spots.ford[0], s.spots.ford[1], 1 / 2);
+  });
+  await wait(6000);
+  await fps('art brawl 600, mid zoom 1/2');
+  await shot('art-5-brawl-600-mid');
+  await page.evaluate(() => window.__sandbox.focus(window.__sandbox.spots.ford[0], window.__sandbox.spots.ford[1], 1 / 4));
+  await fps('art brawl 600, zoom 1/4', 6);
+
+  // the overview
+  await page.waitForFunction(() => window.__sandbox.overviewReady, null, { timeout: 120000 });
+  await page.evaluate(() => {
+    const s = window.__sandbox, cam = s.cameras.main;
+    cam.setZoom(1 / 24).centerOn(s.iso.W / 2, s.iso.H / 2);
+  });
+  await fps('art overview', 4);
+  await shot('art-6-overview');
+}
+
 // scenarios: opening, the player's plan, mid fight, end score
 const PLANS = {
   'pass-ambush': 'stand', // hold the pass where placed
@@ -158,7 +248,7 @@ const attackAll = () => page.evaluate(() => {
 });
 const score = () => page.evaluate(() => document.getElementById('score').textContent);
 for (const [id, plan] of Object.entries(PLANS)) {
-  if (only && !only.includes(id)) continue;
+  if (mode === 'art' || (only && !only.includes(id))) continue;
   await boot(`&scenario=${id}`);
   if (plan) await page.waitForFunction(() => window.__sandbox.sim.squads.size > 0);
   await wait(2500);

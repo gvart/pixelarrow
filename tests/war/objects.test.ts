@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import objectsJson from '../../public/war/objects/objects.json';
 import ridgeJson from '../../src/war/regions/test-ridge.json';
 import { SPOTS } from '../../src/war/regions/test-ridge.spots';
 import { parseRegion } from '../../src/war/region/schema';
@@ -7,7 +7,7 @@ import { footprintTiles, OBJECT_BLOCKS } from '../../src/war/region/objects';
 import { buildGrid } from '../../src/war/sim/grid';
 import type { RegionData } from '../../src/war/types';
 
-const defs = JSON.parse(readFileSync('public/war/objects/objects.json', 'utf8')).objects as { id: string; footprint: [number, number]; blocksMovement: boolean }[];
+const defs = objectsJson.objects as { id: string; footprint: number[]; blocksMovement: boolean }[];
 
 describe('map objects', () => {
   it('the sim table matches objects.json', () => {

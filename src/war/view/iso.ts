@@ -3,7 +3,7 @@
  * coordinates; this maps tiles to world pixels and back.
  *
  *   world.x = OX + (x - y) * HW
- *   world.y = OY + (x + y) * HH - z * LH      z: the tile's surface level (height, water lower)
+ *   world.y = OY + (x + y) * HH - z * LH      z: the tile's surface level (height; water flush with its banks)
  *
  * Real scale (W-18): a tile is 2 m, drawn as a 64 x 32 diamond at zoom 1 next to 58 px (1.76 m)
  * soldier sprites. One height level lifts a tile by LH = 16 px (about 1 m at the tile's ground
@@ -19,12 +19,15 @@ export const LH = 16;
 export const ZMAX = 7;
 /** The slab's underside: walls along the map edge drop to this level. */
 export const ZBASE = -1.5;
-const DEEP_DROP = 0.55, SHALLOW_DROP = 0.3;
 
 export class IsoMap {
   readonly w: number;
   readonly h: number;
-  /** Surface level per tile: height, minus a drop for water (deep lower than a ford). */
+  /**
+   * Surface level per tile: its height; water lies flush with its banks (each connected body at
+   * the commonest height of the land round it), so shores are drawn as organic tile transitions,
+   * not walls along tile edges. Rock banks above it stay cliffs.
+   */
   readonly z: Float32Array;
   readonly OX: number;
   readonly OY = (ZMAX + 1) * LH;
@@ -36,7 +39,24 @@ export class IsoMap {
     this.w = r.w;
     this.h = r.h;
     this.z = new Float32Array(r.w * r.h);
-    for (let i = 0; i < this.z.length; i++) this.z[i] = r.height[i] - (r.water[i] === 2 ? DEEP_DROP : r.water[i] === 1 ? SHALLOW_DROP : 0);
+    for (let i = 0; i < this.z.length; i++) this.z[i] = r.height[i];
+    const seen = new Uint8Array(r.w * r.h);
+    for (let s = 0; s < seen.length; s++) {
+      if (!r.water[s] || seen[s]) continue;
+      const body = [s], shore = new Map<number, number>();
+      seen[s] = 1;
+      for (let k = 0; k < body.length; k++) {
+        const i = body[k], x = i % r.w, y = (i / r.w) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy, j = ny * r.w + nx;
+          if (nx < 0 || ny < 0 || nx >= r.w || ny >= r.h || seen[j] === 1) continue;
+          if (r.water[j]) { seen[j] = 1; body.push(j); } else shore.set(r.height[j], (shore.get(r.height[j]) ?? 0) + 1);
+        }
+      }
+      let level = 0, best = -1;
+      for (const [hgt, c] of shore) if (c > best || (c === best && hgt < level)) { level = hgt; best = c; }
+      for (const i of body) this.z[i] = Math.max(r.height[i], level);
+    }
     this.OX = r.h * HW;
     this.W = (r.w + r.h) * HW;
     this.H = this.OY + (r.w + r.h) * HH - ZBASE * LH + 4;

@@ -3,7 +3,8 @@
  * v2: one image, rows are facings) drawn 1:1, a 58 px man on a 64 x 32 tile at zoom 1. A sheet
  * has four facings (the iso diagonals); a unit shows the one nearest its heading on screen, and
  * plays idle, walk, its class's attack and, once fallen, its death clip held on the last frame.
- * Units are depth sorted by x + y; behind higher ground they show as a team-coloured silhouette.
+ * Units are depth sorted by x + y (with the map objects, ./objects.ts); behind higher ground they
+ * show as a team-coloured silhouette, behind a stone object a silhouette is drawn over it.
  * The sheets wear red; team 0 (blue) draws through TEAM_SWAP, a shader that turns the red cloth blue.
  *
  * LOD by zoom: sprites from SPRITE_ZOOM up, team-coloured dots down to BANNER_ZOOM, below that
@@ -110,6 +111,7 @@ function buildSheet(scene: Phaser.Scene, cls: string, m: SheetManifest): Sheet {
 export class UnitLayer {
   private sheets = new Map<string, Sheet>();
   private pool: Phaser.GameObjects.Image[] = [];
+  private ghosts: Phaser.GameObjects.Image[] = [];
   private labels: Phaser.GameObjects.Text[] = [];
   private gUnder: Phaser.GameObjects.Graphics;
   private gOver: Phaser.GameObjects.Graphics;
@@ -132,17 +134,22 @@ export class UnitLayer {
     return { x: this.iso.sx(d.x, d.y), y: this.iso.sy(d.x, d.y, this.iso.zDraw(d.x, d.y)) };
   }
 
-  draw(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, now: number): void {
+  /** `occluded`: ids of units hidden behind map objects (drawn again as a silhouette over them). */
+  draw(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, now: number, occluded: Set<number> = new Set()): void {
     const under = this.gUnder.clear(), over = this.gOver.clear();
     let used = 0, labels = 0;
-    if (zoom >= SPRITE_ZOOM) used = this.sprites(units, view, zoom, selected, now, under);
+    this.nGhost = 0;
+    if (zoom >= SPRITE_ZOOM) used = this.sprites(units, view, zoom, selected, now, under, occluded);
     else if (zoom >= BANNER_ZOOM) this.dots(units, view, zoom, selected, under);
     else labels = this.banners(units, zoom, selected, over);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
+    for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
     for (let i = labels; i < this.labels.length; i++) this.labels[i].setVisible(false);
   }
 
-  private sprites(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, now: number, g: Phaser.GameObjects.Graphics): number {
+  private nGhost = 0;
+
+  private sprites(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, now: number, g: Phaser.GameObjects.Graphics, occluded: Set<number>): number {
     if (zoom !== this.filter) {
       this.filter = zoom;
       const f = zoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
@@ -182,6 +189,12 @@ export class UnitLayer {
       else if (this.swap) img.resetPipeline();
       if (hidden) img.setTintFill(team).setAlpha(0.45);
       else img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);
+      if (!hidden && occluded.has(u.id)) {
+        let gh = this.ghosts[this.nGhost];
+        if (!gh) this.ghosts.push((gh = this.scene.add.image(0, 0, sheet.key).setDepth(10.8)));
+        this.nGhost++;
+        gh.setTexture(sheet.key, img.frame.name).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setTintFill(team).setAlpha(0.5).setVisible(true);
+      }
     }
     return n;
   }

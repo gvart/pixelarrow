@@ -1,8 +1,9 @@
 /**
  * The region sandbox in true iso with raised height (W-16) at real scale (W-18: 64 x 32 tiles of
- * 2 m, a 512-tile region is ~33k px wide): greybox terrain baked into 512 px chunks on demand
- * (LRU pools, culled to the camera) at 1x zoomed in and 1/4 at mid zoom, over a 1/8 overview baked
- * in bands that stands alone zoomed out; 10 Hz sim snapshots drawn interpolated as PixelLab
+ * 2 m, a 512-tile region is ~33k px wide): PixelLab terrain (./art.ts; ?art=grey: the greybox of
+ * ./terrain.ts) baked into 512 px chunks on demand (LRU pools, culled to the camera) at 1x zoomed
+ * in, 1/2 and 1/4 at mid zoom, over a 1/8 overview baked in bands that stands alone zoomed out; map
+ * objects as live sprites sorted with the units down to 1/3 (./objects.ts), baked in below that; 10 Hz sim snapshots drawn interpolated as PixelLab
  * soldier sprites with dot and banner LOD (./units.ts); RTS camera and squad controls picking
  * through the height field (./iso.ts).
  *
@@ -14,7 +15,9 @@ import Phaser from 'phaser';
 import type { Order, RegionData, SquadId } from '../types';
 import { SPOTS } from '../regions/test-ridge.spots';
 import { SimClient, type DrawUnit } from './simClient';
+import { ArtBaker, type WarArt } from './art';
 import { IsoMap } from './iso';
+import { LIVE_ZOOM, ObjectLayer } from './objects';
 import { CHUNK_PX, OVERVIEW_SCALE, TerrainBaker, type BakeOpts } from './terrain';
 import { BODY, SPRITE_ZOOM, UnitLayer, loadSheets } from './units';
 
@@ -24,9 +27,11 @@ const LADDER = [1 / 32, 1 / 24, 1 / 16, 1 / 12, 1 / 8, 1 / 6, 1 / 4, 1 / 3, 1 / 
 /**
  * Chunk levels, finest first: canvas px per world px and the lowest zoom each shows at. Below
  * 1/6 the overview (1/8) stands alone. Each pool keeps 48 canvases (1 MB each): a 1440x900 view
- * at a level's lowest zoom needs ~35.
+ * at a level's lowest zoom needs ~35. Map objects are baked in where they are not live sprites.
  */
-const LEVELS = [{ scale: 1, zoom: 1 / 2 }, { scale: 1 / 4, zoom: 1 / 6 }] as const;
+const LEVELS = [{ scale: 1, zoom: 1 / 2 }, { scale: 1 / 2, zoom: 1 / 3 }, { scale: 1 / 4, zoom: 1 / 6 }] as const;
+/** Bakes at this scale show below LIVE_ZOOM only (the 1/4 level and the overview), so they carry the objects. */
+const baked = (scale: number) => scale < LIVE_ZOOM;
 const POOL = 48;
 /** Terrain baking per frame (ms); at least one bake runs. */
 const BAKE_MS = 6;
@@ -56,6 +61,9 @@ export class SandboxScene extends Phaser.Scene {
   private filterZoom = 0;
   private frame = 0;
   private baker!: TerrainBaker;
+  private art: WarArt | null = null;
+  private artBaker: ArtBaker | null = null;
+  private objects: ObjectLayer | null = null;
   private opts: BakeOpts = { ov: 'none', grid: false, zones: true };
   private ver = 0; // bumps when opts change: chunks baked earlier are stale
   private chunks: Chunk[][] = LEVELS.map(() => []);
@@ -72,8 +80,9 @@ export class SandboxScene extends Phaser.Scene {
     super('Sandbox');
   }
 
-  init(data: { region: RegionData }): void {
+  init(data: { region: RegionData; art?: WarArt | null }): void {
     this.region = data.region;
+    this.art = data.art ?? null;
   }
 
   preload(): void {
@@ -84,6 +93,10 @@ export class SandboxScene extends Phaser.Scene {
     const r = this.region;
     this.iso = new IsoMap(r);
     this.baker = new TerrainBaker(r, this.iso);
+    if (this.art) {
+      this.artBaker = new ArtBaker(r, this.iso, this.art, this.baker);
+      this.objects = new ObjectLayer(this, this.iso, r, this.art, this.artBaker.zs);
+    }
     const { W, H } = this.iso;
     this.overviewTex = this.textures.createCanvas('overview', Math.ceil(W * OVERVIEW_SCALE), Math.ceil(H * OVERVIEW_SCALE))!;
     this.add.image(0, 0, 'overview').setOrigin(0).setScale(1 / OVERVIEW_SCALE);
@@ -122,10 +135,15 @@ export class SandboxScene extends Phaser.Scene {
   /** Bake the next band of the overview; upload it once the last band is done. */
   private bakeOverviewBand(): void {
     const { W, H } = this.iso, y = this.band * BAND;
-    this.baker.bake(this.overviewTex.context, 0, y, W, BAND, OVERVIEW_SCALE, this.opts, 0, y * OVERVIEW_SCALE);
+    this.bake(this.overviewTex.context, 0, y, W, BAND, OVERVIEW_SCALE, 0, y * OVERVIEW_SCALE);
     if (++this.band * BAND < H) return;
     this.overviewTex.refresh();
     this.overviewReady = true;
+  }
+
+  private bake(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, scale: number, cx = 0, cy = 0): void {
+    if (this.artBaker) this.artBaker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy, baked(scale));
+    else this.baker.bake(ctx, x0, y0, w, h, scale, this.opts, cx, cy);
   }
 
   /** Centre the camera on a tile point (at its level), optionally zooming. */
@@ -277,7 +295,8 @@ export class SandboxScene extends Phaser.Scene {
 
     for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
     this.drawn = this.sim.units();
-    this.units.draw(this.drawn, view, cam.zoom, this.selected, this.time.now);
+    const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY);
+    this.units.draw(this.drawn, view, cam.zoom, this.selected, this.time.now, occluded);
     this.drawUi();
   }
 
@@ -310,7 +329,7 @@ export class SandboxScene extends Phaser.Scene {
             c ??= this.claimChunk(l, at);
             // 1 canvas px of overlap all round: no seams between neighbours (or the overview showing through)
             const m = 1 / scale;
-            this.baker.bake(c.tex.context, cx * span - m, cy * span - m, span + 2 * m, span + 2 * m, scale, this.opts);
+            this.bake(c.tex.context, cx * span - m, cy * span - m, span + 2 * m, span + 2 * m, scale);
             c.tex.refresh();
             c.img.setPosition(cx * span - m, cy * span - m).setScale(1 / scale);
             c.ver = this.ver;
