@@ -1,0 +1,11 @@
+[
+ { "anim": "attack", "dir": "south-east", "attempt": "a1", "job": "e0667cd1-4788-41de-a27c-4be8d0d8f942", "mode": "pixminimax", "frames": 8 },
+ { "anim": "attack", "dir": "south-west", "attempt": "a1", "job": "a0bcd842-782c-4c2f-b2a0-466498141a93", "mode": "pixminimax", "frames": 8 },
+ { "anim": "attack", "dir": "north-east", "attempt": "a1", "job": "6359d035-01cf-4e8d-857f-6363c905015c", "mode": "pixminimax", "frames": 8 },
+ { "anim": "attack", "dir": "north-west", "attempt": "a1", "job": "71528d91-9472-4bd4-84e7-fa368d7244e1", "mode": "pixminimax", "frames": 8 },
+ { "anim": "die", "dir": "south-east", "attempt": "a1", "job": "0bf8f74d-da22-4e55-b53c-ef1a409d8cc0", "mode": "pixminimax", "frames": 8, "note": "blood on the flank in frames 0-2: replaced by a2" },
+ { "anim": "die", "dir": "south-east", "attempt": "a2", "job": "51ed1e50-9d91-42e5-86cb-9faccda62182", "mode": "pixminimax", "frames": 8 },
+ { "anim": "die", "dir": "south-west", "attempt": "a2", "job": "4034945f-0372-4d77-b924-7ba3f01ddb8c", "mode": "pixminimax", "frames": 8 },
+ { "anim": "die", "dir": "north-east", "attempt": "a2", "job": "bf4e04be-0f51-430e-a744-4faffbe28318", "mode": "pixminimax", "frames": 8 },
+ { "anim": "die", "dir": "north-west", "attempt": "a2", "job": "6c28b1ad-8294-491e-9d1e-6792e3640c20", "mode": "pixminimax", "frames": 8 }
+]

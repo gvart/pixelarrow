@@ -1741,3 +1741,55 @@ mark meander edges as tiled. (3) pixen at 32x32 makes good single icons (1 gener
 sometimes paints a ground square: QA the border ring of every icon. (4) Pictograms (actions, formations, cursors) are
 cheaper and more readable drawn from shapes than generated; give them the same outline and light direction. (5) Other
 agents share the 10-job PixelLab queue: submit a few at a time.
+
+## 33. Mobs (W-12)
+
+Neutral-region creatures as soldier-format sheets (`src/assets/sheets/mob_<mob>/`, SHEET_FORMAT v2; rows SE, NE, SW,
+NW; anims `idle`, `walk`, `run`, `attack`, `hit`, `die`), listed for the sim in `public/war/mobs.json`. 118 PixelLab
+generations. Ids, jobs and build specs: `docs/v5/pixellab/MOBS/` (`<mob>.jobs.json`, `<mob>.sheet.json`); tools
+`scripts/art/pixellab/mobs/` (`build.mjs` spec → sheet, `shrink.mjs`, `contact.mjs` contact sheet + GIFs, `lineup.mjs`,
+`scale.mjs`, `bandit.mjs`). Rebuild: `fetch.mjs <character> docs/v5/pixellab/MOBS/raw/<mob>`, `fetchjobs.mjs
+docs/v5/pixellab/MOBS/<mob>.jobs.json docs/v5/pixellab/MOBS/raw/<mob>`, `mobs/build.mjs docs/v5/pixellab/MOBS/<mob>.sheet.json`.
+Review: `shots/war/mobs/` (git-ignored).
+
+**Bases:** `create_character`, `mode: pro`, `body_type: quadruped`, `style_character_id` H4, `size: 68`, `view: high
+top-down` (10 generations each). A standard-mode wolf (1 generation, `size: 40`) was tried first: true size, but a
+flat blue-black dog; pro with H4 gave the dark-epic look at once. Pro fills the 68 canvas whatever the animal, so every
+frame is shrunk at build to true scale (33 px/m, the 58 px soldier): wolf and boar 0.55, bear 0.75, ibex 0.62, jackal
+0.45 (area average, hard alpha, snapped back into the base's own rotation palette). Prompt shape: `grim {animal}, a real
+wild {animal} with realistic proportions, not cute: {build}; {coat in dark colours}; standing on all four legs; heavy
+shadows, desaturated dark warm colours like the style reference`. Fills:
+
+| mob | template | id | build · coat |
+| --- | --- | --- | --- |
+| wolf | dog | `e4ee44f4-a23e-498f-b6ae-c06a5dc15c13` | grim lean grey wolf · long slender legs, deep narrow chest, long muzzle, small pointed ears, thick bushy tail hanging low behind · dark grizzled grey-brown fur, darker along the back, paler dusky belly |
+| boar | bear | `21f40bc0-ea4e-47d6-809c-a6d3d3960f06` | grim heavy wild boar · massive humped shoulder and deep chest, short sturdy legs with small hooves, long wedge-shaped snout, two short curved pale yellowed tusks, small eyes, a bristly crest of stiff dark hair along the spine, a thin tail · coarse dark umber-brown and soot-grey bristled hide |
+| bear | bear | `68bea633-63d6-4446-baed-e1ea44e9be81` | grim huge brown bear · massive heavy body, a big muscular shoulder hump, thick strong legs with long dark claws, a broad heavy head with a long muzzle and small round ears, a short stub tail · shaggy dark umber-brown fur, darker on the legs, a little grizzled on the hump |
+| ibex | horse | `106440b3-1b29-4219-83f6-2af6b5d6e0b3` | grim wild mountain ibex, a real wild ibex billy goat · stocky muscular body, sturdy legs with small hard hooves, a short dark beard, a pair of very long heavy ridged horns sweeping back in a curve over its back · coarse dark grey-brown coat, darker on the legs and chest, a little paler on the belly |
+
+**Clips** (4 facings each, 1 generation per facing): templates where the quadruped template has one (`idle` for the
+dog, `idle-long` 15 frames for bear and boar, `idle-shaking-head` for the ibex; `walk-8-frames`, `running-8-frames`;
+bear `attack-left` 7 frames, the swipe; ibex `dying` 6 frames), pixminimax 8 frames on an 80 x 80 canvas (the rotation
+at 6,8) for the rest. `subject_description` "a grim lean grey wild wolf with dark grizzled fur" / "a grim heavy wild
+boar with dark bristly umber hide and short curved tusks" / "a grim huge brown bear with shaggy dark umber fur" (back
+facings add ", seen from behind"), `initial_pose` "standing on all four legs". `{t}`: "towards the viewer's lower
+right / left"; back facings open `seen from behind, its back and tail towards the viewer in every frame, it never
+turns round:` and say "away from the viewer towards the upper right / left".
+
+- wolf attack: `the wolf attacks in place {t}: it crouches low with its head down and ears flat, then springs forward in a short heavy lunge with its jaws wide open and snaps a hard bite at the empty air ahead of it, its whole body weight driving forward behind the head, then pulls back into its stance; the wolf alone, no other animal or person in the frame; the same wolf with exactly four legs in every frame; no blood, no effects, no motion trails` (back facings drop "and ears flat" and "with its jaws wide open")
+- boar attack: `the boar charges in place {t}: it lowers its heavy head, digs in its hind legs and lunges forward hard, then drives its head and tusks upward in a vicious goring toss at the empty air ahead of it, its whole massive body behind the blow, then steps back into its stance; the boar alone, …; no blood, no dust, no effects, no motion trails`
+- death (wolf, boar, bear): `the {animal} takes a mortal blow: it flinches with its head thrown up and its body recoiling, staggers sideways on buckling legs, then its strength gives out and it collapses heavily onto its side on the ground and lies still; its {fur / hide} stays clean, no wounds, no red, no blood at all; the same {animal} with exactly four legs in every frame; no dust, no effects` (bear: "flinches and rears its head back with a roar, its massive body recoiling"; back facings open "seen from behind, its back and rump towards the viewer:")
+- `hit` = death frames 0, 1, 1, 0 (the flinch), no generation.
+- **jackal** (0 generations): the wolf's frames shrunk to 0.45 and the palette tinted sandy (`tint`: OKLab hue 70°,
+  chroma 0.07, lift 0.08; outline untouched). **bandit** (0 generations): the militia sheet with the crimson cloak
+  ramp swapped for a mud-dark olive-brown one (`bandit.mjs`); every soldier clip, so it fights with `thrust`. A real
+  ragged outfit would need `transfer_outfit` (10–25 generations per ≤3 frames at this size): not in budget.
+
+**Lessons:** (1) pixminimax paints blood on a struck animal even with "no blood" (wolf SE death a1: a red splat on the
+flank; replaced by a2 with "takes a mortal blow … stays clean"); the clean wording still left red on the neck, so the
+build cuts saturated pixels (chroma over 0.14), refills holes inside the body from their neighbours and drops loose
+bits under a tenth of the body (spray, dust). (2) PixelLab draws a flat grey ground shadow under some bear views
+(NE rotation, NE death, SE swipe): `shadow: true` cuts neutral greys and the thin outline ring left around them; never
+on a grey animal (it erased the ibex). (3) A template idle for a quadruped barely moves; fine for mobs. (4) Back-facing
+pixminimax bites lift the head towards the camera; a boar SE death drifts round to face east. Kept. (5) Feet anchor =
+bottom centre of each row's first idle frame.

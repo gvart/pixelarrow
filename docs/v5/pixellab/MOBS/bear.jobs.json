@@ -1,0 +1,6 @@
+[
+ { "anim": "die", "dir": "south-east", "attempt": "a1", "job": "1ce260e5-5234-48ad-9603-fb3b810bfdcc", "mode": "pixminimax", "frames": 8 },
+ { "anim": "die", "dir": "south-west", "attempt": "a1", "job": "16394568-5104-46ec-8ab0-79268d6bf4c9", "mode": "pixminimax", "frames": 8 },
+ { "anim": "die", "dir": "north-east", "attempt": "a1", "job": "a38f6b36-2408-40d1-baa8-bd16fe11fd8c", "mode": "pixminimax", "frames": 8 },
+ { "anim": "die", "dir": "north-west", "attempt": "a1", "job": "b2b8520a-4fcc-4f6b-ba57-1630b192dc13", "mode": "pixminimax", "frames": 8 }
+]

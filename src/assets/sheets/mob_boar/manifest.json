@@ -1,0 +1,83 @@
+{
+ "version": 2,
+ "class": "mob_boar",
+ "image": "mob_boar.png",
+ "frame": {
+  "w": 42,
+  "h": 42
+ },
+ "anchor": {
+  "x": 23,
+  "y": 36
+ },
+ "anchors": {
+  "south-east": {
+   "x": 21,
+   "y": 37
+  },
+  "north-east": {
+   "x": 21,
+   "y": 39
+  },
+  "south-west": {
+   "x": 23,
+   "y": 36
+  },
+  "north-west": {
+   "x": 22,
+   "y": 39
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 15,
+   "fps": 6
+  },
+  "walk": {
+   "col": 15,
+   "frames": 8,
+   "fps": 10
+  },
+  "run": {
+   "col": 23,
+   "frames": 8,
+   "fps": 14
+  },
+  "attack": {
+   "col": 31,
+   "frames": 8,
+   "fps": 12,
+   "strike": 4
+  },
+  "die": {
+   "col": 39,
+   "frames": 8,
+   "fps": 10
+  },
+  "hit": {
+   "col": 47,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

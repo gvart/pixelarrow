@@ -1,0 +1,11 @@
+{
+ "about": "Neutral-region mobs (W-12). Each `sheet` is a soldier-format sheet class in src/assets/sheets/<sheet>/ (docs/v5/art/SHEET_FORMAT.md): rows south-east, north-east, south-west, north-west; anims idle, walk, run, attack, hit, die (ibex: no attack). True scale at the soldier's 33 px/m (W-18), same manifest scale 0.55. Prompts: docs/playbook/PROMPTS_ART.md › Mobs.",
+ "mobs": {
+  "wolf": { "sheet": "mob_wolf", "hostile": true, "tier": 1, "pack": true, "shoulderM": 0.8, "attack": "bite", "biomes": ["fjord", "heath", "oakwood", "steppe", "kurgan"] },
+  "boar": { "sheet": "mob_boar", "hostile": true, "tier": 1, "pack": false, "shoulderM": 0.9, "attack": "gore", "biomes": ["heath", "oakwood", "chalk", "floodplain", "fens", "elaia"] },
+  "bear": { "sheet": "mob_bear", "hostile": true, "tier": 2, "pack": false, "shoulderM": 1.2, "attack": "swipe", "biomes": ["fjord", "foothills", "mountains"] },
+  "bandit": { "sheet": "mob_bandit", "hostile": true, "tier": 1, "pack": true, "heightM": 1.76, "attack": "thrust", "biomes": ["foothills", "lagoon", "cape", "mountains"], "note": "the militia sheet with a ragged mud-brown cloak: every soldier clip (thrust, fallFwd, fallBack, ...)" },
+  "jackal": { "sheet": "mob_jackal", "hostile": true, "tier": 1, "pack": true, "shoulderM": 0.65, "attack": "bite", "biomes": ["kyrene"], "note": "the wolf's frames, smaller and tinted sandy" },
+  "ibex": { "sheet": "mob_ibex", "hostile": false, "flees": true, "tier": 0, "pack": true, "shoulderM": 0.9, "attack": null, "biomes": ["mountains"] }
+ }
+}

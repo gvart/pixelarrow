@@ -1,0 +1,77 @@
+{
+ "version": 2,
+ "class": "mob_ibex",
+ "image": "mob_ibex.png",
+ "frame": {
+  "w": 44,
+  "h": 44
+ },
+ "anchor": {
+  "x": 23,
+  "y": 36
+ },
+ "anchors": {
+  "south-east": {
+   "x": 21,
+   "y": 36
+  },
+  "north-east": {
+   "x": 22,
+   "y": 41
+  },
+  "south-west": {
+   "x": 23,
+   "y": 36
+  },
+  "north-west": {
+   "x": 23,
+   "y": 41
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 11,
+   "fps": 8
+  },
+  "walk": {
+   "col": 11,
+   "frames": 8,
+   "fps": 10
+  },
+  "run": {
+   "col": 19,
+   "frames": 8,
+   "fps": 14
+  },
+  "die": {
+   "col": 27,
+   "frames": 6,
+   "fps": 10
+  },
+  "hit": {
+   "col": 33,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
