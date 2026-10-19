@@ -1,0 +1,35 @@
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_033869527acf1e 23-26,131,202,265,296-299,335-346,362,371-376,523-534,537,540-543,550-555,775,782,960,989-990,992-993
+  s_cfc22b058125c4::t_c0132639b14282 507-511
+  s_cfc22b058125c4::t_d03da53a9f78a3 218,777
+  s_cfc22b058125c4::t_c659bf5d8183e0 693-698
+tests/war/walls.test.ts
+  s_cfc22b058125c4::t_cd7682298956df 99,103-106,111,128
+  s_cfc22b058125c4::t_b36318de3ea802 1-98,100-102,107-110,112-127,129-213
+src/war/sim/economy.ts
+  s_cfc22b058125c4::t_e95b6edc2accd2 21-29,40-46,52,54,57-58
+src/war/types.ts
+  s_cfc22b058125c4::t_e95b6edc2accd2 40-43,45-47,80,85-89,102-109
+src/war/sim/grid.ts
+  s_cfc22b058125c4::t_a372686c5d70cf 23-30,60-62,82,253-256,258-260
+  s_cfc22b058125c4::t_d03da53a9f78a3 95
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_59b894882be66b 14-19,22-23,63-69,81,142,216-224,242,247,302-303,332-457,461-466,489-490,820,856-862,867-929,957-961
+  s_cfc22b058125c4::t_c4965d00a92eb8 268,274
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e1e12f457681084c1e66679350d0942d0d373baf",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
