@@ -44,7 +44,7 @@ describe('placement', () => {
     expect(sim.checkPlacement(0, 'camp', 20, 20)).toMatchObject({ ok: false, reason: 'influence' });
     sim.claim(0, 20, 20, 30);
     expect(sim.checkPlacement(0, 'camp', 20, 20)).toMatchObject({ ok: true });
-    expect(sim.checkPlacement(0, 'camp', 20, 20).tiles).toHaveLength(18); // 3x3
+    expect(sim.checkPlacement(0, 'camp', 20, 20).tiles).toHaveLength(32); // 4x4 (8 m)
     expect(sim.checkPlacement(1, 'camp', 20, 20).reason).toBe('influence');
     expect(sim.checkPlacement(0, 'camp', 2, 20).reason).toBe('noBuild');
     expect(sim.checkPlacement(0, 'camp', 6, 6).reason).toBe('water');
@@ -379,7 +379,7 @@ describe('walls and gates', () => {
     sim.claim(0, 12, 12, 40);
     sim.addStock(0, 'wood', 400);
     const s = sim.spawnSquad('a', 0, 'militia', 20, 12, 18);
-    sim.order({ kind: 'placeBuilding', squad: s, type: 'camp', x: 12, y: 19 });
+    sim.order({ kind: 'placeBuilding', squad: s, type: 'camp', x: 12, y: 20 }); // 4 x 4: tiles y 18..21, clear of the wall's work ring
     run(sim, 1000, () => building(sim, 0).state === 'done');
     sim.order({ kind: 'placeWall', squad: s, material: 'wood', points: [0.5, 12.5, 23.5, 12.5], ...(gate ? { gates: [12, 12.5] } : {}) });
     run(sim, 6000, () => sim.snapshot().buildings!.every((b) => b.state === 'done'));
