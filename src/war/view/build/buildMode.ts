@@ -506,7 +506,13 @@ export class BuildMode {
     });
     if (!drawing.some((l) => l.points.length >= 4)) {
       this.status = this.lines.length ? 'drag from the end to extend' : `drag to draw a ${WALL_NAME[mat]}`;
-      this.layer.ghost([{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true, type: kit.segment }], '', zoom, buildings);
+      // the sim's plan of a two-tile stub here: a walkway wall shows both its rows (the inner one towards the inside)
+      const [sx, sy] = snap(t), o = { material: mat, points: [sx, sy, sx + 1, sy], gates: [], towers: [] };
+      const one = this.ask(`w:${JSON.stringify(o)}`, () => sim.checkWall(TEAM, o)) as WallPlan | null;
+      const seg = one?.pieces.filter((q) => BUILDINGS[q.type].wall === 'segment');
+      const marks: GhostMark[] = [];
+      for (const p of seg ?? []) if (BUILDINGS[p.type].depth === 2 && p.tiles.length === 8) for (const i of [4, 6]) marks.push({ x: p.tiles[i] + 0.5, y: p.tiles[i + 1] + 0.5, dx: p.tiles[i] - p.tiles[i - 4], dy: p.tiles[i + 1] - p.tiles[i - 3] });
+      this.layer.ghost(seg?.length ? seg : [{ tiles: [Math.floor(t.x), Math.floor(t.y)], ok: true, type: kit.segment }], '', zoom, buildings, marks);
       return;
     }
     const ready = plans.filter((p): p is WallPlan => !!p);

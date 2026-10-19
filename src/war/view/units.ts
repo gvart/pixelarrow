@@ -162,9 +162,39 @@ export class UnitLayer {
    */
   lift: ((d: { x: number; y: number }) => Lift | null) | null = null;
 
+  /** Per unit: its drawn lift eased towards this frame's (offset from its sim point, px), so steps never snap. */
+  private eased = new Map<number, { ox: number; oy: number; px: number; z: number }>();
+  private settled = 0;
+
+  /**
+   * Ease every unit's lift (call once a frame before drawing): a man walking a stair or a ladder rises with his sim
+   * position, and jostling at a stair foot or a step from a ladder onto the walk glides over ~60 ms instead of jumping.
+   */
+  settle(units: readonly DrawUnit[], now: number): void {
+    const k = this.settled ? 1 - Math.exp(-Math.min(200, now - this.settled) / 60) : 1;
+    this.settled = now;
+    const seen = new Set<number>();
+    for (const d of units) {
+      const id = d.u.id, l = this.lift?.(d) ?? null, e = this.eased.get(id);
+      seen.add(id);
+      if (!l && (!e || e.px < 0.5)) { this.eased.delete(id); continue; }
+      const t = l ? { ox: l.x - d.x, oy: l.y - d.y, px: l.px, z: l.z } : { ox: 0, oy: 0, px: 0, z: e!.z };
+      if (!e || Math.abs(t.px - e.px) > 120) { this.eased.set(id, t); continue; }
+      e.ox += (t.ox - e.ox) * k; e.oy += (t.oy - e.oy) * k; e.px += (t.px - e.px) * k; e.z = t.z;
+    }
+    for (const id of this.eased.keys()) if (!seen.has(id)) this.eased.delete(id);
+  }
+
+  /** A unit's lift as drawn: eased (settle()) for units, this frame's for other points. */
+  liftOf(d: { x: number; y: number; u?: { id: number } }): Lift | null {
+    const l = this.lift?.(d) ?? null, e = d.u && this.eased.get(d.u.id);
+    if (!e) return l;
+    return { ...(l ?? {}), x: d.x + e.ox, y: d.y + e.oy, z: e.z, px: e.px };
+  }
+
   /** World px of a unit's feet, at its eased level (raised on a wall-walk, stair or ladder). */
-  feet(d: { x: number; y: number }): { x: number; y: number } {
-    const l = this.lift?.(d);
+  feet(d: { x: number; y: number; u?: { id: number } }): { x: number; y: number } {
+    const l = this.liftOf(d);
     if (l) return { x: this.iso.sx(l.x, l.y), y: this.iso.sy(l.x, l.y, l.z) - l.px };
     return { x: this.iso.sx(d.x, d.y), y: this.iso.sy(d.x, d.y, this.iso.zDraw(d.x, d.y)) };
   }
@@ -192,7 +222,7 @@ export class UnitLayer {
     const iso = this.iso, padX = 80, padTop = 120, padBot = 40;
     let n = 0;
     for (const d of units) {
-      const u = d.u, l = this.lift?.(d) ?? null;
+      const u = d.u, l = this.liftOf(d);
       if (l?.hide) continue; // inside a tower
       const f = this.feet(d);
       if (f.x < view.x - padX || f.x > view.right + padX || f.y < view.y - padBot || f.y > view.bottom + padTop) continue;
@@ -217,13 +247,21 @@ export class UnitLayer {
       img.setDepth(l?.depth ?? 10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25));
       if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
       else if (this.swap) img.resetPipeline();
-      if (hidden) img.setTintFill(team).setAlpha(0.45);
-      else img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);
-      if (!hidden && occluded.has(u.id)) {
+      img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);
+      // hidden behind higher ground (the sprite would draw over the baked terrain: not drawn) or behind a wall or object
+      // (drawn under it): a thin team-coloured outline over everything, no fill
+      if (hidden) img.setVisible(false);
+      if (hidden || occluded.has(u.id)) {
         let gh = this.ghosts[this.nGhost];
-        if (!gh) this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));
+        if (!gh) {
+          this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));
+          gh.preFX?.addGlow(team, 4, 0, true, 0.1, 1);
+        }
         this.nGhost++;
-        gh.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setTintFill(team).setAlpha(0.5).setVisible(true);
+        const glow = gh.preFX?.list[0] as Phaser.FX.Glow | undefined;
+        if (glow) glow.color = team;
+        gh.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setAlpha(glow ? 0.9 : 0.25).setVisible(true);
+        if (!glow) gh.setTintFill(team); // canvas: a faint silhouette
       }
     }
     return n;

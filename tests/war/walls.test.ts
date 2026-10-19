@@ -172,7 +172,7 @@ describe('wall tiers', () => {
       if (now < before) hits++;
       before = now;
     }
-    expect(closest).toBeGreaterThan(19); // they came right under the wall
+    expect(closest).toBeGreaterThan(16); // they came up to the wall (and stood off its foot)
     expect(hits).toBe(0);
     expect(pieces(sim, ids).every((b) => b.state === 'done')).toBe(true);
   });
@@ -300,6 +300,20 @@ describe('wall tiers', () => {
     sim.step();
     expect(pieces(sim, [ids[0]])[0]).toMatchObject({ type: 'palisade', state: 'done' });
     expect(pieces(sim, [ids[0]])[0].tiles.length).toBe(n0);
+  });
+
+  it('melee who cannot reach the men on a wall stand off its foot instead of pressing against it', () => {
+    const [sim, s] = walled('timber', 3);
+    stairs(sim, s);
+    const a = onWall(sim, 6);
+    sim.order({ kind: 'hold', squad: a });
+    const e = sim.spawnSquad('e', 1, 'hoplite', 12, 20, 8);
+    sim.order({ kind: 'attack', squad: e, target: a });
+    run(sim, 600);
+    const ys = alive(sim, e).map((u) => u.y);
+    expect(ys.length).toBeGreaterThan(4);
+    expect(ys.filter((y) => y >= 19).length).toBeLessThanOrEqual(2); // the wall's foot row stays clear
+    expect(Math.max(...ys)).toBeGreaterThan(15); // they did come up to it
   });
 
   it('is deterministic', () => {
