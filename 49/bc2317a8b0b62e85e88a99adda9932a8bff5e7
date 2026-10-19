@@ -1,0 +1,24 @@
+scripts/war/sandbox-shots.mjs
+  s_cfc22b058125c4::t_2d1af1c285531e 8,16,161
+src/war/scenarios/index.ts
+  s_cfc22b058125c4::t_c933235ed58c7c 68-74,81
+  s_cfc22b058125c4::t_73462d0f2d9c57 59,61,77-79,99
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_5e75b9789bd9ee 78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "49bc2317a8b0b62e85e88a99adda9932a8bff5e7",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
