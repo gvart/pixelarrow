@@ -33,6 +33,7 @@ import { blob, curveField, fbm, nearestSample, noise, spline, type Pt, type Samp
 import { decodeVisual, encodeBiomes, encodeVisual, KINDS, ZVIS } from '../../src/war/regions/visual.ts';
 import { footprintTiles, OBJECT_BLOCKS } from '../../src/war/region/objects.ts';
 import { columnSpans, massifBase, placeMassifs, type MassifPiece } from '../../src/war/region/massifs.ts';
+import { RESOURCE_NODES } from '../../src/war/sim/economy.ts';
 import { readImage } from '../art/lib/png.mjs';
 
 const SIZE = Number(process.argv[2] ?? 256);
@@ -589,7 +590,77 @@ const blocked: number[] = [];
   console.log(`massifs ${placed.length}; their base closes ${open} open tiles`);
 }
 
-const region = { id: 'test-ridge', name: 'Test Ridge', w: W, h: H, height, terrain, water, entries, noBuild, objects, blocked, visual, biomes: { names: [...BIOMES], rle: encodeBiomes(biome) } };
+// ---- neutral fauna (W-12, src/war/sim/mobs.ts): lairs by biome, each on open ground near resource nodes (it guards them),
+// 30+ tiles apart: wolves in the mountains' woods and the south-east forest, boars in Elaia's olive and oak lowland, bears
+// near the pass saddle, bandits at the pass ruins and by a road, jackals in the Kyrene desert. One claim point: the open
+// tile with the most guard lairs within ZONE (25+ tiles from any), its zone those lairs. Deterministic (tile hash).
+const lairs: { kind: 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal'; x: number; y: number }[] = [];
+const claimPoints: { x: number; y: number; lairs: number[] }[] = [];
+{
+  const hsh = (x: number, y: number) => {
+    let n = Math.imul(x, 2246822519) ^ Math.imul(y, 3266489917) ^ 0x6d0b;
+    n = Math.imul(n ^ (n >>> 15), 668265263);
+    return ((n ^ (n >>> 13)) >>> 0) / 4294967296;
+  };
+  const shut = new Uint8Array(N);
+  for (let k = 0; k < blocked.length; k += 2) for (let j = 0; j < blocked[k + 1]; j++) shut[blocked[k] + j] = 1;
+  const C = 8, CW = Math.ceil(W / C), nodes = new Float32Array(CW * CW);
+  for (const o of objects) {
+    const fp = OBJECT_BLOCKS[o.id];
+    if (fp) for (const [x, y] of footprintTiles(o.x, o.y, fp)) if (x >= 0 && y >= 0 && x < W && y < H) shut[y * W + x] = 1;
+    if (RESOURCE_NODES[o.id]) nodes[Math.floor(o.y / C) * CW + Math.floor(o.x / C)]++;
+  }
+  const openAt = (x: number, y: number, h0: number) => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return false;
+    const j = y * W + x;
+    return !water[j] && !shut[j] && terrain[j] !== 'rock' && Math.abs(height[j] - h0) <= 1;
+  };
+  /** Open ground: the tiles within r round it walkable, within a level of it. */
+  const ground = (x: number, y: number, r = 3) => {
+    const h0 = height[y * W + x];
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (!openAt(x + dx, y + dy, h0)) return false;
+    return r === 0 || terrain[y * W + x] !== 'road'; // a camp on the road verge (the pass ruins) may sit on it
+  };
+  const nodesNear = (x: number, y: number) => {
+    let n = 0;
+    const cx = Math.floor(x / C), cy = Math.floor(y / C);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (cx + dx >= 0 && cy + dy >= 0 && cx + dx < CW && cy + dy < CW) n += nodes[(cy + dy) * CW + cx + dx];
+    return n;
+  };
+  const tile = (p: readonly [number, number]) => [toTile(p[0]), toTile(p[1])];
+  const [sx, sy] = tile(spots.passSaddle);
+  const ruins = objects.filter((o) => o.id === 'wall-ruin');
+  const nearRuin = (x: number, y: number) => ruins.some((r) => Math.hypot(r.x - x, r.y - y) < 20 && Math.hypot(r.x - x, r.y - y) > 8);
+  const B = (i: number) => BIOMES[biome[i]];
+  const rules: [(typeof lairs)[number]['kind'], number, (x: number, y: number, i: number) => boolean, number?][] = [
+    ['bear', 1, (x, y) => { const d = Math.hypot(x - sx, y - sy); return d > 10 && d < 40; }, 1],
+    ['bandit', 1, (x, y) => nearRuin(x, y), 0],
+    ['bandit', 1, (x, y, i) => B(i) === 'global' && roadDist[i] > 3 && roadDist[i] < 7 && terrain[i] !== 'forest'],
+    ['wolf', 1, (x, y, i) => B(i) === 'mountains'],
+    ['wolf', 1, (x, y, i) => B(i) === 'global' && terrain[i] === 'forest'],
+    ['boar', 2, (x, y, i) => B(i) === 'elaia' && height[i] <= 3],
+    ['jackal', 2, (x, y, i) => B(i) === 'kyrene'],
+  ];
+  const far = (x: number, y: number, r: number) => lairs.every((l) => Math.hypot(l.x - x, l.y - y) >= r) && !Object.values(spots).some((p) => Math.hypot(toTile(p[0]) - x, toTile(p[1]) - y) < 8);
+  for (const [kind, n, ok, r] of rules) {
+    const list: [number, number, number][] = [];
+    for (let y = 4; y < H - 4; y += 2) for (let x = 4; x < W - 4; x += 2) if (ok(x, y, y * W + x) && ground(x, y, r)) list.push([x, y, nodesNear(x, y) + hsh(x, y)]);
+    list.sort((a, b) => b[2] - a[2]);
+    let placed = 0;
+    for (const [x, y] of list) if (placed < n && far(x + 0.5, y + 0.5, 30)) (lairs.push({ kind, x: x + 0.5, y: y + 0.5 }), placed++);
+  }
+  const ZONE = 130;
+  let best: [number, number, number] | null = null;
+  for (let y = 8; y < H - 8; y += 4) for (let x = 8; x < W - 8; x += 4) {
+    if (!ground(x, y) || !far(x + 0.5, y + 0.5, 25)) continue;
+    const n = lairs.filter((l) => Math.hypot(l.x - x, l.y - y) < ZONE).length - Math.hypot(x - W / 2, y - H / 2) / W;
+    if (!best || n > best[2]) best = [x + 0.5, y + 0.5, n];
+  }
+  if (best) claimPoints.push({ x: best[0], y: best[1], lairs: lairs.flatMap((l, i) => (Math.hypot(l.x - best![0], l.y - best![1]) < ZONE ? [i] : [])) });
+  console.log(`lairs ${lairs.map((l) => `${l.kind}@${l.x},${l.y}`).join(' ')}; claim ${claimPoints.map((c) => `${c.x},${c.y} [${c.lairs}]`).join(' ')}`);
+}
+
+const region = { id: 'test-ridge', name: 'Test Ridge', w: W, h: H, height, terrain, water, entries, noBuild, objects, blocked, visual, biomes: { names: [...BIOMES], rle: encodeBiomes(biome) }, lairs, claimPoints };
 const dir = new URL(process.argv[3] ? `file://${resolve(process.argv[3])}/` : '../../src/war/regions/', import.meta.url);
 const out = new URL('test-ridge.json', dir);
 writeFileSync(out, JSON.stringify(region) + '\n');
