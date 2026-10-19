@@ -1,0 +1,46 @@
+src/war/view/build/buildMode.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 2-3
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 209-224
+src/war/view/hud/minimap.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 1-88
+src/war/view/interact.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 32-33,38-39,50,52-55
+sandbox.html
+  s_cfc22b058125c4::t_4d0330d570f20e 6
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 1-300
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 1,28,56-57
+src/war/view/siege/siegeControls.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 2,8,18,23,170-176
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_4d0330d570f20e 1745-1763
+scripts/war/art/ui-redfigure.mjs
+  s_cfc22b058125c4::t_4d0330d570f20e 1-215
+public/war/ui/ui.json
+  s_cfc22b058125c4::t_4d0330d570f20e 2,8-34,134-137,139-142,146-147,149,151-154,156-159,161-166,170-171,173-176,179,183-184,186-189,192,196-197,199-201,203,207,209-213,215-221,224-227,229,231,233-237,239-240,242-245,247,255-256,258-261,263,269-270,272,274,277,279-281,287-288,293-294,299-300,305-306,311-312,730-743
+  s_cfc22b058125c4::t_700e9c14485416 744
+src/war/view/main.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 15,40
+scripts/war/art/ui-jobs.json
+  s_cfc22b058125c4::t_4d0330d570f20e 33-36
+src/war/view/hud/kit.ts
+  s_cfc22b058125c4::t_4d0330d570f20e 1-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c5621fe80e066cf09bcd4bf358fa282713b19752",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
