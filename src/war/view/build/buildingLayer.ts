@@ -39,6 +39,7 @@ const OK = 0x50e060, BAD = 0xff4040;
 /** Placeholder heights in world px (~33 px a metre). */
 const HEIGHT: Partial<Record<BuildingType, number>> = {
   camp: 36, storehouse: 52, outpost: 80, fort: 120, barracks: 60, farm: 8, olivePress: 48,
+  brazier: 20, pitchKiln: 50,
   palisade: 56, rampart: 100, stoneWall: 160, woodTower: 120, stoneTower: 150, woodGate: 70, stoneGate: 100, woodStairs: 50, stoneStairs: 80, ladder: 120,
 };
 const MAT = { wood: 0x8a6a44, stone: 0xa8a294 };
@@ -205,7 +206,7 @@ export class BuildingLayer {
     const live = buildings.filter((b) => b.state !== 'destroyed');
     for (const b of live) {
       this.looks.set(b.id, this.look(b));
-      for (const [x, y] of pairs(b.tiles)) occ.set(key(x, y), b);
+      if (!BUILDINGS[b.type].brazier) for (const [x, y] of pairs(b.tiles)) occ.set(key(x, y), b); // a brazier may stand on a wall's tile
     }
     // walk tiles of the layered walls (as drawn) and towers; heights for silhouettes
     for (const b of live) {
@@ -228,7 +229,7 @@ export class BuildingLayer {
     // the depths the art is drawn at (draw()): wall tiles one by one, towers and 2-deep gates as one box
     for (const b of live) {
       const def = BUILDINGS[b.type], ts = pairs(b.tiles);
-      if (def.access) continue;
+      if (def.access || def.brazier) continue;
       const deep = this.deep.get(b.id), all = deep ? [...ts, ...pairs(deep.tiles)] : ts;
       if (def.wall === 'segment') {
         for (const [x, y] of ts) this.backs.set(key(x, y), { x1: x + 1, y1: y + 1, depth: this.D(x + 0.495, y + 0.495) });
@@ -467,8 +468,9 @@ export class BuildingLayer {
         let g = this.gfx[ng];
         if (!g) this.gfx.push((g = this.scene.add.graphics()));
         ng++;
-        g.clear().setVisible(true).setDepth(depth);
-        this.placeholder(g, b, units, zoom);
+        g.clear().setVisible(true).setDepth(def.brazier ? depth + 100 * IN : depth);
+        if (def.brazier) this.brazier(g, b);
+        else this.placeholder(g, b, units, zoom);
       }
       this.bar(bars, b, c, zoom);
     }
@@ -664,6 +666,21 @@ export class BuildingLayer {
     const s = new Set<number>();
     for (const b of buildings) if (BUILDINGS[b.type].wall && b.state !== 'destroyed') for (let i = 0; i < b.tiles.length; i += 2) s.add(key(b.tiles[i], b.tiles[i + 1]));
     return s;
+  }
+
+  /** W-35 placeholder brazier (no art yet): a stand and bowl, on the deck it stands on, a flame while lit; tipped over once destroyed. */
+  private brazier(g: Phaser.GameObjects.Graphics, b: BuildingSnap): void {
+    const c = this.pt(b.x, b.y, this.z(b)), y = c.y - (this.lift(b)?.px ?? 0);
+    if (b.state === 'destroyed') {
+      g.fillStyle(0x2a2420, 1).fillEllipse(c.x, y - 2, 14, 4);
+      return;
+    }
+    g.fillStyle(0x3a2a1a, 1).fillRect(c.x - 2, y - 14, 4, 14);
+    g.fillStyle(0x5a4030, 1).fillEllipse(c.x, y - 14, 14, 5);
+    g.lineStyle(1, TEAM_COLOR[b.team] ?? 0xcccccc, 1).strokeEllipse(c.x, y - 14, 14, 5);
+    if (!b.lit) return;
+    g.fillStyle(0xff7a20, 0.9).fillEllipse(c.x, y - 20, 9, 12);
+    g.fillStyle(0xffe070, 1).fillEllipse(c.x, y - 18, 4, 6);
   }
 
   private placeholder(g: Phaser.GameObjects.Graphics, b: BuildingSnap, units: readonly DrawUnit[], zoom: number): void {
