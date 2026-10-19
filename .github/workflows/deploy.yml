@@ -154,8 +154,8 @@ jobs:
       matrix:
         size: [390x844, 360x780, 320x693, 844x390, 768x1024, 820x1180, 1024x768, 1280x800, 1440x900, 1920x1080, 320x568, 375x667, 430x932, 320x640]
         lang: [en, ru]
-    # the wide sizes draw many more screens; software GL with the PixelLab sheets needs over 20 min there
-    timeout-minutes: 45
+    # the wide sizes draw many more screens; software GL with the PixelLab sheets runs 1920x1080 past 45 min
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/browser-setup
