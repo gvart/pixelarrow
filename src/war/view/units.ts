@@ -61,6 +61,34 @@ function addSwapPipeline(scene: Phaser.Scene): boolean {
   return true;
 }
 
+const OUTLINE = 'WarOutline';
+/**
+ * A hidden man's outline: the tint colour on each transparent pixel next to an opaque one, one screen px out (the
+ * neighbour step is the screen-px derivative of the texture coordinate). Batched like any sprite: no framebuffer pass.
+ */
+const OUTLINE_FRAG = `
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+uniform sampler2D uMainSampler;
+varying vec2 outTexCoord;
+varying float outTintEffect;
+varying vec4 outTint;
+void main() {
+  vec2 dx = vec2(dFdx(outTexCoord.x), 0.0), dy = vec2(0.0, dFdy(outTexCoord.y));
+  float a = texture2D(uMainSampler, outTexCoord).a;
+  float n = max(max(texture2D(uMainSampler, outTexCoord + dx).a, texture2D(uMainSampler, outTexCoord - dx).a),
+                max(texture2D(uMainSampler, outTexCoord + dy).a, texture2D(uMainSampler, outTexCoord - dy).a));
+  float edge = step(0.5, n) * (1.0 - step(0.5, a));
+  gl_FragColor = vec4(outTint.bgr, 1.0) * outTint.a * edge;
+}`;
+
+function addOutlinePipeline(scene: Phaser.Scene): boolean {
+  const r = scene.renderer;
+  if (!(r instanceof Phaser.Renderer.WebGL.WebGLRenderer) || !r.gl.getExtension('OES_standard_derivatives')) return false;
+  if (!r.pipelines.has(OUTLINE)) r.pipelines.add(OUTLINE, new Phaser.Renderer.WebGL.Pipelines.SinglePipeline({ game: scene.game, fragShader: OUTLINE_FRAG }));
+  return true;
+}
+
 const manifests = import.meta.glob<SheetManifest>('../../assets/sheets/*/manifest.json', { eager: true, import: 'default' });
 const images = import.meta.glob<string>(
   ['../../assets/sheets/militia/*.png', '../../assets/sheets/hoplite/*.png', '../../assets/sheets/celt_sword/*.png', '../../assets/sheets/archer/*.png', '../../assets/sheets/slinger/*.png', '../../assets/sheets/javelineer/*.png'],
@@ -146,10 +174,12 @@ export class UnitLayer {
   private gUnder: Phaser.GameObjects.Graphics;
   private gOver: Phaser.GameObjects.Graphics;
   private swap: boolean;
+  private outline: boolean;
   private ids = 0;
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, sheetImages: Map<string, HTMLImageElement>) {
     this.swap = addSwapPipeline(scene);
+    this.outline = addOutlinePipeline(scene);
     for (const [path, m] of Object.entries(manifests)) {
       const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
       if (img) this.sheets.set(cls, buildSheet(scene, cls, m, img));
@@ -270,13 +300,12 @@ export class UnitLayer {
         let gh = this.ghosts[this.nGhost];
         if (!gh) {
           this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));
-          gh.preFX?.addGlow(team, 4, 0, true, 0.1, 1);
+          if (this.outline) gh.setPipeline(OUTLINE);
         }
         this.nGhost++;
-        const glow = gh.preFX?.list[0] as Phaser.FX.Glow | undefined;
-        if (glow) glow.color = team;
-        gh.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setAlpha(glow ? 0.9 : 0.25).setVisible(true);
-        if (!glow) gh.setTintFill(team); // canvas: a faint silhouette
+        gh.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setVisible(true);
+        if (this.outline) gh.setTint(team).setAlpha(0.55);
+        else gh.setTintFill(team).setAlpha(0.25); // no shader: a faint silhouette
       }
     }
     return n;
