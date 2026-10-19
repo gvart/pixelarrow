@@ -32,7 +32,7 @@
  * tiles go back to water and `fall` drops the men on them.
  */
 import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BRIDGE, BUILDINGS, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
+import { BRAZIER, BRIDGE, BUILDINGS, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 
 const DT = 0.1;
@@ -77,7 +77,9 @@ export interface Worker {
   wpath: number[]; wpi: number; wreq: boolean;
 }
 
-interface Node { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; regrow: number; rate: number; slots: number; users: number; tiles: number[]; obj?: number; building?: number; locked?: boolean }
+interface Node { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; regrow: number; rate: number; slots: number; users: number; tiles: number[]; obj?: number; building?: number; locked?: boolean;
+  /** W-35 pitch kiln: its team (regrowth burns that team's wood). */
+  kiln?: number }
 
 interface Building {
   id: number; type: BuildingType; def: BuildingDef; team: number; rot: 0 | 1; x: number; y: number; w: number; h: number;
@@ -104,6 +106,8 @@ interface Building {
   push: number; // defenders' push on a ladder, 0..1
   /** M2d bridge piece: the pieces of its bridge in line order, its index, axis, part, deck level. */
   bridge: { ids: number[]; i: number; axis: BridgeAxis; dir: [number, number]; width: number; part: 'end0' | 'end1' | 'deck'; deck: number; rows: number[] } | null;
+  /** W-35 brazier: seconds of fire left (0: out). */
+  fuel: number;
 }
 export type Piece = Readonly<Building>;
 
@@ -115,6 +119,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const nodeAt = new Int32Array(w * h).fill(-1); // foot tile -> object node (blocks placement while it has any left)
   const regrowing: Node[] = [];
   const buildings: Building[] = [];
+  const braziers: Building[] = []; // W-35: not in occ (they never block and may stand on a deck)
   const occ = new Int32Array(w * h).fill(-1); // tile -> building that stands or is marked out there
   const noBuild = new Uint8Array(w * h);
   for (const r of region.noBuild) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) noBuild[y * w + x] = 1;
@@ -192,6 +197,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const [fw, fh] = rotated(type, rot);
     const tiles = rectTiles(x, y, fw, fh);
     const def = BUILDINGS[type];
+    if (def.brazier) return checkBrazier(team, tiles);
     if (def.access) {
       const a = accessOf(team, type, tiles);
       const reason = a.reason ?? checkTiles(team, a.tiles, true, def.access === 'ladder');
@@ -199,6 +205,40 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     }
     const reason = def.wall === 'segment' ? 'short' : checkTiles(team, tiles, true);
     return reason ? { ok: false, reason, tiles } : { ok: true, tiles };
+  };
+
+  /**
+   * W-35: a brazier goes on the team's own finished walkway or tower platform deck, or else on open ground (no influence
+   * needed either way); never two on a tile; the team must have its cost in stock.
+   */
+  const checkBrazier = (team: number, tiles: number[]): PlaceResult => {
+    const [x, y] = tiles, t = y * w + x;
+    const under = x >= 0 && y >= 0 && x < w && y < h ? buildings[occ[t]] : undefined;
+    let reason: PlaceReason | null = null;
+    // a field piece: on the ground it needs no influence (attackers set them down before foe walls)
+    if (!(under && under.team === team && under.decked && grid.deck[t] === DECK)) reason = checkTiles(team, tiles, true, true);
+    if (!reason && braziers.some((b) => b.state !== 'destroyed' && b.ti[0] === t)) reason = 'overlap';
+    if (!reason && Object.entries(BUILDINGS.brazier.cost).some(([r, v]) => (stockOf(team)[r as ResourceKind] ?? 0) < v)) reason = 'cost';
+    return reason ? { ok: false, reason, tiles } : { ok: true, tiles };
+  };
+
+  /** Pay for and set a brazier down done and lit; its id. */
+  const addBrazier = (team: number, tiles: number[]): number => {
+    const t = tiles[1] * w + tiles[0];
+    const st = stockOf(team);
+    for (const [r, v] of Object.entries(BUILDINGS.brazier.cost) as [ResourceKind, number][]) st[r]! -= v;
+    const under = buildings[occ[t]];
+    const def = BUILDINGS.brazier;
+    const b: Building = {
+      id: buildings.length, type: 'brazier', def, team, rot: 0, x: tiles[0] + 0.5, y: tiles[1] + 0.5, w: 1, h: 1, tiles,
+      ti: [t], state: 'done', labour: 1, need: 1, cost: { ...def.cost }, delivered: { ...def.cost }, incoming: {}, costSum: 0,
+      hp: def.hp, maxHp: def.hp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
+      base: [grid.height[t]], inside: [tiles[0], tiles[1]], decked: false, attach: under && under.decked ? under.id : -1, door: -1, prev: null,
+      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: BRAZIER.life,
+    };
+    buildings.push(b);
+    braziers.push(b);
+    return b.id;
   };
 
   const checkWall = (team: number, o: Omit<WallOrder, 'kind' | 'squad'>): WallPlan => {
@@ -290,7 +330,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       ti: [], state: 'foundation', labour: 0, need: def.labour * k, cost, delivered: {}, incoming: {}, costSum,
       hp: maxHp * 0.1, maxHp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [], inside: inside ?? homeOf(team), decked: false, attach, door: -1, prev: null,
-      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null,
+      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: 0,
     };
     for (let i = 0; i < tiles.length; i += 2) {
       const t = tiles[i + 1] * w + tiles[i];
@@ -347,6 +387,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const place = (team: number, type: BuildingType, x: number, y: number, rot: 0 | 1 = 0): number => {
     const r = checkPlacement(team, type, x, y, rot);
     if (!r.ok) return -1;
+    if (BUILDINGS[type].brazier) return addBrazier(team, r.tiles);
     return add(team, type, r.tiles, rot, undefined, BUILDINGS[type].access ? accessOf(team, type, r.tiles).attach : -1);
   };
 
@@ -687,6 +728,14 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (b.def.yields) {
       const y = b.def.yields;
       const n: Node = { id: nodes.length, res: y.res, x: b.x, y: b.y, amount: y.max, max: y.max, regrow: y.regrow, rate: y.rate, slots: 2 * (b.w + b.h), users: 0, tiles: b.tiles, building: b.id };
+      if (b.type === 'pitchKiln') {
+        // W-35: pines standing near feed it faster
+        let pines = 0;
+        for (const o of nodes) if (o.obj !== undefined && o.amount >= 1 && PINES.has(region.objects![o.obj].id) && (o.x - b.x) ** 2 + (o.y - b.y) ** 2 <= KILN.pineR ** 2) pines++;
+        n.regrow *= 1 + KILN.pineBoost * Math.min(pines, KILN.pineMax);
+        n.kiln = b.team;
+        n.amount = 0; // it starts cold
+      }
       nodes.push(n);
       regrowing.push(n);
       b.node = n.id;
@@ -695,6 +744,14 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   };
 
   const destroy = (b: Building) => {
+    if (b.def.brazier) {
+      // knocked over: not in occ, nothing to open
+      b.state = 'destroyed';
+      b.hp = 0;
+      b.fuel = 0;
+      return;
+    }
+    for (const o of braziers) if (o.attach === b.id && o.state !== 'destroyed') destroy(o); // its deck goes
     const closed = b.state !== 'foundation';
     const wasDone = b.state === 'done' || b.state === 'damaged';
     b.state = 'destroyed';
@@ -902,6 +959,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (!at(s.tiles, u)) return walkTo(u, ...spot(s.tiles, u, s.x, s.y));
     const st = stockOf(u.squad.team);
     if (u.carry) st[u.carry] = (st[u.carry] ?? 0) + u.load;
+    const n = nodes[u.wnode];
+    if (u.carry === 'wood' && n?.obj !== undefined && PINES.has(region.objects![n.obj].id)) st.pitch = (st.pitch ?? 0) + u.load * KILN.fromPine;
     u.carry = null;
     u.load = 0;
     return 'here';
@@ -1330,6 +1389,14 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       if (b.push >= 1) destroy(b);
       return (b.state as BuildState) === 'destroyed';
     },
+    /** W-35: a lit brazier of `team` within BRAZIER.radius of (x,y) at about height z (a level either way). */
+    litNear(team: number, x: number, y: number, z: number): boolean {
+      for (const b of braziers)
+        if (b.team === team && b.fuel > 0 && b.state !== 'destroyed' && Math.abs(grid.height[b.ti[0]] - z) <= 1 && (b.x - x) ** 2 + (b.y - y) ** 2 <= BRAZIER.radius ** 2) return true;
+      return false;
+    },
+    /** W-35: pitch in `team`'s stockpile. */
+    pitch: (team: number) => stock.get(team)?.pitch ?? 0,
     /** Platform capacity of tower `id` (0: not a tower). */
     platCap: (id: number) => buildings[id]?.def.cap ?? 0,
     /** The building whose deck or stair tile t is, -1 none. */
@@ -1403,7 +1470,18 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       }
       fireTick();
       if (++tick % REGROW_TICKS === 0)
-        for (const n of regrowing) if (n.amount < n.max) n.amount = Math.min(n.max, n.amount + n.regrow * DT * REGROW_TICKS);
+        for (const n of regrowing) {
+          if (n.amount >= n.max) continue;
+          let add = Math.min(n.max - n.amount, n.regrow * DT * REGROW_TICKS);
+          if (n.kiln !== undefined) {
+            // W-35: a kiln burns its team's wood into pitch
+            const st = stockOf(n.kiln);
+            add = Math.min(add, (st.wood ?? 0) / KILN.wood);
+            st.wood = (st.wood ?? 0) - add * KILN.wood;
+          }
+          n.amount += add;
+        }
+      for (const b of braziers) if (b.fuel > 0 && b.state !== 'destroyed') b.fuel = Math.max(0, b.fuel - DT);
     },
     resourceNodes: (): NodeSnap[] =>
       nodes.map((n) => ({ id: n.id, res: n.res, x: n.x, y: n.y, amount: n.amount, max: n.max, ...(n.obj !== undefined ? { obj: n.obj } : {}), ...(n.building !== undefined ? { building: n.building } : {}), ...(n.locked ? { guarded: true as const } : {}) })),
@@ -1423,6 +1501,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.def.cap ? { cap: b.def.cap } : {}),
           ...(b.prev ? { upgradeFrom: b.prev.type } : {}),
           ...(b.burn > 0 ? { burning: b.burn } : {}),
+          ...(b.def.brazier ? { lit: b.fuel > 0 && b.state !== 'destroyed', fuel: b.fuel / BRAZIER.life } : {}),
           ...(b.rubble ? { rubble: true as const } : {}),
           ...(b.siege >= 0 ? { siege: b.siege } : {}),
           ...(b.push > 0 && b.state !== 'destroyed' ? { push: Math.min(1, b.push) } : {}),

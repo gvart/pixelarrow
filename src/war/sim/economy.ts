@@ -35,6 +35,8 @@ export interface BuildingDef {
   bridge?: boolean;
   /** `upgrade {building}`: the next tier, built in place (cost and labour per tile for wall segments). */
   upgrade?: { to: BuildingType; cost: Partial<Record<ResourceKind, number>>; labour: number };
+  /** W-35: a brazier (see BRAZIER): placed done and lit, never blocks, may stand on the team's own deck. */
+  brazier?: boolean;
 }
 
 export const BUILDINGS: Record<BuildingType, BuildingDef> = {
@@ -58,7 +60,24 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   // W-24: wood fast and burnable, stone slow and permanent (fire-proof; only a stone thrower brings it down)
   woodBridge: { w: 1, h: 1, hp: 150, cost: { wood: 6 }, labour: 15, workers: 3, influence: 0, material: 'wood', perTile: true, burnable: true, bridge: true },
   stoneBridge: { w: 1, h: 1, hp: 1500, cost: { stone: 16, wood: 2 }, labour: 90, workers: 3, influence: 0, material: 'stone', perTile: true, bridge: true },
+  // W-35 fire arrows: a brazier lights them, pitch (from a kiln, or a little with pine wood) feeds them
+  brazier: { w: 1, h: 1, hp: 60, cost: { wood: 5 }, labour: 0, workers: 0, influence: 0, material: 'wood', brazier: true },
+  pitchKiln: { w: 2, h: 2, hp: 500, cost: { wood: 40, stone: 20 }, labour: 900, workers: 4, influence: 0, material: 'stone', yields: { res: 'pitch', max: 40, regrow: 0.1, rate: 0.6 } },
 };
+
+/**
+ * W-35 braziers: archers within `radius` tiles (3 tiles = 6 m) of a lit brazier of their team loose fire arrows, each
+ * taking `pitch` from the stockpile (a volley of 10 archers: 2 pitch). A brazier burns `life` seconds once placed.
+ */
+export const BRAZIER = { radius: 3, pitch: 0.2, life: 300 };
+/**
+ * W-35 pitch kiln: its pitch node regrows (yields.regrow per second) only while the team's stockpile has `wood` per pitch
+ * to feed it; each pine with wood left within `pineR` tiles adds `pineBoost` to its rate, at most `pineMax` pines.
+ * Gatherers felling a pine also bring back `fromPine` pitch per wood.
+ */
+export const KILN = { wood: 2, pineR: 8, pineBoost: 0.15, pineMax: 6, fromPine: 0.05 };
+/** Resinous trees (object ids) for KILN: pines and firs. */
+export const PINES = new Set(['pine-a', 'pine-b', 'stone-pine', 'elaia/stone-pine', 'mountains/fir', 'mountains/fir-snow', 'mountains/black-pine']);
 
 /**
  * Bridges (M2d W-24, v2 W-33): most tiles of water bank to bank per material, widths in tiles across (default `width`),

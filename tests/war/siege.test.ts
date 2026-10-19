@@ -131,6 +131,10 @@ describe('fire', () => {
     const wood = build(sim, () => sim.order({ kind: 'placeWall', squad: s, material: 'wood', points: [14.5, 20.5, 25.5, 20.5] }));
     away(sim, s);
     const a = sim.spawnSquad('e', 1, 'archer', 10, 20, 12);
+    // W-35: fire arrows need a lit brazier near the archers and pitch
+    sim.claim(1, 20, 12, 8);
+    sim.addStock(1, 'pitch', 50);
+    sim.order({ kind: 'placeBuilding', team: 1, type: 'brazier', x: 20.5, y: 12.5 });
     sim.order({ kind: 'fireArrows', squad: a, on: true });
     sim.order({ kind: 'attackBuilding', squad: a, building: wood[1] });
     let fire = 0;

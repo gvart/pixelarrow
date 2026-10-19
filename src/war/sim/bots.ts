@@ -19,7 +19,8 @@
  *    the nearest wall piece); once there is a breach, leave the ram and attack-move through it.
  *  - siegeLadder: build a siege ladder, carry it to the nearest foe walkway wall, raise it, climb onto the walk and
  *    attack-move to (x,y); a ladder pushed off is raised again.
- *  - siegeArchers: fire arrows on; shoot the foes on the walls in reach, else set the nearest wood wall piece alight.
+ *  - siegeArchers: fire arrows on; shoot the foes on the walls in reach, else set the nearest wood wall piece alight;
+ *    while shooting with no lit brazier near (W-35), set one down on the ground just behind the squad's centre.
  *  - assault: wait out of bow range until a breach (rubble) or a raised ladder of its team, then go in and attack-move.
  *  - defendWalls: man the walkway nearest the threat; push off foe ladders, attack foes who got inside (within radius / 2
  *    of (x,y)), melee sally out to burn rams, beat out fires on its own wood.
@@ -55,6 +56,8 @@ const SIEGE_NEAR = 12; // an idle engine of the team this near is taken up inste
 const STAND_OFF = 22; // assault: wait this far from (x,y)
 const DEFEND_R = 24;
 const ARCHER_R = 16; // siege archers: shoot foes on the walls this near
+const BRAZIER_BACK = 1.5; // ... their brazier goes this far behind their centre (away from the target)
+const BRAZIER_EVERY = 30; // ... ticks between tries while none is lit near
 
 interface Bot {
   b: Behaviour;
@@ -64,6 +67,8 @@ interface Bot {
   engine: number; // siege: its engine, -1 none yet
   at: [number, number] | null; // siege: where it ordered its engine built
   fire: boolean; // fire arrows ordered
+  brazier: number; // siege archers: tick of the last brazier set down, tries so far
+  tries: number;
 }
 
 interface Centre {
@@ -250,6 +255,17 @@ export function createBots(sim: WarSim, every = 5): Bots {
     send(bot, `raise:${tx},${ty}:${e.crew}`, { kind: 'raiseLadder', squad: id, wallTile: [tx, ty] });
   };
 
+  /** W-35: siege archers shooting from where they stand with no lit brazier near set one down behind their centre. */
+  const brazier = (id: SquadId, bot: Bot, me: Centre, snap: Snapshot, tx: number, ty: number) => {
+    if (snap.squads[id].fireArrows?.reason !== 'noBrazier' || snap.tick - bot.brazier < BRAZIER_EVERY || !me.alive) return;
+    // a different spot each try (a tile may be taken): turn round the centre
+    const a = Math.atan2(me.y - ty, me.x - tx) + ((bot.tries % 5) - 2) * 0.5;
+    const r = bot.tries % 5 ? BRAZIER_BACK + 0.5 : BRAZIER_BACK;
+    bot.brazier = snap.tick;
+    bot.tries++;
+    sim.order({ kind: 'placeBuilding', team: me.team, type: 'brazier', x: Math.floor(me.x + Math.cos(a) * r) + 0.5, y: Math.floor(me.y + Math.sin(a) * r) + 0.5 });
+  };
+
   const siegeArchers = (id: SquadId, bot: Bot, me: Centre, cs: Centre[], snap: Snapshot, x: number, y: number) => {
     if (!bot.fire) {
       bot.fire = true;
@@ -263,6 +279,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
     }
     if (foe >= 0) {
       bot.phase = 'suppress';
+      brazier(id, bot, me, snap, cs[foe].x, cs[foe].y);
       send(bot, `attack:${foe}`, { kind: 'attack', squad: id, target: foe });
       return;
     }
@@ -270,6 +287,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
     const w = nearest(wood, (b) => nearTile(b, me.x, me.y)[2]);
     if (w) {
       bot.phase = 'burn';
+      brazier(id, bot, me, snap, w.x, w.y);
       send(bot, `burn:${w.id}`, { kind: 'attackBuilding', squad: id, building: w.id });
       return;
     }
@@ -392,7 +410,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
   return {
     set(squad, b) {
       const start = b.kind === 'flank' ? 'via' : b.kind === 'attackMove' || b.kind === 'hold' ? 'march' : 'start';
-      bots.set(squad, { b, phase: start, issued: '', target: -1, engine: -1, at: null, fire: false });
+      bots.set(squad, { b, phase: start, issued: '', target: -1, engine: -1, at: null, fire: false, brazier: -Infinity, tries: 0 });
     },
     clear(squad) {
       bots.delete(squad);
