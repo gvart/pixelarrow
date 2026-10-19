@@ -1,0 +1,27 @@
+public/war/ui/ui.json
+  s_cfc22b058125c4::t_f89ea5d67ea3c8 2,8-34,134-137,139-142,146-147,149,151-154,156-159,161-166,170-171,173-176,179,183-184,186-189,192,196-197,199-201,203,207,209-213,215-221,224-227,229,231,233-237,239-240,242-245,247,255-256,258-261,263,269-270,272,274,277,279-281,287-288,293-294,299-300,305-306,311-312,730-743
+  s_cfc22b058125c4::t_8b90bb21f1d243 744
+scripts/war/art/ui-redfigure.mjs
+  s_cfc22b058125c4::t_e6dc24d9203d45 1-141,144-215
+  s_cfc22b058125c4::t_f0571a3d0e2e5f 142-143
+scripts/war/art/ui-jobs.json
+  s_cfc22b058125c4::t_a1de90b9b63da6 33-36
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_45106da5c0223a 1745-1763
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c55f0b31bff11400e721102a4df89ad582383b3d",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
