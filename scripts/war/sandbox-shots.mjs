@@ -236,7 +236,7 @@ if (mode === 'art') {
 }
 
 // Mode `biome` (the biome libraries): the pass at 1:1 with a squad by the watch post and cairns, the mountain range at 1/4
-// (massif sprites; again with ?mountains=terrace, the stacked levels, for comparison), the Kyrene oasis, the Elaia plateau
+// (massif sprites; again with ?mountains=terrace, the stacked levels, for comparison), the wide mountain interior at 1/4, the Kyrene oasis, the Elaia plateau
 // with the tower and the marble, the overview, and the 600-unit brawl fps at 1/2 and at the overview.
 if (mode === 'biome') {
   const obj = (id) => page.evaluate((id) => window.__sandbox.region.objects.find((o) => o.id === id), id);
@@ -269,6 +269,10 @@ if (mode === 'biome') {
   }
   await boot();
   console.log('massifs', await page.evaluate(() => window.__sandbox.massifs?.list.length));
+  // the wide interior west of the pass at 1/4: the crest's cores over the shaded flanks
+  await page.evaluate(() => window.__sandbox.focus(60, 300, 1 / 4));
+  await wait(3000);
+  await shot('b2w-mountains-interior-quarter');
   const spring = await obj('kyrene/oasis-spring');
   await page.evaluate((o) => window.__sandbox.focus(o.x, o.y + 2, 1 / 2), spring);
   await wait(3000);

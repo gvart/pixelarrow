@@ -106,8 +106,11 @@ export class IsoMap {
   readonly W: number;
   readonly H: number;
 
-  /** `flat`: per tile, 1 = mountain drawn flat at its foot height under massif sprites (./massifs.ts). */
-  constructor(r: RegionData, flat: Uint8Array | null = null) {
+  /**
+   * `flat`: per tile, 1 = mountain drawn flat at its foot height under massif sprites (./massifs.ts);
+   * `scree`: per tile, 1 = its grass and meadow cells drawn as scree (the ring round the massifs).
+   */
+  constructor(r: RegionData, flat: Uint8Array | null = null, scree: Uint8Array | null = null) {
     this.w = r.w;
     this.h = r.h;
     this.z = flush(r.w, r.h, r.height, (i) => r.water[i] > 0);
@@ -135,6 +138,12 @@ export class IsoMap {
       const low = (j: number) => flat[tile(j)] === 1 || (near[tile(j)] === 1 && (kind[j] === ROCK || kind[j] === SNOW));
       lower(this.fz, fw, low);
       for (let j = 0; j < n; j++) if (kind[j] === SNOW && low(j)) kind[j] = ROCK; // the summits' snow is on the sprites now
+    }
+    if (scree) {
+      const SCREE = KINDS.indexOf('scree'), GRASS = KINDS.indexOf('grass'), MEADOW = KINDS.indexOf('meadow');
+      for (let j = 0; j < n; j++) {
+        if ((kind[j] === GRASS || kind[j] === MEADOW) && scree[((j / fw / 2) | 0) * r.w + ((j % fw) >> 1)]) kind[j] = SCREE;
+      }
     }
     let top = 0;
     for (let j = 0; j < n; j++) if (this.fz[j] > top) top = this.fz[j];

@@ -20,7 +20,7 @@ import { buildFineArt, OFFS, SmoothFrames, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, ZBASE } from './iso';
 import type { BakeOpts, TerrainBaker } from './terrain';
 
-export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string }
+export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
 /** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
 export interface TileSet { name: string; tiles: TilesMeta; sheetIx: number[]; varIx: number[]; earth: string; crag: string }
 export interface WarArt {
@@ -77,7 +77,7 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
     massifs: defs.filter((d) => d.kind === 'massif' && d.footprint).map((d) => ({ ...d, footprint: d.footprint!, top: columnTops(objImg.get(d.id)!) })),
   };
 }
-interface Placed { def: ObjDef; img: HTMLImageElement; sx: number; sy: number }
+interface Placed { def: ObjDef; img: HTMLImageElement; sx: number; sy: number; shade?: number }
 
 const FW = 16, FH = 8; // half the 1 m cell diamond
 const ROCKY = new Set([KINDS.indexOf('rock'), KINDS.indexOf('snow')]);
@@ -131,7 +131,7 @@ export class ArtBaker {
     // a massif after the last cell of its footprint (the one at its south vertex)
     for (const m of massifs?.list ?? []) {
       const xs = m.x0 + m.fw, ys = m.y0 + m.fh, z = iso.zf(2 * xs - 1, 2 * ys - 1);
-      this.rows[2 * m.v - 2].push({ def: m.def, img: art.objImg.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, z)) });
+      this.rows[2 * m.v - 2].push({ def: m.def, img: art.objImg.get(m.def.id)!, shade: m.shade, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, z)) });
       maxH = Math.max(maxH, m.def.h);
     }
     this.reach = Math.ceil(maxH / FH) + 2;
@@ -304,7 +304,7 @@ export class ArtBaker {
       for (const p of this.rows[v] ?? []) {
         const d = p.def, ox = p.sx - d.anchor.x, oy = p.sy - d.anchor.y;
         if (ox > x0 + w || ox + d.w < x0 || oy > y0 + h || oy + d.h < y0) continue;
-        ctx.drawImage(p.img, ox, oy);
+        if (p.shade !== undefined && p.shade < 1) { ctx.filter = `brightness(${p.shade})`; ctx.drawImage(p.img, ox, oy); ctx.filter = 'none'; } else ctx.drawImage(p.img, ox, oy);
       }
     }
     if (o.zones || o.grid) this.lines(ctx, Math.floor(umin / 2) - 1, Math.ceil(umax / 2) + 1, Math.floor(vmin / 2) - 1, Math.ceil(vmax / 2) + 1, o);
