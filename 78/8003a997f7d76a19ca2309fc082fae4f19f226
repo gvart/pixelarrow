@@ -1,0 +1,53 @@
+scripts/war/art/build.mjs
+  s_cfc22b058125c4::t_bb9be2d36c9151 88
+  s_cfc22b058125c4::t_035220a3e3ed03 196-204,209
+  s_cfc22b058125c4::t_7f50b85a343dae 154,164
+  s_cfc22b058125c4::t_028d3927989f2b 170
+  s_cfc22b058125c4::t_36b5daa0a311b3 167-169,171-193
+  s_cfc22b058125c4::t_83cd284fe323c6 212-213
+  s_cfc22b058125c4::t_ddf3a10fee61d2 95,133
+  s_cfc22b058125c4::t_e380af55075b2f 1-87,89-94,97-132,134-142,146,148-153,155-163,165-166,194-195,205-208,210-211,214-228
+  s_cfc22b058125c4::t_01acb88c1769b2 96,143-145,147
+scripts/war/art/preview.mjs
+  s_cfc22b058125c4::t_ec79047a00569b 1-45,48-49,52-56,58-81,83-87,89-92
+  s_cfc22b058125c4::t_d457263d96b0e1 46-47,50-51,57,88
+  s_cfc22b058125c4::t_0ef3ff01b22c82 82
+scripts/war/art/assets.mjs
+  s_cfc22b058125c4::t_7f50b85a343dae 28
+  s_cfc22b058125c4::t_a2910b9db78588 11
+  s_cfc22b058125c4::t_01acb88c1769b2 9-10,12-14,18
+  s_cfc22b058125c4::t_36b5daa0a311b3 22-26,31-32,35,38-40,42
+  s_cfc22b058125c4::t_f186d43e6924d7 1-5,7-8,16-17,19-20
+  s_cfc22b058125c4::t_a5037df2d4dd48 30,37
+  s_cfc22b058125c4::t_ddf3a10fee61d2 6
+  s_cfc22b058125c4::t_035220a3e3ed03 15,21,27,29,33-34,36,41
+public/war/objects/objects.json
+  s_cfc22b058125c4::t_7f50b85a343dae 5-9,12-13,16-32,34-46,49-50,52-60,79-118,120-122,124-276
+  s_cfc22b058125c4::t_035220a3e3ed03 10-11,14
+  s_cfc22b058125c4::t_663e52a19b263a 1-4,277
+  s_cfc22b058125c4::t_02aa5763599568 15,33,47-48,51,61-78,119,123
+public/war/tiles/tiles.json
+  s_cfc22b058125c4::t_02aa5763599568 16-17,21,23-26,31-32,44,46,49-50,52-54,57-60,62-66,68-69,71,73-81,83,85-86,88-93,95-96,217
+  s_cfc22b058125c4::t_01acb88c1769b2 20,22,28-30,35,40,43,48,51,55,157-216,218-337,344-351,355
+  s_cfc22b058125c4::t_035220a3e3ed03 18-19,34,36-39,41-42,45,47
+  s_cfc22b058125c4::t_bb9be2d36c9151 56,61,67,70,72,82,84,87,94
+  s_cfc22b058125c4::t_663e52a19b263a 1-15,27,33,97-156,338-343,352-354,356-358
+scripts/war/art/fetch.mjs
+  s_cfc22b058125c4::t_f82e480d1739c2 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "788003a997f7d76a19ca2309fc082fae4f19f226",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
