@@ -18,6 +18,8 @@ export type ToWorker =
   // economy (M2b, the real sim only): dev claims and stock, placement checks answered by `reply`
   | { t: 'claim'; team: number; x: number; y: number; r?: number }
   | { t: 'stock'; team: number; res: ResourceKind; n: number }
+  | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
+  | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
   | { t: 'check'; id: number; team: number; type: BuildingType; x: number; y: number; rot: 0 | 1 }
   | { t: 'checkWall'; id: number; team: number; wall: Omit<WallOrder, 'kind' | 'squad'> };
 
@@ -63,6 +65,31 @@ function bots(s: WarSim, snap: ReturnType<WarSim['snapshot']>): void {
   }
 }
 
+/**
+ * Step the sim (and bots) up to `max` ticks at once: every 20 ticks each idle squad of `team` (see below) is sent to the
+ * unfinished site of the team nearest it; stops when none is left. One snapshot is posted at the end.
+ */
+function prebuild(s: WarSim, team: number, max: number): void {
+  for (let t = 0; t < max; t++) {
+    s.step();
+    brains!.tick();
+    if (t % 20) continue;
+    const snap = s.snapshot(), open = (snap.buildings ?? []).filter((b) => b.team === team && (b.state === 'foundation' || b.state === 'scaffold'));
+    if (!open.length) break;
+    const units = new Map(snap.units.map((u) => [u.id, u]));
+    for (const q of snap.squads) {
+      const us = q.units.map((id) => units.get(id)!).filter((v) => v && v.state !== 'dead'), u = us[0];
+      // idle builders: not on a build order, or on one with nobody labouring, hauling or walking to it
+      // (every 400 ticks all of them again: a squad can get stuck on a site it cannot reach)
+      if (q.team !== team || !u || (t % 400 && q.order === 'build' && us.some((v) => v.state === 'build' || v.carry || v.state === 'move'))) continue;
+      if (q.order === 'build') s.order({ kind: 'stopWork', squad: q.id });
+      const site = open.reduce((a, b) => (Math.hypot(b.x - u.x, b.y - u.y) < Math.hypot(a.x - u.x, a.y - u.y) ? b : a));
+      s.order({ kind: 'build', squad: q.id, site: site.id });
+    }
+  }
+  tick();
+}
+
 onmessage = (e: MessageEvent<ToWorker>) => {
   const m = e.data;
   if (m.t === 'init') {
@@ -77,6 +104,8 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'order') sim.order(m.o);
   else if (m.t === 'claim') { build(sim)?.claim(m.team, m.x, m.y, m.r); }
   else if (m.t === 'stock') build(sim)?.addStock(m.team, m.res, m.n);
+  else if (m.t === 'prebuild') prebuild(sim, m.team, m.max);
+  else if (m.t === 'skip') { for (let i = 0; i < m.ticks; i++) { sim.step(); brains!.tick(); } tick(); }
   else if (m.t === 'check') postMessage({ reply: m.id, place: build(sim)?.checkPlacement(m.team, m.type, m.x, m.y, m.rot) ?? null });
   else if (m.t === 'checkWall') postMessage({ reply: m.id, wall: build(sim)?.checkWall(m.team, m.wall) ?? null });
   else if (m.t === 'speed') {

@@ -93,8 +93,17 @@ export function applyScenario(s: SandboxScene, sc: Scenario): void {
   for (const c of e?.claims ?? []) s.sim.claim(c.team, c.x, c.y, c.r);
   for (const [r, n] of Object.entries(e?.stock ?? {})) s.sim.addStock(0, r as ResourceKind, n);
   for (const q of sc.squads) s.sim.spawn(q.team === 0 ? 'you' : 'bot', q.team, q.cls, q.count, q.x, q.y, q.bot);
-  // squad ids follow the spawn order
-  for (const t of e?.sites ?? []) s.sim.order({ kind: 'placeBuilding', squad: t.squad, type: t.type, x: t.x, y: t.y });
+  // squad ids follow the spawn order; walls before the sites (stairs and ladders lean on them)
+  const phases = [...new Set([...(e?.walls ?? []), ...(e?.sites ?? [])].map((q) => q.phase ?? 0))].sort((a, b) => a - b);
+  for (const p of phases) {
+    for (const { squad, phase, ...w } of e?.walls ?? []) if ((phase ?? 0) === p) s.sim.order({ kind: 'placeWall', squad, ...w });
+    for (const t of e?.sites ?? []) if ((t.phase ?? 0) === p) s.sim.order({ kind: 'placeBuilding', squad: t.squad, type: t.type, x: t.x, y: t.y, rot: t.rot });
+    if (e?.prebuild) s.sim.prebuild(0, e.prebuild);
+  }
+  for (const o of sc.after?.orders ?? []) s.sim.order(o);
+  if (sc.after?.settle) s.sim.skip(sc.after.settle);
+  for (const q of sc.after?.squads ?? []) s.sim.spawn(q.team === 0 ? 'you' : q.bot ? 'bot' : 'raiders', q.team, q.cls, q.count, q.x, q.y, q.bot);
+  for (const o of sc.after?.then ?? []) s.sim.order(o);
   s.focus(sc.camera.x, sc.camera.y, sc.camera.zoom);
 }
 
