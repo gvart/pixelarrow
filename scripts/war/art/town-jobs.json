@@ -1,0 +1,13 @@
+{
+  "note": "PixelLab map objects for the town dressing (PROMPTS_ART.md \"Town dressing\"); raws via node scripts/war/art/town.mjs --fetch",
+  "objects": {
+    "house-a": "3d4a52ba-6a0e-4958-913b-5aa4ed347132",
+    "house-b": "76da2040-aa06-4263-9fac-99aa91826f84",
+    "cottage": "c44a9cff-9941-4d41-88d3-3939c169322d",
+    "temple": "2b6728a4-ee34-4884-afca-bf1999481bfb",
+    "stoa": "72d480c0-fc60-4c6d-a297-a0ef84dc3452",
+    "statue": "7a7534bb-969a-4c00-8ee5-142cd55c2442",
+    "well": "60df485f-acce-4807-8454-4e63dbf4349c",
+    "jetty": "ab675632-0488-4d6d-9822-031c8a2f4565"
+  }
+}
