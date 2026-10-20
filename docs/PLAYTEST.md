@@ -17,12 +17,14 @@ The first start packs the sprite sheets (a few minutes). You play dev player 1 i
    stand in a region.
 2. **Enter home.** Double-click Dodona (or select it, Enter). Your squad joins the live region at the north entry
    (pan there: the camera opens on the middle). Shift+W goes back.
-3. **March out.** On the world map select Dodona (your men) and click a lit neighbour: **dodona-e** (then Kleisoura).
-   A home region has no claim points, so nobody builds there: the first camp goes up on claimed ground outside.
-4. **Raid a neutral lair.** Kleisoura or a dodona ring region: clear the wolves, boars, bears, bandits round the banner.
-5. **Claim.** Right-click the banner with a squad (30 s, no foes near): its radius becomes your influence.
-6. **Gather and build.** B opens the build bar: a **camp**, then a **storehouse** inside your influence; right click a
-   wood or stone node to gather.
+3. **Build your camp at home first.** A home is its alliance's from the season's start: influence (radius 64) round the
+   home town (Dodona: the agora south-east of the map's middle; the town's storehouses are yours). March your squad
+   there, right click a wood or stone node to gather (the men carry it to the nearest store of yours), then B opens the
+   build bar: a **camp**, then a **storehouse** inside your influence.
+4. **March out.** On the world map select Dodona (your men) and click a lit neighbour: **dodona-e** (then Kleisoura).
+5. **Raid a neutral lair.** Kleisoura or a dodona ring region: clear the wolves, boars, bears, bandits round the banner.
+6. **Claim.** Right-click the banner with a squad (30 s, no foes near): its radius becomes your influence; build there
+   as at home.
 7. **Recruit and craft.** R roster (recruit at home for food, squad, gear, levels). Click a forge to queue an item.
 8. **Caravan.** Build or capture a **handcart**, load it, escort it to a frontier town (H on the world map plans a haul).
 9. **Trade.** In a frontier town (Kleisoura, Stymphalia, Achelous, Ammos) press K: rent a stall, stow goods, list an offer.

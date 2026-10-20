@@ -4,7 +4,7 @@ import { CELL, VisionMap } from '../../../src/war/net/interest';
 import { decodeInfluence, encodeInfluence, NODES_EVERY, packNode, unpackNode } from '../../../src/war/net/economy';
 import { NET_VERSION, VISION, type JoinMsg } from '../../../src/war/net/protocol';
 import { createSim } from '../../../src/war/sim';
-import { CORPSE_TICKS, WarRoom } from '../../src/war/room';
+import { CORPSE_TICKS, HOME_CLAIM_R, homeAnchor, WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { spot } from './spot';
 
@@ -275,6 +275,27 @@ describe('WarRoom economy view (nodes, influence)', () => {
     expect(unpackNode(packNode(n))).toEqual(n);
     const mask = new Uint8Array([0, 2, 2, 0, 3, 1, 2]);
     expect(decodeInfluence(7, 1, 1, encodeInfluence(mask, 1), 1).mask).toEqual(new Uint8Array([0, 2, 2, 0, 2, 0, 2]));
+  });
+});
+
+describe('WarRoom home regions', () => {
+  it('a fresh home gives its alliance influence at the home town from the start', () => {
+    const home = warRegion('dodona')!;
+    const r = new WarRoom({ region: home, seed: 1, cap: 600, home: 0 });
+    const a = homeAnchor(home), infl = r.sim.influence();
+    expect(infl.mask[Math.floor(a.y) * home.w + Math.floor(a.x)] & 1).toBe(1);
+    // building rights round the town: some camp spot within the anchor's radius takes a camp of team 0, never of team 1
+    let ok0 = false, ok1 = false;
+    for (let d = 46; d < HOME_CLAIM_R - 4 && !ok0; d += 2)
+      for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) {
+        ok0 ||= r.sim.checkPlacement(0, 'camp', a.x + dx, a.y + dy).ok;
+        ok1 ||= r.sim.checkPlacement(1, 'camp', a.x + dx, a.y + dy).ok;
+      }
+    expect(ok0).toBe(true);
+    expect(ok1).toBe(false);
+    // the anchor survives an eviction (it is sim state)
+    const back = WarRoom.restore({ region: home, seed: 1, cap: 600 }, r.saveState(), new Map());
+    expect(back.sim.influence().mask[Math.floor(a.y) * home.w + Math.floor(a.x)] & 1).toBe(1);
   });
 });
 

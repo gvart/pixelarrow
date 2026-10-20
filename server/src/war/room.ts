@@ -136,6 +136,21 @@ export interface RoomOptions {
   fightQuiet?: number;
   /** M7f: a fresh room wakes the region's lairs and guardians (a neutral region on its own map). */
   wild?: boolean;
+  /**
+   * The alliance whose home this region is: a fresh room (a new season, docs/WAR.md depth 0 "owned") gives it an
+   * influence anchor of HOME_CLAIM_R at its home town, so it may build at home from the start (homes have no claim points).
+   */
+  home?: number;
+}
+
+/** Influence radius of a home's anchor (tiles): the town (pieces within ~42 tiles of its centre) and a ring round it. */
+export const HOME_CLAIM_R = 64;
+
+/** A home's anchor: the centre of its pre-built town (the map centre when it has none). */
+export function homeAnchor(region: RegionData): { x: number; y: number } {
+  const ps = (region.prebuilt ?? []).filter((p) => !p.tiles);
+  if (!ps.length) return { x: region.w / 2, y: region.h / 2 };
+  return { x: Math.round(ps.reduce((a, p) => a + p.x, 0) / ps.length) + 0.5, y: Math.round(ps.reduce((a, p) => a + p.y, 0) / ps.length) + 0.5 };
 }
 
 /** M7f: a landmark as the room reports it to the world (src/war/net/world.ts LandmarkWorld; back: minutes, not a time). */
@@ -212,6 +227,10 @@ export class WarRoom {
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
     this.run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     if (o.wild) this.sim.spawnMobs();
+    if (o.home !== undefined) {
+      const a = homeAnchor(o.region);
+      this.sim.claim(o.home, a.x, a.y, HOME_CLAIM_R);
+    }
     this.snap = this.sim.snapshot();
   }
 

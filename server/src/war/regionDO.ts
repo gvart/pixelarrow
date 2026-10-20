@@ -97,7 +97,9 @@ export class WarRegionDO extends DurableObject<Env> {
     if (!data) return null;
     // M7f: a fresh region wakes its authored lairs and guardians
     const wild = !!(data.lairs?.length || data.guardians?.length);
-    return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', wild };
+    // a home is its alliance's from the season's start: it builds there at once (WarRoom home anchor)
+    const home = ALLIANCES.find((a) => a.home === region)?.id;
+    return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', wild, home };
   }
 
   /**
