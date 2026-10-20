@@ -3,12 +3,16 @@ export const SPOTS = {
   "entry_skythia-e": [256.5, 10.5],
   "entry_kyrene-e": [256.5, 502.5],
   "entry_ammos": [10.5, 256.5],
-  "lake": [361.8, 168.4],
-  "fortress": [418.8, 246.9],
-  "landmark": [401, 282],
-  "market": [293.6, 241.7],
-  "silver": [186.9, 329],
+  "lake": [398.9, 159.1],
+  "fortress": [68.5, 84.5],
+  "agora": [301, 320],
+  "palace": [364, 241],
+  "necropolis": [137, 311],
+  "postern": [373, 203],
+  "landmark": [269, 311],
+  "market": [68.5, 440.5],
+  "silver": [338.8, 112],
   "salt": [81.6, 319.8],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":295.5,"y":246.5},{"x":398.5,"y":269.5}] as const;
+export const CLAIM_POINTS = [{"x":69.5,"y":445.5},{"x":301.5,"y":321.5}] as const;
