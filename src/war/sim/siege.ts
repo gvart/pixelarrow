@@ -367,6 +367,30 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       return true;
     },
     get: (id: number) => engines[id] as Readonly<Engine> | undefined,
+    /** M6h (server): cart id leaves the field for a world transit (no wreck, no pile); its type and cargo. */
+    stow(id: number): { type: 'handcart' | 'wagon'; hold: Hold } | null {
+      const e = engines[id];
+      if (!alive(e) || !cart(e)) return null;
+      const hold = e.hold ?? newHold();
+      e.hold = newHold();
+      e.state = 'destroyed';
+      e.hp = 0;
+      e.mode = 'none';
+      e.crew = -1;
+      return { type: e.type as 'handcart' | 'wagon', hold };
+    },
+    /** M6i (server): a capture between linked accounts is undone: the cart is `owner`'s (team `team`) again. */
+    setOwner(id: number, team: number, owner: string): void {
+      const e = engines[id];
+      if (!alive(e) || !cart(e)) return;
+      e.team = team;
+      e.owner = owner;
+      e.crew = -1;
+      e.mode = 'none';
+      e.cap = 0;
+      e.capT = -1;
+      e.capO = '';
+    },
     alive: (id: number) => alive(engines[id]),
     built: (id: number) => built(engines[id]),
     /** Squad `crew` takes the engine (of its team, built, not raised); false if it cannot. */

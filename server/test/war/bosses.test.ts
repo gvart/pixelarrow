@@ -1,8 +1,8 @@
-/** W-45: a region boss kill is written once: the kill, the killers' tallies and the boss's loot in their stashes. */
+/** W-45: a region boss kill is written once: the kill and the killers' tallies; M6e: its loot is physical (a pile in the room). */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { devLogin } from '../helpers';
-import { applyBossKill, type BossSlain } from '../../src/war/bosses';
+import { applyBossKill, bossItems, type BossSlain } from '../../src/war/bosses';
 import { fightStats } from '../../src/war/persons';
 import { BOSS_TIERS, bossLoot } from '../../../src/data/warBosses';
 import type { FightReport } from '../../../src/war/types';
@@ -10,7 +10,7 @@ import type { FightReport } from '../../../src/war/types';
 const DB = () => env.DB!;
 
 describe('boss kill write-back', () => {
-  it('records the kill and the last blow\'s alliance, counts it for every killer, mints the loot once', async () => {
+  it('records the kill and the last blow\'s alliance, counts it for every killer, mints nothing (the loot falls as a pile)', async () => {
     const a = await devLogin(7401), b = await devLogin(7402);
     await DB().prepare('INSERT INTO war_alliance_members (season, player_id, alliance, joined_at) VALUES (1, ?1, 2, 0)').bind(a.playerId).run();
     const e: BossSlain = { t: 4200, kind: 'bossSlain', region: 'siren', boss: 'scylla', killers: [`p:${a.playerId}`, `p:${b.playerId}`, 'mob'] };
@@ -20,10 +20,12 @@ describe('boss kill write-back', () => {
     expect(kill).toEqual({ boss: 'scylla', alliance: 2, player_id: a.playerId });
     const stats = await DB().prepare('SELECT player_id, bosses FROM war_player_stats WHERE player_id IN (?1, ?2) ORDER BY player_id').bind(a.playerId, b.playerId).all();
     expect(stats.results).toEqual([{ player_id: a.playerId, bosses: 1 }, { player_id: b.playerId, bosses: 1 }].sort((x, y) => x.player_id - y.player_id));
-    const items = (await DB().prepare("SELECT player_id, item FROM war_items WHERE uid LIKE 'boss:%' ORDER BY uid").all<{ player_id: number; item: string }>()).results;
+    expect((await DB().prepare("SELECT COUNT(*) AS n FROM war_items WHERE uid LIKE 'boss:%'").first<{ n: number }>())!.n).toBe(0);
+    // the pile's items: the same for the same kill
+    const items = bossItems('siren', 'run1', e);
     expect(items).toHaveLength(BOSS_TIERS[3].picks);
-    expect(items.map((x) => JSON.parse(x.item).def)).toEqual(bossLoot('scylla', 'siren:run1:4200:scylla').map((d) => d.def));
-    expect(items.map((x) => x.player_id)).toEqual(items.map((_, i) => [a.playerId, b.playerId][i % 2]));
+    expect(items.map((x) => x.def)).toEqual(bossLoot('scylla', 'siren:run1:4200:scylla').map((d) => d.def));
+    expect(bossItems('siren', 'run1', e)).toEqual(items);
   });
 
   it('ignores an unknown boss or one with no player among the killers', async () => {

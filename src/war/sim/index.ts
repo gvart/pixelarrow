@@ -1544,7 +1544,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         const amt = Math.min(Math.max(1, n) * PORTER.loads, room, x.n / CARRY_N);
         let moved = 0;
         if (load) for (const src of takeHolds(s, h)) moved += moveHold(src, e.hold!, amt - moved, x.res, pile ? 1 : Infinity);
-        else moved = moveHold(e.hold!, h.hold, amt, x.res);
+        else moved = moveHold(e.hold!, h.hold, amt, x.res, Infinity, true);
         x.n -= moved * CARRY_N;
         if (moved <= 1e-9) end();
         continue;
@@ -1569,7 +1569,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           }
           x.n -= m * CARRY_N;
           moved += m;
-        } else moved += moveHold(pack, h.hold, Math.min(loads(pack), h.cap - loads(h.hold)), x.res);
+        } else moved += moveHold(pack, h.hold, Math.min(loads(pack), h.cap - loads(h.hold)), x.res, Infinity, true);
       }
       if (!pending && moved <= 1e-9) end();
     }
@@ -2685,6 +2685,27 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const v = p.hold.items.reduce((a, it) => a + salvageValue(it), 0);
       p.hold.items = [];
       return v;
+    },
+    // M6e-M6i (server bridges): live holds the server moves goods in and out of (stalls, hand-offs, transits)
+    cargo(ref) {
+      if (ref.reserve !== undefined) return { slots: [{ hold: works.reserveOf(ref.reserve), cap: Infinity, x: -1, y: -1 }], team: ref.reserve, owner: '' };
+      if (ref.building !== undefined) {
+        const b = works.piece(ref.building), hd = works.holdOf(ref.building);
+        return b && hd ? { slots: [{ hold: hd, cap: b.def.chest ?? Infinity, x: b.x, y: b.y }], team: b.team, owner: b.owner } : null;
+      }
+      if (ref.cart !== undefined) {
+        const e = siege.get(ref.cart);
+        return e && e.hold && e.state !== 'destroyed' ? { slots: [{ hold: e.hold, cap: siege.cartCap(e.id), x: e.x, y: e.y }], team: e.team, owner: e.owner } : null;
+      }
+      const want = ref.persons ? new Set(ref.persons) : null;
+      const men = units.filter((u) => u.alive && (want ? !!u.person && want.has(u.person.id) : u.squad.id === ref.squad));
+      if (!men.length) return null;
+      return { slots: men.map((u) => ({ hold: (u.pack ??= newHold()), cap: PORTER.loads, x: u.x, y: u.y })), team: men[0].squad.team, owner: men[0].squad.owner };
+    },
+    stowCart: (id) => siege.stow(id),
+    setCartOwner: (id, team, owner) => siege.setOwner(id, team, owner),
+    dropPile(x, y, lots, items) {
+      return piles.drop(x, y, lots, items, tick)?.id ?? -1;
     },
     drawAt: (team, x, y, cost) => works.takeAt(team, x, y, cost),
     goodsAt: (team, x, y) => works.haveAt(team, x, y),

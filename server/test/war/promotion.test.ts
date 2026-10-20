@@ -1,6 +1,7 @@
 /** M5e promotion to elite in D1 (docs/WAR.md "Promote"; server/src/war/persons.ts promote). */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import { setGood } from './goods';
 import { api, devLogin } from '../helpers';
 import { applyFight, personOf, PROMOTE_MS, promoteCost, upkeepRate, UPKEEP, type PersonRow } from '../../src/war/persons';
 import { promoteBlocker } from '../../../src/war/sim/roster';
@@ -31,14 +32,14 @@ describe('promotion to elite', () => {
     const pre = warStatsOf(personOf((await row(a.id))!));
     const price = promoteCost('royal_guard');
     expect(price).toBeGreaterThan(0);
-    await DB().prepare("UPDATE war_stock SET amount = ?2 WHERE player_id = ?1 AND res = 'silver'").bind(me.playerId, price - 1).run();
-    expect(await code(await post(me.token, `/persons/${a.id}/promote`, { cls: 'royal_guard' }))).toBe('no_silver');
-    await DB().prepare("UPDATE war_stock SET amount = ?2 WHERE player_id = ?1 AND res = 'silver'").bind(me.playerId, price).run();
+    await setGood(me.playerId, 'coin', price - 1);
+    expect(await code(await post(me.token, `/persons/${a.id}/promote`, { cls: 'royal_guard' }))).toBe('no_coin');
+    await setGood(me.playerId, 'coin', price);
     const res = await post(me.token, `/persons/${a.id}/promote`, { cls: 'royal_guard' });
     expect(res.status).toBe(200);
     expect((await res.json<{ until: number }>()).until).toBeGreaterThan(Date.now() + PROMOTE_MS - 60_000);
     let r = await roster(me.token);
-    expect(r.stock.silver).toBe(0);
+    expect(r.stock.coin ?? 0).toBe(0);
     expect(r.persons.find((p) => p.id === a.id)).toMatchObject({ state: 'training', cls: 'hoplite', trainTo: 'royal_guard', gear: {} });
     expect(r.items.length).toBeGreaterThan(0); // his old kit is in the stash
     // done: the elite, rare kit, level kept; baked as the elite class

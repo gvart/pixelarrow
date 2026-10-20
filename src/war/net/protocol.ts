@@ -13,6 +13,7 @@
  *   client -> check  { t, id, ... }                            a placement check for the player's team -> checked
  *   client -> mend   { t, kind, building, uid }                M5h4: repair or salvage stash item `uid` at a workplace of
  *                    the player's team (the server loads the item; queue state rides on BuildingSnap.queue)
+ *                    M6: load / unload / escort / salvagePile for his own squads (holders checked by the room)
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
@@ -20,10 +21,10 @@
  */
 import { z } from 'zod';
 import { SQUAD_MAX } from '../sim/soldiers';
-import type { BridgePlan, BuildingType, Order, PlaceResult, SquadId, WallPlan } from '../types';
+import type { BridgePlan, BuildingType, Order, PlaceResult, ResourceKind, SquadId, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 5;
+export const NET_VERSION = 6;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -51,6 +52,15 @@ const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'fa
   // M5h3 Fortifier field tiles; towerBridge (listed for checks: the sim never places one)
   'stakes', 'ditch', 'towerBridge'] as const satisfies readonly BuildingType[];
 const rot = z.union([z.literal(0), z.literal(1)]).optional();
+/** Every good (src/war/types.ts ResourceKind). */
+export const GOODS = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'pitch', 'hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'coin'] as const satisfies readonly ResourceKind[];
+export const goodSchema = z.enum(GOODS);
+/** M6: one holder on the field: a store or chest (building), a cart, a loot pile. */
+const holderRef = z
+  .object({ building: id.optional(), cart: id.optional(), pile: id.optional() })
+  .strict()
+  .refine((o) => [o.building, o.cart, o.pile].filter((x) => x !== undefined).length === 1, 'one holder');
+const amount = z.number().finite().positive().max(1e6);
 /** building or siege target: exactly one. */
 const target = { building: id.optional(), siege: id.optional() };
 const oneTarget = (o: { building?: number; siege?: number }) => (o.building === undefined) !== (o.siege === undefined);
@@ -98,6 +108,12 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('attackBuilding'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
   z.object({ kind: z.literal('ignite'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
   z.object({ kind: z.literal('extinguish'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
+  // M6 trade (src/war/sim/trade.ts): porters and carts load from and unload into holders, escort a cart, a smith breaks
+  // up a pile's item; the room checks the holder exists and the squad may use it, the sim the rest
+  z.object({ kind: z.literal('load'), squad: id, from: holderRef, res: goodSchema.optional(), n: amount.optional() }),
+  z.object({ kind: z.literal('unload'), squad: id, to: holderRef, res: goodSchema.optional() }),
+  z.object({ kind: z.literal('escort'), squad: id, cart: id }),
+  z.object({ kind: z.literal('salvagePile'), squad: id, pile: id, uid: z.string().min(1).max(120) }),
 ]);
 /** A sim order as it comes over the wire: the room fills in `team` for squad-less orders (the player's team). */
 type Teamless<O> = O extends { team: number } ? Omit<O, 'team'> & { team?: number } : O;

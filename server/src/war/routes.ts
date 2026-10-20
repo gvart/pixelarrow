@@ -2,24 +2,25 @@
  * War roster API (/api/war/*, M5e): the player's persistent soldiers (./persons.ts). Signed in and playable like the
  * online routes; bodies zod-checked.
  *
- *   GET  /roster                      persons, caps, recruit pools, stock, stash items, captives held, upkeep
+ *   GET  /roster                      persons, caps, recruit pools, home strongroom (stock, items), captives held, upkeep
  *   POST /recruit       { town, count }        L1 militia from the town's pool (food)
- *   POST /persons/:id/equip { slot, uid|null } put on a stash item, or take one off
+ *   POST /persons/:id/equip { slot, uid|null } put on a strongroom item, or take one off
  *   POST /persons/:id/level { attrs?, skill? } spend points, take a skill at levels 3 / 7
  *   POST /squad         { ids }                the field squad in slot order (<= SQUAD_MAX)
- *   POST /persons/:id/train  { cls }          train at a town's barracks / range (10 min, a kit's silver)
- *   POST /persons/:id/promote { cls }        promote to an elite of his family at a fortress (30 min, the elite rare kit's silver)
- *   POST /persons/:id/ransom                  pay a captive's ransom (silver to his captor): he comes home
- *   POST /persons/:id/retire { civ? }         retire (half his gear's value back); level 10: into a civilian class
- *   GET  /treasury                            the alliance's (clan's) silver pool, the player's role, the latest audit log
- *   POST /treasury/deposit { amount }         a member puts silver of his war stock into the pool
+ *   POST /persons/:id/train  { cls }          train at a town's barracks / range (10 min, a kit's coin)
+ *   POST /persons/:id/promote { cls }        promote to an elite of his family at a fortress (30 min, the elite rare kit's coin)
+ *   POST /persons/:id/ransom                  pay a captive's ransom (coin to his captor's strongroom): he comes home
+ *   POST /persons/:id/retire { civ? }         retire (half his gear's value back in coin); level 10: into a civilian class
+ *   GET  /treasury                            the alliance's (clan's) strongbox coin, the player's role, the latest audit log
+ *   POST /treasury/deposit { amount }         a member puts coin of his home strongroom into the strongbox
  *   POST /treasury/ransom/:id                 the leader or an officer pays a member's captive's ransom from the pool
  *   POST /captives/:id/release                the captor lets a captive he holds go
  *   POST /persons/:id/node  { node }          M5h4: a civilian takes a profession node
- *   POST /persons/:id/respec                  M5h4: his nodes reset (50 silver, once a day)
- *   GET  /stash                               M5h4: stash items, each with the region whose workplace holds it (or null);
- *                                             equip from it with /persons/:id/equip; repair and salvage go over the
- *                                             region socket (`mend`), at a workplace of the player's team
+ *   POST /persons/:id/respec                  M5h4: his nodes reset (50 coin, once a day)
+ *   GET  /stash                               M6e: where his things are: items D1 keeps with their place (holder id) or
+ *                                             the region whose workplace holds them, and the holders of the region rooms
+ *                                             (chests, carts, packs) as saved; equip from the strongroom with
+ *                                             /persons/:id/equip; repair and salvage go over the region socket (`mend`)
  *   POST /dev/seed      { squad?, reserve? }   DEV_AUTH=1 only: a full roster to test with
  */
 import { Hono } from 'hono';
@@ -105,7 +106,7 @@ war.get('/treasury', requirePlayable, async (c) => c.json(await treasury(db(c.en
 
 war.post('/treasury/deposit', requirePlayable, async (c) => {
   const b = await readJson(c, z.object({ amount: z.number().int().min(1).max(1_000_000) }), MAX_BODY);
-  return c.json({ silver: await deposit(db(c.env), c.get('session').pid, b.amount, Date.now()) });
+  return c.json({ coin: await deposit(db(c.env), c.get('session').pid, b.amount, Date.now()) });
 });
 
 war.post('/treasury/ransom/:id', requirePlayable, async (c) => {
@@ -130,7 +131,7 @@ war.post('/persons/:id/respec', requirePlayable, async (c) => {
   return c.json({ next: await respec(db(c.env), c.get('session').pid, id, Date.now()) });
 });
 
-war.get('/stash', requirePlayable, async (c) => c.json({ items: await stash(db(c.env), c.get('session').pid) }));
+war.get('/stash', requirePlayable, async (c) => c.json(await stash(db(c.env), c.get('session').pid)));
 
 war.post('/dev/seed', requirePlayable, async (c) => {
   if (c.env.DEV_AUTH !== '1') throw new ApiError(404, 'not_found', 'No such endpoint');

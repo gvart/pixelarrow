@@ -17,6 +17,8 @@
  *    the region steps on exactly where it was saved. A region with no saved state starts fresh and sends home anyone D1
  *    still has deployed there.
  *
+ * M6e holders: every save also snapshots the room's player holders (chests, carts, packs) to D1 war_region_holds.
+ *
  * M5h4 crafting: a `mend` message takes the stash item from D1 to the workplace (./crafting.ts takeForMend) and the
  * room queues it; every tick's `crafted` events are written back (applyCrafts: minted items, repairs, salvage; keyed,
  * idempotent) and mend items whose order went go back to the stash.
@@ -35,6 +37,7 @@ import { logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { applyFight, claimForJoin, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
+import { saveRegionHolds } from './holders';
 import { isWorldRegion } from '../../../src/war/world/graph';
 import { joinRefusal } from '../../../src/war/world/access';
 import { ALLIANCES } from '../../../src/war/world/alliances';
@@ -303,6 +306,9 @@ export class WarRegionDO extends DurableObject<Env> {
     const st = room.alive() === 0 && room.online() === 0 ? null : room.saveState();
     this.saving = this.saving.then(() => storeState(this.ctx.storage, st)).catch((e) => logError('war_save_failed', e));
     this.ctx.waitUntil(this.saving);
+    // M6e: what its holders hold, for the stash screen (D1 snapshot; the room state above is the truth)
+    const d = this.env.DB, rows = room.holdRows();
+    if (d) this.write('holds', () => saveRegionHolds(d, room.region.id, rows, Date.now()));
   }
 
   private flushReleased(room: WarRoom): void {

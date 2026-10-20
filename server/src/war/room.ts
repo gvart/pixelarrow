@@ -23,6 +23,11 @@
  *    of a stash item the DO loaded from D1. tick() hands out the sim's `crafted` events (the DO writes them to D1, keyed
  *    by `run` + order id, which survives a restore) and the uids of mend items whose order went (cancelled, refused,
  *    workplace lost: back to the stash). The queues themselves live in the sim state.
+ *  - holders (M6e): a crafted item is physical: tick() puts it (uid `c:<key>`) in the workplace's output chest, the
+ *    maker's owner's chest nearest the workplace with room, else his team's home strongroom in the region; a slain
+ *    boss's loot falls as a pile where it fell. Trade orders (load, unload, escort, salvagePile) name holders the room
+ *    checks exist and are the player's to use (his chest or cart, his team's store; any pile or a foe's holder to load
+ *    from: the sim checks guards and influence). holdRows() is what the DO snapshots to D1 (war_region_holds).
  */
 import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
@@ -38,6 +43,9 @@ import type { BossSlain } from './bosses';
 import { honoursOf } from '../../../src/war/sim/honours';
 import { CHOKEPOINTS } from '../../../src/war/world/season';
 import { worldRegion } from '../../../src/war/world/graph';
+import { bossItems } from './bosses';
+import { craftKey } from './crafting';
+import { contents, fill, room as freeLoads } from './cargo';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -417,6 +425,20 @@ export class WarRoom {
     const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < this.region.w && y < this.region.h;
     const allIn = (a?: number[]) => !a || a.every((v, i) => (i % 2 ? v < this.region.h : v < this.region.w) && v >= 0);
     const ownSite = (id: number) => this.snap.buildings?.find((b) => b.id === id)?.team === p.team;
+    const building = (id: number) => this.snap.buildings?.find((b) => b.id === id && b.goods !== undefined);
+    const cart = (id: number) => this.snap.sieges?.find((s) => s.id === id && s.owner !== undefined && s.state !== 'destroyed');
+    const pile = (id: number) => this.snap.piles?.some((x) => x.id === id) ?? false;
+    /** M6: a holder that exists; `put`: one the player may put into (his chest or cart, his team's store). */
+    const holder = (h: { building?: number; cart?: number; pile?: number }, put: boolean) => {
+      if (h.pile !== undefined) return !put && pile(h.pile);
+      if (h.cart !== undefined) {
+        const c = cart(h.cart);
+        return !!c && (!put || c.owner === me);
+      }
+      const b = h.building !== undefined ? building(h.building) : undefined;
+      if (!b) return false;
+      return !put || (b.type === 'chest' ? b.owner === me : b.team === p.team);
+    };
     switch (o.kind) {
       case 'attack':
         if (this.owners[o.target] === undefined || this.teams[o.target] === p.team) return 'badTarget';
@@ -448,6 +470,18 @@ export class WarRoom {
       case 'fortify': // M5h3: a building of his team
         if (!ownSite(o.kind === 'build' ? o.site : o.building)) return 'badTarget';
         break;
+      case 'load':
+        if (!holder(o.from, false)) return 'badTarget';
+        break;
+      case 'unload':
+        if (!holder(o.to, true)) return 'badTarget';
+        break;
+      case 'escort':
+        if (cart(o.cart)?.team !== p.team) return 'badTarget';
+        break;
+      case 'salvagePile':
+        if (!pile(o.pile)) return 'badTarget';
+        break;
     }
     const sent = (squad === undefined && o.kind !== 'cancelSite' ? { ...o, team: p.team } : o) as Order;
     if (squad !== undefined) this.bots.clear(squad);
@@ -471,6 +505,49 @@ export class WarRoom {
     this.log.push({ tick: this.currentTick, o });
     this.mends.push({ uid: item.uid, pid, building, def: item.def });
     return null;
+  }
+
+  /**
+   * M6e: a crafted item goes in the workplace's output chest: its owner's chest (of the team) nearest the workplace
+   * with room for it, else the team's home strongroom in the region. Its uid is the event's key (`c:<key>`).
+   */
+  deposit(e: Crafted): void {
+    e.item = { ...e.item, uid: `c:${craftKey(this.region.id, this.run, e.order)}` };
+    const wp = this.snap.buildings?.find((b) => b.id === e.building);
+    const chests = (this.snap.buildings ?? [])
+      .filter((b) => b.type === 'chest' && b.owner === e.owner && b.team === e.team && b.state === 'done')
+      .sort((a, b) => (wp ? (a.x - wp.x) ** 2 + (a.y - wp.y) ** 2 - ((b.x - wp.x) ** 2 + (b.y - wp.y) ** 2) : a.id - b.id));
+    for (const c of chests) {
+      const at = this.sim.cargo({ building: c.id });
+      if (at && freeLoads(at.slots) >= 0.2 - 1e-6 && !fill(at.slots, { lots: [], items: [e.item] }).items.length) return;
+    }
+    this.sim.cargo({ reserve: e.team })!.slots[0].hold.items.push(e.item);
+  }
+
+  /**
+   * M6e: the region's holders of players for the D1 snapshot (war_region_holds): chests, carts, each squad's packs.
+   * `ref`: b:<building>, c:<cart>, k:<squad>.
+   */
+  holdRows(): { ref: string; kind: 'chest' | 'cart' | 'packs'; pid: number; team: number; goods: Record<string, number>; items: Item[] }[] {
+    const out: ReturnType<WarRoom['holdRows']> = [];
+    const pidOf = (o: string) => (/^p:(\d+)$/.exec(o) ? Number(o.slice(2)) : null);
+    for (const b of this.snap.buildings ?? []) {
+      const pid = b.type === 'chest' && b.owner ? pidOf(b.owner) : null;
+      const at = pid !== null ? this.sim.cargo({ building: b.id }) : null;
+      if (pid !== null && at) out.push({ ref: `b:${b.id}`, kind: 'chest', pid, team: b.team, ...contents(at.slots) });
+    }
+    for (const s of this.snap.sieges ?? []) {
+      const pid = s.owner ? pidOf(s.owner) : null;
+      const at = pid !== null && s.state !== 'destroyed' ? this.sim.cargo({ cart: s.id }) : null;
+      if (pid !== null && at) out.push({ ref: `c:${s.id}`, kind: 'cart', pid, team: s.team, ...contents(at.slots) });
+    }
+    for (const s of this.snap.squads) {
+      const pid = pidOf(s.owner);
+      if (pid === null || !s.units.some((u) => this.snap.units[u]?.pack)) continue;
+      const at = this.sim.cargo({ squad: s.id });
+      if (at) out.push({ ref: `k:${s.id}`, kind: 'packs', pid, team: s.team, ...contents(at.slots) });
+    }
+    return out;
   }
 
   /** Uids of the stash items at this region's workplaces. */
@@ -525,6 +602,8 @@ export class WarRoom {
     const evs = this.sim.events();
     const crafted = evs.filter((e): e is Crafted => e.kind === 'crafted');
     const bosses = evs.filter((e): e is BossSlain => e.kind === 'bossSlain');
+    for (const e of crafted) if (e.what === 'craft') this.deposit(e);
+    for (const e of bosses) this.sim.dropPile(e.x ?? this.region.w / 2, e.y ?? this.region.h / 2, [], bossItems(this.region.id, this.run, e));
     // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
     const raided = evs.flatMap((e) => (e.kind === 'raid' ? [e.building] : []));
     for (const e of evs) if (e.kind === 'raid' && e.by !== undefined && e.by !== e.team) this.stormed.add(e.by);
