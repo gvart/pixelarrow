@@ -1,0 +1,23 @@
+scripts/war/art/buildings.mjs
+  s_cfc22b058125c4::t_074dcc1c352f66 613
+  s_cfc22b058125c4::t_d8fb65fa4eb66e 540-554
+  s_cfc22b058125c4::t_35db0019f4984f 529,533-535,561,563
+public/war/buildings/objects.json
+  s_cfc22b058125c4::t_24fde5033b4109 127,129,133-134,136,139,141-146,148-152,154,156-169,171-177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "99809e25e564bb8121cd4230a153e12b2d7f80c2",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
