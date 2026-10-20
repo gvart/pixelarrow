@@ -145,6 +145,11 @@ export class SimClient {
     this.send({ t: 'finishBridges', team });
   }
 
+  /** Scenarios (M6k): a finished, empty cart of `owner` at (x,y). */
+  spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number): void {
+    this.send({ t: 'cart', team, owner, type, x, y });
+  }
+
   /** Dev: add to a team's stockpile. */
   addStock(team: number, res: ResourceKind, n: number): void {
     this.send({ t: 'stock', team, res, n });
