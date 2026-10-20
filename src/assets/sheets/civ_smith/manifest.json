@@ -1,0 +1,83 @@
+{
+ "version": 2,
+ "class": "civ_smith",
+ "image": "civ_smith.png",
+ "frame": {
+  "w": 66,
+  "h": 91
+ },
+ "anchor": {
+  "x": 34,
+  "y": 87
+ },
+ "anchors": {
+  "south-east": {
+   "x": 33,
+   "y": 87
+  },
+  "north-east": {
+   "x": 31,
+   "y": 87
+  },
+  "south-west": {
+   "x": 34,
+   "y": 87
+  },
+  "north-west": {
+   "x": 35,
+   "y": 87
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 62,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 12
+  },
+  "run": {
+   "col": 24,
+   "frames": 12,
+   "fps": 16
+  },
+  "forge": {
+   "col": 36,
+   "frames": 12,
+   "fps": 8
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

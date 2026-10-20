@@ -2064,3 +2064,62 @@ cast shadows on pale backgrounds; when the dirt shares the trunk's colours, a `b
 the only clean cut. (5) Asked for a "timber stand", it drew a log pile; "a tight cluster of trees" gives the stand.
 (6) Place set pieces in their own glades and keep the cells in front of them (south-east) free of trees, or the canopy
 hides them.
+
+## 35. Civilians (ART-S)
+
+The six W-38 classes as soldier-format sheets, `src/assets/sheets/civ_<class>/` (SHEET_FORMAT v2, wrapped; rows SE,
+NE, SW, NW; `variation` and `rarity` off, no colour groups yet). Clips: `idle`, `walk`, `run` (the flee), the work
+clip(s), `hit`, `die`; 12 frames each. Work clips by class: cook `cook`, smith `forge`, merchant `trade`, engineer
+`build`, physician `heal`, forager `chop`, `mine`, `harvest` (the names `workClips` in src/war/view/anim.ts already
+plays for gathering and building). 104 PixelLab generations. Jobs, specs and the base edit prompts:
+`docs/v5/pixellab/CIV/` (`bases.jobs.json`, `<class>.jobs.json`, `<class>.sheet.json`); tools
+`scripts/art/pixellab/civ/` (`grid.mjs`, `prep.mjs`, `prompts.mjs`, `spec.mjs`, `view.mjs`) plus `mobs/build.mjs`
+(now with `rotations`, `mirror:` jobs and wrapping) and `anim2/ground.mjs`. Review: `shots/war/civ/` (git-ignored).
+
+**Bases: the militia re-dressed, not recoloured.** The militia's four game-facing rotations (character
+`4860b1e6-…`) packed into one 136 x 136 grid (`civ/grid.mjs pack`, SE NE / SW NW) and re-dressed with **one**
+`edit_image_pro_flash` text edit per class (6 generations for all four views, `no_background: true`); the same body,
+size, feet and face come back in every view, and the four views stay consistent with each other because they are
+one image. `transfer_outfit` / `edit_image` would cost 10–25 per call. Every edit opens `Re-dress the same man in all
+four views as {WHO}, a civilian, no armour{, no weapon}: remove the spear and the crimson cloak; keep the same body,
+size, pose, feet and face in each view.` and ends `Heavy shadows, desaturated dark (warm) colours, same pixel art
+style.` One hue family per class so they read apart at 58 px:
+
+| class | WHO · outfit · tools |
+| --- | --- |
+| cook | grim ancient Greek army cook · bareheaded, short dark hair and beard; dull rust-orange short tunic, sleeves rolled up; long stained greyed-linen apron to the shins · dark bronze cooking pot in the left hand, long wooden ladle in the right |
+| smith | grim ancient Greek blacksmith · bare muscular soot-darkened arms; short dark charcoal sleeveless tunic; thick dark brown leather apron chest to knees; rolled leather headband, full black beard · heavy iron hammer down in the right hand, long iron tongs in the left |
+| merchant | grim ancient Greek travelling merchant · wide flat-brimmed brown felt petasos; long dark teal-blue robe with a dull ochre border, dark ochre mantle over the left shoulder; fat leather satchel across the chest, coin purse · small dark bronze balance scale held up in the left hand |
+| engineer | grim ancient Greek siege engineer and master builder · low round grey-green felt cap; dull moss-green knee-length tunic, broad leather tool belt with chisel and plumb bob; coil of rope over the shoulder; short grey beard · heavy wooden mallet in the right hand, long wooden measuring rod in the left |
+| physician | grim old ancient Greek physician · bald, long grey hair and beard; long dull oatmeal-beige chiton to the ankles, dark slate-blue himation over the left shoulder; leather bag of herbs at the hip · tall plain wooden staff upright in the right hand ("no white cloth") |
+| forager | grim lean ancient Greek peasant forager, farmer and woodcutter · wide conical straw sun hat; rough undyed brown-grey sleeveless tunic, rope belt; wicker basket on his back · woodcutter's axe down in the right hand, sickle in the belt |
+
+**Clips.** pixminimax, 12 frames, 1 generation each, on a 96 x 96 canvas with the rotation at (14, 24)
+(`civ/prep.mjs`: head room for a raised hammer, width for a fall), `view: high top-down`. **Only south-west and
+north-west are generated; south-east and north-east are their mirrors** (build spec `"mirror:<facing>"`): half the
+generations, at the price of the tool changing hands in the mirrored rows. Every prompt word for word:
+`node scripts/art/pixellab/civ/prompts.mjs <class> <anim> <dir>`; the subject is the class's WHO with its tools
+(", seen from behind" on NW), initial pose "standing upright at rest, his arms down at his sides", `{hands}` = what
+each hand keeps ("the bronze pot stays in his left hand and the wooden ladle in his right hand"). The shared clips:
+
+- idle: `standing at rest in place: he takes a deep slow breath, the chest swelling and the shoulders lifting, then lets it out with a sigh, the shoulders dropping and the head dipping, shifts his weight from one foot to the other and glances to the side; the feet stay on the same spot, he does not walk away; {hands}; no effects`
+- walk: `walking in place {t} with an easy unhurried civilian gait, natural strides, his free arm swinging a little; {hands}; …`
+- run (SW): `fleeing in fear: running hard in place {t}, hunched forward, long fast strides, his free arm pumping, he throws one frightened glance back over his shoulder; {hands}; on the same spot, he does not move away; no dust, no effects`
+- run (NW, the wording that held the back view; initial pose "… seen from behind, his back to the viewer …"): `we see him from behind the whole time: he flees in fear, running hard in place straight away from us into the picture towards the upper left; his back, the back of his head and the soles of his feet face the viewer in every frame, never sideways, never in profile, he never turns round; hunched forward, fast strides, arms pumping; {hands}; …`
+- die (SW): `dying: his strength suddenly gives out, he clutches his chest, his knees buckle and he topples over backwards and lies still on his back on the ground; {the tools} fall beside him; his body and clothes stay clean, no wounds, no red, no blood at all, no effects`; NW falls forwards: `seen from behind, dying: … he pitches forward away from the viewer towards the upper left, falls onto his front and lies still face down on the ground, his back towards us; …`
+- hit = die frames 1, 2, 2, 1 (he clutches his chest), no generation.
+- Work (every one opens `he alone, at work in place:` and carries "the feet stay on the same spot, he does not walk away"; NW opens "seen from behind, his back to the viewer in every frame, he never turns round:" and ends with §27b's AWAY tail): cook `he sets the bronze pot down on the ground in front of his feet, bends over it and stirs it slowly round and round with the long wooden ladle, lifts the ladle to his mouth to taste, then bends and stirs again; … no fire, no steam`; smith `a small dark iron anvil stands on the ground in front of his feet; he holds a bar of iron on it with the tongs in his left hand, swings the heavy hammer up over his right shoulder and brings it down hard onto the bar on the anvil … two heavy blows … no sparks, no fire, no glow`; merchant `he holds the small bronze balance scale up before his chest in his left hand, reaches into the satchel at his hip with his right hand, takes out a coin and drops it into one pan, the pans swing and settle, he leans in and studies them, nods, then tips the coin back into his satchel`; engineer `he plants the long measuring rod upright beside him in his left hand, then … swings the wooden mallet up over his right shoulder and brings it down hard onto the top of one wooden stake …`; physician `he leans the tall staff into the crook of his right arm, takes a small clay bowl out of the bag at his hip … grinds herbs in it with a small pestle …`; forager chop / mine / harvest are §27b's (mine and harvest: "first he lays the axe down on the ground behind him"; harvest drops the olives "over his shoulder into the wicker basket on his back").
+
+Build: `civ/spec.mjs <class> <work,…> [anim=sw/nw attempt]` → `mobs/build.mjs docs/v5/pixellab/CIV/<class>.sheet.json`
+(`shrink: 1`: frames stay at true scale and are only snapped to the base's own palette; saturated sparks and blood
+cut, specks dropped) → `anim2/ground.mjs civ_<class> idle walk run <work…>`. Contact sheet and GIFs beside the
+militia: `mobs/contact.mjs shots/war/civ civ_cook civ_smith …`.
+
+**Lessons:** (1) A 2x2 grid in one Pro Flash edit is the cheap way to re-dress a base: 6 generations for four
+consistent views of the same body, where a recolour (the bandit) changes nothing the eye reads. (2) pixminimax turns
+a back-facing flee into a left profile (cook, smith, merchant, engineer a1); only "we see him from behind the whole
+time … the soles of his feet face the viewer … never sideways, never in profile" held the back (a2). (3) Back-view
+falls ask for a fall forwards, away from the viewer; a backwards fall from behind turns him round. (4) The forge
+sparks come anyway; the build's chroma cut removes them, but the pickaxe's white burst is neutral: those frames
+are replaced by their neighbours (`keep` in `forager.sheet.json`; `spec.mjs` rewrites the spec, so re-add it). (5) Back-view work clips still drift towards a profile
+(cook stirring, engineer building); kept.

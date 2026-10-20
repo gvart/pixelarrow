@@ -13,7 +13,9 @@
 //     "keep"?: [frame indices to keep, in order] | { "<dir>": [...] } } },
 //   "tint"?: { "hue", "chroma", "lift"? } (recolour the palette: a mob drawn from another's frames, see tint())
 //   "shadow"?: true (cut the flat grey ground shadow PixelLab draws under some views)
+//   "rotations"?: "<dir with <facing>.png>" (a base made by editing, not a fetched character: palette from these)
 // }
+// A clip job may be "mirror:<facing>": that facing's frames flipped left-right (civilians: two facings generated).
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readImage, writeImage } from '../../lib/png.mjs';
@@ -127,12 +129,22 @@ function inpaint(c) {
 
 function rawClip(name, c, dir) {
   if (c.template) return templateFrames(c.template, dir).map((f) => onCanvas(f, PX, PY));
+  if (c.job?.[dir]?.startsWith('mirror:')) return rawClip(name, c, c.job[dir].slice(7)).map(flip);
   if (c.job) return frames(join(spec.raw, 'clips', name, dir, c.job[dir])).map((f) => onCanvas(f, 0, 0));
   throw new Error(`clip ${name}: template or job`);
 }
 
+function flip(img) {
+  const o = blank(img.w, img.h);
+  for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) {
+    const i = (y * img.w + x) * 4, j = (y * img.w + img.w - 1 - x) * 4;
+    o.data.set(img.data.subarray(i, i + 4), j);
+  }
+  return o;
+}
+
 // palette: the four game-facing rotations (the pro character's own colours)
-const rot = (dir) => readImage(join(spec.raw, 'zip', ...findRotation(dir)));
+const rot = (dir) => readImage(spec.rotations ? join(spec.rotations, `${dir}.png`) : join(spec.raw, 'zip', ...findRotation(dir)));
 function findRotation(dir) {
   const z = join(spec.raw, 'zip');
   for (const st of readdirSync(z)) if (existsSync(join(z, st, 'rotations', `${dir}.png`))) return [st, 'rotations', `${dir}.png`];
@@ -224,10 +236,15 @@ for (const name of order) {
   if (c.hold !== undefined) anims[name].hold = c.hold;
   col += n;
 }
-const sheet = blank(col * FW, ROWS.length * FH);
+// sheets wider than 4096 px wrap into bands (SHEET_FORMAT "wrap")
+const WRAP = col * FW > 4096 ? Math.floor(4096 / FW) : 0;
+const bands = WRAP ? Math.ceil(col / WRAP) : 1;
+const sheet = blank((WRAP || col) * FW, bands * ROWS.length * FH);
 for (const name of order) {
   ROWS.forEach((dir, r) => clips[name][dir].forEach((f, i) => {
-    paste(sheet, crop(f, { x: x0, y: y0, w: FW, h: FH }), (anims[name].col + i) * FW, r * FH);
+    const c = anims[name].col + i;
+    const band = WRAP ? Math.floor(c / WRAP) : 0;
+    paste(sheet, crop(f, { x: x0, y: y0, w: FW, h: FH }), (WRAP ? c % WRAP : c) * FW, (band * ROWS.length + r) * FH);
   }));
 }
 
@@ -250,6 +267,7 @@ const manifest = {
   anchors,
   scale: spec.scale,
   rows: ROWS,
+  ...(WRAP ? { wrap: WRAP } : {}),
   colorGroups: {},
   tiers: { basic: {} },
   anims,

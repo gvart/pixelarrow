@@ -1,0 +1,72 @@
+{
+ "class": "civ_merchant",
+ "raw": "docs/v5/pixellab/CIV/raw/merchant",
+ "rotations": "docs/v5/pixellab/CIV/raw/merchant/rot",
+ "shrink": 1,
+ "scale": 0.55,
+ "canvas": [
+  96,
+  96
+ ],
+ "pad": [
+  14,
+  24
+ ],
+ "clips": {
+  "idle": {
+   "fps": 8,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "walk": {
+   "fps": 12,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "run": {
+   "fps": 16,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a2"
+   }
+  },
+  "trade": {
+   "fps": 8,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "die": {
+   "fps": 10,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "hit": {
+   "fps": 12,
+   "of": "die",
+   "frames": [
+    1,
+    2,
+    2,
+    1
+   ]
+  }
+ }
+}

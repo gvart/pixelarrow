@@ -1,0 +1,83 @@
+{
+ "version": 2,
+ "class": "civ_physician",
+ "image": "civ_physician.png",
+ "frame": {
+  "w": 78,
+  "h": 85
+ },
+ "anchor": {
+  "x": 38,
+  "y": 82
+ },
+ "anchors": {
+  "south-east": {
+   "x": 41,
+   "y": 82
+  },
+  "north-east": {
+   "x": 35,
+   "y": 83
+  },
+  "south-west": {
+   "x": 38,
+   "y": 82
+  },
+  "north-west": {
+   "x": 44,
+   "y": 83
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 52,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 12
+  },
+  "run": {
+   "col": 24,
+   "frames": 12,
+   "fps": 16
+  },
+  "heal": {
+   "col": 36,
+   "frames": 12,
+   "fps": 8
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
