@@ -53,7 +53,7 @@ describe('world view sources', () => {
       { id: 'd', cls: 'hoplite', state: 'active', region: '>saddle' },
       { id: 'e', cls: 'hoplite', state: 'active', region: 'test-ridge' },
     ]);
-    expect(s).toEqual([{ region: 'moors', men: 2, classes: { hoplite: 1, archer: 1 } }]);
+    expect(s).toEqual([{ region: 'moors', men: 2, classes: { hoplite: 1, archer: 1 }, ids: ['a', 'b'] }]);
   });
 
   it('builds a mock world with every region, homes held by their alliance', () => {

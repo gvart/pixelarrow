@@ -25,10 +25,10 @@ const squad = (prefix: string, n = 12, cls = 'hoplite') => Array.from({ length: 
 /** Fake rooms: every squad departs fine; `room` men fit per region and alliance before arrivals are refused. */
 function fakes(room = Infinity, off = 0) {
   const arrived: { to: string; pid: number; alliance: AllianceId; ids: string[]; side: Side }[] = [];
-  const departed: { from: string; squad: number; side: Side }[] = [];
+  const departed: { from: string; squad: number | string[]; side: Side }[] = [];
   const men = new Map<string, number>();
   const ports: Ports = {
-    depart: async (from, _pid, sq, side) => (departed.push({ from, squad: sq, side }), { ids: [`m${sq}a`, `m${sq}b`], off }),
+    depart: async (from, _pid, sq, side) => (departed.push({ from, squad: sq, side }), { ids: Array.isArray(sq) ? sq : [`m${sq}a`, `m${sq}b`], off }),
     arrive: async (to, pid, alliance, ids, side): Promise<ArriveResult> => {
       const k = `${to}|${alliance}`, n = men.get(k) ?? 0;
       if (n + ids.length > room) return { error: 'full' };
@@ -59,6 +59,14 @@ describe('World', () => {
     expect(f.arrived).toEqual([{ to: 'dodona-e', pid: 7, alliance: 0, ids: ['m3a', 'm3b'], side: 'W' }]);
     expect(w.st.transit).toEqual([]);
     expect(w.nextDue()).toBeNull();
+  });
+
+  it('a transfer by person ids needs no room squad id', async () => {
+    const w = new World(), f = fakes();
+    const t = await w.transfer(7, 0, { from: 'dodona', to: 'dodona-e', ids: ['p1', 'p2', 'p3'] }, T0, f.ports);
+    if ('error' in t) throw new Error(t.error);
+    expect(f.departed).toEqual([{ from: 'dodona', squad: ['p1', 'p2', 'p3'], side: 'E' }]);
+    expect(t).toMatchObject({ men: 3, ids: ['p1', 'p2', 'p3'] });
   });
 
   it('a squad away from the exit zone takes longer', async () => {
@@ -246,6 +254,24 @@ describe('WarRoom transfers', () => {
     expect(r.squadsOf(1)).toContain(s3);
   });
 
+  it('departs by person ids: some of his men, from one or more squads; strangers or men not here refuse', () => {
+    const r = new WarRoom({ region, seed: 1, cap: 600 });
+    const g = squad('a', 6), h = squad('b', 6), x = squad('x', 4);
+    r.join(1, join(1, 0, [g.map((p) => p.id), h.map((p) => p.id)]), [g, h]);
+    r.join(2, join(2, 0, [x.map((p) => p.id)]), [x]);
+    r.tick();
+    expect(r.depart(1, [g[0].id, x[0].id], 'N', 20)).toMatchObject({ error: 'notOwner' }); // one is not his
+    expect(r.depart(1, [g[0].id, 'nobody'], 'N', 20)).toMatchObject({ error: 'notOwner' });
+    const pick = [g[0].id, g[1].id, h[0].id];
+    const out = r.depart(1, pick, 'N', 20);
+    if ('error' in out) throw new Error(out.error);
+    expect(out.ids.sort()).toEqual([...pick].sort());
+    r.tick();
+    expect(r.quota().live[0]).toBe(13);
+    expect(r.squadsOf(1)).toHaveLength(2); // both squads still stand, smaller
+    expect([...r.personsHere()].some((id) => pick.includes(id))).toBe(false);
+  });
+
   it('a squad leaving mid-fight takes its hit points along and hands its unsaved fight XP to write back', () => {
     const r = new WarRoom({ region, seed: 1, cap: 600 });
     const g = squad('a'), f = squad('f');
@@ -352,8 +378,10 @@ describe('WarWorldDO', () => {
     expect(await where()).toEqual(['dodona-e']);
 
     expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'skythia', squad: sq } })).status).toBe(409); // not adjacent
-    // over the world socket
-    map.send({ t: 'transfer', from: 'dodona-e', to: 'kleisoura', squad: sq });
+    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'kleisoura', squad: sq, ids } })).status).toBe(400); // one or the other
+    expect((await api('/api/war/world/transfer', { method: 'POST', token: me.token, json: { from: 'dodona-e', to: 'kleisoura', ids: ['nobody'] } })).status).toBe(409); // not his man there
+    // over the world socket, by person ids (no room squad id needed)
+    map.send({ t: 'transfer', from: 'dodona-e', to: 'kleisoura', ids });
     const tr = (await map.next('transferred')) as Extract<WorldServerMsg, { t: 'transferred' }>;
     expect(tr.transit).toMatchObject({ from: 'dodona-e', to: 'kleisoura', men: ids.length, state: 'moving' });
     expect(tr.transit.arriveAt - tr.transit.departAt).toBeGreaterThan(edge('dodona-e', 'kleisoura')!.ms); // left from the north entry, not the east

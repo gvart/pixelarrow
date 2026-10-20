@@ -8,7 +8,8 @@
  *   WS    /ws/war/world: server -> { t: 'world', ...WorldSnapshot } on connect and on every change (at most 1/s);
  *         client -> { t: 'transfer', ...TransferOrder } | { t: 'ping', c }; server -> transferred | error | pong.
  *
- * Transfer: a squad of the player's standing in region `from` leaves it for the adjacent `to`. It may leave from
+ * Transfer: a squad of the player's standing in region `from` (by its room squad id, or his men there by person id, up
+ * to TRANSFER_MAX) leaves it for the adjacent `to`. It may leave from
  * anywhere in `from`: from inside the entry zone that faces `to` it takes the border's travel time; from elsewhere it
  * takes longer, `offExitMsPerTile` (season config) per tile it stands away from that zone (walking there is quicker).
  * No foe may stand within `foeRadius` tiles. In transit the men are on the world map only (a marker from `from` to
@@ -18,16 +19,23 @@
 import { z } from 'zod';
 import type { AllianceId } from '../world/types';
 
-export const transferSchema = z.object({
+/** Most men one transfer moves (they arrive as one squad: MAX_SQUAD). */
+export const TRANSFER_MAX = 12;
+
+const transferFields = z.object({
   from: z.string().regex(/^[a-z0-9_-]{1,40}$/),
   to: z.string().regex(/^[a-z0-9_-]{1,40}$/),
-  /** The squad id in `from`'s room (as the room's welcome lists it). */
-  squad: z.number().int().min(0).max(2 ** 31),
+  /** The squad id in `from`'s room (as the room's welcome lists it), or: */
+  squad: z.number().int().min(0).max(2 ** 31).optional(),
+  /** the person ids (the roster's) of the player's men standing in `from`, from one or more of his squads there. */
+  ids: z.array(z.string().min(1).max(64)).min(1).max(TRANSFER_MAX).optional(),
 });
+const oneOf = (o: { squad?: number; ids?: string[] }) => (o.squad === undefined) !== (o.ids === undefined);
+export const transferSchema = transferFields.refine(oneOf, 'squad or ids');
 export type TransferOrder = z.infer<typeof transferSchema>;
 
 export const worldClientMsgSchema = z.discriminatedUnion('t', [
-  transferSchema.extend({ t: z.literal('transfer') }),
+  transferFields.extend({ t: z.literal('transfer') }),
   z.object({ t: z.literal('ping'), c: z.number().finite() }),
 ]);
 export type WorldClientMsg = z.infer<typeof worldClientMsgSchema>;
@@ -113,7 +121,7 @@ export function parseWorldMsg(text: string): WorldClientMsg | null {
   if (text.length > 1024) return null;
   try {
     const r = worldClientMsgSchema.safeParse(JSON.parse(text));
-    return r.success ? r.data : null;
+    return r.success && (r.data.t !== 'transfer' || oneOf(r.data)) ? r.data : null;
   } catch {
     return null;
   }

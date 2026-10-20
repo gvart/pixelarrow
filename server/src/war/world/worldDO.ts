@@ -60,7 +60,7 @@ export class WarWorldDO extends DurableObject<Env> {
   private ports(): Ports {
     const stub = (id: string) => this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(id));
     return {
-      depart: (from: string, pid: number, squad: number, side: Side, to: string, foeRadius: number) => stub(from).depart(from, pid, squad, side, to, foeRadius) as Promise<DepartResult>,
+      depart: (from: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number) => stub(from).depart(from, pid, who, side, to, foeRadius) as Promise<DepartResult>,
       arrive: (to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>) => stub(to).arrive(to, pid, alliance, ids, side, lost) as Promise<ArriveResult>,
     };
   }
@@ -167,7 +167,7 @@ export class WarWorldDO extends DurableObject<Env> {
     try {
       if (m.t === 'ping') send(ws, { t: 'pong', c: m.c });
       else {
-        const r = await this.transfer(me.pid, me.alliance, { from: m.from, to: m.to, squad: m.squad });
+        const r = await this.transfer(me.pid, me.alliance, { from: m.from, to: m.to, squad: m.squad, ids: m.ids });
         send(ws, 'error' in r ? { t: 'error', code: r.error, detail: r.detail } : { t: 'transferred', transit: r.transit });
       }
     } catch (e) {

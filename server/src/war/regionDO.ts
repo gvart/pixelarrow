@@ -201,10 +201,10 @@ export class WarRegionDO extends DurableObject<Env> {
    * M4 (RPC from WarWorldDO): the player's squad leaves for `to` over the entry on `side`; its persons are marked in
    * transit in D1 (`region = '>' + to`) before the world records the transfer.
    */
-  async depart(region: string, pid: number, squad: number, side: Side, to: string, foeRadius: number): Promise<DepartResult> {
+  async depart(region: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number): Promise<DepartResult> {
     const room = await this.ensure(region);
     if (!room) return { error: 'region', detail: region };
-    const r = room.depart(pid, squad, side, foeRadius);
+    const r = room.depart(pid, who, side, foeRadius);
     if ('error' in r) return r;
     const d = this.env.DB;
     // their fight so far goes to D1 before they leave (the destination loads them from there); queued writes first

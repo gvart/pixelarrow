@@ -4,7 +4,8 @@
  *
  *   GET  /                    WorldSnapshot: region owners, contested and besieged flags, live men and claims per
  *                             alliance, alliance stats, the player's own squads in transit
- *   POST /transfer  { from, to, squad }   send a squad of the player's standing in `from` to the adjacent `to`
+ *   POST /transfer  { from, to, squad | ids }  send a squad of the player's standing in `from` (room squad id), or his
+ *                             men there by person id (<= TRANSFER_MAX, as one squad), to the adjacent `to`
  *   POST /dev/alliance { alliance }       DEV_AUTH=1 only: join alliance 0..3 (Dodona, Skythia, Kyrene, Elaia)
  *   POST /dev/season/reset                DEV_AUTH=1 only: the season reset hook (the next season starts now)
  */
@@ -14,7 +15,7 @@ import { readJson } from '../../body';
 import type { AppEnv, Env } from '../../env';
 import { ApiError } from '../../errors';
 import { db, requirePlayable } from '../../middleware';
-import type { TransferOrder } from '../../../../src/war/net/world';
+import { TRANSFER_MAX, type TransferOrder } from '../../../../src/war/net/world';
 import type { AllianceId } from '../../../../src/war/world/types';
 import { allianceOf, joinAlliance } from './members';
 import { WORLD_NAME } from './world';
@@ -24,7 +25,9 @@ export const worldApi = new Hono<AppEnv>();
 const MAX_BODY = 512;
 // src/war/net/world.ts transferSchema, built with the server's zod (readJson takes its own copy's schemas)
 const regionId = z.string().regex(/^[a-z0-9_-]{1,40}$/);
-const transfer = z.object({ from: regionId, to: regionId, squad: z.number().int().min(0).max(2 ** 31) });
+const transfer = z
+  .object({ from: regionId, to: regionId, squad: z.number().int().min(0).max(2 ** 31).optional(), ids: z.array(z.string().min(1).max(64)).min(1).max(TRANSFER_MAX).optional() })
+  .refine((o) => (o.squad === undefined) !== (o.ids === undefined), 'squad or ids');
 export const worldStub = (env: Env) => env.WAR_WORLD.get(env.WAR_WORLD.idFromName(WORLD_NAME));
 
 worldApi.get('/', requirePlayable, async (c) => {

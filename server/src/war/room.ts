@@ -314,11 +314,20 @@ export class WarRoom {
    * each man is down (they ride along); `fight`: their fight so far not yet written back (XP, kills), for the DO to write
    * before they leave.
    */
-  depart(pid: number, squad: SquadId, side: Side, foeRadius: number): Departed | { error: 'notOwner' | 'foes'; detail: string } {
+  depart(pid: number, who: SquadId | string[], side: Side, foeRadius: number): Departed | { error: 'notOwner' | 'foes'; detail: string } {
     this.snap = this.sim.snapshot(); // squads spawned since the last tick
-    if (this.owners[squad] !== ownerOf(pid) || !this.squadsOf(pid).includes(squad)) return { error: 'notOwner', detail: 'not a squad of yours here' };
-    const men = this.snap.units.filter((u) => u.squad === squad && u.state !== 'dead');
-    if (!men.length || men.some((u) => !u.pid)) return { error: 'notOwner', detail: 'only squads of soldiers (persons) transfer' };
+    let men: Snapshot['units'];
+    if (Array.isArray(who)) {
+      // by person ids: his living men, from any of his squads here
+      const want = new Set(who), mine = new Set(this.squadsOf(pid));
+      men = this.snap.units.filter((u) => u.state !== 'dead' && u.pid && want.has(u.pid) && mine.has(u.squad));
+      if (!men.length || men.length !== want.size) return { error: 'notOwner', detail: 'not all of these men stand here under you' };
+    } else {
+      if (this.owners[who] !== ownerOf(pid) || !this.squadsOf(pid).includes(who)) return { error: 'notOwner', detail: 'not a squad of yours here' };
+      men = this.snap.units.filter((u) => u.squad === who && u.state !== 'dead');
+      if (!men.length || men.some((u) => !u.pid)) return { error: 'notOwner', detail: 'only squads of soldiers (persons) transfer' };
+    }
+    const squads = new Set(men.map((u) => u.squad)), squad = men[0].squad;
     const team = this.teams[squad];
     const cx = men.reduce((a, u) => a + u.x, 0) / men.length, cy = men.reduce((a, u) => a + u.y, 0) / men.length;
     const foe = this.snap.units.some((u) => u.state !== 'dead' && this.teams[u.squad] !== team && (u.x - cx) ** 2 + (u.y - cy) ** 2 <= foeRadius * foeRadius);
@@ -332,9 +341,9 @@ export class WarRoom {
     const fight = persons.length ? { id: `${this.region.id}:${this.epoch}:${this.currentTick}:out${squad}`, report: { tick: this.currentTick, persons, loot: {} } } : undefined;
     this.sim.dropPersons(ids);
     for (const u of men) this.diedAt[u.id] = this.currentTick - CORPSE_TICKS; // gone, not fallen: no corpse, no blow
-    this.bots.clear(squad);
     this.live[team] -= men.length;
     this.snap = this.sim.snapshot();
+    for (const id of squads) if (!this.snap.units.some((u) => u.squad === id && u.state !== 'dead')) this.bots.clear(id);
     return { ids, off, lost, ...(fight ? { fight } : {}) };
   }
 

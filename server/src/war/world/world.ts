@@ -71,7 +71,8 @@ export type ArriveResult = { ok: true } | { error: 'full' | 'team' | 'squads' | 
 
 /** The region rooms as the world sees them (WarRegionDO RPC; fakes in tests). */
 export interface Ports {
-  depart(from: string, pid: number, squad: number, side: Side, to: string, foeRadius: number): Promise<DepartResult>;
+  /** `who`: the room squad id, or person ids. */
+  depart(from: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number): Promise<DepartResult>;
   arrive(to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>): Promise<ArriveResult>;
 }
 
@@ -185,7 +186,7 @@ export class World {
     if (!e) return { error: 'notAdjacent', detail: `${o.from} does not border ${o.to}` };
     let out: DepartResult;
     try {
-      out = await ports.depart(o.from, pid, o.squad, e.sideA, o.to, this.season.foeRadius);
+      out = await ports.depart(o.from, pid, o.ids ?? o.squad!, e.sideA, o.to, this.season.foeRadius);
     } catch {
       return { error: 'unavailable', detail: o.from };
     }
