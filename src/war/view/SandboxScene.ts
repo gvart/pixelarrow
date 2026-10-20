@@ -431,6 +431,8 @@ export class SandboxScene extends Phaser.Scene {
     // the visible world rect (zoom is about the camera centre); cam.worldView lags a frame
     const a = this.wpx(0, 0), b = this.wpx(cam.width, cam.height);
     const view: View = { x: a.x, y: a.y, right: b.x, bottom: b.y };
+    // net mode: the server's interest rect (the worker drops it for the local sim)
+    if (this.frame % 15 === 0) this.sim.camera([{ x: 0, y: 0 }, { x: cam.width, y: 0 }, { x: 0, y: cam.height }, { x: cam.width, y: cam.height }].map((c) => this.world(c)));
     // a live mode follows the sim (influence, nodes, lairs, walls): checked twice a second
     if (this.mode !== 'normal' && this.frame % 30 === 0) this.retint();
     this.updateChunks(view, cam.zoom);

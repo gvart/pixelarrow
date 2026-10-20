@@ -39,7 +39,9 @@ export class SimClient {
       this.at = performance.now();
       this.squads = new Map(this.cur.squads.map((s) => [s.id, s]));
     };
-    this.send({ t: 'init', region, seed: 1, sim: new URLSearchParams(location.search).get('sim') === 'fake' ? 'fake' : 'real' });
+    const q = new URLSearchParams(location.search), dev = Number(q.get('dev')) || undefined;
+    // ?net=<ws url or /ws/war/<region>>: play on the live region server (M3) instead of the local sim
+    this.send({ t: 'init', region, seed: 1, sim: q.get('sim') === 'fake' ? 'fake' : 'real', net: q.get('net') ?? undefined, dev });
     this.speed(1);
   }
 
@@ -54,6 +56,12 @@ export class SimClient {
 
   order(o: Order): void {
     this.send({ t: 'order', o });
+  }
+
+  /** The camera's ground rect in tiles (corner tiles): the live server sends what lies near it (net mode only). */
+  camera(corners: { x: number; y: number }[]): void {
+    const xs = corners.map((c) => c.x), ys = corners.map((c) => c.y);
+    this.send({ t: 'view', x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) });
   }
 
   /** Dev: a claim anchor (influence radius r) for a team. */
