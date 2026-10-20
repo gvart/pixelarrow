@@ -2269,3 +2269,93 @@ boxes: one paint serves two facings. (4) Anything below ground must be clipped t
 with its neighbours' continuation, or the far walls notch and the pit spills over the next tile's ground. (5) The
 buildings palette is picked over every sprite and snaps the workplace fires away: find hearths before the snap and let
 the fx bring the glow back.
+
+## 37. World map art (M4c)
+
+Owner: "the world map should be very flat, with some art in it, but the colour balance must be clear and each region
+must be clear." Strategic view only (W-02). Prototypes: `shots/war/worldmap/proto/` (git-ignored), Gemini Pro, 3
+generations, each a fresh chat, captured as in §21b (devicePixelRatio was 1 here: four 512 px canvas tiles, `zoom` on
+0,0–417,417 of the 1564-wide frame at `scale: 1`, stitched with ffmpeg `hstack/vstack`).
+
+| File | Prompt | Verdict |
+| --- | --- | --- |
+| `WM_A_flat_board.png` (1024²) | A, below | flattest and calmest, cream borders read well; only ~21 regions, homes drawn as rings (circle + 4 entries) |
+| `WM_B_redfigure_frame.png` (1024x765) | B, below | dark 3 px borders with a cream inner edge are the clearest; meander frame and black sea tie to the W-32 kit; ~27 regions, homes still rings |
+| `WM_C_political_dither.png` (1024x765) | C, below | **reference for the assets**: flat fills with a light 2-colour checker dither, glyphs kept to region edges, sand coast edge, alliance wash over home + entries, puzzle-piece regions, no rings; borders a little thin, so the assets take B's dark + cream double border |
+
+A (square):
+
+```
+Create an image. ROLE: a design prototype of the strategic world map for an ancient-Greek war strategy game; it is a flat board you read, not a landscape you walk on. ASPECT: square 1:1, highest resolution available. VIEW: straight down, perfectly flat, like a printed board-game map: no perspective, no relief shading, no shadows, no 3D, no hills rising up. STYLE: crisp PIXEL ART with visible square pixels and a limited palette; every region is a clearly bordered shape filled with ONE calm, flat, slightly desaturated colour by biome (pine green, olive green, straw steppe, pale sand, rust red, grey stone, snow white, reed teal), with only a little light painted detail on top as small flat pixel glyphs: tiny clusters of pine and oak trees, small triangle mountain glyphs, little olive-tree dots, wavy dune strokes, a few palm glyphs; the glyphs are sparse and small so the flat fill stays dominant and there is free room for labels. Region borders are strong, even, 2-pixel cream-coloured lines; the coast is a clean darker outline; the sea around is one calm flat dark slate blue with a few short wave dashes. GEOGRAPHY: one roughly square continent filling most of the image, divided into 37 regions of similar size with irregular organic outlines (not circles, not hexes, not a grid): (1) CENTRE: one region, a round flat stone-grey plateau with a small blue crater lake and a tiny temple glyph; (2) around it four gate regions: north a grey high saddle, west a dense dark forest, south a gorge where a river leaves the plateau, east red canyons; (3) NORTH: a narrow chain of snowy mountain glyphs runs from the centre straight up to the north coast, with one gap halfway marked by a small pass glyph, the chain ends in a glacier region at the north coast; (4) SOUTH: a blue river runs from the centre straight down to a fan-shaped delta at the south coast, with one ford marked across it halfway; (5) WEST: a big blue lake region in the middle of the west side, with a small river running to the west coast estuary; (6) EAST: a pale sand dune region in the middle of the east side, with a white salt-flat region on the east coast; (7) four HOME regions, one per corner quadrant, each a larger region with a tiny walled town glyph and a clear translucent colour tint over its flat fill: north-west home tinted deep blue-green (pine highland with a small lake), north-east home tinted gold (grass steppe), south-east home tinted terracotta red (desert oasis with palms), south-west home tinted purple (olive hills round a bay); each home is surrounded by a ring of four smaller entry regions. Clear colour balance: calm muted fills, strong light borders, a few accents. No text, no labels, no letters, no numbers, no legend, no compass, no frame, no units, no arrows.
+```
+
+B (4:3, red-figure frame):
+
+```
+Create an image. ROLE: a design prototype of the strategic world map for an ancient-Greek war strategy game: a flat board you read at a glance, armies hop between neighbouring regions. ASPECT: landscape 4:3, highest resolution available. VIEW: straight down, completely flat cartographic look like an old printed map redrawn in PIXEL ART: no perspective, no relief, no cast shadows. STYLE: crisp pixel art, visible square pixels, limited palette in the colours of Greek red-figure pottery plus calm earth tones: the sea is flat glossy near-black brown with a thin terracotta-orange coast line and a terracotta meander (Greek key) band framing the whole map; the land regions are calm flat fills by biome (muted pine green, olive green, straw yellow, pale sand, rust red, warm grey, off-white snow, teal reed marsh), each region clearly separated from its neighbours by a strong 3-pixel near-black border line with a 1-pixel cream inner edge. Light painted detail only: small flat pixel glyphs scattered sparsely inside regions (little pine trees, round oak trees, olive dots in rows, triangle mountains with white tips, wavy dune strokes, palm trees, reed tufts), leaving open flat space in the middle of each region for a label. REGIONS: exactly 37 regions, each with an irregular organic outline that follows the land (never circles, never hexagons, never a grid), all of similar size. LAYOUT (the continent fills the frame): one centre region, a flat grey plateau with a round blue crater lake and a small temple glyph, surrounded by 4 gate regions (N grey saddle, W dark forest, S river gorge, E red canyons) and 4 inner regions on the diagonals (NW moorland, NE grassy hills, SE dry savanna with acacias, SW cypress hills); from the centre a line of three regions runs to each coast: NORTH a chain of snowy mountain glyphs up to a glacier on the north coast, with one narrow pass cut through it; SOUTH a wide blue river flowing down to a fan delta, crossed once by a ford; WEST a large blue reed lake, then a river estuary at the west coast; EAST a pale dune sea, then white salt flats on the east coast. In each of the four corners an alliance HOME region with a small walled-town glyph and a tinted colour wash: north-west deep blue-green (pine valley with a cold lake), north-east gold (grass steppe), south-east terracotta (oasis with palms), south-west violet (olive terraces round a bay); each home is ringed by exactly four entry regions that touch each other around it. The overall colour balance is calm and clear: muted flat fills, strong dark borders, a few bright accents (the four home tints, the river and lakes). No text, no letters, no numbers, no legend, no compass rose, no units, no arrows.
+```
+
+C (4:3, political map, the reference):
+
+```
+Create an image. ROLE: a design prototype of the strategic world map for an ancient-Greek war strategy game, the political overview where armies move between neighbouring regions. ASPECT: landscape 4:3, highest resolution available. VIEW: straight down and completely flat, like a political map in a classic 16-bit strategy game: no perspective, no relief, no shadows. STYLE: crisp PIXEL ART, visible square pixels, limited palette, no gradients. Each region is ONE flat, calm, mid-value colour by biome with a very light 2-colour checker dither texture, and a few small flat pixel glyphs for its landscape: pine trees, round oaks, olive rows, cypress spikes, acacias, palms, triangle mountains with snow caps, dune ripples, reed tufts, burial mounds, red buttes. The glyphs sit near the edges of each region and leave the middle empty for a name label. Borders: every region outlined by an even 2-pixel dark umber line, so all regions read as separate puzzle pieces; coast drawn as a 1-pixel light sand edge; sea flat dark slate blue. REGIONS: about 37 regions of similar size, puzzle-piece shapes with irregular organic wavy outlines; NONE of them is a circle or ring, the home regions too are irregular blobs. LAYOUT: a centre region (grey stone plateau with a crater lake and a temple glyph) touching 4 gate regions (north saddle, west forest, south gorge, east red canyons), which are separated from each other by 4 diagonal inner regions (moor, grass hills, savanna, cypress hills); from the centre to each coast runs a line of regions: north a snowy mountain chain to a glacier, cut once by a narrow pass; south a big blue river down to a delta, crossed once by a ford; west a big reed lake and then an estuary; east a dune sea and then white salt flats. In each corner quadrant a HOME region with a walled town glyph, surrounded by four entry regions forming a ring around it, the home and its four entries share one translucent alliance colour wash: north-west blue, north-east gold, south-east red, south-west violet; all other regions have no wash. Clear colour balance: calm muted fills, strong dark borders, bright accents only on water and the four alliance washes. No text, no letters, no numbers, no legend, no compass, no frame, no units, no arrows.
+```
+
+**Lessons:** Gemini never reaches 37 regions (21, 27, ~30) and draws a home with its 4 entries as a ring of 5 unless the
+prompt says "NONE of them is a circle or ring" (C). The prototypes set look and colour balance only; the region shapes
+come from the layout script below, where the WAR.md adjacency is checked.
+
+### 37b. Assets (`public/war/world/`, built by `scripts/war/world-art/`)
+
+Reference: prototype C (flat dithered fills, glyphs off the label, alliance wash) with B's dark + cream double border.
+Pipeline, deterministic (a rerun gives the same bytes): `layout.mjs` draws the NW quadrant as a 32x24 cell grid and
+mirrors it into the other three (WAR.md topology is mirror-symmetric; a home's ring of entries meets the axis chains
+at four-corner points, so non-neighbours only touch diagonally); `raster.mjs` warps it with seeded value noise into
+organic shapes at 1024x768 logical px, cuts a rounded coast, keeps each region's largest piece; `regions.mjs` fails
+the build unless every WAR.md adjacency has ≥ 12 px of shared border and no other pair does, then traces polygons,
+centroid, label anchor (+ `labelRoom`) and one crossing point per adjacency; `paint.mjs` paints fills, coast, rivers,
+lakes and glyphs, writes `base`/`borders` at 2x (2048x1536) and 4x (`@2x`), `region-ids.png` for hit tests,
+`regions.json`, markers and banners, and warns when two neighbouring fills are closer than 28 (RGB distance);
+`mock.html` + `mock.mjs` compose the view (tints, borders, labels, markers) into `shots/war/worldmap/WM_mock*.png`.
+Raws: `fetch.mjs` → `shots/war/pixellab/worldmap/raw/` (git-ignored), job ids in `jobs.json`; trimmed 1x copies ship in `public/war/world/src/` so a fresh checkout rebuilds without them.
+
+PixelLab `create_image_pixflux`, 29 generations, `no_background`, palette-locked (`color_image_base64` = 32 kit/biome
+colours), `detail: low` unless noted. Glyphs open with `tiny map icon for a flat strategy world map:` and end with
+`simple flat pixel art`; markers open with `map marker icon for a strategy game:`; banners with `alliance banner icon:
+a hanging cloth banner on a crossbar,`.
+
+| Name | Size, view, outline/shading | Middle of the prompt |
+| --- | --- | --- |
+| pine | 32², high top-down, single colour / basic | a tight cluster of three dark green pine trees seen from slightly above |
+| oak | 32², high top-down | two round leafy green oak trees with short brown trunks |
+| olive (redo, seed 203) | 32², high top-down | a small olive grove, five little round silver-green olive tree crowns with dark trunks, arranged in two rows (first try drew one tiny tree) |
+| cypress | 32², side | three tall thin dark green cypress trees side by side |
+| palm | 32², side | two date palm trees with green fronds and thin brown trunks |
+| acacia | 32², side | one flat-topped acacia tree, wide umbrella crown of olive green, thin trunk |
+| mountain | 48x32, side | a pair of grey rocky mountain peaks, simple triangle shapes, lit left side light grey, shadow side darker |
+| peak | 48x32, side | a pair of tall jagged mountain peaks with white snow caps, grey rock below, simple triangle shapes |
+| dune | 48x32, high top-down, lineless / flat | a small group of pale sand dunes, curved crest lines with a darker ochre shadow side |
+| reed | 32², side | a clump of green reed tufts and cattails standing in a little shallow water |
+| mound | 32², side | a round grassy burial mound (kurgan), low dome of straw-green grass with a small standing stone on top |
+| butte | 32², side | a red rock butte, a flat-topped mesa with steep rust-red cliff sides |
+| vine | 32², high top-down | a few rows of grape vines on stakes, dark green leaves with tiny purple grapes, seen from above at an angle |
+| tor | 32², side | a granite tor, a small pile of rounded grey boulders with a few purple heather tufts |
+| scrub | 32², side | a dry thorny scrub bush, khaki and olive twigs, low and wide |
+| town | 48², high top-down, medium detail | (`small map icon …`) an ancient Greek walled town, a ring of cream stone walls with two square towers and a few terracotta-red tiled roofs inside |
+| temple | 48², side, medium detail | (`small map icon …`) a ruined ancient Greek temple, cream marble columns on a stepped base, some columns broken |
+| ford | 32², high top-down, flat | (`tiny map marker …`) a river ford, a short band of light sandy stepping stones crossing blue water from left to right, seen from above |
+| pass | 48x32, side | (`small map icon …`) a mountain pass, a narrow gap between two grey rock peaks with a small ruined stone watchtower in the gap |
+| fort | 32², high top-down, black outline / flat | a small square stone fort with four corner towers and a gate, cream stone with dark outline |
+| battle | 32², black outline / flat | contested battle, two crossed bronze swords over a round terracotta-red and black disc |
+| transit | 32², black outline / flat | an army on the march, a small round black shield with terracotta rim and a spear behind it, on a little black pennant shape |
+| home | 32², black outline / flat | home capital, a small cream Greek temple front with a terracotta pediment on a black round badge with terracotta rim |
+| banner dodona | 32x48, black outline / basic, medium | deep blue cloth with a terracotta border and a cream oak leaf emblem, swallow-tail bottom |
+| banner skythia (redo, seed 225) | 32x48 | golden yellow cloth with a terracotta border, in the middle a simple black silhouette of a galloping horse seen from the side, swallow-tail bottom (first try drew a cross) |
+| banner kyrene | 32x48 | crimson red cloth with a black border and a cream sun disc emblem, swallow-tail bottom |
+| banner elaia | 32x48 | deep violet purple cloth with a terracotta border and a cream olive branch emblem, swallow-tail bottom |
+
+**Lessons:** (1) A cell grid + smooth warp gives exact adjacency by construction; the check catches the corners, where
+the coast cut ate two short borders twice (fixed by moving the a/b seam inward and a gentler coast warp). (2) Gemini
+colours do not survive neighbours: tune fills with the RGB-distance warning, alternate light/dark between neighbours.
+(3) Pixflux at 32 px often adds a small ground base under plants (reed, cypress, vine); fine on a flat map. (4) Ask for
+the emblem as "a simple silhouette of X seen from the side", or it invents heraldry.

@@ -1,0 +1,95 @@
+<!doctype html>
+<!-- World map mock-up (M4c art): composes public/war/world the way the strategic view should. Serve the repo root,
+     open /scripts/war/world-art/mock.html, screenshot the canvas. ?scale=1|2 picks base.png or base@2x.png. -->
+<meta charset="utf-8" />
+<title>World map mock</title>
+<style>
+  html, body { margin: 0; background: #0e0907; }
+  canvas { display: block; image-rendering: pixelated; }
+</style>
+<canvas id="c"></canvas>
+<script type="module">
+  const W = '/public/war/world/';
+  const scale = Number(new URLSearchParams(location.search).get('scale') || 1);
+  const sfx = scale === 2 ? '@2x' : '';
+  const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+  const doc = await (await fetch(W + 'regions.json')).json();
+  const [base, borders] = await Promise.all([load(W + `base${sfx}.png`), load(W + `borders${sfx}.png`)]);
+  const mk = {};
+  for (const n of ['fort', 'battle', 'transit', 'home']) mk[n] = await load(W + `markers/${n}${sfx}.png`);
+  const ban = {};
+  for (const n of Object.keys(doc.alliances)) ban[n] = await load(W + `banners/${n}${sfx}.png`);
+
+  const c = document.getElementById('c');
+  c.width = doc.size[0] * scale; c.height = doc.size[1] * scale;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.scale(scale, scale);
+  g.drawImage(base, 0, 0, doc.size[0], doc.size[1]);
+
+  // ownership: each alliance holds its home + four entries; Dodona also took Grey Moors, Kyrene took Lion Savanna
+  const owner = {};
+  for (const a of Object.keys(doc.alliances)) for (const id of [a, `${a}-n`, `${a}-e`, `${a}-s`, `${a}-w`]) owner[id] = a;
+  owner.moors = 'dodona'; owner.savanna = 'kyrene';
+  const path = (poly) => { g.beginPath(); poly.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); };
+  for (const [id, r] of Object.entries(doc.regions)) {
+    const a = owner[id];
+    if (!a) continue;
+    path(r.polygon);
+    g.globalAlpha = r.role === 'home' ? 0.42 : 0.26;
+    g.fillStyle = doc.alliances[a].color;
+    g.fill();
+    g.globalAlpha = 1;
+  }
+  g.drawImage(borders, 0, 0, doc.size[0], doc.size[1]);
+
+  // owner edge: an inner alliance-coloured line along every owned region's outline
+  for (const [id, r] of Object.entries(doc.regions)) {
+    const a = owner[id];
+    if (!a) continue;
+    g.save(); path(r.polygon); g.clip();
+    g.lineWidth = 8; g.globalAlpha = 0.8; g.strokeStyle = doc.alliances[a].color; path(r.polygon); g.stroke();
+    g.restore();
+  }
+  // selection: Kleisoura Pass, bright cream outline + dark halo
+  { const r = doc.regions.kleisoura; path(r.polygon); g.lineWidth = 10; g.strokeStyle = '#0e0907'; g.stroke(); g.lineWidth = 5; g.strokeStyle = '#f0d9b5'; g.stroke(); }
+  // hover: Ammos Dunes, soft light wash
+  { const r = doc.regions.ammos; path(r.polygon); g.globalAlpha = 0.18; g.fillStyle = '#f0d9b5'; g.fill(); g.globalAlpha = 1; }
+
+  // transfers in progress: dotted route between label anchors through the shared crossing
+  const route = (from, to, color) => {
+    const a = doc.regions[from], b = doc.regions[to], x = a.crossings[to];
+    g.setLineDash([10, 10]); g.lineWidth = 6; g.lineCap = 'round'; g.strokeStyle = '#0e0907';
+    g.beginPath(); g.moveTo(...a.centroid); g.lineTo(...x); g.lineTo(...b.centroid); g.stroke();
+    g.lineWidth = 3; g.strokeStyle = color; g.stroke(); g.setLineDash([]);
+    return x;
+  };
+  const icon = (im, [x, y], s = 1) => g.drawImage(im, Math.round(x - (im.width / scale) * s / 2), Math.round(y - (im.height / scale) * s / 2), (im.width / scale) * s, (im.height / scale) * s);
+  icon(mk.transit, route('elaia-e', 'achelous', doc.alliances.elaia.color));
+  icon(mk.transit, route('skythia-w', 'kleisoura', doc.alliances.skythia.color));
+  icon(mk.battle, doc.regions.kleisoura.crossings['dodona-e']);
+  icon(mk.battle, doc.regions.achelous.crossings['kyrene-w']);
+  icon(mk.fort, [doc.regions.moors.label[0] + 70, doc.regions.moors.label[1] - 46]);
+
+  // labels: cream small caps on a dark outline; homes larger with their banner
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const [id, r] of Object.entries(doc.regions)) {
+    const home = r.role === 'home';
+    g.font = `${home ? 'bold 30px' : 'bold 19px'} Georgia, 'Times New Roman', serif`;
+    const t = home ? r.name.toUpperCase() : r.name;
+    // a name wider than the free room on its row wraps onto two lines
+    const words = t.split(' ');
+    const lines = g.measureText(t).width > r.labelRoom - 12 && words.length > 1
+      ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : [t];
+    lines.forEach((line, k) => {
+      const y = r.label[1] + (k - (lines.length - 1) / 2) * 21;
+      g.lineJoin = 'round'; g.lineWidth = home ? 7 : 5; g.strokeStyle = '#17100d'; g.strokeText(line, r.label[0], y);
+      g.fillStyle = home ? '#f2b27a' : '#f0d9b5'; g.fillText(line, r.label[0], y);
+    });
+    if (home) {
+      icon(ban[id], [r.label[0] - g.measureText(t).width / 2 - 34, r.label[1] - 8]);
+      icon(mk.home, [r.label[0] + g.measureText(t).width / 2 + 30, r.label[1]]);
+    }
+  }
+  document.title = 'ready';
+</script>
