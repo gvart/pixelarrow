@@ -11,6 +11,7 @@
  * the ford country.
  */
 import type { Kit, RegionDef } from './kit.ts';
+import { titanForge } from './landmarks.ts';
 
 const def: RegionDef = {
   id: 'gorge',
@@ -40,13 +41,15 @@ const def: RegionDef = {
     k.spot('crag', [124, 110]);
     // roads: the Sacred Way from the north ramp past the crag, over the rock bridge (rim height) west; east to the
     // savanna; south; the two cliffside paths down to the ford
-    // M7d: Titan's Forge on the east rim by the rock bridge; Gyges chained before the anvil
-    k.landmark('forge', [126, 112], { guardians: [{ boss: 'gyges', at: [5.5, 6.5] }] });
     k.road([N, [130, 20], [136, 60], [138, 100], [138, 120]], { w: 1.4, grade: 4 });
     k.road([[138, 120], [116, 120], [104, 120], [90, 120], [70, 124], [30, 126], W], { w: 1, grade: 40, fill: true, bridges: [[104, 120]], span: 8, pass: 4 });
     k.road([[138, 120], [170, 124], [210, 128], E], { w: 1.4, grade: 4 });
     k.road([[138, 120], [146, 160], [140, 210], [130, 236], S], { w: 1.3, grade: 4 });
     k.road([[60, 150], [76, 172], [86, 186], [96, 192], [108, 192], [116, 186], [124, 176], [144, 172]], { w: 1, grade: 1.6, pass: 4 });
+    // M7d / W-48: Titan's Forge, the cave-works on the east rim from the falls to the rock bridge (the roads through it
+    // laid first, its streets); Gyges chained before the anvil under the falls' cliff
+    const F = titanForge(k, [116, 62]);
+    for (const [n, v] of Object.entries(F.spots)) k.spot(n, v);
     k.spot('narrows', [110, 120]);
     k.spot('rockBridge', [104, 120]);
     // copper in the west wall over the floor, stone on the rims
@@ -57,8 +60,8 @@ const def: RegionDef = {
     k.forest([40, 70, 20, 12, 0.3], [30, 190, 16, 10, -0.2], [214, 70, 16, 10, 0.2]);
     k.patch('kyrene', 'hardpan', [220, 180, 18, 12, 0.2]);
     k.piece('elaia/shrine', [70, 112], { r: 8 });
-    k.piece('mountains/cairn', [128, 128], { r: 5, n: 2 });
-    k.piece('watchtower', [132, 104], { r: 6 });
+    k.piece('mountains/cairn', [128, 132], { r: 5, n: 2 });
+    k.piece('watchtower', [150, 140], { r: 6 });
     k.piece('mountains/eagle-nest', [86, 90], { r: 10, onRock: false });
     // fauna: harpies by the copper on the floor, river serpents at the ford and below the falls
     k.lair('wolf', [92, 160], { as: 'harpies' });

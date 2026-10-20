@@ -14,19 +14,26 @@ const region = (id: string): RegionData => parseRegion(files[`../../src/war/regi
 const REGIONS = LANDMARKS.map((l) => l.region);
 
 describe('M7d landmarks in their regions', () => {
-  it('each of the nine stands as pre-built landmark pieces with art at 60%, its guardians posted', () => {
+  it('each of the nine stands as a real place (W-48): pre-built landmark pieces with art, fortifications at 60%, its guardians posted', () => {
     expect(REGIONS).toHaveLength(9);
     for (const id of REGIONS) {
       const r = region(id);
       const pieces = r.prebuilt!.filter((e) => e.landmark);
-      expect(pieces.length, id).toBeGreaterThanOrEqual(4);
-      expect(pieces.every((e) => e.hp === 0.6), id).toBe(true);
+      expect(pieces.length, id).toBeGreaterThanOrEqual(90);
+      expect(pieces.every((e) => e.hp! > 0 && e.hp! <= 0.6), id).toBe(true);
+      expect(pieces.filter((e) => /stone(Wall|Tower|Gate)|fort/.test(e.type) && e.state !== 'ruined').every((e) => e.hp === 0.6), id).toBe(true);
       expect(pieces.filter((e) => e.art).length, id).toBeGreaterThanOrEqual(3);
       expect(r.guardians!.map((g) => g.boss).sort(), id).toEqual(bossesOfRegion(id).map((b) => b.id).sort());
     }
     const krios = region('krios');
     expect(krios.prebuilt!.some((e) => e.art === 'citadel-keep' && e.type === 'fort' && e.maxHp === 8000)).toBe(true);
     expect(krios.guardians![0].perches!.length).toBeGreaterThan(2);
+    // the big ones are big: the Dead City and the Temple City hundreds of pieces, houses by the hundred, most fallen in
+    const ammon = region('ammon').prebuilt!.filter((e) => e.landmark), houses = ammon.filter((e) => e.type === 'house');
+    expect(ammon.length).toBeGreaterThan(500);
+    expect(houses.length).toBeGreaterThan(150);
+    expect(houses.filter((e) => e.state !== 'ruined').length).toBeLessThanOrEqual(12); // its pool stays at 6 an hour
+    expect(region('omphalos').prebuilt!.filter((e) => e.landmark).length).toBeGreaterThan(400);
     expect(region('siren').guardians![0].heads).toHaveLength(6);
     expect(region('ammon').guardians![0].postern).toBeDefined();
     expect(region('ammon').lairs!.some((l) => l.captain)).toBe(true);
@@ -46,7 +53,8 @@ describe('M7d landmarks in their regions', () => {
     sim.step();
     const bs = sim.snapshot().buildings!.filter((b) => b.landmark);
     expect(bs.length).toBe(r.prebuilt!.filter((e) => e.landmark).length);
-    for (const b of bs) expect(b.hp / b.maxHp).toBeCloseTo(0.6, 5);
+    for (const b of bs.filter((b) => !b.ruin)) expect(b.hp / b.maxHp).toBeCloseTo(0.6, 5);
+    expect(bs.filter((b) => b.ruin).length).toBe(r.prebuilt!.filter((e) => e.landmark && e.state === 'ruined').length);
     expect(bs.every((b) => b.team === MOB_TEAM)).toBe(true);
     expect(bs.find((b) => b.art === 'citadel-keep')!.maxHp).toBe(8000);
     const town = r.prebuilt!.find((e) => e.art === 'citadel-keep')!.claim!;
