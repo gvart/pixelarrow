@@ -1,0 +1,5 @@
+[
+ {"anim":"attack","dir":"south-west","attempt":"a1","job":"67ab5325-b739-4ca9-8e9f-23ef260ed4a1","mode":"pixminimax","frames":12,"gens":1},
+ {"anim":"idle","dir":"south-west","attempt":"a1","job":"320db2e1-1fa0-4b4f-a9b2-a6893eed1460","mode":"pixminimax","frames":12,"gens":1},
+ {"anim":"die","dir":"south-west","attempt":"a1","job":"9941e688-4368-4290-97d1-4cf72dcf7613","mode":"pixminimax","frames":12,"gens":1}
+]

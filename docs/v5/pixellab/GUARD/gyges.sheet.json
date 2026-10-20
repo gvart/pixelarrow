@@ -1,0 +1,64 @@
+{
+ "class": "mob_gyges",
+ "raw": "docs/v5/pixellab/GUARD/raw/gyges",
+ "rotations": "docs/v5/pixellab/GUARD/raw/gyges/rot",
+ "shrink": 1,
+ "scale": 1,
+ "canvas": [
+  160,
+  160
+ ],
+ "pad": [
+  0,
+  0
+ ],
+ "clips": {
+  "idle": {
+   "fps": 8,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "p1"
+   }
+  },
+  "walk": {
+   "fps": 10,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "attack": {
+   "fps": 12,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   },
+   "strike": 6
+  },
+  "die": {
+   "fps": 10,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "sw"
+   }
+  },
+  "hit": {
+   "fps": 12,
+   "of": "die",
+   "frames": [
+    1,
+    2,
+    2,
+    1
+   ]
+  }
+ }
+}

@@ -10,7 +10,10 @@ const ROWS = ['south-east', 'north-east', 'south-west', 'north-west'];
 const raw = process.argv[2];
 const mirror = process.argv.includes('--mirror');
 const z = join(raw, 'zip');
-const st = readdirSync(z).find((d) => existsSync(join(z, d, 'rotations')));
+// no character (a single south-west image, e.g. a Scylla head facing the shore from the sea): every row is that view,
+// the east rows mirrored
+const single = !existsSync(z);
+const st = single ? null : readdirSync(z).find((d) => existsSync(join(z, d, 'rotations')));
 const flip = (img) => {
   const o = blank(img.w, img.h);
   for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) o.data.set(img.data.subarray((y * img.w + x) * 4, (y * img.w + x) * 4 + 4), (y * img.w + img.w - 1 - x) * 4);
@@ -23,6 +26,10 @@ const SHIFT = { 'south-east': 'east', 'north-east': 'north', 'south-west': 'sout
 const shift = process.argv.includes('--shift');
 const imgs = ROWS.map((d) => {
   const src = mirror && d.endsWith('east') ? d.replace('east', 'west') : d;
+  if (single) {
+    const sw = readImage(join(raw, 'base-south-west.png'));
+    return d.endsWith('east') ? flip(sw) : sw;
+  }
   const im = readImage(join(z, st, 'rotations', `${shift ? SHIFT[src] : src}.png`));
   return src === d ? im : flip(im);
 });
