@@ -1,0 +1,79 @@
+{
+ "version": 2,
+ "class": "mob_bandit_archer",
+ "image": "mob_bandit_archer.png",
+ "frame": {
+  "w": 88,
+  "h": 92
+ },
+ "anchor": {
+  "x": 43,
+  "y": 87
+ },
+ "anchors": {
+  "south-east": {
+   "x": 45,
+   "y": 87
+  },
+  "north-east": {
+   "x": 44,
+   "y": 87
+  },
+  "south-west": {
+   "x": 43,
+   "y": 87
+  },
+  "north-west": {
+   "x": 44,
+   "y": 87
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 46,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "shoot": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 8
+  },
+  "die": {
+   "col": 36,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 48,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
