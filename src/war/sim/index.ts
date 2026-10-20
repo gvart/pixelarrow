@@ -732,6 +732,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.claimPt = -1;
     }
     if (o.kind === 'claimRegion') {
+      const cp = region.claimPoints?.[o.point];
+      if (cp && inSafe(cp.x, cp.y)) return; // M6d: no claim in a safe zone
       if (!mobs.startClaim(s.id, o.point)) return;
       if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
       const c = mobs.claimPoint(o.point);
@@ -2220,7 +2222,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         if (b.type !== 'camp' && b.type !== 'fort' && b.def.workplace?.kind !== 'infirmary') continue;
         // the hurt of his team near him heal (fed men faster); every PATIENT_HP healed is a job
         for (const o of units) {
-          if (!o.alive || o.hp >= o.maxHp || o.squad.team !== s.team || works.dist2(s.work, o.x, o.y) > PHYSICIAN.r * PHYSICIAN.r) continue;
+          if (!o.alive || o.hp >= o.maxHp || o.squad.team !== s.team || works.dist2(s.work, o.x, o.y) > PHYSICIAN.r * PHYSICIAN.r || (anySafe && inSafe(o.x, o.y))) continue; // M6d: no healing in a safe zone
           const add = Math.min(o.maxHp - o.hp, o.maxHp * PHYSICIAN.heal * sec * w * (o.squad.fedUntil > tick ? o.squad.fedHeal : 1));
           o.hp += add;
           u.civT += add;

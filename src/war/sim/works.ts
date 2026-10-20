@@ -141,6 +141,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const occ = new Int32Array(w * h).fill(-1); // tile -> building that stands or is marked out there
   const noBuild = new Uint8Array(w * h);
   for (const r of region.noBuild) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) noBuild[y * w + x] = 1;
+  // M6d: no building in a safe zone (rented sites: M6f)
+  for (const r of region.safe ?? []) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) noBuild[y * w + x] = 1;
   /** M6a: each team's home strongroom (server-fed: addStock), drawn by every network of the team (docs/WAR.md "Goods live in places"). */
   const reserve = new Map<number, Hold>();
   const storeList: Building[] = []; // every store building ever placed (done ones hold goods)
