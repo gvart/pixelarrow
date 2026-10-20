@@ -12,6 +12,7 @@ import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
 import { createNet, type Net } from '../net/client';
+import type { HandoffMsg, StowMsg } from '../net/protocol';
 import type { BridgeOrder, BuildingType, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
 
 export type ToWorker =
@@ -37,7 +38,10 @@ export type ToWorker =
   | { t: 'person'; p: WarPerson }
   // M5h crafting, net mode only: a mend over the region socket, a war API call (answered by `reply` with `api`)
   | { t: 'mend'; kind: 'repair' | 'salvage'; building: number; uid: string }
-  | { t: 'api'; id: number; method: 'GET' | 'POST'; path: string; body?: unknown };
+  | { t: 'api'; id: number; method: 'GET' | 'POST'; path: string; body?: unknown }
+  // M6f-g, net mode only: stow and the hand-off window over the region socket (answers come back as `server`)
+  | { t: 'stow'; m: Omit<StowMsg, 't'> }
+  | { t: 'handoff'; m: Omit<HandoffMsg, 't'> };
 
 /** Ticks between resource node posts (amounts change slowly). */
 const NODES_EVERY = 10;
@@ -121,7 +125,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     // M5e: `?net=/ws/war/test-ridge?seed=1` re-seeds the dev roster before joining (the server seeds one anyway when
     // fewer than a squad of soldiers are at home)
     const seed = /[?&]seed=1\b/.test(m.net), url = m.net.replace(/[?&]seed=1\b/, '');
-    net = createNet(url, m.region.id, m.dev, (snap, stats) => postMessage({ snap, stats }), seed);
+    net = createNet(url, m.region.id, m.dev, (snap, stats) => postMessage({ snap, stats }), seed, (server) => postMessage({ server }));
     return;
   }
   if (net) return netMessage(net, m);
@@ -168,4 +172,6 @@ function netMessage(n: Net, m: ToWorker): void {
   else if (m.t === 'endFight') postMessage({ reply: m.id, report: null });
   else if (m.t === 'mend') n.mend(m.kind, m.building, m.uid);
   else if (m.t === 'api') void n.api(m.method, m.path, m.body).then((api) => postMessage({ reply: m.id, api }));
+  else if (m.t === 'stow') n.stow(m.m);
+  else if (m.t === 'handoff') n.handoff(m.m);
 }

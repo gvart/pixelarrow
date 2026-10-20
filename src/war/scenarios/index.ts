@@ -103,6 +103,7 @@ const ringSites = (a: number, b: number) => [
 /** M6k loot / caravan: open grass by the east road (height 1). */
 const LOOT = [430, 236] as const, LOOT_FOE = [444.5, 236.5] as const, LOOT_CART = [436.5, 242.5] as const;
 const CARAVAN_HOME = [391.5, 189.5] as const;
+const MARKET_COURT = [404, 222] as const;
 const CARAVAN_AMBUSH: TileRect = { x: 446, y: 203, w: 14, h: 9 };
 export const BRIDGE_DRAG = [287.5, 376.5, 305.5, 376.5] as const;
 export const BRIDGE_STONE = [282.5, 370.5, 306.5, 346.5] as const;
@@ -459,6 +460,22 @@ export const SCENARIOS: Scenario[] = [
         { kind: 'civWork', squad: 5, building: 0 },
       ],
     },
+  },
+  {
+    // M6k market: a safe market court (12 x 10, gates north and south) on the open field, six of your militia inside
+    // (the court's cap), your hoplites and a handcart in the yard south; coin and goods at home for rent and trade
+    id: 'market',
+    name: 'Market',
+    goal: 'Open the market (K): rent a stall, stow goods in, list an offer or a buy order, take from the board, post or take a contract, offer a letter; Hand-off trades with a trader here.',
+    squads: [you('militia', at(MARKET_COURT, 6, 5), 6)],
+    camera: { x: MARKET_COURT[0] + 6, y: MARKET_COURT[1] + 8, zoom: 1 },
+    economy: { claims: [], stock: { coin: 900, iron: 60, tin: 40, hides: 30, oil: 20, food: 40, silver: 12 } },
+    zones: {
+      safe: [{ x: MARKET_COURT[0], y: MARKET_COURT[1], w: 12, h: 10, gates: [{ x: MARKET_COURT[0] + 5, y: MARKET_COURT[1], w: 2, h: 1 }, { x: MARKET_COURT[0] + 5, y: MARKET_COURT[1] + 9, w: 2, h: 1 }] }],
+      yard: [{ x: MARKET_COURT[0] + 2, y: MARKET_COURT[1] + 10, w: 8, h: 5 }],
+    },
+    carts: [{ team: 0, owner: 'you', type: 'handcart', x: MARKET_COURT[0] + 8, y: MARKET_COURT[1] + 13 }],
+    after: { orders: [], squads: [you('hoplite', at(MARKET_COURT, 3, 13), 8)] },
   },
   {
     // M6k loot: the foe's trader (squad 0, team 1) raises its camp (building 0) by the east field, loads its handcart

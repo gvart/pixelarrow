@@ -11,7 +11,7 @@
 import { SIM_VERSION } from '../../sim/version';
 import type { BridgePlan, Order, PlaceResult, Snapshot, WallPlan } from '../types';
 import { DeltaDecoder } from './codec';
-import { MAX_SQUAD, NET_VERSION, type CheckMsg, type ServerMsg } from './protocol';
+import { MAX_SQUAD, NET_VERSION, type CheckMsg, type HandoffMsg, type ServerMsg, type StowMsg } from './protocol';
 
 export interface Net {
   join(team: number, cls: string, count: number): void;
@@ -23,6 +23,10 @@ export interface Net {
   mend(kind: 'repair' | 'salvage', building: number, uid: string): void;
   /** The war API (/api/war/<path>) as the dev player, once signed in: its JSON, or { error } on a refusal. */
   api(method: 'GET' | 'POST', path: string, body?: unknown): Promise<unknown>;
+  /** M6f: goods between his packs or cart and his stall, warehouse, strongroom or a contract here (-> stowed | error). */
+  stow(m: Omit<StowMsg, 't'>): void;
+  /** M6g: the hand-off window with another player here (-> handoff to both). */
+  handoff(m: Omit<HandoffMsg, 't'>): void;
 }
 
 /** A check message without its envelope (t, id). */
@@ -30,7 +34,7 @@ export type CheckBody = CheckMsg extends infer C ? (C extends unknown ? Omit<C, 
 
 interface RosterPerson { id: string; cls: string; state: string; region: string | null }
 
-export function createNet(url: string, region: string, devId: number | undefined, onSnap: (s: Snapshot, stats: { stepMs: number; units: number }) => void, seed = false): Net {
+export function createNet(url: string, region: string, devId: number | undefined, onSnap: (s: Snapshot, stats: { stepMs: number; units: number }) => void, seed = false, onMsg: (m: ServerMsg) => void = () => undefined): Net {
   const dec = new DeltaDecoder();
   const pending: (() => unknown)[] = [];
   let ws: WebSocket | null = null;
@@ -78,6 +82,7 @@ export function createNet(url: string, region: string, devId: number | undefined
           return;
         }
         if (m.t !== 'pong') console.info('[net]', m);
+        if (m.t === 'stowed' || m.t === 'handoff' || m.t === 'error' || m.t === 'welcome') onMsg(m); // M6: the trade panels (welcome: our player id)
         return;
       }
       const snap = dec.apply(e.data as ArrayBuffer);
@@ -109,6 +114,8 @@ export function createNet(url: string, region: string, devId: number | undefined
       send(() => ({ ...c, t: 'check', id }));
     },
     mend: (kind, building, uid) => send(() => ({ t: 'mend', kind, building, uid })),
+    stow: (m) => send(() => ({ ...m, t: 'stow' })),
+    handoff: (m) => send(() => ({ ...m, t: 'handoff' })),
     api: async (method, path, body) => {
       const r = await fetch(`/api/war/${path}`, { method, headers: await authed, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
       const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;

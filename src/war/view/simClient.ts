@@ -5,6 +5,7 @@
 import type { Behaviour } from '../sim/bots';
 import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
 import type { ToWorker } from './worker';
+import type { HandoffMsg, ServerMsg, StowMsg } from '../net/protocol';
 
 export interface DrawUnit { u: UnitSnap; x: number; y: number; facing: number; team: number }
 
@@ -29,12 +30,21 @@ export class SimClient {
   /** M5g (./hud/roster): persons for a squad about to spawn (none: class soldiers), and the sim's event log as it comes. */
   personsFor: ((owner: string, team: number, cls: string, count: number) => WarPerson[] | undefined) | null = null;
   onEvents: ((ev: WarEvent[]) => void) | null = null;
+  /** M6 net mode: the region server's trade answers (stowed, handoff, error) for the trade panels (../hud/market.ts). */
+  onServer: ((m: ServerMsg) => void) | null = null;
+  /** Net mode: our player id once the region welcomed us (hand-off halves are keyed by it). */
+  playerId: number | null = null;
   private asks = new Map<number, (r: unknown) => void>();
   private askId = 0;
 
   constructor(region: RegionData) {
-    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null; api?: unknown };
+    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null; api?: unknown } | { server: ServerMsg };
     this.worker.onmessage = (e: MessageEvent<Msg>) => {
+      if ('server' in e.data) {
+        if (e.data.server.t === 'welcome') this.playerId = e.data.server.you.id;
+        else this.onServer?.(e.data.server);
+        return;
+      }
       if ('reply' in e.data) {
         const r = e.data;
         this.asks.get(r.reply)?.(r.place ?? r.wall ?? r.bridge ?? r.report ?? r.api ?? null);
@@ -199,6 +209,16 @@ export class SimClient {
   /** M5h net mode: a war API call as the dev player (null off net mode). */
   api<T = unknown>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T | null> {
     return this.net ? this.ask<T>((id) => ({ t: 'api', id, method, path, body })) : Promise.resolve(null);
+  }
+
+  /** M6f net mode: goods between his packs or cart and his site here (answered by `stowed` or `error` on onServer). */
+  stow(m: Omit<StowMsg, 't'>): void {
+    this.send({ t: 'stow', m });
+  }
+
+  /** M6g net mode: the hand-off window (answered by `handoff` on onServer, to both players). */
+  handoff(m: Omit<HandoffMsg, 't'>): void {
+    this.send({ t: 'handoff', m });
   }
 
   /** Time scale; 0 pauses. */

@@ -15,7 +15,7 @@
  *   bottom right   the Build (hammer, B) button; the build bar (tabs Camp / Walls / Siege, a tool per building, a
  *                  tooltip with cost and labour; wall tools add gate / tower / order / undo / flip, the status line
  *                  above) opens bottom centre, over the card, only in build mode: B / Esc close it
- *   top right      DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
+ *   top right      World, Market (K: ./market.ts), DEV (F1) and the UI scale (auto by window / 0.75x / 1x / 1.25x / 1.5x / 2x, kept in localStorage; ./kit.ts)
  *   at the cursor  the E context label (../interact.ts) and the kit's cursors
  *
  * The dev panel (../devPanel.ts) hides behind F1 and the DEV corner button. It only calls BuildMode, SiegeControls and
@@ -43,6 +43,7 @@ import { sandboxRoster } from './roster/state';
 import { PROF_NODES } from '../../../data/professions';
 import { WP_NAME } from './craft/workplace';
 import { mountTrade } from './holder';
+import { mountMarket } from './market';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 
@@ -329,6 +330,7 @@ export function hud(s: SandboxScene): void {
 
   // ---------- trade: holder panel, hover card, command card slots (./holder.ts, M6k) ----------
   const trade = mountTrade(s, mk, btn, tipK);
+  mountMarket(s, mk); // M6k: market, offers, board, contracts, letters, hand-off (./market.ts; K)
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
