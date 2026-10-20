@@ -1,0 +1,16 @@
+[
+ {"anim":"chop","dir":"south-east","attempt":"a1","job":"0f4623b7-94b2-44b6-b5f2-32339ef398c0","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"chop","dir":"north-east","attempt":"a1","job":"5462f53e-8912-47e4-a787-a2b28ffd4e7c","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"AWAY=short"},
+ {"anim":"chop","dir":"south-west","attempt":"a1","job":"ed6a1486-564a-4c31-a3b9-dd0ab14dbcda","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"chop","dir":"north-west","attempt":"a1","job":"08fcf86e-d639-4581-af4a-c47504b0e457","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"build","dir":"south-east","attempt":"a1","job":"b7871ada-8a9f-4764-8b76-b3ca00648ab1","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"mallet"},
+ {"anim":"build","dir":"north-east","attempt":"a1","job":"beb82523-444b-4db9-9144-8414e1065ec2","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"mallet AWAY=short"},
+ {"anim":"build","dir":"north-west","attempt":"a1","job":"c4599287-7f6d-4fdf-9fca-b3b111fdec0b","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"mallet"},
+ {"anim":"build","dir":"south-west","attempt":"a1","job":"739e8c4c-6b66-4ae4-8480-35a46681658c","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"mallet"},
+ {"anim":"harvest","dir":"south-east","attempt":"a1","job":"d4862e11-85cf-4b4e-8aa6-1d23a1f29632","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"harvest","dir":"south-west","attempt":"a1","job":"fc5fb441-f606-47cb-8ff1-47d42c27bfba","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"harvest","dir":"north-west","attempt":"a1","job":"dac21c8a-cc38-45e9-a67e-2d69c0f059e6","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"mine","dir":"south-east","attempt":"a1","job":"a4d5880b-a13c-45ce-8b95-fa609c76d24a","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"mine","dir":"south-west","attempt":"a1","job":"c13c3e61-fee6-4829-a0a4-5b258e2c6031","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"mine","dir":"north-west","attempt":"a1","job":"c8d0b431-1a14-43a1-a378-db5471e2ebef","mode":"pixminimax","frames":12,"gens":1,"first":"tall"}
+]

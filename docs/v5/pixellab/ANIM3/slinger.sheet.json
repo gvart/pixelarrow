@@ -1,0 +1,451 @@
+{
+ "$doc": "ANIM3 append spec for slinger (ROUND=ANIM3 scripts/art/pixellab/anim1/spec.mjs, from docs/v5/pixellab/I5b/slinger.sheet.json). Rebuild: node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/ANIM3/slinger.jobs.json docs/v5/pixellab/ANIM3/raw/slinger && node scripts/art/pixellab/anim1/append.mjs docs/v5/pixellab/ANIM3/slinger.sheet.json",
+ "class": "slinger",
+ "raw": "docs/v5/pixellab/ANIM3/raw/slinger",
+ "base": "src/assets/sheets/slinger/manifest.json",
+ "scale": 0.55,
+ "ramps": [
+  "outline",
+  "crimson",
+  "umber",
+  "skin",
+  "darkBronze"
+ ],
+ "parts": {
+  "crimson": "cloak",
+  "umber": "shadow",
+  "darkBronze": "shadow"
+ },
+ "crest": false,
+ "emblem": false,
+ "stature": {
+  "from": "any",
+  "why": "bare head"
+ },
+ "spear": false,
+ "alignMax": [
+  18,
+  8
+ ],
+ "rowsFeet": {
+  "south-east": [
+   31,
+   66
+  ],
+  "north-east": [
+   38,
+   66
+  ],
+  "south-west": [
+   32,
+   66
+  ],
+  "north-west": [
+   38,
+   66
+  ]
+ },
+ "canvases": {
+  "rot": {
+   "south-east": [
+    0,
+    0
+   ],
+   "north-east": [
+    0,
+    0
+   ],
+   "south-west": [
+    0,
+    0
+   ],
+   "north-west": [
+    0,
+    0
+   ]
+  },
+  "tall": {
+   "south-east": [
+    14,
+    40
+   ],
+   "north-east": [
+    14,
+    40
+   ],
+   "south-west": [
+    14,
+    40
+   ],
+   "north-west": [
+    14,
+    40
+   ]
+  },
+  "atk": {
+   "south-east": [
+    20,
+    40
+   ],
+   "north-east": [
+    20,
+    40
+   ],
+   "south-west": [
+    40,
+    40
+   ],
+   "north-west": [
+    40,
+    40
+   ]
+  },
+  "die": {
+   "south-east": [
+    30,
+    30
+   ],
+   "north-east": [
+    30,
+    30
+   ],
+   "south-west": [
+    30,
+    30
+   ],
+   "north-west": [
+    30,
+    30
+   ]
+  },
+  "guard": {
+   "south-east": [
+    19,
+    42
+   ],
+   "north-east": [
+    10,
+    40
+   ],
+   "south-west": [
+    16,
+    42
+   ],
+   "north-west": [
+    7,
+    41
+   ]
+  },
+  "gatk": {
+   "south-east": [
+    25,
+    42
+   ],
+   "north-east": [
+    16,
+    40
+   ],
+   "south-west": [
+    42,
+    42
+   ],
+   "north-west": [
+    33,
+    41
+   ]
+  }
+ },
+ "tiers": {
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#151719",
+    "#1e2224",
+    "#2d3131",
+    "#3b4141"
+   ]
+  }
+ },
+ "anims": {
+  "chop": {
+   "fps": 10,
+   "canvas": "tall",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "north-east": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   }
+  },
+  "build": {
+   "fps": 10,
+   "canvas": "tall",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "north-east": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   }
+  },
+  "harvest": {
+   "fps": 8,
+   "canvas": "tall",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "north-east": {
+     "attempt": "nw",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   }
+  },
+  "mine": {
+   "fps": 10,
+   "canvas": "tall",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11
+     ]
+    },
+    "north-east": {
+     "attempt": "nw",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   }
+  }
+ }
+}
