@@ -93,7 +93,9 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ignite'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
   z.object({ kind: z.literal('extinguish'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
 ]);
-export type NetOrder = z.infer<typeof orderSchema> & Order;
+/** A sim order as it comes over the wire: the room fills in `team` for squad-less orders (the player's team). */
+type Teamless<O> = O extends { team: number } ? Omit<O, 'team'> & { team?: number } : O;
+export type NetOrder = z.infer<typeof orderSchema> & Teamless<Order>;
 
 /** A placement check for the player's team (the build UI's live preview), answered by `checked` with the same id. */
 export const checkSchema = z.discriminatedUnion('kind', [
