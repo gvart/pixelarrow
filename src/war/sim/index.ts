@@ -1581,7 +1581,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     p.salv = ++v.t;
     if (v.t < PILE.salvage) return;
     const [it] = p.hold.items.splice(i, 1), r = itemRecipe(it.def);
-    for (const [k, n] of Object.entries(r?.inputs ?? {}) as [ResourceKind, number][]) if (Math.floor(n * CRAFT.salvage) > 0) p.hold.lots.push({ r: k, n: Math.floor(n * CRAFT.salvage), o: region.id });
+    // at least one of its main material (a small item would round to nothing)
+    (Object.entries(r?.inputs ?? {}) as [ResourceKind, number][]).forEach(([k, n], j) => {
+      const got = Math.max(j === 0 ? 1 : 0, Math.round(n * CRAFT.salvage));
+      if (got > 0) p.hold.lots.push({ r: k, n: got, o: region.id });
+    });
     p.salv = 0;
     p.until = Math.max(p.until, tick + 1);
     s.salv = null;
