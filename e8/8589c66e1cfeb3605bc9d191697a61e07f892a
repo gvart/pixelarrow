@@ -17,6 +17,7 @@ server/src/account/deletionMap.ts
 src/war/sim/index.ts
   s_cfc22b058125c4::t_346a9fb9ccc6b4 65
   s_cfc22b058125c4::t_5b432c9bf45124 1544,1548,1561,1570
+  s_cfc22b058125c4::t_3f79afe80d995c 67
 src/war/net/protocol.ts
   s_cfc22b058125c4::t_f9d5f36232aa8d 19-21,154-161,168,183-185
 server/src/war/tradeRoutes.ts
