@@ -2459,7 +2459,7 @@ Warehouse states: §30's recipe (pixflux img2img 200 over `buildings.mjs --inits
 warehouse under construction: half-built pale limestone ashlar walls with ragged unfinished tops, no roof yet, wooden
 scaffolding poles and planks, ...` (`7af8cb40`), damaged `a burnt and ruined ancient Greek stone warehouse: pale
 limestone walls blackened with soot, the tiled roof collapsed with charred broken beams and holes, smashed amphorae and
-broken crates, rubble, ...` (`2bac634c`). Stalls L1-L3 are the market-stall chain of §36 (`trade.json` `stalls`).
+broken crates, rubble, ...` (`2bac634c`). Stalls L1-L3 are the market-stall chain of §36 (`public/war/trade/objects.json` `stalls`).
 
 **Icons** (`ui-trade.mjs`, drawn, 0 generations): glyph pictograms in the action-icon look: `trade-cart`, `trade-wagon`,
 `trade-chest`, `trade-pile`, `act-load` (green arrow down into a crate), `act-unload` (orange arrow up), `act-escort`
