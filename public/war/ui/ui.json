@@ -136,7 +136,28 @@
   "#5a2a16",
   "#94482a",
   "#c06a3c",
-  "#e09a64"
+  "#e09a64",
+  "#4f483f",
+  "#9a948a",
+  "#d2ccc0",
+  "#f0ece4",
+  "#33581d",
+  "#5f9a45",
+  "#9ed67c",
+  "#d4f2bc",
+  "#1f478a",
+  "#4a78c0",
+  "#8dbaff",
+  "#cfe2ff",
+  "#62298a",
+  "#9a58c0",
+  "#d2a8ff",
+  "#efdcff",
+  "#6e4600",
+  "#e0b040",
+  "#ffd263",
+  "#fff0a0",
+  "#fff4dc"
  ],
  "frames": {
   "band": {
@@ -753,6 +774,772 @@
    "32": "icons/32/mode-resources.png",
    "group": "mode",
    "src": "pixellab"
+  },
+  "res-hides": {
+   "24": "icons/24/res-hides.png",
+   "32": "icons/32/res-hides.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "raw"
+  },
+  "res-flax": {
+   "24": "icons/24/res-flax.png",
+   "32": "icons/32/res-flax.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "raw"
+  },
+  "res-herbs": {
+   "24": "icons/24/res-herbs.png",
+   "32": "icons/32/res-herbs.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "raw"
+  },
+  "res-charcoal": {
+   "24": "icons/24/res-charcoal.png",
+   "32": "icons/32/res-charcoal.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "refined"
+  },
+  "res-leather": {
+   "24": "icons/24/res-leather.png",
+   "32": "icons/32/res-leather.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "refined"
+  },
+  "res-linen": {
+   "24": "icons/24/res-linen.png",
+   "32": "icons/32/res-linen.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "refined"
+  },
+  "res-oil": {
+   "24": "icons/24/res-oil.png",
+   "32": "icons/32/res-oil.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "refined"
+  },
+  "res-bandages": {
+   "24": "icons/24/res-bandages.png",
+   "32": "icons/32/res-bandages.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "product"
+  },
+  "res-salves": {
+   "24": "icons/24/res-salves.png",
+   "32": "icons/32/res-salves.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "product"
+  },
+  "res-theriac": {
+   "24": "icons/24/res-theriac.png",
+   "32": "icons/32/res-theriac.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "product"
+  },
+  "node-smith-smelter": {
+   "24": "icons/24/node-smith-smelter.png",
+   "32": "icons/32/node-smith-smelter.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "smelter",
+   "ring": "root"
+  },
+  "node-smith-armourer": {
+   "24": "icons/24/node-smith-armourer.png",
+   "32": "icons/32/node-smith-armourer.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "armourer",
+   "ring": "node"
+  },
+  "node-smith-bladesmith": {
+   "24": "icons/24/node-smith-bladesmith.png",
+   "32": "icons/32/node-smith-bladesmith.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "bladesmith",
+   "ring": "node"
+  },
+  "node-smith-bowyer": {
+   "24": "icons/24/node-smith-bowyer.png",
+   "32": "icons/32/node-smith-bowyer.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "bowyer",
+   "ring": "node"
+  },
+  "node-smith-field-forge": {
+   "24": "icons/24/node-smith-field-forge.png",
+   "32": "icons/32/node-smith-field-forge.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "field-forge",
+   "ring": "node"
+  },
+  "node-smith-alloy": {
+   "24": "icons/24/node-smith-alloy.png",
+   "32": "icons/32/node-smith-alloy.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "alloy",
+   "ring": "node"
+  },
+  "node-smith-journeyman": {
+   "24": "icons/24/node-smith-journeyman.png",
+   "32": "icons/32/node-smith-journeyman.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "journeyman",
+   "ring": "node"
+  },
+  "node-smith-heavy-armour": {
+   "24": "icons/24/node-smith-heavy-armour.png",
+   "32": "icons/32/node-smith-heavy-armour.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "heavy-armour",
+   "ring": "node"
+  },
+  "node-smith-master": {
+   "24": "icons/24/node-smith-master.png",
+   "32": "icons/32/node-smith-master.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "master",
+   "ring": "node"
+  },
+  "node-smith-masterwork": {
+   "24": "icons/24/node-smith-masterwork.png",
+   "32": "icons/32/node-smith-masterwork.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "masterwork",
+   "ring": "node"
+  },
+  "node-smith-reforger": {
+   "24": "icons/24/node-smith-reforger.png",
+   "32": "icons/32/node-smith-reforger.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "reforger",
+   "ring": "cap"
+  },
+  "node-smith-goldsmith": {
+   "24": "icons/24/node-smith-goldsmith.png",
+   "32": "icons/32/node-smith-goldsmith.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "smith",
+   "node": "goldsmith",
+   "ring": "cap"
+  },
+  "node-cook-camp-cook": {
+   "24": "icons/24/node-cook-camp-cook.png",
+   "32": "icons/32/node-cook-camp-cook.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "camp-cook",
+   "ring": "root"
+  },
+  "node-cook-baker": {
+   "24": "icons/24/node-cook-baker.png",
+   "32": "icons/32/node-cook-baker.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "baker",
+   "ring": "node"
+  },
+  "node-cook-field-kitchen": {
+   "24": "icons/24/node-cook-field-kitchen.png",
+   "32": "icons/32/node-cook-field-kitchen.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "field-kitchen",
+   "ring": "node"
+  },
+  "node-cook-salt-pork": {
+   "24": "icons/24/node-cook-salt-pork.png",
+   "32": "icons/32/node-cook-salt-pork.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "salt-pork",
+   "ring": "node"
+  },
+  "node-cook-stew-pot": {
+   "24": "icons/24/node-cook-stew-pot.png",
+   "32": "icons/32/node-cook-stew-pot.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "stew-pot",
+   "ring": "node"
+  },
+  "node-cook-herb-cook": {
+   "24": "icons/24/node-cook-herb-cook.png",
+   "32": "icons/32/node-cook-herb-cook.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "herb-cook",
+   "ring": "node"
+  },
+  "node-cook-spartan-mess": {
+   "24": "icons/24/node-cook-spartan-mess.png",
+   "32": "icons/32/node-cook-spartan-mess.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "spartan-mess",
+   "ring": "node"
+  },
+  "node-cook-quartermaster": {
+   "24": "icons/24/node-cook-quartermaster.png",
+   "32": "icons/32/node-cook-quartermaster.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "quartermaster",
+   "ring": "node"
+  },
+  "node-cook-big-pot": {
+   "24": "icons/24/node-cook-big-pot.png",
+   "32": "icons/32/node-cook-big-pot.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "big-pot",
+   "ring": "node"
+  },
+  "node-cook-feast": {
+   "24": "icons/24/node-cook-feast.png",
+   "32": "icons/32/node-cook-feast.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "feast",
+   "ring": "node"
+  },
+  "node-cook-head-cook": {
+   "24": "icons/24/node-cook-head-cook.png",
+   "32": "icons/32/node-cook-head-cook.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "head-cook",
+   "ring": "cap"
+  },
+  "node-cook-symposiarch": {
+   "24": "icons/24/node-cook-symposiarch.png",
+   "32": "icons/32/node-cook-symposiarch.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "cook",
+   "node": "symposiarch",
+   "ring": "cap"
+  },
+  "node-physician-healer": {
+   "24": "icons/24/node-physician-healer.png",
+   "32": "icons/32/node-physician-healer.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "healer",
+   "ring": "root"
+  },
+  "node-physician-bonesetter": {
+   "24": "icons/24/node-physician-bonesetter.png",
+   "32": "icons/32/node-physician-bonesetter.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "bonesetter",
+   "ring": "node"
+  },
+  "node-physician-field-surgeon": {
+   "24": "icons/24/node-physician-field-surgeon.png",
+   "32": "icons/32/node-physician-field-surgeon.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "field-surgeon",
+   "ring": "node"
+  },
+  "node-physician-herbalist": {
+   "24": "icons/24/node-physician-herbalist.png",
+   "32": "icons/32/node-physician-herbalist.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "herbalist",
+   "ring": "node"
+  },
+  "node-physician-triage": {
+   "24": "icons/24/node-physician-triage.png",
+   "32": "icons/32/node-physician-triage.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "triage",
+   "ring": "node"
+  },
+  "node-physician-rhizotomist": {
+   "24": "icons/24/node-physician-rhizotomist.png",
+   "32": "icons/32/node-physician-rhizotomist.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "rhizotomist",
+   "ring": "node"
+  },
+  "node-physician-battle-dresser": {
+   "24": "icons/24/node-physician-battle-dresser.png",
+   "32": "icons/32/node-physician-battle-dresser.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "battle-dresser",
+   "ring": "node"
+  },
+  "node-physician-field-tent": {
+   "24": "icons/24/node-physician-field-tent.png",
+   "32": "icons/32/node-physician-field-tent.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "field-tent",
+   "ring": "node"
+  },
+  "node-physician-iatreion": {
+   "24": "icons/24/node-physician-iatreion.png",
+   "32": "icons/32/node-physician-iatreion.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "iatreion",
+   "ring": "node"
+  },
+  "node-physician-anatomist": {
+   "24": "icons/24/node-physician-anatomist.png",
+   "32": "icons/32/node-physician-anatomist.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "anatomist",
+   "ring": "node"
+  },
+  "node-physician-asclepiad": {
+   "24": "icons/24/node-physician-asclepiad.png",
+   "32": "icons/32/node-physician-asclepiad.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "asclepiad",
+   "ring": "cap"
+  },
+  "node-physician-proxenos-of-the-sick": {
+   "24": "icons/24/node-physician-proxenos-of-the-sick.png",
+   "32": "icons/32/node-physician-proxenos-of-the-sick.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "physician",
+   "node": "proxenos-of-the-sick",
+   "ring": "cap"
+  },
+  "node-engineer-builder": {
+   "24": "icons/24/node-engineer-builder.png",
+   "32": "icons/32/node-engineer-builder.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "builder",
+   "ring": "root"
+  },
+  "node-engineer-carpenter": {
+   "24": "icons/24/node-engineer-carpenter.png",
+   "32": "icons/32/node-engineer-carpenter.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "carpenter",
+   "ring": "node"
+  },
+  "node-engineer-master-builder": {
+   "24": "icons/24/node-engineer-master-builder.png",
+   "32": "icons/32/node-engineer-master-builder.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "master-builder",
+   "ring": "node"
+  },
+  "node-engineer-toolmaker": {
+   "24": "icons/24/node-engineer-toolmaker.png",
+   "32": "icons/32/node-engineer-toolmaker.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "toolmaker",
+   "ring": "node"
+  },
+  "node-engineer-bridgewright": {
+   "24": "icons/24/node-engineer-bridgewright.png",
+   "32": "icons/32/node-engineer-bridgewright.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "bridgewright",
+   "ring": "node"
+  },
+  "node-engineer-rams": {
+   "24": "icons/24/node-engineer-rams.png",
+   "32": "icons/32/node-engineer-rams.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "rams",
+   "ring": "node"
+  },
+  "node-engineer-fortifier": {
+   "24": "icons/24/node-engineer-fortifier.png",
+   "32": "icons/32/node-engineer-fortifier.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "fortifier",
+   "ring": "node"
+  },
+  "node-engineer-instrument-maker": {
+   "24": "icons/24/node-engineer-instrument-maker.png",
+   "32": "icons/32/node-engineer-instrument-maker.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "instrument-maker",
+   "ring": "node"
+  },
+  "node-engineer-artillerist": {
+   "24": "icons/24/node-engineer-artillerist.png",
+   "32": "icons/32/node-engineer-artillerist.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "artillerist",
+   "ring": "node"
+  },
+  "node-engineer-sapper": {
+   "24": "icons/24/node-engineer-sapper.png",
+   "32": "icons/32/node-engineer-sapper.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "sapper",
+   "ring": "node"
+  },
+  "node-engineer-poliorcetes": {
+   "24": "icons/24/node-engineer-poliorcetes.png",
+   "32": "icons/32/node-engineer-poliorcetes.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "poliorcetes",
+   "ring": "cap"
+  },
+  "node-engineer-archimedes": {
+   "24": "icons/24/node-engineer-archimedes.png",
+   "32": "icons/32/node-engineer-archimedes.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "engineer",
+   "node": "archimedes",
+   "ring": "cap"
+  },
+  "node-merchant-trader": {
+   "24": "icons/24/node-merchant-trader.png",
+   "32": "icons/32/node-merchant-trader.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "trader",
+   "ring": "root"
+  },
+  "node-merchant-haggler": {
+   "24": "icons/24/node-merchant-haggler.png",
+   "32": "icons/32/node-merchant-haggler.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "haggler",
+   "ring": "node"
+  },
+  "node-merchant-packer": {
+   "24": "icons/24/node-merchant-packer.png",
+   "32": "icons/32/node-merchant-packer.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "packer",
+   "ring": "node"
+  },
+  "node-merchant-pack-mules": {
+   "24": "icons/24/node-merchant-pack-mules.png",
+   "32": "icons/32/node-merchant-pack-mules.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "pack-mules",
+   "ring": "node"
+  },
+  "node-merchant-appraiser": {
+   "24": "icons/24/node-merchant-appraiser.png",
+   "32": "icons/32/node-merchant-appraiser.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "appraiser",
+   "ring": "node"
+  },
+  "node-merchant-contracts": {
+   "24": "icons/24/node-merchant-contracts.png",
+   "32": "icons/32/node-merchant-contracts.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "contracts",
+   "ring": "node"
+  },
+  "node-merchant-safe-roads": {
+   "24": "icons/24/node-merchant-safe-roads.png",
+   "32": "icons/32/node-merchant-safe-roads.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "safe-roads",
+   "ring": "node"
+  },
+  "node-merchant-broker": {
+   "24": "icons/24/node-merchant-broker.png",
+   "32": "icons/32/node-merchant-broker.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "broker",
+   "ring": "node"
+  },
+  "node-merchant-banker": {
+   "24": "icons/24/node-merchant-banker.png",
+   "32": "icons/32/node-merchant-banker.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "banker",
+   "ring": "node"
+  },
+  "node-merchant-importer": {
+   "24": "icons/24/node-merchant-importer.png",
+   "32": "icons/32/node-merchant-importer.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "importer",
+   "ring": "node"
+  },
+  "node-merchant-emporos": {
+   "24": "icons/24/node-merchant-emporos.png",
+   "32": "icons/32/node-merchant-emporos.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "emporos",
+   "ring": "cap"
+  },
+  "node-merchant-proxenos": {
+   "24": "icons/24/node-merchant-proxenos.png",
+   "32": "icons/32/node-merchant-proxenos.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "merchant",
+   "node": "proxenos",
+   "ring": "cap"
+  },
+  "node-forager-gatherer": {
+   "24": "icons/24/node-forager-gatherer.png",
+   "32": "icons/32/node-forager-gatherer.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "gatherer",
+   "ring": "root"
+  },
+  "node-forager-woodsman": {
+   "24": "icons/24/node-forager-woodsman.png",
+   "32": "icons/32/node-forager-woodsman.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "woodsman",
+   "ring": "node"
+  },
+  "node-forager-prospector": {
+   "24": "icons/24/node-forager-prospector.png",
+   "32": "icons/32/node-forager-prospector.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "prospector",
+   "ring": "node"
+  },
+  "node-forager-pitchman": {
+   "24": "icons/24/node-forager-pitchman.png",
+   "32": "icons/32/node-forager-pitchman.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "pitchman",
+   "ring": "node"
+  },
+  "node-forager-charcoal-burner": {
+   "24": "icons/24/node-forager-charcoal-burner.png",
+   "32": "icons/32/node-forager-charcoal-burner.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "charcoal-burner",
+   "ring": "node"
+  },
+  "node-forager-hunter": {
+   "24": "icons/24/node-forager-hunter.png",
+   "32": "icons/32/node-forager-hunter.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "hunter",
+   "ring": "node"
+  },
+  "node-forager-tanner": {
+   "24": "icons/24/node-forager-tanner.png",
+   "32": "icons/32/node-forager-tanner.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "tanner",
+   "ring": "node"
+  },
+  "node-forager-weaver": {
+   "24": "icons/24/node-forager-weaver.png",
+   "32": "icons/32/node-forager-weaver.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "weaver",
+   "ring": "node"
+  },
+  "node-forager-presser": {
+   "24": "icons/24/node-forager-presser.png",
+   "32": "icons/32/node-forager-presser.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "presser",
+   "ring": "node"
+  },
+  "node-forager-herb-finder": {
+   "24": "icons/24/node-forager-herb-finder.png",
+   "32": "icons/32/node-forager-herb-finder.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "herb-finder",
+   "ring": "node"
+  },
+  "node-forager-steward": {
+   "24": "icons/24/node-forager-steward.png",
+   "32": "icons/32/node-forager-steward.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "steward",
+   "ring": "cap"
+  },
+  "node-forager-pathfinder": {
+   "24": "icons/24/node-forager-pathfinder.png",
+   "32": "icons/32/node-forager-pathfinder.png",
+   "group": "node",
+   "src": "drawn",
+   "tree": "forager",
+   "node": "pathfinder",
+   "ring": "cap"
+  },
+  "badge-quality-crude": {
+   "24": "icons/24/badge-quality-crude.png",
+   "32": "icons/32/badge-quality-crude.png",
+   "group": "badge",
+   "src": "drawn"
+  },
+  "badge-quality-fine": {
+   "24": "icons/24/badge-quality-fine.png",
+   "32": "icons/32/badge-quality-fine.png",
+   "group": "badge",
+   "src": "drawn"
+  },
+  "badge-quality-masterwork": {
+   "24": "icons/24/badge-quality-masterwork.png",
+   "32": "icons/32/badge-quality-masterwork.png",
+   "group": "badge",
+   "src": "drawn"
+  },
+  "badge-rarity-common": {
+   "24": "icons/24/badge-rarity-common.png",
+   "32": "icons/32/badge-rarity-common.png",
+   "group": "badge",
+   "src": "drawn"
+  },
+  "badge-rarity-uncommon": {
+   "24": "icons/24/badge-rarity-uncommon.png",
+   "32": "icons/32/badge-rarity-uncommon.png",
+   "group": "badge",
+   "src": "drawn"
+  },
+  "badge-rarity-rare": {
+   "24": "icons/24/badge-rarity-rare.png",
+   "32": "icons/32/badge-rarity-rare.png",
+   "group": "badge",
+   "src": "drawn"
+  },
+  "badge-rarity-epic": {
+   "24": "icons/24/badge-rarity-epic.png",
+   "32": "icons/32/badge-rarity-epic.png",
+   "group": "badge",
+   "src": "drawn"
+  },
+  "badge-rarity-legendary": {
+   "24": "icons/24/badge-rarity-legendary.png",
+   "32": "icons/32/badge-rarity-legendary.png",
+   "group": "badge",
+   "src": "drawn"
   }
  },
  "cursors": {
@@ -834,5 +1621,115 @@
    "h": 26,
    "use": "red-figure horse, right end of a band (faces left)"
   }
- }
+ },
+ "craftPalette": [
+  "#4f483f",
+  "#9a948a",
+  "#d2ccc0",
+  "#f0ece4",
+  "#33581d",
+  "#5f9a45",
+  "#9ed67c",
+  "#d4f2bc",
+  "#1f478a",
+  "#4a78c0",
+  "#8dbaff",
+  "#cfe2ff",
+  "#62298a",
+  "#9a58c0",
+  "#d2a8ff",
+  "#efdcff",
+  "#6e4600",
+  "#e0b040",
+  "#ffd263",
+  "#fff0a0",
+  "#fff4dc"
+ ],
+ "craftNodes": {
+  "smith": [
+   "smelter",
+   "armourer",
+   "bladesmith",
+   "bowyer",
+   "field-forge",
+   "alloy",
+   "journeyman",
+   "heavy-armour",
+   "master",
+   "masterwork",
+   "reforger",
+   "goldsmith"
+  ],
+  "cook": [
+   "camp-cook",
+   "baker",
+   "field-kitchen",
+   "salt-pork",
+   "stew-pot",
+   "herb-cook",
+   "spartan-mess",
+   "quartermaster",
+   "big-pot",
+   "feast",
+   "head-cook",
+   "symposiarch"
+  ],
+  "physician": [
+   "healer",
+   "bonesetter",
+   "field-surgeon",
+   "herbalist",
+   "triage",
+   "rhizotomist",
+   "battle-dresser",
+   "field-tent",
+   "iatreion",
+   "anatomist",
+   "asclepiad",
+   "proxenos-of-the-sick"
+  ],
+  "engineer": [
+   "builder",
+   "carpenter",
+   "master-builder",
+   "toolmaker",
+   "bridgewright",
+   "rams",
+   "fortifier",
+   "instrument-maker",
+   "artillerist",
+   "sapper",
+   "poliorcetes",
+   "archimedes"
+  ],
+  "merchant": [
+   "trader",
+   "haggler",
+   "packer",
+   "pack-mules",
+   "appraiser",
+   "contracts",
+   "safe-roads",
+   "broker",
+   "banker",
+   "importer",
+   "emporos",
+   "proxenos"
+  ],
+  "forager": [
+   "gatherer",
+   "woodsman",
+   "prospector",
+   "pitchman",
+   "charcoal-burner",
+   "hunter",
+   "tanner",
+   "weaver",
+   "presser",
+   "herb-finder",
+   "steward",
+   "pathfinder"
+  ]
+ },
+ "craftNote": "ART-C icons: res-<good> (group resource, goodTier raw / refined / product), node-<tree>-<node> (group node: one per profession-tree node, WAR.md \"Crafting and professions\"; ring root = the free L1 root, cap = an L10 capstone; craftNodes lists them per tree in table order), badge-quality-<crude|fine|masterwork> and badge-rarity-<common..legendary> (group badge). Built by ui-craft.mjs after ui.mjs and ui-redfigure.mjs."
 }

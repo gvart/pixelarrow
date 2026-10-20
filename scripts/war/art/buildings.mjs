@@ -664,10 +664,11 @@ function gateBoxes(material, axis, state, k = 3, opt = {}) {
   const half = state === 'scaffold' || state === 'rising', low = state === 'rising', dmg = state === 'damaged', open = state === 'open';
   const doorMat = (f, x, y, z) => { const a = (axis === 'x' ? x : y) + (axis === 'x' ? y : x), n = Math.floor(a * 3.3); if ((z > 0.8 && z < 0.92) || (z > 2.3 && z < 2.42)) return mul(TEX.wood[0], 1.2); if (stone && (z * 4) % 1 < 0.12 && n % 2) return [96, 78, 52, 255]; return n % 2 ? TEX.wood[1] : TEX.wood[2]; };
   const hinge = stone ? 1.45 : 1.3, dz = stone ? 3.2 : 3.0;
+  const ironL = opt.iron ? ironLeaf(axis) : null; // Fortifier: iron-bound leaves (riveted plates over the timber)
   const leaves = () => {
     if (!withLeaves) return;
-    if (open) { add({ u0: o0, u1: o0 + 0.14, v0: hinge - (o1 - o0) / 2, v1: hinge, z0: 0, z1: dz, mat: doorMat }); add({ u0: o1 - 0.14, u1: o1, v0: hinge - (o1 - o0) / 2, v1: hinge, z0: 0, z1: dz, mat: doorMat }); }
-    else add({ u0: o0, u1: o1, v0: hinge - 0.14, v1: hinge, z0: 0, z1: dz, mat: (f, x, y, z, u, r) => (Math.abs((axis === 'x' ? x : y) - L / 2) < 0.03 ? DOORDARK : stone ? doorMat(f, x, y, z) : f === 'top' ? CHAR : palisadeMat()(f, x, y, z, u, palRow(r, dz))) });
+    if (open) { add({ u0: o0, u1: o0 + 0.14, v0: hinge - (o1 - o0) / 2, v1: hinge, z0: 0, z1: dz, mat: ironL ?? doorMat }); add({ u0: o1 - 0.14, u1: o1, v0: hinge - (o1 - o0) / 2, v1: hinge, z0: 0, z1: dz, mat: ironL ?? doorMat }); }
+    else add({ u0: o0, u1: o1, v0: hinge - 0.14, v1: hinge, z0: 0, z1: dz, mat: (f, x, y, z, u, r) => (Math.abs((axis === 'x' ? x : y) - L / 2) < 0.03 ? DOORDARK : ironL ? ironL(f, x, y, z) : stone ? doorMat(f, x, y, z) : f === 'top' ? CHAR : palisadeMat()(f, x, y, z, u, palRow(r, dz))) });
   };
   if (stone) {
     const passH = 3.2, lin = 4.1, walk = 5.0, top = 5.97, cyc = masonry(TEX.cyclo, { top: rough });
@@ -725,10 +726,10 @@ function gateBoxes(material, axis, state, k = 3, opt = {}) {
 // row behind it is the open passage. Composed from the gate above: the gate on the line (doors, outer parapet / rail) and a
 // copy without doors on the inner row (inner parapet / rail), joined into one deep gatehouse; wood bridges the walk
 // between the two beams. inner: the side of the inner row across the line ('+' or '-' along y for axis x, x for axis y).
-function gate2Boxes(material, axis, state, inner, k = 3) {
+function gate2Boxes(material, axis, state, inner, k = 3, iron = false) {
   const out = [], shift = (bs, d) => bs.map((b) => (axis === 'x' ? { ...b, y0: b.y0 + d, y1: b.y1 + d } : { ...b, x0: b.x0 + d, x1: b.x1 + d }));
   const lineAt = inner === '+' ? 0 : 2, innerAt = 2 - lineAt, outer = inner === '+' ? '-' : '+';
-  out.push(...shift(gateBoxes(material, axis, state, k, { sides: [outer] }), lineAt));
+  out.push(...shift(gateBoxes(material, axis, state, k, { sides: [outer], iron }), lineAt));
   out.push(...shift(gateBoxes(material, axis, state === 'open' ? 'done' : state, k + 7, { leaves: false, sides: [inner] }), innerAt));
   if (material === 'wood' && (state === 'done' || state === 'open')) { // the walk across between the two beams
     const bm = 3.5, b = { u0: -0.1, u1: 4.1, v0: 1.6, v1: 2.4, z0: bm + 0.3, z1: bm + 0.42, mat: planks(axis === 'x' ? 'y' : 'x', 6) };
@@ -941,6 +942,18 @@ export const BUILDINGS = [
   { id: 'farm', kind: 'farm', material: 'wood', burnable: true, footprint: [4, 4], raw: 'farm', ground: ['green'], grade: { sat: 0.55, val: 0.72 }, source: 'map_object d8a727c4' },
   { id: 'olive-press', kind: 'press', material: 'stone', burnable: false, footprint: [3, 3], raw: 'olive-press', ground: ['green'], grade: { sat: 0.6, val: 0.78 }, fill: 0.95, source: 'map_object 23e61811' },
 ];
+// ART-C workplaces (WAR.md "Workplaces"): each level is its own building type chained by `upgrade` (forge -> forge2 ->
+// forge3); the sorting floor is the storehouse's upgrade and has two levels. Same pipeline as BUILDINGS.
+const WP = (chain, kind, fp, levels) => levels.map(([material, src, extra], i) => ({ id: i ? `${chain}${i + 1}` : chain, raw: i ? `${chain}${i + 1}` : chain, kind, chain, level: i + 1, ...(i + 1 < levels.length && { upgrade: `${chain}${i + 2}` }), material, burnable: material === 'wood', footprint: fp, ground: ['green'], grade: { sat: 0.6, val: 0.78 }, source: `map_object ${src}`, ...extra }));
+export const WORKPLACES = [
+  ...WP('forge', 'forge', [3, 3], [['stone', 'e3777fbd'], ['stone', '131af9a3'], ['stone', 'bab7d0b8']]),
+  ...WP('cookhouse', 'cookhouse', [3, 2], [['wood', 'f8bbe7a5'], ['stone', 'eb22ef20'], ['stone', '5e298186']]),
+  ...WP('infirmary', 'infirmary', [3, 3], [['wood', 'ea7f015d'], ['stone', 'a6818f38'], ['stone', '24db3ab2']]),
+  ...WP('workshop', 'workshop', [4, 3], [['wood', '849334f6'], ['wood', '6994bf80'], ['stone', '954f4146']]),
+  ...WP('market-stall', 'stall', [2, 2], [['wood', '6c2ef514'], ['stone', 'ac483a10'], ['stone', '59475235']]),
+  ...WP('sorting-floor', 'sorting-floor', [3, 3], [['stone', '7b3cb213', { from: 'storehouse' }], ['stone', 'e20b0195']]),
+];
+BUILDINGS.push(...WORKPLACES);
 export const PROPS = [
   { id: 'lumber-pile', kind: 'prop', material: 'wood', footprint: [1, 1], raw: 'lumber-pile', grade: { sat: 0.65, val: 0.8 }, fill: 0.85, source: 'map_object c872b491' },
   { id: 'stone-pile', kind: 'prop', material: 'stone', footprint: [1, 1], raw: 'stone-pile', grade: { sat: 0.7, val: 0.8 }, fill: 0.85, source: 'map_object 594dd609' },
@@ -1150,6 +1163,54 @@ function stateInit(im, state, k) {
   return dropSpecks(out, 0.003);
 }
 
+// ---- ART-C fortifications (Fortifier node): iron-bound gate leaves, a ditch kit, stake fields, wet-hide overlays.
+const IRONC = [[30, 30, 34, 255], [46, 46, 52, 255], [66, 66, 72, 255], [92, 90, 92, 255]];
+// iron plates 0.5 m square over the leaves, dark seams, a rivet at each plate corner, two heavy straps
+const ironLeaf = (axis) => (f, x, y, z) => {
+  const a = axis === 'x' ? x : y, pa = (a * 2) % 1, pz = (z * 2) % 1;
+  if (Math.abs(z - 0.8) < 0.07 || Math.abs(z - 2.3) < 0.07) return IRONC[3];
+  if (pa < 0.06 || pz < 0.06) return IRONC[0];
+  if ((pa < 0.16 || pa > 0.9) && (pz < 0.16 || pz > 0.9)) return IRONC[3];
+  return mul(IRONC[1 + Math.floor(hash(Math.floor(a * 2), Math.floor(z * 2), 9) * 2)], 0.94 + 0.12 * hash(Math.floor(a * 16), Math.floor(z * 16), 3));
+};
+// ditch (1 tile, a 16-frame kit by neighbour mask like the palisade): a pit 1.7 m wide and DITCH_D deep along the arms, the
+// rest of the tile dug earth at ground level (it occludes the pit's near side). Engines cannot cross; men slow. States:
+// foundation = the line strung and scratched, rising / scaffold = dug to 0.35 / 0.75 of the depth, done, damaged = half
+// filled with fascines and earth (an attacker's crossing).
+const DITCH_D = 1.4, DITCH_W = 1.4, DT = { w: 96, h: 60, x0: 48, y0: 24 };
+const dirt = (f, x, y, z) => { const n = hash(Math.floor(x * 9), Math.floor(y * 9), 31), m = hash(Math.floor(x * 3), Math.floor(y * 3), 32); return mul(EARTH, (f === "top" ? 2.0 : 1.5 - 0.15 * Math.floor(-z * 3)) * (0.88 + 0.2 * n) * (m < 0.12 ? 0.85 : 1)); };
+function ditchBoxes(mask, state, k = 3) {
+  const rects = wallRects(mask, DITCH_W), inPit = (x, y) => rects.some((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1);
+  if (state === 'foundation') return [...foundation(wallEdges(mask, DITCH_W), 'wood', mask, 1)];
+  const d = DITCH_D * ({ rising: 0.35, scaffold: 0.75 }[state] ?? 1), fillZ = state === 'damaged' ? -d * 0.45 : -d;
+  const bottom = (f, x, y, z) => (state === 'damaged' ? (hash(Math.floor(x * 4), Math.floor(y * 12), 7) < 0.5 ? mul(TEX.wood[1], 0.8) : mul(EARTH, 1.3)) : mul(EARTH, 0.75 + 0.15 * hash(Math.floor(x * 8), Math.floor(y * 8), 5)));
+  // drawn over the tile and 1 m into its neighbours (the pit runs straight on into a joined neighbour), then clipped to the
+  // tile's diamond: the pit's far walls seen through this tile's opening may stand in the next tile
+  const h = DITCH_W / 2, nb = (x, y) => (x < 0 ? mask & 4 && y >= 0 && y < 2 && Math.abs(y - 1) < h : x >= 2 ? mask & 1 && y >= 0 && y < 2 && Math.abs(y - 1) < h : y < 0 ? mask & 8 && Math.abs(x - 1) < h : y >= 2 ? mask & 2 && Math.abs(x - 1) < h : inPit(x, y));
+  return cells(-1, 3, -1, 3, (x, y) => (nb(x, y) ? { z0: -d - 0.1, z1: fillZ, mat: bottom } : { z0: -d - 0.1, z1: 0, mat: dirt }));
+}
+// stakes (1 tile): nine sharpened stakes driven in at angles, pale cut points
+function stakesBoxes(state, k = 5) {
+  const n = { rising: 3, scaffold: 6 }[state] ?? 9, st = [];
+  for (let i = 0; i < 9; i++) { const bx = 0.35 + (i % 3) * 0.65 + 0.2 * (hash(i, k, 1) - 0.5), by = 0.35 + Math.floor(i / 3) * 0.65 + 0.2 * (hash(i, k, 2) - 0.5), a = hash(i, k, 3) * Math.PI * 2, t = 0.35 + 0.25 * hash(i, k, 4), L = 1.15 + 0.3 * hash(i, k, 5); st.push({ b: [bx, by, 0], d: [Math.cos(a) * Math.sin(t), Math.sin(a) * Math.sin(t), Math.cos(t)], L: state === 'damaged' && i % 3 === 1 ? L * 0.4 : L }); }
+  if (state === 'foundation') return st.slice(0, 4).map((s, i) => ({ x0: 0.2, x1: 1.6, y0: 0.3 + i * 0.35, y1: 0.42 + i * 0.35, z0: 0, z1: 0.12, mat: woodSolid(1 + (i % 2)) }));
+  const M = { w: { mat: (f, x, y, z) => mul(TEX.wood[f === 'top' ? 3 : 1 + (hash(Math.floor(z * 8), Math.floor((x + y) * 6), 2) > 0.5 ? 1 : 0)], 1) }, tip: { mat: (f) => mul(TEX.wood[4], f === 'top' ? 1.05 : 0.9) } };
+  return vox(0, 2, 0, 2, 0, 1.45, (x, y, z) => {
+    for (const s of st.slice(0, n)) { const px = x - s.b[0], py = y - s.b[1], pz = z, t = px * s.d[0] + py * s.d[1] + pz * s.d[2]; if (t < 0 || t > s.L) continue; const r = 0.065 * Math.min(1, (s.L - t) / 0.25); const qx = px - t * s.d[0], qy = py - t * s.d[1], qz = pz - t * s.d[2]; if (qx * qx + qy * qy + qz * qz <= r * r) return s.L - t < 0.2 ? 'tip' : 'w'; }
+    return null;
+  }, M, 1 / 16, 1 / 32);
+}
+// wet hides hung over a wooden wall (rampart, palisade): an overlay drawn over the wall's own frame (same sheet layout).
+// Rendered from the wall's own boxes: their side faces between zlo and zhi become hides, everything else only writes depth
+// (a marker colour, cleared), so the overlay is exactly the visible part of the hides.
+const OV_MARK = [255, 0, 255, 255];
+const wetHide = (f, x, y, z, zhi) => { const a = f === '+x' || f === '-x' ? y : x, u = Math.floor(a * PPM), col = Math.floor(u / 15), fu = u - col * 15; const H = [[54, 38, 29], [78, 56, 40], [101, 76, 54], [124, 96, 70]]; if (fu < 1) return mul([...H[0], 255], SHADE[f]); if (Math.abs(z - zhi + 0.08) < 0.05) return mul([122, 104, 78, 255], SHADE[f]); const c = H[1 + Math.floor(hash(col & 63, 3, 36) * 2) + (hash(col & 63, Math.floor(u / 3), 35) > 0.85 ? 1 : 0)]; return mul([...c, 255], SHADE[f] * (0.72 + 0.1 * Math.sin(u * 1.7 + col))); };
+function hideOverlay(boxes, w, h, ox, oy, zlo, zhiOf) {
+  const bs = boxes.map((b) => ({ ...b, lit: true, mat: (f, x, y, z, u, r) => { const c = b.mat(f, x, y, z, u, r); if (!c) return null; const zhi = zhiOf(b); const bottom = zlo + 0.12 * Math.sin(along(f, x, y) * 4.1) + 0.1 * hash(Math.floor(along(f, x, y) * 2), 1, 37); return f !== 'top' && z >= bottom && z < zhi ? wetHide(f, x, y, z, zhi) : OV_MARK; } }));
+  const im = renderBoxes(bs, w, h, ox, oy); for (let i = 0; i < im.data.length; i += 4) if (im.data[i] === 255 && im.data[i + 1] === 0 && im.data[i + 2] === 255) im.data[i + 3] = 0;
+  return im;
+}
+
 // shared with siege.mjs (siege engines, ladders, rubble: the same renderer, textures and palette)
 export { PPM, MX, MY, TEX, hash, mul, clamp, Canvas, drawBox, renderBoxes, cells, heap, ramp, beam, roof, sliced, masonry, rubMat, rough, flags, planks, woodSolid, solid, scorch, burn, soot, wreckProf, stakeProf, palisadeMat, foundation, loadTextures, extendPalette, footOf, hard, CHAR, EMBER, EARTH, STRING, DOORDARK, KITS };
 
@@ -1190,6 +1251,19 @@ for (const id of Object.keys(STAIRS)) { // player-placed stairs up to the walk
   for (const s of STATES) { const ims = LADDER_PIECES.map((p, i) => { const im = renderBoxes(ladderBoxes(p, s, i + 1), LD_W, LD_H, LD_W / 2, LD_Y0); return s === 'damaged' ? burn(im, i) : im; }); files[s] = sheetOut(`ladder-${s}.png`, gridSheet(ims, LD_W, LD_H, 12)); }
   kits.push({ id: 'ladder', kind: 'ladder', material: 'wood', burnable: true, pieces: LADDER_PIECES, topM: Object.fromEntries(Object.entries(LADDER_TARGETS).map(([t, v]) => [t, +v.toFixed(2)])), footprint: [1, 1], frames: LADDER_PIECES.length, columns: 12, frame: { w: LD_W, h: LD_H }, tileOrigin: { x: LD_W / 2, y: LD_Y0 }, states: files, source: 'renderer' });
 }
+{ // ART-C: the ditch (16 frames by neighbour mask, every state) and the wet-hide overlays (done walls only)
+  const files = {};
+  // the pit is below the ground: only what shows through the tile's own top diamond is drawn (neighbouring ground hides
+  // the rest; a neighbouring ditch tile draws its own pit)
+  const clipTile = (im) => { for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) if (Math.abs(x + 0.5 - DT.x0) / 32 + Math.abs(y + 0.5 - DT.y0 - 16) / 16 > 1) im.data[(y * im.w + x) * 4 + 3] = 0; return im; };
+  for (const s of STATES) files[s] = sheetOut(`ditch-${s}.png`, gridSheet([...Array(16)].map((_, m) => { const im = renderBoxes(ditchBoxes(m, s), DT.w, DT.h, DT.x0, DT.y0); return s === 'foundation' ? im : clipTile(im); }), DT.w, DT.h, 16));
+  kits.push({ id: 'ditch', kind: 'ditch', material: 'earth', burnable: false, depthM: DITCH_D, widthM: DITCH_W, frames: 16, columns: 16, frame: { w: DT.w, h: DT.h }, tileOrigin: { x: DT.x0, y: DT.y0 }, states: files, note: 'frame = neighbour mask (+x 1, +y 2, -x 4, -y 8) of ditch tiles; a ground-level piece: draw it with the terrain (before anything standing on the tile). Engines cannot cross a done ditch; damaged = filled in (crossable)', source: 'renderer (W-ART-C)' });
+  const pal = KITS.palisade, ov = [...Array(16)].map((_, m) => hideOverlay(kitBoxes('palisade', m, 'done'), KIT_W, KIT_H, KIT_W / 2, KIT_Y0, 0.45, () => pal.heightM - 0.45));
+  kits.push({ id: 'hides-palisade', kind: 'overlay', overlayOf: 'palisade', material: 'hide', burnable: false, frames: 16, columns: 16, frame: { w: KIT_W, h: KIT_H }, tileOrigin: { x: KIT_W / 2, y: KIT_Y0 }, states: { done: sheetOut('hides-palisade-done.png', gridSheet(ov, KIT_W, KIT_H, 16)) }, note: 'wet hides (Fortifier): drawn over the palisade done frame of the same mask; the wall ignites at half the chance', source: 'renderer' });
+  const g = LK('rampart'), back = [], front = [], cache = new Map();
+  for (const [m, o] of COMBOS) { const k = `${m},${o}`; if (!cache.has(k)) { const B = cellBoxes('rampart', m, o, 'done'), zhi = (b) => b.z1 - 0.06; cache.set(k, [hideOverlay(B.map((b) => (b.layer === 'front' ? { ...b, mat: () => null } : b)), g.w, g.h, g.w / 2, g.y0, 0.4, zhi), hideOverlay(B.filter((b) => b.layer === 'front'), g.w, g.h, g.w / 2, g.y0, 3.2, zhi)]); } const [b, f] = cache.get(k); back.push(b); front.push(f); }
+  kits.push({ id: 'hides-rampart', kind: 'overlay', overlayOf: 'rampart', layered: true, material: 'hide', burnable: false, frames: COMBOS.length, columns: LK_COLS, frameOf: FRAME_OF, frame: { w: g.w, h: g.h }, tileOrigin: { x: g.w / 2, y: g.y0 }, states: { done: sheetOut('hides-rampart-done.png', gridSheet(back, g.w, g.h, LK_COLS)) }, front: { done: sheetOut('hides-rampart-done-front.png', gridSheet(front, g.w, g.h, LK_COLS)) }, note: 'wet hides over the rampart done frames (back over back, front over front, same frameOf)', source: 'renderer' });
+}
 for (const id of Object.keys(TOWERS)) { // free-standing towers, joined level to a walk
   const T = TOWERS[id], K = KITS[T.wall], files = {}, front = {};
   for (const s of STATES) { const L = renderTower(id, s); files[s] = sheetOut(`${id}-${s}.png`, gridSheet(L.back, TW_W, TW_H, 16)); front[s] = sheetOut(`${id}-${s}-front.png`, gridSheet(L.front, TW_W, TW_H, 16)); }
@@ -1219,6 +1293,10 @@ const PROC = [
     inline: `2-deep wall gate: the ${m}-gate-${axis} on the line, its passage on the inner row (${side} side)`, boxes: (s) => gate2Boxes(m, axis, s, inner),
     source: m === 'stone' ? 'renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep' : 'renderer + palisade elevation, composed 2 deep',
   }))),
+  // ART-C fortifications: iron-bound gates (variants of every gate) and a stake field
+  ...['stone', 'wood'].flatMap((m) => [['x', [2, 1]], ['y', [1, 2]]].map(([axis, fp]) => ({ id: `${m}-gate-${axis}-iron`, variantOf: `${m}-gate-${axis}`, kind: 'gate', material: m, burnable: m === 'wood', footprint: fp, axis, heightM: m === 'stone' ? 6 : 4.9, inline: `iron-bound ${m}-gate-${axis} (Fortifier: gate hp +50%)`, boxes: (s) => gateBoxes(m, axis, s, 3, { iron: true }), source: 'renderer (iron-bound leaves)' }))),
+  ...['stone', 'wood'].flatMap((m) => [['x', '+', 's'], ['x', '-', 'n'], ['y', '+', 'e'], ['y', '-', 'w']].map(([axis, inner, side]) => ({ id: `${m}-gate-${axis}-deep-${side}-iron`, variantOf: `${m}-gate-${axis}-deep-${side}`, kind: 'gate', material: m, burnable: m === 'wood', footprint: [2, 2], axis, deep: side, heightM: m === 'stone' ? 6 : 4.9, inline: `iron-bound ${m}-gate-${axis}-deep-${side}`, boxes: (s) => gate2Boxes(m, axis, s, inner, 3, true), source: 'renderer (iron-bound leaves), composed 2 deep' }))),
+  { id: 'stakes', kind: 'stakes', material: 'wood', burnable: true, footprint: [1, 1], heightM: 1.3, inline: 'stake field (Fortifier): men -50% speed, blocks engines; damaged = broken and burnt', boxes: (s) => stakesBoxes(s), source: 'renderer (W-ART-C)' },
   { id: 'pitch-kiln', kind: 'kiln', material: 'stone', burnable: false, footprint: [2, 2], heightM: KL.ventTop, boxes: (s) => kilnBoxes(s), source: 'renderer (W-35): clay dome on a stone ring, woodstack, pitch jars' },
   { id: 'keep', kind: 'keep', material: 'stone', burnable: false, footprint: [4, 4], heightM: 5.6, inline: 'the fort\'s citadel: a megaron on its terrace', boxes: megaronBoxes, source: 'renderer + cyclopean / isodomic elevations, drawn roof tiles' },
 ];
@@ -1267,6 +1345,21 @@ for (const o of BUILDINGS) {
   for (const s of ['scaffold', 'damaged']) { const sf = loadState(o, s); const k = Math.min(1, 400 / done.h, 400 / done.w); rendered[o.id][s] = place(sf ? prepBuilding({ ...o, ground: [...(o.ground ?? []), 'green'], scale: 1 / k, charHoles: s === 'damaged' }, sf) : stateInit(done, s, o.id.length)); } // the state init was the done sprite, shrunk by k to fit pixflux
   rendered[o.id].rising = rising(rendered[o.id].scaffold, o);
 }
+// ART-C working fx hooks (siege fx ids, anchors on the done sprite): found on the sprite, not hand placed: the hearth =
+// the centroid of its fire-coloured px, the chimney / smoke hole = the top of the sprite near it
+function workFx(o, im) {
+  const { w, h, data: d } = im; let sx = 0, sy = 0, n = 0, ty = h, tx = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; if (!d[i + 3]) continue; if (y < ty) { ty = y; tx = x; } if (d[i] > 140 && d[i + 1] > 80 && d[i] - d[i + 2] > 72 && d[i] - d[i + 1] < 70) { sx += x; sy += y; n++; } }
+  const fire = n >= 5 ? { x: Math.round(sx / n), y: Math.round(sy / n) } : null, top = { x: tx, y: ty }, up = (p, dy) => ({ x: p.x, y: p.y + dy });
+  const chimney = o.level > 1 && ['forge', 'cookhouse'].includes(o.chain);
+  const fx = [];
+  if (fire && ['forge', 'cookhouse', 'infirmary', 'sorting-floor'].includes(o.chain)) fx.push({ id: 'heat-glow', at: fire }, { id: o.chain === 'forge' ? 'tongue-m-a' : 'tongue-s-a', at: up(fire, 2) });
+  if (o.chain === 'forge' && fire) fx.push({ id: 'embers', at: up(fire, -14) });
+  if (chimney) fx.push({ id: o.chain === 'forge' ? 'smoke-wisp-b' : 'smoke-wisp-a', at: top, alpha: o.chain === 'forge' ? 0.55 : 0.45 });
+  else if (fire && ['forge', 'cookhouse'].includes(o.chain)) fx.push({ id: 'smoke-wisp-b', at: up(fire, -6), alpha: 0.4 });
+  return { working: fx, ...(fx.length ? {} : { workingNote: 'no fx: the crafters\' work clips are the activity' }) };
+}
+for (const o of WORKPLACES) if (rendered[o.id]?.done) o.extra = { ...o.extra, fx: workFx(o, rendered[o.id].done.im) };
 // fort (10 x 10 tiles, 20 m): a Mycenaean citadel. A cyclopean ring on the line 1..8, round towers on the corners, the
 // Lion Gate in the +y side, the megaron on its terrace inside. Parts drawn back to front by their south vertex.
 const FORT = { id: 'fort', kind: 'fort', material: 'stone', burnable: false, footprint: [10, 10] };
@@ -1299,7 +1392,7 @@ for (const o of all) {
     states[s] = sid;
   }
   for (const [a, s] of Object.entries(o.alias ?? {})) states[a] = states[s];
-  buildings.push({ id: o.id, kind: o.kind, material: o.material, burnable: !!o.burnable, footprint: o.footprint, ...(o.axis && { axis: o.axis }), ...(o.deep && { deep: o.deep }), ...(o.inline && { inline: o.inline }), ...(o.heightM && { heightM: o.heightM }), ...(o.platformM && { platformM: o.platformM, platformPx: Math.round(o.platformM * PPM) }), ...o.extra, states });
+  buildings.push({ id: o.id, kind: o.kind, material: o.material, burnable: !!o.burnable, footprint: o.footprint, ...(o.axis && { axis: o.axis }), ...(o.deep && { deep: o.deep }), ...(o.inline && { inline: o.inline }), ...(o.heightM && { heightM: o.heightM }), ...(o.platformM && { platformM: o.platformM, platformPx: Math.round(o.platformM * PPM) }), ...(o.chain && { chain: o.chain, level: o.level, ...(o.upgrade && { upgrade: o.upgrade }), ...(o.from && { upgradeOf: o.from }) }), ...(o.variantOf && { variantOf: o.variantOf }), ...o.extra, states });
 }
 // palette + write
 const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), GO = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));

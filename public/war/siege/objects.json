@@ -232,94 +232,111 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#5f4135",
+  "#6e635d",
+  "#706a64",
   "#6f6c65",
-  "#a9805a",
-  "#a6998a",
-  "#5d4034",
-  "#a08754",
-  "#a78969",
-  "#64322b",
-  "#5c3f33",
-  "#988245",
-  "#9b7b4e",
-  "#7e7369",
-  "#7c7877",
-  "#572921",
-  "#5c2c24",
-  "#623218",
-  "#683116",
-  "#635e57",
-  "#6e5754",
-  "#6f6762",
-  "#706b63",
-  "#706c63",
-  "#907246",
-  "#7b6f60",
-  "#726e64",
-  "#726e65",
-  "#230e12",
-  "#381b16",
-  "#42201a",
-  "#492316",
-  "#261227",
-  "#311629",
-  "#441e26",
-  "#4d2521",
-  "#614232",
-  "#614236",
-  "#634437",
-  "#644538",
-  "#584c48",
-  "#55514a",
-  "#664e4a",
-  "#665a53",
-  "#7a3a1a",
-  "#783c1c",
-  "#745644",
-  "#825545",
-  "#87624c",
-  "#8e634b",
-  "#97674c",
-  "#706b65",
   "#726d64",
-  "#e99a42",
+  "#726e64",
+  "#9b8554",
+  "#987d6e",
+  "#a88961",
+  "#b19069",
+  "#988c78",
+  "#a7947d",
+  "#ab9f8a",
+  "#b4aea3",
+  "#644339",
+  "#664a3f",
+  "#6d4548",
+  "#6d4949",
+  "#797269",
+  "#7c756d",
+  "#846c64",
+  "#90716c",
+  "#715c52",
+  "#6f5855",
+  "#8a7a6d",
+  "#947f6e",
+  "#958879",
+  "#9c8875",
+  "#5f4038",
+  "#60453d",
+  "#78726a",
+  "#767271",
+  "#43211a",
+  "#442a24",
+  "#5b3e30",
+  "#663b28",
+  "#785850",
+  "#7a5f56",
+  "#936947",
+  "#976a55",
+  "#675f57",
+  "#716d63",
+  "#878167",
+  "#847d78",
+  "#594944",
+  "#767068",
+  "#37181b",
+  "#5b2b25",
+  "#7c4735",
+  "#615d51",
+  "#667249",
+  "#847f53",
+  "#8b7d70",
+  "#4f4847",
+  "#776e66",
+  "#230f21",
+  "#5d2c1a",
+  "#7a3a1a",
+  "#845a4a",
+  "#866953",
+  "#69502b",
+  "#ba5220",
   "#eeae52",
-  "#f6d48a",
-  "#f5eee8",
+  "#f3eae1",
+  "#5c4822",
   "#b0461c",
-  "#d8762c",
-  "#c09969",
-  "#8f7154",
-  "#7a1410",
-  "#886f50",
-  "#e5d3b6",
-  "#8e7255",
-  "#470c0b",
+  "#ebcd92",
+  "#9e5a2c",
+  "#dd7d2f",
+  "#f6d48a",
+  "#751c12",
+  "#683116",
+  "#5d4521",
   "#87613d",
+  "#8a6b3f",
+  "#887451",
+  "#897457",
+  "#d8762c",
+  "#d1843e",
+  "#7d8392",
+  "#949190",
   "#c3ac8b",
-  "#d7bc8b",
-  "#d3bc95",
-  "#b53e1a",
-  "#c66125",
-  "#c39461",
-  "#e4b671",
-  "#f6d388",
-  "#a4542e",
+  "#ccb491",
   "#1b0404",
-  "#2a0907",
+  "#260606",
+  "#37140c",
+  "#48381b",
+  "#7a2112",
   "#7a2a14",
-  "#814629",
-  "#a47846",
-  "#aa804f",
+  "#873016",
+  "#b4401a",
+  "#967a59",
+  "#a4794f",
+  "#a77a4a",
+  "#aa7e53",
   "#bb955d",
-  "#7e8187",
-  "#c19c71",
-  "#cfa271",
-  "#cfa478",
-  "#af451c",
-  "#7a1e12",
-  "#370a09"
+  "#c19a5e",
+  "#c09968",
+  "#c09969",
+  "#818286",
+  "#878685",
+  "#898684",
+  "#c1996b",
+  "#c79c6d",
+  "#cfa374",
+  "#e1b474"
  ],
  "engines": [
   {
@@ -851,6 +868,1119 @@
     "scaffold": 0.6,
     "done": 1
    }
+  },
+  {
+   "id": "covered-ram",
+   "kind": "ram",
+   "material": "wood",
+   "burnable": true,
+   "layered": true,
+   "facings": [
+    "e",
+    "s",
+    "w",
+    "n"
+   ],
+   "heightM": 3.29,
+   "footprint": {
+    "e": [
+     4,
+     2
+    ],
+    "s": [
+     2,
+     4
+    ],
+    "w": [
+     4,
+     2
+    ],
+    "n": [
+     2,
+     4
+    ]
+   },
+   "crew": {
+    "e": [
+     [
+      0.95,
+      0.72
+     ],
+     [
+      0.95,
+      1.27
+     ],
+     [
+      1.5,
+      0.72
+     ],
+     [
+      1.5,
+      1.27
+     ],
+     [
+      2.05,
+      0.72
+     ],
+     [
+      2.05,
+      1.27
+     ],
+     [
+      2.6,
+      0.72
+     ],
+     [
+      2.6,
+      1.27
+     ],
+     [
+      3.15,
+      0.72
+     ],
+     [
+      3.15,
+      1.27
+     ]
+    ],
+    "s": [
+     [
+      0.72,
+      0.95
+     ],
+     [
+      1.27,
+      0.95
+     ],
+     [
+      0.72,
+      1.5
+     ],
+     [
+      1.27,
+      1.5
+     ],
+     [
+      0.72,
+      2.05
+     ],
+     [
+      1.27,
+      2.05
+     ],
+     [
+      0.72,
+      2.6
+     ],
+     [
+      1.27,
+      2.6
+     ],
+     [
+      0.72,
+      3.15
+     ],
+     [
+      1.27,
+      3.15
+     ]
+    ],
+    "w": [
+     [
+      3.05,
+      0.72
+     ],
+     [
+      3.05,
+      1.27
+     ],
+     [
+      2.5,
+      0.72
+     ],
+     [
+      2.5,
+      1.27
+     ],
+     [
+      1.95,
+      0.72
+     ],
+     [
+      1.95,
+      1.27
+     ],
+     [
+      1.4,
+      0.72
+     ],
+     [
+      1.4,
+      1.27
+     ],
+     [
+      0.85,
+      0.72
+     ],
+     [
+      0.85,
+      1.27
+     ]
+    ],
+    "n": [
+     [
+      0.72,
+      3.05
+     ],
+     [
+      1.27,
+      3.05
+     ],
+     [
+      0.72,
+      2.5
+     ],
+     [
+      1.27,
+      2.5
+     ],
+     [
+      0.72,
+      1.95
+     ],
+     [
+      1.27,
+      1.95
+     ],
+     [
+      0.72,
+      1.4
+     ],
+     [
+      1.27,
+      1.4
+     ],
+     [
+      0.72,
+      0.85
+     ],
+     [
+      1.27,
+      0.85
+     ]
+    ]
+   },
+   "states": {
+    "e": {
+     "foundation": "covered-ram-e-foundation",
+     "rising": "covered-ram-e-rising",
+     "scaffold": "covered-ram-e-scaffold",
+     "done": "covered-ram-e-done",
+     "damaged": "covered-ram-e-damaged",
+     "destroyed": "covered-ram-e-destroyed"
+    },
+    "s": {
+     "foundation": "covered-ram-s-foundation",
+     "rising": "covered-ram-s-rising",
+     "scaffold": "covered-ram-s-scaffold",
+     "done": "covered-ram-s-done",
+     "damaged": "covered-ram-s-damaged",
+     "destroyed": "covered-ram-s-destroyed"
+    },
+    "w": {
+     "foundation": "covered-ram-w-foundation",
+     "rising": "covered-ram-w-rising",
+     "scaffold": "covered-ram-w-scaffold",
+     "done": "covered-ram-w-done",
+     "damaged": "covered-ram-w-damaged",
+     "destroyed": "covered-ram-w-destroyed"
+    },
+    "n": {
+     "foundation": "covered-ram-n-foundation",
+     "rising": "covered-ram-n-rising",
+     "scaffold": "covered-ram-n-scaffold",
+     "done": "covered-ram-n-done",
+     "damaged": "covered-ram-n-damaged",
+     "destroyed": "covered-ram-n-destroyed"
+    }
+   },
+   "front": {
+    "e": {
+     "rising": "covered-ram-e-rising-front",
+     "scaffold": "covered-ram-e-scaffold-front",
+     "done": "covered-ram-e-done-front",
+     "damaged": "covered-ram-e-damaged-front",
+     "destroyed": "covered-ram-e-destroyed-front"
+    },
+    "s": {
+     "rising": "covered-ram-s-rising-front",
+     "scaffold": "covered-ram-s-scaffold-front",
+     "done": "covered-ram-s-done-front",
+     "damaged": "covered-ram-s-damaged-front",
+     "destroyed": "covered-ram-s-destroyed-front"
+    },
+    "w": {
+     "rising": "covered-ram-w-rising-front",
+     "scaffold": "covered-ram-w-scaffold-front",
+     "done": "covered-ram-w-done-front",
+     "damaged": "covered-ram-w-damaged-front",
+     "destroyed": "covered-ram-w-destroyed-front"
+    },
+    "n": {
+     "rising": "covered-ram-n-rising-front",
+     "scaffold": "covered-ram-n-scaffold-front",
+     "done": "covered-ram-n-done-front",
+     "damaged": "covered-ram-n-damaged-front",
+     "destroyed": "covered-ram-n-destroyed-front"
+    }
+   },
+   "anims": {
+    "e": {
+     "swing": {
+      "file": "covered-ram-e-swing.png",
+      "layer": "back",
+      "front": "covered-ram-e-done-front",
+      "frames": 8,
+      "fps": 10,
+      "frame": {
+       "w": 178,
+       "h": 179
+      },
+      "tileOrigin": {
+       "x": 51,
+       "y": 91
+      },
+      "hitFrame": 6,
+      "logM": [
+       0,
+       -0.2,
+       -0.4,
+       -0.55,
+       -0.35,
+       0.13,
+       0.61,
+       0.33
+      ]
+     }
+    },
+    "s": {
+     "swing": {
+      "file": "covered-ram-s-swing.png",
+      "layer": "back",
+      "front": "covered-ram-s-done-front",
+      "frames": 8,
+      "fps": 10,
+      "frame": {
+       "w": 182,
+       "h": 178
+      },
+      "tileOrigin": {
+       "x": 127,
+       "y": 91
+      },
+      "hitFrame": 6,
+      "logM": [
+       0,
+       -0.2,
+       -0.4,
+       -0.55,
+       -0.35,
+       0.13,
+       0.61,
+       0.33
+      ]
+     }
+    },
+    "w": {
+     "swing": {
+      "file": "covered-ram-w-swing.png",
+      "layer": "back",
+      "front": "covered-ram-w-done-front",
+      "frames": 8,
+      "fps": 10,
+      "frame": {
+       "w": 182,
+       "h": 179
+      },
+      "tileOrigin": {
+       "x": 63,
+       "y": 91
+      },
+      "hitFrame": 6,
+      "logM": [
+       0,
+       -0.2,
+       -0.4,
+       -0.55,
+       -0.35,
+       0.13,
+       0.61,
+       0.33
+      ]
+     }
+    },
+    "n": {
+     "swing": {
+      "file": "covered-ram-n-swing.png",
+      "layer": "back",
+      "front": "covered-ram-n-done-front",
+      "frames": 8,
+      "fps": 10,
+      "frame": {
+       "w": 181,
+       "h": 178
+      },
+      "tileOrigin": {
+       "x": 118,
+       "y": 91
+      },
+      "hitFrame": 6,
+      "logM": [
+       0,
+       -0.2,
+       -0.4,
+       -0.55,
+       -0.35,
+       0.13,
+       0.61,
+       0.33
+      ]
+     }
+    }
+   },
+   "note": "Rams node: wet hides to the ground (crew hidden, missiles x0.3), iron-scaled front bay, iron-plated gable, iron ram's head",
+   "buildOrder": [
+    "foundation",
+    "rising",
+    "scaffold",
+    "done"
+   ],
+   "progress": {
+    "foundation": 0,
+    "rising": 0.25,
+    "scaffold": 0.6,
+    "done": 1
+   }
+  },
+  {
+   "id": "mantlet",
+   "kind": "mantlet",
+   "material": "wood",
+   "burnable": true,
+   "layered": true,
+   "facings": [
+    "e",
+    "s",
+    "w",
+    "n"
+   ],
+   "heightM": 2.1,
+   "footprint": {
+    "e": [
+     1,
+     1
+    ],
+    "s": [
+     1,
+     1
+    ],
+    "w": [
+     1,
+     1
+    ],
+    "n": [
+     1,
+     1
+    ]
+   },
+   "crew": {
+    "e": [
+     [
+      0.38,
+      0.28
+     ],
+     [
+      0.38,
+      0.72
+     ]
+    ],
+    "s": [
+     [
+      0.28,
+      0.38
+     ],
+     [
+      0.72,
+      0.38
+     ]
+    ],
+    "w": [
+     [
+      0.63,
+      0.28
+     ],
+     [
+      0.63,
+      0.72
+     ]
+    ],
+    "n": [
+     [
+      0.28,
+      0.63
+     ],
+     [
+      0.72,
+      0.63
+     ]
+    ]
+   },
+   "states": {
+    "e": {
+     "foundation": "mantlet-e-foundation",
+     "rising": "mantlet-e-rising",
+     "scaffold": "mantlet-e-scaffold",
+     "done": "mantlet-e-done",
+     "damaged": "mantlet-e-damaged",
+     "destroyed": "mantlet-e-destroyed"
+    },
+    "s": {
+     "foundation": "mantlet-s-foundation",
+     "rising": "mantlet-s-rising",
+     "scaffold": "mantlet-s-scaffold",
+     "done": "mantlet-s-done",
+     "damaged": "mantlet-s-damaged",
+     "destroyed": "mantlet-s-destroyed"
+    },
+    "w": {
+     "foundation": "mantlet-w-foundation",
+     "rising": "mantlet-w-rising",
+     "scaffold": "mantlet-w-scaffold",
+     "done": "mantlet-w-done",
+     "damaged": "mantlet-w-damaged",
+     "destroyed": "mantlet-w-destroyed"
+    },
+    "n": {
+     "foundation": "mantlet-n-foundation",
+     "rising": "mantlet-n-rising",
+     "scaffold": "mantlet-n-scaffold",
+     "done": "mantlet-n-done",
+     "damaged": "mantlet-n-damaged",
+     "destroyed": "mantlet-n-destroyed"
+    }
+   },
+   "front": {
+    "e": {
+     "scaffold": "mantlet-e-scaffold-front",
+     "done": "mantlet-e-done-front",
+     "damaged": "mantlet-e-damaged-front"
+    },
+    "s": {
+     "scaffold": "mantlet-s-scaffold-front",
+     "done": "mantlet-s-done-front",
+     "damaged": "mantlet-s-damaged-front"
+    },
+    "w": {},
+    "n": {}
+   },
+   "anims": {},
+   "note": "Carpenter node: a wheeled hide-faced screen; front = the screen when it faces e or s (in front of the crew), else it is in the back sprite. Stops 60% of frontal missiles for the men behind",
+   "buildOrder": [
+    "foundation",
+    "rising",
+    "scaffold",
+    "done"
+   ],
+   "progress": {
+    "foundation": 0,
+    "rising": 0.25,
+    "scaffold": 0.6,
+    "done": 1
+   }
+  },
+  {
+   "id": "oxybeles",
+   "kind": "oxybeles",
+   "material": "wood",
+   "burnable": true,
+   "layered": false,
+   "facings": [
+    "e",
+    "s",
+    "w",
+    "n"
+   ],
+   "heightM": 1.95,
+   "footprint": {
+    "e": [
+     2,
+     1
+    ],
+    "s": [
+     1,
+     2
+    ],
+    "w": [
+     2,
+     1
+    ],
+    "n": [
+     1,
+     2
+    ]
+   },
+   "crew": {
+    "e": [
+     [
+      0.6,
+      0.17
+     ],
+     [
+      0.2,
+      0.5
+     ]
+    ],
+    "s": [
+     [
+      0.17,
+      0.6
+     ],
+     [
+      0.5,
+      0.2
+     ]
+    ],
+    "w": [
+     [
+      1.4,
+      0.17
+     ],
+     [
+      1.8,
+      0.5
+     ]
+    ],
+    "n": [
+     [
+      0.17,
+      1.4
+     ],
+     [
+      0.5,
+      1.8
+     ]
+    ]
+   },
+   "states": {
+    "e": {
+     "foundation": "oxybeles-e-foundation",
+     "rising": "oxybeles-e-rising",
+     "scaffold": "oxybeles-e-scaffold",
+     "done": "oxybeles-e-done",
+     "damaged": "oxybeles-e-damaged",
+     "destroyed": "oxybeles-e-destroyed"
+    },
+    "s": {
+     "foundation": "oxybeles-s-foundation",
+     "rising": "oxybeles-s-rising",
+     "scaffold": "oxybeles-s-scaffold",
+     "done": "oxybeles-s-done",
+     "damaged": "oxybeles-s-damaged",
+     "destroyed": "oxybeles-s-destroyed"
+    },
+    "w": {
+     "foundation": "oxybeles-w-foundation",
+     "rising": "oxybeles-w-rising",
+     "scaffold": "oxybeles-w-scaffold",
+     "done": "oxybeles-w-done",
+     "damaged": "oxybeles-w-damaged",
+     "destroyed": "oxybeles-w-destroyed"
+    },
+    "n": {
+     "foundation": "oxybeles-n-foundation",
+     "rising": "oxybeles-n-rising",
+     "scaffold": "oxybeles-n-scaffold",
+     "done": "oxybeles-n-done",
+     "damaged": "oxybeles-n-damaged",
+     "destroyed": "oxybeles-n-destroyed"
+    }
+   },
+   "anims": {
+    "e": {
+     "shoot": {
+      "file": "oxybeles-e-shoot.png",
+      "layer": "all",
+      "frames": 8,
+      "fps": 12,
+      "frame": {
+       "w": 60,
+       "h": 68
+      },
+      "tileOrigin": {
+       "x": 11,
+       "y": 38
+      },
+      "releaseFrame": 2,
+      "idle": "frame 0 (cocked, loaded) = the done sprite"
+     }
+    },
+    "s": {
+     "shoot": {
+      "file": "oxybeles-s-shoot.png",
+      "layer": "all",
+      "frames": 8,
+      "fps": 12,
+      "frame": {
+       "w": 60,
+       "h": 68
+      },
+      "tileOrigin": {
+       "x": 49,
+       "y": 38
+      },
+      "releaseFrame": 2,
+      "idle": "frame 0 (cocked, loaded) = the done sprite"
+     }
+    },
+    "w": {
+     "shoot": {
+      "file": "oxybeles-w-shoot.png",
+      "layer": "all",
+      "frames": 8,
+      "fps": 12,
+      "frame": {
+       "w": 60,
+       "h": 82
+      },
+      "tileOrigin": {
+       "x": 17,
+       "y": 52
+      },
+      "releaseFrame": 2,
+      "idle": "frame 0 (cocked, loaded) = the done sprite"
+     }
+    },
+    "n": {
+     "shoot": {
+      "file": "oxybeles-n-shoot.png",
+      "layer": "all",
+      "frames": 8,
+      "fps": 12,
+      "frame": {
+       "w": 60,
+       "h": 82
+      },
+      "tileOrigin": {
+       "x": 43,
+       "y": 52
+      },
+      "releaseFrame": 2,
+      "idle": "frame 0 (cocked, loaded) = the done sprite"
+     }
+    }
+   },
+   "note": "Artillerist node: torsion bolt thrower on a pedestal; shoot frame 0 = cocked and loaded = the done sprite; spawn the bolt projectile at release[facing] on releaseFrame",
+   "buildOrder": [
+    "foundation",
+    "rising",
+    "scaffold",
+    "done"
+   ],
+   "progress": {
+    "foundation": 0,
+    "rising": 0.25,
+    "scaffold": 0.6,
+    "done": 1
+   },
+   "release": {
+    "e": {
+     "x": 1.85,
+     "y": 0.5,
+     "zM": 1.6
+    },
+    "s": {
+     "x": 0.5,
+     "y": 1.85,
+     "zM": 1.6
+    },
+    "w": {
+     "x": 0.15,
+     "y": 0.5,
+     "zM": 1.6
+    },
+    "n": {
+     "x": 0.5,
+     "y": 0.15,
+     "zM": 1.6
+    }
+   }
+  },
+  {
+   "id": "siege-tower",
+   "kind": "siege-tower",
+   "material": "wood",
+   "burnable": true,
+   "layered": true,
+   "facings": [
+    "e",
+    "s",
+    "w",
+    "n"
+   ],
+   "heightM": 9.7,
+   "footprint": {
+    "e": [
+     2,
+     2
+    ],
+    "s": [
+     2,
+     2
+    ],
+    "w": [
+     2,
+     2
+    ],
+    "n": [
+     2,
+     2
+    ]
+   },
+   "crew": {
+    "e": [
+     [
+      0.4,
+      0.65
+     ],
+     [
+      0.4,
+      1.35
+     ],
+     [
+      0.8,
+      0.65
+     ],
+     [
+      0.8,
+      1.35
+     ],
+     [
+      1.2,
+      0.65
+     ],
+     [
+      1.2,
+      1.35
+     ],
+     [
+      1.6,
+      0.65
+     ],
+     [
+      1.6,
+      1.35
+     ]
+    ],
+    "s": [
+     [
+      0.65,
+      0.4
+     ],
+     [
+      1.35,
+      0.4
+     ],
+     [
+      0.65,
+      0.8
+     ],
+     [
+      1.35,
+      0.8
+     ],
+     [
+      0.65,
+      1.2
+     ],
+     [
+      1.35,
+      1.2
+     ],
+     [
+      0.65,
+      1.6
+     ],
+     [
+      1.35,
+      1.6
+     ]
+    ],
+    "w": [
+     [
+      1.6,
+      0.65
+     ],
+     [
+      1.6,
+      1.35
+     ],
+     [
+      1.2,
+      0.65
+     ],
+     [
+      1.2,
+      1.35
+     ],
+     [
+      0.8,
+      0.65
+     ],
+     [
+      0.8,
+      1.35
+     ],
+     [
+      0.4,
+      0.65
+     ],
+     [
+      0.4,
+      1.35
+     ]
+    ],
+    "n": [
+     [
+      0.65,
+      1.6
+     ],
+     [
+      1.35,
+      1.6
+     ],
+     [
+      0.65,
+      1.2
+     ],
+     [
+      1.35,
+      1.2
+     ],
+     [
+      0.65,
+      0.8
+     ],
+     [
+      1.35,
+      0.8
+     ],
+     [
+      0.65,
+      0.4
+     ],
+     [
+      1.35,
+      0.4
+     ]
+    ]
+   },
+   "states": {
+    "e": {
+     "foundation": "siege-tower-e-foundation",
+     "rising": "siege-tower-e-rising",
+     "scaffold": "siege-tower-e-scaffold",
+     "done": "siege-tower-e-done",
+     "damaged": "siege-tower-e-damaged",
+     "destroyed": "siege-tower-e-destroyed"
+    },
+    "s": {
+     "foundation": "siege-tower-s-foundation",
+     "rising": "siege-tower-s-rising",
+     "scaffold": "siege-tower-s-scaffold",
+     "done": "siege-tower-s-done",
+     "damaged": "siege-tower-s-damaged",
+     "destroyed": "siege-tower-s-destroyed"
+    },
+    "w": {
+     "foundation": "siege-tower-w-foundation",
+     "rising": "siege-tower-w-rising",
+     "scaffold": "siege-tower-w-scaffold",
+     "done": "siege-tower-w-done",
+     "damaged": "siege-tower-w-damaged",
+     "destroyed": "siege-tower-w-destroyed"
+    },
+    "n": {
+     "foundation": "siege-tower-n-foundation",
+     "rising": "siege-tower-n-rising",
+     "scaffold": "siege-tower-n-scaffold",
+     "done": "siege-tower-n-done",
+     "damaged": "siege-tower-n-damaged",
+     "destroyed": "siege-tower-n-destroyed"
+    }
+   },
+   "front": {
+    "e": {
+     "foundation": "siege-tower-e-foundation-front",
+     "rising": "siege-tower-e-rising-front",
+     "scaffold": "siege-tower-e-scaffold-front",
+     "done": "siege-tower-e-done-front",
+     "damaged": "siege-tower-e-damaged-front",
+     "destroyed": "siege-tower-e-destroyed-front"
+    },
+    "s": {
+     "foundation": "siege-tower-s-foundation-front",
+     "rising": "siege-tower-s-rising-front",
+     "scaffold": "siege-tower-s-scaffold-front",
+     "done": "siege-tower-s-done-front",
+     "damaged": "siege-tower-s-damaged-front",
+     "destroyed": "siege-tower-s-destroyed-front"
+    },
+    "w": {
+     "foundation": "siege-tower-w-foundation-front",
+     "rising": "siege-tower-w-rising-front",
+     "scaffold": "siege-tower-w-scaffold-front",
+     "done": "siege-tower-w-done-front",
+     "damaged": "siege-tower-w-damaged-front",
+     "destroyed": "siege-tower-w-destroyed-front"
+    },
+    "n": {
+     "foundation": "siege-tower-n-foundation-front",
+     "rising": "siege-tower-n-rising-front",
+     "scaffold": "siege-tower-n-scaffold-front",
+     "done": "siege-tower-n-done-front",
+     "damaged": "siege-tower-n-damaged-front",
+     "destroyed": "siege-tower-n-destroyed-front"
+    }
+   },
+   "anims": {
+    "e": {
+     "bridge": {
+      "file": "siege-tower-e-bridge.png",
+      "layer": "front",
+      "frames": 7,
+      "fps": 8,
+      "frame": {
+       "w": 159,
+       "h": 347
+      },
+      "tileOrigin": {
+       "x": 65,
+       "y": 289
+      },
+      "lastFrame": "lowered (docked)",
+      "angles": [
+       90,
+       78,
+       62,
+       44,
+       26,
+       10,
+       0
+      ]
+     }
+    },
+    "s": {
+     "bridge": {
+      "file": "siege-tower-s-bridge.png",
+      "layer": "front",
+      "frames": 7,
+      "fps": 8,
+      "frame": {
+       "w": 159,
+       "h": 347
+      },
+      "tileOrigin": {
+       "x": 94,
+       "y": 289
+      },
+      "lastFrame": "lowered (docked)",
+      "angles": [
+       90,
+       78,
+       62,
+       44,
+       26,
+       10,
+       0
+      ]
+     }
+    },
+    "w": {
+     "bridge": {
+      "file": "siege-tower-w-bridge.png",
+      "layer": "back",
+      "front": "siege-tower-w-done-front",
+      "frames": 7,
+      "fps": 8,
+      "frame": {
+       "w": 159,
+       "h": 364
+      },
+      "tileOrigin": {
+       "x": 94,
+       "y": 320
+      },
+      "lastFrame": "lowered (docked)",
+      "angles": [
+       90,
+       78,
+       62,
+       44,
+       26,
+       10,
+       0
+      ]
+     }
+    },
+    "n": {
+     "bridge": {
+      "file": "siege-tower-n-bridge.png",
+      "layer": "back",
+      "front": "siege-tower-n-done-front",
+      "frames": 7,
+      "fps": 8,
+      "frame": {
+       "w": 159,
+       "h": 364
+      },
+      "tileOrigin": {
+       "x": 65,
+       "y": 320
+      },
+      "lastFrame": "lowered (docked)",
+      "angles": [
+       90,
+       78,
+       62,
+       44,
+       26,
+       10,
+       0
+      ]
+     }
+    }
+   },
+   "floorsM": [
+    0.78,
+    3.5,
+    6.2,
+    8.6
+   ],
+   "bridgeM": 6.2,
+   "bridgeLenM": 2.6,
+   "note": "Poliorcetes node: crew push from inside the open ground storey (draw them between back and front); drawbridge hinged on the facing side at bridgeM (lands on a stone wall's parapet, 5.97 m), bridge anim lowers it (last frame = docked); men cross at bridgeM onto the walk",
+   "buildOrder": [
+    "foundation",
+    "rising",
+    "scaffold",
+    "done"
+   ],
+   "progress": {
+    "foundation": 0,
+    "rising": 0.25,
+    "scaffold": 0.6,
+    "done": 1
+   }
   }
  ],
  "ladders": {
@@ -1281,6 +2411,21 @@
    "sprite": "stone-shot",
    "diameterM": 0.34,
    "spin": "none (round)"
+  },
+  {
+   "id": "bolt",
+   "file": "bolt.png",
+   "frames": 8,
+   "dirs": "world angle i x 45 deg from +x towards +y",
+   "frame": {
+    "w": 24,
+    "h": 13
+   },
+   "centre": {
+    "x": 12,
+    "y": 6
+   },
+   "lengthM": 0.92
   }
  ],
  "fx": [
@@ -4012,6 +5157,4216 @@
    "facing": "n",
    "state": "destroyed",
    "source": "renderer"
+  },
+  {
+   "id": "covered-ram-e-foundation",
+   "kind": "ram",
+   "file": "covered-ram-e-foundation.png",
+   "w": 184,
+   "h": 84,
+   "metres": 0.12,
+   "basePx": 80,
+   "anchor": {
+    "x": 122,
+    "y": 83
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": -2
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-e-rising",
+   "kind": "ram",
+   "file": "covered-ram-e-rising.png",
+   "w": 149,
+   "h": 111,
+   "metres": 0.45,
+   "basePx": 96,
+   "anchor": {
+    "x": 111,
+    "y": 110
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": 44
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-e-rising-front",
+   "kind": "ram",
+   "file": "covered-ram-e-rising-front.png",
+   "w": 120,
+   "h": 110,
+   "metres": 0.42,
+   "basePx": 96,
+   "anchor": {
+    "x": 105,
+    "y": 109
+   },
+   "tileOrigin": {
+    "x": 46,
+    "y": 26
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-e-scaffold",
+   "kind": "ram",
+   "file": "covered-ram-e-scaffold.png",
+   "w": 174,
+   "h": 157,
+   "metres": 1.85,
+   "basePx": 96,
+   "anchor": {
+    "x": 130,
+    "y": 156
+   },
+   "tileOrigin": {
+    "x": 56,
+    "y": 90
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-e-scaffold-front",
+   "kind": "ram",
+   "file": "covered-ram-e-scaffold-front.png",
+   "w": 132,
+   "h": 155,
+   "metres": 1.79,
+   "basePx": 96,
+   "anchor": {
+    "x": 111,
+    "y": 154
+   },
+   "tileOrigin": {
+    "x": 52,
+    "y": 71
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-e-done",
+   "kind": "ram",
+   "file": "covered-ram-e-done.png",
+   "w": 170,
+   "h": 179,
+   "metres": 2.52,
+   "basePx": 96,
+   "anchor": {
+    "x": 120,
+    "y": 178
+   },
+   "tileOrigin": {
+    "x": 51,
+    "y": 91
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-e-done-front",
+   "kind": "ram",
+   "file": "covered-ram-e-done-front.png",
+   "w": 171,
+   "h": 178,
+   "metres": 2.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 119,
+    "y": 177
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 90
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-e-damaged",
+   "kind": "ram",
+   "file": "covered-ram-e-damaged.png",
+   "w": 170,
+   "h": 179,
+   "metres": 2.52,
+   "basePx": 96,
+   "anchor": {
+    "x": 120,
+    "y": 178
+   },
+   "tileOrigin": {
+    "x": 51,
+    "y": 91
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-e-damaged-front",
+   "kind": "ram",
+   "file": "covered-ram-e-damaged-front.png",
+   "w": 171,
+   "h": 178,
+   "metres": 2.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 119,
+    "y": 177
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 90
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-e-destroyed",
+   "kind": "ram",
+   "file": "covered-ram-e-destroyed.png",
+   "w": 178,
+   "h": 132,
+   "metres": 1.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 133,
+    "y": 131
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": 34
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-e-destroyed-front",
+   "kind": "ram",
+   "file": "covered-ram-e-destroyed-front.png",
+   "w": 118,
+   "h": 75,
+   "metres": 0.12,
+   "basePx": 71,
+   "anchor": {
+    "x": 115,
+    "y": 74
+   },
+   "tileOrigin": {
+    "x": 46,
+    "y": 0
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "e",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-s-foundation",
+   "kind": "ram",
+   "file": "covered-ram-s-foundation.png",
+   "w": 184,
+   "h": 84,
+   "metres": 0.12,
+   "basePx": 80,
+   "anchor": {
+    "x": 61,
+    "y": 83
+   },
+   "tileOrigin": {
+    "x": 139,
+    "y": -2
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-s-rising",
+   "kind": "ram",
+   "file": "covered-ram-s-rising.png",
+   "w": 149,
+   "h": 111,
+   "metres": 0.45,
+   "basePx": 96,
+   "anchor": {
+    "x": 37,
+    "y": 110
+   },
+   "tileOrigin": {
+    "x": 109,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-s-rising-front",
+   "kind": "ram",
+   "file": "covered-ram-s-rising-front.png",
+   "w": 120,
+   "h": 110,
+   "metres": 0.42,
+   "basePx": 96,
+   "anchor": {
+    "x": 14,
+    "y": 109
+   },
+   "tileOrigin": {
+    "x": 74,
+    "y": 26
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-s-scaffold",
+   "kind": "ram",
+   "file": "covered-ram-s-scaffold.png",
+   "w": 174,
+   "h": 157,
+   "metres": 1.85,
+   "basePx": 96,
+   "anchor": {
+    "x": 43,
+    "y": 156
+   },
+   "tileOrigin": {
+    "x": 118,
+    "y": 90
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-s-scaffold-front",
+   "kind": "ram",
+   "file": "covered-ram-s-scaffold-front.png",
+   "w": 132,
+   "h": 155,
+   "metres": 1.79,
+   "basePx": 96,
+   "anchor": {
+    "x": 20,
+    "y": 154
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 71
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-s-done",
+   "kind": "ram",
+   "file": "covered-ram-s-done.png",
+   "w": 173,
+   "h": 178,
+   "metres": 2.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 65,
+    "y": 177
+   },
+   "tileOrigin": {
+    "x": 118,
+    "y": 91
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-s-done-front",
+   "kind": "ram",
+   "file": "covered-ram-s-done-front.png",
+   "w": 171,
+   "h": 177,
+   "metres": 2.45,
+   "basePx": 96,
+   "anchor": {
+    "x": 52,
+    "y": 176
+   },
+   "tileOrigin": {
+    "x": 117,
+    "y": 90
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-s-damaged",
+   "kind": "ram",
+   "file": "covered-ram-s-damaged.png",
+   "w": 173,
+   "h": 178,
+   "metres": 2.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 65,
+    "y": 177
+   },
+   "tileOrigin": {
+    "x": 118,
+    "y": 91
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-s-damaged-front",
+   "kind": "ram",
+   "file": "covered-ram-s-damaged-front.png",
+   "w": 171,
+   "h": 177,
+   "metres": 2.45,
+   "basePx": 96,
+   "anchor": {
+    "x": 52,
+    "y": 176
+   },
+   "tileOrigin": {
+    "x": 117,
+    "y": 90
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-s-destroyed",
+   "kind": "ram",
+   "file": "covered-ram-s-destroyed.png",
+   "w": 178,
+   "h": 132,
+   "metres": 1.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 45,
+    "y": 131
+   },
+   "tileOrigin": {
+    "x": 133,
+    "y": 34
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-s-destroyed-front",
+   "kind": "ram",
+   "file": "covered-ram-s-destroyed-front.png",
+   "w": 118,
+   "h": 75,
+   "metres": 0.12,
+   "basePx": 71,
+   "anchor": {
+    "x": 2,
+    "y": 74
+   },
+   "tileOrigin": {
+    "x": 72,
+    "y": 0
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "s",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-w-foundation",
+   "kind": "ram",
+   "file": "covered-ram-w-foundation.png",
+   "w": 154,
+   "h": 110,
+   "metres": 0.42,
+   "basePx": 96,
+   "anchor": {
+    "x": 114,
+    "y": 109
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": 24
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-w-rising",
+   "kind": "ram",
+   "file": "covered-ram-w-rising.png",
+   "w": 147,
+   "h": 112,
+   "metres": 0.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 110,
+    "y": 111
+   },
+   "tileOrigin": {
+    "x": 38,
+    "y": 44
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-w-rising-front",
+   "kind": "ram",
+   "file": "covered-ram-w-rising-front.png",
+   "w": 119,
+   "h": 110,
+   "metres": 0.42,
+   "basePx": 96,
+   "anchor": {
+    "x": 104,
+    "y": 109
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": 26
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-w-scaffold",
+   "kind": "ram",
+   "file": "covered-ram-w-scaffold.png",
+   "w": 188,
+   "h": 182,
+   "metres": 2.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 155,
+    "y": 181
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 90
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-w-scaffold-front",
+   "kind": "ram",
+   "file": "covered-ram-w-scaffold-front.png",
+   "w": 132,
+   "h": 154,
+   "metres": 1.76,
+   "basePx": 96,
+   "anchor": {
+    "x": 110,
+    "y": 153
+   },
+   "tileOrigin": {
+    "x": 51,
+    "y": 70
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-w-done",
+   "kind": "ram",
+   "file": "covered-ram-w-done.png",
+   "w": 173,
+   "h": 179,
+   "metres": 2.52,
+   "basePx": 96,
+   "anchor": {
+    "x": 123,
+    "y": 178
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 91
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-w-done-front",
+   "kind": "ram",
+   "file": "covered-ram-w-done-front.png",
+   "w": 172,
+   "h": 177,
+   "metres": 2.45,
+   "basePx": 96,
+   "anchor": {
+    "x": 119,
+    "y": 176
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 90
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-w-damaged",
+   "kind": "ram",
+   "file": "covered-ram-w-damaged.png",
+   "w": 173,
+   "h": 179,
+   "metres": 2.52,
+   "basePx": 96,
+   "anchor": {
+    "x": 123,
+    "y": 178
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 91
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-w-damaged-front",
+   "kind": "ram",
+   "file": "covered-ram-w-damaged-front.png",
+   "w": 172,
+   "h": 177,
+   "metres": 2.45,
+   "basePx": 96,
+   "anchor": {
+    "x": 119,
+    "y": 176
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 90
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-w-destroyed",
+   "kind": "ram",
+   "file": "covered-ram-w-destroyed.png",
+   "w": 178,
+   "h": 112,
+   "metres": 0.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 139,
+    "y": 111
+   },
+   "tileOrigin": {
+    "x": 69,
+    "y": 29
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-w-destroyed-front",
+   "kind": "ram",
+   "file": "covered-ram-w-destroyed-front.png",
+   "w": 116,
+   "h": 97,
+   "metres": 0.12,
+   "basePx": 93,
+   "anchor": {
+    "x": 106,
+    "y": 96
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 11
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "w",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-n-foundation",
+   "kind": "ram",
+   "file": "covered-ram-n-foundation.png",
+   "w": 154,
+   "h": 110,
+   "metres": 0.42,
+   "basePx": 96,
+   "anchor": {
+    "x": 39,
+    "y": 109
+   },
+   "tileOrigin": {
+    "x": 109,
+    "y": 24
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-n-rising",
+   "kind": "ram",
+   "file": "covered-ram-n-rising.png",
+   "w": 147,
+   "h": 112,
+   "metres": 0.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 36,
+    "y": 111
+   },
+   "tileOrigin": {
+    "x": 109,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-n-rising-front",
+   "kind": "ram",
+   "file": "covered-ram-n-rising-front.png",
+   "w": 119,
+   "h": 110,
+   "metres": 0.42,
+   "basePx": 96,
+   "anchor": {
+    "x": 14,
+    "y": 109
+   },
+   "tileOrigin": {
+    "x": 74,
+    "y": 26
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-n-scaffold",
+   "kind": "ram",
+   "file": "covered-ram-n-scaffold.png",
+   "w": 188,
+   "h": 182,
+   "metres": 2.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 33,
+    "y": 181
+   },
+   "tileOrigin": {
+    "x": 134,
+    "y": 90
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-n-scaffold-front",
+   "kind": "ram",
+   "file": "covered-ram-n-scaffold-front.png",
+   "w": 132,
+   "h": 154,
+   "metres": 1.76,
+   "basePx": 96,
+   "anchor": {
+    "x": 21,
+    "y": 153
+   },
+   "tileOrigin": {
+    "x": 81,
+    "y": 70
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-n-done",
+   "kind": "ram",
+   "file": "covered-ram-n-done.png",
+   "w": 173,
+   "h": 178,
+   "metres": 2.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 66,
+    "y": 177
+   },
+   "tileOrigin": {
+    "x": 118,
+    "y": 91
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-n-done-front",
+   "kind": "ram",
+   "file": "covered-ram-n-done-front.png",
+   "w": 172,
+   "h": 177,
+   "metres": 2.45,
+   "basePx": 96,
+   "anchor": {
+    "x": 53,
+    "y": 176
+   },
+   "tileOrigin": {
+    "x": 118,
+    "y": 90
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-n-damaged",
+   "kind": "ram",
+   "file": "covered-ram-n-damaged.png",
+   "w": 173,
+   "h": 178,
+   "metres": 2.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 66,
+    "y": 177
+   },
+   "tileOrigin": {
+    "x": 118,
+    "y": 91
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-n-damaged-front",
+   "kind": "ram",
+   "file": "covered-ram-n-damaged-front.png",
+   "w": 172,
+   "h": 177,
+   "metres": 2.45,
+   "basePx": 96,
+   "anchor": {
+    "x": 53,
+    "y": 176
+   },
+   "tileOrigin": {
+    "x": 118,
+    "y": 90
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "covered-ram-n-destroyed",
+   "kind": "ram",
+   "file": "covered-ram-n-destroyed.png",
+   "w": 178,
+   "h": 112,
+   "metres": 0.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 38,
+    "y": 111
+   },
+   "tileOrigin": {
+    "x": 109,
+    "y": 29
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "covered-ram-n-destroyed-front",
+   "kind": "ram",
+   "file": "covered-ram-n-destroyed-front.png",
+   "w": 116,
+   "h": 97,
+   "metres": 0.12,
+   "basePx": 93,
+   "anchor": {
+    "x": 9,
+    "y": 96
+   },
+   "tileOrigin": {
+    "x": 72,
+    "y": 11
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "covered-ram",
+   "facing": "n",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "mantlet-e-foundation",
+   "kind": "mantlet",
+   "file": "mantlet-e-foundation.png",
+   "w": 55,
+   "h": 30,
+   "metres": 0.12,
+   "basePx": 26,
+   "anchor": {
+    "x": 27,
+    "y": 29
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 0
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-e-rising",
+   "kind": "mantlet",
+   "file": "mantlet-e-rising.png",
+   "w": 38,
+   "h": 31,
+   "metres": 0.12,
+   "basePx": 27,
+   "anchor": {
+    "x": 5,
+    "y": 30
+   },
+   "tileOrigin": {
+    "x": 11,
+    "y": 3
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-e-scaffold",
+   "kind": "mantlet",
+   "file": "mantlet-e-scaffold.png",
+   "w": 35,
+   "h": 14,
+   "metres": 0.12,
+   "basePx": 10,
+   "anchor": {
+    "x": 14,
+    "y": 13
+   },
+   "tileOrigin": {
+    "x": 20,
+    "y": 23
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-e-scaffold-front",
+   "kind": "mantlet",
+   "file": "mantlet-e-scaffold-front.png",
+   "w": 38,
+   "h": 53,
+   "metres": 0.64,
+   "basePx": 32,
+   "anchor": {
+    "x": 5,
+    "y": 52
+   },
+   "tileOrigin": {
+    "x": 11,
+    "y": 25
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "mantlet-e-done",
+   "kind": "mantlet",
+   "file": "mantlet-e-done.png",
+   "w": 35,
+   "h": 14,
+   "metres": 0.12,
+   "basePx": 10,
+   "anchor": {
+    "x": 14,
+    "y": 13
+   },
+   "tileOrigin": {
+    "x": 20,
+    "y": 23
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "done",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-e-done-front",
+   "kind": "mantlet",
+   "file": "mantlet-e-done-front.png",
+   "w": 43,
+   "h": 85,
+   "metres": 1.61,
+   "basePx": 32,
+   "anchor": {
+    "x": 10,
+    "y": 84
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": 57
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "done",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "mantlet-e-damaged",
+   "kind": "mantlet",
+   "file": "mantlet-e-damaged.png",
+   "w": 35,
+   "h": 14,
+   "metres": 0.12,
+   "basePx": 10,
+   "anchor": {
+    "x": 14,
+    "y": 13
+   },
+   "tileOrigin": {
+    "x": 20,
+    "y": 23
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "damaged",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-e-damaged-front",
+   "kind": "mantlet",
+   "file": "mantlet-e-damaged-front.png",
+   "w": 43,
+   "h": 83,
+   "metres": 1.55,
+   "basePx": 32,
+   "anchor": {
+    "x": 10,
+    "y": 82
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": 55
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "damaged",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "mantlet-e-destroyed",
+   "kind": "mantlet",
+   "file": "mantlet-e-destroyed.png",
+   "w": 58,
+   "h": 37,
+   "metres": 0.15,
+   "basePx": 32,
+   "anchor": {
+    "x": 28,
+    "y": 36
+   },
+   "tileOrigin": {
+    "x": 28,
+    "y": 6
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "e",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-s-foundation",
+   "kind": "mantlet",
+   "file": "mantlet-s-foundation.png",
+   "w": 55,
+   "h": 30,
+   "metres": 0.12,
+   "basePx": 26,
+   "anchor": {
+    "x": 27,
+    "y": 29
+   },
+   "tileOrigin": {
+    "x": 28,
+    "y": 0
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-s-rising",
+   "kind": "mantlet",
+   "file": "mantlet-s-rising.png",
+   "w": 38,
+   "h": 31,
+   "metres": 0.12,
+   "basePx": 27,
+   "anchor": {
+    "x": 32,
+    "y": 30
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 3
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-s-scaffold",
+   "kind": "mantlet",
+   "file": "mantlet-s-scaffold.png",
+   "w": 35,
+   "h": 14,
+   "metres": 0.12,
+   "basePx": 10,
+   "anchor": {
+    "x": 20,
+    "y": 13
+   },
+   "tileOrigin": {
+    "x": 15,
+    "y": 23
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-s-scaffold-front",
+   "kind": "mantlet",
+   "file": "mantlet-s-scaffold-front.png",
+   "w": 38,
+   "h": 53,
+   "metres": 0.64,
+   "basePx": 32,
+   "anchor": {
+    "x": 32,
+    "y": 52
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 25
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "mantlet-s-done",
+   "kind": "mantlet",
+   "file": "mantlet-s-done.png",
+   "w": 35,
+   "h": 14,
+   "metres": 0.12,
+   "basePx": 10,
+   "anchor": {
+    "x": 20,
+    "y": 13
+   },
+   "tileOrigin": {
+    "x": 15,
+    "y": 23
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "done",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-s-done-front",
+   "kind": "mantlet",
+   "file": "mantlet-s-done-front.png",
+   "w": 43,
+   "h": 85,
+   "metres": 1.61,
+   "basePx": 32,
+   "anchor": {
+    "x": 32,
+    "y": 84
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 57
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "done",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "mantlet-s-damaged",
+   "kind": "mantlet",
+   "file": "mantlet-s-damaged.png",
+   "w": 35,
+   "h": 14,
+   "metres": 0.12,
+   "basePx": 10,
+   "anchor": {
+    "x": 20,
+    "y": 13
+   },
+   "tileOrigin": {
+    "x": 15,
+    "y": 23
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "damaged",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-s-damaged-front",
+   "kind": "mantlet",
+   "file": "mantlet-s-damaged-front.png",
+   "w": 43,
+   "h": 83,
+   "metres": 1.55,
+   "basePx": 32,
+   "anchor": {
+    "x": 32,
+    "y": 82
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 55
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "damaged",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "mantlet-s-destroyed",
+   "kind": "mantlet",
+   "file": "mantlet-s-destroyed.png",
+   "w": 58,
+   "h": 37,
+   "metres": 0.15,
+   "basePx": 32,
+   "anchor": {
+    "x": 29,
+    "y": 36
+   },
+   "tileOrigin": {
+    "x": 30,
+    "y": 6
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "s",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-w-foundation",
+   "kind": "mantlet",
+   "file": "mantlet-w-foundation.png",
+   "w": 55,
+   "h": 29,
+   "metres": 0.12,
+   "basePx": 25,
+   "anchor": {
+    "x": 27,
+    "y": 28
+   },
+   "tileOrigin": {
+    "x": 29,
+    "y": 0
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "w",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-w-rising",
+   "kind": "mantlet",
+   "file": "mantlet-w-rising.png",
+   "w": 38,
+   "h": 32,
+   "metres": 0.12,
+   "basePx": 28,
+   "anchor": {
+    "x": 5,
+    "y": 31
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 12
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "w",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-w-scaffold",
+   "kind": "mantlet",
+   "file": "mantlet-w-scaffold.png",
+   "w": 47,
+   "h": 53,
+   "metres": 0.64,
+   "basePx": 32,
+   "anchor": {
+    "x": 5,
+    "y": 52
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 33
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "w",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-w-done",
+   "kind": "mantlet",
+   "file": "mantlet-w-done.png",
+   "w": 47,
+   "h": 85,
+   "metres": 1.61,
+   "basePx": 32,
+   "anchor": {
+    "x": 5,
+    "y": 84
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 65
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "w",
+   "state": "done",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-w-damaged",
+   "kind": "mantlet",
+   "file": "mantlet-w-damaged.png",
+   "w": 47,
+   "h": 83,
+   "metres": 1.55,
+   "basePx": 32,
+   "anchor": {
+    "x": 5,
+    "y": 82
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 63
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "w",
+   "state": "damaged",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-w-destroyed",
+   "kind": "mantlet",
+   "file": "mantlet-w-destroyed.png",
+   "w": 58,
+   "h": 36,
+   "metres": 0.12,
+   "basePx": 32,
+   "anchor": {
+    "x": 29,
+    "y": 35
+   },
+   "tileOrigin": {
+    "x": 30,
+    "y": 6
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "w",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-n-foundation",
+   "kind": "mantlet",
+   "file": "mantlet-n-foundation.png",
+   "w": 55,
+   "h": 29,
+   "metres": 0.12,
+   "basePx": 25,
+   "anchor": {
+    "x": 27,
+    "y": 28
+   },
+   "tileOrigin": {
+    "x": 26,
+    "y": 0
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "n",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-n-rising",
+   "kind": "mantlet",
+   "file": "mantlet-n-rising.png",
+   "w": 38,
+   "h": 32,
+   "metres": 0.12,
+   "basePx": 28,
+   "anchor": {
+    "x": 32,
+    "y": 31
+   },
+   "tileOrigin": {
+    "x": 11,
+    "y": 12
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "n",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-n-scaffold",
+   "kind": "mantlet",
+   "file": "mantlet-n-scaffold.png",
+   "w": 47,
+   "h": 53,
+   "metres": 0.64,
+   "basePx": 32,
+   "anchor": {
+    "x": 41,
+    "y": 52
+   },
+   "tileOrigin": {
+    "x": 20,
+    "y": 33
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "n",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-n-done",
+   "kind": "mantlet",
+   "file": "mantlet-n-done.png",
+   "w": 47,
+   "h": 85,
+   "metres": 1.61,
+   "basePx": 32,
+   "anchor": {
+    "x": 41,
+    "y": 84
+   },
+   "tileOrigin": {
+    "x": 20,
+    "y": 65
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "n",
+   "state": "done",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-n-damaged",
+   "kind": "mantlet",
+   "file": "mantlet-n-damaged.png",
+   "w": 47,
+   "h": 83,
+   "metres": 1.55,
+   "basePx": 32,
+   "anchor": {
+    "x": 41,
+    "y": 82
+   },
+   "tileOrigin": {
+    "x": 20,
+    "y": 63
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "n",
+   "state": "damaged",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "mantlet-n-destroyed",
+   "kind": "mantlet",
+   "file": "mantlet-n-destroyed.png",
+   "w": 58,
+   "h": 36,
+   "metres": 0.12,
+   "basePx": 32,
+   "anchor": {
+    "x": 29,
+    "y": 35
+   },
+   "tileOrigin": {
+    "x": 28,
+    "y": 6
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "mantlet",
+   "facing": "n",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "oxybeles-e-foundation",
+   "kind": "oxybeles",
+   "file": "oxybeles-e-foundation.png",
+   "w": 52,
+   "h": 52,
+   "metres": 0.12,
+   "basePx": 48,
+   "anchor": {
+    "x": 47,
+    "y": 51
+   },
+   "tileOrigin": {
+    "x": 8,
+    "y": 14
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "e",
+   "state": "foundation",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-e-rising",
+   "kind": "oxybeles",
+   "file": "oxybeles-e-rising.png",
+   "w": 26,
+   "h": 34,
+   "metres": 0.12,
+   "basePx": 30,
+   "anchor": {
+    "x": 13,
+    "y": 33
+   },
+   "tileOrigin": {
+    "x": -3,
+    "y": 4
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "e",
+   "state": "rising",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-e-scaffold",
+   "kind": "oxybeles",
+   "file": "oxybeles-e-scaffold.png",
+   "w": 67,
+   "h": 68,
+   "metres": 0.61,
+   "basePx": 48,
+   "anchor": {
+    "x": 38,
+    "y": 67
+   },
+   "tileOrigin": {
+    "x": 22,
+    "y": 38
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "e",
+   "state": "scaffold",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-e-done",
+   "kind": "oxybeles",
+   "file": "oxybeles-e-done.png",
+   "w": 56,
+   "h": 68,
+   "metres": 0.61,
+   "basePx": 48,
+   "anchor": {
+    "x": 27,
+    "y": 67
+   },
+   "tileOrigin": {
+    "x": 11,
+    "y": 38
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "e",
+   "state": "done",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-e-damaged",
+   "kind": "oxybeles",
+   "file": "oxybeles-e-damaged.png",
+   "w": 56,
+   "h": 68,
+   "metres": 0.61,
+   "basePx": 48,
+   "anchor": {
+    "x": 27,
+    "y": 67
+   },
+   "tileOrigin": {
+    "x": 11,
+    "y": 38
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "e",
+   "state": "damaged",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-e-destroyed",
+   "kind": "oxybeles",
+   "file": "oxybeles-e-destroyed.png",
+   "w": 64,
+   "h": 35,
+   "metres": 0.12,
+   "basePx": 31,
+   "anchor": {
+    "x": 51,
+    "y": 34
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": -1
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "e",
+   "state": "destroyed",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-s-foundation",
+   "kind": "oxybeles",
+   "file": "oxybeles-s-foundation.png",
+   "w": 52,
+   "h": 52,
+   "metres": 0.12,
+   "basePx": 48,
+   "anchor": {
+    "x": 4,
+    "y": 51
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 14
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "s",
+   "state": "foundation",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-s-rising",
+   "kind": "oxybeles",
+   "file": "oxybeles-s-rising.png",
+   "w": 26,
+   "h": 34,
+   "metres": 0.12,
+   "basePx": 30,
+   "anchor": {
+    "x": 13,
+    "y": 33
+   },
+   "tileOrigin": {
+    "x": 29,
+    "y": 4
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "s",
+   "state": "rising",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-s-scaffold",
+   "kind": "oxybeles",
+   "file": "oxybeles-s-scaffold.png",
+   "w": 67,
+   "h": 68,
+   "metres": 0.61,
+   "basePx": 48,
+   "anchor": {
+    "x": 29,
+    "y": 67
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": 38
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "s",
+   "state": "scaffold",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-s-done",
+   "kind": "oxybeles",
+   "file": "oxybeles-s-done.png",
+   "w": 56,
+   "h": 68,
+   "metres": 0.61,
+   "basePx": 48,
+   "anchor": {
+    "x": 29,
+    "y": 67
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": 38
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "s",
+   "state": "done",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-s-damaged",
+   "kind": "oxybeles",
+   "file": "oxybeles-s-damaged.png",
+   "w": 56,
+   "h": 68,
+   "metres": 0.61,
+   "basePx": 48,
+   "anchor": {
+    "x": 29,
+    "y": 67
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": 38
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "s",
+   "state": "damaged",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-s-destroyed",
+   "kind": "oxybeles",
+   "file": "oxybeles-s-destroyed.png",
+   "w": 64,
+   "h": 35,
+   "metres": 0.12,
+   "basePx": 31,
+   "anchor": {
+    "x": 12,
+    "y": 34
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": -1
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "s",
+   "state": "destroyed",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-w-foundation",
+   "kind": "oxybeles",
+   "file": "oxybeles-w-foundation.png",
+   "w": 52,
+   "h": 50,
+   "metres": 0.12,
+   "basePx": 46,
+   "anchor": {
+    "x": 42,
+    "y": 49
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": 14
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "w",
+   "state": "foundation",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-w-rising",
+   "kind": "oxybeles",
+   "file": "oxybeles-w-rising.png",
+   "w": 26,
+   "h": 34,
+   "metres": 0.12,
+   "basePx": 30,
+   "anchor": {
+    "x": 13,
+    "y": 33
+   },
+   "tileOrigin": {
+    "x": -3,
+    "y": 4
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "w",
+   "state": "rising",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-w-scaffold",
+   "kind": "oxybeles",
+   "file": "oxybeles-w-scaffold.png",
+   "w": 54,
+   "h": 93,
+   "metres": 1.36,
+   "basePx": 48,
+   "anchor": {
+    "x": 41,
+    "y": 92
+   },
+   "tileOrigin": {
+    "x": 13,
+    "y": 50
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "w",
+   "state": "scaffold",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-w-done",
+   "kind": "oxybeles",
+   "file": "oxybeles-w-done.png",
+   "w": 56,
+   "h": 82,
+   "metres": 1.03,
+   "basePx": 48,
+   "anchor": {
+    "x": 29,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 13,
+    "y": 52
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "w",
+   "state": "done",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-w-damaged",
+   "kind": "oxybeles",
+   "file": "oxybeles-w-damaged.png",
+   "w": 56,
+   "h": 82,
+   "metres": 1.03,
+   "basePx": 48,
+   "anchor": {
+    "x": 29,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 13,
+    "y": 52
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "w",
+   "state": "damaged",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-w-destroyed",
+   "kind": "oxybeles",
+   "file": "oxybeles-w-destroyed.png",
+   "w": 60,
+   "h": 47,
+   "metres": 0.12,
+   "basePx": 43,
+   "anchor": {
+    "x": 30,
+    "y": 46
+   },
+   "tileOrigin": {
+    "x": 8,
+    "y": 7
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "w",
+   "state": "destroyed",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-n-foundation",
+   "kind": "oxybeles",
+   "file": "oxybeles-n-foundation.png",
+   "w": 52,
+   "h": 50,
+   "metres": 0.12,
+   "basePx": 46,
+   "anchor": {
+    "x": 9,
+    "y": 49
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": 14
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "n",
+   "state": "foundation",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-n-rising",
+   "kind": "oxybeles",
+   "file": "oxybeles-n-rising.png",
+   "w": 26,
+   "h": 34,
+   "metres": 0.12,
+   "basePx": 30,
+   "anchor": {
+    "x": 13,
+    "y": 33
+   },
+   "tileOrigin": {
+    "x": 29,
+    "y": 4
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "n",
+   "state": "rising",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-n-scaffold",
+   "kind": "oxybeles",
+   "file": "oxybeles-n-scaffold.png",
+   "w": 54,
+   "h": 93,
+   "metres": 1.36,
+   "basePx": 48,
+   "anchor": {
+    "x": 12,
+    "y": 92
+   },
+   "tileOrigin": {
+    "x": 41,
+    "y": 50
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "n",
+   "state": "scaffold",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-n-done",
+   "kind": "oxybeles",
+   "file": "oxybeles-n-done.png",
+   "w": 56,
+   "h": 82,
+   "metres": 1.03,
+   "basePx": 48,
+   "anchor": {
+    "x": 27,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 43,
+    "y": 52
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "n",
+   "state": "done",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-n-damaged",
+   "kind": "oxybeles",
+   "file": "oxybeles-n-damaged.png",
+   "w": 56,
+   "h": 82,
+   "metres": 1.03,
+   "basePx": 48,
+   "anchor": {
+    "x": 27,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 43,
+    "y": 52
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "n",
+   "state": "damaged",
+   "source": "renderer"
+  },
+  {
+   "id": "oxybeles-n-destroyed",
+   "kind": "oxybeles",
+   "file": "oxybeles-n-destroyed.png",
+   "w": 60,
+   "h": 47,
+   "metres": 0.12,
+   "basePx": 43,
+   "anchor": {
+    "x": 29,
+    "y": 46
+   },
+   "tileOrigin": {
+    "x": 52,
+    "y": 7
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "oxybeles",
+   "facing": "n",
+   "state": "destroyed",
+   "source": "renderer"
+  },
+  {
+   "id": "siege-tower-e-foundation",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-foundation.png",
+   "w": 106,
+   "h": 69,
+   "metres": 0.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 51,
+    "y": 68
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-e-foundation-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-foundation-front.png",
+   "w": 64,
+   "h": 39,
+   "metres": 0.12,
+   "basePx": 35,
+   "anchor": {
+    "x": 60,
+    "y": 38
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": -22
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-e-rising",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-rising.png",
+   "w": 122,
+   "h": 158,
+   "metres": 2.85,
+   "basePx": 64,
+   "anchor": {
+    "x": 63,
+    "y": 157
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 114
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-e-rising-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-rising-front.png",
+   "w": 122,
+   "h": 144,
+   "metres": 2.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 53,
+    "y": 143
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 86
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-e-scaffold",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-scaffold.png",
+   "w": 122,
+   "h": 326,
+   "metres": 7.94,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 325
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 282
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-e-scaffold-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-scaffold-front.png",
+   "w": 122,
+   "h": 312,
+   "metres": 7.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 53,
+    "y": 311
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 254
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-e-done",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-done.png",
+   "w": 127,
+   "h": 364,
+   "metres": 9.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 363
+   },
+   "tileOrigin": {
+    "x": 62,
+    "y": 320
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-e-done-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-done-front.png",
+   "w": 128,
+   "h": 347,
+   "metres": 8.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 57,
+    "y": 346
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 289
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-e-damaged",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-damaged.png",
+   "w": 127,
+   "h": 364,
+   "metres": 9.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 363
+   },
+   "tileOrigin": {
+    "x": 62,
+    "y": 320
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-e-damaged-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-damaged-front.png",
+   "w": 128,
+   "h": 347,
+   "metres": 8.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 57,
+    "y": 346
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 289
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-e-destroyed",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-destroyed.png",
+   "w": 121,
+   "h": 137,
+   "metres": 2.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 136
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 81
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-e-destroyed-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-e-destroyed-front.png",
+   "w": 131,
+   "h": 80,
+   "metres": 0.48,
+   "basePx": 64,
+   "anchor": {
+    "x": 46,
+    "y": 79
+   },
+   "tileOrigin": {
+    "x": 67,
+    "y": 29
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "e",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-s-foundation",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-foundation.png",
+   "w": 106,
+   "h": 69,
+   "metres": 0.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 54,
+    "y": 68
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-s-foundation-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-foundation-front.png",
+   "w": 64,
+   "h": 39,
+   "metres": 0.12,
+   "basePx": 35,
+   "anchor": {
+    "x": 3,
+    "y": 38
+   },
+   "tileOrigin": {
+    "x": 6,
+    "y": -22
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-s-rising",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-rising.png",
+   "w": 122,
+   "h": 158,
+   "metres": 2.85,
+   "basePx": 64,
+   "anchor": {
+    "x": 58,
+    "y": 157
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 114
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-s-rising-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-rising-front.png",
+   "w": 122,
+   "h": 144,
+   "metres": 2.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 68,
+    "y": 143
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 86
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-s-scaffold",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-scaffold.png",
+   "w": 122,
+   "h": 326,
+   "metres": 7.94,
+   "basePx": 64,
+   "anchor": {
+    "x": 61,
+    "y": 325
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 282
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-s-scaffold-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-scaffold-front.png",
+   "w": 122,
+   "h": 312,
+   "metres": 7.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 68,
+    "y": 311
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 254
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-s-done",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-done.png",
+   "w": 127,
+   "h": 364,
+   "metres": 9.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 363
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 320
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-s-done-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-done-front.png",
+   "w": 128,
+   "h": 347,
+   "metres": 8.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 346
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 289
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-s-damaged",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-damaged.png",
+   "w": 127,
+   "h": 364,
+   "metres": 9.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 363
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 320
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-s-damaged-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-damaged-front.png",
+   "w": 128,
+   "h": 347,
+   "metres": 8.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 346
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 289
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-s-destroyed",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-destroyed.png",
+   "w": 121,
+   "h": 137,
+   "metres": 2.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 54,
+    "y": 136
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 81
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-s-destroyed-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-s-destroyed-front.png",
+   "w": 131,
+   "h": 80,
+   "metres": 0.48,
+   "basePx": 64,
+   "anchor": {
+    "x": 84,
+    "y": 79
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 29
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "s",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-w-foundation",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-foundation.png",
+   "w": 106,
+   "h": 60,
+   "metres": 0.12,
+   "basePx": 56,
+   "anchor": {
+    "x": 51,
+    "y": 59
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 4
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-w-foundation-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-foundation-front.png",
+   "w": 135,
+   "h": 39,
+   "metres": 0.12,
+   "basePx": 35,
+   "anchor": {
+    "x": 60,
+    "y": 38
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": -22
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-w-rising",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-rising.png",
+   "w": 122,
+   "h": 158,
+   "metres": 2.85,
+   "basePx": 64,
+   "anchor": {
+    "x": 63,
+    "y": 157
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 114
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-w-rising-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-rising-front.png",
+   "w": 122,
+   "h": 144,
+   "metres": 2.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 53,
+    "y": 143
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 86
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-w-scaffold",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-scaffold.png",
+   "w": 122,
+   "h": 326,
+   "metres": 7.94,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 325
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 282
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-w-scaffold-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-scaffold-front.png",
+   "w": 122,
+   "h": 312,
+   "metres": 7.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 53,
+    "y": 311
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 254
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-w-done",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-done.png",
+   "w": 127,
+   "h": 364,
+   "metres": 9.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 363
+   },
+   "tileOrigin": {
+    "x": 62,
+    "y": 320
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-w-done-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-done-front.png",
+   "w": 128,
+   "h": 347,
+   "metres": 8.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 57,
+    "y": 346
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 289
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-w-damaged",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-damaged.png",
+   "w": 127,
+   "h": 364,
+   "metres": 9.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 363
+   },
+   "tileOrigin": {
+    "x": 62,
+    "y": 320
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-w-damaged-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-damaged-front.png",
+   "w": 128,
+   "h": 347,
+   "metres": 8.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 57,
+    "y": 346
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 289
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-w-destroyed",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-destroyed.png",
+   "w": 122,
+   "h": 94,
+   "metres": 0.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 67,
+    "y": 93
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 38
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-w-destroyed-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-w-destroyed-front.png",
+   "w": 138,
+   "h": 114,
+   "metres": 1.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 68,
+    "y": 113
+   },
+   "tileOrigin": {
+    "x": 71,
+    "y": 53
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "w",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-n-foundation",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-foundation.png",
+   "w": 106,
+   "h": 60,
+   "metres": 0.12,
+   "basePx": 56,
+   "anchor": {
+    "x": 54,
+    "y": 59
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 4
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-n-foundation-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-foundation-front.png",
+   "w": 135,
+   "h": 39,
+   "metres": 0.12,
+   "basePx": 35,
+   "anchor": {
+    "x": 74,
+    "y": 38
+   },
+   "tileOrigin": {
+    "x": 77,
+    "y": -22
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "foundation",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-n-rising",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-rising.png",
+   "w": 122,
+   "h": 158,
+   "metres": 2.85,
+   "basePx": 64,
+   "anchor": {
+    "x": 58,
+    "y": 157
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 114
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-n-rising-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-rising-front.png",
+   "w": 122,
+   "h": 144,
+   "metres": 2.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 68,
+    "y": 143
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 86
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "rising",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-n-scaffold",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-scaffold.png",
+   "w": 122,
+   "h": 326,
+   "metres": 7.94,
+   "basePx": 64,
+   "anchor": {
+    "x": 61,
+    "y": 325
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 282
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-n-scaffold-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-scaffold-front.png",
+   "w": 122,
+   "h": 312,
+   "metres": 7.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 68,
+    "y": 311
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 254
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "scaffold",
+   "source": "renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-n-done",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-done.png",
+   "w": 127,
+   "h": 364,
+   "metres": 9.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 363
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 320
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-n-done-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-done-front.png",
+   "w": 128,
+   "h": 347,
+   "metres": 8.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 346
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 289
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "done",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-n-damaged",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-damaged.png",
+   "w": 127,
+   "h": 364,
+   "metres": 9.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 363
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 320
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (moving parts drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-n-damaged-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-damaged-front.png",
+   "w": 128,
+   "h": 347,
+   "metres": 8.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 346
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 289
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer",
+   "layer": "front"
+  },
+  {
+   "id": "siege-tower-n-destroyed",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-destroyed.png",
+   "w": 122,
+   "h": 94,
+   "metres": 0.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 54,
+    "y": 93
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 38
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "back"
+  },
+  {
+   "id": "siege-tower-n-destroyed-front",
+   "kind": "siege-tower",
+   "file": "siege-tower-n-destroyed-front.png",
+   "w": 138,
+   "h": 114,
+   "metres": 1.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 69,
+    "y": 113
+   },
+   "tileOrigin": {
+    "x": 67,
+    "y": 53
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "siege-tower",
+   "facing": "n",
+   "state": "destroyed",
+   "source": "renderer",
+   "layer": "front"
   },
   {
    "id": "stone-shot",

@@ -192,6 +192,231 @@ const THROW = [[72, 1.9, 1], [72, 1.9, 1], [50, 3.0, 1], [25, null, 0], [14, nul
 const THROW_RELEASE = 3;
 const THROW_FROM = [4.9, 2.0, 2.15]; // where the stone leaves (local m): over the stock, in front of the string
 
+// ======== ART-C engines (the engineer's designs, WAR.md "Crafting and professions"): mantlet, covered ram, oxybeles,
+// siege tower. Same renderer and conventions as the ram and thrower; moving parts carry `mv`.
+const hideWet = (u, v) => { const c = hideTex(u, v), g = hash(Math.floor(u / 4), Math.floor(v / 3), 33) > 0.93 ? 1.25 : 0.7; return c.map((q) => clamp(q * g)); }; // wet hides: darker, a few wet glints
+const ironPlate = (u, v) => { const row = Math.floor(v / 10), col = Math.floor((u + (row % 2) * 6) / 12); if (v % 10 < 1 || (u + (row % 2) * 6) % 12 < 1) return IRON[0].slice(0, 3); if ((u + (row % 2) * 6) % 12 === 2 && v % 10 === 2) return IRON[3].slice(0, 3); return IRON[1 + Math.floor(hash(col & 63, row & 63, 34) * 2)].slice(0, 3); }; // riveted iron scales
+const hideFace = (tex, z1) => (f, x, y, z) => [...tex(Math.floor((x + y) * PPM), Math.floor((z1 - z) * PPM) + 5), 255];
+const segYZ = ([ay, az], [by, bz], t, x0, x1, mat, step = 1 / 24) => { const L = Math.hypot(by - ay, bz - az), n = Math.max(1, Math.ceil(L / step)), out = []; for (let i = 0; i <= n; i++) { const y = ay + ((by - ay) * i) / n, z = az + ((bz - az) * i) / n; out.push(box(x0, x1, y - t / 2, y + t / 2, Math.max(0, z - t / 2), z + t / 2, mat)); } return out; };
+
+// ---- covered ram (Rams node): a longer, heavier tortoise than the open ram: 8 x 3.3 m, eight wheels, wet hides hanging to
+// the ground on both sides (the crew are hidden: missiles x0.3), an iron-scaled front bay and an iron-plated front gable
+// round the ram's opening, an iron ram's head on the log. Back + front layer as the ram.
+const CRAM = { L: 8, fp: [4, 2], eave: 1.05, ridge: 2.55, y0: 0.35, y1: 3.65 };
+function coveredRamBoxes(state, swing = 0, k = 4) {
+  const { L, eave, ridge } = CRAM, back = [], front = [], cy = 2, dmg = state === 'damaged', gone = state === 'destroyed';
+  const sillY = [[0.78, 1.02], [2.98, 3.22]], posts = [0.45, 2.2, 3.95, 5.7, 7.35], wheels = [1.0, 3.0, 5.0, 7.0];
+  const near = (b) => b.y0 >= 2.5, add = (...bs) => bs.forEach((b) => (near(b) ? front : back).push(b));
+  const zc = 0.42, zs = [0.48, 0.74];
+  if (state === 'foundation') {
+    for (const [a, b] of sillY) back.push(box(0.4, 7.6, a, b, 0, 0.24, timber(2, 1)));
+    for (const x of [0.6, 2.6, 4.6, 6.6]) back.push(box(x, x + 0.25, 1.2, 2.8, 0, 0.2, timber(3, 2)));
+    back.push(...[0, 1, 2].map((i) => box(7.9, 8.9, 0.2 + i * 0.05, 0.9, 0.24 + i * 0.12, 0.36 + i * 0.12, solid([...hideWet(i * 9, 3), 255]))), box(7.9, 8.6, 1.3, 2.0, 0, 0.12, iron));
+    return { back, front };
+  }
+  if (!gone) for (const [a, b] of sillY) add(box(0.4, 7.6, a, b, zs[0], zs[1], timber(2, 1)));
+  if (!gone) for (const x of [0.5, 2.3, 4.1, 5.9, 7.2]) back.push(box(x, x + 0.22, 1.02, 2.98, zs[0], zs[1] - 0.04, timber(3, 2)));
+  for (const wx of wheels) for (const [a, b] of [[0.58, 0.76], [3.24, 3.42]]) {
+    if (gone && wx === 7.0 && a > 1) continue;
+    add(...rodY(wx, zc, 0.42, a, b, wheelMat(wx, zc)).map((c) => (gone ? { ...c, z0: Math.max(0, c.z0 - (a > 1 ? 0.25 : 0)), z1: Math.max(0.05, c.z1 - (a > 1 ? 0.25 : 0)) } : c)));
+    if (!gone) add(box(wx - 0.05, wx + 0.05, a - 0.04, b + 0.04, zc - 0.05, zc + 0.05, solid([46, 40, 36, 255])));
+  }
+  if (gone) { // burnt out: the chassis down on its axles, post stumps, the iron gable fallen forward, the log on the ground
+    for (const [a, b] of sillY) back.push(box(0.4, 7.6, a, b, 0.1, 0.34, timber(1, 1)));
+    for (const x of posts) for (const [a, b] of [[0.8, 0.98], [3.02, 3.2]]) { const h = 0.4 + 0.7 * hash(Math.floor(x * 3), a > 1 ? 1 : 0, k + 7); add(box(x, x + 0.18, a, b, 0.34, 0.34 + h, timber(1, 3))); }
+    back.push(...seg([0.3, 0.2], [8.4, 0.25], 0.32, 1.84, 2.16, timber(2, 4)), box(8.4, 9.1, 1.76, 2.24, 0.02, 0.5, iron), box(7.8, 8.9, 0.6, 3.4, 0, 0.1, iron));
+    for (let i = 0; i < 8; i++) { const x = 0.6 + i * 0.9 + 0.3 * hash(i, k, 9), a = 0.9 + 1.8 * hash(i, k, 10); back.push(...seg([x, 0.35 + 0.5 * hash(i, k, 11)], [x + 0.6, 0.7 + 0.8 * hash(i, k, 12)], 0.12, a, a + 0.12, timber(1, 5))); }
+    return { back, front };
+  }
+  const postH = state === 'rising' ? 0.9 : eave;
+  for (const x of posts) for (const [a, b] of [[0.8, 0.98], [3.02, 3.2]]) add(box(x, x + 0.18, a, b, zs[1], zs[1] + postH, timber(2, 3)));
+  if (state === 'rising') return { back, front };
+  for (const [a, b] of [[0.72, 0.98], [3.02, 3.28]]) add(box(0.4, 7.6, a, b, eave + zs[1], eave + zs[1] + 0.16, timber(3, 3)));
+  const zE = eave + zs[1] + 0.16, zR = ridge + zs[1];
+  back.push(box(0.4, 7.6, cy - 0.1, cy + 0.1, zR - 0.2, zR, timber(3, 4)));
+  for (const x of [0.45, 7.35]) back.push(box(x, x + 0.16, cy - 0.08, cy + 0.08, zs[1], zR - 0.2, timber(2, 5)));
+  // the log with an iron ram's head (moving)
+  const lz = 1.15, s = swing, mv = (b) => ({ ...b, mv: true });
+  back.push(mv(box(-0.3 + s, 8.2 + s, cy - 0.18, cy + 0.18, lz - 0.18, lz + 0.18, logMat)));
+  for (const x of [0.6, 4.0, 7.6]) back.push(mv(box(x + s, x + 0.12 + s, cy - 0.2, cy + 0.2, lz - 0.2, lz + 0.2, rope)));
+  back.push(mv(box(8.2 + s, 8.95 + s, cy - 0.25, cy + 0.25, lz - 0.25, lz + 0.25, iron)), mv(box(8.95 + s, 9.2 + s, cy - 0.16, cy + 0.16, lz - 0.2, lz + 0.12, iron)));
+  for (const sg of [-1, 1]) back.push(mv(box(8.35 + s, 8.6 + s, cy + sg * 0.25 - 0.06, cy + sg * 0.25 + 0.06, lz + 0.1, lz + 0.34, iron)), mv(box(8.55 + s, 8.75 + s, cy + sg * 0.32 - 0.06, cy + sg * 0.32 + 0.06, lz - 0.08, lz + 0.2, iron))); // the horns curling down
+  for (const x of [1.6, 3.9, 6.2]) back.push(...seg([x, zR - 0.2], [x + s, lz + 0.18], 0.05, cy - 0.02, cy + 0.02, rope).map(mv));
+  const fz = (x, y) => zE + (zR - zE) * (1 - Math.abs(y - cy) / (cy - CRAM.y0));
+  if (state === 'scaffold') {
+    for (const x of [0.45, 1.9, 3.4, 4.9, 6.4, 7.35]) for (const sg of [-1, 1]) { const ys = sg < 0 ? [CRAM.y0, cy] : [cy, CRAM.y1]; for (let y = ys[0]; y < ys[1]; y += 1 / 16) add(box(x, x + 0.14, y, y + 1 / 16, fz(x, y + 1 / 32) - 0.14, fz(x, y + 1 / 32), timber(3, 7))); }
+    back.push(...[0, 1, 2, 3].map((i) => box(-0.9, 0.0, 0.5 + i * 0.05, 1.4, i * 0.12, 0.12 + i * 0.12, solid([...hideWet(i * 7, 5), 255]))), box(-0.9, -0.1, 1.7, 2.6, 0, 0.12, iron));
+    return { back, front };
+  }
+  const holes = dmg ? (x, y) => { for (let i = 0; i < 4; i++) { const hx = 0.8 + 5.4 * hash(i, k, 21), hy = CRAM.y0 + 0.4 + 2.1 * hash(i, k, 22), r = 0.35 + 0.3 * hash(i, k, 23); if (Math.hypot(x - hx, (y - hy) * 1.3) < r) return true; } return false; } : null;
+  front.push(...roof(0.3, 7.7, CRAM.y0, CRAM.y1, fz, (x, y) => [x, Math.abs(y - cy)], { holes, tex: (u, v) => (u > 6.3 * PPM || u < 1.7 * PPM ? ironPlate(u, v) : hideWet(u, v)) }));
+  // wet hides hang from the eaves to the ground on both long sides
+  for (const [y0, y1, nr] of [[CRAM.y0, CRAM.y0 + 0.06, 0], [CRAM.y1 - 0.06, CRAM.y1, 1]]) for (let x = 0.3; x < 7.7; x += 1 / 16) {
+    if (holes && holes(x, nr ? CRAM.y1 - 0.2 : CRAM.y0 + 0.2)) continue;
+    const bottom = 0.1 + 0.04 * Math.sin(x * 5.2 + nr) + (dmg ? 0.5 * hash(Math.floor(x * 3), nr, k) : 0);
+    (nr ? front : back).push(box(x, x + 1 / 16, y0, y1, bottom, zE, hideFace(hideWet, zE)));
+  }
+  // the iron-plated front gable round the ram's opening (halves split back / front like the sides)
+  const gable = (y0, y1) => cells(7.62, 7.72, y0, y1, (x, y) => { const top = fz(7.7, y); return { z0: 0.12, z1: top, mat: (f, xx, yy, z) => (Math.abs(yy - cy) < 0.42 && Math.abs(z - lz) < 0.42 ? null : [...ironPlate(Math.floor(yy * PPM), Math.floor((top - z) * PPM)), 255]) }; }, 1 / 16).flatMap((c) => [{ ...c, z1: lz - 0.42 }, { ...c, z0: lz + 0.42 }, ...(Math.abs(c.y0 - cy) >= 0.42 ? [{ ...c, z0: lz - 0.42, z1: lz + 0.42 }] : [])]).filter((c) => c.z1 > c.z0);
+  const mirror = (b) => ({ ...b, x0: L - b.x1, x1: L - b.x0 }); // both ends plated (the shed stays symmetric: w / n reuse the e / s paint)
+  back.push(...gable(CRAM.y0, 2.5), ...gable(CRAM.y0, 2.5).map(mirror)); front.push(...gable(2.5, CRAM.y1), ...gable(2.5, CRAM.y1).map(mirror));
+  return { back, front };
+}
+const CRAM_CREW = [1.9, 3.0, 4.1, 5.2, 6.3].flatMap((x) => [[x, 1.45], [x, 2.55]]);
+
+// ---- mantlet (Carpenter): a wheeled timber screen 2 m wide, 2.1 m tall, faced with hides, short wings angled back, a
+// view slit; two push poles behind; crew 2 behind it. One tile. The screen is in front of the crew when it faces e or s.
+const MT = { L: 2, fp: [1, 1] };
+function mantletBoxes(state, k = 5) {
+  const out = [], scr = (b) => ({ ...b, scr: true }), x0 = 1.38, x1 = 1.62, z0 = 0.28, zt = 2.1, gone = state === 'destroyed', dmg = state === 'damaged';
+  const planksV = (f, x, y, z) => { const n = Math.floor(y * 5); return (y * 5) % 1 < 0.12 ? mul(W()[0], 0.85) : mul(W()[1 + (n % 3 === 0 ? 1 : 0)], 0.9 + 0.15 * hash(n, Math.floor(z * 6), k)); };
+  const face = (f, x, y, z) => (f === '+x' && Math.abs(z - 1.55) < 0.05 && Math.abs(y - 1) < 0.25 ? [20, 17, 15, 255] : Math.abs(z - 0.7) < 0.05 || Math.abs(z - 1.75) < 0.05 ? IRON[f === 'top' ? 3 : 1] : planksV(f, x, y, z)); // planks, two iron bands, a view slit
+  if (state === 'foundation') { for (let i = 0; i < 5; i++) out.push(box(0.2, 1.9, 0.15 + i * 0.36, 0.45 + i * 0.36, 0, 0.08 + (i % 2) * 0.02, timber(2, 1))); return out; }
+  if (gone) { // knocked flat and burnt
+    out.push(box(0.15, 1.95, 0.1, 1.9, 0, 0.22, (f, x, y, z) => mul(planksV(f, x, y, z), 0.35)), ...rodY(0.6, 0.12, 0.2, 0.0, 0.1, timber(0, 2)));
+    return out;
+  }
+  for (const yy of [[0.08, 0.18], [1.82, 1.92]]) out.push(...rodY(1.5, 0.24, 0.24, yy[0], yy[1], wheelMat(1.5, 0.24)).map(scr)); // wheels
+  out.push(scr(box(1.3, 1.7, 0.18, 1.82, 0.2, 0.3, timber(3, 2)))); // axle beam
+  if (state === 'rising') return out;
+  const top = state === 'scaffold' ? 1.1 : zt;
+  out.push(...cells(x0, x1, 0.02, 1.98, (x, y) => { const zz = Math.min(top, zt - 0.12 * Math.abs(y - 1) + 0.1 * (1 - 2 * Math.abs(((y * 5) % 1) - 0.5))) - (dmg ? 0.5 * hash(Math.floor(y * 5), k, 3) * (y > 1 ? 1 : 0.3) : 0); return { z0, z1: zz, mat: state === 'scaffold' ? planksV : face }; }, 1 / 16).map(scr));
+  if (state !== 'scaffold') for (const [a, b] of [[0.02, 0.14], [1.86, 1.98]]) out.push(scr(box(1.0, x0, a, b, z0, zt - 0.3, (f, x, y, z) => (f === '+y' || f === '-y' ? [...hideWet(Math.floor(x * PPM), Math.floor((zt - z) * PPM)), 255] : planksV(f, x, y, z))))); // wings
+  for (const y of [0.55, 1.45]) out.push(...seg([x0, 1.0], [0.25, 0.85], 0.08, y - 0.04, y + 0.04, timber(1, 4))); // push poles
+  return out;
+}
+const MT_CREW = [[0.75, 0.55], [0.75, 1.45]];
+
+// ---- oxybeles (Artillerist): a torsion bolt thrower on a pedestal, 4 m along its facing (2 x 1 tiles): a squared post on a
+// cross-foot with braces, a universal joint block, a 3 m stock with a slider, a spring frame at the front with two
+// rope skeins under bronze washers, two short arms, a bowstring, a winch at the back, a 0.9 m bolt. Moving: arms,
+// string, slider, bolt.
+const OX = { L: 4, fp: [2, 1], sk: 3.1, skY: [0.68, 1.32], arm: 0.62, zA: [1.44, 1.52], zS: [1.47, 1.5], st: [1.36, 1.5] };
+const oxTip = (side, deg) => { const a = (deg * Math.PI) / 180; return [OX.sk - OX.arm * Math.sin(a), OX.skY[side] + (side ? 1 : -1) * OX.arm * Math.cos(a)]; };
+function oxybelesBoxes(state, { deg = 62, claw = 1.75, loaded = true } = {}, k = 6) {
+  const out = [], mv = (b) => ({ ...b, mv: true }), cy = 1, gone = state === 'destroyed';
+  if (state === 'foundation') { out.push(box(0.6, 3.6, 0.88, 1.12, 0, 0.16, timber(2, 1)), box(1.3, 2.7, 0.3, 0.5, 0, 0.14, timber(3, 2)), box(1.3, 2.7, 1.5, 1.7, 0, 0.14, timber(3, 2)), box(1.9, 2.1, 0.1, 0.3, 0, 0.9, timber(2, 3))); return out; }
+  if (gone) { // knocked over, burnt: the post broken, the stock and frame on the ground
+    out.push(box(1.2, 2.8, 0.9, 1.1, 0, 0.12, timber(1, 2)), box(0.8, 1.0, 0.2, 1.8, 0, 0.12, timber(1, 2)), box(1.9, 2.1, 0.9, 1.1, 0, 0.45, timber(1, 3)));
+    out.push(...segXY([0.6, 0.35], [3.5, 0.75], 0.2, 0.0, 0.16, timber(1, 4)), box(2.9, 3.2, 0.2, 1.3, 0.0, 0.45, timber(1, 5)), ...cylZ(3.05, 0.45, 0.09, 0.05, 0.35, solid(mul(ROPE[0], 0.5))));
+    return out;
+  }
+  // pedestal: cross foot, squared post, four braces
+  out.push(box(1.3, 2.7, 0.9, 1.1, 0, 0.16, timber(2, 1)), box(1.9, 2.1, 0.3, 1.7, 0, 0.16, timber(2, 1)));
+  out.push(box(1.9, 2.1, 0.9, 1.1, 0.16, state === 'rising' ? 0.8 : 1.2, timber(3, 2)));
+  if (state === 'rising') return out;
+  out.push(...seg([1.4, 0.16], [1.92, 0.8], 0.08, 0.96, 1.04, timber(2, 3)), ...seg([2.6, 0.16], [2.08, 0.8], 0.08, 0.96, 1.04, timber(2, 3)), ...segYZ([0.4, 0.16], [0.92, 0.8], 0.08, 1.96, 2.04, timber(2, 3)), ...segYZ([1.6, 0.16], [1.08, 0.8], 0.08, 1.96, 2.04, timber(2, 3)));
+  out.push(box(1.82, 2.18, 0.84, 1.16, 1.2, 1.36, (f, x, y, z) => (z > 1.28 ? IRON[2] : timber(3, 4)(f, x, y, z)))); // the joint block, iron cap
+  // the stock with its groove; the spring frame: bottom and top beams, outer and middle stiles
+  out.push(box(0.55, 3.55, cy - 0.12, cy + 0.12, OX.st[0], OX.st[1], (f, x, y, z) => (f === 'top' && Math.abs(y - cy) < 0.04 ? mul(W()[0], 0.8) : timber(3, 4)(f, x, y, z))));
+  const fx = [OX.sk - 0.12, OX.sk + 0.12];
+  out.push(box(fx[0], fx[1], 0.45, 1.55, 1.14, 1.26, timber(2, 5)), box(fx[0] - 0.02, fx[1] + 0.02, 0.43, 1.57, 1.72, 1.82, timber(3, 5)));
+  for (const [a, b] of [[0.45, 0.55], [1.45, 1.55], [0.9, 1.1]]) out.push(box(fx[0], fx[1], a, b, a > 0.6 && a < 1.4 ? OX.st[1] : 1.26, 1.72, timber(2, 5)));
+  if (state === 'scaffold') { out.push(...segXY([0.4, 1.7], [1.1, 1.85], 0.07, 0, 0.08, timber(2, 7))); return out; }
+  for (const y of OX.skY) out.push(...cylZ(OX.sk, y, 0.09, 1.26, 1.72, skeinMat), ...cylZ(OX.sk, y, 0.13, 1.82, 1.88, bronze), box(OX.sk - 0.16, OX.sk + 0.16, y - 0.025, y + 0.025, 1.88, 1.92, bronze));
+  for (const y of [0.78, 1.14]) out.push(box(0.55, 0.85, y, y + 0.08, 1.0, OX.st[0], timber(2, 6))); // winch cheeks
+  out.push(...rodY(0.7, 1.2, 0.07, 0.82, 1.18, timber(1, 6)), ...seg([0.7, 1.2], [0.7, 0.92], 0.04, 1.22, 1.26, timber(3, 6)));
+  const tips = [0, 1].map((s) => oxTip(s, deg));
+  for (const s of [0, 1]) out.push(...segXY([OX.sk, OX.skY[s]], tips[s], 0.08, OX.zA[0], OX.zA[1], timber(2, 8)).map(mv), ...cylZ(tips[s][0], tips[s][1], 0.045, OX.zA[0] - 0.01, OX.zA[1] + 0.01, iron).map(mv));
+  for (const s of [0, 1]) out.push(...segXY(tips[s], [claw, cy], 0.025, OX.zS[0], OX.zS[1], rope, 1 / 32).map(mv));
+  out.push(mv(box(claw - 0.03, claw + 0.9, cy - 0.07, cy + 0.07, OX.st[1], OX.st[1] + 0.07, timber(3, 9))), mv(box(claw - 0.07, claw + 0.04, cy - 0.05, cy + 0.05, OX.st[1], OX.st[1] + 0.13, iron)));
+  if (loaded) out.push(mv(box(claw + 0.05, claw + 0.85, cy - 0.025, cy + 0.025, OX.st[1] + 0.07, OX.st[1] + 0.11, timber(3, 10))), mv(box(claw + 0.85, claw + 0.97, cy - 0.035, cy + 0.035, OX.st[1] + 0.06, OX.st[1] + 0.12, iron)), mv(box(claw + 0.05, claw + 0.15, cy - 0.06, cy + 0.06, OX.st[1] + 0.08, OX.st[1] + 0.1, solid(ROPE[2]))));
+  return out;
+}
+const OX_SHOOT = [[62, 1.75, 1], [62, 1.75, 1], [40, null, 0], [12, null, 0], [4, null, 0], [16, null, 0], [10, null, 0], [12, null, 0]].map(([deg, c, l]) => ({ deg, claw: c ?? oxTip(0, deg)[0], loaded: !!l }));
+const OX_RELEASE = 2, OX_FROM = [3.7, 1.0, 1.6], OX_CREW = [[1.2, 0.35], [0.4, 1.0]];
+
+// ---- siege tower (Poliorcetes): a three-storey wheeled tower, 4 x 4 m, 9.6 m to the top of its breastwork, on six solid
+// wheels. The ground storey is open between braced posts (the crew of 8 push from inside, an internal ladder goes up);
+// the two upper storeys are planked and faced with wet hides, arrow ports in the sides; a fighting top behind a hide
+// breastwork. The drawbridge (moving) is hinged at the front of the second floor (6.2 m: it lands on a stone wall's
+// parapet, 5.97 m) and is lowered by ropes from the top. Layers: the faces on the world +x / +y sides are the front layer.
+const ST = { L: 4, fp: [2, 2], floors: [0.78, 3.5, 6.2, 8.6], top: 9.6, bridge: 2.6 };
+function towerBoxes(state, { bridge = 90 } = {}, k = 7) {
+  const out = [], mv = (b) => ({ ...b, mv: true }), gone = state === 'destroyed', dmg = state === 'damaged', [F0, F1, F2, F3] = ST.floors;
+  const ps = 0.26, P = [[0.1, 0.1], [3.64, 0.1], [0.1, 3.64], [3.64, 3.64]], post = (x, y, z0, z1) => box(x, x + ps, y, y + ps, z0, z1, timber(2, 3));
+  const W1 = timber(2, 1), plank = (f, x, y, z) => { const n = Math.floor(z * 4); return (z * 4) % 1 < 0.12 ? mul(W()[0], 0.85) : mul(W()[1 + (n % 3 === 1 ? 1 : 0)], 0.9 + 0.15 * hash(n, Math.floor((x + y) * 3), k)); };
+  if (state === 'foundation') { for (const y of [0.3, 3.5]) out.push(box(0.1, 3.9, y, y + 0.22, 0, 0.22, W1)); for (const x of [0.4, 1.9, 3.4]) out.push(box(x, x + 0.22, 0.6, 3.4, 0, 0.18, timber(3, 2))); out.push(...rodY(-0.8, 0.12, 0.5, 0.5, 0.7, wheelMat(-0.8, 0.12)).map((c) => ({ ...c, z1: Math.min(c.z1, 0.2) }))); return out; }
+  // chassis: sills, six wheels
+  if (!gone) for (const y of [0.3, 3.48]) out.push(box(0.05, 3.95, y, y + 0.22, 0.5, F0, W1));
+  for (const wx of [0.7, 2.0, 3.3]) for (const [a, b] of [[0.08, 0.28], [3.72, 3.92]]) { if (gone && wx > 3 && a > 1) continue; out.push(...rodY(wx, 0.5, 0.5, a, b, wheelMat(wx, 0.5)).map((c) => (gone ? { ...c, z1: Math.max(0.05, c.z1 - 0.3), z0: Math.max(0, c.z0 - 0.3) } : c))); }
+  if (gone) { // burnt down: ground storey stumps, charred beams fallen over the chassis, the hides in ashes
+    for (const y of [0.3, 3.48]) out.push(box(0.05, 3.95, y, y + 0.22, 0.15, 0.4, timber(1, 1)));
+    for (const [i, [x, y]] of P.entries()) out.push(box(x, x + ps, y, y + ps, 0.4, 0.4 + [2.1, 0.8, 1.4, 0.5][i], timber(1, 3)));
+    for (let i = 0; i < 9; i++) { const v = 0.2 + 3.4 * hash(i, k, 74), z = 0.45 + 0.4 * hash(i, k, 77); out.push(...seg([-0.6 + 0.6 * hash(i, k, 75), z], [4.6 - 0.6 * hash(i, k, 76), z + 0.5 * hash(i, k, 78)], 0.24, v, v + 0.24, timber(i % 2, 7))); }
+    return out;
+  }
+  const topZ = state === 'rising' ? F1 : state === 'scaffold' ? F3 : ST.top - 1.0;
+  for (const [x, y] of P) out.push(post(x, y, F0, topZ));
+  const floor = (z) => box(0.1, 3.9, 0.1, 3.9, z - 0.16, z, planks('x', 6));
+  out.push(floor(F0 + 0.16));
+  for (const sx of [0, 1]) { // the ground storey's braces (an X on each side) and the internal ladder up the back
+    out.push(...seg([0.36, F0 + 0.2], [3.64, F1 - 0.2], 0.12, sx ? 3.68 : 0.12, sx ? 3.8 : 0.24, timber(2, 4)), ...seg([0.36, F1 - 0.2], [3.64, F0 + 0.2], 0.12, sx ? 3.68 : 0.12, sx ? 3.8 : 0.24, timber(2, 4)));
+    out.push(...segYZ([0.36, F0 + 0.2], [3.64, F1 - 0.2], 0.12, sx ? 3.68 : 0.12, sx ? 3.8 : 0.24, timber(2, 4)));
+  }
+  const ladder = (z0, z1) => { const B = []; for (const y of [1.4, 2.0]) B.push(box(1.96, 2.04, y, y + 0.08, z0, z1, timber(3, 5))); for (let z = z0 + 0.3; z < z1 - 0.05; z += 0.33) B.push(box(1.96, 2.04, 1.4, 2.08, z, z + 0.05, timber(3, 5))); return B; }; // centred: the tower stays symmetric front to back (w / n reuse the e / s paint)
+  out.push(...ladder(F0, F1));
+  if (state === 'rising') { out.push(floor(F1)); return out; }
+  out.push(floor(F1), floor(F2));
+  if (state === 'scaffold') { out.push(...ladder(F1, F2), box(0.1, 3.9, 0.1, 2.0, F3 - 0.16, F3, planks('x', 6))); return out; }
+  out.push(...ladder(F1, F2), ...ladder(F2, F3), floor(F3));
+  // planked and hide-faced upper storeys (F1 .. F3) on all four sides; arrow ports; the bridge opening on the front (+x)
+  const holes = dmg ? (a, z) => hash(Math.floor(a * 1.6), Math.floor(z * 1.2), k + 2) < 0.22 : () => false;
+  const skin = (f, x, y, z) => { const a = f === '+x' || f === '-x' ? y : x; if (Math.abs(z - 4.9) < 0.12 && (Math.abs(a - 1.0) < 0.12 || Math.abs(a - 3.0) < 0.12)) return [20, 17, 15, 255]; if (holes(a, z)) return plank(f, x, y, z); const u = Math.floor(a * PPM), col = Math.floor(u / 15), fu = u - col * 15, wr = hash(col & 63, Math.floor(u / 3), 35); if (fu < 1) return mul([...HIDE[0], 255], 1); if (Math.abs(z - F2 - 0.05) < 0.05 || Math.abs(z - ST.top + 0.15) < 0.05) return ROPE[1]; return mul([...HIDE[1 + Math.floor(hash(col & 63, Math.floor(z / 2.7), 36) * 2) + (wr > 0.8 ? 1 : 0)], 255], 0.78 + 0.1 * Math.sin(u * 1.7 + col)); }; // wet hides hung in vertical strips, lashed at each storey
+  const front = (x) => x > 3.5, opening = (y, z) => z > F2 && z < F2 + 2.2 && y > 0.7 && y < 3.3;
+  for (const [n, b] of [['-y', [0.06, 3.94, 0.04, 0.14]], ['+y', [0.06, 3.94, 3.86, 3.96]], ['-x', [0.04, 0.14, 0.06, 3.94]], ['+x', [3.86, 3.96, 0.06, 3.94]]]) {
+    if (n === '+x' || n === '-x') { out.push(...cells(b[0], b[1], b[2], b[3], (x, y) => ({ z0: F1, z1: F2, mat: skin }), 1 / 8), ...cells(b[0], b[1], b[2], b[3], (x, y) => (y > 0.7 && y < 3.3 ? { z0: F2 + 2.2, z1: ST.top, mat: skin } : { z0: F2, z1: ST.top, mat: skin }), 1 / 8)); continue; } // the bridge opening, front and back
+    out.push(box(b[0], b[1], b[2], b[3], F1, ST.top, skin));
+  }
+  // the fighting top's rail cap
+  out.push(box(-0.02, 4.02, -0.02, 0.1, ST.top, ST.top + 0.1, timber(3, 6)), box(-0.02, 4.02, 3.9, 4.02, ST.top, ST.top + 0.1, timber(3, 6)), box(-0.02, 0.1, 0.1, 3.9, ST.top, ST.top + 0.1, timber(3, 6)), box(3.9, 4.02, 0.1, 3.9, ST.top, ST.top + 0.1, timber(3, 6)));
+  // the drawbridge (moving): hinged at (3.96, F2), turned up by `bridge` degrees from flat out
+  const a = (bridge * Math.PI) / 180, L = ST.bridge, c = Math.cos(a), s = Math.sin(a);
+  for (let t = 0; t < L; t += 1 / 20) { const x = 3.96 + t * c, z = F2 + t * s; out.push(mv(box(x - 0.06, x + 0.06, 0.75, 3.25, z - 0.08, z + 0.06, (f, xx, y, zz) => ((y * 4) % 1 < 0.1 ? mul(W()[0], 0.85) : W()[2])))); }
+  for (const y of [0.85, 3.15]) out.push(...seg([3.98, ST.top - 0.1], [3.96 + L * c, F2 + L * s], 0.04, y - 0.02, y + 0.02, rope).map(mv));
+  return out;
+}
+const ST_CREW = [0.8, 1.6, 2.4, 3.2].flatMap((x) => [[x, 1.3], [x, 2.7]]);
+const ST_BRIDGE = [90, 78, 62, 44, 26, 10, 0];
+
+// generic assembly: per facing footprint, crew, states (painted done / damaged when a paint file exists), front layer,
+// anims. E: { id, kind, L, fp, Hm, boxes(state, pose) -> boxes | { back, front }, pose0, crew, front(b, f): box after the
+// turn is front, paint: { e: 'e', s: 's', w: 'e', n: 's' } (paint file per facing) | null, anims: { name: { poses, fps, ... } } }
+function engine(E) {
+  const e = { id: E.id, kind: E.kind, material: 'wood', burnable: true, layered: !!E.front, facings: FACINGS, heightM: E.heightM, footprint: {}, crew: {}, states: {}, ...(E.front && { front: {} }), anims: {}, ...E.meta, buildOrder: BUILD_ORDER, progress: PROGRESS };
+  for (const f of FACINGS) {
+    const T = turn(f, E.L), fp = f === 'e' || f === 'w' ? E.fp : [E.fp[1], E.fp[0]], C = canvasOf(E.Hm);
+    e.footprint[f] = fp; e.crew[f] = E.crew.map(turnPt(f, E.L)).map(([x, y]) => [+(x / 2).toFixed(2), +(y / 2).toFixed(2)]);
+    e.states[f] = {}; if (E.front) e.front[f] = {};
+    const split = (bs) => { const t = (Array.isArray(bs) ? bs : [...bs.back, ...bs.front.map((b) => ({ ...b, nearL: true }))]).map(T); return E.front ? [t.filter((b) => !E.front(b, f)), t.filter((b) => E.front(b, f))] : [t, []]; };
+    const [Db, Df] = split(E.boxes('done', E.pose0));
+    const body = E.paint ? paint(`${E.id}-${f}`, full([...Db, ...Df].filter((b) => !b.mv), C), `${E.id}-${E.paint[f]}`, !!E.paintMask) : null;
+    const fr = full(Df.filter((b) => !b.mv), C), inFront = (i) => fr.data[i + 3] > 0, inBack = (i) => !fr.data[i + 3];
+    for (const s of STATES) {
+      const post = postOf(s, 20 + FACINGS.indexOf(f) + E.id.length), meta = { blocksMovement: s !== 'foundation', material: 'wood', burnable: true, engine: E.id, facing: f, state: s };
+      if (body && (s === 'done' || s === 'damaged')) {
+        const bk = compose(body, Db, C, E.front ? inBack : null);
+        e.states[f][s] = sprite(`${E.id}-${f}-${s}`, E.kind, cropOne(post ? post(bk) : bk, C), fp, { ...meta, source: 'PixelLab Pro Flash paint over the renderer (moving parts drawn)', ...(E.front && { layer: 'back' }) });
+        if (E.front) { const fo = compose(body, Df.filter((b) => b.mv), C, inFront); e.front[f][s] = sprite(`${E.id}-${f}-${s}-front`, E.kind, cropOne(post ? post(fo) : fo, C), fp, { ...meta, source: 'PixelLab Pro Flash paint over the renderer', layer: 'front' }); }
+        continue;
+      }
+      let [b, fb] = split(E.boxes(s, E.pose0)); if (!b.length) [b, fb] = [fb, []]; // nothing behind: one sprite
+      e.states[f][s] = sprite(`${E.id}-${f}-${s}`, E.kind, one(b, E.Hm, post), fp, { ...meta, source: 'renderer', ...(E.front && { layer: 'back' }) });
+      if (E.front && fb.length) e.front[f][s] = sprite(`${E.id}-${f}-${s}-front`, E.kind, one(fb, E.Hm, post), fp, { ...meta, source: 'renderer', layer: 'front' });
+    }
+    for (const [name, A] of Object.entries(E.anims ?? {})) { // a strip of one layer (A.layer(f): 'back' | 'front' | 'all')
+      const layer = A.layer ? A.layer(f) : 'all', pick = (p) => { const [b, fb] = split(E.boxes('done', p)); return layer === 'back' ? b : layer === 'front' ? fb : [...b, ...fb]; };
+      const keep = layer === 'back' && E.front ? inBack : layer === 'front' ? inFront : null;
+      const r = body ? cropSet(A.poses.map((p) => compose(body, pick(p), C, keep)), C) : renderSet(A.poses.map(pick), E.Hm), file = `${E.id}-${f}-${name}.png`;
+      sheets.push({ file, im: strip(r.ims) });
+      e.anims[f] = { ...e.anims[f], [name]: { file, layer, ...(layer === 'back' && E.front && { front: e.front[f].done }), frames: r.ims.length, fps: A.fps, frame: { w: r.ims[0].w, h: r.ims[0].h }, tileOrigin: r.tileOrigin, ...A.extra } };
+    }
+    if (E.release) { const [wx, wy] = turnPt(f, E.L)([E.release[0], E.release[1]]); e.release = { ...e.release, [f]: { x: +(wx / 2).toFixed(2), y: +(wy / 2).toFixed(2), zM: E.release[2] } }; }
+  }
+  return e;
+}
+const nearSide = (L, Wd) => (b) => b.x0 >= L - 0.5 || b.y0 >= Wd - 0.5; // world +x / +y side of the footprint after the turn
+
 // ---- siege ladders: long (stone wall) and short (rampart), leaning on a face, carried flat, pushed off and lying broken.
 // Built with the wall face at u = 2 (x) of the ladder's own tile, across v (y); turned to the face's side like the build
 // ladder kit (n -y, e +x, s +y, w -x).
@@ -270,14 +495,14 @@ const canvasOf = (Hm, pad = 220) => { const W0 = 2 * pad + 8 * 32, ox = pad + 4 
 const full = (bs, C) => renderBoxes(bs, C.W0, C.H0, C.ox, C.oy);
 const isMark = (d, i) => d[i + 3] && d[i] === 255 && d[i + 1] === 0 && d[i + 2] === 255;
 // src: the painted file to use (the ram's shed is symmetric: w and n use the e and s paint at their own place)
-function paint(id, im, src = id) {
+function paint(id, im, src = id, mask = false) { // mask: keep the paint only inside the render's silhouette (pixflux repaints fill their background)
   const b = alphaBox(im, 1), x = b.x - 2, y = b.y - 2, w = Math.ceil((b.w + 4) / 4) * 4, h = Math.ceil((b.h + 4) / 4) * 4;
   mkdirSync(PAINT_IN, { recursive: true });
   writeImage(join(PAINT_IN, `${id}.png`), crop(im, { x, y, w, h }));
   const f = join(PAINT, `${src}.png`);
   if (!existsSync(f)) { missing.push(src); return im; }
   const p = readImage(f), out = blank(im.w, im.h);
-  for (let yy = 0; yy < p.h; yy++) for (let xx = 0; xx < p.w; xx++) { const s = (yy * p.w + xx) * 4; if (p.data[s + 3] >= 128) out.data.set([p.data[s], p.data[s + 1], p.data[s + 2], 255], ((y + yy) * im.w + x + xx) * 4); }
+  for (let yy = 0; yy < p.h; yy++) for (let xx = 0; xx < p.w; xx++) { const s = (yy * p.w + xx) * 4; if (p.data[s + 3] >= 128 && (!mask || im.data[((y + yy) * im.w + x + xx) * 4 + 3])) out.data.set([p.data[s], p.data[s + 1], p.data[s + 2], 255], ((y + yy) * im.w + x + xx) * 4); }
   return out;
 }
 // the painted body (where keep(i), e.g. one layer of it) with the moving parts of boxes `bs` over it
@@ -346,9 +571,25 @@ const engines = [];
   }
   engines.push(e);
 }
+// ART-C engines
+engines.push(engine({ id: 'covered-ram', kind: 'ram', L: CRAM.L, fp: CRAM.fp, Hm: 5, heightM: +(CRAM.ridge + 0.74).toFixed(2), boxes: (s, sw) => coveredRamBoxes(s, sw), pose0: 0, crew: CRAM_CREW, front: (b) => b.nearL, paint: { e: 'e', s: 's', w: 'e', n: 's' },
+  meta: { note: 'Rams node: wet hides to the ground (crew hidden, missiles x0.3), iron-scaled front bay, iron-plated gable, iron ram\'s head' },
+  anims: { swing: { poses: RAM_SWING.map((v) => v * 1.1), fps: 10, layer: () => 'back', extra: { hitFrame: 6, logM: RAM_SWING.map((v) => +(v * 1.1).toFixed(2)) } } } }));
+engines.push(engine({ id: 'mantlet', kind: 'mantlet', L: MT.L, fp: MT.fp, Hm: 3, heightM: 2.1, boxes: (s) => mantletBoxes(s), pose0: null, crew: MT_CREW, front: (b, f) => b.scr && (f === 'e' || f === 's'), paint: null,
+  meta: { note: 'Carpenter node: a wheeled hide-faced screen; front = the screen when it faces e or s (in front of the crew), else it is in the back sprite. Stops 60% of frontal missiles for the men behind' } }));
+engines.push(engine({ id: 'oxybeles', kind: 'oxybeles', L: OX.L, fp: OX.fp, Hm: 3, heightM: 1.95, boxes: (s, p) => oxybelesBoxes(s, p), pose0: OX_SHOOT[0], crew: OX_CREW, front: null, paint: null, release: OX_FROM,
+  meta: { note: 'Artillerist node: torsion bolt thrower on a pedestal; shoot frame 0 = cocked and loaded = the done sprite; spawn the bolt projectile at release[facing] on releaseFrame' },
+  anims: { shoot: { poses: OX_SHOOT, fps: 12, extra: { releaseFrame: OX_RELEASE, idle: 'frame 0 (cocked, loaded) = the done sprite' } } } }));
+engines.push(engine({ id: 'siege-tower', kind: 'siege-tower', L: ST.L, fp: ST.fp, Hm: 11, heightM: ST.top + 0.1, boxes: (s, p) => towerBoxes(s, p), pose0: { bridge: 90 }, crew: ST_CREW, front: nearSide(ST.L, ST.L), paint: { e: 'e', s: 's', w: 'e', n: 's' }, paintMask: true,
+  meta: { floorsM: ST.floors, bridgeM: ST.floors[2], bridgeLenM: ST.bridge, note: 'Poliorcetes node: crew push from inside the open ground storey (draw them between back and front); drawbridge hinged on the facing side at bridgeM (lands on a stone wall\'s parapet, 5.97 m), bridge anim lowers it (last frame = docked); men cross at bridgeM onto the walk' },
+  anims: { bridge: { poses: ST_BRIDGE.map((a) => ({ bridge: a })), fps: 8, layer: (f) => (f === 'e' || f === 's' ? 'front' : 'back'), extra: { lastFrame: 'lowered (docked)', angles: ST_BRIDGE } } } }));
 if (missing.length) console.warn(`siege: no PixelLab paint for ${[...new Set(missing)].join(', ')} (box render used; inputs in ${PAINT_IN})`);
 // projectile: the stone shot (~0.34 m), with its ground shadow left to the renderer
 const projectiles = [{ id: 'stone-shot', sprite: sprite('stone-shot', 'projectile', one(ball(1, 1, 0.2, 0.17, stoneShot), 1), [1, 1], { metresNote: 'diameter 0.34 m', source: 'renderer' }), diameterM: 0.34, spin: 'none (round)' }];
+// the oxybeles bolt: 8 flight directions in the world x-y plane (0 = +x, then every 45 degrees towards +y), level
+{ const ims = [...Array(8)].map((_, i) => { const a = (i * Math.PI) / 4, c = Math.cos(a), sn = Math.sin(a), p = (t) => [1 + t * c, 1 + t * sn]; return [...segXY(p(-0.45), p(0.35), 0.035, 0.3, 0.34, timber(3, 10)), ...segXY(p(0.35), p(0.47), 0.06, 0.29, 0.35, iron), ...segXY(p(-0.45), p(-0.33), 0.09, 0.31, 0.33, solid(ROPE[2]))]; });
+  const r = renderSet(ims, 1, null, 60), file = 'bolt.png'; sheets.push({ file, im: strip(r.ims) });
+  projectiles.push({ id: 'bolt', file, frames: 8, dirs: 'world angle i x 45 deg from +x towards +y', frame: { w: r.ims[0].w, h: r.ims[0].h }, centre: { x: r.tileOrigin.x, y: r.tileOrigin.y + 16 - Math.round(0.32 * PPM) }, lengthM: 0.92 }); }
 // fix the projectile metadata: it has no footprint diamond
 { const p = sprites.find((s) => s.meta.id === 'stone-shot').meta; p.basePx = 0; p.metres = +(p.h / PPM).toFixed(2); p.footprint = [1, 1]; }
 
