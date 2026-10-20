@@ -1,0 +1,31 @@
+scripts/war/art/buildings.mjs
+  s_cfc22b058125c4::t_f4e720e561f549 1181
+  s_cfc22b058125c4::t_2253b1415c943a 1256-1259
+  s_cfc22b058125c4::t_da3f0ebca5f4c3 1187-1190
+  s_cfc22b058125c4::t_ec04f146ee16ea 1180
+public/war/siege/objects.json
+  s_cfc22b058125c4::t_ec04f146ee16ea 235-236,238,240,242,244,246,248-254,256-268,270,272-282,285,288,290,292-293
+scripts/war/art/craft-preview.mjs
+  s_cfc22b058125c4::t_ed2d943bf7237d 1-54,67,73,126
+  s_cfc22b058125c4::t_095fa527897456 55-66,68-72,74-125
+public/war/buildings/objects.json
+  s_cfc22b058125c4::t_ec04f146ee16ea 127-128,130,132,134,136,138,140-146,148-160,162,164-174,177,180,182,184-185,1034,1039,1043
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_af97dc25122aed 2166-2271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b72c52c4af9026179f60cf7c0473f63fab2fc1b8",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
