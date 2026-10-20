@@ -97,6 +97,10 @@ export interface RegionState {
   besieged: boolean;
   /** M7f: its landmark (depth 3 and 4), as the world map shows it. */
   landmark?: LandmarkWorld;
+  /** M7f: favour and prestige its temples, shrines and statues give each alliance (score an hour, before the cap). */
+  prestige?: number[];
+  /** M7f: its town is ruined (a frontier town scores 1 an hour instead of 3). */
+  ruined?: boolean;
 }
 
 /**

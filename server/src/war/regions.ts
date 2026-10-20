@@ -13,6 +13,9 @@ const cache = new Map<string, RegionData>();
 
 export const WAR_REGIONS = [...new Set([...Object.keys(SOURCES), ...WORLD_IDS])];
 
+/** M7f: the region runs on its own map (not the stand-in). */
+export const hasOwnMap = (id: string): boolean => id in SOURCES;
+
 /** The parsed region (sim layers only: the visual-only ones are dropped), or null for an unknown id. */
 export function warRegion(id: string): RegionData | null {
   const hit = cache.get(id);

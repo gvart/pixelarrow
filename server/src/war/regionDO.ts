@@ -30,7 +30,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
-import { warRegion } from './regions';
+import { hasOwnMap, warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, sealedFor } from './contracts';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
@@ -45,6 +45,7 @@ import type { Item } from '../../../src/data/items';
 import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
+import { elapsedTicks, loadMemory, remembered, storeMemory, writeMemory } from './memory';
 import { applyFight, claimForJoin, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { saveRegionHolds } from './holders';
@@ -53,7 +54,7 @@ import { isWorldRegion } from '../../../src/war/world/graph';
 import { joinRefusal } from '../../../src/war/world/access';
 import { ALLIANCES } from '../../../src/war/world/alliances';
 import { allianceOf } from './world/members';
-import type { Side } from '../../../src/war/world/types';
+import type { AllianceId, Side } from '../../../src/war/world/types';
 import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
 import type { TransitCargo } from '../../../src/war/net/world';
 
@@ -83,6 +84,8 @@ export class WarRegionDO extends DurableObject<Env> {
   private writing: Promise<void> | null = null;
   /** M4: the last summary sent to the world. */
   private reported = '';
+  /** M7f: the region memory last written to D1. */
+  private memory = '';
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -92,7 +95,9 @@ export class WarRegionDO extends DurableObject<Env> {
   private options(region: string): RoomOptions | null {
     const data = warRegion(region);
     if (!data) return null;
-    return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1' };
+    // M7f: a neutral region on its own map wakes its lairs and guardians (stand-in maps stay quiet)
+    const wild = hasOwnMap(region) && !!(data.lairs?.length || data.guardians?.length);
+    return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', wild };
   }
 
   /** The room of `region`: in memory, restored from storage after an eviction, or fresh. Null for an unknown region. */
@@ -120,6 +125,16 @@ export class WarRegionDO extends DurableObject<Env> {
       } else {
         if (d) await releaseRegion(d, region);
         this.room = new WarRoom(o);
+        // M7f: what the region remembers (razed towns, slain guardians, restored landmarks) since it was left
+        const m = await loadMemory(this.ctx.storage, d, region);
+        if (m) {
+          try {
+            this.room.recall(m.mem, elapsedTicks(m, Date.now()));
+            this.memory = JSON.stringify(m.mem);
+          } catch (e) {
+            logError('war_recall_failed', e, { region });
+          }
+        }
       }
       await this.ctx.storage.put('region', region);
     });
@@ -458,8 +473,15 @@ export class WarRegionDO extends DurableObject<Env> {
     const st = room.alive() === 0 && room.online() === 0 ? null : room.saveState();
     this.saving = this.saving.then(() => storeState(this.ctx.storage, st)).catch((e) => logError('war_save_failed', e));
     this.ctx.waitUntil(this.saving);
+    // M7f: what the region remembers once it empties (DO storage always; D1 when it changed)
+    const mem = room.memory(), mjson = JSON.stringify(mem), rem = remembered(mem, Date.now());
+    this.saving = this.saving.then(() => storeMemory(this.ctx.storage, rem)).catch((e) => logError('war_memory_failed', e));
     // M6e: what its holders hold, for the stash screen (D1 snapshot; the room state above is the truth)
     const d = this.env.DB, rows = room.holdRows();
+    if (d && mjson !== this.memory) {
+      this.memory = mjson;
+      this.write('memory', () => writeMemory(d, room.region.id, rem));
+    }
     if (d) this.write('holds', () => saveRegionHolds(d, room.region.id, rows, Date.now()));
   }
 
@@ -536,6 +558,11 @@ export class WarRegionDO extends DurableObject<Env> {
     }
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
+    // M7f: a temple or shrine razed costs the razer's alliance score
+    if (r.sacrilege.length && isWorldRegion(room.region.id)) {
+      const world = this.world();
+      for (const a of r.sacrilege) this.ctx.waitUntil(world.sacrilege(a as AllianceId).catch((e) => logError('war_sacrilege_failed', e)));
+    }
     if (d && r.freed.length) this.write('unmend', () => returnMends(d, room.region.id, r.freed));
     // M6i: a cart captured between linked accounts goes back to its owner
     if (d && r.captured.length) this.write('captures', async () => {

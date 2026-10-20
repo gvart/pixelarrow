@@ -25,9 +25,9 @@
 import { ALLIANCES, WAR_SEASON } from '../../../../src/war/world/alliances';
 import { edge, worldRegion } from '../../../../src/war/world/graph';
 import { WORLD_REGIONS } from '../../../../src/war/world/regions';
-import { allianceRates, FRONTIER_TOWNS, HEGEMONY, hegemon, HOUR_MS, OMPHALOS } from '../../../../src/war/world/season';
+import { allianceRates, FRONTIER_TOWNS, HEGEMONY, hegemon, HOUR_MS, LIVING, OMPHALOS } from '../../../../src/war/world/season';
 import type { AllianceId, SeasonConfig, Side } from '../../../../src/war/world/types';
-import type { AllianceStats, ConvoySnap, RegionState, SeasonResult, SeasonSnap, TransferError, TransferOrder, TransitCargo, TransitSnap, WorldSnapshot } from '../../../../src/war/net/world';
+import type { AllianceStats, ConvoySnap, LandmarkWorld, RegionState, SeasonResult, SeasonSnap, TransferError, TransferOrder, TransitCargo, TransitSnap, WorldSnapshot } from '../../../../src/war/net/world';
 import { loads as holdLoads } from '../../../../src/war/sim/holders';
 import { adjacent } from '../../../../src/war/world/graph';
 
@@ -109,7 +109,13 @@ export interface WorldState {
 }
 
 /** What a region room tells the world (WarRoom.summary). */
-export interface RegionReport { live: number[]; claims: number[]; channel: number[] }
+export interface RegionReport {
+  live: number[]; claims: number[]; channel: number[];
+  /** M7f (WarRoom.summary): its landmark (back: minutes until its guardian returns), favour and prestige per alliance, a ruined town. */
+  landmark?: { id: string; holder: number; guardian: 'alive' | 'slain' | 'away'; back?: number; state: LandmarkWorld['state']; hp: number; garrisoned: boolean };
+  prestige?: number[];
+  ruined?: boolean;
+}
 
 export type DepartResult = { ids: string[]; off: number; lost?: Record<string, number>; cargo?: TransitCargo } | { error: TransferError; detail?: string };
 export type ArriveResult = { ok: true } | { error: 'full' | 'team' | 'squads' | 'gone' | 'unavailable' };
@@ -217,10 +223,28 @@ export class World {
     const contested = owner >= 0 ? foes.length > 0 || claiming : present.length >= 2;
     const besieged = w.role === 'home' && (foes.length > 0 || claiming || claims.some((n, i) => n > 0 && i !== owner));
     const next: RegionState = { id, owner, claims, live, contested, besieged };
+    // M7f: the landmark, favour and prestige, a ruined town (season score; the map's landmark icons)
+    const lm = rep.landmark;
+    if (lm) {
+      next.landmark = {
+        id: lm.id, holder: (lm.holder >= 0 && lm.holder < N ? lm.holder : -1) as AllianceId | -1, guardian: lm.guardian, state: lm.state, hp: lm.hp, garrisoned: lm.garrisoned,
+        ...(lm.back !== undefined ? { backAt: now + lm.back * 60_000 } : {}),
+      };
+    }
+    if (rep.prestige?.some((v) => v > 0)) next.prestige = Array.from({ length: N }, (_, i) => rep.prestige![i] ?? 0);
+    if (rep.ruined) next.ruined = true;
     const changed = JSON.stringify(next) !== JSON.stringify(cur);
     this.st.regions[id] = next;
     if (changed) this.checkHegemony(now);
     return { rejected, changed: changed || ended !== null, ended };
+  }
+
+  /** M7f: alliance `a` razed a temple or shrine: LIVING.sacrilege off its score (after the season is brought up to now). */
+  sacrilege(a: AllianceId, now: number): void {
+    this.advance(now);
+    const s = this.st.season;
+    if (s.ended || a < 0 || a >= N) return;
+    s.scores[a] -= LIVING.sacrilege;
   }
 
   /** M6h: trade score `pts` to alliance `a` (after the season is brought up to now). */
