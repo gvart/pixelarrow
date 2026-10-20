@@ -8,6 +8,8 @@
  * M2c: a stone thrower's boulder (siege) leaves from its engine's release point (launch()), flies a high arc as the
  * stone-shot sprite with a growing shadow and lands in a big dust burst with flung chips; a fire arrow trails the
  * fire-arrow-trail loop along its flight and glows a moment where it sticks.
+ * M5h3: an oxybeles bolt leaves from its engine's release point too, flies fast and nearly flat as the bolt sprite (frame by
+ * its world heading, 8 ways) and sticks where it ends.
  */
 import Phaser from 'phaser';
 import type { MissileKind, ShotSnap } from '../types';
@@ -80,7 +82,7 @@ export class ShotLayer {
     for (const [k, s] of this.live) {
       const p = (at.tick - (s.t0 + 1)) / (s.t1 - s.t0);
       if (p < 0) continue;
-      const from = this.from.get(k), boulder = s.siege !== undefined;
+      const from = this.from.get(k), boulder = s.siege !== undefined && s.kind !== 'bolt';
       const [x, y, gy] = this.at(s, Math.min(1, p), from);
       const [x2, y2] = this.at(s, Math.min(1, p) + 0.02, from), dl = Math.hypot(x2 - x, y2 - y) || 1, dx = (x2 - x) / dl, dy = (y2 - y) / dl;
       if (p >= 1) {
@@ -99,6 +101,10 @@ export class ShotLayer {
         continue;
       }
       g.fillStyle(0x000000, 0.22).fillEllipse(x, gy, s.kind === 'stone' ? 4 : 8, 3);
+      if (s.kind === 'bolt') {
+        const ang = Math.atan2(s.y1 - s.y0, s.x1 - s.x0), im = this.img('sg-proj-bolt', ((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8);
+        if (im) { im.setPosition(Math.round(x - dx * 6), Math.round(y - dy * 6)); continue; }
+      }
       if (s.fire) {
         const im = this.img('sg-fx-fire-arrow-trail', Math.floor(now / 83 + s.t0) % 8);
         // drawn flying +x with its head at the anchor (37, 7)
@@ -148,7 +154,7 @@ export class ShotLayer {
     const gx = x0 + (s.x1 - x0) * p, gy = y0 + (s.y1 - y0) * p, z = za + (zb - za) * p;
     const sx = iso.sx(gx, gy), sy = iso.sy(gx, gy, z);
     const d = Math.hypot(iso.sx(s.x1, s.y1) - iso.sx(x0, y0), iso.sy(s.x1, s.y1, zb) - iso.sy(x0, y0, za));
-    const ra = this.lift(x0, y0), rb = this.lift(s.x1, s.y1), boulder = s.siege !== undefined;
+    const ra = this.lift(x0, y0), rb = this.lift(s.x1, s.y1), boulder = s.siege !== undefined && s.kind !== 'bolt';
     const launch = from ? from.px : LAUNCH, impact = boulder ? 4 : IMPACT;
     const h = ra + (rb - ra) * p + launch + (impact - launch) * p + 4 * Math.min(boulder ? 420 : 140, d * (boulder ? BOULDER_ARC : ARC[s.kind])) * p * (1 - p);
     return [sx, sy - h, sy - (ra + (rb - ra) * p)];

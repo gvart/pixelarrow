@@ -1,9 +1,14 @@
 /**
  * Siege art (W-29, public/war/siege/objects.json) for the view, loaded on demand; absent art leaves the engines as
  * placeholders (./siegeLayer.ts). Charring overlays (char[]) by kit, level and layer. Single sprites by id (`sg-<id>`, drawn at a footprint's north tile top vertex minus
- * tileOrigin), horizontal strips (ram swing, thrower throw, ladder push-off, fx loops) as sprite sheets.
+ * tileOrigin), horizontal strips (ram swing, thrower throw, oxybeles shoot, tower bridge, ladder push-off, fx loops) as sprite sheets;
+ * the bolt projectile as an 8-direction sheet (`sg-proj-bolt`).
  */
 import type Phaser from 'phaser';
+import type { SiegeType } from '../../types';
+
+/** Art engine id per sim siege type. */
+const ENGINE_ART: Record<SiegeType, string> = { ram: 'ram', stoneThrower: 'thrower', siegeLadder: '', mantlet: 'mantlet', coveredRam: 'covered-ram', oxybeles: 'oxybeles', siegeTower: 'siege-tower' };
 
 export interface SiegeSprite { key: string; tileOrigin: { x: number; y: number }; footprint: [number, number]; w: number; h: number }
 export interface Strip { key: string; frames: number; fps: number; tileOrigin: { x: number; y: number }; w: number; h: number; hitFrame?: number; releaseFrame?: number }
@@ -23,6 +28,8 @@ interface EngineJson {
   states: Record<Facing, Record<string, string>>; front?: Record<Facing, Record<string, string>>;
   anims: Record<Facing, Record<string, { file: string; frames: number; fps: number; frame: { w: number; h: number }; tileOrigin: { x: number; y: number }; hitFrame?: number; releaseFrame?: number }>>;
   release?: Record<Facing, { x: number; y: number; zM: number }>;
+  /** Height of the frame (m; fire reaches up it). M5h3 siege tower: the drawbridge's hinge height (m). */
+  heightM?: number; bridgeM?: number;
 }
 interface Json {
   pxPerMetre: number; engines: EngineJson[];
@@ -35,6 +42,8 @@ interface Json {
   fx: { id: string; file: string; frames: number; fps: number; frame: { w: number; h: number }; anchor: { x: number; y: number }; blend?: 'normal' | 'add'; alpha?: Fx['alpha']; density?: Fx['density'] }[];
   char?: { kit: string; layer: 'back' | 'front'; level: string; file: string; frame: { w: number; h: number } }[];
   objects: { id: string; file: string; w: number; h: number; tileOrigin: { x: number; y: number }; footprint: [number, number] }[];
+  /** M5h3: projectile sheets (the oxybeles bolt: 8 world directions, 45 deg apart from +x towards +y). */
+  projectiles?: { id: string; file?: string; frames?: number; frame?: { w: number; h: number } }[];
 }
 
 export class SiegeArt {
@@ -87,6 +96,7 @@ export class SiegeArt {
         a.fx.set(f.id, { key, frames: f.frames, fps: f.fps, anchor: f.anchor, w: f.frame.w, h: f.frame.h, blend: f.blend, alpha: f.alpha, density: f.density });
         jobs.push(sheet(key, f.file, f.frame.w, f.frame.h));
       }
+      for (const p of j.projectiles ?? []) if (p.file && p.frame) jobs.push(sheet(`sg-proj-${p.id}`, p.file, p.frame.w, p.frame.h));
       for (const c of j.char ?? []) {
         const key = `sg-char-${c.kit}-${c.level}-${c.layer}`;
         a.char.set(`${c.kit}-${c.level}-${c.layer}`, key);
@@ -100,8 +110,9 @@ export class SiegeArt {
     }
   }
 
-  engine(type: 'ram' | 'thrower'): EngineJson | undefined {
-    return this.engines.get(type);
+  /** The engine art of a sim siege type (the siege ladder has none: ladders). */
+  engine(type: SiegeType): EngineJson | undefined {
+    return this.engines.get(ENGINE_ART[type]);
   }
 
   strip(engine: string, facing: string, name: string): Strip | undefined {
