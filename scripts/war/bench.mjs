@@ -305,3 +305,30 @@ console.log(
   const snap = war.snapshot();
   console.log(`town: units ${war.stats().units}, pre-built ${snap.buildings.filter((b) => b.pre).length} (ruins ${snap.buildings.filter((b) => b.ruin).length}), ticks ${ticks}: ${summary(ms)}; towns ${snap.towns.length}`);
 }
+
+// drakon (M7d): Drakon in the yard by a keep while 25 squads (300 men) of 3 players raid him: his sweeps, the roof perch
+// with breath on the densest crowd, flights between the towers, the crash and the drake packs, raid scaling
+{
+  const n = 160, flat = { id: 'krios', name: 'f', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [] };
+  const keep = [];
+  for (let y = 69; y < 75; y++) for (let x = 77; x < 83; x++) keep.push(x, y);
+  const prebuilt = [{ type: 'fort', x: 80, y: 72, tiles: keep, landmark: true, maxHp: 8000 }];
+  const guardians = [{ boss: 'drakon', x: 80, y: 80, perches: [[80, 72], [70, 66], [90, 66]], pit: [72, 76] }];
+  const war = sim.createSim({ ...flat, prebuilt, guardians, depth: 4, claimPoints: [{ x: 80, y: 100, lairs: [] }] }, 9);
+  war.spawnMobs();
+  for (let k = 0; k < 25; k++) {
+    const a = (k / 25) * Math.PI * 2, x = 80 + Math.cos(a) * 34, y = 80 + Math.sin(a) * 34;
+    const id = war.spawnSquad(`p${k % 3}`, 0, ['hoplite', 'archer', 'celt_sword'][k % 3], N, x, y);
+    war.order({ kind: 'attackMove', squad: id, x: 80, y: 80 });
+  }
+  const ms = [], phases = new Set();
+  for (let t = 0; t < ticks; t++) {
+    if (t === Math.floor(ticks / 3)) war.hurtBoss('drakon', 17000);
+    if (t === Math.floor((2 * ticks) / 3)) war.hurtBoss('drakon', 12000);
+    war.step();
+    ms.push(war.stats().stepMs);
+    phases.add(war.snapshot().bosses[0].phase);
+  }
+  const b = war.snapshot().bosses[0];
+  console.log(`drakon: units ${war.stats().units}, ticks ${ticks}: ${summary(ms)}; phases ${[...phases].join(',')}, state ${b.state}, hp ${Math.round(b.hp)}/${Math.round(b.maxHp)}`);
+}

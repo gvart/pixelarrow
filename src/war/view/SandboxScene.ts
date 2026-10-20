@@ -43,6 +43,7 @@ import { TradeLayer } from './trade/tradeLayer';
 import { MapData, type Live, type MapMode } from './mapModes';
 import { FogLayer } from './fog';
 import { anySoldiers } from './hud/cardCiv';
+import { GuardianLayer } from './guardians';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLIMB = ['climb', 'walk'] as const;
@@ -119,6 +120,8 @@ export class SandboxScene extends Phaser.Scene {
   /** Lairs and claim banners (neutral regions). */
   private neutral!: NeutralLayer;
   private shots!: ShotLayer;
+  /** M7d: landmark guardians (perch, clips, their moves' fx, the Warden's mark). */
+  guardians!: GuardianLayer;
   /** Fog of war over team 0's unexplored and explored ground (W-39; the sim client hides what it cannot see). */
   private fog!: FogLayer;
   private fogVer = -1;
@@ -197,10 +200,12 @@ export class SandboxScene extends Phaser.Scene {
     sl.working = layer.working; // M5h: workplace working fx (the siege art holds the fx loops)
     // the siege layer draws wall, gate and tower rubble; M7b: a pre-built ruin of anything else is the building layer's
     layer.skip = (b) => (!!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble && !(b.ruin && !BUILDINGS[b.type].wall)))) || (b.type === 'chest' && !!this.tradeLayer.art && b.state !== 'destroyed');
-    this.units.lift = (d) => sl.lift(d) ?? layer.lift(d);
+    this.guardians = new GuardianLayer(this, this.iso, (d) => this.units.feet(d));
+    const gd = this.guardians;
+    this.units.lift = (d) => gd.lift(d) ?? sl.lift(d) ?? layer.lift(d);
     this.units.ground = (d) => layer.groundDepth(d);
     this.shots.lift = (x, y) => layer.lift({ x, y })?.px ?? 0;
-    this.units.anim.override = (u) => (layer.climbing.has(u.id) ? CLIMB : sl.bearing.has(u.id) ? CARRY : u.task && u.task !== 'crew' ? TASK : workClip(u));
+    this.units.anim.override = (u) => gd.clip(u) ?? (layer.climbing.has(u.id) ? CLIMB : sl.bearing.has(u.id) ? CARRY : u.task && u.task !== 'crew' ? TASK : workClip(u));
     this.shots.launch = (id) => sl.launch(id);
     this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => this.zoomAt(p.x, p.y, dy > 0 ? -1 : 1));
   }
@@ -482,6 +487,12 @@ export class SandboxScene extends Phaser.Scene {
     if (fog && fog.version !== this.fogVer) (this.fogVer = fog.version), this.fog.set(fog);
     this.fog.update(dt);
     this.drawn = this.sim.units();
+    // M7d: guardians perched or flying, and their squads' units not drawn (the Chimera's other heads)
+    const bosses = this.sim.cur?.bosses;
+    if (bosses) {
+      this.guardians.update(bosses, this.sim.cur?.buildings ?? [], this.sim.cur?.units ?? []);
+      if (this.guardians.hidden.size) this.drawn = this.drawn.filter((d) => !this.guardians.hidden.has(d.u.id));
+    }
     // buildings first: this frame's walks, stairs and ladders lift the units
     this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
     const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
@@ -495,6 +506,7 @@ export class SandboxScene extends Phaser.Scene {
     this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
+    if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now));
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.drawUi();

@@ -40,6 +40,8 @@ const def: RegionDef = {
     k.spot('crag', [124, 110]);
     // roads: the Sacred Way from the north ramp past the crag, over the rock bridge (rim height) west; east to the
     // savanna; south; the two cliffside paths down to the ford
+    // M7d: Titan's Forge on the east rim by the rock bridge; Gyges chained before the anvil
+    k.landmark('forge', [126, 112], { guardians: [{ boss: 'gyges', at: [5.5, 6.5] }] });
     k.road([N, [130, 20], [136, 60], [138, 100], [138, 120]], { w: 1.4, grade: 4 });
     k.road([[138, 120], [116, 120], [104, 120], [90, 120], [70, 124], [30, 126], W], { w: 1, grade: 40, fill: true, bridges: [[104, 120]], span: 8, pass: 4 });
     k.road([[138, 120], [170, 124], [210, 128], E], { w: 1.4, grade: 4 });

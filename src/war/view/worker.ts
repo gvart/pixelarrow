@@ -10,6 +10,7 @@
  */
 import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
+import { bossPile } from '../sim/bossLoot';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
 import { createNet, type Net } from '../net/client';
 import type { HandoffMsg, StowMsg } from '../net/protocol';
@@ -26,6 +27,7 @@ export type ToWorker =
   | { t: 'stock'; team: number; res: ResourceKind; n: number }
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'mobs' } // neutral play: spawn the region's lairs
+  | { t: 'hurtBoss'; boss: string; to: number } // M7d dev and scenarios: a guardian down to a share of its hp
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
   | { t: 'finishBridges'; team: number } // scenarios: standing bridges
@@ -70,6 +72,11 @@ function tick(): void {
   if (g) fogSent = g.version;
   // M5d event log (falls, captures, level-ups) when there is any
   const ev = b?.events();
+  // M7d: a slain guardian's loot falls as a pile where it fell (the region room does this for the live game)
+  for (const e of ev ?? []) if (e.kind === 'bossSlain' && b) {
+    const p = bossPile(b.region.id, 'sandbox', e);
+    b.dropPile(p.x, p.y, p.lots, p.items);
+  }
   postMessage({ snap, stats: sim.stats(), events: ev?.length ? ev : undefined, nodes, influence: infl ? { ...infl, mask: infl.mask.slice() } : undefined, fog, seen: fog ? b!.lastSeen(0) : undefined });
 }
 
@@ -142,6 +149,10 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'claim') { build(sim)?.claim(m.team, m.x, m.y, m.r); }
   else if (m.t === 'stock') build(sim)?.addStock(m.team, m.res, m.n);
   else if (m.t === 'mobs') build(sim)?.spawnMobs();
+  else if (m.t === 'hurtBoss') {
+    const b = build(sim), g = b?.snapshot().bosses?.find((x) => x.id === m.boss);
+    if (b && g && g.hp > g.maxHp * m.to) b.hurtBoss(m.boss, g.hp - g.maxHp * m.to, 'you');
+  }
   else if (m.t === 'damage') build(sim)?.damageBuilding(m.id, m.dmg);
   else if (m.t === 'finishBridges') build(sim)?.finishBridges(m.team);
   else if (m.t === 'cart') build(sim)?.spawnCart(m.team, m.owner, m.type, m.x, m.y);

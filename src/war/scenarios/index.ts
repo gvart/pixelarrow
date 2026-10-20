@@ -17,6 +17,10 @@ export interface Scenario {
   id: string;
   name: string;
   goal: string;
+  /** M7d: the world region it plays on (src/war/regions/<id>.json; default test-ridge). */
+  region?: string;
+  /** M7d: guardians hurt to this share of their hp at the start (a raid joined late, a phase to look at). */
+  bosses?: { boss: string; to: number }[];
   squads: ScenarioSquad[];
   camera: { x: number; y: number; zoom: number };
   /** Neutral play (W-12): spawn the region's lairs (src/war/sim/mobs.ts); no claim anchor, the claim point gives the first. */
@@ -533,6 +537,58 @@ export const SCENARIOS: Scenario[] = [
       ],
       then: [{ kind: 'crew', squad: 1, siege: 0 }, { kind: 'load', squad: 1, from: { building: 0 } }],
       later: { settle: 300, orders: [{ kind: 'move', squad: 1, x: S.entryE[0] - 6, y: S.entryE[1] }, { kind: 'escort', squad: 2, cart: 0 }, { kind: 'escort', squad: 3, cart: 0 }] },
+    },
+  },
+  // M7d landmark raids (src/war/sim/bosses.ts; tile points from src/war/regions/<id>.json guardians). Neutral play: the
+  // region's lairs spawn first (krios: 3 lairs, Drakon squad 3, the raid 4..7; ammon: 7 lairs, the King 7, the raid 8..13)
+  {
+    id: 'landmark-citadel',
+    name: "Drakon's Citadel",
+    goal: "A 4-squad raid at the shut gate of Drakon's Citadel on the Krios glacier. Drakon comes out into the yard (claw, tail sweep); under 60% he takes the keep roof and the towers, out of melee reach, breathing fire on the yard and the gate: archers bring him off it; under 30% he crashes down enraged and the drakes come from the bone pit. Kill him to open the claim.",
+    region: 'krios',
+    squads: [
+      you('hoplite', [234, 247]),
+      you('hoplite', [242, 247]),
+      you('archer', [232, 253]),
+      you('archer', [244, 253]),
+    ],
+    camera: { x: 238, y: 240, zoom: 1 / 2 },
+    neutral: true,
+    after: {
+      orders: [
+        { kind: 'attackMove', squad: 4, x: 238, y: 241 },
+        { kind: 'attackMove', squad: 5, x: 240, y: 241 },
+        { kind: 'attackMove', squad: 6, x: 236, y: 245 },
+        { kind: 'attackMove', squad: 7, x: 242, y: 245 },
+      ],
+      squads: [],
+    },
+  },
+  {
+    id: 'landmark-deadcity',
+    name: 'Dead City of Ammon',
+    goal: "Storm the Dead City: the Bandit King's host holds the quarters (its captain's men on the towers), the King and his guard the palace street. Under 30% he runs for the lake postern: cut him off, or he is back in an hour with half his guard.",
+    region: 'ammon',
+    squads: [
+      you('hoplite', [396, 297]),
+      you('celt_sword', [402, 297]),
+      you('hoplite', [408, 295]),
+      you('archer', [394, 303]),
+      you('archer', [402, 303]),
+      you('celt_sword', [412, 290]),
+    ],
+    camera: { x: 398, y: 290, zoom: 1 / 2 },
+    neutral: true,
+    after: {
+      orders: [
+        { kind: 'attackMove', squad: 8, x: 396, y: 291 },
+        { kind: 'attackMove', squad: 9, x: 400, y: 291 },
+        { kind: 'attackMove', squad: 10, x: 404, y: 291 },
+        { kind: 'attackMove', squad: 11, x: 396, y: 296 },
+        { kind: 'attackMove', squad: 12, x: 402, y: 296 },
+        { kind: 'attackMove', squad: 13, x: 413, y: 280 },
+      ],
+      squads: [],
     },
   },
   {

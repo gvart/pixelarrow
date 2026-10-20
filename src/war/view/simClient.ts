@@ -83,6 +83,7 @@ export class SimClient {
   private fogged(s: Snapshot): Snapshot {
     if (!this.fog || !this.fogOn) return s;
     const team = new Map(s.squads.map((q) => [q.id, q.team]));
+    const big = new Set((s.bosses ?? []).filter((b) => b.state !== 'slain' && b.state !== 'away').map((b) => b.unit));
     const vis = (b: BuildingSnap) => {
       for (let i = 0; i < b.tiles.length; i += 2) if (this.visible(b.tiles[i] + 0.5, b.tiles[i + 1] + 0.5)) return true;
       return this.visible(b.x, b.y);
@@ -93,7 +94,8 @@ export class SimClient {
     for (const b of this.seen) if (!here.has(b.id) && !vis(b)) buildings.push(b);
     return {
       ...s,
-      units: s.units.filter((u) => team.get(u.squad) === 0 || this.visible(u.x, u.y)),
+      // M7d: a guardian's body is seen from afar (a dragon on a keep roof), its fight under the fog is not
+      units: s.units.filter((u) => team.get(u.squad) === 0 || big.has(u.id) || this.visible(u.x, u.y)),
       shots: s.shots?.filter((h) => this.visible(h.x0, h.y0) || this.visible(h.x1, h.y1)),
       sieges: s.sieges?.filter((e) => e.team === 0 || this.visible(e.x, e.y)),
       buildings,
@@ -132,6 +134,11 @@ export class SimClient {
   }
 
   /** Neutral play: spawn the region's lairs. */
+  /** M7d dev and scenarios: hurt guardian `boss` down to `to` of its hp (its phases follow). */
+  hurtBossTo(boss: string, to: number): void {
+    this.send({ t: 'hurtBoss', boss, to });
+  }
+
   spawnMobs(): void {
     this.send({ t: 'mobs' });
   }
@@ -226,6 +233,11 @@ export class SimClient {
   speed(scale: number): void {
     if (scale > 0) this.interval = 100 / scale;
     this.send({ t: 'speed', scale });
+  }
+
+  /** M7d: ms since the newest snapshot came. */
+  since(_now: number): number {
+    return performance.now() - this.at;
   }
 
   /** Render time for the clips (./anim.ts): the fractional tick drawn (one behind the newest snapshot). */

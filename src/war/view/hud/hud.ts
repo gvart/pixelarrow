@@ -44,6 +44,7 @@ import { PROF_NODES } from '../../../data/professions';
 import { WP_NAME } from './craft/workplace';
 import { mountTrade } from './holder';
 import { mountMarket } from './market';
+import { mountGuardians } from './guardianBar';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 
@@ -331,6 +332,7 @@ export function hud(s: SandboxScene): void {
   // ---------- trade: holder panel, hover card, command card slots (./holder.ts, M6k) ----------
   const trade = mountTrade(s, mk, btn, tipK);
   mountMarket(s, mk); // M6k: market, offers, board, contracts, letters, hand-off (./market.ts; K)
+  mountGuardians(s, mk); // M7d: the guardian bar and the landmark panel (./guardianBar.ts; L)
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)

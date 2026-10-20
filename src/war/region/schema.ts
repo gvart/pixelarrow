@@ -35,7 +35,15 @@ export const regionSchema = z
       x: z.number().min(0), y: z.number().min(0), rot: z.union([z.literal(0), z.literal(1)]).optional(),
       tiles: z.array(z.number().int().min(0)).optional(), hp: z.number().gt(0).max(1).optional(), state: z.enum(['done', 'ruined']).optional(),
       claim: z.number().int().min(0).optional(), landmark: z.boolean().optional(),
+      art: z.string().optional(), maxHp: z.number().positive().optional(),
     })).optional(),
+    /** M7d (additive): landmark guardians (src/war/types.ts GuardianEntry), and the rim side Warden strikes fall on. */
+    guardians: z.array(z.object({
+      boss: z.string().min(1), x: z.number().min(0), y: z.number().min(0),
+      perches: z.array(z.tuple([z.number(), z.number()])).optional(), heads: z.array(z.tuple([z.number(), z.number()])).optional(),
+      postern: z.tuple([z.number(), z.number()]).optional(), pit: z.tuple([z.number(), z.number()]).optional(), flats: z.tuple([z.number(), z.number()]).optional(),
+    })).optional(),
+    rim: z.enum(['N', 'E', 'S', 'W']).optional(),
     /** M7c: danger depth (src/war/sim/depth.ts). */
     depth: z.number().int().min(0).max(4).optional(),
     /** World data of a generated region (scripts/war/regions/world.ts): role, biome family, draft flag, neighbours by side, WAR.md fauna and resources. */

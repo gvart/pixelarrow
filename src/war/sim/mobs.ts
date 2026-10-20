@@ -123,7 +123,7 @@ interface Claim { id: number; x: number; y: number; r: number; lairs: number[]; 
 export function createMobs(region: RegionData, host: MobHost) {
   const rule = depthRule(region);
   const lairs: Lair[] = [];
-  let boss: BossGate | null = null;
+  const gates: BossGate[] = [];
   let held = false;
   let raidAt = HOST.raid.every;
   const claims: Claim[] = (region.claimPoints ?? []).map((c, id) => ({ id, x: c.x, y: c.y, r: c.r ?? CLAIM.r, lairs: [...c.lairs], team: -1, squad: -1, progress: 0, contested: false }));
@@ -169,7 +169,7 @@ export function createMobs(region: RegionData, host: MobHost) {
 
   /** The region is held while a host captain or the boss lives. */
   const holding = () => {
-    const on = (!!boss && boss.alive) || lairs.some((l) => l.captain && !l.cleared && l.capAlive);
+    const on = gates.some((g) => g.alive) || lairs.some((l) => l.captain && !l.cleared && l.capAlive);
     if (on !== held) {
       held = on;
       host.held?.(on);
@@ -286,7 +286,7 @@ export function createMobs(region: RegionData, host: MobHost) {
    * opens once every captain of it has fallen, his guard and the other lairs notwithstanding.
    */
   const zoneOpen = (c: Claim) => {
-    if (boss?.alive) return false;
+    if (gates.some((g) => g.alive)) return false;
     const caps = c.lairs.filter((i) => lairs[i]?.captain);
     if (caps.length) return caps.every((i) => lairs[i].cleared || !lairs[i].capAlive);
     return c.lairs.every((i) => !lairs[i] || lairs[i].cleared || lairs[i].def.passive);
@@ -354,19 +354,30 @@ export function createMobs(region: RegionData, host: MobHost) {
 
   return {
     /** Save and restore (./state.ts). */
-    saveRoot: () => ({ lairs, claims, spawned, tick, boss, held, raidAt }),
-    loadRoot: (o: { spawned: boolean; tick: number; boss: BossGate | null; held: boolean; raidAt: number }) => void ((spawned = o.spawned), (tick = o.tick), (boss = o.boss), (held = o.held), (raidAt = o.raidAt)),
-    /** M7d stub: the region boss (null: none); while it lives the region is held and its claim points stay shut. */
+    saveRoot: () => ({ lairs, claims, spawned, tick, gates, held, raidAt }),
+    loadRoot: (o: { spawned: boolean; tick: number; held: boolean; raidAt: number }) => void ((spawned = o.spawned), (tick = o.tick), (held = o.held), (raidAt = o.raidAt)),
+    /**
+     * A region boss (alive; null: none at all): while any lives the region is held and its claim points stay shut
+     * (M7d: Omphalos has two; a boss back from the dead or the postern is set again).
+     */
     setBoss(id: string | null) {
-      boss = id ? { id, alive: true } : null;
+      if (!id) gates.length = 0;
+      else {
+        const g = gates.find((x) => x.id === id);
+        if (g) g.alive = true;
+        else gates.push({ id, alive: true });
+      }
       holding();
     },
-    /** M7d stub: the boss fell; the claim points may open. */
-    bossDown() {
-      if (boss) boss.alive = false;
+    /** The boss `id` (default: every one) fell; once none lives the claim points may open. */
+    bossDown(id?: string) {
+      for (const g of gates) if (!id || g.id === id) g.alive = false;
       holding();
     },
-    boss: () => boss,
+    boss: (): BossGate | null => gates[0] ?? null,
+    bosses: (): readonly BossGate[] => gates,
+    /** Some claim point of the region is held (a boss does not come back then). */
+    claimed: () => claims.some((c) => c.team >= 0),
     /** The region is held by its host or boss. */
     held: () => held,
     rule,

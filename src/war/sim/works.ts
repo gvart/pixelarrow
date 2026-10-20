@@ -1547,6 +1547,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.pre.ground = b.saved.slice();
       b.labour = b.need;
       finish(b);
+      if (e.maxHp) b.maxHp = e.maxHp; // M7d: a landmark piece's own (the keep's 8000)
       b.hp = b.maxHp * (e.hp ?? (e.landmark ? 0.6 : 1));
       if (b.hp < b.maxHp / 2) b.state = 'damaged';
       if (def.cache) put(b.hold!, good, def.cache * CARRY, region.id);
@@ -1571,6 +1572,24 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       owners();
     },
     fallback: () => fallback,
+    /** M7d: ids of the buildings with a footprint tile within r of (x,y) (a dragon's breath, a giant's blow). */
+    near(x: number, y: number, r: number): number[] {
+      const out: number[] = [];
+      for (let ty = Math.max(0, Math.floor(y - r)); ty <= Math.min(h - 1, Math.floor(y + r)); ty++)
+        for (let tx = Math.max(0, Math.floor(x - r)); tx <= Math.min(w - 1, Math.floor(x + r)); tx++) {
+          const b = occ[ty * w + tx];
+          if (b >= 0 && (tx + 0.5 - x) ** 2 + (ty + 0.5 - y) ** 2 <= r * r && !out.includes(b)) out.push(b);
+        }
+      return out;
+    },
+    /** M7d: a guardian back from the dead: its landmark's standing pieces up to their start (60% hp) again. */
+    resetLandmark() {
+      for (const b of prebuilt) {
+        if (!b.pre?.landmark || b.pre.ruin || b.state === 'destroyed') continue;
+        b.hp = Math.max(b.hp, b.maxHp * 0.6);
+        if (b.state === 'damaged' && b.hp >= b.maxHp / 2) b.state = 'done';
+      }
+    },
     /** M7a repairBuilding: a damaged standing building of `team` is mended to full by whoever works it (false: nothing to mend). */
     mend(id: number, team: number): boolean {
       const b = buildings[id];
@@ -1988,7 +2007,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.bridge ? { bridge: { axis: b.bridge.axis, dir: b.bridge.dir, width: b.bridge.width, part: b.bridge.part, deck: b.bridge.deck, rows: b.bridge.rows } } : {}),
           ...(b.hold && b.state !== 'destroyed' ? { goods: totals(b.hold), ...(b.hold.items.length ? { items: b.hold.items.length, list: itemList(b.hold) } : {}) } : {}),
           ...(b.owner ? { owner: b.owner } : {}),
-          ...(b.pre ? { pre: true as const, ...(b.pre.landmark ? { landmark: true as const } : {}), ...(b.pre.ruin ? { ruin: true as const } : {}), ...(b.pre.fouled > tick ? { fouled: true as const } : {}) } : {}),
+          ...(b.pre ? { pre: true as const, ...(b.pre.landmark ? { landmark: true as const } : {}), ...(region.prebuilt?.[b.pre.i]?.art ? { art: region.prebuilt[b.pre.i].art } : {}), ...(b.pre.ruin ? { ruin: true as const } : {}), ...(b.pre.fouled > tick ? { fouled: true as const } : {}) } : {}),
           ...(b.mend ? { mend: true as const } : {}),
           ...(b.type === 'stoa' ? { stalls: 2 } : {}),
         };

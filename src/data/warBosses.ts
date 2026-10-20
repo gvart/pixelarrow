@@ -29,10 +29,7 @@ export interface WarBoss {
   signature: readonly string[];
   /** M7c: the landmark it holds (docs/WAR.md "Landmarks"; ./warLandmarks.ts), absent for a pocket boss. */
   landmark?: string;
-  /**
-   * M7d stub: its phases, by the share of max hp they start below (the first starts at 1). The boss AI (M7d) reads
-   * them; the sim's claim gate only needs `alive`.
-   */
+  /** Its phases, by the share of max hp they start below (the first starts at 1): src/war/sim/bosses.ts. */
   phases: readonly number[];
   /** M7e: the rare good its kill drops into the loot pile (docs/WAR.md "Rare goods"). */
   rare?: { good: RareGood; n: number };
@@ -46,7 +43,8 @@ export const WAR_BOSSES: readonly WarBoss[] = [
   { id: 'maenad_queen', name: 'the Maenad Queen', region: 'bacchae', tier: 1, signature: [], phases: [1] },
   // depth 3 gates: tier 2, each in its landmark
   { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.5], rare: { good: 'starIron', n: 10 } },
-  { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4], rare: { good: 'asphodel', n: 10 } },
+  // M7d: the Oracle Grove's guardians are the god's maenads and their queen (the art built them; docs/WAR.md "Landmarks")
+  { id: 'grove_queen', name: 'the Maenad Queen of the Grove', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4], rare: { good: 'asphodel', n: 10 } },
   { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5], rare: { good: 'titanBronze', n: 10 } },
   { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1], rare: { good: 'obsidian', n: 10 } },
   // depth 4 rim edges: tier 3, the four signature legendaries

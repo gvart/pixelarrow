@@ -115,7 +115,11 @@ interface Sheet {
   /** Image row names, top to bottom, and the load anchors (none: no loads drawn). */
   rowNames: string[];
   loads?: SheetLoads;
+  /** M7d: draw scale over a soldier's (manifest scale / 0.55: giants 1.8x, Drakon 2.7x), so every guardian stands at true size. */
+  scale: number;
 }
+/** The manifest scale of a soldier sheet: 33 px/m (public/war/guardians.json). */
+const SOLDIER_SCALE = 0.55;
 
 /** Fetch and decode the class sheets (before the game starts: big ones are split, see buildSheet). */
 export async function loadSheetImages(): Promise<Map<string, HTMLImageElement>> {
@@ -172,7 +176,8 @@ function buildSheet(scene: Phaser.Scene, cls: string, m: SheetManifest, img: HTM
     }
     frames.set(name, byRow);
   }
-  return { rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads };
+  const ms = (m as SheetManifest & { scale?: number }).scale ?? SOLDIER_SCALE;
+  return { rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale: ms / SOLDIER_SCALE };
 }
 
 /** The load sprites as frames of one texture, named as in src/assets/loads/manifest.json. */
@@ -278,7 +283,7 @@ export class UnitLayer {
   depthOf: (x: number, y: number) => number = (x, y) => x + y;
 
   private sprites(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, at: AnimTime, shots: readonly ShotSnap[], g: Phaser.GameObjects.Graphics, occluded: Set<number>): number {
-    const iso = this.iso, padX = 80, padTop = 120, padBot = 40;
+    const iso = this.iso, padX = 420, padTop = 720, padBot = 60; // M7d: a guardian sprite is up to 2.7x a man
     let n = 0;
     for (const d of units) {
       const u = d.u, l = this.liftOf(d);
@@ -303,14 +308,15 @@ export class UnitLayer {
           this.nRing++;
           r.clear().setDepth(l.depth - 1e-7).setVisible(true);
         }
-        if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26, 12); // no shadow in mid-air on a ladder
+        const k = sheet.scale; // a guardian's shadow and ring at its size
+        if (!l?.climb) r.fillStyle(0x000000, 0.28).fillEllipse(f.x, f.y, 26 * k, 12 * k); // no shadow in mid-air on a ladder
         const sel = selected.has(u.squad), w = Math.max(1.5, 1.5 / zoom); // a ring at least 1.5 screen px wide
-        r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30, 14);
+        r.lineStyle(sel ? w + 0.5 : w, sel ? 0xffffff : team, sel ? 1 : 0.85).strokeEllipse(f.x, f.y, 30 * k, 14 * k);
       }
       let img = this.pool[n];
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
       n++;
-      img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setVisible(true);
+      img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setScale(sheet.scale).setVisible(true);
       img.setDepth(depth);
       if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
       else if (this.swap) img.resetPipeline();
@@ -327,7 +333,7 @@ export class UnitLayer {
           if (this.outline) gh.setPipeline(OUTLINE);
         }
         this.nGhost++;
-        gh.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setVisible(true);
+        gh.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setScale(sheet.scale).setVisible(true);
         if (this.outline) gh.setTint(team).setAlpha(0.55);
         else gh.setTintFill(team).setAlpha(0.25); // no shader: a faint silhouette
       }
