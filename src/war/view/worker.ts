@@ -51,6 +51,7 @@ function tick(): void {
 }
 
 function bots(s: WarSim, snap: ReturnType<WarSim['snapshot']>): void {
+  const b = build(s);
   const units = new Map(snap.units.map((u) => [u.id, u]));
   const at = (ids: number[]) => {
     const u = units.get(ids[0]);
@@ -63,6 +64,7 @@ function bots(s: WarSim, snap: ReturnType<WarSim['snapshot']>): void {
     let best = -1, bd = Infinity; // squad ids start at 0
     for (const e of snap.squads) {
       const p = e.team !== q.team && at(e.units);
+      if (p && b && !b.visibleTo(q.team, p.x, p.y)) continue; // fog (W-39): only what the team sees
       if (p && Math.hypot(p.x - me.x, p.y - me.y) < bd) { bd = Math.hypot(p.x - me.x, p.y - me.y); best = e.id; }
     }
     if (best >= 0) s.order({ kind: 'attack', squad: q.id, target: best });

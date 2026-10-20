@@ -24,8 +24,12 @@
  *  - assault: wait out of bow range until a breach (rubble) or a raised ladder of its team, then go in and attack-move.
  *  - defendWalls: man the walkway nearest the threat; push off foe ladders, attack foes who got inside (within radius / 2
  *    of (x,y)), melee sally out to burn rams, beat out fires on its own wood.
+ *
+ * Fog of war (W-39): on a sim with vision (visibleTo / lastSeen) each team's bots think on what the team knows: foe squads
+ * it sees now (any man in sight), or saw within MEMORY ticks (at the spot last seen); foe men and engines in sight; foe
+ * buildings as last seen.
  */
-import type { BuildingSnap, Order, SiegeSnap, Snapshot, SquadId, WarSim } from '../types';
+import type { BuildingSnap, Order, SiegeSnap, Snapshot, SquadId, WarBuildSim, WarSim } from '../types';
 import { warStats } from './classes';
 
 export type Behaviour =
@@ -42,7 +46,7 @@ export interface Bots {
   tick(): void;
   /**
    * Current phase per squad, for debug overlays: 'via' | 'march' | 'fight' | 'hold' | 'done'; siege: 'build' | 'crew' |
-   * 'ram' | 'ladder' | 'up' | 'in' | 'breach' | 'suppress' | 'burn' | 'wait' | 'climb' | 'walls' | 'push' | 'sally' | 'douse'.
+   * 'ram' | 'ladder' | 'up' | 'in' | 'breach' | 'suppress' | 'burn' | 'wait' | 'climb' | 'walls' | 'push' | 'sally' | 'douse' | 'scout' (fog: no wall of the place seen yet).
    */
   phase(squad: SquadId): string | undefined;
 }
@@ -58,6 +62,7 @@ const DEFEND_R = 24;
 const ARCHER_R = 16; // siege archers: shoot foes on the walls this near
 const BRAZIER_BACK = 1.5; // ... their brazier goes this far behind their centre (away from the target)
 const BRAZIER_EVERY = 30; // ... ticks between tries while none is lit near
+const MEMORY = 100; // ticks a foe squad out of sight is still chased at the spot last seen
 
 interface Bot {
   b: Behaviour;
@@ -118,6 +123,34 @@ function centres(snap: Snapshot): Centre[] {
 export function createBots(sim: WarSim, every = 5): Bots {
   const bots = new Map<SquadId, Bot>();
   let ticks = 0;
+  const vis = 'visibleTo' in sim ? (sim as WarBuildSim) : null;
+  const memo = new Map<number, Map<SquadId, { x: number; y: number; at: number }>>(); // team -> foe squad -> last seen
+
+  /** What `team` knows of the field: its own side whole, foes as seen or remembered (see the header). */
+  const viewOf = (snap: Snapshot, cs: Centre[], team: number): { cs: Centre[]; snap: Snapshot } => {
+    if (!vis) return { cs, snap };
+    let mem = memo.get(team);
+    if (!mem) memo.set(team, (mem = new Map()));
+    const seen = new Set<SquadId>();
+    const units = snap.units.filter((u) => {
+      if (cs[u.squad].team === team) return true;
+      if (u.state === 'dead' || !vis.visibleTo(team, u.x, u.y)) return false;
+      seen.add(u.squad);
+      return true;
+    });
+    const known = cs.map((c, id): Centre => {
+      if (c.team === team || !c.alive) return c;
+      if (seen.has(id)) {
+        mem.set(id, { x: c.x, y: c.y, at: snap.tick });
+        return c;
+      }
+      const m = mem.get(id);
+      return m && snap.tick - m.at <= MEMORY ? { ...c, x: m.x, y: m.y } : { ...c, alive: 0 };
+    });
+    const buildings = [...(snap.buildings ?? []).filter((b) => b.team === team), ...vis.lastSeen(team)];
+    const sieges = snap.sieges?.filter((e) => e.team === team || vis.visibleTo(team, e.x, e.y));
+    return { cs: known, snap: { ...snap, units, buildings, ...(sieges ? { sieges } : {}) } };
+  };
 
   const send = (bot: Bot, key: string, o: Order) => {
     if (bot.issued === key) return;
@@ -198,9 +231,18 @@ export function createBots(sim: WarSim, every = 5): Bots {
 
   const onFoot = (p: string) => p === 'nostock' || p === 'in' || p === 'breach' || p === 'fight' || p === 'march' || p === 'done';
 
+  /** Fog (W-39): no foe wall of the place known yet (standing or fallen): walk towards it until one is seen. */
+  const scout = (id: SquadId, bot: Bot, me: Centre, blds: BuildingSnap[], x: number, y: number): boolean => {
+    if (bot.engine >= 0 || bot.at || blds.some((b) => b.team !== me.team && isWall(b))) return false;
+    bot.phase = 'scout';
+    send(bot, `scout:${x},${y}`, { kind: 'move', squad: id, x, y });
+    return true;
+  };
+
   const siegeRam = (id: SquadId, bot: Bot, me: Centre, cs: Centre[], snap: Snapshot, x: number, y: number) => {
     if (onFoot(bot.phase) && bot.phase !== 'breach') return attackMove(id, bot, me, cs, x, y);
     const blds = snap.buildings ?? [];
+    if (scout(id, bot, me, blds, x, y)) return;
     const breached = blds.some((b) => b.team !== me.team && b.rubble && Math.hypot(b.x - x, b.y - y) < DEFEND_R * 1.5);
     const foes = blds.filter((b) => b.team !== me.team && isWall(b) && standing(b));
     if (bot.phase === 'breach' || breached || !foes.length) {
@@ -235,6 +277,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
       }
     }
     if (onFoot(bot.phase)) return attackMove(id, bot, me, cs, x, y);
+    if (scout(id, bot, me, blds, x, y)) return;
     const e = engineFor(id, bot, me, snap, 'siegeLadder');
     if (!e) {
       if (bot.phase === 'nostock') attackMove(id, bot, me, cs, x, y);
@@ -371,11 +414,16 @@ export function createBots(sim: WarSim, every = 5): Bots {
     send(bot, `walls:${w.id}`, { kind: 'move', squad: id, x: tx + 0.5, y: ty + 0.5 });
   };
 
-  const think = (snap: Snapshot) => {
-    const cs = centres(snap);
+  const think = (full: Snapshot) => {
+    const all = centres(full);
+    const views = new Map<number, { cs: Centre[]; snap: Snapshot }>();
     for (const [id, bot] of bots) {
+      const mine = all[id];
+      if (!mine?.alive) continue;
+      let v = views.get(mine.team);
+      if (!v) views.set(mine.team, (v = viewOf(full, all, mine.team)));
+      const { cs, snap } = v;
       const me = cs[id];
-      if (!me?.alive) continue;
       const b = bot.b;
       if (b.kind === 'siegeRam') siegeRam(id, bot, me, cs, snap, b.x, b.y);
       else if (b.kind === 'siegeLadder') siegeLadder(id, bot, me, cs, snap, b.x, b.y);

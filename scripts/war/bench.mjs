@@ -140,3 +140,20 @@ console.log(
   const ls = war.snapshot().lairs;
   console.log(`neutral: units ${war.stats().units}, ticks ${ticks}: ${summary(ms)}; lairs ${ls.length} (cleared ${ls.filter((l) => l.state === 'cleared').length})`);
 }
+
+// fog (W-39): 600 units in 4 teams (30 squads, mixed classes) cross the map from its four sides: the vision update's share
+{
+  const war = sim.createSim(region, 4);
+  const cls = ['militia', 'archer', 'hoplite', 'slinger'];
+  const sides = [[WX, null], [EX, null], [null, 12], [null, region.h - 12]];
+  for (let k = 0; k < 30; k++) {
+    const team = k % 4, [sx, sy] = sides[team], o = 30 + Math.floor(k / 4) * Math.floor((region.w - 60) / 7);
+    const [x, y] = sx === null ? [o, sy] : [sx, o];
+    const id = war.spawnSquad(`f${k}`, team, cls[k % 4], 20, x, y);
+    war.order({ kind: 'move', squad: id, x: region.w - x, y: region.h - y });
+  }
+  const ms = [], vms = [];
+  for (let t = 0; t < ticks; t++) war.step(), ms.push(war.stats().stepMs), vms.push(war.stats().visionMs ?? 0);
+  const g = war.teamGrid(0), seen = g.state.filter((s) => s > 0).length;
+  console.log(`fog: units ${war.stats().units}, teams 4, ticks ${ticks}: step ${summary(ms)}; vision ${summary(vms)}; team 0 explored ${((seen / g.state.length) * 100).toFixed(1)}%`);
+}

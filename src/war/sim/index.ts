@@ -49,6 +49,7 @@ import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineCle
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER, RAM } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
+import { createVision } from './vision';
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -276,6 +277,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     w: grid.w,
     h: grid.h,
   });
+
+  const vision = createVision(grid, { units: () => units, buildings: () => works.buildingSnaps() });
 
   const hAt = (x: number, y: number) => grid.height[tileAt(grid, x, y)];
   const groundAt = (x: number, y: number) => grid.ground[tileAt(grid, x, y)];
@@ -1438,6 +1441,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     for (const s of reslotQueue) reslot(s);
     reslotQueue.clear();
     if (shots.length) shots = shots.filter((sh) => sh.t1 > tick);
+    vision.tick(tick);
     tick++;
     stepMs = performance.now() - t0;
   };
@@ -1509,7 +1513,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       };
     },
     stats() {
-      return { stepMs, units: units.filter((u) => u.alive).length };
+      return { stepMs, units: units.filter((u) => u.alive).length, visionMs: vision.ms() };
     },
     checkPlacement: works.checkPlacement,
     checkWall: works.checkWall,
@@ -1521,6 +1525,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     damageBuilding: works.damage,
     finishBridges: works.finishBridges,
     spawnMobs: () => mobs.spawn(),
+    visibleTo: vision.visibleTo,
+    teamGrid: vision.teamGrid,
+    lastSeen: vision.lastSeen,
   };
   return api;
 }
