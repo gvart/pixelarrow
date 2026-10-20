@@ -295,6 +295,15 @@ export interface WarBuildSim extends WarSim {
   teamGrid(team: number): FogGrid;
   /** Foreign buildings as the team last saw them (current where visible). */
   lastSeen(team: number): BuildingSnap[];
+  /**
+   * M5d: the fight is over: every person who took part since the last call is reported once (XP, level-ups, state); a
+   * wounded man with no friendly within CAPTURE_R and a foe near is taken captive. Tallies start afresh.
+   */
+  endFight(): FightReport;
+  /** M5d: a smith salvages drop `id`: it goes, its salvage value comes back (0: no such drop). */
+  salvage(id: number): number;
+  /** M5d: the sim event log since the last call (kills, falls, objectives, pickups, captures, level-ups). */
+  events(): WarEvent[];
 }
 export declare function createSim(region: RegionData, seed: number): WarBuildSim; // implemented in src/war/sim/index.ts
 

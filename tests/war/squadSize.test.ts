@@ -5,7 +5,8 @@ import { scenarioById } from '../../src/war/scenarios';
 import { createSim } from '../../src/war/sim';
 import { createBots } from '../../src/war/sim/bots';
 import { formationOffsets } from '../../src/war/sim/formation';
-import { SQUAD_MAX } from '../../src/war/sim/soldiers';
+import { SQUAD_MAX, XP } from '../../src/war/sim/soldiers';
+import { makePerson } from '../../src/war/sim/roster';
 import { Rng } from '../../src/sim/rng';
 
 const ridge = parseRegion(ridgeJson);
@@ -52,13 +53,15 @@ describe('M5a squad size', () => {
     expect(ranks(formationOffsets('line', 4, rng))).toEqual([2, 2]);
   });
 
-  it.each(['pass-ambush', 'ford-crossing', 'hill-assault', 'bridge-vs-ford'])('scenario %s still ends with a winner at N', (id) => {
+  it.each(['pass-ambush', 'ford-crossing', 'hill-assault', 'bridge-vs-ford'])('scenario %s still ends with a winner at N; XP totals (M5d)', (id) => {
     const sc = scenarioById(id)!;
     const sim = createSim(ridge, 7);
     const bots = createBots(sim);
-    sc.squads.forEach((q) => {
+    // every man a fresh person (they bake to the class): the fight reports XP
+    sc.squads.forEach((q, i) => {
       expect(q.count).toBeLessThanOrEqual(SQUAD_MAX);
-      const s = sim.spawnSquad(q.owner ?? (q.team ? 'bot' : 'you'), q.team, q.cls, q.count, q.x, q.y);
+      const ps = Array.from({ length: q.count }, (_, k) => makePerson(`s${i}-${k}`, q.cls));
+      const s = sim.spawnSquad(q.owner ?? (q.team ? 'bot' : 'you'), q.team, q.cls, q.count, q.x, q.y, ps);
       if (q.bot) bots.set(s, q.bot);
     });
     const alive = (team: number) => {
@@ -89,5 +92,13 @@ describe('M5a squad size', () => {
     }
     expect(Math.min(alive(0), alive(1))).toBe(0);
     expect(Math.max(alive(0), alive(1))).toBeGreaterThan(0);
+    const r = sim.endFight();
+    const fallen = sim.snapshot().units.filter((u) => u.state === 'dead').length;
+    expect(r.persons.reduce((a, p) => a + p.kills, 0)).toBe(fallen);
+    const xp = [0, 1].map((team) => r.persons.filter((p) => p.team === team).reduce((a, p) => a + p.xp, 0));
+    const win = alive(0) ? 0 : 1;
+    expect(xp[win]).toBeGreaterThan(0);
+    for (const p of r.persons) if (p.state === 'fit' && p.team === win) expect(p.xp).toBeGreaterThanOrEqual(XP.survived);
+    console.log(`${id}: XP you ${xp[0]}, foe ${xp[1]}; fallen ${fallen}, winner team ${win}`);
   });
 });

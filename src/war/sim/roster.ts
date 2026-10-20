@@ -1,12 +1,13 @@
 /**
  * A local, in-memory soldier roster for the sandbox and tests (M5b), until the server keeps persons (M5e, D1
- * war_persons): makes persons (class, level, kit tier and rarity, skills), hands fit ones out for spawnSquad.
+ * war_persons): makes persons (class, level, kit tier and rarity, skills), hands fit ones out for spawnSquad and takes
+ * fight reports back (M5d).
  */
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../data/perks';
 import { CLASSES, isClassId } from '../../data/classes';
 import { MAX_LEVEL, type Hero } from '../../data/units';
 import type { Rarity } from '../../data/items';
-import type { WarPerson, WarSkillId } from '../types';
+import type { FightReport, PersonResult, WarPerson, WarSkillId } from '../types';
 import { freshHero, kitItem } from './classes';
 import { FAMILY_OF, legalSkills, type Family } from './skills';
 
@@ -64,10 +65,17 @@ export interface Roster {
   all(): WarPerson[];
   /** n new persons of a class (ids `${prefix}-k`), added to the roster. */
   recruit(prefix: string, cls: string, n: number, o?: PersonOpts): WarPerson[];
+  /** M5d: write a fight back (heroes after XP and level-ups, state). */
+  apply(r: FightReport): void;
+  /** fit (default), wounded, captive or dead. */
+  state(id: string): PersonResult['state'];
+  /** Fit persons, for the next spawn. */
+  fit(): WarPerson[];
 }
 
 export function createRoster(): Roster {
   const persons = new Map<string, WarPerson>();
+  const states = new Map<string, PersonResult['state']>();
   return {
     add: (p) => void persons.set(p.id, p),
     get: (id) => persons.get(id),
@@ -81,5 +89,15 @@ export function createRoster(): Roster {
       }
       return out;
     },
+    apply(r) {
+      for (const x of r.persons) {
+        const p = persons.get(x.pid);
+        if (!p) continue;
+        persons.set(x.pid, { ...p, hero: x.hero });
+        states.set(x.pid, x.state);
+      }
+    },
+    state: (id) => states.get(id) ?? 'fit',
+    fit: () => [...persons.values()].filter((p) => (states.get(p.id) ?? 'fit') === 'fit'),
   };
 }
