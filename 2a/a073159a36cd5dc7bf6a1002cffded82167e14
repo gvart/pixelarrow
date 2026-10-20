@@ -1,0 +1,35 @@
+scripts/war/loadtest.mjs
+  s_cfc22b058125c4::t_d7683b5a8a0171 2,9,20
+src/war/net/client.ts
+  s_cfc22b058125c4::t_d7683b5a8a0171 11,54
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_a575a80476def9 121
+server/test/war/room.test.ts
+  s_cfc22b058125c4::t_9404cb482ed9e7 10,23,28,36-37,43,49,51,98,162,179-180,194-196
+  s_cfc22b058125c4::t_e7ae108da63632 1,3,108-110,140-146
+  s_cfc22b058125c4::t_f0fa292d5e7b74 147-148
+server/src/war/room.ts
+  s_cfc22b058125c4::t_e327b7c4676b7e 16-17,86-88,168
+src/war/net/protocol.ts
+  s_cfc22b058125c4::t_e327b7c4676b7e 15,28-29
+server/test/war/ws.test.ts
+  s_cfc22b058125c4::t_9404cb482ed9e7 56,60,62,64,76,78,80
+server/test/war/protocol.test.ts
+  s_cfc22b058125c4::t_9404cb482ed9e7 4,19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2aa073159a36cd5dc7bf6a1002cffded82167e14",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
