@@ -123,7 +123,7 @@ export class WarRoom {
   /** Person ids of joins dropped from the line (the DO sends them home). */
   private released: string[] = [];
   /** Orders applied, with their tick (determinism checks, later a replay log). */
-  readonly log: { tick: number; o: NetOrder }[] = [];
+  readonly log: { tick: number; o: Order }[] = [];
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -336,7 +336,7 @@ export class WarRoom {
     const sent = (squad === undefined && o.kind !== 'cancelSite' ? { ...o, team: p.team } : o) as Order;
     if (squad !== undefined) this.bots.clear(squad);
     this.sim.order(sent);
-    this.log.push({ tick: this.currentTick, o });
+    this.log.push({ tick: this.currentTick, o: sent });
     return null;
   }
 
