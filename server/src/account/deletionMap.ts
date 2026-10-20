@@ -87,6 +87,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_memorial: { rule: 'delete', pid: ['player_id'] },
   war_pools: { rule: 'delete', pid: ['player_id'] },
   war_holders: { rule: 'delete', pid: ['player_id'] },
+  war_offers: { rule: 'delete', pid: ['player_id'] },
   war_region_holds: { rule: 'delete', pid: ['player_id'] },
   war_crafts: { rule: 'delete', pid: ['player_id'] },
   war_alliance_members: { rule: 'delete', pid: ['player_id'] },
@@ -109,6 +110,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   duel_season_rewards: { rule: 'shared_history', kept: ['player_id'] },
   clans: { rule: 'shared_history', kept: ['created_by'] },
   war_boss_kills: { rule: 'shared_history', kept: ['player_id'] },
+  war_fills: { rule: 'shared_history', kept: ['seller', 'buyer'] },
 
   players: { rule: 'tombstone' },
 

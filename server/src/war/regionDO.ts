@@ -31,13 +31,21 @@ import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { warRegion } from './regions';
-import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type MendMsg, type ServerMsg } from '../../../src/war/net/protocol';
+import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
+import { ApiError } from '../errors';
+import { batch, guard, lotsOf, placeItemStmt, planTake, putStmt, strongroom } from './holders';
+import { loadsIn, SITE, site } from './market';
+import { holderOf } from './tradeRoutes';
+import { bundleGoods, bundleLoads, type Bundle } from './cargo';
+import { homeOf } from '../../../src/war/world/graph';
+import type { Item } from '../../../src/data/items';
 import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { applyFight, claimForJoin, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { saveRegionHolds } from './holders';
+import { json } from './persons';
 import { isWorldRegion } from '../../../src/war/world/graph';
 import { joinRefusal } from '../../../src/war/world/access';
 import { ALLIANCES } from '../../../src/war/world/alliances';
@@ -153,6 +161,7 @@ export class WarRegionDO extends DurableObject<Env> {
       else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick });
       else if (m.t === 'check') send(ws, room.check(me.pid, m));
       else if (m.t === 'mend') await this.mend(ws, me.pid, room, m);
+      else if (m.t === 'stow') await this.stow(ws, me.pid, room, m);
     } catch (e) {
       logError('war_message_failed', e);
     }
@@ -199,6 +208,74 @@ export class WarRegionDO extends DurableObject<Env> {
       this.write('unmend', () => returnMends(d, region, [item.uid]));
       send(ws, { t: 'error', code: err, detail: m.kind });
     } else this.save();
+  }
+
+  /**
+   * M6f: goods and items between the player's packs (or cart) and his site here: his stall or warehouse in this
+   * market town (the carrier in the court), or his home strongroom at home (any region off the world map counts as
+   * home: dev and test regions). `in`: out of the room first, back on a D1 failure; `out`: out of D1 first, what does
+   * not fit goes back. Sealed loads (carry contracts) never go in here.
+   */
+  private async stow(ws: WebSocket, pid: number, room: WarRoom, m: StowMsg): Promise<void> {
+    const d = this.env.DB;
+    if (!d) return send(ws, { t: 'error', code: 'bad', detail: 'no database' });
+    const region = room.region.id, now = Date.now();
+    const from = m.squad !== undefined ? { squad: m.squad } : { cart: m.cart! };
+    if (!room.carrier(pid, from)) return send(ws, { t: 'error', code: 'notOwner', detail: 'stow' });
+    const fail = (e: unknown) => {
+      if (!(e instanceof ApiError)) throw e;
+      send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
+    };
+    let id: string;
+    try {
+      if (m.site === 'strongroom') {
+        if (isWorldRegion(region)) {
+          const a = await allianceOf(d, pid);
+          if (a === null || homeOf(a) !== region) throw new ApiError(409, 'not_home', 'Your strongroom is at home');
+        }
+        id = strongroom(pid);
+      } else {
+        if (!room.inCourt(pid, from)) throw new ApiError(409, 'not_in_court', 'Bring them into the market court');
+        id = (await site(d, pid, region, m.site, await holderOf(this.env, region), now)).id;
+      }
+    } catch (e) {
+      return fail(e);
+    }
+    const goods = m.goods ?? {}, uids = m.uids ?? [];
+    if (m.dir === 'in') {
+      const b = room.takeCargo(pid, from, goods, uids);
+      if (!b) return send(ws, { t: 'error', code: 'badTarget', detail: 'they do not carry that' });
+      try {
+        if (id.startsWith('wh:') && (await loadsIn(d, id)) + bundleLoads(b) > SITE.loads + 1e-6) throw new ApiError(409, 'warehouse_full', `A warehouse holds ${SITE.loads} loads`);
+        await batch(d, [...b.lots.map((l) => putStmt(d, id, l.r, l.n, l.o, l.s ?? 0)), ...b.items.map((it) => placeItemStmt(d, pid, id, it, now))]);
+      } catch (e) {
+        room.giveCargo(pid, from, b);
+        return fail(e);
+      }
+      send(ws, { t: 'stowed', dir: 'in', site: id, goods: bundleGoods(b), items: b.items.length });
+    } else {
+      let b: Bundle;
+      try {
+        const plan = planTake(d, id, await lotsOf(d, id), goods);
+        const list = JSON.stringify([...new Set(uids)]);
+        const rows = uids.length ? (await d.prepare('SELECT item FROM war_items WHERE place = ?1 AND uid IN (SELECT value FROM json_each(?2))').bind(id, list).all<{ item: string }>()).results : [];
+        if (rows.length !== new Set(uids).size) throw new ApiError(409, 'no_item', 'An item is not there');
+        await batch(d, [
+          ...plan.stmts,
+          ...(uids.length
+            ? [guard(d, '(SELECT COUNT(*) FROM war_items WHERE place = ?1 AND uid IN (SELECT value FROM json_each(?2))) = ?3', id, list, rows.length), d.prepare('DELETE FROM war_items WHERE place = ?1 AND uid IN (SELECT value FROM json_each(?2))').bind(id, list)]
+            : []),
+        ]);
+        b = { lots: plan.taken.map((l) => ({ r: l.res as never, n: l.amount, o: l.origin, ...(l.seal ? { s: l.seal } : {}) })), items: rows.map((r) => json<Item>(r.item, { uid: '', def: '', rarity: 'common', cond: 0 })) };
+      } catch (e) {
+        return fail(e);
+      }
+      const rest = room.giveCargo(pid, from, b);
+      if (rest.lots.length || rest.items.length)
+        this.write('stow back', () => d.batch([...rest.lots.map((l) => putStmt(d, id, l.r, l.n, l.o, l.s ?? 0)), ...rest.items.map((it) => placeItemStmt(d, pid, id, it, now))]));
+      send(ws, { t: 'stowed', dir: 'out', site: id, goods: bundleGoods(b), items: b.items.length - rest.items.length, ...(rest.lots.length ? { left: bundleGoods(rest) } : {}) });
+    }
+    this.save();
   }
 
   /**

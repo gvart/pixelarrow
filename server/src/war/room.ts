@@ -45,7 +45,8 @@ import { CHOKEPOINTS } from '../../../src/war/world/season';
 import { worldRegion } from '../../../src/war/world/graph';
 import { bossItems } from './bosses';
 import { craftKey } from './crafting';
-import { contents, fill, room as freeLoads } from './cargo';
+import { contents, fill, room as freeLoads, takeOut, type Bundle } from './cargo';
+import { inRects } from '../../../src/war/sim/trade';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -548,6 +549,41 @@ export class WarRoom {
       if (at) out.push({ ref: `k:${s.id}`, kind: 'packs', pid, team: s.team, ...contents(at.slots) });
     }
     return out;
+  }
+
+  /** M6f: the player's own carrier: his squad's packs or his cart (null: not his, or gone). */
+  carrier(pid: number, from: { squad?: number; cart?: number }) {
+    const me = ownerOf(pid);
+    if (from.squad !== undefined) {
+      if (this.owners[from.squad] !== me) return null;
+      return this.sim.cargo({ squad: from.squad });
+    }
+    if (from.cart === undefined) return null;
+    const at = this.sim.cargo({ cart: from.cart });
+    return at && at.owner === me ? at : null;
+  }
+
+  /** M6f: the carrier stands in the town's market court (a man of the squad, or the cart; a region with no court: anywhere). */
+  inCourt(pid: number, from: { squad?: number; cart?: number }): boolean {
+    const at = this.carrier(pid, from);
+    if (!at) return false;
+    const safe = this.region.safe;
+    return !safe?.length || at.slots.some((s) => inRects(safe, s.x, s.y));
+  }
+
+  /**
+   * M6f bridge out of the room: `goods` and items `uids` taken from the player's carrier (sealed lots only under
+   * `seal`), all or nothing; null when it is not his or lacks some.
+   */
+  takeCargo(pid: number, from: { squad?: number; cart?: number }, goods: Record<string, number>, uids: string[] = [], seal?: number): Bundle | null {
+    const at = this.carrier(pid, from);
+    return at ? takeOut(at.slots, goods, uids, seal) : null;
+  }
+
+  /** M6f bridge into the room: a bundle into the player's carrier as far as it has room; what did not fit comes back. */
+  giveCargo(pid: number, to: { squad?: number; cart?: number }, b: Bundle): Bundle {
+    const at = this.carrier(pid, to);
+    return at ? fill(at.slots, b) : b;
   }
 
   /** Uids of the stash items at this region's workplaces. */

@@ -36,6 +36,7 @@ import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
 import type { WarSkillId } from '../../../src/war/types';
 import { pickNode, respec, stash } from './crafting';
 import { deposit, payRansomFromTreasury, treasury } from './treasury';
+import { trade } from './tradeRoutes';
 import { equip, formSquad, levelUp, payRansom, promote, recruit, releaseCaptive, retire, roster, ROSTER_MAX, seed, train } from './persons';
 
 export const war = new Hono<AppEnv>();
@@ -132,6 +133,8 @@ war.post('/persons/:id/respec', requirePlayable, async (c) => {
 });
 
 war.get('/stash', requirePlayable, async (c) => c.json(await stash(db(c.env), c.get('session').pid)));
+
+war.route('/trade', trade);
 
 war.post('/dev/seed', requirePlayable, async (c) => {
   if (c.env.DEV_AUTH !== '1') throw new ApiError(404, 'not_found', 'No such endpoint');

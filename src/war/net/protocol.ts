@@ -14,6 +14,8 @@
  *   client -> mend   { t, kind, building, uid }                M5h4: repair or salvage stash item `uid` at a workplace of
  *                    the player's team (the server loads the item; queue state rides on BuildingSnap.queue)
  *                    M6: load / unload / escort / salvagePile for his own squads (holders checked by the room)
+ *   client -> stow   { t, dir, site, squad|cart, goods?, uids? }  M6f: goods between his packs or cart and his stall,
+ *                    warehouse (in a market court) or home strongroom (at home) -> stowed | error
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
@@ -143,11 +145,18 @@ const baseMsgSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('view'), x0: num, y0: num, x1: num, y1: num }),
   z.object({ t: z.literal('ping'), c: num }),
   z.object({ t: z.literal('mend'), kind: z.enum(['repair', 'salvage']), building: id, uid: z.string().min(1).max(120) }),
+  // M6f: goods and items between the player's squad packs (or his cart) and his site here: his stall or warehouse in
+  // a market town's court, his home strongroom at home; `in` from the field into the site, `out` back
+  z.object({
+    t: z.literal('stow'), dir: z.enum(['in', 'out']), site: z.enum(['stall', 'warehouse', 'strongroom']), squad: id.optional(), cart: id.optional(),
+    goods: z.record(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
+  }).refine((o) => (o.squad === undefined) !== (o.cart === undefined), 'squad or cart'),
 ]);
 export const clientMsgSchema = z.union([baseMsgSchema, checkSchema]);
 export type ClientMsg = z.infer<typeof baseMsgSchema> | CheckMsg;
 export type JoinMsg = Extract<ClientMsg, { t: 'join' }>;
 export type MendMsg = Extract<ClientMsg, { t: 'mend' }>;
+export type StowMsg = Extract<ClientMsg, { t: 'stow' }>;
 
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
@@ -160,7 +169,9 @@ export type ServerMsg =
   | { t: 'refused'; reason: Refusal; detail?: string }
   | { t: 'error'; code: OrderError | 'parse' | 'tooBig'; detail?: string }
   | { t: 'pong'; c: number; tick: number }
-  | { t: 'checked'; id: number; result: PlaceResult | WallPlan | BridgePlan | null };
+  | { t: 'checked'; id: number; result: PlaceResult | WallPlan | BridgePlan | null }
+  /** M6f: a stow went through: what moved (goods by good, item count) and what did not fit (left where it was). */
+  | { t: 'stowed'; dir: 'in' | 'out'; site: string; goods: Record<string, number>; items: number; left?: Record<string, number> };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }
