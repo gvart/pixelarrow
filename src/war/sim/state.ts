@@ -36,17 +36,24 @@ const plainProto = (v: object) => {
 /** Name every object reachable from the named constant roots (defs tables, the region). */
 export function externals(roots: Record<string, unknown>): Map<object, string> {
   const out = new Map<object, string>();
+  // big arrays of numbers or strings (the region's layers) hold no objects: not walked
   const walk = (v: unknown, k: string) => {
     if (!v || typeof v !== 'object' || out.has(v) || isTyped(v)) return;
     out.set(v, k);
-    if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${k}.${i}`));
+    if (Array.isArray(v)) {
+      if (v.length > 256 && typeof v[0] !== 'object') return;
+      v.forEach((x, i) => walk(x, `${k}.${i}`));
+    }
     else if (plainProto(v)) for (const [kk, x] of Object.entries(v)) walk(x, `${k}.${kk}`);
   };
   for (const [k, v] of Object.entries(roots)) walk(v, k);
   return out;
 }
 
-/** Pair each typed array of `cur` with the same-shaped one at the same place in `base` (a fresh sim's graph). */
+/**
+ * Pair each typed array of `cur` with the same-shaped one at the same place in `base` (a fresh sim's graph). Only object
+ * properties and Map values are followed (the sim keeps its big arrays there; walking lists of nodes and men costs).
+ */
 function pairTyped(cur: unknown, base: unknown, out: Map<Typed, Typed>, seen = new Set<object>()): Map<Typed, Typed> {
   if (!cur || !base || typeof cur !== 'object' || typeof base !== 'object' || seen.has(cur)) return out;
   seen.add(cur);
@@ -55,7 +62,6 @@ function pairTyped(cur: unknown, base: unknown, out: Map<Typed, Typed>, seen = n
     return out;
   }
   if (cur instanceof Map && base instanceof Map) for (const [k, v] of cur) pairTyped(v, base.get(k), out, seen);
-  else if (Array.isArray(cur) && Array.isArray(base)) cur.forEach((v, i) => pairTyped(v, base[i], out, seen));
   else if (!(cur instanceof Set) && !(cur instanceof Map) && !Array.isArray(cur)) for (const k of Object.keys(cur)) pairTyped((cur as Record<string, unknown>)[k], (base as Record<string, unknown>)[k], out, seen);
   return out;
 }
@@ -77,7 +83,7 @@ export function encodeGraph(root: unknown, ext: Map<object, string>, base?: unkn
   const objs: unknown[] = [];
   const todo: object[] = [];
   const shapes: string[][] = [];
-  const shapeIx = new Map<string, number>();
+  const shapeIx = new Map<string, number[]>();
   const baseOf = base ? pairTyped(root, base, new Map()) : new Map<Typed, Typed>();
   const val = (v: unknown): unknown => {
     switch (typeof v) {
@@ -111,16 +117,27 @@ export function encodeGraph(root: unknown, ext: Map<object, string>, base?: unkn
     else if (o instanceof Map) objs[i] = ['m', [...o].flatMap(([a, b]) => [val(a), val(b)])];
     else if (o instanceof Set) objs[i] = ['s', [...o].map(val)];
     else if (isTyped(o)) {
+      // against the fresh sim's array, or zeros (fog counts, explored maps) when it has none: sparse when that is smaller
       const name = o.constructor.name, b = baseOf.get(o);
       const diff: unknown[] = [];
-      if (b) {
-        for (let j = 0; j < o.length && diff.length < o.length / 4; j++) if (!Object.is(o[j], b[j])) diff.push(j, val(o[j]));
+      // compared byte by byte (one monomorphic loop for every array type; -0 and NaN compare exactly)
+      const ob = new Uint8Array(o.buffer, o.byteOffset, o.byteLength), bb = b ? new Uint8Array(b.buffer, b.byteOffset, b.byteLength) : null;
+      const size = o.BYTES_PER_ELEMENT, cap = o.length / 4;
+      for (let k = 0; k < ob.length && diff.length < cap; k++) {
+        if (ob[k] === (bb ? bb[k] : 0)) continue;
+        const j = (k / size) | 0;
+        diff.push(j, val(o[j]));
+        k = (j + 1) * size - 1;
       }
-      objs[i] = b && diff.length < o.length / 4 ? ['d', name, o.length, diff] : ['t', name, b64(new Uint8Array(o.buffer, o.byteOffset, o.byteLength)), o.length];
+      objs[i] = diff.length < o.length / 4 ? [b ? 'd' : 'z', name, o.length, diff] : ['t', name, b64(new Uint8Array(o.buffer, o.byteOffset, o.byteLength)), o.length];
     } else {
-      const keys = Object.keys(o), key = keys.join('\u0001');
-      let s = shapeIx.get(key);
-      if (s === undefined) shapeIx.set(key, (s = shapes.push(keys) - 1));
+      const keys = Object.keys(o);
+      // shapes: a cheap key (count, first and last key) picks the candidates, compared in full
+      const cand = `${keys.length}|${keys[0]}|${keys[keys.length - 1]}`;
+      let list = shapeIx.get(cand);
+      if (!list) shapeIx.set(cand, (list = []));
+      let s = list.find((x) => shapes[x].every((k, j) => k === keys[j]));
+      if (s === undefined) list.push((s = shapes.push(keys) - 1));
       const vals = keys.map((kk) => val((o as Record<string, unknown>)[kk]));
       if (plainProto(o)) objs[i] = ['o', s, vals];
       else {
@@ -152,7 +169,7 @@ export function decodeGraph(st: Pick<SimState, 'shapes' | 'objs' | 'root'>, ext:
       kind === 'a' ? Array.isArray(l)
       : kind === 'm' ? l instanceof Map
       : kind === 's' ? l instanceof Set
-      : kind === 't' || kind === 'd' ? isTyped(l) && l.constructor.name === e[1] && l.length === e[kind === 'd' ? 2 : 3]
+      : kind === 't' || kind === 'd' || kind === 'z' ? isTyped(l) && l.constructor.name === e[1] && l.length === e[kind === 't' ? 3 : 2]
       : kind === 'o' ? plainProto(l) && !Array.isArray(l)
       : kind === 'c' ? Object.getPrototypeOf(l) === CLASSES[e[3] as string]?.prototype
       : false;
@@ -173,6 +190,7 @@ export function decodeGraph(st: Pick<SimState, 'shapes' | 'objs' | 'root'>, ext:
     if (l !== undefined) {
       if (Array.isArray(l)) l.length = 0;
       else if (l instanceof Map || l instanceof Set) l.clear();
+      else if (e[0] === 'z') (l as unknown as Typed).fill(0);
       return; // plain objects and class instances: overwritten key by key (no deletes: hidden classes stay fast)
     }
     switch (e[0]) {
@@ -185,6 +203,7 @@ export function decodeGraph(st: Pick<SimState, 'shapes' | 'objs' | 'root'>, ext:
         out[i] = new TYPED[e[1] as string](e[3] as number);
         break;
       }
+      case 'z': out[i] = new TYPED[e[1] as string](e[2] as number); break;
       case 'd': throw new Error('sim state: a typed-array diff with no fresh array to apply to (import into a fresh sim)');
     }
   });
@@ -213,7 +232,8 @@ export function decodeGraph(st: Pick<SimState, 'shapes' | 'objs' | 'root'>, ext:
       case 'o':
       case 'c': shapes[e[1] as number].forEach((k, j) => ((o as Record<string, unknown>)[k] = val((e[2] as unknown[])[j]))); break;
       case 't': new Uint8Array((o as Typed).buffer, (o as Typed).byteOffset, (o as Typed).byteLength).set(unb64(e[2] as string)); break;
-      case 'd': {
+      case 'd':
+      case 'z': {
         const d = e[3] as unknown[];
         for (let j = 0; j < d.length; j += 2) (o as Typed)[d[j] as number] = val(d[j + 1]) as number;
         break;

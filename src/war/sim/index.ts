@@ -61,7 +61,12 @@ import { MOBS } from './mobs';
 import { SIEGE } from './siege';
 
 /** Save and restore: the constants a sim's state points at (named, not copied) and a fresh sim's root per region (typed-array diffs). */
-const constRoots = (region: RegionData) => ({ region, BUILDINGS, SIEGE, MOBS });
+const exts = new WeakMap<RegionData, Map<object, string>>();
+const constsOf = (region: RegionData) => {
+  let m = exts.get(region);
+  if (!m) exts.set(region, (m = externals({ region, BUILDINGS, SIEGE, MOBS })));
+  return m;
+};
 const fresh = new WeakMap<RegionData, unknown>();
 const roots = new WeakMap<WarBuildSim, () => unknown>();
 
@@ -1926,12 +1931,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     exportState(): SimState {
       let base = fresh.get(region);
       if (!base) fresh.set(region, (base = roots.get(createSim(region, seed))!()));
-      return { v: STATE_VERSION, region: region.id, seed, ...encodeGraph(saveRoot(), externals(constRoots(region)), base) };
+      return { v: STATE_VERSION, region: region.id, seed, ...encodeGraph(saveRoot(), constsOf(region), base) };
     },
     importState(st: SimState) {
       if (st.v !== STATE_VERSION || st.region !== region.id) throw new Error(`sim state v${st.v} of ${st.region} does not fit v${STATE_VERSION} of ${region.id}`);
       if (tick !== 0 || units.length) throw new Error('importState: only into a fresh sim');
-      const keyed = new Map([...externals(constRoots(region))].map(([o, k]) => [k, o]));
+      const keyed = new Map([...constsOf(region)].map(([o, k]) => [k, o]));
       const r = decodeGraph(st, keyed, saveRoot()) as ReturnType<typeof saveRoot>;
       if (r.grid !== grid || r.squads !== squads || r.units !== units || r.rng !== rng) throw new Error('importState: live state not bound');
       ({ missiles, shots, tick, drops, dropId, loot, log } = r);
