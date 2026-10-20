@@ -181,6 +181,7 @@ export class SandboxScene extends Phaser.Scene {
     // bearers on their engine's offsets
     const layer = this.build.layer, sl = this.siegeLayer;
     layer.charOf = (b, kit, l) => sl.charOf(b, kit, l);
+    sl.working = layer.working; // M5h: workplace working fx (the siege art holds the fx loops)
     layer.skip = (b) => !!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble));
     this.units.lift = (d) => sl.lift(d) ?? layer.lift(d);
     this.units.ground = (d) => layer.groundDepth(d);

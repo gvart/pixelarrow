@@ -128,8 +128,17 @@ export class SiegeLayer {
     return level ? this.art.char.get(`${kit}-${level}-${layer}`) : undefined;
   }
 
+  /** M5h: the workplaces' working fx this frame (../build/buildingLayer.ts working), world px. */
+  working: readonly { id: string; x: number; y: number; alpha: number; depth: number; seed: number }[] = [];
+
   draw(sieges: readonly SiegeSnap[], buildings: readonly BuildingSnap[], units: readonly DrawUnit[], at: AnimTime, snapTick: number, v: V): void {
     this.ni = 0;
+    if (this.art)
+      for (const w of this.working) {
+        if (w.x < v.x - 80 || w.x > v.right + 80 || w.y < v.y - 40 || w.y > v.bottom + 160) continue;
+        this.fx(w.id, w.x, w.y, w.depth, at.now, w.seed, 1, w.alpha);
+        if (this.art.fx.get(w.id)?.blend === 'add') this.imgs[this.ni - 1].setBlendMode(Phaser.BlendModes.ADD);
+      }
     this.now = at.now;
     this.lifts.clear();
     this.bearing.clear();

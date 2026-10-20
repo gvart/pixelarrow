@@ -48,17 +48,19 @@ export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string
   palisade: 'bld-palisade', rampart: 'bld-rampart', stoneWall: 'bld-stone-wall', woodStairs: 'bld-stairs-wood', stoneStairs: 'bld-stairs-stone', ladder: 'bld-ladder',
   woodTower: 'bld-tower-wood', stoneTower: 'bld-tower-stone', woodGate: 'bld-gate', stoneGate: 'bld-gate', woodBridge: 'bld-bridge-wood', stoneBridge: 'bld-bridge-stone',
   brazier: 'bld-brazier', pitchKiln: 'bld-pitch-kiln',
-  // M5h workplaces: placeholders until ART-C draws them
-  forge: 'bld-barracks', forge2: 'bld-barracks', forge3: 'bld-barracks', cookhouse: 'bld-storehouse', cookhouse2: 'bld-storehouse', cookhouse3: 'bld-storehouse',
-  infirmary: 'bld-outpost', infirmary2: 'bld-outpost', infirmary3: 'bld-outpost', workshop: 'bld-barracks', workshop2: 'bld-barracks', workshop3: 'bld-barracks',
-  stall: 'bld-storehouse', stall2: 'bld-storehouse', stall3: 'bld-storehouse', sortingFloor: 'bld-storehouse', sortingFloor2: 'bld-storehouse',
+  // M5h workplaces (ART-C has no kit icon for them): the level's own done art, shrunk (icon() 'art:')
+  forge: 'art:forge-done', forge2: 'art:forge2-done', forge3: 'art:forge3-done', cookhouse: 'art:cookhouse-done', cookhouse2: 'art:cookhouse2-done', cookhouse3: 'art:cookhouse3-done',
+  infirmary: 'art:infirmary-done', infirmary2: 'art:infirmary2-done', infirmary3: 'art:infirmary3-done', workshop: 'art:workshop-done', workshop2: 'art:workshop2-done', workshop3: 'art:workshop3-done',
+  stall: 'art:market-stall-done', stall2: 'art:market-stall2-done', stall3: 'art:market-stall3-done', sortingFloor: 'art:sorting-floor-done', sortingFloor2: 'art:sorting-floor2-done',
   // M5h3: placeholders until ART-C draws them
   stakes: 'bld-palisade', ditch: 'bld-palisade', towerBridge: 'bld-ladder',
 };
 export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder', mantlet: 'bld-ram', coveredRam: 'bld-ram', oxybeles: 'bld-stone-thrower', siegeTower: 'bld-siege-ladder' }; // M5h3 designs: placeholders
 
-/** An icon from the first kit (full colour), 24 or 32 art px. */
-export const icon = (id: string, size: 24 | 32 = 24) => `<img class="ic" src="${UI}icons/${size}/${id}.png" srcset="${UI}icons/${size}/${id}@2x.png 2x" width="${size}" height="${size}" alt="">`;
+/** An icon from the first kit (full colour), 24 or 32 art px; `art:<file>` is a building sprite (public/war/buildings) fitted into the box. */
+export const icon = (id: string, size: 24 | 32 = 24) => id.startsWith('art:')
+  ? `<img class="ic" src="war/buildings/${id.slice(4)}.png" width="${size}" height="${size}" alt="" style="object-fit:contain;image-rendering:auto">`
+  : `<img class="ic" src="${UI}icons/${size}/${id}.png" srcset="${UI}icons/${size}/${id}@2x.png 2x" width="${size}" height="${size}" alt="">`;
 
 /** A CSS cursor from the kit. */
 export const CURSOR_HOT: Record<string, [number, number]> = { default: [2, 2], move: [16, 16], attack: [3, 3], build: [24, 6], gather: [27, 15], interact: [2, 2], invalid: [16, 16] };

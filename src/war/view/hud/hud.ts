@@ -44,8 +44,15 @@ const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).re
 
 interface ToolDef { name: string; icon: string; tool: Tool; cost: Cost; labour: number; note: string }
 const bTool = (t: BuildingType, note = '', name = nice(t)): ToolDef => ({ name, icon: BUILDING_ICON[t], tool: { kind: 'building', type: t }, cost: BUILDINGS[t].cost, labour: BUILDINGS[t].labour, note });
-const TABS: Record<'Camp' | 'Walls' | 'Siege', ToolDef[]> = {
+/** M5h workplaces: level 1 placed here, L2 / L3 by Upgrade on the building's card. */
+const WORKPLACES: [BuildingType, string, string][] = [
+  ['forge', 'Forge', 'smiths: bronze, weapons, armour, repairs'], ['cookhouse', 'Cookhouse', 'cooks: rations and dishes'],
+  ['infirmary', 'Infirmary', 'physicians: bandages, salves, theriac'], ['workshop', 'Workshop', 'engineers: tools, mantlets'],
+  ['stall', 'Market stall', 'merchants: caravan goods'], ['sortingFloor', 'Sorting floor', 'foragers: charcoal, linen, leather (or upgrade a storehouse)'],
+];
+const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege', ToolDef[]> = {
   Camp: TOOLBAR.map((t) => bTool(t)),
+  Craft: WORKPLACES.map(([t, name, note]) => bTool(t, `${note} · L2, L3: Upgrade`, name)),
   Walls: [
     { ...bTool('palisade', 'per tile · G gate, T tower, Enter orders', nice(WALL_NAME.wood)), tool: { kind: 'wall', material: 'wood' } },
     { ...bTool('rampart', 'per tile · 2 deep, walkway', nice(WALL_NAME.timber)), tool: { kind: 'wall', material: 'timber' } },

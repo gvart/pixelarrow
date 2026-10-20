@@ -17,7 +17,9 @@ interface ArtKit {
   states: Record<string, string>; front?: Record<string, string>; layered?: boolean; frameOf?: number[] | string; post?: string;
   heightM?: number; deckM?: number; walkwayPx?: number; platformPx?: number; topPx?: number; topM?: number | Record<string, number>; pieces?: string[];
 }
-interface ArtJson { buildings: { id: string; states: Record<string, string> }[]; objects: ArtObj[]; kits: ArtKit[]; buildOrder?: string[]; progress?: Record<string, number>; pxPerMetre?: number }
+/** A workplace's working fx (objects.json buildings[].fx.working): a siege-art fx loop at sprite px `at` (of the done PNG). */
+export interface WorkFx { id: string; at: { x: number; y: number }; alpha?: number }
+interface ArtJson { buildings: { id: string; states: Record<string, string>; fx?: { working?: WorkFx[] } }[]; objects: ArtObj[]; kits: ArtKit[]; buildOrder?: string[]; progress?: Record<string, number>; pxPerMetre?: number }
 
 /** A sprite ready to draw: texture key, and the footprint it was drawn for. */
 export interface BuildSprite { key: string; tileOrigin: { x: number; y: number }; fw: number; fh: number }
@@ -38,6 +40,10 @@ export interface KitMeta {
 const ART_ID: Partial<Record<BuildingType, string>> = {
   camp: 'camp', storehouse: 'storehouse', outpost: 'outpost', fort: 'fort', barracks: 'barracks', farm: 'farm', olivePress: 'olive-press',
   woodTower: 'wood-tower', stoneTower: 'stone-tower', woodGate: 'wood-gate', stoneGate: 'stone-gate',
+  // M5h workplace chains (ART-C): each level its own art
+  forge: 'forge', forge2: 'forge2', forge3: 'forge3', cookhouse: 'cookhouse', cookhouse2: 'cookhouse2', cookhouse3: 'cookhouse3',
+  infirmary: 'infirmary', infirmary2: 'infirmary2', infirmary3: 'infirmary3', workshop: 'workshop', workshop2: 'workshop2', workshop3: 'workshop3',
+  stall: 'market-stall', stall2: 'market-stall2', stall3: 'market-stall3', sortingFloor: 'sorting-floor', sortingFloor2: 'sorting-floor2',
 };
 /** Kit ids per sim type. */
 export const KIT_ID: Partial<Record<BuildingType, string>> = {
@@ -52,6 +58,8 @@ export class BuildArt {
   private metas = new Map<string, KitMeta>();
   /** Ladder top (px above the ground) by target kit id. */
   ladderTop: Record<string, number> = {};
+  /** Working fx per art id (workplaces while a crafting order is under way). */
+  private work = new Map<string, WorkFx[]>();
   /** Construction stages, by rising threshold. */
   private stages: [string, number][] = FALLBACK_STAGES;
 
@@ -73,6 +81,7 @@ export class BuildArt {
         const p = j.progress;
         art.stages = j.buildOrder.filter((s) => typeof p[s] === 'number').map((s): [string, number] => [s, p[s]]).sort((a, b) => a[1] - b[1]);
       }
+      for (const b of j.buildings) if (b.fx?.working?.length) art.work.set(b.id, b.fx.working);
       const sheet = async (key: string, file: string, k: ArtKit) => {
         if (!scene.textures.exists(key)) scene.textures.addSpriteSheet(key, await img(file), { frameWidth: k.frame.w, frameHeight: k.frame.h });
       };
@@ -131,6 +140,12 @@ export class BuildArt {
     if (!id || stage === 'destroyed') return undefined;
     if (type === 'woodGate' || type === 'stoneGate') id += '-' + axis + (deep ? '-deep-' + deep : '');
     return this.sprites.get(`${id}/${stage}`) ?? this.earlier(stage, (s) => this.sprites.get(`${id}/${s}`)) ?? this.sprites.get(`${id}/done`);
+  }
+
+  /** The working fx of a sim type's art (none: no workplace, or its crafters' clips are the activity). */
+  workFx(type: BuildingType): WorkFx[] {
+    const id = ART_ID[type];
+    return (id && this.work.get(id)) || [];
   }
 
   /** The kit sheet for a sim type at an art stage (diag: a bridge's diagonal kit, <id>-diag). */
