@@ -11,6 +11,9 @@
  *   POST /persons/:id/promote { cls }        promote to an elite of his family at a fortress (30 min, the elite rare kit's silver)
  *   POST /persons/:id/ransom                  pay a captive's ransom (silver to his captor): he comes home
  *   POST /persons/:id/retire { civ? }         retire (half his gear's value back); level 10: into a civilian class
+ *   GET  /treasury                            the alliance's (clan's) silver pool, the player's role, the latest audit log
+ *   POST /treasury/deposit { amount }         a member puts silver of his war stock into the pool
+ *   POST /treasury/ransom/:id                 the leader or an officer pays a member's captive's ransom from the pool
  *   POST /captives/:id/release                the captor lets a captive he holds go
  *   POST /persons/:id/node  { node }          M5h4: a civilian takes a profession node
  *   POST /persons/:id/respec                  M5h4: his nodes reset (50 silver, once a day)
@@ -31,6 +34,7 @@ import { SKILLS } from '../../../src/war/sim/skills';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
 import type { WarSkillId } from '../../../src/war/types';
 import { pickNode, respec, stash } from './crafting';
+import { deposit, payRansomFromTreasury, treasury } from './treasury';
 import { equip, formSquad, levelUp, payRansom, promote, recruit, releaseCaptive, retire, roster, ROSTER_MAX, seed, train } from './persons';
 
 export const war = new Hono<AppEnv>();
@@ -95,6 +99,18 @@ war.post('/persons/:id/retire', requirePlayable, async (c) => {
   const id = idParam(c.req.param('id'));
   const b = await readJson(c, z.object({ civ: z.string().regex(/^[a-z_]{1,24}$/).optional() }), MAX_BODY);
   return c.json({ refund: await retire(db(c.env), c.get('session').pid, id, b.civ, Date.now()) });
+});
+
+war.get('/treasury', requirePlayable, async (c) => c.json(await treasury(db(c.env), c.get('session').pid, Date.now())));
+
+war.post('/treasury/deposit', requirePlayable, async (c) => {
+  const b = await readJson(c, z.object({ amount: z.number().int().min(1).max(1_000_000) }), MAX_BODY);
+  return c.json({ silver: await deposit(db(c.env), c.get('session').pid, b.amount, Date.now()) });
+});
+
+war.post('/treasury/ransom/:id', requirePlayable, async (c) => {
+  const id = idParam(c.req.param('id'));
+  return c.json({ paid: await payRansomFromTreasury(db(c.env), c.get('session').pid, id, Date.now()) });
 });
 
 war.post('/captives/:id/release', requirePlayable, async (c) => {
