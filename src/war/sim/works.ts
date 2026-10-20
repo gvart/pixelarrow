@@ -302,6 +302,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     return -1;
   };
   const ownerOf = (b: Building): number => {
+    // M7b: a safe court's pieces (walls, towers, gates, stalls) never change hands: the court cannot be fought over, its gates stand open to all
+    if (region.safe?.some((r) => b.ti.some((t) => t % w >= r.x && ((t / w) | 0) >= r.y && t % w < r.x + r.w && ((t / w) | 0) < r.y + r.h))) return NEUTRAL_TEAM;
     if (b.pre!.zone >= 0) {
       const t = zoneTeam(b.pre!.zone);
       return t >= 0 ? t : fallback;

@@ -33,7 +33,8 @@ import { encodeBiomes, encodeVisual, KINDS, ZVIS } from '../../../src/war/region
 import { footprintTiles, OBJECT_BLOCKS } from '../../../src/war/region/objects.ts';
 import { columnSpans, massifBase, placeMassifs, type MassifPiece } from '../../../src/war/region/massifs.ts';
 import { encodeCells, encodeObjects } from '../../../src/war/region/compact.ts';
-import type { MobKind } from '../../../src/war/types.ts';
+import type { BuildingType, MobKind, PrebuiltEntry } from '../../../src/war/types.ts';
+import { REGION_DEPTH } from '../../../src/war/sim/depth.ts';
 import { readImage } from '../../art/lib/png.mjs';
 import { BRIEF, byId, sideOf, type Side, type WorldRegion } from './world.ts';
 import { TRADE_ZONES } from '../../../src/war/region/zones.ts';
@@ -468,15 +469,27 @@ export class Kit {
   /** A claim point near `at` whose zone is the lairs within `r` units (or the listed lair indices). */
   claim(at: Pt, r = 70, lairs?: number[]) { this.claimReqs.push({ at, r, lairs }); }
 
-  // ---- town dressing: decorative structures (the elaia library's town-* objects, see TOWN). They are region objects,
-  // not sim buildings: nobody owns, repairs or burns them. The blocking ones close their footprint through
-  // RegionData.blocked (as the massifs do), so the trade court's wall ring leaves its two gates as the only ways in.
-  // Each stands at the south vertex of its footprint (its sprite's anchor), so it is drawn after the tiles it covers.
+  // ---- town dressing (M7b, docs/WAR.md "Pre-built structures"): every town piece is a pre-built sim building
+  // (RegionData.prebuilt) of a town, the group round an agora or a village well, owned through that town's claim point.
+  // The sim blocks their footprints (gates open for their owner, neutral ones for all), so the trade court's wall ring
+  // leaves its two gates as the only ways in without any RegionData.blocked tiles.
   readonly townReqs: TownReq[] = [];
+  /** The towns (unit centres): an agora's (its market spot is the claim point) or a village's (by its well). */
+  readonly towns: { at: Pt; kind: 'agora' | 'village' }[] = [];
   /** Sim tiles that were road when agora() paved its square (the slots keep off them). */
   readonly streets = new Set<number>();
   /** Unit x of a sim tile's centre and back (the sim run's grid, whatever this run's K). */
   private simTile = (u: number) => (u + 0.5) * 2 - 0.5;
+  private unitOf = (t: number) => (t + 0.5) / 2 - 0.5;
+  /** A new town at `at` (`kind` given), else the nearest one within 70 units, else a new village there. */
+  private townAt(at: Pt, kind?: 'agora' | 'village'): number {
+    if (!kind) {
+      let best = -1, bd = 70;
+      this.towns.forEach((t, i) => { const d = Math.hypot(t.at[0] - at[0], t.at[1] - at[1]); if (d < bd) (bd = d), (best = i); });
+      if (best >= 0) return best;
+    }
+    return this.towns.push({ at, kind: kind ?? 'village' }) - 1;
+  }
   private flatRect(x0: number, y0: number, x1: number, y1: number, h0: number, pave: boolean) {
     this.each((i, x, y) => {
       if (this.terrain[i] === 'rock') return;
@@ -486,11 +499,16 @@ export class Kit {
       else if (d < 8 && !this.water[i]) this.height[i] = Math.max(h0 - 1 - Math.floor(d / 2), Math.min(h0 + 1 + Math.floor(d / 2), this.height[i]));
     });
   }
-  /** One town structure with its footprint's NW corner on sim tile (tx, ty) (`slot`: skipped where it would land on a street, the court's ground, or water). */
-  structure(id: string, tx: number, ty: number, slot = false) { this.townReqs.push({ kind: 'at', id, t: [tx, ty], slot }); }
+  /**
+   * One town structure with its footprint's NW corner on sim tile (tx, ty), of `town` (default the nearest); `slot`:
+   * skipped where it would land on a street, the court's ground, or water; `court`: a piece of the safe court.
+   */
+  structure(id: string, tx: number, ty: number, slot = false, town = this.townAt([this.unitOf(tx), this.unitOf(ty)]), court = false) {
+    this.townReqs.push({ kind: 'at', id, t: [tx, ty], slot, town, court });
+  }
   /** `n` structures (cycling `ids`) on free, flat, dry ground `r0`..`r1` sim tiles from the unit point `at`, `gap` tiles apart; `street` > 0 pulls them to within that many tiles of a road. */
-  scatterTown(ids: string[], at: Pt, o: { n: number; r0?: number; r1: number; gap?: number; street?: number; water?: boolean }) {
-    this.townReqs.push({ kind: 'near', ids, at: [this.simTile(at[0]), this.simTile(at[1])], n: o.n, r0: o.r0 ?? 0, r1: o.r1, gap: o.gap ?? 4, street: o.street ?? 0, water: !!o.water });
+  scatterTown(ids: string[], at: Pt, o: { n: number; r0?: number; r1: number; gap?: number; street?: number; water?: boolean; town?: number }) {
+    this.townReqs.push({ kind: 'near', ids, at: [this.simTile(at[0]), this.simTile(at[1])], n: o.n, r0: o.r0 ?? 0, r1: o.r1, gap: o.gap ?? 4, street: o.street ?? 0, water: !!o.water, town: o.town ?? this.townAt(at) });
   }
   /**
    * A home agora or a frontier town's square (docs/WAR.md "Trade towns"), after the square and its roads: the square
@@ -498,55 +516,58 @@ export class Kit {
    * round a clear centre (the market spot, the claim point), a temple off the square.
    */
   agora(p: Pt, half = 6.5) {
-    const tx = Math.round(this.simTile(p[0])), ty = Math.round(this.simTile(p[1]));
+    const tx = Math.round(this.simTile(p[0])), ty = Math.round(this.simTile(p[1])), town = this.townAt(p, 'agora');
     if (this.K === 2) for (let i = 0; i < this.N; i++) if (this.terrain[i] === 'road') this.streets.add(i);
     // paved, but for a beaten-earth heart round the market spot (the claim banner stands on open ground)
     this.each((i, x, y) => { if (!this.water[i] && this.terrain[i] !== 'rock' && Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) <= half && Math.hypot(x - p[0], y - p[1]) > 3.2) this.terrain[i] = 'road'; });
-    const S = (id: string, dx: number, dy: number) => this.structure(T(id), tx + dx, ty + dy, true);
+    const S = (id: string, dx: number, dy: number) => this.structure(T(id), tx + dx, ty + dy, true, town);
     S('stoa', -12, -9); S('stoa', 10, 3);
     // stalls in rows on the north and south sides, a second row at the west and east ends (the square check keeps <= 15% closed)
     for (const [k, dx] of [-10, -7, 5, 8].entries()) for (const [n, dy] of [-11, -7, 5, 9].entries()) if (n === 0 || n === 3 || k === 0 || k === 3) S(['stall-a', 'stall-b', 'stall-c'][(k + n) % 3], dx, dy);
     S('statue', -6, -6); S('statue', 5, 5); S('well', 5, -6); S('board', -6, 5); S('goods', -3, -9); S('goods', 2, 10);
-    this.scatterTown([T('temple')], p, { n: 1, r0: 16, r1: 30, street: 4 });
+    this.scatterTown([T('temple')], p, { n: 1, r0: 16, r1: 30, street: 4, town });
   }
   /**
    * The walled market court of a frontier trade town (src/war/region/zones.ts): its ground levelled to `h` and paved
-   * with the caravan yards, a 3 m stone wall on the court's edge tiles with towers on the corners, an open gate in each
-   * gate rect (the only ways in), stalls along the inner walls, the price board and the rented warehouses outside.
+   * with the caravan yards, a 3 m stone wall (stoneWall) on the court's edge tiles with stone towers on the corners, a
+   * stone gate in each gate rect (the only ways in), stalls along the inner walls, the price board and the rented
+   * warehouses outside. The court's pieces stay neutral, gates open to all, and take no harm (src/war/sim/works.ts).
    */
   court(h: number) {
     const z = TRADE_ZONES[this.world.id];
     if (!z) throw new Error(`${this.world.id} has no trade court (src/war/region/zones.ts)`);
-    const c = z.safe[0], { x, y, w, h: hh } = c;
+    const c = z.safe[0], { x, y, w, h: hh } = c, town = this.townAt([this.unitOf(x + w / 2), this.unitOf(y + hh / 2)]);
+    const C = (id: string, tx: number, ty: number) => this.structure(T(id), tx, ty, false, town, true);
     this.flatRect(x - 6, y - 2, x + w + 6, y + hh + 2, h, true);
     for (const r of z.yard) this.flatRect(r.x, r.y, r.x + r.w, r.y + r.h, h, true);
     const gate = new Set((c.gates ?? []).flatMap((g) => [...Array(g.w * g.h)].map((_, n) => `${g.x + (n % g.w)},${g.y + Math.floor(n / g.w)}`)));
-    for (const [cx, cy] of [[x - 1, y - 1], [x + w - 1, y - 1], [x - 1, y + hh - 1], [x + w - 1, y + hh - 1]]) this.structure(T('tower'), cx, cy);
+    for (const [cx, cy] of [[x - 1, y - 1], [x + w - 1, y - 1], [x - 1, y + hh - 1], [x + w - 1, y + hh - 1]]) C('tower', cx, cy);
     // the north and south faces in 2-tile runs between the towers, the gates in their gaps; the west and east faces likewise
     for (const fy of [y, y + hh - 1]) for (let fx = x + 1; fx < x + w - 1; fx += 2) {
-      if (gate.has(`${fx},${fy}`)) { this.structure(T('gate-x'), fx, fy); continue; }
-      if (fx + 1 < x + w - 1 && !gate.has(`${fx + 1},${fy}`)) this.structure(T('wall-x'), fx, fy);
-      else { this.structure(T('wall-x'), fx - 1, fy); }
+      if (gate.has(`${fx},${fy}`)) { C('gate-x', fx, fy); continue; }
+      if (fx + 1 < x + w - 1 && !gate.has(`${fx + 1},${fy}`)) C('wall-x', fx, fy);
+      else { C('wall-x', fx - 1, fy); }
     }
-    for (const fx of [x, x + w - 1]) for (let fy = y + 1; fy < y + hh - 1; fy += 2) this.structure(T('wall-y'), fx, Math.min(fy, y + hh - 3));
+    for (const fx of [x, x + w - 1]) for (let fy = y + 1; fy < y + hh - 1; fy += 2) C('wall-y', fx, Math.min(fy, y + hh - 3));
     // inside: stalls against the west and east walls, the board and goods by the gate lane; outside: the warehouses
-    for (const [dx, dy, id] of [[1, 1, 'stall-c'], [1, hh - 3, 'stall-b'], [w - 3, 1, 'stall-a'], [w - 3, hh - 3, 'stall-c']] as const) this.structure(T(id), x + dx, y + dy);
-    this.structure(T('board'), x + 3, y + 4); this.structure(T('goods'), x + w - 4, y + 5); this.structure(T('goods'), x + 3, y + hh - 3);
-    for (const [dx, dy] of [[-5, 1], [-5, 5], [w + 2, 1], [w + 2, 5]]) this.structure(T('warehouse'), x + dx, y + dy, true);
+    for (const [dx, dy, id] of [[1, 1, 'stall-c'], [1, hh - 3, 'stall-b'], [w - 3, 1, 'stall-a'], [w - 3, hh - 3, 'stall-c']] as const) C(id, x + dx, y + dy);
+    C('board', x + 3, y + 4); C('goods', x + w - 4, y + 5); C('goods', x + 3, y + hh - 3);
+    for (const [dx, dy] of [[-5, 1], [-5, 5], [w + 2, 1], [w + 2, 5]]) this.structure(T('warehouse'), x + dx, y + dy, true, town);
   }
   /** Houses and workshops along the streets round a centre (units), `r0`..`r1` sim tiles out. */
   houses(at: Pt, n: number, r0: number, r1: number, ids = ['house-a', 'house-b', 'house-a', 'workshop', 'house-b', 'cottage', 'storehouse']) {
     this.scatterTown(ids.map(T), at, { n, r0, r1, gap: 5, street: 5 });
   }
-  /** Farms, olive presses and cottages on the outskirts. */
-  outskirts(at: Pt, n: number, r0: number, r1: number, ids = ['farm', 'olive-press', 'cottage', 'farm', 'cottage']) {
-    this.scatterTown(ids.map(T), at, { n, r0, r1, gap: 8, street: 10 });
+  /** Farms, olive presses and cottages on the outskirts (of `town`, default the nearest). */
+  outskirts(at: Pt, n: number, r0: number, r1: number, ids = ['farm', 'olive-press', 'cottage', 'farm', 'cottage'], town?: number) {
+    this.scatterTown(ids.map(T), at, { n, r0, r1, gap: 8, street: 10, town });
   }
-  /** A small village: cottages and a house round a well, farms beyond. */
+  /** A small village: cottages and a house round a well (its claim point beside it), farms beyond. */
   village(at: Pt, n = 5) {
-    this.scatterTown([T('well')], at, { n: 1, r1: 6 });
-    this.scatterTown(['cottage', 'house-a', 'cottage', 'cottage', 'house-b', 'cottage'].map(T), at, { n, r0: 4, r1: 18, gap: 5, street: 6 });
-    this.outskirts(at, Math.max(2, Math.round(n / 2)), 14, 32, ['farm', 'olive-press', 'farm']);
+    const town = this.townAt(at, 'village');
+    this.scatterTown([T('well')], at, { n: 1, r1: 6, town });
+    this.scatterTown(['cottage', 'house-a', 'cottage', 'cottage', 'house-b', 'cottage'].map(T), at, { n, r0: 4, r1: 18, gap: 5, street: 6, town });
+    this.outskirts(at, Math.max(2, Math.round(n / 2)), 14, 32, ['farm', 'olive-press', 'farm'], town);
   }
   /** A wooden jetty out over the water near `at`. */
   jetty(at: Pt, r = 24) { this.scatterTown([T('jetty')], at, { n: 1, r1: r, water: true }); }
@@ -554,14 +575,37 @@ export class Kit {
 /** Town structure ids: the elaia library's town set. */
 const T = (id: string) => `elaia/town-${id}`;
 type TownReq =
-  | { kind: 'at'; id: string; t: Pt; slot: boolean }
-  | { kind: 'near'; ids: string[]; at: Pt; n: number; r0: number; r1: number; gap: number; street: number; water: boolean };
+  | { kind: 'at'; id: string; t: Pt; slot: boolean; town: number; court: boolean }
+  | { kind: 'near'; ids: string[]; at: Pt; n: number; r0: number; r1: number; gap: number; street: number; water: boolean; town: number };
 /** Footprints of the town set (public/war/biomes/elaia/objects.json town-*), and the ones that never block. */
 const TOWN_FP: Map<string, [number, number]> = new Map(
   (JSON.parse(readFileSync(fileURLToPath(new URL('../../../public/war/biomes/elaia/objects.json', import.meta.url)), 'utf8')) as { objects: { id: string; footprint: [number, number]; town?: boolean }[] }).objects
     .filter((d) => d.town).map((d) => [`elaia/${d.id}`, d.footprint]),
 );
+/** Pieces the street layout lets stand against a road (the rest keep a tile clear round them). */
 const TOWN_OPEN = new Set(['gate-x', 'gate-y', 'farm', 'jetty', 'goods'].map(T));
+/** The sim building each town piece is (docs/WAR.md "Pre-built structures"); footprints as the art's (gate-y, wall-y: rot 1). */
+const PRE_TYPE: Record<string, BuildingType> = Object.fromEntries(Object.entries({
+  'house-a': 'house', 'house-b': 'house', cottage: 'cottage', temple: 'temple', stoa: 'stoa', statue: 'statue', well: 'well', jetty: 'jetty',
+  'stall-a': 'stall', 'stall-b': 'stall', 'stall-c': 'stall', warehouse: 'warehouse', workshop: 'workshop', storehouse: 'storehouse',
+  forge: 'forge', cookhouse: 'cookhouse', 'olive-press': 'olivePress', farm: 'farm', tower: 'stoneTower',
+  'wall-x': 'stoneWall', 'wall-y': 'stoneWall', 'gate-x': 'stoneGate', 'gate-y': 'stoneGate', board: 'board', goods: 'cache',
+} satisfies Record<string, BuildingType>).map(([id, t]) => [T(id), t]));
+/**
+ * A town's condition by its region (docs/WAR.md "Region lore and depth"): share of its houses, workshops and stalls
+ * lying in ruins and the hp share range of the rest. By depth (homes and entries whole, the deep regions abandoned),
+ * and by the lore where it says more: Stymphalia's causeway town emptied, Achelous's island town fallen to the
+ * ferrymen, the salt-cutters' huts of the Lagoon Coast emptied, the Kimmerians swallowed by the mist.
+ */
+const CONDITION_BY_DEPTH: { ruin: number; hp: [number, number] }[] = [
+  { ruin: 0, hp: [1, 1] }, { ruin: 0, hp: [1, 1] }, { ruin: 0.1, hp: [0.75, 1] }, { ruin: 0.35, hp: [0.45, 0.8] }, { ruin: 0.5, hp: [0.3, 0.7] },
+];
+const CONDITION: Record<string, { ruin: number; hp: [number, number] }> = {
+  stymphalia: { ruin: 0.35, hp: [0.5, 0.9] }, achelous: { ruin: 0.2, hp: [0.55, 0.9] }, 'kyrene-e': { ruin: 0.5, hp: [0.5, 0.8] }, kimmeria: { ruin: 0.55, hp: [0.35, 0.7] },
+};
+/** Pieces that may lie in ruins (a town keeps its temple, well, board and cache; its share of houses stays under TOWN_RUIN). */
+const MAY_RUIN = new Set<BuildingType>(['house', 'cottage', 'tent', 'stall', 'workshop', 'storehouse', 'forge', 'cookhouse', 'olivePress', 'farm', 'statue', 'warehouse']);
+const PREBUILT_POP = new Set<BuildingType>(['house', 'cottage', 'tent']);
 
 // ======================================================================================= the build
 
@@ -814,6 +858,8 @@ export function build(def: RegionDef): Built {
   };
   let missed = 0;
   // ---- town dressing (Kit.structure / scatterTown): before the set pieces, so those keep off it
+  // M7b: the town pieces as pre-built buildings (with their town and whether a safe court's), and the tiles the sim closes under them
+  const pre: (PrebuiltEntry & { town: number; court: boolean })[] = [];
   const townShut = new Uint8Array(N);
   {
     const inRects = (x: number, y: number, rs: { x: number; y: number; w: number; h: number }[]) => rs.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
@@ -837,29 +883,33 @@ export function build(def: RegionDef): Built {
       }
       return !wet || land;
     };
-    const put1 = (id: string, x0: number, y0: number) => {
-      const fp = TOWN_FP.get(id)!, block = !TOWN_OPEN.has(id);
+    const put1 = (id: string, x0: number, y0: number, town: number, inCourt = false) => {
+      const fp = TOWN_FP.get(id)!, block = !TOWN_OPEN.has(id), type = PRE_TYPE[id];
+      if (!type) throw new Error(`town structure ${id} has no building type`);
       clear(x0 - 1, y0 - 1, x0 + fp[0] + 1, y0 + fp[1] + 1);
       for (let y = y0 - 1; y <= y0 + fp[1]; y++) for (let x = x0 - 1; x <= x0 + fp[0]; x++) {
         const j = at(x, y);
         if (j < 0) continue;
-        if (x >= x0 && y >= y0 && x < x0 + fp[0] && y < y0 + fp[1]) { taken.add(j); if (block) townShut[j] = 1; } else if (block) reserved.add(j);
+        // the sim closes a building's footprint but a gate's
+        if (x >= x0 && y >= y0 && x < x0 + fp[0] && y < y0 + fp[1]) { taken.add(j); if (type !== 'stoneGate') townShut[j] = 1; } else if (block) reserved.add(j);
       }
-      pinned.add(objects[objects.push({ id, x: x0 + fp[0] - 0.1, y: y0 + fp[1] - 0.1 }) - 1]);
+      const rot = fp[1] > fp[0] && (type === 'stoneGate' || type === 'stoneWall') ? 1 : 0;
+      const tiles = type === 'stoneWall' ? footprintTiles(x0 + fp[0] / 2, y0 + fp[1] / 2, fp).flat() : undefined;
+      pre.push({ type, x: x0 + fp[0] / 2, y: y0 + fp[1] / 2, ...(rot ? { rot } : {}), ...(tiles ? { tiles } : {}), town, court: inCourt });
       placed++;
     };
     for (const r of k.townReqs) {
       if (r.kind === 'near') continue;
       if (!TOWN_FP.has(r.id)) throw new Error(`unknown town structure ${r.id}`);
       if (!r.slot) {
-        if (free(r.id, r.t[0], r.t[1], 'at')) put1(r.id, r.t[0], r.t[1]);
+        if (free(r.id, r.t[0], r.t[1], 'at')) put1(r.id, r.t[0], r.t[1], r.town, r.court);
         else (missed++, log.push(`town ${r.id} at ${r.t}: blocked`));
         continue;
       }
       // a slot slides up to 3 tiles off a street before it gives up
       const off = [0, 1, -1, 2, -2, 3, -3];
       const hit = off.flatMap((dy) => off.map((dx) => [r.t[0] + dx, r.t[1] + dy] as Pt)).sort((a, b) => Math.hypot(a[0] - r.t[0], a[1] - r.t[1]) - Math.hypot(b[0] - r.t[0], b[1] - r.t[1])).find(([x, y]) => free(r.id, x, y, 'slot'));
-      if (hit) put1(r.id, hit[0], hit[1]);
+      if (hit) put1(r.id, hit[0], hit[1], r.town, r.court);
     }
     for (const r of k.townReqs) {
       if (r.kind !== 'near') continue;
@@ -877,7 +927,7 @@ export function build(def: RegionDef): Built {
         const id = r.ids[done.length % r.ids.length], fp = TOWN_FP.get(id);
         if (!fp) throw new Error(`unknown town structure ${id}`);
         if (done.some((d) => Math.hypot(d[0] - x, d[1] - y) < r.gap) || spotNear(x + fp[0] / 2, y + fp[1] / 2, 4)) continue;
-        if (free(id, x, y, 'near', r.water)) { put1(id, x, y); done.push([x, y]); }
+        if (free(id, x, y, 'near', r.water)) { put1(id, x, y, r.town); done.push([x, y]); }
       }
       if (done.length < r.n) (missed += r.n - done.length), log.push(`town ${r.ids[0]} near ${r.at.map(Math.round)}: ${done.length}/${r.n}`);
     }
@@ -938,7 +988,7 @@ export function build(def: RegionDef): Built {
     const base = massifBase(land, placed);
     let open = 0;
     for (let i = 0; i < N; i++) {
-      if (!base[i] && !townShut[i]) continue;
+      if (!base[i]) continue;
       if (base[i] && terrain[i] !== 'rock' && water[i] !== 2) open++;
       if (blocked.length && blocked.at(-2)! + blocked.at(-1)! === i) blocked[blocked.length - 1]++;
       else blocked.push(i, 1);
@@ -947,7 +997,7 @@ export function build(def: RegionDef): Built {
   }
 
   // ---- walkability (as the sim: open tile, not deep, not rock, not under a blocker; steps of one level)
-  const shut = new Uint8Array(N);
+  const shut = townShut.slice();
   for (let n = 0; n < blocked.length; n += 2) shut.fill(1, blocked[n], blocked[n] + blocked[n + 1]);
   for (const o of objects) {
     const fp = OBJECT_BLOCKS[o.id];
@@ -980,12 +1030,41 @@ export function build(def: RegionDef): Built {
     if (!p) { log.push(`lair ${l.kind} near ${l.at}: no ground`); continue; }
     lairs.push({ kind: l.kind, x: p[0], y: p[1], ...(l.count ? { count: l.count } : {}), ...(l.as ? { as: l.as } : {}) });
   }
+  // M7b: every town of a region outside the homes has a claim point (docs/WAR.md "Who owns a town"): the authored one
+  // on its market spot, else a new one by its centre (a village's well), guarded by the lairs round it
+  const townClaim = k.towns.map((t) => {
+    if (k.world.role === 'home') return -1;
+    const own = k.claimReqs.findIndex((c) => Math.hypot(c.at[0] - t.at[0], c.at[1] - t.at[1]) <= 12);
+    return own >= 0 ? own : k.claimReqs.push({ at: t.at, r: 30 }) - 1;
+  });
   const claimPoints: { x: number; y: number; lairs: number[] }[] = [];
+  const claimOf: number[] = [];
   for (const c of k.claimReqs) {
+    claimOf.push(-1);
     const p = near(c.at, (x, y) => ground(x, y) && lairs.every((o) => Math.hypot(o.x - x, o.y - y) >= 25 * (K / 2) * 0.5));
     if (!p) { log.push(`claim near ${c.at}: no ground`); continue; }
     const ids = c.lairs ?? lairs.flatMap((l, i) => (Math.hypot(l.x - p[0], l.y - p[1]) < c.r * K ? [i] : []));
-    claimPoints.push({ x: p[0], y: p[1], lairs: ids });
+    claimOf[claimOf.length - 1] = claimPoints.push({ x: p[0], y: p[1], lairs: ids }) - 1;
+  }
+  // the pre-built pieces: their town's claim point, and the town's condition by depth and lore (a court stays whole)
+  const prebuilt: PrebuiltEntry[] = [];
+  {
+    const cond = CONDITION[k.world.id] ?? CONDITION_BY_DEPTH[REGION_DEPTH[k.world.id] ?? 1];
+    const homes = new Map<number, number>(), ruins = new Map<number, number>();
+    for (const e of pre) if (PREBUILT_POP.has(e.type)) homes.set(e.town, (homes.get(e.town) ?? 0) + 1);
+    for (const e of pre) {
+      const { town, court, ...entry } = e, out: PrebuiltEntry = entry;
+      const cp = townClaim[town] >= 0 ? claimOf[townClaim[town]] : -1;
+      if (cp >= 0) out.claim = cp;
+      const r = hsh(Math.round(e.x * 2), Math.round(e.y * 2), 91), pop = PREBUILT_POP.has(e.type);
+      if (!court && cond.ruin > 0 && MAY_RUIN.has(e.type) && r < cond.ruin && (!pop || (ruins.get(town) ?? 0) + 1 < 0.7 * (homes.get(town) ?? 0))) {
+        out.state = 'ruined';
+        if (pop) ruins.set(town, (ruins.get(town) ?? 0) + 1);
+      } else if (!court && cond.hp[0] < 1) out.hp = Math.round(100 * (cond.hp[0] + (cond.hp[1] - cond.hp[0]) * hsh(Math.round(e.x * 2), Math.round(e.y * 2), 92))) / 100;
+      prebuilt.push(out);
+    }
+    const ruined = prebuilt.filter((e) => e.state === 'ruined').length;
+    if (prebuilt.length) log.push(`prebuilt ${prebuilt.length} (${ruined} ruined) in ${k.towns.length} towns`);
   }
 
   // ---- reachability from the first entry
@@ -1041,7 +1120,7 @@ export function build(def: RegionDef): Built {
   const json = {
     id: w.id, name: w.name, w: W, h: H, cells: { rle: encodeCells(height, terrain, water) }, entries, noBuild,
     objs: encodeObjects(objects), blocked, visual: { scale: 2 as const, rle: encodeVisual(fine.kind, fine.z) },
-    biomes: { names: [...BIOMES], rle: encodeBiomes(biome) }, lairs, claimPoints, meta,
+    biomes: { names: [...BIOMES], rle: encodeBiomes(biome) }, lairs, claimPoints, ...(prebuilt.length ? { prebuilt } : {}), meta,
   };
   const spots: Record<string, Pt> = {};
   for (const s of k.sides) spots[`entry_${s.id}`] = k.entry(s.id, 5);
