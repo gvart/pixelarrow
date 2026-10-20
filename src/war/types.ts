@@ -391,6 +391,8 @@ export interface WarBuildSim extends WarSim {
   damageBuilding(id: number, dmg: number): void;
   /** Scenarios: the team's unfinished bridge pieces done at once (standing bridges at the start). */
   finishBridges(team: number): void;
+  /** M6b scenarios and benches: a finished, empty cart of `owner` (team `team`) at (x,y); its siege id. */
+  spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number): number;
   /** Spawn the region's lairs (neutral play; once). */
   spawnMobs(): void;
   /** W-39 fog: the team sees tile point (x,y) now. */

@@ -2667,6 +2667,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     addStock: works.addStock,
     damageBuilding: works.damage,
     finishBridges: works.finishBridges,
+    spawnCart: (team, owner, type, x, y) => siege.cart(team, owner, type, x, y),
     spawnMobs: () => mobs.spawn(),
     visibleTo: vision.visibleTo,
     teamGrid: vision.teamGrid,

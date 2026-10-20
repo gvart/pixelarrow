@@ -23,7 +23,7 @@ import { loads, newHold, putLots, spoil, type Hold, type Lot } from './holders';
 export const PORTER = { loads: 1, slow: 0.9, every: 20 };
 export const PILE = { merge: 1, max: 8, reach: 1.6, decay: 9000, wear: 25, spoil: 0.5, salvage: 300 };
 /** M6b carts (docs/WAR.md "Carts"): loads, per-player cap; halt while a foe is within `halt` tiles and `resume` ticks after; capture: a foe beside it `capture` ticks with no unit of its owner's team within `guard`. */
-export const CART = { cap: 2, emporos: 3, halt: 8, resume: 100, capture: 50, beside: 2, guard: 8, reach: 3, driver: 2, captureXp: 5 };
+export const CART = { cap: 2, emporos: 3, halt: 8, resume: 100, capture: 50, beside: 2.5, guard: 8, reach: 3, driver: 2, captureXp: 5 };
 export const CART_LOADS: Record<'handcart' | 'wagon', number> = { handcart: 6, wagon: 12 };
 /** Pack Mules (merchant node): a wagon carries 18. */
 export const PACK_MULES = 18;

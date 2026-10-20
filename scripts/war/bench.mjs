@@ -253,3 +253,30 @@ console.log(
   const snap = war.snapshot(), shot = snap.sieges.filter((e) => e.type === 'oxybeles' && e.swing !== undefined).length;
   console.log(`siege: units ${war.stats().units}, engines ${sg.length} (built in ${t0} ticks), stakes ${snap.buildings.filter((b) => b.type === 'stakes' && b.state === 'done').length}/${sites.length}, ticks ${ticks}: ${summary(sms)}; oxybeles that shot ${shot}, fallen ${snap.units.filter((u) => u.state === 'dead').length}`);
 }
+
+// trade (M6b, M6c): 30 carts of 15 players a side, each pulled by 2 men and escorted by a squad of 12, drive across
+// the map while 150 raiders attack-move through them: 570 men + 30 carts, escorts, halts, captures and loot piles
+{
+  const n = 200, flat = { id: 'f', name: 'f', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [] };
+  const war = sim.createSim(flat, 7);
+  const pulls = [];
+  for (let k = 0; k < 30; k++) {
+    const team = k % 2, x = team ? 185 : 15, y = 20 + Math.floor(k / 2) * 11, owner = `t${k}`;
+    const c = war.spawnCart(team, owner, k % 3 ? 'handcart' : 'wagon', x, y);
+    const p = war.spawnSquad(owner, team, 'militia', 2, x, y + 1.5);
+    war.order({ kind: 'crew', squad: p, siege: c });
+    const e = war.spawnSquad(owner, team, 'hoplite', N, x + (team ? 4 : -4), y);
+    war.order({ kind: 'escort', squad: e, cart: c });
+    pulls.push([p, team ? 15 : 185, y]);
+  }
+  for (let k = 0; k < 13; k++) {
+    const r = war.spawnSquad(`r${k}`, 2, 'militia', k < 12 ? N : 6, 100, 15 + k * 13);
+    war.order({ kind: 'attackMove', squad: r, x: 100, y: 190 - k * 13 });
+  }
+  for (let i = 0; i < 20; i++) war.step();
+  for (const [p, x, y] of pulls) war.order({ kind: 'move', squad: p, x, y });
+  const tms = [];
+  for (let t = 0; t < ticks; t++) war.step(), tms.push(war.stats().stepMs);
+  const snap = war.snapshot(), cs = snap.sieges.filter((e) => e.type === 'handcart' || e.type === 'wagon');
+  console.log(`trade: units ${war.stats().units} + carts ${cs.length}, ticks ${ticks}: ${summary(tms)}; carts wrecked ${cs.filter((e) => e.state === 'destroyed').length}, captured ${cs.filter((e, i) => e.team !== i % 2).length}, piles ${snap.piles?.length ?? 0}`);
+}
