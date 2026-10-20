@@ -9,16 +9,18 @@
  * Mouse: drag pans, wheel zooms, hover shows a region's card, click selects (a region with your men selects your
  * squad there: its neighbours light up; click one to order the transfer), double click enters a region.
  * Keys: Enter enters the hovered / selected region (or sends the transfer being ordered), Esc clears, T trade routes,
- * F fits the map. `window.__world` is the screen's state for scripts.
+ * F fits the map, H the haul planner (M6l: from, to and cart; while it is open a click on the map picks the destination,
+ * shift-click the start). Convoys (carts and porters on the road) show by fog and the Safe Roads rule; a market town's
+ * hover card shows its price board as your men last saw it; the season panel adds today's trade score. `window.__world` is the screen's state for scripts.
  */
 import '@fontsource/inter/600.css';
 import '@fontsource/cinzel/700.css';
 import type { RegionState } from '../net/world';
 import { ALLIANCES } from '../world/alliances';
-import { worldRegion } from '../world/graph';
+import { worldRegion, WORLD_IDS } from '../world/graph';
 import { bar, CSS, uiZoom } from '../view/hud/kit';
 import { draggable } from '../view/hud/drag';
-import { inSight, isChokepoint, MARKET_TOWNS, PURPOSE, seasonStandings } from './geo';
+import { convoySeen, FRONTIER_TOWNS, HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, PURPOSE, seasonStandings, TRADE_CAP, type HaulKind } from './geo';
 import { allianceColor, ART, clock, WorldMap, type MapState } from './map';
 import { MockSource, NetSource, travelMs, type WorldSource, type WorldView } from './source';
 
@@ -57,6 +59,7 @@ const squadsEl = mk('wvSquads', 'rf-card wv-panel', 'left:8px;top:48px');
 const seasonEl = mk('wvSeason', 'rf-card wv-panel', 'right:8px;top:48px');
 const card = mk('wvCard', 'rf-card wv-panel', 'display:none;pointer-events:none;z-index:6;width:250px');
 const order = mk('wvOrder', 'rf-card wv-panel', 'display:none;left:50%;bottom:16px;transform:translateX(-50%);width:300px');
+const haulEl = mk('wvHaul', 'rf-card wv-panel', 'display:none;left:50%;bottom:12px;transform:translateX(-50%);width:264px');
 const toast = mk('wvToast', 'rf-label', '');
 /** The kit's scale a step smaller: the map is the screen here, the panels sit beside it. */
 const zoom = () => Math.max(1, Math.round(uiZoom() * 0.8 * 4) / 4);
@@ -71,7 +74,7 @@ let map: WorldMap;
 /** Fit the map between the side panels, under the band. */
 const fit = () => { const z = zoom(); map.fit({ top: 48 * z, left: 200 * z, right: 200 * z, bottom: 12 }); };
 let view: WorldView | null = null;
-const st: MapState = { regions: new Map(), transit: [], squads: new Map(), you: null, hover: null, selected: null, squadAt: null, targets: new Set(), routes: q.get('routes') !== '0', now: Date.now() };
+const st: MapState = { regions: new Map(), transit: [], squads: new Map(), you: null, hover: null, selected: null, squadAt: null, targets: new Set(), routes: q.get('routes') !== '0', now: Date.now(), convoys: [], haul: null };
 let ordering: string | null = null;
 let mouse = { x: 0, y: 0 };
 
@@ -92,12 +95,14 @@ function renderBand(): void {
     ${you !== null ? `${swatch(you)}<span>${aName(you)}</span><span class="rf-sep"></span>` : ''}
     <span class="rf-dim" id="wvStatus">${view?.status ?? 'loading'}</span><span class="rf-sep"></span>
     <button class="rf-tbtn${st.routes ? ' on' : ''}" data-act="routes" title="trade routes (T)">Routes T</button>
+    <button class="rf-tbtn${haul.open ? ' on' : ''}" data-act="haul" title="plan a haul: path, ETA, chokepoints and ambush risk (H)">Haul H</button>
     <button class="rf-tbtn" data-act="fit" title="fit the map (F)">Fit F</button>`;
 }
 band.addEventListener('click', (e) => {
   const a = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
   if (a === 'routes') (st.routes = !st.routes), renderBand();
   if (a === 'fit') fit();
+  if (a === 'haul') toggleHaul();
 });
 
 function renderSquads(): void {
@@ -133,7 +138,15 @@ function renderSeason(): void {
       <span class="rf-num" style="width:38px;text-align:right">${r.towns}</span></div>`).join('')}
     <div class="wv-kv"><span>Omphalos</span><span>${holder >= 0 ? `${aName(holder)} holds it` : 'unclaimed'}</span>
       <span>Frontier</span><span>${ranked.map((r) => `${aName(r.id).slice(0, 3)} ${r.frontier}/4`).join(' · ')}</span></div>
+    ${view.trade ? tradeHtml(ranked.map((r) => r.id), view.trade) : ''}
     <div class="rf-dim" style="margin-top:5px">Hegemony: Omphalos and 3 of the 4 frontier towns for 24 h ends the season.</div>`;
+}
+
+/** M6l: today's trade score per alliance against the daily cap. */
+function tradeHtml(ids: number[], trade: number[]): string {
+  return `<div class="rf-cap" style="margin-top:6px">Trade today <span class="rf-dim">cap ${TRADE_CAP}</span></div>
+    ${ids.map((a) => `<div class="wv-row" style="padding:1px 4px">${swatch(a)}<span style="flex:1">${aName(a)}</span>${bar(trade[a] >= TRADE_CAP ? 'burn' : 'ok', trade[a] / TRADE_CAP, 56)}<span class="rf-num" style="width:40px;text-align:right">${trade[a]}/${TRADE_CAP}</span></div>`).join('')}
+    <div class="rf-dim" style="margin-top:2px">1 a 100 coin of fills and paid contracts, goods from 3+ transfers away, across alliances.</div>`;
 }
 draggable(seasonEl);
 
@@ -159,8 +172,63 @@ function regionCard(id: string): string {
       <span>Troops</span>${troops}
       ${you !== null && seen ? `<span>Garrison</span><span style="display:flex;gap:6px;align-items:center">${bar('ok', ours / quota, 70)}<span class="rf-num">${ours}/${quota}</span></span>` : ''}
       ${mine ? `<span>Yours</span><span>${mine} men</span>` : ''}</div>
-    <div class="rf-dim" style="margin-top:4px">${st.targets.has(id) ? 'click: send the squad here' : 'double-click or Enter: enter the region'}</div>`;
+    ${MARKET_TOWNS.has(id) ? boardHtml(id) : ''}
+    <div class="rf-dim" style="margin-top:4px">${haul.open ? 'click: haul here · shift-click: haul from here' : st.targets.has(id) ? 'click: send the squad here' : 'double-click or Enter: enter the region'}</div>`;
 }
+
+/** M6l: a market town's price board as your men last saw it (fog: never seen, or how old). */
+function boardHtml(id: string): string {
+  const b = view?.boards?.[id];
+  if (!b) return `<div class="rf-cap" style="margin-top:5px">Price board</div><div class="rf-dim">never seen: none of your men has been to its market</div>`;
+  const ago = Math.max(0, Math.round((Date.now() - b.at) / 60000)), n = (v: number | null) => (v === null ? '<span class="rf-dim">—</span>' : String(v));
+  return `<div class="rf-cap" style="margin-top:5px">Price board <span class="rf-dim">seen ${ago < 1 ? 'just now' : `${ago} min ago`}${FRONTIER_TOWNS.includes(id) ? ' · safe court' : ''}</span></div>
+    <div style="display:grid;grid-template-columns:1fr 38px 38px 44px;gap:0 4px;font-size:11.5px">
+      <span class="rf-dim">good</span><span class="rf-dim" style="text-align:right">ask</span><span class="rf-dim" style="text-align:right">bid</span><span class="rf-dim" style="text-align:right">depth</span>
+      ${b.rows.map((r) => `<span style="display:flex;align-items:center;gap:3px"><img src="war/ui/icons/24/res-${r.good}.png" width="14" height="14" alt="">${r.good}</span><span class="rf-num" style="text-align:right">${n(r.ask)}</span><span class="rf-num" style="text-align:right">${n(r.bid)}</span><span class="rf-num rf-dim" style="text-align:right">${r.depth}</span>`).join('')}
+    </div><div class="rf-dim" style="font-size:11px">coin a unit · ${b.fills} fills in the last 10</div>`;
+}
+
+// ---------- M6l haul planner ----------
+const haul: { open: boolean; from: string; to: string; kind: HaulKind } = { open: false, from: 'dodona', to: 'ammos', kind: 'wagon' };
+const WORLD_SORTED = [...WORLD_IDS].sort((a, b) => Number(MARKET_TOWNS.has(b)) - Number(MARKET_TOWNS.has(a)) || name(a).localeCompare(name(b)));
+const RISK = { low: ['clear', 'var(--rf-good)'], watch: ['watch', 'var(--rf-gold)'], high: ['high', 'var(--rf-bad)'], unknown: ['unseen', 'var(--rf-muted)'] } as const;
+const chip = (r: keyof typeof RISK) => `<span class="wv-flag" style="color:${RISK[r][1]};margin:0">${RISK[r][0]}</span>`;
+function replan(): void {
+  st.haul = haul.open ? planHaul(haul.from, haul.to, haul.kind, st.you as 0 | null, st.regions, ownSquadsIn()) : null;
+}
+function renderHaul(): void {
+  replan();
+  if (!haul.open) return void (haulEl.style.display = 'none');
+  const p = st.haul, opts = (sel: string) => WORLD_SORTED.map((id) => `<option value="${id}"${id === sel ? ' selected' : ''}>${name(id)}${MARKET_TOWNS.has(id) ? ' ◆' : ''}</option>`).join('');
+  haulEl.innerHTML = `<div class="rf-head"><span class="rf-name">Haul planner</span><button class="rf-tbtn x" data-act="close" style="margin-left:auto" title="close (H)">×</button></div>
+    <div class="wv-kv" style="grid-template-columns:40px 1fr;align-items:center"><span>From</span><select data-k="from">${opts(haul.from)}</select><span>To</span><select data-k="to">${opts(haul.to)}</select></div>
+    <div class="rf-segs" style="margin-top:5px">${(['handcart', 'wagon', 'porters'] as const).map((k) => `<button class="rf-tbtn${haul.kind === k ? ' on' : ''}" data-kind="${k}" title="${HAUL_LOADS[k]} loads">${k}</button>`).join('')}</div>
+    ${p ? `<div class="wv-kv"><span>ETA</span><span><b class="rf-num">${clock(Math.round(p.ms / 1000))}</b> <span class="rf-dim">${p.legs.length} legs · ${HAUL_LOADS[haul.kind]} loads</span></span>
+      <span>Risk</span><span>${chip(p.risk)}</span>
+      <span>Choke</span><span>${p.chokepoints.length ? p.chokepoints.map(name).join(', ') : '<span class="rf-dim">none</span>'}</span></div>
+      <div style="margin-top:4px;max-height:180px;overflow:auto">${p.legs.map((l) => `<div class="wv-row" style="padding:1px 2px" title="${l.why}"><span style="flex:1">${name(l.to)}${isChokepoint(l.to) ? ' <span class="rf-dim">choke</span>' : ''}</span><span class="rf-num rf-dim">${clock(Math.round(l.ms / 1000))}</span>${chip(l.risk)}</div>`).join('')}</div>
+      <div class="rf-dim" style="margin-top:4px">Risk from what your alliance sees now: fights, foe land, chokepoints with ambush spots. Escort the risky legs.</div>`
+      : '<div class="rf-dim" style="margin-top:6px">pick two different regions</div>'}`;
+  haulEl.style.display = '';
+}
+function toggleHaul(): void {
+  haul.open = !haul.open;
+  if (haul.open && st.selected) haul.from = st.selected;
+  renderHaul();
+  renderBand();
+}
+haulEl.addEventListener('change', (e) => {
+  const el = e.target as HTMLSelectElement;
+  if (el.dataset.k === 'from') haul.from = el.value;
+  if (el.dataset.k === 'to') haul.to = el.value;
+  renderHaul();
+});
+haulEl.addEventListener('click', (e) => {
+  const t = e.target as HTMLElement, k = t.closest<HTMLElement>('[data-kind]')?.dataset.kind as HaulKind | undefined;
+  if (k) (haul.kind = k), renderHaul();
+  if (t.closest('[data-act="close"]')) toggleHaul();
+});
+draggable(haulEl);
 
 function placeCard(): void {
   if (!st.hover || ordering) return void (card.style.display = 'none');
@@ -232,6 +300,8 @@ function apply(v: WorldView): void {
   st.transit = v.snap.transit;
   st.squads = new Map(v.squads.map((s) => [s.region, s.men]));
   st.you = v.snap.you.alliance;
+  st.convoys = (v.convoys ?? []).filter((c) => convoySeen(c, st.you as 0 | null, st.regions, ownSquadsIn()));
+  if (haul.open) renderHaul();
   if (st.squadAt && !st.squads.has(st.squadAt)) selectRegion(st.selected);
   renderBand();
   renderSquads();
@@ -261,6 +331,7 @@ canvas.addEventListener('pointerup', (e) => {
   down = null;
   if (!click) return;
   const id = map.regionAt(...map.toMap(e.clientX, e.clientY));
+  if (haul.open && id) { if (e.shiftKey) haul.from = id; else haul.to = id; renderHaul(); return; }
   if (id && st.targets.has(id)) openOrder(id);
   else selectRegion(id);
 });
@@ -272,6 +343,7 @@ addEventListener('keydown', (e: KeyboardEvent) => {
   if (k === 'enter') ordering ? void sendOrder() : enter(st.hover ?? st.selected);
   else if (k === 'escape') ordering ? closeOrder() : selectRegion(null);
   else if (k === 't') (st.routes = !st.routes), renderBand();
+  else if (k === 'h') toggleHaul();
   else if (k === 'f') fit();
   else if (k === '+' || k === '=') map.zoom(1.2, innerWidth / 2, innerHeight / 2);
   else if (k === '-') map.zoom(1 / 1.2, innerWidth / 2, innerHeight / 2);
@@ -293,5 +365,5 @@ void WorldMap.load(canvas).then(async (m) => {
     say(String((e as Error).message), 60_000);
     band.querySelector('#wvStatus')!.textContent = 'offline: no server';
   }
-  (window as unknown as { __world: unknown }).__world = { st, map, source, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0) => { st.hover = id; mouse = { x, y }; placeCard(); } };
+  (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0) => { st.hover = id; mouse = { x, y }; placeCard(); } };
 });

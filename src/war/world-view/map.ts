@@ -5,7 +5,7 @@
  */
 import { ALLIANCES } from '../world/alliances';
 import type { RegionState, TransitSnap } from '../net/world';
-import { TRADE_ROUTES, MARKET_TOWNS, isChokepoint } from './geo';
+import { TRADE_ROUTES, MARKET_TOWNS, isChokepoint, type ConvoySnap, type HaulPlan } from './geo';
 
 type Box = [number, number, number, number];
 interface PlacedLabel { id: string; lines: string[]; size: number; x: number; y: number; w: number; h: number; big: boolean; leader: [number, number] | null }
@@ -42,6 +42,9 @@ export interface MapState {
   targets: Set<string>;
   routes: boolean;
   now: number;
+  /** M6l: carts and porters on the road this alliance sees (fog and Safe Roads applied), the planned haul. */
+  convoys: ConvoySnap[];
+  haul: HaulPlan | null;
 }
 
 const img = (src: string) => new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src)); i.src = src; });
@@ -116,6 +119,8 @@ export class WorldMap {
     const names = ['base', 'base@2x', 'borders', 'borders@2x', 'region-ids', 'markers/battle', 'markers/fort', 'markers/transit', ...ALLIANCES.map((a) => `banners/${a.key}`)];
     const got = await Promise.all(names.map((n) => img(`${ART}${n}.${n.startsWith('base') ? 'jpg' : 'png'}`)));
     names.forEach((n, i) => (m.pics[n] = got[i]));
+    // M6l: the kit's cart icons (public/war/ui), for convoys on the road; missing ones are drawn as a dot
+    for (const n of ['trade-cart', 'trade-wagon', 'act-load']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
     const ids = got[names.indexOf('region-ids')], c = document.createElement('canvas');
     c.width = ids.width;
     c.height = ids.height;
@@ -260,9 +265,10 @@ export class WorldMap {
       const foe = contender(r);
       g.save();
       g.clip(p);
-      g.strokeStyle = foe < 0 ? 'rgba(240,138,112,.55)' : hexA(allianceColor(this.art, foe), 0.62);
-      g.lineWidth = 7;
-      for (let x = -H; x < W; x += 22) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + H, H); g.stroke(); }
+      // light enough that the painting reads through it (owner feedback)
+      g.strokeStyle = foe < 0 ? 'rgba(240,138,112,.3)' : hexA(allianceColor(this.art, foe), 0.34);
+      g.lineWidth = 3.5;
+      for (let x = -H; x < W; x += 26) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + H, H); g.stroke(); }
       g.restore();
     }
     g.drawImage(this.pics[hi ? 'borders@2x' : 'borders'], 0, 0, W, H);
@@ -290,6 +296,7 @@ export class WorldMap {
     }
 
     if (st.routes) this.drawRoutes(g);
+    if (st.haul) this.drawHaul(g, st.haul);
     this.drawLabels(g, st);
     this.drawMarkers(g, st);
   }
@@ -337,7 +344,7 @@ export class WorldMap {
       if (rs.besieged) marks.push([id, 'markers/fort', cx + 6 * s, cy - 24 * s, 48 * s, 48 * s]);
       else if (rs.contested) marks.push([id, 'markers/battle', cx + 4 * s, cy - 28 * s, 56 * s, 56 * s]);
     }
-    const b = s * 0.7;
+    const b = s; // full size: the banner and its count read beside the names (owner feedback)
     for (const id of st.squads.keys()) {
       const r = this.art.regions[id];
       if (r) banners.set(id, [r.centroid[0] - 44 * b, r.centroid[1] - 28 * b, b]);
@@ -356,7 +363,11 @@ export class WorldMap {
     const spots = this.markerSpots(st), base = Math.max(14, 13 / this.k), s = Math.max(1, 0.8 / this.k);
     const obstacles: Box[] = [
       ...spots.marks.map(([, , x, y, w, h]) => [x, y, x + w, y + h] as Box),
-      ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (8 * String(st.squads.get(id)).length + 10) * s, y + 56 * b] as Box),
+      ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (10 * String(st.squads.get(id)).length + 14) * s, y + 56 * b] as Box),
+      ...st.convoys.map((c) => {
+        const q = 32 * s, [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now).map((v) => Math.round(v / q) * q);
+        return [x - 16 * s - q / 2, y - 16 * s - q / 2, x + 16 * s + 64 * s + q / 2, y + 16 * s + q / 2] as Box;
+      }),
       // squads on the road, snapped to a coarse step so the names re-flow now and then, not every frame
       ...st.transit.map((t) => {
         const q = 32 * s, [x, y] = this.transitPos(t, st.now).map((v) => Math.round(v / q) * q);
@@ -492,8 +503,9 @@ export class WorldMap {
         g.fill();
       }
       g.drawImage(pic(`banners/${key}`), bx, by, 40 * b, 56 * b);
-      this.badge(g, String(men), bx + 38 * b, by + 12 * b, s, on);
+      this.badge(g, String(men), bx + 38 * b, by + 14 * b, s * 1.2, on);
     }
+    this.drawConvoys(g, st);
     // on the road: the transit marker along the border with its ETA
     for (const t of st.transit) {
       const [x, y] = this.transitPos(t, st.now);
@@ -501,6 +513,61 @@ export class WorldMap {
       const left = Math.max(0, Math.ceil((t.arriveAt - st.now) / 1000));
       this.badge(g, t.state === 'queued' ? `${t.men} · waiting` : `${t.men} · ${clock(left)}`, x + 18 * s, y - 34 * s, s, false);
     }
+  }
+
+  /** M6l: a cart (or porters' load) on the road: the kit's cart icon on an alliance-coloured disc, loads and ETA. */
+  private drawConvoys(g: CanvasRenderingContext2D, st: MapState): void {
+    const s = Math.max(1, 0.8 / this.k);
+    for (const c of st.convoys) {
+      const [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now), r = 15 * s;
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fillStyle = '#17100d';
+      g.fill();
+      g.lineWidth = 3 * s;
+      g.strokeStyle = allianceColor(this.art, c.alliance);
+      g.stroke();
+      if (c.safe) { g.setLineDash([4 * s, 3 * s]); g.strokeStyle = '#9fd47a'; g.lineWidth = 1.5 * s; g.beginPath(); g.arc(x, y, r + 3 * s, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
+      const ic = this.pics[c.kind === 'wagon' ? 'trade-wagon' : c.kind === 'handcart' ? 'trade-cart' : 'act-load'];
+      if (ic) g.drawImage(ic, x - 12 * s, y - 12 * s, 24 * s, 24 * s);
+      const left = Math.max(0, Math.ceil((c.arriveAt - st.now) / 1000));
+      this.badge(g, `${c.loads} · ${clock(left)}`, x + r + 2 * s, y, s, false);
+    }
+  }
+
+  /** M6l: the planned haul: a bright road through the regions, chokepoints ringed, legs by risk. */
+  private drawHaul(g: CanvasRenderingContext2D, h: HaulPlan): void {
+    const pts = this.routePoints(h.path), k = Math.max(this.k, 0.35);
+    g.save();
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    const line = () => { g.beginPath(); pts.forEach(([x, y], j) => (j ? g.lineTo(x, y) : g.moveTo(x, y))); };
+    line();
+    g.strokeStyle = 'rgba(14,9,7,.8)';
+    g.lineWidth = 14 / k;
+    g.stroke();
+    line();
+    g.strokeStyle = '#ffd27a';
+    g.lineWidth = 6 / k;
+    g.stroke();
+    const col = { low: '#9fd47a', watch: '#e0b867', high: '#f08a70', unknown: '#bba58c' };
+    for (const l of h.legs) {
+      const [x, y] = this.art.regions[l.to].centroid;
+      g.beginPath();
+      g.arc(x, y, (isChokepoint(l.to) ? 13 : 9) / k, 0, Math.PI * 2);
+      g.fillStyle = col[l.risk];
+      g.fill();
+      g.lineWidth = 3 / k;
+      g.strokeStyle = '#0e0907';
+      g.stroke();
+    }
+    const [sx, sy] = this.art.regions[h.path[0]].centroid;
+    g.beginPath();
+    g.arc(sx, sy, 10 / k, 0, Math.PI * 2);
+    g.fillStyle = '#fff0d8';
+    g.fill();
+    g.stroke();
+    g.restore();
   }
 
   private badge(g: CanvasRenderingContext2D, text: string, x: number, y: number, s: number, on: boolean): void {
