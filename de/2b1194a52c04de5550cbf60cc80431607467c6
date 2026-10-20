@@ -1,0 +1,35 @@
+src/war/view/hud/craft/state.ts
+  s_cfc22b058125c4::t_b836286050c9b1 1-270
+src/war/view/hud/roster/ui.ts
+  s_cfc22b058125c4::t_4738f73702805e 8-10,32,35-38,43-63,85-92,102,104,186
+src/war/view/hud/roster/state.ts
+  s_cfc22b058125c4::t_477623137b6422 8,64-70,72,86,131-135,194
+  s_cfc22b058125c4::t_3f1cb4b62736d5 71
+src/war/view/hud/roster/card.ts
+  s_cfc22b058125c4::t_4434b7628a2de7 18-21,31-49,78-79,114,117-118
+src/war/view/hud/roster/index.ts
+  s_cfc22b058125c4::t_4434b7628a2de7 20-21,25-30,70,101,103-106,130-131
+src/war/view/worker.ts
+  s_cfc22b058125c4::t_62fbd686cd1a91 36-39,167-168
+src/war/view/simClient.ts
+  s_cfc22b058125c4::t_62fbd686cd1a91 36,40,185-197
+src/war/net/client.ts
+  s_cfc22b058125c4::t_62fbd686cd1a91 22-25,42-43,55,111-115
+  s_cfc22b058125c4::t_c569980db98aea 116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "de2b1194a52c04de5550cbf60cc80431607467c6",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
