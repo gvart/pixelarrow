@@ -1,0 +1,25 @@
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_633f28ef9b6018 615
+server/src/war/room.ts
+  s_cfc22b058125c4::t_378936b4dc8ab8 329-332,334-337
+server/test/war/regionMaps.test.ts
+  s_cfc22b058125c4::t_d5cf78cd488f8e 1-28,30-33,36-37,39,47-126
+  s_cfc22b058125c4::t_bc4f8c03de1273 34-35,38,40-46
+  s_cfc22b058125c4::t_37ee374cc18d5c 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1fa3b55ee8bf0e801d5d2895b63d41f7a47a80b7",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
