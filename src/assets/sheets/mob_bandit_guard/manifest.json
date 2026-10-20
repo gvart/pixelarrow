@@ -1,0 +1,79 @@
+{
+ "version": 2,
+ "class": "mob_bandit_guard",
+ "image": "mob_bandit_guard.png",
+ "frame": {
+  "w": 90,
+  "h": 82
+ },
+ "anchor": {
+  "x": 43,
+  "y": 78
+ },
+ "anchors": {
+  "south-east": {
+   "x": 47,
+   "y": 78
+  },
+  "north-east": {
+   "x": 43,
+   "y": 78
+  },
+  "south-west": {
+   "x": 43,
+   "y": 78
+  },
+  "north-west": {
+   "x": 48,
+   "y": 78
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 45,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "thrust": {
+   "col": 24,
+   "frames": 12,
+   "fps": 14,
+   "strike": 6
+  },
+  "die": {
+   "col": 36,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 48,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
