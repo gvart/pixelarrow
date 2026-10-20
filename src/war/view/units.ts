@@ -11,8 +11,7 @@
  * A man walking with a load (./anim.ts loadOf) carries its sprite (src/assets/loads) at his sheet's per-frame
  * `loads` anchor: on the shoulder over him, held at the chest under him in the north facings (his back to us).
  *
- * LOD by zoom: sprites from SPRITE_ZOOM up, team-coloured dots down to BANNER_ZOOM, below that
- * one banner per squad with its unit count.
+ * LOD by zoom: sprites from SPRITE_ZOOM up, team-coloured dots below (down to the camera's floor, SandboxScene MIN_ZOOM).
  */
 import Phaser from 'phaser';
 import type { SheetManifest } from '../../art/sheetManifest';
@@ -28,7 +27,6 @@ export const TEAM_COLOR = [0x4aa3ff, 0xe0503c, 0xe8c040, 0xb070e0];
 /** A light multiply per team on the sprites (team 0 is also hue-swapped, see TEAM_SWAP). */
 const TEAM_TINT = [0xd0e4ff, 0xffd4c8, 0xfff0c0, 0xecd8ff];
 export const SPRITE_ZOOM = 1 / 3;
-export const BANNER_ZOOM = 1 / 12;
 /** World px from the feet to a man's middle (a sprite is ~58 px tall). */
 export const BODY = 28;
 const FALLBACK_CLASS = 'militia';
@@ -193,11 +191,9 @@ export class UnitLayer {
   private loadPool: Phaser.GameObjects.Image[] = [];
   private nLoad = 0;
   private ghosts: Phaser.GameObjects.Image[] = [];
-  private labels: Phaser.GameObjects.Text[] = [];
   /** Shadow and ring of each raised unit, drawn in its layer slot (gUnder lies under every wall). */
   private rings: Phaser.GameObjects.Graphics[] = [];
   private gUnder: Phaser.GameObjects.Graphics;
-  private gOver: Phaser.GameObjects.Graphics;
   private swap: boolean;
   private outline: boolean;
   private ids = 0;
@@ -212,7 +208,6 @@ export class UnitLayer {
     const loadsImg = sheetImages.get(LOADS_KEY);
     if (loadsImg) buildLoads(scene, loadsImg);
     this.gUnder = scene.add.graphics().setDepth(9);
-    this.gOver = scene.add.graphics().setDepth(10.9);
   }
 
   /**
@@ -262,21 +257,19 @@ export class UnitLayer {
 
   /** `occluded`: ids of units hidden behind map objects (drawn again as a silhouette over them). */
   draw(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, at: AnimTime, squads: ReadonlyMap<number, SquadSnap>, shots: readonly ShotSnap[], occluded: Set<number> = new Set()): void {
-    const under = this.gUnder.clear(), over = this.gOver.clear();
-    let used = 0, labels = 0;
+    const under = this.gUnder.clear();
+    let used = 0;
     this.nGhost = 0;
     this.nRing = 0;
     this.nLoad = 0;
     this.anim.frame(units, squads, at.now);
     if (this.ids !== units.length) { this.ids = units.length; this.anim.prune(new Set(units.map((d) => d.u.id))); }
     if (zoom >= SPRITE_ZOOM) used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
-    else if (zoom >= BANNER_ZOOM) this.dots(units, view, zoom, selected, under);
-    else labels = this.banners(units, zoom, selected, over);
+    else this.dots(units, view, zoom, selected, under);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
     for (let i = this.nLoad; i < this.loadPool.length; i++) this.loadPool[i].setVisible(false);
     for (let i = this.nRing; i < this.rings.length; i++) this.rings[i].setVisible(false);
-    for (let i = labels; i < this.labels.length; i++) this.labels[i].setVisible(false);
   }
 
   private nGhost = 0;
@@ -365,40 +358,6 @@ export class UnitLayer {
       if (d.u.state === 'dead') { g.fillStyle(0x222222, 0.5).fillRect(f.x - half, f.y - half, s, s); continue; }
       g.fillStyle(selected.has(d.u.squad) ? 0xffffff : (TEAM_COLOR[d.team] ?? 0xcccccc), 1).fillRect(f.x - half, f.y - s, s, s);
     }
-  }
-
-  /**
-   * One flag per squad at its centre: pole, team-coloured cloth, live unit count. Same-team flags
-   * closer than a flag's width on screen merge into one (summed count), so a massed army stays legible.
-   */
-  private banners(units: DrawUnit[], zoom: number, selected: Set<number>, g: Phaser.GameObjects.Graphics): number {
-    const sq = new Map<number, { x: number; y: number; n: number; team: number; sel: boolean }>();
-    for (const d of units) {
-      if (d.u.state === 'dead') continue;
-      const e = sq.get(d.u.squad) ?? { x: 0, y: 0, n: 0, team: d.team, sel: selected.has(d.u.squad) };
-      e.x += d.x; e.y += d.y; e.n++;
-      sq.set(d.u.squad, e);
-    }
-    const k = 1 / zoom, flags: { x: number; y: number; n: number; team: number; sel: boolean }[] = [];
-    for (const e of sq.values()) {
-      const f = this.feet({ x: e.x / e.n, y: e.y / e.n });
-      const near = flags.find((o) => o.team === e.team && Math.hypot(o.x - f.x, o.y - f.y) < 26 * k);
-      if (near) { near.n += e.n; near.sel ||= e.sel; } else flags.push({ x: f.x, y: f.y, n: e.n, team: e.team, sel: e.sel });
-    }
-    let n = 0;
-    for (const f of flags) {
-      const col = TEAM_COLOR[f.team] ?? 0xcccccc, top = f.y - 26 * k;
-      g.lineStyle(2 * k, 0x101010, 1).lineBetween(f.x, f.y, f.x, top);
-      g.fillStyle(col, 1).fillRect(f.x, top, 30 * k, 14 * k);
-      g.lineStyle((f.sel ? 2 : 1) * k, f.sel ? 0xffffff : 0x101010, 1).strokeRect(f.x, top, 30 * k, 14 * k);
-      let t = this.labels[n];
-      if (!t) this.labels.push((t = this.scene.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(11)));
-      n++;
-      const s = String(f.n);
-      if (t.text !== s) t.setText(s);
-      t.setScale(k).setPosition(f.x + 15 * k, top + 7 * k).setVisible(true);
-    }
-    return n;
   }
 }
 

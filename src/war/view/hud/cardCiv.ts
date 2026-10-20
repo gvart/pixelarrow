@@ -15,7 +15,7 @@ const TEAM = 0;
 export function allCivilians(s: SandboxScene, own: SquadId[]): boolean {
   return own.length > 0 && own.every((q) => s.sim.squads.get(q)?.civ);
 }
-/** Some selected own squad fights (attack-move and A apply to it). */
+/** Some selected own squad fights (attack-move applies to it). */
 export function anySoldiers(s: SandboxScene, own: SquadId[]): boolean {
   return own.some((q) => !s.sim.squads.get(q)?.civ);
 }
