@@ -27,7 +27,7 @@ export type ToWorker =
   | { t: 'stock'; team: number; res: ResourceKind; n: number }
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'mobs' } // neutral play: spawn the region's lairs
-  | { t: 'hurtBoss'; boss: string; to: number } // M7d dev and scenarios: a guardian down to a share of its hp
+  | { t: 'hurtBoss'; boss: string; to: number; part?: number } // M7d dev and scenarios: a guardian (or its part: a head) down to a share of its hp
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
   | { t: 'finishBridges'; team: number } // scenarios: standing bridges
@@ -151,7 +151,8 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'mobs') build(sim)?.spawnMobs();
   else if (m.t === 'hurtBoss') {
     const b = build(sim), g = b?.snapshot().bosses?.find((x) => x.id === m.boss);
-    if (b && g && g.hp > g.maxHp * m.to) b.hurtBoss(m.boss, g.hp - g.maxHp * m.to, 'you');
+    if (b && g && m.part !== undefined) b.hurtBoss(m.boss, 1e9, 'you', m.part);
+    else if (b && g && g.hp > g.maxHp * m.to) b.hurtBoss(m.boss, g.hp - g.maxHp * m.to, 'you');
   }
   else if (m.t === 'damage') build(sim)?.damageBuilding(m.id, m.dmg);
   else if (m.t === 'finishBridges') build(sim)?.finishBridges(m.team);

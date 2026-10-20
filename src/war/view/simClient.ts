@@ -134,9 +134,9 @@ export class SimClient {
   }
 
   /** Neutral play: spawn the region's lairs. */
-  /** M7d dev and scenarios: hurt guardian `boss` down to `to` of its hp (its phases follow). */
-  hurtBossTo(boss: string, to: number): void {
-    this.send({ t: 'hurtBoss', boss, to });
+  /** M7d dev and scenarios: hurt guardian `boss` down to `to` of its hp (its phases follow); `part`: kill that head. */
+  hurtBossTo(boss: string, to: number, part?: number): void {
+    this.send({ t: 'hurtBoss', boss, to, part });
   }
 
   spawnMobs(): void {

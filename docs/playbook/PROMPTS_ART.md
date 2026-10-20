@@ -2724,3 +2724,46 @@ costs only 2 a clip: a 20 m dragon is affordable at 12 px/m. (3) Fire breath wit
 chest lights amber anyway; the palette snap keeps it bone-toned and the FX strip supplies the flame. (4) Smears: a
 pale motion arc (Gyges SW attack frame 7) is replaced by its neighbour in the raw folder (`cp frame_006 frame_007`).
 (5) The archer's south-west shot lifts the bow towards the top of the frame (an arcing shot); kept.
+
+### 40d Boss FX and feel
+
+The guardians' moves, telegraphs and set pieces (`src/war/view/bossFx.ts`, driven by the snapshot's `BossSnap.fx`,
+phase and state; the sim is never touched). **0 PixelLab generations: 12 effects built in `vfx_workbench` (free)**,
+each saved to My effects (ids in `scripts/war/art/boss-fx-import.mjs`, re-open them with their sliders) and pulled by
+`node scripts/war/art/boss-fx-import.mjs` into `public/war/fx/fx-boss-*.png` + `objects.json` (grid sheet -> strip,
+binary alpha, blank tail frames dropped, anchor = the export pivot, new colours appended to the fx palette). Captures:
+`node scripts/war/art/boss-fx-shots.mjs [baseUrl] [outDir] [boss,...]` -> `shots/war/boss-fx/<boss>-signature|phase|death.gif`
++ `-sheet.png` (every 4th frame).
+
+| strip | parts (vfx_workbench `add_part`) | plays |
+| --- | --- | --- |
+| boss-breath-jet | `flame_jet` size 3, wild 1.3, sparks 2, fire v2 ramp + `#fff4d0`, light off, fit_canvas | Drakon's breath from the mouth, rotated onto the cone (2 layers out of step), scaled to the mouth-to-cone length; the Chimera's goat at ~0.9 |
+| boss-ground-fire | `fire_wall` size 1 + `ember_rise` | ~15 patches along the cone (as `host.burn` lights it), 4.5–7.5 s, fading |
+| boss-smoke | `smoke_column` size 2, smoke ramp | two columns off the burnt cone, 9 s |
+| boss-impact | `crater_dust` 2.5 + `debris_burst` 2 + `ground_cracks` 2.5 (dark, heat 0.4); `shockwave_ring` removed (a flat cream disc) | the crash, rocks and boulders landing, smash, stomp, a giant landing, every collapse |
+| boss-wingbeat | `landing_dust` size 3 (ring removed) | Drakon taking off / landing on a perch, the crash, stomps |
+| boss-sparks | `flash_burst` 1.5 + `sparks_shower` 2 (amount 2) + `cooling_sparks` 2 | Gyges' chains bursting (x3), his blows landing |
+| boss-splash | `water_splash` size 3, sea ramp | Scylla's snatch and head strikes, her phase (the body and every head) |
+| boss-beam | `heal_column` size 2, gold ramp (additive) | the light on a slain guardian's loot pile, 20 s |
+| boss-venom | `smoke_puff` 2 (venom greens) + `poison_bubbles` 1.5 | the Chimera's serpent with each breath |
+| boss-frenzy | `flame_aura` size 2, wine-magenta ramp (additive) | the Maenad Queen frenzied (P2); tinted red and wide over Drakon enraged (P3) |
+| boss-horn | `shockwave_ring` 3 + `buff_arrows` 2, gold | the Bandit King's war horn (phase, flight to the postern); pink for a queen's frenzy |
+| boss-slash | `slash_trail` 3 (pale) + `hit_star` 2 | claw and tail sweeps, Gyges' blows, a Scylla head's bite |
+
+**Feel (view only).** Telegraphs from the moves' cadence (`MOVES`): a red ground disc filling and a pulsing ring for
+0.9 s before a sweep, stomp or smash (only while the last one was within 2.2 cadences), embers drawn into Drakon's
+glowing mouth for 1.4 s before a breath, his crash landing marked while he dives, a thrown rock's shadow and landing
+ring. Impact: trauma shake (squared, ~16 screen px at most, decays 1.4/s), less with distance from the screen centre
+and none past ~1.3 screens; hit-stop 60–160 ms (the FX clock and the guardian's frame hold); squash on landings and
+blows, a roar stretch on phase changes, a white flash when 1.5% of his hp goes at once (`units.ts` `pose`); a camera
+nudge towards a phase change, crash or death on screen (out and back in 0.9 s, the player keeps the camera). A slain
+guardian's body is gone from the snapshot: `units.ts` `addCorpse` plays his die clip where he fell, held 10 s. A
+man-sized guardian gets a gold ring under him. LOD below zoom 0.3: 2 fire patches a breath, no smoke or embers; at most
+90 live FX, minor ones dropped first; off-screen plays not drawn. Audio hooks: `BossFx.onCue(name, x, y, boss)` with the
+names in `CUES` (`boss.breath`, `boss.breath.charge`, `boss.crash`, `boss.takeoff`, `boss.chains`, `boss.horn`,
+`boss.slain`, `boss.loot`, …).
+
+**Lessons:** (1) Drakon's breath read as a thin line because the old jet was two Graphics strokes; a strip rotated from
+the mouth onto the ground cone reads at every zoom. (2) vfx_workbench `shockwave_ring` is a filled cream disc at size
+2.5+: drop it under dust and draw thin rings in code. (3) `export` takes ~60 s; start several effects and add parts in
+parallel. (4) The node fetch in the sandbox hangs: `curl` the export files.
