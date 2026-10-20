@@ -200,8 +200,9 @@ export class SandboxScene extends Phaser.Scene {
     sl.working = layer.working; // M5h: workplace working fx (the siege art holds the fx loops)
     // the siege layer draws wall, gate and tower rubble; M7b: a pre-built ruin of anything else is the building layer's
     layer.skip = (b) => (!!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble && !(b.ruin && !BUILDINGS[b.type].wall)))) || (b.type === 'chest' && !!this.tradeLayer.art && b.state !== 'destroyed');
-    this.guardians = new GuardianLayer(this, this.iso, (d) => this.units.feet(d));
-    const gd = this.guardians;
+    const gd = (this.guardians = new GuardianLayer(this, this.iso, (d) => this.units.feet(d), r.guardians ?? []));
+    this.units.pose = (id, now) => gd.fx.poseOf(id, now);
+    gd.fx.corpse = (cls, x, y, facing) => this.units.addCorpse(cls, x, y, facing, this.time.now);
     this.units.lift = (d) => gd.lift(d) ?? sl.lift(d) ?? layer.lift(d);
     this.units.ground = (d) => layer.groundDepth(d);
     this.shots.lift = (x, y) => layer.lift({ x, y })?.px ?? 0;
@@ -457,6 +458,7 @@ export class SandboxScene extends Phaser.Scene {
   update(_t: number, dt: number): void {
     const cam = this.cameras.main, k = this.keys;
     this.frame++;
+    this.guardians?.fx.unshake(cam); // M7d: last frame's boss shake off before the camera moves
     // a resize can leave the zoom below the floor
     if (this.frame % 15 === 0 && cam.zoom < this.minZoom() - 1e-6) cam.setZoom(this.minZoom());
     // keyboard and edge pan
@@ -506,10 +508,11 @@ export class SandboxScene extends Phaser.Scene {
     this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
-    if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now));
+    if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.drawUi();
+    this.guardians.fx.applyShake(cam, dt, this.time.now);
     this.interact.label(this.moved && this.input.isOver && !this.build.tool && !this.box && !this.siege.armed ? p : null);
   }
 

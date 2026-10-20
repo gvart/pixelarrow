@@ -220,6 +220,12 @@ export class UnitLayer {
    * ground, and their depth between the layers of the tile they stand on. null: on the ground.
    */
   lift: ((d: { x: number; y: number }) => Lift | null) | null = null;
+  /**
+   * M7d boss feel (./bossFx.ts poseOf): a unit's squash and stretch (scale over its sheet's), a white hit flash, and its
+   * frame held through a hit-stop. undefined: as drawn.
+   */
+  pose: ((id: number, now: number) => { sx: number; sy: number; flash: boolean; hold: boolean } | undefined) | null = null;
+  private held = new Map<number, readonly [string, string]>();
   /** Units on the ground: the least depth to draw over the wall faces they stand in front of (./build/buildingLayer.ts). */
   ground: ((d: { x: number; y: number }) => number) | null = null;
 
@@ -271,10 +277,34 @@ export class UnitLayer {
     if (this.ids !== units.length) { this.ids = units.length; this.anim.prune(new Set(units.map((d) => d.u.id))); }
     if (zoom >= SPRITE_ZOOM) used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
     else this.dots(units, view, zoom, selected, under);
+    used = this.drawCorpses(used, at.now);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
     for (let i = this.nLoad; i < this.loadPool.length; i++) this.loadPool[i].setVisible(false);
     for (let i = this.nRing; i < this.rings.length; i++) this.rings[i].setVisible(false);
+  }
+
+  /** M7d: slain guardians the sim no longer holds: their die clip played where they fell, held, then faded. */
+  private corpses: { cls: string; x: number; y: number; facing: number; t0: number }[] = [];
+  addCorpse(cls: string, x: number, y: number, facing: number, now: number): void {
+    if (this.sheets.get(cls)?.frames.has('die')) this.corpses.push({ cls, x, y, facing, t0: now });
+  }
+  private drawCorpses(n: number, now: number): number {
+    for (let i = this.corpses.length - 1; i >= 0; i--) {
+      const c = this.corpses[i], sheet = this.sheets.get(c.cls)!, def = sheet.clips.get('die'), el = now - c.t0;
+      if (el > 12000) { this.corpses.splice(i, 1); continue; }
+      const fx = Math.cos(c.facing), fy = Math.sin(c.facing), sx = fx - fy, sy = fx + fy;
+      const q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)], frames = sheet.frames.get('die')![q.row];
+      const [key, frame] = frames[Math.min(frames.length - 1, Math.floor((el / 1000) * (def?.fps ?? 10)))];
+      const f = this.feet({ x: c.x, y: c.y });
+      let img = this.pool[n];
+      if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
+      n++;
+      img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setScale(sheet.scale).setVisible(true)
+        .setDepth(Math.max(10 + this.depthOf(c.x, c.y) / 4096 + 0.24, this.ground?.(c) || 0)).setTint(0xffffff).setAlpha(el > 10000 ? (12000 - el) / 2000 : 1);
+      if (this.swap) img.resetPipeline();
+    }
+    return n;
   }
 
   private nGhost = 0;
@@ -296,7 +326,11 @@ export class UnitLayer {
       const facing = l?.facing ?? d.facing, fx = Math.cos(facing), fy = Math.sin(facing), sx = fx - fy, sy = fx + fy;
       const q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)];
       const p = this.anim.pick(d, sheet.clips, at, units, shots);
-      const [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
+      let [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
+      const po = this.pose?.(u.id, at.now);
+      if (po?.hold && this.held.has(u.id)) [key, frame] = this.held.get(u.id)!;
+      else if (po) this.held.set(u.id, [key, frame]);
+      else this.held.delete(u.id);
       const team = TEAM_COLOR[d.team] ?? 0xcccccc;
       const hidden = u.state !== 'dead' && iso.hidden(f.x, f.y - BODY, d.x + d.y, l ? l.z + l.px / LH : iso.zAt(d.x, d.y));
       const depth = l?.depth ?? Math.max(10 + this.depthOf(d.x, d.y) / 4096 + (u.state === 'dead' ? 0 : 0.25), (u.state === 'dead' ? 0 : this.ground?.(d)) || 0);
@@ -316,11 +350,12 @@ export class UnitLayer {
       let img = this.pool[n];
       if (!img) this.pool.push((img = this.scene.add.image(0, 0, key)));
       n++;
-      img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setScale(sheet.scale).setVisible(true);
+      img.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(Math.round(f.x), Math.round(f.y)).setScale(sheet.scale * (po?.sx ?? 1), sheet.scale * (po?.sy ?? 1)).setVisible(true);
       img.setDepth(depth);
       if (this.swap && d.team === 0) img.setPipeline(TEAM_SWAP);
       else if (this.swap) img.resetPipeline();
       img.setTint(TEAM_TINT[d.team] ?? 0xffffff).setAlpha(1);
+      if (po?.flash) img.setTintFill(0xfff4e0);
       // hidden behind higher ground (the sprite would draw over the baked terrain: not drawn) or behind a wall or object
       // (drawn under it): the player's own men (and the selected) get a thin team-coloured outline over everything, no
       // fill; a hidden foe is simply hidden

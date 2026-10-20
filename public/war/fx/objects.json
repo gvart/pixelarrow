@@ -2,34 +2,72 @@
  "pxPerMetre": 33,
  "note": "Landmark FX (ART-L): horizontal strips (frame n at x = n * frame.w), binary alpha; anchor = the world point the effect sits on (see use). loop false: play once (ignite clips chain into `then`). Draw at scale 1. Colours = tiles.json palette + palette.",
  "palette": [
+  "#02110b",
+  "#040715",
+  "#040d1a",
+  "#120f19",
   "#14232b",
+  "#1a0802",
+  "#1b0404",
+  "#1b1612",
   "#1f3640",
   "#2a292e",
   "#2c4b55",
   "#2e2d2c",
   "#370a09",
+  "#3a1206",
   "#3b3328",
+  "#3d6b1e",
   "#3f646c",
   "#423f43",
   "#4a4744",
   "#544939",
+  "#5a1248",
   "#5c5c5f",
   "#5d8289",
   "#6a655e",
+  "#6ba32c",
+  "#6cb81c",
   "#6e604b",
   "#7a1410",
+  "#7a2a0c",
   "#7a2a14",
   "#837f7c",
   "#86a6a8",
+  "#8a1e0c",
   "#8a7a60",
+  "#9a1f6e",
+  "#9f97b0",
   "#a59478",
+  "#a8d64a",
+  "#a8e83a",
   "#b0461c",
   "#b4c8c4",
+  "#c2501a",
+  "#c8b8a0",
+  "#cbc5d8",
+  "#d0459a",
+  "#d8501a",
   "#d8762c",
   "#d9e3dc",
+  "#dff59a",
   "#e5923d",
+  "#e6ddc8",
   "#eeae52",
-  "#f6d48a"
+  "#f08a24",
+  "#f08cc8",
+  "#f2eff7",
+  "#f6d48a",
+  "#ffa030",
+  "#ffc23d",
+  "#ffd6ee",
+  "#ffe27a",
+  "#ffe98a",
+  "#fff4d0",
+  "#fff7dc",
+  "#fffbe3",
+  "#fffbe8",
+  "#ffffff"
  ],
  "fx": [
   {
@@ -148,6 +186,222 @@
    "blend": "normal",
    "use": "a Scylla head snapping out of the sea (every snatch, 1 per 6 s): split water column, splash ring, spray, foam; play once; anchor = the strike point on the water line",
    "source": "procedural (landmark-fx.mjs)"
+  },
+  {
+   "id": "boss-breath-jet",
+   "file": "fx-boss-breath-jet.png",
+   "frames": 8,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 278,
+    "h": 129
+   },
+   "anchor": {
+    "x": 16,
+    "y": 59
+   },
+   "blend": "normal",
+   "use": "a roaring jet of flame pointing +x from the anchor (the mouth), widening into billows: Drakon's breath (rotated along the cone, scaled to its length; the Chimera's goat at a third)",
+   "source": "PixelLab vfx_workbench, My effects e3955252-9ae5-4fb6-ae20-967b0d971cc5"
+  },
+  {
+   "id": "boss-ground-fire",
+   "file": "fx-boss-ground-fire.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 56,
+    "h": 46
+   },
+   "anchor": {
+    "x": 28,
+    "y": 40
+   },
+   "blend": "normal",
+   "use": "a low burning patch the breath leaves on the ground (several along the cone, ~6 s, then smoke)",
+   "source": "PixelLab vfx_workbench, My effects 7f345c1c-7fc2-406f-803e-03d8dd9f9811"
+  },
+  {
+   "id": "boss-smoke",
+   "file": "fx-boss-smoke.png",
+   "frames": 16,
+   "fps": 10,
+   "loop": true,
+   "frame": {
+    "w": 48,
+    "h": 149
+   },
+   "anchor": {
+    "x": 24,
+    "y": 148
+   },
+   "blend": "normal",
+   "use": "a smoke column rising off burnt ground after the breath",
+   "source": "PixelLab vfx_workbench, My effects 1f5dabe1-22f0-4cb6-90a1-e7799bc47601"
+  },
+  {
+   "id": "boss-impact",
+   "file": "fx-boss-impact.png",
+   "frames": 11,
+   "fps": 14,
+   "loop": false,
+   "frame": {
+    "w": 280,
+    "h": 145
+   },
+   "anchor": {
+    "x": 140,
+    "y": 61
+   },
+   "blend": "normal",
+   "use": "a heavy slam: ground cracks, a crater dust ring, thrown stones: Drakon's crash, Brontes' rock and smash, a stomp, a guardian's collapse",
+   "source": "PixelLab vfx_workbench, My effects 1a948ee9-e5ad-4fb1-8156-6c59d0eefedb"
+  },
+  {
+   "id": "boss-wingbeat",
+   "file": "fx-boss-wingbeat.png",
+   "frames": 9,
+   "fps": 12,
+   "loop": false,
+   "frame": {
+    "w": 332,
+    "h": 134
+   },
+   "anchor": {
+    "x": 166,
+    "y": 68
+   },
+   "blend": "normal",
+   "use": "dust blown out flat by a wing-beat: Drakon taking off and landing on a perch",
+   "source": "PixelLab vfx_workbench, My effects 06c73b73-0243-41d1-a879-d22e11ebabb9"
+  },
+  {
+   "id": "boss-sparks",
+   "file": "fx-boss-sparks.png",
+   "frames": 12,
+   "fps": 16,
+   "loop": false,
+   "frame": {
+    "w": 175,
+    "h": 119
+   },
+   "anchor": {
+    "x": 84,
+    "y": 52
+   },
+   "blend": "normal",
+   "use": "a white flash and a shower of sparks: Gyges breaking his chains, his triple blows landing",
+   "source": "PixelLab vfx_workbench, My effects 1d37f5ff-7dab-48a9-8d11-84e494c6de3d"
+  },
+  {
+   "id": "boss-splash",
+   "file": "fx-boss-splash.png",
+   "frames": 9,
+   "fps": 14,
+   "loop": false,
+   "frame": {
+    "w": 196,
+    "h": 153
+   },
+   "anchor": {
+    "x": 100,
+    "y": 78
+   },
+   "blend": "normal",
+   "use": "a crown of water thrown up with rings spreading: a Scylla head bursting from the sea, her drag onto the flats",
+   "source": "PixelLab vfx_workbench, My effects 79df7423-f6fe-421a-b35c-a90af3bbc4af"
+  },
+  {
+   "id": "boss-beam",
+   "file": "fx-boss-beam.png",
+   "frames": 12,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 152,
+    "h": 194
+   },
+   "anchor": {
+    "x": 76,
+    "y": 163
+   },
+   "blend": "add",
+   "use": "a golden column of light on a slain guardian's loot pile",
+   "source": "PixelLab vfx_workbench, My effects c38a5cab-ce69-4e27-9043-299dd3ab5771"
+  },
+  {
+   "id": "boss-venom",
+   "file": "fx-boss-venom.png",
+   "frames": 16,
+   "fps": 12,
+   "loop": false,
+   "frame": {
+    "w": 91,
+    "h": 88
+   },
+   "anchor": {
+    "x": 45,
+    "y": 41
+   },
+   "blend": "normal",
+   "use": "a green venom cloud: the Chimera's serpent biting",
+   "source": "PixelLab vfx_workbench, My effects f9e34cae-d52a-4e04-9246-00edca86a305"
+  },
+  {
+   "id": "boss-frenzy",
+   "file": "fx-boss-frenzy.png",
+   "frames": 8,
+   "fps": 12,
+   "loop": true,
+   "frame": {
+    "w": 132,
+    "h": 201
+   },
+   "anchor": {
+    "x": 65,
+    "y": 174
+   },
+   "blend": "add",
+   "use": "flames of frenzy rising round a guardian (the Maenad Queen's P2 in wine; tinted red: Drakon enraged)",
+   "source": "PixelLab vfx_workbench, My effects cda1d145-b3e5-4d3a-990f-f59658d48e56"
+  },
+  {
+   "id": "boss-horn",
+   "file": "fx-boss-horn.png",
+   "frames": 12,
+   "fps": 14,
+   "loop": false,
+   "frame": {
+    "w": 334,
+    "h": 153
+   },
+   "anchor": {
+    "x": 167,
+    "y": 87
+   },
+   "blend": "normal",
+   "use": "a golden ring racing out with rising arrows: the Bandit King's war horn rallying the host",
+   "source": "PixelLab vfx_workbench, My effects ed054fb4-66b8-473f-aa4d-0127336934ca"
+  },
+  {
+   "id": "boss-slash",
+   "file": "fx-boss-slash.png",
+   "frames": 7,
+   "fps": 16,
+   "loop": false,
+   "frame": {
+    "w": 130,
+    "h": 151
+   },
+   "anchor": {
+    "x": 45,
+    "y": 74
+   },
+   "blend": "normal",
+   "use": "a pale crescent and a hit star: a claw or tail sweep, a giant blow",
+   "source": "PixelLab vfx_workbench, My effects 051513dc-fb18-4902-977a-0fe002882511"
   }
  ],
  "objects": []
