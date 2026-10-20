@@ -9,9 +9,10 @@ import { makePerson } from '../../../src/war/sim/roster';
 import { SIM_VERSION } from '../../../src/sim/version';
 import type { WarPerson } from '../../../src/war/types';
 import { WarRoom, type Fight } from '../../src/war/room';
+import { spot } from './spot';
 import { warRegion } from '../../src/war/regions';
 import { applyFight, claimForJoin } from '../../src/war/persons';
-import type { WarRegionDO } from '../../src/war/regionDO';
+import { loadState, type WarRegionDO } from '../../src/war/regionDO';
 import { api, BASE, devLogin } from '../helpers';
 
 const region = warRegion('test-ridge')!;
@@ -92,35 +93,54 @@ describe('WarRoom with persons', () => {
     for (let t = 0; t < 100; t++) expect(r.tick().fights).toEqual([]);
   });
 
-  it('saves a bounded state and restores squads, players and stock from it', () => {
-    const r = new WarRoom({ region, seed: 1, cap: 600 });
+  it('saves the whole region and resumes it exactly: hit points, finished buildings, orders', () => {
+    const opts = { region, seed: 1, cap: 600, epoch: 'e' };
+    const r = new WarRoom(opts);
     const g = [squad('s', 'hoplite', 12, 2), squad('t', 'archer', 5)];
     r.join(1, join(1, 0, ids(g)), g);
     r.join(2, { t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: 2, team: 1, army: [{ cls: 'peltast', count: 7 }] });
-    r.sim.addStock(0, 'wood', 40);
+    r.sim.addStock(0, 'wood', 400);
+    r.sim.addStock(0, 'stone', 400);
     for (let i = 0; i < 5; i++) r.tick();
-    r.order(1, { kind: 'move', squad: 0, x: 120, y: 60 });
-    for (let i = 0; i < 40; i++) r.tick();
-    const st = r.saveState();
-    expect(st.squads.map((s) => [s.owner, s.team, s.cls, s.count, s.pids.length])).toEqual([['p:1', 0, 'hoplite', 12, 12], ['p:1', 0, 'archer', 5, 5], ['p:2', 1, 'peltast', 7, 0]]);
-    expect(st.stock[0]?.wood).toBe(40);
-    expect(JSON.stringify(st).length).toBeLessThan(4000);
-    // one of the archers went home meanwhile (D1 no longer has him here): he is left out
-    const persons = new Map([...g[0], ...g[1].slice(1)].map((p) => [p.id, p]));
-    const back = WarRoom.restore({ region, seed: 1, cap: 600 }, st, persons);
-    const snap = back.snapshot();
-    expect(snap.units.filter((u) => u.state !== 'dead')).toHaveLength(12 + 4 + 7);
-    expect(back.quota().live.slice(0, 2)).toEqual([16, 7]);
+    const camp = r.snapshot().units.find((u) => u.squad === 0)!;
+    const [sx, sy] = spot(r, Math.round(camp.x), Math.round(camp.y));
+    r.sim.order({ kind: 'placeBuilding', squad: 0, type: 'camp', x: sx, y: sy });
+    r.order(1, { kind: 'attack', squad: 1, target: 2 });
+    r.order(2, { kind: 'attack', squad: 2, target: 1 });
+    const hurt = () => r.snapshot().units.some((u) => u.state !== 'dead' && u.hp < u.maxHp);
+    for (let i = 0; i < 4000 && !(r.snapshot().buildings!.some((b) => b.state === 'done') && hurt()); i++) r.tick();
+    const before = r.snapshot();
+    expect(before.buildings!.some((b) => b.state === 'done')).toBe(true);
+    expect(before.units.some((u) => u.state !== 'dead' && u.hp < u.maxHp)).toBe(true);
+    const st = JSON.parse(JSON.stringify(r.saveState()));
+    // all persons still deployed here: an exact resume; the twin room runs on uninterrupted
+    const persons = new Map([...g[0], ...g[1]].map((p) => [p.id, p]));
+    const back = WarRoom.restore(opts, st, persons);
+    const strip = (s: ReturnType<WarRoom['snapshot']>) => JSON.stringify({ ...s, shots: undefined });
+    expect(strip(back.snapshot())).toBe(strip(before));
     expect(back.online()).toBe(0);
     expect(back.active()).toBe(true);
-    expect(snap.stock?.[0]?.wood).toBe(40);
-    // the hoplites stand where they were, not on the entry
-    back.tick();
-    const hx = back.snapshot().units.filter((u) => u.squad === 0).reduce((a, u) => a + u.x, 0) / 12;
-    expect(Math.abs(hx - st.squads[0].x)).toBeLessThan(3);
+    expect(back.quota().live).toEqual(r.quota().live);
+    r.leave(1);
+    r.leave(2);
+    for (let i = 0; i < 300; i++) (r.tick(), back.tick());
+    expect(strip(back.snapshot())).toBe(strip(r.snapshot()));
     // a rejoin hands the squads back (no new spawn)
     expect(back.spawnsNew(1)).toBe(false);
-    expect(back.join(1, join(1, 0, ids(g))).msg).toMatchObject({ t: 'welcome', squads: [0, 1] });
+    expect(back.join(1, join(1, 0, ids(g))).msg).toMatchObject({ t: 'welcome' });
+  });
+
+  it('a man D1 sent home after the save leaves the restored field', () => {
+    const r = new WarRoom({ region, seed: 1, cap: 600 });
+    const g = [squad('s', 'hoplite', 6)];
+    r.join(1, join(1, 0, ids(g)), g);
+    r.tick();
+    const st = r.saveState();
+    const back = WarRoom.restore({ region, seed: 1, cap: 600 }, st, new Map(g[0].slice(1).map((p) => [p.id, p])));
+    back.tick();
+    expect(back.snapshot().units.filter((u) => u.state !== 'dead').map((u) => u.pid)).toEqual(g[0].slice(1).map((p) => p.id));
+    expect(back.quota().live[0]).toBe(5);
+    expect(back.sim.endFight().persons).toEqual([]); // unreported
   });
 });
 
@@ -172,8 +192,9 @@ describe('WarRegionDO persistence', () => {
 
     // the object goes away; its storage keeps the region, and the pending alarm brings it back
     const stub = env.WAR_REGION.get(env.WAR_REGION.idFromName('test-ridge'));
-    await runInDurableObject(stub, async (_o: WarRegionDO, state) => {
-      expect(await state.storage.get('state')).toMatchObject({ region: 'test-ridge' });
+    await runInDurableObject(stub, async (o: WarRegionDO, state) => {
+      await o.settled();
+      expect(await loadState(state.storage)).toMatchObject({ v: 2, region: 'test-ridge' });
     });
     await abortAllDurableObjects(); // a crash or deploy: the running loop holds the object, so no graceful eviction
     expect(await runDurableObjectAlarm(env.WAR_REGION.get(env.WAR_REGION.idFromName('test-ridge')))).toBe(true); // a fresh stub: the old one died with the object
