@@ -25,6 +25,8 @@ interface Strip { key: string; frames: number; fps: number; ax: number; ay: numb
 
 export class GuardianLayer {
   private g: Phaser.GameObjects.Graphics;
+  /** Over the buildings: the breath's jet down from a roof, thrown rocks. */
+  private top: Phaser.GameObjects.Graphics;
   private sprites: Phaser.GameObjects.Sprite[] = [];
   private strips = new Map<string, Strip>();
   /** Landmark piece heights (px), by art id. */
@@ -36,6 +38,7 @@ export class GuardianLayer {
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, private feet: (d: { x: number; y: number; u?: { id: number } }) => { x: number; y: number }) {
     this.g = scene.add.graphics().setDepth(9.06);
+    this.top = scene.add.graphics().setDepth(10.95);
     void this.load();
   }
 
@@ -102,7 +105,7 @@ export class GuardianLayer {
 
   /** The guardians' moves and the Warden's mark. */
   draw(bosses: readonly BossSnap[], warden: WardenSnap | undefined, zoom: number, now: number, sinceSnap: number): void {
-    const g = this.g.clear(), w = Math.max(1, 1.5 / zoom);
+    const g = this.g.clear(), top = this.top.clear(), w = Math.max(1, 1.5 / zoom);
     let n = 0;
     if (warden) {
       // the marked patch, pulsing harder as the strike nears
@@ -124,9 +127,17 @@ export class GuardianLayer {
         const st = s < 0.5 ? ign : loop;
         if (!st) continue;
         const fr = s < 0.5 ? Math.min(st.frames - 1, Math.floor(s * st.fps)) : Math.floor((s - 0.5) * st.fps) % st.frames;
-        const k = b.id === 'chimera' ? 0.4 / 0.55 : FX_SCALE;
+        const k = b.id === 'chimera' ? 0.4 / 0.55 : FX_SCALE, fade = f.t > 16 ? (20 - f.t) / 4 : 1;
+        // from a roof the jet comes down onto the ground a few tiles out, where the cone spreads on the yard
+        const d = Math.hypot(dx, dy) || 1, off = lift ? 3.5 : 0, gx = f.x + (dx / d) * off, gy = f.y + (dy / d) * off;
+        const ground = this.feet({ x: gx, y: gy });
+        if (lift) {
+          const mx = at.x + Math.sign(sx || 1) * 120, my = at.y - 50; // the mouth, a perched Drakon's head out over the parapet
+          top.lineStyle(26, 0xff7a20, 0.55 * fade).lineBetween(mx, my, ground.x, ground.y);
+          top.lineStyle(10, 0xffe080, 0.85 * fade).lineBetween(mx, my, ground.x, ground.y);
+        }
         const sp = this.sprite(n++, st.key, fr).setOrigin(sx < 0 ? 1 - st.ax : st.ax, st.ay).setFlipX(sx < 0).setScale(k);
-        sp.setPosition(at.x, at.y - (lift ? 40 : 10)).setDepth(10 + (f.x + f.y) / 4096 + 0.4).setAlpha(f.t > 16 ? (20 - f.t) / 4 : 1);
+        sp.setPosition(ground.x, ground.y - (lift ? 0 : 10)).setDepth(10 + (gx + gy) / 4096 + 0.4).setAlpha(fade);
       } else if (f.kind === 'crash') {
         const st = this.strips.get('crash-dust');
         if (st) this.sprite(n++, st.key, Math.min(st.frames - 1, Math.floor(s * st.fps))).setOrigin(st.ax, st.ay).setScale(FX_SCALE * 0.8).setPosition(at.x, at.y).setDepth(10 + (f.x + f.y) / 4096 + 0.4).setAlpha(1);
@@ -141,7 +152,7 @@ export class GuardianLayer {
         if (f.kind === 'charge') g.lineStyle(w * 4, 0xd8b070, 0.6 * (1 - k)).lineBetween(at.x, at.y, t.x, t.y);
         else {
           const x = at.x + (t.x - at.x) * k, y = at.y - lift + (t.y - at.y + lift) * k - Math.sin(k * Math.PI) * 120;
-          if (k < 1) g.fillStyle(0x6a6058, 1).fillCircle(x, y, f.kind === 'boulder' ? 14 : 9);
+          if (k < 1) top.fillStyle(0x6a6058, 1).fillCircle(x, y, f.kind === 'boulder' ? 14 : 9);
           else ring(g, t.x, t.y, f.r, s - 0.6, 0xc8b8a0, w);
         }
       }

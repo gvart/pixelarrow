@@ -43,14 +43,14 @@ const PHASE_NOTE: Record<string, string[]> = {
   titan: ['boulders from the arena', 'stomping, tearing the ramp gates'],
   river_god: ['a bull-horned giant', 'a serpent in the channels (from the fords)', 'a bull charging through the ranks'],
 };
-const STATE_NOTE: Partial<Record<BossSnap['state'], string>> = { perch: 'on the roof', flight: 'in flight', flee: 'running for the postern' };
+const STATE_NOTE: Partial<Record<BossSnap['state'], string>> = { flight: 'in flight' };
 const TEAM_NAME = ['blue', 'red', 'gold', 'violet'];
 const mins = (ticks: number) => (ticks >= 36000 ? `${(ticks / 36000).toFixed(1)} h` : `${Math.ceil(ticks / 600)} min`);
 const cost = (c: Partial<Record<string, number>>) => Object.entries(c).filter(([, v]) => (v ?? 0) > 0).map(([r, v]) => `${Math.ceil(v!)} ${r.replace(/[A-Z]/g, (x) => ' ' + x.toLowerCase())}`).join(', ') || 'nothing';
 
 const CSS = `
 #rfGuard{display:flex;flex-direction:column;gap:4px;pointer-events:none}
-#rfGuard .g{padding:6px 10px 8px;min-width:300px}
+#rfGuard .g{padding:6px 10px 8px;width:420px}
 #rfGuard .gt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 #rfGuard .gb{position:relative;height:12px;margin-top:5px;background:var(--rf-sunk);border:1px solid var(--rf-line)}
 #rfGuard .gb i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(#d0503c,#8a2418)}
