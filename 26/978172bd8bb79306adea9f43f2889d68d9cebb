@@ -1,0 +1,39 @@
+server/src/war/room.ts
+  s_cfc22b058125c4::t_ef848c40ff7a40 519,527,577
+  s_cfc22b058125c4::t_760070497bec48 37
+src/data/warBosses.ts
+  s_cfc22b058125c4::t_5d080dcae7d73b 1-64,66-75
+  s_cfc22b058125c4::t_a42d63d6ba9256 65
+server/migrations/0028_war_boards.sql
+  s_cfc22b058125c4::t_15608e947b3b09 1-26
+tests/war/bossLoot.test.ts
+  s_cfc22b058125c4::t_69fdea8f7091d9 1-38
+src/war/types.ts
+  s_cfc22b058125c4::t_d9b6a1e9c90182 427-430
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_ef848c40ff7a40 35,380,384
+server/src/war/bosses.ts
+  s_cfc22b058125c4::t_f4ec9cb822e19e 1-45
+server/test/war/bosses.test.ts
+  s_cfc22b058125c4::t_8e110d4b799258 1-46
+server/test/war/persons.test.ts
+  s_cfc22b058125c4::t_53e3cb20f110b7 167-172
+server/src/war/persons.ts
+  s_cfc22b058125c4::t_0417b15c7f6f00 41,633-660,727
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "26978172bd8bb79306adea9f43f2889d68d9cebb",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
