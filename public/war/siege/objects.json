@@ -232,85 +232,94 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#956754",
-  "#9f8855",
-  "#9c836b",
-  "#a49a8c",
-  "#805646",
-  "#7c5d50",
-  "#9b874a",
-  "#7d7978",
+  "#5f4135",
+  "#6f6c65",
+  "#a9805a",
+  "#a6998a",
+  "#5d4034",
+  "#a08754",
+  "#a78969",
+  "#64322b",
+  "#5c3f33",
+  "#988245",
+  "#9b7b4e",
+  "#7e7369",
+  "#7c7877",
+  "#572921",
+  "#5c2c24",
+  "#623218",
+  "#683116",
+  "#635e57",
   "#6e5754",
-  "#766d61",
+  "#6f6762",
+  "#706b63",
+  "#706c63",
+  "#907246",
+  "#7b6f60",
   "#726e64",
   "#726e65",
-  "#644538",
-  "#675b55",
-  "#706c62",
-  "#6f6c65",
-  "#726d64",
-  "#5f4135",
+  "#230e12",
+  "#381b16",
+  "#42201a",
+  "#492316",
+  "#261227",
+  "#311629",
+  "#441e26",
+  "#4d2521",
+  "#614232",
   "#614236",
-  "#723522",
-  "#7b3a1b",
-  "#341914",
-  "#44211b",
-  "#4f251f",
-  "#5c2c24",
-  "#311428",
-  "#5c3f33",
-  "#5c443d",
-  "#967940",
-  "#7b7269",
-  "#6e5651",
-  "#8b674c",
   "#634437",
-  "#635046",
-  "#69645b",
-  "#706c64",
-  "#6f6a65",
-  "#706c65",
-  "#67311b",
-  "#683116",
-  "#793b1b",
-  "#200c14",
-  "#422017",
-  "#4a2319",
-  "#572a22",
-  "#271328",
-  "#4a1f29",
-  "#583c34",
-  "#52504b",
-  "#584e49",
-  "#b0461c",
-  "#f6d48a",
-  "#f6d690",
-  "#dfb367",
-  "#946535",
-  "#8e6c3a",
-  "#c59d5e",
-  "#1b0404",
-  "#69502b",
-  "#6f552d",
-  "#947354",
-  "#ca7534",
-  "#d8762c",
+  "#644538",
+  "#584c48",
+  "#55514a",
+  "#664e4a",
+  "#665a53",
+  "#7a3a1a",
+  "#783c1c",
+  "#745644",
+  "#825545",
+  "#87624c",
+  "#8e634b",
+  "#97674c",
+  "#706b65",
+  "#726d64",
+  "#e99a42",
   "#eeae52",
-  "#822e15",
-  "#a58258",
-  "#6c4a27",
-  "#8e6c3b",
-  "#b4401a",
-  "#a98e6b",
-  "#ba9462",
-  "#7a2a14",
-  "#8c7457",
-  "#937456",
-  "#370a09",
-  "#5b4124",
+  "#f6d48a",
+  "#f5eee8",
+  "#b0461c",
+  "#d8762c",
+  "#c09969",
+  "#8f7154",
   "#7a1410",
-  "#7a2413",
-  "#e5923d"
+  "#886f50",
+  "#e5d3b6",
+  "#8e7255",
+  "#470c0b",
+  "#87613d",
+  "#c3ac8b",
+  "#d7bc8b",
+  "#d3bc95",
+  "#b53e1a",
+  "#c66125",
+  "#c39461",
+  "#e4b671",
+  "#f6d388",
+  "#a4542e",
+  "#1b0404",
+  "#2a0907",
+  "#7a2a14",
+  "#814629",
+  "#a47846",
+  "#aa804f",
+  "#bb955d",
+  "#7e8187",
+  "#c19c71",
+  "#cfa271",
+  "#cfa478",
+  "#af451c",
+  "#7a1e12",
+  "#370a09"
  ],
  "engines": [
   {
@@ -555,8 +564,8 @@
       "frames": 8,
       "fps": 10,
       "frame": {
-       "w": 137,
-       "h": 142
+       "w": 140,
+       "h": 163
       },
       "tileOrigin": {
        "x": 48,
@@ -583,12 +592,12 @@
       "frames": 8,
       "fps": 10,
       "frame": {
-       "w": 137,
-       "h": 142
+       "w": 142,
+       "h": 163
       },
       "tileOrigin": {
-       "x": 89,
-       "y": 95
+       "x": 92,
+       "y": 96
       },
       "hitFrame": 6,
       "logM": [
@@ -611,11 +620,11 @@
       "frames": 8,
       "fps": 10,
       "frame": {
-       "w": 142,
-       "h": 147
+       "w": 146,
+       "h": 163
       },
       "tileOrigin": {
-       "x": 57,
+       "x": 60,
        "y": 95
       },
       "hitFrame": 6,
@@ -639,12 +648,12 @@
       "frames": 8,
       "fps": 10,
       "frame": {
-       "w": 142,
-       "h": 147
+       "w": 145,
+       "h": 163
       },
       "tileOrigin": {
        "x": 85,
-       "y": 95
+       "y": 96
       },
       "hitFrame": 6,
       "logM": [
@@ -685,23 +694,23 @@
     "w",
     "n"
    ],
-   "heightM": 2.6,
+   "heightM": 2.9,
    "footprint": {
     "e": [
-     2,
-     1
+     3,
+     2
     ],
     "s": [
-     1,
-     2
+     2,
+     3
     ],
     "w": [
-     2,
-     1
+     3,
+     2
     ],
     "n": [
-     1,
-     2
+     2,
+     3
     ]
    },
    "states": {
@@ -745,12 +754,12 @@
       "frames": 8,
       "fps": 12,
       "frame": {
-       "w": 82,
-       "h": 125
+       "w": 133,
+       "h": 128
       },
       "tileOrigin": {
-       "x": 25,
-       "y": 85
+       "x": 50,
+       "y": 60
       },
       "releaseFrame": 3,
       "idle": "frame 0 (cocked, loaded) = the done sprite"
@@ -762,12 +771,12 @@
       "frames": 8,
       "fps": 12,
       "frame": {
-       "w": 82,
-       "h": 125
+       "w": 133,
+       "h": 127
       },
       "tileOrigin": {
-       "x": 57,
-       "y": 85
+       "x": 83,
+       "y": 59
       },
       "releaseFrame": 3,
       "idle": "frame 0 (cocked, loaded) = the done sprite"
@@ -779,12 +788,12 @@
       "frames": 8,
       "fps": 12,
       "frame": {
-       "w": 83,
-       "h": 134
+       "w": 133,
+       "h": 144
       },
       "tileOrigin": {
-       "x": 25,
-       "y": 93
+       "x": 50,
+       "y": 75
       },
       "releaseFrame": 3,
       "idle": "frame 0 (cocked, loaded) = the done sprite"
@@ -796,12 +805,12 @@
       "frames": 8,
       "fps": 12,
       "frame": {
-       "w": 83,
-       "h": 134
+       "w": 133,
+       "h": 144
       },
       "tileOrigin": {
-       "x": 58,
-       "y": 93
+       "x": 82,
+       "y": 75
       },
       "releaseFrame": 3,
       "idle": "frame 0 (cocked, loaded) = the done sprite"
@@ -810,24 +819,24 @@
    },
    "release": {
     "e": {
-     "x": 1.04,
-     "y": 0.5,
-     "zM": 3.24
+     "x": 2.45,
+     "y": 1,
+     "zM": 2.15
     },
     "s": {
-     "x": 0.5,
-     "y": 1.04,
-     "zM": 3.24
+     "x": 1,
+     "y": 2.45,
+     "zM": 2.15
     },
     "w": {
-     "x": 0.96,
-     "y": 0.5,
-     "zM": 3.24
+     "x": 0.55,
+     "y": 1,
+     "zM": 2.15
     },
     "n": {
-     "x": 0.5,
-     "y": 0.96,
-     "zM": 3.24
+     "x": 1,
+     "y": 0.55,
+     "zM": 2.15
     }
    },
    "buildOrder": [
@@ -2147,7 +2156,7 @@
    "id": "ram-e-scaffold",
    "kind": "ram",
    "file": "ram-e-scaffold.png",
-   "w": 120,
+   "w": 124,
    "h": 142,
    "metres": 1.88,
    "basePx": 80,
@@ -2205,13 +2214,13 @@
    "id": "ram-e-done",
    "kind": "ram",
    "file": "ram-e-done.png",
-   "w": 125,
-   "h": 142,
-   "metres": 1.88,
+   "w": 126,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 90,
-    "y": 141
+    "x": 72,
+    "y": 162
    },
    "tileOrigin": {
     "x": 40,
@@ -2227,7 +2236,7 @@
    "engine": "ram",
    "facing": "e",
    "state": "done",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer (log drawn)",
    "layer": "back"
   },
   {
@@ -2256,20 +2265,20 @@
    "engine": "ram",
    "facing": "e",
    "state": "done",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer",
    "layer": "front"
   },
   {
    "id": "ram-e-damaged",
    "kind": "ram",
    "file": "ram-e-damaged.png",
-   "w": 125,
-   "h": 142,
-   "metres": 1.88,
+   "w": 126,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 90,
-    "y": 141
+    "x": 72,
+    "y": 162
    },
    "tileOrigin": {
     "x": 40,
@@ -2285,7 +2294,7 @@
    "engine": "ram",
    "facing": "e",
    "state": "damaged",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer (log drawn)",
    "layer": "back"
   },
   {
@@ -2293,16 +2302,16 @@
    "kind": "ram",
    "file": "ram-e-damaged-front.png",
    "w": 137,
-   "h": 159,
-   "metres": 2.39,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
     "x": 80,
-    "y": 158
+    "y": 162
    },
    "tileOrigin": {
     "x": 53,
-    "y": 91
+    "y": 95
    },
    "footprint": [
     3,
@@ -2314,7 +2323,7 @@
    "engine": "ram",
    "facing": "e",
    "state": "damaged",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer",
    "layer": "front"
   },
   {
@@ -2466,16 +2475,16 @@
    "id": "ram-s-scaffold",
    "kind": "ram",
    "file": "ram-s-scaffold.png",
-   "w": 120,
+   "w": 124,
    "h": 142,
    "metres": 1.88,
    "basePx": 80,
    "anchor": {
-    "x": 30,
+    "x": 34,
     "y": 141
    },
    "tileOrigin": {
-    "x": 80,
+    "x": 84,
     "y": 95
    },
    "footprint": [
@@ -2524,17 +2533,17 @@
    "id": "ram-s-done",
    "kind": "ram",
    "file": "ram-s-done.png",
-   "w": 125,
-   "h": 142,
-   "metres": 1.88,
+   "w": 135,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 35,
-    "y": 141
+    "x": 62,
+    "y": 162
    },
    "tileOrigin": {
     "x": 85,
-    "y": 95
+    "y": 96
    },
    "footprint": [
     2,
@@ -2546,7 +2555,7 @@
    "engine": "ram",
    "facing": "s",
    "state": "done",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer (log drawn)",
    "layer": "back"
   },
   {
@@ -2575,23 +2584,52 @@
    "engine": "ram",
    "facing": "s",
    "state": "done",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer",
    "layer": "front"
   },
   {
    "id": "ram-s-damaged",
    "kind": "ram",
    "file": "ram-s-damaged.png",
-   "w": 125,
-   "h": 142,
-   "metres": 1.88,
+   "w": 135,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 35,
-    "y": 141
+    "x": 62,
+    "y": 162
    },
    "tileOrigin": {
     "x": 85,
+    "y": 96
+   },
+   "footprint": [
+    2,
+    3
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "engine": "ram",
+   "facing": "s",
+   "state": "damaged",
+   "source": "PixelLab Pro Flash paint over the renderer (log drawn)",
+   "layer": "back"
+  },
+  {
+   "id": "ram-s-damaged-front",
+   "kind": "ram",
+   "file": "ram-s-damaged-front.png",
+   "w": 137,
+   "h": 163,
+   "metres": 2.52,
+   "basePx": 80,
+   "anchor": {
+    "x": 56,
+    "y": 162
+   },
+   "tileOrigin": {
+    "x": 84,
     "y": 95
    },
    "footprint": [
@@ -2604,36 +2642,7 @@
    "engine": "ram",
    "facing": "s",
    "state": "damaged",
-   "source": "renderer (hide roof drawn)",
-   "layer": "back"
-  },
-  {
-   "id": "ram-s-damaged-front",
-   "kind": "ram",
-   "file": "ram-s-damaged-front.png",
-   "w": 137,
-   "h": 159,
-   "metres": 2.39,
-   "basePx": 80,
-   "anchor": {
-    "x": 56,
-    "y": 158
-   },
-   "tileOrigin": {
-    "x": 84,
-    "y": 91
-   },
-   "footprint": [
-    2,
-    3
-   ],
-   "blocksMovement": true,
-   "material": "wood",
-   "burnable": true,
-   "engine": "ram",
-   "facing": "s",
-   "state": "damaged",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer",
    "layer": "front"
   },
   {
@@ -2785,16 +2794,16 @@
    "id": "ram-w-scaffold",
    "kind": "ram",
    "file": "ram-w-scaffold.png",
-   "w": 150,
+   "w": 154,
    "h": 161,
    "metres": 2.45,
    "basePx": 80,
    "anchor": {
-    "x": 136,
+    "x": 140,
     "y": 160
    },
    "tileOrigin": {
-    "x": 48,
+    "x": 52,
     "y": 95
    },
    "footprint": [
@@ -2843,16 +2852,16 @@
    "id": "ram-w-done",
    "kind": "ram",
    "file": "ram-w-done.png",
-   "w": 133,
-   "h": 147,
-   "metres": 2.03,
+   "w": 139,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 89,
-    "y": 146
+    "x": 82,
+    "y": 162
    },
    "tileOrigin": {
-    "x": 48,
+    "x": 53,
     "y": 95
    },
    "footprint": [
@@ -2865,7 +2874,7 @@
    "engine": "ram",
    "facing": "w",
    "state": "done",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer (log drawn)",
    "layer": "back"
   },
   {
@@ -2894,23 +2903,23 @@
    "engine": "ram",
    "facing": "w",
    "state": "done",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer",
    "layer": "front"
   },
   {
    "id": "ram-w-damaged",
    "kind": "ram",
    "file": "ram-w-damaged.png",
-   "w": 133,
-   "h": 147,
-   "metres": 2.03,
+   "w": 139,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 89,
-    "y": 146
+    "x": 82,
+    "y": 162
    },
    "tileOrigin": {
-    "x": 48,
+    "x": 53,
     "y": 95
    },
    "footprint": [
@@ -2923,7 +2932,7 @@
    "engine": "ram",
    "facing": "w",
    "state": "damaged",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer (log drawn)",
    "layer": "back"
   },
   {
@@ -2952,7 +2961,7 @@
    "engine": "ram",
    "facing": "w",
    "state": "damaged",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer",
    "layer": "front"
   },
   {
@@ -3104,7 +3113,7 @@
    "id": "ram-n-scaffold",
    "kind": "ram",
    "file": "ram-n-scaffold.png",
-   "w": 150,
+   "w": 154,
    "h": 161,
    "metres": 2.45,
    "basePx": 80,
@@ -3162,17 +3171,17 @@
    "id": "ram-n-done",
    "kind": "ram",
    "file": "ram-n-done.png",
-   "w": 133,
-   "h": 147,
-   "metres": 2.03,
+   "w": 138,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 43,
-    "y": 146
+    "x": 62,
+    "y": 162
    },
    "tileOrigin": {
     "x": 85,
-    "y": 95
+    "y": 96
    },
    "footprint": [
     2,
@@ -3184,7 +3193,7 @@
    "engine": "ram",
    "facing": "n",
    "state": "done",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer (log drawn)",
    "layer": "back"
   },
   {
@@ -3213,24 +3222,24 @@
    "engine": "ram",
    "facing": "n",
    "state": "done",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer",
    "layer": "front"
   },
   {
    "id": "ram-n-damaged",
    "kind": "ram",
    "file": "ram-n-damaged.png",
-   "w": 133,
-   "h": 147,
-   "metres": 2.03,
+   "w": 138,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 43,
-    "y": 146
+    "x": 62,
+    "y": 162
    },
    "tileOrigin": {
     "x": 85,
-    "y": 95
+    "y": 96
    },
    "footprint": [
     2,
@@ -3242,7 +3251,7 @@
    "engine": "ram",
    "facing": "n",
    "state": "damaged",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer (log drawn)",
    "layer": "back"
   },
   {
@@ -3271,7 +3280,7 @@
    "engine": "ram",
    "facing": "n",
    "state": "damaged",
-   "source": "renderer (hide roof drawn)",
+   "source": "PixelLab Pro Flash paint over the renderer",
    "layer": "front"
   },
   {
@@ -3336,21 +3345,21 @@
    "id": "thrower-e-foundation",
    "kind": "thrower",
    "file": "thrower-e-foundation.png",
-   "w": 80,
-   "h": 47,
+   "w": 137,
+   "h": 76,
    "metres": 0.12,
-   "basePx": 43,
+   "basePx": 72,
    "anchor": {
-    "x": 57,
-    "y": 46
+    "x": 91,
+    "y": 75
    },
    "tileOrigin": {
-    "x": 24,
-    "y": 3
+    "x": 55,
+    "y": 1
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": false,
    "material": "wood",
@@ -3364,21 +3373,21 @@
    "id": "thrower-e-rising",
    "kind": "thrower",
    "file": "thrower-e-rising.png",
-   "w": 82,
-   "h": 54,
-   "metres": 0.18,
-   "basePx": 48,
+   "w": 132,
+   "h": 100,
+   "metres": 0.61,
+   "basePx": 80,
    "anchor": {
-    "x": 59,
-    "y": 53
+    "x": 86,
+    "y": 99
    },
    "tileOrigin": {
-    "x": 25,
-    "y": 14
+    "x": 50,
+    "y": 32
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3392,21 +3401,21 @@
    "id": "thrower-e-scaffold",
    "kind": "thrower",
    "file": "thrower-e-scaffold.png",
-   "w": 82,
-   "h": 78,
-   "metres": 0.91,
-   "basePx": 48,
+   "w": 132,
+   "h": 116,
+   "metres": 1.09,
+   "basePx": 80,
    "anchor": {
-    "x": 49,
-    "y": 77
+    "x": 86,
+    "y": 115
    },
    "tileOrigin": {
-    "x": 25,
-    "y": 37
+    "x": 50,
+    "y": 48
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3420,21 +3429,21 @@
    "id": "thrower-e-done",
    "kind": "thrower",
    "file": "thrower-e-done.png",
-   "w": 82,
-   "h": 77,
-   "metres": 0.88,
-   "basePx": 48,
+   "w": 133,
+   "h": 128,
+   "metres": 1.45,
+   "basePx": 80,
    "anchor": {
-    "x": 59,
-    "y": 76
+    "x": 86,
+    "y": 127
    },
    "tileOrigin": {
-    "x": 25,
-    "y": 37
+    "x": 50,
+    "y": 60
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3442,27 +3451,27 @@
    "engine": "thrower",
    "facing": "e",
    "state": "done",
-   "source": "renderer"
+   "source": "PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)"
   },
   {
    "id": "thrower-e-damaged",
    "kind": "thrower",
    "file": "thrower-e-damaged.png",
-   "w": 82,
-   "h": 77,
-   "metres": 0.88,
-   "basePx": 48,
+   "w": 133,
+   "h": 128,
+   "metres": 1.45,
+   "basePx": 80,
    "anchor": {
-    "x": 59,
-    "y": 76
+    "x": 86,
+    "y": 127
    },
    "tileOrigin": {
-    "x": 25,
-    "y": 37
+    "x": 50,
+    "y": 60
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3470,27 +3479,27 @@
    "engine": "thrower",
    "facing": "e",
    "state": "damaged",
-   "source": "renderer"
+   "source": "PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)"
   },
   {
    "id": "thrower-e-destroyed",
    "kind": "thrower",
    "file": "thrower-e-destroyed.png",
-   "w": 89,
-   "h": 51,
+   "w": 132,
+   "h": 80,
    "metres": 0.12,
-   "basePx": 47,
+   "basePx": 76,
    "anchor": {
-    "x": 66,
-    "y": 50
+    "x": 101,
+    "y": 79
    },
    "tileOrigin": {
-    "x": 32,
-    "y": 7
+    "x": 50,
+    "y": 9
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3504,21 +3513,21 @@
    "id": "thrower-s-foundation",
    "kind": "thrower",
    "file": "thrower-s-foundation.png",
-   "w": 80,
-   "h": 47,
+   "w": 137,
+   "h": 76,
    "metres": 0.12,
-   "basePx": 43,
+   "basePx": 72,
    "anchor": {
-    "x": 22,
-    "y": 46
+    "x": 45,
+    "y": 75
    },
    "tileOrigin": {
-    "x": 56,
-    "y": 3
+    "x": 82,
+    "y": 1
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": false,
    "material": "wood",
@@ -3532,21 +3541,21 @@
    "id": "thrower-s-rising",
    "kind": "thrower",
    "file": "thrower-s-rising.png",
-   "w": 82,
-   "h": 54,
-   "metres": 0.18,
-   "basePx": 48,
+   "w": 132,
+   "h": 100,
+   "metres": 0.61,
+   "basePx": 80,
    "anchor": {
-    "x": 22,
-    "y": 53
+    "x": 45,
+    "y": 99
    },
    "tileOrigin": {
-    "x": 57,
-    "y": 14
+    "x": 82,
+    "y": 32
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3560,21 +3569,21 @@
    "id": "thrower-s-scaffold",
    "kind": "thrower",
    "file": "thrower-s-scaffold.png",
-   "w": 82,
-   "h": 78,
-   "metres": 0.91,
-   "basePx": 48,
+   "w": 132,
+   "h": 116,
+   "metres": 1.09,
+   "basePx": 80,
    "anchor": {
-    "x": 32,
-    "y": 77
+    "x": 45,
+    "y": 115
    },
    "tileOrigin": {
-    "x": 57,
-    "y": 37
+    "x": 82,
+    "y": 48
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3588,21 +3597,21 @@
    "id": "thrower-s-done",
    "kind": "thrower",
    "file": "thrower-s-done.png",
-   "w": 82,
-   "h": 77,
-   "metres": 0.88,
-   "basePx": 48,
+   "w": 133,
+   "h": 127,
+   "metres": 1.42,
+   "basePx": 80,
    "anchor": {
-    "x": 22,
-    "y": 76
+    "x": 46,
+    "y": 126
    },
    "tileOrigin": {
-    "x": 57,
-    "y": 37
+    "x": 83,
+    "y": 59
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3610,27 +3619,27 @@
    "engine": "thrower",
    "facing": "s",
    "state": "done",
-   "source": "renderer"
+   "source": "PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)"
   },
   {
    "id": "thrower-s-damaged",
    "kind": "thrower",
    "file": "thrower-s-damaged.png",
-   "w": 82,
-   "h": 77,
-   "metres": 0.88,
-   "basePx": 48,
+   "w": 133,
+   "h": 127,
+   "metres": 1.42,
+   "basePx": 80,
    "anchor": {
-    "x": 22,
-    "y": 76
+    "x": 46,
+    "y": 126
    },
    "tileOrigin": {
-    "x": 57,
-    "y": 37
+    "x": 83,
+    "y": 59
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3638,27 +3647,27 @@
    "engine": "thrower",
    "facing": "s",
    "state": "damaged",
-   "source": "renderer"
+   "source": "PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)"
   },
   {
    "id": "thrower-s-destroyed",
    "kind": "thrower",
    "file": "thrower-s-destroyed.png",
-   "w": 89,
-   "h": 51,
+   "w": 132,
+   "h": 80,
    "metres": 0.12,
-   "basePx": 47,
+   "basePx": 76,
    "anchor": {
-    "x": 22,
-    "y": 50
+    "x": 30,
+    "y": 79
    },
    "tileOrigin": {
-    "x": 57,
-    "y": 7
+    "x": 82,
+    "y": 9
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3672,21 +3681,21 @@
    "id": "thrower-w-foundation",
    "kind": "thrower",
    "file": "thrower-w-foundation.png",
-   "w": 80,
-   "h": 47,
+   "w": 137,
+   "h": 76,
    "metres": 0.12,
-   "basePx": 43,
+   "basePx": 72,
    "anchor": {
-    "x": 57,
-    "y": 46
+    "x": 91,
+    "y": 75
    },
    "tileOrigin": {
-    "x": 24,
-    "y": 3
+    "x": 55,
+    "y": 1
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": false,
    "material": "wood",
@@ -3700,21 +3709,21 @@
    "id": "thrower-w-rising",
    "kind": "thrower",
    "file": "thrower-w-rising.png",
-   "w": 82,
-   "h": 61,
-   "metres": 0.39,
-   "basePx": 48,
+   "w": 132,
+   "h": 94,
+   "metres": 0.42,
+   "basePx": 80,
    "anchor": {
-    "x": 59,
-    "y": 60
+    "x": 88,
+    "y": 93
    },
    "tileOrigin": {
-    "x": 25,
-    "y": 21
+    "x": 50,
+    "y": 25
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3728,21 +3737,21 @@
    "id": "thrower-w-scaffold",
    "kind": "thrower",
    "file": "thrower-w-scaffold.png",
-   "w": 85,
-   "h": 100,
-   "metres": 1.58,
-   "basePx": 48,
+   "w": 132,
+   "h": 145,
+   "metres": 1.97,
+   "basePx": 80,
    "anchor": {
-    "x": 43,
-    "y": 99
+    "x": 81,
+    "y": 144
    },
    "tileOrigin": {
-    "x": 27,
-    "y": 58
+    "x": 50,
+    "y": 74
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3756,21 +3765,21 @@
    "id": "thrower-w-done",
    "kind": "thrower",
    "file": "thrower-w-done.png",
-   "w": 83,
-   "h": 99,
-   "metres": 1.55,
-   "basePx": 48,
+   "w": 133,
+   "h": 144,
+   "metres": 1.94,
+   "basePx": 80,
    "anchor": {
-    "x": 68,
-    "y": 98
+    "x": 89,
+    "y": 143
    },
    "tileOrigin": {
-    "x": 25,
-    "y": 58
+    "x": 50,
+    "y": 75
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3778,27 +3787,27 @@
    "engine": "thrower",
    "facing": "w",
    "state": "done",
-   "source": "renderer"
+   "source": "PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)"
   },
   {
    "id": "thrower-w-damaged",
    "kind": "thrower",
    "file": "thrower-w-damaged.png",
-   "w": 83,
-   "h": 99,
-   "metres": 1.55,
-   "basePx": 48,
+   "w": 133,
+   "h": 144,
+   "metres": 1.94,
+   "basePx": 80,
    "anchor": {
-    "x": 68,
-    "y": 98
+    "x": 89,
+    "y": 143
    },
    "tileOrigin": {
-    "x": 25,
-    "y": 58
+    "x": 50,
+    "y": 75
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3806,27 +3815,27 @@
    "engine": "thrower",
    "facing": "w",
    "state": "damaged",
-   "source": "renderer"
+   "source": "PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)"
   },
   {
    "id": "thrower-w-destroyed",
    "kind": "thrower",
    "file": "thrower-w-destroyed.png",
-   "w": 82,
-   "h": 57,
-   "metres": 0.27,
-   "basePx": 48,
+   "w": 132,
+   "h": 80,
+   "metres": 0.12,
+   "basePx": 76,
    "anchor": {
-    "x": 59,
-    "y": 56
+    "x": 96,
+    "y": 79
    },
    "tileOrigin": {
-    "x": 25,
-    "y": 13
+    "x": 50,
+    "y": 9
    },
    "footprint": [
-    2,
-    1
+    3,
+    2
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3840,21 +3849,21 @@
    "id": "thrower-n-foundation",
    "kind": "thrower",
    "file": "thrower-n-foundation.png",
-   "w": 80,
-   "h": 47,
+   "w": 137,
+   "h": 76,
    "metres": 0.12,
-   "basePx": 43,
+   "basePx": 72,
    "anchor": {
-    "x": 22,
-    "y": 46
+    "x": 45,
+    "y": 75
    },
    "tileOrigin": {
-    "x": 56,
-    "y": 3
+    "x": 82,
+    "y": 1
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": false,
    "material": "wood",
@@ -3868,21 +3877,21 @@
    "id": "thrower-n-rising",
    "kind": "thrower",
    "file": "thrower-n-rising.png",
-   "w": 82,
-   "h": 61,
-   "metres": 0.39,
-   "basePx": 48,
+   "w": 132,
+   "h": 94,
+   "metres": 0.42,
+   "basePx": 80,
    "anchor": {
-    "x": 22,
-    "y": 60
+    "x": 43,
+    "y": 93
    },
    "tileOrigin": {
-    "x": 57,
-    "y": 21
+    "x": 82,
+    "y": 25
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3896,21 +3905,21 @@
    "id": "thrower-n-scaffold",
    "kind": "thrower",
    "file": "thrower-n-scaffold.png",
-   "w": 85,
-   "h": 100,
-   "metres": 1.58,
-   "basePx": 48,
+   "w": 132,
+   "h": 145,
+   "metres": 1.97,
+   "basePx": 80,
    "anchor": {
-    "x": 41,
-    "y": 99
+    "x": 50,
+    "y": 144
    },
    "tileOrigin": {
-    "x": 58,
-    "y": 58
+    "x": 82,
+    "y": 74
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3924,21 +3933,21 @@
    "id": "thrower-n-done",
    "kind": "thrower",
    "file": "thrower-n-done.png",
-   "w": 83,
-   "h": 99,
-   "metres": 1.55,
-   "basePx": 48,
+   "w": 133,
+   "h": 144,
+   "metres": 1.94,
+   "basePx": 80,
    "anchor": {
-    "x": 14,
-    "y": 98
+    "x": 45,
+    "y": 143
    },
    "tileOrigin": {
-    "x": 58,
-    "y": 58
+    "x": 82,
+    "y": 75
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3946,27 +3955,27 @@
    "engine": "thrower",
    "facing": "n",
    "state": "done",
-   "source": "renderer"
+   "source": "PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)"
   },
   {
    "id": "thrower-n-damaged",
    "kind": "thrower",
    "file": "thrower-n-damaged.png",
-   "w": 83,
-   "h": 99,
-   "metres": 1.55,
-   "basePx": 48,
+   "w": 133,
+   "h": 144,
+   "metres": 1.94,
+   "basePx": 80,
    "anchor": {
-    "x": 14,
-    "y": 98
+    "x": 45,
+    "y": 143
    },
    "tileOrigin": {
-    "x": 58,
-    "y": 58
+    "x": 82,
+    "y": 75
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
@@ -3974,27 +3983,27 @@
    "engine": "thrower",
    "facing": "n",
    "state": "damaged",
-   "source": "renderer"
+   "source": "PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)"
   },
   {
    "id": "thrower-n-destroyed",
    "kind": "thrower",
    "file": "thrower-n-destroyed.png",
-   "w": 82,
-   "h": 57,
-   "metres": 0.27,
-   "basePx": 48,
+   "w": 132,
+   "h": 80,
+   "metres": 0.12,
+   "basePx": 76,
    "anchor": {
-    "x": 22,
-    "y": 56
+    "x": 35,
+    "y": 79
    },
    "tileOrigin": {
-    "x": 57,
-    "y": 13
+    "x": 82,
+    "y": 9
    },
    "footprint": [
-    1,
-    2
+    2,
+    3
    ],
    "blocksMovement": true,
    "material": "wood",
