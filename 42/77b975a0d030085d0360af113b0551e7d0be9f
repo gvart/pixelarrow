@@ -1,0 +1,36 @@
+tests/war/landmarkState.test.ts
+  s_cfc22b058125c4::t_68b50e7423ddf6 146
+src/war/regions/saddle.json
+  s_cfc22b058125c4::t_65ea30b8eced35 1
+src/war/regions/gorge.spots.ts
+  s_cfc22b058125c4::t_274e287b629a4d 10-11,16
+scripts/war/regions/gorge.ts
+  s_cfc22b058125c4::t_274e287b629a4d 14,49-52,63-64
+src/war/regions/saddle.spots.ts
+  s_cfc22b058125c4::t_b023ea640e2b63 7-8,14
+scripts/war/regions/saddle.ts
+  s_cfc22b058125c4::t_b023ea640e2b63 40
+  s_cfc22b058125c4::t_274e287b629a4d 13,38-39,41
+src/dev/landmarkBalance.ts
+  s_cfc22b058125c4::t_d0cf02d4d04639 32-33,35-37
+tests/war/landmarks.test.ts
+  s_cfc22b058125c4::t_68b50e7423ddf6 17,22-24,31-36,56-57
+src/war/regions/gorge.json
+  s_cfc22b058125c4::t_65ea30b8eced35 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4277b975a0d030085d0360af113b0551e7d0be9f",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
