@@ -1,0 +1,24 @@
+public/war/fx/objects.json
+  s_cfc22b058125c4::t_db794d7f663990 5-8,10-12,18,20,25,29-30,33,37,39-40,42-43,46-50,53,55,57-70,189-237,239-246,248-264,266-300,302-390,392-404
+  s_cfc22b058125c4::t_55360ccd6e5b66 238,247,265,301,391
+scripts/war/art/boss-fx-import.mjs
+  s_cfc22b058125c4::t_55360ccd6e5b66 46,48-49,59
+  s_cfc22b058125c4::t_02bf7bd36959d6 1-5,9-17,19-42,47,53-58,60-69
+  s_cfc22b058125c4::t_db794d7f663990 6-8,18,43-45,50-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "644bc57248c054f25fa09c1b5b438ff0931916c7",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
