@@ -13,6 +13,7 @@ import { scenarioById, SCENARIOS } from '../scenarios';
 import { loadArt } from './art';
 import { applyScenario, devPanel } from './devPanel';
 import { hud } from './hud/hud';
+import { sandboxRoster } from './hud/roster/state';
 import { SandboxScene } from './SandboxScene';
 import { loadSheetImages } from './units';
 
@@ -35,6 +36,7 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
   const ready = () => {
     if (!scene.sim) return;
     game.events.off('poststep', ready);
+    sandboxRoster(scene); // before the scenario spawns: the player's squads take its persons
     if (sc) applyScenario(scene, sc);
     devPanel(game, scene, sc);
     hud(scene);

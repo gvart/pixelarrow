@@ -32,6 +32,7 @@ import { bar, BUILDING_ICON, cursor, CSS, icon, setUiScale, SIEGE_ICON, snapW, U
 import { Minimap } from './minimap';
 import { ModeBar } from './modes';
 import { FullMap } from './fullMap';
+import { mountRoster } from './roster';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
@@ -240,6 +241,9 @@ export function hud(s: SandboxScene): void {
     if (e.key === 'F1') { e.preventDefault(); setDev(dev?.style.display === 'none'); }
     else if (e.key.toLowerCase() === 'x' && !m.active) stop();
   });
+
+  // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
+  mountRoster(s, mk);
 
   // ---------- scale ----------
   const scale = () => {
