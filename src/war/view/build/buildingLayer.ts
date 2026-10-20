@@ -23,6 +23,11 @@
  * wall-walk), up a ramp as on a stair. A collapsed piece leaves the stumps of its damaged art at the waterline. A wider
  * axis bridge keeps rails on its outer tiles only; a bridge along a grid diagonal (W-33) draws one row segment of the
  * diagonal kit per row centre, at the depth of the row's back-most tile.
+ * M5h3 Fortifier works: ditch tiles as the ditch kit by their neighbour mask on the ground (under anything standing),
+ * filled in (destroyed: attackBuilding filled it) as its damaged frames; stakes by state (broken ones stay as the damaged
+ * art); an iron-bound gate as the iron variant of its gate art; wet hides over a palisade or rampart as the hides
+ * overlay kit (same frames), other wet wood darkened. A docked siege tower's bridge (towerBridge, drawn with the tower by
+ * ../siege/siegeLayer.ts): men on its foot tile go up inside the tower to the bridge's height, then across onto the walk.
  */
 import Phaser from 'phaser';
 import type { BridgeAxis, BuildingSnap, BuildingType, InfluenceMap, NodeSnap } from '../../types';
@@ -67,7 +72,13 @@ interface Deck {
   ox: number; oy: number; dx: number; dy: number; n: number;
   /** A siege ladder: its foot's distance from the wall face (tiles); climbers lean in with it. */
   foot?: number;
+  /** M5h3: a docked siege tower's bridge (men rise inside the tower, no climb). */
+  tower?: true;
 }
+/** M5h3: ditch tiles sit on the ground, under every object (over the terrain and the influence area). */
+const DITCH = 2.4;
+/** M5h3: wet wood with no hides art, darkened. */
+const WET_TINT = 0xb0b4b8;
 /** Siege ladder foot from the wall face in tiles (public/war/siege/objects.json ladders.targets footM / 2 m). */
 const SIEGE_FOOT: Partial<Record<BuildingType, number>> = { stoneWall: 0.945, stoneTower: 0.945, stoneGate: 0.945, rampart: 0.645, woodTower: 0.645, woodGate: 0.645 };
 /** How a building is drawn this frame: the type and stage shown (an upgrade shows the old tier), and the grown tiles' stage. */
@@ -264,7 +275,7 @@ export class BuildingLayer {
           const o = occ.get(key(x + dx, y + dy));
           if (!o || (b.attach !== undefined && o.id !== b.attach)) continue;
           if (walks.has(key(x + dx, y + dy))) setOpen(x + dx, y + dy, sideOf(-dx, -dy));
-          if (up) this.decks.set(key(x, y), { kind: 'ladder', px: this.walkTile(x + dx, y + dy) || 99, z: this.zt(x, y), depth: this.D(x + 0.8, y + 0.8), b: b.id, ox: 0, oy: 0, dx, dy, n: side, ...(b.siege !== undefined ? { foot: SIEGE_FOOT[o.type] ?? 0.9 } : {}) });
+          if (up) this.decks.set(key(x, y), { kind: 'ladder', px: this.walkTile(x + dx, y + dy) || 99, z: this.zt(x, y), depth: this.D(x + 0.8, y + 0.8), b: b.id, ox: 0, oy: 0, dx, dy, n: side, ...(b.siege !== undefined ? { foot: SIEGE_FOOT[o.type] ?? 0.9 } : {}), ...(b.type === 'towerBridge' ? { tower: true as const, depth: this.D(x + 0.5 - dx / 2, y + 0.5 - dy / 2) + 10 * IN } : {}) });
           break;
         }
       } else if (def.wall === 'tower') {
@@ -369,6 +380,8 @@ export class BuildingLayer {
     }
     // ladder: f = how far across the tile towards the wall; the man steps to the ladder's foot, then climbs straight up
     const f = t.dx ? (t.dx > 0 ? d.x - tx : tx + 1 - d.x) : t.dy > 0 ? d.y - ty : ty + 1 - d.y;
+    // a siege tower: up its inner stair over the back half of the tile, then on the bridge at the walk's height
+    if (t.tower) return { x: d.x, y: d.y, z: t.z, px: t.px * Math.max(0, Math.min(1, f / 0.6)), depth: t.depth, facing: Math.atan2(t.dy, t.dx) };
     if (t.foot !== undefined) {
       // a siege ladder leans out from the face: up it from its foot, centred on its tile across
       const at = Math.max(0.05, 1 - t.foot), k = Math.min(1, f / at), up = Math.max(0, Math.min(1, (f - at) / (1 - at)));
@@ -443,7 +456,8 @@ export class BuildingLayer {
     this.working.length = 0;
     const bars = this.gBars.clear(), ground = this.gGround.clear(), lw = Math.max(1, 1.25 / zoom);
     this.prepare(buildings);
-    const walls = this.wallTiles(buildings);
+    const walls = this.wallTiles(buildings), ditches = new Set<number>();
+    for (const b of buildings) if (b.type === 'ditch') ditches.add(key(b.tiles[0], b.tiles[1]));
     for (const b of buildings) {
       const c = this.pt(b.x, b.y, this.z(b));
       const site = b.state === 'foundation' || b.state === 'scaffold';
@@ -455,7 +469,8 @@ export class BuildingLayer {
       const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = this.D(x1 - 0.5, y1 - 0.5);
       const def = BUILDINGS[b.type], l = this.looks.get(b.id) ?? this.look(b), axis = b.w >= b.h ? 'x' : 'y';
       let drawn = false;
-      if (this.art && def.bridge) drawn = this.drawBridge(b, l);
+      if (this.art && def.field) drawn = this.drawField(b, l, ditches);
+      else if (this.art && def.bridge) drawn = this.drawBridge(b, l);
       else if (this.art && b.state !== 'destroyed') {
         if (def.wall === 'segment') drawn = this.drawWall(b, walls);
         else if (def.wall === 'tower') drawn = this.drawTower(b, l);
@@ -463,14 +478,16 @@ export class BuildingLayer {
         if (!drawn) {
           const deep = def.wall === 'gate' ? this.deep.get(b.id) : undefined;
           const near = def.wall === 'gate' && b.state === 'done' && units.some((d) => d.team === b.team && d.u.state !== 'dead' && Math.abs(d.x - b.x) < GATE_NEAR && Math.abs(d.y - b.y) < GATE_NEAR);
-          const spr = this.art.sprite(l.type, near ? 'open' : l.stage, axis, deep?.side);
+          const spr = this.art.sprite(l.type, near ? 'open' : l.stage, axis, deep?.side, !!b.iron);
           if (spr) {
             if (deep) {
               const all = pairs([...b.tiles, ...deep.tiles]), x0 = Math.min(...all.map((t) => t[0])), y0 = Math.min(...all.map((t) => t[1]));
               const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, x0 + 1, y0 + 1, 2, 2, this.zt(x0, y0)).setDepth(this.D(x0 + 1.5, y0 + 1.5));
               if (this.cut(b)) this.stub(im, spr.tileOrigin.y, 2);
+              if (b.wet) im.setTint(WET_TINT);
             } else {
               const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), !def.wall && b.rot === 1).setDepth(depth);
+              if (b.wet) im.setTint(WET_TINT);
               if (this.cut(b)) this.stub(im, spr.tileOrigin.y, (b.w + b.h) / 2);
               else if (def.workplace && (b.state === 'done' || b.state === 'damaged') && b.queue?.some((o) => o.by >= 0)) {
                 // a crafter at an order: the art's working fx at their sprite px
@@ -513,6 +530,11 @@ export class BuildingLayer {
       if (cut) { this.stub(back, kit.tileOrigin.y, 1); return; }
       const ch = this.charOf?.(b, m.id, 'back');
       if (ch) this.piece(this.img(this.ni++, ch, frame), kit, x, y, z).setDepth(back.depth + IN / 4);
+      // M5h3 wet hides hung over the done wall (same frames as the kit)
+      const hides = b.wet && stage === 'done' ? this.art!.hides(type) : undefined;
+      if (hides) this.piece(this.img(this.ni++, hides.key, frame), hides, x, y, z).setDepth(back.depth + IN / 3);
+      else if (b.wet) back.setTint(WET_TINT);
+      if (hides?.front && kit.front) this.piece(this.img(this.ni++, hides.front, frame), hides, x, y, z).setDepth(this.D(x + 1, y + 1) + 2.5 * IN);
       // a back-facing inner corner: -x and -y joined, the diagonal between them open
       if (m.post && stage === 'done' && this.joins(m.id, x - 1, y) && this.joins(m.id, x, y - 1) && !this.joins(m.id, x - 1, y - 1)) {
         this.piece(this.img(this.ni++, m.post, 0), kit, x, y, z).setDepth(base + IN / 2);
@@ -556,7 +578,8 @@ export class BuildingLayer {
     if (this.cut(b)) { this.stub(back, kit.tileOrigin.y, 2); return true; }
     const id = this.art!.meta(l.type)?.id ?? '', cb = this.charOf?.(b, id, 'back'), cf = this.charOf?.(b, id, 'front');
     if (cb) this.piece(this.img(this.ni++, cb, open), kit, x0, y0, z).setDepth(base + IN / 4);
-    if (kit.front) this.piece(this.img(this.ni++, kit.front, open), kit, x0, y0, z).setDepth(this.D(x0 + 2, y0 + 2) + 2 * IN);
+    if (b.wet) back.setTint(WET_TINT);
+    if (kit.front) this.piece(this.img(this.ni++, kit.front, open), kit, x0, y0, z).setDepth(this.D(x0 + 2, y0 + 2) + 2 * IN).setTint(b.wet ? WET_TINT : 0xffffff);
     if (kit.front && cf) this.piece(this.img(this.ni++, cf, open), kit, x0, y0, z).setDepth(this.D(x0 + 2, y0 + 2) + 2.25 * IN);
     return true;
   }
@@ -576,6 +599,26 @@ export class BuildingLayer {
     const [x, y] = ts[0], f = this.ladderFrame(m.pieces, x, y, b.attach);
     if (f < 0) return false;
     this.piece(this.img(this.ni++, kit.key, f), kit, x, y, this.zt(x, y)).setDepth(this.D(x + 0.8, y + 0.8));
+    return true;
+  }
+
+  /**
+   * M5h3 field tiles: a ditch as its kit frame by the neighbour mask of ditch tiles (any state), on the ground; filled
+   * in (destroyed) as the damaged frames. Stakes as their sprite, broken ones (destroyed) as the damaged art.
+   */
+  private drawField(b: BuildingSnap, l: Look, ditches: Set<number>): boolean {
+    const [x, y] = b.tiles, gone = b.state === 'destroyed';
+    if (b.type === 'ditch') {
+      const kit = this.art!.kit(b.type, gone ? 'damaged' : l.stage === 'damaged' ? 'done' : l.stage);
+      if (!kit) return false;
+      let mask = 0;
+      for (const [dx, dy, s] of SIDES) if (ditches.has(key(x + dx, y + dy))) mask |= s;
+      this.piece(this.img(this.ni++, kit.key, mask), kit, x, y, this.zt(x, y)).setDepth(DITCH);
+      return true;
+    }
+    const spr = this.art!.sprite(b.type, gone ? 'damaged' : l.stage, 'x');
+    if (!spr) return false;
+    this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, 1, 1, this.z(b)).setDepth(this.D(x + 0.5, y + 0.5));
     return true;
   }
 
@@ -678,7 +721,7 @@ export class BuildingLayer {
   private img(i: number, texture: string, frame?: number): Phaser.GameObjects.Image {
     let img = this.imgs[i];
     if (!img) this.imgs.push((img = this.scene.add.image(0, 0, texture).setOrigin(0)));
-    return img.setTexture(texture, frame).setScale(1).setFlipX(false).setCrop().setVisible(true);
+    return img.setTexture(texture, frame).setScale(1).setFlipX(false).setCrop().clearTint().setVisible(true);
   }
 
   /** Tiles of standing wall pieces (the palisade's neighbour mask joins to walls, gates and towers). */
