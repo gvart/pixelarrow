@@ -221,7 +221,17 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     return -1;
   };
   /** Done stores of `team` in network `net`, by id. */
-  const netStores = (team: number, net: number): Building[] => (net < 0 ? [] : storeList.filter((b) => b.team === team && standing(b) && storeNet(b) === net));
+  // exact cache: rebuilt whenever influence or any store's standing changes (storeVer), so a resumed sim agrees
+  let storeVer = 0;
+  const netCache = new Map<string, { v: number; s: number; list: Building[] }>();
+  const netStores = (team: number, net: number): Building[] => {
+    if (net < 0) return [];
+    const k = `${team}:${net}`, c = netCache.get(k);
+    if (c && c.v === infl.version && c.s === storeVer) return c.list;
+    const list = storeList.filter((b) => b.team === team && standing(b) && storeNet(b) === net);
+    netCache.set(k, { v: infl.version, s: storeVer, list });
+    return list;
+  };
   /** What work of `team` at (x,y) draws from: the stores of its network, then the home strongroom. */
   const sources = (team: number, x: number, y: number): Hold[] => [...netStores(team, netAt(team, x, y)).map((b) => b.hold!), reserveOf(team)];
   /** Pay `cost` where the work stands; false (nothing taken) when the network lacks any of it. */
@@ -880,6 +890,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.node = n.id;
     }
     if (b.def.influence > 0) repaint();
+    if (b.def.store) storeVer++;
   };
 
   const destroy = (b: Building) => {
@@ -920,6 +931,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (b.bridge && wasDone) fall(b.ti); // the deck collapses under the men on it
     if (b.node >= 0) nodes[b.node].amount = nodes[b.node].max = nodes[b.node].regrow = 0;
     if (wasDone && b.def.influence > 0) repaint();
+    if (b.def.store) storeVer++;
   };
 
   const damage = (id: number, dmg: number) => {
@@ -1428,6 +1440,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       }
       destroy(b);
       b.cancelled = true;
+      if (b.def.store) storeVer++;
       return true;
     },
     /**
