@@ -13,6 +13,7 @@ export const FILLS = {
   scree: { dir: 'grass-scree', frame: 0, grade: { sat: 0.6, val: 0.9 } },
   meadow: { dir: 'grass-meadow', frame: 0, grade: { hue: -75, sat: 0.8, val: 0.75 } }, // PixelLab drew a teal turf: turned to a cool dark green
   gravel: { dir: 'grass-gravel', frame: 0, grade: { sat: 0.8, val: 0.72 } },
+  paving: { dir: 'grass-paving', batch: 'art5', frame: 0, grade: { sat: 0.6, val: 0.75 } }, // W-48 landmark streets and plazas
 };
 
 export const SETS = [
@@ -21,6 +22,7 @@ export const SETS = [
   { pair: 'grass-gravel', first: 'grass', second: 'gravel', dir: 'grass-gravel', side: 'earth', source: 'tiles_pro a3f7d872 (ART-8)' },
   { pair: 'grass-snow', first: 'grass', second: 'snow', dir: 'grass-snow', side: 'earth', organic: 0.6, source: 'tiles_pro 4418d45e (ART-8)' },
   { pair: 'rock-scree', first: 'rock', second: 'scree', dir: 'rock-scree', side: 'rock', globalFull: true, source: 'tiles_pro d316baf4 (ART-8)' },
+  { pair: 'grass-paving', first: 'grass', second: 'paving', dir: 'grass-paving', batch: 'art5', side: 'earth', source: 'tiles_pro 03a3bc68 (W-48)' },
 ];
 
 // 'fills' = tiles_pro c6456277 (ART-8): 16 independent 64x64 tiles, top vertex at y 11. PixelLab ignored the item order:
@@ -39,7 +41,7 @@ export const CLIFFS = [];
 
 export const FALLBACK = {
   note: 'Same rule as the global tiles.json fallback, over the global sheets plus these (land buffer grass). Mountain pairs with a sheet: grass-scree, grass-meadow, grass-gravel, grass-snow, rock-scree (plus the global grass-rock, rock-snow, road-rock); others (scree-snow, meadow-rock, gravel-rock, ...) get a grass verge.',
-  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'meadow', 'gravel', 'forest', 'snow', 'scree', 'rock', 'road', 'grass'],
+  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'meadow', 'gravel', 'forest', 'snow', 'scree', 'rock', 'road', 'paving', 'grass'],
   buffer: { water: 'shallow', land: 'grass' },
 };
 

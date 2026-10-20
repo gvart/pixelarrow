@@ -12,6 +12,7 @@ export const FILLS = {
   rossa: { dir: 'grass-rossa', frame: 0, grade: { sat: 0.8, val: 0.68 } },
   marble: { dir: 'grass-marble', frame: 0, grade: { sat: 0.5, val: 0.6 } },
   grove: { dir: 'grass-grove', frame: 0, grade: { sat: 0.75, val: 0.75 } },
+  paving: { dir: 'grass-paving', batch: 'art5', frame: 0, grade: { sat: 0.6, val: 0.75 } }, // W-48 landmark streets and plazas
 };
 
 export const SETS = [
@@ -19,6 +20,7 @@ export const SETS = [
   { pair: 'grass-rossa', first: 'grass', second: 'rossa', dir: 'grass-rossa', side: 'earth', source: 'tiles_pro eab57a4f (ART-6)' },
   { pair: 'grass-marble', first: 'grass', second: 'marble', dir: 'grass-marble', side: 'marble', sideName: 'marble', sideFrom: 0, sideGrade: { sat: 0.5, val: 0.6 }, source: 'tiles_pro 4138d83c (ART-6)' },
   { pair: 'grass-grove', first: 'grass', second: 'grove', dir: 'grass-grove', side: 'earth', source: 'tiles_pro bb9d82ae (ART-6)' },
+  { pair: 'grass-paving', first: 'grass', second: 'paving', dir: 'grass-paving', batch: 'art5', side: 'earth', source: 'tiles_pro 03a3bc68 (W-48)' },
 ];
 
 // 'fills' = tiles_pro a8909d68 (ART-6): 2 independent tiles per item, top vertex at y 11 (items: dry x2, rossa x2,
@@ -37,7 +39,7 @@ export const CLIFFS = [{ id: 'marble', from: 'marble' }];
 
 export const FALLBACK = {
   note: 'Same rule as the global tiles.json fallback, over the global sheets plus these. Elaia terrains only have a set with grass, so any other pair (dry-rossa, marble-sand, ...) gets a grass verge; order says which corner gives way first.',
-  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'grove', 'dry', 'rossa', 'forest', 'marble', 'rock', 'road', 'grass'],
+  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'grove', 'dry', 'rossa', 'forest', 'marble', 'rock', 'road', 'paving', 'grass'],
   buffer: { water: 'shallow', land: 'grass' },
 };
 
