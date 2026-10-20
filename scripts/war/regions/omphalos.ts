@@ -11,6 +11,7 @@
  * flavour of their gate: woods west (Erymanthos), red sand east (Canyons), crags north (Saddle).
  */
 import type { Kit, RegionDef } from './kit.ts';
+import { templeCity } from './landmarks.ts';
 
 const def: RegionDef = {
   id: 'omphalos',
@@ -24,25 +25,20 @@ const def: RegionDef = {
     k.spot('mesa', [128, 92]);
     // the crater lake in its bowl, the acropolis knoll
     k.waterBody([96, 98, 22, 17, 0.4], { shore: 3, beach: 2 });
-    k.hill([166, 150, 14, 11, 0.4], 7, 3, 2);
-    k.spot('acropolis', [166, 150]);
     k.hill([76, 178, 14, 10, 0.5], 7, 3, 2);
-    k.hill([180, 76, 16, 9, -0.4], 7, 3, 2);
     k.forest([84, 196, 10, 6, 0.3], [176, 64, 8, 5, 0.2]);
     // the Achelous: spring pool, across the mesa (bed 5), over the south rim, deep below (narrows)
     k.waterBody([108, 138, 4, 3, 0], { deep: false, beach: 1 });
     k.river([[108, 140], [104, 164], [114, 190], [110, 214], [118, 236], [110, 262]], { half: 2.2, deep: false, bed: (s) => (s < 76 ? 5 : 1), bank: 0.25 });
     k.river([[110, 220], [118, 236], [110, 262]], { half: 4, bed: 1, bank: 1, narrows: [[[116, 232], 2.5]], name: 'achelous' });
     k.spot('falls', [111, 213]);
-    // the temple city: square, streets
-    k.paint('dirt', [150, 168, 18, 12, 0.3], { rough: 3, minH: 6 });
-    k.square([146, 170], 7, 6);
-    k.spot('templeSquare', [146, 170]);
     k.spot('fortress', [128, 92]);
-    k.spot('labyrinth', [184, 172]);
-    // the four ramps (built up from the skirt), the roads to the square
-    // M7d: the Temple City of the Navel east of the square: the Titan in his arena, the Minotaur in the labyrinth
-    k.landmark('navel', [168, 170], { guardians: [{ boss: 'titan', at: [5, 11], perches: [[5, 5]] }, { boss: 'minotaur', at: [24, 13] }] });
+    // M7d / W-48: the Temple City of the Navel over the whole mesa top: the ramp gate forts, the processional ways to
+    // the Great Fair and the precinct, the Titan in his arena, the Minotaur in the labyrinth
+    const C = templeCity(k, [44, 46], 6);
+    for (const [n, v] of Object.entries(C.spots)) k.spot(n, v);
+    k.spot('acropolis', C.spots.precinct);
+    // the four ramps (built up from the skirt) up to the gate forts
     k.road([k.entry('saddle'), [128, 10], [128, 28], [128, 46]], { fill: true, grade: 3 });
     k.road([k.entry('erymanthos'), [10, 128], [28, 128], [46, 130]], { fill: true, grade: 3 });
     k.road([k.entry('gorge'), [140, 248], [142, 230], [144, 210]], { fill: true, grade: 3 });
@@ -51,10 +47,6 @@ const def: RegionDef = {
     k.spot('rampW', [34, 128]);
     k.spot('rampS', [142, 224]);
     k.spot('rampE', [222, 128]);
-    k.road([[128, 46], [132, 80], [140, 120], [146, 170]]);
-    k.road([[46, 130], [80, 146], [116, 158], [146, 170]], { bridges: [[106, 156]] });
-    k.road([[144, 210], [146, 190], [146, 170]]);
-    k.road([[212, 130], [184, 146], [160, 162], [146, 170]]);
     // the skirt's corners
     k.forest([18, 40, 18, 30, 0.2], [24, 220, 20, 28, -0.2], [70, 64, 10, 6, 0.3]);
     k.rockMass([236, 22, 26, 18, 0.3]);
@@ -67,14 +59,7 @@ const def: RegionDef = {
     k.resource('marble', [190, 120], 4, 10);
     k.piece('elaia/marble-quarry', [196, 112], { r: 8 });
     k.resource('stone', [60, 168], 3, 12);
-    k.piece('wall-ruin', [150, 168], { r: 18, n: 8, gap: 5 });
-    k.piece('kyrene/ruin-wall', [160, 186], { r: 14, n: 3 });
-    k.piece('kyrene/ruin-corner', [136, 156], { r: 14, n: 3 });
-    k.piece('elaia/shrine', [166, 148], { r: 5 });
-    k.piece('elaia/shrine', [150, 166], { r: 8 });
-    k.piece('elaia/wall-a', [128, 178], { r: 10, n: 2 });
-    k.piece('kyrene/rock-pillar', [176, 136], { r: 12, n: 3, gap: 6 });
-    k.piece('mountains/rockfall', [184, 172], { r: 5 });
+    k.piece('kyrene/rock-pillar', [62, 200], { r: 12, n: 3, gap: 6 });
     k.piece('watchtower', [128, 52], { r: 6 });
     k.piece('watchtower', [52, 128], { r: 6 });
     k.piece('watchtower', [204, 136], { r: 6 });
@@ -83,7 +68,7 @@ const def: RegionDef = {
     k.lair('bear', [184, 176], { count: 8, as: 'minotaur' });
     k.lair('wolf', [150, 70], { as: 'wolves' });
     k.lair('wolf', [96, 196], { as: 'harpies' });
-    k.claim([146, 170], 150);
+    k.claim(C.spots.templeSquare, 150);
   },
 };
 export default def;
