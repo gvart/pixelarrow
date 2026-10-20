@@ -1,0 +1,102 @@
+src/war/sim/depth.ts
+  s_cfc22b058125c4::t_8bf15396e25904 29,52
+src/war/view/worker.ts
+  s_cfc22b058125c4::t_8bf15396e25904 31,158-160
+  s_cfc22b058125c4::t_c204c09075a37f 161
+src/war/view/hud/guardianBar.ts
+  s_cfc22b058125c4::t_8bf15396e25904 13-14,16,21-27,61-62,81-87,91-92,95-97,104,108,116-145,147,151-164,175,180
+src/war/world-view/map.ts
+  s_cfc22b058125c4::t_8bf15396e25904 123,338,340,345,354-410,424,551
+server/test/war/living.test.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1-152
+server/src/war/world/worldDO.ts
+  s_cfc22b058125c4::t_8bf15396e25904 97-103
+src/data/warBosses.ts
+  s_cfc22b058125c4::t_8bf15396e25904 45,52
+src/war/world-view/source.ts
+  s_cfc22b058125c4::t_8bf15396e25904 14,201-202,215-228
+server/src/war/world/world.ts
+  s_cfc22b058125c4::t_8bf15396e25904 28,30,112-118,226-235,242-247
+  s_cfc22b058125c4::t_6e3f4d428bece4 248-249
+src/war/view/simClient.ts
+  s_cfc22b058125c4::t_8bf15396e25904 142-146
+src/war/view/build/buildMode.ts
+  s_cfc22b058125c4::t_8bf15396e25904 383,387-390
+  s_cfc22b058125c4::t_4d0abe00164cd5 391-392
+src/war/types.ts
+  s_cfc22b058125c4::t_8bf15396e25904 109-112,284-285,294-310,526-533,640-643
+server/src/account/deletionMap.ts
+  s_cfc22b058125c4::t_8bf15396e25904 132
+server/src/war/memory.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1-42
+server/migrations/0034_war_region_state.sql
+  s_cfc22b058125c4::t_8bf15396e25904 1-9
+src/data/warLore.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1-61
+src/war/net/world.ts
+  s_cfc22b058125c4::t_8bf15396e25904 98-119
+src/war/view/interact.ts
+  s_cfc22b058125c4::t_8bf15396e25904 14,19,258-259,261-263,272-275
+  s_cfc22b058125c4::t_23a510b9c88d0e 276
+tests/war/landmarkState.test.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1-148
+scripts/war/living-shots.mjs
+  s_cfc22b058125c4::t_8bf15396e25904 1-85
+server/src/war/room.ts
+  s_cfc22b058125c4::t_8bf15396e25904 40,134-135,138-142,207-218,450,457-474,776,787-788,842,893
+src/dev/landmarkBalance.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1-231
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1530-1541,1600-1602,1607-1664
+server/src/war/regions.ts
+  s_cfc22b058125c4::t_8bf15396e25904 16-18
+tests/war/landmarkBalance.test.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1-24
+src/war/view/build/buildArt.ts
+  s_cfc22b058125c4::t_8bf15396e25904 135-136,195-224
+  s_cfc22b058125c4::t_e7d038664ce776 225
+src/war/world/season.ts
+  s_cfc22b058125c4::t_8bf15396e25904 22-30,35-39,45,50,52-59
+scripts/war/bench.mjs
+  s_cfc22b058125c4::t_8bf15396e25904 326-329
+src/war/world-view/main.ts
+  s_cfc22b058125c4::t_8bf15396e25904 26-29,45-48,88-89,163-193,211-214,279-280,370,414
+src/war/sim/landmarks.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1-133
+src/war/view/build/buildingLayer.ts
+  s_cfc22b058125c4::t_8bf15396e25904 88-89,491,495-506,520-522,532-533
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_8bf15396e25904 177-178,180
+src/war/sim/mobs.ts
+  s_cfc22b058125c4::t_8bf15396e25904 379-387
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_8bf15396e25904 33,48,57,87-88,98-100,128-137,476-478,481-484,561-565
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_8bf15396e25904 43,53,68,624,636-643,794,2426,2654,2679,2817,2838-2862
+docs/WAR.md
+  s_cfc22b058125c4::t_8bf15396e25904 323,331,386,388,391-392,403,480-482,488-498
+scripts/war/balance.mjs
+  s_cfc22b058125c4::t_8bf15396e25904 1-7,12,15,17-19
+src/war/sim/bosses.ts
+  s_cfc22b058125c4::t_8bf15396e25904 16,21,96,98,102,104-105,114-115,117-118,121,704-721
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_8bf15396e25904 48,101,246-258,351,398,415-417,419-431
+src/war/view/hud/buildingCard.ts
+  s_cfc22b058125c4::t_8bf15396e25904 1-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "cf07bd8e167a8cc4a29fa54a7a3539426cc633a6",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
