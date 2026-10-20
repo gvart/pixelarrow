@@ -12,16 +12,26 @@ import type { BuildingSnap, BuildingType, ClaimSnap, InfluenceMap, LairSnap, Nod
 import { IsoMap, LH } from './iso';
 
 export type MapMode = 'normal' | 'altitude' | 'movement' | 'ownership' | 'biomes' | 'resources';
-export const MODES: { id: MapMode; name: string; key: string }[] = [
-  { id: 'normal', name: 'Normal', key: 'F2' }, { id: 'altitude', name: 'Altitude', key: 'F3' }, { id: 'movement', name: 'Movement', key: 'F4' },
-  { id: 'ownership', name: 'Ownership', key: 'F5' }, { id: 'biomes', name: 'Biomes', key: 'F6' }, { id: 'resources', name: 'Resources', key: 'F7' },
+/** The modes: name, hotkey, kit icon and the one question each answers. */
+export const MODES: { id: MapMode; name: string; key: string; icon: string; about: string }[] = [
+  { id: 'normal', name: 'Normal', key: 'F2', icon: 'mode-normal', about: 'The land as it is: terrain, water and roads.' },
+  { id: 'altitude', name: 'Altitude', key: 'F3', icon: 'mode-altitude', about: 'Where the high ground is. Each line is one level up.' },
+  { id: 'movement', name: 'Movement', key: 'F4', icon: 'mode-movement', about: 'Where your men march fast, slow, or not at all.' },
+  { id: 'ownership', name: 'Ownership', key: 'F5', icon: 'mode-ownership', about: 'Who holds the land, and where you may build.' },
+  { id: 'biomes', name: 'Biomes', key: 'F6', icon: 'mode-biomes', about: 'The lands of the region and their borders.' },
+  { id: 'resources', name: 'Resources', key: 'F7', icon: 'mode-resources', about: 'What lies where, and which beasts guard it.' },
 ];
 
 type RGB = [number, number, number];
 /** What the live modes read from the sim. */
 export interface Live { influence: InfluenceMap | null; nodes: NodeSnap[]; lairs: LairSnap[]; claims: ClaimSnap[]; buildings: BuildingSnap[] }
-/** A mode's tint: palette, index per tile (fine: per cell) or -1, lines between differing neighbours. */
-export interface Tint { mode: MapMode; pal: RGB[]; alpha: number; at: Int16Array; fine: boolean; line: 'dark' | 'color' | 'cliff' | null; legend: { c: RGB; label: string }[] }
+/** A legend row: swatch colour, label; hatch: drawn striped on the maps; line: a line, not an area. */
+export interface LegendRow { c: RGB; label: string; hatch?: boolean; line?: boolean }
+/**
+ * A mode's tint: palette, index per tile (fine: per cell) or -1, lines between differing neighbours. hatch: palette
+ * indices drawn striped on the tile-space maps (zones, impassable, guarded).
+ */
+export interface Tint { mode: MapMode; pal: RGB[]; alpha: number; at: Int16Array; fine: boolean; line: 'dark' | 'color' | 'cliff' | null; legend: LegendRow[]; hatch?: number[] }
 
 export const TEAM_RGB: RGB[] = [[74, 163, 255], [224, 80, 60], [232, 192, 64], [176, 112, 224]];
 const css = (c: RGB, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
@@ -34,17 +44,23 @@ const KIND_RGB: Record<string, RGB> = {
   gravel: [150, 140, 122], dry: [168, 150, 92], rossa: [170, 98, 66], marble: [214, 208, 196], grove: [96, 112, 56], dune: [222, 192, 132],
   hardpan: [186, 152, 110], redrock: [160, 82, 56], reg: [176, 146, 104], salt: [230, 224, 214], oasis: [72, 128, 72],
 };
-const BIOME_RGB: Record<string, RGB> = { global: [110, 156, 76], elaia: [196, 168, 76], kyrene: [214, 122, 70], mountains: [150, 150, 164] };
+/** Biome names for players. */
+export const BIOME_NAME: Record<string, string> = { global: 'Temperate', elaia: 'Elaia olive hills', kyrene: 'Kyrene desert', mountains: 'Mountains' };
+const BIOME_RGB: Record<string, RGB> = { global: [104, 144, 74], elaia: [177, 173, 63], kyrene: [192, 106, 60], mountains: [122, 130, 140] };
 export const RES_RGB: Record<ResourceKind | 'olives', RGB> = {
-  food: [240, 200, 80], wood: [70, 160, 60], stone: [168, 168, 176], marble: [244, 240, 228], copper: [222, 120, 60], tin: [140, 170, 196],
+  food: [214, 188, 116], wood: [140, 156, 96], stone: [168, 168, 176], marble: [244, 240, 228], copper: [222, 120, 60], tin: [140, 170, 196],
   iron: [150, 70, 60], bronze: [200, 140, 60], silver: [200, 220, 240], salt: [250, 210, 220], pitch: [92, 58, 28], olives: [150, 160, 50],
 };
-/** Altitude bands: sim levels 0..7, then the mountains' visual levels. */
-const ALT_RGB: RGB[] = [[46, 110, 58], [78, 136, 64], [120, 160, 72], [168, 180, 86], [206, 196, 104], [214, 168, 90], [196, 134, 74], [164, 102, 62],
-  [138, 90, 70], [128, 116, 112], [176, 172, 172], [240, 240, 244]];
+/** Altitude bands (hypsometric, on parchment: sage lowland to umber hills, grey rock, cream peaks): sim levels 0..7, then the mountains' visual levels. */
+const ALT_RGB: RGB[] = [[176, 186, 140], [200, 200, 150], [222, 210, 160], [232, 206, 146], [228, 188, 124], [218, 164, 104], [200, 136, 86], [178, 110, 70],
+  [150, 92, 62], [128, 104, 90], [168, 160, 152], [240, 234, 222]];
 const altBand = (z: number) => (z <= 7 ? z : z <= 12 ? 8 : z <= 20 ? 9 : z <= 30 ? 10 : 11);
-const WATER_RGB: RGB[] = [[86, 150, 190], [40, 76, 140]];
-const MOVE_RGB: RGB[] = [[150, 24, 20], [120, 220, 90], [230, 180, 60], [230, 110, 40]];
+const WATER_RGB: RGB[] = [[132, 170, 180], [86, 128, 146]];
+/** Movement: impassable (umber, hatched), road (gold), slow (ochre), very slow (terracotta). */
+const MOVE_RGB: RGB[] = [[58, 36, 22], [236, 182, 60], [196, 142, 78], [186, 82, 44]];
+const CLIFF_RGB: RGB = [150, 24, 20];
+/** The parchment the info modes sit on: terrain lightness mapped between these, water in pale ink. */
+const PARCH_LO: RGB = [150, 126, 96], PARCH_HI: RGB = [240, 226, 194], PARCH_WATER: RGB[] = [[150, 182, 186], [112, 150, 162]];
 /** Buildings that do not close their tiles to movement. */
 const OPEN: Set<BuildingType | string> = new Set(['woodBridge', 'stoneBridge', 'woodStairs', 'stoneStairs', 'ladder', 'woodGate', 'stoneGate']);
 
@@ -115,8 +131,8 @@ export class MapData {
       const at = new Int16Array(this.fw * this.fh), SH = KINDS.indexOf('shallow'), DP = KINDS.indexOf('deep');
       for (let j = 0; j < at.length; j++) at[j] = this.kind[j] === SH ? 12 : this.kind[j] === DP ? 13 : altBand(this.z[j]);
       return { mode, pal: [...ALT_RGB, ...WATER_RGB], alpha: 0.55, at, fine: true, line: 'dark',
-        legend: [{ c: ALT_RGB[0], label: 'lowland (level 0)' }, { c: ALT_RGB[3], label: 'level 3' }, { c: ALT_RGB[6], label: 'level 6' }, { c: ALT_RGB[8], label: 'hills 8–12' },
-          { c: ALT_RGB[10], label: 'mountains 21–30' }, { c: ALT_RGB[11], label: 'peaks 31+' }, { c: WATER_RGB[0], label: 'water' }, { c: [40, 26, 18], label: 'contour: a level' }] };
+        legend: [{ c: ALT_RGB[11], label: 'Peaks, level 31+' }, { c: ALT_RGB[10], label: 'Mountains, 21–30' }, { c: ALT_RGB[8], label: 'Hills, 8–12' }, { c: ALT_RGB[6], label: 'Level 6' },
+          { c: ALT_RGB[3], label: 'Level 3' }, { c: ALT_RGB[0], label: 'Lowland, level 0' }, { c: WATER_RGB[0], label: 'Water' }, { c: [74, 46, 28], label: 'Contour: one level', line: true }] };
     }
     const at = new Int16Array(nt).fill(-1);
     if (mode === 'movement') {
@@ -125,9 +141,9 @@ export class MapData {
         at[i] = c === 0 ? 0 : c < 1 ? 1 : c === 1 ? -1 : c <= 1.6 ? 2 : 3;
       }
       for (const b of l.buildings) if (b.state !== 'destroyed' && !OPEN.has(b.type)) for (let k = 0; k + 1 < b.tiles.length; k += 2) at[b.tiles[k + 1] * w + b.tiles[k]] = 0;
-      return { mode, pal: MOVE_RGB, alpha: 0.5, at, fine: false, line: 'cliff',
-        legend: [{ c: MOVE_RGB[1], label: 'road: fast' }, { c: [160, 150, 130], label: 'open ground' }, { c: MOVE_RGB[2], label: 'slow: forest, sand, snow' },
-          { c: MOVE_RGB[3], label: 'very slow: marsh, ford' }, { c: MOVE_RGB[0], label: 'impassable: water, rock, walls' }, { c: [255, 60, 40], label: 'cliff edge (2+ levels)' }] };
+      return { mode, pal: MOVE_RGB, alpha: 0.5, at, fine: false, line: 'cliff', hatch: [0],
+        legend: [{ c: MOVE_RGB[1], label: 'Fast: roads' }, { c: PARCH_HI, label: 'Normal: open ground' }, { c: MOVE_RGB[2], label: 'Slow: forest, sand, snow' },
+          { c: MOVE_RGB[3], label: 'Very slow: marsh, fords' }, { c: MOVE_RGB[0], label: 'No way: water, rock, walls', hatch: true }, { c: CLIFF_RGB, label: 'Cliff: 2+ levels, no climb', line: true }] };
     }
     if (mode === 'ownership') {
       for (let i = 0; i < nt; i++) if (this.zone[i]) at[i] = this.zone[i] === 1 ? 6 : 7;
@@ -141,15 +157,15 @@ export class MapData {
         const v = m.mask[i];
         if (v) at[i] = v & 1 ? 0 : v & 2 ? 1 : v & 4 ? 2 : 3;
       }
-      const pal: RGB[] = [...TEAM_RGB, [230, 226, 210], [90, 90, 96], [250, 250, 250], [255, 224, 112]];
-      return { mode, pal, alpha: 0.42, at, fine: false, line: 'color',
-        legend: [{ c: TEAM_RGB[0], label: 'yours' }, { c: TEAM_RGB[1], label: 'enemy' }, { c: pal[4], label: 'claim zone: open' }, { c: pal[5], label: 'claim zone: guarded' },
-          { c: pal[6], label: 'no-build zone' }, { c: pal[7], label: 'region entry' }] };
+      const pal: RGB[] = [...TEAM_RGB, [226, 178, 84], [138, 120, 106], [110, 86, 70], [240, 192, 80]];
+      return { mode, pal, alpha: 0.42, at, fine: false, line: 'color', hatch: [4, 5, 6],
+        legend: [{ c: TEAM_RGB[0], label: 'Your land' }, { c: TEAM_RGB[1], label: 'Enemy land' }, { c: pal[4], label: 'Claim zone, open', hatch: true }, { c: pal[5], label: 'Claim zone, guarded', hatch: true },
+          { c: pal[6], label: 'No building here', hatch: true }, { c: pal[7], label: 'Region entry' }] };
     }
     if (mode === 'biomes') {
       for (let i = 0; i < nt; i++) at[i] = this.biome[i];
       const pal = this.biomeNames.map((b) => BIOME_RGB[b] ?? [180, 180, 180]);
-      return { mode, pal, alpha: 0.5, at, fine: false, line: 'dark', legend: this.biomeNames.map((b, k) => ({ c: pal[k], label: b === 'global' ? 'temperate' : b })) };
+      return { mode, pal, alpha: 0.5, at, fine: false, line: 'dark', legend: this.biomeNames.map((b, k) => ({ c: pal[k], label: BIOME_NAME[b] ?? b })) };
     }
     // resources
     const kinds = Object.keys(RES_RGB) as (keyof typeof RES_RGB)[], GUARD = kinds.length;
@@ -161,9 +177,9 @@ export class MapData {
       seen.add(nd.res);
       this.disc(nd.x, nd.y, 1.5, (i) => (at[i] = k));
     }
-    const pal: RGB[] = [...kinds.map((k) => RES_RGB[k]), [200, 30, 30]];
-    return { mode, pal, alpha: 0.6, at, fine: false, line: 'color',
-      legend: [...kinds.filter((k) => seen.has(k)).map((k) => ({ c: RES_RGB[k], label: k })), { c: pal[GUARD], label: 'guarded by a lair' }] };
+    const pal: RGB[] = [...kinds.map((k) => RES_RGB[k]), [180, 44, 34]];
+    return { mode, pal, alpha: 0.6, at, fine: false, line: 'color', hatch: [GUARD],
+      legend: [...kinds.filter((k) => seen.has(k)).map((k) => ({ c: RES_RGB[k], label: k[0].toUpperCase() + k.slice(1) })), { c: pal[GUARD], label: 'Guarded by a lair', hatch: true }] };
   }
 
   private disc(cx: number, cy: number, rad: number, f: (i: number) => void): void {
@@ -258,20 +274,30 @@ export class MapData {
     const SH = KINDS.indexOf('shallow'), DP = KINDS.indexOf('deep');
     const zz = (x: number, y: number) => z[Math.max(0, Math.min(fh - 1, y)) * fw + Math.max(0, Math.min(fw - 1, x))];
     const rgb = KINDS.map((k) => KIND_RGB[k] ?? [140, 140, 140]);
+    // info modes sit on parchment: the terrain's lightness between PARCH_LO and PARCH_HI, water in pale ink
+    const parch = rgb.map((c, k): RGB => {
+      if (k === SH || k === DP) return PARCH_WATER[k === SH ? 0 : 1];
+      const v = Math.max(0, Math.min(1, ((0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]) / 255 - 0.25) / 0.55));
+      return [0, 1, 2].map((i) => PARCH_LO[i] + (PARCH_HI[i] - PARCH_LO[i]) * (0.35 + 0.65 * v)) as RGB;
+    });
+    const base = t ? parch : rgb, alt = t?.mode === 'altitude', hatch = new Set(t?.hatch ?? []);
     for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
       const j = y * fw + x, k = kind[j], wet = k === SH || k === DP;
-      let c = rgb[k], s = 1;
+      let c = base[k], s = 1;
       if (!wet) {
-        // light from the NW: ground rising toward +x / +y faces it
-        s = 1 + 0.09 * (zz(x + 1, y) - zz(x - 1, y)) + 0.05 * (zz(x, y + 1) - zz(x, y - 1)) + Math.min(0.15, z[j] * 0.006);
+        // light from the NW: ground rising toward +x / +y faces it (stronger relief in altitude)
+        const r = alt ? 1.5 : 1;
+        s = 1 + r * (0.09 * (zz(x + 1, y) - zz(x - 1, y)) + 0.05 * (zz(x, y + 1) - zz(x, y - 1))) + (t ? 0 : Math.min(0.15, z[j] * 0.006));
         s = Math.max(0.55, Math.min(1.45, s));
       } else if (k === DP && (kind[j - 1] !== DP || kind[j - fw] !== DP)) s = 0.9;
       let line = false;
       if (t) {
         const a = this.idx(t, x, y);
         if (a >= 0) {
-          const p = t.pal[a], m = Math.min(0.85, t.alpha + 0.2);
+          const p = t.pal[a], m = alt ? 0.9 : Math.min(0.8, t.alpha + 0.15);
           c = [c[0] * (1 - m) + p[0] * m, c[1] * (1 - m) + p[1] * m, c[2] * (1 - m) + p[2] * m];
+          // zones and no-go ground: diagonal strokes every 4 cells
+          if (hatch.has(a) && ((x + y) & 3) === 0) c = t.mode === 'movement' ? [196, 170, 130] : [c[0] * 0.55, c[1] * 0.5, c[2] * 0.45];
         }
         if (t.line === 'cliff') {
           const ta = this.tile(j), cliff = (nb: number) => Math.abs(this.r.height[ta] - this.r.height[nb]) >= 2 && this.cost[ta] > 0 && this.cost[nb] > 0;
@@ -286,8 +312,8 @@ export class MapData {
           if (line && q >= 0) { c = t.pal[q]; s = 1.1; }
         }
       }
-      if (line && t?.line === 'dark') s *= 0.6;
-      if (line && t?.line === 'cliff') { c = [255, 60, 40]; s = 1; }
+      if (line && t?.line === 'dark') { if (alt) c = [c[0] * 0.5 + 37, c[1] * 0.5 + 23, c[2] * 0.5 + 14]; s *= alt ? 0.7 : 0.6; }
+      if (line && t?.line === 'cliff') { c = CLIFF_RGB; s = 1; }
       const o = j * 4;
       d[o] = Math.min(255, c[0] * s); d[o + 1] = Math.min(255, c[1] * s); d[o + 2] = Math.min(255, c[2] * s); d[o + 3] = 255;
     }
@@ -301,7 +327,7 @@ export class MapData {
     const move = c === 0 ? 'impassable' : c < 1 ? 'fast (road)' : c === 1 ? 'open' : c <= 1.6 ? 'slow' : 'very slow';
     const owner = l.influence?.mask[i] ? (l.influence.mask[i] & 1 ? 'yours' : 'enemy') : 'unowned';
     const b = this.biomeNames[this.biome[i]] ?? '';
-    const out = [`${k}${this.r.water[i] ? '' : ` · level ${this.z[j]}`}`, `${b === 'global' ? 'temperate' : b} · ${move}`, `${owner}${this.zone[i] === 1 ? ' · no building' : this.zone[i] === 2 ? ' · region entry' : ''}`];
+    const out = [`${k}${this.r.water[i] ? '' : ` · level ${this.z[j]}`}`, `${BIOME_NAME[b] ?? b} · ${move}`, `${owner}${this.zone[i] === 1 ? ' · no building' : this.zone[i] === 2 ? ' · region entry' : ''}`];
     return out;
   }
 }
