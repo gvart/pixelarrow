@@ -1,0 +1,23 @@
+tests/war/worldRegions.test.ts
+  s_cfc22b058125c4::t_9e9cafd7aacf16 4,22
+scripts/war/regions/checks.ts
+  s_cfc22b058125c4::t_9e9cafd7aacf16 216-217
+src/war/region/borders.ts
+  s_cfc22b058125c4::t_9e9cafd7aacf16 1-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5f375c048c9a843f45cfda9b15fe03643dede79a",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
