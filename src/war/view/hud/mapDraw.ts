@@ -1,20 +1,37 @@
 /**
  * Shared drawing of the tile-space maps (W-36: ./minimap.ts and ./fullMap.ts): the region painted in the current view mode
- * (../mapModes.ts, one px per 1 m cell, repainted when the mode or its live data change) and the markers over it: buildings
- * by owner, lairs, claim points, own squads (blue), enemy squads only where own men or buildings see them (red), and the
- * camera's view (a diamond: the screen rect in tile space).
+ * (../mapModes.ts, one px per 1 m cell, repainted when the mode or its live data change), turned 45 degrees so north matches
+ * the iso camera (tile +x runs down-right, +y down-left), and the markers over it: buildings by owner (footprints; the
+ * main ones as an icon badge on the full map), lairs by beast, claim banners, own squads, enemy squads only where own men
+ * or buildings see them, and the camera's view (a rectangle: the screen in tile space, turned back upright).
  */
 import { MOB_TEAM } from '../../sim/mobs';
+import type { BuildingSnap } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { hex, TEAM_RGB } from '../mapModes';
+import { BUILDING_ICON, UI } from './kit';
 
 /** How far own men and buildings see, in tiles (enemies beyond are not marked). */
 export const VISION = 24;
 export const TEAM = TEAM_RGB.map(hex);
-export const DEN: Record<string, string> = { wolf: '#9aa0a8', boar: '#a07a52', bear: '#6a4a36', bandit: '#d0a040', jackal: '#c8a868', ibex: '#d8d0b8' };
+const INK = '#0e0907', CREAM = '#f0d9b5';
 
-/** Map px per tile and the tile at map px (0, 0). */
-export interface MapXf { k: number; x0: number; y0: number }
+/**
+ * The map's view: canvas px per tile k, turned by rot (radians), tile (cx, cy) at canvas px (ox, oy).
+ * Canvas = o + R(rot) * (tile - c) * k.
+ */
+export interface MapXf { k: number; rot: number; cx: number; cy: number; ox: number; oy: number }
+/** The iso turn: tile +x points down-right, +y down-left, as in the world view. */
+export const ISO_ROT = Math.PI / 4;
+
+export const toPx = (f: MapXf, x: number, y: number): [number, number] => {
+  const c = Math.cos(f.rot), s = Math.sin(f.rot), dx = (x - f.cx) * f.k, dy = (y - f.cy) * f.k;
+  return [f.ox + dx * c - dy * s, f.oy + dx * s + dy * c];
+};
+export const toTile = (f: MapXf, px: number, py: number): { x: number; y: number } => {
+  const c = Math.cos(f.rot), s = Math.sin(f.rot), dx = px - f.ox, dy = py - f.oy;
+  return { x: f.cx + (dx * c + dy * s) / f.k, y: f.cy + (-dx * s + dy * c) / f.k };
+};
 
 const painted = new WeakMap<SandboxScene, { key: string; cv: HTMLCanvasElement }>();
 
@@ -34,6 +51,25 @@ export function mapCanvas(s: SandboxScene): HTMLCanvasElement {
     p.cv.getContext('2d')!.putImageData(s.map.paint(s.map.tint(s.mode, l)), 0, 0);
   }
   return p.cv;
+}
+
+/** A kit icon as an image (24 / 32 art px and their @2x), loaded once. */
+const imgs = new Map<string, HTMLImageElement>();
+export function iconImg(id: string, size: 24 | 32 | 48 | 64): HTMLImageElement {
+  const f = size === 48 ? `24/${id}@2x` : size === 64 ? `32/${id}@2x` : `${size}/${id}`;
+  let im = imgs.get(f);
+  if (!im) { im = new Image(); im.src = `${UI}icons/${f}.png`; imgs.set(f, im); }
+  return im;
+}
+/** Draw a kit icon centred at (x, y), `px` canvas px wide: the nearest stored size, sharp when it matches. */
+export function drawIcon(g: CanvasRenderingContext2D, id: string, x: number, y: number, px: number): boolean {
+  const size = ([24, 32, 48, 64] as const).reduce((a, b) => (Math.abs(b - px) < Math.abs(a - px) ? b : a));
+  const im = iconImg(id, size);
+  if (!im.complete || !im.naturalWidth) return false;
+  const w = Math.round(px);
+  g.imageSmoothingEnabled = w !== size;
+  g.drawImage(im, Math.round(x - w / 2), Math.round(y - w / 2), w, w);
+  return true;
 }
 
 /** Squads by team with their centre and men, enemies only where seen. */
@@ -71,58 +107,89 @@ export function frustum(s: SandboxScene): { x: number; y: number }[] {
   });
 }
 
-/** Draw the map and its markers; `m` px per art px for marker sizes. */
-export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, m: number, units = false): void {
-  const P = (x: number, y: number): [number, number] => [(x - f.x0) * f.k, (y - f.y0) * f.k];
-  const src = mapCanvas(s);
-  g.imageSmoothingEnabled = f.k < 4; // tiles stay sharp zoomed in
-  g.imageSmoothingQuality = 'high';
+/** Buildings shown as an icon badge on the full map (walls, stairs and bridges stay footprints). */
+const BADGE = new Set(['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'woodTower', 'stoneTower', 'brazier', 'pitchKiln']);
+
+/** A round marker disc: dark fill, a ring in `ring`, an icon inside. */
+function badge(g: CanvasRenderingContext2D, x: number, y: number, r: number, ring: string, m: number, fill = 'rgba(14,9,7,0.82)'): void {
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
+  g.fillStyle = fill; g.fill();
+  g.lineWidth = 1.5 * m; g.strokeStyle = ring; g.stroke();
+  g.beginPath(); g.arc(x, y, r + 1.1 * m, 0, Math.PI * 2);
+  g.lineWidth = 0.8 * m; g.strokeStyle = INK; g.stroke();
+}
+
+/** A squad: a round shield in the team colour with a cream rim; selected ones get a halo. */
+function shield(g: CanvasRenderingContext2D, x: number, y: number, r: number, colour: string, sel: boolean, m: number): void {
+  if (sel) { g.beginPath(); g.arc(x, y, r + 2.4 * m, 0, Math.PI * 2); g.fillStyle = 'rgba(255,240,200,0.55)'; g.fill(); }
+  g.beginPath(); g.arc(x, y, r + m, 0, Math.PI * 2); g.fillStyle = INK; g.fill();
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = sel ? '#fff4dc' : CREAM; g.fill();
+  g.beginPath(); g.arc(x, y, r * 0.68, 0, Math.PI * 2); g.fillStyle = colour; g.fill();
+  g.beginPath(); g.arc(x - r * 0.18, y - r * 0.18, r * 0.22, 0, Math.PI * 2); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fill();
+}
+
+/**
+ * Draw the map and its markers; `m` canvas px per art px for marker sizes; `full`: the full map (men when zoomed in,
+ * icon badges for buildings, lairs and claims at full size).
+ */
+export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, m: number, full = false): void {
+  const P = (x: number, y: number) => toPx(f, x, y);
+  const src = mapCanvas(s), c = Math.cos(f.rot), sn = Math.sin(f.rot);
   const [ax, ay] = P(0, 0);
-  g.drawImage(src, ax, ay, s.map.w * f.k, s.map.h * f.k);
+  g.save();
+  g.setTransform(c * f.k, sn * f.k, -sn * f.k, c * f.k, ax, ay);
+  g.imageSmoothingEnabled = f.k < 4 * m; // cells stay sharp zoomed in
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 0, 0, s.map.w, s.map.h);
+  g.restore();
   const cur = s.sim.cur;
   g.lineJoin = 'round';
-  // buildings: their footprint, at least a dot
+  const poly = (pts: [number, number][]) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); };
+  // buildings: their footprint in the owner's colour (walls read as lines), the main ones a badge on the full map
+  const badges: { x: number; y: number; b: BuildingSnap }[] = [];
   for (const b of cur?.buildings ?? []) {
     if (b.state === 'destroyed') continue;
-    const bw = Math.max(2.5 * m, b.w * f.k), bh = Math.max(2.5 * m, b.h * f.k), [x, y] = P(b.x, b.y);
-    g.fillStyle = '#0e0907';
-    g.fillRect(x - bw / 2 - m, y - bh / 2 - m, bw + 2 * m, bh + 2 * m);
-    g.fillStyle = TEAM[b.team] ?? '#ccc';
-    g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
+    const hw = Math.max(b.w / 2, 1.2 * m / f.k), hh = Math.max(b.h / 2, 1.2 * m / f.k);
+    poly([P(b.x - hw, b.y - hh), P(b.x + hw, b.y - hh), P(b.x + hw, b.y + hh), P(b.x - hw, b.y + hh)]);
+    g.lineWidth = 2 * m; g.strokeStyle = INK; g.stroke();
+    g.fillStyle = TEAM[b.team] ?? '#ccc'; g.fill();
+    if (full && BADGE.has(b.type)) { const [x, y] = P(b.x, b.y); badges.push({ x, y, b }); }
   }
-  // claim points: a pennant in the owner's colour (white open, grey locked)
-  for (const c of cur?.claims ?? []) {
-    const [x, y] = P(c.x, c.y);
-    g.fillStyle = '#0e0907';
-    g.fillRect(x - 0.5 * m, y - 7 * m, 1.5 * m, 8 * m);
-    g.fillStyle = c.state === 'claimed' ? TEAM[c.team] ?? '#ccc' : c.state === 'locked' ? '#8a8a8a' : '#f0ead8';
-    g.beginPath(); g.moveTo(x + m, y - 7 * m); g.lineTo(x + 6 * m, y - 5 * m); g.lineTo(x + m, y - 3 * m); g.closePath(); g.fill();
-    g.strokeStyle = '#0e0907'; g.lineWidth = 0.75 * m; g.stroke();
+  for (const { x, y, b } of badges) {
+    const r = 8 * m;
+    badge(g, x, y, r, TEAM[b.team] ?? '#ccc', m);
+    drawIcon(g, BUILDING_ICON[b.type] ?? 'bld-camp', x, y, 13 * m);
   }
-  // lairs: a den ring in the beast's colour, struck through once cleared
+  // claim points: the banner icon on a disc ringed in the owner's colour (cream open, grey locked)
+  for (const cl of cur?.claims ?? []) {
+    const [x, y] = P(cl.x, cl.y), r = (full ? 8 : 5.5) * m;
+    const ring = cl.state === 'claimed' ? TEAM[cl.team] ?? '#ccc' : cl.state === 'locked' ? '#8a786a' : '#f6d48a';
+    badge(g, x, y, r, ring, m);
+    if (!drawIcon(g, 'mk-claim', x, y, r * 1.7)) { g.fillStyle = ring; g.fillRect(x - m, y - r * 0.6, 2 * m, r * 1.2); }
+  }
+  // lairs: the beast's head on a dark disc, terracotta ring; cleared ones greyed and struck through
   for (const l of cur?.lairs ?? []) {
-    const [x, y] = P(l.x, l.y), r = 3 * m, gone = l.state === 'cleared';
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
-    g.fillStyle = gone ? '#5d4c42' : DEN[l.kind] ?? '#ccc'; g.fill();
-    g.lineWidth = m; g.strokeStyle = gone ? '#2a1a12' : '#6e1712'; g.stroke();
-    if (gone) { g.beginPath(); g.moveTo(x - r, y - r); g.lineTo(x + r, y + r); g.moveTo(x - r, y + r); g.lineTo(x + r, y - r); g.stroke(); }
+    const [x, y] = P(l.x, l.y), r = (full ? 8 : 5.5) * m, gone = l.state === 'cleared';
+    badge(g, x, y, r, gone ? '#5d4c42' : '#de8a4e', m, gone ? 'rgba(40,30,24,0.85)' : 'rgba(110,23,18,0.88)');
+    g.globalAlpha = gone ? 0.45 : 1;
+    if (!drawIcon(g, 'lair-' + l.kind, x, y, r * 1.7)) { g.beginPath(); g.arc(x, y, r * 0.4, 0, Math.PI * 2); g.fillStyle = '#c8a868'; g.fill(); }
+    g.globalAlpha = 1;
+    if (gone) { g.beginPath(); g.moveTo(x - r * 0.7, y + r * 0.7); g.lineTo(x + r * 0.7, y - r * 0.7); g.lineWidth = 1.5 * m; g.strokeStyle = '#a8907a'; g.stroke(); }
   }
   // men (zoomed in), then the squads
-  if (units) for (const d of s.drawn) {
+  if (full && f.k >= 2 * m) for (const d of s.drawn) {
     if (d.u.state === 'dead' || d.team === MOB_TEAM) continue;
     const [x, y] = P(d.x, d.y);
     g.fillStyle = TEAM[d.team] ?? '#ccc';
-    g.fillRect(x - 0.5 * m, y - 0.5 * m, m, m);
+    g.fillRect(x - 0.6 * m, y - 0.6 * m, 1.2 * m, 1.2 * m);
   }
   for (const q of squads(s)) {
-    const [x, y] = P(q.x, q.y), r = (q.team === MOB_TEAM ? 1.5 : 2.5) * m;
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
-    g.fillStyle = q.team === MOB_TEAM ? '#c08a48' : TEAM[q.team] ?? '#ccc'; g.fill();
-    g.lineWidth = m; g.strokeStyle = s.selected.has(q.id) ? '#ffffff' : '#0e0907'; g.stroke();
+    if (q.team === MOB_TEAM) continue; // the lair marks them
+    const [x, y] = P(q.x, q.y);
+    shield(g, x, y, (full ? 4.5 : 3.4) * m, TEAM[q.team] ?? '#ccc', s.selected.has(q.id), m);
   }
   // the camera's view
-  const fr = frustum(s).map((p) => P(p.x, p.y));
-  g.beginPath(); fr.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath();
-  g.lineWidth = 2.5 * m; g.strokeStyle = 'rgba(14,9,7,0.8)'; g.stroke();
-  g.lineWidth = 1.2 * m; g.strokeStyle = '#f0d9b5'; g.stroke();
+  poly(frustum(s).map((p) => P(p.x, p.y)));
+  g.lineWidth = 3 * m; g.strokeStyle = 'rgba(14,9,7,0.75)'; g.stroke();
+  g.lineWidth = 1.3 * m; g.strokeStyle = CREAM; g.stroke();
 }

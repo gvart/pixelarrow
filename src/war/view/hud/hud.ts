@@ -2,7 +2,7 @@
  * The player HUD in the red-figure kit (W-32; art: public/war/ui/, ./kit.ts). HTML over the canvas, anchored:
  *
  *   top centre     resource band: the 11 resources (icon + own stock), runner and horse at its ends
- *   bottom left    round minimap (./minimap.ts), over it the view mode bar (F2-F7) and the mode's legend (./modes.ts)
+ *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts)
  *   centre         the full map on M (./fullMap.ts)
  *   bottom centre  command card, shown with a selection (a selected building or site wins over squads), in groups:
  *                  selection (class icon, name, men, hp) | orders (move, attack, hold H, stop X) over the formation
@@ -91,8 +91,8 @@ export function hud(s: SandboxScene): void {
   els.push(mini.el);
   mini.el.addEventListener('pointerdown', (e) => e.stopPropagation());
   const modes = new ModeBar(s);
-  document.body.appendChild(modes.el);
-  els.push(modes.el);
+  document.body.append(modes.el, modes.legend);
+  els.push(modes.el, modes.legend);
   new FullMap(s); // M
 
   // ---------- tooltip ----------

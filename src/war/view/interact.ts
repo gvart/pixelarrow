@@ -20,7 +20,7 @@
 import { BUILDINGS } from '../sim/economy';
 import type { BuildingSnap, SquadId, SquadSnap } from '../types';
 import { isSite } from './build/buildMode';
-import { icon } from './hud/kit';
+import { Radial, RI } from './hud/radial';
 import { SIEGE_NAME } from './siege/siegeControls';
 import type { SandboxScene } from './SandboxScene';
 
@@ -32,7 +32,7 @@ const TEAM = 0;
 const LADDER_R = 1.1;
 const CLAIM_PICK = 2.5; // tiles round a claim banner's foot
 export const HOLD_MS = 200;
-const HUB = 14; // art px: releasing inside the hub picks nothing
+const HUB = RI - 4; // art px: releasing inside the hub picks nothing
 const nameOf = (b: BuildingSnap) => b.type.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase());
 /** Fire arrows state the sim may add to a squad snapshot (fire-arrows branch). */
 type FireSnap = { on: boolean; available: boolean; reason?: string };
@@ -40,7 +40,7 @@ const FIRE_WHY: Record<string, string> = { noBrazier: 'needs a lit brazier', noP
 
 export class Interact {
   private el: HTMLDivElement;
-  private ring: HTMLDivElement;
+  private ring: Radial;
   /** The action the label shows now (null: none), for the cursor. */
   shown: string | null = null;
   /** A held E / right button: where, the options then, the timer, the open ring's pick. */
@@ -52,11 +52,7 @@ export class Interact {
     this.el.className = 'rf rf-label'; // the kit's hover label (./hud/kit.ts)
     this.el.style.cssText = 'display:none;z-index:5';
     document.body.appendChild(this.el);
-    this.ring = document.createElement('div');
-    this.ring.id = 'rfRadial';
-    this.ring.className = 'rf rf-radial';
-    this.ring.style.cssText = 'display:none';
-    document.body.appendChild(this.ring);
+    this.ring = new Radial(); // ./hud/radial.ts: the pie
     s.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       const k = e.key.toLowerCase();
@@ -98,48 +94,30 @@ export class Interact {
   close(): void {
     if (this.held) clearTimeout(this.held.timer);
     this.held = null;
-    this.ring.style.display = 'none';
+    this.ring.close();
   }
 
   private openRing(): void {
-    const h = this.held!, z = Number(this.ring.style.zoom) || 1, n = h.opts.length, R = n <= 4 ? 40 : n <= 6 ? 46 : 54;
+    const h = this.held!;
     h.open = true;
-    this.ring.style.left = `${h.client.x / z}px`;
-    this.ring.style.top = `${h.client.y / z}px`;
-    this.ring.innerHTML = '<div class="hub" style="left:-8px;top:-8px"></div>';
-    h.opts.forEach((o, i) => {
-      const a = -Math.PI / 2 + (i * 2 * Math.PI) / n, b = document.createElement('button');
-      b.className = 'rf-btn';
-      b.disabled = !!o.off;
-      b.innerHTML = icon(o.icon);
-      b.style.left = `${Math.round(Math.cos(a) * R) - 15}px`;
-      b.style.top = `${Math.round(Math.sin(a) * R) - 15}px`;
-      this.ring.appendChild(b);
-    });
-    const lab = document.createElement('div');
-    lab.className = 'rf-label';
-    lab.style.top = `${R + 20}px`;
-    this.ring.appendChild(lab);
-    this.ring.style.display = '';
+    this.ring.open(h.client.x, h.client.y, h.opts);
     this.el.style.display = 'none';
-    this.pick(-1);
+    h.sel = -1;
   }
 
   private track(e: PointerEvent): void {
     const h = this.held;
     if (!h?.open) return;
-    const z = Number(this.ring.style.zoom) || 1, dx = e.clientX - h.client.x, dy = e.clientY - h.client.y;
+    const z = Number(this.ring.el.style.zoom) || 1, dx = e.clientX - h.client.x, dy = e.clientY - h.client.y;
     if (Math.hypot(dx, dy) < HUB * z) return this.pick(-1);
     const n = h.opts.length, a = Math.atan2(dy, dx) + Math.PI / 2;
     this.pick(((Math.round((a / (2 * Math.PI)) * n) % n) + n) % n);
   }
 
   private pick(i: number): void {
-    const h = this.held!, bs = this.ring.querySelectorAll<HTMLElement>('.rf-btn'), lab = this.ring.querySelector<HTMLElement>('.rf-label')!;
-    h.sel = i;
-    bs.forEach((b, j) => b.classList.toggle('sel', j === i));
-    const o = h.opts[i];
-    lab.innerHTML = o ? (o.off ? `<span class="rf-dim">${o.label}: ${o.off}</span>` : `<b>${o.label}</b>`) : '<span class="rf-dim">release on an action</span>';
+    if (this.held!.sel === i) return;
+    this.held!.sel = i;
+    this.ring.pick(i);
   }
 
   /** The label by the cursor: shown while own squads are selected and the pointer is over the map. */
