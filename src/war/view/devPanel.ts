@@ -4,6 +4,7 @@ import { SCENARIOS, type Scenario } from '../scenarios';
 import type { ResourceKind } from '../types';
 import type { SandboxScene } from './SandboxScene';
 import { SIEGE_HELP } from './siege/siegeControls';
+import { SQUAD_MAX } from '../sim/soldiers';
 
 const CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer'];
 
@@ -29,7 +30,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row"><label><input type="checkbox" id="grid">tile grid</label> <label><input type="checkbox" id="fog" checked>fog</label> <span class="dim">view modes: F2-F7, M full map</span></div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
-    <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
+    <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · X stop · A attack-move (then click) · F squad active · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
   document.body.appendChild(el);
   const $ = <T extends HTMLElement>(id: string) => el.querySelector<T>('#' + id)!;
   const val = (id: string) => $<HTMLInputElement>(id).value;
@@ -126,7 +127,7 @@ export function applyScenario(s: SandboxScene, sc: Scenario): void {
 }
 
 /**
- * 15 own squads against 15 bot squads: 600 units. On test-ridge they stand in 5 x 3 blocks on
+ * 25 own squads against 25 bot squads of SQUAD_MAX (12): 600 units. On test-ridge they stand in 5 x 5 blocks on
  * either bank of the ford (SPOTS fordW / fordE), so the fight goes through the ford; elsewhere
  * west and east of the map centre.
  */
@@ -136,9 +137,9 @@ export function brawl(s: SandboxScene): void {
   // block centres and the step away from the river, in tiles
   const [wx, wy] = ridge ? [s.spots.fordW[0] - 8, s.spots.fordW[1]] : [w * 0.38, h * 0.5];
   const [ex, ey] = ridge ? [s.spots.fordE[0] + 8, s.spots.fordE[1]] : [w * 0.62, h * 0.5];
-  for (let i = 0; i < 15; i++) {
-    const dy = ((i % 5) - 2) * 9, dx = Math.floor(i / 5) * 8;
-    s.sim.spawn('you', 0, CLASSES[i % CLASSES.length], 20, wx - dx, wy + dy);
-    s.sim.spawn('bot', 1, CLASSES[(i + 2) % CLASSES.length], 20, ex + dx, ey + dy);
+  for (let i = 0; i < 25; i++) {
+    const dy = ((i % 5) - 2) * 8, dx = Math.floor(i / 5) * 7;
+    s.sim.spawn('you', 0, CLASSES[i % CLASSES.length], SQUAD_MAX, wx - dx, wy + dy);
+    s.sim.spawn('bot', 1, CLASSES[(i + 2) % CLASSES.length], SQUAD_MAX, ex + dx, ey + dy);
   }
 }

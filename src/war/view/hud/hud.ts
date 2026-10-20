@@ -5,8 +5,9 @@
  *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts)
  *   centre         the full map on M (./fullMap.ts)
  *   bottom centre  command card, shown with a selection (a selected building or site wins over squads), in groups:
- *                  selection (class icon, name, men, hp) | orders (move, attack, hold H, stop X) over the formation
- *                  segments (1-4) | squad-specific slots only while relevant (deploy / pack Y, let go while crewing).
+ *                  selection (class icon, name, men, hp) | orders (move, attack, attack-move A, hold H, stop X) over the
+ *                  formation segments (1-4) | squad-specific slots only while relevant (the squad active F with its
+ *                  cooldown ring, ./cardActive.ts; deploy / pack Y, let go while crewing).
  *                  site: progress, workers, materials | assign N of the selected squad, stop work, cancel (refund)
  *                  building: hp (and burning) | upgrade with its cost
  *                  Situational orders (ladders, ignite, extinguish, crew, fire arrows) are context only: E / right
@@ -32,6 +33,7 @@ import { bar, BUILDING_ICON, cursor, CSS, icon, setUiScale, SIEGE_ICON, snapW, U
 import { Minimap } from './minimap';
 import { ModeBar } from './modes';
 import { FullMap } from './fullMap';
+import { ACTIVE_CSS, ACTIVE_KEY, ACTIVE_UI, activesOf, activeTip, fireActives } from './cardActive';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
@@ -63,7 +65,7 @@ const costHtml = (c: Cost) => Object.entries(c).map(([r, v]) => `<span style="di
 export function hud(s: SandboxScene): void {
   const m: BuildMode = s.build, sc = s.siege;
   const style = document.createElement('style');
-  style.textContent = CSS;
+  style.textContent = CSS + ACTIVE_CSS;
   document.head.appendChild(style);
   const els: HTMLElement[] = [];
   const mk = (id: string, css: string, html = '') => {
@@ -141,21 +143,21 @@ export function hud(s: SandboxScene): void {
 
   // orders and formation (squads)
   let lastShape: string | null = null;
-  /** Stop: each selected squad halts where it stands (a move to its own centre). */
-  const stop = () => {
-    for (const q of sc.own()) {
-      const men = s.drawn.filter((d) => d.u.squad === q && d.u.state !== 'dead');
-      if (men.length) s.sim.order({ kind: 'move', squad: q, x: men.reduce((a, d) => a + d.x, 0) / men.length, y: men.reduce((a, d) => a + d.y, 0) / men.length });
-    }
-  };
+  /** Stop: each selected squad halts where it stands, forms up there and holds (the sim's stop). */
+  const stop = () => { for (const q of sc.own()) s.sim.order({ kind: 'stop', squad: q }); };
   const sqMove = btn('cMove', 'act-move', tipK('Move', 'click the map, or', 'right click'), '', () => sc.arm('move'));
   const sqAtk = btn('cAttack', 'act-attack', tipK('Attack', 'click an enemy, or hover it and', 'E'), '', () => sc.arm('attack'));
+  const sqAtkMove = btn('cAttackMove', 'act-attack', tipK('Attack-move', 'march to a point, fighting any foe met on the way', 'A'), 'A', () => sc.arm('attackMove'));
+  sqAtkMove.insertAdjacentHTML('beforeend', `<span class="badge">${icon('act-move')}</span>`);
   const sqHold = btn('cHold', 'act-hold', tipK('Hold', 'stand and fight here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
-  const sqStop = btn('cStop', 'act-stop', tipK('Stop', 'halt where they stand', 'X'), 'X', stop);
+  const sqStop = btn('cStop', 'act-stop', tipK('Stop', 'halt and form up where they stand', 'X'), 'X', stop);
   const shapes = SHAPES.map((sh, i) => btn('cF' + sh, 'act-' + sh, tipK('Formation: ' + sh, '', String(i + 1)), String(i + 1), () => { s.orderSelected((squad) => ({ kind: 'formation', squad, shape: sh })); lastShape = sh; }, ''));
-  const orders = [row('', sqMove, sqAtk, sqHold, sqStop), row('rf-seg', ...shapes)];
+  const orders = [row('', sqMove, sqAtk, sqAtkMove, sqHold, sqStop), row('rf-seg', ...shapes)];
   orders[1].style.gap = '0';
   // squad-specific: only while relevant
+  const gActive = btn('cActive', 'act-hold', () => { const x = activesOf(s, sc.own())[0]; return x ? activeTip(x.a) : ''; }, ACTIVE_KEY, () => fireActives(s, sc.own()));
+  gActive.insertAdjacentHTML('beforeend', '<i class="cd"></i><span class="cdn"></span>');
+  const cdMax = new Map<number, number>(); // per squad: the cooldown it started from, for the ring
   const gDeploy = btn('cDeploy', 'act-deploy', () => tipK(sc.own().some((q) => sc.engineOf(q)?.state === 'deployed') ? 'Pack up' : 'Deploy', 'the stone thrower', 'Y'), 'Y', () => sc.deploy());
   const gLetGo = btn('cLetGo', 'act-crew', () => tipK('Let go', 'leave the engine', 'E on it'), '', () => sc.uncrew());
   // site
@@ -238,7 +240,10 @@ export function hud(s: SandboxScene): void {
   addEventListener('keydown', (e: KeyboardEvent) => {
     if ((e.target as HTMLElement).tagName === 'INPUT') return;
     if (e.key === 'F1') { e.preventDefault(); setDev(dev?.style.display === 'none'); }
-    else if (e.key.toLowerCase() === 'x' && !m.active) stop();
+    else if (m.active || m.tool) return;
+    else if (e.key.toLowerCase() === 'x') stop();
+    else if (e.key.toLowerCase() === 'a' && sc.own().length) sc.arm('attackMove');
+    else if (e.key.toLowerCase() === 'f') fireActives(s, sc.own());
   });
 
   // ---------- scale ----------
@@ -254,7 +259,7 @@ export function hud(s: SandboxScene): void {
   const CUR: Record<string, string> = Object.fromEntries(['default', 'move', 'attack', 'build', 'gather', 'interact'].map((k) => [k, cursor(k)]));
   const cursorFor = (): string => {
     if (m.tool || m.claimArmed) return 'build';
-    if (sc.armed) return sc.armed === 'move' ? 'move' : sc.armed === 'attack' ? 'attack' : 'interact';
+    if (sc.armed) return sc.armed === 'move' ? 'move' : sc.armed === 'attack' || sc.armed === 'attackMove' ? 'attack' : 'interact';
     const a = s.interact.shown;
     if (!a) return 'default';
     if (a.startsWith('move')) return 'move';
@@ -310,6 +315,20 @@ export function hud(s: SandboxScene): void {
       setHead(UNIT_ICON[cls] ?? 'unit-militia', (CLASS_NAME[cls] ?? nice(cls)) + (own.length > 1 ? ` +${own.length - 1}` : ''), `${men.length} men`, bar('hp', hp / max, SEL_SQUAD),
         e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${q.order}${sc.status ? ' · ' + sc.status : ''}`);
       const slots: HTMLElement[] = [];
+      const act = activesOf(s, own)[0];
+      if (act) {
+        const { q: aq, a } = act, ui = ACTIVE_UI[a.skill];
+        if (a.ready > (cdMax.get(aq) ?? 0) || !a.ready) cdMax.set(aq, a.ready);
+        const ic = ui?.icon ?? 'act-hold';
+        if (gActive.dataset.ic !== ic) { gActive.dataset.ic = ic; gActive.querySelector('.ic')!.outerHTML = icon(ic); }
+        const left = a.on ? 0 : a.ready, full = cdMax.get(aq) || 1;
+        gActive.style.setProperty('--cd', `${Math.round((left / full) * 100)}%`);
+        gActive.querySelector<HTMLElement>('.cdn')!.textContent = left ? String(Math.ceil(left / 10)) : '';
+        gActive.classList.toggle('buff', a.on > 0);
+        gActive.classList.toggle('cool', left > 0);
+        if (tipAt === gActive && tip.style.display !== 'none') showTip(gActive, activeTip(a));
+        slots.push(gActive);
+      }
       if (engines.some((x) => x?.type === 'stoneThrower')) slots.push(gDeploy);
       if (e) slots.push(gLetGo);
       setCard(true, slots, SEL_SQUAD);
@@ -317,6 +336,7 @@ export function hud(s: SandboxScene): void {
       shapes.forEach((x, i) => x.classList.toggle('on', lastShape === SHAPES[i]));
       sqMove.classList.toggle('on', sc.armed === 'move');
       sqAtk.classList.toggle('on', sc.armed === 'attack');
+      sqAtkMove.classList.toggle('on', sc.armed === 'attackMove');
       gDeploy.classList.toggle('on', engines.some((x) => x?.type === 'stoneThrower' && (x.state === 'deployed' || x.state === 'deploying')));
     } else {
       card.style.display = 'none';

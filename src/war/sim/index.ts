@@ -191,6 +191,9 @@ interface Squad {
   actUntil: number;
   out: number;
   inn: number;
+  // attackMove: where it marches; target >= 0 while it fights a foe met on the way (it resumes the march after)
+  amx: number;
+  amy: number;
 }
 
 interface Missile {
@@ -358,7 +361,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     // melee attacking a foe they cannot get to (up on a wall with no way up from their side): stand off short of the
     // wall's foot, not pressed against it
     const n = s.path.length;
-    if (s.order === 'attack' && !s.ranged && n >= 4 && tileAt(grid, s.path[n - 2], s.path[n - 1]) !== tileAt(grid, ...openPoint(x, y))) trimEnd(s.path, HOLD_OFF);
+    if ((s.order === 'attack' || (s.order === 'attackMove' && s.target >= 0)) && !s.ranged && n >= 4 && tileAt(grid, s.path[n - 2], s.path[n - 1]) !== tileAt(grid, ...openPoint(x, y))) trimEnd(s.path, HOLD_OFF);
     s.pi = 1;
     for (const u of s.units) {
       u.wp = 0;
@@ -465,12 +468,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.actReady = tick + activeCooldown(s.actWil);
       return;
     }
-    if (s.siege >= 0 && (o.kind === 'move' || o.kind === 'hold' || o.kind === 'attackBuilding' || o.kind === 'deploy' || o.kind === 'raiseLadder')) {
-      // the crew drives its engine
+    if (s.siege >= 0 && (o.kind === 'move' || o.kind === 'hold' || o.kind === 'stop' || o.kind === 'attackMove' || o.kind === 'attackBuilding' || o.kind === 'deploy' || o.kind === 'raiseLadder')) {
+      // the crew drives its engine (an attack-move rolls it like a move, stop holds it)
       const id = s.siege;
-      if (o.kind === 'move') siege.move(id, o.x, o.y);
-      else if (o.kind === 'hold') siege.hold(id);
-      else if (o.kind === 'deploy') siege.deploy(id, !!o.pack);
+      if (o.kind === 'move' || o.kind === 'attackMove') {
+        siege.move(id, o.x, o.y);
+        s.order = 'move';
+        return;
+      }
+      if (o.kind === 'hold' || o.kind === 'stop') {
+        siege.hold(id);
+        s.order = 'hold';
+        return;
+      }
+      if (o.kind === 'deploy') siege.deploy(id, !!o.pack);
       else if (o.kind === 'raiseLadder') {
         if (!siege.raise(id, o.wallTile[0], o.wallTile[1])) return;
       } else if (o.building === undefined || !siege.attack(id, o.building)) return;
@@ -599,9 +610,29 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return;
     }
     if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+    if (o.kind === 'stop') {
+      // halt: the march ends where the men are; they form up there (same shape and facing) and hold
+      const arrived = s.pi >= s.path.length / 2 && !s.goal;
+      s.order = 'hold';
+      s.path = [];
+      s.pi = 0;
+      s.goal = null;
+      s.target = -1;
+      if (!(s.fixed && arrived)) {
+        s.fixed = null;
+        [s.ax, s.ay] = openPoint(s.cx, s.cy);
+        for (const u of s.units) (u.own = []), (u.wp = 0), (u.settled = false);
+      }
+      return;
+    }
     s.order = o.kind;
     if (o.kind !== 'hold') s.fixed = null; // holding on a wall stays up there
-    if (o.kind === 'move') {
+    if (o.kind === 'attackMove') {
+      s.amx = o.x;
+      s.amy = o.y;
+      s.target = -1;
+      requestPath(s, o.x, o.y);
+    } else if (o.kind === 'move') {
       requestPath(s, o.x, o.y);
       const pts = works.deckPoints(tileAt(grid, o.x, o.y), s.alive);
       if (pts.length) s.fixed = pts;
@@ -773,6 +804,28 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.repathAt = tick;
       t = best;
     }
+    chase(s, t);
+  };
+
+  /**
+   * attackMove: march to (amx, amy); a foe squad in sight (s.near) on the way is taken on as by an attack order (the
+   * nearest, kept while it lives and stays in sight); with none left the march resumes; at the end the squad holds.
+   */
+  const updateAttackMove = (s: Squad) => {
+    let t: Squad | null = s.target >= 0 ? squads[s.target] : null;
+    if (t && (t.alive === 0 || !s.near.includes(t))) t = null;
+    if (!t) for (const o of s.near) if (!t || dist2(s, o) < dist2(s, t)) t = o;
+    if (t) {
+      if (s.target !== t.id) (s.target = t.id), (s.repathAt = tick);
+      chase(s, t);
+    } else if (s.target >= 0) {
+      s.target = -1;
+      requestPath(s, s.amx, s.amy);
+    } else if (!s.goal && s.pi >= s.path.length / 2) s.order = 'hold';
+  };
+
+  /** The anchor closes on foe squad t: stops within striking (or shooting) distance, else re-paths to it now and then. */
+  const chase = (s: Squad, t: Squad) => {
     const stop = s.ranged ? Math.max(MELEE_STOP, warRange(s) * 0.8) : MELEE_STOP;
     // melee stop only with a walkable line to the foe: under a cliff they go round
     if (Math.hypot(t.cx - s.ax, t.cy - s.ay) < stop && (s.ranged || lineClear(grid, s.ax, s.ay, t.cx, t.cy))) {
@@ -1318,7 +1371,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.tgt = null;
       return null;
     }
-    const attacking = s.order === 'attack';
+    const attacking = s.order === 'attack' || (s.order === 'attackMove' && s.target >= 0);
     const foe = attacking ? squads[s.target] : null;
     if (!u.tgt || !u.tgt.alive || (tick + u.id) % RETARGET === 0) u.tgt = pickTarget(u, attacking, foe);
     const t = u.tgt;
@@ -1430,7 +1483,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     flushSectors(grid); // sites that closed or opened tiles last tick
     if (tick % SCAN === 0) scanNear();
     mobs.tick(tick);
-    for (const s of squads) if (s.order === 'attack' && s.alive > 0) (grid.team = s.team), updateAttack(s);
+    for (const s of squads) {
+      if (s.alive === 0) continue;
+      if (s.order === 'attack') (grid.team = s.team), updateAttack(s);
+      else if (s.order === 'attackMove') (grid.team = s.team), updateAttackMove(s);
+    }
     for (let budget = PATH_BUDGET; budget > 0 && pathQueue.length > 0; ) {
       const s = pathQueue.shift()!;
       if (!s.goal) continue; // cancelled by hold
@@ -1646,7 +1703,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
         repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, pair: -1,
-        act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1,
+        act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1, amx: ax, amy: ay,
       };
       grid.team = team;
       squads.push(s);

@@ -26,6 +26,10 @@ export type Order =
   | { kind: 'move'; squad: SquadId; x: number; y: number }
   | { kind: 'attack'; squad: SquadId; target: SquadId }
   | { kind: 'hold'; squad: SquadId }
+  // attackMove: march to (x,y) and take on any foe squad in sight on the way (as an attack order), then march on; holds at
+  // the end. stop: the march ends where the men stand; they form up there (same shape, facing) and hold (order 'hold').
+  | { kind: 'attackMove'; squad: SquadId; x: number; y: number }
+  | { kind: 'stop'; squad: SquadId }
   | { kind: 'formation'; squad: SquadId; shape: 'line' | 'column' | 'wedge' | 'loose' }
   // M2a economy and building (src/war/sim/works.ts). Ids of nodes and sites come from resourceNodes() / snapshot().buildings.
   // placeBuilding / placeWall: the squad's team (or `team`, with no squad) lays the site(s) out (if checkPlacement / checkWall

@@ -4,7 +4,7 @@
  * button for HOLD_MS opens a radial menu of every action for that target (disabled ones greyed with the reason), and
  * releasing over one runs it. By target, first match wins (the recommended action is the first enabled option):
  *
- *   an enemy unit (not while carrying a ladder)        attack its squad
+ *   an enemy unit (not while carrying a ladder)        attack its squad; the squad active (./hud/cardActive.ts, greyed while cooling)
  *   own engine                                        burning: extinguish; ours: uncrew (deploy / pack); free and built: crew
  *   enemy engine                                      ignite (torches; not burning yet, squad not driving an engine), else attack; fire arrows
  *   enemy siege ladder on our wall                    push it off
@@ -21,6 +21,7 @@ import { BUILDINGS } from '../sim/economy';
 import type { BuildingSnap, SquadId, SquadSnap } from '../types';
 import { isSite } from './build/buildMode';
 import { Radial, RI } from './hud/radial';
+import { ACTIVE_UI, activeEffect, activesOf, activeWhy, fireActives } from './hud/cardActive';
 import { SIEGE_NAME } from './siege/siegeControls';
 import type { SandboxScene } from './SandboxScene';
 
@@ -163,7 +164,12 @@ export class Interact {
     };
 
     const foe = carrying ? null : s.pick(p, false);
-    if (foe) return [{ label: `attack ${foe.u.cls.replace(/_/g, ' ')}`, icon: 'act-attack', run: () => s.attackSquad(foe) }, move];
+    if (foe) {
+      const o: Option[] = [{ label: `attack ${foe.u.cls.replace(/_/g, ' ')}`, icon: 'act-attack', run: () => s.attackSquad(foe) }];
+      const ac = activesOf(s, own).find((x) => !activeWhy(x.a)) ?? activesOf(s, own)[0];
+      if (ac) o.push({ label: `${ACTIVE_UI[ac.a.skill]?.name.toLowerCase() ?? ac.a.skill} (${activeEffect(ac.a.skill)})`, icon: ACTIVE_UI[ac.a.skill]?.icon ?? 'act-hold', off: activeWhy(ac.a), run: () => { fireActives(s, own); sc.status = 'active fired'; } });
+      return [...o, move];
+    }
 
     const mine = sc.engineAt(t, false);
     if (mine) {

@@ -15,12 +15,13 @@ import { SIEGE } from '../../sim/siege';
 import type { BuildingSnap, SiegeSnap, SiegeType, SquadId } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 
-export type Armed = 'raise' | 'push' | 'ignite' | 'extinguish' | 'move' | 'attack';
+export type Armed = 'raise' | 'push' | 'ignite' | 'extinguish' | 'move' | 'attack' | 'attackMove';
 const TEAM = 0;
 const PICK_R = 1.6;
 const CREW_FIND = 14;
 const ARMED_TEXT: Record<Armed, string> = {
   move: 'click the map to move there', attack: 'click an enemy squad to attack it',
+  attackMove: 'click the map: march there, fighting any foe met on the way',
   raise: 'click an enemy wall face to raise the ladder', push: 'click an enemy ladder on your wall',
   ignite: 'click an enemy wood building or engine to set it alight', extinguish: 'click a burning own building or engine',
 };
@@ -168,6 +169,7 @@ export class SiegeControls {
     const qs = this.own();
     if (!qs.length) return true;
     if (a === 'move') { this.s.moveTo(t); this.status = ''; return true; }
+    if (a === 'attackMove') { this.s.moveTo(t, 'attackMove'); this.status = ''; return true; }
     if (a === 'attack') {
       const foe = this.s.pick(this.s.input.activePointer, false);
       if (foe) this.s.attackSquad(foe);
