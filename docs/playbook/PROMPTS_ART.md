@@ -2163,3 +2163,109 @@ falls ask for a fall forwards, away from the viewer; a backwards fall from behin
 sparks come anyway; the build's chroma cut removes them, but the pickaxe's white burst is neutral: those frames
 are replaced by their neighbours (`keep` in `forager.sheet.json`; `spec.mjs` rewrites the spec, so re-add it). (5) Back-view work clips still drift towards a profile
 (cook stirring, engineer building); kept.
+
+## 36. Crafting art (ART-C)
+
+Workplaces, the engineer's engines and fortifications, and the crafting icons (WAR.md "Crafting and professions").
+Job ids: `scripts/war/art/craft-jobs.json`. Builds: `node scripts/war/art/buildings.mjs` (then `siege.mjs`: its palette
+starts from the buildings one), `node scripts/war/art/ui-craft.mjs` (after `ui.mjs` and `ui-redfigure.mjs`; note
+`ui.mjs` wipes `public/war/ui/`, and the W-36 map icons are not rebuilt by it). Mock-ups: `node
+scripts/war/art/craft-preview.mjs` -> `shots/war/craft-art/` (`CRAFT_workplaces`, `CRAFT_states`, `CRAFT_quarter_1x`,
+`CRAFT_engines`, `CRAFT_forts`, `CRAFT_icons_{32,24}_3x`, `CRAFT_mock_1x`, `CRAFT_mock_2x_crop`). **78 PixelLab
+generations**: 17 map objects, 34 state img2img, 2 Pro Flash paints (6 each), 4 pixflux paints, 11 pixen icons.
+
+**Workplaces** (`WORKPLACES` in `buildings.mjs`, the BUILDINGS pipeline of §30): one building type per level, `forge` ->
+`forge2` -> `forge3` (`chain`, `level`, `upgrade` in `buildings[]`); the sorting floor is `upgradeOf: storehouse` and has
+two levels (WAR.md has no L3). Footprints per WAR.md: forge, infirmary, sorting floor 3 x 3, cookhouse 3 x 2, workshop
+4 x 3, market stall 2 x 2. `create_map_object`, high top-down, high detail, detailed shading, the §25 tail (`, seen from a
+high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent
+background, no ground, no grass[, no floor], no base under it`); grade sat 0.6 val 0.78, grass flooded. Subjects
+(verbatim, canvas):
+
+| id | Subject |
+| --- | --- |
+| forge (192²) | `a small ancient Greek open-air smithy: a low forge hearth of clay and rough stones with glowing coals and a leather bellows, a dark bronze anvil on a tree stump, a stone water trough, a rack of tongs and hammers, under a simple lean-to roof of rough dark timber and reed thatch on two posts` |
+| forge2 (192 x 224) | `an ancient Greek smithy: a small rectangular workshop of rough dark grey fieldstone walls with a low-pitched roof of dark weathered terracotta tiles and a short square stone chimney, the front side open on stout wooden posts, inside a stone forge hearth glowing orange, an anvil, a quench trough and racks of tools, showing two walls` |
+| forge3 (192 x 240) | `a large ancient Greek master smithy: a long workshop of dark grey ashlar stone with a low-pitched roof of dark weathered terracotta tiles and two square stone chimneys, an open colonnaded front on stout posts, two forge hearths glowing orange, two anvils, racks of finished bronze shields, spears and helmets, sacks of charcoal and a pile of iron bars, showing two walls` |
+| cookhouse (160²) | `a small ancient Greek army field kitchen: a stone-ringed fire pit with a big dark bronze cauldron on an iron tripod, a small domed clay bread oven, a rough wooden table with bowls, clay jars and grain sacks, under a lean-to roof of rough timber and reed thatch on posts` |
+| cookhouse2 (160 x 176) | `an ancient Greek cookhouse: a small rectangular building of rough pale grey stone with a low-pitched roof of dark weathered terracotta tiles and a short clay chimney, beside it two domed clay bread ovens, clay amphorae, sacks of grain and a bronze cauldron over a small fire, showing two walls` |
+| cookhouse3 (160 x 192) | `a large ancient Greek army mess kitchen: a long stone building with a low-pitched roof of dark weathered terracotta tiles and a square stone chimney, a covered porch on wooden posts along the front with a long trestle table, three domed clay bread ovens in a row, a huge bronze cauldron on a stone hearth, rows of amphorae, hanging hams and bundles of herbs, showing two walls` |
+| infirmary (192²) | `an ancient Greek army field infirmary: a large open-sided tent of dark undyed canvas on wooden poles with guy ropes, inside two low wooden cots with dark woollen blankets, a small table with clay jars of salve, rolls of linen bandages and a bronze basin` |
+| infirmary2 (192 x 208) | `an ancient Greek infirmary with a herb garden: a small rectangular building of rough grey stone with a low-pitched roof of dark weathered terracotta tiles and a covered porch on wooden posts with two cots under it, beside it a small herb garden enclosed by a low stone wall with rows of green herb beds and a wooden rack of drying herb bundles, clay jars, showing two walls` (+ `no grass outside the garden wall`) |
+| infirmary3 (192 x 224) | `an ancient Greek iatreion, a healing sanctuary of Asclepius: a small stone hall like a temple with four plain columns across its front porch, a low triangular pediment and a low-pitched roof of dark weathered terracotta tiles, a stone altar in front with a bronze staff and serpent, a stone water basin and a few herb beds beside it, showing two walls` |
+| workshop (224 x 192) | `an ancient Greek carpenter's yard: a timber lean-to shed with a rough plank roof on posts, a heavy workbench with saws, axes and mallets, two sawhorses with a log being sawn, stacks of planks and squared beams, a half-built wooden shield screen on two wheels` |
+| workshop2 (224 x 208) | `an ancient Greek engineer's workshop: a long timber-framed shed with a low-pitched roof of dark weathered terracotta tiles and open sides on stout posts, two workbenches with tools, a pole lathe, coils of rope, stacks of planks and beams, bronze fittings, a large spoked wooden wheel leaning on a post, showing two walls` |
+| workshop3 (224 x 240) | `a large ancient Greek siege engineer's workshop: a tall hall of dark grey stone and heavy timber with a low-pitched roof of dark weathered terracotta tiles and a wide open double door, beside it a tall wooden treadwheel crane with a rope and pulley, a half-built bolt-throwing catapult on trestles in front, stacks of squared beams, coils of rope and iron fittings, showing two walls` (the catapult did not come) |
+| market-stall (128 x 144) | `an ancient Greek market stall: a small wooden booth with a slanted awning of faded dark red and cream striped cloth on four posts, a wooden counter with clay amphorae, baskets of olives and grain sacks` |
+| market-stall2 (128 x 160) | `an ancient Greek agora shop: a small stone booth like a tiny stoa with two short stone columns and a low-pitched roof of dark weathered terracotta tiles, a counter with amphorae, bolts of dyed cloth, a bronze balance scale and baskets, a faded red cloth awning, showing two walls` |
+| market-stall3 (128 x 176) | `a rich ancient Greek merchant's counting house: a small building of pale limestone with two columns at its porch and a low-pitched roof of dark weathered terracotta tiles, a marble counter with a bronze balance scale and stacks of silver coins, sealed amphorae and iron-bound wooden chests, a long dark red cloth banner hanging by the door, showing two walls` |
+| sorting-floor (192 x 208) | `an ancient Greek storehouse with a sorting floor: a long rectangular building of rough dark grey fieldstone walls with a low-pitched roof of dark weathered terracotta tiles and one wide wooden door, against its side a roofed open sorting shed on posts with wooden racks of drying flax bundles, baskets and sacks, and a small turf-covered charcoal mound beside it, showing two walls` |
+| sorting-floor2 (192 x 208) | `an ancient Greek storehouse with a tannery: <the storehouse as above>, beside it a roofed open shed on posts with brown animal hides stretched on wooden frames to dry, three round stone tanning vats of dark liquid, stacked folded leather, showing two walls` |
+
+States: §30's recipe (pixflux img2img 200 over `--inits`, isometric, high top-down, highly detailed, detailed shading,
+no_background, seed 31, tail `high isometric three-quarter view, dark epic desaturated colours, pixel art, transparent
+background`). Scaffold: `<an ancient Greek stone smithy> under construction: half-built rough fieldstone walls with ragged
+unfinished tops, no roof yet, wooden scaffolding poles and planks` (timber: `bare wooden posts and rafters, no roof planks
+/ thatch / tiles yet`; tent: `a canvas field tent half pitched: bare wooden tent poles and ridge pole, the dark canvas only
+half raised and hanging loose, guy ropes on the ground, cots stacked`; stall: `bare wooden posts and a half-built counter,
+no awning yet, planks stacked`; temple / counting house: `column drums half stacked`). Damaged: `a burnt and ruined <...>:
+walls blackened with soot, the tiled roof collapsed with charred broken beams and holes, <smashed amphorae / cracked ovens
+/ broken chests / burnt hide frames>, rubble` (tent: `the dark canvas scorched black with big burnt holes, charred broken
+tent poles`). Rising = the scaffold cut down (no generation), foundation = drawn.
+
+**Working fx** (`buildings[].fx.working`: siege fx ids at sprite px of the done sprite) are found on the sprite, not placed
+by hand: the hearth = the centroid of fire-coloured px before the palette snap (heat-glow, a tongue, forge embers), the
+smoke = the top px for the chimneyed forge2/3 and cookhouse2/3 (smoke-wisp-b / -a, alpha 0.55 / 0.45), else a wisp over
+the hearth. Infirmary, workshop, stall and sorting floor have none (`workingNote`): the crafter's work clip is the activity.
+
+**Engines** (`siege.mjs`, generic `engine()`; schema as the ram / thrower: facings, foundation .. destroyed, crew,
+back/front layers, anim strips): `mantlet` (1 x 1, a 2 m plank screen with iron bands, pointed plank tops, a view slit,
+wings, push poles; front layer when facing e / s), `covered-ram` (4 x 2, 8 m, eight wheels, wet hides to the ground,
+iron-scaled end bays and iron-plated gables at both ends, a ram's-head log, crew 10, swing strip), `oxybeles` (2 x 1, a
+torsion bolt thrower on a pedestal, shoot strip with releaseFrame and release point, `bolt` projectile in 8 directions),
+`siege-tower` (2 x 2, 9.7 m, an open braced ground storey with a centred ladder, hide-hung upper storeys, arrow ports, a
+drawbridge hinged at 6.2 m on the facing side lowered over 7 frames in the `bridge` strip; crew 8). The two big bodies
+are kept front-to-back symmetric (a bridge opening and a plated gable at both ends, the ladder centred) so w / n reuse
+the e / s paint. Paints (`raw/paint/`): covered ram by `edit_image_pro_flash` text, 6 generations each (the ram's §31
+prompt with `covered battering-ram shed ... on eight solid wooden wheels. The gabled roof and the side curtains hanging to
+the ground are covered with overlapping stitched wet rawhide panels, dark glossy brown, sewn seams and lashing ropes; both
+end bays of the roof and both gable ends are sheathed in riveted dark iron plates, an opening in each gable`); the tower
+(136 x 384) is past Pro Flash's 256 px limit, so pixflux img2img, strength 170, seed 7 (260 barely changed it):
+`detailed dark pixel art of an ancient Greek wheeled siege tower of three storeys on six solid wooden wheels: an open
+ground storey of heavy oak posts with X braces, two upper storeys clad in planks and hung with wet dark brown rawhides
+with stitched seams and lashing ropes, small dark arrow ports, a fighting top with a timber rail, rough-hewn timber with
+wood grain and iron nails, light from the left, heavy shadows, desaturated dark warm colours, transparent background`;
+pixflux paints its background in, so the paint is masked to the render's silhouette (`paintMask`). Mantlet and oxybeles
+stay box renders (small; a paint was not worth 12 generations each).
+
+**Fortifications** (`buildings.mjs`, 0 generations): `ditch` kit (16 frames by neighbour mask, a 1.4 m wide, 1.4 m deep
+pit, every state, damaged = filled with fascines; rendered 1 m into the joined neighbours and clipped to the tile's own
+diamond, since the pit is below ground and the near ground hides it; seam-tested like the palisade), `stakes` (1 x 1,
+nine angled sharpened stakes, voxelised), `<stone|wood>-gate-<x|y>[-deep-<side>]-iron` (`variantOf` the plain gate:
+riveted 0.5 m iron plates and two straps on the leaves), `hides-palisade` / `hides-rampart` overlay kits (the wall's frame
+layout, drawn over its done frame; rendered from the wall's own boxes with a depth-only marker colour, so only the
+visible hide shows).
+
+**Icons** (`ui-craft.mjs`): goods and remedies pixen 32x32, `no_background`, `single color outline`, the §32 template
+`game UI icon, <subject>, <name> icon, dark epic ancient Greek style, desaturated gritty colours, thick dark outline,
+readable silhouette`. Subjects: hides `a folded brown animal hide with fur on one side and the rough pale underside
+showing`; flax (2nd try) `a sheaf of long straight dry flax stalks bound in the middle with twine, pale straw yellow with
+a few tiny pale blue flowers on top`; herbs `a small bunch of green healing herbs tied with string, sage and thyme
+leaves`; charcoal `a small heap of black charcoal lumps with glowing orange embers in the cracks`; leather `a rolled sheet
+of smooth tanned brown leather tied with a thong`; linen `a neatly folded stack of pale cream linen cloth`; oil `a small
+terracotta oil jug (lekythos) with golden olive oil dripping from its lip and a green olive leaf`; bandages `two rolled
+linen bandages, one partly unrolled, pale cream cloth`; salves `a small round clay pot full of thick green herbal salve
+with a wooden spatula in it`; theriac `a small dark glass vial of red-brown antidote potion sealed with wax, a coiled
+green snake around it`. Rejected: flax `a tied bundle of long pale golden flax stalks with small blue flowers at the top`
+(a sack with blue gems). Node icons (72, `node-<tree>-<node>`, listed per tree in ui.json `craftNodes`) and badges
+(`badge-quality-*`, `badge-rarity-*`, rarity ramps from `src/ui/tokens.ts`) are drawn: glyph.mjs pictograms (the shared
+renderer, moved out of ui.mjs) at 80% on a red-figure medallion (black disc, terracotta ring; a cream ring = the free
+root, a double light ring with studs = a capstone).
+
+**Lessons:** (1) Map objects come on slabs again (paving, grass): flooding the grass is enough when the paving reads as
+the building's yard. (2) Pro Flash edits stop at 256 px a side: tall sprites go through pixflux img2img (~170) with the
+result masked to the render. (3) Keep painted machines symmetric front to back and make the asymmetric parts moving
+boxes: one paint serves two facings. (4) Anything below ground must be clipped to its own tile's diamond and rendered
+with its neighbours' continuation, or the far walls notch and the pit spills over the next tile's ground. (5) The
+buildings palette is picked over every sprite and snaps the workplace fires away: find hearths before the snap and let
+the fx bring the glow back.

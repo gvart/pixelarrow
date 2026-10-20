@@ -1177,17 +1177,17 @@ const ironLeaf = (axis) => (f, x, y, z) => {
 // rest of the tile dug earth at ground level (it occludes the pit's near side). Engines cannot cross; men slow. States:
 // foundation = the line strung and scratched, rising / scaffold = dug to 0.35 / 0.75 of the depth, done, damaged = half
 // filled with fascines and earth (an attacker's crossing).
-const DITCH_D = 1.4, DITCH_W = 1.7, DT = { w: 96, h: 100, x0: 48, y0: 6 };
-const dirt = (f, x, y, z) => { const n = hash(Math.floor(x * 9), Math.floor(y * 9), 31), m = hash(Math.floor(x * 3), Math.floor(y * 3), 32); return mul(EARTH, (f === 'top' ? 1.55 : 1.2 - 0.12 * Math.floor(-z * 3)) * (0.88 + 0.2 * n) * (m < 0.12 ? 0.85 : 1)); };
+const DITCH_D = 1.4, DITCH_W = 1.4, DT = { w: 96, h: 60, x0: 48, y0: 24 };
+const dirt = (f, x, y, z) => { const n = hash(Math.floor(x * 9), Math.floor(y * 9), 31), m = hash(Math.floor(x * 3), Math.floor(y * 3), 32); return mul(EARTH, (f === "top" ? 2.0 : 1.5 - 0.15 * Math.floor(-z * 3)) * (0.88 + 0.2 * n) * (m < 0.12 ? 0.85 : 1)); };
 function ditchBoxes(mask, state, k = 3) {
   const rects = wallRects(mask, DITCH_W), inPit = (x, y) => rects.some((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1);
   if (state === 'foundation') return [...foundation(wallEdges(mask, DITCH_W), 'wood', mask, 1)];
   const d = DITCH_D * ({ rising: 0.35, scaffold: 0.75 }[state] ?? 1), fillZ = state === 'damaged' ? -d * 0.45 : -d;
   const bottom = (f, x, y, z) => (state === 'damaged' ? (hash(Math.floor(x * 4), Math.floor(y * 12), 7) < 0.5 ? mul(TEX.wood[1], 0.8) : mul(EARTH, 1.3)) : mul(EARTH, 0.75 + 0.15 * hash(Math.floor(x * 8), Math.floor(y * 8), 5)));
-  return cells(0, 2, 0, 2, (x, y, i, j) => {
-    const skip = new Set([...(i === 0 ? ['-x'] : []), ...(i === 31 ? ['+x'] : []), ...(j === 0 ? ['-y'] : []), ...(j === 31 ? ['+y'] : [])]);
-    return inPit(x, y) ? { z0: -d - 0.1, z1: fillZ, mat: bottom, skip } : { z0: -d - 0.1, z1: 0, mat: dirt, skip };
-  });
+  // drawn over the tile and 1 m into its neighbours (the pit runs straight on into a joined neighbour), then clipped to the
+  // tile's diamond: the pit's far walls seen through this tile's opening may stand in the next tile
+  const h = DITCH_W / 2, nb = (x, y) => (x < 0 ? mask & 4 && y >= 0 && y < 2 && Math.abs(y - 1) < h : x >= 2 ? mask & 1 && y >= 0 && y < 2 && Math.abs(y - 1) < h : y < 0 ? mask & 8 && Math.abs(x - 1) < h : y >= 2 ? mask & 2 && Math.abs(x - 1) < h : inPit(x, y));
+  return cells(-1, 3, -1, 3, (x, y) => (nb(x, y) ? { z0: -d - 0.1, z1: fillZ, mat: bottom } : { z0: -d - 0.1, z1: 0, mat: dirt }));
 }
 // stakes (1 tile): nine sharpened stakes driven in at angles, pale cut points
 function stakesBoxes(state, k = 5) {
@@ -1253,7 +1253,10 @@ for (const id of Object.keys(STAIRS)) { // player-placed stairs up to the walk
 }
 { // ART-C: the ditch (16 frames by neighbour mask, every state) and the wet-hide overlays (done walls only)
   const files = {};
-  for (const s of STATES) files[s] = sheetOut(`ditch-${s}.png`, gridSheet([...Array(16)].map((_, m) => renderBoxes(ditchBoxes(m, s), DT.w, DT.h, DT.x0, DT.y0)), DT.w, DT.h, 16));
+  // the pit is below the ground: only what shows through the tile's own top diamond is drawn (neighbouring ground hides
+  // the rest; a neighbouring ditch tile draws its own pit)
+  const clipTile = (im) => { for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) if (Math.abs(x + 0.5 - DT.x0) / 32 + Math.abs(y + 0.5 - DT.y0 - 16) / 16 > 1) im.data[(y * im.w + x) * 4 + 3] = 0; return im; };
+  for (const s of STATES) files[s] = sheetOut(`ditch-${s}.png`, gridSheet([...Array(16)].map((_, m) => { const im = renderBoxes(ditchBoxes(m, s), DT.w, DT.h, DT.x0, DT.y0); return s === 'foundation' ? im : clipTile(im); }), DT.w, DT.h, 16));
   kits.push({ id: 'ditch', kind: 'ditch', material: 'earth', burnable: false, depthM: DITCH_D, widthM: DITCH_W, frames: 16, columns: 16, frame: { w: DT.w, h: DT.h }, tileOrigin: { x: DT.x0, y: DT.y0 }, states: files, note: 'frame = neighbour mask (+x 1, +y 2, -x 4, -y 8) of ditch tiles; a ground-level piece: draw it with the terrain (before anything standing on the tile). Engines cannot cross a done ditch; damaged = filled in (crossable)', source: 'renderer (W-ART-C)' });
   const pal = KITS.palisade, ov = [...Array(16)].map((_, m) => hideOverlay(kitBoxes('palisade', m, 'done'), KIT_W, KIT_H, KIT_W / 2, KIT_Y0, 0.45, () => pal.heightM - 0.45));
   kits.push({ id: 'hides-palisade', kind: 'overlay', overlayOf: 'palisade', material: 'hide', burnable: false, frames: 16, columns: 16, frame: { w: KIT_W, h: KIT_H }, tileOrigin: { x: KIT_W / 2, y: KIT_Y0 }, states: { done: sheetOut('hides-palisade-done.png', gridSheet(ov, KIT_W, KIT_H, 16)) }, note: 'wet hides (Fortifier): drawn over the palisade done frame of the same mask; the wall ignites at half the chance', source: 'renderer' });
