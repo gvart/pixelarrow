@@ -114,3 +114,132 @@ home.
 
 Route length from any home to Omphalos: home → entry → inner neutral → gate → Omphalos (4 transfers), or by the
 outer mid regions (5). Equal for all four.
+
+## Soldiers
+
+Every soldier is a persistent person (W-10, W-37); civilians are the same record with a non-combat class (W-38).
+Built on the single-player hero (`src/data/units.ts` `Hero`, `src/sim/stats.ts` `computeStats`); the live sim only
+sees the baked stat block. Numbers are first-pass targets for balance tests. **N** = fighters per player (below);
+every other cap is written in terms of N.
+
+### Army size N (proposal, owner to confirm)
+
+| N | Players per region (600 cap) | With the 10% civilian quota | Attachment (a) | Formations (b) | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| 20 (today) | 30 | 27 | 20 names, hard to know each | full lines (10×2), wedge, column | too few players per region |
+| **12** | **50** | **45** | every man known by name | line 6×2 or 4×3, wedge 1-2-3-6, column 2×6 | **recommended** |
+| 10 | 60 | 54 | very good | line 5×2, thin wedge | fallback if 50 players feels empty |
+| 8 | 75 | 67 | best | 4×2 reads as a blob; lines and flanks lose meaning | no |
+
+Recommendation: **N = 12, one squad per player**, which can split into two detachments of ≥ 4 (flank, guard a site,
+work, as W-26 detaching already does). Several small squads per player multiply orders and UI without adding
+tactics at this size. (d) Civilians count toward the 600 cap inside a 10% quota, so 12 gives 45–50 players per region,
+inside the owner's 50–60 hope. Changing N later is one constant (`SQUAD_MAX`, today `MAX_ARMY` 20) plus re-tuned
+scenarios.
+
+### Record (server-side, one row per person)
+
+| Field | Rule | Reused from |
+| --- | --- | --- |
+| class | militia on recruit → trained class → elite at level 6 | `src/data/classes.ts` |
+| level, xp | 1–10, `xpToNext = 40 × level`; +2 attribute points per level | `MAX_LEVEL`, `xpToNext`, `POINTS_PER_LEVEL` |
+| attributes | STR, AGI, END, WIL (5 neutral, max 15); class spread on recruit. WIL drives survival and the squad active cooldown (no morale in the war) | `src/data/perks.ts` `ATTR_*` |
+| skills | 2 slots, unlocked at levels 3 and 7, picked from the family pool (≤ 4) | perks, reshaped |
+| equipment | weapon (civilians: tool), armour, helmet, shield/offhand, trinket; item tier 1–3 × 5 rarities | `src/data/items.ts`, `gearRules.ts` requirements and class limits |
+| honours | ≤ 3 battle traits ("Veteran of Kleisoura", "Held the Ford"): +2% to one stat, mostly a name | `src/data/traits.ts` shape |
+| state | `fit` / `wounded(until, where)` / `captive(by, since)` / `dead`; kills, battles, home town | `Hero.wound` |
+
+XP: 1 per 10 damage dealt, 10 per kill, 15 per fight survived (≥ N enemy soldiers took part), 5 per claim or siege
+objective. Civilians: 1 per job (meal batch, bar, trade, site, patient). A wounded soldier keeps half the fight's XP.
+
+### Classes
+
+| Family | Train to (building) | Elite at L6 (+ rare kit) | Skills (P passive baked, F flag, A squad active) |
+| --- | --- | --- | --- |
+| Line | hoplite, thureophoros (barracks) | royal_guard, sacred_band | Shield Drill P (+6% block, +1 armour), Phalangite P (+0.15 reach, +1 dmg), Hold Fast F (+30% block while the squad holds), **Shield Wall A** |
+| Shock | celt_sword, falx (barracks) | rhomphaia, gallic | Brawler P (+1.2 dmg), Shield Breaker P (−10% target block), Finisher F (+30% dmg vs men < 40% HP), **Berserk A** |
+| Missile | archer, slinger, javelineer, peltast (range) | Cretan-set archer | Deep Quiver P (+40% ammo, +1 range), Eagle Eye P (+6% accuracy), Fire Archer F (brazier reach ×2, half pitch), **Volley A** |
+| Rider | companion, thessalian, horse_archer (stable) | chariot | Horsemanship P, Lance Charge F, Ride Down F, **Wheel and Re-charge A**; only once the war sim has mounts |
+
+Non-combat classes (W-38), six, each with its own loop and a tool in the weapon slot (same tiers and rarities):
+
+| Class | Loop | Skills (2 of 3) |
+| --- | --- | --- |
+| Cook | food (+ salt) at a cookhouse → rations; a fed squad gets +5% HP next fight and heals 25% faster | Field Kitchen (cooks without a building), Salt Pork (rations keep 2×), Feast (+1 XP per fight to the fed squad) |
+| Smith | copper + tin → bronze, ore → iron at a smelter; forge repairs and crafts tier 1–3 gear, rarity rolled on tool rarity + level | Alloy (+20% bronze per ore), Masterwork (+1 rarity step chance), Field Forge (repairs in the field) |
+| Merchant | leads caravans (M6), better market prices, carries hand-off trades | Haggler (±8% price), Pack Mules (+50% load), Safe Roads (caravan hidden on the world map until close) |
+| Engineer | leads a site: +50% build rate; builds rams, ladders, stone throwers, bridges | Master Builder (+25% rate), Sapper (+30% engine damage), Bridgewright (spans +4 tiles) |
+| Physician | wounded heal 2× in his house; on the field +15% wounded share within 6 tiles | Field Surgeon (radius 10), Herbalist (salves from food), Triage (frees one patient at once per hour) |
+| Forager | gathers 2× a soldier; farmer, woodcutter and miner are one class, the tool picks the node | Woodsman (wood ×1.25), Prospector (ore ×1.25), Pitchman (pitch ×2) |
+
+Scout is not a class: there is no fog of war; if fog lands it becomes a Missile skill. Gathering stays a soldier
+order (W-12); a forager is only faster.
+
+### Into the live sim
+
+| Step | When | What |
+| --- | --- | --- |
+| Bake | spawn, level-up, gear or skill change | `computeStats(hero)` → `WarStats` (the existing per-unit `u.st`); P skills, attributes, gear and honours land in it |
+| Clamp | after bake | vs a fresh L1 common soldier of the class: HP ×1.4, melee and missile dmg ×1.4, armour +4, block +0.10, accuracy +0.12, attack ticks ≥ 0.85×, speed ×1.10 |
+| Flags | bake | ≤ 3 bits per unit (`u.flags`) from F skills and item powers; read only in hit resolution |
+| Squad active | order | one per squad (best-ranked A skill in it), 60 s cooldown (−2.5% per WIL point of the leader), 8 s buff = one multiplier on the squad, read in hit resolution |
+| Civilians | spawn | `role: 'civ'`: never target, flee enemies within 10 tiles, work orders only, armour ×0.5 |
+
+Cost at 600 units: bake ≈ 20 µs each, 12 ms once per region join (spread over ticks); ≈ 200 B per unit; per tick no
+new loops, ≤ 2 branches per hit (flag, squad multiplier), < 0.1 ms on today's step. No per-unit ability timers,
+auras or morale.
+
+### Lifecycle
+
+| Stage | Rule |
+| --- | --- |
+| Recruit | an owned town or home camp grows a pool: home 6/h, town 3/h, cap 30; a recruit costs 20 food and comes as L1 militia (civilian 30 food) |
+| Train | barracks / range / stable / guild hall: 10 min + one tier-1 common kit (crafted or bought); class change only within a family, keeps level and XP |
+| Promote | level 6 + the elite rare kit, at a fortress, 30 min |
+| Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
+| Heal | wounded leave with the squad; timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h |
+| Gear drops | the gear of a dead man lies 10 min: the winner picks it up (rare and above at 50% condition) or a smith salvages it (`salvageValue`) |
+| Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed) |
+| Prisoners | captor pays 1 food/h each; ransom = 30 × level silver, the owner pays or declines; a raid reaching the fort frees all; after 24 h they walk home. No execution or conversion |
+| Veterans | survivors keep XP, gear and honours; gear wears per fight (`cond`), a smith repairs it |
+| Roster | N in the field + N/2 reserve (barracks, healing, captive) + household; at the cap a recruit needs a retirement |
+| Retire | returns half the gear value and leaves one honour on the alliance memorial; a level-10 soldier may retire into a civilian class at level 5 |
+
+Household: separate from the N fighters, size `min(4, 1 + fit soldiers ÷ 4)` (with N = 12: 4). Separate so the
+squad stays whole; tied to fit soldiers so nobody plays without an army (a merchant still needs a squad to escort
+caravans). A trade-minded player fields a small guard squad and a full household.
+
+In the region civilians are live units on the 600 cap inside a 10% sub-quota (60, split per alliance like W-06): a
+separate cap would add bodies beyond the sim budget, and they cost the same per tick as soldiers. They are weak,
+flee, can be captured, and work only inside own influence or with a squad within 15 tiles.
+
+Into the economy (M6), never instead of fighting: rations, bronze, iron, gear, repairs, salves and engines are stock
+or buffs that **soldiers consume**; merchants turn surplus into silver. No civilian claims land, wins a siege or holds
+a region.
+
+### Anti-oversaturation
+
+| Lever | Bound |
+| --- | --- |
+| Power curve | a max squad (L10 elite, legendary kit) of N beats N fresh trained soldiers of the class, and wins ≤ 35% vs 2N; the clamp table enforces it |
+| Item cap | the ITEMS.md rule (≤ +10 win-rate points per item), measured in the war sim |
+| Counters | Line > Rider > Missile > Shock > Line, by class stats and flags; height and terrain still outweigh levels |
+| Readability | ≤ 3 flags per unit and one active per squad; elites and veterans get a visible marker (crest, pip) |
+| Upkeep | 1 food per soldier per hour in the field, 2 for elites, 1 per civilian; unpaid upkeep stops healing and XP |
+| Attrition | ~30% of the fallen die and gear wears, so top squads still bleed |
+
+### UI touchpoints
+
+| Surface | Content |
+| --- | --- |
+| Roster panel | field squad, reserve, household; state chips (wound timer, captive where); drag to swap |
+| Soldier card | paper doll, class and elite, level bar, 4 attributes, 2 skills, gear slots, honours, kills and battles |
+| Level-up | toast on the squad card; at levels 3 and 7 a choice of 2 skills with a stat preview (as the campaign perk preview) |
+| Live | squad active on the command card; veteran pips on unit bars; capture and ransom notices |
+
+### Reuse and drop
+
+| Reuse | Drop (war only) |
+| --- | --- |
+| `Hero`, `computeStats`, attributes, `xpToNext`, items, rarity, affixes, sets, requirements, `salvageValue`, traits shape, class defs and kits | morale, rout, stamina, auras, per-unit abilities, 5-tier perk trees (now 2 skill slots), medallions, campaign rest and physician gold |
+| `warStats` (`src/war/sim/classes.ts`) stays the class baseline (and clamp base) and the mob path; new `warStatsOf(hero)` bakes a person | `MAX_ARMY` 20 as the war squad size (becomes `SQUAD_MAX` = N) |
