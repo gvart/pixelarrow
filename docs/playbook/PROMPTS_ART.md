@@ -2642,3 +2642,85 @@ already cut down; "waist high" walls kept their doors, "empty black doorways wit
 init on a flat piece (jetty) loses its far half, not its height: cut flat pieces along their length instead. (3) Leave
 new states out of a shared median-cut palette, or every earlier sprite moves. (4) Particle FX in pixel art: accumulate
 a density field and threshold it; per-particle discs read as beads.
+
+### 40c Guardians
+
+The landmark guardians as soldier-format mob sheets, `src/assets/sheets/mob_<kind>/` (SHEET_FORMAT v2; rows SE, NE,
+SW, NW; south-west and north-west generated, the east rows their mirrors), listed with their move-to-clip map in
+`public/war/guardians.json` (the sheet player only knows SHEET_ANIMS: Drakon's claw / tail sweep = `attack`, breath =
+`shoot`, roof perch = `brace` (held), crash = `charge`; Brontes' hurl = `shoot`, smash = `attack`). Jobs, specs and raws:
+`docs/v5/pixellab/GUARD/` (`bases.jobs.json`, `<kind>.jobs.json`, `<kind>.sheet.json`); tools
+`scripts/art/pixellab/guard/` (`extract`, `bases`, `rots`, `prep`, `prompts`, `upload`, `addjobs`, `bob`, `spec`,
+`strip`, `stack`) plus `mobs/build.mjs` (`shrink: 1`, now with mirrored template rows) and `anim2/ground.mjs`. Mock-ups:
+`node scripts/war/art/guardians-preview.mjs` -> `shots/war/landmarks/GUARD_*`. **~190 PixelLab generations.**
+
+**True scale.** Art px per metre is set per guardian through the manifest `scale` (0.55 = the soldier's 33 px/m), so
+the canvas fits PixMiniMax's 256 cap: Drakon 1.5 (12 px/m, the 256 canvas = 21 m, wingspan ~20 m, body ~17 m; 3 render
+px per art px), giants 1 (18 px/m, ~150 px = 8 m; 2 render px), Scylla's head 1, the Chimera, bandits and maenads 0.55.
+Only 0.5 / 1 / 1.5 map to whole render px (res 2); 0.75 would not.
+
+**Bases.** Man-sized (6 x 6 generations, `edit_image_pro_flash` on the shipped bandit's four idle rotations packed 2x2,
+as §35): every edit opens `Re-dress the same man in all four views as …; keep the same body, size, pose, feet and face in
+each view.` and ends `Heavy shadows, desaturated dark warm colours, same pixel art style.`
+
+| kind | WHO · outfit · weapon (verbatim core) | result |
+| --- | --- | --- |
+| bandit_king | the grim Bandit King, an outlaw warlord wearing a dead king's armour · dark gilded bronze Phrygian helmet with tall cheek pieces and a dark crimson horsehair crest; a dark linen-and-bronze linothorax with a small dark bronze gorgon face; a deep purple-black cloak torn at the hem; dark bronze greaves; full dark beard · one curved iron kopis sword held low in his right hand | kept |
+| bandit_captain | a scarred outlaw leader · ragged mud-brown cloak, hood down; old dented bronze open-faced helmet with a short crest; scuffed studded leather cuirass; oxblood sash · heavy curved iron falcata, small round dark wooden shield with a bronze rim | kept |
+| bandit_guard | a heavy outlaw warrior in looted gear · battered iron helmet with cheek guards; mud-brown cloak over a dark bronze scale shirt; leather greaves · battered round bronze shield chin to knee, short iron-tipped spear upright out at his right side | kept the hood (asked to drop it) |
+| bandit_archer | a lean outlaw bowman · the bandit's hooded cloak and face wrap kept; short leather jerkin, bracer, quiver on his back · short dark recurve bow down in his left hand | kept |
+| maenad | `Re-dress the same figure … as a grim wild ancient Greek maenad, a frenzied woman follower of Dionysus: make the body a slender woman of the same height` · long wild tangled black hair, dark green ivy wreath; dark wine-red chiton torn at the knee; dappled fawn skin over one shoulder; bare arms and feet · tall thyrsus (fennel staff wound with ivy, dark pine cone) | kept: the edit makes a woman of the man's body |
+| maenad_queen | the grim Maenad Queen, the fierce high priestess of Dionysus, a tall strong woman · tall crown of dark bronze vine leaves and grapes; long purple-black robe with a dark gold border; spotted leopard skin knotted on her chest; bronze armlets · thyrsus over a long bronze spear point | kept |
+
+Big guardians: one `create_image_pro_flash` south-west view with the bear's south-west idle as `style_image` ("match
+its dark-epic pixel art look: outline weight, shading steps, pixel density and desaturated dark warm palette"), then
+`create_character_pro_flash` from that image (rotations only: 8 / 4 / 4 / 2 generations at 256 / 160 / 160 / 128).
+Prompts open `<name>, one colossal … of Greek myth, grim and real, not cute:` and end `facing the viewer's lower left,
+seen from a high top-down three-quarter view; heavy shadows, desaturated dark warm colours like the style reference,
+dark epic pixel art; transparent background, no ground, no shadow`:
+
+| kind | canvas, gens | body (verbatim core) | result |
+| --- | --- | --- | --- |
+| drakon | 256, 9 + 8 | a huge heavy reptile body like a giant crocodile and a lion, four thick clawed legs, a long powerful neck and a long heavy tail curling behind, a horned wedge-shaped head with a jaw full of long teeth, two enormous bat-like wings folded tight along its back; dirty bone-white and ash-grey scales, darker along the spine, a dark umber underbelly, horns and claws of yellowed old bone, battle scars; walking towards the viewer's lower left | kept: the hero |
+| brontes | 160, 6 + 4 | a huge hulking man three times a man's height …, a massive bald head with one single great eye …, a thick black beard, a thick dark leather smith's apron over a ragged dark umber loincloth, dark iron bands on his wrists; one huge rough boulder held in both hands at his chest | kept |
+| gyges | 160, 6 + 4 | three heads with wild dark matted hair and beards on one massive neck and shoulders, six thick muscular arms …, broken heavy dark iron manacles on every wrist with short lengths of snapped chain | kept |
+| chimera | 128, 6 + 2 | the heavy body of a huge maned lion …, a second head of a black horned goat rising from the middle of its back, and a long tail that ends in a live dark serpent with its head raised | kept |
+| scylla_head | 128 x 160, 6 | a long thick serpent neck rising out of dark sea water, arching up and forward, ending in a monstrous head like a wolf crossed with an eel, long jaws with three rows of long fangs …, foam at the base | kept; no character (every row is this view) |
+
+**Clips** (PixMiniMax, 12 frames; 96 canvas 1 gen, 128 2, 160 1, 256 2). Man-sized: idle, walk, the attack (`slash`
+king, captain, maenad; `thrust` guard, queen; `shoot` archer), die; every prompt word for word:
+`node scripts/art/pixellab/guard/prompts.mjs <kind> <anim> <dir>` (§35's wording: back views open "seen from behind, …
+he never turns round:" and end "… only his back is seen"; back-view deaths fall forward away from the viewer). Big ones:
+SW + NW walk and attack (Drakon also breath), SW only for idle, perch, crash and die (the SW clip serves the north-west
+row, the east rows mirror it); their back-row idle is `bob.mjs` (the north-west rotation breathing, 0 generations).
+Drakon verbatim: walk `the huge dragon walks in place towards the viewer's lower left with a slow heavy prowling gait like
+a giant crocodile and a lion: the four thick legs step one after another, the shoulders roll, …; the dragon stays on the
+same spot, it does not move away; the dragon alone; no fire, no smoke, no dust, no effects`; claw `it rears up a little
+on its hind legs, raises one huge clawed foreleg and rakes it down hard …, then twists its whole body round and sweeps
+the long heavy tail across in a wide arc …`; breath `it plants its four legs wide, draws its long neck back and up with
+the chest swelling, half opens its wings for balance, then thrusts its head forward and down with its jaws gaping wide as
+if pouring out a long stream of breath at the ground ahead … no fire drawn, no flames, no smoke, no glow`; perch `it
+crouches low on its four legs gripping the edge with its claws, then spreads its two enormous bat wings wide and high
+above its back, raises its long neck and head high and slowly sweeps its head from side to side, watching the ground far
+below … then it holds the crouch with the wings half open; … no roof drawn`; crash `it rears up high on its hind legs
+with its wings flung wide open, then drops heavily forward and slams its whole massive body down onto the ground …, its
+head thrown back roaring …, then it gathers itself on all four legs, wings half open, head low and furious`; die `it
+rears its head up and back …, its wings jerk half open, it staggers sideways on buckling legs, then … collapses heavily
+onto its side …; its scales stay clean, no wounds, no red, no blood at all`. Giants and the Chimera follow the same
+shape (hurl: "heaves the huge boulder up over his head …, throws it forward and down …, his hands close again round a new
+boulder"; smash: "brings it crashing straight down onto the ground in front of his feet"; Gyges: "raises all six huge
+arms at once … hammers three of his fists down in three different directions … then sweeps the other three arms across";
+Scylla: strike "the long neck coils back and rears up high, the jaws gape wide, then it lunges down and forward in a fast
+vicious snapping bite …", die "it topples over sideways and sinks down into the water").
+
+Build: `guard/spec.mjs <kind>` → `mobs/build.mjs docs/v5/pixellab/GUARD/<kind>.sheet.json` → `anim2/ground.mjs
+mob_<kind> idle walk <attack>`. No `run` / `fallBack` copies: the player falls back to walk and die. `hit` = die frames
+1, 2, 2, 1.
+
+**Lessons:** (1) A character made by Pro Flash from a three-quarter south-west image files that view as "south", so
+every label is 45° off: the game's SE NE SW NW are its east, north, south and west (`rots.mjs --shift`); templates asked
+for "south-west" came back in profile (cancelled; PixMiniMax on the shifted rotations instead). (2) PixMiniMax at 256
+costs only 2 a clip: a 20 m dragon is affordable at 12 px/m. (3) Fire breath without fire: the jaws gape and the
+chest lights amber anyway; the palette snap keeps it bone-toned and the FX strip supplies the flame. (4) Smears: a
+pale motion arc (Gyges SW attack frame 7) is replaced by its neighbour in the raw folder (`cp frame_006 frame_007`).
+(5) The archer's south-west shot lifts the bow towards the top of the frame (an arcing shot); kept.
