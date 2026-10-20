@@ -137,10 +137,11 @@ async function seed() {
     rows.push(`INSERT INTO duel_season_rewards (player_id, season, ladder, league, peak, glory, cosmetic, created_at) VALUES (${ps[p].id}, ${duelSeason - 1 - i}, 'live', '${league}', ${peak}, 0, 'none', ${now})`));
   rows.push(`INSERT INTO duel_season_rewards (player_id, season, ladder, league, peak, glory, cosmetic, created_at) VALUES (${ps[6].id}, ${duelSeason - 1}, 'async', 'hoplite', 1650, 0, 'none', ${now})`);
   rows.push(`INSERT INTO season_rewards (season_id, player_id, shard_id, rank, score, clan_name, title, created_at) VALUES (${war.s - 1}, ${ps[2].id}, 1, 1, 410, NULL, 'Basileus', ${now})`);
-  // The two real bosses (kraken, titan), slain on this shard and two more.
-  [[0, 'kraken', 1], [0, 'titan', 1], [1, 'kraken', 4], [2, 'titan', 7]].forEach(([shard, boss, p], i) => {
-    rows.push(`INSERT INTO world_bosses (season_id, shard_id, boss, loc, level, hp, max_hp, parts, status, killed_at, killed_by, created_at) VALUES (${war.s}, ${war.sh + shard}, '${boss}', 0, 1, 0, 1000, '[]', 'dead', ${now - (4 - i) * 3_600_000}, ${ps[p].id}, ${now - 86_400_000})`);
-  });
+  // War season 1 (src/war/world/alliances.ts WAR_SEASON): alliances, fight tallies and region bosses slain (src/data/warBosses.ts).
+  ps.slice(0, 8).forEach((p, i) => rows.push(`INSERT INTO war_alliance_members (season, player_id, alliance, joined_at) VALUES (1, ${p.id}, ${i % 4}, ${now})`));
+  ps.slice(0, 9).forEach((p, i) => rows.push(`INSERT INTO war_player_stats (season, player_id, kills, fights, wins, honours, bosses) VALUES (1, ${p.id}, ${40 - i * 4}, ${12 - i}, ${8 - i % 5}, ${i % 3}, ${i < 3 ? 3 - i : 0})`));
+  [['scylla', 1, 0], ['scylla', 0, 1], ['glacier_titan', 2, 2], ['moor_bear', 3, 1]].forEach(([boss, alliance, p], i) =>
+    rows.push(`INSERT INTO war_boss_kills (id, season, region, boss, alliance, player_id, at) VALUES ('fx${i}', 1, 'fx', '${boss}', ${alliance}, ${ps[p].id}, ${now - (4 - i) * 3_600_000})`));
   for (let i = 0; i < 6; i++) rows.push(`INSERT INTO battle_log (season_id, shard_id, kind, winner, ticks, verified, created_at) VALUES (${war.s}, ${war.sh}, 'attack', 0, 100, 1, ${now})`);
   for (let i = 0; i < 4; i++) rows.push(`INSERT INTO duel_matches (id, mode, seed, player_a, player_b, setup, teams, status, created_at) VALUES ('fx${i}', 'ranked', 1, ${ps[i].id}, ${ps[i + 1].id}, '{}', '[]', 'done', ${now - 7_200_000})`);
   sql(rows.join('; '));

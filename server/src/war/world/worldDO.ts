@@ -18,8 +18,9 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
 import { logError } from '../../telemetry/log';
-import { parseWorldMsg, type RegionState, type SeasonResult, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
+import { parseWorldMsg, type RegionState, type SeasonResult, type SeasonSnap, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
 import type { AllianceId, Side } from '../../../../src/war/world/types';
+import { scoreRate } from '../../../../src/war/world/season';
 import { allianceCounts } from './members';
 import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type RegionReport, type WorldState } from './world';
 
@@ -108,6 +109,12 @@ export class WarWorldDO extends DurableObject<Env> {
     w.newSeason(now);
     await this.commit(w);
     return w.st.season.id;
+  }
+
+  /** The public boards' view (server/src/public/snapshot.ts): the season's score and every region's owner. */
+  async standings(): Promise<{ season: SeasonSnap; regions: { id: string; owner: number; rate: number }[] }> {
+    const w = await this.ensure();
+    return { season: w.seasonSnap(Date.now()), regions: Object.values(w.st.regions).map((r) => ({ id: r.id, owner: r.owner, rate: scoreRate(r) })) };
   }
 
   /** What the world knows of one region (null: not a world region). */

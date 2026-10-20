@@ -47,7 +47,7 @@ const failures = [];
 const check = (cond, msg) => { if (!cond) failures.push(msg); console.log(`${cond ? 'ok  ' : 'FAIL'} ${msg}`); };
 const fmt = new Intl.NumberFormat('en-US').format;
 const clone = () => structuredClone(FIXTURE);
-const emptyBoards = (s) => Object.assign(s, { duels: { ...s.duels, live: [], async: [] }, war: { ...s.war, players: [], clans: [] } });
+const emptyBoards = (s) => Object.assign(s, { duels: { ...s.duels, live: [], async: [] }, war: { ...s.war, alliances: [], players: [], regions: [] } });
 
 /** A page whose summary request is answered by `answer` ({status, body} | 'abort'); counts requests. */
 async function open(browser, answer, { width = 1440, height = 900, hash = '', delay = 0, init = false, ...opts } = {}) {
@@ -110,10 +110,10 @@ try {
     check(JSON.stringify(duels.slice(0, wantDuels.length)) === JSON.stringify(wantDuels), 'duelists: rank, name and league equal the fixture\'s live ladder (Legend with its rating)');
     check(duels.slice(wantDuels.length).every((r) => r.every((c) => c === '')), 'the lines past the last duelist are blank');
     const war = await rows(page, 'stats-war');
-    const wantWar = FIXTURE.war.clans.map((r) => [String(r.rank), r.name, fmt(r.score), fmt(r.members)]);
-    check(war.length === 10 && JSON.stringify(war.slice(0, wantWar.length)) === JSON.stringify(wantWar), 'war standings: rank, clan, score and members equal the fixture');
+    const wantWar = FIXTURE.war.alliances.map((r) => [String(r.rank), r.name, fmt(r.score), fmt(r.regions)]);
+    check(war.length === 10 && JSON.stringify(war.slice(0, wantWar.length)) === JSON.stringify(wantWar), 'war standings: rank, alliance, score and regions equal the fixture');
     const subs = await page.$$eval('#leaderboards .ledger__sub', (els) => els.map((e) => e.textContent));
-    check(subs.join('|') === `Live ladder, season ${FIXTURE.duels.season.id}|Clans, season ${FIXTURE.war.season.id}`, `ledger captions name the season (${subs.join(' | ')})`);
+    check(subs.join('|') === `Live ladder, season ${FIXTURE.duels.season.id}|Alliances, season ${FIXTURE.war.season.id}`, `ledger captions name the season (${subs.join(' | ')})`);
     const d = new Date(FIXTURE.generatedAt);
     const hhmm = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC`;
     const lead = await page.$eval('#leaderboards .stats__lead', (e) => e.textContent);
@@ -156,7 +156,7 @@ try {
     const evil = clone();
     const name = '<img src=x onerror="window.__pwned=1">';
     evil.duels.live[0].name = name;
-    evil.war.clans[0].name = '<b>Clan</b>';
+    evil.war.alliances[0].name = '<b>Clan</b>';
     const { page } = await open(browser, { status: 200, body: evil });
     await toStats(page);
     const duels = await rows(page, 'stats-duels');
@@ -216,7 +216,7 @@ try {
     const note = await page.$eval('#leaderboards .ledger__none', (e) => e.textContent);
     const war = await rows(page, 'stats-war');
     check(duels.length === 10 && duels.every((r) => r.every((c) => c === '')) && note === 'No ranked duelists yet this season.', 'one empty board: blank ruled ledger with a one-line note');
-    check(war[0][1] === s.war.clans[0].name, 'the other board still shows its rows');
+    check(war[0][1] === s.war.alliances[0].name, 'the other board still shows its rows');
     await page.close();
   }
   {

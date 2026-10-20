@@ -20,9 +20,14 @@ const rank = z.number().int().min(1).max(BOARD_MAX);
 const season = z.strictObject({ id: count, endsAt: count }).nullable();
 
 const duelRow = z.strictObject({ rank, name, league: z.string().max(16), rating: count.nullable(), games: count });
-const warPlayerRow = z.strictObject({ rank, name, clan: name.nullable(), score: count });
-const warClanRow = z.strictObject({ rank, name, score: count, members: count });
+/** An alliance or region name (game data, not a player's). */
+const place = z.string().min(1).max(40);
+const allianceRow = z.strictObject({ rank, name: place, score: count, regions: count, members: count });
+const warPlayerRow = z.strictObject({ rank, name, alliance: place.nullable(), kills: count, fights: count, wins: count, honours: count });
+const regionRow = z.strictObject({ rank, name: place, alliance: place, rate: count });
 const slayerRow = z.strictObject({ rank, name, kills: count });
+/** A region boss (src/data/warBosses.ts): its kills this season, per alliance, and the alliance of the first. */
+const bossRow = z.strictObject({ name: place, region: place, kills: count, first: place.nullable(), alliances: z.array(count).length(4) });
 
 export const PublicSummaryV1 = z.strictObject({
   v: z.literal(1),
@@ -43,14 +48,19 @@ export const PublicSummaryV1 = z.strictObject({
   }),
   war: z.strictObject({
     season,
+    /** The four alliances by season score (docs/WAR.md "Season score and victory"). */
+    alliances: z.array(allianceRow).max(4),
     players: z.array(warPlayerRow).max(BOARD_MAX),
-    clans: z.array(warClanRow).max(BOARD_MAX),
+    /** The held regions that score most an hour, and who holds them. */
+    regions: z.array(regionRow).max(BOARD_MAX),
   }),
   champions: z.strictObject({
     war: z.array(z.strictObject({ season: count, name, title: z.string().min(1).max(32) })).max(CHAMPIONS_MAX),
     duel: z.array(z.strictObject({ season: count, ladder: z.enum(['live', 'async']), name })).max(CHAMPIONS_MAX),
   }),
+  /** Players by region bosses slain this war season (W-45). */
   bossSlayers: z.array(slayerRow).max(BOARD_MAX),
+  bosses: z.array(bossRow).max(BOARD_MAX),
 });
 
 export type PublicSummaryV1 = z.infer<typeof PublicSummaryV1>;

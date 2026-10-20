@@ -196,7 +196,7 @@ describe('public snapshot (ADR-0010 §2)', () => {
     await rate((await named()).id, 'async', 1300);
     expect((await buildPublicSnapshot(env, NOW)).duels.async).toHaveLength(3);
   });
-  it('war boards stay empty (the old region standings went with the route-graph war); clans are counted', async () => {
+  it('war boards: alliances by season score, players by kills, held regions, bosses slain; clans are counted', async () => {
     fresh();
     const ps: Player[] = [];
     for (let i = 1; i <= 3; i++) ps.push(await join(8_800_000 + i));
@@ -208,14 +208,36 @@ describe('public snapshot (ADR-0010 §2)', () => {
         .first<{ id: number }>();
       await db.prepare("INSERT INTO clan_members (season_id, player_id, clan_id, role, joined_at) VALUES (?1, ?2, ?3, 'leader', ?4)").bind(season, p.playerId, c!.id, NOW).run();
     }
+    const [a, b, c, hidden] = [await named(), await named(), await named(), await named({ optedOut: true })];
+    const stat = (pid: number, kills: number, wins: number, honours: number, bosses = 0) =>
+      db.prepare('INSERT INTO war_player_stats (season, player_id, kills, fights, wins, honours, bosses) VALUES (1, ?1, ?2, 5, ?3, ?4, ?5)').bind(pid, kills, wins, honours, bosses).run();
+    await stat(a.id, 9, 2, 1, 2);
+    await stat(b.id, 9, 3, 0, 1);
+    await stat(c.id, 4, 1, 2, 1);
+    await stat(hidden.id, 99, 9, 9, 9);
+    await db.prepare('INSERT INTO war_alliance_members (season, player_id, alliance, joined_at) VALUES (1, ?1, 3, 0)').bind(b.id).run();
+    const kill = (id: string, boss: string, alliance: number | null, at: number) =>
+      db.prepare('INSERT INTO war_boss_kills (id, season, region, boss, alliance, player_id, at) VALUES (?1, 1, ?2, ?3, ?4, NULL, ?5)').bind(id, 'x', boss, alliance, at).run();
+    await kill('k1', 'scylla', 1, 20);
+    await kill('k2', 'scylla', 2, 10);
+    await kill('k3', 'scylla', 2, 30);
     const snap = await buildPublicSnapshot(env, NOW);
-    expect(snap.war.season).toEqual({ id: season, endsAt: expect.any(Number) });
+    expect(snap.war.season).toEqual({ id: 1, endsAt: expect.any(Number) });
     expect(snap.totals.clans).toBeGreaterThanOrEqual(3);
-    expect(snap.war.players).toEqual([]);
-    expect(snap.war.clans).toEqual([]);
+    expect(snap.war.alliances.map((r) => r.name).sort()).toEqual(['Dodona', 'Elaia', 'Kyrene', 'Skythia']);
+    expect(snap.war.alliances.find((r) => r.name === 'Elaia')!.members).toBeGreaterThanOrEqual(1);
+    expect(snap.war.players).toEqual([
+      { rank: 1, name: b.name, alliance: 'Elaia', kills: 9, fights: 5, wins: 3, honours: 0 },
+      { rank: 2, name: a.name, alliance: null, kills: 9, fights: 5, wins: 2, honours: 1 },
+      { rank: 3, name: c.name, alliance: null, kills: 4, fights: 5, wins: 1, honours: 2 },
+    ]);
+    expect(snap.war.regions).toEqual([]); // a fresh world holds no scoring region
+    expect(snap.bossSlayers.map((r) => [r.name, r.kills])).toEqual([[a.name, 2], [b.name, 1], [c.name, 1]]);
+    expect(snap.bosses).toEqual([{ name: 'Scylla of the Estuary', region: 'Siren Estuary', kills: 3, first: 'Kyrene', alliances: [0, 1, 2, 0] }]);
+    expect(snap.totals.bossesSlain).toBe(3);
   });
 
-  it('champions: eligible players only, newest seasons first; no boss slayers', async () => {
+  it('champions: eligible players only, newest seasons first', async () => {
     const [a, b, c] = [await named(), await named(), await named()];
     const gone = await named({ deleted: true });
     const reward = (season: number, pid: number, score: number, title: string) =>
@@ -238,8 +260,6 @@ describe('public snapshot (ADR-0010 §2)', () => {
       { season: DUEL_SEASON - 1, ladder: 'live', name: c.name },
       { season: DUEL_SEASON - 1, ladder: 'async', name: b.name },
     ]);
-    expect(snap.bossSlayers).toEqual([]);
-    expect(snap.totals.bossesSlain).toBe(0);
   });
   it('publicDuelTop performs no writes, and the build writes only public_snapshot and stats_counters (D1 spy)', async () => {
     const top = spyDb();
@@ -255,7 +275,7 @@ describe('public snapshot (ADR-0010 §2)', () => {
   });
 
   it('a recursive scan of the snapshot finds no seeded id, Telegram id, Telegram name or email', async () => {
-    const snap = await buildPublicSnapshot(env, NOW, { clanName: () => true });
+    const snap = await buildPublicSnapshot(env, NOW);
     expect(snap.duels.live.length + snap.war.players.length + snap.bossSlayers.length).toBeGreaterThan(0); // the scan sees real rows
     const ids = new Set(seeded.flatMap((p) => [p.id, p.tg]));
     const texts = seeded.flatMap((p) => [p.first, p.user, String(p.tg), String(p.id)]);
@@ -298,12 +318,18 @@ describe('public snapshot (ADR-0010 §2)', () => {
     const full = PublicSummaryV1.parse({
       ...snap,
       duels: { season: { id: 1, endsAt: NOW }, live: ten(duel), async: ten(duel) },
-      war: { season: { id: 1, endsAt: NOW }, players: ten((i) => ({ rank: i + 1, name, clan: name, score: 1e9 })), clans: ten((i) => ({ rank: i + 1, name, score: 1e9, members: 999 })) },
+      war: {
+        season: { id: 1, endsAt: NOW },
+        alliances: Array.from({ length: 4 }, (_, i) => ({ rank: i + 1, name: 'A'.repeat(40), score: 1e9, regions: 37, members: 99_999 })),
+        players: ten((i) => ({ rank: i + 1, name, alliance: 'A'.repeat(40), kills: 1e9, fights: 1e9, wins: 1e9, honours: 1e9 })),
+        regions: ten((i) => ({ rank: i + 1, name: 'R'.repeat(40), alliance: 'A'.repeat(40), rate: 10 })),
+      },
       champions: {
         war: Array.from({ length: 5 }, () => ({ season: 999, name, title: name })),
         duel: Array.from({ length: 5 }, () => ({ season: 999, ladder: 'async' as const, name })),
       },
       bossSlayers: ten((i) => ({ rank: i + 1, name, kills: 9999 })),
+      bosses: ten(() => ({ name: 'B'.repeat(40), region: 'R'.repeat(40), kills: 9999, first: 'A'.repeat(40), alliances: [9999, 9999, 9999, 9999] })),
     });
     expect(new TextEncoder().encode(JSON.stringify(full)).length).toBeLessThanOrEqual(BODY_MAX_BYTES);
   });
