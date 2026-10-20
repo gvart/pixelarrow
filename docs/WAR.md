@@ -386,7 +386,7 @@ Gemini reference (W-49, `shots/war/landmarks/proto/<id>/`): streets that follow 
 lanes, plazas with wells), lots packed along every street (courtyard houses, tenements, gardens), walls tracing the
 natural edge (`wallTrace`: an orthogonal run with a tower on every turn), gates at the head of the ramps. Height is real
 in the sim: tiers two levels apart are cliffs (impassable but by their ramps), so the high ground commands the low; the
-view draws a site's relief `lift` times as tall (visual only). The Dead City (1875 pieces) crowns a butte three tiers
+view draws a site's relief `lift` times as tall (visual only). The Dead City (1361 pieces) crowns a butte three tiers
 high (lower city h3, upper city h5 with the precinct, acropolis h7) over the salt flats; the Citadel (575) a crag two
 tiers over the glacier (outer ward, inner ward with the keep), the switchbacks up to a forecourt and barbican; the
 Temple City (1389) the mesa top (h5) with the sanctuary terrace at h7; the rest 100–250 pieces. Their condition follows

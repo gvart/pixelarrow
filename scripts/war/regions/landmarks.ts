@@ -318,7 +318,7 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
     [[124, 112], [110, 84], [86, 66]], [[152, 150], [118, 178]], [[170, 100], [150, 74], [128, 40]]] as Pt[][]).flatMap((p) => streetOn(p, 3, hc));
   // winding lanes, small plazas with wells and cisterns where some of them end
   const city = (x: number, y: number) => within(P, x, y, 9) && !inPoly(AC, x, y) && !(x > TP[0] - 2 && x < TP[2] + 2 && y > TP[1] - 2 && y < TP[3] + 2);
-  const ends = lanes(s, [...av, ...ring, ...radial], 70, 2, (x, y) => city(x, y) && (tierOk(x, y, hc) || tierOk(x, y, hu)), 35);
+  const ends = lanes(s, [...av, ...ring, ...radial], 50, 2, (x, y) => city(x, y) && (tierOk(x, y, hc) || tierOk(x, y, hu)), 35);
   ends.filter((_, n) => n % 4 === 0).slice(0, 9).forEach(([x, y], n) => {
     s.plaza(x, y, 4.5, 3.5);
     s.force(n % 2 ? 'arch-cistern' : '@town-well', Math.round(x) - (n % 2 ? 1 : 0), Math.round(y) - (n % 2 ? 1 : 0), { hp: 0.5 });
@@ -326,15 +326,15 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   // the quarters: tenements along the avenues, the rich under the acropolis, craftsmen by the west gate, houses elsewhere
   const avTiles = new Set<number>();
   for (const c of av) for (const p of c) for (let d = -7; d <= 7; d++) for (let e = -7; e <= 7; e++) avTiles.add(Math.floor(p.y + d) * 4096 + Math.floor(p.x + e));
-  const houses: District = { ids: [['ammon-house-a', 4], ['ammon-house-d', 4], ['ammon-house-b', 3], ['ammon-house-c', 3], ['arch-house-a', 1], ['arch-house-b', 1]], ruin: 0.75, hp: [0.25, 0.55], empty: 0.12, alley: 0.12 };
-  const tenements: District = { ids: [['ammon-tenement', 5], ['ammon-house-b', 2], ['ammon-workshop', 1], ['arch-tenement', 1]], ruin: 0.7, hp: [0.25, 0.55], empty: 0.06, alley: 0.08 };
+  const houses: District = { ids: [['ammon-house-a', 3], ['ammon-house-d', 1], ['ammon-house-b', 3], ['ammon-house-c', 4], ['arch-house-c', 1], ['arch-house-b', 1]], ruin: 0.75, hp: [0.25, 0.55], empty: 0.3, alley: 0.12 };
+  const tenements: District = { ids: [['ammon-tenement', 5], ['ammon-house-b', 2], ['ammon-workshop', 1], ['arch-tenement', 1]], ruin: 0.7, hp: [0.25, 0.55], empty: 0.15, alley: 0.08 };
   const rich: District = { ids: [['ammon-house-c', 4], ['arch-house-c', 2], ['arch-house-b', 3], ['ammon-house-b', 1]], ruin: 0.7, hp: [0.3, 0.6], empty: 0.15 };
   const crafts: District = { ids: [['ammon-workshop', 4], ['arch-workshop', 2], ['@town-storehouse', 1], ['arch-forge', 1], ['ammon-house-a', 2]], ruin: 0.5, hp: [0.3, 0.6], empty: 0.1 };
   const garden = 'arch-garden';
   s.infill((x, y) => city(x, y) && avTiles.has(y * 4096 + x), tenements, { seed: 41, front: 1 });
   s.infill((x, y) => city(x, y) && s.hAt(x, y) === hu, rich, { seed: 42, front: 1, back: 6 });
   s.infill((x, y) => city(x, y) && x < 124 && Math.abs(y - 108) < 34, crafts, { seed: 43, front: 1, back: 3 });
-  s.infill(city, houses, { seed: 44, front: 1, back: 8, garden });
+  s.infill(city, houses, { seed: 44, front: 1, back: 6, garden });
   // the necropolis: mastabas and grave plots along the road below the south gate, out over the flats
   const flats = (x: number, y: number) => !inPoly(P, x, y) && !within(P, x, y, -6) && y > 150 && x < 150 && s.dry(x, y);
   const nec = [s.street([fS, [fS[0] - 18, fS[1] + 2], [8, 212]], 3, 'dirt'), s.street([[fS[0] - 14, fS[1] + 1], [30, 176], [10, 150]], 2, 'dirt')];
