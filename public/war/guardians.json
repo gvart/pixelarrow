@@ -4,7 +4,9 @@
   "drakon": {
    "sheet": "mob_drakon", "landmark": "citadel", "region": "krios", "scale": 1.5, "lengthM": 17, "wingspanM": 20,
    "clips": { "idle": "idle", "walk": "walk", "claw": "attack", "tailSweep": "attack", "breath": "shoot", "roofPerch": "brace", "crash": "charge", "hit": "hit", "die": "die" },
-   "fxScale": 1.5, "fx": { "breath": { "jet": "boss-breath-jet (from the mouth, rotated onto the cone)", "cone": { "south-east": ["breath-se-ignite", "breath-se-loop"], "north-east": ["breath-ne-ignite", "breath-ne-loop"], "west": "mirror the east strips" }, "after": ["boss-ground-fire", "boss-smoke"] }, "claw": "boss-slash", "takeoff": "boss-wingbeat", "crash": ["crash-dust", "boss-impact", "boss-wingbeat"], "enrage": "boss-frenzy (red)", "die": ["boss-impact", "boss-beam"] },
+   "fxScale": 1.5,
+   "mouth": { "clip": "shoot", "about": "the mouth per frame of the clip, frame px (257 x 246); west rows: x mirrored (257 - x); other clips: the clip's strike frame", "south-east": [[210,148],[200,95],[195,100],[190,150],[232,190],[232,185],[222,192],[230,186],[225,190],[230,180],[220,175],[215,150]], "north-east": [[205,45],[185,35],[160,25],[160,25],[185,30],[190,30],[220,22],[235,32],[222,45],[217,55],[222,60],[225,85]] },
+   "fx": { "breath": { "jet": "boss-breath-jet (from the mouth, rotated onto the cone)", "cone": { "south-east": ["breath-se-ignite", "breath-se-loop"], "north-east": ["breath-ne-ignite", "breath-ne-loop"], "west": "mirror the east strips" }, "after": ["boss-ground-fire", "boss-smoke"] }, "claw": "boss-slash", "takeoff": "boss-wingbeat", "crash": ["crash-dust", "boss-impact", "boss-wingbeat"], "enrage": "boss-frenzy (red)", "die": ["boss-impact", "boss-beam"] },
    "note": "P2 roof perch: play `brace` on the keep roof terrace (citadel-keep, heightM 16); `brace.hold` loops the wings-open crouch. P3 crash: `charge` (rears, slams down), then crash-dust at the anchor."
   },
   "scylla_head": {

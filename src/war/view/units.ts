@@ -117,7 +117,11 @@ interface Sheet {
   loads?: SheetLoads;
   /** M7d: draw scale over a soldier's (manifest scale / 0.55: giants 1.8x, Drakon 2.7x), so every guardian stands at true size. */
   scale: number;
+  /** Frame size (px). */
+  fw: number; fh: number;
 }
+/** How a watched unit (a guardian) was drawn this frame: its clip and frame, row, feet (world px), origin and scale. */
+export interface DrawnAs { clip: string; frame: number; row: string; x: number; y: number; ox: number; oy: number; scale: number; fw: number; fh: number }
 /** The manifest scale of a soldier sheet: 33 px/m (public/war/guardians.json). */
 const SOLDIER_SCALE = 0.55;
 
@@ -177,7 +181,7 @@ function buildSheet(scene: Phaser.Scene, cls: string, m: SheetManifest, img: HTM
     frames.set(name, byRow);
   }
   const ms = (m as SheetManifest & { scale?: number }).scale ?? SOLDIER_SCALE;
-  return { rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale: ms / SOLDIER_SCALE };
+  return { rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads, scale: ms / SOLDIER_SCALE, fw, fh };
 }
 
 /** The load sprites as frames of one texture, named as in src/assets/loads/manifest.json. */
@@ -228,6 +232,11 @@ export class UnitLayer {
   private held = new Map<number, readonly [string, string]>();
   /** Units on the ground: the least depth to draw over the wall faces they stand in front of (./build/buildingLayer.ts). */
   ground: ((d: { x: number; y: number }) => number) | null = null;
+  /** Units whose drawn frame is kept in `drawnAs` (the guardians: their mouths and silhouettes for ./bossFx.ts). */
+  watch: ReadonlySet<number> = new Set();
+  readonly drawnAs = new Map<number, DrawnAs>();
+  /** A unit drawn with an outline over everything in this colour (the man-sized guardians: the King, a queen), or undefined. */
+  mark: ((id: number) => number | undefined) | null = null;
 
   /** Per unit: its drawn lift eased towards this frame's (offset from its sim point, px), so steps never snap. */
   private eased = new Map<number, { ox: number; oy: number; px: number; z: number }>();
@@ -270,6 +279,7 @@ export class UnitLayer {
   draw(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, at: AnimTime, squads: ReadonlyMap<number, SquadSnap>, shots: readonly ShotSnap[], occluded: Set<number> = new Set()): void {
     const under = this.gUnder.clear();
     let used = 0;
+    this.drawnAs.clear();
     this.nGhost = 0;
     this.nRing = 0;
     this.nLoad = 0;
@@ -324,8 +334,9 @@ export class UnitLayer {
       if (!sheet) continue;
       // facing, projected: a tile-space direction (dx, dy) runs (dx - dy, (dx + dy) / 2) on screen
       const facing = l?.facing ?? d.facing, fx = Math.cos(facing), fy = Math.sin(facing), sx = fx - fy, sy = fx + fy;
-      const q = sheet.rows[(sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0)];
+      const qi = (sx < 0 ? 1 : 0) + (sy < 0 ? 2 : 0), q = sheet.rows[qi];
       const p = this.anim.pick(d, sheet.clips, at, units, shots);
+      if (this.watch.has(u.id)) this.drawnAs.set(u.id, { clip: p.clip, frame: p.frame, row: QUADRANT[qi], x: f.x, y: f.y, ox: q.ox, oy: q.oy, scale: sheet.scale, fw: sheet.fw, fh: sheet.fh });
       let [key, frame] = sheet.frames.get(p.clip)![q.row][p.frame];
       const po = this.pose?.(u.id, at.now);
       if (po?.hold && this.held.has(u.id)) [key, frame] = this.held.get(u.id)!;
@@ -361,7 +372,8 @@ export class UnitLayer {
       // fill; a hidden foe is simply hidden
       if (hidden) img.setVisible(false);
       else this.load(d, sheet, q.row, p.clip, p.frame, img);
-      if ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.squad))) {
+      const mk = u.state !== 'dead' ? this.mark?.(u.id) : undefined;
+      if (mk !== undefined || ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.squad)))) {
         let gh = this.ghosts[this.nGhost];
         if (!gh) {
           this.ghosts.push((gh = this.scene.add.image(0, 0, key).setDepth(10.8)));
@@ -369,8 +381,9 @@ export class UnitLayer {
         }
         this.nGhost++;
         gh.setTexture(key, frame).setOrigin(q.ox, q.oy).setPosition(img.x, img.y).setScale(sheet.scale).setVisible(true);
-        if (this.outline) gh.setTint(team).setAlpha(0.55);
-        else gh.setTintFill(team).setAlpha(0.25); // no shader: a faint silhouette
+        if (mk !== undefined) gh.setScale(sheet.scale * (po?.sx ?? 1), sheet.scale * (po?.sy ?? 1));
+        if (this.outline) gh.setTint(mk ?? team).setAlpha(mk !== undefined ? (hidden || occluded.has(u.id) ? 1 : 0.9) : 0.55);
+        else gh.setTintFill(mk ?? team).setAlpha(0.25); // no shader: a faint silhouette
       }
     }
     return n;

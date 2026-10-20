@@ -178,6 +178,7 @@ export class SandboxScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       if (e.key === 'h' || e.key === 'H') this.orderAll((squad) => ({ kind: 'hold', squad }));
+      if (e.key === 'g' || e.key === 'G') this.guardians.bossCam = !this.guardians.bossCam; // M7d: the boss camera on or off
       const n = Number(e.key);
       if (n >= 1 && n <= 4) this.orderAll((squad) => ({ kind: 'formation', squad, shape: SHAPES[n - 1] }));
     });
@@ -202,6 +203,9 @@ export class SandboxScene extends Phaser.Scene {
     layer.skip = (b) => (!!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble && !(b.ruin && !BUILDINGS[b.type].wall)))) || (b.type === 'chest' && !!this.tradeLayer.art && b.state !== 'destroyed');
     const gd = (this.guardians = new GuardianLayer(this, this.iso, (d) => this.units.feet(d), r.guardians ?? []));
     this.units.pose = (id, now) => gd.fx.poseOf(id, now);
+    this.units.watch = gd.watch;
+    this.units.mark = (id) => gd.mark(id);
+    gd.drawn = (id) => this.units.drawnAs.get(id);
     gd.fx.corpse = (cls, x, y, facing) => this.units.addCorpse(cls, x, y, facing, this.time.now);
     this.units.lift = (d) => gd.lift(d) ?? sl.lift(d) ?? layer.lift(d);
     this.units.ground = (d) => layer.groundDepth(d);
@@ -303,6 +307,7 @@ export class SandboxScene extends Phaser.Scene {
     const cam = this.cameras.main, z = cam.zoom;
     const nz = dir > 0 ? LADDER.find((v) => v > z + 1e-3) ?? z : [...LADDER].reverse().find((v) => v < z - 1e-3 && v >= this.minZoom() - 1e-6) ?? z;
     if (nz === z) return;
+    if (this.guardians) this.guardians.focus = null; // the player zooms: the boss camera lets go
     const w = cam.width / 2, h = cam.height / 2;
     const wx = cam.scrollX + w + (px - w) / z, wy = cam.scrollY + h + (py - h) / z;
     cam.setZoom(nz);
@@ -392,6 +397,12 @@ export class SandboxScene extends Phaser.Scene {
     if (!this.down || this.down.pan) { this.down = null; return; }
     this.down = null;
     const hit = this.box ? null : this.pick(p, true);
+    // M7d: a click on a guardian has the camera follow it (its name plate up); a click elsewhere lets it go
+    if (this.guardians) {
+      const gu = this.box || hit ? null : this.guardians.at(this.wpx(p.x, p.y));
+      this.guardians.focus = gu;
+      if (gu !== null) return;
+    }
     // M6k: a click on a cart or loot pile picks it for the holder panel (squads stay selected)
     const h = this.box || hit ? null : this.trade.at(this.world(p));
     this.trade.selected = h && h.kind !== 'chest' && h.kind !== 'store' ? h.ref : null;
@@ -472,6 +483,8 @@ export class SandboxScene extends Phaser.Scene {
     }
     if (this.mapOpen) vx = vy = 0;
     if (vx || vy) cam.setScroll(cam.scrollX + vx * sp, cam.scrollY + vy * sp);
+    // M7d: the boss camera frames a guardian followed or in a set piece (the player panning lets go)
+    this.guardians?.camera(cam, dt, this.time.now, this.minZoom(), !!(vx || vy || (this.down?.pan && p.isDown)));
 
     // the visible world rect (zoom is about the camera centre); cam.worldView lags a frame
     const a = this.wpx(0, 0), b = this.wpx(cam.width, cam.height);
@@ -508,7 +521,7 @@ export class SandboxScene extends Phaser.Scene {
     this.units.draw(this.drawn, view, cam.zoom, this.selected, at, this.sim.squads, shots, occluded);
     const cur = this.sim.cur;
     if (cur?.lairs || cur?.claims) this.neutral.draw(cur.lairs ?? [], cur.claims ?? [], cam.zoom);
-    if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view);
+    if (bosses || cur?.warden) this.guardians.draw(bosses ?? [], cur?.warden, cam.zoom, this.time.now, this.sim.since(this.time.now), view, this.moved && this.input.isOver ? this.wpx(p.x, p.y) : null);
     this.shots.update(at.snap, shots);
     this.shots.draw(at, cam.zoom, cam.zoom >= SPRITE_ZOOM);
     this.drawUi();

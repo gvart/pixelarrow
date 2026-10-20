@@ -19,6 +19,7 @@ import Phaser from 'phaser';
 import type { BossSnap, GuardianEntry } from '../types';
 import { MOVES } from '../sim/bosses';
 import { HH, HW } from './iso';
+import type { DrawnAs } from './units';
 
 /** Audio-ready event names (`boss.<id>.<beat>` and the shared ones). */
 export const CUES = [
@@ -50,7 +51,14 @@ export interface FxCtx {
   lift: (unit: number) => number;
   zoom: number; now: number; sinceSnap: number;
   view: { x: number; y: number; right: number; bottom: number };
+  /** How a guardian's unit was drawn this frame (./units.ts drawnAs): its mouth and silhouette. */
+  drawn: (unit: number) => DrawnAs | undefined;
 }
+/** A guardian's mouth per frame of a clip (public/war/guardians.json `mouth`), frame px, by east row. */
+interface Mouth { clip: string; se: [number, number][]; ne: [number, number][] }
+/** The jet's segments (strip copies along the curve) and its embers. */
+const JET_SEGS = 7;
+const EMBERS = 28;
 
 /** Draw scale over a man's (guardians.json scale / 0.55). */
 const SIZE: Record<string, number> = { drakon: 1.5 / 0.55, titan: 1.8, brontes: 1.8, gyges: 1.8, scylla: 1.8, river_god: 1.8 };
@@ -90,10 +98,16 @@ export class BossFx {
   private nudge: { x: number; y: number; t0: number } | null = null;
   private shook = { x: 0, y: 0 };
   private ctx: FxCtx | null = null;
+  private mouths = new Map<string, Mouth>();
+  /** Additive light the breath throws on the ground. */
+  private glow: Phaser.GameObjects.Graphics;
+  /** A set piece the boss camera frames (a phase change, the crash, a death): the unit, where, until (view clock). */
+  setPiece: { unit: number; x: number; y: number; until: number } | null = null;
 
   constructor(private scene: Phaser.Scene, private entries: readonly GuardianEntry[]) {
     this.g = scene.add.graphics().setDepth(9.07);
     this.top = scene.add.graphics().setDepth(10.96);
+    this.glow = scene.add.graphics().setDepth(9.08).setBlendMode(Phaser.BlendModes.ADD);
     void this.load();
   }
 
@@ -112,6 +126,23 @@ export class BossFx {
     } catch (e) {
       console.warn('[bossFx] strips', e);
     }
+    try {
+      const gd = (await (await fetch('war/guardians.json')).json()) as { guardians: Record<string, { mouth?: { clip: string; 'south-east': [number, number][]; 'north-east': [number, number][] } }> };
+      for (const [id, e] of Object.entries(gd.guardians)) if (e.mouth) this.mouths.set(id, { clip: e.mouth.clip, se: e.mouth['south-east'], ne: e.mouth['north-east'] });
+    } catch (e) {
+      console.warn('[bossFx] guardians', e);
+    }
+  }
+
+  /** The breath is coming within `ms` (the guardian opens its mouth on cue: ./guardians.ts clip). */
+  breathIn(unit: number, id: string, now: number, ms: number): boolean {
+    const m = this.mem.get(unit), every = EVERY[id]?.breath;
+    if (!m || !every || m.last.breath === undefined) return false;
+    const left = m.last.breath + every - now;
+    return left > 0 && left < ms;
+  }
+  private piece(unit: number, x: number, y: number, ms: number): void {
+    this.setPiece = { unit, x, y, until: (this.ctx?.now ?? 0) + ms };
   }
 
   /** Each frame, a guardian's body as the snapshot has it (for its corpse). */
@@ -219,6 +250,7 @@ export class BossFx {
     const dt = this.lastNow ? Math.min(100, ctx.now - this.lastNow) : 0;
     this.lastNow = ctx.now;
     if (ctx.now >= this.stopUntil) this.clock += dt;
+    this.glow.clear();
     const g = this.g.clear(), top = this.top.clear(), w = Math.max(1, 1.5 / ctx.zoom), lod = ctx.zoom >= 0.3;
     const seen = new Set<number>();
     for (const b of bosses) {
@@ -369,6 +401,7 @@ export class BossFx {
         this.hitStop(140);
         this.pose(b.unit, 'squash', 700);
         this.push(f.x, f.y);
+        this.piece(b.unit, f.x, f.y, 3000);
         this.cue('boss.crash', f.x, f.y, b.id);
         break;
       }
@@ -396,6 +429,7 @@ export class BossFx {
     const p = ctx.feet({ x: b.x, y: b.y, u: { id: b.unit } }), k = size(b.id), d = this.depthAt(b.x, b.y, 0.45);
     this.pose(b.unit, 'roar', 900);
     this.push(b.x, b.y);
+    this.piece(b.unit, b.x, b.y, 3500);
     this.shake(0.4, b.x, b.y);
     this.cue('boss.roar', b.x, b.y, b.id);
     this.cue('boss.phase', b.x, b.y, b.id);
@@ -457,6 +491,7 @@ export class BossFx {
     this.shake(0.6 + 0.15 * k, x, y);
     this.hitStop(160);
     this.push(x, y);
+    this.piece(b.unit, x, y, 4500);
     this.cue('boss.slain', x, y, b.id);
     this.cue('boss.loot', x, y, b.id);
     void lod;
@@ -482,6 +517,13 @@ export class BossFx {
       const p = ctx.feet({ x: b.x, y: b.y, u: { id: b.unit } }), t = 0.5 + 0.5 * Math.sin(now / 260);
       g.lineStyle(w * 2, 0xeeae52, 0.55 + 0.3 * t).strokeEllipse(p.x, p.y, 52 + 6 * t, 24 + 3 * t);
       g.lineStyle(w, 0xf6d48a, 0.35).strokeEllipse(p.x, p.y, 66 + 8 * t, 31 + 4 * t);
+      // over everything (roofs, the press): a soft light round him and a gold marker over his head (./units.ts outlines
+      // his sprite in gold too)
+      const d = ctx.drawn(b.unit), head = d ? d.y - d.oy * d.fh * d.scale + 30 : p.y - 70, s = Math.max(1.3, 1.4 / ctx.zoom);
+      this.glow.fillStyle(0xffc860, 0.08 + 0.05 * t).fillEllipse(p.x, (p.y + head) / 2, 60, p.y - head + 30);
+      const my = head - (10 + 4 * t) * s;
+      top.fillStyle(0x1b1612, 0.9).fillTriangle(p.x - 9 * s, my - 11 * s, p.x + 9 * s, my - 11 * s, p.x, my + 2 * s);
+      top.fillStyle(0xffc23d, 1).fillTriangle(p.x - 6.5 * s, my - 9.5 * s, p.x + 6.5 * s, my - 9.5 * s, p.x, my - 0.5 * s);
     }
     // telegraphs: the next move of a cadence foreseen from the last one (only while the fight is on)
     const ev = EVERY[b.id] ?? {};
@@ -546,48 +588,102 @@ export class BossFx {
     }
   }
 
-  /** Drakon's mouth on screen (the shoot clip's head, by the side he faces). */
-  private mouth(b: BossSnap, body: { x: number; y: number }, dir: [number, number], _ctx: FxCtx): { x: number; y: number } {
-    const k = size(b.id) / (1.5 / 0.55), sx = dir[0] - dir[1], sy = (dir[0] + dir[1]) / 2;
-    return { x: body.x + Math.sign(sx || 1) * 270 * k, y: body.y - (sy < 0 ? 175 : 95) * k };
+  /**
+   * A guardian's mouth on screen and the way its head points (screen unit vector): from the frame it is drawn with now
+   * (./units.ts drawnAs) and its mouth table (guardians.json; west rows mirrored). No table or not drawn: off the body by
+   * the side it faces.
+   */
+  private mouth(b: BossSnap, body: { x: number; y: number }, dir: [number, number], ctx: FxCtx): { x: number; y: number; hx: number; hy: number } {
+    const d = ctx.drawn(b.unit), t = this.mouths.get(b.id);
+    if (d && t) {
+      const east = d.row.endsWith('east'), south = d.row.startsWith('south'), pts = south ? t.se : t.ne;
+      const [mx, my] = pts[Math.min(pts.length - 1, d.clip === t.clip ? d.frame : 8)];
+      const x = east ? mx : d.fw - mx, hl = Math.hypot(1, south ? 0.6 : 0.15);
+      return { x: d.x + (x - d.ox * d.fw) * d.scale, y: d.y + (my - d.oy * d.fh) * d.scale, hx: (east ? 1 : -1) / hl, hy: (south ? 0.6 : -0.15) / hl };
+    }
+    const k = size(b.id) / (1.5 / 0.55), sx = dir[0] - dir[1], sy = (dir[0] + dir[1]) / 2, l = Math.hypot(sx, sy) || 1;
+    return { x: body.x + Math.sign(sx || 1) * 34 * Math.max(1, k), y: body.y - 40 * Math.max(1, k), hx: sx / l, hy: sy / l };
   }
 
-  /** The breath: the jet from the mouth onto the ground cone, the cone strip on the ground under it. */
+  /**
+   * The breath: a jet of fire leaving the mouth along the head and bending down onto the near end of the ground cone
+   * (a quadratic curve), drawn as strip copies along it that widen from the mouth (taper) and churn out of step
+   * (turbulence), a white-hot core, embers sprayed along it and thrown up where it lands, the light it throws on the
+   * ground; the cone strip on the ground runs on from there to the target.
+   */
   private breath(b: BossSnap, f: NonNullable<BossSnap['fx']>, s: number, body: { x: number; y: number }, lift: number, ctx: FxCtx, top: Phaser.GameObjects.Graphics): void {
     const dx = f.tx - f.x, dy = f.ty - f.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
     const chim = b.id === 'chimera', fade = f.t > 16 ? Math.max(0, (20 - f.t - Math.min(1, ctx.sinceSnap / TICK)) / 4) : 1;
-    const grow = Math.min(1, s / 0.35); // the jet reaches out over its first third of a second
-    const mouth = chim ? { x: body.x + Math.sign(dx - dy || 1) * 34, y: body.y - 40 } : this.mouth(b, body, [ux, uy], ctx);
+    const grow = Math.min(1, s / 0.3); // the jet reaches out over its first third of a second
+    const kd = Math.max(0.4, size(b.id) / (1.5 / 0.55)); // 1: Drakon
+    const mouth = this.mouth(b, body, [ux, uy], ctx);
     const off = lift ? 3 : 0.5, g0 = ctx.feet({ x: f.x + ux * off, y: f.y + uy * off }), end = ctx.feet({ x: f.tx, y: f.ty });
-    // the cone on the ground (the ART-L strips: 12 m long at 1x, here stretched to the sim cone)
+    // the cone on the ground (the ART-L strips: 12 m long at 1x, here stretched to the sim cone), lit as the jet lands
     const sx = dx - dy, sy = (dx + dy) / 2, q = sy >= 0 ? 'se' : 'ne';
-    const ign = this.strips.get(`breath-${q}-ignite`), loop = this.strips.get(`breath-${q}-loop`), st = s < 0.5 ? ign : loop;
-    if (st) {
-      const fr = s < 0.5 ? Math.min(st.frames - 1, Math.floor(s * st.fps)) : Math.floor((s - 0.5) * st.fps) % st.frames;
+    const ign = this.strips.get(`breath-${q}-ignite`), loop = this.strips.get(`breath-${q}-loop`), ss = s - 0.15, st = ss < 0.5 ? ign : loop;
+    if (st && ss > 0) {
+      const fr = ss < 0.5 ? Math.min(st.frames - 1, Math.floor(ss * st.fps)) : Math.floor((ss - 0.5) * st.fps) % st.frames;
       const kc = ((len - off) * 2) / 12; // tiles are 2 m
       this.sprite(this.nSprite++, st.key, fr).setOrigin(sx < 0 ? 1 - st.ax : st.ax, st.ay).setFlipX(sx < 0).setRotation(0).setScale(kc, kc)
         .setPosition(g0.x, g0.y).setDepth(this.depthAt(f.x + ux * len * 0.5, f.y + uy * len * 0.5, 0.42)).setAlpha(fade).setTint(0xffffff).setBlendMode(Phaser.BlendModes.NORMAL);
     }
-    // the jet: from the mouth to two thirds of the cone, two layers out of step for body
-    const jet = this.strips.get('boss-breath-jet');
+    // where the jet comes down: the near part of the cone (on the ground)
+    const land = lift ? 0.3 : 0.5, P2 = { x: g0.x + (end.x - g0.x) * land, y: g0.y + (end.y - g0.y) * land };
+    const L = Math.hypot(P2.x - mouth.x, P2.y - mouth.y) || 1;
+    // out along the head's line (straight at the ground point when the head points away from it), bending down
+    let hx = mouth.hx, hy = mouth.hy;
+    if (hx * (P2.x - mouth.x) + hy * (P2.y - mouth.y) < 0) (hx = (P2.x - mouth.x) / L), (hy = (P2.y - mouth.y) / L);
+    const P1 = { x: mouth.x + hx * L * 0.55, y: mouth.y + hy * L * 0.55 };
+    const at = (u: number) => {
+      const v = 1 - u;
+      return { x: v * v * mouth.x + 2 * v * u * P1.x + u * u * P2.x, y: v * v * mouth.y + 2 * v * u * P1.y + u * u * P2.y };
+    };
+    const jet = this.strips.get('boss-breath-jet'), clk = this.clock, depth = lift ? 10.955 : this.depthAt(f.x + ux, f.y + uy, 0.44);
+    const w0 = (chim ? 0.3 : 0.5) * kd, w1 = (chim ? 1 : 2.8) * kd; // strip height scale at the mouth, where it lands
     if (jet) {
-      const aim = { x: g0.x + (end.x - g0.x) * 0.55, y: g0.y + (end.y - g0.y) * 0.55 };
-      const L = Math.hypot(aim.x - mouth.x, aim.y - mouth.y), a = Math.atan2(aim.y - mouth.y, aim.x - mouth.x);
-      const kl = (L / 250) * grow, kw = Math.min(chim ? 0.9 : 2.4, Math.max(0.6, L / 250));
-      for (const [da, fo, al] of [[0, 0, 1], [0.05, 3, 0.75]] as const) {
-        const fr = (Math.floor((s * jet.fps)) + fo) % jet.frames;
-        this.sprite(this.nSprite++, jet.key, fr).setOrigin(jet.ax, jet.ay).setFlipX(false).setRotation(a + da).setScale(kl, kw * (1 - 0.15 * da * 10))
-          .setPosition(mouth.x, mouth.y).setDepth(lift ? 10.955 : this.depthAt(f.x + ux, f.y + uy, 0.44)).setAlpha(fade * al).setTint(0xffffff).setBlendMode(Phaser.BlendModes.NORMAL);
+      // tip first (under), mouth last (over)
+      for (let i = JET_SEGS - 1; i >= 0; i--) {
+        const ua = (i / JET_SEGS) * grow, ub = ((i + 1) / JET_SEGS) * grow, a = at(ua), c = at(ub);
+        const sl = Math.hypot(c.x - a.x, c.y - a.y), ang = Math.atan2(c.y - a.y, c.x - a.x), um = (ua + ub) / 2;
+        const wob = i ? Math.sin(clk / 70 + i * 1.9) * (2 + 8 * um) * kd : 0, nx = -Math.sin(ang), ny = Math.cos(ang);
+        const kw = (w0 + (w1 - w0) * um) * (0.9 + 0.15 * Math.sin(clk / 55 + i * 2.3));
+        const fr = (Math.floor(s * jet.fps) + i * 3) % jet.frames;
+        this.sprite(this.nSprite++, jet.key, fr).setOrigin(jet.ax, jet.ay).setFlipX(false).setFlipY(i % 2 === 1).setRotation(ang)
+          .setScale(Math.max(0.05, (sl * 2.3) / 250), kw).setPosition(a.x + nx * wob, a.y + ny * wob)
+          .setDepth(depth + (JET_SEGS - i) * 1e-6).setAlpha(fade).setTint(i >= JET_SEGS - 2 ? 0xffc890 : 0xffffff).setBlendMode(Phaser.BlendModes.NORMAL);
       }
-      top.fillStyle(0xfff0b0, 0.7 * fade).fillCircle(mouth.x, mouth.y, chim ? 6 : 16);
     }
+    // the white-hot core out of the mouth
+    for (let i = 0; i < 6; i++) {
+      const u = (i / 6) * 0.35 * grow, p = at(u), r = (3 + 9 * (u / 0.35)) * kd * (0.85 + 0.15 * Math.sin(clk / 40 + i));
+      top.fillStyle(i < 2 ? 0xfffbe8 : 0xffe27a, 0.8 * fade * (1 - u)).fillCircle(p.x, p.y, Math.max(2, r));
+    }
+    top.fillStyle(0xfff4d0, 0.8 * fade).fillCircle(mouth.x, mouth.y, 12 * kd);
+    // embers: sprayed out along the jet, and thrown up off the ground where it lands
+    if (ctx.zoom >= 0.3) for (let i = 0; i < EMBERS; i++) {
+      const h = (i * 0.618) % 1, ph = (clk / (500 + 300 * h) + h) % 1;
+      if (i % 2 === 0) {
+        const u = ph * grow, p = at(u), spread = (10 + 60 * u) * kd * (h - 0.5);
+        top.fillStyle(h < 0.5 ? 0xffc23d : 0xfff4d0, 0.9 * fade * (1 - ph)).fillRect(p.x + spread * 0.6, p.y + spread - 30 * ph * kd, 3, 3);
+      } else if (grow >= 1) {
+        const ang = -Math.PI / 2 + (h - 0.5) * 2.4, v = (90 + 120 * h) * kd;
+        top.fillStyle(h < 0.5 ? 0xffa030 : 0xffe27a, 0.95 * fade * (1 - ph)).fillRect(P2.x + Math.cos(ang) * v * ph, P2.y + Math.sin(ang) * v * ph + 160 * kd * ph * ph, 3, 3);
+      }
+    }
+    // the light on the ground: round where the jet lands and along the cone, flickering
+    const fl = 0.8 + 0.2 * Math.sin(clk / 37) * Math.sin(clk / 91), R = (chim ? 0.5 : 1) * kd * 220 * fade * grow;
+    for (const [px, py, k] of [[P2.x, P2.y, 1], [(P2.x + end.x) / 2, (P2.y + end.y) / 2, 0.85], [end.x, end.y, 0.6]] as const) {
+      this.glow.fillStyle(0xff7a20, 0.16 * fl).fillEllipse(px, py, 2.2 * R * k, 1.1 * R * k);
+      this.glow.fillStyle(0xffb040, 0.2 * fl).fillEllipse(px, py, 1.3 * R * k, 0.65 * R * k);
+    }
+    this.glow.fillStyle(0xffe08a, 0.3 * fl).fillEllipse(P2.x, P2.y, 0.6 * R, 0.3 * R);
   }
 
   private nSprite = 0;
   private sprite(i: number, key: string, frame: number): Phaser.GameObjects.Sprite {
     let sp = this.sprites[i];
     if (!sp) this.sprites.push((sp = this.scene.add.sprite(0, 0, key)));
-    return sp.setTexture(key, frame).setVisible(true);
+    return sp.setTexture(key, frame).setVisible(true).setFlipY(false);
   }
 
   /** Draw the live plays (and hide the unused pool); `live` sprites were taken first this frame. */
