@@ -1,0 +1,83 @@
+{
+ "version": 2,
+ "class": "civ_engineer",
+ "image": "civ_engineer.png",
+ "frame": {
+  "w": 84,
+  "h": 87
+ },
+ "anchor": {
+  "x": 41,
+  "y": 81
+ },
+ "anchors": {
+  "south-east": {
+   "x": 43,
+   "y": 81
+  },
+  "north-east": {
+   "x": 39,
+   "y": 81
+  },
+  "south-west": {
+   "x": 41,
+   "y": 81
+  },
+  "north-west": {
+   "x": 45,
+   "y": 81
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 48,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 12
+  },
+  "run": {
+   "col": 24,
+   "frames": 12,
+   "fps": 16
+  },
+  "build": {
+   "col": 36,
+   "frames": 12,
+   "fps": 8
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
