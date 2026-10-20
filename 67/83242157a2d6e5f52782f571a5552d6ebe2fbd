@@ -1,0 +1,23 @@
+scripts/art/pixellab/bandit/backs.mjs
+  s_cfc22b058125c4::t_0e9ddee948b922 1-46
+public/war/mobs.json
+  s_cfc22b058125c4::t_8f7ea02ed25af9 7
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_8f7ea02ed25af9 1982-1986
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6783242157a2d6e5f52782f571a5552d6ebe2fbd",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
