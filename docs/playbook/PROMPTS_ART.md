@@ -1979,7 +1979,11 @@ turns round:` and say "away from the viewer towards the upper right / left".
   from ready; stagger from fallBack; build from thrust; carry from walk), so the sheet keeps every clip name. Build:
   `fetchjobs.mjs docs/v5/pixellab/BANDIT/bandit.jobs.json docs/v5/pixellab/BANDIT/raw/bandit` (copy fallFwd NW to
   fallBack NW), `mobs/build.mjs docs/v5/pixellab/BANDIT/bandit.sheet.json`, `anim2/ground.mjs mob_bandit` on every
-  standing clip. 27 generations. Back-view charge, block and cheer still turn towards the viewer (kept).
+  standing clip. 27 generations. Back views that turned to the viewer mid-clip (0 generations, `bandit/backs.mjs`, then
+  `anim2/ground.mjs`): mirroring cannot help (the north-east is already the north-west mirrored), so the back rows reuse
+  the bandit's own back frames: look / adjust = idle (forward / reversed); block holds its parry (frames 0-3, held,
+  back down); thrust and build = the thrust wind-up up and back (the turned lunge dropped, the peak on the strike frame);
+  cheer = the block parry shaken over the shoulder. Charge stays a side-on run.
 
 **Lessons:** (1) pixminimax paints blood on a struck animal even with "no blood" (wolf SE death a1: a red splat on the
 flank; replaced by a2 with "takes a mortal blow … stays clean"); the clean wording still left red on the neck, so the
