@@ -90,6 +90,9 @@ export type Order =
  * smith squad breaks item `uid` of a pile up in place (PILE.salvage ticks) into some of its recipe's goods.
  */
 export interface HolderRef { building?: number; cart?: number; pile?: number }
+/** M6e (server bridges): one of a squad (or these persons' men), a cart, a building, a team's home strongroom. */
+export interface CargoRef { squad?: number; persons?: string[]; cart?: number; building?: number; reserve?: number }
+export interface CargoAt { slots: { hold: import('./sim/holders').Hold; cap: number; x: number; y: number }[]; team: number; owner: string }
 export type TradeOrder =
   | { kind: 'load'; squad: SquadId; from: HolderRef; res?: ResourceKind; n?: number }
   | { kind: 'unload'; squad: SquadId; to: HolderRef; res?: ResourceKind }
@@ -191,7 +194,9 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
   /** M5f civilians: at work at his building (cook, forge, trade, heal: the clip to play); fleeing (run). */
   work?: 'cook' | 'forge' | 'trade' | 'heal'; flee?: true;
   /** M6a: loads in his pack (a porter). */
-  pack?: number }
+  pack?: number;
+  /** M6d combat tag: ticks left before he may enter a safe zone (he hit or was hit; absent: none). */
+  tag?: number }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while
@@ -412,6 +417,17 @@ export interface WarBuildSim extends WarSim {
   endFight(): FightReport;
   /** M6c: pile `id`'s items are scrapped: they go, their salvage value comes back (0: no such pile or no items). */
   salvage(id: number): number;
+  /**
+   * M6e-M6i (server bridges): the live holds of a squad's men (or these persons' men: packs), a cart, a store or chest,
+   * or a team's home strongroom, each with its size in loads and where it is; null when there is none.
+   */
+  cargo(ref: CargoRef): CargoAt | null;
+  /** M6h: cart `id` leaves the field for a world transit (no wreck, no pile); its type and cargo (null: no such cart). */
+  stowCart(id: number): { type: 'handcart' | 'wagon'; hold: import('./sim/holders').Hold } | null;
+  /** M6i: an undone capture: cart `id` is `owner`'s (team `team`) again. */
+  setCartOwner(id: number, team: number, owner: string): void;
+  /** M6e: goods and items fall at (x,y) as a loot pile (boss loot); its id (-1: none, e.g. in a safe zone). */
+  dropPile(x: number, y: number, lots: readonly import('./sim/holders').Lot[], items: readonly Item[]): number;
   /** M6a: pay `cost` from the store network of `team` at (x,y) (upkeep, the server); false (nothing taken) when it lacks any of it. */
   drawAt(team: number, x: number, y: number, cost: Partial<Record<ResourceKind, number>>): boolean;
   /** M6a: goods the store network of `team` at (x,y) holds (its stores and the home strongroom). */
@@ -482,4 +498,4 @@ export type WarEvent =
   | { t: number; kind: 'crafted'; order: number; building: number; team: number; owner: string; pid?: string; recipe: string; what: 'craft' | 'repair' | 'salvage'; item: Item }
   // W-45: a region boss (src/data/warBosses.ts) fell; killers: the owners (`p:<player id>`) of the squads that hurt it,
   // the one who struck the last blow first. The server writes the kill and mints its loot (server/src/war/bosses.ts).
-  | { t: number; kind: 'bossSlain'; region: string; boss: string; killers: string[] };
+  | { t: number; kind: 'bossSlain'; region: string; boss: string; killers: string[]; x?: number; y?: number };

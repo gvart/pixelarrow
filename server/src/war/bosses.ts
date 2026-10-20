@@ -2,21 +2,29 @@
  * Region boss kills in D1 (W-45; drop tables src/data/warBosses.ts; migrations/0028_war_boards.sql).
  *
  * A `bossSlain` event of a region room is written once (war_boss_kills, keyed by region, room run and tick): the kill,
- * the last blow's player and alliance, a boss tally for every killer (war_player_stats), and the boss's loot.
- *
- * TODO(W-44): the economy is physical: the loot should fall as a chest at the boss's spot and be carried away. Until
- * the chest exists it is minted into the killers' stashes, the last blow first, then in turn.
+ * the last blow's player and alliance and a boss tally for every killer (war_player_stats). M6e (W-44, W-46): the loot
+ * is physical: the room drops bossItems() as a loot pile where the boss fell (WarRoom.tick), for anyone to carry off;
+ * nothing is minted.
  */
 import { warBoss, bossLoot } from '../../../src/data/warBosses';
 import { makeItem } from '../../../src/game/heroes';
 import { Rng, hashString } from '../../../src/sim/rng';
 import type { WarEvent } from '../../../src/war/types';
+import type { Item } from '../../../src/data/items';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import { addStats, ownerPid } from './persons';
 
 export type BossSlain = Extract<WarEvent, { kind: 'bossSlain' }>;
 
 export const bossKillKey = (region: string, run: string, e: BossSlain) => `${region}:${run}:${e.t}:${e.boss}`;
+
+/** The boss's loot as items, the same for the same kill (uids `boss:<key>:<i>`). */
+export function bossItems(region: string, run: string, e: BossSlain): Item[] {
+  if (!warBoss(e.boss)) return [];
+  const id = bossKillKey(region, run, e);
+  const rng = new Rng(hashString(`${id}:items`) || 1), ids = { nextId: 0 };
+  return bossLoot(e.boss, id).map((d, i) => ({ ...makeItem(rng, ids, d.def, d.rarity), uid: `boss:${id}:${i}` }));
+}
 
 /** Writes one boss kill; false when it was written already (or names no boss / no player). */
 export async function applyBossKill(db: D1Database, region: string, run: string, e: BossSlain, now: number): Promise<boolean> {
@@ -30,11 +38,6 @@ export async function applyBossKill(db: D1Database, region: string, run: string,
     db.prepare('INSERT INTO war_boss_kills (id, season, region, boss, alliance, player_id, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)').bind(id, WAR_SEASON.id, region, e.boss, ally?.alliance ?? null, last, now),
     ...pids.map((p) => addStats(db, p, { bosses: 1 })),
   ];
-  const rng = new Rng(hashString(`${id}:items`) || 1), ids = { nextId: 0 };
-  bossLoot(e.boss, id).forEach((d, i) => {
-    const item = { ...makeItem(rng, ids, d.def, d.rarity), uid: `boss:${id}:${i}` };
-    stmts.push(db.prepare('INSERT INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(item.uid, pids[i % pids.length], JSON.stringify(item), now));
-  });
   try {
     await db.batch(stmts);
     return true;

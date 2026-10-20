@@ -1,6 +1,7 @@
 /**
  * War persons in D1 (M5e; docs/WAR.md "Soldiers"): the roster rules and every read and write of `war_persons`,
- * `war_pools`, `war_stock`, `war_items` and `war_fights` (migrations/0021_war_persons.sql).
+ * `war_pools`, `war_items` and `war_fights` (migrations/0021_war_persons.sql). M6e: food and coin live in the player's
+ * home strongroom (./holders.ts): recruits, upkeep, training, promotion, ransom and retirement pay from it or into it.
  *
  *  - Roster: the field squad (SQUAD_MAX, `active` with a slot) plus a reserve of SQUAD_MAX / 2 (reserve, wounded,
  *    captive); the dead do not count. At the cap a recruit is refused (retirement comes later).
@@ -42,6 +43,7 @@ import { WAR_SEASON } from '../../../src/war/world/alliances';
 import type { FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
 import { ApiError } from '../errors';
 import { randomToken } from '../online/store';
+import { batch, ensureHolder, goodsOf, HOME, itemsIn, lotsOf, pay as payFrom, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 
 export type PersonState = 'active' | 'reserve' | 'wounded' | 'captive' | 'dead' | 'training' | 'retired';
 
@@ -57,10 +59,12 @@ export const CAPTIVE_MS = 24 * HOUR;
 export const RECRUIT_FOOD = 20;
 /** Towns a player recruits and trains in. M4 stub: everyone holds a home camp; owned towns (3/h) come with the world map. */
 export const TOWNS: Record<string, { rate: number; cap: number; buildings: TrainingBuilding[] }> = { home: { rate: 6, cap: 30, buildings: ['barracks', 'range', 'fortress'] } };
-/** A new player's pool, food and silver, so a first squad can be raised (and a few trained) at once. */
-export const START = { pool: SQUAD_MAX, food: (SQUAD_MAX + RESERVE_MAX) * RECRUIT_FOOD, silver: 200 };
-/** Training: time and the silver a tier-1 common kit costs. */
-export const TRAIN = { ms: 10 * 60_000, silver: 40 };
+/** A new player's pool and food (season start: his squad and START.food in his home strongroom, no coin, no goods). */
+export const START = { pool: SQUAD_MAX, food: (SQUAD_MAX + RESERVE_MAX) * RECRUIT_FOOD };
+/** Dev seed (DEV_AUTH=1): coin topped up to this, to test the coin paths. */
+export const DEV_COIN = 500;
+/** Training: time and the coin a tier-1 common kit costs. */
+export const TRAIN = { ms: 10 * 60_000, coin: 40 };
 export type TrainingBuilding = 'barracks' | 'range' | 'stable' | 'fortress';
 /** The classes each building trains (docs/WAR.md "Classes"). */
 export const TRAINS: Record<TrainingBuilding, ClassId[]> = {
@@ -73,7 +77,7 @@ export const TRAINS: Record<TrainingBuilding, ClassId[]> = {
 export const PROMOTE_MS = 30 * 60_000;
 /** Captives one fort or camp holds; past it the rest go free. */
 export const HOLD_MAX = 20;
-/** Ransom: silver per level of the captive. */
+/** Ransom: coin per level of the captive. */
 export const RANSOM_PER_LEVEL = 30;
 /** Upkeep: food per hour each. */
 export const UPKEEP = { soldier: 1, elite: 2, civilian: 1, captive: 1 };
@@ -163,9 +167,10 @@ export async function settleUpkeep(db: D1Database, pid: number, now: number): Pr
   const due = Math.floor(owed);
   let paid = 0;
   if (due > 0) {
-    const food = (await db.prepare("SELECT amount FROM war_stock WHERE player_id = ?1 AND res = 'food'").bind(pid).first<{ amount: number }>())?.amount ?? 0;
-    paid = Math.min(due, Math.max(0, food));
-    if (paid > 0) await db.prepare("UPDATE war_stock SET amount = amount - ?2 WHERE player_id = ?1 AND res = 'food'").bind(pid, paid).run();
+    const lots = await lotsOf(db, strongroom(pid));
+    const food = lots.filter((l) => l.res === 'food' && !l.seal).reduce((a, l) => a + l.amount, 0);
+    paid = Math.min(due, Math.floor(food + 1e-6));
+    if (paid > 0) await batch(db, planTake(db, strongroom(pid), lots, { food: paid }).stmts);
     owed -= paid;
   }
   const unpaid = due > paid;
@@ -234,11 +239,15 @@ export function home(r: PersonRow): void {
   if (r.state !== 'active' && r.state !== 'reserve') throw new ApiError(409, 'not_fit', `He is ${r.state}`);
 }
 
-async function ensureStart(db: D1Database, pid: number, now: number): Promise<void> {
+/** Season start, once: the recruit pools and START.food in the home strongroom (the strongroom row marks it done). */
+export async function ensureStart(db: D1Database, pid: number, now: number): Promise<void> {
+  const sr = strongroom(pid);
   await db.batch([
     ...Object.keys(TOWNS).map((t) => db.prepare('INSERT OR IGNORE INTO war_pools (player_id, town, stored, at) VALUES (?1, ?2, ?3, ?4)').bind(pid, t, START.pool, now)),
-    db.prepare("INSERT OR IGNORE INTO war_stock (player_id, res, amount) VALUES (?1, 'food', ?2)").bind(pid, START.food),
-    db.prepare("INSERT OR IGNORE INTO war_stock (player_id, res, amount) VALUES (?1, 'silver', ?2)").bind(pid, START.silver),
+    db
+      .prepare("INSERT INTO war_goods (place, res, origin, seal, amount) SELECT ?1, 'food', ?3, 0, ?2 WHERE NOT EXISTS (SELECT 1 FROM war_holders WHERE id = ?1) ON CONFLICT (place, res, origin, seal) DO UPDATE SET amount = amount + ?2")
+      .bind(sr, START.food, HOME),
+    ensureHolder(db, sr, 'strongroom', { pid }, now),
   ]);
 }
 
@@ -246,6 +255,7 @@ export interface Roster {
   persons: ReturnType<typeof view>[];
   caps: { squad: number; reserve: number; roster: number; household: number; fighters: number; fit: number };
   pools: { town: string; recruits: number; rate: number; cap: number }[];
+  /** The home strongroom: its goods (food, coin, ...) and items (equip from here). */
   stock: Record<string, number>;
   items: Item[];
   /** Captives the player holds (he pays their upkeep, takes their ransom). */
@@ -260,8 +270,8 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
   const [rows, pools, stock, items, held, rate] = await Promise.all([
     persons(db, pid),
     db.prepare('SELECT town, stored, at FROM war_pools WHERE player_id = ?1').bind(pid).all<{ town: string; stored: number; at: number }>(),
-    db.prepare('SELECT res, amount FROM war_stock WHERE player_id = ?1').bind(pid).all<{ res: string; amount: number }>(),
-    db.prepare('SELECT item FROM war_items WHERE player_id = ?1 ORDER BY created_at, uid').bind(pid).all<{ item: string }>(),
+    goodsOf(db, strongroom(pid)),
+    itemsIn(db, strongroom(pid)),
     db.prepare(`SELECT ${COLS} FROM war_persons WHERE captor_pid = ?1 AND state = 'captive' ORDER BY until_at, id`).bind(pid).all<PersonRow>(),
     upkeepRate(db, pid),
   ]);
@@ -271,8 +281,8 @@ export async function roster(db: D1Database, pid: number, now: number): Promise<
     persons: rows.map(view),
     caps: { squad: SQUAD_MAX, reserve: RESERVE_MAX, roster: ROSTER_MAX, household: householdCap(fit), fighters, fit },
     pools: pools.results.map((p) => ({ town: p.town, recruits: Math.floor(poolAt(p.town, p.stored, p.at, now)), ...TOWNS[p.town] })),
-    stock: Object.fromEntries(stock.results.map((s) => [s.res, s.amount])),
-    items: items.results.map((i) => json<Item>(i.item, { uid: '', def: '', rarity: 'common', cond: 0 })),
+    stock,
+    items,
     captives: held.results.map((r) => ({ id: r.id, name: r.name, cls: r.cls, level: r.level, owner: r.player_id, ransom: RANSOM_PER_LEVEL * r.level, until: r.until_at, heldAt: r.held_at })),
     upkeep: { rate, owed: +(up?.owed ?? 0).toFixed(2), unpaid: !!up?.unpaid },
   };
@@ -315,17 +325,18 @@ export async function recruit(db: D1Database, pid: number, town: string, count: 
     const p = makePerson(newId(pid), 'militia');
     return { ...p, hero: { ...p.hero, name: nameFor('militia', taken, rows.length + k) } };
   });
-  // the food debit is conditional: no food, nothing changes
-  const paid = await db.prepare("UPDATE war_stock SET amount = amount - ?2 WHERE player_id = ?1 AND res = 'food' AND amount >= ?2").bind(pid, food).run();
-  if (paid.meta.changes === 0) throw new ApiError(409, 'no_food', `A recruit costs ${RECRUIT_FOOD} food`);
-  await db.batch([
+  // food from the strongroom and the recruits in one batch: no food, nothing changes
+  await payFrom(db, strongroom(pid), { food }, [
     db.prepare('UPDATE war_pools SET stored = ?3, at = ?4 WHERE player_id = ?1 AND town = ?2').bind(pid, town, have - count, now),
     ...made.map((p) => insertPerson(db, pid, p, 'reserve', null, now)),
-  ]);
+  ]).catch((e) => {
+    if (e instanceof ApiError && e.code === 'no_food') throw new ApiError(409, 'no_food', `A recruit costs ${RECRUIT_FOOD} food`);
+    throw e;
+  });
   return made.map((p) => p.id);
 }
 
-/** Put `uid` (from the stash; null: take the slot's item off) on the soldier; the old item goes to the stash. */
+/** Put `uid` (from the home strongroom; null: take the slot's item off) on the soldier; the old item goes to the strongroom. */
 export async function equip(db: D1Database, pid: number, id: string, slot: Slot, uid: string | null, now: number): Promise<void> {
   const r = await person(db, pid, id);
   home(r);
@@ -333,18 +344,18 @@ export async function equip(db: D1Database, pid: number, id: string, slot: Slot,
   const stmts: D1PreparedStatement[] = [];
   let item: Item | null = null;
   if (uid) {
-    const row = await db.prepare('SELECT item FROM war_items WHERE uid = ?1 AND player_id = ?2 AND region IS NULL').bind(uid, pid).first<{ item: string }>();
-    if (!row) throw new ApiError(404, 'not_found', 'No such item in your stash');
+    const row = await db.prepare('SELECT item FROM war_items WHERE uid = ?1 AND player_id = ?2 AND place = ?3').bind(uid, pid, strongroom(pid)).first<{ item: string }>();
+    if (!row) throw new ApiError(404, 'not_found', 'No such item in your strongroom');
     item = json<Item | null>(row.item, null);
     const def = item ? ITEMS[item.def] : undefined;
     if (!item || !def) throw new ApiError(409, 'bad_item', 'Unknown item');
     if (def.slot !== slot) throw new ApiError(409, 'wrong_slot', `${def.name} goes in the ${def.slot} slot`);
     const block = classGearBlocker(r.cls, def);
     if (block) throw new ApiError(409, 'class_gear', `A ${r.cls} cannot use ${def.name} (${block})`);
-    stmts.push(db.prepare('DELETE FROM war_items WHERE uid = ?1 AND player_id = ?2 AND region IS NULL').bind(uid, pid));
+    stmts.push(db.prepare('DELETE FROM war_items WHERE uid = ?1 AND player_id = ?2 AND place = ?3').bind(uid, pid, strongroom(pid)));
   }
   const old = gear[slot];
-  if (old) stmts.push(db.prepare('INSERT OR REPLACE INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(old.uid, pid, JSON.stringify(old), now));
+  if (old) stmts.push(placeItemStmt(db, pid, strongroom(pid), old, now));
   if (item) gear[slot] = item;
   else delete gear[slot];
   stmts.push(db.prepare('UPDATE war_persons SET gear = ?3, updated_at = ?4 WHERE id = ?1 AND player_id = ?2 AND region IS NULL').bind(id, pid, JSON.stringify(gear), now));
@@ -396,7 +407,7 @@ export async function formSquad(db: D1Database, pid: number, ids: string[], now:
   ]);
 }
 
-/** Dev: replace the player's soldiers at home with a full roster (a squad of `squad` and a reserve of `reserve`), plus food and stash gear. */
+/** Dev: replace the player's soldiers at home with a full roster (a squad of `squad` and a reserve of `reserve`), plus food, DEV_COIN and strongroom gear. */
 export async function seed(db: D1Database, pid: number, now: number, o: { squad?: { cls: string; level?: number }[]; reserve?: { cls: string; level?: number }[] } = {}): Promise<string[]> {
   await ensureStart(db, pid, now);
   const deployed = (await persons(db, pid)).filter((r) => r.region && r.state !== 'dead').length;
@@ -411,14 +422,17 @@ export async function seed(db: D1Database, pid: number, now: number, o: { squad?
   };
   const a = squad.map(make), b = reserve.map((g, k) => make(g, squad.length + k));
   const spare = freshHero('hoplite', 'stash');
+  const have = await goodsOf(db, strongroom(pid));
+  const top = (res: string, n: number) => ((have[res] ?? 0) < n ? [putStmt(db, strongroom(pid), res, n - (have[res] ?? 0))] : []);
   await db.batch([
     db.prepare("DELETE FROM war_persons WHERE player_id = ?1 AND region IS NULL").bind(pid),
-    db.prepare("UPDATE war_stock SET amount = MAX(amount, ?2) WHERE player_id = ?1 AND res = 'food'").bind(pid, START.food),
+    ...top('food', START.food),
+    ...top('coin', DEV_COIN),
     ...a.map((p, i) => insertPerson(db, pid, p, 'active', i, now)),
     ...b.map((p) => insertPerson(db, pid, p, 'reserve', null, now)),
     ...Object.values(spare.equip).filter((x): x is Item => !!x).map((it) => {
       const item = { ...it, uid: `${pid}-seed-${it.def}` };
-      return db.prepare('INSERT OR IGNORE INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(item.uid, pid, JSON.stringify(item), now);
+      return db.prepare('INSERT OR IGNORE INTO war_items (uid, player_id, item, created_at, place) VALUES (?1, ?2, ?3, ?4, ?5)').bind(item.uid, pid, JSON.stringify(item), now, strongroom(pid));
     }),
   ]);
   return [...a, ...b].map((p) => p.id);
@@ -426,15 +440,21 @@ export async function seed(db: D1Database, pid: number, now: number, o: { squad?
 
 // ---------------------------------------------------------------- training, prisoners, retirement
 
-/** Pay `n` of `res` from the player's stock; false (nothing paid) when he has too little. */
-async function pay(db: D1Database, pid: number, res: string, n: number): Promise<boolean> {
-  if (n <= 0) return true;
-  const r = await db.prepare('UPDATE war_stock SET amount = amount - ?3 WHERE player_id = ?1 AND res = ?2 AND amount >= ?3').bind(pid, res, n).run();
-  return r.meta.changes > 0;
+/** Pay `n` coin from the player's home strongroom together with `with_` (one batch); false (nothing done) when he has too little. */
+export async function payCoin(db: D1Database, pid: number, n: number, with_: D1PreparedStatement[] = []): Promise<boolean> {
+  try {
+    await payFrom(db, strongroom(pid), n > 0 ? { coin: n } : {}, with_);
+    return true;
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'no_coin') return false;
+    throw e;
+  }
 }
 
-const credit = (db: D1Database, pid: number, res: string, n: number) =>
-  db.prepare('INSERT INTO war_stock (player_id, res, amount) VALUES (?1, ?2, ?3) ON CONFLICT (player_id, res) DO UPDATE SET amount = amount + ?3').bind(pid, res, n);
+/** n coin into the player's home strongroom. */
+export const credit = (db: D1Database, pid: number, n: number) => putStmt(db, strongroom(pid), 'coin', n);
+/** His old gear into his home strongroom. */
+const stow = (db: D1Database, pid: number, items: Item[], now: number) => items.map((it) => placeItemStmt(db, pid, strongroom(pid), it, now));
 
 /** The buildings of the player's towns that can train `cls` (M4 stub: the home camp's). */
 export function trainsAt(cls: string): string[] {
@@ -443,8 +463,8 @@ export function trainsAt(cls: string): string[] {
 
 /**
  * Send a fit man at home to train as `cls` (docs/WAR.md "Train"): a town he holds must train it (barracks, range), a
- * militiaman may take any class, a trained man only one of his family. Pays TRAIN.silver (the kit), puts his old gear in
- * the stash; he is `training` for TRAIN.ms and out of the squad. Returns when he is done.
+ * militiaman may take any class, a trained man only one of his family. Pays TRAIN.coin (the kit), puts his old gear in
+ * the strongroom; he is `training` for TRAIN.ms and out of the squad. Returns when he is done.
  */
 export async function train(db: D1Database, pid: number, id: string, cls: string, now: number): Promise<number> {
   await ensureStart(db, pid, now);
@@ -454,19 +474,19 @@ export async function train(db: D1Database, pid: number, id: string, cls: string
   if (!isClassId(cls) || !trainsAt(cls).length) throw new ApiError(409, 'no_training', `No town of yours trains ${cls}`);
   if (r.cls === cls) throw new ApiError(409, 'same_class', `He is a ${cls} already`);
   if (r.cls !== 'militia' && FAMILY_OF[r.cls as ClassId] !== FAMILY_OF[cls]) throw new ApiError(409, 'family', `A ${r.cls} trains only within his family`);
-  if (!(await pay(db, pid, 'silver', TRAIN.silver))) throw new ApiError(409, 'no_silver', `A kit costs ${TRAIN.silver} silver`);
   const until = now + TRAIN.ms;
   const old = Object.values(json<Equipment>(r.gear, {})).filter((x): x is Item => !!x);
-  await db.batch([
-    ...old.map((it) => db.prepare('INSERT OR REPLACE INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(it.uid, pid, JSON.stringify(it), now)),
+  const done = [
+    ...stow(db, pid, old, now),
     db
       .prepare("UPDATE war_persons SET state = 'training', train_to = ?3, until_at = ?4, gear = '{}', slot = NULL, updated_at = ?5 WHERE id = ?1 AND player_id = ?2 AND region IS NULL")
       .bind(id, pid, cls, until, now),
-  ]);
+  ];
+  if (!(await payCoin(db, pid, TRAIN.coin, done))) throw new ApiError(409, 'no_coin', `A kit costs ${TRAIN.coin} coin`);
   return until;
 }
 
-/** Silver the elite rare kit of `cls` costs (its items' value). */
+/** Coin the elite rare kit of `cls` costs (its items' value). */
 export function promoteCost(cls: ClassId): number {
   return Object.values(promotePerson(makePerson('kit', 'militia'), cls).hero.equip).reduce((a, it) => a + (it ? itemValue(it) : 0), 0);
 }
@@ -485,29 +505,29 @@ export async function promote(db: D1Database, pid: number, id: string, cls: stri
   const why = promoteBlocker(personOf(r), cls);
   if (why || !isClassId(cls)) throw new ApiError(409, 'not_promotable', why ?? `${cls} is no class`);
   const price = promoteCost(cls);
-  if (!(await pay(db, pid, 'silver', price))) throw new ApiError(409, 'no_silver', `The ${cls} kit costs ${price} silver`);
   const until = now + PROMOTE_MS;
   const old = Object.values(json<Equipment>(r.gear, {})).filter((x): x is Item => !!x);
-  await db.batch([
-    ...old.map((it) => db.prepare('INSERT OR REPLACE INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(it.uid, pid, JSON.stringify(it), now)),
+  const done = [
+    ...stow(db, pid, old, now),
     db
       .prepare("UPDATE war_persons SET state = 'training', train_to = ?3, until_at = ?4, gear = '{}', slot = NULL, updated_at = ?5 WHERE id = ?1 AND player_id = ?2 AND region IS NULL")
       .bind(id, pid, cls, until, now),
-  ]);
+  ];
+  if (!(await payCoin(db, pid, price, done))) throw new ApiError(409, 'no_coin', `The ${cls} kit costs ${price} coin`);
   return until;
 }
 
-/** The owner pays the ransom of his captive (RANSOM_PER_LEVEL x level silver, to the captor): he is home and fit. */
+/** The owner pays the ransom of his captive (RANSOM_PER_LEVEL x level coin from his strongroom, into the captor's): he is home and fit. */
 export async function payRansom(db: D1Database, pid: number, id: string, now: number): Promise<number> {
   await settle(db, pid, now);
   const r = await person(db, pid, id);
   if (r.state !== 'captive') throw new ApiError(409, 'not_captive', `He is ${r.state}`);
   const price = RANSOM_PER_LEVEL * r.level;
-  if (!(await pay(db, pid, 'silver', price))) throw new ApiError(409, 'no_silver', `His ransom is ${price} silver`);
-  await db.batch([
+  const done = [
     db.prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3 WHERE id = ?1 AND player_id = ?2").bind(id, pid, now),
-    ...(r.captor_pid !== null ? [credit(db, r.captor_pid, 'silver', price)] : []),
-  ]);
+    ...(r.captor_pid !== null ? [credit(db, r.captor_pid, price)] : []),
+  ];
+  if (!(await payCoin(db, pid, price, done))) throw new ApiError(409, 'no_coin', `His ransom is ${price} coin`);
   return price;
 }
 
@@ -524,9 +544,9 @@ export async function releaseCaptive(db: D1Database, captor: number, id: string,
 export const RETIRE_CIV = { from: 10, at: 5 };
 
 /**
- * Retire a fit man at home (docs/WAR.md "Retire"): half his gear's value back as silver, his first honour on the
+ * Retire a fit man at home (docs/WAR.md "Retire"): half his gear's value back as coin, his first honour on the
  * memorial; he leaves the roster (state retired). `civ`: a level-10 soldier becomes that civilian class at level 5
- * instead (within the household cap), with the class's first tool. Returns the silver paid back.
+ * instead (within the household cap), with the class's first tool. Returns the coin paid back.
  */
 export async function retire(db: D1Database, pid: number, id: string, civ: string | undefined, now: number): Promise<number> {
   await ensureStart(db, pid, now);
@@ -552,7 +572,7 @@ export async function retire(db: D1Database, pid: number, id: string, civ: strin
         .bind(id, pid, civ, p.hero.level, p.hero.points, JSON.stringify(p.hero.attrs), JSON.stringify(p.hero.equip), now),
     );
   } else stmts.push(db.prepare("UPDATE war_persons SET state = 'retired', slot = NULL, gear = '{}', updated_at = ?3 WHERE id = ?1 AND player_id = ?2 AND region IS NULL").bind(id, pid, now));
-  if (refund) stmts.push(credit(db, pid, 'silver', refund));
+  if (refund) stmts.push(credit(db, pid, refund));
   if (honour) stmts.push(db.prepare('INSERT INTO war_memorial (player_id, person_id, name, level, honour, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(pid, id, r.name, r.level, honour, now));
   await db.batch(stmts);
   return refund;
@@ -661,7 +681,8 @@ export function fightStats(db: D1Database, r: FightReport): D1PreparedStatement[
 /**
  * Write a fight back (M5d FightReport) in one batch: XP, level and points, kills and battles for all; the wounded go
  * home to heal (HEAL.field), captives are held by the captor's alliance in this region (CAPTIVE_MS), the dead lose
- * their gear; loot goes to the stashes of the team's players in the fight in turn. The war_fights row comes first: a
+ * their gear (M6c/M6e: it fell in a loot pile in the room, and what anyone picked up is in his pack there: nothing is
+ * minted). The war_fights row comes first: a
  * second write of the same fight fails on its key and changes nothing. Returns false for a fight already written.
  */
 export async function applyFight(db: D1Database, fightId: string, region: string, r: FightReport, now: number): Promise<boolean> {
@@ -715,14 +736,6 @@ export async function applyFight(db: D1Database, fightId: string, region: string
     else if (x.state === 'captive') // the fort is full: he goes free, wounded
       stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
     else stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'dead', until_at = NULL, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind()));
-  }
-  for (const [team, items] of Object.entries(r.loot)) {
-    const owners = [...new Set(r.persons.filter((x) => x.team === Number(team)).map((x) => ownerPid(x.owner)).filter((p): p is number => p !== null))].sort((a, b) => a - b);
-    if (!owners.length) continue;
-    items.forEach((it, i) => {
-      const item = { ...it, uid: `${fightId}:${i}:${it.uid}` };
-      stmts.push(db.prepare('INSERT INTO war_items (uid, player_id, item, fight_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(item.uid, owners[i % owners.length], JSON.stringify(item), fightId, now));
-    });
   }
   stmts.push(...fightStats(db, r));
   try {

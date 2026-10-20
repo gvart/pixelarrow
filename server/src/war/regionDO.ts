@@ -17,6 +17,8 @@
  *    the region steps on exactly where it was saved. A region with no saved state starts fresh and sends home anyone D1
  *    still has deployed there.
  *
+ * M6e holders: every save also snapshots the room's player holders (chests, carts, packs) to D1 war_region_holds.
+ *
  * M5h4 crafting: a `mend` message takes the stash item from D1 to the workplace (./crafting.ts takeForMend) and the
  * room queues it; every tick's `crafted` events are written back (applyCrafts: minted items, repairs, salvage; keyed,
  * idempotent) and mend items whose order went go back to the stash.
@@ -29,18 +31,31 @@ import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { warRegion } from './regions';
-import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type MendMsg, type ServerMsg } from '../../../src/war/net/protocol';
+import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
+import { cartArrived, contract, deliver, sealedFor } from './contracts';
+import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
+import { loads } from '../../../src/war/sim/holders';
+import { ApiError } from '../errors';
+import { batch, guard, lotsOf, placeItemStmt, planTake, putStmt, strongroom } from './holders';
+import { loadsIn, SITE, site } from './market';
+import { holderOf } from './tradeRoutes';
+import { bundleGoods, bundleLoads, type Bundle } from './cargo';
+import { homeOf } from '../../../src/war/world/graph';
+import type { Item } from '../../../src/data/items';
 import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
 import { applyBossKill } from './bosses';
 import { applyFight, claimForJoin, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
+import { saveRegionHolds } from './holders';
+import { json } from './persons';
 import { isWorldRegion } from '../../../src/war/world/graph';
 import { joinRefusal } from '../../../src/war/world/access';
 import { ALLIANCES } from '../../../src/war/world/alliances';
 import { allianceOf } from './world/members';
 import type { Side } from '../../../src/war/world/types';
 import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
+import type { TransitCargo } from '../../../src/war/net/world';
 
 const TICK_MS = 100;
 /** Ticks between summaries to the world map (sent only when changed). */
@@ -150,6 +165,8 @@ export class WarRegionDO extends DurableObject<Env> {
       else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick });
       else if (m.t === 'check') send(ws, room.check(me.pid, m));
       else if (m.t === 'mend') await this.mend(ws, me.pid, room, m);
+      else if (m.t === 'stow') await this.stow(ws, me.pid, room, m);
+      else if (m.t === 'handoff') await this.handoff(ws, me.pid, room, m);
     } catch (e) {
       logError('war_message_failed', e);
     }
@@ -199,6 +216,144 @@ export class WarRegionDO extends DurableObject<Env> {
   }
 
   /**
+   * M6f: goods and items between the player's packs (or cart) and his site here: his stall or warehouse in this
+   * market town (the carrier in the court), or his home strongroom at home (any region off the world map counts as
+   * home: dev and test regions). `in`: out of the room first, back on a D1 failure; `out`: out of D1 first, what does
+   * not fit goes back. Sealed loads (carry contracts) never go in here.
+   */
+  private async stow(ws: WebSocket, pid: number, room: WarRoom, m: StowMsg): Promise<void> {
+    const d = this.env.DB;
+    if (!d) return send(ws, { t: 'error', code: 'bad', detail: 'no database' });
+    const region = room.region.id, now = Date.now();
+    const from = m.squad !== undefined ? { squad: m.squad } : { cart: m.cart! };
+    if (!room.carrier(pid, from)) return send(ws, { t: 'error', code: 'notOwner', detail: 'stow' });
+    const fail = (e: unknown) => {
+      if (!(e instanceof ApiError)) throw e;
+      send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
+    };
+    if (m.site === 'contract') return this.stowContract(ws, pid, room, m, from);
+    const kind = m.site;
+    let id: string;
+    try {
+      if (kind === 'strongroom') {
+        if (isWorldRegion(region)) {
+          const a = await allianceOf(d, pid);
+          if (a === null || homeOf(a) !== region) throw new ApiError(409, 'not_home', 'Your strongroom is at home');
+        }
+        id = strongroom(pid);
+      } else {
+        if (!room.inCourt(pid, from)) throw new ApiError(409, 'not_in_court', 'Bring them into the market court');
+        id = (await site(d, pid, region, kind, await holderOf(this.env, region), now)).id;
+      }
+    } catch (e) {
+      return fail(e);
+    }
+    const goods = m.goods ?? {}, uids = m.uids ?? [];
+    // M6g: an escort's cart arriving: its loads before anything leaves it
+    const cartLoads = from.cart !== undefined && m.dir === 'in' ? room.carrier(pid, from)!.slots.reduce((a, s) => a + loads(s.hold), 0) : 0;
+    if (m.dir === 'in') {
+      const b = room.takeCargo(pid, from, goods, uids);
+      if (!b) return send(ws, { t: 'error', code: 'badTarget', detail: 'they do not carry that' });
+      try {
+        if (id.startsWith('wh:') && (await loadsIn(d, id)) + bundleLoads(b) > SITE.loads + 1e-6) throw new ApiError(409, 'warehouse_full', `A warehouse holds ${SITE.loads} loads`);
+        await batch(d, [...b.lots.map((l) => putStmt(d, id, l.r, l.n, l.o, l.s ?? 0)), ...b.items.map((it) => placeItemStmt(d, pid, id, it, now))]);
+      } catch (e) {
+        room.giveCargo(pid, from, b);
+        return fail(e);
+      }
+      send(ws, { t: 'stowed', dir: 'in', site: id, goods: bundleGoods(b), items: b.items.length });
+      if (cartLoads > 0) this.write('escort', () => cartArrived(d, pid, region, cartLoads, Date.now()));
+    } else {
+      let b: Bundle;
+      try {
+        const plan = planTake(d, id, await lotsOf(d, id), goods);
+        const list = JSON.stringify([...new Set(uids)]);
+        const rows = uids.length ? (await d.prepare('SELECT item FROM war_items WHERE place = ?1 AND uid IN (SELECT value FROM json_each(?2))').bind(id, list).all<{ item: string }>()).results : [];
+        if (rows.length !== new Set(uids).size) throw new ApiError(409, 'no_item', 'An item is not there');
+        await batch(d, [
+          ...plan.stmts,
+          ...(uids.length
+            ? [guard(d, '(SELECT COUNT(*) FROM war_items WHERE place = ?1 AND uid IN (SELECT value FROM json_each(?2))) = ?3', id, list, rows.length), d.prepare('DELETE FROM war_items WHERE place = ?1 AND uid IN (SELECT value FROM json_each(?2))').bind(id, list)]
+            : []),
+        ]);
+        b = { lots: plan.taken.map((l) => ({ r: l.res as never, n: l.amount, o: l.origin, ...(l.seal ? { s: l.seal } : {}) })), items: rows.map((r) => json<Item>(r.item, { uid: '', def: '', rarity: 'common', cond: 0 })) };
+      } catch (e) {
+        return fail(e);
+      }
+      const rest = room.giveCargo(pid, from, b);
+      if (rest.lots.length || rest.items.length)
+        this.write('stow back', () => d.batch([...rest.lots.map((l) => putStmt(d, id, l.r, l.n, l.o, l.s ?? 0)), ...rest.items.map((it) => placeItemStmt(d, pid, id, it, now))]));
+      send(ws, { t: 'stowed', dir: 'out', site: id, goods: bundleGoods(b), items: b.items.length - rest.items.length, ...(rest.lots.length ? { left: bundleGoods(rest) } : {}) });
+    }
+    this.save();
+  }
+
+  /** M6g: a carry's sealed loads out of escrow into the carrier's packs at A; a carry (sealed) or supply delivered at B. */
+  private async stowContract(ws: WebSocket, pid: number, room: WarRoom, m: StowMsg, from: { squad?: number; cart?: number }): Promise<void> {
+    const d = this.env.DB!, region = room.region.id, id = m.contract!, now = Date.now();
+    const fail = (e: unknown) => {
+      if (!(e instanceof ApiError)) throw e;
+      send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
+    };
+    if (!room.inCourt(pid, from)) return send(ws, { t: 'error', code: 'badTarget', detail: 'not_in_court: Bring them into the market court' });
+    if (m.dir === 'out') {
+      try {
+        const s = await sealedFor(d, pid, id, region, now);
+        await batch(d, s.stmts);
+        const rest = room.giveCargo(pid, from, { lots: s.lots.map((l) => ({ r: l.res as never, n: l.amount, o: l.origin, s: id })), items: [] });
+        if (rest.lots.length) this.write('seal back', () => d.batch(rest.lots.map((l) => putStmt(d, `ct:${id}:g`, l.r, l.n, l.o, id))));
+        send(ws, { t: 'stowed', dir: 'out', site: `ct:${id}`, goods: bundleGoods({ lots: s.lots.map((l) => ({ r: l.res as never, n: l.amount, o: l.origin })), items: [] }), items: 0, ...(rest.lots.length ? { left: bundleGoods(rest) } : {}) });
+      } catch (e) {
+        return fail(e);
+      }
+    } else {
+      let c;
+      try {
+        c = await contract(d, id);
+      } catch (e) {
+        return fail(e);
+      }
+      const want = m.goods ?? (c.res ? { [c.res]: Math.max(0, c.n - c.delivered) } : {});
+      const b = room.takeCargo(pid, from, want, [], c.kind === 'carry' ? id : undefined);
+      if (!b) return send(ws, { t: 'error', code: 'badTarget', detail: 'they do not carry that' });
+      try {
+        const r = await deliver(d, pid, id, region, b.lots.map((l) => ({ res: l.r, origin: l.o, seal: 0, amount: l.n })), now);
+        if (r.refused) throw new ApiError(409, 'refused', r.refused);
+        await batch(d, r.stmts);
+        send(ws, { t: 'stowed', dir: 'in', site: `ct:${id}`, goods: bundleGoods(b), items: 0 });
+      } catch (e) {
+        room.giveCargo(pid, from, b);
+        return fail(e);
+      }
+    }
+    this.save();
+  }
+
+  /** M6g: the hand-off window (WarRoom.handoff); both confirmed: the M6i checks, then the swap at once. */
+  private async handoff(ws: WebSocket, pid: number, room: WarRoom, m: HandoffMsg): Promise<void> {
+    const half = m.op === 'offer' ? { from: m.squad !== undefined ? { squad: m.squad } : { cart: m.cart! }, goods: m.goods ?? {}, uids: m.uids ?? [] } : undefined;
+    const r = room.handoff(pid, m.with, m.op, half);
+    if ('error' in r) return send(ws, { t: 'error', code: r.error, detail: `handoff: ${r.detail}` });
+    const tell = (msg: (other: number) => ServerMsg) => {
+      for (const p of [r.window.a, r.window.b]) for (const s of this.ctx.getWebSockets(`p:${p}`)) send(s, msg(p === r.window.a ? r.window.b : r.window.a));
+    };
+    if (m.op === 'cancel') return tell((w) => ({ t: 'handoff', with: w, state: 'closed', why: 'cancelled' }));
+    const halves = Object.fromEntries(Object.entries(r.window.halves).map(([k, h]) => [k, { goods: h.goods, uids: h.uids }]));
+    if (!r.ready) return tell((w) => ({ t: 'handoff', with: w, state: 'open', halves, ok: r.window.ok, until: r.window.until }));
+    const d = this.env.DB;
+    const why = d ? await handoffRefusal(d, r.window, Date.now()) : null;
+    if (why) {
+      room.handoff(pid, m.with, 'cancel');
+      return tell((w) => ({ t: 'handoff', with: w, state: 'closed', why }));
+    }
+    const s = room.swapHandoff(r.window.a, r.window.b);
+    if ('error' in s) return tell((w) => ({ t: 'handoff', with: w, state: 'closed', why: s.error }));
+    if (d) this.write('handoff', () => handoffDone(d, r.window, s.gave, Date.now()));
+    tell((w) => ({ t: 'handoff', with: w, state: 'done', halves }));
+    this.save();
+  }
+
+  /**
    * M4 (RPC from WarWorldDO): the player's squad leaves for `to` over the entry on `side`; its persons are marked in
    * transit in D1 (`region = '>' + to`) before the world records the transfer.
    */
@@ -216,14 +371,14 @@ export class WarRegionDO extends DurableObject<Env> {
     if (d) await d.prepare('UPDATE war_persons SET region = ?3, updated_at = ?4 WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(r.ids), `>${to}`, Date.now()).run();
     this.save();
     this.report(room, true);
-    return { ids: r.ids, off: r.off, lost: r.lost };
+    return { ids: r.ids, off: r.off, lost: r.lost, ...(r.cargo ? { cargo: r.cargo } : {}) };
   }
 
   /**
    * M4 (RPC from WarWorldDO): persons `ids` of the player (alliance `team`) in transit to this region come in over the
    * entry on `side`, if the alliance's quota has room (else the world keeps them waiting). D1 marks them deployed here.
    */
-  async arrive(region: string, pid: number, team: number, ids: string[], side: Side, lost: Record<string, number> = {}): Promise<ArriveResult> {
+  async arrive(region: string, pid: number, team: number, ids: string[], side: Side, lost: Record<string, number> = {}, cargo?: TransitCargo): Promise<ArriveResult> {
     const room = await this.ensure(region);
     const d = this.env.DB;
     if (!room || !d) return { error: 'unavailable' };
@@ -231,7 +386,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const got = await deployed(d, road, ids);
     const persons = ids.flatMap((id) => got.get(id) ?? []);
     if (!persons.length) return { error: 'gone' };
-    const r = room.arrive(pid, team, persons, side, lost);
+    const r = room.arrive(pid, team, persons, side, lost, cargo);
     if ('error' in r) return r;
     await d.batch([
       d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?4 WHERE region = ?3 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(persons.map((p) => p.id)), road, Date.now()),
@@ -303,6 +458,9 @@ export class WarRegionDO extends DurableObject<Env> {
     const st = room.alive() === 0 && room.online() === 0 ? null : room.saveState();
     this.saving = this.saving.then(() => storeState(this.ctx.storage, st)).catch((e) => logError('war_save_failed', e));
     this.ctx.waitUntil(this.saving);
+    // M6e: what its holders hold, for the stash screen (D1 snapshot; the room state above is the truth)
+    const d = this.env.DB, rows = room.holdRows();
+    if (d) this.write('holds', () => saveRegionHolds(d, room.region.id, rows, Date.now()));
   }
 
   private flushReleased(room: WarRoom): void {
@@ -379,6 +537,10 @@ export class WarRegionDO extends DurableObject<Env> {
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
     if (d && r.freed.length) this.write('unmend', () => returnMends(d, room.region.id, r.freed));
+    // M6i: a cart captured between linked accounts goes back to its owner
+    if (d && r.captured.length) this.write('captures', async () => {
+      for (const c of await linkedCaptures(d, r.captured, Date.now())) room.sim.setCartOwner(c.cart, c.team, c.from);
+    });
     this.flushReleased(room);
     this.report(room);
     if (r.fights.length || r.crafted.length || r.bosses.length || r.freed.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();

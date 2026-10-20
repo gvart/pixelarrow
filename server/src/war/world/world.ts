@@ -16,13 +16,50 @@
  *    continuously at each region's hourly rate (piecewise: rates change only on a report, which accrues up to it
  *    first), the hegemony clock (Omphalos + 3 frontier towns held for 24 h ends the season early) and, at the end, the
  *    frozen result (`ended`); no more score after it. newSeason() is the reset hook: fresh owners and scores, next id.
+ *  - M6h trade: a transit carries its men's packs and the cart they drove (`cargo`, kept in the world state: it
+ *    survives a restart); a wagon travels CARGO_TRAVEL.wagon slower, loaded porters CARGO_TRAVEL.porter. A `haul`
+ *    (`path`) chains the transfers on each arrival, offline too, retried while a leg is refused. Convoys are seen
+ *    like squads, by alliances with men in or next to either end; Safe Roads (the merchant node): only by alliances
+ *    with men at the destination. Trade score (addTrade) adds to the season score as it comes.
  */
 import { ALLIANCES, WAR_SEASON } from '../../../../src/war/world/alliances';
 import { edge, worldRegion } from '../../../../src/war/world/graph';
 import { WORLD_REGIONS } from '../../../../src/war/world/regions';
 import { allianceRates, FRONTIER_TOWNS, HEGEMONY, hegemon, HOUR_MS, OMPHALOS } from '../../../../src/war/world/season';
 import type { AllianceId, SeasonConfig, Side } from '../../../../src/war/world/types';
-import type { AllianceStats, RegionState, SeasonResult, SeasonSnap, TransferError, TransferOrder, TransitSnap, WorldSnapshot } from '../../../../src/war/net/world';
+import type { AllianceStats, ConvoySnap, RegionState, SeasonResult, SeasonSnap, TransferError, TransferOrder, TransitCargo, TransitSnap, WorldSnapshot } from '../../../../src/war/net/world';
+import { loads as holdLoads } from '../../../../src/war/sim/holders';
+import { adjacent } from '../../../../src/war/world/graph';
+
+/** M6h: travel time factors with cargo (docs/WAR.md "Carts": wagon x1.5, loaded porters x1.2). */
+export const CARGO_TRAVEL = { wagon: 1.5, porter: 1.2 };
+/** A refused haul leg is tried again after this. */
+export const HAUL_RETRY_MS = 30_000;
+
+export function cargoLoads(c: TransitCargo | undefined): number {
+  if (!c) return 0;
+  const of = (b: { lots: { r: string; n: number; o: string }[]; items: unknown[] }) => holdLoads({ lots: b.lots as never, items: b.items as never });
+  return Object.values(c.packs).reduce((a, p) => a + of(p), 0) + (c.cart ? of(c.cart) : 0);
+}
+
+function cargoGoods(c: TransitCargo | undefined): { goods: Record<string, number>; items: number } {
+  const goods: Record<string, number> = {};
+  let items = 0;
+  for (const b of c ? [...Object.values(c.packs), ...(c.cart ? [c.cart] : [])] : []) {
+    for (const l of b.lots) goods[l.r] = Math.round(((goods[l.r] ?? 0) + l.n) * 1000) / 1000;
+    items += b.items.length;
+  }
+  return { goods, items };
+}
+
+/** The travel factor of a cargo: a wagon x1.5, else loaded packs x1.2. */
+export function cargoFactor(c: TransitCargo | undefined): number {
+  if (c?.cart?.type === 'wagon') return CARGO_TRAVEL.wagon;
+  return cargoLoads(c) > 1e-9 ? CARGO_TRAVEL.porter : 1;
+}
+
+/** A haul leg waiting to be sent on (the last leg was refused: foes near, the room away). */
+export interface Haul { pid: number; alliance: AllianceId; at: string; ids: string[]; path: string[]; retryAt: number; safe?: boolean }
 
 /** The WarWorldDO's name: there is one. */
 export const WORLD_NAME = 'world';
@@ -41,6 +78,10 @@ export interface Transit extends TransitSnap {
   lost?: Record<string, number>;
   /** Next arrival attempt (queued). */
   retryAt?: number;
+  /** M6h: what it carries; the regions still to go (a haul); its owner's Safe Roads. */
+  cargo?: TransitCargo;
+  path?: string[];
+  safe?: boolean;
 }
 
 export interface SeasonState {
@@ -53,6 +94,8 @@ export interface SeasonState {
   accruedAt: number;
   hegemony: { alliance: AllianceId; since: number } | null;
   ended: SeasonResult | null;
+  /** M6h: trade score per alliance (also in `scores`). */
+  trade?: number[];
 }
 
 export interface WorldState {
@@ -61,19 +104,21 @@ export interface WorldState {
   regions: Record<string, RegionState>;
   transit: Transit[];
   season: SeasonState;
+  /** M6h: haul legs waiting to be sent on. */
+  hauls?: Haul[];
 }
 
 /** What a region room tells the world (WarRoom.summary). */
 export interface RegionReport { live: number[]; claims: number[]; channel: number[] }
 
-export type DepartResult = { ids: string[]; off: number; lost?: Record<string, number> } | { error: TransferError; detail?: string };
+export type DepartResult = { ids: string[]; off: number; lost?: Record<string, number>; cargo?: TransitCargo } | { error: TransferError; detail?: string };
 export type ArriveResult = { ok: true } | { error: 'full' | 'team' | 'squads' | 'gone' | 'unavailable' };
 
 /** The region rooms as the world sees them (WarRegionDO RPC; fakes in tests). */
 export interface Ports {
   /** `who`: the room squad id, or person ids. */
   depart(from: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number): Promise<DepartResult>;
-  arrive(to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>): Promise<ArriveResult>;
+  arrive(to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>, cargo?: TransitCargo): Promise<ArriveResult>;
 }
 
 const zeros = () => Array<number>(N).fill(0);
@@ -178,8 +223,17 @@ export class World {
     return { rejected, changed: changed || ended !== null, ended };
   }
 
-  /** Start a transfer for player `pid` of `alliance`. */
-  async transfer(pid: number, alliance: AllianceId | null, o: TransferOrder, now: number, ports: Ports): Promise<Transit | { error: TransferError; detail?: string }> {
+  /** M6h: trade score `pts` to alliance `a` (after the season is brought up to now). */
+  addTrade(a: AllianceId, pts: number, now: number): void {
+    this.advance(now);
+    const s = this.st.season;
+    if (s.ended || !(pts > 0)) return;
+    s.scores[a] += pts;
+    (s.trade ??= zeros())[a] += pts;
+  }
+
+  /** Start a transfer for player `pid` of `alliance` (`safe`: his convoy rides under Safe Roads). */
+  async transfer(pid: number, alliance: AllianceId | null, o: TransferOrder, now: number, ports: Ports, safe = false): Promise<Transit | { error: TransferError; detail?: string }> {
     if (alliance === null) return { error: 'noAlliance', detail: 'join an alliance first' };
     if (!worldRegion(o.from) || !worldRegion(o.to)) return { error: 'region', detail: 'unknown region' };
     const e = edge(o.from, o.to);
@@ -191,8 +245,11 @@ export class World {
       return { error: 'unavailable', detail: o.from };
     }
     if ('error' in out) return out;
-    const ms = Math.round(e.ms * this.season.travelScale + out.off * this.season.offExitMsPerTile);
-    const t: Transit = { id: ++this.st.seq, pid, alliance, from: o.from, to: o.to, side: e.sideB, ids: out.ids, ...(out.lost && Object.keys(out.lost).length ? { lost: out.lost } : {}), men: out.ids.length, departAt: now, arriveAt: now + ms, state: 'moving' };
+    const ms = Math.round((e.ms * this.season.travelScale + out.off * this.season.offExitMsPerTile) * cargoFactor(out.cargo));
+    const t: Transit = {
+      id: ++this.st.seq, pid, alliance, from: o.from, to: o.to, side: e.sideB, ids: out.ids, ...(out.lost && Object.keys(out.lost).length ? { lost: out.lost } : {}), men: out.ids.length, departAt: now, arriveAt: now + ms, state: 'moving',
+      ...(out.cargo ? { cargo: out.cargo } : {}), ...(o.path?.length ? { path: [...o.path] } : {}), ...(safe ? { safe } : {}),
+    };
     this.st.transit.push(t);
     return t;
   }
@@ -217,18 +274,28 @@ export class World {
       }
       let r: ArriveResult;
       try {
-        r = await ports.arrive(t.to, t.pid, t.alliance, t.ids, t.side, t.lost);
+        r = await ports.arrive(t.to, t.pid, t.alliance, t.ids, t.side, t.lost, t.cargo);
       } catch {
         r = { error: 'unavailable' };
       }
       if ('ok' in r || r.error === 'gone') {
         this.st.transit = this.st.transit.filter((x) => x !== t);
         changed = true;
+        // a haul: the next leg leaves at once (the player may be offline)
+        if ('ok' in r && t.path?.length) (this.st.hauls ??= []).push({ pid: t.pid, alliance: t.alliance, at: t.to, ids: t.ids, path: t.path, retryAt: now, ...(t.safe ? { safe: true } : {}) });
         continue;
       }
       blocked.add(key);
       if (t.state !== 'queued') (t.state = 'queued'), (changed = true);
       t.retryAt = now + RETRY_MS;
+    }
+    // haul legs due: sent on, or tried again later
+    for (const h of [...(this.st.hauls ?? [])]) {
+      if (h.retryAt > now) continue;
+      const out = await this.transfer(h.pid, h.alliance, { from: h.at, to: h.path[0], ids: h.ids, ...(h.path.length > 1 ? { path: h.path.slice(1) } : {}) }, now, ports, !!h.safe);
+      if ('error' in out && out.error !== 'notOwner' && out.error !== 'notAdjacent' && out.error !== 'region') h.retryAt = now + HAUL_RETRY_MS;
+      else this.st.hauls = this.st.hauls!.filter((x) => x !== h);
+      changed = true;
     }
     return changed;
   }
@@ -236,6 +303,7 @@ export class World {
   /** When the next arrival (or retry) is due; null with nobody on the road. */
   nextDue(): number | null {
     let at: number | null = null;
+    for (const h of this.st.hauls ?? []) if (at === null || h.retryAt < at) at = h.retryAt;
     for (const t of this.st.transit) {
       const x = t.state === 'moving' ? t.arriveAt : (t.retryAt ?? t.arriveAt);
       if (at === null || x < at) at = x;
@@ -267,7 +335,21 @@ export class World {
     return {
       season: this.st.season.id, score: this.seasonSnap(now), at: now, you: { id: pid, alliance }, alliances, regions,
       transit: this.st.transit.filter((t) => t.pid === pid).map(snapOf),
+      convoys: this.convoys(pid, alliance),
+      boards: {},
     };
+  }
+
+  /**
+   * M6h: the transits the player's alliance sees, with their cargo: its own always; another's while the alliance has
+   * men in or next to either end (Safe Roads: only at the destination).
+   */
+  convoys(pid: number, alliance: AllianceId | null): ConvoySnap[] {
+    const here = (id: string) => alliance !== null && (this.st.regions[id]?.live[alliance] ?? 0) > 0;
+    const near = (id: string) => here(id) || Object.values(this.st.regions).some((r) => r.id !== id && adjacent(r.id, id) && alliance !== null && (r.live[alliance] ?? 0) > 0);
+    return this.st.transit
+      .filter((t) => t.pid === pid || t.alliance === alliance || (t.safe ? here(t.to) : near(t.from) || near(t.to)))
+      .map((t) => ({ ...snapOf(t), alliance: t.alliance, ...(t.cargo?.cart ? { cart: t.cargo.cart.type } : {}), loads: Math.round(cargoLoads(t.cargo) * 100) / 100, ...cargoGoods(t.cargo), mine: t.pid === pid }));
   }
 
   /** The season as the map shows it, accrued (for display only) up to `now`. */
@@ -282,6 +364,7 @@ export class World {
       omphalos: owner(OMPHALOS), towns: Object.fromEntries(FRONTIER_TOWNS.map((t) => [t, owner(t)])),
       hegemony: s.hegemony && !s.ended ? { ...s.hegemony, endsAt: s.hegemony.since + HEGEMONY.ms } : null,
       ended: s.ended,
+      trade: (s.trade ?? zeros()).map(Math.floor),
     };
   }
 }

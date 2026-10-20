@@ -1,15 +1,17 @@
 /**
- * Alliance treasury (M5e; docs/WAR.md "Prisoners"): a silver pool per alliance, the player's clan of this season
- * (clan_members role leader / officer / member). Tables: migrations/0025_war_treasury.sql.
+ * Alliance treasury (M5e; docs/WAR.md "Prisoners"): M6e: the alliance strongbox at home (./holders.ts `sb:<clan>`), the
+ * coin of the player's clan of this season (clan_members role leader / officer / member). Log:
+ * migrations/0025_war_treasury.sql (war_treasury_log).
  *
- *  - Deposit: any member moves silver from his war stock into the pool.
+ *  - Deposit: any member moves coin from his home strongroom into the strongbox.
  *  - Ransom: the leader or an officer pays a member's captive's ransom (RANSOM_PER_LEVEL x level) from the pool, to the
  *    captor's player; the man is home and fit, as when his owner pays.
  *  - Every move is in war_treasury_log (who, what, how much, which captive, when); the treasury view shows the latest.
  */
 import { ApiError } from '../errors';
 import { currentSeason, membership, type Membership } from '../online/store';
-import { RANSOM_PER_LEVEL, settle } from './persons';
+import { credit, payCoin, RANSOM_PER_LEVEL, settle } from './persons';
+import { ensureHolder, goodsOf, pay, strongbox } from './holders';
 
 /** Log rows the treasury view shows. */
 export const LOG_SHOWN = 50;
@@ -25,40 +27,40 @@ async function memberOf(db: D1Database, pid: number, now: number): Promise<Membe
 export interface Treasury {
   clan: number;
   role: Membership['role'];
-  silver: number;
+  coin: number;
   log: { player: number; kind: 'deposit' | 'ransom'; amount: number; person: string | null; at: number }[];
 }
 
 export async function treasury(db: D1Database, pid: number, now: number): Promise<Treasury> {
   const m = await memberOf(db, pid, now);
   const [t, log] = await Promise.all([
-    db.prepare('SELECT silver FROM war_treasury WHERE clan_id = ?1').bind(m.clanId).first<{ silver: number }>(),
+    goodsOf(db, strongbox(m.clanId)),
     db
       .prepare('SELECT player_id, kind, amount, person_id, at FROM war_treasury_log WHERE clan_id = ?1 ORDER BY at DESC, id DESC LIMIT ?2')
       .bind(m.clanId, LOG_SHOWN)
       .all<{ player_id: number; kind: 'deposit' | 'ransom'; amount: number; person_id: string | null; at: number }>(),
   ]);
   return {
-    clan: m.clanId, role: m.role, silver: t?.silver ?? 0,
+    clan: m.clanId, role: m.role, coin: t.coin ?? 0,
     log: log.results.map((r) => ({ player: r.player_id, kind: r.kind, amount: r.amount, person: r.person_id, at: r.at })),
   };
 }
 
-/** A member puts `amount` silver of his war stock into his alliance's pool. Returns the pool's silver after. */
+/** A member puts `amount` coin of his home strongroom into his alliance's strongbox. Returns the strongbox's coin after. */
 export async function deposit(db: D1Database, pid: number, amount: number, now: number): Promise<number> {
   const m = await memberOf(db, pid, now);
-  const paid = await db.prepare("UPDATE war_stock SET amount = amount - ?2 WHERE player_id = ?1 AND res = 'silver' AND amount >= ?2").bind(pid, amount).run();
-  if (!paid.meta.changes) throw new ApiError(409, 'no_silver', `You have less than ${amount} silver`);
-  await db.batch([
-    db.prepare('INSERT INTO war_treasury (clan_id, silver) VALUES (?1, ?2) ON CONFLICT (clan_id) DO UPDATE SET silver = silver + ?2').bind(m.clanId, amount),
+  const ok = await payCoin(db, pid, amount, [
+    ensureHolder(db, strongbox(m.clanId), 'strongbox', { clan: m.clanId }, now),
+    db.prepare("INSERT INTO war_goods (place, res, origin, seal, amount) VALUES (?1, 'coin', 'home', 0, ?2) ON CONFLICT (place, res, origin, seal) DO UPDATE SET amount = amount + ?2").bind(strongbox(m.clanId), amount),
     db.prepare("INSERT INTO war_treasury_log (clan_id, player_id, kind, amount, at) VALUES (?1, ?2, 'deposit', ?3, ?4)").bind(m.clanId, pid, amount, now),
   ]);
-  return (await db.prepare('SELECT silver FROM war_treasury WHERE clan_id = ?1').bind(m.clanId).first<{ silver: number }>())?.silver ?? 0;
+  if (!ok) throw new ApiError(409, 'no_coin', `You have less than ${amount} coin`);
+  return (await goodsOf(db, strongbox(m.clanId))).coin ?? 0;
 }
 
 /**
  * The leader or an officer pays the ransom of captive `id` (a soldier of a member of his alliance) from the pool: the
- * silver goes to the captor's player, the man is home and fit. Returns the price.
+ * coin goes to the captor's strongroom, the man is home and fit. Returns the price.
  */
 export async function payRansomFromTreasury(db: D1Database, pid: number, id: string, now: number): Promise<number> {
   const m = await memberOf(db, pid, now);
@@ -71,16 +73,15 @@ export async function payRansomFromTreasury(db: D1Database, pid: number, id: str
   if ((await membership(db, (await currentSeason(db, now)).id, r.player_id))?.clanId !== m.clanId) throw new ApiError(403, 'not_member', 'He serves no member of your alliance');
   if (r.state !== 'captive') throw new ApiError(409, 'not_captive', `He is ${r.state}`);
   const price = RANSOM_PER_LEVEL * r.level;
-  const paid = await db.prepare('UPDATE war_treasury SET silver = silver - ?2 WHERE clan_id = ?1 AND silver >= ?2').bind(m.clanId, price).run();
-  if (!paid.meta.changes) throw new ApiError(409, 'no_silver', `His ransom is ${price} silver`);
-  await db.batch([
+  await pay(db, strongbox(m.clanId), { coin: price }, [
     db
       .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE id = ?1")
       .bind(id, now),
-    ...(r.captor_pid !== null
-      ? [db.prepare("INSERT INTO war_stock (player_id, res, amount) VALUES (?1, 'silver', ?2) ON CONFLICT (player_id, res) DO UPDATE SET amount = amount + ?2").bind(r.captor_pid, price)]
-      : []),
+    ...(r.captor_pid !== null ? [credit(db, r.captor_pid, price)] : []),
     db.prepare("INSERT INTO war_treasury_log (clan_id, player_id, kind, amount, person_id, at) VALUES (?1, ?2, 'ransom', ?3, ?4, ?5)").bind(m.clanId, pid, price, id, now),
-  ]);
+  ], 'The treasury').catch((e) => {
+    if (e instanceof ApiError && e.code === 'no_coin') throw new ApiError(409, 'no_coin', `His ransom is ${price} coin`);
+    throw e;
+  });
   return price;
 }

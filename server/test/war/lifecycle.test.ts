@@ -1,8 +1,9 @@
 /** M5e lifecycle in D1: training, prisoners (ransom, release), field upkeep and retirement (server/src/war/persons.ts). */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import { good, setGood } from './goods';
 import { api, devLogin } from '../helpers';
-import { applyFight, claimForJoin, personOf, RANSOM_PER_LEVEL, ROSTER_MAX, settle, START, TRAIN, type PersonRow } from '../../src/war/persons';
+import { applyFight, claimForJoin, personOf, RANSOM_PER_LEVEL, ROSTER_MAX, settle, TRAIN, type PersonRow } from '../../src/war/persons';
 import type { FightReport, PersonResult } from '../../../src/war/types';
 
 const DB = () => env.DB!;
@@ -14,7 +15,7 @@ const roster = async (token: string) => (await api('/api/war/roster', { token })
 const post = (token: string, path: string, json: unknown = {}) => api(`/api/war${path}`, { method: 'POST', token, json });
 const code = async (r: Response) => ((await r.json()) as { error?: { code: string } }).error?.code;
 const row = (id: string) => DB().prepare('SELECT * FROM war_persons WHERE id = ?1').bind(id).first<PersonRow>();
-const stock = async (pid: number, res: string) => (await DB().prepare('SELECT amount FROM war_stock WHERE player_id = ?1 AND res = ?2').bind(pid, res).first<{ amount: number }>())?.amount ?? 0;
+const stock = (pid: number, res: string) => good(pid, res === 'silver' ? 'coin' : res);
 
 /** Deploy `ids` of the player into test-ridge and write a fight in which they end as `states`. */
 async function fight(me: { playerId: number }, foe: { playerId: number }, ids: string[], states: PersonResult['state'][], fightId: string, xp = 20) {
@@ -47,6 +48,8 @@ describe('war lifecycle migration', () => {
 describe('training', () => {
   it('trains a recruit into a class at a home building for a kit, in TRAIN.ms; only within a family after', async () => {
     const me = await devLogin(7502);
+    await roster(me.token);
+    await setGood(me.playerId, 'coin', 200);
     expect((await post(me.token, '/recruit', { town: 'home', count: 2 })).status).toBe(200);
     const [a, b] = (await roster(me.token)).persons;
     expect(await code(await post(me.token, `/persons/${a.id}/train`, { cls: 'royal_guard' }))).toBe('no_training'); // no fortress
@@ -58,7 +61,7 @@ describe('training', () => {
     let r = await roster(me.token);
     const t = r.persons.find((p) => p.id === a.id)!;
     expect(t).toMatchObject({ state: 'training', cls: 'militia', trainTo: 'archer', gear: {} });
-    expect(r.stock.silver).toBe(START.silver - TRAIN.silver);
+    expect(r.stock.coin).toBe(200 - TRAIN.coin);
     expect(r.items.length).toBeGreaterThan(0); // his militia gear went to the stash
     // in training: not deployable, not trainable again
     expect(await claimForJoin(DB(), me.playerId, 'test-ridge', [[a.id]], new Set(), Date.now())).toMatch(/training/);
@@ -73,8 +76,8 @@ describe('training', () => {
     expect(await code(await post(me.token, `/persons/${a.id}/train`, { cls: 'hoplite' }))).toBe('family');
     expect((await post(me.token, `/persons/${a.id}/train`, { cls: 'slinger' })).status).toBe(200);
     // no silver, no kit
-    await DB().prepare("UPDATE war_stock SET amount = 5 WHERE player_id = ?1 AND res = 'silver'").bind(me.playerId).run();
-    expect(await code(await post(me.token, `/persons/${b.id}/train`, { cls: 'hoplite' }))).toBe('no_silver');
+    await setGood(me.playerId, 'coin', 5);
+    expect(await code(await post(me.token, `/persons/${b.id}/train`, { cls: 'hoplite' }))).toBe('no_coin');
   });
 });
 
@@ -112,8 +115,8 @@ describe('prisoners', () => {
     await roster(foe.token);
     const [id] = (await roster(me.token)).persons.filter((p) => p.state === 'active').map((p) => p.id);
     await fight(me, foe, [id], ['captive'], 'test-ridge:p:2');
-    await DB().prepare("UPDATE war_stock SET amount = 0 WHERE player_id = ?1 AND res = 'silver'").bind(me.playerId).run();
-    expect(await code(await post(me.token, `/persons/${id}/ransom`))).toBe('no_silver');
+    await setGood(me.playerId, 'coin', 0);
+    expect(await code(await post(me.token, `/persons/${id}/ransom`))).toBe('no_coin');
     expect((await row(id))!.state).toBe('captive');
   });
 });
@@ -132,20 +135,20 @@ describe('upkeep', () => {
     r = await roster(me.token);
     expect(r.stock.food).toBe(food0 - 22);
     // no food: unpaid; his wounded man's time is up but he does not heal; a fight earns no XP
-    await DB().prepare("UPDATE war_stock SET amount = 3 WHERE player_id = ?1 AND res = 'food'").bind(me.playerId).run();
+    await setGood(me.playerId, 'food', 3);
     await DB().prepare('UPDATE war_upkeep SET at = at - ?2 WHERE player_id = ?1').bind(me.playerId, HOUR).run();
     await DB().prepare('UPDATE war_persons SET until_at = 1 WHERE id = ?1').bind(w.id).run();
     r = await roster(me.token);
     expect(r.upkeep.unpaid).toBe(true);
     expect(r.upkeep.owed).toBeCloseTo(8, 1);
-    expect(r.stock.food).toBe(0);
+    expect(r.stock.food ?? 0).toBe(0);
     expect(r.persons.find((p) => p.id === w.id)!.state).toBe('wounded');
     const fitId = ids[1], xp0 = (await row(fitId))!.xp;
     const report: FightReport = { tick: 20, persons: [{ pid: fitId, owner: `p:${me.playerId}`, team: 0, state: 'fit', xp: 50, kills: 1, dmg: 9, levelUps: 0, hero: { ...personOf((await row(fitId))!).hero, xp: xp0 + 50, kills: 1 } }], loot: {} };
     expect(await applyFight(DB(), 'test-ridge:u:2', 'test-ridge', report, Date.now())).toBe(true);
     expect(await row(fitId)).toMatchObject({ xp: xp0, kills: 1 });
     // fed again: the debt is paid, the wounded heal
-    await DB().prepare("UPDATE war_stock SET amount = 100 WHERE player_id = ?1 AND res = 'food'").bind(me.playerId).run();
+    await setGood(me.playerId, 'food', 100);
     await settle(DB(), me.playerId, Date.now());
     r = await roster(me.token);
     expect(r.upkeep.unpaid).toBe(false);
@@ -162,14 +165,14 @@ describe('retirement', () => {
     expect(r.caps.fighters).toBe(ROSTER_MAX);
     const [a, b, c] = r.persons;
     await DB().prepare(`UPDATE war_persons SET honours = '[{"name":"Held the Ford","stat":"dmg"}]' WHERE id = ?1`).bind(a.id).run();
-    const s0 = r.stock.silver;
+    const s0 = r.stock.coin;
     const res = await post(me.token, `/persons/${a.id}/retire`);
     const { refund } = await res.json<{ refund: number }>();
     expect(refund).toBeGreaterThan(0);
     r = await roster(me.token);
     expect(r.persons.some((p) => p.id === a.id)).toBe(false);
     expect(r.caps.fighters).toBe(ROSTER_MAX - 1);
-    expect(r.stock.silver).toBe(s0 + refund);
+    expect(r.stock.coin).toBe(s0 + refund);
     expect(await DB().prepare('SELECT name, honour FROM war_memorial WHERE player_id = ?1').bind(me.playerId).all()).toMatchObject({ results: [{ name: a.name, honour: 'Held the Ford' }] });
     expect((await post(me.token, '/recruit', { town: 'home', count: 1 })).status).toBe(200); // the place he left
     // into a trade: only at level 10

@@ -4,6 +4,7 @@
  */
 import { applyD1Migrations, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import { good } from './goods';
 import { NET_VERSION, type JoinMsg } from '../../../src/war/net/protocol';
 import { RECIPES } from '../../../src/data/recipes';
 import type { Item } from '../../../src/data/items';
@@ -59,11 +60,11 @@ describe('profession nodes over /api/war', () => {
     const nothing = await api(`/api/war/persons/${smith}/respec`, { method: 'POST', token: me.token });
     expect(JSON.stringify(await nothing.json())).toContain('no_nodes');
     await node(me, smith, 'bladesmith');
-    const silver = async () => (await DB().prepare("SELECT amount FROM war_stock WHERE player_id = ?1 AND res = 'silver'").bind(me.playerId).first<{ amount: number }>())!.amount;
+    const silver = () => good(me.playerId, 'coin');
     const before = await silver();
     const r = await api(`/api/war/persons/${smith}/respec`, { method: 'POST', token: me.token });
     expect(r.status).toBe(200);
-    expect(await silver()).toBe(before - RESPEC.silver);
+    expect(await silver()).toBe(before - RESPEC.coin);
     const row = await DB().prepare('SELECT perks, respec_at FROM war_persons WHERE id = ?1').bind(smith).first<{ perks: string; respec_at: number }>();
     expect(row!.perks).toBe('[]');
     await node(me, smith, 'armourer');
@@ -77,7 +78,7 @@ describe('profession nodes over /api/war', () => {
     await DB().prepare("UPDATE war_persons SET region = 'test-ridge' WHERE id = ?1").bind(smith).run();
     const away = await node(me, smith, 'bladesmith');
     expect(JSON.stringify(await away.json())).toContain('deployed');
-    expect(await silver()).toBe(before - 2 * RESPEC.silver);
+    expect(await silver()).toBe(before - 2 * RESPEC.coin);
   });
 });
 
@@ -86,20 +87,19 @@ const ev = (order: number, what: Crafted['what'], it: Item, owner: string): Craf
 const stashRows = (pid: number) => DB().prepare('SELECT uid, item, region FROM war_items WHERE player_id = ?1 ORDER BY uid').bind(pid).all<{ uid: string; item: string; region: string | null }>().then((r) => r.results);
 
 describe('crafted events written back', () => {
-  it('mints a crafted item once with its rolls; a replayed event changes nothing; bots mint nothing', async () => {
+  it('records a crafted item once (it lies in the room, M6e); a replayed event changes nothing; bots write nothing', async () => {
     const me = await devLogin(7603);
     await DB().prepare('DELETE FROM war_items WHERE player_id = ?1').bind(me.playerId).run();
     const rolled: Item = { uid: 'c123', def: 'xiphos', rarity: 'rare', cond: 100, q: 2, mc: 100, mk: 'Nikias', aff: 'x' as never };
     const e = ev(7, 'craft', rolled, `p:${me.playerId}`);
     expect(await applyCrafts(DB(), 'test-ridge', 'run1', [e, ev(8, 'craft', rolled, 'bot:1')], 1000)).toBe(1);
     expect(await applyCrafts(DB(), 'test-ridge', 'run1', [e], 2000)).toBe(0);
-    const rows = await stashRows(me.playerId);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].uid).toBe(`c:${craftKey('test-ridge', 'run1', 7)}`);
-    expect(JSON.parse(rows[0].item)).toEqual({ ...rolled, uid: rows[0].uid });
+    const keys = async () => (await DB().prepare('SELECT uid FROM war_crafts WHERE player_id = ?1 ORDER BY uid').bind(me.playerId).all<{ uid: string }>()).results.map((r) => r.uid);
+    expect(await keys()).toEqual([`c:${craftKey('test-ridge', 'run1', 7)}`]);
+    expect(await stashRows(me.playerId)).toHaveLength(0); // nothing abstract: the item is in the room's output chest
     // another run of the region: a new key
     expect(await applyCrafts(DB(), 'test-ridge', 'run2', [e], 3000)).toBe(1);
-    expect(await stashRows(me.playerId)).toHaveLength(2);
+    expect(await keys()).toHaveLength(2);
   });
 
   it('a mend takes the stash item to the workplace; repair writes cond and mc back, salvage removes it', async () => {
@@ -107,7 +107,7 @@ describe('crafted events written back', () => {
     const { hoplite } = await seedCiv(me, 2);
     const pid = me.playerId;
     await DB().prepare('DELETE FROM war_items WHERE player_id = ?1').bind(pid).run();
-    for (const uid of ['m1', 'm2', 'm3']) await DB().prepare('INSERT INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, 0)').bind(uid, pid, JSON.stringify(item(uid))).run();
+    for (const uid of ['m1', 'm2', 'm3']) await DB().prepare('INSERT INTO war_items (uid, player_id, item, created_at, place) VALUES (?1, ?2, ?3, 0, ?4)').bind(uid, pid, JSON.stringify(item(uid)), `sr:${pid}`).run();
     expect(await takeForMend(DB(), pid, 'm1', 'test-ridge')).toEqual(item('m1'));
     expect(await takeForMend(DB(), pid, 'm1', 'test-ridge')).toBeNull(); // already there
     expect(await takeForMend(DB(), pid + 1, 'm2', 'test-ridge')).toBeNull(); // not his

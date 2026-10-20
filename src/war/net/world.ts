@@ -29,6 +29,8 @@ const transferFields = z.object({
   squad: z.number().int().min(0).max(2 ** 31).optional(),
   /** the person ids (the roster's) of the player's men standing in `from`, from one or more of his squads there. */
   ids: z.array(z.string().min(1).max(64)).min(1).max(TRANSFER_MAX).optional(),
+  /** M6h haul: the regions after `to`, in order; the world chains the transfers on arrival, the player offline or not. */
+  path: z.array(z.string().regex(/^[a-z0-9_-]{1,40}$/)).max(12).optional(),
 });
 const oneOf = (o: { squad?: number; ids?: string[] }) => (o.squad === undefined) !== (o.ids === undefined);
 export const transferSchema = transferFields.refine(oneOf, 'squad or ids');
@@ -41,6 +43,32 @@ export const worldClientMsgSchema = z.discriminatedUnion('t', [
 export type WorldClientMsg = z.infer<typeof worldClientMsgSchema>;
 
 export type TransferError = 'noAlliance' | 'region' | 'notAdjacent' | 'notOwner' | 'foes' | 'unavailable';
+
+/** M6h: what a transit carries: each man's pack (by person id) and the cart his squad drove, if any. */
+export interface TransitCargo {
+  packs: Record<string, { lots: { r: string; n: number; o: string; s?: number }[]; items: import('../../data/items').Item[] }>;
+  cart?: { type: 'handcart' | 'wagon'; lots: { r: string; n: number; o: string; s?: number }[]; items: import('../../data/items').Item[] };
+}
+
+/** M6h: a convoy on the world map (any alliance's transit seen by the player's: fog and Safe Roads). */
+export interface ConvoySnap extends TransitSnap {
+  alliance: AllianceId;
+  /** The cart it drives (none: men only). */
+  cart?: 'handcart' | 'wagon';
+  /** Loads it carries, goods by good, items. */
+  loads: number;
+  goods: Record<string, number>;
+  items: number;
+  /** The player's own. */
+  mine: boolean;
+}
+
+/** M6h: the last price board the alliance's men saw in a market town (src/war/... server market board). */
+export interface BoardSeen {
+  at: number;
+  goods: Record<string, { ask: number | null; bid: number | null; askDepth: number; bidDepth: number }>;
+  fills: { res: string | null; n: number; price: number; at: number }[];
+}
 
 /** A squad on the move (the player's own). */
 export interface TransitSnap {
@@ -99,6 +127,8 @@ export interface SeasonSnap {
   hegemony: { alliance: AllianceId; since: number; endsAt: number } | null;
   /** Set once the season is over: results frozen. */
   ended: SeasonResult | null;
+  /** M6h: trade score per alliance so far (included in `scores`). */
+  trade?: number[];
 }
 
 export interface WorldSnapshot {
@@ -109,6 +139,10 @@ export interface WorldSnapshot {
   alliances: AllianceStats[];
   regions: RegionState[];
   transit: TransitSnap[];
+  /** M6h: convoys the player's alliance sees (his own included), with their cargo. */
+  convoys?: ConvoySnap[];
+  /** M6h: per market town, the last board the player's alliance saw there. */
+  boards?: Record<string, BoardSeen>;
 }
 
 export type WorldServerMsg =

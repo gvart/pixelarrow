@@ -23,6 +23,11 @@
  *    of a stash item the DO loaded from D1. tick() hands out the sim's `crafted` events (the DO writes them to D1, keyed
  *    by `run` + order id, which survives a restore) and the uids of mend items whose order went (cancelled, refused,
  *    workplace lost: back to the stash). The queues themselves live in the sim state.
+ *  - holders (M6e): a crafted item is physical: tick() puts it (uid `c:<key>`) in the workplace's output chest, the
+ *    maker's owner's chest nearest the workplace with room, else his team's home strongroom in the region; a slain
+ *    boss's loot falls as a pile where it fell. Trade orders (load, unload, escort, salvagePile) name holders the room
+ *    checks exist and are the player's to use (his chest or cart, his team's store; any pile or a foe's holder to load
+ *    from: the sim checks guards and influence). holdRows() is what the DO snapshots to D1 (war_region_holds).
  */
 import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
@@ -38,6 +43,19 @@ import type { BossSlain } from './bosses';
 import { honoursOf } from '../../../src/war/sim/honours';
 import { CHOKEPOINTS } from '../../../src/war/world/season';
 import { worldRegion } from '../../../src/war/world/graph';
+import { bossItems } from './bosses';
+import { craftKey } from './crafting';
+import { bundleGoods, contents, fill, room as freeLoads, takeAll, takeOut, type Bundle } from './cargo';
+import type { TransitCargo } from '../../../src/war/net/world';
+
+/** What of bundle b went across (b less the rest r): goods and uids to take back. */
+function subtract(b: Bundle, r: Bundle): { goods: Record<string, number>; uids: string[] } {
+  const g = bundleGoods(b), rest = bundleGoods(r);
+  for (const k of Object.keys(rest)) g[k] -= rest[k];
+  const left = new Set(r.items.map((i) => i.uid));
+  return { goods: Object.fromEntries(Object.entries(g).filter(([, n]) => n > 1e-9)), uids: b.items.filter((i) => !left.has(i.uid)).map((i) => i.uid) };
+}
+import { inRects } from '../../../src/war/sim/trade';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -49,14 +67,20 @@ export const FIGHT_QUIET = 100;
 
 export const ownerOf = (pid: number) => `p:${pid}`;
 
+/** M6g hand-off window: both carriers within `reach` tiles, both confirm within `ticks` (60 s). */
+export const HANDOFF = { reach: 4, ticks: 600 };
+export interface Carrier { squad?: number; cart?: number }
+export interface Half { from: Carrier; goods: Record<string, number>; uids: string[] }
+export interface HandoffWindow { a: number; b: number; halves: Record<number, Half>; ok: number[]; until: number }
+
 /** One squad to spawn: persons (M5e), or `count` fresh men of `cls` (dev joins, restored class squads). */
 export interface Group { cls: string; count: number; persons?: WarPerson[] }
 
 /** A fight to write back: `id` is unique per room instance (epoch) and tick. */
 export interface Fight { id: string; report: FightReport }
 
-/** A squad gone over a border (M4 transfer out). */
-export interface Departed { ids: string[]; off: number; lost: Record<string, number>; fight?: Fight }
+/** A squad gone over a border (M4 transfer out); M6h: with its packs and the cart it drove. */
+export interface Departed { ids: string[]; off: number; lost: Record<string, number>; fight?: Fight; cargo?: TransitCargo }
 
 /** A sim `crafted` event (M5h4): the DO mints or updates the item in D1. */
 export type Crafted = Extract<WarEvent, { kind: 'crafted' }>;
@@ -349,12 +373,22 @@ export class WarRoom {
     for (const u of men) if (u.hp < u.maxHp) lost[u.pid!] = u.maxHp - u.hp;
     const persons = this.sim.reportPersons(ids);
     const fight = persons.length ? { id: `${this.region.id}:${this.epoch}:${this.currentTick}:out${squad}`, report: { tick: this.currentTick, persons, loot: {} } } : undefined;
+    // M6h: their packs and the cart a squad of theirs crews ride the transfer
+    const cargo: TransitCargo = { packs: {} };
+    for (const id of ids) {
+      const at = this.sim.cargo({ persons: [id] });
+      const b = at ? takeAll(at.slots) : null;
+      if (b && (b.lots.length || b.items.length)) cargo.packs[id] = b;
+    }
+    const crewed = (this.snap.sieges ?? []).find((e) => e.owner === ownerOf(pid) && e.crew !== undefined && squads.has(e.crew) && e.state !== 'destroyed');
+    const cart = crewed ? this.sim.stowCart(crewed.id) : null;
+    if (cart) cargo.cart = { type: cart.type, lots: cart.hold.lots.filter((l) => l.n > 1e-9), items: cart.hold.items };
     this.sim.dropPersons(ids);
     for (const u of men) this.diedAt[u.id] = this.currentTick - CORPSE_TICKS; // gone, not fallen: no corpse, no blow
     this.live[team] -= men.length;
     this.snap = this.sim.snapshot();
     for (const id of squads) if (!this.snap.units.some((u) => u.squad === id && u.state !== 'dead')) this.bots.clear(id);
-    return { ids, off, lost, ...(fight ? { fight } : {}) };
+    return { ids, off, lost, ...(fight ? { fight } : {}), ...(Object.keys(cargo.packs).length || cargo.cart ? { cargo } : {}) };
   }
 
   /**
@@ -363,7 +397,7 @@ export class WarRoom {
    * here. They hold where they arrive; an online player gets a fresh welcome (his squads), an offline one takes them
    * over with a join (a rejoin: no new spawn).
    */
-  arrive(pid: number, team: number, persons: WarPerson[], side: Side, lost: Record<string, number> = {}): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
+  arrive(pid: number, team: number, persons: WarPerson[], side: Side, lost: Record<string, number> = {}, cargo?: TransitCargo): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
     const p = this.players.get(pid);
     if (team >= this.per.length || (p && p.team !== team)) return { error: 'team' };
     if (this.squadsOf(pid).length >= MAX_SQUADS) return { error: 'squads' };
@@ -371,6 +405,18 @@ export class WarRoom {
     if (!p) this.players.set(pid, { pid, team, online: false, cam: null, enc: null, sinceKey: -1, bytes: 0 });
     const squad = this.spawn(ownerOf(pid), team, { cls: persons[0].hero.cls ?? 'militia', count: persons.length, persons }, undefined, side);
     this.sim.hurtPersons(lost);
+    // M6h: each man's pack back; the cart rolls in beside them, crewed by the squad
+    for (const [id, b] of Object.entries(cargo?.packs ?? {})) {
+      const at = this.sim.cargo({ persons: [id] });
+      if (at) fill(at.slots, b as Bundle);
+    }
+    if (cargo?.cart) {
+      const e = this.entry(side), men = this.sim.cargo({ squad })!;
+      const x = men.slots[0]?.x ?? (e.x0 + e.x1) / 2, y = men.slots[0]?.y ?? (e.y0 + e.y1) / 2;
+      const c = this.sim.spawnCart(team, ownerOf(pid), cargo.cart.type, x, y);
+      fill(this.sim.cargo({ cart: c })!.slots.map((s) => ({ ...s, cap: Infinity })), cargo.cart as Bundle);
+      this.sim.order({ kind: 'crew', squad, siege: c });
+    }
     const online = this.players.get(pid)!.online;
     if (!online) {
       const e = this.entry(side);
@@ -417,6 +463,20 @@ export class WarRoom {
     const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < this.region.w && y < this.region.h;
     const allIn = (a?: number[]) => !a || a.every((v, i) => (i % 2 ? v < this.region.h : v < this.region.w) && v >= 0);
     const ownSite = (id: number) => this.snap.buildings?.find((b) => b.id === id)?.team === p.team;
+    const building = (id: number) => this.snap.buildings?.find((b) => b.id === id && b.goods !== undefined);
+    const cart = (id: number) => this.snap.sieges?.find((s) => s.id === id && s.owner !== undefined && s.state !== 'destroyed');
+    const pile = (id: number) => this.snap.piles?.some((x) => x.id === id) ?? false;
+    /** M6: a holder that exists; `put`: one the player may put into (his chest or cart, his team's store). */
+    const holder = (h: { building?: number; cart?: number; pile?: number }, put: boolean) => {
+      if (h.pile !== undefined) return !put && pile(h.pile);
+      if (h.cart !== undefined) {
+        const c = cart(h.cart);
+        return !!c && (!put || c.owner === me);
+      }
+      const b = h.building !== undefined ? building(h.building) : undefined;
+      if (!b) return false;
+      return !put || (b.type === 'chest' ? b.owner === me : b.team === p.team);
+    };
     switch (o.kind) {
       case 'attack':
         if (this.owners[o.target] === undefined || this.teams[o.target] === p.team) return 'badTarget';
@@ -448,6 +508,18 @@ export class WarRoom {
       case 'fortify': // M5h3: a building of his team
         if (!ownSite(o.kind === 'build' ? o.site : o.building)) return 'badTarget';
         break;
+      case 'load':
+        if (!holder(o.from, false)) return 'badTarget';
+        break;
+      case 'unload':
+        if (!holder(o.to, true)) return 'badTarget';
+        break;
+      case 'escort':
+        if (cart(o.cart)?.team !== p.team) return 'badTarget';
+        break;
+      case 'salvagePile':
+        if (!pile(o.pile)) return 'badTarget';
+        break;
     }
     const sent = (squad === undefined && o.kind !== 'cancelSite' ? { ...o, team: p.team } : o) as Order;
     if (squad !== undefined) this.bots.clear(squad);
@@ -471,6 +543,154 @@ export class WarRoom {
     this.log.push({ tick: this.currentTick, o });
     this.mends.push({ uid: item.uid, pid, building, def: item.def });
     return null;
+  }
+
+  /**
+   * M6e: a crafted item goes in the workplace's output chest: its owner's chest (of the team) nearest the workplace
+   * with room for it, else the team's home strongroom in the region. Its uid is the event's key (`c:<key>`).
+   */
+  deposit(e: Crafted): void {
+    e.item = { ...e.item, uid: `c:${craftKey(this.region.id, this.run, e.order)}` };
+    const wp = this.snap.buildings?.find((b) => b.id === e.building);
+    const chests = (this.snap.buildings ?? [])
+      .filter((b) => b.type === 'chest' && b.owner === e.owner && b.team === e.team && b.state === 'done')
+      .sort((a, b) => (wp ? (a.x - wp.x) ** 2 + (a.y - wp.y) ** 2 - ((b.x - wp.x) ** 2 + (b.y - wp.y) ** 2) : a.id - b.id));
+    for (const c of chests) {
+      const at = this.sim.cargo({ building: c.id });
+      if (at && freeLoads(at.slots) >= 0.2 - 1e-6 && !fill(at.slots, { lots: [], items: [e.item] }).items.length) return;
+    }
+    this.sim.cargo({ reserve: e.team })!.slots[0].hold.items.push(e.item);
+  }
+
+  /**
+   * M6e: the region's holders of players for the D1 snapshot (war_region_holds): chests, carts, each squad's packs.
+   * `ref`: b:<building>, c:<cart>, k:<squad>.
+   */
+  holdRows(): { ref: string; kind: 'chest' | 'cart' | 'packs'; pid: number; team: number; goods: Record<string, number>; items: Item[] }[] {
+    const out: ReturnType<WarRoom['holdRows']> = [];
+    const pidOf = (o: string) => (/^p:(\d+)$/.exec(o) ? Number(o.slice(2)) : null);
+    for (const b of this.snap.buildings ?? []) {
+      const pid = b.type === 'chest' && b.owner ? pidOf(b.owner) : null;
+      const at = pid !== null ? this.sim.cargo({ building: b.id }) : null;
+      if (pid !== null && at) out.push({ ref: `b:${b.id}`, kind: 'chest', pid, team: b.team, ...contents(at.slots) });
+    }
+    for (const s of this.snap.sieges ?? []) {
+      const pid = s.owner ? pidOf(s.owner) : null;
+      const at = pid !== null && s.state !== 'destroyed' ? this.sim.cargo({ cart: s.id }) : null;
+      if (pid !== null && at) out.push({ ref: `c:${s.id}`, kind: 'cart', pid, team: s.team, ...contents(at.slots) });
+    }
+    for (const s of this.snap.squads) {
+      const pid = pidOf(s.owner);
+      if (pid === null || !s.units.some((u) => this.snap.units[u]?.pack)) continue;
+      const at = this.sim.cargo({ squad: s.id });
+      if (at) out.push({ ref: `k:${s.id}`, kind: 'packs', pid, team: s.team, ...contents(at.slots) });
+    }
+    return out;
+  }
+
+  /** M6f: the player's own carrier: his squad's packs or his cart (null: not his, or gone). */
+  carrier(pid: number, from: { squad?: number; cart?: number }) {
+    const me = ownerOf(pid);
+    if (from.squad !== undefined) {
+      if (this.owners[from.squad] !== me) return null;
+      return this.sim.cargo({ squad: from.squad });
+    }
+    if (from.cart === undefined) return null;
+    const at = this.sim.cargo({ cart: from.cart });
+    return at && at.owner === me ? at : null;
+  }
+
+  /** M6f: the carrier stands in the town's market court (a man of the squad, or the cart; a region with no court: anywhere). */
+  inCourt(pid: number, from: { squad?: number; cart?: number }): boolean {
+    const at = this.carrier(pid, from);
+    if (!at) return false;
+    const safe = this.region.safe;
+    return !safe?.length || at.slots.some((s) => inRects(safe, s.x, s.y));
+  }
+
+  /**
+   * M6f bridge out of the room: `goods` and items `uids` taken from the player's carrier (sealed lots only under
+   * `seal`), all or nothing; null when it is not his or lacks some.
+   */
+  takeCargo(pid: number, from: { squad?: number; cart?: number }, goods: Record<string, number>, uids: string[] = [], seal?: number): Bundle | null {
+    const at = this.carrier(pid, from);
+    return at ? takeOut(at.slots, goods, uids, seal) : null;
+  }
+
+  /** M6f bridge into the room: a bundle into the player's carrier as far as it has room; what did not fit comes back. */
+  giveCargo(pid: number, to: { squad?: number; cart?: number }, b: Bundle): Bundle {
+    const at = this.carrier(pid, to);
+    return at ? fill(at.slots, b) : b;
+  }
+
+  private handoffs = new Map<string, HandoffWindow>();
+  private static hkey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
+
+  /** The two carriers stand within HANDOFF.reach tiles of each other (any man of a squad, or the cart). */
+  private near(a: number, ca: Carrier, b: number, cb: Carrier): boolean {
+    const x = this.carrier(a, ca), y = this.carrier(b, cb), r2 = HANDOFF.reach ** 2;
+    return !!x && !!y && x.slots.some((s) => y.slots.some((t) => (s.x - t.x) ** 2 + (s.y - t.y) ** 2 <= r2));
+  }
+
+  /**
+   * M6g hand-off: `offer` sets (or changes, which clears both confirms) the player's half of the window with `other`
+   * (a half may give nothing, but names the carrier that receives); `confirm` marks his consent; `cancel` closes it.
+   * The window lasts HANDOFF.ticks and needs both carriers near. Returns the window (ready: both confirmed) or an error.
+   */
+  handoff(pid: number, other: number, op: 'offer' | 'confirm' | 'cancel', half?: Half): { window: HandoffWindow; ready: boolean } | { error: OrderError; detail: string } {
+    const p = this.players.get(pid), q = this.players.get(other);
+    if (!p?.online || !q || pid === other) return { error: 'notJoined', detail: 'both must be here' };
+    const k = WarRoom.hkey(pid, other);
+    let w = this.handoffs.get(k);
+    if (w && this.currentTick > w.until) this.handoffs.delete(k), (w = undefined);
+    if (op === 'cancel') {
+      if (w) this.handoffs.delete(k);
+      return w ? { window: w, ready: false } : { error: 'bad', detail: 'no window' };
+    }
+    if (op === 'offer') {
+      if (!half || !this.carrier(pid, half.from)) return { error: 'notOwner', detail: 'not your carrier' };
+      if (!w) this.handoffs.set(k, (w = { a: Math.min(pid, other), b: Math.max(pid, other), halves: {}, ok: [], until: this.currentTick + HANDOFF.ticks }));
+      w.halves[pid] = { from: half.from, goods: { ...half.goods }, uids: [...half.uids] };
+      w.ok = [];
+    } else {
+      if (!w || !w.halves[pid] || !w.halves[other]) return { error: 'bad', detail: 'both halves first' };
+      if (!w.ok.includes(pid)) w.ok.push(pid);
+    }
+    const ha = w.halves[w.a], hb = w.halves[w.b];
+    if (ha && hb && !this.near(w.a, ha.from, w.b, hb.from)) return { error: 'badTarget', detail: `stand within ${HANDOFF.reach} tiles` };
+    return { window: w, ready: w.ok.length === 2 };
+  }
+
+  /**
+   * Swap a ready window at once: both halves out of their carriers (all or nothing), each into the other's carrier;
+   * nothing in flight. Refused (nothing moves) when either walked off, lacks his half or the other has no room.
+   */
+  swapHandoff(a: number, b: number): { ok: true; gave: Record<number, Bundle> } | { error: string } {
+    const k = WarRoom.hkey(a, b), w = this.handoffs.get(k);
+    this.handoffs.delete(k);
+    if (!w || w.ok.length !== 2 || this.currentTick > w.until) return { error: 'expired' };
+    const ha = w.halves[w.a], hb = w.halves[w.b];
+    if (!this.near(w.a, ha.from, w.b, hb.from)) return { error: 'walked off' };
+    const xa = this.carrier(w.a, ha.from)!, xb = this.carrier(w.b, hb.from)!;
+    const ba = takeOut(xa.slots, ha.goods, ha.uids);
+    if (!ba) return { error: 'lacks his half' };
+    const bb = takeOut(xb.slots, hb.goods, hb.uids);
+    if (!bb) return fill(xa.slots, ba), { error: 'lacks his half' };
+    const ra = fill(xb.slots, ba), rb = fill(xa.slots, bb);
+    if (ra.lots.length || ra.items.length || rb.lots.length || rb.items.length) {
+      // no room: undo (each side takes back what crossed and gets his own half again)
+      takeOut(xb.slots, subtract(ba, ra).goods, subtract(ba, ra).uids);
+      takeOut(xa.slots, subtract(bb, rb).goods, subtract(bb, rb).uids);
+      fill(xa.slots, ba), fill(xb.slots, bb);
+      return { error: 'no room' };
+    }
+    return { ok: true, gave: { [w.a]: ba, [w.b]: bb } };
+  }
+
+  /** Open hand-off windows (tests, the DO). */
+  openHandoffs(): HandoffWindow[] {
+    for (const [k, w] of this.handoffs) if (this.currentTick > w.until) this.handoffs.delete(k);
+    return [...this.handoffs.values()];
   }
 
   /** Uids of the stash items at this region's workplaces. */
@@ -516,8 +736,10 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; freed: string[]; raided: number[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
     const t0 = now();
+    // M6i: carts' owners before the step (a capture names only the taker)
+    const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
     this.sim.step();
     this.bots.tick();
     const t1 = now();
@@ -525,6 +747,9 @@ export class WarRoom {
     const evs = this.sim.events();
     const crafted = evs.filter((e): e is Crafted => e.kind === 'crafted');
     const bosses = evs.filter((e): e is BossSlain => e.kind === 'bossSlain');
+    const captured = evs.flatMap((e) => (e.kind === 'cartCaptured' && cartWas.has(e.cart) ? [{ cart: e.cart, from: cartWas.get(e.cart)!.owner, team: cartWas.get(e.cart)!.team, to: e.owner }] : []));
+    for (const e of crafted) if (e.what === 'craft') this.deposit(e);
+    for (const e of bosses) this.sim.dropPile(e.x ?? this.region.w / 2, e.y ?? this.region.h / 2, [], bossItems(this.region.id, this.run, e));
     // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
     const raided = evs.flatMap((e) => (e.kind === 'raid' ? [e.building] : []));
     for (const e of evs) if (e.kind === 'raid' && e.by !== undefined && e.by !== e.team) this.stormed.add(e.by);
@@ -574,7 +799,7 @@ export class WarRoom {
       }
     }
     this.lastTick = this.snap.tick;
-    return { frames, admitted, fights, crafted, bosses, freed, raided, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, admitted, fights, crafted, bosses, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /** Battle honours won in a finished fight go on its report (src/war/sim/honours.ts); the fort-taking slate is wiped. */

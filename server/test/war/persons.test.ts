@@ -1,6 +1,7 @@
 /** M5e: war_persons in D1, the roster API (recruit, caps, equip, level-up, squad) and the idempotent fight write-back. */
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import { setGood } from './goods';
 import { api, devLogin } from '../helpers';
 import { applyFight, claimForJoin, personOf, ROSTER_MAX, START, type PersonRow } from '../../src/war/persons';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
@@ -23,7 +24,7 @@ describe('war_persons migration', () => {
   it('creates the roster tables', async () => {
     const cols = async (t: string) => (await DB().prepare('SELECT name FROM pragma_table_info(?1)').bind(t).all<{ name: string }>()).results.map((c) => c.name);
     expect(await cols('war_persons')).toEqual(expect.arrayContaining(['id', 'player_id', 'cls', 'level', 'xp', 'attrs', 'skills', 'gear', 'honours', 'state', 'until_at', 'captor', 'held_at', 'slot', 'region']));
-    for (const t of ['war_pools', 'war_stock', 'war_items', 'war_fights']) expect((await cols(t)).length).toBeGreaterThan(2);
+    for (const t of ['war_pools', 'war_goods', 'war_holders', 'war_items', 'war_fights']) expect((await cols(t)).length).toBeGreaterThan(2);
     const me = await devLogin(7301);
     await expect(DB().prepare("INSERT INTO war_persons (id, player_id, state) VALUES ('x', ?1, 'resting')").bind(me.playerId).run()).rejects.toThrow(/CHECK/);
   });
@@ -54,9 +55,9 @@ describe('war roster API', () => {
     // the pool is empty now; refilled, the food runs out; with food, the roster cap stops it
     expect(await (await post(me.token, '/recruit', { town: 'home', count: 1 })).json()).toMatchObject({ error: { code: 'pool_empty' } });
     await DB().prepare('UPDATE war_pools SET stored = 30 WHERE player_id = ?1').bind(me.playerId).run();
-    await DB().prepare("UPDATE war_stock SET amount = 10 WHERE player_id = ?1 AND res = 'food'").bind(me.playerId).run();
+    await setGood(me.playerId, 'food', 10);
     expect(await (await post(me.token, '/recruit', { town: 'home', count: 1 })).json()).toMatchObject({ error: { code: 'no_food' } });
-    await DB().prepare("UPDATE war_stock SET amount = 1000 WHERE player_id = ?1 AND res = 'food'").bind(me.playerId).run();
+    await setGood(me.playerId, 'food', 1000);
     expect((await post(me.token, '/recruit', { town: 'home', count: ROSTER_MAX - SQUAD_MAX })).status).toBe(200);
     expect(await (await post(me.token, '/recruit', { town: 'home', count: 1 })).json()).toMatchObject({ error: { code: 'roster_full' } });
     // the dead free their place
@@ -158,12 +159,13 @@ describe('fight write-back', () => {
     expect(after[1]!.until_at).toBe(t + 6 * 3_600_000);
     expect(after[2]).toMatchObject({ state: 'captive', captor: 1, held_at: 'test-ridge', region: null });
     expect(after[3]).toMatchObject({ state: 'dead', gear: '{}', region: null });
+    // M6e: loot is physical (piles and packs in the room): nothing is minted
     const loot = await DB().prepare('SELECT player_id FROM war_items WHERE fight_id = ?1').bind('test-ridge:e1:900').all<{ player_id: number }>();
-    expect(loot.results.map((x) => x.player_id)).toEqual([foe.playerId]);
+    expect(loot.results).toEqual([]);
     // the same fight again (a retried write): nothing changes
     expect(await applyFight(DB(), 'test-ridge:e1:900', 'test-ridge', report, t + 60_000)).toBe(false);
     expect(await snap()).toEqual(after);
-    expect((await DB().prepare('SELECT COUNT(*) AS n FROM war_items WHERE fight_id = ?1').bind('test-ridge:e1:900').first<{ n: number }>())!.n).toBe(1);
+    expect((await DB().prepare('SELECT COUNT(*) AS n FROM war_items WHERE fight_id = ?1').bind('test-ridge:e1:900').first<{ n: number }>())!.n).toBe(0);
     // the public boards' tallies, written once: both sides kept a fit man, so neither won
     const stats = await DB().prepare('SELECT player_id, kills, fights, wins FROM war_player_stats WHERE player_id IN (?1, ?2) ORDER BY player_id').bind(me.playerId, foe.playerId).all();
     expect(stats.results).toEqual([
