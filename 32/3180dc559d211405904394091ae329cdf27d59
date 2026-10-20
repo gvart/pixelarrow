@@ -1,0 +1,28 @@
+scripts/war/art/town.mjs
+  s_cfc22b058125c4::t_abf0cf0b3c45b9 139-140,149,160
+  s_cfc22b058125c4::t_ef878ffc05f4c8 19
+  s_cfc22b058125c4::t_8df5273bd747d6 89,92-93,97-102,104-105
+  s_cfc22b058125c4::t_ba3b930a70b23f 1-18,20-88,90-91,94-96,103,106-138,141-148,150-159,161-180
+public/war/biomes/elaia/objects.json
+  s_cfc22b058125c4::t_103d0a2b938d15 149-207,630-1071,1075,1078-1079,1081-1084,1086-1090,1094-1095,1097-1099,1101-1103,1106-1107
+  s_cfc22b058125c4::t_abf0cf0b3c45b9 1072-1074,1076-1077,1080,1085,1091-1093,1096,1100,1104
+scripts/war/art/town-jobs.json
+  s_cfc22b058125c4::t_484117d729c066 4
+  s_cfc22b058125c4::t_cacae9b172613c 1-3,5-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "323180dc559d211405904394091ae329cdf27d59",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
