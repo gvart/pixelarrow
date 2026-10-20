@@ -11,9 +11,11 @@
  *    refused or abandoned joins send them home again.
  *  - every finished fight (WarRoom tick `fights`) is written to D1 in one idempotent batch (applyFight), in order,
  *    retried on failure.
- *  - the room's bounded state (WarRoom.saveState) goes to DO storage every SAVE_TICKS, after joins and fights; an
- *    evicted object restores it on its next socket or its pending alarm (WarRoom.restore, persons reloaded from D1).
- *    A region with no saved state starts fresh and sends home anyone D1 still has deployed there.
+ *  - the room's whole state (WarRoom.saveState: the sim's exact state and the room's books) goes to DO storage every
+ *    SAVE_TICKS, after joins and fights, as gzipped JSON in chunks (`state:meta` + `state:<i>`, one atomic put); an
+ *    evicted object restores it on its next socket or its pending alarm (WarRoom.restore, persons reloaded from D1) and
+ *    the region steps on exactly where it was saved. A region with no saved state starts fresh and sends home anyone D1
+ *    still has deployed there.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
@@ -42,6 +44,7 @@ export class WarRegionDO extends DurableObject<Env> {
   private times: (TickTimes & { totalMs: number; sendMs: number; bytes: number; units: number; clients: number; lateMs: number })[] = [];
   private overruns = 0;
   private savedAt = 0;
+  private saving: Promise<void> = Promise.resolve();
   /** D1 writes in order (fights, releases); `writing` drains it. */
   private writes: { what: string; run: () => Promise<unknown> }[] = [];
   private writing: Promise<void> | null = null;
@@ -64,11 +67,20 @@ export class WarRegionDO extends DurableObject<Env> {
     if (!o) return null;
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.room) return;
-      const st = await this.ctx.storage.get<RoomState>('state');
+      const st = await loadState(this.ctx.storage);
       const d = this.env.DB;
+      let restored: WarRoom | null = null;
       if (st && st.region === region) {
-        const persons = d ? await deployed(d, region, st.squads.flatMap((s) => s.pids)) : new Map();
-        this.room = WarRoom.restore(o, st, persons);
+        try {
+          const persons = d ? await deployed(d, region, st.pids) : new Map();
+          restored = WarRoom.restore(o, st, persons);
+        } catch (e) {
+          logError('war_restore_failed', e, { region }); // a state the code no longer reads: start the region over
+        }
+      }
+      if (restored) {
+        this.room = restored;
+        this.flushReleased(restored);
       } else {
         if (d) await releaseRegion(d, region);
         this.room = new WarRoom(o);
@@ -115,6 +127,7 @@ export class WarRegionDO extends DurableObject<Env> {
         if (err) send(ws, { t: 'error', code: err, detail: m.o.kind });
       } else if (m.t === 'view') room.view(me.pid, m);
       else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick });
+      else if (m.t === 'check') send(ws, room.check(me.pid, m));
     } catch (e) {
       logError('war_message_failed', e);
     }
@@ -158,7 +171,7 @@ export class WarRegionDO extends DurableObject<Env> {
     // evicted while armies stood: the pending alarm brings the region back
     if (!this.room) {
       const region = await this.ctx.storage.get<string>('region');
-      if (region && (await this.ctx.storage.get('state'))) await this.ensure(region);
+      if (region && (await this.ctx.storage.get(STATE_META))) await this.ensure(region);
       if (this.room && (this.room as WarRoom).active()) this.start();
     }
     if (this.timer) await this.ctx.storage.setAlarm(Date.now() + KEEPALIVE_MS);
@@ -171,13 +184,14 @@ export class WarRegionDO extends DurableObject<Env> {
     void this.ctx.storage.setAlarm(Date.now() + KEEPALIVE_MS);
   }
 
-  /** Save the room's state to DO storage (or drop it once the region is empty). */
+  /** Save the room's state to DO storage (or drop it once the region is empty). Saves run one at a time, in order. */
   private save(): void {
     const room = this.room;
     if (!room) return;
     this.savedAt = room.currentTick;
-    if (room.alive() === 0 && room.online() === 0) void this.ctx.storage.delete('state');
-    else void this.ctx.storage.put('state', room.saveState());
+    const st = room.alive() === 0 && room.online() === 0 ? null : room.saveState();
+    this.saving = this.saving.then(() => storeState(this.ctx.storage, st)).catch((e) => logError('war_save_failed', e));
+    this.ctx.waitUntil(this.saving);
   }
 
   private flushReleased(room: WarRoom): void {
@@ -209,9 +223,10 @@ export class WarRegionDO extends DurableObject<Env> {
     }
   }
 
-  /** Test hook: wait for queued D1 writes. */
+  /** Test hook: wait for queued D1 writes and state saves. */
   async settled(): Promise<void> {
     while (this.writing) await this.writing;
+    await this.saving;
   }
 
   private loop(): void {
@@ -275,6 +290,49 @@ export class WarRegionDO extends DurableObject<Env> {
       bytesPerTick: pick('bytes'), clientsPerTick: pick('clients'),
     };
   }
+}
+
+const STATE_META = 'state:meta';
+/** Bytes per stored chunk (under the 128 KiB value limit of either storage backend). */
+const CHUNK = 120_000;
+
+async function gzip(s: string): Promise<Uint8Array> {
+  const body = new Blob([s]).stream().pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(body).arrayBuffer());
+}
+async function gunzip(b: Uint8Array): Promise<string> {
+  return new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+
+/** The room state gzipped in chunks, written in one atomic put (null: the region is empty, drop it). */
+export async function storeState(storage: DurableObjectStorage, st: RoomState | null): Promise<void> {
+  const old = (await storage.get<{ n: number }>(STATE_META))?.n ?? 0;
+  if (!st) {
+    await storage.delete([STATE_META, ...Array.from({ length: old }, (_, i) => `state:${i}`)]);
+    return;
+  }
+  const z = await gzip(JSON.stringify(st));
+  const n = Math.ceil(z.length / CHUNK);
+  const put: Record<string, unknown> = { [STATE_META]: { n, region: st.region, tick: st.tick, bytes: z.length } };
+  for (let i = 0; i < n; i++) put[`state:${i}`] = z.slice(i * CHUNK, (i + 1) * CHUNK);
+  await storage.put(put);
+  if (old > n) await storage.delete(Array.from({ length: old - n }, (_, i) => `state:${n + i}`));
+}
+
+export async function loadState(storage: DurableObjectStorage): Promise<RoomState | null> {
+  const meta = await storage.get<{ n: number }>(STATE_META);
+  if (!meta) return null;
+  const parts = await storage.get<Uint8Array>(Array.from({ length: meta.n }, (_, i) => `state:${i}`));
+  const z = new Uint8Array(meta.n * CHUNK);
+  let at = 0;
+  for (let i = 0; i < meta.n; i++) {
+    const p = parts.get(`state:${i}`);
+    if (!p) return null;
+    z.set(p, at);
+    at += p.length;
+  }
+  const st = JSON.parse(await gunzip(z.subarray(0, at))) as RoomState;
+  return st.v === 2 ? st : null;
 }
 
 function send(ws: WebSocket, m: ServerMsg): void {

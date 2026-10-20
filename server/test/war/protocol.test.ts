@@ -19,10 +19,42 @@ describe('war net protocol', () => {
     expect(parseClientMsg(JSON.stringify({ ...join, army: [{ cls: 'hoplite', count: 13 }] }))).toBeNull();
     expect(parseClientMsg(JSON.stringify({ ...join, army: Array(4).fill({ cls: 'hoplite', count: 1 }) }))).toBeNull();
     expect(parseClientMsg(JSON.stringify({ ...join, region: '../x' }))).toBeNull();
-    // building is not a live order yet
-    expect(parseClientMsg('{"t":"order","o":{"kind":"placeBuilding","team":0,"type":"camp","x":1,"y":1}}')).toBeNull();
+    expect(parseClientMsg('{"t":"order","o":{"kind":"placeBuilding","squad":0,"type":"castle","x":1,"y":1}}')).toBeNull();
+    expect(parseClientMsg('{"t":"order","o":{"kind":"attackBuilding","squad":0}}')).toBeNull(); // a target is needed
+    expect(parseClientMsg('{"t":"order","o":{"kind":"ignite","squad":0,"building":1,"siege":2}}')).toBeNull(); // one target
+    expect(parseClientMsg('{"t":"order","o":{"kind":"placeWall","squad":0,"material":"wood","points":[1,2,3]}}')).toBeNull();
+    expect(parseClientMsg('{"t":"order","o":{"kind":"raiseLadder","squad":0,"wallTile":[1,2,3,4]}}')).toBeNull();
     expect(parseClientMsg('{"t":"order","o":{"kind":"move","squad":-1,"x":1,"y":1}}')).toBeNull();
     expect(parseClientMsg(`{"t":"ping","c":1,"pad":"${'x'.repeat(MAX_CLIENT_MSG)}"}`)).toBeNull();
+  });
+
+  it('accepts work, building, siege and civilian orders and placement checks', () => {
+    const ok = (o: object) => expect(parseClientMsg(JSON.stringify({ t: 'order', o }))).toMatchObject({ o });
+    ok({ kind: 'attackMove', squad: 0, x: 3, y: 4 });
+    ok({ kind: 'stop', squad: 0 });
+    ok({ kind: 'gather', squad: 0, node: 4 });
+    ok({ kind: 'build', squad: 0, site: 2 });
+    ok({ kind: 'placeBuilding', squad: 0, type: 'barracks', x: 10, y: 12, rot: 1 });
+    ok({ kind: 'placeBuilding', type: 'brazier', x: 10.5, y: 12.5 });
+    ok({ kind: 'placeWall', squad: 1, material: 'timber', points: [1, 1, 9, 1], gates: [5, 1], inside: [5, 4] });
+    ok({ kind: 'placeBridge', squad: 1, material: 'wood', points: [1, 1, 9, 1], width: 2 });
+    ok({ kind: 'upgrade', building: 3 });
+    ok({ kind: 'cancelSite', site: 3 });
+    ok({ kind: 'buildSiege', squad: 0, type: 'ram', x: 5, y: 5 });
+    ok({ kind: 'crew', squad: 0, siege: 1 });
+    ok({ kind: 'uncrew', squad: 0 });
+    ok({ kind: 'deploy', squad: 0, pack: true });
+    ok({ kind: 'raiseLadder', squad: 0, wallTile: [17, 20] });
+    ok({ kind: 'pushLadder', squad: 0, ladder: 9 });
+    ok({ kind: 'attackBuilding', squad: 0, siege: 2 });
+    ok({ kind: 'ignite', squad: 0, building: 2 });
+    ok({ kind: 'extinguish', squad: 0, building: 2 });
+    ok({ kind: 'civWork', squad: 0, building: 0 });
+    ok({ kind: 'detach', squad: 0, unitIds: [1, 2, 3, 4] });
+    ok({ kind: 'active', squad: 0 });
+    expect(parseClientMsg(JSON.stringify({ t: 'check', id: 1, kind: 'building', type: 'camp', x: 1, y: 2 }))).toMatchObject({ t: 'check', kind: 'building' });
+    expect(parseClientMsg(JSON.stringify({ t: 'check', id: 2, kind: 'wall', material: 'stone', points: [1, 1, 5, 1] }))).toMatchObject({ kind: 'wall' });
+    expect(parseClientMsg(JSON.stringify({ t: 'check', id: 3, kind: 'bridge', material: 'wood', points: [1, 1, 5, 1] }))).toMatchObject({ kind: 'bridge' });
   });
 
   it('splits the cap between the alliances', () => {

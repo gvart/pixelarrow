@@ -253,6 +253,9 @@ export function createMobs(region: RegionData, host: MobHost) {
   };
 
   return {
+    /** Save and restore (./state.ts). */
+    saveRoot: () => ({ lairs, claims, spawned, tick }),
+    loadRoot: (o: { spawned: boolean; tick: number }) => void ((spawned = o.spawned), (tick = o.tick)),
     /** Spawn every lair of the region (once). */
     spawn() {
       if (spawned) return;

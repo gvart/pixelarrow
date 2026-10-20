@@ -1,3 +1,4 @@
+import type { SimState } from './sim/state';
 import type { Hero } from '../data/units';
 import type { Item } from '../data/items';
 export type TerrainKind = 'grass' | 'forest' | 'sand' | 'marsh' | 'rock' | 'road' | 'snow' | 'dirt';
@@ -320,6 +321,15 @@ export interface WarBuildSim extends WarSim {
   events(): WarEvent[];
   /** M5g: a person changed off the field (level-up choice, dev XP): his living man takes the new record, baked again (HP keeps its wounds). false: not on the field. */
   setPerson(p: WarPerson): boolean;
+  /**
+   * M5e eviction resume (src/war/sim/state.ts): the sim's whole live state as JSON-safe data (units with hp, wounds and
+   * flags, squads and orders, sites and buildings, siege, stock, fog, mobs, tick and rng). importState puts it into a
+   * fresh sim of the same region and seed, which then steps on exactly as the saved one would have.
+   */
+  exportState(): SimState;
+  importState(s: SimState): void;
+  /** M5e: these persons' living men leave the field at once, unreported (D1 already sent them home). */
+  dropPersons(ids: string[]): void;
 }
 export declare function createSim(region: RegionData, seed: number): WarBuildSim; // implemented in src/war/sim/index.ts
 

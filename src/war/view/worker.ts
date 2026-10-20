@@ -149,13 +149,16 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   }
 };
 
-/** Net mode: spawns become joins (the server places the squad on the alliance entry), orders and the camera go up; the
- * economy and placement asks have no live counterpart yet (answered null). */
+/** Net mode: spawns become joins (the server places the squad on the alliance entry), every order (squad control,
+ * work, building, walls, bridges, siege, actives) and the camera go up; placement checks are asked of the server for
+ * our team (the server's answer comes back as the reply). Dev economy asks (claim, stock, damage) have no live
+ * counterpart. */
 function netMessage(n: Net, m: ToWorker): void {
   if (m.t === 'spawn') n.join(m.team, m.cls, m.count);
   else if (m.t === 'order') n.order(m.o);
   else if (m.t === 'view') n.view(m.x0, m.y0, m.x1, m.y1);
-  else if (m.t === 'check') postMessage({ reply: m.id, place: null });
-  else if (m.t === 'checkWall') postMessage({ reply: m.id, wall: null });
-  else if (m.t === 'checkBridge') postMessage({ reply: m.id, bridge: null });
+  else if (m.t === 'check') n.check({ kind: 'building', type: m.type, x: m.x, y: m.y, rot: m.rot }, (r) => postMessage({ reply: m.id, place: r }));
+  else if (m.t === 'checkWall') n.check({ kind: 'wall', ...m.wall }, (r) => postMessage({ reply: m.id, wall: r }));
+  else if (m.t === 'checkBridge') n.check({ kind: 'bridge', ...m.bridge }, (r) => postMessage({ reply: m.id, bridge: r }));
+  else if (m.t === 'endFight') postMessage({ reply: m.id, report: null });
 }

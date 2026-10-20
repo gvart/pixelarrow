@@ -218,6 +218,9 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
   };
 
   return {
+    /** Save and restore (./state.ts). */
+    saveRoot: () => ({ engines, boulders, shots, pathsLeft }),
+    loadRoot: (o: { shots: ShotSnap[]; pathsLeft: number }) => void ((shots = o.shots), (pathsLeft = o.pathsLeft)),
     /** A new engine of `team` at (x,y), its cost paid; its id, or -1 (no stock, no ground). */
     build(team: number, type: SiegeType, x: number, y: number): number {
       if (!hooks.open(x, y) || !works.takeStock(team, SIEGE[type].cost)) return -1;

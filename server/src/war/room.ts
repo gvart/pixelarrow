@@ -11,17 +11,19 @@
  *  - tick: steps the sim, then builds one binary frame per online player from what it may see (src/war/net).
  *  - fights (M5e): once men have fought and FIGHT_QUIET ticks pass with no blow struck and no man falling, the sim's
  *    endFight report leaves tick() with a fight id unique to this room instance; the DO writes it to D1 (idempotent).
- *  - state (M5e): saveState() is a small, bounded record of the region (squads by person id or class and count, their
- *    centres, players, team stock, building sites); WarRoom.restore rebuilds a room from it after an eviction. Hit
- *    points, orders and an unfinished fight are not kept: soldiers come back whole, holding where they stood.
+ *  - state (M5e): saveState() is the whole region: the sim's exact state (sim.exportState: hit points, wounds, orders,
+ *    sites and finished buildings, siege, fog, mobs, rng), the bots, players, squad owners, the join line and the fight
+ *    in progress; WarRoom.restore rebuilds the room from it after an eviction and it steps on as if never stopped
+ *    (players offline: their squads hold where they stand with the hold AI).
  */
 import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
-import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
-import type { BuildingType, FightReport, RegionData, ResourceKind, ShotSnap, Snapshot, SquadId, WarBuildSim, WarPerson } from '../../../src/war/types';
+import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
+import type { SimState } from '../../../src/war/sim/state';
+import type { BridgePlan, FightReport, Order, PlaceResult, RegionData, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarPerson } from '../../../src/war/types';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -39,15 +41,24 @@ export interface Group { cls: string; count: number; persons?: WarPerson[] }
 /** A fight to write back: `id` is unique per room instance (epoch) and tick. */
 export interface Fight { id: string; report: FightReport }
 
-/** The bounded room record kept in DO storage (WarRoom.saveState / restore). */
+/** The room record kept in DO storage (WarRoom.saveState / restore). */
 export interface RoomState {
-  v: 1;
+  v: 2;
   region: string;
   tick: number;
   players: { pid: number; team: number }[];
-  squads: { owner: string; team: number; x: number; y: number; cls: string; count: number; pids: string[] }[];
-  stock: Record<number, Partial<Record<ResourceKind, number>>>;
-  buildings: { type: BuildingType; team: number; x: number; y: number; rot: 0 | 1 }[];
+  owners: (string | null)[];
+  teams: (number | null)[];
+  spawns: number;
+  /** [unit id, tick] of the fallen still on the wire. */
+  died: [number, number][];
+  lastBlow: number;
+  inFight: boolean;
+  queue: Waiting[];
+  /** Person ids on the field (alive), for the D1 check on restore. */
+  pids: string[];
+  sim: SimState;
+  bots: unknown;
 }
 
 export interface RoomOptions {
@@ -80,7 +91,7 @@ interface Player {
   bytes: number;
 }
 
-interface Waiting { pid: number; join: JoinMsg; groups: Group[] }
+export interface Waiting { pid: number; join: JoinMsg; groups: Group[] }
 
 export interface TickTimes { stepMs: number; snapMs: number; netMs: number }
 
@@ -276,19 +287,68 @@ export class WarRoom {
     return new Map([...sum].map(([id, s]) => [id, { x: s.x / s.n, y: s.y / s.n }]));
   }
 
-  /** An order from the player; null when it was taken. */
+  /**
+   * An order from the player; null when it was taken. The squad must be his own (a squad-less site order acts for his
+   * team); targets are checked here where the sim would act on anyone's (a foe squad to attack, his own to merge into,
+   * a site of his team to cancel or upgrade, points inside the region); the sim checks placement, stock and the rest.
+   */
   order(pid: number, o: NetOrder): OrderError | null {
     const p = this.players.get(pid);
     if (!p?.online) return 'notJoined';
     const me = ownerOf(pid);
-    if (this.owners[o.squad] !== me) return 'notOwner';
-    if (o.kind === 'attack' && (this.owners[o.target] === undefined || this.teams[o.target] === p.team)) return 'badTarget';
-    if (o.kind === 'merge' && (this.owners[o.into] !== me || o.into === o.squad)) return 'notOwner';
-    if (o.kind === 'move' && !(o.x >= 0 && o.y >= 0 && o.x < this.region.w && o.y < this.region.h)) return 'bad';
-    this.bots.clear(o.squad);
-    this.sim.order(o);
+    const squad = 'squad' in o ? o.squad : undefined;
+    if (squad !== undefined && this.owners[squad] !== me) return 'notOwner';
+    if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade') return 'bad';
+    const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < this.region.w && y < this.region.h;
+    const allIn = (a?: number[]) => !a || a.every((v, i) => (i % 2 ? v < this.region.h : v < this.region.w) && v >= 0);
+    const ownSite = (id: number) => this.snap.buildings?.find((b) => b.id === id)?.team === p.team;
+    switch (o.kind) {
+      case 'attack':
+        if (this.owners[o.target] === undefined || this.teams[o.target] === p.team) return 'badTarget';
+        break;
+      case 'merge':
+        if (this.owners[o.into] !== me || o.into === o.squad) return 'notOwner';
+        break;
+      case 'move':
+      case 'attackMove':
+      case 'placeBuilding':
+      case 'buildSiege':
+        if (!inside(o.x, o.y)) return 'bad';
+        break;
+      case 'placeWall':
+        if (!allIn(o.points) || !allIn(o.towers) || !allIn(o.gates) || !allIn(o.inside)) return 'bad';
+        break;
+      case 'placeBridge':
+      case 'raiseLadder':
+        if (!allIn(o.kind === 'placeBridge' ? o.points : o.wallTile)) return 'bad';
+        break;
+      case 'cancelSite':
+        if (!ownSite(o.site)) return 'badTarget';
+        break;
+      case 'upgrade':
+      case 'build':
+      case 'civWork':
+        if (!ownSite(o.kind === 'build' ? o.site : o.building)) return 'badTarget';
+        break;
+    }
+    const sent = (squad === undefined && o.kind !== 'cancelSite' ? { ...o, team: p.team } : o) as Order;
+    if (squad !== undefined) this.bots.clear(squad);
+    this.sim.order(sent);
     this.log.push({ tick: this.currentTick, o });
     return null;
+  }
+
+  /** A placement check for the player's team (null: not joined). */
+  check(pid: number, c: CheckMsg): Extract<ServerMsg, { t: 'checked' }> {
+    const p = this.players.get(pid);
+    const team = p?.team;
+    let result: PlaceResult | WallPlan | BridgePlan | null = null;
+    if (team !== undefined) {
+      if (c.kind === 'building') result = this.sim.checkPlacement(team, c.type, c.x, c.y, c.rot);
+      else if (c.kind === 'wall') result = this.sim.checkWall(team, { material: c.material, points: c.points, towers: c.towers, gates: c.gates, inside: c.inside });
+      else result = this.sim.checkBridge(team, { material: c.material, points: c.points, width: c.width });
+    }
+    return { t: 'checked', id: c.id, result };
   }
 
   view(pid: number, r: Rect): void {
@@ -364,50 +424,55 @@ export class WarRoom {
     return out;
   }
 
-  /** The region as a bounded record for DO storage (RoomState): living squads, players, team stock, building sites. */
+  /** The whole region for DO storage (RoomState): the sim's exact state plus the room's own books. */
   saveState(): RoomState {
-    const snap = this.sim.snapshot(); // fresh: squads spawned since the last tick count too
-    const sq = new Map<number, { x: number; y: number; n: number; cls: string; pids: string[] }>();
-    for (const u of snap.units) {
-      if (u.state === 'dead') continue;
-      const s = sq.get(u.squad) ?? { x: 0, y: 0, n: 0, cls: u.cls, pids: [] };
-      s.x += u.x; s.y += u.y; s.n++;
-      if (u.pid) s.pids.push(u.pid);
-      sq.set(u.squad, s);
-    }
-    const squads: RoomState['squads'] = [];
-    for (const [id, s] of sq) {
-      const owner = this.owners[id], team = this.teams[id];
-      if (owner === undefined || team === undefined) continue;
-      squads.push({ owner, team, x: +(s.x / s.n).toFixed(2), y: +(s.y / s.n).toFixed(2), cls: s.cls, count: s.n, pids: s.pids });
-    }
-    const buildings = (snap.buildings ?? [])
-      .filter((b) => b.state !== 'destroyed' && !b.bridge && b.attach === undefined)
-      .map((b) => ({ type: b.type, team: b.team, x: b.x, y: b.y, rot: b.rot }));
-    const players = [...this.players.values()].map((p) => ({ pid: p.pid, team: p.team }));
-    return { v: 1, region: this.region.id, tick: snap.tick, players, squads, stock: snap.stock ?? {}, buildings };
+    const pids = [...this.sim.snapshot().units].filter((u) => u.pid && u.state !== 'dead').map((u) => u.pid!);
+    const died: [number, number][] = [];
+    this.diedAt.forEach((t, id) => t !== undefined && this.currentTick - t < CORPSE_TICKS && died.push([id, t]));
+    return {
+      v: 2, region: this.region.id, tick: this.sim.snapshot().tick,
+      players: [...this.players.values()].map((p) => ({ pid: p.pid, team: p.team })),
+      owners: Array.from(this.owners, (o) => o ?? null), teams: Array.from(this.teams, (t) => t ?? null),
+      spawns: this.spawns, died, lastBlow: this.lastBlow, inFight: this.inFight, queue: this.queue, pids,
+      sim: this.sim.exportState(), bots: this.bots.exportState(),
+    };
   }
 
   /**
-   * A room rebuilt from saveState() after an eviction: squads respawn at their centres (persons from `persons`, the D1
-   * rows still deployed here; men gone meanwhile are left out), every player offline with his squads on the hold AI,
-   * team stock back, buildings back as planned sites where they still fit (the sim has no way to restore a finished
-   * one yet). An unfinished fight starts afresh.
+   * A room rebuilt from saveState() after an eviction: the sim resumes exactly where it was saved, every player offline
+   * with his squads on the hold AI. `persons`: the D1 rows still deployed here; a man on the field D1 no longer has here
+   * (a fight written back after the save) leaves the field unreported.
    */
   static restore(o: RoomOptions, st: RoomState, persons: ReadonlyMap<string, WarPerson>): WarRoom {
     const r = new WarRoom(o);
-    for (const p of st.players) r.players.set(p.pid, { pid: p.pid, team: p.team, online: false, cam: null, enc: null, sinceKey: -1, bytes: 0 });
-    for (const s of st.squads) {
-      const people = s.pids.map((id) => persons.get(id)).filter((x): x is WarPerson => !!x);
-      if (s.pids.length && !people.length) continue;
-      const g: Group = people.length ? { cls: s.cls, count: people.length, persons: people } : { cls: s.cls, count: s.count };
-      const id = r.spawn(s.owner, s.team, g, s);
-      r.bots.set(id, { kind: 'hold', x: s.x, y: s.y, radius: HOLD_RADIUS });
-    }
-    for (const [team, res] of Object.entries(st.stock)) for (const [k, n] of Object.entries(res)) if (n) r.sim.addStock(Number(team), k as ResourceKind, n);
-    for (const b of st.buildings) if (r.sim.checkPlacement(b.team, b.type, b.x, b.y, b.rot).ok) r.sim.order({ kind: 'placeBuilding', team: b.team, type: b.type, x: b.x, y: b.y, rot: b.rot });
+    r.sim.importState(st.sim);
+    r.bots.importState(st.bots);
+    st.owners.forEach((x, i) => x !== null && (r.owners[i] = x));
+    st.teams.forEach((x, i) => x !== null && (r.teams[i] = x));
+    r.spawns = st.spawns;
+    for (const [id, t] of st.died) r.diedAt[id] = t;
+    r.lastBlow = st.lastBlow;
+    r.inFight = st.inFight;
+    r.queue = st.queue;
+    for (const w of st.queue) r.dequeue(w.pid); // nobody is connected to wait: their persons go home (takeReleased)
+    const gone = st.pids.filter((id) => !persons.has(id));
+    if (gone.length) r.sim.dropPersons(gone);
     r.snap = r.sim.snapshot();
+    r.lastTick = r.snap.tick - 1;
+    for (const p of st.players) r.players.set(p.pid, { pid: p.pid, team: p.team, online: false, cam: null, enc: null, sinceKey: -1, bytes: 0 });
+    for (const p of st.players) r.leave(p.pid); // hold where they stand
+    r.recount();
     return r;
+  }
+
+  /** Living soldiers per alliance from the current snapshot. */
+  private recount(): void {
+    this.live = this.per.map(() => 0);
+    for (const u of this.snap.units) {
+      if (u.state === 'dead') continue;
+      const t = this.teams[u.squad];
+      if (t !== undefined && t < this.live.length) this.live[t]++;
+    }
   }
 
   /** The current full snapshot (tests). */

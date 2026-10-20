@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { DeltaDecoder, DeltaEncoder, type FrameInput } from '../../../src/war/net/codec';
 import { QUANT } from '../../../src/war/net/protocol';
 import { createSim } from '../../../src/war/sim';
-import type { BuildingSnap, Snapshot, UnitSnap } from '../../../src/war/types';
+import { makePerson } from '../../../src/war/sim/roster';
+import type { BuildingSnap, Snapshot, UnitSnap, WarPerson } from '../../../src/war/types';
 import { warRegion } from '../../src/war/regions';
 
 const region = warRegion('test-ridge')!;
@@ -46,6 +47,28 @@ describe('war delta codec', () => {
     expect(shots).toBeGreaterThan(0);
     // a delta is far smaller than a keyframe of 40 units
     expect(deltaBytes / 118).toBeLessThan(keyBytes);
+  });
+
+  it('carries person id and level, and the squad active as a countdown', () => {
+    const sim = createSim(region, 3);
+    const men = Array.from({ length: 6 }, (_, i) => makePerson(`m${i}`, 'hoplite', { level: 7 - i }));
+    men[0] = { ...men[0], skills: ['shieldWall'] as WarPerson['skills'] };
+    const a = sim.spawnSquad('p:1', 0, 'hoplite', 6, 420, 250, men);
+    sim.spawnSquad('p:2', 1, 'archer', 4, 432, 252);
+    const enc = new DeltaEncoder(), dec = new DeltaDecoder();
+    sim.step();
+    let out = dec.apply(enc.encode(frame(sim.snapshot()), true));
+    expect(out.units.filter((u) => u.squad === a).map((u) => [u.pid, u.level])).toEqual(men.map((p) => [p.id, p.hero.level]));
+    expect(out.units.find((u) => u.squad !== a)!.pid).toBeUndefined();
+    const s0 = sim.snapshot().squads[a];
+    expect(out.squads[a].active).toEqual(s0.active);
+    sim.order({ kind: 'active', squad: a });
+    for (let t = 0; t < 30; t++) {
+      sim.step();
+      out = dec.apply(enc.encode(frame(sim.snapshot()), false));
+      expect(out.squads[a].active).toEqual(sim.snapshot().squads[a].active);
+    }
+    expect(out.squads[a].active!.ready).toBeGreaterThan(0);
   });
 
   it('removes units that leave the view and sends nothing for idle ones', () => {

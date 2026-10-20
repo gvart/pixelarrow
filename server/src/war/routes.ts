@@ -2,11 +2,15 @@
  * War roster API (/api/war/*, M5e): the player's persistent soldiers (./persons.ts). Signed in and playable like the
  * online routes; bodies zod-checked.
  *
- *   GET  /roster                      persons, caps, recruit pools, stock, stash items
+ *   GET  /roster                      persons, caps, recruit pools, stock, stash items, captives held, upkeep
  *   POST /recruit       { town, count }        L1 militia from the town's pool (food)
  *   POST /persons/:id/equip { slot, uid|null } put on a stash item, or take one off
  *   POST /persons/:id/level { attrs?, skill? } spend points, take a skill at levels 3 / 7
  *   POST /squad         { ids }                the field squad in slot order (<= SQUAD_MAX)
+ *   POST /persons/:id/train  { cls }          train at a town's barracks / range (10 min, a kit's silver)
+ *   POST /persons/:id/ransom                  pay a captive's ransom (silver to his captor): he comes home
+ *   POST /persons/:id/retire { civ? }         retire (half his gear's value back); level 10: into a civilian class
+ *   POST /captives/:id/release                the captor lets a captive he holds go
  *   POST /dev/seed      { squad?, reserve? }   DEV_AUTH=1 only: a full roster to test with
  */
 import { Hono } from 'hono';
@@ -20,7 +24,7 @@ import { ATTR_IDS, ATTR_MAX } from '../../../src/data/perks';
 import { SKILLS } from '../../../src/war/sim/skills';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
 import type { WarSkillId } from '../../../src/war/types';
-import { equip, formSquad, levelUp, recruit, roster, ROSTER_MAX, seed } from './persons';
+import { equip, formSquad, levelUp, payRansom, recruit, releaseCaptive, retire, roster, ROSTER_MAX, seed, train } from './persons';
 
 export const war = new Hono<AppEnv>();
 // per route, not war.use('/*'): /api/war/:region/stats (dev, index.ts) shares the prefix
@@ -60,6 +64,29 @@ war.post('/persons/:id/level', requirePlayable, async (c) => {
 war.post('/squad', requirePlayable, async (c) => {
   const b = await readJson(c, z.object({ ids: z.array(personId).max(SQUAD_MAX) }), MAX_BODY);
   await formSquad(db(c.env), c.get('session').pid, b.ids, Date.now());
+  return c.json({ ok: true });
+});
+
+war.post('/persons/:id/train', requirePlayable, async (c) => {
+  const id = idParam(c.req.param('id'));
+  const b = await readJson(c, z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/) }), MAX_BODY);
+  return c.json({ until: await train(db(c.env), c.get('session').pid, id, b.cls, Date.now()) });
+});
+
+war.post('/persons/:id/ransom', requirePlayable, async (c) => {
+  const id = idParam(c.req.param('id'));
+  return c.json({ paid: await payRansom(db(c.env), c.get('session').pid, id, Date.now()) });
+});
+
+war.post('/persons/:id/retire', requirePlayable, async (c) => {
+  const id = idParam(c.req.param('id'));
+  const b = await readJson(c, z.object({ civ: z.string().regex(/^[a-z_]{1,24}$/).optional() }), MAX_BODY);
+  return c.json({ refund: await retire(db(c.env), c.get('session').pid, id, b.civ, Date.now()) });
+});
+
+war.post('/captives/:id/release', requirePlayable, async (c) => {
+  const id = idParam(c.req.param('id'));
+  await releaseCaptive(db(c.env), c.get('session').pid, id, Date.now());
   return c.json({ ok: true });
 });
 

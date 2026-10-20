@@ -56,6 +56,19 @@ import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
 import { AT_BUILDING, CIV, CIV_QUOTA, CIV_XP, civJob, CLIP, COOK, ENGINEER, FORAGER, MERCHANT, PHYSICIAN, SMITH, wornest, type CivJob } from './civilians';
 import { FALL as FALL_RULE } from './soldiers';
 import { isCivClass } from '../../data/classes';
+import { decodeGraph, encodeGraph, externals, STATE_VERSION, type SimState } from './state';
+import { MOBS } from './mobs';
+import { SIEGE } from './siege';
+
+/** Save and restore: the constants a sim's state points at (named, not copied) and a fresh sim's root per region (typed-array diffs). */
+const exts = new WeakMap<RegionData, Map<object, string>>();
+const constsOf = (region: RegionData) => {
+  let m = exts.get(region);
+  if (!m) exts.set(region, (m = externals({ region, BUILDINGS, SIEGE, MOBS })));
+  return m;
+};
+const fresh = new WeakMap<RegionData, unknown>();
+const roots = new WeakMap<WarBuildSim, () => unknown>();
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -1907,8 +1920,47 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     stepMs = performance.now() - t0;
   };
 
+  /** Everything a step reads that is not rebuilt each tick (head / next, files, platLoad are per-tick scratch). */
+  const saveRoot = () => ({
+    grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, drops, dropId, loot, log, civs, rations,
+    works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(),
+  });
+
   const api: WarBuildSim = {
     region,
+    exportState(): SimState {
+      let base = fresh.get(region);
+      if (!base) fresh.set(region, (base = roots.get(createSim(region, seed))!()));
+      return { v: STATE_VERSION, region: region.id, seed, ...encodeGraph(saveRoot(), constsOf(region), base) };
+    },
+    importState(st: SimState) {
+      if (st.v !== STATE_VERSION || st.region !== region.id) throw new Error(`sim state v${st.v} of ${st.region} does not fit v${STATE_VERSION} of ${region.id}`);
+      if (tick !== 0 || units.length) throw new Error('importState: only into a fresh sim');
+      const keyed = new Map([...constsOf(region)].map(([o, k]) => [k, o]));
+      const r = decodeGraph(st, keyed, saveRoot()) as ReturnType<typeof saveRoot>;
+      if (r.grid !== grid || r.squads !== squads || r.units !== units || r.rng !== rng) throw new Error('importState: live state not bound');
+      ({ missiles, shots, tick, drops, dropId, loot, log } = r);
+      works.loadRoot(r.works);
+      siege.loadRoot(r.siege);
+      mobs.loadRoot(r.mobs);
+      vision.loadRoot(r.vision);
+    },
+    dropPersons(ids) {
+      // a resumed region whose save predates a fight write-back: men D1 has already sent home leave without a report
+      const gone = new Set(ids);
+      for (const u of units) {
+        if (!u.alive || !u.person || !gone.has(u.person.id)) continue;
+        u.alive = false;
+        u.hp = 0;
+        u.reported = true;
+        u.squad.alive--;
+        u.tgt = null;
+        if (u.job) works.setJob(u, null);
+        reslotQueue.add(u.squad);
+      }
+      for (const s of reslotQueue) if (s.alive > 0) reslot(s);
+      reslotQueue.clear();
+    },
     spawnSquad(owner, team, cls, count, x, y, persons) {
       // M5b: one man per person, each with his own baked stats
       let ps = persons?.slice(0, SQUAD_MAX) ?? null;
@@ -2039,6 +2091,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return true;
     },
   };
+  roots.set(api, saveRoot);
   return api;
 }
 
