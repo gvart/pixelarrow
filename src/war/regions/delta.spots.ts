@@ -4,17 +4,18 @@ export const SPOTS = {
   "entry_kyrene-s": [502.5, 256.5],
   "entry_achelous": [256.5, 10.5],
   "riverFord": [245.9, 133.5],
-  "riverNarrows": [49.6, 105.5],
-  "riverNarrowsA": [48, 116.6],
-  "riverNarrowsB": [51.1, 94.5],
+  "riverFord1": [304.5, 138.5],
+  "riverNarrows": [49.3, 108.5],
+  "riverNarrowsA": [48, 119.6],
+  "riverNarrowsB": [50.6, 97.4],
   "narrows": [245.9, 133.5],
   "river1Ford": [359.9, 247.5],
-  "landmark": [291, 401],
+  "landmark": [236, 345],
   "market": [235.2, 238.4],
-  "fields": [126.3, 147.9],
+  "fields": [80.9, 63.1],
   "iron": [72.8, 384.4],
-  "salt": [211.5, 344],
-  "food": [431.9, 124.9],
+  "salt": [335, 72.7],
+  "food": [384.4, 174.7],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":238.5,"y":234.5},{"x":294.5,"y":408.5},{"x":185.5,"y":193.5}] as const;
+export const CLAIM_POINTS = [{"x":238.5,"y":241.5},{"x":233.5,"y":389.5},{"x":162.5,"y":151.5}] as const;
