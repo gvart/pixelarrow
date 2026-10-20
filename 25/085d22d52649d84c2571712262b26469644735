@@ -1,0 +1,98 @@
+server/test/simVersion.test.ts
+  s_cfc22b058125c4::t_b5a68314c5a297 9
+  s_cfc22b058125c4::t_a9a282187f0b44 86-87,96-97
+server/src/online/routes.ts
+  s_cfc22b058125c4::t_a842eaac63b610 18,22,218,226
+  s_cfc22b058125c4::t_3e0d1c407b4f1a 51-53
+  s_cfc22b058125c4::t_fa0fa0f1715c82 83
+  s_cfc22b058125c4::t_438566fab167af 66
+  s_cfc22b058125c4::t_0feb563cebc487 2-6
+  s_cfc22b058125c4::t_0715f87965aaf9 88
+wrangler.jsonc
+  s_cfc22b058125c4::t_326f931569af00 86-88
+server/test/public-snapshot.test.ts
+  s_cfc22b058125c4::t_1e089507a1a54d 199,202,204,206-207,209-210,214-215,218,241-242
+server/test/deletion-map.test.ts
+  s_cfc22b058125c4::t_d90c86cb9dccea 50,53
+server/test/ops.test.ts
+  s_cfc22b058125c4::t_8cfbcb279f20f8 346
+server/src/public/snapshot.ts
+  s_cfc22b058125c4::t_167bbaaee02c52 81-87
+  s_cfc22b058125c4::t_473888c6034831 76,121-123
+server/test/onlineHelpers.ts
+  s_cfc22b058125c4::t_231c6035b94dfb 6,30
+  s_cfc22b058125c4::t_71775423a5c614 139
+server/test/auth.test.ts
+  s_cfc22b058125c4::t_98d69929349f85 114
+server/src/online/store.ts
+  s_cfc22b058125c4::t_49a8c49cde290e 2-4,17,103-105,108,148-149,155,160,162
+  s_cfc22b058125c4::t_438566fab167af 24-25,75,236,250,255
+server/migrations/0027_drop_old_war.sql
+  s_cfc22b058125c4::t_6e2a2c95dd69ce 1-19
+server/vitest.config.ts
+  s_cfc22b058125c4::t_0e5f66a0905bac 5,33
+server/test/sessions.test.ts
+  s_cfc22b058125c4::t_72dbfeadc1e5f1 182,205,302
+server/test/migrations.test.ts
+  s_cfc22b058125c4::t_49030688fa550e 7,15-19,103-105
+server/test/muster.test.ts
+  s_cfc22b058125c4::t_9d5922a35d3ecc 2,16
+server/src/account/delete.ts
+  s_cfc22b058125c4::t_4e715765e28c0c 114,119
+  s_cfc22b058125c4::t_6d3050aa3b759a 200
+  s_cfc22b058125c4::t_167bbaaee02c52 208,225
+server/test/account-telegram-link.test.ts
+  s_cfc22b058125c4::t_98d69929349f85 355-356,597-598,623-624
+server/src/notify/outbox.ts
+  s_cfc22b058125c4::t_38413fbcd4b529 92-93,98
+server/src/admin/routes.ts
+  s_cfc22b058125c4::t_167bbaaee02c52 26,266
+server/src/online/context.ts
+  s_cfc22b058125c4::t_438566fab167af 6,32-33
+server/src/tickets.ts
+  s_cfc22b058125c4::t_a8c505c6422cb8 3
+  s_cfc22b058125c4::t_c3d7e332491bf0 2,20,31,54,68
+server/src/account/conflicts.ts
+  s_cfc22b058125c4::t_473888c6034831 110
+server/test/notify.test.ts
+  s_cfc22b058125c4::t_0d1d7bd36c8391 1,9
+  s_cfc22b058125c4::t_51b659fb28059a 5,246,262
+server/test/account-link.test.ts
+  s_cfc22b058125c4::t_98d69929349f85 417-418
+server/test/public-names.test.ts
+  s_cfc22b058125c4::t_3ae3d7d8e17dfd 4-6,9,30
+server/test/economy.test.ts
+  s_cfc22b058125c4::t_9d5922a35d3ecc 174
+  s_cfc22b058125c4::t_1e3a49487379cc 4,6,153
+  s_cfc22b058125c4::t_98d69929349f85 156
+server/src/online/clans.ts
+  s_cfc22b058125c4::t_38413fbcd4b529 2,5-6,69,92,164,183,211,229,238
+  s_cfc22b058125c4::t_473888c6034831 155
+server/README.md
+  s_cfc22b058125c4::t_c684e5c26afc8e 63,435,438-440,445,623-629,633
+  s_cfc22b058125c4::t_c102072b3387ba 277-279,289
+  s_cfc22b058125c4::t_381846625943bf 15-16,26,34-36,38,92,208,210-217,219-220,226-228,232-233,235,238,275
+server/src/index.ts
+  s_cfc22b058125c4::t_03e2e89afa14a5 43-45
+server/src/online/consumables.ts
+  s_cfc22b058125c4::t_438566fab167af 16,62-63,69-70,87
+server/test/deletion.test.ts
+  s_cfc22b058125c4::t_01524cb103f718 21
+  s_cfc22b058125c4::t_98d69929349f85 220,225-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "25085d22d52649d84c2571712262b26469644735",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
