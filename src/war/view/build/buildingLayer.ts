@@ -87,6 +87,8 @@ const LABYRINTH = 'navel-labyrinth';
 const RUIN_TINT = 0xb8aea0;
 /** M7g: a damaged pre-built piece whose town art has no damaged look, soot-dark; a fouled well, murky green. */
 const SOOT_TINT = 0x9a9088, FOUL_TINT = 0x9fb487;
+/** How long (ms) a building shows its hp bar after a hit. */
+const HIT_MS = 6000;
 /** Siege ladder foot from the wall face in tiles (public/war/siege/objects.json ladders.targets footM / 2 m). */
 const SIEGE_FOOT: Partial<Record<BuildingType, number>> = { stoneWall: 0.945, stoneTower: 0.945, stoneGate: 0.945, rampart: 0.645, woodTower: 0.645, woodGate: 0.645 };
 /** How a building is drawn this frame: the type and stage shown (an upgrade shows the old tier), and the grown tiles' stage. */
@@ -898,10 +900,20 @@ export class BuildingLayer {
     g.lineStyle(lw * 2, team, 1).lineBetween(t[3].x, t[3].y, t[1].x, t[1].y);
   }
 
-  /** Progress (green) over materials delivered (amber) while building; hp while damaged. */
+  /** Last hp seen per building and when it last fell (ms): a building under attack shows its hp bar for HIT_MS. */
+  private hits = new Map<number, { hp: number; at: number }>();
+
+  /**
+   * Progress (green) over materials delivered (amber) while building; hp while damaged, but only on the hovered or
+   * selected building or one hit in the last HIT_MS (in combat): a ruined quarter is not a field of bars.
+   */
   private bar(g: Phaser.GameObjects.Graphics, b: BuildingSnap, c: P, zoom: number): void {
     const building = b.state === 'foundation' || b.state === 'scaffold';
+    const now = this.scene.time.now, seen = this.hits.get(b.id);
+    if (!seen) this.hits.set(b.id, { hp: b.hp, at: -Infinity });
+    else if (b.hp !== seen.hp) { if (b.hp < seen.hp) seen.at = now; seen.hp = b.hp; }
     if (!building && b.state !== 'damaged') return;
+    if (!building && b.id !== this.selected && b.id !== this.hovered && now - (seen?.at ?? -Infinity) > HIT_MS) return;
     if (building && (BUILDINGS[b.type].wall === 'segment' || BUILDINGS[b.type].bridge) && b.delivered === 0) return; // a wall line of empty bars is noise
     const tall = this.art?.meta(b.type)?.heightPx || HEIGHT[b.type] || 60;
     const k = 1 / Math.max(zoom, 1 / 4), w = 44 * k, h = 4 * k, x = c.x - w / 2, y = c.y - tall - 14 * k;
