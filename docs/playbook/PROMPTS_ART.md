@@ -2536,3 +2536,71 @@ no ground, no grass` (+ per row). Graded sat 0.62, val 0.78, snapped to the elai
 **Lessons:** (1) "dark epic desaturated" still comes out bright: grade every raw. (2) Name the roof and say "no
 battlements" or a house turns into a keep. (3) A long portico now comes when the prompt counts the columns and names the
 back wall.
+
+## 40. Landmarks (ART-L)
+
+### 40b Ruins, FX and rare goods
+
+W-47 "Pre-built structures": a razed piece becomes a ruin in place (rubble footprint, slow ×2, cover). **26 PixelLab
+generations** (19 pixflux img2img incl. 3 redos, 6 pixen icons, 1 rejected). Mock-ups: `node
+scripts/war/art/landmarks-preview.mjs` -> `shots/war/landmarks/` (`RUINS_town_1x`, `RUINS_town_2x_crop`,
+`RUINS_walls_1x`, `FX_scene_1x`, `FX_scene.gif`, `FX_strips_half`, `ICONS_rare_32_4x`).
+
+**Kit ruins (0 generations, `buildings.mjs`).** A `ruined` state for the stone kits only: `stone-wall` (back + front),
+`tower-stone`, `stone-tower`, `stone-gate-x/y` and the four stone deep gates (iron variants: none, they share the ruin).
+Wall: `wreckProf(W, k, 1.6, 0.14)` (thrown down to ~0.7 m in whole courses) and `talus(n, k, wood, 1.35, 1.25)` (a
+wider, higher talus, a second fallen block); tower: socle stumps 0.7–1.3 m, four rubble heaps (one of roof tile);
+gate: jambs to 20–38% of the walk, the passage choked with two heaps. All sooted. Sprites carry `rubble: true` and
+`blocksMovement: false`. **Ruined sprites are left out of the palette median cut** (they snap to it): rerunning
+`buildings.mjs` rewrote no earlier PNG.
+
+**Town pieces (`town.mjs`).** `--inits` writes the pixflux inits from the keyed intact raw (bottom-right in a canvas
+padded to ×4): damaged = 5 holes in the top third + `scorch`; ruined = everything above a jagged line at ~half the
+height gone + `soot` + `scorch` 1.3. `--fetch` pulls `town-jobs.json` `states` (`/mcp/images/<id>/download`). Build: the
+state raw is cut back to the intact frame, specks under 1% dropped, graded and scaled by the intact's factor, and keeps
+the intact anchor (shifted by the crop). Tower, gates, court walls: copies of the kit states (walls uncut, the talus
+clipped at the footprint's near edges so the anchor stays in the foot span). Olive press: damaged = the buildings
+state, ruined = pixflux over `olive-press-done`. Calls: `isometric`, high top-down, highly detailed, detailed shading,
+`no_background`, seed 31 (redos 7), every prompt ends `, high isometric three-quarter view, dark epic desaturated
+colours, pixel art, transparent background`. Strength 200 damaged, 110–140 ruined.
+
+| piece | damaged (strength) | ruined (strength) |
+| --- | --- | --- |
+| house-a | `a burnt and damaged ancient Greek town house: whitewashed mudbrick walls cracked and blackened with soot, the terracotta tile roof partly collapsed with charred broken rafters and holes, fallen roof tiles and rubble at the foot of the walls` (200) | `the ruin of an ancient Greek town house razed to the ground: only jagged broken stumps of the stone walls stand, empty black doorways without doors, no roof, the inside filled with heaps of fallen stones, broken terracotta roof tiles and charred black beams, big heaps of rubble spilling out round the walls, everything blackened with soot` (120). Rejected at 170 with "walls about waist high": stumps with both doors still standing, no rubble |
+| house-b | `a burnt and badly damaged ancient Greek two-storey merchant's house: big holes burnt through the terracotta tile roof showing charred black rafters, part of the roof fallen in, plastered and fieldstone walls cracked and blackened with soot, the wooden balcony broken and hanging, fallen roof tiles and rubble heaped at the foot of the walls` (150; at 200 the roof came back whole) | `the ruin of an ancient Greek two-storey merchant's house razed to the ground: only jagged broken stumps of the fieldstone walls stand, empty black doorways, no roof, no balcony, …` (120; a smoke plume came, kept) |
+| cottage | `a burnt and badly damaged humble ancient Greek village cottage: the thatched straw roof half burnt away, big black holes with charred rafters showing through, scorched black thatch, …` (150; 200 was untouched) | `the burnt-out ruin of a humble ancient Greek village cottage: only low broken stumps of the rough fieldstone walls stand, an empty black doorway, the thatch roof burnt away completely, the inside a heap of black ash, …` (120; came as a burnt log stockade, kept) |
+| temple | `a damaged ancient Greek Doric temple: weathered marble columns cracked and chipped, two columns broken off, the roof and pediment partly collapsed …` (200) | `the ruin of an ancient Greek Doric temple: the stepped marble platform with only broken stumps of fluted columns standing at different heights, no roof, fallen column drums …` (140) |
+| stoa | `a damaged ancient Greek stoa: a long portico of pale stone columns, its long sloping tiled roof partly collapsed …` (200; holes only) | `the ruin of an ancient Greek stoa: a long row of broken column stumps … a broken low back wall, no roof …` (140) |
+| statue | `a damaged ancient Greek bronze statue of a hoplite on a tall marble plinth: the statue's spear and shield arm broken off …` (200) | `a toppled ancient Greek statue: a broken square marble plinth with only the bronze feet of the statue left on top, the rest … lying broken on the ground beside it …` (110) |
+| well | `a damaged ancient Greek town well: the round marble well head cracked and chipped, the wooden crossbeam frame broken and charred, hanging askew …` (200) | `a ruined ancient Greek town well: the round marble well head smashed down to a low broken ring of cracked stones half filled with rubble, the wooden frame gone …` (120) |
+| jetty | `a damaged ancient wooden jetty: … several planks broken and missing, the ends charred black, a mooring post snapped` (200) | `the burnt-out wreck of an ancient wooden jetty: only the charred black stumps of the thick wooden piles stand in a row …` (120; the init's cut took the far half: a short wreck) |
+| olive press | (buildings `olive-press-damaged`) | `the ruin of an ancient olive mill: the wide round stone basin smashed and broken open, the huge millstone wheel fallen flat on its side and cracked in two …` (120; the wheel went, jars stand in the basin) |
+
+**FX (0 generations, `landmark-fx.mjs` -> `public/war/fx/`, own `objects.json` + palette, `qa.mjs` `qaFx`).** Drawn on a
+density field: puffs add a smooth bump and carry a value (heat / lightness); a px is drawn above a threshold with a
+dithered band, coloured by the weighted value and lit from the upper left by the density gradient (single circles read
+as orange balls; the field merges them into one mass). `breath-se|ne-ignite` (8 frames, the jet reaching out) and
+`-loop` (12, seamless: each puff's distance is `frac(i/N + n/F)`): 280 puffs over a 12 m cone on the ground's iso
+axis, 7.2 m wide at the end, rising and reddening, smoke off the tip, a white-hot jet at the mouth, fire v2's ramp;
+flipX for sw / nw. `crash-dust` (14): a 6 m iso ring of 150 puffs racing out with an ease-out, rising and thinning, a
+central column sinking back, a dark shock line, 18 thrown stones. `scylla-strike` (12): a three-lobed water column,
+a splash ring behind and in front, falling droplets, foam. Anchors on the ground / water point; `use` says where to
+ignite (fire v2 tongues and siege `scorch` under the cone's end).
+
+**Rare-good icons (`ui-landmark.mjs`, additive after `ui-craft.mjs`).** Pixen 32x32, `no_background`, `single color
+outline`, the §36 template `game UI icon, <subject>, <name> icon, dark epic ancient Greek style, desaturated gritty
+colours, thick dark outline, readable silhouette`; fitted to 32 / 24 (+@2x) and snapped to the kit palette (no new
+colours); `goodTier: rare`, `landmark: <region>`. Subjects: dragonbone `a huge curved pale ivory dragon claw bone,
+yellowed old bone with a cracked knuckle end`; nereid pearl `one large lustrous pale pearl with a faint sea-green sheen
+lying in an open dark grey-blue sea shell`; star iron `a rough lump of dark meteoric iron, pitted black-grey metal with
+a cold blue-grey sheen and a few tiny bright glints`; asphodel `a stem of pale asphodel flowers, a spike of pale
+star-shaped petals with dark red-brown veins on a long grey-green stalk`; titan bronze `a heavy ox-hide shaped ingot of
+dark ancient bronze with a deep reddish gold sheen, stamped with a large hand mark` (came grey with red, weak: a redo
+candidate); obsidian `a sharp chunk of glossy black volcanic obsidian glass with smooth curved fractured faces and a
+dark violet sheen on the edges`.
+
+**Lessons:** (1) img2img over an intact sprite keeps it intact at 200: damage needs ~150, a ruin 110–140 *and* an init
+already cut down; "waist high" walls kept their doors, "empty black doorways without doors" removed them. (2) A cut
+init on a flat piece (jetty) loses its far half, not its height: cut flat pieces along their length instead. (3) Leave
+new states out of a shared median-cut palette, or every earlier sprite moves. (4) Particle FX in pixel art: accumulate
+a density field and threshold it; per-particle discs read as beads.
