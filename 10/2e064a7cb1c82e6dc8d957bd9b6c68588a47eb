@@ -1,0 +1,30 @@
+src/assets/sheets/mob_brontes/manifest.json
+  s_cfc22b058125c4::t_4bd0485a8739bf 1-85
+docs/v5/pixellab/GUARD/maenad_queen.jobs.json
+  s_cfc22b058125c4::t_480ae97f0cb4f7 1-6
+docs/v5/pixellab/GUARD/brontes.sheet.json
+  s_cfc22b058125c4::t_4bd0485a8739bf 1-74
+docs/v5/pixellab/GUARD/gyges.jobs.json
+  s_cfc22b058125c4::t_dba68a57caf716 5
+  s_cfc22b058125c4::t_480ae97f0cb4f7 6-7
+docs/v5/pixellab/GUARD/maenad.jobs.json
+  s_cfc22b058125c4::t_dba68a57caf716 7-9
+scripts/art/pixellab/guard/spec.mjs
+  s_cfc22b058125c4::t_98cffff4acfbb1 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "102e064a7cb1c82e6dc8d957bd9b6c68588a47eb",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
