@@ -1,8 +1,8 @@
 // War sim bench (docs/impl/global-war-rebuild.md M1a, M1c), two runs on the test-ridge region:
-//  - march: 30 squads x 20 units cross the map west <-> east (over the ford, the bridge and
+//  - march: 50 squads x 12 units (SQUAD_MAX) cross the map west <-> east (over the ford, the bridge and
 //    the pass), all re-pathing at once halfway;
-//  - brawl: 300 vs 300 (15 bot squads a side, mixed classes) attack-move into each other on the east field;
-//  - build: 30 squads x 20 workers each raise a camp, then a fort (fetching stone and wood from the camp): 30 sites
+//  - brawl: 300 vs 300 (25 bot squads a side, mixed classes) attack-move into each other on the east field;
+//  - build: 50 squads x 12 workers each raise a camp, then a fort (fetching stone and wood from the camp): 50 sites
 //    under construction at once (M2a); run twice, the second (JIT warm) is reported.
 // Prints the step time of each. Usage: npm run bench:war [-- ticks [regionDir]]   (default 2400 ticks = 4 min of game time;
 // regionDir holds a test-ridge.json + test-ridge.spots.ts, e.g. from scripts/war/buildTestRidge.ts 512 <dir>)
@@ -24,12 +24,13 @@ const region = schema.parseRegion(JSON.parse(readFileSync(`${dir}/test-ridge.jso
 
 const shapes = ['line', 'column', 'wedge', 'loose'];
 const [WX, EX] = [12, region.w - 12];
-const ys = (k) => 14 + ((k * 15) % (region.h - 28));
+const SQUADS = 50, N = 12;
+const ys = (k) => 14 + ((k * 9) % (region.h - 28));
 const marchSim = () => {
   const war = sim.createSim(region, 1);
-  for (let k = 0; k < 30; k++) {
+  for (let k = 0; k < SQUADS; k++) {
     const west = k % 2 === 0;
-    const id = war.spawnSquad(`p${k}`, west ? 0 : 1, 'militia', 20, west ? WX : EX, ys(k));
+    const id = war.spawnSquad(`p${k}`, west ? 0 : 1, 'militia', N, west ? WX : EX, ys(k));
     war.order({ kind: 'formation', squad: id, shape: shapes[k % 4] });
     war.order({ kind: 'move', squad: id, x: west ? EX : WX, y: region.h - ys(k) });
   }
@@ -39,7 +40,7 @@ const war = marchSim();
 const ms = [];
 const REPATH = Math.floor(ticks / 2); // every squad re-paths at once (turns back west/east)
 for (let t = 0; t < ticks; t++) {
-  if (t === REPATH) for (let k = 0; k < 30; k++) war.order({ kind: 'move', squad: k, x: k % 2 === 0 ? WX : EX, y: ys(k) });
+  if (t === REPATH) for (let k = 0; k < SQUADS; k++) war.order({ kind: 'move', squad: k, x: k % 2 === 0 ? WX : EX, y: ys(k) });
   war.step();
   ms.push(war.stats().stepMs);
 }
@@ -49,25 +50,25 @@ const summary = (ms) => {
   return `avg ${avg.toFixed(2)} ms, p95 ${sorted[Math.floor(sorted.length * 0.95)].toFixed(2)} ms, max ${sorted.at(-1).toFixed(2)} ms`;
 };
 const moving = war.snapshot().units.filter((u) => u.state === 'move').length;
-// the same 30 cross-map orders again, JIT warm: the worst search tick a running game sees
+// the same 50 cross-map orders again, JIT warm: the worst search tick a running game sees
 const warm = marchSim();
 let warmMax = 0;
 for (let t = 0; t < 20; t++) warm.step(), (warmMax = Math.max(warmMax, warm.stats().stepMs));
 console.log(
   `march: units ${war.stats().units}, ticks ${ticks}: ${summary(ms)} (first tick, cold JIT ${ms[0].toFixed(2)} ms; ` +
-    `30 cross-map orders, warm: worst tick ${warmMax.toFixed(2)} ms; 30 re-paths at tick ${REPATH}: ${ms[REPATH].toFixed(2)} ms); still moving ${moving}`,
+    `50 cross-map orders, warm: worst tick ${warmMax.toFixed(2)} ms; 50 re-paths at tick ${REPATH}: ${ms[REPATH].toFixed(2)} ms); still moving ${moving}`,
 );
 
-// brawl: 3 rows x 5 squads a side, about 40 tiles apart, on the open field east of the river
+// brawl: 5 rows x 5 squads a side, about 40 tiles apart, on the open field east of the river
 const brawl = sim.createSim(region, 2);
 const ai = bots.createBots(brawl);
 const classes = ['militia', 'hoplite', 'archer', 'celt_sword', 'slinger'];
 for (let side = 0; side < 2; side++)
-  for (let row = 0; row < 3; row++)
+  for (let row = 0; row < 5; row++)
     for (let col = 0; col < 5; col++) {
       const x = fieldE[0] - 18 + col * 9;
-      const y = fieldE[1] + (side === 0 ? -26 + row * 6 : 26 - row * 6);
-      const id = brawl.spawnSquad(`p${side}-${row}-${col}`, side, classes[(row * 5 + col + side) % 5], 20, x, y);
+      const y = fieldE[1] + (side === 0 ? -30 + row * 5 : 30 - row * 5);
+      const id = brawl.spawnSquad(`p${side}-${row}-${col}`, side, classes[(row * 5 + col + side) % 5], N, x, y);
       ai.set(id, { kind: 'attackMove', x, y: fieldE[1] + (side === 0 ? 20 : -20) });
     }
 const bms = [];
@@ -81,7 +82,7 @@ const dead = snap.units.filter((u) => u.state === 'dead');
 const left = [0, 1].map((side) => snap.units.filter((u) => u.state !== 'dead' && snap.squads[u.squad].team === side).length);
 console.log(`brawl: units ${snap.units.length}, ticks ${ticks}: ${summary(bms)}; fallen ${dead.length} (${dead.filter((u) => u.wounded).length} wounded), left ${left[0]} vs ${left[1]}`);
 
-// build: 30 claims spread over the map, a camp each, then a fort next to it (stone and wood fetched from the camp)
+// build: 50 claims spread over the map, a camp each, then a fort next to it (stone and wood fetched from the camp)
 const buildRun = () => {
   const site = sim.createSim(region, 3);
   const near = (type, x, y) => {
@@ -92,13 +93,13 @@ const buildRun = () => {
     return null;
   };
   const crews = [];
-  for (let k = 0; k < 30; k++) {
-    const x = 40 + (k % 6) * Math.floor((region.w - 80) / 5);
-    const y = 40 + Math.floor(k / 6) * Math.floor((region.h - 80) / 4);
+  for (let k = 0; k < SQUADS; k++) {
+    const x = 40 + (k % 10) * Math.floor((region.w - 80) / 9);
+    const y = 40 + Math.floor(k / 10) * Math.floor((region.h - 80) / 4);
     site.claim(0, x, y, 30);
     const camp = near('camp', x, y);
     if (!camp) continue;
-    const id = site.spawnSquad(`b${k}`, 0, 'militia', 20, camp[0] + 3, camp[1] + 3);
+    const id = site.spawnSquad(`b${k}`, 0, 'militia', N, camp[0] + 3, camp[1] + 3);
     site.order({ kind: 'placeBuilding', squad: id, type: 'camp', x: camp[0], y: camp[1] });
     crews.push([id, camp]);
   }
@@ -131,7 +132,7 @@ console.log(
   war.spawnMobs();
   const cp = region.claimPoints[0], lairs = region.lairs;
   for (let k = 0; k < 8; k++) {
-    const id = war.spawnSquad('you', 0, ['hoplite', 'archer', 'celt_sword', 'militia'][k % 4], 20, cp.x + (k % 4) * 4, cp.y + 4 + Math.floor(k / 4) * 4);
+    const id = war.spawnSquad('you', 0, ['hoplite', 'archer', 'celt_sword', 'militia'][k % 4], N, cp.x + (k % 4) * 4, cp.y + 4 + Math.floor(k / 4) * 4);
     const l = lairs[cp.lairs[k % cp.lairs.length]];
     war.order({ kind: 'move', squad: id, x: l.x, y: l.y });
   }
@@ -141,15 +142,15 @@ console.log(
   console.log(`neutral: units ${war.stats().units}, ticks ${ticks}: ${summary(ms)}; lairs ${ls.length} (cleared ${ls.filter((l) => l.state === 'cleared').length})`);
 }
 
-// fog (W-39): 600 units in 4 teams (30 squads, mixed classes) cross the map from its four sides: the vision update's share
+// fog (W-39): 600 units in 4 teams (50 squads of N, mixed classes) cross the map from its four sides: the vision update's share
 {
   const war = sim.createSim(region, 4);
   const cls = ['militia', 'archer', 'hoplite', 'slinger'];
   const sides = [[WX, null], [EX, null], [null, 12], [null, region.h - 12]];
-  for (let k = 0; k < 30; k++) {
-    const team = k % 4, [sx, sy] = sides[team], o = 30 + Math.floor(k / 4) * Math.floor((region.w - 60) / 7);
+  for (let k = 0; k < SQUADS; k++) {
+    const team = k % 4, [sx, sy] = sides[team], o = 30 + Math.floor(k / 4) * Math.floor((region.w - 60) / 12);
     const [x, y] = sx === null ? [o, sy] : [sx, o];
-    const id = war.spawnSquad(`f${k}`, team, cls[k % 4], 20, x, y);
+    const id = war.spawnSquad(`f${k}`, team, cls[k % 4], N, x, y);
     war.order({ kind: 'move', squad: id, x: region.w - x, y: region.h - y });
   }
   const ms = [], vms = [];

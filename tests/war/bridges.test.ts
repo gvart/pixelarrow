@@ -351,7 +351,9 @@ describe('bridge-test scenario (test-ridge)', () => {
     // the hoplites go over to the east bank on a standing bridge
     sim.order({ kind: 'move', squad: 1, x: 312, y: 384 });
     run(sim, 2400, () => unitsOf(sim, 1).every((u) => u.x > 309));
-    expect(unitsOf(sim, 1).filter((u) => u.x > 309).length).toBeGreaterThanOrEqual(18);
+    // every man still standing is over (the pickets catch a few on the way)
+    expect(unitsOf(sim, 1).filter((u) => u.x > 309).length).toBeGreaterThanOrEqual(8);
+    expect(unitsOf(sim, 1).every((u) => u.state === 'dead' || u.x > 309)).toBe(true);
   });
 });
 

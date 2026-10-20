@@ -62,18 +62,18 @@ describe('combat', () => {
     expect(H(cx, cy)).toBe(4);
     expect(H(fx, fy)).toBe(1);
     for (const seed of SEEDS) {
-      const r = battle(seed, { cls: 'militia', n: 20, x: cx, y: cy }, { cls: 'militia', n: 20, x: fx, y: fy });
+      const r = battle(seed, { cls: 'militia', n: 12, x: cx, y: cy }, { cls: 'militia', n: 12, x: fx, y: fy });
       expect(r.att).toBe(0);
-      expect(r.def).toBeGreaterThanOrEqual(10);
+      expect(r.def).toBeGreaterThanOrEqual(6);
     }
   });
 
   it('archers on the plateau beat melee climbing at them, but lose the same fight on the flat', () => {
     for (const seed of SEEDS) {
-      const hill = battle(seed, { cls: 'archer', n: 20, x: brow.x + brow.ux, y: brow.y + brow.uy }, { cls: 'militia', n: 14, x: SPOTS.ridgeFoot[0], y: SPOTS.ridgeFoot[1] });
+      const hill = battle(seed, { cls: 'archer', n: 12, x: brow.x + brow.ux, y: brow.y + brow.uy }, { cls: 'militia', n: 8, x: SPOTS.ridgeFoot[0], y: SPOTS.ridgeFoot[1] });
       expect(hill.att).toBe(0);
-      expect(hill.def).toBeGreaterThanOrEqual(8);
-      const flat = battle(seed, { cls: 'archer', n: 20, x: FX, y: FY - 12 }, { cls: 'militia', n: 14, x: FX, y: FY + 12 });
+      expect(hill.def).toBeGreaterThanOrEqual(5);
+      const flat = battle(seed, { cls: 'archer', n: 12, x: FX, y: FY - 12 }, { cls: 'militia', n: 8, x: FX, y: FY + 12 });
       expect(flat.def).toBe(0);
     }
   });
@@ -108,25 +108,30 @@ describe('combat', () => {
   });
 
   it('the fallen are dead, mostly wounded, some killed, and leave the collision', () => {
-    const sim = createSim(ridge, 9);
-    const a = sim.spawnSquad('a', 0, 'militia', 20, FX - 10, FY);
-    const b = sim.spawnSquad('b', 1, 'militia', 20, FX - 10, FY + 6);
-    sim.order({ kind: 'attack', squad: a, target: b });
-    sim.order({ kind: 'attack', squad: b, target: a });
-    let shots = 0;
-    for (let t = 0; t < 2000 && alive(sim, a) && alive(sim, b); t++) {
-      sim.step();
-      shots += sim.snapshot().shots?.length ?? 0;
+    let fallen = 0, wounded = 0, killed = 0;
+    for (const seed of [9, 10, 11]) {
+      const sim = createSim(ridge, seed);
+      const a = sim.spawnSquad('a', 0, 'militia', 12, FX - 10, FY);
+      const b = sim.spawnSquad('b', 1, 'militia', 12, FX - 10, FY + 6);
+      sim.order({ kind: 'attack', squad: a, target: b });
+      sim.order({ kind: 'attack', squad: b, target: a });
+      let shots = 0;
+      for (let t = 0; t < 2000 && alive(sim, a) && alive(sim, b); t++) {
+        sim.step();
+        shots += sim.snapshot().shots?.length ?? 0;
+      }
+      expect(shots).toBe(0); // militia carry no missiles
+      const dead = sim.snapshot().units.filter((u) => u.state === 'dead');
+      expect(dead.length).toBeGreaterThanOrEqual(12);
+      fallen += dead.length;
+      wounded += dead.filter((u) => u.wounded).length;
+      killed += dead.filter((u) => u.wounded === false).length;
+      for (const u of dead) expect(u.hp).toBe(0);
+      for (const u of sim.snapshot().units.filter((x) => x.state !== 'dead')) expect(u.wounded).toBeUndefined();
+      expect(sim.stats().units).toBe(24 - dead.length);
     }
-    expect(shots).toBe(0); // militia carry no missiles
-    const dead = sim.snapshot().units.filter((u) => u.state === 'dead');
-    expect(dead.length).toBeGreaterThanOrEqual(20);
-    const wounded = dead.filter((u) => u.wounded).length;
-    expect(wounded / dead.length).toBeGreaterThan(0.5);
-    expect(dead.some((u) => u.wounded === false)).toBe(true);
-    for (const u of dead) expect(u.hp).toBe(0);
-    for (const u of sim.snapshot().units.filter((x) => x.state !== 'dead')) expect(u.wounded).toBeUndefined();
-    expect(sim.stats().units).toBe(40 - dead.length);
+    expect(wounded / fallen).toBeGreaterThan(0.5);
+    expect(killed).toBeGreaterThan(0);
   });
 
   it('missiles fly: shots show in the snapshot until they land', () => {

@@ -50,6 +50,7 @@ import { createWorks, type Worker } from './works';
 import { createSiege, LADDER, RAM } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { createVision } from './vision';
+import { DETACH_MIN, SQUAD_MAX } from './soldiers';
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -169,6 +170,7 @@ interface Squad {
   task: Task | null;
   fire: boolean; // fire arrows
   claimPt: number; // claimRegion: the claim point it goes to and channels at, -1 none
+  pair: SquadId; // M5a: the other detachment of its split (-1 none): a split squad splits no further until merged back
 }
 
 interface Missile {
@@ -359,8 +361,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const [ax, ay] = openPoint(x / picked.length, y / picked.length);
     const ns: Squad = {
       ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1,
+      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1, pair: s.id,
     };
+    s.pair = ns.id;
     squads.push(ns);
     move(s, ns, picked);
     if (s.order === 'gather' || s.order === 'build') for (const u of ns.units) works.setJob(u, null);
@@ -474,13 +477,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (o.kind === 'detach') {
       const alive = s.units.filter((u) => u.alive);
       const ids = o.unitIds ? new Set(o.unitIds) : null;
-      const n = Math.min(alive.length - 1, ids ? alive.length : Math.floor(o.count ?? 0));
-      detach(s, n <= 0 ? [] : ids ? alive.filter((u) => ids.has(u.id)).slice(0, n) : alive.slice(alive.length - n));
+      // M5a: two detachments of DETACH_MIN or more; a squad already split splits no further
+      if (s.pair >= 0 && squads[s.pair].alive > 0) return;
+      const n = Math.min(alive.length - DETACH_MIN, ids ? alive.length : Math.floor(o.count ?? 0));
+      const picked = n < DETACH_MIN ? [] : ids ? alive.filter((u) => ids.has(u.id)).slice(0, n) : alive.slice(alive.length - n);
+      if (picked.length >= DETACH_MIN) detach(s, picked);
       return;
     }
     if (o.kind === 'merge') {
       const t = squads[o.into];
-      if (!t || t === s || t.team !== s.team || t.owner !== s.owner || s.alive === 0) return;
+      if (!t || t === s || t.team !== s.team || t.owner !== s.owner || s.alive === 0 || t.alive + s.alive > SQUAD_MAX) return;
+      if (t.pair === s.id) t.pair = -1;
+      if (s.pair === t.id) s.pair = -1;
       const picked = s.units.filter((u) => u.alive);
       for (const u of picked) if (u.job) works.setJob(u, null);
       move(s, t, picked);
@@ -689,7 +697,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     for (const s of squads) {
       s.near = [];
       if (s.alive === 0) continue;
-      for (const o of squads) if (o.team !== s.team && o.alive > 0 && dist2(s, o) < NEAR * NEAR) s.near.push(o);
+      // by its centre or its anchor (a squad strung out, some men stuck far behind, still sees the foe its anchor reached)
+      for (const o of squads)
+        if (o.team !== s.team && o.alive > 0 && (dist2(s, o) < NEAR * NEAR || (s.ax - o.cx) ** 2 + (s.ay - o.cy) ** 2 < NEAR * NEAR)) s.near.push(o);
     }
   };
 
@@ -1449,12 +1459,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const api: WarBuildSim = {
     region,
     spawnSquad(owner, team, cls, count, x, y) {
+      count = Math.min(count, SQUAD_MAX);
       const [ax, ay] = openPoint(x, y);
       const st = warStats(cls);
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
-        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1,
+        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, pair: -1,
       };
       grid.team = team;
       squads.push(s);

@@ -55,7 +55,7 @@ describe('war sim', () => {
   it('formations change the squad footprint and units face the march', () => {
     const width = (shape: 'line' | 'column') => {
       const sim = createSim(ridge, 1);
-      const s = sim.spawnSquad('a', 0, 'militia', 20, FX - 10, FY);
+      const s = sim.spawnSquad('a', 0, 'militia', 12, FX - 10, FY);
       sim.order({ kind: 'formation', squad: s, shape });
       sim.order({ kind: 'move', squad: s, x: FX + 10, y: FY }); // march east
       run(sim, 40);
@@ -68,8 +68,8 @@ describe('war sim', () => {
     };
     const line = width('line');
     const column = width('column');
-    expect(line).toBeGreaterThan(7);
-    expect(column).toBeLessThan(2.5);
+    expect(line).toBeGreaterThan(4); // 6 x 2
+    expect(column).toBeLessThan(2.5); // 2 x 6
   });
 
   it('keeps units apart', () => {
