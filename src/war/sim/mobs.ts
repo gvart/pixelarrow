@@ -376,6 +376,15 @@ export function createMobs(region: RegionData, host: MobHost) {
     },
     boss: (): BossGate | null => gates[0] ?? null,
     bosses: (): readonly BossGate[] => gates,
+    /** M7f memory: claim point `i` held by `team` again (a fresh room of a region that remembers its holders). */
+    grant(i: number, team: number) {
+      const c = claims[i];
+      if (!c || c.team === team || team < 0) return;
+      c.team = team;
+      c.squad = -1;
+      c.progress = 0;
+      host.claim(team, c.x, c.y, c.r);
+    },
     /** Some claim point of the region is held (a boss does not come back then). */
     claimed: () => claims.some((c) => c.team >= 0),
     /** The region is held by its host or boss. */

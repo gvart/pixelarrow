@@ -291,6 +291,13 @@ export interface Snapshot {
   /** M5h: dishes, remedies, kits and caravan goods per team (src/data/recipes.ts Product). */
   supplies?: Record<number, Partial<Record<Product, number>>>;
 }
+/** M7f: a region's memory (WarBuildSim.memory). */
+export interface RegionMemory {
+  pieces: { i: number; hp: number; ruin: boolean; gone: boolean; team: number }[];
+  claims: number[];
+  guardians: { id: string; state: BossSnap['state']; left: number }[];
+  landmark: { captured: boolean; restored: boolean };
+}
 /**
  * M7f: a landmark (docs/WAR.md "Landmarks"): its holder (an alliance team; -1: its guardian or nobody), its state
  * (guarded: its guardian lives; unclaimed: guardian slain, nobody holds it; damaged: held, function dormant; restored:
@@ -516,6 +523,14 @@ export interface WarBuildSim extends WarSim {
   bossDown(id?: string): void;
   /** M7d (src/war/sim/bosses.ts): wake the region's guardians (spawnMobs does it too); a dev and test hook: deal `dmg` to guardian `boss`'s body (its phases follow). */
   spawnGuardians(): void;
+  /**
+   * M7f: what the region remembers once its room empties (the server keeps it across DO restarts and in D1): its
+   * pre-built pieces' hp, ruin and owner, the claim points' holders, its guardians (slain or away and the ticks until they
+   * are back) and its landmark's capture and restore. recall() lays it onto a fresh sim, `elapsed` ticks later (guardians
+   * whose time ran out while the region was unheld are back, their landmark as the season found it).
+   */
+  memory(): RegionMemory;
+  recall(m: RegionMemory, elapsed: number): void;
   hurtBoss(boss: string, dmg: number, owner?: string, part?: number): void;
   /** W-39 fog: the team sees tile point (x,y) now. */
   visibleTo(team: number, x: number, y: number): boolean;

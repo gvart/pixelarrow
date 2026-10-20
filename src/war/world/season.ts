@@ -19,28 +19,44 @@ export const CHOKEPOINTS: ReadonlySet<string> = new Set([
   'kleisoura', 'stymphalia', 'achelous', 'saddle', 'erymanthos', 'gorge', 'canyons',
 ]);
 
-/** Score per hour by what the region is. */
-export const SCORE = { omphalos: 10, town: 3, gate: 2, neutral: 1 } as const;
+/** Score per hour by what the region is (M7f: a ruined frontier town scores `ruinedTown` until half its houses stand). */
+export const SCORE = { omphalos: 10, town: 3, gate: 2, neutral: 1, ruinedTown: 1 } as const;
+/**
+ * M7f living regions (docs/WAR.md "Season score and victory", "Landmarks"): a restored landmark garrisoned scores its
+ * holder `landmark` an hour, at most `landmarkCap` an hour an alliance; temples, shrines and statues held intact (favour
+ * and prestige, reported per region) at most `prestigeCap` an hour an alliance; razing a temple or shrine costs the
+ * razer's alliance `sacrilege` once.
+ */
+export const LIVING = { landmark: 2, landmarkCap: 6, prestigeCap: 2, sacrilege: 10 } as const;
 export const HEGEMONY = { towns: 3, ms: 24 * 3600_000 } as const;
 export const HOUR_MS = 3600_000;
 
 /** What the score reads of a region (RegionState fits). */
-export interface ScoredRegion { id: string; owner: number; live: number[] }
+export interface ScoredRegion {
+  id: string; owner: number; live: number[];
+  /** M7f: its landmark's holder and whether it is garrisoned; favour and prestige per alliance; a ruined frontier town. */
+  landmark?: { holder: number; garrisoned: boolean }; prestige?: number[]; ruined?: boolean;
+}
 
 /** Score per hour the region yields its owner now. */
 export function scoreRate(r: ScoredRegion): number {
   if (r.owner < 0) return 0;
   if (r.id === OMPHALOS) return r.live.some((n, i) => n > 0 && i !== r.owner) ? 0 : SCORE.omphalos;
-  if (FRONTIER_TOWNS.includes(r.id)) return SCORE.town;
+  if (FRONTIER_TOWNS.includes(r.id)) return r.ruined ? SCORE.ruinedTown : SCORE.town;
   if (GATES.includes(r.id)) return SCORE.gate;
   return worldRegion(r.id)?.role === 'neutral' ? SCORE.neutral : 0;
 }
 
-/** Score per hour per alliance. */
+/** Score per hour per alliance: the regions it owns, plus its garrisoned landmarks and its favour and prestige (capped). */
 export function allianceRates(regions: Iterable<ScoredRegion>): number[] {
-  const out = ALLIANCES.map(() => 0);
-  for (const r of regions) if (r.owner >= 0 && r.owner < out.length) out[r.owner] += scoreRate(r);
-  return out;
+  const out = ALLIANCES.map(() => 0), lm = ALLIANCES.map(() => 0), pr = ALLIANCES.map(() => 0);
+  for (const r of regions) {
+    if (r.owner >= 0 && r.owner < out.length) out[r.owner] += scoreRate(r);
+    const h = r.landmark?.holder ?? -1;
+    if (r.landmark?.garrisoned && h >= 0 && h < out.length) lm[h] += LIVING.landmark;
+    r.prestige?.forEach((v, i) => i < pr.length && (pr[i] += v));
+  }
+  return out.map((x, i) => x + Math.min(LIVING.landmarkCap, lm[i]) + Math.min(LIVING.prestigeCap, pr[i]));
 }
 
 /** The alliance holding Omphalos and HEGEMONY.towns frontier towns, if one does. */

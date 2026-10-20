@@ -702,6 +702,24 @@ export function createBosses(region: RegionData, host: BossHost) {
     },
     hit,
     /**
+     * M7f memory: guardian `id` lies slain (a fresh room of a region that remembers the kill): its men leave the field
+     * unreported, no event, no loot; back in `left` ticks (while the region is unheld). Escaped: away likewise.
+     */
+    down(id: string, left: number, away = false) {
+      const r = runs.find((x) => x.id === id && x.state !== 'slain' && x.state !== 'away');
+      if (!r) return;
+      for (const s of [r.sq, r.parts, ...r.called]) for (const u of sqOf(s)?.units ?? []) if (u.alive) host.vanish(u);
+      r.called = [];
+      r.fly = null;
+      r.state = away ? 'away' : 'slain';
+      r.respawnAt = tick + Math.max(0, Math.round(left));
+      if (away) r.guardN = Math.ceil((def(r).guard?.n ?? 0) / 2);
+      else host.gate(r.id, false);
+    },
+    /** M7f memory: each guardian's state and ticks until it is back (slain or away). */
+    memo: (): { id: string; state: BossSnap['state']; left: number }[] =>
+      runs.map((r) => ({ id: r.id, state: r.state, left: r.state === 'slain' || r.state === 'away' ? Math.max(0, r.respawnAt - tick) : 0 })),
+    /**
      * Dev and tests: `dmg` straight to guardian `id`'s bar (its first living head for the Chimera; Scylla's body only once
      * open), or to its part `part` (Scylla's heads, the Chimera's lion, goat, serpent).
      */

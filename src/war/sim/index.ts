@@ -40,7 +40,7 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { BuildingType, FightReport, Order, PersonResult, RegionData, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
+import type { BuildingType, FightReport, Order, PersonResult, RegionData, RegionMemory, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
@@ -50,7 +50,7 @@ import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineCle
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
-import { createBosses } from './bosses';
+import { BOSS, createBosses } from './bosses';
 import { createVision } from './vision';
 import { CAPTURE_R, DETACH_MIN, gainXp, SQUAD_MAX, XP } from './soldiers';
 import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
@@ -65,6 +65,7 @@ import { decodeGraph, encodeGraph, externals, STATE_VERSION, type SimState } fro
 import { CART_ARMOR, isCartType, SIEGE } from './siege';
 import { CHEST, NEUTRAL_TEAM } from './economy';
 import { BLESS, createTowns } from './prebuilt';
+import { createLandmarks } from './landmarks';
 import { CART_FORD, CART_UPHILL } from './grid';
 import { itemList, loads, move as moveHold, newHold, perLoad, totals, type Hold, type Lot } from './holders';
 import { CART, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
@@ -620,7 +621,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     open: (x, y) => x >= 0 && y >= 0 && x < grid.w && y < grid.h && grid.cost[tileAt(grid, x, y)] > 0,
     claimed: () => mobs.claimed(),
     gate: (id, alive) => (alive ? mobs.setBoss(id) : mobs.bossDown(id)),
-    resetLandmark: () => works.resetLandmark(),
+    resetLandmark: () => (works.resetLandmark(), landmarks.reset()),
     note: (e) => note(e),
     range: (lo, hi) => rng.range(lo, hi),
     w: grid.w,
@@ -632,6 +633,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   // M7a: the region's pre-built pieces and their functions (./prebuilt.ts)
   const towns = createTowns(works, { squads, units, mob: MOB_TEAM });
   works.prebuild(NEUTRAL_TEAM);
+  // M7f: the region's landmark (./landmarks.ts): holder, capture damage, restore, garrison
+  const landmarks = createLandmarks(region.id, works, {
+    units,
+    squads,
+    guarded: () => bosses.memo().some((g) => g.state !== 'slain' && g.state !== 'away'),
+    real: (team) => team >= 0 && team !== NEUTRAL_TEAM && team !== MOB_TEAM,
+    note: (e) => note(e),
+  });
 
   const vision = createVision(grid, { units: () => units, buildings: () => works.buildingSnaps() });
 
@@ -782,7 +791,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (o.squad !== undefined) apply({ kind: 'build', squad: o.squad, site: o.building });
       return;
     }
-    if (o.kind === 'restoreLandmark') return; // M7f: ./landmarks.ts (next commit)
+    if (o.kind === 'restoreLandmark') return void landmarks.restore(o.squad, tick);
     if (o.kind === 'upgrade' && o.squad === undefined) {
       if (o.team !== undefined) works.upgrade(o.building, o.team);
       return;
@@ -2414,6 +2423,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     mobs.tick(tick);
     bosses.tick(tick);
     towns.tick(tick);
+    landmarks.tick(tick);
     for (const s of squads) {
       if (s.alive === 0) continue;
       if (s.order === 'attack') (grid.team = s.team), updateAttack(s);
@@ -2641,7 +2651,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const saveRoot = () => ({
     grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, rations, dresser,
     crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
-    towns: towns.saveRoot(), bosses: bosses.saveRoot(),
+    towns: towns.saveRoot(), bosses: bosses.saveRoot(), landmarks: landmarks.saveRoot(),
   });
 
   const api: WarBuildSim = {
@@ -2666,6 +2676,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       crafting.loadRoot(r.crafting);
       towns.loadRoot(r.towns);
       bosses.loadRoot(r.bosses);
+      if (r.landmarks) landmarks.loadRoot(r.landmarks);
     },
     dropPersons(ids) {
       // a resumed region whose save predates a fight write-back: men D1 has already sent home leave without a report
@@ -2803,6 +2814,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
         ...(bosses.any() ? { bosses: bosses.snaps(), ...(bosses.warden() ? { warden: bosses.warden() } : {}) } : {}),
         ...(region.prebuilt?.length ? { towns: towns.towns() } : {}),
+        ...(landmarks.any() ? { landmark: landmarks.snap() } : {}),
         ...(rations.size ? { rations: Object.fromEntries(rations) } : {}),
         ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
         ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, ...(p.hold.items.length ? { list: itemList(p.hold) } : {}), loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}) })) } : {}),
@@ -2823,6 +2835,31 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     spawnCart: (team, owner, type, x, y) => siege.cart(team, owner, type, x, y),
     spawnMobs: () => (mobs.spawn(), bosses.spawn()),
     spawnGuardians: () => bosses.spawn(),
+    memory(): RegionMemory {
+      return {
+        pieces: works.preRows(),
+        claims: (region.claimPoints ?? []).map((_, i) => mobs.claimPoint(i)?.team ?? -1),
+        guardians: bosses.memo(),
+        landmark: landmarks.flags(),
+      };
+    },
+    recall(m: RegionMemory, elapsed: number) {
+      bosses.spawn();
+      const held = m.claims.some((t) => t >= 0);
+      // a slain guardian whose 24 h ran out while nobody held the region is back: its landmark as the season found it
+      const back = m.guardians.some((g) => g.state === 'slain' && !held && g.left <= elapsed);
+      const landmark = new Set(works.prebuilt().filter((b) => b.pre!.landmark).map((b) => b.pre!.i));
+      works.loadPreRows(back ? m.pieces.filter((r) => !landmark.has(r.i)) : m.pieces);
+      m.claims.forEach((t, i) => t >= 0 && mobs.grant(i, t));
+      for (const g of m.guardians) {
+        if (g.state !== 'slain' && g.state !== 'away') continue;
+        if (g.state === 'slain' && back) continue;
+        const left = g.left - elapsed;
+        if (g.state === 'away' && left <= 0) continue;
+        bosses.down(g.id, Math.max(left, held ? BOSS.retry : 0), g.state === 'away');
+      }
+      if (!back) landmarks.remember(m.landmark);
+    },
     hurtBoss: (id, dmg, owner, part) => bosses.hurtBoss(id, dmg, owner, part),
     towns: () => towns.towns(),
     population: (team) => towns.population(team),
