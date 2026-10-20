@@ -2505,3 +2505,34 @@ colour is shaded by the renderer's face light: match the marker by hue, not by v
 under ~0.35 m or the load cannot be read from this view. (4) The quadruped template walk came on a smaller scale in one
 direction (south-west): normalise each row to its rotation's height. (5) Map objects again ignored a colonnade; piles
 come clean (no slab) and read at 30-60 px.
+
+## 39. Town dressing
+
+Decorative map objects for the market towns, home agoras and farm villages (`scripts/war/regions/kit.ts` `agora`,
+`court`, `houses`, `outskirts`, `village`, `jetty`). They live in the elaia library as `town-*` (regions name them
+`elaia/town-*`) because the view loads only the global and biome libraries. Build: `node scripts/war/art/town.mjs
+[--fetch] [--sheet out.png]` (raws in `shots/war/pixellab/town/raw/`, ids in `town-jobs.json`; ends with the elaia QA).
+Each anchor is the footprint's south vertex; the kit places the object there and closes its footprint through
+`RegionData.blocked`. **9 PixelLab generations** (1 rejected); the rest are copies (market stalls L1-L3, warehouse,
+workshop, storehouse, forge, cookhouse, olive press, farm, stone tower, open stone gates, price board, goods pile) and
+the court wall (2 stone-wall kit tiles, back + front layer, the face cut from 6 to 3 m so the court stays readable).
+
+`create_map_object`, high top-down, high detail, detailed shading; every subject ends `, seen from a high isometric
+three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent background,
+no ground, no grass` (+ per row). Graded sat 0.62, val 0.78, snapped to the elaia + buildings palettes.
+
+| id (footprint) | Subject (verbatim start) | Result |
+| --- | --- | --- |
+| (rejected) house | `an ancient Greek town house: a square two-room dwelling of pale whitewashed limestone and mudbrick walls ...` | battlements and a paved slab |
+| house-a (3 x 3) | `an ancient Greek town house: a plain rectangular one-storey dwelling of pale whitewashed mudbrick walls on a low grey stone footing, a gabled low-pitched roof of dark weathered terracotta tiles ...` (+ `no paving, no floor, no battlements`) | kept |
+| house-b (3 x 3) | `an ancient Greek merchant's house: an L-shaped two-storey building of grey fieldstone below and pale plastered walls above, ... a wooden balcony on posts, a small vine pergola over the door` | kept; grass flooded out |
+| cottage (3 x 2) | `a humble ancient Greek village cottage: a small rectangular hut of rough dark fieldstone and mud plaster with a thatched straw and reed roof ...` | kept |
+| temple (4 x 4) | `a small ancient Greek Doric temple: a rectangular cella of pale weathered marble blocks surrounded by a row of thick fluted Doric columns ...` | kept (reads as a tholos); grey background keyed |
+| stoa (2 x 6) | `an ancient Greek stoa: a long straight open portico, a single row of seven plain pale stone columns along the front holding a long sloping roof ...` | kept: the colonnade came this time |
+| statue (1 x 1) | `an ancient Greek bronze statue of a hoplite warrior with spear and round shield, dark green patinated bronze, standing on a tall square plinth of pale marble blocks` | kept |
+| well (1 x 1) | `an ancient Greek town well: a round well head of pale carved marble with a wooden crossbeam frame above it, a rope and a bronze bucket ...` | kept |
+| jetty (1 x 4) | `an ancient wooden jetty: a straight narrow pier of dark weathered planks on thick wooden piles, a few mooring posts ...` | kept |
+
+**Lessons:** (1) "dark epic desaturated" still comes out bright: grade every raw. (2) Name the roof and say "no
+battlements" or a house turns into a keep. (3) A long portico now comes when the prompt counts the columns and names the
+back wall.

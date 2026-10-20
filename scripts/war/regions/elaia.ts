@@ -72,8 +72,7 @@ const def: RegionDef = {
     k.agora([124, 160]);
     k.houses([124, 160], 18, 16, 40, ['house-a', 'house-b', 'house-a', 'workshop', 'storehouse', 'house-b', 'cottage']);
     k.outskirts([124, 160], 5, 32, 56, ['olive-press', 'farm', 'olive-press', 'cottage']);
-    k.jetty([134, 176], 30);
-    k.jetty([110, 176], 30);
+    k.jetty([124, 160], 60);
     k.piece('elaia/marble-quarry', [218, 62], { r: 10 });
     k.resource('food', [140, 172], 3, 12);
     k.resource('stone', [70, 40], 3, 14);

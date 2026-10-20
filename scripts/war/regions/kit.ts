@@ -504,7 +504,8 @@ export class Kit {
     this.each((i, x, y) => { if (!this.water[i] && this.terrain[i] !== 'rock' && Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) <= half && Math.hypot(x - p[0], y - p[1]) > 3.2) this.terrain[i] = 'road'; });
     const S = (id: string, dx: number, dy: number) => this.structure(T(id), tx + dx, ty + dy, true);
     S('stoa', -12, -9); S('stoa', 10, 3);
-    for (const [k, dx] of [-10, -7, 5, 8].entries()) { S(['stall-a', 'stall-b', 'stall-c'][k % 3], dx, -11); S(['stall-c', 'stall-a', 'stall-b'][k % 3], dx, 9); }
+    // stalls in rows on the north and south sides, a second row at the west and east ends (the square check keeps <= 15% closed)
+    for (const [k, dx] of [-10, -7, 5, 8].entries()) for (const [n, dy] of [-11, -7, 5, 9].entries()) if (n === 0 || n === 3 || k === 0 || k === 3) S(['stall-a', 'stall-b', 'stall-c'][(k + n) % 3], dx, dy);
     S('statue', -6, -6); S('statue', 5, 5); S('well', 5, -6); S('board', -6, 5); S('goods', -3, -9); S('goods', 2, 10);
     this.scatterTown([T('temple')], p, { n: 1, r0: 16, r1: 30, street: 4 });
   }
@@ -850,8 +851,15 @@ export function build(def: RegionDef): Built {
     for (const r of k.townReqs) {
       if (r.kind === 'near') continue;
       if (!TOWN_FP.has(r.id)) throw new Error(`unknown town structure ${r.id}`);
-      if (free(r.id, r.t[0], r.t[1], r.slot ? 'slot' : 'at')) put1(r.id, r.t[0], r.t[1]);
-      else if (!r.slot) (missed++, log.push(`town ${r.id} at ${r.t}: blocked`));
+      if (!r.slot) {
+        if (free(r.id, r.t[0], r.t[1], 'at')) put1(r.id, r.t[0], r.t[1]);
+        else (missed++, log.push(`town ${r.id} at ${r.t}: blocked`));
+        continue;
+      }
+      // a slot slides up to 3 tiles off a street before it gives up
+      const off = [0, 1, -1, 2, -2, 3, -3];
+      const hit = off.flatMap((dy) => off.map((dx) => [r.t[0] + dx, r.t[1] + dy] as Pt)).sort((a, b) => Math.hypot(a[0] - r.t[0], a[1] - r.t[1]) - Math.hypot(b[0] - r.t[0], b[1] - r.t[1])).find(([x, y]) => free(r.id, x, y, 'slot'));
+      if (hit) put1(r.id, hit[0], hit[1]);
     }
     for (const r of k.townReqs) {
       if (r.kind !== 'near') continue;
