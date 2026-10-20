@@ -12,7 +12,7 @@ import { AudioRng } from './rng';
 import { frameDrum, horn } from './sfx';
 import { midiHz, noise, osc, pluck, type Ctx } from './synth';
 
-export type TrackId = 'menu' | 'deploy' | 'battle';
+export type TrackId = 'menu' | 'deploy' | 'battle' | 'explore' | 'boss';
 export type StingerId = 'victory' | 'defeat';
 
 const DORIAN = [0, 2, 3, 5, 7, 9, 10];
@@ -194,6 +194,44 @@ export const TRACKS: Record<TrackId, TrackDef> = {
       }
     },
   },
+  /** The war, roaming: slow D Aeolian-ish Dorian, sparse low lyre over a dark drone, a far drum. */
+  explore: {
+    bpm: 60,
+    bars: 8,
+    root: 50,
+    mode: DORIAN,
+    gain: 0.8,
+    drone: droneOf(0.055, 300),
+    step(x) {
+      const chord = [0, 0, 3, 0, 5, 4, 3, 0][x.bar];
+      if (x.s === 0 || (x.s === 6 && x.r.chance(0.7)) || (x.s === 10 && x.r.chance(0.4))) {
+        pluck(x.c, x.out, x.t + x.r.range(0, 0.02), midiHz(x.n(chord + x.r.pick([0, 2, 4])) - 12), x.s === 0 ? 0.3 : 0.18, 2.4, 0.3);
+      }
+      if (x.s === 0) pluck(x.c, x.out, x.t + 0.03, midiHz(x.n(chord + 4)), 0.1, 2.6, 0.5);
+      if (x.s === 0) dum(x.c, x.out, x.t, x.r, x.bar % 2 === 0 ? 0.16 : 0.1);
+      if (x.s === 4) tek(x.c, x.out, x.t, x.r, 0.025);
+      if (x.bar % 4 === 3 && x.s === 4 && x.r.chance(0.6)) reed(x.c, x.out, x.t, midiHz(x.n(x.r.pick([4, 3, 1])) + 12), x.dt * 20, 0.035);
+    },
+  },
+  /** A guardian fight: low C Phrygian, pounding drums, a horn call every other pass; heat thickens it. */
+  boss: {
+    bpm: 104,
+    bars: 4,
+    root: 48,
+    mode: PHRYGIAN,
+    gain: 0.9,
+    drone: droneOf(0.08, 260, 6),
+    step(x) {
+      const h = x.heat;
+      if (x.s === 0 || x.s === 3 || x.s === 8) dum(x.c, x.out, x.t, x.r, x.s === 0 ? 0.5 : 0.32);
+      if (x.s === 11 || (x.s === 14 && h > 0.4)) dum(x.c, x.out, x.t, x.r, 0.26);
+      if (x.s === 4 || x.s === 12) tek(x.c, x.out, x.t, x.r, 0.08);
+      const ost = [0, 1, 0, -1, 0, 1, 3, 1];
+      if (x.s % 2 === 0) pluck(x.c, x.out, x.t, midiHz(x.n(ost[x.s / 2] + (x.bar === 2 ? 1 : 0)) - 12), x.s % 8 === 0 ? 0.3 : 0.2, 0.8, 0.3 + 0.3 * h);
+      if (x.bar === 0 && x.s === 0 && x.r.chance(0.5)) horn(x.c, x.out, x.t, x.r, midiHz(x.n(0) - 12), [[1, 0.8], [1.06, 0.5]], 0.12);
+      if (h > 0.3 && x.s % 4 === 2 && x.r.chance(0.4 + 0.4 * h)) reed(x.c, x.out, x.t, midiHz(x.n(x.r.pick([0, 1, 3, 4])) + 12), x.dt * x.r.pick([2, 4, 6]), 0.04 + 0.03 * h);
+    },
+  },
 };
 
 interface Playing {
@@ -248,7 +286,7 @@ export class MusicPlayer {
     gain.gain.setValueAtTime(0.0001, now);
     gain.gain.exponentialRampToValueAtTime(def.gain, now + fade);
     gain.connect(this.bus);
-    if (id !== 'battle') this.heat = this.heatTarget = 0;
+    if (id !== 'battle' && id !== 'boss') this.heat = this.heatTarget = 0;
     const start = now + 0.05;
     this.cur = { id, def, gain, step: 0, next: start, drone: def.drone(this.c, gain, start, def.root), heatSent: 0 };
   }

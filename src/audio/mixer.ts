@@ -5,6 +5,7 @@
  *   destination ← limiter ← master ┬ world ┬ music ← musicDuck ← tracks, stingers
  *                                  │       └ sfx   ┬ sfxDuck ← field sounds
  *                                  │               └ (keys: the horns that duck, not ducked themselves)
+ *                                  ├ amb   ← ambience beds (the war, ./ambience.ts)
  *                                  └ ui ← clicks, coins, narrator
  *
  * - The player's 0..10 steps map to dB (STEP_DB per step, 0 = off), then a
@@ -41,7 +42,7 @@ export function stepDb(step: number): number {
 }
 
 /** Which bus a sound plays on. Everything not listed is a field sound (SFX). */
-const UI_SOUNDS: ReadonlySet<SfxId> = new Set<SfxId>(['click', 'tap', 'back', 'error', 'warning', 'coin', 'levelUp', 'chime', 'narrate', 'quill', 'nope', 'destroy', 'undo']);
+const UI_SOUNDS: ReadonlySet<SfxId> = new Set<SfxId>(['click', 'tap', 'back', 'error', 'warning', 'coin', 'levelUp', 'chime', 'narrate', 'quill', 'nope', 'destroy', 'undo', 'radialOpen', 'radialClose', 'panelOpen', 'panelClose', 'toast']);
 
 export function busOf(id: SfxId): Bus {
   return UI_SOUNDS.has(id) ? 'ui' : 'sfx';
@@ -99,4 +100,12 @@ interface MixSettings {
 export function busDb(s: MixSettings): Record<Bus, number> {
   const sfx = stepDb(s.sfxVol);
   return { music: stepDb(s.musicVol) + TRIM_DB.music, sfx: sfx + TRIM_DB.sfx, ui: sfx + TRIM_DB.ui };
+}
+
+/** The ambience bed's trim, dB (beds sit under the field sounds). */
+export const AMB_TRIM_DB = -4;
+
+/** The war's extra levels (0..10 steps; missing: full master, ambience 6): master over every bus, the ambience bus. */
+export function extraDb(s: { masterVol?: number; ambVol?: number }): { master: number; amb: number } {
+  return { master: stepDb(s.masterVol ?? 10), amb: stepDb(s.ambVol ?? 6) + AMB_TRIM_DB };
 }
