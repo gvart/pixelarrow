@@ -28,7 +28,7 @@ function lcg(seed: number): () => number {
 /** Start offsets into the noise buffers (deterministic, so offline renders repeat). */
 const offRand = lcg(4242);
 
-function whiteNoise(c: Ctx): AudioBuffer {
+export function whiteNoise(c: Ctx): AudioBuffer {
   const k = cache(c);
   if (!k.white) {
     const n = Math.floor(c.sampleRate * 2);
@@ -41,7 +41,7 @@ function whiteNoise(c: Ctx): AudioBuffer {
 }
 
 /** Brown (integrated) noise: deep rumbles, crowds, hooves on earth. */
-function brownNoise(c: Ctx): AudioBuffer {
+export function brownNoise(c: Ctx): AudioBuffer {
   const k = cache(c);
   if (!k.brown) {
     const n = Math.floor(c.sampleRate * 2);

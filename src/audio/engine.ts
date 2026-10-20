@@ -19,9 +19,10 @@
  * web page. On iOS, Web Audio plays even in silent mode (unlike <audio> with
  * the "ambient" session), so players use the in-game Sound toggle.
  */
+import { AmbiencePlayer, type AmbLevels } from './ambience';
 import { MusicPlayer, type StingerId, type TrackId } from './music';
 import { AudioRng } from './rng';
-import { busDb, busOf, dbToGain, DUCK, DUCK_ATTACK, DUCK_RELEASE, Ducker, GATE_TC, stepDb, type Bus } from './mixer';
+import { busDb, busOf, dbToGain, extraDb, DUCK, DUCK_ATTACK, DUCK_RELEASE, Ducker, GATE_TC, stepDb, type Bus } from './mixer';
 import { LEVEL, PRIORITY, RECIPES, type SfxId } from './sfx';
 import { VoiceLimiter, type LimiterOpts } from './voices';
 
@@ -32,9 +33,14 @@ export interface AudioSettings {
   musicVol: number;
   /** 0..10 */
   sfxVol: number;
+  /** 0..10, over every bus (the war's settings; missing: 10). */
+  masterVol?: number;
+  /** 0..10, the ambience beds (the war; missing: 6). */
+  ambVol?: number;
 }
 
 const DEFAULT_AUDIO: AudioSettings = { sound: true, musicVol: 6, sfxVol: 7 };
+const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
 export interface PlayOpts {
   /** Stereo position -1 (left) .. 1 (right). */
@@ -71,6 +77,10 @@ export class AudioEngine {
   private sfxBus: GainNode | null = null;
   private musicBus: GainNode | null = null;
   private uiBus: GainNode | null = null;
+  private ambBus: GainNode | null = null;
+  private amb: AmbiencePlayer | null = null;
+  private wantAmb: AmbLevels = {};
+  private ambDirty = false;
   /** The pause gate over music and SFX. */
   private world: GainNode | null = null;
   private musicDuck: GainNode | null = null;
@@ -117,6 +127,8 @@ export class AudioEngine {
       sound: typeof s?.sound === 'boolean' ? s.sound : DEFAULT_AUDIO.sound,
       musicVol: typeof s?.musicVol === 'number' ? s.musicVol : DEFAULT_AUDIO.musicVol,
       sfxVol: typeof s?.sfxVol === 'number' ? s.sfxVol : DEFAULT_AUDIO.sfxVol,
+      masterVol: num(s?.masterVol),
+      ambVol: num(s?.ambVol),
     };
     this.applyGains();
     this.applyRunning();
@@ -241,6 +253,16 @@ export class AudioEngine {
     return this.wantTrack;
   }
 
+  /** Ambience bed levels 0..1 per layer (./ambience.ts). Remembered until the context exists. */
+  ambience(levels: AmbLevels): void {
+    this.wantAmb = levels;
+    this.ambDirty = true;
+  }
+
+  get ambienceLayers(): string[] {
+    return this.amb?.running ?? [];
+  }
+
   /** Battle intensity 0..1. */
   heat(v: number): void {
     this.player?.setHeat(v);
@@ -256,6 +278,7 @@ export class AudioEngine {
       available: !this.failed,
       state: this.ctx?.state ?? 'none',
       track: this.player?.track ?? null,
+      ambience: this.amb?.running ?? [],
       want: this.wantTrack,
       voices: this.ctx ? this.limiter.count(this.ctx.currentTime) : 0,
       ...this.stats,
@@ -303,6 +326,9 @@ export class AudioEngine {
     this.sfxDuck.connect(this.sfxBus);
     this.musicBus = ctx.createGain();
     this.musicBus.connect(this.world);
+    this.ambBus = ctx.createGain();
+    this.ambBus.connect(this.master);
+    this.amb = new AmbiencePlayer(ctx, this.ambBus, new AudioRng(0x2545f491));
     this.musicDuck = ctx.createGain();
     this.musicDuck.connect(this.musicBus);
     this.musicDuck.gain.value = 1;
@@ -327,7 +353,9 @@ export class AudioEngine {
     if (!c || !this.master || !this.sfxBus || !this.musicBus || !this.uiBus) return;
     const t = c.currentTime;
     const b = busDb(this.settings);
-    this.master.gain.setTargetAtTime(this.settings.sound ? 1 : 0, t, 0.02);
+    const x = extraDb(this.settings);
+    this.master.gain.setTargetAtTime(this.settings.sound ? dbToGain(x.master) : 0, t, 0.02);
+    this.ambBus?.gain.setTargetAtTime(dbToGain(x.amb), t, 0.1);
     this.sfxBus.gain.setTargetAtTime(dbToGain(b.sfx), t, 0.02);
     this.uiBus.gain.setTargetAtTime(dbToGain(b.ui), t, 0.02);
     this.musicBus.gain.setTargetAtTime(dbToGain(b.music), t, 0.05);
@@ -379,6 +407,10 @@ export class AudioEngine {
     this.applyDuck();
     if (p.track !== this.wantTrack) p.set(this.wantTrack, p.track ? 1.5 : 2.5);
     try {
+      if (this.amb) {
+        if (this.ambDirty) (this.ambDirty = false), this.amb.set(this.wantAmb);
+        this.amb.pump(c.currentTime + 0.25);
+      }
       p.pump(c.currentTime + 0.25);
     } catch {
       /* ignore */

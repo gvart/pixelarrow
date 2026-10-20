@@ -606,6 +606,260 @@ export const RECIPES = {
     noise(c, out, t, { dur: 0.55, gain: 0.25, f: 900, q: 6, a: 0.03 });
     return 0.7;
   },
+  // ---------------------------------------------------------------- the war (src/war/view/sound): combat, siege, work, guardians, its UI
+  /** A wounded man's cry: a high wavering shout, no fall. */
+  woundedCry: (c, out, t, r) => {
+    const f = r.jit(330, 0.15);
+    const g = grit(c, out, 2);
+    osc(c, g, t, { type: 'sawtooth', f, f1: f * 0.7, dur: 0.45, gain: 0.07, a: 0.03, vib: [r.range(6, 9), 70] });
+    grunt(c, out, t, r, 0.4, 0.3, 0.7);
+    return 0.55;
+  },
+  /** Ram on a gate: a deep wooden boom, the beam's creak and a shiver of the iron. */
+  ramHit: (c, out, t, r) => {
+    const g = grit(c, out, 3);
+    osc(c, g, t, { f: r.jit(62, 0.08), f1: 34, dur: 0.5, gain: 0.8 });
+    noise(c, g, t, { dur: 0.35, gain: 0.6, f: r.jit(320, 0.15), type: 'lowpass', brown: true });
+    noise(c, out, t, { dur: 0.05, gain: 0.4, f: r.jit(900, 0.2), q: 2 });
+    metal(c, out, t + 0.01, r.jit(380, 0.1), [1, 1.53, 2.4], 0.5, 0.06);
+    noise(c, out, t + 0.12, { dur: 0.35, gain: 0.08, f: r.jit(700, 0.2), f1: 500, q: 9, a: 0.05 });
+    return 0.75;
+  },
+  /** Stone thrower loosing: the arm slams its stop, the sling rope whips, the stone whooshes off. */
+  throwRelease: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.25, gain: 0.08, f: r.jit(600, 0.2), f1: 420, q: 10, a: 0.04 });
+    const hit = t + 0.18;
+    const g = grit(c, out, 2.5);
+    osc(c, g, hit, { f: r.jit(110, 0.1), f1: 55, dur: 0.18, gain: 0.6 });
+    noise(c, g, hit, { dur: 0.08, gain: 0.5, f: r.jit(1200, 0.2), q: 2 });
+    noise(c, out, hit + 0.04, { dur: 0.5, gain: 0.35, f: 380, f1: 1100, q: 1.4, a: 0.12 });
+    return 0.8;
+  },
+  /** A siege ladder swung up: creaking poles, a scrape, its head knocking on the wall. */
+  ladderRaise: (c, out, t, r) => {
+    for (let i = 0; i < 3; i++) noise(c, out, t + i * 0.22 + r.range(0, 0.05), { dur: 0.18, gain: 0.12, f: r.jit(520, 0.2), f1: 380, q: 12, a: 0.04 });
+    noise(c, out, t + 0.3, { dur: 0.4, gain: 0.12, f: 1600, q: 1, a: 0.1 });
+    const knock = t + 0.85;
+    osc(c, out, knock, { f: r.jit(180, 0.1), f1: 90, dur: 0.1, gain: 0.45 });
+    noise(c, out, knock, { dur: 0.05, gain: 0.4, f: r.jit(900, 0.2), q: 3 });
+    return 1.0;
+  },
+  /** Fire catching: a soft whoomp and rushing air. */
+  fireWhoosh: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.7, gain: 0.55, f: 180, f1: 900, q: 0.7, a: 0.12, brown: true });
+    osc(c, out, t, { f: r.jit(70, 0.1), f1: 40, dur: 0.3, gain: 0.25, a: 0.05 });
+    for (let i = 0; i < 6; i++) noise(c, out, t + r.range(0.15, 0.8), { dur: 0.012, gain: 0.15, f: r.jit(3200, 0.3), q: 2 });
+    return 0.9;
+  },
+  /** A wall or tower coming down: a long rumble, blocks tumbling, dust settling. */
+  wallCollapse: (c, out, t, r) => {
+    const g = grit(c, out, 4);
+    osc(c, g, t, { f: r.jit(44, 0.08), f1: 22, dur: 1.4, gain: 0.8, a: 0.04 });
+    noise(c, g, t, { dur: 1.8, gain: 0.65, f: 260, f1: 120, type: 'lowpass', brown: true, a: 0.05 });
+    for (let i = 0; i < 14; i++) {
+      const at = t + 0.1 + r.range(0, 1.5);
+      osc(c, out, at, { f: r.jit(140, 0.4), f1: 60, dur: 0.08, gain: r.range(0.15, 0.35) });
+      noise(c, out, at, { dur: 0.04, gain: r.range(0.1, 0.25), f: r.jit(1500, 0.4), q: 2 });
+    }
+    noise(c, out, t + 0.6, { dur: 1.3, gain: 0.08, f: 2500, q: 0.6, a: 0.4 });
+    return 2.2;
+  },
+  /** An axe biting wood. */
+  chop: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.03, gain: 0.5, f: r.jit(1800, 0.15), q: 2 });
+    osc(c, out, t, { f: r.jit(240, 0.12), f1: 140, dur: 0.09, gain: 0.35 });
+    noise(c, out, t, { dur: 0.08, gain: 0.3, f: r.jit(700, 0.15), q: 6 });
+    return 0.16;
+  },
+  /** A pick on rock: a bright ping and a crack of chips. */
+  mine: (c, out, t, r) => {
+    metal(c, out, t, r.jit(2300, 0.12), [1, 1.7, 2.9], 0.22, 0.09);
+    noise(c, out, t, { dur: 0.03, gain: 0.45, f: r.jit(3000, 0.2), type: 'highpass' });
+    for (let i = 0; i < 3; i++) noise(c, out, t + 0.03 + r.range(0, 0.12), { dur: 0.015, gain: 0.12, f: r.jit(2400, 0.3), q: 3 });
+    return 0.26;
+  },
+  /** A mallet driving a peg: two dull knocks. */
+  hammer: (c, out, t, r) => {
+    for (const [dt, v] of [[0, 1], [r.range(0.16, 0.22), 0.75]] as const) {
+      osc(c, out, t + dt, { f: r.jit(300, 0.1), f1: 160, dur: 0.05, gain: 0.4 * v });
+      noise(c, out, t + dt, { dur: 0.03, gain: 0.35 * v, f: r.jit(1100, 0.15), q: 3 });
+    }
+    return 0.3;
+  },
+  /** Cart wheels on a track: rattling spokes, a creaking axle. */
+  cartWheels: (c, out, t, r) => {
+    const dur = 1.1;
+    noise(c, out, t, { dur, gain: 0.2, f: 240, type: 'lowpass', brown: true, a: 0.2 });
+    for (let at = 0; at < dur; at += r.range(0.07, 0.13)) noise(c, out, t + at, { dur: 0.02, gain: r.range(0.06, 0.14), f: r.jit(800, 0.3), q: 3 });
+    noise(c, out, t + r.range(0.1, 0.5), { dur: 0.3, gain: 0.07, f: r.jit(650, 0.15), f1: 520, q: 14, a: 0.06 });
+    return dur + 0.1;
+  },
+  /** A mule's bray: hee (high, buzzy) - haw (low), twice. */
+  mule: (c, out, t, r) => {
+    const g = grit(c, out, 3);
+    for (let i = 0; i < 2; i++) {
+      const at = t + i * 0.55;
+      osc(c, g, at, { type: 'sawtooth', f: r.jit(720, 0.06), f1: 640, dur: 0.22, gain: 0.07, a: 0.03, vib: [24, 60] });
+      osc(c, g, at + 0.24, { type: 'sawtooth', f: r.jit(260, 0.06), f1: 210, dur: 0.26, gain: 0.09, a: 0.03, vib: [18, 40] });
+      noise(c, out, at, { dur: 0.48, gain: 0.12, f: 1200, q: 3, a: 0.04 });
+    }
+    return 1.2;
+  },
+  /** Drakon roars: the giant's growl under a tearing upper scream. */
+  dragonRoar: (c, out, t, r) => {
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(300, t);
+    lp.frequency.linearRampToValueAtTime(1400, t + 0.4);
+    lp.frequency.exponentialRampToValueAtTime(200, t + 1.8);
+    lp.Q.value = 2;
+    lp.connect(out);
+    const g = grit(c, lp, 9);
+    osc(c, g, t, { type: 'sawtooth', f: r.jit(52, 0.06), f1: 36, dur: 1.7, gain: 0.45, a: 0.12, vib: [6, 80] });
+    osc(c, g, t + 0.1, { type: 'sawtooth', f: r.jit(180, 0.06), f1: 120, dur: 1.4, gain: 0.18, a: 0.2, vib: [11, 120] });
+    noise(c, out, t, { dur: 1.7, gain: 0.4, f: r.jit(600, 0.15), f1: 260, q: 2.5, a: 0.15, rate: 0.6 });
+    return 1.9;
+  },
+  /** Wing beats: three slow heavy whumps of air. */
+  wingBeats: (c, out, t, r) => {
+    for (let i = 0; i < 3; i++) {
+      const at = t + i * 0.42;
+      noise(c, out, at, { dur: 0.3, gain: 0.6, f: r.jit(180, 0.15), f1: 90, type: 'lowpass', brown: true, a: 0.08 });
+      noise(c, out, at + 0.05, { dur: 0.2, gain: 0.12, f: 900, q: 0.8, a: 0.05 });
+    }
+    return 1.35;
+  },
+  /** Drawing breath before the fire: a rising, hollow inhale and embers. */
+  breathCharge: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.7, gain: 0.35, f: 250, f1: 1100, q: 2, a: 0.5, rate: 0.6 });
+    osc(c, out, t, { f: 60, f1: 95, dur: 0.7, gain: 0.12, a: 0.5 });
+    for (let i = 0; i < 5; i++) noise(c, out, t + r.range(0.2, 0.75), { dur: 0.012, gain: 0.1, f: r.jit(3500, 0.3), q: 2 });
+    return 0.8;
+  },
+  /** A guardian's crash or dive landing: the biggest impact there is. */
+  bossCrash: (c, out, t, r) => {
+    const g = grit(c, out, 5);
+    osc(c, g, t, { f: r.jit(38, 0.05), f1: 18, dur: 1.2, gain: 1 });
+    noise(c, g, t, { dur: 1.3, gain: 0.8, f: 200, type: 'lowpass', brown: true, a: 0.005 });
+    noise(c, out, t, { dur: 0.08, gain: 0.5, f: r.jit(1600, 0.2), q: 1 });
+    clatter(c, out, t + 0.05, r, 6, 0.7, 0.04);
+    return 1.4;
+  },
+  /** A guardian's sweeping blow: a heavy whoosh. */
+  sweep: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.45, gain: 0.6, f: r.jit(260, 0.15), f1: 700, q: 1.2, a: 0.18, brown: true });
+    noise(c, out, t + 0.1, { dur: 0.3, gain: 0.15, f: 1800, f1: 900, q: 1, a: 0.08 });
+    return 0.6;
+  },
+  /** Water bursting: a splash and the falling spray. */
+  splash: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.12, gain: 0.55, f: r.jit(500, 0.2), type: 'lowpass', brown: true });
+    noise(c, out, t, { dur: 0.7, gain: 0.35, f: r.jit(2200, 0.2), f1: 3800, q: 0.8, a: 0.02 });
+    for (let i = 0; i < 10; i++) noise(c, out, t + 0.1 + r.range(0, 0.7), { dur: 0.02, gain: 0.08, f: r.jit(4000, 0.3), q: 2 });
+    return 0.95;
+  },
+  /** Scylla: six throats shrieking out of step over the surf. */
+  scyllaShriek: (c, out, t, r) => {
+    const g = grit(c, out, 4);
+    for (let i = 0; i < 4; i++) {
+      const at = t + i * r.range(0.08, 0.16);
+      osc(c, g, at, { type: 'sawtooth', f: r.jit(900, 0.3), f1: r.jit(500, 0.2), dur: 0.8, gain: 0.06, a: 0.04, vib: [r.range(14, 26), 160] });
+    }
+    noise(c, out, t, { dur: 1.1, gain: 0.25, f: 700, q: 0.7, a: 0.2, brown: true });
+    return 1.3;
+  },
+  /** Gyges' chains bursting: iron links snapping and flying. */
+  chains: (c, out, t, r) => {
+    for (let i = 0; i < 5; i++) {
+      const at = t + i * r.range(0.04, 0.09);
+      metal(c, out, at, r.jit(1400, 0.25), [1, 1.43, 2.17, 3.3], r.range(0.2, 0.4), 0.12);
+      noise(c, out, at, { dur: 0.02, gain: 0.35, f: 3200, type: 'highpass' });
+    }
+    clatter(c, out, t + 0.35, r, 6, 0.5, 0.06);
+    return 1.0;
+  },
+  /** Gyges the Hundred-Handed: a bellow of many low voices. */
+  gygesBellow: (c, out, t, r) => {
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 700;
+    lp.connect(out);
+    const g = grit(c, lp, 6);
+    for (const f of [41, 55, 62, 82]) osc(c, g, t + r.range(0, 0.1), { type: 'sawtooth', f: r.jit(f, 0.04), f1: f * 0.8, dur: 1.5, gain: 0.16, a: 0.25, vib: [r.range(4, 6), 30] });
+    noise(c, out, t, { dur: 1.4, gain: 0.25, f: 420, q: 2, a: 0.3, rate: 0.5 });
+    return 1.7;
+  },
+  /** The Chimera: a lion's roar, the goat's bleat and the serpent's hiss at once. */
+  chimeraRoar: (c, out, t, r) => {
+    const g = grit(c, out, 7);
+    osc(c, g, t, { type: 'sawtooth', f: r.jit(74, 0.08), f1: 50, dur: 1.1, gain: 0.3, a: 0.08, vib: [8, 70] });
+    noise(c, out, t, { dur: 1.0, gain: 0.3, f: 520, f1: 260, q: 3, a: 0.08, rate: 0.6 });
+    osc(c, g, t + 0.25, { type: 'sawtooth', f: r.jit(330, 0.08), f1: 270, dur: 0.6, gain: 0.07, vib: [9, 120], a: 0.03 });
+    noise(c, out, t + 0.5, { dur: 0.7, gain: 0.25, f: 5200, f1: 3800, q: 1.5, a: 0.05, type: 'highpass' });
+    return 1.3;
+  },
+  /** Brontes, the thunder Cyclops: a crack of thunder rolling away. */
+  thunder: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.12, gain: 0.7, f: r.jit(2800, 0.2), type: 'highpass' });
+    const g = grit(c, out, 4);
+    noise(c, g, t + 0.03, { dur: 2.2, gain: 0.7, f: 320, f1: 90, type: 'lowpass', brown: true, a: 0.04 });
+    for (let i = 0; i < 5; i++) osc(c, g, t + 0.2 + r.range(0, 1.4), { f: r.jit(48, 0.2), f1: 30, dur: 0.4, gain: r.range(0.2, 0.4) });
+    return 2.4;
+  },
+  /** Brontes' hammer on his anvil: a huge bronze clang. */
+  anvil: (c, out, t, r) => {
+    metal(c, out, t, r.jit(520, 0.05), [1, 2.42, 3.9, 5.6], 1.6, 0.22);
+    osc(c, out, t, { f: 70, f1: 40, dur: 0.3, gain: 0.5 });
+    noise(c, out, t, { dur: 0.04, gain: 0.5, f: 3000, type: 'highpass' });
+    return 1.7;
+  },
+  /** The Bandit King's war horn: a long, low, wavering bull-horn call. */
+  banditHorn: (c, out, t, r) => horn(c, out, t, r, r.jit(73, 0.02), [[1, 0.9], [0.94, 0.4], [1.33, 1.1]], 0.45),
+  /** The Maenad Queen's frenzy: ululating cries over pounding drums. */
+  maenadFrenzy: (c, out, t, r) => {
+    for (let i = 0; i < 6; i++) frameDrum(c, out, t + i * 0.2, r, 0.25 + (i % 2) * 0.12);
+    const g = grit(c, out, 2);
+    for (let i = 0; i < 3; i++) osc(c, g, t + 0.1 + i * 0.3, { type: 'sawtooth', f: r.jit(880, 0.12), f1: r.jit(700, 0.1), dur: 0.5, gain: 0.05, a: 0.03, vib: [r.range(9, 13), 220] });
+    return 1.5;
+  },
+  /** A guardian slain: the body falling and a low bronze chord fading. */
+  bossSlain: (c, out, t, r) => {
+    const g = grit(c, out, 4);
+    osc(c, g, t, { f: r.jit(40, 0.05), f1: 20, dur: 1.4, gain: 0.85 });
+    noise(c, g, t, { dur: 1.5, gain: 0.6, f: 220, type: 'lowpass', brown: true });
+    [45, 52, 57].forEach((m, i) => pluck(c, out, t + 0.6 + i * 0.08, midiHz(m), 0.3, 2.4, 0.4));
+    metal(c, out, t + 0.6, 220, BRONZE, 2.2, 0.08);
+    return 3.0;
+  },
+  /** UI: the radial menu opening (a soft rising flick). */
+  radialOpen: (c, out, t) => {
+    noise(c, out, t, { dur: 0.08, gain: 0.18, f: 900, f1: 2600, q: 2, a: 0.02 });
+    pluck(c, out, t + 0.02, midiHz(76), 0.08, 0.3, 0.8);
+    return 0.3;
+  },
+  /** UI: the radial menu closing (the flick falling). */
+  radialClose: (c, out, t) => {
+    noise(c, out, t, { dur: 0.07, gain: 0.14, f: 2400, f1: 900, q: 2, a: 0.01 });
+    return 0.1;
+  },
+  /** UI: a panel opening (a parchment unfurl and a wooden knock). */
+  panelOpen: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.16, gain: 0.16, f: r.jit(2200, 0.1), f1: 3400, q: 0.9, a: 0.04 });
+    osc(c, out, t + 0.1, { f: 260, f1: 180, dur: 0.05, gain: 0.18 });
+    return 0.22;
+  },
+  /** UI: a panel closing. */
+  panelClose: (c, out, t, r) => {
+    noise(c, out, t, { dur: 0.12, gain: 0.13, f: r.jit(3000, 0.1), f1: 1800, q: 0.9, a: 0.01 });
+    osc(c, out, t + 0.06, { f: 220, f1: 150, dur: 0.05, gain: 0.15 });
+    return 0.18;
+  },
+  /** UI: a notice (a plucked two-note cue). */
+  toast: (c, out, t) => {
+    pluck(c, out, t, midiHz(74), 0.16, 0.6, 0.7);
+    pluck(c, out, t + 0.08, midiHz(81), 0.12, 0.7, 0.7);
+    return 0.75;
+  },
 } satisfies Record<string, Recipe>;
 
 export type SfxId = keyof typeof RECIPES;
@@ -671,6 +925,38 @@ export const PRIORITY: Record<SfxId, number> = {
   narrate: 10,
   quill: 4,
   chime: 10,
+  // the war
+  woundedCry: 4,
+  ramHit: 7,
+  throwRelease: 6,
+  ladderRaise: 6,
+  fireWhoosh: 6,
+  wallCollapse: 9,
+  chop: 1,
+  mine: 1,
+  hammer: 1,
+  cartWheels: 2,
+  mule: 3,
+  dragonRoar: 9,
+  wingBeats: 8,
+  breathCharge: 7,
+  bossCrash: 9,
+  sweep: 7,
+  splash: 6,
+  scyllaShriek: 9,
+  chains: 8,
+  gygesBellow: 9,
+  chimeraRoar: 9,
+  thunder: 9,
+  anvil: 8,
+  banditHorn: 9,
+  maenadFrenzy: 9,
+  bossSlain: 10,
+  radialOpen: 10,
+  radialClose: 10,
+  panelOpen: 10,
+  panelClose: 10,
+  toast: 10,
 };
 
 /** Base loudness per sound before spatial attenuation and the SFX bus. */
