@@ -1,0 +1,31 @@
+src/war/world-view/main.ts
+  s_cfc22b058125c4::t_81195e299e9658 72
+  s_cfc22b058125c4::t_84a57703923a5e 124,129,135
+  s_cfc22b058125c4::t_c046ab7a1b580b 19-20,269
+  s_cfc22b058125c4::t_fbba576b669f7c 31-32,61-63,71,100,275,284-285
+  s_cfc22b058125c4::t_9ec6c889378fca 1-18,21-30,33-60,64-70,73-99,101-123,125-128,130-134,136-268,270-274,276-283,286-297
+src/war/world-view/map.ts
+  s_cfc22b058125c4::t_4a2fcfda4e2594 1-59,61-83,88-106,113-142,144-260,263-265,267-268,271-300
+  s_cfc22b058125c4::t_81195e299e9658 262,266,269-270
+  s_cfc22b058125c4::t_fbba576b669f7c 60,84-87,107-112,143,261
+vite.config.ts
+  s_cfc22b058125c4::t_84a57703923a5e 45
+world.html
+  s_cfc22b058125c4::t_84a57703923a5e 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8be2f265ae621a4dceaa6c88b63ec9cfa1e11d5d",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
