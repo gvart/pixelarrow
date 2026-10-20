@@ -1,0 +1,30 @@
+server/src/war/crafting.ts
+  s_cfc22b058125c4::t_aeab2be38a2ce0 1-79,85-120
+  s_cfc22b058125c4::t_4d081687111fe8 80-84
+server/src/war/routes.ts
+  s_cfc22b058125c4::t_b01cf130d7ab3e 14-18,32,99-110
+  s_cfc22b058125c4::t_d49ea15bd2c3be 111
+server/migrations/0023_war_crafting.sql
+  s_cfc22b058125c4::t_79db4d8af331f1 1-18
+server/src/account/deletionMap.ts
+  s_cfc22b058125c4::t_fecdb60fd08fad 100
+server/src/war/persons.ts
+  s_cfc22b058125c4::t_8086da36216a22 87,104,120,125,210,217,321,329,550,552-555,565
+  s_cfc22b058125c4::t_9cbf5fb961c582 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8f50ff9557f01d4338123c9a1206f8d28c7afb21",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
