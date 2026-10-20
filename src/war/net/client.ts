@@ -19,6 +19,10 @@ export interface Net {
   view(x0: number, y0: number, x1: number, y1: number): void;
   /** A placement check for our team; `done` gets the server's answer (null: not joined or the socket closed). */
   check(c: CheckBody, done: (r: PlaceResult | WallPlan | BridgePlan | null) => void): void;
+  /** M5h4: repair or salvage stash item `uid` at a workplace of our team (the server loads the item). */
+  mend(kind: 'repair' | 'salvage', building: number, uid: string): void;
+  /** The war API (/api/war/<path>) as the dev player, once signed in: its JSON, or { error } on a refusal. */
+  api(method: 'GET' | 'POST', path: string, body?: unknown): Promise<unknown>;
 }
 
 /** A check message without its envelope (t, id). */
@@ -35,6 +39,8 @@ export function createNet(url: string, region: string, devId: number | undefined
   let home: RosterPerson[] = [];
   let checkId = 0;
   const checks = new Map<number, (r: PlaceResult | WallPlan | BridgePlan | null) => void>();
+  let signedIn: (auth: Record<string, string>) => void = () => undefined;
+  const authed = new Promise<Record<string, string>>((ok) => (signedIn = ok));
   const send = (m: () => unknown) => {
     if (ready && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m()));
     else pending.push(m);
@@ -46,6 +52,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     const s = (await res.json()) as { token: string; player: { id: number } };
     pid = s.player.id;
     const auth = { authorization: `Bearer ${s.token}`, 'content-type': 'application/json' };
+    signedIn(auth);
     const fit = (p: RosterPerson) => (p.state === 'active' || p.state === 'reserve') && !p.region;
     const load = async () => ((await (await fetch('/api/war/roster', { headers: auth })).json()) as { persons: RosterPerson[] }).persons.filter(fit);
     home = await load();
@@ -100,6 +107,12 @@ export function createNet(url: string, region: string, devId: number | undefined
       const id = ++checkId;
       checks.set(id, done);
       send(() => ({ ...c, t: 'check', id }));
+    },
+    mend: (kind, building, uid) => send(() => ({ t: 'mend', kind, building, uid })),
+    api: async (method, path, body) => {
+      const r = await fetch(`/api/war/${path}`, { method, headers: await authed, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+      const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+      return r.ok ? j : { error: (j.error as string | undefined) ?? `HTTP ${r.status}`, ...j };
     },
     view: (x0, y0, x1, y1) => {
       if (ready && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'view', x0, y0, x1, y1 }));

@@ -33,11 +33,11 @@ export class SimClient {
   private askId = 0;
 
   constructor(region: RegionData) {
-    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null };
+    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null; api?: unknown };
     this.worker.onmessage = (e: MessageEvent<Msg>) => {
       if ('reply' in e.data) {
         const r = e.data;
-        this.asks.get(r.reply)?.(r.place ?? r.wall ?? r.bridge ?? r.report ?? null);
+        this.asks.get(r.reply)?.(r.place ?? r.wall ?? r.bridge ?? r.report ?? r.api ?? null);
         this.asks.delete(r.reply);
         return;
       }
@@ -181,6 +181,19 @@ export class SimClient {
   /** M5g: a person changed off the field (level-up choice, dev XP): his living man is baked again. */
   setPerson(p: WarPerson): void {
     this.send({ t: 'person', p });
+  }
+
+  /** Net mode (?net=): the live region server holds the stash and persons (M5h4), not the local roster. */
+  readonly net = new URLSearchParams(location.search).has('net');
+
+  /** M5h net mode: repair or salvage a stash item at a workplace of our team. */
+  mend(kind: 'repair' | 'salvage', building: number, uid: string): void {
+    this.send({ t: 'mend', kind, building, uid });
+  }
+
+  /** M5h net mode: a war API call as the dev player (null off net mode). */
+  api<T = unknown>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T | null> {
+    return this.net ? this.ask<T>((id) => ({ t: 'api', id, method, path, body })) : Promise.resolve(null);
   }
 
   /** Time scale; 0 pauses. */
