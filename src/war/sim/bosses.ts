@@ -13,12 +13,12 @@
  *
  * Phases (src/data/warBosses.ts `phases`): the share of its bar's hp each starts below; a phase only ever goes forward.
  *  - Drakon the White: P1 in the yard, claw (his blows) and a tail sweep (knock 2); P2 (< 60%) flies to the keep roof and
- *    between the towers, out of melee reach, breathing a cone of fire (30% max hp, sets wood alight); P3 (< 30%) crashes
+ *    between the towers, out of melee reach, breathing a cone of fire (6% max hp, sets wood alight); P3 (< 54%) crashes
  *    down into the yard (knock 3), enraged, and calls 2 drake packs from the bone pit.
  *  - Scylla: six heads strike from the cave along the cliff, one snatching a man within 4 tiles of the water every 6 s
  *    (he falls; a physician near may save him); her body is open only while 2 heads or fewer live; at 50% she drags
  *    herself onto the flats.
- *  - Brontes: P1 hurls rocks from the gate top (range 25, breaks wood); P2 (< 50%) comes down and smashes (knock 2),
+ *  - Brontes: P1 hurls rocks from the gate top (range 25, breaks wood); P2 (< 85%) comes down and smashes (knock 2),
  *    his blows hitting buildings x3, his own walls too.
  *  - Gyges: P1 chained, three blows at once at three men in reach 6; P2 (< 50%) breaks his chains (knock 2).
  *  - The Chimera: lion (melee), goat (fire breath, ignites) and serpent (venom), each head a linked target; the goat dead,
@@ -93,16 +93,16 @@ interface GDef {
   parts?: { n: number; hp: number; dmg: number };
 }
 export const GUARDIANS: Readonly<Record<string, GDef>> = {
-  drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 40000, dmg: 55, armor: 4, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
+  drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 16000, dmg: 15, armor: 2, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
   scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 18000, dmg: 45, armor: 4, reach: 3, atk: 2.5, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 3000, dmg: 40 } },
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 40, armor: 10, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 160, dmg: 18, armor: 8 } },
   river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 60, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
   titan: { ai: 'titan', cls: 'mob_brontes', hp: 36000, dmg: 80, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
   minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
-  brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 16000, dmg: 55, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
+  brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
   grove_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 4000, dmg: 30, armor: 4, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 8, hp: 90, dmg: 14, armor: 2 } },
-  gyges: { ai: 'gyges', cls: 'mob_gyges', hp: 16000, dmg: 45, armor: 4, reach: 2.4, atk: 1.6, speed: 0.9, aggro: 20, leash: 30 },
-  chimera: { ai: 'chimera', cls: 'mob_chimera', hp: 5000, dmg: 40, armor: 6, reach: 1.8, atk: 1.3, speed: 1.15, aggro: 14, leash: 22, parts: { n: 3, hp: 5000, dmg: 40 } },
+  gyges: { ai: 'gyges', cls: 'mob_gyges', hp: 10000, dmg: 12, armor: 4, reach: 2.4, atk: 1.6, speed: 0.9, aggro: 20, leash: 30 },
+  chimera: { ai: 'chimera', cls: 'mob_chimera', hp: 2500, dmg: 20, armor: 6, reach: 1.8, atk: 1.3, speed: 1.15, aggro: 14, leash: 22, parts: { n: 3, hp: 2500, dmg: 20 } },
   maenad_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 2500, dmg: 26, armor: 3, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 6, hp: 80, dmg: 12, armor: 2 } },
   moor_bear: { ai: 'brute', cls: 'mob_bear', hp: 5000, dmg: 40, armor: 6, reach: 1.6, atk: 1.5, speed: 1.05, aggro: 12, leash: 20 },
   griffin: { ai: 'brute', cls: 'mob_bear', hp: 4500, dmg: 40, armor: 5, reach: 1.6, atk: 1.3, speed: 1.3, aggro: 14, leash: 22 },
@@ -111,14 +111,14 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
 
 /** Timings (ticks) and reach of the special moves. */
 export const MOVES = {
-  sweep: { every: 100, r: 3, share: 0.15, knock: 2 },
-  breath: { every: 70, len: 14, half: 0.32, share: 0.3, reach: 18 },
+  sweep: { every: 100, r: 3, share: 0.03, knock: 2 },
+  breath: { every: 100, len: 14, half: 0.32, share: 0.06, reach: 18 },
   perchFor: 300, flight: 20,
-  crash: { r: 4, share: 0.2, knock: 3, packs: 2, pack: 6, packHp: 2.5, packDmg: 2 },
-  enrage: { dmg: 1.3, atk: 0.75 },
+  crash: { r: 4, share: 0.1, knock: 3, packs: 2, pack: 4, packHp: 1.2, packDmg: 1 },
+  enrage: { dmg: 1.1, atk: 0.75 },
   snatch: { every: 60, water: 4, head: 8 },
   headStrike: { every: 30, r: 4 },
-  rock: { every: 40, range: 25, r: 1.8, share: 0.35, wood: 300 },
+  rock: { every: 60, range: 25, r: 1.8, share: 0.06, wood: 300 },
   smash: { every: 30, r: 2.5, mult: 3 },
   triple: { every: 25, r: 6, n: 3 },
   goatBreath: { every: 60, len: 7, half: 0.5, share: 0.2 },
