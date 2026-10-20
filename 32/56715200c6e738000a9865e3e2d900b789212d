@@ -1,0 +1,60 @@
+src/war/view/trade/tradeArt.ts
+  s_cfc22b058125c4::t_37962331f312cd 1-71
+src/war/view/hud/kit.ts
+  s_cfc22b058125c4::t_d6f6497ff4304d 50,58
+src/war/view/worker.ts
+  s_cfc22b058125c4::t_09385fbbe7008f 31,143
+src/war/view/trade/tradeControls.ts
+  s_cfc22b058125c4::t_5b729c0f531d23 1-131,133-184,186-205,207-217
+  s_cfc22b058125c4::t_cbd9c7dce7d360 132,185
+  s_cfc22b058125c4::t_6fc60452892ca4 206
+src/war/view/interact.ts
+  s_cfc22b058125c4::t_9c188ee2802217 17-18,202-211,226,228,250,262-264
+src/war/view/hud/radial.ts
+  s_cfc22b058125c4::t_5719c14e6c2938 47
+src/war/view/simClient.ts
+  s_cfc22b058125c4::t_09385fbbe7008f 148-152
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_b5b256b924098e 297
+  s_cfc22b058125c4::t_67ea553c88ecb3 45-46,49,59-61,69-70,72-74,90-92,284-285,287-293,330-332,372,430
+  s_cfc22b058125c4::t_ec409f50a2743b 71,286
+src/war/scenarios/index.ts
+  s_cfc22b058125c4::t_bc911aecd5dedc 7,41-44,103,105-106,463,467-469,472-474,476-477,479,492-494,496-513,515-520
+  s_cfc22b058125c4::t_8daf8715a00736 490
+  s_cfc22b058125c4::t_dc68ee594b1d62 104,464-466,478,487-489,491
+  s_cfc22b058125c4::t_c95416b5d74b5f 470-471,475,480-486
+  s_cfc22b058125c4::t_b5dd8935add747 495,514
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_09385fbbe7008f 125
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_6fc60452892ca4 39-41,92-94,185-188,197,387-390,487-489
+src/war/view/trade/tradeLayer.ts
+  s_cfc22b058125c4::t_f75940054d902c 90,146,191
+  s_cfc22b058125c4::t_66a42f9f4378a2 1-89,91-145,147-190,192-234
+src/war/view/hud/holder.ts
+  s_cfc22b058125c4::t_51198768dd64f1 1-10,12-19,22-31,44-47,49-57,59-117,119-138,140-148,151-154,156-160
+  s_cfc22b058125c4::t_dac59a6f0d2454 11,32-43,48,118,155
+  s_cfc22b058125c4::t_b5b256b924098e 20-21,58,139,149-150
+src/war/view/main.ts
+  s_cfc22b058125c4::t_09385fbbe7008f 36-37
+scripts/war/trade-shots.mjs
+  s_cfc22b058125c4::t_274b3f19d15237 83-86,88-93
+  s_cfc22b058125c4::t_d9c5dbffbf56ee 98-99,101-108
+  s_cfc22b058125c4::t_bd39431608dae2 1-82,87,94-97,100,109-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3256715200c6e738000a9865e3e2d900b789212d",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
