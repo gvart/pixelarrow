@@ -18,10 +18,10 @@ type WireGoods = StowMsg['goods'];
 export interface Site { id: string; kind: 'stall' | 'warehouse' | 'strongroom'; level: number; paid_to: number | null; goods: Goods }
 export interface Offer { id: number; side: 'sell' | 'buy'; res: string | null; item_uid: string | null; n: number; left: number; price: number; standing: number; player?: string }
 export interface Mine { sites: Site[]; offers: Offer[] }
-export interface BoardRow { ask: number | null; bid: number | null; askDepth: number; bidDepth: number;
-  /** The best ask's and bid's offer ids (the offline stub; the server board names none for goods yet). */
-  askId?: number; bidId?: number }
-export interface Board { town: string; goods: Record<string, BoardRow>; items: { offer: number; uid: string; price: number }[]; fills: { res: string | null; n: number; price: number; at: number }[] }
+export interface BoardRow { ask: number | null; bid: number | null; askDepth: number; bidDepth: number }
+/** An open goods offer on the board (server/src/war/market.ts BoardOffer): `n` left, its stall and owner; best first. */
+export interface BoardOffer { offer: number; side: 'sell' | 'buy'; res: string; n: number; price: number; stall: string; player: number }
+export interface Board { town: string; goods: Record<string, BoardRow>; offers: BoardOffer[]; items: { offer: number; uid: string; price: number }[]; fills: { res: string | null; n: number; price: number; at: number }[] }
 export type ContractKind = 'carry' | 'supply' | 'escort';
 export interface Contract { id: number; kind: ContractKind; town: string; to_town: string; poster: number; taker: number | null; reward: number; res: string | null; n: number; delivered: number; value: number; deposit: number; state: string; deadline: number }
 export interface ContractIn { kind: ContractKind; toTown: string; reward: number; res?: string; n?: number; value?: number; loads?: number; deadline: number }
@@ -172,14 +172,16 @@ export class LocalMarket implements Market {
   }
 
   board(town: string) {
-    const goods: Record<string, BoardRow> = {};
+    const goods: Record<string, BoardRow> = {}, offers: BoardOffer[] = [];
     for (const o of this.offers) {
       if (o.town !== town || o.left <= 0 || !o.res) continue;
+      offers.push({ offer: o.id, side: o.side, res: o.res, n: o.left, price: o.price, stall: `st:${town}:${o.player ?? 'you'}`, player: o.mine ? this.me : 0 });
       const g = (goods[o.res] ??= { ask: null, bid: null, askDepth: 0, bidDepth: 0 });
-      if (o.side === 'sell') { if (g.ask === null || o.price < g.ask) (g.ask = o.price), (g.askId = o.id); g.askDepth += o.left; }
-      else { if (g.bid === null || o.price > g.bid) (g.bid = o.price), (g.bidId = o.id); g.bidDepth += o.left; }
+      if (o.side === 'sell') { if (g.ask === null || o.price < g.ask) g.ask = o.price; g.askDepth += o.left; }
+      else { if (g.bid === null || o.price > g.bid) g.bid = o.price; g.bidDepth += o.left; }
     }
-    return ok({ town, goods, items: [], fills: this.fills.slice(-10).reverse() });
+    offers.sort((a, b) => a.res.localeCompare(b.res) || (a.side === b.side ? 0 : a.side === 'sell' ? -1 : 1) || (a.side === 'sell' ? a.price - b.price : b.price - a.price) || a.offer - b.offer);
+    return ok({ town, goods, offers, items: [], fills: this.fills.slice(-10).reverse() });
   }
 
   rent(_town: string, kind: 'stall' | 'warehouse') {

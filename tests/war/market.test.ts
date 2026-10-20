@@ -36,12 +36,15 @@ describe('offline market stub', () => {
     await new Promise<void>((done) => M.stow('in', 'stall', 0, { coin: 200, tin: 10 }, () => done()));
     const b = ok(await M.board('kleisoura'));
     expect(b.goods.tin.ask).toBe(11);
-    const f = ok(await M.fill(b.goods.tin.askId!, 5));
+    // every offer by id, best first: the cheapest ask, then the dearer, then the bid
+    const tin = b.offers.filter((o) => o.res === 'tin');
+    expect(tin.map((o) => [o.side, o.price, o.n])).toEqual([['sell', 11, 40], ['sell', 12, 25], ['buy', 9, 30]]);
+    const f = ok(await M.fill(tin[0].offer, 5));
     expect(f).toMatchObject({ n: 5, price: 11 });
     const st = stallOf(ok(await M.mine('kleisoura')));
     expect(st.goods.tin).toBe(15);
     expect(st.goods.coin).toBe(145);
-    const sale = ok(await M.fill(b.goods.tin.bidId!, 10));
+    const sale = ok(await M.fill(tin[2].offer, 10));
     expect(sale.tax).toBeCloseTo(4.5);
     expect(stallOf(ok(await M.mine('kleisoura'))).goods.coin).toBeCloseTo(145 + 90 - 4.5);
   });

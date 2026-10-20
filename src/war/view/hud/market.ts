@@ -7,7 +7,8 @@
  *                 holds against its 20 loads, stow goods in from the selected squad (out again); your men in the court
  *     Offers      list a sell offer or a buy order: the escrow it takes out of the stall, standing (Trader); your open
  *                 ones with what is left, cancel (escrow back)
- *     Board       player offers only: best bid and ask with depth by good, take n of the best, items, the last fills
+ *     Board       player offers only: best bid and ask with depth by good, take n of the best (not your own), every
+ *                 goods offer by id to take part of, items, the last fills
  *     Contracts   open and taken carry / supply / escort contracts at or bound for the town, take one (a carry escrows
  *                 half its value); post one (its reward escrowed)
  *     Letters     a Banker's letter of credit to another town (coin escrowed there), buy one named to you, redeem it at B
@@ -19,7 +20,7 @@ import { MARKET_TOWNS } from '../../world-view/geo';
 import type { SandboxScene } from '../SandboxScene';
 import {
   failed, LocalMarket, netMarket, RENT, SITE_LOADS, siteLoads, STALL_OFFERS, STALL_UPGRADE,
-  type Board, type Contract, type ContractKind, type Goods, type Handoff, type Market, type Mine, type Res,
+  type Board, type BoardOffer, type Contract, type ContractKind, type Goods, type Handoff, type Market, type Mine, type Res,
 } from '../trade/market';
 import { draggable } from './drag';
 import { bar, fitHeight, icon } from './kit';
@@ -152,12 +153,17 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
   const boardTab = () => {
     if (!board) return '<div class="rf-dim" style="margin:6px 0">loading the board…</div>';
     const g = Object.entries(board.goods).sort((a, b) => b[1].askDepth + b[1].bidDepth - a[1].askDepth - a[1].bidDepth);
-    const take = (id: number | undefined, side: string, price: number | null) => btn('fill', side === 'buy' ? 'Buy' : 'Sell', id !== undefined && price !== null, `data-id="${id ?? ''}"`, id === undefined ? (price === null ? 'none listed' : 'the server board names no offer to take yet') : side === 'buy' ? `take ${form.take} at ${price}: coin from your stall` : `sell ${form.take} at ${price}: goods from your stall`);
-    const rows = g.map(([r, x]) => `<tr class="rf-row"><td><span style="display:inline-flex;align-items:center;gap:3px">${gi(r)}${r}</span></td><td class="mk-buy">${x.bid ?? '–'} <span class="rf-dim">${x.bidDepth ? fmt(x.bidDepth) : ''}</span></td><td>${take(x.bidId, 'sell', x.bid)}</td><td class="mk-sell">${x.ask ?? '–'} <span class="rf-dim">${x.askDepth ? fmt(x.askDepth) : ''}</span></td><td>${take(x.askId, 'buy', x.ask)}</td></tr>`).join('');
+    // the best offer on each side that is not mine (the board lists them best first); a take is at most what is left
+    const best = (r: string, side: 'sell' | 'buy') => board!.offers.find((o) => o.res === r && o.side === side && o.player !== M.me);
+    const take = (o: BoardOffer | undefined, label: string) => btn('fill', label, !!o, o ? `data-id="${o.offer}" data-left="${o.n}"` : '', !o ? 'none listed but yours'
+      : o.side === 'sell' ? `buy up to ${fmt(o.n)} at ${o.price} from #${o.player}'s stall: coin from your warehouse, then stall` : `sell up to ${fmt(o.n)} at ${o.price} into #${o.player}'s order: goods from your stall, then warehouse`);
+    const rows = g.map(([r, x]) => `<tr class="rf-row"><td><span style="display:inline-flex;align-items:center;gap:3px">${gi(r)}${r}</span></td><td class="mk-buy">${x.bid ?? '–'} <span class="rf-dim">${x.bidDepth ? fmt(x.bidDepth) : ''}</span></td><td>${take(best(r, 'buy'), 'Sell')}</td><td class="mk-sell">${x.ask ?? '–'} <span class="rf-dim">${x.askDepth ? fmt(x.askDepth) : ''}</span></td><td>${take(best(r, 'sell'), 'Buy')}</td></tr>`).join('');
+    const offers = board.offers.map((o) => `<div class="mk-row rf-row"><span class="mk-pill ${o.side === 'sell' ? 'mk-sell' : 'mk-buy'}">${o.side === 'sell' ? 'ASK' : 'BID'}</span>${gi(o.res)}<span style="flex:1">${o.res} <span class="rf-dim">${o.player === M.me ? 'yours' : `#${o.player}'s stall`}</span></span><span class="rf-num">${fmt(o.n)}</span><span class="rf-num" style="width:44px;text-align:right">@${o.price}</span>${o.player === M.me ? '' : take(o, o.side === 'sell' ? 'Buy' : 'Sell')}</div>`).join('');
     const items = board.items.map((it) => `<div class="mk-row rf-row"><span style="flex:1">${it.uid}</span><span class="rf-num">${it.price}</span>${icon('res-coin')}${btn('fill', 'Buy', true, `data-id="${it.offer}" data-n="1"`)}</div>`).join('');
     const fills = board.fills.map((f) => `<div class="mk-row" style="min-height:18px">${gi(f.res)}<span style="flex:1">${fmt(f.n)} ${f.res ?? 'item'} @ ${f.price}</span><span class="rf-dim">${ago(Date.now() - f.at)}</span></div>`).join('');
     return `<div class="rf-dim" style="margin:4px 0">Player offers only · take <input type="number" data-f="take" min="1" value="${form.take}" style="width:44px"> of the best</div>
       <table><tr><th>Good</th><th>Bid</th><th></th><th>Ask</th><th></th></tr>${rows || '<tr><td colspan="5" class="rf-dim">no offers listed</td></tr>'}</table>
+      ${offers ? `<div class="rf-cap" style="margin-top:6px">Offers <span class="rf-dim">each one, best first</span></div>${offers}` : ''}
       ${items ? `<div class="rf-cap" style="margin-top:6px">Items</div>${items}` : ''}
       <div class="rf-cap" style="margin-top:6px">Last fills</div>${fills || '<div class="rf-dim">none yet</div>'}`;
   };
@@ -223,7 +229,7 @@ export function mountMarket(s: SandboxScene, mk: Mk): MarketHud {
     else if (a === 'upgrade') void run(M.upgrade(T), (r) => `stall now level ${r.level}`);
     else if (a === 'list') void run(M.list(T, { side: form.side, res: form.res, n: form.n, price: form.price, ...(form.standing ? { standing: true } : {}) }), (r) => `${form.side === 'sell' ? 'offer' : 'buy order'} #${r.offer} listed; its escrow left the stall`);
     else if (a === 'cancel') void run(M.cancel(id), () => 'cancelled: the escrow is back in the stall');
-    else if (a === 'fill') void run(M.fill(id, Number(t.dataset.n) || form.take), (r) => `filled ${fmt(r.n)} at ${r.price}${r.tax ? ` (tax ${fmt(r.tax)})` : ''}`);
+    else if (a === 'fill') void run(M.fill(id, Number(t.dataset.n) || Math.min(form.take, Number(t.dataset.left) || Infinity)), (r) => `filled ${fmt(r.n)} at ${r.price}${r.tax ? ` (tax ${fmt(r.tax)})` : ''}`);
     else if (a === 'take') void run(M.take(id), () => 'contract taken');
     else if (a === 'post') void run(M.post(T, { kind: form.cKind, toTown: form.cTo, reward: form.cReward, deadline: Date.now() + form.cHours * 3_600_000, ...(form.cKind === 'supply' ? { res: form.cRes, n: form.cN } : form.cKind === 'carry' ? { loads: form.cLoads, value: form.cValue } : {}) }), (r) => `contract #${r.contract} posted; its reward is escrowed`);
     else if (a === 'offerL') void run(M.letter(T, form.lTo, form.lAmount, form.lFee), (r) => `letter #${r.letter} offered`);

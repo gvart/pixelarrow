@@ -2,13 +2,13 @@
  * Trade API (/api/war/trade/*, M6f-M6g; ./market.ts, ./contracts.ts). Signed in and playable; bodies zod-checked. The
  * town's holder (the alliance that holds the region, for rent and tax) comes from the world.
  *
- *   GET  /:town/board                         the price board: best ask / bid, depth, last fills (player offers only)
+ *   GET  /:town/board                         the price board: best ask / bid, depth, every goods offer by id, last fills
  *   GET  /:town/mine                          the player's stall and warehouse there (goods, level, rent) and offers
  *   POST /:town/rent     { kind }             rent a stall or warehouse (first day's rent from the home strongroom)
  *   POST /:town/upgrade                       the stall's next level (paid from the stall)
  *   POST /:town/offers   { side, res|uid, n, price, standing? }   list a sell offer or a buy order (escrowed)
  *   POST /offers/:id/cancel                   cancel an open offer of his (escrow back to the stall)
- *   POST /offers/:id/fill { n, key }          take n of an offer (men in the town); `key` makes it idempotent
+ *   POST /offers/:id/fill { n, key }          take n of an offer (a board offer id; goods: partly); `key` makes it idempotent
  *   M6g (./contracts.ts):
  *   POST /:town/deals    { broker, with, give, get }   an escrowed hand-off at a Broker's stall
  *   POST /deals/:id/drop                      drop my half from my sites there (both in: swapped)

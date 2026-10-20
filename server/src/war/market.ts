@@ -13,7 +13,8 @@
  *  - Fill: the taker (with men in the town) takes n of an offer: goods into the buyer's warehouse, coin (less the
  *    holder's tax) into the seller's stall, tax into the holder's tax strongbox; one D1 batch led by the war_fills row
  *    keyed by the taker's key, so a retried fill changes nothing and returns the first.
- *  - Board: per good the best ask, best bid, depth each side and the last 10 fills, from player offers only.
+ *  - Board: per good the best ask, best bid, depth each side and the last 10 fills, from player offers only; every
+ *    open goods offer by its id (good, what is left, price, the stall and its player), best first, to take from it.
  */
 import { heldNodes } from '../../../src/data/professions';
 import { ITEMS_PER_LOAD, perLoad } from '../../../src/war/sim/holders';
@@ -290,26 +291,31 @@ async function rearm(db: D1Database, o: OfferRow, now: number): Promise<void> {
   await batch(db, [...plan.stmts, ...putLotsStmts(db, escrowId(o.id), plan.taken), db.prepare("UPDATE war_offers SET left = ?2, n = ?2, state = 'open', updated_at = ?3 WHERE id = ?1 AND state = 'done'").bind(o.id, n, now)]);
 }
 
-export interface Board { town: string; goods: Record<string, { ask: number | null; bid: number | null; askDepth: number; bidDepth: number }>; items: { offer: number; uid: string; price: number }[]; fills: { res: string | null; n: number; price: number; at: number }[] }
+/** An open goods offer on the board: `n` is what is left of it, `stall` the stall it is listed at, `player` its owner. */
+export interface BoardOffer { offer: number; side: 'sell' | 'buy'; res: string; n: number; price: number; stall: string; player: number }
+export interface Board { town: string; goods: Record<string, { ask: number | null; bid: number | null; askDepth: number; bidDepth: number }>; offers: BoardOffer[]; items: { offer: number; uid: string; price: number }[]; fills: { res: string | null; n: number; price: number; at: number }[] }
 
 /** The town's price board: from open player offers and the last 10 fills, nothing else. */
 export async function board(db: D1Database, town: string): Promise<Board> {
   mustTown(town);
   const [offers, fills] = await Promise.all([
-    db.prepare("SELECT id, side, res, item_uid, left, price FROM war_offers WHERE town = ?1 AND state = 'open'").bind(town).all<{ id: number; side: 'sell' | 'buy'; res: string | null; item_uid: string | null; left: number; price: number }>(),
+    db.prepare("SELECT id, player_id, side, res, item_uid, left, price FROM war_offers WHERE town = ?1 AND state = 'open' ORDER BY id").bind(town).all<{ id: number; player_id: number; side: 'sell' | 'buy'; res: string | null; item_uid: string | null; left: number; price: number }>(),
     db.prepare('SELECT res, n, price, at FROM war_fills WHERE town = ?1 ORDER BY at DESC, id DESC LIMIT 10').bind(town).all<{ res: string | null; n: number; price: number; at: number }>(),
   ]);
-  const goods: Board['goods'] = {}, items: Board['items'] = [];
+  const goods: Board['goods'] = {}, items: Board['items'] = [], list: BoardOffer[] = [];
   for (const o of offers.results) {
     if (o.item_uid) {
       items.push({ offer: o.id, uid: o.item_uid, price: o.price });
       continue;
     }
+    list.push({ offer: o.id, side: o.side, res: o.res!, n: round(o.left), price: o.price, stall: stallId(town, o.player_id), player: o.player_id });
     const g = (goods[o.res!] ??= { ask: null, bid: null, askDepth: 0, bidDepth: 0 });
     if (o.side === 'sell') (g.ask = g.ask === null ? o.price : Math.min(g.ask, o.price)), (g.askDepth = round(g.askDepth + o.left));
     else (g.bid = g.bid === null ? o.price : Math.max(g.bid, o.price)), (g.bidDepth = round(g.bidDepth + o.left));
   }
-  return { town, goods, items, fills: fills.results };
+  // best first: by good, asks before bids, the cheapest ask and the dearest bid, then the oldest
+  list.sort((a, b) => (a.res < b.res ? -1 : a.res > b.res ? 1 : 0) || (a.side === b.side ? 0 : a.side === 'sell' ? -1 : 1) || (a.side === 'sell' ? a.price - b.price : b.price - a.price) || a.offer - b.offer);
+  return { town, goods, offers: list, items, fills: fills.results };
 }
 
 /** The player's sites, offers and what each site holds in town. */
