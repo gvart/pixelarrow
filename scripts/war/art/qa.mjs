@@ -375,9 +375,42 @@ export function runSiegeQa() {
   return fail;
 }
 
+// trade art (ART-T): object checks for every sprite (cargo overlays and piles included), each cart has every state and
+// strip per facing, cargo kinds per facing, the mule sheet and strips on the shared palette with binary alpha.
+export function qaTrade(dir = join(ROOT, 'public/war/trade')) {
+  const read = (f) => JSON.parse(readFileSync(join(ROOT, f)));
+  const G = read('public/war/tiles/tiles.json'), GO = read('public/war/objects/objects.json'), T = JSON.parse(readFileSync(join(dir, 'objects.json')));
+  const fail = qaObjects(T, G.palette, dir, GO), pal = palSet([...G.palette, ...(T.palette ?? [])]), ids = new Set(T.objects.map((o) => o.id));
+  for (const c of T.carts ?? []) for (const f of c.facings) {
+    for (const s of ['halted', 'burning', 'wrecked', 'burnt']) if (!ids.has(c.states?.[f]?.[s])) fail.push(`${c.id} ${f}: no ${s} sprite`);
+    if (Object.keys(c.cargo?.[f] ?? {}).length < 12) fail.push(`${c.id} ${f}: ${Object.keys(c.cargo?.[f] ?? {}).length} cargo overlays, want 12`);
+  }
+  for (const t of T.things ?? []) for (const s of Object.values(t.states)) if (!ids.has(s)) fail.push(`${t.id}: no sprite ${s}`);
+  const strips = [...(T.carts ?? []).flatMap((c) => Object.values(c.moving ?? {})), ...(T.mules?.file ? [{ file: T.mules.file, frame: T.mules.frame, frames: Math.max(...Object.values(T.mules.anims).map((a) => a.col + a.frames)), rows: T.mules.rows.length }] : [])];
+  if (!T.mules?.file) fail.push('no mule team sheet');
+  for (const t of strips) {
+    const f = join(dir, t.file); if (!existsSync(f)) { fail.push(`${t.file}: missing`); continue; }
+    const im = readImage(f), { w, h, data: d } = im, rows = t.rows ?? 1;
+    if (w !== t.frame.w * t.frames || h !== t.frame.h * rows) { fail.push(`${t.file}: ${w}x${h}, want ${t.frame.w * t.frames}x${t.frame.h * rows}`); continue; }
+    let soft = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] && d[i + 3] < 255) soft++; if (d[i + 3] && !pal.has(key(d, i))) off++; }
+    if (soft) fail.push(`${t.file}: ${soft} semi-transparent px`);
+    if (off) fail.push(`${t.file}: ${off} px outside the shared palette`);
+    for (let r = 0; r < rows; r++) for (let n = 0; n < t.frames; n++) { let any = false; for (let y = r * t.frame.h; y < (r + 1) * t.frame.h && !any; y++) for (let x = n * t.frame.w; x < (n + 1) * t.frame.w; x++) if (d[(y * w + x) * 4 + 3]) { any = true; break; } if (!any) fail.push(`${t.file}: row ${r} frame ${n} empty`); }
+  }
+  return fail;
+}
+export function runTradeQa() {
+  const dir = join(ROOT, 'public/war/trade'); if (!existsSync(join(dir, 'objects.json'))) return [];
+  const fail = qaTrade(dir), T = JSON.parse(readFileSync(join(dir, 'objects.json')));
+  const n = `trade: ${(T.carts ?? []).length} carts, ${T.objects.length} sprites`;
+  if (fail.length) console.error(`QA FAIL (${fail.length}) over ${n}\n  ` + fail.join('\n  '));
+  else console.log(`QA OK: ${n}`);
+  return fail;
+}
+
 // CLI: the global set, every biome folder, the build-mode set and the siege set.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const bdir = join(ROOT, 'public/war/biomes');
   const biomes = existsSync(bdir) ? readdirSync(bdir).filter((b) => existsSync(join(bdir, b, 'tiles.json'))) : [];
-  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length, runSiegeQa().length].some(Boolean) ? 1 : 0);
+  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length, runSiegeQa().length, runTradeQa().length].some(Boolean) ? 1 : 0);
 }

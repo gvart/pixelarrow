@@ -2436,3 +2436,72 @@ siege marker, a squad banner or a squad on the road; a low-priority name with no
 **Lessons:** (1) Gemini keeps a crop's composition almost pixel-exact when asked for a "super-resolution remaster"
 of that crop; a whole-map request gains nothing while the preview is capped at 1024 px. (2) Fresh chat per tile: a
 same-chat follow-up errored; the drake corner errored twice (a fresh crop without the beast may pass). (3) The repaint inks the coastline darker than v2; colour matching keeps the palette.
+
+## 38. Trade art (ART-T)
+
+Carts, the mule team, cargo, chests, coin boxes, loot piles, the agora board and the trade icons (WAR.md "Trade").
+Job ids: `scripts/war/art/trade-jobs.json`; raws: `node scripts/war/art/trade-fetch.mjs` -> `shots/war/pixellab/trade/raw/`
+(also copies the warehouse raws to `buildings/raw/objects/`). Builds: `node scripts/war/art/buildings.mjs` (warehouse;
+the palette changes, so rerun `siege.mjs` after it), `node scripts/war/art/trade.mjs` -> `public/war/trade/` (QA
+`qa.mjs` `qaTrade`, also in the CLI), `node scripts/war/art/ui-trade.mjs` (after `ui-craft.mjs`). Mock-ups: `node
+scripts/war/art/trade-preview.mjs` -> `shots/war/trade-art/` (`TRADE_carts`, `TRADE_cargo`, `TRADE_things`,
+`TRADE_icons_3x`, `TRADE_mock_road_1x` + `_2x_crop` (an escorted wagon and a handcart on a road), `TRADE_mock_loot_1x` +
+`_2x_crop` (a wrecked handcart, loot piles, a looted chest, a burning wagon), `TRADE_mock_agora_1x` + `TRADE_mock_2x_crop`
+(stalls L1-L3, two warehouses, the board, a strongbox, a wagon unloading)). **23 PixelLab generations**: the mule (10 +
+4 walk), 7 map objects, 2 state img2img.
+
+**Carts, chest, strongbox, board: voxel models, 0 generations.** `trade.mjs` samples implicit shapes (`fn(x, y, z) ->
+material`) on a 1/16 m grid, 1/33 m up, into the buildings box renderer; a model is built along +x and turned to e / s /
+w / n, and its materials read local coordinates, so spokes, boards and grain turn with it (siege's wheels did not).
+Handcart (WAR.md: 6 loads): a 1.6 x 1.1 m box bed on two 1.1 m six-spoke wheels with iron tyres and bronze hubs, shafts
+1.6 m forward to a cross-bar at hand height, a prop leg; two pullers outside the shafts (`crew`). Wagon (hamaxa, 12
+loads): a 3.4 x 1.4 m bed on four solid plank wheels, a pole to a yoke at 1.12 m over two mules (`team` offsets), the
+driver at the near mule's head. States per facing: halted, `moving` (8-frame wheel strip, 10 fps), burning (scorched +
+siege fire v2 fx at sprite px), wrecked (a wheel off and lying flat, the bed down on that corner, a shaft or the pole
+broken), burnt (wrecked + `burn`). Cargo overlays, 6 kinds x half / full per facing (sacks, crates, amphorae, logs, ore,
+strongbox): rendered with the cart as a depth-only occluder in a marker colour (dropped after shading: match g = 0, r = b
+> 100), so the near sides hide the load. Chest (closed / open / looted: lid half torn off, a board stove in, scraps),
+strongbox (bronze-bound oak, studs, lock; open shows coin), price board (a whitewashed leukoma framed in oak on two posts
+over a two-step limestone base under a tiled pent roof; painted header, a red rule, six rows of a good's colour mark and
+ask / bid tallies; damaged: split and sagging, the roof down).
+
+**Mule team**: `create_character` pro, quadruped `horse` template, `style_character_id` H4, size 68, high top-down:
+`grim draught mule, a real working pack mule with realistic proportions, not cute: a sturdy horse-like body, long upright
+donkey ears, a heavy head with a short upright dark mane, slender strong legs with small hooves, a thin tufted tail; a
+dark leather collar harness with a bronze ring on its shoulders; coat dark dull grey-brown, darker on the legs, a pale
+muzzle and belly; standing on all four legs; heavy shadows, desaturated dark warm colours like the style reference`
+(`0b35d23f`, kept). Walk: template `walk-8-frames` on the four diagonals. Sheet `mule.png`: rows SE, NE, SW, NW, col 0 =
+halted (the rotation), 1-8 walk; shrunk so the side view stands 56 px (1.7 m to the ear tips).
+
+**Map objects** (`create_map_object`, high top-down, high detail, detailed shading; every subject ends `, seen from a
+high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent
+background, no ground, no grass[, no blood], no base under it`). Piles are graded (sat 0.62, val 0.8) and scaled to
+30 / 44 / 60 px across on a 1 x 1 tile.
+
+| id (canvas) | Subject (verbatim) | Result |
+| --- | --- | --- |
+| warehouse (192 x 176) | `an ancient Greek agora warehouse: a long rectangular storehouse of pale limestone ashlar blocks with a low-pitched roof of dark weathered terracotta tiles, a short colonnade of four plain stone columns along its long front side like a small stoa, a wide wooden double door with iron bands, stacked clay amphorae, sealed grain sacks and iron-bound wooden crates under the colonnade, showing two walls` (+ `no floor`) | kept: no colonnade came, crates by the doors; building `warehouse` 3 x 2 |
+| pile-gear-s (96 x 72) | `a small battlefield loot pile: a few dropped bronze round shields, one crested bronze helmet, a broken spear and a short sword lying on each other` | kept |
+| pile-gear-m (96 x 72) | `a battlefield loot pile: a heap of dropped bronze round shields, crested bronze helmets, a bronze cuirass, broken spears, swords in scabbards and leather belts tangled on each other` | kept (the best) |
+| pile-gear-l (128 x 96) | `a big battlefield loot heap: many dropped bronze round shields, crested bronze helmets, bronze cuirasses and greaves, bundles of broken spears, swords, bows and quivers, leather belts and a torn red cloak piled high on each other` | kept: a mound of shields |
+| pile-goods-s (96 x 72) | `a small pile of spilt trade goods: two burlap grain sacks, one clay amphora lying on its side and a few scattered silver coins` | kept: two pots only |
+| pile-goods-m (96 x 72) | `a pile of spilt trade goods: burlap grain sacks, a broken wooden crate, clay amphorae, a rolled bundle of hides, a few dark grey ore lumps and scattered silver coins heaped on each other` | kept |
+| pile-goods-l (128 x 96) | `a big heap of spilt trade goods: many burlap grain sacks, broken wooden crates, clay amphorae, rolled bundles of hides, cut timber logs, dark ore lumps, a split open wooden strongbox with silver coins spilling out, piled high on each other` | kept |
+
+Warehouse states: §30's recipe (pixflux img2img 200 over `buildings.mjs --inits`): scaffold `an ancient Greek stone
+warehouse under construction: half-built pale limestone ashlar walls with ragged unfinished tops, no roof yet, wooden
+scaffolding poles and planks, ...` (`7af8cb40`), damaged `a burnt and ruined ancient Greek stone warehouse: pale
+limestone walls blackened with soot, the tiled roof collapsed with charred broken beams and holes, smashed amphorae and
+broken crates, rubble, ...` (`2bac634c`). Stalls L1-L3 are the market-stall chain of §36 (`public/war/trade/objects.json` `stalls`).
+
+**Icons** (`ui-trade.mjs`, drawn, 0 generations): glyph pictograms in the action-icon look: `trade-cart`, `trade-wagon`,
+`trade-chest`, `trade-pile`, `act-load` (green arrow down into a crate), `act-unload` (orange arrow up), `act-escort`
+(shield by a wheel), `act-handoff` (two hands under a strongbox, arrows both ways), `trade-contract` (scroll, red seal),
+`trade-rent` (house + coin), `res-coin` (an owl drachma with the olive sprig), `badge-safe-zone` (a walled court gate and
+an olive wreath on the red-figure medallion).
+
+**Lessons:** (1) Thin parts under 1/16 m vanish in a voxel sample (the 6 cm board): make them >= 2 cells. (2) A marker
+colour is shaded by the renderer's face light: match the marker by hue, not by value. (3) A cart's sides must stay
+under ~0.35 m or the load cannot be read from this view. (4) The quadruped template walk came on a smaller scale in one
+direction (south-west): normalise each row to its rotation's height. (5) Map objects again ignored a colonnade; piles
+come clean (no slab) and read at 30-60 px.

@@ -124,65 +124,65 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#716d63",
-  "#726e64",
-  "#847d78",
-  "#978a7d",
-  "#a7937d",
-  "#b4aea3",
-  "#706b65",
-  "#6f6c65",
-  "#987d6e",
-  "#b19069",
-  "#5b2b25",
-  "#663b27",
-  "#664a3f",
-  "#6d4949",
-  "#866952",
-  "#976a55",
-  "#7c756e",
-  "#90716c",
-  "#6f5b57",
-  "#947f6e",
-  "#432a23",
-  "#60463c",
   "#7a5f56",
+  "#976a55",
   "#767271",
-  "#667248",
-  "#706c65",
-  "#8b7d70",
-  "#9b8671",
-  "#978c79",
-  "#ab9f8a",
-  "#6f645f",
-  "#9b8655",
-  "#a98962",
-  "#5d2c1b",
-  "#5b3e30",
-  "#644339",
-  "#6d4548",
-  "#845a4a",
+  "#90716c",
+  "#947f6e",
+  "#b19069",
+  "#9d8874",
+  "#b4aea3",
+  "#6f5a56",
+  "#6f6c65",
+  "#726e64",
+  "#60473d",
+  "#6d4949",
+  "#653c2a",
+  "#785950",
   "#936947",
-  "#797269",
-  "#846b63",
-  "#715b52",
-  "#8b7b6d",
-  "#43211a",
-  "#5f4038",
-  "#785850",
   "#78726a",
-  "#605d51",
-  "#675e57",
+  "#846c64",
+  "#8b7b6d",
+  "#a88961",
+  "#95887a",
+  "#aa9f8a",
+  "#715b52",
+  "#5f4038",
+  "#6d4548",
+  "#5b3e30",
+  "#7a3a1a",
+  "#7c4736",
+  "#845b4b",
+  "#866a53",
+  "#776e67",
+  "#767068",
+  "#7a7269",
+  "#7b756f",
   "#857f52",
   "#878166",
-  "#230f21",
-  "#37171b",
+  "#9b8557",
+  "#987d6e",
+  "#8a7d70",
+  "#867f78",
+  "#988c79",
+  "#a6937d",
+  "#605c4f",
+  "#665f57",
+  "#6f645e",
+  "#706b65",
+  "#667249",
+  "#716d63",
+  "#706c65",
   "#4f4847",
-  "#594944",
-  "#7a3a1a",
-  "#7c4735",
-  "#776e67",
-  "#767068"
+  "#594844",
+  "#634539",
+  "#68473e",
+  "#5f2d1a",
+  "#5b2b25",
+  "#230f21",
+  "#341c1a",
+  "#442118",
+  "#472526"
  ],
  "kits": [
   {
@@ -3016,6 +3016,23 @@
     "scaffold": "sorting-floor2-scaffold",
     "damaged": "sorting-floor2-damaged",
     "rising": "sorting-floor2-rising"
+   }
+  },
+  {
+   "id": "warehouse",
+   "kind": "warehouse",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    2
+   ],
+   "states": {
+    "foundation": "warehouse-foundation",
+    "done": "warehouse-done",
+    "scaffold": "warehouse-scaffold",
+    "damaged": "warehouse-damaged",
+    "rising": "warehouse-rising"
    }
   },
   {
@@ -10921,6 +10938,141 @@
    "material": "stone",
    "burnable": false,
    "source": "map_object e20b0195"
+  },
+  {
+   "id": "warehouse-foundation",
+   "kind": "warehouse",
+   "file": "warehouse-foundation.png",
+   "w": 165,
+   "h": 100,
+   "metres": 0.61,
+   "basePx": 80,
+   "anchor": {
+    "x": 96,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 66,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "warehouse",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e3e00b9"
+  },
+  {
+   "id": "warehouse-done",
+   "kind": "warehouse",
+   "file": "warehouse-done.png",
+   "w": 160,
+   "h": 132,
+   "metres": 1.58,
+   "basePx": 80,
+   "anchor": {
+    "x": 71,
+    "y": 131
+   },
+   "tileOrigin": {
+    "x": 39,
+    "y": 52
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "warehouse",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e3e00b9"
+  },
+  {
+   "id": "warehouse-scaffold",
+   "kind": "warehouse",
+   "file": "warehouse-scaffold.png",
+   "w": 149,
+   "h": 95,
+   "metres": 0.45,
+   "basePx": 80,
+   "anchor": {
+    "x": 67,
+    "y": 94
+   },
+   "tileOrigin": {
+    "x": 35,
+    "y": 15
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "warehouse",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e3e00b9"
+  },
+  {
+   "id": "warehouse-damaged",
+   "kind": "warehouse",
+   "file": "warehouse-damaged.png",
+   "w": 159,
+   "h": 132,
+   "metres": 1.58,
+   "basePx": 80,
+   "anchor": {
+    "x": 69,
+    "y": 131
+   },
+   "tileOrigin": {
+    "x": 37,
+    "y": 52
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "warehouse",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e3e00b9"
+  },
+  {
+   "id": "warehouse-rising",
+   "kind": "warehouse",
+   "file": "warehouse-rising.png",
+   "w": 149,
+   "h": 70,
+   "metres": 0.12,
+   "basePx": 66,
+   "anchor": {
+    "x": 67,
+    "y": 69
+   },
+   "tileOrigin": {
+    "x": 35,
+    "y": -10
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "warehouse",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e3e00b9"
   },
   {
    "id": "fort-foundation",

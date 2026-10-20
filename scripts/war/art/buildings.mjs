@@ -962,6 +962,9 @@ export const WORKPLACES = [
   ...WP('sorting-floor', 'sorting-floor', [3, 3], [['stone', '7b3cb213', 0, { from: 'storehouse' }], ['stone', 'e20b0195', 0]]),
 ];
 BUILDINGS.push(...WORKPLACES);
+// ART-T (WAR.md "Trade"): the rented warehouse of a trade town's court (20 loads), next to the market-stall chain
+export const TRADE_BUILDINGS = [{ id: 'warehouse', kind: 'warehouse', material: 'stone', burnable: false, footprint: [3, 2], raw: 'warehouse', ground: ['green'], grade: { sat: 0.55, val: 0.74 }, plinth: 3, source: 'map_object 5e3e00b9' }];
+BUILDINGS.push(...TRADE_BUILDINGS);
 export const PROPS = [
   { id: 'lumber-pile', kind: 'prop', material: 'wood', footprint: [1, 1], raw: 'lumber-pile', grade: { sat: 0.65, val: 0.8 }, fill: 0.85, source: 'map_object c872b491' },
   { id: 'stone-pile', kind: 'prop', material: 'stone', footprint: [1, 1], raw: 'stone-pile', grade: { sat: 0.7, val: 0.8 }, fill: 0.85, source: 'map_object 594dd609' },

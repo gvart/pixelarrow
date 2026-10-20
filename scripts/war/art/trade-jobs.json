@@ -1,0 +1,26 @@
+{
+ "note": "ART-T PixelLab jobs (trade art, PROMPTS_ART.md \"Trade art\"). objects: create_map_object ids (raw/<name>.png); states: pixflux img2img ids (raw/<name>.png); mule: create_character id (raw/mule/).",
+ "objects": {
+  "warehouse": "5e3e00b9-2029-438d-82cb-5b184804e33e",
+  "pile-gear-s": "ac902652-0e28-48a0-98a6-c7c338b622ef",
+  "pile-gear-m": "630c4c00-4f63-40a1-b5fe-2d3dbe9f50ec",
+  "pile-gear-l": "866b3a8b-a5e1-42bd-a09b-0e1e9e93b570",
+  "pile-goods-s": "ecebcfd9-aed8-42c9-bf9d-0f49ae551277",
+  "pile-goods-m": "ea1948c8-d0e1-4394-8812-aaffe15b275a",
+  "pile-goods-l": "70a93937-d079-4786-9267-41ccda46cc01"
+ },
+ "states": {
+  "warehouse-scaffold": "7af8cb40-da80-47f4-929f-72dbd02d9301",
+  "warehouse-damaged": "2bac634c-f9b5-41a4-8c05-6bc5ef5a0b03"
+ },
+ "mule": {
+  "character": "0b35d23f-db7d-486d-b66d-2b96a434ca76",
+  "base": "https://backblaze.pixellab.ai/file/pixellab-characters/8842657e-a1a9-4211-968e-4924a65fa8ac/0b35d23f-db7d-486d-b66d-2b96a434ca76/",
+  "walk": {
+   "south-east": "77027139-8a65-4f64-b9da-8c7ee7f6d0fa",
+   "south-west": "d0a0b6e9-32cc-4bfd-9743-c5890ceff8e8",
+   "north-west": "8135e032-ec82-4d4e-813c-6fdb40a1e330",
+   "north-east": "ddc66f9b-9734-4cf2-ad6b-07939ef168ab"
+  }
+ }
+}
