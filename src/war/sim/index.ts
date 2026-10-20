@@ -40,7 +40,7 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { FightReport, Order, PersonResult, RegionData, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
+import type { FightReport, Order, PersonResult, RegionData, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { RARITIES, salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
@@ -53,6 +53,9 @@ import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { createVision } from './vision';
 import { CAPTURE_R, DETACH_MIN, DROP, gainXp, SQUAD_MAX, XP } from './soldiers';
 import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
+import { AT_BUILDING, CIV, CIV_QUOTA, CIV_XP, civJob, CLIP, COOK, ENGINEER, FORAGER, MERCHANT, PHYSICIAN, SMITH, wornest, type CivJob } from './civilians';
+import { FALL as FALL_RULE } from './soldiers';
+import { isCivClass } from '../../data/classes';
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -144,6 +147,12 @@ interface Unit extends Worker {
   obj: number;
   engaged: boolean;
   reported: boolean;
+  // M5f civilians (./civilians.ts): his job (null: a soldier), seconds of work towards his next batch, at work at his
+  // building since the last civilian tick; repaired: a smith mended his gear (reported by endFight)
+  civ: CivJob | null;
+  civT: number;
+  civAt: boolean;
+  repaired: boolean;
 }
 
 /** M5d: the gear of a dead man (team: his), lying until tick `until`. */
@@ -194,7 +203,21 @@ interface Squad {
   // attackMove: where it marches; target >= 0 while it fights a foe met on the way (it resumes the march after)
   amx: number;
   amy: number;
+  // M5f: all its men civilians; running from a foe (calm: ticks with none near; resume: the order it dropped); the
+  // building it works at (civWork, -1 none); fed by a cook until this tick
+  civ: boolean;
+  flee: boolean;
+  calm: number;
+  resume: Order | null;
+  work: number;
+  fedUntil: number;
 }
+/** M5f: the orders a civilian squad takes (work orders only). */
+const CIV_ORDERS = new Set<Order['kind']>(['move', 'hold', 'stop', 'formation', 'gather', 'build', 'civWork', 'detach', 'merge', 'stopWork', 'placeBuilding', 'placeWall', 'placeBridge', 'upgrade', 'buildSiege']);
+/** M5f: seconds of work per batch, by job at a building. */
+const BATCH: Partial<Record<CivJob, number>> = { cook: COOK.batch, smith: SMITH.batch, merchant: MERCHANT.batch, physician: 1 };
+/** M5f: HP a physician heals for one job's XP. */
+const PATIENT_HP = 50;
 
 interface Missile {
   at: number;
@@ -229,6 +252,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const note = (e: WarEvent) => {
     if (log.length < LOG_MAX) log.push(e);
   };
+  // M5f: the civilians (all ever spawned, in id order), rations per team
+  const civs: Unit[] = [];
+  const rations = new Map<number, number>();
 
   // spatial hash, one cell per tile
   const head = new Int32Array(grid.w * grid.h);
@@ -408,7 +434,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const [ax, ay] = openPoint(x / picked.length, y / picked.length);
     const ns: Squad = {
       ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1, pair: s.id,
+      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1, pair: s.id, flee: false, calm: 0, resume: null, work: -1,
     };
     s.pair = ns.id;
     squads.push(ns);
@@ -454,6 +480,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     const s = squads[o.squad ?? -1];
     if (!s) return;
+    if (s.civ && !CIV_ORDERS.has(o.kind)) return; // M5f: civilians take work orders only
+    // M5f: an order ends a civilian squad's flight (the flee controller sets it again after its own move)
+    s.flee = false;
+    s.resume = null;
     if (o.kind === 'fireArrows') {
       s.fire = o.on;
       return;
@@ -551,7 +581,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     if (o.kind === 'merge') {
       const t = squads[o.into];
-      if (!t || t === s || t.team !== s.team || t.owner !== s.owner || s.alive === 0 || t.alive + s.alive > SQUAD_MAX) return;
+      if (!t || t === s || t.team !== s.team || t.owner !== s.owner || t.civ !== s.civ || s.alive === 0 || t.alive + s.alive > SQUAD_MAX) return;
       if (t.pair === s.id) t.pair = -1;
       if (s.pair === t.id) s.pair = -1;
       const picked = s.units.filter((u) => u.alive);
@@ -585,6 +615,22 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (o.kind === 'formation') {
       s.shape = o.shape;
       reslot(s);
+      return;
+    }
+    if (o.kind === 'civWork') {
+      // M5f: the men stand round the building (its ring) and work there by class
+      const b = works.piece(o.building);
+      if (!s.civ || !b || b.cancelled || b.team !== s.team || !b.def.store || (b.state !== 'done' && b.state !== 'damaged')) return;
+      if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+      s.order = 'civWork';
+      s.work = o.building;
+      s.sites = [];
+      s.node = -1;
+      s.path = [];
+      s.goal = null;
+      const pts = works.ringPoints(o.building, Math.max(1, s.alive), s.cx, s.cy);
+      s.fixed = pts.length ? pts : null;
+      if (pts.length) requestPath(s, pts[0], pts[1]);
       return;
     }
     if (o.kind === 'placeBuilding' && BUILDINGS[o.type].brazier) {
@@ -728,7 +774,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (k.b >= 0) hitBuilding(s, k.b, dmg);
       else siege.damage(k.e, dmg);
     } else if (k.kind === 'buildSiege') {
-      if (siege.labour(k.e, DT)) u.working = true;
+      if (siege.labour(k.e, DT * (u.brate ?? 1))) u.working = true;
     } else if (k.kind === 'ignite') {
       u.doing = 'ignite';
       if (k.b >= 0) works.kindle(k.b, DT);
@@ -995,7 +1041,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       n++;
     }
     lag = n ? lag / n : 0;
-    let budget = SPEED * s.speed * DT * Math.min(1, Math.max(0.25, 1.25 - lag / 6));
+    let budget = SPEED * s.speed * (s.flee ? CIV.fleeSpeed : 1) * DT * Math.min(1, Math.max(0.25, 1.25 - lag / 6));
     while (budget > 0 && s.pi < s.path.length / 2) {
       const tx = s.path[s.pi * 2];
       const ty = s.path[s.pi * 2 + 1];
@@ -1102,7 +1148,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const working = (u: Unit) => u.squad.order === 'gather' || u.squad.order === 'build';
 
   const hurt = (t: Unit, dmg: number, by?: Unit) => {
-    const d = dmg * (working(t) ? WORK_DEFENCE : 1);
+    const d = dmg * (working(t) ? WORK_DEFENCE : 1) * (t.squad.fedUntil > tick ? COOK.inn : 1); // M5f: a fed squad takes less
     if (by) {
       by.dealt += Math.min(d, t.hp);
       by.engaged = t.engaged = true;
@@ -1115,7 +1161,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     t.fighting = false;
     t.moving = false;
     t.tgt = null;
-    t.wounded = rng.chance(t.st.ws); // M5d: by his END (docs/WAR.md "Lifecycle")
+    t.wounded = rng.chance(physicianNear(t) ? Math.min(FALL_RULE.cap, t.st.ws + PHYSICIAN.near) : t.st.ws); // M5d: by his END (docs/WAR.md "Lifecycle"); M5f: a physician near
     t.squad.alive--;
     reslotQueue.add(t.squad);
     if (by) by.kills++;
@@ -1163,6 +1209,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     u.hp = Math.max(1, Math.min(st.maxHp, u.hp + st.maxHp - u.maxHp));
     u.maxHp = st.maxHp;
     u.st = st;
+    setRates(u);
     reslotQueue.add(u.squad);
   };
 
@@ -1173,7 +1220,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const persons: PersonResult[] = [];
     for (const u of units) {
       const p = u.person;
-      if (!p || u.reported || (u.alive && !u.engaged && !u.obj)) continue;
+      if (!p || u.reported || (u.alive && !u.engaged && !u.obj && !u.repaired)) continue;
       const team = u.squad.team;
       let foes = 0;
       for (const [tm, n] of took) if (tm !== team) foes += n;
@@ -1209,7 +1256,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (!u.alive) u.reported = true;
       persons.push({ pid: p.id, owner: u.squad.owner, team, state, ...(captor !== undefined ? { captor } : {}), xp, kills: u.kills, dmg: Math.round(u.dealt), levelUps: g.levelUps, hero });
     }
-    for (const u of units) (u.dealt = u.kills = u.obj = 0), (u.engaged = false);
+    for (const u of units) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false);
     for (const s of reslotQueue) reslot(s);
     reslotQueue.clear();
     const out: FightReport = { tick, persons, loot };
@@ -1363,7 +1410,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     u.fighting = false;
     u.striking = false;
     if (u.cd > 0) u.cd--;
-    if ((s.order === 'move' && (s.goal || s.pi < s.path.length / 2)) || (s.siege >= 0 && siege.busy(s.siege))) {
+    if (u.civ || (s.order === 'move' && (s.goal || s.pi < s.path.length / 2)) || (s.siege >= 0 && siege.busy(s.siege))) {
       u.tgt = null; // marching (or crewing a working engine): no fighting
       return null;
     }
@@ -1464,6 +1511,174 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
   };
 
+  // --- M5f civilians (./civilians.ts) ---
+  /** A fit physician of t's team within PHYSICIAN.r of him. */
+  const physicianNear = (t: Unit) => {
+    for (const p of civs)
+      if (p.civ === 'physician' && p.alive && p !== t && p.squad.team === t.squad.team && (p.x - t.x) ** 2 + (p.y - t.y) ** 2 <= PHYSICIAN.r * PHYSICIAN.r) return true;
+    return false;
+  };
+  /** Gather and build speed by job and work rate (forager, engineer). */
+  const setRates = (u: Unit) => {
+    const w = u.st.work ?? 1;
+    u.wrate = u.civ === 'forager' ? FORAGER.gather * w : u.civ ? w : undefined;
+    u.brate = u.civ === 'engineer' ? ENGINEER.build * w : u.civ ? w : undefined;
+  };
+  /** Living civilians of the team, and the most it may field: CIV_QUOTA split evenly between the teams present. */
+  const civRoom = (team: number) => {
+    const teams = new Set([team]);
+    for (const q of squads) if (q.team !== MOB_TEAM && q.alive > 0) teams.add(q.team);
+    let n = 0;
+    for (const u of civs) if (u.alive && u.squad.team === team) n++;
+    return Math.floor(CIV_QUOTA / teams.size) - n;
+  };
+  /** No living foe soldier (civilians aside) within CIV.calmR of (x, y). */
+  const safeAt = (team: number, x: number, y: number) => {
+    for (const q of squads) {
+      if (q.team === team || q.civ || q.alive === 0) continue;
+      for (const t of q.units) if (t.alive && (t.x - x) ** 2 + (t.y - y) ** 2 <= CIV.calmR * CIV.calmR) return false;
+    }
+    return true;
+  };
+  /** The order a fleeing civilian squad takes up again once it is calm. */
+  const resumeOf = (s: Squad): Order | null =>
+    s.order === 'civWork' ? { kind: 'civWork', squad: s.id, building: s.work }
+    : s.order === 'gather' ? { kind: 'gather', squad: s.id, node: s.node }
+    : s.order === 'build' && s.sites.length ? { kind: 'build', squad: s.id, site: s.sites[0] }
+    : null;
+  /** Run from the foe at (fx, fy): to the nearest own camp, fort, outpost or storehouse it is not at, else straight away. */
+  const flee = (s: Squad, fx: number, fy: number) => {
+    const resume = s.flee ? s.resume : resumeOf(s);
+    let tx = NaN, ty = NaN, bd = Infinity;
+    for (let id = 0; ; id++) {
+      const b = works.piece(id);
+      if (!b) break;
+      if (b.team !== s.team || b.cancelled || (b.state !== 'done' && b.state !== 'damaged') || !(b.def.store || b.def.influence > 0) || b.def.wall) continue;
+      if ((b.x - fx) ** 2 + (b.y - fy) ** 2 <= CIV.calmR * CIV.calmR) continue; // the foe is there
+      const d = (b.x - s.cx) ** 2 + (b.y - s.cy) ** 2;
+      if (d < bd) (bd = d), ([tx, ty] = works.ringPoints(id, 1, s.cx, s.cy));
+    }
+    if (Number.isNaN(tx)) {
+      const dx = s.cx - fx, dy = s.cy - fy, l = Math.hypot(dx, dy) || 1;
+      tx = Math.max(1, Math.min(grid.w - 1, s.cx + (dx / l) * CIV.away));
+      ty = Math.max(1, Math.min(grid.h - 1, s.cy + (dy / l) * CIV.away));
+    }
+    apply({ kind: 'move', squad: s.id, x: tx, y: ty });
+    s.flee = true;
+    s.calm = 0;
+    s.resume = resume;
+  };
+  /** Every SCAN ticks: civilian squads with a foe (not another civilian) within CIV.fleeR run; calm again, they go back. */
+  const civScan = () => {
+    for (const s of squads) {
+      if (!s.civ || s.alive === 0) continue;
+      let best = Infinity, fx = 0, fy = 0;
+      for (const o of s.near) {
+        if (o.civ || o.alive === 0) continue;
+        for (const t of o.units) {
+          if (!t.alive) continue;
+          const d2 = (t.x - s.cx) ** 2 + (t.y - s.cy) ** 2;
+          if (d2 < best) (best = d2), (fx = t.x), (fy = t.y);
+        }
+      }
+      if (best <= CIV.fleeR * CIV.fleeR) {
+        // run, or run on: the refuge it reached has the foe at the door
+        if (!s.flee || (s.pi >= s.path.length / 2 && !s.goal)) flee(s, fx, fy);
+        s.calm = 0;
+      } else if (s.flee && best > CIV.calmR * CIV.calmR && (s.calm += SCAN) >= CIV.calm) {
+        // back to work once no foe is at the work place either (else they wait where they are)
+        const r = s.resume;
+        const at = !r ? null : r.kind === 'civWork' ? works.piece(r.building) : r.kind === 'build' ? works.piece(r.site) : r.kind === 'gather' ? works.resourceNodes()[r.node] : null;
+        if (at && !safeAt(s.team, at.x, at.y)) {
+          s.calm = 0;
+          continue;
+        }
+        s.flee = false;
+        s.resume = null;
+        if (r) apply(r);
+      }
+    }
+  };
+  /** A cook's, smith's or merchant's batch; false: nothing to work with (he waits). */
+  const civJobDone = (u: Unit, team: number): boolean => {
+    if (u.civ === 'cook') {
+      if (!works.takeStock(team, { food: COOK.food })) return false;
+      const salt = works.takeStock(team, { salt: COOK.salt });
+      rations.set(team, (rations.get(team) ?? 0) + COOK.rations * (salt ? 1 + COOK.saltBonus : 1));
+      return true;
+    }
+    if (u.civ === 'smith') {
+      if (works.takeStock(team, { copper: SMITH.copper, tin: SMITH.tin })) {
+        works.addStock(team, 'bronze', SMITH.bronze);
+        return true;
+      }
+      // no ore: mend the most worn item of a man of his team near the forge
+      let best: Unit | null = null, bc = 100;
+      for (const o of units) {
+        if (!o.alive || !o.person || o.squad.team !== team || (o.x - u.x) ** 2 + (o.y - u.y) ** 2 > SMITH.repairR * SMITH.repairR) continue;
+        const w = wornest(o.person);
+        if (w && w[1].cond < bc) (bc = w[1].cond), (best = o);
+      }
+      if (!best) return false;
+      const p = best.person!, [slot, it] = wornest(p)!;
+      best.person = { ...p, hero: { ...p.hero, equip: { ...p.hero.equip, [slot]: { ...it, cond: Math.min(100, it.cond + SMITH.repair) } } } };
+      best.repaired = true;
+      return true;
+    }
+    // merchant (stub until M6): the team's most plentiful surplus good for silver
+    let good: ResourceKind | null = null, most = MERCHANT.min;
+    const st = works.stockSnap()[team] ?? {};
+    for (const g of MERCHANT.goods) if ((st[g] ?? 0) >= most) (most = st[g] ?? 0), (good = g);
+    if (!good || !works.takeStock(team, { [good]: MERCHANT.sell })) return false;
+    works.addStock(team, 'silver', MERCHANT.silver);
+    return true;
+  };
+  /** Every CIV.every ticks: civilians at their building work (batches, healing); fed squads eat from the rations. */
+  const civTick = () => {
+    const sec = CIV.every * DT;
+    let cooks = false;
+    for (const u of civs) {
+      u.civAt = false;
+      const s = u.squad;
+      if (!u.alive || s.flee || s.order !== 'civWork' || !AT_BUILDING.includes(u.civ!)) continue;
+      const b = works.piece(s.work);
+      if (!b || b.cancelled || b.team !== s.team || b.state === 'destroyed' || works.dist2(s.work, u.x, u.y) > CIV.at * CIV.at) continue;
+      if (u.civ === 'physician' && b.type !== 'camp' && b.type !== 'fort') continue;
+      u.civAt = true;
+      u.facing = Math.atan2(b.y - u.y, b.x - u.x);
+      const w = u.st.work ?? 1;
+      if (u.civ === 'physician') {
+        // the hurt of his team near him heal (fed men faster); every PATIENT_HP healed is a job
+        for (const o of units) {
+          if (!o.alive || o.hp >= o.maxHp || o.squad.team !== s.team || works.dist2(s.work, o.x, o.y) > PHYSICIAN.r * PHYSICIAN.r) continue;
+          const add = Math.min(o.maxHp - o.hp, o.maxHp * PHYSICIAN.heal * sec * w * (o.squad.fedUntil > tick ? COOK.heal : 1));
+          o.hp += add;
+          u.civT += add;
+        }
+        if (u.civT >= PATIENT_HP) (u.civT -= PATIENT_HP), (u.obj += CIV_XP);
+        continue;
+      }
+      if (u.civ === 'cook') cooks = true;
+      u.civT += sec * w;
+      const batch = BATCH[u.civ!]!;
+      if (u.civT < batch) continue;
+      if (civJobDone(u, s.team)) (u.civT -= batch), (u.obj += CIV_XP);
+      else u.civT = batch;
+    }
+    if (!cooks) return;
+    // squads near a cook at work eat a ration a man, if the team has them for all
+    for (const s of squads) {
+      if (s.civ || s.alive === 0 || s.team === MOB_TEAM || s.fedUntil > tick) continue;
+      const have = rations.get(s.team) ?? 0;
+      if (have < s.alive) continue;
+      let near = false;
+      for (const c of civs) if (c.civAt && c.civ === 'cook' && c.squad.team === s.team && (c.x - s.cx) ** 2 + (c.y - s.cy) ** 2 <= COOK.feedR * COOK.feedR) { near = true; break; }
+      if (!near) continue;
+      rations.set(s.team, have - s.alive);
+      s.fedUntil = tick + COOK.fedTicks;
+    }
+  };
+
   const step = () => {
     const t0 = performance.now();
     for (const o of queue.splice(0)) apply(o);
@@ -1482,6 +1697,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     flushSectors(grid); // sites that closed or opened tiles last tick
     if (tick % SCAN === 0) scanNear();
+    if (civs.length && tick % SCAN === 0) civScan();
+    if (civs.length && tick % CIV.every === 0) civTick();
     mobs.tick(tick);
     for (const s of squads) {
       if (s.alive === 0) continue;
@@ -1586,7 +1803,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       } else u.settled = false;
       if (d > ARRIVE) {
         const cost = moveCost(u.x, u.y, dx / d, dy / d);
-        const step = Math.min(d, (SPEED * u.st.speed * CATCH_UP * DT) / cost);
+        const step = Math.min(d, (SPEED * u.st.speed * (u.squad.flee ? CIV.fleeSpeed : 1) * CATCH_UP * DT) / cost);
         u.vx = dx / d;
         u.vy = dy / d;
         dx = u.vx * step;
@@ -1694,8 +1911,16 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     region,
     spawnSquad(owner, team, cls, count, x, y, persons) {
       // M5b: one man per person, each with his own baked stats
-      const ps = persons?.slice(0, SQUAD_MAX) ?? null;
+      let ps = persons?.slice(0, SQUAD_MAX) ?? null;
       count = ps ? ps.length : Math.min(count, SQUAD_MAX);
+      // M5f: civilians only within the team's share of the civilian quota (-1: no room, no squad)
+      if (ps ? ps.some((p) => isCivClass(p.hero.cls)) : isCivClass(cls)) {
+        let room = civRoom(team);
+        if (ps) ps = ps.filter((p) => !isCivClass(p.hero.cls) || room-- > 0);
+        else count = Math.min(count, Math.max(0, room));
+        if (ps) count = ps.length;
+        if (count === 0) return -1;
+      }
       const [ax, ay] = openPoint(x, y);
       const sts = ps ? ps.map((p) => warStatsOf(p)) : null;
       const st = sts?.[0] ?? warStats(cls);
@@ -1704,6 +1929,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
         repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, pair: -1,
         act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1, amx: ax, amy: ay,
+        civ: ps ? ps.every((p) => isCivClass(p.hero.cls)) : isCivClass(cls), flee: false, calm: 0, resume: null, work: -1, fedUntil: -1,
       };
       grid.team = team;
       squads.push(s);
@@ -1716,8 +1942,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: ust.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
           crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
           job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null, person: ps?.[k] ?? null,
-          dealt: 0, kills: 0, obj: 0, engaged: false, reported: false,
+          dealt: 0, kills: 0, obj: 0, engaged: false, reported: false, civ: civJob(ps?.[k].hero.cls ?? cls), civT: 0, civAt: false, repaired: false,
         };
+        setRates(u);
+        if (u.civ) civs.push(u);
         units.push(u);
         s.units.push(u);
       }
@@ -1744,6 +1972,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             ...(u.alive && u.doing ? { task: u.doing } : {}),
             ...(u.alive ? {} : { wounded: u.wounded }),
             ...(u.person ? { pid: u.person.id, level: u.person.hero.level } : {}),
+            ...(u.alive && u.civAt && CLIP[u.civ!] ? { work: CLIP[u.civ!] } : {}),
+            ...(u.alive && u.squad.flee ? { flee: true as const } : {}),
             ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
@@ -1751,6 +1981,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         squads: squads.map((s) => {
           const snap: SquadSnap = { id: s.id, owner: s.owner, team: s.team, units: s.units.map((u) => u.id), order: s.order };
           if (s.act) snap.active = { skill: s.act, ready: Math.max(0, s.actReady - tick), on: Math.max(0, s.actUntil - tick) };
+          if (s.civ) snap.civ = true;
+          if (s.flee) snap.flee = true;
+          if (s.fedUntil > tick) snap.fed = true;
           const st = s.units[0]?.st;
           if (st && st.range > 0 && st.missile === 'arrow') {
             const why = fireBlock(s);
@@ -1764,6 +1997,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         influenceVersion: works.influence().version,
         sieges: siege.snaps(tick),
         ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
+        ...(rations.size ? { rations: Object.fromEntries(rations) } : {}),
         ...(drops.length ? { drops: drops.map((d) => ({ id: d.id, x: d.x, y: d.y, team: d.team, items: d.items.length, left: d.until - tick })) } : {}),
       };
     },

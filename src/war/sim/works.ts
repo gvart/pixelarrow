@@ -75,6 +75,8 @@ export interface Worker {
   working: boolean; // harvesting or labouring this tick
   wgx: number; wgy: number; // where it walks
   wpath: number[]; wpi: number; wreq: boolean;
+  /** M5f: gather and build speed over a soldier's (forager, engineer; undefined 1). */
+  wrate?: number; brate?: number;
 }
 
 interface Node { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; regrow: number; rate: number; slots: number; users: number; tiles: number[]; obj?: number; building?: number; locked?: boolean;
@@ -991,7 +993,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       n = next;
     }
     if (!at(n.tiles, u)) return walkTo(u, ...spot(n.tiles, u, n.x, n.y));
-    const take = Math.min(n.rate * DT, n.amount, CARRY - u.load);
+    const take = Math.min(n.rate * DT * (u.wrate ?? 1), n.amount, CARRY - u.load);
     n.amount -= take;
     u.carry = n.res;
     u.load += take;
@@ -1173,7 +1175,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     u.facing = Math.atan2(b.y - u.y, b.x - u.x);
     if (b.state === 'damaged') {
       u.working = true;
-      b.hp = Math.min(b.maxHp, b.hp + (b.maxHp / b.need) * DT);
+      b.hp = Math.min(b.maxHp, b.hp + (b.maxHp / b.need) * DT * (u.brate ?? 1));
       if (b.hp >= b.maxHp / 2) b.state = 'done';
       return 'here';
     }
@@ -1184,7 +1186,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.state = 'scaffold';
       close(b);
     } else if (b.saved.length < b.ti.length) close(b); // an upgrade's new inner row
-    b.labour = Math.min(cap, b.labour + DT);
+    b.labour = Math.min(cap, b.labour + DT * (u.brate ?? 1));
     b.hp = b.prev ? b.prev.hp + (b.maxHp - b.prev.hp) * (b.labour / b.need) : b.maxHp * Math.max(0.1, b.labour / b.need);
     if (b.labour >= b.need - 1e-9) finish(b);
     return 'here';

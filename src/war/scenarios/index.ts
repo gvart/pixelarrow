@@ -57,6 +57,9 @@ const S = SPOTS;
 const CLAIM = [ridgeClaim.x, ridgeClaim.y] as const;
 /** build-test: a flat clearing in the south-east woods (trees all round, boulders near). */
 const HOME = [342, 338] as const;
+/** village: the storehouse the engineers raise beside the camp, and the pine the foragers start on (node id, test-ridge's object order; tests/war/village.test.ts checks it). */
+const VILLAGE_STORE = [HOME[0] - 5.5, HOME[1] + 0.5] as const;
+const VILLAGE_WOOD = 3324;
 const [passSx, passSy] = S.passS;
 const [fwx, fwy] = S.fieldW;
 /**
@@ -376,6 +379,35 @@ export const SCENARIOS: Scenario[] = [
     ],
     camera: { x: CLAIM[0], y: CLAIM[1], zoom: 1 / 2 },
     neutral: true,
+  },
+  {
+    // M5f: squads 0 militia (built the camp), 1 hoplite guard; after the prebuild 2..7 civilians (three of each class)
+    // and 8 the wolf pack, which comes in from the south some 25 s into play: the civilians run, the guard (a hold bot
+    // round the camp) fights
+    id: 'village',
+    name: 'Village',
+    goal: 'A claimed camp at work: cooks, a smith, merchants and a physician at the camp, engineers raise a storehouse, foragers fell wood. A wolf pack raids from the south: the civilians run, the hoplite guard (scripted to hold round the camp) fights them off, then work goes on.',
+    squads: [you('militia', at(HOME, -4, 4)), { ...you('hoplite', at(HOME, 6, 2)), bot: { kind: 'hold', x: HOME[0] + 1, y: HOME[1] - 5, radius: 16 } }],
+    camera: { x: HOME[0] + 2, y: HOME[1] + 2, zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 0, x: HOME[0], y: HOME[1], r: 24 }],
+      stock: { wood: 200, stone: 60, food: 120, copper: 12, tin: 12, salt: 6 },
+      sites: [{ squad: 0, type: 'camp', x: HOME[0] + 0.5, y: HOME[1] + 0.5 }],
+      prebuild: 4000,
+    },
+    after: {
+      orders: [{ kind: 'move', squad: 0, x: HOME[0] - 2, y: HOME[1] - 9 }],
+      settle: 100,
+      squads: [
+        ...(['civ_cook', 'civ_smith', 'civ_merchant', 'civ_physician', 'civ_engineer', 'civ_forager'] as const).map((cls, k) => you(cls, at(HOME, -4 + (k % 3) * 4, 6 + Math.floor(k / 3) * 3), 3)),
+        { team: 1, cls: 'mob_wolf', count: 6, x: HOME[0] + 10, y: HOME[1] + 55, owner: 'raiders', bot: { kind: 'attackMove', x: HOME[0] + 1, y: HOME[1] + 4 } },
+      ],
+      then: [
+        ...[2, 3, 4, 5].map((squad): Order => ({ kind: 'civWork', squad, building: 0 })),
+        { kind: 'placeBuilding', squad: 6, type: 'storehouse', x: VILLAGE_STORE[0], y: VILLAGE_STORE[1] },
+        { kind: 'gather', squad: 7, node: VILLAGE_WOOD },
+      ],
+    },
   },
   {
     id: 'free',

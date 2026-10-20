@@ -96,7 +96,7 @@ function addOutlinePipeline(scene: Phaser.Scene): boolean {
 
 const manifests = import.meta.glob<SheetManifest>('../../assets/sheets/*/manifest.json', { eager: true, import: 'default' });
 const images = import.meta.glob<string>(
-  ['../../assets/sheets/militia/*.png', '../../assets/sheets/hoplite/*.png', '../../assets/sheets/celt_sword/*.png', '../../assets/sheets/archer/*.png', '../../assets/sheets/slinger/*.png', '../../assets/sheets/javelineer/*.png', '../../assets/sheets/mob_*/*.png'],
+  ['../../assets/sheets/militia/*.png', '../../assets/sheets/hoplite/*.png', '../../assets/sheets/celt_sword/*.png', '../../assets/sheets/archer/*.png', '../../assets/sheets/slinger/*.png', '../../assets/sheets/javelineer/*.png', '../../assets/sheets/mob_*/*.png', '../../assets/sheets/civ_*/*.png'],
   { eager: true, query: '?url', import: 'default' },
 );
 /** Texture side every GPU takes: a taller sheet is split into pieces of whole bands. */

@@ -62,7 +62,11 @@ export type Order =
   | BridgeOrder
   | SiegeOrder
   // M5c: the squad's active (SquadSnap.active) fires if it is ready
-  | { kind: 'active'; squad: SquadId };
+  | { kind: 'active'; squad: SquadId }
+  // M5f civilians (src/war/sim/civilians.ts): a civilian squad stands round its team's done store building (camp,
+  // storehouse, fort) and works there by class (cook, smith, merchant, physician). Civilian squads take only work orders
+  // (move, hold, stop, formation, gather, build, civWork, detach, merge with another civilian squad).
+  | { kind: 'civWork'; squad: SquadId; building: number };
 // --- M2c siege (src/war/sim/siege.ts, fire and breaches in works.ts; docs/impl/global-war-rebuild.md W-29) ---
 export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder';
 /**
@@ -118,7 +122,9 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
   /** Height level it stands on (ground, stair or walkway). on: the building whose walkway, platform or stair it stands on. */
   z?: number; on?: number;
   /** M5b: a person (WarPerson id) and his level; missing on class-spawned men. */
-  pid?: string; level?: number }
+  pid?: string; level?: number;
+  /** M5f civilians: at work at his building (cook, forge, trade, heal: the clip to play); fleeing (run). */
+  work?: 'cook' | 'forge' | 'trade' | 'heal'; flee?: true }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while
@@ -130,7 +136,9 @@ export interface SquadSnap { id: SquadId; owner: string; team: number; units: Un
    * W-35, archer squads only: fire arrows toggled `on`; available: a living man stands within BRAZIER.radius of a lit
    * brazier of his team and the stockpile holds pitch for a shot; else they loose plain arrows and reason says why.
    */
-  fireArrows?: FireArrowsSnap }
+  fireArrows?: FireArrowsSnap;
+  /** M5f: a civilian squad (work orders only), running from a foe; fed by a cook (rations). */
+  civ?: true; flee?: true; fed?: true }
 export interface FireArrowsSnap { on: boolean; available: boolean; reason?: 'noBrazier' | 'noPitch' }
 export type MissileKind = 'arrow' | 'stone' | 'javelin';
 /**
@@ -154,6 +162,8 @@ export interface Snapshot {
   claims?: ClaimSnap[];
   /** M5d: gear of the dead lying on the field. */
   drops?: DropSnap[];
+  /** M5f: rations per team (cooks make them, squads near a cook eat them). */
+  rations?: Record<number, number>;
 }
 /**
  * A lair: its mob squad (team MOB_TEAM), mobs alive of `count`; state home (idle, wandering), chase, return (leashed back,

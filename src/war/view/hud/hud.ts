@@ -35,6 +35,7 @@ import { ModeBar } from './modes';
 import { FullMap } from './fullMap';
 import { ACTIVE_CSS, ACTIVE_KEY, ACTIVE_UI, activesOf, activeTip, fireActives } from './cardActive';
 import { mountRoster } from './roster';
+import { allCivilians, anySoldiers, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
@@ -155,6 +156,14 @@ export function hud(s: SandboxScene): void {
   const shapes = SHAPES.map((sh, i) => btn('cF' + sh, 'act-' + sh, tipK('Formation: ' + sh, '', String(i + 1)), String(i + 1), () => { s.orderSelected((squad) => ({ kind: 'formation', squad, shape: sh })); lastShape = sh; }, ''));
   const orders = [row('', sqMove, sqAtk, sqAtkMove, sqHold, sqStop), row('rf-seg', ...shapes)];
   orders[1].style.gap = '0';
+  // civilian squads (M5f): work orders only, their jobs instead of the attack orders
+  const cvMove = btn('cvMove', 'act-move', tipK('Move', 'click the map, or', 'right click'), '', () => sc.arm('move'));
+  const cvHold = btn('cvHold', 'act-hold', tipK('Hold', 'stand here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
+  const cvStop = btn('cvStop', 'act-stop', tipK('Stop', 'halt where they stand', 'X'), 'X', stop);
+  const cvWork = btn('cvWork', 'act-assign', () => tipK('Work', civTips(s).work, ''), '', () => civWork(s, sc.own()));
+  const cvGather = btn('cvGather', 'act-gather', () => tipK('Gather', civTips(s).gather, ''), '', () => civGather(s, sc.own()));
+  const cvBuild = btn('cvBuild', 'act-build', () => tipK('Build', civTips(s).build, ''), '', () => civBuild(s, sc.own()));
+  const civOrders = [row('', cvMove, cvHold, cvStop), row('', cvWork, cvGather, cvBuild)];
   // squad-specific: only while relevant
   const gActive = btn('cActive', 'act-hold', () => { const x = activesOf(s, sc.own())[0]; return x ? activeTip(x.a) : ''; }, ACTIVE_KEY, () => fireActives(s, sc.own()));
   gActive.insertAdjacentHTML('beforeend', '<i class="cd"></i><span class="cdn"></span>');
@@ -174,9 +183,10 @@ export function hud(s: SandboxScene): void {
   const siteSlots = [sAssign, sN, sStop, sCancel];
   // building
   const bUp = btn('bup', 'act-upgrade', '', '', () => m.upgrade());
-  let shownSlots: HTMLElement[] = [], shownOrders = false;
-  const setCard = (ord: boolean, slots: HTMLElement[], selW: number) => {
-    if (ord !== shownOrders) { shownOrders = ord; $('cOrders').replaceChildren(...(ord ? orders : [])); }
+  let shownSlots: HTMLElement[] = [], shownOrders: HTMLElement[] | null = null;
+  const setCard = (ord: boolean, slots: HTMLElement[], selW: number, list = orders) => {
+    const want = ord ? list : null;
+    if (want !== shownOrders) { shownOrders = want; $('cOrders').replaceChildren(...(want ?? [])); }
     if (slots.length !== shownSlots.length || slots.some((x, i) => x !== shownSlots[i])) { shownSlots = slots; $('cSlots').replaceChildren(...slots); }
     $('cSep1').style.display = ord ? '' : 'none';
     $('cOrders').style.display = ord ? 'flex' : 'none';
@@ -243,7 +253,7 @@ export function hud(s: SandboxScene): void {
     if (e.key === 'F1') { e.preventDefault(); setDev(dev?.style.display === 'none'); }
     else if (m.active || m.tool) return;
     else if (e.key.toLowerCase() === 'x') stop();
-    else if (e.key.toLowerCase() === 'a' && sc.own().length) sc.arm('attackMove');
+    else if (e.key.toLowerCase() === 'a' && anySoldiers(s, sc.own())) sc.arm('attackMove'); // with none selected A pans (SandboxScene)
     else if (e.key.toLowerCase() === 'f') fireActives(s, sc.own());
   });
 
@@ -316,8 +326,9 @@ export function hud(s: SandboxScene): void {
       const cls = men[0]?.u.cls ?? '';
       const hp = men.reduce((a, d) => a + d.u.hp, 0), max = men.reduce((a, d) => a + d.u.maxHp, 0) || 1;
       const engines = own.map((x) => sc.engineOf(x)), e = engines.find((x) => x);
-      setHead(UNIT_ICON[cls] ?? 'unit-militia', (CLASS_NAME[cls] ?? nice(cls)) + (own.length > 1 ? ` +${own.length - 1}` : ''), `${men.length} men`, bar('hp', hp / max, SEL_SQUAD),
-        e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${q.order}${sc.status ? ' · ' + sc.status : ''}`);
+      const civ = allCivilians(s, own);
+      setHead(UNIT_ICON[cls] ?? 'unit-militia', (CLASS_NAME[cls] ?? civName(cls) ?? nice(cls)) + (own.length > 1 ? ` +${own.length - 1}` : ''), `${men.length} men`, bar('hp', hp / max, SEL_SQUAD),
+        civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`);
       const slots: HTMLElement[] = [];
       const act = activesOf(s, own)[0];
       if (act) {
@@ -335,7 +346,12 @@ export function hud(s: SandboxScene): void {
       }
       if (engines.some((x) => x?.type === 'stoneThrower')) slots.push(gDeploy);
       if (e) slots.push(gLetGo);
-      setCard(true, slots, SEL_SQUAD);
+      setCard(true, slots, SEL_SQUAD, civ ? civOrders : orders);
+      cvHold.classList.toggle('on', q.order === 'hold');
+      cvMove.classList.toggle('on', sc.armed === 'move');
+      cvWork.classList.toggle('on', q.order === 'civWork');
+      cvGather.classList.toggle('on', q.order === 'gather');
+      cvBuild.classList.toggle('on', q.order === 'build');
       sqHold.classList.toggle('on', q.order === 'hold');
       shapes.forEach((x, i) => x.classList.toggle('on', lastShape === SHAPES[i]));
       sqMove.classList.toggle('on', sc.armed === 'move');

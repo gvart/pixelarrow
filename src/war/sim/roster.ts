@@ -4,13 +4,14 @@
  * fight reports back (M5d).
  */
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../data/perks';
-import { CLASSES, isClassId } from '../../data/classes';
+import { CIV_CLASSES, CLASSES, isCivClass, isClassId } from '../../data/classes';
 import { MAX_LEVEL, type Hero } from '../../data/units';
 import type { Rarity } from '../../data/items';
 import type { FightReport, PersonResult, WarPerson, WarSkillId } from '../types';
 import { freshHero, kitItem } from './classes';
 import { FAMILY_OF, legalSkills, SKILL_LEVELS, SKILL_POOL, type Family } from './skills';
 import { gainXp } from './soldiers';
+import { freshCivilian } from './civilians';
 
 /** Skills a person takes when none are given: the squad active first (level 3), then the family's best passive (level 7). */
 export const DEFAULT_PICKS: Record<Family, WarSkillId[]> = {
@@ -46,6 +47,12 @@ export function autoSpend(hero: Hero): Hero {
 /** A person of class cls (unknown: militia) at `level`, in kit tier `tier` of `rarity`, points spent, skills legal for his level. */
 export function makePerson(id: string, cls: string, o: PersonOpts = {}): WarPerson {
   const level = Math.max(1, Math.min(MAX_LEVEL, o.level ?? 1));
+  if (isCivClass(cls)) {
+    // M5f: a civilian: his tool (kit tier, rarity) in the weapon slot, no skills yet
+    const tool = CIV_CLASSES[cls].tools[Math.max(0, Math.min(2, o.tier ?? 0))];
+    const h = freshCivilian(cls, id);
+    return { id, hero: autoSpend({ ...h, name: o.name ?? h.name, level, points: (level - 1) * POINTS_PER_LEVEL, equip: { weapon: { uid: `${id}-tool`, def: tool, rarity: o.rarity ?? 'common', cond: 100 } } }), skills: [] };
+  }
   let hero = freshHero(cls, id);
   hero = { ...hero, name: o.name ?? hero.name, level, points: (level - 1) * POINTS_PER_LEVEL, equip: { ...hero.equip } };
   const tier = o.tier ?? 0, rarity = o.rarity ?? 'common';
