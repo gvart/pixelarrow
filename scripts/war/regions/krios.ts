@@ -9,6 +9,7 @@
  * on it; a second field on the shoulder east of the col. Wolves on the heath and in the defile.
  */
 import type { Kit, RegionDef } from './kit.ts';
+import { citadel } from './landmarks.ts';
 
 const def: RegionDef = {
   id: 'krios',
@@ -23,13 +24,13 @@ const def: RegionDef = {
     k.hill([128, 112, 60, 30, 0], 4, 6, 3);
     // the peaks: the north wall over the sea, the central block, the south-west and south-east massifs, the corners
     k.rockMass([128, 50, 112, 36, 0], { rough: 4 });
-    k.rockMass([50, 202, 66, 60, 0.1], { rough: 4 });
-    k.rockMass([208, 202, 62, 58, -0.1], { rough: 4 });
+    k.rockMass([36, 214, 56, 48, 0.1], { rough: 4 });
+    k.rockMass([240, 230, 34, 30, -0.1], { rough: 4 });
     k.rockMass([244, 60, 30, 40, 0.3], { rough: 3 });
     k.rockMass([10, 60, 22, 34, -0.3], { rough: 3 });
     // the col's spurs: a 4-6 tile gap between them
     k.rockMass([98, 83, 8, 18.5, 0], { rough: 1, foot: 4 });
-    k.rockMass([96, 134, 9, 30.5, 0], { rough: 1, foot: 4 });
+    k.rockMass([96, 128, 9, 24.5, 0], { rough: 1, foot: 4 });
     k.spot('narrows', [98, 102.5]);
     // the archer ledge (h6) on the north wall over the col, a stair up from the col's east end
     k.plateau([113, 89, 8, 2.6, 0.15], 6, { terrain: 'dirt', rough: 0.5 });
@@ -40,34 +41,34 @@ const def: RegionDef = {
     k.paint('snow', [112, 104, 16, 10, 0], { on: ['grass'], minH: 4 });
     k.paint('snow', [170, 92, 18, 10, 0.2], { on: ['grass'], minH: 4 });
     // roads: W up the glacier to the col; the fork E down the defile and S down the valley to Kleisoura
-    // M7d: Drakon's Citadel on the glacier shoulder south of the col, its gate on a spur road from the col road
-    k.landmark('citadel', [113, 112], {
-      guardians: [{ boss: 'drakon', at: [11, 10], perches: [[11, 6], [1.5, 1.5], [12.5, 1.5], [19.5, 1.5], [19.5, 12.5], [1.5, 12.5]], pit: [4.5, 5.5] }],
-    });
-    k.road([[136, 108], [130, 124], [120, 124], [118, 121]], { w: 1.1, grade: 3 });
-    k.spot('citadel', [118, 117]);
+    // M7d / W-48: Drakon's Citadel on the glacier shoulder south of the col (100 x 92 units): its west and east gates on
+    // spur roads from the valley road and the defile, its barbican and switchbacks down to the ruined village south
+    const C = citadel(k, [112, 117], 4);
+    for (const [n, v] of Object.entries(C.spots)) k.spot(n, v);
     k.road([W, [24, 128], [52, 112], [80, 104], [98, 102.5], [124, 104], [146, 110]], { w: 1.1, grade: 4 });
-    k.road([[146, 110], [176, 112], [206, 120], [236, 128], E], { w: 1.4, grade: 4 });
-    k.road([[146, 110], [140, 140], [132, 180], [130, 220], S], { w: 1.4, grade: 4 });
+    k.road([[146, 110], [176, 112], [212, 114], [236, 128], E], { w: 1.4, grade: 4 });
+    k.road([[124, 104], [106, 118], [104, 150], [104, 190], [116, 216], [128, 236], S], { w: 1.4, grade: 4 });
+    k.road([C.gates[0], [158, 216], [130, 214], [116, 214]], { w: 1.1, grade: 3 });
+    k.road([C.gates[1], [106, 160]], { w: 1.1, grade: 3 });
+    k.road([C.gates[2], [222, 150], [216, 118]], { w: 1.1, grade: 3 });
     // the ore shelves: the valley's west shelf (cyclops) and the shoulder east of the col
-    k.hill([122, 178, 9, 7, 0.3], 4, 3, 1);
-    k.paint('dirt', [122, 178, 7, 5, 0.3], { rough: 1 });
-    k.road([[134, 186], [126, 180]], { w: 1, grade: 2 });
-    k.spot('iron', [122, 178]);
-    k.resource('iron', [122, 178], 6, 6);
+    k.hill([88, 176, 9, 7, 0.3], 4, 3, 1);
+    k.paint('dirt', [88, 176, 7, 5, 0.3], { rough: 1 });
+    k.spot('iron', [88, 176]);
+    k.resource('iron', [88, 176], 6, 6);
     k.resource('iron', [170, 96], 3, 7);
     k.resource('stone', [150, 160], 2, 10);
     // pieces: cairns on the col, a ruined watch post at the fork, rockfall under the north wall
     k.piece('mountains/cairn', [88, 104], { r: 6, n: 2 });
-    k.piece('mountains/watch-post', [152, 118], { r: 6 });
+    k.piece('mountains/watch-post', [150, 104], { r: 6 });
     k.piece('mountains/rockfall', [150, 84], { r: 8, onRock: true, n: 2 });
     k.piece('mountains/eagle-nest', [130, 76], { r: 10, onRock: true });
-    k.forest([30, 132, 12, 8, 0.3], [226, 140, 12, 7, -0.2], [136, 236, 6, 10, 0.1]);
+    k.forest([30, 132, 12, 8, 0.3], [232, 160, 10, 7, -0.2], [146, 238, 6, 8, 0.1]);
     // fauna: the cyclops on the ore shelf, wolves on the west heath and in the east defile
-    k.lair('bear', [120, 184], { count: 10, as: 'cyclops' });
+    k.lair('bear', [86, 184], { count: 10, as: 'cyclops' });
     k.lair('wolf', [36, 120], { as: 'wolves' });
     k.lair('wolf', [206, 132], { as: 'wolves' });
-    k.claim([140, 146], 140);
+    k.claim([126, 226], 140);
   },
 };
 export default def;
