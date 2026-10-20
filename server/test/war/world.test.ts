@@ -12,7 +12,8 @@ import { makePerson } from '../../../src/war/sim/roster';
 import { SIM_VERSION } from '../../../src/sim/version';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
-import { RETRY_MS, World, WORLD_NAME, type ArriveResult, type Ports } from '../../src/war/world/world';
+import { freshWorld, RETRY_MS, World, WORLD_NAME, type ArriveResult, type Ports } from '../../src/war/world/world';
+import { HEGEMONY, HOUR_MS } from '../../../src/war/world/season';
 import type { WarWorldDO } from '../../src/war/world/worldDO';
 import { currentSeason } from '../../src/online/store';
 import { api, BASE, devLogin } from '../helpers';
@@ -102,7 +103,7 @@ describe('World', () => {
   it('a home never changes owner: foreign claims and foes only besiege it', () => {
     const w = new World();
     expect(w.region('dodona')).toMatchObject({ owner: 0, besieged: false });
-    expect(w.report('dodona', { live: [6, 12, 0, 0], claims: [0, 1, 0, 0], channel: [0, 0, 0, 0] })).toEqual({ rejected: true, changed: true });
+    expect(w.report('dodona', { live: [6, 12, 0, 0], claims: [0, 1, 0, 0], channel: [0, 0, 0, 0] })).toEqual({ rejected: true, changed: true, ended: null });
     expect(w.region('dodona')).toMatchObject({ owner: 0, besieged: true, contested: true, claims: [0, 1, 0, 0] });
     w.report('dodona', { live: [6, 0, 0, 0], claims: [0, 0, 0, 0], channel: [0, 0, 0, 0] });
     expect(w.region('dodona')).toMatchObject({ owner: 0, besieged: false, contested: false });
@@ -120,6 +121,75 @@ describe('World', () => {
     w.report('dodona-e', { live: [0, 12, 0, 0], claims: [0, 1, 0, 0], channel: [0, 0, 0, 0] });
     expect(w.region('dodona-e')!.owner).toBe(1);
     expect(w.snapshot(1, 1, { members: [], clans: [] }, T0).alliances[1]).toMatchObject({ regions: 2, soldiers: 20 });
+  });
+});
+
+describe('Season', () => {
+  const H = HOUR_MS;
+  const hold = (w: World, id: string, a: number, at: number, live = [0, 0, 0, 0]) => {
+    const claims = [0, 0, 0, 0];
+    claims[a] = 1;
+    const men = [...live];
+    men[a] ||= 12;
+    w.report(id, { live: men, claims, channel: [0, 0, 0, 0] }, at);
+  };
+
+  it('accrues score per hour by purpose: Omphalos 10 while no foe stands there, frontier town 3, gate 2, neutral 1, entry 0', () => {
+    const w = new World(freshWorld(T0));
+    hold(w, 'kleisoura', 0, T0); // town 3
+    hold(w, 'saddle', 0, T0); // gate 2
+    hold(w, 'krios', 0, T0); // neutral 1
+    hold(w, 'dodona-e', 0, T0); // entry 0
+    hold(w, 'omphalos', 1, T0); // 10
+    expect(w.seasonSnap(T0).rates).toEqual([6, 10, 0, 0]);
+    expect(w.seasonSnap(T0 + 2 * H).scores).toEqual([12, 20, 0, 0]);
+    // a Dodona squad on the plateau: Omphalos stops scoring from then on
+    hold(w, 'omphalos', 1, T0 + 2 * H, [6, 0, 0, 0]);
+    expect(w.seasonSnap(T0 + 4 * H)).toMatchObject({ scores: [24, 20, 0, 0], rates: [6, 0, 0, 0], omphalos: 1 });
+    expect(w.seasonSnap(T0).towns).toMatchObject({ kleisoura: 0, stymphalia: -1 });
+    const snap = w.snapshot(1, 0, { members: [], clans: [] }, T0 + H);
+    expect(snap.score).toMatchObject({ id: 1, startAt: T0, endAt: T0 + w.season.lengthMs, left: w.season.lengthMs - H, ended: null });
+  });
+
+  it('ends at its time with the top score; results freeze', () => {
+    const w = new World(freshWorld(T0));
+    hold(w, 'saddle', 2, T0);
+    expect(w.nextAlarm()).toBe(T0 + w.season.lengthMs);
+    const end = T0 + w.season.lengthMs;
+    expect(w.advance(end - 1)).toBeNull();
+    const r = w.advance(end + 5 * H);
+    expect(r).toEqual({ at: end, reason: 'time', winner: 2, scores: [0, 0, Math.floor((w.season.lengthMs / H) * 2), 0] });
+    expect(w.seasonSnap(end + 9 * H)).toMatchObject({ left: 0, ended: r, scores: r!.scores });
+    hold(w, 'kleisoura', 0, end + 10 * H); // no more score after the end
+    expect(w.advance(end + 20 * H)).toBeNull();
+    expect(w.st.season.scores[0]).toBe(0);
+    expect(w.nextAlarm()).toBeNull();
+    // the reset hook: next season, fresh owners and scores
+    w.newSeason(end + 30 * H);
+    expect(w.st.season).toMatchObject({ id: 2, startAt: end + 30 * H, scores: [0, 0, 0, 0], ended: null });
+    expect(w.region('saddle')!.owner).toBe(-1);
+    expect(w.region('dodona')!.owner).toBe(0);
+  });
+
+  it('hegemony: Omphalos and 3 frontier towns held for 24 h end the season early; losing one stops the clock', () => {
+    const w = new World(freshWorld(T0));
+    hold(w, 'omphalos', 3, T0);
+    hold(w, 'stymphalia', 3, T0);
+    hold(w, 'achelous', 3, T0);
+    expect(w.st.season.hegemony).toBeNull();
+    hold(w, 'ammos', 3, T0 + H);
+    expect(w.st.season.hegemony).toEqual({ alliance: 3, since: T0 + H });
+    expect(w.nextAlarm()).toBe(T0 + H + HEGEMONY.ms);
+    // Kyrene takes Ammos back for a while: the clock stops, and starts over when Elaia retakes it
+    hold(w, 'ammos', 2, T0 + 10 * H);
+    expect(w.st.season.hegemony).toBeNull();
+    hold(w, 'ammos', 3, T0 + 12 * H);
+    expect(w.seasonSnap(T0 + 12 * H).hegemony).toEqual({ alliance: 3, since: T0 + 12 * H, endsAt: T0 + 36 * H });
+    expect(w.advance(T0 + 35 * H)).toBeNull();
+    const r = w.advance(T0 + 40 * H);
+    expect(r).toMatchObject({ at: T0 + 36 * H, reason: 'hegemony', winner: 3 });
+    // Elaia: Omphalos 10 + 3 towns 9 from 12 h to 36 h, plus what it had before
+    expect(r!.scores[3]).toBe(10 * 36 + 3 * 36 + 3 * 36 + 3 * 9 + 3 * 24);
   });
 });
 

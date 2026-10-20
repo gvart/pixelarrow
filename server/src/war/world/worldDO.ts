@@ -9,13 +9,16 @@
  *    room sets `region = to` when they arrive. On load, persons marked in transit that the world does not know (a crash
  *    between the departure and the save) are sent home.
  *  - Region rooms are reached over RPC (WarRegionDO.depart / arrive).
+ *  - Season: the alarm also fires at the season's end (or when the hegemony clock runs out); the World accrues the
+ *    score on every report and alarm. At the end the result is frozen in the world state and kept under
+ *    `result:<season id>` (seasonEnded, the hook later rewards hang on); resetSeason() starts the next one.
  *  - Sockets (/ws/war/world, hibernation API): the Worker authenticates and forwards x-player-id and x-alliance; each
  *    gets the snapshot on connect and again after changes, at most once per PUSH_MS. Messages: src/war/net/world.ts.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
 import { logError } from '../../telemetry/log';
-import { parseWorldMsg, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
+import { parseWorldMsg, type SeasonResult, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
 import type { AllianceId, Side } from '../../../../src/war/world/types';
 import { allianceCounts } from './members';
 import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type RegionReport, type WorldState } from './world';
@@ -40,7 +43,7 @@ export class WarWorldDO extends DurableObject<Env> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.world) return;
       const st = await this.ctx.storage.get<WorldState>(STATE);
-      const w = new World(st?.v === 1 ? st : undefined);
+      const w = new World(st?.v === 2 ? st : undefined);
       const d = this.env.DB;
       if (d) {
         // persons marked on the road that the world does not carry go home
@@ -62,10 +65,10 @@ export class WarWorldDO extends DurableObject<Env> {
     };
   }
 
-  /** Save the state, set the alarm for the next arrival and push the map to sockets. */
+  /** Save the state, set the alarm for the next arrival (or the season's end) and push the map to sockets. */
   private async commit(w: World): Promise<void> {
     await this.ctx.storage.put(STATE, w.st);
-    const at = w.nextDue();
+    const at = w.nextAlarm();
     if (at === null) await this.ctx.storage.deleteAlarm();
     else await this.ctx.storage.setAlarm(Math.max(at, Date.now() + 10));
     this.schedulePush();
@@ -83,12 +86,28 @@ export class WarWorldDO extends DurableObject<Env> {
   /** A region room's report (WarRegionDO, every few seconds while it changes). */
   async report(region: string, rep: RegionReport): Promise<{ rejected: boolean }> {
     const w = await this.ensure();
-    const r = w.report(region, rep);
-    if (r.changed) {
-      await this.ctx.storage.put(STATE, w.st);
-      this.schedulePush();
-    }
+    const r = w.report(region, rep, Date.now());
+    if (r.ended) await this.seasonEnded(r.ended, w.st.season.id);
+    if (r.changed) await this.commit(w); // the hegemony clock may have moved the season's end
     return { rejected: r.rejected };
+  }
+
+  /** The season is over: its result is frozen in the world state; it is also kept on its own key for later rewards. */
+  private async seasonEnded(r: SeasonResult, id: number): Promise<void> {
+    await this.ctx.storage.put(`result:${id}`, r);
+  }
+
+  /** A finished season's result (null: none, or not over yet). */
+  async seasonResult(id: number): Promise<SeasonResult | null> {
+    return (await this.ctx.storage.get<SeasonResult>(`result:${id}`)) ?? null;
+  }
+
+  /** The reset hook: start the next season now (fresh owners and scores; squads on the road ride on). */
+  async resetSeason(now = Date.now()): Promise<number> {
+    const w = await this.ensure();
+    w.newSeason(now);
+    await this.commit(w);
+    return w.st.season.id;
   }
 
   async snapshot(pid: number, alliance: AllianceId | null): Promise<WorldSnapshot> {
@@ -106,9 +125,11 @@ export class WarWorldDO extends DurableObject<Env> {
 
   private async arrive(now: number): Promise<void> {
     const w = await this.ensure();
-    if (await w.due(now, this.ports())) await this.commit(w);
+    const ended = w.advance(now);
+    if (ended) await this.seasonEnded(ended, w.st.season.id);
+    if ((await w.due(now, this.ports())) || ended) await this.commit(w);
     else {
-      const at = w.nextDue();
+      const at = w.nextAlarm();
       if (at !== null) await this.ctx.storage.setAlarm(Math.max(at, Date.now() + 10));
     }
   }

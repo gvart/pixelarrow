@@ -12,9 +12,10 @@
  */
 import { SIM_VERSION } from '../../sim/version';
 import { DEFAULT_CAP, NET_VERSION, splitQuota } from '../net/protocol';
-import type { RegionState, TransitSnap, WorldSnapshot } from '../net/world';
+import type { RegionState, SeasonSnap, TransitSnap, WorldSnapshot } from '../net/world';
 import { ALLIANCES, WAR_SEASON } from '../world/alliances';
 import { edge, worldRegion, WORLD_IDS } from '../world/graph';
+import { allianceRates, FRONTIER_TOWNS, OMPHALOS } from '../world/season';
 import type { AllianceId } from '../world/types';
 
 /** The player's men standing in one region (from the roster). */
@@ -93,7 +94,7 @@ export class NetSource implements WorldSource {
   }
 
   private view(): void {
-    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: null, endsAt: null, quota: QUOTA, status: this.status });
+    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status });
   }
 
   private async api<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
@@ -214,7 +215,13 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
     id: a.id, members: 40 + a.id * 3, clans: 6 + a.id, regions: regions.filter((r) => r.owner === a.id).length,
     soldiers: regions.reduce((s, r) => s + r.live[a.id], 0), inTransit: a.id === 0 ? 21 : 6,
   }));
-  return { snap: { season: WAR_SEASON.id, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit }, squads, scores: [412, 377, 498, 365], endsAt: now + (9 * 24 + 4) * 3600_000 };
+  const scores = [412, 377, 498, 365], left = (9 * 24 + 4) * 3600_000;
+  const owner = (id: string) => regions.find((r) => r.id === id)!.owner;
+  const score: SeasonSnap = {
+    id: WAR_SEASON.id, startAt: now + left - WAR_SEASON.lengthMs, endAt: now + left, left, scores, rates: allianceRates(regions),
+    omphalos: owner(OMPHALOS), towns: Object.fromEntries(FRONTIER_TOWNS.map((t) => [t, owner(t)])), hegemony: null, ended: null,
+  };
+  return { snap: { season: WAR_SEASON.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit }, squads, scores, endsAt: now + left };
 }
 
 export class MockSource implements WorldSource {

@@ -6,6 +6,7 @@
  *                             alliance, alliance stats, the player's own squads in transit
  *   POST /transfer  { from, to, squad }   send a squad of the player's standing in `from` to the adjacent `to`
  *   POST /dev/alliance { alliance }       DEV_AUTH=1 only: join alliance 0..3 (Dodona, Skythia, Kyrene, Elaia)
+ *   POST /dev/season/reset                DEV_AUTH=1 only: the season reset hook (the next season starts now)
  */
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -44,4 +45,9 @@ worldApi.post('/dev/alliance', requirePlayable, async (c) => {
   const b = await readJson(c, z.object({ alliance: z.number().int().min(0).max(3) }), MAX_BODY);
   await joinAlliance(db(c.env), c.get('session').pid, b.alliance as AllianceId, Date.now());
   return c.json({ alliance: b.alliance });
+});
+
+worldApi.post('/dev/season/reset', requirePlayable, async (c) => {
+  if (c.env.DEV_AUTH !== '1') throw new ApiError(404, 'not_found', 'No such endpoint');
+  return c.json({ season: await worldStub(c.env).resetSeason() });
 });

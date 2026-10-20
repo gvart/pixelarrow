@@ -70,8 +70,32 @@ export interface AllianceStats {
   inTransit: number;
 }
 
+/** How a season ended: its final scores and the winner (null: a tie at the top). */
+export interface SeasonResult { at: number; reason: 'hegemony' | 'time'; winner: AllianceId | null; scores: number[] }
+
+/** The season clock and score ("Season score and victory"). */
+export interface SeasonSnap {
+  id: number;
+  startAt: number;
+  endAt: number;
+  /** ms to the end (0 once ended). */
+  left: number;
+  /** Score so far per alliance (whole points). */
+  scores: number[];
+  /** Score per hour per alliance now. */
+  rates: number[];
+  /** Owner of Omphalos (-1: nobody) and of each frontier town. */
+  omphalos: AllianceId | -1;
+  towns: Record<string, AllianceId | -1>;
+  /** The alliance holding Omphalos and 3 frontier towns, since when, and when that ends the season. */
+  hegemony: { alliance: AllianceId; since: number; endsAt: number } | null;
+  /** Set once the season is over: results frozen. */
+  ended: SeasonResult | null;
+}
+
 export interface WorldSnapshot {
   season: number;
+  score: SeasonSnap;
   at: number;
   you: { id: number; alliance: AllianceId | null };
   alliances: AllianceStats[];
