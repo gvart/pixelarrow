@@ -56,3 +56,18 @@ describe('M6j raiders', () => {
     expect(lairSites(flat(64))).toEqual([]);
   });
 });
+
+describe('M6b escort ring', () => {
+  it('escorts at rest keep a ring about 3 tiles out round the cart', () => {
+    const sim = createSim(flat(96), 3);
+    const c = sim.spawnCart(0, 'a', 'wagon', 50.5, 50.5);
+    const guard = sim.spawnSquad('a', 0, 'hoplite', 12, 44, 54);
+    sim.order({ kind: 'escort', squad: guard, cart: c });
+    for (let t = 0; t < 400; t++) sim.step();
+    const k = cart(sim, c);
+    const d = sim.snapshot().units.filter((u) => u.squad === guard).map((u) => Math.hypot(u.x - k.x, u.y - k.y));
+    expect(Math.min(...d)).toBeGreaterThanOrEqual(2.3);
+    expect(d.reduce((a, v) => a + v, 0) / d.length).toBeGreaterThan(2.6);
+    expect(Math.max(...d)).toBeLessThan(4.5);
+  });
+});

@@ -549,6 +549,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const slotPos = (s: Squad, slot: number): [number, number] => {
     if (s.fixed && slot * 2 < s.fixed.length) return [s.fixed[slot * 2], s.fixed[slot * 2 + 1]];
     if (s.col && slot * 2 < s.col.length) return [s.col[slot * 2], s.col[slot * 2 + 1]];
+    // M6b escort at its cart (no foe taken on): a ring ESCORT.ring out round it, so the cart stays in sight
+    if (s.order === 'escort' && s.target < 0) {
+      const e = siege.get(s.escort);
+      if (e && (s.ax - e.x) ** 2 + (s.ay - e.y) ** 2 <= (ESCORT.ring + 4) ** 2) {
+        const a = e.facing + ((slot + 0.5) / Math.max(1, s.offsets.length / 2)) * Math.PI * 2;
+        return [e.x + Math.cos(a) * ESCORT.ring, e.y + Math.sin(a) * ESCORT.ring];
+      }
+    }
     const f = s.offsets[slot * 2];
     const r = s.offsets[slot * 2 + 1];
     const c = Math.cos(s.facing);
