@@ -31,6 +31,7 @@ import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuo
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
 import type { BridgePlan, FightReport, Order, PlaceResult, RegionData, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
+import type { Side } from '../../../src/war/world/types';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -266,10 +267,15 @@ export class WarRoom {
     return { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() };
   }
 
-  /** Spawn a squad on the team's entry (or `at`, a restored squad's centre). */
-  private spawn(owner: string, team: number, g: Group, at?: { x: number; y: number }): SquadId {
-    const side = SIDES[team % SIDES.length];
+  /** The entry zone on `side` (any entry, else the whole map, when the region has none there). */
+  private entry(side: Side): Rect {
     const e = this.region.entries.find((x) => x.side === side) ?? this.region.entries[0] ?? { x: 0, y: 0, w: this.region.w, h: this.region.h };
+    return { x0: e.x, y0: e.y, x1: e.x + e.w, y1: e.y + e.h };
+  }
+
+  /** Spawn a squad on the team's entry, or the entry on `side` (M4 arrivals), or at `at` (a restored squad's centre). */
+  private spawn(owner: string, team: number, g: Group, at?: { x: number; y: number }, side: Side = SIDES[team % SIDES.length]): SquadId {
+    const r = this.entry(side), e = { x: r.x0, y: r.y0, w: r.x1 - r.x0, h: r.y1 - r.y0 };
     // squads spread over the entry on a 6-tile grid round its centre
     const k = this.spawns++, ox = ((k % 5) - 2) * 6, oy = ((Math.floor(k / 5) % 5) - 2) * 6;
     const x = Math.min(e.x + e.w - 1, Math.max(e.x + 1, e.x + e.w / 2 + ox)), y = Math.min(e.y + e.h - 1, Math.max(e.y + 1, e.y + e.h / 2 + oy));
@@ -296,6 +302,63 @@ export class WarRoom {
       const c = centres.get(id);
       if (c) this.bots.set(id, { kind: 'hold', x: c.x, y: c.y, radius: HOLD_RADIUS });
     }
+  }
+
+  /**
+   * M4 transfer out: the player's squad `squad` leaves the region over the entry on `side` (src/war/net/world.ts). It
+   * must be a squad of persons with no foe (mobs included) within `foeRadius` tiles. Its men leave the field at once
+   * (off the wire, no corpse, no fight report). `off`: tiles from the squad's centre to that entry zone (0 inside it).
+   */
+  depart(pid: number, squad: SquadId, side: Side, foeRadius: number): { ids: string[]; off: number } | { error: 'notOwner' | 'foes'; detail: string } {
+    if (this.owners[squad] !== ownerOf(pid) || !this.squadsOf(pid).includes(squad)) return { error: 'notOwner', detail: 'not a squad of yours here' };
+    const men = this.snap.units.filter((u) => u.squad === squad && u.state !== 'dead');
+    if (!men.length || men.some((u) => !u.pid)) return { error: 'notOwner', detail: 'only squads of soldiers (persons) transfer' };
+    const team = this.teams[squad];
+    const cx = men.reduce((a, u) => a + u.x, 0) / men.length, cy = men.reduce((a, u) => a + u.y, 0) / men.length;
+    const foe = this.snap.units.some((u) => u.state !== 'dead' && this.teams[u.squad] !== team && (u.x - cx) ** 2 + (u.y - cy) ** 2 <= foeRadius * foeRadius);
+    if (foe) return { error: 'foes', detail: `a foe within ${foeRadius} tiles` };
+    const e = this.entry(side);
+    const off = Math.hypot(Math.max(e.x0 - cx, 0, cx - e.x1), Math.max(e.y0 - cy, 0, cy - e.y1));
+    const ids = men.map((u) => u.pid!);
+    this.sim.dropPersons(ids);
+    for (const u of men) this.diedAt[u.id] = this.currentTick - CORPSE_TICKS; // gone, not fallen: no corpse, no blow
+    this.bots.clear(squad);
+    this.live[team] -= men.length;
+    this.snap = this.sim.snapshot();
+    return { ids, off };
+  }
+
+  /**
+   * M4 transfer in: `persons` of the player (alliance `team`) arrive over the entry on `side`. Refused (the world keeps
+   * them waiting) while the alliance's quota here is full, its join line is not empty or the player has MAX_SQUADS
+   * here. They hold where they arrive; an online player gets a fresh welcome (his squads), an offline one takes them
+   * over with a join (a rejoin: no new spawn).
+   */
+  arrive(pid: number, team: number, persons: WarPerson[], side: Side): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
+    const p = this.players.get(pid);
+    if (team >= this.per.length || (p && p.team !== team)) return { error: 'team' };
+    if (this.squadsOf(pid).length >= MAX_SQUADS) return { error: 'squads' };
+    if (this.queue.some((w) => w.join.team === team) || this.live[team] + persons.length > this.per[team]) return { error: 'full' };
+    if (!p) this.players.set(pid, { pid, team, online: false, cam: null, enc: null, sinceKey: -1, bytes: 0 });
+    const squad = this.spawn(ownerOf(pid), team, { cls: persons[0].hero.cls ?? 'militia', count: persons.length, persons }, undefined, side);
+    const online = this.players.get(pid)!.online;
+    if (!online) {
+      const e = this.entry(side);
+      this.bots.set(squad, { kind: 'hold', x: (e.x0 + e.x1) / 2, y: (e.y0 + e.y1) / 2, radius: HOLD_RADIUS * 2 });
+    }
+    const msg: ServerMsg | null = online ? { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() } : null;
+    return { squad, msg };
+  }
+
+  /** M4: what the world map shows of this region (alliances 0..3): live men, claim points held, claims in progress. */
+  summary(): { live: number[]; claims: number[]; channel: number[] } {
+    const n = ALLIANCES, claims = Array<number>(n).fill(0), channel = Array<number>(n).fill(0);
+    for (const c of this.snap.claims ?? []) {
+      if (c.state === 'claimed' && c.team >= 0 && c.team < n) claims[c.team]++;
+      const t = c.squad >= 0 ? this.teams[c.squad] : undefined;
+      if ((c.state === 'channel' || c.state === 'contested') && t !== undefined && t < n) channel[t]++;
+    }
+    return { live: this.live.slice(0, n), claims, channel };
   }
 
   private centres(): Map<number, { x: number; y: number }> {
