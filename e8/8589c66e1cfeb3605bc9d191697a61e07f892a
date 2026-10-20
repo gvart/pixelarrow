@@ -1,0 +1,54 @@
+server/src/war/room.ts
+  s_cfc22b058125c4::t_72b35ff420f23b 48-56,69-74,603-671
+  s_cfc22b058125c4::t_8b0d020f40fc3e 672
+server/src/war/contracts.ts
+  s_cfc22b058125c4::t_d1e70f0892fe52 1-120,128-312
+  s_cfc22b058125c4::t_f048079cb4169e 121-127
+server/migrations/0031_war_contracts.sql
+  s_cfc22b058125c4::t_d75196f3ef8634 1-59
+server/test/war/contracts.test.ts
+  s_cfc22b058125c4::t_87e524642c0cdd 1-15,17-179
+  s_cfc22b058125c4::t_307089eb037552 16
+server/src/war/abuse.ts
+  s_cfc22b058125c4::t_1f8483d4b89750 12-14
+  s_cfc22b058125c4::t_6a8486b7ddc3b1 1-11,15-16
+server/src/account/deletionMap.ts
+  s_cfc22b058125c4::t_1f8483d4b89750 114-116
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_346a9fb9ccc6b4 65
+  s_cfc22b058125c4::t_5b432c9bf45124 1544,1548,1561,1570
+src/war/net/protocol.ts
+  s_cfc22b058125c4::t_f9d5f36232aa8d 19-21,154-161,168,183-185
+server/src/war/tradeRoutes.ts
+  s_cfc22b058125c4::t_1f8483d4b89750 12-21,33-34,89-138
+  s_cfc22b058125c4::t_e8d68bc7d26057 139
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_307089eb037552 37,252
+  s_cfc22b058125c4::t_43dde72bb32da9 36,233-234,237,245
+  s_cfc22b058125c4::t_f9d5f36232aa8d 34-35,168,251,264,290-353
+  s_cfc22b058125c4::t_e66b17b4e35928 354
+server/src/war/market.ts
+  s_cfc22b058125c4::t_307089eb037552 19,120,231
+src/war/sim/holders.ts
+  s_cfc22b058125c4::t_5b432c9bf45124 18-21,38,41-42,112,114
+server/src/war/cargo.ts
+  s_cfc22b058125c4::t_5b432c9bf45124 7,18,44
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_e338c969548c5e 162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e88589c66e1cfeb3605bc9d191697a61e07f892a",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}

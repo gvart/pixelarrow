@@ -1,0 +1,44 @@
+server/src/war/market.ts
+  s_cfc22b058125c4::t_52621613a9c8c9 118
+  s_cfc22b058125c4::t_1be470690cf554 1-117,119-323
+server/src/war/room.ts
+  s_cfc22b058125c4::t_1cd1fde55e01b9 48-49,554-587
+  s_cfc22b058125c4::t_8e3b7aba782078 588
+server/src/war/routes.ts
+  s_cfc22b058125c4::t_52621613a9c8c9 39,137
+  s_cfc22b058125c4::t_00ad035ca847cb 138
+server/src/account/deletionMap.ts
+  s_cfc22b058125c4::t_52621613a9c8c9 90,113
+server/test/war/market.test.ts
+  s_cfc22b058125c4::t_7c20aa9f5068f2 1-38,40-42,45-151
+  s_cfc22b058125c4::t_780439dcdab52a 39,43-44
+server/src/war/tradeScore.ts
+  s_cfc22b058125c4::t_bab5b127677d73 1-7
+server/migrations/0030_war_market.sql
+  s_cfc22b058125c4::t_7d62c7f5e5bf54 1-41
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_52621613a9c8c9 34-41,48,164,213-278
+  s_cfc22b058125c4::t_bf32bc14035d41 279-280
+src/war/net/protocol.ts
+  s_cfc22b058125c4::t_1cd1fde55e01b9 17-18,148-153,159,172-174
+server/src/war/tradeRoutes.ts
+  s_cfc22b058125c4::t_d946d9f2c446ef 1-84
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_7cc6111aeabaeb 161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2242fd4364c0996565a3f4a35ce5439ba19288f9",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
