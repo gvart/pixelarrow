@@ -7,11 +7,11 @@ import { worldRegion } from '../../src/war/world/graph';
 const ORPHANS = ['poseidon_trident', 'aegis_of_zeus', ...setPieces('achilles'), ...setPieces('alexander')];
 
 describe('war boss drop tables (W-45)', () => {
-  it('every boss guards a distinct neutral region; signatures are real items or sets', () => {
-    expect(new Set(WAR_BOSSES.map((b) => b.region)).size).toBe(WAR_BOSSES.length);
+  it('every boss guards a neutral region (Omphalos two); signatures are real items or sets', () => {
+    expect(new Set(WAR_BOSSES.map((b) => b.region)).size).toBe(WAR_BOSSES.length - 1);
     for (const b of WAR_BOSSES) {
-      expect(worldRegion(b.region)?.role).toBe('neutral');
-      expect(bossOfRegion(b.region)).toBe(b);
+      expect(worldRegion(b.region)?.role).toBe(b.region === 'omphalos' ? 'center' : 'neutral');
+      if (b.region !== 'omphalos') expect(bossOfRegion(b.region)).toBe(b);
       for (const s of b.signature) expect(ITEMS[s] !== undefined || setPieces(s).length > 0).toBe(true);
     }
   });

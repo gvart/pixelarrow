@@ -32,9 +32,10 @@
  * tiles go back to water and `fall` drops the men on them.
  */
 import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
+import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 import { amount, empty, itemList, newHold, put, take, takeFrom, totals, type Cost, type Hold } from './holders';
+import { depthRule } from './depth';
 
 const DT = 0.1;
 /** Bridge line steps by octant of the drag angle (+x first, turning towards +y). */
@@ -86,7 +87,9 @@ export interface Worker {
 
 interface Node { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; regrow: number; rate: number; slots: number; users: number; tiles: number[]; obj?: number; building?: number; locked?: boolean;
   /** W-35 pitch kiln: its team (regrowth burns that team's wood). */
-  kiln?: number }
+  kiln?: number;
+  /** M7e: a rare-good node: only the region's holder gathers it. */
+  rare?: true }
 
 interface Building {
   id: number; type: BuildingType; def: BuildingDef; team: number; rot: 0 | 1; x: number; y: number; w: number; h: number;
@@ -119,7 +122,15 @@ interface Building {
   iron: boolean; wet: number;
   /** M6a: a store's or chest's contents (null: holds nothing); the player who placed it (chests: owner-only), '' none. */
   hold: Hold | null; owner: string;
+  /** M7a: a pre-built piece (null: built by a team); the team that hit it last (-1 none); under a repair order, hp paid for. */
+  pre: Pre | null; lastBy: number; mend: boolean; credit: number;
 }
+/**
+ * M7a pre-built state: its entry (index into region.prebuilt), the claim point whose holder owns it (-1: influence), a
+ * landmark piece, a ruin, gone (a cache emptied), the ground's move costs under it, a well's fouling (until tick; ticks a
+ * foe has stood by it).
+ */
+export interface Pre { i: number; zone: number; landmark: boolean; ruin: boolean; gone: boolean; ground: number[]; fouled: number; foulT: number }
 export type Piece = Readonly<Building>;
 
 export type Act = [number, number] | null | 'here';
@@ -129,7 +140,18 @@ const FORAGE_TERRAIN = new Set(['forest', 'marsh']);
 const FORAGE_SHARE = { herbs: 0.2, flax: 0.25 };
 
 /** M6: what the works hand back to the sim: a holder building gone (its contents to a loot pile; burnt: fire spoils half). */
-export interface WorksHooks { spill?(x: number, y: number, hold: Hold, burnt: boolean): void }
+export interface WorksHooks {
+  spill?(x: number, y: number, hold: Hold, burnt: boolean): void;
+  /** M7a: a pre-built piece fell to a ruin (by: the team that hit it last, -1 unknown). */
+  razed?(b: Piece, by: number): void;
+  /** M7a: the building takes no damage (a safe court's pieces). */
+  immune?(b: Piece): boolean;
+  /** M7a: men beating out its fire do so this much faster (a well near). */
+  douse?(b: Piece): number;
+}
+
+/** M7a: what stands for `team` in the gate grid: its own (team + 1), or open to all (0) for the neutral team. */
+const gateOf = (team: number) => (team === NEUTRAL_TEAM ? 0 : team + 1);
 
 export function createWorks(grid: Grid, region: RegionData, path: (team: number, x0: number, y0: number, x1: number, y1: number) => number[], evict: (tiles: number[]) => void, chance: (p: number) => boolean = () => false, fall: (tiles: number[]) => void = () => {}, hooks: WorksHooks = {}) {
   const { w, h } = grid;
@@ -163,10 +185,12 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   let tick = 0;
   let fields = 0; // M5h3: done field tiles standing
 
+  const yieldK = depthRule(region).yield; // M7c: deeper regions' nodes hold more (rare goods keep their own rate)
   (region.objects ?? []).forEach((o, i) => {
     const d = RESOURCE_NODES[o.id];
     if (!d) return;
-    const n: Node = { id: nodes.length, res: d.res, x: o.x, y: o.y, amount: d.max, max: d.max, regrow: d.regrow, rate: d.rate, slots: d.slots, users: 0, tiles: [], obj: i };
+    const k = d.rare ? 1 : yieldK;
+    const n: Node = { id: nodes.length, res: d.res, x: o.x, y: o.y, amount: d.max * k, max: d.max * k, regrow: d.regrow * k, rate: d.rate, slots: d.slots, users: 0, tiles: [], obj: i, ...(d.rare ? { rare: true as const } : {}) };
     const t = tileAt(grid, o.x, o.y);
     if (t >= 0) {
       n.tiles = [t % w, (t / w) | 0];
@@ -264,6 +288,58 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     for (const c of claims) paint(c.team, c.x, c.y, c.r);
     for (const b of buildings) if (b.def.influence > 0 && (b.state === 'done' || b.state === 'damaged')) paint(b.team, b.x, b.y, b.def.influence);
     infl.version++;
+    owners();
+  };
+
+  // --- M7a pre-built ownership: a piece follows the holder of its claim point, else the influence over it, else `fallback` ---
+  let fallback = NEUTRAL_TEAM; // MOB_TEAM while a bandit host or boss holds the region
+  let owning = false;
+  const prebuilt: Building[] = [];
+  const zoneTeam = (z: number): number => {
+    const c = region.claimPoints?.[z];
+    if (!c) return -1;
+    for (let i = claims.length - 1; i >= 0; i--) if (claims[i].x === c.x && claims[i].y === c.y) return claims[i].team;
+    return -1;
+  };
+  const ownerOf = (b: Building): number => {
+    if (b.pre!.zone >= 0) {
+      const t = zoneTeam(b.pre!.zone);
+      return t >= 0 ? t : fallback;
+    }
+    const t = tileAt(grid, b.x, b.y), m = t >= 0 ? infl.mask[t] : 0;
+    if (!m) return fallback;
+    if (m & (1 << b.team)) return b.team;
+    return 31 - Math.clz32(m & -m); // the lowest team whose influence covers it
+  };
+  /** Tiles of b the gate grid opens for its team only (a gate, a stone tower's door, a workplace's open floor). */
+  const gateTiles = (b: Building): number[] => {
+    if (b.state === 'destroyed' || b.state === 'foundation') return [];
+    const out = b.def.wall === 'gate' && !b.prev ? [...b.ti] : b.def.workplace ? b.ti.filter((t) => grid.cost[t] > 0) : [];
+    if (b.door >= 0) out.push(b.door);
+    return out;
+  };
+  /** b changes hands at the hp it has: its gates open for the new owner (neutral: for all), its store joins his network. */
+  const setTeam = (b: Building, team: number) => {
+    if (b.team === team) return;
+    b.team = team;
+    for (const t of gateTiles(b)) grid.gate[t] = gateOf(team);
+    grid.dirty.push(...b.tiles);
+    b.mend = false;
+    b.credit = 0;
+    for (const u of active) if (u.wsite === b.id) leave(u);
+    if (b.def.store) storeVer++;
+    if (b.def.influence > 0 && (b.state === 'done' || b.state === 'damaged')) needPaint = true;
+  };
+  let needPaint = false;
+  const owners = () => {
+    if (owning || !prebuilt.length) return;
+    owning = true;
+    for (const b of prebuilt) if (!b.pre!.gone) setTeam(b, ownerOf(b));
+    owning = false;
+    if (needPaint) {
+      needPaint = false;
+      repaint();
+    }
   };
 
   // --- placement ---
@@ -290,6 +366,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     const [fw, fh] = rotated(type, rot);
     const tiles = rectTiles(x, y, fw, fh);
     const def = BUILDINGS[type];
+    if (def.prebuilt) return { ok: false, reason: 'blocked', tiles }; // M7a: only the region places these
     if (def.brazier) return checkBrazier(team, tiles);
     if (def.access) {
       const a = accessOf(team, type, tiles);
@@ -327,6 +404,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       hp: def.hp, maxHp: def.hp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [grid.height[t]], inside: [tiles[0], tiles[1]], decked: false, attach: under && under.decked ? under.id : -1, door: -1, prev: null,
       burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: BRAZIER.life, iron: false, wet: 0, hold: null, owner: '',
+      pre: null, lastBy: -1, mend: false, credit: 0,
     };
     buildings.push(b);
     braziers.push(b);
@@ -423,7 +501,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       hp: maxHp * 0.1, maxHp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [], inside: inside ?? homeOf(team), decked: false, attach, door: -1, prev: null,
       burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: 0, iron: false, wet: 0,
-      hold: def.store || def.chest ? newHold() : null, owner,
+      hold: def.store || def.chest || def.cache ? newHold() : null, owner,
+      pre: null, lastBy: -1, mend: false, credit: 0,
     };
     if (def.store) storeList.push(b);
     for (let i = 0; i < tiles.length; i += 2) {
@@ -784,7 +863,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       const t = b.door;
       grid.height[t] = b.base[b.ti.indexOf(t)];
       grid.deck[t] = LADDER;
-      grid.gate[t] = b.team + 1;
+      grid.gate[t] = gateOf(b.team);
       grid.cost[t] = (b.saved[b.ti.indexOf(t)] || 1) * DOOR_COST;
     }
     b.decked = true;
@@ -843,7 +922,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     }
     const shut: number[] = [];
     b.ti.forEach((t, i) => {
-      if (open.has(t)) (grid.cost[t] = b.saved[i] || 1), (grid.gate[t] = b.team + 1);
+      if (open.has(t)) (grid.cost[t] = b.saved[i] || 1), (grid.gate[t] = gateOf(b.team));
       else if (grid.cost[t] > 0) (grid.cost[t] = 0), (grid.gate[t] = 0), shut.push(t);
     });
     grid.dirty.push(...b.tiles);
@@ -870,7 +949,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (b.def.wall === 'gate') {
       b.ti.forEach((t, i) => {
         grid.cost[t] = b.saved[i];
-        grid.gate[t] = b.team + 1;
+        grid.gate[t] = gateOf(b.team);
       });
       grid.dirty.push(...b.tiles);
     }
@@ -901,6 +980,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.fuel = 0;
       return;
     }
+    if (b.pre && !b.pre.gone) return ruin(b); // M7a: a pre-built piece falls to a ruin in place
     for (const o of braziers) if (o.attach === b.id && o.state !== 'destroyed') destroy(o); // its deck goes
     const closed = b.state !== 'foundation';
     const wasDone = b.state === 'done' || b.state === 'damaged';
@@ -934,9 +1014,48 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (b.def.store) storeVer++;
   };
 
-  const damage = (id: number, dmg: number) => {
+  /**
+   * M7a: pre-built piece b falls to a ruin: its deck goes, `RUIN.spill` of its goods fall as a pile (`spill`; none when it
+   * starts ruined or a rebuild is called off), its footprint lies as rubble (RUIN.slow to cross, nothing builds there) and
+   * it has no function until its ground's owner rebuilds it.
+   */
+  const ruin = (b: Building, spill = true) => {
+    const p = b.pre!;
+    for (const o of braziers) if (o.attach === b.id && o.state !== 'destroyed') destroy(o);
+    const wasDone = b.state === 'done' || b.state === 'damaged' || !!b.prev;
+    if (b.hold && !empty(b.hold)) {
+      if (spill) hooks.spill?.(b.x, b.y, { lots: b.hold.lots.map((l) => ({ ...l, n: l.n * RUIN.spill })).filter((l) => l.n > 1e-9), items: b.hold.items }, b.burn > 0);
+      b.hold = newHold();
+    }
+    b.state = 'destroyed';
+    b.hp = 0;
+    b.prev = null;
+    b.burn = 0;
+    b.rubble = true;
+    b.mend = false;
+    b.credit = 0;
+    p.ruin = true;
+    lowerDeck(b);
+    b.ti.forEach((t, i) => {
+      grid.cost[t] = p.ground[i] > 0 ? p.ground[i] * RUIN.slow : 0;
+      grid.gate[t] = 0;
+      grid.span[t] = 0;
+      grid.narrow[t] = 0;
+    });
+    b.saved = b.ti.map((t) => grid.cost[t]);
+    grid.dirty.push(...b.tiles);
+    for (const u of active) if (u.wsite === b.id) leave(u);
+    if (b.node >= 0) nodes[b.node].amount = nodes[b.node].max = nodes[b.node].regrow = 0;
+    b.node = -1;
+    if (wasDone && b.def.influence > 0) repaint();
+    if (b.def.store) storeVer++;
+    if (spill) hooks.razed?.(b, b.lastBy);
+  };
+
+  const damage = (id: number, dmg: number, by = -1) => {
     const b = buildings[id];
-    if (!b || b.state === 'destroyed') return;
+    if (!b || b.state === 'destroyed' || hooks.immune?.(b)) return;
+    if (by >= 0) b.lastBy = by;
     b.hp -= dmg;
     if (b.hp <= 0) destroy(b);
     else if (b.state === 'done' && b.hp < b.maxHp / 2) b.state = 'damaged';
@@ -1102,13 +1221,20 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     n.users++;
   };
 
+  /** M7e: `team` holds the region: it owns one of its claim points (a region without any: it has a claim anchor in it). */
+  const holds = (team: number) => {
+    const cps = region.claimPoints ?? [];
+    return cps.length ? cps.some((_, z) => zoneTeam(z) === team) : claims.some((c) => c.team === team);
+  };
+  /** Node n is shut to `team`: a guard lair locks it, or it is a rare node of a region the team does not hold. */
+  const shut = (n: Node, team: number) => !!n.locked || (!!n.rare && !holds(team));
   /** Nearest node of resource res with a free slot within r of (x,y), the given one first. */
-  const findNode = (res: ResourceKind, x: number, y: number, r: number, first: number): Node | null => {
+  const findNode = (res: ResourceKind, x: number, y: number, r: number, first: number, team: number): Node | null => {
     const f = nodes[first];
-    if (f && f.res === res && f.amount >= 1 && f.users < f.slots && !f.locked) return f;
+    if (f && f.res === res && f.amount >= 1 && f.users < f.slots && !shut(f, team)) return f;
     let best: Node | null = null, bd = r * r;
     for (const n of nodes) {
-      if (n.res !== res || n.amount < 1 || n.users >= n.slots || n.locked) continue;
+      if (n.res !== res || n.amount < 1 || n.users >= n.slots || shut(n, team)) continue;
       const d = (n.x - x) ** 2 + (n.y - y) ** 2;
       if (d < bd) (bd = d), (best = n);
     }
@@ -1135,15 +1261,15 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   const gather = (u: Worker): Act => {
     let n = u.wnode >= 0 ? nodes[u.wnode] : null;
     if (u.load > 0 && (u.load >= CARRY - 1e-6 || (n && u.carry !== n.res))) return deliver(u);
-    if (n?.locked) {
-      // a guard lair came back: off this node
+    if (n && shut(n, u.squad.team)) {
+      // a guard lair came back (or the region was lost: a rare node): off this node
       n.users--;
       u.wnode = -1;
       n = null;
     }
     if (!n || n.amount < 1) {
       const from = n ?? nodes[u.squad.node];
-      const next = from ? findNode(from.res, from.x, from.y, NEAR_NODE, u.squad.node) : null;
+      const next = from ? findNode(from.res, from.x, from.y, NEAR_NODE, u.squad.node, u.squad.team) : null;
       if (!next) {
         if (u.wnode >= 0) (nodes[u.wnode].users--, (u.wnode = -1));
         return u.load > 0 ? deliver(u) : null;
@@ -1165,7 +1291,31 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     return 'here';
   };
 
-  const unfinished = (b: Building) => b.state === 'foundation' || b.state === 'scaffold' || (b.state === 'damaged' && b.hp < b.maxHp);
+  const unfinished = (b: Building) => b.state === 'foundation' || b.state === 'scaffold' || ((b.state === 'damaged' || b.mend) && b.state !== 'destroyed' && b.hp < b.maxHp);
+  /** M7a: the full build cost and labour of b (a rebuilt ruin's repairs are priced as new). */
+  const fullCost = (b: Building): Cost => {
+    const k = b.def.perTile ? b.ti.length : 1, out: Cost = {};
+    for (const [r, v] of Object.entries(b.def.cost) as [ResourceKind, number][]) out[r] = v * k * REPAIR.cost;
+    return out;
+  };
+  /** M7a repair: a worker at his slot mends b; every REPAIR.step of max hp is paid from the network first. */
+  const mendTick = (u: Worker, b: Building): Act => {
+    if (b.credit <= 1e-9) {
+      if (!takeAt(b.team, b.x, b.y, fullCost(b))) return 'here'; // waiting for materials
+      b.credit += b.maxHp * REPAIR.step;
+    }
+    u.working = true;
+    const k = b.def.perTile ? b.ti.length : 1;
+    const add = Math.min(b.credit, b.maxHp - b.hp, ((b.maxHp * REPAIR.step) / (b.def.labour * k * REPAIR.labour || 1)) * DT * (u.brate ?? 1));
+    b.hp += add;
+    b.credit -= add;
+    if (b.state === 'damaged' && b.hp >= b.maxHp / 2) b.state = 'done';
+    if (b.hp >= b.maxHp - 1e-6) {
+      b.hp = b.maxHp;
+      b.mend = false;
+    }
+    return 'here';
+  };
   const slotOk = (b: Building, k: number) => standable(b.slots[k], b.team);
 
   /** The free usable slot of b nearest the worker, -1 none. */
@@ -1280,7 +1430,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
 
   const build = (u: Worker): Act => {
     let b = u.wsite >= 0 ? buildings[u.wsite] : null;
-    if (b && (!unfinished(b) || !slotOk(b, u.wslot))) {
+    if (b && (!unfinished(b) || !slotOk(b, u.wslot) || b.team !== u.squad.team)) {
       leave(u);
       b = null;
     }
@@ -1310,6 +1460,12 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       u.load = 0;
       u.wfor = -1;
       return 'here';
+    }
+    if (b.mend) {
+      const go = toSlot(u, b);
+      if (go !== 'here') return go;
+      u.facing = Math.atan2(b.y - u.y, b.x - u.x);
+      return mendTick(u, b);
     }
     // fetch what the site still lacks from a store of its network that has it (M6a; the strongroom through any of them)
     if (b.state !== 'damaged') {
@@ -1360,11 +1516,110 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     return 'here';
   };
 
+  // --- M7a: the region's pre-built pieces, done at the start (state, hp share), owned by `fallback` until someone holds them ---
+  /** The good a town's cache holds: the region's most plentiful node good (food if it has none). */
+  const regionGood = (): ResourceKind => {
+    const by = new Map<ResourceKind, number>();
+    for (const n of nodes) if (n.obj !== undefined) by.set(n.res, (by.get(n.res) ?? 0) + n.max);
+    let best: ResourceKind = 'food', bv = 0;
+    for (const [r, v] of by) if (v > bv) (bv = v), (best = r);
+    return best;
+  };
+  const prebuild = (start: number) => {
+    fallback = start;
+    const good = regionGood();
+    (region.prebuilt ?? []).forEach((e, i) => {
+      const def = BUILDINGS[e.type];
+      if (!def) return;
+      const rot = e.rot ?? 0;
+      const [fw, fh] = rotated(e.type, rot);
+      const tiles = e.tiles?.length ? e.tiles.slice() : rectTiles(e.x, e.y, fw, fh);
+      for (let k = 0; k < tiles.length; k += 2) if (tiles[k] < 0 || tiles[k + 1] < 0 || tiles[k] >= w || tiles[k + 1] >= h || occ[tiles[k + 1] * w + tiles[k]] >= 0) return; // off the map or on another piece: skipped
+      const b = buildings[add(start, e.type, tiles, rot)];
+      let zone = e.claim ?? -1;
+      if (zone < 0) zone = (region.claimPoints ?? []).findIndex((c) => (c.x - b.x) ** 2 + (c.y - b.y) ** 2 <= (c.r ?? CLAIM_RADIUS) ** 2);
+      b.pre = { i, zone, landmark: !!e.landmark, ruin: false, gone: false, ground: [], fouled: 0, foulT: 0 };
+      b.delivered = { ...b.cost };
+      b.state = 'scaffold';
+      close(b);
+      b.pre.ground = b.saved.slice();
+      b.labour = b.need;
+      finish(b);
+      b.hp = b.maxHp * (e.hp ?? (e.landmark ? 0.6 : 1));
+      if (b.hp < b.maxHp / 2) b.state = 'damaged';
+      if (def.cache) put(b.hold!, good, def.cache * CARRY, region.id);
+      if (e.state === 'ruined') ruin(b, false);
+      prebuilt.push(b);
+    });
+    owners();
+  };
 
   return {
     /** Save and restore (./state.ts): the closure state (the decoder refills the containers in place; `tick` is set back). */
-    saveRoot: () => ({ nodes, nodeAt, regrowing, buildings, braziers, occ, noBuild, reserve, storeList, claims, infl, pathQueue, waits, active, cutOff, waitAt, burning, tick, fields }),
-    loadRoot: (o: { tick: number; fields: number }) => void ((tick = o.tick), (fields = o.fields)),
+    saveRoot: () => ({ nodes, nodeAt, regrowing, buildings, braziers, occ, noBuild, reserve, storeList, claims, infl, pathQueue, waits, active, cutOff, waitAt, burning, tick, fields, prebuilt, fallback }),
+    loadRoot: (o: { tick: number; fields: number; fallback: number }) => void ((tick = o.tick), (fields = o.fields), (fallback = o.fallback)),
+    /** M7a: lay out the region's pre-built pieces (once, at the start), owned by `start` (NEUTRAL_TEAM, or MOB_TEAM when held). */
+    prebuild,
+    /** M7a: the pre-built pieces (live; ./prebuilt.ts reads their state). */
+    prebuilt: (): readonly Piece[] => prebuilt,
+    /** M7a: the team unheld pieces belong to (MOB_TEAM while a host or boss holds the region, then NEUTRAL_TEAM); they follow at once. */
+    setFallback(team: number) {
+      if (fallback === team) return;
+      fallback = team;
+      owners();
+    },
+    fallback: () => fallback,
+    /** M7a repairBuilding: a damaged standing building of `team` is mended to full by whoever works it (false: nothing to mend). */
+    mend(id: number, team: number): boolean {
+      const b = buildings[id];
+      if (!b || b.cancelled || b.team !== team || (b.state !== 'done' && b.state !== 'damaged') || b.prev || b.hp >= b.maxHp || b.def.brazier) return false;
+      b.mend = true;
+      return true;
+    },
+    /**
+     * M7a rebuild: a ruin owned by `team` (its ground's owner; never neutral or mob, never a landmark piece) becomes a site
+     * in place at RUIN.rebuild of its cost and labour. False when it cannot.
+     */
+    rebuild(id: number, team: number, mobTeam: number): boolean {
+      const b = buildings[id];
+      const p = b?.pre;
+      if (!b || !p || !p.ruin || p.gone || p.landmark || b.team !== team || team === NEUTRAL_TEAM || team === mobTeam) return false;
+      b.ti.forEach((t, i) => (grid.cost[t] = p.ground[i]));
+      grid.dirty.push(...b.tiles);
+      b.saved = [];
+      p.ruin = false;
+      b.rubble = false;
+      const k = b.def.perTile ? b.ti.length : 1;
+      b.cost = {};
+      b.costSum = 0;
+      for (const [r, v] of Object.entries(b.def.cost) as [ResourceKind, number][]) (b.cost[r] = v * k * RUIN.rebuild), (b.costSum += v * k * RUIN.rebuild);
+      b.need = b.def.labour * k * RUIN.rebuild;
+      b.labour = 0;
+      b.delivered = {};
+      b.incoming = {};
+      b.state = 'foundation';
+      b.hp = b.maxHp * 0.1;
+      b.lastBy = -1;
+      if (b.def.store || b.def.cache) b.hold = newHold();
+      b.slots = workSlots(b);
+      b.slotUser = b.slots.map(() => -1);
+      b.users = 0;
+      return true;
+    },
+    /** M7a: an emptied cache is gone (its tile opens; no ruin). */
+    vanish(id: number) {
+      const b = buildings[id];
+      if (!b?.pre || b.pre.gone) return;
+      b.pre.gone = true;
+      destroy(b);
+    },
+    /** M7a: a well fouled until tick `until`, and the ticks a foe has stood by it. */
+    foul(id: number, foulT: number, until?: number) {
+      const p = buildings[id]?.pre;
+      if (!p) return;
+      p.foulT = foulT;
+      if (until !== undefined) p.fouled = until;
+    },
     /** The finished bridge piece whose open deck or ramp is tile t (its line: axis, dir, width, row centres), or null. */
     bridgeAt: (t: number) => { const o = buildings[occ[t]]; return o && o.bridge && o.decked ? o.bridge : null; },
     checkPlacement,
@@ -1405,7 +1660,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     holdOf: (id: number): Hold | null => (buildings[id] && standing(buildings[id]) ? buildings[id].hold : null),
     reserveOf,
     influence: () => infl,
-    nodeOk: (id: number) => id >= 0 && id < nodes.length && nodes[id].max > 0 && !nodes[id].locked,
+    nodeOk: (id: number, team = -1) => id >= 0 && id < nodes.length && nodes[id].max > 0 && !nodes[id].locked && (!nodes[id].rare || holds(team)),
     /** Mobs (./mobs.ts): a living guard lair locks its nodes (no gathering), clearing it frees them. */
     lockNodes(ids: number[], on: boolean) {
       for (const id of ids) if (nodes[id]) nodes[id].locked = on;
@@ -1422,6 +1677,13 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       for (const [r, v] of Object.entries(b.incoming) as [ResourceKind, number][]) if (v > 0) addAt(b.team, b.x, b.y, r, v);
       for (const [r, v] of Object.entries(b.delivered) as [ResourceKind, number][]) if (v > 0) addAt(b.team, b.x, b.y, r, v * CANCEL_REFUND);
       b.incoming = {};
+      if (b.pre) {
+        // M7a: a rebuild called off: the ruin lies again
+        for (const u of active) if (u.wsite === b.id) leave(u);
+        b.delivered = {};
+        ruin(b, false);
+        return true;
+      }
       if (b.prev) {
         // an upgrade: the old piece stands on as it was (its workers leave: it is no longer unfinished); a grown inner row goes
         const p = b.prev;
@@ -1573,7 +1835,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     douse(id: number, dt: number): boolean {
       const b = buildings[id];
       if (!b || b.burn <= 0) return false;
-      b.burn = Math.max(0, b.burn - FIRE.douse * dt);
+      b.burn = Math.max(0, b.burn - FIRE.douse * dt * (hooks.douse?.(b) ?? 1));
       if (b.burn <= 0) b.kindle = 0;
       return true;
     },
@@ -1698,7 +1960,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       for (const b of braziers) if (b.fuel > 0 && b.state !== 'destroyed') b.fuel = Math.max(0, b.fuel - DT);
     },
     resourceNodes: (): NodeSnap[] =>
-      nodes.map((n) => ({ id: n.id, res: n.res, x: n.x, y: n.y, amount: n.amount, max: n.max, ...(n.obj !== undefined ? { obj: n.obj } : {}), ...(n.building !== undefined ? { building: n.building } : {}), ...(n.locked ? { guarded: true as const } : {}) })),
+      nodes.map((n) => ({ id: n.id, res: n.res, x: n.x, y: n.y, amount: n.amount, max: n.max, ...(n.obj !== undefined ? { obj: n.obj } : {}), ...(n.building !== undefined ? { building: n.building } : {}), ...(n.locked ? { guarded: true as const } : {}), ...(n.rare ? { rare: true as const } : {}) })),
     buildingSnaps: (): BuildingSnap[] =>
       buildings.filter((b) => !b.cancelled).map((b) => {
         let maxWorkers = 0;
@@ -1724,6 +1986,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.bridge ? { bridge: { axis: b.bridge.axis, dir: b.bridge.dir, width: b.bridge.width, part: b.bridge.part, deck: b.bridge.deck, rows: b.bridge.rows } } : {}),
           ...(b.hold && b.state !== 'destroyed' ? { goods: totals(b.hold), ...(b.hold.items.length ? { items: b.hold.items.length, list: itemList(b.hold) } : {}) } : {}),
           ...(b.owner ? { owner: b.owner } : {}),
+          ...(b.pre ? { pre: true as const, ...(b.pre.landmark ? { landmark: true as const } : {}), ...(b.pre.ruin ? { ruin: true as const } : {}), ...(b.pre.fouled > tick ? { fouled: true as const } : {}) } : {}),
+          ...(b.mend ? { mend: true as const } : {}),
+          ...(b.type === 'stoa' ? { stalls: 2 } : {}),
         };
       }),
     /** Per team: its strongroom and every standing store together (the HUD's totals; chests are their owners'). */

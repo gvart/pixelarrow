@@ -62,7 +62,8 @@ import { fallShare, FORAGE, HUNT, REMEDY, VENOM } from './civilians';
 import { mobKindOf, MOBS } from './mobs';
 import { decodeGraph, encodeGraph, externals, STATE_VERSION, type SimState } from './state';
 import { CART_ARMOR, isCartType, SIEGE } from './siege';
-import { CHEST } from './economy';
+import { CHEST, NEUTRAL_TEAM } from './economy';
+import { BLESS, createTowns } from './prebuilt';
 import { CART_FORD, CART_UPHILL } from './grid';
 import { itemList, loads, move as moveHold, newHold, perLoad, totals, type Hold, type Lot } from './holders';
 import { CART, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
@@ -366,7 +367,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       }
     },
     // M6c: a store or chest that falls leaves its contents in a pile
-    { spill: (x, y, h, burnt) => void piles.drop(x, y, h.lots, h.items, tick, burnt ? PILE.spoil : 0) },
+    {
+      spill: (x, y, h, burnt) => void piles.drop(x, y, h.lots, h.items, tick, burnt ? PILE.spoil : 0),
+      // M7a: a pre-built piece razed (a temple or shrine: sacrilege); a safe court's pieces take no harm; wells help douse
+      razed: (b, by) => note({ t: tick, kind: 'razed', building: b.id, type: b.type, owner: b.team, by, ...(b.type === 'temple' || b.type === 'shrine' ? { sacrilege: true as const } : {}) }),
+      immune: (b) => anySafe && inSafe(b.x, b.y),
+      douse: (b) => towns.douse(b),
+    },
   );
 
   /** M5h3: engineer nodes held by the living engineers of each team (once a tick). */
@@ -516,7 +523,21 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   });
   const mobs = createMobs(region, {
     squads,
-    spawn: (kind, count, x, y) => api.spawnSquad(MOB_OWNER, MOB_TEAM, mobClass(kind), count, x, y),
+    spawn: (kind, count, x, y, k) => {
+      const id = api.spawnSquad(MOB_OWNER, MOB_TEAM, mobClass(kind), count, x, y);
+      // M7c: depth and the host's elite guard over the kind's stats; a captain leads (the first man)
+      squads[id]?.units.forEach((u, i) => {
+        const hp = k.hp * (i === 0 && k.lead ? k.lead.hp : 1), dmg = k.dmg * (i === 0 && k.lead ? k.lead.dmg : 1);
+        if (hp === 1 && dmg === 1) return;
+        u.st = { ...u.st, maxHp: u.st.maxHp * hp, dmg: u.st.dmg * dmg, rangedDmg: u.st.rangedDmg * dmg };
+        u.maxHp = u.hp = u.st.maxHp;
+      });
+      return id;
+    },
+    held: (on) => works.setFallback(on ? MOB_TEAM : NEUTRAL_TEAM),
+    captainDown: (lair, by) => note({ t: tick, kind: 'captainSlain', lair, by }),
+    towers: () => works.prebuilt().filter((b) => b.def.wall === 'tower' && (b.team === MOB_TEAM || b.team === NEUTRAL_TEAM) && (b.state === 'done' || b.state === 'damaged')).map((b) => ({ id: b.id, x: b.x, y: b.y })),
+    carts: () => siege.snaps(tick).filter((e) => isCartType(e.type) && e.state !== 'destroyed' && e.team !== MOB_TEAM).map((e) => ({ id: e.id, x: e.x, y: e.y, team: e.team })),
     order: (o) => apply(o),
     arrived: (id) => !squads[id].goal && squads[id].pi >= squads[id].path.length / 2,
     nodes: () => works.resourceNodes(),
@@ -533,6 +554,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     w: grid.w,
     h: grid.h,
   });
+
+  // M7a: the region's pre-built pieces and their functions (./prebuilt.ts)
+  const towns = createTowns(works, { squads, units, mob: MOB_TEAM });
+  works.prebuild(NEUTRAL_TEAM);
 
   const vision = createVision(grid, { units: () => units, buildings: () => works.buildingSnaps() });
 
@@ -676,6 +701,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return;
     }
     if (o.kind === 'placeBuilding' && !placeable(o.type, o.squad === undefined ? o.team : squads[o.squad]?.team)) return;
+    if (o.kind === 'rebuild') {
+      // M7a: a ruin on the team's ground becomes a site; a squad given builds it
+      const team = o.squad === undefined ? o.team : squads[o.squad]?.team;
+      if (team === undefined || !works.rebuild(o.building, team, MOB_TEAM)) return;
+      if (o.squad !== undefined) apply({ kind: 'build', squad: o.squad, site: o.building });
+      return;
+    }
     if (o.kind === 'upgrade' && o.squad === undefined) {
       if (o.team !== undefined) works.upgrade(o.building, o.team);
       return;
@@ -739,6 +771,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (s.siege >= 0) uncrew(s);
       s.task = null;
       s.claimPt = -1;
+    }
+    if (o.kind === 'repairBuilding') {
+      // M7a: the squad mends a damaged building of its team (paid as it goes)
+      if (!works.mend(o.building, s.team)) return;
+      apply({ kind: 'build', squad: s.id, site: o.building });
+      return;
     }
     if (o.kind === 'claimRegion') {
       const cp = region.claimPoints?.[o.point];
@@ -865,7 +903,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         : o.kind === 'build' ? (works.siteOk(o.site, s.team) ? [o.site] : [])
         : [];
       if (o.kind !== 'gather' && !sites.length) return; // invalid placement: the squad carries on
-      if (o.kind === 'gather' && !works.nodeOk(o.node)) return;
+      if (o.kind === 'gather' && !works.nodeOk(o.node, s.team)) return; // M7e: rare nodes for the region's holder only
       s.order = o.kind === 'gather' ? 'gather' : 'build';
       s.sites = sites;
       s.fixed = null;
@@ -1388,7 +1426,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     t.tgt = null;
     // M5d: by his END (docs/WAR.md "Lifecycle"); M5f: a physician near; M5h: a bandage of his squad, venom
     const bandage = t.squad.bandages > 0 ? (t.squad.bandages--, dresser.has(t.squad.team) ? 2 : 1) : 0;
-    t.wounded = rng.chance(fallShare(t.st.ws, physicianNear(t), bandage, t.venomUntil > tick));
+    t.wounded = rng.chance(fallShare(t.st.ws + (towns.blessed(t.squad.id) ? BLESS.share : 0), physicianNear(t), bandage, t.venomUntil > tick));
     if (t.squad.team === MOB_TEAM && t.beast) hides(t);
     t.squad.alive--;
     reslotQueue.add(t.squad);
@@ -1431,7 +1469,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** Damage building b for squad s; its fall is an objective of s. */
   const hitBuilding = (s: Squad, b: number, dmg: number) => {
     const was = works.piece(b)?.state;
-    works.damage(b, dmg);
+    works.damage(b, dmg, s.team);
     if (was !== undefined && was !== 'destroyed' && works.piece(b)?.state === 'destroyed') objective(s, 'building');
   };
 
@@ -1463,13 +1501,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const mayTake = (s: Squad, h: HolderAt): boolean => {
     if (h.kind === 'pile') return true;
     if (h.kind === 'cart') return h.owner === s.owner;
+    if (h.kind === 'store' && works.piece(h.id)?.def.cache) return !inSafe(h.x, h.y); // M7a: a town's cache: anyone's
     const own = h.kind === 'chest' ? h.owner === s.owner : h.team === s.team;
     if (own) return true;
     if (inSafe(h.x, h.y) || h.team === s.team) return false;
     if (h.kind === 'chest') return !unitNear((u) => u.squad.owner === h.owner, h.x, h.y, CHEST.guard);
     return works.storeNet(h.id) < 0 && !unitNear((u) => u.squad.team === h.team, h.x, h.y, CHEST.guard);
   };
-  const mayPut = (s: Squad, h: HolderAt) => (h.kind === 'store' ? h.team === s.team : h.kind !== 'pile' && h.owner === s.owner);
+  const mayPut = (s: Squad, h: HolderAt) => (h.kind === 'store' ? h.team === s.team && !works.piece(h.id)?.def.cache : h.kind !== 'pile' && h.owner === s.owner);
   /** What a take from h draws: an own store also opens the home strongroom. */
   const takeHolds = (s: Squad, h: HolderAt): Hold[] => (h.kind === 'store' && h.team === s.team ? [h.hold, works.reserveOf(h.team)] : [h.hold]);
   const crewCart = (s: Squad) => (s.siege >= 0 && siege.isCart(s.siege) && siege.get(s.siege)!.crew === s.id ? s.siege : -1);
@@ -2072,7 +2111,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     for (const q of squads) if (q.team !== MOB_TEAM && q.alive > 0) teams.add(q.team);
     let n = siege.carts({ team }); // M6b: carts are in the civilian quota
     for (const u of civs) if (u.alive && u.squad.team === team) n++;
-    return Math.floor(CIV_QUOTA / teams.size) - n;
+    return Math.floor(CIV_QUOTA / teams.size) + towns.population(team).cap - n; // M7a: a town's houses feed more
   };
   /** No living foe soldier (civilians aside) within CIV.calmR of (x, y). */
   const safeAt = (team: number, x: number, y: number) => {
@@ -2232,7 +2271,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         // the hurt of his team near him heal (fed men faster); every PATIENT_HP healed is a job
         for (const o of units) {
           if (!o.alive || o.hp >= o.maxHp || o.squad.team !== s.team || works.dist2(s.work, o.x, o.y) > PHYSICIAN.r * PHYSICIAN.r || (anySafe && inSafe(o.x, o.y))) continue; // M6d: no healing in a safe zone
-          const add = Math.min(o.maxHp - o.hp, o.maxHp * PHYSICIAN.heal * sec * w * (o.squad.fedUntil > tick ? o.squad.fedHeal : 1));
+          const add = Math.min(o.maxHp - o.hp, o.maxHp * PHYSICIAN.heal * sec * w * (o.squad.fedUntil > tick ? o.squad.fedHeal : 1) * (towns.blessed(o.squad.id) ? BLESS.heal : 1));
           o.hp += add;
           u.civT += add;
         }
@@ -2293,6 +2332,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (civs.length && tick % SCAN === 0) civScan();
     if (civs.length && tick % CIV.every === 0) civTick();
     mobs.tick(tick);
+    towns.tick(tick);
     for (const s of squads) {
       if (s.alive === 0) continue;
       if (s.order === 'attack') (grid.team = s.team), updateAttack(s);
@@ -2510,6 +2550,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const saveRoot = () => ({
     grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, rations, dresser,
     crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
+    towns: towns.saveRoot(),
   });
 
   const api: WarBuildSim = {
@@ -2532,6 +2573,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       mobs.loadRoot(r.mobs);
       vision.loadRoot(r.vision);
       crafting.loadRoot(r.crafting);
+      towns.loadRoot(r.towns);
     },
     dropPersons(ids) {
       // a resumed region whose save predates a fight write-back: men D1 has already sent home leave without a report
@@ -2650,6 +2692,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           }
           if (s.bandages > 0) snap.bandages = s.bandages;
           if (s.theriacUntil > tick) snap.theriac = true;
+          if (towns.blessed(s.id)) snap.blessed = true;
           const st = s.units[0]?.st;
           if (st && st.range > 0 && st.missile === 'arrow') {
             const why = fireBlock(s);
@@ -2666,6 +2709,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         influenceVersion: works.influence().version,
         sieges: siege.snaps(tick),
         ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
+        ...(region.prebuilt?.length ? { towns: towns.towns() } : {}),
         ...(rations.size ? { rations: Object.fromEntries(rations) } : {}),
         ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
         ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, ...(p.hold.items.length ? { list: itemList(p.hold) } : {}), loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}) })) } : {}),
@@ -2685,6 +2729,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     finishBridges: works.finishBridges,
     spawnCart: (team, owner, type, x, y) => siege.cart(team, owner, type, x, y),
     spawnMobs: () => mobs.spawn(),
+    towns: () => towns.towns(),
+    population: (team) => towns.population(team),
+    prestige: (team) => towns.prestige(team),
+    upkeepAt: (team, x, y) => towns.upkeepAt(team, x, y),
+    setBoss: (id) => mobs.setBoss(id),
+    bossDown: () => mobs.bossDown(),
     visibleTo: vision.visibleTo,
     teamGrid: vision.teamGrid,
     lastSeen: vision.lastSeen,
