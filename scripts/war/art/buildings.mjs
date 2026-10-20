@@ -1222,8 +1222,8 @@ function hideOverlay(boxes, w, h, ox, oy, zlo, zhiOf) {
   return im;
 }
 
-// shared with siege.mjs (siege engines, ladders, rubble: the same renderer, textures and palette)
-export { PPM, MX, MY, TEX, hash, mul, clamp, Canvas, drawBox, renderBoxes, cells, heap, ramp, beam, roof, sliced, masonry, rubMat, rough, flags, planks, woodSolid, solid, scorch, burn, soot, wreckProf, stakeProf, palisadeMat, foundation, loadTextures, extendPalette, footOf, hard, CHAR, EMBER, EARTH, STRING, DOORDARK, KITS };
+// shared with siege.mjs and landmarks.mjs (siege engines, ladders, rubble: the same renderer, textures and palette)
+export { PPM, MX, MY, TEX, hash, mul, clamp, Canvas, drawBox, renderBoxes, cells, heap, ramp, beam, roof, sliced, masonry, rubMat, rough, flags, planks, woodSolid, solid, scorch, burn, soot, wreckProf, stakeProf, palisadeMat, foundation, loadTextures, extendPalette, footOf, hard, CHAR, EMBER, EARTH, STRING, DOORDARK, KITS, cylinder, cone, pyramid, gateBoxes, gradeC, ao, lightOf, SHADE, PAINT, BRONZE };
 
 // ======== main (only when run directly)
 function main() {

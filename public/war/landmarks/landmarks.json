@@ -1,0 +1,6925 @@
+{
+ "pxPerMetre": 33,
+ "tileMetres": 2,
+ "borderMax": 0.75,
+ "states": [
+  "intact",
+  "damaged",
+  "ruined",
+  "restored"
+ ],
+ "note": "Landmark structures (ART-L, WAR.md \"Living regions\"). pieces[]: one pre-built structure each (footprint in tiles, front = +y), states intact (as the season finds it: 60% hp, gates shut, weathered), damaged, ruined (a rubble footprint: slow x2, cover, no function) and restored (the restore rule done: fresh, gates iron-bound, banners); hp = WAR.md where it names one, else the nearest town piece (the sim owns hp). objects[]: one sprite per piece state, fields as public/war/buildings (anchor = foot, tileOrigin = px of the top vertex of the footprint's north tile, basePx = (fw + fh) x 16). <id>-x / <id>-y: the piece along that axis; segments (segmentM) join end to end in every state. kits[]: the labyrinth wall, 16 frames by neighbour mask (+x 1, +y 2, -x 4, -y 8) per state, tileOrigin = the tile top vertex in each frame. landmarks[]: the layout of each landmark in tiles from its NW corner ([piece, x, y]; @id = a build-mode piece from public/war/buildings or a town piece), for region authors and the mock-ups. Colours = tiles.json palette + objects.json palette + palette.",
+ "palette": [
+  "#16161e",
+  "#171e21",
+  "#1f362d",
+  "#233c3a",
+  "#324142",
+  "#45503a",
+  "#646b60",
+  "#c7c7c8",
+  "#10181f",
+  "#21212c",
+  "#423f43",
+  "#4a6051",
+  "#16151b",
+  "#171d21",
+  "#222e2f",
+  "#1f3538",
+  "#33433f",
+  "#39483f",
+  "#5c5c5f",
+  "#96999f",
+  "#091221",
+  "#1f2128",
+  "#4d5455",
+  "#1c1a1f",
+  "#191b20",
+  "#182b28",
+  "#24282d",
+  "#1c3232",
+  "#223b32",
+  "#29453e",
+  "#30433e",
+  "#34473d",
+  "#56585b",
+  "#57595c",
+  "#837f7c",
+  "#8d908f",
+  "#0a0e1d",
+  "#11111d",
+  "#1f2028",
+  "#4d3930",
+  "#4b3b3c",
+  "#474d53",
+  "#505255",
+  "#141318",
+  "#141319",
+  "#15161b",
+  "#19171b",
+  "#25151a",
+  "#19181d",
+  "#19181c",
+  "#1d2428",
+  "#24242c",
+  "#24242b",
+  "#202832",
+  "#202c35",
+  "#252c33",
+  "#314739",
+  "#2e463e",
+  "#37453e",
+  "#52423d",
+  "#565456",
+  "#624f4f",
+  "#55585b",
+  "#5f6468",
+  "#626369",
+  "#696c70",
+  "#72817b",
+  "#0a0908",
+  "#0c0a0f",
+  "#0f0e11",
+  "#111015",
+  "#211e27",
+  "#202028",
+  "#3a2c2c",
+  "#362f35",
+  "#38363c",
+  "#3a3c40",
+  "#404446",
+  "#454346",
+  "#424449",
+  "#434851",
+  "#020101",
+  "#020202",
+  "#040303",
+  "#070505",
+  "#070709",
+  "#08070e",
+  "#151925",
+  "#132225",
+  "#1d1d24",
+  "#1c1e26",
+  "#1d1f25",
+  "#1e1f25",
+  "#1f1f25",
+  "#1e2027",
+  "#2b2026",
+  "#2a292e",
+  "#2a2f2f",
+  "#2d3035",
+  "#29352c",
+  "#29352e",
+  "#3c3e45",
+  "#3d3d48",
+  "#3c3f47",
+  "#3e3f46",
+  "#3e4044",
+  "#3f4045",
+  "#443e44",
+  "#3f1e19",
+  "#3d201b",
+  "#451d18",
+  "#4d1b16",
+  "#45271c",
+  "#4c251e",
+  "#4e241d",
+  "#4e291e",
+  "#592d22",
+  "#593d29",
+  "#5c3e32",
+  "#5b4033",
+  "#5d4033",
+  "#5e4034",
+  "#614134",
+  "#624235",
+  "#63422f",
+  "#654533",
+  "#644538",
+  "#674538",
+  "#57554c",
+  "#6b675d",
+  "#706b65",
+  "#6a6674",
+  "#8e5f4b",
+  "#946552",
+  "#9a6b4d",
+  "#ad7855",
+  "#777268",
+  "#7d776b",
+  "#a59d83",
+  "#3a1914",
+  "#3a1d18",
+  "#45201a",
+  "#4a231d",
+  "#53261f",
+  "#562821",
+  "#6e291d",
+  "#782b1f",
+  "#604838",
+  "#5e5142",
+  "#5f5143",
+  "#615243",
+  "#815848",
+  "#836150",
+  "#756f67",
+  "#767169",
+  "#361c17",
+  "#44231c",
+  "#581f19",
+  "#5e342b",
+  "#5e4c3c",
+  "#5e5143",
+  "#845b2c",
+  "#321814",
+  "#3f221b",
+  "#531e18",
+  "#642b1e",
+  "#5a4b3d",
+  "#805838",
+  "#726e64",
+  "#736d66"
+ ],
+ "pieces": [
+  {
+   "id": "citadel-keep",
+   "landmark": "citadel",
+   "kind": "keep",
+   "footprint": [
+    6,
+    6
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 8000,
+   "heightM": 16,
+   "note": "the keep (6 x 6, 8000 hp): a cyclopean tower-house, a flat roof terrace (Drakon perches here in P2) behind a parapet, a roofed stair-house",
+   "states": {
+    "intact": "citadel-keep-intact",
+    "damaged": "citadel-keep-damaged",
+    "ruined": "citadel-keep-ruined",
+    "restored": "citadel-keep-restored"
+   }
+  },
+  {
+   "id": "citadel-curtain-x",
+   "landmark": "citadel",
+   "kind": "wall",
+   "footprint": [
+    4,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 3000,
+   "hpNote": "a tile (cyclopean wall x2)",
+   "axis": "x",
+   "segmentM": 8,
+   "heightM": 9,
+   "note": "8 m of the curtain, 2 tiles deep: giant cyclopean blocks, the walk at 7 m behind a 1.2 m parapet; segments join end to end in every state",
+   "states": {
+    "intact": "citadel-curtain-x-intact",
+    "damaged": "citadel-curtain-x-damaged",
+    "ruined": "citadel-curtain-x-ruined",
+    "restored": "citadel-curtain-x-restored"
+   }
+  },
+  {
+   "id": "citadel-curtain-y",
+   "landmark": "citadel",
+   "kind": "wall",
+   "footprint": [
+    2,
+    4
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 3000,
+   "hpNote": "a tile (cyclopean wall x2)",
+   "axis": "y",
+   "segmentM": 8,
+   "heightM": 9,
+   "note": "8 m of the curtain, 2 tiles deep: giant cyclopean blocks, the walk at 7 m behind a 1.2 m parapet; segments join end to end in every state",
+   "states": {
+    "intact": "citadel-curtain-y-intact",
+    "damaged": "citadel-curtain-y-damaged",
+    "ruined": "citadel-curtain-y-ruined",
+    "restored": "citadel-curtain-y-restored"
+   }
+  },
+  {
+   "id": "citadel-tower",
+   "landmark": "citadel",
+   "kind": "tower",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 3500,
+   "platformM": 10.5,
+   "platformPx": 347,
+   "heightM": 13,
+   "note": "a curtain tower (6 of them), 6 m square, a tiled roof over its fighting chamber; joins the curtain at walk height",
+   "states": {
+    "intact": "citadel-tower-intact",
+    "damaged": "citadel-tower-damaged",
+    "ruined": "citadel-tower-ruined",
+    "restored": "citadel-tower-restored"
+   }
+  },
+  {
+   "id": "citadel-gatehouse-x",
+   "landmark": "citadel",
+   "kind": "gate",
+   "footprint": [
+    6,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 5000,
+   "axis": "x",
+   "heightM": 13,
+   "note": "the twin gatehouse: two towers flanking a 4 m passage under a giant lintel, the leaves on the outer (+y) face, a walk between the towers at 7 m",
+   "states": {
+    "intact": "citadel-gatehouse-x-intact",
+    "damaged": "citadel-gatehouse-x-damaged",
+    "ruined": "citadel-gatehouse-x-ruined",
+    "restored": "citadel-gatehouse-x-restored"
+   }
+  },
+  {
+   "id": "citadel-gatehouse-y",
+   "landmark": "citadel",
+   "kind": "gate",
+   "footprint": [
+    3,
+    6
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 5000,
+   "axis": "y",
+   "heightM": 13,
+   "note": "the twin gatehouse: two towers flanking a 4 m passage under a giant lintel, the leaves on the outer (+y) face, a walk between the towers at 7 m",
+   "states": {
+    "intact": "citadel-gatehouse-y-intact",
+    "damaged": "citadel-gatehouse-y-damaged",
+    "ruined": "citadel-gatehouse-y-ruined",
+    "restored": "citadel-gatehouse-y-restored"
+   }
+  },
+  {
+   "id": "citadel-bone-pit",
+   "landmark": "citadel",
+   "kind": "node",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 600,
+   "node": "dragonbone",
+   "heightM": 3,
+   "note": "the bone pit (dragonbone node): a low ring of rough stones round a dark pit heaped with old bones, ribs and a drake skull",
+   "states": {
+    "intact": "citadel-bone-pit-intact",
+    "damaged": "citadel-bone-pit-damaged",
+    "ruined": "citadel-bone-pit-ruined",
+    "restored": "citadel-bone-pit-restored"
+   }
+  },
+  {
+   "id": "ammon-house-a",
+   "landmark": "ammon",
+   "kind": "house",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 900,
+   "heightM": 5,
+   "note": "a one-storey mudbrick house, flat roof with a lip, palm-trunk beam ends, a little roof room",
+   "states": {
+    "intact": "ammon-house-a-intact",
+    "damaged": "ammon-house-a-damaged",
+    "ruined": "ammon-house-a-ruined",
+    "restored": "ammon-house-a-restored"
+   }
+  },
+  {
+   "id": "ammon-house-b",
+   "landmark": "ammon",
+   "kind": "house",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 900,
+   "heightM": 7,
+   "note": "a two-storey mudbrick house on a stone footing, a roof terrace behind a parapet, a stair up its side",
+   "states": {
+    "intact": "ammon-house-b-intact",
+    "damaged": "ammon-house-b-damaged",
+    "ruined": "ammon-house-b-ruined",
+    "restored": "ammon-house-b-restored"
+   }
+  },
+  {
+   "id": "ammon-palace",
+   "landmark": "ammon",
+   "kind": "keep",
+   "footprint": [
+    6,
+    6
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 6000,
+   "heightM": 13,
+   "note": "the palace (keep, 6000 hp): a stone podium, a mudbrick hall behind a Greek portico of six red-shafted columns (Alexander's), a corner tower, flat roofs",
+   "states": {
+    "intact": "ammon-palace-intact",
+    "damaged": "ammon-palace-damaged",
+    "ruined": "ammon-palace-ruined",
+    "restored": "ammon-palace-restored"
+   }
+  },
+  {
+   "id": "ammon-temple",
+   "landmark": "ammon",
+   "kind": "temple",
+   "footprint": [
+    4,
+    6
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 3000,
+   "heightM": 10,
+   "note": "the temple of Ammon (the oracle): an Egyptian pylon of battered limestone towers at the front, a flat-roofed hall with a cavetto cornice behind",
+   "states": {
+    "intact": "ammon-temple-intact",
+    "damaged": "ammon-temple-damaged",
+    "ruined": "ammon-temple-ruined",
+    "restored": "ammon-temple-restored"
+   }
+  },
+  {
+   "id": "sunken-temple",
+   "landmark": "sunken",
+   "kind": "temple",
+   "footprint": [
+    4,
+    4
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 3000,
+   "heightM": 8,
+   "note": "the half-sunk temple of Achelous (4 x 4, the sanctum): a peristyle sunk 1.4 m in the mud, its roof half fallen even intact",
+   "states": {
+    "intact": "sunken-temple-intact",
+    "damaged": "sunken-temple-damaged",
+    "ruined": "sunken-temple-ruined",
+    "restored": "sunken-temple-restored"
+   }
+  },
+  {
+   "id": "sunken-colonnade-x",
+   "landmark": "sunken",
+   "kind": "wall",
+   "footprint": [
+    2,
+    1
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1200,
+   "axis": "x",
+   "segmentM": 4,
+   "heightM": 6,
+   "note": "the colonnade wall: 4 m of stylobate, two columns and the architrave, joining end to end",
+   "states": {
+    "intact": "sunken-colonnade-x-intact",
+    "damaged": "sunken-colonnade-x-damaged",
+    "ruined": "sunken-colonnade-x-ruined",
+    "restored": "sunken-colonnade-x-restored"
+   }
+  },
+  {
+   "id": "sunken-colonnade-y",
+   "landmark": "sunken",
+   "kind": "wall",
+   "footprint": [
+    1,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1200,
+   "axis": "y",
+   "segmentM": 4,
+   "heightM": 6,
+   "note": "the colonnade wall: 4 m of stylobate, two columns and the architrave, joining end to end",
+   "states": {
+    "intact": "sunken-colonnade-y-intact",
+    "damaged": "sunken-colonnade-y-damaged",
+    "ruined": "sunken-colonnade-y-ruined",
+    "restored": "sunken-colonnade-y-restored"
+   }
+  },
+  {
+   "id": "sunken-shrine",
+   "landmark": "sunken",
+   "kind": "shrine",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 800,
+   "heightM": 5,
+   "note": "a river shrine: a little distyle naiskos on a podium, a gable roof",
+   "states": {
+    "intact": "sunken-shrine-intact",
+    "damaged": "sunken-shrine-damaged",
+    "ruined": "sunken-shrine-ruined",
+    "restored": "sunken-shrine-restored"
+   }
+  },
+  {
+   "id": "sunken-jetty",
+   "landmark": "sunken",
+   "kind": "jetty",
+   "footprint": [
+    1,
+    4
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1200,
+   "heightM": 1.2,
+   "note": "the stone jetty: big slabs on rough piers, mooring bollards",
+   "states": {
+    "intact": "sunken-jetty-intact",
+    "damaged": "sunken-jetty-damaged",
+    "ruined": "sunken-jetty-ruined",
+    "restored": "sunken-jetty-restored"
+   }
+  },
+  {
+   "id": "sunken-causeway",
+   "landmark": "sunken",
+   "kind": "ford",
+   "footprint": [
+    1,
+    1
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 400,
+   "heightM": 0.5,
+   "note": "a causeway tile between islands (a ford): big flat stones set in the shallows; lay tile by tile",
+   "states": {
+    "intact": "sunken-causeway-intact",
+    "damaged": "sunken-causeway-damaged",
+    "ruined": "sunken-causeway-ruined",
+    "restored": "sunken-causeway-restored"
+   }
+  },
+  {
+   "id": "achelous-spring",
+   "landmark": "sunken",
+   "kind": "well",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 800,
+   "heightM": 2.2,
+   "note": "the river god's spring: a rock basin of dark water under a stele with a horned head spout",
+   "states": {
+    "intact": "achelous-spring-intact",
+    "damaged": "achelous-spring-damaged",
+    "ruined": "achelous-spring-ruined",
+    "restored": "achelous-spring-restored"
+   }
+  },
+  {
+   "id": "navel-temple",
+   "landmark": "navel",
+   "kind": "temple",
+   "footprint": [
+    8,
+    8
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 12000,
+   "heightM": 14,
+   "note": "the great temple (8 x 8, 12000 hp): a Doric peripteros of 6 x 6 columns on a three-step crepidoma, a painted frieze, a tiled gable",
+   "states": {
+    "intact": "navel-temple-intact",
+    "damaged": "navel-temple-damaged",
+    "ruined": "navel-temple-ruined",
+    "restored": "navel-temple-restored"
+   }
+  },
+  {
+   "id": "navel-arena",
+   "landmark": "navel",
+   "kind": "arena",
+   "footprint": [
+    10,
+    10
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 6000,
+   "heightM": 7,
+   "note": "the titan arena: a round of stepped stone seats (20 m) round a sand floor, an arched outer wall, the entrance to +y",
+   "states": {
+    "intact": "navel-arena-intact",
+    "damaged": "navel-arena-damaged",
+    "ruined": "navel-arena-ruined",
+    "restored": "navel-arena-restored"
+   }
+  },
+  {
+   "id": "navel-omphalos",
+   "landmark": "navel",
+   "kind": "statue",
+   "footprint": [
+    1,
+    1
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 400,
+   "heightM": 2.6,
+   "note": "the omphalos: the navel stone of the world, an egg of grey stone under a carved net of fillets, on a stepped plinth",
+   "states": {
+    "intact": "navel-omphalos-intact",
+    "damaged": "navel-omphalos-damaged",
+    "ruined": "navel-omphalos-ruined",
+    "restored": "navel-omphalos-restored"
+   }
+  },
+  {
+   "id": "navel-ramp-gate-x",
+   "landmark": "navel",
+   "kind": "gate",
+   "footprint": [
+    5,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 2500,
+   "axis": "x",
+   "heightM": 10,
+   "note": "a ramp gatehouse (4 of them): the Lion Gate between two square towers at the top of a ramp; the holder's stone gate once restored",
+   "states": {
+    "intact": "navel-ramp-gate-x-intact",
+    "damaged": "navel-ramp-gate-x-damaged",
+    "ruined": "navel-ramp-gate-x-ruined",
+    "restored": "navel-ramp-gate-x-restored"
+   }
+  },
+  {
+   "id": "navel-ramp-gate-y",
+   "landmark": "navel",
+   "kind": "gate",
+   "footprint": [
+    2,
+    5
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 2500,
+   "axis": "y",
+   "heightM": 10,
+   "note": "a ramp gatehouse (4 of them): the Lion Gate between two square towers at the top of a ramp; the holder's stone gate once restored",
+   "states": {
+    "intact": "navel-ramp-gate-y-intact",
+    "damaged": "navel-ramp-gate-y-damaged",
+    "ruined": "navel-ramp-gate-y-ruined",
+    "restored": "navel-ramp-gate-y-restored"
+   }
+  },
+  {
+   "id": "cyclops-gatehouse-x",
+   "landmark": "cyclops",
+   "kind": "gate",
+   "footprint": [
+    6,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 6000,
+   "axis": "x",
+   "heightM": 12,
+   "note": "the gatehouse of giant blocks astride the switchback road: two bastions, a passage under one monstrous lintel with its relieving triangle, a walk on top at 8 m (Brontes hurls from here)",
+   "states": {
+    "intact": "cyclops-gatehouse-x-intact",
+    "damaged": "cyclops-gatehouse-x-damaged",
+    "ruined": "cyclops-gatehouse-x-ruined",
+    "restored": "cyclops-gatehouse-x-restored"
+   }
+  },
+  {
+   "id": "cyclops-gatehouse-y",
+   "landmark": "cyclops",
+   "kind": "gate",
+   "footprint": [
+    3,
+    6
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 6000,
+   "axis": "y",
+   "heightM": 12,
+   "note": "the gatehouse along y",
+   "states": {
+    "intact": "cyclops-gatehouse-y-intact",
+    "damaged": "cyclops-gatehouse-y-damaged",
+    "ruined": "cyclops-gatehouse-y-ruined",
+    "restored": "cyclops-gatehouse-y-restored"
+   }
+  },
+  {
+   "id": "cyclops-wall-x",
+   "landmark": "cyclops",
+   "kind": "wall",
+   "footprint": [
+    4,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 3000,
+   "hpNote": "a tile",
+   "axis": "x",
+   "segmentM": 8,
+   "heightM": 8,
+   "note": "8 m of cyclopean wall of giant blocks, the walk at 6 m",
+   "states": {
+    "intact": "cyclops-wall-x-intact",
+    "damaged": "cyclops-wall-x-damaged",
+    "ruined": "cyclops-wall-x-ruined",
+    "restored": "cyclops-wall-x-restored"
+   }
+  },
+  {
+   "id": "cyclops-wall-y",
+   "landmark": "cyclops",
+   "kind": "wall",
+   "footprint": [
+    2,
+    4
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 3000,
+   "hpNote": "a tile",
+   "axis": "y",
+   "segmentM": 8,
+   "heightM": 8,
+   "note": "8 m of cyclopean wall of giant blocks, the walk at 6 m",
+   "states": {
+    "intact": "cyclops-wall-y-intact",
+    "damaged": "cyclops-wall-y-damaged",
+    "ruined": "cyclops-wall-y-ruined",
+    "restored": "cyclops-wall-y-restored"
+   }
+  },
+  {
+   "id": "cyclops-tower",
+   "landmark": "cyclops",
+   "kind": "tower",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 4000,
+   "platformM": 8.2,
+   "platformPx": 271,
+   "heightM": 10,
+   "note": "a round bastion of giant blocks, open fighting top",
+   "states": {
+    "intact": "cyclops-tower-intact",
+    "damaged": "cyclops-tower-damaged",
+    "ruined": "cyclops-tower-ruined",
+    "restored": "cyclops-tower-restored"
+   }
+  },
+  {
+   "id": "oracle-shrine",
+   "landmark": "oracle",
+   "kind": "shrine",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 800,
+   "heightM": 6,
+   "note": "the oracle shrine: an Ionic naiskos with a red pediment and a ring of six bronze tripod cauldrons that ring in the wind (as at Dodona)",
+   "states": {
+    "intact": "oracle-shrine-intact",
+    "damaged": "oracle-shrine-damaged",
+    "ruined": "oracle-shrine-ruined",
+    "restored": "oracle-shrine-restored"
+   }
+  },
+  {
+   "id": "oracle-house",
+   "landmark": "oracle",
+   "kind": "house",
+   "footprint": [
+    3,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 900,
+   "heightM": 5,
+   "note": "the priestess's house: fieldstone walls, a tiled gable, a timber porch",
+   "states": {
+    "intact": "oracle-house-intact",
+    "damaged": "oracle-house-damaged",
+    "ruined": "oracle-house-ruined",
+    "restored": "oracle-house-restored"
+   }
+  },
+  {
+   "id": "spring-memory",
+   "landmark": "oracle",
+   "kind": "well",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 800,
+   "heightM": 2.4,
+   "note": "the Spring of Memory: clear dark water, a stepped basin under a stele with a lion-head spout",
+   "states": {
+    "intact": "spring-memory-intact",
+    "damaged": "spring-memory-damaged",
+    "ruined": "spring-memory-ruined",
+    "restored": "spring-memory-restored"
+   }
+  },
+  {
+   "id": "spring-lethe",
+   "landmark": "oracle",
+   "kind": "well",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 800,
+   "heightM": 2.4,
+   "note": "the Spring of Lethe: black still water, a cypress-dark stele, a stepped basin under a stele with a lion-head spout",
+   "states": {
+    "intact": "spring-lethe-intact",
+    "damaged": "spring-lethe-damaged",
+    "ruined": "spring-lethe-ruined",
+    "restored": "spring-lethe-restored"
+   }
+  },
+  {
+   "id": "titan-anvil",
+   "landmark": "forge",
+   "kind": "forge",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 4000,
+   "heightM": 4,
+   "note": "the great anvil (a forge L3+, 4000 hp): a dark iron anvil the size of a cart on a cyclopean plinth, a horn to +x, chains (Gyges is bound here), a hearth basin of coals",
+   "states": {
+    "intact": "titan-anvil-intact",
+    "damaged": "titan-anvil-damaged",
+    "ruined": "titan-anvil-ruined",
+    "restored": "titan-anvil-restored"
+   }
+  },
+  {
+   "id": "titan-bellows",
+   "landmark": "forge",
+   "kind": "workshop",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "wood",
+   "burnable": true,
+   "hp": 1200,
+   "heightM": 4.5,
+   "note": "the water bellows: an undershot wheel turned by the falls drives a rocking beam over two great leather bellows",
+   "states": {
+    "intact": "titan-bellows-intact",
+    "damaged": "titan-bellows-damaged",
+    "ruined": "titan-bellows-ruined",
+    "restored": "titan-bellows-restored"
+   }
+  },
+  {
+   "id": "titan-slag",
+   "landmark": "forge",
+   "kind": "node",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 300,
+   "node": "titan bronze (slag, 20 once)",
+   "heightM": 2,
+   "note": "the slag heap: glassy black slag and rusty cinder, a few bronze-green runs",
+   "states": {
+    "intact": "titan-slag-intact",
+    "damaged": "titan-slag-damaged",
+    "ruined": "titan-slag-ruined",
+    "restored": "titan-slag-restored"
+   }
+  },
+  {
+   "id": "titan-tower",
+   "landmark": "forge",
+   "kind": "tower",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 2500,
+   "platformM": 7,
+   "platformPx": 231,
+   "heightM": 9,
+   "note": "a cliffside guard tower over the rock bridge (2 of them): rough cyclopean socle, square shaft, tiled roof",
+   "states": {
+    "intact": "titan-tower-intact",
+    "damaged": "titan-tower-damaged",
+    "ruined": "titan-tower-ruined",
+    "restored": "titan-tower-restored"
+   }
+  },
+  {
+   "id": "obsidian-wall-x",
+   "landmark": "obsidian",
+   "kind": "wall",
+   "footprint": [
+    4,
+    2
+   ],
+   "material": "rock",
+   "burnable": false,
+   "hp": 3000,
+   "hpNote": "a tile; only stone throwers hurt it",
+   "axis": "x",
+   "segmentM": 8,
+   "heightM": 9,
+   "note": "8 m of rock-cut wall: the mesa's basalt left standing, a walk cut along its top at 7 m behind a ragged rock parapet; not burnable",
+   "states": {
+    "intact": "obsidian-wall-x-intact",
+    "damaged": "obsidian-wall-x-damaged",
+    "ruined": "obsidian-wall-x-ruined",
+    "restored": "obsidian-wall-x-restored"
+   }
+  },
+  {
+   "id": "obsidian-wall-y",
+   "landmark": "obsidian",
+   "kind": "wall",
+   "footprint": [
+    2,
+    4
+   ],
+   "material": "rock",
+   "burnable": false,
+   "hp": 3000,
+   "hpNote": "a tile; only stone throwers hurt it",
+   "axis": "y",
+   "segmentM": 8,
+   "heightM": 9,
+   "note": "8 m of rock-cut wall: the mesa's basalt left standing, a walk cut along its top at 7 m behind a ragged rock parapet; not burnable",
+   "states": {
+    "intact": "obsidian-wall-y-intact",
+    "damaged": "obsidian-wall-y-damaged",
+    "ruined": "obsidian-wall-y-ruined",
+    "restored": "obsidian-wall-y-restored"
+   }
+  },
+  {
+   "id": "obsidian-tower",
+   "landmark": "obsidian",
+   "kind": "tower",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "rock",
+   "burnable": false,
+   "hp": 4000,
+   "platformM": 9.5,
+   "platformPx": 314,
+   "heightM": 12,
+   "note": "a rock-cut tower: an irregular basalt pillar dressed square at the top, a fighting platform",
+   "states": {
+    "intact": "obsidian-tower-intact",
+    "damaged": "obsidian-tower-damaged",
+    "ruined": "obsidian-tower-ruined",
+    "restored": "obsidian-tower-restored"
+   }
+  },
+  {
+   "id": "obsidian-kiln",
+   "landmark": "obsidian",
+   "kind": "kiln",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 2000,
+   "heightM": 5,
+   "note": "the vent kiln: a domed clay-and-stone kiln over a volcanic fissure in a black rock mound, glowing cracks; pitch without wood (fx: smoke from the vent)",
+   "states": {
+    "intact": "obsidian-kiln-intact",
+    "damaged": "obsidian-kiln-damaged",
+    "ruined": "obsidian-kiln-ruined",
+    "restored": "obsidian-kiln-restored"
+   }
+  },
+  {
+   "id": "obsidian-field",
+   "landmark": "obsidian",
+   "kind": "node",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "rock",
+   "burnable": false,
+   "hp": 200,
+   "node": "obsidian",
+   "heightM": 1.2,
+   "note": "the obsidian glass field (node): black volcanic glass breaking out of the ground in sharp flakes",
+   "states": {
+    "intact": "obsidian-field-intact",
+    "damaged": "obsidian-field-damaged",
+    "ruined": "obsidian-field-ruined",
+    "restored": "obsidian-field-restored"
+   }
+  },
+  {
+   "id": "rim-beacon",
+   "landmark": "rim",
+   "kind": "tower",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 2500,
+   "platformM": 11,
+   "platformPx": 363,
+   "platformCap": 12,
+   "heightM": 14,
+   "note": "the beacon tower on the sea stack (a stone tower, cap 12): a tall round ashlar tower, an open top with a bronze fire basket (fx: the beacon fire)",
+   "states": {
+    "intact": "rim-beacon-intact",
+    "damaged": "rim-beacon-damaged",
+    "ruined": "rim-beacon-ruined",
+    "restored": "rim-beacon-restored"
+   }
+  },
+  {
+   "id": "rim-stair-x+",
+   "landmark": "rim",
+   "kind": "stair",
+   "footprint": [
+    3,
+    1
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1500,
+   "axis": "x",
+   "riseM": 3,
+   "heightM": 5,
+   "note": "the walled stair up the stack: 6 m of steps rising 3 m between parapet walls (lay end to end, each a level of 3 m higher)",
+   "states": {
+    "intact": "rim-stair-x+-intact",
+    "damaged": "rim-stair-x+-damaged",
+    "ruined": "rim-stair-x+-ruined",
+    "restored": "rim-stair-x+-restored"
+   }
+  },
+  {
+   "id": "rim-stair-x-",
+   "landmark": "rim",
+   "kind": "stair",
+   "footprint": [
+    3,
+    1
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1500,
+   "axis": "x",
+   "riseM": 3,
+   "heightM": 5,
+   "note": "the walled stair up the stack: 6 m of steps rising 3 m between parapet walls (lay end to end, each a level of 3 m higher)",
+   "states": {
+    "intact": "rim-stair-x--intact",
+    "damaged": "rim-stair-x--damaged",
+    "ruined": "rim-stair-x--ruined",
+    "restored": "rim-stair-x--restored"
+   }
+  },
+  {
+   "id": "rim-stair-y+",
+   "landmark": "rim",
+   "kind": "stair",
+   "footprint": [
+    1,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1500,
+   "axis": "y",
+   "riseM": 3,
+   "heightM": 5,
+   "note": "the walled stair up the stack: 6 m of steps rising 3 m between parapet walls (lay end to end, each a level of 3 m higher)",
+   "states": {
+    "intact": "rim-stair-y+-intact",
+    "damaged": "rim-stair-y+-damaged",
+    "ruined": "rim-stair-y+-ruined",
+    "restored": "rim-stair-y+-restored"
+   }
+  },
+  {
+   "id": "rim-stair-y-",
+   "landmark": "rim",
+   "kind": "stair",
+   "footprint": [
+    1,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1500,
+   "axis": "y",
+   "riseM": 3,
+   "heightM": 5,
+   "note": "the walled stair up the stack: 6 m of steps rising 3 m between parapet walls (lay end to end, each a level of 3 m higher)",
+   "states": {
+    "intact": "rim-stair-y--intact",
+    "damaged": "rim-stair-y--damaged",
+    "ruined": "rim-stair-y--ruined",
+    "restored": "rim-stair-y--restored"
+   }
+  },
+  {
+   "id": "rim-keeper-house",
+   "landmark": "rim",
+   "kind": "house",
+   "footprint": [
+    3,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 900,
+   "heightM": 5,
+   "note": "the keeper's house: a low fieldstone house with a tiled gable, salt-stained",
+   "states": {
+    "intact": "rim-keeper-house-intact",
+    "damaged": "rim-keeper-house-damaged",
+    "ruined": "rim-keeper-house-ruined",
+    "restored": "rim-keeper-house-restored"
+   }
+  }
+ ],
+ "kits": [
+  {
+   "id": "navel-labyrinth",
+   "landmark": "navel",
+   "kind": "wall",
+   "material": "stone",
+   "burnable": false,
+   "hp": 1500,
+   "hpNote": "a tile",
+   "heightM": 3.4,
+   "frames": 16,
+   "columns": 16,
+   "frame": {
+    "w": 96,
+    "h": 209
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 153
+   },
+   "note": "the labyrinth: a 0.9 m thick, 3.4 m ashlar wall, frame = neighbour mask (+x 1, +y 2, -x 4, -y 8)",
+   "states": {
+    "intact": "navel-labyrinth-intact.png",
+    "damaged": "navel-labyrinth-damaged.png",
+    "ruined": "navel-labyrinth-ruined.png",
+    "restored": "navel-labyrinth-restored.png"
+   }
+  }
+ ],
+ "landmarks": [
+  {
+   "id": "citadel",
+   "name": "Drakon's Citadel",
+   "region": "krios",
+   "guardian": "Drakon the White",
+   "rareGood": "dragonbone",
+   "size": [
+    22,
+    20
+   ],
+   "pieces": [
+    [
+     "citadel-tower",
+     0,
+     0
+    ],
+    [
+     "citadel-curtain-x",
+     3,
+     0
+    ],
+    [
+     "citadel-curtain-x",
+     7,
+     0
+    ],
+    [
+     "citadel-tower",
+     11,
+     0
+    ],
+    [
+     "citadel-curtain-x",
+     14,
+     0
+    ],
+    [
+     "citadel-tower",
+     18,
+     0
+    ],
+    [
+     "citadel-curtain-y",
+     0,
+     3
+    ],
+    [
+     "citadel-curtain-y",
+     0,
+     7
+    ],
+    [
+     "citadel-curtain-y",
+     19,
+     3
+    ],
+    [
+     "citadel-curtain-y",
+     19,
+     7
+    ],
+    [
+     "citadel-tower",
+     0,
+     11
+    ],
+    [
+     "citadel-tower",
+     18,
+     11
+    ],
+    [
+     "citadel-curtain-x",
+     3,
+     12
+    ],
+    [
+     "citadel-gatehouse-x",
+     7,
+     11
+    ],
+    [
+     "citadel-curtain-x",
+     13,
+     12
+    ],
+    [
+     "citadel-curtain-x",
+     14,
+     12
+    ],
+    [
+     "citadel-keep",
+     8,
+     3
+    ],
+    [
+     "citadel-bone-pit",
+     3,
+     4
+    ],
+    [
+     "@barracks",
+     14,
+     3
+    ],
+    [
+     "@forge2",
+     15,
+     7
+    ],
+    [
+     "@well",
+     4,
+     9
+    ]
+   ]
+  },
+  {
+   "id": "ammon",
+   "name": "Dead City of Ammon",
+   "region": "ammon",
+   "guardian": "the Bandit King",
+   "rareGood": null,
+   "size": [
+    24,
+    20
+   ],
+   "pieces": [
+    [
+     "ammon-palace",
+     1,
+     1
+    ],
+    [
+     "ammon-temple",
+     9,
+     1
+    ],
+    [
+     "ammon-house-a",
+     15,
+     1
+    ],
+    [
+     "ammon-house-b",
+     19,
+     1
+    ],
+    [
+     "ammon-house-b",
+     15,
+     5
+    ],
+    [
+     "ammon-house-a",
+     19,
+     5
+    ],
+    [
+     "ammon-house-a",
+     1,
+     9
+    ],
+    [
+     "ammon-house-b",
+     5,
+     9
+    ],
+    [
+     "ammon-house-a",
+     9,
+     10
+    ],
+    [
+     "ammon-house-b",
+     13,
+     10
+    ],
+    [
+     "ammon-house-a",
+     17,
+     10
+    ],
+    [
+     "ammon-house-b",
+     1,
+     13
+    ],
+    [
+     "ammon-house-a",
+     5,
+     13
+    ],
+    [
+     "@stone-gate-x",
+     10,
+     17
+    ],
+    [
+     "@stone-tower-round",
+     7,
+     16
+    ],
+    [
+     "@stone-tower-round",
+     13,
+     16
+    ]
+   ]
+  },
+  {
+   "id": "sunken",
+   "name": "Sunken Temple of Achelous",
+   "region": "delta",
+   "guardian": "Achelous",
+   "rareGood": null,
+   "size": [
+    16,
+    14
+   ],
+   "water": true,
+   "pieces": [
+    [
+     "sunken-colonnade-x",
+     2,
+     1
+    ],
+    [
+     "sunken-colonnade-x",
+     4,
+     1
+    ],
+    [
+     "sunken-colonnade-x",
+     6,
+     1
+    ],
+    [
+     "sunken-colonnade-x",
+     8,
+     1
+    ],
+    [
+     "sunken-colonnade-y",
+     1,
+     2
+    ],
+    [
+     "sunken-colonnade-y",
+     1,
+     4
+    ],
+    [
+     "sunken-colonnade-y",
+     1,
+     6
+    ],
+    [
+     "sunken-colonnade-y",
+     10,
+     2
+    ],
+    [
+     "sunken-colonnade-y",
+     10,
+     4
+    ],
+    [
+     "sunken-colonnade-y",
+     10,
+     6
+    ],
+    [
+     "sunken-temple",
+     4,
+     3
+    ],
+    [
+     "sunken-shrine",
+     2,
+     9
+    ],
+    [
+     "sunken-shrine",
+     8,
+     9
+    ],
+    [
+     "achelous-spring",
+     5,
+     9
+    ],
+    [
+     "sunken-jetty",
+     12,
+     6
+    ],
+    [
+     "sunken-causeway",
+     12,
+     1
+    ],
+    [
+     "sunken-causeway",
+     13,
+     2
+    ],
+    [
+     "sunken-causeway",
+     14,
+     3
+    ]
+   ]
+  },
+  {
+   "id": "navel",
+   "name": "Temple City of the Navel",
+   "region": "omphalos",
+   "guardian": "the Titan and the Minotaur",
+   "rareGood": null,
+   "size": [
+    30,
+    22
+   ],
+   "kit": "navel-labyrinth",
+   "pieces": [
+    [
+     "navel-arena",
+     0,
+     0
+    ],
+    [
+     "navel-temple",
+     13,
+     0
+    ],
+    [
+     "navel-omphalos",
+     16,
+     9
+    ],
+    [
+     "navel-ramp-gate-x",
+     13,
+     15
+    ],
+    [
+     "navel-ramp-gate-y",
+     24,
+     2
+    ],
+    [
+     "@stoa",
+     11,
+     11
+    ]
+   ],
+   "labyrinth": [
+    [
+     22,
+     10
+    ],
+    [
+     23,
+     10
+    ],
+    [
+     24,
+     10
+    ],
+    [
+     25,
+     10
+    ],
+    [
+     26,
+     10
+    ],
+    [
+     22,
+     11
+    ],
+    [
+     22,
+     12
+    ],
+    [
+     22,
+     13
+    ],
+    [
+     24,
+     12
+    ],
+    [
+     25,
+     12
+    ],
+    [
+     26,
+     12
+    ],
+    [
+     26,
+     13
+    ],
+    [
+     26,
+     14
+    ],
+    [
+     22,
+     14
+    ],
+    [
+     23,
+     14
+    ],
+    [
+     24,
+     14
+    ]
+   ]
+  },
+  {
+   "id": "cyclops",
+   "name": "Cyclopean Gatehouse",
+   "region": "saddle",
+   "guardian": "Brontes",
+   "rareGood": "star iron",
+   "size": [
+    26,
+    8
+   ],
+   "pieces": [
+    [
+     "cyclops-tower",
+     0,
+     1
+    ],
+    [
+     "cyclops-wall-x",
+     3,
+     2
+    ],
+    [
+     "cyclops-wall-x",
+     7,
+     2
+    ],
+    [
+     "cyclops-gatehouse-x",
+     11,
+     1
+    ],
+    [
+     "cyclops-wall-x",
+     17,
+     2
+    ],
+    [
+     "cyclops-tower",
+     21,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "oracle",
+   "name": "Oracle Grove",
+   "region": "erymanthos",
+   "guardian": "the Maenads and their Queen",
+   "rareGood": "asphodel",
+   "size": [
+    14,
+    10
+   ],
+   "pieces": [
+    [
+     "oracle-shrine",
+     5,
+     2
+    ],
+    [
+     "oracle-house",
+     9,
+     1
+    ],
+    [
+     "spring-memory",
+     1,
+     5
+    ],
+    [
+     "spring-lethe",
+     10,
+     6
+    ],
+    [
+     "@oak",
+     0,
+     0
+    ],
+    [
+     "@oak",
+     12,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "forge",
+   "name": "Titan's Forge",
+   "region": "gorge",
+   "guardian": "Gyges the Hundred-Handed",
+   "rareGood": "titan bronze",
+   "size": [
+    14,
+    8
+   ],
+   "pieces": [
+    [
+     "titan-tower",
+     0,
+     0
+    ],
+    [
+     "titan-anvil",
+     4,
+     2
+    ],
+    [
+     "titan-bellows",
+     2,
+     4
+    ],
+    [
+     "titan-slag",
+     8,
+     4
+    ],
+    [
+     "titan-tower",
+     11,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "obsidian",
+   "name": "Obsidian Hold",
+   "region": "canyons",
+   "guardian": "the Chimera",
+   "rareGood": "obsidian",
+   "size": [
+    20,
+    12
+   ],
+   "pieces": [
+    [
+     "obsidian-tower",
+     0,
+     0
+    ],
+    [
+     "obsidian-wall-x",
+     3,
+     0
+    ],
+    [
+     "obsidian-wall-x",
+     7,
+     0
+    ],
+    [
+     "obsidian-tower",
+     11,
+     0
+    ],
+    [
+     "obsidian-wall-y",
+     0,
+     3
+    ],
+    [
+     "obsidian-kiln",
+     4,
+     4
+    ],
+    [
+     "obsidian-field",
+     9,
+     5
+    ],
+    [
+     "obsidian-field",
+     12,
+     6
+    ]
+   ]
+  },
+  {
+   "id": "rim",
+   "name": "Rim Watchtower",
+   "region": "siren",
+   "guardian": "Scylla",
+   "rareGood": "nereid pearl",
+   "size": [
+    12,
+    10
+   ],
+   "pieces": [
+    [
+     "rim-beacon",
+     6,
+     0
+    ],
+    [
+     "rim-keeper-house",
+     1,
+     1
+    ],
+    [
+     "rim-stair-y-",
+     7,
+     4
+    ],
+    [
+     "@stoa",
+     1,
+     5
+    ],
+    [
+     "@jetty",
+     10,
+     5
+    ]
+   ]
+  }
+ ],
+ "objects": [
+  {
+   "id": "citadel-keep-intact",
+   "kind": "keep",
+   "file": "citadel-keep-intact.png",
+   "w": 378,
+   "h": 701,
+   "metres": 15.42,
+   "basePx": 192,
+   "anchor": {
+    "x": 192,
+    "y": 700
+   },
+   "tileOrigin": {
+    "x": 189,
+    "y": 511
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "citadel-keep",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-keep-damaged",
+   "kind": "keep",
+   "file": "citadel-keep-damaged.png",
+   "w": 378,
+   "h": 509,
+   "metres": 9.61,
+   "basePx": 192,
+   "anchor": {
+    "x": 201,
+    "y": 508
+   },
+   "tileOrigin": {
+    "x": 189,
+    "y": 312
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "citadel-keep",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-keep-ruined",
+   "kind": "keep",
+   "file": "citadel-keep-ruined.png",
+   "w": 378,
+   "h": 250,
+   "metres": 1.76,
+   "basePx": 192,
+   "anchor": {
+    "x": 201,
+    "y": 249
+   },
+   "tileOrigin": {
+    "x": 189,
+    "y": 55
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": false,
+   "building": "citadel-keep",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-keep-restored",
+   "kind": "keep",
+   "file": "citadel-keep-restored.png",
+   "w": 378,
+   "h": 701,
+   "metres": 15.42,
+   "basePx": 192,
+   "anchor": {
+    "x": 189,
+    "y": 700
+   },
+   "tileOrigin": {
+    "x": 189,
+    "y": 511
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "citadel-keep",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-curtain-x-intact",
+   "kind": "wall",
+   "file": "citadel-curtain-x-intact.png",
+   "w": 192,
+   "h": 366,
+   "metres": 8.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 123,
+    "y": 365
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 270
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "citadel-curtain-x",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-curtain-x-damaged",
+   "kind": "wall",
+   "file": "citadel-curtain-x-damaged.png",
+   "w": 192,
+   "h": 264,
+   "metres": 5.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 110,
+    "y": 263
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 168
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "citadel-curtain-x",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-curtain-x-ruined",
+   "kind": "wall",
+   "file": "citadel-curtain-x-ruined.png",
+   "w": 192,
+   "h": 145,
+   "metres": 1.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 110,
+    "y": 144
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 49
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "citadel-curtain-x",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-curtain-x-restored",
+   "kind": "wall",
+   "file": "citadel-curtain-x-restored.png",
+   "w": 192,
+   "h": 395,
+   "metres": 9.06,
+   "basePx": 96,
+   "anchor": {
+    "x": 128,
+    "y": 394
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 299
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "citadel-curtain-x",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-curtain-y-intact",
+   "kind": "wall",
+   "file": "citadel-curtain-y-intact.png",
+   "w": 192,
+   "h": 366,
+   "metres": 8.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 64,
+    "y": 365
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 270
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "citadel-curtain-y",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-curtain-y-damaged",
+   "kind": "wall",
+   "file": "citadel-curtain-y-damaged.png",
+   "w": 192,
+   "h": 264,
+   "metres": 5.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 66,
+    "y": 263
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 168
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "citadel-curtain-y",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-curtain-y-ruined",
+   "kind": "wall",
+   "file": "citadel-curtain-y-ruined.png",
+   "w": 192,
+   "h": 145,
+   "metres": 1.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 64,
+    "y": 144
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 49
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "citadel-curtain-y",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-curtain-y-restored",
+   "kind": "wall",
+   "file": "citadel-curtain-y-restored.png",
+   "w": 192,
+   "h": 395,
+   "metres": 9.06,
+   "basePx": 96,
+   "anchor": {
+    "x": 64,
+    "y": 394
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 299
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "citadel-curtain-y",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-tower-intact",
+   "kind": "tower",
+   "file": "citadel-tower-intact.png",
+   "w": 202,
+   "h": 454,
+   "metres": 10.85,
+   "basePx": 96,
+   "anchor": {
+    "x": 101,
+    "y": 453
+   },
+   "tileOrigin": {
+    "x": 101,
+    "y": 360
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-tower",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-tower-damaged",
+   "kind": "tower",
+   "file": "citadel-tower-damaged.png",
+   "w": 191,
+   "h": 356,
+   "metres": 7.88,
+   "basePx": 96,
+   "anchor": {
+    "x": 79,
+    "y": 355
+   },
+   "tileOrigin": {
+    "x": 93,
+    "y": 262
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-tower",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-tower-ruined",
+   "kind": "tower",
+   "file": "citadel-tower-ruined.png",
+   "w": 186,
+   "h": 137,
+   "metres": 1.24,
+   "basePx": 96,
+   "anchor": {
+    "x": 106,
+    "y": 136
+   },
+   "tileOrigin": {
+    "x": 93,
+    "y": 40
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "citadel-tower",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-tower-restored",
+   "kind": "tower",
+   "file": "citadel-tower-restored.png",
+   "w": 202,
+   "h": 465,
+   "metres": 11.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 101,
+    "y": 464
+   },
+   "tileOrigin": {
+    "x": 101,
+    "y": 371
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-tower",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-gatehouse-x-intact",
+   "kind": "gate",
+   "file": "citadel-gatehouse-x-intact.png",
+   "w": 278,
+   "h": 495,
+   "metres": 10.64,
+   "basePx": 144,
+   "anchor": {
+    "x": 202,
+    "y": 494
+   },
+   "tileOrigin": {
+    "x": 78,
+    "y": 364
+   },
+   "footprint": [
+    6,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-gatehouse-x",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-gatehouse-x-damaged",
+   "kind": "gate",
+   "file": "citadel-gatehouse-x-damaged.png",
+   "w": 262,
+   "h": 368,
+   "metres": 6.79,
+   "basePx": 144,
+   "anchor": {
+    "x": 147,
+    "y": 367
+   },
+   "tileOrigin": {
+    "x": 70,
+    "y": 221
+   },
+   "footprint": [
+    6,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-gatehouse-x",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-gatehouse-x-ruined",
+   "kind": "gate",
+   "file": "citadel-gatehouse-x-ruined.png",
+   "w": 262,
+   "h": 197,
+   "metres": 1.61,
+   "basePx": 144,
+   "anchor": {
+    "x": 154,
+    "y": 196
+   },
+   "tileOrigin": {
+    "x": 70,
+    "y": 48
+   },
+   "footprint": [
+    6,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "citadel-gatehouse-x",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-gatehouse-x-restored",
+   "kind": "gate",
+   "file": "citadel-gatehouse-x-restored.png",
+   "w": 278,
+   "h": 522,
+   "metres": 11.45,
+   "basePx": 144,
+   "anchor": {
+    "x": 202,
+    "y": 521
+   },
+   "tileOrigin": {
+    "x": 78,
+    "y": 391
+   },
+   "footprint": [
+    6,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-gatehouse-x",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-gatehouse-y-intact",
+   "kind": "gate",
+   "file": "citadel-gatehouse-y-intact.png",
+   "w": 278,
+   "h": 495,
+   "metres": 10.64,
+   "basePx": 144,
+   "anchor": {
+    "x": 72,
+    "y": 494
+   },
+   "tileOrigin": {
+    "x": 200,
+    "y": 364
+   },
+   "footprint": [
+    3,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "citadel-gatehouse-y",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-gatehouse-y-damaged",
+   "kind": "gate",
+   "file": "citadel-gatehouse-y-damaged.png",
+   "w": 262,
+   "h": 371,
+   "metres": 6.88,
+   "basePx": 144,
+   "anchor": {
+    "x": 81,
+    "y": 370
+   },
+   "tileOrigin": {
+    "x": 192,
+    "y": 221
+   },
+   "footprint": [
+    3,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "citadel-gatehouse-y",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-gatehouse-y-ruined",
+   "kind": "gate",
+   "file": "citadel-gatehouse-y-ruined.png",
+   "w": 272,
+   "h": 199,
+   "metres": 1.67,
+   "basePx": 144,
+   "anchor": {
+    "x": 82,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 192,
+    "y": 48
+   },
+   "footprint": [
+    3,
+    6
+   ],
+   "blocksMovement": false,
+   "building": "citadel-gatehouse-y",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-gatehouse-y-restored",
+   "kind": "gate",
+   "file": "citadel-gatehouse-y-restored.png",
+   "w": 278,
+   "h": 522,
+   "metres": 11.45,
+   "basePx": 144,
+   "anchor": {
+    "x": 75,
+    "y": 521
+   },
+   "tileOrigin": {
+    "x": 200,
+    "y": 391
+   },
+   "footprint": [
+    3,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "citadel-gatehouse-y",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-bone-pit-intact",
+   "kind": "node",
+   "file": "citadel-bone-pit-intact.png",
+   "w": 128,
+   "h": 109,
+   "metres": 0.39,
+   "basePx": 96,
+   "anchor": {
+    "x": 86,
+    "y": 108
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-bone-pit",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-bone-pit-damaged",
+   "kind": "node",
+   "file": "citadel-bone-pit-damaged.png",
+   "w": 159,
+   "h": 120,
+   "metres": 0.73,
+   "basePx": 96,
+   "anchor": {
+    "x": 80,
+    "y": 119
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-bone-pit",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-bone-pit-ruined",
+   "kind": "node",
+   "file": "citadel-bone-pit-ruined.png",
+   "w": 179,
+   "h": 102,
+   "metres": 0.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 102,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 84,
+    "y": -1
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "citadel-bone-pit",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "citadel-bone-pit-restored",
+   "kind": "node",
+   "file": "citadel-bone-pit-restored.png",
+   "w": 128,
+   "h": 99,
+   "metres": 0.12,
+   "basePx": 95,
+   "anchor": {
+    "x": 64,
+    "y": 98
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "citadel-bone-pit",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-house-a-intact",
+   "kind": "house",
+   "file": "ammon-house-a-intact.png",
+   "w": 163,
+   "h": 259,
+   "metres": 4.94,
+   "basePx": 96,
+   "anchor": {
+    "x": 67,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 170
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-house-a",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-house-a-damaged",
+   "kind": "house",
+   "file": "ammon-house-a-damaged.png",
+   "w": 181,
+   "h": 164,
+   "metres": 2.06,
+   "basePx": 96,
+   "anchor": {
+    "x": 64,
+    "y": 163
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 68
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-house-a",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-house-a-ruined",
+   "kind": "house",
+   "file": "ammon-house-a-ruined.png",
+   "w": 163,
+   "h": 122,
+   "metres": 0.79,
+   "basePx": 96,
+   "anchor": {
+    "x": 66,
+    "y": 121
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 24
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "ammon-house-a",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-house-a-restored",
+   "kind": "house",
+   "file": "ammon-house-a-restored.png",
+   "w": 163,
+   "h": 258,
+   "metres": 4.91,
+   "basePx": 96,
+   "anchor": {
+    "x": 83,
+    "y": 257
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 170
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-house-a",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-house-b-intact",
+   "kind": "house",
+   "file": "ammon-house-b-intact.png",
+   "w": 174,
+   "h": 279,
+   "metres": 5.55,
+   "basePx": 96,
+   "anchor": {
+    "x": 68,
+    "y": 278
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 191
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-house-b",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-house-b-damaged",
+   "kind": "house",
+   "file": "ammon-house-b-damaged.png",
+   "w": 180,
+   "h": 212,
+   "metres": 3.52,
+   "basePx": 96,
+   "anchor": {
+    "x": 108,
+    "y": 211
+   },
+   "tileOrigin": {
+    "x": 92,
+    "y": 114
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-house-b",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-house-b-ruined",
+   "kind": "house",
+   "file": "ammon-house-b-ruined.png",
+   "w": 180,
+   "h": 143,
+   "metres": 1.42,
+   "basePx": 96,
+   "anchor": {
+    "x": 116,
+    "y": 142
+   },
+   "tileOrigin": {
+    "x": 92,
+    "y": 44
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "ammon-house-b",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-house-b-restored",
+   "kind": "house",
+   "file": "ammon-house-b-restored.png",
+   "w": 174,
+   "h": 289,
+   "metres": 5.85,
+   "basePx": 96,
+   "anchor": {
+    "x": 87,
+    "y": 288
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 204
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-house-b",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-palace-intact",
+   "kind": "keep",
+   "file": "ammon-palace-intact.png",
+   "w": 376,
+   "h": 619,
+   "metres": 12.94,
+   "basePx": 192,
+   "anchor": {
+    "x": 193,
+    "y": 618
+   },
+   "tileOrigin": {
+    "x": 190,
+    "y": 430
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "ammon-palace",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-palace-damaged",
+   "kind": "keep",
+   "file": "ammon-palace-damaged.png",
+   "w": 385,
+   "h": 370,
+   "metres": 5.39,
+   "basePx": 192,
+   "anchor": {
+    "x": 219,
+    "y": 369
+   },
+   "tileOrigin": {
+    "x": 199,
+    "y": 176
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "ammon-palace",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-palace-ruined",
+   "kind": "keep",
+   "file": "ammon-palace-ruined.png",
+   "w": 390,
+   "h": 246,
+   "metres": 1.64,
+   "basePx": 192,
+   "anchor": {
+    "x": 194,
+    "y": 245
+   },
+   "tileOrigin": {
+    "x": 199,
+    "y": 49
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": false,
+   "building": "ammon-palace",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-palace-restored",
+   "kind": "keep",
+   "file": "ammon-palace-restored.png",
+   "w": 372,
+   "h": 668,
+   "metres": 14.42,
+   "basePx": 192,
+   "anchor": {
+    "x": 186,
+    "y": 667
+   },
+   "tileOrigin": {
+    "x": 186,
+    "y": 479
+   },
+   "footprint": [
+    6,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "ammon-palace",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-temple-intact",
+   "kind": "temple",
+   "file": "ammon-temple-intact.png",
+   "w": 301,
+   "h": 362,
+   "metres": 6.12,
+   "basePx": 160,
+   "anchor": {
+    "x": 121,
+    "y": 361
+   },
+   "tileOrigin": {
+    "x": 186,
+    "y": 205
+   },
+   "footprint": [
+    4,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "ammon-temple",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-temple-damaged",
+   "kind": "temple",
+   "file": "ammon-temple-damaged.png",
+   "w": 313,
+   "h": 352,
+   "metres": 5.82,
+   "basePx": 160,
+   "anchor": {
+    "x": 110,
+    "y": 351
+   },
+   "tileOrigin": {
+    "x": 186,
+    "y": 192
+   },
+   "footprint": [
+    4,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "ammon-temple",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-temple-ruined",
+   "kind": "temple",
+   "file": "ammon-temple-ruined.png",
+   "w": 314,
+   "h": 210,
+   "metres": 1.52,
+   "basePx": 160,
+   "anchor": {
+    "x": 153,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 205,
+    "y": 45
+   },
+   "footprint": [
+    4,
+    6
+   ],
+   "blocksMovement": false,
+   "building": "ammon-temple",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "ammon-temple-restored",
+   "kind": "temple",
+   "file": "ammon-temple-restored.png",
+   "w": 301,
+   "h": 370,
+   "metres": 6.36,
+   "basePx": 160,
+   "anchor": {
+    "x": 121,
+    "y": 369
+   },
+   "tileOrigin": {
+    "x": 186,
+    "y": 213
+   },
+   "footprint": [
+    4,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "ammon-temple",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-temple-intact",
+   "kind": "temple",
+   "file": "sunken-temple-intact.png",
+   "w": 227,
+   "h": 323,
+   "metres": 5.91,
+   "basePx": 128,
+   "anchor": {
+    "x": 136,
+    "y": 322
+   },
+   "tileOrigin": {
+    "x": 119,
+    "y": 199
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "sunken-temple",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-temple-damaged",
+   "kind": "temple",
+   "file": "sunken-temple-damaged.png",
+   "w": 254,
+   "h": 220,
+   "metres": 2.79,
+   "basePx": 128,
+   "anchor": {
+    "x": 155,
+    "y": 219
+   },
+   "tileOrigin": {
+    "x": 132,
+    "y": 91
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "sunken-temple",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-temple-ruined",
+   "kind": "temple",
+   "file": "sunken-temple-ruined.png",
+   "w": 254,
+   "h": 154,
+   "metres": 0.79,
+   "basePx": 128,
+   "anchor": {
+    "x": 148,
+    "y": 153
+   },
+   "tileOrigin": {
+    "x": 132,
+    "y": 21
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "sunken-temple",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-temple-restored",
+   "kind": "temple",
+   "file": "sunken-temple-restored.png",
+   "w": 216,
+   "h": 308,
+   "metres": 5.45,
+   "basePx": 128,
+   "anchor": {
+    "x": 108,
+    "y": 307
+   },
+   "tileOrigin": {
+    "x": 108,
+    "y": 199
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "sunken-temple",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-colonnade-x-intact",
+   "kind": "wall",
+   "file": "sunken-colonnade-x-intact.png",
+   "w": 86,
+   "h": 219,
+   "metres": 5.18,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 218
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 174
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "sunken-colonnade-x",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-colonnade-x-damaged",
+   "kind": "wall",
+   "file": "sunken-colonnade-x-damaged.png",
+   "w": 86,
+   "h": 147,
+   "metres": 3,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 146
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 102
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "sunken-colonnade-x",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-colonnade-x-ruined",
+   "kind": "wall",
+   "file": "sunken-colonnade-x-ruined.png",
+   "w": 86,
+   "h": 75,
+   "metres": 0.82,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 74
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 30
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "sunken-colonnade-x",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-colonnade-x-restored",
+   "kind": "wall",
+   "file": "sunken-colonnade-x-restored.png",
+   "w": 86,
+   "h": 219,
+   "metres": 5.18,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 218
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 174
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "sunken-colonnade-x",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-colonnade-y-intact",
+   "kind": "wall",
+   "file": "sunken-colonnade-y-intact.png",
+   "w": 86,
+   "h": 219,
+   "metres": 5.18,
+   "basePx": 48,
+   "anchor": {
+    "x": 22,
+    "y": 218
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 174
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "sunken-colonnade-y",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-colonnade-y-damaged",
+   "kind": "wall",
+   "file": "sunken-colonnade-y-damaged.png",
+   "w": 91,
+   "h": 147,
+   "metres": 3,
+   "basePx": 48,
+   "anchor": {
+    "x": 22,
+    "y": 146
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 102
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "sunken-colonnade-y",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-colonnade-y-ruined",
+   "kind": "wall",
+   "file": "sunken-colonnade-y-ruined.png",
+   "w": 91,
+   "h": 75,
+   "metres": 0.82,
+   "basePx": 48,
+   "anchor": {
+    "x": 22,
+    "y": 74
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 30
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "sunken-colonnade-y",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-colonnade-y-restored",
+   "kind": "wall",
+   "file": "sunken-colonnade-y-restored.png",
+   "w": 86,
+   "h": 219,
+   "metres": 5.18,
+   "basePx": 48,
+   "anchor": {
+    "x": 22,
+    "y": 218
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 174
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "sunken-colonnade-y",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-shrine-intact",
+   "kind": "shrine",
+   "file": "sunken-shrine-intact.png",
+   "w": 108,
+   "h": 185,
+   "metres": 3.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 54,
+    "y": 184
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 126
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "sunken-shrine",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-shrine-damaged",
+   "kind": "shrine",
+   "file": "sunken-shrine-damaged.png",
+   "w": 136,
+   "h": 125,
+   "metres": 1.85,
+   "basePx": 64,
+   "anchor": {
+    "x": 51,
+    "y": 124
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 62
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "sunken-shrine",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-shrine-ruined",
+   "kind": "shrine",
+   "file": "sunken-shrine-ruined.png",
+   "w": 141,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 70,
+    "y": 8
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "sunken-shrine",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-shrine-restored",
+   "kind": "shrine",
+   "file": "sunken-shrine-restored.png",
+   "w": 108,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 54,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 151
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "sunken-shrine",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-jetty-intact",
+   "kind": "jetty",
+   "file": "sunken-jetty-intact.png",
+   "w": 160,
+   "h": 106,
+   "metres": 0.79,
+   "basePx": 80,
+   "anchor": {
+    "x": 24,
+    "y": 105
+   },
+   "tileOrigin": {
+    "x": 130,
+    "y": 26
+   },
+   "footprint": [
+    1,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "sunken-jetty",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-jetty-damaged",
+   "kind": "jetty",
+   "file": "sunken-jetty-damaged.png",
+   "w": 163,
+   "h": 94,
+   "metres": 0.42,
+   "basePx": 80,
+   "anchor": {
+    "x": 39,
+    "y": 93
+   },
+   "tileOrigin": {
+    "x": 142,
+    "y": 8
+   },
+   "footprint": [
+    1,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "sunken-jetty",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-jetty-ruined",
+   "kind": "jetty",
+   "file": "sunken-jetty-ruined.png",
+   "w": 161,
+   "h": 90,
+   "metres": 0.3,
+   "basePx": 80,
+   "anchor": {
+    "x": 35,
+    "y": 89
+   },
+   "tileOrigin": {
+    "x": 142,
+    "y": 5
+   },
+   "footprint": [
+    1,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "sunken-jetty",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-jetty-restored",
+   "kind": "jetty",
+   "file": "sunken-jetty-restored.png",
+   "w": 156,
+   "h": 99,
+   "metres": 0.58,
+   "basePx": 80,
+   "anchor": {
+    "x": 33,
+    "y": 98
+   },
+   "tileOrigin": {
+    "x": 126,
+    "y": 26
+   },
+   "footprint": [
+    1,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "sunken-jetty",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-causeway-intact",
+   "kind": "ford",
+   "file": "sunken-causeway-intact.png",
+   "w": 56,
+   "h": 35,
+   "metres": 0.12,
+   "basePx": 31,
+   "anchor": {
+    "x": 26,
+    "y": 34
+   },
+   "tileOrigin": {
+    "x": 28,
+    "y": 5
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "sunken-causeway",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-causeway-damaged",
+   "kind": "ford",
+   "file": "sunken-causeway-damaged.png",
+   "w": 63,
+   "h": 42,
+   "metres": 0.3,
+   "basePx": 32,
+   "anchor": {
+    "x": 31,
+    "y": 41
+   },
+   "tileOrigin": {
+    "x": 35,
+    "y": 5
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "sunken-causeway",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-causeway-ruined",
+   "kind": "ford",
+   "file": "sunken-causeway-ruined.png",
+   "w": 63,
+   "h": 39,
+   "metres": 0.21,
+   "basePx": 32,
+   "anchor": {
+    "x": 26,
+    "y": 38
+   },
+   "tileOrigin": {
+    "x": 35,
+    "y": 9
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "sunken-causeway",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "sunken-causeway-restored",
+   "kind": "ford",
+   "file": "sunken-causeway-restored.png",
+   "w": 56,
+   "h": 35,
+   "metres": 0.12,
+   "basePx": 31,
+   "anchor": {
+    "x": 29,
+    "y": 34
+   },
+   "tileOrigin": {
+    "x": 28,
+    "y": 5
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "sunken-causeway",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "achelous-spring-intact",
+   "kind": "well",
+   "file": "achelous-spring-intact.png",
+   "w": 93,
+   "h": 107,
+   "metres": 1.3,
+   "basePx": 64,
+   "anchor": {
+    "x": 51,
+    "y": 106
+   },
+   "tileOrigin": {
+    "x": 51,
+    "y": 55
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "achelous-spring",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "achelous-spring-damaged",
+   "kind": "well",
+   "file": "achelous-spring-damaged.png",
+   "w": 132,
+   "h": 87,
+   "metres": 0.7,
+   "basePx": 64,
+   "anchor": {
+    "x": 56,
+    "y": 86
+   },
+   "tileOrigin": {
+    "x": 73,
+    "y": 21
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "achelous-spring",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "achelous-spring-ruined",
+   "kind": "well",
+   "file": "achelous-spring-ruined.png",
+   "w": 130,
+   "h": 72,
+   "metres": 0.24,
+   "basePx": 64,
+   "anchor": {
+    "x": 47,
+    "y": 71
+   },
+   "tileOrigin": {
+    "x": 71,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "achelous-spring",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "achelous-spring-restored",
+   "kind": "well",
+   "file": "achelous-spring-restored.png",
+   "w": 82,
+   "h": 107,
+   "metres": 1.3,
+   "basePx": 64,
+   "anchor": {
+    "x": 40,
+    "y": 106
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": 55
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "achelous-spring",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-temple-intact",
+   "kind": "temple",
+   "file": "navel-temple-intact.png",
+   "w": 500,
+   "h": 625,
+   "metres": 11.18,
+   "basePx": 256,
+   "anchor": {
+    "x": 250,
+    "y": 624
+   },
+   "tileOrigin": {
+    "x": 250,
+    "y": 372
+   },
+   "footprint": [
+    8,
+    8
+   ],
+   "blocksMovement": true,
+   "building": "navel-temple",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-temple-damaged",
+   "kind": "temple",
+   "file": "navel-temple-damaged.png",
+   "w": 514,
+   "h": 424,
+   "metres": 5.09,
+   "basePx": 256,
+   "anchor": {
+    "x": 255,
+    "y": 423
+   },
+   "tileOrigin": {
+    "x": 250,
+    "y": 167
+   },
+   "footprint": [
+    8,
+    8
+   ],
+   "blocksMovement": true,
+   "building": "navel-temple",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-temple-ruined",
+   "kind": "temple",
+   "file": "navel-temple-ruined.png",
+   "w": 514,
+   "h": 292,
+   "metres": 1.09,
+   "basePx": 256,
+   "anchor": {
+    "x": 251,
+    "y": 291
+   },
+   "tileOrigin": {
+    "x": 250,
+    "y": 35
+   },
+   "footprint": [
+    8,
+    8
+   ],
+   "blocksMovement": false,
+   "building": "navel-temple",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-temple-restored",
+   "kind": "temple",
+   "file": "navel-temple-restored.png",
+   "w": 500,
+   "h": 625,
+   "metres": 11.18,
+   "basePx": 256,
+   "anchor": {
+    "x": 250,
+    "y": 624
+   },
+   "tileOrigin": {
+    "x": 250,
+    "y": 372
+   },
+   "footprint": [
+    8,
+    8
+   ],
+   "blocksMovement": true,
+   "building": "navel-temple",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-arena-intact",
+   "kind": "arena",
+   "file": "navel-arena-intact.png",
+   "w": 532,
+   "h": 443,
+   "metres": 3.73,
+   "basePx": 320,
+   "anchor": {
+    "x": 231,
+    "y": 442
+   },
+   "tileOrigin": {
+    "x": 254,
+    "y": 135
+   },
+   "footprint": [
+    10,
+    10
+   ],
+   "blocksMovement": true,
+   "building": "navel-arena",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-arena-damaged",
+   "kind": "arena",
+   "file": "navel-arena-damaged.png",
+   "w": 581,
+   "h": 382,
+   "metres": 1.88,
+   "basePx": 320,
+   "anchor": {
+    "x": 253,
+    "y": 381
+   },
+   "tileOrigin": {
+    "x": 261,
+    "y": 69
+   },
+   "footprint": [
+    10,
+    10
+   ],
+   "blocksMovement": true,
+   "building": "navel-arena",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-arena-ruined",
+   "kind": "arena",
+   "file": "navel-arena-ruined.png",
+   "w": 597,
+   "h": 321,
+   "metres": 0.12,
+   "basePx": 317,
+   "anchor": {
+    "x": 292,
+    "y": 320
+   },
+   "tileOrigin": {
+    "x": 301,
+    "y": 1
+   },
+   "footprint": [
+    10,
+    10
+   ],
+   "blocksMovement": false,
+   "building": "navel-arena",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-arena-restored",
+   "kind": "arena",
+   "file": "navel-arena-restored.png",
+   "w": 440,
+   "h": 405,
+   "metres": 2.58,
+   "basePx": 320,
+   "anchor": {
+    "x": 220,
+    "y": 404
+   },
+   "tileOrigin": {
+    "x": 220,
+    "y": 135
+   },
+   "footprint": [
+    10,
+    10
+   ],
+   "blocksMovement": true,
+   "building": "navel-arena",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-omphalos-intact",
+   "kind": "statue",
+   "file": "navel-omphalos-intact.png",
+   "w": 54,
+   "h": 93,
+   "metres": 1.85,
+   "basePx": 32,
+   "anchor": {
+    "x": 27,
+    "y": 92
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 64
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "navel-omphalos",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-omphalos-damaged",
+   "kind": "statue",
+   "file": "navel-omphalos-damaged.png",
+   "w": 57,
+   "h": 75,
+   "metres": 1.3,
+   "basePx": 32,
+   "anchor": {
+    "x": 31,
+    "y": 74
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 39
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "navel-omphalos",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-omphalos-ruined",
+   "kind": "statue",
+   "file": "navel-omphalos-ruined.png",
+   "w": 57,
+   "h": 50,
+   "metres": 0.55,
+   "basePx": 32,
+   "anchor": {
+    "x": 38,
+    "y": 49
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 14
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "navel-omphalos",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-omphalos-restored",
+   "kind": "statue",
+   "file": "navel-omphalos-restored.png",
+   "w": 54,
+   "h": 93,
+   "metres": 1.85,
+   "basePx": 32,
+   "anchor": {
+    "x": 27,
+    "y": 92
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 64
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "navel-omphalos",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-ramp-gate-x-intact",
+   "kind": "gate",
+   "file": "navel-ramp-gate-x-intact.png",
+   "w": 230,
+   "h": 387,
+   "metres": 8.33,
+   "basePx": 112,
+   "anchor": {
+    "x": 170,
+    "y": 386
+   },
+   "tileOrigin": {
+    "x": 62,
+    "y": 280
+   },
+   "footprint": [
+    5,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "navel-ramp-gate-x",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-ramp-gate-x-damaged",
+   "kind": "gate",
+   "file": "navel-ramp-gate-x-damaged.png",
+   "w": 225,
+   "h": 302,
+   "metres": 5.76,
+   "basePx": 112,
+   "anchor": {
+    "x": 137,
+    "y": 301
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 186
+   },
+   "footprint": [
+    5,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "navel-ramp-gate-x",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-ramp-gate-x-ruined",
+   "kind": "gate",
+   "file": "navel-ramp-gate-x-ruined.png",
+   "w": 225,
+   "h": 165,
+   "metres": 1.61,
+   "basePx": 112,
+   "anchor": {
+    "x": 164,
+    "y": 164
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 53
+   },
+   "footprint": [
+    5,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "navel-ramp-gate-x",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-ramp-gate-x-restored",
+   "kind": "gate",
+   "file": "navel-ramp-gate-x-restored.png",
+   "w": 230,
+   "h": 428,
+   "metres": 9.58,
+   "basePx": 112,
+   "anchor": {
+    "x": 170,
+    "y": 427
+   },
+   "tileOrigin": {
+    "x": 62,
+    "y": 321
+   },
+   "footprint": [
+    5,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "navel-ramp-gate-x",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-ramp-gate-y-intact",
+   "kind": "gate",
+   "file": "navel-ramp-gate-y-intact.png",
+   "w": 230,
+   "h": 387,
+   "metres": 8.33,
+   "basePx": 112,
+   "anchor": {
+    "x": 58,
+    "y": 386
+   },
+   "tileOrigin": {
+    "x": 168,
+    "y": 280
+   },
+   "footprint": [
+    2,
+    5
+   ],
+   "blocksMovement": true,
+   "building": "navel-ramp-gate-y",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-ramp-gate-y-damaged",
+   "kind": "gate",
+   "file": "navel-ramp-gate-y-damaged.png",
+   "w": 222,
+   "h": 304,
+   "metres": 5.82,
+   "basePx": 112,
+   "anchor": {
+    "x": 52,
+    "y": 303
+   },
+   "tileOrigin": {
+    "x": 160,
+    "y": 186
+   },
+   "footprint": [
+    2,
+    5
+   ],
+   "blocksMovement": true,
+   "building": "navel-ramp-gate-y",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-ramp-gate-y-ruined",
+   "kind": "gate",
+   "file": "navel-ramp-gate-y-ruined.png",
+   "w": 227,
+   "h": 163,
+   "metres": 1.55,
+   "basePx": 112,
+   "anchor": {
+    "x": 69,
+    "y": 162
+   },
+   "tileOrigin": {
+    "x": 160,
+    "y": 53
+   },
+   "footprint": [
+    2,
+    5
+   ],
+   "blocksMovement": false,
+   "building": "navel-ramp-gate-y",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "navel-ramp-gate-y-restored",
+   "kind": "gate",
+   "file": "navel-ramp-gate-y-restored.png",
+   "w": 230,
+   "h": 428,
+   "metres": 9.58,
+   "basePx": 112,
+   "anchor": {
+    "x": 59,
+    "y": 427
+   },
+   "tileOrigin": {
+    "x": 168,
+    "y": 321
+   },
+   "footprint": [
+    2,
+    5
+   ],
+   "blocksMovement": true,
+   "building": "navel-ramp-gate-y",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-gatehouse-x-intact",
+   "kind": "gate",
+   "file": "cyclops-gatehouse-x-intact.png",
+   "w": 288,
+   "h": 447,
+   "metres": 9.18,
+   "basePx": 144,
+   "anchor": {
+    "x": 192,
+    "y": 446
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 303
+   },
+   "footprint": [
+    6,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-gatehouse-x",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-gatehouse-x-damaged",
+   "kind": "gate",
+   "file": "cyclops-gatehouse-x-damaged.png",
+   "w": 288,
+   "h": 325,
+   "metres": 5.48,
+   "basePx": 144,
+   "anchor": {
+    "x": 195,
+    "y": 324
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 181
+   },
+   "footprint": [
+    6,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-gatehouse-x",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-gatehouse-x-ruined",
+   "kind": "gate",
+   "file": "cyclops-gatehouse-x-ruined.png",
+   "w": 293,
+   "h": 196,
+   "metres": 1.58,
+   "basePx": 144,
+   "anchor": {
+    "x": 192,
+    "y": 195
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 52
+   },
+   "footprint": [
+    6,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "cyclops-gatehouse-x",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-gatehouse-x-restored",
+   "kind": "gate",
+   "file": "cyclops-gatehouse-x-restored.png",
+   "w": 288,
+   "h": 475,
+   "metres": 10.03,
+   "basePx": 144,
+   "anchor": {
+    "x": 192,
+    "y": 474
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 331
+   },
+   "footprint": [
+    6,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-gatehouse-x",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-gatehouse-y-intact",
+   "kind": "gate",
+   "file": "cyclops-gatehouse-y-intact.png",
+   "w": 288,
+   "h": 447,
+   "metres": 9.18,
+   "basePx": 144,
+   "anchor": {
+    "x": 96,
+    "y": 446
+   },
+   "tileOrigin": {
+    "x": 192,
+    "y": 303
+   },
+   "footprint": [
+    3,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-gatehouse-y",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-gatehouse-y-damaged",
+   "kind": "gate",
+   "file": "cyclops-gatehouse-y-damaged.png",
+   "w": 288,
+   "h": 325,
+   "metres": 5.48,
+   "basePx": 144,
+   "anchor": {
+    "x": 90,
+    "y": 324
+   },
+   "tileOrigin": {
+    "x": 192,
+    "y": 181
+   },
+   "footprint": [
+    3,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-gatehouse-y",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-gatehouse-y-ruined",
+   "kind": "gate",
+   "file": "cyclops-gatehouse-y-ruined.png",
+   "w": 292,
+   "h": 196,
+   "metres": 1.58,
+   "basePx": 144,
+   "anchor": {
+    "x": 97,
+    "y": 195
+   },
+   "tileOrigin": {
+    "x": 193,
+    "y": 52
+   },
+   "footprint": [
+    3,
+    6
+   ],
+   "blocksMovement": false,
+   "building": "cyclops-gatehouse-y",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-gatehouse-y-restored",
+   "kind": "gate",
+   "file": "cyclops-gatehouse-y-restored.png",
+   "w": 288,
+   "h": 475,
+   "metres": 10.03,
+   "basePx": 144,
+   "anchor": {
+    "x": 96,
+    "y": 474
+   },
+   "tileOrigin": {
+    "x": 192,
+    "y": 331
+   },
+   "footprint": [
+    3,
+    6
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-gatehouse-y",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-wall-x-intact",
+   "kind": "wall",
+   "file": "cyclops-wall-x-intact.png",
+   "w": 192,
+   "h": 333,
+   "metres": 7.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 125,
+    "y": 332
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 237
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-wall-x",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-wall-x-damaged",
+   "kind": "wall",
+   "file": "cyclops-wall-x-damaged.png",
+   "w": 192,
+   "h": 259,
+   "metres": 4.94,
+   "basePx": 96,
+   "anchor": {
+    "x": 118,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 163
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-wall-x",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-wall-x-ruined",
+   "kind": "wall",
+   "file": "cyclops-wall-x-ruined.png",
+   "w": 192,
+   "h": 150,
+   "metres": 1.64,
+   "basePx": 96,
+   "anchor": {
+    "x": 121,
+    "y": 149
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 54
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "cyclops-wall-x",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-wall-x-restored",
+   "kind": "wall",
+   "file": "cyclops-wall-x-restored.png",
+   "w": 192,
+   "h": 333,
+   "metres": 7.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 128,
+    "y": 332
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 237
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-wall-x",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-wall-y-intact",
+   "kind": "wall",
+   "file": "cyclops-wall-y-intact.png",
+   "w": 192,
+   "h": 333,
+   "metres": 7.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 64,
+    "y": 332
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 237
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-wall-y",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-wall-y-damaged",
+   "kind": "wall",
+   "file": "cyclops-wall-y-damaged.png",
+   "w": 200,
+   "h": 264,
+   "metres": 5.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 79,
+    "y": 263
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 163
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-wall-y",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-wall-y-ruined",
+   "kind": "wall",
+   "file": "cyclops-wall-y-ruined.png",
+   "w": 200,
+   "h": 155,
+   "metres": 1.79,
+   "basePx": 96,
+   "anchor": {
+    "x": 79,
+    "y": 154
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 54
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "cyclops-wall-y",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-wall-y-restored",
+   "kind": "wall",
+   "file": "cyclops-wall-y-restored.png",
+   "w": 192,
+   "h": 333,
+   "metres": 7.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 64,
+    "y": 332
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 237
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-wall-y",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-tower-intact",
+   "kind": "tower",
+   "file": "cyclops-tower-intact.png",
+   "w": 132,
+   "h": 376,
+   "metres": 8.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 53,
+    "y": 375
+   },
+   "tileOrigin": {
+    "x": 66,
+    "y": 288
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-tower",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-tower-damaged",
+   "kind": "tower",
+   "file": "cyclops-tower-damaged.png",
+   "w": 208,
+   "h": 277,
+   "metres": 5.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 126,
+    "y": 276
+   },
+   "tileOrigin": {
+    "x": 105,
+    "y": 178
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-tower",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-tower-ruined",
+   "kind": "tower",
+   "file": "cyclops-tower-ruined.png",
+   "w": 171,
+   "h": 146,
+   "metres": 1.52,
+   "basePx": 96,
+   "anchor": {
+    "x": 94,
+    "y": 145
+   },
+   "tileOrigin": {
+    "x": 105,
+    "y": 44
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "cyclops-tower",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "cyclops-tower-restored",
+   "kind": "tower",
+   "file": "cyclops-tower-restored.png",
+   "w": 132,
+   "h": 402,
+   "metres": 9.27,
+   "basePx": 96,
+   "anchor": {
+    "x": 66,
+    "y": 401
+   },
+   "tileOrigin": {
+    "x": 66,
+    "y": 321
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "cyclops-tower",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "oracle-shrine-intact",
+   "kind": "shrine",
+   "file": "oracle-shrine-intact.png",
+   "w": 130,
+   "h": 205,
+   "metres": 3.3,
+   "basePx": 96,
+   "anchor": {
+    "x": 38,
+    "y": 204
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 123
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "oracle-shrine",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "oracle-shrine-damaged",
+   "kind": "shrine",
+   "file": "oracle-shrine-damaged.png",
+   "w": 150,
+   "h": 132,
+   "metres": 1.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 75,
+    "y": 131
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 33
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "oracle-shrine",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "oracle-shrine-ruined",
+   "kind": "shrine",
+   "file": "oracle-shrine-ruined.png",
+   "w": 148,
+   "h": 109,
+   "metres": 0.39,
+   "basePx": 96,
+   "anchor": {
+    "x": 39,
+    "y": 108
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 12
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "oracle-shrine",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "oracle-shrine-restored",
+   "kind": "shrine",
+   "file": "oracle-shrine-restored.png",
+   "w": 126,
+   "h": 201,
+   "metres": 3.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 74,
+    "y": 200
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 123
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "oracle-shrine",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "oracle-house-intact",
+   "kind": "house",
+   "file": "oracle-house-intact.png",
+   "w": 156,
+   "h": 175,
+   "metres": 2.88,
+   "basePx": 80,
+   "anchor": {
+    "x": 110,
+    "y": 174
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 102
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "oracle-house",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "oracle-house-damaged",
+   "kind": "house",
+   "file": "oracle-house-damaged.png",
+   "w": 161,
+   "h": 134,
+   "metres": 1.64,
+   "basePx": 80,
+   "anchor": {
+    "x": 103,
+    "y": 133
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 49
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "oracle-house",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "oracle-house-ruined",
+   "kind": "house",
+   "file": "oracle-house-ruined.png",
+   "w": 164,
+   "h": 102,
+   "metres": 0.67,
+   "basePx": 80,
+   "anchor": {
+    "x": 103,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 17
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "oracle-house",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "oracle-house-restored",
+   "kind": "house",
+   "file": "oracle-house-restored.png",
+   "w": 156,
+   "h": 175,
+   "metres": 2.88,
+   "basePx": 80,
+   "anchor": {
+    "x": 82,
+    "y": 174
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 102
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "oracle-house",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "spring-memory-intact",
+   "kind": "well",
+   "file": "spring-memory-intact.png",
+   "w": 112,
+   "h": 121,
+   "metres": 1.73,
+   "basePx": 64,
+   "anchor": {
+    "x": 52,
+    "y": 120
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 60
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "spring-memory",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "spring-memory-damaged",
+   "kind": "well",
+   "file": "spring-memory-damaged.png",
+   "w": 128,
+   "h": 100,
+   "metres": 1.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 40,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 33
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "spring-memory",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "spring-memory-ruined",
+   "kind": "well",
+   "file": "spring-memory-ruined.png",
+   "w": 112,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 40,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 15
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "spring-memory",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "spring-memory-restored",
+   "kind": "well",
+   "file": "spring-memory-restored.png",
+   "w": 112,
+   "h": 124,
+   "metres": 1.82,
+   "basePx": 64,
+   "anchor": {
+    "x": 58,
+    "y": 123
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 63
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "spring-memory",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "spring-lethe-intact",
+   "kind": "well",
+   "file": "spring-lethe-intact.png",
+   "w": 112,
+   "h": 124,
+   "metres": 1.82,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 123
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 63
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "spring-lethe",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "spring-lethe-damaged",
+   "kind": "well",
+   "file": "spring-lethe-damaged.png",
+   "w": 139,
+   "h": 108,
+   "metres": 1.33,
+   "basePx": 64,
+   "anchor": {
+    "x": 73,
+    "y": 107
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 40
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "spring-lethe",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "spring-lethe-ruined",
+   "kind": "well",
+   "file": "spring-lethe-ruined.png",
+   "w": 112,
+   "h": 86,
+   "metres": 0.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 73,
+    "y": 85
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 18
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "spring-lethe",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "spring-lethe-restored",
+   "kind": "well",
+   "file": "spring-lethe-restored.png",
+   "w": 112,
+   "h": 124,
+   "metres": 1.82,
+   "basePx": 64,
+   "anchor": {
+    "x": 58,
+    "y": 123
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 63
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "spring-lethe",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-anvil-intact",
+   "kind": "forge",
+   "file": "titan-anvil-intact.png",
+   "w": 157,
+   "h": 156,
+   "metres": 1.82,
+   "basePx": 96,
+   "anchor": {
+    "x": 67,
+    "y": 155
+   },
+   "tileOrigin": {
+    "x": 75,
+    "y": 71
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "titan-anvil",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-anvil-damaged",
+   "kind": "forge",
+   "file": "titan-anvil-damaged.png",
+   "w": 193,
+   "h": 129,
+   "metres": 1,
+   "basePx": 96,
+   "anchor": {
+    "x": 132,
+    "y": 128
+   },
+   "tileOrigin": {
+    "x": 111,
+    "y": 34
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "titan-anvil",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-anvil-ruined",
+   "kind": "forge",
+   "file": "titan-anvil-ruined.png",
+   "w": 193,
+   "h": 103,
+   "metres": 0.21,
+   "basePx": 96,
+   "anchor": {
+    "x": 78,
+    "y": 102
+   },
+   "tileOrigin": {
+    "x": 111,
+    "y": 16
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "titan-anvil",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-anvil-restored",
+   "kind": "forge",
+   "file": "titan-anvil-restored.png",
+   "w": 157,
+   "h": 156,
+   "metres": 1.82,
+   "basePx": 96,
+   "anchor": {
+    "x": 86,
+    "y": 155
+   },
+   "tileOrigin": {
+    "x": 75,
+    "y": 71
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "titan-anvil",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-bellows-intact",
+   "kind": "workshop",
+   "file": "titan-bellows-intact.png",
+   "w": 83,
+   "h": 159,
+   "metres": 2.88,
+   "basePx": 64,
+   "anchor": {
+    "x": 43,
+    "y": 158
+   },
+   "tileOrigin": {
+    "x": 38,
+    "y": 99
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-bellows",
+   "state": "intact",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-bellows-damaged",
+   "kind": "workshop",
+   "file": "titan-bellows-damaged.png",
+   "w": 94,
+   "h": 124,
+   "metres": 1.82,
+   "basePx": 64,
+   "anchor": {
+    "x": 31,
+    "y": 123
+   },
+   "tileOrigin": {
+    "x": 38,
+    "y": 53
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-bellows",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-bellows-ruined",
+   "kind": "workshop",
+   "file": "titan-bellows-ruined.png",
+   "w": 115,
+   "h": 106,
+   "metres": 1.27,
+   "basePx": 64,
+   "anchor": {
+    "x": 40,
+    "y": 105
+   },
+   "tileOrigin": {
+    "x": 46,
+    "y": 35
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "titan-bellows",
+   "state": "ruined",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-bellows-restored",
+   "kind": "workshop",
+   "file": "titan-bellows-restored.png",
+   "w": 78,
+   "h": 159,
+   "metres": 2.88,
+   "basePx": 64,
+   "anchor": {
+    "x": 43,
+    "y": 158
+   },
+   "tileOrigin": {
+    "x": 38,
+    "y": 99
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-bellows",
+   "state": "restored",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-slag-intact",
+   "kind": "node",
+   "file": "titan-slag-intact.png",
+   "w": 87,
+   "h": 89,
+   "metres": 0.76,
+   "basePx": 64,
+   "anchor": {
+    "x": 50,
+    "y": 88
+   },
+   "tileOrigin": {
+    "x": 49,
+    "y": 37
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-slag",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-slag-damaged",
+   "kind": "node",
+   "file": "titan-slag-damaged.png",
+   "w": 95,
+   "h": 86,
+   "metres": 0.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 45,
+    "y": 85
+   },
+   "tileOrigin": {
+    "x": 57,
+    "y": 17
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-slag",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-slag-ruined",
+   "kind": "node",
+   "file": "titan-slag-ruined.png",
+   "w": 102,
+   "h": 68,
+   "metres": 0.12,
+   "basePx": 64,
+   "anchor": {
+    "x": 65,
+    "y": 67
+   },
+   "tileOrigin": {
+    "x": 57,
+    "y": -1
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "titan-slag",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-slag-restored",
+   "kind": "node",
+   "file": "titan-slag-restored.png",
+   "w": 80,
+   "h": 89,
+   "metres": 0.76,
+   "basePx": 64,
+   "anchor": {
+    "x": 43,
+    "y": 88
+   },
+   "tileOrigin": {
+    "x": 42,
+    "y": 37
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-slag",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-tower-intact",
+   "kind": "tower",
+   "file": "titan-tower-intact.png",
+   "w": 144,
+   "h": 307,
+   "metres": 7.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 72,
+    "y": 306
+   },
+   "tileOrigin": {
+    "x": 72,
+    "y": 243
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-tower",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-tower-damaged",
+   "kind": "tower",
+   "file": "titan-tower-damaged.png",
+   "w": 147,
+   "h": 235,
+   "metres": 5.18,
+   "basePx": 64,
+   "anchor": {
+    "x": 79,
+    "y": 234
+   },
+   "tileOrigin": {
+    "x": 68,
+    "y": 171
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-tower",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-tower-ruined",
+   "kind": "tower",
+   "file": "titan-tower-ruined.png",
+   "w": 147,
+   "h": 118,
+   "metres": 1.64,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 117
+   },
+   "tileOrigin": {
+    "x": 68,
+    "y": 54
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "titan-tower",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "titan-tower-restored",
+   "kind": "tower",
+   "file": "titan-tower-restored.png",
+   "w": 144,
+   "h": 343,
+   "metres": 8.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 72,
+    "y": 342
+   },
+   "tileOrigin": {
+    "x": 72,
+    "y": 279
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "titan-tower",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-wall-x-intact",
+   "kind": "wall",
+   "file": "obsidian-wall-x-intact.png",
+   "w": 193,
+   "h": 361,
+   "metres": 8.03,
+   "basePx": 96,
+   "anchor": {
+    "x": 129,
+    "y": 360
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 265
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-wall-x",
+   "state": "intact",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-wall-x-damaged",
+   "kind": "wall",
+   "file": "obsidian-wall-x-damaged.png",
+   "w": 192,
+   "h": 259,
+   "metres": 4.94,
+   "basePx": 96,
+   "anchor": {
+    "x": 115,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 162
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-wall-x",
+   "state": "damaged",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-wall-x-ruined",
+   "kind": "wall",
+   "file": "obsidian-wall-x-ruined.png",
+   "w": 192,
+   "h": 152,
+   "metres": 1.7,
+   "basePx": 96,
+   "anchor": {
+    "x": 122,
+    "y": 151
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 56
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "obsidian-wall-x",
+   "state": "ruined",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-wall-x-restored",
+   "kind": "wall",
+   "file": "obsidian-wall-x-restored.png",
+   "w": 193,
+   "h": 363,
+   "metres": 8.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 129,
+    "y": 362
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 267
+   },
+   "footprint": [
+    4,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-wall-x",
+   "state": "restored",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-wall-y-intact",
+   "kind": "wall",
+   "file": "obsidian-wall-y-intact.png",
+   "w": 193,
+   "h": 361,
+   "metres": 8.03,
+   "basePx": 96,
+   "anchor": {
+    "x": 66,
+    "y": 360
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 265
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-wall-y",
+   "state": "intact",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-wall-y-damaged",
+   "kind": "wall",
+   "file": "obsidian-wall-y-damaged.png",
+   "w": 192,
+   "h": 258,
+   "metres": 4.91,
+   "basePx": 96,
+   "anchor": {
+    "x": 80,
+    "y": 257
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 162
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-wall-y",
+   "state": "damaged",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-wall-y-ruined",
+   "kind": "wall",
+   "file": "obsidian-wall-y-ruined.png",
+   "w": 192,
+   "h": 152,
+   "metres": 1.7,
+   "basePx": 96,
+   "anchor": {
+    "x": 78,
+    "y": 151
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 56
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "obsidian-wall-y",
+   "state": "ruined",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-wall-y-restored",
+   "kind": "wall",
+   "file": "obsidian-wall-y-restored.png",
+   "w": 193,
+   "h": 363,
+   "metres": 8.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 64,
+    "y": 362
+   },
+   "tileOrigin": {
+    "x": 128,
+    "y": 267
+   },
+   "footprint": [
+    2,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-wall-y",
+   "state": "restored",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-tower-intact",
+   "kind": "tower",
+   "file": "obsidian-tower-intact.png",
+   "w": 164,
+   "h": 424,
+   "metres": 9.94,
+   "basePx": 96,
+   "anchor": {
+    "x": 84,
+    "y": 423
+   },
+   "tileOrigin": {
+    "x": 88,
+    "y": 344
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-tower",
+   "state": "intact",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-tower-damaged",
+   "kind": "tower",
+   "file": "obsidian-tower-damaged.png",
+   "w": 198,
+   "h": 313,
+   "metres": 6.58,
+   "basePx": 96,
+   "anchor": {
+    "x": 111,
+    "y": 312
+   },
+   "tileOrigin": {
+    "x": 97,
+    "y": 222
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-tower",
+   "state": "damaged",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-tower-ruined",
+   "kind": "tower",
+   "file": "obsidian-tower-ruined.png",
+   "w": 161,
+   "h": 121,
+   "metres": 0.76,
+   "basePx": 96,
+   "anchor": {
+    "x": 128,
+    "y": 120
+   },
+   "tileOrigin": {
+    "x": 97,
+    "y": 33
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "obsidian-tower",
+   "state": "ruined",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-tower-restored",
+   "kind": "tower",
+   "file": "obsidian-tower-restored.png",
+   "w": 152,
+   "h": 451,
+   "metres": 10.76,
+   "basePx": 96,
+   "anchor": {
+    "x": 72,
+    "y": 450
+   },
+   "tileOrigin": {
+    "x": 76,
+    "y": 371
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-tower",
+   "state": "restored",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-kiln-intact",
+   "kind": "kiln",
+   "file": "obsidian-kiln-intact.png",
+   "w": 141,
+   "h": 180,
+   "metres": 2.55,
+   "basePx": 96,
+   "anchor": {
+    "x": 43,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 77,
+    "y": 94
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-kiln",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-kiln-damaged",
+   "kind": "kiln",
+   "file": "obsidian-kiln-damaged.png",
+   "w": 213,
+   "h": 135,
+   "metres": 1.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 126,
+    "y": 134
+   },
+   "tileOrigin": {
+    "x": 111,
+    "y": 41
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-kiln",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-kiln-ruined",
+   "kind": "kiln",
+   "file": "obsidian-kiln-ruined.png",
+   "w": 203,
+   "h": 103,
+   "metres": 0.21,
+   "basePx": 96,
+   "anchor": {
+    "x": 92,
+    "y": 102
+   },
+   "tileOrigin": {
+    "x": 101,
+    "y": 5
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "obsidian-kiln",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-kiln-restored",
+   "kind": "kiln",
+   "file": "obsidian-kiln-restored.png",
+   "w": 133,
+   "h": 174,
+   "metres": 2.36,
+   "basePx": 96,
+   "anchor": {
+    "x": 73,
+    "y": 173
+   },
+   "tileOrigin": {
+    "x": 69,
+    "y": 94
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-kiln",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-field-intact",
+   "kind": "node",
+   "file": "obsidian-field-intact.png",
+   "w": 83,
+   "h": 72,
+   "metres": 0.24,
+   "basePx": 64,
+   "anchor": {
+    "x": 61,
+    "y": 71
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": 14
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-field",
+   "state": "intact",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-field-damaged",
+   "kind": "node",
+   "file": "obsidian-field-damaged.png",
+   "w": 145,
+   "h": 63,
+   "metres": 0.12,
+   "basePx": 59,
+   "anchor": {
+    "x": 97,
+    "y": 62
+   },
+   "tileOrigin": {
+    "x": 73,
+    "y": -1
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-field",
+   "state": "damaged",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-field-ruined",
+   "kind": "node",
+   "file": "obsidian-field-ruined.png",
+   "w": 131,
+   "h": 66,
+   "metres": 0.12,
+   "basePx": 62,
+   "anchor": {
+    "x": 74,
+    "y": 65
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 3
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "obsidian-field",
+   "state": "ruined",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "obsidian-field-restored",
+   "kind": "node",
+   "file": "obsidian-field-restored.png",
+   "w": 83,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 41,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": 14
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "obsidian-field",
+   "state": "restored",
+   "material": "rock",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-beacon-intact",
+   "kind": "tower",
+   "file": "rim-beacon-intact.png",
+   "w": 138,
+   "h": 463,
+   "metres": 11.12,
+   "basePx": 96,
+   "anchor": {
+    "x": 66,
+    "y": 462
+   },
+   "tileOrigin": {
+    "x": 60,
+    "y": 385
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-beacon",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-beacon-damaged",
+   "kind": "tower",
+   "file": "rim-beacon-damaged.png",
+   "w": 176,
+   "h": 293,
+   "metres": 5.97,
+   "basePx": 96,
+   "anchor": {
+    "x": 114,
+    "y": 292
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 201
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-beacon",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-beacon-ruined",
+   "kind": "tower",
+   "file": "rim-beacon-ruined.png",
+   "w": 176,
+   "h": 128,
+   "metres": 0.97,
+   "basePx": 96,
+   "anchor": {
+    "x": 112,
+    "y": 127
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 35
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "rim-beacon",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-beacon-restored",
+   "kind": "tower",
+   "file": "rim-beacon-restored.png",
+   "w": 120,
+   "h": 500,
+   "metres": 12.24,
+   "basePx": 96,
+   "anchor": {
+    "x": 60,
+    "y": 499
+   },
+   "tileOrigin": {
+    "x": 60,
+    "y": 422
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-beacon",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-x+-intact",
+   "kind": "stair",
+   "file": "rim-stair-x+-intact.png",
+   "w": 129,
+   "h": 152,
+   "metres": 2.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 96,
+    "y": 151
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 88
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-x+",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-x+-damaged",
+   "kind": "stair",
+   "file": "rim-stair-x+-damaged.png",
+   "w": 139,
+   "h": 123,
+   "metres": 1.79,
+   "basePx": 64,
+   "anchor": {
+    "x": 116,
+    "y": 122
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 54
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-x+",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-x+-ruined",
+   "kind": "stair",
+   "file": "rim-stair-x+-ruined.png",
+   "w": 140,
+   "h": 96,
+   "metres": 0.97,
+   "basePx": 64,
+   "anchor": {
+    "x": 106,
+    "y": 95
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 29
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "rim-stair-x+",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-x+-restored",
+   "kind": "stair",
+   "file": "rim-stair-x+-restored.png",
+   "w": 128,
+   "h": 152,
+   "metres": 2.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 96,
+    "y": 151
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 88
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-x+",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-x--intact",
+   "kind": "stair",
+   "file": "rim-stair-x--intact.png",
+   "w": 129,
+   "h": 194,
+   "metres": 3.94,
+   "basePx": 64,
+   "anchor": {
+    "x": 96,
+    "y": 193
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 130
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-x-",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-x--damaged",
+   "kind": "stair",
+   "file": "rim-stair-x--damaged.png",
+   "w": 139,
+   "h": 143,
+   "metres": 2.39,
+   "basePx": 64,
+   "anchor": {
+    "x": 116,
+    "y": 142
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 74
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-x-",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-x--ruined",
+   "kind": "stair",
+   "file": "rim-stair-x--ruined.png",
+   "w": 140,
+   "h": 96,
+   "metres": 0.97,
+   "basePx": 64,
+   "anchor": {
+    "x": 106,
+    "y": 95
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 29
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "rim-stair-x-",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-x--restored",
+   "kind": "stair",
+   "file": "rim-stair-x--restored.png",
+   "w": 128,
+   "h": 196,
+   "metres": 4,
+   "basePx": 64,
+   "anchor": {
+    "x": 96,
+    "y": 195
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 132
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-x-",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-y+-intact",
+   "kind": "stair",
+   "file": "rim-stair-y+-intact.png",
+   "w": 128,
+   "h": 152,
+   "metres": 2.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 32,
+    "y": 151
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 88
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-y+",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-y+-damaged",
+   "kind": "stair",
+   "file": "rim-stair-y+-damaged.png",
+   "w": 133,
+   "h": 125,
+   "metres": 1.85,
+   "basePx": 64,
+   "anchor": {
+    "x": 22,
+    "y": 124
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 58
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-y+",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-y+-ruined",
+   "kind": "stair",
+   "file": "rim-stair-y+-ruined.png",
+   "w": 137,
+   "h": 96,
+   "metres": 0.97,
+   "basePx": 64,
+   "anchor": {
+    "x": 26,
+    "y": 95
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 29
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "rim-stair-y+",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-y+-restored",
+   "kind": "stair",
+   "file": "rim-stair-y+-restored.png",
+   "w": 128,
+   "h": 152,
+   "metres": 2.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 32,
+    "y": 151
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 88
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-y+",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-y--intact",
+   "kind": "stair",
+   "file": "rim-stair-y--intact.png",
+   "w": 128,
+   "h": 194,
+   "metres": 3.94,
+   "basePx": 64,
+   "anchor": {
+    "x": 32,
+    "y": 193
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 130
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-y-",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-y--damaged",
+   "kind": "stair",
+   "file": "rim-stair-y--damaged.png",
+   "w": 133,
+   "h": 141,
+   "metres": 2.33,
+   "basePx": 64,
+   "anchor": {
+    "x": 22,
+    "y": 140
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 74
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-y-",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-y--ruined",
+   "kind": "stair",
+   "file": "rim-stair-y--ruined.png",
+   "w": 137,
+   "h": 96,
+   "metres": 0.97,
+   "basePx": 64,
+   "anchor": {
+    "x": 26,
+    "y": 95
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 29
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "rim-stair-y-",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-stair-y--restored",
+   "kind": "stair",
+   "file": "rim-stair-y--restored.png",
+   "w": 128,
+   "h": 196,
+   "metres": 4,
+   "basePx": 64,
+   "anchor": {
+    "x": 32,
+    "y": 195
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 132
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "rim-stair-y-",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-keeper-house-intact",
+   "kind": "house",
+   "file": "rim-keeper-house-intact.png",
+   "w": 151,
+   "h": 176,
+   "metres": 2.91,
+   "basePx": 80,
+   "anchor": {
+    "x": 72,
+    "y": 175
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 102
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "rim-keeper-house",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-keeper-house-damaged",
+   "kind": "house",
+   "file": "rim-keeper-house-damaged.png",
+   "w": 145,
+   "h": 110,
+   "metres": 0.91,
+   "basePx": 80,
+   "anchor": {
+    "x": 97,
+    "y": 109
+   },
+   "tileOrigin": {
+    "x": 62,
+    "y": 35
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "rim-keeper-house",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-keeper-house-ruined",
+   "kind": "house",
+   "file": "rim-keeper-house-ruined.png",
+   "w": 135,
+   "h": 96,
+   "metres": 0.48,
+   "basePx": 80,
+   "anchor": {
+    "x": 102,
+    "y": 95
+   },
+   "tileOrigin": {
+    "x": 52,
+    "y": 18
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "rim-keeper-house",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  },
+  {
+   "id": "rim-keeper-house-restored",
+   "kind": "house",
+   "file": "rim-keeper-house-restored.png",
+   "w": 151,
+   "h": 174,
+   "metres": 2.85,
+   "basePx": 80,
+   "anchor": {
+    "x": 93,
+    "y": 173
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": 102
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "rim-keeper-house",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles"
+  }
+ ]
+}
