@@ -51,6 +51,10 @@ const def: RegionDef = {
     k.forest([70, 40, 34, 22, 0.3], [180, 60, 26, 24, -0.2], [74, 206, 34, 24, 0.4], [186, 216, 30, 22, -0.3], [104, 64, 12, 8, 0.5], [86, 186, 12, 8, 0.1], [240, 190, 14, 30, 0.1], [12, 190, 10, 30, 0]);
     // resources (food 2, wood 3, stone 2, iron 2) and set pieces
     k.resource('iron', [242, 60], 3, 12);
+    // the home agora and the town round it: houses and workshops along the roads, farms and a press beyond
+    k.agora([156, 168]);
+    k.houses([156, 168], 18, 16, 40, ['house-a', 'house-b', 'forge', 'house-a', 'workshop', 'cottage', 'storehouse', 'house-b']);
+    k.outskirts([156, 168], 5, 34, 56, ['farm', 'cottage', 'farm', 'storehouse']);
     k.piece('dodona/iron-bog', [92, 146], { r: 8, n: 2 });
     k.resource('stone', [214, 12], 2, 12);
     k.resource('stone', [44, 224], 2, 14);

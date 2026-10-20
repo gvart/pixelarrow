@@ -73,7 +73,11 @@ const def: RegionDef = {
     k.resource('tin', [182, 84], 4, 7);
     k.resource('tin', [142, 66], 2, 8);
     k.resource('stone', [214, 116], 2, 10);
-    k.piece('wall-ruin', [142, 96], { r: 6, n: 3 });
+    // the toll town on the saddle: the agora, the walled market court west of it, houses down the roads
+    k.agora([150, 102]);
+    k.court(5);
+    k.houses([150, 102], 12, 16, 34);
+    k.outskirts([156, 112], 2, 20, 40, ['storehouse', 'cottage']);
     k.piece('mountains/watch-post', [160, 110], { r: 5 });
     k.piece('mountains/cairn', [138, 52], { r: 6, n: 2 });
     k.piece('mountains/rockfall', [70, 98], { r: 8, onRock: true, n: 2 });

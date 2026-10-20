@@ -67,17 +67,18 @@ const def: RegionDef = {
     k.fields([200, 222, 16, 8, -0.2], -0.2);
     k.forest([60, 20, 34, 12, 0.2], [198, 22, 30, 12, -0.2], [236, 70, 16, 34, 0.1], [238, 196, 14, 30, -0.1], [166, 86, 6, 4, 0.4]);
     // town pieces: houses, stalls, the timber yard, a shrine; fishing huts and a watch post on the shores
-    k.piece('dodona/hut-ruin', [138, 112], { r: 10, n: 5, gap: 4 });
-    k.piece('dodona/hut-ruin', [140, 138], { r: 10, n: 4, gap: 4 });
+    // the causeway town: the agora mid-lake, the walled market court east of it, houses on the island, jetties
+    k.agora([148, 124]);
+    k.court(1);
+    k.houses([148, 124], 18, 16, 40);
+    k.outskirts([148, 124], 3, 30, 46);
+    k.jetty([126, 136], 16);
+    k.jetty([172, 112], 16);
+    k.village([90, 214], 4);
     k.piece('elaia/beehives', [158, 140], { r: 6 });
-    k.piece('elaia/wall-a', [160, 112], { r: 4, n: 2 });
-    k.piece('elaia/wall-b', [160, 136], { r: 4, n: 2 });
-    k.piece('elaia/shrine', [134, 124], { r: 4 });
     k.piece('dodona/timber-stand', [166, 116], { r: 5 });
     k.piece('elaia/goats', [166, 126], { r: 4 });
     k.piece('watchtower', [158, 60], { r: 6 });
-    k.piece('dodona/hut-ruin', [32, 98], { r: 8 });
-    k.piece('dodona/hut-ruin', [196, 210], { r: 8 });
     k.piece('elaia/beehives', [70, 200], { r: 8, n: 2 });
     k.piece('dodona/oracle-grove', [62, 26], { r: 10 });
     // fauna: the Stymphalian harpies on the isle, river serpents in the east marsh and at the Ladon's mouth

@@ -60,6 +60,10 @@ const def: RegionDef = {
     k.resource('copper', [56, 166], 1, 10);
     k.resource('stone', [186, 230], 3, 12);
     k.resource('dates', [154, 150], 4, 10);
+    // the home agora and the town round it; gardens and presses toward the oasis
+    k.agora([140, 168]);
+    k.houses([140, 168], 18, 16, 40, ['house-a', 'house-b', 'storehouse', 'house-a', 'workshop', 'forge']);
+    k.outskirts([140, 168], 4, 32, 54, ['olive-press', 'farm', 'cottage']);
     k.piece('kyrene/mesa', [72, 120], { r: 16 });
     k.piece('kyrene/butte', [36, 84], { r: 16 });
     k.piece('kyrene/rock-pillar', [74, 220], { r: 14, n: 2 });
