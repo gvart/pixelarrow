@@ -1,0 +1,77 @@
+src/war/regions/saddle.json
+  s_cfc22b058125c4::t_4bd7dd156154aa 1
+scripts/war/regions/saddle.ts
+  s_cfc22b058125c4::t_293842ffb99527 37-38
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_9a888b1d05ca4b 2010
+scripts/war/regions/drafts.ts
+  s_cfc22b058125c4::t_a9ee34b0b6dff2 321
+  s_cfc22b058125c4::t_de727afae0f0b6 265-275,315-320,322-326
+src/war/regions/delta.spots.ts
+  s_cfc22b058125c4::t_4bd7dd156154aa 12,14,20
+src/war/regions/gorge.json
+  s_cfc22b058125c4::t_4bd7dd156154aa 1
+src/war/regions/canyons.json
+  s_cfc22b058125c4::t_4bd7dd156154aa 1
+tests/war/landmarks.test.ts
+  s_cfc22b058125c4::t_178cbbfdc4453c 1-58
+src/war/regions/saddle.spots.ts
+  s_cfc22b058125c4::t_4bd7dd156154aa 12
+scripts/war/regions/krios.ts
+  s_cfc22b058125c4::t_293842ffb99527 43-48
+src/war/regions/ammon.json
+  s_cfc22b058125c4::t_4bd7dd156154aa 1
+src/war/regions/siren.json
+  s_cfc22b058125c4::t_a9ee34b0b6dff2 1
+src/war/regions/gorge.spots.ts
+  s_cfc22b058125c4::t_4bd7dd156154aa 14
+src/war/types.ts
+  s_cfc22b058125c4::t_9a888b1d05ca4b 452-453
+src/war/regions/delta.json
+  s_cfc22b058125c4::t_4bd7dd156154aa 1
+scripts/war/regions/gorge.ts
+  s_cfc22b058125c4::t_293842ffb99527 43-44
+src/war/regions/krios.spots.ts
+  s_cfc22b058125c4::t_7eb39d7df1af23 8,12
+src/war/regions/canyons.spots.ts
+  s_cfc22b058125c4::t_4bd7dd156154aa 9,15
+scripts/war/regions/omphalos.ts
+  s_cfc22b058125c4::t_293842ffb99527 44
+  s_cfc22b058125c4::t_2ea0bbc4b1f50b 45
+src/war/regions/erymanthos.spots.ts
+  s_cfc22b058125c4::t_4bd7dd156154aa 9,14
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_a9ee34b0b6dff2 1042
+  s_cfc22b058125c4::t_de727afae0f0b6 96
+  s_cfc22b058125c4::t_89339b4a101f4f 99
+  s_cfc22b058125c4::t_bb0c3d7c6fe503 468,595,1029-1037,1039-1040,1153
+  s_cfc22b058125c4::t_7cf6127f4f242f 36,574-592,594,596-614,976-1028,1038,1041,1043-1057,1181,1246-1247
+src/war/regions/krios.json
+  s_cfc22b058125c4::t_7eb39d7df1af23 1
+src/war/regions/siren.spots.ts
+  s_cfc22b058125c4::t_a9ee34b0b6dff2 9,16
+src/war/regions/erymanthos.json
+  s_cfc22b058125c4::t_4bd7dd156154aa 1
+src/war/regions/omphalos.spots.ts
+  s_cfc22b058125c4::t_2ea0bbc4b1f50b 23
+src/war/regions/omphalos.json
+  s_cfc22b058125c4::t_2ea0bbc4b1f50b 1
+src/war/regions/ammon.spots.ts
+  s_cfc22b058125c4::t_4bd7dd156154aa 8,14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bdd33c676f3092de2a27234d531bf35c5ca3b6fd",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
