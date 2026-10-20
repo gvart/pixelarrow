@@ -1,0 +1,27 @@
+README.md
+  s_cfc22b058125c4::t_acd323246471fe 173,180
+docs/DESIGN_V2.md
+  s_cfc22b058125c4::t_29447352a86b4c 1,3-8
+docs/DUELS.md
+  s_cfc22b058125c4::t_284d7cb6fdb6cc 3,9-10,12-13,173
+docs/ROADMAP.md
+  s_cfc22b058125c4::t_d9b03ae5eebe4a 5,9-12,32,34,41,45-46
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_d1468d46d0b9e4 129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1042ec43fc15e42e0f85a96cfed96cd0f18b5159",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
