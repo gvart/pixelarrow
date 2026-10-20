@@ -193,6 +193,94 @@ if (BIOME === 'mountains') {
   process.exit(0);
 }
 
+// ---- Dodona, 1:1: a dense forest edge round a clearing (leaf litter, moss and fern undergrowth under oaks, beeches and
+// silver firs), a muddy path into the wood with the woodcutter's ruin, charcoal pile and timber stand, the oracle glade with
+// the sacred oak, a stream with its bank and the bog-iron node, a deer and an owl, a squad in the clearing and a file on
+// the path under the trees. Canopy fade (the renderer's rule, shown here): a tree drawn in front of a unit whose sprite
+// overlaps that unit's sprite is drawn at 35% opacity; DODONA_patch_nofade_1x.png is the same patch without it.
+if (BIOME === 'dodona') {
+  const n = 44, V = [];
+  const vn = (x, y, s, k) => { const X = Math.floor(x / s), Y = Math.floor(y / s), fx = x / s - X, fy = y / s - Y, h = (a, b) => (hash(a, b, k) % 1000) / 1000, sm = (t) => t * t * (3 - 2 * t), u = sm(fx), v = sm(fy); return (h(X, Y) * (1 - u) + h(X + 1, Y) * u) * (1 - v) + (h(X, Y + 1) * (1 - u) + h(X + 1, Y + 1) * u) * v; };
+  const stream = (y) => 35 + 2 * Math.sin(y / 5);
+  const path = (x) => (x < 15 ? 21 + 1.5 * Math.sin(x / 3) : 21 + (x - 15) * 0.6); // west edge -> the clearing
+  const clear = (x, y) => Math.hypot((x - 21) / 9, (y - 29) / 6.5) + 0.35 * (vn(x, y, 4, 1) - 0.5); // < 1 = the clearing
+  const at0 = (x, y) => {
+    const d = Math.abs(x - stream(y));
+    if (d < 1.3) return 'shallow';
+    if (d < 2.6 + vn(x, y, 3, 2)) return 'bank';
+    if (x < 23 && Math.abs(y - path(x)) < 0.8) return 'mud';
+    const glade = (cx, cy, r) => Math.hypot(x - cx, y - cy) < r + 1.5 * (vn(x, y, 3, 3) - 0.5);
+    if (clear(x, y) < 1 || glade(10, 10, 5.5) || glade(7, 21, 5)) return 'grass'; // clearing, oracle glade, woodcutter's glade
+    if (clear(x, y) < 1.3) return 'fern'; // a fern band along the forest edge
+    if (vn(x, y, 6, 5) > 0.68) return 'moss';
+    return 'litter';
+  };
+  for (let y = 0; y <= n; y++) for (let x = 0; x <= n; x++) V.push(at0(x, y));
+  const at = resolve(V, n), cell = (x, y) => { const c = [at(x, y), at(x + 1, y), at(x, y + 1), at(x + 1, y + 1)]; return c.every((t) => t === c[0]) ? c[0] : null; };
+  const items = [], used = new Set();
+  const put = (id, x, y, w = 1, h = 1, ox = 0.5, oy = 0.5) => { if (!objs[id]) return false; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (used.has(`${x + i},${y + j}`)) return false; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) used.add(`${x + i},${y + j}`); items.push([objs[id], x + ox, y + oy]); return true; };
+  const pick = (ids, x, y) => ids[hash(x, y, 9) % ids.length];
+  // set pieces
+  put('oak-sacred', 9, 6, 2, 2, 1, 1); put('oracle-grove', 9, 10, 3, 3, 1.5, 1.5);
+  put('hut-ruin', 4, 17, 2, 2, 1, 1); put('stump-a', 8, 18); put('stump-moss', 4, 23); put('charcoal-pile', 7, 23, 2, 2, 1, 1); put('timber-stand', 11, 17, 2, 2, 1, 1);
+  put('log-fallen', 25, 17, 1, 2, 0.5, 1.6); put('pitch-pine', 29, 23); put('iron-bog', 29, 38, 2, 1, 1, 0.5); put('boulder-moss-a', 31, 12);
+  put('red-deer', 26, 31); put('owl', 15, 25);
+  for (let y = 10; y <= 16; y++) for (let x = 9; x <= 16; x++) used.add(`${x},${y}`); // keep the view onto the oracle glade open
+  // a squad in the clearing and a file of four on the path under the trees
+  const hop = soldier('hoplite', 'south-east', 0), hop2 = soldier('hoplite', 'south-west', 40), arc = soldier('archer', 'south-east', 0);
+  const units = [];
+  const unit = (s, x, y) => { if (s) { const it = [s, x, y, true]; items.push(it); units.push(it); } };
+  const sq = [19, 29]; for (let j = -2; j <= 5; j++) for (let i = -2; i <= 4; i++) used.add(`${sq[0] + i},${sq[1] + j}`);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) unit((i + j) % 2 ? hop2 : hop, sq[0] - 1 + i * 0.55 + j * 0.5, sq[1] + 1 - i * 0.55 + j * 0.5);
+  unit(arc, sq[0] + 2, sq[1] + 2); unit(arc, sq[0] + 2.5, sq[1] + 2.4);
+  for (const x of [9, 10.2, 11.4, 12.6]) unit(hop, x, path(x) + 0.5);
+  // trees on a jittered 2-tile grid over the forest floor (firs to the north-east), undergrowth by terrain
+  for (let y = 0; y < n; y += 2) for (let x = 0; x < n; x += 2) {
+    const t = cell(x, y), h = hash(x, y, 7) % 1000; if (!['litter', 'moss', 'fern'].includes(t) || h > 860) continue;
+    const ids = x + (n - y) > 50 ? ['fir-silver', 'fir-silver-b', 'fir-silver', 'beech-a', 'oak-a'] : ['oak-a', 'oak-b', 'beech-a', 'beech-young', 'oak-a', 'fir-silver', 'beech-a'];
+    put(pick(ids, x, y), x + (h % 2), y + ((h >> 1) % 2), 1, 1, 0.3 + (hash(x, y, 3) % 40) / 100, 0.3 + (hash(x, y, 5) % 40) / 100);
+  }
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const t = cell(x, y), h = hash(x, y, 11) % 1000; let id = null;
+    if (t === 'fern' && h < 420) id = pick(['fern-a', 'fern-b', 'fern-c', 'bramble', 'fern-a'], x, y);
+    else if (t === 'moss' && h < 160) id = pick(['boulder-moss-b', 'mushrooms', 'fern-b', 'stump-moss', 'mushrooms'], x, y);
+    else if (t === 'litter' && h < 90) id = pick(['fern-b', 'mushrooms', 'stump-a', 'fern-a', 'bramble'], x, y);
+    else if (t === 'grass' && h < 25) id = pick(['fern-b', 'bramble', 'stump-a'], x, y);
+    else if (t === 'bank' && h < 60) id = pick(['boulder-moss-b', 'fern-b'], x, y);
+    if (id) put(id, x, y, 1, 1, 0.3 + (hash(x, y, 3) % 40) / 100, 0.3 + (hash(x, y, 5) % 40) / 100);
+  }
+  const W = 2 * n * HW + 40, H = 2 * n * HH + 440, OX = n * HW + 20, OY = 400;
+  const sx = (x, y) => OX + (x - y) * HW, sy = (x, y) => OY + (x + y) * HH;
+  const box = ([s, x, y]) => { const x0 = Math.round(sx(x, y) - s.anchor.x), y0 = Math.round(sy(x, y) + HH - s.anchor.y); return { x0, y0, x1: x0 + s.im.w, y1: y0 + s.im.h }; };
+  const over = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  items.sort((a, b) => a[1] + a[2] - (b[1] + b[2]));
+  const draw = (fade) => {
+    const img = fill(blank(W, H));
+    for (let d = 0; d <= 2 * (n - 1); d++) for (let x = 0; x < n; x++) { const y = d - x; if (y < 0 || y >= n) continue; const t = tileFor(at, x, y, true); if (t) paste(img, t, Math.round(sx(x, y) - HW), Math.round(sy(x, y))); }
+    let faded = 0;
+    for (const it of items) {
+      const b = box(it), [s, x, y, isUnit] = it;
+      const a = fade && !isUnit && s.kind === 'tree' && units.some((u) => u[1] + u[2] < x + y && over(b, box(u))) ? 0.35 : 1;
+      if (a < 1) faded++;
+      for (let yy = 0; yy < s.im.h; yy++) for (let xx = 0; xx < s.im.w; xx++) {
+        const j = (yy * s.im.w + xx) * 4, X = b.x0 + xx, Y = b.y0 + yy; if (!s.im.data[j + 3] || X < 0 || Y < 0 || X >= W || Y >= H) continue;
+        const o = (Y * W + X) * 4; for (let k = 0; k < 3; k++) img.data[o + k] = Math.round(img.data[o + k] * (1 - a) + s.im.data[j + k] * a);
+      }
+    }
+    return { img: crop(img, { x: 0, y: 160, w: W, h: H - 180 }), faded };
+  };
+  const on = draw(true), off = draw(false);
+  writeImage(join(OUT, `${PFX}_patch_1x.png`), on.img);
+  writeImage(join(OUT, `${PFX}_patch_nofade_1x.png`), off.img);
+  const zx = Math.round(sx(15, 26)) - 420, zy = Math.round(sy(15, 26)) - 160 - 300;
+  const z = crop(on.img, { x: zx, y: zy, w: 840, h: 460 }), z0 = crop(off.img, { x: zx, y: zy, w: 840, h: 460 });
+  writeImage(join(OUT, `${PFX}_patch_zoom2x.png`), resizeNearest(z, z.w * 2, z.h * 2));
+  const both = fill(blank(z.w * 2 + 16, z.h)); paste(both, z0, 0, 0); paste(both, z, z.w + 16, 0);
+  writeImage(join(OUT, `${PFX}_fade_compare_1x.png`), both);
+  console.log(`dodona patch ${n}x${n}: ${items.length} items, ${units.length} units, ${on.faded} trees faded over units ->`, OUT);
+  process.exit(0);
+}
+
 // ---- biome patch, 1:1: an Elaia hillside over a bay (dry grass, terra rossa vineyard, olive grove behind dry-stone walls,
 // marble outcrops with the quarry and the marble node, a pebble beach), its objects, goats, a boar and a squad of soldiers.
 // Organic borders come from value noise; the tiles.json fallback settles the pairs with no sheet.

@@ -1935,3 +1935,79 @@ next time. (2) Gemini rounds "4 formations" down to 3 and "8 buildings" down to 
 or ask for the build bar with numbered slots. (3) "Two colours only" holds for frames but not for resource icons unless
 the prompt says "no other colours anywhere in the HUD" (B2). (4) Size words ("26 px", "48 px") are honoured for strips,
 not for bands with three groups or framed minimaps.
+
+## 34. Biome: Dodona (ART-9)
+
+Dense oak, beech and silver fir forest of the NW home region (docs/WAR.md: Dodona, Ladon Oakwood, Teeth Foothills): the
+oracle grove, bog iron, timber and pitch. Raws: `shots/war/pixellab/dodona/raw/` (git-ignored). List:
+`scripts/war/art/biomes/dodona.mjs`. Build `node scripts/war/art/build.mjs --biome dodona`, QA `qa.mjs` (passes), preview
+`node scripts/war/art/preview.mjs --biome dodona` -> `shots/war/pixellab/dodona/DODONA_contact.png`, `DODONA_patch_1x.png`
+(44 x 44 forest edge round a clearing, squad in the clearing, a file on the path under the trees), `DODONA_patch_nofade_1x.png`,
+`DODONA_fade_compare_1x.png` (left no fade, right fade), `DODONA_patch_zoom2x.png`. 96 generations (5 sets + 2 fill sheets
+x 10, 26 `create_map_object` x 1).
+
+Terrains: `litter` (deep forest floor), `moss`, `fern` (undergrowth), `mud` (path) each paired with the global grass; `bank`
+(stream bank) paired with the global shallow water. Clearings are the global grass with Dodona variants (global grass
+variants + wildflower and clover grass), no own set. Sets: `create_tiles_pro`, isometric 64, low top-down,
+`tile_feature: tileset`, seed 31, graded sat 0.8–0.9 / val 0.8. Litter, fern and mud came back as straight block splits
+(stair steps on the map) and moss without a mask-8 tile (its tile_8 is a second mask 0): all four use `organic: 0.6`.
+
+| Pair | Call | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| grass-litter | `9a5bf453` | `dark muted olive grass to deep dark forest floor of brown fallen oak and beech leaf litter with dark twigs and a few acorns, dark epic desaturated ancient Greek oak forest` | kept; organic |
+| grass-moss | `a1a6008c` | `dark muted olive grass to thick dark mossy forest ground, soft cushions of deep green moss over damp dark earth with small roots, dark epic desaturated ancient Greek oak forest` | no mask-8 tile: organic |
+| grass-fern | `521687cc` | `dark muted olive grass to dense low fern undergrowth, many small dark green bracken fronds over dark brown forest earth, dark epic desaturated ancient Greek oak forest` | kept; organic |
+| grass-mud | `ea0c817f` | `dark muted olive grass to a dark wet muddy forest path of trodden brown mud with puddles, hoof prints and cart ruts, dark epic desaturated ancient Greek oak forest` | kept; organic |
+| bank-shallow | `e57b498a` | `dark wet forest stream bank of brown mud, rounded grey pebbles and exposed roots to shallow murky slate-blue stream water, dark epic desaturated ancient Greek oak forest brook` | kept (bank first) |
+| fills | `cd0f4cfd` (`tile_view_angle: 30`, no tileset) | `1). deep dark forest floor of brown fallen oak and beech leaf litter 2). dark forest floor leaf litter with fallen twigs, acorns and beech nuts 3). thick dark green moss cushions over damp dark earth 4). dense low dark green bracken fern undergrowth over dark earth 5). dark wet trodden mud path with puddles and hoof prints 6). dark wet stream bank mud with rounded grey pebbles and roots 7). lush dark green forest clearing grass with small dull white and yellow wildflowers 8). dark green clearing grass with clover tufts and a few fallen leaves, dark epic desaturated ancient Greek oak forest` | only the first 4 items, 4 tiles each: 0–7 litter, 8–11 moss, 12–15 fern; litter 3, 4, 6, 7 failed the rim check |
+| fills2 | `8003c3fb` (same) | `1). dark wet trodden brown mud forest path with puddles, hoof prints and cart ruts 2). dark wet forest stream bank mud with rounded grey pebbles and exposed roots 3). lush dark green forest clearing grass with small dull white and yellow wildflowers 4). dark green forest clearing grass with clover tufts and a few fallen oak leaves, dark epic desaturated ancient Greek oak forest` | 4 items x 4 in order: mud, bank, flowered and clover clearing grass |
+
+Objects: `create_map_object`, high top-down, high detail, detailed shading, basic mode; every prompt ends with `seen from a
+high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent
+background, no ground, no soil, no base under it` (plants) or `..., no ground, no grass, no base under it` (the rest).
+Subject (verbatim, before the tail):
+
+| id | Call | Canvas | Subject | Result |
+| --- | --- | --- | --- | --- |
+| oak-sacred | `3c4515e1` | 400 x 400 | `one huge ancient sacred oak tree of the oracle of Dodona, enormous thick gnarled furrowed dark grey-brown trunk with spreading massive limbs, a vast broad dense crown of dark muted green lobed oak leaf clumps, a few small bronze votive bells and pale cloth ribbons hanging from the low branches` | grey bg + dirt disc (dirt = trunk colours): cut under a `below` polyline round the root flare; 2 x 2, 10 m |
+| oak-a | `3e22bfd2` | 320 x 332 | `one tall old European oak tree, thick straight furrowed dark grey-brown trunk, broad rounded crown made of many dark muted green lobed oak leaf clumps with deep shadows between them` | white bg + grass block: base dropped |
+| oak-b | `dfda2b18` | 260 x 264 | `one medium oak tree leaning slightly, twisted dark brown trunk forking low into two limbs, uneven irregular crown of dark muted olive-green lobed oak leaf clumps` | grey cast shadow: `drop` its colour |
+| beech-a | `aefee5fd` | 280 x 396 | `one tall mature European beech tree, tall smooth pale silver-grey trunk, tall dense oval crown of small dark muted green beech leaves in layered sprays` | clean (white bg keyed) |
+| beech-young | `21c14136` | 180 x 232 | `one young beech tree, slender smooth pale grey trunk, narrow airy crown of dark muted green and dull copper-brown beech leaves` | clean |
+| fir-silver | `680fb86e` | 160 x 396 | `one very tall silver fir tree, straight dark grey trunk, tall narrow conical crown of dense flat tiers of dark blue-green needle branches with a pointed top` | pale blue bg + shadow ellipse: `drop` |
+| fir-silver-b | `6ed6a245` | 120 x 264 | `one medium silver fir tree, dark grey trunk, dense conical crown of drooping dark blue-green needle branches, slightly ragged uneven tiers` | clean |
+| pitch-pine | `8ae6b3c1` | 140 x 332 | `one tall old pine tree tapped for pitch, tall straight reddish-brown scaly trunk with a long pale scraped bark wound oozing amber resin, a small clay pot tied under the wound, high rounded crown of dark muted green pine needles` | grass disc dropped; `resource: pitch` |
+| (rejected) timber | `13b95483` | 160 x 112 | `a timber resource stand: a big neat stack of freshly felled long oak and fir logs with pale cut ends, a woodcutter's double axe stuck in a chopping stump and a few wood chips` | a log pile on a grass block, not a stand |
+| timber-stand | `735af61e` | 200 x 300 | `a rich timber stand: a tight cluster of five tall straight young oak and silver fir trees growing close together, dense dark muted green crowns, a few trunks marked with pale axe notches, two cut logs lying at their foot` | all firs, on a ground block: grass `drop` + `below` the block's top edges; `resource: wood`, `rich` |
+| log-fallen | `0db6b9fd` | 160 x 80 | `one long fallen mossy oak log lying on its side, thick dark grey-brown cracked bark with patches of green moss and small bracket fungi, a broken splintered end and a few short snapped branch stubs, the log runs diagonally from the upper left to the lower right` | runs the other way (tile y axis); `scale: 0.8` |
+| stump-a | `66db7c77` | 64 x 56 | `one old cut oak tree stump, flat axe-cut top showing pale growth rings, thick dark furrowed bark, a few roots spreading out` | clean, `scale: 0.75` |
+| stump-moss | `a1218c36` | 80 x 72 | `one big old hollow rotting tree stump covered in thick green moss, jagged broken top, dark crumbling wood, a small cluster of pale mushrooms at its foot` | grass slab: x range + cut + keep notgreen |
+| fern-a | `f35b94e9` | 72 x 56 | `one clump of tall bracken fern, many arching dark muted green feathery fronds spreading out from the centre` | clean, `scale: 0.75` |
+| fern-b | `24f28600` | 56 x 44 | `one small low clump of hart's-tongue and shield fern, a few short broad dark green fronds and curled young fiddleheads` | clean, `scale: 0.55` |
+| fern-c | `452862e7` | 112 x 64 | `one wide patch of dense bracken ferns, several overlapping clumps of dark muted green and a few dull rust-brown dying fronds, irregular wide spreading shape` | clean, `scale: 0.62` |
+| mushrooms | `f7cf68fb` | 48 x 40 | `one small clump of wild forest mushrooms, a few dull red-brown and pale cream toadstools of different heights growing close together with a tiny tuft of moss` | `scale: 0.36`, moss tuft dropped |
+| boulder-moss-a | `26a02221` | 112 x 80 | `one big rounded grey granite boulder thickly covered in dark green moss on top, a few lichen spots and ivy on its side` | moss fringe at the foot dropped |
+| boulder-moss-b | `b1eff51e` | 96 x 64 | `a low cluster of three weathered grey stones half covered in thick dark green moss and small ferns growing in the cracks between them` | ground disc: `below` polyline |
+| bramble | `4ecce8cc` | 112 x 72 | `one dense tangled bramble thicket, arching thorny dark red-brown blackberry canes with dark green leaves and a few small black berries, irregular wide mound` | clean, `scale: 0.67` |
+| oracle-grove | `b4195dcd` | 200 x 160 | `an ancient Greek forest oracle shrine: a small ring of five rough tall grey standing stones with moss, in the middle a bronze tripod cauldron on a low flat stone altar, a few hanging bronze votive bells on a short wooden post` | six stones on a grass disc with a paved floor: grass dropped, paving kept (the shrine's floor); 3 x 3, `sacred` |
+| hut-ruin | `1954cea1` | 200 x 180 | `one ruined abandoned woodcutter's hut in a forest, low walls of rough dark logs partly collapsed, a broken sagging thatched roof with a big hole, a rotten wooden door, an old axe stuck in a chopping block beside it` | clean (plank roof, no axe) |
+| charcoal-pile | `aa08c249` | 140 x 112 | `one ancient charcoal burner's pile: a round dome-shaped mound of stacked wood logs covered with dark earth and turf, thin wisps of grey smoke rising from small vent holes, a few split logs and a wooden rake leaning on it` | grass rim dropped |
+| iron-bog | `926e88cb` | 140 x 96 | `an iron bog-ore resource deposit: a heap of dug-up lumpy dark rust-red and brown limonite iron ore nodules beside a small rust-orange stained puddle, a wooden spade stuck in the heap and a woven basket of ore` | clean; `resource: iron` |
+| red-deer | `7bc4f304` | 96 x 96 | `one red deer stag standing side-on facing left, dull dark reddish-brown coat, pale rump, head raised with large branching antlers` | clean, `scale: 0.8`; `fauna`, `animateLater` |
+| owl | `20db2686` | 64 x 48 | `one tawny hunting owl swooping low with wide spread brown mottled wings and outstretched talons, round face with dark eyes` | clean, `scale: 0.6`; `fauna`, `flying`, `animateLater` |
+
+**Canopy fade (for the renderer).** A dense forest hides units. Rule used by the mock-up: when a tree is drawn in front of a
+unit (greater depth x + y) and its sprite box overlaps the unit's sprite box, draw the tree at 35% opacity (fade over
+~150 ms in game, restore when the unit leaves). Only `kind: tree` fades; bushes, ferns and stones stay opaque. With it, a
+file under the trees and a squad behind the edge read clearly; without it they disappear (`DODONA_fade_compare_1x.png`).
+The game may refine it to a soft circle round each unit instead of the whole sprite, and should also fade over the
+player's buildings and the cursor's tile.
+
+**Lessons:** (1) A numbered fill prompt with 8 items gets 4 tiles each for the first 4 only; ask for 4 items to get all 4.
+(2) Forest-floor sets come back as straight block splits like the sand sets: use `organic`. (3) Several dark forest
+terrains that only pair with grass put grass verges wherever they touch: paint big single-terrain blobs (litter
+dominant, moss in large patches, fern only along edges), not a fine mix. (4) PixelLab puts trees on ground blocks and
+cast shadows on pale backgrounds; when the dirt shares the trunk's colours, a `below` polyline round the root flare is
+the only clean cut. (5) Asked for a "timber stand", it drew a log pile; "a tight cluster of trees" gives the stand.
+(6) Place set pieces in their own glades and keep the cells in front of them (south-east) free of trees, or the canopy
+hides them.
