@@ -326,7 +326,7 @@ export function hud(s: SandboxScene): void {
         gActive.querySelector<HTMLElement>('.cdn')!.textContent = left ? String(Math.ceil(left / 10)) : '';
         gActive.classList.toggle('buff', a.on > 0);
         gActive.classList.toggle('cool', left > 0);
-        if (tipAt === gActive) showTip(gActive, activeTip(a));
+        if (tipAt === gActive && tip.style.display !== 'none') showTip(gActive, activeTip(a));
         slots.push(gActive);
       }
       if (engines.some((x) => x?.type === 'stoneThrower')) slots.push(gDeploy);

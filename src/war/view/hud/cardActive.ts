@@ -57,9 +57,10 @@ export function activeTip(a: ActiveSnap): string {
 
 export const ACTIVE_CSS = `
 .rf-btn .cd{position:absolute;inset:3px;border-radius:50%;pointer-events:none;
-  background:conic-gradient(rgba(14,9,7,.72) var(--cd,0%),transparent 0);
+  background:conic-gradient(from 0deg,rgba(14,9,7,.8) var(--cd,0%),rgba(242,178,122,.9) 0);
   -webkit-mask:radial-gradient(circle,transparent 7px,#000 7.5px);mask:radial-gradient(circle,transparent 7px,#000 7.5px)}
 .rf-btn .cdn{position:absolute;left:0;right:0;top:9px;text-align:center;font:700 10px/1 Inter,sans-serif;color:#f0d9b5;text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907;pointer-events:none}
+.rf-btn:not(.cool) .cd{display:none}
 .rf-btn.cool .ic{opacity:.6;filter:grayscale(.5)}
 .rf-btn.buff{box-shadow:0 0 0 1px #f2b27a,0 0 6px #de8a4e}
 .rf-btn .badge{position:absolute;left:1px;top:1px;pointer-events:none}
