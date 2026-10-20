@@ -7,7 +7,8 @@
  *           mountains / rockMass (impassable rock, foothills, massif sprites over it), paint (terrain patch),
  *           water (sea, lake, pools: deep core, shallow rim, beach), river (deep or shallow, fords, narrows a bridge
  *           can span, a valley cut into higher ground), road (graded: never steeper than one level per `grade`
- *           units, cut into hills and through rock on passes, bridges over deep water where asked);
+ *           units, cut into hills and through rock on passes, bridges over deep water where asked), causeway and
+ *           island (dry ground through water), square (a flat town square, spot `market`), fields (ploughed strips);
  *   art:    zone (biome library per tile), patch (a biome terrain such as marble, rossa, oasis, redrock), oasis;
  *   things: piece (a set piece on free ground near a point), rows (vines, olive rows), resource (ore and quarry
  *           nodes), lair (W-12 fauna), claim (claim point over the lairs round it), spot (named point).
@@ -20,8 +21,9 @@
  * mountains rising far above the sim's levels) and at 2 m tiles for the sim. Noise is in units, so both runs draw
  * the same land. After the features come the generic passes: scattered trees, bushes and crags by biome and
  * terrain, set pieces, massif sprites over the mountains' rock, lairs and claim points; then a reachability check
- * (every entry and spot joined to the first entry by legal steps), and the compact write (`cells` and `objs`, see
- * src/war/region/schema.ts `expandRegion`).
+ * (every entry and spot joined to the first entry by legal steps), the purpose checklist (./checks.ts; results in
+ * `meta.mustHave` and `meta.routes`), and the compact write (`cells` and `objs`, see src/war/region/schema.ts
+ * `expandRegion`).
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -33,7 +35,8 @@ import { columnSpans, massifBase, placeMassifs, type MassifPiece } from '../../.
 import { encodeCells, encodeObjects } from '../../../src/war/region/compact.ts';
 import type { MobKind } from '../../../src/war/types.ts';
 import { readImage } from '../../art/lib/png.mjs';
-import { byId, sideOf, type Side, type WorldRegion } from './world.ts';
+import { BRIEF, byId, sideOf, type Side, type WorldRegion } from './world.ts';
+import { runChecks, type Check } from './checks.ts';
 
 export type { Pt, Sample };
 export { fbm };
@@ -60,7 +63,7 @@ export interface Style {
 }
 const STYLE: Style = { dry: 0.05, dryHigh: true, meadow: 0.1, dune: 0.3, trees: 1, bushes: 1 };
 
-/** Biome libraries a region may name (public/war/biomes/<name>; 'global' and, until the view loads it, 'dodona' draw with the global set). */
+/** Biome libraries a region may name (public/war/biomes/<name>; 'global' is the base set). */
 export const BIOMES = ['global', 'elaia', 'kyrene', 'mountains', 'dodona'] as const;
 export type BiomeName = (typeof BIOMES)[number];
 
@@ -278,7 +281,7 @@ export class Kit {
    * Shallow (`deep: false`): a brook anyone wades. The bed sits at `bed` (a level or a function of the arc length); the
    * banks climb back to the land one level per `bank` units, so the river runs in its own valley.
    */
-  river(pts: Pt[], o: { half?: number; deep?: boolean; bed?: number | ((s: number) => number); bank?: number; fords?: Pt[]; narrows?: [Pt, number][]; name?: string }) {
+  river(pts: Pt[], o: { half?: number; deep?: boolean; bed?: number | ((s: number) => number); bank?: number; fords?: Pt[]; fordHalf?: number; narrows?: [Pt, number][]; name?: string }) {
     const c = spline(pts), s0 = this.seed(), half0 = o.half ?? 4, bank = o.bank ?? 3;
     const fords = (o.fords ?? []).map((p) => nearestSample(c, p[0], p[1]).s);
     const narrows = (o.narrows ?? []).map(([p, h]) => ({ s: nearestSample(c, p[0], p[1]).s, half: h }));
@@ -293,7 +296,7 @@ export class Kit {
       const d = f.d[i];
       if (d === Infinity || this.terrain[i] === 'rock') return;
       const half = halfAt(i, x, y), bed = bedAt(f.s[i]);
-      const atFord = fords.some((s) => Math.abs(f.s[i] - s) <= 2.5);
+      const atFord = fords.some((s) => Math.abs(f.s[i] - s) <= (o.fordHalf ?? 2.5));
       if (d <= half) {
         this.height[i] = bed;
         const shallow = !(o.deep ?? true) || atFord;
@@ -384,6 +387,45 @@ export class Kit {
     });
     this.roads.push(c);
     return c;
+  }
+
+  /** A causeway: firm ground (h `h`, grass) along pts where they cross water or marsh, `half` units each side; lay a road on it. */
+  causeway(pts: Pt[], half = 1.2, h = 1) {
+    const c = spline(pts), f = this.field(c, half + 2);
+    this.each((i) => {
+      if (f.d[i] > half || this.terrain[i] === 'rock' || (!this.water[i] && this.terrain[i] !== 'marsh')) return;
+      this.water[i] = 0; this.height[i] = h; this.terrain[i] = 'grass';
+    });
+    return c;
+  }
+  /** Dry land at h over a blob (an isle in a lake), over everything but rock. */
+  island(b: Blob, h: number, rough = 2) {
+    const s = this.seed();
+    this.each((i, x, y) => {
+      if (this.terrain[i] === 'rock' || this.e(b, x, y, rough, s) <= 0) return;
+      this.water[i] = 0; this.height[i] = h; if (this.terrain[i] === 'sand' || this.terrain[i] === 'dirt' || this.terrain[i] === 'marsh') this.terrain[i] = 'grass';
+    });
+  }
+  /** A town square (docs/WAR.md trade hub: >= 24 x 24 tiles): flat dirt `half` units each side of `p` at level `h` (default the ground there), the land round it eased to it; spot `market`. */
+  square(p: Pt, half = 7, h?: number) {
+    const i0 = this.at(p), h0 = h ?? this.height[i0];
+    this.each((i, x, y) => {
+      if (this.terrain[i] === 'rock') return;
+      const d = Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) - half;
+      if (d <= 0) { this.height[i] = h0; this.water[i] = 0; if (this.terrain[i] !== 'road') this.terrain[i] = 'dirt'; }
+      else if (d < 8 && !this.water[i]) this.height[i] = Math.max(h0 - 1 - Math.floor(d / 2), Math.min(h0 + 1 + Math.floor(d / 2), this.height[i]));
+    });
+    return this.spot('market', p);
+  }
+  /** Ploughed fields: furrows of dirt every 3 units across a blob (over grass), strips at angle `a`; spot `fields`. */
+  fields(b: Blob, a = 0) {
+    const s = this.seed(), ca = Math.cos(a), sa = Math.sin(a);
+    this.each((i, x, y) => {
+      if (this.water[i] || this.terrain[i] !== 'grass' || this.e(b, x, y, 2, s) <= 0) return;
+      const u = (x - b[0]) * ca + (y - b[1]) * sa, v = (y - b[1]) * ca - (x - b[0]) * sa;
+      if (((u % 3) + 3) % 3 < 1.5 && ((v % 24) + 24) % 24 > 1.5) this.terrain[i] = 'dirt';
+    });
+    return this.spot('fields', [b[0], b[1]]);
   }
 
   // ---- art
@@ -490,7 +532,7 @@ function visualLayer(k: Kit): Out {
 }
 
 /** The finished region (sim size) and its stats. */
-export interface Built { json: Record<string, unknown>; spots: Record<string, Pt>; claims: { x: number; y: number }[]; log: string[]; bytes: number }
+export interface Built { json: Record<string, unknown>; spots: Record<string, Pt>; claims: { x: number; y: number }[]; log: string[]; checks: Check[]; bytes: number }
 
 export function build(def: RegionDef): Built {
   // ---- the fine run: visual layer
@@ -812,6 +854,10 @@ export function build(def: RegionDef): Built {
   lairs.forEach((l, n) => { if (!reach(l.x, l.y)) cut.push(`lair ${n} ${l.kind}`); });
   claimPoints.forEach((c, n) => { if (!reach(c.x, c.y)) cut.push(`claim ${n}`); });
   if (cut.length) log.push(`UNREACHABLE from ${k.sides[0].id}: ${cut.join(', ')}`);
+  const checks: Check[] = [
+    { need: 'reach', ok: !cut.length, why: cut.length ? `unreachable ${cut.join(', ')}` : 'all reachable' },
+    ...runChecks({ world: k.world, W, H, height, terrain, water, walk, seen, roadDist: k.roadDist, spots: k.spots, toTile: k.toTile, objects, lairs, entries, sides: k.sides }),
+  ];
   let reachable = 0;
   for (let i = 0; i < N; i++) reachable += seen[i];
   log.push(`objects ${objects.length}, lairs ${lairs.length}, claims ${claimPoints.length}, reachable ${Math.round((100 * reachable) / N)}%${missed ? `, ${missed} pieces missed` : ''}`);
@@ -821,6 +867,10 @@ export function build(def: RegionDef): Built {
   const meta = {
     role: w.role, family: w.family, ...(def.draft ? { draft: true } : {}),
     adjacent: k.sides.map((s) => ({ id: s.id, side: s.side })), fauna: w.fauna.map((f) => f.as), resources: w.resources,
+    ...(BRIEF[w.id].goods ? { goods: BRIEF[w.id].goods } : {}),
+    purpose: BRIEF[w.id].purpose,
+    mustHave: Object.fromEntries(checks.filter((c) => !c.need.startsWith('road ') && c.need !== 'reach').map((c) => [c.need, c.ok])),
+    routes: Object.fromEntries(checks.filter((c) => c.need.startsWith('road ')).map((c) => [c.need.slice(5), c.ok])),
   };
   const json = {
     id: w.id, name: w.name, w: W, h: H, cells: { rle: encodeCells(height, terrain, water) }, entries, noBuild,
@@ -830,7 +880,7 @@ export function build(def: RegionDef): Built {
   const spots: Record<string, Pt> = {};
   for (const s of k.sides) spots[`entry_${s.id}`] = k.entry(s.id, 5);
   Object.assign(spots, k.spots);
-  return { json, spots, claims: claimPoints, log, bytes: 0 };
+  return { json, spots, claims: claimPoints, log, checks, bytes: 0 };
 }
 
 /** The mountains library over the rock and a band round it (later zones of the script keep theirs). */

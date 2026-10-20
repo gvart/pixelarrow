@@ -8,11 +8,13 @@ export const SPOTS = {
   "estuaryNarrows": [220.5, 276.5],
   "estuaryNarrowsA": [209.9, 273.7],
   "estuaryNarrowsB": [231.1, 279.3],
+  "market": [248.5, 320.5],
   "homeCamp": [244.5, 320.5],
-  "market": [272.5, 300.5],
   "eastCut": [380.5, 264.5],
   "oldBridge": [220.5, 276.5],
   "marbleKnoll": [416.5, 112.5],
+  "olives": [300.5, 192.5],
+  "fortress": [60.5, 300.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
 export const CLAIM_POINTS = [] as const;

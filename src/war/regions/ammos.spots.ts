@@ -4,10 +4,10 @@ export const SPOTS = {
   "entry_kyrene-n": [285.5, 502.5],
   "entry_ammon": [502.5, 256.5],
   "entry_canyons": [10.5, 256.5],
+  "ridge": [264.5, 144.9],
   "market": [243.5, 261.3],
-  "food": [193.3, 397.9],
-  "stone": [183.6, 408],
-  "copper": [301.8, 392.6],
+  "food": [134.6, 238.1],
+  "stone": [148.3, 188.1],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
 export const CLAIM_POINTS = [{"x":248.5,"y":264.5}] as const;

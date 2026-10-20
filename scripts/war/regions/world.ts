@@ -50,20 +50,20 @@ export const WORLD: WorldRegion[] = [
   { id: 'elaia-s', name: 'Cape of Winds', role: 'entry', family: 'med', pos: [-3, 4.2], adjacent: ['elaia', 'elaia-w', 'elaia-e', 'delta'], fauna: [boars, bandits], resources: { food: 1, stone: 2 }, sea: ['S'], relief: 'cliffs', water: 'none', forest: 0.1 },
   { id: 'elaia-e', name: 'Westbank Vineyards', role: 'entry', family: 'med', pos: [-1.8, 3], adjacent: ['elaia', 'elaia-n', 'elaia-s', 'achelous', 'bacchae'], fauna: [boars, wolves], resources: { food: 2, wood: 1 }, relief: 'hills', water: 'river', forest: 0.1 },
   { id: 'krios', name: 'Krios Glacier', role: 'neutral', family: 'mountain', pos: [0, -4.4], adjacent: ['dodona-n', 'skythia-n', 'kleisoura'], fauna: [F('bear', 'cyclops', true), wolves], resources: { stone: 1, iron: 2 }, sea: ['N'], relief: 'mountain', water: 'none', forest: 0.1 },
-  { id: 'siren', name: 'Siren Estuary', role: 'neutral', family: 'wet', pos: [-4.4, 0], adjacent: ['dodona-w', 'elaia-w', 'stymphalia'], fauna: [F('bear', 'kraken', true), harpies], resources: { food: 1, wood: 1, silver: 1 }, sea: ['W'], relief: 'cliffs', water: 'river', forest: 0.1 },
+  { id: 'siren', name: 'Siren Estuary', role: 'neutral', family: 'wet', pos: [-4.4, 0], adjacent: ['dodona-w', 'elaia-w', 'stymphalia'], fauna: [F('bear', 'kraken', true), harpies], resources: { food: 1, salt: 1, silver: 1 }, sea: ['W'], relief: 'cliffs', water: 'river', forest: 0.1 },
   { id: 'ammon', name: 'Ammon Salt Flats', role: 'neutral', family: 'desert', pos: [4.4, 0], adjacent: ['skythia-e', 'kyrene-e', 'ammos'], fauna: [scorpions, lions], resources: { salt: 2, silver: 1 }, sea: ['E'], relief: 'flat', water: 'lake', forest: 0 },
   { id: 'delta', name: 'Achelous Delta', role: 'neutral', family: 'wet', pos: [0, 4.4], adjacent: ['elaia-s', 'kyrene-s', 'achelous'], fauna: [F('bear', 'hydra', true), serpents], resources: { food: 2, iron: 1, salt: 1 }, sea: ['S'], relief: 'flat', water: 'river', forest: 0.05 },
   { id: 'kleisoura', name: 'Kleisoura Pass', role: 'neutral', family: 'mountain', pos: [0, -2.7], adjacent: ['dodona-e', 'skythia-w', 'krios', 'saddle'], fauna: [bandits, bears], resources: { stone: 1, tin: 2 }, relief: 'mountain', water: 'brook', forest: 0.2 },
   { id: 'stymphalia', name: 'Lake Stymphalia', role: 'neutral', family: 'wet', pos: [-2.7, 0], adjacent: ['dodona-s', 'elaia-n', 'siren', 'erymanthos'], fauna: [F('wolf', 'Stymphalian harpies', true), serpents], resources: { food: 2, wood: 1 }, relief: 'flat', water: 'lake', forest: 0.15 },
   { id: 'achelous', name: 'Achelous Ford', role: 'neutral', family: 'wet', pos: [0, 2.7], adjacent: ['elaia-e', 'kyrene-w', 'delta', 'gorge'], fauna: [serpents, bandits], resources: { food: 1, tin: 2 }, relief: 'flat', water: 'river', forest: 0.1 },
-  { id: 'ammos', name: 'Ammos Dunes', role: 'neutral', family: 'desert', pos: [2.7, 0], adjacent: ['skythia-s', 'kyrene-n', 'ammon', 'canyons'], fauna: [scorpions, lions], resources: { food: 1, stone: 1, copper: 1 }, relief: 'dunes', water: 'none', forest: 0 },
+  { id: 'ammos', name: 'Ammos Dunes', role: 'neutral', family: 'desert', pos: [2.7, 0], adjacent: ['skythia-s', 'kyrene-n', 'ammon', 'canyons'], fauna: [scorpions, lions], resources: { food: 2, stone: 1 }, relief: 'dunes', water: 'none', forest: 0 },
   { id: 'moors', name: 'Grey Moors', role: 'neutral', family: 'steppe', pos: [-1.5, -1.5], adjacent: ['dodona-e', 'dodona-s', 'saddle', 'erymanthos'], fauna: [wolves, bears], resources: { stone: 2, iron: 1 }, relief: 'plateau', water: 'marsh', forest: 0.05 },
   { id: 'kimmeria', name: 'Kimmerian Hills', role: 'neutral', family: 'steppe', pos: [1.5, -1.5], adjacent: ['skythia-w', 'skythia-s', 'saddle', 'canyons'], fauna: [bandits, horses], resources: { food: 1, stone: 1, horses: 1 }, relief: 'hills', water: 'brook', forest: 0.05 },
   { id: 'savanna', name: 'Lion Savanna', role: 'neutral', family: 'desert', pos: [1.5, 1.5], adjacent: ['kyrene-n', 'kyrene-w', 'canyons', 'gorge'], fauna: [lions, F('jackal', 'Nemean lion', true)], resources: { food: 1, wood: 1, copper: 1 }, relief: 'flat', water: 'brook', forest: 0.1 },
   { id: 'bacchae', name: 'Bacchae Hills', role: 'neutral', family: 'med', pos: [-1.5, 1.5], adjacent: ['elaia-n', 'elaia-e', 'erymanthos', 'gorge'], fauna: [boars, bandits], resources: { food: 2, wood: 1, marble: 1 }, relief: 'hills', water: 'brook', forest: 0.2 },
   { id: 'saddle', name: 'Eagle Saddle', role: 'neutral', family: 'mountain', pos: [0, -1.3], adjacent: ['kleisoura', 'moors', 'kimmeria', 'omphalos'], fauna: [F('bear', 'cyclops'), wolves], resources: { stone: 2, iron: 1 }, relief: 'plateau', water: 'none', forest: 0.1 },
   { id: 'erymanthos', name: 'Erymanthos Wood', role: 'neutral', family: 'forest', pos: [-1.3, 0], adjacent: ['stymphalia', 'moors', 'bacchae', 'omphalos'], fauna: [F('boar', 'Erymanthian boar', true), wolves], resources: { food: 1, wood: 3 }, relief: 'hills', water: 'brook', forest: 0.75 },
-  { id: 'gorge', name: 'Gorge of the Falls', role: 'neutral', family: 'mountain', pos: [0, 1.3], adjacent: ['achelous', 'savanna', 'bacchae', 'omphalos'], fauna: [harpies, serpents], resources: { food: 1, stone: 2 }, relief: 'canyon', water: 'river', forest: 0.1 },
+  { id: 'gorge', name: 'Gorge of the Falls', role: 'neutral', family: 'mountain', pos: [0, 1.3], adjacent: ['achelous', 'savanna', 'bacchae', 'omphalos'], fauna: [harpies, serpents], resources: { stone: 2, copper: 1 }, relief: 'canyon', water: 'river', forest: 0.1 },
   { id: 'canyons', name: 'Red Canyons', role: 'neutral', family: 'desert', pos: [1.3, 0], adjacent: ['ammos', 'kimmeria', 'savanna', 'omphalos'], fauna: [F('bear', 'chimera', true), scorpions], resources: { stone: 1, copper: 2 }, relief: 'canyon', water: 'none', forest: 0 },
   { id: 'omphalos', name: 'Omphalos Plateau', role: 'center', family: 'med', pos: [0, 0], adjacent: ['saddle', 'erymanthos', 'gorge', 'canyons'], fauna: [F('bear', 'titan', true), F('bear', 'minotaur', true)], resources: { stone: 2, marble: 2, silver: 3 }, relief: 'plateau', water: 'lake', forest: 0.05 },
 ];
@@ -83,5 +83,90 @@ export function sideOf(self: WorldRegion, nb: WorldRegion): { side: Side; along:
 export function checkWorld(): string[] {
   const bad: string[] = [];
   for (const r of WORLD) for (const a of r.adjacent) if (!byId.get(a)?.adjacent.includes(r.id)) bad.push(`${r.id} -> ${a}`);
+  for (const r of WORLD) if (!BRIEF[r.id]) bad.push(`${r.id}: no brief`);
   return bad;
+}
+
+// ======================================================================= strategic geography (docs/WAR.md)
+
+/** Region types of docs/WAR.md "Purpose of every region". */
+export type Purpose = 'resource' | 'trade' | 'choke' | 'fortress' | 'bread' | 'sacred' | 'buffer' | 'coastal';
+/**
+ * A feature the region map must have (its "Region map must have" line), checked on the built map by ./checks.ts:
+ * square (town square >= 24 x 24 flat tiles at spot `market`), narrows (a passage <= 10 tiles wide at spot `narrows`),
+ * highGround (2+ levels over the narrows, near it), bridgeSite (a river narrows a bridge can span), nodes (the scarce
+ * goods' nodes, the lair by the richest, a haul road to an entry), fields (farm plots near water at spot `fields`),
+ * olives (groves at spot `olives`), ridge (a defensive ridge 2+ levels over the land at spot `ridge`), fortress (a flat
+ * top >= 30 x 30 with at most `ways` ways up at spot `fortress`), beach (a landing beach), lookouts (3+ mounds).
+ */
+export type Need = 'square' | 'narrows' | 'highGround' | 'bridgeSite' | 'nodes' | 'fields' | 'olives' | 'ridge' | 'fortress' | 'beach' | 'lookouts';
+export interface Brief { purpose: [Purpose, Purpose]; needs: Need[]; ways?: number; goods?: string[] }
+
+/** Goods that count as scarce (a resource heart's nodes; silver and salt have no node art: a spot). */
+export const SCARCE = ['tin', 'iron', 'copper', 'marble', 'silver', 'salt'] as const;
+
+/** Per region: purpose (primary, secondary), the checked must-haves, and the new goods of the "Resources" table (meta only). */
+export const BRIEF: Record<string, Brief> = {
+  dodona: { purpose: ['resource', 'trade'], needs: ['square', 'nodes', 'ridge'], goods: ['pitch'] },
+  skythia: { purpose: ['bread', 'trade'], needs: ['square', 'lookouts'], goods: ['hides'] },
+  kyrene: { purpose: ['resource', 'trade'], needs: ['square', 'nodes'] },
+  elaia: { purpose: ['resource', 'coastal'], needs: ['square', 'nodes', 'olives', 'fortress', 'beach'], ways: 1, goods: ['olives'] },
+  'dodona-n': { purpose: ['buffer', 'coastal'], needs: ['narrows', 'highGround', 'ridge', 'beach'], goods: ['pitch'] },
+  'dodona-w': { purpose: ['buffer', 'coastal'], needs: ['ridge', 'beach'] },
+  'dodona-e': { purpose: ['choke', 'resource'], needs: ['narrows', 'highGround', 'nodes'], goods: ['pitch'] },
+  'dodona-s': { purpose: ['choke', 'bread'], needs: ['narrows', 'highGround', 'bridgeSite', 'fields'], goods: ['herbs'] },
+  'skythia-n': { purpose: ['buffer', 'coastal'], needs: ['ridge', 'beach'], goods: ['hides'] },
+  'skythia-e': { purpose: ['buffer', 'coastal'], needs: ['ridge', 'beach'], goods: ['hides'] },
+  'skythia-w': { purpose: ['choke', 'resource'], needs: ['narrows', 'highGround'], goods: ['pitch'] },
+  'skythia-s': { purpose: ['buffer', 'bread'], needs: ['ridge', 'fields'], goods: ['hides'] },
+  'kyrene-n': { purpose: ['choke', 'resource'], needs: ['narrows', 'highGround', 'nodes'] },
+  'kyrene-e': { purpose: ['resource', 'coastal'], needs: ['nodes', 'narrows', 'beach'] },
+  'kyrene-s': { purpose: ['resource', 'buffer'], needs: ['nodes', 'ridge'] },
+  'kyrene-w': { purpose: ['bread', 'choke'], needs: ['square', 'fields', 'narrows', 'bridgeSite'], goods: ['flax'] },
+  'elaia-n': { purpose: ['bread', 'choke'], needs: ['fields', 'narrows'], goods: ['flax', 'herbs'] },
+  'elaia-w': { purpose: ['coastal', 'resource'], needs: ['beach', 'ridge'], goods: ['pitch'] },
+  'elaia-s': { purpose: ['fortress', 'buffer'], needs: ['fortress', 'beach'], ways: 2 },
+  'elaia-e': { purpose: ['bread', 'choke'], needs: ['square', 'olives', 'narrows', 'bridgeSite'], goods: ['olives'] },
+  krios: { purpose: ['resource', 'choke'], needs: ['nodes', 'narrows', 'highGround'] },
+  siren: { purpose: ['resource', 'coastal'], needs: ['nodes', 'beach'], goods: ['flax'] },
+  ammon: { purpose: ['resource', 'fortress'], needs: ['nodes', 'fortress'], ways: 1 },
+  delta: { purpose: ['resource', 'bread'], needs: ['nodes', 'fields', 'narrows'], goods: ['flax', 'herbs'] },
+  kleisoura: { purpose: ['choke', 'resource'], needs: ['narrows', 'highGround', 'square', 'nodes'] },
+  stymphalia: { purpose: ['trade', 'choke'], needs: ['square', 'narrows', 'highGround'], goods: ['flax', 'herbs'] },
+  achelous: { purpose: ['choke', 'resource'], needs: ['narrows', 'bridgeSite', 'square', 'nodes'] },
+  ammos: { purpose: ['trade', 'buffer'], needs: ['square', 'ridge'] },
+  moors: { purpose: ['fortress', 'resource'], needs: ['fortress', 'nodes'], ways: 2 },
+  kimmeria: { purpose: ['fortress', 'bread'], needs: ['fortress'], ways: 1 },
+  savanna: { purpose: ['resource', 'fortress'], needs: ['nodes', 'fortress'], ways: 2, goods: ['hides'] },
+  bacchae: { purpose: ['bread', 'resource'], needs: ['olives', 'fields', 'nodes'], goods: ['olives', 'herbs'] },
+  saddle: { purpose: ['choke', 'resource'], needs: ['narrows', 'highGround', 'nodes'] },
+  erymanthos: { purpose: ['choke', 'resource'], needs: ['narrows', 'highGround'], goods: ['herbs'] },
+  gorge: { purpose: ['choke', 'resource'], needs: ['narrows', 'highGround', 'nodes'] },
+  canyons: { purpose: ['choke', 'resource'], needs: ['narrows', 'highGround', 'nodes'] },
+  omphalos: { purpose: ['sacred', 'resource'], needs: ['square', 'fortress'], ways: 4 },
+};
+
+/** The trade routes of docs/WAR.md "Trade routes" as region sequences; a step may offer alternatives (the Sacred Way's gates). */
+export const ROUTES: { name: string; path: string[][] }[] = [
+  { name: 'Tin Road', path: [['dodona'], ['dodona-e'], ['kleisoura'], ['skythia-w'], ['skythia']] },
+  { name: 'Lake Road', path: [['dodona'], ['dodona-s'], ['stymphalia'], ['elaia-n'], ['elaia']] },
+  { name: 'River Road', path: [['elaia'], ['elaia-e'], ['achelous'], ['kyrene-w'], ['kyrene']] },
+  { name: 'Desert Road', path: [['skythia'], ['skythia-s'], ['ammos'], ['kyrene-n'], ['kyrene']] },
+  { name: 'Sacred Way (iron arm)', path: [['dodona'], ['dodona-s'], ['moors'], ['saddle', 'erymanthos'], ['omphalos'], ['canyons', 'gorge'], ['savanna'], ['kyrene-n'], ['kyrene']] },
+  { name: 'Sacred Way (marble arm)', path: [['skythia'], ['skythia-s'], ['kimmeria'], ['saddle', 'canyons'], ['omphalos'], ['erymanthos', 'gorge'], ['bacchae'], ['elaia-n'], ['elaia']] },
+];
+
+/**
+ * The legs a region's roads must join, per route through it: [a, b], each a neighbour (its entry) or 'market' (the
+ * route ends at this region's square). Only real neighbours count (a step's alternatives need not all border it).
+ */
+export function routeLegs(id: string): { route: string; a: string; b: string }[] {
+  const out: { route: string; a: string; b: string }[] = [], adj = new Set(byId.get(id)?.adjacent ?? []);
+  for (const r of ROUTES) r.path.forEach((step, n) => {
+    if (!step.includes(id)) return;
+    const prev = n > 0 ? r.path[n - 1].filter((p) => adj.has(p)) : ['market'];
+    const next = n < r.path.length - 1 ? r.path[n + 1].filter((p) => adj.has(p)) : ['market'];
+    for (const a of prev) for (const b of next) if (!out.some((o) => (o.a === a && o.b === b) || (o.a === b && o.b === a))) out.push({ route: r.name, a, b });
+  });
+  return out;
 }

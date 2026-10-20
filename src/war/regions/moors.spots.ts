@@ -4,10 +4,11 @@ export const SPOTS = {
   "entry_dodona-s": [10.5, 221.7],
   "entry_saddle": [502.5, 279.7],
   "entry_erymanthos": [279.7, 502.5],
-  "highGround": [136.4, 158.3],
+  "highGround": [388.4, 364.1],
+  "fortress": [109.1, 328.8],
   "market": [227, 220.2],
-  "stone": [81.3, 215.6],
-  "iron": [260.8, 245.4],
+  "iron": [94, 123.6],
+  "stone": [355.5, 167.3],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
 export const CLAIM_POINTS = [{"x":231.5,"y":223.5}] as const;
