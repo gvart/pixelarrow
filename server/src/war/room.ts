@@ -736,8 +736,10 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; freed: string[]; raided: number[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
     const t0 = now();
+    // M6i: carts' owners before the step (a capture names only the taker)
+    const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
     this.sim.step();
     this.bots.tick();
     const t1 = now();
@@ -745,6 +747,7 @@ export class WarRoom {
     const evs = this.sim.events();
     const crafted = evs.filter((e): e is Crafted => e.kind === 'crafted');
     const bosses = evs.filter((e): e is BossSlain => e.kind === 'bossSlain');
+    const captured = evs.flatMap((e) => (e.kind === 'cartCaptured' && cartWas.has(e.cart) ? [{ cart: e.cart, from: cartWas.get(e.cart)!.owner, team: cartWas.get(e.cart)!.team, to: e.owner }] : []));
     for (const e of crafted) if (e.what === 'craft') this.deposit(e);
     for (const e of bosses) this.sim.dropPile(e.x ?? this.region.w / 2, e.y ?? this.region.h / 2, [], bossItems(this.region.id, this.run, e));
     // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
@@ -796,7 +799,7 @@ export class WarRoom {
       }
     }
     this.lastTick = this.snap.tick;
-    return { frames, admitted, fights, crafted, bosses, freed, raided, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, admitted, fights, crafted, bosses, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /** Battle honours won in a finished fight go on its report (src/war/sim/honours.ts); the fort-taking slate is wiped. */

@@ -34,7 +34,14 @@ import { allianceOf } from './world/members';
 import { presentIn } from './market';
 import type { AllianceId } from '../../../src/war/world/types';
 import { buyLetter, contractsIn, dropHalf, offerLetter, postContract, postDeal, redeemLetter, takeContract } from './contracts';
-import { contractRefusal } from './abuse';
+import { contractRefusal, noteSeen, seenOf } from './abuse';
+import type { Context } from 'hono';
+
+/** M6i: note where the account trades from (linked accounts). */
+const seen = async (c: Context<AppEnv>) => {
+  const s = seenOf(c.req.raw);
+  await noteSeen(db(c.env), c.get('session').pid, s.ip, s.device, Date.now());
+};
 
 export const trade = new Hono<AppEnv>();
 
@@ -81,6 +88,7 @@ trade.post('/:town/upgrade', requirePlayable, async (c) => {
 
 trade.post('/:town/offers', requirePlayable, async (c) => {
   const t = town(c.req.param('town'));
+  await seen(c);
   const b = await readJson(
     c,
     z.object({ side: z.enum(['sell', 'buy']), res: good.optional(), uid: z.string().min(1).max(120).optional(), n: z.number().positive().max(100_000), price: z.number().int().min(1).max(1_000_000), standing: z.boolean().optional() }),
@@ -100,6 +108,7 @@ trade.post('/:town/deals', requirePlayable, async (c) => {
   const t = town(c.req.param('town'));
   const b = await readJson(c, z.object({ broker: z.number().int().positive(), with: z.number().int().positive(), give: goods, get: goods }), MAX_BODY);
   const d = db(c.env), pid = c.get('session').pid;
+  await seen(c);
   await contractRefusal(d, pid, b.with, Date.now());
   return c.json({ deal: await postDeal(d, pid, t, b.broker, b.with, b.give, b.get, Date.now()) });
 });
@@ -123,6 +132,7 @@ trade.post('/:town/contracts', requirePlayable, async (c) => {
 
 trade.post('/contracts/:id/take', requirePlayable, async (c) => {
   const id = num(c.req.param('id')), d = db(c.env), pid = c.get('session').pid;
+  await seen(c);
   const row = await d.prepare('SELECT poster FROM war_contracts WHERE id = ?1').bind(id).first<{ poster: number }>();
   if (row) await contractRefusal(d, pid, row.poster, Date.now());
   await takeContract(d, pid, id, Date.now());
@@ -137,6 +147,7 @@ trade.post('/:town/letters', requirePlayable, async (c) => {
 
 trade.post('/letters/:id/buy', requirePlayable, async (c) => {
   const id = num(c.req.param('id')), d = db(c.env), pid = c.get('session').pid;
+  await seen(c);
   const row = await d.prepare('SELECT banker FROM war_letters WHERE id = ?1').bind(id).first<{ banker: number }>();
   if (row) await contractRefusal(d, pid, row.banker, Date.now());
   await buyLetter(d, pid, id, Date.now());
@@ -149,6 +160,7 @@ trade.post('/offers/:id/fill', requirePlayable, async (c) => {
   const id = num(c.req.param('id'));
   const b = await readJson(c, z.object({ n: z.number().positive().max(100_000), key: z.string().regex(/^[A-Za-z0-9_-]{4,64}$/) }), MAX_BODY);
   const d = db(c.env), pid = c.get('session').pid;
+  await seen(c);
   const row = await d.prepare('SELECT town FROM war_offers WHERE id = ?1').bind(id).first<{ town: string }>();
   const holder = row ? await holderOf(c.env, row.town) : -1;
   const f = await fill(d, pid, id, b.n, b.key, holder, Date.now(), fillHook(c.env));

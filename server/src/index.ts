@@ -15,6 +15,7 @@ import { WAR_REGIONS } from './war/regions';
 import { war } from './war/routes';
 import { worldApi, worldStub } from './war/world/routes';
 import { allianceOf } from './war/world/members';
+import { noteSeen, seenOf } from './war/abuse';
 import { lookupSession, pruneAuth } from './auth/sessions';
 import { finishDeletions } from './account/delete';
 import { pruneLinks } from './account/cron';
@@ -217,7 +218,10 @@ app.get('/ws/war/world', async (c) => {
 /** A live war region (M3, server/src/war/): the region's WarRegionDO runs the sim; protocol src/war/net/protocol.ts. */
 app.get('/ws/war/:region', async (c) => {
   const region = c.req.param('region');
-  const { headers } = await wsSession(c);
+  const { headers, session } = await wsSession(c);
+  // M6i: the address and device this account plays from (linked accounts)
+  const s = seenOf(c.req.raw);
+  await noteSeen(db(c.env), session.pid, s.ip, s.device, Date.now()).catch(() => undefined);
   if (!WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such war region');
   headers.set('x-region-id', region);
   const stub = c.env.WAR_REGION.get(c.env.WAR_REGION.idFromName(region));

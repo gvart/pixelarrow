@@ -33,7 +33,7 @@ import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './roo
 import { warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, sealedFor } from './contracts';
-import { handoffDone, handoffRefusal } from './abuse';
+import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
 import { loads } from '../../../src/war/sim/holders';
 import { ApiError } from '../errors';
 import { batch, guard, lotsOf, placeItemStmt, planTake, putStmt, strongroom } from './holders';
@@ -537,6 +537,10 @@ export class WarRegionDO extends DurableObject<Env> {
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
     if (d && r.freed.length) this.write('unmend', () => returnMends(d, room.region.id, r.freed));
+    // M6i: a cart captured between linked accounts goes back to its owner
+    if (d && r.captured.length) this.write('captures', async () => {
+      for (const c of await linkedCaptures(d, r.captured, Date.now())) room.sim.setCartOwner(c.cart, c.team, c.from);
+    });
     this.flushReleased(room);
     this.report(room);
     if (r.fights.length || r.crafted.length || r.bosses.length || r.freed.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();

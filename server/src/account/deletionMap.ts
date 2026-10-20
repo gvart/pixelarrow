@@ -88,6 +88,8 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_pools: { rule: 'delete', pid: ['player_id'] },
   war_holders: { rule: 'delete', pid: ['player_id'] },
   war_offers: { rule: 'delete', pid: ['player_id'] },
+  war_seen: { rule: 'delete', pid: ['player_id'] },
+  war_gifts: { rule: 'delete', pid: ['player_id'] },
   war_region_holds: { rule: 'delete', pid: ['player_id'] },
   war_crafts: { rule: 'delete', pid: ['player_id'] },
   war_alliance_members: { rule: 'delete', pid: ['player_id'] },
