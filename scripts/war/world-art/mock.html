@@ -1,11 +1,12 @@
 <!doctype html>
-<!-- World map mock-up (M4c art): composes public/war/world the way the strategic view should. Serve the repo root,
-     open /scripts/war/world-art/mock.html, screenshot the canvas. ?scale=1|2 picks base.png or base@2x.png. -->
+<!-- World map mock-up (v2, W-43): composes public/war/world the way the strategic view should. Serve the repo root,
+     open /scripts/war/world-art/mock.html, screenshot the canvas. ?scale=1|2 picks base.jpg or base@2x.jpg. -->
 <meta charset="utf-8" />
 <title>World map mock</title>
 <style>
   html, body { margin: 0; background: #0e0907; }
-  canvas { display: block; image-rendering: pixelated; }
+  canvas { display: block; }
+  @font-face { font-family: Cinzel; font-weight: 700; src: url(/node_modules/@fontsource/cinzel/files/cinzel-latin-700-normal.woff2); }
 </style>
 <canvas id="c"></canvas>
 <script type="module">
@@ -14,7 +15,7 @@
   const sfx = scale === 2 ? '@2x' : '';
   const load = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
   const doc = await (await fetch(W + 'regions.json')).json();
-  const [base, borders] = await Promise.all([load(W + `base${sfx}.png`), load(W + `borders${sfx}.png`)]);
+  const [base, borders] = await Promise.all([load(W + `base${sfx}.jpg`), load(W + `borders${sfx}.png`)]);
   const mk = {};
   for (const n of ['fort', 'battle', 'transit', 'home']) mk[n] = await load(W + `markers/${n}${sfx}.png`);
   const ban = {};
@@ -23,7 +24,8 @@
   const c = document.getElementById('c');
   c.width = doc.size[0] * scale; c.height = doc.size[1] * scale;
   const g = c.getContext('2d');
-  g.imageSmoothingEnabled = false;
+  await document.fonts.load("700 20px Cinzel");
+  g.imageSmoothingQuality = "high";
   g.scale(scale, scale);
   g.drawImage(base, 0, 0, doc.size[0], doc.size[1]);
 
@@ -34,12 +36,18 @@
   const path = (poly) => { g.beginPath(); poly.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); };
   for (const [id, r] of Object.entries(doc.regions)) {
     const a = owner[id];
-    if (!a) continue;
     path(r.polygon);
-    g.globalAlpha = r.role === 'home' ? 0.42 : 0.26;
-    g.fillStyle = doc.alliances[a].color;
+    g.globalAlpha = a ? 0.32 : 0.26;
+    g.fillStyle = a ? doc.alliances[a].color : '#78787f'; // neutral: grey wash
     g.fill();
     g.globalAlpha = 1;
+  }
+  // contested: hatched with the contender's colour
+  for (const [id, foe] of [['kleisoura', 'skythia'], ['achelous', 'kyrene']]) {
+    g.save(); path(doc.regions[id].polygon); g.clip();
+    g.strokeStyle = doc.alliances[foe].color; g.globalAlpha = 0.62; g.lineWidth = 7;
+    for (let x = -1536; x < 2048; x += 22) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 1536, 1536); g.stroke(); }
+    g.restore();
   }
   g.drawImage(borders, 0, 0, doc.size[0], doc.size[1]);
 
@@ -64,7 +72,7 @@
     g.lineWidth = 3; g.strokeStyle = color; g.stroke(); g.setLineDash([]);
     return x;
   };
-  const icon = (im, [x, y], s = 1) => g.drawImage(im, Math.round(x - (im.width / scale) * s / 2), Math.round(y - (im.height / scale) * s / 2), (im.width / scale) * s, (im.height / scale) * s);
+  const icon = (im, [x, y], s = 1) => { g.imageSmoothingEnabled = false; g.drawImage(im, Math.round(x - (im.width / scale) * s / 2), Math.round(y - (im.height / scale) * s / 2), (im.width / scale) * s, (im.height / scale) * s); g.imageSmoothingEnabled = true; };
   icon(mk.transit, route('elaia-e', 'achelous', doc.alliances.elaia.color));
   icon(mk.transit, route('skythia-w', 'kleisoura', doc.alliances.skythia.color));
   icon(mk.battle, doc.regions.kleisoura.crossings['dodona-e']);
@@ -75,7 +83,7 @@
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const [id, r] of Object.entries(doc.regions)) {
     const home = r.role === 'home';
-    g.font = `${home ? 'bold 30px' : 'bold 19px'} Georgia, 'Times New Roman', serif`;
+    g.font = `700 ${home ? 30 : 19}px Cinzel, serif`;
     const t = home ? r.name.toUpperCase() : r.name;
     // a name wider than the free room on its row wraps onto two lines
     const words = t.split(' ');

@@ -5,7 +5,7 @@ import { ROOT } from './regions.mjs';
 
 const jobs = JSON.parse(readFileSync(new URL('./jobs.json', import.meta.url), 'utf8'));
 export const RAW = join(process.env.SHOTS || join(ROOT, 'shots'), 'war/pixellab/worldmap/raw');
-for (const group of ['glyphs', 'markers', 'banners']) {
+for (const group of ['markers', 'banners']) {
   mkdirSync(join(RAW, group), { recursive: true });
   for (const [name, id] of Object.entries(jobs[group])) {
     const out = join(RAW, group, `${name}.png`);

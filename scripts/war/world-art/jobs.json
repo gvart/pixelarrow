@@ -1,26 +1,5 @@
 {
-  "note": "PixelLab create_image_pixflux jobs for the world map (PROMPTS_ART.md §37). name -> job id. fetch.mjs downloads the raws to shots/war/pixellab/worldmap/raw (git-ignored); paint.mjs trims them into public/war/world/.",
-  "glyphs": {
-    "pine": "176ec02e-1c8f-48a1-9b70-b464129a6063",
-    "oak": "e84d0cd9-73f1-4b63-aa44-464a14ac5b67",
-    "olive": "e526bfbd-e6eb-4c2f-9670-3e19efd2f840",
-    "cypress": "020ca402-5f96-4fd6-ae45-ca5c58a00666",
-    "palm": "2dbc1591-974f-4d69-a7de-fe05efc3802a",
-    "acacia": "c44c270e-ecd0-4262-bd50-1c785e94c5e2",
-    "mountain": "dc883173-ef33-4401-946f-09856d9c57f4",
-    "peak": "23e361cf-6af0-44f2-a808-debc507d6896",
-    "dune": "a28f9897-b722-473d-8512-7e18a542d771",
-    "reed": "694e2bf6-d2a5-4a77-a057-af4ca38be930",
-    "mound": "3b5a6b23-3112-4b60-ad40-f159c60ddd31",
-    "butte": "c9bb74d6-7e5d-4c80-95a1-0bb765f1a436",
-    "vine": "7c69446c-fc43-4804-b421-f23bc80eb1a3",
-    "tor": "50f616d0-3576-4a62-9c96-e38ebab581ef",
-    "scrub": "7318069d-3493-4b39-8df3-925bd4ba78d1",
-    "town": "40b87c37-d323-408a-9ce1-dce8d1dd94f7",
-    "temple": "b1c2421f-6e4f-42fb-9068-b634f7ace3a4",
-    "ford": "86c981a1-ff4e-4023-a2bc-a73d85696749",
-    "pass": "5a9b8df9-bcbd-4fd9-9ffa-909be098b677"
-  },
+  "note": "PixelLab create_image_pixflux jobs for the world map markers and banners (PROMPTS_ART.md §37). name -> job id. fetch.mjs downloads the raws to shots/war/pixellab/worldmap/raw (git-ignored); paint.mjs trims them into public/war/world/.",
   "markers": {
     "fort": "99155ed9-7913-4ec8-9160-f49af7060243",
     "battle": "397a7ccf-cecf-41aa-aae0-17c83473385f",
