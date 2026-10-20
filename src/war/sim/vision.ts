@@ -55,6 +55,16 @@ export interface Vision {
   lastSeen(team: number): BuildingSnap[];
   /** Milliseconds the last update took (0 on ticks without one). */
   ms(): number;
+  /** Save and restore (./state.ts): the cell grids, height poll and per-team fog; a key's cells are recomputed on load. */
+  saveRoot(): VisionRoot;
+  loadRoot(o: VisionRoot): void;
+}
+
+export interface VisionRoot {
+  cellH: Uint8Array;
+  cellF: Uint8Array;
+  heightsAt: number;
+  teams: Map<number, { count: Uint16Array; fog: FogGrid; keys: Map<number, number>; seen: Map<number, BuildingSnap> }>;
 }
 
 interface Entry { cells: Int32Array; n: number }
@@ -259,5 +269,20 @@ export function createVision(grid: Grid, src: { units(): Iterable<Viewer>; build
     teamGrid: (tm) => team(tm).fog,
     lastSeen: (tm) => [...team(tm).seen.values()],
     ms: () => lastMs,
+    saveRoot: () => ({
+      cellH, cellF, heightsAt,
+      teams: new Map([...teams].map(([t, v]) => [t, { count: v.count, fog: v.fog, seen: v.seen, keys: new Map([...v.keys].map(([k, e]) => [k, e.n])) }])),
+    }),
+    loadRoot(o) {
+      cellH.set(o.cellH);
+      cellF.set(o.cellF);
+      heightsAt = o.heightsAt;
+      teams.clear();
+      for (const [t, v] of o.teams) {
+        const keys = new Map<number, Entry>();
+        for (const [k, nn] of v.keys) keys.set(k, { cells: compute(Math.floor(k / 128), k % 128), n: nn });
+        teams.set(t, { count: v.count, fog: v.fog, seen: v.seen, keys });
+      }
+    },
   };
 }

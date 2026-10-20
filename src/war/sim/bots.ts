@@ -29,6 +29,7 @@
  * it sees now (any man in sight), or saw within MEMORY ticks (at the spot last seen); foe men and engines in sight; foe
  * buildings as last seen.
  */
+import { decodeGraph, encodeGraph } from './state';
 import type { BuildingSnap, Order, SiegeSnap, Snapshot, SquadId, WarBuildSim, WarSim } from '../types';
 import { warStats } from './classes';
 
@@ -49,6 +50,9 @@ export interface Bots {
    * 'ram' | 'ladder' | 'up' | 'in' | 'breach' | 'suppress' | 'burn' | 'wait' | 'climb' | 'walls' | 'push' | 'sally' | 'douse' | 'scout' (fog: no wall of the place seen yet).
    */
   phase(squad: SquadId): string | undefined;
+  /** M5e eviction resume: the controllers' state as JSON-safe data, and back (into fresh bots of a restored sim). */
+  exportState(): unknown;
+  importState(s: unknown): void;
 }
 
 const AGGRO = 10; // attack-move: engage enemy squads this near
@@ -479,6 +483,11 @@ export function createBots(sim: WarSim, every = 5): Bots {
     },
     phase(squad) {
       return bots.get(squad)?.phase;
+    },
+    exportState: () => encodeGraph({ bots, ticks, memo }, new Map()),
+    importState(s) {
+      const r = decodeGraph(s as ReturnType<typeof encodeGraph>, new Map(), { bots, ticks, memo }) as { ticks: number };
+      ticks = r.ticks;
     },
   };
 }

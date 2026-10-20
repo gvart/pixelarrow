@@ -1193,6 +1193,9 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   };
 
   return {
+    /** Save and restore (./state.ts): the closure state (the decoder refills the containers in place; `tick` is set back). */
+    saveRoot: () => ({ nodes, nodeAt, regrowing, buildings, braziers, occ, noBuild, stock, claims, infl, pathQueue, waits, active, cutOff, waitAt, burning, tick }),
+    loadRoot: (o: { tick: number }) => void (tick = o.tick),
     /** The finished bridge piece whose open deck or ramp is tile t (its line: axis, dir, width, row centres), or null. */
     bridgeAt: (t: number) => { const o = buildings[occ[t]]; return o && o.bridge && o.decked ? o.bridge : null; },
     checkPlacement,
