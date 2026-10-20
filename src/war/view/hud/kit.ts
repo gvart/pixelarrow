@@ -1,6 +1,6 @@
 /**
  * The red-figure UI kit (W-32, public/war/ui/ui.json): its CSS (9-slice frames as border-image, buttons with their
- * states, bars, the hover label, the tooltip, the radial menu) and the scale. 1 art px = `zoom` CSS px: the UI scale
+ * states, bars, the hover label, the tooltip) and the scale. 1 art px = `zoom` CSS px: the UI scale
  * setting (auto by viewport, 0.75x / 1x / 1.25x / 1.5x / 2x; W-34) snapped to quarter device pixels and drawn nearest-neighbour
  * (image-rendering: pixelated, the @1x / @2x asset by device pixel ratio), so the pixel art stays sharp.
  */
@@ -99,12 +99,6 @@ export const CSS = `
 .rf-seg button:hover{border-image-source:${set('buttons/button-icon-hover.png')}}
 .rf-seg button.on{border-image-source:${set('buttons/button-icon-active.png')}}
 .rf-seg button .key,.rf-btn .key{position:absolute;right:2px;bottom:1px;font-size:8px;color:#f0d9b5;text-shadow:0 1px 0 #0e0907}
-.rf-radial{z-index:7;pointer-events:none}
-.rf-radial .rf-btn{position:absolute}
-.rf-radial .rf-btn.sel{background-image:${set('buttons/button-icon-active.png')}}
-.rf-radial .rf-btn.sel:disabled{background-image:${set('buttons/button-icon-hover.png')}}
-.rf-radial .hub{position:absolute;width:12px;height:12px;border-radius:50%;background:#0e0907;border:2px solid #b8592a}
-.rf-radial .rf-label{position:absolute;transform:translateX(-50%)}
 .rf input{font:600 10px/1 Inter,sans-serif;width:26px;height:18px;background:#0e0907;color:#f0d9b5;border:1px solid #7a3418;padding:0 2px}
 `;
 
