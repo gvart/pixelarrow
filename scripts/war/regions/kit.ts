@@ -603,8 +603,8 @@ const CONDITION_BY_DEPTH: { ruin: number; hp: [number, number] }[] = [
 const CONDITION: Record<string, { ruin: number; hp: [number, number] }> = {
   stymphalia: { ruin: 0.35, hp: [0.5, 0.9] }, achelous: { ruin: 0.2, hp: [0.55, 0.9] }, 'kyrene-e': { ruin: 0.5, hp: [0.5, 0.8] }, kimmeria: { ruin: 0.55, hp: [0.35, 0.7] },
 };
-/** Pieces that may lie in ruins (a town keeps its temple, well, board and cache; its share of houses stays under TOWN_RUIN). */
-const MAY_RUIN = new Set<BuildingType>(['house', 'cottage', 'tent', 'stall', 'workshop', 'storehouse', 'forge', 'cookhouse', 'olivePress', 'farm', 'statue', 'warehouse']);
+/** Pieces that may lie in ruins (a town keeps its temple, well, stalls, board and cache; its share of houses stays under TOWN_RUIN). */
+const MAY_RUIN = new Set<BuildingType>(['house', 'cottage', 'tent', 'workshop', 'storehouse', 'forge', 'cookhouse', 'olivePress', 'farm', 'statue', 'warehouse']);
 const PREBUILT_POP = new Set<BuildingType>(['house', 'cottage', 'tent']);
 
 // ======================================================================================= the build
