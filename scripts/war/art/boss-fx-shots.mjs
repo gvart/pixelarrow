@@ -19,8 +19,8 @@ const only = process.argv[4]?.split(',');
  * phase clip hurts it down to (before, at the change) and how long each clip runs (frames).
  */
 const BOSSES = [
-  { id: 'drakon', region: 'krios', raid: [[0, 8], [-4, 9], [4, 9], [0, 12]], cls: ['hoplite', 'hoplite', 'archer', 'archer'], zoom: 0.42, sig: 0.5, phase: [0.32, 0.28], death: 0.25, cam: [-4, -9] },
-  { id: 'brontes', region: 'saddle', raid: [[0, 10], [-4, 12], [4, 12]], cls: ['hoplite', 'archer', 'hoplite'], zoom: 0.5, sig: 1, phase: [0.52, 0.48], cam: [-1, -1] },
+  { id: 'drakon', region: 'krios', raid: [[0, 8], [-4, 9], [4, 9], [0, 12]], cls: ['hoplite', 'hoplite', 'archer', 'archer'], zoom: 0.42, sig: 0.58, phase: [0.57, 0.555], death: 0.25, cam: [-4, -9] },
+  { id: 'brontes', region: 'saddle', raid: [[0, 10], [-4, 12], [4, 12]], cls: ['hoplite', 'archer', 'hoplite'], zoom: 0.5, sig: 1, phase: [0.88, 0.83], cam: [-1, -1] },
   { id: 'gyges', region: 'gorge', raid: [[0, 4], [-3, 5], [3, 5]], cls: ['hoplite', 'celt_sword', 'archer'], zoom: 0.7, sig: 1, phase: [0.52, 0.48], cam: [0, 2] },
   { id: 'scylla', region: 'siren', raid: [[8, 0], [9, 4], [9, -4]], cls: ['hoplite', 'hoplite', 'archer'], zoom: 0.6, sig: 1, cam: [5, 0], parts: true },
   { id: 'chimera', region: 'canyons', raid: [[0, 4], [-3, 5], [3, 5]], cls: ['hoplite', 'celt_sword', 'archer'], zoom: 0.8, sig: 1, cam: [0, 2] },
@@ -72,6 +72,8 @@ for (const b of BOSSES) {
     const s = window.__sandbox;
     b.raid.forEach(([dx, dy], i) => s.sim.spawn('you', 0, b.cls[i], 12, home.x + dx, home.y + dy));
     s.focus(home.x + b.cam[0], home.y + b.cam[1], b.zoom);
+    // the boss camera follows him (his whole silhouette framed, as a click on him does)
+    s.guardians.focus = s.sim.cur.bosses.find((q) => q.id === b.id).unit;
   }, { b, home });
   await wait(1200);
   // the raid on him
@@ -92,10 +94,15 @@ for (const b of BOSSES) {
     await page.evaluate(({ id, to }) => window.__sandbox.sim.hurtBossTo(id, to), { id: b.id, to: b.death });
     await wait(3000);
   }
-  // down: every part (Scylla's heads, the Chimera's heads) then the body
+  // down: every part (Scylla's heads, the Chimera's heads), then (once the sim has opened the body: Scylla's cave stays
+  // shut, immune, until a tick after her heads fall) the body
   await page.evaluate((id) => {
     const s = window.__sandbox;
     for (let i = 0; i < 6; i++) s.sim.hurtBossTo(id, 0, i);
+  }, b.id);
+  if (b.parts) await wait(600);
+  await page.evaluate((id) => {
+    const s = window.__sandbox;
     for (let i = 0; i < 6; i++) s.sim.hurtBossTo(id, 0);
   }, b.id);
   await gif(`${b.id}-death`, 45);

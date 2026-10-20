@@ -61,7 +61,8 @@
    "col": 36,
    "frames": 12,
    "fps": 12,
-   "strike": 8
+   "strike": 8,
+   "hold": 4
   },
   "brace": {
    "col": 48,
