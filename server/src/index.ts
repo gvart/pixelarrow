@@ -11,6 +11,7 @@ import type { AppEnv } from './env';
 import { ApiError, errorBody, unauthorized } from './errors';
 import { assertPlayable, credentials, db, requirePlayable, requireSession } from './middleware';
 import { originCheck } from './auth/origin';
+import { WAR_REGIONS } from './war/regions';
 import { lookupSession, pruneAuth } from './auth/sessions';
 import { finishDeletions } from './account/delete';
 import { pruneLinks } from './account/cron';
@@ -42,6 +43,7 @@ import { adminPage } from './admin/page';
 export { RegionDO } from './region';
 export { MatchmakerDO } from './duel/matchmaker';
 export { DuelDO } from './duel/duelDO';
+export { WarRegionDO } from './war/regionDO';
 
 /**
  * The landing Worker's way in (ADR-0010 §4): its GAME service binding names
@@ -208,6 +210,24 @@ app.get('/ws/region/:id', async (c) => {
   headers.delete('x-shard');
   const stub = c.env.REGION.get(c.env.REGION.idFromName(region));
   return stub.fetch(new Request(c.req.url, { headers }));
+});
+
+/** A live war region (M3, server/src/war/): the region's WarRegionDO runs the sim; protocol src/war/net/protocol.ts. */
+app.get('/ws/war/:region', async (c) => {
+  const region = c.req.param('region');
+  const { headers } = await wsSession(c);
+  if (!WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such war region');
+  headers.set('x-region-id', region);
+  const stub = c.env.WAR_REGION.get(c.env.WAR_REGION.idFromName(region));
+  return stub.fetch(new Request(c.req.url, { headers }));
+});
+
+/** Dev only (DEV_AUTH=1): the region's tick times and bandwidth (scripts/war/loadtest.mjs). */
+app.get('/api/war/:region/stats', async (c) => {
+  const region = c.req.param('region');
+  if (c.env.DEV_AUTH !== '1' || !WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such endpoint');
+  const stub = c.env.WAR_REGION.get(c.env.WAR_REGION.idFromName(region));
+  return c.json(await (await stub.fetch(new Request(`https://war/${region}/stats`))).json());
 });
 
 /** The online shard of the player's current season: presence, duel lobby and lockstep relay. */

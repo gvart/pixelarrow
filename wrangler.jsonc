@@ -70,13 +70,17 @@
     "bindings": [
       { "name": "REGION", "class_name": "RegionDO" },
       { "name": "MATCHMAKER", "class_name": "MatchmakerDO" },
-      { "name": "DUEL", "class_name": "DuelDO" }
+      { "name": "DUEL", "class_name": "DuelDO" },
+      // one live war region per object (M3, server/src/war/regionDO.ts)
+      { "name": "WAR_REGION", "class_name": "WarRegionDO" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["RegionDO"] },
     // live ranked and unranked duels (docs/DUELS.md): the global queue and one object per match
-    { "tag": "v2", "new_sqlite_classes": ["MatchmakerDO", "DuelDO"] }
+    { "tag": "v2", "new_sqlite_classes": ["MatchmakerDO", "DuelDO"] },
+    // the live war regions (docs/impl/global-war-rebuild.md M3)
+    { "tag": "v3", "new_sqlite_classes": ["WarRegionDO"] }
   ],
   // Analytics Engine (docs/OPS.md "Analytics"): product events and client
   // error counts. deploy-config.mjs can drop these (ANALYTICS_ENGINE=off);
