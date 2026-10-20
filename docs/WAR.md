@@ -243,3 +243,189 @@ a region.
 | --- | --- |
 | `Hero`, `computeStats`, attributes, `xpToNext`, items, rarity, affixes, sets, requirements, `salvageValue`, traits shape, class defs and kits | morale, rout, stamina, auras, per-unit abilities, 5-tier perk trees (now 2 skill slots), medallions, campaign rest and physician gold |
 | `warStats` (`src/war/sim/classes.ts`) stays the class baseline (and clamp base) and the mob path; new `warStatsOf(hero)` bakes a person | `MAX_ARMY` 20 as the war squad size (becomes `SQUAD_MAX` = N) |
+
+## Crafting and professions
+
+W-40. Every civilian class has a profession tree that opens with its level; every made thing has a recipe; crafted
+weapons, armour and tools roll rarity, random stats and a quality on the existing item system (docs/ITEMS.md).
+Crafting is economy work on the civilian loop: it adds no units, flags or per-tick logic to the 600-unit sim.
+
+### Trees
+
+Each tree: a free root at L1, 9 nodes, 2 capstones at L10 (pick one). 1 point per level from L2 to L9 (8 points), so a
+crafter leaves at least one node out. A node needs its level and the node in brackets. Respec at a workplace: 50
+silver, once a day. The three skills per class in the Classes table become nodes (\*); civilians have no skill slots.
+XP per job = the recipe's tier (1–3; dishes, remedies and refining 1).
+
+| L | Smith | Cook | Physician |
+| --- | --- | --- | --- |
+| 1 | **Smelter** (root): bronze, repair at a forge; spears, short spears, lances, javelins, clubs, shields | **Camp Cook** (root): ration at a camp or store (M5f loop) | **Healer** (root): heal at camp or fort (M5f), bandage |
+| 2 | Armourer: light and medium armour, open helmets | Baker: barley bread, cookhouse L2 | Bonesetter: wound timers −15% at his camp or fort |
+| 2 | Bladesmith: swords, curved swords, axes, falx, rhomphaia | Field Kitchen\*: rations away from a building at 60% speed | Field Surgeon\*: field radius 6 → 10 |
+| 3 | Bowyer: bows, short bows, slings | Salt Pork\*: salt pork; rations keep 24 h, not 12 | Herbalist\*: salve |
+| 3 | Field Forge\*: repairs within 15 tiles of an own squad, 50% speed | Stew Pot (Baker): lentil soup, fish stew | Triage\*: frees one patient at once per hour |
+| 4 | Alloy\*: bronze +20% a smelt | Herb Cook (Stew Pot): kykeon | Rhizotomist (Herbalist): theriac |
+| 4 | Journeyman (2 family nodes): tier 2 of his families | Spartan Mess (Stew Pot): black broth | Battle Dresser: a bandage counts double |
+| 6 | Heavy Armour (Armourer, Journeyman): heavy armour, closed helmets | Quartermaster (Salt Pork): march stores; fed squads' upkeep −25% | Field Tent (Bonesetter): tent kit |
+| 7 | Master (Journeyman): tier 3 of his families | Big Pot (2 dish nodes): batch ×1.5 | Iatreion (Bonesetter): his infirmary L3 heals in 1 h |
+| 8 | Masterwork\* (Master): +2 craft grade, masterwork chance | Feast\* (Big Pot): feast | Anatomist (Triage): remedies batch ×1.5 |
+| 10 | **Reforger**: re-rolls one random stat (ITEMS.md "Reforging", for materials + silver 2/5/10 by tier) · **Goldsmith**: trinkets, salvage returns 60% | **Head Cook**: dishes last +50% · **Symposiarch**: after a won fight a fed squad's wounded heal 1 h sooner | **Asclepiad**: once a fight, the first man to die within 10 tiles is wounded instead · **Proxenos of the sick**: captives he holds heal, ransom +30% |
+
+| L | Engineer | Merchant | Forager |
+| --- | --- | --- | --- |
+| 1 | **Builder** (root): build ×1.5 (M5f), tools T1 | **Trader** (root): sells surplus at a stall (M5f stub) | **Gatherer** (root): gathers ×2 (M5f) |
+| 2 | Carpenter: mantlet | Haggler\*: ±8% price | Woodsman\*: wood ×1.25 |
+| 2 | Master Builder\*: build +25% | Packer: caravan goods | Prospector\*: ore ×1.25 |
+| 3 | Toolmaker (Carpenter): tools T2 for every class | Pack Mules\*: load +50% | Pitchman\*: pitch ×2 |
+| 3 | Bridgewright\*: spans +4 tiles | Appraiser: sees rolls before buying; sells gear ×1.2 | Charcoal Burner: charcoal |
+| 4 | Rams (Carpenter): covered ram | Contracts (Packer): 2 open contracts | Hunter: hides from kills within 15 tiles |
+| 5 | Fortifier (Master Builder): iron-bound gate, wet hides, stakes, ditch | Safe Roads\*: caravan hidden on the world map until close | Tanner (Hunter): leather |
+| 6 | Instrument Maker (Toolmaker): tools T3 | Broker (Contracts): 4 contracts, escrowed hand-offs (M6) | Weaver: flax on farms, linen |
+| 7 | Artillerist (Rams): oxybeles; stone thrower crew −1 | Banker (Broker): letters of credit between own market towns | Presser: oil at an olive press |
+| 8 | Sapper\* (Rams): engine damage +30% | Importer (Appraiser): ≤ 5 copper or 3 hides a day at ×2 price (never tin) | Herb Finder: herbs from forest and marsh gathering |
+| 10 | **Poliorcetes**: siege tower · **Archimedes**: throwers and oxybeles on stone towers, range +20% | **Emporos**: caravan +1 wagon, a market for allies it passes · **Proxenos**: ransom −30%, buys back fallen gear from the enemy salvage pool | **Steward**: refining −20% input, batch ×1.5 · **Pathfinder**: works in neutral regions with no squad near, flees ×1.3 faster |
+
+Identities: smith = gear (weaponsmith or armourer), cook = squad buffs, physician = fewer deaths and faster heals,
+engineer = sieges, forts and every class's tools, merchant = silver and caravans, forager = raw and refined goods.
+
+### Goods and recipe format
+
+New stock kinds (additive to `ResourceKind`): raw **hides, flax, herbs**; refined **charcoal, leather, linen, oil**;
+products **bandages, salves, theriac**, caravan goods (rations exist). Olives stay `food` until the Presser makes oil;
+for materials, felt counts as linen, horn and bone as hides, gold as silver ×2, faience as stone + copper.
+
+Recipe: `{ id, prof, node, at: building + level, inputs: { good: n }, secs, out: { item | good | engine, n } }`.
+Inputs leave the team stock when the order starts; time is divided by the crafter's `workRate` (level, tool). Items go
+to the stash of the player whose civilian made them, goods to the team stock.
+
+### Smith (full list)
+
+Every base item (`BASE_ITEMS`; set pieces and named legendaries stay drops) has a recipe built from its slot, tier and
+`material` (bows with none: wood + hides):
+
+| Slot | Main material T1 / T2 / T3 | Extras | Secs T1 / T2 / T3 |
+| --- | --- | --- | --- |
+| Weapon, melee and javelins | 3 / 5 / 8 | wood 2; leather 1 at T2+ | 60 / 120 / 240 |
+| Bow, short bow, sling | 3 / 5 / 8 (wood or leather) | bows hides 1, slings linen 1 | 60 / 120 / 240 |
+| Shield | 4 / 6 / 9 | wood 3, leather 1 | 90 / 180 / 360 |
+| Helmet | 2 / 4 / 6 | leather 1 | 60 / 120 / 240 |
+| Armour, light and medium | 4 / 6 / 9 | – | 90 / 180 / 360 |
+| Armour, heavy | – / 10 / 14 | leather 2, linen 2 | – / 300 / 600 |
+| Trinket (Goldsmith) | 1 / 2 / 3 | – | 40 / 80 / 160 |
+
+Iron adds charcoal equal to the iron (steel twice); every T3 weapon, shield, helmet and heavy armour adds silver 1. The
+forge level must reach the tier; T2 needs Journeyman, T3 Master. Smelt: copper 1 + tin 1 → bronze 2 (Alloy 2.4), 15 s.
+
+| Node | T1 | T2 | T3 |
+| --- | --- | --- | --- |
+| Smelter | dory, ash_dory, longche, lancea, javelins, ankyle, club; hoplon, thureos, hide_shield, gerron, pelte, buckler | bronze_dory, sarissa, hasta, xyston, saunion, gaesum, pilum, soliferrum, bronze_mace; macedonian_aspis, boeotian_shield, celtic_shield, scutum, punic_shield, caetra, bronze_pelte | sauroter_dory, kontos; aspis, argyraspis, spartan_aspis, legion_scutum, bossed_shield |
+| Bladesmith | xiphos, akinakes, axe | iron_xiphos, kopis, makhaira, sica, longsword, falx, rhomphaia, sagaris, dolabra | gladius, falcata, chieftain_sword, labrys |
+| Bowyer | self_bow, sling, shepherd_sling | bow, cretan_bow, persian_bow, scythian_bow, balearic_sling, rhodian_sling, staff_sling | gorytos_bow, achaean_sling |
+| Armourer | leather, hide_jerkin, felt_coat, quilted, spolas, linothorax; cap, pilos, scythian_hood, wolfskin_cap, bronze_skullcap, felt_pilos, konos, persian_tiara | painted_linothorax, scaled_linothorax, horn_scale | – |
+| Heavy Armour | – | scale, persian_scale, triple_disc, bell_cuirass; montefortino, chalcidian, thracian, boeotian, iron_pilos, phrygian, illyrian, apulo_corinthian, coolus, negau | mail, cuirass, iron_scale, hamata, noble_mail, plated_linothorax, iron_cuirass; attic, corinthian, hellenistic, iron_boeotian, crested_chalcidian, gilded_thracian, horned_helm |
+| Goldsmith | the 10 tier-1 trinkets | the 13 tier-2 trinkets | gold_torc, gold_stag, pythian_token |
+
+Who may wear it is still `CLASS_GEAR`: spearmen need a Smelter, archers a Bowyer, hoplites a Heavy Armour smith.
+
+### Other recipes (representative)
+
+| Recipe (node) | Inputs → out | At | Secs | Effect |
+| --- | --- | --- | --- | --- |
+| **Cook** ration (root) | food 4 (+ salt 1: ×1.5) → 4 | camp, store, cookhouse | 10 | fed 10 min: damage taken ×0.95, heal ×1.25 (M5f) |
+| barley bread (Baker) | food 6 → 6 | cookhouse 2 | 20 | as ration, 20 min |
+| salt pork (Salt Pork) | food 4, salt 2 → 4 | cookhouse | 30 | as ration, never spoils |
+| lentil soup / fish stew (Stew Pot) | food 6, herbs 1 / + salt 1, oil 1 → 6 | cookhouse 2 | 30 / 40 | 15 / 20 min: taken ×0.94 / ×0.93, heal ×1.4 |
+| kykeon (Herb Cook) | food 4, herbs 2 → 6 | cookhouse 2 | 30 | 15 min: missile damage +4%, accuracy +0.02 |
+| black broth (Spartan Mess) | food 6, salt 1 → 6 | cookhouse 2 | 40 | 15 min: melee damage +4%, taken ×0.95 |
+| march stores (Quartermaster) | food 8, salt 2 → 4 | cookhouse | 60 | carried by a squad: refeeds it twice in the field |
+| feast (Feast) | food 30, salt 4, oil 4 → 12 | cookhouse 3 | 120 | 30 min: ration buff + 1 XP per fight |
+| **Physician** bandage (root) | linen 1 → 3 | infirmary | 15 | squad stock ≤ N; a man falling uses one: wounded share +0.05 |
+| salve (Herbalist) | herbs 2, oil 1 → 2 | infirmary 2 | 30 | one wounded man's timer −1 h (the campaign `healing_salve`) |
+| theriac (Rhizotomist) | herbs 3, salt 1, food 2 → 2 | infirmary 2 | 60 | squad ignores venom for 30 min |
+| tent kit (Field Tent) | linen 6, wood 4 → 1 | infirmary | 90 | 2×2 tent in own influence, heals as a camp for 1 h |
+| **Engineer** tools T1 / T2 / T3 | wood 3, stone 1 / bronze 3, wood 2 / iron 4, charcoal 4, wood 2 (+ silver 1: scales, signet, dioptra) | workshop 1 / 2 / 3 | 40 / 90 / 180 | the 18 `CIV_TOOLS`, rolled like items |
+| mantlet (Carpenter) | wood 12, hides 2 | workshop or on site | 60 | crew 2; stops 60% of frontal missiles for the men behind |
+| covered ram (Rams) | wood 100, hides 6, iron 4 | on site | 300 | ram hp 1400, crew take missiles ×0.3 |
+| oxybeles (Artillerist) | wood 60, bronze 6, linen 4 | workshop 3 or on site | 240 | crew 2; bolt vs men, 30 tiles, one per 6 s |
+| siege tower (Poliorcetes) | wood 240, hides 20, iron 10 | on site | 900 | crew 8; docks on a wall, men step onto the walkway |
+| iron-bound gate / wet hides / stakes / ditch (Fortifier) | iron 10, charcoal 10 / hides 1 a tile / wood 3 a tile / labour 120 a tile | wall or ground | – | gate hp +50% / wood wall ignites at half the chance / men −50% speed, blocks engines / engines cannot cross |
+| **Merchant** amphora / fish jar / linen bale / ingot crate (Packer) | oil 4, wood 1 / food 4, salt 2 / linen 6 / bronze 5 | market stall 2 | 20 | caravan goods: 1× value at home, 2× at a market ≥ 3 transfers away (M6) |
+| contract (Contracts) | silver in escrow | market stall | – | supply (n of a good by a time), buy order (paid when filled), escort (pays the escort on arrival) |
+| **Forager** charcoal (Charcoal Burner) | wood 4 → 2 | sorting floor | 30 | for iron |
+| leather (Tanner) / linen (Weaver) | hides 2, salt 1 → 2 / flax 3 → 2 | sorting floor 2 / 1 | 60 / 45 | – |
+| oil (Presser) | food 4 → 1 | olive press | 30 | – |
+
+Rams, ladders and stone throwers stay open to any squad (W-29); the engineer's designs are better ones. A squad holds
+one dish at a time (the last eaten); no dish gives more than +5% to a stat. Venom (new mob flag: scorpion, river
+serpent, hydra, chimera): a hit sets the man's `venom` bit for 20 s; falling with it, his wounded share is −0.2.
+
+### Crafted item rolls
+
+Craft grade **G** = crafter level (1–10) + tool tier − 1 + ⌊tool rarity rank ÷ 2⌋ + workplace level − 1 + 2
+(Masterwork) + 1 (crafted at home in its specialty: Dodona iron, Kyrene copper and bronze, Skythia hides). Range 1–19.
+
+| G | Common | Uncommon | Rare | Epic | Legendary |
+| --- | --- | --- | --- | --- | --- |
+| 1–3 | 80 | 18 | 2 | 0 | 0 |
+| 4–6 | 60 | 30 | 9 | 1 | 0 |
+| 7–9 | 42 | 36 | 18 | 4 | 0 |
+| 10–12 | 30 | 36 | 24 | 9 | 1 |
+| 13–15 | 20 | 34 | 30 | 14 | 2 |
+| 16+ | 12 | 30 | 34 | 20 | 4 |
+
+Tier caps rarity (T1 ≤ rare, T2 ≤ epic, T3 any; the excess falls one step). Random stats and an epic/legendary power
+then roll exactly as a drop's (`itemAffixes`, `itemPower`), seeded by the order and stored on the item (`aff`, `pow`).
+
+| Quality | Chance | Base stats | Random-stat steps | Max condition | Wear |
+| --- | --- | --- | --- | --- | --- |
+| crude | max(0, 30 − 3G)% | ×0.95 | 1 | 80 | ×1.25 |
+| fine (and every drop) | the rest | ×1.00 | 1–2 | 100 | ×1 |
+| masterwork | Masterwork node: 5% + 1% per G above 8, ≤ 15% | ×1.04 | first line 2 | 100 | ×0.75 |
+
+War pool: rolls skip what the war ignores (morale, stamina, steady, moraleShock, goldBonus; chargeBonus until mounts)
+and powers that need morale or stuns (Terror, Steadfast, Unshaken, Momentum). Lucky (`koChance`) is +3% wounded share
+a step, inside the 0.9 cap. Three new war-only stats: **Breaching** +5% damage vs buildings and engines (melee
+weapons), **Deft** +4% work rate and **Bountiful** +3% job output (tools; tools roll Deft, Bountiful, Sturdy, Wise).
+The maker's name stays on the card ("forged by Nikias of Dodona").
+
+Caps: a masterwork legendary is the drop legendary × 1.04 on base stats; the bake clamp (HP ×1.4, damage ×1.4, armour
++4 …) still bounds every man, so the ≤ 2× rule holds (a max squad of N wins ≤ 35% vs 2N fresh). `itemCapReport` adds a
+masterwork legendary per slot; over the +10-point cap, masterwork drops to ×1.02.
+
+Durability: condition as today (stats × (0.6 + 0.4 × cond)). Repair at a forge (Field Forge: in the field): per 10
+condition, 10% of the recipe's main material (min 1) and 10% of its time; masterwork −25%. A repair started below 50
+takes 5 off max condition; at max 50 the item can only be salvaged (30% of the inputs, Goldsmith 60%).
+
+### Workplaces
+
+| Building | Footprint | Cost; labour | Hosts | L2 (upgrade in place) | L3 |
+| --- | --- | --- | --- | --- | --- |
+| forge | 3×3 | wood 40, stone 60; 1500 | smelt, smith T1, repairs | stone 80, iron 10: T2 | stone 120, bronze 20, marble 10: T3 |
+| cookhouse | 3×2 | wood 50, stone 20; 900 | dishes of its level | stone 40: ovens | stone 60, bronze 10: feast |
+| infirmary (iatreion) | 3×3 | wood 60, stone 30; 1200 | heals as a camp, bandage, tent kit | wood 30, herbs 10: herb garden (salve, theriac) | stone 80, marble 10: 1 h heals (Iatreion) |
+| workshop | 4×3 | wood 80, stone 20; 1200 | tools T1, mantlet | wood 60, bronze 10: tools T2 | wood 100, iron 20: tools T3, oxybeles |
+| market stall | 2×2 | wood 30; 400 | sales, contracts | stone 60 (agora): caravan goods | marble 20, silver 10: letters of credit |
+| sorting floor | storehouse upgrade | wood 40, stone 20; 600 | charcoal, linen | wood 40, salt 10: tannery (leather) | – |
+
+Each level adds a crafter slot (1 / 2 / 3 at once) and +1 grade. One queue per workplace, ≤ 5 orders. Levels are
+building types chained by `upgrade` (`forge` → `forge2` → `forge3`), as walls are; they burn by their material.
+
+### How it stays light
+
+| Rule | Cost |
+| --- | --- |
+| Orders run on the civilian loop (every `CIV.every` ticks): `{ recipe, by, endTick }`, checked only there | ≤ 40 workplaces a region, < 0.05 ms a batch |
+| One roll at completion from `Rng(hash(seed, building, order))`; the sim emits `crafted`, the server mints the item | no item code in the step |
+| Items reach a soldier's stats only at equip, level-up or spawn (`warStatsOf` bake, M5b) | no per-tick item logic |
+| Dishes: one fed record per squad `{ inn, melee, missile, acc, heal, xp, until }`; bandages, theriac, venom: one count or bit read at hit or fall | ≤ 2 branches a hit, as the squad active |
+| Engines and fortifications are rows in `SIEGE` and `BUILDINGS` | existing code paths |
+
+### Reuse and new
+
+| Reuse | New |
+| --- | --- |
+| `BASE_ITEMS`, `tier`, `material`, `RARITY_MULT`, `itemAffixes`, `itemPower`, `freezeRolls`, `AFFIXES`, `POWERS`, `cond`, `salvageValue`, `CLASS_GEAR`, `requirements` | `src/data/recipes.ts` (`recipeFor(def)` from the smith template; other recipes as data), `src/data/professions.ts` (trees) |
+| `CIV_CLASSES`, `CIV_TOOLS`, `workRate`, the `civWork` order and `CIV.every` loop, M5f cook/smith/physician numbers | `Item.q` (0 crude, 1 fine, 2 masterwork), `Item.mc` max condition, `Item.mk` maker; `QUALITY_MULT` in `itemMods` |
+| `Hero.perks` holds a civilian's node ids | war affix filter + Breaching, Deft, Bountiful; mob `venom` flag |
+| `BUILDINGS` with `upgrade`, `SIEGE`, team `stock` | 7 goods, 6 workplace chains, 4 engines (mantlet, covered ram, oxybeles, siege tower), 4 fortifications |
+| campaign `healing_salve`; ITEMS.md "Reforging at the Smith" for the Reforger | `craft` / `cancelCraft` / `repair` / `salvage` orders; crafting persistence |
