@@ -2767,3 +2767,25 @@ names in `CUES` (`boss.breath`, `boss.breath.charge`, `boss.crash`, `boss.takeof
 the mouth onto the ground cone reads at every zoom. (2) vfx_workbench `shockwave_ring` is a filled cream disc at size
 2.5+: drop it under dust and draw thin rings in code. (3) `export` takes ~60 s; start several effects and add parts in
 parallel. (4) The node fetch in the sandbox hangs: `curl` the export files.
+
+### 40e Landmark architecture at scale (W-48)
+
+The pieces the big landmarks are laid out from (streets of houses, districts, layered walls), in
+`scripts/war/art/landmarks.mjs` after the ART-L pieces, same box renderer, true scale (33 px/m, 1 tile = 2 m), four
+states each. **0 PixelLab generations**: every piece is composed from the existing textures (isodomic, cyclopean, the
+drawn roof tiles, Ammon mudbrick, basalt) so the cities read as one set with the forts.
+
+- City set `arch-*`: wall-x/y (4x2, 8 m segment, walk 6 m, 1 m merlons so seams repeat), tower (3x3), gate-x/y (6x3),
+  barbican-x/y (6x4, drum turrets), house-a (3x3, walled yard), house-b (4x4 courtyard, lean-to roofs into the court),
+  tenement (4x3, three storeys), workshop (4x3, awning, kiln), barracks (6x4, portico), stables (6x3, kind `stable`),
+  forge (4x3, kind `forge2`), cistern (3x3), chapel (3x4), treasury (3x4, Delphi), theatre (14x10, low skene on +y),
+  tomb-a (2x2 stele), tomb-b (3x3 mausoleum).
+- Ammon: wall-x/y (battered mudbrick in set-backs on a footing), tower, gate-x/y (pylons), tenement, house-c
+  (courtyard), workshop, tomb (mastaba). Others: sunken-house, obsidian-gate-x/y, obsidian-hall, titan-furnace,
+  titan-hall.
+- Shell-ruin rule (dwellings, `shell: true`): the model is whole masses when intact or restored and hollow walls round
+  its rooms (a door gap, a floor) when damaged or ruined. Ruined cuts those walls to 1-3 m with no roof, so a ruined
+  quarter still reads as streets of roofless houses, not flat rubble; damaged breaks them between half and full height
+  and keeps the roof only over the parts still standing whole ("roof half fallen").
+- Lesson: adding pieces re-picks the 64-colour landmark palette, so every landmark PNG re-snaps a little; regenerate
+  the whole set (`node scripts/war/art/landmarks.mjs`, about 2 min) and run its QA.

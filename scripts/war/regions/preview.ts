@@ -29,6 +29,12 @@ export function preview(json: Record<string, unknown>, spots: Record<string, [nu
     const tree = /pine|oak|fir|olive|cypress|palm|acacia|beech|tamarisk|thorn/.test(o.id);
     set(Math.floor(o.x * S), Math.floor(o.y * S), tree ? [16, 48, 16] : [70, 70, 50]);
   }
+  // pre-built structures: walls and gates stone-grey, landmark pieces dark, ruins brown
+  for (const e of (json.prebuilt ?? []) as { type: string; tiles?: number[]; state?: string; landmark?: boolean }[]) {
+    const c = e.state === 'ruined' ? [120, 84, 60] : /Wall|Gate|Tower/.test(e.type) ? [200, 196, 186] : e.landmark ? [60, 40, 36] : [150, 60, 50];
+    const t = e.tiles ?? [];
+    for (let n = 0; n < t.length; n += 2) for (let dy = 0; dy < S; dy++) for (let dx = 0; dx < S; dx++) set(t[n] * S + dx, t[n + 1] * S + dy, c);
+  }
   const dot = (x: number, y: number, c: number[], rr: number) => { for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) set(Math.floor(x * S) + dx, Math.floor(y * S) + dy, c); };
   for (const l of r.lairs) dot(l.x, l.y, [220, 30, 30], 4);
   for (const c of r.claimPoints) dot(c.x, c.y, [250, 220, 40], 5);

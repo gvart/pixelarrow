@@ -143,6 +143,6 @@ describe('M7f region memory', () => {
     steps(late, LANDMARK.every);
     expect(late.snapshot().bosses![0].state).not.toBe('slain');
     expect(late.snapshot().landmark!.state).toBe('guarded');
-    for (const p of pieces(late)) expect(p.hp / p.maxHp).toBeCloseTo(0.6, 5);
+    for (const p of pieces(late).filter((p) => !p.ruin)) expect(p.hp / p.maxHp).toBeCloseTo(0.6, 5);
   });
 });

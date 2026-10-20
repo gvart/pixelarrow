@@ -381,6 +381,14 @@ Nine pre-built strongholds, one in every depth-3 and depth-4 neutral, so each ho
 distance (two gates and two rim edges each side of it, Omphalos for all). Each is authored as pre-built structures
 (next section) that start **neutral at 60% hp, gates shut**, held by its guardian.
 
+W-48 scale (`scripts/war/regions/landmarks.ts`, the kit's `Site`): each is a real place at 1 tile = 2 m, its walls in
+8 m segments with towers and gates where the roads come in, its streets, blocks and lots by district. The Dead City is
+a 480 × 400 m walled grid (806 pieces: agora, precinct, walled palace acropolis, quarters, four bandit strongholds,
+the necropolis outside), the Citadel 370 × 260 m (outer curtain with barbican, outer and inner wards, donjon, the ruined
+village below the switchbacks, 408), the Temple City the whole mesa top (552); the rest 100–250 pieces. Their condition
+follows the lore: fortifications at 60%, dwellings and quarters lower or in ruins (shells), and at most 12 homes
+standing in the Dead City (8–10 elsewhere) so the recruit pools above hold.
+
 | Landmark | Region (depth) | Pre-built layout | Guardian, phases | To take | Once held (restored) | Rare good |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Drakon's Citadel** | krios (4) | the great castle on the glacier tongue over the icy col: stone curtain (cyclopean wall ×2 hp) with 6 towers, a twin gatehouse, the keep (6×6, 8000 hp), barracks, forge L2, cistern well, bone pit | **Drakon the White**: P1 (100–60%) in the yard, claw and tail sweeps (knock 2); P2 (60–56.5%) on the keep roof, out of melee reach, fire breath in a cone on the yard and the gate (ignites wood, 5% max hp); P3 (< 56.5%) crashes down enraged, calls 2 drake packs from the bone pit | ram or tower through the gate under fire; archers and an oxybeles bring him off the roof; 4–6 squads from 3+ players | the strongest fort on the map: walls and towers already built, influence 32, holds the col (Teeth coast crossing) and Krios iron; keep is a fort (store, recruits 3/h) | dragonbone |

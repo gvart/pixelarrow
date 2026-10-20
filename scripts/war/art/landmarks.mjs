@@ -233,7 +233,13 @@ function stateBoxes(P, st) {
   else if (st === 'ruined') hf = (x, y) => Math.min(H, 0.25 + Math.min(1.3, H * 0.2) * (0.4 + n(x, y, k + 3, 0.7)));
   else if (st === 'intact') hf = m.noNotch ? () => 1e9 : (x, y) => (n(x, y, k + 4, 0.9) > 0.84 ? top - 0.6 - 0.4 * n(x, y, k + 5, 2) : 1e9);
   else hf = () => 1e9;
-  const body = m.boxes.filter((b) => !b.roof), roofs = m.boxes.filter((b) => b.roof && roofKeep(st, b, hf, H, m.roofLoss));
+  // W-48 dwellings (m.shell, hollow walls when damaged or ruined): ruined a roofless shell of 1-3 m wall stumps, damaged
+  // the walls broken from half to full height and the roof kept only over the parts still standing whole
+  const sd = (x, y) => 0.45 + 0.8 * n(x, y, k + 1, 0.35);
+  if (m.shell && st === 'ruined') hf = (x, y) => Math.min(H, 1.0 + 2.0 * n(x, y, k + 3, 0.55));
+  if (m.shell && st === 'damaged') hf = (x, y) => Math.min(H, H * sd(x, y));
+  const keepRoof = (b) => (m.shell && st === 'damaged' ? sd((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2) >= 0.97 : roofKeep(st, b, hf, H, m.roofLoss));
+  const body = m.boxes.filter((b) => !b.roof), roofs = m.boxes.filter((b) => b.roof && keepRoof(b));
   let B = [...cutTo(body, hf), ...roofs];
   if (st !== 'restored') B.push(...debris(P.fp[0], P.fp[1], H, st, k + 9, seg ? (sw ? 'y' : 'x') : 0));
   if (st === 'damaged' && m.rafters) B.push(...m.rafters);
@@ -465,6 +471,308 @@ for (const [axis, sgn] of [['x', '+'], ['x', '-'], ['y', '+'], ['y', '-']]) piec
 piece({ landmark: 'rim', id: 'rim-keeper-house', kind: 'house', fp: [3, 2], hp: 900, material: 'stone', heightM: 5, k: 103,
   note: 'the keeper\'s house: a low fieldstone house with a tiled gable, salt-stained',
   model: (st) => ({ boxes: gableHouse(0.4, 0.4, 5.2, 3.0, 2.6, st, { axis: 'x' }), H: 2.6, top: 3.5, noNotch: true }) });
+
+// ---- W-48 landmark architecture at scale: the city set (arch-*), Ammon's mudbrick city, and the larger landmarks'
+// quarters. Dwellings are `shell` models: whole masses intact and restored, hollow walls round their rooms when damaged
+// or ruined (stateBoxes), so a ruined quarter still reads as streets of roofless houses.
+const WALL_T = 0.35, EARTH_C = [58, 48, 38, 255], FLOOR = (f, x, y) => mul(TEX.lime[1], 0.62 + 0.1 * hash(Math.floor(x * 3) & 255, Math.floor(y * 3) & 255, 5));
+const whole = (st) => st === 'intact' || st === 'restored';
+// rooms [x0, x1, y0, y1, h]: solid masses when whole; else four thin walls each (a door gap in the first room's +y wall), a floor
+function rooms(R, st, mat, { door = 1.1, slab = null } = {}) {
+  const B = [];
+  R.forEach(([x0, x1, y0, y1, h], i) => {
+    if (whole(st)) { B.push(box(x0, x1, y0, y1, 0, h, mat, { body: true })); return; }
+    const t = WALL_T, cx = (x0 + x1) / 2;
+    if (i === 0 && door) B.push(box(x0, cx - door / 2, y1 - t, y1, 0, h, mat, { body: true }), box(cx + door / 2, x1, y1 - t, y1, 0, h, mat, { body: true }));
+    else B.push(box(x0, x1, y1 - t, y1, 0, h, mat, { body: true }));
+    B.push(box(x0, x1, y0, y0 + t, 0, h, mat, { body: true }), box(x0, x0 + t, y0 + t, y1 - t, 0, h, mat, { body: true }), box(x1 - t, x1, y0 + t, y1 - t, 0, h, mat, { body: true }));
+    B.push(box(x0 + t, x1 - t, y0 + t, y1 - t, 0, 0.05, FLOOR, { keep: true }));
+    if (slab) B.push(box(x0, x1, y0, y1, h - 0.22, h, slab, { roof: true })); // a flat roof (damaged: kept where the walls stand)
+  });
+  return B;
+}
+// windows / doors only on a whole house: [face, a0, a1, at, z0, z1, mat?]
+const holes = (st, list) => (whole(st) ? list.map((o) => opening(...o)) : []);
+let PLASTER, HAY, CLAY, STRAW;
+function archMats() {
+  if (PLASTER) return;
+  // limewashed rubble over an isodomic socle (0.9 m): Greek town houses
+  PLASTER = (f, x, y, z, u, r) => { if (f === 'top') return rough(f, x, y); if (z < 0.9) return M.iso(f, x, y, z, u, r); const a = f === '+y' || f === '-y' ? x : y; return mul(TEX.lime[2 + (vn(a, z, 171, 1.4) > 0.7 ? 1 : 0)], ao(z) * (0.86 + 0.1 * vn(a * 3, z * 3, 172, 1) - (vn(a, z, 173, 0.8) > 0.8 ? 0.12 : 0))); };
+  const r3 = (cs) => cs.map((c) => [...c, 255]);
+  HAY = r3([[92, 76, 42], [122, 100, 56], [150, 126, 70]]); CLAY = r3([[70, 48, 34], [102, 72, 50], [134, 98, 68]]); STRAW = r3([[78, 66, 40], [104, 88, 52], [128, 110, 66]]);
+}
+const ramp3 = (R, kk, s = 8) => (f, x, y, z) => mul(R[Math.floor(M.nz(x, y, z, kk, s) * R.length) % R.length], f === 'top' ? 1.02 : 0.9);
+// the Ammon house wall: a limestone footing (0.8 m) under mudbrick
+const MUDH = (f, x, y, z, u, r) => (z < 0.8 && f !== 'top' ? M.iso(f, x, y, z, u, r) : M.mud(f, x, y, z, u, r));
+const MUDSLAB = (f, x, y) => mul(M.R.mud[2], 0.88);
+const lips = (x0, x1, y0, y1, h, mat = M.mud) => wallBlock(x0, x1, y0, y1, h, mat, { paraH: 0.32, t: 0.22 }).slice(1);
+const batter = (x0, x1, y0, y1, H, mat, s = 0.1) => cells(x0, x1, y0, y1, (x, y) => { const d = Math.min(x - x0, x1 - x, y - y0, y1 - y); return { z0: 0, z1: Math.min(H, d / s + 0.3), mat, body: true }; }, 1 / 8);
+const merlons = (x0, x1, y0, y1, z, h, mat, p = 1, w = 0.6) => { const B = []; for (let a = x0; a < x1 - 1e-6; a += p) B.push(box(a + (p - w) / 2, a + (p + w) / 2, y0, y1, z, z + h, mat, { body: true })); return B; };
+const ring4 = (x0, x1, y0, y1, z, h, mat, t = 0.4) => [...merlons(x0, x1, y1 - t, y1, z, h, mat), ...merlons(x0, x1, y0, y0 + t, z, h, mat), ...swapXY(merlons(y0 + 1, y1 - 1, x0, x0 + t, z, h, mat)), ...swapXY(merlons(y0 + 1, y1 - 1, x1 - t, x1, z, h, mat))];
+const leaves = (st) => (st === 'restored' ? ironBound : st === 'intact' ? leafMat(st) : solid(DOORDARK));
+
+// the city set (arch-*): ashlar curtain, towers and gates, houses, barracks and the public buildings
+both({ landmark: 'arch', id: 'arch-wall', kind: 'wall', fp: [4, 2], hp: 1500, hpNote: 'a tile', material: 'stone', heightM: 8, k: 161, segment: 8,
+  note: '8 m of city curtain, 2 tiles deep: isodomic ashlar, the walk at 6 m behind a crenellated parapet (1 m merlons); segments join end to end in every state',
+  model: (st) => ({ boxes: [box(0, 8, 0, 4, 0, 6, M.iso, { body: true }), box(0, 8, 3.5, 4, 6, 6.5, M.iso, { body: true }), box(0, 8, 0, 0.5, 6, 6.5, M.iso, { body: true }), ...merlons(0, 8, 3.5, 4, 6.5, 0.8, M.iso), ...merlons(0, 8, 0, 0.5, 6.5, 0.8, M.iso)], H: 6, top: 7.3, seg: 8, banners: [[3.6, 3.6, 6.5]] }) });
+piece({ landmark: 'arch', id: 'arch-tower', kind: 'tower', fp: [3, 3], hp: 3000, material: 'stone', heightM: 10, k: 162, platformM: 8,
+  note: 'a city wall tower: two storeys of isodomic ashlar on a cyclopean socle, a string course, a tiled pyramid roof over its fighting chamber',
+  model: (st) => ({ boxes: [...sqTower(0.2, 0.2, 5.6, 8, { socle: 1.5, rise: 1.4, st }), box(0.12, 5.88, 0.12, 5.88, 4.2, 4.45, M.iso, { body: true })], H: 8, top: 9.6, banners: [[2.9, 5.9, 8.25]] }) });
+both({ landmark: 'arch', id: 'arch-gate', kind: 'gate', fp: [6, 3], hp: 4000, material: 'stone', heightM: 11, k: 163,
+  note: 'a city gate: two square towers flanking a 4 m passage, the leaves on the outer (+y) face, a crenellated walk between the towers at 7 m',
+  model: (st) => {
+    const B = [...sqTower(0, 0.6, 4, 9, { socle: 1.5, rise: 1.2, st, k: 1 }), ...sqTower(8, 0.6, 4, 9, { socle: 1.5, rise: 1.2, st, k: 2 }), ...shift(gateBoxes('stone', 'x', gate(st), 4, gateOpt(st)), 4, 2.1)];
+    B.push(box(4, 8, 1.0, 4.4, 5.97, 7, M.iso, { body: true }), ...merlons(4, 8, 4.0, 4.4, 7, 0.8, M.iso), ...merlons(4, 8, 1.0, 1.4, 7, 0.8, M.iso));
+    return { boxes: B, H: 9, top: 10.4, banners: [[1.8, 4.9, 9.25], [9.8, 4.9, 9.25]] };
+  } });
+both({ landmark: 'arch', id: 'arch-barbican', kind: 'gate', fp: [6, 4], hp: 5000, material: 'stone', heightM: 9, k: 164,
+  note: 'a barbican: a forward gate court, two drum turrets either side of the outer gate (+y), short walls running back to the main gate',
+  model: (st) => {
+    const B = [...rdTower(2.2, 5.6, 2.0, 7.5, { socle: 1.5, roofed: false }), ...rdTower(9.8, 5.6, 2.0, 7.5, { socle: 1.5, roofed: false }), ...shift(gateBoxes('stone', 'x', gate(st), 5, gateOpt(st)), 4, 5.0)];
+    for (const x0 of [0.6, 10.2]) B.push(box(x0, x0 + 1.2, 0, 4.0, 0, 5, M.iso, { body: true }), ...swapXY(merlons(0, 4, x0, x0 + 0.4, 5, 0.8, M.iso)), ...swapXY(merlons(0, 4, x0 + 0.8, x0 + 1.2, 5, 0.8, M.iso)));
+    B.push(box(4, 8, 5.05, 6.95, 5.97, 6.5, M.iso, { body: true }), ...merlons(4, 8, 6.55, 6.95, 6.5, 0.8, M.iso));
+    return { boxes: B, H: 7.5, top: 8.5, banners: [[2.2, 7.4, 8.5], [9.8, 7.4, 8.5]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-house-a', kind: 'house', fp: [3, 3], hp: 900, material: 'stone', heightM: 5, k: 101,
+  note: 'a small Greek town house: limewashed rubble on an ashlar socle, a tiled gable, a walled front yard; ruined a roofless shell',
+  model: (st) => {
+    archMats();
+    const B = [...rooms([[0.5, 5.5, 0.4, 3.9, 3.3]], st, PLASTER), ...gable(0.2, 5.8, 0.1, 4.2, 3.3, 1.2, 'x', { ped: false })];
+    B.push(box(0.5, 0.8, 3.9, 5.7, 0, 1.7, PLASTER, { body: true }), box(5.2, 5.5, 3.9, 5.7, 0, 1.7, PLASTER, { body: true }), box(0.5, 2.4, 5.4, 5.7, 0, 1.7, PLASTER, { body: true }), box(3.5, 5.5, 5.4, 5.7, 0, 1.7, PLASTER, { body: true }));
+    B.push(box(0.8, 5.2, 3.9, 5.4, 0, 0.04, (f, x, y) => mul(EARTH_C, 0.9 + 0.15 * hash(Math.floor(x * 5) & 255, Math.floor(y * 5) & 255, 3)), { keep: true }));
+    B.push(...holes(st, [['+y', 2.6, 3.5, 3.9, 0, 2.0, leafMat('intact')], ['+y', 1.2, 1.7, 3.9, 1.9, 2.5], ['+y', 4.2, 4.7, 3.9, 1.9, 2.5], ['+x', 1.6, 2.1, 5.5, 1.9, 2.5]]));
+    return { boxes: B, H: 3.3, top: 4.5, noNotch: true, shell: true, banners: [[5.0, 5.5, 1.7]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-house-b', kind: 'house', fp: [4, 4], hp: 1100, material: 'stone', heightM: 5.5, k: 102,
+  note: 'a courtyard (pastas) house: four wings of rooms round a small paved court, tiled lean-to roofs falling into the court; ruined a roofless shell',
+  model: (st) => {
+    archMats();
+    const B = rooms([[0.4, 7.6, 5.4, 7.6, 3.0], [0.4, 7.6, 0.4, 3.0, 3.8], [0.4, 2.8, 3.0, 5.4, 3.2], [5.2, 7.6, 3.0, 5.4, 3.2]], st, PLASTER);
+    const lean = (x0, x1, y0, y1, f, d) => roof(x0, x1, y0, y1, f, d).map((b) => ({ ...b, roof: true }));
+    B.push(...lean(0.1, 7.9, 0.1, 3.3, (x, y) => 3.8 + 1.0 * (3.3 - y) / 3.2, (x, y) => [x, 3.3 - y]), ...lean(0.1, 7.9, 5.1, 7.9, (x, y) => 3.0 + 0.9 * (y - 5.1) / 2.8, (x, y) => [x, y - 5.1]));
+    B.push(...lean(0.1, 3.1, 3.3, 5.1, (x, y) => 3.2 + 0.8 * (3.1 - x) / 3.0, (x, y) => [y, 3.1 - x]), ...lean(4.9, 7.9, 3.3, 5.1, (x, y) => 3.2 + 0.8 * (x - 4.9) / 3.0, (x, y) => [y, x - 4.9]));
+    B.push(box(2.8, 5.2, 3.0, 5.4, 0, 0.06, flags, { keep: true }), box(3.7, 4.3, 3.9, 4.5, 0.06, 0.8, M.iso, { body: true })); // the court and its altar
+    B.push(...holes(st, [['+y', 3.5, 4.5, 7.6, 0, 2.0, leafMat('intact')], ['+y', 1.4, 1.8, 7.6, 1.8, 2.4], ['+y', 6.2, 6.6, 7.6, 1.8, 2.4], ['+x', 1.2, 1.6, 7.6, 2.4, 3.0], ['+x', 4.0, 4.4, 7.6, 1.8, 2.4]]));
+    return { boxes: B, H: 3.8, top: 4.8, noNotch: true, shell: true, banners: [[7.2, 7.7, 3.9]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-tenement', kind: 'house', fp: [4, 3], hp: 1200, material: 'stone', heightM: 10.5, k: 103,
+  note: 'a three-storey tenement block (synoikia): limewashed walls on an ashlar socle, small windows, a timber balcony, a tiled gable; ruined a roofless shell',
+  model: (st) => {
+    archMats();
+    const H = 8.4, B = [...rooms([[0.4, 4.0, 0.4, 5.4, H], [4.0, 7.6, 0.4, 5.4, H]], st, PLASTER), ...gable(0.1, 7.9, 0.1, 5.7, H, 1.5, 'x', { ped: false })];
+    const w = [];
+    for (const z of [1.2, 4.0, 6.8]) { for (const a of [1.0, 3.0, 5.2, 6.6]) if (!(z < 2 && a < 3.5)) w.push(['+y', a, a + 0.45, 5.4, z, z + 0.7]); for (const a of [1.2, 3.6]) w.push(['+x', a, a + 0.45, 7.6, z, z + 0.7]); }
+    B.push(...holes(st, [['+y', 1.7, 2.7, 5.4, 0, 2.1, leafMat('intact')], ...w]));
+    if (whole(st)) B.push(box(4.6, 7.2, 5.4, 5.95, 3.1, 3.25, planks('x', 3), { body: true }), ...[4.7, 5.9, 7.05].map((x) => box(x, x + 0.1, 5.85, 5.95, 3.25, 4.1, woodSolid(1), { body: true })), box(4.6, 7.2, 5.85, 5.95, 4.0, 4.1, woodSolid(1), { body: true }));
+    return { boxes: B, H, top: 9.9, noNotch: true, shell: true, banners: [[7.2, 5.6, 8.4]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-workshop', kind: 'workshop', fp: [4, 3], hp: 900, material: 'stone', heightM: 6, k: 104,
+  note: 'an open-front workshop: a gabled back room, a tiled awning on timber posts over the street front, a potter\'s kiln and its brick chimney; ruined a roofless shell',
+  model: (st) => {
+    archMats();
+    const B = [...rooms([[0.4, 7.6, 0.4, 3.6, 3.4]], st, PLASTER, { door: 2.4 }), ...gable(0.1, 7.9, 0.1, 3.9, 3.4, 1.1, 'x', { ped: false })];
+    for (const x of [0.6, 3.9, 7.2]) B.push(box(x, x + 0.18, 5.3, 5.48, 0, 2.5, woodSolid(1), { body: true }));
+    B.push(...roof(0.3, 7.7, 3.6, 5.7, (x, y) => 2.95 - (y - 3.6) * 0.24, (x, y) => [x, y - 3.6]).map((b) => ({ ...b, roof: true })));
+    B.push(box(6.0, 7.0, 0.9, 1.9, 0, 5.4, (f, x, y, z) => (f === 'top' ? DOORDARK : mul(M.R.red[1 + ((Math.floor(z / 0.18) + Math.floor((x + y) / 0.4)) % 2)], ao(z))), { body: true }));
+    B.push(...cells(0.6, 2.6, 3.8, 5.6, (x, y) => { const d = Math.hypot(x - 1.6, y - 4.7) / 0.9; return d < 1 ? { z0: 0, z1: 0.3 + 1.2 * Math.sqrt(1 - d * d), mat: ramp3(CLAY, 175, 6), body: true } : null; }, 1 / 16));
+    B.push(box(3.0, 5.4, 4.2, 4.8, 0, 0.9, planks('x', 5), { body: true }));
+    B.push(...holes(st, [['+y', 2.4, 4.8, 3.6, 0, 2.4]]));
+    return { boxes: B, H: 3.4, top: 5.4, noNotch: true, shell: true };
+  } });
+piece({ landmark: 'arch', id: 'arch-barracks', kind: 'barracks', fp: [6, 4], hp: 2500, material: 'stone', heightM: 7, k: 105,
+  note: 'a barracks: a long ashlar hall on a cyclopean socle, a tiled gable, a Doric portico along its front',
+  model: (st) => {
+    const B = [box(0.5, 11.5, 0.5, 5.8, 0, 1.0, M.cyc, { body: true }), box(0.6, 11.4, 0.6, 5.7, 1.0, 4.2, M.iso, { body: true }), ...gable(0.2, 11.8, 0.2, 6.1, 4.2, 1.7, 'x', { ped: false })];
+    B.push(box(0.5, 11.5, 5.8, 7.7, 0, 0.3, (f, x, y, z, u, r) => (f === 'top' ? flags(f, x, y) : M.iso(f, x, y, z, u, r)), { body: true }));
+    for (let i = 0; i < 7; i++) B.push(...cylinder(1.2 + i * 1.6, 7.1, 0.22, 0.3, 3.7, null, { paint: mul(TEX.lime[3], 0.97), top: () => TEX.lime[3] }).map((b) => ({ ...b, body: true })));
+    B.push(box(0.6, 11.4, 6.7, 7.5, 3.7, 4.1, M.iso, { body: true }), ...roof(0.4, 11.6, 5.8, 7.7, (x, y) => 4.45 - (y - 5.8) * 0.18, (x, y) => [x, y - 5.8]).map((b) => ({ ...b, roof: true })));
+    for (const a of [2.5, 5.4, 9.0]) B.push(opening('+y', a, a + 1.1, 5.7, 1.0, 3.1, leaves(st)));
+    return { boxes: B, H: 4.2, top: 5.9, banners: [[1.0, 7.6, 4.4], [11.0, 7.6, 4.4]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-stables', kind: 'stable', fp: [6, 3], hp: 1500, material: 'stone', heightM: 4.5, k: 106,
+  note: 'stables: a stone back wall and end walls, timber stalls with mangers and hay under a tiled lean-to on posts',
+  model: (st) => {
+    archMats();
+    const B = [box(0.3, 11.7, 0.3, 1.1, 0, 3.4, M.iso, { body: true }), box(0.3, 0.9, 1.1, 4.9, 0, 2.9, M.iso, { body: true }), box(11.1, 11.7, 1.1, 4.9, 0, 2.9, M.iso, { body: true })];
+    for (let x = 2.9; x < 11; x += 2.2) B.push(box(x, x + 0.12, 1.1, 4.2, 0, 1.4, planks('y', 6), { body: true }));
+    for (let x = 0.9; x < 11.1; x += 2.2) B.push(box(x + 0.2, x + 1.9, 1.1, 1.6, 0.6, 1.0, woodSolid(1), { body: true }), ...heap(x + 1.1, 2.4, 0.8, 0.6, 0.5, 177 + Math.round(x), ramp3(HAY, 178, 10)).map((b) => ({ ...b, keep: true })));
+    for (let x = 0.6; x < 11.5; x += 2.2) B.push(box(x + 0.2, x + 0.38, 4.6, 4.78, 0, 2.6, woodSolid(1), { body: true }));
+    B.push(...roof(0.1, 11.9, 0.1, 5.4, (x, y) => 3.6 - (y - 0.1) * 0.2, (x, y) => [x, y - 0.1]).map((b) => ({ ...b, roof: true })));
+    B.push(...heap(10.4, 5.4, 0.9, 0.5, 0.9, 179, ramp3(HAY, 180, 10)).map((b) => ({ ...b, keep: true })));
+    return { boxes: B, H: 3.4, top: 3.7, banners: [[0.6, 5.4, 2.9]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-forge', kind: 'forge2', fp: [4, 3], hp: 1500, material: 'stone', heightM: 7, k: 107,
+  note: 'a smithy: three ashlar walls open to the street, a tiled gable, a hearth under a big chimney, the anvil and the quench trough out front',
+  model: (st) => {
+    const live = whole(st), B = [box(0.4, 5.6, 0.4, 1.0, 0, 3.4, M.iso, { body: true }), box(0.4, 1.0, 1.0, 5.2, 0, 3.4, M.iso, { body: true }), box(5.0, 5.6, 1.0, 5.2, 0, 3.4, M.iso, { body: true }), box(1.0, 5.0, 1.0, 5.2, 0, 0.04, FLOOR, { keep: true })];
+    B.push(...gable(0.1, 5.9, 0.1, 5.5, 3.4, 1.0, 'x', { ped: false }), box(1.4, 3.0, 1.1, 2.4, 0, 0.9, M.iso, { body: true }), box(1.6, 2.8, 1.3, 2.2, 0.9, 0.95, live ? M.ramped(M.R.coal, 181, 14) : solid(CHAR), { body: true }));
+    B.push(box(1.6, 2.8, 1.0, 2.2, 3.4, 6.6, M.iso, { body: true }), box(1.5, 2.9, 0.9, 2.3, 6.6, 6.8, M.iso, { body: true }));
+    const ir = (f, x, y, z) => M.R.iron[f === 'top' ? 3 : 1 + (M.nz(x, y, z, 182, 10) > 0.7 ? 1 : 0)];
+    B.push(box(6.4, 7.2, 3.7, 4.2, 0, 0.6, M.cyc, { body: true }), box(6.2, 7.5, 3.75, 4.15, 0.6, 0.85, ir, { body: true }), box(6.2, 7.6, 1.2, 2.0, 0, 0.6, M.iso, { body: true }), box(6.35, 7.45, 1.35, 1.85, 0.5, 0.58, M.ramped(M.R.water, 183, 4), { keep: true }));
+    return { boxes: B, H: 3.4, top: 6.8, banners: [[5.4, 5.3, 3.4]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-cistern', kind: 'cistern', fp: [3, 3], hp: 1200, material: 'stone', heightM: 3, k: 108,
+  note: 'a cistern house: a low ashlar vault under a flat flagged roof, a well-head with its windlass over the draw hole, steps down at the front',
+  model: (st) => {
+    const B = [box(0.4, 5.6, 0.4, 5.6, 0, 1.5, M.iso, { body: true }), ...cylinder(3, 3, 0.55, 1.5, 2.1, TEX.iso, { row0: 20 }).map((b) => ({ ...b, body: true }))];
+    B.push(...cells(2.6, 3.4, 2.6, 3.4, (x, y) => (Math.hypot(x - 3, y - 3) < 0.36 ? { z0: 2.1, z1: 2.12, mat: solid(DOORDARK), body: true } : null), 1 / 16));
+    if (st !== 'ruined') B.push(box(2.3, 2.42, 2.9, 3.1, 2.1, 3.0, woodSolid(1), { body: true }), box(3.58, 3.7, 2.9, 3.1, 2.1, 3.0, woodSolid(1), { body: true }), box(2.3, 3.7, 2.94, 3.06, 2.75, 2.87, woodSolid(0), { body: true }));
+    B.push(opening('+y', 2.2, 3.8, 5.6, 0, 1.2), ...[0, 1, 2].map((i) => box(2.2, 3.8, 5.6 + i * 0.12, 5.72 + i * 0.12, 0, 0.36 - i * 0.12, M.iso, { body: true })));
+    return { boxes: B, H: 1.5, top: 3.0, banners: [[5.2, 5.4, 1.5]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-chapel', kind: 'chapel', fp: [3, 4], hp: 1000, material: 'stone', heightM: 6, k: 109,
+  note: 'a chapel: a small distyle temple on a three-step podium, a painted frieze, a tiled gable, an altar before it',
+  model: (st) => ({ boxes: [...templeBoxes(0.4, 0.3, 5.2, 6.4, { steps: 3, s: 0.3, nx: 2, ny: 2, R: 0.24, Hc: 3.4, E: 0.7, rise: 0.9 }), box(2.4, 3.6, 6.9, 7.7, 0, 0.9, M.iso, { body: true })], H: 5.0, top: 5.9, banners: [[0.9, 6.4, 4.3]] }) });
+piece({ landmark: 'arch', id: 'arch-treasury', kind: 'treasury', fp: [3, 4], hp: 1500, material: 'stone', heightM: 7.5, k: 110,
+  note: 'a treasury (as the Athenians\' at Delphi): a Doric temple-house in antis on a high ashlar podium, a painted frieze',
+  model: (st) => ({ boxes: [box(0.3, 5.7, 0.3, 7.7, 0, 1.0, M.iso, { body: true }), ...shift(templeBoxes(0.5, 0.5, 5.0, 7.0, { steps: 2, s: 0.25, nx: 2, ny: 2, R: 0.26, Hc: 3.6, E: 1.0, rise: 1.0 }), 0, 0, 1.0)], H: 6.1, top: 7.1, banners: [[0.9, 7.3, 5.6], [5.1, 7.3, 5.6]] }) });
+piece({ landmark: 'arch', id: 'arch-theatre', kind: 'theatre', fp: [14, 10], hp: 5000, material: 'stone', heightM: 6.5, k: 111,
+  note: 'a Greek theatre: a semicircular cavea of stone seat rows rising to the back (-y), stairways, the round orchestra, a low skene with a columned proskenion along +y',
+  model: (st) => {
+    const cx = 14, cy = 14.2, Ri = 4.6, Ro = 13.6, R0 = Ri + 0.6, rows = (Ro - 0.5 - R0) / 0.8;
+    const aisle = (f, x, y, z) => mul(TEX.lime[1 + (Math.floor(z / 0.21) % 2)], f === 'top' ? 0.95 : 0.8);
+    const B = cells(0, 28, 0, 20, (x, y) => {
+      const d = Math.hypot(x - cx, y - cy); if (d > Ro || y > cy + 1.2) return null;
+      if (d <= Ri) return { z0: 0, z1: 0.06, mat: (f, xx, yy) => mul(EARTH_C, 1.3 + 0.2 * hash(Math.floor(xx * 4) & 255, Math.floor(yy * 4) & 255, 6)), keep: true };
+      if (d <= R0) return { z0: 0, z1: 0.5, mat: M.iso, body: true };
+      if (d > Ro - 0.5) return { z0: 0, z1: 0.45 + Math.ceil(rows) * 0.42 + 0.7, mat: M.iso, body: true };
+      const th = Math.atan2(cy - y, x - cx), step = (d - R0) / 0.8;
+      if ([1, 2, 3, 4, 5].some((j) => Math.abs(th - (j * Math.PI) / 6) * d < 0.5)) return { z0: 0, z1: 0.45 + Math.floor(step * 2) * 0.21, mat: aisle, body: true };
+      return { z0: 0, z1: 0.45 + Math.floor(step) * 0.42, mat: M.tiers, body: true };
+    }, 1 / 8);
+    B.push(box(5.5, 22.5, 17.0, 19.6, 0, 3.3, M.iso, { body: true }), box(5.5, 22.5, 15.8, 17.0, 0, 2.4, (f, x, y, z, u, r) => (f === 'top' ? planks('x', 7)(f, x, y, z, u, r) : M.iso(f, x, y, z, u, r)), { body: true }));
+    for (const a of [9.0, 13.4, 17.8]) B.push(opening('-y', a, a + 1.2, 17.0, 2.4, 3.2));
+    for (let x = 6.2; x < 22.2; x += 1.6) B.push(...cylinder(x, 15.6, 0.16, 0, 2.4, null, { paint: mul(TEX.lime[3], 0.95) }).map((b) => ({ ...b, body: true })));
+    return { boxes: B, H: 5.6, top: 5.9, banners: [[5.8, 19.4, 3.3], [22.2, 19.4, 3.3]] };
+  } });
+piece({ landmark: 'arch', id: 'arch-tomb-a', kind: 'tomb', fp: [2, 2], hp: 400, material: 'stone', heightM: 3, k: 112,
+  note: 'a grave plot: a carved stele with a pediment behind a lidded sarcophagus on a plinth',
+  model: (st) => {
+    const lime = (f, x, y, z) => mul(TEX.lime[f === 'top' ? 3 : 2], f === 'top' ? 1 : ao(z) * 0.95);
+    const B = [box(0.3, 3.7, 0.5, 3.5, 0, 0.45, M.iso, { body: true }), box(0.9, 3.1, 1.4, 2.8, 0.45, 1.3, lime, { body: true }), box(0.8, 3.2, 1.3, 2.9, 1.3, 1.45, lime, { body: true }), box(0.8, 3.2, 1.95, 2.25, 1.45, 1.6, lime, { body: true })];
+    B.push(box(1.55, 2.45, 0.6, 0.85, 0.45, 2.6, lime, { body: true }), ...cells(1.5, 2.5, 0.58, 0.87, (x) => ({ z0: 2.6, z1: 2.6 + 0.35 * (1 - Math.abs(x - 2) / 0.5), mat: lime, body: true }), 1 / 16));
+    return { boxes: B, H: 1.6, top: 2.95 };
+  } });
+piece({ landmark: 'arch', id: 'arch-tomb-b', kind: 'tomb', fp: [3, 3], hp: 800, material: 'stone', heightM: 6, k: 113,
+  note: 'a mausoleum: a square ashlar chamber with a false door on a three-step base, a stepped pyramid roof',
+  model: (st) => {
+    const lime = (f, x, y, z) => mul(TEX.lime[f === 'top' ? 3 : 2], f === 'top' ? 1 : ao(z) * 0.92);
+    const B = [];
+    for (let i = 0; i < 3; i++) B.push(box(0.3 + i * 0.35, 5.7 - i * 0.35, 0.3 + i * 0.35, 5.7 - i * 0.35, i * 0.35, (i + 1) * 0.35, (f, x, y, z, u, r) => (f === 'top' ? flags(f, x, y) : M.iso(f, x, y, z, u, r)), { body: true }));
+    B.push(box(1.4, 4.6, 1.4, 4.6, 1.05, 3.4, M.iso, { body: true }), opening('+y', 2.5, 3.5, 4.6, 1.05, 2.7));
+    for (let i = 0; i < 6; i++) B.push(box(1.25 + i * 0.25, 4.75 - i * 0.25, 1.25 + i * 0.25, 4.75 - i * 0.25, 3.4 + i * 0.3, 3.7 + i * 0.3, lime, { body: true }));
+    B.push(box(2.8, 3.2, 2.8, 3.2, 5.2, 5.6, lime, { body: true }));
+    return { boxes: B, H: 3.4, top: 5.6 };
+  } });
+
+// Ammon: the mudbrick city (battered walls on limestone footings, flat roofs, palm beams)
+both({ landmark: 'ammon', id: 'ammon-wall', kind: 'wall', fp: [4, 2], hp: 1500, hpNote: 'a tile', material: 'stone', heightM: 7, k: 121, segment: 8,
+  note: '8 m of the city wall: battered mudbrick in three set-backs on a limestone footing, the walk at 5 m between merlons; segments join end to end',
+  model: (st) => ({ boxes: [box(0, 8, 0, 4, 0, 1.2, M.iso, { body: true }), box(0, 8, 0.2, 3.8, 1.2, 2.6, M.mud, { body: true }), box(0, 8, 0.4, 3.6, 2.6, 4.0, M.mud, { body: true }), box(0, 8, 0.6, 3.4, 4.0, 5.0, M.mud, { body: true }), ...merlons(0, 8, 3.0, 3.4, 5.0, 0.9, M.mud), ...merlons(0, 8, 0.6, 1.0, 5.0, 0.9, M.mud)], H: 5, top: 5.9, seg: 8, banners: [[3.6, 3.2, 5.0]] }) });
+piece({ landmark: 'ammon', id: 'ammon-tower', kind: 'tower', fp: [3, 3], hp: 3000, material: 'stone', heightM: 9, k: 122, platformM: 7.5,
+  note: 'a wall tower: battered mudbrick in set-backs on a limestone footing, slit windows, a flat crenellated fighting top',
+  model: (st) => {
+    const B = [box(0, 6, 0, 6, 0, 1.2, M.iso, { body: true }), box(0.2, 5.8, 0.2, 5.8, 1.2, 3.5, M.mud, { body: true }), box(0.45, 5.55, 0.45, 5.55, 3.5, 6.0, M.mud, { body: true }), box(0.7, 5.3, 0.7, 5.3, 6.0, 7.5, M.mud, { body: true }), ...ring4(0.7, 5.3, 0.7, 5.3, 7.5, 0.9, M.mud)];
+    for (const z of [4.4, 6.4]) for (const a of [2.0, 3.6]) B.push(opening('+y', a, a + 0.18, z < 6 ? 5.55 : 5.3, z, z + 0.8), opening('+x', a, a + 0.18, z < 6 ? 5.55 : 5.3, z, z + 0.8));
+    return { boxes: B, H: 7.5, top: 8.4, banners: [[3, 5.1, 7.5]] };
+  } });
+both({ landmark: 'ammon', id: 'ammon-gate', kind: 'gate', fp: [6, 3], hp: 4000, material: 'stone', heightM: 10, k: 123,
+  note: 'a pylon gate: two battered mudbrick towers on limestone footings, the passage between under a mudbrick lintel with a cavetto cornice, flag masts',
+  model: (st) => {
+    const B = [box(0, 4.1, 0.3, 5.7, 0, 1.0, M.iso, { body: true }), box(7.9, 12, 0.3, 5.7, 0, 1.0, M.iso, { body: true }), ...batter(0.1, 4.0, 0.4, 5.6, 8.0, M.mud), ...batter(8.0, 11.9, 0.4, 5.6, 8.0, M.mud)];
+    B.push(...shift(gateBoxes('stone', 'x', gate(st), 6, gateOpt(st)), 4, 2.1), box(4, 8, 1.0, 5.0, 5.97, 7.0, M.mud, { body: true }), box(3.9, 8.1, 0.9, 5.1, 7.0, 7.4, (f, x, y, z) => mul(TEX.lime[z > 7.25 ? 3 : 2], f === 'top' ? 1 : 0.85), { body: true }));
+    for (const x of [1.0, 11.0]) B.push(...cylinder(x, 5.75, 0.1, 0, 9.6, null, { paint: TEX.wood[1] }).map((b) => ({ ...b, body: true })));
+    return { boxes: B, H: 8, top: 9.6, banners: [[1.1, 5.8, 7.6], [11.1, 5.8, 7.6]] };
+  } });
+piece({ landmark: 'ammon', id: 'ammon-tenement', kind: 'house', fp: [4, 3], hp: 1200, material: 'stone', heightM: 10, k: 124,
+  note: 'a three-storey mudbrick tenement on a limestone footing: tiny windows, palm-beam ends, a roof terrace with a roof room; ruined a roofless shell',
+  model: (st) => {
+    const H = 7.6, B = rooms([[0.4, 4.0, 0.4, 5.4, H], [4.0, 7.6, 0.4, 5.4, H]], st, MUDH, { slab: MUDSLAB });
+    if (whole(st)) {
+      B.push(...lips(0.4, 7.6, 0.4, 5.4, H), box(0.8, 3.0, 0.8, 2.6, H, H + 2.0, M.mud, { body: true }), ...lips(0.8, 3.0, 0.8, 2.6, H + 2.0));
+      for (let i = 0; i < 8; i++) for (const z of [2.6, 5.2]) B.push(box(0.6 + i * 0.9, 0.75 + i * 0.9, 5.4, 5.7, z, z + 0.15, woodSolid(1)));
+    }
+    const w = [];
+    for (const z of [1.3, 3.8, 6.3]) { for (const a of [1.2, 2.8, 5.0, 6.4]) if (!(z < 2 && a > 1 && a < 3)) w.push(['+y', a, a + 0.4, 5.4, z, z + 0.55]); for (const a of [1.3, 3.7]) w.push(['+x', a, a + 0.4, 7.6, z, z + 0.55]); }
+    B.push(...holes(st, [['+y', 1.7, 2.7, 5.4, 0, 2.0, leafMat('intact')], ...w]));
+    return { boxes: B, H, top: 9.9, noNotch: true, shell: true, banners: [[7.2, 5.2, 7.9]] };
+  } });
+piece({ landmark: 'ammon', id: 'ammon-house-c', kind: 'house', fp: [4, 4], hp: 1100, material: 'stone', heightM: 7, k: 125,
+  note: 'a mudbrick courtyard house: one- and two-storey wings round a court with a stair to the roofs, flat roofs behind lips; ruined a roofless shell',
+  model: (st) => {
+    const R = [[0.4, 7.6, 5.4, 7.6, 3.2], [0.4, 7.6, 0.4, 3.0, 5.4], [0.4, 2.8, 3.0, 5.4, 3.2], [5.2, 7.6, 3.0, 5.4, 3.2]];
+    const B = rooms(R, st, MUDH, { slab: MUDSLAB });
+    if (whole(st)) for (const r of R) B.push(...lips(r[0], r[1], r[2], r[3], r[4]));
+    B.push(box(2.8, 5.2, 3.0, 5.4, 0, 0.05, (f, x, y) => mul(M.R.mud[3], 0.8 + 0.1 * hash(Math.floor(x * 4) & 255, Math.floor(y * 4) & 255, 7)), { keep: true }));
+    for (let i = 0; i < 7; i++) B.push(box(4.4, 5.2, 3.0 + i * 0.3, 3.3 + i * 0.3, 0, 0.6 + i * 0.68, M.mud, { body: true })); // the stair up to the north wing's roof
+    B.push(...holes(st, [['+y', 3.5, 4.5, 7.6, 0, 2.0, leafMat('intact')], ['+y', 1.4, 1.75, 7.6, 1.8, 2.3], ['+y', 6.2, 6.55, 7.6, 1.8, 2.3], ['+x', 1.2, 1.55, 7.6, 3.6, 4.1], ['+x', 4.0, 4.35, 7.6, 1.8, 2.3]]));
+    return { boxes: B, H: 5.4, top: 5.8, noNotch: true, shell: true, banners: [[7.2, 2.6, 5.7]] };
+  } });
+piece({ landmark: 'ammon', id: 'ammon-workshop', kind: 'workshop', fp: [4, 3], hp: 900, material: 'stone', heightM: 5.5, k: 126,
+  note: 'a mudbrick workshop: a flat-roofed back room, a reed awning on palm posts over the street, a domed kiln and its jars; ruined a roofless shell',
+  model: (st) => {
+    archMats();
+    const B = rooms([[0.4, 7.6, 0.4, 3.6, 3.2]], st, MUDH, { door: 2.4, slab: MUDSLAB });
+    if (whole(st)) B.push(...lips(0.4, 7.6, 0.4, 3.6, 3.2));
+    for (const x of [0.6, 3.9, 7.2]) B.push(box(x, x + 0.2, 5.3, 5.5, 0, 2.5, woodSolid(1), { body: true }));
+    B.push(box(0.3, 7.7, 3.6, 5.7, 2.5, 2.62, ramp3(STRAW, 185, 12), { roof: true }));
+    B.push(...cells(5.4, 7.4, 3.8, 5.6, (x, y) => { const d = Math.hypot(x - 6.4, y - 4.7) / 0.95; return d < 1 ? { z0: 0, z1: 0.3 + 1.3 * Math.sqrt(1 - d * d), mat: ramp3(CLAY, 186, 6), body: true } : null; }, 1 / 16));
+    for (const [x, y] of [[1.2, 4.6], [1.9, 5.1], [2.6, 4.5]]) B.push(...cylinder(x, y, 0.24, 0, 0.7, null, { paint: CLAY[1], top: () => DOORDARK }));
+    B.push(...holes(st, [['+y', 2.4, 4.8, 3.6, 0, 2.3]]));
+    return { boxes: B, H: 3.2, top: 3.6, noNotch: true, shell: true };
+  } });
+piece({ landmark: 'ammon', id: 'ammon-tomb', kind: 'tomb', fp: [3, 3], hp: 800, material: 'stone', heightM: 3.5, k: 127,
+  note: 'a mastaba tomb of the necropolis: a battered limestone bench in three set-backs, a false door and an offering table on its front',
+  model: (st) => {
+    const lime = (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.lime[2], 0.95) : M.iso(f, x, y, z, u, r));
+    const B = [box(0.5, 5.5, 0.6, 5.4, 0, 1.0, lime, { body: true }), box(0.7, 5.3, 0.8, 5.2, 1.0, 2.0, lime, { body: true }), box(0.9, 5.1, 1.0, 5.0, 2.0, 2.8, lime, { body: true })];
+    B.push(box(2.3, 3.7, 5.4, 5.55, 0, 2.2, (f, x, y, z) => mul(TEX.lime[3], 0.95), { body: true }), opening('+y', 2.7, 3.3, 5.55, 0.2, 1.9), box(2.6, 3.4, 5.6, 5.95, 0, 0.4, M.iso, { body: true }));
+    return { boxes: B, H: 2.8, top: 2.8 };
+  } });
+
+// the larger landmarks' quarters
+piece({ landmark: 'sunken', id: 'sunken-house', kind: 'house', fp: [3, 3], hp: 900, material: 'stone', heightM: 4, k: 131,
+  note: 'a drowned house of the sunken quarter: fieldstone walls sunk 1.4 m in the mud, river-stained, a tiled gable; ruined a roofless shell',
+  model: (st) => {
+    const fs = masonry(TEX.cyclo, { mod: 160, row0: 30 }), wet = (f, x, y, z, u, r) => (f === 'top' ? rough(f, x, y) : mul(fs(f, x * 2, y * 2, z, u * 2, r * 2) ?? TEX.lime[1], z < 1.9 ? 0.62 : 0.92));
+    const B = [...rooms([[0.5, 5.5, 0.5, 5.0, 3.8]], st, wet), ...gable(0.2, 5.8, 0.2, 5.3, 3.8, 1.2, 'x', { ped: false }), ...holes(st, [['+y', 2.4, 3.4, 5.0, 0, 3.4], ['+x', 2.4, 2.9, 5.5, 2.4, 3.0]])];
+    return { boxes: sunk(B), H: 3.8 - SINK, top: 3.6, noNotch: true, shell: true };
+  } });
+both({ landmark: 'obsidian', id: 'obsidian-gate', kind: 'gate', fp: [6, 3], hp: 5000, material: 'rock', heightM: 10, k: 141,
+  note: 'a rock-cut gate: the passage hewn between two basalt masses, a rock bridge over it with a ragged parapet, the leaves on the outer (+y) face; not burnable',
+  model: (st) => {
+    const mass = (x0, x1) => cells(x0, x1, 0, 6, (x, y) => ({ z0: 0, z1: 8.2 + 0.6 * vn(x, y, 142, 1.2), mat: M.rock, body: true }), 0.25);
+    const B = [...mass(0, 4.4), ...mass(7.6, 12), box(4.4, 7.6, 0.6, 5.4, 4.6, 8.2, M.rock, { body: true })];
+    for (const [y0, y1] of [[0.6, 1.2], [4.8, 5.4]]) B.push(...cells(4.4, 7.6, y0, y1, (x, y) => ({ z0: 8.2, z1: 8.9 + 0.4 * vn(x, y, 143, 1.5), mat: M.rock, body: true }), 0.25));
+    if (whole(st)) B.push(box(4.45, 7.55, 5.0, 5.15, 0, 4.6, st === 'restored' ? ironBound : leafMat(st)));
+    else if (st === 'damaged') B.push(box(4.5, 4.65, 3.2, 5.0, 0, 4.4, leafMat('intact')), box(7.35, 7.5, 3.2, 5.0, 0, 4.4, leafMat('intact')));
+    return { boxes: B, H: 8.2, top: 9.3, banners: [[2.0, 5.6, 8.8], [10.0, 5.6, 8.8]] };
+  } });
+piece({ landmark: 'obsidian', id: 'obsidian-hall', kind: 'barracks', fp: [6, 4], hp: 3000, material: 'rock', heightM: 9, k: 143,
+  note: 'a rock-cut hall: a basalt mass with a facade cut into it, four pilasters and an entablature round a dark doorway, a terrace of steps',
+  model: (st) => {
+    const B = [...cells(0, 12, 0, 6, (x, y) => ({ z0: 0, z1: 7.2 + 1.0 * vn(x, y, 144, 0.8), mat: M.rock, body: true }), 0.25)];
+    for (const x of [2.2, 4.6, 6.6, 9.0]) B.push(box(x, x + 0.8, 6.0, 6.5, 0.5, 5.2, M.rock, { body: true }));
+    B.push(box(1.6, 10.4, 6.0, 6.6, 5.2, 6.2, M.rock, { body: true }), opening('+y', 5.4, 6.6, 6.0, 0.5, 3.8), opening('+y', 3.2, 3.8, 6.0, 2.4, 3.6), opening('+y', 8.0, 8.6, 6.0, 2.4, 3.6));
+    B.push(box(1.0, 11.0, 6.0, 7.8, 0, 0.25, M.rock, { body: true }), box(1.4, 10.6, 6.0, 7.2, 0.25, 0.5, M.rock, { body: true }));
+    return { boxes: B, H: 7.2, top: 8.2, banners: [[1.8, 7.4, 6.2], [10.2, 7.4, 6.2]] };
+  } });
+piece({ landmark: 'forge', id: 'titan-furnace', kind: 'workshop', fp: [3, 3], hp: 1500, material: 'stone', heightM: 5, k: 151,
+  note: 'a bloomery furnace: a stone shaft in three tiers, its mouth glowing, leather bellows at its side, slag at its foot',
+  model: (st) => {
+    const live = whole(st), B = [...cylinder(3, 3, 1.8, 0, 1.2, TEX.cyclo, { row0: 4 }), ...cylinder(3, 3, 1.5, 1.2, 3.0, TEX.iso, { row0: 9 }), ...cylinder(3, 3, 1.2, 3.0, 4.4, TEX.iso, { row0: 30 })].map((b) => ({ ...b, body: true }));
+    B.push(...cells(2.3, 3.7, 2.3, 3.7, (x, y) => (Math.hypot(x - 3, y - 3) < 0.6 ? { z0: 4.4, z1: 4.42, mat: live ? M.ramped(M.R.coal, 152, 12) : solid(CHAR), body: true } : null), 1 / 16));
+    B.push(box(2.6, 3.4, 4.75, 4.85, 0.3, 1.1, live ? M.ramped(M.R.coal, 153, 10) : solid(DOORDARK)), box(4.6, 5.8, 3.6, 4.6, 0, 0.7, M.ramped(M.R.hide, 154, 6), { body: true }));
+    B.push(...heap(1.2, 4.9, 0.9, 0.7, 0.6, 155, (f, x, y, z) => M.R.slag[Math.floor(M.nz(x, y, z, 156, 8) * 4)]).map((b) => ({ ...b, keep: true })));
+    return { boxes: B, H: 4.4, top: 4.45 };
+  } });
+piece({ landmark: 'forge', id: 'titan-hall', kind: 'barracks', fp: [6, 4], hp: 2500, material: 'stone', heightM: 7, k: 157,
+  note: 'the forge-workers\' hall: rough cyclopean walls, a tiled gable, a smoke chimney',
+  model: (st) => {
+    const B = [box(0.5, 11.5, 0.5, 6.8, 0, 4.0, M.bigCyc, { body: true }), ...gable(0.2, 11.8, 0.2, 7.1, 4.0, 1.8, 'x', { ped: false }), box(9.0, 10.0, 1.5, 2.5, 4.0, 6.6, M.cyc, { body: true })];
+    for (const a of [2.4, 7.6]) B.push(opening('+y', a, a + 1.2, 6.8, 0, 2.6, leaves(st)));
+    return { boxes: B, H: 4.0, top: 6.6, banners: [[1.0, 7.4, 4.0], [11.0, 7.4, 4.0]] };
+  } });
 
 // ---- the labyrinth wall kit (Temple City): 16 frames by neighbour mask (+x 1, +y 2, -x 4, -y 8) x 4 states, one tile
 // each, 3.4 m of ashlar (2 m period: runs join), a coping on top; the walled maze round the temple undercroft

@@ -375,9 +375,9 @@ export class Kit {
       return lo;
     };
     const bridgeS = (o.bridges ?? []).map((p) => nearestSample(c, p[0], p[1]).s);
-    this.each((i) => {
+    this.each((i, x, y) => {
       if (f.d[i] < this.roadDist[i]) this.roadDist[i] = f.d[i];
-      if (f.d[i] > w) return;
+      if (f.d[i] > w || this.inSite(x, y)) return; // a landmark lays its own streets
       const h = Math.max(0, Math.min(7, Math.round(prof[near(i)] - 0.01)));
       if (this.water[i] === 1) return; // a ford stays a sandy shallow
       if (this.water[i] === 2) {
@@ -490,15 +490,6 @@ export class Kit {
     }
     return this.towns.push({ at, kind: kind ?? 'village' }) - 1;
   }
-  private flatRect(x0: number, y0: number, x1: number, y1: number, h0: number, pave: boolean) {
-    this.each((i, x, y) => {
-      if (this.terrain[i] === 'rock') return;
-      const tx = Math.floor(this.simTile(x) + 0.5), ty = Math.floor(this.simTile(y) + 0.5);
-      const d = Math.max(x0 - tx, tx - (x1 - 1), y0 - ty, ty - (y1 - 1)) / 2; // units outside the rect
-      if (d <= 0) { this.height[i] = h0; this.water[i] = 0; if (pave) this.terrain[i] = 'road'; }
-      else if (d < 8 && !this.water[i]) this.height[i] = Math.max(h0 - 1 - Math.floor(d / 2), Math.min(h0 + 1 + Math.floor(d / 2), this.height[i]));
-    });
-  }
   /**
    * One town structure with its footprint's NW corner on sim tile (tx, ty), of `town` (default the nearest); `slot`:
    * skipped where it would land on a street, the court's ground, or water; `court`: a piece of the safe court.
@@ -572,39 +563,284 @@ export class Kit {
   /** A wooden jetty out over the water near `at`. */
   jetty(at: Pt, r = 24) { this.scatterTown([T('jetty')], at, { n: 1, r1: r, water: true }); }
 
-  // ---- M7d landmarks (docs/WAR.md "Landmarks"; layouts and art: public/war/landmarks/landmarks.json)
-  readonly landmarkReqs: LandmarkReq[] = [];
+  // ---- M7d landmarks (docs/WAR.md "Landmarks"; art: public/war/landmarks/landmarks.json), at true scale (W-48)
+  readonly sites: Site[] = [];
   /**
-   * A landmark's layout (landmarks.json `landmarks[].id`) with its NW corner on the sim tile under unit point `at`: the
-   * ground under it (and a tile round) levelled to `h` (default the ground at its centre) and dried; its pieces become
-   * pre-built landmark structures of a town of their own (60% hp, the mobs' while its guardian lives, gates shut), its
-   * node pieces the rare-good nodes, its guardians posted at layout tiles. Returns the unit point of its centre.
+   * A landmark (docs/WAR.md "Landmarks") laid out as a real place: a Site whose NW corner is the sim tile under unit
+   * point `at`, `size` sim tiles big. Its pieces (Site.put, line, ring, grid, block) become pre-built landmark
+   * structures of a town of its own (the mobs' while its guardian lives, gates shut), claimed near `claim` (site tiles,
+   * default its centre); its node pieces the rare-good nodes, its guardians posted at site tiles. The script shapes the
+   * ground with Site.level and Site.pave (both runs); the pieces are placed in the sim run.
    */
-  landmark(id: string, at: Pt, o: { h?: number; guardians: LGuard[]; nodes?: [string, number, number][] }): Pt {
-    const lay = LANDMARK_LAYOUTS.get(id);
-    if (!lay) throw new Error(`unknown landmark ${id}`);
-    const tx = Math.round(this.simTile(at[0])), ty = Math.round(this.simTile(at[1])), [lw, lh] = lay.size;
-    const c: Pt = [this.unitOf(tx + lw / 2), this.unitOf(ty + lh / 2)];
-    const h = o.h ?? this.height[Math.max(0, this.at(c))];
-    this.flatRect(tx - 1, ty - 1, tx + lw + 1, ty + lh + 1, h, false);
-    this.landmarkReqs.push({ id, t: [tx, ty], town: this.townAt(c, 'village'), guardians: o.guardians, nodes: o.nodes ?? [] });
-    return c;
+  site(id: string, at: Pt, size: [number, number], o: { guardians: LGuard[]; nodes?: [string, number, number][]; claim?: Pt }): Site {
+    const tx = Math.round(this.simTile(at[0])), ty = Math.round(this.simTile(at[1]));
+    const c = o.claim ?? [size[0] / 2, size[1] / 2];
+    const s = new Site(this, id, tx, ty, size[0], size[1], this.townAt(this.unitAt(tx + c[0], ty + c[1]), 'village'), o.guardians, o.nodes ?? []);
+    this.sites.push(s);
+    return s;
+  }
+  /** Ground of sim tiles x0..x1-1, y0..y1-1 to level h0, dried (the land round eased to it unless `ease` is false: cliffs stay); `pave`: road. */
+  flatRect(x0: number, y0: number, x1: number, y1: number, h0: number, pave: boolean, ease = true) {
+    this.each((i, x, y) => {
+      if (this.terrain[i] === 'rock') return;
+      const tx = Math.floor(this.simTile(x) + 0.5), ty = Math.floor(this.simTile(y) + 0.5);
+      const d = Math.max(x0 - tx, tx - (x1 - 1), y0 - ty, ty - (y1 - 1)) / 2; // units outside the rect
+      if (d <= 0) { this.height[i] = h0; this.water[i] = 0; if (pave) this.terrain[i] = 'road'; }
+      else if (ease && d < 8 && !this.water[i]) this.height[i] = Math.max(h0 - 1 - Math.floor(d / 2), Math.min(h0 + 1 + Math.floor(d / 2), this.height[i]));
+    });
+  }
+  /** Terrain `t` on the dry, rockless sim tiles x0..x1-1, y0..y1-1 (heights kept). */
+  paintRect(x0: number, y0: number, x1: number, y1: number, t: string) {
+    this.each((i, x, y) => {
+      if (this.terrain[i] === 'rock' || this.water[i]) return;
+      const tx = Math.floor(this.simTile(x) + 0.5), ty = Math.floor(this.simTile(y) + 0.5);
+      if (tx >= x0 && tx < x1 && ty >= y0 && ty < y1) this.terrain[i] = t;
+    });
+  }
+  /** Water `depth` (1 shallow, 2 deep) over sim tiles x0..x1-1, y0..y1-1 but rock: its bed at level `bed`, sand. */
+  waterRect(x0: number, y0: number, x1: number, y1: number, depth: 1 | 2, bed = 0) {
+    this.each((i, x, y) => {
+      if (this.terrain[i] === 'rock') return;
+      const tx = Math.floor(this.simTile(x) + 0.5), ty = Math.floor(this.simTile(y) + 0.5);
+      if (tx >= x0 && tx < x1 && ty >= y0 && ty < y1) (this.water[i] = depth), (this.height[i] = bed), (this.terrain[i] = 'sand');
+    });
+  }
+  /** Unit point of sim tile (tx, ty). */
+  unitAt(tx: number, ty: number): Pt { return [this.unitOf(tx), this.unitOf(ty)]; }
+  /** Whether unit point (x, y) lies inside a landmark site (its bounds). */
+  inSite(x: number, y: number) {
+    if (!this.sites.length) return false;
+    const tx = Math.floor(this.simTile(x) + 0.5), ty = Math.floor(this.simTile(y) + 0.5);
+    return this.sites.some((s) => tx >= s.x0 && ty >= s.y0 && tx < s.x0 + s.w && ty < s.y0 + s.h);
   }
 }
-/** A landmark guardian's posts in its layout's tiles (from the NW corner); heads 'shore': six on the land by the water near it. */
+
+/** A landmark piece of a site: a landmarks.json piece id, or `@id` (a build-mode piece of LANDMARK_AT, `@town-<id>` one of the town set); its NW sim tile, start hp share, a ruin. */
+export interface SitePiece { id: string; x: number; y: number; hp?: number; ruined?: boolean }
+/** A wall ring's pieces: `<wall>-x/-y` segments (4 x 2), `<tower>` (3 x 3), `<gate>-x/-y` (6 x 3). */
+export interface WallSet { wall: string; tower: string; gate: string }
+/** A district's buildings: [piece, weight]; the share lying in ruins, the hp share range of the rest; `alley`: the chance of a 1-tile gap after a building. */
+export interface District { ids: [string, number][]; ruin: number; hp: [number, number]; alley?: number; empty?: number }
+export type Side4 = 'N' | 'E' | 'S' | 'W';
+/**
+ * The city kit (W-48): a landmark as a real place, in sim tiles from its NW corner. Streets (grid: avenues and streets
+ * paved and kept clear, the blocks between returned), blocks (a row of lots along each street front, a building of the
+ * district on each), wall lines and rings (towers at the ends and about every `every` tiles, gates where the roads come
+ * in, whole 8 m segments between), single pieces (put). Every piece is a pre-built sim building (W-47); the district and
+ * wall options give the place its condition by lore (ruined quarters, breaches).
+ */
+export class Site {
+  readonly pieces: SitePiece[] = [];
+  readonly extraNodes: [string, number, number][];
+  /** Keep the wild trees and bushes on its ground (a sacred grove). */
+  wild = false;
+  private occ = new Set<number>();
+  private kept = new Set<number>();
+  readonly k: Kit; readonly id: string; readonly x0: number; readonly y0: number; readonly w: number; readonly h: number; readonly town: number; readonly guardians: LGuard[];
+  constructor(k: Kit, id: string, x0: number, y0: number, w: number, h: number, town: number, guardians: LGuard[], nodes: [string, number, number][]) {
+    this.k = k; this.id = id; this.x0 = x0; this.y0 = y0; this.w = w; this.h = h; this.town = town; this.guardians = guardians;
+    this.extraNodes = nodes.slice();
+  }
+  /** Unit point of site tile (x, y). */
+  u(x: number, y: number): Pt { return this.k.unitAt(this.x0 + x, this.y0 + y); }
+  /** Level site tiles x0..x1-1, y0..y1-1 to h (the land round eased to it unless `ease` is false); `pave`: a street. */
+  level(x0: number, y0: number, x1: number, y1: number, h: number, pave = false, ease = true) { this.k.flatRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, h, pave, ease); }
+  /** Keep the road tiles already laid inside the site clear (a road through it stays a street). */
+  keepRoads() {
+    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
+      const i = this.k.at(this.u(x, y));
+      if (i >= 0 && this.k.terrain[i] === 'road') this.keep(x, y, x + 1, y + 1);
+    }
+  }
+  /** Height of the ground under site tile (x, y). */
+  hAt(x: number, y: number) { const i = this.k.at(this.u(x, y)); return i < 0 ? 0 : this.k.height[i]; }
+  /** Whether site tile (x, y) is dry open ground (no water, no rock). */
+  dry(x: number, y: number) { const i = this.k.at(this.u(x, y)); return i >= 0 && !this.k.water[i] && this.k.terrain[i] !== 'rock'; }
+  /** Water over site tiles (1 shallow, 2 deep), its bed at `bed`. */
+  flood(x0: number, y0: number, x1: number, y1: number, depth: 1 | 2, bed = 0) { this.k.waterRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, depth, bed); }
+  /** Terrain over site tiles (default road: a street; dirt: a yard). */
+  pave(x0: number, y0: number, x1: number, y1: number, t = 'road') { this.k.paintRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, t); }
+  /** Footprint of a piece id. */
+  fp(id: string): [number, number] {
+    if (id.startsWith('@town-')) { const f = TOWN_FP.get(T(id.slice(6))); if (f) return f; }
+    else if (id.startsWith('@')) { const t = LANDMARK_AT[id.slice(1)]; if (t) return [t[1], t[2]]; }
+    else if (id === LABYRINTH) return [1, 1];
+    else { const p = LANDMARK_PIECES.get(id); if (p) return p.footprint; }
+    throw new Error(`site ${this.id}: unknown piece ${id}`);
+  }
+  /** The sim building a piece id is (null: a node or art only). */
+  typeOf(id: string): BuildingType | null {
+    if (id.startsWith('@town-')) return PRE_TYPE[T(id.slice(6))] ?? null;
+    if (id.startsWith('@')) return LANDMARK_AT[id.slice(1)]?.[0] ?? null;
+    if (id === LABYRINTH) return 'stoneWall';
+    const p = LANDMARK_PIECES.get(id);
+    return p ? LANDMARK_TYPE[p.kind] ?? null : null;
+  }
+  /** Whether site tiles x..x+w-1, y..y+h-1 are inside the site and free of its pieces and kept ground. */
+  free(x: number, y: number, w: number, h: number) {
+    if (x < 0 || y < 0 || x + w > this.w || y + h > this.h) return false;
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (this.occ.has(j * 4096 + i) || this.kept.has(j * 4096 + i)) return false;
+    return true;
+  }
+  /** Keep site tiles x0..x1-1, y0..y1-1 clear (a street, a yard, a lair's ground): no piece lands there. */
+  keep(x0: number, y0: number, x1: number, y1: number) { for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) this.kept.add(j * 4096 + i); }
+  /** One piece with its NW corner on site tile (x, y); false where it would overlap another or kept ground. */
+  put(id: string, x: number, y: number, o: { hp?: number; ruined?: boolean } = {}): boolean {
+    const [w, h] = this.fp(id);
+    if (!this.free(x, y, w, h)) return false;
+    return this.add(id, x, y, w, h, o);
+  }
+  /** One piece on kept ground of its own (a stoa on the agora's paving): only other pieces stop it. */
+  force(id: string, x: number, y: number, o: { hp?: number; ruined?: boolean } = {}): boolean {
+    const [w, h] = this.fp(id);
+    if (x < 0 || y < 0 || x + w > this.w || y + h > this.h) return false;
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (this.occ.has(j * 4096 + i)) return false;
+    return this.add(id, x, y, w, h, o);
+  }
+  private add(id: string, x: number, y: number, w: number, h: number, o: { hp?: number; ruined?: boolean }) {
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) this.occ.add(j * 4096 + i);
+    this.pieces.push({ id, x: this.x0 + x, y: this.y0 + y, ...(o.hp !== undefined ? { hp: o.hp } : {}), ...(o.ruined ? { ruined: true } : {}) });
+    return true;
+  }
+  /** An extra node object (a rare-good node) on site tile (x, y). */
+  node(id: string, x: number, y: number) { this.extraNodes.push([id, x, y]); this.keep(x - 1, y - 1, x + 2, y + 2); }
+  /**
+   * A straight wall along `axis` from site tile (x, y), `len` tiles long (towers and gates included): a tower at each end
+   * (unless `ends` false), towers about every `every` tiles, gates near the fractions `gates` (0..1) of its length, the
+   * runs between in whole segments. `outer`: the side its face is on ('-' north or west, '+' south or east; the segments
+   * flush with that side of the towers). `breach`: share of segments lying in ruins. Returns the gates' NW tiles.
+   */
+  line(set: WallSet, axis: 'x' | 'y', x: number, y: number, len: number, o: { every?: number; gates?: number[]; ends?: boolean; outer?: '-' | '+'; breach?: number; hp?: number; seed?: number } = {}): Pt[] {
+    const ends = o.ends ?? true, every = o.every ?? 24, g = o.gates ?? [], outer = o.outer ?? '-', seed = o.seed ?? 7, hp = o.hp ?? 0.6;
+    const inner = len - (ends ? 6 : 0);
+    // towers so that the walls fill the rest in whole 4-tile segments (3t mod 4 runs through every residue)
+    const t0 = Math.max(0, Math.round(inner / every) - 1 - g.length);
+    let t = -1;
+    for (const d of [0, 1, -1, 2, -2, 3, -3]) {
+      const tt = t0 + d, rest = inner - 3 * tt - 6 * g.length;
+      if (tt >= 0 && rest >= 0 && rest % 4 === 0) { t = tt; break; }
+    }
+    if (t < 0) throw new Error(`site ${this.id}: a wall of ${len} tiles cannot close`);
+    const posts: { kind: 'tower' | 'gate'; at: number }[] = g.map((f) => ({ kind: 'gate' as const, at: f * inner }));
+    for (let n = 0; n < t; n++) posts.push({ kind: 'tower', at: ((n + 1) / (t + 1)) * inner });
+    posts.sort((a, b) => a.at - b.at);
+    const segs = (inner - 3 * t - 6 * g.length) / 4, runs: number[] = [];
+    let used = 0, cur = 0;
+    for (const p of posts) {
+      const half = p.kind === 'gate' ? 3 : 1.5, r = Math.max(0, Math.min(segs - used, Math.round((p.at - cur - half) / 4)));
+      runs.push(r); used += r; cur += r * 4 + 2 * half;
+    }
+    runs.push(segs - used);
+    const out: Pt[] = [];
+    let a = 0;
+    const at = (along: number, across: number): Pt => (axis === 'x' ? [x + along, y + across] : [x + across, y + along]);
+    const tower = () => { const [px, py] = at(a, 0); this.put(set.tower, px, py, { hp }); a += 3; };
+    const wall = () => {
+      const [px, py] = at(a, outer === '-' ? 0 : 1);
+      this.put(`${set.wall}-${axis}`, px, py, hsh(this.x0 + px, this.y0 + py, seed) < (o.breach ?? 0) ? { hp, ruined: true } : { hp });
+      a += 4;
+    };
+    if (ends) tower();
+    runs.forEach((r, n) => {
+      for (let m = 0; m < r; m++) wall();
+      const p = posts[n];
+      if (!p) return;
+      if (p.kind === 'tower') tower();
+      else {
+        const [px, py] = at(a, 0);
+        this.force(`${set.gate}-${axis}`, px, py, { hp }); // a gate stands on the street it closes
+        // the way through: paved under the passage and 8 tiles out either side, kept clear
+        const r: [number, number, number, number] = axis === 'x' ? [px + 1, py - 8, px + 5, py + 11] : [px - 8, py + 1, px + 11, py + 5];
+        this.pave(...r);
+        this.keep(...r);
+        out.push([px, py]);
+        a += 6;
+      }
+    });
+    if (ends) tower();
+    return out;
+  }
+  /**
+   * A rectangular wall ring round site tiles x0..x1-1, y0..y1-1 (3 deep, the towers'), gates on its sides at fractions;
+   * returns each gate's passage centre (site tiles) and its side, for the roads in.
+   */
+  ring(set: WallSet, x0: number, y0: number, x1: number, y1: number, o: { gates?: [Side4, number][]; every?: number; breach?: number; hp?: number; seed?: number } = {}): { side: Side4; at: Pt }[] {
+    const W = x1 - x0, H = y1 - y0, gs = o.gates ?? [], on = (s: Side4) => gs.filter((q) => q[0] === s).map((q) => q[1]);
+    const c = { every: o.every, breach: o.breach, hp: o.hp, seed: o.seed };
+    const gates: { side: Side4; at: Pt }[] = [];
+    const add = (side: Side4, ps: Pt[]) => { for (const [px, py] of ps) gates.push({ side, at: side === 'N' || side === 'S' ? [px + 3, py + 1.5] : [px + 1.5, py + 3] }); };
+    add('N', this.line(set, 'x', x0, y0, W, { ...c, gates: on('N'), outer: '-' }));
+    add('S', this.line(set, 'x', x0, y1 - 3, W, { ...c, gates: on('S'), outer: '+' }));
+    add('W', this.line(set, 'y', x0, y0 + 3, H - 6, { ...c, gates: on('W'), outer: '-', ends: false }));
+    add('E', this.line(set, 'y', x1 - 3, y0 + 3, H - 6, { ...c, gates: on('E'), outer: '+', ends: false }));
+    return gates;
+  }
+  /**
+   * A street grid over site tiles x0..x1-1, y0..y1-1: streets `sw` wide every `bw` (x) and `bh` (y) tiles of block, the
+   * avenues (site x of the north-south ones, y of the east-west ones) `aw` wide; paved and kept clear. Returns the blocks.
+   */
+  grid(x0: number, y0: number, x1: number, y1: number, o: { bw: number; bh: number; sw?: number; aw?: number; avX?: number[]; avY?: number[]; t?: string }): [number, number, number, number][] {
+    const sw = o.sw ?? 2, aw = o.aw ?? 4, t = o.t ?? 'road';
+    const cuts = (a0: number, a1: number, step: number, av: number[]) => {
+      const out: [number, number][] = av.map((v) => [v - aw / 2, v + aw / 2]);
+      for (let v = a0 + step; v < a1 - 3; v += step + sw) if (!out.some(([p, q]) => v + sw > p - 3 && v < q + 3)) out.push([v, v + sw]);
+      return out.sort((a, b) => a[0] - b[0]);
+    };
+    const cx = cuts(x0, x1, o.bw, o.avX ?? []), cy = cuts(y0, y1, o.bh, o.avY ?? []);
+    for (const [p, q] of cx) { this.pave(p, y0, q, y1, t); this.keep(p, y0, q, y1); }
+    for (const [p, q] of cy) { this.pave(x0, p, x1, q, t); this.keep(x0, p, x1, q); }
+    const spans = (a0: number, a1: number, cs: [number, number][]) => {
+      const out: [number, number][] = [];
+      let a = a0;
+      for (const [p, q] of cs) { if (p - a >= 3) out.push([a, p]); a = Math.max(a, q); }
+      if (a1 - a >= 3) out.push([a, a1]);
+      return out;
+    };
+    const blocks: [number, number, number, number][] = [];
+    for (const [ya, yb] of spans(y0, y1, cy)) for (const [xa, xb] of spans(x0, x1, cx)) blocks.push([xa, ya, xb, yb]);
+    return blocks;
+  }
+  /**
+   * Fill a block (site tiles x0..x1-1, y0..y1-1) with a district's buildings: a row of lots along its north front and,
+   * where it is deep enough, one along its south front (back to back in a shallow block, a yard between in a deep one),
+   * each building by weight, an alley now and then. Returns how many stand on it.
+   */
+  block(x0: number, y0: number, x1: number, y1: number, d: District, seed = 1): number {
+    const tot = d.ids.reduce((a, [, w]) => a + w, 0);
+    const choose = (r: number) => { let acc = 0; for (const [id, w] of d.ids) { acc += w / tot; if (r < acc) return id; } return d.ids[d.ids.length - 1][0]; };
+    let n = 0;
+    const row = (south: boolean) => {
+      let x = x0;
+      while (x < x1) {
+        const id = choose(hsh(this.x0 + x, this.y0 + y0 + (south ? 7 : 0), seed)), [w, h] = this.fp(id), py = south ? y1 - h : y0;
+        if (x + w > x1 || py < y0 || (south && py < y0 + 3)) { x++; continue; }
+        const r = (k: number) => hsh(this.x0 + x, this.y0 + py, seed + k);
+        if (r(4) < (d.empty ?? 0)) { x += w + 1; continue; } // an empty lot: fallen in long ago, a garden
+        if (this.put(id, x, py, { hp: Math.round((d.hp[0] + (d.hp[1] - d.hp[0]) * r(2)) * 100) / 100, ruined: r(1) < d.ruin })) {
+          n++;
+          x += w + (r(3) < (d.alley ?? 0.15) ? 1 : 0);
+        } else x++;
+      }
+    };
+    row(false);
+    if (y1 - y0 >= 6) row(true);
+    return n;
+  }
+}
+/** A landmark guardian's posts in its site's tiles (from the NW corner); heads 'shore': six on the land by the water nearest its post. */
 interface LGuard { boss: string; at: Pt; perches?: Pt[]; pit?: Pt; postern?: Pt; flats?: Pt | 'water'; heads?: 'shore' | Pt[] }
-interface LandmarkReq { id: string; t: Pt; town: number; guardians: LGuard[]; nodes: [string, number, number][] }
-/** The landmark art (ART-L): its pieces (footprint, kind, hp) and layouts. */
+const LABYRINTH = 'navel-labyrinth';
+/** The landmark art (ART-L): its pieces (footprint, kind, hp). */
 const LANDMARK_JSON = JSON.parse(readFileSync(fileURLToPath(new URL('../../../public/war/landmarks/landmarks.json', import.meta.url)), 'utf8')) as {
   pieces: { id: string; kind: string; footprint: [number, number]; hp: number; axis?: 'x' | 'y' }[];
-  landmarks: { id: string; size: [number, number]; pieces: [string, number, number][]; labyrinth?: [number, number][] }[];
 };
 const LANDMARK_PIECES = new Map(LANDMARK_JSON.pieces.map((p) => [p.id, p]));
-const LANDMARK_LAYOUTS = new Map(LANDMARK_JSON.landmarks.map((l) => [l.id, l]));
 /** The sim building each landmark piece kind is (docs/WAR.md "Landmarks"); node pieces are rare-good nodes (src/data/warLandmarks.ts RARE_NODES). */
 const LANDMARK_TYPE: Record<string, BuildingType | null> = {
   keep: 'fort', wall: 'stoneWall', tower: 'stoneTower', gate: 'stoneGate', house: 'house', temple: 'temple', shrine: 'shrine', well: 'well',
   jetty: 'jetty', arena: 'barracks', statue: 'statue', forge: 'forge3', workshop: 'workshop', kiln: 'pitchKiln', stair: 'stoneStairs', ford: null, node: null,
+  // W-48 architecture: halls and stables quarter men, a cistern is a well, a chapel or a theatre a shrine, a treasury a store, a tomb a statue (honours)
+  barracks: 'barracks', stable: 'barracks', forge2: 'forge2', cistern: 'well', chapel: 'shrine', theatre: 'shrine', treasury: 'warehouse', tomb: 'statue',
 };
 const LANDMARK_NODE: Record<string, string> = { 'citadel-bone-pit': 'landmark/bone-pit', 'titan-slag': 'landmark/slag-heap', 'obsidian-field': 'landmark/glass-field' };
 /** Build-mode and town pieces in a layout (`@id`): their sim type and footprint. */
@@ -973,49 +1209,54 @@ export function build(def: RegionDef): Built {
     }
     if (placed) log.push(`town ${placed} structures`);
   }
-  // ---- M7d landmarks: their pieces as pre-built landmark structures (art, own max hp, 60%), nodes, guardian posts
+  // ---- M7d landmarks (W-48 sites): their pieces as pre-built landmark structures (art, own max hp, start hp, ruins), nodes, guardian posts
   const guardians: GuardianEntry[] = [];
-  for (const L of k.landmarkReqs) {
-    const lay = LANDMARK_LAYOUTS.get(L.id)!, [x0, y0] = L.t;
-    let n = 0;
-    const place = (type: BuildingType, px: number, py: number, fw: number, fh: number, art?: string, maxHp?: number) => {
+  for (const L of k.sites) {
+    const { x0, y0 } = L;
+    let n = 0, ruins = 0, skipped = 0;
+    if (!L.wild) clear(x0, y0, x0 + L.w, y0 + L.h); // a lived-in place: no wild trees in its streets and wards
+    const place = (type: BuildingType, px: number, py: number, fw: number, fh: number, p: SitePiece, art?: string, maxHp?: number) => {
       const tiles: number[] = [];
       for (let y = py; y < py + fh; y++) for (let x = px; x < px + fw; x++) {
         const j = at(x, y);
-        if (j < 0 || taken.has(j) || terrain[j] === 'rock') return;
+        if (j < 0 || taken.has(j) || terrain[j] === 'rock' || water[j] === 2) { skipped++; return; }
         tiles.push(x, y);
       }
       clear(px - 1, py - 1, px + fw + 1, py + fh + 1);
       for (let i = 0; i < tiles.length; i += 2) {
         const j = at(tiles[i], tiles[i + 1]);
         taken.add(j);
-        if (type !== 'stoneGate') townShut[j] = 1;
+        if (type !== 'stoneGate' && !p.ruined) townShut[j] = 1;
       }
       const rot = fh > fw && (type === 'stoneGate' || type === 'stoneWall' || type === 'stoneStairs') ? 1 : 0;
-      pre.push({ type, x: px + fw / 2, y: py + fh / 2, ...(rot ? { rot } : {}), tiles, town: L.town, court: false, landmark: true, hp: 0.6, ...(art ? { art } : {}), ...(maxHp ? { maxHp } : {}) });
+      pre.push({ type, x: px + fw / 2, y: py + fh / 2, ...(rot ? { rot } : {}), tiles, town: L.town, court: false, landmark: true, hp: p.hp ?? 0.6, ...(p.ruined ? { state: 'ruined' as const } : {}), ...(art ? { art } : {}), ...(maxHp ? { maxHp } : {}) });
       n++;
+      if (p.ruined) ruins++;
     };
-    for (const [pid, dx, dy] of lay.pieces) {
-      if (pid.startsWith('@')) {
-        const t = LANDMARK_AT[pid.slice(1)];
-        if (t) place(t[0], x0 + dx, y0 + dy, t[1], t[2]);
+    for (const p of L.pieces) {
+      const pid = p.id;
+      if (pid === LABYRINTH) { place('stoneWall', p.x, p.y, 1, 1, p, LABYRINTH, 1500); continue; }
+      if (pid.startsWith('@town-')) {
+        const id = T(pid.slice(6)), fp = TOWN_FP.get(id)!;
+        place(PRE_TYPE[id], p.x, p.y, fp[0], fp[1], p);
         continue;
       }
-      const pc = LANDMARK_PIECES.get(pid);
-      if (!pc) throw new Error(`landmark ${L.id}: unknown piece ${pid}`);
-      const [fw, fh] = pc.footprint;
+      if (pid.startsWith('@')) {
+        const t = LANDMARK_AT[pid.slice(1)];
+        if (t) place(t[0], p.x, p.y, t[1], t[2], p);
+        continue;
+      }
+      const pc = LANDMARK_PIECES.get(pid)!, [fw, fh] = pc.footprint;
       if (LANDMARK_NODE[pid]) {
-        clear(x0 + dx - 1, y0 + dy - 1, x0 + dx + fw + 1, y0 + dy + fh + 1);
-        objects.push({ id: LANDMARK_NODE[pid], x: x0 + dx + fw / 2, y: y0 + dy + fh / 2 });
+        clear(p.x - 1, p.y - 1, p.x + fw + 1, p.y + fh + 1);
+        objects.push({ id: LANDMARK_NODE[pid], x: p.x + fw / 2, y: p.y + fh / 2 });
         continue;
       }
       const type = LANDMARK_TYPE[pc.kind];
       if (!type) continue;
-      place(type, x0 + dx, y0 + dy, fw, fh, pid, type === 'stoneWall' ? pc.hp * fw * fh : pc.hp);
+      place(type, p.x, p.y, fw, fh, p, pid, type === 'stoneWall' ? pc.hp * fw * fh : pc.hp);
     }
-    // the Temple City's labyrinth: a wall tile each (the kit's frames by neighbour)
-    for (const [dx, dy] of lay.labyrinth ?? []) place('stoneWall', x0 + dx, y0 + dy, 1, 1, 'navel-labyrinth', 1500);
-    for (const [id, dx, dy] of L.nodes) {
+    for (const [id, dx, dy] of L.extraNodes) {
       clear(x0 + dx - 1, y0 + dy - 1, x0 + dx + 2, y0 + dy + 2);
       objects.push({ id, x: x0 + dx + 0.5, y: y0 + dy + 0.5 });
     }
@@ -1026,7 +1267,7 @@ export function build(def: RegionDef): Built {
       if (g.perches) e.perches = g.perches.map(P);
       if (g.pit) e.pit = P(g.pit);
       if (g.postern) e.postern = P(g.postern);
-      const cx = x0 + lay.size[0] / 2, cy = y0 + lay.size[1] / 2;
+      const cx = e.x, cy = e.y;
       if (g.flats === 'water') {
         // the nearest water to it: the River-God's channel
         let bd = Infinity;
@@ -1053,7 +1294,7 @@ export function build(def: RegionDef): Built {
       } else if (g.heads) e.heads = g.heads.map(P);
       guardians.push(e);
     }
-    log.push(`landmark ${L.id}: ${n} pieces, ${L.guardians.map((g) => g.boss).join(' + ')}`);
+    log.push(`landmark ${L.id}: ${n} pieces (${ruins} ruined${skipped ? `, ${skipped} blocked` : ''}), ${L.guardians.map((g) => g.boss).join(' + ')}`);
   }
   for (const r of k.reqs) {
     if (r.kind === 'piece') {

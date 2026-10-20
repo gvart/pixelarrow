@@ -15,6 +15,7 @@
  */
 import { nearestSample, spline, type Sample } from '../shapes.ts';
 import { E, type BiomeName, type Kit, type Pt, type RegionDef } from './kit.ts';
+import { deadCity, obsidianHold, oracleGrove, rimWatch, sunkenTemple, type Landmark } from './landmarks.ts';
 import { BRIEF, SCARCE, WORLD, type Family, type Side, type WorldRegion } from './world.ts';
 
 /** Deterministic random in [0, 1) per region and call. */
@@ -43,7 +44,7 @@ const add = (a: Pt, b: Pt, k = 1): Pt => [a[0] + b[0] * k, a[1] + b[1] * k];
  * bridge: a deep gorge river crossed by rock bridges; causeway: a lake round the hub, causeways across it.
  */
 interface Choke { kind: 'rock' | 'scarp' | 'band' | 'canyon' | 'water' | 'river' | 'bridge' | 'causeway'; toward: string; t?: number; gw?: number; marsh?: boolean; shallow?: boolean }
-interface Plan { chokes?: Choke[]; hub?: Pt }
+interface Plan { chokes?: Choke[]; hub?: Pt; fort?: Pt }
 const PLAN: Record<string, Plan> = {
   'dodona-n': { chokes: [{ kind: 'water', toward: 'krios', gw: 1.7 }] },
   'dodona-e': { chokes: [{ kind: 'rock', toward: 'kleisoura', gw: 2.2 }] },
@@ -55,6 +56,7 @@ const PLAN: Record<string, Plan> = {
   'elaia-n': { chokes: [{ kind: 'water', toward: 'stymphalia', gw: 1.7, marsh: true }] },
   'elaia-e': { hub: [164, 128], chokes: [{ kind: 'river', toward: 'achelous', t: 0.62 }] },
   krios: { chokes: [{ kind: 'rock', toward: 'kleisoura', gw: 1.5 }] },
+  ammon: { hub: [34, 220], fort: [34, 44] },
   delta: { chokes: [{ kind: 'river', toward: 'achelous', t: 0.5 }, { kind: 'river', toward: 'kyrene-s', t: 0.5, shallow: true }] },
   stymphalia: { chokes: [{ kind: 'causeway', toward: 'dodona-s' }] },
   achelous: { chokes: [{ kind: 'river', toward: 'elaia-e', t: 0.4 }, { kind: 'river', toward: 'kyrene-w', t: 0.4, shallow: true }] },
@@ -104,11 +106,15 @@ function template(w: WorldRegion): RegionDef {
         return best;
       };
       const claim = (p: Pt, g: number) => (taken.push([p, g]), p);
+      // W-48: a landmark's ground is spoken for before anything else is placed
+      const lmSite = LANDMARK_SITE[w.id];
+      if (lmSite) for (let fy = 0.25; fy < 1; fy += 0.5) for (let fx = 0.25; fx < 1; fx += 0.5) taken.push([[lmSite.at[0] + (lmSite.size[0] / 2) * fx, lmSite.at[1] + (lmSite.size[1] / 2) * fy], Math.max(lmSite.size[0], lmSite.size[1]) / 7]);
       // the scarce goods' fields and their haul roads to the hub
       const scarce = needs.has('nodes') ? SCARCE.filter((s) => w.resources[s]) : [];
       const fields = scarce.map((res) => ({ res, p: claim(res === 'tin' && w.id === 'achelous' ? add(hub, [0, -30]) : free(20, 36), 24) }));
+      const haulTo: Pt[] = [hub];
       for (const f of fields) { lines.push([f.p, [(f.p[0] + hub[0]) / 2 + j(8), (f.p[1] + hub[1]) / 2 + j(8)], hub]); curves.push(spline(lines.at(-1)!, 2)); }
-      const fort = needs.has('fortress') ? claim(free(26, 44), 30) : null;
+      const fort = needs.has('fortress') ? claim(plan.fort ?? free(26, 44), 30) : null;
       const ud: Pt = fort ? (() => { const u: Pt = [hub[0] - fort[0], hub[1] - fort[1]], ul = Math.hypot(u[0], u[1]) || 1; return [u[0] / ul, u[1] / ul]; })() : [0, 0];
       if (fort) { lines.push([hub, add(fort, ud, 30)]); curves.push(spline(lines.at(-1)!, 2)); }
       const ridgeAt = needs.has('ridge') ? (() => {
@@ -262,16 +268,32 @@ function template(w: WorldRegion): RegionDef {
         k.piece(w.family === 'desert' ? 'kyrene/camels' : 'elaia/goats', add(hub, [0, 12]), { r: 5 });
         if (w.id === 'ammos') { k.oasis(add(hub, [16, -14]), 3); k.piece('kyrene/ruin-wall', add(hub, [-9, -9]), { r: 5, n: 4, gap: 4 }); }
       } else k.paint('dirt', [hub[0], hub[1], 9, 7, j(1)], { on: ['grass', 'sand', 'forest'], rough: 2 });
-      // ---- M7d: the landmark of a gate or rim region, a road to it from the hub
+      // ---- M7d / W-48: the landmark of a gate or rim region at true scale (./landmarks.ts), roads from the hub to its gates
       const lm = LANDMARK_SITE[w.id];
       if (lm) {
-        const [lw, lh] = lm.size, c: Pt = lm.side ? onSide(lm.side, 0.5 + j(0.08), lm.inset ?? 50) : claim(free(30, 50), Math.max(lw, lh));
-        if (lm.side) claim(c, Math.max(lw, lh));
-        const mid = k.landmark(lm.id, [c[0] - lw / 4, c[1] - lh / 4], { guardians: lm.guardians, nodes: lm.nodes });
-        lines.push([hub, [(hub[0] + mid[0]) / 2 + j(6), (hub[1] + mid[1]) / 2 + j(6)], add(mid, [0, lh / 4 + 3])]);
-        curves.push(spline(lines.at(-1)!, 2));
-        k.spot('landmark', mid);
-        for (const [n, [dx, dy]] of (lm.host ?? []).entries()) k.lair('bandit', add(mid, [dx, dy]), { as: 'bandit host', ...(n === 0 ? { captain: true } : {}) });
+        const L = lm.build(k, lm.at, base);
+        const c: Pt = L.site.u(L.site.w / 2, L.site.h / 2);
+        claim(c, Math.max(L.site.w, L.site.h) / 3);
+        const gs = L.gates.length ? L.gates : [L.site.u(L.site.w / 2, L.site.h + 4)];
+        for (const g of gs.sort((a, b) => Math.hypot(a[0] - hub[0], a[1] - hub[1]) - Math.hypot(b[0] - hub[0], b[1] - hub[1])).slice(0, 2)) {
+          lines.push([hub, [(hub[0] + g[0]) / 2 + j(6), (hub[1] + g[1]) / 2 + j(6)], g]);
+          curves.push(spline(lines.at(-1)!, 2));
+        }
+        // haul roads end at whichever is nearer, the hub or a gate (the city's streets carry them on)
+        if (w.id === 'ammon') haulTo.push(...gs);
+        for (const l of lines) if (fields.some((f) => f.p === l[0])) {
+          const to = haulTo.reduce((a, b) => (Math.hypot(b[0] - l[0][0], b[1] - l[0][1]) < Math.hypot(a[0] - l[0][0], a[1] - l[0][1]) ? b : a));
+          if (to !== hub) (l[1] = [(l[0][0] + to[0]) / 2, (l[0][1] + to[1]) / 2]), (l[2] = to);
+          // a haul road that would cross the landmark goes round its nearest corner
+          if (spline(l, 2).some((p) => k.inSite(p.x, p.y))) {
+            const [ax, ay] = L.site.u(-8, -8), [bx, by] = L.site.u(L.site.w + 8, L.site.h + 8);
+            const len = (q: Pt) => Math.hypot(q[0] - l[0][0], q[1] - l[0][1]) + Math.hypot(q[0] - l[2][0], q[1] - l[2][1]);
+            l[1] = ([[ax, ay], [bx, ay], [ax, by], [bx, by]] as Pt[]).sort((p, q) => len(p) - len(q))[0];
+          }
+        }
+        for (const [n, p] of Object.entries(L.spots)) k.spot(n, p);
+        if (!L.spots.landmark) k.spot('landmark', c);
+        for (const [n, p] of L.host.entries()) k.lair('bandit', p, { as: 'bandit host', ...(n === 0 ? { captain: true } : {}) });
       }
       // ---- roads (the hub, the chokes' gaps, the haul roads)
       for (const l of lines) k.road(l, { pass: w.relief === 'mountain' ? 4 : undefined, grade: 4, bridges, span: 6 });
@@ -312,17 +334,13 @@ function template(w: WorldRegion): RegionDef {
 }
 
 const pt = (p: { x: number; y: number }): Pt => [p.x, p.y];
-/**
- * M7d: where a draft's landmark stands (docs/WAR.md "Landmarks"; kit.ts landmark()): its layout (size in sim tiles), by
- * its rim side's water `inset` units in or anywhere free; its guardians' posts and extra rare nodes in layout tiles; the
- * Dead City's bandit host (lairs in units from its centre, the first a captain whose men hold the towers).
- */
-const LANDMARK_SITE: Record<string, { id: string; size: [number, number]; side?: Side; inset?: number; guardians: Parameters<Kit['landmark']>[2]['guardians']; nodes?: [string, number, number][]; host?: Pt[] }> = {
-  siren: { id: 'rim', size: [12, 10], side: 'W', inset: 36, guardians: [{ boss: 'scylla', at: [6, 6], heads: 'shore', flats: [6, 8] }], nodes: [['landmark/sea-cave', 0, 8]] },
-  ammon: { id: 'ammon', size: [24, 20], side: 'E', inset: 56, guardians: [{ boss: 'bandit_king', at: [4, 8], postern: [25, 4] }], host: [[-4, 7], [5, 6], [6, -3], [-5, -2]] },
-  delta: { id: 'sunken', size: [16, 14], side: 'S', inset: 56, guardians: [{ boss: 'river_god', at: [6, 8.5], flats: 'water' }] },
-  erymanthos: { id: 'oracle', size: [14, 10], guardians: [{ boss: 'grove_queen', at: [7, 6] }], nodes: [['landmark/asphodel-meadow', 7, 9]] },
-  canyons: { id: 'obsidian', size: [20, 12], guardians: [{ boss: 'chimera', at: [8, 9] }] },
+/** M7d / W-48: a draft's landmark (./landmarks.ts): its builder and the unit point of its NW corner. */
+const LANDMARK_SITE: Record<string, { at: Pt; size: [number, number]; build: (k: Kit, at: Pt, base: number) => Landmark }> = {
+  siren: { at: [10, 116], size: [150, 130], build: rimWatch },
+  ammon: { at: [54, 100], size: [320, 220], build: deadCity },
+  delta: { at: [60, 150], size: [220, 150], build: sunkenTemple },
+  erymanthos: { at: [42, 150], size: [150, 124], build: oracleGrove },
+  canyons: { at: [50, 50], size: [120, 92], build: obsidianHold },
 };
 const byRole = (id: string) => WORLD.find((w) => w.id === id)?.role;
 /** Whether there is open water within r units of p. */
