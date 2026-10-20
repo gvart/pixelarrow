@@ -36,6 +36,7 @@ import { encodeCells, encodeObjects } from '../../../src/war/region/compact.ts';
 import type { MobKind } from '../../../src/war/types.ts';
 import { readImage } from '../../art/lib/png.mjs';
 import { BRIEF, byId, sideOf, type Side, type WorldRegion } from './world.ts';
+import { TRADE_ZONES } from '../../../src/war/region/zones.ts';
 import { runChecks, type Check } from './checks.ts';
 
 export type { Pt, Sample };
@@ -466,7 +467,101 @@ export class Kit {
   lair(kind: MobKind, at: Pt, o: { count?: number; as?: string } = {}) { this.lairReqs.push({ kind, at, ...o }); }
   /** A claim point near `at` whose zone is the lairs within `r` units (or the listed lair indices). */
   claim(at: Pt, r = 70, lairs?: number[]) { this.claimReqs.push({ at, r, lairs }); }
+
+  // ---- town dressing: decorative structures (the elaia library's town-* objects, see TOWN). They are region objects,
+  // not sim buildings: nobody owns, repairs or burns them. The blocking ones close their footprint through
+  // RegionData.blocked (as the massifs do), so the trade court's wall ring leaves its two gates as the only ways in.
+  // Each stands at the south vertex of its footprint (its sprite's anchor), so it is drawn after the tiles it covers.
+  readonly townReqs: TownReq[] = [];
+  /** Sim tiles that were road when agora() paved its square (the slots keep off them). */
+  readonly streets = new Set<number>();
+  /** Unit x of a sim tile's centre and back (the sim run's grid, whatever this run's K). */
+  private simTile = (u: number) => (u + 0.5) * 2 - 0.5;
+  private flatRect(x0: number, y0: number, x1: number, y1: number, h0: number, pave: boolean) {
+    this.each((i, x, y) => {
+      if (this.terrain[i] === 'rock') return;
+      const tx = Math.floor(this.simTile(x) + 0.5), ty = Math.floor(this.simTile(y) + 0.5);
+      const d = Math.max(x0 - tx, tx - (x1 - 1), y0 - ty, ty - (y1 - 1)) / 2; // units outside the rect
+      if (d <= 0) { this.height[i] = h0; this.water[i] = 0; if (pave) this.terrain[i] = 'road'; }
+      else if (d < 8 && !this.water[i]) this.height[i] = Math.max(h0 - 1 - Math.floor(d / 2), Math.min(h0 + 1 + Math.floor(d / 2), this.height[i]));
+    });
+  }
+  /** One town structure with its footprint's NW corner on sim tile (tx, ty) (`slot`: skipped where it would land on a street, the court's ground, or water). */
+  structure(id: string, tx: number, ty: number, slot = false) { this.townReqs.push({ kind: 'at', id, t: [tx, ty], slot }); }
+  /** `n` structures (cycling `ids`) on free, flat, dry ground `r0`..`r1` sim tiles from the unit point `at`, `gap` tiles apart; `street` > 0 pulls them to within that many tiles of a road. */
+  scatterTown(ids: string[], at: Pt, o: { n: number; r0?: number; r1: number; gap?: number; street?: number; water?: boolean }) {
+    this.townReqs.push({ kind: 'near', ids, at: [this.simTile(at[0]), this.simTile(at[1])], n: o.n, r0: o.r0 ?? 0, r1: o.r1, gap: o.gap ?? 4, street: o.street ?? 0, water: !!o.water });
+  }
+  /**
+   * A home agora or a frontier town's square (docs/WAR.md "Trade towns"), after the square and its roads: the square
+   * paved, two stoas facing over it, rows of stalls on its north and south sides, statues, a well and the price board
+   * round a clear centre (the market spot, the claim point), a temple off the square.
+   */
+  agora(p: Pt, half = 6.5) {
+    const tx = Math.round(this.simTile(p[0])), ty = Math.round(this.simTile(p[1]));
+    if (this.K === 2) for (let i = 0; i < this.N; i++) if (this.terrain[i] === 'road') this.streets.add(i);
+    // paved, but for a beaten-earth heart round the market spot (the claim banner stands on open ground)
+    this.each((i, x, y) => { if (!this.water[i] && this.terrain[i] !== 'rock' && Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) <= half && Math.hypot(x - p[0], y - p[1]) > 3.2) this.terrain[i] = 'road'; });
+    const S = (id: string, dx: number, dy: number) => this.structure(T(id), tx + dx, ty + dy, true);
+    S('stoa', -12, -9); S('stoa', 10, 3);
+    // stalls in rows on the north and south sides, a second row at the west and east ends (the square check keeps <= 15% closed)
+    for (const [k, dx] of [-10, -7, 5, 8].entries()) for (const [n, dy] of [-11, -7, 5, 9].entries()) if (n === 0 || n === 3 || k === 0 || k === 3) S(['stall-a', 'stall-b', 'stall-c'][(k + n) % 3], dx, dy);
+    S('statue', -6, -6); S('statue', 5, 5); S('well', 5, -6); S('board', -6, 5); S('goods', -3, -9); S('goods', 2, 10);
+    this.scatterTown([T('temple')], p, { n: 1, r0: 16, r1: 30, street: 4 });
+  }
+  /**
+   * The walled market court of a frontier trade town (src/war/region/zones.ts): its ground levelled to `h` and paved
+   * with the caravan yards, a 3 m stone wall on the court's edge tiles with towers on the corners, an open gate in each
+   * gate rect (the only ways in), stalls along the inner walls, the price board and the rented warehouses outside.
+   */
+  court(h: number) {
+    const z = TRADE_ZONES[this.world.id];
+    if (!z) throw new Error(`${this.world.id} has no trade court (src/war/region/zones.ts)`);
+    const c = z.safe[0], { x, y, w, h: hh } = c;
+    this.flatRect(x - 6, y - 2, x + w + 6, y + hh + 2, h, true);
+    for (const r of z.yard) this.flatRect(r.x, r.y, r.x + r.w, r.y + r.h, h, true);
+    const gate = new Set((c.gates ?? []).flatMap((g) => [...Array(g.w * g.h)].map((_, n) => `${g.x + (n % g.w)},${g.y + Math.floor(n / g.w)}`)));
+    for (const [cx, cy] of [[x - 1, y - 1], [x + w - 1, y - 1], [x - 1, y + hh - 1], [x + w - 1, y + hh - 1]]) this.structure(T('tower'), cx, cy);
+    // the north and south faces in 2-tile runs between the towers, the gates in their gaps; the west and east faces likewise
+    for (const fy of [y, y + hh - 1]) for (let fx = x + 1; fx < x + w - 1; fx += 2) {
+      if (gate.has(`${fx},${fy}`)) { this.structure(T('gate-x'), fx, fy); continue; }
+      if (fx + 1 < x + w - 1 && !gate.has(`${fx + 1},${fy}`)) this.structure(T('wall-x'), fx, fy);
+      else { this.structure(T('wall-x'), fx - 1, fy); }
+    }
+    for (const fx of [x, x + w - 1]) for (let fy = y + 1; fy < y + hh - 1; fy += 2) this.structure(T('wall-y'), fx, Math.min(fy, y + hh - 3));
+    // inside: stalls against the west and east walls, the board and goods by the gate lane; outside: the warehouses
+    for (const [dx, dy, id] of [[1, 1, 'stall-c'], [1, hh - 3, 'stall-b'], [w - 3, 1, 'stall-a'], [w - 3, hh - 3, 'stall-c']] as const) this.structure(T(id), x + dx, y + dy);
+    this.structure(T('board'), x + 3, y + 4); this.structure(T('goods'), x + w - 4, y + 5); this.structure(T('goods'), x + 3, y + hh - 3);
+    for (const [dx, dy] of [[-5, 1], [-5, 5], [w + 2, 1], [w + 2, 5]]) this.structure(T('warehouse'), x + dx, y + dy, true);
+  }
+  /** Houses and workshops along the streets round a centre (units), `r0`..`r1` sim tiles out. */
+  houses(at: Pt, n: number, r0: number, r1: number, ids = ['house-a', 'house-b', 'house-a', 'workshop', 'house-b', 'cottage', 'storehouse']) {
+    this.scatterTown(ids.map(T), at, { n, r0, r1, gap: 5, street: 5 });
+  }
+  /** Farms, olive presses and cottages on the outskirts. */
+  outskirts(at: Pt, n: number, r0: number, r1: number, ids = ['farm', 'olive-press', 'cottage', 'farm', 'cottage']) {
+    this.scatterTown(ids.map(T), at, { n, r0, r1, gap: 8, street: 10 });
+  }
+  /** A small village: cottages and a house round a well, farms beyond. */
+  village(at: Pt, n = 5) {
+    this.scatterTown([T('well')], at, { n: 1, r1: 6 });
+    this.scatterTown(['cottage', 'house-a', 'cottage', 'cottage', 'house-b', 'cottage'].map(T), at, { n, r0: 4, r1: 18, gap: 5, street: 6 });
+    this.outskirts(at, Math.max(2, Math.round(n / 2)), 14, 32, ['farm', 'olive-press', 'farm']);
+  }
+  /** A wooden jetty out over the water near `at`. */
+  jetty(at: Pt, r = 24) { this.scatterTown([T('jetty')], at, { n: 1, r1: r, water: true }); }
 }
+/** Town structure ids: the elaia library's town set. */
+const T = (id: string) => `elaia/town-${id}`;
+type TownReq =
+  | { kind: 'at'; id: string; t: Pt; slot: boolean }
+  | { kind: 'near'; ids: string[]; at: Pt; n: number; r0: number; r1: number; gap: number; street: number; water: boolean };
+/** Footprints of the town set (public/war/biomes/elaia/objects.json town-*), and the ones that never block. */
+const TOWN_FP: Map<string, [number, number]> = new Map(
+  (JSON.parse(readFileSync(fileURLToPath(new URL('../../../public/war/biomes/elaia/objects.json', import.meta.url)), 'utf8')) as { objects: { id: string; footprint: [number, number]; town?: boolean }[] }).objects
+    .filter((d) => d.town).map((d) => [`elaia/${d.id}`, d.footprint]),
+);
+const TOWN_OPEN = new Set(['gate-x', 'gate-y', 'farm', 'jetty', 'goods'].map(T));
 
 // ======================================================================================= the build
 
@@ -718,6 +813,76 @@ export function build(def: RegionDef): Built {
     return true;
   };
   let missed = 0;
+  // ---- town dressing (Kit.structure / scatterTown): before the set pieces, so those keep off it
+  const townShut = new Uint8Array(N);
+  {
+    const inRects = (x: number, y: number, rs: { x: number; y: number; w: number; h: number }[]) => rs.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    const z = TRADE_ZONES[k.world.id], court = z ? [...z.safe, ...z.yard].map((r) => ({ x: r.x - 1, y: r.y - 1, w: r.w + 2, h: r.h + 2 })) : [];
+    const reserved = new Set<number>();
+    let placed = 0;
+    // free: in the map, dry (or all water for a jetty), not rock, one level, off the entries; `slot` / `near` also keep
+    // off streets, the court and its yards, and (blocking ones) a tile round every other structure and road
+    const free = (id: string, x0: number, y0: number, mode: 'at' | 'slot' | 'near', wet = false) => {
+      const fp = TOWN_FP.get(id)!, block = !TOWN_OPEN.has(id);
+      let h0 = -1, land = false;
+      for (let y = y0; y < y0 + fp[1]; y++) for (let x = x0; x < x0 + fp[0]; x++) {
+        const j = at(x, y);
+        if (j < 0 || taken.has(j) || terrain[j] === 'rock' || inRects(x, y, entries) || inRects(x, y, noBuild)) return false;
+        if (wet) { if (!water[j]) return false; if (ring(x, y, (n) => !water[n] && terrain[n] !== 'rock')) land = true; continue; }
+        if (water[j] || (h0 >= 0 && height[j] !== h0)) return false;
+        h0 = height[j];
+        if (mode === 'at') continue;
+        if (reserved.has(j) || k.streets.has(j) || inRects(x, y, court) || (mode === 'near' && terrain[j] === 'road')) return false;
+        if (block && ring(x, y, (n) => k.streets.has(n) || (mode === 'near' && terrain[n] === 'road'))) return false;
+      }
+      return !wet || land;
+    };
+    const put1 = (id: string, x0: number, y0: number) => {
+      const fp = TOWN_FP.get(id)!, block = !TOWN_OPEN.has(id);
+      clear(x0 - 1, y0 - 1, x0 + fp[0] + 1, y0 + fp[1] + 1);
+      for (let y = y0 - 1; y <= y0 + fp[1]; y++) for (let x = x0 - 1; x <= x0 + fp[0]; x++) {
+        const j = at(x, y);
+        if (j < 0) continue;
+        if (x >= x0 && y >= y0 && x < x0 + fp[0] && y < y0 + fp[1]) { taken.add(j); if (block) townShut[j] = 1; } else if (block) reserved.add(j);
+      }
+      pinned.add(objects[objects.push({ id, x: x0 + fp[0] - 0.1, y: y0 + fp[1] - 0.1 }) - 1]);
+      placed++;
+    };
+    for (const r of k.townReqs) {
+      if (r.kind === 'near') continue;
+      if (!TOWN_FP.has(r.id)) throw new Error(`unknown town structure ${r.id}`);
+      if (!r.slot) {
+        if (free(r.id, r.t[0], r.t[1], 'at')) put1(r.id, r.t[0], r.t[1]);
+        else (missed++, log.push(`town ${r.id} at ${r.t}: blocked`));
+        continue;
+      }
+      // a slot slides up to 3 tiles off a street before it gives up
+      const off = [0, 1, -1, 2, -2, 3, -3];
+      const hit = off.flatMap((dy) => off.map((dx) => [r.t[0] + dx, r.t[1] + dy] as Pt)).sort((a, b) => Math.hypot(a[0] - r.t[0], a[1] - r.t[1]) - Math.hypot(b[0] - r.t[0], b[1] - r.t[1])).find(([x, y]) => free(r.id, x, y, 'slot'));
+      if (hit) put1(r.id, hit[0], hit[1]);
+    }
+    for (const r of k.townReqs) {
+      if (r.kind !== 'near') continue;
+      const [cx, cy] = r.at, cand: [number, number, number][] = [];
+      for (let y = Math.floor(cy - r.r1); y <= cy + r.r1; y++) for (let x = Math.floor(cx - r.r1); x <= cx + r.r1; x++) {
+        const d = Math.hypot(x - cx, y - cy), j = at(x, y);
+        if (d < r.r0 || d > r.r1 || j < 0) continue;
+        const rd = k.roadDist[j] * K;
+        cand.push([x, y, d + (r.street ? Math.max(0, rd - 2) * (rd > r.street ? 6 : 1.5) : 0) + 3 * hsh(x, y, 37)]);
+      }
+      cand.sort((a, b) => a[2] - b[2]);
+      const done: Pt[] = [];
+      for (const [x, y] of cand) {
+        if (done.length >= r.n) break;
+        const id = r.ids[done.length % r.ids.length], fp = TOWN_FP.get(id);
+        if (!fp) throw new Error(`unknown town structure ${id}`);
+        if (done.some((d) => Math.hypot(d[0] - x, d[1] - y) < r.gap) || spotNear(x + fp[0] / 2, y + fp[1] / 2, 4)) continue;
+        if (free(id, x, y, 'near', r.water)) { put1(id, x, y); done.push([x, y]); }
+      }
+      if (done.length < r.n) (missed += r.n - done.length), log.push(`town ${r.ids[0]} near ${r.at.map(Math.round)}: ${done.length}/${r.n}`);
+    }
+    if (placed) log.push(`town ${placed} structures`);
+  }
   for (const r of k.reqs) {
     if (r.kind === 'piece') {
       const [cx, cy] = tileOf(r.at), R = r.r * K, done: Pt[] = [];
@@ -773,8 +938,8 @@ export function build(def: RegionDef): Built {
     const base = massifBase(land, placed);
     let open = 0;
     for (let i = 0; i < N; i++) {
-      if (!base[i]) continue;
-      if (terrain[i] !== 'rock' && water[i] !== 2) open++;
+      if (!base[i] && !townShut[i]) continue;
+      if (base[i] && terrain[i] !== 'rock' && water[i] !== 2) open++;
       if (blocked.length && blocked.at(-2)! + blocked.at(-1)! === i) blocked[blocked.length - 1]++;
       else blocked.push(i, 1);
     }

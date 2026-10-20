@@ -51,12 +51,13 @@ const def: RegionDef = {
     k.patch('kyrene', 'redrock', [70, 60, 5, 18, 0.1], ['sand']);
     k.patch('kyrene', 'redrock', [190, 90, 5, 14, -0.2], ['sand']);
     // the caravanserai: walls round the court, tents, camels, the well; caravan camps on the road
-    for (const [dx, dy] of [[-9, -9], [9, -9], [-9, 9], [9, 9]] as const) k.piece('kyrene/ruin-corner', [130 + dx, 134 + dy], { r: 3 });
-    k.piece('kyrene/ruin-wall', [130, 124], { r: 6, n: 2 });
-    k.piece('kyrene/ruin-wall', [130, 144], { r: 6, n: 2 });
-    k.piece('kyrene/nomad-tent', [146, 122], { r: 8, n: 3 });
-    k.piece('kyrene/camels', [148, 142], { r: 8, n: 2 });
-    k.piece('kyrene/well', [138, 128], { r: 4 });
+    // the caravanserai town: the agora, the walled market court south-east of it, houses, tents and camels round it
+    k.agora([130, 134]);
+    k.court(1);
+    k.houses([130, 134], 12, 16, 34, ['house-a', 'storehouse', 'house-b', 'cottage', 'workshop']);
+    k.outskirts([112, 118], 2, 8, 24, ['olive-press', 'cottage']);
+    k.piece('kyrene/nomad-tent', [150, 120], { r: 8, n: 3 });
+    k.piece('kyrene/camels', [150, 150], { r: 8, n: 2 });
     k.piece('kyrene/nomad-tent', [118, 60], { r: 10 });
     k.piece('kyrene/camels', [140, 200], { r: 10 });
     // mesas, buttes and pillars standing in the sand (cover), a gazelle herd

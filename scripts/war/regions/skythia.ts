@@ -48,6 +48,10 @@ const def: RegionDef = {
     k.resource('stone', [82, 80], 3, 10);
     k.resource('stone', [206, 92], 2, 12);
     k.resource('food', [150, 160], 2, 12);
+    // the home agora and the town round it; farmsteads out on the steppe
+    k.agora([124, 150]);
+    k.houses([124, 150], 16, 16, 40, ['house-a', 'cottage', 'house-b', 'storehouse', 'workshop', 'cottage']);
+    k.outskirts([124, 150], 6, 32, 60);
     for (const [x, y] of MOUNDS) k.piece('mountains/cairn', [x, y], { r: 3 });
     k.piece('mountains/cairn', [150, 128], { r: 4, n: 2 });
     k.piece('mountains/watch-post', [176, 64], { r: 5 });

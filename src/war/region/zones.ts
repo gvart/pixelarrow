@@ -3,7 +3,7 @@
  * walled market court (`safe`, its two gates on the north and south faces), the caravan yard outside each gate (`yard`,
  * not safe) and ambush spots over the route (`ambush`). Kept beside the generated region JSON (scripts/war/regions/**
  * writes those) and merged in by parseRegion when a region's JSON carries none of its own; a region script that later
- * writes these keys wins. Each court sits next to the market spot, off the claim point (claiming is not done inside).
+ * writes these keys wins. Each court sits beside its town square (scripts/war/regions/kit.ts court() walls it), off the claim point.
  */
 import type { SafeRect, TileRect } from '../types';
 
@@ -16,8 +16,8 @@ const court = (x: number, y: number): Pick<TradeZones, 'safe' | 'yard'> => ({
 });
 
 export const TRADE_ZONES: Record<string, TradeZones> = {
-  kleisoura: { ...court(298, 196), ambush: [{ x: 162, y: 215, w: 12, h: 4 }, { x: 162, y: 238, w: 12, h: 4 }] },
-  stymphalia: { ...court(244, 202), ambush: [{ x: 233, y: 104, w: 12, h: 5 }] },
-  achelous: { ...court(265, 209), ambush: [{ x: 100, y: 42, w: 12, h: 5 }] },
-  ammos: { ...court(233, 254), ambush: [{ x: 258, y: 139, w: 12, h: 5 }] },
+  kleisoura: { ...court(274, 207), ambush: [{ x: 162, y: 215, w: 12, h: 4 }, { x: 162, y: 238, w: 12, h: 4 }] },
+  stymphalia: { ...court(312, 253), ambush: [{ x: 233, y: 104, w: 12, h: 5 }] },
+  achelous: { ...court(255, 264), ambush: [{ x: 100, y: 42, w: 12, h: 5 }] },
+  ammos: { ...court(276, 272), ambush: [{ x: 258, y: 139, w: 12, h: 5 }] },
 };

@@ -33,7 +33,7 @@ const def: RegionDef = {
     k.hill([120, 128, 16, 48, 0], 2, 4, 2);
     k.paint('grass', [120, 120, 17, 62, 0], { on: ['marsh'], rough: 3 });
     k.forest([114, 176, 7, 12, 0.2]);
-    k.paint('dirt', [120, 128, 15, 22, 0], { rough: 3 });
+    k.paint('dirt', [120, 128, 8, 10, 0], { rough: 3 });
     k.square([120, 130], 6.5, 2);
     k.spot('island', [118, 70]);
     k.spot('narrows', [95, 66]);
@@ -53,12 +53,16 @@ const def: RegionDef = {
     k.forest([40, 30, 18, 12, 0.3], [24, 232, 18, 10, -0.2], [214, 40, 14, 8, 0.2], [230, 214, 16, 10, 0.4]);
     k.patch('kyrene', 'hardpan', [226, 84, 12, 8, 0.2], ['sand']);
     k.oasis([214, 176], 2.2);
-    // the town: houses and stalls round the square, the toll post and a watchtower at the old bridge
-    k.piece('wall-ruin', [120, 130], { r: 14, n: 8, gap: 4 });
-    k.piece('dodona/hut-ruin', [120, 130], { r: 16, n: 6, gap: 4 });
-    k.piece('elaia/wall-a', [110, 144], { r: 6, n: 2 });
+    // the bridge town: the agora on the island, the walled market court east of it, houses along the streets, farms
+    // and presses at the island's foot, a jetty on the east arm; the toll post and a watchtower at the old bridge
+    k.agora([120, 130]);
+    k.court(2);
+    k.houses([120, 130], 30, 14, 46);
+    k.outskirts([120, 150], 4, 18, 34);
+    k.jetty([140, 150], 16);
+    k.village([30, 150], 5);
+    k.village([214, 160], 4);
     k.piece('elaia/shrine', [126, 112], { r: 6 });
-    k.piece('kyrene/nomad-tent', [130, 146], { r: 6 });
     k.piece('mountains/watch-post', [162, 122], { r: 6 });
     k.piece('watchtower', [104, 112], { r: 6 });
     // resources (food 1, tin 2): the tin diggings on the island head

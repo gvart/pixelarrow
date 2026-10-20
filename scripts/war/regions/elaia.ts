@@ -68,6 +68,11 @@ const def: RegionDef = {
     k.rows(['elaia/vines'], [168, 222, 11, 5, -0.2], { dx: 2, dy: 3 });
     // resources (food 3, wood 2, stone 2, marble 2) and town pieces
     k.resource('marble', [210, 54], 4, 10);
+    // the home agora, the town round it, olive presses on the terraces, jetties in the harbour
+    k.agora([124, 160]);
+    k.houses([124, 160], 18, 16, 40, ['house-a', 'house-b', 'house-a', 'workshop', 'storehouse', 'house-b', 'cottage']);
+    k.outskirts([124, 160], 5, 32, 56, ['olive-press', 'farm', 'olive-press', 'cottage']);
+    k.jetty([124, 160], 60);
     k.piece('elaia/marble-quarry', [218, 62], { r: 10 });
     k.resource('food', [140, 172], 3, 12);
     k.resource('stone', [70, 40], 3, 14);

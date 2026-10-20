@@ -274,11 +274,14 @@ function template(w: WorldRegion): RegionDef {
         k.fields([p[0], p[1], 20, 14, j(0.6)], j(0.6));
         k.resource('food', p, 9, 16);
         if (!hasWater(k, p, 30)) k.waterBody([p[0] + 22, p[1], 5, 4, 0], { deep: false, beach: 1 });
+        // the farm village between the fields and the hub (kit.ts town dressing)
+        k.village([(p[0] + hub[0]) / 2, (p[1] + hub[1]) / 2], 5);
       }
       if (needs.has('olives')) {
         const p = claim(free(16, 34), 24);
         k.rows(E(['olive-orchard', 'olive-orchard', 'olive-tall', 'olive-ancient']), [p[0], p[1], 22, 14, j(0.6)], { dx: 3, dy: 3 });
         k.spot('olives', p);
+        k.outskirts(p, 2, 20, 40, ['olive-press', 'cottage']);
       }
       // ---- resources: the scarce ones on a knoll (silver, salt: no node art, a spot); the rest round a spot
       for (const f of fields) {

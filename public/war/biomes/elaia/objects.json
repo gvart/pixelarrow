@@ -146,7 +146,65 @@
   "#2d2c17",
   "#414723",
   "#603e3c",
-  "#4e5134"
+  "#4e5134",
+  "#866a53",
+  "#7a5f56",
+  "#9d8874",
+  "#95887a",
+  "#594844",
+  "#6d4949",
+  "#60473d",
+  "#785950",
+  "#987d6e",
+  "#a88961",
+  "#976a55",
+  "#6d4548",
+  "#b4aea3",
+  "#7b756f",
+  "#726e64",
+  "#715b52",
+  "#aa9f8a",
+  "#846c64",
+  "#8b7b6d",
+  "#988c79",
+  "#947f6e",
+  "#7a7269",
+  "#230f21",
+  "#a6937d",
+  "#767271",
+  "#4f4847",
+  "#706b65",
+  "#68473e",
+  "#867f78",
+  "#767068",
+  "#6f6c65",
+  "#665f57",
+  "#716d63",
+  "#605c4f",
+  "#78726a",
+  "#6f645e",
+  "#706c65",
+  "#8a7d70",
+  "#5b3e30",
+  "#5f4038",
+  "#845b4b",
+  "#341c1a",
+  "#634539",
+  "#936947",
+  "#776e67",
+  "#7c4736",
+  "#6f5a56",
+  "#5b2b25",
+  "#b19069",
+  "#472526",
+  "#9b8557",
+  "#667249",
+  "#442118",
+  "#857f52",
+  "#90716c",
+  "#878166",
+  "#7a3a1a",
+  "#653c2a"
  ],
  "objects": [
   {
@@ -569,6 +627,482 @@
    "mob": true,
    "animateLater": true,
    "source": "map_object 1a2ffbf2"
+  },
+  {
+   "id": "town-house-a",
+   "kind": "building",
+   "file": "town-house-a.png",
+   "w": 173,
+   "h": 164,
+   "metres": 4.97,
+   "anchor": {
+    "x": 87,
+    "y": 163
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "map_object 3d4a52ba"
+  },
+  {
+   "id": "town-house-b",
+   "kind": "building",
+   "file": "town-house-b.png",
+   "w": 182,
+   "h": 207,
+   "metres": 6.27,
+   "anchor": {
+    "x": 53,
+    "y": 206
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "map_object 76da2040"
+  },
+  {
+   "id": "town-cottage",
+   "kind": "building",
+   "file": "town-cottage.png",
+   "w": 144,
+   "h": 140,
+   "metres": 4.24,
+   "anchor": {
+    "x": 88,
+    "y": 139
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "map_object c44a9cff"
+  },
+  {
+   "id": "town-temple",
+   "kind": "building",
+   "file": "town-temple.png",
+   "w": 256,
+   "h": 294,
+   "metres": 8.91,
+   "anchor": {
+    "x": 128,
+    "y": 293
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "map_object 2b6728a4"
+  },
+  {
+   "id": "town-stoa",
+   "kind": "building",
+   "file": "town-stoa.png",
+   "w": 256,
+   "h": 169,
+   "metres": 5.12,
+   "anchor": {
+    "x": 55,
+    "y": 168
+   },
+   "footprint": [
+    2,
+    6
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "map_object 72d480c0"
+  },
+  {
+   "id": "town-statue",
+   "kind": "building",
+   "file": "town-statue.png",
+   "w": 48,
+   "h": 125,
+   "metres": 3.79,
+   "anchor": {
+    "x": 24,
+    "y": 124
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "map_object 7a7534bb"
+  },
+  {
+   "id": "town-well",
+   "kind": "building",
+   "file": "town-well.png",
+   "w": 54,
+   "h": 77,
+   "metres": 2.33,
+   "anchor": {
+    "x": 20,
+    "y": 76
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "map_object 60df485f"
+  },
+  {
+   "id": "town-jetty",
+   "kind": "prop",
+   "file": "town-jetty.png",
+   "w": 160,
+   "h": 112,
+   "metres": 3.39,
+   "anchor": {
+    "x": 32,
+    "y": 111
+   },
+   "footprint": [
+    1,
+    4
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "map_object ab675632"
+  },
+  {
+   "id": "town-stall-a",
+   "kind": "building",
+   "file": "town-stall-a.png",
+   "w": 127,
+   "h": 125,
+   "metres": 3.79,
+   "anchor": {
+    "x": 60,
+    "y": 124
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/market-stall-done"
+  },
+  {
+   "id": "town-stall-b",
+   "kind": "building",
+   "file": "town-stall-b.png",
+   "w": 128,
+   "h": 136,
+   "metres": 4.12,
+   "anchor": {
+    "x": 71,
+    "y": 135
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/market-stall2-done"
+  },
+  {
+   "id": "town-stall-c",
+   "kind": "building",
+   "file": "town-stall-c.png",
+   "w": 128,
+   "h": 124,
+   "metres": 3.76,
+   "anchor": {
+    "x": 63,
+    "y": 123
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/market-stall3-done"
+  },
+  {
+   "id": "town-warehouse",
+   "kind": "building",
+   "file": "town-warehouse.png",
+   "w": 160,
+   "h": 132,
+   "metres": 4,
+   "anchor": {
+    "x": 71,
+    "y": 131
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/warehouse-done"
+  },
+  {
+   "id": "town-workshop",
+   "kind": "building",
+   "file": "town-workshop.png",
+   "w": 224,
+   "h": 182,
+   "metres": 5.52,
+   "anchor": {
+    "x": 113,
+    "y": 181
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/workshop-done"
+  },
+  {
+   "id": "town-storehouse",
+   "kind": "building",
+   "file": "town-storehouse.png",
+   "w": 192,
+   "h": 167,
+   "metres": 5.06,
+   "anchor": {
+    "x": 100,
+    "y": 166
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/storehouse-done"
+  },
+  {
+   "id": "town-forge",
+   "kind": "building",
+   "file": "town-forge.png",
+   "w": 186,
+   "h": 181,
+   "metres": 5.48,
+   "anchor": {
+    "x": 92,
+    "y": 180
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/forge-done"
+  },
+  {
+   "id": "town-cookhouse",
+   "kind": "building",
+   "file": "town-cookhouse.png",
+   "w": 160,
+   "h": 128,
+   "metres": 3.88,
+   "anchor": {
+    "x": 80,
+    "y": 127
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/cookhouse-done"
+  },
+  {
+   "id": "town-olive-press",
+   "kind": "building",
+   "file": "town-olive-press.png",
+   "w": 182,
+   "h": 202,
+   "metres": 6.12,
+   "anchor": {
+    "x": 91,
+    "y": 201
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/olive-press-done"
+  },
+  {
+   "id": "town-farm",
+   "kind": "building",
+   "file": "town-farm.png",
+   "w": 256,
+   "h": 157,
+   "metres": 4.76,
+   "anchor": {
+    "x": 129,
+    "y": 156
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/farm-done"
+  },
+  {
+   "id": "town-tower",
+   "kind": "building",
+   "file": "town-tower.png",
+   "w": 128,
+   "h": 291,
+   "metres": 8.82,
+   "anchor": {
+    "x": 61,
+    "y": 290
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/stone-tower-done"
+  },
+  {
+   "id": "town-gate-x",
+   "kind": "building",
+   "file": "town-gate-x.png",
+   "w": 94,
+   "h": 243,
+   "metres": 7.36,
+   "anchor": {
+    "x": 64,
+    "y": 242
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/stone-gate-x-open"
+  },
+  {
+   "id": "town-gate-y",
+   "kind": "building",
+   "file": "town-gate-y.png",
+   "w": 94,
+   "h": 243,
+   "metres": 7.36,
+   "anchor": {
+    "x": 30,
+    "y": 242
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of buildings/stone-gate-y-open"
+  },
+  {
+   "id": "town-board",
+   "kind": "building",
+   "file": "town-board.png",
+   "w": 42,
+   "h": 93,
+   "metres": 2.82,
+   "anchor": {
+    "x": 28,
+    "y": 92
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of trade/price-board-done"
+  },
+  {
+   "id": "town-goods",
+   "kind": "building",
+   "file": "town-goods.png",
+   "w": 44,
+   "h": 34,
+   "metres": 1.03,
+   "anchor": {
+    "x": 16,
+    "y": 33
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "copy of trade/pile-goods-m"
+  },
+  {
+   "id": "town-wall-x",
+   "kind": "building",
+   "file": "town-wall-x.png",
+   "w": 103,
+   "h": 99,
+   "metres": 3,
+   "anchor": {
+    "x": 71,
+    "y": 85
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "stone-wall kit frames (mask 5), 2 tiles, face cut to 3 m"
+  },
+  {
+   "id": "town-wall-y",
+   "kind": "building",
+   "file": "town-wall-y.png",
+   "w": 103,
+   "h": 99,
+   "metres": 3,
+   "anchor": {
+    "x": 32,
+    "y": 85
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "source": "stone-wall kit frames (mask 10), 2 tiles, face cut to 3 m"
   }
- ]
+ ],
+ "borderMax": 0.75
 }
