@@ -319,7 +319,7 @@ export class WarRoom {
     const me = ownerOf(pid);
     const squad = 'squad' in o ? o.squad : undefined;
     if (squad !== undefined && this.owners[squad] !== me) return 'notOwner';
-    if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade' && o.kind !== 'craft' && o.kind !== 'cancelCraft') return 'bad';
+    if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade' && o.kind !== 'craft' && o.kind !== 'cancelCraft' && o.kind !== 'fortify') return 'bad';
     const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < this.region.w && y < this.region.h;
     const allIn = (a?: number[]) => !a || a.every((v, i) => (i % 2 ? v < this.region.h : v < this.region.w) && v >= 0);
     const ownSite = (id: number) => this.snap.buildings?.find((b) => b.id === id)?.team === p.team;
@@ -351,6 +351,7 @@ export class WarRoom {
       case 'civWork':
       case 'craft': // M5h: a workplace of his team
       case 'cancelCraft':
+      case 'fortify': // M5h3: a building of his team
         if (!ownSite(o.kind === 'build' ? o.site : o.building)) return 'badTarget';
         break;
     }
