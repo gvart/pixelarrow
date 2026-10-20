@@ -366,8 +366,9 @@ export class WarRoom {
 
   /** The region as a bounded record for DO storage (RoomState): living squads, players, team stock, building sites. */
   saveState(): RoomState {
+    const snap = this.sim.snapshot(); // fresh: squads spawned since the last tick count too
     const sq = new Map<number, { x: number; y: number; n: number; cls: string; pids: string[] }>();
-    for (const u of this.snap.units) {
+    for (const u of snap.units) {
       if (u.state === 'dead') continue;
       const s = sq.get(u.squad) ?? { x: 0, y: 0, n: 0, cls: u.cls, pids: [] };
       s.x += u.x; s.y += u.y; s.n++;
@@ -380,11 +381,11 @@ export class WarRoom {
       if (owner === undefined || team === undefined) continue;
       squads.push({ owner, team, x: +(s.x / s.n).toFixed(2), y: +(s.y / s.n).toFixed(2), cls: s.cls, count: s.n, pids: s.pids });
     }
-    const buildings = (this.snap.buildings ?? [])
+    const buildings = (snap.buildings ?? [])
       .filter((b) => b.state !== 'destroyed' && !b.bridge && b.attach === undefined)
       .map((b) => ({ type: b.type, team: b.team, x: b.x, y: b.y, rot: b.rot }));
     const players = [...this.players.values()].map((p) => ({ pid: p.pid, team: p.team }));
-    return { v: 1, region: this.region.id, tick: this.snap.tick, players, squads, stock: this.snap.stock ?? {}, buildings };
+    return { v: 1, region: this.region.id, tick: snap.tick, players, squads, stock: snap.stock ?? {}, buildings };
   }
 
   /**
