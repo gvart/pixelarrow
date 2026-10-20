@@ -14,7 +14,7 @@ import type { Kit, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'kleisoura',
-  style: { meadow: 0.2 },
+  style: { meadow: 0.2, trees: 0.45, bushes: 0.6 },
   build(k: Kit) {
     k.fill(2);
     k.zone('mountains', () => 99);
@@ -38,6 +38,8 @@ const def: RegionDef = {
     k.rockMass([126, 64, 9, 12, 0.1], { rough: 1.5 });
     k.rockMass([162, 60, 8, 12, -0.1], { rough: 1.5 });
     k.rockMass([130, 196, 9, 34, 0.05], { rough: 1.5 });
+    k.rockMass([128, 82, 9, 8, 0.2], { rough: 1.2 });
+    k.rockMass([118, 140, 6, 6, 0], { rough: 1 });
     k.rockMass([178, 186, 8, 26, -0.1], { rough: 1.5 });
     k.rockMass([90, 103, 22, 6, 0.04], { rough: 1.2 });
     k.rockMass([90, 126, 22, 6, -0.04], { rough: 1.2 });

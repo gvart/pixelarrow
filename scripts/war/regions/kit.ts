@@ -631,6 +631,7 @@ export function build(def: RegionDef): Built {
       if (p < 0.12 && ring(x, y, (j) => terrain[j] !== 'rock' && !water[j])) put(pick(b === 'kyrene' ? ['kyrene/boulder-red', 'kyrene/rocks-red'] : ['boulder-a', 'boulder-b'], q), fx, fy);
     } else if (b === 'mountains') {
       const near = k.rock[i] > -5;
+      if (t === 'dirt') continue; // courts, ledges, clefts stay bare
       if (kk === 'scree') { if (p < 0.05) put(pick(M(['juniper', 'alpine-grass', 'juniper', 'fir-snow']), q), fx, fy); }
       else if (kk === 'gravel') { if (p < 0.01) put(pick(ALPINE, q), fx, fy); }
       else if (!nearWater && p < (near ? 0.16 : 0.035) * st.trees) put(pick(FIRS, q), fx, fy);
