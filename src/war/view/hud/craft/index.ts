@@ -2,7 +2,8 @@
  * Mounts the crafting views (M5h5) on the HUD (../hud.ts hands its element maker, so the UI scale applies):
  *
  *   right, under the corner   the workplace panel of the selected own workplace (./workplace.ts)
- *   right of the soldier card the profession tree of a civilian (./tree.ts): Tree on his card, or a crafter's row
+ *   right of the soldier card the tree of the man (../tree/graph.ts): a civilian's profession (./tree.ts), a soldier's
+ *                             skills (../roster/skillTree.ts); Tree on his card, or a crafter's row
  *
  * Both re-render at 4 Hz while open, only when their HTML changed (so hover and scroll hold). Crafters at a workplace:
  * the men of own civilian squads on civWork standing by it (their trade), in unit id order (the sim's slot order).
@@ -14,10 +15,13 @@ import type { BuildingSnap } from '../../../types';
 import type { SandboxScene } from '../../SandboxScene';
 import type { RosterHooks } from '../roster';
 import { sandboxRoster } from '../roster/state';
-import { tipper } from '../roster/ui';
+import { esc, tipper } from '../roster/ui';
+import { draggable } from '../drag';
 import { fitHeight } from '../kit';
 import { sandboxCraft } from './state';
-import { TREE_CSS, treeHtml, TREE_W } from './tree';
+import { profTree } from './tree';
+import { GRAPH_CSS, markGraph, panelWidth, paintGraph, type TreeView } from '../tree/graph';
+import { soldierTree, takeSoldier } from '../roster/skillTree';
 import { WP_CSS, WP_PROF, WP_W, workplaceHtml, type Crafter, type Idle, type WpView } from './workplace';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
@@ -26,16 +30,18 @@ const TEAM = 0;
 export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
   const R = sandboxRoster(s), C = sandboxCraft(s, R);
   const style = document.createElement('style');
-  style.textContent = TREE_CSS + WP_CSS;
+  style.textContent = GRAPH_CSS + PANEL_CSS + WP_CSS;
   document.head.appendChild(style);
   const wpEl = mk('cfWp', `top:66px;right:4px;width:${WP_W}px;display:none;pointer-events:auto`);
-  const treeEl = mk('cfTree', `top:50px;left:4px;width:${TREE_W}px;display:none;pointer-events:auto`);
+  const treeEl = mk('cfTree', 'top:50px;left:4px;display:none;pointer-events:auto');
+  draggable(wpEl);
+  draggable(treeEl);
   const tip = mk('cfTip', 'display:none;z-index:7');
   tip.className = 'rf rf-tip';
   const unTip = [tipper(wpEl, tip), tipper(treeEl, tip)];
   for (const el of [wpEl, treeEl]) el.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
-  let treePid: string | null = null, picked: string | null = null, lastT = '', lastW = '', wpId = -1;
+  let treePid: string | null = null, ask: string | null = null, lastW = '', wpId = -1;
   const view: WpView = { tab: '', all: false, recipe: null };
   C.onNote = (text, kind) => R.onNote?.({ kind: kind === 'bad' ? 'capture' : kind === 'made' ? 'levelUp' : 'info', text });
 
@@ -89,29 +95,58 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
       }
       fitHeight(wpEl);
     }
-    const c = C.civ(treePid ?? undefined);
-    treeEl.style.display = c ? '' : 'none';
-    if (c) {
+    const v = treePid ? treeView(treePid) : null;
+    treeEl.style.display = v ? '' : 'none';
+    if (v) {
       // right of the soldier card when it shows, else of the roster panel, else at the left edge
       const z = Number(treeEl.style.zoom) || 1, anchor = [document.getElementById('rrCard'), document.getElementById('rrPanel')].find((e) => e && e.style.display !== 'none');
-      treeEl.style.left = `${anchor ? anchor.getBoundingClientRect().right / z + 4 : 4}px`;
-      const html = treeHtml(C, c, picked);
-      if (html !== lastT) treeEl.innerHTML = lastT = html;
+      const w = panelWidth(v.graph);
+      treeEl.style.width = `${w}px`;
+      if (!treeEl.dataset.moved) treeEl.style.left = `${Math.max(4, Math.min(innerWidth / z - w - 4, anchor ? anchor.getBoundingClientRect().right / z + 4 : 4))}px`;
+      if (!treeEl.querySelector('[data-h=graph]')) treeEl.innerHTML = SHELL;
+      const part = (k: string, html: string) => { const e = treeEl.querySelector<HTMLElement>(`[data-h=${k}]`)!; if (e.innerHTML !== html) e.innerHTML = html; };
+      part('name', esc(v.name));
+      part('sub', esc(v.sub));
+      part('pts', v.points);
+      const q = ask ? v.ask(ask) : null;
+      if (ask && (!q || v.graph.nodes.find((n) => n.id === ask)?.state !== 'open')) ask = null;
+      part('foot', ask ? `<span style="color:var(--rf-title);white-space:normal">${esc(q!)}</span><span style="flex:1"></span><button class="rf-tbtn" data-act="cancelAsk">Cancel</button><button class="rf-tbtn pri" data-act="confirm">Take</button>` : v.foot);
+      const g = treeEl.querySelector<HTMLElement>('[data-h=graph]')!;
+      paintGraph(g, v.graph);
+      markGraph(g, ask);
       fitHeight(treeEl);
     }
     for (const f of unTip) f();
   };
-  const openTree = (pid: string) => { treePid = treePid === pid ? null : pid; picked = null; render(); };
+  /** The tree of a man: a civilian's profession, a soldier's skills (local roster only). */
+  const treeView = (pid: string): TreeView | null => {
+    const c = C.civ(pid);
+    if (c) return profTree(C, c);
+    const p = s.sim.net ? undefined : R.roster.get(pid);
+    return p && !isCivClass(p.hero.cls) ? soldierTree(R, p) : null;
+  };
+  const openTree = (pid: string) => { treePid = treePid === pid ? null : pid; ask = null; render(); };
   roster.tree = openTree;
   C.onChange = () => { roster.render(); render(); };
+  const take = (pid: string, id: string) => {
+    if (C.civ(pid)) void C.pick(pid, id).then(() => { roster.render(); render(); });
+    else { takeSoldier(R, pid, id); roster.render(); }
+  };
 
   treeEl.addEventListener('click', (e) => {
-    const t = e.target as HTMLElement, n = t.closest<HTMLElement>('[data-node]'), take = t.closest<HTMLElement>('[data-take]'), a = t.closest<HTMLElement>('[data-act]');
+    const t = e.target as HTMLElement, n = t.closest<HTMLElement>('[data-node]'), a = t.closest<HTMLElement>('[data-act]')?.dataset.act;
     if (!treePid) return;
-    if (take) void C.pick(treePid, take.dataset.take!).then(() => { roster.render(); render(); });
-    else if (n) picked = picked === n.dataset.node ? null : n.dataset.node!;
-    else if (a?.dataset.act === 'respec') void C.respec(treePid).then(() => { roster.render(); render(); });
-    else if (a?.dataset.act === 'closeTree') treePid = null;
+    const v = treeView(treePid);
+    if (n && v) {
+      const id = n.dataset.node!;
+      if (v.graph.nodes.find((x) => x.id === id)?.state === 'open') {
+        if (v.ask(id) && ask !== id) ask = id;
+        else { ask = null; take(treePid, id); }
+      }
+    } else if (a === 'confirm' && ask) { take(treePid, ask); ask = null; }
+    else if (a === 'cancelAsk') ask = null;
+    else if (a === 'respec') void C.respec(treePid).then(() => { roster.render(); render(); });
+    else if (a === 'closeTree') treePid = null;
     render();
   });
   wpEl.addEventListener('click', (e) => {
@@ -133,9 +168,27 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
     setTimeout(render, 150); // the order lands on the next snapshot
   });
   addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && treePid) { treePid = null; render(); }
+    if (e.key === 'Escape' && treePid) { if (ask) ask = null; else treePid = null; render(); }
   });
   setInterval(render, 250);
   // scripts (scripts/war, Playwright): open a tree, read the stash
   (window as unknown as { __craft: unknown }).__craft = { C, tree: openTree, view, isCiv: isCivClass, select: (id: number) => { s.build.selected = id; render(); }, scene: s };
 }
+
+const SHELL = `<div class="rf-card" style="padding:4px 6px 6px">
+  <div class="rf-head"><span class="rf-name" style="font-size:16px" data-h="name"></span><span class="rf-dim" data-h="sub"></span><span style="flex:1"></span><span data-h="pts"></span>
+    <button class="rf-tbtn x" data-act="closeTree" data-tip="close">✕</button></div>
+  <div class="pt-legend"><i class="taken"></i>taken <i class="open"></i>can take now <i class="locked"></i>locked</div>
+  <div data-h="graph"></div>
+  <div class="pt-foot" data-h="foot"></div>
+</div>`;
+const PANEL_CSS = `
+.pt-legend{display:flex;align-items:center;gap:4px;margin:5px 0 0;font:600 11px/1 Inter,sans-serif;color:var(--rf-muted)}
+.pt-legend i{display:inline-block;width:9px;height:9px;margin-left:6px;border:2px solid;border-radius:50%}
+.pt-legend i:first-child{margin-left:0}
+.pt-legend i.taken{border-color:#e0b867;background:#4a3410;box-shadow:0 0 4px rgba(224,184,103,.6)}.pt-legend i.open{border-color:#de8a4e;background:#2e160c}.pt-legend i.locked{border-color:#4a3428;background:#140c08}
+.pt-foot{display:flex;align-items:center;gap:4px;margin-top:5px;min-height:23px}
+.tg-pts{font:600 12px/1 Inter,sans-serif;color:var(--rf-muted);margin-right:4px}
+.tg-pts b{font:700 15px/1 Cinzel,serif;color:var(--rf-ink)}
+.tg-pts.on b{color:var(--rf-gold);text-shadow:0 0 6px rgba(224,184,103,.5)}
+`;

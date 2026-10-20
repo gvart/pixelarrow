@@ -21,6 +21,7 @@
  * The dev panel (../devPanel.ts) hides behind F1 and the DEV corner button. It only calls BuildMode, SiegeControls and
  * the scene, and reads their state at 5 Hz.
  */
+import { draggable } from './drag';
 import '@fontsource/inter/600.css';
 import '@fontsource/cinzel/700.css';
 import { BUILDINGS } from '../../sim/economy';
@@ -168,6 +169,7 @@ export function hud(s: SandboxScene): void {
     <div id="cOrders" style="display:flex;flex-direction:column;justify-content:center;gap:3px"></div>
     <div class="rf-sep" id="cSep2"></div>
     <div id="cSlots" style="display:flex;gap:2px;align-items:center"></div></div>`;
+  draggable(card, '#cSel'); // the selection's name plate moves the command card
   const $ = (id: string) => card.querySelector<HTMLElement>('#' + id)!;
   /** An icon button: id, icon, tooltip, key hint, click. */
   const btn = (id: string, ic: string, tipText: string | (() => string), key: string, run: () => void, cls = 'rf-btn') => {
@@ -310,6 +312,9 @@ export function hud(s: SandboxScene): void {
   };
   scale();
   addEventListener('resize', scale);
+
+  // ---------- no browser context menu anywhere (canvas and HUD): right click is the game's (orders, the radial) ----------
+  addEventListener('contextmenu', (e) => e.preventDefault(), true);
 
   // ---------- cursors ----------
   const CUR: Record<string, string> = Object.fromEntries(['default', 'move', 'attack', 'build', 'gather', 'interact'].map((k) => [k, cursor(k)]));

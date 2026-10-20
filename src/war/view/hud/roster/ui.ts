@@ -185,7 +185,7 @@ export const ROSTER_CSS = `
 .rr-port{width:64px;height:80px;background:radial-gradient(ellipse at 50% 85%,#3a2216 0,#140c08 70%);border:1px solid #7a3418;box-shadow:inset 0 0 0 1px #0e0907}
 .rr-port canvas{display:block;width:64px;height:80px;image-rendering:pixelated}
 .rr-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 6px;align-items:center}
-.rf-tbtn.rr-offer{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;height:auto;padding:5px 7px;text-align:left;white-space:normal;line-height:1.3}
+.rf-tbtn.rr-pending{display:flex;width:100%;margin:4px 0 2px;color:var(--rf-gold);font:700 12px/1 Cinzel,serif}
 .rr-up{color:var(--rf-good)}.rr-down{color:var(--rf-bad)}
 .rr-toast{transition:opacity .4s, transform .4s;display:flex;align-items:center;gap:4px}
 `;

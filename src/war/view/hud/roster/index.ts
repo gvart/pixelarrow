@@ -9,6 +9,7 @@
  * Panel and card re-render at 4 Hz while open, only when their HTML changed (so hover and scroll hold).
  */
 import type { SandboxScene } from '../../SandboxScene';
+import { draggable } from '../drag';
 import { fitHeight, icon } from '../kit';
 import { cardHtml, CARD_W } from './card';
 import { markers } from './markers';
@@ -34,6 +35,8 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
 
   const panel = mk('rrPanel', `top:50px;left:4px;width:${PANEL_W}px;display:none;pointer-events:auto`);
   const card = mk('rrCard', `top:50px;left:${PANEL_W + 8}px;width:${CARD_W}px;display:none;pointer-events:auto`);
+  draggable(panel);
+  draggable(card);
   const toasts = mk('rrToasts', 'top:50px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none');
   const tip = mk('rrTip', 'display:none;z-index:7');
   tip.className = 'rf rf-tip';
@@ -54,7 +57,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     panel.style.display = open ? '' : 'none';
     const row = sel ? R.rows().find((r) => r.p.id === sel) : undefined;
     card.style.display = row ? '' : 'none';
-    card.style.left = open ? `${PANEL_W + 8}px` : '4px';
+    if (!card.dataset.moved) card.style.left = open ? `${PANEL_W + 8}px` : '4px';
     if (open) {
       // above the minimap (bottom left, about 190 art px) and below the band
       const z = Number(panel.style.zoom) || 1, listH = Math.max(120, Math.min(420, Math.floor(innerHeight / z) - 50 - 200 - 96));
@@ -98,7 +101,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     render();
   });
   card.addEventListener('click', (e) => {
-    const t = e.target as HTMLElement, a = t.closest<HTMLElement>('[data-act]'), o = t.closest<HTMLElement>('[data-offer]');
+    const t = e.target as HTMLElement, a = t.closest<HTMLElement>('[data-act]');
     const eq = t.closest<HTMLElement>('[data-equip]'), uneq = t.closest<HTMLElement>('[data-unequip]');
     if (!sel) return;
     if (eq) void C.equip(sel, eq.dataset.equip!).then(render);
@@ -106,10 +109,6 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     else if (a?.dataset.act === 'tree') hooks.tree?.(sel);
     else if (a?.dataset.act === 'closeCard') sel = null;
     else if (a?.dataset.act === 'xp') R.devXp(sel);
-    else if (o) {
-      const offer = R.offers(sel)[Number(o.dataset.offer)];
-      if (offer) R.choose(sel, offer);
-    }
     render();
   });
   for (const el of [panel, card]) el.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
