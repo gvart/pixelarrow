@@ -1,0 +1,52 @@
+src/war/regions/krios.json
+  s_cfc22b058125c4::t_6b6301be11cf3b 1
+public/war/biomes/mountains/objects.json
+  s_cfc22b058125c4::t_6b6301be11cf3b 114-115,119,121-126,128-133
+src/war/regions/gorge.json
+  s_cfc22b058125c4::t_6acbcc5886c8c5 1
+public/war/biomes/elaia/tiles.json
+  s_cfc22b058125c4::t_6b6301be11cf3b 111-119,123-136
+scripts/war/art/biomes/mountains.mjs
+  s_cfc22b058125c4::t_25615987434e92 16
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_61c476375b7fe4 459-461,1548-1552
+  s_cfc22b058125c4::t_d15d7929a15504 1553
+scripts/war/regions/gorge.ts
+  s_cfc22b058125c4::t_61c476375b7fe4 35
+src/war/regions/omphalos.json
+  s_cfc22b058125c4::t_6acbcc5886c8c5 1
+scripts/war/regions/landmarks.ts
+  s_cfc22b058125c4::t_25615987434e92 158,204-206,408,422
+  s_cfc22b058125c4::t_6acbcc5886c8c5 418
+  s_cfc22b058125c4::t_c2a070af90fa1c 329,331,333,411,420
+public/war/biomes/mountains/tiles.json
+  s_cfc22b058125c4::t_6b6301be11cf3b 111,113-117,119-138
+public/war/biomes/elaia/objects.json
+  s_cfc22b058125c4::t_93c15492fffc54 114-118,120-121,123-125,127-134,136-140,142-143,145-153,186,639-641,643-644,657-659,661-662
+  s_cfc22b058125c4::t_7f2e7da437fa33 141,176,192,196,670
+  s_cfc22b058125c4::t_6c18d94ed6c522 635-638,642,645-656,660,663-669
+scripts/war/art/biomes/elaia.mjs
+  s_cfc22b058125c4::t_6c18d94ed6c522 77
+  s_cfc22b058125c4::t_25615987434e92 15
+  s_cfc22b058125c4::t_93c15492fffc54 78-79
+src/war/regions/ammon.json
+  s_cfc22b058125c4::t_6b6301be11cf3b 1
+scripts/war/regions/omphalos.ts
+  s_cfc22b058125c4::t_61c476375b7fe4 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6652e712b43b53a474bf62adf4d3388d9f20b8fd",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
