@@ -200,3 +200,56 @@ console.log(
   }
   console.log(`craft: units ${war.stats().units}, workplaces ${done.length} (built in ${t0} ticks), ticks ${ticks}: ${summary(cms)}; items made ${made}`);
 }
+
+// siege (M5h3): 20 crewed oxybeles and 5 mantlet-covered archer squads of team 1 against 25 squads of team 0 behind a
+// line of stakes the archers cross: 600 units with bolts, cover and stakes each tick
+{
+  const { module: roster } = await runnerImport('/src/war/sim/roster.ts', opts);
+  const n = 200, flat = { id: 'f', name: 'f', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [] };
+  const war = sim.createSim(flat, 6);
+  for (let k = 0; k < 5; k++) war.claim(0, 20 + k * 40, 140, 30);
+  for (const t of [0, 1]) for (const [r, v] of Object.entries({ wood: 1e5, stone: 1e5, hides: 1e5, bronze: 1e5, linen: 1e5 })) war.addStock(t, r, v);
+  for (const [t, perks] of [[0, ['masterBuilder', 'fortifier']], [1, ['carpenter', 'rams', 'artillerist']]]) {
+    const p = roster.makePerson(`eng${t}`, 'civ_engineer', { level: 10 });
+    p.hero.perks = perks;
+    war.spawnSquad(`eng${t}`, t, 'civ_engineer', 1, 2 + t * 190, 195, [p]);
+  }
+  const def = [], ox = [], arch = [];
+  for (let k = 0; k < 25; k++) {
+    const x = 16 + k * 7;
+    def.push(war.spawnSquad(`d${k}`, 0, 'militia', N, x, 134));
+    for (let j = 0; j < 3; j++) war.order({ kind: 'placeBuilding', team: 0, type: 'stakes', x: x + j * 2 + 0.5, y: 124.5 });
+  }
+  for (let k = 0; k < 20; k++) {
+    const id = war.spawnSquad(`o${k}`, 1, 'militia', N, 20 + k * 8, 108);
+    war.order({ kind: 'buildSiege', squad: id, type: 'oxybeles', x: 20 + k * 8 + 0.5, y: 112.5 });
+    ox.push(id);
+  }
+  for (let k = 0; k < 5; k++) {
+    const id = war.spawnSquad(`a${k}`, 1, 'archer', N, 40 + k * 30, 100);
+    war.order({ kind: 'buildSiege', squad: id, type: 'mantlet', x: 40 + k * 30 + 0.5, y: 104.5 });
+    arch.push(id);
+  }
+  // the stakes: each defending squad builds its own three
+  war.step();
+  const sites = war.snapshot().buildings.filter((b) => b.type === 'stakes');
+  sites.forEach((b, i) => war.order({ kind: 'build', squad: def[Math.floor(i / 3)], site: b.id }));
+  war.order({ kind: 'placeBuilding', squad: def[12], type: 'camp', x: 100, y: 146 }); // their store (wood for the stakes)
+  let t0 = 0;
+  const idle = () => (war.snapshot().sieges ?? []).filter((e) => e.state === 'idle').length;
+  const staked = () => war.snapshot().buildings.filter((b) => b.type === 'stakes' && b.state === 'done').length;
+  for (; t0 < 6000 && (idle() < 25 || staked() < 20); t0 += 50) for (let i = 0; i < 50; i++) war.step();
+  const sg = war.snapshot().sieges ?? [];
+  [...ox, ...arch].forEach((q, i) => sg[i] && war.order({ kind: 'crew', squad: q, siege: sg[i].id }));
+  for (const q of def) war.order({ kind: 'hold', squad: q });
+  for (let i = 0; i < 20; i++) war.step();
+  arch.forEach((q, i) => war.order({ kind: 'move', squad: q, x: 40 + i * 30 + 0.5, y: 120 }));
+  const sms = [];
+  for (let t = 0; t < ticks; t++) {
+    if (t === Math.floor(ticks / 2)) for (const q of arch) war.order({ kind: 'attackMove', squad: q, x: 100, y: 160 });
+    war.step();
+    sms.push(war.stats().stepMs);
+  }
+  const snap = war.snapshot(), shot = snap.sieges.filter((e) => e.type === 'oxybeles' && e.swing !== undefined).length;
+  console.log(`siege: units ${war.stats().units}, engines ${sg.length} (built in ${t0} ticks), stakes ${snap.buildings.filter((b) => b.type === 'stakes' && b.state === 'done').length}/${sites.length}, ticks ${ticks}: ${summary(sms)}; oxybeles that shot ${shot}, fallen ${snap.units.filter((u) => u.state === 'dead').length}`);
+}
