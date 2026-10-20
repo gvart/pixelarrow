@@ -86,8 +86,6 @@ export class WarRegionDO extends DurableObject<Env> {
   private reported = '';
   /** M7f: the region memory last written to D1. */
   private memory = '';
-  /** Cold start: ms to parse the region data, then to restore or build the room (for /stats). */
-  private boot = { parseMs: 0, roomMs: 0 };
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -109,13 +107,10 @@ export class WarRegionDO extends DurableObject<Env> {
    */
   private async ensure(region: string): Promise<WarRoom | null> {
     if (this.room) return this.room.region.id === region ? this.room : null;
-    const t0 = performance.now();
     const o = this.options(region);
     if (!o) return null;
-    this.boot.parseMs = performance.now() - t0;
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.room) return;
-      const t1 = performance.now();
       const st = await loadState(this.ctx.storage);
       const d = this.env.DB;
       let restored: WarRoom | null = null;
@@ -146,7 +141,6 @@ export class WarRegionDO extends DurableObject<Env> {
         }
       }
       await this.ctx.storage.put('region', region);
-      this.boot.roomMs = performance.now() - t1;
     });
     return this.room;
   }
@@ -606,7 +600,7 @@ export class WarRegionDO extends DurableObject<Env> {
       region: room?.region.id ?? null, tick: room?.currentTick ?? 0, running: !!this.timer, ticks: h.length, overruns: this.overruns,
       units: room?.alive() ?? 0, online: room?.online() ?? 0, quota: room?.quota() ?? null,
       totalMs: pick('totalMs'), stepMs: pick('stepMs'), snapMs: pick('snapMs'), netMs: pick('netMs'), sendMs: pick('sendMs'), lateMs: pick('lateMs'),
-      bytesPerTick: pick('bytes'), clientsPerTick: pick('clients'), boot: this.boot,
+      bytesPerTick: pick('bytes'), clientsPerTick: pick('clients'),
     };
   }
 }
