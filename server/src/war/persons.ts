@@ -16,7 +16,9 @@
  *    kit's value in silver, it goes on when he is done (his old gear to the stash). Elites cost UPKEEP.elite.
  *  - Prisoners: a captive is held by the player of the captor alliance who fought there (`captor_pid`); he pays the
  *    captive's upkeep and takes the ransom (RANSOM_PER_LEVEL x level silver) when the owner pays it; he may also let him go.
- *    A captor who cannot pay upkeep lets all his captives go.
+ *    A captor who cannot pay upkeep lets all his captives go. A captive is held at the captor's nearest fort or camp in
+ *    the region (`held_fort`, the sim's building id; at most HOLD_MAX there, the rest go free, wounded); a raid reaching
+ *    it or its fall (the sim's `raid` event, freeRaided) frees them all: home, wounded (HEAL.field).
  *  - Upkeep (docs/WAR.md "Anti-oversaturation"), settled lazily: food per hour for each man in the field (UPKEEP), and
  *    each captive held. Unpaid: the player's wounded do not heal and his men earn no XP until it is paid.
  *  - Retire: a fit man at home leaves for good (frees his roster place); half his gear's value comes back as silver and
@@ -67,6 +69,8 @@ export const TRAINS: Record<TrainingBuilding, ClassId[]> = {
 };
 /** Promotion to elite takes this long (at a fortress). */
 export const PROMOTE_MS = 30 * 60_000;
+/** Captives one fort or camp holds; past it the rest go free. */
+export const HOLD_MAX = 20;
 /** Ransom: silver per level of the captive. */
 export const RANSOM_PER_LEVEL = 30;
 /** Upkeep: food per hour each. */
@@ -90,7 +94,7 @@ export interface PersonRow {
   id: string; player_id: number; cls: string; name: string; level: number; xp: number; points: number; kills: number; battles: number;
   attrs: string; skills: string; gear: string; honours: string; state: PersonState; until_at: number | null; captor: number | null;
   held_at: string | null; slot: number | null; region: string | null; train_to: string | null; captor_pid: number | null;
-  perks: string; respec_at: number | null;
+  perks: string; respec_at: number | null; held_fort: number | null;
 }
 
 export const json = <T>(s: string, fallback: T): T => {
@@ -128,7 +132,7 @@ export function view(r: PersonRow) {
   };
 }
 
-const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at';
+const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at, held_fort';
 
 /** The player's upkeep in food per hour: his men in the field (elites 2, civilians 1) and the captives he holds. */
 export async function upkeepRate(db: D1Database, pid: number): Promise<number> {
@@ -166,7 +170,7 @@ export async function settleUpkeep(db: D1Database, pid: number, now: number): Pr
   await db.prepare('UPDATE war_upkeep SET at = ?2, owed = ?3, unpaid = ?4 WHERE player_id = ?1').bind(pid, now, owed, unpaid ? 1 : 0).run();
   if (unpaid)
     await db
-      .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, updated_at = ?2 WHERE captor_pid = ?1 AND state = 'captive'")
+      .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE captor_pid = ?1 AND state = 'captive'")
       .bind(pid, now)
       .run();
   return { unpaid, rate, owed };
@@ -190,7 +194,7 @@ export async function settle(db: D1Database, pid: number, now: number): Promise<
   const { unpaid } = await settleUpkeep(db, pid, now);
   const states = unpaid ? "'captive'" : "'wounded', 'captive'";
   await db
-    .prepare(`UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, updated_at = ?2 WHERE player_id = ?1 AND state IN (${states}) AND until_at <= ?2`)
+    .prepare(`UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE player_id = ?1 AND state IN (${states}) AND until_at <= ?2`)
     .bind(pid, now)
     .run();
   const done = (await db.prepare(`SELECT ${COLS} FROM war_persons WHERE player_id = ?1 AND state = 'training' AND until_at <= ?2`).bind(pid, now).all<PersonRow>()).results;
@@ -499,7 +503,7 @@ export async function payRansom(db: D1Database, pid: number, id: string, now: nu
   const price = RANSOM_PER_LEVEL * r.level;
   if (!(await pay(db, pid, 'silver', price))) throw new ApiError(409, 'no_silver', `His ransom is ${price} silver`);
   await db.batch([
-    db.prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, updated_at = ?3 WHERE id = ?1 AND player_id = ?2").bind(id, pid, now),
+    db.prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3 WHERE id = ?1 AND player_id = ?2").bind(id, pid, now),
     ...(r.captor_pid !== null ? [credit(db, r.captor_pid, 'silver', price)] : []),
   ]);
   return price;
@@ -508,7 +512,7 @@ export async function payRansom(db: D1Database, pid: number, id: string, now: nu
 /** The captor lets a captive he holds go (no ransom): the man walks home. */
 export async function releaseCaptive(db: D1Database, captor: number, id: string, now: number): Promise<void> {
   const r = await db
-    .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, updated_at = ?3 WHERE id = ?1 AND captor_pid = ?2 AND state = 'captive'")
+    .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3 WHERE id = ?1 AND captor_pid = ?2 AND state = 'captive'")
     .bind(id, captor, now)
     .run();
   if (!r.meta.changes) throw new ApiError(404, 'not_found', 'You hold no such captive');
@@ -587,9 +591,26 @@ export async function release(db: D1Database, region: string, ids: string[]): Pr
   await db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(ids)).run();
 }
 
-/** A fresh room (no saved state): nobody is in the field there any more, and no item waits at its workplaces. */
-export async function releaseRegion(db: D1Database, region: string): Promise<void> {
+/** A captive goes free: home, wounded. */
+const FREE = "state = 'wounded', until_at = ?2, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3";
+
+/**
+ * M5e: raids in `region` (the sim's `raid` events, at wall time `at`): the captives held at each raided building, taken
+ * before it, go free, wounded (HEAL.field). Repeating it changes nothing. Returns how many went free.
+ */
+export async function freeRaided(db: D1Database, region: string, buildings: readonly number[], at: number): Promise<number> {
+  if (!buildings.length) return 0;
+  const res = await db
+    .prepare(`UPDATE war_persons SET ${FREE} WHERE held_at = ?1 AND state = 'captive' AND held_fort IN (SELECT value FROM json_each(?4)) AND until_at <= ?5`)
+    .bind(region, at + HEAL.field, at, JSON.stringify([...new Set(buildings)]), at + CAPTIVE_MS)
+    .run();
+  return res.meta.changes;
+}
+
+/** A fresh room (no saved state): nobody is in the field there any more, no item waits at its workplaces, and its forts are gone (their captives go free). */
+export async function releaseRegion(db: D1Database, region: string, now = Date.now()): Promise<void> {
   await db.batch([
+    db.prepare(`UPDATE war_persons SET ${FREE} WHERE held_at = ?1 AND state = 'captive' AND held_fort IS NOT NULL`).bind(region, now + HEAL.field, now),
     db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1').bind(region),
     db.prepare('UPDATE war_items SET region = NULL WHERE region = ?1').bind(region),
   ]);
@@ -629,6 +650,16 @@ export async function applyFight(db: D1Database, fightId: string, region: string
   // upkeep up to now (at the rate before the fight); unpaid players' men earn no XP from it
   const unpaid = new Set<number>();
   for (const pid of new Set([...byTeam.values()].flat())) if ((await settleUpkeep(db, pid, now)).unpaid) unpaid.add(pid);
+  // captives each fort holds already; one more past HOLD_MAX goes free
+  const held = new Map<number, number>();
+  for (const f of new Set(r.persons.map((x) => (x.state === 'captive' ? x.fort : undefined)).filter((f): f is number => f !== undefined)))
+    held.set(f, (await db.prepare("SELECT COUNT(*) AS n FROM war_persons WHERE held_at = ?1 AND held_fort = ?2 AND state = 'captive'").bind(region, f).first<{ n: number }>())?.n ?? 0);
+  const overHold = (f: number | undefined) => {
+    if (f === undefined) return false;
+    const n = (held.get(f) ?? 0) + 1;
+    held.set(f, n);
+    return n > HOLD_MAX;
+  };
   for (const x of r.persons) {
     const pid = ownerPid(x.owner);
     if (pid === null) continue;
@@ -640,12 +671,14 @@ export async function applyFight(db: D1Database, fightId: string, region: string
     if (x.state === 'fit') stmts.push(db.prepare(`UPDATE war_persons SET ${base} WHERE id = ?1 AND player_id = ?2`).bind(...args));
     else if (x.state === 'wounded')
       stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args, now + HEAL.field));
-    else if (x.state === 'captive')
+    else if (x.state === 'captive' && !overHold(x.fort))
       stmts.push(
         db
-          .prepare(`UPDATE war_persons SET ${base}, state = 'captive', until_at = ?12, captor = ?13, held_at = ?14, captor_pid = ?15, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`)
-          .bind(...args, now + CAPTIVE_MS, x.captor ?? null, region, x.captor !== undefined ? (byTeam.get(x.captor)?.[0] ?? null) : null),
+          .prepare(`UPDATE war_persons SET ${base}, state = 'captive', until_at = ?12, captor = ?13, held_at = ?14, captor_pid = ?15, held_fort = ?16, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`)
+          .bind(...args, now + CAPTIVE_MS, x.captor ?? null, region, x.captor !== undefined ? (byTeam.get(x.captor)?.[0] ?? null) : null, x.fort ?? null),
       );
+    else if (x.state === 'captive') // the fort is full: he goes free, wounded
+      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args, now + HEAL.field));
     else stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'dead', until_at = NULL, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args));
   }
   for (const [team, items] of Object.entries(r.loot)) {

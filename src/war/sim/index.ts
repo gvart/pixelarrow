@@ -93,6 +93,8 @@ const PATH_BUDGET = 900;
 const FALL = 0.4; // share of max hp a man loses when the bridge under him collapses over a ford
 const UNIT_PATHS_PER_TICK = 2; // short A* searches for stuck units
 const SCAN = 5; // ticks between squad-level scans for enemy squads nearby
+/** M5e: buildings that hold captives, the raid reach (tiles from the footprint), scan period and per-building cooldown (ticks). */
+const HOLD = { types: new Set<string>(['fort', 'camp']), r: 4, every: 10, cooldown: 600 };
 const NEAR = 26; // enemy squads whose centre is this close are target candidates
 const RETARGET = 5; // ticks between target picks per unit (staggered by id)
 const LEASH = 4; // holding melee leave their slot this far to fight
@@ -1341,6 +1343,55 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     reslotQueue.add(u.squad);
   };
 
+  /** M5e: building b holds captives: a fort or camp of a team, standing. */
+  const holds = (b: ReturnType<typeof works.piece>): b is NonNullable<typeof b> =>
+    !!b && HOLD.types.has(b.type) && !b.cancelled && b.state !== 'foundation' && b.state !== 'destroyed';
+  /** M5e: the nearest building of `team` that holds captives to (x, y), or undefined. */
+  const holdOf = (team: number, x: number, y: number): number | undefined => {
+    let best: number | undefined, bd = Infinity;
+    for (let id = 0; ; id++) {
+      const b = works.piece(id);
+      if (!b) break;
+      if (b.team !== team || !holds(b)) continue;
+      const d = works.dist2(id, x, y);
+      if (d < bd) (bd = d), (best = id);
+    }
+    return best;
+  };
+  // M5e raids: holding buildings reported fallen; tick of the last raid reported per building
+  const fallen = new Set<number>();
+  const raidAt = new Map<number, number>();
+  /**
+   * M5e: every HOLD.every ticks: a holding building that fell, or one that a foe soldier (not fauna, not a civilian)
+   * reached within HOLD.r tiles with no soldier of its team within HOLD.r, is raided (at most once per HOLD.cooldown).
+   */
+  const raidScan = () => {
+    for (let id = 0; ; id++) {
+      const b = works.piece(id);
+      if (!b) break;
+      if (!HOLD.types.has(b.type) || b.cancelled) continue;
+      if (b.state === 'destroyed') {
+        if (!fallen.has(id)) fallen.add(id), note({ t: tick, kind: 'raid', building: id, team: b.team, fell: true });
+        continue;
+      }
+      if (!holds(b) || tick - (raidAt.get(id) ?? -Infinity) < HOLD.cooldown) continue;
+      let by: number | undefined, own = false;
+      const far = (HOLD.r + Math.max(b.w, b.h)) ** 2;
+      for (const u of units) {
+        const tm = u.squad.team;
+        if (!u.alive || u.civ || tm === MOB_TEAM || (u.x - b.x) ** 2 + (u.y - b.y) ** 2 > far || works.dist2(id, u.x, u.y) > HOLD.r * HOLD.r) continue;
+        if (tm === b.team) {
+          own = true;
+          break;
+        }
+        by ??= tm;
+      }
+      if (by === undefined || own) continue;
+      raidAt.set(id, tick);
+      note({ t: tick, kind: 'raid', building: id, team: b.team, by, fell: false });
+    }
+  };
+
   /** M5d: the fight report (WarBuildSim.endFight). */
   const endFight = (): FightReport => {
     const took = new Map<number, number>(); // team -> its soldiers who took part
@@ -1353,7 +1404,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       let foes = 0;
       for (const [tm, n] of took) if (tm !== team) foes += n;
       let state: PersonResult['state'] = u.alive ? 'fit' : u.wounded ? 'wounded' : 'dead';
-      let captor: number | undefined;
+      let captor: number | undefined, fort: number | undefined;
       if (state === 'wounded') {
         // captive: no friendly within CAPTURE_R, the nearest foe soldier within it takes him
         let friend = false, bd = CAPTURE_R * CAPTURE_R;
@@ -1370,6 +1421,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         if (friend) captor = undefined;
         if (captor !== undefined) {
           state = 'captive';
+          fort = holdOf(captor, u.x, u.y);
           note({ t: tick, kind: 'capture', unit: u.id, pid: p.id, captor });
         }
       }
@@ -1382,7 +1434,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (g.levelUps) note({ t: tick, kind: 'levelUp', unit: u.id, pid: p.id, level: hero.level });
       if (g.levelUps && u.alive) rebake(u);
       if (!u.alive) u.reported = true;
-      persons.push({ pid: p.id, owner: u.squad.owner, team, state, ...(captor !== undefined ? { captor } : {}), xp, kills: u.kills, dmg: Math.round(u.dealt), levelUps: g.levelUps, hero });
+      persons.push({ pid: p.id, owner: u.squad.owner, team, state, ...(captor !== undefined ? { captor } : {}), ...(fort !== undefined ? { fort } : {}), xp, kills: u.kills, dmg: Math.round(u.dealt), levelUps: g.levelUps, hero });
     }
     for (const u of units) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false);
     for (const s of reslotQueue) reslot(s);
@@ -2077,6 +2129,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     for (let k = 0; k < 3; k++) separate();
     if (drops.length && tick % SCAN === 0) pickUp();
+    if (tick % HOLD.every === 0) raidScan();
     keepToLanes();
     for (const u of units) {
       if (!u.alive) continue;
