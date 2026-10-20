@@ -16,6 +16,7 @@ import type { SandboxScene } from '../../SandboxScene';
 import type { RosterHooks } from '../roster';
 import { sandboxRoster } from '../roster/state';
 import { esc, tipper } from '../roster/ui';
+import { draggable } from '../drag';
 import { fitHeight } from '../kit';
 import { sandboxCraft } from './state';
 import { profTree } from './tree';
@@ -33,6 +34,8 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
   document.head.appendChild(style);
   const wpEl = mk('cfWp', `top:66px;right:4px;width:${WP_W}px;display:none;pointer-events:auto`);
   const treeEl = mk('cfTree', 'top:50px;left:4px;display:none;pointer-events:auto');
+  draggable(wpEl);
+  draggable(treeEl);
   const tip = mk('cfTip', 'display:none;z-index:7');
   tip.className = 'rf rf-tip';
   const unTip = [tipper(wpEl, tip), tipper(treeEl, tip)];
