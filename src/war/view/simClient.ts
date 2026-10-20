@@ -3,7 +3,7 @@
  * interpolates unit positions between them (rendering runs one 10 Hz tick behind).
  */
 import type { Behaviour } from '../sim/bots';
-import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FogGrid, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan } from '../types';
+import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FightReport, FogGrid, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan, WarEvent, WarPerson } from '../types';
 import type { ToWorker } from './worker';
 
 export interface DrawUnit { u: UnitSnap; x: number; y: number; facing: number; team: number }
@@ -26,15 +26,18 @@ export class SimClient {
   /** Economy (real sim only): the influence mask (latest version) and the resource nodes (posted every second). */
   influence: InfluenceMap | null = null;
   nodes: NodeSnap[] = [];
+  /** M5g (./hud/roster): persons for a squad about to spawn (none: class soldiers), and the sim's event log as it comes. */
+  personsFor: ((owner: string, team: number, cls: string, count: number) => WarPerson[] | undefined) | null = null;
+  onEvents: ((ev: WarEvent[]) => void) | null = null;
   private asks = new Map<number, (r: unknown) => void>();
   private askId = 0;
 
   constructor(region: RegionData) {
-    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null };
+    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; events?: WarEvent[]; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null; report?: FightReport | null };
     this.worker.onmessage = (e: MessageEvent<Msg>) => {
       if ('reply' in e.data) {
         const r = e.data;
-        this.asks.get(r.reply)?.(r.place ?? r.wall ?? r.bridge ?? null);
+        this.asks.get(r.reply)?.(r.place ?? r.wall ?? r.bridge ?? r.report ?? null);
         this.asks.delete(r.reply);
         return;
       }
@@ -47,6 +50,7 @@ export class SimClient {
       this.stats = e.data.stats;
       this.at = performance.now();
       this.squads = new Map(this.cur.squads.map((s) => [s.id, s]));
+      if (e.data.events) this.onEvents?.(e.data.events);
     };
     const q = new URLSearchParams(location.search), dev = Number(q.get('dev')) || undefined;
     // ?net=<ws url or /ws/war/<region>>: play on the live region server (M3) instead of the local sim
@@ -97,7 +101,8 @@ export class SimClient {
 
   /** `bot`: a bot behaviour that drives the squad (../sim/bots.ts). */
   spawn(owner: string, team: number, cls: string, count: number, x: number, y: number, bot?: Behaviour): void {
-    this.send({ t: 'spawn', owner, team, cls, count, x, y, bot });
+    const persons = this.personsFor?.(owner, team, cls, count);
+    this.send({ t: 'spawn', owner, team, cls, count, x, y, bot, ...(persons?.length ? { persons } : {}) });
   }
 
   order(o: Order): void {
@@ -166,6 +171,16 @@ export class SimClient {
       this.asks.set(id, ok as (r: unknown) => void);
       this.send(m(id));
     });
+  }
+
+  /** M5d: end the fight; the report of every person in it (null on the fake sim). */
+  endFight(): Promise<FightReport | null> {
+    return this.ask((id) => ({ t: 'endFight', id }));
+  }
+
+  /** M5g: a person changed off the field (level-up choice, dev XP): his living man is baked again. */
+  setPerson(p: WarPerson): void {
+    this.send({ t: 'person', p });
   }
 
   /** Time scale; 0 pauses. */

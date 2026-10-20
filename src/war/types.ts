@@ -308,6 +308,8 @@ export interface WarBuildSim extends WarSim {
   salvage(id: number): number;
   /** M5d: the sim event log since the last call (kills, falls, objectives, pickups, captures, level-ups). */
   events(): WarEvent[];
+  /** M5g: a person changed off the field (level-up choice, dev XP): his living man takes the new record, baked again (HP keeps its wounds). false: not on the field. */
+  setPerson(p: WarPerson): boolean;
 }
 export declare function createSim(region: RegionData, seed: number): WarBuildSim; // implemented in src/war/sim/index.ts
 

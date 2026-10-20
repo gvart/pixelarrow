@@ -11,12 +11,12 @@ import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
 import { createNet, type Net } from '../net/client';
-import type { BridgeOrder, BuildingType, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarSim } from '../types';
+import type { BridgeOrder, BuildingType, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
 
 export type ToWorker =
   | { t: 'init'; region: RegionData; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
   | { t: 'view'; x0: number; y0: number; x1: number; y1: number } // camera rect in tiles (net mode: interest management)
-  | { t: 'spawn'; owner: string; team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour }
+  | { t: 'spawn'; owner: string; team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour; persons?: WarPerson[] }
   | { t: 'order'; o: Order }
   | { t: 'speed'; scale: number } // 0 pauses
   // economy (M2b, the real sim only): dev claims and stock, placement checks answered by `reply`
@@ -29,7 +29,10 @@ export type ToWorker =
   | { t: 'finishBridges'; team: number } // scenarios: standing bridges
   | { t: 'check'; id: number; team: number; type: BuildingType; x: number; y: number; rot: 0 | 1 }
   | { t: 'checkWall'; id: number; team: number; wall: Omit<WallOrder, 'kind' | 'squad'> }
-  | { t: 'checkBridge'; id: number; team: number; bridge: Omit<BridgeOrder, 'kind' | 'squad'> };
+  | { t: 'checkBridge'; id: number; team: number; bridge: Omit<BridgeOrder, 'kind' | 'squad'> }
+  // M5g persons (the sandbox roster, ./hud/roster): end the fight (report by `reply`), a person changed off the field
+  | { t: 'endFight'; id: number }
+  | { t: 'person'; p: WarPerson };
 
 /** Ticks between resource node posts (amounts change slowly). */
 const NODES_EVERY = 10;
@@ -56,7 +59,9 @@ function tick(): void {
   // fog of war (W-39) of the player's team (0) when it changed: the grid and the foe buildings as last seen
   const g = b?.teamGrid(0), fog = g && g.version !== fogSent ? { ...g, state: g.state.slice() } : undefined;
   if (g) fogSent = g.version;
-  postMessage({ snap, stats: sim.stats(), nodes, influence: infl ? { ...infl, mask: infl.mask.slice() } : undefined, fog, seen: fog ? b!.lastSeen(0) : undefined });
+  // M5d event log (falls, captures, level-ups) when there is any
+  const ev = b?.events();
+  postMessage({ snap, stats: sim.stats(), events: ev?.length ? ev : undefined, nodes, influence: infl ? { ...infl, mask: infl.mask.slice() } : undefined, fog, seen: fog ? b!.lastSeen(0) : undefined });
 }
 
 function bots(s: WarSim, snap: ReturnType<WarSim['snapshot']>): void {
@@ -118,7 +123,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     tick();
   } else if (!sim) return;
   else if (m.t === 'spawn') {
-    const id = sim.spawnSquad(m.owner, m.team, m.cls, m.count, m.x, m.y);
+    const id = sim.spawnSquad(m.owner, m.team, m.cls, m.count, m.x, m.y, m.persons);
     if (m.bot) { brains!.set(id, m.bot); scripted.add(id); }
   }
   else if (m.t === 'order') sim.order(m.o);
@@ -132,6 +137,8 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'check') postMessage({ reply: m.id, place: build(sim)?.checkPlacement(m.team, m.type, m.x, m.y, m.rot) ?? null });
   else if (m.t === 'checkWall') postMessage({ reply: m.id, wall: build(sim)?.checkWall(m.team, m.wall) ?? null });
   else if (m.t === 'checkBridge') postMessage({ reply: m.id, bridge: build(sim)?.checkBridge(m.team, m.bridge) ?? null });
+  else if (m.t === 'endFight') postMessage({ reply: m.id, report: build(sim)?.endFight() ?? null });
+  else if (m.t === 'person') build(sim)?.setPerson(m.p);
   else if (m.t === 'speed') {
     clearInterval(timer);
     if (m.scale > 0) timer = setInterval(tick, 100 / m.scale) as unknown as number;

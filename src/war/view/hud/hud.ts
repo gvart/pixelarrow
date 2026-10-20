@@ -34,6 +34,7 @@ import { Minimap } from './minimap';
 import { ModeBar } from './modes';
 import { FullMap } from './fullMap';
 import { ACTIVE_CSS, ACTIVE_KEY, ACTIVE_UI, activesOf, activeTip, fireActives } from './cardActive';
+import { mountRoster } from './roster';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
@@ -245,6 +246,9 @@ export function hud(s: SandboxScene): void {
     else if (e.key.toLowerCase() === 'a' && sc.own().length) sc.arm('attackMove');
     else if (e.key.toLowerCase() === 'f') fireActives(s, sc.own());
   });
+
+  // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
+  mountRoster(s, mk);
 
   // ---------- scale ----------
   const scale = () => {
