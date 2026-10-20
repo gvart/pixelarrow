@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { RECIPES } from '../../src/data/recipes';
 import { createSim } from '../../src/war/sim';
+import { createBots } from '../../src/war/sim/bots';
 import { makePerson } from '../../src/war/sim/roster';
 import { COVERED, NODE, OXY, RAM, SIEGE } from '../../src/war/sim/siege';
 import type { RegionData, SiegeSnap, WarBuildSim } from '../../src/war/types';
@@ -274,5 +275,55 @@ describe('M5h3 determinism', () => {
       return JSON.stringify(sim.snapshot());
     };
     expect(go()).toBe(go());
+  });
+});
+
+describe('M5h3 siege bots', () => {
+  it('take a walled camp with a covered ram, a siege tower, a mantlet and an oxybeles', () => {
+    const [sim, s] = base(11);
+    const ids = build(sim, () => sim.order({ kind: 'placeWall', squad: s, material: 'timber', points: [14.5, 20.5, 25.5, 20.5], gates: [20, 20.5] }));
+    away(sim, s);
+    engineer(sim, 1, ['carpenter', 'rams', 'artillerist', 'poliorcetes'], 37, 2);
+    // passive defenders, as in siege.test.ts: archers on the walk, a guard inside
+    build(sim, () => sim.order({ kind: 'placeBuilding', squad: s, type: 'woodStairs', x: 15.5, y: 23 }));
+    away(sim, s);
+    const archers = sim.spawnSquad('d', 0, 'archer', 6, 17, 26);
+    sim.order({ kind: 'move', squad: archers, x: 17.5, y: 20.5 });
+    run(sim, 600);
+    sim.order({ kind: 'hold', squad: archers });
+    const guard = sim.spawnSquad('g', 0, 'hoplite', 6, 22, 27);
+    const bots = createBots(sim);
+    const atk = [
+      [sim.spawnSquad('r', 1, 'militia', 12, 22, 8), { kind: 'siegeRam', x: 20, y: 30, engine: 'coveredRam' }],
+      [sim.spawnSquad('t', 1, 'militia', 14, 16, 8), { kind: 'siegeLadder', x: 20, y: 30, engine: 'siegeTower' }],
+      [sim.spawnSquad('a', 1, 'archer', 8, 24, 6), { kind: 'siegeArchers', x: 20, y: 30, engine: 'mantlet' }],
+      [sim.spawnSquad('o', 1, 'militia', 3, 28, 6), { kind: 'siegeBolts', x: 20, y: 30 }],
+      [sim.spawnSquad('h', 1, 'hoplite', 14, 20, 3), { kind: 'assault', x: 20, y: 30 }],
+    ] as const;
+    for (const [q, b] of atk) bots.set(q, b);
+    const inside = () => atk.some(([q]) => alive(sim, q).some((u) => u.y > 24));
+    const t = run(sim, 12000, () => {
+      bots.tick();
+      return inside() && alive(sim, guard).length === 0 && alive(sim, archers).length === 0;
+    });
+    const types = new Set((sim.snapshot().sieges ?? []).map((e) => e.type));
+    for (const k of ['coveredRam', 'siegeTower', 'mantlet', 'oxybeles'] as const) expect(types.has(k)).toBe(true);
+    expect(t).toBeLessThan(12000);
+    const gate = ids.find((id) => piece(sim, id).type === 'woodGate')!;
+    expect(piece(sim, gate).state === 'destroyed' || bs(sim).some((b) => b.type === 'towerBridge')).toBe(true);
+  });
+
+  it('fall back to the plain engine when no engineer has the design', () => {
+    const [sim, s] = base(12);
+    build(sim, () => sim.order({ kind: 'placeWall', squad: s, material: 'timber', points: [14.5, 20.5, 25.5, 20.5], gates: [20, 20.5] }));
+    away(sim, s);
+    const bots = createBots(sim);
+    const q = sim.spawnSquad('r', 1, 'militia', 8, 22, 8);
+    bots.set(q, { kind: 'siegeRam', x: 20, y: 30, engine: 'coveredRam' });
+    run(sim, 1500, () => {
+      bots.tick();
+      return engines(sim) > 0;
+    });
+    expect(engine(sim, 0).type).toBe('ram');
   });
 });
