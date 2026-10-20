@@ -17,11 +17,17 @@ import { portrait, PORTRAIT_H, PORTRAIT_W } from './portrait';
 import { sandboxRoster } from './state';
 import { toaster } from './toast';
 import { loadItemAtlas, ROSTER_CSS, tipper } from './ui';
+import { sandboxCraft } from '../craft/state';
+import type { Slot } from '../../../../data/items';
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
-export function mountRoster(s: SandboxScene, mk: Mk): void {
-  const R = sandboxRoster(s);
+/** What the craft views (../craft) hook into: open a civilian's tree (pid), re-render, show a card. */
+export interface RosterHooks { tree: ((pid: string) => void) | null; render: () => void; card: (pid: string | null) => void; selected: () => string | null }
+
+export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
+  const R = sandboxRoster(s), C = sandboxCraft(s, R);
+  const hooks: RosterHooks = { tree: null, render: () => render(), card: (pid) => show(pid), selected: () => sel };
   const style = document.createElement('style');
   style.textContent = ROSTER_CSS;
   document.head.appendChild(style);
@@ -61,7 +67,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): void {
       }
     }
     if (row) {
-      const html = cardHtml(R, row);
+      const html = cardHtml(R, row, C);
       if (html !== lastC) {
         card.innerHTML = lastC = html;
         const c = card.querySelector<HTMLCanvasElement>('#rrPort'), img = portrait(s, row.p.hero.cls ?? 'militia');
@@ -92,8 +98,12 @@ export function mountRoster(s: SandboxScene, mk: Mk): void {
   });
   card.addEventListener('click', (e) => {
     const t = e.target as HTMLElement, a = t.closest<HTMLElement>('[data-act]'), o = t.closest<HTMLElement>('[data-offer]');
+    const eq = t.closest<HTMLElement>('[data-equip]'), uneq = t.closest<HTMLElement>('[data-unequip]');
     if (!sel) return;
-    if (a?.dataset.act === 'closeCard') sel = null;
+    if (eq) void C.equip(sel, eq.dataset.equip!).then(render);
+    else if (uneq) void C.unequip(sel, uneq.dataset.unequip as Slot).then(render);
+    else if (a?.dataset.act === 'tree') hooks.tree?.(sel);
+    else if (a?.dataset.act === 'closeCard') sel = null;
     else if (a?.dataset.act === 'xp') R.devXp(sel);
     else if (o) {
       const offer = R.offers(sel)[Number(o.dataset.offer)];
@@ -117,5 +127,6 @@ export function mountRoster(s: SandboxScene, mk: Mk): void {
   setInterval(() => { if (open || sel) render(); }, 250);
   render();
   // scripts (scripts/war, Playwright): open the panel or a card
-  (window as unknown as { __roster: unknown }).__roster = { R, open: (v = true) => { open = v; render(); }, card: show };
+  (window as unknown as { __roster: unknown }).__roster = { R, C, open: (v = true) => { open = v; render(); }, card: show };
+  return hooks;
 }

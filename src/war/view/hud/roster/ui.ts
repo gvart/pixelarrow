@@ -5,7 +5,9 @@
  */
 import { ATTR_EFFECT } from '../../../../data/perks';
 import { itemDef, itemMods, RARITY_LABEL, type Item, type StatMods } from '../../../../data/items';
-import { itemDisplayName, itemPower, powerText } from '../../../../data/affixes';
+import { AFFIXES, itemAffixes, itemDisplayName, itemPower, powerText } from '../../../../data/affixes';
+import { CIV_TOOLS } from '../../../../data/classes';
+import { toolMods } from '../../../../data/recipes';
 import { RARITY_COLOR } from '../../../../ui/theme';
 import type { WarStats } from '../../../sim/classes';
 import { SKILLS } from '../../../sim/skills';
@@ -27,12 +29,36 @@ export function loadItemAtlas(): Promise<void> {
 
 export const rarityHex = (r: string) => '#' + (RARITY_COLOR[r as keyof typeof RARITY_COLOR] ?? 0x9a948a).toString(16).padStart(6, '0');
 
-/** An item's icon at `px` art px (blank until the atlas is in, or for an item without one). */
+/** An item's icon at `px` art px (blank until the atlas is in; a civilian tool: its class's mark). */
 export function itemIcon(item: Item, px = 24): string {
   const f = atlas?.frames['item:' + item.def];
-  if (!f) return `<span style="display:block;width:${px}px;height:${px}px"></span>`;
+  if (!f) {
+    const t = CIV_TOOLS[item.def];
+    return t ? `<span style="display:flex;width:${px}px;height:${px}px;align-items:center;justify-content:center;font:700 ${Math.round(px / 2.4)}px/1 'Cormorant SC',serif;color:${rarityHex(item.rarity)}">T${t.tier}</span>` : `<span style="display:block;width:${px}px;height:${px}px"></span>`;
+  }
   const k = px / f.w;
   return `<span style="display:block;width:${px}px;height:${px}px;background:url(icons/items.png) ${-f.x * k}px ${-f.y * k}px/${atlas!.w * k}px auto no-repeat"></span>`;
+}
+
+export const QUALITY = ['crude', 'fine', 'masterwork'] as const;
+const badge = (id: string, px: number) => `<img src="war/ui/icons/24/${id}.png" srcset="war/ui/icons/24/${id}@2x.png 2x" width="${px}" height="${px}" alt="">`;
+/** Crafted items (M5h, ART-C badges): the quality mark bottom left and the rarity gem bottom right of an icon box. */
+export function itemBadges(item: Item, px = 10): string {
+  if (item.q === undefined) return '';
+  return `<span class="rr-badge" style="left:-2px">${badge(`badge-quality-${QUALITY[item.q]}`, px)}</span><span class="rr-badge" style="right:-2px">${badge(`badge-rarity-${item.rarity}`, px)}</span>`;
+}
+
+/** Rolled stats of an item as "Keen +1.0 damage"-style rows. */
+function rolled(item: Item): string[] {
+  const aff = CIV_TOOLS[item.def] ? (item.aff ? item.aff.split(',').map((x) => x.split(':')).map(([k, v]) => [k, Number(v)] as const) : []) : itemAffixes(item);
+  return aff.map(([k, n]) => { const a = AFFIXES[k as keyof typeof AFFIXES]; return a ? `${a.word} <span class="rf-num" style="color:#f0d9b5">${n}</span>` : ''; }).filter(Boolean);
+}
+
+/** Quality, maker and condition of an item (crafted ones; else condition alone). */
+function made(item: Item): string {
+  const q = item.q === undefined ? '' : `<span style="color:${item.q === 2 ? '#e0b867' : item.q === 0 ? '#a8907a' : '#f0d9b5'}">${QUALITY[item.q]}</span> · `;
+  const mk = item.mk ? `made by ${item.mk} · ` : '';
+  return `<div class="rf-dim" style="margin-top:3px">${q}${mk}condition ${Math.round(item.cond)}/${item.mc ?? 100}</div>`;
 }
 
 const MOD_LABEL: Partial<Record<keyof StatMods, [string, (v: number) => string]>> = {
@@ -56,6 +82,14 @@ const MOD_LABEL: Partial<Record<keyof StatMods, [string, (v: number) => string]>
 
 /** An item's tooltip: name in its rarity colour, rarity and tier, its stats, power, condition. */
 export function itemTip(item: Item, attrs?: Parameters<typeof itemMods>[1]): string {
+  const tool = CIV_TOOLS[item.def];
+  if (tool) {
+    const m = toolMods(item), r = rolled(item);
+    return `<div class="rf-name" style="font-size:13px;color:${rarityHex(item.rarity)}">${tool.name.replace(/^./, (c) => c.toUpperCase())}</div>
+    <div class="rf-dim" style="margin:2px 0 3px">${RARITY_LABEL[item.rarity]} · tier ${tool.tier} · tool</div>
+    ${m.deft ? `<div class="rf-dim">work rate <span class="rf-num" style="color:#f0d9b5">+${Math.round(m.deft * 100)}%</span></div>` : ''}${m.bountiful ? `<div class="rf-dim">output <span class="rf-num" style="color:#f0d9b5">+${Math.round(m.bountiful * 100)}%</span></div>` : ''}
+    ${r.length ? `<div class="rf-dim">${r.join(' · ')}</div>` : ''}${made(item)}`;
+  }
   const def = itemDef(item.def), mods = itemMods(item, attrs) as Record<string, number>;
   const lines = Object.entries(mods).flatMap(([k, v]) => {
     const l = MOD_LABEL[k as keyof StatMods];
@@ -65,8 +99,9 @@ export function itemTip(item: Item, attrs?: Parameters<typeof itemMods>[1]): str
   return `<div class="rf-name" style="font-size:13px;color:${rarityHex(item.rarity)}">${itemDisplayName(item)}</div>
     <div class="rf-dim" style="margin:2px 0 3px">${RARITY_LABEL[item.rarity]} · tier ${def.tier} · ${def.slot}</div>
     <div class="rf-dim" style="display:grid;grid-template-columns:auto auto;gap:1px 8px">${lines.join('')}</div>
+    ${item.aff ? `<div class="rf-dim" style="margin-top:2px">rolled: ${rolled(item).join(' · ')}</div>` : ''}
     ${pow ? `<div style="margin-top:3px;color:#de8a4e;white-space:normal;width:170px">${powerText(pow)}</div>` : ''}
-    <div class="rf-dim" style="margin-top:3px">condition ${Math.round(item.cond)}%</div>`;
+    ${made(item)}`;
 }
 
 export const ATTR_NAME = { str: 'Strength', agi: 'Agility', end: 'Endurance', wil: 'Will' } as const;
@@ -148,6 +183,7 @@ export const ROSTER_CSS = `
 .rr-chip.bad{border-color:#8a2a1c;color:#e08a70}
 .rr-slot{width:28px;height:28px;background:#140c08;border:1px solid #7a3418;box-shadow:inset 0 0 0 1px #0e0907;display:flex;align-items:center;justify-content:center;position:relative}
 .rr-slot .rr-lab{position:absolute;left:0;right:0;bottom:-9px;text-align:center;font:600 7px/1 Inter,sans-serif;color:#7d6a5a;text-transform:uppercase}
+.rr-badge{position:absolute;bottom:-2px;line-height:0;pointer-events:none}
 .rr-port{width:64px;height:80px;background:radial-gradient(ellipse at 50% 85%,#3a2216 0,#140c08 70%);border:1px solid #7a3418;box-shadow:inset 0 0 0 1px #0e0907}
 .rr-port canvas{display:block;width:64px;height:80px;image-rendering:pixelated}
 .rr-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 6px;align-items:center}

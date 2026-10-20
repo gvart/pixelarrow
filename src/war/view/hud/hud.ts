@@ -25,7 +25,8 @@ import '@fontsource/inter/600.css';
 import '@fontsource/cormorant-sc/700.css';
 import { BUILDINGS } from '../../sim/economy';
 import { SIEGE } from '../../sim/siege';
-import type { BuildingType, ResourceKind, SiegeType } from '../../types';
+import { FORT } from '../../sim/works';
+import type { BuildingType, FortKind, ResourceKind, SiegeType } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { costText, isSite, labourText, TOOLBAR, WALL_NAME, type BuildMode, type Cost, type Tool } from '../build/buildMode';
 import { SIEGE_NAME } from '../siege/siegeControls';
@@ -35,17 +36,29 @@ import { ModeBar } from './modes';
 import { FullMap } from './fullMap';
 import { ACTIVE_CSS, ACTIVE_KEY, ACTIVE_UI, activesOf, activeTip, fireActives } from './cardActive';
 import { mountRoster } from './roster';
+import { mountCraft } from './craft';
+import { WP_NAME } from './craft/workplace';
 import { allCivilians, anySoldiers, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
+/** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
+const CRAFT_RES: string[] = ['hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'pitch', 'p:bandage', 'p:salve', 'p:theriac'];
+const RES_ICON: Record<string, string> = { 'p:bandage': 'res-bandages', 'p:salve': 'res-salves', 'p:theriac': 'res-theriac' };
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLASS_NAME: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
 
 interface ToolDef { name: string; icon: string; tool: Tool; cost: Cost; labour: number; note: string }
 const bTool = (t: BuildingType, note = '', name = nice(t)): ToolDef => ({ name, icon: BUILDING_ICON[t], tool: { kind: 'building', type: t }, cost: BUILDINGS[t].cost, labour: BUILDINGS[t].labour, note });
-const TABS: Record<'Camp' | 'Walls' | 'Siege', ToolDef[]> = {
+/** M5h workplaces: level 1 placed here, L2 / L3 by Upgrade on the building's card. */
+const WORKPLACES: [BuildingType, string, string][] = [
+  ['forge', 'Forge', 'smiths: bronze, weapons, armour, repairs'], ['cookhouse', 'Cookhouse', 'cooks: rations and dishes'],
+  ['infirmary', 'Infirmary', 'physicians: bandages, salves, theriac'], ['workshop', 'Workshop', 'engineers: tools, mantlets'],
+  ['stall', 'Market stall', 'merchants: caravan goods'], ['sortingFloor', 'Sorting floor', 'foragers: charcoal, linen, leather (or upgrade a storehouse)'],
+];
+const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege', ToolDef[]> = {
   Camp: TOOLBAR.map((t) => bTool(t)),
+  Craft: WORKPLACES.map(([t, name, note]) => bTool(t, `${note} · L2, L3: Upgrade`, name)),
   Walls: [
     { ...bTool('palisade', 'per tile · G gate, T tower, Enter orders', nice(WALL_NAME.wood)), tool: { kind: 'wall', material: 'wood' } },
     { ...bTool('rampart', 'per tile · 2 deep, walkway', nice(WALL_NAME.timber)), tool: { kind: 'wall', material: 'timber' } },
@@ -55,6 +68,9 @@ const TABS: Record<'Camp' | 'Walls' | 'Siege', ToolDef[]> = {
     { ...bTool('ladder', 'beside any walkway wall or tower'), tool: { kind: 'access', type: 'ladder' } },
     { ...bTool('woodBridge', 'per tile · drag bank to bank, burns'), tool: { kind: 'bridge', material: 'wood' } },
     { ...bTool('stoneBridge', 'per tile · drag bank to bank, fireproof'), tool: { kind: 'bridge', material: 'stone' } },
+    // M5h3 field works (Fortifier): a tile each, shift keeps the tool for a line
+    bTool('stakes', 'a tile · slows and hurts foes crossing; burns', 'Stakes'),
+    bTool('ditch', 'a tile · foes slow to cross it; labour only', 'Ditch'),
   ],
   Siege: (Object.keys(SIEGE) as SiegeType[]).map((t) => ({ name: nice(SIEGE_NAME[t]), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: SIEGE[t].cost, labour: SIEGE[t].labour, note: `crew ${SIEGE[t].crew} · a squad builds it` })),
 };
@@ -83,11 +99,28 @@ export function hud(s: SandboxScene): void {
   };
 
   // ---------- top resource band ----------
-  const cells = RES.map((r) => `<div style="display:flex;align-items:center;gap:2px;width:50px" title="${r}">${icon('res-' + r)}<span class="rf-num" data-r="${r}">0</span></div>`).join('');
+  const cell = (r: string) => `<div style="display:flex;align-items:center;gap:2px;width:50px" title="${r.replace('p:', '')}">${icon(RES_ICON[r] ?? 'res-' + r)}<span class="rf-num" data-r="${r}">0</span></div>`;
+  const cells = `<div id="rfRes" style="display:flex">${RES.map(cell).join('')}</div><div id="rfResCraft" style="display:none">${CRAFT_RES.map(cell).join('')}</div>`;
   const topW = snapW(23 + 6 + RES.length * 50 + 26 + 8);
   const top = mk('rfTop', `top:0;left:50%;transform:translateX(-50%);width:${topW}px;height:46px;pointer-events:auto`,
     `<div class="rf-band" style="position:absolute;inset:0;display:flex;align-items:center;padding:0 1px"><img src="${UI}accents/runner.png" srcset="${UI}accents/runner@2x.png 2x" width="23" height="26" alt="" style="margin-right:6px">${cells}<img src="${UI}accents/horse.png" srcset="${UI}accents/horse@2x.png 2x" width="26" height="26" alt="" style="margin-left:auto"></div>`);
   const counts = [...top.querySelectorAll<HTMLElement>('[data-r]')];
+  // the second page swaps in place, so the band keeps its width; the tab hangs under its right end
+  const resTab = document.createElement('button');
+  resTab.className = 'rf-tbtn';
+  resTab.id = 'rfResTab';
+  resTab.style.cssText = 'position:absolute;right:30px;top:100%;margin-top:-2px;height:14px;font-size:9px';
+  resTab.textContent = 'crafting ▾';
+  resTab.title = 'show the crafting goods and remedies (again: the base resources)';
+  let craftPage = false;
+  resTab.onclick = () => {
+    craftPage = !craftPage;
+    top.querySelector<HTMLElement>('#rfRes')!.style.display = craftPage ? 'none' : 'flex';
+    top.querySelector<HTMLElement>('#rfResCraft')!.style.display = craftPage ? 'flex' : 'none';
+    resTab.textContent = craftPage ? 'resources ▾' : 'crafting ▾';
+    resTab.classList.toggle('on', craftPage);
+  };
+  top.appendChild(resTab);
 
   // ---------- minimap ----------
   const mini = new Minimap(s);
@@ -183,6 +216,10 @@ export function hud(s: SandboxScene): void {
   const siteSlots = [sAssign, sN, sStop, sCancel];
   // building
   const bUp = btn('bup', 'act-upgrade', '', '', () => m.upgrade());
+  // M5h3 fortify (Fortifier, paid at once): iron-bind a gate, hang wet hides on a wood piece
+  const fortify = (fort: FortKind) => { const b = m.selectedBuilding(); if (b) s.sim.order({ kind: 'fortify', team: 0, building: b.id, fort }); };
+  const bIron = btn('biron', 'bld-gate', '', '', () => fortify('ironGate'));
+  const bWet = btn('bwet', 'act-extinguish', '', '', () => fortify('wetHides'));
   let shownSlots: HTMLElement[] = [], shownOrders: HTMLElement[] | null = null;
   const setCard = (ord: boolean, slots: HTMLElement[], selW: number, list = orders) => {
     const want = ord ? list : null;
@@ -208,7 +245,7 @@ export function hud(s: SandboxScene): void {
   const hBtn = btn('cBuild', 'act-build', tipK('Build', 'open the build bar; Esc closes', 'B'), 'B', () => { m.toggle(); if (m.active) { tab = 'Camp'; renderTools(); } });
   hammer.appendChild(hBtn);
   let tab: Tab = 'Camp';
-  const barW = snapW(9 * SLOT - 2 + 12);
+  const barW = snapW(Math.max(...Object.values(TABS).map((t) => t.length)) * SLOT - 2 + 12); // the longest tab
   const build = mk('rfBuild', `left:50%;bottom:4px;transform:translateX(-50%);width:${barW}px;pointer-events:auto;display:none`,
     `<div style="position:absolute;left:0;bottom:100%;margin-bottom:2px;display:flex;flex-direction:column;align-items:flex-start;gap:2px"><div id="bStatus" class="rf-label" style="display:none;white-space:normal;max-width:${barW}px"></div>
     <div id="bWall" style="display:none;gap:2px"></div></div>
@@ -258,7 +295,7 @@ export function hud(s: SandboxScene): void {
   });
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
-  mountRoster(s, mk);
+  mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
 
   // ---------- scale ----------
   const scale = () => {
@@ -293,14 +330,14 @@ export function hud(s: SandboxScene): void {
     // a button removed or hidden under the pointer never sends pointerleave
     if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent)) { tipAt = null; hideTip(); }
     modes.refresh();
-    const st = s.sim.cur?.stock?.[0] ?? {};
-    counts.forEach((el) => { const v = Math.floor(st[el.dataset.r as ResourceKind] ?? 0); el.textContent = String(v); el.classList.toggle('rf-dim', !v); });
+    const st = s.sim.cur?.stock?.[0] ?? {}, sup = (s.sim.cur?.supplies?.[0] ?? {}) as Record<string, number>;
+    counts.forEach((el) => { const r = el.dataset.r!, v = Math.floor(r.startsWith('p:') ? sup[r.slice(2)] ?? 0 : st[r as ResourceKind] ?? 0); el.textContent = String(v); el.classList.toggle('rf-dim', !v); });
 
     const sq = m.squad(), q = sq === null ? undefined : s.sim.squads.get(sq), own = sc.own();
     const b = m.selectedBuilding();
     if (b && b.state !== 'destroyed') {
       card.style.display = '';
-      const site = isSite(b), name = nice(b.type) + (site ? (b.upgradeFrom ? ' upgrade' : ' site') : '');
+      const wpd = BUILDINGS[b.type].workplace, site = isSite(b), name = (wpd ? `${WP_NAME[wpd.kind]} L${wpd.level}` : nice(b.type)) + (site ? (b.upgradeFrom ? ' upgrade' : ' site') : '');
       const BAR_W = SEL_BLD;
       if (site) {
         const need = Object.entries(m.need(b)), planned = b.progress === 0 && b.delivered === 0 && b.workers === 0;
@@ -316,8 +353,12 @@ export function hud(s: SandboxScene): void {
       } else {
         setHead(BUILDING_ICON[b.type], name, `${Math.ceil(b.hp)}/${b.maxHp}`, bar('hp', b.hp / b.maxHp, BAR_W) + (b.burning ? bar('burn', 1, BAR_W) : ''),
           `${b.team === 0 ? 'yours' : 'enemy'} · ${b.state}${b.burning ? ' · burning' : ''}`);
-        const up = b.team === 0 ? m.upgradeOf(b) : null;
-        setCard(false, up ? [bUp] : [], SEL_BLD);
+        const up = b.team === 0 ? m.upgradeOf(b) : null, def = BUILDINGS[b.type], own = b.team === 0 && b.state === 'done';
+        const iron = own && def.wall === 'gate', wet = own && !!def.burnable && !def.field;
+        setCard(false, [...(up ? [bUp] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : [])], SEL_BLD);
+        const tiles = b.tiles.length / 2, stock = s.sim.cur?.stock?.[0] ?? {};
+        if (iron) { bIron.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Iron-bind the gate</div><div style="display:flex;align-items:center">${costHtml(FORT.ironCost)}</div><div class="rf-dim" style="margin-top:3px">hp ×${FORT.iron}, once · Fortifier engineer's work, paid at once</div>`; bIron.disabled = (stock.iron ?? 0) < FORT.ironCost.iron || (stock.charcoal ?? 0) < FORT.ironCost.charcoal; }
+        if (wet) { bWet.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Wet hides</div><div style="display:flex;align-items:center">${costHtml({ hides: FORT.wetCost * tiles })}</div><div class="rf-dim" style="margin-top:3px">catches fire at ×${FORT.wet} the chance for ${FORT.wetTicks / 600} min</div>`; bWet.disabled = (stock.hides ?? 0) < FORT.wetCost * tiles; }
         if (up) bUp.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Upgrade to ${nice(up.to)}</div><div style="display:flex;align-items:center">${costHtml(up.cost)}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(up.labour)} · ${sq === null ? 'planned: send a squad' : `squad #${sq} builds it`}</div>`;
       }
     } else if (q && own.length) {

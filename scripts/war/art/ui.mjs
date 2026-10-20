@@ -4,6 +4,10 @@
 //   icons/<id>.png: create_image_pixen 32x32 (resources, unit classes, buildings).
 // Drawn here (0 generations): action, formation and cursor glyphs, stairs, ladders, the stone bridge; ram and stone thrower
 // icons are the game's own siege sprites scaled down. Every output is snapped to one shared palette (ui.json `palette`).
+// Owns only what it writes: its frames, buttons, bars, cursors and icons (and their ui.json entries). Files and entries of
+// the other kit scripts (ui-redfigure.mjs accents and theme, ui-craft.mjs goods, node and badge icons, the map icons:
+// lairs, claim, view modes) stay, so a rebuild never loses an icon. Order: ui.mjs, then ui-redfigure.mjs (its frames
+// replace these), then ui-craft.mjs.
 // Usage: node scripts/war/art/ui.mjs   (ends with the QA gate; exit 1 on any failure)
 import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -149,7 +153,9 @@ const CURSORS = {
 };
 
 // ---------- build ----------
-rmSync(OUT, { recursive: true, force: true });
+// not a wipe of OUT: only the cursors are ours alone; frames, buttons, bars and icons are overwritten file by file
+const prev = existsSync(join(OUT, 'ui.json')) ? JSON.parse(readFileSync(join(OUT, 'ui.json'), 'utf8')) : null;
+rmSync(join(OUT, 'cursors'), { recursive: true, force: true });
 for (const d of ['frames', 'buttons', 'bars', 'icons/32', 'icons/24', 'cursors']) mkdirSync(join(OUT, d), { recursive: true });
 const manifest = { note: 'War UI kit (W-25). Sizes are 1x art px; every PNG has an @2x twin (nearest). slice = 9-slice margins {l, t, r, b}: corners fixed, edges and centre stretch; edges "tile" = repeat the edge strip (period px) instead of stretching (meander borders). Icons: 32 and 24 px. Cursors: 32 px with hotspot.', scale: [1, 2], palette: PALETTE, frames: {}, buttons: {}, bars: {}, icons: {}, cursors: {} };
 const save = (rel, img, pal) => {
@@ -249,6 +255,15 @@ for (const [id, shapes] of Object.entries(GLYPHS)) addIcon(id, 'drawn', glyph(32
 // cursors
 for (const [id, c] of Object.entries(CURSORS)) manifest.cursors[id] = { ...save(`cursors/${id}`, glyph(32, c.shapes)), hotspot: c.hot };
 
+// keep what the other scripts added: their icons, keys (accents, craft palette and nodes) and colours; the theme flag
+// goes with the frames this run replaced (ui-redfigure.mjs sets it again)
+const own = new Set(Object.keys(manifest.icons));
+if (prev) {
+  const { theme: _theme, ...rest } = prev;
+  for (const k of Object.keys(rest)) if (!(k in manifest)) manifest[k] = rest[k];
+  for (const [id, e] of Object.entries(prev.icons ?? {})) if (!own.has(id)) manifest.icons[id] = e;
+  manifest.palette = [...new Set([...PALETTE, ...(prev.palette ?? [])])];
+}
 writeFileSync(join(OUT, 'ui.json'), JSON.stringify(manifest, null, 1) + '\n');
 console.log(`ui kit: ${Object.keys(manifest.frames).length} frames, ${Object.keys(manifest.buttons).length} buttons, ${Object.keys(manifest.bars).length} bars, ${Object.keys(manifest.icons).length} icons, ${Object.keys(manifest.cursors).length} cursors, palette ${PALETTE.length}`);
 
@@ -274,7 +289,7 @@ const check = (rel, w, h) => {
 };
 for (const g of ['frames', 'bars']) for (const e of Object.values(manifest[g])) { check(e.file, e.w, e.h); if (e.slice) { const s = e.slice; if (s.l + s.r >= e.w || s.t + s.b > e.h) fails.push(`${e.file}: slice ${JSON.stringify(s)} leaves no centre`); } }
 for (const e of Object.values(manifest.buttons)) for (const f of Object.values(e.states)) check(f, e.w, e.h);
-for (const e of Object.values(manifest.icons)) { check(e[32], 32, 32); check(e[24], 24, 24); }
+for (const [id, e] of Object.entries(manifest.icons)) if (own.has(id)) { check(e[32], 32, 32); check(e[24], 24, 24); }
 for (const e of Object.values(manifest.cursors)) check(e.file, 32, 32);
 if (fails.length) { console.log('UI QA FAIL\n' + fails.join('\n')); process.exit(1); }
 console.log('UI QA ok');

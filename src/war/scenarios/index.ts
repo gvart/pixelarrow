@@ -57,6 +57,8 @@ const S = SPOTS;
 const CLAIM = [ridgeClaim.x, ridgeClaim.y] as const;
 /** build-test: a flat clearing in the south-east woods (trees all round, boulders near). */
 const HOME = [342, 338] as const;
+/** crafting: the forge, cookhouse and infirmary round the camp at HOME (open ground in its claim). */
+export const CRAFT_FORGE = [336.5, 334.5] as const, CRAFT_COOK = [344.5, 332.5] as const, CRAFT_INFIRMARY = [348.5, 338.5] as const;
 /** village: the storehouse the engineers raise beside the camp, and the pine the foragers start on (node id, test-ridge's object order; tests/war/village.test.ts checks it). */
 const VILLAGE_STORE = [HOME[0] - 5.5, HOME[1] + 0.5] as const;
 const VILLAGE_WOOD = 3324;
@@ -406,6 +408,42 @@ export const SCENARIOS: Scenario[] = [
         ...[2, 3, 4, 5].map((squad): Order => ({ kind: 'civWork', squad, building: 0 })),
         { kind: 'placeBuilding', squad: 6, type: 'storehouse', x: VILLAGE_STORE[0], y: VILLAGE_STORE[1] },
         { kind: 'gather', squad: 7, node: VILLAGE_WOOD },
+      ],
+    },
+  },
+  {
+    // M5h5: squad 0 militia raises the camp (building 0), a forge (1), a cookhouse (2) and an infirmary (3); after the
+    // prebuild squads 1..6 civilians (cook, smith x2, physician, engineer, merchant, forager), the sandbox roster's household
+    // first (the L4 smith holds Bladesmith), the smiths, cook and physician on civWork at their workplaces
+    id: 'crafting',
+    name: 'Crafting',
+    goal: 'A claimed camp with a forge, a cookhouse and an infirmary, stock and a civilian of every trade. Click the forge: queue a Xiphos (Weapons) and watch the odds; when it is made it lands in your stash (roster R, any soldier card): put it on. Pick a crafter for his profession tree; repair or salvage the worn gear in the stash at the forge.',
+    squads: [you('militia', at(HOME, -4, 4))],
+    camera: { x: HOME[0] - 1, y: HOME[1] - 2, zoom: 1 },
+    economy: {
+      claims: [{ team: 0, x: HOME[0], y: HOME[1], r: 24 }],
+      stock: {
+        wood: 400, stone: 300, food: 200, copper: 20, tin: 20, bronze: 24, iron: 6, silver: 80, salt: 10,
+        hides: 6, flax: 6, herbs: 8, charcoal: 8, leather: 6, linen: 8, oil: 4,
+      },
+      sites: [
+        { squad: 0, type: 'camp', x: HOME[0] + 0.5, y: HOME[1] + 0.5 },
+        { squad: 0, type: 'forge', x: CRAFT_FORGE[0], y: CRAFT_FORGE[1] },
+        { squad: 0, type: 'cookhouse', x: CRAFT_COOK[0], y: CRAFT_COOK[1] },
+        { squad: 0, type: 'infirmary', x: CRAFT_INFIRMARY[0], y: CRAFT_INFIRMARY[1] },
+      ],
+      prebuild: 12000,
+    },
+    after: {
+      orders: [{ kind: 'move', squad: 0, x: HOME[0] - 2, y: HOME[1] + 9 }],
+      settle: 50,
+      squads: ([['civ_cook', 1], ['civ_smith', 2], ['civ_physician', 1], ['civ_engineer', 1], ['civ_merchant', 1], ['civ_forager', 1]] as const)
+        .map(([cls, n], k) => you(cls, at(HOME, -6 + (k % 4) * 4, 7 + Math.floor(k / 4) * 3), n)),
+      then: [
+        { kind: 'civWork', squad: 1, building: 2 },
+        { kind: 'civWork', squad: 2, building: 1 },
+        { kind: 'civWork', squad: 3, building: 3 },
+        { kind: 'civWork', squad: 5, building: 0 },
       ],
     },
   },

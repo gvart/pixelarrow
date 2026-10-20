@@ -15,7 +15,10 @@ import { activeCooldown, SKILL_LEVELS } from '../../../sim/skills';
 import { bar, snapW } from '../kit';
 import { rankOf } from './markers';
 import { SandboxRoster, type Row } from './state';
-import { ATTR_NAME, ATTR_NOTE, esc, itemIcon, itemTip, KIND_NAME, SKILL_NAME, SKILL_NOTE, skillKind, statRows } from './ui';
+import { ATTR_NAME, ATTR_NOTE, esc, itemBadges, itemIcon, itemTip, KIND_NAME, SKILL_NAME, SKILL_NOTE, skillKind, statRows } from './ui';
+import { isCivClass } from '../../../../data/classes';
+import { pointsAt, profOf, PROF_NODES } from '../../../../data/professions';
+import type { SandboxCraft } from '../craft/state';
 import type { WarPerson } from '../../../types';
 
 export const CARD_W = snapW(258);
@@ -25,7 +28,25 @@ const STATE: Record<Row['where'], string> = { field: 'in the field', reserve: 'i
 function slot(p: WarPerson, s: Slot): string {
   const it = p.hero.equip[s];
   const tip = it ? itemTip(it, p.hero.attrs) : `<span class="rf-dim">no ${SLOT_LABEL[s]}</span>`;
-  return `<div class="rr-slot" data-tip="${esc(tip)}">${it ? itemIcon(it, 24) : ''}<span class="rr-lab">${SLOT_LABEL[s]}</span></div>`;
+  return `<div class="rr-slot"${it ? ` data-unequip="${s}" style="cursor:pointer"` : ''} data-tip="${esc(tip + (it ? '<div class="rf-dim" style="margin-top:3px">click: back to the stash</div>' : ''))}">${it ? itemIcon(it, 24) + itemBadges(it) : ''}<span class="rr-lab">${SLOT_LABEL[s]}</span></div>`;
+}
+
+/** The stash under the paper doll (M5h): items he may put on first (click), the rest dimmed with why not. */
+function stashRow(C: SandboxCraft, p: WarPerson): string {
+  const items = C.stash().filter((x) => !x.away);
+  if (!items.length) return '<span class="rf-dim">the stash is empty: craft at a forge</span>';
+  const rows = items.map((x) => ({ x, why: C.equipBlock(p, x.item) })).sort((a, b) => Number(!!a.why) - Number(!!b.why));
+  return rows.map(({ x, why }) => `<div class="rr-slot" ${why ? 'style="opacity:.4"' : `data-equip="${esc(x.item.uid)}" style="cursor:pointer"`} data-tip="${esc(itemTip(x.item, p.hero.attrs) + `<div style="margin-top:3px;color:${why ? '#e08a70' : '#9fd47a'}">${why ?? 'click: put it on'}</div>`)}">${itemIcon(x.item, 24)}${itemBadges(x.item)}</div>`).join('');
+}
+
+/** A civilian's trade instead of skills (M5h): nodes taken, points left, the tree button. */
+function trade(p: WarPerson): string {
+  const prof = profOf(p.hero.cls ?? ''), perks = p.hero.perks as unknown as string[];
+  if (!prof) return '';
+  const taken = perks.filter((n) => PROF_NODES[n]?.prof === prof && !PROF_NODES[n].capstone).length, left = Math.max(0, pointsAt(p.hero.level) - taken);
+  const chips = perks.filter((n) => PROF_NODES[n]?.prof === prof).map((n) => `<span class="rr-chip" data-tip="${esc(PROF_NODES[n].desc)}">${PROF_NODES[n].name}</span>`).join(' ');
+  return `<div class="rf-cap" style="margin-top:6px">Profession${left ? ` <span style="color:#e0b867">+${left} point${left > 1 ? 's' : ''}</span>` : ''}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">${chips || '<span class="rf-dim">root node only</span>'}<span style="flex:1"></span><button class="rf-tbtn" data-act="tree" data-tip="the profession tree: nodes by level, what each unlocks">Tree</button></div>`;
 }
 
 /** Before -> after of one offer: the baked numbers it moves, else what it does. */
@@ -54,8 +75,8 @@ function offers(R: SandboxRoster, p: WarPerson): string {
     }).join('')}</div></div>`;
 }
 
-export function cardHtml(R: SandboxRoster, r: Row): string {
-  const p = r.p, h = p.hero, need = xpToNext(h.level), rank = rankOf(h.cls, h.level), st = warStatsOf(p);
+export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft): string {
+  const p = r.p, civ = isCivClass(p.hero.cls), h = p.hero, need = xpToNext(h.level), rank = rankOf(h.cls, h.level), st = warStatsOf(p);
   const skills = SKILL_LEVELS.map((lv, i) => {
     const id = p.skills?.[i];
     if (id) return `<div class="rr-chip" style="flex:1;padding:3px 4px" data-tip="${esc(`<div class="rf-name" style="font-size:13px">${SKILL_NAME[id]}</div><div class="rf-dim" style="margin-top:2px">${KIND_NAME[skillKind(id)]}</div><div style="margin-top:2px">${SKILL_NOTE[id]}</div>`)}"><span style="color:#de8a4e">${skillKind(id)}</span> ${SKILL_NAME[id]}</div>`;
@@ -90,10 +111,11 @@ export function cardHtml(R: SandboxRoster, r: Row): string {
         <div class="rr-grid" style="grid-template-columns:1fr auto;gap:2px 6px">${stats}</div>
       </div>
     </div>
-    <div class="rf-cap" style="margin-top:6px">Skills</div>
+    ${civ ? trade(p) : `<div class="rf-cap" style="margin-top:6px">Skills</div>
     <div style="display:flex;gap:3px">${skills}</div>
     <div class="rf-cap" style="margin-top:5px">Honours</div>
-    <div style="display:flex;flex-wrap:wrap;gap:3px">${honours || '<span class="rf-dim">none yet</span>'}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:3px">${honours || '<span class="rf-dim">none yet</span>'}</div>`}
+    ${C && r.where !== 'dead' && r.where !== 'captive' ? `<div class="rf-cap" style="margin-top:6px">Stash</div><div style="display:flex;flex-wrap:wrap;gap:3px">${stashRow(C, p)}</div>` : ''}
     <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
       <span class="rf-dim">kills <b class="rf-num" style="color:#f0d9b5">${h.kills}</b> · battles <b class="rf-num" style="color:#f0d9b5">${h.battles}</b></span>
       <span style="flex:1"></span>

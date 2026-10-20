@@ -125,6 +125,8 @@ export class BuildingLayer {
   skip: ((b: BuildingSnap) => boolean) | null = null;
   /** A charring overlay over b's kit frames (texture key, same frames and origin; ../siege/siegeLayer.ts), or none. */
   charOf: ((b: BuildingSnap, kit: string, layer: 'back' | 'front') => string | undefined) | null = null;
+  /** M5h: working fx of the workplaces with an order under way this frame, world px (drawn by ../siege/siegeLayer.ts, which holds the fx art). */
+  readonly working: { id: string; x: number; y: number; alpha: number; depth: number; seed: number }[] = [];
   private gfx: Phaser.GameObjects.Graphics[] = [];
   private imgs: Phaser.GameObjects.Image[] = [];
   private ghostImgs: Phaser.GameObjects.Image[] = [];
@@ -438,6 +440,7 @@ export class BuildingLayer {
   draw(buildings: readonly BuildingSnap[], units: readonly DrawUnit[], v: { x: number; y: number; right: number; bottom: number }, zoom: number): void {
     let ng = 0;
     this.ni = 0;
+    this.working.length = 0;
     const bars = this.gBars.clear(), ground = this.gGround.clear(), lw = Math.max(1, 1.25 / zoom);
     this.prepare(buildings);
     const walls = this.wallTiles(buildings);
@@ -469,6 +472,12 @@ export class BuildingLayer {
             } else {
               const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), !def.wall && b.rot === 1).setDepth(depth);
               if (this.cut(b)) this.stub(im, spr.tileOrigin.y, (b.w + b.h) / 2);
+              else if (def.workplace && (b.state === 'done' || b.state === 'damaged') && b.queue?.some((o) => o.by >= 0)) {
+                // a crafter at an order: the art's working fx at their sprite px
+                const k = im.scaleX, w = im.frame.realWidth;
+                for (const [i, f] of this.art.workFx(b.type).entries())
+                  this.working.push({ id: f.id, x: im.x + (im.flipX ? w - f.at.x : f.at.x) * k, y: im.y + f.at.y * k, alpha: f.alpha ?? 1, depth: depth + (i + 1) * 1e-6, seed: b.id * 31 + i * 7 });
+              }
             }
             drawn = true;
           }

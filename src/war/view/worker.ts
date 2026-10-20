@@ -33,7 +33,10 @@ export type ToWorker =
   | { t: 'checkBridge'; id: number; team: number; bridge: Omit<BridgeOrder, 'kind' | 'squad'> }
   // M5g persons (the sandbox roster, ./hud/roster): end the fight (report by `reply`), a person changed off the field
   | { t: 'endFight'; id: number }
-  | { t: 'person'; p: WarPerson };
+  | { t: 'person'; p: WarPerson }
+  // M5h crafting, net mode only: a mend over the region socket, a war API call (answered by `reply` with `api`)
+  | { t: 'mend'; kind: 'repair' | 'salvage'; building: number; uid: string }
+  | { t: 'api'; id: number; method: 'GET' | 'POST'; path: string; body?: unknown };
 
 /** Ticks between resource node posts (amounts change slowly). */
 const NODES_EVERY = 10;
@@ -161,4 +164,6 @@ function netMessage(n: Net, m: ToWorker): void {
   else if (m.t === 'checkWall') n.check({ kind: 'wall', ...m.wall }, (r) => postMessage({ reply: m.id, wall: r }));
   else if (m.t === 'checkBridge') n.check({ kind: 'bridge', ...m.bridge }, (r) => postMessage({ reply: m.id, bridge: r }));
   else if (m.t === 'endFight') postMessage({ reply: m.id, report: null });
+  else if (m.t === 'mend') n.mend(m.kind, m.building, m.uid);
+  else if (m.t === 'api') void n.api(m.method, m.path, m.body).then((api) => postMessage({ reply: m.id, api }));
 }

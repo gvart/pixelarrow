@@ -5,7 +5,7 @@
  * last blow or fall (or on End fight), and its report is written back. Changes off the field (a level-up choice, dev XP)
  * go to the live man too (setPerson), so the next report does not undo them.
  */
-import { CLASSES, isClassId } from '../../../../data/classes';
+import { CIV_CLASSES, CLASSES, isCivClass, isClassId } from '../../../../data/classes';
 import { freeName } from '../../../../data/names';
 import { xpToNext } from '../../../../data/units';
 import { applyOffer, createRoster, grantXp, levelOffers, makePerson, type LevelOffer, type Roster } from '../../../sim/roster';
@@ -61,6 +61,15 @@ export class SandboxRoster {
     // one man just levelled: his slot and points wait for a choice
     const fresh = this.recruit('militia', { level: 2 });
     this.roster.update(grantXp({ ...fresh, skills: [] }, xpToNext(2)));
+    // M5h household: a civilian of each class with a few profession nodes (the smith can make a sword), points left to spend
+    const civs: [string, number, string[]][] = [
+      ['civ_smith', 4, ['bladesmith']], ['civ_cook', 3, ['baker']], ['civ_physician', 3, ['herbalist']],
+      ['civ_engineer', 2, []], ['civ_merchant', 2, ['packer']], ['civ_forager', 3, ['charcoalBurner']],
+    ];
+    for (const [cls, level, perks] of civs) {
+      const p = this.recruit(cls, { level });
+      this.roster.update({ ...p, hero: { ...p.hero, perks: perks as unknown as typeof p.hero.perks } }); // node ids ride in perks (src/data/professions.ts)
+    }
   }
 
   private recruit(cls: string, o: Parameters<typeof makePerson>[2] = {}): WarPerson {
@@ -74,7 +83,7 @@ export class SandboxRoster {
 
   /** n persons of cls for a spawn: fit reserve men of the class first, then recruits. */
   private take(cls: string, n: number): WarPerson[] {
-    const out = this.roster.fit().filter((p) => p.hero.cls === (isClassId(cls) ? cls : 'militia') && !this.sent.has(p.id)).slice(0, n);
+    const out = this.roster.fit().filter((p) => p.hero.cls === (isClassId(cls) || isCivClass(cls) ? cls : 'militia') && !this.sent.has(p.id)).slice(0, n);
     while (out.length < n) out.push(this.recruit(cls));
     for (const p of out) this.sent.add(p.id);
     this.onChange?.();
@@ -117,6 +126,11 @@ export class SandboxRoster {
     const q = grantXp(p, xpToNext(p.hero.level));
     this.put(q);
     if (q.hero.level > p.hero.level) this.onNote?.({ kind: 'levelUp', pid, text: `${q.hero.name} reached level ${q.hero.level}` });
+  }
+
+  /** A person changed off the field (gear, profession nodes): the roster and his live man. */
+  edit(p: WarPerson): void {
+    this.put(p);
   }
 
   private put(p: WarPerson): void {
@@ -177,6 +191,7 @@ export class SandboxRoster {
 
   /** Class display name. */
   static className(cls: string | undefined): string {
+    if (isCivClass(cls)) return CIV_CLASSES[cls].name;
     return CLASSES[isClassId(cls ?? '') ? (cls as keyof typeof CLASSES) : 'militia'].name;
   }
 }
