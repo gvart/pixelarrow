@@ -9,7 +9,7 @@
  * Panel and card re-render at 4 Hz while open, only when their HTML changed (so hover and scroll hold).
  */
 import type { SandboxScene } from '../../SandboxScene';
-import { icon } from '../kit';
+import { fitHeight, icon } from '../kit';
 import { cardHtml, CARD_W } from './card';
 import { markers } from './markers';
 import { FILTERS, panelHtml, PANEL_W, SORTS, type Filter, type Sort } from './panel';
@@ -57,7 +57,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     card.style.left = open ? `${PANEL_W + 8}px` : '4px';
     if (open) {
       // above the minimap (bottom left, about 190 art px) and below the band
-      const z = Number(panel.style.zoom) || 1, listH = Math.max(120, Math.min(420, Math.floor(innerHeight / z) - 50 - 200 - 72));
+      const z = Number(panel.style.zoom) || 1, listH = Math.max(120, Math.min(420, Math.floor(innerHeight / z) - 50 - 200 - 96));
       const html = panelHtml(R, filter, sort, sel, listH);
       if (html !== lastP) {
         const list = panel.querySelector<HTMLElement>('[style*="overflow-y"]'), top = list?.scrollTop ?? 0;
@@ -77,6 +77,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
           g.drawImage(img, 0, 0, PORTRAIT_W * 2, PORTRAIT_H * 2);
         } else lastC = ''; // the sheet is not in yet: try again
       }
+      fitHeight(card);
     }
     for (const f of unTip) f();
   };

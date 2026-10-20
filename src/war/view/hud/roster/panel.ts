@@ -33,7 +33,7 @@ function stateCell(r: Row, captor: number | undefined): string {
   if (r.where === 'reserve') return '<span class="rr-chip" data-tip="fit, not in the field">fit</span>';
   if (r.where === 'wounded') return `<span class="rr-chip bad" data-tip="wounded: heals in camp (M5e timers)">wounded</span>`;
   if (r.where === 'captive') return `<span class="rr-chip bad" data-tip="held by team ${captor ?? '?'}: ransom ${30 * r.p.hero.level} silver">captive</span>`;
-  return '<span class="rr-chip" style="color:#7d6a5a">fallen</span>';
+  return '<span class="rr-chip" style="color:var(--rf-disabled)">fallen</span>';
 }
 
 function row(r: Row, sel: string | null, pending: boolean, captor: number | undefined): string {
@@ -44,11 +44,11 @@ function row(r: Row, sel: string | null, pending: boolean, captor: number | unde
   return `<div class="rr-row${sel === r.p.id ? ' on' : ''}" data-pid="${r.p.id}" style="${dim}">
     <div style="width:24px;height:24px;flex:none">${icon(UNIT_ICON[h.cls ?? ''] ?? 'unit-militia')}</div>
     <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;gap:3px"><span style="font:700 12px/1 'Cormorant SC',serif;color:#f2b27a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(h.name)}</span>${crest}</div>
+      <div style="display:flex;align-items:center;gap:3px"><span style="font:600 12.5px/1 Inter,sans-serif;color:var(--rf-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(h.name)}</span>${crest}</div>
       <div class="rr-xp" data-tip="XP ${h.xp}/${need}"><i style="width:${Math.round(100 * Math.min(1, h.xp / need))}%"></i></div>
     </div>
     ${pending ? '<span class="rr-chip up" data-tip="level-up: a choice waits">▲</span>' : ''}
-    <span class="rf-num" style="width:20px;text-align:right;color:#f0d9b5" data-tip="level ${h.level}">L${h.level}</span>
+    <span class="rf-num" style="width:24px;text-align:right;color:var(--rf-ink)" data-tip="level ${h.level}">L${h.level}</span>
     <div style="width:44px;display:flex;justify-content:flex-end">${stateCell(r, captor)}</div>
     <div style="width:17px;display:flex;justify-content:flex-end">${pips}</div>
   </div>`;
@@ -67,15 +67,15 @@ export function panelHtml(R: SandboxRoster, filter: Filter, sort: Sort, sel: str
   const all = R.rows(), fit = all.filter((r) => r.where === 'field' || r.where === 'reserve').length;
   const body = [...groups].map(([k, rs]) => `<div class="rf-cap" style="margin:5px 0 1px 3px">${esc(k)} <span class="rf-dim">${rs.length}</span></div>${rs.map((r) => row(r, sel, R.offers(r.p.id).length > 0, R.captorOf(r.p.id))).join('')}`).join('');
   return `<div class="rf-card" style="padding:4px 4px 5px">
-    <div style="display:flex;align-items:center;gap:4px;padding:0 2px">
-      <span class="rf-name">Roster</span><span class="rf-dim rf-num" data-tip="fit / all soldiers">${fit}/${all.length}</span>
+    <div class="rf-head" style="padding:0 2px 4px">
+      <span class="rf-name" style="font-size:16px">Roster</span><span class="rf-dim rf-num" data-tip="fit / all soldiers">${fit}/${all.length}</span>
       <span style="flex:1"></span>
-      <button class="rf-tbtn" data-sort="1" data-tip="sort by: level, name, class, HP">${sort}</button>
-      <button class="rf-tbtn" data-act="close" data-tip="close (R)">✕</button>
+      <button class="rf-tbtn" data-sort="1" data-tip="sort by: level, name, class, HP">Sort: ${sort}</button>
+      <button class="rf-tbtn x" data-act="close" data-tip="close (R)">✕</button>
     </div>
-    <div style="display:flex;align-items:flex-end;height:17px;margin:3px 0 0 2px">${FILTERS.map(([f, n]) => `<button class="rf-tab${f === filter ? ' on' : ''}" data-filter="${f}">${n}</button>`).join('')}</div>
-    <div style="border-top:1px solid #7a3418;max-height:${listH}px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#7a3418 #140c08">${body || '<div class="rf-dim" style="padding:8px 4px">nobody here</div>'}</div>
-    <div style="display:flex;gap:3px;margin-top:4px;padding:0 2px">
+    <div style="display:flex;align-items:flex-end;height:23px;margin:5px 0 0 2px">${FILTERS.map(([f, n]) => `<button class="rf-tab${f === filter ? ' on' : ''}" data-filter="${f}">${n}</button>`).join('')}</div>
+    <div style="border-top:1px solid var(--rf-line);max-height:${listH}px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#7a3418 #140c08">${body || '<div class="rf-dim" style="padding:8px 4px">nobody here</div>'}</div>
+    <div style="display:flex;gap:3px;margin-top:5px;padding:0 2px">
       <button class="rf-tbtn" data-act="xpAll" data-tip="dev: one level of XP to every fit soldier">dev +XP all</button>
       <button class="rf-tbtn" data-act="endFight" data-tip="end the fight now: XP, wounds and captives are written back (auto 5 s after the last blow)">End fight</button>
     </div>
