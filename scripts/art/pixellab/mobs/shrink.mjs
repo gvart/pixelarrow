@@ -40,7 +40,15 @@ function nearest(pal, rgb, cache) {
 
 /** Shrink `img` by `f` (0..1] about its bottom-centre box; output w x h = round(img * f). */
 export function shrink(img, f, pal, cache = new Map()) {
-  if (f >= 1) return img;
+  if (f >= 1) {
+    // true scale already (civilians): only hard alpha and the palette snap
+    const out = blank(img.w, img.h);
+    for (let i = 0; i < img.data.length; i += 4) {
+      if (img.data[i + 3] < 128) continue;
+      out.data.set([...nearest(pal, [img.data[i], img.data[i + 1], img.data[i + 2]], cache), 255], i);
+    }
+    return out;
+  }
   const W = Math.round(img.w * f);
   const H = Math.round(img.h * f);
   const out = blank(W, H);

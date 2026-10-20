@@ -1,0 +1,8 @@
+[
+ { "class": "cook", "attempt": "b1", "job": "4a2230a8-5f72-4466-aa4d-92c531130a08", "gens": 6 },
+ { "class": "smith", "attempt": "b1", "job": "db243ba5-1d8e-4934-ae71-c6084d98190b", "gens": 6 },
+ { "class": "merchant", "attempt": "b1", "job": "eb35a94c-c252-45cd-bc9d-1f8cb06bf3bf", "gens": 6 },
+ { "class": "engineer", "attempt": "b1", "job": "2d0cc878-bd5c-4e33-91c2-790148e977ab", "gens": 6 },
+ { "class": "physician", "attempt": "b1", "job": "319fd2fd-2375-4dd2-a49c-ec5c5c9912e6", "gens": 6 },
+ { "class": "forager", "attempt": "b1", "job": "b7a1ca72-509d-4aa3-a2d3-fc78152d1d6a", "gens": 6 }
+]
