@@ -6,8 +6,8 @@
  * camp, market) sits on the lake's south-east shore; the knoll on the north-west shore (h4, the oracle's oaks) is the
  * fort site, its back to the lake. The first spurs of the Iron Teeth (rock) rise in the north-east corner with the iron
  * ore; bog iron in the fen at the lake's south-west end.
- * Art: the Dodona library is not loaded by the view yet (src/war/view/art.ts BIOMES): its zone draws with the global set
- * and the scatter uses global pines and oaks and mountain firs; the Dodona set pieces placed here show once it is.
+ * Art: the Dodona library (src/war/view/art.ts BIOMES): its tile variants and the set pieces placed here; the scatter
+ * uses global pines and oaks and mountain firs.
  */
 import type { Kit, RegionDef } from './kit.ts';
 
@@ -34,10 +34,8 @@ const def: RegionDef = {
     k.river([[124, 136], [128, 166], [116, 196], [104, 226], [92, 262]], { half: 4.5, bed: 0, bank: 4, narrows: [[[128, 166], 2.6]], fords: [[104, 226]], name: 'ladon' });
     k.paint('marsh', [92, 144, 14, 7, 0.4], { on: ['grass', 'sand'] });
     // town (home camp) and market on the south-east shore
-    k.paint('dirt', [156, 168, 11, 8, 0.2], { rough: 2 });
+    k.square([156, 168], 7);
     k.spot('homeCamp', [156, 168]);
-    k.paint('dirt', [172, 178, 6, 4, 0.2], { rough: 1 });
-    k.spot('market', [172, 178]);
     // roads: W through the west gap over the Ladon bridge; N down the brook; E through the east gap; S past the ford
     k.road([[-4, 128], [30, 128], [58, 140], [88, 158], [112, 164], [128, 166], [144, 168], [156, 168]], { bridges: [[128, 166]] });
     k.road([[60, 138], [62, 112], [72, 88]]);
@@ -45,6 +43,7 @@ const def: RegionDef = {
     k.road([[260, 128], [226, 128], [200, 138], [176, 154], [156, 168]]);
     k.road([[128, 260], [134, 230], [146, 200], [156, 168]]);
     k.spot('westGap', [30, 128]);
+    k.spot('ridge', [214, 64]);
     k.spot('eastGap', [224, 128]);
     // forest: the ridges and their slopes, copses on the valley floor; clearings by the town and the fields
     k.paint('forest', [36, 128, 34, 140, 0], { on: ['grass'], minH: 3 });

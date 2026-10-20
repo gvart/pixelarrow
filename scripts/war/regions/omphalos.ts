@@ -31,12 +31,14 @@ const def: RegionDef = {
     k.forest([84, 196, 10, 6, 0.3], [176, 64, 8, 5, 0.2]);
     // the Achelous: spring pool, across the mesa (bed 5), over the south rim, deep below (narrows)
     k.waterBody([108, 138, 4, 3, 0], { deep: false, beach: 1 });
-    k.river([[108, 140], [104, 164], [114, 190], [110, 214], [118, 236], [110, 262]], { half: 2.2, deep: false, bed: (s) => (s < 76 ? 5 : 1), bank: 3 });
-    k.river([[110, 220], [118, 236], [110, 262]], { half: 4, bed: 1, bank: 3, narrows: [[[116, 232], 2.5]], name: 'achelous' });
+    k.river([[108, 140], [104, 164], [114, 190], [110, 214], [118, 236], [110, 262]], { half: 2.2, deep: false, bed: (s) => (s < 76 ? 5 : 1), bank: 0.25 });
+    k.river([[110, 220], [118, 236], [110, 262]], { half: 4, bed: 1, bank: 1, narrows: [[[116, 232], 2.5]], name: 'achelous' });
     k.spot('falls', [111, 213]);
     // the temple city: square, streets
     k.paint('dirt', [150, 168, 18, 12, 0.3], { rough: 3, minH: 6 });
+    k.square([146, 170], 7, 6);
     k.spot('templeSquare', [146, 170]);
+    k.spot('fortress', [128, 92]);
     k.spot('labyrinth', [184, 172]);
     // the four ramps (built up from the skirt), the roads to the square
     k.road([k.entry('saddle'), [128, 10], [128, 28], [128, 46]], { fill: true, grade: 3 });

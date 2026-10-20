@@ -4,6 +4,9 @@
  *
  *   node scripts/war/regions/build.ts [id,id...] [--png dir]
  *
+ * Every region is checked against its purpose (./checks.ts: the must-haves of its brief in ./world.ts, and road legs
+ * for every trade route through it); a missing feature fails the build (exit 1, the region list left as it was).
+ *
  * --png writes a top-down preview per region (terrain colours shaded by height, cliffs dark, objects, lairs red,
  * claim points yellow, entries magenta, spots white) for a quick look without the sandbox.
  */
@@ -32,15 +35,22 @@ const pngAt = args.indexOf('--png');
 const pngDir = pngAt >= 0 ? args[pngAt + 1] : null;
 const ids = args.filter((a, i) => !a.startsWith('--') && (pngAt < 0 || i !== pngAt + 1))[0]?.split(',') ?? [...ALL.keys()];
 let total = 0;
+const failed: string[] = [];
 for (const id of ids) {
   const def = ALL.get(id);
   if (!def) throw new Error(`unknown region ${id}`);
   const t0 = Date.now(), b = writeRegion(def);
   total += b.bytes;
   console.log(`${id}${def.draft ? ' (draft)' : ''}: ${(b.bytes / 1024).toFixed(0)} KB in ${((Date.now() - t0) / 1000).toFixed(1)} s; ${b.log.join('; ')}`);
+  for (const c of b.checks) if (!c.ok) failed.push(`${id} ${c.need}: ${c.why}`);
+  console.log(`  checks ${b.checks.filter((c) => c.ok).length}/${b.checks.length}: ${b.checks.map((c) => `${c.ok ? '' : 'MISSING '}${c.need} (${c.why})`).join('; ')}`);
   if (pngDir) preview(b.json, b.spots, join(pngDir, `${id}.png`));
 }
 console.log(`total ${(total / 1024 / 1024).toFixed(2)} MB for ${ids.length} regions`);
+if (failed.length) {
+  console.error(`purpose checklist failed:\n  ${failed.join('\n  ')}`);
+  process.exit(1);
+}
 
 // the region list the sandbox offers (src/war/view/devPanel.ts)
 const list = WORLD.map((r) => `  { id: '${r.id}', name: ${JSON.stringify(r.name)}, role: '${r.role}', draft: ${!!ALL.get(r.id)!.draft} },`);

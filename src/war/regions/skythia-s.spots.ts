@@ -5,8 +5,10 @@ export const SPOTS = {
   "entry_skythia-e": [502.5, 82.4],
   "entry_ammos": [227.5, 502.5],
   "entry_kimmeria": [10.5, 291.3],
+  "ridge": [237.9, 138.7],
   "market": [219.4, 248.8],
-  "food": [73.4, 215.1],
+  "fields": [370.7, 278.9],
+  "food": [299.4, 88.6],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
 export const CLAIM_POINTS = [{"x":222.5,"y":249.5}] as const;

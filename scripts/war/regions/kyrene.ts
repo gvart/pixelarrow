@@ -30,10 +30,8 @@ const def: RegionDef = {
     // the oasis springs on the east terrace and the town by them
     k.oasis([152, 146], 3.6);
     k.oasis([166, 122], 2.4);
-    k.paint('dirt', [140, 168, 11, 8, 0.3], { on: ['grass', 'sand'], rough: 2 });
+    k.square([140, 168], 7);
     k.spot('homeCamp', [140, 168]);
-    k.paint('dirt', [158, 176, 6, 5, 0], { on: ['grass', 'sand'], rough: 1 });
-    k.spot('market', [158, 176]);
     // the red butte (fort site), a lone mesa on the floodplain's west side
     k.plateau([178, 96, 14, 10, 0.5], 4, { terrain: 'sand' });
     k.spot('fortSite', [178, 95]);
@@ -48,6 +46,7 @@ const def: RegionDef = {
     k.road([[140, 168], [136, 196], [130, 226], [128, 260]]);
     k.road([[158, 114], [166, 104], [172, 98]], { fill: true, grade: 2.5 });
     k.road([[100, 214], [118, 206], [134, 196]]);
+    k.road([[186, 74], [166, 80], [146, 86]], { grade: 3 });
     // ground: red rock under the cliffs, salt and hardpan pans in the dunes, palms along the floodplain
     k.patch('kyrene', 'redrock', [200, 70, 10, 34, 0.1], ['sand']);
     k.patch('kyrene', 'redrock', [204, 200, 9, 30, -0.1], ['sand']);

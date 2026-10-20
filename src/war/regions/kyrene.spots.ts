@@ -9,8 +9,8 @@ export const SPOTS = {
   "riverNarrowsB": [249.6, 295.3],
   "fordN": [192.5, 140.5],
   "fordS": [200.5, 428.5],
+  "market": [280.5, 336.5],
   "homeCamp": [280.5, 336.5],
-  "market": [316.5, 352.5],
   "fortSite": [356.5, 190.5],
   "wadi": [424.5, 284.5],
 } as const satisfies Record<string, readonly [number, number]>;

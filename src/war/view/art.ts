@@ -39,7 +39,7 @@ export interface WarArt {
 }
 
 /** The biome libraries under public/war/biomes/. */
-export const BIOMES = ['elaia', 'kyrene', 'mountains'] as const;
+export const BIOMES = ['elaia', 'kyrene', 'mountains', 'dodona'] as const;
 const PIECE = 2048;
 
 interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string }[] }

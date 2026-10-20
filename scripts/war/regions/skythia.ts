@@ -25,7 +25,7 @@ const def: RegionDef = {
     // kurgans: the great one by the town (fort site) and the lookouts
     k.hill([150, 128, 13, 10, 0.3], 5, 5, 1.5);
     k.spot('fortSite', [150, 127]);
-    for (const [x, y, r] of MOUNDS) k.hill([x, y, r, r * 0.8, 0], 5, 3, 1);
+    MOUNDS.forEach(([x, y, r], n) => { k.hill([x, y, r, r * 0.8, 0], 5, 3, 1); k.spot(`lookout${n}`, [x, y]); });
     // the river in its valley: shallow, deep in the east reach (narrows), a ford in the west
     const RIVER: [number, number][] = [[-6, 176], [30, 166], [62, 184], [98, 170], [128, 186], [160, 172], [194, 190], [228, 178], [262, 188]];
     k.river(RIVER, { half: 3, deep: false, bed: 1, bank: 9 });
@@ -35,10 +35,8 @@ const def: RegionDef = {
     k.cut([[70, -6], [78, 28], [64, 62], [82, 98], [72, 134], [80, 168]], { h: 1, half: 4, t: 'dirt' });
     k.spot('gully', [74, 124]);
     // wagon town and market on the north bank
-    k.paint('dirt', [124, 150, 12, 8, 0.2], { rough: 2 });
+    k.square([124, 150], 7);
     k.spot('homeCamp', [124, 150]);
-    k.paint('dirt', [104, 140, 6, 4, 0.2], { rough: 1 });
-    k.spot('market', [104, 140]);
     // roads: W across the gully, N over the plain, E along the plateau, S over the ford
     k.road([[-4, 128], [30, 124], [56, 126], [74, 124], [92, 132], [110, 142], [124, 150]], { grade: 3 });
     k.road([[128, -4], [124, 40], [130, 90], [126, 150]]);

@@ -4,10 +4,12 @@ export const SPOTS = {
   "entry_moors": [10.5, 233.3],
   "entry_kimmeria": [502.5, 233.3],
   "entry_omphalos": [256.5, 502.5],
-  "highGround": [258.7, 261],
+  "highGround": [219.6, 285.8],
+  "narrows": [272.7, 360.5],
+  "scarpTop": [238.4, 376.2],
   "market": [291, 220.6],
-  "stone": [414.1, 321.6],
-  "iron": [61.8, 85.1],
+  "iron": [426.3, 426.6],
+  "stone": [236.2, 263.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":294.5,"y":215.5}] as const;
+export const CLAIM_POINTS = [{"x":296.5,"y":222.5}] as const;

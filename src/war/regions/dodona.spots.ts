@@ -9,9 +9,10 @@ export const SPOTS = {
   "ladonNarrows": [256.5, 332.5],
   "ladonNarrowsA": [245.4, 331],
   "ladonNarrowsB": [267.6, 334],
+  "market": [312.5, 336.5],
   "homeCamp": [312.5, 336.5],
-  "market": [344.5, 356.5],
   "westGap": [60.5, 256.5],
+  "ridge": [428.5, 128.5],
   "eastGap": [448.5, 256.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */

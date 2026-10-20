@@ -40,10 +40,8 @@ const def: RegionDef = {
     k.river([[150, -6], [146, 18], [128, 42], [134, 70], [118, 96], [112, 124]], { half: 1.6, deep: false, bed: 1, bank: 2 });
     k.river([[113, 118], [110, 138], [104, 152], [98, 162]], { half: 4.5, bed: 0, bank: 2, narrows: [[[110, 138], 2.5]], name: 'estuary' });
     // town square and harbour (home camp)
-    k.paint('dirt', [122, 160, 11, 8, 0.4], { rough: 2 });
+    k.square([124, 160], 6.5);
     k.spot('homeCamp', [122, 160]);
-    k.paint('dirt', [136, 150, 6, 4, 0.3], { rough: 1 });
-    k.spot('market', [136, 150]);
     // roads: W past the citadel over the old bridge to the town; the citadel ramp; N down the brook; E up the cut; S on the coast
     k.road([[-4, 120], [22, 118], [50, 124], [74, 128], [96, 132], [110, 138], [118, 150], [122, 160]], { bridges: [[110, 138]] });
     k.road([[46, 124], [52, 136], [44, 144], [34, 148]], { fill: true, grade: 2.5 });
@@ -53,6 +51,9 @@ const def: RegionDef = {
     k.spot('eastCut', [190, 132]);
     k.spot('oldBridge', [110, 138]);
     k.spot('marbleKnoll', [208, 56]);
+    k.road([[200, 64], [194, 96], [186, 134]], { grade: 3 });
+    k.spot('olives', [150, 96]);
+    k.spot('fortress', [30, 150]);
     // ground: groves on the terraces, the vineyards, marble on the knoll, holm-oak copses, stone pines on the headland
     k.patch('elaia', 'grove', [150, 96, 34, 20, 0.6]);
     k.patch('elaia', 'grove', [60, 86, 30, 14, 0.1]);
