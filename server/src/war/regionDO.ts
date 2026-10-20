@@ -612,7 +612,7 @@ export class WarRegionDO extends DurableObject<Env> {
 }
 
 /** The war season and the authored region's version a saved room belongs to. */
-const edition = (region: string): string => `${WAR_SEASON.id}:${regionVersion(region)}`;
+export const edition = (region: string): string => `${WAR_SEASON.id}:${regionVersion(region)}`;
 
 const STATE_META = 'state:meta';
 /** Bytes per stored chunk (under the 128 KiB value limit of either storage backend). */
