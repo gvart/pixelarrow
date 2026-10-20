@@ -267,6 +267,9 @@ export class BuildingLayer {
       const x1 = Math.max(...all.map((t) => t[0])) + 1, y1 = Math.max(...all.map((t) => t[1])) + 1;
       const depth = def.wall === 'tower' ? this.D(x0 + 1, y0 + 1) : deep ? this.D(x0 + 1.5, y0 + 1.5) : this.D(b.x + b.w / 2 - 0.5, b.y + b.h / 2 - 0.5);
       for (const [x, y] of all) this.backs.set(key(x, y), { x1, y1, depth });
+      // a crafter at a station inside a workplace (the sim opens only those tiles): on its floor, over its art
+      if (def.workplace && (b.state === 'done' || b.state === 'damaged'))
+        for (const [x, y] of ts) this.decks.set(key(x, y), { kind: 'deck', px: 0, z: this.z(b), depth, b: b.id, ox: x0, oy: y0, dx: 0, dy: 0, n: 0 });
     }
     const setOpen = (x: number, y: number, side: number) => open.set(key(x, y), (open.get(key(x, y)) ?? 0) | side);
     for (const b of live) {
