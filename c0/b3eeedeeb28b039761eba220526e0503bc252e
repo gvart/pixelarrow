@@ -1,0 +1,64 @@
+src/world/campLayout.ts
+  s_cfc22b058125c4::t_f69a1c4a904218 5-9,11,31,446
+src/ui/mapLifeFx.ts
+  s_cfc22b058125c4::t_596a250a268c49 2,10-33
+src/platform/nav.ts
+  s_cfc22b058125c4::t_c8b207b90bc22c 220
+  s_cfc22b058125c4::t_f046f11f37c702 259
+src/game/economy.ts
+  s_cfc22b058125c4::t_c5c319fcb3b552 9
+  s_cfc22b058125c4::t_d35c3a861f8dee 2-4
+src/platform/api.ts
+  s_cfc22b058125c4::t_942bfd6fe2882d 678,684-685
+src/online/deeplink.ts
+  s_cfc22b058125c4::t_f046f11f37c702 10-12,105-106,109-113
+src/ui/settings.ts
+  s_cfc22b058125c4::t_f046f11f37c702 135
+src/online/battle.ts
+  s_cfc22b058125c4::t_88bd8a7b241dbb 76
+src/online/rules.ts
+  s_cfc22b058125c4::t_88bd8a7b241dbb 2-4,6,29
+src/art/campArt.ts
+  s_cfc22b058125c4::t_96b5fe5d0ec377 2-4,11-12
+src/main.ts
+  s_cfc22b058125c4::t_f046f11f37c702 106
+src/i18n/clan.ru.ts
+  s_cfc22b058125c4::t_5e926af37d6b1f 16
+src/scenes/online/ClanScene.ts
+  s_cfc22b058125c4::t_5e926af37d6b1f 109,323,653,705-706
+src/online/client.ts
+  s_cfc22b058125c4::t_35f0c65bd08e8e 2-4,59,71,121,141-142,162
+src/scenes/lazyScenes.ts
+  s_cfc22b058125c4::t_be49d4533658b5 3-4,16
+src/scenes/CampScene.ts
+  s_cfc22b058125c4::t_423aff3d72e605 1233-1235
+  s_cfc22b058125c4::t_6b45bb3f40fc2a 3-4,9-10,25,41,58,86,123,192-194,196-199,204,225,254-255,262,265,288,299,331,361,365,423,502,648-658,661-662,665-666,683,699,735,737,763,774,795,797,806,828,903,921,926-927,930-931,937-938,942-943,962-969,971-984,986,988,1018,1401,1422,1535-1537,1558,1564
+src/ui/mosaic/hub.ts
+  s_cfc22b058125c4::t_be49d4533658b5 19-20
+src/ui/econ/demo.ts
+  s_cfc22b058125c4::t_fa66583f64dda4 7,124
+  s_cfc22b058125c4::t_d35c3a861f8dee 9
+src/scenes/ShopScene.ts
+  s_cfc22b058125c4::t_7ed585e534e35a 24,364,369
+  s_cfc22b058125c4::t_d35c3a861f8dee 9
+src/i18n/clan.en.ts
+  s_cfc22b058125c4::t_5e926af37d6b1f 20
+src/ui/account/gate.ts
+  s_cfc22b058125c4::t_f046f11f37c702 26,28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c0b3eeedeeb28b039761eba220526e0503bc252e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
