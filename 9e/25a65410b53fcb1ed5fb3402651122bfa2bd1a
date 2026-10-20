@@ -1,0 +1,31 @@
+src/war/sim/soldiers.ts
+  s_cfc22b058125c4::t_3489ea7bcee1ce 18-38
+  s_cfc22b058125c4::t_5c454d0b3056ee 2,4-5
+tests/war/squadSize.test.ts
+  s_cfc22b058125c4::t_4b5032e8ce7a52 8-9,56,60-61,63-64,95-102
+src/war/sim/roster.ts
+  s_cfc22b058125c4::t_9bdc0830633da0 3-4,10,68-73,78,92-101
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_57b463fb965ae3 43-44,54,141-146,149-151,220-228,305-311,697,1051-1057,1065,1068-1164,1211,1287,1299,1607,1662,1710,1729-1740
+src/war/types.ts
+  s_cfc22b058125c4::t_57b463fb965ae3 298-306
+tests/war/fall.test.ts
+  s_cfc22b058125c4::t_0b1ab5e76921ce 71-72,138,158
+  s_cfc22b058125c4::t_ae12de9c6e01d1 1-70,73-137,139-157,159-210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9e25a65410b53fcb1ed5fb3402651122bfa2bd1a",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
