@@ -1,0 +1,44 @@
+src/war/net/world.ts
+  s_cfc22b058125c4::t_d6ec5ef529b535 73-95,98
+server/src/war/world/world.ts
+  s_cfc22b058125c4::t_65fbcb3a2e6ce4 15-18,23,25,44-55,57,61,83-90,99-100,104-144,153,155-157,174-175,247,265,269-281,283
+  s_cfc22b058125c4::t_a7b04439f94f5a 243-246
+  s_cfc22b058125c4::t_e86e95b26636d4 248,282
+src/war/world/types.ts
+  s_cfc22b058125c4::t_079191221f58be 67-68
+server/src/war/world/routes.ts
+  s_cfc22b058125c4::t_d1bfde019fc131 9,49-52
+  s_cfc22b058125c4::t_8becb45a85da5d 53
+server/src/war/world/worldDO.ts
+  s_cfc22b058125c4::t_accadf2963d7af 12-14,21,46,68,71,89-91,95-112,128-130,132
+src/war/world/index.ts
+  s_cfc22b058125c4::t_079191221f58be 5
+src/war/world/season.ts
+  s_cfc22b058125c4::t_5ec74e53873e97 1-55
+src/war/world/alliances.ts
+  s_cfc22b058125c4::t_079191221f58be 12
+src/war/world-view/source.ts
+  s_cfc22b058125c4::t_d1bfde019fc131 97
+  s_cfc22b058125c4::t_418455e2f50873 15,18,218-224
+server/test/war/world.test.ts
+  s_cfc22b058125c4::t_979f04156d6e3d 192
+  s_cfc22b058125c4::t_18aa3564dcabeb 15-16,127-191,193
+  s_cfc22b058125c4::t_e7e049ad064271 106
+  s_cfc22b058125c4::t_d220fabc13cd2c 194-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2f43d25009e990d17bb00470eeb9875652355aed",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
