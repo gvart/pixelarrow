@@ -6,7 +6,7 @@ export const SPOTS = {
   "entry_kleisoura": [502.5, 256.5],
   "entry_moors": [256.5, 502.5],
   "narrows": [399.1, 265.1],
-  "ledge": [400.5, 276.6],
+  "ledge": [398.1, 257.6],
   "market": [295.2, 280.1],
   "iron": [240.4, 347.5],
   "stone": [210.4, 138.6],
