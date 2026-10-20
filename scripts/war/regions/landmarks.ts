@@ -46,9 +46,9 @@ function flat(s: Site, x: number, y: number, w: number, h: number, lv?: number) 
   for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (!s.dry(i, j) || s.hAt(i, j) !== h0) return false;
   return true;
 }
-/** A yard (dirt, kept clear) on site tiles x0..x1, y0..y1; its centre as a unit point. */
-function yard(s: Site, x0: number, y0: number, x1: number, y1: number): Pt {
-  s.pave(x0, y0, x1, y1, 'dirt');
+/** A yard (kept clear) on site tiles x0..x1, y0..y1; its centre as a unit point. */
+function yard(s: Site, x0: number, y0: number, x1: number, y1: number, t?: string): Pt {
+  if (t) s.pave(x0, y0, x1, y1, t);
   s.keep(x0, y0, x1, y1);
   return s.u((x0 + x1) / 2, (y0 + y1) / 2);
 }
@@ -102,7 +102,7 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   s.ring(CIT, 56, 14, 148, 90, { gates: [['S', 0.5], ['W', 0.6]], every: 24, seed: 12 });
   s.ring(CIT, 84, 22, 120, 52, { gates: [['S', 0.5]], every: 40, seed: 13 });
   const gS = O.find((g) => g.side === 'S')!, gx = Math.round(gS.at[0]);
-  // P2: Drakon takes the roofs over the main gate (the gatehouse and the south curtain's nearest towers), then the keep's
+  // P2: Drakon takes the roofs of the south curtain's towers either side of the main gate, then the keep's
   const south = s.pieces.filter((p) => p.id === CIT.tower && p.y === s.y0 + 134).map((p): Pt => [p.x - s.x0 + 1.5, 135.5]).sort((a, b) => Math.abs(a[0] - gx) - Math.abs(b[0] - gx));
   s.guardians[0].perches = [[gx, 135.5], ...south.slice(0, 4), [102, 33]];
   s.force('arch-barbican-x', gx - 3, 137);
@@ -110,7 +110,7 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   s.put('citadel-keep', 99, 30);
   s.put('arch-cistern', 88, 26); s.put('arch-treasury', 112, 26);
   // the inner ward: the commander's halls, the chapel, stores; the yard south of the donjon kept clear
-  yard(s, 86, 56, 118, 86);
+  yard(s, 86, 56, 118, 86, 'dirt');
   for (const [x, y] of [[60, 20], [60, 30], [136, 20], [136, 30]]) s.put('arch-barracks', x, y);
   s.put('arch-chapel', 126, 56); s.put('arch-cistern', 62, 56);
   for (const [x, y] of [[62, 66], [62, 74], [134, 66], [134, 74]]) s.put('@town-storehouse', x, y);
@@ -118,14 +118,14 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   // the outer ward: barracks west, the bone pit and its yard, stables and forges east, the south yard (Drakon's P1)
   for (let n = 0; n < 5; n++) s.put('arch-barracks', 14, 12 + n * 8);
   s.put('citadel-bone-pit', 22, 64);
-  yard(s, 14, 56, 40, 84);
+  yard(s, 14, 56, 40, 84, 'dirt');
   for (const [x, y] of [[14, 92], [24, 92], [14, 104], [24, 104]]) s.put('@town-storehouse', x, y);
   s.put('arch-cistern', 40, 116); s.put('arch-workshop', 14, 118); s.put('arch-workshop', 24, 118);
   for (let n = 0; n < 5; n++) s.put('arch-stables', 160, 12 + n * 7);
   s.put('arch-forge', 160, 52); s.put('arch-forge', 170, 52); s.put('arch-workshop', 160, 60); s.put('arch-workshop', 170, 60);
   s.put('arch-cistern', 160, 100); s.put('@town-storehouse', 170, 100); s.put('@town-storehouse', 170, 108);
   s.put('arch-chapel', 64, 100); s.put('arch-cistern', 132, 104);
-  yard(s, 80, 96, 124, 130);
+  yard(s, 80, 96, 124, 130, 'dirt');
   // the ward's lean-tos and sheds along the curtain, the inner ward's offices
   scatter(s, ['arch-workshop', '@town-storehouse', 'arch-barracks', 'arch-stables', '@town-cookhouse'], 12, 10, 188, 133, 34, 14, { hp: 0.6 });
   scatter(s, ['@town-storehouse', 'arch-workshop', '@town-cookhouse'], 60, 18, 144, 86, 10, 15, { hp: 0.6 });
@@ -271,6 +271,11 @@ export function templeCity(k: Kit, at: Pt, hm: number): Landmark {
   const pil: District = { ids: [['arch-house-a', 3], ['arch-house-b', 2], ['arch-tenement', 2], ['@town-cottage', 1], ['arch-workshop', 1]], ruin: 0.8, hp: [0.3, 0.6], empty: 0.4 };
   const qb = [...s.grid(140, 226, 194, 300, { bw: 16, bh: 10 }), ...s.grid(208, 226, 280, 300, { bw: 16, bh: 10 })];
   quarters(s, qb.filter((b) => flat(s, b[0], b[1], b[2] - b[0], b[3] - b[1], hm)), [], () => pil, 63);
+  // the outer quarters: inns and houses of the festival crowds west of the agora, the priests' town north of the
+  // lake and east of the north way, the craftsmen (votive workshops) by the east way; fewer standing the further out
+  const outer: District = { ...pil, ruin: 0.85, empty: 0.5, ids: [...pil.ids, ['arch-workshop', 2], ['@town-storehouse', 1]] };
+  const ob = [...s.grid(14, 176, 120, 300, { bw: 16, bh: 10 }), ...s.grid(30, 12, 160, 64, { bw: 16, bh: 10 }), ...s.grid(176, 12, 200, 160, { bw: 10, bh: 10 }), ...s.grid(214, 176, 286, 222, { bw: 16, bh: 10 })];
+  quarters(s, ob.filter((b) => flat(s, b[0], b[1], b[2] - b[0], b[3] - b[1], hm)), [[284, 166, 304, 188]], () => outer, 67);
   scatter(s, ['arch-cistern'], 150, 70, 170, 150, 3, 65, { h: hm });
   capHomes(s, 10, 200, 200);
   return { site: s, host: [], gates: [], spots: { templeSquare: s.u(200, 200), market: s.u(200, 200), labyrinth: s.u(308, 100), arena: s.u(295, 175), precinct: s.u(248, 108) } };
@@ -418,6 +423,7 @@ export function cyclopsGate(k: Kit, at: Pt, h: number): Landmark {
  */
 export function oracleGrove(k: Kit, at: Pt, hb: number): Landmark {
   const s = k.site('oracle', at, [150, 124], { claim: [74, 66], guardians: [{ boss: 'grove_queen', at: [74, 56] }] });
+  s.wild = true; // the sacred grove keeps its oaks
   s.level(16, 6, 134, 104, hb);
   const G = s.ring(ARCH, 20, 8, 130, 100, { gates: [['W', 0.5], ['S', 0.5], ['E', 0.35]], every: 30, breach: 0.25, seed: 121 });
   s.pave(73, 60, 77, 97); s.keep(73, 60, 77, 97);
@@ -469,6 +475,7 @@ export function titanForge(k: Kit, at: Pt): Landmark {
   const men: District = { ids: [['arch-house-a', 3], ['@town-cottage', 2], ['arch-workshop', 2], ['titan-furnace', 1], ['@town-storehouse', 1]], ruin: 0.55, hp: [0.4, 0.6], empty: 0.2 };
   quarters(s, s.grid(46, 78, 92, 116, { bw: 12, bh: 9 }), [[52, 62, 66, 76]], () => men, 143);
   scatter(s, ['titan-furnace', 'arch-workshop', '@town-storehouse', 'titan-hall'], 18, 6, 92, 76, 16, 144, { hp: 0.6 });
+  capHomes(s, 4, 60, 60);
   return { site: s, host: [], gates: [], spots: { anvil: s.u(27, 25), works: s.u(60, 60) } };
 }
 
@@ -492,5 +499,6 @@ export function obsidianHold(k: Kit, at: Pt, hm: number): Landmark {
   s.put('arch-barracks', 12, 50); s.put('arch-barracks', 12, 58); s.put('arch-forge', 40, 22);
   yard(s, 44, 40, 76, 70);
   scatter(s, ['@town-storehouse', 'arch-workshop', 'obsidian-hall', 'arch-tenement', 'arch-cistern'], 10, 10, 110, 82, 24, 162, { hp: 0.6, margin: 1 });
+  capHomes(s, 4, 60, 50);
   return { site: s, host: [], gates: G.map((g) => out(s, g, 8)), spots: { hold: s.u(60, 50) } };
 }

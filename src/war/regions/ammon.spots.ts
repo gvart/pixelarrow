@@ -15,4 +15,4 @@ export const SPOTS = {
   "salt": [81.6, 319.8],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":69.5,"y":445.5},{"x":301.5,"y":321.5}] as const;
+export const CLAIM_POINTS = [{"x":69.5,"y":445.5},{"x":303.5,"y":329.5}] as const;

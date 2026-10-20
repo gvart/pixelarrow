@@ -632,6 +632,8 @@ export type Side4 = 'N' | 'E' | 'S' | 'W';
 export class Site {
   readonly pieces: SitePiece[] = [];
   readonly extraNodes: [string, number, number][];
+  /** Keep the wild trees and bushes on its ground (a sacred grove). */
+  wild = false;
   private occ = new Set<number>();
   private kept = new Set<number>();
   readonly k: Kit; readonly id: string; readonly x0: number; readonly y0: number; readonly w: number; readonly h: number; readonly town: number; readonly guardians: LGuard[];
@@ -1212,6 +1214,7 @@ export function build(def: RegionDef): Built {
   for (const L of k.sites) {
     const { x0, y0 } = L;
     let n = 0, ruins = 0, skipped = 0;
+    if (!L.wild) clear(x0, y0, x0 + L.w, y0 + L.h); // a lived-in place: no wild trees in its streets and wards
     const place = (type: BuildingType, px: number, py: number, fw: number, fh: number, p: SitePiece, art?: string, maxHp?: number) => {
       const tiles: number[] = [];
       for (let y = py; y < py + fh; y++) for (let x = px; x < px + fw; x++) {

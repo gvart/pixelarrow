@@ -29,15 +29,15 @@ const W = region.w, open = (x, y) => { const i = y * W + x; return region.water[
 const busy = new Set();
 for (const e of region.prebuilt ?? []) for (let n = 0; n < (e.tiles ?? []).length; n += 2) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) busy.add((e.tiles[n + 1] + dy) * W + e.tiles[n] + dx);
 const cand = [];
-for (let y = 4; y < region.h - 4; y += 3) for (let x = 4; x < W - 4; x += 3) if (Math.hypot(x - cp.x, y - cp.y) < 150 && open(x, y) && !busy.has(y * W + x)) cand.push([x, y, Math.hypot(x - cp.x, y - cp.y)]);
+for (let y = 4; y < region.h - 4; y += 3) for (let x = 4; x < W - 4; x += 3) if (Math.hypot(x - cp.x, y - cp.y) < 240 && open(x, y) && !busy.has(y * W + x)) cand.push([x, y, Math.hypot(x - cp.x, y - cp.y)]);
 cand.sort((a, b) => a[2] - b[2]);
 const ring = [];
-for (const c of cand) if (ring.length < 50 && ring.every((r) => Math.hypot(r[0] - c[0], r[1] - c[1]) > 9)) ring.push(c);
+for (const c of cand) if (ring.length < 50 && ring.every((r) => Math.hypot(r[0] - c[0], r[1] - c[1]) > 7)) ring.push(c);
 {
   const war = sim.createSim(region, 1), ms = [];
-  ring.forEach(([x, y], k) => { const s = war.spawnSquad(`p${k}`, k % 2, 'militia', 12, x, y); war.order({ kind: 'move', squad: s, x: 2 * cp.x - x, y: 2 * cp.y - y }); });
+  ring.forEach(([x, y], k) => { const s = war.spawnSquad(`p${k}`, 0, 'militia', 12, x, y); war.order({ kind: 'move', squad: s, x: 2 * cp.x - x, y: 2 * cp.y - y }); });
   for (let t = 0; t < ticks; t++) war.step(), ms.push(war.stats().stepMs);
-  console.log(`march across the city: units ${war.stats().units}: ${summary(ms)}`);
+  console.log(`march across the city: squads ${ring.length}, units ${war.stats().units}: ${summary(ms)}`);
 }
 {
   const war = sim.createSim(region, 2), ai = bots.createBots(war), ms = [];
