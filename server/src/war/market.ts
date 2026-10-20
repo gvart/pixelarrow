@@ -16,8 +16,7 @@
  *  - Board: per good the best ask, best bid, depth each side and the last 10 fills, from player offers only.
  */
 import { heldNodes } from '../../../src/data/professions';
-import { CARRY } from '../../../src/war/sim/economy';
-import { ITEMS_PER_LOAD } from '../../../src/war/sim/holders';
+import { ITEMS_PER_LOAD, perLoad } from '../../../src/war/sim/holders';
 import { ALLIANCES } from '../../../src/war/world/alliances';
 import { FRONTIER_TOWNS, OMPHALOS } from '../../../src/war/world/season';
 import { ApiError } from '../errors';
@@ -118,7 +117,7 @@ export async function site(db: D1Database, pid: number, town: string, kind: Site
 export async function loadsIn(db: D1Database, holder: string): Promise<number> {
   const g = totalsOf(await lotsOf(db, holder));
   const items = (await db.prepare('SELECT COUNT(*) AS n FROM war_items WHERE place = ?1').bind(holder).first<{ n: number }>())?.n ?? 0;
-  return Object.values(g).reduce((a, n) => a + n, 0) / CARRY + items / ITEMS_PER_LOAD;
+  return Object.entries(g).reduce((a, [r, n]) => a + n / perLoad(r), 0) + items / ITEMS_PER_LOAD;
 }
 
 /** Upgrade the player's stall in town to the next level (STALL.upgrade, paid from the stall). */
@@ -229,7 +228,7 @@ export async function fill(db: D1Database, pid: number, id: number, n: number, k
     throw e;
   });
   const goods: Record<string, number> = o.res ? { [o.res]: n } : {};
-  if (o.res && (await loadsIn(db, into)) + n / CARRY > SITE.loads + EPS && !into.startsWith('sr:')) throw new ApiError(409, 'warehouse_full', `A warehouse holds ${SITE.loads} loads`);
+  if (o.res && (await loadsIn(db, into)) + n / perLoad(o.res) > SITE.loads + EPS && !into.startsWith('sr:')) throw new ApiError(409, 'warehouse_full', `A warehouse holds ${SITE.loads} loads`);
   const stmts: D1PreparedStatement[] = [];
   let moved: GoodLot[] = [];
   if (o.side === 'sell') {

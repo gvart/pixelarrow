@@ -111,6 +111,9 @@ export const DELETION_MAP: Record<string, TableRule> = {
   clans: { rule: 'shared_history', kept: ['created_by'] },
   war_boss_kills: { rule: 'shared_history', kept: ['player_id'] },
   war_fills: { rule: 'shared_history', kept: ['seller', 'buyer'] },
+  war_deals: { rule: 'shared_history', kept: ['broker', 'player_a', 'player_b'] },
+  war_contracts: { rule: 'shared_history', kept: ['poster', 'taker'] },
+  war_letters: { rule: 'shared_history', kept: ['banker', 'buyer'] },
 
   players: { rule: 'tombstone' },
 

@@ -16,6 +16,9 @@
  *                    M6: load / unload / escort / salvagePile for his own squads (holders checked by the room)
  *   client -> stow   { t, dir, site, squad|cart, goods?, uids? }  M6f: goods between his packs or cart and his stall,
  *                    warehouse (in a market court) or home strongroom (at home) -> stowed | error
+ *                    site `contract` (+ contract id): a carry's sealed loads out at A, a carry or supply delivered at B
+ *   client -> handoff { t, op, with, squad|cart, goods?, uids? }  M6g: the hand-off window with another player here
+ *                    (offer my half, confirm, cancel) -> handoff to both
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
@@ -148,15 +151,21 @@ const baseMsgSchema = z.discriminatedUnion('t', [
   // M6f: goods and items between the player's squad packs (or his cart) and his site here: his stall or warehouse in
   // a market town's court, his home strongroom at home; `in` from the field into the site, `out` back
   z.object({
-    t: z.literal('stow'), dir: z.enum(['in', 'out']), site: z.enum(['stall', 'warehouse', 'strongroom']), squad: id.optional(), cart: id.optional(),
-    goods: z.record(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
-  }).refine((o) => (o.squad === undefined) !== (o.cart === undefined), 'squad or cart'),
+    t: z.literal('stow'), dir: z.enum(['in', 'out']), site: z.enum(['stall', 'warehouse', 'strongroom', 'contract']), squad: id.optional(), cart: id.optional(),
+    goods: z.record(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(), contract: id.optional(),
+  }).refine((o) => (o.squad === undefined) !== (o.cart === undefined), 'squad or cart').refine((o) => (o.site === 'contract') === (o.contract !== undefined), 'a contract site names its contract'),
+  // M6g: the hand-off window with player `with` (both here, carriers within 4 tiles): offer (or change) my half, confirm, cancel
+  z.object({
+    t: z.literal('handoff'), op: z.enum(['offer', 'confirm', 'cancel']), with: z.number().int().positive(),
+    squad: id.optional(), cart: id.optional(), goods: z.record(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
+  }).refine((o) => o.op !== 'offer' || (o.squad === undefined) !== (o.cart === undefined), 'an offer names its squad or cart'),
 ]);
 export const clientMsgSchema = z.union([baseMsgSchema, checkSchema]);
 export type ClientMsg = z.infer<typeof baseMsgSchema> | CheckMsg;
 export type JoinMsg = Extract<ClientMsg, { t: 'join' }>;
 export type MendMsg = Extract<ClientMsg, { t: 'mend' }>;
 export type StowMsg = Extract<ClientMsg, { t: 'stow' }>;
+export type HandoffMsg = Extract<ClientMsg, { t: 'handoff' }>;
 
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
@@ -171,7 +180,9 @@ export type ServerMsg =
   | { t: 'pong'; c: number; tick: number }
   | { t: 'checked'; id: number; result: PlaceResult | WallPlan | BridgePlan | null }
   /** M6f: a stow went through: what moved (goods by good, item count) and what did not fit (left where it was). */
-  | { t: 'stowed'; dir: 'in' | 'out'; site: string; goods: Record<string, number>; items: number; left?: Record<string, number> };
+  | { t: 'stowed'; dir: 'in' | 'out'; site: string; goods: Record<string, number>; items: number; left?: Record<string, number> }
+  /** M6g: the hand-off window with `with`: open (halves by player, who confirmed, until tick), done, or closed (`why`). */
+  | { t: 'handoff'; with: number; state: 'open' | 'done' | 'closed'; halves?: Record<number, { goods: Record<string, number>; uids: string[] }>; ok?: number[]; until?: number; why?: string };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }

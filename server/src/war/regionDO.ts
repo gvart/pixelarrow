@@ -31,7 +31,10 @@ import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { warRegion } from './regions';
-import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
+import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
+import { cartArrived, contract, deliver, sealedFor } from './contracts';
+import { handoffDone, handoffRefusal } from './abuse';
+import { loads } from '../../../src/war/sim/holders';
 import { ApiError } from '../errors';
 import { batch, guard, lotsOf, placeItemStmt, planTake, putStmt, strongroom } from './holders';
 import { loadsIn, SITE, site } from './market';
@@ -162,6 +165,7 @@ export class WarRegionDO extends DurableObject<Env> {
       else if (m.t === 'check') send(ws, room.check(me.pid, m));
       else if (m.t === 'mend') await this.mend(ws, me.pid, room, m);
       else if (m.t === 'stow') await this.stow(ws, me.pid, room, m);
+      else if (m.t === 'handoff') await this.handoff(ws, me.pid, room, m);
     } catch (e) {
       logError('war_message_failed', e);
     }
@@ -226,9 +230,11 @@ export class WarRegionDO extends DurableObject<Env> {
       if (!(e instanceof ApiError)) throw e;
       send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
     };
+    if (m.site === 'contract') return this.stowContract(ws, pid, room, m, from);
+    const kind = m.site;
     let id: string;
     try {
-      if (m.site === 'strongroom') {
+      if (kind === 'strongroom') {
         if (isWorldRegion(region)) {
           const a = await allianceOf(d, pid);
           if (a === null || homeOf(a) !== region) throw new ApiError(409, 'not_home', 'Your strongroom is at home');
@@ -236,12 +242,14 @@ export class WarRegionDO extends DurableObject<Env> {
         id = strongroom(pid);
       } else {
         if (!room.inCourt(pid, from)) throw new ApiError(409, 'not_in_court', 'Bring them into the market court');
-        id = (await site(d, pid, region, m.site, await holderOf(this.env, region), now)).id;
+        id = (await site(d, pid, region, kind, await holderOf(this.env, region), now)).id;
       }
     } catch (e) {
       return fail(e);
     }
     const goods = m.goods ?? {}, uids = m.uids ?? [];
+    // M6g: an escort's cart arriving: its loads before anything leaves it
+    const cartLoads = from.cart !== undefined && m.dir === 'in' ? room.carrier(pid, from)!.slots.reduce((a, s) => a + loads(s.hold), 0) : 0;
     if (m.dir === 'in') {
       const b = room.takeCargo(pid, from, goods, uids);
       if (!b) return send(ws, { t: 'error', code: 'badTarget', detail: 'they do not carry that' });
@@ -253,6 +261,7 @@ export class WarRegionDO extends DurableObject<Env> {
         return fail(e);
       }
       send(ws, { t: 'stowed', dir: 'in', site: id, goods: bundleGoods(b), items: b.items.length });
+      if (cartLoads > 0) this.write('escort', () => cartArrived(d, pid, region, cartLoads, Date.now()));
     } else {
       let b: Bundle;
       try {
@@ -275,6 +284,71 @@ export class WarRegionDO extends DurableObject<Env> {
         this.write('stow back', () => d.batch([...rest.lots.map((l) => putStmt(d, id, l.r, l.n, l.o, l.s ?? 0)), ...rest.items.map((it) => placeItemStmt(d, pid, id, it, now))]));
       send(ws, { t: 'stowed', dir: 'out', site: id, goods: bundleGoods(b), items: b.items.length - rest.items.length, ...(rest.lots.length ? { left: bundleGoods(rest) } : {}) });
     }
+    this.save();
+  }
+
+  /** M6g: a carry's sealed loads out of escrow into the carrier's packs at A; a carry (sealed) or supply delivered at B. */
+  private async stowContract(ws: WebSocket, pid: number, room: WarRoom, m: StowMsg, from: { squad?: number; cart?: number }): Promise<void> {
+    const d = this.env.DB!, region = room.region.id, id = m.contract!, now = Date.now();
+    const fail = (e: unknown) => {
+      if (!(e instanceof ApiError)) throw e;
+      send(ws, { t: 'error', code: 'badTarget', detail: `${e.code}: ${e.message}` });
+    };
+    if (!room.inCourt(pid, from)) return send(ws, { t: 'error', code: 'badTarget', detail: 'not_in_court: Bring them into the market court' });
+    if (m.dir === 'out') {
+      try {
+        const s = await sealedFor(d, pid, id, region, now);
+        await batch(d, s.stmts);
+        const rest = room.giveCargo(pid, from, { lots: s.lots.map((l) => ({ r: l.res as never, n: l.amount, o: l.origin, s: id })), items: [] });
+        if (rest.lots.length) this.write('seal back', () => d.batch(rest.lots.map((l) => putStmt(d, `ct:${id}:g`, l.r, l.n, l.o, id))));
+        send(ws, { t: 'stowed', dir: 'out', site: `ct:${id}`, goods: bundleGoods({ lots: s.lots.map((l) => ({ r: l.res as never, n: l.amount, o: l.origin })), items: [] }), items: 0, ...(rest.lots.length ? { left: bundleGoods(rest) } : {}) });
+      } catch (e) {
+        return fail(e);
+      }
+    } else {
+      let c;
+      try {
+        c = await contract(d, id);
+      } catch (e) {
+        return fail(e);
+      }
+      const want = m.goods ?? (c.res ? { [c.res]: Math.max(0, c.n - c.delivered) } : {});
+      const b = room.takeCargo(pid, from, want, [], c.kind === 'carry' ? id : undefined);
+      if (!b) return send(ws, { t: 'error', code: 'badTarget', detail: 'they do not carry that' });
+      try {
+        const r = await deliver(d, pid, id, region, b.lots.map((l) => ({ res: l.r, origin: l.o, seal: 0, amount: l.n })), now);
+        if (r.refused) throw new ApiError(409, 'refused', r.refused);
+        await batch(d, r.stmts);
+        send(ws, { t: 'stowed', dir: 'in', site: `ct:${id}`, goods: bundleGoods(b), items: 0 });
+      } catch (e) {
+        room.giveCargo(pid, from, b);
+        return fail(e);
+      }
+    }
+    this.save();
+  }
+
+  /** M6g: the hand-off window (WarRoom.handoff); both confirmed: the M6i checks, then the swap at once. */
+  private async handoff(ws: WebSocket, pid: number, room: WarRoom, m: HandoffMsg): Promise<void> {
+    const half = m.op === 'offer' ? { from: m.squad !== undefined ? { squad: m.squad } : { cart: m.cart! }, goods: m.goods ?? {}, uids: m.uids ?? [] } : undefined;
+    const r = room.handoff(pid, m.with, m.op, half);
+    if ('error' in r) return send(ws, { t: 'error', code: r.error, detail: `handoff: ${r.detail}` });
+    const tell = (msg: (other: number) => ServerMsg) => {
+      for (const p of [r.window.a, r.window.b]) for (const s of this.ctx.getWebSockets(`p:${p}`)) send(s, msg(p === r.window.a ? r.window.b : r.window.a));
+    };
+    if (m.op === 'cancel') return tell((w) => ({ t: 'handoff', with: w, state: 'closed', why: 'cancelled' }));
+    const halves = Object.fromEntries(Object.entries(r.window.halves).map(([k, h]) => [k, { goods: h.goods, uids: h.uids }]));
+    if (!r.ready) return tell((w) => ({ t: 'handoff', with: w, state: 'open', halves, ok: r.window.ok, until: r.window.until }));
+    const d = this.env.DB;
+    const why = d ? await handoffRefusal(d, r.window, Date.now()) : null;
+    if (why) {
+      room.handoff(pid, m.with, 'cancel');
+      return tell((w) => ({ t: 'handoff', with: w, state: 'closed', why }));
+    }
+    const s = room.swapHandoff(r.window.a, r.window.b);
+    if ('error' in s) return tell((w) => ({ t: 'handoff', with: w, state: 'closed', why: s.error }));
+    if (d) this.write('handoff', () => handoffDone(d, r.window, s.gave, Date.now()));
+    tell((w) => ({ t: 'handoff', with: w, state: 'done', halves }));
     this.save();
   }
 

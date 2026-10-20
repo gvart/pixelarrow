@@ -62,9 +62,9 @@ import { fallShare, FORAGE, HUNT, REMEDY, VENOM } from './civilians';
 import { mobKindOf, MOBS } from './mobs';
 import { decodeGraph, encodeGraph, externals, STATE_VERSION, type SimState } from './state';
 import { CART_ARMOR, isCartType, SIEGE } from './siege';
-import { CARRY as CARRY_N, CHEST } from './economy';
+import { CHEST } from './economy';
 import { CART_FORD, CART_UPHILL } from './grid';
-import { itemList, loads, move as moveHold, newHold, totals, type Hold, type Lot } from './holders';
+import { itemList, loads, move as moveHold, newHold, perLoad, totals, type Hold, type Lot } from './holders';
 import { CART, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
 import { CRAFT, itemRecipe } from './crafting';
 import type { HolderRef } from '../types';
@@ -1541,11 +1541,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         let n = 0;
         for (const u of s.units) if (u.alive && (u.x - e.x) ** 2 + (u.y - e.y) ** 2 <= 9) n++;
         const room = load ? siege.cartCap(c) - loads(e.hold!) : h.cap - loads(h.hold);
-        const amt = Math.min(Math.max(1, n) * PORTER.loads, room, x.n / CARRY_N);
+        const amt = Math.min(Math.max(1, n) * PORTER.loads, room, x.n / perLoad(x.res));
         let moved = 0;
         if (load) for (const src of takeHolds(s, h)) moved += moveHold(src, e.hold!, amt - moved, x.res, pile ? 1 : Infinity);
         else moved = moveHold(e.hold!, h.hold, amt, x.res, Infinity, true);
-        x.n -= moved * CARRY_N;
+        x.n -= moved * perLoad(x.res);
         if (moved <= 1e-9) end();
         continue;
       }
@@ -1558,7 +1558,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         }
         const pack = (u.pack ??= newHold());
         if (load) {
-          const amt = Math.min(PORTER.loads - loads(pack), x.n / CARRY_N);
+          const amt = Math.min(PORTER.loads - loads(pack), x.n / perLoad(x.res));
           let m = 0;
           const was = pack.items.length;
           for (const src of takeHolds(s, h)) m += moveHold(src, pack, amt - m, x.res, pile ? 1 : Infinity);
@@ -1567,7 +1567,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             for (const it of pack.items.slice(was)) got.push({ ...it });
             note({ t: tick, kind: 'pickup', drop: h.id, team: s.team, items: pack.items.length - was });
           }
-          x.n -= m * CARRY_N;
+          x.n -= m * perLoad(x.res);
           moved += m;
         } else moved += moveHold(pack, h.hold, Math.min(loads(pack), h.cap - loads(h.hold)), x.res, Infinity, true);
       }

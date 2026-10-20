@@ -45,7 +45,15 @@ import { CHOKEPOINTS } from '../../../src/war/world/season';
 import { worldRegion } from '../../../src/war/world/graph';
 import { bossItems } from './bosses';
 import { craftKey } from './crafting';
-import { contents, fill, room as freeLoads, takeOut, type Bundle } from './cargo';
+import { bundleGoods, contents, fill, room as freeLoads, takeOut, type Bundle } from './cargo';
+
+/** What of bundle b went across (b less the rest r): goods and uids to take back. */
+function subtract(b: Bundle, r: Bundle): { goods: Record<string, number>; uids: string[] } {
+  const g = bundleGoods(b), rest = bundleGoods(r);
+  for (const k of Object.keys(rest)) g[k] -= rest[k];
+  const left = new Set(r.items.map((i) => i.uid));
+  return { goods: Object.fromEntries(Object.entries(g).filter(([, n]) => n > 1e-9)), uids: b.items.filter((i) => !left.has(i.uid)).map((i) => i.uid) };
+}
 import { inRects } from '../../../src/war/sim/trade';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
@@ -57,6 +65,12 @@ export const CORPSE_TICKS = 300;
 export const FIGHT_QUIET = 100;
 
 export const ownerOf = (pid: number) => `p:${pid}`;
+
+/** M6g hand-off window: both carriers within `reach` tiles, both confirm within `ticks` (60 s). */
+export const HANDOFF = { reach: 4, ticks: 600 };
+export interface Carrier { squad?: number; cart?: number }
+export interface Half { from: Carrier; goods: Record<string, number>; uids: string[] }
+export interface HandoffWindow { a: number; b: number; halves: Record<number, Half>; ok: number[]; until: number }
 
 /** One squad to spawn: persons (M5e), or `count` fresh men of `cls` (dev joins, restored class squads). */
 export interface Group { cls: string; count: number; persons?: WarPerson[] }
@@ -584,6 +598,76 @@ export class WarRoom {
   giveCargo(pid: number, to: { squad?: number; cart?: number }, b: Bundle): Bundle {
     const at = this.carrier(pid, to);
     return at ? fill(at.slots, b) : b;
+  }
+
+  private handoffs = new Map<string, HandoffWindow>();
+  private static hkey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
+
+  /** The two carriers stand within HANDOFF.reach tiles of each other (any man of a squad, or the cart). */
+  private near(a: number, ca: Carrier, b: number, cb: Carrier): boolean {
+    const x = this.carrier(a, ca), y = this.carrier(b, cb), r2 = HANDOFF.reach ** 2;
+    return !!x && !!y && x.slots.some((s) => y.slots.some((t) => (s.x - t.x) ** 2 + (s.y - t.y) ** 2 <= r2));
+  }
+
+  /**
+   * M6g hand-off: `offer` sets (or changes, which clears both confirms) the player's half of the window with `other`
+   * (a half may give nothing, but names the carrier that receives); `confirm` marks his consent; `cancel` closes it.
+   * The window lasts HANDOFF.ticks and needs both carriers near. Returns the window (ready: both confirmed) or an error.
+   */
+  handoff(pid: number, other: number, op: 'offer' | 'confirm' | 'cancel', half?: Half): { window: HandoffWindow; ready: boolean } | { error: OrderError; detail: string } {
+    const p = this.players.get(pid), q = this.players.get(other);
+    if (!p?.online || !q || pid === other) return { error: 'notJoined', detail: 'both must be here' };
+    const k = WarRoom.hkey(pid, other);
+    let w = this.handoffs.get(k);
+    if (w && this.currentTick > w.until) this.handoffs.delete(k), (w = undefined);
+    if (op === 'cancel') {
+      if (w) this.handoffs.delete(k);
+      return w ? { window: w, ready: false } : { error: 'bad', detail: 'no window' };
+    }
+    if (op === 'offer') {
+      if (!half || !this.carrier(pid, half.from)) return { error: 'notOwner', detail: 'not your carrier' };
+      if (!w) this.handoffs.set(k, (w = { a: Math.min(pid, other), b: Math.max(pid, other), halves: {}, ok: [], until: this.currentTick + HANDOFF.ticks }));
+      w.halves[pid] = { from: half.from, goods: { ...half.goods }, uids: [...half.uids] };
+      w.ok = [];
+    } else {
+      if (!w || !w.halves[pid] || !w.halves[other]) return { error: 'bad', detail: 'both halves first' };
+      if (!w.ok.includes(pid)) w.ok.push(pid);
+    }
+    const ha = w.halves[w.a], hb = w.halves[w.b];
+    if (ha && hb && !this.near(w.a, ha.from, w.b, hb.from)) return { error: 'badTarget', detail: `stand within ${HANDOFF.reach} tiles` };
+    return { window: w, ready: w.ok.length === 2 };
+  }
+
+  /**
+   * Swap a ready window at once: both halves out of their carriers (all or nothing), each into the other's carrier;
+   * nothing in flight. Refused (nothing moves) when either walked off, lacks his half or the other has no room.
+   */
+  swapHandoff(a: number, b: number): { ok: true; gave: Record<number, Bundle> } | { error: string } {
+    const k = WarRoom.hkey(a, b), w = this.handoffs.get(k);
+    this.handoffs.delete(k);
+    if (!w || w.ok.length !== 2 || this.currentTick > w.until) return { error: 'expired' };
+    const ha = w.halves[w.a], hb = w.halves[w.b];
+    if (!this.near(w.a, ha.from, w.b, hb.from)) return { error: 'walked off' };
+    const xa = this.carrier(w.a, ha.from)!, xb = this.carrier(w.b, hb.from)!;
+    const ba = takeOut(xa.slots, ha.goods, ha.uids);
+    if (!ba) return { error: 'lacks his half' };
+    const bb = takeOut(xb.slots, hb.goods, hb.uids);
+    if (!bb) return fill(xa.slots, ba), { error: 'lacks his half' };
+    const ra = fill(xb.slots, ba), rb = fill(xa.slots, bb);
+    if (ra.lots.length || ra.items.length || rb.lots.length || rb.items.length) {
+      // no room: undo (each side takes back what crossed and gets his own half again)
+      takeOut(xb.slots, subtract(ba, ra).goods, subtract(ba, ra).uids);
+      takeOut(xa.slots, subtract(bb, rb).goods, subtract(bb, rb).uids);
+      fill(xa.slots, ba), fill(xb.slots, bb);
+      return { error: 'no room' };
+    }
+    return { ok: true, gave: { [w.a]: ba, [w.b]: bb } };
+  }
+
+  /** Open hand-off windows (tests, the DO). */
+  openHandoffs(): HandoffWindow[] {
+    for (const [k, w] of this.handoffs) if (this.currentTick > w.until) this.handoffs.delete(k);
+    return [...this.handoffs.values()];
   }
 
   /** Uids of the stash items at this region's workplaces. */

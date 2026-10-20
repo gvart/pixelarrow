@@ -4,8 +4,7 @@
  * home strongroom) for stalls and warehouses, hand-offs, world transits and crafted items. Pure: tests drive it on
  * plain holds.
  */
-import { CARRY } from '../../../src/war/sim/economy';
-import { ITEMS_PER_LOAD, loads, put, type Hold, type Lot } from '../../../src/war/sim/holders';
+import { ITEMS_PER_LOAD, loads, perLoad, put, type Hold, type Lot } from '../../../src/war/sim/holders';
 import type { Item } from '../../../src/data/items';
 
 export interface Slot { hold: Hold; cap: number }
@@ -16,7 +15,7 @@ const EPS = 1e-6;
 export const emptyBundle = (): Bundle => ({ lots: [], items: [] });
 
 export function bundleLoads(b: Bundle): number {
-  return b.lots.reduce((a, l) => a + l.n, 0) / CARRY + b.items.length / ITEMS_PER_LOAD;
+  return b.lots.reduce((a, l) => a + l.n / perLoad(l.r), 0) + b.items.length / ITEMS_PER_LOAD;
 }
 
 /** Goods of a bundle by good. */
@@ -42,7 +41,7 @@ export function fill(slots: readonly Slot[], b: Bundle): Bundle {
   const lots = b.lots.map((l) => ({ ...l }));
   for (const s of slots) {
     for (const l of lots) {
-      const room = (s.cap - loads(s.hold)) * CARRY;
+      const room = (s.cap - loads(s.hold)) * perLoad(l.r);
       if (room <= EPS || l.n <= EPS) continue;
       const k = Math.min(room, l.n);
       put(s.hold, l.r, k, l.o, l.s);
