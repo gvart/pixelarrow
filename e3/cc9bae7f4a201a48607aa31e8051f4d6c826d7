@@ -1,0 +1,21 @@
+docs/v5/pixellab/GUARD/maenad_queen.sheet.json
+  s_cfc22b058125c4::t_0d999eafbfdfe8 1-64
+src/assets/sheets/mob_maenad_queen/manifest.json
+  s_cfc22b058125c4::t_0d999eafbfdfe8 1-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e3cc9bae7f4a201a48607aa31e8051f4d6c826d7",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
