@@ -53,6 +53,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-47 Everything real (owner 2026-10-20): no decorative-only structures — every building in a region is a sim building with a function, owner, hp, capture/damage/repair (houses, temples, stoas, walls, towers included). Every region has lore and a difficulty depth: the deeper from the homes, the harder to take. Landmark regions with unique challenges and rewards, e.g. a great fortress held by a dragon (very strong once taken; repair needs a high-level engineer + rare materials), an abandoned city inhabited by bandits.
 - W-48 Landmark scale (owner 2026-10-20): the big castle, the big city etc. must be really big with real architecture — streets, districts/quarters, layered walls, gates, plazas, palaces, temples, houses — not a small cluster of pieces.
 - W-49 Authoring from references (owner 2026-10-20): regions, towns, cities and landmarks are built from Gemini prototypes used as references — don't invent layouts in code.
+- W-50 Altitude everywhere (owner 2026-10-21): terrain and cities use real elevation for tactics — tiered terraces, acropolis levels, retaining walls, stairways/ramps, commanding high ground; waterfalls where rivers cross cliff steps (impassable fall, pool below).
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
