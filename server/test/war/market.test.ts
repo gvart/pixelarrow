@@ -125,6 +125,45 @@ describe('offers and fills', () => {
     expect(await code(cancelOffer(DB(), buyer.playerId, id, now))).toBe('closed');
   });
 
+  it('the board names every goods offer by id, best first; taking one from the board fills it partly over the API', async () => {
+    const s1 = await trader(8141), s2 = await trader(8142), b = await trader(8143), now = Date.now(), town = 'stymphalia';
+    for (const p of [s1, s2]) await rentSite(DB(), p.playerId, town, 'stall', -1, now);
+    await rentSite(DB(), b.playerId, town, 'stall', -1, now);
+    await rentSite(DB(), b.playerId, town, 'warehouse', -1, now);
+    await give(stallId(town, s1.playerId), 'tin', 30);
+    await give(stallId(town, s2.playerId), 'tin', 30);
+    await give(stallId(town, b.playerId), 'coin', 100);
+    const dear = await listOffer(DB(), s1.playerId, town, { side: 'sell', res: 'tin', n: 20, price: 12 }, -1, now);
+    const cheap = await listOffer(DB(), s2.playerId, town, { side: 'sell', res: 'tin', n: 10, price: 9 }, -1, now);
+    const bid = await listOffer(DB(), b.playerId, town, { side: 'buy', res: 'tin', n: 5, price: 7 }, -1, now);
+    const bd = await board(DB(), town);
+    expect(bd.offers).toEqual([
+      { offer: cheap, side: 'sell', res: 'tin', n: 10, price: 9, stall: stallId(town, s2.playerId), player: s2.playerId },
+      { offer: dear, side: 'sell', res: 'tin', n: 20, price: 12, stall: stallId(town, s1.playerId), player: s1.playerId },
+      { offer: bid, side: 'buy', res: 'tin', n: 5, price: 7, stall: stallId(town, b.playerId), player: b.playerId },
+    ]);
+    await present(b.playerId, town);
+    // the best ask, partly, over the API: goods out of its escrow into the warehouse, coin from the stall to the seller's
+    const r = await api(`/api/war/trade/offers/${bd.offers[0].offer}/fill`, { method: 'POST', token: b.token, json: { n: 4, key: 'board-1' } });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ offer: cheap, n: 4, price: 9, tax: 0, seller: s2.playerId, buyer: b.playerId });
+    expect(await goodsOf(DB(), escrowId(cheap))).toEqual({ tin: 6 });
+    expect(await goodsOf(DB(), warehouseId(town, b.playerId))).toEqual({ tin: 4 });
+    expect((await goodsOf(DB(), stallId(town, s2.playerId))).coin).toBe(36);
+    expect((await goodsOf(DB(), stallId(town, b.playerId))).coin).toBe(100 - 35 - 36);
+    expect((await board(DB(), town)).offers[0]).toMatchObject({ offer: cheap, n: 6 });
+    // more than is left, or coin he lacks: refused, nothing moves
+    expect((await api(`/api/war/trade/offers/${cheap}/fill`, { method: 'POST', token: b.token, json: { n: 7, key: 'board-2' } })).status).toBe(409);
+    expect((await api(`/api/war/trade/offers/${dear}/fill`, { method: 'POST', token: b.token, json: { n: 5, key: 'board-3' } })).status).toBe(409);
+    expect(await goodsOf(DB(), escrowId(dear))).toEqual({ tin: 20 });
+    expect((await goodsOf(DB(), stallId(town, b.playerId))).coin).toBe(29);
+    // the rest of it: done, off the board
+    await fill(DB(), b.playerId, cheap, 3, 'board-4', -1, now);
+    await give(stallId(town, b.playerId), 'coin', 30);
+    await fill(DB(), b.playerId, cheap, 3, 'board-5', -1, now);
+    expect((await board(DB(), town)).offers.map((o) => o.offer)).toEqual([dear, bid]);
+  });
+
   it('serves the board over the API', async () => {
     const a = await trader(8131);
     const r = await api('/api/war/trade/kleisoura/board', { token: a.token });
