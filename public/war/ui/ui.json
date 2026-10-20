@@ -1540,6 +1540,80 @@
    "32": "icons/32/badge-rarity-legendary.png",
    "group": "badge",
    "src": "drawn"
+  },
+  "trade-cart": {
+   "24": "icons/24/trade-cart.png",
+   "32": "icons/32/trade-cart.png",
+   "group": "trade",
+   "src": "drawn"
+  },
+  "trade-wagon": {
+   "24": "icons/24/trade-wagon.png",
+   "32": "icons/32/trade-wagon.png",
+   "group": "trade",
+   "src": "drawn"
+  },
+  "trade-chest": {
+   "24": "icons/24/trade-chest.png",
+   "32": "icons/32/trade-chest.png",
+   "group": "trade",
+   "src": "drawn"
+  },
+  "trade-pile": {
+   "24": "icons/24/trade-pile.png",
+   "32": "icons/32/trade-pile.png",
+   "group": "trade",
+   "src": "drawn"
+  },
+  "act-load": {
+   "24": "icons/24/act-load.png",
+   "32": "icons/32/act-load.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-unload": {
+   "24": "icons/24/act-unload.png",
+   "32": "icons/32/act-unload.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-escort": {
+   "24": "icons/24/act-escort.png",
+   "32": "icons/32/act-escort.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "act-handoff": {
+   "24": "icons/24/act-handoff.png",
+   "32": "icons/32/act-handoff.png",
+   "group": "action",
+   "src": "drawn"
+  },
+  "trade-contract": {
+   "24": "icons/24/trade-contract.png",
+   "32": "icons/32/trade-contract.png",
+   "group": "trade",
+   "src": "drawn"
+  },
+  "trade-rent": {
+   "24": "icons/24/trade-rent.png",
+   "32": "icons/32/trade-rent.png",
+   "group": "trade",
+   "src": "drawn"
+  },
+  "res-coin": {
+   "24": "icons/24/res-coin.png",
+   "32": "icons/32/res-coin.png",
+   "group": "resource",
+   "src": "drawn",
+   "goodTier": "refined",
+   "note": "coin: 200 = 1 load (WAR.md \"Coin\")"
+  },
+  "badge-safe-zone": {
+   "24": "icons/24/badge-safe-zone.png",
+   "32": "icons/32/badge-safe-zone.png",
+   "group": "badge",
+   "src": "drawn"
   }
  },
  "cursors": {
@@ -1731,5 +1805,20 @@
    "pathfinder"
   ]
  },
- "craftNote": "ART-C icons: res-<good> (group resource, goodTier raw / refined / product), node-<tree>-<node> (group node: one per profession-tree node, WAR.md \"Crafting and professions\"; ring root = the free L1 root, cap = an L10 capstone; craftNodes lists them per tree in table order), badge-quality-<crude|fine|masterwork> and badge-rarity-<common..legendary> (group badge). Built by ui-craft.mjs after ui.mjs and ui-redfigure.mjs."
+ "craftNote": "ART-C icons: res-<good> (group resource, goodTier raw / refined / product), node-<tree>-<node> (group node: one per profession-tree node, WAR.md \"Crafting and professions\"; ring root = the free L1 root, cap = an L10 capstone; craftNodes lists them per tree in table order), badge-quality-<crude|fine|masterwork> and badge-rarity-<common..legendary> (group badge). Built by ui-craft.mjs after ui.mjs and ui-redfigure.mjs.",
+ "tradeIcons": [
+  "trade-cart",
+  "trade-wagon",
+  "trade-chest",
+  "trade-pile",
+  "act-load",
+  "act-unload",
+  "act-escort",
+  "act-handoff",
+  "trade-contract",
+  "trade-rent",
+  "res-coin",
+  "badge-safe-zone"
+ ],
+ "tradeNote": "ART-T icons (WAR.md \"Trade\"): trade-<cart|wagon|chest|pile|contract|rent> (group trade), act-<load|unload|escort|handoff> (action), res-coin (resource), badge-safe-zone (badge: a walled court with an olive wreath, on the red-figure medallion). Built by ui-trade.mjs after ui-craft.mjs."
 }
