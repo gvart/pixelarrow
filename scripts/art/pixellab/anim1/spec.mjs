@@ -81,7 +81,7 @@ const ANIMS3 = {
     chop: W(10, { 'south-east': ['a1', R(4, 11)], 'north-east': ['nw', R(2, 11)], 'south-west': ['a1', R(4, 11)], 'north-west': ['a1', R(2, 11)] }),
     build: W(10, ALL('a1', R(4, 11), 'nw')),
     harvest: W(8, ALL('a1', R(2, 11), 'nw', { 'south-east': ['a1', R(4, 11)], 'south-west': ['a1', R(5, 11)] })),
-    mine: W(10, ALL('a1', R(2, 11), 'nw')),
+    mine: W(10, ALL('a1', R(2, 11), 'nw', { 'south-east': ['a1', R(4, 11)], 'south-west': ['a1', R(4, 11)] })),
   },
 };
 // only the clips whose raw frames are all on disk (the round lands a clip at a time)

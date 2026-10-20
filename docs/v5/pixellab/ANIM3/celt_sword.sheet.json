@@ -1,0 +1,475 @@
+{
+ "$doc": "ANIM3 append spec for celt_sword (ROUND=ANIM3 scripts/art/pixellab/anim1/spec.mjs, from docs/v5/pixellab/I5b/celt_sword.sheet.json). Rebuild: node scripts/art/pixellab/fetchjobs.mjs docs/v5/pixellab/ANIM3/celt_sword.jobs.json docs/v5/pixellab/ANIM3/raw/celt_sword && node scripts/art/pixellab/anim1/append.mjs docs/v5/pixellab/ANIM3/celt_sword.sheet.json",
+ "class": "celt_sword",
+ "raw": "docs/v5/pixellab/ANIM3/raw/celt_sword",
+ "base": "src/assets/sheets/celt_sword/manifest.json",
+ "scale": 0.55,
+ "ramps": [
+  "outline",
+  "umber",
+  "darkBronze",
+  "skin",
+  "plaidGreen",
+  "bronze",
+  "iron"
+ ],
+ "parts": {
+  "plaidGreen": "cloak",
+  "bronze": "trim",
+  "umber": "shadow",
+  "darkBronze": "shadow",
+  "iron": "metal"
+ },
+ "crest": false,
+ "emblem": false,
+ "stature": {
+  "from": "any",
+  "why": "the iron Montefortino is not a metal group (iron stays unrecoloured until metalKind iron); measured from the first opaque non-weapon pixel"
+ },
+ "spear": false,
+ "metalKind": {
+  "metal": "iron"
+ },
+ "metalSlots": {
+  "metal": [
+   "helmet",
+   "armor",
+   "weapon"
+  ]
+ },
+ "greyCut": 0.8,
+ "alignMax": [
+  18,
+  8
+ ],
+ "rowsFeet": {
+  "south-east": [
+   32,
+   66
+  ],
+  "north-east": [
+   38,
+   66
+  ],
+  "south-west": [
+   36,
+   66
+  ],
+  "north-west": [
+   37,
+   66
+  ]
+ },
+ "canvases": {
+  "rot": {
+   "south-east": [
+    0,
+    0
+   ],
+   "north-east": [
+    0,
+    0
+   ],
+   "south-west": [
+    0,
+    0
+   ],
+   "north-west": [
+    0,
+    0
+   ]
+  },
+  "tall": {
+   "south-east": [
+    14,
+    40
+   ],
+   "north-east": [
+    14,
+    40
+   ],
+   "south-west": [
+    14,
+    40
+   ],
+   "north-west": [
+    14,
+    40
+   ]
+  },
+  "atk": {
+   "south-east": [
+    20,
+    40
+   ],
+   "north-east": [
+    20,
+    40
+   ],
+   "south-west": [
+    40,
+    40
+   ],
+   "north-west": [
+    40,
+    40
+   ]
+  },
+  "die": {
+   "south-east": [
+    30,
+    30
+   ],
+   "north-east": [
+    30,
+    30
+   ],
+   "south-west": [
+    30,
+    30
+   ],
+   "north-west": [
+    30,
+    30
+   ]
+  },
+  "guard": {
+   "south-east": [
+    13,
+    40
+   ],
+   "north-east": [
+    12,
+    40
+   ],
+   "south-west": [
+    13,
+    42
+   ],
+   "north-west": [
+    6,
+    40
+   ]
+  },
+  "gatk": {
+   "south-east": [
+    19,
+    40
+   ],
+   "north-east": [
+    18,
+    40
+   ],
+   "south-west": [
+    39,
+    42
+   ],
+   "north-west": [
+    32,
+    40
+   ]
+  }
+ },
+ "tiers": {
+  "veteran": {
+   "cloak": [
+    "#1c0710",
+    "#3a0d1c",
+    "#5c1428",
+    "#7c2236"
+   ],
+   "trim": [
+    "#b08a3a",
+    "#e0c070"
+   ]
+  },
+  "elite": {
+   "cloak": [
+    "#0b0c0e",
+    "#151719",
+    "#1e2224",
+    "#2d3131",
+    "#3b4141"
+   ],
+   "trim": [
+    "#966c3d",
+    "#cc9554",
+    "#e0b867"
+   ]
+  }
+ },
+ "anims": {
+  "chop": {
+   "fps": 10,
+   "canvas": "tall",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-east": {
+     "attempt": "nw",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   }
+  },
+  "build": {
+   "fps": 10,
+   "canvas": "tall",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-east": {
+     "attempt": "nw",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    }
+   }
+  },
+  "harvest": {
+   "fps": 8,
+   "canvas": "tall",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-east": {
+     "attempt": "nw",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   }
+  },
+  "mine": {
+   "fps": 10,
+   "canvas": "tall",
+   "spear": "upright",
+   "align": false,
+   "dirs": {
+    "south-east": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-east": {
+     "attempt": "nw",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    },
+    "south-west": {
+     "attempt": "a1",
+     "frames": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      11,
+      11
+     ]
+    },
+    "north-west": {
+     "attempt": "a1",
+     "frames": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+     ]
+    }
+   }
+  }
+ }
+}
