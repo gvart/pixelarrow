@@ -1,0 +1,21 @@
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_8a41583370a88a 2406-2409,2414-2437
+  s_cfc22b058125c4::t_cd37d5f871077d 2410-2413
+  s_cfc22b058125c4::t_f9e75a4537e66b 2438
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1cfbdd2fc583ee53592955f60bcc6ae8281d4e85",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
