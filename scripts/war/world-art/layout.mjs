@@ -7,7 +7,7 @@ export const LH = 768; // logical height (map px 1536)
 export const SCALE = 2; // map px per logical px
 export const GX = 32;
 export const GY = 24; // grid cells
-export const CELL = 30; // logical px per cell
+export const CELL = 26; // logical px per cell (the rest of the frame is the Abyss rim, W-42)
 export const OX = (LW - GX * CELL) / 2;
 export const OY = (LH - GY * CELL) / 2;
 
@@ -46,7 +46,7 @@ export function gridLabel(cx, cy) {
 // docs/WAR.md "Regions" table: id, name, role, biome text, adjacency. The single source the art is checked against.
 export function readWarRegions(root) {
   const md = readFileSync(`${root}/docs/WAR.md`, 'utf8');
-  const sec = md.slice(md.indexOf('### Regions'), md.indexOf('## Soldiers'));
+  const sec = md.slice(md.indexOf('### Regions'), md.indexOf('## Strategic geography'));
   const rows = sec.split('\n').filter((l) => /^\| [a-z]/.test(l) && !l.startsWith('| id '));
   return rows.map((l) => {
     const c = l.split('|').slice(1, -1).map((s) => s.trim());

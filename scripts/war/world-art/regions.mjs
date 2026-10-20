@@ -8,11 +8,11 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '.
 export const OUT = join(ROOT, 'public/war/world');
 const MIN_BORDER = 12; // logical px of shared edge for a real adjacency; less is a corner touch (no crossing)
 
-export function buildRegions() {
+export function buildRegions(fit) {
   const war = readWarRegions(ROOT);
   if (war.length !== 37) throw new Error(`WAR.md lists ${war.length} regions, expected 37`);
   const ids = war.map((r) => r.id);
-  const { lab, index } = buildRaster(ids);
+  const { lab, index } = buildRaster(ids, fit);
   const stats = borderStats(lab);
   const pair = (a, b) => stats.get(index.get(a) < index.get(b) ? `${index.get(a)},${index.get(b)}` : `${index.get(b)},${index.get(a)}`);
 
@@ -33,10 +33,11 @@ export function buildRegions() {
   if (errors.length) throw new Error('adjacency does not match docs/WAR.md:\n  ' + errors.join('\n  '));
 
   const dist = distanceField(lab);
-  const regions = {};
+  const regions = {}, cands = {};
   for (const r of war) {
     const k = index.get(r.id);
-    let sx = 0, sy = 0, n = 0, best = -1, bx = 0, by = 0, room = 0;
+    let sx = 0, sy = 0, n = 0;
+    const cs = (cands[r.id] = []);
     const needHalf = (r.name.length * 4.75 + 8) / 2; // logical px for a ~19 px (map) label
     for (let i = 0; i < lab.length; i++) {
       if (lab[i] !== k) continue;
@@ -45,7 +46,7 @@ export function buildRegions() {
       // label anchor: where a one-line name fits best (vertical clearance vs horizontal room for its width)
       const hz = horiz(lab, k, x, y);
       const d = Math.min(dist[i] / 9, hz / needHalf) + 0.001 * dist[i];
-      if (d > best) { best = d; bx = x + 0.5; by = y + 0.5; room = hz; }
+      if (!(x & 1) && !(y & 1)) cs.push([d, x + 0.5, y + 0.5, hz]);
     }
     const coast = (stats.get(`0,${k}`) || { n: 0 }).n > 0;
     regions[r.id] = {
@@ -53,13 +54,23 @@ export function buildRegions() {
       role: r.role.split(' ')[0],
       polygon: trace(lab, k).map(([x, y]) => [x * SCALE, y * SCALE]),
       centroid: [round(sx / n * SCALE), round(sy / n * SCALE)],
-      label: [round(bx * SCALE), round(by * SCALE)],
-      labelRoom: round(room * 2 * SCALE), // free width (map px) on the label row; shrink or wrap a longer name
       area: n * SCALE * SCALE,
       coast,
       adjacent: r.adjacent,
       crossings: {},
     };
+  }
+  // label anchors: the best spot for each name that does not collide with a neighbour's name (small regions first)
+  const boxes = [];
+  for (const r of [...war].sort((a, b) => regions[a.id].area - regions[b.id].area)) {
+    const cs = cands[r.id].sort((a, b) => b[0] - a[0]), w = (r.name.length * 4.75 + 8) / 2;
+    // a name wider than its row wraps onto two lines (the view does the same): half as wide, twice as tall
+    const box = ([, x, y, hz]) => { const two = w > hz && r.name.includes(' '), hw = two ? w * 0.6 : w, hh = two ? 16 : 9; return [x - hw, y - hh, x + hw, y + hh]; };
+    const free = (c) => { const a = box(c); return boxes.every((b) => a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3]); };
+    const pick = cs.slice(0, Math.max(40, cs.length >> 1)).find(free) ?? cs[0], [, bx, by, room] = pick;
+    boxes.push(box(pick));
+    regions[r.id].label = [round(bx * SCALE), round(by * SCALE)];
+    regions[r.id].labelRoom = round(room * 2 * SCALE); // free width (map px) on the label row; shrink or wrap a longer name
   }
   for (const r of war) for (const nb of r.adjacent) {
     const e = pair(r.id, nb);

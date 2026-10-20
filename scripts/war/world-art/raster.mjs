@@ -17,9 +17,9 @@ export function noise(x, y, seed) {
 }
 const fbm = (x, y, seed, layers) => layers.reduce((s, [amp, freq], i) => s + amp * noise(x / freq, y / freq, seed + i * 101), 0);
 
-// Displacement fields (logical px). Region borders: gentle; coast: stronger so the shore reads as natural.
-export const BORDER = [[44, 210], [16, 75], [4, 20]];
-const COAST = [[22, 130], [10, 45], [4, 16], [1.5, 6]];
+// Displacement field (logical px) that bends the grid's straight cell edges into organic region borders.
+const K = CELL / 30; // the fields were tuned on 30 px cells
+export const BORDER = [[44, 210], [24, 70], [8, 24]].map(([a, f]) => [a * K, f * K]);
 export const warp = (x, y, layers, seed) => [x + fbm(x, y, seed, layers), y + fbm(x, y, seed + 7, layers)];
 
 function cellAt(x, y) {
@@ -28,26 +28,43 @@ function cellAt(x, y) {
   return gridLabel(cx, cy);
 }
 
-export function buildRaster(ids) {
+/**
+ * Fit the cell grid to the painted continent (v2, W-43): every land pixel of the painting looks up the warped grid
+ * along its ray from the centre (the Omphalos mesa), scaled so the painted coast lands on the grid's edge. The
+ * painting's land mask is the coast; the grid only decides which region a land pixel belongs to.
+ * fit = { land: Uint8Array(LW * LH), centre: [x, y] } in logical px.
+ */
+export function buildRaster(ids, fit) {
   const index = new Map(ids.map((id, i) => [id, i + 1])); // 0 = sea
   const lab = new Int16Array(LW * LH);
-  const land = new Uint8Array(LW * LH);
+  const { land, centre: [px, py], twist = [] } = fit;
+  // twist: [[paint angle, extra grid angle, width], ...] in degrees turns the grid locally (keeps a corner off a bay)
+  const rad = Math.PI / 180;
+  const turn = (a) => twist.reduce((t, [at, by, w]) => {
+    const d = Math.atan2(Math.sin(a - at * rad), Math.cos(a - at * rad)) / rad;
+    return t + by * Math.exp(-((d / w) ** 2));
+  }, 0) * rad;
+  const gx = OX + (GX * CELL) / 2, gy = OY + (GY * CELL) / 2;
+  const BINS = 720, rp = new Float32Array(BINS);
+  const bin = (a) => ((Math.round((a / (2 * Math.PI)) * BINS) % BINS) + BINS) % BINS;
+  for (let i = 0; i < land.length; i++) {
+    if (!land[i]) continue;
+    const x = (i % LW) + 0.5 - px, y = ((i / LW) | 0) + 0.5 - py, b = bin(Math.atan2(y, x)), r = Math.hypot(x, y);
+    if (r > rp[b]) rp[b] = r;
+  }
+  const rs = rp.map((_, b) => { let s = 0; for (let k = -6; k <= 6; k++) s += rp[(b + k + BINS) % BINS]; return s / 13; });
+  const hw = (GX * CELL) / 2 - 1, hh = (GY * CELL) / 2 - 1;
   for (let y = 0; y < LH; y++) {
     for (let x = 0; x < LW; x++) {
-      const [bx, by] = warp(x + 0.5, y + 0.5, BORDER, 11);
-      const [sx, sy] = warp(x + 0.5, y + 0.5, COAST, 23);
       const i = y * LW + x;
-      const ex = (sx - LW / 2) / (GX * CELL / 2 - 6), ey = (sy - LH / 2) / (GY * CELL / 2 - 6);
-      land[i] = cellAt(sx, sy) && ex ** 6 + ey ** 6 < 1 ? 1 : 0;
+      if (!land[i]) continue;
+      const dx = x + 0.5 - px, dy = y + 0.5 - py, a = Math.atan2(dy, dx), r = Math.hypot(dx, dy);
+      const g = a + turn(a), c = Math.cos(g), s = Math.sin(g), rg = Math.min(hw / Math.max(1e-6, Math.abs(c)), hh / Math.max(1e-6, Math.abs(s)));
+      const t = Math.min(1, r / Math.max(1, rs[bin(a)])) * rg;
+      const [bx, by] = warp(gx + c * t, gy + s * t, BORDER, 11);
       const id = cellAt(bx, by);
-      lab[i] = id ? index.get(id) : 0;
+      lab[i] = id ? index.get(id) : -1;
     }
-  }
-  // Sea: only what connects to the outer ocean; enclosed sea pockets become land.
-  const ocean = flood(LW * 0, (i) => !land[i]);
-  for (let i = 0; i < lab.length; i++) {
-    if (ocean[i]) lab[i] = 0;
-    else if (lab[i] === 0) lab[i] = -1; // land without a label yet
   }
   // Keep each region's largest piece; stray pieces and unlabelled land take the neighbouring label by growth.
   for (let r = 1; r <= ids.length; r++) {
@@ -58,22 +75,6 @@ export function buildRaster(ids) {
   grow(lab);
   for (let i = 0; i < lab.length; i++) if (lab[i] < 0) lab[i] = 0; // detached scraps of land become sea
   return { lab, index };
-}
-
-function flood(start, ok) {
-  const seen = new Uint8Array(LW * LH);
-  const st = [start];
-  seen[start] = 1;
-  while (st.length) {
-    const i = st.pop();
-    const x = i % LW, y = (i / LW) | 0;
-    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
-      if (nx < 0 || ny < 0 || nx >= LW || ny >= LH) continue;
-      const j = ny * LW + nx;
-      if (!seen[j] && ok(j)) { seen[j] = 1; st.push(j); }
-    }
-  }
-  return seen;
 }
 
 function components(lab, r) {

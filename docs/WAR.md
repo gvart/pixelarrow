@@ -2,6 +2,28 @@
 
 Living rules of the browser global war. Why each region matters: "Strategic geography". Decisions: `docs/impl/global-war-rebuild.md` (W-01..W-17, temporary).
 
+## Lore
+
+W-42. Every warrior here died in the real world. They did not reach an afterlife: they woke on **Metaxy** (proposal,
+owner to confirm; Greek "the in-between"), one continent hung between death and what comes after.
+
+- **Why alliances fight.** Metaxy keeps only the strong. Each season the alliances that hold its heart and its roads
+  rise; the rest fade. Nobody fights for land for its own sake: land is how the world measures who is worth keeping.
+- **Ascension.** The alliance that wins a season (hegemony, or the top season score) **ascends to Elysion**: its
+  warriors' names are set in the season's roll of honour, their legacy carries into the next season, and the world
+  is reborn for those still waiting.
+- **Erasure.** The forgotten drink from **Lethe**: an alliance that keeps losing is struck from history and from the
+  universe, as if it had never lived. In play this is flavour for the season reset and the standings, not a wipe of
+  anyone's account.
+- **The edge.** Metaxy has no ocean. Its shores (fjords, coves, lagoons, the tables below still call them coasts)
+  meet a narrow fringe of grey dead water that dissolves into mist and then **the Abyss**. Colossal **Rim Wardens**
+  watch from it: sea serpents coiled in the mist, titans half-sunk in the void, winged horrors over the cliffs. They
+  forbid anyone to go further; the map ends where they stand.
+- **Omphalos.** The navel of the in-between: the ruined temple on the mesa is where the way up opens, so holding it
+  scores most (10 an hour) and holding it with three frontier towns ends the season (hegemony).
+- **Homes never fall** because a dead warrior cannot die twice: in his own hall he always wakes again. What can be
+  lost is everything outside it.
+
 ## World
 
 37 hand-made regions on one continent ringed by sea. The world is mirror-symmetric in **topology** (every home has
