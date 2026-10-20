@@ -494,7 +494,7 @@ export const SCENARIOS: Scenario[] = [
   {
     // M6k caravan: your camp (building 0) by the east road; three militia (squad 1: soldiers, civilians would flee) drive the wagon (cart 0), loads it at
     // the camp and takes the road east to the entry, hoplites and archers escorting it; foes wait on the ambush rect
-    // over the road half way.
+    // over the road half way: raider bots (M6j) that go for the wagon if its escort is weak, else fight it in the rect.
     id: 'caravan',
     name: 'Caravan',
     goal: 'Get the loaded wagon down the east road to the entry. Foes wait in the ambush (red rect) over the road: the escort keeps round the wagon and takes them on; the wagon halts while foes are near.',
@@ -512,7 +512,7 @@ export const SCENARIOS: Scenario[] = [
       orders: [],
       squads: [
         you('militia', at(CARAVAN_HOME, 4, 8), 3), you('hoplite', at(CARAVAN_HOME, 2, 11)), you('archer', at(CARAVAN_HOME, 8, 11)),
-        ...(['celt_sword', 'javelineer'] as const).map((c, i) => bot(c, [CARAVAN_AMBUSH.x + 4 + i * 6, CARAVAN_AMBUSH.y + 4], { kind: 'hold', x: CARAVAN_AMBUSH.x + 4 + i * 6, y: CARAVAN_AMBUSH.y + 4, radius: 14 }, 8)),
+        ...(['celt_sword', 'javelineer'] as const).map((c, i) => bot(c, [CARAVAN_AMBUSH.x + 4 + i * 6, CARAVAN_AMBUSH.y + 4], { kind: 'raider', ...CARAVAN_AMBUSH }, 8)),
       ],
       then: [{ kind: 'crew', squad: 1, siege: 0 }, { kind: 'load', squad: 1, from: { building: 0 } }],
       later: { settle: 300, orders: [{ kind: 'move', squad: 1, x: S.entryE[0] - 6, y: S.entryE[1] }, { kind: 'escort', squad: 2, cart: 0 }, { kind: 'escort', squad: 3, cart: 0 }] },
