@@ -132,7 +132,8 @@ export class BuildArt {
         // M7b: the town art for pre-built pieces; a library that fails leaves those pieces as placeholders
         ...[...new Set(Object.values(PRE_ART).flat().map((id) => id.split('/')[0]))].map(async (lib) => {
           try {
-            const lb = `${base}../biomes/${lib}/`, want = new Set(Object.values(PRE_ART).flat());
+            // M7g: with their damaged and ruined looks where the library has them
+            const lb = `${base}../biomes/${lib}/`, want = new Set(Object.values(PRE_ART).flat().flatMap((id) => [id, `${id}-damaged`, `${id}-ruined`]));
             const objs = ((await (await fetch(lb + 'objects.json')).json()) as { objects: LibObj[] }).objects.filter((o) => want.has(`${lib}/${o.id}`));
             await Promise.all(objs.map(async (o) => {
               const key = `bld-${lib}-${o.id}`, [fw, fh] = o.footprint ?? [1, 1];
@@ -189,6 +190,19 @@ export class BuildArt {
   preSprite(type: BuildingType, seed: number): BuildSprite | undefined {
     const ids = PRE_ART[type];
     return ids ? this.pre.get(ids[Math.abs(Math.floor(seed)) % ids.length]) ?? this.pre.get(ids[0]) : undefined;
+  }
+
+  /** M7g: the damaged or ruined look of a pre-built type's town art (the same look `seed` picks), undefined where the library has none. */
+  preState(type: BuildingType, seed: number, state: 'damaged' | 'ruined'): BuildSprite | undefined {
+    const ids = PRE_ART[type];
+    if (!ids) return undefined;
+    const id = this.pre.has(ids[Math.abs(Math.floor(seed)) % ids.length]) ? ids[Math.abs(Math.floor(seed)) % ids.length] : ids[0];
+    return this.pre.get(`${id}-${state}`);
+  }
+
+  /** M7g: does a pre-built type draw with the biome town art (not its own building art)? */
+  hasPreArt(type: BuildingType): boolean {
+    return !!PRE_ART[type];
   }
 
   /**
