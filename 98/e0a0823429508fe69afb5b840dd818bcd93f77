@@ -1,0 +1,29 @@
+scripts/war/bench.mjs
+  s_cfc22b058125c4::t_b253b357a9b5fb 256-282
+tests/war/carts.test.ts
+  s_cfc22b058125c4::t_b9d3aa8a8edbbe 1-128,132-186
+  s_cfc22b058125c4::t_fd6f84e2d21621 129
+  s_cfc22b058125c4::t_700acc119f04f4 130-131
+src/war/sim/trade.ts
+  s_cfc22b058125c4::t_b0fd5f230e4ddf 26
+src/war/types.ts
+  s_cfc22b058125c4::t_7580ad50a29ebc 394-395
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_4c193d5074ae9a 2670
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "98e0a0823429508fe69afb5b840dd818bcd93f77",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
