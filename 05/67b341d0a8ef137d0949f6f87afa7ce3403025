@@ -1,0 +1,36 @@
+wrangler.jsonc
+  s_cfc22b058125c4::t_9920a0fc82f090 19
+  s_cfc22b058125c4::t_6312ee3d6a77e9 17-18
+server/test/war/living.test.ts
+  s_cfc22b058125c4::t_dddc7cb9c9661a 19,22-23
+server/test/war/world.test.ts
+  s_cfc22b058125c4::t_dddc7cb9c9661a 219-220,223-224
+server/src/war/room.ts
+  s_cfc22b058125c4::t_b789c132e53f77 115-116
+server/src/war/regions.ts
+  s_cfc22b058125c4::t_d2dfd4e7d1a886 2-11,15-51,54-64,66,68-73,75,78-95
+server/src/war/memory.ts
+  s_cfc22b058125c4::t_e17d2f6ae48c6d 7-8,17-18,20,29-33,36-37,39,44-45
+server/migrations/0035_war_region_version.sql
+  s_cfc22b058125c4::t_f69f927d07ab4c 1-3
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_bbc9d2cc22f843 100-101
+  s_cfc22b058125c4::t_c5b8fdfcec086d 55,89-90,105-109,112,115,118,122,138,149,483,487,609,614-615
+  s_cfc22b058125c4::t_f81eb7ed931843 33,616
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0567b341d0a8ef137d0949f6f87afa7ce3403025",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
