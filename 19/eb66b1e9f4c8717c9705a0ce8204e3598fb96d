@@ -1,0 +1,36 @@
+src/war/view/hud/roster/skillTree.ts
+  s_cfc22b058125c4::t_75fb4156ebcd28 1-16,18-44,46-90,94-98,100,102-112
+  s_cfc22b058125c4::t_93a55b98b27dba 99
+  s_cfc22b058125c4::t_d0cc94e3885802 17,45,91-93
+  s_cfc22b058125c4::t_edea1e78f0261c 101
+src/war/view/hud/craft/index.ts
+  s_cfc22b058125c4::t_738d801e942849 101-102,178
+  s_cfc22b058125c4::t_9cda78b459bcff 5-6,18,21,23,32,35,41,95-97,103-113,118-125,128-131,134,136-146,168,174-177,179-191
+  s_cfc22b058125c4::t_d0cc94e3885802 22,100
+src/war/view/hud/tree/graph.ts
+  s_cfc22b058125c4::t_2a7ea1e6c3dfd4 1-10,13-34,50-63,65-111,117-118,120-130,132-189,191-205
+  s_cfc22b058125c4::t_3530abb6d2e199 35-37,39-48
+  s_cfc22b058125c4::t_e2160d0c9678c8 11-12,131
+  s_cfc22b058125c4::t_d0cc94e3885802 49,114-115,190
+  s_cfc22b058125c4::t_738d801e942849 64
+  s_cfc22b058125c4::t_93a55b98b27dba 38,112-113,116,119
+src/war/view/hud/craft/tree.ts
+  s_cfc22b058125c4::t_93a55b98b27dba 53
+  s_cfc22b058125c4::t_1063a98df8d68d 2-5,8,11,15,22-24,26-35,38-52,54-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "19eb66b1e9f4c8717c9705a0ce8204e3598fb96d",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
