@@ -175,7 +175,8 @@ export const CLAIM_RADIUS = 20; // default influence of a claim anchor
 export const CANCEL_REFUND = 0.75;
 export const WORK_DEFENCE = 1.5; // a gathering or building squad takes this much more damage and never blocks
 
-export interface NodeDef { res: ResourceKind; max: number; regrow: number; rate: number; slots: number } // regrow, rate: per second
+/** regrow, rate: per second; rare (M7e): a landmark's rare-good node (no depth yield; only the region's holder gathers it). */
+export interface NodeDef { res: ResourceKind; max: number; regrow: number; rate: number; slots: number; rare?: true }
 
 const tree: NodeDef = { res: 'wood', max: 40, regrow: 0, rate: 1, slots: 2 };
 const olive: NodeDef = { res: 'food', max: 20, regrow: 0.05, rate: 0.8, slots: 2 };

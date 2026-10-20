@@ -286,7 +286,9 @@ export interface TownSnap { claim: number; team: number; houses: number; standin
  * A claim point: locked (a guard lair of its zone lives), open, channel (squad channelling, progress 0..1), contested
  * (foes near: progress reset), claimed (by team).
  */
-export interface ClaimSnap { id: number; x: number; y: number; team: number; squad: SquadId; progress: number; lairs: number[]; state: 'locked' | 'open' | 'channel' | 'contested' | 'claimed' }
+export interface ClaimSnap { id: number; x: number; y: number; team: number; squad: SquadId; progress: number; lairs: number[]; state: 'locked' | 'open' | 'channel' | 'contested' | 'claimed';
+  /** M7c: men of the claiming team the channel needs beside the banner, and of how many players. */
+  men?: number; players?: number }
 export interface WarSim {
   readonly region: RegionData;
   /**
@@ -447,6 +449,12 @@ export interface WarBuildSim extends WarSim {
   population(team: number): { rate: number; cap: number };
   prestige(team: number): number;
   upkeepAt(team: number, x: number, y: number): number;
+  /**
+   * M7c, M7d stub (src/war/sim/mobs.ts): register the region boss (src/data/warBosses.ts id; null: none): while it lives
+   * the region is held (its pre-built pieces the mobs', gates shut) and no claim point opens; bossDown: it fell.
+   */
+  setBoss(id: string | null): void;
+  bossDown(): void;
   /** W-39 fog: the team sees tile point (x,y) now. */
   visibleTo(team: number, x: number, y: number): boolean;
   /** The team's fog grid (live; copy before posting). */

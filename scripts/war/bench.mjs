@@ -288,8 +288,11 @@ console.log(
   const prebuilt = [], kinds = ['house', 'house', 'house', 'cottage', 'well', 'statue', 'temple', 'stoa', 'house', 'shrine'];
   for (let k = 0; k < 140; k++) prebuilt.push({ type: kinds[k % kinds.length], x: 30 + (k % 14) * 10, y: 40 + Math.floor(k / 14) * 12 });
   for (let k = 0; k < 10; k++) prebuilt.push({ type: 'stoneWall', x: 0, y: 0, tiles: [30 + k * 2, 30, 31 + k * 2, 30] });
-  const claimPoints = [[60, 60], [140, 60], [60, 130], [140, 130]].map(([x, y]) => ({ x, y, lairs: [], r: 45 }));
-  const war = sim.createSim({ ...flat, prebuilt, claimPoints }, 8);
+  const claimPoints = [[60, 60], [140, 60], [60, 130], [140, 130]].map(([x, y], i) => ({ x, y, lairs: i === 2 ? [0, 1, 2] : [], r: 45 }));
+  // M7c: a bandit host (captain, guard, two lairs) holds the third town
+  const lairs = [{ kind: 'bandit', x: 60, y: 135, captain: true }, { kind: 'bandit', x: 50, y: 125 }, { kind: 'bandit', x: 70, y: 125 }];
+  const war = sim.createSim({ ...flat, prebuilt, claimPoints, lairs, depth: 2 }, 8);
+  war.spawnMobs();
   war.claim(0, 60, 60, 45);
   war.claim(1, 140, 60, 45);
   for (let k = 0; k < 50; k++) {

@@ -523,7 +523,21 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   });
   const mobs = createMobs(region, {
     squads,
-    spawn: (kind, count, x, y) => api.spawnSquad(MOB_OWNER, MOB_TEAM, mobClass(kind), count, x, y),
+    spawn: (kind, count, x, y, k) => {
+      const id = api.spawnSquad(MOB_OWNER, MOB_TEAM, mobClass(kind), count, x, y);
+      // M7c: depth and the host's elite guard over the kind's stats; a captain leads (the first man)
+      squads[id]?.units.forEach((u, i) => {
+        const hp = k.hp * (i === 0 && k.lead ? k.lead.hp : 1), dmg = k.dmg * (i === 0 && k.lead ? k.lead.dmg : 1);
+        if (hp === 1 && dmg === 1) return;
+        u.st = { ...u.st, maxHp: u.st.maxHp * hp, dmg: u.st.dmg * dmg, rangedDmg: u.st.rangedDmg * dmg };
+        u.maxHp = u.hp = u.st.maxHp;
+      });
+      return id;
+    },
+    held: (on) => works.setFallback(on ? MOB_TEAM : NEUTRAL_TEAM),
+    captainDown: (lair, by) => note({ t: tick, kind: 'captainSlain', lair, by }),
+    towers: () => works.prebuilt().filter((b) => b.def.wall === 'tower' && (b.team === MOB_TEAM || b.team === NEUTRAL_TEAM) && (b.state === 'done' || b.state === 'damaged')).map((b) => ({ id: b.id, x: b.x, y: b.y })),
+    carts: () => siege.snaps(tick).filter((e) => isCartType(e.type) && e.state !== 'destroyed' && e.team !== MOB_TEAM).map((e) => ({ id: e.id, x: e.x, y: e.y, team: e.team })),
     order: (o) => apply(o),
     arrived: (id) => !squads[id].goal && squads[id].pi >= squads[id].path.length / 2,
     nodes: () => works.resourceNodes(),
@@ -2710,6 +2724,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     population: (team) => towns.population(team),
     prestige: (team) => towns.prestige(team),
     upkeepAt: (team, x, y) => towns.upkeepAt(team, x, y),
+    setBoss: (id) => mobs.setBoss(id),
+    bossDown: () => mobs.bossDown(),
     visibleTo: vision.visibleTo,
     teamGrid: vision.teamGrid,
     lastSeen: vision.lastSeen,

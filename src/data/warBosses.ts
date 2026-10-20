@@ -4,7 +4,10 @@
  * Some neutral regions hold a boss: a unique, powerful mob guarding the region (the boss sim, its AI and claim gating
  * live in src/war/sim). Killing it drops gear: `BOSS_TIERS[tier].picks` pieces of rolled rarity from the base items,
  * and, `signature` of the time, the first is one of the boss's own legendaries. The bosses are the war's only source
- * of the Arms of Achilles, the Panoply of Alexander, the Trident of Poseidon and the Aegis of Zeus.
+ * of the Arms of Achilles, the Panoply of Alexander, the Trident of Poseidon and the Aegis of Zeus, all on the rim.
+ * M7c (docs/WAR.md "Region lore and depth"): every home faces the same guardians at the same depth: four tier-1 pocket
+ * bosses (depth 2), four tier-2 gate bosses (depth 3) and four tier-3 rim bosses (depth 4) in their landmarks, and the
+ * Titan and the Minotaur of Omphalos.
  *
  * Pure and seeded: the same kill (seed) always drops the same table.
  */
@@ -19,22 +22,42 @@ export interface WarBoss {
   name: string;
   /** The neutral region it guards (src/war/world/regions.ts). */
   region: string;
+  /** M7c: tier = the region's depth - 1 (src/war/sim/depth.ts), Omphalos 3 (docs/WAR.md "Region lore and depth"). */
   tier: BossTier;
   /** Its own legendaries: item ids and set ids (a set drops one of its pieces). */
   signature: readonly string[];
+  /** M7c: the landmark it holds (docs/WAR.md "Landmarks"; ./warLandmarks.ts), absent for a pocket boss. */
+  landmark?: string;
+  /**
+   * M7d stub: its phases, by the share of max hp they start below (the first starts at 1). The boss AI (M7d) reads
+   * them; the sim's claim gate only needs `alive`.
+   */
+  phases: readonly number[];
 }
 
 export const WAR_BOSSES: readonly WarBoss[] = [
+  // depth 2 pockets: tier 1, no signature
+  { id: 'moor_bear', name: 'Great Bear of the Moors', region: 'moors', tier: 1, signature: [], phases: [1] },
+  { id: 'griffin', name: 'Griffin of the Kimmerian Hills', region: 'kimmeria', tier: 1, signature: [], phases: [1] },
+  { id: 'savanna_lion', name: 'Lion of the Savanna', region: 'savanna', tier: 1, signature: [], phases: [1] },
+  { id: 'maenad_queen', name: 'the Maenad Queen', region: 'bacchae', tier: 1, signature: [], phases: [1] },
+  // depth 3 gates: tier 2, each in its landmark
+  { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.5] },
+  { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4] },
+  { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5] },
+  { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1] },
+  // depth 4 rim edges: tier 3, the four signature legendaries
+  // a dragon on the titan frozen in the glacier: the aegis of the god who threw the titans down
+  { id: 'drakon', name: 'Drakon the White', region: 'krios', tier: 3, signature: ['aegis_of_zeus'], landmark: 'drakons_citadel', phases: [1, 0.6, 0.3] },
   // the estuary where the sea meets the rim: the sea god's trident
-  { id: 'scylla', name: 'Scylla of the Estuary', region: 'siren', tier: 3, signature: ['poseidon_trident'] },
-  // a titan frozen in the glacier: the aegis of the god who threw the titans down
-  { id: 'glacier_titan', name: 'Titan of Krios', region: 'krios', tier: 3, signature: ['aegis_of_zeus'] },
+  { id: 'scylla', name: 'Scylla of the Estuary', region: 'siren', tier: 3, signature: ['poseidon_trident'], landmark: 'rim_watchtower', phases: [1, 0.5] },
+  // the oracle that named Alexander son of a god: his armour on a king of thieves
+  { id: 'bandit_king', name: 'the Bandit King of Ammon', region: 'ammon', tier: 3, signature: ['alexander'], landmark: 'dead_city', phases: [1, 0.6, 0.3] },
   // the river that fought Achilles at Troy, here as the Achelous: the arms of Achilles
-  { id: 'river_god', name: 'Achelous the River-God', region: 'delta', tier: 3, signature: ['achilles'] },
-  // the lion whose scalp Alexander wore: the panoply of Alexander
-  { id: 'savanna_lion', name: 'Lion of the Savanna', region: 'savanna', tier: 3, signature: ['alexander'] },
-  { id: 'griffin', name: 'Griffin of the Kimmerian Hills', region: 'kimmeria', tier: 2, signature: [] },
-  { id: 'moor_bear', name: 'Great Bear of the Moors', region: 'moors', tier: 1, signature: [] },
+  { id: 'river_god', name: 'Achelous the River-God', region: 'delta', tier: 3, signature: ['achilles'], landmark: 'sunken_temple', phases: [1, 0.66, 0.33] },
+  // the navel of the in-between: two guardians, two fights at once
+  { id: 'titan', name: 'the Titan of the Navel', region: 'omphalos', tier: 3, signature: [], landmark: 'temple_city', phases: [1, 0.5] },
+  { id: 'minotaur', name: 'the Minotaur', region: 'omphalos', tier: 3, signature: [], landmark: 'temple_city', phases: [1] },
 ];
 
 /** Per tier: pieces dropped, rarity weights of each, the least item tier, and the chance the first is a signature legendary. */
@@ -46,7 +69,9 @@ export const BOSS_TIERS: Record<BossTier, { picks: number; rarity: readonly (rea
 
 const BY_ID = new Map(WAR_BOSSES.map((b) => [b.id, b]));
 export const warBoss = (id: string): WarBoss | undefined => BY_ID.get(id);
+/** The (first) boss of a region; Omphalos has two (bossesOfRegion). */
 export const bossOfRegion = (region: string): WarBoss | undefined => WAR_BOSSES.find((b) => b.region === region);
+export const bossesOfRegion = (region: string): WarBoss[] => WAR_BOSSES.filter((b) => b.region === region);
 
 export interface BossDrop { def: string; rarity: Rarity }
 

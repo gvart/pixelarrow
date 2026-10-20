@@ -35,6 +35,7 @@ import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, B
 import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, NEUTRAL_TEAM, rectTiles, REPAIR, RESOURCE_NODES, rotated, RUIN, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 import { amount, empty, itemList, newHold, put, take, takeFrom, totals, type Cost, type Hold } from './holders';
+import { depthRule } from './depth';
 
 const DT = 0.1;
 /** Bridge line steps by octant of the drag angle (+x first, turning towards +y). */
@@ -182,10 +183,12 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   let tick = 0;
   let fields = 0; // M5h3: done field tiles standing
 
+  const yieldK = depthRule(region).yield; // M7c: deeper regions' nodes hold more (rare goods keep their own rate)
   (region.objects ?? []).forEach((o, i) => {
     const d = RESOURCE_NODES[o.id];
     if (!d) return;
-    const n: Node = { id: nodes.length, res: d.res, x: o.x, y: o.y, amount: d.max, max: d.max, regrow: d.regrow, rate: d.rate, slots: d.slots, users: 0, tiles: [], obj: i };
+    const k = d.rare ? 1 : yieldK;
+    const n: Node = { id: nodes.length, res: d.res, x: o.x, y: o.y, amount: d.max * k, max: d.max * k, regrow: d.regrow * k, rate: d.rate, slots: d.slots, users: 0, tiles: [], obj: i };
     const t = tileAt(grid, o.x, o.y);
     if (t >= 0) {
       n.tiles = [t % w, (t / w) | 0];

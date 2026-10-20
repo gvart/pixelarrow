@@ -12,9 +12,18 @@
  * `claimRegion` channels for CLAIM.ticks with CLAIM.men of its men beside the banner; any foe (mobs included) within
  * CLAIM.contest resets it. Done, the team owns the point and gets its first influence anchor (works.claim). A cleared
  * lair comes back after RESPAWN ticks, but only while its area is unclaimed (its zone's point unowned, no influence on it).
+ *
+ * M7c depth (./depth.ts, docs/WAR.md "Region lore and depth"): the region's depth scales its mobs' hp and damage, the
+ * respawn time and the claim channel: its ticks, the men of the claiming team beside the banner (any of its squads)
+ * and how many players they belong to. A bandit host: a lair marked `captain` is led by its captain (the squad's first
+ * man, HOST.captain over a bandit) with an elite guard (HOST.guard); while he lives the region is held (its pre-built
+ * pieces are the mobs', gates shut), the host's other lairs in his zone stand on the town's towers, and every
+ * HOST.raid.every ticks one goes for the nearest foe cart; his zone's claim point opens once he falls. A region boss
+ * (M7d, setBoss) holds the region and keeps every claim point shut while it lives.
  */
 import type { ClaimSnap, LairSnap, MobKind, NodeSnap, Order, RegionData, SquadId } from '../types';
 import type { ClassId } from '../../data/classes';
+import { depthRule, HOST } from './depth';
 
 export const MOB_TEAM = 7;
 export const MOB_OWNER = 'mob';
@@ -68,12 +77,16 @@ const RESPAWN_CLEAR = 20; // no foe this near the lair when it comes back
 export const CLAIM = { ticks: 300, men: 3, at: 5, contest: 14, r: 20 };
 
 export interface MobUnit { x: number; y: number; hp: number; maxHp: number; alive: boolean }
-export interface MobSquad { id: SquadId; team: number; alive: number; cx: number; cy: number; units: MobUnit[]; order: Order['kind']; target: SquadId; claimPt: number }
+export interface MobSquad { id: SquadId; owner: string; team: number; alive: number; cx: number; cy: number; units: MobUnit[]; order: Order['kind']; target: SquadId; claimPt: number }
+/** M7c: stat multipliers of a spawned pack (depth, elite guard) and of its first man (a captain). */
+export interface SpawnScale { hp: number; dmg: number; lead?: { hp: number; dmg: number } }
+/** M7d stub: a region boss as the claim gate sees it (alive: it holds the region and keeps its claim points shut). */
+export interface BossGate { id: string; alive: boolean }
 
 /** What the controller needs of the sim. */
 export interface MobHost {
   squads: readonly MobSquad[];
-  spawn(kind: MobKind, count: number, x: number, y: number): SquadId;
+  spawn(kind: MobKind, count: number, x: number, y: number, k: SpawnScale): SquadId;
   /** Applied at once (this tick). */
   order(o: Order): void;
   /** The squad has reached the end of its path. */
@@ -85,20 +98,34 @@ export interface MobHost {
   influenced(x: number, y: number): boolean;
   range(lo: number, hi: number): number;
   w: number; h: number;
+  /** M7c: the region is held by its host or boss (true) or not (its pre-built pieces go neutral). */
+  held?(on: boolean): void;
+  /** M7c: a host's captain fell (by: the team of the squad it fought last, -1 unknown). */
+  captainDown?(lair: number, by: number): void;
+  /** M7c: towers (pre-built, the mobs') a host lair may stand on: id and centre. */
+  towers?(): { id: number; x: number; y: number }[];
+  /** M7c: foe carts in the region (raid targets). */
+  carts?(): { id: number; x: number; y: number; team: number }[];
 }
 
-type LairState = 'home' | 'chase' | 'return' | 'flee';
+type LairState = 'home' | 'chase' | 'return' | 'flee' | 'raid';
 
 interface Lair {
   id: number; kind: MobKind; def: MobDef; x: number; y: number; count: number;
   squad: SquadId; state: LairState; cleared: boolean; respawnAt: number; nodes: number[];
   wanderAt: number; fleeUntil: number; hpSeen: number; foe: SquadId;
+  /** M7c: a host's captain lair (his man alive), a host lair posted on tower `post` (-1 none), raiding until tick. */
+  captain: boolean; capAlive: boolean; post: number; raidUntil: number;
 }
 
 interface Claim { id: number; x: number; y: number; r: number; lairs: number[]; team: number; squad: SquadId; progress: number; contested: boolean }
 
 export function createMobs(region: RegionData, host: MobHost) {
+  const rule = depthRule(region);
   const lairs: Lair[] = [];
+  let boss: BossGate | null = null;
+  let held = false;
+  let raidAt = HOST.raid.every;
   const claims: Claim[] = (region.claimPoints ?? []).map((c, id) => ({ id, x: c.x, y: c.y, r: c.r ?? CLAIM.r, lairs: [...c.lairs], team: -1, squad: -1, progress: 0, contested: false }));
   let spawned = false;
   let tick = 0;
@@ -125,7 +152,10 @@ export function createMobs(region: RegionData, host: MobHost) {
   };
 
   const spawnLair = (l: Lair) => {
-    l.squad = host.spawn(l.kind, l.count, l.x, l.y);
+    const g = l.captain ? HOST.guard : { hp: 1, dmg: 1 };
+    l.squad = host.spawn(l.kind, l.count, l.x, l.y, { hp: rule.mob * g.hp, dmg: rule.mob * g.dmg, ...(l.captain ? { lead: HOST.captain } : {}) });
+    l.capAlive = l.captain;
+    l.raidUntil = 0;
     if (l.def.base === 'militia') host.order({ kind: 'formation', squad: l.squad, shape: 'loose' });
     l.state = 'home';
     l.cleared = false;
@@ -133,6 +163,17 @@ export function createMobs(region: RegionData, host: MobHost) {
     l.hpSeen = Infinity;
     l.foe = -1;
     if (l.nodes.length) host.lockNodes(l.nodes, true);
+    if (l.post >= 0) host.order({ kind: 'move', squad: l.squad, x: l.x, y: l.y }); // up onto its tower
+    holding();
+  };
+
+  /** The region is held while a host captain or the boss lives. */
+  const holding = () => {
+    const on = (!!boss && boss.alive) || lairs.some((l) => l.captain && !l.cleared && l.capAlive);
+    if (on !== held) {
+      held = on;
+      host.held?.(on);
+    }
   };
 
   const zoneOf = (l: Lair) => claims.find((c) => c.lairs.includes(l.id));
@@ -164,9 +205,16 @@ export function createMobs(region: RegionData, host: MobHost) {
 
   const think = (l: Lair) => {
     const s = sq(l.squad);
+    if (l.capAlive && !s.units[0]?.alive) {
+      l.capAlive = false;
+      host.captainDown?.(l.id, l.foe >= 0 ? sq(l.foe).team : -1);
+      holding();
+    }
     if (s.alive === 0) {
       l.cleared = true;
-      l.respawnAt = tick + RESPAWN;
+      l.capAlive = false;
+      l.respawnAt = tick + rule.respawn;
+      holding();
       l.state = 'home';
       if (l.nodes.length) host.lockNodes(l.nodes, false);
       return;
@@ -175,6 +223,11 @@ export function createMobs(region: RegionData, host: MobHost) {
     const [hp, max] = packHp(s);
     const hurt = hp < l.hpSeen - 1e-6;
     l.hpSeen = hp;
+    if (l.state === 'raid') {
+      // M7c: a host's raid party at a cart: home once it is gone or the raid has run its time
+      if (tick >= l.raidUntil || s.order !== 'attackBuilding') goHome(l);
+      return;
+    }
     if (l.state === 'home') {
       let [foe] = nearestFoe(MOB_TEAM, s.cx, s.cy, l.def.aggro);
       if (foe < 0 && hurt) [foe] = nearestFoe(MOB_TEAM, s.cx, s.cy, l.def.leash * 1.5); // shot at from further off
@@ -184,7 +237,7 @@ export function createMobs(region: RegionData, host: MobHost) {
         return;
       }
       if (hp < max) heal(s);
-      if (tick >= l.wanderAt) {
+      if (l.post < 0 && tick >= l.wanderAt) {
         l.wanderAt = tick + Math.round(WANDER_TICKS * host.range(0.6, 1.4));
         host.order({ kind: 'move', squad: l.squad, x: l.x + host.range(-WANDER, WANDER), y: l.y + host.range(-WANDER, WANDER) });
       }
@@ -209,7 +262,7 @@ export function createMobs(region: RegionData, host: MobHost) {
         l.state = 'home';
         l.hpSeen = Infinity;
         l.wanderAt = tick + WANDER_TICKS;
-        host.order({ kind: 'hold', squad: l.squad });
+        host.order(l.post >= 0 ? { kind: 'move', squad: l.squad, x: l.x, y: l.y } : { kind: 'hold', squad: l.squad });
       }
     }
   };
@@ -218,7 +271,7 @@ export function createMobs(region: RegionData, host: MobHost) {
     if (tick < l.respawnAt) return;
     const z = zoneOf(l);
     if ((z && z.team >= 0) || host.influenced(l.x, l.y)) {
-      l.respawnAt = tick + RESPAWN; // claimed ground: it stays clear (checked again later)
+      l.respawnAt = tick + rule.respawn; // claimed ground: it stays clear (checked again later)
       return;
     }
     if (nearestFoe(MOB_TEAM, l.x, l.y, RESPAWN_CLEAR)[0] >= 0) {
@@ -228,36 +281,95 @@ export function createMobs(region: RegionData, host: MobHost) {
     spawnLair(l);
   };
 
-  /** Lairs of the zone that still stand (guards only: herds never hold a zone). */
-  const zoneOpen = (c: Claim) => c.lairs.every((i) => !lairs[i] || lairs[i].cleared || lairs[i].def.passive);
+  /**
+   * The zone is open: no boss lives, and its guard lairs are cleared (herds never hold a zone); a zone with a host captain
+   * opens once every captain of it has fallen, his guard and the other lairs notwithstanding.
+   */
+  const zoneOpen = (c: Claim) => {
+    if (boss?.alive) return false;
+    const caps = c.lairs.filter((i) => lairs[i]?.captain);
+    if (caps.length) return caps.every((i) => lairs[i].cleared || !lairs[i].capAlive);
+    return c.lairs.every((i) => !lairs[i] || lairs[i].cleared || lairs[i].def.passive);
+  };
+  /** A squad channelling (or on its way to) claim point c. */
+  const claiming = (s: MobSquad | undefined, c: Claim) => !!s && s.alive > 0 && s.claimPt === c.id && s.order === 'claimRegion';
 
   const channel = (c: Claim) => {
-    const s = c.squad >= 0 ? sq(c.squad) : undefined;
-    if (!s || s.alive === 0 || s.claimPt !== c.id || s.order !== 'claimRegion' || c.team >= 0) {
+    let s = c.squad >= 0 ? sq(c.squad) : undefined;
+    if (c.team < 0 && !claiming(s, c) && s) {
+      // the lead fell or went: another squad of its team on the point carries on
+      const team = s.team;
+      s = host.squads.find((q) => q.team === team && claiming(q, c));
+      if (s) c.squad = s.id;
+    }
+    if (!s || !claiming(s, c) || c.team >= 0) {
       c.squad = -1;
       c.progress = 0;
       c.contested = false;
       return;
     }
-    let men = 0;
-    for (const u of s.units) if (u.alive && (u.x - c.x) ** 2 + (u.y - c.y) ** 2 <= CLAIM.at * CLAIM.at) men++;
-    if (men < Math.min(CLAIM.men, s.alive)) return; // on the way
+    // M7c: the team's men beside the banner (any of its squads), of enough players
+    let men = 0, coming = 0;
+    const players = new Set<string>();
+    for (const q of host.squads) {
+      if (q.team !== s.team || q.alive === 0) continue;
+      if (claiming(q, c)) coming += q.alive;
+      if ((q.cx - c.x) ** 2 + (q.cy - c.y) ** 2 > (CLAIM.at + 12) ** 2) continue;
+      let here = 0;
+      for (const u of q.units) if (u.alive && (u.x - c.x) ** 2 + (u.y - c.y) ** 2 <= CLAIM.at * CLAIM.at) here++;
+      if (here) (men += here), players.add(q.owner);
+    }
+    if (men < Math.min(rule.claim.men, coming) || players.size < rule.claim.players) return; // on the way, or too few
     c.contested = nearestFoe(s.team, c.x, c.y, CLAIM.contest)[0] >= 0 || !zoneOpen(c);
     if (c.contested) {
       c.progress = 0;
       return;
     }
-    if (++c.progress < CLAIM.ticks) return;
+    if (++c.progress < rule.claim.ticks) return;
     c.team = s.team;
     c.squad = -1;
     host.claim(s.team, c.x, c.y, c.r);
-    host.order({ kind: 'hold', squad: s.id });
+    for (const q of host.squads) if (q.team === s.team && claiming(q, c)) host.order({ kind: 'hold', squad: q.id });
+  };
+
+  /** M7c: every HOST.raid.every ticks a host lair (not the captain's) goes for the nearest foe cart in reach. */
+  const raid = () => {
+    raidAt = tick + HOST.raid.every;
+    if (!held || !host.carts) return;
+    const carts = host.carts();
+    let best: [Lair, number] | null = null, bd = HOST.raid.r ** 2;
+    for (const l of lairs) {
+      if (l.captain || l.cleared || l.kind !== 'bandit' || l.state !== 'home') continue;
+      for (const e of carts) {
+        const d = (e.x - l.x) ** 2 + (e.y - l.y) ** 2;
+        if (d < bd) (bd = d), (best = [l, e.id]);
+      }
+    }
+    if (!best) return;
+    const [l, cart] = best;
+    l.state = 'raid';
+    l.raidUntil = tick + HOST.raid.every / 3;
+    host.order({ kind: 'attackBuilding', squad: l.squad, siege: cart });
   };
 
   return {
     /** Save and restore (./state.ts). */
-    saveRoot: () => ({ lairs, claims, spawned, tick }),
-    loadRoot: (o: { spawned: boolean; tick: number }) => void ((spawned = o.spawned), (tick = o.tick)),
+    saveRoot: () => ({ lairs, claims, spawned, tick, boss, held, raidAt }),
+    loadRoot: (o: { spawned: boolean; tick: number; boss: BossGate | null; held: boolean; raidAt: number }) => void ((spawned = o.spawned), (tick = o.tick), (boss = o.boss), (held = o.held), (raidAt = o.raidAt)),
+    /** M7d stub: the region boss (null: none); while it lives the region is held and its claim points stay shut. */
+    setBoss(id: string | null) {
+      boss = id ? { id, alive: true } : null;
+      holding();
+    },
+    /** M7d stub: the boss fell; the claim points may open. */
+    bossDown() {
+      if (boss) boss.alive = false;
+      holding();
+    },
+    boss: () => boss,
+    /** The region is held by its host or boss. */
+    held: () => held,
+    rule,
     /** Spawn every lair of the region (once). */
     spawn() {
       if (spawned) return;
@@ -266,10 +378,31 @@ export function createMobs(region: RegionData, host: MobHost) {
       (region.lairs ?? []).forEach((d, id) => {
         const def = MOBS[d.kind];
         const guard = def.passive ? [] : nodes.filter((n) => n.obj !== undefined && (n.x - d.x) ** 2 + (n.y - d.y) ** 2 <= GUARD_R * GUARD_R).map((n) => n.id);
-        const l: Lair = { id, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? def.count, squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: guard, wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1 };
+        const captain = !!d.captain && d.kind === 'bandit';
+        const l: Lair = { id, kind: d.kind, def, x: d.x, y: d.y, count: d.count ?? (captain ? 12 : def.count), squad: -1, state: 'home', cleared: false, respawnAt: 0, nodes: guard, wanderAt: 0, fleeUntil: 0, hpSeen: Infinity, foe: -1, captain, capAlive: false, post: -1, raidUntil: 0 };
         lairs.push(l);
-        spawnLair(l);
       });
+      // M7c: the host's other bandit lairs of a captain's zone stand on its towers, nearest first
+      const towers = lairs.some((l) => l.captain) ? (host.towers?.() ?? []) : [];
+      const taken = new Set<number>();
+      for (const c of claims) {
+        if (!c.lairs.some((i) => lairs[i]?.captain)) continue;
+        for (const i of c.lairs) {
+          const l = lairs[i];
+          if (!l || l.captain || l.kind !== 'bandit') continue;
+          let best = -1, bd = Infinity;
+          for (const [k, t] of towers.entries()) {
+            const d = (t.x - l.x) ** 2 + (t.y - l.y) ** 2;
+            if (!taken.has(k) && d < bd) (bd = d), (best = k);
+          }
+          if (best < 0) continue;
+          taken.add(best);
+          l.post = towers[best].id;
+          l.x = towers[best].x;
+          l.y = towers[best].y;
+        }
+      }
+      for (const l of lairs) spawnLair(l);
     },
     /**
      * claimRegion: false (the order is dropped) unless the point exists, is unowned and its zone's guard lairs are all
@@ -286,6 +419,7 @@ export function createMobs(region: RegionData, host: MobHost) {
     claimPoint: (i: number) => claims[i],
     tick(t: number) {
       tick = t;
+      if (t >= raidAt) raid();
       for (const l of lairs) {
         if (l.cleared) respawn(l);
         else if ((t + l.id) % AI_EVERY === 0) think(l);
@@ -297,13 +431,14 @@ export function createMobs(region: RegionData, host: MobHost) {
         const s = l.squad >= 0 ? sq(l.squad) : undefined;
         return {
           id: l.id, kind: l.kind, x: l.x, y: l.y, squad: l.squad, alive: l.cleared ? 0 : (s?.alive ?? 0), count: l.count,
-          state: l.cleared ? 'cleared' : l.state, aggro: l.def.aggro, leash: l.def.leash, guard: l.def.passive ? 0 : GUARD_R, nodes: l.nodes.length,
+          state: l.cleared ? 'cleared' : l.state === 'raid' ? 'chase' : l.state, aggro: l.def.aggro, leash: l.def.leash, guard: l.def.passive ? 0 : GUARD_R, nodes: l.nodes.length,
+          ...(l.captain ? { captain: l.capAlive } : {}),
           ...(l.cleared ? { respawnIn: Math.max(0, l.respawnAt - tick) } : {}),
         };
       }),
     claimSnaps: (): ClaimSnap[] =>
       claims.map((c) => ({
-        id: c.id, x: c.x, y: c.y, team: c.team, squad: c.squad, progress: c.progress / CLAIM.ticks, lairs: c.lairs,
+        id: c.id, x: c.x, y: c.y, team: c.team, squad: c.squad, progress: c.progress / rule.claim.ticks, lairs: c.lairs, men: rule.claim.men, players: rule.claim.players,
         state: c.team >= 0 ? 'claimed' : !zoneOpen(c) ? 'locked' : c.squad < 0 ? 'open' : c.contested ? 'contested' : 'channel',
       })),
   };
