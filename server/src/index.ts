@@ -12,6 +12,7 @@ import { ApiError, errorBody, unauthorized } from './errors';
 import { assertPlayable, credentials, db, requirePlayable, requireSession } from './middleware';
 import { originCheck } from './auth/origin';
 import { WAR_REGIONS } from './war/regions';
+import { war } from './war/routes';
 import { lookupSession, pruneAuth } from './auth/sessions';
 import { finishDeletions } from './account/delete';
 import { pruneLinks } from './account/cron';
@@ -139,6 +140,7 @@ app.route('/api/online', online);
 app.route('/api/economy', economy);
 app.route('/api/duel', duel);
 app.route('/api/notify', notifyRoutes);
+app.route('/api/war', war);
 
 app.post('/api/battle/verify', requirePlayable, async (c) => {
   const req = await readJson(c, VerifyBody, LIMITS.maxBodyBytes);

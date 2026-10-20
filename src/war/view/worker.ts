@@ -6,6 +6,7 @@
  * `sim: 'fake'` (sandbox.html?sim=fake) runs the straight-line stand-in for comparison.
  * `net` (sandbox.html?net=ws://localhost:8787/ws/war/test-ridge, or /ws/war/test-ridge through the vite proxy; M3): no
  * local sim, the worker plays on the live region (WarRegionDO) through ../net/client.ts and posts its decoded snapshots instead.
+ * Spawns join with the dev player's persisted soldiers (M5e; `seed=1` in the net URL re-seeds his roster).
  */
 import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
@@ -113,7 +114,10 @@ function prebuild(s: WarSim, team: number, max: number): void {
 onmessage = (e: MessageEvent<ToWorker>) => {
   const m = e.data;
   if (m.t === 'init' && m.net) {
-    net = createNet(m.net, m.region.id, m.dev, (snap, stats) => postMessage({ snap, stats }));
+    // M5e: `?net=/ws/war/test-ridge?seed=1` re-seeds the dev roster before joining (the server seeds one anyway when
+    // fewer than a squad of soldiers are at home)
+    const seed = /[?&]seed=1\b/.test(m.net), url = m.net.replace(/[?&]seed=1\b/, '');
+    net = createNet(url, m.region.id, m.dev, (snap, stats) => postMessage({ snap, stats }), seed);
     return;
   }
   if (net) return netMessage(net, m);

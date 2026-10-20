@@ -90,6 +90,10 @@ export const DELETION_MAP: Record<string, TableRule> = {
   notify_log: { rule: 'delete', pid: ['player_id'] },
   analytics_milestones: { rule: 'delete', pid: ['player_id'] },
   client_errors: { rule: 'delete', pid: ['last_player'] },
+  war_items: { rule: 'delete', pid: ['player_id'] },
+  war_persons: { rule: 'delete', pid: ['player_id'] },
+  war_pools: { rule: 'delete', pid: ['player_id'] },
+  war_stock: { rule: 'delete', pid: ['player_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
   // Kept against the tombstone.
@@ -117,6 +121,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   online_seasons: { rule: 'not_player_keyed' },
   online_shards: { rule: 'not_player_keyed' },
   stats_counters: { rule: 'not_player_keyed' },
+  war_fights: { rule: 'not_player_keyed' },
   public_snapshot: { rule: 'derived' },
   dev_outbox: { rule: 'dev_only' },
 };
