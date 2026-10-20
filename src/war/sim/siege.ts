@@ -227,7 +227,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     if (e.cd > 0) return;
     e.cd = RAM.ticks;
     e.swingAt = tick;
-    works.damage(e.target, RAM.dmg * dmgK(e) * (works.piece(e.target)!.def.material === 'stone' ? RAM.stone : 1));
+    works.damage(e.target, RAM.dmg * dmgK(e) * (works.piece(e.target)!.def.material === 'stone' ? RAM.stone : 1), e.team);
   };
 
   const thrower = (e: Engine, n: number, tick: number) => {

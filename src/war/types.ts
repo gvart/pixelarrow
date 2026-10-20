@@ -18,7 +18,9 @@ export interface RegionData {
   /** Biome per sim tile: index into `names`, run-length encoded (src/war/regions/visual.ts); picks the art library. Visual only. */
   biomes?: { names: string[]; rle: number[] };
   /** Neutral fauna (W-12, src/war/sim/mobs.ts): a lair or camp of one mob kind at (x,y), its pack size (default per kind). */
-  lairs?: { kind: MobKind; x: number; y: number; count?: number }[];
+  lairs?: { kind: MobKind; x: number; y: number; count?: number;
+    /** M7c: a bandit host's captain (bandit kind): he and his elite guard; the claim points holding this lair open once he falls. */
+    captain?: boolean }[];
   /** Region claim banners: open once every guard lair of `lairs` (indices into lairs) is cleared; r: influence radius once claimed. */
   claimPoints?: { x: number; y: number; lairs: number[]; r?: number }[];
   /**
@@ -28,6 +30,19 @@ export interface RegionData {
   safe?: SafeRect[];
   yard?: TileRect[];
   ambush?: TileRect[];
+  /** M7a (additive, src/war/sim/prebuilt.ts): the region's pre-built structures (town pieces, landmark pieces). */
+  prebuilt?: PrebuiltEntry[];
+  /** M7c: danger depth 0 (homes) .. 4 (rim, Omphalos); absent: src/war/sim/depth.ts REGION_DEPTH, else 1. */
+  depth?: number;
+}
+/**
+ * M7a: a pre-built structure (docs/WAR.md "Pre-built structures"): a building of `type` standing done at the start, its
+ * footprint centred on (x,y) (rot as placeBuilding) or, for wall lines, the flat x,y `tiles` given; hp: share of max hp
+ * (default 1, landmark pieces 0.6); state 'ruined': a ruin from the start; claim: the claim point (index into claimPoints)
+ * whose holder owns it (default: the first point whose radius covers it); landmark: rebuilt only by its restore rule (M7d).
+ */
+export interface PrebuiltEntry {
+  type: BuildingType; x: number; y: number; rot?: 0 | 1; tiles?: number[]; hp?: number; state?: 'done' | 'ruined'; claim?: number; landmark?: boolean;
 }
 export interface TileRect { x: number; y: number; w: number; h: number }
 export interface SafeRect extends TileRect { gates?: TileRect[] }
@@ -69,6 +84,11 @@ export type Order =
   // claimRegion (W-12, src/war/sim/mobs.ts): the squad walks to claim point `point` (index into region.claimPoints) and
   // channels there; dropped unless the point is unowned and its zone's guard lairs are cleared.
   | { kind: 'claimRegion'; squad: SquadId; point: number }
+  // M7a: repairBuilding: the squad mends a damaged building of its team to full (src/war/sim/prebuilt.ts REPAIR: per 10%
+  // hp, 5% of its cost from the network and 5% of its labour; engineers faster). rebuild: a ruin on the team's ground
+  // becomes a site at RUIN.rebuild of its cost and labour (landmark pieces: never); with a squad it builds it.
+  | { kind: 'repairBuilding'; squad: SquadId; building: number }
+  | { kind: 'rebuild'; building: number; squad?: SquadId; team?: number }
   | WallOrder
   | BridgeOrder
   | SiegeOrder
@@ -212,7 +232,9 @@ export interface SquadSnap { id: SquadId; owner: string; team: number; units: Un
   /** M5f: a civilian squad (work orders only), running from a foe; fed by a cook (rations). */
   civ?: true; flee?: true; fed?: true;
   /** M5h: the dish it ate last (while fed), bandages it carries, theriac on (venom ignored). */
-  dish?: Product; bandages?: number; theriac?: true }
+  dish?: Product; bandages?: number; theriac?: true;
+  /** M7a: blessed at a temple or shrine (wounded share and healing up). */
+  blessed?: true }
 export interface FireArrowsSnap { on: boolean; available: boolean; reason?: 'noBrazier' | 'noPitch' }
 export type MissileKind = 'arrow' | 'stone' | 'javelin' | 'bolt';
 /**
@@ -236,6 +258,8 @@ export interface Snapshot {
   claims?: ClaimSnap[];
   /** M6c: loot piles on the field. */
   piles?: PileSnap[];
+  /** M7a: towns of pre-built pieces (grouped by claim point). */
+  towns?: TownSnap[];
   /** M5f: rations per team (cooks make them, squads near a cook eat them). */
   rations?: Record<number, number>;
   /** M5h: dishes, remedies, kits and caravan goods per team (src/data/recipes.ts Product). */
@@ -248,8 +272,16 @@ export interface Snapshot {
  */
 export interface LairSnap {
   id: number; kind: MobKind; x: number; y: number; squad: SquadId; alive: number; count: number;
+  /** M7c: a bandit host's captain lair (claim opens once he falls), its captain alive. */
+  captain?: boolean;
   state: 'home' | 'chase' | 'return' | 'flee' | 'cleared'; aggro: number; leash: number; guard: number; nodes: number; respawnIn?: number;
 }
+/**
+ * M7a: a town (the pre-built pieces round claim point `claim`, -1: those outside any): its owner (NEUTRAL_TEAM, MOB_TEAM
+ * or an alliance team), houses standing of all, its recruit pool (an hour) and cap, favour and prestige (score an hour,
+ * uncapped), ruined (3/4 of its houses and its temple down: no pool, no favour).
+ */
+export interface TownSnap { claim: number; team: number; houses: number; standing: number; pool: number; cap: number; favour: number; prestige: number; ruined: boolean }
 /**
  * A claim point: locked (a guard lair of its zone lives), open, channel (squad channelling, progress 0..1), contested
  * (foes near: progress reset), claimed (by team).
@@ -289,7 +321,9 @@ export type BuildingType =
   | 'forge' | 'forge2' | 'forge3' | 'cookhouse' | 'cookhouse2' | 'cookhouse3' | 'infirmary' | 'infirmary2' | 'infirmary3'
   | 'workshop' | 'workshop2' | 'workshop3' | 'stall' | 'stall2' | 'stall3' | 'sortingFloor' | 'sortingFloor2'
   // M6a: a player's chest (1x1, owner-only, never feeds crafting)
-  | 'chest';
+  | 'chest'
+  // M7a pre-built pieces (docs/WAR.md "Pre-built structures"; placed only by the region, rebuilt from ruins)
+  | 'house' | 'cottage' | 'tent' | 'temple' | 'shrine' | 'stoa' | 'statue' | 'well' | 'jetty' | 'warehouse' | 'board' | 'cache';
 /** foundation: marked out, materials arriving; scaffold: labour under way (the footprint blocks); damaged: done below half hp. */
 export type BuildState = 'foundation' | 'scaffold' | 'done' | 'damaged' | 'destroyed';
 export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach' | 'span' | 'bank' | 'cost';
@@ -372,6 +406,10 @@ export interface BuildingSnap {
   queue?: QueueSnap[];
   /** M6a: a store's or chest's goods and item count; a chest's owner. */
   goods?: Partial<Record<ResourceKind, number>>; items?: number; owner?: string;
+  /** M7a: a pre-built piece (landmark: restored only by its rule); a ruin (rubble, no function; rebuilt by its ground's owner); a fouled well; under repair. */
+  pre?: true; landmark?: true; ruin?: true; fouled?: true; mend?: true;
+  /** M7a stoa: stall sites under its roof. */
+  stalls?: number;
   /** M6k: a store's or chest's first items (at most 8). */
   list?: HoldItem[];
 }
@@ -404,6 +442,11 @@ export interface WarBuildSim extends WarSim {
   spawnCart(team: number, owner: string, type: 'handcart' | 'wagon', x: number, y: number): number;
   /** Spawn the region's lairs (neutral play; once). */
   spawnMobs(): void;
+  /** M7a (src/war/sim/prebuilt.ts): the region's towns; a team's recruit pool (an hour) and cap from its houses; its favour and prestige (score an hour, capped); the upkeep multiplier of its squad resting at (x,y) (a well near). */
+  towns(): TownSnap[];
+  population(team: number): { rate: number; cap: number };
+  prestige(team: number): number;
+  upkeepAt(team: number, x: number, y: number): number;
   /** W-39 fog: the team sees tile point (x,y) now. */
   visibleTo(team: number, x: number, y: number): boolean;
   /** The team's fog grid (live; copy before posting). */
@@ -498,4 +541,9 @@ export type WarEvent =
   | { t: number; kind: 'crafted'; order: number; building: number; team: number; owner: string; pid?: string; recipe: string; what: 'craft' | 'repair' | 'salvage'; item: Item }
   // W-45: a region boss (src/data/warBosses.ts) fell; killers: the owners (`p:<player id>`) of the squads that hurt it,
   // the one who struck the last blow first. The server writes the kill and mints its loot (server/src/war/bosses.ts).
-  | { t: number; kind: 'bossSlain'; region: string; boss: string; killers: string[]; x?: number; y?: number };
+  | { t: number; kind: 'bossSlain'; region: string; boss: string; killers: string[]; x?: number; y?: number }
+  // M7a: a pre-built piece (owned by `owner`) brought down to a ruin, by `by` (-1: unknown, fire or a stone); a temple or
+  // shrine: sacrilege (the razer's alliance loses score, server)
+  | { t: number; kind: 'razed'; building: number; type: BuildingType; owner: number; by: number; sacrilege?: true }
+  // M7c: a bandit host's captain fell (its claim point may open)
+  | { t: number; kind: 'captainSlain'; lair: number; by: number };

@@ -55,7 +55,9 @@ const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'fa
   // M5h workplaces (L2/L3 come by upgrade; listed for checks of every type)
   'forge', 'forge2', 'forge3', 'cookhouse', 'cookhouse2', 'cookhouse3', 'infirmary', 'infirmary2', 'infirmary3', 'workshop', 'workshop2', 'workshop3', 'stall', 'stall2', 'stall3', 'sortingFloor', 'sortingFloor2', 'chest',
   // M5h3 Fortifier field tiles; towerBridge (listed for checks: the sim never places one)
-  'stakes', 'ditch', 'towerBridge'] as const satisfies readonly BuildingType[];
+  'stakes', 'ditch', 'towerBridge',
+  // M7a pre-built pieces (listed for checks: only the region places them)
+  'house', 'cottage', 'tent', 'temple', 'shrine', 'stoa', 'statue', 'well', 'jetty', 'warehouse', 'board', 'cache'] as const satisfies readonly BuildingType[];
 const rot = z.union([z.literal(0), z.literal(1)]).optional();
 /** Every good (src/war/types.ts ResourceKind). */
 export const GOODS = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'pitch', 'hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'coin'] as const satisfies readonly ResourceKind[];
@@ -97,6 +99,9 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('upgrade'), building: id, squad: id.optional() }),
   z.object({ kind: z.literal('cancelSite'), site: id }),
   z.object({ kind: z.literal('claimRegion'), squad: id, point: id }),
+  // M7a: mend a damaged building of the player's team; rebuild a ruin on its ground
+  z.object({ kind: z.literal('repairBuilding'), squad: id, building: id }),
+  z.object({ kind: z.literal('rebuild'), building: id, squad: id.optional() }),
   // M5h crafting: queue a recipe at (or cancel an order of) a workplace of the player's team; repair and salvage carry a
   // stash item and come from the server (M5h4)
   z.object({ kind: z.literal('craft'), building: id, recipe: z.string().regex(/^[a-z_]+(:[a-z0-9_]+)?$/).max(48) }),

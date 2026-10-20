@@ -44,6 +44,10 @@ export interface BuildingDef {
   workplace?: { kind: Workplace; level: number; spots?: readonly Spot[] };
   /** M6a: a chest: holds this many loads for its owner (never feeds crafting). */
   chest?: number;
+  /** M7a: a pre-built piece type (./prebuilt.ts): only the region places it; a ruin of it is rebuilt in place. */
+  prebuilt?: true;
+  /** M7a: a holder anyone may loot (a town's goods cache; gone once empty). */
+  cache?: number;
 }
 
 /**
@@ -107,7 +111,30 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   sortingFloor2: wp('sorting', 2, { w: 3, h: 3, hp: 800, cost: { wood: 40, salt: 10 }, labour: 600, workers: 6, material: 'wood', store: true }),
   // M6a: a player's chest (docs/WAR.md "Goods live in places")
   chest: { w: 1, h: 1, hp: 150, cost: { wood: 10 }, labour: 60, workers: 2, influence: 0, material: 'wood', burnable: true, chest: 8 },
+  // M7a pre-built pieces (docs/WAR.md "Pre-built structures"; functions in ./prebuilt.ts PREBUILT); cost and labour price a rebuild and repairs
+  house: { w: 3, h: 3, hp: 900, cost: { stone: 60, wood: 20 }, labour: 1500, workers: 6, influence: 0, material: 'stone', prebuilt: true },
+  cottage: { w: 3, h: 2, hp: 400, cost: { wood: 40 }, labour: 600, workers: 4, influence: 0, material: 'wood', burnable: true, prebuilt: true },
+  tent: { w: 2, h: 2, hp: 150, cost: { wood: 6, hides: 4 }, labour: 200, workers: 2, influence: 0, material: 'wood', burnable: true, prebuilt: true },
+  temple: { w: 4, h: 4, hp: 3000, cost: { stone: 200, marble: 60 }, labour: 8000, workers: 8, influence: 0, material: 'stone', prebuilt: true },
+  shrine: { w: 2, h: 2, hp: 800, cost: { stone: 40, marble: 10 }, labour: 1200, workers: 4, influence: 0, material: 'stone', prebuilt: true },
+  stoa: { w: 2, h: 6, hp: 2000, cost: { stone: 150, wood: 30 }, labour: 4000, workers: 8, influence: 0, material: 'stone', store: true, prebuilt: true },
+  statue: { w: 1, h: 1, hp: 400, cost: { marble: 10 }, labour: 600, workers: 2, influence: 0, material: 'stone', prebuilt: true },
+  well: { w: 1, h: 1, hp: 800, cost: { stone: 20 }, labour: 400, workers: 2, influence: 0, material: 'stone', prebuilt: true },
+  jetty: { w: 1, h: 4, hp: 300, cost: { wood: 30 }, labour: 500, workers: 3, influence: 0, material: 'wood', burnable: true, prebuilt: true, yields: { res: 'food', max: 40, regrow: 0.2, rate: 0.8 } },
+  warehouse: { w: 3, h: 2, hp: 1200, cost: { stone: 80, wood: 40 }, labour: 2000, workers: 6, influence: 0, material: 'stone', store: true, prebuilt: true },
+  board: { w: 1, h: 1, hp: 150, cost: { wood: 10 }, labour: 60, workers: 2, influence: 0, material: 'wood', burnable: true, prebuilt: true },
+  cache: { w: 1, h: 1, hp: 100, cost: { wood: 5 }, labour: 30, workers: 2, influence: 0, material: 'wood', prebuilt: true, cache: 2 },
 };
+
+/** M7a: the team of the neutral regions' pre-built pieces (mobs never attack it, nobody uses it; its gates stand open). */
+export const NEUTRAL_TEAM = 6;
+/**
+ * M7a ruins and repairs (docs/WAR.md "Pre-built structures"): a ruin's footprint costs `slow` x to cross; it drops `spill`
+ * of its goods as a pile; a rebuild costs `rebuild` of the cost and labour. repair: every `step` of max hp costs `cost` of
+ * the build cost (from the network) and `labour` of its labour.
+ */
+export const RUIN = { slow: 2, spill: 0.5, rebuild: 0.75 };
+export const REPAIR = { step: 0.1, cost: 0.05, labour: 0.05 };
 
 /** M6a chests: most a player places in a region; an enemy loots one only with no unit of its owner within `guard` tiles. */
 export const CHEST = { cap: 4, guard: 10 };

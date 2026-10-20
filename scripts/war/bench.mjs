@@ -280,3 +280,25 @@ console.log(
   const snap = war.snapshot(), cs = snap.sieges.filter((e) => e.type === 'handcart' || e.type === 'wagon');
   console.log(`trade: units ${war.stats().units} + carts ${cs.length}, ticks ${ticks}: ${summary(tms)}; carts wrecked ${cs.filter((e) => e.state === 'destroyed').length}, captured ${cs.filter((e, i) => e.team !== i % 2).length}, piles ${snap.piles?.length ?? 0}`);
 }
+
+// town (M7a): 150 pre-built pieces (houses, temples, wells, statues, stoas, a wall) in 4 towns, two of them held, while
+// 600 men of 4 teams attack-move through the streets: blessing, fouling and ownership scans as they go
+{
+  const n = 200, flat = { id: 'f', name: 'f', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [] };
+  const prebuilt = [], kinds = ['house', 'house', 'house', 'cottage', 'well', 'statue', 'temple', 'stoa', 'house', 'shrine'];
+  for (let k = 0; k < 140; k++) prebuilt.push({ type: kinds[k % kinds.length], x: 30 + (k % 14) * 10, y: 40 + Math.floor(k / 14) * 12 });
+  for (let k = 0; k < 10; k++) prebuilt.push({ type: 'stoneWall', x: 0, y: 0, tiles: [30 + k * 2, 30, 31 + k * 2, 30] });
+  const claimPoints = [[60, 60], [140, 60], [60, 130], [140, 130]].map(([x, y]) => ({ x, y, lairs: [], r: 45 }));
+  const war = sim.createSim({ ...flat, prebuilt, claimPoints }, 8);
+  war.claim(0, 60, 60, 45);
+  war.claim(1, 140, 60, 45);
+  for (let k = 0; k < 50; k++) {
+    const team = k % 4, x = [10, 190, 10, 190][team], y = 20 + Math.floor(k / 4) * 13;
+    const id = war.spawnSquad(`p${k}`, team, ['militia', 'hoplite', 'archer'][k % 3], N, x, y);
+    war.order({ kind: 'attackMove', squad: id, x: 200 - x, y: 200 - y });
+  }
+  const ms = [];
+  for (let t = 0; t < ticks; t++) war.step(), ms.push(war.stats().stepMs);
+  const snap = war.snapshot();
+  console.log(`town: units ${war.stats().units}, pre-built ${snap.buildings.filter((b) => b.pre).length} (ruins ${snap.buildings.filter((b) => b.ruin).length}), ticks ${ticks}: ${summary(ms)}; towns ${snap.towns.length}`);
+}
