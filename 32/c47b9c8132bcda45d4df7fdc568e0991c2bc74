@@ -1,0 +1,40 @@
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_893772262b66a2 203,461,511,515
+  s_cfc22b058125c4::t_517bae730d0305 205
+  s_cfc22b058125c4::t_33172c43150999 204
+src/war/view/units.ts
+  s_cfc22b058125c4::t_df2765e213b9b1 223-227,329-333,353,358
+  s_cfc22b058125c4::t_5a8c29be8b9af8 304
+  s_cfc22b058125c4::t_6461d908385e58 280,287-303,305-308
+  s_cfc22b058125c4::t_2dc044baa69b00 228
+  s_cfc22b058125c4::t_2dc5227732a4ef 309
+src/war/view/bossFx.ts
+  s_cfc22b058125c4::t_366a1e101061f8 477
+  s_cfc22b058125c4::t_c8bd0a67a07d25 42,44,244,509,536-537,545
+  s_cfc22b058125c4::t_846011448a05f8 1-41,43,45-69,74-116,124-228,230-243,245-298,301,303,309,311-323,325-404,406-449,454-476,478-479,486-508,510-535,539-544,546-630
+  s_cfc22b058125c4::t_517bae730d0305 117-123,229,450-453
+  s_cfc22b058125c4::t_e8cd13c1faba1e 324
+  s_cfc22b058125c4::t_f9247868438e2a 299-300,302,304-308,310
+  s_cfc22b058125c4::t_ebd9a5cfdb3f32 405,538
+  s_cfc22b058125c4::t_6461d908385e58 70-73
+  s_cfc22b058125c4::t_10b3b3a7a86c8b 480-485
+src/war/view/guardians.ts
+  s_cfc22b058125c4::t_58f0172de35899 7-8,11,13-14,25-26,34,36,88-90,98
+  s_cfc22b058125c4::t_517bae730d0305 59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "32c47b9c8132bcda45d4df7fdc568e0991c2bc74",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
