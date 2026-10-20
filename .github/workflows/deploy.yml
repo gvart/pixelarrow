@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         if: github.event_name == 'push'
-      # Paths from ADR-0007, plus tests/, maps-src/ and the workflow itself.
+      # Paths from ADR-0007, plus tests/ and the workflow itself.
       # landing/scripts/sections-check.mjs reads src/data/classes.ts.
       - id: filter
         if: github.event_name == 'push'
@@ -59,7 +59,6 @@ jobs:
               - 'index.html'
               - 'scripts/**'
               - 'tests/**'
-              - 'maps-src/**'
               - 'package*.json'
               - 'vite.config.*'
               - 'wrangler.jsonc'

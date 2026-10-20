@@ -61,7 +61,7 @@ const SUITE = [
   // the v2 replay fixtures hashed in Chromium against the Node hashes (ST-04; exit 2 = engine NOT RUN)
   { name: 'replay-hash', script: 'scripts/replay-hash.mjs', args: ['chromium'], min: 10 },
 ];
-/** --all: the browser smokes too (online-e2e needs wrangler with DEV_AUTH and stays out). */
+/** --all: the browser smokes too. */
 const SMOKES = [
   { name: 'smoke', script: 'scripts/smoke.mjs', args: ['BASE'], min: 15 },
   { name: 'tutorial-smoke', script: 'scripts/tutorial-smoke.mjs', args: ['BASE'], min: 30 }, // five guided battles (390, 320 TG, 844x390, 1280x800, 1920x1080; V6-RSCR-08)

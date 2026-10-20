@@ -13,7 +13,7 @@
 // is done by a tap or a drag on what is lit (nothing swallows it). Also: ✕ only hides
 // the bubble (its "Nikias" key brings it back) and "Skip" asks first (TUT-2); an
 // interrupted tutorial is offered again (resume), skip sticks, and a finished
-// tutorial is not offered again; the online coach marks.
+// tutorial is not offered again.
 // Saves shots/<mode>/42-tutorial-narrator.png, 43-tutorial-gesture.png, 44-first-run*.png
 // (git-ignored; $SHOTS overrides the folder).
 // Usage: node scripts/tutorial-smoke.mjs <baseUrl> [--platform telegram|web|both]
@@ -301,33 +301,9 @@ async function guided(tag, ctxOpts, fake, main) {
   return { close: () => browser.close(), page, ev, wait, tap, until, tapBtn };
 }
 
-/** The 390x844 lesson (the screenshots, the reward and what follows), then the online coach marks on its page. */
+/** The 390x844 lesson (the screenshots, the reward and what follows). */
 async function phone() {
   const run = await guided('390', {}, { languageCode: 'en' }, true);
-  const { ev, wait, tap, until } = run;
-  const page = run.page;
-
-  // ------------------------------------------------------------------ online coach marks (local demo shard)
-
-  const coachOn = async (preview, coach) => {
-    await ev(([p, c]) => window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Online', { preview: p, coach: c })), [preview, coach]);
-    await until(() => ev(() => !!window.__game.scene.getScene('Online').map), 8000);
-    if (preview === 'neutral') await until(() => ev(() => !!window.__game.scene.getScene('Online').detail), 5000);
-    await wait(900);
-  };
-  await coachOn('neutral', 'attack');
-  check('coach mark: Attack explained', await ev(() => window.__game.scene.getScene('Online').coach?.current === 'attack'));
-  await page.screenshot({ path: `${shots}/45-online-coach.png` });
-  await coachOn('map', 'home');
-  check('coach mark: Next goes on', (await run.tapBtn('Online', 'Next')) && (await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 3000)));
-  await coachOn('map', 'neighbour');
-  const nb = await ev(() => {
-    const s = window.__game.scene.getScene('Online');
-    const r = s.coach.target().rect;
-    return window.__css((r.x + r.w / 2) * s.m.S, (r.y + r.h / 2) * s.m.S);
-  });
-  await tap(nb[0], nb[1]);
-  check('coach mark: tapping the ringed neighbour opens it and goes on', await until(() => ev(() => window.__game.scene.getScene('Online').coach.current === null), 5000), JSON.stringify(await ev(() => window.__game.scene.getScene('Online').selected)));
   await run.close();
 }
 

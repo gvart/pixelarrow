@@ -156,8 +156,8 @@ await flow('battle', async () => {
 });
 
 // ---------------------------------------------------------------- 3. rows scrolled under the tab bar take no taps
-/** The hub each tab opens (src/ui/mosaic/hub.ts goTab). */
-const TAB_HUB = { campaign: 'Menu', duels: 'Duel', war: 'Online', codex: 'Codex' };
+/** The hub each tab opens (src/ui/mosaic/hub.ts goTab; War leaves the game for world.html). */
+const TAB_HUB = { campaign: 'Menu', duels: 'Duel', codex: 'Codex' };
 await flow('scroll-under-tabs', async () => {
   const n = '[scroll-under-tabs]';
   for (const [tab, hub] of Object.entries(TAB_HUB)) {

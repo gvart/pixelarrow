@@ -228,7 +228,7 @@ await flow('raid', async () => {
   await leaveReport(n, 'Duel', "return s.arenaTab === 'raid';");
 });
 
-// ---------------------------------------------------------------- war attack: an online source stub (the server's part is scripts/online-e2e.mjs)
+// ---------------------------------------------------------------- war attack: an online source stub
 await flow('war attack', async () => {
   const n = '[war attack]';
   await api.ev(() => {

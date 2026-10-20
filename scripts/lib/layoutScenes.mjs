@@ -25,7 +25,7 @@ export function matchScreens(ids, globs, optIn = []) {
  * each family) at the design phone and a laptop size.
  */
 export const QUICK = {
-  smoke: ['menu', 'menu-settings', 'kit-overlay-sheet', 'world', 'army', 'hero', 'battle-deploy', 'results', 'shop-shop', 'duel-ladder', 'online-map'],
+  smoke: ['menu', 'menu-settings', 'kit-overlay-sheet', 'world', 'army', 'hero', 'battle-deploy', 'results', 'shop-shop', 'duel-ladder', 'online-clan'],
   sizes: ['390x844', '1280x800'],
 };
 
@@ -57,10 +57,9 @@ const ROOTS = new Set(['src/main.ts', 'src/scenes/BootScene.ts', 'src/scenes/Bas
 /**
  * Imports of the roots that draw nothing on the checked screens: state, cloud saves, navigation,
  * monitoring, audio, routing (lazy scenes, deep links, the duel resume), Boot's retry button, the
- * settings sheet BaseScene opens on demand (the screens that show it import it themselves), and two
- * installers whose hooks never fire in the check (installWidgets: the long-press tooltip and toast;
- * installDuelInvites: challenges over the shard socket, and the API is down). Reaching one is not "every
- * screen": the scenes importing the change still count. Every other root import (the kit, layout,
+ * settings sheet BaseScene opens on demand (the screens that show it import it themselves), and an
+ * installer whose hooks never fire in the check (installWidgets: the long-press tooltip and toast).
+ * Reaching one is not "every screen": the scenes importing the change still count. Every other root import (the kit, layout,
  * language, safe area, render scale, icon atlases...) acts on every screen, and so does a new one.
  */
 const SERVICES = new Set([
@@ -79,7 +78,6 @@ const SERVICES = new Set([
   'src/ui/mosaic/index.ts',
   'src/ui/settings.ts',
   'src/ui/widgets.ts',
-  'src/ui/duelInvites.ts',
 ]);
 
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"](\.{1,2}\/[^'"?]+)(?:\?[^'"]*)?['"]/g;

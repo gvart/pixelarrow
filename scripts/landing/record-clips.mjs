@@ -284,26 +284,6 @@ const CLIPS = {
     return errors;
   },
 
-  // The war map: M3 a short drift from home toward a rival army marching along its route; G2 a longer
-  // pass, wider, over home, the rival's march and the regions beyond.
-  async M3() {
-    const { page, ctx, errors } = await openGame(960, 540);
-    let a = await stageWar(page, 2);
-    console.log('M3: anchors', JSON.stringify(a));
-    const dir = await capture(page, 'M3', 6.5, panPath(page, 'Online', [a.me, { x: (a.me.x + a.raid.x) / 2, y: (a.me.y + a.raid.y) / 2 }], 6.5 * FPS));
-    writeEnv(dir, { W: 960, H: 540, XF: 0.5, POSTER: 3.0 });
-    a = await stageWar(page, 1);
-    // the map draws its detailed ground in chunks as the camera reaches them: one pass first so the take
-    // shows the finished map, not the coarse overview it starts from
-    const path = [a.rival, a.me, a.raid];
-    const warm = panPath(page, 'Online', path, 24);
-    for (let i = 0; i < 24; i++) { await warm(i); await page.waitForTimeout(250); }
-    const dir2 = await capture(page, 'G2', 8.5, panPath(page, 'Online', path, 8.5 * FPS));
-    writeEnv(dir2, { W: 960, H: 540, XF: 0.5, POSTER: 4.0 });
-    await ctx.close();
-    return errors;
-  },
-
   // Campaign: the party marches along the road toward a town on the overland map, a band (with its
   // strength plate) on the way; the map's HUD camera hidden.
   async M1() {
@@ -502,43 +482,6 @@ async function stageDuel(page) {
   await page.waitForTimeout(1200);
   return ev(page, () => { const s = window.__game.scene.getScene('Battle'); s.hideBanner(); return { mine: s.sim.units.filter((u) => u.side === 0).length, foe: s.sim.units.filter((u) => u.side === 1).length, label: s.src?.label }; });
 }
-
-/**
- * The war map (OnlineScene) on its local demo shard (src/online/demoShard.ts, as
- * scripts/dev/war-table-shots.mjs uses), its UI camera hidden and the map camera given the whole frame.
- * Returns the world anchors of hexes `ids` (by role: 'me' = my army, 'raid' = the marching rival army,
- * 'rival' = the other army).
- */
-async function stageWar(page, zoom) {
-  await ev(page, () => window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Online', { preview: 'map' })));
-  await page.waitForFunction(() => !!window.__game.scene.getScene('Online').map, null, { timeout: 30000 });
-  await page.waitForTimeout(2500);
-  return ev(page, (zoom) => {
-    const s = window.__game.scene.getScene('Online');
-    s.uiCam.setVisible(false);
-    const cam = s.cameras.main;
-    cam.setViewport(0, 0, s.scale.width, s.scale.height);
-    cam.setZoom(zoom);
-    const a = (h) => { const p = s.board.anchor(h); return { x: p.x, y: p.y, h }; };
-    const m = s.map;
-    const raid = m.armies.find((x) => x.path && x.player !== m.you.id);
-    const rival = m.armies.find((x) => !x.path && x.player !== m.you.id);
-    return { me: a(s.profile.army.loc), raid: a(raid.loc), raidTo: a(raid.path[raid.path.length - 1]), rival: a(rival.loc) };
-  }, zoom);
-}
-
-/** A camera path through world points `pts` on scene `key`, eased in and out, whole world px. */
-const panPath = (page, key, pts, frames) => (i) =>
-  ev(page, ({ key, pts, k }) => {
-    const s = window.__game.scene.getScene(key);
-    const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-    const f = e * (pts.length - 1);
-    const j = Math.min(pts.length - 2, Math.floor(f));
-    const t = f - j;
-    const x = pts[j].x + (pts[j + 1].x - pts[j].x) * t;
-    const y = pts[j].y + (pts[j + 1].y - pts[j].y) * t;
-    s.cameras.main.centerOn(Math.round(x), Math.round(y));
-  }, { key, pts, k: i / Math.max(1, frames - 1) });
 
 /** The page-px centre of the UI element with id `id` (window.__layout, the layout check's handle), or null. */
 const uiCentre = (page, id, nth = 0) =>
