@@ -1,0 +1,25 @@
+src/war/regions/achelous.json
+  s_cfc22b058125c4::t_4a151833b9846e 1
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_d38df62ee219b3 606-607
+src/war/regions/stymphalia.json
+  s_cfc22b058125c4::t_4a151833b9846e 1
+src/war/regions/kleisoura.json
+  s_cfc22b058125c4::t_4a151833b9846e 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8398652ae99e0997dc6865f1fb88b92d5f39901e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
