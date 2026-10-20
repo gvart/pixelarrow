@@ -2308,15 +2308,18 @@ come from the layout script below, where the WAR.md adjacency is checked.
 ### 37b. Assets (`public/war/world/`, built by `scripts/war/world-art/`)
 
 Reference: prototype C (flat dithered fills, glyphs off the label, alliance wash) with B's dark + cream double border.
-Pipeline, deterministic (a rerun gives the same bytes): `layout.mjs` draws the NW quadrant as a 32x24 cell grid and
-mirrors it into the other three (WAR.md topology is mirror-symmetric; a home's ring of entries meets the axis chains
-at four-corner points, so non-neighbours only touch diagonally); `raster.mjs` warps it with seeded value noise into
-organic shapes at 1024x768 logical px, cuts a rounded coast, keeps each region's largest piece; `regions.mjs` fails
-the build unless every WAR.md adjacency has ≥ 12 px of shared border and no other pair does, then traces polygons,
-centroid, label anchor (+ `labelRoom`) and one crossing point per adjacency; `paint.mjs` paints fills, coast, rivers,
-lakes and glyphs, writes `base`/`borders` at 2x (2048x1536) and 4x (`@2x`), `region-ids.png` for hit tests,
-`regions.json`, markers and banners, and warns when two neighbouring fills are closer than 28 (RGB distance);
-`mock.html` + `mock.mjs` compose the view (tints, borders, labels, markers) into `shots/war/worldmap/WM_mock*.png`.
+Pipeline v2 (§37c replaced the pixel base; the glyph rows below are retired, their sprites deleted). Deterministic
+from `public/war/world/src/painted.png`: `landmask.mjs` takes the coast from the painting (saturated or textured =
+land, smooth grey mist = the Abyss; the biggest mass, holes filled; the drake's corner drops near-black so its wing
+is not land); `layout.mjs` draws the NW quadrant as a 32x24 cell grid mirrored into the other three (WAR.md topology
+is mirror-symmetric); `raster.mjs` maps every painted land pixel onto the warped grid along its ray from the
+Omphalos mesa, scaled so the painted coast lands on the grid's edge (a local `twist` turns the SW corner off the
+bay so Pirate Coves still meets the Cape); `regions.mjs` fails the build unless every WAR.md adjacency has ≥ 12 px of
+shared border and no other pair does, then traces polygons, centroid, collision-free label anchors (small regions
+first, `labelRoom`) and a crossing point per adjacency; `ink.mjs` chains the shared edges between junctions, smooths
+them and strokes anti-aliased ink with a faint gold edge; `paint.mjs` writes `base.jpg`/`@2x` (lanczos + unsharp from
+the 1024 painting), `borders`/`@2x`, `region-ids.png`, `regions.json`, markers and banners; `mock.html` + `mock.mjs`
+compose the view into `shots/war/worldmap/v2/WM_mock*.png` (`PW_CHANNEL=chrome` without Playwright browsers).
 Raws: `fetch.mjs` → `shots/war/pixellab/worldmap/raw/` (git-ignored), job ids in `jobs.json`; trimmed 1x copies ship in `public/war/world/src/` so a fresh checkout rebuilds without them.
 
 PixelLab `create_image_pixflux`, 29 generations, `no_background`, palette-locked (`color_image_base64` = 32 kit/biome
@@ -2359,3 +2362,44 @@ the coast cut ate two short borders twice (fixed by moving the a/b seam inward a
 colours do not survive neighbours: tune fills with the RGB-distance warning, alternate light/dark between neighbours.
 (3) Pixflux at 32 px often adds a small ground base under plants (reed, cypress, vine); fine on a flat map. (4) Ask for
 the emblem as "a simple silhouette of X seen from the side", or it invents heraldry.
+
+### 37c. World map v2: one painted continent and the Abyss (W-42, W-43)
+
+Owner feedback on v1: stitched patches, cheap; wants one real continent, AAA drawing, beasts at the edge instead of
+sea. Gemini (Pro), 4 generations in one chat, captured as in §21b (here devicePixelRatio 1 and the screenshot frame is
+the viewport / 1.2246, so the overlay image shown 1:1 is zoomed on region 0,0–836,625 to get the 1024x765 PNG). Raws in
+`shots/war/worldmap/proto2/` (git-ignored). Upload: drag-and-drop of a screenshot did not attach; `file_upload` on the
+hidden `input[type=file]` (after opening "Upload & tools") did.
+
+**Concept 1** (`concept_1.png`: kept, the style anchor; one coherent continent, borders already inked in):
+
+```
+Create an image. ROLE: AAA concept art for the strategic world map of a dark-epic ancient-Greek war game. The world is Metaxy, a limbo between death and the afterlife where dead warriors fight to ascend. ASPECT: landscape 4:3, highest resolution. VIEW: straight top-down, like a masterful hand-painted fantasy atlas map (the quality of a premium AAA strategy game world map). ONE single coherent continent with natural geography that flows continuously: mountain chains with foothills, rivers with tributaries draining to a delta, forests that thin out into plains, deserts with dunes, small roads linking walled towns; the terrain is ONE painted surface, never separate coloured patches. GEOGRAPHY: in the exact centre a high flat-topped mesa plateau with sheer cliffs, a small crater lake and a ruined white marble temple city; a jagged snow-capped mountain chain runs from the plateau straight north to the north shore, cut once halfway by a narrow pass with a ruined fort; a big river rises on the plateau, falls through a deep gorge with a waterfall and meanders south past a long river island to a wide marshy delta on the south shore; a smaller river flows west from a dark old forest on the plateau's west skirt through a big reed lake to an estuary with sea stacks on the west shore; east of the plateau red rock canyons and a golden dune sea reach white salt flats on the east shore. Quadrants: north-west cold pine-and-oak highland with a lake valley and fjords; north-east golden grass steppe with burial mounds and chalk cliffs; south-east desert-edge oasis town under red cliffs with salt lagoons; south-west terraced olive hills round a sheltered bay with coves and capes. One walled town in each quadrant. BORDERS: about 37 regions marked only by thin elegant dark-ink lines with a faint gold edge drawn over the continuous terrain, following ridges and rivers. EDGE OF THE WORLD: there is no ocean. The shore drops into a narrow fringe of grey dead water that dissolves into swirling mist and a dark violet-black void abyss. At the rim, colossal beasts loom out of the mist, forbidding passage: a giant sea serpent coiled in the mist to the north-west, a half-sunk stone titan rising from the void to the east, winged horrors circling over the south, a many-headed hydra shadow to the south-west. They are huge but partly lost in fog, so the continent stays the focus. PALETTE: dark-epic, muted and rich: weathered bronze, umber, olive, slate, bone, deep crimson accents, cold mist; dramatic light from the upper left, soft relief shading. No text, no labels, no legend, no compass, no frame, no UI.
+```
+
+**Concept 2** (`concept_2.png`: beasts far stronger, map weaker; the titan reads cartoonish):
+
+```
+Create a NEW image, a second concept with the same brief, pushed further: (1) the continent fills more of the frame (about 80% of the width), its outline wider than tall, more irregular with fjords, bays and capes; (2) the rim beasts are far more colossal and dramatic, painted into the mist with real menace and scale: a vast sea serpent whose coils wrap the whole north-west corner, a towering half-sunk titan of black stone on the east rim with glowing eyes, a giant winged horror (a dark drake) spreading its wings over the south rim, a hydra's many necks rising from the void in the south-west; mist and void wrap round them; (3) richer AAA painterly detail: individual trees, rock strata on cliffs, foam on the falls, roads as fine pale lines, tiny walled towns; (4) borders as thin dark-ink lines with a faint gold edge, flowing with the terrain. Same palette, same geography, same rules: no text, no labels, no frame, no UI.
+```
+
+**Base, guided try** (`concept_3_noborders.png`): a procedural layout guide of the region raster was attached and the
+prompt asked to repaint it keeping its composition exactly. Gemini ignored the guide and re-rendered concept 1 without
+borders and with concept 2's drake (over the south-east shore). Lesson: it will not follow a rough colour-block layout;
+fit the regions to its painting instead (the pipeline above).
+
+```
+Create a NEW image: the FINAL painted base of this world map. The attached picture is a rough layout guide: repaint it as finished AAA art in the painting style of your FIRST concept in this chat (hand-painted fantasy atlas, rich detail, dark-epic palette, light from the upper left), keeping the guide's composition EXACTLY, because game regions will be laid on top of it: the same landmass outline and size, at the same place in the frame (do not move, grow, shrink or round it), the white mountain chain exactly where the white band is (...), the flat-topped mesa (...) on the pale centre block, the big river exactly along the south blue line (...), the west blue line as a river from a dark forest through a reed lake to an estuary at the west shore, the small lake in the north-west. Follow the guide's colours as biomes but blend them naturally into one continuous painted land with no patches (...). The dark area round the land is the void (...) with the colossal rim beasts of your SECOND concept looming in the mist round the edge (serpent north-west, titan east, winged drake south-east, hydra south-west), large but kept in the dark margin outside the landmass. Landscape 4:3, same framing as the guide. NO region borders, NO roads drawn as lines, no text, no labels, no frame, no UI.
+```
+
+**Final base** (`final.png` → `public/war/world/src/painted.png`: kept; same land, drake moved off the shore, titan
+with ember eyes):
+
+```
+Edit your last image and keep everything else exactly the same (the continent, its outline, position and size, every mountain, river, lake, forest, town and the painting style): (1) move the winged drake fully into the bottom-right corner of the dark void so that no part of it (wings, tail, claws) covers any land or the shore; it can be a little smaller; (2) make the east titan larger and more menacing, half-sunk in the void with faint glowing ember eyes, but also kept entirely off the land; (3) keep all four beasts entirely in the dark margin outside the coastline. No borders, no roads drawn as lines, no text, no frame.
+```
+
+**Lessons:** (1) Ask for no borders in the base: borders are our overlay, so they always match the hit map. (2) The
+in-page preview is 1024 px; at 2x zoom the painting is soft. Regenerate the base at full size once downloads work
+(the pipeline takes any 4:3 size). (3) The final edit dropped three of the four home towns; home markers and
+banners carry them. (4) The animated part is cheap and in the view: two drifting fog layers masked to the Abyss.
