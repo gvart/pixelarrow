@@ -47,10 +47,10 @@ describe('DELETION_MAP covers the schema', () => {
     const cols = [
       ...(await schema()),
       { table: 'clans', column: 'founder', references: 'players' },
-      { table: 'online_regions', column: 'attacker_id', references: null },
+      { table: 'online_profiles', column: 'attacker_id', references: null },
       { table: 'notify_settings', column: 'telegram_chat', references: null },
     ];
-    expect(unclassified(cols)).toEqual(['clans.founder: player column not in DELETION_MAP', 'notify_settings.telegram_chat: player column not in DELETION_MAP', 'online_regions.attacker_id: player column not in DELETION_MAP']);
+    expect(unclassified(cols)).toEqual(['clans.founder: player column not in DELETION_MAP', 'notify_settings.telegram_chat: player column not in DELETION_MAP', 'online_profiles.attacker_id: player column not in DELETION_MAP']);
   });
 
   it('spots player columns by foreign key and by name', () => {

@@ -456,9 +456,10 @@ function screenOf(scene: KeyedScene, opts: Parameters<typeof screenOpts>[1]): vo
 describe('tab roots (ia.md §1.2: tabs are modes, hubs are roots)', () => {
   it('the five tabs are the five hub scenes, one each', () => {
     expect(MODE_TABS.map((tab) => tab.id)).toEqual(['campaign', 'duels', 'war', 'codex', 'shop']);
-    expect(Object.entries(TAB_ROOTS)).toEqual([['Menu', 'campaign'], ['Duel', 'duels'], ['Online', 'war'], ['Codex', 'codex'], ['Shop', 'shop']]);
+    // the war tab opens its own page (world.html), not a scene (W-01)
+    expect(Object.entries(TAB_ROOTS)).toEqual([['Menu', 'campaign'], ['Duel', 'duels'], ['Codex', 'codex'], ['Shop', 'shop']]);
     for (const key of Object.keys(TAB_ROOTS)) expect(BACK_RULES[key], key).toEqual({ kind: 'root' });
-    expect(Object.values(BACK_RULES).filter((r) => r.kind === 'root')).toHaveLength(5);
+    expect(Object.values(BACK_RULES).filter((r) => r.kind === 'root')).toHaveLength(4);
     expect(tabOfScene('Army')).toBeNull();
     expect(tabOfScene('toString')).toBeNull();
   });
@@ -470,7 +471,7 @@ describe('tab roots (ia.md §1.2: tabs are modes, hubs are roots)', () => {
     const settings = () => {};
     expect(screenOpts('Shop', { back: goBack, settings }).settings).toBe(settings);
     // other screens keep theirs
-    for (const key of ['World', 'Army', 'Market', 'OnlineClan', 'Battle']) expect(screenOpts(key, { back: goBack }).back, key).toBe(goBack);
+    for (const key of ['World', 'Army', 'OnlineClan', 'Battle']) expect(screenOpts(key, { back: goBack }).back, key).toBe(goBack);
   });
 });
 
@@ -482,8 +483,8 @@ describe('Back contract with Telegram (HUB-01)', () => {
     await Promise.resolve();
   });
 
-  it('a hub opened through a door (Shop from War army, War from a deep link) shows Close, and Back closes only what is open on it', async () => {
-    for (const key of ['Shop', 'Online', 'Duel', 'Menu', 'Codex']) {
+  it('a hub opened through a door (Shop from a deep link) shows Close, and Back closes only what is open on it', async () => {
+    for (const key of ['Shop', 'Duel', 'Menu', 'Codex']) {
       const hub = new KeyedScene(key);
       const toDoor = vi.fn();
       screenOf(hub, { back: toDoor });
@@ -538,21 +539,17 @@ describe('Back targets (screen-flow.md §3)', () => {
     expect(resolveBack('World')).toEqual({ scene: 'Menu', data: {} });
     expect(resolveBack('Settlement')).toEqual({ scene: 'World', data: {} });
     expect(resolveBack('Camp')).toEqual({ scene: 'World', data: {} });
-    expect(resolveBack('OnlineClan')).toEqual({ scene: 'Online', data: {} });
+    expect(resolveBack('OnlineClan')).toEqual({ scene: 'Menu', data: {} });
     expect(resolveBack('Kit')).toEqual({ scene: 'Menu', data: {} });
     // a single-parent screen ignores where it was opened from
     expect(resolveBack('Settlement', { scene: 'Menu' })).toEqual({ scene: 'World', data: {} });
   });
 
-  it('multi-door screens return to the origin, else their default (Market: the Shop hub, N4)', () => {
-    expect(resolveBack('Market')).toEqual({ scene: 'Shop', data: {} });
-    expect(resolveBack('Market', { scene: 'OnlineArmy', data: { tab: 'stash' } })).toEqual({ scene: 'OnlineArmy', data: { tab: 'stash' } });
-    expect(resolveBack('Market', { scene: 'Market' })).toEqual({ scene: 'Shop', data: {} });
+  it('multi-door screens return to the origin, else their default', () => {
+    expect(resolveBack('Army', { scene: 'Army' })).toEqual({ scene: 'World', data: {} });
     expect(resolveBack('Army', { scene: 'Settlement', data: { id: 3 } })).toEqual({ scene: 'Settlement', data: { id: 3 } });
     expect(resolveBack('Army', null)).toEqual({ scene: 'World', data: {} });
     expect(resolveBack('Hero')).toEqual({ scene: 'Army', data: {} });
-    expect(resolveBack('OnlineArmy', { scene: 'Camp', data: { mode: 'online' } })).toEqual({ scene: 'Camp', data: { mode: 'online' } });
-    expect(resolveBack('Merchant')).toEqual({ scene: 'Online', data: {} });
   });
 
   it('hubs, Battle and Boot leave no screen on Back', () => {
@@ -584,16 +581,16 @@ describe('Back targets (screen-flow.md §3)', () => {
   const register = new Map(rows(section(1)).map((c) => [c[1], c[3].match(/`(\w+)`/)![1]]));
   /** What the Back column says for each kind of rule. */
   const says: Record<string, RegExp> = { root: /^root/, origin: /\(origin\)|Onward/, battle: /battle menu/, none: /^—/ };
-  const parentName: Record<string, RegExp> = { Menu: /Campaign hub/, World: /World/, Online: /War hub/ };
+  const parentName: Record<string, RegExp> = { Menu: /Campaign hub/, World: /World/ };
 
   it('every screen of the register has a Back rule', () => {
-    expect(register.size).toBe(24);
+    expect(register.size).toBe(20);
     for (const [id, key] of register) expect(BACK_RULES[key], `${id} ${key}`).toBeDefined();
   });
 
   it("each rule matches the screen's Back column", () => {
     const table = rows(section(3));
-    expect(table.length).toBeGreaterThanOrEqual(24);
+    expect(table.length).toBeGreaterThanOrEqual(20);
     for (const c of table) {
       const id = c[1].split(' ')[0];
       const key = register.get(id)!;

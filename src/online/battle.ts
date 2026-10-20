@@ -73,7 +73,7 @@ interface SideOutcome {
   survivors: Hero[];
   /** Ids of heroes who died for good. */
   dead: string[];
-  /** Ids of heroes knocked out (rest for ONLINE_RULES.woundMs). */
+  /** Ids of heroes knocked out. */
   wounded: string[];
 }
 

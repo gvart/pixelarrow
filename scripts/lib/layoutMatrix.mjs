@@ -156,16 +156,13 @@ const STORY_OF = [
   ['battle-', 'V6-RSCR-02'],
   ['results', 'V6-RSCR-02'],
   ['inspect', 'V6-RSCR-02'],
-  ['online-coach', 'V6-RSCR-03'], // the coach marks sit on the online war map (OnlineScene, RSCR-03's family)
-  ['online', 'V6-RSCR-03'],
-  ['merchant-', 'V6-RSCR-03'],
+  ['online', 'V6-RSCR-03'], // the clan screen (online-clan*)
   ['duel-', 'V6-RSCR-04'],
   ['army', 'V6-RSCR-05'],
   ['stash-', 'V6-RSCR-05'],
   ['hero', 'V6-RSCR-05'],
   ['shop', 'V6-RSCR-06'],
   ['consumable-picker', 'V6-RSCR-06'],
-  ['market-', 'V6-RSCR-06'],
   ['village', 'V6-RSCR-06'],
   ['town-', 'V6-RSCR-06'],
   ['recruits', 'V6-RSCR-06'],

@@ -352,8 +352,8 @@ describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-
     const now = Date.now();
     await DB()
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, region_version, created_at, expires_at)
-         VALUES (?1, 1, 1, ?2, 1, 1, '{}', '[]', '[]', 'npc', 0, ?3, ?4)`,
+        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
+         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
       )
       .bind(`l3busy${t.pid}`, t.pid, now, now + 60_000)
       .run();
@@ -594,8 +594,8 @@ describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-
     const now = Date.now();
     await DB()
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, region_version, created_at, expires_at)
-         VALUES (?1, 1, 1, ?2, 1, 1, '{}', '[]', '[]', 'npc', 0, ?3, ?4)`,
+        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
+         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
       )
       .bind(`l3busy2${t.pid}`, t.pid, now, now + 60_000)
       .run();
@@ -620,8 +620,8 @@ describe('conflicts (ADR-0009 §5 as amended by V6-053; M-LK-5..8, N-LK-1, N-LK-
     expect(free!.ok).toBe(1);
     await DB()
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, region_version, created_at, expires_at)
-         VALUES (?1, 1, 1, ?2, 1, 1, '{}', '[]', '[]', 'npc', 0, ?3, ?4)`,
+        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
+         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
       )
       .bind(`l3race${t.pid}`, t.pid, now, now + 60_000)
       .run();

@@ -19,7 +19,7 @@ Every screen, how you get in, how you get out, and where Back goes. "Back" means
 | S02 | First run (offer, resume, reward, modes) | `FirstRun` | onboarding | C-2 |
 | S03 | **Campaign hub** | `Menu` | hub (root) | C-3 |
 | S04 | **World map** | `World` | sub-screen | C-4 |
-| S05 | Field camp / War camp | `Camp` (field / online) | sub-screen | C-5 |
+| S05 | Field camp | `Camp` | sub-screen | C-5 |
 | S06 | Settlement (village, town) | `Settlement` | sub-screen | C-6 |
 | S07 | Army (campaign) | `Army` | sub-screen | C-7 |
 | S08 | Hero (campaign and duel sources) | `Hero` | sub-screen | C-8 |
@@ -32,11 +32,7 @@ Every screen, how you get in, how you get out, and where Back goes. "Back" means
 | S15 | Duels › Leaderboard | `Duel` arena `board` | sub-screen | M-5 |
 | S16 | Duels › Raid picks | `Duel` arena `raid` | sub-screen | M-6 |
 | S17 | Duels › Search / Found | `Duel` search state | transient | M-7 |
-| S18 | **War hub** (season map) | `Online` | hub (root) | M-8 |
-| S19 | War army (+ garrison picker) | `OnlineArmy` | sub-screen | M-9 |
 | S20 | Clan | `OnlineClan` | sub-screen | M-10 |
-| S21 | Merchant | `Merchant` | sub-screen | M-11 |
-| S22 | Market | `Market` | sub-screen | M-12 |
 | S23 | Shop hub: Shop · Pass · Wallet | `Shop` | hub (root) | M-13 |
 | S24 | Kit (debug, `?scene=Kit`) | `Kit` | debug, unlinked | M-14 |
 | — | ~~Beast trial list~~ | `BeastTrial` | **retired**, merged into S11 (ia.md §4) | — |
@@ -51,12 +47,12 @@ flowchart TB
   Boot -->|live duel| DuelHub
   Boot -->|deep link| DL{{sceneForRoute}}
   Boot --> CampaignHub
-  DL --> WarHub & Market & Clan & Shop & CampaignHub
+  DL --> Clan & Shop & DuelHub & CampaignHub
 
   subgraph Tabs[Tab bar: roots, no back]
     CampaignHub[S03 Campaign hub]
     DuelHub[S12 Duels hub]
-    WarHub[S18 War hub]
+    WarHub[War tab: world.html, outside the game]
     Codex[S11 Codex]
     Shop[S23 Shop hub]
   end
@@ -82,25 +78,16 @@ flowchart TB
   FieldCamp -->|Loot| Army
   Army -->|Sheet / 2nd tap| Hero[S08 Hero]
   Battle --> Results[S10 Results]
-  Results -->|Onward: back target| World & Codex & DuelHub & WarHub
+  Results -->|Onward: back target| World & Codex & DuelHub
 
   Codex -->|Beast sheet: Trial fight| Battle
-  WarHub -->|boss panel: Codex ›| Codex
 
   DuelHub --> Team[S13 Team] & Armoury[S14 Armoury] & Board[S15 Board] & Raids[S16 Raid picks] & Search[S17 Search]
   Team -->|hero row| Hero
   DuelHub -->|Fight floor / Raid / match| Battle
   Search -->|found| Battle
 
-  WarHub -->|Army / Garrison| WarArmy[S19 War army]
-  WarHub -->|Clan| Clan[S20 Clan]
-  WarHub -->|Merchant| Merchant[S21 Merchant]
-  WarHub -->|Camp| WarCamp[S05 War camp]
-  WarHub -->|Attack / Raid it| Battle
-  WarArmy -->|Market| Market[S22 Market]
-  WarArmy -->|Shop| Shop
-  WarCamp -->|Loot| WarArmy
-  Shop -->|Market card| Market
+  DL -->|clan invite| Clan[S20 Clan]
   Shop -->|cosmetic: Open Duels| DuelHub
 ```
 
@@ -117,7 +104,6 @@ Tab switches between the five hubs are omitted (every hub ↔ every hub).
 | S03 Campaign hub | tab · Boot · FirstRun back · sync adopt (with notice) | World / Settlement (Continue) · Army (Army tile) · Army › Stash (Stash tile) · Field camp (Camp tile) · Settings (⚙) · tabs | root (Close) | status line adds "Lairs n/6"; sync badge only on error (MENU-4) |
 | S04 World | Hub Continue · Settlement Leave/back · Camp back/Strike · Results Onward · Battle Leave (band fight) | Army (Party) · Field camp (Camp) · Settlement (arrive/tap) · Battle (Encounter Attack, Assault) · Arc sheet (chip) · Settings (⚙) | Campaign hub | Encounter and Assault are Mosaic decision sheets; arc chip; ⚙ added (D9) |
 | S05 Field camp | Hub Camp tile · World Camp | World (back, Strike, encounter on End day) · Army › Stash (Loot) · Settings | World | title "Field camp"; Build drawer (CMP-1) |
-| S05 War camp | War hex Camp action | War army › Stash (Loot; its Back returns here) · War hub (back) | War hub {focus} | title "War camp" + kind sub-title (D7) |
 | S06 Settlement | World (arrive, tap the town you stand on) · Hub Continue (inside) | World (Leave) · Army (Army) · Army pick → Hero retrain (Drillmaster, towns) · Recruit/Item cards | World | Leave becomes bronze (SET-3); town "Services" tab with the Drillmaster |
 | S07 Army | Hub Army/Stash tiles · World Party · Settlement Army · Camp Loot · Drillmaster (pick mode) | Hero (Sheet, 2nd tap) · Dismiss confirm · item cards | (origin): Hub / World / Settlement / Field camp | **footer back removed**; Back always to the origin (N3, D8) |
 | S08 Hero | Army (Sheet, 2nd tap) · Duels Team row · Drillmaster pick | Perk sheet · Retrain confirm · Dismiss confirm | (origin): Army {heroId} (incl. Army pick mode, whose own Back then returns to the Settlement) / Duels Team | pager below the niche (HRO-4) |
@@ -130,11 +116,7 @@ Tab switches between the five hubs are omitted (every hub ↔ every hub).
 | S15 Leaderboard | Arena Top / Board buttons | — | Arena | title follows the segment (DUE-2) |
 | S16 Raid picks | Arena Raid | Battle (Raid {name}) | Arena | — |
 | S17 Search / Found | Arena Find match | Battle (found) · Arena (Cancel) | **Cancel only**, no back arrow (N5) | — |
-| S18 War hub | tab · Boot deep links · Results (war) · every War sub-screen's back | War army (Army, Garrison) · Clan (Clan, invite) · Merchant · War camp · Battle (Attack, Raid it) · Codex (boss panel "Codex ›") · sheets | root (Close); a modal or selection closes first | **no back arrow** (D12); "Open in Telegram" when outside (N7) |
-| S19 War army | War hub Army · hex Garrison · War camp Loot | Market · Shop · Recruit sheet | (origin): War hub {focus}, or War camp when opened from its Loot | 3-button footer (OAR-2); garrison picker mode keeps Station |
-| S20 Clan | War hub Clan · pending invite · deep link `clan` | Telegram share (Invite) · Member manage | War hub | i18n (CLN-1) |
-| S21 Merchant | War hex Merchant | buy confirms | War hub {focus, select} | — |
-| S22 Market | **Shop hub Market card (new)** · War army Market · stash item Market · deep link `market` | listing, sell form, confirms | (origin): Shop hub / War army; the deep link and any missing origin → **Shop hub** | default origin becomes the Shop hub, not War (one less hop, N4) |
+| S20 Clan | pending invite · deep links `clan_<code>`, `myclan` | Telegram share (Invite) · Member manage | Campaign hub | i18n (CLN-1) |
 | S23 Shop hub | tab · War army Shop (tab switch) · "Need n Dr" (tab switch to Wallet) · deep link `wallet` | Market (card) · Duels hub (cosmetic Open Duels) · Telegram Stars payment | root (Close), always: no back arrow even through a door | Market card; pinned season card (SHP-1) |
 | S24 Kit | `?scene=Kit` only | — | Campaign hub | unchanged, unlinked |
 

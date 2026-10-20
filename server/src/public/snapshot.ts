@@ -10,7 +10,6 @@ import { seasonEnd, seasonId } from '../../../src/duel/season';
 import { BOARD_MAX, BOARD_MIN, BODY_MAX_BYTES, CHAMPIONS_MAX, PublicSummaryV1 } from './schema';
 import { ELIGIBLE, publicDuelTop } from './duelTop';
 import { validateClanName } from '../names/validate';
-import { standings } from '../online/store';
 
 const DAY = 86_400_000;
 
@@ -74,47 +73,18 @@ async function totals(db: D1Database, now: number, warSeason: number | null): Pr
     onlineBattles: war + duels,
     duelsFought: duels,
     warBattles: war,
-    bossesSlain: (await db.prepare("SELECT COUNT(*) AS n FROM world_bosses WHERE status = 'dead'").first<{ n: number }>())?.n ?? 0,
+    bossesSlain: 0, // the world bosses went with the route-graph war (W-01)
     clans: warSeason === null ? 0 : ((await db.prepare('SELECT COUNT(DISTINCT clan_id) AS n FROM clan_members WHERE season_id = ?1').bind(warSeason).first<{ n: number }>())?.n ?? 0),
   };
 }
 
-/** Display names of the eligible players among `ids` (the others are left out). */
-async function eligibleNames(db: D1Database, ids: number[]): Promise<Map<number, string>> {
-  const out = new Map<number, string>();
-  for (let i = 0; i < ids.length; i += 90) {
-    const part = ids.slice(i, i + 90);
-    const r = await db
-      .prepare(`SELECT p.id, p.display_name AS name FROM players p WHERE p.id IN (${part.map((_, j) => `?${j + 1}`).join(',')}) AND ${ELIGIBLE}`)
-      .bind(...part)
-      .all<{ id: number; name: string }>();
-    for (const x of r.results) out.set(x.id, x.name);
-  }
-  return out;
-}
-
-/** War standings of the running season (standings() once per cron run): players and clans with points. */
-async function warBoards(db: D1Database, season: number, clanOk: (name: string) => boolean): Promise<Pick<PublicSummaryV1['war'], 'players' | 'clans'>> {
-  const st = await standings(db, season);
-  const ranked = st.filter((s) => s.score > 0).sort((a, b) => b.score - a.score || b.clanScore - a.clanScore || a.playerId - b.playerId);
-  const names = await eligibleNames(db, ranked.map((s) => s.playerId));
-  const players = ranked
-    .filter((s) => names.has(s.playerId))
-    .slice(0, BOARD_MAX)
-    .map((s, i) => ({ rank: i + 1, name: names.get(s.playerId)!, clan: s.clanName !== null && clanOk(s.clanName) ? s.clanName : null, score: s.score }));
-  const byClan = new Map<number, { name: string; score: number; members: number }>();
-  for (const s of st) {
-    if (s.clanId === null || s.clanName === null) continue;
-    const c = byClan.get(s.clanId) ?? { name: s.clanName, score: s.clanScore, members: 0 };
-    c.members++;
-    byClan.set(s.clanId, c);
-  }
-  const clans = [...byClan.values()]
-    .filter((c) => c.score > 0 && clanOk(c.name))
-    .sort((a, b) => b.score - a.score || b.members - a.members || a.name.localeCompare(b.name))
-    .slice(0, BOARD_MAX)
-    .map((c, i) => ({ rank: i + 1, ...c }));
-  return { players: board(players), clans: board(clans) };
+/**
+ * War boards of the running season: empty since the old region standings went
+ * with the route-graph war (W-01); the war world's season score (src/war/world/season.ts)
+ * is not on the public board yet.
+ */
+async function warBoards(_db: D1Database, _season: number, _clanOk: (name: string) => boolean): Promise<Pick<PublicSummaryV1['war'], 'players' | 'clans'>> {
+  return { players: [], clans: [] };
 }
 
 /**
@@ -148,17 +118,9 @@ async function champions(db: D1Database, duelSeason: number): Promise<PublicSumm
   return { war: war.results, duel: duel.results };
 }
 
-/** Who struck the last blow on the most world bosses. */
-async function bossSlayers(db: D1Database): Promise<PublicSummaryV1['bossSlayers']> {
-  const rows = await db
-    .prepare(
-      `SELECT p.display_name AS name, COUNT(*) AS kills FROM world_bosses w JOIN players p ON p.id = w.killed_by
-       WHERE w.status = 'dead' AND ${ELIGIBLE}
-       GROUP BY w.killed_by ORDER BY kills DESC, MIN(w.killed_at), w.killed_by LIMIT ?1`,
-    )
-    .bind(BOARD_MAX)
-    .all<{ name: string; kills: number }>();
-  return rows.results.map((r, i) => ({ rank: i + 1, ...r }));
+/** Who struck the last blow on the most world bosses: none since the world bosses went with the route-graph war (W-01). */
+async function bossSlayers(_db: D1Database): Promise<PublicSummaryV1['bossSlayers']> {
+  return [];
 }
 
 /**

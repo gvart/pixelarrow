@@ -258,9 +258,6 @@ await shot('36-shop');
 await scene('Shop', { demo: true, tab: 'pass' });
 await wait(1000);
 await shot('37-season-pass');
-await scene('Market', { demo: true, tab: 'browse' });
-await wait(1000);
-await shot('38-marketplace');
 
 // Village and town (market)
 await page.evaluate(() => {

@@ -414,8 +414,8 @@ describe('DELETE /api/account (ADR-0009 §7)', () => {
     const now = Date.now();
     await DB()
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, region_version, created_at, expires_at)
-         VALUES (?1, 1, 1, ?2, 1, 1, '{}', '[]', '[]', 'npc', 0, ?3, ?4)`,
+        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
+         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
       )
       .bind(`bl${me.pid}`, me.pid, now, now + 60_000)
       .run();

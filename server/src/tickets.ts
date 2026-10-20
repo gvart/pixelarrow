@@ -1,7 +1,6 @@
 /**
- * Shared plumbing of battle tickets (war-map attacks and world-boss raids in
- * `battle_tickets`, duel ladder floors in `duel_tickets`, async duel raids in
- * `duel_attacks`): the server fixes the seed and both armies, the client
+ * Shared plumbing of battle tickets (duel ladder floors in `duel_tickets`,
+ * async duel raids in `duel_attacks`): the server fixes the seed and both armies, the client
  * submits its order log, and a ticket is settled once.
  */
 import { ApiError } from './errors';
@@ -18,7 +17,7 @@ interface TicketState {
   expires_at: number;
 }
 
-/** A `battle_tickets` row as far as the shared view needs it. */
+/** A ticket row as far as the shared view needs it. */
 interface BattleTicketLike {
   id: string;
   expires_at: number;
@@ -29,7 +28,7 @@ interface BattleTicketLike {
 }
 
 /**
- * The client's view of a `battle_tickets` row. `head` carries what differs per
+ * The client's view of a ticket row. `head` carries what differs per
  * mode (the boss or the region, the defender kind) and sits between
  * `expiresAt` and `consumable`.
  */
@@ -52,7 +51,7 @@ export function battleTicketView(t: BattleTicketLike, head: Record<string, unkno
  */
 export async function loadOwnTicket<T>(
   d: D1Database,
-  table: 'battle_tickets' | 'duel_tickets',
+  table: 'duel_tickets',
   id: string,
   pid: number,
   notFound = 'No such ticket',
@@ -66,7 +65,7 @@ export async function loadOwnTicket<T>(
 /** Closes an open ticket of `table` as rejected or abandoned (won = 0), keeping a claim / result when given. */
 export function closeTicketStmt(
   d: D1Database,
-  table: 'battle_tickets' | 'duel_tickets',
+  table: 'duel_tickets',
   id: string,
   status: 'rejected' | 'abandoned',
   now: number,
@@ -76,11 +75,6 @@ export function closeTicketStmt(
   return d
     .prepare(`UPDATE ${table} SET status = ?2, finished_at = ?3, claim = COALESCE(?4, claim), result = COALESCE(?5, result), won = 0 WHERE id = ?1 AND status = 'open'`)
     .bind(id, status, now, claim ?? null, result ?? null);
-}
-
-/** Closes an open `battle_tickets` row and frees its heroes. */
-export async function closeBattleTicket(d: D1Database, id: string, status: 'rejected' | 'abandoned', now: number, extra: { claim?: string; result?: string } = {}): Promise<void> {
-  await d.batch([closeTicketStmt(d, 'battle_tickets', id, status, now, extra.claim, extra.result), d.prepare('UPDATE online_heroes SET busy_ticket = NULL, busy_until = 0 WHERE busy_ticket = ?1').bind(id)]);
 }
 
 /** 409 `ticket_closed` ("This <noun> was <status>") unless the ticket is open. */

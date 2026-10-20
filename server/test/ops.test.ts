@@ -343,11 +343,10 @@ describe('admin reads', () => {
 // Runs last: it moves the database to the next season.
 describe('admin season controls', () => {
   it('ends and starts seasons by hand, audited and idempotent', async () => {
-    const view = async () => (await adminApi('/season')).json<{ active: { id: number } | null; shards: { live: number | null }[] }>();
+    const view = async () => (await adminApi('/season')).json<{ active: { id: number } | null }>();
     const { token } = await devLogin(931050);
     expect((await api('/api/online/profile', { method: 'POST', token })).status).toBe(200);
     const s1 = (await view()).active!.id;
-    expect((await view()).shards.length).toBeGreaterThan(0);
 
     expect((await adminApi('/season/start', { json: { requestId: rid(), reason: 'too early' } })).status).toBe(409);
 
@@ -363,8 +362,6 @@ describe('admin season controls', () => {
 
     const both = await adminApi('/season/end', { json: { requestId: rid(), reason: 'again', startNext: true } });
     expect(await both.json()).toMatchObject({ ended: s1 + 1, started: s1 + 2 });
-    const titles = await DB().prepare('SELECT COUNT(*) AS n FROM season_rewards WHERE season_id = ?1').bind(s1).first<{ n: number }>();
-    expect(titles!.n).toBeGreaterThan(0);
     const audit = await DB().prepare("SELECT COUNT(*) AS n FROM admin_audit WHERE action IN ('season_end', 'season_start')").first<{ n: number }>();
     expect(audit!.n).toBe(4); // the refused start (409) is audited too
   });

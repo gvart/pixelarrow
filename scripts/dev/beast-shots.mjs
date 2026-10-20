@@ -1,8 +1,7 @@
-// Screenshots of the mythical beasts (shots/46-50, git-ignored).
+// Screenshots of the mythical beasts (shots/46-49, git-ignored).
 // Usage: node scripts/dev/beast-shots.mjs [baseUrl] [outDir] [only]   (needs a running dev server; default outDir: shots/)
 // Stages Beast trial battles with a sensible army (both sides bot-driven), runs
-// them until the signature move is on screen, pauses and saves the frame; then
-// the world boss raid panel and a beast lair on the war-table map.
+// them until the signature move is on screen, pauses and saves the frame.
 import { launch, phoneContext, captureErrors, until as poll, shotsDir } from '../lib/harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
@@ -128,24 +127,6 @@ if (!only || only === 'kraken')
     return s.sim.tick > 20 * 8 && arms.filter((u) => u.engaged).length >= 2;
   }, { speed: 1, zoom: 1.5 });
 
-/** The war-table map with beast lairs (and the world boss's HP bar), the lair panel open. */
-async function lairMap(file, preview) {
-  await page.evaluate((pv) => window.__game.scene.getScenes(true).forEach((s) => s.scene.start('Online', { preview: pv })), preview);
-  await until(() => !!window.__game.scene.getScene('Online').detail, 15000);
-  await wait(600);
-  await page.evaluate(() => {
-    const s = window.__game.scene.getScene('Online');
-    const h = s.selected;
-    const p = s.board.top(h);
-    const cam = s.cameras.main;
-    cam.setZoom(Math.min(3, cam.zoom * 1.6));
-    cam.centerOn(p.x, p.y + 30);
-  });
-  await wait(700);
-  await page.screenshot({ path: `${out}/${file}` });
-  console.log('saved', `${out}/${file}`);
-}
-if (!only || only === 'map') await lairMap('50-beast-lair-map.png', 'lair');
 void myth;
 console.log(problems.length ? problems.join('\n') : 'no console errors');
 await browser.close();

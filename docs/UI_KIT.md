@@ -299,7 +299,6 @@ Settings, first-steps checklist. New campaign: Settings → Account (confirmed).
 
 ```
 Army (ArmyScene)       sub shell · hero head with slots · Roster | Stash · MActionBar (parchment): Map or Town | Sheet | Dismiss
-Online (OnlineScene)   hub shell (War) · hex map in the frame · BottomPanel · tab bar
 World (WorldScene)     map shell · SituationLine · map · MActionBar (stone): Camp | Rest or Stop | Party
 ```
 

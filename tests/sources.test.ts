@@ -13,14 +13,13 @@ import type { Hero } from '../src/data/units';
 import type { BattleResult } from '../src/sim/types';
 import { Rng } from '../src/sim/rng';
 import {
-  BEAST_NAMED, BOSS_SET, CHAPTER_SET, HOARD_SETS, LADDER_NAMED, SOURCES, armyClasses, armyPick, bandSetPieces, fitsArmy, legendaryHoard, pityChest,
+  BEAST_NAMED, CHAPTER_SET, HOARD_SETS, LADDER_NAMED, SOURCES, armyClasses, armyPick, bandSetPieces, fitsArmy, legendaryHoard, pityChest,
 } from '../src/game/sources';
 import { bandBeast, hoardItem } from '../src/game/beasts';
 import { makeHero } from '../src/game/heroes';
 import { buildArmy } from '../src/game/enemy';
 import { Campaign } from '../src/game/campaign';
 import type { Outcome } from '../src/game/loot';
-import { bossChest, bossLoot } from '../src/online/lairs';
 import { chestItem, chestReward, ladderFloor, ladderPayout } from '../src/duel/ladder';
 import { DemoDuelSource } from '../src/duel/client';
 import { NAMED_POINTS, RARITY_POINTS, SPOILS, duelSpoils, heroPoints, itemPoints, sellPrice, setLines } from '../src/duel/rules';
@@ -64,7 +63,7 @@ describe('loot follows the army', () => {
     expect(armyClasses([{ cls: 'hoplite' }, { cls: 'archer' }, { cls: 'hoplite' }] as Hero[])).toEqual(['archer', 'hoplite']);
   });
 
-  it('ladder drops, chests, spoils and world-boss hoards follow the army', () => {
+  it('ladder drops, chests and spoils follow the army', () => {
     const classes = ['archer'];
     const rate = (items: Item[]) => {
       const w = items.filter((it) => WSA.has(ITEMS[it.def].slot));
@@ -75,8 +74,6 @@ describe('loot follows the army', () => {
     expect(rate(drops)).toBeGreaterThan(0.7);
     const spoils = Array.from({ length: 3000 }, (_, s) => duelSpoils(s + 1, 0, 'ranked', true, classes, 'x')!);
     expect(rate(spoils)).toBeGreaterThan(0.7);
-    const hoard = Array.from({ length: 300 }, (_, p) => bossLoot('kraken', 'k', p, 0.5, 'u', classes)).flat();
-    expect(rate(hoard)).toBeGreaterThan(0.7);
   });
 });
 
@@ -204,47 +201,6 @@ describe('bad-luck protection', () => {
       expect(ladderPayout(ladderFloor(19), won, [], 18, 0, s, { nextId: 1 }, 'p_', { pity: 3 }).pity).toBe(3);
     }
     expect(legendary / 300).toBeCloseTo(0.15, 1);
-  });
-});
-
-describe('world-boss chests', () => {
-  const none = { owned: new Set<string>(), namedHad: false, pity: 0 };
-
-  it('40% a missing piece of the boss set, 10% its named item, else an epic', () => {
-    for (const boss of ['kraken', 'titan'] as EncounterId[]) {
-      const kinds = { set: 0, named: 0, epic: 0, legendary: 0 };
-      for (let pid = 1; pid <= 6000; pid++) {
-        const c = bossChest(boss, 'k', pid, `u${pid}`, none);
-        kinds[c.kind]++;
-        if (c.kind === 'set') expect(ITEMS[c.item.def].set).toBe(BOSS_SET[boss]);
-        if (c.kind === 'named') expect(c.item.def).toBe(BEAST_NAMED[boss][0]);
-        expect(c.item.rarity).toBe(c.kind === 'epic' ? 'epic' : 'legendary');
-        expect(c.pity).toBe(c.kind === 'epic' ? 1 : 0);
-        expect(c.item.uid).toBe(`u${pid}`);
-      }
-      expect(kinds.set / 6000).toBeCloseTo(SOURCES.bossChest.set, 1);
-      expect(kinds.named / 6000).toBeCloseTo(SOURCES.bossChest.named, 1);
-      expect(kinds.legendary).toBe(0);
-    }
-  });
-
-  it('never a piece the player owns, a second named item becomes an epic, and the counter forces a legendary', () => {
-    const set = setPieces('achilles');
-    const owned = new Set(set.slice(0, 4));
-    for (let pid = 1; pid <= 500; pid++) {
-      const c = bossChest('kraken', 'k', pid, 'u', { owned, namedHad: true, pity: 2 });
-      if (c.kind === 'set') expect(c.item.def).toBe(set[4]);
-      expect(c.kind).not.toBe('named');
-      const all = bossChest('kraken', 'k', pid, 'u', { owned: new Set(set), namedHad: true, pity: 0 });
-      expect(all.kind).toBe('epic');
-      const due = bossChest('kraken', 'k', pid, 'u', { owned: new Set(set), namedHad: false, pity: SOURCES.pity });
-      expect(due.kind).toBe('named');
-      const due2 = bossChest('kraken', 'k', pid, 'u', { owned: new Set(set), namedHad: true, pity: SOURCES.pity });
-      expect(due2).toMatchObject({ kind: 'legendary', pity: 0 });
-      expect(due2.item.rarity).toBe('legendary');
-    }
-    // the same inputs give the same chest (the split is idempotent)
-    expect(bossChest('titan', 'k', 4, 'u', none)).toEqual(bossChest('titan', 'k', 4, 'u', none));
   });
 });
 

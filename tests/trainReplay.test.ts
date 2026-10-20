@@ -26,7 +26,6 @@ import { armySpec } from '../src/game/armySpec';
 import { classSquad } from '../src/dev/classBalance';
 import { ladderFloor, ladderSetup } from '../src/duel/ladder';
 import { attackSubmission, onlineBattleSetup } from '../src/online/battle';
-import { withDoctrine } from '../src/online/neutralDoctrine';
 import { DEFAULT_FORMATIONS } from '../src/online/rules';
 import { generateBattlefield } from '../src/world/battlefield';
 import { Rng } from '../src/sim/rng';
@@ -112,7 +111,7 @@ function ladderBattle(floor: number, seed: number): BattleSetup {
   return bearer(ladderSetup(seed, team, [...DEFAULT_FORMATIONS], f));
 }
 
-/** A war-map attack on neutrals fighting under `doctrine` (onlineBattleSetup + withDoctrine, as server/src/online/attack.ts). */
+/** An online attack on bot neutrals fighting under `doctrine` (onlineBattleSetup, the bot side's doctrine set: how the old war map built it). */
 function warBattle(doctrine: DoctrineId, seed: number): BattleSetup {
   const rng = new Rng(seed);
   const ids = { nextId: 1 };
@@ -120,7 +119,8 @@ function warBattle(doctrine: DoctrineId, seed: number): BattleSetup {
   const neutrals = [...classSquad(rng, ids, 'hoplite', 6, 4, 0), ...classSquad(rng, ids, 'slinger', 4, 4, 1), ...classSquad(rng, ids, 'celt_sword', 4, 4, 2), ...classSquad(rng, ids, 'peltast', 3, 4, 3)];
   const site = { base: 'hills' as const, river: false, coast: false, rocky: true, woods: 0.2 };
   const setup = onlineBattleSetup(seed, { heroes: team, formations: [...DEFAULT_FORMATIONS], bot: false }, { heroes: neutrals, formations: [...DEFAULT_FORMATIONS], bot: true }, site);
-  return bearer(withDoctrine(setup, doctrine));
+  setup.armies[1].doctrine = doctrine;
+  return bearer(setup);
 }
 
 /** Offline: a lair assault on a garrison (holdField, its own stakes) led by a band captain, the player with works of his own. */

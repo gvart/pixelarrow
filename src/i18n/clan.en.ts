@@ -17,8 +17,7 @@ export const CLAN_EN = {
   'clan.found': 'Found a clan',
   // ---- the clan
   'clan.men': '{n}/{max} men',
-  'clan.regions': { one: '{n} region', other: '{n} regions' },
-  'clan.stats': '{men} · {regions} · {role}',
+  'clan.stats': '{men} · {role}',
   'clan.role.leader': 'Leader',
   'clan.role.officer': 'Officer',
   'clan.role.member': 'Member',

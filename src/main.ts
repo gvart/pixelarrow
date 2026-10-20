@@ -18,7 +18,6 @@ import { installAudio } from './audio';
 import { FirstRunScene } from './scenes/FirstRunScene';
 import { loadLazyScenes } from './scenes/lazy';
 import { installWidgets } from './ui/widgets';
-import { installDuelInvites } from './ui/duelInvites';
 import { checkUi, collectUi } from './ui/layout';
 import { scrollAllAreas } from './ui/kit';
 import { refreshLang } from './ui/lang';
@@ -80,8 +79,6 @@ trackSafeArea(() => {
   game.scale.refresh();
 });
 installAudio(game, () => state.campaign?.data.settings);
-// Duel challenges pop up on every online screen (map, army, clan).
-installDuelInvites(game);
 // The keyboard (ADR-0012): one window listener feeding the router, with the contexts of the top screen and
 // its layers (and `focus` while a control has keyboard focus); Esc is Back (a screen may take it first: the
 // battle opens its menu); this device's bindings. Tab, arrows and Enter move and use focus (focusRing.ts).
@@ -106,7 +103,7 @@ online.onStatus((s) => nav.setUnsaved(s === 'syncing'));
 // Cloud sync: a newer save from another device replaces the campaign only
 // outside battle, then the game returns to the menu.
 online.canAdopt = () =>
-  !state.pending && !game.scene.isActive('Battle') && !game.scene.isActive('Results') && !game.scene.isActive('Boot') && !['Online', 'OnlineArmy', 'OnlineClan'].some((k) => game.scene.isActive(k));
+  !state.pending && !game.scene.isActive('Battle') && !game.scene.isActive('Results') && !game.scene.isActive('Boot') && !game.scene.isActive('OnlineClan');
 online.onAdopt = async (data) => {
   await state.adoptRemote(data);
   refreshLang();

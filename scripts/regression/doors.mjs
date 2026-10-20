@@ -22,6 +22,7 @@ export const ELSEWHERE = {
   FirstRun: 'scripts/tutorial-smoke.mjs walks offer, resume, reward and modes',
   Results: 'scripts/regression/battle-kinds.mjs: Results back to the origin, per battle kind',
   BeastTrial: 'retired by CDX-01: it redirects to the Codex at once (no screen of its own)',
+  OnlineClan: 'reached only by a clan deep link since the war map went (W-01); tests/deeplink.test.ts',
 };
 
 const DUEL = ['Duel', { preview: true }];
@@ -34,7 +35,6 @@ const PITCH_CAMP = `const w = s.w; w.stop(); w.s.safeUntil = 1e9; for (const q o
     if (!w.campBlocker()) break search;
   }
   s.makeCamp(); return !!w.camp;`;
-const WAR = ['Online', { preview: 'map' }];
 
 export const DOORS = [
   // ---- Campaign (from a fresh game: Begin the march makes the save the other doors need)
@@ -56,21 +56,12 @@ export const DOORS = [
   { name: 'Duels Arena -> Leaderboard', hub: 'duels', from: DUEL, via: { call: "s.openMode('ranked'); s.openBoard('live');" }, at: 'Duel', origin: null, back: 'Duel', state: "return s.tab === 'ranked' && s.arenaTab === 'home';" },
   { name: 'Duels Arena -> Raid picks', hub: 'duels', from: DUEL, via: { call: "s.openMode('ranked'); s.openArena('raid');" }, at: 'Duel', origin: null, back: 'Duel', state: "return s.tab === 'ranked' && s.arenaTab === 'home';" },
   { name: 'Duels Team -> Hero', hub: 'duels', from: DUEL, via: { call: "s.openView('team'); s.openHero(s.profile.heroes[0].id);" }, at: 'Hero', origin: 'Duel', back: 'Duel', state: "return s.tab === 'team';" },
-  // ---- War (the local demo shard; the API is down)
-  { name: 'War hub -> Clan', hub: 'war', from: WAR, via: { start: ['OnlineClan', {}] }, at: 'OnlineClan', origin: null, back: 'Online' },
-  { name: 'War hub -> Merchant', hub: 'war', from: WAR, via: { start: ['Merchant', { demo: 'held', spot: 'market' }] }, at: 'Merchant', origin: null, back: 'Online' },
-  { name: 'War hub -> War army', hub: 'war', from: WAR, via: { start: ['OnlineArmy', {}] }, at: 'OnlineArmy', origin: null, back: 'Online' },
-  { name: 'War army -> Market', hub: 'war', from: ['OnlineArmy', {}], via: { start: ['Market', { back: { scene: 'OnlineArmy' } }] }, at: 'Market', origin: 'OnlineArmy', back: 'OnlineArmy' },
-  // ---- Shop
-  { name: 'Shop hub -> Market card -> Market', hub: 'shop', from: ['Shop', {}], via: { start: ['Market', { back: { scene: 'Shop', data: { tab: 'shop' } } }] }, at: 'Market', origin: 'Shop', back: 'Shop' },
-  { name: 'Market deep link (no origin) -> Shop hub', hub: 'shop', from: ['Shop', {}], via: { start: ['Market', {}] }, at: 'Market', origin: null, back: 'Shop' },
 ];
 
-/** The five mode tabs, in bar order, with their hub scene (src/platform/nav.ts TAB_ROOTS). */
+/** The mode tabs that open a hub scene, in bar order (src/platform/nav.ts TAB_ROOTS); War leaves the game for world.html. */
 export const TABS = [
   ['campaign', 'Menu'],
   ['duels', 'Duel'],
-  ['war', 'Online'],
   ['codex', 'Codex'],
   ['shop', 'Shop'],
 ];

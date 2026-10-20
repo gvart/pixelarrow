@@ -255,30 +255,6 @@ const SCREENS = [
       return wait(p, 400);
     },
   },
-  // the online army: API down (503), then a demo profile (roster, stash, recruit, garrison)
-  { id: 'online-army-closed', owner: 'B', run: async (p) => (await start(p, 'OnlineArmy', {}), wait(p, 1200)) },
-  ...[
-    ['online-army', 'roster', ''],
-    ['online-army-stash', 'stash', ''],
-    ['online-army-recruit', 'roster', 's.openRecruit(s.profile);'],
-    ['online-army-garrison', 'roster', ''],
-  ].map(([id, tab, after]) => ({
-    id,
-    owner: 'B',
-    run: async (p) => {
-      await start(p, 'OnlineArmy', id === 'online-army-garrison' ? { garrison: 1 } : { tab });
-      await wait(p, 600);
-      await call(
-        p,
-        'OnlineArmy',
-        `const c = window.__state.campaign.data; const now = Date.now();
-         const heroes = c.heroes.slice(0, 8).map((h, i) => ({ hero: h, garrison: i === 3 ? 1 : null, woundedUntil: i === 5 ? now + 3600e3 : 0, busy: i === 6 }));
-         s.fetchData({ season: { id: 3, startedAt: now, endsAt: now + 864e5 }, shard: { id: 1, radius: 34 }, now, resources: { gold: 1240, food: 380, wood: 210, bronze: 95, recruits: 3 }, energy: 72, energyMax: 100, home: { q: 0, r: 0 }, army: { q: 0, r: 0, marching: false, dest: null, arriveAt: null }, formations: [], heroes, stash: c.stash, clan: null, battles: 4, wins: 3, income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, hexes: 3 } });
-         ${after} return 1;`,
-      );
-      return wait(p, 600);
-    },
-  })),
   {
     // the one-per-battle consumable picker of attacks and duels (src/ui/econ/consumablePicker.ts)
     id: 'consumable-picker',
@@ -392,68 +368,6 @@ const SCREENS = [
       return wait(p, 3000);
     },
   },
-  ...['browse', 'mine', 'sell'].map((tab) => ({ id: `market-${tab}`, owner: 'B', run: async (p) => (await start(p, 'Market', { demo: true, tab }), wait(p, 1000)) })),
-  {
-    id: 'market-detail',
-    owner: 'B',
-    run: async (p) => {
-      await start(p, 'Market', { demo: true, tab: 'browse' });
-      await wait(p, 900);
-      await call(p, 'Market', `s.openListing(s.base, s.listings[0]); return 1;`);
-      return wait(p, 400);
-    },
-  },
-  {
-    id: 'market-goods',
-    owner: 'B',
-    run: async (p) => {
-      await start(p, 'Market', { demo: true, tab: 'browse' });
-      await wait(p, 900);
-      await call(p, 'Market', `s.openListing(s.base, s.listings.find((l) => l.kind !== 'item')); return 1;`);
-      return wait(p, 400);
-    },
-  },
-  {
-    id: 'market-sell-form',
-    owner: 'B',
-    run: async (p) => {
-      await start(p, 'Market', { demo: true, tab: 'sell' });
-      await wait(p, 1000);
-      await call(p, 'Market', `s.openSellForm(s.base, { kind: 'item', item: s.base.profile.stash[0] }); return 1;`);
-      return wait(p, 400);
-    },
-  },
-  // MKT-01: the goods form (quantity row), a filter's option sheet and the numeric price entry
-  {
-    id: 'market-goods-form',
-    owner: 'B',
-    run: async (p) => {
-      await start(p, 'Market', { demo: true, tab: 'sell' });
-      await wait(p, 1000);
-      await call(p, 'Market', `s.openSellForm(s.base, { kind: 'resource', id: 'wood', have: 340 }); return 1;`);
-      return wait(p, 400);
-    },
-  },
-  {
-    id: 'market-filter',
-    owner: 'B',
-    run: async (p) => {
-      await start(p, 'Market', { demo: true, tab: 'browse' });
-      await wait(p, 900);
-      await call(p, 'Market', `s.openFilter('sort'); return 1;`);
-      return wait(p, 400);
-    },
-  },
-  {
-    id: 'market-price',
-    owner: 'B',
-    run: async (p) => {
-      await start(p, 'Market', { demo: true, tab: 'sell' });
-      await wait(p, 1000);
-      await call(p, 'Market', `s.openNumberSheet({ title: 'Price', value: 21, min: 2, max: 5000, icon: 'wargold', presets: [1, 2, 5].map((n) => ({ label: 'x' + n, tip: 'x' + n, value: 21 * n })), info: (v) => 'You get ' + v, id: 'market.priceSheet', onDone: () => {} }); return 1;`);
-      return wait(p, 400);
-    },
-  },
   { id: 'world', owner: 'C', run: async (p) => (await start(p, 'World'), wait(p, 1500)) },
   // the event card (EV-03, campaign-events.md R4): the longest body with a gamble, and three choices with costs; the journal full
   ...[
@@ -563,18 +477,6 @@ const SCREENS = [
       return wait(p, 500);
     },
   })),
-  // the War camp's Buildings list (CMP-01) on the demo shard's camp preview
-  {
-    id: 'camp-war-build',
-    owner: 'C',
-    run: async (p) => {
-      await start(p, 'Online', { preview: 'camp' });
-      await until(p, activeIs('Camp'), 25000);
-      await until(p, () => !!window.__game.scene.getScene('Camp').layout, 10000);
-      await call(p, 'Camp', 's.openBuild(); return 1;');
-      return wait(p, 600);
-    },
-  },
   { id: 'army', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World' }), wait(p, 900)) },
   { id: 'army-stash', owner: 'B', run: async (p) => (await start(p, 'Army', { from: 'World', tab: 'stash' }), wait(p, 900)) },
   // the Army template's states (ARM-01): a full roster of 20 with a slinger selected, a wounded militiaman,
@@ -916,63 +818,6 @@ const SCREENS = [
       return wait(p, 600);
     },
   },
-  { id: 'online', owner: 'C', run: async (p) => (await start(p, 'Online'), wait(p, 1800)) },
-  // The war-table hex map on the local demo shard (src/online/demoShard.ts): HUD, hex panel states, dialogs.
-  ...[
-    ['online-map', 'map'],
-    ['online-hex-neutral', 'neutral'],
-    ['online-hex-far', 'far'],
-    ['online-hex-own', 'own'],
-    ['online-hex-rival', 'rival'],
-    ['online-hex-town', 'town'],
-    ['online-march', 'march'],
-    ['online-lobby', 'lobby'],
-    ['online-challenge', 'challenge'],
-    ['online-result', 'result'],
-    ['online-join', 'join'],
-    ['online-lair', 'lair'],
-    ['online-lair-info', 'lairInfo'],
-    ['online-boss', 'boss'],
-    ['online-boss-info', 'bossInfo'],
-    ['online-hex-market', 'market'],
-    ['online-hex-post', 'post'],
-    ['online-camp', 'camp'],
-  ].map(([id, preview]) => ({
-    id,
-    owner: 'C',
-    run: async (p) => {
-      await start(p, 'Online', { preview });
-      if (preview === 'camp') {
-        // the camp preview opens the camp scene on the demo shard
-        await until(p, activeIs('Camp'), 25000);
-        await until(p, () => !!window.__game.scene.getScene('Camp').layout, 10000);
-        return wait(p, 900);
-      }
-      await until(p, new Function(`const s = window.__game.scene.getScene('Online'); return ${preview === 'join' ? "s.sys.isActive()" : '!!s.map'};`), 8000);
-      if (['neutral', 'far', 'own', 'rival', 'town', 'lair', 'lairInfo', 'boss', 'bossInfo', 'market', 'post'].includes(preview)) await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
-      if (preview === 'lairInfo' || preview === 'bossInfo') {
-        // the info panel opens once the hex detail is in
-        await wait(p, 300);
-        await call(p, 'Online', `if (!s.modal && s.selected) s.openBeast(s.selected); return 1;`);
-      }
-      if (preview === 'march') {
-        // the march answer shows a toast over the top bar: let it fade
-        await until(p, () => !!window.__game.scene.getScene('Online').profile?.army.marching, 6000);
-        await until(
-          p,
-          () => {
-            const texts = [];
-            const walk = (list) => list.forEach((o) => (o.text !== undefined && texts.push(o.text), o.list && walk(o.list)));
-            walk(window.__game.scene.getScene('Online').children.list);
-            return !texts.some((x) => /:.*\d+.*,/.test(x) && x.length > 18);
-          },
-          15000,
-        );
-        return wait(p, 400);
-      }
-      return wait(p, 900);
-    },
-  })),
   // The clan screen (src/scenes/online/ClanScene.ts) with a staged clan (the API is not reached).
   ...[
     ['online-clan', ''],
@@ -985,29 +830,11 @@ const SCREENS = [
     run: async (p) => {
       await start(p, 'OnlineClan', {});
       await wait(p, 600);
-      await call(p, 'OnlineClan', `s.loaded = true; s.me = 1; s.role = 'leader'; s.clan = { id: 1, name: 'Sons of Lambda', tag: 'LMB', shard: 1, regions: 7, members: [{ id: 1, name: 'Leonidas', role: 'leader', joinedAt: 0, regions: 4 }, { id: 2, name: 'Brasidas', role: 'officer', joinedAt: 0, regions: 2 }, { id: 3, name: 'Myrto of Corinth', role: 'member', joinedAt: 0, regions: 1 }] }; s.render(); ${after} return 1;`);
+      await call(p, 'OnlineClan', `s.loaded = true; s.me = 1; s.role = 'leader'; s.clan = { id: 1, name: 'Sons of Lambda', tag: 'LMB', members: [{ id: 1, name: 'Leonidas', role: 'leader', joinedAt: 0 }, { id: 2, name: 'Brasidas', role: 'officer', joinedAt: 0 }, { id: 3, name: 'Myrto of Corinth', role: 'member', joinedAt: 0 }] }; s.render(); ${after} return 1;`);
       return wait(p, 500);
     },
   })),
-  // Map merchants (src/scenes/online/MerchantScene.ts) on the demo shard: a town in reach with the clan's
-  // discount, a trading post out of reach, the buy dialog and a piece of gear's card.
-  ...[
-    ['merchant-town', { demo: 'held', spot: 'market' }, ''],
-    ['merchant-post', { demo: 'far', spot: 'post' }, ''],
-    ['merchant-buy', { demo: 'held', spot: 'market' }, "const o = s.view.offers[1]; s.askBuy(o, s.offerName(o), o.price.gold, 'gold');"],
-    ['merchant-item', { demo: 'far', spot: 'post' }, "s.showOffer(s.view.offers.find((o) => o.slot === 'rare'));"],
-  ].map(([id, data, after]) => ({
-    id,
-    owner: 'C',
-    run: async (p) => {
-      await start(p, 'Merchant', data);
-      await until(p, () => !!window.__game.scene.getScene('Merchant').view, 4000);
-      await wait(p, 300);
-      if (after) await call(p, 'Merchant', `${after} return 1;`);
-      return wait(p, 500);
-    },
-  })),
-  // ---- onboarding (owner F): first-run screens, the tutorial battle's narrator and spotlight, the online coach marks
+  // ---- onboarding (owner F): first-run screens, the tutorial battle's narrator and spotlight
   // (each waits for its step to be built: the scene preloads its paintings first, which a busy machine can make slow)
   ...['offer', 'resume', 'modes'].map((mode) => ({ id: `first-run-${mode}`, owner: 'F', run: async (p) => (await start(p, 'FirstRun', { mode }), await firstRunIs(p, mode), wait(p, 700)) })),
   // V6-LINK-07b: the Modes step signed in, "Other players will see you as …" and Change under the cards
@@ -1060,24 +887,6 @@ const SCREENS = [
       return wait(p, 500);
     },
   },
-  ...[
-    ['home', 'map'],
-    ['neighbour', 'map'],
-    ['defenders', 'neutral'],
-    ['march', 'neutral'],
-    ['attack', 'neutral'],
-    ['collect', 'map'],
-    ['clan', 'map'],
-  ].map(([coach, preview]) => ({
-    id: `online-coach-${coach}`,
-    owner: 'F',
-    run: async (p) => {
-      await start(p, 'Online', { preview, coach });
-      await until(p, () => !!window.__game.scene.getScene('Online').map, 8000);
-      if (preview === 'neutral') await until(p, () => !!window.__game.scene.getScene('Online').detail, 4000);
-      return wait(p, 900);
-    },
-  })),
   // V6-RFND-02: the Kit Layouts page (src/scenes/kit/layoutsPage.ts), opted in to the size classes: each demo, then its samples
   { id: 'kit-layouts', owner: 'F', run: async (p) => (await start(p, 'Kit', { page: 'layouts' }), wait(p, 900)) },
   ...[

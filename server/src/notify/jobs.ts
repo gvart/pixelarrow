@@ -3,15 +3,12 @@
  *  - registers the bot's commands once per COMMANDS_VERSION (and makes sure
  *    the webhook receives callback_query for the /settings buttons);
  *  - "the season ends in 3 days / 1 day" for every player of the season;
- *  - "your treasury is full" (hourly) for players whose oldest uncollected
- *    hex reached the 24 h income cap;
  *  - delivers waiting notifications (flushDue) and cleans up.
  *
  * Cost: 288 runs a day, each a handful of D1 queries (the free plan allows
  * 100k requests and 5M D1 row reads a day; cron triggers are free).
  */
 import type { Env } from '../env';
-import { ONLINE_RULES } from '../../../src/online/rules';
 import { tryBot } from '../telegramApi';
 import { ALLOWED_UPDATES, BOT_COMMANDS, COMMANDS_VERSION } from '../bot/commands';
 import { cleanup, flushDue } from './outbox';
@@ -72,35 +69,13 @@ export async function seasonNotices(db: D1Database, now = Date.now()): Promise<n
   return res.meta.changes;
 }
 
-/**
- * "Your treasury is full": players whose oldest uncollected region has reached
- * the income cap. Keyed by that region's accrual clock, so it is sent once per
- * full treasury (collecting resets the clock).
- */
-export async function incomeNotices(db: D1Database, now = Date.now()): Promise<number> {
-  const s = await db.prepare("SELECT id FROM online_seasons WHERE status = 'active' ORDER BY id DESC LIMIT 1").first<{ id: number }>();
-  if (!s) return 0;
-  const res = await db
-    .prepare(
-      `INSERT OR IGNORE INTO notify_outbox (player_id, type, event, dedupe, data, created_at)
-       SELECT owner_id, 'income', 'income_full', 'income:' || ?1 || ':' || MIN(accrued_at), '{}', ?3
-       FROM online_regions WHERE season_id = ?1 AND owner_id IS NOT NULL AND accrued_at IS NOT NULL
-       GROUP BY owner_id HAVING MIN(accrued_at) <= ?2`,
-    )
-    .bind(s.id, now - ONLINE_RULES.incomeCapHours * 3_600_000, now)
-    .run();
-  return res.meta.changes;
-}
-
 /** Everything the cron does; each step fails alone. */
 export async function runScheduled(env: Env, now = Date.now()): Promise<void> {
   const db = env.DB;
   if (!db) return;
-  const hourly = Math.floor(now / 60_000) % 60 < 5;
   const steps: [string, () => Promise<unknown>][] = [
     ['bot setup', () => ensureBotSetup(env, now)],
     ['season notices', () => seasonNotices(db, now)],
-    ['income notices', () => (hourly ? incomeNotices(db, now) : Promise.resolve(0))],
     ['flush', () => flushDue(env, now)],
     ['cleanup', () => cleanup(db, now)],
   ];

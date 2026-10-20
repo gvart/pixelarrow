@@ -13,7 +13,7 @@ import { ApiError, badRequest } from '../errors';
 import { requirePlayable } from '../middleware';
 import { CONSUMABLE_IDS, CONSUMABLES, type ConsumableId } from '../../../src/data/consumables';
 import { limit, player } from './context';
-import { armyState, revBatch, revGuard } from './store';
+import { revBatch, revGuard } from './store';
 import { utcDay } from '../economy/routes';
 
 export const consumables = new Hono<AppEnv>();
@@ -59,21 +59,15 @@ consumables.post('/use', async (c) => {
   const p = pc.profile;
   const g = revGuard(pc.season.id, pc.pid, p.rev + 1);
   const stmts: D1PreparedStatement[] = [];
-  let march: string | null = p.march;
-  if (def.use === 'march') {
-    const army = armyState(p, pc.now);
-    if (!army.marching || !army.march) throw new ApiError(409, 'not_marching', 'Your army is not on the march');
-    const mult = def.effect.marchMult ?? 1;
-    const at = army.march.at.map((t) => (t > pc.now ? Math.round(pc.now + (t - pc.now) * mult) : t));
-    march = JSON.stringify({ path: army.march.path, at });
-  } else {
+  if (def.use === 'march') throw new ApiError(409, 'not_marching', 'Your army is not on the march');
+  {
     const wounded = await pc.db.prepare('SELECT COUNT(*) AS n FROM online_heroes WHERE season_id = ?1 AND player_id = ?2 AND wounded_until > ?3').bind(pc.season.id, pc.pid, pc.now).first<{ n: number }>();
     if (!wounded?.n) throw new ApiError(409, 'nobody_wounded', 'None of your heroes is wounded');
   }
   stmts.push(
     pc.db
-      .prepare(`UPDATE online_profiles SET march = ?3, rev = rev + 1, updated_at = ?4 WHERE season_id = ?1 AND player_id = ?2 AND rev = ?5 AND ${holdsSql('?6')}`)
-      .bind(pc.season.id, pc.pid, march, pc.now, p.rev, body.id),
+      .prepare(`UPDATE online_profiles SET rev = rev + 1, updated_at = ?3 WHERE season_id = ?1 AND player_id = ?2 AND rev = ?4 AND ${holdsSql('?5')}`)
+      .bind(pc.season.id, pc.pid, pc.now, p.rev, body.id),
     pc.db.prepare(`UPDATE online_consumables SET qty = qty - 1 WHERE season_id = ?1 AND player_id = ?2 AND consumable_id = ?3 AND qty >= 1 AND ${g}`).bind(pc.season.id, pc.pid, body.id),
   );
   if (def.use === 'heal') {
@@ -90,5 +84,5 @@ consumables.post('/use', async (c) => {
     if (!inv[body.id]) throw new ApiError(409, 'none_left', `You have no ${def.name.toLowerCase()}`);
     throw e;
   }
-  return c.json({ used: body.id, inventory: await consumableInventory(pc.db, pc.season.id, pc.pid), march: march ? JSON.parse(march) : null });
+  return c.json({ used: body.id, inventory: await consumableInventory(pc.db, pc.season.id, pc.pid) });
 });

@@ -1,7 +1,5 @@
 /**
- * Shared ambient-life drawing for the parchment maps: the online war map
- * (src/scenes/online/mapLife.ts) and the offline overland map
- * (src/ui/overlandLife.ts). Everything is a pure function of time, drawn as
+ * Ambient-life drawing for the offline overland map (src/ui/overlandLife.ts). Everything is a pure function of time, drawn as
  * a few pixels into one Graphics or as pooled images, so the cost stays
  * proportional to what is on screen.
  */
@@ -9,7 +7,30 @@ import Phaser from 'phaser';
 import { Pix, hash2 } from '../art/pixels';
 import { MP, gullPix, merchantPix, shipPix } from '../art/mapProps';
 import { mix } from '../art/palette';
-import { alongPolyline } from '../online/liveArmies';
+
+/** The point `k` (0..1) of the way along a polyline, and the direction of travel there. */
+export function alongPolyline(pts: readonly { x: number; y: number }[], k: number): { x: number; y: number; dx: number; dy: number } {
+  if (pts.length === 1) return { ...pts[0], dx: 0, dy: 0 };
+  const lens: number[] = [];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const l = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    lens.push(l);
+    total += l;
+  }
+  let want = Math.max(0, Math.min(1, k)) * total;
+  for (let i = 0; i < lens.length; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (want <= lens[i] || i === lens.length - 1) {
+      const f = lens[i] > 0 ? Math.min(1, want / lens[i]) : 1;
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, dx: b.x - a.x, dy: b.y - a.y };
+    }
+    want -= lens[i];
+  }
+  const last = pts[pts.length - 1];
+  return { ...last, dx: 0, dy: 0 };
+}
 
 export const SMOKE = [0xf0e6e2, 0xe2d6d6, 0xcfc2c8];
 

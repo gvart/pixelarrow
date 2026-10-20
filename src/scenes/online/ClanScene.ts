@@ -106,7 +106,7 @@ export class ClanScene extends BaseScene {
   }
 
   private back(): void {
-    this.scene.start('Online', {});
+    this.scene.start('Menu', {});
   }
 
   private async fetchData(): Promise<void> {
@@ -320,7 +320,7 @@ export class ClanScene extends BaseScene {
     let my = scroll ? 4 : R.y + Math.max(8, Math.floor((iby - 8 - R.y - blockH) / 2));
     put(mtext(this, ox + R.x + R.w / 2, my, m.name, 'rInk', { size: 8, align: 0.5, maxW: bw }));
     my += 14;
-    put(mtext(this, ox + R.x + R.w / 2, my, `${roleName(m.role)} · ${t('clan.regions', { n: m.regions })}`, 'pSec', { size: TEXT_MIN, align: 0.5, maxW: bw }));
+    put(mtext(this, ox + R.x + R.w / 2, my, roleName(m.role), 'pSec', { size: TEXT_MIN, align: 0.5, maxW: bw }));
     my += LH + 8;
     for (const a of acts) {
       if (a.kick) my += 6;
@@ -337,7 +337,6 @@ export class ClanScene extends BaseScene {
   private bannerStats(cl: ClanView, w: number): string[] {
     const stats = t('clan.stats', {
       men: t('clan.men', { n: cl.members.length, max: ONLINE_RULES.clanMaxMembers }),
-      regions: t('clan.regions', { n: cl.regions }),
       role: this.role ? roleName(this.role) : '',
     });
     return wrapText(stats, w - 30 - 18, 2, false, TEXT_MIN).lines;
@@ -438,7 +437,6 @@ export class ClanScene extends BaseScene {
     const lw = Math.max(64, Math.min(90, Math.round(w * 0.42)));
     const stats = t('clan.stats', {
       men: t('clan.men', { n: cl.members.length, max: ONLINE_RULES.clanMaxMembers }),
-      regions: t('clan.regions', { n: cl.regions }),
       role: this.role ? roleName(this.role) : '',
     });
     const statsLines = wrapText(stats, w - crest - 18, 2, false, TEXT_MIN).lines;
@@ -502,7 +500,6 @@ export class ClanScene extends BaseScene {
     const right = w - 6 - (manage ? 12 : 0);
     const nameW = right - chipW - 6 - 8;
     face.add(at(mtext(this, 8, 5, m.name, 'rInk', { size: 7, maxW: nameW })));
-    face.add(at(mtext(this, 8, 16, t('clan.regions', { n: m.regions }), 'pSec', { size: TEXT_MIN, maxW: nameW })));
     const chip = this.add.graphics();
     const cx = right - chipW;
     const cy = Math.round((ROW_H - 13) / 2);
@@ -653,7 +650,7 @@ export class ClanScene extends BaseScene {
     // the one destructive action: last, set apart, and it confirms (A11Y-08)
     const kick = canKick(role, m.role);
     const w = this.sheetW();
-    const sub = `${roleName(m.role)} · ${t('clan.regions', { n: m.regions })}`;
+    const sub = roleName(m.role);
     const h = SHEET_TITLE_H + LH + 6 + acts.length * (TAP + 4) + (kick ? 10 + TAP : 0) + 8;
     const md = openParchmentSheet(this, { title: m.name, w, h, id: 'clan.manage' });
     let y = this.bodyLines(md, md.body.y, [{ text: sub, font: 'pSec' }]) + 4;
@@ -705,8 +702,8 @@ export class ClanScene extends BaseScene {
   }
 
   /** The join offer: the clan, its size and land, Not now / Join (Join explains itself when you are in a clan). */
-  showJoin(code: string, c: { name: string; tag: string; members: number; regions: number }, blocked: boolean): void {
-    const lines = [{ text: `[${c.tag}] ${c.name}`, font: 'rInk' as FontKey }, { text: `${t('clan.join.size', { n: c.members })} · ${t('clan.regions', { n: c.regions })}`, font: 'pSec' as FontKey }, { text: blocked ? t('clan.join.leaveFirst') : t('clan.join.ask'), font: (blocked ? 'pBad' : 'pInk') as FontKey }];
+  showJoin(code: string, c: { name: string; tag: string; members: number }, blocked: boolean): void {
+    const lines = [{ text: `[${c.tag}] ${c.name}`, font: 'rInk' as FontKey }, { text: t('clan.join.size', { n: c.members }), font: 'pSec' as FontKey }, { text: blocked ? t('clan.join.leaveFirst') : t('clan.join.ask'), font: (blocked ? 'pBad' : 'pInk') as FontKey }];
     const w = this.sheetW();
     const actions = [
       {

@@ -1,15 +1,12 @@
-import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
+import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bossMaxHp, worldBossSites } from '../../src/online/lairs';
 import { parseStartParam } from '../../src/online/deeplink';
-import type { RegionDO } from '../src/region';
 import { enqueue, ev, flushDue, flushPlayer, isQuiet, NOTIFY_RULES, notify } from '../src/notify/outbox';
-import { ensureBotSetup, incomeNotices, runScheduled, seasonNotices } from '../src/notify/jobs';
+import { ensureBotSetup, runScheduled, seasonNotices } from '../src/notify/jobs';
 import { buttonUrl, render } from '../src/notify/templates';
 import { BOT_COMMANDS } from '../src/bot/commands';
-import { currentSeason, shardDoName } from '../src/online/store';
 import { api, mockTelegram, webhook, type BotCall } from './helpers';
-import { DB, fresh, freeNeighbour, getJson, must, join, placeArmy, play, post, sameShard, shardRow, wsOnline, type Ticket } from './onlineHelpers';
+import { DB, fresh, getJson, join, post } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -232,85 +229,12 @@ describe('delivery rules', () => {
 });
 
 describe('event triggers', () => {
-  it('attack start, then the result, reach the region owner (who is offline)', async () => {
-    const owner = await join(77101, 'Owner');
-    const att = await join(77102, 'Raider');
-    await sameShard(att, owner);
-    const shard = await shardRow(att);
-    const w = shard.world;
-    // the owner holds a plot (not a boss site, not locked, nobody's yet) next to the raider's army (no garrison: militia)
-    const bosses = worldBossSites(w, shard.seed).map((b) => b.loc);
-    const h = await freeNeighbour(att, (n) => w.info(n).kind === 'plot' && !bosses.includes(n));
-    await DB()
-      .prepare(
-        `INSERT INTO online_regions (season_id, shard_id, loc, occupant, owner_id, accrued_at) VALUES (?1, ?2, ?3, 'player', ?4, ?5)
-         ON CONFLICT (season_id, shard_id, loc) DO UPDATE SET occupant = 'player', owner_id = excluded.owner_id, accrued_at = excluded.accrued_at, home = 0`,
-      )
-      .bind(shard.season, shard.id, h, owner.playerId, Date.now())
-      .run();
-    const calls = mockTelegram();
-    const t = await post<Ticket>('/api/online/attack/start', att.token, { loc: h });
-    expect(t.status).toBe(200);
-    expect(t.body.defenderKind).toBe('militia');
-    const start = await waitForEvent(owner.playerId, 'attack_start');
-    expect(JSON.parse(start.data)).toMatchObject({ loc: h, place: w.info(h).name, by: att.name });
-    await vi.waitFor(() => expect(sends(calls, 77101)).toHaveLength(1), { timeout: 30_000, interval: 50 });
-    expect(button(sends(calls, 77101)[0])[0][0].web_app!.url).toBe(`https://play.pixelarrow.app/?startapp=loc_${h}`);
-    const run = play(t.body.setup);
-    const sub = await post<{ captured: boolean; won: boolean }>('/api/online/attack/submit', att.token, { ticket: t.body.ticket, ...run });
-    expect(sub.status).toBe(200);
-    const end = await waitForEvent(owner.playerId, sub.body.captured ? 'attack_captured' : 'attack_held');
-    expect(end.type).toBe('attack');
-    // the result waits for the coalescing window (one message so far)
-    expect(sends(calls, 77101)).toHaveLength(1);
-    expect((await outbox(att.playerId)).length).toBe(0);
-  });
-
-  it('a march arrival notifies its owner when offline, not when online', async () => {
-    const a = await join(77201);
-    const calls = mockTelegram();
-    const stub = env.REGION.get(env.REGION.idFromName(shardDoName({ season: a.profile.season.id, id: a.profile.shard.id })));
-    await stub.marchNotice(a.playerId, { at: Date.now() - 1000, loc: 4, place: 'Arx Borea' });
-    await runDurableObjectAlarm(stub);
-    const row = await waitForEvent(a.playerId, 'march_arrived');
-    expect(JSON.parse(row.data)).toEqual({ loc: 4, place: 'Arx Borea' });
-    // (the alarm, due at once, may already have run by itself: wait for its send)
-    await vi.waitFor(() => expect(sends(calls, 77201)).toHaveLength(1), { timeout: 30_000, interval: 50 });
-    // online on the war table: no message
-    const ws = await wsOnline(a.token);
-    await ws.next('welcome');
-    await stub.marchNotice(a.playerId, { at: Date.now() - 1000, loc: 5, place: 'Campus Altus' });
-    await runDurableObjectAlarm(stub);
-    await vi.waitFor(async () => expect(await runInDurableObject(stub, (_i: RegionDO, state) => state.storage.get(`notice:${a.playerId}`))).toBeUndefined(), { timeout: 30_000, interval: 50 });
-    expect((await outbox(a.playerId)).filter((r) => r.event === 'march_arrived')).toHaveLength(1);
-    ws.ws.close(1000);
-    // a long march registers its notice; a halt clears it
-    await stub.marchNotice(a.playerId, null);
-  });
-
-  it('a duel challenge to an offline player of the shard notifies them', async () => {
-    const a = await join(77301, 'Challenger');
-    const b = await join(77302, 'Sleeper');
-    await sameShard(a, b);
-    const calls = mockTelegram();
-    const wa = await wsOnline(a.token);
-    await wa.next('welcome');
-    wa.send({ type: 'challenge', to: b.playerId });
-    expect(await wa.next('error')).toMatchObject({ code: 'unavailable' });
-    const row = await waitForEvent(b.playerId, 'duel_challenge');
-    expect(JSON.parse(row.data)).toEqual({ by: a.name });
-    await vi.waitFor(() => expect(sends(calls, 77302)).toHaveLength(1), { timeout: 30_000, interval: 50 });
-    expect(button(sends(calls, 77302)[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=duel');
-    wa.ws.close(1000);
-  });
-
   it('clan: invite accepted, rank changed, kicked', async () => {
     const lead = await join(77401, 'Lead');
     mockTelegram({ getMe: { username: 'pixelarrow_bot' } });
     expect((await post('/api/online/clans', lead.token, { name: 'Ravens', tag: 'RVN' })).status).toBe(200);
     const inv = await post<{ code: string }>('/api/online/clans/invite', lead.token);
     const m = await join(77402, 'Newbie');
-    await sameShard(lead, m);
     expect((await post('/api/online/clans/join', m.token, { code: inv.body.code })).status).toBe(200);
     expect(JSON.parse((await waitForEvent(lead.playerId, 'clan_joined')).data)).toEqual({ name: m.name, clan: '[RVN] Ravens' });
     expect((await post('/api/online/clans/promote', lead.token, { playerId: m.playerId, role: 'officer' })).status).toBe(200);
@@ -319,49 +243,7 @@ describe('event triggers', () => {
     expect(JSON.parse((await waitForEvent(m.playerId, 'clan_kicked')).data)).toEqual({ clan: '[RVN] Ravens' });
   });
 
-  it('a marketplace sale notifies the seller', async () => {
-    const seller = await join(77501, 'Seller');
-    const buyer = await join(77502, 'Buyer');
-    await sameShard(seller, buyer);
-    const season = await currentSeason(DB());
-    const shard = await shardRow(seller);
-    const town = shard.world.all().find((x) => x.kind === 'town')!.id;
-    for (const p of [seller, buyer]) await placeArmy(p, town, shard.id);
-    await DB().prepare('UPDATE online_profiles SET wood = 50, gold = 1000 WHERE season_id = ?1').bind(season.id).run();
-    mockTelegram();
-    const l = await post<{ listing: { id: string } }>('/api/online/market/list', seller.token, { town, kind: 'resource', ref: 'wood', qty: 10, currency: 'gold', price: 40 });
-    expect(l.status).toBe(200);
-    expect((await post('/api/online/market/buy', buyer.token, { listingId: l.body.listing.id })).status).toBe(200);
-    const row = await waitForEvent(seller.playerId, 'market_sold');
-    expect(JSON.parse(row.data)).toMatchObject({ what: '10× wood', price: 40, currency: 'gold', gets: 36 });
-  });
-
-  it('the killing raid on a world boss tells the other damage dealers their share', async () => {
-    const a = await join(77601);
-    const b = await join(77602);
-    const shard = await shardRow(a);
-    const site = worldBossSites(shard.world, shard.seed)[0];
-    const spot = must(shard.world.neighbours(site.loc).find((n) => shard.world.info(n).passable), `passable neighbour of boss site ${site.loc}`);
-    for (const p of [a, b]) await placeArmy(p, spot, shard.id);
-    await getJson('/api/online/boss', a.token);
-    const parts = JSON.stringify(Array.from({ length: bossMaxHp(site.boss, site.level).parts }, () => 0));
-    await DB().prepare('UPDATE world_bosses SET hp = 1, parts = ?2 WHERE boss = ?1 AND shard_id = ?3').bind(site.boss, parts, shard.id).run();
-    await DB()
-      .prepare('INSERT INTO world_boss_damage (season_id, shard_id, boss, player_id, clan_id, damage, raids, updated_at) VALUES (?1, ?2, ?3, ?4, NULL, 3000, 4, ?5)')
-      .bind(shard.season, shard.id, site.boss, b.playerId, Date.now())
-      .run();
-    mockTelegram();
-    const t = await post<Ticket>('/api/online/boss/start', a.token, { boss: site.boss });
-    expect(t.status).toBe(200);
-    const sub = await post<{ killedNow: boolean }>('/api/online/boss/submit', a.token, { ticket: t.body.ticket, ...play(t.body.setup) });
-    expect(sub.body.killedNow).toBe(true);
-    const row = await waitForEvent(b.playerId, 'boss_slain');
-    expect(JSON.parse(row.data)).toMatchObject({ boss: site.boss, loc: site.loc });
-    expect(JSON.parse(row.data).share).toBeGreaterThan(0.5);
-    expect((await outbox(a.playerId)).length).toBe(0);
-  });
-
-  it('season ending (3 days, then 1 day) and a full treasury come from the scheduled job', async () => {
+  it('season ending (3 days, then 1 day) comes from the scheduled job', async () => {
     const p = await join(77701);
     const q = await join(77702);
     await api('/api/notify/settings', { method: 'PUT', token: q.token, json: { on: { season: false } } });
@@ -375,19 +257,9 @@ describe('event triggers', () => {
     await seasonNotices(DB(), season!.ends_at - 3_600_000);
     expect((await outbox(p.playerId)).map((r) => JSON.parse(r.data).days)).toEqual([3, 1]);
 
-    // the treasury: the oldest uncollected region reached 24 h
     const now = Date.now();
-    await DB().prepare('UPDATE online_regions SET accrued_at = ?1 WHERE owner_id = ?2').bind(now - 25 * 3_600_000, p.playerId).run();
-    await DB().prepare('UPDATE online_regions SET accrued_at = ?1 WHERE owner_id = ?2').bind(now - 3_600_000, q.playerId).run();
-    expect(await incomeNotices(DB(), now)).toBeGreaterThanOrEqual(1);
-    expect(await incomeNotices(DB(), now + 1000)).toBe(0);
-    expect((await outbox(p.playerId)).filter((r) => r.event === 'income_full')).toHaveLength(1);
-    expect((await outbox(q.playerId)).filter((r) => r.event === 'income_full')).toHaveLength(0);
-    // collecting resets the clock: the next full treasury is a new notice
-    expect((await post('/api/online/collect', p.token)).status).toBe(200);
     const calls = mockTelegram();
-    await runScheduled(env, now + 30 * 3_600_000 - ((now + 30 * 3_600_000) % 3_600_000)); // a full hour: the hourly income check runs
-    expect((await outbox(p.playerId)).filter((r) => r.event === 'income_full')).toHaveLength(2);
+    await runScheduled(env, now);
     expect(calls.some((c) => c.method === 'setMyCommands')).toBe(true);
   });
 });

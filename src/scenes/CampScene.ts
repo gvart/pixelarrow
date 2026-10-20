@@ -1,14 +1,13 @@
 /**
  * The camp: a full isometric scene (docs/ART_STYLE.md, art in
- * src/art/campIso.ts, layout in src/world/campLayout.ts) for both the
- * offline Field camp (src/world/camp.ts) and the online War camp
- * (src/online/camps.ts). The clearing with its pavilion, tents, sheds, stall
+ * src/art/campIso.ts, layout in src/world/campLayout.ts) for the offline
+ * Field camp (src/world/camp.ts). The clearing with its pavilion, tents, sheds, stall
  * and forge is a pannable world container: the ground is baked into one
  * texture, every structure is a cached sprite sorted by its feet, and the
  * life (src/ui/campIsoLife.ts) is a dozen figures, some animals, smoke and
  * sparks. The chrome is the v5 map shell (design/ux/screens-campaign.md C-5,
- * CMP-01), the same as the World map's: the top bar (back, "Field camp" /
- * "War camp", gear), the parchment situation line (where and when, what the
+ * CMP-01), the same as the World map's: the top bar (back, "Field camp",
+ * gear), the parchment situation line (where and when, what the
  * camp does, the purse as chips), a zoom key, and a two-row stone strip of
  * labelled actions. Build opens the labelled Build drawer (name, cost, time,
  * count, why not), which leads to the supplies and field-works page
@@ -23,7 +22,7 @@ import { openEventCard, type EventCardHandle } from '../ui/sheets/eventCard';
 import { wrapsWhole } from '../ui/textfit';
 import { anchorOffset, mapWheel } from '../ui/input/zoomAt';
 import { mapCursor } from '../ui/input/cursorApply';
-import { CHIP_ROW_H, ChipRow, MButton, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, openParchmentSheet, situationLineH, wrapWords, type MButtonVariant, type ParchmentSheetHandle, type ParchmentSheetOpts, type SituationChip } from '../ui/mosaic';
+import { MButton, MIconButton, SituationLine, TOPBAR_H, addSubShell, gearAction, mosaicImage, mtext, mw, openParchmentSheet, situationLineH, wrapWords, type MButtonVariant, type ParchmentSheetHandle, type ParchmentSheetOpts, type SituationChip } from '../ui/mosaic';
 import { openPanel, EDGE_PAD } from '../ui/mosaic/layout';
 import { SHEET_ACTION_H } from '../ui/mosaic/ParchmentSheet';
 import { BUTTON_MAX } from '../ui/sizeClass';
@@ -39,16 +38,10 @@ import { fmtSigned, localDecimals } from '../i18n/numbers';
 import { heroName } from '../i18n/names';
 import { Pix } from '../art/pixels';
 import * as Iso from '../art/campIso';
-import { fieldLayout, onlineLayout, type IsoLayout, type IsoThing } from '../world/campLayout';
+import { fieldLayout, type IsoLayout, type IsoThing } from '../world/campLayout';
 import { STRUCTURES, STRUCTURE_LIST, campEffects, countBuilt, freeSpot, placeCheck, type StructureId } from '../world/camp';
 import type { WorldMap } from '../world/map';
 import type { World } from '../world/world';
-import { CAMP_BUILDING_IDS, CAMP_RULES as OCAMP, RESOURCE_KEYS, campLevelCost, type CampBuildingId, type Resources } from '../online/rules';
-import { checkBuild, checkClaim, statesOf, type CampReason, type CampView, type CampsView } from '../online/camps';
-import { errorText } from '../online/client';
-import type { CampSource } from './online/campPanel';
-import { effectText } from './online/campPanel';
-import { registerCampTextures } from '../art/campArt';
 import { dollFromHero, type DollSpec } from '../art/paperdoll';
 import { flushDolls, pumpDolls, releaseBattleRows } from '../ui/sprites';
 import { CampIsoLife, facingOf } from '../ui/campIsoLife';
@@ -60,33 +53,16 @@ import { WORKS } from '../data/terrain';
 import { WORK_TYPES } from '../sim/types';
 import { CLASSES, type ClassId } from '../data/classes';
 import { frameScrollTexts, itemName } from '../ui/sheet';
-import { fmtDuration, fmtNum } from '../util/format';
-import type { OwnedHeroView } from '../online/client';
 
 export interface CampSceneData {
-  mode: 'field' | 'online';
-  /** Online: the region. */
-  loc?: number;
-  name?: string;
-  source?: CampSource;
-  demo?: boolean;
-  coast?: boolean;
-  /** Online: the army's heroes (for the figures and the muster). */
-  heroes?: OwnedHeroView[];
-  /** Online: stores the reserve flags. */
-  setReserve?: (flags: Record<string, boolean>) => Promise<void>;
-  /** Where Back goes (online). */
-  back?: { scene: string; data?: object };
+  mode: 'field';
 }
 
-const RES_ICON: Record<keyof Resources, string> = { gold: 'wargold', food: 'food', wood: 'wood', bronze: 'bronze', recruits: 'people' };
 const FIELD_ICON: Record<StructureId, string> = { tent: 'tent', fire: 'fire', palisade: 'wall', forge: 'anvil', training: 'swords' };
 /** The action strip: two rows of 48 pt buttons, 8 pt apart (C-5 Touch). */
 const BTN_H = 24;
 const BAR_PAD = 4;
 const ROW_GAP = 4;
-/** The parchment reason line over the strip (War camp: why a button is off, CMP-6). */
-const WHY_H = 12;
 /** Drawer rows are 52 pt (C-5 Touch). */
 const ROW_H = 26;
 const ROW_GAP_LIST = 2;
@@ -103,12 +79,11 @@ interface Placed {
 export class CampScene extends BaseScene {
   /** Opted in to the size classes (ADR-0013): the clearing fills the safe area, the tools sit on its edges (landscape-v6 §12). */
   protected override readonly responsive = true;
-  private d!: CampSceneData;
   /** Where the HUD goes in this size class, and the framing rect the clearing is framed in (§12.2, §12.3). */
   private hudL!: MapHudLayout;
   /** An open inspector panel's box and id (landscape): the framing rect ends at its left edge while it is open. */
   private panelR: { x: number; y: number; w: number; h: number; id: string } | null = null;
-  /** Landscape: the top of what sits along the foot (the key row, the War camp's reason line); VH when nothing does. */
+  /** Landscape: the top of what sits along the foot (the key row); VH when nothing does. */
   private footTop = 0;
   private world!: Phaser.GameObjects.Container;
   private view = { x: 0, y: 0, w: 0, h: 0 };
@@ -135,13 +110,6 @@ export class CampScene extends BaseScene {
   private placing: { id: StructureId; x: number; y: number } | null = null;
   private construct: { id: StructureId; x: number; y: number; t0: number; stage: number } | null = null;
   private selected: string | null = null;
-  // online
-  private cv: CampsView | null = null;
-  private skew = 0;
-  private slot: number | null = null;
-  private kind: CampBuildingId | null = null;
-  private busy = false;
-  private timer: Phaser.Time.TimerEvent | null = null;
   private modal: ParchmentSheetHandle | null = null;
   /** The open sheet is an inspector panel: the clearing stays live beside it (§3.4, §12.2). */
   private inspector = false;
@@ -152,15 +120,10 @@ export class CampScene extends BaseScene {
     super('Camp');
   }
 
-  create(data: CampSceneData): void {
-    this.d = data?.mode ? data : { mode: 'field' };
+  create(_data?: CampSceneData): void {
     this.placing = null;
     this.construct = null;
     this.selected = null;
-    this.cv = null;
-    this.slot = null;
-    this.kind = null;
-    this.busy = false;
     this.modal = null;
     this.inspector = false;
     this.panelR = null;
@@ -172,14 +135,10 @@ export class CampScene extends BaseScene {
     this.life = null;
     this.gesture = null;
     this.animTimer = null;
-    this.lastStages = '';
-    this.fetching = false;
-    this.lastError = '';
     this.bar = null;
     this.sit = null;
     this.initUi();
     ensureFonts(this);
-    registerCampTextures(this, 30);
     const { VW, VH } = this.m;
     this.hudL = this.layoutHud();
     uiLayout(this, this.m.cls, this.m.land, 'field');
@@ -228,28 +187,21 @@ export class CampScene extends BaseScene {
       this.input.off('pointerupoutside', this.onUp, this);
       this.life?.destroy();
       this.life = null;
-      this.timer?.remove();
       releaseBattleRows(this);
     });
-    if (this.d.mode === 'online') {
-      this.buildHud();
-      this.timer = this.time.addEvent({ delay: 1000, loop: true, callback: () => this.tick() });
-      void this.fetch();
-    } else {
-      if (!state.campaign.world.camp) {
-        this.scene.start('World', {});
-        return;
-      }
-      this.rebuild();
-      this.buildHud();
-      this.centerCamp();
-      this.openEvent();
+    if (!state.campaign.world.camp) {
+      this.scene.start('World', {});
+      return;
     }
+    this.rebuild();
+    this.buildHud();
+    this.centerCamp();
+    this.openEvent();
   }
 
   /** The pending event's card over the camp (a camp night, campaign-events.md R3); it comes back until answered. */
   private openEvent(): void {
-    if (this.eventCard || this.d.mode !== 'field') return;
+    if (this.eventCard) return;
     this.eventCard = openEventCard(this, {
       onDone: () => {
         this.eventCard = null;
@@ -270,8 +222,7 @@ export class CampScene extends BaseScene {
   }
 
   private goBack(): void {
-    if (this.d.mode === 'online') this.scene.start(this.d.back?.scene ?? 'Online', this.d.back?.data ?? { focus: this.d.loc });
-    else this.scene.start('World', {});
+    this.scene.start('World', {});
   }
 
   // ================================================================ sprites
@@ -300,24 +251,18 @@ export class CampScene extends BaseScene {
   // ================================================================ build the camp
 
   private currentLayout(): IsoLayout {
-    const now = this.nowServer();
-    if (this.d.mode === 'field') {
-      const w = state.campaign.world;
-      return fieldLayout(w.map, w.camp!, state.campaign.data.heroes.length, this.placing);
-    }
-    const camp = this.camp();
-    const ghost = camp && this.slot !== null && this.kind && !camp.buildings.some((b) => b.slot === this.slot) ? { slot: this.slot, kind: this.kind } : null;
-    return onlineLayout(camp, { coast: !!this.d.coast, seed: (this.d.loc ?? 0) * 7919 + 13, home: !!camp?.home, rosterSize: this.heroes().length, ghost, now });
+    const w = state.campaign.world;
+    return fieldLayout(w.map, w.camp!, state.campaign.data.heroes.length, this.placing);
   }
 
   /** Rebuild the ground (when its signature changed) and every sprite; the life is re-populated. */
   private rebuild(): void {
     const L = this.currentLayout();
     this.layout = L;
-    const sig = `${this.d.mode}_${this.d.loc ?? 0}_${L.w}x${L.h}_${hashKinds(L.kinds)}`;
+    const sig = `field_${L.w}x${L.h}_${hashKinds(L.kinds)}`;
     const key = `ci_ground_${sig}`;
     if (this.groundKey !== key || !this.ground) {
-      if (!this.textures.exists(key)) this.textures.addCanvas(key, Iso.renderIsoGround({ w: L.w, h: L.h, kinds: L.kinds, seed: this.d.loc ?? 5, clearing: L.clearing }).toCanvas());
+      if (!this.textures.exists(key)) this.textures.addCanvas(key, Iso.renderIsoGround({ w: L.w, h: L.h, kinds: L.kinds, seed: 5, clearing: L.clearing }).toCanvas());
       this.ground?.destroy();
       const g = Iso.groundLayout(L.w, L.h);
       this.ground = this.add.image(-g.ox, -g.oy, key).setOrigin(0, 0).setDepth(-1e6);
@@ -340,17 +285,7 @@ export class CampScene extends BaseScene {
       this.drawGhost(th);
       return;
     }
-    if (th.key === 'plot') {
-      const sel = this.d.mode === 'online' && th.sel !== null && th.sel !== undefined && Number(th.sel) === this.slot;
-      const key = sel ? 'ci_plot_on' : 'ci_plot';
-      if (!this.textures.exists(key)) this.textures.addCanvas(key, Iso.renderPlot(sel).toCanvas());
-      const o = Iso.tileScreen(th.x, th.y);
-      const img = this.add.image(o.x - Iso.TILE_W - 1, o.y - 1, key).setOrigin(0, 0).setDepth(this.depthOf(th));
-      this.world.add(img);
-      this.placed.push({ thing: th, img });
-      return;
-    }
-    const cons = this.d.mode === 'field' && this.construct && th.sel !== undefined && this.constructIndex() === Number(th.sel);
+    const cons = this.construct && th.sel !== undefined && this.constructIndex() === Number(th.sel);
     let key = th.key;
     let alpha = 1;
     if (cons) key = this.construct!.stage < 2 ? `site${th.w}x${th.h}_${this.construct!.stage}` : `half:${th.key}`;
@@ -361,7 +296,7 @@ export class CampScene extends BaseScene {
     const s = this.spriteOf(key);
     const o = Iso.tileScreen(th.x, th.y);
     const img = this.add.image(o.x - s.ox, o.y - s.oy, s.tex).setOrigin(0, 0).setDepth(this.depthOf(th)).setAlpha(alpha);
-    if (th.sel !== undefined && this.selected === th.sel && this.d.mode === 'field') img.setTint(0xd8f4ff);
+    if (th.sel !== undefined && this.selected === th.sel) img.setTint(0xd8f4ff);
     this.world.add(img);
     this.placed.push({ thing: th, img });
     if (th.anim) {
@@ -393,7 +328,7 @@ export class CampScene extends BaseScene {
     const L = this.layout!;
     let okAll = true;
     const tiles: { x: number; y: number; ok: boolean }[] = [];
-    if (this.d.mode === 'field' && this.placing) {
+    if (this.placing) {
       const w = state.campaign.world;
       const chk = placeCheck(w.map, w.camp!, this.placing.id, this.placing.x, this.placing.y);
       okAll = chk.ok;
@@ -401,9 +336,6 @@ export class CampScene extends BaseScene {
         const at = L.toIso(tl.x, tl.y);
         for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) tiles.push({ x: at.x + i, y: at.y + j, ok: tl.ok });
       }
-    } else if (this.d.mode === 'online' && this.camp() && this.kind && this.slot !== null) {
-      okAll = checkBuild({ home: this.camp()!.home, buildings: statesOf(this.camp()!) }, this.kind, this.slot, this.cv!.resources, this.nowServer()).ok;
-      for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) tiles.push({ x: th.x + i, y: th.y + j, ok: okAll });
     }
     for (const ok of [true, false]) if (!this.textures.exists(`ci_tile_${ok}`)) this.textures.addCanvas(`ci_tile_${ok}`, Iso.renderTileTint(ok).toCanvas());
     for (const tl of tiles) {
@@ -426,22 +358,11 @@ export class CampScene extends BaseScene {
   // ================================================================ life
 
   private heroes(): Hero[] {
-    return this.d.mode === 'field' ? state.campaign.data.heroes : (this.d.heroes ?? []).map((h) => h.hero);
+    return state.campaign.data.heroes;
   }
 
   private muster(): MusterHero[] {
-    if (this.d.mode === 'field') return musterOf(state.campaign.data.heroes);
-    const views = this.d.heroes ?? [];
-    const now = this.nowServer();
-    const byId = new Map(views.map((v) => [v.hero.id, v]));
-    return musterOf(
-      views.map((v) => v.hero),
-      (h) => {
-        const v = byId.get(h.id);
-        return !!v && (v.woundedUntil > now || v.busy || v.garrison !== null);
-      },
-      (h) => !!byId.get(h.id)?.reserve,
-    );
+    return musterOf(state.campaign.data.heroes);
   }
 
   /** The men, animals, birds, smoke and sparks of the camp. */
@@ -499,7 +420,7 @@ export class CampScene extends BaseScene {
     if (s.yard) {
       const a = take(fielded) ?? take(reserves);
       const b = take(fielded) ?? take(reserves);
-      const yw = this.d.mode === 'field' ? 4 : 2;
+      const yw = 4;
       if (a) life.figure(a, 'spar', ...at(s.yard.x + 1.2, s.yard.y + yw - 0.8), { face: 0, phase: 0 });
       if (b) life.figure(b, 'spar', ...at(s.yard.x + 2.0, s.yard.y + yw - 0.2), { face: 3, phase: 900 });
     }
@@ -578,8 +499,7 @@ export class CampScene extends BaseScene {
   }
 
   private hour(): number {
-    if (this.d.mode === 'field') return Math.floor(state.campaign.world.s.time % 24);
-    return new Date().getHours();
+    return Math.floor(state.campaign.world.s.time % 24);
   }
 
   private isNight(): boolean {
@@ -725,39 +645,25 @@ export class CampScene extends BaseScene {
   private tapTile(tx: number, ty: number): void {
     const L = this.layout;
     if (!L) return;
-    if (this.d.mode === 'field') {
-      if (this.placing) {
-        const mt = L.toMap(tx, ty);
-        const d = STRUCTURES[this.placing.id];
-        const nx = mt.x - Math.floor((d.w - 1) / 2);
-        const ny = mt.y - Math.floor((d.h - 1) / 2);
-        if (nx === this.placing.x && ny === this.placing.y) return;
-        this.placing.x = nx;
-        this.placing.y = ny;
-        this.refreshGhost();
-        this.refreshHud();
-        haptic('light');
-        return;
-      }
-      const hit = L.things.find((th) => th.sel !== undefined && tx >= th.x && tx < th.x + th.w && ty >= th.y && ty < th.y + th.h);
-      this.selected = hit?.sel ?? null;
-      this.rebuild();
-      this.buildHud();
-      const b = hit ? state.campaign.world.camp?.built[Number(hit.sel)] : null;
-      if (b?.id === 'forge') this.openTemper();
+    if (this.placing) {
+      const mt = L.toMap(tx, ty);
+      const d = STRUCTURES[this.placing.id];
+      const nx = mt.x - Math.floor((d.w - 1) / 2);
+      const ny = mt.y - Math.floor((d.h - 1) / 2);
+      if (nx === this.placing.x && ny === this.placing.y) return;
+      this.placing.x = nx;
+      this.placing.y = ny;
+      this.refreshGhost();
+      this.refreshHud();
+      haptic('light');
       return;
     }
-    const camp = this.camp();
-    if (!camp) return;
-    const slot = L.slotAt(tx, ty);
-    if (slot < 0 || slot >= camp.slots) return;
-    this.slot = slot;
-    const bd = camp.buildings.find((b) => b.slot === slot);
-    if (bd) this.kind = null;
-    else if (!this.kind) this.kind = CAMP_BUILDING_IDS.find((k) => !camp.buildings.some((x) => x.kind === k)) ?? null;
-    haptic('light');
+    const hit = L.things.find((th) => th.sel !== undefined && tx >= th.x && tx < th.x + th.w && ty >= th.y && ty < th.y + th.h);
+    this.selected = hit?.sel ?? null;
     this.rebuild();
     this.buildHud();
+    const b = hit ? state.campaign.world.camp?.built[Number(hit.sel)] : null;
+    if (b?.id === 'forge') this.openTemper();
   }
 
   /** Field: move the ghost without re-rendering the whole camp. */
@@ -774,7 +680,7 @@ export class CampScene extends BaseScene {
 
   /** The HUD's layout for this size: the widest tool key (label and icon) sets the rail's width in compact landscape. */
   private layoutHud(): MapHudLayout {
-    const labels = [t('cmp.strike'), t('cmp.muster'), t('cmp.loot'), t('cmp.build'), t('cs.endDay'), t('common.cancel'), t('cs.place'), t('ocamp.rest'), t('cmp.buildings'), t('ocamp.upgrade'), t('ocamp.build'), t('ocamp.maxed'), t('ocamp.claim'), t('common.back')];
+    const labels = [t('cmp.strike'), t('cmp.muster'), t('cmp.loot'), t('cmp.build'), t('cs.endDay'), t('common.cancel'), t('cs.place')];
     const keyW = Math.max(...labels.map((l) => mw(l.toUpperCase(), 'rCream', 7))) + 14 + 12;
     return mapHudLayout(this.m, { top: TOPBAR_H, cardH: situationLineH, under: TAP_KEY + 4, keys: RAIL_KEYS, keyW, kind: 'camp' });
   }
@@ -790,7 +696,7 @@ export class CampScene extends BaseScene {
       return openParchmentSheet(this, o);
     }
     const { VW, VH } = this.m;
-    // the panel docks left of the tool rail (above the War camp's reason line): the tools stay live beside it. Short
+    // the panel docks left of the tool rail: the tools stay live beside it. Short
     // landscape has no room above the key row: the panel takes the full height, and the keys it covers step aside.
     const cmd = this.hudL.commands;
     const right = cmd.mode === 'stack' ? cmd.rect.x - EDGE_PAD : VW;
@@ -826,9 +732,9 @@ export class CampScene extends BaseScene {
     return acts.length ? { ...p, body: { ...p.body, h: p.body.h - acts.length * (SHEET_ACTION_H + 4) - 4 } } : p;
   }
 
-  /** Height of the action strip: two rows of buttons, and the War camp's reason line. */
+  /** Height of the action strip: two rows of buttons. */
   private barH(): number {
-    return this.barPad() * 2 + BTN_H * 2 + this.rowGap() + (this.d?.mode === 'online' ? WHY_H : 0);
+    return this.barPad() * 2 + BTN_H * 2 + this.rowGap();
   }
 
   /** The strip's padding and row gap: tighter on a short portrait (Telegram at 320x568), so the field keeps 40% of the box. */
@@ -843,7 +749,6 @@ export class CampScene extends BaseScene {
   private buildHud(): void {
     const H = this.hud;
     H.removeAll(true);
-    const { VW } = this.m;
     const card = this.hudL.card;
     const v5 = this.hudL.commands.mode === 'bar';
     // the top bar (back, the camp's name, gear), then the situation line with the purse, floating over the map
@@ -855,19 +760,7 @@ export class CampScene extends BaseScene {
     this.sitKey = '';
     // v5: the open map starts under the card; in landscape it runs under the top bar and the card floats over it
     this.visTop = v5 ? this.sit.y + this.sit.h : this.view.y;
-    const cardBottom = this.sit.y + this.sit.h;
-    // the War camp's chips cannot share one row on the narrowest screens (Telegram at 320x568): the last ones
-    // get a parchment strip of their own under the card, so no number is ever cut (G14)
-    this.chips2 = null;
-    let under = cardBottom;
-    if (this.d.mode === 'online' && VW < 150) {
-      this.chips2 = this.add.container(4, this.visTop + 1);
-      this.chips2.add(mosaicImage(this, 0, 0, VW - 8, CHIP_ROW_H + 4, 'parchment'));
-      uiId(this.chips2, 'camp.chips2');
-      H.add(this.chips2);
-      this.visTop += CHIP_ROW_H + 5;
-      under = this.visTop;
-    }
+    const under = this.sit.y + this.sit.h;
     // a tap on the card is not a tap on the camp under it
     const block = uiIgnore(this.add.zone(this.sit.x, this.sit.y, this.sit.w, under - this.sit.y).setOrigin(0, 0).setInteractive());
     H.add(block);
@@ -878,7 +771,7 @@ export class CampScene extends BaseScene {
     this.coverHud();
   }
 
-  /** The stone strip: rows of labelled buttons; over it, on parchment, why the War camp's off buttons are off (CMP-6). */
+  /** The stone strip: rows of labelled buttons. */
   private buildBar(): void {
     const { VW, VH } = this.m;
     const cmd = this.hudL.commands;
@@ -898,20 +791,10 @@ export class CampScene extends BaseScene {
     c.add(mosaicImage(this, 0, 0, VW, h, 'tabBar'));
     uiId(c, 'camp.strip');
     const rows = this.actionRows();
-    const top = this.d.mode === 'online' ? WHY_H : 0;
-    if (top) {
-      c.add(mosaicImage(this, 0, 0, VW, WHY_H, 'parchment'));
-      const why = rows.flat().filter((sl) => sl.off);
-      const all = why.map((sl) => t('cmp.reason', { name: sl.label, why: sl.off! })).join(' · ');
-      const room = VW - 8;
-      const one = why.find((sl) => sl.primary) ?? why[0];
-      const text = !why.length ? '' : mw(all, 'pSec', TEXT_MIN) <= room ? all : t('cmp.reason', { name: one.label, why: one.off! });
-      if (text) c.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: room, box: { owner: c, w: VW, h: WHY_H } }));
-    }
     // one row sits in the middle of the strip; two fill it
-    const inner = h - top - this.barPad() * 2;
+    const inner = h - this.barPad() * 2;
     const used = rows.length * BTN_H + (rows.length - 1) * this.rowGap();
-    let y = top + this.barPad() + Math.round((inner - used) / 2);
+    let y = this.barPad() + Math.round((inner - used) / 2);
     for (const row of rows) {
       this.layoutRow(c, row, y, cmd.x, cmd.w);
       y += BTN_H + this.rowGap();
@@ -920,10 +803,9 @@ export class CampScene extends BaseScene {
 
   /**
    * Landscape: the tools stacked at the right edge, top to bottom in the strip's reading order, the primary (End day,
-   * Place, Build, Claim) at the foot; the War camp's reason line on parchment at the foot, left of the rail (§12.2).
+   * Place) at the foot (§12.2).
    */
   private buildRail(cmd: Extract<MapHudLayout['commands'], { mode: 'stack' }>): void {
-    // the keys and the reason line are separate opaque clusters (the map shows between them)
     const bar = this.add.container(0, 0);
     this.bar = bar;
     this.hud.add(bar);
@@ -938,25 +820,12 @@ export class CampScene extends BaseScene {
       const b = new MButton(this, k.x, k.y, k.w, k.h, { label: sl.label, icon: sl.icon, variant, onClick: sl.onClick, disabledReason: sl.off, tip: sl.tip ?? sl.label, id: sl.id });
       c.add(sl.primary ? uiPrimary(b) : b);
     });
-    const why = slots.filter((sl) => sl.off);
-    if (this.d.mode !== 'online' || !why.length) return;
-    const w = cmd.rect.x - EDGE_PAD * 2;
-    const y = this.m.VH - EDGE_PAD - WHY_H;
-    const room = w - 8;
-    const all = why.map((sl) => t('cmp.reason', { name: sl.label, why: sl.off! })).join(' · ');
-    const one = why.find((sl) => sl.primary) ?? why[0];
-    const text = mw(all, 'pSec', TEXT_MIN) <= room ? all : t('cmp.reason', { name: one.label, why: one.off! });
-    const line = this.add.container(EDGE_PAD, y);
-    line.add(mosaicImage(this, 0, 0, w, WHY_H, 'parchment'));
-    line.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: room, box: { owner: line, w, h: WHY_H } }));
-    bar.add(uiOpaque(line));
-    this.footTop = y;
   }
 
   /**
    * Short landscape (the stack would run off the screen): the tools in one row along the foot at their natural widths,
    * right-aligned so the primary sits at the right end (the thumb), each key its own opaque cluster so the map shows
-   * between them; the War camp's reason line on parchment, as wide as its words, left of the keys or over them.
+   * between them.
    */
   private buildKeyRow(cmd: Extract<MapHudLayout['commands'], { mode: 'row' }>): void {
     const bar = this.add.container(0, 0);
@@ -982,22 +851,6 @@ export class CampScene extends BaseScene {
       x += ws[i] + cmd.gap;
     });
     this.footTop = r.y;
-    const keysX = r.x + r.w - (ws.reduce((a, n) => a + n, 0) + cmd.gap * (slots.length - 1));
-    const why = slots.filter((sl) => sl.off);
-    if (this.d.mode !== 'online' || !why.length) return;
-    const all = why.map((sl) => t('cmp.reason', { name: sl.label, why: sl.off! })).join(' · ');
-    const one = why.find((sl) => sl.primary) ?? why[0];
-    const beside = keysX - EDGE_PAD - r.x;
-    const fits = (s: string, w: number) => mw(s, 'pSec', TEXT_MIN) + 8 <= w;
-    const text = fits(all, r.w) ? all : t('cmp.reason', { name: one.label, why: one.off! });
-    const w = Math.min(r.w, Math.ceil(mw(text, 'pSec', TEXT_MIN)) + 8);
-    // left of the keys when the words fit there, else right-aligned over them
-    const at = fits(text, beside) ? { x: r.x, y: r.y + Math.round((cmd.keyH - WHY_H) / 2) } : { x: r.x + r.w - w, y: r.y - 2 - WHY_H };
-    const line = this.add.container(at.x, at.y);
-    line.add(mosaicImage(this, 0, 0, w, WHY_H, 'parchment'));
-    line.add(mtext(this, 4, 2, text, 'pSec', { size: TEXT_MIN, maxW: w - 8, box: { owner: line, w, h: WHY_H } }));
-    bar.add(uiOpaque(line));
-    this.footTop = Math.min(this.footTop, at.y);
   }
 
   /**
@@ -1047,7 +900,7 @@ export class CampScene extends BaseScene {
     });
   }
 
-  /** The top bar: the way back, "Field camp" / "War camp" and the gear (D9). */
+  /** The top bar: the way back, "Field camp" and the gear (D9). */
   private setTop(title: string): void {
     if (title === this.topKey) return;
     this.topKey = title;
@@ -1065,68 +918,29 @@ export class CampScene extends BaseScene {
     const key = `${sentence}|${chips.map((c) => `${c.icon}${c.value}`).join(',')}`;
     if (key === this.sitKey) return;
     this.sitKey = key;
-    const c2 = this.chips2;
-    sit.set(sentence, false, c2 ? chips.slice(0, 2) : chips);
-    if (c2) {
-      c2.list.slice(1).forEach((o) => o.destroy());
-      c2.add(new ChipRow(this, 5, 2, this.m.VW - 18, chips.slice(2)));
-    }
+    sit.set(sentence, false, chips);
   }
-
-  /** The second row of the War camp's chips, on the narrowest screens. */
-  private chips2: Phaser.GameObjects.Container | null = null;
 
   /** The actions, row by row. Field: Strike apart from End day (C-5: never next to the primary). */
   private actionRows(): CampSlot[][] {
-    if (this.d.mode === 'field') {
-      if (this.placing) {
-        const why = this.placeWhy();
-        return [
-          [
-            { label: t('common.cancel'), icon: 'close', onClick: () => this.cancelPlacing(), id: 'camp.cancel' },
-            { label: t('cs.place'), icon: 'check', onClick: () => this.confirmPlacing(), primary: true, off: why ?? undefined, id: 'camp.place' },
-          ],
-        ];
-      }
+    if (this.placing) {
+      const why = this.placeWhy();
       return [
         [
-          { label: t('cmp.strike'), icon: 'tent', onClick: () => this.strike(), tip: t('cmp.strikeTip'), id: 'camp.strike' },
-          { label: t('cmp.muster'), icon: 'people', onClick: () => this.openMuster(), id: 'camp.muster', tip: t('cs.musterTip') },
-          { label: t('cmp.loot'), icon: 'amphora', onClick: () => this.openLoot(), id: 'camp.loot', tip: t('cs.lootTip') },
-        ],
-        [
-          { label: t('cmp.build'), icon: 'anvil', onClick: () => this.openBuild(), id: 'camp.build', tip: t('cmp.buildTip') },
-          { label: t('cs.endDay'), icon: 'hourglass', onClick: () => this.endDay(), primary: true, id: 'camp.endDay', tip: t('cs.endDayTip') },
+          { label: t('common.cancel'), icon: 'close', onClick: () => this.cancelPlacing(), id: 'camp.cancel' },
+          { label: t('cs.place'), icon: 'check', onClick: () => this.confirmPlacing(), primary: true, off: why ?? undefined, id: 'camp.place' },
         ],
       ];
     }
-    const v = this.cv;
-    const camp = this.camp();
-    if (!v) return [[{ label: t('common.back'), icon: 'back', onClick: () => this.goBack(), id: 'camp.back2' }]];
-    const muster: CampSlot = { label: t('cmp.muster'), icon: 'people', onClick: () => this.openMuster(), id: 'camp.muster', tip: t('cs.musterTip') };
-    if (!camp) {
-      const check = checkClaim({ campPlot: true, mine: true, isCamp: false, forward: v.forward.n, armyHere: !v.army.marching && v.army.loc === this.d.loc, have: v.resources });
-      return [[muster, { label: t('ocamp.claim'), icon: 'tent', primary: true, off: check.ok ? undefined : this.why(check.reason), onClick: () => void this.run(() => this.d.source!.claim(this.d.loc!), t('ocamp.claimed')), id: 'camp.claim' }]];
-    }
-    const sel = camp.buildings.find((b) => b.slot === this.slot) ?? null;
-    const kind = sel ? sel.kind : this.kind;
-    const states = statesOf(camp);
-    let check: ReturnType<typeof checkBuild> | null = null;
-    if (sel && sel.level < OCAMP.maxLevel && sel.building === null) check = checkBuild({ home: camp.home, buildings: states }, sel.kind, null, v.resources, this.nowServer());
-    else if (!sel && kind) check = checkBuild({ home: camp.home, buildings: states }, kind, this.slot, v.resources, this.nowServer());
-    const upgrade = !!sel;
-    const label = upgrade ? (sel!.level >= OCAMP.maxLevel ? t('ocamp.maxed') : t('ocamp.upgrade')) : t('ocamp.build');
-    const why = !kind ? t('ocamp.empty') : check && !check.ok ? this.why(check.reason) : !check ? (sel?.building !== null ? this.why('busy') : this.why('maxLevel')) : undefined;
-    const restWhy = v.army.marching || v.army.loc !== this.d.loc ? this.why('notHere') : camp.restAt ? t('ocamp.restIn', { t: fmtDuration(camp.restAt - this.nowServer()) }) : undefined;
     return [
       [
-        muster,
+        { label: t('cmp.strike'), icon: 'tent', onClick: () => this.strike(), tip: t('cmp.strikeTip'), id: 'camp.strike' },
+        { label: t('cmp.muster'), icon: 'people', onClick: () => this.openMuster(), id: 'camp.muster', tip: t('cs.musterTip') },
         { label: t('cmp.loot'), icon: 'amphora', onClick: () => this.openLoot(), id: 'camp.loot', tip: t('cs.lootTip') },
-        { label: t('ocamp.rest'), icon: 'hourglass', off: restWhy, tip: t('ocamp.restTip', { e: OCAMP.restEnergy }), onClick: () => void this.run(() => this.d.source!.rest(this.d.loc!), (r) => t('ocamp.rested', { e: Math.floor((r as CampsView & { energy?: number }).energy ?? 0) })), id: 'camp.rest' },
       ],
       [
-        { label: t('cmp.buildings'), icon: 'anvil', onClick: () => this.openBuild(), id: 'camp.buildings', tip: t('cmp.buildingsTip') },
-        { label, icon: upgrade ? 'plus' : 'anvil', primary: true, off: why, onClick: () => void this.build(kind!, upgrade ? null : this.slot), id: 'camp.build' },
+        { label: t('cmp.build'), icon: 'anvil', onClick: () => this.openBuild(), id: 'camp.build', tip: t('cmp.buildTip') },
+        { label: t('cs.endDay'), icon: 'hourglass', onClick: () => this.endDay(), primary: true, id: 'camp.endDay', tip: t('cs.endDayTip') },
       ],
     ];
   }
@@ -1145,61 +959,33 @@ export class CampScene extends BaseScene {
 
   refreshHud(): void {
     if (!this.sit?.active) return;
-    if (this.d.mode === 'field') {
-      const w = state.campaign.world;
-      const s = w.s;
-      const day = Math.floor(s.time / 24) + 1;
-      const h = Math.floor(s.time % 24);
-      const hh = `${String(h).padStart(2, '0')}:00`;
-      this.setTop(t('cmp.field.title'));
-      const where = t('cmp.where', { d: day, h: this.isNight() ? t('cmp.night', { h: hh }) : hh, place: regionLabel(w.map, s.x, s.y) });
-      const c = w.camp;
-      const tries: string[] = [];
-      if (this.placing) {
-        const hint = t('cmp.place.hint', { name: structName(this.placing.id) });
-        const bad = this.placeWhy() ? ` ${t('cmp.place.bad')}` : '';
-        tries.push(`${hint}${bad}`, hint);
-      } else if (this.selected !== null && c?.built[Number(this.selected)]) {
-        const b = c.built[Number(this.selected)];
-        const line = t('cmp.selected', { name: structName(b.id), desc: structDesc(b.id) });
-        if (b.id === 'forge') tries.push(`${line} ${t('cmp.forgeHint')}`);
-        tries.push(`${where} ${line}`, line);
-      } else if (c) {
-        const fx = campEffects(w.map, c);
-        const net = fx.forage * 24 - state.campaign.data.heroes.length;
-        const p = { heal: localDecimals(w.healRate().toFixed(1)), food: fmtSigned(net) };
-        tries.push(`${where} ${t('cmp.line', p)} ${t('cmp.hint')}`, `${where} ${t('cmp.line', p)}`, `${where} ${t('cmp.lineShort', p)}`, t('cmp.lineShort', p));
-      }
-      this.setSituation(tries, this.fieldChips());
-      this.refreshBar();
-      this.applyTint();
-      return;
-    }
-    const v = this.cv;
-    const camp = this.camp();
-    this.setTop(t('cmp.war.title'));
-    const head = [camp ? (camp.home ? t('cmp.home') : t('cmp.forward')) : t('cmp.claimHead'), this.d.name].filter(Boolean).join(' · ');
+    const w = state.campaign.world;
+    const s = w.s;
+    const day = Math.floor(s.time / 24) + 1;
+    const h = Math.floor(s.time % 24);
+    const hh = `${String(h).padStart(2, '0')}:00`;
+    this.setTop(t('cmp.field.title'));
+    const where = t('cmp.where', { d: day, h: this.isNight() ? t('cmp.night', { h: hh }) : hh, place: regionLabel(w.map, s.x, s.y) });
+    const c = w.camp;
     const tries: string[] = [];
-    if (!v) tries.push(`${head}. ${t('hex.scouting')}`, t('hex.scouting'));
-    else if (!camp) tries.push(`${head}. ${t('ocamp.claimInfo', { n: v.forward.n, max: v.forward.max })}`, t('ocamp.claimInfo', { n: v.forward.n, max: v.forward.max }));
-    else {
-      // the effect, then the cost on its own row (CMP-6)
-      const sel = camp.buildings.find((b) => b.slot === this.slot) ?? null;
-      let what = t('ocamp.empty');
-      let cost = '';
-      if (sel) {
-        what = `${t('ocamp.level', { name: t(`ocamp.b.${sel.kind}` as TKey), n: sel.level })}: ${sel.level > 0 ? effectText(sel.kind, sel.level, 0) : t(`ocamp.d.${sel.kind}` as TKey)}`;
-        if (sel.building !== null && sel.doneAt !== null) what = `${t(`ocamp.b.${sel.kind}` as TKey)} ${t('ocamp.building', { t: fmtDuration(Math.max(0, sel.doneAt - this.nowServer())) })}`;
-        else if (sel.level < OCAMP.maxLevel) cost = costLine(sel.kind, sel.level + 1);
-      } else if (this.kind) {
-        what = `${t(`ocamp.b.${this.kind}` as TKey)}: ${effectText(this.kind, 1, 0)}`;
-        cost = costLine(this.kind, 1);
-      }
-      // on a narrow screen the effect stays and the cost goes (the Buildings list and the reason line carry it)
-      tries.push(cost ? `${head}. ${what}\n${cost}` : `${head}. ${what}`, cost ? `${what}\n${cost}` : what, what);
+    if (this.placing) {
+      const hint = t('cmp.place.hint', { name: structName(this.placing.id) });
+      const bad = this.placeWhy() ? ` ${t('cmp.place.bad')}` : '';
+      tries.push(`${hint}${bad}`, hint);
+    } else if (this.selected !== null && c?.built[Number(this.selected)]) {
+      const b = c.built[Number(this.selected)];
+      const line = t('cmp.selected', { name: structName(b.id), desc: structDesc(b.id) });
+      if (b.id === 'forge') tries.push(`${line} ${t('cmp.forgeHint')}`);
+      tries.push(`${where} ${line}`, line);
+    } else if (c) {
+      const fx = campEffects(w.map, c);
+      const net = fx.forage * 24 - state.campaign.data.heroes.length;
+      const p = { heal: localDecimals(w.healRate().toFixed(1)), food: fmtSigned(net) };
+      tries.push(`${where} ${t('cmp.line', p)} ${t('cmp.hint')}`, `${where} ${t('cmp.line', p)}`, `${where} ${t('cmp.lineShort', p)}`, t('cmp.lineShort', p));
     }
-    this.setSituation(tries, this.warChips());
+    this.setSituation(tries, this.fieldChips());
     this.refreshBar();
+    this.applyTint();
   }
 
   /** Gold, men, food, supplies: the World's order (WLD-5, P17). */
@@ -1217,18 +1003,6 @@ export class CampScene extends BaseScene {
     ];
   }
 
-  /** War gold, food, wood, bronze, recruits (compact numbers, never cut). */
-  private warChips(): SituationChip[] {
-    const chips: SituationChip[] = [];
-    if (!this.cv) return chips;
-    const r = this.cv.resources;
-    for (const k of RESOURCE_KEYS) {
-      if (k === 'recruits' && this.m.VW < 200) continue;
-      chips.push({ icon: RES_ICON[k], value: k === 'recruits' ? localDecimals(`${Math.floor(r[k] * 10) / 10}`) : fmtNum(r[k]), id: `camp.res.${k}` });
-    }
-    return chips;
-  }
-
   /** Why the placement ghost cannot go down where it stands (localized), or null. */
   private placeWhy(): string | null {
     const p = this.placing;
@@ -1241,12 +1015,8 @@ export class CampScene extends BaseScene {
 
   // ================================================================ the Build drawer
 
-  /** Build: a labelled list of what the camp can build (CMP-1); a row starts its placement (field) or picks it (War camp). */
+  /** Build: a labelled list of what the camp can build (CMP-1); a row starts its placement. */
   openBuild(): void {
-    if (this.d.mode === 'online') {
-      this.openBuildings();
-      return;
-    }
     const w = state.campaign.world;
     const c = w.camp;
     if (!c) return;
@@ -1280,40 +1050,6 @@ export class CampScene extends BaseScene {
       }
       md.close();
       this.startPlacing(r.id);
-    });
-  }
-
-  /** The War camp's buildings: level, the next level's cost and time, and why it cannot be built now. */
-  private openBuildings(): void {
-    const camp = this.camp();
-    const v = this.cv;
-    const now = this.nowServer();
-    const rows = CAMP_BUILDING_IDS.map((k) => {
-      const built = camp?.buildings.find((b) => b.kind === k) ?? null;
-      const next = built ? built.level + 1 : 1;
-      let why: string | null = null;
-      if (!camp || !v) why = t('ocamp.why.notCamp');
-      else {
-        const used = new Set(camp.buildings.map((b) => b.slot));
-        const free = Array.from({ length: camp.slots }, (_, j) => j).find((j) => !used.has(j)) ?? null;
-        const chk = built ? (built.level >= OCAMP.maxLevel ? null : checkBuild({ home: camp.home, buildings: statesOf(camp) }, k, null, v.resources, now)) : checkBuild({ home: camp.home, buildings: statesOf(camp) }, k, free, v.resources, now);
-        if (chk && !chk.ok) why = this.why(chk.reason);
-      }
-      const maxed = !!built && built.level >= OCAMP.maxLevel;
-      const lc = campLevelCost(k, next);
-      // the cost as icons and numbers (never cut), then the time and why not
-      const cost = maxed ? undefined : RESOURCE_KEYS.filter((r) => lc.cost[r] > 0).map((r) => ({ icon: RES_ICON[r], n: fmtNum(lc.cost[r]) }));
-      const more = [maxed ? '' : fmtDuration(lc.minutes * 60_000), why ?? ''].filter(Boolean);
-      return { icon: `camp_${k}`, title: t(`ocamp.b.${k}` as TKey), meta: maxed ? t('cmp.ob.max') : '', cost, more, right: built ? t('cmp.ob.level', { n: built.level }) : t('cmp.ob.none'), off: !camp, why, id: k };
-    });
-    this.openList(t('cmp.buildings'), 'camp.buildings', rows, (i, md) => {
-      if (!camp) {
-        toast(this, rows[i].why ?? t('ocamp.why.notCamp'), 'bad');
-        return;
-      }
-      md.close();
-      this.pickKind(rows[i].id);
-      toast(this, t('cmp.ob.picked', { name: rows[i].title }), 'info');
     });
   }
 
@@ -1494,9 +1230,9 @@ export class CampScene extends BaseScene {
     const L = this.layout;
     if (!L) return;
     for (let f = 0; f < 3; f++) if (!this.textures.exists(`ci_dust${f}`)) this.textures.addCanvas(`ci_dust${f}`, Iso.renderDust(f).toCanvas());
-    const at = this.d.mode === 'field' ? L.toIso(mx, my) : { x: mx, y: my };
-    const ww = this.d.mode === 'field' ? w * 2 : w;
-    const hh = this.d.mode === 'field' ? h * 2 : h;
+    const at = L.toIso(mx, my);
+    const ww = w * 2;
+    const hh = h * 2;
     const c = Iso.groundScreen(at.x + ww / 2, at.y + hh / 2);
     for (let i = 0; i < 2; i++) {
       const img = this.add.image(c.x - 10 + (i ? 8 : -8), c.y - 6 + (i ? 3 : -2), 'ci_dust0').setOrigin(0, 0).setDepth(1e5 + c.y);
@@ -1662,8 +1398,7 @@ export class CampScene extends BaseScene {
   // ================================================================ management
 
   private openLoot(): void {
-    if (this.d.mode === 'field') this.scene.start('Army', { from: 'Camp', tab: 'stash' });
-    else this.scene.start('OnlineArmy', { tab: 'stash' });
+    this.scene.start('Army', { from: 'Camp', tab: 'stash' });
   }
 
   /**
@@ -1684,7 +1419,7 @@ export class CampScene extends BaseScene {
       onClose: () => {
         this.modal = null;
         const changes = reserveChanges(before, this.musterList);
-        if (Object.keys(changes).length) void this.saveReserve(changes);
+        if (Object.keys(changes).length) this.saveReserve(changes);
       },
     });
     this.modal = m;
@@ -1797,148 +1532,11 @@ export class CampScene extends BaseScene {
     return t(`cs.why.${why}` as TKey, { max: why === 'group' ? MUSTER.groupCap : MUSTER.fieldCap });
   }
 
-  private async saveReserve(changes: Record<string, boolean>): Promise<void> {
-    if (this.d.mode === 'field') {
-      for (const [id, on] of Object.entries(changes)) state.campaign.setReserve(id, on);
-      void state.save();
-      this.rebuild();
-      this.buildHud();
-      return;
-    }
-    try {
-      await this.d.setReserve?.(changes);
-      for (const v of this.d.heroes ?? []) if (v.hero.id in changes) v.reserve = changes[v.hero.id];
-      if (!this.sys.isActive()) return;
-      this.rebuild();
-      this.buildHud();
-    } catch (e) {
-      if (this.sys.isActive()) toast(this, errorText(e), 'bad');
-    }
-  }
-
-  // ================================================================ online
-
-  private camp(): CampView | null {
-    return this.cv?.camps.find((c) => c.loc === this.d.loc) ?? null;
-  }
-
-  private nowServer(): number {
-    return Date.now() + this.skew;
-  }
-
-  /** One request at a time; a failure repeated by the per-second retry is toasted once (QA-04). */
-  private fetching = false;
-  private lastError = '';
-
-  private async fetch(): Promise<void> {
-    if (this.fetching) return;
-    this.fetching = true;
-    try {
-      this.apply(await this.d.source!.camps());
-      this.lastError = '';
-    } catch (e) {
-      const msg = errorText(e);
-      if (this.sys.isActive() && msg !== this.lastError) toast(this, msg, 'bad');
-      this.lastError = msg;
-    } finally {
-      this.fetching = false;
-    }
-  }
-
-  private apply(v: CampsView): void {
-    if (!this.sys.isActive()) return;
-    this.cv = v;
-    this.skew = v.now - Date.now();
-    const camp = this.camp();
-    if (camp && this.slot === null) {
-      const used = new Set(camp.buildings.map((b) => b.slot));
-      const free = Array.from({ length: camp.slots }, (_, i) => i).find((i) => !used.has(i));
-      this.slot = free ?? camp.buildings[0]?.slot ?? 0;
-      if (free !== undefined) this.kind = CAMP_BUILDING_IDS.find((k) => !camp.buildings.some((x) => x.kind === k)) ?? null;
-    }
-    const first = !this.layout;
+  private saveReserve(changes: Record<string, boolean>): void {
+    for (const [id, on] of Object.entries(changes)) state.campaign.setReserve(id, on);
+    void state.save();
     this.rebuild();
     this.buildHud();
-    if (first) this.centerCamp();
-  }
-
-  private lastStages = '';
-
-  /** Every second: construction countdowns and stages. */
-  private tick(): void {
-    if (!this.sys.isActive() || !this.cv) return;
-    const camp = this.camp();
-    if (!camp) return;
-    const busy = camp.buildings.filter((b) => b.building !== null && b.doneAt !== null);
-    if (!busy.length) return;
-    if (busy.some((b) => b.doneAt! <= this.nowServer())) {
-      void this.fetch();
-      return;
-    }
-    const L = this.currentLayout();
-    const stages = L.things.map((th) => th.stage ?? '-').join('');
-    if (stages !== this.lastStages) {
-      this.lastStages = stages;
-      this.rebuild();
-    }
-    this.refreshHud();
-  }
-
-  private pickKind(k: CampBuildingId): void {
-    const camp = this.camp();
-    if (!camp) return;
-    haptic('light');
-    const built = camp.buildings.find((x) => x.kind === k);
-    if (built) {
-      this.slot = built.slot;
-      this.kind = null;
-    } else {
-      this.kind = k;
-      const used = new Set(camp.buildings.map((x) => x.slot));
-      if (this.slot === null || used.has(this.slot)) {
-        const free = Array.from({ length: camp.slots }, (_, j) => j).find((j) => !used.has(j));
-        if (free !== undefined) this.slot = free;
-      }
-    }
-    this.rebuild();
-    this.buildHud();
-  }
-
-  private why(reason: CampReason): string {
-    return t(`ocamp.why.${reason}` as TKey, { max: OCAMP.maxForward });
-  }
-
-  private async build(kind: CampBuildingId, slot: number | null): Promise<void> {
-    const target = slot ?? this.camp()?.buildings.find((b) => b.kind === kind)?.slot ?? null;
-    await this.run(() => this.d.source!.build(this.d.loc!, kind, slot), t('ocamp.built', { name: t(`ocamp.b.${kind}` as TKey) }), target);
-    this.kind = null;
-    if (this.sys.isActive()) {
-      this.rebuild();
-      this.buildHud();
-    }
-  }
-
-  private async run(fn: () => Promise<CampsView>, ok: string | ((r: CampsView) => string), puffSlot: number | null = null): Promise<void> {
-    if (this.busy) return;
-    this.busy = true;
-    try {
-      const r = await fn();
-      if (!this.sys.isActive()) return;
-      hapticNotify('success');
-      toast(this, typeof ok === 'string' ? ok : ok(r), 'good');
-      this.apply(r);
-      if (puffSlot !== null && this.layout) {
-        const tl = this.layout.slotTile(puffSlot);
-        this.puffAt(tl.x, tl.y, 2, 2);
-      }
-    } catch (e) {
-      if (this.sys.isActive()) {
-        toast(this, errorText(e), 'bad');
-        hapticNotify('error');
-      }
-    } finally {
-      this.busy = false;
-    }
   }
 }
 
@@ -1957,13 +1555,13 @@ interface CampSlot {
   icon?: string;
   onClick: () => void;
   primary?: boolean;
-  /** Cannot right now, and why (grey; a tap says it; the War camp also writes it over the strip). */
+  /** Cannot right now, and why (grey; a tap says it). */
   off?: string;
   tip?: string;
   id: string;
 }
 
-/** A row of the Build drawer, the buildings list or the supplies page. */
+/** A row of the Build drawer or the supplies page. */
 interface ListRow {
   icon: string;
   title: string;
@@ -2009,13 +1607,6 @@ function regionLabel(m: WorldMap, x: number, y: number): string {
   return t(`wld.region.${k}` as TKey);
 }
 
-function costLine(kind: CampBuildingId, level: number): string {
-  const c = campLevelCost(kind, level);
-  const parts: string[] = [];
-  for (const k of RESOURCE_KEYS) if (c.cost[k] > 0) parts.push(`${fmtNum(c.cost[k])} ${tOr(`res.${k}`, k)}`);
-  return `${parts.join(', ')} · ${fmtDuration(c.minutes * 60_000)}`;
-}
-
 const clsName = (c: ClassId): string => tOr(`class.${c}.name`, CLASSES[c].name);
 
 function hashKinds(k: Uint8Array): number {
@@ -2059,12 +1650,6 @@ function renderKey(key: string): Iso.IsoSprite {
       return Iso.renderStall();
     case 'forge':
       return Iso.renderForge(Math.max(1, n));
-    case 'granary':
-      return Iso.renderGranary(Math.max(1, n));
-    case 'barracks':
-      return Iso.renderBarracks(Math.max(1, n));
-    case 'tower':
-      return Iso.renderWatchtower(Math.max(1, n));
     case 'stakesX':
       return Iso.renderStakes(0, seed);
     case 'stakesY':

@@ -4,11 +4,9 @@
  * work locally. Never used in a real session unless a script asks for it
  * (scene data `{ demo: true }`).
  */
-import { ApiError, type BuyResult, type ConsumableKey, type EconomyCatalog, type MarketListing, type MarketListRequest, type MarketQuery, type SeasonPassInfo, type WalletInfo } from '../../platform/api';
+import { ApiError, type BuyResult, type ConsumableKey, type EconomyCatalog, type SeasonPassInfo, type WalletInfo } from '../../platform/api';
 import { CONSUMABLES, CONSUMABLE_IDS } from '../../data/consumables';
-import { BASE_ITEMS, RARITIES, itemValue, normalizeRarity, type Item } from '../../data/items';
-import { marketFee } from '../../game/economy';
-import { demoName } from '../../i18n/names';
+import type { Item } from '../../data/items';
 import type { ProfileView } from '../../online/client';
 import type { Hero } from '../../data/units';
 import type { ConsumableInfo, EconSource, PackResult } from './source';
@@ -88,8 +86,6 @@ export function demoCatalog(): EconomyCatalog {
   };
 }
 
-const NAMES = ['Phokion', 'Tanaquil', 'Brennos', 'Hamilcar', 'Lysandra', 'Kleon', 'Orgetorix', 'Myrto'];
-
 interface DemoOpts {
   heroes?: Hero[];
   stash?: Item[];
@@ -103,7 +99,6 @@ export class DemoEconSource implements EconSource {
   private w: WalletInfo;
   private p: SeasonPassInfo;
   private cons: ConsumableInfo;
-  private listings: MarketListing[] = [];
   private prof: ProfileView;
   private seq = 0;
 
@@ -115,7 +110,6 @@ export class DemoEconSource implements EconSource {
         { delta: 275, kind: 'pack', ref: 'drachmae_275', at: this.now - 86_400_000 * 3 },
         { delta: -60, kind: 'spend', ref: 'emblem_owl', at: this.now - 86_400_000 * 2 },
         { delta: 15, kind: 'pass', ref: '3:premium', at: this.now - 86_400_000 },
-        { delta: 110, kind: 'market_sale', ref: 'l7', at: this.now - 3_600_000 * 5 },
       ],
       cosmetics: ['emblem_owl', 'banner_crimson'],
       loadout: { emblem: 'emblem_owl' },
@@ -127,58 +121,19 @@ export class DemoEconSource implements EconSource {
       day: '2026-10-07',
       caps: Object.fromEntries(CONSUMABLE_IDS.map((id) => [id, { cap: CONSUMABLES[id].dailyCap, bought: id === 'morale_wine' ? 1 : id === 'war_horn' ? 2 : 0 }])),
     };
-    const heroes = (o.heroes ?? []).map((h) => ({ hero: h, garrison: null, woundedUntil: 0, busy: false }));
+    const heroes = (o.heroes ?? []).map((h) => ({ hero: h, woundedUntil: 0, busy: false }));
     this.prof = {
       season: { id: 3, startedAt: this.now - 86_400_000 * 49, endsAt: this.now + 86_400_000 * 41 },
-      shard: { id: 1, map: 'test30' },
       now: this.now,
       resources: { gold: 1240, food: 380, wood: 210, bronze: 95, recruits: 3 },
       energy: 72,
       energyMax: 100,
-      home: 1,
-      army: { loc: 1, marching: false, dest: null, arriveAt: null },
       formations: [],
       heroes,
       stash: (o.stash ?? []).map((it) => ({ ...it })),
       clan: null,
       battles: 14,
       wins: 9,
-      income: { pending: { gold: 0, food: 0, wood: 0, bronze: 0, recruits: 0 }, regions: 6 },
-    };
-    // market: a spread of items, goods and consumables from other players, two of mine
-    const items = BASE_ITEMS.filter((_, i) => i % 3 === 0);
-    items.forEach((d, i) => {
-      const rarity = RARITIES[(i * 7) % 5];
-      const item: Item = { uid: `m${i}`, def: d.id, rarity, cond: 60 + ((i * 13) % 41) };
-      const gold = i % 4 !== 3;
-      const price = gold ? Math.round(itemValue(item) * (1.1 + (i % 3) * 0.2)) : Math.max(4, Math.round(itemValue(item) / 7));
-      this.listings.push(this.mk({ kind: 'item', ref: d.id, item: item as unknown as Record<string, unknown>, rarity, currency: gold ? 'gold' : 'drachmae', price, qty: 1 }, i));
-    });
-    this.listings.push(this.mk({ kind: 'resource', ref: 'bronze', item: null, rarity: 'common', currency: 'gold', price: 180, qty: 40 }, 30));
-    this.listings.push(this.mk({ kind: 'resource', ref: 'food', item: null, rarity: 'common', currency: 'gold', price: 60, qty: 100 }, 31));
-    this.listings.push(this.mk({ kind: 'consumable', ref: 'war_horn', item: null, rarity: 'common', currency: 'drachmae', price: 18, qty: 1 }, 32));
-    this.listings.push(this.mk({ kind: 'consumable', ref: 'sharpening_stone', item: null, rarity: 'common', currency: 'gold', price: 95, qty: 2 }, 33));
-    const mine = this.mk({ kind: 'resource', ref: 'wood', item: null, rarity: 'common', currency: 'gold', price: 90, qty: 50 }, 34);
-    mine.mine = true;
-    mine.seller = { id: 1, name: 'You' };
-    this.listings.push(mine);
-    const sold = this.mk({ kind: 'consumable', ref: 'healing_salve', item: null, rarity: 'common', currency: 'drachmae', price: 12, qty: 1 }, 35);
-    Object.assign(sold, { mine: true, status: 'sold', closedAt: this.now - 3_600_000, seller: { id: 1, name: 'You' } });
-    this.listings.push(sold);
-  }
-
-  private mk(x: Pick<MarketListing, 'kind' | 'ref' | 'item' | 'rarity' | 'currency' | 'price' | 'qty'>, i: number): MarketListing {
-    return {
-      id: `l${i}`,
-      seller: { id: 100 + i, name: demoName(NAMES[i % NAMES.length]) },
-      town: [{ loc: 7, name: 'Oppidum Vetus' }, { loc: 17, name: 'Emporium' }, { loc: 9, name: 'Urbs Media' }][i % 3],
-      ...x,
-      fee: marketFee(x.price),
-      status: 'open',
-      mine: false,
-      createdAt: this.now - 3_600_000 * (i % 9),
-      expiresAt: this.now + 3_600_000 * (48 - (i % 9) * 5) - 60_000 * ((i * 7) % 50),
-      closedAt: null,
     };
   }
 
@@ -258,59 +213,6 @@ export class DemoEconSource implements EconSource {
   }
   profile() {
     return this.ok(this.prof);
-  }
-  marketSearch(q: MarketQuery) {
-    let l = this.listings.filter((x) => x.status === 'open' && !x.mine);
-    if (q.kind) l = l.filter((x) => x.kind === q.kind);
-    if (q.ref) l = l.filter((x) => x.ref === q.ref);
-    if (q.rarity) l = l.filter((x) => normalizeRarity(x.rarity) === q.rarity);
-    if (q.currency) l = l.filter((x) => x.currency === q.currency);
-    const s = q.sort ?? 'newest';
-    l.sort((a, b) => (s === 'price_asc' ? a.price - b.price : s === 'price_desc' ? b.price - a.price : s === 'ending' ? a.expiresAt - b.expiresAt : b.createdAt - a.createdAt) || (a.id < b.id ? -1 : 1));
-    const from = q.cursor ?? 0;
-    const lim = q.limit ?? 20;
-    const page = l.slice(from, from + lim);
-    return this.ok({ listings: page, next: from + lim < l.length ? from + lim : null });
-  }
-  marketMine() {
-    const l = this.listings.filter((x) => x.mine);
-    return this.ok({ listings: l, open: l.filter((x) => x.status === 'open').length, maxOpen: 20 });
-  }
-  marketTowns() {
-    return this.ok({ towns: [{ loc: 7, name: 'Oppidum Vetus' }, { loc: 17, name: 'Emporium' }] });
-  }
-  marketList(b: MarketListRequest) {
-    let item: Record<string, unknown> | null = null;
-    let rarity = 'common';
-    let ref = b.ref;
-    if (b.kind === 'item') {
-      const i = this.prof.stash.findIndex((x) => x.uid === b.ref);
-      if (i < 0) return this.fail(404, 'not_found', 'No such item');
-      const [it] = this.prof.stash.splice(i, 1);
-      item = it as unknown as Record<string, unknown>;
-      rarity = normalizeRarity(it.rarity);
-      ref = it.def;
-    }
-    const l = this.mk({ kind: b.kind, ref, item, rarity, currency: b.currency, price: b.price, qty: b.qty ?? 1 }, 50 + ++this.seq);
-    Object.assign(l, { mine: true, seller: { id: 1, name: 'You' }, createdAt: this.now, expiresAt: this.now + 48 * 3_600_000 });
-    this.listings.push(l);
-    return this.ok({ listing: l });
-  }
-  marketBuy(id: string) {
-    const l = this.listings.find((x) => x.id === id);
-    if (!l || l.status !== 'open') return this.fail(409, 'sold', 'Already sold');
-    if (l.currency === 'gold' ? this.prof.resources.gold < l.price : this.w.drachmae < l.price) return this.fail(409, 'insufficient_funds', 'Not enough');
-    if (l.currency === 'gold') this.prof.resources.gold -= l.price;
-    else this.w.drachmae -= l.price;
-    l.status = 'sold';
-    if (l.kind === 'item' && l.item) this.prof.stash.push(l.item as unknown as Item);
-    return this.ok({ listing: l, paid: l.price, fee: l.fee, sellerGets: l.price - l.fee });
-  }
-  marketCancel(id: string) {
-    const l = this.listings.find((x) => x.id === id && x.mine);
-    if (l) l.status = 'cancelled';
-    if (l?.kind === 'item' && l.item) this.prof.stash.push(l.item as unknown as Item);
-    return this.ok({ ok: true });
   }
   async buyPack(id: string): Promise<PackResult> {
     const p = demoCatalog().packs.find((x) => x.id === id);

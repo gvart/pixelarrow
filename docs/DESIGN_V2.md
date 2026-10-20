@@ -1,6 +1,11 @@
-# Pixelarrow v2 design: the seasonal online war
+# Pixelarrow v2 design: the seasonal online war (superseded)
 
-The online game; wins over GAMEPLAY.md for online play. Duels: DUELS.md.
+> **Superseded (W-01, docs/impl/global-war-rebuild.md):** the shard /
+> route-graph war described here (shards, the region map, marches, attacks,
+> camps, merchants, the marketplace, world bosses, region income) is deleted.
+> The war is now docs/WAR.md. Still current from this page: Clans (inside an
+> alliance), Monetization and economy, Invariants, Localization, UX principles
+> and the Economy decisions. Duels: DUELS.md.
 
 ## Game structure
 

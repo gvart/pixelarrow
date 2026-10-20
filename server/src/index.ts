@@ -25,14 +25,12 @@ import { account } from './account/routes';
 import { save } from './routes/save';
 import { entitlements, shop } from './routes/shop';
 import { webhook } from './routes/webhook';
-import { WS_PROTOCOL } from './region';
 import { checkSocketSimVersion } from './simVersion';
 import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from '../../src/online/protocol';
 import { online } from './online/routes';
 import { economy } from './economy/routes';
 import { duel } from './duel/routes';
 import { requireDuelProfile } from './duel/store';
-import { currentSeason, requireProfile, shardDoName } from './online/store';
 import { notifyRoutes } from './notify/routes';
 import { runScheduled } from './notify/jobs';
 import { buildPublicSnapshot } from './public/snapshot';
@@ -42,8 +40,10 @@ import { logError, log } from './telemetry/log';
 import { admin } from './admin/routes';
 import { adminPage } from './admin/page';
 
+/** WebSocket subprotocol; the session token may ride along as a second protocol entry. */
+const WS_PROTOCOL = 'pixelarrow.v1';
+
 // Only handlers, Durable Object classes and entrypoints may be exported from the entry module.
-export { RegionDO } from './region';
 export { MatchmakerDO } from './duel/matchmaker';
 export { DuelDO } from './duel/duelDO';
 export { WarRegionDO } from './war/regionDO';
@@ -207,17 +207,6 @@ async function wsSession(c: Context<AppEnv>) {
   return { session, headers };
 }
 
-app.get('/ws/region/:id', async (c) => {
-  const region = c.req.param('id');
-  const { headers } = await wsSession(c);
-  if (!/^[a-z0-9_-]{1,40}$/.test(region) || region.startsWith('shard-')) throw new ApiError(400, 'bad_request', 'Bad region id');
-  headers.set('x-region-id', region);
-  headers.delete('x-season');
-  headers.delete('x-shard');
-  const stub = c.env.REGION.get(c.env.REGION.idFromName(region));
-  return stub.fetch(new Request(c.req.url, { headers }));
-});
-
 /** The war world map (M4, server/src/war/world/): snapshots pushed, transfer orders; protocol src/war/net/world.ts. */
 app.get('/ws/war/world', async (c) => {
   const { session, headers } = await wsSession(c);
@@ -241,20 +230,6 @@ app.get('/api/war/:region/stats', async (c) => {
   if (c.env.DEV_AUTH !== '1' || !WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such endpoint');
   const stub = c.env.WAR_REGION.get(c.env.WAR_REGION.idFromName(region));
   return c.json(await (await stub.fetch(new Request(`https://war/${region}/stats`))).json());
-});
-
-/** The online shard of the player's current season: presence, duel lobby and lockstep relay. */
-app.get('/ws/online', async (c) => {
-  const { session, headers } = await wsSession(c);
-  const d = db(c.env);
-  const season = await currentSeason(d);
-  const profile = await requireProfile(d, season.id, session.pid);
-  const room = shardDoName({ season: season.id, id: profile.shard_id });
-  headers.set('x-region-id', room);
-  headers.set('x-season', String(season.id));
-  headers.set('x-shard', String(profile.shard_id));
-  const stub = c.env.REGION.get(c.env.REGION.idFromName(room));
-  return stub.fetch(new Request(c.req.url, { headers }));
 });
 
 /** The global duel queue (ranked and unranked): needs a duel profile. */

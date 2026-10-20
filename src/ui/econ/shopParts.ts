@@ -147,48 +147,6 @@ function lockChip(scene: Phaser.Scene, owner: C, x: number, y: number, maxW: num
   return c;
 }
 
-// ================================================================== the Market door
-
-/** The Market door on the Shop page (D5): scales in a well, "Market", what it is, a chevron. */
-export class MarketCard extends Phaser.GameObjects.Container {
-  readonly w: number;
-  readonly h: number;
-  readonly opts: { label: string };
-
-  static height(sub: string, w: number): number {
-    const lines = wrapWords(sub, w - 50, (s) => mw(s, 'pSec', TEXT_MIN)).length;
-    return Math.max(34, 7 + 11 + lines * Math.ceil(lineHeight(TEXT_MIN)) + 6);
-  }
-
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number, title: string, sub: string, onClick: () => void) {
-    super(scene, Math.round(x), Math.round(y));
-    this.w = Math.round(w);
-    this.h = MarketCard.height(sub, w);
-    this.opts = { label: title };
-    const face = centeredFace(scene, this.w, this.h);
-    this.add(face);
-    const P = <T extends Phaser.GameObjects.GameObject & { x: number; y: number }>(obj: T): T => put(face, this.w, this.h, obj);
-    P(mosaicImage(scene, 0, 0, this.w, this.h, 'parchment'));
-    const well = 26;
-    const wy = Math.round((this.h - well) / 2);
-    P(mosaicImage(scene, 5, wy, well, well, 'parchmentWell'));
-    const ic = scaleIcon(addIcon(scene, 0, 0, 'scales'), 1.5);
-    ic.setPosition(5 + Math.round((well - ic.displayWidth) / 2), wy + Math.round((well - ic.displayHeight) / 2));
-    P(ic);
-    const tx = 5 + well + 6;
-    const tw = this.w - tx - 14;
-    const frame = { owner: this as C, w: this.w, h: this.h };
-    P(mtext(scene, tx, 6, title.toUpperCase(), 'rInk', { size: 7.5, maxW: tw, box: frame }));
-    P(mtext(scene, tx, 18, sub, 'pSec', { size: TEXT_MIN, maxW: tw, wrap: true, box: frame }));
-    const chev = scaleIcon(addIcon(scene, 0, 0, 'chevR'), 0.8);
-    chev.setPosition(this.w - 12, Math.round((this.h - chev.displayHeight) / 2));
-    P(chev);
-    makePressable(this, { face, w: this.w, h: this.h, onTap: onClick, tip: sub });
-    uiId(this, 'shop.market');
-    scene.add.existing(this);
-  }
-}
-
 // ================================================================== Drachmae packs (real money: pixel-perfect)
 
 interface PackCardData {
