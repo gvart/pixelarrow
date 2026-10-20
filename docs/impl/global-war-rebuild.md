@@ -51,6 +51,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-45 Bosses (owner 2026-10-20): some (not all) neutral regions have a boss guarding them; the region can be claimed only after the boss is killed; bosses drop rare/epic/legendary equipment (main source of named legendaries and sets).
 - W-46 Physical loot (owner 2026-10-20): every fall drops what the man carried (and, killed or captured, what he wore) as a pile anyone may carry off; no looting in safe zones. Design: `docs/WAR.md` "Trade" → "Loot piles".
 - W-47 Everything real (owner 2026-10-20): no decorative-only structures — every building in a region is a sim building with a function, owner, hp, capture/damage/repair (houses, temples, stoas, walls, towers included). Every region has lore and a difficulty depth: the deeper from the homes, the harder to take. Landmark regions with unique challenges and rewards, e.g. a great fortress held by a dragon (very strong once taken; repair needs a high-level engineer + rare materials), an abandoned city inhabited by bandits.
+- W-48 Landmark scale (owner 2026-10-20): the big castle, the big city etc. must be really big with real architecture — streets, districts/quarters, layered walls, gates, plazas, palaces, temples, houses — not a small cluster of pieces.
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
