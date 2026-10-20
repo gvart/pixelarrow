@@ -1,0 +1,34 @@
+scripts/war/balance.mjs
+  s_cfc22b058125c4::t_54c9c030affb85 1-7,12,15,17-19
+tests/war/landmarkBalance.test.ts
+  s_cfc22b058125c4::t_be1518eaad2cd7 1-24
+src/dev/landmarkBalance.ts
+  s_cfc22b058125c4::t_56e691cb931bab 81,84-85
+  s_cfc22b058125c4::t_a46ad3bcc5b5ca 98-100
+  s_cfc22b058125c4::t_94f6e8ab8cd0bd 46,75-80,89-91
+  s_cfc22b058125c4::t_86c4e1f44efb96 1-10,12-15,17-18,20-45,47-48,56-68,70-72,74,92-96,102-109,125-128
+  s_cfc22b058125c4::t_678b92bb53849b 16,69
+  s_cfc22b058125c4::t_5a5ab10227dadd 110-114,123
+  s_cfc22b058125c4::t_1b3b19432744f3 49-54,73,124
+  s_cfc22b058125c4::t_77e4741f8f0c9c 87,97
+  s_cfc22b058125c4::t_f32dc9cb5acfbe 11,82-83,88,115-122
+  s_cfc22b058125c4::t_3e1223abe94ff9 19,129-231
+  s_cfc22b058125c4::t_81bf53b806e519 55,101
+  s_cfc22b058125c4::t_fe3a142b41e44b 86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f734bec35870825ab182431b2ca7393a10c0afbe",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}

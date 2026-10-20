@@ -1,0 +1,30 @@
+scripts/war/bench.mjs
+  s_cfc22b058125c4::t_cdaa02047d226a 326,328-329
+  s_cfc22b058125c4::t_550461be04f1a9 327
+src/data/warBosses.ts
+  s_cfc22b058125c4::t_b97374c0c12ecd 52
+src/dev/landmarkBalance.ts
+  s_cfc22b058125c4::t_b3625f68fc2588 133
+src/war/sim/bosses.ts
+  s_cfc22b058125c4::t_b97374c0c12ecd 16,96,98,114-115
+src/war/sim/depth.ts
+  s_cfc22b058125c4::t_b97374c0c12ecd 29,52
+docs/WAR.md
+  s_cfc22b058125c4::t_122be2a62fbdcc 323,331,386,388,489,493,498
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0dad50bee2a386722b8d7bb4b3952d074e416a7a",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}

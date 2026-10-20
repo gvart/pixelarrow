@@ -1,0 +1,25 @@
+src/war/sim/bosses.ts
+  s_cfc22b058125c4::t_cff78886043133 118
+  s_cfc22b058125c4::t_895224b5642ec2 16,115,117
+  s_cfc22b058125c4::t_d6557e6d74ee16 21,102,104-105,121
+  s_cfc22b058125c4::t_25dea5208f26b1 96,114
+src/data/warBosses.ts
+  s_cfc22b058125c4::t_d6557e6d74ee16 45
+  s_cfc22b058125c4::t_895224b5642ec2 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4be01a9afe1c4597bdee05ca9fa99537ac14e46c",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
