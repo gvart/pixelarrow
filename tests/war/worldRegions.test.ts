@@ -4,7 +4,7 @@ import { parseRegion } from '../../src/war/region/schema';
 import { mirrorChecks, type Borders } from '../../scripts/war/regions/checks';
 
 const files = import.meta.glob('../../src/war/regions/*.json', { eager: true, import: 'default' });
-const HAND = ['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios'];
+const HAND = ['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios', 'gorge'];
 
 describe('world regions (scripts/war/regions)', () => {
   const regions = WORLD_REGIONS.map((w) => ({ w, r: parseRegion(files[`../../src/war/regions/${w.id}.json`]) as ReturnType<typeof parseRegion> & { meta?: { role: string; draft?: boolean; adjacent: { id: string; side: string }[] } } }));

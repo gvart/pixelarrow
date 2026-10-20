@@ -28,11 +28,12 @@ import skythia from './skythia.ts';
 import kleisoura from './kleisoura.ts';
 import omphalos from './omphalos.ts';
 import stymphalia from './stymphalia.ts';
+import gorge from './gorge.ts';
 import krios from './krios.ts';
 import ammos from './ammos.ts';
 import achelous from './achelous.ts';
 
-const HAND: RegionDef[] = [elaia, kyrene, dodona, skythia, kleisoura, omphalos, stymphalia, achelous, ammos, krios];
+const HAND: RegionDef[] = [elaia, kyrene, dodona, skythia, kleisoura, omphalos, stymphalia, achelous, ammos, krios, gorge];
 const ALL = new Map<string, RegionDef>([...DRAFTS, ...HAND].map((d) => [d.id, d]));
 const bad = checkWorld();
 if (bad.length) throw new Error(`asymmetric adjacency: ${bad.join(', ')}`);
