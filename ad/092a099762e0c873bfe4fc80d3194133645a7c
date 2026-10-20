@@ -1,0 +1,27 @@
+scripts/war/art/ui-craft.mjs
+  s_cfc22b058125c4::t_e3a4fcdcfe9b37 52,75
+  s_cfc22b058125c4::t_c2e3502c392906 1-51,53-74,76-119,122-128,130,132-167
+  s_cfc22b058125c4::t_35f3c1f9f6568e 120-121,129,131
+scripts/war/art/glyph.mjs
+  s_cfc22b058125c4::t_1bdd38ff1c60f6 1-70
+public/war/ui/ui.json
+  s_cfc22b058125c4::t_35f3c1f9f6568e 139-160,777-1542,1624-1734
+scripts/war/art/ui.mjs
+  s_cfc22b058125c4::t_81b6269240b69e 13,35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ad092a099762e0c873bfe4fc80d3194133645a7c",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
