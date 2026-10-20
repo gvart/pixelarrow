@@ -1,0 +1,23 @@
+src/war/view/hud/guardianBar.ts
+  s_cfc22b058125c4::t_a05adcc1f7c4e3 13-14
+  s_cfc22b058125c4::t_67c8d22bdfe738 16,21-25
+  s_cfc22b058125c4::t_181707c502fe07 91-97,104-106
+  s_cfc22b058125c4::t_7057b578f3a4da 125-154,156,160-173,184,189
+  s_cfc22b058125c4::t_75384b4057f89a 71-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a93ff049b7cdf747733852190fdbcde57b2098ab",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
