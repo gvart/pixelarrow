@@ -1,0 +1,38 @@
+src/data/recipes.ts
+  s_cfc22b058125c4::t_108efc0cf33d4f 15
+  s_cfc22b058125c4::t_0292cd1a27f0f0 1-14,16-294
+tests/crafting.test.ts
+  s_cfc22b058125c4::t_b8fbbe5c93542e 1-2,5-8,10-73,75-119,121-123,126-139,152
+  s_cfc22b058125c4::t_578fedd7d26394 3-4,120,124-125,140-151
+  s_cfc22b058125c4::t_7b70fa20a70d77 9
+  s_cfc22b058125c4::t_0ec40df9c0334b 74
+src/data/affixes.ts
+  s_cfc22b058125c4::t_fbcfc51d5d7303 22-24,26-27,40-41,65,67-70,73-75,92,100-108,232-233
+src/data/items.ts
+  s_cfc22b058125c4::t_d671f6cf42ca7f 547
+  s_cfc22b058125c4::t_dea6907d2a7e16 87-90,538-543,546,548,583
+src/data/professions.ts
+  s_cfc22b058125c4::t_90ec981bc23ac1 1-166
+src/dev/rarityBalance.ts
+  s_cfc22b058125c4::t_8c084e4a3ae5d1 93-94,118,154
+docs/WAR.md
+  s_cfc22b058125c4::t_5f86c21857e95f 383,393
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_a543021594aec6 138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "404055cc7890f8fbad0b32ca0f4eef0fa8524330",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
