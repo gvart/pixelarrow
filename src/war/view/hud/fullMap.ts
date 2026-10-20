@@ -28,7 +28,7 @@ const CSS = `
 #rfFull .fm-map{position:relative;flex:none}
 #rfFull canvas{display:block;cursor:crosshair;image-rendering:auto;box-shadow:0 0 0 1px #7a3418,0 0 0 2px #0e0907}
 #rfFull .fm-title{position:absolute;left:8px;top:7px;pointer-events:none;font:700 17px/1 Cinzel,serif;color:#f2b27a;letter-spacing:.04em;text-shadow:0 1px 0 #0e0907,0 0 6px #0e0907}
-#rfFull .fm-hint{position:absolute;left:8px;bottom:6px;pointer-events:none;font:600 10px/1 Inter,sans-serif;color:#a8907a;text-shadow:0 1px 0 #0e0907}
+#rfFull .fm-hint{position:absolute;left:6px;bottom:6px;background:rgba(14,9,7,.78);padding:3px 5px;pointer-events:none;font:600 10px/1 Inter,sans-serif;color:#a8907a;text-shadow:0 1px 0 #0e0907}
 #rfFull .fm-panel{width:${PANEL}px;display:flex;flex-direction:column;gap:0;min-height:0;overflow:hidden}
 #rfFull .fm-mode{display:flex;align-items:center;gap:6px;margin:1px 0 4px}
 #rfFull .fm-mode h2{margin:0;font:700 17px/1 Cinzel,serif;color:#f2b27a;letter-spacing:.03em}
@@ -306,7 +306,7 @@ export class FullMap {
     const ground = s.map.describe(t.x, t.y, l);
     const name = items[0]?.[0] ?? nice(ground[0].split(' · ')[0]);
     this.tip.textContent = name;
-    this.tip.style.display = '';
+    this.tip.style.display = 'block';
     const z = Number(this.tip.style.zoom) || 1, r = this.tip.getBoundingClientRect();
     this.tip.style.left = `${Math.min(innerWidth - r.width - 4, e.clientX + 14) / z}px`;
     this.tip.style.top = `${Math.min(innerHeight - r.height - 4, e.clientY + 16) / z}px`;
