@@ -12,6 +12,7 @@ import { RARITY_COLOR } from '../../../../ui/theme';
 import type { WarStats } from '../../../sim/classes';
 import { SKILLS } from '../../../sim/skills';
 import type { WarSkillId } from '../../../types';
+import { placeTip } from '../kit';
 
 type Frame = { x: number; y: number; w: number; h: number };
 let atlas: { frames: Record<string, Frame>; w: number } | null = null;
@@ -154,10 +155,7 @@ export function tipper(root: HTMLElement, tip: HTMLElement): () => void {
     at = el;
     tip.innerHTML = el.dataset.tip!;
     tip.style.display = '';
-    const z = Number(tip.style.zoom) || 1, r = el.getBoundingClientRect(), t = tip.getBoundingClientRect();
-    const above = r.top - t.height - 4;
-    tip.style.left = `${Math.max(4, Math.min(innerWidth - t.width - 4, r.left + r.width / 2 - t.width / 2)) / z}px`;
-    tip.style.top = `${(above > 4 ? above : r.bottom + 4) / z}px`;
+    placeTip(tip, el);
   });
   root.addEventListener('pointerout', (e) => {
     const to = (e.relatedTarget as HTMLElement | null)?.closest?.('[data-tip]');
@@ -171,23 +169,23 @@ export function tipper(root: HTMLElement, tip: HTMLElement): () => void {
 export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export const ROSTER_CSS = `
-.rr-row{display:flex;align-items:center;gap:4px;height:26px;padding:0 3px;cursor:pointer}
-.rr-row:hover{background:rgba(222,138,78,.12)}
-.rr-row.on{background:rgba(222,138,78,.22);box-shadow:inset 1px 0 0 #de8a4e}
+.rr-row{display:flex;align-items:center;gap:4px;height:28px;padding:0 3px 0 6px;cursor:pointer;box-shadow:inset 3px 0 0 transparent}
+.rr-row:hover{background:var(--rf-hover)}
+.rr-row.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
 .rr-xp{height:2px;background:#2a1a12;margin-top:2px;position:relative}
 .rr-xp i{position:absolute;left:0;top:0;height:2px;background:#c9a24a}
 .rr-pip{display:inline-block;width:5px;height:5px;transform:rotate(45deg);background:#de8a4e;box-shadow:0 0 0 1px #0e0907;margin:0 1px}
 .rr-pip.gold{background:#e0b867}
-.rr-chip{font:600 9px/1 Inter,sans-serif;padding:2px 3px;border:1px solid #7a3418;color:#f0d9b5;background:#1a100b;white-space:nowrap}
-.rr-chip.up{border-color:#c9a24a;color:#e0b867}
-.rr-chip.bad{border-color:#8a2a1c;color:#e08a70}
+.rr-chip{font:600 11px/1 Inter,sans-serif;padding:3px 5px;border:1px solid var(--rf-line);color:var(--rf-ink);background:var(--rf-raised);white-space:nowrap}
+.rr-chip.up{border-color:#c9a24a;color:var(--rf-gold)}
+.rr-chip.bad{border-color:#8a2a1c;color:var(--rf-bad)}
 .rr-slot{width:28px;height:28px;background:#140c08;border:1px solid #7a3418;box-shadow:inset 0 0 0 1px #0e0907;display:flex;align-items:center;justify-content:center;position:relative}
-.rr-slot .rr-lab{position:absolute;left:0;right:0;bottom:-9px;text-align:center;font:600 7px/1 Inter,sans-serif;color:#7d6a5a;text-transform:uppercase}
+.rr-slot .rr-lab{position:absolute;left:-6px;right:-6px;bottom:-11px;text-align:center;font:600 9px/1 Inter,sans-serif;color:var(--rf-muted)}
 .rr-badge{position:absolute;bottom:-2px;line-height:0;pointer-events:none}
 .rr-port{width:64px;height:80px;background:radial-gradient(ellipse at 50% 85%,#3a2216 0,#140c08 70%);border:1px solid #7a3418;box-shadow:inset 0 0 0 1px #0e0907}
 .rr-port canvas{display:block;width:64px;height:80px;image-rendering:pixelated}
 .rr-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 6px;align-items:center}
-.rf-tbtn.rr-offer{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;height:auto;padding:4px 6px;text-align:left;white-space:normal}
-.rr-up{color:#9fd47a}.rr-down{color:#e08a70}
+.rf-tbtn.rr-offer{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;height:auto;padding:5px 7px;text-align:left;white-space:normal;line-height:1.3}
+.rr-up{color:var(--rf-good)}.rr-down{color:var(--rf-bad)}
 .rr-toast{transition:opacity .4s, transform .4s;display:flex;align-items:center;gap:4px}
 `;

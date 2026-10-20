@@ -66,20 +66,36 @@ export const icon = (id: string, size: 24 | 32 = 24) => id.startsWith('art:')
 export const CURSOR_HOT: Record<string, [number, number]> = { default: [2, 2], move: [16, 16], attack: [3, 3], build: [24, 6], gather: [27, 15], interact: [2, 2], invalid: [16, 16] };
 export const cursor = (id: string) => `${set(`cursors/${id}.png`)} ${CURSOR_HOT[id][0]} ${CURSOR_HOT[id][1]}, auto`;
 
-const nine = (f: string, l: number, t: number, r: number, b: number, rep = 'stretch') =>
-  `border-style:solid;border-width:${t}px ${r}px ${b}px ${l}px;border-image:${set(f)} ${t} ${r} ${b} ${l} fill / ${t}px ${r}px ${b}px ${l}px ${rep};`;
+const nine = (f: string, l: number, t: number, r: number, b: number, rep = 'stretch', fill = ' fill') =>
+  `border-style:solid;border-width:${t}px ${r}px ${b}px ${l}px;border-image:${set(f)} ${t} ${r} ${b} ${l}${fill} / ${t}px ${r}px ${b}px ${l}px ${rep};`;
+/** A frame as ornament only: the sprite's edges around a solid surface. The frames' centre slices hold the meander's inner
+ * lines, which stretch into stripes and terracotta blocks at some scales, so text never sits on them. */
+const frame = (f: string, l: number, t: number, r: number, b: number, rep = 'stretch') =>
+  nine(f, l, t, r, b, rep, '') + 'background:var(--rf-panel);background-clip:padding-box;';
 
-export const CSS = `
-.rf{position:fixed;z-index:4;color:#f0d9b5;font:600 11px/1 Inter,system-ui,sans-serif;user-select:none;image-rendering:pixelated;box-sizing:border-box}
+/**
+ * Tokens (W-32 palette). Every text / surface pair passes WCAG AA (4.5:1 body, 3:1 large): on --rf-panel cream 13.7, title
+ * 10.2, muted 8.0, accent 7.0, good 10.9, bad 7.7, gold 10.0, disabled 4.5; on --rf-sel cream 10.5, title 7.8, muted 6.1.
+ * Terracotta (--rf-line, --rf-accent) is for borders and ornament: no text sits on a terracotta fill.
+ */
+export const TOKENS = `:root{
+  --rf-panel:#17100d;--rf-raised:#251812;--rf-sunk:#0e0907;--rf-hover:#2c1c15;--rf-sel:#3d2414;
+  --rf-ink:#f0d9b5;--rf-title:#f2b27a;--rf-muted:#bba58c;--rf-disabled:#8a786a;
+  --rf-accent:#de8a4e;--rf-line:#7a3418;--rf-rule:#3a2418;--rf-good:#9fd47a;--rf-bad:#f08a70;--rf-gold:#e0b867;
+  --rf-title-font:700 14px/1.1 Cinzel,serif;--rf-body:600 12px/1.3 Inter,system-ui,sans-serif}`;
+
+export const CSS = TOKENS + `
+.rf{position:fixed;z-index:4;color:var(--rf-ink);font:var(--rf-body);user-select:none;image-rendering:pixelated;box-sizing:border-box;font-variant-numeric:tabular-nums}
 .rf *{box-sizing:border-box}
 .rf img{image-rendering:pixelated;display:block}
-.rf-band{${nine('frames/band.png', SIDE, 10, SIDE, 10, 'repeat stretch')}}
-.rf-card{${nine('frames/card.png', SIDE, 10, SIDE, 4, 'repeat stretch')}}
-.rf-tip{${nine('frames/tooltip.png', 4, 4, 4, 4)}padding:3px 5px;pointer-events:none;white-space:nowrap}
-.rf-label{${nine('frames/label.png', 3, 3, 3, 3)}padding:2px 4px;pointer-events:none;white-space:nowrap;font-size:11px;line-height:13px}
-.rf-label b,.rf-tip b.k{color:#de8a4e}
-.rf-name{font:700 14px/1 'Cormorant SC',serif;color:#f2b27a;letter-spacing:.02em}
-.rf-dim{color:#a8907a}
+.rf-band{${frame('frames/band.png', SIDE, 10, SIDE, 10, 'repeat stretch')}}
+.rf-card{${frame('frames/card.png', SIDE, 10, SIDE, 4, 'repeat stretch')}}
+.rf-tip{${frame('frames/tooltip.png', 4, 4, 4, 4)}padding:4px 7px;pointer-events:none;white-space:nowrap;line-height:1.4}
+.rf-label{${frame('frames/label.png', 3, 3, 3, 3)}padding:3px 6px;pointer-events:none;white-space:nowrap;font-size:12px;line-height:15px}
+.rf-label b,.rf-tip b.k{color:var(--rf-accent)}
+.rf-name{font:var(--rf-title-font);color:var(--rf-title);letter-spacing:.02em}
+.rf-head{display:flex;align-items:center;gap:6px;padding-bottom:4px;border-bottom:1px solid var(--rf-rule)}
+.rf-dim{color:var(--rf-muted)}
 .rf-num{font-variant-numeric:tabular-nums}
 .rf-btn{width:30px;height:30px;padding:0;border:0;background:${set('buttons/button-icon-normal.png')} 0 0/30px 30px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative}
 .rf-btn:hover{background-image:${set('buttons/button-icon-hover.png')}}
@@ -88,27 +104,66 @@ export const CSS = `
 .rf-btn.on{background-image:${set('buttons/button-icon-active.png')}}
 .rf-btn:disabled{background-image:${set('buttons/button-icon-disabled.png')};cursor:default}
 .rf-btn:disabled .ic{opacity:.4;filter:grayscale(.7)}
-.rf-tbtn{height:18px;padding:0 6px;color:#f0d9b5;font:600 10px/1 Inter,sans-serif;cursor:pointer;background:none;${nine('buttons/button-normal.png', 3, 3, 3, 3)}}
-.rf-tbtn:hover{border-image-source:${set('buttons/button-hover.png')}}
-.rf-tbtn:active{border-image-source:${set('buttons/button-pressed.png')}}
-.rf-tbtn.on{border-image-source:${set('buttons/button-pressed.png')};color:#f2b27a}
-.rf-tbtn:disabled{border-image-source:${set('buttons/button-disabled.png')};color:#8a786a;cursor:default}
-.rf-tab{height:16px;padding:0 8px;margin-right:2px;color:#a8907a;font:700 11px/1 'Cormorant SC',serif;cursor:pointer;background:none;${nine('buttons/tab-inactive.png', 3, 3, 3, 2)}}
-.rf-tab:hover{border-image-source:${set('buttons/tab-hover.png')};color:#f0d9b5}
-.rf-tab.on{border-image-source:${set('buttons/tab-active.png')};color:#f2b27a;height:17px;margin-bottom:-1px}
+.rf button:focus{outline:none}
+.rf button:focus-visible{outline:1px solid var(--rf-title);outline-offset:1px}
+.rf-tbtn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:23px;min-width:23px;padding:0 8px;color:var(--rf-ink);font:600 12px/1 Inter,sans-serif;white-space:nowrap;cursor:pointer;background:none;${nine('buttons/button-normal.png', 3, 3, 3, 3)}}
+.rf-tbtn:hover{border-image-source:${set('buttons/button-hover.png')};color:#fff0d8}
+.rf-tbtn:active{border-image-source:${set('buttons/button-pressed.png')};padding-top:1px}
+.rf-tbtn.on,.rf-tbtn.pri{border-image-source:${set('buttons/button-active.png')};color:#fff0d8}
+.rf-tbtn.pri:hover{filter:brightness(1.12)}
+.rf-tbtn:disabled{border-image-source:${set('buttons/button-disabled.png')};color:var(--rf-disabled);cursor:default;filter:none;padding-top:0}
+.rf-tbtn.x{width:23px;padding:0;font-size:13px}
+.rf-tab{height:22px;padding:0 9px;margin-right:2px;color:var(--rf-muted);font:600 12px/1 Inter,sans-serif;cursor:pointer;background:none;white-space:nowrap;${nine('buttons/tab-inactive.png', 3, 3, 3, 2)}}
+.rf-tab:hover{border-image-source:${set('buttons/tab-hover.png')};color:var(--rf-ink)}
+.rf-tab.on{border-image-source:${set('buttons/tab-active.png')};color:var(--rf-title);height:23px;margin-bottom:-1px}
+.rf-segs{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.rf-segs .rf-tbtn{width:100%}
 .rf-bar{height:6px;${nine('bars/track.png', 2, 0, 2, 0)}position:relative}
 .rf-bar i{position:absolute;left:-1px;top:1px;height:4px;background-size:2px 4px;background-repeat:repeat-x}
 .rf-bar i.hp{background-image:${url('bars/fill-hp.png')}} .rf-bar i.construction{background-image:${url('bars/fill-construction.png')}}
 .rf-bar i.burn{background-image:${url('bars/fill-burn.png')}} .rf-bar i.ok{background-image:${url('bars/fill-ok.png')}}
-.rf-sep{width:1px;align-self:stretch;background:#7a3418;box-shadow:1px 0 0 #0e0907;margin:0 4px}
-.rf-cap{font:700 10px/1 'Cormorant SC',serif;color:#a8907a;letter-spacing:.04em;margin:0 0 2px 1px}
+.rf-sep{width:1px;align-self:stretch;background:var(--rf-line);box-shadow:1px 0 0 var(--rf-sunk);margin:0 4px}
+.rf-cap{font:700 11.5px/1.2 Cinzel,serif;color:var(--rf-accent);letter-spacing:.04em;margin:0 0 3px 1px}
+.rf-cap .rf-dim{font:600 11.5px/1 Inter,sans-serif}
+.rf-row{cursor:pointer;box-shadow:inset 3px 0 0 transparent}
+.rf-row:hover{background:var(--rf-hover)}
+.rf-row.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
 .rf-seg{display:flex}
 .rf-seg button{width:28px;height:26px;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;background:none;${nine('buttons/button-icon-normal.png', 3, 3, 3, 3)}}
 .rf-seg button:hover{border-image-source:${set('buttons/button-icon-hover.png')}}
 .rf-seg button.on{border-image-source:${set('buttons/button-icon-active.png')}}
-.rf-seg button .key,.rf-btn .key{position:absolute;right:2px;bottom:1px;font-size:8px;color:#f0d9b5;text-shadow:0 1px 0 #0e0907}
-.rf input{font:600 10px/1 Inter,sans-serif;width:26px;height:18px;background:#0e0907;color:#f0d9b5;border:1px solid #7a3418;padding:0 2px}
+.rf-seg button .key,.rf-btn .key{position:absolute;right:2px;bottom:1px;font:700 9px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907}
+.rf input{font:600 12px/1 Inter,sans-serif;width:30px;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 3px}
 `;
+
+/** Keep a top-anchored panel inside the window: it scrolls past the bottom edge (4 art px margin). */
+export function fitHeight(el: HTMLElement): void {
+  const z = Number(el.style.zoom) || 1;
+  el.style.maxHeight = `${Math.floor(innerHeight / z - (parseFloat(el.style.top) || 0) - 4)}px`;
+  el.style.overflowY = 'auto';
+  el.style.scrollbarWidth = 'thin';
+  el.style.scrollbarColor = '#7a3418 #0e0907';
+}
+
+/**
+ * Place a tooltip away from its anchor's panel, so it never covers the panel's own title: a side panel's tip sits beside the
+ * panel (on the side with room, level with the anchor), a bottom bar's above it; flipped and clamped at the window edges.
+ */
+export function placeTip(tip: HTMLElement, el: HTMLElement): void {
+  const z = Number(tip.style.zoom) || 1, r = el.getBoundingClientRect(), p = (el.closest('.rf') ?? el).getBoundingClientRect(), t = tip.getBoundingClientRect(), g = 6;
+  const left = p.left - t.width - g, right = p.right + g, fitsL = left >= 4, fitsR = right + t.width <= innerWidth - 4;
+  let x: number, y: number;
+  if (!(p.bottom > innerHeight * 0.7 && p.height < innerHeight * 0.45) && (fitsL || fitsR)) {
+    x = fitsL && (!fitsR || p.left > innerWidth - p.right) ? left : right;
+    y = r.top + r.height / 2 - t.height / 2;
+  } else {
+    x = r.left + r.width / 2 - t.width / 2;
+    y = Math.min(r.top, p.top) - t.height - g;
+    if (y < 4) y = Math.max(r.bottom, p.bottom) + g;
+  }
+  tip.style.left = `${Math.max(4, Math.min(innerWidth - t.width - 4, x)) / z}px`;
+  tip.style.top = `${Math.max(4, Math.min(innerHeight - t.height - 4, y)) / z}px`;
+}
 
 /** A bar: kind hp / construction / burn / ok, value 0..1, width in art px. */
 export const bar = (kind: string, v: number, w: number) => `<div class="rf-bar" style="width:${w}px"><i class="${kind}" style="width:${Math.round((w - 2) * Math.max(0, Math.min(1, v)))}px"></i></div>`;

@@ -26,13 +26,13 @@ function preview(C: SandboxCraft, c: Civ, n: ProfNode): string {
   const needs = [...(n.needs ?? []).map((x) => PROF_NODES[x].name), ...(n.needsAny ? [`${n.needsAny[0]} of ${n.needsAny[1].map((x) => PROF_NODES[x].name).join(', ')}`] : [])];
   const list = rs.slice(0, 8).map((r) => `<span class="rr-chip">${esc(nameOf(r.out.item ?? r.out.tool ?? r.out.good ?? r.out.product ?? r.out.engine ?? r.out.fort ?? r.id))}${r.tier > 1 ? ` <span class="rf-dim">T${r.tier}</span>` : ''}</span>`).join(' ');
   return `<div style="display:flex;gap:5px;align-items:flex-start">${nodeIcon(n, 24)}<div style="flex:1;min-width:0">
-      <div class="rf-name" style="font-size:13px">${n.name} <span class="rf-dim" style="font:600 9px Inter">L${n.level}${n.root ? ' · root' : n.capstone ? ' · capstone' : ''}</span></div>
-      <div style="margin-top:2px;white-space:normal;line-height:12px">${esc(n.desc)}</div></div></div>
+      <div class="rf-name" style="font-size:13px">${n.name} <span class="rf-dim" style="font:600 11px Inter">L${n.level}${n.root ? ' · root' : n.capstone ? ' · capstone' : ''}</span></div>
+      <div style="margin-top:3px;white-space:normal;line-height:16px">${esc(n.desc)}</div></div></div>
     ${rs.length ? `<div class="rf-cap" style="margin-top:4px">Unlocks ${rs.length} recipe${rs.length > 1 ? 's' : ''}</div><div style="display:flex;flex-wrap:wrap;gap:2px">${list}${rs.length > 8 ? ` <span class="rf-dim">+${rs.length - 8} more</span>` : ''}</div>` : ''}
     ${needs.length ? `<div class="rf-dim" style="margin-top:3px">needs ${needs.join(' · ')}</div>` : ''}
     <div style="display:flex;align-items:center;gap:4px;margin-top:5px">
-      <span style="color:${why === 'taken' ? '#e0b867' : why ? '#e08a70' : '#9fd47a'}">${why === 'taken' ? 'taken' : why ? REFUSAL[why] : n.capstone ? 'open: free, one capstone only' : 'open: costs 1 point'}</span><span style="flex:1"></span>
-      ${why ? '' : `<button class="rf-tbtn on" data-take="${n.id}">Take ${n.name}</button>`}
+      <span style="color:${why === 'taken' ? 'var(--rf-gold)' : why ? 'var(--rf-bad)' : 'var(--rf-good)'}">${why === 'taken' ? 'taken' : why ? REFUSAL[why] : n.capstone ? 'open: free, one capstone only' : 'open: costs 1 point'}</span><span style="flex:1"></span>
+      ${why ? '' : `<button class="rf-tbtn pri" data-take="${n.id}">Take ${n.name}</button>`}
     </div>`;
 }
 
@@ -42,16 +42,16 @@ export function treeHtml(C: SandboxCraft, c: Civ, picked: string | null): string
   const levels = [...new Set(nodes.map((n) => n.level))].sort((a, b) => a - b);
   const tile = (n: ProfNode) => {
     const why = C.refusal(c, n.id), st = held.has(n.id) ? 'taken' : why ? 'locked' : 'open';
-    const tip = `<b style="color:#f2b27a">${n.name}</b> ${esc(n.desc)}<br><span class="rf-dim">${st === 'locked' ? REFUSAL[why!] : st}</span>`;
+    const tip = `<b style="color:var(--rf-title)">${n.name}</b> ${esc(n.desc)}<br><span class="rf-dim">${st === 'locked' ? REFUSAL[why!] : st}</span>`;
     return `<button class="pt-node ${st}${picked === n.id ? ' sel' : ''}" data-node="${n.id}" data-tip="${esc(tip)}">${nodeIcon(n, 24)}<span>${n.name}</span></button>`;
   };
   const rows = levels.map((lv) => `<div class="pt-row${c.level < lv ? ' ahead' : ''}"><span class="pt-lv">L${lv}</span><div class="pt-nodes">${nodes.filter((n) => n.level === lv).map(tile).join('')}</div></div>`).join('');
   const rs = C.respecState(c), pick = picked ? PROF_NODES[picked] : null;
   const respecTip = rs.wait ? `again in ${Math.ceil(rs.wait / 3_600_000)} h` : `all nodes back for ${RESPEC.silver} silver, once a day`;
   return `<div class="rf-card" style="padding:4px 6px 6px">
-    <div style="display:flex;align-items:center;gap:4px"><span class="rf-name" style="font-size:15px">${esc(c.name)}</span><span class="rf-dim">${CIV_CLASSES[c.cls as CivClassId].name} · L${c.level}</span><span style="flex:1"></span>
-      <span class="rf-num" style="color:${spent < pts ? '#e0b867' : '#a8907a'}" data-tip="points: 1 a level from L2 to L9; capstones (L10) are free, one of two">${pts - spent} / ${pts} pts</span>
-      <button class="rf-tbtn" data-act="closeTree" data-tip="close">✕</button></div>
+    <div class="rf-head"><span class="rf-name" style="font-size:16px">${esc(c.name)}</span><span class="rf-dim">${CIV_CLASSES[c.cls as CivClassId].name} · L${c.level}</span><span style="flex:1"></span>
+      <span class="rf-num" style="color:${spent < pts ? 'var(--rf-gold)' : 'var(--rf-muted)'}" data-tip="points: 1 a level from L2 to L9; capstones (L10) are free, one of two">${pts - spent} / ${pts} pts</span>
+      <button class="rf-tbtn x" data-act="closeTree" data-tip="close">✕</button></div>
     <div class="pt-legend"><i class="taken"></i>taken <i class="open"></i>open <i class="locked"></i>locked</div>
     <div class="pt-tree">${rows}</div>
     <div class="pt-prev">${pick ? preview(C, c, pick) : '<span class="rf-dim">pick a node to see what it unlocks</span>'}</div>
@@ -63,20 +63,20 @@ export function treeHtml(C: SandboxCraft, c: Civ, picked: string | null): string
 }
 
 export const TREE_CSS = `
-.pt-legend{display:flex;align-items:center;gap:3px;margin:3px 0 2px;font:600 8px/1 Inter,sans-serif;color:#a8907a}
-.pt-legend i{display:inline-block;width:7px;height:7px;margin-left:4px;border:1px solid}
+.pt-legend{display:flex;align-items:center;gap:4px;margin:5px 0 4px;font:600 11px/1 Inter,sans-serif;color:var(--rf-muted)}
+.pt-legend i{display:inline-block;width:9px;height:9px;margin-left:6px;border:1px solid}
 .pt-legend i.taken{border-color:#e0b867;background:#4a3410}.pt-legend i.open{border-color:#de8a4e;background:#3a1c10}.pt-legend i.locked{border-color:#4a3428;background:#140c08}
-.pt-tree{border-top:1px solid #7a3418;padding-top:2px}
-.pt-row{display:flex;align-items:center;gap:4px;min-height:30px;border-bottom:1px solid #2a1a12}
-.pt-row.ahead .pt-lv{color:#5e4c40}
-.pt-lv{width:18px;font:700 10px/1 'Cormorant SC',serif;color:#a8907a;text-align:right;flex:none}
+.pt-tree{border-top:1px solid var(--rf-line);padding-top:2px}
+.pt-row{display:flex;align-items:center;gap:4px;min-height:32px;padding:1px 0;border-bottom:1px solid var(--rf-rule)}
+.pt-row.ahead .pt-lv{color:var(--rf-disabled)}
+.pt-lv{width:22px;font:600 11px/1 Inter,sans-serif;color:var(--rf-muted);text-align:right;flex:none}
 .pt-nodes{display:flex;flex-wrap:wrap;gap:2px;flex:1}
-.pt-node{display:flex;align-items:center;gap:3px;height:28px;padding:1px 5px 1px 1px;cursor:pointer;font:600 9px/1 Inter,sans-serif;color:#f0d9b5;background:#1a100b;border:1px solid #4a3428;white-space:nowrap}
+.pt-node{display:flex;align-items:center;gap:4px;height:28px;padding:1px 6px 1px 1px;cursor:pointer;font:600 11.5px/1 Inter,sans-serif;color:var(--rf-ink);background:var(--rf-raised);border:1px solid var(--rf-rule);white-space:nowrap}
 .pt-node img{display:block}
-.pt-node.taken{border-color:#e0b867;background:#3a2a10;color:#f2d28a}
+.pt-node.taken{border-color:var(--rf-gold);background:#33250e;color:#f6dc9c}
 .pt-node.open{border-color:#de8a4e;background:#2e160c}
-.pt-node.open:hover{background:#4a2414}
-.pt-node.locked{opacity:.55}.pt-node.locked img{filter:grayscale(.8)}
-.pt-node.sel{box-shadow:0 0 0 1px #f2b27a,inset 0 0 0 1px #f2b27a}
-.pt-prev{margin-top:5px;padding:4px;border:1px solid #7a3418;background:#140c08;min-height:40px}
+.pt-node:hover{background:var(--rf-hover)}.pt-node.open:hover{background:var(--rf-sel)}
+.pt-node.locked{color:var(--rf-disabled);background:none}.pt-node.locked img{opacity:.55;filter:grayscale(.8)}
+.pt-node.sel{box-shadow:0 0 0 1px var(--rf-title),inset 0 0 0 1px var(--rf-title)}
+.pt-prev{margin-top:6px;padding:6px;border:1px solid var(--rf-line);background:var(--rf-sunk);min-height:40px}
 `;

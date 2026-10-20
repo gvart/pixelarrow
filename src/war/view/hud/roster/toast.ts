@@ -7,7 +7,7 @@ import type { Note } from './state';
 import { esc } from './ui';
 
 const ICON: Record<Note['kind'], string> = { levelUp: 'act-upgrade', capture: 'act-hold', dead: 'act-cancel', info: 'act-assign' };
-const COLOR: Record<Note['kind'], string> = { levelUp: '#e0b867', capture: '#e08a70', dead: '#e08a70', info: '#f0d9b5' };
+const COLOR: Record<Note['kind'], string> = { levelUp: 'var(--rf-gold)', capture: 'var(--rf-bad)', dead: 'var(--rf-bad)', info: 'var(--rf-ink)' };
 const LIFE = 4500, MAX = 4;
 
 export function toaster(box: HTMLElement, open: (pid: string) => void): (n: Note) => void {

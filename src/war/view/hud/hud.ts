@@ -22,7 +22,7 @@
  * the scene, and reads their state at 5 Hz.
  */
 import '@fontsource/inter/600.css';
-import '@fontsource/cormorant-sc/700.css';
+import '@fontsource/cinzel/700.css';
 import { BUILDINGS } from '../../sim/economy';
 import { SIEGE } from '../../sim/siege';
 import { FORT } from '../../sim/works';
@@ -30,7 +30,7 @@ import type { BuildingType, FortKind, ResourceKind, SiegeType } from '../../type
 import type { SandboxScene } from '../SandboxScene';
 import { costText, isSite, labourText, TOOLBAR, WALL_NAME, type BuildMode, type Cost, type Tool } from '../build/buildMode';
 import { SIEGE_NAME } from '../siege/siegeControls';
-import { bar, BUILDING_ICON, cursor, CSS, icon, setUiScale, SIEGE_ICON, snapW, UI, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
+import { bar, BUILDING_ICON, cursor, CSS, icon, placeTip, setUiScale, SIEGE_ICON, snapW, UI, UI_SCALES, uiScale, uiZoom, UNIT_ICON } from './kit';
 import { Minimap } from './minimap';
 import { ModeBar } from './modes';
 import { FullMap } from './fullMap';
@@ -109,7 +109,7 @@ export function hud(s: SandboxScene): void {
   const resTab = document.createElement('button');
   resTab.className = 'rf-tbtn';
   resTab.id = 'rfResTab';
-  resTab.style.cssText = 'position:absolute;right:30px;top:100%;margin-top:-2px;height:14px;font-size:9px';
+  resTab.style.cssText = 'position:absolute;right:30px;top:100%;margin-top:-1px;height:20px;font-size:11.5px';
   resTab.textContent = 'crafting ▾';
   resTab.title = 'show the crafting goods and remedies (again: the base resources)';
   let craftPage = false;
@@ -140,9 +140,7 @@ export function hud(s: SandboxScene): void {
     tipAt = el;
     tip.innerHTML = html;
     tip.style.display = '';
-    const r = el.getBoundingClientRect(), top = (el.closest('.rf') ?? el).getBoundingClientRect().top, z = Number(tip.style.zoom) || 1, t = tip.getBoundingClientRect();
-    tip.style.left = `${Math.max(4, Math.min(innerWidth - t.width - 4, r.left + r.width / 2 - t.width / 2)) / z}px`;
-    tip.style.top = `${(Math.min(r.top, top) - t.height - 4) / z}px`;
+    placeTip(tip, el);
   };
   const hideTip = () => (tip.style.display = 'none');
   const tipOn = (el: HTMLElement, html: () => string) => { el.addEventListener('pointerenter', () => showTip(el, html())); el.addEventListener('pointerleave', hideTip); };
@@ -156,7 +154,7 @@ export function hud(s: SandboxScene): void {
         <div style="min-width:0;flex:1"><div class="rf-name" id="cName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="rf-num" id="cCount" style="margin-top:4px"></div></div>
       </div>
       <div id="cBars" style="margin-top:5px;display:flex;flex-direction:column;gap:2px"></div>
-      <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:10px;line-height:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
     <div class="rf-sep" id="cSep1"></div>
     <div id="cOrders" style="display:flex;flex-direction:column;justify-content:center;gap:3px"></div>
@@ -249,7 +247,7 @@ export function hud(s: SandboxScene): void {
   const build = mk('rfBuild', `left:50%;bottom:4px;transform:translateX(-50%);width:${barW}px;pointer-events:auto;display:none`,
     `<div style="position:absolute;left:0;bottom:100%;margin-bottom:2px;display:flex;flex-direction:column;align-items:flex-start;gap:2px"><div id="bStatus" class="rf-label" style="display:none;white-space:normal;max-width:${barW}px"></div>
     <div id="bWall" style="display:none;gap:2px"></div></div>
-    <div id="bTabs" style="display:flex;padding-left:6px;align-items:flex-end;height:17px"></div>
+    <div id="bTabs" style="display:flex;padding-left:6px;align-items:flex-end;height:23px"></div>
     <div class="rf-card" style="padding:2px 0 3px"><div id="bTools" style="display:flex;gap:2px;height:30px"></div></div>`);
   const bTabs = build.querySelector<HTMLElement>('#bTabs')!, bTools = build.querySelector<HTMLElement>('#bTools')!;
   const bStatus = build.querySelector<HTMLElement>('#bStatus')!, bWall = build.querySelector<HTMLElement>('#bWall')!;
