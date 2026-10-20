@@ -18,7 +18,7 @@ const CLASSES = {
   maenad_queen: { scale: 0.55, canvas: [96, 96] },
   // 12.1 px/m (256 px = 21 m): wingspan ~20 m, rendered 3 px per art px
   drakon: { scale: 1.5, canvas: [256, 256] },
-  // 18 px/m: a 6 m giant is ~110 art px
+  // 18 px/m (rendered 2 px per art px): the ~150 px giants stand ~8 m, four and a half men
   brontes: { scale: 1, canvas: [160, 160] },
   gyges: { scale: 1, canvas: [160, 160] },
   chimera: { scale: 0.55, canvas: [128, 128], template: true },
