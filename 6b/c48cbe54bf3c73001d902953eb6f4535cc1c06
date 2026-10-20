@@ -1,0 +1,36 @@
+src/war/net/protocol.ts
+  s_cfc22b058125c4::t_d6b13c2145fa8c 14-15,26,125,130
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_d6b13c2145fa8c 19-22,28,32,82,137,160-173,284-285,287
+server/test/war/crafting.test.ts
+  s_cfc22b058125c4::t_d6b13c2145fa8c 1-248
+server/src/war/crafting.ts
+  s_cfc22b058125c4::t_d6b13c2145fa8c 1-120
+server/migrations/0023_war_crafting.sql
+  s_cfc22b058125c4::t_d6b13c2145fa8c 1-18
+server/src/account/deletionMap.ts
+  s_cfc22b058125c4::t_d6b13c2145fa8c 100
+server/src/war/persons.ts
+  s_cfc22b058125c4::t_d6b13c2145fa8c 87,90,104,120,125,210,217,321,329,550,552-555,565
+server/src/war/routes.ts
+  s_cfc22b058125c4::t_d6b13c2145fa8c 14-18,32,99-110
+  s_cfc22b058125c4::t_ec257e24d4eb92 111
+server/src/war/room.ts
+  s_cfc22b058125c4::t_d6b13c2145fa8c 11,19-22,31-32,50-55,74-76,142-144,159,293-294,364-404,424,430-431,476,503,523-524
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6bc48cbe54bf3c73001d902953eb6f4535cc1c06",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
