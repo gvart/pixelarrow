@@ -8,7 +8,7 @@
 import { SIM_VERSION } from '../../sim/version';
 import type { Order, Snapshot } from '../types';
 import { DeltaDecoder } from './codec';
-import { NET_VERSION, type ServerMsg } from './protocol';
+import { MAX_SQUAD, NET_VERSION, type ServerMsg } from './protocol';
 
 export interface Net {
   join(team: number, cls: string, count: number): void;
@@ -51,7 +51,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     ws.onclose = (e) => console.warn('[net] closed', e.code, e.reason);
   })().catch((e) => console.error(e));
   return {
-    join: (team, cls, count) => send({ t: 'join', v: NET_VERSION, region, playerId: pid, team, army: [{ cls, count: Math.min(count, 20) }] }),
+    join: (team, cls, count) => send({ t: 'join', v: NET_VERSION, region, playerId: pid, team, army: [{ cls, count: Math.min(count, MAX_SQUAD) }] }),
     order: (o) => send({ t: 'order', o }),
     view: (x0, y0, x1, y1) => {
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'view', x0, y0, x1, y1 }));

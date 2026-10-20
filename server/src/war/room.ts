@@ -13,8 +13,8 @@ import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
-import { VisionMap, visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
-import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUADS, NET_VERSION, splitQuota, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
+import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
+import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { RegionData, ShotSnap, Snapshot, SquadId, WarBuildSim } from '../../../src/war/types';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
@@ -83,8 +83,9 @@ export class WarRoom {
     this.bots = createBots(this.sim);
     this.per = o.quotas ?? splitQuota(o.cap, ALLIANCES);
     this.live = this.per.map(() => 0);
-    const radius = new VisionMap(o.region.w, o.region.h);
-    this.vision = o.vision ?? ((_sim, snap) => (radius.build(snap), radius));
+    // default: the sim's fog of war (W-39); VisionMap (the plain radius rule) is the fallback hook for tests and tools
+    const fog: TeamVision = { sees: (team, x, y) => this.sim.visibleTo(team, x, y) };
+    this.vision = o.vision ?? (() => fog);
     this.keyEvery = o.keyframeEvery ?? KEYFRAME_EVERY;
     this.snap = this.sim.snapshot();
   }
@@ -164,6 +165,7 @@ export class WarRoom {
     // squads spread over the entry on a 6-tile grid round its centre
     const k = this.spawns++, ox = ((k % 5) - 2) * 6, oy = ((Math.floor(k / 5) % 5) - 2) * 6;
     const x = Math.min(e.x + e.w - 1, Math.max(e.x + 1, e.x + e.w / 2 + ox)), y = Math.min(e.y + e.h - 1, Math.max(e.y + 1, e.y + e.h / 2 + oy));
+    count = Math.min(count, MAX_SQUAD);
     const id = this.sim.spawnSquad(ownerOf(pid), team, cls, count, x, y);
     this.owners[id] = ownerOf(pid);
     this.teams[id] = team;

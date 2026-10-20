@@ -1,13 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DeltaDecoder } from '../../../src/war/net/codec';
-import { CELL } from '../../../src/war/net/interest';
+import { CELL, VisionMap } from '../../../src/war/net/interest';
 import { NET_VERSION, VISION, type JoinMsg } from '../../../src/war/net/protocol';
 import { createSim } from '../../../src/war/sim';
 import { CORPSE_TICKS, WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 
 const region = warRegion('test-ridge')!;
-const join = (pid: number, team: number, count = 20, cls = 'hoplite', squads = 1): JoinMsg => ({
+const join = (pid: number, team: number, count = 12, cls = 'hoplite', squads = 1): JoinMsg => ({
   t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: pid, team, army: Array.from({ length: squads }, () => ({ cls, count })),
 });
 const room = (cap = 600) => new WarRoom({ region, seed: 1, cap });
@@ -20,12 +20,12 @@ const steps = (r: WarRoom, n: number) => {
 describe('WarRoom joins and quotas', () => {
   it('welcomes a player with squads on its alliance entry', () => {
     const r = room();
-    const res = r.join(1, join(1, 0, 20, 'hoplite', 2));
+    const res = r.join(1, join(1, 0, 12, 'hoplite', 2));
     expect(res.msg).toMatchObject({ t: 'welcome', you: { id: 1, team: 0 }, squads: [0, 1] });
     steps(r, 1);
     const north = r.region.entries.find((e) => e.side === 'N')!;
     for (const u of r.snapshot().units) expect(u.y).toBeLessThan(north.y + north.h + 4);
-    expect(r.quota().live).toEqual([40, 0, 0, 0]);
+    expect(r.quota().live).toEqual([24, 0, 0, 0]);
   });
 
   it('refuses joins that do not fit the rules', () => {
@@ -33,22 +33,22 @@ describe('WarRoom joins and quotas', () => {
     expect(r.join(1, join(2, 0)).msg).toMatchObject({ t: 'refused', reason: 'player' });
     expect(r.join(1, { ...join(1, 0), v: 99 }).msg).toMatchObject({ reason: 'version' });
     expect(r.join(1, { ...join(1, 0), region: 'elsewhere' }).msg).toMatchObject({ reason: 'region' });
-    expect(r.join(1, join(1, 0, 20, 'dragonrider')).msg).toMatchObject({ reason: 'army' });
-    r.join(1, join(1, 0, 20, 'hoplite', 3));
+    expect(r.join(1, join(1, 0, 12, 'dragonrider')).msg).toMatchObject({ reason: 'army' });
+    r.join(1, join(1, 0, 12, 'hoplite', 3));
     expect(r.join(1, join(1, 0)).msg).toMatchObject({ reason: 'squads' });
     expect(r.join(1, join(1, 2)).msg).toMatchObject({ reason: 'team' });
   });
 
   it('queues joins over the alliance quota and lets them in when men fall', () => {
-    const r = room(160); // 40 per alliance
+    const r = room(96); // 24 per alliance
     expect(r.join(1, join(1, 0)).admitted).toBe(true);
     expect(r.join(2, join(2, 0)).admitted).toBe(true);
     const q = r.join(3, join(3, 0, 10));
     expect(q.msg).toMatchObject({ t: 'queued', reason: 'quota', pos: 1, need: 10 });
     expect(r.join(4, join(4, 1)).admitted).toBe(true); // other alliances are not held up
-    expect(r.join(5, join(5, 0, 50)).msg).toMatchObject({ t: 'refused', reason: 'quota' }); // never fits
+    expect(r.join(5, join(5, 0, 12, 'hoplite', 3)).msg).toMatchObject({ t: 'refused', reason: 'quota' }); // never fits
     steps(r, 1);
-    expect(r.quota().live).toEqual([40, 20, 0, 0]);
+    expect(r.quota().live).toEqual([24, 12, 0, 0]);
     // player 4's army hunts player 1's squad down until there is room
     let admitted = false;
     const enemyOf1 = r.squadsOf(4)[0];
@@ -95,7 +95,7 @@ describe('WarRoom orders', () => {
     expect(t.frames.size).toBe(0);
     expect(r.bots.phase(0)).toBeDefined();
     expect(r.snapshot().squads[0].order).toBe('hold');
-    expect(r.quota().live[0]).toBe(20);
+    expect(r.quota().live[0]).toBe(12);
     const back = r.join(1, join(1, 0));
     expect(back.msg).toMatchObject({ t: 'welcome', squads: [0] });
     expect(r.squadsOf(1)).toEqual([0]); // no second army
@@ -105,7 +105,9 @@ describe('WarRoom orders', () => {
 
 describe('WarRoom interest management', () => {
   it('sends each client its own units, and foes only within vision and camera', () => {
-    const r = room();
+    // the plain radius rule through the TeamVision hook (the default is the sim's fog, W-39)
+    const radius = new VisionMap(region.w, region.h);
+    const r = new WarRoom({ region, seed: 1, cap: 600, vision: (_sim, snap) => (radius.build(snap), radius) });
     r.join(1, join(1, 0)); // north entry
     r.join(2, join(2, 1)); // east entry, far away
     const decs = new Map([[1, new DeltaDecoder()], [2, new DeltaDecoder()]]);
@@ -135,6 +137,15 @@ describe('WarRoom interest management', () => {
     expect(squadsSeen(1)).toEqual(new Set([0]));
   });
 
+  it('filters through the sim fog of war by default', () => {
+    const r = room();
+    r.join(1, join(1, 0));
+    r.join(2, join(2, 1));
+    const seen = vi.spyOn(r.sim, 'visibleTo');
+    steps(r, 2);
+    expect(seen).toHaveBeenCalled();
+  });
+
   it('keeps per-client bandwidth low once squads stand still', () => {
     const r = room();
     for (let p = 1; p <= 8; p++) r.join(p, join(p, p % 4));
@@ -148,7 +159,7 @@ describe('WarRoom interest management', () => {
 describe('WarRoom corpses', () => {
   it('stops sending the fallen after CORPSE_TICKS', () => {
     const r = room();
-    r.join(1, join(1, 0, 20, 'militia'));
+    r.join(1, join(1, 0, 12, 'militia'));
     steps(r, 1);
     const foe = r.sim.spawnSquad('bot', 1, 'hoplite', 20, 192, 12);
     r.sim.order({ kind: 'attack', squad: foe, target: 0 });
@@ -165,8 +176,8 @@ describe('WarRoom determinism', () => {
   it('replays the same joins and orders to the same world, the same as a bare sim', () => {
     const run = () => {
       const r = room();
-      r.join(1, join(1, 0, 20, 'hoplite'));
-      r.join(2, join(2, 1, 20, 'archer'));
+      r.join(1, join(1, 0, 12, 'hoplite'));
+      r.join(2, join(2, 1, 12, 'archer'));
       steps(r, 1);
       r.order(1, { kind: 'move', squad: 0, x: 300, y: 120 });
       r.order(2, { kind: 'move', squad: 1, x: 300, y: 125 });
@@ -180,9 +191,9 @@ describe('WarRoom determinism', () => {
     // the room only adds orders: a bare sim fed the same spawns and logged orders at the same ticks matches
     const sim = createSim(region, 1);
     const s0 = a.snapshot().units;
-    sim.spawnSquad('p:1', 0, 'hoplite', 20, ...spawnAt(a, 0));
-    sim.spawnSquad('p:2', 1, 'archer', 20, ...spawnAt(a, 1));
-    expect(s0.length).toBe(40);
+    sim.spawnSquad('p:1', 0, 'hoplite', 12, ...spawnAt(a, 0));
+    sim.spawnSquad('p:2', 1, 'archer', 12, ...spawnAt(a, 1));
+    expect(s0.length).toBe(24);
     let i = 0;
     while (sim.snapshot().tick < a.currentTick) {
       while (i < a.log.length && a.log[i].tick === sim.snapshot().tick) sim.order(a.log[i++].o);

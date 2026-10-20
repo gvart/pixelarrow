@@ -118,6 +118,7 @@ export declare function createSim(region: RegionData, seed: number): WarSim; // 
 
   No tick overran 100 ms in any run; the loop started on time (late avg ~3 ms). Before the corpse cut-off the 1000 brawl spent 9.8 ms/tick in filter+encode (corpses grow without end); now ~5.
 - **Go for the 600 cap** (W-06): a 600-man fight costs ~8% of the tick on average and ≤ 40% at worst; ~12 KiB/s per player. **1000 looks viable** (p95 21 ms) but wait for production numbers before raising. Caveats: workerd in production freezes timers, so measure there with Workers CPU-time metrics (tail / analytics) under the same script before raising the cap; the sim's own units list keeps corpses (step cost creeps up in long wars, sim-side fix); per-client filter is O(clients x units), fine at 50 clients.
+- After M5 (squads of SQUAD_MAX 12) and W-39: the room filters through the sim's fog (`sim.visibleTo`, default `RoomOptions.vision`; VisionMap stays as the radius fallback). Re-run, brawl 50 x 12 = 600, 4 min: tick avg 10.2 / p95 15 / max 39 ms (step 3.9, filter+encode 5.6), ~11.5 KiB/s per client; still go.
 - Not in this slice: sim state persistence (an evicted object starts the region over), armies from D1 instead of the join message, building/siege orders over the wire, the view is still "team 0 = you".
 ### M4 World map — strategic view, alliances, transfers, borders, home-can't-fall; delete old war code
 ### M5 Soldiers — recruits, wounded/heal, veteran XP, prisoners

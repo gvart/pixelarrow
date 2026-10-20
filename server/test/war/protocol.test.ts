@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_CLIENT_MSG, NET_VERSION, parseClientMsg, splitQuota } from '../../../src/war/net/protocol';
 
-const join = { t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: 7, team: 2, army: [{ cls: 'hoplite', count: 20 }] };
+const join = { t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: 7, team: 2, army: [{ cls: 'hoplite', count: 12 }] };
 
 describe('war net protocol', () => {
   it('accepts the client messages', () => {
@@ -16,7 +16,7 @@ describe('war net protocol', () => {
     expect(parseClientMsg('not json')).toBeNull();
     expect(parseClientMsg('{"t":"spawn"}')).toBeNull();
     expect(parseClientMsg(JSON.stringify({ ...join, team: 4 }))).toBeNull();
-    expect(parseClientMsg(JSON.stringify({ ...join, army: [{ cls: 'hoplite', count: 21 }] }))).toBeNull();
+    expect(parseClientMsg(JSON.stringify({ ...join, army: [{ cls: 'hoplite', count: 13 }] }))).toBeNull();
     expect(parseClientMsg(JSON.stringify({ ...join, army: Array(4).fill({ cls: 'hoplite', count: 1 }) }))).toBeNull();
     expect(parseClientMsg(JSON.stringify({ ...join, region: '../x' }))).toBeNull();
     // building is not a live order yet
