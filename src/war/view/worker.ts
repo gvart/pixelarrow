@@ -4,14 +4,18 @@
  * every tick. A spawn may carry a bot Behaviour (../sim/bots.ts, scenarios); other squads spawned
  * with owner `bot` get a trivial brain: attack the nearest enemy squad.
  * `sim: 'fake'` (sandbox.html?sim=fake) runs the straight-line stand-in for comparison.
+ * `net` (sandbox.html?net=ws://localhost:8787/ws/war/test-ridge, or /ws/war/test-ridge through the vite proxy; M3): no
+ * local sim, the worker plays on the live region (WarRegionDO) through ../net/client.ts and posts its decoded snapshots instead.
  */
 import { createSim as createFakeSim } from '../fake/sim';
 import { createSim } from '../sim';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
+import { createNet, type Net } from '../net/client';
 import type { BridgeOrder, BuildingType, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarSim } from '../types';
 
 export type ToWorker =
-  | { t: 'init'; region: RegionData; seed: number; sim: 'real' | 'fake' }
+  | { t: 'init'; region: RegionData; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
+  | { t: 'view'; x0: number; y0: number; x1: number; y1: number } // camera rect in tiles (net mode: interest management)
   | { t: 'spawn'; owner: string; team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour }
   | { t: 'order'; o: Order }
   | { t: 'speed'; scale: number } // 0 pauses
@@ -31,6 +35,7 @@ export type ToWorker =
 const NODES_EVERY = 10;
 
 let sim: WarSim | null = null;
+let net: Net | null = null;
 let brains: Bots | null = null;
 const scripted = new Set<number>();
 let timer = 0;
@@ -102,6 +107,11 @@ function prebuild(s: WarSim, team: number, max: number): void {
 
 onmessage = (e: MessageEvent<ToWorker>) => {
   const m = e.data;
+  if (m.t === 'init' && m.net) {
+    net = createNet(m.net, m.region.id, m.dev, (snap, stats) => postMessage({ snap, stats }));
+    return;
+  }
+  if (net) return netMessage(net, m);
   if (m.t === 'init') {
     sim = (m.sim === 'fake' ? createFakeSim : createSim)(m.region, m.seed);
     brains = createBots(sim);
@@ -127,3 +137,14 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     if (m.scale > 0) timer = setInterval(tick, 100 / m.scale) as unknown as number;
   }
 };
+
+/** Net mode: spawns become joins (the server places the squad on the alliance entry), orders and the camera go up; the
+ * economy and placement asks have no live counterpart yet (answered null). */
+function netMessage(n: Net, m: ToWorker): void {
+  if (m.t === 'spawn') n.join(m.team, m.cls, m.count);
+  else if (m.t === 'order') n.order(m.o);
+  else if (m.t === 'view') n.view(m.x0, m.y0, m.x1, m.y1);
+  else if (m.t === 'check') postMessage({ reply: m.id, place: null });
+  else if (m.t === 'checkWall') postMessage({ reply: m.id, wall: null });
+  else if (m.t === 'checkBridge') postMessage({ reply: m.id, bridge: null });
+}

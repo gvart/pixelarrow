@@ -1,6 +1,7 @@
 import type { RegionDO } from './region';
 import type { MatchmakerDO } from './duel/matchmaker';
 import type { DuelDO } from './duel/duelDO';
+import type { WarRegionDO } from './war/regionDO';
 import type { Session } from './auth/sessions';
 
 /** Worker bindings, vars and secrets (see wrangler.jsonc and server/.dev.vars.example). */
@@ -12,6 +13,10 @@ export interface Env {
   MATCHMAKER: DurableObjectNamespace<MatchmakerDO>;
   /** One object per live ranked or unranked match (named by the match id). */
   DUEL: DurableObjectNamespace<DuelDO>;
+  /** One object per live war region (server/src/war/regionDO.ts). */
+  WAR_REGION: DurableObjectNamespace<WarRegionDO>;
+  /** Live soldier cap per war region (W-06, default 600), split evenly between the 4 alliances. */
+  WAR_CAP?: string;
   ASSETS?: Fetcher;
   /** The game's URL, play.pixelarrow.app (wrangler.jsonc vars; server/src/urls.ts). */
   GAME_URL?: string;
