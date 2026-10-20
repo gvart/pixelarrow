@@ -12,7 +12,9 @@ export function buildRegions(fit) {
   const war = readWarRegions(ROOT);
   if (war.length !== 37) throw new Error(`WAR.md lists ${war.length} regions, expected 37`);
   const ids = war.map((r) => r.id);
-  const { lab, index } = buildRaster(ids, fit);
+  const at = new Map(ids.map((id, i) => [id, i + 1]));
+  const allowed = new Set(war.flatMap((r) => r.adjacent.map((n) => [at.get(r.id), at.get(n)].sort((a, b) => a - b).join(','))));
+  const { lab, index } = buildRaster(ids, { ...fit, allowed });
   const stats = borderStats(lab);
   const pair = (a, b) => stats.get(index.get(a) < index.get(b) ? `${index.get(a)},${index.get(b)}` : `${index.get(b)},${index.get(a)}`);
 
