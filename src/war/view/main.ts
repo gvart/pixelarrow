@@ -4,6 +4,8 @@
  * validates src/war/regions/<id>.json (default test-ridge); ?region=fake is the built-in fake valley
  * (src/war/fake/region.ts). ?sim=fake runs the straight-line fake sim instead of src/war/sim.
  * ?art=grey draws the greybox terrain instead of the PixelLab art (public/war/).
+ * ?world=1: opened from the world map (world.html); with ?net it takes over the squads standing in the region (?team=
+ * alliance). The HUD's World button (Shift+W) goes back.
  * `window.__sandbox` is the scene, for scripts/war/sandbox-shots.mjs.
  */
 import Phaser from 'phaser';
@@ -38,6 +40,8 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
     game.events.off('poststep', ready);
     sandboxRoster(scene); // before the scenario spawns: the player's squads take its persons
     if (sc) applyScenario(scene, sc);
+    // M4c, opened from the world map in net mode: take over the squads standing here (a rejoin; else a squad from home)
+    else if (q.has('net') && q.has('world')) scene.sim.spawn('you', Number(q.get('team')) || 0, 'hoplite', 12, 0, 0);
     devPanel(game, scene, sc);
     hud(scene);
   };
