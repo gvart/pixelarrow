@@ -1,0 +1,41 @@
+src/war/sim/depth.ts
+  s_cfc22b058125c4::t_6402069341895c 1-52
+src/war/sim/economy.ts
+  s_cfc22b058125c4::t_ab56c641189a50 178-179
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_18e4a51610703e 186,190-191
+  s_cfc22b058125c4::t_ab56c641189a50 38
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_7ec014e25e2999 539
+  s_cfc22b058125c4::t_d2b014055decd3 526-538,540
+  s_cfc22b058125c4::t_f63bcfd6782920 2727-2728
+tests/war/depth.test.ts
+  s_cfc22b058125c4::t_798a6f8956b9c5 1-186
+src/war/types.ts
+  s_cfc22b058125c4::t_f63bcfd6782920 452-457
+  s_cfc22b058125c4::t_d7fbc8a6824c46 289-291
+src/data/warBosses.ts
+  s_cfc22b058125c4::t_42ef1874bbfb40 7-10,25,29-35,39-51,53-55,57-60,72,74
+tests/war/bossLoot.test.ts
+  s_cfc22b058125c4::t_8801387371ad1f 10-11,13-14
+scripts/war/bench.mjs
+  s_cfc22b058125c4::t_13047dcd6c5dab 291-295
+src/war/sim/mobs.ts
+  s_cfc22b058125c4::t_d7fbc8a6824c46 15-22,26,80-84,89,101-108,111,117-118,124,126-128,155-158,166-176,208-212,215-217,226-230,240,265,274,284-295,298-305,311-322,328,332-352,357-372,381-382,385-405,422,434-435,441
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e82cf939e59a962167b0727e7b0c45104009d2f2",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
