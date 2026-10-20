@@ -382,6 +382,10 @@ export interface WarBuildSim extends WarSim {
   importState(s: SimState): void;
   /** M5e: these persons' living men leave the field at once, unreported (D1 already sent them home). */
   dropPersons(ids: string[]): void;
+  /** M4 transfer out: the fight so far of these persons' living men (XP, kills, as endFight), reported now and cleared. */
+  reportPersons(ids: string[]): PersonResult[];
+  /** M4 transfer in: these persons' living men take the hit points they lost elsewhere (by person id; never below 1). */
+  hurtPersons(lost: Record<string, number>): void;
 }
 export declare function createSim(region: RegionData, seed: number): WarBuildSim; // implemented in src/war/sim/index.ts
 

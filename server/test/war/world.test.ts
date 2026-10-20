@@ -14,6 +14,7 @@ import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { freshWorld, RETRY_MS, World, WORLD_NAME, type ArriveResult, type Ports } from '../../src/war/world/world';
 import { HEGEMONY, HOUR_MS } from '../../../src/war/world/season';
+import { joinRefusal } from '../../../src/war/world/access';
 import type { WarWorldDO } from '../../src/war/world/worldDO';
 import { currentSeason } from '../../src/online/store';
 import { api, BASE, devLogin } from '../helpers';
@@ -193,6 +194,18 @@ describe('Season', () => {
   });
 });
 
+describe('joinRefusal', () => {
+  it('fresh squads: own home, own, unheld or contested regions; a foreign home or a foe-held region only by a transfer', () => {
+    expect(joinRefusal('dodona', 0, null)).toBeNull();
+    expect(joinRefusal('dodona', 1, null)).toMatch(/home/);
+    expect(joinRefusal('kleisoura', 1, { owner: -1, contested: false })).toBeNull();
+    expect(joinRefusal('kleisoura', 1, { owner: 1, contested: false })).toBeNull();
+    expect(joinRefusal('kleisoura', 1, { owner: 0, contested: false })).toMatch(/held by Dodona/);
+    expect(joinRefusal('kleisoura', 1, { owner: 0, contested: true })).toBeNull();
+    expect(joinRefusal('test-ridge', 3, null)).toBeNull();
+  });
+});
+
 describe('WarRoom transfers', () => {
   const region = warRegion('dodona-e')!;
   const join = (pid: number, team: number, ids: string[][]): JoinMsg => ({ t: 'join', v: NET_VERSION, region: 'dodona-e', playerId: pid, team, squads: ids });
@@ -211,7 +224,7 @@ describe('WarRoom transfers', () => {
     const [s] = r.squadsOf(1);
     expect(r.depart(2, s, 'N', 20)).toMatchObject({ error: 'notOwner' });
     const out = r.depart(1, s, 'N', 20); // team 0 spawned on the north entry
-    expect(out).toEqual({ ids: g.map((p) => p.id), off: 0 });
+    expect(out).toEqual({ ids: g.map((p) => p.id), off: 0, lost: {} });
     expect(r.quota().live[0]).toBe(0);
     expect(r.depart(1, s, 'N', 20)).toMatchObject({ error: 'notOwner' }); // gone already
     const t = r.tick();
@@ -231,6 +244,38 @@ describe('WarRoom transfers', () => {
     const [s3] = r.squadsOf(1);
     expect(r.depart(1, s3, 'N', 1000)).toMatchObject({ error: 'foes' }); // the foe squad on the east entry is within 1000
     expect(r.squadsOf(1)).toContain(s3);
+  });
+
+  it('a squad leaving mid-fight takes its hit points along and hands its unsaved fight XP to write back', () => {
+    const r = new WarRoom({ region, seed: 1, cap: 600 });
+    const g = squad('a'), f = squad('f');
+    r.join(1, join(1, 0, [g.map((p) => p.id)]), [g]);
+    r.join(2, join(2, 1, [f.map((p) => p.id)]), [f]);
+    r.tick();
+    const [mine] = r.squadsOf(1), [foe] = r.squadsOf(2);
+    expect(r.order(1, { kind: 'attack', squad: mine, target: foe })).toBeNull();
+    expect(r.order(2, { kind: 'attack', squad: foe, target: mine })).toBeNull();
+    const hurt = (sq = mine) => r.snapshot().units.filter((u) => u.squad === sq && u.state !== 'dead' && u.hp < u.maxHp);
+    const foeLost = () => r.snapshot().units.filter((u) => u.squad === foe).reduce((a, u) => a + u.maxHp - u.hp, 0);
+    for (let i = 0; i < 3000 && (hurt().length < 3 || foeLost() < 200); i++) r.tick();
+    expect(hurt().length).toBeGreaterThanOrEqual(3);
+    const before = new Map(r.snapshot().units.filter((u) => u.squad === mine && u.state !== 'dead').map((u) => [u.pid!, u.maxHp - u.hp]));
+    const out = r.depart(1, mine, 'N', 0);
+    if ('error' in out) throw new Error(out.error);
+    for (const [pid, n] of before) expect(out.lost[pid] ?? 0).toBe(n);
+    expect(out.fight!.report.persons.length).toBeGreaterThan(0);
+    expect(out.fight!.report.persons.every((x) => x.team === 0 && x.state === 'fit')).toBe(true);
+    expect(out.fight!.report.persons.reduce((a, x) => a + x.dmg, 0)).toBeGreaterThan(0);
+    expect(out.fight!.report.persons.reduce((a, x) => a + x.xp, 0)).toBeGreaterThan(0);
+    // reported once: the fight's end later does not count them again
+    for (let i = 0; i < 200; i++) for (const x of r.tick().fights) expect(x.report.persons.some((p) => before.has(p.pid))).toBe(false);
+    // they arrive elsewhere as hurt as they left
+    const r2 = new WarRoom({ region, seed: 1, cap: 600 });
+    const men = g.filter((p) => before.has(p.id));
+    const got = r2.arrive(1, 0, men, 'W', out.lost);
+    if ('error' in got) throw new Error(got.error);
+    r2.tick();
+    for (const u of r2.snapshot().units.filter((x) => x.squad === got.squad)) expect(u.maxHp - u.hp).toBe(Math.min(out.lost[u.pid!] ?? 0, u.maxHp - 1));
   });
 
   it('arrivals come in at the facing entry, hold, wait on a full quota and are taken over by a rejoin', () => {
@@ -336,6 +381,24 @@ describe('WarWorldDO', () => {
     const wb = (await b.next('welcome')) as Extract<ServerMsg, { t: 'welcome' }>;
     expect(wb.squads).toHaveLength(1);
     b.ws.close(1000);
+  });
+
+  it('region joins check the alliance: none, the wrong team or a foreign home are refused', async () => {
+    const me = await devLogin(7504);
+    await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: {} });
+    const ids = (await env.DB!.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active' ORDER BY slot LIMIT 12").bind(me.playerId).all<{ id: string }>()).results.map((r) => r.id);
+    const tryJoin = async (region: string, team: number) => {
+      const c = await connect<ServerMsg>(`/ws/war/${region}`, me.token);
+      c.send({ t: 'join', v: NET_VERSION, region, playerId: me.playerId, team, squads: [ids] } satisfies JoinMsg);
+      const m = await Promise.race([c.next('refused'), c.next('welcome')]);
+      c.ws.close(1000);
+      return m;
+    };
+    expect(await tryJoin('dodona', 0)).toMatchObject({ t: 'refused', reason: 'team', detail: 'join an alliance first' });
+    await api('/api/war/world/dev/alliance', { method: 'POST', token: me.token, json: { alliance: 1 } });
+    expect(await tryJoin('skythia', 0)).toMatchObject({ t: 'refused', reason: 'team' });
+    expect(await tryJoin('dodona', 1)).toMatchObject({ t: 'refused', reason: 'region' });
+    expect(await tryJoin('skythia', 1)).toMatchObject({ t: 'welcome' });
   });
 
   it('alliance join: a clan is a sub-group of one alliance', async () => {

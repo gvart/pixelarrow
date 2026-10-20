@@ -18,7 +18,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../../env';
 import { logError } from '../../telemetry/log';
-import { parseWorldMsg, type SeasonResult, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
+import { parseWorldMsg, type RegionState, type SeasonResult, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
 import type { AllianceId, Side } from '../../../../src/war/world/types';
 import { allianceCounts } from './members';
 import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type RegionReport, type WorldState } from './world';
@@ -61,7 +61,7 @@ export class WarWorldDO extends DurableObject<Env> {
     const stub = (id: string) => this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(id));
     return {
       depart: (from: string, pid: number, squad: number, side: Side, to: string, foeRadius: number) => stub(from).depart(from, pid, squad, side, to, foeRadius) as Promise<DepartResult>,
-      arrive: (to: string, pid: number, alliance: AllianceId, ids: string[], side: Side) => stub(to).arrive(to, pid, alliance, ids, side) as Promise<ArriveResult>,
+      arrive: (to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>) => stub(to).arrive(to, pid, alliance, ids, side, lost) as Promise<ArriveResult>,
     };
   }
 
@@ -108,6 +108,11 @@ export class WarWorldDO extends DurableObject<Env> {
     w.newSeason(now);
     await this.commit(w);
     return w.st.season.id;
+  }
+
+  /** What the world knows of one region (null: not a world region). */
+  async regionState(id: string): Promise<RegionState | null> {
+    return (await this.ensure()).region(id) ?? null;
   }
 
   async snapshot(pid: number, alliance: AllianceId | null): Promise<WorldSnapshot> {

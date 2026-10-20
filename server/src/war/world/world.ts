@@ -37,6 +37,8 @@ export interface Transit extends TransitSnap {
   side: Side;
   /** Person ids. */
   ids: string[];
+  /** Hit points each man was down when he left (by person id; absent: whole). */
+  lost?: Record<string, number>;
   /** Next arrival attempt (queued). */
   retryAt?: number;
 }
@@ -64,13 +66,13 @@ export interface WorldState {
 /** What a region room tells the world (WarRoom.summary). */
 export interface RegionReport { live: number[]; claims: number[]; channel: number[] }
 
-export type DepartResult = { ids: string[]; off: number } | { error: TransferError; detail?: string };
+export type DepartResult = { ids: string[]; off: number; lost?: Record<string, number> } | { error: TransferError; detail?: string };
 export type ArriveResult = { ok: true } | { error: 'full' | 'team' | 'squads' | 'gone' | 'unavailable' };
 
 /** The region rooms as the world sees them (WarRegionDO RPC; fakes in tests). */
 export interface Ports {
   depart(from: string, pid: number, squad: number, side: Side, to: string, foeRadius: number): Promise<DepartResult>;
-  arrive(to: string, pid: number, alliance: AllianceId, ids: string[], side: Side): Promise<ArriveResult>;
+  arrive(to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>): Promise<ArriveResult>;
 }
 
 const zeros = () => Array<number>(N).fill(0);
@@ -189,7 +191,7 @@ export class World {
     }
     if ('error' in out) return out;
     const ms = Math.round(e.ms * this.season.travelScale + out.off * this.season.offExitMsPerTile);
-    const t: Transit = { id: ++this.st.seq, pid, alliance, from: o.from, to: o.to, side: e.sideB, ids: out.ids, men: out.ids.length, departAt: now, arriveAt: now + ms, state: 'moving' };
+    const t: Transit = { id: ++this.st.seq, pid, alliance, from: o.from, to: o.to, side: e.sideB, ids: out.ids, ...(out.lost && Object.keys(out.lost).length ? { lost: out.lost } : {}), men: out.ids.length, departAt: now, arriveAt: now + ms, state: 'moving' };
     this.st.transit.push(t);
     return t;
   }
@@ -214,7 +216,7 @@ export class World {
       }
       let r: ArriveResult;
       try {
-        r = await ports.arrive(t.to, t.pid, t.alliance, t.ids, t.side);
+        r = await ports.arrive(t.to, t.pid, t.alliance, t.ids, t.side, t.lost);
       } catch {
         r = { error: 'unavailable' };
       }

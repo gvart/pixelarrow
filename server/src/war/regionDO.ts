@@ -21,7 +21,8 @@
  * room queues it; every tick's `crafted` events are written back (applyCrafts: minted items, repairs, salvage; keyed,
  * idempotent) and mend items whose order went go back to the stash.
  *
- * M4 world: WarWorldDO calls depart / arrive over RPC for transfers between regions (./world/world.ts); a world region
+ * M4 world: WarWorldDO calls depart / arrive over RPC for transfers between regions (./world/world.ts): a departing
+ * squad's unsaved fight (XP, kills) is written to D1 before it leaves and its hit points ride along; a world region
  * reports its summary (live men, claim points, claims in progress) to the world every REPORT_TICKS when it changed.
  */
 import { DurableObject } from 'cloudflare:workers';
@@ -34,6 +35,9 @@ import { logError } from '../telemetry/log';
 import { applyFight, claimForJoin, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { isWorldRegion } from '../../../src/war/world/graph';
+import { joinRefusal } from '../../../src/war/world/access';
+import { ALLIANCES } from '../../../src/war/world/alliances';
+import { allianceOf } from './world/members';
 import type { Side } from '../../../src/war/world/types';
 import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
 
@@ -152,6 +156,18 @@ export class WarRegionDO extends DurableObject<Env> {
 
   private async join(ws: WebSocket, pid: number, room: WarRoom, m: JoinMsg): Promise<void> {
     const region = room.region.id;
+    // M4: in a world region the player serves his alliance; fresh squads only where it may bring them (joinRefusal)
+    const db = this.env.DB;
+    if (db && isWorldRegion(region) && m.region === region) {
+      const a = await allianceOf(db, pid);
+      if (a === null) return send(ws, { t: 'refused', reason: 'team', detail: 'join an alliance first' });
+      if (m.team !== a) return send(ws, { t: 'refused', reason: 'team', detail: `you serve ${ALLIANCES[a].name}` });
+      if (room.spawnsNew(pid)) {
+        const st = await this.world().regionState(region).catch(() => null);
+        const why = joinRefusal(region, a, st);
+        if (why) return send(ws, { t: 'refused', reason: 'region', detail: why });
+      }
+    }
     let persons: WarPerson[][] | undefined;
     if (m.squads && m.region === region && room.spawnsNew(pid)) {
       const d = this.env.DB;
@@ -191,17 +207,22 @@ export class WarRegionDO extends DurableObject<Env> {
     const r = room.depart(pid, squad, side, foeRadius);
     if ('error' in r) return r;
     const d = this.env.DB;
+    // their fight so far goes to D1 before they leave (the destination loads them from there); queued writes first
+    if (d && r.fight) {
+      await this.settled();
+      await applyFight(d, r.fight.id, region, r.fight.report, Date.now());
+    }
     if (d) await d.prepare('UPDATE war_persons SET region = ?3, updated_at = ?4 WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(r.ids), `>${to}`, Date.now()).run();
     this.save();
     this.report(room, true);
-    return r;
+    return { ids: r.ids, off: r.off, lost: r.lost };
   }
 
   /**
    * M4 (RPC from WarWorldDO): persons `ids` of the player (alliance `team`) in transit to this region come in over the
    * entry on `side`, if the alliance's quota has room (else the world keeps them waiting). D1 marks them deployed here.
    */
-  async arrive(region: string, pid: number, team: number, ids: string[], side: Side): Promise<ArriveResult> {
+  async arrive(region: string, pid: number, team: number, ids: string[], side: Side, lost: Record<string, number> = {}): Promise<ArriveResult> {
     const room = await this.ensure(region);
     const d = this.env.DB;
     if (!room || !d) return { error: 'unavailable' };
@@ -209,7 +230,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const got = await deployed(d, road, ids);
     const persons = ids.flatMap((id) => got.get(id) ?? []);
     if (!persons.length) return { error: 'gone' };
-    const r = room.arrive(pid, team, persons, side);
+    const r = room.arrive(pid, team, persons, side, lost);
     if ('error' in r) return r;
     await d.batch([
       d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?4 WHERE region = ?3 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(persons.map((p) => p.id)), road, Date.now()),
@@ -222,13 +243,17 @@ export class WarRegionDO extends DurableObject<Env> {
     return { ok: true };
   }
 
+  private world() {
+    return this.env.WAR_WORLD.get(this.env.WAR_WORLD.idFromName(WORLD_NAME));
+  }
+
   /** M4: tell the world what its map shows of this region, when it changed (world regions only). */
   private report(room: WarRoom, now = false): void {
     if (!isWorldRegion(room.region.id) || (!now && room.currentTick % REPORT_TICKS !== 0)) return;
     const s = JSON.stringify(room.summary());
     if (s === this.reported) return;
     this.reported = s;
-    const world = this.env.WAR_WORLD.get(this.env.WAR_WORLD.idFromName(WORLD_NAME));
+    const world = this.world();
     this.ctx.waitUntil(world.report(room.region.id, room.summary()).then(() => undefined, (e) => {
       this.reported = '';
       logError('war_report_failed', e, { region: room.region.id });
