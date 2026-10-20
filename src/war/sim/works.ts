@@ -2007,7 +2007,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.bridge ? { bridge: { axis: b.bridge.axis, dir: b.bridge.dir, width: b.bridge.width, part: b.bridge.part, deck: b.bridge.deck, rows: b.bridge.rows } } : {}),
           ...(b.hold && b.state !== 'destroyed' ? { goods: totals(b.hold), ...(b.hold.items.length ? { items: b.hold.items.length, list: itemList(b.hold) } : {}) } : {}),
           ...(b.owner ? { owner: b.owner } : {}),
-          ...(b.pre ? { pre: true as const, ...(b.pre.landmark ? { landmark: true as const } : {}), ...(b.pre.ruin ? { ruin: true as const } : {}), ...(b.pre.fouled > tick ? { fouled: true as const } : {}) } : {}),
+          ...(b.pre ? { pre: true as const, ...(b.pre.landmark ? { landmark: true as const } : {}), ...(region.prebuilt?.[b.pre.i]?.art ? { art: region.prebuilt[b.pre.i].art } : {}), ...(b.pre.ruin ? { ruin: true as const } : {}), ...(b.pre.fouled > tick ? { fouled: true as const } : {}) } : {}),
           ...(b.mend ? { mend: true as const } : {}),
           ...(b.type === 'stoa' ? { stalls: 2 } : {}),
         };

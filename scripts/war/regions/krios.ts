@@ -40,6 +40,12 @@ const def: RegionDef = {
     k.paint('snow', [112, 104, 16, 10, 0], { on: ['grass'], minH: 4 });
     k.paint('snow', [170, 92, 18, 10, 0.2], { on: ['grass'], minH: 4 });
     // roads: W up the glacier to the col; the fork E down the defile and S down the valley to Kleisoura
+    // M7d: Drakon's Citadel on the glacier shoulder south of the col, its gate on a spur road from the col road
+    k.landmark('citadel', [113, 112], {
+      guardians: [{ boss: 'drakon', at: [11, 10], perches: [[11, 6], [1.5, 1.5], [12.5, 1.5], [19.5, 1.5], [19.5, 12.5], [1.5, 12.5]], pit: [4.5, 5.5] }],
+    });
+    k.road([[136, 108], [130, 124], [120, 124], [118, 121]], { w: 1.1, grade: 3 });
+    k.spot('citadel', [118, 117]);
     k.road([W, [24, 128], [52, 112], [80, 104], [98, 102.5], [124, 104], [146, 110]], { w: 1.1, grade: 4 });
     k.road([[146, 110], [176, 112], [206, 120], [236, 128], E], { w: 1.4, grade: 4 });
     k.road([[146, 110], [140, 140], [132, 180], [130, 220], S], { w: 1.4, grade: 4 });

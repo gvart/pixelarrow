@@ -449,6 +449,8 @@ export interface BuildingSnap {
   goods?: Partial<Record<ResourceKind, number>>; items?: number; owner?: string;
   /** M7a: a pre-built piece (landmark: restored only by its rule); a ruin (rubble, no function; rebuilt by its ground's owner); a fouled well; under repair. */
   pre?: true; landmark?: true; ruin?: true; fouled?: true; mend?: true;
+  /** M7d: a landmark piece's art (public/war/landmarks/landmarks.json piece id). */
+  art?: string;
   /** M7a stoa: stall sites under its roof. */
   stalls?: number;
   /** M6k: a store's or chest's first items (at most 8). */

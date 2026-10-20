@@ -9,11 +9,12 @@ export const SPOTS = {
   "riverNarrowsB": [51.1, 94.5],
   "narrows": [245.9, 133.5],
   "river1Ford": [359.9, 247.5],
+  "landmark": [291, 401],
   "market": [235.2, 238.4],
-  "fields": [151.6, 126.3],
+  "fields": [126.3, 147.9],
   "iron": [72.8, 384.4],
   "salt": [211.5, 344],
   "food": [431.9, 124.9],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":237.5,"y":241.5},{"x":193.5,"y":179.5}] as const;
+export const CLAIM_POINTS = [{"x":238.5,"y":234.5},{"x":294.5,"y":408.5},{"x":185.5,"y":193.5}] as const;

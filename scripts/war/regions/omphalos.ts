@@ -41,6 +41,8 @@ const def: RegionDef = {
     k.spot('fortress', [128, 92]);
     k.spot('labyrinth', [184, 172]);
     // the four ramps (built up from the skirt), the roads to the square
+    // M7d: the Temple City of the Navel east of the square: the Titan in his arena, the Minotaur in the labyrinth
+    k.landmark('navel', [168, 170], { guardians: [{ boss: 'titan', at: [5, 11], perches: [[5, 5]] }, { boss: 'minotaur', at: [24, 13] }] });
     k.road([k.entry('saddle'), [128, 10], [128, 28], [128, 46]], { fill: true, grade: 3 });
     k.road([k.entry('erymanthos'), [10, 128], [28, 128], [46, 130]], { fill: true, grade: 3 });
     k.road([k.entry('gorge'), [140, 248], [142, 230], [144, 210]], { fill: true, grade: 3 });

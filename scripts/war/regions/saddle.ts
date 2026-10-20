@@ -34,6 +34,8 @@ const def: RegionDef = {
     k.rockMass([170, 147, 34, 3.4, 0.04], { rough: 0.8, foot: 2 });
     k.forest([214, 180, 16, 30, 0.25], [40, 150, 14, 10, 0.2]);
     // roads: down from Kleisoura through the notch; in from the moors and the hills; the switchback ramp south
+    // M7d: the Cyclopean Gatehouse astride the switchback road at the top of the ramp; Brontes on its gate top
+    k.landmark('cyclops', [121, 132.75], { guardians: [{ boss: 'brontes', at: [14, 6.5], perches: [[14, 2.5]] }], nodes: [['landmark/eagle-crater', 24, 6]] });
     k.road([N, [130, 24], [130, 60], [126, 96], [124, 108]], { w: 1.4, grade: 4 });
     k.road([W, [30, 126], [64, 120], [96, 112], [124, 108]], { w: 1.4, grade: 4 });
     k.road([E, [226, 128], [190, 120], [156, 112], [124, 108]], { w: 1.4, grade: 4 });

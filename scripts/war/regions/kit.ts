@@ -33,7 +33,7 @@ import { encodeBiomes, encodeVisual, KINDS, ZVIS } from '../../../src/war/region
 import { footprintTiles, OBJECT_BLOCKS } from '../../../src/war/region/objects.ts';
 import { columnSpans, massifBase, placeMassifs, type MassifPiece } from '../../../src/war/region/massifs.ts';
 import { encodeCells, encodeObjects } from '../../../src/war/region/compact.ts';
-import type { BuildingType, MobKind, PrebuiltEntry } from '../../../src/war/types.ts';
+import type { BuildingType, GuardianEntry, MobKind, PrebuiltEntry } from '../../../src/war/types.ts';
 import { REGION_DEPTH } from '../../../src/war/sim/depth.ts';
 import { readImage } from '../../art/lib/png.mjs';
 import { BRIEF, byId, sideOf, type Side, type WorldRegion } from './world.ts';
@@ -93,10 +93,10 @@ const NODE_IDS: Record<string, string[]> = {
 export const off = (p: Sample, k: number): Pt => [p.x - p.ty * k, p.y + p.tx * k];
 export const pt = (p: { x: number; y: number }): Pt => [p.x, p.y];
 
-interface Lair { kind: MobKind; x: number; y: number; count?: number; as?: string }
+interface Lair { kind: MobKind; x: number; y: number; count?: number; as?: string; captain?: boolean }
 interface Req { kind: 'piece'; id: string; at: Pt; r: number; onRock: boolean; n: number; gap: number }
 interface RowsReq { kind: 'rows'; ids: string[]; b: Blob; dx: number; dy: number; seed: number; on: Kind[] }
-interface LairReq { kind: MobKind; at: Pt; count?: number; as?: string }
+interface LairReq { kind: MobKind; at: Pt; count?: number; as?: string; captain?: boolean }
 interface River { c: Sample[]; half: number; narrows: { s: number; half: number }[] }
 
 export class Kit {
@@ -465,7 +465,7 @@ export class Kit {
     const ids = NODE_IDS[kind];
     for (let k = 0; k < n; k++) this.piece(ids[k % ids.length], at, { r, gap: 5 });
   }
-  lair(kind: MobKind, at: Pt, o: { count?: number; as?: string } = {}) { this.lairReqs.push({ kind, at, ...o }); }
+  lair(kind: MobKind, at: Pt, o: { count?: number; as?: string; captain?: boolean } = {}) { this.lairReqs.push({ kind, at, ...o }); }
   /** A claim point near `at` whose zone is the lairs within `r` units (or the listed lair indices). */
   claim(at: Pt, r = 70, lairs?: number[]) { this.claimReqs.push({ at, r, lairs }); }
 
@@ -571,7 +571,47 @@ export class Kit {
   }
   /** A wooden jetty out over the water near `at`. */
   jetty(at: Pt, r = 24) { this.scatterTown([T('jetty')], at, { n: 1, r1: r, water: true }); }
+
+  // ---- M7d landmarks (docs/WAR.md "Landmarks"; layouts and art: public/war/landmarks/landmarks.json)
+  readonly landmarkReqs: LandmarkReq[] = [];
+  /**
+   * A landmark's layout (landmarks.json `landmarks[].id`) with its NW corner on the sim tile under unit point `at`: the
+   * ground under it (and a tile round) levelled to `h` (default the ground at its centre) and dried; its pieces become
+   * pre-built landmark structures of a town of their own (60% hp, the mobs' while its guardian lives, gates shut), its
+   * node pieces the rare-good nodes, its guardians posted at layout tiles. Returns the unit point of its centre.
+   */
+  landmark(id: string, at: Pt, o: { h?: number; guardians: LGuard[]; nodes?: [string, number, number][] }): Pt {
+    const lay = LANDMARK_LAYOUTS.get(id);
+    if (!lay) throw new Error(`unknown landmark ${id}`);
+    const tx = Math.round(this.simTile(at[0])), ty = Math.round(this.simTile(at[1])), [lw, lh] = lay.size;
+    const c: Pt = [this.unitOf(tx + lw / 2), this.unitOf(ty + lh / 2)];
+    const h = o.h ?? this.height[Math.max(0, this.at(c))];
+    this.flatRect(tx - 1, ty - 1, tx + lw + 1, ty + lh + 1, h, false);
+    this.landmarkReqs.push({ id, t: [tx, ty], town: this.townAt(c, 'village'), guardians: o.guardians, nodes: o.nodes ?? [] });
+    return c;
+  }
 }
+/** A landmark guardian's posts in its layout's tiles (from the NW corner); heads 'shore': six on the land by the water near it. */
+interface LGuard { boss: string; at: Pt; perches?: Pt[]; pit?: Pt; postern?: Pt; flats?: Pt | 'water'; heads?: 'shore' | Pt[] }
+interface LandmarkReq { id: string; t: Pt; town: number; guardians: LGuard[]; nodes: [string, number, number][] }
+/** The landmark art (ART-L): its pieces (footprint, kind, hp) and layouts. */
+const LANDMARK_JSON = JSON.parse(readFileSync(fileURLToPath(new URL('../../../public/war/landmarks/landmarks.json', import.meta.url)), 'utf8')) as {
+  pieces: { id: string; kind: string; footprint: [number, number]; hp: number; axis?: 'x' | 'y' }[];
+  landmarks: { id: string; size: [number, number]; pieces: [string, number, number][]; labyrinth?: [number, number][] }[];
+};
+const LANDMARK_PIECES = new Map(LANDMARK_JSON.pieces.map((p) => [p.id, p]));
+const LANDMARK_LAYOUTS = new Map(LANDMARK_JSON.landmarks.map((l) => [l.id, l]));
+/** The sim building each landmark piece kind is (docs/WAR.md "Landmarks"); node pieces are rare-good nodes (src/data/warLandmarks.ts RARE_NODES). */
+const LANDMARK_TYPE: Record<string, BuildingType | null> = {
+  keep: 'fort', wall: 'stoneWall', tower: 'stoneTower', gate: 'stoneGate', house: 'house', temple: 'temple', shrine: 'shrine', well: 'well',
+  jetty: 'jetty', arena: 'barracks', statue: 'statue', forge: 'forge3', workshop: 'workshop', kiln: 'pitchKiln', stair: 'stoneStairs', ford: null, node: null,
+};
+const LANDMARK_NODE: Record<string, string> = { 'citadel-bone-pit': 'landmark/bone-pit', 'titan-slag': 'landmark/slag-heap', 'obsidian-field': 'landmark/glass-field' };
+/** Build-mode and town pieces in a layout (`@id`): their sim type and footprint. */
+const LANDMARK_AT: Record<string, [BuildingType, number, number] | null> = {
+  barracks: ['barracks', 4, 3], forge2: ['forge2', 3, 3], well: ['well', 1, 1], 'stone-gate-x': ['stoneGate', 2, 1], 'stone-tower-round': ['stoneTower', 2, 2],
+  stoa: ['stoa', 2, 6], jetty: ['jetty', 1, 4], oak: null,
+};
 /** Town structure ids: the elaia library's town set. */
 const T = (id: string) => `elaia/town-${id}`;
 type TownReq =
@@ -933,6 +973,88 @@ export function build(def: RegionDef): Built {
     }
     if (placed) log.push(`town ${placed} structures`);
   }
+  // ---- M7d landmarks: their pieces as pre-built landmark structures (art, own max hp, 60%), nodes, guardian posts
+  const guardians: GuardianEntry[] = [];
+  for (const L of k.landmarkReqs) {
+    const lay = LANDMARK_LAYOUTS.get(L.id)!, [x0, y0] = L.t;
+    let n = 0;
+    const place = (type: BuildingType, px: number, py: number, fw: number, fh: number, art?: string, maxHp?: number) => {
+      const tiles: number[] = [];
+      for (let y = py; y < py + fh; y++) for (let x = px; x < px + fw; x++) {
+        const j = at(x, y);
+        if (j < 0 || taken.has(j) || terrain[j] === 'rock') return;
+        tiles.push(x, y);
+      }
+      clear(px - 1, py - 1, px + fw + 1, py + fh + 1);
+      for (let i = 0; i < tiles.length; i += 2) {
+        const j = at(tiles[i], tiles[i + 1]);
+        taken.add(j);
+        if (type !== 'stoneGate') townShut[j] = 1;
+      }
+      const rot = fh > fw && (type === 'stoneGate' || type === 'stoneWall' || type === 'stoneStairs') ? 1 : 0;
+      pre.push({ type, x: px + fw / 2, y: py + fh / 2, ...(rot ? { rot } : {}), tiles, town: L.town, court: false, landmark: true, hp: 0.6, ...(art ? { art } : {}), ...(maxHp ? { maxHp } : {}) });
+      n++;
+    };
+    for (const [pid, dx, dy] of lay.pieces) {
+      if (pid.startsWith('@')) {
+        const t = LANDMARK_AT[pid.slice(1)];
+        if (t) place(t[0], x0 + dx, y0 + dy, t[1], t[2]);
+        continue;
+      }
+      const pc = LANDMARK_PIECES.get(pid);
+      if (!pc) throw new Error(`landmark ${L.id}: unknown piece ${pid}`);
+      const [fw, fh] = pc.footprint;
+      if (LANDMARK_NODE[pid]) {
+        clear(x0 + dx - 1, y0 + dy - 1, x0 + dx + fw + 1, y0 + dy + fh + 1);
+        objects.push({ id: LANDMARK_NODE[pid], x: x0 + dx + fw / 2, y: y0 + dy + fh / 2 });
+        continue;
+      }
+      const type = LANDMARK_TYPE[pc.kind];
+      if (!type) continue;
+      place(type, x0 + dx, y0 + dy, fw, fh, pid, type === 'stoneWall' ? pc.hp * fw * fh : pc.hp);
+    }
+    // the Temple City's labyrinth: a wall tile each (the kit's frames by neighbour)
+    for (const [dx, dy] of lay.labyrinth ?? []) place('stoneWall', x0 + dx, y0 + dy, 1, 1, 'navel-labyrinth', 1500);
+    for (const [id, dx, dy] of L.nodes) {
+      clear(x0 + dx - 1, y0 + dy - 1, x0 + dx + 2, y0 + dy + 2);
+      objects.push({ id, x: x0 + dx + 0.5, y: y0 + dy + 0.5 });
+    }
+    // its guardians, at their posts (Scylla's heads on the land by the water)
+    const P = (p: Pt): [number, number] => [x0 + p[0], y0 + p[1]];
+    for (const g of L.guardians) {
+      const e: GuardianEntry = { boss: g.boss, x: x0 + g.at[0], y: y0 + g.at[1] };
+      if (g.perches) e.perches = g.perches.map(P);
+      if (g.pit) e.pit = P(g.pit);
+      if (g.postern) e.postern = P(g.postern);
+      const cx = x0 + lay.size[0] / 2, cy = y0 + lay.size[1] / 2;
+      if (g.flats === 'water') {
+        // the nearest water to it: the River-God's channel
+        let bd = Infinity;
+        for (let y = Math.floor(cy - 60); y <= cy + 60; y++) for (let x = Math.floor(cx - 60); x <= cx + 60; x++) {
+          const j = at(x, y), d = Math.hypot(x - cx, y - cy);
+          if (j >= 0 && water[j] && d < bd) (bd = d), (e.flats = [x + 0.5, y + 0.5]);
+        }
+      } else if (g.flats) e.flats = P(g.flats);
+      if (g.heads === 'shore') {
+        const cand: [number, number, number][] = [];
+        for (let y = Math.floor(cy - 60); y <= cy + 60; y++) for (let x = Math.floor(cx - 60); x <= cx + 60; x++) {
+          const j = at(x, y);
+          if (j < 0 || water[j] || terrain[j] === 'rock' || taken.has(j) || !ring(x, y, (m) => water[m] > 0)) continue;
+          cand.push([x + 0.5, y + 0.5, Math.hypot(x - cx, y - cy)]);
+        }
+        cand.sort((a, b) => a[2] - b[2]);
+        const hs: [number, number][] = [];
+        for (const [x, y] of cand) if (hs.length < 6 && hs.every((h) => Math.hypot(h[0] - x, h[1] - y) >= 3)) hs.push([x, y]);
+        if (hs.length) {
+          e.heads = hs;
+          e.x = hs.reduce((a, h) => a + h[0], 0) / hs.length;
+          e.y = hs.reduce((a, h) => a + h[1], 0) / hs.length;
+        }
+      } else if (g.heads) e.heads = g.heads.map(P);
+      guardians.push(e);
+    }
+    log.push(`landmark ${L.id}: ${n} pieces, ${L.guardians.map((g) => g.boss).join(' + ')}`);
+  }
   for (const r of k.reqs) {
     if (r.kind === 'piece') {
       const [cx, cy] = tileOf(r.at), R = r.r * K, done: Pt[] = [];
@@ -1028,7 +1150,7 @@ export function build(def: RegionDef): Built {
   for (const l of k.lairReqs) {
     const p = near(l.at, (x, y) => ground(x, y) && k.roadDist[at(x, y)] > 3 && !spotNear(x + 0.5, y + 0.5, 12) && lairs.every((o) => Math.hypot(o.x - x, o.y - y) >= 12));
     if (!p) { log.push(`lair ${l.kind} near ${l.at}: no ground`); continue; }
-    lairs.push({ kind: l.kind, x: p[0], y: p[1], ...(l.count ? { count: l.count } : {}), ...(l.as ? { as: l.as } : {}) });
+    lairs.push({ kind: l.kind, x: p[0], y: p[1], ...(l.count ? { count: l.count } : {}), ...(l.as ? { as: l.as } : {}), ...(l.captain ? { captain: true } : {}) });
   }
   // M7b: every town of a region outside the homes has a claim point (docs/WAR.md "Who owns a town"): the authored one
   // on its market spot, else a new one by its centre (a village's well), guarded by the lairs round it
@@ -1056,6 +1178,7 @@ export function build(def: RegionDef): Built {
       const { town, court, ...entry } = e, out: PrebuiltEntry = entry;
       const cp = townClaim[town] >= 0 ? claimOf[townClaim[town]] : -1;
       if (cp >= 0) out.claim = cp;
+      if (e.landmark) { prebuilt.push(out); continue; } // M7d: a landmark keeps its start state (60%, whole)
       const r = hsh(Math.round(e.x * 2), Math.round(e.y * 2), 91), pop = PREBUILT_POP.has(e.type);
       if (!court && cond.ruin > 0 && MAY_RUIN.has(e.type) && r < cond.ruin && (!pop || (ruins.get(town) ?? 0) + 1 < 0.7 * (homes.get(town) ?? 0))) {
         out.state = 'ruined';
@@ -1120,7 +1243,8 @@ export function build(def: RegionDef): Built {
   const json = {
     id: w.id, name: w.name, w: W, h: H, cells: { rle: encodeCells(height, terrain, water) }, entries, noBuild,
     objs: encodeObjects(objects), blocked, visual: { scale: 2 as const, rle: encodeVisual(fine.kind, fine.z) },
-    biomes: { names: [...BIOMES], rle: encodeBiomes(biome) }, lairs, claimPoints, ...(prebuilt.length ? { prebuilt } : {}), meta,
+    biomes: { names: [...BIOMES], rle: encodeBiomes(biome) }, lairs, claimPoints, ...(prebuilt.length ? { prebuilt } : {}),
+    ...(guardians.length ? { guardians } : {}), ...(REGION_DEPTH[w.id] === 4 && w.role === 'neutral' && w.sea?.length ? { rim: w.sea[0] } : {}), meta,
   };
   const spots: Record<string, Pt> = {};
   for (const s of k.sides) spots[`entry_${s.id}`] = k.entry(s.id, 5);

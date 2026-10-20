@@ -262,6 +262,17 @@ function template(w: WorldRegion): RegionDef {
         k.piece(w.family === 'desert' ? 'kyrene/camels' : 'elaia/goats', add(hub, [0, 12]), { r: 5 });
         if (w.id === 'ammos') { k.oasis(add(hub, [16, -14]), 3); k.piece('kyrene/ruin-wall', add(hub, [-9, -9]), { r: 5, n: 4, gap: 4 }); }
       } else k.paint('dirt', [hub[0], hub[1], 9, 7, j(1)], { on: ['grass', 'sand', 'forest'], rough: 2 });
+      // ---- M7d: the landmark of a gate or rim region, a road to it from the hub
+      const lm = LANDMARK_SITE[w.id];
+      if (lm) {
+        const [lw, lh] = lm.size, c: Pt = lm.side ? onSide(lm.side, 0.5 + j(0.08), lm.inset ?? 50) : claim(free(30, 50), Math.max(lw, lh));
+        if (lm.side) claim(c, Math.max(lw, lh));
+        const mid = k.landmark(lm.id, [c[0] - lw / 4, c[1] - lh / 4], { guardians: lm.guardians, nodes: lm.nodes });
+        lines.push([hub, [(hub[0] + mid[0]) / 2 + j(6), (hub[1] + mid[1]) / 2 + j(6)], add(mid, [0, lh / 4 + 3])]);
+        curves.push(spline(lines.at(-1)!, 2));
+        k.spot('landmark', mid);
+        for (const [n, [dx, dy]] of (lm.host ?? []).entries()) k.lair('bandit', add(mid, [dx, dy]), { as: 'bandit host', ...(n === 0 ? { captain: true } : {}) });
+      }
       // ---- roads (the hub, the chokes' gaps, the haul roads)
       for (const l of lines) k.road(l, { pass: w.relief === 'mountain' ? 4 : undefined, grade: 4, bridges, span: 6 });
       if (!needs.has('square')) k.spot('market', hub);
@@ -301,6 +312,18 @@ function template(w: WorldRegion): RegionDef {
 }
 
 const pt = (p: { x: number; y: number }): Pt => [p.x, p.y];
+/**
+ * M7d: where a draft's landmark stands (docs/WAR.md "Landmarks"; kit.ts landmark()): its layout (size in sim tiles), by
+ * its rim side's water `inset` units in or anywhere free; its guardians' posts and extra rare nodes in layout tiles; the
+ * Dead City's bandit host (lairs in units from its centre, the first a captain whose men hold the towers).
+ */
+const LANDMARK_SITE: Record<string, { id: string; size: [number, number]; side?: Side; inset?: number; guardians: Parameters<Kit['landmark']>[2]['guardians']; nodes?: [string, number, number][]; host?: Pt[] }> = {
+  siren: { id: 'rim', size: [12, 10], side: 'W', inset: 36, guardians: [{ boss: 'scylla', at: [6, 6], heads: 'shore', flats: [6, 8] }], nodes: [['landmark/sea-cave', 0, 8]] },
+  ammon: { id: 'ammon', size: [24, 20], side: 'E', inset: 56, guardians: [{ boss: 'bandit_king', at: [4, 8], postern: [25, 4] }], host: [[-4, 7], [5, 6], [6, -3], [-5, -2]] },
+  delta: { id: 'sunken', size: [16, 14], side: 'S', inset: 56, guardians: [{ boss: 'river_god', at: [6, 8.5], flats: 'water' }] },
+  erymanthos: { id: 'oracle', size: [14, 10], guardians: [{ boss: 'grove_queen', at: [7, 6] }], nodes: [['landmark/asphodel-meadow', 7, 9]] },
+  canyons: { id: 'obsidian', size: [20, 12], guardians: [{ boss: 'chimera', at: [8, 9] }] },
+};
 const byRole = (id: string) => WORLD.find((w) => w.id === id)?.role;
 /** Whether there is open water within r units of p. */
 function hasWater(k: Kit, p: Pt, r: number) {
