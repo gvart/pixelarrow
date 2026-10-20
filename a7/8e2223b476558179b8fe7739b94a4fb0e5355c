@@ -1,0 +1,64 @@
+src/war/regions/achelous.json
+  s_cfc22b058125c4::t_7f99310a1c7766 1
+scripts/war/regions/kyrene.ts
+  s_cfc22b058125c4::t_672550573f823e 63-66
+src/war/regions/stymphalia.json
+  s_cfc22b058125c4::t_d5e47c75c4b4d3 1
+scripts/war/regions/dodona.ts
+  s_cfc22b058125c4::t_672550573f823e 54-57
+src/war/regions/achelous.spots.ts
+  s_cfc22b058125c4::t_e1f803f0e47ba2 18
+src/war/regions/kyrene.json
+  s_cfc22b058125c4::t_bf2a6aa6fa3bec 1
+scripts/war/regions/achelous.ts
+  s_cfc22b058125c4::t_7f99310a1c7766 36,60
+  s_cfc22b058125c4::t_e1f803f0e47ba2 56-59,61-64
+scripts/war/regions/skythia.ts
+  s_cfc22b058125c4::t_672550573f823e 51-54
+scripts/war/regions/elaia.ts
+  s_cfc22b058125c4::t_672550573f823e 71-76
+src/war/regions/dodona.json
+  s_cfc22b058125c4::t_bf2a6aa6fa3bec 1
+scripts/war/regions/ammos.ts
+  s_cfc22b058125c4::t_d5e47c75c4b4d3 54-60
+scripts/war/regions/kleisoura.ts
+  s_cfc22b058125c4::t_559864e63a859c 76-80
+scripts/war/regions/stymphalia.ts
+  s_cfc22b058125c4::t_559864e63a859c 70-77
+src/war/regions/ammos.json
+  s_cfc22b058125c4::t_d5e47c75c4b4d3 1
+src/war/regions/stymphalia.spots.ts
+  s_cfc22b058125c4::t_d5e47c75c4b4d3 16
+src/war/regions/skythia.json
+  s_cfc22b058125c4::t_bf2a6aa6fa3bec 1
+src/war/regions/kleisoura.spots.ts
+  s_cfc22b058125c4::t_d5e47c75c4b4d3 19
+src/war/regions/elaia.json
+  s_cfc22b058125c4::t_bf2a6aa6fa3bec 1
+src/war/region/zones.ts
+  s_cfc22b058125c4::t_5712de6d57353c 6,19-22
+src/war/regions/kleisoura.json
+  s_cfc22b058125c4::t_d5e47c75c4b4d3 1
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_d8275db4c6746d 39
+  s_cfc22b058125c4::t_db0306af478aed 470-502,505-519,521-551,553-563
+  s_cfc22b058125c4::t_04626ba8820988 520
+  s_cfc22b058125c4::t_a6ceb6f27fde3b 815-877
+  s_cfc22b058125c4::t_3ce175e8d4b88c 503-504,933-934
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a78e2223b476558179b8fe7739b94a4fb0e5355c",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
