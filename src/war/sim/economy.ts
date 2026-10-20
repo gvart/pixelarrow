@@ -38,6 +38,8 @@ export interface BuildingDef {
   upgrade?: { to: BuildingType; cost: Partial<Record<ResourceKind, number>>; labour: number };
   /** W-35: a brazier (see BRAZIER): placed done and lit, never blocks, may stand on the team's own deck. */
   brazier?: boolean;
+  /** M5h3 field tile (FIELD): never closes; once done, men cross it at FIELD[kind].slow cost and engines not at all. */
+  field?: 'stakes' | 'ditch';
   /** M5h: a workplace (docs/WAR.md "Workplaces"): its recipes' kind and its level (crafter slots, +1 grade a level). */
   workplace?: { kind: Workplace; level: number };
 }
@@ -69,6 +71,10 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   stoneBridge: { w: 1, h: 1, hp: 1500, cost: { stone: 16, wood: 2 }, labour: 90, workers: 3, influence: 0, material: 'stone', perTile: true, bridge: true },
   // W-35 fire arrows: a brazier lights them, pitch (from a kiln, or a little with pine wood) feeds them
   brazier: { w: 1, h: 1, hp: 60, cost: { wood: 5 }, labour: 0, workers: 0, influence: 0, material: 'wood', brazier: true },
+  // M5h3: a docked siege tower's bridge; Fortifier field tiles
+  towerBridge: { w: 1, h: 1, hp: 400, cost: {}, labour: 1, workers: 1, influence: 0, material: 'wood', access: 'ladder', cap: 8, burnable: true },
+  stakes: { w: 1, h: 1, hp: 80, cost: { wood: 3 }, labour: 20, workers: 2, influence: 0, material: 'wood', burnable: true, field: 'stakes' },
+  ditch: { w: 1, h: 1, hp: 60, cost: {}, labour: 120, workers: 2, influence: 0, material: 'stone', field: 'ditch' },
   pitchKiln: { w: 2, h: 2, hp: 500, cost: { wood: 40, stone: 20 }, labour: 900, workers: 4, influence: 0, material: 'stone', yields: { res: 'pitch', max: 40, regrow: 0.1, rate: 0.6 } },
   // M5h workplaces: L1 placed, L2 / L3 by upgrade (cost and labour of the step); each level a crafter slot and +1 grade
   forge: wp('forge', 1, { w: 3, h: 3, hp: 1200, cost: { wood: 40, stone: 60 }, labour: 1500, material: 'stone', upgrade: { to: 'forge2', cost: { stone: 80, iron: 10 }, labour: 1500 } }),
@@ -96,6 +102,8 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
  * taking `pitch` from the stockpile (a volley of 10 archers: 2 pitch). A brazier burns `life` seconds once placed.
  */
 export const BRAZIER = { radius: 3, pitch: 0.2, life: 300 };
+/** M5h3 field tiles: move cost multiplier for men; stakes: hp a second a foe man standing on them loses. */
+export const FIELD = { stakes: { slow: 2, dmg: 6 }, ditch: { slow: 3, dmg: 0 } };
 /**
  * W-35 pitch kiln: its pitch node regrows (yields.regrow per second) only while the team's stockpile has `wood` per pitch
  * to feed it; each pine with wood left within `pineR` tiles adds `pineBoost` to its rate, at most `pineMax` pines.

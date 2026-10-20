@@ -16,8 +16,8 @@ import type { IsoMap } from './iso';
 
 const LAUNCH = 36; // px over the feet: the hand
 const IMPACT = 22; // px over the target's feet
-const LEN: Record<MissileKind, number> = { arrow: 16, javelin: 28, stone: 0 };
-const ARC: Record<MissileKind, number> = { arrow: 0.16, javelin: 0.2, stone: 0.11 }; // apex per px of ground distance
+const LEN: Record<MissileKind, number> = { arrow: 16, javelin: 28, stone: 0, bolt: 24 };
+const ARC: Record<MissileKind, number> = { arrow: 0.16, javelin: 0.2, stone: 0.11, bolt: 0.04 }; // apex per px of ground distance
 const STUCK_MS = 4000;
 const PUFF_MS = 450;
 const MAX_STUCK = 400;

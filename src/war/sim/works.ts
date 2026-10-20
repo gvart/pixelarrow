@@ -32,7 +32,7 @@
  * tiles go back to water and `fall` drops the men on them.
  */
 import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BRAZIER, BRIDGE, BUILDINGS, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
+import { BRAZIER, BRIDGE, BUILDINGS, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 
 const DT = 0.1;
@@ -60,6 +60,8 @@ export const FIRE = {
   push: 4, // man-seconds to push a ladder off
   rubble: 3, // move cost multiplier over rubble
 };
+/** M5h3 Fortifier works: iron-bound gate (hp x`iron`), wet hides (catch chance x`wet` for `wetTicks`), their costs. */
+export const FORT = { iron: 1.5, ironCost: { iron: 10, charcoal: 10 }, wet: 0.5, wetTicks: 6000, wetCost: 1 };
 
 export interface WorkSquad { team: number; sites: number[]; node: number }
 /** The part of a sim unit the works drive. */
@@ -112,6 +114,8 @@ interface Building {
   bridge: { ids: number[]; i: number; axis: BridgeAxis; dir: [number, number]; width: number; part: 'end0' | 'end1' | 'deck'; deck: number; rows: number[] } | null;
   /** W-35 brazier: seconds of fire left (0: out). */
   fuel: number;
+  /** M5h3: an iron-bound gate; wet hides on it until this tick (0 none). */
+  iron: boolean; wet: number;
 }
 export type Piece = Readonly<Building>;
 
@@ -147,6 +151,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     waits.delete(u.id);
   };
   let tick = 0;
+  let fields = 0; // M5h3: done field tiles standing
 
   (region.objects ?? []).forEach((o, i) => {
     const d = RESOURCE_NODES[o.id];
@@ -242,7 +247,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       ti: [t], state: 'done', labour: 1, need: 1, cost: { ...def.cost }, delivered: { ...def.cost }, incoming: {}, costSum: 0,
       hp: def.hp, maxHp: def.hp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [grid.height[t]], inside: [tiles[0], tiles[1]], decked: false, attach: under && under.decked ? under.id : -1, door: -1, prev: null,
-      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: BRAZIER.life,
+      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: BRAZIER.life, iron: false, wet: 0,
     };
     buildings.push(b);
     braziers.push(b);
@@ -338,7 +343,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       ti: [], state: 'foundation', labour: 0, need: def.labour * k, cost, delivered: {}, incoming: {}, costSum,
       hp: maxHp * 0.1, maxHp, saved: [], users: 0, node: -1, slots: [], slotUser: [], cancelled: false,
       base: [], inside: inside ?? homeOf(team), decked: false, attach, door: -1, prev: null,
-      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: 0,
+      burn: 0, kindle: 0, rubble: false, siege: -1, push: 0, bridge: null, fuel: 0, iron: false, wet: 0,
     };
     for (let i = 0; i < tiles.length; i += 2) {
       const t = tiles[i + 1] * w + tiles[i];
@@ -675,7 +680,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (d.access === 'stairs') return ramp(b);
     if (d.access === 'ladder') {
       const t = b.ti[0];
-      grid.cost[t] = (b.saved[0] || 1) * LADDER_COST;
+      grid.cost[t] = (b.saved[0] || 1) * (b.type === 'towerBridge' ? 1 : LADDER_COST); // M5h3: a tower's bridge is no climb
       grid.deck[t] = LADDER;
       grid.plat[t] = b.id;
       b.decked = true;
@@ -731,6 +736,13 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.labour = b.need;
     }
     raiseDeck(b);
+    if (b.def.field) {
+      // M5h3: men cross it slowly, engines not at all
+      b.saved = b.ti.map((t) => grid.cost[t]);
+      for (const t of b.ti) (grid.cost[t] *= FIELD[b.def.field].slow), (grid.trench[t] = 1);
+      grid.dirty.push(...b.tiles);
+      fields++;
+    }
     if (b.def.wall === 'gate') {
       b.ti.forEach((t, i) => {
         grid.cost[t] = b.saved[i];
@@ -780,6 +792,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       grid.gate[t] = 0;
       grid.span[t] = 0;
     }
+    if (b.def.field && wasDone) {
+      b.ti.forEach((t, i) => ((grid.cost[t] = b.saved[i]), (grid.trench[t] = 0))); // filled, or the stakes broken
+      fields--;
+    }
     if (closed) grid.dirty.push(...b.tiles);
     if (b.bridge && wasDone) fall(b.ti); // the deck collapses under the men on it
     if (b.node >= 0) nodes[b.node].amount = nodes[b.node].max = nodes[b.node].regrow = 0;
@@ -796,6 +812,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
 
   // --- fire (M2c) ---
   const burning: Building[] = [];
+  /** M5h3: wet hides halve the chance a piece catches (and double the torch-time). */
+  const wetK = (b: Building) => (b.wet > tick ? FORT.wet : 1);
   const canBurn = (b: Building | undefined): b is Building => !!b && !!b.def.burnable && !b.cancelled && b.state !== 'destroyed' && b.state !== 'foundation';
   const ignite = (b: Building) => {
     if (b.burn > 0) return;
@@ -824,7 +842,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.burn = Math.min(1, b.burn + FIRE.grow * DT);
       damage(b.id, (b.burn * b.maxHp * DT) / FIRE.life);
       if (!spread || b.burn < FIRE.spreadMin || (b.state as BuildState) === 'destroyed') continue;
-      for (const o of besides(b)) if (canBurn(o) && o.burn <= 0 && chance(FIRE.spread * b.burn)) ignite(o);
+      for (const o of besides(b)) if (canBurn(o) && o.burn <= 0 && chance(FIRE.spread * b.burn * wetK(o))) ignite(o);
     }
     for (let i = burning.length - 1; i >= 0; i--)
       if (burning[i].burn <= 0 || burning[i].state === 'destroyed') {
@@ -1193,18 +1211,25 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     u.working = true;
     if (b.state === 'foundation') {
       b.state = 'scaffold';
-      close(b);
-    } else if (b.saved.length < b.ti.length) close(b); // an upgrade's new inner row
+      if (!b.def.field) close(b); // M5h3: a field tile never closes
+    } else if (b.saved.length < b.ti.length && !b.def.field) close(b); // an upgrade's new inner row
     b.labour = Math.min(cap, b.labour + DT * (u.brate ?? 1));
     b.hp = b.prev ? b.prev.hp + (b.maxHp - b.prev.hp) * (b.labour / b.need) : b.maxHp * Math.max(0.1, b.labour / b.need);
     if (b.labour >= b.need - 1e-9) finish(b);
     return 'here';
   };
 
+  const takeStock = (team: number, cost: Partial<Record<ResourceKind, number>>): boolean => {
+    const st = stockOf(team);
+    for (const [r, v] of Object.entries(cost) as [ResourceKind, number][]) if ((st[r] ?? 0) < v) return false;
+    for (const [r, v] of Object.entries(cost) as [ResourceKind, number][]) st[r]! -= v;
+    return true;
+  };
+
   return {
     /** Save and restore (./state.ts): the closure state (the decoder refills the containers in place; `tick` is set back). */
-    saveRoot: () => ({ nodes, nodeAt, regrowing, buildings, braziers, occ, noBuild, stock, claims, infl, pathQueue, waits, active, cutOff, waitAt, burning, tick }),
-    loadRoot: (o: { tick: number }) => void (tick = o.tick),
+    saveRoot: () => ({ nodes, nodeAt, regrowing, buildings, braziers, occ, noBuild, stock, claims, infl, pathQueue, waits, active, cutOff, waitAt, burning, tick, fields }),
+    loadRoot: (o: { tick: number; fields: number }) => void ((tick = o.tick), (fields = o.fields)),
     /** The finished bridge piece whose open deck or ramp is tile t (its line: axis, dir, width, row centres), or null. */
     bridgeAt: (t: number) => { const o = buildings[occ[t]]; return o && o.bridge && o.decked ? o.bridge : null; },
     checkPlacement,
@@ -1331,12 +1356,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       return best;
     },
     /** Pay `cost` from the team's stockpile; false (nothing taken) when it lacks any of it. */
-    takeStock(team: number, cost: Partial<Record<ResourceKind, number>>): boolean {
-      const st = stockOf(team);
-      for (const [r, v] of Object.entries(cost) as [ResourceKind, number][]) if ((st[r] ?? 0) < v) return false;
-      for (const [r, v] of Object.entries(cost) as [ResourceKind, number][]) st[r]! -= v;
-      return true;
-    },
+    takeStock,
     /**
      * Up to n standing points (flat x,y) on open ground round building id (its 8-neighbour ring, off decks), nearest (x,y)
      * first; repeated when the ring is shorter than n.
@@ -1369,14 +1389,37 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       const b = buildings[id];
       if (!canBurn(b)) return false;
       if (b.burn > 0) return true;
-      b.kindle += dt;
+      b.kindle += dt * wetK(b);
       if (b.kindle >= FIRE.kindle) ignite(b);
       return true;
     },
     /** A fire arrow lands on building id: it catches with chance p if it can burn. */
     fireHit(id: number, p: number) {
       const b = buildings[id];
-      if (canBurn(b) && b.burn <= 0 && chance(p)) ignite(b);
+      if (canBurn(b) && b.burn <= 0 && chance(p * wetK(b))) ignite(b);
+    },
+    /**
+     * M5h3 Fortifier: iron-bind a done gate of `team` (hp x FORT.iron, once) or hang wet hides on a done burnable piece
+     * (FORT.wetCost hides a tile, for FORT.wetTicks); paid at once. False: refused (not its, wrong kind, no stock).
+     */
+    fortify(team: number, id: number, fort: 'ironGate' | 'wetHides'): boolean {
+      const b = buildings[id];
+      if (!b || b.team !== team || b.cancelled || (b.state !== 'done' && b.state !== 'damaged')) return false;
+      if (fort === 'ironGate') {
+        if (b.def.wall !== 'gate' || b.iron || !takeStock(team, FORT.ironCost)) return false;
+        b.iron = true;
+        b.maxHp *= FORT.iron;
+        b.hp *= FORT.iron;
+        return true;
+      }
+      if (!canBurn(b) || !takeStock(team, { hides: FORT.wetCost * b.ti.length })) return false;
+      b.wet = tick + FORT.wetTicks;
+      return true;
+    },
+    /** M5h3: the done field tile (stakes, ditch) on tile t, or undefined; any at all. */
+    fieldAt: (t: number): Piece | undefined => {
+      const b = fields > 0 && grid.trench[t] ? buildings[occ[t]] : undefined;
+      return b && b.def.field ? b : undefined;
     },
     /** Men beat out the fire on building id for dt man-seconds; false when it is not burning. */
     douse(id: number, dt: number): boolean {
@@ -1388,10 +1431,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     },
     ladderFoot,
     /** Raise siege engine `siege`'s ladder at the foot of foe wall tile (x,y): a done ladder building of `team`; its id, or -1. */
-    raiseLadder(team: number, x: number, y: number, siege: number): number {
+    raiseLadder(team: number, x: number, y: number, siege: number, type: 'ladder' | 'towerBridge' = 'ladder'): number {
       const foot = ladderFoot(team, x, y);
       if (foot < 0) return -1;
-      const id = add(team, 'ladder', [foot % w, (foot / w) | 0], 0, undefined, occ[y * w + x]);
+      const id = add(team, type, [foot % w, (foot / w) | 0], 0, undefined, occ[y * w + x]);
       const b = buildings[id];
       b.saved = [grid.cost[foot]];
       b.siege = siege;
@@ -1405,7 +1448,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     /** Defenders push foe ladder `id` for dt man-seconds; true once it is pushed off (destroyed). */
     push(id: number, dt: number): boolean {
       const b = buildings[id];
-      if (!b || b.def.access !== 'ladder' || b.state === 'destroyed' || b.cancelled) return false;
+      if (!b || b.type !== 'ladder' || b.state === 'destroyed' || b.cancelled) return false;
       b.push += dt / FIRE.push;
       if (b.push >= 1) destroy(b);
       return (b.state as BuildState) === 'destroyed';
@@ -1525,6 +1568,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.def.brazier ? { lit: b.fuel > 0 && b.state !== 'destroyed', fuel: b.fuel / BRAZIER.life } : {}),
           ...(b.rubble ? { rubble: true as const } : {}),
           ...(b.siege >= 0 ? { siege: b.siege } : {}),
+          ...(b.iron ? { iron: true as const } : {}),
+          ...(b.wet > tick ? { wet: true as const } : {}),
           ...(b.push > 0 && b.state !== 'destroyed' ? { push: Math.min(1, b.push) } : {}),
           ...(b.bridge ? { bridge: { axis: b.bridge.axis, dir: b.bridge.dir, width: b.bridge.width, part: b.bridge.part, deck: b.bridge.deck, rows: b.bridge.rows } } : {}),
         };

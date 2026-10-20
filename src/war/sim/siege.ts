@@ -12,22 +12,49 @@
  *    building of the crew's team stands there until defenders push it off; the engine then lies at the foot, damaged.
  *
  * Any engine burns (wood): torches set it alight, it loses up to maxHp / ENGINE_FIRE_LIFE per second at full fire.
+ *
+ * M5h3 engineer designs (docs/WAR.md "Crafting and professions"; cost and labour from their recipes): a team builds one
+ * only with a living engineer holding its node (hooks.nodes).
+ *  - mantlet: movable cover; its team's men within MANTLET.r behind it dodge MANTLET.cover of missiles shot from in front.
+ *  - coveredRam: a ram under hides: more hp, its crew dodge COVERED.cover of missiles, it catches and burns at half pace.
+ *  - oxybeles: crewed and standing (no order), it shoots a bolt every OXY.reload at the nearest foe man in sight within
+ *    OXY.range; the bolt flies on a little past him and hits up to OXY.pierce men along its line.
+ *  - siegeTower: carried like a ladder (slow, crew 8) to the outer foot of a foe walkway and docked (TOWER.dock ticks): a
+ *    towerBridge building joins the ground to the deck (no climb, cap 8, not pushed off); it stands while the tower
+ *    does (burnt or broken, the bridge goes with it).
+ * Nodes: Artillerist: a stone thrower needs one crew less; Sapper: engine damage x NODE.sapper; Archimedes: a stone
+ * thrower or oxybeles may be built on the team's stone tower platform, and shoots from there at range x NODE.archimedes.
  */
 import type { ResourceKind, ShotSnap, SiegeSnap, SiegeState, SiegeType } from '../types';
 import { FIRE, type Works } from './works';
 import type { Rng } from '../../sim/rng';
+import { RECIPES } from '../../data/recipes';
 
 const DT = 0.1;
 
-export interface SiegeDef { hp: number; cost: Partial<Record<ResourceKind, number>>; labour: number; crew: number; speed: number }
+export interface SiegeDef { hp: number; cost: Partial<Record<ResourceKind, number>>; labour: number; crew: number; speed: number;
+  /** M5h3: the engineer node a team needs to build it. */
+  node?: string }
+/** M5h3: an engineer design's cost, labour (worker-seconds = recipe secs) and node from its recipe. */
+const design = (id: string) => ({ cost: RECIPES[id].inputs as Partial<Record<ResourceKind, number>>, labour: RECIPES[id].secs, node: RECIPES[id].node });
 export const SIEGE: Record<SiegeType, SiegeDef> = {
   ram: { hp: 900, cost: { wood: 80 }, labour: 240, crew: 6, speed: 0.45 },
   stoneThrower: { hp: 500, cost: { wood: 100, stone: 30 }, labour: 480, crew: 4, speed: 0.3 },
   siegeLadder: { hp: 150, cost: { wood: 20 }, labour: 60, crew: 4, speed: 0.9 },
+  mantlet: { hp: 300, ...design('mantlet'), crew: 2, speed: 0.7 },
+  coveredRam: { hp: 1400, ...design('covered_ram'), crew: 6, speed: 0.4 },
+  oxybeles: { hp: 350, ...design('oxybeles'), crew: 2, speed: 0.5 },
+  siegeTower: { hp: 2400, ...design('siege_tower'), crew: 8, speed: 0.2 },
 };
 export const RAM = { reach: 1.5, ticks: 30, dmg: 160, stone: 0.4, cover: 0.5 };
 export const THROWER = { min: 8, range: 36, reload: 120, deploy: 100, dmg: 220, speed: 10, acc: 0.65, scatter: 2.5, splash: 1.5, splashDmg: 40 };
 export const LADDER = { raise: 30, pushed: 0.25, fall: 0.6 }; // raise ticks; hp share the engine loses when pushed; climbers' fall (share of maxHp)
+/** M5h3 designs and engineer nodes. */
+export const MANTLET = { cover: 0.6, r: 3.5, side: 1.3 }; // dodge share; reach behind it and to each side
+export const COVERED = { cover: 0.7, fire: 0.5 }; // crew dodge share; kindle, fire-arrow and burn pace
+export const OXY = { range: 30, min: 2, reload: 60, dmg: 70, ap: 0.7, pierce: 3, width: 0.6, speed: 30, past: 4 };
+export const TOWER = { dock: 60 };
+export const NODE = { sapper: 1.3, archimedes: 1.2 };
 const ENGINE_FIRE_LIFE = 90;
 const CREW_R = 2.5; // crew this near the engine count as beside it
 const ARRIVE = 0.3;
@@ -38,9 +65,12 @@ interface Engine {
   id: number; type: SiegeType; def: SiegeDef; team: number; x: number; y: number; facing: number; hp: number; maxHp: number;
   state: SiegeState; labour: number; crew: number; mode: Mode; goal: [number, number] | null; path: number[]; pi: number;
   target: number; wall: [number, number] | null; ladder: number; cd: number; swingAt: number; prog: number; burn: number; kindle: number;
+  /** M5h3: built on its team's stone tower platform. */
+  tower: boolean;
 }
 
-interface Boulder { at: number; x: number; y: number; target: number; hit: boolean }
+interface Boulder { at: number; x: number; y: number; target: number; hit: boolean; dmg: number }
+interface Bolt { at: number; team: number; x0: number; y0: number; x1: number; y1: number; dmg: number }
 
 export interface SiegeHooks {
   path(team: number, x0: number, y0: number, x1: number, y1: number): number[];
@@ -51,17 +81,34 @@ export interface SiegeHooks {
   open(x: number, y: number): boolean;
   /** Move cost of the tile at (x,y) (1 grass). */
   cost(x: number, y: number): number;
+  /** M5h3: engineer nodes held by the team's living engineers. */
+  nodes(team: number): ReadonlySet<string>;
+  /** The nearest foe man of `team` in its sight within r of (x,y), or null. */
+  foe(team: number, x: number, y: number, r: number): [number, number] | null;
+  /** A bolt of `team` from (x0,y0) to (x1,y1): up to n foe men within w of the line, nearest first, take dmg (pierce ap). */
+  pierce(team: number, x0: number, y0: number, x1: number, y1: number, w: number, dmg: number, ap: number, n: number): void;
+  /** (x,y) is on a stone tower platform of `team`. */
+  stoneTower(team: number, x: number, y: number): boolean;
 }
 
 export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
   const engines: Engine[] = [];
   const boulders: Boulder[] = [];
+  const bolts: Bolt[] = [];
   let shots: ShotSnap[] = [];
   let pathsLeft = 0;
+  let mantlets = 0; // M5h3: mantlets built (cover() skips the scan without one)
 
   const alive = (e: Engine | undefined): e is Engine => !!e && e.state !== 'destroyed';
   const built = (e: Engine | undefined): e is Engine => alive(e) && e.state !== 'building';
   const crewHere = (e: Engine) => (e.crew >= 0 ? hooks.crewNear(e.crew, e.x, e.y, CREW_R) : 0);
+  const has = (team: number, node: string) => hooks.nodes(team).has(node);
+  /** Crew it needs (Artillerist: a stone thrower one less). */
+  const need = (e: Engine) => e.def.crew - (e.type === 'stoneThrower' && has(e.team, 'artillerist') ? 1 : 0);
+  const dmgK = (e: Engine) => (has(e.team, 'sapper') ? NODE.sapper : 1);
+  const rangeK = (e: Engine) => (e.tower && has(e.team, 'archimedes') ? NODE.archimedes : 1);
+  const isRam = (e: Engine) => e.type === 'ram' || e.type === 'coveredRam';
+  const fireK = (e: Engine) => (e.type === 'coveredRam' ? COVERED.fire : 1);
   const targetOk = (e: Engine) => {
     const b = works.piece(e.target);
     return !!b && b.state !== 'destroyed' && !b.cancelled && b.state !== 'foundation';
@@ -75,6 +122,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     e.state = 'destroyed';
     e.burn = 0;
     e.mode = 'none';
+    if (e.type === 'siegeTower' && e.ladder >= 0) works.damage(e.ladder, Infinity); // its bridge goes with it
   };
 
   const goTo = (e: Engine, x: number, y: number) => {
@@ -94,7 +142,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       e.path = hooks.path(e.team, e.x, e.y, e.goal[0], e.goal[1]);
       e.pi = 1;
     }
-    if (n < e.def.crew) return false;
+    if (n < need(e)) return false;
     if (e.state === 'deployed') return false;
     let budget = e.def.speed * DT;
     while (budget > 0 && e.pi < e.path.length / 2) {
@@ -139,56 +187,57 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     const [tx, ty] = works.nearestTile(e.target, e.x, e.y);
     e.facing = Math.atan2(ty - e.y, tx - e.x);
     e.goal = null;
-    if (n < e.def.crew) return void settle(e);
+    if (n < need(e)) return void settle(e);
     e.state = 'attack';
     if (e.cd > 0) return;
     e.cd = RAM.ticks;
     e.swingAt = tick;
-    works.damage(e.target, RAM.dmg * (works.piece(e.target)!.def.material === 'stone' ? RAM.stone : 1));
+    works.damage(e.target, RAM.dmg * dmgK(e) * (works.piece(e.target)!.def.material === 'stone' ? RAM.stone : 1));
   };
 
   const thrower = (e: Engine, n: number, tick: number) => {
     if (e.cd > 0) e.cd--;
     const [tx, ty] = works.nearestTile(e.target, e.x, e.y);
-    const d = Math.hypot(tx - e.x, ty - e.y);
-    if (d > THROWER.range || d < THROWER.min) {
+    const d = Math.hypot(tx - e.x, ty - e.y), range = THROWER.range * rangeK(e);
+    if (d > range || d < THROWER.min) {
+      if (e.tower) return void (e.mode = 'none'); // on a tower: it shoots from there or not at all
       if (e.state === 'deployed' || e.state === 'packing') return pack(e, n);
-      const k = (THROWER.range * 0.8) / (d || 1);
+      const k = (range * 0.8) / (d || 1);
       if (!e.goal) goTo(e, tx + (e.x - tx) * k, ty + (e.y - ty) * k);
       if (roll(e, n)) {
         const d2 = Math.hypot(tx - e.x, ty - e.y);
-        if (d2 > THROWER.range || d2 < THROWER.min) e.mode = 'none';
+        if (d2 > range || d2 < THROWER.min) e.mode = 'none';
       }
       return;
     }
     e.goal = null;
     if (e.state !== 'deployed') return deploy(e, n);
     e.facing = Math.atan2(ty - e.y, tx - e.x);
-    if (n < e.def.crew || e.cd > 0) return;
+    if (n < need(e) || e.cd > 0) return;
     e.cd = THROWER.reload;
     e.swingAt = tick;
-    const hit = rng.chance(THROWER.acc * (1 - 0.4 * (d / THROWER.range)));
+    const hit = rng.chance(THROWER.acc * (1 - 0.4 * (d / range)));
     let lx = tx, ly = ty;
     if (!hit) {
       const a = rng.range(0, Math.PI * 2), r = rng.range(1, THROWER.scatter);
       (lx += Math.cos(a) * r), (ly += Math.sin(a) * r);
     }
     const at = tick + Math.max(1, Math.round(d / THROWER.speed / DT));
-    boulders.push({ at, x: lx, y: ly, target: e.target, hit });
+    boulders.push({ at, x: lx, y: ly, target: e.target, hit, dmg: THROWER.dmg * dmgK(e) });
     shots.push({ x0: e.x, y0: e.y, x1: lx, y1: ly, t0: tick, t1: at, z0: 0, z1: 0, by: -1 - e.id, kind: 'stone', siege: e.id });
   };
 
   const deploy = (e: Engine, n: number) => {
     if (e.state === 'deployed') return;
     e.state = 'deploying';
-    if (n >= e.def.crew) e.prog = Math.min(1, e.prog + 1 / THROWER.deploy);
+    if (n >= need(e)) e.prog = Math.min(1, e.prog + 1 / THROWER.deploy);
     if (e.prog >= 1) e.state = 'deployed';
   };
   /** Packs up; true once packed (idle). */
   const pack = (e: Engine, n: number): void => {
     if (e.state !== 'deployed' && e.state !== 'packing') return;
     e.state = 'packing';
-    if (n >= e.def.crew) e.prog = Math.max(0, e.prog - 1 / THROWER.deploy);
+    if (n >= need(e)) e.prog = Math.max(0, e.prog - 1 / THROWER.deploy);
     if (e.prog <= 0) e.state = 'idle';
   };
 
@@ -203,10 +252,11 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     if (Math.hypot(fx - e.x, fy - e.y) > 0.8) return void (e.mode = 'none');
     e.facing = Math.atan2(wy + 0.5 - e.y, wx + 0.5 - e.x);
     e.state = 'raising';
-    if (n < e.def.crew) return;
-    e.prog = Math.min(1, e.prog + 1 / LADDER.raise);
+    if (n < need(e)) return;
+    const tower = e.type === 'siegeTower';
+    e.prog = Math.min(1, e.prog + 1 / (tower ? TOWER.dock : LADDER.raise));
     if (e.prog < 1) return;
-    const id = works.raiseLadder(e.team, wx, wy, e.id);
+    const id = works.raiseLadder(e.team, wx, wy, e.id, tower ? 'towerBridge' : 'ladder');
     if (id < 0) return void ((e.mode = 'none'), (e.state = 'idle'), (e.prog = 0));
     e.ladder = id;
     e.target = works.piece(id)!.attach;
@@ -217,18 +267,44 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     e.crew = -1; // the crew is free to climb
   };
 
+  /** M5h3 oxybeles: standing and crewed, a bolt at the nearest foe man in sight in range. */
+  const bolt = (e: Engine, n: number, tick: number) => {
+    if (e.cd > 0) e.cd--;
+    if (n < need(e) || e.cd > 0) return;
+    const range = OXY.range * rangeK(e);
+    const f = hooks.foe(e.team, e.x, e.y, range);
+    if (!f) return;
+    const dx = f[0] - e.x, dy = f[1] - e.y, d = Math.hypot(dx, dy);
+    if (d < OXY.min) return;
+    const reach = Math.min(range, d + OXY.past);
+    const x1 = e.x + (dx / d) * reach, y1 = e.y + (dy / d) * reach;
+    e.facing = Math.atan2(dy, dx);
+    e.cd = OXY.reload;
+    e.swingAt = tick;
+    const at = tick + Math.max(1, Math.round(d / OXY.speed / DT));
+    bolts.push({ at, team: e.team, x0: e.x, y0: e.y, x1, y1, dmg: OXY.dmg * dmgK(e) });
+    shots.push({ x0: e.x, y0: e.y, x1, y1, t0: tick, t1: at, z0: 0, z1: 0, by: -1 - e.id, kind: 'bolt', siege: e.id });
+  };
+
   return {
     /** Save and restore (./state.ts). */
-    saveRoot: () => ({ engines, boulders, shots, pathsLeft }),
-    loadRoot: (o: { shots: ShotSnap[]; pathsLeft: number }) => void ((shots = o.shots), (pathsLeft = o.pathsLeft)),
+    saveRoot: () => ({ engines, boulders, bolts, shots, pathsLeft }),
+    loadRoot: (o: { shots: ShotSnap[]; pathsLeft: number }) => {
+      shots = o.shots;
+      pathsLeft = o.pathsLeft;
+      mantlets = engines.filter((e) => e.type === 'mantlet').length;
+    },
     /** A new engine of `team` at (x,y), its cost paid; its id, or -1 (no stock, no ground). */
     build(team: number, type: SiegeType, x: number, y: number): number {
-      if (!hooks.open(x, y) || !works.takeStock(team, SIEGE[type].cost)) return -1;
       const def = SIEGE[type];
+      if (def.node && !has(team, def.node)) return -1; // M5h3: no engineer with the design
+      const tower = (type === 'oxybeles' || type === 'stoneThrower') && has(team, 'archimedes') && hooks.stoneTower(team, x, y);
+      if ((!tower && !hooks.open(x, y)) || !works.takeStock(team, def.cost)) return -1;
       engines.push({
         id: engines.length, type, def, team, x, y, facing: 0, hp: def.hp * 0.1, maxHp: def.hp, state: 'building', labour: 0, crew: -1,
-        mode: 'none', goal: null, path: [], pi: 0, target: -1, wall: null, ladder: -1, cd: 0, swingAt: -1, prog: 0, burn: 0, kindle: 0,
+        mode: 'none', goal: null, path: [], pi: 0, target: -1, wall: null, ladder: -1, cd: 0, swingAt: -1, prog: 0, burn: 0, kindle: 0, tower,
       });
+      if (type === 'mantlet') mantlets++;
       return engines.length - 1;
     },
     /** dt worker-seconds of labour on engine id; false when it is not being built (done or gone). */
@@ -261,7 +337,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     /** Orders for the engine (from its crew). */
     move(id: number, x: number, y: number) {
       const e = engines[id];
-      if (!built(e) || e.state === 'raised') return;
+      if (!built(e) || e.state === 'raised' || e.tower) return;
       e.mode = 'move';
       goTo(e, x, y);
     },
@@ -274,7 +350,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     },
     attack(id: number, building: number): boolean {
       const e = engines[id];
-      if (!built(e) || e.type === 'siegeLadder' || !works.piece(building) || works.piece(building)!.team === e.team) return false;
+      if (!built(e) || (!isRam(e) && e.type !== 'stoneThrower') || !works.piece(building) || works.piece(building)!.team === e.team) return false;
       e.mode = 'attack';
       e.target = building;
       e.goal = null;
@@ -288,7 +364,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     },
     raise(id: number, x: number, y: number): boolean {
       const e = engines[id];
-      if (!built(e) || e.type !== 'siegeLadder' || e.state === 'raised' || works.ladderFoot(e.team, Math.floor(x), Math.floor(y)) < 0) return false;
+      if (!built(e) || (e.type !== 'siegeLadder' && e.type !== 'siegeTower') || e.state === 'raised' || works.ladderFoot(e.team, Math.floor(x), Math.floor(y)) < 0) return false;
       e.mode = 'raise';
       e.wall = [Math.floor(x), Math.floor(y)];
       e.prog = 0;
@@ -297,15 +373,35 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     /** True while the engine has work (crew should stay with it, not fight). */
     busy: (id: number) => {
       const e = engines[id];
-      return built(e) && e.mode !== 'none';
+      return built(e) && (e.mode !== 'none' || (e.type === 'oxybeles' && e.crew >= 0)); // an oxybeles' crew serves it
     },
     kindle(id: number, dt: number): boolean {
       const e = engines[id];
       if (!alive(e)) return false;
       if (e.burn > 0) return true;
-      e.kindle += dt;
+      e.kindle += dt * fireK(e);
       if (e.kindle >= FIRE.kindle) e.burn = FIRE.start;
       return true;
+    },
+    /** M5h3: a covered ram's hides: its catch chance and burn pace (1 for any other engine). */
+    fireK: (id: number) => (engines[id] ? fireK(engines[id]) : 1),
+    /** M5h3: share of missiles a crew man at (x,y) within r of engine id dodges under its roof (ram, covered ram), 0 else. */
+    roof(id: number, x: number, y: number, r: number): number {
+      const e = engines[id];
+      if (!alive(e) || !isRam(e) || (e.x - x) ** 2 + (e.y - y) ** 2 > r * r) return 0;
+      return e.type === 'coveredRam' ? COVERED.cover : RAM.cover;
+    },
+    /** M5h3: share of a missile from (sx,sy) a man of `team` at (x,y) dodges behind a mantlet of his team (0 none). */
+    cover(team: number, x: number, y: number, sx: number, sy: number): number {
+      if (!mantlets) return 0;
+      for (const e of engines) {
+        if (e.type !== 'mantlet' || e.team !== team || !built(e)) continue;
+        const c = Math.cos(e.facing), sn = Math.sin(e.facing);
+        const rx = x - e.x, ry = y - e.y, along = rx * c + ry * sn, perp = Math.abs(ry * c - rx * sn);
+        if (along > 0.5 || along < -MANTLET.r || perp > MANTLET.side) continue;
+        if ((sx - e.x) * c + (sy - e.y) * sn > 0) return MANTLET.cover;
+      }
+      return 0;
     },
     douse(id: number, dt: number): boolean {
       const e = engines[id];
@@ -321,7 +417,8 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       const c = Math.cos(e.facing), s = Math.sin(e.facing), out: number[] = [];
       for (let k = 0; k < n; k++) {
         const side = k % 2 ? 1 : -1, row = Math.floor(k / 2);
-        const along = 0.9 - row * 0.9, perp = side * (e.type === 'siegeLadder' ? 0.55 : 0.8);
+        // a mantlet's men stand behind it, in its cover
+        const along = e.type === 'mantlet' ? -0.7 - row * 0.8 : 0.9 - row * 0.9, perp = side * (e.type === 'siegeLadder' || e.type === 'mantlet' ? 0.55 : 0.8);
         const x = e.x + c * along - s * perp, y = e.y + s * along + c * perp;
         if (hooks.open(x, y)) out.push(x, y);
         else out.push(e.x, e.y);
@@ -335,7 +432,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
         if (!alive(e)) continue;
         if (e.burn > 0) {
           e.burn = Math.min(1, e.burn + FIRE.grow * DT);
-          damage(e, (e.burn * e.maxHp * DT) / ENGINE_FIRE_LIFE);
+          damage(e, (e.burn * e.maxHp * DT * fireK(e)) / ENGINE_FIRE_LIFE);
           if (!alive(e)) continue;
         }
         if (e.state === 'building') continue;
@@ -346,17 +443,19 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
             e.ladder = -1;
             e.state = 'idle';
             e.prog = 0;
-            damage(e, e.maxHp * LADDER.pushed);
+            if (e.type !== 'siegeTower') damage(e, e.maxHp * LADDER.pushed); // a tower whose bridge burnt stands on
           }
           continue;
         }
         const n = crewHere(e);
         if (e.mode === 'attack' && !targetOk(e)) e.mode = 'none';
-        if (e.mode === 'none') settle(e);
-        else if (e.mode === 'move') {
+        if (e.mode === 'none') {
+          settle(e);
+          if (e.type === 'oxybeles') bolt(e, n, tick);
+        } else if (e.mode === 'move') {
           if (e.state === 'deployed' || e.state === 'packing') pack(e, n);
           else if (roll(e, n)) (e.mode = 'none'), settle(e);
-        } else if (e.mode === 'attack') e.type === 'ram' ? ram(e, n, tick) : thrower(e, n, tick);
+        } else if (e.mode === 'attack') isRam(e) ? ram(e, n, tick) : thrower(e, n, tick);
         else if (e.mode === 'raise') ladder(e, n);
         else if (e.mode === 'deploy') {
           deploy(e, n);
@@ -370,8 +469,14 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
         const b = boulders[i];
         if (b.at > tick) continue;
         boulders.splice(i, 1);
-        if (b.hit) works.damage(b.target, THROWER.dmg);
+        if (b.hit) works.damage(b.target, b.dmg);
         hooks.splash(b.x, b.y, THROWER.splash, THROWER.splashDmg, 0.5);
+      }
+      for (let i = bolts.length - 1; i >= 0; i--) {
+        const b = bolts[i];
+        if (b.at > tick) continue;
+        bolts.splice(i, 1);
+        hooks.pierce(b.team, b.x0, b.y0, b.x1, b.y1, OXY.width, b.dmg, OXY.ap, OXY.pierce);
       }
       if (shots.length) shots = shots.filter((sh) => sh.t1 > tick);
     },
@@ -380,7 +485,8 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       engines.map((e) => ({
         id: e.id, type: e.type, team: e.team, x: e.x, y: e.y, facing: e.facing, hp: e.hp, maxHp: e.maxHp, state: e.state,
         progress: e.state === 'building' ? e.labour / e.def.labour : e.state === 'raising' || e.state === 'deploying' || e.state === 'packing' ? e.prog : e.state === 'deployed' ? 1 : 0,
-        crew: e.crew, crewNeed: e.def.crew, crewHere: alive(e) ? crewHere(e) : 0,
+        crew: e.crew, crewNeed: need(e), crewHere:
+ alive(e) ? crewHere(e) : 0,
         ...(e.swingAt >= 0 ? { reload: e.cd, swing: tick - 1 - e.swingAt } : {}),
         ...(e.target >= 0 && (e.mode === 'attack' || e.state === 'raised') ? { target: e.target } : {}),
         ...(e.burn > 0 ? { burning: e.burn } : {}),

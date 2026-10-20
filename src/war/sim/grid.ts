@@ -34,6 +34,10 @@ export interface Grid {
   span: Uint8Array;
   /** Tower platform tiles: the tower's building id, -1 none (capacity: src/war/sim/index.ts). */
   plat: Int32Array;
+  /** M5h3: done stakes or ditch tiles (1): engines cannot enter them. */
+  trench: Uint8Array;
+  /** The next canEnter / findPath calls are for a siege engine (keeps off trench tiles). */
+  engine: boolean;
   /** Tiles (flat x,y) opened or closed since the last flushSectors. */
   dirty: number[];
 }
@@ -86,7 +90,7 @@ export function buildGrid(r: RegionData): Grid {
   }
   const b = r.blocked ?? []; // the ground massifs stand on
   for (let k = 0; k + 1 < b.length; k += 2) cost.fill(0, b[k], Math.min(n, b[k] + b[k + 1]));
-  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), deck: new Uint8Array(n), span: new Uint8Array(n), plat: new Int32Array(n).fill(-1), team: -1, dirty: [] as number[] } as Grid;
+  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), deck: new Uint8Array(n), span: new Uint8Array(n), plat: new Int32Array(n).fill(-1), trench: new Uint8Array(n), engine: false, team: -1, dirty: [] as number[] } as Grid;
   g.sectors = buildSectors(g);
   ensureScratch(g); // allocate the search scratch now, not in the first tick
   return g;
@@ -267,6 +271,7 @@ export function tileAt(g: Grid, x: number, y: number): number {
  */
 export function canEnter(g: Grid, a: number, b: number): boolean {
   if (b < 0 || g.cost[b] <= 0 || (g.gate[b] !== 0 && g.team >= 0 && g.gate[b] !== g.team + 1)) return false;
+  if (g.engine && g.trench[b]) return false;
   const da = g.deck[a], db = g.deck[b];
   if ((da === LADDER && db === DECK) || (da === DECK && db === LADDER)) return true;
   if (Math.abs(g.height[b] - g.height[a]) >= 2) return false;
@@ -375,7 +380,13 @@ export function findPath(g: Grid, start: number, goal: number): number[] {
   // round a long detour (or not at all), and the tile search keeps to that corridor instead of flooding the map
   const nodes = a >= 0 && b >= 0 && a !== b;
   if (nodes) corridor(sc, a, b);
-  return tileSearch(g, start, goal, nodes);
+  const out = tileSearch(g, start, goal, nodes);
+  // M5h3: the node layer does not know trench tiles; an engine cut off in its corridor looks for a way round them
+  if (g.engine && nodes && out[out.length - 1] !== goal) {
+    stamp++;
+    return tileSearch(g, start, goal, false);
+  }
+  return out;
 }
 
 function ensureScratch(g: Grid) {
