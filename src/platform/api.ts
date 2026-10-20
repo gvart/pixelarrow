@@ -60,7 +60,7 @@ export interface Product {
 
 // ---------------------------------------------------------------- bot notifications (server/README.md "Bot notifications")
 
-export const NOTIFY_TYPES = ['attack', 'march', 'income', 'duel', 'clan', 'boss', 'season', 'market'] as const;
+export const NOTIFY_TYPES = ['duel', 'clan', 'season'] as const;
 export type NotifyType = (typeof NOTIFY_TYPES)[number];
 
 export interface NotifySettings {

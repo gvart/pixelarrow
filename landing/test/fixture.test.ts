@@ -10,20 +10,19 @@ describe('summary fixture', () => {
     expect(PublicSummaryV1.parse(fixture)).toEqual(fixture);
   });
 
-  it('names only obvious fixture players and clans, never a real one', () => {
+  it('names only obvious fixture players, never a real one', () => {
     const f = PublicSummaryV1.parse(fixture);
     const names = [
-      ...f.duels.live, ...f.duels.async, ...f.war.players, ...f.war.clans, ...f.bossSlayers,
+      ...f.duels.live, ...f.duels.async, ...f.war.players, ...f.bossSlayers,
       ...f.champions.war, ...f.champions.duel,
     ].map((r) => r.name);
-    names.push(...f.war.players.map((r) => r.clan).filter((c): c is string => c !== null));
     expect(names.length).toBeGreaterThan(0);
     for (const n of names) expect(n).toMatch(/^Fixture/);
   });
 
   it('fills every board LAND-04 renders', () => {
     const f = PublicSummaryV1.parse(fixture);
-    for (const rows of [f.duels.live, f.duels.async, f.war.players, f.war.clans, f.bossSlayers, f.champions.war, f.champions.duel]) {
+    for (const rows of [f.duels.live, f.duels.async, f.war.alliances, f.war.players, f.war.regions, f.bossSlayers, f.bosses, f.champions.war, f.champions.duel]) {
       expect(rows.length).toBeGreaterThan(0);
     }
   });

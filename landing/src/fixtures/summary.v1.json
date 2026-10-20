@@ -102,80 +102,149 @@
       "id": 1,
       "endsAt": 1799709969315
     },
+    "alliances": [
+      {
+        "rank": 1,
+        "name": "Kyrene",
+        "score": 412,
+        "regions": 9,
+        "members": 2
+      },
+      {
+        "rank": 2,
+        "name": "Dodona",
+        "score": 377,
+        "regions": 8,
+        "members": 2
+      },
+      {
+        "rank": 3,
+        "name": "Elaia",
+        "score": 240,
+        "regions": 7,
+        "members": 2
+      },
+      {
+        "rank": 4,
+        "name": "Skythia",
+        "score": 198,
+        "regions": 6,
+        "members": 2
+      }
+    ],
     "players": [
       {
         "rank": 1,
         "name": "FixtureHoplite",
-        "clan": "Fixture Wolves",
-        "score": 1
+        "alliance": "Dodona",
+        "kills": 40,
+        "fights": 12,
+        "wins": 8,
+        "honours": 0
       },
       {
         "rank": 2,
         "name": "FixtureArcher",
-        "clan": "Fixture Ravens",
-        "score": 1
+        "alliance": "Skythia",
+        "kills": 36,
+        "fights": 11,
+        "wins": 7,
+        "honours": 1
       },
       {
         "rank": 3,
         "name": "FixturePeltast",
-        "clan": "Fixture Lions",
-        "score": 1
+        "alliance": "Kyrene",
+        "kills": 32,
+        "fights": 10,
+        "wins": 6,
+        "honours": 2
       },
       {
         "rank": 4,
         "name": "FixtureCavalry",
-        "clan": null,
-        "score": 1
+        "alliance": "Elaia",
+        "kills": 28,
+        "fights": 9,
+        "wins": 5,
+        "honours": 0
       },
       {
         "rank": 5,
         "name": "FixtureSlinger",
-        "clan": null,
-        "score": 1
+        "alliance": "Dodona",
+        "kills": 24,
+        "fights": 8,
+        "wins": 4,
+        "honours": 1
       },
       {
         "rank": 6,
         "name": "FixtureMarine",
-        "clan": null,
-        "score": 1
+        "alliance": "Skythia",
+        "kills": 20,
+        "fights": 7,
+        "wins": 8,
+        "honours": 2
       },
       {
         "rank": 7,
         "name": "FixtureScout",
-        "clan": null,
-        "score": 1
+        "alliance": "Kyrene",
+        "kills": 16,
+        "fights": 6,
+        "wins": 7,
+        "honours": 0
       },
       {
         "rank": 8,
         "name": "FixtureMedic",
-        "clan": null,
-        "score": 1
+        "alliance": "Elaia",
+        "kills": 12,
+        "fights": 5,
+        "wins": 6,
+        "honours": 1
       },
       {
         "rank": 9,
         "name": "FixtureEngineer",
-        "clan": null,
-        "score": 1
+        "alliance": null,
+        "kills": 8,
+        "fights": 4,
+        "wins": 5,
+        "honours": 2
       }
     ],
-    "clans": [
+    "regions": [
       {
         "rank": 1,
-        "name": "Fixture Lions",
-        "score": 1,
-        "members": 1
+        "name": "Omphalos Plateau",
+        "alliance": "Kyrene",
+        "rate": 10
       },
       {
         "rank": 2,
-        "name": "Fixture Ravens",
-        "score": 1,
-        "members": 1
+        "name": "Achelous Ford",
+        "alliance": "Dodona",
+        "rate": 3
       },
       {
         "rank": 3,
-        "name": "Fixture Wolves",
-        "score": 1,
-        "members": 1
+        "name": "Kleisoura Pass",
+        "alliance": "Kyrene",
+        "rate": 3
+      },
+      {
+        "rank": 4,
+        "name": "Gorge of the Falls",
+        "alliance": "Elaia",
+        "rate": 2
+      },
+      {
+        "rank": 5,
+        "name": "Siren Estuary",
+        "alliance": "Skythia",
+        "rate": 1
       }
     ]
   },
@@ -208,18 +277,56 @@
   "bossSlayers": [
     {
       "rank": 1,
+      "name": "FixtureHoplite",
+      "kills": 3
+    },
+    {
+      "rank": 2,
       "name": "FixtureArcher",
       "kills": 2
     },
     {
-      "rank": 2,
-      "name": "FixtureSlinger",
+      "rank": 3,
+      "name": "FixturePeltast",
       "kills": 1
+    }
+  ],
+  "bosses": [
+    {
+      "name": "Scylla of the Estuary",
+      "region": "Siren Estuary",
+      "kills": 2,
+      "first": "Skythia",
+      "alliances": [
+        1,
+        1,
+        0,
+        0
+      ]
     },
     {
-      "rank": 3,
-      "name": "FixtureMedic",
-      "kills": 1
+      "name": "Titan of Krios",
+      "region": "Krios Glacier",
+      "kills": 1,
+      "first": "Kyrene",
+      "alliances": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "Great Bear of the Moors",
+      "region": "Grey Moors",
+      "kills": 1,
+      "first": "Elaia",
+      "alliances": [
+        0,
+        0,
+        0,
+        1
+      ]
     }
   ]
 }

@@ -32,9 +32,9 @@ export const NOTIFY_RULES = {
   /** Messages per player per rolling hour. */
   maxPerHour: 4,
   /** After a message of a type, newer events of that type wait this long and are then sent together. */
-  coalesceMs: { attack: 15 * MIN, march: 5 * MIN, income: 0, duel: 15 * MIN, clan: 10 * MIN, boss: 0, season: 0, market: 20 * MIN } as Record<NotifyType, number>,
+  coalesceMs: { duel: 15 * MIN, clan: 10 * MIN, season: 0 } as Record<NotifyType, number>,
   /** Events older than this are dropped instead of sent late. */
-  ttlMs: { attack: 6 * HOUR, march: 3 * HOUR, income: 24 * HOUR, duel: 1 * HOUR, clan: 24 * HOUR, boss: 24 * HOUR, season: 24 * HOUR, market: 24 * HOUR } as Record<NotifyType, number>,
+  ttlMs: { duel: 1 * HOUR, clan: 24 * HOUR, season: 24 * HOUR } as Record<NotifyType, number>,
   /** Local quiet hours [from, to) when the player's time zone is known. */
   quiet: { from: 23, to: 8 },
   /** Players flushed per cron run (Telegram allows ~30 messages a second overall). */

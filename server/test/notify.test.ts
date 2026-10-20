@@ -53,28 +53,17 @@ function telegramFailing(status: number, description: string): BotCall[] {
 }
 
 describe('notification texts and deep links', () => {
-  it('renders one event, folds several attacks into one message, and speaks Russian', () => {
-    const one = render('en', 'attack', [{ event: 'attack_captured', data: { loc: 32, place: 'Massalia', by: 'Brasidas', ticket: 't1' } }]);
-    expect(one.text).toContain('Brasidas captured Massalia');
+  it('renders one event, folds several challenges into one message, and speaks Russian', () => {
+    const one = render('en', 'clan', [{ event: 'clan_joined', data: { name: 'Brasidas', clan: '[ABC] Kites' } }]);
+    expect(one.text).toContain('Brasidas joined [ABC] Kites through your invite');
     expect(one.text).toContain('/settings');
-    expect(one.route).toEqual({ kind: 'loc', loc: 32 });
-    const many = render('en', 'attack', [
-      { event: 'attack_start', data: { loc: 1, place: 'A1', by: 'A', ticket: 't1' } },
-      { event: 'attack_held', data: { loc: 1, place: 'A1', by: 'A', ticket: 't1' } },
-      { event: 'attack_start', data: { loc: 2, place: 'B2', by: 'B', ticket: 't2' } },
-      { event: 'attack_captured', data: { loc: 2, place: 'B2', by: 'B', ticket: 't2' } },
-      { event: 'attack_start', data: { loc: 4, place: 'C4', by: 'C', ticket: 't3' } },
-    ]);
-    expect(many.text).toContain('3 attacks on your land in the last hour');
-    expect(many.text).toContain('Regions lost: 1, attacks held: 1');
-    expect(many.route).toEqual({ kind: 'loc', loc: 4 });
-    const ru = render('ru', 'market', [
-      { event: 'market_sold', data: { what: 'Bronze helm', price: 100, currency: 'gold', gets: 90 } },
-      { event: 'market_sold', data: { what: 'Spear', price: 20, currency: 'drachmae', gets: 18 } },
-    ]);
-    expect(ru.text).toContain('Продано ваших лотов: 2');
-    expect(ru.text).toContain('+90 золота, +18 драхм');
-    expect(ru.button).toBe('🪙 Рынок');
+    expect(one.route).toEqual({ kind: 'clan' });
+    const many = render('en', 'duel', ['A', 'B', 'C', 'D'].map((by) => ({ event: 'duel_challenge' as const, data: { by } })));
+    expect(many.text).toContain('While you were away, 4 commanders challenged you to duels: A, B, C and 1 more.');
+    expect(many.route).toEqual({ kind: 'duel' });
+    const ru = render('ru', 'clan', [{ event: 'clan_role', data: { clan: '[ABC] Kites', role: 'officer' } }]);
+    expect(ru.text).toContain('Ваш ранг в клане [ABC] Kites: офицер.');
+    expect(ru.button).toBe('🏛 Открыть клан');
   });
 
   it('folds raids on a duel defence into one message (held / broken)', () => {
@@ -88,15 +77,10 @@ describe('notification texts and deep links', () => {
 
   it('every button opens the game with a startapp the client understands', () => {
     const cases: [Parameters<typeof render>[1], Parameters<typeof render>[2][number], string][] = [
-      ['attack', { event: 'attack_start', data: { loc: 57, place: 'Gades', by: 'X', ticket: 't' } }, 'loc_57'],
-      ['march', { event: 'march_arrived', data: { loc: 23, place: 'Emporion' } }, 'loc_23'],
-      ['income', { event: 'income_full', data: {} }, 'income'],
       ['duel', { event: 'duel_challenge', data: { by: 'Y' } }, 'duel'],
       ['clan', { event: 'clan_joined', data: { name: 'Z', clan: '[ABC] Kites' } }, 'myclan'],
       ['clan', { event: 'clan_kicked', data: { clan: '[ABC] Kites' } }, 'income'],
-      ['boss', { event: 'boss_slain', data: { boss: 'kraken', loc: 91, share: 0.25, items: 2 } }, 'boss_91'],
       ['season', { event: 'season_ending', data: { days: 3 } }, 'season'],
-      ['market', { event: 'market_sold', data: { what: 'Helm', price: 10, currency: 'gold', gets: 9 } }, 'market'],
     ];
     for (const [type, e, param] of cases) {
       const r = render('en', type, [e]);
@@ -121,32 +105,32 @@ describe('delivery rules', () => {
   it('sends at once with a web_app button, once per dedupe key', async () => {
     const p = await join(77001, 'Leonidas');
     const calls = mockTelegram();
-    const e = ev(p.playerId, 'march_arrived', 'march:1', { loc: 21, place: 'Saguntum' });
+    const e = ev(p.playerId, 'clan_role', 'role:1', { clan: '[ABC] Kites', role: 'officer' });
     await notify(env, [e]);
     await notify(env, [e]);
     const sent = sends(calls, 77001);
     expect(sent).toHaveLength(1);
-    expect(sent[0].params.text).toContain('Your army has arrived at Saguntum');
-    expect(button(sent[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=loc_21');
+    expect(sent[0].params.text).toContain('Your rank in [ABC] Kites is now: Officer.');
+    expect(button(sent[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=myclan');
     expect((await outbox(p.playerId)).map((r) => r.status)).toEqual(['sent']);
   });
 
   it('respects the per-type opt-out (settings API) and keeps the other types', async () => {
     const p = await join(77002);
     const calls = mockTelegram();
-    const put = await api('/api/notify/settings', { method: 'PUT', token: p.token, json: { on: { market: false }, tzOffset: 120 } });
+    const put = await api('/api/notify/settings', { method: 'PUT', token: p.token, json: { on: { duel: false }, tzOffset: 120 } });
     expect(put.status).toBe(200);
     const view = await put.json<{ types: { type: string; on: boolean }[]; quiet: boolean; tzOffset: number; blocked: boolean }>();
-    expect(view.types.find((t) => t.type === 'market')!.on).toBe(false);
-    expect(view.types.find((t) => t.type === 'attack')!.on).toBe(true);
+    expect(view.types.find((t) => t.type === 'duel')!.on).toBe(false);
+    expect(view.types.find((t) => t.type === 'clan')!.on).toBe(true);
     expect(view).toMatchObject({ quiet: true, tzOffset: 120, blocked: false });
     const noon = Date.UTC(2026, 9, 7, 10, 0); // 12:00 local
-    await notify(env, [ev(p.playerId, 'market_sold', 'sold:x', { what: 'Helm', price: 10, currency: 'gold', gets: 9 }), ev(p.playerId, 'income_full', 'income:x', {})], { now: noon });
-    expect(sends(calls, 77002).map((c) => c.params.text as string).join()).toContain('treasury is full');
+    await notify(env, [ev(p.playerId, 'duel_challenge', 'duel:x', { by: 'Kleon' }), ev(p.playerId, 'clan_kicked', 'kick:x', { clan: '[ABC] Kites' })], { now: noon });
+    expect(sends(calls, 77002).map((c) => c.params.text as string).join()).toContain('removed from the clan');
     expect(sends(calls, 77002)).toHaveLength(1);
-    expect(Object.fromEntries((await outbox(p.playerId)).map((r) => [r.event, r.status]))).toEqual({ market_sold: 'skipped', income_full: 'sent' });
+    expect(Object.fromEntries((await outbox(p.playerId)).map((r) => [r.event, r.status]))).toEqual({ duel_challenge: 'skipped', clan_kicked: 'sent' });
     // the settings read back; bad input is refused
-    expect((await getJson<{ types: { type: string; on: boolean }[] }>('/api/notify/settings', p.token)).body.types.filter((t) => !t.on).map((t) => t.type)).toEqual(['market']);
+    expect((await getJson<{ types: { type: string; on: boolean }[] }>('/api/notify/settings', p.token)).body.types.filter((t) => !t.on).map((t) => t.type)).toEqual(['duel']);
     expect((await api('/api/notify/settings', { method: 'PUT', token: p.token, json: { on: { nope: true } } })).status).toBe(400);
     expect((await api('/api/notify/settings')).status).toBe(401);
   });
@@ -161,43 +145,42 @@ describe('delivery rules', () => {
     // still inside its TTL at 2:50, but quiet; at 8:00 the duel is stale (1 h TTL) and dropped
     await flushPlayer(env, p.playerId, night + 50 * MIN);
     expect(sends(calls, 77003)).toHaveLength(0);
-    await notify(env, [ev(p.playerId, 'boss_slain', 'boss:1', { boss: 'titan', loc: 11, share: 0.5, items: 3 })], { now: night + 55 * MIN });
+    await notify(env, [ev(p.playerId, 'clan_joined', 'join:1', { name: 'Brasidas', clan: '[ABC] Kites' })], { now: night + 55 * MIN });
     await flushPlayer(env, p.playerId, Date.UTC(2026, 9, 7, 8, 0));
     const sent = sends(calls, 77003);
     expect(sent).toHaveLength(1);
-    expect(sent[0].params.text).toContain('Titan has been slain');
-    expect(Object.fromEntries((await outbox(p.playerId)).map((r) => [r.event, r.status]))).toEqual({ duel_challenge: 'skipped', boss_slain: 'sent' });
+    expect(sent[0].params.text).toContain('Brasidas joined [ABC] Kites');
+    expect(Object.fromEntries((await outbox(p.playerId)).map((r) => [r.event, r.status]))).toEqual({ duel_challenge: 'skipped', clan_joined: 'sent' });
   });
 
   it('coalesces repeated events into one message after the window and caps messages per hour', async () => {
     const p = await join(77004);
     const calls = mockTelegram();
     const t0 = Date.UTC(2026, 9, 7, 12, 0);
-    const atk = (i: number, kind: 'attack_start' | 'attack_captured' | 'attack_held') =>
-      ev(p.playerId, kind, `atk:${i}:${kind === 'attack_start' ? 'start' : 'end'}`, { loc: i + 1, place: `R${i + 1}`, by: `Foe${i}`, ticket: `t${i}` });
-    await notify(env, [atk(1, 'attack_start')], { now: t0 });
+    const raid = (i: number, held: boolean) => ev(p.playerId, 'duel_defence', `raid:${i}`, { by: `Foe${i}`, held });
+    await notify(env, [raid(1, true)], { now: t0 });
     expect(sends(calls, 77004)).toHaveLength(1); // the first one goes at once
-    await notify(env, [atk(1, 'attack_held')], { now: t0 + 2 * MIN });
-    await notify(env, [atk(2, 'attack_start')], { now: t0 + 3 * MIN });
-    await notify(env, [atk(2, 'attack_captured')], { now: t0 + 5 * MIN });
-    await notify(env, [atk(3, 'attack_start')], { now: t0 + 6 * MIN });
+    await notify(env, [raid(2, true)], { now: t0 + 2 * MIN });
+    await notify(env, [raid(3, false)], { now: t0 + 3 * MIN });
+    await notify(env, [raid(4, true)], { now: t0 + 5 * MIN });
+    await notify(env, [raid(5, true)], { now: t0 + 6 * MIN });
     expect(sends(calls, 77004)).toHaveLength(1); // inside the coalescing window: waiting
     await flushDue(env, t0 + 10 * MIN);
     expect(sends(calls, 77004)).toHaveLength(1);
-    await flushDue(env, t0 + NOTIFY_RULES.coalesceMs.attack + 1);
+    await flushDue(env, t0 + NOTIFY_RULES.coalesceMs.duel + 1);
     const sent = sends(calls, 77004);
     expect(sent).toHaveLength(2);
-    expect(sent[1].params.text).toContain('3 attacks on your land in the last hour. Regions lost: 1, attacks held: 1.');
+    expect(sent[1].params.text).toContain('4 raids on your defence team. Held: 3, lost: 1.');
     expect((await outbox(p.playerId)).every((r) => r.status === 'sent')).toBe(true);
 
     // the hourly budget: other types still go until it is spent, then everything waits
     const t1 = t0 + 20 * MIN;
-    await notify(env, [ev(p.playerId, 'income_full', 'income:a', {})], { now: t1 });
-    await notify(env, [ev(p.playerId, 'boss_slain', 'boss:a', { boss: 'kraken', loc: 5, share: 0.1, items: 1 })], { now: t1 });
+    await notify(env, [ev(p.playerId, 'clan_joined', 'join:a', { name: 'Z', clan: '[ABC] Kites' })], { now: t1 });
+    await notify(env, [ev(p.playerId, 'season_ending', 'season:a', { days: 3 })], { now: t1 });
     expect(sends(calls, 77004)).toHaveLength(NOTIFY_RULES.maxPerHour);
-    await notify(env, [ev(p.playerId, 'season_ending', 'season:a', { days: 3 })], { now: t1 + MIN });
+    await notify(env, [ev(p.playerId, 'clan_kicked', 'kick:a', { clan: '[ABC] Kites' })], { now: t1 + NOTIFY_RULES.coalesceMs.clan + MIN });
     expect(sends(calls, 77004)).toHaveLength(NOTIFY_RULES.maxPerHour);
-    expect((await outbox(p.playerId)).find((r) => r.event === 'season_ending')!.status).toBe('pending');
+    expect((await outbox(p.playerId)).find((r) => r.event === 'clan_kicked')!.status).toBe('pending');
     // an hour after the first message the budget frees up
     await flushDue(env, t0 + 61 * MIN);
     expect(sends(calls, 77004)).toHaveLength(NOTIFY_RULES.maxPerHour + 1);
@@ -206,7 +189,7 @@ describe('delivery rules', () => {
   it('a blocked bot (403) disables delivery until the player sends /start again; 429 just retries', async () => {
     const p = await join(77005);
     let calls = telegramFailing(403, 'Forbidden: bot was blocked by the user');
-    await notify(env, [ev(p.playerId, 'income_full', 'income:b1', {}), ev(p.playerId, 'march_arrived', 'march:b1', { loc: 1, place: 'R1' })]);
+    await notify(env, [ev(p.playerId, 'clan_kicked', 'kick:b1', { clan: '[ABC] Kites' }), ev(p.playerId, 'season_ending', 'season:b1', { days: 3 })]);
     expect(sends(calls)).toHaveLength(1); // stopped at the first 403
     const st = await DB().prepare('SELECT blocked_at FROM notify_settings WHERE player_id = ?1').bind(p.playerId).first<{ blocked_at: number | null }>();
     expect(st!.blocked_at).toBeGreaterThan(0);
@@ -215,16 +198,16 @@ describe('delivery rules', () => {
     vi.restoreAllMocks();
 
     calls = mockTelegram();
-    await notify(env, [ev(p.playerId, 'income_full', 'income:b2', {})]);
+    await notify(env, [ev(p.playerId, 'season_ending', 'season:b2', { days: 3 })]);
     expect(sends(calls, 77005)).toHaveLength(0);
     await webhook({ update_id: 5, message: { message_id: 1, chat: { id: 77005, type: 'private' }, from: { id: 77005 }, text: '/start' } });
-    await notify(env, [ev(p.playerId, 'income_full', 'income:b3', {})]);
-    expect(sends(calls, 77005).map((c) => c.params.text as string).some((t) => t.includes('treasury'))).toBe(true);
+    await notify(env, [ev(p.playerId, 'season_ending', 'season:b3', { days: 3 })]);
+    expect(sends(calls, 77005).map((c) => c.params.text as string).some((t) => t.includes('The season ends in 3 days'))).toBe(true);
     vi.restoreAllMocks();
 
     calls = telegramFailing(429, 'Too Many Requests: retry after 5');
-    await notify(env, [ev(p.playerId, 'boss_slain', 'boss:b4', { boss: 'titan', loc: 5, share: 1, items: 1 })]);
-    expect((await outbox(p.playerId)).find((r) => r.event === 'boss_slain')!.status).toBe('pending');
+    await notify(env, [ev(p.playerId, 'clan_joined', 'join:b4', { name: 'Z', clan: '[ABC] Kites' })]);
+    expect((await outbox(p.playerId)).find((r) => r.event === 'clan_joined')!.status).toBe('pending');
   });
 });
 
@@ -311,14 +294,14 @@ describe('bot commands', () => {
     const calls = mockTelegram();
     await webhook(msg(77804, '/settings'));
     const kb = button(sends(calls, 77804)[0]);
-    expect(kb[0][0]).toMatchObject({ text: '✅ Attacks on your land', callback_data: 'ns:attack' });
+    expect(kb[0][0]).toMatchObject({ text: '✅ Duel challenges', callback_data: 'ns:duel' });
     expect(kb.at(-1)![0].web_app!.url).toBe('https://play.pixelarrow.app/?startapp=settings');
-    await webhook({ update_id: 2, callback_query: { id: 'cb1', from: { id: 77804 }, message: { message_id: 9, chat: { id: 77804 } }, data: 'ns:attack' } });
+    await webhook({ update_id: 2, callback_query: { id: 'cb1', from: { id: 77804 }, message: { message_id: 9, chat: { id: 77804 } }, data: 'ns:duel' } });
     const edit = calls.find((c) => c.method === 'editMessageText')!;
-    expect((edit.params.reply_markup as { inline_keyboard: { text: string }[][] }).inline_keyboard[0][0].text).toBe('❌ Attacks on your land');
+    expect((edit.params.reply_markup as { inline_keyboard: { text: string }[][] }).inline_keyboard[0][0].text).toBe('❌ Duel challenges');
     expect(calls.find((c) => c.method === 'answerCallbackQuery')!.params).toMatchObject({ callback_query_id: 'cb1' });
     const view = await getJson<{ types: { type: string; on: boolean }[] }>('/api/notify/settings', p.token);
-    expect(view.body.types.find((t) => t.type === 'attack')!.on).toBe(false);
+    expect(view.body.types.find((t) => t.type === 'duel')!.on).toBe(false);
     // someone who never played gets a Play button
     await webhook(msg(77899, '/settings'));
     expect(button(sends(calls, 77899)[0])[0][0].web_app!.url).toBe('https://play.pixelarrow.app');
@@ -339,7 +322,7 @@ describe('bot commands', () => {
 
   it('enqueue is idempotent per dedupe key', async () => {
     const p = await join(77805);
-    await enqueue(DB(), [ev(p.playerId, 'income_full', 'k', {}), ev(p.playerId, 'income_full', 'k', {})], Date.now());
+    await enqueue(DB(), [ev(p.playerId, 'season_ending', 'k', { days: 3 }), ev(p.playerId, 'season_ending', 'k', { days: 3 })], Date.now());
     expect(await outbox(p.playerId)).toHaveLength(1);
   });
 });

@@ -17,13 +17,13 @@ import { PLAY_URL } from '../site';
 import { COUNT_MS, valueAt } from './countUp';
 
 type DuelRow = { rank: number; name: string; league: string; rating: number | null; games: number };
-type ClanRow = { rank: number; name: string; score: number; members: number };
+type AllianceRow = { rank: number; name: string; score: number; regions: number; members: number };
 type Summary = {
   v: 1;
   generatedAt: number;
   totals: { players: number; onlineBattles: number; clans: number };
   duels: { season: { id: number }; live: DuelRow[]; async: DuelRow[] };
-  war: { season: { id: number }; clans: ClanRow[] };
+  war: { season: { id: number } | null; alliances: AllianceRow[] };
 };
 
 /** Below these a counter shows "—" (ADR-0010 §2 leaves the threshold to the landing page). */
@@ -47,7 +47,7 @@ async function load(): Promise<Summary | null> {
     if (mode === '503') return null;
     if (mode === 'fixture' || mode === 'empty') {
       const f = structuredClone((await import('../fixtures/summary.v1.json')).default) as Summary;
-      if (mode === 'empty') Object.assign(f, { duels: { ...f.duels, live: [], async: [] }, war: { ...f.war, clans: [] } });
+      if (mode === 'empty') Object.assign(f, { duels: { ...f.duels, live: [], async: [] }, war: { ...f.war, alliances: [] } });
       return f;
     }
   }
@@ -55,7 +55,7 @@ async function load(): Promise<Summary | null> {
     const res = await fetch(URL_, { headers: { accept: 'application/json' } });
     if (!res.ok) return null;
     const s = (await res.json()) as Summary;
-    return s?.v === 1 && Array.isArray(s.duels?.live) && Array.isArray(s.war?.clans) && typeof s.totals === 'object' ? s : null;
+    return s?.v === 1 && Array.isArray(s.duels?.live) && Array.isArray(s.war?.alliances) && typeof s.totals === 'object' ? s : null;
   } catch {
     return null;
   }
@@ -138,14 +138,15 @@ function render(section: HTMLElement, s: Summary | null): void {
 
   // Boards
   const duels = s ? (s.duels.live.length ? s.duels.live : s.duels.async) : [];
-  const clans = s?.war.clans ?? [];
+  // the four alliances are always listed; a season nobody has scored or taken land in yet counts as empty
+  const alliances = s && s.war.alliances.some((r) => r.score > 0 || r.regions > 0) ? s.war.alliances : [];
   const boards = h('div', 'stats__boards');
-  if (!s || (!duels.length && !clans.length)) {
+  if (!s || (!duels.length && !alliances.length)) {
     // The two pages stay on the table, blank and ruled, with the invitation laid across them: the
     // section keeps the exact size of its loading slots and of the filled boards at every width.
     // No season numbers here: the empty state shows no digit at all.
     boards.classList.add('is-empty');
-    for (const [title, sub, cols] of [['Top duelists', 'Live ladder', 3], ['War standings', 'Clans', 4]] as const) {
+    for (const [title, sub, cols] of [['Top duelists', 'Live ladder', 3], ['War standings', 'Alliances', 4]] as const) {
       const l = ledger('', title, sub, Array<string>(cols).fill(''), [], '');
       l.querySelector('.ledger__none')!.remove();
       l.querySelector('h3')!.removeAttribute('id');
@@ -159,8 +160,8 @@ function render(section: HTMLElement, s: Summary | null): void {
     boards.append(
       ledger('stats-duels', 'Top duelists', `${ladder}, season ${s.duels.season.id}`, ['Rank', 'Player', 'League'],
         duels.map((r) => [String(r.rank), r.name, league(r)]), 'No ranked duelists yet this season.'),
-      ledger('stats-war', 'War standings', `Clans, season ${s.war.season.id}`, ['Rank', 'Clan', 'Score', 'Members'],
-        clans.map((r) => [String(r.rank), r.name, fmt(r.score), fmt(r.members)]), 'No clans on the map yet this season.'),
+      ledger('stats-war', 'War standings', s.war.season ? `Alliances, season ${s.war.season.id}` : 'Alliances', ['Rank', 'Alliance', 'Score', 'Regions'],
+        alliances.map((r) => [String(r.rank), r.name, fmt(r.score), fmt(r.regions)]), 'No alliance holds land yet this season.'),
     );
   }
   wrap.append(boards);

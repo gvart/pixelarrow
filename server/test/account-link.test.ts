@@ -337,7 +337,7 @@ describe('unlink (ADR-0009 §4)', () => {
     await DB().batch([
       DB().prepare('INSERT INTO notify_settings (player_id, updated_at) VALUES (?1, ?2)').bind(me.pid, now),
       DB().prepare(`INSERT INTO bot_state (telegram_id, state, until) VALUES (?1, 'support', ?2)`).bind(me.tgId, now + 60_000),
-      DB().prepare(`INSERT INTO notify_outbox (player_id, type, event, dedupe, data, created_at) VALUES (?1, 'income', 'income_full', ?2, '{}', ?3)`).bind(me.pid, `d${me.pid}`, now),
+      DB().prepare(`INSERT INTO notify_outbox (player_id, type, event, dedupe, data, created_at) VALUES (?1, 'season', 'season_ending', ?2, '{"days":3}', ?3)`).bind(me.pid, `d${me.pid}`, now),
       DB().prepare(`INSERT INTO purchases (telegram_payment_charge_id, player_id, product_id, currency, stars_amount, payload, created_at) VALUES (?1, ?2, 'founder', 'XTR', 100, '{}', ?3)`).bind(`ch_u${me.pid}`, me.pid, now),
     ]);
     const r = await unlink({ cookie: me.cookie }, 'telegram');

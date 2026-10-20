@@ -9,42 +9,50 @@ import type { Env } from '../env';
 import { seasonEnd, seasonId } from '../../../src/duel/season';
 import { BOARD_MAX, BOARD_MIN, BODY_MAX_BYTES, CHAMPIONS_MAX, PublicSummaryV1 } from './schema';
 import { ELIGIBLE, publicDuelTop } from './duelTop';
-import { validateClanName } from '../names/validate';
+import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
+import { worldRegion } from '../../../src/war/world/graph';
+import { WAR_BOSSES } from '../../../src/data/warBosses';
+import { worldStub } from '../war/world/routes';
+import { logError } from '../telemetry/log';
 
 const DAY = 86_400_000;
 
 
-interface SnapshotOptions {
-  /**
-   * May this clan name be public? By default ADR-0009's shared validator
-   * (names/validate.ts): a clan whose name fails it stays off the clan board
-   * and war rows show `clan: null`.
-   */
-  clanName?: (name: string) => boolean;
+/** What the boards read of the war world (WarWorldDO.standings); null: the world could not be reached. */
+type Standings = Awaited<ReturnType<ReturnType<typeof worldStub>['standings']>>;
+
+async function standings(env: Env): Promise<Standings | null> {
+  try {
+    return (await worldStub(env).standings()) as Standings;
+  } catch (e) {
+    logError('public_snapshot_world', e);
+    return null;
+  }
 }
 
 /** Builds, validates and stores the snapshot; returns what it stored. */
-export async function buildPublicSnapshot(env: Env, now: number, opts: SnapshotOptions = {}): Promise<PublicSummaryV1> {
+export async function buildPublicSnapshot(env: Env, now: number): Promise<PublicSummaryV1> {
   const db = env.DB;
   if (!db) throw new Error('public snapshot: no DB binding');
-  const clanOk = opts.clanName ?? ((name: string) => validateClanName(name).ok);
   const duelSeason = seasonId(now);
-  const warSeason = await db.prepare("SELECT id, ends_at FROM online_seasons WHERE status = 'active' ORDER BY id DESC LIMIT 1").first<{ id: number; ends_at: number }>();
+  const onlineSeason = await db.prepare("SELECT id FROM online_seasons WHERE status = 'active' ORDER BY id DESC LIMIT 1").first<{ id: number }>();
+  const world = await standings(env);
   const snap: PublicSummaryV1 = {
     v: 1,
     generatedAt: now,
-    totals: await totals(db, now, warSeason?.id ?? null),
+    totals: await totals(db, now, onlineSeason?.id ?? null),
     duels: {
       season: { id: duelSeason, endsAt: seasonEnd(duelSeason) },
       live: board(await publicDuelTop(db, 'live', duelSeason, BOARD_MAX)),
       async: board(await publicDuelTop(db, 'async', duelSeason, BOARD_MAX)),
     },
     war: {
-      season: warSeason ? { id: warSeason.id, endsAt: warSeason.ends_at } : null,
-      ...(warSeason ? await warBoards(db, warSeason.id, clanOk) : { players: [], clans: [] }),
+      season: world ? { id: world.season.id, endsAt: world.season.endAt } : null,
+      ...(await warBoards(db, world)),
     },
     champions: await champions(db, duelSeason),
     bossSlayers: board(await bossSlayers(db)),
+    bosses: await bosses(db),
   };
   const body = JSON.stringify(PublicSummaryV1.parse(snap));
   if (new TextEncoder().encode(body).length > BODY_MAX_BYTES) throw new Error('public snapshot: body over 32 KB');
@@ -73,18 +81,67 @@ async function totals(db: D1Database, now: number, warSeason: number | null): Pr
     onlineBattles: war + duels,
     duelsFought: duels,
     warBattles: war,
-    bossesSlain: 0, // the world bosses went with the route-graph war (W-01)
+    bossesSlain: (await db.prepare('SELECT COUNT(*) AS n FROM war_boss_kills').first<{ n: number }>())?.n ?? 0,
     clans: warSeason === null ? 0 : ((await db.prepare('SELECT COUNT(DISTINCT clan_id) AS n FROM clan_members WHERE season_id = ?1').bind(warSeason).first<{ n: number }>())?.n ?? 0),
   };
 }
 
+const allianceName = (a: number) => ALLIANCES[a]?.name ?? null;
+
 /**
- * War boards of the running season: empty since the old region standings went
- * with the route-graph war (W-01); the war world's season score (src/war/world/season.ts)
- * is not on the public board yet.
+ * War boards of the running war season: the four alliances by season score (with regions held and members), the top
+ * eligible players by kills (then fights won, honours), and the held regions that score most an hour. Alliances and
+ * regions are game names, not players': they need no BOARD_MIN.
  */
-async function warBoards(_db: D1Database, _season: number, _clanOk: (name: string) => boolean): Promise<Pick<PublicSummaryV1['war'], 'players' | 'clans'>> {
-  return { players: [], clans: [] };
+async function warBoards(db: D1Database, world: Standings | null): Promise<Pick<PublicSummaryV1['war'], 'alliances' | 'players' | 'regions'>> {
+  const members = await db
+    .prepare('SELECT alliance, COUNT(*) AS n FROM war_alliance_members WHERE season = ?1 GROUP BY alliance')
+    .bind(WAR_SEASON.id)
+    .all<{ alliance: number; n: number }>();
+  const alliances = world
+    ? ALLIANCES.map((a) => ({
+        name: a.name, score: world.season.scores[a.id] ?? 0, regions: world.regions.filter((r) => r.owner === a.id).length,
+        members: members.results.find((m) => m.alliance === a.id)?.n ?? 0,
+      }))
+        .sort((x, y) => y.score - x.score || y.regions - x.regions || x.name.localeCompare(y.name))
+        .map((r, i) => ({ rank: i + 1, ...r }))
+    : [];
+  const players = (
+    await db
+      .prepare(
+        `SELECT p.display_name AS name, m.alliance, s.kills, s.fights, s.wins, s.honours
+         FROM war_player_stats s JOIN players p ON p.id = s.player_id
+         LEFT JOIN war_alliance_members m ON m.season = s.season AND m.player_id = s.player_id
+         WHERE s.season = ?1 AND s.fights > 0 AND ${ELIGIBLE}
+         ORDER BY s.kills DESC, s.wins DESC, s.honours DESC, s.player_id LIMIT ?2`,
+      )
+      .bind(WAR_SEASON.id, BOARD_MAX)
+      .all<{ name: string; alliance: number | null; kills: number; fights: number; wins: number; honours: number }>()
+  ).results.map((r, i) => ({ rank: i + 1, name: r.name, alliance: r.alliance === null ? null : allianceName(r.alliance), kills: r.kills, fights: r.fights, wins: r.wins, honours: r.honours }));
+  const regions = (world?.regions ?? [])
+    .filter((r) => r.owner >= 0 && r.rate > 0 && worldRegion(r.id))
+    .map((r) => ({ name: worldRegion(r.id)!.name, alliance: allianceName(r.owner)!, rate: r.rate }))
+    .sort((x, y) => y.rate - x.rate || x.name.localeCompare(y.name))
+    .slice(0, BOARD_MAX)
+    .map((r, i) => ({ rank: i + 1, ...r }));
+  return { alliances, players: board(players), regions };
+}
+
+/** Every region boss slain this war season (W-45): kills in all, per alliance, and the alliance of the first kill. */
+async function bosses(db: D1Database): Promise<PublicSummaryV1['bosses']> {
+  const rows = (
+    await db
+      .prepare('SELECT boss, alliance, COUNT(*) AS n, MIN(at) AS first FROM war_boss_kills WHERE season = ?1 GROUP BY boss, alliance')
+      .bind(WAR_SEASON.id)
+      .all<{ boss: string; alliance: number | null; n: number; first: number }>()
+  ).results;
+  return WAR_BOSSES.flatMap((b) => {
+    const mine = rows.filter((r) => r.boss === b.id);
+    if (!mine.length) return [];
+    const first = mine.reduce((a, r) => (r.first < a.first ? r : a));
+    const alliances = ALLIANCES.map((a) => mine.filter((r) => r.alliance === a.id).reduce((s, r) => s + r.n, 0));
+    return [{ name: b.name, region: worldRegion(b.region)?.name ?? b.region, kills: mine.reduce((s, r) => s + r.n, 0), first: first.alliance === null ? null : allianceName(first.alliance), alliances }];
+  }).slice(0, BOARD_MAX);
 }
 
 /**
@@ -118,9 +175,14 @@ async function champions(db: D1Database, duelSeason: number): Promise<PublicSumm
   return { war: war.results, duel: duel.results };
 }
 
-/** Who struck the last blow on the most world bosses: none since the world bosses went with the route-graph war (W-01). */
-async function bossSlayers(_db: D1Database): Promise<PublicSummaryV1['bossSlayers']> {
-  return [];
+/** Eligible players by region bosses slain this war season (each killer of a boss counts it). */
+async function bossSlayers(db: D1Database): Promise<PublicSummaryV1['bossSlayers']> {
+  return (
+    await db
+      .prepare(`SELECT p.display_name AS name, s.bosses AS kills FROM war_player_stats s JOIN players p ON p.id = s.player_id WHERE s.season = ?1 AND s.bosses > 0 AND ${ELIGIBLE} ORDER BY s.bosses DESC, s.player_id LIMIT ?2`)
+      .bind(WAR_SEASON.id, BOARD_MAX)
+      .all<{ name: string; kills: number }>()
+  ).results.map((r, i) => ({ rank: i + 1, ...r }));
 }
 
 /**

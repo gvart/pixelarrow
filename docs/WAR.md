@@ -485,7 +485,7 @@ to the stash of the player whose civilian made them, goods to the team stock.
 
 ### Smith (full list)
 
-Every base item (`BASE_ITEMS`; set pieces and named legendaries stay drops) has a recipe built from its slot, tier and
+Every base item (`BASE_ITEMS`; set pieces and named legendaries stay drops: region bosses, `src/data/warBosses.ts`) has a recipe built from its slot, tier and
 `material` (bows with none: wood + hides):
 
 | Slot | Main material T1 / T2 / T3 | Extras | Secs T1 / T2 / T3 |
