@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { RegionData } from '../types';
+import { expandRegion } from './compact';
 
 const TERRAIN = ['grass', 'forest', 'sand', 'marsh', 'rock', 'road', 'snow', 'dirt'] as const;
 const rect = { x: z.number().int().min(0), y: z.number().int().min(0), w: z.number().int().positive(), h: z.number().int().positive() };
@@ -20,8 +21,17 @@ export const regionSchema = z
     blocked: z.array(z.number().int().min(0)).optional(),
     visual: z.object({ scale: z.literal(2), rle: z.array(z.number().int().min(0)) }).optional(),
     biomes: z.object({ names: z.array(z.string().min(1)).min(1), rle: z.array(z.number().int().min(0)) }).optional(),
-    lairs: z.array(z.object({ kind: z.enum(['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex']), x: z.number().min(0), y: z.number().min(0), count: z.number().int().positive().optional() })).optional(),
+    lairs: z.array(z.object({ kind: z.enum(['wolf', 'boar', 'bear', 'bandit', 'jackal', 'ibex']), x: z.number().min(0), y: z.number().min(0), count: z.number().int().positive().optional(), as: z.string().optional() })).optional(),
     claimPoints: z.array(z.object({ x: z.number().min(0), y: z.number().min(0), lairs: z.array(z.number().int().min(0)), r: z.number().positive().optional() })).optional(),
+    /** World data of a generated region (scripts/war/regions/world.ts): role, biome family, draft flag, neighbours by side, WAR.md fauna and resources. */
+    meta: z.object({
+      role: z.enum(['home', 'entry', 'neutral', 'center']),
+      family: z.string(),
+      draft: z.boolean().optional(),
+      adjacent: z.array(z.object({ id: z.string(), side: z.enum(['N', 'E', 'S', 'W']) })),
+      fauna: z.array(z.string()),
+      resources: z.record(z.string(), z.number()),
+    }).optional(),
   })
   .superRefine((r, ctx) => {
     const n = r.w * r.h;
@@ -35,7 +45,7 @@ export const regionSchema = z
     }
   });
 
-/** Validate parsed region JSON; throws a ZodError naming the bad field. */
+/** Validate parsed region JSON (plain, or compact: src/war/region/compact.ts); throws a ZodError naming the bad field. */
 export function parseRegion(json: unknown): RegionData {
-  return regionSchema.parse(json);
+  return regionSchema.parse(expandRegion(json));
 }
