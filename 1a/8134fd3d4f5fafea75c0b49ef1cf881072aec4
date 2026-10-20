@@ -1,0 +1,28 @@
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_164ac87ebe5e1c 48-51,278,280
+  s_cfc22b058125c4::t_9e4220dd7ab78a 5,54
+  s_cfc22b058125c4::t_9b8a7d33aa9456 53,57
+  s_cfc22b058125c4::t_1bb291b4c0cef3 256
+  s_cfc22b058125c4::t_2011663bf1cfdc 340-346,443
+src/war/view/units.ts
+  s_cfc22b058125c4::t_1bb291b4c0cef3 260
+  s_cfc22b058125c4::t_164ac87ebe5e1c 14,261,268
+src/war/view/hud/cardCiv.ts
+  s_cfc22b058125c4::t_2011663bf1cfdc 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1a8134fd3d4f5fafea75c0b49ef1cf881072aec4",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
