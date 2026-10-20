@@ -1,12 +1,12 @@
 // Live war region load test (docs/impl/global-war-rebuild.md M3): N headless clients join the WarRegionDO of
-// test-ridge, each with one squad (default 20 men), spread over the 4 alliances, and send random orders (march on a
+// test-ridge, each with one squad (default 50 x 12 men = 600), spread over the 4 alliances, and send random orders (march on a
 // field, attack a foe they can see, change formation); a squad that is wiped out rejoins. Clients decode every frame
 // (src/war/net/codec.ts). At the end it prints the server tick times (/api/war/<region>/stats, last 60 s), bytes/s and
 // frame sizes per client.
 //
 // Needs a running `wrangler dev` with DEV_AUTH=1 (.dev.vars) and the local D1 migrated, and a cap that fits the run:
 //   cd server && npm run migrate:local && npx wrangler dev --config ../wrangler.jsonc --persist-to .wrangler/state --var WAR_CAP:2000
-//   node scripts/war/loadtest.mjs [--brawl] [--clients 30] [--squad 20] [--seconds 60] [--url http://localhost:8787] [--cls militia]
+//   node scripts/war/loadtest.mjs [--brawl] [--clients 50] [--squad 20] [--seconds 60] [--url http://localhost:8787] [--cls militia]
 // A fresh run needs a fresh region: restart wrangler dev between runs (the DO keeps its armies while it lives).
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,7 @@ const arg = (k, d) => {
   const i = process.argv.indexOf(`--${k}`);
   return i > 0 ? process.argv[i + 1] : d;
 };
-const N = Number(arg('clients', 30)), SQUAD = Number(arg('squad', 20)), SECONDS = Number(arg('seconds', 60));
+const N = Number(arg('clients', 50)), SQUAD = Number(arg('squad', 12)), SECONDS = Number(arg('seconds', 60));
 const URL_ = arg('url', 'http://localhost:8787'), REGION = arg('region', 'test-ridge');
 const CLASSES = (arg('cls', 'militia,hoplite,archer,peltast,slinger')).split(',');
 const opts = { root: ROOT, configFile: false, logLevel: 'error', server: { hmr: false } };

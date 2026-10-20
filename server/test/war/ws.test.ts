@@ -53,15 +53,15 @@ describe('WarRegionDO over the socket', () => {
   it('joins, streams decoded snapshots, checks ownership and keeps offline squads', async () => {
     const a = await devLogin(7102), b = await devLogin(7103);
     const ca = await connect(a.token), cb = await connect(b.token);
-    ca.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: a.playerId, team: 0, army: [{ cls: 'hoplite', count: 20 }] });
+    ca.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: a.playerId, team: 0, army: [{ cls: 'hoplite', count: 12 }] });
     const w = await ca.next('welcome');
     expect(w).toMatchObject({ you: { id: a.playerId, team: 0 } });
     const mine = (w as Extract<ServerMsg, { t: 'welcome' }>).squads[0];
-    cb.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: a.playerId, team: 1, army: [{ cls: 'archer', count: 20 }] });
+    cb.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: a.playerId, team: 1, army: [{ cls: 'archer', count: 12 }] });
     expect(await cb.next('refused')).toMatchObject({ reason: 'player' });
-    cb.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: b.playerId, team: 1, army: [{ cls: 'archer', count: 20 }] });
+    cb.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: b.playerId, team: 1, army: [{ cls: 'archer', count: 12 }] });
     await cb.next('welcome');
-    await until(() => ca.frames > 3 && ca.dec.units.size === 20);
+    await until(() => ca.frames > 3 && ca.dec.units.size === 12);
     // b may not order a's squad; garbage gets a parse error
     cb.send({ t: 'order', o: { kind: 'move', squad: mine, x: 100, y: 100 } });
     expect(await cb.next('error')).toMatchObject({ code: 'notOwner' });
@@ -73,11 +73,11 @@ describe('WarRegionDO over the socket', () => {
     ca.ws.close(1000);
     await new Promise((r) => setTimeout(r, 300));
     const stats = await (await SELF.fetch(`${BASE}/api/war/test-ridge/stats`)).json<{ units: number; online: number; running: boolean; totalMs: { avg: number } }>();
-    expect(stats).toMatchObject({ units: 40, online: 1, running: true });
+    expect(stats).toMatchObject({ units: 24, online: 1, running: true });
     const again = await connect(a.token);
-    again.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: a.playerId, team: 0, army: [{ cls: 'hoplite', count: 20 }] });
+    again.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: a.playerId, team: 0, army: [{ cls: 'hoplite', count: 12 }] });
     expect(await again.next('welcome')).toMatchObject({ squads: [mine] });
-    await until(() => again.dec.units.size === 20);
+    await until(() => again.dec.units.size === 12);
     again.send({ t: 'ping', c: 5 });
     expect(await again.next('pong')).toMatchObject({ c: 5 });
     again.ws.close(1000);
