@@ -44,7 +44,7 @@ const CSS = `
 `;
 
 /** Two-word verbs keep their second word ("fire arrows", "move up"). */
-const TWO = new Set(['fire', 'raise', 'push', 'pack', 'move', 'shield']);
+const TWO = new Set(['fire', 'raise', 'push', 'pack', 'move', 'shield', 'wet']);
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const short = (label: string) => {
   const w = label.replace(/\(.*\)/, '').trim().split(' ');

@@ -5,6 +5,7 @@ import type { ResourceKind } from '../types';
 import type { SandboxScene } from './SandboxScene';
 import { SIEGE_HELP } from './siege/siegeControls';
 import { SQUAD_MAX } from '../sim/soldiers';
+import { sandboxRoster } from './hud/roster/state';
 
 const CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer'];
 
@@ -30,7 +31,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row"><label><input type="checkbox" id="grid">tile grid</label> <label><input type="checkbox" id="fog" checked>fog</label> <span class="dim">view modes: F2-F7, M full map</span></div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
-    <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · X stop · A attack-move (then click) · F squad active · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
+    <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · X stop · Ctrl + right click attack-move · F squad active · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
   document.body.appendChild(el);
   const $ = <T extends HTMLElement>(id: string) => el.querySelector<T>('#' + id)!;
   const val = (id: string) => $<HTMLInputElement>(id).value;
@@ -119,7 +120,17 @@ export function applyScenario(s: SandboxScene, sc: Scenario): void {
   }
   for (const o of sc.after?.orders ?? []) s.sim.order(o);
   if (sc.after?.settle) s.sim.skip(sc.after.settle);
-  for (const q of sc.after?.squads ?? []) s.sim.spawn(q.team === 0 ? 'you' : q.bot ? 'bot' : 'raiders', q.team, q.cls, q.count, q.x, q.y, q.bot);
+  for (const q of sc.after?.squads ?? []) {
+    // M5h3: civilians with set levels and nodes: the roster's persons for the spawn take them
+    const R = q.nodes ? sandboxRoster(s) : null, pf = s.sim.personsFor; // the roster sets personsFor
+    if (R && pf) s.sim.personsFor = (...a) => pf(...a)?.map((p) => {
+      const np = { ...p, hero: { ...p.hero, level: q.level ?? p.hero.level, perks: q.nodes as unknown as typeof p.hero.perks } };
+      R.roster.update(np);
+      return np;
+    });
+    s.sim.spawn(q.team === 0 ? 'you' : q.bot ? 'bot' : 'raiders', q.team, q.cls, q.count, q.x, q.y, q.bot);
+    s.sim.personsFor = pf;
+  }
   for (const o of sc.after?.then ?? []) s.sim.order(o);
   if (sc.after?.later) s.sim.skip(sc.after.later.settle);
   for (const o of sc.after?.later?.orders ?? []) s.sim.order(o);
