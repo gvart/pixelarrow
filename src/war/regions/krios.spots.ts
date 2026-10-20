@@ -5,10 +5,10 @@ export const SPOTS = {
   "entry_kleisoura": [256.5, 502.5],
   "narrows": [196.5, 205.5],
   "ledge": [222.5, 178.5],
-  "citadel": [327, 301],
-  "barbican": [327, 376],
-  "village": [327, 411],
+  "citadel": [280, 350.5],
+  "barbican": [280, 359.5],
+  "village": [276, 411],
   "iron": [176.5, 352.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":253.5,"y":453.5},{"x":327.5,"y":311.5}] as const;
+export const CLAIM_POINTS = [{"x":253.5,"y":453.5},{"x":305.5,"y":336.5}] as const;
