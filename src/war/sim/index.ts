@@ -40,8 +40,8 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { Order, RegionData, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim } from '../types';
-import { warStats, type WarStats } from './classes';
+import type { Order, RegionData, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarPerson } from '../types';
+import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
 import { BRAZIER, BUILDINGS, WORK_DEFENCE } from './economy';
@@ -135,6 +135,7 @@ interface Unit extends Worker {
   want: number; // distance it set out to walk this tick, -1 when it stood to strike
   toSlot: boolean; // walking to its slot (not closing on a foe)
   doing: UnitSnap['task'] | null; // its siege task this tick
+  person: WarPerson | null; // M5b: the soldier record it was spawned from (null: a class spawn)
 }
 
 /** A task order (M2c): the target building b or engine e (-1 none). */
@@ -411,6 +412,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.fire = o.on;
       return;
     }
+    if (o.kind === 'active') return;
     if (s.siege >= 0 && (o.kind === 'move' || o.kind === 'hold' || o.kind === 'attackBuilding' || o.kind === 'deploy' || o.kind === 'raiseLadder')) {
       // the crew drives its engine
       const id = s.siege;
@@ -1458,10 +1460,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   const api: WarBuildSim = {
     region,
-    spawnSquad(owner, team, cls, count, x, y) {
-      count = Math.min(count, SQUAD_MAX);
+    spawnSquad(owner, team, cls, count, x, y, persons) {
+      // M5b: one man per person, each with his own baked stats
+      const ps = persons?.slice(0, SQUAD_MAX) ?? null;
+      count = ps ? ps.length : Math.min(count, SQUAD_MAX);
       const [ax, ay] = openPoint(x, y);
-      const st = warStats(cls);
+      const sts = ps ? ps.map((p) => warStatsOf(p)) : null;
+      const st = sts?.[0] ?? warStats(cls);
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
@@ -1472,15 +1477,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       for (let k = 0; k < count; k++) {
         const [sx, sy] = slotPos(s, k);
         const [px, py] = lineClear(grid, ax, ay, sx, sy) ? [sx, sy] : [ax + rng.range(-0.2, 0.2), ay + rng.range(-0.2, 0.2)];
+        const ust = sts?.[k] ?? st;
         const u: Unit = {
-          id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: st.maxHp, maxHp: st.maxHp, cls, st, moving: false, wp: 0,
-          alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
+          id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: ust.maxHp, maxHp: ust.maxHp, cls: ps?.[k].hero.cls ?? cls, st: ust, moving: false, wp: 0,
+          alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: ust.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
           crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
-          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null,
+          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null, person: ps?.[k] ?? null,
         };
         units.push(u);
         s.units.push(u);
       }
+      if (ps) reslot(s); // speed and ranged from the men themselves
       scanNear();
       return s.id;
     },
@@ -1502,6 +1509,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             state: !u.alive ? 'dead' : atk ? 'attack' : u.working ? (u.job ?? 'build') : u.moving ? 'move' : 'idle',
             ...(u.alive && u.doing ? { task: u.doing } : {}),
             ...(u.alive ? {} : { wounded: u.wounded }),
+            ...(u.person ? { pid: u.person.id, level: u.person.hero.level } : {}),
             ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
