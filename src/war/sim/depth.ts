@@ -26,7 +26,7 @@ export const DEPTH: readonly DepthRule[] = [
   { mob: 1, respawn: 6000, claim: { ticks: 300, men: 3, players: 1 }, yield: 1, lairs: [3, 5], score: 0 },
   { mob: 1.25, respawn: 12000, claim: { ticks: 600, men: 6, players: 1 }, yield: 1.25, lairs: [4, 6], score: 1 },
   { mob: 1.5, respawn: 18000, claim: { ticks: 900, men: 9, players: 2 }, yield: 1.5, lairs: [5, 7], score: 2 },
-  { mob: 2, respawn: 36000, claim: { ticks: 1200, men: 12, players: 3 }, yield: 2, lairs: [6, 8], score: 1 },
+  { mob: 1.25, respawn: 36000, claim: { ticks: 1200, men: 12, players: 3 }, yield: 2, lairs: [6, 8], score: 1 },
 ];
 
 /** Depth of every world region (src/war/world/regions.ts ids), as the WAR.md table. */
@@ -49,4 +49,4 @@ export const depthRule = (r: Pick<RegionData, 'id' | 'depth'>): DepthRule => DEP
  * its towers while he lives; every `raid.every` ticks `raid.men` of a host lair go for the nearest foe cart within
  * `raid.r` tiles.
  */
-export const HOST = { captain: { hp: 3, dmg: 1.5 }, guard: { hp: 1.25, dmg: 1.25 }, raid: { every: 18000, men: 8, r: 80 } };
+export const HOST = { captain: { hp: 2, dmg: 1.25 }, guard: { hp: 1, dmg: 1 }, raid: { every: 18000, men: 8, r: 80 } };

@@ -49,7 +49,7 @@ export const WAR_BOSSES: readonly WarBoss[] = [
   { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1], rare: { good: 'obsidian', n: 10 } },
   // depth 4 rim edges: tier 3, the four signature legendaries
   // a dragon on the titan frozen in the glacier: the aegis of the god who threw the titans down
-  { id: 'drakon', name: 'Drakon the White', region: 'krios', tier: 3, signature: ['aegis_of_zeus'], landmark: 'drakons_citadel', phases: [1, 0.6, 0.54], rare: { good: 'dragonbone', n: 20 } },
+  { id: 'drakon', name: 'Drakon the White', region: 'krios', tier: 3, signature: ['aegis_of_zeus'], landmark: 'drakons_citadel', phases: [1, 0.6, 0.565], rare: { good: 'dragonbone', n: 20 } },
   // the estuary where the sea meets the rim: the sea god's trident
   { id: 'scylla', name: 'Scylla of the Estuary', region: 'siren', tier: 3, signature: ['poseidon_trident'], landmark: 'rim_watchtower', phases: [1, 0.5], rare: { good: 'nereidPearl', n: 15 } },
   // the oracle that named Alexander son of a god: his armour on a king of thieves

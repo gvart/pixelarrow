@@ -13,7 +13,7 @@
  *
  * Phases (src/data/warBosses.ts `phases`): the share of its bar's hp each starts below; a phase only ever goes forward.
  *  - Drakon the White: P1 in the yard, claw (his blows) and a tail sweep (knock 2); P2 (< 60%) flies to the keep roof and
- *    between the towers, out of melee reach, breathing a cone of fire (6% max hp, sets wood alight); P3 (< 54%) crashes
+ *    between the towers, out of melee reach, breathing a cone of fire (5% max hp, sets wood alight); P3 (< 56.5%) crashes
  *    down into the yard (knock 3), enraged, and calls 2 drake packs from the bone pit.
  *  - Scylla: six heads strike from the cave along the cliff, one snatching a man within 4 tiles of the water every 6 s
  *    (he falls; a physician near may save him); her body is open only while 2 heads or fewer live; at 50% she drags
@@ -93,9 +93,9 @@ interface GDef {
   parts?: { n: number; hp: number; dmg: number };
 }
 export const GUARDIANS: Readonly<Record<string, GDef>> = {
-  drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 16000, dmg: 15, armor: 2, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
+  drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 30000, dmg: 8, armor: 2, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
   scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 18000, dmg: 45, armor: 4, reach: 3, atk: 2.5, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 3000, dmg: 40 } },
-  bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 40, armor: 10, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 160, dmg: 18, armor: 8 } },
+  bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 2500, dmg: 16, armor: 6, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 80, dmg: 10, armor: 4 } },
   river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 60, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
   titan: { ai: 'titan', cls: 'mob_brontes', hp: 36000, dmg: 80, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
   minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
@@ -111,8 +111,8 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
 
 /** Timings (ticks) and reach of the special moves. */
 export const MOVES = {
-  sweep: { every: 100, r: 3, share: 0.03, knock: 2 },
-  breath: { every: 100, len: 14, half: 0.32, share: 0.06, reach: 18 },
+  sweep: { every: 100, r: 3, share: 0.015, knock: 2 },
+  breath: { every: 100, len: 14, half: 0.32, share: 0.05, reach: 18 },
   perchFor: 300, flight: 20,
   crash: { r: 4, share: 0.1, knock: 3, packs: 2, pack: 4, packHp: 1.2, packDmg: 1 },
   enrage: { dmg: 1.1, atk: 0.75 },

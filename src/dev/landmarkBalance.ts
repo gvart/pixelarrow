@@ -130,7 +130,7 @@ const aliveOf = (sim: WarBuildSim, squads: number[]): number => {
 /** The raids the report fights: per guardian, its region, the raid sizes (squads) and seeds. */
 export const FIGHTS: readonly { boss: string; region: string; squads: readonly number[]; seeds: readonly number[] }[] = [
   { boss: 'drakon', region: 'krios', squads: [1, 4, 5, 6], seeds: [1, 2, 3] },
-  { boss: 'bandit_king', region: 'ammon', squads: [2, 3, 4, 6], seeds: [1, 2] },
+  { boss: 'bandit_king', region: 'ammon', squads: [2, 3], seeds: [1, 2, 3] },
   { boss: 'brontes', region: 'saddle', squads: [1, 4], seeds: [1, 2] },
   { boss: 'gyges', region: 'gorge', squads: [1, 4], seeds: [1, 2] },
   { boss: 'chimera', region: 'canyons', squads: [1, 4], seeds: [1, 2] },
