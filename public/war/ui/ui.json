@@ -675,6 +675,84 @@
    "32": "icons/32/res-tin.png",
    "group": "resource",
    "src": "drawn"
+  },
+  "lair-wolf": {
+   "24": "icons/24/lair-wolf.png",
+   "32": "icons/32/lair-wolf.png",
+   "group": "map",
+   "src": "pixellab"
+  },
+  "lair-boar": {
+   "24": "icons/24/lair-boar.png",
+   "32": "icons/32/lair-boar.png",
+   "group": "map",
+   "src": "pixellab"
+  },
+  "lair-bear": {
+   "24": "icons/24/lair-bear.png",
+   "32": "icons/32/lair-bear.png",
+   "group": "map",
+   "src": "pixellab"
+  },
+  "lair-bandit": {
+   "24": "icons/24/lair-bandit.png",
+   "32": "icons/32/lair-bandit.png",
+   "group": "map",
+   "src": "pixellab"
+  },
+  "lair-jackal": {
+   "24": "icons/24/lair-jackal.png",
+   "32": "icons/32/lair-jackal.png",
+   "group": "map",
+   "src": "pixellab"
+  },
+  "lair-ibex": {
+   "24": "icons/24/lair-ibex.png",
+   "32": "icons/32/lair-ibex.png",
+   "group": "map",
+   "src": "pixellab"
+  },
+  "mk-claim": {
+   "24": "icons/24/mk-claim.png",
+   "32": "icons/32/mk-claim.png",
+   "group": "map",
+   "src": "pixellab"
+  },
+  "mode-normal": {
+   "24": "icons/24/mode-normal.png",
+   "32": "icons/32/mode-normal.png",
+   "group": "mode",
+   "src": "pixellab"
+  },
+  "mode-altitude": {
+   "24": "icons/24/mode-altitude.png",
+   "32": "icons/32/mode-altitude.png",
+   "group": "mode",
+   "src": "pixellab"
+  },
+  "mode-movement": {
+   "24": "icons/24/mode-movement.png",
+   "32": "icons/32/mode-movement.png",
+   "group": "mode",
+   "src": "pixellab"
+  },
+  "mode-ownership": {
+   "24": "icons/24/mode-ownership.png",
+   "32": "icons/32/mode-ownership.png",
+   "group": "mode",
+   "src": "pixellab"
+  },
+  "mode-biomes": {
+   "24": "icons/24/mode-biomes.png",
+   "32": "icons/32/mode-biomes.png",
+   "group": "mode",
+   "src": "pixellab"
+  },
+  "mode-resources": {
+   "24": "icons/24/mode-resources.png",
+   "32": "icons/32/mode-resources.png",
+   "group": "mode",
+   "src": "pixellab"
   }
  },
  "cursors": {
