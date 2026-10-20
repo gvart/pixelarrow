@@ -1,0 +1,21 @@
+src/war/view/hud/cardActive.ts
+  s_cfc22b058125c4::t_9ff2f5b96773b7 60,63
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_0bb35e2088f744 329
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3a9ecd5e8b2f4c48e2e22f2d0d6f42603c0bb1df",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
