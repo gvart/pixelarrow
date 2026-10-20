@@ -1,26 +1,37 @@
 /**
  * WarRegionDO: one Durable Object per war region (M3; W-05..W-07). Hosts a WarRoom (./room.ts) and steps it at 10 Hz
  * with a timer loop while anyone is connected or armies stand in the region; an alarm every KEEPALIVE_MS keeps the
- * object resident meanwhile. Sockets use the hibernation API; the object cannot hibernate while the loop runs, and once
- * it stops (no one here, no armies) there is nothing to lose.
+ * object resident meanwhile. Sockets use the hibernation API; the object cannot hibernate while the loop runs.
  *
  * The Worker authenticates the socket (/ws/war/:region) and forwards it with X-Player-Id; the DO trusts that header.
  * Protocol: src/war/net/protocol.ts. GET /stats (dev only, routed by the Worker) reports tick times and bandwidth.
  *
- * Not yet (later M3 slices): the sim state is in memory only (an evicted object starts the region over), armies come
- * from the join message instead of D1, no building or siege orders.
+ * M5e persistence:
+ *  - a join names persons by id: they are claimed in D1 for this region (./persons.ts claimForJoin) and spawned;
+ *    refused or abandoned joins send them home again.
+ *  - every finished fight (WarRoom tick `fights`) is written to D1 in one idempotent batch (applyFight), in order,
+ *    retried on failure.
+ *  - the room's bounded state (WarRoom.saveState) goes to DO storage every SAVE_TICKS, after joins and fights; an
+ *    evicted object restores it on its next socket or its pending alarm (WarRoom.restore, persons reloaded from D1).
+ *    A region with no saved state starts fresh and sends home anyone D1 still has deployed there.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
-import { WarRoom, type TickTimes } from './room';
+import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { warRegion } from './regions';
-import { DEFAULT_CAP, parseClientMsg, type ServerMsg } from '../../../src/war/net/protocol';
+import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
+import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
+import { applyFight, claimForJoin, deployed, release, releaseRegion } from './persons';
 
 const TICK_MS = 100;
 const KEEPALIVE_MS = 10_000;
 /** Tick history kept for /stats. */
 const HISTORY = 600;
+/** Ticks between state saves to DO storage (30 s). */
+const SAVE_TICKS = 300;
+/** D1 write attempts before a write is dropped (logged). */
+const WRITE_TRIES = 5;
 
 interface Attachment { pid: number }
 
@@ -30,18 +41,40 @@ export class WarRegionDO extends DurableObject<Env> {
   private next = 0;
   private times: (TickTimes & { totalMs: number; sendMs: number; bytes: number; units: number; clients: number; lateMs: number })[] = [];
   private overruns = 0;
+  private savedAt = 0;
+  /** D1 writes in order (fights, releases); `writing` drains it. */
+  private writes: { what: string; run: () => Promise<unknown> }[] = [];
+  private writing: Promise<void> | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
 
-  private load(region: string): WarRoom | null {
-    if (this.room) return this.room.region.id === region ? this.room : null;
+  private options(region: string): RoomOptions | null {
     const data = warRegion(region);
     if (!data) return null;
-    const cap = Number(this.env.WAR_CAP) || DEFAULT_CAP;
-    this.room = new WarRoom({ region: data, seed: 1, cap });
+    return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1' };
+  }
+
+  /** The room of `region`: in memory, restored from storage after an eviction, or fresh. Null for an unknown region. */
+  private async ensure(region: string): Promise<WarRoom | null> {
+    if (this.room) return this.room.region.id === region ? this.room : null;
+    const o = this.options(region);
+    if (!o) return null;
+    await this.ctx.blockConcurrencyWhile(async () => {
+      if (this.room) return;
+      const st = await this.ctx.storage.get<RoomState>('state');
+      const d = this.env.DB;
+      if (st && st.region === region) {
+        const persons = d ? await deployed(d, region, st.squads.flatMap((s) => s.pids)) : new Map();
+        this.room = WarRoom.restore(o, st, persons);
+      } else {
+        if (d) await releaseRegion(d, region);
+        this.room = new WarRoom(o);
+      }
+      await this.ctx.storage.put('region', region);
+    });
     return this.room;
   }
 
@@ -52,7 +85,7 @@ export class WarRegionDO extends DurableObject<Env> {
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected WebSocket upgrade', { status: 426 });
     const pid = Number(request.headers.get('x-player-id'));
     if (!Number.isSafeInteger(pid) || pid <= 0) return new Response('Missing player', { status: 400 });
-    if (!this.load(region)) return new Response('Unknown region', { status: 404 });
+    if (!(await this.ensure(region))) return new Response('Unknown region', { status: 404 });
     // one socket per player: a new one replaces the old
     for (const old of this.ctx.getWebSockets(`p:${pid}`)) {
       old.serializeAttachment(null);
@@ -64,6 +97,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const headers = new Headers();
     const proto = request.headers.get('x-ws-protocol');
     if (proto) headers.set('sec-websocket-protocol', proto);
+    if (this.room!.active()) this.start(); // a restored region runs on
     return new Response(null, { status: 101, webSocket: client, headers });
   }
 
@@ -75,10 +109,8 @@ export class WarRegionDO extends DurableObject<Env> {
     const m = parseClientMsg(message);
     if (!m) return send(ws, { t: 'error', code: 'parse' });
     try {
-      if (m.t === 'join') {
-        send(ws, room.join(me.pid, m).msg);
-        this.start();
-      } else if (m.t === 'order') {
+      if (m.t === 'join') await this.join(ws, me.pid, room, m);
+      else if (m.t === 'order') {
         const err = room.order(me.pid, m.o);
         if (err) send(ws, { t: 'error', code: err, detail: m.o.kind });
       } else if (m.t === 'view') room.view(me.pid, m);
@@ -86,6 +118,23 @@ export class WarRegionDO extends DurableObject<Env> {
     } catch (e) {
       logError('war_message_failed', e);
     }
+  }
+
+  private async join(ws: WebSocket, pid: number, room: WarRoom, m: JoinMsg): Promise<void> {
+    const region = room.region.id;
+    let persons: WarPerson[][] | undefined;
+    if (m.squads && m.region === region && room.spawnsNew(pid)) {
+      const d = this.env.DB;
+      if (!d) return send(ws, { t: 'refused', reason: 'army', detail: 'no database' });
+      const got = await claimForJoin(d, pid, region, m.squads, room.personsHere(), Date.now());
+      if (typeof got === 'string') return send(ws, { t: 'refused', reason: 'army', detail: got });
+      persons = got;
+    }
+    const res = room.join(pid, m, persons);
+    send(ws, res.msg);
+    if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
+    this.save();
+    this.start();
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
@@ -99,10 +148,19 @@ export class WarRegionDO extends DurableObject<Env> {
   private drop(ws: WebSocket): void {
     const me = ws.deserializeAttachment() as Attachment | null;
     ws.serializeAttachment(null);
-    if (me && this.room && !this.ctx.getWebSockets(`p:${me.pid}`).some((o) => o !== ws && o.deserializeAttachment() !== null)) this.room.leave(me.pid);
+    if (me && this.room && !this.ctx.getWebSockets(`p:${me.pid}`).some((o) => o !== ws && o.deserializeAttachment() !== null)) {
+      this.room.leave(me.pid);
+      this.flushReleased(this.room);
+    }
   }
 
   async alarm(): Promise<void> {
+    // evicted while armies stood: the pending alarm brings the region back
+    if (!this.room) {
+      const region = await this.ctx.storage.get<string>('region');
+      if (region && (await this.ctx.storage.get('state'))) await this.ensure(region);
+      if (this.room && (this.room as WarRoom).active()) this.start();
+    }
     if (this.timer) await this.ctx.storage.setAlarm(Date.now() + KEEPALIVE_MS);
   }
 
@@ -113,9 +171,56 @@ export class WarRegionDO extends DurableObject<Env> {
     void this.ctx.storage.setAlarm(Date.now() + KEEPALIVE_MS);
   }
 
+  /** Save the room's state to DO storage (or drop it once the region is empty). */
+  private save(): void {
+    const room = this.room;
+    if (!room) return;
+    this.savedAt = room.currentTick;
+    if (room.alive() === 0 && room.online() === 0) void this.ctx.storage.delete('state');
+    else void this.ctx.storage.put('state', room.saveState());
+  }
+
+  private flushReleased(room: WarRoom): void {
+    const ids = room.takeReleased();
+    if (ids.length && this.env.DB) this.write('release', () => release(this.env.DB!, room.region.id, ids));
+  }
+
+  /** Queue a D1 write; writes run one at a time, in order, each retried a few times (they are idempotent). */
+  private write(what: string, run: () => Promise<unknown>): void {
+    this.writes.push({ what, run });
+    this.writing ??= this.drain().finally(() => (this.writing = null));
+    this.ctx.waitUntil(this.writing);
+  }
+
+  private async drain(): Promise<void> {
+    for (let w = this.writes.shift(); w; w = this.writes.shift()) {
+      for (let k = 1; ; k++) {
+        try {
+          await w.run();
+          break;
+        } catch (e) {
+          if (k >= WRITE_TRIES) {
+            logError('war_write_failed', e, { what: w.what });
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 200 * 2 ** k));
+        }
+      }
+    }
+  }
+
+  /** Test hook: wait for queued D1 writes. */
+  async settled(): Promise<void> {
+    while (this.writing) await this.writing;
+  }
+
   private loop(): void {
     const room = this.room;
-    if (!room || !room.active()) { this.timer = null; return; }
+    if (!room || !room.active()) {
+      this.timer = null;
+      this.save();
+      return;
+    }
     const t0 = performance.now();
     const late = t0 - this.next;
     let r: ReturnType<WarRoom['tick']>;
@@ -138,6 +243,10 @@ export class WarRegionDO extends DurableObject<Env> {
         try { ws.send(f); bytes += f.length; } catch { /* closing */ }
       }
     }
+    const d = this.env.DB;
+    if (d) for (const f of r.fights) this.write(`fight ${f.id}`, () => applyFight(d, f.id, room.region.id, f.report, Date.now()));
+    this.flushReleased(room);
+    if (r.fights.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();
     const t2 = performance.now();
     const total = t2 - t0;
     if (total > TICK_MS) this.overruns++;

@@ -4,7 +4,9 @@
  * the server answers with JSON control messages (ServerMsg) and sends the world as binary delta snapshots (./codec.ts),
  * filtered to what the client may see (./interest.ts).
  *
- *   client -> join   { t, v, region, playerId, team, army }   once to enter; again to bring more squads (same team)
+ *   client -> join   { t, v, region, playerId, team, squads } once to enter; again to bring more squads (same team).
+ *                    squads: person ids (D1 war_persons, M5e) per squad; the server loads and spawns them. `army`
+ *                    (class + count) instead is a dev-only join (the server allows it only with DEV_AUTH=1).
  *   client -> order  { t, o }                                 an Order for one of the player's own squads
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
@@ -16,7 +18,7 @@ import { SQUAD_MAX } from '../sim/soldiers';
 import type { Order, SquadId } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 1;
+export const NET_VERSION = 2;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -57,8 +59,10 @@ export const clientMsgSchema = z.discriminatedUnion('t', [
     region: z.string().regex(/^[a-z0-9_-]{1,40}$/),
     playerId: z.number().int().positive(),
     team: z.number().int().min(0).max(ALLIANCES - 1),
-    // dev slice: the client names its army; later it comes from the player's stored army (D1)
-    army: z.array(z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/), count: z.number().int().min(1).max(MAX_SQUAD) })).min(1).max(MAX_SQUADS),
+    // M5e: the player's persons by id, one list per squad; exactly one of squads and army
+    squads: z.array(z.array(z.string().regex(/^[A-Za-z0-9_-]{1,40}$/)).min(1).max(MAX_SQUAD)).min(1).max(MAX_SQUADS).optional(),
+    // dev only (DEV_AUTH=1: load tests): fresh men by class and count
+    army: z.array(z.object({ cls: z.string().regex(/^[a-z_]{1,24}$/), count: z.number().int().min(1).max(MAX_SQUAD) })).min(1).max(MAX_SQUADS).optional(),
   }),
   z.object({ t: z.literal('order'), o: orderSchema }),
   z.object({ t: z.literal('view'), x0: num, y0: num, x1: num, y1: num }),
