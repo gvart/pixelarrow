@@ -1,0 +1,28 @@
+scripts/war/living-shots.mjs
+  s_cfc22b058125c4::t_dd5687adeb82c8 59-60,63-69
+  s_cfc22b058125c4::t_f00fe5f037c570 17,37-38
+  s_cfc22b058125c4::t_3105b44b1aee9d 23
+  s_cfc22b058125c4::t_418ce601026c70 1-16,18-22,24-36,39-58,70-85
+  s_cfc22b058125c4::t_de2d2a155d2dfd 61-62
+src/war/view/worker.ts
+  s_cfc22b058125c4::t_7f95106b3762c3 31,157-159
+  s_cfc22b058125c4::t_b6be2caf7bcbac 160
+src/war/view/simClient.ts
+  s_cfc22b058125c4::t_ee099ccbd51f9a 142-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bb9dd6c2d71740a18e5e9eab23bd835381fdfd5a",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
