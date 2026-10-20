@@ -1,0 +1,41 @@
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_fae7f5997078b6 814-818,820,836-846,848-849,851-854,856-857
+  s_cfc22b058125c4::t_c3c5bf7f3decf2 748-751,756,804-805,825,832-833,855
+  s_cfc22b058125c4::t_0e909efe2b9a48 126,1317,1463
+  s_cfc22b058125c4::t_cba42ea4fcf44d 911-917,919-921
+  s_cfc22b058125c4::t_92992bb3de9cd0 359,1453
+  s_cfc22b058125c4::t_dd4ca77bf3d71d 850,1176-1179
+  s_cfc22b058125c4::t_dfae0e76e69be2 835,847
+  s_cfc22b058125c4::t_1a9926251cc44f 826-827,834
+  s_cfc22b058125c4::t_28c005513f802c 1211-1213,1358
+  s_cfc22b058125c4::t_d15b62fa661ca3 910,918
+  s_cfc22b058125c4::t_85442b081ac9c0 34-38,94-96,166,292,752-755,757-803,806-813,819,821-824,858-860,864,904,1418
+  s_cfc22b058125c4::t_ed4885190f77ec 828-831
+src/war/sim/economy.ts
+  s_cfc22b058125c4::t_68ba6cf60a71e6 86
+  s_cfc22b058125c4::t_1457c3bd43cdc5 84
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_68ba6cf60a71e6 439-442,448,452-453
+  s_cfc22b058125c4::t_ec6469da4bc6dd 1194-1195
+tests/war/bridges.test.ts
+  s_cfc22b058125c4::t_4241c32d36c466 357-411,415,417-433
+  s_cfc22b058125c4::t_383a32e57944c2 412-413
+  s_cfc22b058125c4::t_060a3916a3f6fd 57-59,76-78,99,110
+  s_cfc22b058125c4::t_ed4885190f77ec 414,416
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a703541dfa24d612768093de216cd36b6dbca51c",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
