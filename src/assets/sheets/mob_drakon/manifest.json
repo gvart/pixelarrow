@@ -1,0 +1,97 @@
+{
+ "version": 2,
+ "class": "mob_drakon",
+ "image": "mob_drakon.png",
+ "frame": {
+  "w": 257,
+  "h": 246
+ },
+ "anchor": {
+  "x": 129,
+  "y": 222
+ },
+ "anchors": {
+  "south-east": {
+   "x": 128,
+   "y": 222
+  },
+  "north-east": {
+   "x": 129,
+   "y": 203
+  },
+  "south-west": {
+   "x": 129,
+   "y": 222
+  },
+  "north-west": {
+   "x": 128,
+   "y": 203
+  }
+ },
+ "scale": 1.5,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 15,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "attack": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "shoot": {
+   "col": 36,
+   "frames": 12,
+   "fps": 12,
+   "strike": 8
+  },
+  "brace": {
+   "col": 48,
+   "frames": 12,
+   "fps": 8,
+   "hold": 6
+  },
+  "charge": {
+   "col": 60,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 72,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 84,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
