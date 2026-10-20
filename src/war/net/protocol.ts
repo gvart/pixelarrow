@@ -47,7 +47,7 @@ const id = z.number().int().min(0).max(2 ** 31);
 const pts = (max: number) => z.array(num).max(max * 2).refine((a) => a.length % 2 === 0, 'x,y pairs');
 const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'palisade', 'rampart', 'stoneWall', 'woodStairs', 'stoneStairs', 'ladder', 'woodTower', 'stoneTower', 'woodGate', 'stoneGate', 'woodBridge', 'stoneBridge', 'brazier', 'pitchKiln',
   // M5h workplaces (L2/L3 come by upgrade; listed for checks of every type)
-  'forge', 'forge2', 'forge3', 'cookhouse', 'cookhouse2', 'cookhouse3', 'infirmary', 'infirmary2', 'infirmary3', 'workshop', 'workshop2', 'workshop3', 'stall', 'stall2', 'stall3', 'sortingFloor', 'sortingFloor2',
+  'forge', 'forge2', 'forge3', 'cookhouse', 'cookhouse2', 'cookhouse3', 'infirmary', 'infirmary2', 'infirmary3', 'workshop', 'workshop2', 'workshop3', 'stall', 'stall2', 'stall3', 'sortingFloor', 'sortingFloor2', 'chest',
   // M5h3 Fortifier field tiles; towerBridge (listed for checks: the sim never places one)
   'stakes', 'ditch', 'towerBridge'] as const satisfies readonly BuildingType[];
 const rot = z.union([z.literal(0), z.literal(1)]).optional();

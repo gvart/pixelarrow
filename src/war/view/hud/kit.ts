@@ -47,7 +47,7 @@ export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string
   camp: 'bld-camp', storehouse: 'bld-storehouse', outpost: 'bld-outpost', fort: 'bld-fort', barracks: 'bld-barracks', farm: 'bld-farm', olivePress: 'bld-olive-press',
   palisade: 'bld-palisade', rampart: 'bld-rampart', stoneWall: 'bld-stone-wall', woodStairs: 'bld-stairs-wood', stoneStairs: 'bld-stairs-stone', ladder: 'bld-ladder',
   woodTower: 'bld-tower-wood', stoneTower: 'bld-tower-stone', woodGate: 'bld-gate', stoneGate: 'bld-gate', woodBridge: 'bld-bridge-wood', stoneBridge: 'bld-bridge-stone',
-  brazier: 'bld-brazier', pitchKiln: 'bld-pitch-kiln',
+  brazier: 'bld-brazier', pitchKiln: 'bld-pitch-kiln', chest: 'bld-storehouse',
   // M5h workplaces (ART-C has no kit icon for them): the level's own done art, shrunk (icon() 'art:')
   forge: 'art:forge-done', forge2: 'art:forge2-done', forge3: 'art:forge3-done', cookhouse: 'art:cookhouse-done', cookhouse2: 'art:cookhouse2-done', cookhouse3: 'art:cookhouse3-done',
   infirmary: 'art:infirmary-done', infirmary2: 'art:infirmary2-done', infirmary3: 'art:infirmary3-done', workshop: 'art:workshop-done', workshop2: 'art:workshop2-done', workshop3: 'art:workshop3-done',
@@ -55,7 +55,7 @@ export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string
   // M5h3: placeholders until ART-C draws them
   stakes: 'art:stakes-done', ditch: 'bld-palisade', towerBridge: 'bld-ladder',
 };
-export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder', mantlet: 'art:../siege/mantlet-s-done-front', coveredRam: 'art:../siege/covered-ram-s-done-front', oxybeles: 'art:../siege/oxybeles-s-done', siegeTower: 'art:../siege/siege-tower-s-done-front' }; // M5h3 designs: their engine art until kit icons exist
+export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder', mantlet: 'art:../siege/mantlet-s-done-front', coveredRam: 'art:../siege/covered-ram-s-done-front', oxybeles: 'art:../siege/oxybeles-s-done', siegeTower: 'art:../siege/siege-tower-s-done-front', handcart: 'bld-siege-ladder', wagon: 'bld-siege-ladder' }; // M5h3 designs: their engine art until kit icons exist
 
 /** An icon from the first kit (full colour), 24 or 32 art px; `art:<file>` is a building sprite (public/war/buildings) fitted into the box. */
 export const icon = (id: string, size: 24 | 32 = 24) => id.startsWith('art:')

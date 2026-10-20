@@ -4,6 +4,10 @@ import type { RegionData, TerrainKind } from '../types';
 /** Move cost per tile (1 = grass); 0 = impassable. */
 const TERRAIN_COST: Record<TerrainKind, number> = { grass: 1, dirt: 1, road: 0.7, forest: 1.6, sand: 1.4, marsh: 2, snow: 1.5, rock: 0 };
 const SHALLOW = 2; // multiplier in a ford
+/** M6b cart pace by terrain (1 / speed factor): road x1.3, ford x0.5, sand x0.5; forest and marsh only on a road (0: closed). */
+const CART_COST: Record<TerrainKind, number> = { grass: 1, dirt: 1, road: 1 / 1.3, forest: 0, sand: 2, marsh: 0, snow: 1.5, rock: 0 };
+export const CART_FORD = 2;
+export const CART_UPHILL = 1 / 0.6;
 export const UPHILL = 1.5; // multiplier when stepping one height level up
 const MIN_COST = TERRAIN_COST.road;
 const SQRT2 = Math.SQRT2;
@@ -38,6 +42,14 @@ export interface Grid {
   trench: Uint8Array;
   /** The next canEnter / findPath calls are for a siege engine (keeps off trench tiles). */
   engine: boolean;
+  /**
+   * M6b carts (docs/WAR.md "Carts"): the next canEnter / findPath calls are for a cart (with `engine`): no deck, stair or
+   * ladder tile, no tile of a bridge under 2 wide (`narrow`), none where cartMul is 0 (forest and marsh off a road).
+   * cartMul: a cart's step cost by terrain (road 1/1.3, ford and sand 2); uphill x CART_UPHILL.
+   */
+  cart: boolean;
+  cartMul: Float32Array;
+  narrow: Uint8Array;
   /** Tiles (flat x,y) opened or closed since the last flushSectors. */
   dirty: number[];
 }
@@ -79,7 +91,9 @@ export function buildGrid(r: RegionData): Grid {
   const cost = new Float32Array(n);
   const height = new Uint8Array(n);
   const ground = new Uint8Array(n);
+  const cartMul = new Float32Array(n);
   for (let i = 0; i < n; i++) {
+    cartMul[i] = r.water[i] === 2 ? 1 : CART_COST[r.terrain[i]] * (r.water[i] === 1 ? CART_FORD : 1); // deep water: only a bridge opens it
     height[i] = r.height[i];
     ground[i] = r.water[i] === 1 || r.terrain[i] === 'marsh' ? BOG : r.terrain[i] === 'forest' ? FOREST : 0;
     cost[i] = r.water[i] === 2 ? 0 : TERRAIN_COST[r.terrain[i]] * (r.water[i] === 1 ? SHALLOW : 1);
@@ -90,7 +104,7 @@ export function buildGrid(r: RegionData): Grid {
   }
   const b = r.blocked ?? []; // the ground massifs stand on
   for (let k = 0; k + 1 < b.length; k += 2) cost.fill(0, b[k], Math.min(n, b[k] + b[k + 1]));
-  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), deck: new Uint8Array(n), span: new Uint8Array(n), plat: new Int32Array(n).fill(-1), trench: new Uint8Array(n), engine: false, team: -1, dirty: [] as number[] } as Grid;
+  const g = { w: r.w, h: r.h, cost, height, ground, gate: new Int8Array(n), deck: new Uint8Array(n), span: new Uint8Array(n), plat: new Int32Array(n).fill(-1), trench: new Uint8Array(n), engine: false, cart: false, cartMul, narrow: new Uint8Array(n), team: -1, dirty: [] as number[] } as Grid;
   g.sectors = buildSectors(g);
   ensureScratch(g); // allocate the search scratch now, not in the first tick
   return g;
@@ -272,6 +286,7 @@ export function tileAt(g: Grid, x: number, y: number): number {
 export function canEnter(g: Grid, a: number, b: number): boolean {
   if (b < 0 || g.cost[b] <= 0 || (g.gate[b] !== 0 && g.team >= 0 && g.gate[b] !== g.team + 1)) return false;
   if (g.engine && g.trench[b]) return false;
+  if (g.cart && (g.deck[b] !== 0 || g.cartMul[b] <= 0 || g.narrow[b])) return false;
   const da = g.deck[a], db = g.deck[b];
   if ((da === LADDER && db === DECK) || (da === DECK && db === LADDER)) return true;
   if (Math.abs(g.height[b] - g.height[a]) >= 2) return false;
@@ -280,6 +295,7 @@ export function canEnter(g: Grid, a: number, b: number): boolean {
 
 /** Cost multiplier for moving from tile a into tile b (terrain of b, slower uphill). */
 export function stepCost(g: Grid, a: number, b: number): number {
+  if (g.cart) return g.height[b] > g.height[a] ? g.cartMul[b] * CART_UPHILL : g.cartMul[b];
   return g.height[b] > g.height[a] ? g.cost[b] * UPHILL : g.cost[b];
 }
 

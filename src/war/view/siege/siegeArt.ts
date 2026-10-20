@@ -8,7 +8,7 @@ import type Phaser from 'phaser';
 import type { SiegeType } from '../../types';
 
 /** Art engine id per sim siege type. */
-const ENGINE_ART: Record<SiegeType, string> = { ram: 'ram', stoneThrower: 'thrower', siegeLadder: '', mantlet: 'mantlet', coveredRam: 'covered-ram', oxybeles: 'oxybeles', siegeTower: 'siege-tower' };
+const ENGINE_ART: Record<SiegeType, string> = { ram: 'ram', stoneThrower: 'thrower', siegeLadder: '', mantlet: 'mantlet', coveredRam: 'covered-ram', oxybeles: 'oxybeles', siegeTower: 'siege-tower', handcart: '', wagon: '' }; // M6b carts: no art yet (M6k)
 
 export interface SiegeSprite { key: string; tileOrigin: { x: number; y: number }; footprint: [number, number]; w: number; h: number }
 export interface Strip { key: string; frames: number; fps: number; tileOrigin: { x: number; y: number }; w: number; h: number; hitFrame?: number; releaseFrame?: number }

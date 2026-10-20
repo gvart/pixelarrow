@@ -21,7 +21,16 @@ export interface RegionData {
   lairs?: { kind: MobKind; x: number; y: number; count?: number }[];
   /** Region claim banners: open once every guard lair of `lairs` (indices into lairs) is cleared; r: influence radius once claimed. */
   claimPoints?: { x: number; y: number; lairs: number[]; r?: number }[];
+  /**
+   * M6d (additive, src/war/sim/trade.ts): safe zones (a trade town's walled market court; `gates`: its gate rects), the
+   * caravan yards outside them (not safe), and ambush spots (high ground or woods over a road), in tiles.
+   */
+  safe?: SafeRect[];
+  yard?: TileRect[];
+  ambush?: TileRect[];
 }
+export interface TileRect { x: number; y: number; w: number; h: number }
+export interface SafeRect extends TileRect { gates?: TileRect[] }
 export type MobKind = 'wolf' | 'boar' | 'bear' | 'bandit' | 'jackal' | 'ibex';
 export type SquadId = number; export type UnitId = number;
 export type Order =
@@ -69,7 +78,23 @@ export type Order =
   // storehouse, fort) and works there by class (cook, smith, merchant, physician). Civilian squads take only work orders
   // (move, hold, stop, formation, gather, build, civWork, detach, merge with another civilian squad).
   | { kind: 'civWork'; squad: SquadId; building: number }
-  | CraftOrder;
+  | CraftOrder
+  | TradeOrder;
+/**
+ * M6 trade (src/war/sim/trade.ts). load: the squad's men walk to a holder and each takes a load into his pack every
+ * PORTER.every ticks (`res`: only that good; `n`: at most that many goods) until the packs are full or it is empty; a
+ * squad crewing a cart loads the cart (it rolls there first). unload: packs (or the crewed cart) into the holder.
+ * Holders: own store (and the home strongroom through it), own chest, own cart, any loot pile; an enemy chest with no
+ * unit of its owner within CHEST.guard, an enemy store once its team's influence there is gone. escort: the squad keeps
+ * round cart `cart`, takes on foes within ESCORT.engage tiles of it and comes back past ESCORT.leash. salvagePile: a
+ * smith squad breaks item `uid` of a pile up in place (PILE.salvage ticks) into some of its recipe's goods.
+ */
+export interface HolderRef { building?: number; cart?: number; pile?: number }
+export type TradeOrder =
+  | { kind: 'load'; squad: SquadId; from: HolderRef; res?: ResourceKind; n?: number }
+  | { kind: 'unload'; squad: SquadId; to: HolderRef; res?: ResourceKind }
+  | { kind: 'escort'; squad: SquadId; cart: number }
+  | { kind: 'salvagePile'; squad: SquadId; pile: number; uid: string };
 /**
  * M5h crafting (src/war/sim/crafting.ts): orders on a team's done workplace (BUILDINGS workplace), its queue at most
  * CRAFT.queue long. craft: recipe id (src/data/recipes.ts RECIPES) whose workplace kind matches and level is reached;
@@ -85,7 +110,9 @@ export type CraftOrder =
   | { kind: 'repair'; squad?: undefined; team: number; building: number; owner: string; item: Item }
   | { kind: 'salvage'; squad?: undefined; team: number; building: number; owner: string; item: Item };
 // --- M2c siege (src/war/sim/siege.ts, fire and breaches in works.ts; docs/impl/global-war-rebuild.md W-29) ---
-export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder' | 'mantlet' | 'coveredRam' | 'oxybeles' | 'siegeTower';
+export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder' | 'mantlet' | 'coveredRam' | 'oxybeles' | 'siegeTower'
+  // M6b carts (built at a workshop, a player's; trade.ts CART): a handcart pulled by 2 men, a wagon with a driver
+  | 'handcart' | 'wagon';
 /**
  * M5h3 engineer designs (siege.ts, docs/WAR.md "Crafting and professions"): built like the M2c engines, only by a team with
  * a living engineer holding the node (mantlet Carpenter, coveredRam Rams, oxybeles Artillerist, siegeTower Poliorcetes).
@@ -149,6 +176,8 @@ export interface SiegeSnap {
   /** Fire intensity 0..1 while it burns. */
   burning?: number;
   ladder?: number;
+  /** M6b carts: the owning player, cargo (goods, item count, loads of most), halted by a foe near, capture progress 0..1. */
+  owner?: string; cargo?: Partial<Record<ResourceKind, number>>; items?: number; loads?: number; cap?: number; halted?: true; capture?: number;
 }
 export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; swing?: number; ready?: number; carry?: ResourceKind; load?: number;
   /** M2c: what it does at its target while standing there: torching, beating out a fire, pushing a ladder, crewing an engine (state build: building one). */
@@ -158,7 +187,9 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
   /** M5b: a person (WarPerson id) and his level; missing on class-spawned men. */
   pid?: string; level?: number;
   /** M5f civilians: at work at his building (cook, forge, trade, heal: the clip to play); fleeing (run). */
-  work?: 'cook' | 'forge' | 'trade' | 'heal'; flee?: true }
+  work?: 'cook' | 'forge' | 'trade' | 'heal'; flee?: true;
+  /** M6a: loads in his pack (a porter). */
+  pack?: number }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while
@@ -196,8 +227,8 @@ export interface Snapshot {
   /** Neutral lairs (after spawnMobs) and region claim points. */
   lairs?: LairSnap[];
   claims?: ClaimSnap[];
-  /** M5d: gear of the dead lying on the field. */
-  drops?: DropSnap[];
+  /** M6c: loot piles on the field. */
+  piles?: PileSnap[];
   /** M5f: rations per team (cooks make them, squads near a cook eat them). */
   rations?: Record<number, number>;
   /** M5h: dishes, remedies, kits and caravan goods per team (src/data/recipes.ts Product). */
@@ -233,7 +264,9 @@ export interface WarSim {
 // --- M2a: resources, gathering, construction (rules: src/war/sim/economy.ts) ---
 export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt' | 'pitch'
   // M5h crafting goods (src/data/recipes.ts CRAFT_GOODS): raw hides, flax, herbs; refined charcoal, leather, linen, oil
-  | 'hides' | 'flax' | 'herbs' | 'charcoal' | 'leather' | 'linen' | 'oil';
+  | 'hides' | 'flax' | 'herbs' | 'charcoal' | 'leather' | 'linen' | 'oil'
+  // M6a: minted from silver at a forge L2 (docs/WAR.md "Coin")
+  | 'coin';
 export type BuildingType =
   | 'camp' | 'storehouse' | 'outpost' | 'fort' | 'barracks' | 'farm' | 'olivePress'
   | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate'
@@ -247,7 +280,9 @@ export type BuildingType =
   | 'towerBridge' | 'stakes' | 'ditch'
   // M5h workplaces (docs/WAR.md "Workplaces"): chains of 3 levels by `upgrade`; the sorting floor upgrades a storehouse
   | 'forge' | 'forge2' | 'forge3' | 'cookhouse' | 'cookhouse2' | 'cookhouse3' | 'infirmary' | 'infirmary2' | 'infirmary3'
-  | 'workshop' | 'workshop2' | 'workshop3' | 'stall' | 'stall2' | 'stall3' | 'sortingFloor' | 'sortingFloor2';
+  | 'workshop' | 'workshop2' | 'workshop3' | 'stall' | 'stall2' | 'stall3' | 'sortingFloor' | 'sortingFloor2'
+  // M6a: a player's chest (1x1, owner-only, never feeds crafting)
+  | 'chest';
 /** foundation: marked out, materials arriving; scaffold: labour under way (the footprint blocks); damaged: done below half hp. */
 export type BuildState = 'foundation' | 'scaffold' | 'done' | 'damaged' | 'destroyed';
 export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach' | 'span' | 'bank' | 'cost';
@@ -328,6 +363,8 @@ export interface BuildingSnap {
   bridge?: { axis: BridgeAxis; dir: [number, number]; width: number; part: 'end0' | 'end1' | 'deck'; deck: number; rows: number[] };
   /** M5h: a workplace's crafting queue (first = next), oldest first. */
   queue?: QueueSnap[];
+  /** M6a: a store's or chest's goods and item count; a chest's owner. */
+  goods?: Partial<Record<ResourceKind, number>>; items?: number; owner?: string;
 }
 /** A crafting order: its id, recipe (or 'repair' / 'salvage' of an item def), the crafter's unit once started (-1 waiting), progress 0..1. */
 export interface QueueSnap { id: number; recipe: string; kind: 'craft' | 'repair' | 'salvage'; by: UnitId; progress: number }
@@ -367,8 +404,14 @@ export interface WarBuildSim extends WarSim {
    * wounded man with no friendly within CAPTURE_R and a foe near is taken captive. Tallies start afresh.
    */
   endFight(): FightReport;
-  /** M5d: a smith salvages drop `id`: it goes, its salvage value comes back (0: no such drop). */
+  /** M6c: pile `id`'s items are scrapped: they go, their salvage value comes back (0: no such pile or no items). */
   salvage(id: number): number;
+  /** M6a: pay `cost` from the store network of `team` at (x,y) (upkeep, the server); false (nothing taken) when it lacks any of it. */
+  drawAt(team: number, x: number, y: number, cost: Partial<Record<ResourceKind, number>>): boolean;
+  /** M6a: goods the store network of `team` at (x,y) holds (its stores and the home strongroom). */
+  goodsAt(team: number, x: number, y: number): Partial<Record<ResourceKind, number>>;
+  /** M6d: every unit of `owner` inside a safe zone walks out to the nearest yard (logout). */
+  walkOut(owner: string): void;
   /** M5d: the sim event log since the last call (kills, falls, objectives, pickups, captures, level-ups). */
   events(): WarEvent[];
   /** M5g: a person changed off the field (level-up choice, dev XP): his living man takes the new record, baked again (HP keeps its wounds). false: not on the field. */
@@ -400,8 +443,8 @@ export type HonourStat = 'hp' | 'dmg' | 'armor' | 'block' | 'accuracy';
 export interface WarPerson { id: string; hero: Hero; skills?: WarSkillId[]; honours?: { name: string; stat: HonourStat }[] }
 /** A squad active: ready in `ready` ticks (0 = now), buff on for `on` more ticks (0 = off). */
 export interface ActiveSnap { skill: WarSkillId; ready: number; on: number }
-/** Gear of a dead man: `items` pieces, `left` ticks until it is gone; team: the fallen's. */
-export interface DropSnap { id: number; x: number; y: number; team: number; items: number; left: number }
+/** M6c: a loot pile: its goods, item count, loads, `left` ticks until it is gone; salvage: a smith's progress 0..1. */
+export interface PileSnap { id: number; x: number; y: number; goods: Partial<Record<ResourceKind, number>>; items: number; loads: number; left: number; salvage?: number }
 /**
  * One person's fight: XP earned (half when wounded or captive, none when dead), level-ups, and the hero after it.
  * fort: a captive's holding building (the captor's nearest standing fort or camp), absent when the captor holds none.
@@ -412,12 +455,14 @@ export interface PersonResult {
   /** A battle honour won in this fight (src/war/sim/honours.ts; set by the region room, not the sim). */
   honour?: { name: string; stat: HonourStat };
 }
-/** loot: gear picked up per team since the last report (rare and above at reduced condition). */
+/** loot: items picked up from piles per team since the last report (M6c; the server mints them until M6e places them). */
 export interface FightReport { tick: number; persons: PersonResult[]; loot: Record<number, Item[]> }
 export type WarEvent =
   | { t: number; kind: 'fall'; unit: UnitId; by: UnitId; wounded: boolean }
   | { t: number; kind: 'objective'; squad: SquadId; what: 'claim' | 'building' }
   | { t: number; kind: 'pickup'; drop: number; team: number; items: number }
+  // M6b: a cart taken by `team` (its new owner `owner`)
+  | { t: number; kind: 'cartCaptured'; cart: number; team: number; owner: string }
   | { t: number; kind: 'capture'; unit: UnitId; pid: string; captor: number }
   | { t: number; kind: 'levelUp'; unit: UnitId; pid: string; level: number }
   // M5e: a holding building (fort, camp) of `team` raided: foe soldiers `by` reached it with none of its team near, or it fell

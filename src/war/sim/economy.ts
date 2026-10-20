@@ -42,6 +42,8 @@ export interface BuildingDef {
   field?: 'stakes' | 'ditch';
   /** M5h: a workplace (docs/WAR.md "Workplaces"): its recipes' kind and its level (crafter slots, +1 grade a level). */
   workplace?: { kind: Workplace; level: number; spots?: readonly Spot[] };
+  /** M6a: a chest: holds this many loads for its owner (never feeds crafting). */
+  chest?: number;
 }
 
 /**
@@ -103,7 +105,12 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   // the sorting floor is a storehouse upgraded in place (still a store); L2 adds the tannery
   sortingFloor: wp('sorting', 1, { w: 3, h: 3, hp: 700, cost: { wood: 40, stone: 20 }, labour: 600, workers: 6, material: 'wood', store: true, upgrade: { to: 'sortingFloor2', cost: { wood: 40, salt: 10 }, labour: 600 } }),
   sortingFloor2: wp('sorting', 2, { w: 3, h: 3, hp: 800, cost: { wood: 40, salt: 10 }, labour: 600, workers: 6, material: 'wood', store: true }),
+  // M6a: a player's chest (docs/WAR.md "Goods live in places")
+  chest: { w: 1, h: 1, hp: 150, cost: { wood: 10 }, labour: 60, workers: 2, influence: 0, material: 'wood', burnable: true, chest: 8 },
 };
+
+/** M6a chests: most a player places in a region; an enemy loots one only with no unit of its owner within `guard` tiles. */
+export const CHEST = { cap: 4, guard: 10 };
 
 /**
  * W-35 braziers: archers within `radius` tiles (3 tiles = 6 m) of a lit brazier of their team loose fire arrows, each

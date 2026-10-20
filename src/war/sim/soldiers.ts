@@ -1,5 +1,5 @@
 /**
- * Soldier rules of the war sim (docs/WAR.md "Soldiers", W-37): squad size, falling, gear drops, capture, XP.
+ * Soldier rules of the war sim (docs/WAR.md "Soldiers", W-37): squad size, falling, capture, XP (gear: M6c loot piles, ./trade.ts).
  */
 import { POINTS_PER_LEVEL } from '../../data/perks';
 import { MAX_LEVEL, xpToNext, type Hero } from '../../data/units';
@@ -19,8 +19,6 @@ export function woundedShare(end: number, physician = false): number {
 /** XP per fight (docs/WAR.md "Record"): per point of damage dealt (1 per 10), per kill, for surviving a fight with >= SQUAD_MAX enemy soldiers in it, per objective. */
 export const XP = { perDmg: 0.1, kill: 10, survived: 15, objective: 5 };
 
-/** The dead's gear lies `ticks` (10 min at 10 Hz); a man of another team within `pick` tiles, not fighting, picks it up; rare and above come at `rareCond`. */
-export const DROP = { ticks: 6000, pick: 1.5, rareCond: 50 };
 /** A wounded man with no friendly this near when the fight ends, and a foe this near, is taken captive. */
 export const CAPTURE_R = 15;
 
