@@ -32,6 +32,7 @@ import { warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type MendMsg, type ServerMsg } from '../../../src/war/net/protocol';
 import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
+import { applyBossKill } from './bosses';
 import { applyFight, claimForJoin, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 import { isWorldRegion } from '../../../src/war/world/graph';
@@ -376,10 +377,11 @@ export class WarRegionDO extends DurableObject<Env> {
       this.write('raid', () => freeRaided(d, room.region.id, r.raided, at));
     }
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
+    if (d) for (const b of r.bosses) this.write(`boss ${b.boss}`, () => applyBossKill(d, room.region.id, room.run, b, Date.now()));
     if (d && r.freed.length) this.write('unmend', () => returnMends(d, room.region.id, r.freed));
     this.flushReleased(room);
     this.report(room);
-    if (r.fights.length || r.crafted.length || r.freed.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();
+    if (r.fights.length || r.crafted.length || r.bosses.length || r.freed.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();
     const t2 = performance.now();
     const total = t2 - t0;
     if (total > TICK_MS) this.overruns++;

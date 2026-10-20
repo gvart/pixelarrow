@@ -164,6 +164,12 @@ describe('fight write-back', () => {
     expect(await applyFight(DB(), 'test-ridge:e1:900', 'test-ridge', report, t + 60_000)).toBe(false);
     expect(await snap()).toEqual(after);
     expect((await DB().prepare('SELECT COUNT(*) AS n FROM war_items WHERE fight_id = ?1').bind('test-ridge:e1:900').first<{ n: number }>())!.n).toBe(1);
+    // the public boards' tallies, written once: both sides kept a fit man, so neither won
+    const stats = await DB().prepare('SELECT player_id, kills, fights, wins FROM war_player_stats WHERE player_id IN (?1, ?2) ORDER BY player_id').bind(me.playerId, foe.playerId).all();
+    expect(stats.results).toEqual([
+      { player_id: me.playerId, kills: 1, fights: 1, wins: 0 },
+      { player_id: foe.playerId, kills: 1, fights: 1, wins: 0 },
+    ].sort((x, y) => x.player_id - y.player_id));
     // the hero read back is the one written
     expect(personOf(after[0]!).hero.xp).toBe(a.hero.xp + 30);
     // timers: healed and released men come back to the reserve once their time is up

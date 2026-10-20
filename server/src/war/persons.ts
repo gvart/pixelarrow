@@ -38,6 +38,7 @@ import { isElite, makePerson, promoteBlocker, promotePerson, type PersonOpts } f
 import { FAMILY_OF, legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
 import { HONOURS_MAX } from '../../../src/war/sim/honours';
+import { WAR_SEASON } from '../../../src/war/world/alliances';
 import type { FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
 import { ApiError } from '../errors';
 import { randomToken } from '../online/store';
@@ -629,6 +630,34 @@ export const ownerPid = (owner: string): number | null => {
   return m ? Number(m[1]) : null;
 };
 
+/** The public war boards' tallies (war_player_stats) by `d`, added to the player's row of the running war season. */
+export const addStats = (db: D1Database, pid: number, d: { kills?: number; fights?: number; wins?: number; honours?: number; bosses?: number }): D1PreparedStatement =>
+  db
+    .prepare(
+      `INSERT INTO war_player_stats (season, player_id, kills, fights, wins, honours, bosses) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+       ON CONFLICT (season, player_id) DO UPDATE SET kills = kills + ?3, fights = fights + ?4, wins = wins + ?5, honours = honours + ?6, bosses = bosses + ?7`,
+    )
+    .bind(WAR_SEASON.id, pid, d.kills ?? 0, d.fights ?? 0, d.wins ?? 0, d.honours ?? 0, d.bosses ?? 0);
+
+/**
+ * Each player's tallies of one fight: his men's kills and honours, one fight, and a win when some of his men walked
+ * off fit and no man of another team did (mobs are not persons: a fight against beasts is won by surviving it).
+ */
+export function fightStats(db: D1Database, r: FightReport): D1PreparedStatement[] {
+  const fitTeams = new Set(r.persons.filter((x) => x.state === 'fit').map((x) => x.team));
+  const per = new Map<number, { team: number; kills: number; honours: number; fit: boolean }>();
+  for (const x of r.persons) {
+    const pid = ownerPid(x.owner);
+    if (pid === null) continue;
+    const s = per.get(pid) ?? { team: x.team, kills: 0, honours: 0, fit: false };
+    s.kills += x.kills;
+    if (x.honour && x.state !== 'dead' && x.state !== 'captive') s.honours++;
+    if (x.state === 'fit') s.fit = true;
+    per.set(pid, s);
+  }
+  return [...per].map(([pid, s]) => addStats(db, pid, { kills: s.kills, fights: 1, wins: s.fit && [...fitTeams].every((t) => t === s.team) ? 1 : 0, honours: s.honours }));
+}
+
 /**
  * Write a fight back (M5d FightReport) in one batch: XP, level and points, kills and battles for all; the wounded go
  * home to heal (HEAL.field), captives are held by the captor's alliance in this region (CAPTIVE_MS), the dead lose
@@ -695,6 +724,7 @@ export async function applyFight(db: D1Database, fightId: string, region: string
       stmts.push(db.prepare('INSERT INTO war_items (uid, player_id, item, fight_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)').bind(item.uid, owners[i % owners.length], JSON.stringify(item), fightId, now));
     });
   }
+  stmts.push(...fightStats(db, r));
   try {
     await db.batch(stmts);
     return true;

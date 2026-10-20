@@ -34,6 +34,7 @@ import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
 import type { BridgePlan, FightReport, Order, PlaceResult, RegionData, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
 import type { Side } from '../../../src/war/world/types';
+import type { BossSlain } from './bosses';
 import { honoursOf } from '../../../src/war/sim/honours';
 import { CHOKEPOINTS } from '../../../src/war/world/season';
 import { worldRegion } from '../../../src/war/world/graph';
@@ -515,7 +516,7 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; freed: string[]; raided: number[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; freed: string[]; raided: number[]; times: TickTimes } {
     const t0 = now();
     this.sim.step();
     this.bots.tick();
@@ -523,6 +524,7 @@ export class WarRoom {
     this.snap = this.sim.snapshot();
     const evs = this.sim.events();
     const crafted = evs.filter((e): e is Crafted => e.kind === 'crafted');
+    const bosses = evs.filter((e): e is BossSlain => e.kind === 'bossSlain');
     // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
     const raided = evs.flatMap((e) => (e.kind === 'raid' ? [e.building] : []));
     for (const e of evs) if (e.kind === 'raid' && e.by !== undefined && e.by !== e.team) this.stormed.add(e.by);
@@ -572,7 +574,7 @@ export class WarRoom {
       }
     }
     this.lastTick = this.snap.tick;
-    return { frames, admitted, fights, crafted, freed, raided, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, admitted, fights, crafted, bosses, freed, raided, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /** Battle honours won in a finished fight go on its report (src/war/sim/honours.ts); the fort-taking slate is wiped. */

@@ -424,4 +424,7 @@ export type WarEvent =
   // (fell: destroyed); the captives held there go free
   | { t: number; kind: 'raid'; building: number; team: number; by?: number; fell: boolean }
   // M5h: a crafting order finished: the made, mended or salvaged item for `owner`'s stash (salvage: item gone, goods to stock)
-  | { t: number; kind: 'crafted'; order: number; building: number; team: number; owner: string; pid?: string; recipe: string; what: 'craft' | 'repair' | 'salvage'; item: Item };
+  | { t: number; kind: 'crafted'; order: number; building: number; team: number; owner: string; pid?: string; recipe: string; what: 'craft' | 'repair' | 'salvage'; item: Item }
+  // W-45: a region boss (src/data/warBosses.ts) fell; killers: the owners (`p:<player id>`) of the squads that hurt it,
+  // the one who struck the last blow first. The server writes the kill and mints its loot (server/src/war/bosses.ts).
+  | { t: number; kind: 'bossSlain'; region: string; boss: string; killers: string[] };
