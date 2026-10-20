@@ -1,0 +1,93 @@
+{
+ "version": 2,
+ "class": "civ_forager",
+ "image": "civ_forager.png",
+ "frame": {
+  "w": 82,
+  "h": 91
+ },
+ "anchor": {
+  "x": 38,
+  "y": 87
+ },
+ "anchors": {
+  "south-east": {
+   "x": 44,
+   "y": 87
+  },
+  "north-east": {
+   "x": 37,
+   "y": 86
+  },
+  "south-west": {
+   "x": 38,
+   "y": 87
+  },
+  "north-west": {
+   "x": 45,
+   "y": 86
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 49,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 12
+  },
+  "run": {
+   "col": 24,
+   "frames": 12,
+   "fps": 16
+  },
+  "chop": {
+   "col": 36,
+   "frames": 12,
+   "fps": 8
+  },
+  "mine": {
+   "col": 48,
+   "frames": 12,
+   "fps": 8
+  },
+  "harvest": {
+   "col": 60,
+   "frames": 12,
+   "fps": 8
+  },
+  "die": {
+   "col": 72,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 84,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

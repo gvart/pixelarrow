@@ -1,0 +1,149 @@
+{
+ "class": "civ_forager",
+ "raw": "docs/v5/pixellab/CIV/raw/forager",
+ "rotations": "docs/v5/pixellab/CIV/raw/forager/rot",
+ "shrink": 1,
+ "scale": 0.55,
+ "canvas": [
+  96,
+  96
+ ],
+ "pad": [
+  14,
+  24
+ ],
+ "clips": {
+  "idle": {
+   "fps": 8,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "walk": {
+   "fps": 12,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "run": {
+   "fps": 16,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "chop": {
+   "fps": 8,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "mine": {
+   "fps": 8,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   },
+   "keep": {
+    "south-west": [
+     0,
+     1,
+     2,
+     3,
+     3,
+     6,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "south-east": [
+     0,
+     1,
+     2,
+     3,
+     3,
+     6,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "north-west": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     7,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "north-east": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     7,
+     7,
+     8,
+     9,
+     10,
+     11
+    ]
+   },
+   "note": "frames with the white spark burst replaced by their neighbours"
+  },
+  "harvest": {
+   "fps": 8,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "die": {
+   "fps": 10,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "a1"
+   }
+  },
+  "hit": {
+   "fps": 12,
+   "of": "die",
+   "frames": [
+    1,
+    2,
+    2,
+    1
+   ]
+  }
+ }
+}
