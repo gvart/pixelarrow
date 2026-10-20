@@ -9,6 +9,7 @@ import type { WorldServerMsg, WorldSnapshot } from '../../../src/war/net/world';
 import { edge } from '../../../src/war/world';
 import type { AllianceId, Side } from '../../../src/war/world/types';
 import { makePerson } from '../../../src/war/sim/roster';
+import type { FightReport } from '../../../src/war/types';
 import { SIM_VERSION } from '../../../src/sim/version';
 import { WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
@@ -302,6 +303,23 @@ describe('WarRoom transfers', () => {
     if ('error' in got) throw new Error(got.error);
     r2.tick();
     for (const u of r2.snapshot().units.filter((x) => x.squad === got.squad)) expect(u.maxHp - u.hp).toBe(Math.min(out.lost[u.pid!] ?? 0, u.maxHp - 1));
+  });
+
+  it('a finished fight carries the honours won: the winners of a 12-a-side fight are veterans of the region', () => {
+    const r = new WarRoom({ region, seed: 1, cap: 600, fightQuiet: 30 });
+    const g = squad('a', 12, 'hoplite'), f = squad('f', 12, 'militia');
+    r.join(1, join(1, 0, [g.map((p) => p.id)]), [g]);
+    r.join(2, join(2, 1, [f.map((p) => p.id)]), [f]);
+    r.tick();
+    const [mine] = r.squadsOf(1), [foe] = r.squadsOf(2);
+    r.order(1, { kind: 'attack', squad: mine, target: foe });
+    r.order(2, { kind: 'attack', squad: foe, target: mine });
+    let report: FightReport | null = null;
+    for (let i = 0; i < 8000 && !report; i++) report = r.tick().fights[0]?.report ?? null;
+    expect(report).not.toBeNull();
+    const vets = report!.persons.filter((x) => x.honour);
+    expect(vets.length).toBeGreaterThan(0);
+    for (const x of vets) expect(x).toMatchObject({ team: 0, state: 'fit', honour: { name: 'Veteran of Teeth Foothills', stat: 'hp' } });
   });
 
   it('arrivals come in at the facing entry, hold, wait on a full quota and are taken over by a rejoin', () => {

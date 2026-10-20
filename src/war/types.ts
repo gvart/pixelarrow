@@ -409,6 +409,8 @@ export interface DropSnap { id: number; x: number; y: number; team: number; item
 export interface PersonResult {
   pid: string; owner: string; team: number; state: 'fit' | 'wounded' | 'captive' | 'dead'; captor?: number; fort?: number;
   xp: number; kills: number; dmg: number; levelUps: number; hero: Hero;
+  /** A battle honour won in this fight (src/war/sim/honours.ts; set by the region room, not the sim). */
+  honour?: { name: string; stat: HonourStat };
 }
 /** loot: gear picked up per team since the last report (rare and above at reduced condition). */
 export interface FightReport { tick: number; persons: PersonResult[]; loot: Record<number, Item[]> }
