@@ -311,6 +311,9 @@ export function hud(s: SandboxScene): void {
   scale();
   addEventListener('resize', scale);
 
+  // ---------- no browser context menu anywhere (canvas and HUD): right click is the game's (orders, the radial) ----------
+  addEventListener('contextmenu', (e) => e.preventDefault(), true);
+
   // ---------- cursors ----------
   const CUR: Record<string, string> = Object.fromEntries(['default', 'move', 'attack', 'build', 'gather', 'interact'].map((k) => [k, cursor(k)]));
   const cursorFor = (): string => {
