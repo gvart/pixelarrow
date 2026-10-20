@@ -3,7 +3,8 @@
  * iso camera's north (a diamond on the black glaze, a terracotta edge, a compass), painted in the current view mode with
  * the markers of the minimap (./mapDraw.ts) and, in Resources, an icon per patch of scarce nodes. Right, the side panel:
  * the mode (icon, name, the question it answers), the six mode tabs (F2-F7), the legend, the markers' key and a card on
- * what is under the cursor (lair, building, claim point, resource, squad, then the ground). Wheel zooms at the cursor,
+ * what is under the cursor (lair, building, claim point, resource, squad, then the ground; under the fog only what team 0
+ * knows: "Unexplored" on ground it never saw, no live lair counts out of sight). Wheel zooms at the cursor,
  * drag pans, a click moves the camera there and closes it; M or Esc closes. Opens and closes with a short fade and scale.
  */
 import '@fontsource/cinzel/700.css';
@@ -12,7 +13,7 @@ import { BIOME_NAME, MODES } from '../mapModes';
 import type { SandboxScene } from '../SandboxScene';
 import { icon, uiZoom } from './kit';
 import { swatch } from './modes';
-import { drawIcon, drawMap, ISO_ROT, squads, TEAM, toPx, toTile, type MapXf } from './mapDraw';
+import { drawIcon, drawMap, explored, fogAt, FOG_SWATCH, ISO_ROT, squads, TEAM, toPx, toTile, type MapXf } from './mapDraw';
 
 const CLASS: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
@@ -147,6 +148,7 @@ export class FullMap {
     this.k0 = (Math.min(this.cw, this.ch) * 0.94) / ((w + h) / Math.SQRT2);
     this.f = { k: this.k0, rot: ISO_ROT, cx: w / 2, cy: h / 2, ox: this.cw / 2, oy: this.ch / 2 };
     this.shownMode = '';
+    this.card.innerHTML = ''; // no card left from the last open (the fog may have changed)
     this.root.style.display = '';
     void this.root.offsetWidth; // start the transition from the closed state
     this.root.classList.add('on');
@@ -221,7 +223,7 @@ export class FullMap {
     }
     this.compass(g);
     if (this.title.textContent !== this.s.region.name) this.title.textContent = this.s.region.name;
-    if (this.shownMode !== this.s.mode + '|' + this.s.map.key(this.s.mode, this.s.live())) this.renderPanel();
+    if (this.shownMode !== this.panelKey()) this.renderPanel();
   }
 
   /** A compass rose in the top right: N points to the region's north (tile -y). */
@@ -244,7 +246,7 @@ export class FullMap {
   private drawResources(g: CanvasRenderingContext2D): void {
     const m = this.px, cellT = (64 * m) / this.f.k, at = new Map<string, { res: string; x: number; y: number; n: number; guarded: boolean }>();
     for (const nd of this.s.sim.nodes) {
-      if (nd.res === 'wood' || nd.res === 'food') continue;
+      if (nd.res === 'wood' || nd.res === 'food' || !explored(this.s, nd.x, nd.y)) continue;
       const key = `${nd.res}|${Math.floor(nd.x / cellT)},${Math.floor(nd.y / cellT)}`;
       const q = at.get(key) ?? at.set(key, { res: nd.res, x: 0, y: 0, n: 0, guarded: false }).get(key)!;
       q.x += nd.x; q.y += nd.y; q.n++; q.guarded ||= !!nd.guarded;
@@ -258,10 +260,21 @@ export class FullMap {
     }
   }
 
+  /** The beast kinds of the lairs team 0 has found. */
+  private lairKinds(): string[] {
+    return [...new Set((this.s.sim.cur?.lairs ?? []).filter((l) => explored(this.s, l.x, l.y)).map((l) => l.kind))];
+  }
+
+  /** What the side panel shows: the mode, its live key, the found lair kinds and whether the fog is on. */
+  private panelKey(): string {
+    const s = this.s;
+    return `${s.mode}|${s.map.key(s.mode, s.live())}|${this.lairKinds()}|${!!s.sim.fog && s.sim.fogOn}`;
+  }
+
   /** The side panel: mode, question, tabs, legend, markers' key, the hover card. */
   private renderPanel(): void {
     const s = this.s, md = MODES.find((q) => q.id === s.mode)!, t = s.map.tint(s.mode, s.live());
-    this.shownMode = s.mode + '|' + s.map.key(s.mode, s.live());
+    this.shownMode = this.panelKey();
     const row = (sw: string, label: string) => `<div class="fm-row">${sw}<span>${label}</span></div>`;
     let legend = '';
     if (!t) legend = row(`<i class="sw" style="background:#688440"></i>`, 'Grass and fields') + row(`<i class="sw" style="background:#345430"></i>`, 'Forest') + row(`<i class="sw" style="background:#7a746e"></i>`, 'Rock') + row(`<i class="sw" style="background:#5696b2"></i>`, 'Water') + row(`<i class="sw ln" style="background:#bea476"></i>`, 'Road');
@@ -269,17 +282,27 @@ export class FullMap {
     else legend = t.legend.map((q) => row(swatch(q), q.label)).join('');
     const shield = (c: string) => `<i class="mk"><i style="width:12px;height:12px;border-radius:50%;background:${c};box-shadow:0 0 0 2px #f0d9b5,0 0 0 3px #0e0907"></i></i>`;
     const square = (c: string) => `<i class="mk"><i style="width:10px;height:10px;background:${c};box-shadow:0 0 0 1px #0e0907"></i></i>`;
-    const kinds = [...new Set((s.sim.cur?.lairs ?? []).map((l) => l.kind))];
+    const kinds = this.lairKinds();
+    const fog = s.sim.fog && s.sim.fogOn ? row(`<i class="sw" style="background:linear-gradient(${FOG_SWATCH.dim},${FOG_SWATCH.dim}),#688440"></i>`, 'Explored, out of sight') + row(`<i class="sw" style="background:linear-gradient(${FOG_SWATCH.dark},${FOG_SWATCH.dark}),#688440"></i>`, 'Unexplored') : '';
     const lairs = kinds.length ? `<div class="fm-row" style="flex-wrap:wrap;gap:2px">${kinds.map((k) => `<span title="${BEAST[k] ?? k}">${icon('lair-' + k)}</span>`).join('')}<span style="margin-left:4px">Beast lairs</span></div>` : '';
     this.panel.innerHTML = `<div class="fm-mode">${icon(md.icon, 32)}<h2>${md.name}</h2><span class="fm-key">${md.key}</span></div>
       <p class="fm-about">${md.about}</p>
       <div class="fm-tabs">${MODES.map((q) => `<button class="rf-btn${q.id === s.mode ? ' on' : ''}" data-mode="${q.id}" title="${q.name} (${q.key})">${icon(q.icon)}</button>`).join('')}</div>
       <h3>Legend</h3>${legend}
       <h3>On the map</h3>${row(shield(TEAM[0]), 'Your squads (ringed: selected)')}${row(shield(TEAM[1]), 'Enemies in sight')}${row(square(TEAM[0]) , 'Your buildings')}${row(square(TEAM[1]), 'Enemy buildings')}
-      ${lairs}${row(icon('mk-claim'), 'Claim point')}${row('<i class="mk"><i style="width:14px;height:9px;box-shadow:inset 0 0 0 1px #f0d9b5,0 0 0 1px #0e0907"></i></i>', 'Your view')}`;
+      ${lairs}${row(icon('mk-claim'), 'Claim point')}${row('<i class="mk"><i style="width:14px;height:9px;box-shadow:inset 0 0 0 1px #f0d9b5,0 0 0 1px #0e0907"></i></i>', 'Your view')}${fog}`;
     this.panel.append(this.card);
     this.panel.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => (b.onclick = () => { s.setMode(b.dataset.mode as typeof s.mode); this.dirty = true; }));
     if (!this.card.innerHTML) this.card.innerHTML = '<span class="d">Point at the map to see what is there.</span>';
+  }
+
+  /** The cursor's tip: `name` next to the pointer, kept inside the window. */
+  private place(e: PointerEvent, name: string): void {
+    this.tip.textContent = name;
+    this.tip.style.display = 'block';
+    const z = Number(this.tip.style.zoom) || 1, r = this.tip.getBoundingClientRect();
+    this.tip.style.left = `${Math.min(innerWidth - r.width - 4, e.clientX + 14) / z}px`;
+    this.tip.style.top = `${Math.min(innerHeight - r.height - 4, e.clientY + 16) / z}px`;
   }
 
   private showTip(e: PointerEvent): void {
@@ -288,15 +311,17 @@ export class FullMap {
     const s = this.s, l = s.live(), near = (x: number, y: number, r: number) => (x - t.x) ** 2 + (y - t.y) ** 2 <= r * r;
     const { w, h } = s.map;
     if (t.x < 0 || t.y < 0 || t.x >= w || t.y >= h) { this.tip.style.display = 'none'; this.card.innerHTML = '<span class="d">Point at the map to see what is there.</span>'; return; }
+    const fog = fogAt(s, t.x, t.y);
+    if (fog === 0) { this.place(e, 'Unexplored'); this.card.innerHTML = '<b>Unexplored</b>'; return; }
     const pick = (9 * this.px) / this.f.k; // ~9 art px in tiles
     const items: [string, string][] = [];
-    const lair = l.lairs.find((q) => near(q.x, q.y, Math.max(2, pick)));
-    if (lair) items.push([`${BEAST[lair.kind] ?? nice(lair.kind)} lair`, lair.state === 'cleared' ? 'Cleared' : `${lair.alive} of ${lair.count} left · guards ${lair.guard} tiles`]);
+    const lair = l.lairs.find((q) => near(q.x, q.y, Math.max(2, pick)) && explored(s, q.x, q.y));
+    if (lair) items.push([`${BEAST[lair.kind] ?? nice(lair.kind)} lair`, fog < 2 ? 'Out of sight' : lair.state === 'cleared' ? 'Cleared' : `${lair.alive} of ${lair.count} left · guards ${lair.guard} tiles`]);
     const b = l.buildings.find((q) => q.state !== 'destroyed' && Math.abs(q.x - t.x) <= Math.max(q.w / 2, pick / 2) && Math.abs(q.y - t.y) <= Math.max(q.h / 2, pick / 2));
     if (b) items.push([nice(b.type), `${b.team === 0 ? 'Yours' : 'Enemy'} · ${b.state}`]);
-    const c = l.claims.find((q) => near(q.x, q.y, Math.max(2, pick)));
+    const c = l.claims.find((q) => near(q.x, q.y, Math.max(2, pick)) && explored(s, q.x, q.y));
     if (c) items.push(['Claim point', c.state === 'claimed' ? (c.team === 0 ? 'Claimed by you' : 'Claimed by the enemy') : c.state === 'locked' ? 'Locked: clear the lairs first' : nice(c.state)]);
-    const nd = l.nodes.find((q) => near(q.x, q.y, Math.max(1, pick / 2)));
+    const nd = l.nodes.find((q) => near(q.x, q.y, Math.max(1, pick / 2)) && explored(s, q.x, q.y));
     if (nd) items.push([nice(nd.res), `${Math.floor(nd.amount)} of ${nd.max} left${nd.guarded ? ' · guarded by a lair' : ''}`]);
     const q = squads(s).find((v) => v.team !== MOB_TEAM && near(v.x, v.y, Math.max(2, pick)));
     if (q) {
@@ -304,12 +329,7 @@ export class FullMap {
       items.push([`${q.team === 0 ? 'Your' : 'Enemy'} ${CLASS[u?.u.cls ?? ''] ?? 'squad'}`, `${q.n} men`]);
     }
     const ground = s.map.describe(t.x, t.y, l);
-    const name = items[0]?.[0] ?? nice(ground[0].split(' · ')[0]);
-    this.tip.textContent = name;
-    this.tip.style.display = 'block';
-    const z = Number(this.tip.style.zoom) || 1, r = this.tip.getBoundingClientRect();
-    this.tip.style.left = `${Math.min(innerWidth - r.width - 4, e.clientX + 14) / z}px`;
-    this.tip.style.top = `${Math.min(innerHeight - r.height - 4, e.clientY + 16) / z}px`;
+    this.place(e, items[0]?.[0] ?? nice(ground[0].split(' · ')[0]));
     const biome = BIOME_NAME[s.map.biomeNames[s.map.biome[Math.floor(t.y) * w + Math.floor(t.x)]]] ?? '';
     this.card.innerHTML = items.map(([a, d]) => `<b>${a}</b><div class="t">${d}</div>`).join('') +
       `<b>${nice(ground[0].split(' · ')[0])}${ground[0].includes('level') ? `, ${ground[0].split(' · ')[1]}` : ''}</b><div class="t">${biome}${biome ? ' · ' : ''}${PACE[ground[1].split(' · ')[1]] ?? ''}</div><div class="d">${nice(ground[2])}</div>`;

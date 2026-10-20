@@ -4,8 +4,9 @@
  * the iso camera (tile +x runs down-right, +y down-left), and the markers over it: buildings by owner (footprints; the
  * main ones as an icon badge on the full map), lairs by beast, claim banners, own squads, enemy squads only where own men
  * or buildings see them, and the camera's view (a rectangle: the screen in tile space, turned back upright).
- * Fog of war (W-39, ../fog.ts): team 0's fog grid shades the map (dark unexplored, dimmed explored); the sim client
- * already hides foes out of sight and keeps foe buildings as last seen; lairs show once their ground is explored.
+ * Fog of war (W-39, ../fog.ts): team 0's fog grid shades the map in the black glaze (dark unexplored, dimmed explored,
+ * soft edges), rebuilt only when the grid's version changes; the sim client already hides foes out of sight and keeps foe
+ * buildings as last seen; lairs, claim points and resource badges show once their ground is explored.
  */
 import { MOB_TEAM } from '../../sim/mobs';
 import type { BuildingSnap, FogGrid } from '../../types';
@@ -56,6 +57,8 @@ export function mapCanvas(s: SandboxScene): HTMLCanvasElement {
 }
 
 const fogged = new WeakMap<SandboxScene, { ver: number; cv: HTMLCanvasElement }>();
+/** The fog's shade: the black glaze; alpha over unexplored and explored cells (visible: clear). */
+const GLAZE = [14, 9, 7], FOG_DARK = 232, FOG_DIM = 120;
 
 /** Team 0's fog, one px per vision cell (cached per version); null with fog off or none yet. */
 function fogCanvas(s: SandboxScene): { cv: HTMLCanvasElement; g: FogGrid } | null {
@@ -73,21 +76,25 @@ function fogCanvas(s: SandboxScene): { cv: HTMLCanvasElement; g: FogGrid } | nul
     p.cv.height = g.h;
     const ctx = p.cv.getContext('2d')!, im = ctx.createImageData(g.w, g.h);
     for (let c = 0; c < g.state.length; c++) {
-      im.data[c * 4] = 8; im.data[c * 4 + 1] = 10; im.data[c * 4 + 2] = 16;
-      im.data[c * 4 + 3] = g.state[c] === 2 ? 0 : g.state[c] === 1 ? 110 : 225;
+      im.data[c * 4] = GLAZE[0]; im.data[c * 4 + 1] = GLAZE[1]; im.data[c * 4 + 2] = GLAZE[2];
+      im.data[c * 4 + 3] = g.state[c] === 2 ? 0 : g.state[c] === 1 ? FOG_DIM : FOG_DARK;
     }
     ctx.putImageData(im, 0, 0);
   }
   return { cv: p.cv, g };
 }
 
-/** Team 0 has explored tile point (x, y) (always with fog off). */
-function explored(s: SandboxScene, x: number, y: number): boolean {
+/** Team 0's fog at tile point (x, y): 0 unexplored, 1 explored, 2 visible (always 2 with fog off or no grid yet). */
+export function fogAt(s: SandboxScene, x: number, y: number): 0 | 1 | 2 {
   const g = s.sim.fog;
-  if (!g || !s.sim.fogOn) return true;
+  if (!g || !s.sim.fogOn) return 2;
   const cx = Math.floor(x / g.cell), cy = Math.floor(y / g.cell);
-  return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h && g.state[cy * g.w + cx] !== 0;
+  return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h ? (g.state[cy * g.w + cx] as 0 | 1 | 2) : 0;
 }
+/** Team 0 has explored tile point (x, y) (always with fog off). */
+export const explored = (s: SandboxScene, x: number, y: number): boolean => fogAt(s, x, y) !== 0;
+/** The fog key's swatches (CSS colours of the shade over a mid ground). */
+export const FOG_SWATCH = { dark: `rgba(${GLAZE},${FOG_DARK / 255})`, dim: `rgba(${GLAZE},${FOG_DIM / 255})` };
 
 /** A kit icon as an image (24 / 32 art px and their @2x), loaded once. */
 const imgs = new Map<string, HTMLImageElement>();
@@ -203,6 +210,7 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
   }
   // claim points: the banner icon on a disc ringed in the owner's colour (cream open, grey locked)
   for (const cl of cur?.claims ?? []) {
+    if (!explored(s, cl.x, cl.y)) continue;
     const [x, y] = P(cl.x, cl.y), r = (full ? 8 : 5.5) * m;
     const ring = cl.state === 'claimed' ? TEAM[cl.team] ?? '#ccc' : cl.state === 'locked' ? '#8a786a' : '#f6d48a';
     badge(g, x, y, r, ring, m);
