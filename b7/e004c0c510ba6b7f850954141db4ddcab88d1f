@@ -1,0 +1,23 @@
+scripts/war/regions/landmarks.ts
+  s_cfc22b058125c4::t_167fad53333f8e 321,329-330,337
+src/war/regions/ammon.json
+  s_cfc22b058125c4::t_167fad53333f8e 1
+docs/WAR.md
+  s_cfc22b058125c4::t_0b79a8d8412f68 389
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b7e004c0c510ba6b7f850954141db4ddcab88d1f",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
