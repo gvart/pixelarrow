@@ -2304,3 +2304,58 @@ Create an image. ROLE: a design prototype of the strategic world map for an anci
 **Lessons:** Gemini never reaches 37 regions (21, 27, ~30) and draws a home with its 4 entries as a ring of 5 unless the
 prompt says "NONE of them is a circle or ring" (C). The prototypes set look and colour balance only; the region shapes
 come from the layout script below, where the WAR.md adjacency is checked.
+
+### 37b. Assets (`public/war/world/`, built by `scripts/war/world-art/`)
+
+Reference: prototype C (flat dithered fills, glyphs off the label, alliance wash) with B's dark + cream double border.
+Pipeline, deterministic (a rerun gives the same bytes): `layout.mjs` draws the NW quadrant as a 32x24 cell grid and
+mirrors it into the other three (WAR.md topology is mirror-symmetric; a home's ring of entries meets the axis chains
+at four-corner points, so non-neighbours only touch diagonally); `raster.mjs` warps it with seeded value noise into
+organic shapes at 1024x768 logical px, cuts a rounded coast, keeps each region's largest piece; `regions.mjs` fails
+the build unless every WAR.md adjacency has ≥ 12 px of shared border and no other pair does, then traces polygons,
+centroid, label anchor (+ `labelRoom`) and one crossing point per adjacency; `paint.mjs` paints fills, coast, rivers,
+lakes and glyphs, writes `base`/`borders` at 2x (2048x1536) and 4x (`@2x`), `region-ids.png` for hit tests,
+`regions.json`, markers and banners, and warns when two neighbouring fills are closer than 28 (RGB distance);
+`mock.html` + `mock.mjs` compose the view (tints, borders, labels, markers) into `shots/war/worldmap/WM_mock*.png`.
+Raws: `fetch.mjs` → `shots/war/pixellab/worldmap/raw/` (git-ignored), job ids in `jobs.json`; trimmed 1x copies ship in `public/war/world/src/` so a fresh checkout rebuilds without them.
+
+PixelLab `create_image_pixflux`, 29 generations, `no_background`, palette-locked (`color_image_base64` = 32 kit/biome
+colours), `detail: low` unless noted. Glyphs open with `tiny map icon for a flat strategy world map:` and end with
+`simple flat pixel art`; markers open with `map marker icon for a strategy game:`; banners with `alliance banner icon:
+a hanging cloth banner on a crossbar,`.
+
+| Name | Size, view, outline/shading | Middle of the prompt |
+| --- | --- | --- |
+| pine | 32², high top-down, single colour / basic | a tight cluster of three dark green pine trees seen from slightly above |
+| oak | 32², high top-down | two round leafy green oak trees with short brown trunks |
+| olive (redo, seed 203) | 32², high top-down | a small olive grove, five little round silver-green olive tree crowns with dark trunks, arranged in two rows (first try drew one tiny tree) |
+| cypress | 32², side | three tall thin dark green cypress trees side by side |
+| palm | 32², side | two date palm trees with green fronds and thin brown trunks |
+| acacia | 32², side | one flat-topped acacia tree, wide umbrella crown of olive green, thin trunk |
+| mountain | 48x32, side | a pair of grey rocky mountain peaks, simple triangle shapes, lit left side light grey, shadow side darker |
+| peak | 48x32, side | a pair of tall jagged mountain peaks with white snow caps, grey rock below, simple triangle shapes |
+| dune | 48x32, high top-down, lineless / flat | a small group of pale sand dunes, curved crest lines with a darker ochre shadow side |
+| reed | 32², side | a clump of green reed tufts and cattails standing in a little shallow water |
+| mound | 32², side | a round grassy burial mound (kurgan), low dome of straw-green grass with a small standing stone on top |
+| butte | 32², side | a red rock butte, a flat-topped mesa with steep rust-red cliff sides |
+| vine | 32², high top-down | a few rows of grape vines on stakes, dark green leaves with tiny purple grapes, seen from above at an angle |
+| tor | 32², side | a granite tor, a small pile of rounded grey boulders with a few purple heather tufts |
+| scrub | 32², side | a dry thorny scrub bush, khaki and olive twigs, low and wide |
+| town | 48², high top-down, medium detail | (`small map icon …`) an ancient Greek walled town, a ring of cream stone walls with two square towers and a few terracotta-red tiled roofs inside |
+| temple | 48², side, medium detail | (`small map icon …`) a ruined ancient Greek temple, cream marble columns on a stepped base, some columns broken |
+| ford | 32², high top-down, flat | (`tiny map marker …`) a river ford, a short band of light sandy stepping stones crossing blue water from left to right, seen from above |
+| pass | 48x32, side | (`small map icon …`) a mountain pass, a narrow gap between two grey rock peaks with a small ruined stone watchtower in the gap |
+| fort | 32², high top-down, black outline / flat | a small square stone fort with four corner towers and a gate, cream stone with dark outline |
+| battle | 32², black outline / flat | contested battle, two crossed bronze swords over a round terracotta-red and black disc |
+| transit | 32², black outline / flat | an army on the march, a small round black shield with terracotta rim and a spear behind it, on a little black pennant shape |
+| home | 32², black outline / flat | home capital, a small cream Greek temple front with a terracotta pediment on a black round badge with terracotta rim |
+| banner dodona | 32x48, black outline / basic, medium | deep blue cloth with a terracotta border and a cream oak leaf emblem, swallow-tail bottom |
+| banner skythia (redo, seed 225) | 32x48 | golden yellow cloth with a terracotta border, in the middle a simple black silhouette of a galloping horse seen from the side, swallow-tail bottom (first try drew a cross) |
+| banner kyrene | 32x48 | crimson red cloth with a black border and a cream sun disc emblem, swallow-tail bottom |
+| banner elaia | 32x48 | deep violet purple cloth with a terracotta border and a cream olive branch emblem, swallow-tail bottom |
+
+**Lessons:** (1) A cell grid + smooth warp gives exact adjacency by construction; the check catches the corners, where
+the coast cut ate two short borders twice (fixed by moving the a/b seam inward and a gentler coast warp). (2) Gemini
+colours do not survive neighbours: tune fills with the RGB-distance warning, alternate light/dark between neighbours.
+(3) Pixflux at 32 px often adds a small ground base under plants (reed, cypress, vine); fine on a flat map. (4) Ask for
+the emblem as "a simple silhouette of X seen from the side", or it invents heraldry.
