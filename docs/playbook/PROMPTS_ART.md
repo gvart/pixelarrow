@@ -2403,3 +2403,36 @@ Edit your last image and keep everything else exactly the same (the continent, i
 in-page preview is 1024 px; at 2x zoom the painting is soft. Regenerate the base at full size once downloads work
 (the pipeline takes any 4:3 size). (3) The final edit dropped three of the four home towns; home markers and
 banners carry them. (4) The animated part is cheap and in the view: two drifting fog layers masked to the Abyss.
+
+### 37d. World map v3: sharp base, smooth borders, label layout
+
+Owner feedback on v2: the base was soft at 2x (a 1024 preview upscaled), names collided (Omphalos under battle
+markers, Kyrene), Elaia's outlines were jagged. Gemini (Pro, Create image, 4:3), 9 images and 3 error replies: 1
+whole-map "4K" remaster (dropped: the in-page result is still 1024 px, so no gain), 8 tile repaints; errors on a
+same-chat follow-up (tile 01, redone in a fresh chat) and twice on the south-east corner tile 22 (the drake; left to
+the upscaled painting with a light unsharp). Each tile went into a **fresh chat**, captured as in §21b
+(devicePixelRatio 1 here: the overlay shows the 1024x765 render 1:1 and `computer zoom` on 0,0–1024,765 saves it).
+
+Route (`scripts/war/world-art/sharpen.mjs`): `cut` crops `src/painted.png` into 3x3 tiles of 380x285 px (overlap
+58/44 px), upscaled to 1024x768; Gemini repaints each; `blend` scales every repaint back to its tile at 3.6x, finds
+the best shift against the upscaled painting (brute force, ±36 px; all came back 0–1 px), matches mean and spread per
+channel, feathers the overlaps and writes `src/painted@hi.jpg` (3686x2765). `paint.mjs` resamples it (lanczos, no
+unsharp) to `base.jpg` and `base@2x.jpg`; the land mask and the region fit still come from `src/painted.png`, so the
+regions stay where they were.
+
+Tile prompt (the same for all nine):
+
+```
+The attached picture is a blurry enlarged crop (one ninth) of a hand-painted dark-epic fantasy atlas world map. Repaint it as the same crop at full sharpness: a super-resolution remaster. Keep the composition EXACTLY, pixel-aligned: every coastline, cliff edge, mountain, river, lake, reed bed, forest edge, road, town and beast stays at exactly the same place, size and shape in the frame, and the colours and lighting (from the upper left) stay the same. Only replace the blur with crisp fine painted detail at the same scale: individual tree crowns, rock strata and snow on the peaks, thin sharp rivers and shores, small town walls and roofs, soft grey mist in the void. Do not add, remove, move or recompose anything; do not zoom, crop or reframe. No borders, no text, no labels, no frame.
+```
+
+Borders: `raster.mjs` runs a majority filter (radius 6, then 4 logical px) over the region raster after the fit; a
+pixel change that would make two regions touch that WAR.md keeps apart is refused (also when gaps regrow), so the
+adjacency check still passes. Labels (view, `map.ts` `layoutLabels`): per zoom, homes and Omphalos first, then
+market towns and chokepoints, then the rest; each name tries spots inside its region (one or two lines, full size
+then smaller), then a spot just outside with a leader line (tier 1), and never overlaps another name, a battle or
+siege marker, a squad banner or a squad on the road; a low-priority name with no free spot is left out at that zoom.
+
+**Lessons:** (1) Gemini keeps a crop's composition almost pixel-exact when asked for a "super-resolution remaster"
+of that crop; a whole-map request gains nothing while the preview is capped at 1024 px. (2) Fresh chat per tile: a
+same-chat follow-up errored; the drake corner errored twice (a fresh crop without the beast may pass). (3) The repaint inks the coastline darker than v2; colour matching keeps the palette.
