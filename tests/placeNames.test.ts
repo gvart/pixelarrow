@@ -5,8 +5,6 @@ import { placeName } from '../src/i18n/places';
 import { foeName } from '../src/i18n/names';
 import { setLang } from '../src/i18n';
 import { BODY_METRICS } from '../src/art/fontMetrics';
-import westmed from '../src/online/maps/westmed.json';
-import test30 from '../src/online/maps/test30.json';
 
 const drawn = (s: string) => [...s].every((ch) => BODY_METRICS.adv[ch] !== undefined);
 
@@ -23,8 +21,6 @@ function checkMap(names: string[]): void {
 
 describe('place names in Russian (LOC-01)', () => {
   it('the campaign map: towns and villages', () => checkMap([...TOWN_NAMES, ...VILLAGE_NAMES]));
-  it('the western Mediterranean war map', () => checkMap(westmed.regions.map((r) => r.name)));
-  it('the test war map', () => checkMap(test30.regions.map((r) => r.name)));
 
   it('battle sites', () => {
     const sites = [...Object.values(SITE_NAMES)];

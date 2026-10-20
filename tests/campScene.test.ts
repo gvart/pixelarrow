@@ -116,8 +116,8 @@ describe('v5 chrome', () => {
     expect(code).not.toContain('openModal(');
   });
 
-  it('keeps every action of the old camp (E104-E122)', () => {
-    for (const id of ['camp.topbar', 'camp.zoom', 'camp.muster', 'camp.loot', 'camp.endDay', 'camp.strike', 'camp.cancel', 'camp.place', 'camp.rest', 'camp.build', 'camp.claim', 'camp.buildings']) expect(code, id).toContain(`'${id}`);
+  it('keeps every action of the field camp (E104-E122)', () => {
+    for (const id of ['camp.topbar', 'camp.zoom', 'camp.muster', 'camp.loot', 'camp.endDay', 'camp.strike', 'camp.cancel', 'camp.place', 'camp.build']) expect(code, id).toContain(`'${id}`);
     expect(code).toContain('`camp.temper.do.');
     for (const fn of ['openTemper(): void', 'openMuster(): void', 'private strike(): void', 'openEvent(): void', 'private tapTile(', 'private onMove(']) expect(code, fn).toContain(fn);
     // the strike still confirms as a destructive action

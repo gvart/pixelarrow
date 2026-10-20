@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Campaign } from '../src/game/campaign';
 import { World } from '../src/world/world';
 import { campBlocker } from '../src/world/camp';
-import { fieldLayout, onlineLayout } from '../src/world/campLayout';
+import { fieldLayout } from '../src/world/campLayout';
 import { G, groundLayout, renderBellTent, renderIsoGround, renderPavilion, renderRidgeTent, renderShip, renderStakes, screenTile, tileScreen } from '../src/art/campIso';
-import { demoShard } from '../src/online/demoShard';
-import type { CampView } from '../src/online/camps';
 
 /** A world with the party on a tile where it may camp (nearest the start), camped. */
 function camped(seed = 7): Campaign {
@@ -135,48 +133,6 @@ describe('camp layouts', () => {
     const L3 = fieldLayout(w.map, camp, 9);
     expect(L3.things.filter((t) => t.key.startsWith('stakes')).length).toBeGreaterThan(10);
     expect(L3.things.some((t) => t.key === 'gate0')).toBe(true);
-  });
-
-  it('lays the online camp out with every slot, a ship on a coast and the plot to claim', () => {
-    const d = demoShard();
-    const v = d.camp.view(d.now);
-    const home = v.camps.find((c) => c.home)!;
-    const L = onlineLayout(home, { coast: true, seed: 5, home: true, rosterSize: 8, now: d.now });
-    expect(L.coastal).toBe(true);
-    expect(L.things.some((t) => t.key.startsWith('ship'))).toBe(true);
-    for (let s = 0; s < home.slots; s++) {
-      const t = L.slotTile(s);
-      expect(L.slotAt(t.x, t.y)).toBe(s);
-      expect(L.slotAt(t.x + 1, t.y + 1)).toBe(s);
-    }
-    expect(L.slotAt(0, 0)).toBe(-1);
-    for (const b of home.buildings) expect(L.things.some((t) => t.sel === `${b.slot}`)).toBe(true);
-    const plots = L.things.filter((t) => t.key === 'plot');
-    expect(plots).toHaveLength(home.slots - home.buildings.length);
-    expect(L.things.some((t) => t.key === 'pavilion3')).toBe(true);
-    expect(L.things.some((t) => t.key === 'stall')).toBe(true);
-    // a ghost on the first empty slot
-    const empty = plots[0].sel!;
-    const L2 = onlineLayout(home, { coast: false, seed: 5, home: true, rosterSize: 8, now: d.now, ghost: { slot: Number(empty), kind: 'watchtower' } });
-    expect(L2.things.some((t) => t.key === 'ghost:tower1' && t.sel === empty)).toBe(true);
-    expect(L2.things.some((t) => t.key.startsWith('ship'))).toBe(false);
-    // the plot to claim
-    const L3 = onlineLayout(null as CampView | null, { coast: false, seed: 9, home: false, rosterSize: 4, now: d.now });
-    expect(L3.things.some((t) => t.key === 'banner')).toBe(true);
-    expect(L3.things.some((t) => t.key === 'pavilion3')).toBe(false);
-  });
-
-  it('shows a construction stage for a building going up', () => {
-    const d = demoShard();
-    const v = d.camp.view(d.now);
-    const home = v.camps.find((c) => c.home)!;
-    const busy = home.buildings.find((b) => b.building !== null);
-    expect(busy).toBeTruthy();
-    const L = onlineLayout(home, { coast: false, seed: 5, home: true, rosterSize: 8, now: d.now });
-    const t = L.things.find((x) => x.sel === `${busy!.slot}`)!;
-    expect(t.stage).toBeDefined();
-    const later = onlineLayout(home, { coast: false, seed: 5, home: true, rosterSize: 8, now: busy!.doneAt! - 1 });
-    expect(later.things.find((x) => x.sel === `${busy!.slot}`)!.stage).toBe(2);
   });
 
   it('keeps the camp data of a save round trip (reserve flags)', () => {

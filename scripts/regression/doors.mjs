@@ -22,6 +22,7 @@ export const ELSEWHERE = {
   FirstRun: 'scripts/tutorial-smoke.mjs walks offer, resume, reward and modes',
   Results: 'scripts/regression/battle-kinds.mjs: Results back to the origin, per battle kind',
   BeastTrial: 'retired by CDX-01: it redirects to the Codex at once (no screen of its own)',
+  OnlineClan: 'reached only by a clan deep link since the war map went (W-01); tests/deeplink.test.ts',
 };
 
 const DUEL = ['Duel', { preview: true }];

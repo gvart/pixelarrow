@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import src from '../scripts/layout-check.mjs?raw';
 import workflow from '../.github/workflows/deploy.yml?raw';
 // @ts-expect-error plain .mjs module without types
 import { MATRIX } from '../scripts/lib/layoutMatrix.mjs';
@@ -12,10 +11,5 @@ describe('layout-check config', () => {
     expect(MATRIX.v5).toContain('320x640');
     expect(MATRIX.v5).toContain('320x568');
     expect(sizes.sort()).toEqual([...MATRIX.all, ...MATRIX.v5].sort());
-  });
-
-  it('stages the OnlineArmy garrison with a region id, not a {q,r} object (V5-016)', () => {
-    expect(src).not.toMatch(/garrison: (i === 3 \? )?\{ q:/);
-    expect(src).toMatch(/garrison: i === 3 \? \d+ : null/);
   });
 });

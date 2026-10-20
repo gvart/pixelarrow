@@ -32,18 +32,19 @@ describe('startapp deep links', () => {
   });
 
   it('routes each link to its scene', () => {
-    expect(sceneForRoute(parseStartParam('loc_32'))).toEqual({ scene: 'Online', data: { focus: 32, select: true } });
-    expect(sceneForRoute(parseStartParam('boss_14'))).toEqual({ scene: 'Online', data: { focus: 14, select: true } });
-    expect(sceneForRoute(parseStartParam('duel'))).toEqual({ scene: 'Online', data: { lobby: true } });
-    expect(sceneForRoute(parseStartParam('market'))?.scene).toBe('Market');
+    // the old war map's links (a region, a boss, income, the season) land on the Campaign hub (W-01)
+    expect(sceneForRoute(parseStartParam('loc_32'))).toEqual({ scene: 'Menu', data: {} });
+    expect(sceneForRoute(parseStartParam('boss_14'))).toEqual({ scene: 'Menu', data: {} });
+    expect(sceneForRoute(parseStartParam('income'))).toEqual({ scene: 'Menu', data: {} });
+    expect(sceneForRoute(parseStartParam('season'))).toEqual({ scene: 'Menu', data: {} });
+    expect(sceneForRoute(parseStartParam('duel'))).toEqual({ scene: 'Duel', data: {} });
+    expect(sceneForRoute(parseStartParam('market'))).toEqual({ scene: 'Shop', data: { tab: 'shop', back: { scene: 'Menu' } } });
     expect(sceneForRoute(parseStartParam('myclan'))?.scene).toBe('OnlineClan');
-    expect(sceneForRoute(parseStartParam('income'))).toEqual({ scene: 'Online', data: {} });
-    expect(sceneForRoute(parseStartParam('season'))).toEqual({ scene: 'Online', data: {} });
     expect(sceneForRoute(parseStartParam('settings'))).toEqual({ scene: 'Menu', data: { settings: 'notify' } });
     expect(sceneForRoute(parseStartParam('wallet'))).toMatchObject({ scene: 'Shop', data: { tab: 'wallet' } });
-    // a clan invite still opens the online mode (the code is kept as the pending invite)
+    // a clan invite opens the Clan screen (the code is kept as the pending invite)
     expect(parseStartParam('clan_abcD2345xy')).toEqual({ kind: 'invite', code: 'abcD2345xy' });
-    expect(sceneForRoute(parseStartParam('clan_abcD2345xy'))).toEqual({ scene: 'Online', data: {} });
+    expect(sceneForRoute(parseStartParam('clan_abcD2345xy'))).toEqual({ scene: 'OnlineClan', data: {} });
   });
 
   it('ignores anything unknown or malformed (the game opens on the menu)', () => {

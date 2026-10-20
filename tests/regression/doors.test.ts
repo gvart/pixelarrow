@@ -12,8 +12,8 @@ const { BACK_RULES, TAB_ROOTS, resolveBack } = await import('../../src/platform/
 const { MODE_TABS } = await import('../../src/ui/mosaic/tabLayout');
 
 describe('regression doors (hub-flows.mjs)', () => {
-  it('walks the five mode tabs in bar order, each to its hub', () => {
-    expect(TABS.map(([tab]) => tab)).toEqual(MODE_TABS.map((m) => m.id));
+  it('walks the mode tabs in bar order, each to its hub (the war tab opens world.html, not a scene)', () => {
+    expect(TABS.map(([tab]) => tab)).toEqual(MODE_TABS.map((m) => m.id).filter((id) => id !== 'war'));
     for (const [tab, hub] of TABS) expect(TAB_ROOTS[hub], hub).toBe(tab);
   });
 

@@ -8,7 +8,7 @@ import { SIM_VERSION } from '../src/sim/version';
 import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from '../src/online/protocol';
 import { online } from '../src/platform/cloud';
 import { ApiError } from '../src/platform/api';
-import { errorText, onlineApi, ShardSocket, simSocketPath } from '../src/online/client';
+import { errorText, ShardSocket, simSocketPath } from '../src/online/client';
 import { ApiDuelSource } from '../src/duel/client';
 import { setLang, t } from '../src/i18n';
 import { reportBattle } from '../src/platform/verify';
@@ -35,17 +35,6 @@ function capture() {
 const claim = { winner: 0 as const, ticks: 10, hash: 'abc' };
 
 describe('online battle calls carry the sim version', () => {
-  it('war attacks and boss raids: start and submit', async () => {
-    const bodies = capture();
-    await onlineApi.attackStart(5);
-    await onlineApi.attackSubmit('t1', [], 0, claim);
-    await onlineApi.raidStart('kraken');
-    await onlineApi.raidSubmit('t2', [], 0, claim);
-    for (const path of ['/api/online/attack/start', '/api/online/attack/submit', '/api/online/boss/start', '/api/online/boss/submit']) {
-      expect(bodies[path], path).toMatchObject({ simVersion: SIM_VERSION });
-    }
-  });
-
   it('duel ladder and async raids: start and submit', async () => {
     const bodies = capture();
     const src = new ApiDuelSource();
