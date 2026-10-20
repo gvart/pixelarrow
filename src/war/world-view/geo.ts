@@ -115,7 +115,11 @@ export const HAUL_LOADS: Record<HaulKind, number> = { handcart: 6, wagon: 12, po
  * A cart or loaded porters on a world transfer (M6h; the server's transit row will carry these: see the M6l note in
  * the report). alliance: whose; safe: on a Safe Roads transfer (seen only by alliances with men at `to`).
  */
-export interface ConvoySnap { id: number; from: string; to: string; departAt: number; arriveAt: number; alliance: number; kind: HaulKind; loads: number; cargo?: string; safe?: boolean }
+export interface ConvoySnap { id: number; from: string; to: string; departAt: number; arriveAt: number; alliance: number; kind: HaulKind; loads: number; cargo?: string; safe?: boolean;
+  /** Live: the server already filtered it by fog and Safe Roads. */
+  seen?: boolean;
+  /** Live: the player's own. */
+  mine?: boolean }
 
 /**
  * Who sees a convoy on the road: its own alliance always; Safe Roads only alliances with men at the destination; else
@@ -123,7 +127,7 @@ export interface ConvoySnap { id: number; from: string; to: string; departAt: nu
  */
 export function convoySeen(c: ConvoySnap, you: AllianceId | null, regions: Map<string, RegionState>, ownSquadsIn: Set<string>): boolean {
   if (you === null) return false;
-  if (c.alliance === you) return true;
+  if (c.seen || c.alliance === you) return true;
   if (c.safe) return (regions.get(c.to)?.live[you] ?? 0) > 0;
   const near = (id: string) => ownSquadsIn.has(id) || (regions.get(id)?.live[you] ?? 0) > 0 || (worldRegion(id)?.adj ?? []).some((n) => (regions.get(n)?.live[you] ?? 0) > 0);
   return near(c.from) || near(c.to);

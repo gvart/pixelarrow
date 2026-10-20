@@ -103,6 +103,7 @@ const ringSites = (a: number, b: number) => [
 /** M6k loot / caravan: open grass by the east road (height 1). */
 const LOOT = [430, 236] as const, LOOT_FOE = [444.5, 236.5] as const, LOOT_CART = [436.5, 242.5] as const;
 const CARAVAN_HOME = [391.5, 189.5] as const;
+const MARKET_COURT = [404, 222] as const;
 const CARAVAN_AMBUSH: TileRect = { x: 446, y: 203, w: 14, h: 9 };
 export const BRIDGE_DRAG = [287.5, 376.5, 305.5, 376.5] as const;
 export const BRIDGE_STONE = [282.5, 370.5, 306.5, 346.5] as const;
@@ -461,6 +462,22 @@ export const SCENARIOS: Scenario[] = [
     },
   },
   {
+    // M6k market: a safe market court (12 x 10, gates north and south) on the open field, six of your militia inside
+    // (the court's cap), your hoplites and a handcart in the yard south; coin and goods at home for rent and trade
+    id: 'market',
+    name: 'Market',
+    goal: 'Open the market (K): rent a stall, stow goods in, list an offer or a buy order, take from the board, post or take a contract, offer a letter; Hand-off trades with a trader here.',
+    squads: [you('militia', at(MARKET_COURT, 6, 5), 6)],
+    camera: { x: MARKET_COURT[0] + 6, y: MARKET_COURT[1] + 8, zoom: 1 },
+    economy: { claims: [], stock: { coin: 900, iron: 60, tin: 40, hides: 30, oil: 20, food: 40, silver: 12 } },
+    zones: {
+      safe: [{ x: MARKET_COURT[0], y: MARKET_COURT[1], w: 12, h: 10, gates: [{ x: MARKET_COURT[0] + 5, y: MARKET_COURT[1], w: 2, h: 1 }, { x: MARKET_COURT[0] + 5, y: MARKET_COURT[1] + 9, w: 2, h: 1 }] }],
+      yard: [{ x: MARKET_COURT[0] + 2, y: MARKET_COURT[1] + 10, w: 8, h: 5 }],
+    },
+    carts: [{ team: 0, owner: 'you', type: 'handcart', x: MARKET_COURT[0] + 8, y: MARKET_COURT[1] + 13 }],
+    after: { orders: [], squads: [you('hoplite', at(MARKET_COURT, 3, 13), 8)] },
+  },
+  {
     // M6k loot: the foe's trader (squad 0, team 1) raises its camp (building 0) by the east field, loads its handcart
     // (cart 0) there and drives it to the field's edge; a skirmish (squads 1, 2, both scripted) leaves loot piles; the
     // trader lets go of the cart and walks off, and your hoplites (3), smiths (4) and militia porters (5) come up.
@@ -494,7 +511,7 @@ export const SCENARIOS: Scenario[] = [
   {
     // M6k caravan: your camp (building 0) by the east road; three militia (squad 1: soldiers, civilians would flee) drive the wagon (cart 0), loads it at
     // the camp and takes the road east to the entry, hoplites and archers escorting it; foes wait on the ambush rect
-    // over the road half way.
+    // over the road half way: raider bots (M6j) that go for the wagon if its escort is weak, else fight it in the rect.
     id: 'caravan',
     name: 'Caravan',
     goal: 'Get the loaded wagon down the east road to the entry. Foes wait in the ambush (red rect) over the road: the escort keeps round the wagon and takes them on; the wagon halts while foes are near.',
@@ -512,7 +529,7 @@ export const SCENARIOS: Scenario[] = [
       orders: [],
       squads: [
         you('militia', at(CARAVAN_HOME, 4, 8), 3), you('hoplite', at(CARAVAN_HOME, 2, 11)), you('archer', at(CARAVAN_HOME, 8, 11)),
-        ...(['celt_sword', 'javelineer'] as const).map((c, i) => bot(c, [CARAVAN_AMBUSH.x + 4 + i * 6, CARAVAN_AMBUSH.y + 4], { kind: 'hold', x: CARAVAN_AMBUSH.x + 4 + i * 6, y: CARAVAN_AMBUSH.y + 4, radius: 14 }, 8)),
+        ...(['celt_sword', 'javelineer'] as const).map((c, i) => bot(c, [CARAVAN_AMBUSH.x + 4 + i * 6, CARAVAN_AMBUSH.y + 4], { kind: 'raider', ...CARAVAN_AMBUSH }, 8)),
       ],
       then: [{ kind: 'crew', squad: 1, siege: 0 }, { kind: 'load', squad: 1, from: { building: 0 } }],
       later: { settle: 300, orders: [{ kind: 'move', squad: 1, x: S.entryE[0] - 6, y: S.entryE[1] }, { kind: 'escort', squad: 2, cart: 0 }, { kind: 'escort', squad: 3, cart: 0 }] },

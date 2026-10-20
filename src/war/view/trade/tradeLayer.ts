@@ -22,6 +22,8 @@ import { SPRITE_ZOOM, TEAM_COLOR } from '../units';
 import type { Facing, TradeArt, TradeSprite } from './tradeArt';
 
 const IN = 1e-6;
+/** Piles sit this far under the living men's depth (and so over the fallen). */
+const PILE_BELOW = 0.05;
 type V = { x: number; y: number; right: number; bottom: number };
 export type CargoKind = 'sacks' | 'crates' | 'amphorae' | 'logs' | 'ore' | 'strongbox';
 const KIND: Partial<Record<ResourceKind, CargoKind>> = {
@@ -207,7 +209,9 @@ export class TradeLayer {
   }
 
   private pile(p: PileSnap, k: number): void {
-    const tx = Math.floor(p.x), ty = Math.floor(p.y), z = this.iso.zAt(tx + 0.5, ty + 0.5), depth = this.D(tx + 0.5, ty + 0.5) - 0.1 * IN;
+    // a band of its own between the fallen (10 + d, ../units.ts) and the living (10 + d + 0.25): over every body lying
+    // round it, under any man who walks up to it, whichever tile either stands on
+    const tx = Math.floor(p.x), ty = Math.floor(p.y), z = this.iso.zAt(tx + 0.5, ty + 0.5), depth = this.D(tx + 0.5, ty + 0.5) - PILE_BELOW;
     const spr = this.art?.sprites.get(pileSprite(p)) as TradeSprite | undefined, c = this.pt(tx + 0.5, ty + 0.5, z), g = this.g;
     // the last minute: it fades (decay)
     const fade = p.left < 600 ? 0.45 + 0.55 * (p.left / 600) : 1;

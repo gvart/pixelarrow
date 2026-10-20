@@ -30,7 +30,8 @@ export interface WorldView {
   /** Live soldier quota per alliance in a region. */
   quota: number[];
   status: string;
-  /** M6l (mock only until the server's transit rows carry cargo, M6h): carts and porters on the road, the price boards your men last saw, today's trade score per alliance. */
+  /** M6l: carts and porters on the road, the price boards your men last saw, today's trade score per alliance (live: from
+   * WorldSnapshot.convoys / boards / score.trade, ./liveTrade; offline: the mock's). */
   convoys?: ConvoySnap[];
   boards?: Record<string, BoardSeen>;
   trade?: number[];
@@ -98,7 +99,7 @@ export class NetSource implements WorldSource {
   }
 
   private view(): void {
-    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status });
+    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status, ...liveTrade(this.snap) });
   }
 
   private async api<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
@@ -169,6 +170,28 @@ export class NetSource implements WorldSource {
       return { error: (e as Error).message };
     }
   }
+}
+
+/** Cargo as words: its main goods by amount (at most 3), then the items. */
+const cargoText = (goods: Record<string, number>, items: number) =>
+  [...Object.entries(goods).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g), ...(items ? [`${items} item${items > 1 ? 's' : ''}`] : [])].join(', ') || undefined;
+
+/**
+ * M6h live trade for the map (the server's shapes to the map's): convoys with a cart or loads (men only are squads in
+ * transit, drawn as such), already filtered by the server's fog and Safe Roads (`seen` set); the boards as rows by good;
+ * the season's trade score.
+ */
+export function liveTrade(snap: WorldSnapshot): Pick<WorldView, 'convoys' | 'boards' | 'trade'> {
+  const convoys: ConvoySnap[] = (snap.convoys ?? []).filter((c) => c.cart || c.loads > 0).map((c) => ({
+    id: c.id, from: c.from, to: c.to, departAt: c.departAt, arriveAt: c.arriveAt, alliance: c.alliance, kind: c.cart ?? 'porters',
+    loads: c.loads, cargo: cargoText(c.goods, c.items), seen: true, ...(c.mine ? { mine: true } : {}),
+  }));
+  const boards: Record<string, BoardSeen> = {};
+  for (const [town, b] of Object.entries(snap.boards ?? {})) {
+    const rows = Object.entries(b.goods).map(([good, g]) => ({ good, ask: g.ask, bid: g.bid, depth: g.askDepth + g.bidDepth })).sort((a, z) => z.depth - a.depth);
+    boards[town] = { at: b.at, rows, fills: b.fills.length };
+  }
+  return { convoys, boards, ...(snap.score.trade ? { trade: snap.score.trade } : {}) };
 }
 
 /** A made-up world mid-season: owners, fights and the player's men (alliance Dodona). */

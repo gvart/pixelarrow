@@ -142,6 +142,7 @@ export const CSS = TOKENS + CURSORS + `
 .rf-seg button:hover{border-image-source:${set('buttons/button-icon-hover.png')}}
 .rf-seg button.on{border-image-source:${set('buttons/button-icon-active.png')}}
 .rf-seg button .key,.rf-btn .key{position:absolute;right:2px;bottom:1px;font:700 9px/1 Inter,sans-serif;color:var(--rf-ink);text-shadow:0 1px 0 #0e0907,0 0 2px #0e0907}
+.rf-chip{display:inline-block;margin-top:3px;padding:1px 5px;font:700 10.5px/14px Inter,sans-serif;color:var(--rf-bad);background:var(--rf-sunk);border:1px solid var(--rf-line);white-space:nowrap}
 .rf input{font:600 12px/1 Inter,sans-serif;width:30px;height:23px;background:var(--rf-sunk);color:var(--rf-ink);border:1px solid var(--rf-line);padding:0 3px}
 `;
 
