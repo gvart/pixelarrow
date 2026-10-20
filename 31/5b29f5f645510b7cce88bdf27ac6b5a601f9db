@@ -1,0 +1,37 @@
+server/src/war/tradeRoutes.ts
+  s_cfc22b058125c4::t_5db1ee710bdd5f 37-44,91,111,135,150,163
+server/migrations/0033_war_abuse.sql
+  s_cfc22b058125c4::t_2d1f6495e52011 1-18
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_5db1ee710bdd5f 36,540-543
+server/src/war/room.ts
+  s_cfc22b058125c4::t_5db1ee710bdd5f 739,741-742,750,802
+server/test/war/abuse.test.ts
+  s_cfc22b058125c4::t_d9b9c77bd05be5 1-59
+server/test/deletion.test.ts
+  s_cfc22b058125c4::t_afd41f4612e867 61-66
+server/src/index.ts
+  s_cfc22b058125c4::t_5db1ee710bdd5f 18,221-224
+server/src/war/abuse.ts
+  s_cfc22b058125c4::t_50591e80af50c0 2-10,12-14,17,19-47,51-53,56-58,60-110
+server/src/account/deletionMap.ts
+  s_cfc22b058125c4::t_5db1ee710bdd5f 91-92
+docs/impl/global-war-rebuild.md
+  s_cfc22b058125c4::t_c08e363dc55697 164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "315b29f5f645510b7cce88bdf27ac6b5a601f9db",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
