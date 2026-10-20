@@ -400,6 +400,7 @@ distance (two gates and two rim edges each side of it, Omphalos for all). Each i
 | Restore (keep and function) | an engineer of level 8 with Fortifier and Master Builder (Drakon's Citadel and the Temple City: level 10, Poliorcetes or Archimedes) leads a restore site at the keep: bulk goods + rare goods below; done, every piece goes to 100% and the function wakes |
 | Landmark bonus | +2 score an hour while restored and ≥ 6 own men stand inside its walls with no enemy there |
 | Season start | each landmark is reset: neutral, 60% hp, gates shut, its guardian back |
+| Memory (M7f) | an emptied region keeps its pieces' hp, ruins and owners, claim holders, slain guardians (and their 24 h) and its landmark's capture and restore across server restarts; a new season ignores it |
 
 | Restore | Bulk | Rare goods (own + from another landmark) |
 | --- | --- | --- |
