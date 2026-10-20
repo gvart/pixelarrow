@@ -526,28 +526,41 @@ const TOWERS = {
 };
 const TW_W = 176, TW_X0 = 88, TW_Y0 = Math.ceil(8.2 * PPM) + 30, TW_H = TW_Y0 + 128 + 36;
 const SIDE_BIT = Object.fromEntries(SIDES.map(([b, n]) => [n, b]));
+const DOOR = { r: 0.62, spring: 1.6, frame: 0.2 }; // the stone tower's arched door: half width, arch springing height, arch ring (m)
 function stoneTowerBoxes(state, open = 0, k = 1) {
   const K = KITS['stone-wall'], W = K.walkM, S = 4, socle = 1.3;
-  if (state === 'foundation') return foundation(rectEdges(0.05, 0.05, S - 0.05, S - 0.05), 'stone', k, 1.3);
   const door = ['+y', '+x', '-x', '-y'].find((n) => !(open & SIDE_BIT[n])) ?? '+y';
+  const st = { '+y': { x0: 1.15, x1: 2.85, y0: S, y1: S + 0.4 }, '+x': { x0: S, x1: S + 0.4, y0: 1.15, y1: 2.85 }, '-x': { x0: -0.4, x1: 0, y0: 1.15, y1: 2.85 }, '-y': { x0: 1.15, x1: 2.85, y0: -0.4, y1: 0 } }[door];
+  const step = { ...st, z0: 0, z1: 0.17, mat: masonry(TEX.iso, { row0: 30, top: flagsP }) }; // the threshold step, laid first
+  if (state === 'foundation') return [...foundation(rectEdges(0.05, 0.05, S - 0.05, S - 0.05), 'stone', k, 1.3), step];
   const cyc = masonry(TEX.cyclo, { row0: 6 }), iso = masonry(TEX.iso, { mod: 180, top: state === 'done' ? flagsP : rough });
   const mat = (f, x, y, z, u, r) => {
     if (f !== 'top') {
       const a = along(f, x, y), ad = Math.abs(a - 2);
-      if (f === door && ad < 0.8 && z < 2.6) { // a limestone frame, one oak leaf shut, the other open on the dark
-        if (ad > 0.62 || z > 2.3) return mul(TEX.lime[3], 0.88 + 0.12 * hash(Math.floor(a * 6), Math.floor(z * 6), 3));
-        if (a > 1.98 && a < 2.62) return Math.abs(z - 0.6) < 0.05 || Math.abs(z - 1.8) < 0.05 ? mul(TEX.wood[0], 1.3) : Math.floor(a * 7) % 2 ? TEX.wood[1] : TEX.wood[2];
-        return DOORDARK;
+      if (f === door) { // an arched door: a limestone arch of voussoirs round two shut oak leaves with iron bands and studs
+        const ar = z > DOOR.spring ? Math.hypot(ad, z - DOOR.spring) : ad, inDoor = ar < DOOR.r, inArch = ar < DOOR.r + DOOR.frame && z < DOOR.spring + DOOR.r + DOOR.frame;
+        if (inDoor) {
+          if (DOOR.r - ar < 0.07 && (z > DOOR.spring || a < 2)) return DOORDARK; // the reveal's shadow under the arch and on the lit jamb
+          if (ad < 0.035) return DOORDARK; // the meeting of the leaves
+          if (Math.abs(z - 0.45) < 0.055 || Math.abs(z - 1.45) < 0.055) return (Math.floor(a * 9) + Math.floor(z * 9)) % 3 ? mul(TEX.wood[0], 0.75) : mul(TEX.lime[1], 0.8); // iron bands, studs
+          const p = Math.floor((a - 2) * 6.5 + 20);
+          if (((a - 2) * 6.5 + 20) % 1 < 0.14) return mul(TEX.wood[0], 0.9); // plank seams
+          return mul(TEX.wood[p % 2 ? 1 : 2], 0.9 + 0.14 * hash(p, Math.floor(z * 5), 5));
+        }
+        if (inArch) {
+          const th = z > DOOR.spring ? Math.atan2(z - DOOR.spring, a - 2) : (a < 2 ? Math.PI : 0), n = z > DOOR.spring ? Math.floor((th / Math.PI) * 7) : Math.floor(z * 2.2);
+          const seam = z > DOOR.spring ? ((th / Math.PI) * 7) % 1 < 0.12 : (z * 2.2) % 1 < 0.1;
+          return seam ? mul(TEX.lime[1], 0.75) : mul(TEX.lime[3], 0.86 + 0.14 * hash(n, a < 2 ? 1 : 2, 3));
+        }
       }
       for (const q of [0.8, 3.2]) if (Math.abs(a - q) < 0.07 && z > 2.9 && z < 3.8) return DOORDARK; // arrow slits
       if (z < socle) return cyc(f, x, y, z, u, r);
     }
     return iso(f, x, y, z, u, r);
   };
-  const body = { x0: 0, x1: S, y0: 0, y1: S, z0: 0, z1: W, mat }, B = [];
+  const body = { x0: 0, x1: S, y0: 0, y1: S, z0: 0, z1: W, mat }, B = [step];
   if (state === 'done') {
-    const st = { '+y': { x0: 1.15, x1: 2.85, y0: S, y1: S + 0.4 }, '+x': { x0: S, x1: S + 0.4, y0: 1.15, y1: 2.85 }, '-x': { x0: -0.4, x1: 0, y0: 1.15, y1: 2.85 }, '-y': { x0: 1.15, x1: 2.85, y0: -0.4, y1: 0 } }[door];
-    B.push(body, { ...st, z0: 0, z1: 0.17, mat: masonry(TEX.iso, { row0: 30, top: flagsP }) }); // a threshold step
+    B.push(body);
     const pm = masonry(TEX.iso, { row0: Math.round(W * PPM), mod: 180, top: capTop });
     for (const [b, n] of SIDES) if (!(open & b)) B.push(paraBoxS(n, S, K.para, W, W + K.paraH, pm));
     const sh = { x0: 0.5, x1: 1.85, y0: 0.5, y1: 1.85, z0: W, z1: W + 1.9 }; // the stair-house over the internal stair
@@ -597,7 +610,7 @@ const TOWER_BOXES = { 'tower-stone': stoneTowerBoxes, 'tower-wood': woodTowerBox
 function renderTower(id, state) {
   const cache = new Map(), back = [], front = [];
   for (let o = 0; o < 16; o++) {
-    const key = state === 'done' ? o : state === 'foundation' ? 0 : TOWERS[id].material === 'stone' ? o : 0; // a stone tower's door moves with the open sides
+    const key = state === 'done' || TOWERS[id].material === 'stone' ? o : 0; // a stone tower's door (and its threshold) moves with the open sides
     if (!cache.has(key)) {
       let [bk, fr] = layerSplit(TOWER_BOXES[id](state, o), TW_W, TW_H, TW_X0, TW_Y0);
       if (state === 'damaged') bk = TOWERS[id].material === 'wood' ? burn(bk, 2) : soot(bk, 1);

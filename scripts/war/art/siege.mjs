@@ -5,7 +5,7 @@
 // Engines, ladders and rubble are drawn by the box renderer of buildings.mjs (true scale, exact facings, the walls'
 // textures and palette); a machine is modelled once along +x and turned to its four facings (e +x, s +y, w -x, n -y).
 // Ram: back + front layer (front = the roof and the near side over the crew). QA: qa.mjs (qaSiege).
-import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readImage, writeImage } from '../../art/lib/png.mjs';
@@ -55,6 +55,9 @@ const hideTex = (u, v) => {
   const t = hash(col & 63, row & 63, 31), m = hash(Math.floor(u / 3), Math.floor(v / 3), 32);
   return HIDE[Math.min(4, 2 + Math.floor(t * 1.6) - (m < 0.15 ? 1 : 0) + (m > 0.9 ? 1 : 0))];
 };
+const IRON = [[30, 30, 34, 255], [46, 46, 52, 255], [66, 66, 72, 255], [92, 90, 92, 255]];
+const iron = (face, x, y, z) => IRON[face === 'top' ? 3 : face === '+y' ? 2 : face === '+x' ? 1 : 0];
+const logMat = (face, x, y, z) => mul(W()[face === 'top' ? 3 : 2], 0.78 + 0.22 * hash(Math.floor(x * 5), Math.floor((y + z) * 11), 6)); // barked trunk
 const stoneShot = (face, x, y, z) => mul(TEX.lime[face === 'top' ? 3 : 2], 0.85 + 0.25 * hash(Math.floor(x * 30), Math.floor(y * 30) + Math.floor(z * 30), 41));
 
 // ---- the ram: a wheeled shed 6 x 3 m with a gable of hides on posts, a bronze-capped log slung from the ridge
@@ -82,7 +85,7 @@ function ramBoxes(state, swing = 0, k = 1) {
   if (gone) { // burnt out: charred chassis down on its axles, post stumps, rafters fallen in, the log on the ground
     for (const [a, b] of sillY) back.push(box(0.4, 5.6, a, b, 0.1, 0.34, timber(1, 1)));
     for (const x of posts) for (const [a, b] of [[0.8, 0.98], [3.02, 3.2]]) { const h = 0.5 + 0.7 * hash(Math.floor(x * 3), a > 1 ? 1 : 0, k + 7); add(box(x, x + 0.18, a, b, 0.34, 0.34 + h, timber(1, 3))); }
-    back.push(...seg([0.3, 0.2], [6.4, 0.25], 0.32, 1.84, 2.16, timber(2, 4)), box(6.4, 6.85, 1.78, 2.22, 0.02, 0.46, bronze));
+    back.push(...seg([0.3, 0.2], [6.4, 0.25], 0.32, 1.84, 2.16, timber(2, 4)), box(6.4, 6.85, 1.78, 2.22, 0.02, 0.46, iron));
     for (let i = 0; i < 6; i++) { const x = 0.6 + i * 0.9 + 0.3 * hash(i, k, 9), a = 0.9 + 1.8 * hash(i, k, 10); back.push(...seg([x, 0.35 + 0.5 * hash(i, k, 11)], [x + 0.6, 0.7 + 0.8 * hash(i, k, 12)], 0.12, a, a + 0.12, timber(1, 5))); }
     return { back, front };
   }
@@ -95,10 +98,12 @@ function ramBoxes(state, swing = 0, k = 1) {
   // ridge beam on two king posts, the log hung under it on ropes (the log swings along x: swing in metres)
   back.push(box(0.4, 5.6, cy - 0.1, cy + 0.1, zR - 0.2, zR, timber(3, 4)));
   for (const x of [0.45, 5.1]) back.push(box(x, x + 0.16, cy - 0.08, cy + 0.08, zs[1], zR - 0.2, timber(2, 5)));
-  const lz = 1.25, s = swing;
-  back.push(box(-0.3 + s, 6.2 + s, cy - 0.17, cy + 0.17, lz - 0.17, lz + 0.17, timber(1, 6)));
-  back.push(box(6.2 + s, 6.75 + s, cy - 0.22, cy + 0.22, lz - 0.22, lz + 0.22, bronze), box(6.75 + s, 6.9 + s, cy - 0.12, cy + 0.12, lz - 0.12, lz + 0.12, bronze));
-  for (const x of [1.4, 4.4]) back.push(...seg([x, zR - 0.2], [x + s, lz + 0.17], 0.05, cy - 0.02, cy + 0.02, rope));
+  // the log (moving: `mv`, drawn over the painted shed per frame): a 6.5 m trunk with an iron cap 1 m past the front
+  const lz = 1.25, s = swing, mv = (b) => ({ ...b, mv: true });
+  back.push(mv(box(-0.3 + s, 6.2 + s, cy - 0.17, cy + 0.17, lz - 0.17, lz + 0.17, logMat)));
+  for (const x of [0.6, 5.6]) back.push(mv(box(x + s, x + 0.12 + s, cy - 0.19, cy + 0.19, lz - 0.19, lz + 0.19, rope))); // lashings
+  back.push(mv(box(6.2 + s, 6.85 + s, cy - 0.23, cy + 0.23, lz - 0.23, lz + 0.23, iron)), mv(box(6.85 + s, 7.05 + s, cy - 0.15, cy + 0.15, lz - 0.15, lz + 0.15, iron)), mv(box(7.05 + s, 7.15 + s, cy - 0.08, cy + 0.08, lz - 0.08, lz + 0.08, iron)));
+  for (const x of [1.4, 4.4]) back.push(...seg([x, zR - 0.2], [x + s, lz + 0.17], 0.05, cy - 0.02, cy + 0.02, rope).map(mv));
   // rafters (scaffold: the bare frame, no hides)
   const fz = (x, y) => zE + (zR - zE) * (1 - Math.abs(y - cy) / (cy - RAM.y0));
   if (state === 'scaffold') {
@@ -120,37 +125,72 @@ function ramBoxes(state, swing = 0, k = 1) {
 const RAM_CREW = [1.9, 2.75, 3.6, 4.45].flatMap((x) => [[x, 1.45], [x, 2.55]]); // local metres: two files of four on the log
 const RAM_SWING = [0, -0.18, -0.36, -0.5, -0.32, 0.12, 0.55, 0.3]; // the log drawn back slowly, driven forward, recoil
 
-// ---- the stone thrower: an onager-type torsion engine, 4 x 2 m: a timber bed, a horizontal skein, one arm with a cup
-// that throws forward (+x) against a padded buffer frame; a windlass at the back draws the arm down
-const TH = { L: 4, Wd: 2, fp: [2, 1], piv: [2.45, 0.62], arm: 2.45, buf: 3.25 };
-const armPt = (deg, d = TH.arm) => { const a = (deg * Math.PI) / 180; return [TH.piv[0] + d * Math.sin(a), TH.piv[1] + d * Math.cos(a)]; };
-function throwerBoxes(state, deg = -100, loaded = true, k = 2) {
-  const out = [], dmg = state === 'damaged', gone = state === 'destroyed';
-  const rails = [[0.3, 0.52], [1.48, 1.7]];
-  if (state === 'foundation') { for (const [a, b] of rails) out.push(box(0.2, 3.8, a, b, 0, 0.22, timber(2, 1))); out.push(box(2.3, 2.6, 0.6, 1.4, 0, 0.18, timber(3, 2))); return out; }
-  for (const [a, b] of rails) out.push(box(0.15, 3.85, a, b, gone ? 0 : 0.12, gone ? 0.26 : 0.44, timber(2, 1)));
-  if (!gone) for (const x of [0.25, 1.3, 2.3, 3.55]) out.push(box(x, x + 0.22, 0.52, 1.48, 0.14, 0.36, timber(3, 2)));
-  // skein: twisted rope bundle across the bed at the pivot, held in bronze-capped side frames
-  for (const [a, b] of rails) out.push(box(TH.piv[0] - 0.24, TH.piv[0] + 0.24, a, b, 0.44, gone ? 0.6 : 0.95, timber(1, 3)));
-  if (!gone) { out.push(...rodY(TH.piv[0], TH.piv[1], 0.2, 0.52, 1.48, rope)); for (const [a, b] of rails) out.push(box(TH.piv[0] - 0.26, TH.piv[0] + 0.26, a, b, 0.95, 1.04, bronze)); }
-  if (state === 'rising') return out;
-  // buffer frame: two raked posts and a padded cross beam
-  const bz = 1.85, top = [TH.buf + 0.1, bz];
-  if (!gone) for (const [a, b] of rails) out.push(...seg([3.7, 0.4], top, 0.18, a + 0.02, b - 0.02, timber(2, 4)), ...seg([TH.buf - 0.5, 0.4], top, 0.14, a + 0.04, b - 0.04, timber(3, 4)));
-  if (!gone) out.push(box(TH.buf - 0.06, TH.buf + 0.26, 0.3, 1.7, bz - 0.12, bz + 0.12, timber(3, 5)), ...(dmg ? [] : [box(TH.buf - 0.16, TH.buf + 0.02, 0.6, 1.4, bz - 0.2, bz + 0.14, solid([...HIDE[2], 255]))])); // the sack pad
-  // windlass at the back: drum and spoke handles
-  if (!gone) { out.push(...rodY(0.55, 0.62, 0.14, 0.52, 1.48, timber(2, 6))); for (const [a, b] of rails) { out.push(...seg([0.55, 0.62], [0.2, 1.0], 0.07, a - 0.12, a - 0.05, timber(3, 6)), ...seg([0.55, 0.62], [0.9, 1.0], 0.07, b + 0.05, b + 0.12, timber(3, 6))); } }
-  if (state === 'scaffold') { out.push(...seg([1.0, 0.1], [3.4, 0.24], 0.2, 2.0, 2.2, timber(2, 7))); return out; } // the arm lies by it, not yet fitted
-  if (gone) { out.push(...seg([TH.piv[0], 0.3], [0.6, 0.12], 0.2, 0.9, 1.1, timber(1, 7)), ...seg([0.6, 0.12], [-0.4, 0.3], 0.2, 1.3, 1.5, timber(1, 7)), ...seg([3.7, 0.3], [2.6, 1.0], 0.18, 1.5, 1.7, timber(1, 4))); return out; }
-  // the arm with its cup (and the stone)
-  const tip = armPt(deg), a0 = armPt(deg, -0.25);
-  out.push(...seg(a0, tip, 0.2, 0.9, 1.1, timber(2, 8)));
-  const cup = armPt(deg, TH.arm + 0.08); out.push(box(cup[0] - 0.17, cup[0] + 0.17, 0.83, 1.17, Math.max(0, cup[1] - 0.12), cup[1] + 0.12, timber(1, 9)));
-  if (loaded) { const sp = armPt(deg, TH.arm + 0.12); out.push(...ball(sp[0] + 0.08 * Math.cos((deg * Math.PI) / 180), 1.0, sp[1] + 0.2, 0.17, stoneShot)); }
+// ---- the stone thrower: a Greek lithobolos (palintone), 6.4 x 4 m on a wheeled chassis: a long stock (trough) on
+// trestles, a spring frame near the front with two upright rope skeins capped by bronze washers, two arms swinging in the
+// horizontal plane, a bowstring drawn back by a slider in the stock, a winch at the back. Moving parts (arms, string,
+// slider, stone) carry `mv`: they are drawn by the renderer over the PixelLab-painted body per frame.
+const TH = { L: 6, Wd: 4, fp: [3, 2], sk: 4.7, skY: [1.55, 2.45], arm: 1.35, zA: [1.86, 2.04], zS: [1.9, 1.95], tr: [1.6, 1.86] };
+const armTip = (side, deg, d = TH.arm) => { const a = (deg * Math.PI) / 180; return [TH.sk - d * Math.sin(a), TH.skY[side] + (side ? 1 : -1) * d * Math.cos(a)]; };
+// a straight beam in the x-y plane (arms, string), t wide, between z0 and z1
+function segXY([ax, ay], [bx, by], t, z0, z1, mat, step = 1 / 24) {
+  const L = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.ceil(L / step)), out = [];
+  for (let i = 0; i <= n; i++) { const x = ax + ((bx - ax) * i) / n, y = ay + ((by - ay) * i) / n; out.push(box(x - t / 2, x + t / 2, y - t / 2, y + t / 2, z0, z1, mat)); }
   return out;
 }
-const THROW = [[-100, 1], [-84, 1], [-50, 1], [-8, 0], [24, 0], [16, 0], [22, 0], [20, 0]]; // arm angle from vertical (+ = forward), stone in the cup
+const cylZ = (cx, cy, R, z0, z1, mat) => cells(cx - R, cx + R, cy - R, cy + R, (x, y) => (Math.hypot(x - cx, y - cy) < R ? { z0, z1, mat } : null), 1 / 24);
+const skeinMat = (face, x, y, z) => mul(ROPE[(Math.floor(z * 18) + (face === '+x' ? 1 : 0)) % 3], face === 'top' ? 1.1 : 0.95);
+// pose: deg = arm sweep from straight out (+-y) towards the back; claw = x of the slider's claw (the string's middle)
+function throwerBoxes(state, { deg = 72, claw = 1.9, loaded = true } = {}, k = 2) {
+  const out = [], gone = state === 'destroyed', mv = (b) => ({ ...b, mv: true }), cy = 2;
+  const sills = [[1.05, 1.3], [2.7, 2.95]], zc = 0.38;
+  if (state === 'foundation') { // sills and cross beams laid out, the stock beside them
+    for (const [a, b] of sills) out.push(box(-0.2, 6.2, a, b, 0, 0.24, timber(2, 1)));
+    for (const x of [0.3, 2.6, 5.0]) out.push(box(x, x + 0.22, 1.3, 2.7, 0, 0.2, timber(3, 2)));
+    out.push(box(0.2, 5.8, 3.3, 3.62, 0, 0.26, timber(2, 3)));
+    return out;
+  }
+  // chassis on four low solid wheels
+  for (const wx of [0.6, 5.3]) for (const [a, b] of [[0.86, 1.04], [2.96, 3.14]]) {
+    if (gone && wx > 5 && a > 2) continue;
+    out.push(...rodY(wx, zc, 0.38, a, b, wheelMat(wx, zc)).map((c) => (gone ? { ...c, z1: Math.max(0.05, c.z1 - 0.15), z0: Math.max(0, c.z0 - 0.15) } : c)));
+  }
+  for (const [a, b] of sills) out.push(box(-0.2, 6.2, a, b, gone ? 0.05 : 0.4, gone ? 0.3 : 0.64, timber(2, 1)));
+  if (!gone) for (const x of [0.3, 2.6, 5.0]) out.push(box(x, x + 0.22, 1.3, 2.7, 0.42, 0.62, timber(3, 2)));
+  if (gone) { // burnt out: the stock broken across the chassis, the spring frame fallen, an arm on the ground
+    out.push(...seg([0.2, 0.35], [3.4, 0.9], 0.26, 1.85, 2.15, timber(1, 4)), ...seg([3.6, 0.3], [5.9, 0.6], 0.26, 1.9, 2.2, timber(1, 4)));
+    out.push(box(4.3, 4.6, 1.2, 2.9, 0.3, 0.55, timber(1, 5)), ...cylZ(4.7, 1.55, 0.16, 0.3, 0.75, solid(mul(ROPE[0], 0.5))), box(4.4, 4.75, 2.6, 3.0, 0.1, 0.9, timber(1, 5)));
+    out.push(...segXY([4.6, 3.3], [3.4, 3.7], 0.14, 0.05, 0.22, timber(1, 7)));
+    return out;
+  }
+  // trestles carrying the stock
+  for (const x of [0.7, 2.7, 4.2]) out.push(box(x, x + 0.2, cy - 0.12, cy + 0.12, 0.62, TH.tr[0], timber(2, 3)));
+  if (state === 'rising') return out;
+  // the stock (trough), its groove darker
+  out.push(box(-0.1, 6.3, cy - 0.21, cy + 0.21, TH.tr[0], TH.tr[1], (f, x, y, z) => (f === 'top' && Math.abs(y - cy) < 0.07 ? mul(W()[0], 0.8) : timber(3, 4)(f, x, y, z))));
+  // the spring frame: bottom beam under the stock, top beam, outer and middle stiles; the skeins between them
+  const fx = [TH.sk - 0.22, TH.sk + 0.22];
+  out.push(box(fx[0], fx[1], 1.1, 2.9, 1.36, 1.58, timber(2, 5)));
+  for (const [a, b] of [[1.1, 1.28], [2.72, 2.9], [1.86, 2.14]]) out.push(box(fx[0], fx[1], a, b, a > 1.5 && a < 2.5 ? TH.tr[1] : 0.64, 2.56, timber(2, 5)));
+  out.push(box(fx[0] - 0.05, fx[1] + 0.05, 1.05, 2.95, 2.56, 2.74, timber(3, 5)));
+  out.push(...[0.98, 5.9].map((x) => box(x, x + 0.18, cy - 0.3, cy + 0.3, 0.62, 1.2, timber(2, 6)))); // the stock's end blocks
+  if (state === 'scaffold') { out.push(...segXY([0.6, 3.4], [2.0, 3.6], 0.14, 0, 0.16, timber(2, 7)), ...segXY([2.4, 3.4], [3.8, 3.6], 0.14, 0, 0.16, timber(2, 7))); return out; } // the arms lie by it, not yet fitted
+  for (const y of TH.skY) out.push(...cylZ(TH.sk, y, 0.16, 1.58, 2.56, skeinMat), ...cylZ(TH.sk, y, 0.22, 2.74, 2.84, bronze), box(TH.sk - 0.3, TH.sk + 0.3, y - 0.04, y + 0.04, 2.84, 2.9, bronze)); // skeins, washers, levers
+  // the winch at the back: a drum on two cheeks, spokes
+  for (const y of [1.5, 2.36]) out.push(box(0.12, 0.62, y, y + 0.14, 0.64, 1.45, timber(2, 6)));
+  out.push(...rodY(0.38, 1.25, 0.15, 1.64, 2.36, timber(1, 6)));
+  for (const [a, b] of [[1.6, 2.55], [0.9, 1.6]]) out.push(...seg([0.38, 1.25], [0.38 + (b - 1.25) * 0.4, b], 0.06, a < 1 ? 1.42 : 2.38, a < 1 ? 1.48 : 2.44, timber(3, 6)));
+  // moving: arms, string, slider with its claw, the stone
+  const tips = [0, 1].map((s) => armTip(s, deg));
+  for (const s of [0, 1]) out.push(...segXY([TH.sk, TH.skY[s]], tips[s], 0.13, TH.zA[0], TH.zA[1], timber(2, 8)).map(mv), ...cylZ(tips[s][0], tips[s][1], 0.08, TH.zA[0] - 0.02, TH.zA[1] + 0.02, iron).map(mv));
+  for (const s of [0, 1]) out.push(...segXY(tips[s], [claw, cy], 0.035, TH.zS[0], TH.zS[1], rope, 1 / 32).map(mv));
+  out.push(mv(box(claw - 0.05, claw + 1.3, cy - 0.12, cy + 0.12, TH.tr[1], TH.tr[1] + 0.12, timber(3, 9))), mv(box(claw - 0.12, claw + 0.06, cy - 0.08, cy + 0.08, TH.tr[1], TH.tr[1] + 0.24, iron)));
+  if (loaded) out.push(...ball(claw + 0.22, cy, TH.tr[1] + 0.29, 0.17, stoneShot).map(mv));
+  return out;
+}
+// arm sweep, claw x, stone in the slider: drawn and loaded, the trigger, the arms flying forward, the release, overshoot, settle
+const THROW = [[72, 1.9, 1], [72, 1.9, 1], [50, 3.0, 1], [25, null, 0], [14, null, 0], [30, null, 0], [22, null, 0], [25, null, 0]].map(([deg, c, l]) => ({ deg, claw: c ?? armTip(0, deg)[0], loaded: !!l }));
 const THROW_RELEASE = 3;
+const THROW_FROM = [4.9, 2.0, 2.15]; // where the stone leaves (local m): over the stock, in front of the string
 
 // ---- siege ladders: long (stone wall) and short (rampart), leaning on a face, carried flat, pushed off and lying broken.
 // Built with the wall face at u = 2 (x) of the ladder's own tile, across v (y); turned to the face's side like the build
@@ -221,40 +261,92 @@ function sprite(id, kind, r, fp, extra = {}) {
 }
 const postOf = (state, k) => (state === 'damaged' ? (im) => charImg(im, k, 0.8) : state === 'destroyed' ? (im) => burn(im, k) : null);
 
+// ---- PixelLab paint: each engine's body (done, at rest, without its moving parts) is rendered per facing on the fixed
+// canvas, cropped (raw/paint-in/<id>.png) and repainted by one Pro Flash edit (raw/paint/<id>.png, same size); the moving
+// parts (`mv`: the ram's log, the thrower's arms, string, slider, stone) are drawn over it by the renderer wherever the
+// full render shows them (found with a marker material). Without a painted file the box render stands in.
+const PAINT = join(PIX, 'siege/raw/paint'), PAINT_IN = join(PIX, 'siege/raw/paint-in'), MARK = [255, 0, 255, 255], missing = [];
+const canvasOf = (Hm, pad = 220) => { const W0 = 2 * pad + 8 * 32, ox = pad + 4 * 32, oy = Math.ceil(Hm * PPM) + 40; return { W0, H0: oy + 8 * 16 + pad, ox, oy }; };
+const full = (bs, C) => renderBoxes(bs, C.W0, C.H0, C.ox, C.oy);
+const isMark = (d, i) => d[i + 3] && d[i] === 255 && d[i + 1] === 0 && d[i + 2] === 255;
+// src: the painted file to use (the ram's shed is symmetric: w and n use the e and s paint at their own place)
+function paint(id, im, src = id) {
+  const b = alphaBox(im, 1), x = b.x - 2, y = b.y - 2, w = Math.ceil((b.w + 4) / 4) * 4, h = Math.ceil((b.h + 4) / 4) * 4;
+  mkdirSync(PAINT_IN, { recursive: true });
+  writeImage(join(PAINT_IN, `${id}.png`), crop(im, { x, y, w, h }));
+  const f = join(PAINT, `${src}.png`);
+  if (!existsSync(f)) { missing.push(src); return im; }
+  const p = readImage(f), out = blank(im.w, im.h);
+  for (let yy = 0; yy < p.h; yy++) for (let xx = 0; xx < p.w; xx++) { const s = (yy * p.w + xx) * 4; if (p.data[s + 3] >= 128) out.data.set([p.data[s], p.data[s + 1], p.data[s + 2], 255], ((y + yy) * im.w + x + xx) * 4); }
+  return out;
+}
+// the painted body (where keep(i), e.g. one layer of it) with the moving parts of boxes `bs` over it
+function compose(body, bs, C, keep = null) {
+  const n = full(bs, C), m = full(bs.map((b) => (b.mv ? { ...b, mat: () => MARK, lit: true } : b)), C), out = blank(body.w, body.h);
+  for (let i = 0; i < out.data.length; i += 4) {
+    if (isMark(m.data, i)) out.data.set(n.data.subarray(i, i + 4), i);
+    else if (body.data[i + 3] && (!keep || keep(i))) out.data.set(body.data.subarray(i, i + 4), i);
+  }
+  return out;
+}
+// full-canvas images cropped to their union (as renderSet)
+function cropSet(ims, C) {
+  const bb = ims.map((im) => alphaBox(im, 1)).filter((b) => b.w > 0);
+  const x0 = Math.min(...bb.map((b) => b.x)), y0 = Math.min(...bb.map((b) => b.y)), x1 = Math.max(...bb.map((b) => b.x + b.w)), y1 = Math.max(...bb.map((b) => b.y + b.h));
+  return { ims: ims.map((im) => crop(im, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 })), tileOrigin: { x: C.ox - x0, y: C.oy - y0 } };
+}
+const cropOne = (im, C) => { const r = cropSet([im], C); return { im: r.ims[0], tileOrigin: r.tileOrigin }; };
+
 // engines
 const engines = [];
 { // ram
   const e = { id: 'ram', kind: 'ram', material: 'wood', burnable: true, layered: true, facings: FACINGS, heightM: RAM.ridge + 0.74, footprint: {}, crew: {}, states: {}, front: {}, anims: {}, buildOrder: BUILD_ORDER, progress: PROGRESS };
   for (const f of FACINGS) {
-    const T = turn(f, RAM.L), fp = f === 'e' || f === 'w' ? RAM.fp : [RAM.fp[1], RAM.fp[0]];
+    const T = turn(f, RAM.L), fp = f === 'e' || f === 'w' ? RAM.fp : [RAM.fp[1], RAM.fp[0]], C = canvasOf(5);
     e.footprint[f] = fp; e.crew[f] = RAM_CREW.map(turnPt(f, RAM.L)).map(([x, y]) => [+(x / 2).toFixed(2), +(y / 2).toFixed(2)]);
     e.states[f] = {}; e.front[f] = {};
+    const D = ramBoxes('done', 0), back = D.back.map(T), front = D.front.map(T);
+    const body = paint(`ram-${f}`, full([...back, ...front].filter((b) => !b.mv), C), `ram-${{ w: 'e', n: 's' }[f] ?? f}`), fr = full(front, C);
+    const inFront = (i) => fr.data[i + 3] > 0, inBack = (i) => !fr.data[i + 3];
     for (const s of STATES) {
-      const L = ramBoxes(s, 0), post = postOf(s, 3 + FACINGS.indexOf(f)), isWood = { blocksMovement: s !== 'foundation', material: 'wood', burnable: true, engine: 'ram', facing: f, state: s, source: 'renderer (hide roof drawn)' };
-      e.states[f][s] = sprite(`ram-${f}-${s}`, 'ram', one(L.back.map(T), 5, post), fp, { ...isWood, layer: 'back' });
-      if (L.front.length) e.front[f][s] = sprite(`ram-${f}-${s}-front`, 'ram', one(L.front.map(T), 5, post), fp, { ...isWood, layer: 'front' });
+      const L = ramBoxes(s, 0), post = postOf(s, 3 + FACINGS.indexOf(f)), isWood = { blocksMovement: s !== 'foundation', material: 'wood', burnable: true, engine: 'ram', facing: f, state: s };
+      if (s === 'done' || s === 'damaged') { // painted
+        const bk = compose(body, back, C, inBack), fo = compose(body, [], C, inFront);
+        if (s === 'damaged') { const dm = full(L.front.map(T), C); for (let i = 0; i < fo.data.length; i += 4) if (fo.data[i + 3] && !dm.data[i + 3]) fo.data.set(mul(CHAR, 1 + 0.5 * hash(i, 3, 7)), i); } // holes burnt in the hides
+        e.states[f][s] = sprite(`ram-${f}-${s}`, 'ram', cropOne(post ? post(bk) : bk, C), fp, { ...isWood, source: 'PixelLab Pro Flash paint over the renderer (log drawn)', layer: 'back' });
+        e.front[f][s] = sprite(`ram-${f}-${s}-front`, 'ram', cropOne(post ? post(fo) : fo, C), fp, { ...isWood, source: 'PixelLab Pro Flash paint over the renderer', layer: 'front' });
+        continue;
+      }
+      e.states[f][s] = sprite(`ram-${f}-${s}`, 'ram', one(L.back.map(T), 5, post), fp, { ...isWood, source: 'renderer (hide roof drawn)', layer: 'back' });
+      if (L.front.length) e.front[f][s] = sprite(`ram-${f}-${s}-front`, 'ram', one(L.front.map(T), 5, post), fp, { ...isWood, source: 'renderer (hide roof drawn)', layer: 'front' });
     }
     // swing: the back layer per frame (the front layer is the done front sprite)
-    const r = renderSet(RAM_SWING.map((sw) => ramBoxes('done', sw).back.map(T)), 5), file = `ram-${f}-swing.png`;
+    const r = cropSet(RAM_SWING.map((sw) => compose(body, ramBoxes('done', sw).back.map(T), C, inBack)), C), file = `ram-${f}-swing.png`;
     sheets.push({ file, im: strip(r.ims) });
     e.anims[f] = { swing: { file, layer: 'back', front: e.front[f].done, frames: r.ims.length, fps: 10, frame: { w: r.ims[0].w, h: r.ims[0].h }, tileOrigin: r.tileOrigin, hitFrame: 6, logM: RAM_SWING } };
   }
   engines.push(e);
 }
-{ // stone thrower
-  const e = { id: 'thrower', kind: 'thrower', material: 'wood', burnable: true, layered: false, facings: FACINGS, heightM: 2.6, footprint: {}, states: {}, anims: {}, release: {}, buildOrder: BUILD_ORDER, progress: PROGRESS };
+{ // stone thrower (lithobolos)
+  const e = { id: 'thrower', kind: 'thrower', material: 'wood', burnable: true, layered: false, facings: FACINGS, heightM: 2.9, footprint: {}, states: {}, anims: {}, release: {}, buildOrder: BUILD_ORDER, progress: PROGRESS };
   for (const f of FACINGS) {
-    const T = turn(f, TH.L), fp = f === 'e' || f === 'w' ? TH.fp : [TH.fp[1], TH.fp[0]];
+    const T = turn(f, TH.L), fp = f === 'e' || f === 'w' ? TH.fp : [TH.fp[1], TH.fp[0]], C = canvasOf(4);
     e.footprint[f] = fp; e.states[f] = {};
-    for (const s of STATES) e.states[f][s] = sprite(`thrower-${f}-${s}`, 'thrower', one(throwerBoxes(s).map(T), 4, postOf(s, 9 + FACINGS.indexOf(f))), fp, { blocksMovement: s !== 'foundation', material: 'wood', burnable: true, engine: 'thrower', facing: f, state: s, source: 'renderer' });
-    const r = renderSet(THROW.map(([d, l]) => throwerBoxes('done', d, !!l).map(T)), 4), file = `thrower-${f}-throw.png`;
+    const body = paint(`thrower-${f}`, full(throwerBoxes('done', THROW[0]).map(T).filter((b) => !b.mv), C));
+    for (const s of STATES) {
+      const post = postOf(s, 9 + FACINGS.indexOf(f)), meta = { blocksMovement: s !== 'foundation', material: 'wood', burnable: true, engine: 'thrower', facing: f, state: s };
+      if (s === 'done' || s === 'damaged') { const im = compose(body, throwerBoxes('done', THROW[0]).map(T), C); e.states[f][s] = sprite(`thrower-${f}-${s}`, 'thrower', cropOne(post ? post(im) : im, C), fp, { ...meta, source: 'PixelLab Pro Flash paint over the renderer (arms, string, slider drawn)' }); continue; }
+      e.states[f][s] = sprite(`thrower-${f}-${s}`, 'thrower', one(throwerBoxes(s).map(T), 4, post), fp, { ...meta, source: 'renderer' });
+    }
+    const r = cropSet(THROW.map((p) => compose(body, throwerBoxes('done', p).map(T), C)), C), file = `thrower-${f}-throw.png`;
     sheets.push({ file, im: strip(r.ims) });
-    const [rx, rz] = armPt(THROW[THROW_RELEASE][0], TH.arm + 0.2), [wx, wy] = turnPt(f, TH.L)([rx, 1.0]);
-    e.release[f] = { x: +(wx / 2).toFixed(2), y: +(wy / 2).toFixed(2), zM: +rz.toFixed(2) };
+    const [wx, wy] = turnPt(f, TH.L)([THROW_FROM[0], THROW_FROM[1]]);
+    e.release[f] = { x: +(wx / 2).toFixed(2), y: +(wy / 2).toFixed(2), zM: THROW_FROM[2] };
     e.anims[f] = { throw: { file, frames: r.ims.length, fps: 12, frame: { w: r.ims[0].w, h: r.ims[0].h }, tileOrigin: r.tileOrigin, releaseFrame: THROW_RELEASE, idle: 'frame 0 (cocked, loaded) = the done sprite' } };
   }
   engines.push(e);
 }
+if (missing.length) console.warn(`siege: no PixelLab paint for ${[...new Set(missing)].join(', ')} (box render used; inputs in ${PAINT_IN})`);
 // projectile: the stone shot (~0.34 m), with its ground shadow left to the renderer
 const projectiles = [{ id: 'stone-shot', sprite: sprite('stone-shot', 'projectile', one(ball(1, 1, 0.2, 0.17, stoneShot), 1), [1, 1], { metresNote: 'diameter 0.34 m', source: 'renderer' }), diameterM: 0.34, spin: 'none (round)' }];
 // fix the projectile metadata: it has no footprint diamond

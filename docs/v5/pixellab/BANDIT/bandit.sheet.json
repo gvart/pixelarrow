@@ -1,0 +1,31 @@
+{
+ "class": "mob_bandit",
+ "raw": "docs/v5/pixellab/BANDIT/raw/bandit",
+ "rotations": "docs/v5/pixellab/BANDIT/raw/bandit/rot",
+ "shrink": 1,
+ "scale": 0.55,
+ "canvas": [96, 96],
+ "pad": [14, 24],
+ "clips": {
+  "idle": { "fps": 8, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "look": { "fps": 8, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "adjust": { "fps": 10, "of": "look", "frames": [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
+  "walk": { "fps": 12, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "run": { "fps": 16, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "rout": { "fps": 16, "of": "run", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+  "kneel": { "fps": 8, "hold": 4, "of": "ready", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+  "ready": { "fps": 8, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "charge": { "fps": 16, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "brace": { "fps": 10, "hold": 5, "of": "ready", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+  "block": { "fps": 14, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "thrust": { "fps": 14, "strike": 6, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "stagger": { "fps": 12, "of": "fallBack", "frames": [0, 1, 2, 2, 1, 0] },
+  "fallBack": { "fps": 12, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "fallFwd": { "fps": 12, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "cheer": { "fps": 10, "hold": 3, "job": { "south-east": "mirror:south-west", "north-east": "mirror:north-west", "south-west": "a1", "north-west": "a1" } },
+  "breathe": { "fps": 8, "of": "idle", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+  "shift": { "fps": 8, "of": "idle", "frames": [6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5] },
+  "build": { "fps": 10, "of": "thrust", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+  "carry": { "fps": 12, "of": "walk", "frames": [0, 1, 2, 3, 4, 5, 6, 7, 8] }
+ }
+}
