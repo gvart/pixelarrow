@@ -26,20 +26,20 @@ owner to confirm; Greek "the in-between"), one continent hung between death and 
 
 ## World
 
-37 hand-made regions on one continent ringed by sea. The world is mirror-symmetric in **topology** (every home has
-the same number of entries, neutrals and routes to the centre) and different in **flavour** (biome, fauna,
-specialty resource). The strategic world map is pixel art; region maps are true isometric (W-16).
-Prototypes: `shots/war/gemini/` (git-ignored); prompts in `docs/playbook/PROMPTS_ART.md`
-§21.
+37 hand-made regions on one continent ringed by the Abyss and its Rim Wardens (see Lore). The world is
+mirror-symmetric in **topology** (every home has the same number of entries, neutrals and routes to the centre) and
+different in **flavour** (biome, fauna, specialty resource). The strategic world map is one painted continent with
+the regions inked over it; region maps are true isometric (W-16). Prompts and pipeline: `docs/playbook/PROMPTS_ART.md`
+§37c–d.
 
 ### Geography
 
 | Feature | Where | Play role |
 | --- | --- | --- |
 | Omphalos Plateau | the centre: a high mesa (h6–7) with a cliff rim and a crater lake | fortress of the world; four ramps only, one per gate region |
-| Iron Teeth | mountain chain from the plateau north to the sea (h7 peaks, impassable) | splits Dodona (NW) from Skythia (NE); one gap: Kleisoura Pass |
+| Iron Teeth | mountain chain from the plateau north to the shore (h7 peaks, impassable) | splits Dodona (NW) from Skythia (NE); one gap: Kleisoura Pass |
 | Great River (Achelous) | rises on the plateau, falls through a gorge, runs south to a delta | splits Elaia (SW) from Kyrene (SE); deep, crossed at one ford, one ruined bridge, and a rock bridge in the gorge |
-| River Ladon and Lake Stymphalia | springs in the west forest, feeds a big reed lake, leaves by an estuary to the west sea | splits Dodona from Elaia; shallow river (fords), deep lake, slow marsh |
+| River Ladon and Lake Stymphalia | springs in the west forest, feeds a big reed lake, leaves by an estuary on the west shore | splits Dodona from Elaia; shallow river (fords), deep lake, slow marsh |
 | Ammos dune sea and the red canyons | east of the plateau, down to salt flats on the east coast | splits Skythia from Kyrene; sand slows, canyons channel armies, mesas are high ground |
 | Coasts | all around: fjords (N-W), chalk cliffs (N-E), lagoons (S-E), coves and capes (S-W) | edge regions give flanking routes between neighbouring homes |
 
