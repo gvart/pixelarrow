@@ -394,17 +394,17 @@ export class SandboxScene extends Phaser.Scene {
     this.lastCommand = { kind: 'attack', x: foe.x, y: foe.y };
   }
 
-  /** The selected squads move to tile point (x, y), side by side. */
-  moveTo({ x, y }: { x: number; y: number }): void {
+  /** The selected squads move (or attack-move) to tile point (x, y), side by side. */
+  moveTo({ x, y }: { x: number; y: number }, kind: 'move' | 'attackMove' = 'move'): void {
     const ids = [...this.selected];
     let cx = 0, cy = 0, n = 0;
     for (const d of this.drawn) if (this.selected.has(d.u.squad)) { cx += d.x; cy += d.y; n++; }
     const a = n ? Math.atan2(y - cy / n, x - cx / n) : 0;
     ids.forEach((squad, i) => {
       const off = (i - (ids.length - 1) / 2) * 7;
-      this.sim.order({ kind: 'move', squad, x: x - Math.sin(a) * off, y: y + Math.cos(a) * off });
+      this.sim.order({ kind, squad, x: x - Math.sin(a) * off, y: y + Math.cos(a) * off });
     });
-    this.markers.push({ x, y, t: this.time.now, c: 0x80ff80 });
+    this.markers.push({ x, y, t: this.time.now, c: kind === 'move' ? 0x80ff80 : 0xffa040 });
     this.lastCommand = { kind: 'move', x, y };
   }
 
