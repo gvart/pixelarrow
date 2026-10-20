@@ -89,6 +89,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_stock: { rule: 'delete', pid: ['player_id'] },
   war_crafts: { rule: 'delete', pid: ['player_id'] },
   war_alliance_members: { rule: 'delete', pid: ['player_id'] },
+  war_player_stats: { rule: 'delete', pid: ['player_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
 
   // Kept against the tombstone.
@@ -106,6 +107,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   season_rewards: { rule: 'shared_history', kept: ['player_id'] },
   duel_season_rewards: { rule: 'shared_history', kept: ['player_id'] },
   clans: { rule: 'shared_history', kept: ['created_by'] },
+  war_boss_kills: { rule: 'shared_history', kept: ['player_id'] },
 
   players: { rule: 'tombstone' },
 
