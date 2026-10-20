@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { WORLD_REGIONS } from '../../src/war/regions';
 import { parseRegion } from '../../src/war/region/schema';
-import { mirrorChecks, type Borders } from '../../scripts/war/regions/checks';
+import { mirrorChecks, type Borders } from '../../src/war/region/borders';
 
 const files = import.meta.glob('../../src/war/regions/*.json', { eager: true, import: 'default' });
 const HAND = ['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios', 'gorge', 'saddle'];
@@ -19,7 +19,7 @@ describe('world regions (scripts/war/regions)', () => {
   });
 
   it('lines up every shared border: the exit on one side is the entry on the other', () => {
-    expect(mirrorChecks(regions.map(({ w, r }) => ({ id: w.id, ...r }) as unknown as Borders))).toEqual([]);
+    expect(mirrorChecks(regions.map(({ r }) => r as unknown as Borders))).toEqual([]);
   });
 
   it('marks only the ones not hand-made as drafts', () => {
