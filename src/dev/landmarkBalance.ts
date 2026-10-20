@@ -29,8 +29,8 @@ export const regionOf = (id: string): RegionData => {
 export interface Raid { label: string; classes: readonly string[] }
 /** Where each landmark's raid forms up, outside its walls (tiles). */
 export const STAGING: Readonly<Record<string, readonly [number, number]>> = {
-  krios: [327, 392],
-  ammon: [380, 310],
+  krios: [316, 371],
+  ammon: [330, 350],
   saddle: [257, 290],
   gorge: [262, 190],
   canyons: [163, 196],

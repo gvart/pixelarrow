@@ -7,7 +7,8 @@
  * its gates (unit points just outside, for the roads in), the lair points of a bandit host and its spots.
  * Population: a landmark's standing houses are capped (capHomes) so its recruit pool stays as docs/WAR.md has it.
  */
-import type { District, Kit, Pt, Side4, Site, WallSet } from './kit.ts';
+import { spline } from '../shapes.ts';
+import { inPoly, type District, type Kit, type Pt, type Sample, type Side4, type Site, type WallSet } from './kit.ts';
 
 export interface Landmark { site: Site; gates: Pt[]; host: Pt[]; spots: Record<string, Pt> }
 type Gate = { side: Side4; at: Pt };
@@ -39,6 +40,15 @@ function scatter(s: Site, ids: string[], x0: number, y0: number, x1: number, y1:
     if (s.put(id, x, y, { hp: o.hp ?? 0.6, ruined: hash(x, y, seed + 2) < (o.ruin ?? 0) })) done++;
   }
   return done;
+}
+/** A key piece at the nearest free, level ground to site tile (x, y) (spiralling out to r tiles); returns its NW tile. */
+function putNear(s: Site, id: string, x: number, y: number, o: { hp?: number; ruined?: boolean } = {}, r = 12): Pt | null {
+  const [w, h] = s.fp(id);
+  for (let d = 0; d <= r; d++) for (let j = -d; j <= d; j++) for (let i = -d; i <= d; i++) {
+    if (Math.max(Math.abs(i), Math.abs(j)) !== d) continue;
+    if (flat(s, x + i, y + j, w, h) && s.put(id, x + i, y + j, o)) return [x + i, y + j];
+  }
+  return null;
 }
 /** Whether site tiles x..x+w-1, y..y+h-1 are dry and one level (`h` if given). */
 function flat(s: Site, x: number, y: number, w: number, h: number, lv?: number) {
@@ -78,146 +88,263 @@ function stronghold(s: Site, set: WallSet, x: number, y: number, work: string): 
   return yard(s, x + 4, y + 4, x + 16, y + 15);
 }
 
+// ======================================================================================= the organic city kit helpers
+
+/** Outline `p` moved `d` tiles toward its centre (an inner ring). */
+const inset = (p: Pt[], d: number): Pt[] => {
+  const cx = p.reduce((a, q) => a + q[0], 0) / p.length, cy = p.reduce((a, q) => a + q[1], 0) / p.length;
+  return p.map(([x, y]) => { const l = Math.hypot(cx - x, cy - y) || 1; return [x + ((cx - x) * d) / l, y + ((cy - y) * d) / l]; });
+};
+/** Whether site tile (x, y) is within the outline `p` shrunk by `m` tiles (distance to its edges). */
+const within = (p: Pt[], x: number, y: number, m = 0) => {
+  if (!inPoly(p, x, y)) return false;
+  if (m <= 0) return true;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+    const [ax, ay] = p[j], [bx, by] = p[i], dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    if (Math.hypot(ax + dx * t - x, ay + dy * t - y) < m) return false;
+  }
+  return true;
+};
+/**
+ * Winding lanes (W-49: the grown street plan of the reference, shots/war/landmarks/proto/ammon/ammon_1.png): `n` lanes
+ * `w` wide, each leaving a street at a right angle and wandering 14-36 tiles, kept inside `ok`; returns their ends.
+ */
+function lanes(s: Site, from: Sample[][], n: number, w: number, ok: (x: number, y: number) => boolean, seed: number): Pt[] {
+  const ends: Pt[] = [];
+  for (let m = 0, tries = 0; m < n && tries < n * 6; tries++) {
+    const c = from[Math.floor(hash(tries, seed, 1) * from.length)], p = c[Math.floor(hash(tries, seed, 2) * c.length)];
+    if (!p) continue;
+    const side = hash(tries, seed, 3) < 0.5 ? 1 : -1, len = 14 + hash(tries, seed, 4) * 22;
+    let a = Math.atan2(p.tx * side, -p.ty * side), x = p.x, y = p.y;
+    const h0 = s.hAt(Math.floor(x), Math.floor(y));
+    const pts: Pt[] = [[x, y]];
+    for (let d = 0; d < len; d += 6) {
+      a += (hash(tries, d, seed + 5) - 0.5) * 1.1;
+      x += Math.cos(a) * 6; y += Math.sin(a) * 6;
+      if ((d >= 12 && !ok(x, y)) || x < 0 || y < 0 || x >= s.w || y >= s.h || s.hAt(Math.floor(x), Math.floor(y)) !== h0) break;
+      pts.push([x, y]);
+    }
+    if (pts.length < 4) continue;
+    s.street(pts, w);
+    ends.push(pts[pts.length - 1]);
+    m++;
+  }
+  return ends;
+}
+
 // ======================================================================================= Drakon's Citadel (krios)
 
 /**
- * The Wardens' northern citadel on the glacier shoulder (site 200 x 184): the outer curtain (towers every 22 tiles,
- * three gatehouses, the barbican before the main south gate) round the outer ward with its quarters (barracks west,
- * stables and the forges east, the bone pit, cisterns, the chapel), the inner ward a level up with the commander's
- * halls, and the donjon on the highest ground with the keep (Drakon's roof); a switchback road climbs from the ruined
- * outer village below to the barbican. The approach is at `hb`, the wards hb+1..hb+3.
+ * The Wardens' northern citadel crowning a crag over the glacier (site 200 x 184; W-49 reference
+ * shots/war/landmarks/proto/citadel/citadel_1.png): the crag rises two levels on cliffs out of the ice; the outer curtain
+ * traces its edge with towers at every turn, the main gate and barbican on the south face at the head of the switchback
+ * road that zigzags down the crag to the ruined village, small gates west and east on short ramps; the outer ward with
+ * its halls, stables, smithies and cisterns round the yard (Drakon's P1) and the bone pit; the inner ward two levels up
+ * on the crag's summit behind its own wall, reached by one ramp from the yard through its gate, with the keep (Drakon's
+ * roof), the treasury, the temple and the commander's halls. Drawn at twice-real relief (Site.lift).
  */
 export function citadel(k: Kit, at: Pt, hb: number): Landmark {
-  const s = k.site('citadel', at, [200, 184], {
-    claim: [102, 76],
-    guardians: [{ boss: 'drakon', at: [102, 129], perches: [], pit: [23.5, 65.5] }],
-  });
-  // the ground: the approach and village at hb, the outer ward up one, the inner ward two, the donjon three
-  s.level(0, 140, 200, 184, hb);
-  s.level(8, 6, 192, 137, hb + 1);
-  s.level(56, 14, 148, 90, hb + 2);
-  s.level(84, 22, 120, 52, hb + 3);
-  // the rings
-  const O = s.ring(CIT, 8, 6, 192, 137, { gates: [['S', 0.5], ['W', 0.42], ['E', 0.58]], every: 22, seed: 11 });
-  s.ring(CIT, 56, 14, 148, 90, { gates: [['S', 0.5], ['W', 0.6]], every: 24, seed: 12 });
-  s.ring(CIT, 84, 22, 120, 52, { gates: [['S', 0.5]], every: 40, seed: 13 });
-  const gS = O.find((g) => g.side === 'S')!, gx = Math.round(gS.at[0]);
-  // P2: Drakon takes the roofs of the south curtain's towers either side of the main gate, then the keep's
-  const south = s.pieces.filter((p) => p.id === CIT.tower && p.y === s.y0 + 134).map((p): Pt => [p.x - s.x0 + 1.5, 135.5]).sort((a, b) => Math.abs(a[0] - gx) - Math.abs(b[0] - gx));
-  s.guardians[0].perches = [[gx, 135.5], ...south.slice(0, 4), [102, 33]];
-  s.force('arch-barbican-x', gx - 3, 137);
-  // the donjon: the keep, a cistern, the treasury
-  s.put('citadel-keep', 99, 30);
-  s.put('arch-cistern', 88, 26); s.put('arch-treasury', 112, 26);
-  // the inner ward: the commander's halls, the chapel, stores; the yard south of the donjon kept clear
-  yard(s, 86, 56, 118, 86, 'dirt');
-  for (const [x, y] of [[60, 20], [60, 30], [136, 20], [136, 30]]) s.put('arch-barracks', x, y);
-  s.put('arch-chapel', 126, 56); s.put('arch-cistern', 62, 56);
-  for (const [x, y] of [[62, 66], [62, 74], [134, 66], [134, 74]]) s.put('@town-storehouse', x, y);
-  s.put('@forge2', 72, 42); s.put('@well', 122, 48);
-  // the outer ward: barracks west, the bone pit and its yard, stables and forges east, the south yard (Drakon's P1)
-  for (let n = 0; n < 5; n++) s.put('arch-barracks', 14, 12 + n * 8);
-  s.put('citadel-bone-pit', 22, 64);
-  yard(s, 14, 56, 40, 84, 'dirt');
-  for (const [x, y] of [[14, 92], [24, 92], [14, 104], [24, 104]]) s.put('@town-storehouse', x, y);
-  s.put('arch-cistern', 40, 116); s.put('arch-workshop', 14, 118); s.put('arch-workshop', 24, 118);
-  for (let n = 0; n < 5; n++) s.put('arch-stables', 160, 12 + n * 7);
-  s.put('arch-forge', 160, 52); s.put('arch-forge', 170, 52); s.put('arch-workshop', 160, 60); s.put('arch-workshop', 170, 60);
-  s.put('arch-cistern', 160, 100); s.put('@town-storehouse', 170, 100); s.put('@town-storehouse', 170, 108);
-  s.put('arch-chapel', 64, 100); s.put('arch-cistern', 132, 104);
-  yard(s, 80, 96, 124, 130, 'dirt');
-  // the ward's lean-tos and sheds along the curtain, the inner ward's offices
-  scatter(s, ['arch-workshop', '@town-storehouse', 'arch-barracks', 'arch-stables', '@town-cookhouse'], 12, 10, 188, 133, 34, 14, { hp: 0.6 });
-  scatter(s, ['@town-storehouse', 'arch-workshop', '@town-cookhouse'], 60, 18, 144, 86, 10, 15, { hp: 0.6 });
-  // the switchback road from the barbican down to the village, the village in ruins either side of it
-  const zig: [number, number, number, number][] = [[gx - 1, 141, gx + 2, 150], [gx - 44, 147, gx + 2, 150], [gx - 44, 147, gx - 41, 158], [gx - 44, 155, gx + 44, 158], [gx + 41, 155, gx + 44, 166], [gx - 10, 163, gx + 44, 166], [gx - 10, 163, gx - 7, 184]];
-  for (const [a, b, c, d] of zig) { s.pave(a, b, c, d); s.keep(a, b, c, d); }
-  const village: District = { ids: [['@town-cottage', 4], ['@town-house-a', 2], ['arch-house-a', 2], ['@town-house-b', 1]], ruin: 1, hp: [0.6, 0.6], empty: 0.25, alley: 0.4 };
-  const vb = s.grid(4, 168, 196, 184, { bw: 16, bh: 14, sw: 2 });
-  quarters(s, vb, [[gx - 11, 160, gx - 6, 184]], () => village, 21);
-  s.put('arch-chapel', gx + 16, 170, { ruined: true });
+  const ho = hb + 2, hi = hb + 4;
+  const C: Pt[] = [[34, 22], [92, 8], [158, 12], [188, 38], [194, 96], [180, 128], [138, 140], [96, 138], [52, 130], [20, 98], [16, 52]];
+  const I: Pt[] = [[84, 16], [150, 18], [176, 42], [174, 78], [140, 88], [100, 84], [80, 54]];
+  const s = k.site('citadel', at, [200, 184], { claim: [70, 104], guardians: [{ boss: 'drakon', at: [70, 104], perches: [], pit: [158.5, 108.5] }] });
+  // the ground: the glacier round the crag, the outer ward two levels up, the summit two more
+  const cc = s.u(104, 76);
+  k.paint('snow', [cc[0], cc[1] - 4, 64, 50, 0.2], { on: ['grass', 'dirt', 'forest'], rough: 6 });
+  s.levelBy((x, y) => (inPoly(I, x + 0.5, y + 0.5) ? hi : inPoly(C, x + 0.5, y + 0.5) ? ho : within(C, x, y, -14) ? hb : undefined));
+  const crag = new Set<number>();
+  for (let y = 0; y < 184; y++) for (let x = 0; x < 200; x++) if (inPoly(C, x + 0.5, y + 0.5)) crag.add(y * 4096 + x);
+  s.paintSet(crag, 'dirt');
+  k.patch('mountains', 'gravel', [cc[0], cc[1], 56, 46, 0], ['dirt'], undefined, ho); // the wards' trodden gravel
+  s.lift = 4; s.base = hb;
+  // the walls: the curtain along the crag's edge, the inner ward's wall along the summit's
+  const O = s.wallTrace(CIT, inset(C, 3), { step: 22, every: 22, gates: [[66, 134], [18, 76], [192, 72]], seed: 11 });
+  const IW = s.wallTrace(CIT, inset(I, 2), { step: 18, every: 22, gates: [[104, 84]], seed: 13 });
+  const near = (g: Pt) => O.gates.reduce((a, b) => (Math.hypot(b.at[0] - g[0], b.at[1] - g[1]) < Math.hypot(a.at[0] - g[0], a.at[1] - g[1]) ? b : a));
+  const gS = near([66, 134]), gW = near([18, 76]), gE = near([192, 72]), gI = IW.gates[0];
+  const out = (g: { side: Side4; at: Pt }, d: number): Pt => { const [x, y] = g.at; return g.side === 'N' ? [x, y - d] : g.side === 'S' ? [x, y + d] : g.side === 'W' ? [x - d, y] : [x + d, y]; };
+  // the barbican before the main gate, the switchback road down the crag face to the village
+  const [bx, by] = out(gS, 3);
+  s.levelBy((x, y) => (Math.abs(x + 0.5 - bx) <= 6 && y >= gS.at[1] && y <= by + 3 ? ho : undefined)); // the barbican's ground, level with the ward
+  s.force('arch-barbican-x', Math.round(bx) - 3, Math.round(by) - 1);
+  // the forecourt before the barbican (room to form up under the towers), the road on from its foot
+  const fx0 = Math.round(bx) - 11, fy0 = Math.round(by) + 3;
+  s.levelBy((x, y) => (x >= fx0 && x < fx0 + 22 && y >= fy0 && y < fy0 + 8 ? ho : undefined));
+  s.plaza(bx, fy0 + 4, 11, 4.5);
+  const z0: Pt = [bx + 10, fy0 + 6];
+  const zig: Pt[] = [z0, [z0[0] + 26, z0[1] + 2], [z0[0] + 30, z0[1] + 8], [z0[0] - 10, z0[1] + 12], [z0[0] - 14, z0[1] + 18], [z0[0] + 14, z0[1] + 24], [z0[0] + 16, z0[1] + 32]];
+  const fS = s.ramp(zig, 5, ho, hb, { run: 30, flat: 2 });
+  const fW = s.ramp([out(gW, 2), out(gW, 7), [out(gW, 10)[0], out(gW, 7)[1] + 14]], 4, ho, hb, { run: 6, flat: 5 });
+  const fE = s.ramp([out(gE, 2), out(gE, 7), [out(gE, 10)[0], out(gE, 7)[1] + 14]], 4, ho, hb, { run: 6, flat: 5 });
+  const fI = s.ramp([out(gI, 1), out(gI, 6), [out(gI, 8)[0] - 6, out(gI, 14)[1]]], 4, hi, ho, { run: 5, flat: 4 });
+  // the summit: the keep, the treasury, the temple, a cistern, the commander's halls, stores
+  if (!putNear(s, 'citadel-keep', 120, 30)) throw new Error('citadel: no ground for the keep');
+  s.plaza(123, 44, 10, 5);
+  s.put('arch-treasury', 106, 26); s.put('arch-chapel', 142, 30); s.put('arch-cistern', 132, 56);
+  for (const [x, y] of [[94, 40], [94, 56], [150, 46]]) s.put('arch-barracks', x, y);
+  for (const [x, y] of [[112, 62], [150, 60]]) s.put('@town-storehouse', x, y);
+  // the outer ward: the yard (Drakon's P1) inside the main gate, the ward road between the gates, the way up
+  // Drakon's post: the yard just inside the main gate (within his aggro of the barbican)
+  const yd: Pt = [gS.at[0], gS.at[1] - 6];
+  s.guardians[0].at = yd;
+  s.plaza(yd[0], yd[1] - 4, 16, 10);
+  s.plaza(70, 100, 10, 7);
+  s.street([out(gW, -4), [40, 92], [56, 100]], 4);
+  s.street([[86, 104], [130, 106], [168, 96], out(gE, -4)], 4);
+  s.street([out(gS, -4), [68, 118]], 5);
+  s.street([[82, 98], [96, 96], fI], 4);
+  s.street([[40, 92], [30, 62], [52, 34], [84, 26]], 3);
+  s.street([[130, 106], [154, 126]], 3);
+  s.street([[56, 100], [60, 70], [76, 52]], 3);
+  s.street([[123, 48], [110, 70], [118, 80]], 3); s.street([[123, 48], [150, 40], [164, 56], [150, 76]], 3);
+  s.put('citadel-bone-pit', 157, 107);
+  s.plaza(158, 109, 7, 5, 'dirt');
+  const ward: District = { ids: [['arch-barracks', 3], ['arch-stables', 2], ['arch-forge', 1], ['arch-workshop', 2], ['@town-storehouse', 2], ['arch-cistern', 1], ['@town-cookhouse', 1]], ruin: 0.15, hp: [0.6, 0.6], empty: 0.08, alley: 0.3 };
+  const outer = (x: number, y: number) => within(C, x, y, 8) && !inPoly(I, x, y) && !within(I, x, y, -3);
+  const wardLanes = (x: number, y: number) => within(C, x, y, 9) && !within(I, x, y, -4) && Math.hypot(x - yd[0], y - yd[1]) > 18;
+  lanes(s, [s.street([[40, 92], [30, 62], [52, 34], [84, 26]], 3), s.street([[130, 106], [154, 126]], 3)], 24, 2, wardLanes, 17);
+  lanes(s, [s.street([[123, 48], [150, 40], [164, 56], [150, 76]], 3)], 10, 2, (x, y) => within(I, x, y, 7), 18);
+  s.infill(outer, ward, { seed: 14, front: 1, back: 6 });
+  const summit = (x: number, y: number) => within(I, x, y, 6);
+  s.infill(summit, { ids: [['arch-barracks', 2], ['@town-storehouse', 2], ['arch-workshop', 1], ['arch-house-b', 2], ['arch-stables', 1]], ruin: 0.1, hp: [0.6, 0.6], empty: 0.1 }, { seed: 15, front: 1, back: 5 });
+  // the ruined village where the road leaves the glacier, either side of it
+  const vc = s.u(fS[0] - 30, 172);
+  k.paint('dirt', [vc[0], vc[1], 26, 8, 0], { on: ['grass', 'snow'], rough: 3 });
+  s.street([fS, [fS[0] - 30, 176], [fS[0] - 70, 182]], 3, 'dirt');
+  s.street([[fS[0] - 24, 176], [fS[0] - 40, 160]], 2, 'dirt');
+  const village: District = { ids: [['@town-cottage', 4], ['@town-house-a', 2], ['arch-house-a', 2], ['@town-house-b', 1]], ruin: 1, hp: [0.6, 0.6], empty: 0.3, alley: 0.4 };
+  s.infill((x, y) => y > 148 && !within(C, x, y, -6), village, { seed: 21, front: 1, back: 2 });
+  // P2: Drakon takes the roofs of the towers either side of the main gate, then the keep's
+  const towers = O.corners.slice().sort((a, b) => Math.hypot(a[0] - gS.at[0], a[1] - gS.at[1]) - Math.hypot(b[0] - gS.at[0], b[1] - gS.at[1]));
+  s.guardians[0].perches = [[gS.at[0], gS.at[1]], ...towers.slice(0, 4).map(([x, y]): Pt => [x + 1.5, y + 1.5])];
   return {
     site: s, host: [],
-    gates: [s.u(gx, 186), ...O.filter((g) => g.side !== 'S').map((g) => out(s, g))],
-    spots: { citadel: s.u(102, 66), barbican: s.u(gx, 141), village: s.u(gx, 176) },
+    gates: [fS, fW, fE].map(([x, y]) => s.u(x, y)),
+    spots: { citadel: s.u(yd[0], yd[1]), barbican: s.u(bx, by), village: s.u(fS[0] - 30, 176) },
   };
 }
 
 // ======================================================================================= the Dead City of Ammon
 
 /**
- * The abandoned city on the butte by the dead lake (site 320 x 220): the necropolis west outside the walls (tombs in
- * rows along dirt paths), the city wall (towers every 26 tiles, gates on every side, a postern by the lake, a few
- * breaches) round a Hippodamian grid of blocks, its main avenues from the gates crossing at the agora (stoas, stalls,
- * statues, a well); the temple of Ammon's precinct in the north-west, the palace on its walled acropolis in the
- * north-east a level up; quarters of mudbrick houses and tenements (most fallen in, many lots empty), a craftsmen's
- * quarter by the west gate, cisterns, and four bandit strongholds held by the King's host.
+ * The abandoned city on the great butte by the dead lake (site 320 x 220; W-49 reference
+ * shots/war/landmarks/proto/ammon/ammon_1.png): the butte rises three levels on cliffs out of the salt flats, its
+ * battered mudbrick wall tracing the cliff edge with square towers, the main gate on the south face and the west
+ * gate, each at the head of a ramp cut along the cliff, and the postern stair to the lake in the south-east. Inside,
+ * a grown plan: paved avenues from the gates meet at the agora (stoas west and east, stalls), a sacred way runs east
+ * to the walled precinct of Ammon (pylon temple, a way of statues), a street climbs north to the acropolis two levels
+ * up on its own wall (the palace, treasuries, the guard); a ring street inside the wall, streets from the agora out to
+ * it, winding lanes between, small plazas with wells and cisterns; dense quarters of mudbrick houses, courtyard
+ * houses and tenements packed along every street (most fallen in), craftsmen by the west gate, four bandit
+ * strongholds; the necropolis of mastabas along the road below the south gate.
  */
 export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
-  const R = [60, 8, 300, 212], gx = 180, gy = 110;
-  const s = k.site('ammon', at, [320, 220], { claim: [gx + 12, gy + 10], guardians: [{ boss: 'bandit_king', at: [255, 60], postern: [264, 2] }] });
-  s.level(52, 0, 320, 220, hb + 1);
-  s.level(220, 16, 290, 74, hb + 2);
-  const G = s.ring(AMM, R[0], R[1], R[2], R[3], { gates: [['N', 0.5], ['N', 0.84], ['S', 0.5], ['W', 0.5], ['E', 0.5]], every: 26, breach: 0.06, seed: 31 });
-  s.ring(AMM, 220, 16, 290, 74, { gates: [['S', 0.5], ['W', 0.5]], every: 30, seed: 32 });
-  // the inner pomerium street round the walls
-  for (const [a, b, c, d] of [[63, 11, 297, 13], [63, 207, 297, 209], [63, 11, 65, 209], [295, 11, 297, 209]]) { s.pave(a, b, c, d); s.keep(a, b, c, d); }
-  // the palace acropolis: the palace, its stores and treasury (the hoard), the guard's halls, a cistern, rich houses
-  s.put('ammon-palace', 252, 28);
-  yard(s, 246, 52, 266, 64);
-  s.put('arch-treasury', 240, 22); s.put('arch-treasury', 266, 22);
-  for (const [x, y] of [[226, 22], [226, 30], [276, 22], [276, 30]]) s.put('@town-storehouse', x, y);
-  s.put('arch-barracks', 226, 40); s.put('arch-barracks', 272, 40); s.put('arch-cistern', 240, 50); s.put('arch-chapel', 272, 50);
-  scatter(s, ['ammon-house-c', 'arch-house-b'], 224, 58, 288, 70, 6, 33, { hp: 0.5 });
-  // the precinct of Ammon: the temple between its stoas, chapels, statues, the priests' houses
-  const T = [68, 16, 132, 70];
-  s.pave(T[0], T[1], T[2], T[3], 'dirt');
-  s.keep(T[0], T[1], T[2], T[3]);
-  const putT = (id: string, x: number, y: number, o: { hp?: number; ruined?: boolean } = {}) => s.force(id, x, y, o);
-  putT('ammon-temple', 98, 26);
-  putT('@town-stoa', 76, 22); putT('@town-stoa', 76, 36); putT('@town-stoa', 122, 22); putT('@town-stoa', 122, 36);
-  putT('arch-chapel', 86, 52); putT('arch-chapel', 108, 52, { ruined: true });
-  for (const x of [94, 98, 104, 108]) putT('@town-statue', x, 44);
-  putT('ammon-house-a', 72, 60, { hp: 0.5 }); putT('ammon-house-b', 118, 60, { ruined: true }); putT('arch-cistern', 98, 60);
-  // the street grid, its main avenues from the gates
-  const blocks = s.grid(66, 14, 294, 206, { bw: 20, bh: 12, sw: 2, aw: 4, avX: [gx], avY: [gy] });
-  // the agora where they cross: stoas west and east, stalls north and south, statues, a well; the claim on its open heart
-  const A = [gx - 26, gy - 18, gx + 26, gy + 18];
-  s.pave(A[0], A[1], A[2], A[3]);
-  yard(s, gx + 6, gy + 4, gx + 18, gy + 14);
-  for (const [x, y] of [[A[0] + 1, gy - 15], [A[0] + 1, gy + 5], [A[2] - 3, gy - 15], [A[2] - 3, gy + 5]]) freePut(s, '@town-stoa', x, y);
-  for (let n = 0; n < 5; n++) for (const [y, m] of [[A[1] + 1, 0], [A[3] - 3, 1]] as const) {
-    const x = gx - 22 + n * 9 + (n >= 3 ? 4 : 0);
-    freePut(s, `@town-stall-${'abc'[(n + m) % 3]}`, x, y);
-  }
-  freePut(s, '@town-statue', gx - 8, gy - 8); freePut(s, '@town-statue', gx - 8, gy + 8); freePut(s, '@town-well', gx + 8, gy - 8);
-  // four strongholds of the host in the quarters, a craftsmen's quarter by the west gate
-  const SH: [number, number][] = [[78, 150], [244, 150], [150, 34], [196, 168]];
+  const hc = hb + 2, hu = hb + 4, ha = hb + 6; // the lower city, the upper city, the acropolis (each step a 2-level cliff: impassable but by ramps)
+  const P: Pt[] = [[96, 14], [170, 6], [236, 8], [284, 20], [308, 52], [312, 104], [304, 150], [282, 184], [236, 200], [170, 206], [118, 200], [80, 180], [60, 140], [58, 90], [70, 44]];
+  const AC: Pt[] = [[214, 22], [258, 14], [290, 28], [298, 58], [278, 76], [234, 80], [212, 60]];
+  const AG = [158, 100, 214, 134], TP = [238, 92, 298, 146];
+  const U: Pt[] = [[146, 12], [236, 8], [284, 20], [308, 52], [312, 104], [306, 150], [262, 152], [228, 144], [222, 108], [206, 92], [160, 70], [140, 40]];
+  const s = k.site('ammon', at, [320, 220], { claim: [186, 117], guardians: [{ boss: 'bandit_king', at: [252, 48], postern: [300, 176] }] });
+  // the ground: the salt flats (the whole region: sand, hardpan round the butte, white salt beyond), the city three
+  // levels up on its butte, the acropolis two more; the dead lake south-east
+  k.maskPaint(() => 'sand');
+  const c0 = s.u(160, 110);
+  k.patch('kyrene', 'hardpan', [c0[0], c0[1], 96, 72, 0], ['sand'], hb);
+  k.patch('kyrene', 'salt', [128, 128, 200, 200, 0], ['sand'], hb);
+  s.levelBy((x, y) => (inPoly(AC, x + 0.5, y + 0.5) ? ha : inPoly(U, x + 0.5, y + 0.5) && inPoly(P, x + 0.5, y + 0.5) ? hu : inPoly(P, x + 0.5, y + 0.5) ? hc : undefined));
+  s.lift = 4; s.base = hb; // the butte's cliffs and the terraces' retaining walls drawn at their height (visual)
+  for (let y = 186; y < 220; y++) { const x0 = 300 - Math.round(Math.sqrt(Math.max(0, 1 - ((y - 222) / 36) ** 2)) * 46); if (x0 < 320) s.flood(x0, y, 320, y + 1, y > 200 ? 2 : 1, hb - 1); }
+  // the walls: the city wall along the cliff edge, the acropolis wall
+  const W = s.wallTrace(AMM, inset(P, 3), { step: 26, every: 26, gates: [[132, 200], [60, 100], [298, 166]], breach: 0.05, seed: 31 });
+  const AW = s.wallTrace(ARCH, inset(AC, 2), { step: 18, every: 22, gates: [[244, 80]], seed: 32 });
+  const gate = (g: Pt) => W.gates.reduce((a, b) => (Math.hypot(b.at[0] - g[0], b.at[1] - g[1]) < Math.hypot(a.at[0] - g[0], a.at[1] - g[1]) ? b : a));
+  const gS = gate([132, 200]), gW = gate([60, 100]), gE = gate([298, 166]), gA = AW.gates[0];
+  // the ramps down the cliff, cut along its face (S: west along the south face; W: north along the west face; the postern stair to the lake shore)
+  const out = (g: { side: Side4; at: Pt }, d: number): Pt => { const [x, y] = g.at; return g.side === 'N' ? [x, y - d] : g.side === 'S' ? [x, y + d] : g.side === 'W' ? [x - d, y] : [x + d, y]; };
+  const fS = s.ramp([out(gS, 2), out(gS, 7), [out(gS, 9)[0] - 10, out(gS, 11)[1]], [out(gS, 9)[0] - 26, out(gS, 13)[1]]], 4, hc, hb, { run: 6, flat: 6 });
+  const fW = s.ramp([out(gW, 2), out(gW, 7), [out(gW, 10)[0], out(gW, 7)[1] - 10], [out(gW, 12)[0], out(gW, 7)[1] - 26]], 4, hc, hb, { run: 6, flat: 6 });
+  const fE = s.ramp([out(gE, 2), out(gE, 6), [out(gE, 8)[0] + 2, out(gE, 8)[1] + 10]], 3, hc, hb, { run: 4, flat: 4 });
+  const fA = s.ramp([out(gA, 1), out(gA, 6), [out(gA, 8)[0] - 4, out(gA, 12)[1]]], 4, ha, hu, { run: 5, flat: 4 });
+  /** A street on one tier only: the parts of the curve whose ground (and 3 tiles round) is level h. */
+  const tierOk = (x: number, y: number, h: number) => [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]].every(([dx, dy]) => s.hAt(Math.floor(x + dx), Math.floor(y + dy)) === h);
+  const streetOn = (pts: Pt[], w: number, h: number): Sample[][] => {
+    const out: Sample[][] = [];
+    let run: Pt[] = [];
+    const flush = () => { if (run.length >= 5) out.push(s.street(run.filter((_, n) => n % 3 === 0 || n === run.length - 1), w)); run = []; };
+    for (const p of spline(pts, 1)) { if (tierOk(p.x, p.y, h)) run.push([p.x, p.y]); else flush(); }
+    flush();
+    return out;
+  };
+  // the acropolis: the palace on its terrace, treasuries (the hoard), the guard's halls, stores, a cistern, a chapel
+  if (!putNear(s, 'ammon-palace', 246, 34)) throw new Error('ammon: no ground for the palace');
+  s.plaza(249, 52, 9, 6);
+  s.put('arch-treasury', 232, 30); s.put('arch-treasury', 264, 28);
+  for (const [x, y] of [[222, 40], [276, 40]]) s.put('arch-barracks', x, y);
+  s.put('arch-cistern', 236, 60); s.put('arch-chapel', 268, 58);
+  for (const [x, y] of [[226, 50], [280, 50]]) s.put('@town-storehouse', x, y);
+  // the agora: paved, stoas down its west and east sides, stalls between, statues, a well; the claim on its heart
+  s.pave(AG[0], AG[1], AG[2], AG[3], 'paving');
+  s.keep(AG[0], AG[1], AG[2], AG[3]);
+  for (let n = 0; n < 5; n++) { freePut(s, '@town-stoa', AG[0] + 1, AG[1] + 2 + n * 6); freePut(s, '@town-stoa', AG[2] - 3, AG[1] + 2 + n * 6); }
+  for (let n = 0; n < 4; n++) for (const [y, m] of [[AG[1] + 2, 0], [AG[3] - 4, 1]] as const) freePut(s, `@town-stall-${'abc'[(n + m) % 3]}`, AG[0] + 8 + n * 11, y);
+  freePut(s, '@town-statue', 172, 112); freePut(s, '@town-statue', 200, 112); freePut(s, '@town-well', 186, 124);
+  // the precinct of Ammon: its wall (gate west, toward the agora), the pylon temple, the way of statues, chapels, the priests' houses
+  const PG = s.ring(AMM, TP[0], TP[1], TP[2], TP[3], { gates: [['W', 0.5]], every: 30, seed: 33 });
+  s.pave(TP[0] + 3, TP[1] + 3, TP[2] - 3, TP[3] - 3, 'paving');
+  s.keep(TP[0] + 3, TP[1] + 3, TP[2] - 3, TP[3] - 3);
+  freePut(s, 'ammon-temple', 280, 116);
+  for (let x = 246; x <= 274; x += 4) { freePut(s, '@town-statue', x, 114); freePut(s, '@town-statue', x, 124); }
+  freePut(s, 'arch-chapel', 246, 98); freePut(s, 'arch-chapel', 262, 98, { ruined: true }); freePut(s, 'arch-chapel', 254, 134);
+  freePut(s, 'ammon-house-a', 242, 132, { hp: 0.5 }); freePut(s, 'ammon-house-b', 284, 98, { ruined: true }); freePut(s, 'arch-cistern', 284, 134);
+  // four strongholds of the host in the quarters (before the streets: the lanes go round them)
+  const SH: [number, number][] = [[86, 120], [104, 52], [150, 160], [244, 160]];
   const host = SH.map(([x, y]) => stronghold(s, AMM, x, y, 'ammon-workshop'));
-  const houses: District = { ids: [['ammon-house-a', 3], ['ammon-house-b', 3], ['ammon-house-c', 2], ['arch-house-a', 1], ['arch-house-b', 1]], ruin: 0.8, hp: [0.25, 0.55], empty: 0.55, alley: 0.2 };
-  const tenements: District = { ids: [['ammon-tenement', 4], ['arch-tenement', 2], ['ammon-house-b', 1]], ruin: 0.8, hp: [0.25, 0.55], empty: 0.35 };
-  const rich: District = { ids: [['ammon-house-c', 3], ['arch-house-b', 3]], ruin: 0.75, hp: [0.3, 0.6], empty: 0.45 };
-  const crafts: District = { ids: [['ammon-workshop', 3], ['arch-workshop', 2], ['@town-storehouse', 1], ['arch-forge', 1], ['ammon-house-a', 1]], ruin: 0.5, hp: [0.3, 0.6], empty: 0.35 };
-  const reserved = [T, A, [218, 14, 292, 76], ...SH.map(([x, y]) => [x, y, x + 20, y + 20])];
-  quarters(s, blocks, reserved, (b) => {
-    const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
-    if (cx < 120 && Math.abs(cy - gy) < 40) return crafts;
-    if (Math.abs(cx - gx) < 16 && cy > 150) return crafts;
-    if (cx > 200 && cy < 110) return rich;
-    if (Math.abs(cx - gx) < 26 || Math.abs(cy - gy) < 16) return tenements;
-    return houses;
-  }, 41);
-  scatter(s, ['arch-cistern'], 70, 20, 290, 200, 6, 43, { margin: 1, hp: 0.5 });
-  // the necropolis outside the west wall: tombs in rows along dirt paths, a road from the west gate past them
-  const nb = s.grid(4, 30, 54, 190, { bw: 10, bh: 9, sw: 2, t: 'dirt' });
-  quarters(s, nb, [], () => ({ ids: [['arch-tomb-a', 3], ['arch-tomb-b', 2], ['ammon-tomb', 2]], ruin: 0.25, hp: [0.3, 0.6], empty: 0.7, alley: 0.5 }), 51);
-  capHomes(s, 12, 255, 45);
-  const gW = G.find((g) => g.side === 'W')!;
-  s.pave(0, Math.round(gW.at[1]) - 2, 60, Math.round(gW.at[1]) + 2);
+  // the avenues from the gates to the agora, the sacred way, the acropolis street, the postern street
+  const sacred = s.ramp([[PG[0].at[0] - 4, PG[0].at[1]], [AG[2] + 6, 119], [AG[2] - 1, 119]], 5, hu, hc, { run: 5, flat: 6 });
+  const climb = s.ramp([[200, 76], [196, 88], [190, AG[1] + 1]], 4, hu, hc, { run: 5, flat: 3 });
+  s.force('ammon-gate-x', 197, 70, { hp: 0.6 }); // the gate on the climb to the upper city
+  const av = [
+    s.street([out(gW, -4), [92, 106], [124, 112], [AG[0], 117]], 4),
+    s.street([out(gS, -4), [136, 176], [152, 150], [176, AG[3]]], 4),
+    s.street([[AG[2] - 6, AG[3]], [228, 156], [262, 172], out(gE, -4)], 3),
+    s.street([[200, 66], [208, 58], [222, 72], fA], 4),
+    ...streetOn([[200, 66], [176, 48], [168, 24]], 3, hu), ...streetOn([[222, 72], [226, 100], [232, 132]], 3, hu),
+  ];
+  void sacred; void climb;
+  // the ring street inside the wall, streets from the agora and the avenues out to it
+  const R = inset(P, 15);
+  const ring = streetOn([...R, R[0], R[1]], 2, hc);
+  const radial = ([[[AG[0] + 10, AG[1]], [150, 70], [140, 34]], [[AG[0], AG[3] - 6], [120, 150], [96, 170]], [[200, AG[3]], [208, 168], [212, 192]],
+    [[124, 112], [110, 84], [86, 66]], [[152, 150], [118, 178]], [[170, 100], [150, 74], [128, 40]]] as Pt[][]).flatMap((p) => streetOn(p, 2, hc));
+  // winding lanes, small plazas with wells and cisterns where some of them end
+  const city = (x: number, y: number) => within(P, x, y, 9) && !inPoly(AC, x, y) && !(x > TP[0] - 2 && x < TP[2] + 2 && y > TP[1] - 2 && y < TP[3] + 2);
+  const ends = lanes(s, [...av, ...ring, ...radial], 40, 1.6, (x, y) => city(x, y) && (tierOk(x, y, hc) || tierOk(x, y, hu)), 35);
+  ends.filter((_, n) => n % 4 === 0).slice(0, 9).forEach(([x, y], n) => {
+    s.plaza(x, y, 4.5, 3.5);
+    s.force(n % 2 ? 'arch-cistern' : '@town-well', Math.round(x) - (n % 2 ? 1 : 0), Math.round(y) - (n % 2 ? 1 : 0), { hp: 0.5 });
+  });
+  // the quarters: tenements along the avenues, the rich under the acropolis, craftsmen by the west gate, houses elsewhere
+  const avTiles = new Set<number>();
+  for (const c of av) for (const p of c) for (let d = -7; d <= 7; d++) for (let e = -7; e <= 7; e++) avTiles.add(Math.floor(p.y + d) * 4096 + Math.floor(p.x + e));
+  const houses: District = { ids: [['ammon-house-a', 3], ['ammon-house-d', 1], ['ammon-house-b', 3], ['ammon-house-c', 4], ['arch-house-c', 1], ['arch-house-b', 1]], ruin: 0.75, hp: [0.25, 0.55], empty: 0.18, alley: 0.1 };
+  const tenements: District = { ids: [['ammon-tenement', 5], ['ammon-house-b', 2], ['ammon-workshop', 1], ['arch-tenement', 1]], ruin: 0.7, hp: [0.25, 0.55], empty: 0.15, alley: 0.08 };
+  const rich: District = { ids: [['ammon-house-c', 4], ['arch-house-c', 2], ['arch-house-b', 3], ['ammon-house-b', 1]], ruin: 0.7, hp: [0.3, 0.6], empty: 0.15 };
+  const crafts: District = { ids: [['ammon-workshop', 4], ['arch-workshop', 2], ['@town-storehouse', 1], ['arch-forge', 1], ['ammon-house-a', 2]], ruin: 0.5, hp: [0.3, 0.6], empty: 0.1 };
+  const garden = 'arch-garden';
+  s.infill((x, y) => city(x, y) && avTiles.has(y * 4096 + x), tenements, { seed: 41, front: 1 });
+  s.infill((x, y) => city(x, y) && s.hAt(x, y) === hu, rich, { seed: 42, front: 1, back: 6 });
+  s.infill((x, y) => city(x, y) && x < 124 && Math.abs(y - 108) < 34, crafts, { seed: 43, front: 1, back: 3 });
+  s.infill(city, houses, { seed: 44, front: 1, back: 6, garden });
+  // the necropolis: mastabas and grave plots along the road below the south gate, out over the flats
+  const flats = (x: number, y: number) => !inPoly(P, x, y) && !within(P, x, y, -6) && y > 150 && x < 150 && s.dry(x, y);
+  const nec = [s.street([fS, [fS[0] - 18, fS[1] + 2], [8, 212]], 3, 'dirt'), s.street([[fS[0] - 14, fS[1] + 1], [30, 176], [10, 150]], 2, 'dirt')];
+  void nec;
+  s.infill(flats, { ids: [['ammon-tomb', 4], ['arch-tomb-a', 3], ['arch-tomb-b', 2]], ruin: 0.25, hp: [0.3, 0.6], empty: 0.45, alley: 0.5 }, { seed: 51, front: 1, back: 6 });
+  capHomes(s, 12, 249, 45);
   return {
     site: s, host,
-    gates: G.filter((g) => !(g.side === 'N' && g.at[0] > 240)).map((g) => (g.side === 'W' ? s.u(-3, g.at[1]) : out(s, g, 12))),
-    spots: { agora: s.u(gx + 12, gy + 9), palace: s.u(255, 40), necropolis: s.u(28, 110), postern: s.u(264, 2) },
+    gates: [fS, fW].map(([x, y]) => s.u(x, y)),
+    spots: { agora: s.u(186, 117), palace: s.u(249, 52), necropolis: s.u(fS[0] - 20, fS[1] + 4), postern: s.u(fE[0], fE[1]) },
   };
 }
 /** A piece on reserved ground of its own (the agora's paving, a precinct): only other pieces stop it. */
@@ -245,12 +372,25 @@ export function templeCity(k: Kit, at: Pt, hm: number): Landmark {
   };
   // the processional ways: south ramp - agora - precinct south gate; the east, west and north ramps in
   const ways: [number, number, number, number][] = [[197, 220, 203, 330], [197, 150, 203, 184], [200, 160, 250, 166], [0, 163, 203, 169], [200, 165, 340, 171], [165, 0, 171, 166]];
-  for (const [a, b, c, d] of ways) { s.level(a, b, c, d, hm, true, false); s.keep(a, b, c, d); }
+  const wayC: Sample[][] = [];
+  for (const [a, b, c, d] of ways) {
+    s.level(a, b, c, d, hm, true, false);
+    const vert = d - b > c - a, w = vert ? c - a : d - b;
+    wayC.push(s.street(vert ? [[(a + c) / 2, b], [(a + c) / 2, d]] : [[a, (b + d) / 2], [c, (b + d) / 2]], w + 0.5));
+  }
+  // the sanctuary terrace two levels over the city (its retaining wall a cliff), ramps up to its west and south gates
+  s.levelBy((x, y) => (x >= 206 && x < 290 && y >= 66 && y < 150 ? hm + 2 : undefined));
+  s.lift = 3; s.base = hm - 4;
   ramp(166, 6, 'x'); ramp(198, 316, 'x'); ramp(6, 164, 'y'); ramp(326, 166, 'y');
   for (let y = 230; y < 310; y += 14) { on('@town-statue', 195, y); on('@town-statue', 204, y); }
   // the peribolos of the great temple (gates west and south), the temple and the omphalos, treasuries, chapels
   const P = s.ring(ARCH, 206, 66, 290, 150, { gates: [['W', 0.5], ['S', 0.48]], every: 28, breach: 0.15, seed: 61 });
-  void P;
+  for (const g of P) {
+    const [x, y] = g.at;
+    if (g.side === 'W') s.ramp([[x - 2, y], [x - 6, y], [x - 16, y]], 5, hm + 2, hm, { run: 4, flat: 2 });
+    else s.ramp([[x, y + 2], [x, y + 6], [x, y + 15]], 5, hm + 2, hm, { run: 4, flat: 2 });
+  }
+  s.pave(209, 69, 287, 147, 'paving');
   s.put('navel-temple', 240, 82);
   s.put('navel-omphalos', 244, 96);
   for (let n = 0; n < 4; n++) { s.put('arch-treasury', 226, 100 + n * 10); s.put('arch-treasury', 262, 100 + n * 10, n === 3 ? { ruined: true } : {}); }
@@ -263,19 +403,23 @@ export function templeCity(k: Kit, at: Pt, hm: number): Landmark {
   labyrinth(s, 298, 90, 10, 71);
   // the Great Fair agora: four stoas, ten stalls, the claim on its open heart
   const A = [170, 182, 232, 220];
-  s.pave(A[0], A[1], A[2], A[3]);
+  s.pave(A[0], A[1], A[2], A[3], 'paving');
   yard(s, 194, 194, 208, 206);
-  for (const [x, y] of [[172, 184], [172, 206], [228, 184], [228, 206]]) freePut(s, '@town-stoa', x, y);
+  for (let n = 0; n < 5; n++) { freePut(s, '@town-stoa', 172, 184 + n * 6); freePut(s, '@town-stoa', 228, 184 + n * 6); }
   for (let n = 0; n < 5; n++) { freePut(s, `@town-stall-${'abc'[n % 3]}`, 178 + n * 9 + (n >= 2 ? 4 : 0), 183); freePut(s, `@town-stall-${'abc'[(n + 1) % 3]}`, 178 + n * 9 + (n >= 2 ? 4 : 0), 217); }
   // the pilgrims' quarters south of the agora either side of the way
-  const pil: District = { ids: [['arch-house-a', 3], ['arch-house-b', 2], ['arch-tenement', 2], ['@town-cottage', 1], ['arch-workshop', 1]], ruin: 0.8, hp: [0.3, 0.6], empty: 0.4 };
-  const qb = [...s.grid(140, 226, 194, 300, { bw: 16, bh: 10 }), ...s.grid(208, 226, 280, 300, { bw: 16, bh: 10 })];
-  quarters(s, qb.filter((b) => flat(s, b[0], b[1], b[2] - b[0], b[3] - b[1], hm)), [], () => pil, 63);
-  // the outer quarters: inns and houses of the festival crowds west of the agora, the priests' town north of the
-  // lake and east of the north way, the craftsmen (votive workshops) by the east way; fewer standing the further out
-  const outer: District = { ...pil, ruin: 0.85, empty: 0.5, ids: [...pil.ids, ['arch-workshop', 2], ['@town-storehouse', 1]] };
-  const ob = [...s.grid(14, 176, 120, 300, { bw: 16, bh: 10 }), ...s.grid(30, 12, 160, 64, { bw: 16, bh: 10 }), ...s.grid(176, 12, 200, 160, { bw: 10, bh: 10 }), ...s.grid(214, 176, 286, 222, { bw: 16, bh: 10 })];
-  quarters(s, ob.filter((b) => flat(s, b[0], b[1], b[2] - b[0], b[3] - b[1], hm)), [[284, 166, 304, 188]], () => outer, 67);
+  const pil: District = { ids: [['arch-house-a', 3], ['arch-house-b', 2], ['arch-house-c', 1], ['arch-tenement', 2], ['@town-cottage', 1], ['arch-workshop', 1]], ruin: 0.8, hp: [0.3, 0.6], empty: 0.15 };
+  // W-49: the quarters as grown, not gridded: lanes winding off the sacred ways, lots packed along them
+  const inR = (r: number[]) => (x: number, y: number) => x >= r[0] && x < r[2] && y >= r[1] && y < r[3];
+  const pilR = [inR([140, 226, 194, 300]), inR([208, 226, 280, 300])];
+  const reserved = [[198, 58, 298, 158], [222, 38, 248, 60], [284, 162, 308, 188], [292, 84, 324, 116], [166, 178, 236, 224]].map(inR);
+  const rim = (x: number, y: number) => [[8, 0], [-8, 0], [0, 8], [0, -8]].every(([dx, dy]) => s.hAt(x + dx, y + dy) === hm && s.dry(x + dx, y + dy));
+  const town = (x: number, y: number) => s.hAt(x, y) === hm && s.dry(x, y) && rim(x, y) && !reserved.some((f) => f(x, y));
+  const ends = lanes(s, wayC, 140, 2, town, 69);
+  ends.filter((_, n) => n % 5 === 0).slice(0, 10).forEach(([x, y], n) => { s.plaza(x, y, 4, 3); s.force(n % 2 ? 'arch-cistern' : '@town-well', Math.round(x) - (n % 2 ? 1 : 0), Math.round(y) - (n % 2 ? 1 : 0), { hp: 0.5 }); });
+  s.infill((x, y) => pilR.some((f) => f(x, y)) && town(x, y), pil, { seed: 63, front: 1, back: 6, garden: 'arch-garden' });
+  const outer: District = { ...pil, ruin: 0.85, empty: 0.3, ids: [...pil.ids, ['arch-workshop', 2], ['@town-storehouse', 1]] };
+  s.infill((x, y) => !pilR.some((f) => f(x, y)) && town(x, y), outer, { seed: 67, front: 1, back: 9, garden: 'arch-garden' });
   scatter(s, ['arch-cistern'], 150, 70, 170, 150, 3, 65, { h: hm });
   capHomes(s, 10, 200, 200);
   return { site: s, host: [], gates: [], spots: { templeSquare: s.u(200, 200), market: s.u(200, 200), labyrinth: s.u(308, 100), arena: s.u(295, 175), precinct: s.u(248, 108) } };

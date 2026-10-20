@@ -116,10 +116,12 @@ export class Kit {
   readonly reqs: (Req | RowsReq)[] = [];
   readonly lairReqs: LairReq[] = [];
   readonly claimReqs: { at: Pt; r: number; lairs?: number[] }[] = [];
-  readonly patches: { biome: BiomeName; kind: Kind; b: Blob; seed: number; on: string[] }[] = [];
+  readonly patches: { biome: BiomeName; kind: Kind; b: Blob; seed: number; on: string[]; maxH?: number; minH?: number }[] = [];
   readonly oases: Pt[] = [];
   readonly rivers: River[] = [];
   readonly roads: Sample[][] = [];
+  /** Cells of a landmark's paved streets and plazas: sim terrain road, drawn as flagstones (visual kind 'paving'). */
+  readonly paved: Uint8Array;
 
   readonly def: RegionDef;
   readonly K: number;
@@ -136,6 +138,7 @@ export class Kit {
     this.rock = new Float32Array(this.N).fill(-Infinity);
     this.roadDist = new Float32Array(this.N).fill(Infinity);
     this.zoneOverride = new Uint8Array(this.N);
+    this.paved = new Uint8Array(this.N);
     this.style = { ...STYLE, ...def.style };
     const w = byId.get(def.id);
     if (!w) throw new Error(`unknown region ${def.id} (scripts/war/regions/world.ts)`);
@@ -440,7 +443,7 @@ export class Kit {
     });
   }
   /** A biome terrain over a blob, drawn where the tile is of that biome and its sim terrain is in `on` (default grass). */
-  patch(biome: BiomeName, kind: Kind, b: Blob, on: string[] = ['grass']) { this.patches.push({ biome, kind, b, seed: this.seed(), on }); }
+  patch(biome: BiomeName, kind: Kind, b: Blob, on: string[] = ['grass'], maxH?: number, minH?: number) { this.patches.push({ biome, kind, b, seed: this.seed(), on, maxH, minH }); }
   /** A Kyrene oasis: a shallow spring pool with oasis ground round it (palms, reeds, the spring and a well come with it). */
   oasis(p: Pt, r = 1.8) {
     const s = this.seed();
@@ -453,6 +456,9 @@ export class Kit {
   // ---- things (placed at the sim size, after the land)
   spot(name: string, p: Pt) { this.spots[name] = p; return p; }
   /** `n` copies of a set piece on free ground within `r` units of `at`, `gap` units apart (blocking ones keep their footprint clear). */
+  /** W-48: a waterfall where a river falls over a cliff step, its foot at `at`, the foam on its plunge pool at `pool` (units). */
+  readonly falls: { at: Pt; pool: Pt }[] = [];
+  fall(at: Pt, pool: Pt) { this.falls.push({ at, pool }); }
   piece(id: string, at: Pt, o: { r?: number; onRock?: boolean; n?: number; gap?: number } = {}) {
     this.reqs.push({ kind: 'piece', id, at, r: o.r ?? 12, onRock: o.onRock ?? false, n: o.n ?? 1, gap: o.gap ?? 4 });
   }
@@ -594,7 +600,28 @@ export class Kit {
     this.each((i, x, y) => {
       if (this.terrain[i] === 'rock' || this.water[i]) return;
       const tx = Math.floor(this.simTile(x) + 0.5), ty = Math.floor(this.simTile(y) + 0.5);
-      if (tx >= x0 && tx < x1 && ty >= y0 && ty < y1) this.terrain[i] = t;
+      if (tx >= x0 && tx < x1 && ty >= y0 && ty < y1) this.setTerrain(i, t);
+    });
+  }
+  /** Terrain `t` on cell i ('paving': a road drawn as flagstones). */
+  private setTerrain(i: number, t: string) {
+    this.paved[i] = t === 'paving' ? 1 : 0;
+    this.terrain[i] = t === 'paving' ? 'road' : t;
+  }
+  /** Per sim tile a level (undefined: leave it): dried, no easing (the edges stay cliffs). */
+  maskLevel(f: (tx: number, ty: number) => number | undefined) {
+    this.each((i, x, y) => {
+      if (this.terrain[i] === 'rock') return;
+      const h = f(Math.floor(this.simTile(x) + 0.5), Math.floor(this.simTile(y) + 0.5));
+      if (h !== undefined) (this.height[i] = h), (this.water[i] = 0);
+    });
+  }
+  /** Per sim tile a terrain (undefined: leave it) on dry, rockless ground. */
+  maskPaint(f: (tx: number, ty: number) => string | undefined) {
+    this.each((i, x, y) => {
+      if (this.terrain[i] === 'rock' || this.water[i]) return;
+      const t = f(Math.floor(this.simTile(x) + 0.5), Math.floor(this.simTile(y) + 0.5));
+      if (t !== undefined) this.setTerrain(i, t);
     });
   }
   /** Water `depth` (1 shallow, 2 deep) over sim tiles x0..x1-1, y0..y1-1 but rock: its bed at level `bed`, sand. */
@@ -605,6 +632,8 @@ export class Kit {
       if (tx >= x0 && tx < x1 && ty >= y0 && ty < y1) (this.water[i] = depth), (this.height[i] = bed), (this.terrain[i] = 'sand');
     });
   }
+  /** Sim tile of a unit coordinate. */
+  tileOfUnit(u: number) { return Math.floor(this.simTile(u) + 0.5); }
   /** Unit point of sim tile (tx, ty). */
   unitAt(tx: number, ty: number): Pt { return [this.unitOf(tx), this.unitOf(ty)]; }
   /** Whether unit point (x, y) lies inside a landmark site (its bounds). */
@@ -632,6 +661,10 @@ export type Side4 = 'N' | 'E' | 'S' | 'W';
 export class Site {
   readonly pieces: SitePiece[] = [];
   readonly extraNodes: [string, number, number][];
+  /** Relief drawn `lift` times as tall above level `base` (visual only, kit.ts visualLayer); vz: smooth ramp levels per site tile. */
+  lift = 1;
+  base = 0;
+  readonly vz = new Map<number, number>();
   /** Keep the wild trees and bushes on its ground (a sacred grove). */
   wild = false;
   private occ = new Set<number>();
@@ -659,7 +692,7 @@ export class Site {
   /** Water over site tiles (1 shallow, 2 deep), its bed at `bed`. */
   flood(x0: number, y0: number, x1: number, y1: number, depth: 1 | 2, bed = 0) { this.k.waterRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, depth, bed); }
   /** Terrain over site tiles (default road: a street; dirt: a yard). */
-  pave(x0: number, y0: number, x1: number, y1: number, t = 'road') { this.k.paintRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, t); }
+  pave(x0: number, y0: number, x1: number, y1: number, t = 'paving') { this.k.paintRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, t); }
   /** Footprint of a piece id. */
   fp(id: string): [number, number] {
     if (id.startsWith('@town-')) { const f = TOWN_FP.get(T(id.slice(6))); if (f) return f; }
@@ -780,7 +813,7 @@ export class Site {
    * avenues (site x of the north-south ones, y of the east-west ones) `aw` wide; paved and kept clear. Returns the blocks.
    */
   grid(x0: number, y0: number, x1: number, y1: number, o: { bw: number; bh: number; sw?: number; aw?: number; avX?: number[]; avY?: number[]; t?: string }): [number, number, number, number][] {
-    const sw = o.sw ?? 2, aw = o.aw ?? 4, t = o.t ?? 'road';
+    const sw = o.sw ?? 2, aw = o.aw ?? 4, t = o.t ?? 'paving';
     const cuts = (a0: number, a1: number, step: number, av: number[]) => {
       const out: [number, number][] = av.map((v) => [v - aw / 2, v + aw / 2]);
       for (let v = a0 + step; v < a1 - 3; v += step + sw) if (!out.some(([p, q]) => v + sw > p - 3 && v < q + 3)) out.push([v, v + sw]);
@@ -826,6 +859,211 @@ export class Site {
     if (y1 - y0 >= 6) row(true);
     return n;
   }
+
+  // ---- W-48/W-49 organic city kit: streets that follow the ground, lots packed along them, walls tracing an outline
+  /** Street tiles (paved and kept), for frontage: lots are packed against them. */
+  readonly streets = new Set<number>();
+  private tilesOf(f: (x: number, y: number) => boolean): Set<number> {
+    const out = new Set<number>();
+    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) if (f(x, y)) out.add(y * 4096 + x);
+    return out;
+  }
+  /** Terrain over a set of site tiles (keys y * 4096 + x), one pass over the map ('paving': flagstones). */
+  paintSet(tiles: Set<number>, t: string) {
+    if (tiles.size) this.k.maskPaint((tx, ty) => (tiles.has((ty - this.y0) * 4096 + tx - this.x0) ? t : undefined));
+  }
+  /** Level per site tile (undefined: leave), cliffs at its edges. */
+  levelBy(f: (x: number, y: number) => number | undefined) {
+    this.k.maskLevel((tx, ty) => (tx < this.x0 || ty < this.y0 || tx >= this.x0 + this.w || ty >= this.y0 + this.h ? undefined : f(tx - this.x0, ty - this.y0)));
+  }
+  /** Tiles within w/2 of a curve's samples. */
+  private band(c: Sample[], w: number): Set<number> {
+    const r = w / 2, R = Math.ceil(r), tiles = new Set<number>();
+    for (const p of c) for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      const x = Math.floor(p.x + dx), y = Math.floor(p.y + dy);
+      if (x < 0 || y < 0 || x >= this.w || y >= this.h || (x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 > r * r) continue;
+      tiles.add(y * 4096 + x);
+    }
+    return tiles;
+  }
+  private claimStreet(tiles: Set<number>, t: string) {
+    for (const k of tiles) if (this.occ.has(k)) tiles.delete(k); // a street goes round what already stands
+    this.paintSet(tiles, t);
+    for (const k of tiles) { this.kept.add(k); this.streets.add(k); }
+  }
+  /** A street along a curve through site tiles `pts` (Catmull-Rom), `w` tiles wide: paved (flagstones) and kept clear. */
+  street(pts: Pt[], w: number, t = 'paving'): Sample[] {
+    const c = spline(pts, 0.5);
+    this.claimStreet(this.band(c, w), t);
+    return c;
+  }
+  /** A plaza: an ellipse of paving (kept clear), centre (x, y), radii rx, ry. */
+  plaza(x: number, y: number, rx: number, ry: number, t = 'paving') {
+    this.claimStreet(this.tilesOf((i, j) => ((i + 0.5 - x) / rx) ** 2 + ((j + 0.5 - y) / ry) ** 2 <= 1), t);
+  }
+  /**
+   * A ramp from pts[0] along the curve `pts` (site tiles), `w` wide: level h0 for `flat` tiles, then a level lower every
+   * `run` tiles down to h1; paved, kept. Returns its foot (site tiles).
+   */
+  ramp(pts: Pt[], w: number, h0: number, h1: number, o: { run?: number; flat?: number; t?: string } = {}): Pt {
+    const run = o.run ?? 5, flat = o.flat ?? 0, c = spline(pts, 0.5), r = w / 2, R = Math.ceil(r), lv = new Map<number, number>();
+    for (const p of c) {
+      const h = Math.max(h1, h0 - Math.max(0, Math.ceil((p.s - flat) / run)));
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        const x = Math.floor(p.x + dx), y = Math.floor(p.y + dy), k = y * 4096 + x;
+        if (x < 0 || y < 0 || x >= this.w || y >= this.h || (x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 > r * r) continue;
+        lv.set(k, Math.max(lv.get(k) ?? -1, h));
+        this.vz.set(k, Math.max(this.vz.get(k) ?? -1, Math.max(h1, h0 - Math.max(0, (p.s - flat) / run))));
+      }
+    }
+    this.levelBy((x, y) => lv.get(y * 4096 + x));
+    this.claimStreet(new Set(lv.keys()), o.t ?? 'paving');
+    const e = c[c.length - 1];
+    return [e.x, e.y];
+  }
+  /**
+   * Pack a district's buildings into the free ground where `mask` holds, every lot fronting a street (its footprint
+   * within `front` tiles of one); a second pass to `back` fills the backs of the blocks. Empty lots stay as yards, now
+   * and then a `garden`; `alley`: chance of a kept 1-tile gap beside a building. Returns how many stand.
+   */
+  infill(mask: (x: number, y: number) => boolean, d: District, o: { seed?: number; front?: number; back?: number; garden?: string } = {}): number {
+    const seed = o.seed ?? 1, W = this.w, H = this.h, dist = new Int16Array(W * H).fill(-1), q: number[] = [];
+    for (const k of this.streets) { const x = k % 4096, y = Math.floor(k / 4096); if (x < W && y < H) { dist[y * W + x] = 0; q.push(y * W + x); } }
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h], x = i % W, y = Math.floor(i / W);
+      if (dist[i] >= 12) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, j = ny * W + nx;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || dist[j] >= 0) continue;
+        dist[j] = dist[i] + 1;
+        q.push(j);
+      }
+    }
+    const tot = d.ids.reduce((a, [, w]) => a + w, 0);
+    const choose = (r: number) => { let acc = 0; for (const [id, w] of d.ids) { acc += w / tot; if (r < acc) return id; } return d.ids[d.ids.length - 1][0]; };
+    let n = 0;
+    const pass = (lim: number) => {
+      const cand: number[] = [];
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = dist[y * W + x]; if (v >= 1 && v <= lim && mask(x, y)) cand.push(y * W + x); }
+      cand.sort((a, b) => dist[a] - dist[b] || hsh(a, seed, 5) - hsh(b, seed, 5));
+      for (const i of cand) {
+        const x = i % W, y = Math.floor(i / W), r = (k: number) => hsh(this.x0 + x, this.y0 + y, seed + k);
+        const id = choose(r(0)), [w, h] = this.fp(id);
+        if (!this.free(x, y, w, h)) continue;
+        let near = 99, ok = true;
+        const h0 = this.hAt(x, y);
+        for (let j = y; j < y + h && ok; j++) for (let k = x; k < x + w && ok; k++) {
+          if (!mask(k, j) || !this.dry(k, j) || this.hAt(k, j) !== h0) ok = false;
+          const v = dist[j * W + k];
+          if (v >= 0) near = Math.min(near, v);
+        }
+        if (!ok || near > lim) continue;
+        if (r(4) < (d.empty ?? 0)) { // an empty lot: a yard, now and then a garden
+          if (!(o.garden && r(6) < 0.4 && this.put(o.garden, x, y, { hp: d.hp[1] }))) this.keep(x, y, x + w, y + h);
+          continue;
+        }
+        if (this.put(id, x, y, { hp: Math.round((d.hp[0] + (d.hp[1] - d.hp[0]) * r(2)) * 100) / 100, ruined: r(1) < d.ruin })) {
+          n++;
+          if (r(3) < (d.alley ?? 0.15)) this.keep(x + w, y, x + w + 1, y + h);
+        }
+      }
+    };
+    pass(o.front ?? 1);
+    if (o.back) pass(o.back);
+    return n;
+  }
+  /**
+   * A wall tracing the closed outline `pts` (site tiles, a smooth ring, resampled every `step` tiles): an orthogonal
+   * staircase on a 4-tile lattice (legs >= 12 tiles, corners on the inner side, so the wall stays inside the outline),
+   * a tower on every corner and about every `every` tiles, a gate on the leg nearest each point of `gates`. Returns the
+   * gates as ring does, and the corners.
+   */
+  wallTrace(set: WallSet, pts: Pt[], o: { step?: number; gates?: Pt[]; every?: number; breach?: number; hp?: number; seed?: number } = {}): { gates: { side: Side4; at: Pt }[]; corners: Pt[] } {
+    const step = o.step ?? 20, L = 4, cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    const snap = (v: number) => Math.round(v / L) * L;
+    const all = spline([...pts, pts[0]], 1), ring = all.filter((p, i) => i === 0 || Math.floor(p.s / step) !== Math.floor(all[i - 1].s / step));
+    let v: Pt[] = [];
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      const c1: Pt = [b.x, a.y], c2: Pt = [a.x, b.y], c = Math.hypot(c1[0] - cx, c1[1] - cy) < Math.hypot(c2[0] - cx, c2[1] - cy) ? c1 : c2;
+      v.push([snap(a.x), snap(a.y)], [snap(c[0]), snap(c[1])]);
+    }
+    const clean = (u: Pt[]) => {
+      const out = u.filter((p, i) => { const q = u[(i + u.length - 1) % u.length]; return p[0] !== q[0] || p[1] !== q[1]; });
+      for (let changed = true; changed && out.length > 4;) {
+        changed = false;
+        for (let i = 0; i < out.length; i++) {
+          const p = out[(i + out.length - 1) % out.length], c = out[i], nx = out[(i + 1) % out.length];
+          if ((p[0] === c[0] && c[0] === nx[0]) || (p[1] === c[1] && c[1] === nx[1]) || (c[0] === nx[0] && c[1] === nx[1])) { out.splice(i, 1); changed = true; break; }
+        }
+      }
+      return out;
+    };
+    v = clean(v);
+    // a diagonal pair (both coordinates differ) gets a corner; legs shorter than 12: fold away
+    for (let guard = 0; guard < 600; guard++) {
+      let fixed = false;
+      for (let i = 0; i < v.length; i++) {
+        const a = v[i], b = v[(i + 1) % v.length];
+        if (a[0] !== b[0] && a[1] !== b[1]) { v.splice(i + 1, 0, [b[0], a[1]]); v = clean(v); fixed = true; break; }
+        if (v.length <= 4) continue;
+        const len = Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+        if (len >= 12) continue;
+        const c = v[(i + 2) % v.length];
+        if (a[0] === b[0]) c[0] = a[0]; else c[1] = a[1]; // b's successor moves onto a's line, b goes
+        v.splice((i + 1) % v.length, 1);
+        v = clean(v);
+        fixed = true;
+        break;
+      }
+      if (!fixed) break;
+    }
+    const inside = (x: number, y: number) => inPoly(v, x, y);
+    const gates: { side: Side4; at: Pt }[] = [], c = { every: o.every ?? 24, breach: o.breach, hp: o.hp, seed: o.seed, ends: false };
+    const want = (o.gates ?? []).map((g) => {
+      let best = -1, bd = Infinity;
+      v.forEach((a, i) => {
+        const b = v[(i + 1) % v.length], len = Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+        if (len < 16) return;
+        const t = Math.max(0.3, Math.min(0.7, a[0] === b[0] ? (g[1] - a[1]) / (b[1] - a[1]) : (g[0] - a[0]) / (b[0] - a[0])));
+        const dd = Math.hypot(a[0] + (b[0] - a[0]) * t - g[0], a[1] + (b[1] - a[1]) * t - g[1]);
+        if (dd < bd) (bd = dd), (best = i);
+      });
+      return best;
+    });
+    // tune each leg by a tile or two so its run closes with the towers it wants (about one every `every` tiles)
+    for (let i = 0; i < v.length; i++) {
+      const n = v.length, a = v[i], b = v[(i + 1) % n], nx = v[(i + 2) % n], ax = a[1] === b[1] ? 0 : 1;
+      if ((i + 1) % n === 0 || (i + 2) % n === 0) continue;
+      const run = Math.abs(b[ax] - a[ax]) - 3, g = want.includes(i) ? 1 : 0, sg = Math.sign(b[ax] - a[ax]);
+      for (const d of [0, 1, -1, 2, -2, 3]) {
+        const r = run + d, t = Math.max(0, Math.round(r / c.every) - 1 - g), rest = r - 6 * g - 3 * t;
+        if (r < 9 || rest < 0 || rest % 4) continue;
+        b[ax] += sg * d; nx[ax] += sg * d;
+        break;
+      }
+    }
+    for (const p of v) this.put(set.tower, p[0], p[1], { hp: o.hp ?? 0.6 });
+    v.forEach((a, i) => {
+      const b = v[(i + 1) % v.length], gi = want.indexOf(i), g = gi >= 0 ? o.gates![gi] : undefined;
+      if (a[1] === b[1]) {
+        const x0 = Math.min(a[0], b[0]) + 3, len = Math.abs(b[0] - a[0]) - 3, outer = inside(x0 + len / 2, a[1] - 0.5) ? '+' : '-';
+        const at = this.line(set, 'x', x0, a[1], len, { ...c, outer, gates: g ? [Math.max(0.2, Math.min(0.8, (g[0] - x0) / len))] : [] });
+        for (const [px, py] of at) gates.push({ side: outer === '-' ? 'N' : 'S', at: [px + 3, py + 1.5] });
+      } else {
+        const y0 = Math.min(a[1], b[1]) + 3, len = Math.abs(b[1] - a[1]) - 3, outer = inside(a[0] - 0.5, y0 + len / 2) ? '+' : '-';
+        const at = this.line(set, 'y', a[0], y0, len, { ...c, outer, gates: g ? [Math.max(0.2, Math.min(0.8, (g[1] - y0) / len))] : [] });
+        for (const [px, py] of at) gates.push({ side: outer === '-' ? 'W' : 'E', at: [px + 1.5, py + 3] });
+      }
+    });
+    return { gates, corners: v };
+  }
+}
+/** Whether (x, y) lies inside polygon `p` (even-odd). */
+export function inPoly(p: Pt[], x: number, y: number) {
+  let c = false;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) if ((p[i][1] > y) !== (p[j][1] > y) && x < ((p[j][0] - p[i][0]) * (y - p[i][1])) / (p[j][1] - p[i][1]) + p[i][0]) c = !c;
+  return c;
 }
 /** A landmark guardian's posts in its site's tiles (from the NW corner); heads 'shore': six on the land by the water nearest its post. */
 interface LGuard { boss: string; at: Pt; perches?: Pt[]; pit?: Pt; postern?: Pt; flats?: Pt | 'water'; heads?: 'shore' | Pt[] }
@@ -887,14 +1125,27 @@ const PREBUILT_POP = new Set<BuildingType>(['house', 'cottage', 'tent']);
 
 interface Out { kind: Uint8Array; z: Uint8Array }
 
+/** Biome libraries with a paving set (scripts/war/art/biomes/*.mjs grass- or sand-paving); elsewhere paved streets draw as roads. */
+const PAVED = new Set<string>(['kyrene', 'elaia', 'mountains']);
 /** The visual layer of a fine (1 m) run. */
 function visualLayer(k: Kit): Out {
   const { W, H, N, height, terrain, water, biome, bDepth, rock, roadDist, style } = k;
   const SLOPE = 6, STEP = 3, PEAK_LO = 18, SNOW_Z = 33;
   const ridged = (x: number, y: number, scale: number, seed: number) => 1 - Math.abs(noise(x / scale, y / scale, seed));
   const kind = new Uint8Array(N), zv = new Uint8Array(N);
+  // W-48 landmark relief: a site's levels drawn `lift` times as tall above its base (cliffs, terraces and retaining
+  // walls read as metres, not steps; the sim keeps its levels), ramps by their smooth slope (Site.vz)
+  const lifted = k.sites.filter((s) => s.lift > 1);
   k.each((i, x, y) => {
     let z = height[i];
+    if (lifted.length && terrain[i] !== 'rock' && !water[i]) {
+      const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
+      for (const s of lifted) {
+        if (tx < s.x0 || ty < s.y0 || tx >= s.x0 + s.w || ty >= s.y0 + s.h || height[i] <= s.base) continue;
+        const hv = s.vz.get((ty - s.y0) * 4096 + tx - s.x0) ?? height[i];
+        z = Math.min(ZVIS, Math.round(s.base + (hv - s.base) * s.lift));
+      }
+    }
     if (terrain[i] === 'rock' && rock[i] > -Infinity) {
       const e = rock[i] + 1.2 * fbm(x, y, 5, 41);
       const peak = PEAK_LO + (ZVIS - PEAK_LO) * (0.65 * ridged(x, y, 11, 43) + 0.35 * ridged(x, y, 5, 44)) ** 1.6;
@@ -926,7 +1177,7 @@ function visualLayer(k: Kit): Out {
     let out = t0 as Kind;
     const b = BIOMES[biome[i]];
     if (b !== 'global' && b !== 'dodona' && bDepth[i] >= 2 && !water[i]) {
-      const p = k.patches.find((q) => q.biome === b && q.on.includes(t0) && inBlob(x, y, q.b, q.seed));
+      const p = k.patches.find((q) => q.biome === b && q.on.includes(t0) && (q.maxH === undefined || height[i] <= q.maxH) && (q.minH === undefined || height[i] >= q.minH) && inBlob(x, y, q.b, q.seed));
       if (p) out = p.kind;
       else if (b === 'mountains') {
         if (t0 === 'grass' || t0 === 'forest' || t0 === 'dirt') {
@@ -941,7 +1192,7 @@ function visualLayer(k: Kit): Out {
         if ((style.dryHigh && height[i] >= 2) || fbm(x, y, 7, 86) > style.dry) out = 'dry';
       }
     }
-    kind[i] = KINDS.indexOf(out);
+    kind[i] = KINDS.indexOf(k.paved[i] && t0 === 'road' && PAVED.has(BIOMES[biome[i]]) ? 'paving' : out);
   });
   return { kind, z: zv };
 }
@@ -1295,6 +1546,12 @@ export function build(def: RegionDef): Built {
       guardians.push(e);
     }
     log.push(`landmark ${L.id}: ${n} pieces (${ruins} ruined${skipped ? `, ${skipped} blocked` : ''}), ${L.guardians.map((g) => g.boss).join(' + ')}`);
+  }
+  // W-48 waterfalls: the fall at the cliff's foot, the foam of its plunge pool (on the water, as placed)
+  for (const f of k.falls) {
+    const [x, y] = tileOf(f.at), [fx, fy] = tileOf(f.pool);
+    put('elaia/waterfall', x + 0.5, y + 0.5);
+    put('elaia/falls-foam', fx + 0.5, fy + 0.5);
   }
   for (const r of k.reqs) {
     if (r.kind === 'piece') {

@@ -32,6 +32,7 @@ const def: RegionDef = {
     k.cut(G, { h: 1, half: 11, bank: 0, t: 'sand' });
     k.river(G.slice(1), { half: 4.5, bed: 0, bank: 0.5, fords: [[102, 192]], fordHalf: 1.8, name: 'gorge' });
     k.spot('falls', [108, 64]);
+    k.fall([108, 66.5], [107.5, 70]);
     // the gorge walls: crags along both rims (massifs over them), the falls' lip at the head
     for (const dx of [-15, 15]) k.mountains(G.slice(1).map(([x, y]) => [x + dx, y] as [number, number]), { width: 3.2, wave: 1, foot: 4 });
     k.rockMass([96, 60, 8, 6, 0.3], { rough: 1, foot: 4 });

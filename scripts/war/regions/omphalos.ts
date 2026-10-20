@@ -21,21 +21,25 @@ const def: RegionDef = {
     k.zone('elaia', [128, 128, 104, 98, 0.1], 6);
     k.zone('kyrene', [262, 200, 40, 70, 0.2], 6);
     // the mesa
-    k.plateau([128, 128, 92, 86, 0.2], 6, { rough: 6 });
+    k.plateau([128, 128, 92, 86, 0.2], 5, { rough: 6 });
     k.spot('mesa', [128, 92]);
     // the crater lake in its bowl, the acropolis knoll
     k.waterBody([96, 98, 22, 17, 0.4], { shore: 3, beach: 2 });
-    k.hill([76, 178, 14, 10, 0.5], 7, 3, 2);
+    k.hill([76, 178, 9, 6, 0.5], 7, 3, 2); // the acropolis knoll (inside the rim)
     k.forest([84, 196, 10, 6, 0.3], [176, 64, 8, 5, 0.2]);
     // the Achelous: spring pool, across the mesa (bed 5), over the south rim, deep below (narrows)
     k.waterBody([108, 138, 4, 3, 0], { deep: false, beach: 1 });
-    k.river([[108, 140], [104, 164], [114, 190], [110, 214], [118, 236], [110, 262]], { half: 2.2, deep: false, bed: (s) => (s < 76 ? 5 : 1), bank: 0.25 });
+    k.river([[108, 140], [104, 164], [114, 190], [110, 214], [118, 236], [110, 262]], { half: 2.2, deep: false, bed: (s) => (s < 76 ? 4 : 1), bank: 0.25 });
     k.river([[110, 220], [118, 236], [110, 262]], { half: 4, bed: 1, bank: 1, narrows: [[[116, 232], 2.5]], name: 'achelous' });
     k.spot('falls', [111, 213]);
+    // the plunge pool under the falls (the rim stays a cliff there: the falls are no way up)
+    k.basin([112, 221, 8, 6, 0], 1, 0, 1);
+    k.waterBody([112, 221, 4, 3, 0], { deep: true, shore: 1, beach: 0 });
+    k.fall([111.5, 216.5], [112, 220]);
     k.spot('fortress', [128, 92]);
     // M7d / W-48: the Temple City of the Navel over the whole mesa top: the ramp gate forts, the processional ways to
     // the Great Fair and the precinct, the Titan in his arena, the Minotaur in the labyrinth
-    const C = templeCity(k, [44, 46], 6);
+    const C = templeCity(k, [44, 46], 5);
     for (const [n, v] of Object.entries(C.spots)) k.spot(n, v);
     k.spot('acropolis', C.spots.precinct);
     // the four ramps (built up from the skirt) up to the gate forts

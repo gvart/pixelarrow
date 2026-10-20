@@ -15,6 +15,7 @@ export const FILLS = {
   reg: { dir: 'sand-reg', frame: 0, grade: { sat: 0.9, val: 0.95 } },
   salt: { dir: 'sand-salt', frame: 0, grade: { sat: 0.5, val: 0.6 } },
   oasis: { dir: 'sand-oasis', frame: 0, grade: { sat: 0.85, val: 0.82 } },
+  paving: { dir: 'sand-paving', frame: 0, grade: { sat: 0.7, val: 0.8 } }, // W-48 landmark streets (the Dead City)
 };
 
 export const SETS = [
@@ -24,6 +25,7 @@ export const SETS = [
   { pair: 'sand-reg', first: 'sand', second: 'reg', dir: 'sand-reg', side: 'earth', source: 'tiles_pro ebedeac5 (ART-7)' },
   { pair: 'sand-salt', first: 'sand', second: 'salt', dir: 'sand-salt', side: 'earth', source: 'tiles_pro 1c47a090 (ART-7)' },
   { pair: 'sand-oasis', first: 'sand', second: 'oasis', dir: 'sand-oasis', side: 'earth', source: 'tiles_pro 83db5c22 (ART-7)' },
+  { pair: 'sand-paving', first: 'sand', second: 'paving', dir: 'sand-paving', side: 'earth', source: 'tiles_pro 7facd3d0 (W-48)' },
 ];
 
 // 'fills' = tiles_pro 3fa738fa (ART-7): 2 independent tiles per item, top vertex at y 11 (items: dune x2, hardpan,
@@ -46,7 +48,7 @@ export const CLIFFS = [{ id: 'redrock', from: 'redrock' }];
 // gets a sand verge. Water: oasis-shallow and dune-shallow get a sand bank (sand-shallow is a global set).
 export const FALLBACK = {
   note: 'Same rule as the global tiles.json fallback, over the global sheets plus these, but the land buffer is sand: Kyrene terrains only have a set with sand, so any other pair (dune-hardpan, oasis-shallow, redrock-grass, ...) gets a sand verge; order says which corner gives way first.',
-  order: ['deep', 'shallow', 'marsh', 'grass', 'dirt', 'oasis', 'salt', 'hardpan', 'reg', 'dune', 'forest', 'redrock', 'rock', 'road', 'sand'],
+  order: ['deep', 'shallow', 'marsh', 'grass', 'dirt', 'oasis', 'salt', 'hardpan', 'reg', 'dune', 'forest', 'redrock', 'rock', 'road', 'paving', 'sand'],
   buffer: { water: 'shallow', land: 'sand' },
 };
 

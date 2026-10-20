@@ -381,13 +381,17 @@ Nine pre-built strongholds, one in every depth-3 and depth-4 neutral, so each ho
 distance (two gates and two rim edges each side of it, Omphalos for all). Each is authored as pre-built structures
 (next section) that start **neutral at 60% hp, gates shut**, held by its guardian.
 
-W-48 scale (`scripts/war/regions/landmarks.ts`, the kit's `Site`): each is a real place at 1 tile = 2 m, its walls in
-8 m segments with towers and gates where the roads come in, its streets, blocks and lots by district. The Dead City is
-a 480 × 400 m walled grid (806 pieces: agora, precinct, walled palace acropolis, quarters, four bandit strongholds,
-the necropolis outside), the Citadel 370 × 260 m (outer curtain with barbican, outer and inner wards, donjon, the ruined
-village below the switchbacks, 408), the Temple City the whole mesa top (552); the rest 100–250 pieces. Their condition
-follows the lore: fortifications at 60%, dwellings and quarters lower or in ruins (shells), and at most 12 homes
-standing in the Dead City (8–10 elsewhere) so the recruit pools above hold.
+W-48 scale (`scripts/war/regions/landmarks.ts`, the kit's `Site`): each is a real place at 1 tile = 2 m, laid out from its
+Gemini reference (W-49, `shots/war/landmarks/proto/<id>/`): streets that follow the ground (paved avenues, winding
+lanes, plazas with wells), lots packed along every street (courtyard houses, tenements, gardens), walls tracing the
+natural edge (`wallTrace`: an orthogonal run with a tower on every turn), gates at the head of the ramps. Height is real
+in the sim: tiers two levels apart are cliffs (impassable but by their ramps), so the high ground commands the low; the
+view draws a site's relief `lift` times as tall (visual only). The Dead City (1361 pieces) crowns a butte three tiers
+high (lower city h3, upper city h5 with the precinct, acropolis h7) over the salt flats; the Citadel (575) a crag two
+tiers over the glacier (outer ward, inner ward with the keep), the switchbacks up to a forecourt and barbican; the
+Temple City (1389) the mesa top (h5) with the sanctuary terrace at h7; the rest 100–250 pieces. Their condition follows
+the lore: fortifications at 60%, dwellings and quarters lower or in ruins (shells), and at most 12 homes standing in the
+Dead City (8–10 elsewhere) so the recruit pools above hold.
 
 | Landmark | Region (depth) | Pre-built layout | Guardian, phases | To take | Once held (restored) | Rare good |
 | --- | --- | --- | --- | --- | --- | --- |

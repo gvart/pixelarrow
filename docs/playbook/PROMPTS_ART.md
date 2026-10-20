@@ -2789,3 +2789,100 @@ drawn roof tiles, Ammon mudbrick, basalt) so the cities read as one set with the
   and keeps the roof only over the parts still standing whole ("roof half fallen").
 - Lesson: adding pieces re-picks the 64-colour landmark palette, so every landmark PNG re-snaps a little; regenerate
   the whole set (`node scripts/war/art/landmarks.mjs`, about 2 min) and run its QA.
+
+### 40f Landmark architecture by PixelLab
+
+The dwellings, halls, temples, towers and gates of the big landmarks (W-48) redrawn as PixelLab map objects in place of
+the 40e box models, same ids, footprints, kinds and hp, so the layouts did not change. The box renderer keeps the wall
+segments (they must tile seamlessly), the labyrinth kit, the gates that join a wall run exactly (`arch-gate-x/y`,
+`citadel-gatehouse-x/y`, `cyclops-*`, `obsidian-*`, `navel-ramp-gate-*`), the temple of Ammon, the big set pieces
+(`navel-temple`, `navel-arena`, `arch-theatre`: wider than PixelLab's 400 px canvas) and every small landmark's own
+pieces. Build: `node scripts/war/art/landmarks-pl.mjs --fetch` (raws by id from `landmarks-pl-jobs.json` into
+`shots/war/pixellab/landmarks-pl/raw/`), `--inits` (the state inits), then `node scripts/war/art/landmarks.mjs` (takes
+a PixelLab piece wherever all four of its states exist; ends with the landmark QA). Reference for the Dead City:
+`shots/war/landmarks/proto/ammon/ammon_1.png` (Gemini, the city agent's prototype).
+
+**Recipe.** `create_map_object`, view high top-down, high detail, detailed shading, canvas about the footprint
+diamond's width ((fw + fh) x 32 px, a multiple of 4) by its height. Every subject ends `, seen from a high isometric
+three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent background,
+no grass, no plants` (+ `no sand` in the desert). Processing (`landmarks-pl.mjs`): key the flat background (PixelLab
+returned an opaque cream or grey one about half the time), flood out green ground, grade sat 0.62 / val 0.78, scale to
+`fill` x the diamond width, foot = bottom row = the footprint's south vertex, then **clip everything below the
+footprint's two near edges** (the ground slab PixelLab paints under most buildings stays as the plot's yard; it never
+pokes into the street). Damaged and ruined: `create_image_pixflux` img2img (isometric, no_background) over an init
+cut from the intact frame: damaged = five ragged breaches charred to 40% (not holes), soot, strength 150; ruined =
+everything above a jagged line at half height gone, soot, strength 130 (140 and a flatter line, `flatRuin`, for the
+palace, keep, towers and gates). State raws are graded sat x1.1, val x1.12 back toward the intact tone. Restored = the
+intact raw graded fresher (sat x1.15, val x1.1) with a dark-red pennant drawn on its highest point (no generation).
+`-y` gates and barbicans are the `-x` sprite mirrored (the raw Ammon gate stands along y, so `-x` is the mirror).
+
+| piece (footprint) | subject (verbatim start) | result |
+| --- | --- | --- |
+| ammon-house-a (3x3) | `an ancient desert town house of the oasis city of Ammon: a plain square one-storey house of sun-dried mudbrick walls with a pale lime-plaster wash ...` | kept |
+| ammon-house-b (3x3) | `an ancient desert town house of tan sun-dried mudbrick: a two-storey cube house ... a flat roof with a smooth rounded mud lip, no crenellations, no merlons, a mudbrick stair climbing its side wall ...` | kept (2nd; the 1st had a grass slab and notched parapet) |
+| ammon-house-c (4x4) | `an ancient desert courtyard house ...: a square block of one- and two-storey wings of sun-dried tan mudbrick round an open inner courtyard ...` | kept, first try |
+| ammon-house-d (2x2, new) | `a tiny one-room hut of sun-dried tan mudbrick of an ancient desert city, a flat palm-beam roof with a low lip ...` | kept |
+| ammon-tenement (4x3) | `an ancient desert city tenement of tan sun-dried mudbrick: a tall rectangular three-storey apartment block ...` | kept with drift (merlons came back) |
+| ammon-workshop (4x3) | `an ancient desert city potter's workshop of tan mudbrick: a flat-roofed back room, a reed-mat awning on palm-trunk posts ...` | kept |
+| ammon-palace (6x6) | `a royal palace of an ancient desert city: a large closed rectangular hall building with a flat roof, tan mudbrick walls on a high grey limestone podium ... six tall red-painted Greek columns ...` | kept (2nd; the 1st an open roofless box) |
+| ammon-tomb (3x3) | `an ancient Egyptian mastaba tomb: a low rectangular bench-shaped tomb of pale weathered limestone blocks ...` | kept |
+| ammon-tower (3x3) | `a square city wall tower of an ancient desert city: battered sloping walls of tan mudbrick in set-backs ...` | kept |
+| ammon-gate-x/y (6x3) | `a city gate of an ancient desert city in Egyptian pylon style: two massive battered tan mudbrick gate towers ...` | kept |
+| ammon-temple (4x6) | `an ancient Egyptian temple ... a massive pylon ...` (3 tries) | rejected: an open court with an obelisk, then a square pylon on grass; box model kept |
+| arch-house-a/b/c, garden, tenement, workshop, treasury, chapel, cistern, barracks, stables, forge, tomb-a/b, tower, barbican | Greek: `limewashed rubble-stone`, `grey isodomic ashlar`, `dark weathered terracotta tiles` named in every prompt | all kept first try (cistern: a 170 px canvas fails with 422, use multiples of 4); stables mirrored to lie along x |
+| arch-gate-x, citadel-gatehouse-x | `... city gate ... the gate seen from its front` | rejected: frontal elevations; box gates kept |
+| citadel-keep (6x6), citadel-tower (3x3) | `the keep of a grim ancient Mycenaean mountain citadel: a massive square tower-house of giant rough cyclopean stone blocks ...` | kept |
+
+**Lessons:** (1) PixelLab paints a ground slab under most buildings; colour-flooding it out eats sand-coloured mudbrick
+walls, so clip to the footprint instead and let the slab be the yard. (2) A transparent hole in an img2img init comes
+back as flat grey, and a flat dark disc stays a disc on the roof; char the init's pixels in ragged shapes instead.
+(3) A jagged ruin line turns into stalagmite spikes on tall pieces; cut flatter and say `low broken stumps of even
+height, no spikes`. (4) "parapet" brings merlons; say `a smooth rounded mud lip`. (5) Long and gate pieces come out
+in a random axis: check each and mirror. (6) "an Egyptian temple" gives a court with an obelisk or a lone pylon; the
+4x6 temple stays a box model.
+
+### 40g Landmark references by Gemini, paving and waterfalls (W-49)
+
+W-49: a landmark's layout is built from a Gemini prototype, not invented in code. Gemini (Pro), 9 generations, one fresh
+chat each, captured in-page as in §21b (devicePixelRatio 1: the image drawn on a canvas, shown in a fixed overlay and
+taken with `computer zoom`, four 512 px quadrants stitched, or the whole image at 900 px). References in
+`shots/war/landmarks/proto/<id>/<id>_1.png` (git-ignored). All nine prompts share this frame (`{…}` per landmark):
+
+```
+Create an image. ROLE: a design prototype of one landmark {city|fortress} for a dark, epic ancient-Mediterranean real-time war strategy game; armies of tiny soldiers will later fight here. ASPECT: square 1:1, highest resolution available. VIEW: true ISOMETRIC game view, 2:1 dimetric projection (ground lines at about 26.6 degrees, like classic isometric strategy games), seen from above at an angle, no perspective, no horizon, no sky. STYLE: detailed pixel-art game art, visible square pixels, dark muted epic palette ({PALETTE}), no pure black or white, light from the upper left. SUBJECT: {SUBJECT} Nothing else: no text, no labels, no letters, no numbers, no icons, no soldiers, no people, no animals, no {EXTRA} banners, no frame, no UI; nothing else.
+```
+
+| id | SUBJECT (start, verbatim) | Verdict |
+| --- | --- | --- |
+| ammon | `the Dead City of Ammon, a vast abandoned Greek-Egyptian desert city crowning a great flat-topped red-rock butte that rises on sheer cliff walls out of white salt flats beside a dead, still, dark lake. The city fills the whole butte top: an organic, grown street plan, not a grid: two wide paved main avenues from the gates that meet at the agora, and many narrow winding lanes between dense irregular blocks …; a walled temple precinct with an Egyptian pylon temple of Ammon and a sacred way of statues; on the highest rocky knoll an acropolis with a palace of columns behind its own wall … A thick battered mudbrick city wall with square towers follows the irregular edge of the butte cliff exactly, with two big pylon gates where ramp roads climb up the cliff, and a small postern stair down to the lake. Half the city is in ruins … Outside the wall at the butte foot, a necropolis of mastaba tombs along a dirt road.` | kept, first try: THE reference |
+| citadel | `Drakon's Citadel … crowning a huge rocky crag that rises out of a glacier in snowy mountains. The castle complex follows the rock: an outer curtain wall of giant cyclopean blocks with square towers runs exactly along the irregular cliff edge …; higher up, an inner ward behind a second, taller wall following the next rock terrace; on the highest summit the keep … One switchback road climbs the crag face in hairpin turns to a barbican and a twin-towered gatehouse; at the crag foot a small ruined village …` (extra: `no dragon`) | kept; crenellations read medieval, the layout is the point |
+| navel | `the Temple City of the Navel … covering the flat top of a huge high mesa … A round crater lake …; a broad processional way paved with marble … passes a great agora with four long colonnaded stoas … and leads to a walled sanctuary (peribolos) round the great Doric temple on a stepped platform …; a theatre cut into a slope and a labyrinth …; a round arena …; quarters of pilgrims' houses and inns along winding lanes, mostly roofless ruins … Each of the four ramps up the cliff ends at a small gate fort with two towers.` | kept |
+| rim | `the Rim Watchtower, an ancient Greek beacon fort on a tall sea stack …: a tall round ashlar beacon tower with a bronze fire basket …, a walled stone stair winds up the stack's cliff face in flights and landings …, at the foot a dark sea cave with a stone quay in it.` (extra: `no ships`) | kept |
+| sunken | `the Sunken Temple of the river god Achelous in a vast delta marsh: … a half-sunk Greek peristyle temple …, a colonnade wall, two small shrines, a rock spring basin with a horned head spout, a drowned quarter …, a stone jetty …; causeways of big flat stepping stones cross the shallow fords …` (extra: `no boats`) | kept |
+| cyclops | `the Cyclopean Gatehouse on a high mountain saddle: a switchback road climbs a steep rocky ramp in hairpin turns to the saddle top, where a massive Mycenaean gatehouse of giant rough-hewn boulder blocks stands astride the road, … one monstrous lintel with a relieving triangle …` | kept |
+| oracle | `the Oracle Grove, a sacred grove of huge ancient oaks …: a small Ionic shrine … ringed by six bronze tripod cauldrons; … two spring basins …, the priestess's fieldstone house …; a low ring wall …` | kept |
+| forge | `the Titan's Forge in a deep river gorge below a great waterfall: on a broad rock ledge beside the falls, a giant's forge yard with a dark iron anvil …, a water wheel turned by the falls …; a natural rock bridge spans the gorge … with two square cliffside guard towers …; narrow paths cut along both cliff walls …` (extra: `no giants`) | kept; the owner's pick for altitude and waterfalls |
+| obsidian | `the Obsidian Hold, a rock-cut stronghold on a flat-topped black basalt mesa over a junction of red-rock canyons: walls hewn from the living basalt follow the mesa's cliff edge in terraces at two levels …; a rock-cut gate with a natural rock bridge …; a domed kiln over a glowing volcanic fissure; fields of sharp black obsidian glass …` | kept |
+
+**Paving** (visual kind `paving`, sim terrain road; Kyrene, Elaia and Mountains libraries only, so the global palette and
+the building, siege, trade and landmark QA stay untouched): `create_tiles_pro`, isometric 64, low top-down,
+`tile_feature: tileset`, seed 31 (64 x 48 tiles as before; 10–25 generations each by canvas).
+
+| Set | Call | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| sand-paving (Kyrene) | `7facd3d0` | `pale dull dry sand to worn ancient city street paving of large irregular flat grey-tan limestone flagstones with dark joints and drifted sand in the cracks, dark epic desaturated ancient North African desert city` | kept; fill graded sat 0.7 / val 0.8 |
+| grass-paving (Elaia, Mountains) | `03a3bc68` | `dull dark olive grass to worn ancient Greek city street paving of large irregular flat grey limestone flagstones with dark joints and small weeds in the cracks, dark epic desaturated ancient Mediterranean` | kept; graded sat 0.45 / val 1 (pale marble; 0.75 read as wet slate) |
+
+**Waterfalls** (`elaia/waterfall`, `elaia/falls-foam`, placed by `Kit.fall` at Omphalos' south rim and the head of the
+Gorge): `create_map_object`, high top-down, high detail, detailed shading.
+
+| id | Call | Canvas | Subject (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| waterfall | `8fdf1472` | 96 x 160 | `a narrow waterfall pouring straight down over a dark grey rock cliff face: a curtain of white foaming water falling into a churning foam pool at its foot, mist and spray around the base, seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the waterfall and its rock face on a fully transparent background, no ground, no grass, no trees` | a pale column, no rock face; graded sat 0.45 / val 0.72 |
+| falls-foam | `871f74b0` | 96 x 64 | `a churning white foam pool of a waterfall's plunge: swirling white foam and spray mist over dark water ringed by wet black rocks, seen from a high isometric three-quarter view, dark epic desaturated colours, only the foam pool on a fully transparent background, no grass` | kept |
+
+**Lessons:** (1) The isometric framing that made the region maps (§21b) makes landmark prototypes too: every one came
+first try and each reads as a real place (streets that follow the ground, walls on the cliff edge, gates at the ramp
+heads). (2) A global tile set re-picks the global palette and fails every library snapped to it (buildings, siege,
+trade, landmarks): new terrains go into the biome libraries. (3) The view draws all water at one level, so a fall over
+a cliff shows only as its sprite over flat water; a real cascade needs per-cell water levels in `src/war/view/iso.ts`.

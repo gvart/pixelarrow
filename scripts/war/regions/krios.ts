@@ -43,7 +43,7 @@ const def: RegionDef = {
     // roads: W up the glacier to the col; the fork E down the defile and S down the valley to Kleisoura
     // M7d / W-48: Drakon's Citadel on the glacier shoulder south of the col (100 x 92 units): its west and east gates on
     // spur roads from the valley road and the defile, its barbican and switchbacks down to the ruined village south
-    const C = citadel(k, [112, 117], 4);
+    const C = citadel(k, [112, 117], 3);
     for (const [n, v] of Object.entries(C.spots)) k.spot(n, v);
     k.road([W, [24, 128], [52, 112], [80, 104], [98, 102.5], [124, 104], [146, 110]], { w: 1.1, grade: 4 });
     k.road([[146, 110], [176, 112], [212, 114], [236, 128], E], { w: 1.4, grade: 4 });
