@@ -1,0 +1,33 @@
+scripts/war/world-art/guide.mjs
+  s_cfc22b058125c4::t_df7d6256c9b8d6 1-89,91-94,96-114
+  s_cfc22b058125c4::t_c39d89a41009ce 95
+  s_cfc22b058125c4::t_25c4b2e2d539b7 90
+scripts/war/world-art/features.mjs
+  s_cfc22b058125c4::t_910f0168590532 1-96
+scripts/war/world-art/ink.mjs
+  s_cfc22b058125c4::t_05c2059bae8cf9 1-96
+scripts/war/world-art/raster.mjs
+  s_cfc22b058125c4::t_77d6489c82c066 23
+  s_cfc22b058125c4::t_1db650f2303e7d 21-22
+  s_cfc22b058125c4::t_61b9c6da465bed 42
+  s_cfc22b058125c4::t_ec3f4001190320 39
+scripts/war/world-art/layout.mjs
+  s_cfc22b058125c4::t_a2d43248dff66e 49
+  s_cfc22b058125c4::t_1db650f2303e7d 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d466608808af3cf2d900e776eb0157b355d76d4f",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
