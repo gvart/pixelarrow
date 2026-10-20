@@ -1,0 +1,56 @@
+src/war/regions/delta.json
+  s_cfc22b058125c4::t_55c838556c517b 1
+src/war/regions/elaia-n.json
+  s_cfc22b058125c4::t_55c838556c517b 1
+src/war/regions/achelous.json
+  s_cfc22b058125c4::t_f516d3755a70e6 1
+src/war/regions/dodona.json
+  s_cfc22b058125c4::t_f516d3755a70e6 1
+src/war/regions/kleisoura.json
+  s_cfc22b058125c4::t_f516d3755a70e6 1
+src/war/regions/ammos.json
+  s_cfc22b058125c4::t_f516d3755a70e6 1
+src/war/regions/skythia-s.json
+  s_cfc22b058125c4::t_55c838556c517b 1
+src/war/regions/elaia.json
+  s_cfc22b058125c4::t_ee8c561aa310a9 1
+src/war/regions/bacchae.json
+  s_cfc22b058125c4::t_55c838556c517b 1
+src/war/regions/skythia.json
+  s_cfc22b058125c4::t_f516d3755a70e6 1
+scripts/war/regions/elaia.ts
+  s_cfc22b058125c4::t_ee8c561aa310a9 75
+src/war/regions/elaia-e.json
+  s_cfc22b058125c4::t_55c838556c517b 1
+src/war/regions/kyrene-w.json
+  s_cfc22b058125c4::t_55c838556c517b 1
+src/war/regions/dodona-s.json
+  s_cfc22b058125c4::t_55c838556c517b 1
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_078ad94b4eaa0a 854-862
+  s_cfc22b058125c4::t_f516d3755a70e6 507-508
+scripts/war/regions/drafts.ts
+  s_cfc22b058125c4::t_55c838556c517b 277-278,284
+src/war/regions/kyrene.json
+  s_cfc22b058125c4::t_f516d3755a70e6 1
+src/war/regions/stymphalia.json
+  s_cfc22b058125c4::t_f516d3755a70e6 1
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_8a3e774829fd9a 2508-2538
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f2089afc806020ad6dba8d6461cb1da7738ce908",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
