@@ -1,0 +1,23 @@
+src/war/world-view/map.ts
+  s_cfc22b058125c4::t_71dc07a0b0e973 8-10
+  s_cfc22b058125c4::t_de911890c85acf 11,350-354,370,372,377-383,386-394,396-407,433-437,447-462
+  s_cfc22b058125c4::t_01c8582704f9a5 329-349,355-358,365-369,371,373-376,384-385,395,408-432,438-441,443,467,470,472,478,480,484-487
+  s_cfc22b058125c4::t_8c7478243ca0a5 360-364
+  s_cfc22b058125c4::t_56dd51cd4dc659 359,464
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ca8d8a3849ad5e047918726ca6a86b395a82bdcc",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
