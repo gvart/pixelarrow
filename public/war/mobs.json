@@ -4,7 +4,7 @@
   "wolf": { "sheet": "mob_wolf", "hostile": true, "tier": 1, "pack": true, "shoulderM": 0.8, "attack": "bite", "biomes": ["fjord", "heath", "oakwood", "steppe", "kurgan"] },
   "boar": { "sheet": "mob_boar", "hostile": true, "tier": 1, "pack": false, "shoulderM": 0.9, "attack": "gore", "biomes": ["heath", "oakwood", "chalk", "floodplain", "fens", "elaia"] },
   "bear": { "sheet": "mob_bear", "hostile": true, "tier": 2, "pack": false, "shoulderM": 1.2, "attack": "swipe", "biomes": ["fjord", "foothills", "mountains"] },
-  "bandit": { "sheet": "mob_bandit", "hostile": true, "tier": 1, "pack": true, "heightM": 1.76, "attack": "thrust", "biomes": ["foothills", "lagoon", "cape", "mountains"], "note": "the militia sheet with a ragged mud-brown cloak: every soldier clip (thrust, fallFwd, fallBack, ...)" },
+  "bandit": { "sheet": "mob_bandit", "hostile": true, "tier": 1, "pack": true, "heightM": 1.76, "attack": "thrust", "biomes": ["foothills", "lagoon", "cape", "mountains"], "note": "its own outfit (hooded mud-brown cloak, face wrap, leather scraps, short sword) on the militia base: every soldier clip (thrust, fallFwd, fallBack, ...)" },
   "jackal": { "sheet": "mob_jackal", "hostile": true, "tier": 1, "pack": true, "shoulderM": 0.65, "attack": "bite", "biomes": ["kyrene"], "note": "the wolf's frames, smaller and tinted sandy" },
   "ibex": { "sheet": "mob_ibex", "hostile": false, "flees": true, "tier": 0, "pack": true, "shoulderM": 0.9, "attack": null, "biomes": ["mountains"] }
  }
