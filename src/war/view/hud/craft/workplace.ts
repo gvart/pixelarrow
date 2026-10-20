@@ -48,11 +48,11 @@ function outIcon(r: Recipe, px = 24): string {
   if (r.out.item || r.out.tool) return itemIcon({ uid: '', def: (r.out.item ?? r.out.tool)!, rarity: 'common', cond: 100 }, px);
   const res = r.out.good ?? (r.out.product && PRODUCT_RES[r.out.product]);
   if (res) return `<img src="war/ui/icons/24/res-${res}.png" srcset="war/ui/icons/24/res-${res}@2x.png 2x" width="${px}" height="${px}" alt="">`;
-  return `<span style="display:flex;width:${px}px;height:${px}px;align-items:center;justify-content:center;font:700 8px/1 Inter;color:#de8a4e;border:1px solid #4a3428">${r.kind === 'dish' ? 'dish' : r.kind}</span>`;
+  return `<span style="display:flex;width:${px}px;height:${px}px;align-items:center;justify-content:center;font:600 9px/1 Inter;color:var(--rf-accent);border:1px solid var(--rf-rule)">${r.kind === 'dish' ? 'dish' : r.kind}</span>`;
 }
 
 const goods = (g: Goods, stock: Partial<Record<ResourceKind, number>>) =>
-  Object.entries(g).map(([k, v]) => { const have = Math.floor(stock[k as ResourceKind] ?? 0), miss = have < (v ?? 0); return `<span style="display:inline-flex;align-items:center;gap:1px;margin-right:4px;${miss ? 'color:#e0705a' : ''}" data-tip="${k}: ${have} in stock">${resIcon(k)}<span class="rf-num">${v}</span>${miss ? `<span class="rf-num" style="font-size:8px">/${have}</span>` : ''}</span>`; }).join('') || '<span class="rf-dim">nothing</span>';
+  Object.entries(g).map(([k, v]) => { const have = Math.floor(stock[k as ResourceKind] ?? 0), miss = have < (v ?? 0); return `<span style="display:inline-flex;align-items:center;gap:1px;margin-right:4px;${miss ? 'color:var(--rf-bad)' : ''}" data-tip="${k}: ${have} in stock">${resIcon(k)}<span class="rf-num">${v}</span>${miss ? `<span class="rf-num" style="font-size:10.5px">/${have}</span>` : ''}</span>`; }).join('') || '<span class="rf-dim">nothing</span>';
 const secs = (n: number) => (n >= 60 ? `${Math.floor(n / 60)}m${Math.round(n % 60) ? ` ${Math.round(n % 60)}s` : ''}` : `${Math.round(n)}s`);
 
 /** The best crafter here for r: may make it, highest level (null: none may). */
@@ -74,14 +74,14 @@ function lockOf(C: SandboxCraft, crafters: Crafter[], r: Recipe, level: number):
 function oddsHtml(C: SandboxCraft, c: Crafter, r: Recipe, level: number): string {
   if (!r.out.item && !r.out.tool) {
     const n = r.out.n;
-    return `<div class="rf-dim">makes <b class="rf-num" style="color:#f0d9b5">${n}</b> ${esc(nameOf(outId(r)))}${n > 1 ? '' : ''} · into the ${r.out.good ? 'team stock' : 'team supplies'}</div>`;
+    return `<div class="rf-dim">makes <b class="rf-num" style="color:var(--rf-ink)">${n}</b> ${esc(nameOf(outId(r)))}${n > 1 ? '' : ''} · into the ${r.out.good ? 'team stock' : 'team supplies'}</div>`;
   }
   const o = C.odds(c.civ!, r, level), fine = Math.max(0, 1 - o.crude - o.masterwork);
   const seg = o.rarity.map((p, i) => (p > 0 ? `<i style="flex:${p};background:${rarityHex(RARITIES[i])}" data-tip="${RARITIES[i]} ${p}%"></i>` : '')).join('');
   const lab = o.rarity.map((p, i) => (p > 0 ? `<span style="color:${rarityHex(RARITIES[i])}">${RARITIES[i]} ${p}%</span>` : '')).filter(Boolean).join(' · ');
-  return `<div class="rf-dim" style="margin-bottom:2px">grade <b class="rf-num" style="color:#f0d9b5" data-tip="craft grade: his level + tool + workplace level${o.masterwork ? ' + Masterwork' : ''}">G${o.g}</b> · by ${esc(c.civ!.name)} L${c.civ!.level}</div>
-    <div class="wp-odds">${seg}</div><div style="font-size:9px;line-height:11px;margin-top:2px">${lab}</div>
-    <div style="font-size:9px;margin-top:2px"><span style="color:#a8907a">crude ${Math.round(o.crude * 100)}%</span> · <span>fine ${Math.round(fine * 100)}%</span> · <span style="color:#e0b867">masterwork ${Math.round(o.masterwork * 100)}%</span>${o.masterwork ? '' : ' <span class="rf-dim">(Masterwork node)</span>'}</div>`;
+  return `<div class="rf-dim" style="margin-bottom:2px">grade <b class="rf-num" style="color:var(--rf-ink)" data-tip="craft grade: his level + tool + workplace level${o.masterwork ? ' + Masterwork' : ''}">G${o.g}</b> · by ${esc(c.civ!.name)} L${c.civ!.level}</div>
+    <div class="wp-odds">${seg}</div><div style="font-size:11px;line-height:14px;margin-top:3px">${lab}</div>
+    <div style="font-size:11px;line-height:14px;margin-top:2px"><span class="rf-dim">crude ${Math.round(o.crude * 100)}%</span> · <span>fine ${Math.round(fine * 100)}%</span> · <span style="color:var(--rf-gold)">masterwork ${Math.round(o.masterwork * 100)}%</span>${o.masterwork ? '' : ' <span class="rf-dim">(Masterwork node)</span>'}</div>`;
 }
 
 export function workplaceHtml(C: SandboxCraft, b: BuildingSnap, crafters: Crafter[], idle: Idle[], v: WpView, stock: Partial<Record<ResourceKind, number>>): string {
@@ -93,17 +93,17 @@ export function workplaceHtml(C: SandboxCraft, b: BuildingSnap, crafters: Crafte
     if (!c) return `<div class="wp-cr empty">slot ${i + 1} · free</div>`;
     const busy = q.find((o) => o.by === c.unit), held = c.civ ? c.civ.perks.filter((n) => PROF_NODES[n]).map((n) => PROF_NODES[n].name).join(', ') : '';
     return `<div class="wp-cr${i >= level ? ' extra' : ''}" ${c.civ ? `data-civ="${esc(c.civ.id)}"` : ''} data-tip="${esc(c.civ ? `${c.civ.name}: ${held || 'root node only'} · work x${c.rate.toFixed(2)}<br><span class='rf-dim'>click: his profession tree</span>` : 'a civilian without a record')}">
-      <b>${esc(c.civ?.name ?? 'civilian')}</b> <span class="rf-dim">L${c.civ?.level ?? 1}</span><span style="flex:1"></span>${i >= level ? '<span class="rf-dim">waits: no slot</span>' : busy ? '<span style="color:#9fd47a">at work</span>' : '<span class="rf-dim">idle</span>'}</div>`;
+      <b>${esc(c.civ?.name ?? 'civilian')}</b> <span class="rf-dim">L${c.civ?.level ?? 1}</span><span style="flex:1"></span>${i >= level ? '<span class="rf-dim">waits: no slot</span>' : busy ? '<span style="color:var(--rf-good)">at work</span>' : '<span class="rf-dim">idle</span>'}</div>`;
   }).join('');
   const assign = idle.length
-    ? idle.map((x) => `<button class="rf-tbtn" data-assign="${x.squad}" data-tip="send them to work here (civWork)">+ ${esc(x.name)} ×${x.men} <span class="rf-dim">${esc(x.at)}</span></button>`).join('')
+    ? idle.map((x) => `<button class="rf-tbtn pri" data-assign="${x.squad}" data-tip="send them to work here (civWork)">+ ${esc(x.name)} ×${x.men} <span class="rf-dim">${esc(x.at)}</span></button>`).join('')
     : `<span class="rf-dim">no idle ${prof ? CIV_CLASSES[`civ_${prof}` as CivClassId].name.toLowerCase() + 's' : 'civilians'} to send</span>`;
 
   const queue = q.length ? q.map((o) => {
     const r = o.kind === 'craft' ? RECIPES[o.recipe] : null, c = unit.get(o.by);
     const name = o.kind === 'craft' ? nameOf(r ? outId(r) : o.recipe) : `${o.kind} ${nameOf(o.recipe)}`;
     return `<div class="wp-q"><div style="width:20px">${r ? outIcon(r, 20) : ''}</div><div style="flex:1;min-width:0"><div style="display:flex;gap:3px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</span><span style="flex:1"></span><span class="rf-dim">${o.by >= 0 ? esc(c?.civ?.name ?? 'at work') : 'waiting'}</span></div>
-      ${bar(o.by >= 0 ? 'construction' : 'ok', o.progress, 200)}</div><button class="rf-tbtn" data-cancel="${o.id}" data-tip="cancel: inputs taken come back">✕</button></div>`;
+      ${bar(o.by >= 0 ? 'construction' : 'ok', o.progress, 200)}</div><button class="rf-tbtn x" data-cancel="${o.id}" data-tip="cancel: inputs taken come back">✕</button></div>`;
   }).join('') : '<div class="rf-dim" style="padding:2px">nothing queued</div>';
 
   // recipe picker
@@ -115,10 +115,10 @@ export function workplaceHtml(C: SandboxCraft, b: BuildingSnap, crafters: Crafte
     return `<div class="wp-r${lock ? ' lock' : ''}${v.recipe === r.id ? ' on' : ''}" data-recipe="${r.id}" ${lock ? `data-tip="${esc(lock)}"` : ''}>${outIcon(r, 20)}<div style="flex:1;min-width:0"><div style="display:flex;gap:3px"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(nameOf(outId(r)))}</span>${r.tier > 1 ? `<span class="rf-dim">T${r.tier}</span>` : ''}<span style="flex:1"></span><span class="rf-dim rf-num">${secs(t)}</span></div><div style="margin-top:1px">${goods(r.inputs, stock)}</div></div></div>`;
   }).join('') || `<div class="rf-dim" style="padding:4px">${crafters.some((c) => c.civ) ? 'nothing this crew can make here' : `assign ${prof ? 'a ' + CIV_CLASSES[`civ_${prof}` as CivClassId].name.toLowerCase() : 'a crafter'} first`}${v.all ? '' : ' · <b>All</b> shows what is locked'}</div>`;
   const miss = sel ? Object.entries(sel.inputs).some(([k, n]) => (stock[k as ResourceKind] ?? 0) < (n ?? 0)) : false;
-  const detail = sel ? `<div class="wp-det"><div style="display:flex;gap:5px;align-items:center">${outIcon(sel, 24)}<div style="flex:1"><div class="rf-name" style="font-size:13px">${esc(nameOf(outId(sel)))}</div><div class="rf-dim">${sel.out.item ? `${itemDef(sel.out.item).slot} · tier ${sel.tier}` : sel.kind} · ${secs(sel.secs / (maker?.rate ?? 1))}</div></div>
-      <button class="rf-tbtn on" data-queue="${sel.id}" ${selLock || q.length >= CRAFT.queue ? 'disabled' : ''} data-tip="${esc(selLock ?? (q.length >= CRAFT.queue ? `the queue holds ${CRAFT.queue}` : miss ? 'queued: it waits until the stock holds the inputs' : 'the inputs leave the stock when work starts'))}">Queue</button></div>
+  const detail = sel ? `<div class="wp-det"><div style="display:flex;gap:5px;align-items:center">${outIcon(sel, 24)}<div style="flex:1"><div class="rf-name" style="font-size:13px;margin-bottom:2px">${esc(nameOf(outId(sel)))}</div><div class="rf-dim">${sel.out.item ? `${itemDef(sel.out.item).slot} · tier ${sel.tier}` : sel.kind} · ${secs(sel.secs / (maker?.rate ?? 1))}</div></div>
+      <button class="rf-tbtn pri" data-queue="${sel.id}" ${selLock || q.length >= CRAFT.queue ? 'disabled' : ''} data-tip="${esc(selLock ?? (q.length >= CRAFT.queue ? `the queue holds ${CRAFT.queue}` : miss ? 'queued: it waits until the stock holds the inputs' : 'the inputs leave the stock when work starts'))}">Queue</button></div>
       <div style="margin-top:3px">${goods(sel.inputs, stock)}</div>
-      <div style="margin-top:3px">${maker ? oddsHtml(C, maker, sel, level) : `<span style="color:#e08a70">${esc(selLock ?? '')}</span>`}</div></div>` : '<div class="wp-det rf-dim">pick a recipe: inputs, time and the odds for this crew</div>';
+      <div style="margin-top:3px">${maker ? oddsHtml(C, maker, sel, level) : `<span style="color:var(--rf-bad)">${esc(selLock ?? '')}</span>`}</div></div>` : '<div class="wp-det rf-dim">pick a recipe: inputs, time and the odds for this crew</div>';
 
   // mending: stash items made here
   const mends = C.stash().filter((x) => { const r = itemRecipe(x.item.def); return r && r.at === wp.kind; });
@@ -132,28 +132,28 @@ export function workplaceHtml(C: SandboxCraft, b: BuildingSnap, crafters: Crafte
   }).join('');
 
   return `<div class="rf-card" style="padding:4px 6px 6px">
-    <div style="display:flex;align-items:center;gap:4px"><span class="rf-name" style="font-size:15px">${WP_NAME[wp.kind]}</span><span class="rf-dim">level ${level} · ${level} crafter slot${level > 1 ? 's' : ''}</span><span style="flex:1"></span><button class="rf-tbtn" data-act="closeWp" data-tip="close (Esc)">✕</button></div>
-    <div class="rf-cap" style="margin-top:4px">Crafters</div>${slots}
-    <div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:2px">${assign}</div>
-    <div class="rf-cap" style="margin-top:5px">Queue <span class="rf-dim rf-num">${q.length}/${CRAFT.queue}</span></div>${queue}
-    <div class="wp-tabs" style="display:flex;align-items:flex-end;height:17px;margin-top:5px">${tabs.map((t) => `<button class="rf-tab${t === tab ? ' on' : ''}" data-tab="${t}">${t}</button>`).join('')}<span style="flex:1"></span><button class="rf-tbtn${v.all ? ' on' : ''}" data-act="all" data-tip="show the recipes this crew cannot make yet, and why">All</button></div>
+    <div class="rf-head"><span class="rf-name" style="font-size:16px">${WP_NAME[wp.kind]}</span><span class="rf-dim">level ${level} · ${level} crafter slot${level > 1 ? 's' : ''}</span><span style="flex:1"></span><button class="rf-tbtn x" data-act="closeWp" data-tip="close (Esc)">✕</button></div>
+    <div class="rf-cap" style="margin-top:6px">Crafters</div>${slots}
+    <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">${assign}</div>
+    <div class="rf-cap" style="margin-top:7px">Queue <span class="rf-dim rf-num">${q.length}/${CRAFT.queue}</span></div>${queue}
+    <div style="display:flex;align-items:center;margin-top:7px"><div class="rf-cap" style="margin:0">Recipes</div><span style="flex:1"></span><button class="rf-tbtn${v.all ? ' on' : ''}" data-act="all" data-tip="show the recipes this crew cannot make yet, and why">${v.all ? 'Showing locked' : 'Show locked'}</button></div>
+    ${tabs.length > 1 ? `<div class="rf-segs" style="margin:4px 0">${tabs.map((t) => `<button class="rf-tbtn${t === tab ? ' on' : ''}" data-tab="${t}">${t}</button>`).join('')}</div>` : ''}
     <div class="wp-list">${rows}</div>
     ${detail}
-    ${mendRows ? `<div class="rf-cap" style="margin-top:5px">Repair · salvage <span class="rf-dim">from your stash</span></div>${mendRows}` : ''}
+    ${mendRows ? `<div class="rf-cap" style="margin-top:7px">Repair · salvage <span class="rf-dim">from your stash</span></div>${mendRows}` : ''}
   </div>`;
 }
 
 export const WP_CSS = `
-.wp-cr{display:flex;align-items:center;gap:3px;height:16px;padding:0 3px;background:#1a100b;border:1px solid #4a3428;margin-bottom:1px;cursor:pointer}
-.wp-cr:hover{border-color:#de8a4e}
-.wp-cr.empty{color:#7d6a5a;border-style:dashed;cursor:default}.wp-cr.extra{opacity:.6}
-.wp-q{display:flex;align-items:center;gap:4px;padding:2px 0;border-bottom:1px solid #2a1a12}
-.wp-list{border-top:1px solid #7a3418;max-height:150px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#7a3418 #140c08}
-.wp-tabs .rf-tab{padding:0 4px;margin-right:1px}
-.wp-r{display:flex;align-items:center;gap:4px;padding:2px 3px;cursor:pointer;border-bottom:1px solid #22150e}
-.wp-r:hover{background:rgba(222,138,78,.12)}.wp-r.on{background:rgba(222,138,78,.24);box-shadow:inset 1px 0 0 #de8a4e}
-.wp-r.lock{opacity:.5}
-.wp-det{margin-top:4px;padding:4px;border:1px solid #7a3418;background:#140c08}
+.wp-cr{display:flex;align-items:center;gap:4px;height:24px;padding:0 6px;background:var(--rf-raised);border:1px solid var(--rf-rule);margin-bottom:2px;cursor:pointer}
+.wp-cr:hover{background:var(--rf-hover);border-color:var(--rf-accent)}
+.wp-cr.empty{color:var(--rf-disabled);border-style:dashed;background:none;cursor:default}.wp-cr.extra .rf-dim,.wp-cr.extra b{color:var(--rf-disabled)}
+.wp-q{display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px solid var(--rf-rule)}
+.wp-list{border-top:1px solid var(--rf-line);max-height:170px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#7a3418 #140c08}
+.wp-r{display:flex;align-items:center;gap:5px;padding:3px 4px 3px 7px;cursor:pointer;border-bottom:1px solid var(--rf-rule);box-shadow:inset 3px 0 0 transparent}
+.wp-r:hover{background:var(--rf-hover)}.wp-r.on{background:var(--rf-sel);box-shadow:inset 3px 0 0 var(--rf-title)}
+.wp-r.lock{color:var(--rf-disabled)}.wp-r.lock img{opacity:.5;filter:grayscale(.6)}
+.wp-det{margin-top:5px;padding:6px;border:1px solid var(--rf-line);background:var(--rf-sunk)}
 .wp-odds{display:flex;height:6px;box-shadow:0 0 0 1px #0e0907}.wp-odds i{display:block;height:6px}
-.wp-m{display:flex;align-items:center;gap:4px;padding:2px 0}
+.wp-m{display:flex;align-items:center;gap:4px;padding:3px 0}
 `;

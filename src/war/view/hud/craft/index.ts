@@ -15,6 +15,7 @@ import type { SandboxScene } from '../../SandboxScene';
 import type { RosterHooks } from '../roster';
 import { sandboxRoster } from '../roster/state';
 import { tipper } from '../roster/ui';
+import { fitHeight } from '../kit';
 import { sandboxCraft } from './state';
 import { TREE_CSS, treeHtml, TREE_W } from './tree';
 import { WP_CSS, WP_PROF, WP_W, workplaceHtml, type Crafter, type Idle, type WpView } from './workplace';
@@ -86,6 +87,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
         const l2 = wpEl.querySelector<HTMLElement>('.wp-list');
         if (l2) l2.scrollTop = top;
       }
+      fitHeight(wpEl);
     }
     const c = C.civ(treePid ?? undefined);
     treeEl.style.display = c ? '' : 'none';
@@ -95,6 +97,7 @@ export function mountCraft(s: SandboxScene, mk: Mk, roster: RosterHooks): void {
       treeEl.style.left = `${anchor ? anchor.getBoundingClientRect().right / z + 4 : 4}px`;
       const html = treeHtml(C, c, picked);
       if (html !== lastT) treeEl.innerHTML = lastT = html;
+      fitHeight(treeEl);
     }
     for (const f of unTip) f();
   };
