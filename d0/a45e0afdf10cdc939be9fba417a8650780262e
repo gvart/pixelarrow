@@ -1,0 +1,25 @@
+docs/v5/pixellab/GUARD/brontes.jobs.json
+  s_cfc22b058125c4::t_e45b0cff8f6868 2-8
+docs/v5/pixellab/GUARD/gyges.jobs.json
+  s_cfc22b058125c4::t_e45b0cff8f6868 1-6
+docs/v5/pixellab/GUARD/bandit_archer.sheet.json
+  s_cfc22b058125c4::t_ede0a708089970 1-64
+src/assets/sheets/mob_bandit_archer/manifest.json
+  s_cfc22b058125c4::t_818ce678cb2b77 1-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d0a45e0afdf10cdc939be9fba417a8650780262e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
