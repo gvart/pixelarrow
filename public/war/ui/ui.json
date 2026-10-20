@@ -1614,6 +1614,54 @@
    "32": "icons/32/badge-safe-zone.png",
    "group": "badge",
    "src": "drawn"
+  },
+  "res-dragonbone": {
+   "24": "icons/24/res-dragonbone.png",
+   "32": "icons/32/res-dragonbone.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "rare",
+   "landmark": "krios"
+  },
+  "res-nereid-pearl": {
+   "24": "icons/24/res-nereid-pearl.png",
+   "32": "icons/32/res-nereid-pearl.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "rare",
+   "landmark": "siren"
+  },
+  "res-star-iron": {
+   "24": "icons/24/res-star-iron.png",
+   "32": "icons/32/res-star-iron.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "rare",
+   "landmark": "saddle"
+  },
+  "res-asphodel": {
+   "24": "icons/24/res-asphodel.png",
+   "32": "icons/32/res-asphodel.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "rare",
+   "landmark": "erymanthos"
+  },
+  "res-titan-bronze": {
+   "24": "icons/24/res-titan-bronze.png",
+   "32": "icons/32/res-titan-bronze.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "rare",
+   "landmark": "gorge"
+  },
+  "res-obsidian": {
+   "24": "icons/24/res-obsidian.png",
+   "32": "icons/32/res-obsidian.png",
+   "group": "resource",
+   "src": "pixellab",
+   "goodTier": "rare",
+   "landmark": "canyons"
   }
  },
  "cursors": {
@@ -1820,5 +1868,6 @@
   "res-coin",
   "badge-safe-zone"
  ],
- "tradeNote": "ART-T icons (WAR.md \"Trade\"): trade-<cart|wagon|chest|pile|contract|rent> (group trade), act-<load|unload|escort|handoff> (action), res-coin (resource), badge-safe-zone (badge: a walled court with an olive wreath, on the red-figure medallion). Built by ui-trade.mjs after ui-craft.mjs."
+ "tradeNote": "ART-T icons (WAR.md \"Trade\"): trade-<cart|wagon|chest|pile|contract|rent> (group trade), act-<load|unload|escort|handoff> (action), res-coin (resource), badge-safe-zone (badge: a walled court with an olive wreath, on the red-figure medallion). Built by ui-trade.mjs after ui-craft.mjs.",
+ "landmarkNote": "ART-L icons: res-<rare good> (group resource, goodTier rare, landmark = the region whose landmark yields it). Built by ui-landmark.mjs after ui-craft.mjs; colours from the kit palette."
 }

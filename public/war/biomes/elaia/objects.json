@@ -648,6 +648,49 @@
    "source": "map_object 3d4a52ba"
   },
   {
+   "id": "town-house-a-damaged",
+   "kind": "building",
+   "file": "town-house-a-damaged.png",
+   "w": 170,
+   "h": 164,
+   "metres": 4.97,
+   "anchor": {
+    "x": 85,
+    "y": 163
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-house-a",
+   "state": "damaged",
+   "source": "pixflux 409f3a98 img2img over the intact raw"
+  },
+  {
+   "id": "town-house-a-ruined",
+   "kind": "building",
+   "file": "town-house-a-ruined.png",
+   "w": 162,
+   "h": 97,
+   "metres": 2.94,
+   "anchor": {
+    "x": 79,
+    "y": 96
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-house-a",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux 174e847a img2img over the intact raw"
+  },
+  {
    "id": "town-house-b",
    "kind": "building",
    "file": "town-house-b.png",
@@ -665,6 +708,49 @@
    "blocksMovement": false,
    "town": true,
    "source": "map_object 76da2040"
+  },
+  {
+   "id": "town-house-b-damaged",
+   "kind": "building",
+   "file": "town-house-b-damaged.png",
+   "w": 159,
+   "h": 201,
+   "metres": 6.09,
+   "anchor": {
+    "x": 49,
+    "y": 200
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-house-b",
+   "state": "damaged",
+   "source": "pixflux dfb878c2 img2img over the intact raw"
+  },
+  {
+   "id": "town-house-b-ruined",
+   "kind": "building",
+   "file": "town-house-b-ruined.png",
+   "w": 171,
+   "h": 122,
+   "metres": 3.7,
+   "anchor": {
+    "x": 53,
+    "y": 121
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-house-b",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux b3fcc40a img2img over the intact raw"
   },
   {
    "id": "town-cottage",
@@ -686,6 +772,49 @@
    "source": "map_object c44a9cff"
   },
   {
+   "id": "town-cottage-damaged",
+   "kind": "building",
+   "file": "town-cottage-damaged.png",
+   "w": 143,
+   "h": 136,
+   "metres": 4.12,
+   "anchor": {
+    "x": 87,
+    "y": 135
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-cottage",
+   "state": "damaged",
+   "source": "pixflux 9e112091 img2img over the intact raw"
+  },
+  {
+   "id": "town-cottage-ruined",
+   "kind": "building",
+   "file": "town-cottage-ruined.png",
+   "w": 123,
+   "h": 75,
+   "metres": 2.27,
+   "anchor": {
+    "x": 76,
+    "y": 74
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-cottage",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux 2625f2b7 img2img over the intact raw"
+  },
+  {
    "id": "town-temple",
    "kind": "building",
    "file": "town-temple.png",
@@ -703,6 +832,49 @@
    "blocksMovement": false,
    "town": true,
    "source": "map_object 2b6728a4"
+  },
+  {
+   "id": "town-temple-damaged",
+   "kind": "building",
+   "file": "town-temple-damaged.png",
+   "w": 254,
+   "h": 280,
+   "metres": 8.48,
+   "anchor": {
+    "x": 128,
+    "y": 279
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-temple",
+   "state": "damaged",
+   "source": "pixflux 05d0478d img2img over the intact raw"
+  },
+  {
+   "id": "town-temple-ruined",
+   "kind": "building",
+   "file": "town-temple-ruined.png",
+   "w": 254,
+   "h": 188,
+   "metres": 5.7,
+   "anchor": {
+    "x": 128,
+    "y": 187
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-temple",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux b6db3a4c img2img over the intact raw"
   },
   {
    "id": "town-stoa",
@@ -724,6 +896,49 @@
    "source": "map_object 72d480c0"
   },
   {
+   "id": "town-stoa-damaged",
+   "kind": "building",
+   "file": "town-stoa-damaged.png",
+   "w": 256,
+   "h": 168,
+   "metres": 5.09,
+   "anchor": {
+    "x": 55,
+    "y": 167
+   },
+   "footprint": [
+    2,
+    6
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-stoa",
+   "state": "damaged",
+   "source": "pixflux 324ea074 img2img over the intact raw"
+  },
+  {
+   "id": "town-stoa-ruined",
+   "kind": "building",
+   "file": "town-stoa-ruined.png",
+   "w": 234,
+   "h": 103,
+   "metres": 3.12,
+   "anchor": {
+    "x": 55,
+    "y": 102
+   },
+   "footprint": [
+    2,
+    6
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-stoa",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux af0c936a img2img over the intact raw"
+  },
+  {
    "id": "town-statue",
    "kind": "building",
    "file": "town-statue.png",
@@ -741,6 +956,49 @@
    "blocksMovement": false,
    "town": true,
    "source": "map_object 7a7534bb"
+  },
+  {
+   "id": "town-statue-damaged",
+   "kind": "building",
+   "file": "town-statue-damaged.png",
+   "w": 48,
+   "h": 125,
+   "metres": 3.79,
+   "anchor": {
+    "x": 24,
+    "y": 124
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-statue",
+   "state": "damaged",
+   "source": "pixflux 35d3b4d8 img2img over the intact raw"
+  },
+  {
+   "id": "town-statue-ruined",
+   "kind": "building",
+   "file": "town-statue-ruined.png",
+   "w": 48,
+   "h": 63,
+   "metres": 1.91,
+   "anchor": {
+    "x": 24,
+    "y": 62
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-statue",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux c6ace572 img2img over the intact raw"
   },
   {
    "id": "town-well",
@@ -762,6 +1020,49 @@
    "source": "map_object 60df485f"
   },
   {
+   "id": "town-well-damaged",
+   "kind": "building",
+   "file": "town-well-damaged.png",
+   "w": 54,
+   "h": 77,
+   "metres": 2.33,
+   "anchor": {
+    "x": 20,
+    "y": 76
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-well",
+   "state": "damaged",
+   "source": "pixflux 35201f67 img2img over the intact raw"
+  },
+  {
+   "id": "town-well-ruined",
+   "kind": "building",
+   "file": "town-well-ruined.png",
+   "w": 47,
+   "h": 43,
+   "metres": 1.3,
+   "anchor": {
+    "x": 16,
+    "y": 42
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-well",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux ec5502f1 img2img over the intact raw"
+  },
+  {
    "id": "town-jetty",
    "kind": "prop",
    "file": "town-jetty.png",
@@ -779,6 +1080,49 @@
    "blocksMovement": false,
    "town": true,
    "source": "map_object ab675632"
+  },
+  {
+   "id": "town-jetty-damaged",
+   "kind": "prop",
+   "file": "town-jetty-damaged.png",
+   "w": 160,
+   "h": 112,
+   "metres": 3.39,
+   "anchor": {
+    "x": 32,
+    "y": 111
+   },
+   "footprint": [
+    1,
+    4
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-jetty",
+   "state": "damaged",
+   "source": "pixflux a8d11b7a img2img over the intact raw"
+  },
+  {
+   "id": "town-jetty-ruined",
+   "kind": "prop",
+   "file": "town-jetty-ruined.png",
+   "w": 125,
+   "h": 64,
+   "metres": 1.94,
+   "anchor": {
+    "x": 32,
+    "y": 63
+   },
+   "footprint": [
+    1,
+    4
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-jetty",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux 632cf8fb img2img over the intact raw"
   },
   {
    "id": "town-stall-a",
@@ -952,6 +1296,49 @@
    "source": "copy of buildings/olive-press-done"
   },
   {
+   "id": "town-olive-press-damaged",
+   "kind": "building",
+   "file": "town-olive-press-damaged.png",
+   "w": 182,
+   "h": 202,
+   "metres": 6.12,
+   "anchor": {
+    "x": 91,
+    "y": 201
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-olive-press",
+   "state": "damaged",
+   "source": "copy of buildings/olive-press-damaged"
+  },
+  {
+   "id": "town-olive-press-ruined",
+   "kind": "building",
+   "file": "town-olive-press-ruined.png",
+   "w": 181,
+   "h": 121,
+   "metres": 3.67,
+   "anchor": {
+    "x": 91,
+    "y": 120
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-olive-press",
+   "state": "ruined",
+   "rubble": true,
+   "source": "pixflux 54e0c230 img2img over buildings/olive-press-done"
+  },
+  {
    "id": "town-farm",
    "kind": "building",
    "file": "town-farm.png",
@@ -990,6 +1377,49 @@
    "source": "copy of buildings/stone-tower-done"
   },
   {
+   "id": "town-tower-damaged",
+   "kind": "building",
+   "file": "town-tower-damaged.png",
+   "w": 128,
+   "h": 167,
+   "metres": 5.06,
+   "anchor": {
+    "x": 52,
+    "y": 166
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-tower",
+   "state": "damaged",
+   "source": "copy of buildings/stone-tower-damaged"
+  },
+  {
+   "id": "town-tower-ruined",
+   "kind": "building",
+   "file": "town-tower-ruined.png",
+   "w": 141,
+   "h": 100,
+   "metres": 3.03,
+   "anchor": {
+    "x": 59,
+    "y": 99
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-tower",
+   "state": "ruined",
+   "rubble": true,
+   "source": "copy of buildings/stone-tower-ruined"
+  },
+  {
    "id": "town-gate-x",
    "kind": "building",
    "file": "town-gate-x.png",
@@ -1009,6 +1439,49 @@
    "source": "copy of buildings/stone-gate-x-open"
   },
   {
+   "id": "town-gate-x-damaged",
+   "kind": "building",
+   "file": "town-gate-x-damaged.png",
+   "w": 119,
+   "h": 164,
+   "metres": 4.97,
+   "anchor": {
+    "x": 64,
+    "y": 163
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-gate-x",
+   "state": "damaged",
+   "source": "copy of buildings/stone-gate-x-damaged"
+  },
+  {
+   "id": "town-gate-x-ruined",
+   "kind": "building",
+   "file": "town-gate-x-ruined.png",
+   "w": 119,
+   "h": 100,
+   "metres": 3.03,
+   "anchor": {
+    "x": 64,
+    "y": 99
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-gate-x",
+   "state": "ruined",
+   "rubble": true,
+   "source": "copy of buildings/stone-gate-x-ruined"
+  },
+  {
    "id": "town-gate-y",
    "kind": "building",
    "file": "town-gate-y.png",
@@ -1026,6 +1499,49 @@
    "blocksMovement": false,
    "town": true,
    "source": "copy of buildings/stone-gate-y-open"
+  },
+  {
+   "id": "town-gate-y-damaged",
+   "kind": "building",
+   "file": "town-gate-y-damaged.png",
+   "w": 119,
+   "h": 164,
+   "metres": 4.97,
+   "anchor": {
+    "x": 55,
+    "y": 163
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-gate-y",
+   "state": "damaged",
+   "source": "copy of buildings/stone-gate-y-damaged"
+  },
+  {
+   "id": "town-gate-y-ruined",
+   "kind": "building",
+   "file": "town-gate-y-ruined.png",
+   "w": 119,
+   "h": 100,
+   "metres": 3.03,
+   "anchor": {
+    "x": 55,
+    "y": 99
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-gate-y",
+   "state": "ruined",
+   "rubble": true,
+   "source": "copy of buildings/stone-gate-y-ruined"
   },
   {
    "id": "town-board",
@@ -1085,6 +1601,49 @@
    "source": "stone-wall kit frames (mask 5), 2 tiles, face cut to 3 m"
   },
   {
+   "id": "town-wall-x-damaged",
+   "kind": "building",
+   "file": "town-wall-x-damaged.png",
+   "w": 116,
+   "h": 122,
+   "metres": 3.7,
+   "anchor": {
+    "x": 72,
+    "y": 121
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-wall-x",
+   "state": "damaged",
+   "source": "stone-wall kit damaged frames (mask 5), 2 tiles"
+  },
+  {
+   "id": "town-wall-x-ruined",
+   "kind": "building",
+   "file": "town-wall-x-ruined.png",
+   "w": 124,
+   "h": 95,
+   "metres": 2.88,
+   "anchor": {
+    "x": 76,
+    "y": 94
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-wall-x",
+   "state": "ruined",
+   "rubble": true,
+   "source": "stone-wall kit ruined frames (mask 5), 2 tiles"
+  },
+  {
    "id": "town-wall-y",
    "kind": "building",
    "file": "town-wall-y.png",
@@ -1102,6 +1661,49 @@
    "blocksMovement": false,
    "town": true,
    "source": "stone-wall kit frames (mask 10), 2 tiles, face cut to 3 m"
+  },
+  {
+   "id": "town-wall-y-damaged",
+   "kind": "building",
+   "file": "town-wall-y-damaged.png",
+   "w": 121,
+   "h": 122,
+   "metres": 3.7,
+   "anchor": {
+    "x": 47,
+    "y": 121
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-wall-y",
+   "state": "damaged",
+   "source": "stone-wall kit damaged frames (mask 10), 2 tiles"
+  },
+  {
+   "id": "town-wall-y-ruined",
+   "kind": "building",
+   "file": "town-wall-y-ruined.png",
+   "w": 125,
+   "h": 88,
+   "metres": 2.67,
+   "anchor": {
+    "x": 48,
+    "y": 87
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "town": true,
+   "building": "town-wall-y",
+   "state": "ruined",
+   "rubble": true,
+   "source": "stone-wall kit ruined frames (mask 10), 2 tiles"
   }
  ],
  "borderMax": 0.75

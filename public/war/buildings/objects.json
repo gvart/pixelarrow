@@ -805,14 +805,16 @@
     "rising": "stone-wall-rising.png",
     "scaffold": "stone-wall-scaffold.png",
     "done": "stone-wall-done.png",
-    "damaged": "stone-wall-damaged.png"
+    "damaged": "stone-wall-damaged.png",
+    "ruined": "stone-wall-ruined.png"
    },
    "front": {
     "foundation": "stone-wall-foundation-front.png",
     "rising": "stone-wall-rising-front.png",
     "scaffold": "stone-wall-scaffold-front.png",
     "done": "stone-wall-done-front.png",
-    "damaged": "stone-wall-damaged-front.png"
+    "damaged": "stone-wall-damaged-front.png",
+    "ruined": "stone-wall-ruined-front.png"
    },
    "source": "pixflux 7055aa08 (cyclopean elevation)"
   },
@@ -1391,14 +1393,16 @@
     "rising": "tower-stone-rising.png",
     "scaffold": "tower-stone-scaffold.png",
     "done": "tower-stone-done.png",
-    "damaged": "tower-stone-damaged.png"
+    "damaged": "tower-stone-damaged.png",
+    "ruined": "tower-stone-ruined.png"
    },
    "front": {
     "foundation": "tower-stone-foundation-front.png",
     "rising": "tower-stone-rising-front.png",
     "scaffold": "tower-stone-scaffold-front.png",
     "done": "tower-stone-done-front.png",
-    "damaged": "tower-stone-damaged-front.png"
+    "damaged": "tower-stone-damaged-front.png",
+    "ruined": "tower-stone-ruined-front.png"
    },
    "source": "renderer + cyclopean / isodomic elevations"
   },
@@ -1738,7 +1742,8 @@
     "rising": "stone-tower-rising",
     "scaffold": "stone-tower-scaffold",
     "done": "stone-tower-done",
-    "damaged": "stone-tower-damaged"
+    "damaged": "stone-tower-damaged",
+    "ruined": "stone-tower-ruined"
    }
   },
   {
@@ -1799,7 +1804,8 @@
     "scaffold": "stone-gate-x-scaffold",
     "done": "stone-gate-x-done",
     "damaged": "stone-gate-x-damaged",
-    "open": "stone-gate-x-open"
+    "open": "stone-gate-x-open",
+    "ruined": "stone-gate-x-ruined"
    }
   },
   {
@@ -1820,7 +1826,8 @@
     "scaffold": "stone-gate-y-scaffold",
     "done": "stone-gate-y-done",
     "damaged": "stone-gate-y-damaged",
-    "open": "stone-gate-y-open"
+    "open": "stone-gate-y-open",
+    "ruined": "stone-gate-y-ruined"
    }
   },
   {
@@ -1884,7 +1891,8 @@
     "scaffold": "stone-gate-x-deep-s-scaffold",
     "done": "stone-gate-x-deep-s-done",
     "damaged": "stone-gate-x-deep-s-damaged",
-    "open": "stone-gate-x-deep-s-open"
+    "open": "stone-gate-x-deep-s-open",
+    "ruined": "stone-gate-x-deep-s-ruined"
    }
   },
   {
@@ -1906,7 +1914,8 @@
     "scaffold": "stone-gate-x-deep-n-scaffold",
     "done": "stone-gate-x-deep-n-done",
     "damaged": "stone-gate-x-deep-n-damaged",
-    "open": "stone-gate-x-deep-n-open"
+    "open": "stone-gate-x-deep-n-open",
+    "ruined": "stone-gate-x-deep-n-ruined"
    }
   },
   {
@@ -1928,7 +1937,8 @@
     "scaffold": "stone-gate-y-deep-e-scaffold",
     "done": "stone-gate-y-deep-e-done",
     "damaged": "stone-gate-y-deep-e-damaged",
-    "open": "stone-gate-y-deep-e-open"
+    "open": "stone-gate-y-deep-e-open",
+    "ruined": "stone-gate-y-deep-e-ruined"
    }
   },
   {
@@ -1950,7 +1960,8 @@
     "scaffold": "stone-gate-y-deep-w-scaffold",
     "done": "stone-gate-y-deep-w-done",
     "damaged": "stone-gate-y-deep-w-damaged",
-    "open": "stone-gate-y-deep-w-open"
+    "open": "stone-gate-y-deep-w-open",
+    "ruined": "stone-gate-y-deep-w-ruined"
    }
   },
   {
@@ -3272,6 +3283,34 @@
    "source": "renderer + cyclopean / isodomic elevations"
   },
   {
+   "id": "stone-tower-ruined",
+   "kind": "tower",
+   "file": "stone-tower-ruined.png",
+   "w": 141,
+   "h": 100,
+   "metres": 1.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 70,
+    "y": 30
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "rubble": true,
+   "building": "stone-tower",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + cyclopean / isodomic elevations"
+  },
+  {
    "id": "stone-tower-round-foundation",
    "kind": "tower",
    "file": "stone-tower-round-foundation.png",
@@ -3704,6 +3743,34 @@
    "source": "renderer + Lion Gate elevation (pixflux f1d20a40)"
   },
   {
+   "id": "stone-gate-x-ruined",
+   "kind": "gate",
+   "file": "stone-gate-x-ruined.png",
+   "w": 119,
+   "h": 100,
+   "metres": 1.58,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 46
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "rubble": true,
+   "building": "stone-gate-x",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40)"
+  },
+  {
    "id": "stone-gate-y-foundation",
    "kind": "gate",
    "file": "stone-gate-y-foundation.png",
@@ -3861,6 +3928,34 @@
    "blocksMovement": true,
    "building": "stone-gate-y",
    "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40)"
+  },
+  {
+   "id": "stone-gate-y-ruined",
+   "kind": "gate",
+   "file": "stone-gate-y-ruined.png",
+   "w": 119,
+   "h": 100,
+   "metres": 1.58,
+   "basePx": 48,
+   "anchor": {
+    "x": 55,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 75,
+    "y": 46
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "rubble": true,
+   "building": "stone-gate-y",
+   "state": "ruined",
    "material": "stone",
    "burnable": false,
    "source": "renderer + Lion Gate elevation (pixflux f1d20a40)"
@@ -4352,6 +4447,34 @@
    "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
   },
   {
+   "id": "stone-gate-x-deep-s-ruined",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-ruined.png",
+   "w": 151,
+   "h": 116,
+   "metres": 1.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 115
+   },
+   "tileOrigin": {
+    "x": 76,
+    "y": 46
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "rubble": true,
+   "building": "stone-gate-x-deep-s",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
    "id": "stone-gate-x-deep-n-foundation",
    "kind": "gate",
    "file": "stone-gate-x-deep-n-foundation.png",
@@ -4509,6 +4632,34 @@
    "blocksMovement": true,
    "building": "stone-gate-x-deep-n",
    "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-ruined",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-ruined.png",
+   "w": 154,
+   "h": 119,
+   "metres": 1.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 118
+   },
+   "tileOrigin": {
+    "x": 76,
+    "y": 49
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "rubble": true,
+   "building": "stone-gate-x-deep-n",
+   "state": "ruined",
    "material": "stone",
    "burnable": false,
    "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
@@ -4676,6 +4827,34 @@
    "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
   },
   {
+   "id": "stone-gate-y-deep-e-ruined",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-ruined.png",
+   "w": 151,
+   "h": 116,
+   "metres": 1.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 87,
+    "y": 115
+   },
+   "tileOrigin": {
+    "x": 75,
+    "y": 46
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "rubble": true,
+   "building": "stone-gate-y-deep-e",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
    "id": "stone-gate-y-deep-w-foundation",
    "kind": "gate",
    "file": "stone-gate-y-deep-w-foundation.png",
@@ -4833,6 +5012,34 @@
    "blocksMovement": true,
    "building": "stone-gate-y-deep-w",
    "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-ruined",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-ruined.png",
+   "w": 154,
+   "h": 119,
+   "metres": 1.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 90,
+    "y": 118
+   },
+   "tileOrigin": {
+    "x": 78,
+    "y": 49
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "rubble": true,
+   "building": "stone-gate-y-deep-w",
+   "state": "ruined",
    "material": "stone",
    "burnable": false,
    "source": "renderer + Lion Gate elevation (pixflux f1d20a40), composed 2 deep"

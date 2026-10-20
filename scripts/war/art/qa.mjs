@@ -450,9 +450,35 @@ export function runLandmarksQa() {
   return fail;
 }
 
-// CLI: the global set, every biome folder, the build-mode set, the siege, trade and landmark sets.
+// landmark FX (ART-L, public/war/fx): every strip: size = frames x frame, binary alpha, palette (tiles + own), no empty
+// frame, the anchor inside the frame.
+export function qaFx(dir = join(ROOT, 'public/war/fx')) {
+  const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), X = JSON.parse(readFileSync(join(dir, 'objects.json')));
+  const fail = [], pal = palSet([...G.palette, ...(X.palette ?? [])]);
+  for (const t of X.fx ?? []) {
+    const f = join(dir, t.file); if (!existsSync(f)) { fail.push(`${t.file}: missing`); continue; }
+    const im = readImage(f), { w, h, data: d } = im;
+    if (w !== t.frame.w * t.frames || h !== t.frame.h) { fail.push(`${t.file}: ${w}x${h}, want ${t.frame.w * t.frames}x${t.frame.h}`); continue; }
+    if (w > 8192) fail.push(`${t.file}: ${w} px wide (max 8192)`);
+    if (!(t.anchor.x >= 0 && t.anchor.y >= 0 && t.anchor.x < t.frame.w && t.anchor.y < t.frame.h)) fail.push(`${t.file}: anchor outside the frame`);
+    let soft = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] && d[i + 3] < 255) soft++; if (d[i + 3] && !pal.has(key(d, i))) off++; }
+    if (soft) fail.push(`${t.file}: ${soft} semi-transparent px`);
+    if (off) fail.push(`${t.file}: ${off} px outside the shared palette`);
+    for (let n = 0; n < t.frames; n++) { let any = false; for (let y = 0; y < h && !any; y++) for (let x = n * t.frame.w; x < (n + 1) * t.frame.w; x++) if (d[(y * w + x) * 4 + 3]) { any = true; break; } if (!any) fail.push(`${t.file}: frame ${n} empty`); }
+  }
+  return fail;
+}
+export function runFxQa() {
+  const dir = join(ROOT, 'public/war/fx'); if (!existsSync(join(dir, 'objects.json'))) return [];
+  const fail = qaFx(dir), n = `fx: ${(JSON.parse(readFileSync(join(dir, 'objects.json'))).fx ?? []).length} strips`;
+  if (fail.length) console.error(`QA FAIL (${fail.length}) over ${n}\n  ` + fail.join('\n  '));
+  else console.log(`QA OK: ${n}`);
+  return fail;
+}
+
+// CLI: the global set, every biome folder, the build-mode set, the siege, trade, landmark and landmark FX sets.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const bdir = join(ROOT, 'public/war/biomes');
   const biomes = existsSync(bdir) ? readdirSync(bdir).filter((b) => existsSync(join(bdir, b, 'tiles.json'))) : [];
-  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length, runSiegeQa().length, runTradeQa().length, runLandmarksQa().length].some(Boolean) ? 1 : 0);
+  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length, runSiegeQa().length, runTradeQa().length, runLandmarksQa().length, runFxQa().length].some(Boolean) ? 1 : 0);
 }
