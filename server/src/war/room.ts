@@ -112,6 +112,8 @@ export interface RoomState {
   mends?: Mend[];
   /** Teams that took a fort in the fight in progress (honours). */
   stormed?: number[];
+  /** The war season and authored region version it was saved on (the DO sets it; another one starts the region over). */
+  edition?: string;
 }
 
 export interface RoomOptions {
@@ -324,9 +326,15 @@ export class WarRoom {
     return { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() };
   }
 
-  /** The entry zone on `side` (any entry, else the whole map, when the region has none there). */
+  /**
+   * The entry zone on `side`; when the map has none there (a border its authored map leaves out), the entry nearest
+   * the middle of that edge; with no entries at all, the whole map.
+   */
   private entry(side: Side): Rect {
-    const e = this.region.entries.find((x) => x.side === side) ?? this.region.entries[0] ?? { x: 0, y: 0, w: this.region.w, h: this.region.h };
+    const { w, h, entries } = this.region;
+    const [mx, my] = side === 'N' ? [w / 2, 0] : side === 'S' ? [w / 2, h] : side === 'W' ? [0, h / 2] : [w, h / 2];
+    const d = (x: (typeof entries)[number]) => (x.x + x.w / 2 - mx) ** 2 + (x.y + x.h / 2 - my) ** 2;
+    const e = entries.find((x) => x.side === side) ?? [...entries].sort((a, b) => d(a) - d(b))[0] ?? { x: 0, y: 0, w, h };
     return { x0: e.x, y0: e.y, x1: e.x + e.w, y1: e.y + e.h };
   }
 

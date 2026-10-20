@@ -14,6 +14,9 @@
   "name": "pixelarrow",
   "main": "server/src/index.ts",
   "compatibility_date": "2026-10-01",
+  // The war region maps (server/src/war/regions.ts) ship as Text modules: plain strings each room parses on its
+  // first wake, not JS objects every isolate builds at startup.
+  "rules": [{ "type": "Text", "globs": ["**/src/war/regions/*.json"], "fallthrough": true }],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
