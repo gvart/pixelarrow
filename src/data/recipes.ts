@@ -12,7 +12,7 @@
  */
 import { hashString, Rng } from '../sim/rng';
 import { AFFIX_STEPS, AFFIXES, encodeAffixes, powerPool, warAffixPool, WAR_POWER_IGNORED, type AffixId } from './affixes';
-import { CIV_TOOLS } from './classes';
+import { CIV_TOOLS, CLASSES, type ClassId } from './classes';
 import { armorWeight, weaponFamily } from './gearRules';
 import { BASE_ITEMS, ITEMS, RARITIES, type Item, type ItemDef, type ItemMaterial, type Rarity } from './items';
 import type { ProfId } from './professions';
@@ -117,6 +117,16 @@ function slotRow(def: ItemDef): SlotRow {
   return fam === 'sling' ? W_SLING : fam === 'bow' || fam === 'short_bow' ? W_BOW : W_MELEE;
 }
 
+/**
+ * M5h6: the fresh kit of every class a home trains (its first tier-1 option a slot, `freshHero` in src/war/sim/classes.ts,
+ * the kit training hands out) crafts as tier 1 whatever the item's own tier: a T1 forge and an Armourer, Bladesmith or
+ * Bowyer make it, at the tier-1 cost and time. Its rolls keep the item's tier cap.
+ */
+const TRAINED: ClassId[] = ['militia', 'hoplite', 'thureophoros', 'celt_sword', 'falx', 'archer', 'slinger', 'javelineer', 'peltast', 'companion', 'thessalian', 'horse_archer'];
+export const FRESH_KIT: ReadonlySet<string> = new Set(
+  TRAINED.flatMap((c) => (['weapon', 'shield', 'helmet', 'armor'] as const).map((s) => CLASSES[c].kit[s]?.[0]?.find((x) => x)).filter((x): x is string => !!x)),
+);
+
 const recipeCache = new Map<string, Recipe | null>();
 
 /** The smith recipe of an item (null: a set piece or named legendary, which stay drops). */
@@ -125,12 +135,13 @@ export function recipeFor(def: ItemDef): Recipe | null {
   if (hit !== undefined) return hit;
   let r: Recipe | null = null;
   if (!def.set && !def.named) {
-    const t = Math.max(1, Math.min(3, def.tier)), i = t - 1, row = slotRow(def), node = smithNode(def);
+    const kit = FRESH_KIT.has(def.id), t = kit ? 1 : Math.max(1, Math.min(3, def.tier)), i = t - 1, row = slotRow(def);
+    const node = kit && smithNode(def) === 'heavyArmour' ? 'armourer' : smithNode(def);
     let inputs = addGoods(materialGoods(materialOf(def), row.main[i]), row.extra(t));
     const heavy = row === HEAVY || (def.slot === 'helmet' && node === 'heavyArmour');
     if (t === 3 && (def.slot === 'weapon' || def.slot === 'shield' || def.slot === 'helmet' || heavy)) inputs = addGoods(inputs, { silver: 1 });
     const needs = def.slot === 'trinket' ? undefined : t === 3 ? ['master'] : t === 2 ? ['journeyman'] : undefined;
-    r = { id: `item:${def.id}`, kind: 'item', prof: 'smith', node, ...(needs ? { needs } : {}), at: 'forge', lv: t, inputs, secs: row.secs[i], out: { item: def.id, n: 1 }, tier: t, xp: t };
+    r = { id: `item:${def.id}`, kind: 'item', prof: 'smith', node, ...(needs ? { needs } : {}), at: 'forge', lv: t, inputs, secs: row.secs[i], out: { item: def.id, n: 1 }, tier: Math.max(1, Math.min(3, def.tier)), xp: t };
   }
   recipeCache.set(def.id, r);
   return r;
@@ -223,14 +234,18 @@ export function craftGrade(o: { level: number; toolTier?: number; toolRarity?: R
   return Math.max(1, Math.min(19, g));
 }
 
-/** Rarity odds (common .. legendary, percent) by G band: 1-3, 4-6, 7-9, 10-12, 13-15, 16+. */
+/**
+ * Rarity odds (common .. legendary, percent) by G band: 1-3, 4-6, 7-9, 10-12, 13-15, 16+. M5h6: legendary 0.05 / 0.15 /
+ * 0.3% (was 1 / 2 / 4%), so a master smith (G 17) makes about one a play week (scripts/war/balance.mjs); the rest went
+ * to epic.
+ */
 export const RARITY_ODDS: readonly (readonly [number, number, number, number, number])[] = [
   [80, 18, 2, 0, 0],
   [60, 30, 9, 1, 0],
   [42, 36, 18, 4, 0],
-  [30, 36, 24, 9, 1],
-  [20, 34, 30, 14, 2],
-  [12, 30, 34, 20, 4],
+  [30, 36, 24, 9.95, 0.05],
+  [20, 34, 30, 15.85, 0.15],
+  [12, 30, 34, 23.7, 0.3],
 ];
 export const oddsRow = (g: number) => RARITY_ODDS[Math.min(5, Math.floor((Math.max(1, g) - 1) / 3))];
 /** Highest rarity rank a tier may roll (T1 rare, T2 epic, T3 any). */
