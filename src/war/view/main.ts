@@ -18,6 +18,8 @@ import { hud } from './hud/hud';
 import { sandboxRoster } from './hud/roster/state';
 import { SandboxScene } from './SandboxScene';
 import { loadSheetImages } from './units';
+import { WarAudio } from './sound/warAudio';
+import { mountSoundPanel } from './hud/soundPanel';
 
 const q = new URLSearchParams(location.search);
 // M7d: a scenario may name its own region (the landmark raids)
@@ -48,6 +50,10 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
     else if (q.has('net') && q.has('world')) scene.sim.spawn('you', Number(q.get('team')) || 0, 'hoplite', 12, 0, 0);
     devPanel(game, scene, sc);
     hud(scene);
+    // the war's sound (./sound): settings card in the HUD corner, then the hooks (after the HUD's own event taps)
+    const audio = new WarAudio(scene);
+    mountSoundPanel(audio);
+    audio.install();
   };
   game.events.on('poststep', ready);
   (window as unknown as { __sandbox: SandboxScene }).__sandbox = scene;
