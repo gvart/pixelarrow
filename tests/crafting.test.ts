@@ -5,7 +5,7 @@ import { itemCapCases, runItemCap } from '../src/dev/rarityBalance';
 import { AFFIXES, itemPower, parseAffixes, WAR_IGNORED, WAR_POWER_IGNORED } from '../src/data/affixes';
 import { CIV_TOOLS } from '../src/data/classes';
 import { nodeRefusal, pointsAt, PROF_IDS, PROF_TREES, validPicks } from '../src/data/professions';
-import { craftGrade, craftRoll, crudeChance, masterworkChance, RARITY_ODDS, RECIPES, recipeFor, toolRecipe } from '../src/data/recipes';
+import { craftGrade, craftRoll, crudeChance, FRESH_KIT, masterworkChance, RARITY_ODDS, RECIPES, recipeFor, toolRecipe } from '../src/data/recipes';
 import { CLAMP, freshHero, warStats, warStatsOf } from '../src/war/sim/classes';
 
 describe('profession trees', () => {
@@ -46,7 +46,7 @@ describe('recipes', () => {
       else {
         expect(r, d.id).not.toBeNull();
         expect(RECIPES[`item:${d.id}`]).toBe(r);
-        expect(r!.lv).toBe(Math.min(3, d.tier));
+        expect(r!.lv).toBe(FRESH_KIT.has(d.id) ? 1 : Math.min(3, d.tier)); // M5h6: the fresh kit crafts as tier 1
         for (const v of Object.values(r!.inputs)) expect(v).toBeGreaterThan(0);
       }
     }

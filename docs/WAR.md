@@ -180,7 +180,7 @@ order (W-12); a forager is only faster.
 | Step | When | What |
 | --- | --- | --- |
 | Bake | spawn, level-up, gear or skill change | `computeStats(hero)` → `WarStats` (the existing per-unit `u.st`); P skills, attributes, gear and honours land in it |
-| Clamp | after bake | vs a fresh L1 common soldier of the class: HP ×1.4, melee and missile dmg ×1.4, armour +4, block +0.10, accuracy +0.12, attack ticks ≥ 0.85×, speed ×1.10 |
+| Clamp | after bake | vs a fresh L1 common soldier of the class: HP ×1.4, melee and missile dmg ×1.4, armour +4, block +0.10, accuracy +0.12, attack ticks ≥ 0.85×, speed ×1.10, range +1.5 tiles, ammo ×1.5, armour pierce +0.08, block pierce +0.12 (the last four: drop legendaries and crafted missile weapons went past them; war bake only, item data unchanged) |
 | Flags | bake | ≤ 3 bits per unit (`u.flags`) from F skills and item powers; read only in hit resolution |
 | Squad active | order | one per squad (best-ranked A skill in it), 60 s cooldown (−2.5% per WIL point of the leader), 8 s buff = one multiplier on the squad, read in hit resolution |
 | Civilians | spawn | `role: 'civ'`: never target, flee enemies within 10 tiles, work orders only, armour ×0.5 |
@@ -326,6 +326,9 @@ forge level must reach the tier; T2 needs Journeyman, T3 Master. Smelt: copper 1
 | Goldsmith | the 10 tier-1 trinkets | the 13 tier-2 trinkets | gold_torc, gold_stag, pythian_token |
 
 Who may wear it is still `CLASS_GEAR`: spearmen need a Smelter, archers a Bowyer, hoplites a Heavy Armour smith.
+The fresh kit of every class a home trains (first tier-1 option a slot, `FRESH_KIT`) crafts as tier 1 whatever the
+item's tier (longsword, falx, bow, montefortino, thracian): T1 forge, T1 cost and time, closed helmets under Armourer;
+its rolls keep the item's tier cap.
 
 ### Other recipes (representative)
 
@@ -369,9 +372,9 @@ Craft grade **G** = crafter level (1–10) + tool tier − 1 + ⌊tool rarity ra
 | 1–3 | 80 | 18 | 2 | 0 | 0 |
 | 4–6 | 60 | 30 | 9 | 1 | 0 |
 | 7–9 | 42 | 36 | 18 | 4 | 0 |
-| 10–12 | 30 | 36 | 24 | 9 | 1 |
-| 13–15 | 20 | 34 | 30 | 14 | 2 |
-| 16+ | 12 | 30 | 34 | 20 | 4 |
+| 10–12 | 30 | 36 | 24 | 9.95 | 0.05 |
+| 13–15 | 20 | 34 | 30 | 15.85 | 0.15 |
+| 16+ | 12 | 30 | 34 | 23.7 | 0.3 |
 
 Tier caps rarity (T1 ≤ rare, T2 ≤ epic, T3 any; the excess falls one step). Random stats and an epic/legendary power
 then roll exactly as a drop's (`itemAffixes`, `itemPower`), seeded by the order and stored on the item (`aff`, `pow`).
@@ -395,6 +398,19 @@ masterwork legendary per slot; it read over the +10-point cap at ×1.04 (as the 
 Durability: condition as today (stats × (0.6 + 0.4 × cond)). Repair at a forge (Field Forge: in the field): per 10
 condition, 10% of the recipe's main material (min 1) and 10% of its time; masterwork −25%. A repair started below 50
 takes 5 off max condition; at max 50 the item can only be salvaged (30% of the inputs, Goldsmith 60%).
+
+### Balance (M5h6, `npm run balance:war`)
+
+Expected values, no dice. A play week = 14 h at the forge + 7 unattended queues of 5. Smiths: T1 forge L4 stone hammer
+(G 4, work ×1.09), T2 L6 journeyman bronze uncommon (G 8, ×1.32), T3 L10 master + Masterwork, iron rare (G 17, ×1.65).
+
+| Check | Result | Target |
+| --- | --- | --- |
+| fresh kit for 12, T1 forge, one slot | worst hoplite 1.1 h (wood 132, flax 72, copper / tin / iron 36); others 0.2–1 h; T2 forge ≤ 0.6 h, T3 ≤ 0.3 h | ≤ 2 h |
+| legendaries of a master smith a week | 352 tier-3 crafts × 0.3% = 1.06 (copper and tin 1063 each, silver 176: tin and silver come from neutrals) | ~1 |
+| one max squad (48 legendary pieces), 3 master smiths | 333 crafts a legendary; 4–22 play weeks (archer 4, gallic 4.5, rhomphaia 8, royal guard 21, sacred band 22) | drops (beast loot 15% legendary) are the faster road |
+| rarity mix | crafted T3 at G 17: 12 / 30 / 34 / 23.7 / 0.3%; T1 at a T1 forge (G 4) 60 / 30 / 10; T1 drops 85 / 14 / 1, T3 drops 30 / 40 / 25 / 5 | crafted ≥ drops below legendary |
+| power through `warStatsOf` (L10, attributes 15) | max crafted kit = drop-legendary kit = the cap on every clamped stat (royal guard HP 52 → 60, dmg 10 → 12.6, armour 8.8 → 10.5) | ≤ cap; max squad ≤ 35% vs 2N (tests/war/balance.test.ts) |
 
 ### Workplaces
 
