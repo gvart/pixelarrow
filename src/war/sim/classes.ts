@@ -46,6 +46,11 @@ export interface WarStats {
 
 /** The power cap of a baked soldier against the fresh soldier of his class (docs/WAR.md "Clamp"). */
 export const CLAMP = { hp: 1.4, dmg: 1.4, armor: 4, block: 0.1, accuracy: 0.12, atk: 0.85, speed: 1.1 };
+/**
+ * Elites clamp against the trained class they are promoted from: a fresh royal guard already beats two squads of fresh
+ * hoplites, so a cap on his own baseline would break the power curve (docs/WAR.md "Anti-oversaturation").
+ */
+export const CLAMP_BASE: Partial<Record<ClassId, ClassId>> = { royal_guard: 'hoplite', sacred_band: 'hoplite', rhomphaia: 'celt_sword', gallic: 'celt_sword', chariot: 'companion' };
 
 const cache = new Map<string, WarStats>();
 const COMMON: Rarity = 'common';
@@ -122,9 +127,9 @@ export function warStatsOf(p: WarPerson | Hero): WarStats {
   const person: WarPerson = 'hero' in p ? p : { id: p.id, hero: p };
   const hero = person.hero;
   const cls = classId(hero.cls ?? '');
-  const b = warStats(cls);
+  const o = warStats(cls), b = warStats(CLAMP_BASE[cls] ?? cls);
   const s = bake(computeStats({ ...hero, cls, perks: [] }), hero.attrs.end);
-  if (b.range === 0) (s.range = 0), (s.ammo = 0), (s.rangedDmg = 0); // a class without missiles fights without them
+  if (o.range === 0) (s.range = 0), (s.ammo = 0), (s.rangedDmg = 0); // a class without missiles fights without them
   let flags = 0, nf = 0;
   const flag = (f: number) => {
     if (nf < MAX_FLAGS && !(flags & f)) (flags |= f), nf++;
@@ -157,15 +162,16 @@ export function warStatsOf(p: WarPerson | Hero): WarStats {
     else if (h.stat === 'block') s.block *= 1.02;
     else s.accuracy *= 1.02;
   }
-  s.maxHp = Math.round(Math.min(s.maxHp, b.maxHp * CLAMP.hp));
-  s.dmg = Math.min(s.dmg, b.dmg * CLAMP.dmg);
-  s.rangedDmg = Math.min(s.rangedDmg, b.rangedDmg * CLAMP.dmg);
-  s.armor = Math.min(s.armor, b.armor + CLAMP.armor);
-  s.block = Math.min(s.block, b.block + CLAMP.block);
-  s.accuracy = Math.min(s.accuracy, b.accuracy + CLAMP.accuracy);
-  s.atkTicks = Math.max(s.atkTicks, Math.round(b.atkTicks * CLAMP.atk));
-  s.shotTicks = Math.max(s.shotTicks, Math.round(b.shotTicks * CLAMP.atk));
-  s.speed = Math.min(s.speed, b.speed * CLAMP.speed);
+  // the cap: the trained baseline's (b) with CLAMP on top, never below his own class's fresh value (o)
+  s.maxHp = Math.round(Math.min(s.maxHp, Math.max(o.maxHp, b.maxHp * CLAMP.hp)));
+  s.dmg = Math.min(s.dmg, Math.max(o.dmg, b.dmg * CLAMP.dmg));
+  s.rangedDmg = Math.min(s.rangedDmg, Math.max(o.rangedDmg, b.rangedDmg * CLAMP.dmg));
+  s.armor = Math.min(s.armor, Math.max(o.armor, b.armor + CLAMP.armor));
+  s.block = Math.min(s.block, Math.max(o.block, b.block + CLAMP.block));
+  s.accuracy = Math.min(s.accuracy, Math.max(o.accuracy, b.accuracy + CLAMP.accuracy));
+  s.atkTicks = Math.max(s.atkTicks, Math.min(o.atkTicks, Math.round(b.atkTicks * CLAMP.atk)));
+  s.shotTicks = Math.max(s.shotTicks, Math.min(o.shotTicks, Math.round(b.shotTicks * CLAMP.atk)));
+  s.speed = Math.min(s.speed, Math.max(o.speed, b.speed * CLAMP.speed));
   s.flags = flags;
   return s;
 }

@@ -1,17 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { ClassId } from '../../src/data/classes';
 import { createSim } from '../../src/war/sim';
-import { CLAMP, freshHero, warStats, warStatsOf } from '../../src/war/sim/classes';
+import { CLAMP, CLAMP_BASE, freshHero, warStats, warStatsOf } from '../../src/war/sim/classes';
 import { createRoster, makePerson } from '../../src/war/sim/roster';
 import { F, FAMILY_OF, MAX_FLAGS } from '../../src/war/sim/skills';
-import type { RegionData } from '../../src/war/types';
-
-export function flat(n = 64): RegionData {
-  return {
-    id: 't', name: 't', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0),
-    entries: [], noBuild: [],
-  };
-}
+import { flat } from './flatRegion';
 
 const SOLDIER_CLASSES = Object.keys(FAMILY_OF) as ClassId[];
 
@@ -25,24 +18,26 @@ describe('M5b bake', () => {
 
   it('a max soldier (L10, tier 3 legendary kit, skills) stays within the clamp of his class, and is better than fresh', () => {
     for (const cls of SOLDIER_CLASSES) {
-      const b = warStats(cls);
+      const o = warStats(cls), b = warStats(CLAMP_BASE[cls] ?? cls); // elites: capped on the trained class, never below their own fresh
       const p = makePerson('max', cls, { level: 10, tier: 2, rarity: 'legendary' });
       expect(p.skills).toHaveLength(2);
       const s = warStatsOf(p);
-      expect(s.maxHp).toBeLessThanOrEqual(Math.round(b.maxHp * CLAMP.hp));
-      expect(s.dmg).toBeLessThanOrEqual(b.dmg * CLAMP.dmg + 1e-9);
-      expect(s.rangedDmg).toBeLessThanOrEqual(b.rangedDmg * CLAMP.dmg + 1e-9);
-      expect(s.armor).toBeLessThanOrEqual(b.armor + CLAMP.armor + 1e-9);
-      expect(s.block).toBeLessThanOrEqual(b.block + CLAMP.block + 1e-9);
-      expect(s.accuracy).toBeLessThanOrEqual(b.accuracy + CLAMP.accuracy + 1e-9);
-      expect(s.atkTicks).toBeGreaterThanOrEqual(Math.round(b.atkTicks * CLAMP.atk));
-      expect(s.shotTicks).toBeGreaterThanOrEqual(Math.round(b.shotTicks * CLAMP.atk));
-      expect(s.speed).toBeLessThanOrEqual(b.speed * CLAMP.speed + 1e-9);
+      const e = 1e-9;
+      expect(s.maxHp).toBeLessThanOrEqual(Math.max(o.maxHp, Math.round(b.maxHp * CLAMP.hp)));
+      expect(s.dmg).toBeLessThanOrEqual(Math.max(o.dmg, b.dmg * CLAMP.dmg) + e);
+      expect(s.rangedDmg).toBeLessThanOrEqual(Math.max(o.rangedDmg, b.rangedDmg * CLAMP.dmg) + e);
+      expect(s.armor).toBeLessThanOrEqual(Math.max(o.armor, b.armor + CLAMP.armor) + e);
+      expect(s.block).toBeLessThanOrEqual(Math.max(o.block, b.block + CLAMP.block) + e);
+      expect(s.accuracy).toBeLessThanOrEqual(Math.max(o.accuracy, b.accuracy + CLAMP.accuracy) + e);
+      expect(s.atkTicks).toBeGreaterThanOrEqual(Math.min(o.atkTicks, Math.round(b.atkTicks * CLAMP.atk)));
+      expect(s.shotTicks).toBeGreaterThanOrEqual(Math.min(o.shotTicks, Math.round(b.shotTicks * CLAMP.atk)));
+      expect(s.speed).toBeLessThanOrEqual(Math.max(o.speed, b.speed * CLAMP.speed) + e);
       expect(s.maxHp).toBeGreaterThan(b.maxHp);
+      expect(s.maxHp).toBeGreaterThanOrEqual(o.maxHp);
       let n = 0;
       for (let v = s.flags; v; v &= v - 1) n++;
       expect(n).toBeLessThanOrEqual(MAX_FLAGS);
-      if (b.range === 0) expect(s.range).toBe(0);
+      if (o.range === 0) expect(s.range).toBe(0);
     }
   });
 

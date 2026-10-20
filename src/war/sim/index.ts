@@ -40,7 +40,7 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { Order, RegionData, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarPerson } from '../types';
+import type { Order, RegionData, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarPerson, WarSkillId } from '../types';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
@@ -51,6 +51,7 @@ import { createSiege, LADDER, RAM } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { createVision } from './vision';
 import { DETACH_MIN, SQUAD_MAX } from './soldiers';
+import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -172,6 +173,14 @@ interface Squad {
   fire: boolean; // fire arrows
   claimPt: number; // claimRegion: the claim point it goes to and channels at, -1 none
   pair: SquadId; // M5a: the other detachment of its split (-1 none): a split squad splits no further until merged back
+  // M5c squad active: from its best-ranked man holding one (null none), his WIL; ready again / buff over at these ticks;
+  // while on, damage it deals and takes is multiplied by out / inn (1 otherwise): read in hit resolution
+  act: WarSkillId | null;
+  actWil: number;
+  actReady: number;
+  actUntil: number;
+  out: number;
+  inn: number;
 }
 
 interface Missile {
@@ -351,6 +360,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     if (k > 0) s.speed = minSpeed;
     s.ranged = ranged * 2 > k;
+    // M5c: the squad's active is its best-ranked man's (highest level, then first in the squad) who holds one
+    let lead: Unit | null = null, act: WarSkillId | null = null;
+    for (const u of s.units) {
+      if (!u.alive || !u.person || (lead && lead.person!.hero.level >= u.person.hero.level)) continue;
+      const a = u.person.skills?.find((id) => ACTIVES[id]);
+      if (a) (lead = u), (act = a);
+    }
+    s.act = act;
+    s.actWil = lead?.person!.hero.attrs.wil ?? 5;
   };
 
   /** A new squad of s's owner and team takes these living units of s, holding where they stand. */
@@ -412,7 +430,16 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.fire = o.on;
       return;
     }
-    if (o.kind === 'active') return;
+    if (o.kind === 'active') {
+      // M5c: fires when ready (no other effect on the squad's order)
+      const fx = s.act ? ACTIVES[s.act] : undefined;
+      if (!fx || tick < s.actReady || s.alive === 0) return;
+      s.out = fx.out;
+      s.inn = fx.in;
+      s.actUntil = tick + ACTIVE.buff;
+      s.actReady = tick + activeCooldown(s.actWil);
+      return;
+    }
     if (s.siege >= 0 && (o.kind === 'move' || o.kind === 'hold' || o.kind === 'attackBuilding' || o.kind === 'deploy' || o.kind === 'raiseLadder')) {
       // the crew drives its engine
       const id = s.siege;
@@ -1038,12 +1065,23 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     return best;
   };
 
+  /** M5c: t's block against u: less by u's block pierce, more with Hold Fast while t's squad holds. */
+  const blockOf = (u: Unit, t: Unit) => {
+    const b = t.st.block * (1 - u.st.bp);
+    return t.st.flags & F.holdFast && t.squad.order === 'hold' ? b * FLAG_FX.holdBlock : b;
+  };
+  /** M5c: damage multiplier of u's blow on t: the squad actives (dealt, taken) and Finisher. */
+  const dmgMult = (u: Unit, t: Unit) => {
+    const m = u.squad.out * t.squad.inn;
+    return u.st.flags & F.finisher && t.hp < FLAG_FX.finishHp * t.maxHp ? m * FLAG_FX.finishDmg : m;
+  };
+
   const strike = (u: Unit, t: Unit, dh: number) => {
     const bog = groundAt(u.x, u.y) === BOG;
     u.cd = Math.round(u.st.atkTicks * (bog ? COMBAT.bogAtk : 1) * (dh < 0 ? COMBAT.uphillAtk : 1));
     u.swingAt = tick;
-    if (!working(t) && rng.chance(blockChance(t.st.block, t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
-    hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1), t.st.armor, 0));
+    if (!working(t) && rng.chance(blockChance(blockOf(u, t), t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
+    hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1) * dmgMult(u, t), t.st.armor, 0));
     if (u.st.knock && t.alive) {
       // a charge (boar): the man is thrown back, in short steps so no wall is jumped
       const d = Math.hypot(t.x - u.x, t.y - u.y) || 1, k = u.st.knock / 3;
@@ -1057,12 +1095,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** W-35: why the squad's fire arrows are out, null when they may loose them (a man by a lit brazier, pitch in stock). */
   const fireBlock = (s: Squad): 'noBrazier' | 'noPitch' | null => {
     let near = false;
-    for (const u of s.units) if (u.alive && works.litNear(s.team, u.x, u.y, hAt(u.x, u.y))) { near = true; break; }
-    return !near ? 'noBrazier' : works.pitch(s.team) < BRAZIER.pitch - 1e-9 ? 'noPitch' : null;
+    let pitch = BRAZIER.pitch;
+    for (const u of s.units) {
+      if (!u.alive) continue;
+      if (u.st.flags & F.fireArcher) pitch = BRAZIER.pitch * FLAG_FX.firePitch;
+      if (!near && works.litNear(s.team, u.x, u.y, hAt(u.x, u.y), fireReach(u))) near = true;
+    }
+    return !near ? 'noBrazier' : works.pitch(s.team) < pitch - 1e-9 ? 'noPitch' : null;
   };
   /** A fire arrow for this shot? Only by a lit brazier, and it takes its pitch (else a plain arrow). */
   const fireShot = (u: Unit) =>
-    u.squad.fire && u.st.missile === 'arrow' && works.litNear(u.squad.team, u.x, u.y, hAt(u.x, u.y)) && works.takeStock(u.squad.team, { pitch: BRAZIER.pitch });
+    u.squad.fire && u.st.missile === 'arrow' && works.litNear(u.squad.team, u.x, u.y, hAt(u.x, u.y), fireReach(u)) &&
+    works.takeStock(u.squad.team, { pitch: u.st.flags & F.fireArcher ? BRAZIER.pitch * FLAG_FX.firePitch : BRAZIER.pitch });
+  /** M5c Fire Archer: twice the brazier reach. */
+  const fireReach = (u: Unit) => (u.st.flags & F.fireArcher ? BRAZIER.radius * FLAG_FX.fireReach : BRAZIER.radius);
 
   const shoot = (u: Unit, t: Unit, d: number, dh: number, range: number) => {
     const fire = fireShot(u);
@@ -1122,8 +1168,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const t = m.t;
       if (!t || !t.alive) continue;
       if (underRoof(t) && rng.chance(RAM.cover)) continue;
-      if (!working(t) && rng.chance(blockChance(t.st.block, t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
-      hurt(t, afterArmour(m.raw, t.st.armor, m.ap));
+      if (!working(t) && rng.chance(blockChance(blockOf(m.by, t), t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
+      hurt(t, afterArmour(m.raw * dmgMult(m.by, t), t.st.armor, m.ap));
     }
     missiles = keep;
   };
@@ -1242,6 +1288,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const t0 = performance.now();
     for (const o of queue.splice(0)) apply(o);
     for (const s of squads) {
+      if (s.actUntil === tick) s.out = s.inn = 1;
       if (s.alive === 0) continue;
       let x = 0;
       let y = 0;
@@ -1471,6 +1518,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
         repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, pair: -1,
+        act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1,
       };
       grid.team = team;
       squads.push(s);
@@ -1516,6 +1564,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         }),
         squads: squads.map((s) => {
           const snap: SquadSnap = { id: s.id, owner: s.owner, team: s.team, units: s.units.map((u) => u.id), order: s.order };
+          if (s.act) snap.active = { skill: s.act, ready: Math.max(0, s.actReady - tick), on: Math.max(0, s.actUntil - tick) };
           const st = s.units[0]?.st;
           if (st && st.range > 0 && st.missile === 'arrow') {
             const why = fireBlock(s);

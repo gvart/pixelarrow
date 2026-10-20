@@ -70,7 +70,7 @@ export const SKILL_LEVELS = [3, 7];
 export const ACTIVES: Partial<Record<WarSkillId, { out: number; in: number }>> = {
   shieldWall: { out: 1, in: 0.5 },
   berserk: { out: 1.4, in: 1.2 },
-  volley: { out: 1.5, in: 1 },
+  volley: { out: 1.25, in: 1 },
 };
 /** Cooldown in ticks (60 s), 2.5% shorter per WIL point of the leader above 5; buff in ticks (8 s). */
 export const ACTIVE = { cooldown: 600, perWil: 0.025, buff: 80 };
