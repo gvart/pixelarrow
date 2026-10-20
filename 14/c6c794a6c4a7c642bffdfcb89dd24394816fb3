@@ -1,0 +1,22 @@
+scripts/war/bench.mjs
+  s_cfc22b058125c4::t_695e166ddabcd0 237,240-241
+  s_cfc22b058125c4::t_b0117d76c05f8c 203-209,211-219,222-236,238-239,242-245,247-253,255
+  s_cfc22b058125c4::t_036b21d3de7d1f 254
+  s_cfc22b058125c4::t_b55246c1c26c92 210,220-221,246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "14c6c794a6c4a7c642bffdfcb89dd24394816fb3",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
