@@ -436,16 +436,21 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     let k1 = k0;
     while (k1 + 1 < len && wet(k1 + 1)) k1++;
     const span = Math.round((k1 - k0 + 1) * stepLen), type = BRIDGE.kit[o.material];
-    const pieces: BridgePlan['pieces'] = [{ type, part: 'end0', tiles: row(k0 - 1), rows: centre(k0 - 1), ok: true }];
+    // each ramp is BRIDGE.ramp rows of the bank (outer row first on end0, inner first on end1), past the drag if need be
+    const rampRows = (ks: number[]) => ({ tiles: ks.flatMap(row), rows: ks.flatMap(centre) });
+    const r0 = Array.from({ length: BRIDGE.ramp }, (_, i) => k0 - BRIDGE.ramp + i), r1 = Array.from({ length: BRIDGE.ramp }, (_, i) => k1 + 1 + i);
+    const pieces: BridgePlan['pieces'] = [{ type, part: 'end0', ...rampRows(r0), ok: true }];
     for (let k = k0; k <= k1; k += BRIDGE.piece) {
       const tiles: number[] = [], rows: number[] = [];
       for (let j = k; j <= Math.min(k1, k + BRIDGE.piece - 1); j++) tiles.push(...row(j)), rows.push(...centre(j));
       pieces.push({ type, part: 'deck', tiles, rows, ok: true });
     }
-    if (k1 + 1 < len) pieces.push({ type, part: 'end1', tiles: row(k1 + 1), rows: centre(k1 + 1), ok: true });
+    if (k1 + 1 < len) pieces.push({ type, part: 'end1', ...rampRows(r1), ok: true });
     const bad = (reason: PlaceReason) => { for (const q of pieces) q.ok = false; return fail(reason, span, pieces); };
     if (span > maxSpan) return bad('span');
     if (k1 + 1 >= len) return bad('bank'); // the drag ends in the water
+    if (![...r0, ...r1].every(inMap)) return bad('bounds');
+    if ([...r0, ...r1].some(wet)) return bad('bank'); // a bank too narrow for the ramp
     // ramps: open dry ground, banks at most a level apart, one of them in the team's influence
     const ends = [pieces[0], pieces[pieces.length - 1]];
     let lo = Infinity, hi = -Infinity, own = false;
@@ -1186,6 +1191,8 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
   };
 
   return {
+    /** The finished bridge piece whose open deck or ramp is tile t (its line: axis, dir, width, row centres), or null. */
+    bridgeAt: (t: number) => { const o = buildings[occ[t]]; return o && o.bridge && o.decked ? o.bridge : null; },
     checkPlacement,
     checkWall,
     checkBridge,
