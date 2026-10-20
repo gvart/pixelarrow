@@ -97,4 +97,17 @@ describe('war delta codec', () => {
     dec.apply(enc.encode({ ...base, buildings: [] }, false));
     expect(dec.buildings.size).toBe(0);
   });
+
+  it('carries the combat tag as a countdown without resending it every tick', () => {
+    const u = { id: 3, squad: 1, x: 10, y: 10, facing: 0, hp: 50, maxHp: 50, cls: 'hoplite', state: 'idle', tag: 400 } satisfies UnitSnap as UnitSnap;
+    const enc = new DeltaEncoder(), dec = new DeltaDecoder();
+    const at = (tick: number, units: UnitSnap[]) => ({ tick, units, squads: [], shots: [], buildings: [] });
+    expect(dec.apply(enc.encode(at(100, [u]), true)).units[0].tag).toBe(400);
+    // the sim counts the tag down each tick: same end tick, nothing to send
+    expect(enc.encode(at(150, [{ ...u, tag: 350 }]), false).length).toBe(14);
+    expect(dec.apply(enc.encode(at(160, [{ ...u, tag: 340 }]), false)).units[0].tag).toBe(340);
+    // a fresh hit re-arms it; then it runs out
+    expect(dec.apply(enc.encode(at(200, [{ ...u, tag: 400 }]), false)).units[0].tag).toBe(400);
+    expect(dec.apply(enc.encode(at(600, [{ ...u, tag: undefined }]), false)).units[0].tag).toBeUndefined();
+  });
 });

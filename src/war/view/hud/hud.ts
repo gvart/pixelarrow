@@ -171,7 +171,7 @@ export function hud(s: SandboxScene): void {
     <div id="cSel" style="display:flex;flex-direction:column;justify-content:center">
       <div style="display:flex;gap:5px;align-items:center">
         <div id="cIcon" style="width:32px;height:32px;flex:none"></div>
-        <div style="min-width:0;flex:1"><div class="rf-name" id="cName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="rf-num" id="cCount" style="margin-top:4px"></div></div>
+        <div style="min-width:0;flex:1"><div class="rf-name" id="cName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="rf-num" id="cCount" style="margin-top:4px"></div><div class="rf-chip" id="cTag" style="display:none" title="combat tag: no entry to a safe court until it runs out"></div></div>
       </div>
       <div id="cBars" style="margin-top:5px;display:flex;flex-direction:column;gap:2px"></div>
       <div class="rf-dim" id="cInfo" style="margin-top:4px;font-size:11.5px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
@@ -377,6 +377,7 @@ export function hud(s: SandboxScene): void {
     const b = m.selectedBuilding();
     if (b && b.state !== 'destroyed') {
       card.style.display = '';
+      $('cTag').style.display = 'none';
       const wpd = BUILDINGS[b.type].workplace, site = isSite(b), name = (wpd ? `${WP_NAME[wpd.kind]} L${wpd.level}` : nice(b.type)) + (site ? (b.upgradeFrom ? ' upgrade' : ' site') : '');
       const BAR_W = SEL_BLD;
       if (site) {
@@ -408,6 +409,10 @@ export function hud(s: SandboxScene): void {
       const hp = men.reduce((a, d) => a + d.u.hp, 0), max = men.reduce((a, d) => a + d.u.maxHp, 0) || 1;
       const engines = own.map((x) => sc.engineOf(x)), e = engines.find((x) => x);
       const civ = allCivilians(s, own);
+      // M6d combat tag: the longest left among the selected men (they hit or were hit), no safe court until it runs out
+      const tag = men.reduce((a, d) => Math.max(a, d.u.tag ?? 0), 0);
+      $('cTag').style.display = tag ? '' : 'none';
+      if (tag) $('cTag').textContent = `⚔ tagged ${Math.ceil(tag / 10)} s`;
       setHead(UNIT_ICON[cls] ?? 'unit-militia', (CLASS_NAME[cls] ?? civName(cls) ?? nice(cls)) + (own.length > 1 ? ` +${own.length - 1}` : ''), `${men.length} men`, bar('hp', hp / max, SEL_SQUAD),
         civ ? civInfo(s, own[0]) : e ? `crews ${SIEGE_NAME[e.type]} · ${e.state}${e.burning ? ' · burning' : ''}` : `${q.order}${q.fed ? ' · fed' : ''}${sc.status ? ' · ' + sc.status : ''}`);
       const slots: HTMLElement[] = [];

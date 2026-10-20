@@ -15,7 +15,7 @@
  *   v n, n bytes:      JSON { u: BuildingSnap[], r: id[] } of changed / gone buildings (n = 0: none)
  * Unit fields: POS u16 x*QUANT, u16 y*QUANT | FACE u8 (turns * 256) | HP u16 hp*10 | STATE u8 (state | 8 wounded set | 16 wounded)
  *   | Z u8 | ANIM u8 swing, u8 ready (255 none) | META v squad, u16 maxHp*10, s cls, s person id ('' none), u8 level
- *   | EXTRA v on+1, u8 task, u8 carry, u8 load
+ *   | EXTRA v on+1, u8 task, u8 carry, u8 load, v combat tag end tick (absolute; 0 none, the decoder counts down)
  */
 import type { BuildingSnap, ResourceKind, ShotSnap, Snapshot, SquadSnap, UnitSnap, WarSkillId } from '../types';
 import { NET_VERSION, QUANT } from './protocol';
@@ -29,19 +29,20 @@ const REASONS = [undefined, 'noBrazier', 'noPitch'] as const;
 const TAU = Math.PI * 2;
 
 // quantised unit record: indices into Q
-const QX = 0, QY = 1, QF = 2, QH = 3, QS = 4, QZ = 5, QSW = 6, QRD = 7, QON = 8, QTK = 9, QCA = 10, QLD = 11;
+const QX = 0, QY = 1, QF = 2, QH = 3, QS = 4, QZ = 5, QSW = 6, QRD = 7, QON = 8, QTK = 9, QCA = 10, QLD = 11, QTG = 12;
 type Q = number[];
 
 const clampU16 = (v: number) => (v < 0 ? 0 : v > 65535 ? 65535 : v);
 const u8 = (v: number | undefined) => (v === undefined ? 255 : v < 0 ? 0 : v > 254 ? 254 : Math.round(v));
 
-function quantise(u: UnitSnap): Q {
+function quantise(u: UnitSnap, tick: number): Q {
   const w = u.wounded === undefined ? 0 : u.wounded ? 24 : 8;
   return [
     clampU16(Math.round(u.x * QUANT)), clampU16(Math.round(u.y * QUANT)),
     Math.round(((((u.facing % TAU) + TAU) % TAU) / TAU) * 256) & 255,
     clampU16(Math.round(u.hp * 10)), Math.max(0, STATES.indexOf(u.state)) | w, u8(u.z ?? 0),
     u8(u.swing), u8(u.ready), u.on === undefined ? 0 : u.on + 1, Math.max(0, TASKS.indexOf(u.task)), Math.max(0, CARRY.indexOf(u.carry)), u8(u.load ?? 0),
+    u.tag ? tick + u.tag : 0,
   ];
 }
 
@@ -132,7 +133,7 @@ export class DeltaEncoder {
     seen.clear();
     for (const u of f.units) {
       seen.add(u.id);
-      const q = quantise(u), meta = `${u.squad}|${u.maxHp}|${u.cls}|${u.pid ?? ''}|${u.level ?? 0}`;
+      const q = quantise(u, f.tick), meta = `${u.squad}|${u.maxHp}|${u.cls}|${u.pid ?? ''}|${u.level ?? 0}`;
       const was = this.units.get(u.id);
       let m = 0;
       if (!was || was.meta !== meta) m |= META | POS | FACE | HP | STATE | Z | ANIM | EXTRA;
@@ -144,7 +145,7 @@ export class DeltaEncoder {
         if (p[QS] !== q[QS]) m |= STATE;
         if (p[QZ] !== q[QZ]) m |= Z;
         if (p[QSW] !== q[QSW] || p[QRD] !== q[QRD]) m |= ANIM;
-        if (p[QON] !== q[QON] || p[QTK] !== q[QTK] || p[QCA] !== q[QCA] || p[QLD] !== q[QLD]) m |= EXTRA;
+        if (p[QON] !== q[QON] || p[QTK] !== q[QTK] || p[QCA] !== q[QCA] || p[QLD] !== q[QLD] || p[QTG] !== q[QTG]) m |= EXTRA;
       }
       if (!m) continue;
       this.units.set(u.id, { q, meta });
@@ -158,7 +159,7 @@ export class DeltaEncoder {
       if (m & Z) w.u8(q[QZ]);
       if (m & ANIM) { w.u8(q[QSW]); w.u8(q[QRD]); }
       if (m & META) { w.v(u.squad); w.u16(clampU16(Math.round(u.maxHp * 10))); w.s(u.cls); w.s(u.pid ?? ''); w.u8(u.level ?? 0); }
-      if (m & EXTRA) { w.v(q[QON]); w.u8(q[QTK]); w.u8(q[QCA]); w.u8(q[QLD]); }
+      if (m & EXTRA) { w.v(q[QON]); w.u8(q[QTK]); w.u8(q[QCA]); w.u8(q[QLD]); w.v(q[QTG]); }
     }
     // a 4-byte varint (padded with continuation bits) so the count can be patched in place
     w.buf[countAt] = (count & 0x7f) | 0x80;
@@ -220,6 +221,8 @@ export class DeltaDecoder {
   actives = new Map<number, [WarSkillId, number, number]>();
   shots: ShotSnap[] = [];
   buildings = new Map<number, BuildingSnap>();
+  /** Combat tag end ticks by unit (absolute; snapshot() counts down). */
+  tags = new Map<number, number>();
   tick = 0;
 
   apply(data: ArrayBuffer | Uint8Array): Snapshot {
@@ -227,7 +230,7 @@ export class DeltaDecoder {
     const kind = r.u8(), v = r.u8();
     if (v !== NET_VERSION) throw new Error(`net version ${v}, expected ${NET_VERSION}`);
     const tick = r.u32();
-    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); }
+    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); this.tags.clear(); }
     this.tick = tick;
     for (let n = r.v(); n > 0; n--) {
       const id = r.v(), m = r.u8();
@@ -256,10 +259,12 @@ export class DeltaDecoder {
         if (on) u.on = on - 1; else delete u.on;
         if (task) u.task = task; else delete u.task;
         if (carry) { u.carry = carry; u.load = load; } else { delete u.carry; delete u.load; }
+        const tag = r.v();
+        if (tag) this.tags.set(id, tag); else this.tags.delete(id);
       }
       this.units.set(id, u);
     }
-    for (let n = r.v(); n > 0; n--) this.units.delete(r.v());
+    for (let n = r.v(); n > 0; n--) { const id = r.v(); this.units.delete(id); this.tags.delete(id); }
     for (let n = r.v(); n > 0; n--) {
       const id = r.v(), team = r.u8(), order = r.s() as SquadSnap['order'], fa = r.u8(), owner = r.s();
       const s: Omit<SquadSnap, 'units'> = { id, owner, team, order };
@@ -288,7 +293,11 @@ export class DeltaDecoder {
   }
 
   snapshot(): Snapshot {
-    const units = [...this.units.values()].sort((a, b) => a.id - b.id).map((u) => ({ ...u }));
+    const units = [...this.units.values()].sort((a, b) => a.id - b.id).map((u) => {
+      const end = this.tags.get(u.id), c = { ...u };
+      if (end !== undefined && end > this.tick) c.tag = end - this.tick; else delete c.tag;
+      return c;
+    });
     const lists = new Map<number, number[]>();
     for (const u of units) {
       let l = lists.get(u.squad);
