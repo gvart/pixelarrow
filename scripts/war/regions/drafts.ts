@@ -309,5 +309,5 @@ function nearWater(k: Kit, first: Pt, next: () => Pt): Pt {
   return hasWater(k, p, 30) ? p : first;
 }
 
-const HAND = new Set(['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia']);
+const HAND = new Set(['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous']);
 export const DRAFTS: RegionDef[] = WORLD.filter((w) => !HAND.has(w.id)).map(template);
