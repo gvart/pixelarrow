@@ -1,0 +1,79 @@
+{
+ "version": 2,
+ "class": "mob_bandit_king",
+ "image": "mob_bandit_king.png",
+ "frame": {
+  "w": 86,
+  "h": 88
+ },
+ "anchor": {
+  "x": 43,
+  "y": 85
+ },
+ "anchors": {
+  "south-east": {
+   "x": 44,
+   "y": 85
+  },
+  "north-east": {
+   "x": 43,
+   "y": 85
+  },
+  "south-west": {
+   "x": 43,
+   "y": 85
+  },
+  "north-west": {
+   "x": 44,
+   "y": 85
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 47,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "slash": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 36,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 48,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

@@ -1,0 +1,39 @@
+{
+ "about": "Landmark guardians (ART-L, WAR.md 'Living regions' > Landmarks). Each `sheet` is a soldier-format sheet in src/assets/sheets/<sheet>/ (SHEET_FORMAT v2; rows south-east, north-east, south-west, north-west; east rows are the west rows mirrored). `scale` is the manifest scale: 0.55 = the soldier's 33 px/m, 1 = 18 px/m (giants), 1.5 = 12 px/m (Drakon), so every guardian stands at true size beside the 1.76 m soldier. `clips` maps a guardian's moves to the sheet's clip names (the sheet player only knows SHEET_ANIMS). `fx` names strips in public/war/fx/objects.json; `fxScale` is the scale they play at (like a sheet scale: 1.5 = 2.7x the strip, a ~24 m breath cone). Prompts: docs/playbook/PROMPTS_ART.md > 40c.",
+ "guardians": {
+  "drakon": {
+   "sheet": "mob_drakon", "landmark": "citadel", "region": "krios", "scale": 1.5, "lengthM": 17, "wingspanM": 20,
+   "clips": { "idle": "idle", "walk": "walk", "claw": "attack", "tailSweep": "attack", "breath": "shoot", "roofPerch": "brace", "crash": "charge", "hit": "hit", "die": "die" },
+   "fxScale": 1.5, "fx": { "breath": { "south-east": ["breath-se-ignite", "breath-se-loop"], "north-east": ["breath-ne-ignite", "breath-ne-loop"], "west": "mirror the east strips" }, "crash": "crash-dust" },
+   "note": "P2 roof perch: play `brace` on the keep roof terrace (citadel-keep, heightM 16); `brace.hold` loops the wings-open crouch. P3 crash: `charge` (rears, slams down), then crash-dust at the anchor."
+  },
+  "scylla_head": {
+   "sheet": "mob_scylla_head", "landmark": "rim", "region": "siren", "scale": 1, "count": 6, "heightM": 7,
+   "clips": { "idle": "idle", "strike": "attack", "hit": "hit", "die": "die" },
+   "fx": { "strike": "scylla-strike" },
+   "note": "one head, drawn rising from the water; six instances along the cliff. Every row is the south-west view (the east rows mirrored): the heads face the shore. Its die sinks under the water."
+  },
+  "brontes": {
+   "sheet": "mob_brontes", "landmark": "cyclops", "region": "saddle", "scale": 1, "heightM": 8,
+   "clips": { "idle": "idle", "walk": "walk", "hurl": "shoot", "smash": "attack", "hit": "hit", "die": "die" }
+  },
+  "gyges": {
+   "sheet": "mob_gyges", "landmark": "forge", "region": "gorge", "scale": 1, "heightM": 8,
+   "clips": { "idle": "idle", "walk": "walk", "tripleBlow": "attack", "hit": "hit", "die": "die" }
+  },
+  "chimera": {
+   "sheet": "mob_chimera", "landmark": "obsidian", "region": "canyons", "scale": 0.55, "lengthM": 3.5,
+   "clips": { "idle": "idle", "walk": "walk", "attack": "attack", "breath": "attack", "hit": "hit", "die": "die" },
+   "fx": { "breath": "breath strips at 0.4 scale from the goat head" }
+  },
+  "bandit_king": {
+   "sheet": "mob_bandit_king", "landmark": "ammon", "region": "ammon", "scale": 0.55, "heightM": 1.8,
+   "clips": { "idle": "idle", "walk": "walk", "attack": "slash", "hit": "hit", "die": "die" }
+  },
+  "bandit_captain": { "sheet": "mob_bandit_captain", "landmark": "ammon", "scale": 0.55, "clips": { "idle": "idle", "walk": "walk", "attack": "slash", "hit": "hit", "die": "die" }, "note": "one per quarter lair" },
+  "bandit_guard": { "sheet": "mob_bandit_guard", "landmark": "ammon", "scale": 0.55, "clips": { "idle": "idle", "walk": "walk", "attack": "thrust", "hit": "hit", "die": "die" }, "note": "the King's 12 elite guard" },
+  "bandit_archer": { "sheet": "mob_bandit_archer", "landmark": "ammon", "scale": 0.55, "clips": { "idle": "idle", "walk": "walk", "shoot": "shoot", "hit": "hit", "die": "die" }, "note": "archers on the walls" },
+  "maenad": { "sheet": "mob_maenad", "landmark": "oracle", "scale": 0.55, "clips": { "idle": "idle", "walk": "walk", "attack": "slash", "hit": "hit", "die": "die" } },
+  "maenad_queen": { "sheet": "mob_maenad_queen", "landmark": "oracle", "scale": 0.55, "clips": { "idle": "idle", "walk": "walk", "attack": "thrust", "hit": "hit", "die": "die" } }
+ }
+}

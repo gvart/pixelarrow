@@ -1,0 +1,7 @@
+{
+ "note": "ART-L PixelLab jobs (ruins, FX, rare goods; PROMPTS_ART.md \"Landmarks\" 40b). icons: create_image_pixen 32x32 ids (raw shots/war/pixellab/ui/raw/landmark/<id>.png). Town ruin states: town-jobs.json `states`.",
+ "icons": {
+  "res-dragonbone": "5472e691-d4b1-42e0-86e4-7af6e1819c08", "res-nereid-pearl": "d0928513-e27c-4e5f-b5ed-8a2a63dd0531", "res-star-iron": "4fd9fffa-4a2b-40e6-994d-7dac4e0a1d7e",
+  "res-asphodel": "f64ece14-26e8-460f-915a-98d110582df4", "res-titan-bronze": "7ccac7cf-03c0-4779-9c71-81fdf2c08aa8", "res-obsidian": "c28ced86-bbac-44a1-bf63-f09137d8c1b6"
+ }
+}

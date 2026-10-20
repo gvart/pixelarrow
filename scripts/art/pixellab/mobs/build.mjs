@@ -128,8 +128,8 @@ function inpaint(c) {
 }
 
 function rawClip(name, c, dir) {
-  if (c.template) return templateFrames(c.template, dir).map((f) => onCanvas(f, PX, PY));
   if (c.job?.[dir]?.startsWith('mirror:')) return rawClip(name, c, c.job[dir].slice(7)).map(flip);
+  if (c.template && !c.job?.[dir]) return templateFrames(c.template, dir).map((f) => onCanvas(f, PX, PY));
   if (c.job) return frames(join(spec.raw, 'clips', name, dir, c.job[dir])).map((f) => onCanvas(f, 0, 0));
   throw new Error(`clip ${name}: template or job`);
 }

@@ -1,0 +1,79 @@
+{
+ "version": 2,
+ "class": "mob_chimera",
+ "image": "mob_chimera.png",
+ "frame": {
+  "w": 128,
+  "h": 120
+ },
+ "anchor": {
+  "x": 59,
+  "y": 118
+ },
+ "anchors": {
+  "south-east": {
+   "x": 70,
+   "y": 118
+  },
+  "north-east": {
+   "x": 56,
+   "y": 116
+  },
+  "south-west": {
+   "x": 59,
+   "y": 118
+  },
+  "north-west": {
+   "x": 73,
+   "y": 116
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 32,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "attack": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 36,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 48,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

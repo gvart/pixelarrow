@@ -1,5 +1,5 @@
 {
-  "note": "PixelLab map objects for the town dressing (PROMPTS_ART.md \"Town dressing\"); raws via node scripts/war/art/town.mjs --fetch",
+  "note": "PixelLab map objects for the town dressing (PROMPTS_ART.md \"Town dressing\"); raws via node scripts/war/art/town.mjs --fetch. states: pixflux img2img ids (ART-L damaged / ruined) over the --inits images (raw/<name>.png).",
   "objects": {
     "house-a": "3d4a52ba-6a0e-4958-913b-5aa4ed347132",
     "house-b": "76da2040-aa06-4263-9fac-99aa91826f84",
@@ -9,5 +9,24 @@
     "statue": "7a7534bb-969a-4c00-8ee5-142cd55c2442",
     "well": "60df485f-acce-4807-8454-4e63dbf4349c",
     "jetty": "ab675632-0488-4d6d-9822-031c8a2f4565"
+  },
+  "states": {
+    "house-a-damaged": "409f3a98-0d42-4f5b-848a-329bc0c280d3",
+    "house-a-ruined": "174e847a-7b84-42d6-8cbc-2dca571fa496",
+    "house-b-damaged": "dfb878c2-98e0-4774-b4e0-906a16f49c36",
+    "house-b-ruined": "b3fcc40a-bea4-45e7-afe5-edf368ebe0a0",
+    "cottage-damaged": "9e112091-e3a2-4a9d-a4c8-207c59a60b9f",
+    "cottage-ruined": "2625f2b7-7c8c-46b9-9d1e-eac4795e22c8",
+    "temple-damaged": "05d0478d-694e-4ccb-9f01-ad7f78eefb7f",
+    "temple-ruined": "b6db3a4c-4800-4dc0-a762-230eacecc8f4",
+    "stoa-damaged": "324ea074-a631-4493-ab73-4fa0584649bc",
+    "stoa-ruined": "af0c936a-fd3c-444d-8105-6dd8e11cbdaa",
+    "statue-damaged": "35d3b4d8-7e8a-4715-9d32-7f5b9860617c",
+    "statue-ruined": "c6ace572-6def-4b76-8704-253c4b79417c",
+    "well-damaged": "35201f67-e601-4ca9-9c38-219cc94c116b",
+    "well-ruined": "ec5502f1-bbb4-434b-92d8-b86595fa3051",
+    "jetty-damaged": "a8d11b7a-c612-403e-9ef2-ce7549e05c34",
+    "jetty-ruined": "632cf8fb-0f64-4343-957a-b7d11a0d86d7",
+    "olive-press-ruined": "54e0c230-2619-40da-a7c4-28ce5d1abf55"
   }
 }

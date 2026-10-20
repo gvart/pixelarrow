@@ -1,0 +1,154 @@
+{
+ "pxPerMetre": 33,
+ "note": "Landmark FX (ART-L): horizontal strips (frame n at x = n * frame.w), binary alpha; anchor = the world point the effect sits on (see use). loop false: play once (ignite clips chain into `then`). Draw at scale 1. Colours = tiles.json palette + palette.",
+ "palette": [
+  "#14232b",
+  "#1f3640",
+  "#2a292e",
+  "#2c4b55",
+  "#2e2d2c",
+  "#370a09",
+  "#3b3328",
+  "#3f646c",
+  "#423f43",
+  "#4a4744",
+  "#544939",
+  "#5c5c5f",
+  "#5d8289",
+  "#6a655e",
+  "#6e604b",
+  "#7a1410",
+  "#7a2a14",
+  "#837f7c",
+  "#86a6a8",
+  "#8a7a60",
+  "#a59478",
+  "#b0461c",
+  "#b4c8c4",
+  "#d8762c",
+  "#d9e3dc",
+  "#e5923d",
+  "#eeae52",
+  "#f6d48a"
+ ],
+ "fx": [
+  {
+   "id": "breath-se-ignite",
+   "file": "fx-breath-se-ignite.png",
+   "frames": 8,
+   "fps": 16,
+   "loop": false,
+   "frame": {
+    "w": 290,
+    "h": 245
+   },
+   "anchor": {
+    "x": 8,
+    "y": 80
+   },
+   "blend": "normal",
+   "lengthM": 12,
+   "then": "breath-se-loop",
+   "use": "Drakon's fire breath starting: the jet reaching out towards the lower right on the ground plane (flipX: sw); anchor = the mouth on the ground line; then the loop",
+   "source": "procedural (landmark-fx.mjs)"
+  },
+  {
+   "id": "breath-se-loop",
+   "file": "fx-breath-se-loop.png",
+   "frames": 12,
+   "fps": 14,
+   "loop": true,
+   "frame": {
+    "w": 290,
+    "h": 245
+   },
+   "anchor": {
+    "x": 8,
+    "y": 80
+   },
+   "blend": "normal",
+   "lengthM": 12,
+   "widthM": 7.2,
+   "use": "Drakon's fire breath, the full cone 12 m long (flipX: sw); anchor = the mouth on the ground line; wood in the cone ignites: fire v2 tongues (siege fx) on it, siege scorch decal under the cone's end",
+   "source": "procedural (landmark-fx.mjs)"
+  },
+  {
+   "id": "breath-ne-ignite",
+   "file": "fx-breath-ne-ignite.png",
+   "frames": 8,
+   "fps": 16,
+   "loop": false,
+   "frame": {
+    "w": 290,
+    "h": 245
+   },
+   "anchor": {
+    "x": 8,
+    "y": 215
+   },
+   "blend": "normal",
+   "lengthM": 12,
+   "then": "breath-ne-loop",
+   "use": "Drakon's fire breath starting: the jet reaching out towards the upper right on the ground plane (flipX: nw); anchor = the mouth on the ground line; then the loop",
+   "source": "procedural (landmark-fx.mjs)"
+  },
+  {
+   "id": "breath-ne-loop",
+   "file": "fx-breath-ne-loop.png",
+   "frames": 12,
+   "fps": 14,
+   "loop": true,
+   "frame": {
+    "w": 290,
+    "h": 245
+   },
+   "anchor": {
+    "x": 8,
+    "y": 215
+   },
+   "blend": "normal",
+   "lengthM": 12,
+   "widthM": 7.2,
+   "use": "Drakon's fire breath, the full cone 12 m long (flipX: nw); anchor = the mouth on the ground line; wood in the cone ignites: fire v2 tongues (siege fx) on it, siege scorch decal under the cone's end",
+   "source": "procedural (landmark-fx.mjs)"
+  },
+  {
+   "id": "crash-dust",
+   "file": "fx-crash-dust.png",
+   "frames": 14,
+   "fps": 14,
+   "loop": false,
+   "frame": {
+    "w": 435,
+    "h": 300
+   },
+   "anchor": {
+    "x": 218,
+    "y": 184
+   },
+   "blend": "normal",
+   "radiusM": 6,
+   "use": "Drakon crashing down from the keep roof (P3): dust ring racing out 6 m, billows, thrown stones; play once, camera shake on frame 0; anchor = the impact point on the ground",
+   "source": "procedural (landmark-fx.mjs)"
+  },
+  {
+   "id": "scylla-strike",
+   "file": "fx-scylla-strike.png",
+   "frames": 12,
+   "fps": 14,
+   "loop": false,
+   "frame": {
+    "w": 150,
+    "h": 170
+   },
+   "anchor": {
+    "x": 75,
+    "y": 144
+   },
+   "blend": "normal",
+   "use": "a Scylla head snapping out of the sea (every snatch, 1 per 6 s): split water column, splash ring, spray, foam; play once; anchor = the strike point on the water line",
+   "source": "procedural (landmark-fx.mjs)"
+  }
+ ],
+ "objects": []
+}

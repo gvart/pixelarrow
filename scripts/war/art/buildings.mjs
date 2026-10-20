@@ -394,14 +394,15 @@ const paraBoxS = (n, S, p, z0, z1, mat) => ({ ...(n === '+y' ? { x0: 0, x1: S, y
 // a sloped run along x (local u) from u0 to u1 following z = f(u), th thick, between y = v0 and v1 (stringers, ramps, ladders)
 const ramp = (u0, u1, v0, v1, f, th, mat, step = 1 / 16) => { const B = []; for (let u = u0; u < u1 - 1e-9; u += step) { const u2 = Math.min(u1, u + step), a = f(u), b = f(u2); B.push({ x0: u, x1: u2, y0: v0, y1: v1, z0: Math.max(0, Math.min(a, b) - th), z1: Math.max(a, b), mat }); } return B; };
 // a continuous talus of fallen stones (or two fallen logs) outside the exposed side n of a tile
-function talus(n, k, wood) {
-  const out = n[0] === '+' ? 1 : -1, alongX = n[1] === 'y', v0 = out > 0 ? 2 : 0, D = 0.95;
+function talus(n, k, wood, D = 0.95, hk = 1) { // ruined (ART-L): a wider, higher talus (D m out from the face, heights x hk)
+  const out = n[0] === '+' ? 1 : -1, alongX = n[1] === 'y', v0 = out > 0 ? 2 : 0;
   const box = (a0, a1, b0, b1, z0, z1, mat) => (alongX ? { x0: a0, x1: a1, y0: b0, y1: b1, z0, z1, mat } : { x0: b0, x1: b1, y0: a0, y1: a1, z0, z1, mat });
   if (wood) return [0, 1].map((i) => { const a = 0.1 + 0.8 * hash(i, k, 23), v = v0 + out * (0.1 + 0.35 * i); return box(a, Math.min(2.2, a + 0.7 + 0.5 * hash(i, k, 24)), Math.min(v, v + out * 0.26), Math.max(v, v + out * 0.26), 0, 0.24, woodSolid(i)); });
   const m = rubMat(k), [b0, b1] = out > 0 ? [v0, v0 + D] : [v0 - D, v0];
-  const B = cells(alongX ? 0 : b0, alongX ? 2 : b1, alongX ? b0 : 0, alongX ? b1 : 2, (x, y, i, j) => { const t = Math.abs((alongX ? y : x) - v0) / D, h = (1 - t) ** 1.3 * (0.5 + 0.7 * hash(i, j, k + out)); return h > 0.05 ? { z0: 0, z1: h, mat: m } : null; }, 0.2);
+  const B = cells(alongX ? 0 : b0, alongX ? 2 : b1, alongX ? b0 : 0, alongX ? b1 : 2, (x, y, i, j) => { const t = Math.abs((alongX ? y : x) - v0) / D, h = hk * (1 - t) ** 1.3 * (0.5 + 0.7 * hash(i, j, k + out)); return h > 0.05 ? { z0: 0, z1: h, mat: m } : null; }, 0.2);
   const a = 0.2 + 1.1 * hash(1, k, 27), sz = 0.45 + 0.2 * hash(1, k, 28), v = out > 0 ? v0 + 0.1 : v0 - 0.1 - sz;
   B.push(box(a, a + sz * 1.35, v, v + sz, 0, sz * 0.75, masonry(TEX.cyclo, { row0: 40, top: rough })));
+  if (hk > 1) { const a2 = 0.9 + 0.8 * hash(2, k, 27), s2 = 0.5 + 0.25 * hash(2, k, 28), w2 = out > 0 ? v0 + 0.35 : v0 - 0.35 - s2; B.push(box(a2, a2 + s2 * 1.5, w2, w2 + s2, 0, s2 * 0.7, masonry(TEX.cyclo, { row0: 70, top: rough }))); } // a second fallen block
   return B;
 }
 function cellBoxes(id, mask, open, state) {
@@ -412,7 +413,7 @@ function cellBoxes(id, mask, open, state) {
   const top = done ? (wood ? planks(axis, 5) : flagsP) : wood ? () => mul(TEX.wood[0], 1.1) : rough;
   const mat = wood ? (f, x, y, z, u, r) => (f === 'top' ? top(f, x, y) : r % 22 < 3 ? mul(TEX.wood[0], 0.9) : pal(f, x, y, z, u, (r % 60) + 12)) : masonry(TEX.cyclo, { top });
   const body = { x0: 0, x1: 2, y0: 0, y1: 2, z0: 0, z1: W, mat, skip: new Set(SIDES.filter(([b]) => mask & b).map(([, n]) => n)) };
-  const prof = state === 'scaffold' ? halfProf(W, kk, SCAF) : state === 'rising' ? halfProf(W, kk, RISE) : state === 'damaged' ? (wood ? stakeProf(W, kk) : wreckProf(W, kk)) : null;
+  const prof = state === 'scaffold' ? halfProf(W, kk, SCAF) : state === 'rising' ? halfProf(W, kk, RISE) : state === 'damaged' ? (wood ? stakeProf(W, kk) : wreckProf(W, kk)) : state === 'ruined' ? (wood ? stakeProf(W, kk, 0.12) : wreckProf(W, kk, 1.6, 0.14)) : null;
   const B = prof ? sliced(body, axis, prof) : [body];
   if (done) {
     const pm = wood ? (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.wood[0], 1.1) : pal(f, x, y, z, u, palRow(r, K.paraH))) : masonry(TEX.cyclo, { row0: Math.round(W * PPM), top: capTop });
@@ -420,6 +421,7 @@ function cellBoxes(id, mask, open, state) {
   }
   if (state === 'scaffold') for (const [, n] of exposed) if (n[0] === '+') B.push(...scaffold(n === '+y' ? 'x' : 'y', 0, 2, 2, 1, W * SCAF + 0.5));
   if (state === 'damaged') for (const [, n] of exposed) B.push(...talus(n, kk + 3, wood));
+  if (state === 'ruined') for (const [, n] of exposed) B.push(...talus(n, kk + 3, wood, 1.35, 1.25)); // ART-L: thrown down to the socle, a deep talus
   if (state === 'rising' && hash(mask, 3, 1) < 0.5) { const n = exposed.find(([, s]) => s[0] === '+')?.[1]; if (n) B.push(...(n === '+y' ? stack(0.5, 2.12, wood, mask) : stack(2.12, 0.5, wood, mask))); }
   return B;
 }
@@ -439,7 +441,7 @@ function renderLayered(id, state) {
     const key = state === 'done' ? `${m},${o}` : `${m}`; // only the done state has parapets to open
     if (!cache.has(key)) {
       let [bk, fr] = layerSplit(cellBoxes(id, m, o, state), g.w, g.h, g.w / 2, g.y0);
-      if (state === 'damaged') bk = KITS[id].material === 'wood' ? burn(bk, m) : soot(bk, m);
+      if (state === 'damaged' || state === 'ruined') bk = KITS[id].material === 'wood' ? burn(bk, m) : soot(bk, m);
       cache.set(key, [bk, fr]);
     }
     const [b, f] = cache.get(key); back.push(b); front.push(f);
@@ -571,6 +573,9 @@ function stoneTowerBoxes(state, open = 0, k = 1) {
   } else if (state === 'scaffold') {
     B.push(...sliced(body, 'x', (a) => socle + halfProf(W - socle, k, SCAF)(a)));
     const top = socle + (W - socle) * SCAF + 0.5; B.push(...scaffold('x', 0, S, S, 1, top), ...scaffold('y', 0, S, S, 1, top));
+  } else if (state === 'ruined') { // ART-L ruin: the shaft gone, stumps of the socle and the first courses, a deep ring of rubble
+    B.push(...sliced(body, 'x', (a) => socle * (0.55 + 0.4 * hash(Math.floor(a * 1.4), k, 4)) + (a > 2.6 ? 0.9 * hash(Math.floor(a * 2), k, 6) : 0)));
+    B.push(...heap(2.2, S + 0.3, 2.0, 0.85, 1.05, k + 40, rubMat(k)), ...heap(S + 0.3, 1.9, 0.85, 1.8, 0.95, k + 41, rubMat(k + 1)), ...heap(1.4, S + 0.2, 0.9, 0.5, 0.5, k + 42, rubMat(k + 2, TEX.tile)), ...heap(2.0, 2.0, 1.4, 1.4, 1.5, k + 43, rubMat(k + 3)));
   } else { // wrecked: broken off unevenly, the stair-house gone, rubble at its foot
     B.push(...sliced(body, 'x', (a) => socle + (W - socle) * (0.3 + 0.35 * hash(Math.floor(a * 1.2), k, 3) * (a > 2 ? 1 : 0.7))));
     B.push(...heap(2.6, S + 0.15, 1.3, 0.55, 0.85, k + 40, rubMat(k)), ...heap(S + 0.15, 1.6, 0.55, 1.2, 0.7, k + 41, rubMat(k + 1)), ...heap(1.3, S + 0.05, 0.7, 0.4, 0.4, k + 42, rubMat(k + 2, TEX.tile)));
@@ -613,7 +618,7 @@ function renderTower(id, state) {
     const key = state === 'done' || TOWERS[id].material === 'stone' ? o : 0; // a stone tower's door (and its threshold) moves with the open sides
     if (!cache.has(key)) {
       let [bk, fr] = layerSplit(TOWER_BOXES[id](state, o), TW_W, TW_H, TW_X0, TW_Y0);
-      if (state === 'damaged') bk = TOWERS[id].material === 'wood' ? burn(bk, 2) : soot(bk, 1);
+      if (state === 'damaged' || state === 'ruined') bk = TOWERS[id].material === 'wood' ? burn(bk, 2) : soot(bk, 1);
       cache.set(key, [bk, fr]);
     }
     const [b, f] = cache.get(key); back.push(b); front.push(f);
@@ -661,7 +666,7 @@ function gateBoxes(material, axis, state, k = 3, opt = {}) {
   const ua = (face, x, y) => { const a = axis === 'x' ? x : y; return axis === 'x' ? a : L - a; }; // left to right as seen
   const v0 = stone ? 0.05 : 0.7, v1 = stone ? 1.95 : 1.3, o0 = stone ? 0.6 : 0.55, o1 = L - o0;
   if (state === 'foundation') return foundation(rectEdges(0, v0, L, v1), material, k, stone ? 1.3 : 1).map((b) => (axis === 'x' ? b : { ...b, x0: b.y0, x1: b.y1, y0: b.x0, y1: b.x1 }));
-  const half = state === 'scaffold' || state === 'rising', low = state === 'rising', dmg = state === 'damaged', open = state === 'open';
+  const half = state === 'scaffold' || state === 'rising', low = state === 'rising', ruin = state === 'ruined', dmg = state === 'damaged' || ruin, open = state === 'open';
   const doorMat = (f, x, y, z) => { const a = (axis === 'x' ? x : y) + (axis === 'x' ? y : x), n = Math.floor(a * 3.3); if ((z > 0.8 && z < 0.92) || (z > 2.3 && z < 2.42)) return mul(TEX.wood[0], 1.2); if (stone && (z * 4) % 1 < 0.12 && n % 2) return [96, 78, 52, 255]; return n % 2 ? TEX.wood[1] : TEX.wood[2]; };
   const hinge = stone ? 1.45 : 1.3, dz = stone ? 3.2 : 3.0;
   const ironL = opt.iron ? ironLeaf(axis) : null; // Fortifier: iron-bound leaves (riveted plates over the timber)
@@ -682,7 +687,7 @@ function gateBoxes(material, axis, state, k = 3, opt = {}) {
       out.push(...scaffold(axis, 0, L, axis === 'x' ? v1 : v1, 1, 2.9));
       return out;
     }
-    const jamb = (a, b, zt) => { const bx = { u0: a, u1: b, v0, v1, z0: 0, z1: zt, mat: lionMat }; out.push(...(dmg ? sliced(map(bx), axis, (s) => zt * (0.55 + 0.3 * hash(Math.floor(s * 3), k, a > 1 ? 5 : 6))) : [map(bx)])); };
+    const jamb = (a, b, zt) => { const bx = { u0: a, u1: b, v0, v1, z0: 0, z1: zt, mat: lionMat }; out.push(...(dmg ? sliced(map(bx), axis, (s) => zt * ((ruin ? 0.2 : 0.55) + (ruin ? 0.18 : 0.3) * hash(Math.floor(s * 3), k, a > 1 ? 5 : 6))) : [map(bx)])); };
     if (!dmg) {
       jamb(0, o0, lin); jamb(o1, L, lin);
       add({ u0: o0, u1: o1, v0, v1, z0: passH, z1: lin, mat: lionMat });
@@ -694,6 +699,7 @@ function gateBoxes(material, axis, state, k = 3, opt = {}) {
       add({ u0: o0 - 0.2, u1: o1 - 0.4, v0: v1 - 0.95, v1: v1 - 0.1, z0: 0, z1: 0.9, mat: (f, x, y, z, u, r) => (f === 'top' ? rough(f, x, y) : mul(TEX.lion.px(40 + (u & 15), 112 + (r % 28)) ?? TEX.lime[2], 0.9)) });
       add({ u0: o0 + 0.1, u1: o0 + 1.3, v0: 0.2, v1: 0.42, z0: 0, z1: 0.14, mat: doorMat });
       out.push(...wreckage(axis, v1 - v0, k + 20, false, 0, L, 1), ...(axis === 'x' ? heap(L / 2, v1 + 0.3, 1.6, 0.6, 1.0, k + 50, rubMat(k)) : heap(v1 + 0.3, L / 2, 0.6, 1.6, 1.0, k + 50, rubMat(k))));
+      if (ruin) out.push(...(axis === 'x' ? [...heap(L / 2, v0 - 0.2, 1.8, 0.6, 0.9, k + 51, rubMat(k + 1)), ...heap(L / 2, 1, 1.5, 0.8, 1.3, k + 52, rubMat(k + 2))] : [...heap(v0 - 0.2, L / 2, 0.6, 1.8, 0.9, k + 51, rubMat(k + 1)), ...heap(1, L / 2, 0.8, 1.5, 1.3, k + 52, rubMat(k + 2))])); // the passage choked with fallen blocks
     }
   } else {
     const postH = 4.4, bm = 3.5, pal = palisadeMat();
@@ -1222,8 +1228,8 @@ function hideOverlay(boxes, w, h, ox, oy, zlo, zhiOf) {
   return im;
 }
 
-// shared with siege.mjs (siege engines, ladders, rubble: the same renderer, textures and palette)
-export { PPM, MX, MY, TEX, hash, mul, clamp, Canvas, drawBox, renderBoxes, cells, heap, ramp, beam, roof, sliced, masonry, rubMat, rough, flags, planks, woodSolid, solid, scorch, burn, soot, wreckProf, stakeProf, palisadeMat, foundation, loadTextures, extendPalette, footOf, hard, CHAR, EMBER, EARTH, STRING, DOORDARK, KITS };
+// shared with siege.mjs and landmarks.mjs (siege engines, ladders, rubble: the same renderer, textures and palette)
+export { PPM, MX, MY, TEX, hash, mul, clamp, Canvas, drawBox, renderBoxes, cells, heap, ramp, beam, roof, sliced, masonry, rubMat, rough, flags, planks, woodSolid, solid, scorch, burn, soot, wreckProf, stakeProf, palisadeMat, foundation, loadTextures, extendPalette, footOf, hard, CHAR, EMBER, EARTH, STRING, DOORDARK, KITS, cylinder, cone, pyramid, gateBoxes, gradeC, ao, lightOf, SHADE, PAINT, BRONZE };
 
 // ======== main (only when run directly)
 function main() {
@@ -1248,7 +1254,7 @@ for (const id of Object.keys(KITS)) {
     continue;
   }
   const g = LK(id);
-  for (const s of STATES) { const L = renderLayered(id, s); files[s] = sheetOut(`${id}-${s}.png`, gridSheet(L.back, g.w, g.h, LK_COLS)); front[s] = sheetOut(`${id}-${s}-front.png`, gridSheet(L.front, g.w, g.h, LK_COLS)); }
+  for (const s of [...STATES, ...(K.material === 'stone' ? ['ruined'] : [])]) { const L = renderLayered(id, s); files[s] = sheetOut(`${id}-${s}.png`, gridSheet(L.back, g.w, g.h, LK_COLS)); front[s] = sheetOut(`${id}-${s}-front.png`, gridSheet(L.front, g.w, g.h, LK_COLS)); }
   const post = sheetOut(`${id}-post.png`, renderBoxes(postBoxes(id), g.w, g.h, g.w / 2, g.y0));
   kits.push({ id, kind: 'wall', layered: true, post, material: K.material, burnable: K.burnable, heightM: K.heightM, thicknessM: K.thick, walkwayM: K.walkM, walkwayPx: Math.round(K.walkM * PPM), parapetM: K.paraH, parapetPx: Math.round(K.paraH * PPM), parapetThickM: K.para, walkwayWidthM: { oneDeep: +(2 - 2 * K.para).toFixed(2), twoDeep: +(4 - 2 * K.para).toFixed(2) }, frames: COMBOS.length, columns: LK_COLS, frameOf: FRAME_OF, frame: { w: g.w, h: g.h }, tileOrigin: { x: g.w / 2, y: g.y0 }, states: files, front, source: K.source });
 }
@@ -1277,7 +1283,7 @@ for (const id of Object.keys(STAIRS)) { // player-placed stairs up to the walk
 }
 for (const id of Object.keys(TOWERS)) { // free-standing towers, joined level to a walk
   const T = TOWERS[id], K = KITS[T.wall], files = {}, front = {};
-  for (const s of STATES) { const L = renderTower(id, s); files[s] = sheetOut(`${id}-${s}.png`, gridSheet(L.back, TW_W, TW_H, 16)); front[s] = sheetOut(`${id}-${s}-front.png`, gridSheet(L.front, TW_W, TW_H, 16)); }
+  for (const s of [...STATES, ...(T.material === 'stone' ? ['ruined'] : [])]) { const L = renderTower(id, s); files[s] = sheetOut(`${id}-${s}.png`, gridSheet(L.back, TW_W, TW_H, 16)); front[s] = sheetOut(`${id}-${s}-front.png`, gridSheet(L.front, TW_W, TW_H, 16)); }
   const stone = T.material === 'stone';
   kits.push({ id, kind: 'tower', layered: true, material: T.material, burnable: T.burnable, footprint: [2, 2], wall: T.wall, heightM: T.heightM, platformM: K.walkM, platformPx: Math.round(K.walkM * PPM), parapetM: stone ? K.paraH : 1.0, parapetPx: Math.round((stone ? K.paraH : 1.0) * PPM), access: stone ? 'door at ground level (first of +y, +x, -x, -y not open) + internal stair' : 'ladder (ladder piece tower-wood-<side> on an open side)', frames: 16, columns: 16, frameOf: 'open mask (+x 1, +y 2, -x 4, -y 8)', frame: { w: TW_W, h: TW_H }, tileOrigin: { x: TW_X0, y: TW_Y0 }, states: files, front, source: T.source });
 }
@@ -1314,8 +1320,9 @@ const PROC = [
 const rendered = {}; // id -> state -> { im, tileOrigin }
 for (const p of PROC) {
   rendered[p.id] = {};
-  for (const s of [...STATES, ...(p.kind === 'gate' ? ['open'] : [])]) {
-    const post = s === 'damaged' ? (im) => (p.material === 'wood' ? burn(im, p.id.length) : soot(im, p.id.length)) : null;
+  const ruins = p.material === 'stone' && !p.variantOf && (p.id === 'stone-tower' || p.kind === 'gate'); // ART-L: ruined (rubble footprint, slow ground)
+  for (const s of [...STATES, ...(p.kind === 'gate' ? ['open'] : []), ...(ruins ? ['ruined'] : [])]) {
+    const post = s === 'damaged' || s === 'ruined' ? (im) => (p.material === 'wood' ? burn(im, p.id.length) : soot(im, p.id.length)) : null;
     rendered[p.id][s] = renderModel(p.boxes(s), p.footprint[0], p.footprint[1], p.heightM + 1, post);
   }
 }
@@ -1399,7 +1406,7 @@ for (const o of all) {
   for (const [s, r] of Object.entries(rendered[o.id])) {
     const sid = `${o.id}-${s}`, a = footOf(r.im);
     const base = Math.min((o.footprint[0] + o.footprint[1]) * 16, r.im.h - 4), metres = +((r.im.h - base) / PPM).toFixed(2); // flat states (a field, a pitched-down camp) draw less than the diamond
-    sprites.push({ file: `${sid}.png`, im: r.im, meta: { id: sid, kind: o.kind, file: `${sid}.png`, w: r.im.w, h: r.im.h, metres: Math.max(0.05, metres), basePx: base, anchor: a, tileOrigin: r.tileOrigin, footprint: o.footprint, blocksMovement: s !== 'foundation' && s !== 'destroyed' && o.kind !== 'farm', building: o.id, state: s, material: o.material, burnable: !!o.burnable, source: o.source ?? 'renderer' } });
+    sprites.push({ file: `${sid}.png`, im: r.im, meta: { id: sid, kind: o.kind, file: `${sid}.png`, w: r.im.w, h: r.im.h, metres: Math.max(0.05, metres), basePx: base, anchor: a, tileOrigin: r.tileOrigin, footprint: o.footprint, blocksMovement: s !== 'foundation' && s !== 'destroyed' && s !== 'ruined' && o.kind !== 'farm', ...(s === 'ruined' && { rubble: true }), building: o.id, state: s, material: o.material, burnable: !!o.burnable, source: o.source ?? 'renderer' } });
     states[s] = sid;
   }
   for (const [a, s] of Object.entries(o.alias ?? {})) states[a] = states[s];
@@ -1408,7 +1415,7 @@ for (const o of all) {
 // palette + write
 const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), GO = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));
 // the 2-deep gates and the corner posts are composed of the kits' own colours: they snap to the palette without picking it
-const pal = extendPalette([...G.palette, ...GO.palette], sprites.filter((s) => !s.meta?.id.includes('-deep-') && !s.file.endsWith('-post.png')).map((s) => s.im), 64);
+const pal = extendPalette([...G.palette, ...GO.palette], sprites.filter((s) => !s.meta?.id.includes('-deep-') && !s.file.endsWith('-post.png') && !s.file.includes('-ruined')).map((s) => s.im), 64); // ruins (ART-L) snap without picking: the earlier art keeps its colours
 for (const s of sprites) writeImage(join(OUT, s.file), snapToPalette(s.im, pal));
 const json = {
   pxPerMetre: PPM, tileMetres: 2, borderMax: 0.75,

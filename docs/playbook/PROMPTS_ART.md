@@ -2536,3 +2536,191 @@ no ground, no grass` (+ per row). Graded sat 0.62, val 0.78, snapped to the elai
 **Lessons:** (1) "dark epic desaturated" still comes out bright: grade every raw. (2) Name the roof and say "no
 battlements" or a house turns into a keep. (3) A long portico now comes when the prompt counts the columns and names the
 back wall.
+
+## 40. Landmarks (ART-L)
+
+### 40a Structures
+
+The nine landmark structure sets (WAR.md "Living regions" > Landmarks) in `public/war/landmarks/` (`landmarks.json` +
+PNGs), each piece in four states: `intact` (as the season finds it: 60% hp, gates shut, weathered, a few blocks gone
+from the tops, lichen), `damaged` (thrown down to about half height, roofs in the rubble, talus, soot), `ruined` (a
+rubble footprint: stumps under ~1.5 m, big heaps; does not block) and `restored` (fresh, iron-bound or bronze leaves,
+dark red banners on the tops). **0 PixelLab generations**: every piece is a box model in the buildings renderer
+(`buildings.mjs` exports it) with the existing cyclopean / isodomic / ashlar / Lion Gate elevations and the drawn roof
+tiles, so the landmarks read as one set with the build-mode forts. Build: `node scripts/war/art/landmarks.mjs` (ends
+with `qaLandmarks`: object checks, four states per piece, the labyrinth kit's sheets and seams, wall segments laid three
+in a row in every state). Mock-ups: `node scripts/war/art/landmarks-preview.mjs` -> `shots/war/landmarks/`
+(`LANDMARK_<id>_states_1x.png` = intact, damaged, ruined, restored side by side with a hoplite at the gate;
+`LANDMARK_<id>_intact_2x.png`; `LANDMARK_pieces_NN.png` every piece by state).
+
+| landmark | pieces (footprint in tiles) |
+| --- | --- |
+| Drakon's Citadel | `citadel-keep` 6x6 (tower-house, flat roof terrace for the perch), `citadel-curtain-x/y` 4x2 (8 m, walk 7 m, blocks x2), `citadel-tower` 3x3, `citadel-gatehouse-x/y` 6x3 (twin towers, giant lintel), `citadel-bone-pit` 3x3 |
+| Dead City of Ammon | `ammon-house-a/b` 3x3 (mudbrick, flat roofs), `ammon-palace` 6x6 (podium, red-shafted portico, corner tower), `ammon-temple` 4x6 (battered Egyptian pylon, flagmasts); walls, gates, towers = build-mode stone set |
+| Sunken Temple | `sunken-temple` 4x4 (peristyle sunk 1.4 m, roof half gone even intact), `sunken-colonnade-x/y` 2x1 (4 m segments), `sunken-shrine` 2x2, `sunken-jetty` 1x4, `sunken-causeway` 1x1, `achelous-spring` 2x2 |
+| Temple City of the Navel | `navel-temple` 8x8 (6 x 6 Doric peripteros, painted frieze), `navel-arena` 10x10 (stepped seats, arched outer wall), `navel-omphalos` 1x1, `navel-ramp-gate-x/y` 5x2, kit `navel-labyrinth` (16 frames by mask x 4 states) |
+| Cyclopean Gatehouse | `cyclops-gatehouse-x/y` 6x3 (one monstrous lintel, relieving triangle, walk at 8 m), `cyclops-wall-x/y` 4x2, `cyclops-tower` 3x3 |
+| Oracle Grove | `oracle-shrine` 3x3 (naiskos ringed by six bronze tripod cauldrons, as at Dodona), `oracle-house` 3x2, `spring-memory` / `spring-lethe` 2x2 |
+| Titan's Forge | `titan-anvil` 3x3 (iron anvil on a cyclopean plinth, chains, coal hearth), `titan-bellows` 2x2 (water wheel, rocking beam, leather bellows), `titan-slag` 2x2, `titan-tower` 2x2 |
+| Obsidian Hold | `obsidian-wall-x/y` 4x2 (living basalt, not burnable), `obsidian-tower` 3x3, `obsidian-kiln` 3x3 (dome over a glowing fissure), `obsidian-field` 2x2 |
+| Rim Watchtower | `rim-beacon` 3x3 (round tower, bronze fire basket), `rim-stair-x+/x-/y+/y-` 3x1 (walled, rises 3 m), `rim-keeper-house` 3x2 |
+
+`landmarks[]` in the json lays each landmark out in tiles (`@id` = a build-mode or town piece) for region authors.
+States are one model each: a height field cuts every body box into 1/4 m columns rounded to whole courses (rough tops),
+roof cells are kept, holed (intact, `roofLoss`) or dropped (damaged, ruined), heaps go along the visible faces, then a
+grade (intact lichen, damaged soot, ruined soot + darker, restored a touch brighter). Segments use noise periodic in
+their length (8 m, the cyclopean period), so runs join in every state.
+
+**Lessons:** (1) A wrecked roof kept over walls thrown down to half height floats: drop it into the rubble. (2) A second
+noise octave at 1.2 / m gives spiky teeth along a wall top; at 0.7 / m with a small weight it reads as fallen courses.
+(3) Notches cut into a house's roof lip read as battlements: houses get no top notches. (4) Mudbrick at the town
+houses' saturation glows orange beside the stone: desaturate it to the stone's chroma. (5) Trees in a layout hide the
+shrine at this view: put them behind (north of) the pieces.
+
+### 40b Ruins, FX and rare goods
+
+W-47 "Pre-built structures": a razed piece becomes a ruin in place (rubble footprint, slow ×2, cover). **26 PixelLab
+generations** (20 pixflux img2img incl. 1 rejected and 2 redos, 6 pixen icons). Mock-ups: `node
+scripts/war/art/ruins-preview.mjs` -> `shots/war/landmarks/` (`RUINS_town_1x`, `RUINS_town_2x_crop`,
+`RUINS_walls_1x`, `FX_scene_1x`, `FX_scene.gif`, `FX_strips_half`, `ICONS_rare_32_4x`).
+
+**Kit ruins (0 generations, `buildings.mjs`).** A `ruined` state for the stone kits only: `stone-wall` (back + front),
+`tower-stone`, `stone-tower`, `stone-gate-x/y` and the four stone deep gates (iron variants: none, they share the ruin).
+Wall: `wreckProf(W, k, 1.6, 0.14)` (thrown down to ~0.7 m in whole courses) and `talus(n, k, wood, 1.35, 1.25)` (a
+wider, higher talus, a second fallen block); tower: socle stumps 0.7–1.3 m, four rubble heaps (one of roof tile);
+gate: jambs to 20–38% of the walk, the passage choked with two heaps. All sooted. Sprites carry `rubble: true` and
+`blocksMovement: false`. **Ruined sprites are left out of the palette median cut** (they snap to it): rerunning
+`buildings.mjs` rewrote no earlier PNG.
+
+**Town pieces (`town.mjs`).** `--inits` writes the pixflux inits from the keyed intact raw (bottom-right in a canvas
+padded to ×4): damaged = 5 holes in the top third + `scorch`; ruined = everything above a jagged line at ~half the
+height gone + `soot` + `scorch` 1.3. `--fetch` pulls `town-jobs.json` `states` (`/mcp/images/<id>/download`). Build: the
+state raw is cut back to the intact frame, specks under 1% dropped, graded and scaled by the intact's factor, and keeps
+the intact anchor (shifted by the crop). Tower, gates, court walls: copies of the kit states (walls uncut, the talus
+clipped at the footprint's near edges so the anchor stays in the foot span). Olive press: damaged = the buildings
+state, ruined = pixflux over `olive-press-done`. Calls: `isometric`, high top-down, highly detailed, detailed shading,
+`no_background`, seed 31 (redos 7), every prompt ends `, high isometric three-quarter view, dark epic desaturated
+colours, pixel art, transparent background`. Strength 200 damaged, 110–140 ruined.
+
+| piece | damaged (strength) | ruined (strength) |
+| --- | --- | --- |
+| house-a | `a burnt and damaged ancient Greek town house: whitewashed mudbrick walls cracked and blackened with soot, the terracotta tile roof partly collapsed with charred broken rafters and holes, fallen roof tiles and rubble at the foot of the walls` (200) | `the ruin of an ancient Greek town house razed to the ground: only jagged broken stumps of the stone walls stand, empty black doorways without doors, no roof, the inside filled with heaps of fallen stones, broken terracotta roof tiles and charred black beams, big heaps of rubble spilling out round the walls, everything blackened with soot` (120). Rejected at 170 with "walls about waist high": stumps with both doors still standing, no rubble |
+| house-b | `a burnt and badly damaged ancient Greek two-storey merchant's house: big holes burnt through the terracotta tile roof showing charred black rafters, part of the roof fallen in, plastered and fieldstone walls cracked and blackened with soot, the wooden balcony broken and hanging, fallen roof tiles and rubble heaped at the foot of the walls` (150; at 200 the roof came back whole) | `the ruin of an ancient Greek two-storey merchant's house razed to the ground: only jagged broken stumps of the fieldstone walls stand, empty black doorways, no roof, no balcony, …` (120; a smoke plume came, kept) |
+| cottage | `a burnt and badly damaged humble ancient Greek village cottage: the thatched straw roof half burnt away, big black holes with charred rafters showing through, scorched black thatch, …` (150; 200 was untouched) | `the burnt-out ruin of a humble ancient Greek village cottage: only low broken stumps of the rough fieldstone walls stand, an empty black doorway, the thatch roof burnt away completely, the inside a heap of black ash, …` (120; came as a burnt log stockade, kept) |
+| temple | `a damaged ancient Greek Doric temple: weathered marble columns cracked and chipped, two columns broken off, the roof and pediment partly collapsed …` (200) | `the ruin of an ancient Greek Doric temple: the stepped marble platform with only broken stumps of fluted columns standing at different heights, no roof, fallen column drums …` (140) |
+| stoa | `a damaged ancient Greek stoa: a long portico of pale stone columns, its long sloping tiled roof partly collapsed …` (200; holes only) | `the ruin of an ancient Greek stoa: a long row of broken column stumps … a broken low back wall, no roof …` (140) |
+| statue | `a damaged ancient Greek bronze statue of a hoplite on a tall marble plinth: the statue's spear and shield arm broken off …` (200) | `a toppled ancient Greek statue: a broken square marble plinth with only the bronze feet of the statue left on top, the rest … lying broken on the ground beside it …` (110) |
+| well | `a damaged ancient Greek town well: the round marble well head cracked and chipped, the wooden crossbeam frame broken and charred, hanging askew …` (200) | `a ruined ancient Greek town well: the round marble well head smashed down to a low broken ring of cracked stones half filled with rubble, the wooden frame gone …` (120) |
+| jetty | `a damaged ancient wooden jetty: … several planks broken and missing, the ends charred black, a mooring post snapped` (200) | `the burnt-out wreck of an ancient wooden jetty: only the charred black stumps of the thick wooden piles stand in a row …` (120; the init's cut took the far half: a short wreck) |
+| olive press | (buildings `olive-press-damaged`) | `the ruin of an ancient olive mill: the wide round stone basin smashed and broken open, the huge millstone wheel fallen flat on its side and cracked in two …` (120; the wheel went, jars stand in the basin) |
+
+**FX (0 generations, `landmark-fx.mjs` -> `public/war/fx/`, own `objects.json` + palette, `qa.mjs` `qaFx`).** Drawn on a
+density field: puffs add a smooth bump and carry a value (heat / lightness); a px is drawn above a threshold with a
+dithered band, coloured by the weighted value and lit from the upper left by the density gradient (single circles read
+as orange balls; the field merges them into one mass). `breath-se|ne-ignite` (8 frames, the jet reaching out) and
+`-loop` (12, seamless: each puff's distance is `frac(i/N + n/F)`): 280 puffs over a 12 m cone on the ground's iso
+axis, 7.2 m wide at the end, rising and reddening, smoke off the tip, a white-hot jet at the mouth, fire v2's ramp;
+flipX for sw / nw. `crash-dust` (14): a 6 m iso ring of 150 puffs racing out with an ease-out, rising and thinning, a
+central column sinking back, a dark shock line, 18 thrown stones. `scylla-strike` (12): a three-lobed water column,
+a splash ring behind and in front, falling droplets, foam. Anchors on the ground / water point; `use` says where to
+ignite (fire v2 tongues and siege `scorch` under the cone's end).
+
+**Rare-good icons (`ui-landmark.mjs`, additive after `ui-craft.mjs`).** Pixen 32x32, `no_background`, `single color
+outline`, the §36 template `game UI icon, <subject>, <name> icon, dark epic ancient Greek style, desaturated gritty
+colours, thick dark outline, readable silhouette`; fitted to 32 / 24 (+@2x) and snapped to the kit palette (no new
+colours); `goodTier: rare`, `landmark: <region>`. Subjects: dragonbone `a huge curved pale ivory dragon claw bone,
+yellowed old bone with a cracked knuckle end`; nereid pearl `one large lustrous pale pearl with a faint sea-green sheen
+lying in an open dark grey-blue sea shell`; star iron `a rough lump of dark meteoric iron, pitted black-grey metal with
+a cold blue-grey sheen and a few tiny bright glints`; asphodel `a stem of pale asphodel flowers, a spike of pale
+star-shaped petals with dark red-brown veins on a long grey-green stalk`; titan bronze `a heavy ox-hide shaped ingot of
+dark ancient bronze with a deep reddish gold sheen, stamped with a large hand mark` (came grey with red, weak: a redo
+candidate); obsidian `a sharp chunk of glossy black volcanic obsidian glass with smooth curved fractured faces and a
+dark violet sheen on the edges`.
+
+**Lessons:** (1) img2img over an intact sprite keeps it intact at 200: damage needs ~150, a ruin 110–140 *and* an init
+already cut down; "waist high" walls kept their doors, "empty black doorways without doors" removed them. (2) A cut
+init on a flat piece (jetty) loses its far half, not its height: cut flat pieces along their length instead. (3) Leave
+new states out of a shared median-cut palette, or every earlier sprite moves. (4) Particle FX in pixel art: accumulate
+a density field and threshold it; per-particle discs read as beads.
+
+### 40c Guardians
+
+The landmark guardians as soldier-format mob sheets, `src/assets/sheets/mob_<kind>/` (SHEET_FORMAT v2; rows SE, NE,
+SW, NW; south-west and north-west generated, the east rows their mirrors), listed with their move-to-clip map in
+`public/war/guardians.json` (the sheet player only knows SHEET_ANIMS: Drakon's claw / tail sweep = `attack`, breath =
+`shoot`, roof perch = `brace` (held), crash = `charge`; Brontes' hurl = `shoot`, smash = `attack`). Jobs, specs and raws:
+`docs/v5/pixellab/GUARD/` (`bases.jobs.json`, `<kind>.jobs.json`, `<kind>.sheet.json`); tools
+`scripts/art/pixellab/guard/` (`extract`, `bases`, `rots`, `prep`, `prompts`, `upload`, `addjobs`, `bob`, `spec`,
+`strip`, `stack`) plus `mobs/build.mjs` (`shrink: 1`, now with mirrored template rows) and `anim2/ground.mjs`. Mock-ups:
+`node scripts/war/art/guardians-preview.mjs` -> `shots/war/landmarks/GUARD_*`. **~190 PixelLab generations.**
+
+**True scale.** Art px per metre is set per guardian through the manifest `scale` (0.55 = the soldier's 33 px/m), so
+the canvas fits PixMiniMax's 256 cap: Drakon 1.5 (12 px/m, the 256 canvas = 21 m, wingspan ~20 m, body ~17 m; 3 render
+px per art px), giants 1 (18 px/m, ~150 px = 8 m; 2 render px), Scylla's head 1, the Chimera, bandits and maenads 0.55.
+Only 0.5 / 1 / 1.5 map to whole render px (res 2); 0.75 would not.
+
+**Bases.** Man-sized (6 x 6 generations, `edit_image_pro_flash` on the shipped bandit's four idle rotations packed 2x2,
+as §35): every edit opens `Re-dress the same man in all four views as …; keep the same body, size, pose, feet and face in
+each view.` and ends `Heavy shadows, desaturated dark warm colours, same pixel art style.`
+
+| kind | WHO · outfit · weapon (verbatim core) | result |
+| --- | --- | --- |
+| bandit_king | the grim Bandit King, an outlaw warlord wearing a dead king's armour · dark gilded bronze Phrygian helmet with tall cheek pieces and a dark crimson horsehair crest; a dark linen-and-bronze linothorax with a small dark bronze gorgon face; a deep purple-black cloak torn at the hem; dark bronze greaves; full dark beard · one curved iron kopis sword held low in his right hand | kept |
+| bandit_captain | a scarred outlaw leader · ragged mud-brown cloak, hood down; old dented bronze open-faced helmet with a short crest; scuffed studded leather cuirass; oxblood sash · heavy curved iron falcata, small round dark wooden shield with a bronze rim | kept |
+| bandit_guard | a heavy outlaw warrior in looted gear · battered iron helmet with cheek guards; mud-brown cloak over a dark bronze scale shirt; leather greaves · battered round bronze shield chin to knee, short iron-tipped spear upright out at his right side | kept the hood (asked to drop it) |
+| bandit_archer | a lean outlaw bowman · the bandit's hooded cloak and face wrap kept; short leather jerkin, bracer, quiver on his back · short dark recurve bow down in his left hand | kept |
+| maenad | `Re-dress the same figure … as a grim wild ancient Greek maenad, a frenzied woman follower of Dionysus: make the body a slender woman of the same height` · long wild tangled black hair, dark green ivy wreath; dark wine-red chiton torn at the knee; dappled fawn skin over one shoulder; bare arms and feet · tall thyrsus (fennel staff wound with ivy, dark pine cone) | kept: the edit makes a woman of the man's body |
+| maenad_queen | the grim Maenad Queen, the fierce high priestess of Dionysus, a tall strong woman · tall crown of dark bronze vine leaves and grapes; long purple-black robe with a dark gold border; spotted leopard skin knotted on her chest; bronze armlets · thyrsus over a long bronze spear point | kept |
+
+Big guardians: one `create_image_pro_flash` south-west view with the bear's south-west idle as `style_image` ("match
+its dark-epic pixel art look: outline weight, shading steps, pixel density and desaturated dark warm palette"), then
+`create_character_pro_flash` from that image (rotations only: 8 / 4 / 4 / 2 generations at 256 / 160 / 160 / 128).
+Prompts open `<name>, one colossal … of Greek myth, grim and real, not cute:` and end `facing the viewer's lower left,
+seen from a high top-down three-quarter view; heavy shadows, desaturated dark warm colours like the style reference,
+dark epic pixel art; transparent background, no ground, no shadow`:
+
+| kind | canvas, gens | body (verbatim core) | result |
+| --- | --- | --- | --- |
+| drakon | 256, 9 + 8 | a huge heavy reptile body like a giant crocodile and a lion, four thick clawed legs, a long powerful neck and a long heavy tail curling behind, a horned wedge-shaped head with a jaw full of long teeth, two enormous bat-like wings folded tight along its back; dirty bone-white and ash-grey scales, darker along the spine, a dark umber underbelly, horns and claws of yellowed old bone, battle scars; walking towards the viewer's lower left | kept: the hero |
+| brontes | 160, 6 + 4 | a huge hulking man three times a man's height …, a massive bald head with one single great eye …, a thick black beard, a thick dark leather smith's apron over a ragged dark umber loincloth, dark iron bands on his wrists; one huge rough boulder held in both hands at his chest | kept |
+| gyges | 160, 6 + 4 | three heads with wild dark matted hair and beards on one massive neck and shoulders, six thick muscular arms …, broken heavy dark iron manacles on every wrist with short lengths of snapped chain | kept |
+| chimera | 128, 6 + 2 | the heavy body of a huge maned lion …, a second head of a black horned goat rising from the middle of its back, and a long tail that ends in a live dark serpent with its head raised | kept |
+| scylla_head | 128 x 160, 6 | a long thick serpent neck rising out of dark sea water, arching up and forward, ending in a monstrous head like a wolf crossed with an eel, long jaws with three rows of long fangs …, foam at the base | kept; no character (every row is this view) |
+
+**Clips** (PixMiniMax, 12 frames; 96 canvas 1 gen, 128 2, 160 1, 256 2). Man-sized: idle, walk, the attack (`slash`
+king, captain, maenad; `thrust` guard, queen; `shoot` archer), die; every prompt word for word:
+`node scripts/art/pixellab/guard/prompts.mjs <kind> <anim> <dir>` (§35's wording: back views open "seen from behind, …
+he never turns round:" and end "… only his back is seen"; back-view deaths fall forward away from the viewer). Big ones:
+SW + NW walk and attack (Drakon also breath), SW only for idle, perch, crash and die (the SW clip serves the north-west
+row, the east rows mirror it); their back-row idle is `bob.mjs` (the north-west rotation breathing, 0 generations).
+Drakon verbatim: walk `the huge dragon walks in place towards the viewer's lower left with a slow heavy prowling gait like
+a giant crocodile and a lion: the four thick legs step one after another, the shoulders roll, …; the dragon stays on the
+same spot, it does not move away; the dragon alone; no fire, no smoke, no dust, no effects`; claw `it rears up a little
+on its hind legs, raises one huge clawed foreleg and rakes it down hard …, then twists its whole body round and sweeps
+the long heavy tail across in a wide arc …`; breath `it plants its four legs wide, draws its long neck back and up with
+the chest swelling, half opens its wings for balance, then thrusts its head forward and down with its jaws gaping wide as
+if pouring out a long stream of breath at the ground ahead … no fire drawn, no flames, no smoke, no glow`; perch `it
+crouches low on its four legs gripping the edge with its claws, then spreads its two enormous bat wings wide and high
+above its back, raises its long neck and head high and slowly sweeps its head from side to side, watching the ground far
+below … then it holds the crouch with the wings half open; … no roof drawn`; crash `it rears up high on its hind legs
+with its wings flung wide open, then drops heavily forward and slams its whole massive body down onto the ground …, its
+head thrown back roaring …, then it gathers itself on all four legs, wings half open, head low and furious`; die `it
+rears its head up and back …, its wings jerk half open, it staggers sideways on buckling legs, then … collapses heavily
+onto its side …; its scales stay clean, no wounds, no red, no blood at all`. Giants and the Chimera follow the same
+shape (hurl: "heaves the huge boulder up over his head …, throws it forward and down …, his hands close again round a new
+boulder"; smash: "brings it crashing straight down onto the ground in front of his feet"; Gyges: "raises all six huge
+arms at once … hammers three of his fists down in three different directions … then sweeps the other three arms across";
+Scylla: strike "the long neck coils back and rears up high, the jaws gape wide, then it lunges down and forward in a fast
+vicious snapping bite …", die "it topples over sideways and sinks down into the water").
+
+Build: `guard/spec.mjs <kind>` → `mobs/build.mjs docs/v5/pixellab/GUARD/<kind>.sheet.json` → `anim2/ground.mjs
+mob_<kind> idle walk <attack>`. No `run` / `fallBack` copies: the player falls back to walk and die. `hit` = die frames
+1, 2, 2, 1.
+
+**Lessons:** (1) A character made by Pro Flash from a three-quarter south-west image files that view as "south", so
+every label is 45° off: the game's SE NE SW NW are its east, north, south and west (`rots.mjs --shift`); templates asked
+for "south-west" came back in profile (cancelled; PixMiniMax on the shifted rotations instead). (2) PixMiniMax at 256
+costs only 2 a clip: a 20 m dragon is affordable at 12 px/m. (3) Fire breath without fire: the jaws gape and the
+chest lights amber anyway; the palette snap keeps it bone-toned and the FX strip supplies the flame. (4) Smears: a
+pale motion arc (Gyges SW attack frame 7) is replaced by its neighbour in the raw folder (`cp frame_006 frame_007`).
+(5) The archer's south-west shot lifts the bow towards the top of the frame (an arcing shot); kept.

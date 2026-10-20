@@ -1,0 +1,85 @@
+{
+ "version": 2,
+ "class": "mob_brontes",
+ "image": "mob_brontes.png",
+ "frame": {
+  "w": 161,
+  "h": 161
+ },
+ "anchor": {
+  "x": 71,
+  "y": 157
+ },
+ "anchors": {
+  "south-east": {
+   "x": 89,
+   "y": 157
+  },
+  "north-east": {
+   "x": 90,
+   "y": 152
+  },
+  "south-west": {
+   "x": 71,
+   "y": 157
+  },
+  "north-west": {
+   "x": 70,
+   "y": 152
+  }
+ },
+ "scale": 1,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 25,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "attack": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "shoot": {
+   "col": 36,
+   "frames": 12,
+   "fps": 12,
+   "strike": 8
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

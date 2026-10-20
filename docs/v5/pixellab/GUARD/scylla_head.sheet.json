@@ -1,0 +1,55 @@
+{
+ "class": "mob_scylla_head",
+ "raw": "docs/v5/pixellab/GUARD/raw/scylla_head",
+ "rotations": "docs/v5/pixellab/GUARD/raw/scylla_head/rot",
+ "shrink": 1,
+ "scale": 1,
+ "canvas": [
+  128,
+  160
+ ],
+ "pad": [
+  0,
+  0
+ ],
+ "clips": {
+  "idle": {
+   "fps": 8,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "sw"
+   }
+  },
+  "attack": {
+   "fps": 12,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "sw"
+   },
+   "strike": 6
+  },
+  "die": {
+   "fps": 10,
+   "job": {
+    "south-east": "mirror:south-west",
+    "north-east": "mirror:north-west",
+    "south-west": "a1",
+    "north-west": "sw"
+   }
+  },
+  "hit": {
+   "fps": 12,
+   "of": "die",
+   "frames": [
+    1,
+    2,
+    2,
+    1
+   ]
+  }
+ }
+}

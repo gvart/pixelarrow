@@ -1,0 +1,79 @@
+{
+ "version": 2,
+ "class": "mob_gyges",
+ "image": "mob_gyges.png",
+ "frame": {
+  "w": 161,
+  "h": 159
+ },
+ "anchor": {
+  "x": 76,
+  "y": 155
+ },
+ "anchors": {
+  "south-east": {
+   "x": 84,
+   "y": 155
+  },
+  "north-east": {
+   "x": 80,
+   "y": 155
+  },
+  "south-west": {
+   "x": 76,
+   "y": 155
+  },
+  "north-west": {
+   "x": 81,
+   "y": 155
+  }
+ },
+ "scale": 1,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 25,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 10
+  },
+  "attack": {
+   "col": 24,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 36,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 48,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}

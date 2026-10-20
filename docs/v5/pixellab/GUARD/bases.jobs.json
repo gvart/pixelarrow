@@ -1,0 +1,13 @@
+[
+ { "class": "bandit_king", "kind": "grid", "job": "fd82b9fd-6fd5-4747-ab6c-9270d652391b", "gens": 6, "note": "Pro Flash edit of the bandit 2x2 rotation grid" },
+ { "class": "bandit_captain", "kind": "grid", "job": "785e5b38-ce09-4db0-b981-ac1cc95ad659", "gens": 6 },
+ { "class": "bandit_guard", "kind": "grid", "job": "3970f4dd-b6ff-4509-93ea-85ac353e799b", "gens": 6, "note": "kept the hood though asked to drop it" },
+ { "class": "bandit_archer", "kind": "grid", "job": "e5da911b-deab-4400-b472-0664031fbbbb", "gens": 6 },
+ { "class": "maenad", "kind": "grid", "job": "9901d835-5fec-404d-943c-11e3643125d3", "gens": 6 },
+ { "class": "maenad_queen", "kind": "grid", "job": "3e05d56a-0ab8-437d-8ba4-5239c0b19548", "gens": 6 },
+ { "class": "drakon", "kind": "south-west", "job": "0658fb5c-cf87-45eb-ac96-0109f5bebd18", "gens": 9 },
+ { "class": "brontes", "kind": "south-west", "job": "4f92c3fc-4f7f-41e1-8f9f-cc24dfe154b1", "gens": 6 },
+ { "class": "gyges", "kind": "south-west", "job": "5135009e-e219-4949-8d98-ddf52cadd0ce", "gens": 6 },
+ { "class": "chimera", "kind": "south-west", "job": "b4ced96f-0978-4a04-9bd0-a384c568d2b7", "gens": 6 },
+ { "class": "scylla_head", "kind": "south-west", "job": "4a105dde-6c55-45ba-9145-1cc72f28bc29", "gens": 6 }
+]
