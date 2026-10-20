@@ -1,0 +1,43 @@
+docs/SCREEN_FLOW.md
+  s_cfc22b058125c4::t_9b563421e27ecb 22,50,55,81,90,119
+scripts/regression/doors.mjs
+  s_cfc22b058125c4::t_9b563421e27ecb 25
+tests/nav.test.ts
+  s_cfc22b058125c4::t_c92c3c4dd8babe 459-460,462,474,486-487,542,548-549,584,587,593
+tests/campIso.test.ts
+  s_cfc22b058125c4::t_c62e4e72a729ea 5
+tests/campScene.test.ts
+  s_cfc22b058125c4::t_46e566a8c3672a 119-120
+tests/deeplink.test.ts
+  s_cfc22b058125c4::t_4769684e00f56d 35-41,45,47
+tests/economy.test.ts
+  s_cfc22b058125c4::t_255f3324e85ae4 3-4,75
+tests/itemSources.test.ts
+  s_cfc22b058125c4::t_309090cc8e71d7 5-6,8,12-13,16-18,31,54-58,65-68,115,135,146-149,151-154
+tests/onlineMode.test.ts
+  s_cfc22b058125c4::t_a27a37427bbe23 3,10,50
+tests/regression/doors.test.ts
+  s_cfc22b058125c4::t_0a2f2da2ad8dfe 15-16
+tests/simVersion.test.ts
+  s_cfc22b058125c4::t_6f34574351018d 11
+tests/sources.test.ts
+  s_cfc22b058125c4::t_930e62ff30cf02 16,66
+tests/trainReplay.test.ts
+  s_cfc22b058125c4::t_29312041e4745e 114,122-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4487f037f5d064e351fcc6a59f3af1857b3b379e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
