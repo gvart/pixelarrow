@@ -1,0 +1,25 @@
+tests/war/worldView.test.ts
+  s_cfc22b058125c4::t_a56cd7479a5d85 4-6,67-86
+  s_cfc22b058125c4::t_bdc458b3b78d0e 87
+src/war/world-view/geo.ts
+  s_cfc22b058125c4::t_b5a341b3e0c457 118-122,130
+src/war/world-view/source.ts
+  s_cfc22b058125c4::t_b5a341b3e0c457 33-34,102,175-194
+  s_cfc22b058125c4::t_874c9e2c655d5b 195-196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "24bbca70d04536d67d5b6522322196b9f23e6a62",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
