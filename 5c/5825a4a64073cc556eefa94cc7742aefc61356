@@ -1,0 +1,32 @@
+tests/war/worldRegions.test.ts
+  s_cfc22b058125c4::t_0105475ecad1ba 7
+scripts/war/regions/build.ts
+  s_cfc22b058125c4::t_0105475ecad1ba 31,36
+scripts/war/regions/gorge.ts
+  s_cfc22b058125c4::t_03aea642584b2e 34-37,44,47
+  s_cfc22b058125c4::t_d373d006ddf305 1-33,38-43,45-46,48-68
+src/war/regions/gorge.spots.ts
+  s_cfc22b058125c4::t_0105475ecad1ba 1,7-11,14
+scripts/war/regions/drafts.ts
+  s_cfc22b058125c4::t_0105475ecad1ba 312
+src/war/regions/gorge.json
+  s_cfc22b058125c4::t_03aea642584b2e 1
+src/war/regions/index.ts
+  s_cfc22b058125c4::t_519fdc30f6ed48 37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5c5825a4a64073cc556eefa94cc7742aefc61356",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
