@@ -1,0 +1,45 @@
+scripts/war/market-shots.mjs
+  s_cfc22b058125c4::t_5e2bdbd23c4309 59
+  s_cfc22b058125c4::t_033aa288360c59 1-58,60-75
+src/war/view/hud/market.ts
+  s_cfc22b058125c4::t_4062fb4eb425ee 288
+  s_cfc22b058125c4::t_5e2bdbd23c4309 30,51,82,145,171,198,257,259
+  s_cfc22b058125c4::t_806ce9032dbc1c 193
+  s_cfc22b058125c4::t_2e0336e96ff9a5 1-29,31-50,52-81,83-144,146-170,172-192,194-197,199-256,258,260-287,289-299
+tests/war/market.test.ts
+  s_cfc22b058125c4::t_73e0330fb4c4b8 1-65
+src/war/view/simClient.ts
+  s_cfc22b058125c4::t_c85af360e16e82 8,33-34,41,213-222
+  s_cfc22b058125c4::t_070d91c68a78ce 35-36,43-47
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_e2d15f97609ef3 18,46,333
+src/war/view/worker.ts
+  s_cfc22b058125c4::t_96ba1dc48673cb 15
+  s_cfc22b058125c4::t_c85af360e16e82 41-44,128,175-176
+src/war/scenarios/index.ts
+  s_cfc22b058125c4::t_dd52249a3f20a3 106,464-478
+  s_cfc22b058125c4::t_1114613aacfd06 479
+src/war/view/trade/market.ts
+  s_cfc22b058125c4::t_5e2bdbd23c4309 150,153
+  s_cfc22b058125c4::t_a4228c1f217cce 1-11,13-15,18-114,117-149,151-152,154-163,165-197,199-207,209-228,231-293,295-337
+  s_cfc22b058125c4::t_81c683ec9aab1a 12,16-17,115-116,164,198,208,229-230,294
+src/war/net/client.ts
+  s_cfc22b058125c4::t_c85af360e16e82 14,26-29,37,117-118
+  s_cfc22b058125c4::t_070d91c68a78ce 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5f2f56a99cd0ec101be82bbd7fffab58e034df8f",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
