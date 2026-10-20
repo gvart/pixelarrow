@@ -1,0 +1,27 @@
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_ec03f946a7fe27 9,20,49-50
+scripts/war/regions/build.ts
+  s_cfc22b058125c4::t_02d455e409c3d3 33
+  s_cfc22b058125c4::t_e264a39e205657 10,13
+  s_cfc22b058125c4::t_925bed072b4428 1-9,11-12,14-32,34-51
+tests/war/worldRegions.test.ts
+  s_cfc22b058125c4::t_29138d17556858 1-35
+src/war/regions/index.ts
+  s_cfc22b058125c4::t_f8217f01e2011a 1-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "688ed44c5044e350b67614b7af0c3c8de95e7faf",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
