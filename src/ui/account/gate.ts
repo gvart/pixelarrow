@@ -23,9 +23,9 @@ import { openResend } from './checkEmail';
 /** Whose body line the card shows (§4.4). */
 type GateFor = 'duels' | 'war' | 'shop' | 'market' | 'notify';
 
-/** The online screen's scene key → its body line (Clan, Merchant and the war army read as the war). */
+/** The online screen's scene key → its body line (the clan reads as the war). */
 export function gateForScene(key: string): GateFor {
-  return key === 'Duel' ? 'duels' : key === 'Shop' ? 'shop' : key === 'Market' ? 'market' : 'war';
+  return key === 'Duel' ? 'duels' : key === 'Shop' ? 'shop' : 'war';
 }
 
 /** The card replaces the "outside" state here: the platform signs in with forms (the web). */

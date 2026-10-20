@@ -251,28 +251,6 @@ export function renderPavilion(size: 2 | 3 = 3): IsoSprite {
   );
 }
 
-/** The barracks: ridge tents in a row with a bell tent, a rack of spears and a standard at level 3. 2 x 2 tiles. */
-export function renderBarracks(level = 1): IsoSprite {
-  return renderModel(
-    (sc) => {
-      cone(sc, 1.2, 1.1, 0, 0.7, 1.0, 1.0, MAT.canvasOld, hem(0.18, MAT.redDark, panels(1.2, 1.1, 8, 0.6)));
-      cone(sc, 1.2, 1.1, 0.68, 2.3, 1.1, 0.05, MAT.canvasOld, panels(1.2, 1.1, 8, 0.6));
-      sc.box([1.2 + 0.72, 1.1 + 0.72, 0.3], [0.2, -0.2, 0], [0.08, 0.08, 0], [0, 0, 0.3], MAT.dark);
-      ridge(sc, 1.0, 3.1, 0, 0.8, 0.42, MAT.olive, (l) => (Math.floor((l[1] + 1) * 3) % 2 ? { shade: 0.35 } : null));
-      ridge(sc, 3.0, 3.1, 0, 0.8, 0.42, MAT.olive, (l) => (Math.floor((l[1] + 1) * 3) % 2 ? { shade: 0.35 } : null));
-      if (level >= 2) {
-        post(sc, 3.0, 0.5, 1.1, 0.06);
-        post(sc, 3.8, 0.5, 1.1, 0.06);
-        sc.line([2.9, 0.5, 1.05], [3.9, 0.5, 1.05], MAT.woodDark, 1);
-        for (let i = 0; i < 4; i++) sc.line([3.05 + i * 0.25, 0.65, 0.05], [3.0 + i * 0.25, 0.45, 1.9], MAT.wood, 1);
-        sc.ellipsoid([3.3, 0.9, 0.4], [0.38, 0, 0], [0, 0.06, 0], [0, 0, 0.38], MAT.red, (l) => (l[0] * l[0] + l[2] * l[2] > 0.8 ? { ramp: MAT.bronze.ramp } : null));
-      }
-      if (level >= 3) pennant(sc, 3.4, 2.0, 0, 2.6);
-    },
-    { w: 2, h: 2, height: 3.2, pad: 12 },
-  );
-}
-
 /** A cream bell tent with an ochre hem. 2 x 2 tiles; `look` picks the cloth. */
 export function renderBellTent(look = 0): IsoSprite {
   const cloth = [MAT.canvas, MAT.canvasOld, MAT.cream, MAT.canvas][look % 4];
@@ -413,71 +391,6 @@ export function renderForge(level = 1): IsoSprite {
       }
     },
     { w: 2, h: 2, height: 4.4, pad: 12 },
-  );
-}
-
-/** The granary: a round stone store with a conical thatch roof, sacks and amphorae. 2 x 2 tiles. */
-export function renderGranary(level = 1): IsoSprite {
-  return renderModel(
-    (sc) => {
-      const cx = 1.7;
-      const cy = 1.7;
-      sc.group();
-      cone(sc, cx, cy, 0, 1.5, 1.35, 1.35, MAT.stoneCream, (_l, w) => {
-        if (w[2] < 0.9 && Math.hypot(w[0] - cx - 0.95, w[1] - cy - 0.95) < 0.42) return { ramp: MAT.dark.ramp };
-        return Math.floor(w[2] * 4) % 2 ? { shade: 0.5 } : null;
-      });
-      sc.group();
-      cone(sc, cx, cy, 1.4, 3.3, 1.65, 0.1, MAT.thatch, (_l, w) => (Math.floor(w[2] * 6) % 2 ? { shade: 0.5 } : null));
-      sack(sc, 3.3, 1.2, 0, 0.3);
-      sack(sc, 3.4, 1.9, 0, 0.27);
-      if (level >= 2) {
-        amphora(sc, 0.5, 3.3, 0);
-        amphora(sc, 1.0, 3.5, 0);
-      }
-      if (level >= 3) {
-        crate(sc, 3.2, 3.2, 0, 0.3);
-        crate(sc, 3.2, 3.2, 0.6, 0.24);
-      }
-    },
-    { w: 2, h: 2, height: 3.6, pad: 10 },
-  );
-}
-
-/** The watchtower: four braced legs, a railed platform, a pyramid roof and a flag. 1 x 1 tile. */
-export function renderWatchtower(level = 1): IsoSprite {
-  const legH = 2.6 + level * 0.7;
-  return renderModel(
-    (sc) => {
-      const legs: [number, number][] = [[0.35, 0.35], [1.65, 0.35], [0.35, 1.65], [1.65, 1.65]];
-      for (const [x, y] of legs) sc.limb([x, y, 0], [x * 0.7 + 0.3, y * 0.7 + 0.3, legH], 0.09, 0.07, MAT.woodDark, aboveGround);
-      // cross bracing
-      for (let z = 0.6; z < legH - 0.4; z += 1.1) {
-        const k = 1 - (z / legH) * 0.3;
-        sc.line([1 - 0.65 * k, 1 + 0.65 * k, z], [1 + 0.65 * k, 1 + 0.65 * k, z + 0.9], MAT.wood, 1);
-        sc.line([1 + 0.65 * k, 1 - 0.65 * k, z], [1 + 0.65 * k, 1 + 0.65 * k, z + 0.9], MAT.wood, 1);
-      }
-      // platform with rails
-      box(sc, [1, 1, legH + 0.12], 0.95, 0.95, 0.1, MAT.plank, (l) => (Math.floor((l[0] + 1) * 4) % 2 ? { shade: 0.5 } : null));
-      for (const [x, y] of [[0.1, 0.1], [1.9, 0.1], [0.1, 1.9], [1.9, 1.9]]) post(sc, x, y, 0.75, 0.05, MAT.woodDark, legH + 0.2);
-      sc.line([0.1, 0.1, legH + 0.9], [1.9, 0.1, legH + 0.9], MAT.woodDark, 1);
-      sc.line([0.1, 0.1, legH + 0.9], [0.1, 1.9, legH + 0.9], MAT.woodDark, 1);
-      sc.line([1.9, 0.1, legH + 0.9], [1.9, 1.9, legH + 0.9], MAT.woodDark, 1);
-      sc.line([0.1, 1.9, legH + 0.9], [1.9, 1.9, legH + 0.9], MAT.woodDark, 1);
-      // roof on four posts
-      for (const [x, y] of [[0.3, 0.3], [1.7, 0.3], [0.3, 1.7], [1.7, 1.7]]) post(sc, x, y, 1.1, 0.05, MAT.woodDark, legH + 0.2);
-      // a stepped pyramid roof (flattened discs shrinking towards the top)
-      const roof = level >= 2 ? MAT.tile : MAT.thatch;
-      for (let i = 0; i < 6; i++) {
-        const rr = 1.35 - i * 0.2;
-        sc.ellipsoid([1, 1, legH + 1.3 + i * 0.17], [rr, 0, 0], [0, rr, 0], [0, 0, 0.12], roof);
-      }
-      sc.box([1, 1, legH + 2.35], [0.12, 0, 0], [0, 0.12, 0], [0, 0, 0.08], MAT.woodDark);
-      // ladder
-      for (let z = 0.3; z < legH; z += 0.35) sc.line([1.0, 1.75, z], [1.3, 1.75, z], MAT.wood, 1);
-      if (level >= 3) pennant(sc, 1, 1, legH + 2.0, 1.0);
-    },
-    { w: 1, h: 1, height: legH + 3.2, pad: 10 },
   );
 }
 
@@ -817,30 +730,6 @@ export function renderShip(alongY = false): IsoSprite {
     alongY ? { w: 2, h: 7, height: 7.2, pad: 16, shadow: { w: 1.6, h: 6.2, dx: 4, dy: 2, a: 60 } } : { w: 7, h: 2, height: 7.2, pad: 16, shadow: { w: 6.2, h: 1.6, dx: 4, dy: 2, a: 60 } },
   );
   return r;
-}
-
-/** An empty building plot: a tan / pink checker diamond with a dotted orange-brown rim (ART_STYLE §13). 2 x 2 tiles. */
-export function renderPlot(active = false): Pix {
-  const w = TILE_W * 2;
-  const h = TILE_H * 2;
-  const px = new Pix(w + 2, h + 2);
-  const a = active ? 0xfde0ae : 0xe8d2a8;
-  const b = active ? 0xe8b8b0 : 0xc8a888;
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++) {
-      const u = (x + 0.5 - w / 2) / (w / 2);
-      const v = (y + 0.5 - h / 2) / (h / 2);
-      if (Math.abs(u) + Math.abs(v) > 1) continue;
-      if (((x >> 1) + (y >> 1)) % 2 === 0) px.set(x + 1, y + 1, (x + y) % 2 ? a : b, 150);
-      else px.set(x + 1, y + 1, a, 90);
-    }
-  // dotted rim
-  for (let k = 0; k < w; k += 2) {
-    const yy = Math.round(Math.abs(k - w / 2) * (h / w));
-    px.set(k + 1, yy + 1, 0xb06030);
-    px.set(k + 1, h - yy, 0xb06030);
-  }
-  return px;
 }
 
 /** A w x h tile diamond tint (the footprint of a placement ghost per tile). */

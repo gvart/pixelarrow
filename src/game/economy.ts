@@ -1,15 +1,12 @@
 /**
- * Pure logic of the economy screens (wallet, shop, season pass, marketplace;
- * server/README.md "Economy"): pass tier states and progress, the market fee
- * the seller sees, daily caps, price bounds, and how an API failure is shown.
+ * Pure logic of the economy screens (wallet, shop, season pass;
+ * server/README.md "Economy"): pass tier states and progress, daily caps,
+ * and how an API failure is shown.
  * The server stays the authority; these only decide what the UI says.
  * Also the campaign Smith's forge prices (EC-01) and gold with thousands separators.
  * Unit-tested in tests/economy.test.ts.
  */
-import type { ApiError, EconomyCatalog, MarketListing, PassReward, SeasonPassInfo } from '../platform/api';
-import { DEFAULT_FEE_RATE, marketFee, rarityBounds } from './marketRules';
-
-export { DEFAULT_FEE_RATE, marketFee, rarityBounds };
+import type { ApiError, PassReward, SeasonPassInfo } from '../platform/api';
 
 // ------------------------------------------------------------------ season pass
 
@@ -58,65 +55,6 @@ export function rewardIcon(r: PassReward): { kind: 'resource' | 'consumable' | '
   if (r.kind === 'drachmae') return { kind: 'resource', id: 'drachmae', qty: r.amount };
   if (r.kind === 'consumable') return { kind: 'consumable', id: r.id, qty: r.qty };
   return { kind: 'cosmetic', id: r.id, qty: 1 };
-}
-
-// ------------------------------------------------------------------ marketplace
-
-/** What the seller receives for a listing priced `price`. */
-export function sellerGets(price: number, rate = DEFAULT_FEE_RATE): number {
-  return Math.max(0, price - marketFee(price, rate));
-}
-
-/** Total price bounds for a listing (legacy and unknown rarities like the server). */
-export function priceBounds(cat: Pick<EconomyCatalog, 'market'> | null, currency: 'gold' | 'drachmae', rarity: string): [number, number] {
-  const t = cat?.market.priceBounds[currency];
-  const fallback: [number, number] = currency === 'gold' ? [2, 100_000] : [2, 10_000];
-  if (!t) return fallback;
-  return rarityBounds(t, rarity) ?? fallback;
-}
-
-export function clampPrice(price: number, bounds: [number, number]): number {
-  return Math.max(bounds[0], Math.min(bounds[1], Math.round(price)));
-}
-
-/** A price stepper: bigger steps for bigger prices (1, 5, 10, 50, 100...). */
-export function priceStep(price: number): number {
-  if (price < 20) return 1;
-  if (price < 100) return 5;
-  if (price < 500) return 10;
-  if (price < 2000) return 50;
-  return 100;
-}
-
-/** A reasonable first asking price for an item or good worth `value` gold. */
-export function suggestPrice(value: number, currency: 'gold' | 'drachmae', bounds: [number, number]): number {
-  const v = currency === 'gold' ? value : Math.max(1, Math.round(value / 8));
-  return clampPrice(v, bounds);
-}
-
-/** Time left on a listing, e.g. "2h 15m", "45m", "expired". */
-export function timeLeft(expiresAt: number, now: number): { ms: number; text: string } {
-  const ms = expiresAt - now;
-  if (ms <= 0) return { ms: 0, text: '' };
-  const m = Math.ceil(ms / 60_000);
-  if (m < 60) return { ms, text: `${m}m` };
-  const h = Math.floor(m / 60);
-  if (h < 24) return { ms, text: `${h}h ${m % 60}m` };
-  return { ms, text: `${Math.floor(h / 24)}d ${h % 24}h` };
-}
-
-export type ListingAction = 'buy' | 'cancel' | 'none';
-
-/** What the listing card offers: buy someone else's open listing, cancel your own open one. */
-export function listingAction(l: Pick<MarketListing, 'status' | 'mine' | 'expiresAt'>, now: number): ListingAction {
-  if (l.status !== 'open' || l.expiresAt <= now) return 'none';
-  return l.mine ? 'cancel' : 'buy';
-}
-
-/** Can the player pay for it? (gold of the season profile, Drachmae of the wallet). */
-export function canAfford(l: Pick<MarketListing, 'currency' | 'price'>, purse: { gold: number | null; drachmae: number | null }): boolean {
-  const have = l.currency === 'gold' ? purse.gold : purse.drachmae;
-  return have !== null && have >= l.price;
 }
 
 // ------------------------------------------------------------------ shop

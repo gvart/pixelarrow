@@ -132,7 +132,7 @@ const SECTION_ICON: Partial<Record<TKey, string>> = {
   'settings.sec.account': 'people',
 };
 /** Scenes that may be rebuilt when the language changes (never a running battle). */
-const REBUILD_ON_LANG = new Set(['Menu', 'Codex', 'World', 'Settlement', 'Army', 'Hero', 'Online', 'OnlineArmy', 'OnlineClan', 'Kit']);
+const REBUILD_ON_LANG = new Set(['Menu', 'Codex', 'World', 'Settlement', 'Army', 'Hero', 'OnlineClan', 'Kit']);
 
 const open = new WeakMap<Phaser.Scene, Phaser.GameObjects.Container>();
 

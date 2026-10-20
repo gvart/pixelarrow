@@ -7,13 +7,10 @@
  * Telegram allows [A-Za-z0-9_-] and at most 64 characters.
  *
  *   clan_<code>   a clan invite (src/online/rules.ts inviteCodeFrom)
- *   loc_<id>      the war table centred on a region (src/online/world.ts), selected
- *   boss_<id>     the same for a world boss site
- *   duel          the war table with the duel lobby open
- *   market        the town marketplace
+ *   loc_<id>, boss_<id>, income, season   the old war table's links (W-01: it is gone): the menu
+ *   duel          the duels
+ *   market        the old marketplace's link (gone): the shop
  *   myclan        your clan
- *   income        the war table (collect the treasury)
- *   season        the war table (season standings)
  *   settings      the menu with the notification settings open
  *   wallet        the shop, Drachmae wallet tab
  *   account       the account page (bot /delete_my_data, the re-auth Reopen path)
@@ -103,19 +100,17 @@ export function sceneForRoute(route: LaunchRoute | null): { scene: string; data:
   if (!route) return null;
   switch (route.kind) {
     case 'invite':
-      return { scene: 'Online', data: {} };
-    case 'loc':
-    case 'boss':
-      return { scene: 'Online', data: { focus: route.loc, select: true } };
-    case 'duel':
-      return { scene: 'Online', data: { lobby: true } };
-    case 'market':
-      return { scene: 'Market', data: { back: { scene: 'Menu' } } };
     case 'clan':
       return { scene: 'OnlineClan', data: {} };
+    case 'loc':
+    case 'boss':
     case 'income':
     case 'season':
-      return { scene: 'Online', data: {} };
+      return { scene: 'Menu', data: {} };
+    case 'duel':
+      return { scene: 'Duel', data: {} };
+    case 'market':
+      return { scene: 'Shop', data: { tab: 'shop', back: { scene: 'Menu' } } };
     case 'settings':
       return { scene: 'Menu', data: { settings: 'notify' } };
     case 'wallet':

@@ -2,18 +2,13 @@
  * The isometric layout of a camp (pure TS, no Phaser; drawn by
  * src/scenes/CampScene.ts with the art of src/art/campIso.ts): a window of
  * iso tiles with the ground kind of each, the camp clearing, and everything
- * standing in it. Two builders map the camp data onto it:
+ * standing in it, built from the offline field camp (src/world/camp.ts): a
+ * map tile becomes 2 x 2 iso tiles, so the zone's noisy blob is the clearing,
+ * the surrounding map terrain frames the scene (forest, rocks, a beach and the
+ * sea), the heart tile holds the command pavilion and the structures sit where
+ * the player placed them.
  *
- * - the offline field camp (src/world/camp.ts): a map tile becomes 2 x 2 iso
- *   tiles, so the zone's noisy blob is the clearing, the surrounding map
- *   terrain frames the scene (forest, rocks, a beach and the sea), the heart
- *   tile holds the command pavilion and the structures sit where the player
- *   placed them;
- * - the online camp (src/online/camps.ts): a fixed clearing with the slot
- *   grid (every slot 2 x 2 iso tiles with lanes between), the pavilion beside
- *   it, forest and a rocky ruin around, the shore when the region is a coast.
- *
- * Both get the same dressing: rows of soldiers' tents for the roster, the
+ * The dressing: rows of soldiers' tents for the roster, the
  * market stall, the campfire, crates and amphorae, banners, dirt paths from
  * the pavilion to every building and out through the gate, trees on forest
  * tiles, rocks and the temple ruin, the beached ship on a coast.
@@ -22,8 +17,6 @@ import { G, type GroundKind } from '../art/campIso';
 import { hash2 } from '../art/pixels';
 import { T, isWater, type WorldMap } from './map';
 import { type CampState, type StructureId } from './camp';
-import { CAMP_RULES as ONLINE_CAMP, campLevelCost, type CampBuildingId } from '../online/rules';
-import type { CampView } from '../online/camps';
 
 /** What stands on the ground: the key names the sprite (see CampScene.spriteOf). */
 export interface IsoThing {
@@ -35,7 +28,7 @@ export interface IsoThing {
   h: number;
   /** Ground things (yards, stakes) sort under figures standing on them. */
   flat?: boolean;
-  /** The player's structure this belongs to (tap target): offline structure index or online slot. */
+  /** The player's structure this belongs to (tap target): its structure index. */
   sel?: string;
   /** Under construction: the site stage shown instead of the key (0 pegs, 1 frame, 2 half-built). */
   stage?: 0 | 1 | 2;
@@ -69,10 +62,6 @@ export interface IsoLayout {
   coastal: boolean;
   /** Tiles the animals graze on. */
   pasture: [number, number][];
-  /** Online: the slot under a tile (or -1). */
-  slotAt: (tx: number, ty: number) => number;
-  /** Online: the tile origin of a slot. */
-  slotTile: (slot: number) => { x: number; y: number };
   /** Field: the iso tile of a map tile. */
   toIso: (mx: number, my: number) => { x: number; y: number };
   /** Field: the map tile under an iso tile. */
@@ -105,14 +94,6 @@ const FIELD_LOOK: Record<StructureId, { key: (i: number) => string; w: number; h
   palisade: { key: () => 'gate0', w: 4, h: 2 },
   forge: { key: () => 'forge1', w: 4, h: 2 },
   training: { key: () => 'yard', w: 4, h: 4 },
-};
-
-const ONLINE_LOOK: Record<CampBuildingId, (level: number) => string> = {
-  palisade: () => 'gate0',
-  granary: (l) => `granary${Math.max(1, l)}`,
-  forge: (l) => `forge${Math.max(1, l)}`,
-  barracks: (l) => `barracks${Math.max(1, l)}`,
-  watchtower: (l) => `tower${Math.max(1, l)}`,
 };
 
 class Builder {
@@ -376,11 +357,6 @@ class Builder {
   }
 }
 
-const noSlots = {
-  slotAt: () => -1,
-  slotTile: () => ({ x: 0, y: 0 }),
-};
-
 /** The iso layout of the party's field camp (the map tile under the camp's heart is the pavilion). */
 export function fieldLayout(m: WorldMap, c: CampState, rosterSize: number, placing?: { id: StructureId; x: number; y: number } | null): IsoLayout {
   let x0 = m.w;
@@ -467,119 +443,5 @@ export function fieldLayout(m: WorldMap, c: CampState, rosterSize: number, placi
   b.ship();
   if (c.built.some((s) => s.id === 'palisade')) b.palisade();
   const coastal = !!b.spots.ship;
-  return { w, h, kinds: b.kinds, clearing: b.clearing, things: b.things, spots: b.spots, routes: b.routes, coastal, pasture: b.pasture, ...noSlots, toIso, toMap };
-}
-
-interface OnlineLayoutOpts {
-  coast: boolean;
-  seed: number;
-  home: boolean;
-  rosterSize: number;
-  /** The slot with a placement ghost of `ghost`. */
-  ghost?: { slot: number; kind: CampBuildingId } | null;
-  now: number;
-}
-
-/** The iso layout of an online camp (or the empty plot of one to claim when `camp` is null). */
-export function onlineLayout(camp: CampView | null, o: OnlineLayoutOpts): IsoLayout {
-  const W = 20;
-  const H = 20;
-  const b = new Builder(W, H, o.seed & 0xffff);
-  const r = (x: number, y: number, k: number) => hash2(x, y, o.seed + k);
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      let k: GroundKind = G.grass;
-      if (y < 2 || x < 2 || (y < 3 && r(x, y, 1) < 0.5) || (x < 3 && r(x, y, 2) < 0.5)) k = G.forest;
-      if (y >= H - 2 && !o.coast && r(x, y, 3) < 0.6) k = G.forest;
-      if (x >= W - 2 && r(x, y, 5) < 0.6) k = G.forest;
-      if (x >= 2 && x <= 4 && y >= 2 && y <= 3) k = G.rock;
-      if (x >= 16 && x <= 17 && y >= 2 && y <= 3) k = G.rock;
-      if (o.coast) {
-        // the shore runs along the bottom (+Y): sand, then the sea
-        const edge = H - 3 + (x % 3 === 0 ? 0 : r(x, 0, 4) < 0.5 ? -1 : 0);
-        if (y >= edge - 3) k = G.sand;
-        if (y >= edge) k = G.sea;
-        if (y >= edge + 2) k = G.deep;
-      }
-      b.set(x, y, k);
-    }
-  const cx0 = 3;
-  const cy0 = 4;
-  const cols = ONLINE_CAMP.cols;
-  const rows = ONLINE_CAMP.rows;
-  const cw = 4 + cols * 3; // pavilion + lanes + slots
-  const ch = 1 + rows * 3 + 4;
-  for (let y = cy0; y < cy0 + ch; y++)
-    for (let x = cx0; x < cx0 + cw; x++) {
-      if (b.kind(x, y) === G.grass || b.kind(x, y) === G.forest) {
-        b.set(x, y, G.mown);
-        b.clearing[y * W + x] = 1;
-      }
-    }
-  const slotTile = (slot: number) => ({ x: cx0 + 4 + (slot % cols) * 3, y: cy0 + 1 + Math.floor(slot / cols) * 3 });
-  const slotAt = (tx: number, ty: number) => {
-    for (let s = 0; s < cols * rows; s++) {
-      const t = slotTile(s);
-      if (tx >= t.x && tx < t.x + 2 && ty >= t.y && ty < t.y + 2) return s;
-    }
-    return -1;
-  };
-  b.spots.pavilion = { x: cx0, y: cy0 + 2 };
-  if (camp) {
-    b.add({ key: 'pavilion3', x: cx0, y: cy0 + 2, w: 3, h: 3 });
-    const slots = camp.slots;
-    for (let s = 0; s < cols * rows; s++) {
-      const t = slotTile(s);
-      if (s >= slots) {
-        // beyond this camp's plot: timber stacked for later
-        b.add({ key: 'props3', x: t.x, y: t.y + 1, w: 1, h: 1 });
-        continue;
-      }
-      const bd = camp.buildings.find((x) => x.slot === s);
-      if (bd) {
-        const shown = bd.building !== null ? bd.building : bd.level;
-        const level = Math.max(1, shown);
-        const key = ONLINE_LOOK[bd.kind](level);
-        let stage: 0 | 1 | 2 | undefined;
-        if (bd.building !== null && bd.doneAt !== null) {
-          // under construction: the stage follows the share of the level's build time done (the scene ticks it)
-          const total = Math.max(1, campLevelCost(bd.kind, bd.building).minutes * 60_000);
-          const left = Math.max(0, bd.doneAt - o.now);
-          const done = 1 - Math.min(1, left / total);
-          stage = bd.level <= 1 ? (done < 0.33 ? 0 : done < 0.66 ? 1 : 2) : 2;
-        }
-        const thing = b.add({ key, x: t.x, y: t.y, w: 2, h: 2, sel: `${s}`, stage, flat: bd.kind === 'palisade' });
-        if (bd.kind === 'forge') b.spots.forge = { x: t.x, y: t.y };
-        if (bd.kind === 'barracks') {
-          b.spots.yard = { x: t.x, y: t.y };
-          b.spots.beds.push({ x: t.x + 1.5, y: t.y + 1.7 });
-          thing.flat = false;
-        }
-        if (bd.kind === 'palisade') {
-          thing.key = 'gate1';
-          b.spots.gate = { x: t.x + 2, y: t.y + 1 };
-          b.add({ key: 'stakesY', x: t.x + 1, y: t.y, w: 1, h: 1, flat: true });
-          b.add({ key: 'stakesY', x: t.x + 1, y: t.y + 1, w: 1, h: 1, flat: true });
-          b.add({ key: 'props0', x: t.x, y: t.y, w: 1, h: 1 });
-        }
-      } else if (o.ghost && o.ghost.slot === s) b.things.push({ key: `ghost:${ONLINE_LOOK[o.ghost.kind](1)}`, x: t.x, y: t.y, w: 2, h: 2, sel: `${s}` });
-      else b.things.push({ key: 'plot', x: t.x, y: t.y, w: 2, h: 2, flat: true, sel: `${s}` });
-    }
-    const built = camp.buildings.filter((x) => x.level > 0).length;
-    const barracks = camp.buildings.find((x) => x.kind === 'barracks')?.level ?? 0;
-    b.camp(Math.min(8, Math.ceil(o.rosterSize / 2) + barracks), { stall: true, fire: true, props: 2 + built, banners: o.home ? 2 : 1 });
-  } else {
-    // a plot to claim: the standard planted, pegs where the camp would rise
-    b.add({ key: 'banner', x: cx0 + 1, y: cy0 + 3, w: 1, h: 1, anim: { frames: ['banner', 'banner1', 'banner2', 'banner1'], period: 230 } });
-    for (let s = 0; s < ONLINE_CAMP.forwardSlots; s++) {
-      const t = slotTile(s);
-      b.things.push({ key: 'plot', x: t.x, y: t.y, w: 2, h: 2, flat: true });
-    }
-    b.add({ key: 'props0', x: cx0 + 2, y: cy0 + 1, w: 1, h: 1 });
-    b.routes.push([cx0 + 2.5, cy0 + 4.5], [cx0 + 5.5, cy0 + 3.5]);
-  }
-  b.dress();
-  if (o.coast) b.ship();
-  if (camp && camp.buildings.some((x) => x.kind === 'palisade' && x.level > 0)) b.palisade();
-  return { w: W, h: H, kinds: b.kinds, clearing: b.clearing, things: b.things, spots: b.spots, routes: b.routes, coastal: o.coast, pasture: b.pasture, slotAt, slotTile, toIso: (x, y) => ({ x, y }), toMap: (x, y) => ({ x, y }) };
+  return { w, h, kinds: b.kinds, clearing: b.clearing, things: b.things, spots: b.spots, routes: b.routes, coastal, pasture: b.pasture, toIso, toMap };
 }

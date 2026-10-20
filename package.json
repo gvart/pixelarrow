@@ -13,7 +13,6 @@
     "balance": "node scripts/dev/balance.mjs",
     "balance:ladder": "node scripts/dev/ladderParity.mjs",
     "fonts:metrics": "node scripts/dev/font-metrics.mjs",
-    "map:build": "node scripts/buildMap.ts maps-src/westmed.json",
     "regression": "node scripts/regression/run.mjs",
     "sheets:pack": "node scripts/art/pack/cli.mjs --dev",
     "bench:war": "node scripts/war/bench.mjs",

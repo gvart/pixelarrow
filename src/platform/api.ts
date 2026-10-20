@@ -7,8 +7,6 @@
  * pseudo-codes `network` / `timeout` with status 0. Nothing here ever throws
  * synchronously or blocks the game: callers treat any error as "offline".
  */
-import type { CampsView } from '../online/camps';
-import type { CampBuildingId } from '../online/rules';
 import type { Auth } from './core/auth';
 import { platform } from './index';
 
@@ -138,54 +136,6 @@ export interface SeasonPassInfo {
   xpPerTier: number;
   claimed: { tier: number; track: 'free' | 'premium' }[];
   tiers: PassTierInfo[];
-}
-
-export interface MarketListing {
-  id: string;
-  seller: { id: number; name: string | null };
-  /** The town (region) it is listed in. */
-  town: { loc: number; name: string };
-  kind: 'item' | 'resource' | 'consumable';
-  /** Item def id, resource key or consumable id. */
-  ref: string;
-  item: Record<string, unknown> | null;
-  qty: number;
-  rarity: string;
-  currency: Currency;
-  /** Total price; the seller receives price - fee (the fee is burned). */
-  price: number;
-  fee: number;
-  status: 'open' | 'sold' | 'cancelled' | 'expired';
-  mine: boolean;
-  createdAt: number;
-  expiresAt: number;
-  closedAt: number | null;
-}
-
-export interface MarketQuery {
-  kind?: MarketListing['kind'];
-  ref?: string;
-  rarity?: string;
-  currency?: Currency;
-  minPrice?: number;
-  maxPrice?: number;
-  /** Only listings in this town (loc). */
-  town?: number;
-  sort?: 'price_asc' | 'price_desc' | 'newest' | 'ending';
-  /** `next` from the previous page. */
-  cursor?: number;
-  limit?: number;
-}
-
-export interface MarketListRequest {
-  /** The town (loc) to list in. */
-  town: number;
-  kind: MarketListing['kind'];
-  /** Item uid (kind item), 'food' | 'wood' | 'bronze' (resource) or a consumable id. */
-  ref: string;
-  qty?: number;
-  currency: Currency;
-  price: number;
 }
 
 /** A fresh idempotency key for POST /api/economy/buy (reuse it when retrying the same purchase). */
@@ -725,70 +675,14 @@ export class ApiClient {
     return this.request('POST', '/api/economy/pass/claim', { auth: true, body: { tier, track } });
   }
 
-  // ---------------------------------------------------------------- online consumables & marketplace
+  // ---------------------------------------------------------------- online consumables
 
   consumables(): Promise<{ inventory: Partial<Record<ConsumableKey, number>>; day: string; caps: Record<ConsumableKey, { cap: number; bought: number }> }> {
     return this.request('GET', '/api/online/consumables', { auth: true });
   }
 
-  /** healing_salve or march_rations (battle consumables go with attack/start or a duel challenge). */
-  useConsumable(id: ConsumableKey): Promise<{ used: ConsumableKey; inventory: Partial<Record<ConsumableKey, number>>; march: unknown }> {
+  /** healing_salve (battle consumables go with a duel challenge). */
+  useConsumable(id: ConsumableKey): Promise<{ used: ConsumableKey; inventory: Partial<Record<ConsumableKey, number>> }> {
     return this.request('POST', '/api/online/consumables/use', { auth: true, body: { id } });
-  }
-
-  marketSearch(q: MarketQuery = {}): Promise<{ listings: MarketListing[]; next: number | null }> {
-    const qs = Object.entries(q)
-      .filter(([, v]) => v !== undefined && v !== null && v !== '')
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-      .join('&');
-    return this.request('GET', `/api/online/market${qs ? `?${qs}` : ''}`, { auth: true });
-  }
-
-  marketMine(): Promise<{ listings: MarketListing[]; open: number; maxOpen: number }> {
-    return this.request('GET', '/api/online/market/mine', { auth: true });
-  }
-
-  marketTowns(): Promise<{ towns: { loc: number; name: string }[] }> {
-    return this.request('GET', '/api/online/market/towns', { auth: true });
-  }
-
-  /** Errors: town_unreachable, price_out_of_bounds, listing_cap, cannot_afford, none_left. */
-  marketList(body: MarketListRequest): Promise<{ listing: MarketListing }> {
-    return this.request('POST', '/api/online/market/list', { auth: true, body });
-  }
-
-  /** Errors: self_buy, insufficient_funds, sold, expired (410), gone. */
-  marketBuy(listingId: string): Promise<{ listing: MarketListing; paid: number; fee: number; sellerGets: number }> {
-    return this.request('POST', '/api/online/market/buy', { auth: true, body: { listingId } });
-  }
-
-  marketCancel(listingId: string): Promise<{ ok: true; returned: { kind: string; ref: string; qty: number } }> {
-    return this.request('POST', '/api/online/market/cancel', { auth: true, body: { listingId } });
-  }
-
-  // ---------------------------------------------------------------- online camps (server/src/online/camps.ts)
-
-  /** Your camps (buildings, timers, effects), the camp plots you could claim, limits and purse. */
-  camps(): Promise<CampsView> {
-    return this.request('GET', '/api/online/camps', { auth: true });
-  }
-
-  /** Makes a forward camp on a camp plot you hold (army there). Errors: camp_notPlot, camp_notYours, camp_isCamp, camp_limit, camp_notHere, camp_funds. */
-  campClaim(loc: number): Promise<CampsView> {
-    return this.request('POST', '/api/online/camps/claim', { auth: true, body: { loc } });
-  }
-
-  /**
-   * Builds `kind` on an empty `slot` of a camp, or raises the existing one a
-   * level (slot omitted). Errors: camp_notCamp, camp_badSlot, camp_slotTaken,
-   * camp_built, camp_busy, camp_maxLevel, camp_funds.
-   */
-  campBuild(loc: number, kind: CampBuildingId, slot?: number | null): Promise<CampsView & { built: { loc: number; slot: number; kind: CampBuildingId; level: number; doneAt: number } }> {
-    return this.request('POST', '/api/online/camps/build', { auth: true, body: slot === undefined || slot === null ? { loc, kind } : { loc, kind, slot } });
-  }
-
-  /** Rests the army at one of your camps (energy, wounds). Errors: camp_notCamp, camp_notHere, camp_resting. */
-  campRest(loc: number): Promise<CampsView & { energy: number }> {
-    return this.request('POST', '/api/online/camps/rest', { auth: true, body: { loc } });
   }
 }

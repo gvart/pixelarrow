@@ -16,7 +16,8 @@ export function goTab(scene: Phaser.Scene, id: TabId): void {
   switch (id) {
     case 'campaign': return void scene.scene.start('Menu', {});
     case 'duels': return void scene.scene.start('Duel', {});
-    case 'war': return void scene.scene.start('Online', {});
+    // the war is its own page (world.html, src/war/world-view/)
+    case 'war': return void location.assign('world.html');
     case 'codex': return void scene.scene.start('Codex', {});
     case 'shop': return void scene.scene.start('Shop', {});
   }

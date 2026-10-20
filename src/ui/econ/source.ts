@@ -17,9 +17,6 @@ import {
   type CosmeticInfo,
   type Currency,
   type EconomyCatalog,
-  type MarketListing,
-  type MarketListRequest,
-  type MarketQuery,
   type PassReward,
   type SeasonPassInfo,
   type WalletInfo,
@@ -48,12 +45,6 @@ export interface EconSource {
   useConsumable(id: ConsumableKey): Promise<{ inventory: Partial<Record<ConsumableKey, number>> }>;
   /** The season profile (gold, stash) or null when the player has not joined the season. */
   profile(): Promise<ProfileView | null>;
-  marketSearch(q: MarketQuery): Promise<{ listings: MarketListing[]; next: number | null }>;
-  marketMine(): Promise<{ listings: MarketListing[]; open: number; maxOpen: number }>;
-  marketTowns(): Promise<{ towns: { loc: number; name: string }[] }>;
-  marketList(body: MarketListRequest): Promise<{ listing: MarketListing }>;
-  marketBuy(id: string): Promise<{ listing: MarketListing; paid: number; fee: number; sellerGets: number }>;
-  marketCancel(id: string): Promise<unknown>;
   /** Buy a Drachmae pack through platform.payments: invoice, payment sheet, then wait for the credit ('unavailable' when the platform cannot pay). */
   buyPack(productId: string, onStage?: (s: 'invoice' | 'paying' | 'confirming') => void): Promise<PackResult>;
 }
@@ -108,24 +99,6 @@ export class ApiEconSource implements EconSource {
       if (isApiError(e) && e.code === 'no_profile') return null;
       throw e;
     }
-  }
-  async marketSearch(q: MarketQuery) {
-    return (await this.api()).marketSearch(q);
-  }
-  async marketMine() {
-    return (await this.api()).marketMine();
-  }
-  async marketTowns() {
-    return (await this.api()).marketTowns();
-  }
-  async marketList(body: MarketListRequest) {
-    return (await this.api()).marketList(body);
-  }
-  async marketBuy(id: string) {
-    return (await this.api()).marketBuy(id);
-  }
-  async marketCancel(id: string) {
-    return (await this.api()).marketCancel(id);
   }
 
   async buyPack(productId: string, onStage?: (s: 'invoice' | 'paying' | 'confirming') => void): Promise<PackResult> {

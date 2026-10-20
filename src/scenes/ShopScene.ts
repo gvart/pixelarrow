@@ -6,7 +6,7 @@ import { scaleIcon, ScrollArea, addIcon, addText, tappable, type FontKey } from 
 import { ItemIcon, addScrollHint, confirmDialog, showTooltip, subjectName, toast } from '../ui/widgets';
 import { uiId, uiLayout, uiTransient } from '../ui/layout';
 import { layoutVariant, PANE_GUTTER, type LayoutVariant } from '../ui/mosaic/layout/geometry';
-import { BUTTON_MAX, ROW_MAX } from '../ui/sizeClass';
+import { BUTTON_MAX } from '../ui/sizeClass';
 import { focusPane } from '../ui/focusRing';
 import { wrapText, LINE_H } from '../ui/textfit';
 import { confirmPurchase, flyReward, addClaimGlow, type FlyTarget } from '../ui/mosaic';
@@ -21,7 +21,7 @@ import { pickBattleConsumable } from '../ui/econ/consumablePicker';
 import { fmtAgo } from '../util/format';
 import { addComingSoon, addCosmetic, addEconState, cosmeticName, currencyIcon, ensureEconIcons, priceText, rewardName } from '../ui/econ/widgets';
 import { cosmeticAction, cosmeticOffer, cosmeticsBySlot, packButton, packOffers, premiumOffer, type CosmeticOffer } from '../ui/econ/shopModel';
-import { LookCard, MarketCard, addPackCard, addShopSkeleton, packLayout, type LookState } from '../ui/econ/shopParts';
+import { LookCard, addPackCard, addShopSkeleton, packLayout, type LookState } from '../ui/econ/shopParts';
 import { PASS_XP, claimableCount, econState, focusTier, passProgress, tierState, withClaim, type EconState, type Track } from '../game/economy';
 import { isApiError, type CosmeticInfo, type Currency, type EconomyCatalog, type PassReward, type SeasonPassInfo, type WalletInfo } from '../platform/api';
 import type { ProfileView } from '../online/client';
@@ -361,17 +361,12 @@ export class ShopScene extends BaseScene {
     frameScrollTexts(area, this.box.w - 8);
   }
 
-  /** What this shop is (a tip the player can hide) and the Market door. Returns the y under them. */
+  /** What this shop is (a tip the player can hide). Returns the y under it. */
   private shopIntro(c: Phaser.GameObjects.Container, w: number, y: number): number {
     // what this shop is (and is not): a tip the player can hide
     const tipH = addTipLine(this, c, 0, y, w, { text: t('shop.v5.tip'), dismissId: 'shop.what', card: true });
     if (tipH) y += tipH + 5;
-    // the player market: a door of its own (D5); Back from it returns here
-    // (at most a list row's width, §2.3, centred: a tablet's column is wider)
-    const mw0 = Math.min(w, ROW_MAX);
-    const market = new MarketCard(this, Math.floor((w - mw0) / 2), y, mw0, t('shop.v5.market'), t('shop.v5.marketSub'), () => this.scene.start('Market', { back: { scene: 'Shop', data: { tab: 'shop' } } }));
-    c.add(market);
-    return y + market.h + 6;
+    return y;
   }
 
   /** The looks by slot, from `y`. Returns the y under them. */

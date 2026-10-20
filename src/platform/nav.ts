@@ -217,7 +217,7 @@ export function showInGameBack(): boolean {
 // ------------------------------------------------------------------ the Back contract (HUB-01, ia.md §2 §6, screen-flow.md §3)
 
 /** The five tab roots (ia.md §2): the hub scene of each mode tab. */
-export const TAB_ROOTS: Readonly<Record<string, TabId>> = { Menu: 'campaign', Duel: 'duels', Online: 'war', Codex: 'codex', Shop: 'shop' };
+export const TAB_ROOTS: Readonly<Record<string, TabId>> = { Menu: 'campaign', Duel: 'duels', Codex: 'codex', Shop: 'shop' };
 
 /** The tab whose hub `sceneKey` is, or null for any other screen. */
 export function tabOfScene(sceneKey: string): TabId | null {
@@ -256,12 +256,7 @@ export const BACK_RULES: Readonly<Record<string, BackRule>> = {
   Codex: { kind: 'root' },
   // the Duels hub views (Ladder, Arena) are the root; its sub-views (Team, Armoury, Board, Raids) go back to the hub view (`hubView`)
   Duel: { kind: 'root' },
-  Online: { kind: 'root' },
-  OnlineArmy: { kind: 'origin', fallback: 'Online' },
-  OnlineClan: { kind: 'parent', to: 'Online' },
-  // single-parent (ia.md §1.3); the War hub reopens on the merchant's hex ({ focus, select }), which the scene passes
-  Merchant: { kind: 'parent', to: 'Online' },
-  Market: { kind: 'origin', fallback: 'Shop' },
+  OnlineClan: { kind: 'parent', to: 'Menu' },
   Shop: { kind: 'root' },
   Kit: { kind: 'parent', to: 'Menu' },
   // retired by CDX-01 (merged into the Codex); until then it returns to the Codex that opened it
