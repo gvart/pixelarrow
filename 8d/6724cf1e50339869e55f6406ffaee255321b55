@@ -1,0 +1,23 @@
+scripts/war/world-art/sharpen.mjs
+  s_cfc22b058125c4::t_5243c192ffb477 7
+  s_cfc22b058125c4::t_d04a98cc504f63 58-59
+  s_cfc22b058125c4::t_c1593b7117d7b0 1-2,4-6,8-12,14-32,40-50,52-57,60-103
+  s_cfc22b058125c4::t_3ae4cb6c7a9001 3,13
+  s_cfc22b058125c4::t_a94bac123cc208 33-39,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8d6724cf1e50339869e55f6406ffaee255321b55",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
