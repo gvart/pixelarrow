@@ -12,6 +12,7 @@
  *  - tick: steps the sim, then builds one binary frame per online player from what it may see (src/war/net).
  *  - fights (M5e): once men have fought and FIGHT_QUIET ticks pass with no blow struck and no man falling, the sim's
  *    endFight report leaves tick() with a fight id unique to this room instance; the DO writes it to D1 (idempotent).
+ *    The sim's `raid` events leave tick() as `raided` building ids: the DO frees the captives held there.
  *  - state (M5e): saveState() is the whole region: the sim's exact state (sim.exportState: hit points, wounds, orders,
  *    sites and finished buildings, siege, fog, mobs, rng), the bots, players, squad owners, the join line and the fight
  *    in progress; WarRoom.restore rebuilds the room from it after an eviction and it steps on as if never stopped
@@ -422,13 +423,16 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; freed: string[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; freed: string[]; raided: number[]; times: TickTimes } {
     const t0 = now();
     this.sim.step();
     this.bots.tick();
     const t1 = now();
     this.snap = this.sim.snapshot();
-    const crafted = this.sim.events().filter((e): e is Crafted => e.kind === 'crafted');
+    const evs = this.sim.events();
+    const crafted = evs.filter((e): e is Crafted => e.kind === 'crafted');
+    // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
+    const raided = evs.flatMap((e) => (e.kind === 'raid' ? [e.building] : []));
     const freed = this.unmend(new Set(crafted.filter((e) => e.what !== 'craft').map((e) => e.item.uid)));
     this.live = this.per.map(() => 0);
     for (const s of this.snap.squads) {
@@ -474,7 +478,7 @@ export class WarRoom {
       }
     }
     this.lastTick = this.snap.tick;
-    return { frames, admitted, fights, crafted, freed, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, admitted, fights, crafted, freed, raided, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /** Let waiting joins in, first come first served per alliance, while their alliance has room. */

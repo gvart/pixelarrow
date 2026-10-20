@@ -398,9 +398,12 @@ export interface WarPerson { id: string; hero: Hero; skills?: WarSkillId[]; hono
 export interface ActiveSnap { skill: WarSkillId; ready: number; on: number }
 /** Gear of a dead man: `items` pieces, `left` ticks until it is gone; team: the fallen's. */
 export interface DropSnap { id: number; x: number; y: number; team: number; items: number; left: number }
-/** One person's fight: XP earned (half when wounded or captive, none when dead), level-ups, and the hero after it. */
+/**
+ * One person's fight: XP earned (half when wounded or captive, none when dead), level-ups, and the hero after it.
+ * fort: a captive's holding building (the captor's nearest standing fort or camp), absent when the captor holds none.
+ */
 export interface PersonResult {
-  pid: string; owner: string; team: number; state: 'fit' | 'wounded' | 'captive' | 'dead'; captor?: number;
+  pid: string; owner: string; team: number; state: 'fit' | 'wounded' | 'captive' | 'dead'; captor?: number; fort?: number;
   xp: number; kills: number; dmg: number; levelUps: number; hero: Hero;
 }
 /** loot: gear picked up per team since the last report (rare and above at reduced condition). */
@@ -411,5 +414,8 @@ export type WarEvent =
   | { t: number; kind: 'pickup'; drop: number; team: number; items: number }
   | { t: number; kind: 'capture'; unit: UnitId; pid: string; captor: number }
   | { t: number; kind: 'levelUp'; unit: UnitId; pid: string; level: number }
+  // M5e: a holding building (fort, camp) of `team` raided: foe soldiers `by` reached it with none of its team near, or it fell
+  // (fell: destroyed); the captives held there go free
+  | { t: number; kind: 'raid'; building: number; team: number; by?: number; fell: boolean }
   // M5h: a crafting order finished: the made, mended or salvaged item for `owner`'s stash (salvage: item gone, goods to stock)
   | { t: number; kind: 'crafted'; order: number; building: number; team: number; owner: string; pid?: string; recipe: string; what: 'craft' | 'repair' | 'salvage'; item: Item };

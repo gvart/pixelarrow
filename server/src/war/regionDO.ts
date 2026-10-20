@@ -28,7 +28,7 @@ import { warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type MendMsg, type ServerMsg } from '../../../src/war/net/protocol';
 import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
-import { applyFight, claimForJoin, deployed, release, releaseRegion } from './persons';
+import { applyFight, claimForJoin, deployed, freeRaided, release, releaseRegion } from './persons';
 import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 
 const TICK_MS = 100;
@@ -281,6 +281,10 @@ export class WarRegionDO extends DurableObject<Env> {
     }
     const d = this.env.DB;
     if (d) for (const f of r.fights) this.write(`fight ${f.id}`, () => applyFight(d, f.id, room.region.id, f.report, Date.now()));
+    if (d && r.raided.length) {
+      const at = Date.now();
+      this.write('raid', () => freeRaided(d, room.region.id, r.raided, at));
+    }
     if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
     if (d && r.freed.length) this.write('unmend', () => returnMends(d, room.region.id, r.freed));
     this.flushReleased(room);

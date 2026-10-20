@@ -105,6 +105,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   entitlements: { rule: 'keep_tombstone', kept: ['player_id'] },
   drachmae_ledger: { rule: 'keep_tombstone', kept: ['player_id'] },
   market_audit: { rule: 'keep_tombstone', kept: ['actor_id'] },
+  war_treasury_log: { rule: 'keep_tombstone', kept: ['player_id'] },
   admin_audit: { rule: 'keep_tombstone', kept: ['player_id'] },
   deletion_jobs: { rule: 'keep_tombstone', kept: ['player_id'] },
 
@@ -126,6 +127,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   online_shards: { rule: 'not_player_keyed' },
   stats_counters: { rule: 'not_player_keyed' },
   war_fights: { rule: 'not_player_keyed' },
+  war_treasury: { rule: 'not_player_keyed' },
   public_snapshot: { rule: 'derived' },
   dev_outbox: { rule: 'dev_only' },
 };

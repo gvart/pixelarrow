@@ -4,11 +4,11 @@
  * fight reports back (M5d).
  */
 import { ATTR_IDS, ATTR_MAX, POINTS_PER_LEVEL, type AttrId } from '../../data/perks';
-import { CIV_CLASSES, CLASSES, isCivClass, isClassId } from '../../data/classes';
+import { CIV_CLASSES, CLASSES, isCivClass, isClassId, type ClassId } from '../../data/classes';
 import { MAX_LEVEL, type Hero } from '../../data/units';
 import type { Rarity } from '../../data/items';
 import type { FightReport, PersonResult, WarPerson, WarSkillId } from '../types';
-import { freshHero, kitItem } from './classes';
+import { CLAMP_BASE, freshHero, kitItem } from './classes';
 import { FAMILY_OF, legalSkills, SKILL_LEVELS, SKILL_POOL, type Family } from './skills';
 import { gainXp } from './soldiers';
 import { freshCivilian } from './civilians';
@@ -81,6 +81,8 @@ export interface Roster {
   fit(): WarPerson[];
   /** M5g: replace a person's record (a level-up choice, dev XP); unknown ids are ignored. */
   update(p: WarPerson): void;
+  /** M5e: promote a fit person to the elite `to` at once (the server adds the time and the fortress); returns why not, or null. */
+  promote(id: string, to: string): string | null;
 }
 
 export function createRoster(): Roster {
@@ -110,6 +112,14 @@ export function createRoster(): Roster {
     state: (id) => states.get(id) ?? 'fit',
     fit: () => [...persons.values()].filter((p) => (states.get(p.id) ?? 'fit') === 'fit'),
     update: (p) => void (persons.has(p.id) && persons.set(p.id, p)),
+    promote(id, to) {
+      const p = persons.get(id);
+      if (!p) return 'no such person';
+      if ((states.get(id) ?? 'fit') !== 'fit') return `he is ${states.get(id)}`;
+      const why = promoteBlocker(p, to);
+      if (!why) persons.set(id, promotePerson(p, to as ClassId));
+      return why;
+    },
   };
 }
 
@@ -145,6 +155,38 @@ export function applyOffer(p: WarPerson, o: LevelOffer): WarPerson {
   if (o.kind === 'skill') return { ...p, skills: legalSkills(cls, h.level, [...legalSkills(cls, h.level, p.skills ?? []), o.skill]) };
   const add = Math.max(0, Math.min(o.n, h.points, ATTR_MAX - h.attrs[o.attr]));
   return { ...p, hero: { ...h, attrs: { ...h.attrs, [o.attr]: h.attrs[o.attr] + add }, points: h.points - add } };
+}
+
+// --- M5e promotion to elite (docs/WAR.md "Promote": level 6 + the elite rare kit, at a fortress) ---
+
+/** What a promotion asks of the man: his level and honours won. The kit (ELITE_KIT) is his new gear. */
+export const PROMOTE = { level: 6, honours: 1 };
+/** The elite's kit: tier index and rarity of every piece. */
+export const ELITE_KIT = { tier: 1, rarity: 'rare' as Rarity };
+/** The elite classes (each clamps against a trained class of its family, ./classes.ts CLAMP_BASE). */
+export const ELITES = Object.keys(CLAMP_BASE) as ClassId[];
+export const isElite = (cls: string): boolean => (ELITES as string[]).includes(cls);
+
+/** The elites a man of `cls` may be promoted to: those of his family, for a trained soldier (not militia, not elite). */
+export function promotesTo(cls: string): ClassId[] {
+  const fam = FAMILY_OF[cls as ClassId];
+  if (!fam || cls === 'militia' || isElite(cls)) return [];
+  return ELITES.filter((e) => FAMILY_OF[e] === fam);
+}
+
+/** Why p cannot be promoted to `to` now, or null. */
+export function promoteBlocker(p: WarPerson, to: string): string | null {
+  const cls = p.hero.cls ?? 'militia';
+  if (!promotesTo(cls).includes(to as ClassId)) return `a ${cls} is not promoted to ${to}`;
+  if (p.hero.level < PROMOTE.level) return `level ${PROMOTE.level} first`;
+  if ((p.honours?.length ?? 0) < PROMOTE.honours) return `${PROMOTE.honours} honour first`;
+  return null;
+}
+
+/** p as the elite `to`: the class (warStatsOf bakes it), the elite rare kit on, his skills those still legal; level, XP, attributes and honours stay. */
+export function promotePerson(p: WarPerson, to: ClassId): WarPerson {
+  const kit = makePerson(p.id, to, ELITE_KIT).hero.equip;
+  return { ...p, hero: { ...p.hero, cls: to, equip: kit }, skills: legalSkills(to, p.hero.level, p.skills ?? []) };
 }
 
 /** Dev and tests: the person with xp added and levelled up as a fight would (./soldiers.ts gainXp). */

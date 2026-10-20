@@ -11,9 +11,14 @@
  *  - Train: a fit man at home becomes a class his town trains (TOWN buildings: barracks, range; no stable yet): militia
  *    into any, others only within their family; TRAIN.silver buys the class's tier-1 common kit (crafting comes with M6),
  *    put on when training ends; his old gear goes to the stash; level, XP and his family's skills stay.
+ *  - Promote (docs/WAR.md "Promote"): a fit trained man at home with PROMOTE.level and PROMOTE.honours, in a town with a
+ *    fortress, becomes an elite of his family (src/war/sim/roster.ts promotesTo) in PROMOTE_MS; he pays the elite rare
+ *    kit's value in silver, it goes on when he is done (his old gear to the stash). Elites cost UPKEEP.elite.
  *  - Prisoners: a captive is held by the player of the captor alliance who fought there (`captor_pid`); he pays the
  *    captive's upkeep and takes the ransom (RANSOM_PER_LEVEL x level silver) when the owner pays it; he may also let him go.
- *    A captor who cannot pay upkeep lets all his captives go.
+ *    A captor who cannot pay upkeep lets all his captives go. A captive is held at the captor's nearest fort or camp in
+ *    the region (`held_fort`, the sim's building id; at most HOLD_MAX there, the rest go free, wounded); a raid reaching
+ *    it or its fall (the sim's `raid` event, freeRaided) frees them all: home, wounded (HEAL.field).
  *  - Upkeep (docs/WAR.md "Anti-oversaturation"), settled lazily: food per hour for each man in the field (UPKEEP), and
  *    each captive held. Unpaid: the player's wounded do not heal and his men earn no XP until it is paid.
  *  - Retire: a fit man at home leaves for good (frees his roster place); half his gear's value comes back as silver and
@@ -29,7 +34,7 @@ import { classGearBlocker } from '../../../src/data/gearRules';
 import { freeName } from '../../../src/data/names';
 import type { Equipment, Hero } from '../../../src/data/units';
 import { freshHero } from '../../../src/war/sim/classes';
-import { makePerson, type PersonOpts } from '../../../src/war/sim/roster';
+import { isElite, makePerson, promoteBlocker, promotePerson, type PersonOpts } from '../../../src/war/sim/roster';
 import { FAMILY_OF, legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
 import type { FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
@@ -49,18 +54,23 @@ export const CAPTIVE_MS = 24 * HOUR;
 /** A recruit's cost in food. */
 export const RECRUIT_FOOD = 20;
 /** Towns a player recruits and trains in. M4 stub: everyone holds a home camp; owned towns (3/h) come with the world map. */
-export const TOWNS: Record<string, { rate: number; cap: number; buildings: TrainingBuilding[] }> = { home: { rate: 6, cap: 30, buildings: ['barracks', 'range'] } };
+export const TOWNS: Record<string, { rate: number; cap: number; buildings: TrainingBuilding[] }> = { home: { rate: 6, cap: 30, buildings: ['barracks', 'range', 'fortress'] } };
 /** A new player's pool, food and silver, so a first squad can be raised (and a few trained) at once. */
 export const START = { pool: SQUAD_MAX, food: (SQUAD_MAX + RESERVE_MAX) * RECRUIT_FOOD, silver: 200 };
 /** Training: time and the silver a tier-1 common kit costs. */
 export const TRAIN = { ms: 10 * 60_000, silver: 40 };
-export type TrainingBuilding = 'barracks' | 'range' | 'stable';
+export type TrainingBuilding = 'barracks' | 'range' | 'stable' | 'fortress';
 /** The classes each building trains (docs/WAR.md "Classes"). */
 export const TRAINS: Record<TrainingBuilding, ClassId[]> = {
   barracks: ['hoplite', 'thureophoros', 'celt_sword', 'falx'],
   range: ['archer', 'slinger', 'javelineer', 'peltast'],
   stable: ['companion', 'thessalian', 'horse_archer'],
+  fortress: [], // promotes (promote), trains no one
 };
+/** Promotion to elite takes this long (at a fortress). */
+export const PROMOTE_MS = 30 * 60_000;
+/** Captives one fort or camp holds; past it the rest go free. */
+export const HOLD_MAX = 20;
 /** Ransom: silver per level of the captive. */
 export const RANSOM_PER_LEVEL = 30;
 /** Upkeep: food per hour each. */
@@ -84,7 +94,7 @@ export interface PersonRow {
   id: string; player_id: number; cls: string; name: string; level: number; xp: number; points: number; kills: number; battles: number;
   attrs: string; skills: string; gear: string; honours: string; state: PersonState; until_at: number | null; captor: number | null;
   held_at: string | null; slot: number | null; region: string | null; train_to: string | null; captor_pid: number | null;
-  perks: string; respec_at: number | null;
+  perks: string; respec_at: number | null; held_fort: number | null;
 }
 
 export const json = <T>(s: string, fallback: T): T => {
@@ -122,9 +132,7 @@ export function view(r: PersonRow) {
   };
 }
 
-const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at';
-
-const isElite = (cls: string) => isClassId(cls) && CLASSES[cls].role === 'elite';
+const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at, held_fort';
 
 /** The player's upkeep in food per hour: his men in the field (elites 2, civilians 1) and the captives he holds. */
 export async function upkeepRate(db: D1Database, pid: number): Promise<number> {
@@ -162,18 +170,21 @@ export async function settleUpkeep(db: D1Database, pid: number, now: number): Pr
   await db.prepare('UPDATE war_upkeep SET at = ?2, owed = ?3, unpaid = ?4 WHERE player_id = ?1').bind(pid, now, owed, unpaid ? 1 : 0).run();
   if (unpaid)
     await db
-      .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, updated_at = ?2 WHERE captor_pid = ?1 AND state = 'captive'")
+      .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE captor_pid = ?1 AND state = 'captive'")
       .bind(pid, now)
       .run();
   return { unpaid, rate, owed };
 }
 
-/** The tier-1 common kit of a class, as worn gear (uids unique to the man and the moment). */
-function kitOf(cls: string, id: string, now: number): Equipment {
+/** Gear with uids unique to the man and the moment. */
+function reUid(equip: Equipment, id: string, now: number): Equipment {
   const out: Equipment = {};
-  for (const [slot, it] of Object.entries(freshHero(cls, id).equip)) if (it) out[slot as Slot] = { ...it, uid: `${id}-${slot}-${now.toString(36)}` };
+  for (const [slot, it] of Object.entries(equip)) if (it) out[slot as Slot] = { ...it, uid: `${id}-${slot}-${now.toString(36)}` };
   return out;
 }
+
+/** The tier-1 common kit of a class, as worn gear. */
+const kitOf = (cls: string, id: string, now: number): Equipment => reUid(freshHero(cls, id).equip, id, now);
 
 /**
  * Timers, read lazily: upkeep first (an unpaid player's wounded do not heal); wounded men whose time is up are fit again
@@ -183,7 +194,7 @@ export async function settle(db: D1Database, pid: number, now: number): Promise<
   const { unpaid } = await settleUpkeep(db, pid, now);
   const states = unpaid ? "'captive'" : "'wounded', 'captive'";
   await db
-    .prepare(`UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, updated_at = ?2 WHERE player_id = ?1 AND state IN (${states}) AND until_at <= ?2`)
+    .prepare(`UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?2 WHERE player_id = ?1 AND state IN (${states}) AND until_at <= ?2`)
     .bind(pid, now)
     .run();
   const done = (await db.prepare(`SELECT ${COLS} FROM war_persons WHERE player_id = ?1 AND state = 'training' AND until_at <= ?2`).bind(pid, now).all<PersonRow>()).results;
@@ -191,10 +202,12 @@ export async function settle(db: D1Database, pid: number, now: number): Promise<
   await db.batch(
     done.map((r) => {
       const cls = r.train_to && isClassId(r.train_to) ? r.train_to : r.cls;
-      const skills = legalSkills(cls, r.level, json<WarSkillId[]>(r.skills, []));
+      // a promotion: the elite rare kit; training: the class's tier-1 common kit
+      const elite = isClassId(cls) && isElite(cls) ? promotePerson(personOf(r), cls) : null;
+      const skills = elite?.skills ?? legalSkills(cls, r.level, json<WarSkillId[]>(r.skills, []));
       return db
         .prepare("UPDATE war_persons SET state = 'reserve', cls = ?3, gear = ?4, skills = ?5, train_to = NULL, until_at = NULL, updated_at = ?6 WHERE id = ?1 AND player_id = ?2 AND state = 'training'")
-        .bind(r.id, pid, cls, JSON.stringify(kitOf(cls, r.id, now)), JSON.stringify(skills), now);
+        .bind(r.id, pid, cls, JSON.stringify(elite ? reUid(elite.hero.equip, r.id, now) : kitOf(cls, r.id, now)), JSON.stringify(skills), now);
     }),
   );
 }
@@ -451,6 +464,37 @@ export async function train(db: D1Database, pid: number, id: string, cls: string
   return until;
 }
 
+/** Silver the elite rare kit of `cls` costs (its items' value). */
+export function promoteCost(cls: ClassId): number {
+  return Object.values(promotePerson(makePerson('kit', 'militia'), cls).hero.equip).reduce((a, it) => a + (it ? itemValue(it) : 0), 0);
+}
+
+/**
+ * Promote a fit man at home to the elite `cls` (docs/WAR.md "Promote"): a town of his with a fortress, PROMOTE.level and
+ * PROMOTE.honours, an elite of his family. Pays promoteCost (the elite rare kit), puts his old gear in the stash; he is
+ * `training` for PROMOTE_MS and out of the squad, then the elite with the kit on (settle). Returns when he is done.
+ */
+export async function promote(db: D1Database, pid: number, id: string, cls: string, now: number): Promise<number> {
+  await ensureStart(db, pid, now);
+  await settle(db, pid, now);
+  const r = await person(db, pid, id);
+  home(r);
+  if (!Object.values(TOWNS).some((t) => t.buildings.includes('fortress'))) throw new ApiError(409, 'no_fortress', 'You hold no town with a fortress');
+  const why = promoteBlocker(personOf(r), cls);
+  if (why || !isClassId(cls)) throw new ApiError(409, 'not_promotable', why ?? `${cls} is no class`);
+  const price = promoteCost(cls);
+  if (!(await pay(db, pid, 'silver', price))) throw new ApiError(409, 'no_silver', `The ${cls} kit costs ${price} silver`);
+  const until = now + PROMOTE_MS;
+  const old = Object.values(json<Equipment>(r.gear, {})).filter((x): x is Item => !!x);
+  await db.batch([
+    ...old.map((it) => db.prepare('INSERT OR REPLACE INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(it.uid, pid, JSON.stringify(it), now)),
+    db
+      .prepare("UPDATE war_persons SET state = 'training', train_to = ?3, until_at = ?4, gear = '{}', slot = NULL, updated_at = ?5 WHERE id = ?1 AND player_id = ?2 AND region IS NULL")
+      .bind(id, pid, cls, until, now),
+  ]);
+  return until;
+}
+
 /** The owner pays the ransom of his captive (RANSOM_PER_LEVEL x level silver, to the captor): he is home and fit. */
 export async function payRansom(db: D1Database, pid: number, id: string, now: number): Promise<number> {
   await settle(db, pid, now);
@@ -459,7 +503,7 @@ export async function payRansom(db: D1Database, pid: number, id: string, now: nu
   const price = RANSOM_PER_LEVEL * r.level;
   if (!(await pay(db, pid, 'silver', price))) throw new ApiError(409, 'no_silver', `His ransom is ${price} silver`);
   await db.batch([
-    db.prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, updated_at = ?3 WHERE id = ?1 AND player_id = ?2").bind(id, pid, now),
+    db.prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3 WHERE id = ?1 AND player_id = ?2").bind(id, pid, now),
     ...(r.captor_pid !== null ? [credit(db, r.captor_pid, 'silver', price)] : []),
   ]);
   return price;
@@ -468,7 +512,7 @@ export async function payRansom(db: D1Database, pid: number, id: string, now: nu
 /** The captor lets a captive he holds go (no ransom): the man walks home. */
 export async function releaseCaptive(db: D1Database, captor: number, id: string, now: number): Promise<void> {
   const r = await db
-    .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, updated_at = ?3 WHERE id = ?1 AND captor_pid = ?2 AND state = 'captive'")
+    .prepare("UPDATE war_persons SET state = 'reserve', until_at = NULL, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3 WHERE id = ?1 AND captor_pid = ?2 AND state = 'captive'")
     .bind(id, captor, now)
     .run();
   if (!r.meta.changes) throw new ApiError(404, 'not_found', 'You hold no such captive');
@@ -547,9 +591,26 @@ export async function release(db: D1Database, region: string, ids: string[]): Pr
   await db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(ids)).run();
 }
 
-/** A fresh room (no saved state): nobody is in the field there any more, and no item waits at its workplaces. */
-export async function releaseRegion(db: D1Database, region: string): Promise<void> {
+/** A captive goes free: home, wounded. */
+const FREE = "state = 'wounded', until_at = ?2, captor = NULL, captor_pid = NULL, held_at = NULL, held_fort = NULL, updated_at = ?3";
+
+/**
+ * M5e: raids in `region` (the sim's `raid` events, at wall time `at`): the captives held at each raided building, taken
+ * before it, go free, wounded (HEAL.field). Repeating it changes nothing. Returns how many went free.
+ */
+export async function freeRaided(db: D1Database, region: string, buildings: readonly number[], at: number): Promise<number> {
+  if (!buildings.length) return 0;
+  const res = await db
+    .prepare(`UPDATE war_persons SET ${FREE} WHERE held_at = ?1 AND state = 'captive' AND held_fort IN (SELECT value FROM json_each(?4)) AND until_at <= ?5`)
+    .bind(region, at + HEAL.field, at, JSON.stringify([...new Set(buildings)]), at + CAPTIVE_MS)
+    .run();
+  return res.meta.changes;
+}
+
+/** A fresh room (no saved state): nobody is in the field there any more, no item waits at its workplaces, and its forts are gone (their captives go free). */
+export async function releaseRegion(db: D1Database, region: string, now = Date.now()): Promise<void> {
   await db.batch([
+    db.prepare(`UPDATE war_persons SET ${FREE} WHERE held_at = ?1 AND state = 'captive' AND held_fort IS NOT NULL`).bind(region, now + HEAL.field, now),
     db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1').bind(region),
     db.prepare('UPDATE war_items SET region = NULL WHERE region = ?1').bind(region),
   ]);
@@ -589,6 +650,16 @@ export async function applyFight(db: D1Database, fightId: string, region: string
   // upkeep up to now (at the rate before the fight); unpaid players' men earn no XP from it
   const unpaid = new Set<number>();
   for (const pid of new Set([...byTeam.values()].flat())) if ((await settleUpkeep(db, pid, now)).unpaid) unpaid.add(pid);
+  // captives each fort holds already; one more past HOLD_MAX goes free
+  const held = new Map<number, number>();
+  for (const f of new Set(r.persons.map((x) => (x.state === 'captive' ? x.fort : undefined)).filter((f): f is number => f !== undefined)))
+    held.set(f, (await db.prepare("SELECT COUNT(*) AS n FROM war_persons WHERE held_at = ?1 AND held_fort = ?2 AND state = 'captive'").bind(region, f).first<{ n: number }>())?.n ?? 0);
+  const overHold = (f: number | undefined) => {
+    if (f === undefined) return false;
+    const n = (held.get(f) ?? 0) + 1;
+    held.set(f, n);
+    return n > HOLD_MAX;
+  };
   for (const x of r.persons) {
     const pid = ownerPid(x.owner);
     if (pid === null) continue;
@@ -600,12 +671,14 @@ export async function applyFight(db: D1Database, fightId: string, region: string
     if (x.state === 'fit') stmts.push(db.prepare(`UPDATE war_persons SET ${base} WHERE id = ?1 AND player_id = ?2`).bind(...args));
     else if (x.state === 'wounded')
       stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args, now + HEAL.field));
-    else if (x.state === 'captive')
+    else if (x.state === 'captive' && !overHold(x.fort))
       stmts.push(
         db
-          .prepare(`UPDATE war_persons SET ${base}, state = 'captive', until_at = ?12, captor = ?13, held_at = ?14, captor_pid = ?15, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`)
-          .bind(...args, now + CAPTIVE_MS, x.captor ?? null, region, x.captor !== undefined ? (byTeam.get(x.captor)?.[0] ?? null) : null),
+          .prepare(`UPDATE war_persons SET ${base}, state = 'captive', until_at = ?12, captor = ?13, held_at = ?14, captor_pid = ?15, held_fort = ?16, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`)
+          .bind(...args, now + CAPTIVE_MS, x.captor ?? null, region, x.captor !== undefined ? (byTeam.get(x.captor)?.[0] ?? null) : null, x.fort ?? null),
       );
+    else if (x.state === 'captive') // the fort is full: he goes free, wounded
+      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args, now + HEAL.field));
     else stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'dead', until_at = NULL, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args));
   }
   for (const [team, items] of Object.entries(r.loot)) {

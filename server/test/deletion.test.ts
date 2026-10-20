@@ -59,6 +59,7 @@ const OVERRIDE: Record<string, (s: Seeded) => Record<string, unknown>> = {
   market_listings: () => ({ status: 'sold' }),
   clan_members: () => ({ role: 'member' }),
   online_regions: () => ({ occupant: 'player', home: 1 }),
+  war_treasury_log: () => ({ kind: 'deposit' }),
 };
 /** Created by the deletion itself, or seeded by hand below. */
 const NOT_SEEDED = new Set(['players', 'deletion_jobs', 'ban_tombstones']);
