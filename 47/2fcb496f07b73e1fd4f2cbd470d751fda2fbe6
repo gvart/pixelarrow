@@ -23,6 +23,7 @@ src/war/sim/crafting.ts
   s_cfc22b058125c4::t_d38918aeca9aa4 1-10,12,14-47,49-94,96-100,102-160,162-176,182-202
   s_cfc22b058125c4::t_758adeb41884a7 11,95
   s_cfc22b058125c4::t_647cff07f13b85 48,161
+  s_cfc22b058125c4::t_58c2edc8b632bb 177-181
 src/war/sim/mobs.ts
   s_cfc22b058125c4::t_5e1e968aa1edcd 30-31
 scripts/war/bench.mjs
@@ -35,8 +36,15 @@ src/war/sim/index.ts
   s_cfc22b058125c4::t_663a7bc9972d4d 1708-1714,1716,1718,1723,1725-1730,1733-1735,1739-1740,1743-1744,1747-1763,1766,1770,1783,1785-1806
   s_cfc22b058125c4::t_e19f1cad6c34ac 2155-2158
   s_cfc22b058125c4::t_ddf3acf7ea0346 2159-2160,2169-2172,2178
+  s_cfc22b058125c4::t_58c2edc8b632bb 2040-2041,2062
 src/war/view/mapModes.ts
   s_cfc22b058125c4::t_a0fad0e28e2fcb 53
+tests/war/state.test.ts
+  s_cfc22b058125c4::t_efcfd8095c1d4f 127-163
+server/src/war/room.ts
+  s_cfc22b058125c4::t_729329d2f29a8b 301,331-332
+src/war/net/protocol.ts
+  s_cfc22b058125c4::t_729329d2f29a8b 24,46-48,81-84
 ---
 {
   "schema_version": "authorship/3.0.0",
