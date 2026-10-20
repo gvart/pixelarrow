@@ -224,8 +224,8 @@ little); T3 crafting needs silver and marble, so a high-end army needs Omphalos,
 ### Trade routes
 
 Market towns: the 4 home agoras, 4 frontier towns (Kleisoura toll fort, Stymphalia causeway town, Achelous bridge
-town, Ammos caravanserai) and the Great Fair on Omphalos. Caravan goods sell at 2× at a market ≥ 3 transfers away
-(M6), so the money is in hauls across a frontier or through the centre.
+town, Ammos caravanserai) and the Great Fair on Omphalos. The four frontier towns are safe-zone exchanges ("Trade");
+prices are only player offers, so the money is in hauling what is scarce across a frontier or through the centre.
 
 | Route | Regions | Goods typically moved | Chokepoints on it | Raiding pays |
 | --- | --- | --- | --- | --- |
@@ -265,7 +265,7 @@ gorge – bacchae – erymanthos) is as short as the road through Omphalos but r
 | Frontier town (Kleisoura, Stymphalia, Achelous, Ammos) | 3 an hour | town square held |
 | Gate (saddle, erymanthos, gorge, canyons) | 2 an hour | |
 | Other claimed neutral | 1 an hour | |
-| Caravan sale at a market ≥ 3 transfers away | 1 per 100 silver of value | traders score, not only armies |
+| Trade sale of goods from ≥ 3 transfers away ("Trade") | 1 per 100 coin of price, ≤ 60 a day | traders score, not only armies |
 | Razing an enemy home building | 5 | homes never fall (W-09) |
 
 Victory: **hegemony** ends the season early when one alliance holds Omphalos and 3 of the 4 frontier towns for 24 h;
@@ -352,7 +352,7 @@ Non-combat classes (W-38), six, each with its own loop and a tool in the weapon 
 | --- | --- | --- |
 | Cook | food (+ salt) at a cookhouse → rations; a fed squad gets +5% HP next fight and heals 25% faster | Field Kitchen (cooks without a building), Salt Pork (rations keep 2×), Feast (+1 XP per fight to the fed squad) |
 | Smith | copper + tin → bronze, ore → iron at a smelter; forge repairs and crafts tier 1–3 gear, rarity rolled on tool rarity + level | Alloy (+20% bronze per ore), Masterwork (+1 rarity step chance), Field Forge (repairs in the field) |
-| Merchant | leads caravans (M6), better market prices, carries hand-off trades | Haggler (±8% price), Pack Mules (+50% load), Safe Roads (caravan hidden on the world map until close) |
+| Merchant | leads carts (M6), runs a rented stall, brokers hand-offs and contracts | Haggler (stall rent −50%), Pack Mules (+50% load), Safe Roads (caravan hidden on the world map until close) |
 | Engineer | leads a site: +50% build rate; builds rams, ladders, stone throwers, bridges | Master Builder (+25% rate), Sapper (+30% engine damage), Bridgewright (spans +4 tiles) |
 | Physician | wounded heal 2× in his house; on the field +15% wounded share within 6 tiles | Field Surgeon (radius 10), Herbalist (salves from food), Triage (frees one patient at once per hour) |
 | Forager | gathers 2× a soldier; farmer, woodcutter and miner are one class, the tool picks the node | Woodsman (wood ×1.25), Prospector (ore ×1.25), Pitchman (pitch ×2) |
@@ -383,7 +383,7 @@ auras or morale.
 | Promote | level 6 + the elite rare kit, at a fortress, 30 min |
 | Fall | at 0 HP wounded with `woundedShare` 0.7 (+3% per END above 5, + physician, cap 0.9), else dead; the dead drop their gear |
 | Heal | wounded leave with the squad; timer: field 6 h, camp 3 h, town 2 h, physician's house 1 h |
-| Gear drops | the gear of a dead man lies 10 min: the winner picks it up (rare and above at 50% condition) or a smith salvages it (`salvageValue`) |
+| Gear drops | a physical loot pile anyone may carry off (W-46, "Trade" → "Loot piles") |
 | Capture | a wounded man on a tile the enemy holds when the fight ends (no friendly within 15 tiles) becomes `captive` in the captor's nearest fort (≤ 20 per fort, extra are freed) |
 | Prisoners | captor pays 1 food/h each; ransom = 30 × level silver, the owner pays or declines; a raid reaching the fort frees all; after 24 h they walk home. No execution or conversion |
 | Veterans | survivors keep XP, gear and honours; gear wears per fight (`cond`), a smith repairs it |
@@ -399,7 +399,7 @@ separate cap would add bodies beyond the sim budget, and they cost the same per 
 flee, can be captured, and work only inside own influence or with a squad within 15 tiles.
 
 Into the economy (M6), never instead of fighting: rations, bronze, iron, gear, repairs, salves and engines are stock
-or buffs that **soldiers consume**; merchants turn surplus into silver. No civilian claims land, wins a siege or holds
+or buffs that **soldiers consume**; merchants move and sell it to other players ("Trade"). No civilian claims land, wins a siege or holds
 a region.
 
 ### Anti-oversaturation
@@ -458,17 +458,17 @@ XP per job = the recipe's tier (1–3; dishes, remedies and refining 1).
 
 | L | Engineer | Merchant | Forager |
 | --- | --- | --- | --- |
-| 1 | **Builder** (root): build ×1.5 (M5f), tools T1 | **Trader** (root): sells surplus at a stall (M5f stub) | **Gatherer** (root): gathers ×2 (M5f) |
-| 2 | Carpenter: mantlet | Haggler\*: ±8% price | Woodsman\*: wood ×1.25 |
+| 1 | **Builder** (root): build ×1.5 (M5f), tools T1 | **Trader** (root): runs a rented stall (offers stay listed while offline) | **Gatherer** (root): gathers ×2 (M5f) |
+| 2 | Carpenter: mantlet | Haggler\*: stall rent −50% | Woodsman\*: wood ×1.25 |
 | 2 | Master Builder\*: build +25% | Packer: caravan goods | Prospector\*: ore ×1.25 |
 | 3 | Toolmaker (Carpenter): tools T2 for every class | Pack Mules\*: load +50% | Pitchman\*: pitch ×2 |
-| 3 | Bridgewright\*: spans +4 tiles | Appraiser: sees rolls before buying; sells gear ×1.2 | Charcoal Burner: charcoal |
+| 3 | Bridgewright\*: spans +4 tiles | Appraiser: sees rolls before buying; a town's last 20 trades of a good | Charcoal Burner: charcoal |
 | 4 | Rams (Carpenter): covered ram | Contracts (Packer): 2 open contracts | Hunter: hides from kills within 15 tiles |
-| 5 | Fortifier (Master Builder): iron-bound gate, wet hides, stakes, ditch | Safe Roads\*: caravan hidden on the world map until close | Tanner (Hunter): leather |
+| 5 | Fortifier (Master Builder): iron-bound gate, wet hides, stakes, ditch | Safe Roads\*: carts hidden on the world map until close | Tanner (Hunter): leather |
 | 6 | Instrument Maker (Toolmaker): tools T3 | Broker (Contracts): 4 contracts, escrowed hand-offs (M6) | Weaver: flax on farms, linen |
-| 7 | Artillerist (Rams): oxybeles; stone thrower crew −1 | Banker (Broker): letters of credit between own market towns | Presser: oil at an olive press |
-| 8 | Sapper\* (Rams): engine damage +30% | Importer (Appraiser): ≤ 5 copper or 3 hides a day at ×2 price (never tin) | Herb Finder: herbs from forest and marsh gathering |
-| 10 | **Poliorcetes**: siege tower · **Archimedes**: throwers and oxybeles on stone towers, range +20% | **Emporos**: caravan +1 wagon, a market for allies it passes · **Proxenos**: ransom −30%, buys back fallen gear from the enemy salvage pool | **Steward**: refining −20% input, batch ×1.5 · **Pathfinder**: works in neutral regions with no squad near, flees ×1.3 faster |
+| 7 | Artillerist (Rams): oxybeles; stone thrower crew −1 | Banker (Broker): letters of credit backed by his escrowed coin | Presser: oil at an olive press |
+| 8 | Sapper\* (Rams): engine damage +30% | Factor (Appraiser): 3 standing buy orders that fill while he is offline | Herb Finder: herbs from forest and marsh gathering |
+| 10 | **Poliorcetes**: siege tower · **Archimedes**: throwers and oxybeles on stone towers, range +20% | **Emporos**: convoy +1 cart; his cart is a stall in own influence · **Proxenos**: ransom −30%, buys back fallen gear from the enemy salvage pool | **Steward**: refining −20% input, batch ×1.5 · **Pathfinder**: works in neutral regions with no squad near, flees ×1.3 faster |
 
 Identities: smith = gear (weaponsmith or armourer), cook = squad buffs, physician = fewer deaths and faster heals,
 engineer = sieges, forts and every class's tools, merchant = silver and caravans, forager = raw and refined goods.
@@ -537,8 +537,8 @@ its rolls keep the item's tier cap.
 | oxybeles (Artillerist) | wood 60, bronze 6, linen 4 | workshop 3 or on site | 240 | crew 2; bolt vs men, 30 tiles, one per 6 s |
 | siege tower (Poliorcetes) | wood 240, hides 20, iron 10 | on site | 900 | crew 8; docks on a wall, men step onto the walkway |
 | iron-bound gate / wet hides / stakes / ditch (Fortifier) | iron 10, charcoal 10 / hides 1 a tile / wood 3 a tile / labour 120 a tile | wall or ground | – | gate hp +50% / wood wall ignites at half the chance / men −50% speed, blocks engines / engines cannot cross |
-| **Merchant** amphora / fish jar / linen bale / ingot crate (Packer) | oil 4, wood 1 / food 4, salt 2 / linen 6 / bronze 5 | market stall 2 | 20 | caravan goods: 1× value at home, 2× at a market ≥ 3 transfers away (M6) |
-| contract (Contracts) | silver in escrow | market stall | – | supply (n of a good by a time), buy order (paid when filled), escort (pays the escort on arrival) |
+| **Merchant** amphora / fish jar / linen bale / ingot crate (Packer) | oil 4, wood 1 / food 4, salt 2 / linen 6 / bronze 5 | market stall 2 | 20 | caravan goods: 10 to a load, 3–5× the value per load of their inputs (M6) |
+| contract (Contracts) | coin in escrow | market stall | – | supply (n of a good by a time), buy order (paid when filled), escort (pays the escort on arrival) |
 | **Forager** charcoal (Charcoal Burner) | wood 4 → 2 | sorting floor | 30 | for iron |
 | leather (Tanner) / linen (Weaver) | hides 2, salt 1 → 2 / flax 3 → 2 | sorting floor 2 / 1 | 60 / 45 | – |
 | oil (Presser) | food 4 → 1 | olive press | 30 | – |
@@ -605,7 +605,7 @@ Expected values, no dice. A play week = 14 h at the forge + 7 unattended queues 
 | cookhouse | 3×2 | wood 50, stone 20; 900 | dishes of its level | stone 40: ovens | stone 60, bronze 10: feast |
 | infirmary (iatreion) | 3×3 | wood 60, stone 30; 1200 | heals as a camp, bandage, tent kit | wood 30, herbs 10: herb garden (salve, theriac) | stone 80, marble 10: 1 h heals (Iatreion) |
 | workshop | 4×3 | wood 80, stone 20; 1200 | tools T1, mantlet | wood 60, bronze 10: tools T2 | wood 100, iron 20: tools T3, oxybeles |
-| market stall | 2×2 | wood 30; 400 | sales, contracts | stone 60 (agora): caravan goods | marble 20, silver 10: letters of credit |
+| market stall | 2×2 | wood 30; 400 | offers, contracts | stone 60 (agora): caravan goods | marble 20, silver 10: letters of credit |
 | sorting floor | storehouse upgrade | wood 40, stone 20; 600 | charcoal, linen | wood 40, salt 10: tannery (leather) | – |
 
 Each level adds a crafter slot (1 / 2 / 3 at once) and +1 grade. One queue per workplace, ≤ 5 orders. Levels are
@@ -630,3 +630,153 @@ building types chained by `upgrade` (`forge` → `forge2` → `forge3`), as wall
 | `Hero.perks` holds a civilian's node ids | war affix filter + Breaching, Deft, Bountiful; mob `venom` flag |
 | `BUILDINGS` with `upgrade`, `SIEGE`, team `stock` | 7 goods, 6 workplace chains, 4 engines (mantlet, covered ram, oxybeles, siege tower), 4 fortifications |
 | campaign `healing_salve`; ITEMS.md "Reforging at the Smith" for the Reforger | `craft` / `cancelCraft` / `repair` / `salvage` orders; crafting persistence |
+
+## Trade
+
+W-11, W-44, W-46. A fully player-driven economy: the game sells nothing, buys nothing and quotes no price. Every good
+is gathered, made or minted by a player and sits somewhere on a map (a store, a chest, a cart, a man's back, a loot
+pile); it moves only by being carried and changes hands only by a hand-off, a fill at a stall, or a raid.
+
+### Coin
+
+| Rule | Value | Why |
+| --- | --- | --- |
+| Source | silver from the silver nodes (Siren, Ammon, Omphalos) minted at a forge L2: silver 1 → coin 20, 30 s, any smith | the money supply is the contested silver: whoever holds it prints money, and it costs miners and a road home |
+| Back | coin 20 → silver 1 at a forge; rent and tax are coin paid to players, moved, not destroyed | coin never falls below its silver, so no runaway inflation |
+| Carried | 200 coin = 1 load, kept in strongboxes (a store's coin) like any good | coin is raided like grain |
+| Game costs | ransom, respec, training kit, Reforger: the "silver" prices elsewhere in this doc become coin 1:1; bullion inputs (T3 gear, stall L3) stay silver | one currency, one bullion |
+
+### Goods live in places
+
+| Holder | Size | Who may take | Notes |
+| --- | --- | --- | --- |
+| store (camp, storehouse, fort) | unlimited, as today | its alliance; enemies by looting | a team's stores joined by its influence in a region form one **network**: crafting, building and upkeep draw from it (today's team stock, now per network) |
+| chest | building 1×1, wood 10, 8 loads, owner-only | owner; enemies by looting | ≤ 4 a player a region; holds, never feeds crafting |
+| home strongroom | the home storehouse + one chest a player | never lootable (W-09) | the only safe store outside a trade town; replaces the stash and the treasury table |
+| rented warehouse | a trade-town site, 20 loads | renter only | safe while rent is paid; unpaid 3 days: locked, never confiscated |
+| porter | CARRY 10 = 1 load (today's worker load); 5 items = 1 load | his squad | any soldier or civilian; −10% speed loaded |
+| cart | see Carts | its driver's player | captured with its cargo |
+| a man | his worn kit | – | an item is worn or in a holder, nowhere else |
+
+A crafted item lands in the workplace's output chest for the crafter's player; equipping needs the man and the item in
+the same region within 4 tiles.
+
+### Carts
+
+| Cart | Recipe (engineer, workshop) | Loads | Speed (× man) | HP / armour | Crew |
+| --- | --- | --- | --- | --- | --- |
+| handcart | wood 30, hides 2; workshop 1, 60 s | 6 | 0.8 | 200 / 2 | 2 men pull it (any class); one alone ×0.5 |
+| wagon | wood 80, bronze 4, hides 6, food 40 (draught mules); workshop 2, 180 s | 12 (Pack Mules 18) | 0.6 | 450 / 6 | a driver within 2 tiles; a merchant driver adds his nodes |
+
+| Rule | Value |
+| --- | --- |
+| Ground | road ×1.3; shallow ford ×0.5; slope up ×0.6; sand ×0.5; forest and marsh only on a road; no stairs, walkways or ladders; bridges ≥ 2 wide |
+| Per player | 2 carts in the world (Emporos 3); a convoy = his carts and the squads escorting them |
+| `escort` order (new `Order` kind) | the squad keeps a column round the cart, engages enemies within 12 tiles of it, returns past 20 |
+| Under attack | the cart halts while an enemy is within 8 tiles, resumes 10 s after; it never fights |
+| Between regions | carts and loaded porters ride the world transfer, cargo on the transit row; wagon ×1.5 travel time, porters ×1.2; a `haul` order chains transfers along the world path and keeps driving offline (W-07) |
+| World map | in transit seen like squads (by alliances with men in or next to either end); Safe Roads: only by alliances with men at the destination |
+| Fire | wood: torches and fire arrows ignite it like a wood building |
+
+### Trade towns
+
+| Town | Safe zone | Sites | Holder takes |
+| --- | --- | --- | --- |
+| Kleisoura, Stymphalia, Achelous, Ammos | the walled market court (authored bounds, 2 gates) | 6 stalls, 6 warehouses; a caravan yard outside each gate (not safe) | rent 10 coin a day a site; tax 5% of each fill, into its strongbox in the court |
+| Great Fair (Omphalos) | none: the richest and most dangerous market | 10 stalls, 4 warehouses | rent 20, tax 8% |
+| home agoras | none: the alliance's own market | stall sites in the agora | nothing |
+
+Holder = the alliance that claims the region (influence and forts outside the court), so the frontier-town score
+reads "region held": the court itself cannot be fought over. A town that changes hands keeps its stalls and rents;
+an unheld town charges nothing.
+
+| Safe-zone rule | Value |
+| --- | --- |
+| Inside | no attack, fire, capture, looting or loot piles; no building but on rented sites; no claim, healing, recruiting or upkeep relief |
+| Entry | by a gate; refused for 20 s after a man hit or was hit (combat tag), so it is no escape mid-fight |
+| Limits | ≤ 6 units of a player inside (porters, merchant, drivers) + his carts; the rest wait in the yard; a fighter inside 15 min is walked out; logout walks all his units out |
+| Not a base | goods only in rented sites (1 stall + 1 warehouse a player a town); no army can form inside |
+
+### Stalls, offers and the board
+
+| Piece | Rule |
+| --- | --- |
+| Sell offer | goods or items already in the seller's stall: what, n, price each; listed while he is offline |
+| Buy order | coin escrowed in the stall's strongbox: what, n, price; fills when a seller in town accepts |
+| Fill | in the court, buyer takes an offer (or seller an order): goods stall → buyer's warehouse, coin back, tax to the holder, at once; the buyer hauls it out himself |
+| Price board | an object in each court: per good best ask, best bid, depth, last 10 fills; the world hover card shows the last board your men saw (fog) |
+| Stall level | L1 4 offers; L2 8 + caravan goods; L3 12 + letters of credit; Trader and Factor add standing orders |
+
+### Hand-offs, contracts, letters
+
+| Kind | Rule |
+| --- | --- |
+| Hand-off | anywhere both players have a unit within 4 tiles: both confirm one window (cart, chest or porter loads, items, coin) within 60 s; swapped at once, nothing in flight |
+| Escrowed hand-off (Broker) | each side drops its half at the broker's stall when it can; collected once both are in; refunded after 48 h |
+| Contract (2 open, Broker 4) | posted at a stall, coin escrowed: **carry** (take these sealed loads from A to B; the carrier escrows 50% of the declared value), **supply** (deliver n of a good to my warehouse by a time), **escort** (paid when my cart arrives with ≥ 75% of its cargo); sealed loads unload only at B |
+| Letter of credit (Banker, stall L3) | the banker escrows coin in his strongbox at town B and sells at A a letter for his own fee; the letter is an item named to its buyer, redeemable only by him at B, so a stolen one is worthless |
+
+### Loot piles (W-46, every fight)
+
+| Who falls | Carried loads and items | Worn kit |
+| --- | --- | --- |
+| killed | all to a pile | every piece to the pile, −25 condition each (the M5d rule replaced) |
+| wounded, carried off with his squad | all to a pile | kept |
+| captured | all to a pile | all to a pile at the capture tile; he walks home in a militia tunic when ransomed or freed |
+| cart wrecked (0 HP) or chest or store burnt | all to a pile; fire spoils half the goods | – |
+
+| Pile rule | Value |
+| --- | --- |
+| Form | a sim object on the tile (not a unit, not a building); piles within 1 tile merge up to 8 loads |
+| Pick up | any unit with free carry, any side, during or after the fight: 1 load or 1 item per 2 s; first hands win, no claim or owner priority |
+| Smith | may salvage a pile's item in place (`salvageValue`, 30 s) |
+| Decay | 15 min, then gone (items scrapped, goods spoilt): the only loss to nobody |
+| Safe zone | no falls inside, so no piles; a pile at a gate is outside |
+
+Power curve: 70–90% of the fallen are wounded and keep kit, XP and honours; a killed veteran loses kit he would have
+lost anyway as a dead man, and a won field gives it back; a tier-1 kit for 12 is ≤ 2 h of a forge. Losing a rare kit
+hurts; the player still has his squad, his level and his home strongroom.
+
+### Raiding
+
+| Act | Rule | Gain |
+| --- | --- | --- |
+| Capture a cart | an enemy unit beside it 5 s with no owner or ally within 8 tiles: it is his, cargo and all; retaken the same way | the cargo; 5 XP to the squad |
+| Wreck a cart | fight it to 0 HP | a pile |
+| Loot a chest or store | porters at it, no owner unit within 10 tiles: 1 load per 2 s a porter; a store only once its region influence is gone | what they carry |
+| Ambush spots | region JSON `ambush` rects (additive: high ground or woods over a road, 1–3 per route region); bandit lairs on the coast tracks | where bots and raiders wait |
+
+### Season score and anti-abuse
+
+| Rule | Value |
+| --- | --- |
+| Trade score | a fill or a paid carry or supply contract: 1 per 100 coin when the goods' **origin** (stamped when gathered, made or minted) is ≥ 3 transfers from the town and the two players are of different alliances; ≤ 60 a day an alliance |
+| Raid score | none: raiding pays in cargo |
+| Alt funnelling | accounts that shared an IP or device in 7 days cannot hand off, fill, contract or capture carts from each other; one-sided hand-offs only within an alliance, ≤ 300 coin (last-fill value) a day to a receiver; receiving needs account age ≥ 48 h and one fight |
+| Wash trading | same-alliance fills score nothing; a town ignores origin stamps of its own region |
+| Caps | 2–3 carts, 4 chests a region, 1 stall + 1 warehouse a town, 2–4 contracts, a letter ≤ 500 coin |
+| Season start | each player gets his squad and START.food in his home strongroom, no coin and no goods (owner to confirm) |
+
+### What changes in today's code
+
+| Today | Becomes |
+| --- | --- |
+| team stock per team per region (`works.ts` `stock`) | per store network; each store keeps its contents; crafting, build and upkeep draw from the network where the work stands |
+| server `war_stock` (food, silver) per player, `war_treasury` | contents of the home strongroom and chests (room state, D1 snapshot); the treasury is the alliance strongbox at home |
+| war stash (`war_items` minted to a player) | `war_items.place` = holder id + region, or a person id; the stash screen lists where your things are |
+| merchant stub (sells surplus for silver) | removed: the merchant runs a stall, drives carts, brokers |
+| upkeep from server food | from the network where the squad stands, or its porters and carts; unpaid: the existing penalty |
+| recruit, train, ransom, respec | coin or food from the home strongroom |
+| M5d gear drops (winner picks up, rare+ at 50%) | loot piles above |
+
+### Performance and ownership
+
+Carts are live units (one body, radius 0.9) inside the 10% civilian quota: they path, collide and take hits like a
+man, so leaving them out would add unbounded bodies; 2 carts × 50 players cannot all be out at once, which is the
+scarcity we want. Chests, stalls and warehouses are buildings; piles are tile objects; cargo is a ≤ 4-lot record
+touched only on load, unload, pick-up, capture or loot. Bench: 600 units with 40 carts, 200 chests and 100 piles
+≤ 8 ms/step.
+
+| Sim (`src/war/sim`, deterministic) | Server (`server/src/war`) | World (`WarWorldDO`) |
+| --- | --- | --- |
+| carts, porters' loads, store networks, chests, piles and decay, capture and loot, safe-zone rules and combat tag, `escort`, raider and escort bots | holder contents with the room, item places, offers and buy orders (D1 `war_offers`), rent, tax, escrow, contracts, letters, origin stamps, anti-abuse, trade score | transits with cargo, `haul` chains, Safe Roads visibility |
