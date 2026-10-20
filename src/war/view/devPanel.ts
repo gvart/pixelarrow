@@ -1,4 +1,8 @@
-/** The sandbox dev panel (HTML overlay, F1 / the DEV button of ./hud/hud.ts): scenarios, spawning, time, the tile grid, perf, the fight score, +500 resources, claim. */
+/**
+ * The sandbox dev panel (HTML overlay, F1 / the DEV button of ./hud/hud.ts): scenarios, spawning, time, the tile grid, perf,
+ * the fight score, +500 resources, claim. In a live region (net mode) squads, resources, claim and skip go to the server
+ * as dev messages (DEV_AUTH only); pause and speed do nothing there (the server keeps time).
+ */
 import type Phaser from 'phaser';
 import { SCENARIOS, type Scenario } from '../scenarios';
 import type { ResourceKind } from '../types';
@@ -27,7 +31,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row"><button id="bots">+4 bot squads at cursor</button></div>
     <div class="row"><button id="brawl">600 brawl</button> <button id="clear">Restart</button></div>
     ${s.region.id === 'test-ridge' ? `<div class="row">go to <select id="spot">${Object.keys(s.spots).map((k) => `<option>${k}</option>`).join('')}</select></div>` : ''}
-    <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
+    <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select> <button id="skip">Skip 1 min</button></div>
     <div class="row"><button id="cut">Walls: full (V)</button></div>
     <div class="row"><button id="b500">+500 resources</button> <button id="bclaim">Claim here</button></div>
     <div class="row"><label><input type="checkbox" id="grid">tile grid</label> <label><input type="checkbox" id="fog" checked>fog</label> <span class="dim">view modes: F2-F7, M full map</span></div>
@@ -41,7 +45,11 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
   $('place').onclick = () => (s.placing = { team: Number(val('team')), cls: val('cls'), count: Number(val('count')) });
   const bots = () => {
     const team = Number(val('team')) || 1, { x, y } = s.pointerTile;
-    for (let i = 0; i < 4; i++) s.sim.spawn('bot', team, CLASSES[i % CLASSES.length], 20, x + (i % 2) * 8, y + Math.floor(i / 2) * 6);
+    for (let i = 0; i < 4; i++) {
+      const cls = CLASSES[i % CLASSES.length], bx = x + (i % 2) * 8, by = y + Math.floor(i / 2) * 6;
+      if (s.sim.net) s.sim.devSpawn(team, cls, 20, bx, by);
+      else s.sim.spawn('bot', team, cls, 20, bx, by);
+    }
   };
   $('bots').onclick = bots;
   $('brawl').onclick = () => brawl(s);
@@ -58,6 +66,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     $('pause').textContent = paused ? 'Resume' : 'Pause';
     s.sim.speed(paused ? 0 : Number(val('speed')));
   };
+  $('skip').onclick = () => s.sim.skip(600);
   $('cut').onclick = () => (s.build.layer.cutaway = !s.build.layer.cutaway);
   $('b500').onclick = () => s.build.addResources();
   $('bclaim').onclick = () => s.build.armClaim();

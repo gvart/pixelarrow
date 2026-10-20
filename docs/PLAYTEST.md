@@ -31,7 +31,7 @@ The first start packs the sprite sheets (a few minutes). You play dev player 1 i
 10. **Siege a palisade.** Build a ram or ladders (build bar, Siege tab), crew with E, batter the gate.
 11. **Landmark raid.** Krios (Drakon's Citadel) or Ammon (Dead City); far easier from the sandbox scenarios below.
 
-Steps 6-11 are the parts the live server has least coverage for (see Known gaps); each has a sandbox scenario to try
+Steps 7-11 are the parts the live server has least coverage for (see Known gaps); each has a sandbox scenario to try
 the same mechanics offline.
 
 ## Controls
@@ -47,8 +47,10 @@ the same mechanics offline.
 ## Dev panel (F1)
 
 Region and scenario pickers, place a squad of any class and team (click the map), +4 bot squads at the cursor,
-600 brawl, pause and speed (0.5-4x), walls cut-away (V), **+500 resources**, **claim here**, tile grid, fog off, the
-fight score and perf. The world map has no dev panel; `npm run play:war -- --reset` gives a fresh world.
+600 brawl, pause and speed (0.5-4x), skip 1 min, walls cut-away (V), **+500 resources**, **claim here**, tile grid,
+fog off, the fight score and perf. In a live region squads, resources, claim and skip go to the region server as dev
+messages (refused unless it runs with DEV_AUTH=1, as `play:war` does); pause and speed do nothing there. The world map
+has no dev panel; `npm run play:war -- --reset` gives a fresh world.
 
 ## Sandbox scenarios (offline, `sandbox.html?scenario=<id>`)
 
@@ -76,10 +78,6 @@ fight score and perf. The world map has no dev panel; `npm run play:war -- --res
 
 ## Known gaps
 
-- **Live regions send no resource nodes and no influence map** to the client (only the local sim's worker posts them,
-  src/war/view/worker.ts). In a live region the build bar can't preview influence and nodes can't be clicked to
-  gather; placement itself is checked by the server. Gather and build on the sandbox (`build-test`, `village`) for now.
-- The dev panel's **+500 resources** and **Claim here** act on the local sim only: in a live region they do nothing.
 - Entering a region again with fewer than 12 fit men at home makes the client seed the **dev roster** (veterans,
   archers, 500 coin; src/war/net/client.ts), or refuses the join when your men are all in the field. `--reset` restores
   the design start.

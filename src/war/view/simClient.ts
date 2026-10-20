@@ -118,6 +118,11 @@ export class SimClient {
     this.send({ t: 'spawn', owner, team, cls, count, x, y, bot, ...(persons?.length ? { persons } : {}) });
   }
 
+  /** Dev panel: a squad of any class and team at (x,y) (net mode: the server's DEV_AUTH spawn; team 0 is ours). */
+  devSpawn(team: number, cls: string, count: number, x: number, y: number): void {
+    this.send({ t: 'devSpawn', team, cls, count, x, y });
+  }
+
   order(o: Order): void {
     this.send({ t: 'order', o });
   }

@@ -13,7 +13,7 @@ import { createSim } from '../sim';
 import { bossPile } from '../sim/bossLoot';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
 import { createNet, type Net } from '../net/client';
-import type { HandoffMsg, StowMsg } from '../net/protocol';
+import { MAX_SQUAD, type HandoffMsg, type StowMsg } from '../net/protocol';
 import { decodeInfluence, unpackNode } from '../net/economy';
 import type { BridgeOrder, BuildingType, InfluenceMap, NodeSnap, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
 
@@ -21,6 +21,7 @@ export type ToWorker =
   | { t: 'init'; region: RegionData; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
   | { t: 'view'; x0: number; y0: number; x1: number; y1: number } // camera rect in tiles (net mode: interest management)
   | { t: 'spawn'; owner: string; team: number; cls: string; count: number; x: number; y: number; bot?: Behaviour; persons?: WarPerson[] }
+  | { t: 'devSpawn'; team: number; cls: string; count: number; x: number; y: number } // dev panel: a squad at a point (net mode: the server's dev spawn)
   | { t: 'order'; o: Order }
   | { t: 'speed'; scale: number } // 0 pauses
   // economy (M2b, the real sim only): dev claims and stock, placement checks answered by `reply`
@@ -157,6 +158,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     brains = createBots(sim);
     tick();
   } else if (!sim) return;
+  else if (m.t === 'devSpawn') sim.spawnSquad(m.team === 0 ? 'you' : 'bot', m.team, m.cls, m.count, m.x, m.y);
   else if (m.t === 'spawn') {
     const id = sim.spawnSquad(m.owner, m.team, m.cls, m.count, m.x, m.y, m.persons);
     if (m.bot) { brains!.set(id, m.bot); scripted.add(id); }
@@ -192,10 +194,14 @@ onmessage = (e: MessageEvent<ToWorker>) => {
 
 /** Net mode: spawns become joins (the server places the squad on the alliance entry), every order (squad control,
  * work, building, walls, bridges, siege, actives) and the camera go up; placement checks are asked of the server for
- * our team (the server's answer comes back as the reply). Dev economy asks (claim, stock, damage) have no live
- * counterpart. */
+ * our team (the server's answer comes back as the reply). The dev panel's claim, stock, squad and skip go up as dev
+ * messages (DEV_AUTH servers only); the rest of the dev asks (damage, bosses, scenarios) have no live counterpart. */
 function netMessage(n: Net, m: ToWorker): void {
   if (m.t === 'spawn') n.join(m.team, m.cls, m.count);
+  else if (m.t === 'devSpawn') n.dev({ op: 'spawn', team: m.team, cls: m.cls, count: Math.min(m.count, MAX_SQUAD), x: m.x, y: m.y });
+  else if (m.t === 'claim') n.dev({ op: 'claim', x: m.x, y: m.y, ...(m.r ? { r: m.r } : {}) });
+  else if (m.t === 'stock' && m.n > 0) n.dev({ op: 'stock', res: m.res, n: m.n });
+  else if (m.t === 'skip') for (let t = m.ticks; t > 0; t -= 600) n.dev({ op: 'skip', ticks: Math.min(600, t) });
   else if (m.t === 'order') n.order(m.o);
   else if (m.t === 'view') n.view(m.x0, m.y0, m.x1, m.y1);
   else if (m.t === 'check') n.check({ kind: 'building', type: m.type, x: m.x, y: m.y, rot: m.rot }, (r) => postMessage({ reply: m.id, place: r }));

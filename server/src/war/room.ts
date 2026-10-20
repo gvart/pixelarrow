@@ -35,7 +35,7 @@ import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
 import { EconomyFeed, encodeInfluence, NODES_EVERY } from '../../../src/war/net/economy';
-import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
+import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
 import type { BridgePlan, FightReport, LandmarkSnap, Order, PlaceResult, RegionData, RegionMemory, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
@@ -131,6 +131,8 @@ export interface RoomOptions {
   vision?: (sim: WarBuildSim, snap: Snapshot) => TeamVision;
   /** Accept the dev `army` join (class + count). The DO allows it only with DEV_AUTH=1. Default true (tests, tools). */
   allowArmy?: boolean;
+  /** Accept the dev panel's helpers (DevMsg: stock, claim, spawn, skip). The DO allows them only with DEV_AUTH=1. Default: allowArmy. */
+  allowDev?: boolean;
   /** This room instance's id in fight ids (default: random). */
   epoch?: string;
   fightQuiet?: number;
@@ -197,6 +199,7 @@ export class WarRoom {
   /** Tick each unit was first seen dead. */
   private diedAt: number[] = [];
   private allowArmy: boolean;
+  private allowDev: boolean;
   private fightQuiet: number;
   private lastBlow = -1;
   private inFight = false;
@@ -223,6 +226,7 @@ export class WarRoom {
     this.vision = o.vision ?? (() => fog);
     this.keyEvery = o.keyframeEvery ?? KEYFRAME_EVERY;
     this.allowArmy = o.allowArmy ?? true;
+    this.allowDev = o.allowDev ?? this.allowArmy;
     this.epoch = o.epoch ?? `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
     this.run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -797,6 +801,30 @@ export class WarRoom {
       else result = this.sim.checkBridge(team, { material: c.material, points: c.points, width: c.width });
     }
     return { t: 'checked', id: c.id, result };
+  }
+
+  /**
+   * A dev helper for the player's team (DEV_AUTH only): goods into its home strongroom, an influence anchor, a squad at
+   * a point (his own when of his team, else a bot squad that holds there), or ticks stepped at once (the next tick
+   * sends the frame; events of the skipped ticks come with it).
+   */
+  dev(pid: number, m: DevMsg): OrderError | null {
+    if (!this.allowDev) return 'forbidden';
+    const p = this.players.get(pid);
+    if (!p) return 'notJoined';
+    if (m.op === 'stock') this.sim.addStock(p.team, m.res, m.n);
+    else if (m.op === 'claim') this.sim.claim(p.team, m.x, m.y, m.r);
+    else if (m.op === 'spawn') {
+      if (!isClassId(m.cls) || m.team >= this.per.length) return 'bad';
+      const mine = m.team === p.team, at = { x: Math.max(1, Math.min(this.region.w - 2, m.x)), y: Math.max(1, Math.min(this.region.h - 2, m.y)) };
+      const id = this.spawn(mine ? ownerOf(pid) : 'bot', m.team, { cls: m.cls, count: m.count }, at);
+      if (!mine) this.bots.set(id, { kind: 'hold', x: at.x, y: at.y, radius: HOLD_RADIUS });
+    } else
+      for (let i = 0; i < m.ticks; i++) {
+        this.sim.step();
+        this.bots.tick();
+      }
+    return null;
   }
 
   view(pid: number, r: Rect): void {

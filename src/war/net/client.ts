@@ -11,7 +11,7 @@
 import { SIM_VERSION } from '../../sim/version';
 import type { BridgePlan, Order, PlaceResult, Snapshot, WallPlan } from '../types';
 import { DeltaDecoder } from './codec';
-import { MAX_SQUAD, NET_VERSION, type CheckMsg, type HandoffMsg, type ServerMsg, type StowMsg } from './protocol';
+import { MAX_SQUAD, NET_VERSION, type CheckMsg, type DevMsg, type HandoffMsg, type ServerMsg, type StowMsg } from './protocol';
 
 export interface Net {
   join(team: number, cls: string, count: number): void;
@@ -27,7 +27,12 @@ export interface Net {
   stow(m: Omit<StowMsg, 't'>): void;
   /** M6g: the hand-off window with another player here (-> handoff to both). */
   handoff(m: Omit<HandoffMsg, 't'>): void;
+  /** Dev panel helpers (DEV_AUTH servers only; else an `error` forbidden). */
+  dev(m: DevBody): void;
 }
+
+/** A dev message without its envelope. */
+export type DevBody = DevMsg extends infer D ? (D extends unknown ? Omit<D, 't'> : never) : never;
 
 /** A check message without its envelope (t, id). */
 export type CheckBody = CheckMsg extends infer C ? (C extends unknown ? Omit<C, 't' | 'id'> : never) : never;
@@ -117,6 +122,7 @@ export function createNet(url: string, region: string, devId: number | undefined
     mend: (kind, building, uid) => send(() => ({ t: 'mend', kind, building, uid })),
     stow: (m) => send(() => ({ ...m, t: 'stow' })),
     handoff: (m) => send(() => ({ ...m, t: 'handoff' })),
+    dev: (m) => send(() => ({ ...m, t: 'dev' })),
     api: async (method, path, body) => {
       const r = await fetch(`/api/war/${path}`, { method, headers: await authed, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
       const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;

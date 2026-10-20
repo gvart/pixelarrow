@@ -278,6 +278,33 @@ describe('WarRoom economy view (nodes, influence)', () => {
   });
 });
 
+describe('WarRoom dev helpers', () => {
+  it('stock, claim, spawn and skip act for the player team; refused without dev rights', () => {
+    const r = room();
+    expect(r.dev(1, { t: 'dev', op: 'stock', res: 'wood', n: 500 })).toBe('notJoined');
+    r.join(1, join(1, 0));
+    const wood = () => r.snapshot().stock?.[0]?.wood ?? 0;
+    const w0 = wood();
+    expect(r.dev(1, { t: 'dev', op: 'stock', res: 'wood', n: 500 })).toBeNull();
+    steps(r, 1);
+    expect(wood()).toBe(w0 + 500);
+    expect(r.dev(1, { t: 'dev', op: 'claim', x: 100.5, y: 100.5, r: 10 })).toBeNull();
+    expect(r.sim.influence().mask[100 * region.w + 100] & 1).toBe(1);
+    expect(r.dev(1, { t: 'dev', op: 'spawn', team: 0, cls: 'archer', count: 8, x: 120, y: 60 })).toBeNull();
+    expect(r.dev(1, { t: 'dev', op: 'spawn', team: 1, cls: 'hoplite', count: 6, x: 140, y: 60 })).toBeNull();
+    expect(r.dev(1, { t: 'dev', op: 'spawn', team: 1, cls: 'dragonrider', count: 6, x: 140, y: 60 })).toBe('bad');
+    steps(r, 1);
+    expect(r.squadsOf(1).length).toBe(2); // his own team's squad is his
+    expect(r.snapshot().squads.some((q) => q.team === 1 && q.owner === 'bot')).toBe(true);
+    const t0 = r.currentTick;
+    expect(r.dev(1, { t: 'dev', op: 'skip', ticks: 50 })).toBeNull();
+    steps(r, 1);
+    expect(r.currentTick).toBe(t0 + 51);
+    const locked = new WarRoom({ region, seed: 1, cap: 600, allowArmy: false });
+    expect(locked.dev(1, { t: 'dev', op: 'stock', res: 'wood', n: 500 })).toBe('forbidden');
+  });
+});
+
 describe('WarRoom home regions', () => {
   it('a fresh home gives its alliance influence at the home town from the start', () => {
     const home = warRegion('dodona')!;

@@ -19,6 +19,9 @@
  *                    site `contract` (+ contract id): a carry's sealed loads out at A, a carry or supply delivered at B
  *   client -> handoff { t, op, with, squad|cart, goods?, uids? }  M6g: the hand-off window with another player here
  *                    (offer my half, confirm, cancel) -> handoff to both
+ *   client -> dev    { t, op, ... }                           DEV_AUTH=1 only (refused `forbidden` otherwise): the dev
+ *                    panel's helpers for the player's team: stock (goods into the home strongroom), claim (an influence
+ *                    anchor), spawn (a squad of any class and team at a point; his own team's is his), skip (ticks at once)
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
@@ -170,8 +173,17 @@ const baseMsgSchema = z.discriminatedUnion('t', [
     squad: id.optional(), cart: id.optional(), goods: z.record(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
   }).refine((o) => o.op !== 'offer' || (o.squad === undefined) !== (o.cart === undefined), 'an offer names its squad or cart'),
 ]);
-export const clientMsgSchema = z.union([baseMsgSchema, checkSchema]);
-export type ClientMsg = z.infer<typeof baseMsgSchema> | CheckMsg;
+/** Dev helpers (the F1 panel); the region refuses them unless the server runs with DEV_AUTH=1. */
+export const devSchema = z.discriminatedUnion('op', [
+  z.object({ t: z.literal('dev'), op: z.literal('stock'), res: goodSchema, n: amount }),
+  z.object({ t: z.literal('dev'), op: z.literal('claim'), x: num, y: num, r: z.number().positive().max(64).optional() }),
+  z.object({ t: z.literal('dev'), op: z.literal('spawn'), team: z.number().int().min(0).max(ALLIANCES - 1), cls: z.string().regex(/^[a-z_]{1,24}$/), count: z.number().int().min(1).max(MAX_SQUAD), x: num, y: num }),
+  z.object({ t: z.literal('dev'), op: z.literal('skip'), ticks: z.number().int().min(1).max(600) }),
+]);
+export type DevMsg = z.infer<typeof devSchema>;
+
+export const clientMsgSchema = z.union([baseMsgSchema, checkSchema, devSchema]);
+export type ClientMsg = z.infer<typeof baseMsgSchema> | CheckMsg | DevMsg;
 export type JoinMsg = Extract<ClientMsg, { t: 'join' }>;
 export type MendMsg = Extract<ClientMsg, { t: 'mend' }>;
 export type StowMsg = Extract<ClientMsg, { t: 'stow' }>;
@@ -179,7 +191,7 @@ export type HandoffMsg = Extract<ClientMsg, { t: 'handoff' }>;
 
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
-export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad';
+export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad' | 'forbidden';
 
 export type ServerMsg =
   | { t: 'welcome'; v: number; region: string; you: { id: number; team: number }; squads: SquadId[]; tick: number; quota: Quota }
