@@ -1,0 +1,39 @@
+.github/workflows/deploy.yml
+  s_cfc22b058125c4::t_9e5c89bb9caec8 48
+scripts/dev/beast-shots.mjs
+  s_cfc22b058125c4::t_0ac64356bb49db 1,4
+scripts/layout-check.mjs
+  s_cfc22b058125c4::t_842071d01719ed 833,837
+scripts/lib/layoutMatrix.mjs
+  s_cfc22b058125c4::t_8cfea39ffe0c64 159
+scripts/lib/layoutScenes.mjs
+  s_cfc22b058125c4::t_eab9bd9eab7951 28,60-62
+scripts/online-smoke.mjs
+  s_cfc22b058125c4::t_1bbfa962c3e9c2 3-4,6-7,107,125-127
+scripts/regression/battle-kinds.mjs
+  s_cfc22b058125c4::t_a55465caa19577 231
+scripts/regression/controls.mjs
+  s_cfc22b058125c4::t_35c0ec2b1e29d8 159-160
+scripts/regression/doors.mjs
+  s_cfc22b058125c4::t_56e8d525e0f8f5 60
+scripts/regression/run.mjs
+  s_cfc22b058125c4::t_6ecb28312857f7 64
+scripts/tutorial-smoke.mjs
+  s_cfc22b058125c4::t_8c48761cbc6e19 16,304
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7bfddc55ae00ff3ff1058a4a6a539b2f7bf24a2c",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
