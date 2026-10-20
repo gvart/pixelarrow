@@ -2536,3 +2536,43 @@ no ground, no grass` (+ per row). Graded sat 0.62, val 0.78, snapped to the elai
 **Lessons:** (1) "dark epic desaturated" still comes out bright: grade every raw. (2) Name the roof and say "no
 battlements" or a house turns into a keep. (3) A long portico now comes when the prompt counts the columns and names the
 back wall.
+
+## 40. Landmarks (ART-L)
+
+### 40a Structures
+
+The nine landmark structure sets (WAR.md "Living regions" > Landmarks) in `public/war/landmarks/` (`landmarks.json` +
+PNGs), each piece in four states: `intact` (as the season finds it: 60% hp, gates shut, weathered, a few blocks gone
+from the tops, lichen), `damaged` (thrown down to about half height, roofs in the rubble, talus, soot), `ruined` (a
+rubble footprint: stumps under ~1.5 m, big heaps; does not block) and `restored` (fresh, iron-bound or bronze leaves,
+dark red banners on the tops). **0 PixelLab generations**: every piece is a box model in the buildings renderer
+(`buildings.mjs` exports it) with the existing cyclopean / isodomic / ashlar / Lion Gate elevations and the drawn roof
+tiles, so the landmarks read as one set with the build-mode forts. Build: `node scripts/war/art/landmarks.mjs` (ends
+with `qaLandmarks`: object checks, four states per piece, the labyrinth kit's sheets and seams, wall segments laid three
+in a row in every state). Mock-ups: `node scripts/war/art/landmarks-preview.mjs` -> `shots/war/landmarks/`
+(`LANDMARK_<id>_states_1x.png` = intact, damaged, ruined, restored side by side with a hoplite at the gate;
+`LANDMARK_<id>_intact_2x.png`; `LANDMARK_pieces_NN.png` every piece by state).
+
+| landmark | pieces (footprint in tiles) |
+| --- | --- |
+| Drakon's Citadel | `citadel-keep` 6x6 (tower-house, flat roof terrace for the perch), `citadel-curtain-x/y` 4x2 (8 m, walk 7 m, blocks x2), `citadel-tower` 3x3, `citadel-gatehouse-x/y` 6x3 (twin towers, giant lintel), `citadel-bone-pit` 3x3 |
+| Dead City of Ammon | `ammon-house-a/b` 3x3 (mudbrick, flat roofs), `ammon-palace` 6x6 (podium, red-shafted portico, corner tower), `ammon-temple` 4x6 (battered Egyptian pylon, flagmasts); walls, gates, towers = build-mode stone set |
+| Sunken Temple | `sunken-temple` 4x4 (peristyle sunk 1.4 m, roof half gone even intact), `sunken-colonnade-x/y` 2x1 (4 m segments), `sunken-shrine` 2x2, `sunken-jetty` 1x4, `sunken-causeway` 1x1, `achelous-spring` 2x2 |
+| Temple City of the Navel | `navel-temple` 8x8 (6 x 6 Doric peripteros, painted frieze), `navel-arena` 10x10 (stepped seats, arched outer wall), `navel-omphalos` 1x1, `navel-ramp-gate-x/y` 5x2, kit `navel-labyrinth` (16 frames by mask x 4 states) |
+| Cyclopean Gatehouse | `cyclops-gatehouse-x/y` 6x3 (one monstrous lintel, relieving triangle, walk at 8 m), `cyclops-wall-x/y` 4x2, `cyclops-tower` 3x3 |
+| Oracle Grove | `oracle-shrine` 3x3 (naiskos ringed by six bronze tripod cauldrons, as at Dodona), `oracle-house` 3x2, `spring-memory` / `spring-lethe` 2x2 |
+| Titan's Forge | `titan-anvil` 3x3 (iron anvil on a cyclopean plinth, chains, coal hearth), `titan-bellows` 2x2 (water wheel, rocking beam, leather bellows), `titan-slag` 2x2, `titan-tower` 2x2 |
+| Obsidian Hold | `obsidian-wall-x/y` 4x2 (living basalt, not burnable), `obsidian-tower` 3x3, `obsidian-kiln` 3x3 (dome over a glowing fissure), `obsidian-field` 2x2 |
+| Rim Watchtower | `rim-beacon` 3x3 (round tower, bronze fire basket), `rim-stair-x+/x-/y+/y-` 3x1 (walled, rises 3 m), `rim-keeper-house` 3x2 |
+
+`landmarks[]` in the json lays each landmark out in tiles (`@id` = a build-mode or town piece) for region authors.
+States are one model each: a height field cuts every body box into 1/4 m columns rounded to whole courses (rough tops),
+roof cells are kept, holed (intact, `roofLoss`) or dropped (damaged, ruined), heaps go along the visible faces, then a
+grade (intact lichen, damaged soot, ruined soot + darker, restored a touch brighter). Segments use noise periodic in
+their length (8 m, the cyclopean period), so runs join in every state.
+
+**Lessons:** (1) A wrecked roof kept over walls thrown down to half height floats: drop it into the rubble. (2) A second
+noise octave at 1.2 / m gives spiky teeth along a wall top; at 0.7 / m with a small weight it reads as fallen courses.
+(3) Notches cut into a house's roof lip read as battlements: houses get no top notches. (4) Mudbrick at the town
+houses' saturation glows orange beside the stone: desaturate it to the stone's chroma. (5) Trees in a layout hide the
+shrine at this view: put them behind (north of) the pieces.
