@@ -1657,7 +1657,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           if (!b.pre!.ruin) ruin(b, false);
           continue;
         }
-        if (b.pre!.ruin) continue; // authored a ruin: only a rebuild raises it
+        if (b.pre!.ruin) raise(b); // authored a ruin, left raised (a restore or a rebuild): it stands again
         b.hp = Math.max(1, Math.min(b.maxHp, r.hp));
         b.state = b.hp < b.maxHp / 2 ? 'damaged' : 'done';
       }
