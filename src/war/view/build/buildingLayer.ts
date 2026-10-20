@@ -81,6 +81,8 @@ interface Deck {
 const DITCH = 2.4;
 /** M5h3: wet wood with no hides art, darkened. */
 const WET_TINT = 0xb0b4b8;
+/** M7b: a pre-built ruin's stub, soot-dark. */
+const RUIN_TINT = 0xb8aea0;
 /** Siege ladder foot from the wall face in tiles (public/war/siege/objects.json ladders.targets footM / 2 m). */
 const SIEGE_FOOT: Partial<Record<BuildingType, number>> = { stoneWall: 0.945, stoneTower: 0.945, stoneGate: 0.945, rampart: 0.645, woodTower: 0.645, woodGate: 0.645 };
 /** How a building is drawn this frame: the type and stage shown (an upgrade shows the old tier), and the grown tiles' stage. */
@@ -482,14 +484,22 @@ export class BuildingLayer {
       let drawn = false;
       if (this.art && def.field) drawn = this.drawField(b, l, ditches);
       else if (this.art && def.bridge) drawn = this.drawBridge(b, l);
-      else if (this.art && b.state !== 'destroyed') {
+      else if (this.art && b.ruin && !def.wall) {
+        // M7b a pre-built piece in ruins: the stub of its art, darkened (walls and towers: the rubble placeholder)
+        const spr = this.art.preSprite(b.type, b.x * 7 + b.y * 13) ?? this.art.sprite(b.type, 'damaged', axis);
+        if (spr) {
+          const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), b.rot === 1).setDepth(depth);
+          this.stub(im, spr.tileOrigin.y, (b.w + b.h) / 2).setTint(RUIN_TINT);
+          drawn = true;
+        }
+      } else if (this.art && b.state !== 'destroyed') {
         if (def.wall === 'segment') drawn = this.drawWall(b, walls);
         else if (def.wall === 'tower') drawn = this.drawTower(b, l);
         else if (def.access) drawn = this.drawAccess(b, l);
         if (!drawn) {
           const deep = def.wall === 'gate' ? this.deep.get(b.id) : undefined;
           const near = def.wall === 'gate' && b.state === 'done' && units.some((d) => d.team === b.team && d.u.state !== 'dead' && Math.abs(d.x - b.x) < GATE_NEAR && Math.abs(d.y - b.y) < GATE_NEAR);
-          const spr = this.art.sprite(l.type, near ? 'open' : l.stage, axis, deep?.side, !!b.iron);
+          const spr = this.art.preSprite(l.type, b.x * 7 + b.y * 13) ?? this.art.sprite(l.type, near ? 'open' : l.stage, axis, deep?.side, !!b.iron);
           if (spr) {
             if (deep) {
               const all = pairs([...b.tiles, ...deep.tiles]), x0 = Math.min(...all.map((t) => t[0])), y0 = Math.min(...all.map((t) => t[1]));

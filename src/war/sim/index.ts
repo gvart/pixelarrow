@@ -371,7 +371,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       spill: (x, y, h, burnt) => void piles.drop(x, y, h.lots, h.items, tick, burnt ? PILE.spoil : 0),
       // M7a: a pre-built piece razed (a temple or shrine: sacrilege); a safe court's pieces take no harm; wells help douse
       razed: (b, by) => note({ t: tick, kind: 'razed', building: b.id, type: b.type, owner: b.team, by, ...(b.type === 'temple' || b.type === 'shrine' ? { sacrilege: true as const } : {}) }),
-      immune: (b) => anySafe && inSafe(b.x, b.y),
+      immune: (b) => anySafe && b.ti.some((t) => safeMask[t] === 1), // M7b: a court's corner towers stand half outside it
       douse: (b) => towns.douse(b),
     },
   );

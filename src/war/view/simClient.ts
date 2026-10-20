@@ -87,7 +87,8 @@ export class SimClient {
       for (let i = 0; i < b.tiles.length; i += 2) if (this.visible(b.tiles[i] + 0.5, b.tiles[i + 1] + 0.5)) return true;
       return this.visible(b.x, b.y);
     };
-    const buildings = (s.buildings ?? []).filter((b) => b.team === 0 || vis(b));
+    // M7b: a region's pre-built towns are on the map (they were map objects before), so they show under the shroud too
+    const buildings = (s.buildings ?? []).filter((b) => b.team === 0 || b.pre || vis(b));
     const here = new Set(buildings.map((b) => b.id));
     for (const b of this.seen) if (!here.has(b.id) && !vis(b)) buildings.push(b);
     return {
