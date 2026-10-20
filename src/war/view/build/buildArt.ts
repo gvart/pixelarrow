@@ -200,6 +200,24 @@ export class BuildArt {
     return this.pre.get(`${id}-${state}`);
   }
 
+  /**
+   * M7g: a stand-in ruin for a piece with no ruined look of its own (warehouses, workplaces): the town art's ruined look
+   * whose footprint matches w x h (turned: rotated), else the largest one that fits inside it.
+   */
+  rubble(w: number, h: number): { spr: BuildSprite; turned: boolean } | undefined {
+    let best: { spr: BuildSprite; turned: boolean; score: number } | undefined;
+    for (const [id, spr] of this.pre) {
+      if (!id.endsWith('-ruined')) continue;
+      for (const turned of [false, true]) {
+        const fw = turned ? spr.fh : spr.fw, fh = turned ? spr.fw : spr.fh;
+        if (fw > w || fh > h) continue;
+        const score = (fw === w && fh === h ? 1000 : 0) + fw * fh;
+        if (!best || score > best.score) best = { spr, turned, score };
+      }
+    }
+    return best;
+  }
+
   /** M7g: does a pre-built type draw with the biome town art (not its own building art)? */
   hasPreArt(type: BuildingType): boolean {
     return !!PRE_ART[type];

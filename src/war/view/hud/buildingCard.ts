@@ -1,7 +1,7 @@
 /**
  * M7g building card (docs/WAR.md "Pre-built structures"; src/war/sim/prebuilt.ts, economy.ts REPAIR and RUIN): the
- * card over the hammer, bottom right, for the selected building, else a pre-built piece under the pointer. It names the
- * piece, what it does, its owner, its hp and state (intact, damaged, ruined, a fouled well, under repair, burning), what
+ * card at the bottom centre (over the command card) for the selected building, else a pre-built piece under the
+ * pointer. It names the piece, what it does, its owner, its hp and state (intact, damaged, ruined, a fouled well, under repair, burning), what
  * mending it costs (every REPAIR.step of hp REPAIR.cost of its build cost and REPAIR.labour of its labour) and, for a ruin,
  * what rebuilding it costs (RUIN.rebuild of both; a landmark piece only by the landmark's restore). A landmark piece adds
  * the landmark's restore bill and the engineer who leads it (src/data/warLandmarks.ts). The orders sit on the command
@@ -141,7 +141,8 @@ export function mountBuildingCard(s: SandboxScene, mk: Mk): void {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.appendChild(style);
-  const el = mk('rfBld', 'right:4px;bottom:44px;display:none');
+  // bottom centre, over the command card (the landmark panel holds the right edge)
+  const el = mk('rfBld', 'left:50%;bottom:4px;transform:translateX(-50%);display:none');
   el.className = 'rf rf-card';
   let shown = '';
   setInterval(() => {
@@ -151,6 +152,8 @@ export function mountBuildingCard(s: SandboxScene, mk: Mk): void {
     if (!b || s.build.active) { if (shown) { el.style.display = 'none'; shown = ''; } return; }
     const html = buildingHtml(b, s.region.id);
     if (html !== shown) el.innerHTML = shown = html;
+    const cc = document.getElementById('rfCard');
+    el.style.bottom = cc && cc.style.display !== 'none' ? `${cc.offsetHeight + 8}px` : '4px';
     el.style.display = '';
   }, 200);
 }

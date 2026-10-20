@@ -348,7 +348,7 @@ export function hud(s: SandboxScene): void {
   const trade = mountTrade(s, mk, btn, tipK);
   mountMarket(s, mk); // M6k: market, offers, board, contracts, letters, hand-off (./market.ts; K)
   mountGuardians(s, mk); // M7d: the guardian bar and the landmark panel (./guardianBar.ts; L)
-  mountBuildingCard(s, mk); // M7g: the building card over the hammer (./buildingCard.ts)
+  mountBuildingCard(s, mk); // M7g: the building card over the command card (./buildingCard.ts)
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)

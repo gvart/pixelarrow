@@ -497,6 +497,11 @@ export class BuildingLayer {
         const spr = this.art.preState(b.type, b.x * 7 + b.y * 13, 'ruined')!;
         this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), b.rot === 1).setDepth(depth);
         drawn = true;
+      } else if (this.art && b.ruin && !def.wall && this.art.rubble(b.w, b.h)) {
+        // M7g no ruined look of its own (warehouses, workplaces): a town ruin of its size as rubble, not a cut-off stub
+        const r = this.art.rubble(b.w, b.h)!;
+        this.fit(this.img(this.ni++, r.spr.key), r.spr, b.type, b.x, b.y, b.w, b.h, this.z(b), r.turned).setDepth(depth);
+        drawn = true;
       } else if (this.art && b.ruin && !def.wall) {
         // M7b a pre-built piece in ruins with no ruined art: the stub of its art, darkened (walls and towers: the rubble placeholder)
         const spr = this.art.preSprite(b.type, b.x * 7 + b.y * 13) ?? this.art.sprite(b.type, 'damaged', axis);
