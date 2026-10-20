@@ -14,7 +14,8 @@ import { bossPile } from '../sim/bossLoot';
 import { createBots, type Behaviour, type Bots } from '../sim/bots';
 import { createNet, type Net } from '../net/client';
 import type { HandoffMsg, StowMsg } from '../net/protocol';
-import type { BridgeOrder, BuildingType, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
+import { decodeInfluence, unpackNode } from '../net/economy';
+import type { BridgeOrder, BuildingType, InfluenceMap, NodeSnap, Order, RegionData, ResourceKind, WallOrder, WarBuildSim, WarPerson, WarSim } from '../types';
 
 export type ToWorker =
   | { t: 'init'; region: RegionData; seed: number; sim: 'real' | 'fake'; net?: string; dev?: number }
@@ -133,7 +134,21 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     // M5e: `?net=/ws/war/test-ridge?seed=1` re-seeds the dev roster before joining (the server seeds one anyway when
     // fewer than a squad of soldiers are at home)
     const seed = /[?&]seed=1\b/.test(m.net), url = m.net.replace(/[?&]seed=1\b/, '');
-    net = createNet(url, m.region.id, m.dev, (snap, stats) => postMessage({ snap, stats }), seed, (server) => postMessage({ server }));
+    // the economy view (nodes, influence) rides on the next snapshot post, as the local sim's does
+    const nodes = new Map<number, NodeSnap>();
+    let nodesNew = false, infl: InfluenceMap | undefined;
+    net = createNet(url, m.region.id, m.dev, (snap, stats) => {
+      postMessage({ snap, stats, nodes: nodesNew ? [...nodes.values()] : undefined, influence: infl });
+      nodesNew = false;
+      infl = undefined;
+    }, seed, (server) => {
+      if (server.t === 'nodes') {
+        for (const r of server.rows) nodes.set(r[0], unpackNode(r));
+        for (const id of server.gone ?? []) nodes.delete(id);
+        nodesNew = true;
+      } else if (server.t === 'influence') infl = decodeInfluence(server.w, server.h, server.team, server.runs, server.v);
+      else postMessage({ server });
+    });
     return;
   }
   if (net) return netMessage(net, m);

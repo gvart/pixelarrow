@@ -34,6 +34,7 @@ import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
+import { EconomyFeed, encodeInfluence, NODES_EVERY } from '../../../src/war/net/economy';
 import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
@@ -148,6 +149,8 @@ interface Player {
   online: boolean;
   cam: Rect | null;
   enc: DeltaEncoder | null;
+  /** The economy view he was sent (nodes, influence): fresh with each encoder. */
+  feed?: EconomyFeed;
   /** Ticks since its last keyframe; -1: none sent yet. */
   sinceKey: number;
   bytes: number;
@@ -191,6 +194,8 @@ export class WarRoom {
   private mends: Mend[] = [];
   /** Teams that raided or brought down a foe's holding building since the last fight ended (honours). */
   private stormed = new Set<number>();
+  /** Each team's influence runs at an influence version (encoded once per change). */
+  private inflRuns = new Map<number, { v: number; runs: number[] }>();
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -320,7 +325,7 @@ export class WarRoom {
     let p = this.players.get(pid);
     if (!p) this.players.set(pid, (p = { pid, team, online: true, cam: null, enc: null, sinceKey: -1, bytes: 0 }));
     p.online = true;
-    if (!p.enc) { p.enc = new DeltaEncoder(); p.sinceKey = -1; }
+    if (!p.enc) { p.enc = new DeltaEncoder(); p.sinceKey = -1; p.feed = new EconomyFeed(); }
     for (const id of this.squadsOf(pid)) this.bots.clear(id);
     for (const g of groups) this.spawn(ownerOf(pid), team, g);
     return { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() };
@@ -781,7 +786,7 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -846,8 +851,41 @@ export class WarRoom {
         frames.set(p.pid, f);
       }
     }
+    const msgs = this.economy();
     this.lastTick = this.snap.tick;
-    return { frames, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+  }
+
+  /**
+   * The economy view per online player (src/war/net/economy.ts): his team's influence when it changed, and every
+   * NODES_EVERY ticks (or at once after a join) the resource nodes his team sees that changed.
+   */
+  private economy(): Map<number, ServerMsg[]> {
+    const out = new Map<number, ServerMsg[]>();
+    const on = [...this.players.values()].filter((p) => p.online && p.feed);
+    if (!on.length) return out;
+    const infl = this.sim.influence();
+    let nodes: ReturnType<WarBuildSim['resourceNodes']> | null = null;
+    const push = (pid: number, m: ServerMsg) => (out.get(pid) ?? out.set(pid, []).get(pid)!).push(m);
+    for (const p of on) {
+      const feed = p.feed!;
+      let c = this.inflRuns.get(p.team);
+      if (c?.v !== infl.version) this.inflRuns.set(p.team, (c = { v: infl.version, runs: encodeInfluence(infl.mask, p.team) }));
+      const r = feed.influence(c.runs);
+      if (r) push(p.pid, { t: 'influence', team: p.team, w: infl.w, h: infl.h, v: infl.version, runs: r });
+      if (this.snap.tick % NODES_EVERY && !feed.fresh) continue;
+      const g = this.sim.teamGrid(p.team);
+      const n = feed.nodes({
+        nodes: (nodes ??= this.sim.resourceNodes()),
+        sees: (x, y) => this.sim.visibleTo(p.team, x, y),
+        explored: (x, y) => {
+          const cx = Math.floor(x / g.cell), cy = Math.floor(y / g.cell);
+          return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h && g.state[cy * g.w + cx] > 0;
+        },
+      });
+      if (n) push(p.pid, { t: 'nodes', rows: n.rows, ...(n.gone.length ? { gone: n.gone } : {}) });
+    }
+    return out;
   }
 
   /** Battle honours won in a finished fight go on its report (src/war/sim/honours.ts); the fort-taking slate is wiped. */

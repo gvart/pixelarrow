@@ -549,6 +549,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (!a) continue;
       const w = r.admitted.get(a.pid);
       if (w) send(ws, w);
+      for (const m of r.msgs.get(a.pid) ?? []) send(ws, m); // the economy view (nodes, influence)
       const f = r.frames.get(a.pid);
       if (f) {
         try { ws.send(f); bytes += f.length; } catch { /* closing */ }

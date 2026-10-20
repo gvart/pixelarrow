@@ -22,14 +22,17 @@
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
+ *   server -> nodes | influence                               the economy view (./economy.ts): resource nodes his team
+ *                    sees (changes only), his team's influence mask (RLE, on change)
  *   server -> binary frame                                    (snapshot delta or keyframe)
  */
 import { z } from 'zod';
 import { SQUAD_MAX } from '../sim/soldiers';
+import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, Order, PlaceResult, ResourceKind, SquadId, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 7;
+export const NET_VERSION = 8;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -189,7 +192,11 @@ export type ServerMsg =
   /** M6f: a stow went through: what moved (goods by good, item count) and what did not fit (left where it was). */
   | { t: 'stowed'; dir: 'in' | 'out'; site: string; goods: Record<string, number>; items: number; left?: Record<string, number> }
   /** M6g: the hand-off window with `with`: open (halves by player, who confirmed, until tick), done, or closed (`why`). */
-  | { t: 'handoff'; with: number; state: 'open' | 'done' | 'closed'; halves?: Record<number, { goods: Record<string, number>; uids: string[] }>; ok?: number[]; until?: number; why?: string };
+  | { t: 'handoff'; with: number; state: 'open' | 'done' | 'closed'; halves?: Record<number, { goods: Record<string, number>; uids: string[] }>; ok?: number[]; until?: number; why?: string }
+  /** Resource nodes his team sees that changed (packed rows, ./economy.ts), and ids gone. */
+  | { t: 'nodes'; rows: NodeRow[]; gone?: number[] }
+  /** His team's influence: bit `team` of the w x h mask as alternating runs (outside first); v the sim's version. */
+  | { t: 'influence'; team: number; w: number; h: number; v: number; runs: number[] };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }
