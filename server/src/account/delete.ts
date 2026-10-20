@@ -26,7 +26,6 @@ import { peppersFromEnv } from '../auth/password';
 import { forgetSessions } from '../auth/sessions';
 import { emailKeyHash } from '../auth/throttle';
 import { liveMatchOf, MATCH_STALE_MS } from '../duel/live';
-import { shardDoName } from '../online/store';
 import { NAME_HOLD_MS } from '../players';
 import { log, logError } from '../telemetry/log';
 import { BAN_TOMBSTONE_MS, banIdentityHash, type IdentityKind } from './banTombstone';
@@ -108,18 +107,16 @@ export function notBusySql(pid: number, now: number): string {
   const p = Math.trunc(pid);
   const t = Math.trunc(now);
   return `(NOT EXISTS (SELECT 1 FROM duel_matches WHERE (player_a = ${p} OR player_b = ${p}) AND status = 'live' AND created_at > ${t - MATCH_STALE_MS})
-    AND NOT EXISTS (SELECT 1 FROM battle_tickets WHERE player_id = ${p} AND status = 'open' AND expires_at > ${t})
     AND NOT EXISTS (SELECT 1 FROM duel_tickets WHERE player_id = ${p} AND status = 'open' AND expires_at > ${t})
     AND NOT EXISTS (SELECT 1 FROM duel_attacks WHERE attacker = ${p} AND status = 'open' AND expires_at > ${t}))`;
 }
 
-/** Busy (ADR-0009 §5.4): a live duel match, the duel queue, an open battle, duel or arena ticket. */
+/** Busy (ADR-0009 §5.4): a live duel match, the duel queue, an open duel or arena ticket. */
 export async function isBusy(env: Env, db: D1Database, pid: number, now: number): Promise<boolean> {
   if (await liveMatchOf(db, pid, now)) return true;
   const open = await db
     .prepare(
-      `SELECT EXISTS (SELECT 1 FROM battle_tickets WHERE player_id = ?1 AND status = 'open' AND expires_at > ?2)
-           OR EXISTS (SELECT 1 FROM duel_tickets WHERE player_id = ?1 AND status = 'open' AND expires_at > ?2)
+      `SELECT EXISTS (SELECT 1 FROM duel_tickets WHERE player_id = ?1 AND status = 'open' AND expires_at > ?2)
            OR EXISTS (SELECT 1 FROM duel_attacks WHERE attacker = ?1 AND status = 'open' AND expires_at > ?2) AS busy`,
     )
     .bind(pid, now)
@@ -200,37 +197,15 @@ async function revoke(x: Ctx): Promise<D1PreparedStatement[]> {
 }
 
 async function leave(x: Ctx): Promise<D1PreparedStatement[]> {
-  const { env, db, pid, now } = x;
+  const { env, db, pid } = x;
   // Close the player's sockets and drop them from the duel queue (each call is idempotent).
-  const shards = (await db.prepare('SELECT season_id, shard_id FROM online_profiles WHERE player_id = ?1').bind(pid).all<{ season_id: number; shard_id: number }>()).results;
   const matches = (await db.prepare("SELECT id FROM duel_matches WHERE (player_a = ?1 OR player_b = ?1) AND status = 'live'").bind(pid).all<{ id: string }>()).results;
   await Promise.all([
-    ...shards.map((s) => env.REGION.get(env.REGION.idFromName(shardDoName({ season: s.season_id, id: s.shard_id }))).kick(pid)),
     ...matches.map((m) => env.DUEL.get(env.DUEL.idFromName(m.id)).kick(pid)),
     env.MATCHMAKER.get(env.MATCHMAKER.idFromName('global')).remove(pid),
   ]);
 
-  const stmts: D1PreparedStatement[] = [
-    // Open listings close; the escrowed item is gone with the player, buyers no longer see them.
-    db.prepare("UPDATE market_listings SET status = 'cancelled', item = NULL, closed_at = ?2 WHERE seller_id = ?1 AND status = 'open'").bind(pid, now),
-    // The player's heroes on guard anywhere, and other players' heroes guarding the player's regions, go home.
-    db
-      .prepare(
-        `DELETE FROM online_garrisons WHERE player_id = ?1 OR hero_id IN (
-           SELECT g.hero_id FROM online_garrisons g JOIN online_regions r ON r.season_id = g.season_id AND r.shard_id = g.shard_id AND r.loc = g.loc
-           WHERE r.owner_id = ?1)`,
-      )
-      .bind(pid),
-    // Owned regions (the home too) turn neutral with a fresh wave of defenders.
-    db
-      .prepare(
-        `UPDATE online_regions SET occupant = 'npc', owner_id = NULL, clan_id = NULL, home = 0, captured_at = NULL, accrued_at = NULL, formations = NULL,
-           npc = NULL, npc_at = NULL, npc_gen = npc_gen + 1, siege_by = NULL, siege_wins = 0, siege_at = NULL, version = version + 1
-         WHERE owner_id = ?1`,
-      )
-      .bind(pid),
-    db.prepare('UPDATE online_regions SET siege_by = NULL, siege_wins = 0, siege_at = NULL WHERE siege_by = ?1').bind(pid),
-  ];
+  const stmts: D1PreparedStatement[] = [];
   const clans = (await db.prepare('SELECT season_id, clan_id, role FROM clan_members WHERE player_id = ?1').bind(pid).all<{ season_id: number; clan_id: number; role: string }>()).results;
   for (const m of clans) {
     stmts.push(db.prepare('DELETE FROM clan_members WHERE season_id = ?1 AND player_id = ?2').bind(m.season_id, pid));
@@ -247,10 +222,7 @@ async function leave(x: Ctx): Promise<D1PreparedStatement[]> {
     }
     // An empty clan is disbanded (its invites go with it, ON DELETE CASCADE).
     const empty = 'NOT EXISTS (SELECT 1 FROM clan_members WHERE clan_id = ?1)';
-    stmts.push(
-      db.prepare(`UPDATE online_regions SET clan_id = NULL WHERE clan_id = ?1 AND ${empty}`).bind(m.clan_id),
-      db.prepare(`DELETE FROM clans WHERE id = ?1 AND ${empty}`).bind(m.clan_id),
-    );
+    stmts.push(db.prepare(`DELETE FROM clans WHERE id = ?1 AND ${empty}`).bind(m.clan_id));
   }
   stmts.push(db.prepare('DELETE FROM clan_invites WHERE created_by = ?1').bind(pid), db.prepare('DELETE FROM duel_queue_state WHERE player_id = ?1').bind(pid));
   return stmts;
@@ -263,7 +235,6 @@ async function leave(x: Ctx): Promise<D1PreparedStatement[]> {
  */
 function purgeStatements(db: D1Database, pid: number, sweep = false): D1PreparedStatement[] {
   return [
-    db.prepare('DELETE FROM online_camp_buildings WHERE (season_id, shard_id, loc) IN (SELECT season_id, shard_id, loc FROM online_camps WHERE player_id = ?1)').bind(pid),
     ...purgeTables()
       .filter(([table, r]) => r.pid?.length && !(sweep && table === 'display_name_history'))
       .map(([table, r]) => db.prepare(`DELETE FROM ${table} WHERE ${r.pid!.map((c) => `${c} = ?1`).join(' OR ')}`).bind(pid)),

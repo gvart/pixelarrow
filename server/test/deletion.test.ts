@@ -18,7 +18,7 @@ import { leaderboard } from '../src/duel/season';
 import { seasonId } from '../../src/duel/season';
 import { resetRateLimits } from '../src/rateLimit';
 import { api, devLogin } from './helpers';
-import { join, openDuellist, wsOnline, wsPath } from './onlineHelpers';
+import { openDuellist, wsPath } from './onlineHelpers';
 
 const DB = () => env.DB!;
 const DAY = 86_400_000;
@@ -52,13 +52,10 @@ const OVERRIDE: Record<string, (s: Seeded) => Record<string, unknown>> = {
   auth_identities: (s) => ({ kind: 'password', subject: s.email, email: s.email.toUpperCase() }),
   sessions: () => ({ transport: 'cookie', method: 'password' }),
   email_tokens: (s) => ({ purpose: 'reset', email_norm: s.email, player_id: null }),
-  battle_tickets: () => ({ status: 'used' }),
   duel_tickets: () => ({ status: 'used' }),
   duel_attacks: () => ({ status: 'used' }),
   duel_matches: () => ({ status: 'done' }),
-  market_listings: () => ({ status: 'sold' }),
   clan_members: () => ({ role: 'member' }),
-  online_regions: () => ({ occupant: 'player', home: 1 }),
   war_treasury_log: () => ({ kind: 'deposit' }),
   war_alliance_members: () => ({ alliance: 1 }),
 };
@@ -117,11 +114,9 @@ async function seedEverywhere(): Promise<Seeded> {
   }
   // Rows keyed other than by a player column.
   const ident = await DB().prepare("SELECT id FROM auth_identities WHERE player_id = ?1 AND kind = 'password'").bind(s.pid).first<{ id: number }>();
-  const camp = await DB().prepare('SELECT season_id, shard_id, loc FROM online_camps WHERE player_id = ?1').bind(s.pid).first<{ season_id: number; shard_id: number; loc: number }>();
   const h = await emailKeyHash(s.email);
   await DB().batch([
     DB().prepare("INSERT INTO password_hashes (identity_id, hash, updated_at) VALUES (?1, 'x', 1)").bind(ident!.id),
-    DB().prepare("INSERT INTO online_camp_buildings (season_id, shard_id, loc, slot, kind, level, done_at, updated_at) VALUES (?1, ?2, ?3, 0, 'farm', 1, 1, 1)").bind(camp!.season_id, camp!.shard_id, camp!.loc),
     DB().prepare('INSERT INTO auth_throttle (key, window_start, count) VALUES (?1, 1, 1), (?2, 1, 1)').bind(`login:${h}`, `mail:h:${h}`),
     DB().prepare("INSERT INTO email_tokens (token_hash, purpose, email_norm, email, created_at, expires_at) VALUES (?1, 'signup', ?2, ?2, 1, ?3)").bind(`t${++uniq}`, s.email, Date.now() + DAY),
   ]);
@@ -159,13 +154,9 @@ describe('deleteAccount (ADR-0009 §7)', () => {
     // Only the row that holds the freed name is left of the name history.
     expect((await DB().prepare('SELECT new FROM display_name_history WHERE player_id = ?1').bind(victim.pid).all()).results).toEqual([{ new: DELETED_NAME }]);
     expect(await count('password_hashes WHERE identity_id = (SELECT id FROM auth_identities WHERE player_id = ?1)', victim.pid)).toBe(0);
-    expect(await count('online_camp_buildings b JOIN online_camps c USING (season_id, shard_id, loc) WHERE c.player_id = ?1', victim.pid)).toBe(0);
     const h = await emailKeyHash(victim.email);
     expect(await count('auth_throttle WHERE key IN (?1, ?2)', `login:${h}`, `mail:h:${h}`)).toBe(0);
     expect(await count('email_tokens WHERE email_norm = ?1', victim.email)).toBe(0);
-    // Released, not removed: the regions are neutral now.
-    const regions = s0(victim.rows.get('online_regions'));
-    expect(await DB().prepare('SELECT occupant, owner_id, home FROM online_regions WHERE rowid = ?1').bind(regions).first()).toEqual({ occupant: 'npc', owner_id: null, home: 0 });
 
     // The tombstone: no personal field, hidden from public boards.
     const p = await DB().prepare('SELECT * FROM players WHERE id = ?1').bind(victim.pid).first<Record<string, unknown>>();
@@ -226,13 +217,13 @@ describe('deleteAccount (ADR-0009 §7)', () => {
     expect((await api('/api/me', { token: me.token })).status).toBe(200);
   });
 
-  it('refuses a player with an open battle ticket', async () => {
+  it('refuses a player with an open duel ticket', async () => {
     const me = await devLogin(++tg);
     const now = Date.now();
     await DB()
       .prepare(
-        `INSERT INTO battle_tickets (id, season_id, shard_id, player_id, loc, seed, setup, attackers, defenders, defender_kind, region_version, created_at, expires_at)
-         VALUES (?1, 1, 1, ?2, 1, 1, '{}', '[]', '[]', 'npc', 0, ?3, ?4)`,
+        `INSERT INTO duel_tickets (id, player_id, floor, seed, setup, team, created_at, expires_at)
+         VALUES (?1, ?2, 1, 1, '{}', '[]', ?3, ?4)`,
       )
       .bind(`b${++uniq}`, me.playerId, now, now + 60_000)
       .run();
@@ -276,45 +267,9 @@ describe('leaving shared structures', () => {
     expect(await count('clans WHERE id = ?1', solo)).toBe(0);
     expect(await count('clan_invites WHERE clan_id = ?1', solo)).toBe(0);
   });
-
-  it('cancels open market listings, frees owned regions and sends guards home', async () => {
-    const [seller, guard] = await Promise.all([devLogin(++tg), devLogin(++tg)]);
-    const now = Date.now();
-    await DB().batch([
-      DB()
-        .prepare(
-          `INSERT INTO market_listings (id, season_id, shard_id, seller_id, town_loc, kind, ref, item, qty, rarity, currency, price, created_at, expires_at)
-           VALUES (?1, 1, 1, ?2, 1, 'item', 'x', '{"secret":1}', 1, 'common', 'gold', 10, ?3, ?4)`,
-        )
-        .bind(`l${++uniq}`, seller.playerId, now, now + DAY),
-      DB().prepare("INSERT INTO online_regions (season_id, shard_id, loc, occupant, owner_id, home, version) VALUES (1, 1, ?1, 'player', ?2, 0, 3)").bind(++uniq, seller.playerId),
-      DB().prepare("INSERT INTO online_heroes (id, season_id, player_id, data, created_at, updated_at) VALUES (?1, 1, ?2, '{}', 1, 1)").bind(`h${uniq}`, guard.playerId),
-      DB().prepare('INSERT INTO online_garrisons (hero_id, season_id, shard_id, loc, player_id, placed_at) VALUES (?1, 1, 1, ?2, ?3, 1)').bind(`h${uniq}`, uniq, guard.playerId),
-    ]);
-    const loc = uniq;
-    expect(await deleteAccount(env, seller.playerId, 'self', now)).toBe('done');
-    expect(await DB().prepare('SELECT status, item FROM market_listings WHERE seller_id = ?1').bind(seller.playerId).first()).toEqual({ status: 'cancelled', item: null });
-    expect(await DB().prepare('SELECT occupant, owner_id, version FROM online_regions WHERE season_id = 1 AND shard_id = 1 AND loc = ?1').bind(loc).first()).toEqual({
-      occupant: 'npc',
-      owner_id: null,
-      version: 4,
-    });
-    // The other player's hero left the freed region but is still theirs.
-    expect(await count('online_garrisons WHERE hero_id = ?1', `h${loc}`)).toBe(0);
-    expect(await count('online_heroes WHERE id = ?1', `h${loc}`)).toBe(1);
-  });
 });
 
 describe('live connections', () => {
-  it('closes the player’s shard socket', async () => {
-    const p = await join(++tg);
-    const sock = await wsOnline(p.token);
-    await sock.next('welcome');
-    const closed = new Promise<number>((resolve) => sock.ws.addEventListener('close', (e) => resolve(e.code)));
-    expect(await deleteAccount(env, p.playerId, 'self')).toBe('done');
-    expect(await closed).toBe(4403);
-  });
-
   it('a player waiting in the duel queue is busy', async () => {
     const d = await openDuellist(++tg, { level5: true });
     const mm = await wsPath(d.token, '/ws/duel');
@@ -485,7 +440,3 @@ describe('in-game duel boards (V6-041)', () => {
     expect(board.me?.rank).toBe(1);
   });
 });
-
-function s0<T>(xs: T[] | undefined): T {
-  return xs![0];
-}

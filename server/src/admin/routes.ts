@@ -23,7 +23,7 @@ import { forgetSessions } from '../auth/sessions';
 import { generateDisplayName } from '../names/generate';
 import { nameKey } from '../names/validate';
 import { ADMIN_NAME_LOCK_MS, setDisplayName } from '../players';
-import { currentSeason, endSeason, forgetSeasonCache, randomToken, shardDoName } from '../online/store';
+import { currentSeason, endSeason, forgetSeasonCache, randomToken } from '../online/store';
 import { log } from '../telemetry/log';
 import { requireAdmin } from './auth';
 import { deleteAccount } from '../account/delete';
@@ -263,33 +263,7 @@ admin.get('/season', async (c) => {
   const d = db(c.env);
   const seasons = await d.prepare('SELECT * FROM online_seasons ORDER BY id DESC LIMIT 10').all<{ id: number; status: string }>();
   const active = seasons.results.find((s) => s.status === 'active') ?? null;
-  const shards = active
-    ? (
-        await d
-          .prepare(
-            `SELECT s.id, s.players, s.map_id, s.created_at,
-               (SELECT COUNT(*) FROM online_regions h WHERE h.season_id = s.season_id AND h.shard_id = s.id AND h.owner_id IS NOT NULL) AS owned_regions,
-               (SELECT COUNT(*) FROM clans k WHERE k.season_id = s.season_id AND k.shard_id = s.id) AS clans,
-               (SELECT COUNT(*) FROM market_listings m WHERE m.season_id = s.season_id AND m.shard_id = s.id AND m.status = 'open') AS open_listings,
-               (SELECT group_concat(b.boss || ':' || b.status || ':' || b.hp || '/' || b.max_hp, ' ') FROM world_bosses b WHERE b.season_id = s.season_id AND b.shard_id = s.id) AS bosses
-             FROM online_shards s WHERE s.season_id = ?1 ORDER BY s.id`,
-          )
-          .bind(active.id)
-          .all<{ id: number } & Record<string, unknown>>()
-      ).results
-    : [];
-  // Live sockets per shard from its Durable Object (best effort).
-  const live = await Promise.all(
-    shards.map(async (s) => {
-      try {
-        const stub = c.env.REGION.get(c.env.REGION.idFromName(shardDoName({ season: active!.id, id: s.id })));
-        return (await stub.livePlayers()).length;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return c.json({ active, seasons: seasons.results, shards: shards.map((s, i) => ({ ...s, live: live[i] })) });
+  return c.json({ active, seasons: seasons.results });
 });
 
 // ------------------------------------------------------------------ actions

@@ -1,12 +1,12 @@
 /**
  * V6-LINK-01, N-DN-1: no response another player can read carries a
  * player's Telegram first name, username or id. A victim with distinctive
- * Telegram data plays alongside an observer in the war (same shard, same
- * clan), the duels (rated, in the async pool) and presence; every response
- * and socket message the observer gets is scanned recursively.
+ * Telegram data plays alongside an observer in the online season (same
+ * clan) and the duels (rated, in the async pool); every response the
+ * observer gets is scanned recursively.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DB, fresh, getJson, join, openDuellist, placeArmy, post, sameShard, worldOf, wsOnline } from './onlineHelpers';
+import { DB, fresh, getJson, join, openDuellist, post } from './onlineHelpers';
 
 beforeEach(fresh);
 afterEach(() => vi.restoreAllMocks());
@@ -27,15 +27,12 @@ function leaks(value: unknown, victim: { first: string; user: string; tg: number
 }
 
 describe('display names on every public surface (N-DN-1)', () => {
-  it('online, war, duel and presence responses never carry another player’s first_name, username or telegram_id', async () => {
+  it('online and duel responses never carry another player’s first_name, username or telegram_id', async () => {
     const tg = 987_650_001;
     const victim = { first: 'Zebulonia', user: 'zeb_secret_handle', tg };
     const v = await join(tg, victim.first);
     await DB().prepare('UPDATE players SET username = ?2 WHERE id = ?1').bind(v.playerId, victim.user).run();
     const o = await join(tg + 1, 'Observer');
-    await sameShard(v, o);
-    const near = worldOf(o).neighbours(o.profile.army.loc)[0];
-    await placeArmy(v, near, o.profile.shard.id);
 
     // A clan with both of them (rosters).
     expect((await post('/api/online/clans', v.token, { name: 'Night Watch', tag: 'NW' })).status).toBe(200);
@@ -49,13 +46,9 @@ describe('display names on every public surface (N-DN-1)', () => {
     const seen: { what: string; body: unknown }[] = [];
     for (const path of [
       '/api/online/profile',
-      '/api/online/map',
-      `/api/online/region/${near}`,
       '/api/online/season',
       '/api/online/clans/mine',
       `/api/online/clans/invite/${inv.body.code}`,
-      '/api/online/market',
-      '/api/online/boss',
       '/api/duel/profile',
       '/api/duel/ranked',
       '/api/duel/async',
@@ -69,10 +62,6 @@ describe('display names on every public surface (N-DN-1)', () => {
       expect(r.status, path).toBe(200);
       seen.push({ what: path, body: r.body });
     }
-    const ws = await wsOnline(o.token);
-    await ws.next('welcome');
-    ws.ws.close();
-    seen.push({ what: '/ws/online', body: ws.msgs });
 
     const found = seen.flatMap((s) => leaks(s.body, victim).map((p) => `${s.what} ${p}`));
     expect(found).toEqual([]);

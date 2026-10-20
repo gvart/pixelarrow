@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { MUSTER } from '../../src/game/muster';
-import { fresh, getJson, join, placeArmy, post, worldOf, type Ticket } from './onlineHelpers';
+import { fresh, getJson, join, post } from './onlineHelpers';
 
 /** The slice of GET /api/online/profile this test reads. Typed locally: the
  *  client's ProfileView (src/online/client.ts) drags the browser-only client
@@ -14,7 +13,7 @@ beforeEach(async () => {
 });
 
 describe('the muster (reserve)', () => {
-  it('stores who stays in camp; the attack ticket fields only the rest', async () => {
+  it('stores who stays in camp', async () => {
     const p = await join(910001);
     const prof = await getJson<ProfileView>('/api/online/profile', p.token);
     expect(prof.status).toBe(200);
@@ -27,15 +26,6 @@ describe('the muster (reserve)', () => {
     const after = await getJson<ProfileView>('/api/online/profile', p.token);
     expect(after.body.heroes.find((h) => h.hero.id === kept)?.reserve).toBe(true);
     expect(after.body.heroes.filter((h) => h.reserve)).toHaveLength(1);
-    // the reserve man does not march into the attack
-    const w = worldOf(p);
-    const next = w.neighbours(p.profile.home).find((n) => w.info(n).passable)!;
-    await placeArmy(p, next);
-    const target = w.neighbours(next).find((n) => n !== p.profile.home && w.info(n).passable)!;
-    const t = await post<Ticket & { attackers: { id: string }[] }>('/api/online/attack/start', p.token, { loc: target });
-    expect(t.status).toBe(200);
-    expect(t.body.attackers.map((h) => h.id)).not.toContain(kept);
-    expect(t.body.attackers.length).toBe(Math.min(MUSTER.fieldCap, heroes.length - 1));
   });
 
   it('someone must march: the whole army cannot be kept in camp, and the flag can be cleared', async () => {

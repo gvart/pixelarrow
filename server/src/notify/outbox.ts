@@ -89,28 +89,18 @@ export function later(c: Context<AppEnv>, p: Promise<unknown>): void {
   }
 }
 
-/** Stores events and tries to deliver them. `shard`: skip players who have the game open in that shard. Never throws. */
-export async function notify(env: Env, events: readonly NotifyEvent[], opts: { now?: number; shard?: { season: number; id: number } } = {}): Promise<void> {
+/** Stores events and tries to deliver them. Never throws. */
+export async function notify(env: Env, events: readonly NotifyEvent[], opts: { now?: number } = {}): Promise<void> {
   const db = env.DB;
   if (!db || !events.length) return;
   const now = opts.now ?? Date.now();
   try {
-    let list = events;
-    if (opts.shard) {
-      const online = new Set(await onlineIn(env, opts.shard).catch(() => [] as number[]));
-      list = events.filter((e) => !online.has(e.pid));
-      if (!list.length) return;
-    }
+    const list = events;
     await enqueue(db, list, now);
     for (const pid of new Set(list.map((e) => e.pid))) await flushPlayer(env, pid, now);
   } catch (e) {
     console.warn('notify failed', e);
   }
-}
-
-async function onlineIn(env: Env, shard: { season: number; id: number }): Promise<number[]> {
-  const stub = env.REGION.get(env.REGION.idFromName(`shard-${shard.season}-${shard.id}`));
-  return stub.livePlayers();
 }
 
 export async function enqueue(db: D1Database, events: readonly NotifyEvent[], now: number): Promise<void> {

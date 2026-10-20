@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, inject, it } from 'vitest';
 import type { BattleSetup } from '../../src/sim/types';
 import { SELF } from 'cloudflare:test';
 import { SIM_VERSION_CLOSE, SIM_VERSION_REJECTED } from '../../src/online/protocol';
-import { DB, fresh, freeNeighbour, join, openDuellist, play, post, wsPath, type Ticket } from './onlineHelpers';
+import { DB, fresh, openDuellist, play, post, wsPath } from './onlineHelpers';
 import { SIM_VERSION } from '../../src/sim/version';
 import { checkSimVersion, checkSocketSimVersion } from '../src/simVersion';
 import { ApiError } from '../src/errors';
@@ -74,42 +74,17 @@ describe('battle tickets (duel ladder)', () => {
   });
 });
 
-describe('war attacks', () => {
-  beforeEach(fresh);
-
-  it('a round trip records SIM_VERSION on the battle ticket', async () => {
-    const p = await join(9711);
-    const t = await post<Ticket>('/api/online/attack/start', p.token, { loc: await freeNeighbour(p), simVersion: SIM_VERSION });
-    expect(t.status).toBe(200);
-    const sub = await post('/api/online/attack/submit', p.token, { ticket: t.body.ticket, simVersion: SIM_VERSION, ...play(t.body.setup) });
-    expect(sub.status).toBe(200);
-    const row = await DB().prepare('SELECT sim_version, status FROM battle_tickets WHERE id = ?1').bind(t.body.ticket).first();
-    expect(row).toMatchObject({ sim_version: SIM_VERSION, status: 'used' });
-  });
-
-  it('another version cannot start an attack (426)', async () => {
-    const p = await join(9712);
-    const t = await post<{ error: { code: string } }>('/api/online/attack/start', p.token, { loc: await freeNeighbour(p), simVersion: SIM_VERSION + 1 });
-    expect(t.status).toBe(426);
-    expect(t.body.error.code).toBe('sim_version_unsupported');
-  });
-});
-
 describe('live sockets (?sim=)', () => {
   beforeEach(fresh);
 
   it('SIM_VERSION gets in; another version or none gets an error frame and close 4426', async () => {
-    const p = await join(9721);
-    const ok = await wsPath(p.token, `/ws/online?sim=${SIM_VERSION}`);
-    expect((await ok.next('welcome')).type).toBe('welcome');
-    ok.ws.close(1000);
     const { token } = await openDuellist(9725);
     const okDuel = await wsPath(token, `/ws/duel?sim=${SIM_VERSION}`);
     expect((await okDuel.next('mm_welcome')).type).toBe('mm_welcome');
     okDuel.ws.close(1000);
     const other = `sim=${SIM_VERSION + 1}`;
-    for (const [tok, path] of [[p.token, `/ws/online?${other}`], [p.token, '/ws/online'], [token, `/ws/duel?${other}`], [token, '/ws/duel']]) {
-      const ws = await wsPath(tok, path, { legacy: true });
+    for (const path of [`/ws/duel?${other}`, '/ws/duel']) {
+      const ws = await wsPath(token, path, { legacy: true });
       const closed = new Promise<number>((resolve) => ws.ws.addEventListener('close', (e) => resolve(e.code)));
       expect(await ws.next('error'), path).toMatchObject({ code: SIM_VERSION_REJECTED });
       expect(await closed, path).toBe(SIM_VERSION_CLOSE);
@@ -118,8 +93,8 @@ describe('live sockets (?sim=)', () => {
   });
 
   it('a malformed version is refused before the upgrade', async () => {
-    const p = await join(9723);
-    const res = await SELF.fetch(`${BASE}/ws/online?sim=abc`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${p.token}` } });
+    const { token } = await openDuellist(9723);
+    const res = await SELF.fetch(`${BASE}/ws/duel?sim=abc`, { headers: { upgrade: 'websocket', 'sec-websocket-protocol': `pixelarrow.v1, ${token}` } });
     expect(res.status).toBe(400);
   });
 });

@@ -68,7 +68,6 @@
   ],
   "durable_objects": {
     "bindings": [
-      { "name": "REGION", "class_name": "RegionDO" },
       { "name": "MATCHMAKER", "class_name": "MatchmakerDO" },
       { "name": "DUEL", "class_name": "DuelDO" },
       // one live war region per object (M3, server/src/war/regionDO.ts)
@@ -84,7 +83,9 @@
     // the live war regions (docs/impl/global-war-rebuild.md M3)
     { "tag": "v3", "new_sqlite_classes": ["WarRegionDO"] },
     // the war world (docs/impl/global-war-rebuild.md M4)
-    { "tag": "v4", "new_sqlite_classes": ["WarWorldDO"] }
+    { "tag": "v4", "new_sqlite_classes": ["WarWorldDO"] },
+    // the old shard rooms of the route-graph war (W-01: deleted with M4)
+    { "tag": "v5", "deleted_classes": ["RegionDO"] }
   ],
   // Analytics Engine (docs/OPS.md "Analytics"): product events and client
   // error counts. deploy-config.mjs can drop these (ANALYTICS_ENGINE=off);

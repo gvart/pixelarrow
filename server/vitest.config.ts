@@ -2,7 +2,7 @@ import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-worker
 import { defineConfig } from 'vitest/config';
 
 // Tests run inside workerd (Miniflare) with the real wrangler.jsonc bindings:
-// a local D1 database and the RegionDO Durable Object. The root dist/ must
+// a local D1 database and the Durable Objects. The root dist/ must
 // exist (npm run build at the repo root) because the config declares assets.
 export default defineConfig({
   plugins: [
@@ -27,11 +27,10 @@ export default defineConfig({
           // itself is faked in test/setup.ts, so no test reaches the network.
           TURNSTILE_SECRET: '1x0000000000000000000000000000000AA',
           DEV_ORIGINS: 'http://localhost:6160',
-          ONLINE_MAP: 'test30',
           ADMIN_TOKEN: 'ops:test-admin-token-0123456789abcdef0123456789, short:tooshort',
           TEST_MIGRATIONS: await readD1Migrations('./migrations'),
           // Salt of the seeded server randomness (test/setup.ts): TEST_SEED=n npx vitest run
-          // replays the suite on other homes, shard seeds and battles.
+          // replays the suite on other battles.
           TEST_SEED: process.env.TEST_SEED ?? '',
         },
       },

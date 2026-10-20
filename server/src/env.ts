@@ -1,4 +1,3 @@
-import type { RegionDO } from './region';
 import type { MatchmakerDO } from './duel/matchmaker';
 import type { DuelDO } from './duel/duelDO';
 import type { WarRegionDO } from './war/regionDO';
@@ -9,7 +8,6 @@ import type { Session } from './auth/sessions';
 export interface Env {
   /** D1 database. Absent when D1_DATABASE_ID was not configured at deploy time. */
   DB?: D1Database;
-  REGION: DurableObjectNamespace<RegionDO>;
   /** The global duel queue (one object, 'global'). */
   MATCHMAKER: DurableObjectNamespace<MatchmakerDO>;
   /** One object per live ranked or unranked match (named by the match id). */
@@ -72,8 +70,6 @@ export interface Env {
   RL_TG_AUTH_IP?: RateLimit;
   /** Rate Limiting binding, 60 / 60 s: `public:<ip>` on GET/HEAD /api/public/v1/summary (ADR-0010 §4). */
   RL_PUBLIC_IP?: RateLimit;
-  /** Pins the map new online shards get (src/online/maps id; tests use 'test30'). Default: the season map. */
-  ONLINE_MAP?: string;
 }
 
 /** Hono generics for this app. */

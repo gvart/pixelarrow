@@ -4,7 +4,7 @@
  * failed (D1 always enforces foreign keys). Here the schema up to the last
  * migration production has applied gets rows in every table, every foreign key
  * pointing at a real parent; then the remaining migrations must apply, keep
- * every row and leave no foreign key violation.
+ * every row of every table they keep and leave no foreign key violation.
  */
 import { applyD1Migrations, env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +12,11 @@ import { describe, expect, it } from 'vitest';
 /** The last migration applied in production; later ones run over the seeded rows. */
 const PRODUCTION_HEAD = '0016_sim_version.sql';
 const PLAYERS = 6;
+/** Tables a later migration drops on purpose (0027: the old route-graph war, W-01). */
+const DROPPED = new Set([
+  'online_garrisons', 'online_camp_buildings', 'online_camps', 'online_regions', 'online_shards', 'market_audit', 'market_listings',
+  'merchant_orders', 'merchant_daily', 'world_boss_chests', 'world_boss_loot', 'world_boss_damage', 'world_bosses', 'battle_tickets', '_keep_merchant_orders',
+]);
 const ROWS = 3;
 
 interface Column { name: string; type: string; pk: number }
@@ -95,7 +100,9 @@ describe('migrations over a populated database', () => {
     await applyD1Migrations(db, env.TEST_MIGRATIONS);
 
     expect((await db.prepare('PRAGMA foreign_key_check').all()).results).toEqual([]);
-    for (const t of names) {
+    const kept = new Set(await tables(db));
+    expect(names.filter((t) => !kept.has(t) && !DROPPED.has(t)), 'tables lost by a migration').toEqual([]);
+    for (const t of names.filter((n) => kept.has(n))) {
       const cols = t === 'players'
         ? ['id', 'telegram_id', 'username', 'first_name', 'created_at', 'last_seen_at']
         : columns.get(t)!.map((c) => c.name);

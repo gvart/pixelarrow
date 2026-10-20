@@ -179,7 +179,7 @@ describe('transports', () => {
 });
 
 describe('sockets', () => {
-  const upgrade = (headers: Record<string, string>, path = `/ws/region/aegean?sim=${SIM_VERSION}`) => SELF.fetch(`${BASE}${path}`, { headers: { upgrade: 'websocket', ...headers } });
+  const upgrade = (headers: Record<string, string>, path = `/ws/war/test-ridge?sim=${SIM_VERSION}`) => SELF.fetch(`${BASE}${path}`, { headers: { upgrade: 'websocket', ...headers } });
 
   it('authenticate by the cookie from the game origin, or by Sec-WebSocket-Protocol', async () => {
     const { token, bearer } = await cookieLogin(610201);
@@ -202,7 +202,7 @@ describe('sockets', () => {
 
   it('refuse ?token=, both transports, and a token over the wrong transport', async () => {
     const { token, bearer } = await cookieLogin(610203);
-    expect((await upgrade({}, `/ws/region/aegean?sim=${SIM_VERSION}&token=${encodeURIComponent(bearer)}`)).status).toBe(400);
+    expect((await upgrade({}, `/ws/war/test-ridge?sim=${SIM_VERSION}&token=${encodeURIComponent(bearer)}`)).status).toBe(400);
     expect((await upgrade({ cookie: `__Host-pa_sid=${token}`, origin: GAME_ORIGIN, 'sec-websocket-protocol': `pixelarrow.v1, ${bearer}` })).status).toBe(400);
     expect((await upgrade({ 'sec-websocket-protocol': `pixelarrow.v1, ${token}` })).status).toBe(401);
   });
@@ -299,7 +299,7 @@ describe('online gate (requirePlayable)', () => {
       expect(res.status, path).toBe(403);
       expect(await res.json()).toMatchObject({ error: { code: 'not_playable' } });
     }
-    const ws = await SELF.fetch(`${BASE}/ws/region/aegean?sim=${SIM_VERSION}`, { headers: { upgrade: 'websocket', cookie: `__Host-pa_sid=${token}`, origin: GAME_ORIGIN } });
+    const ws = await SELF.fetch(`${BASE}/ws/war/test-ridge?sim=${SIM_VERSION}`, { headers: { upgrade: 'websocket', cookie: `__Host-pa_sid=${token}`, origin: GAME_ORIGIN } });
     expect(ws.status).toBe(403);
   });
 

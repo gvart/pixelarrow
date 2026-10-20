@@ -107,7 +107,7 @@ async function facts(db: D1Database, pid: number): Promise<Facts | null> {
               ${save(`json_extract(data, '$.fought')`)} AS fought,
               (SELECT rating FROM duel_ratings WHERE player_id = p.id AND ladder = 'live') AS rating,
               EXISTS (SELECT 1 FROM online_profiles WHERE player_id = p.id) AS war,
-              (SELECT COUNT(*) FROM online_regions WHERE owner_id = p.id) AS regions,
+              0 AS regions, -- the old region map is gone (W-01)
               EXISTS (SELECT 1 FROM duel_profiles WHERE player_id = p.id) OR EXISTS (SELECT 1 FROM duel_ratings WHERE player_id = p.id)
                 OR EXISTS (SELECT 1 FROM duel_matches WHERE player_a = p.id OR player_b = p.id) AS duel,
               EXISTS (SELECT 1 FROM purchases WHERE player_id = p.id) OR EXISTS (SELECT 1 FROM entitlements WHERE player_id = p.id) AS paid,

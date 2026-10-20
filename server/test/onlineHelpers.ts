@@ -2,10 +2,8 @@ import { env, SELF } from 'cloudflare:test';
 import { expect } from 'vitest';
 import { Battle } from '../../src/sim/battle';
 import type { BattleSetup, Order } from '../../src/sim/types';
-import { getMap, WorldGraph } from '../../src/online/world';
-import { rleEncode } from '../../src/online/mapSchema';
 import { resetRateLimits } from '../src/rateLimit';
-import { currentSeason, forgetSeasonCache, getShard, type Shard } from '../src/online/store';
+import { currentSeason, forgetSeasonCache } from '../src/online/store';
 import { seasonId } from '../../src/duel/season';
 import { api, BASE, devLogin, GAME_ORIGIN } from './helpers';
 import { SIM_VERSION } from '../../src/sim/version';
@@ -27,32 +25,11 @@ export interface Player {
 
 export interface Profile {
   season: { id: number };
-  shard: { id: number; map: string };
   resources: { gold: number; food: number; wood: number; bronze: number; recruits: number };
   energy: number;
-  home: number;
-  army: { loc: number; marching: boolean };
-  heroes: { hero: { id: string; name: string; group: number }; garrison: number | null; busy: boolean; woundedUntil: number }[];
+  heroes: { hero: { id: string; name: string; group: number }; busy: boolean; woundedUntil: number }[];
   stash: { uid: string; def: string }[];
   clan: { id: number; name: string; tag: string; role: string } | null;
-  income: { pending: { gold: number; food: number }; regions: number };
-}
-
-/** The world graph of a player's shard. */
-export function worldOf(p: { profile: Profile }): WorldGraph {
-  return getMap(p.profile.shard.map);
-}
-
-/** The shard row (seed, map) of a player. */
-export async function shardOf(p: { profile: Profile }): Promise<{ season: number; id: number; seed: number; world: WorldGraph }> {
-  const r = await DB().prepare('SELECT seed, map_id FROM online_shards WHERE season_id = ?1 AND id = ?2').bind(p.profile.season.id, p.profile.shard.id).first<{ seed: number; map_id: string }>();
-  return { season: p.profile.season.id, id: p.profile.shard.id, seed: r!.seed, world: getMap(r!.map_id) };
-}
-
-/** The shard (seed, map) a player is in, for the current season. */
-export async function shardRow(p: { profile: Profile }): Promise<Shard> {
-  const season = await currentSeason(DB());
-  return getShard(DB(), season.id, p.profile.shard.id);
 }
 
 /** Sets a player's Drachmae balance (creating the wallet). */
@@ -101,13 +78,6 @@ export function must<T>(v: T | null | undefined, what: string): T {
   return v;
 }
 
-/** Test shortcut for a march: puts a player's army in `loc` of `shard` (moving them into that shard when needed). */
-export async function placeArmy(p: Player, loc: number, shard = p.profile.shard.id): Promise<void> {
-  if (!Number.isInteger(loc) || !Number.isInteger(shard)) throw new Error(`placeArmy: bad region ${loc} / shard ${shard}`);
-  await DB().prepare('UPDATE online_profiles SET army_loc = ?1, shard_id = ?2, march = NULL WHERE season_id = ?3 AND player_id = ?4').bind(loc, shard, p.profile.season.id, p.playerId).run();
-  p.profile = { ...p.profile, shard: { ...p.profile.shard, id: shard }, army: { loc, marching: false } };
-}
-
 export async function join(id: number, name = `P${id}`): Promise<Player> {
   const { token, playerId, name: displayName } = await devLogin(id, name);
   const res = await api('/api/online/profile', { method: 'POST', token });
@@ -123,64 +93,6 @@ export async function getJson<T>(path: string, token: string): Promise<{ status:
 export async function post<T>(path: string, token: string, json: unknown = {}): Promise<{ status: number; body: T }> {
   const res = await api(path, { method: 'POST', token, json });
   return { status: res.status, body: await res.json<T>() };
-}
-
-/** A neighbour of the player's army (one route away) that is attackable now (no live attack lock) and held by plain neutrals. */
-export async function freeNeighbour(p: Player, filter?: (loc: number) => boolean): Promise<number> {
-  const w = worldOf(p);
-  const tryFrom = async (): Promise<number | null> => {
-    for (const n of w.neighbours(p.profile.army.loc)) {
-      if (filter && !filter(n)) continue;
-      const r = await getJson<{ region: { occupant: string; owner: number | null }; canAttack: boolean; locked: boolean }>(`/api/online/region/${n}`, p.token);
-      // (beast lairs are not plain neutrals: weakenNeutrals cannot touch them;
-      // a region another test's open ticket still locks cannot be attacked or garrisoned now)
-      if (r.status === 200 && r.body.canAttack && !r.body.locked && r.body.region.owner === null && r.body.region.occupant !== 'beast') return n;
-    }
-    return null;
-  };
-  const here = await tryFrom();
-  if (here !== null) return here;
-  // Homes are random spawn plots, sometimes boxed in by other players' land: march (test shortcut) somewhere freer.
-  const held = new Set(
-    (await DB().prepare('SELECT loc FROM online_regions WHERE season_id = ?1 AND shard_id = ?2 AND owner_id IS NOT NULL').bind(p.profile.season.id, p.profile.shard.id).all<{ loc: number }>()).results.map((x) => x.loc),
-  );
-  for (const r of w.all()) {
-    if (!r.passable || held.has(r.id)) continue;
-    await placeArmy(p, r.id);
-    const n = await tryFrom();
-    if (n !== null) return n;
-  }
-  throw new Error('no attackable neighbour');
-}
-
-/** Replaces the neutrals of a region with a single weak levy (so an attack is a sure win). */
-export async function weakenNeutrals(p: Player, loc: number): Promise<void> {
-  const prof = p.profile;
-  const levy = {
-    id: 'weak_levy',
-    name: 'Old Man',
-    culture: 'greek',
-    level: 1,
-    xp: 0,
-    traits: [],
-    look: { skin: 1, hair: 1, hairStyle: 0, beard: 1, tunic: 'tunicBlue' },
-    equip: {},
-    kills: 0,
-    battles: 0,
-    group: 0,
-    attrs: { str: 1, agi: 1, end: 1, wil: 1 },
-    points: 0,
-    perks: [],
-    wound: 0,
-    arch: 'raw',
-  };
-  await DB()
-    .prepare(
-      `INSERT INTO online_regions (season_id, shard_id, loc, npc, npc_at) VALUES (?1, ?2, ?3, ?4, ?5)
-       ON CONFLICT (season_id, shard_id, loc) DO UPDATE SET npc = excluded.npc, npc_at = excluded.npc_at`,
-    )
-    .bind(prof.season.id, prof.shard.id, loc, JSON.stringify([levy]), Date.now())
-    .run();
 }
 
 export interface Ticket {
@@ -223,12 +135,8 @@ export interface WsClient {
   onMessage?: (m: Record<string, unknown>) => void;
 }
 
-export function wsOnline(token: string): Promise<WsClient> {
-  return wsPath(token, '/ws/online');
-}
-
 /**
- * A socket on any /ws/* path (a region, the shard, the duel queue, a duel
+ * A socket on any /ws/* path (a war region, the duel queue, a duel
  * match). The session token goes in the Sec-WebSocket-Protocol header
  * (`auth: 'protocol'`, the default: Telegram's bearer) or in the session
  * cookie from the game's origin (`auth: 'cookie'`: the web).
@@ -279,26 +187,4 @@ export async function wsPath(token: string, path: string, opts: { auth?: 'protoc
   });
   ws.accept();
   return client;
-}
-
-/** A test world: `n` regions in a row (1 - 2 - ... - n), one minute per route. */
-export function lineWorld(n: number): WorldGraph {
-  const ids = Array.from({ length: n }, (_, i) => i + 1);
-  const site = { base: 'plain', river: false, coast: false, rocky: false, woods: 0 } as const;
-  return new WorldGraph({
-    id: `line${n}`,
-    version: 1,
-    cell: 10,
-    w: n,
-    h: 1,
-    mask: rleEncode(ids),
-    terrain: rleEncode(ids.map(() => 3)),
-    regions: ids.map((id) => ({ id, name: `R${id}`, kind: id === 1 ? 'capital' : 'plot', tier: 1, site, spawn: id === n, label: [id * 10 - 5, 5] as [number, number] })),
-    edges: ids.slice(0, -1).map((a) => ({ a, b: a + 1, minutes: 1, waypoints: [] })),
-  });
-}
-
-/** Moves `others` into `p`'s shard (their armies stay where their loc says), so they meet on one map. */
-export async function sameShard(p: Player, ...others: Player[]): Promise<void> {
-  for (const o of others) if (o.profile.shard.id !== p.profile.shard.id) await placeArmy(o, o.profile.army.loc, p.profile.shard.id);
 }

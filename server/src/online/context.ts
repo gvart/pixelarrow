@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import type { AppEnv, Env } from '../env';
 import { db } from '../middleware';
 import { requireRate } from '../rateLimit';
-import { currentSeason, getShard, membership, requireProfile, shardDoName, type Membership, type ProfileRow, type Season, type Shard } from './store';
+import { currentSeason, membership, requireProfile, type Membership, type ProfileRow, type Season } from './store';
 
 interface Ctx {
   db: D1Database;
@@ -16,7 +16,6 @@ interface Ctx {
 
 export interface PlayerCtx extends Ctx {
   profile: ProfileRow;
-  shard: Shard;
   clan: Membership | null;
 }
 
@@ -30,8 +29,8 @@ export async function base(c: Context<AppEnv>): Promise<Ctx> {
 export async function player(c: Context<AppEnv>): Promise<PlayerCtx> {
   const b = await base(c);
   const profile = await requireProfile(b.db, b.season.id, b.pid);
-  const [shard, clan] = await Promise.all([getShard(b.db, b.season.id, profile.shard_id), membership(b.db, b.season.id, b.pid)]);
-  return { ...b, profile, shard, clan };
+  const clan = await membership(b.db, b.season.id, b.pid);
+  return { ...b, profile, clan };
 }
 
 /** Per-player soft rate limit (per isolate, like the login limiter). */
@@ -39,11 +38,3 @@ export function limit(c: Context<AppEnv>, bucket: string, n: number, windowMs = 
   const pid = c.get('session').pid;
   requireRate(`online:${bucket}:${pid}`, n, windowMs);
 }
-
-/** The shard's Durable Object (presence, duels, region attack locks). */
-export function shardStub(env: Env, shard: { season: number; id: number }) {
-  return env.REGION.get(env.REGION.idFromName(shardDoName(shard)));
-}
-
-/** Key of a region's attack lock in the shard's Durable Object. */
-export const regionKey = (loc: number) => `r${loc}`;

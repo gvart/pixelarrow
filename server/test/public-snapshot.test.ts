@@ -5,7 +5,6 @@ import { BODY_MAX_BYTES, PublicSummaryV1 } from '../src/public/schema';
 import { publicDuelTop } from '../src/public/duelTop';
 import { seasonId } from '../../src/duel/season';
 import { RANKED } from '../../src/duel/rating';
-import { standings } from '../src/online/store';
 import { fresh, join, type Player } from './onlineHelpers';
 import { mockTelegram } from './helpers';
 import worker from '../src/index';
@@ -197,42 +196,26 @@ describe('public snapshot (ADR-0010 §2)', () => {
     await rate((await named()).id, 'async', 1300);
     expect((await buildPublicSnapshot(env, NOW)).duels.async).toHaveLength(3);
   });
-  it('war boards: eligible players by held-region score; clans only when their names pass the shared validator', async () => {
+  it('war boards stay empty (the old region standings went with the route-graph war); clans are counted', async () => {
     fresh();
     const ps: Player[] = [];
-    for (let i = 1; i <= 5; i++) ps.push(await join(8_800_000 + i));
+    for (let i = 1; i <= 3; i++) ps.push(await join(8_800_000 + i));
     const season = ps[0].profile.season.id;
-    for (const [i, p] of ps.entries()) await db.prepare('UPDATE players SET display_name = ?2, public_boards = ?3 WHERE id = ?1').bind(p.playerId, `Warrior${i}`, i === 4 ? 0 : 1).run();
-    const clan = async (name: string, members: typeof ps) => {
+    for (const [i, p] of ps.entries()) {
       const c = await db
-        .prepare('INSERT INTO clans (season_id, shard_id, name, tag, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id')
-        .bind(season, members[0].profile.shard.id, name, name.slice(0, 3).toUpperCase(), members[0].playerId, NOW)
+        .prepare('INSERT INTO clans (season_id, shard_id, name, tag, created_by, created_at) VALUES (?1, 0, ?2, ?3, ?4, ?5) RETURNING id')
+        .bind(season, `Clan Number${i}`, `CN${i}`, p.playerId, NOW)
         .first<{ id: number }>();
-      for (const m of members) await db.prepare("INSERT INTO clan_members (season_id, player_id, clan_id, role, joined_at) VALUES (?1, ?2, ?3, 'member', ?4)").bind(season, m.playerId, c!.id, NOW).run();
-    };
-    await clan('Iron Wolves', [ps[0], ps[1]]);
-    await clan('Admin Hawks', [ps[2]]); // reserved: fails the validator
-    await clan('Bronze Oaks', [ps[4]]);
-    await clan('Stone Owls', [ps[3]]);
-    const st = (await standings(db, season)).filter((s) => ps.some((p) => p.playerId === s.playerId));
-    expect(st.every((s) => s.score > 0)).toBe(true);
-
-    // The shared validator (names/validate.ts) decides which clan names are public.
+      await db.prepare("INSERT INTO clan_members (season_id, player_id, clan_id, role, joined_at) VALUES (?1, ?2, ?3, 'leader', ?4)").bind(season, p.playerId, c!.id, NOW).run();
+    }
     const snap = await buildPublicSnapshot(env, NOW);
     expect(snap.war.season).toEqual({ id: season, endsAt: expect.any(Number) });
     expect(snap.totals.clans).toBeGreaterThanOrEqual(3);
-    const names = snap.war.players.map((r) => r.name);
-    expect(names).toEqual(expect.arrayContaining(['Warrior0', 'Warrior1', 'Warrior2', 'Warrior3']));
-    expect(names).not.toContain('Warrior4'); // opted out
-    expect(snap.war.players.map((r) => r.rank)).toEqual(snap.war.players.map((_, i) => i + 1));
-    const wolves = snap.war.clans.find((c) => c.name === 'Iron Wolves');
-    expect(wolves?.members).toBe(2);
-    expect(snap.war.clans.map((c) => c.name)).not.toContain('Admin Hawks');
-    expect(snap.war.players.find((r) => r.name === 'Warrior0')?.clan).toBe('Iron Wolves');
-    expect(snap.war.players.find((r) => r.name === 'Warrior2')?.clan).toBeNull();
+    expect(snap.war.players).toEqual([]);
+    expect(snap.war.clans).toEqual([]);
   });
 
-  it('champions and boss slayers: eligible players only, newest seasons first', async () => {
+  it('champions: eligible players only, newest seasons first; no boss slayers', async () => {
     const [a, b, c] = [await named(), await named(), await named()];
     const gone = await named({ deleted: true });
     const reward = (season: number, pid: number, score: number, title: string) =>
@@ -249,29 +232,14 @@ describe('public snapshot (ADR-0010 §2)', () => {
     await duelReward(DUEL_SEASON - 1, 'live', c.id, 1900);
     await duelReward(DUEL_SEASON - 1, 'async', b.id, 1700);
     await duelReward(DUEL_SEASON, 'live', b.id, 2500); // the running season: not a champion yet
-    const kill = (boss: string, pid: number, at: number) =>
-      db
-        .prepare("INSERT INTO world_bosses (season_id, shard_id, boss, loc, level, hp, max_hp, parts, status, killed_at, killed_by, created_at) VALUES (77, ?1, ?2, 1, 1, 0, 10, '[]', 'dead', ?3, ?4, ?3)")
-        .bind(at, boss, at, pid)
-        .run();
-    await kill('kraken', a.id, 1);
-    await kill('titan', a.id, 2);
-    await kill('kraken', b.id, 3);
-    await kill('titan', b.id, 4);
-    await kill('kraken', c.id, 5);
-    await kill('titan', gone.id, 6);
     const snap = await buildPublicSnapshot(env, NOW);
     expect(snap.champions.war).toEqual([{ season: 901, name: b.name, title: 'Archon' }]);
     expect(snap.champions.duel).toEqual([
       { season: DUEL_SEASON - 1, ladder: 'live', name: c.name },
       { season: DUEL_SEASON - 1, ladder: 'async', name: b.name },
     ]);
-    expect(snap.bossSlayers).toEqual([
-      { rank: 1, name: a.name, kills: 2 },
-      { rank: 2, name: b.name, kills: 2 },
-      { rank: 3, name: c.name, kills: 1 },
-    ]);
-    expect(snap.totals.bossesSlain).toBeGreaterThanOrEqual(6);
+    expect(snap.bossSlayers).toEqual([]);
+    expect(snap.totals.bossesSlain).toBe(0);
   });
   it('publicDuelTop performs no writes, and the build writes only public_snapshot and stats_counters (D1 spy)', async () => {
     const top = spyDb();
