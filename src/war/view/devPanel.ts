@@ -6,6 +6,7 @@ import type { SandboxScene } from './SandboxScene';
 import { SIEGE_HELP } from './siege/siegeControls';
 import { SQUAD_MAX } from '../sim/soldiers';
 import { sandboxRoster } from './hud/roster/state';
+import { WORLD_REGIONS } from '../regions';
 
 const CLASSES = ['militia', 'hoplite', 'celt_sword', 'archer', 'slinger', 'javelineer'];
 
@@ -16,6 +17,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
   el.id = 'dev';
   el.innerHTML = `
     <b>${s.region.name}</b> <span class="dim">${s.region.w}x${s.region.h}</span>
+    <div class="row">region <select id="region"><option value="test-ridge">test-ridge</option>${WORLD_REGIONS.map((r) => `<option value="${r.id}" ${r.id === s.region.id ? 'selected' : ''}>${r.name} (${r.role}${r.draft ? ', draft' : ''})</option>`).join('')}</select></div>
     ${sc ? `<div class="row">scenario <select id="scn">${SCENARIOS.map((q) => `<option value="${q.id}" ${q.id === sc.id ? 'selected' : ''}>${q.name}</option>`).join('')}</select></div>
     <div class="row" id="goal">${sc.goal}</div>` : ''}
     <div class="row">team <select id="team"><option value="0">0 you</option><option value="1">1 red</option><option value="2">2 gold</option><option value="3">3 violet</option></select>
@@ -44,6 +46,8 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
   $('bots').onclick = bots;
   $('brawl').onclick = () => brawl(s);
   $('clear').onclick = () => location.reload();
+  const reg = $<HTMLSelectElement>('region');
+  reg.onchange = () => { const q = new URLSearchParams(location.search); q.set('region', reg.value); q.delete('scenario'); location.search = q.toString(); };
   const scn = el.querySelector<HTMLSelectElement>('#scn');
   if (scn) scn.onchange = () => { const q = new URLSearchParams(location.search); q.set('scenario', scn.value); location.search = q.toString(); };
   const spot = el.querySelector<HTMLSelectElement>('#spot');
