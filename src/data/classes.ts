@@ -385,3 +385,40 @@ export function townClasses(culture: Culture): [ClassId, number][] {
   }
   return out;
 }
+
+// ------------------------------------------------------------- civilians (war, W-38)
+/**
+ * Non-combat classes of the war (docs/WAR.md "Soldiers", W-38): the same hero record (level, attributes, gear) with a
+ * tool in the weapon slot instead of a weapon. They are not in CLASSES (the battle game never fields them); the war sim
+ * (src/war/sim/civilians.ts) reads them by id, `civ_<job>`, which is also their sprite sheet's name.
+ */
+export type CivClassId = 'civ_cook' | 'civ_smith' | 'civ_merchant' | 'civ_engineer' | 'civ_physician' | 'civ_forager';
+export interface CivClassDef {
+  id: CivClassId;
+  name: string;
+  short: string;
+  role: 'civ';
+  desc: string;
+  attrs: Attrs;
+  /** Tool item ids (CIV_TOOLS) by tier 1..3: what he carries in the weapon slot. */
+  tools: [string, string, string];
+}
+/** A tool: weapon-slot item of a civilian (tier 1..3; its rarity rolls like any item's). Better tools work faster. */
+export interface CivToolDef { id: string; name: string; tier: 1 | 2 | 3; cls: CivClassId }
+
+const civ = (id: CivClassId, name: string, short: string, desc: string, attrs: Attrs, tools: [string, string, string]): CivClassDef => ({ id, name, short, role: 'civ', desc, attrs, tools });
+export const CIV_CLASSES: Record<CivClassId, CivClassDef> = {
+  civ_cook: civ('civ_cook', 'Cook', 'Cook', 'Food and salt into rations: a fed squad shrugs off more and heals faster.', A(4, 5, 5, 6), ['ladle', 'copper_pot', 'bronze_cauldron']),
+  civ_smith: civ('civ_smith', 'Smith', 'Smith', 'Copper and tin into bronze; mends the gear of the men near his forge.', A(7, 4, 5, 4), ['stone_hammer', 'bronze_hammer', 'iron_hammer']),
+  civ_merchant: civ('civ_merchant', 'Merchant', 'Merch', 'Sells the surplus for silver (caravans and hand-off trades come with M6).', A(4, 5, 4, 7), ['tally_stick', 'scales', 'signet']),
+  civ_engineer: civ('civ_engineer', 'Engineer', 'Engin', 'Leads a site: builds, repairs and raises engines half again as fast.', A(5, 5, 5, 5), ['plumb_line', 'groma', 'dioptra']),
+  civ_physician: civ('civ_physician', 'Physician', 'Phys', 'Heals the hurt round a camp or fort; more of the fallen near him live.', A(4, 5, 4, 7), ['herb_bag', 'bronze_scalpel', 'surgeon_kit']),
+  civ_forager: civ('civ_forager', 'Forager', 'Forag', 'Farmer, woodcutter and miner in one: gathers twice as fast as a soldier.', A(6, 6, 5, 3), ['flint_sickle', 'bronze_axe', 'iron_pick']),
+};
+export const CIV_CLASS_IDS = Object.keys(CIV_CLASSES) as CivClassId[];
+export const CIV_TOOLS: Record<string, CivToolDef> = Object.fromEntries(
+  CIV_CLASS_IDS.flatMap((c) => CIV_CLASSES[c].tools.map((id, i) => [id, { id, name: id.replace(/_/g, ' '), tier: (i + 1) as 1 | 2 | 3, cls: c }])),
+);
+export function isCivClass(id: unknown): id is CivClassId {
+  return typeof id === 'string' && id in CIV_CLASSES;
+}

@@ -9,7 +9,7 @@
  * soldier above, `warStats(cls)`) so a max soldier stays within the power curve; F skills and item powers become at most
  * MAX_FLAGS bits of `flags`.
  */
-import { CLASSES, isClassId, type ClassId } from '../../data/classes';
+import { CLASSES, isCivClass, isClassId, type ClassId } from '../../data/classes';
 import { BASE, type Equipment, type Hero } from '../../data/units';
 import type { Rarity } from '../../data/items';
 import { itemPower } from '../../data/affixes';
@@ -18,6 +18,7 @@ import { computeStats, type CombatStats } from '../../sim/stats';
 import { mobKindOf, MOBS } from './mobs';
 import { F, MAX_FLAGS, SKILLS } from './skills';
 import { woundedShare } from './soldiers';
+import { CIV, workRate } from './civilians';
 
 export interface WarStats {
   maxHp: number;
@@ -42,6 +43,8 @@ export interface WarStats {
   ws: number;
   /** M5b: F skill and item power bits (./skills.ts F), at most MAX_FLAGS set. */
   flags: number;
+  /** M5f civilians: work speed (level and tool, ./civilians.ts workRate); undefined for soldiers. */
+  work?: number;
 }
 
 /** The power cap of a baked soldier against the fresh soldier of his class (docs/WAR.md "Clamp"). */
@@ -60,6 +63,13 @@ const ticks = (sec: number) => Math.max(1, Math.round(sec * 10));
 export function warStats(cls: string): WarStats {
   let s = cache.get(cls);
   if (s) return s;
+  if (isCivClass(cls)) {
+    // M5f: a civilian is a militiaman without his weapon: weak blows, no missiles or block, half the armour
+    const b = warStats('militia');
+    s = { ...b, maxHp: Math.round(b.maxHp * CIV.hp), dmg: b.dmg * CIV.dmg, rangedDmg: 0, range: 0, ammo: 0, armor: b.armor * CIV.armor, block: 0, speed: 1, flags: 0, work: 1 };
+    cache.set(cls, s);
+    return s;
+  }
   const mob = mobKindOf(cls);
   if (mob) {
     // fauna and bandits (./mobs.ts, class mob_<kind>): their base class scaled; beasts carry no missiles
@@ -126,6 +136,11 @@ const POWER_FLAGS: Partial<Record<string, number>> = { executioner: F.finisher }
 export function warStatsOf(p: WarPerson | Hero): WarStats {
   const person: WarPerson = 'hero' in p ? p : { id: p.id, hero: p };
   const hero = person.hero;
+  if (isCivClass(hero.cls)) {
+    // M5f: the civilian's class stats, his level on HP (as soldiers', within the clamp), his tool on his work
+    const c = warStats(hero.cls);
+    return { ...c, maxHp: Math.round(c.maxHp * Math.min(CLAMP.hp, 1 + 0.04 * (hero.level - 1))), ws: woundedShare(hero.attrs.end), work: workRate(hero) };
+  }
   const cls = classId(hero.cls ?? '');
   const o = warStats(cls), b = warStats(CLAMP_BASE[cls] ?? cls);
   const s = bake(computeStats({ ...hero, cls, perks: [] }), hero.attrs.end);
