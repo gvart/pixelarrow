@@ -1831,6 +1831,24 @@ terracotta ramp. **4 generations**, 2 kept:
 
 **Lessons:** a geometric ornament is exact and periodic only when drawn in code; generate only the painted figures.
 
+**Map icons (W-36 polish).** 13 icons for the minimap, full map and view mode switcher: `lair-<mob>` (6), `mk-claim`,
+`mode-<mode>` (6). Pixen 32x32, `no_background`, `outline: single color outline`; prompt `game UI icon, <subject>,
+<name> icon, dark epic ancient Greek style, desaturated gritty colours, thick dark outline, readable silhouette`; 24 px
+by area average + hard alpha, @2x nearest. **15 generations**, 13 kept. Subjects (verbatim): wolf `the head of a
+snarling grey wolf, front view`; boar `the head of a wild boar with curved pale tusks, three-quarter view`; bear `the
+head of a roaring brown bear, front view`; bandit `a bandit's dark hooded head with a red cloth mask over the face and a
+curved dagger`; jackal `the head of a sandy golden jackal with tall pointed ears, three-quarter view`; ibex `the head of
+a mountain ibex with very long curved ridged horns, side view`; claim (2nd try) `a single tall wooden flagpole planted in
+a small mound of earth with a large cream and red rectangular cloth flag waving to the right`; normal (2nd try) `a
+single large almond-shaped human eye with a dark iris and lashes, seen from the front` (+ `warm cream and terracotta
+colours`); altitude `a stepped mountain peak with a snowy top and horizontal contour bands of green, ochre and brown`;
+movement `an ancient Greek leather sandal with straps` (+ `warm brown leather`); ownership `a waving blue and red war
+banner on a short spear pole`; biomes `a green olive branch with silver-green leaves crossed with a golden wheat ear`;
+resources `a small iron pickaxe resting on a heap of ore lumps with orange copper and grey stone`. Rejected: claim `a
+tall wooden standard pole with a cream cloth banner and a bronze laurel finial` (read as a candelabrum), eye `an open eye
+drawn in terracotta and black like on an ancient Greek vase` (drew a vase with an eye). Lesson: name one plain object;
+"like on a vase" makes the vase the subject.
+
 ## 33. Mobs (W-12)
 
 Neutral-region creatures as soldier-format sheets (`src/assets/sheets/mob_<mob>/`, SHEET_FORMAT v2; rows SE, NE, SW,
