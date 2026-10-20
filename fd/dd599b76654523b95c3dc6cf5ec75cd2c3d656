@@ -1,0 +1,37 @@
+src/war/scenarios/index.ts
+  s_cfc22b058125c4::t_d0cf02d4d04639 547,550-553,555,559-562,570,573-578,580
+  s_cfc22b058125c4::t_ef7fb3a9f6f618 584-589
+scripts/war/regions/drafts.ts
+  s_cfc22b058125c4::t_54555ff641daf1 277-278
+  s_cfc22b058125c4::t_fff08d799d0b55 111
+  s_cfc22b058125c4::t_beedcdc45b6b2d 287-292
+  s_cfc22b058125c4::t_040245d8e1623f 109-110,338-343
+  s_cfc22b058125c4::t_35cfa5c91c7722 47,59,117
+  s_cfc22b058125c4::t_4cee91070f4286 286
+  s_cfc22b058125c4::t_b92dca53736cbd 283
+  s_cfc22b058125c4::t_7921604b8fa646 18,271,274-276,279-280,293-296,337
+  s_cfc22b058125c4::t_51ab352d45ff8e 115,281-282,284-285
+src/war/regions/ammon.spots.ts
+  s_cfc22b058125c4::t_040245d8e1623f 14
+  s_cfc22b058125c4::t_35cfa5c91c7722 6-7
+  s_cfc22b058125c4::t_7921604b8fa646 8-12
+  s_cfc22b058125c4::t_54555ff641daf1 13,18
+src/war/regions/ammon.json
+  s_cfc22b058125c4::t_45fda7eb07331f 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fddd599b76654523b95c3dc6cf5ec75cd2c3d656",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
