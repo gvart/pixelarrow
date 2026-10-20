@@ -266,6 +266,11 @@ export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
   const read = (f) => JSON.parse(readFileSync(join(ROOT, f)));
   const G = read('public/war/tiles/tiles.json'), GO = read('public/war/objects/objects.json'), B = JSON.parse(readFileSync(join(dir, 'objects.json')));
   const fail = qaObjects(B, G.palette, dir, GO), pal = palSet([...G.palette, ...(B.palette ?? [])]);
+  return [...fail, ...qaKits(B, dir, pal)];
+}
+// kit sheets of a set (build-mode kits, the landmark labyrinth): size, binary alpha, palette, seams
+function qaKits(B, dir, pal) {
+  const fail = [];
   for (const k of B.kits ?? []) for (const [state, file] of Object.entries(k.states ?? {})) {
     const cols = k.columns ?? k.frames, sheets = { back: file, ...(k.front ? { front: k.front[state] } : {}) }, ims = {};
     for (const [layer, fl] of Object.entries(sheets)) {
@@ -408,9 +413,46 @@ export function runTradeQa() {
   return fail;
 }
 
-// CLI: the global set, every biome folder, the build-mode set and the siege set.
+// Landmark structures (ART-L, public/war/landmarks): every sprite passes the object checks; every piece has its four
+// states; the labyrinth kit as the build-mode kits; wall segments (segmentM) laid three in a row in every state show no
+// crack or slit where two meet.
+export function qaLandmarks(dir = join(ROOT, 'public/war/landmarks')) {
+  const read = (f) => JSON.parse(readFileSync(join(ROOT, f)));
+  const G = read('public/war/tiles/tiles.json'), GO = read('public/war/objects/objects.json'), L = JSON.parse(readFileSync(join(dir, 'landmarks.json')));
+  const fail = qaObjects(L, G.palette, dir, GO), pal = palSet([...G.palette, ...(L.palette ?? [])]), byId = new Map(L.objects.map((o) => [o.id, o]));
+  for (const p of L.pieces ?? []) for (const s of L.states) if (!byId.has(p.states?.[s])) fail.push(`${p.id}: no ${s} sprite`);
+  fail.push(...qaKits(L, dir, pal));
+  for (const p of (L.pieces ?? []).filter((q) => q.segmentM)) for (const s of L.states) {
+    const o = byId.get(p.states[s]); if (!o) continue;
+    const im = readImage(join(dir, o.file)), n = p.segmentM / 2, ax = p.axis === 'y' ? [0, n] : [n, 0];
+    const W = im.w + 3 * n * 64 + 8, H = im.h + 3 * n * 32 + 8, cmp = { w: W, h: H, data: new Uint8Array(W * H * 4) }, OX = 3 * n * 32 + 4;
+    const sx = (x, y) => OX + (x - y) * 32, sy = (x, y) => 4 + (x + y) * 16;
+    for (let i = 0; i < 3; i++) { const X = sx(ax[0] * i, ax[1] * i) - o.tileOrigin.x, Y = sy(ax[0] * i, ax[1] * i) - o.tileOrigin.y + o.tileOrigin.y; for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) { const q = (y * im.w + x) * 4; if (im.data[q + 3] && X + x >= 0 && Y + y >= 0 && X + x < W && Y + y < H) cmp.data.set(im.data.subarray(q, q + 4), ((Y + y) * W + X + x) * 4); } }
+    const op = (x, y) => x >= 0 && y >= 0 && x < W && y < H && cmp.data[(y * W + x) * 4 + 3] > 0;
+    const near = (x, y, dx, dy, m) => { for (let k = 1; k <= m; k++) if (op(x + dx * k, y + dy * k)) return true; return false; };
+    const cracks = (c) => { let m = 0; for (let x = c - 4; x <= c + 4; x++) for (let y = 0; y < H; y++) if (!op(x, y) && near(x, y, -1, 0, 2) && near(x, y, 1, 0, 2) && near(x, y, 0, -1, 3) && near(x, y, 0, 1, 3)) m++; return m; };
+    const colH = (x) => { let m = 0; for (let y = 0; y < H; y++) if (op(x, y)) m++; return m; };
+    const [fw, fh] = p.footprint, ctr = (i) => sx(ax[0] * i + fw / 2, ax[1] * i + fh / 2);
+    for (const i of [1, 2]) {
+      const mid = Math.round(p.axis === 'y' ? sx(fw / 2, ax[1] * i) : sx(ax[0] * i, fh / 2)), inner = Math.max(cracks(Math.round(ctr(i - 1))), cracks(Math.round(ctr(i)))), at = cracks(mid);
+      if (at > inner + 2) fail.push(`${p.id} ${s}: ${at} crack px where segments ${i - 1} and ${i} meet (${inner} inside)`);
+      for (let x = mid - 3; x <= mid + 3; x++) if (!colH(x) && colH(x - 4) && colH(x + 4)) { fail.push(`${p.id} ${s}: empty column where segments ${i - 1} and ${i} meet`); break; }
+    }
+  }
+  return fail;
+}
+export function runLandmarksQa() {
+  const dir = join(ROOT, 'public/war/landmarks'); if (!existsSync(join(dir, 'landmarks.json'))) return [];
+  const fail = qaLandmarks(dir), L = JSON.parse(readFileSync(join(dir, 'landmarks.json')));
+  const n = `landmarks: ${(L.pieces ?? []).length} pieces, ${(L.kits ?? []).length} kits, ${L.objects.length} sprites`;
+  if (fail.length) console.error(`QA FAIL (${fail.length}) over ${n}\n  ` + fail.join('\n  '));
+  else console.log(`QA OK: ${n}`);
+  return fail;
+}
+
+// CLI: the global set, every biome folder, the build-mode set, the siege, trade and landmark sets.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const bdir = join(ROOT, 'public/war/biomes');
   const biomes = existsSync(bdir) ? readdirSync(bdir).filter((b) => existsSync(join(bdir, b, 'tiles.json'))) : [];
-  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length, runSiegeQa().length, runTradeQa().length].some(Boolean) ? 1 : 0);
+  process.exit([...[undefined, ...biomes].map((b) => runQa(b).length), runBuildingsQa().length, runSiegeQa().length, runTradeQa().length, runLandmarksQa().length].some(Boolean) ? 1 : 0);
 }
