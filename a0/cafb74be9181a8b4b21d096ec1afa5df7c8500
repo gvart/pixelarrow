@@ -1,0 +1,27 @@
+src/war/view/build/buildArt.ts
+  s_cfc22b058125c4::t_f63dc79ab3799a 203-220
+src/war/view/hud/buildingCard.ts
+  s_cfc22b058125c4::t_dd884c96ab72dc 144-145
+  s_cfc22b058125c4::t_1f171ded68e6e6 3-4
+  s_cfc22b058125c4::t_a56b6641c90a48 155-156
+src/war/view/build/buildingLayer.ts
+  s_cfc22b058125c4::t_5f92068b6dd562 500-504
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_f12d5542fe14b5 351
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a0cafb74be9181a8b4b21d096ec1afa5df7c8500",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
