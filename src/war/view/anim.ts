@@ -16,7 +16,8 @@
  * manifest is used as soon as it ships. `override` is the hook for work clips: it names clips for a
  * unit, the first the sheet has is used. `workClips` is the stock one: gathering plays chop (wood, pitch),
  * mine (stone, marble, ores, salt) or harvest (food) by the resource it takes in, labouring at a site
- * plays build, walking with a load plays carry; never an attack clip (a sheet without them idles).
+ * plays build, walking with a load plays walk with the load drawn over it (`loadOf`: planks, a block, a sack, a basket
+ * or a jar by the resource); never an attack clip (a sheet without them idles).
  */
 import { resolveAnim, SHEET_ANIMS, type SheetAnim } from '../../art/sheetManifest';
 import type { ResourceKind, SquadSnap, UnitSnap } from '../types';
@@ -44,11 +45,23 @@ const CHOP = ['chop', 'build', 'idle'] as const;
 const MINE = ['mine', 'chop', 'build', 'idle'] as const;
 const HARVEST = ['harvest', 'idle'] as const;
 const BUILD = ['build', 'chop', 'idle'] as const;
-const CARRY = ['carry', 'walk'] as const;
+// a loaded man walks: his load is an overlay on the walk (LOADS, drawn by ./units.ts at the sheet's `loads` anchors)
+const CARRY = ['walk'] as const;
 const GATHER: Record<ResourceKind, readonly string[]> = {
   wood: CHOP, pitch: CHOP, food: HARVEST,
   stone: MINE, marble: MINE, copper: MINE, tin: MINE, iron: MINE, bronze: MINE, silver: MINE, salt: MINE,
 };
+
+/** The load sprite (src/assets/loads) each carried resource shows: planks, a dressed block, a sack, a basket, a jar. */
+const LOADS: Record<ResourceKind, string> = {
+  wood: 'wood', stone: 'stone', marble: 'marble', food: 'food', pitch: 'pitch',
+  copper: 'ore', tin: 'ore', iron: 'ore', bronze: 'ore', silver: 'ore', salt: 'ore',
+};
+
+/** The load a unit is seen carrying (walking with a load), else undefined. */
+export function loadOf(u: UnitSnap): string | undefined {
+  return u.carry && u.state === 'move' ? LOADS[u.carry] : undefined;
+}
 
 /** Work clips for a gathering, labouring or loaded unit (the Animator override); undefined: the usual pick. */
 export function workClips(u: UnitSnap): readonly string[] | undefined {
