@@ -1,0 +1,30 @@
+src/war/regions/kleisoura.spots.ts
+  s_cfc22b058125c4::t_b7e10b3298015d 7-10,15-16,19
+  s_cfc22b058125c4::t_9a108d4510c34e 12-14
+  s_cfc22b058125c4::t_660aeeb2f4c2d4 11
+scripts/war/regions/kleisoura.ts
+  s_cfc22b058125c4::t_5c1810dcc01cec 40-41
+  s_cfc22b058125c4::t_2b1cd7e6352870 4-11,24-27,33-39,42-52,56,58,60-67,69-78,80-83
+  s_cfc22b058125c4::t_b7e10b3298015d 57
+  s_cfc22b058125c4::t_660aeeb2f4c2d4 55
+  s_cfc22b058125c4::t_13ccf26c09c2df 59
+  s_cfc22b058125c4::t_9a108d4510c34e 53
+src/war/regions/kleisoura.json
+  s_cfc22b058125c4::t_a087142c131e7b 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "aa10ccba4625a89d784d450b770120e00f0d32e2",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
