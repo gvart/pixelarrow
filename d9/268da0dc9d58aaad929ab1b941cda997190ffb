@@ -1,0 +1,25 @@
+scripts/war/art/trade.mjs
+  s_cfc22b058125c4::t_1f0b454b57e79d 283
+scripts/war/art/trade-preview.mjs
+  s_cfc22b058125c4::t_93f7040c38b3aa 98,108,111-112,115
+  s_cfc22b058125c4::t_d996fc031019d3 1-97,99-102,104-107,109-110,113-114,116-127
+  s_cfc22b058125c4::t_facf3407b90988 103
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_cb362c5f2de402 2406-2474
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d9268da0dc9d58aaad929ab1b941cda997190ffb",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
