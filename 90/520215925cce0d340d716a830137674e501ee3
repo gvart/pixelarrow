@@ -1,0 +1,19 @@
+src/war/view/hud/mapDraw.ts
+  s_cfc22b058125c4::t_34d55173f2265b 7-8,11,58-91,132,180-184,213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "90520215925cce0d340d716a830137674e501ee3",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
