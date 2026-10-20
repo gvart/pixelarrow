@@ -1,0 +1,83 @@
+{
+ "version": 2,
+ "class": "civ_merchant",
+ "image": "civ_merchant.png",
+ "frame": {
+  "w": 74,
+  "h": 86
+ },
+ "anchor": {
+  "x": 40,
+  "y": 82
+ },
+ "anchors": {
+  "south-east": {
+   "x": 35,
+   "y": 82
+  },
+  "north-east": {
+   "x": 29,
+   "y": 82
+  },
+  "south-west": {
+   "x": 40,
+   "y": 82
+  },
+  "north-west": {
+   "x": 45,
+   "y": 82
+  }
+ },
+ "scale": 0.55,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 55,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "walk": {
+   "col": 12,
+   "frames": 12,
+   "fps": 12
+  },
+  "run": {
+   "col": 24,
+   "frames": 12,
+   "fps": 16
+  },
+  "trade": {
+   "col": 36,
+   "frames": 12,
+   "fps": 8
+  },
+  "die": {
+   "col": 48,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 60,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
