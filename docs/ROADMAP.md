@@ -2,14 +2,14 @@
 
 Where the game is going, the architecture it runs on, the invariants the
 code keeps, and what is still open. What is built is described in
-GAMEPLAY.md, DESIGN_V2.md, DUELS.md and server/README.md.
+GAMEPLAY.md, WAR.md, DUELS.md and server/README.md.
 
 ## Vision
 
-- **A shared online war.** Seasonal shards of a hand-authored ancient
-  Mediterranean map: players hold regions, fight garrisons, neutrals and
-  beasts, and expand (DESIGN_V2.md). **Clans** share land and fight for
-  capitals.
+- **A shared online war.** One seasonal world of ~37 hand-authored regions,
+  four alliances, live server-run battles in every region and squads that
+  transfer between neighbours (WAR.md, docs/impl/global-war-rebuild.md).
+  **Clans** serve inside an alliance.
 - **Duels:** a persistent duel army with ranked live and async ladders
   (DUELS.md).
 - **Telegram Stars buy only Drachmae**; Drachmae buy cosmetics and the
@@ -29,19 +29,21 @@ a landing deploy never restarts the game's Durable Objects.
 
 | Concern | Choice |
 | --- | --- |
-| Real-time server | **Workers + Durable Objects**: `RegionDO` per shard, `MatchmakerDO` (global duel queue), `DuelDO` per live match. WebSockets use the **hibernation API**. |
+| Real-time server | **Workers + Durable Objects**: `WarWorldDO` (the one war world), `WarRegionDO` per live war region, `MatchmakerDO` (global duel queue), `DuelDO` per live match. WebSockets use the **hibernation API**. |
 | Persistence | **D1**: accounts, heroes, items, territories, clans, purchases, battle records. DOs hold hot state and flush to D1. |
-| Shared game logic | `src/sim`, `src/online`, `src/duel`, `src/game` run unchanged in the Worker. The server **re-runs every battle from its seed and order log** and accepts only the result it computes. |
+| Shared game logic | `src/sim`, `src/war`, `src/online`, `src/duel`, `src/game` run unchanged in the Worker. The server **re-runs every battle from its seed and order log** and accepts only the result it computes. |
 | Auth | Telegram `initData` (HMAC-SHA256 with the bot token, `auth_date` freshness) or email and password; both resolve to one player id (ADR-0008, ADR-0009). |
 | Payments | **Telegram Stars** (`XTR`): `createInvoiceLink`, `WebApp.openInvoice`, a webhook answers `pre_checkout_query` and records `successful_payment` in D1, then grants. The client never decides what was bought. `refundStarPayment` revokes. |
 | Cost | Workers paid plan (~$5/month): replays need more CPU than the free tier, and DOs require it. |
 
 ### Battle flow online
 
-- **Async** (war attacks, boss raids, duel ladder and raids): the server
+- **Async** (duel ladder and raids): the server
   fixes the seed and both armies (from D1) in a ticket; the client fights the
   bot AI and submits its order log; the server replays it and applies only
   its own result.
+- **Live war** (regions): the region's `WarRegionDO` runs the sim and
+  streams it; the clients only send orders.
 - **Live** (duels): a DO relays deployment orders, then seals battle orders
   into turns ahead of time; clients compare `Battle.hash()` every 10 turns;
   at the end the server replays the whole log and writes the result.

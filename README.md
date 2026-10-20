@@ -170,15 +170,14 @@ src/
   art/        procedural art: 3D-primitive pixel renderer, paper dolls, ground, maps, effects, smooth UI, fonts, icons
   audio/      procedural Web Audio
   ui/         UI kit, v3 components, Strategos chrome, battle HUD, tutorial pieces, layout registry
-  scenes/     Boot, Menu, World, Camp, Settlement, Army, Hero, Battle, Results, Shop, Market, FirstRun, online/, duel/
+  scenes/     Boot, Menu, World, Camp, Settlement, Army, Hero, Battle, Results, Shop, FirstRun, online/ (clan), duel/
   i18n/       English and Russian tables
   platform/   Telegram wrapper, back navigation, safe area, storage, API client, cloud save sync, battle verify
   dev/        sprite preview, store art, audio samples, balance harnesses
 server/       the Cloudflare Worker (API, Durable Objects, D1 migrations), see server/README.md
 landing/      the landing site pixelarrow.app: Astro build, its own Worker and wrangler.jsonc (ADR-0007)
-maps-src/     authored season maps, compiled by scripts/buildMap.ts
 tests/        vitest suites
-scripts/      smoke tests, layout check, map compiler; dev/ for screenshot, art and balance tools
+scripts/      smoke tests, layout check; dev/ for screenshot, art and balance tools
 docs/         design and operations docs (see "Docs")
 ```
 

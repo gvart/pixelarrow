@@ -1,17 +1,16 @@
 # Pixelarrow duels: ranked PvP, duel army and two shops
 
-Duels, the duel shop and war-map merchants. Wins over DESIGN_V2.md here.
+Duels and the duel shop. Wins over DESIGN_V2.md here.
 
 ## Status
 
 - Rules (numbers here are these constants): `src/duel/rules.ts`
   (`DUEL_RULES`, costs, `offerSummary`), `ladder.ts` (`LADDER`), `rating.ts`
-  (`RANKED`), `season.ts` (`SEASON`, `ASYNC`) in `src/duel/`;
-  `src/online/merchants.ts` (`MERCHANT`).
-- Server: `server/src/duel/`, `server/src/online/merchant.ts`; API in
+  (`RANKED`), `season.ts` (`SEASON`, `ASYNC`) in `src/duel/`.
+- Server: `server/src/duel/`; API in
   server/README.md "Duels". Client: `src/scenes/duel/DuelScene.ts` (layout
-  docs/UI_KIT.md "Duels"), `src/duel/heroSource.ts`, `src/duel/match.ts`,
-  `src/scenes/online/MerchantScene.ts`; `DemoDuelSource` feeds the layout
+  docs/UI_KIT.md "Duels"), `src/duel/heroSource.ts`, `src/duel/match.ts`;
+  `DemoDuelSource` feeds the layout
   check and `scripts/duel-smoke.mjs`.
 - Not built: consumables in unranked/ladder, raid replay viewer (`GET
   /api/duel/async/replay/:id` exists), friends boards.
@@ -159,25 +158,6 @@ Duels, the duel shop and war-map merchants. Wins over DESIGN_V2.md here.
   legendary set pieces) only salvaged for the same (`/shop/salvage`).
 - **Respec:** 20 Glory × level.
 
-## War-map shops on the map
-
-Menu shop buying is closed (`POST /api/economy/buy` → 410 `merchant_only`).
-
-- **Where:** a merchant in every town and capital, plus `post` regions
-  (trading posts: harbours, crossroads) with rarer stock.
-- **Access:** as for marketplace listing: hold the region or have the army on
-  or next to it. Holder and clan get 10% off; holder earns 5% of the list
-  gold price of sales to others (paid by the merchant).
-- **Stock** per (shard seed, region, UTC day), never stored: the five
-  consumables (gold or Drachmae, daily caps across merchants); towns: 3
-  basic commons, 2 regional uncommon specialties and 1 rare (by nearest
-  capital's culture); trading posts: every specialty plus harbour/crossroads
-  goods at rare and 1 epic. Gear costs value × 2/3/5/8 gold by rarity, never
-  Drachmae; daily gear caps 2 (basic) and 1 (regional, rare) per player.
-- D1 keeps only per-player counters (`merchant_orders`, `merchant_daily`).
-  Recruiting stays on the online army screen.
-- Region panel "Merchant" opens `MerchantScene`; a stall marks posts.
-
 ## Wallet (unchanged place)
 
 Stars → Drachmae, season pass and account cosmetics stay in the profile-menu
@@ -190,7 +170,6 @@ wallet (`/paysupport`). Cosmetics apply in both modes.
   `duel_orders`, `duel_ratings`, `duel_queue_state`, `duel_matches`,
   `duel_loadouts`, `duel_defences`, `duel_attacks`, `duel_season_rewards`,
   `duel_ladder_stars`, `duel_ladder_chests`, `loot_pity` (track `duel`).
-- `MatchmakerDO`, one `DuelDO` per live match; friendly duels on the shard
-  `RegionDO`. Routes `/api/duel/*`, `/ws/duel`: idempotent per request id,
+- `MatchmakerDO`, one `DuelDO` per live match. Routes `/api/duel/*`, `/ws/duel`: idempotent per request id,
   replay-validated.
 
