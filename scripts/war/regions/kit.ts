@@ -692,7 +692,7 @@ export class Site {
   /** Water over site tiles (1 shallow, 2 deep), its bed at `bed`. */
   flood(x0: number, y0: number, x1: number, y1: number, depth: 1 | 2, bed = 0) { this.k.waterRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, depth, bed); }
   /** Terrain over site tiles (default road: a street; dirt: a yard). */
-  pave(x0: number, y0: number, x1: number, y1: number, t = 'road') { this.k.paintRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, t); }
+  pave(x0: number, y0: number, x1: number, y1: number, t = 'paving') { this.k.paintRect(this.x0 + x0, this.y0 + y0, this.x0 + x1, this.y0 + y1, t); }
   /** Footprint of a piece id. */
   fp(id: string): [number, number] {
     if (id.startsWith('@town-')) { const f = TOWN_FP.get(T(id.slice(6))); if (f) return f; }
@@ -813,7 +813,7 @@ export class Site {
    * avenues (site x of the north-south ones, y of the east-west ones) `aw` wide; paved and kept clear. Returns the blocks.
    */
   grid(x0: number, y0: number, x1: number, y1: number, o: { bw: number; bh: number; sw?: number; aw?: number; avX?: number[]; avY?: number[]; t?: string }): [number, number, number, number][] {
-    const sw = o.sw ?? 2, aw = o.aw ?? 4, t = o.t ?? 'road';
+    const sw = o.sw ?? 2, aw = o.aw ?? 4, t = o.t ?? 'paving';
     const cuts = (a0: number, a1: number, step: number, av: number[]) => {
       const out: [number, number][] = av.map((v) => [v - aw / 2, v + aw / 2]);
       for (let v = a0 + step; v < a1 - 3; v += step + sw) if (!out.some(([p, q]) => v + sw > p - 3 && v < q + 3)) out.push([v, v + sw]);
@@ -1125,6 +1125,8 @@ const PREBUILT_POP = new Set<BuildingType>(['house', 'cottage', 'tent']);
 
 interface Out { kind: Uint8Array; z: Uint8Array }
 
+/** Biome libraries with a paving set (scripts/war/art/biomes/*.mjs grass- or sand-paving); elsewhere paved streets draw as roads. */
+const PAVED = new Set<string>(['kyrene', 'elaia', 'mountains']);
 /** The visual layer of a fine (1 m) run. */
 function visualLayer(k: Kit): Out {
   const { W, H, N, height, terrain, water, biome, bDepth, rock, roadDist, style } = k;
@@ -1190,7 +1192,7 @@ function visualLayer(k: Kit): Out {
         if ((style.dryHigh && height[i] >= 2) || fbm(x, y, 7, 86) > style.dry) out = 'dry';
       }
     }
-    kind[i] = KINDS.indexOf(k.paved[i] && t0 === 'road' ? 'paving' : out);
+    kind[i] = KINDS.indexOf(k.paved[i] && t0 === 'road' && PAVED.has(BIOMES[biome[i]]) ? 'paving' : out);
   });
   return { kind, z: zv };
 }
