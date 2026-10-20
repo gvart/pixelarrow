@@ -114,6 +114,7 @@ const BUILDING_MELEE = 0.08; // share of a blow's damage a building or engine ta
 const ARROW_BUILDING = 0.05; // ... of an arrow's
 const FIRE_RELOAD = 1.5; // fire arrows: slower reload
 const FIRE_ARROW = 0.2; // chance a fire arrow sets the wood it is shot at alight
+const SPOT_NEAR = 0.5; // tiles: a crafter this near a workplace station stands at it
 const FIRE_DECK = 0.08; // ... the wood deck under the man it is shot at
 const RAM_ROOF = 2; // crew this near their ram are under its roof
 const NO_NODES: ReadonlySet<string> = new Set();
@@ -733,7 +734,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return;
     }
     if (o.kind === 'civWork') {
-      // M5f: the men stand round the building (its ring) and work there by class
+      // M5f: the men stand round the building (its ring) and work there by class; at a workplace the first of them at
+      // its stations inside
       const b = works.piece(o.building);
       if (!s.civ || !b || b.cancelled || b.team !== s.team || !(b.def.store || b.def.workplace) || (b.state !== 'done' && b.state !== 'damaged')) return;
       if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
@@ -743,7 +745,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.node = -1;
       s.path = [];
       s.goal = null;
-      const pts = works.ringPoints(o.building, Math.max(1, s.alive), s.cx, s.cy);
+      const spots = works.workSpots(o.building).slice(0, Math.max(1, s.alive)).flatMap(([x, y]) => [x, y]);
+      const pts = [...spots, ...works.ringPoints(o.building, Math.max(1, s.alive) - spots.length / 2, s.cx, s.cy)];
       s.fixed = pts.length ? pts : null;
       if (pts.length) requestPath(s, pts[0], pts[1]);
       return;
@@ -1865,7 +1868,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (!b.def.workplace && !AT_BUILDING.includes(u.civ!)) continue;
       if (u.civ === 'physician' && !b.def.workplace && b.type !== 'camp' && b.type !== 'fort') continue;
       u.civAt = true;
-      u.facing = Math.atan2(b.y - u.y, b.x - u.x);
+      const spot = works.workSpots(b.id).find(([x, y]) => (x - u.x) ** 2 + (y - u.y) ** 2 < SPOT_NEAR * SPOT_NEAR);
+      u.facing = spot ? Math.atan2(spot[3] - u.y, spot[2] - u.x) : Math.atan2(b.y - u.y, b.x - u.x); // at a station: facing it
       if (b.def.workplace && (b.state === 'done' || b.state === 'damaged') && crafting.has(b.id)) {
         let l = shops.get(b.id);
         if (!l) shops.set(b.id, (l = []));
@@ -2136,7 +2140,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const mx = u.x - u.ox;
       const my = u.y - u.oy;
       u.moving = mx * mx + my * my > 1e-4;
-      if (u.want >= 0) u.facing = u.moving && u.want > ARRIVE ? Math.atan2(my, mx) : u.squad.facing;
+      if (u.want >= 0 && !(u.civAt && !u.moving)) u.facing = u.moving && u.want > ARRIVE ? Math.atan2(my, mx) : u.squad.facing; // a civilian at work keeps facing his station
       // walled in on the way to its slot: find a detour of its own
       if (u.toSlot && u.want > 0.5 && !u.moving) {
         if (++u.stuck > STUCK_TICKS && !u.ownReq && !u.own.length) {

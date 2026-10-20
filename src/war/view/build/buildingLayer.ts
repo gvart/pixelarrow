@@ -58,6 +58,8 @@ const view = (o: { x: number; y: number; right: number; bottom: number }, x: num
 const SIDES: [number, number, number][] = [[1, 0, 1], [0, 1, 2], [-1, 0, 4], [0, -1, 8]];
 const sideOf = (dx: number, dy: number) => (dx > 0 ? 1 : dy > 0 ? 2 : dx < 0 ? 4 : 8);
 const LETTER: Record<number, string> = { 1: 'e', 2: 's', 4: 'w', 8: 'n' };
+/** The four visual cells of a tile (iso.zf: two a tile each way). */
+const CELLS: [number, number][] = [[0, 0], [1, 0], [0, 1], [1, 1]];
 
 /** Multiply a colour's channels by k. */
 const shade = (c: number, k: number) => (Math.min(255, ((c >> 16) & 255) * k) << 16) | (Math.min(255, ((c >> 8) & 255) * k) << 8) | Math.min(255, (c & 255) * k);
@@ -183,9 +185,15 @@ export class BuildingLayer {
     return { x: this.iso.sx(x, y), y: this.iso.sy(x, y, z) };
   }
 
-  /** Ground level under a footprint: its centre's. */
-  private z(b: { x: number; y: number }): number {
-    return this.iso.zAt(b.x, b.y);
+  /**
+   * Ground level a building's art stands on: a wall piece its centre's (it joins the tiles beside it); any other building
+   * the lowest visual cell under its footprint, so its flat floor never floats over the low side of a step.
+   */
+  private z(b: { x: number; y: number; type?: BuildingType; tiles?: readonly number[] }): number {
+    if (!b.tiles || !b.type || BUILDINGS[b.type].wall) return this.iso.zAt(b.x, b.y);
+    let z = Infinity;
+    for (let i = 0; i < b.tiles.length; i += 2) for (const [dx, dy] of CELLS) z = Math.min(z, this.iso.zf(2 * b.tiles[i] + dx, 2 * b.tiles[i + 1] + dy));
+    return z;
   }
 
   /** Ground level of a tile (as its kit piece is drawn). */
@@ -259,6 +267,9 @@ export class BuildingLayer {
       const x1 = Math.max(...all.map((t) => t[0])) + 1, y1 = Math.max(...all.map((t) => t[1])) + 1;
       const depth = def.wall === 'tower' ? this.D(x0 + 1, y0 + 1) : deep ? this.D(x0 + 1.5, y0 + 1.5) : this.D(b.x + b.w / 2 - 0.5, b.y + b.h / 2 - 0.5);
       for (const [x, y] of all) this.backs.set(key(x, y), { x1, y1, depth });
+      // a crafter at a station inside a workplace (the sim opens only those tiles): on its floor, over its art
+      if (def.workplace && (b.state === 'done' || b.state === 'damaged'))
+        for (const [x, y] of ts) this.decks.set(key(x, y), { kind: 'deck', px: 0, z: this.z(b), depth, b: b.id, ox: x0, oy: y0, dx: 0, dy: 0, n: 0 });
     }
     const setOpen = (x: number, y: number, side: number) => open.set(key(x, y), (open.get(key(x, y)) ?? 0) | side);
     for (const b of live) {

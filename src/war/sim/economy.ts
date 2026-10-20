@@ -41,12 +41,20 @@ export interface BuildingDef {
   /** M5h3 field tile (FIELD): never closes; once done, men cross it at FIELD[kind].slow cost and engines not at all. */
   field?: 'stakes' | 'ditch';
   /** M5h: a workplace (docs/WAR.md "Workplaces"): its recipes' kind and its level (crafter slots, +1 grade a level). */
-  workplace?: { kind: Workplace; level: number };
+  workplace?: { kind: Workplace; level: number; spots?: readonly Spot[] };
 }
 
+/**
+ * A crafter's station inside a workplace: where he stands (x, y) and the point he faces (fx, fy: the anvil, hearth, bench
+ * or counter of the level's art), in tiles from the footprint's north corner before rotation. The first `level` spots
+ * are the crafter slots (a level without its own spots: along the front side, facing in); their tiles, and the tiles
+ * from each straight out to the front (+x or +y) side, are open to the team's own men once the workplace is done.
+ */
+export type Spot = readonly [x: number, y: number, fx: number, fy: number];
+
 /** Workplace chain levels: L1 (the placed building), L2 and L3 upgrade it in place. */
-const wp = (kind: Workplace, level: number, d: Omit<BuildingDef, 'workplace' | 'workers' | 'influence'> & { workers?: number }): BuildingDef =>
-  ({ workers: 4, influence: 0, ...d, workplace: { kind, level } });
+const wp = (kind: Workplace, level: number, d: Omit<BuildingDef, 'workplace' | 'workers' | 'influence'> & { workers?: number }, spots?: Spot[]): BuildingDef =>
+  ({ workers: 4, influence: 0, ...d, workplace: { kind, level, ...(spots && { spots }) } });
 
 export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   camp: { w: 4, h: 4, hp: 400, cost: {}, labour: 300, workers: 6, influence: 12, material: 'wood', store: true },
@@ -77,12 +85,12 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   ditch: { w: 1, h: 1, hp: 60, cost: {}, labour: 120, workers: 2, influence: 0, material: 'stone', field: 'ditch' },
   pitchKiln: { w: 2, h: 2, hp: 500, cost: { wood: 40, stone: 20 }, labour: 900, workers: 4, influence: 0, material: 'stone', yields: { res: 'pitch', max: 40, regrow: 0.1, rate: 0.6 } },
   // M5h workplaces: L1 placed, L2 / L3 by upgrade (cost and labour of the step); each level a crafter slot and +1 grade
-  forge: wp('forge', 1, { w: 3, h: 3, hp: 1200, cost: { wood: 40, stone: 60 }, labour: 1500, material: 'stone', upgrade: { to: 'forge2', cost: { stone: 80, iron: 10 }, labour: 1500 } }),
-  forge2: wp('forge', 2, { w: 3, h: 3, hp: 1800, cost: { stone: 80, iron: 10 }, labour: 1500, material: 'stone', upgrade: { to: 'forge3', cost: { stone: 120, bronze: 20, marble: 10 }, labour: 2000 } }),
-  forge3: wp('forge', 3, { w: 3, h: 3, hp: 2400, cost: { stone: 120, bronze: 20, marble: 10 }, labour: 2000, material: 'stone' }),
-  cookhouse: wp('cookhouse', 1, { w: 3, h: 2, hp: 600, cost: { wood: 50, stone: 20 }, labour: 900, material: 'wood', burnable: true, upgrade: { to: 'cookhouse2', cost: { stone: 40 }, labour: 900 } }),
-  cookhouse2: wp('cookhouse', 2, { w: 3, h: 2, hp: 1000, cost: { stone: 40 }, labour: 900, material: 'stone', upgrade: { to: 'cookhouse3', cost: { stone: 60, bronze: 10 }, labour: 1200 } }),
-  cookhouse3: wp('cookhouse', 3, { w: 3, h: 2, hp: 1400, cost: { stone: 60, bronze: 10 }, labour: 1200, material: 'stone' }),
+  forge: wp('forge', 1, { w: 3, h: 3, hp: 1200, cost: { wood: 40, stone: 60 }, labour: 1500, material: 'stone', upgrade: { to: 'forge2', cost: { stone: 80, iron: 10 }, labour: 1500 } }, [[1.5, 1.5, 1.5, 0.6]]),
+  forge2: wp('forge', 2, { w: 3, h: 3, hp: 1800, cost: { stone: 80, iron: 10 }, labour: 1500, material: 'stone', upgrade: { to: 'forge3', cost: { stone: 120, bronze: 20, marble: 10 }, labour: 2000 } }, [[1.7, 1.5, 1.6, 0.5], [1.1, 1.3, 0.9, 0.4]]),
+  forge3: wp('forge', 3, { w: 3, h: 3, hp: 2400, cost: { stone: 120, bronze: 20, marble: 10 }, labour: 2000, material: 'stone' }, [[1.6, 1.4, 1.2, 0.5], [1.0, 1.8, 0.4, 0.9], [2.3, 1.1, 2.6, 0.3]]),
+  cookhouse: wp('cookhouse', 1, { w: 3, h: 2, hp: 600, cost: { wood: 50, stone: 20 }, labour: 900, material: 'wood', burnable: true, upgrade: { to: 'cookhouse2', cost: { stone: 40 }, labour: 900 } }, [[1.6, 1.6, 1.6, 0.7]]),
+  cookhouse2: wp('cookhouse', 2, { w: 3, h: 2, hp: 1000, cost: { stone: 40 }, labour: 900, material: 'stone', upgrade: { to: 'cookhouse3', cost: { stone: 60, bronze: 10 }, labour: 1200 } }, [[2.3, 1.1, 2.0, 0.1], [1.6, 1.6, 1.1, 1.0]]),
+  cookhouse3: wp('cookhouse', 3, { w: 3, h: 2, hp: 1400, cost: { stone: 60, bronze: 10 }, labour: 1200, material: 'stone' }, [[1.4, 1.6, 1.3, 0.9], [2.4, 1.5, 2.3, 0.7], [0.5, 1.5, 0.5, 0.6]]),
   infirmary: wp('infirmary', 1, { w: 3, h: 3, hp: 800, cost: { wood: 60, stone: 30 }, labour: 1200, material: 'wood', burnable: true, upgrade: { to: 'infirmary2', cost: { wood: 30, herbs: 10 }, labour: 900 } }),
   infirmary2: wp('infirmary', 2, { w: 3, h: 3, hp: 1000, cost: { wood: 30, herbs: 10 }, labour: 900, material: 'wood', burnable: true, upgrade: { to: 'infirmary3', cost: { stone: 80, marble: 10 }, labour: 1500 } }),
   infirmary3: wp('infirmary', 3, { w: 3, h: 3, hp: 1600, cost: { stone: 80, marble: 10 }, labour: 1500, material: 'stone' }),
