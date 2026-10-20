@@ -91,7 +91,10 @@ export const DELETION_MAP: Record<string, TableRule> = {
   analytics_milestones: { rule: 'delete', pid: ['player_id'] },
   client_errors: { rule: 'delete', pid: ['last_player'] },
   war_items: { rule: 'delete', pid: ['player_id'] },
-  war_persons: { rule: 'delete', pid: ['player_id'] },
+  // captor_pid: another player's captive held by this one stays held at the tombstone and walks home on his timer
+  war_persons: { rule: 'delete', pid: ['player_id'], kept: ['captor_pid'] },
+  war_upkeep: { rule: 'delete', pid: ['player_id'] },
+  war_memorial: { rule: 'delete', pid: ['player_id'] },
   war_pools: { rule: 'delete', pid: ['player_id'] },
   war_stock: { rule: 'delete', pid: ['player_id'] },
   display_name_history: { rule: 'delete', pid: ['player_id'], via: 'one row is written back at the tombstone step so the freed name stays held 30 days' },
