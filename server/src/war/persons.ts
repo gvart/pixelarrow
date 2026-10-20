@@ -11,6 +11,9 @@
  *  - Train: a fit man at home becomes a class his town trains (TOWN buildings: barracks, range; no stable yet): militia
  *    into any, others only within their family; TRAIN.silver buys the class's tier-1 common kit (crafting comes with M6),
  *    put on when training ends; his old gear goes to the stash; level, XP and his family's skills stay.
+ *  - Promote (docs/WAR.md "Promote"): a fit trained man at home with PROMOTE.level and PROMOTE.honours, in a town with a
+ *    fortress, becomes an elite of his family (src/war/sim/roster.ts promotesTo) in PROMOTE_MS; he pays the elite rare
+ *    kit's value in silver, it goes on when he is done (his old gear to the stash). Elites cost UPKEEP.elite.
  *  - Prisoners: a captive is held by the player of the captor alliance who fought there (`captor_pid`); he pays the
  *    captive's upkeep and takes the ransom (RANSOM_PER_LEVEL x level silver) when the owner pays it; he may also let him go.
  *    A captor who cannot pay upkeep lets all his captives go.
@@ -29,7 +32,7 @@ import { classGearBlocker } from '../../../src/data/gearRules';
 import { freeName } from '../../../src/data/names';
 import type { Equipment, Hero } from '../../../src/data/units';
 import { freshHero } from '../../../src/war/sim/classes';
-import { makePerson, type PersonOpts } from '../../../src/war/sim/roster';
+import { isElite, makePerson, promoteBlocker, promotePerson, type PersonOpts } from '../../../src/war/sim/roster';
 import { FAMILY_OF, legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
 import type { FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
@@ -49,18 +52,21 @@ export const CAPTIVE_MS = 24 * HOUR;
 /** A recruit's cost in food. */
 export const RECRUIT_FOOD = 20;
 /** Towns a player recruits and trains in. M4 stub: everyone holds a home camp; owned towns (3/h) come with the world map. */
-export const TOWNS: Record<string, { rate: number; cap: number; buildings: TrainingBuilding[] }> = { home: { rate: 6, cap: 30, buildings: ['barracks', 'range'] } };
+export const TOWNS: Record<string, { rate: number; cap: number; buildings: TrainingBuilding[] }> = { home: { rate: 6, cap: 30, buildings: ['barracks', 'range', 'fortress'] } };
 /** A new player's pool, food and silver, so a first squad can be raised (and a few trained) at once. */
 export const START = { pool: SQUAD_MAX, food: (SQUAD_MAX + RESERVE_MAX) * RECRUIT_FOOD, silver: 200 };
 /** Training: time and the silver a tier-1 common kit costs. */
 export const TRAIN = { ms: 10 * 60_000, silver: 40 };
-export type TrainingBuilding = 'barracks' | 'range' | 'stable';
+export type TrainingBuilding = 'barracks' | 'range' | 'stable' | 'fortress';
 /** The classes each building trains (docs/WAR.md "Classes"). */
 export const TRAINS: Record<TrainingBuilding, ClassId[]> = {
   barracks: ['hoplite', 'thureophoros', 'celt_sword', 'falx'],
   range: ['archer', 'slinger', 'javelineer', 'peltast'],
   stable: ['companion', 'thessalian', 'horse_archer'],
+  fortress: [], // promotes (promote), trains no one
 };
+/** Promotion to elite takes this long (at a fortress). */
+export const PROMOTE_MS = 30 * 60_000;
 /** Ransom: silver per level of the captive. */
 export const RANSOM_PER_LEVEL = 30;
 /** Upkeep: food per hour each. */
@@ -124,8 +130,6 @@ export function view(r: PersonRow) {
 
 const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at';
 
-const isElite = (cls: string) => isClassId(cls) && CLASSES[cls].role === 'elite';
-
 /** The player's upkeep in food per hour: his men in the field (elites 2, civilians 1) and the captives he holds. */
 export async function upkeepRate(db: D1Database, pid: number): Promise<number> {
   const [field, held] = await Promise.all([
@@ -168,12 +172,15 @@ export async function settleUpkeep(db: D1Database, pid: number, now: number): Pr
   return { unpaid, rate, owed };
 }
 
-/** The tier-1 common kit of a class, as worn gear (uids unique to the man and the moment). */
-function kitOf(cls: string, id: string, now: number): Equipment {
+/** Gear with uids unique to the man and the moment. */
+function reUid(equip: Equipment, id: string, now: number): Equipment {
   const out: Equipment = {};
-  for (const [slot, it] of Object.entries(freshHero(cls, id).equip)) if (it) out[slot as Slot] = { ...it, uid: `${id}-${slot}-${now.toString(36)}` };
+  for (const [slot, it] of Object.entries(equip)) if (it) out[slot as Slot] = { ...it, uid: `${id}-${slot}-${now.toString(36)}` };
   return out;
 }
+
+/** The tier-1 common kit of a class, as worn gear. */
+const kitOf = (cls: string, id: string, now: number): Equipment => reUid(freshHero(cls, id).equip, id, now);
 
 /**
  * Timers, read lazily: upkeep first (an unpaid player's wounded do not heal); wounded men whose time is up are fit again
@@ -191,10 +198,12 @@ export async function settle(db: D1Database, pid: number, now: number): Promise<
   await db.batch(
     done.map((r) => {
       const cls = r.train_to && isClassId(r.train_to) ? r.train_to : r.cls;
-      const skills = legalSkills(cls, r.level, json<WarSkillId[]>(r.skills, []));
+      // a promotion: the elite rare kit; training: the class's tier-1 common kit
+      const elite = isClassId(cls) && isElite(cls) ? promotePerson(personOf(r), cls) : null;
+      const skills = elite?.skills ?? legalSkills(cls, r.level, json<WarSkillId[]>(r.skills, []));
       return db
         .prepare("UPDATE war_persons SET state = 'reserve', cls = ?3, gear = ?4, skills = ?5, train_to = NULL, until_at = NULL, updated_at = ?6 WHERE id = ?1 AND player_id = ?2 AND state = 'training'")
-        .bind(r.id, pid, cls, JSON.stringify(kitOf(cls, r.id, now)), JSON.stringify(skills), now);
+        .bind(r.id, pid, cls, JSON.stringify(elite ? reUid(elite.hero.equip, r.id, now) : kitOf(cls, r.id, now)), JSON.stringify(skills), now);
     }),
   );
 }
@@ -441,6 +450,37 @@ export async function train(db: D1Database, pid: number, id: string, cls: string
   if (r.cls !== 'militia' && FAMILY_OF[r.cls as ClassId] !== FAMILY_OF[cls]) throw new ApiError(409, 'family', `A ${r.cls} trains only within his family`);
   if (!(await pay(db, pid, 'silver', TRAIN.silver))) throw new ApiError(409, 'no_silver', `A kit costs ${TRAIN.silver} silver`);
   const until = now + TRAIN.ms;
+  const old = Object.values(json<Equipment>(r.gear, {})).filter((x): x is Item => !!x);
+  await db.batch([
+    ...old.map((it) => db.prepare('INSERT OR REPLACE INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(it.uid, pid, JSON.stringify(it), now)),
+    db
+      .prepare("UPDATE war_persons SET state = 'training', train_to = ?3, until_at = ?4, gear = '{}', slot = NULL, updated_at = ?5 WHERE id = ?1 AND player_id = ?2 AND region IS NULL")
+      .bind(id, pid, cls, until, now),
+  ]);
+  return until;
+}
+
+/** Silver the elite rare kit of `cls` costs (its items' value). */
+export function promoteCost(cls: ClassId): number {
+  return Object.values(promotePerson(makePerson('kit', 'militia'), cls).hero.equip).reduce((a, it) => a + (it ? itemValue(it) : 0), 0);
+}
+
+/**
+ * Promote a fit man at home to the elite `cls` (docs/WAR.md "Promote"): a town of his with a fortress, PROMOTE.level and
+ * PROMOTE.honours, an elite of his family. Pays promoteCost (the elite rare kit), puts his old gear in the stash; he is
+ * `training` for PROMOTE_MS and out of the squad, then the elite with the kit on (settle). Returns when he is done.
+ */
+export async function promote(db: D1Database, pid: number, id: string, cls: string, now: number): Promise<number> {
+  await ensureStart(db, pid, now);
+  await settle(db, pid, now);
+  const r = await person(db, pid, id);
+  home(r);
+  if (!Object.values(TOWNS).some((t) => t.buildings.includes('fortress'))) throw new ApiError(409, 'no_fortress', 'You hold no town with a fortress');
+  const why = promoteBlocker(personOf(r), cls);
+  if (why || !isClassId(cls)) throw new ApiError(409, 'not_promotable', why ?? `${cls} is no class`);
+  const price = promoteCost(cls);
+  if (!(await pay(db, pid, 'silver', price))) throw new ApiError(409, 'no_silver', `The ${cls} kit costs ${price} silver`);
+  const until = now + PROMOTE_MS;
   const old = Object.values(json<Equipment>(r.gear, {})).filter((x): x is Item => !!x);
   await db.batch([
     ...old.map((it) => db.prepare('INSERT OR REPLACE INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(it.uid, pid, JSON.stringify(it), now)),
