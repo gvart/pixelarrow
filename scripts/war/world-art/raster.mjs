@@ -74,7 +74,50 @@ export function buildRaster(ids, fit) {
   }
   grow(lab);
   for (let i = 0; i < lab.length; i++) if (lab[i] < 0) lab[i] = 0; // detached scraps of land become sea
+  // v3: round off the grid's stair steps and noise wiggles (smooth borders like a hand-inked atlas)
+  for (const r of fit.smooth ?? []) smoothLabels(lab, ids.length, r, fit.allowed);
   return { lab, index };
+}
+
+/** Majority filter: every land pixel takes the label most common in a (2r+1)^2 box round it (box blur per label,
+ *  argmax); the sea stays put, and a change that would make two regions touch that WAR.md keeps apart (allowed: Set of
+ *  "a,b" 1-based index pairs, a < b) is not taken. Then each region keeps its largest piece and gaps are regrown. */
+function smoothLabels(lab, n, r, allowed) {
+  const N = LW * LH, best = new Float32Array(N), arg = new Int16Array(N), tmp = new Float32Array(N), acc = new Float32Array(N);
+  for (let k = 1; k <= n; k++) {
+    for (let y = 0; y < LH; y++) {
+      let s = 0;
+      for (let x = -r; x <= r; x++) s += lab[y * LW + Math.max(0, Math.min(LW - 1, x))] === k ? 1 : 0;
+      for (let x = 0; x < LW; x++) {
+        tmp[y * LW + x] = s;
+        s += (lab[y * LW + Math.min(LW - 1, x + r + 1)] === k ? 1 : 0) - (lab[y * LW + Math.max(0, x - r)] === k ? 1 : 0);
+      }
+    }
+    for (let x = 0; x < LW; x++) {
+      let s = 0;
+      for (let y = -r; y <= r; y++) s += tmp[Math.max(0, Math.min(LH - 1, y)) * LW + x];
+      for (let y = 0; y < LH; y++) {
+        acc[y * LW + x] = s;
+        s += tmp[Math.min(LH - 1, y + r + 1) * LW + x] - tmp[Math.max(0, y - r) * LW + x];
+      }
+    }
+    for (let i = 0; i < N; i++) if (acc[i] > best[i]) { best[i] = acc[i]; arg[i] = k; }
+  }
+  const ok = (a, b) => a <= 0 || b <= 0 || a === b || !allowed || allowed.has(a < b ? `${a},${b}` : `${b},${a}`);
+  for (let pass = 0; pass < 3; pass++) for (let i = 0; i < N; i++) {
+    const v = arg[i];
+    if (lab[i] <= 0 || v <= 0 || v === lab[i]) continue;
+    const x = i % LW;
+    if ((x > 0 && !ok(v, lab[i - 1])) || (x < LW - 1 && !ok(v, lab[i + 1])) || (i >= LW && !ok(v, lab[i - LW])) || (i + LW < N && !ok(v, lab[i + LW]))) continue;
+    lab[i] = v;
+  }
+  for (let k = 1; k <= n; k++) {
+    const comps = components(lab, k);
+    comps.sort((a, b) => b.length - a.length);
+    for (const c of comps.slice(1)) for (const i of c) lab[i] = -1;
+  }
+  grow(lab, ok);
+  for (let i = 0; i < lab.length; i++) if (lab[i] < 0) lab[i] = 0;
 }
 
 function components(lab, r) {
@@ -100,7 +143,7 @@ function components(lab, r) {
   return out;
 }
 
-function grow(lab) {
+function grow(lab, ok = () => true) {
   for (let pass = 0; pass < 200; pass++) {
     const todo = [];
     for (let i = 0; i < lab.length; i++) {
@@ -112,7 +155,8 @@ function grow(lab) {
         const v = lab[ny * LW + nx];
         if (v > 0) votes.set(v, (votes.get(v) || 0) + 1);
       }
-      if (votes.size) todo.push([i, [...votes].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0]]);
+      const nb = [...votes.keys()], pick = [...votes].sort((a, b) => b[1] - a[1] || a[0] - b[0]).find(([v]) => nb.every((w) => ok(v, w)));
+      if (pick) todo.push([i, pick[0]]);
     }
     if (!todo.length) return;
     for (const [i, v] of todo) lab[i] = v;

@@ -5,7 +5,10 @@
  */
 import { ALLIANCES } from '../world/alliances';
 import type { RegionState, TransitSnap } from '../net/world';
-import { TRADE_ROUTES } from './geo';
+import { TRADE_ROUTES, MARKET_TOWNS, isChokepoint } from './geo';
+
+type Box = [number, number, number, number];
+interface PlacedLabel { id: string; lines: string[]; size: number; x: number; y: number; w: number; h: number; big: boolean; leader: [number, number] | null }
 
 export const ART = 'war/world/';
 
@@ -323,56 +326,165 @@ export class WorldMap {
     g.restore();
   }
 
-  /** Atlas lettering: cream Cinzel with a dark ink halo, homes and Omphalos larger in capitals; a name wider than its
-   *  region's free row breaks onto two lines. */
+  /** Marker spots in map px (x, y, w, h): a siege fort or battle sword right of the region's centre, the player's
+   *  banner left of it. Labels are laid out round these (never under them). */
+  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]> } {
+    const s = Math.max(1, 0.8 / this.k), marks: [string, string, number, number, number, number][] = [], banners = new Map<string, [number, number, number]>();
+    for (const [id, r] of Object.entries(this.art.regions)) {
+      const rs = st.regions.get(id);
+      if (!rs) continue;
+      const [cx, cy] = r.centroid;
+      if (rs.besieged) marks.push([id, 'markers/fort', cx + 6 * s, cy - 24 * s, 48 * s, 48 * s]);
+      else if (rs.contested) marks.push([id, 'markers/battle', cx + 4 * s, cy - 28 * s, 56 * s, 56 * s]);
+    }
+    const b = s * 0.7;
+    for (const id of st.squads.keys()) {
+      const r = this.art.regions[id];
+      if (r) banners.set(id, [r.centroid[0] - 44 * b, r.centroid[1] - 28 * b, b]);
+    }
+    return { marks, banners };
+  }
+
+  private labelCache?: { key: string; out: PlacedLabel[] };
+
+  /** Collision-free names for this zoom. Order: homes and Omphalos, then market towns and chokepoints, then the rest
+   *  (small regions first within a tier). Each name tries, until one overlaps no placed name and no marker: spots well
+   *  inside its region round its anchor (one or two lines, full size then smaller), then spots whose row only has to
+   *  stay inside, then (homes, market towns, chokepoints) a spot just outside with a leader line to the anchor. A home
+   *  or Omphalos that still finds nothing keeps its least-crowded spot; any other name is left out at this zoom. */
+  private layoutLabels(g: CanvasRenderingContext2D, st: MapState): PlacedLabel[] {
+    const spots = this.markerSpots(st), base = Math.max(14, 13 / this.k), s = Math.max(1, 0.8 / this.k);
+    const obstacles: Box[] = [
+      ...spots.marks.map(([, , x, y, w, h]) => [x, y, x + w, y + h] as Box),
+      ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (8 * String(st.squads.get(id)).length + 10) * s, y + 56 * b] as Box),
+      // squads on the road, snapped to a coarse step so the names re-flow now and then, not every frame
+      ...st.transit.map((t) => {
+        const q = 32 * s, [x, y] = this.transitPos(t, st.now).map((v) => Math.round(v / q) * q);
+        return [x - 20 * s - q / 2, y - 43 * s - q / 2, x + 18 * s + (8 * (String(t.men).length + 10) + 10) * s + q / 2, y + 8 * s + q / 2] as Box;
+      }),
+    ];
+    const key = `${this.k.toFixed(3)}|${obstacles.map((o) => o.map(Math.round).join(',')).join(';')}`;
+    if (this.labelCache?.key === key) return this.labelCache.out;
+    const tier = (id: string, r: RegionArt) => (r.role === 'home' || r.role === 'center' ? 0 : MARKET_TOWNS.has(id) || isChokepoint(id) ? 1 : 2);
+    const order = Object.entries(this.art.regions).sort(([a, ra], [b, rb]) => tier(a, ra) - tier(b, rb) || (this.regionArea(a) - this.regionArea(b)));
+    const placed: Box[] = [...obstacles], out: PlacedLabel[] = [];
+    const overlap = (a: Box, b: Box) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+    const pad = base * 0.12; // breathing room between names
+    for (const [id, r] of order) {
+      const t = tier(id, r), big = t === 0;
+      if (!big && this.k < 0.32) continue;
+      const text = big ? r.name.toUpperCase() : r.name, words = text.split(' ');
+      const variants: [string[], number, number, number][] = []; // lines, size, w, h
+      for (const f of big ? [1.45, 1.25, 1.1, 0.95] : [1, 0.86, 0.74]) {
+        const sets = [[text]];
+        if (words.length > 1) { const h = Math.ceil(words.length / 2); sets.push([words.slice(0, h).join(' '), words.slice(h).join(' ')]); }
+        const size = base * f;
+        g.font = `700 ${size}px Cinzel, serif`;
+        for (const lines of sets) variants.push([lines, size, Math.max(...lines.map((l) => g.measureText(l).width)) + size * 0.3, lines.length * size * 1.05 + size * 0.15]);
+      }
+      let best: PlacedLabel | null = null, bestCost = Infinity;
+      const costAt = (w: number, h: number, x: number, y: number) => {
+        const box: Box = [x - w / 2 - pad, y - h / 2 - pad, x + w / 2 + pad, y + h / 2 + pad];
+        return placed.reduce((c, b) => c + overlap(box, b), 0);
+      };
+      search: for (const strict of [true, false]) for (const [lines, size, w, h] of variants) for (const [x, y] of this.labelSpots(r, w, h)) {
+        if (!this.fits(id, x, y, w, h, strict)) continue;
+        const c = costAt(w, h, x, y);
+        if (c < bestCost) { bestCost = c; best = { id, lines, size, x, y, w, h, big, leader: null }; }
+        if (c === 0) break search;
+      }
+      if (bestCost > 0 && t <= 1) {
+        // just outside, with a leader line: rings round the anchor, smallest variant first; only a free spot counts
+        leader: for (const [lines, size, w, h] of [...variants].reverse()) for (let ring = 1; ring <= 3; ring++)
+          for (const [dx, dy] of [[0, -1], [0, 1], [1, 0], [-1, 0], [1, -1], [-1, -1], [1, 1], [-1, 1]]) {
+            const x = r.label[0] + dx * (w / 2 + base * 0.9 * ring), y = r.label[1] + dy * (h / 2 + base * 0.9 * ring);
+            if (costAt(w, h, x, y) === 0) { bestCost = 0; best = { id, lines, size, x, y, w, h, big, leader: r.label }; break leader; }
+          }
+      }
+      if (!best || (bestCost > 0 && !big)) continue;
+      const b: PlacedLabel = best;
+      placed.push([b.x - b.w / 2 - pad, b.y - b.h / 2 - pad, b.x + b.w / 2 + pad, b.y + b.h / 2 + pad]);
+      out.push(b);
+    }
+    this.labelCache = { key, out };
+    return out;
+  }
+
+  private areas = new Map<string, number>();
+  private regionArea(id: string): number {
+    let a = this.areas.get(id);
+    if (a === undefined) {
+      const p = this.art.regions[id].polygon;
+      a = Math.abs(p.reduce((s, [x, y], i) => { const [nx, ny] = p[(i + 1) % p.length]; return s + x * ny - nx * y; }, 0)) / 2;
+      this.areas.set(id, a);
+    }
+    return a;
+  }
+
+  /** Candidate centres for a w x h name: the anchor first, then rings round it, then the centroid. */
+  private labelSpots(r: RegionArt, w: number, h: number): [number, number][] {
+    const [ax, ay] = r.label, out: [number, number][] = [[ax, ay]];
+    for (let ring = 1; ring <= 4; ring++) for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]])
+      out.push([ax + dx * ring * w * 0.18, ay + dy * ring * h * 0.6]);
+    out.push(r.centroid);
+    return out;
+  }
+
+  /** The name lies inside its own region: strict, its centre, both row ends and the four inner corners; loose, the
+   *  row only. */
+  private fits(id: string, x: number, y: number, w: number, h: number, strict: boolean): boolean {
+    const pts: [number, number][] = [[x, y], [x - w * 0.42, y], [x + w * 0.42, y]];
+    if (strict) pts.push([x - w * 0.3, y - h * 0.3], [x + w * 0.3, y + h * 0.3], [x - w * 0.3, y + h * 0.3], [x + w * 0.3, y - h * 0.3]);
+    return pts.every(([px, py]) => this.regionAt(px, py) === id);
+  }
+
+  /** Atlas lettering: cream Cinzel with a dark ink halo, homes and Omphalos larger in capitals (layoutLabels). */
   private drawLabels(g: CanvasRenderingContext2D, st: MapState): void {
-    const base = Math.max(14, 13 / this.k);
+    const labels = this.layoutLabels(g, st);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.lineJoin = 'round';
-    for (const [id, r] of Object.entries(this.art.regions)) {
-      const big = r.role === 'home' || r.role === 'center';
-      if (!big && this.k < 0.32) continue;
-      let size = big ? base * 1.45 : base;
-      const text = big ? r.name.toUpperCase() : r.name;
-      g.font = `700 ${size}px Cinzel, serif`;
-      const words = text.split(' ');
-      const lines = g.measureText(text).width > r.labelRoom - 8 && words.length > 1
-        ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : [text];
-      const widest = Math.max(...lines.map((l) => g.measureText(l).width));
-      if (!big && widest > r.labelRoom) { // still too wide for a narrow region: letter it smaller
-        size *= Math.max(0.7, r.labelRoom / widest);
-        g.font = `700 ${size}px Cinzel, serif`;
+    for (const { id, lines, size, x, y, w, h, big, leader } of labels) {
+      if (leader) { // a name set outside its region points at it: a thin ink line from the box edge, a dot at the anchor
+        const [lx, ly] = leader, f = Math.min(Math.abs(w / 2 / (lx - x || 1e-6)), Math.abs(h / 2 / (ly - y || 1e-6)), 1);
+        g.beginPath();
+        g.moveTo(x + (lx - x) * f, y + (ly - y) * f);
+        g.lineTo(lx, ly);
+        g.strokeStyle = 'rgba(16,10,8,.85)';
+        g.lineWidth = size * 0.22;
+        g.stroke();
+        g.strokeStyle = '#efe0c2';
+        g.lineWidth = size * 0.08;
+        g.stroke();
+        g.beginPath();
+        g.arc(lx, ly, size * 0.16, 0, Math.PI * 2);
+        g.fillStyle = '#efe0c2';
+        g.fill();
       }
+      g.font = `700 ${size}px Cinzel, serif`;
       const on = id === st.hover || id === st.selected;
       lines.forEach((line, k) => {
-        const [x, y] = [r.label[0], r.label[1] + (k - (lines.length - 1) / 2) * size * 1.05];
+        const ly = y + (k - (lines.length - 1) / 2) * size * 1.05;
         g.strokeStyle = 'rgba(16,10,8,.88)';
         g.lineWidth = size * 0.28;
-        g.strokeText(line, x, y);
+        g.strokeText(line, x, ly);
         g.fillStyle = on ? '#fff6e4' : big ? '#f2c48a' : '#efe0c2';
-        g.fillText(line, x, y);
+        g.fillText(line, x, ly);
       });
     }
   }
 
   private drawMarkers(g: CanvasRenderingContext2D, st: MapState): void {
-    const s = Math.max(1, 0.8 / this.k), pic = (n: string) => this.pics[n];
+    const s = Math.max(1, 0.8 / this.k), pic = (n: string) => this.pics[n], spots = this.markerSpots(st);
     g.imageSmoothingEnabled = false;
-    for (const [id, r] of Object.entries(this.art.regions)) {
-      const rs = st.regions.get(id);
-      if (!rs) continue;
-      const [cx, cy] = r.centroid;
-      if (rs.besieged) g.drawImage(pic('markers/fort'), cx + 30 * s, cy - 58 * s, 48 * s, 48 * s);
-      else if (rs.contested) g.drawImage(pic('markers/battle'), cx + 26 * s, cy - 62 * s, 56 * s, 56 * s);
-    }
+    for (const [, name, x, y, w, h] of spots.marks) g.drawImage(pic(name), x, y, w, h);
     // the player's men: the alliance banner with a count
     const you = st.you ?? 0, key = ALLIANCES[you].key;
     for (const [id, men] of st.squads) {
-      const r = this.art.regions[id];
-      if (!r) continue;
-      // under the region's name, left of its anchor
-      const b = s * 0.7, [lx, ly] = r.label, bx = lx - 34 * b, by = ly + 14 * b, on = st.squadAt === id;
+      const spot = spots.banners.get(id);
+      if (!spot) continue;
+      // left of the region's centre (the battle marker sits right of it)
+      const [bx, by, b] = spot, on = st.squadAt === id;
       if (on) {
         g.fillStyle = 'rgba(255,240,216,.35)';
         g.beginPath();

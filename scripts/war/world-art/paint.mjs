@@ -14,7 +14,9 @@ import { ALLIANCES } from './biomes.mjs';
 
 const SHOTS = process.env.SHOTS || join(ROOT, 'shots');
 const RAW = join(SHOTS, 'war/pixellab/worldmap/raw');
-const PAINTED = join(OUT, 'src', 'painted.png');
+const PAINTED = join(OUT, 'src', 'painted.png'); // the approved 1024 painting: land mask and region fit
+const HI = join(OUT, 'src', 'painted@hi.jpg'); // its tiled repaint (sharpen.mjs): the pixels of base.jpg / @2x
+const SMOOTH = [6, 4]; // majority-filter radii (logical px) that round the region borders off
 const MESA = [535, 340]; // the Omphalos mesa in the painting (logical px): the centre the grid is fitted round
 const TWIST = [[125, 12, 20]]; // turn the grid's south-west corner off the bay so Pirate Coves still meets the Cape
 const jobs = JSON.parse(readFileSync(new URL('./jobs.json', import.meta.url), 'utf8'));
@@ -40,16 +42,17 @@ function upscale(img, n) {
   return { w, h, data };
 }
 
-// the painting, resampled (lanczos + a light unsharp so it stays crisp) to the map size and twice that; JPEG, since a
-// lossless painting would weigh 4 + 12 MB
+// the sharp repaint (or the painting, if it is missing), resampled with lanczos to the map size and twice that; JPEG,
+// since a lossless painting would weigh 4 + 12 MB
 function resample(w, h, out) {
-  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', PAINTED, '-vf', `scale=${w}:${h}:flags=lanczos,unsharp=5:5:0.6`, '-frames:v', '1', '-q:v', '2', out]);
+  const src = existsSync(HI) ? HI : PAINTED;
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', src, '-vf', `scale=${w}:${h}:flags=lanczos${src === HI ? '' : ',unsharp=5:5:0.6'}`, '-frames:v', '1', '-q:v', '2', out]);
 }
 
 export function paint() {
   const painted = readImage(PAINTED);
   const { land } = landMask(painted);
-  const { ids, lab, regions } = buildRegions({ land, centre: MESA, twist: TWIST });
+  const { ids, lab, regions } = buildRegions({ land, centre: MESA, twist: TWIST, smooth: SMOOTH });
   const N = LW * LH;
   mkdirSync(OUT, { recursive: true });
   resample(LW * SCALE, LH * SCALE, join(OUT, 'base.jpg'));
