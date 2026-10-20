@@ -52,8 +52,10 @@ export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string
   forge: 'bld-barracks', forge2: 'bld-barracks', forge3: 'bld-barracks', cookhouse: 'bld-storehouse', cookhouse2: 'bld-storehouse', cookhouse3: 'bld-storehouse',
   infirmary: 'bld-outpost', infirmary2: 'bld-outpost', infirmary3: 'bld-outpost', workshop: 'bld-barracks', workshop2: 'bld-barracks', workshop3: 'bld-barracks',
   stall: 'bld-storehouse', stall2: 'bld-storehouse', stall3: 'bld-storehouse', sortingFloor: 'bld-storehouse', sortingFloor2: 'bld-storehouse',
+  // M5h3: placeholders until ART-C draws them
+  stakes: 'bld-palisade', ditch: 'bld-palisade', towerBridge: 'bld-ladder',
 };
-export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder' };
+export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder', mantlet: 'bld-ram', coveredRam: 'bld-ram', oxybeles: 'bld-stone-thrower', siegeTower: 'bld-siege-ladder' }; // M5h3 designs: placeholders
 
 /** An icon from the first kit (full colour), 24 or 32 art px. */
 export const icon = (id: string, size: 24 | 32 = 24) => `<img class="ic" src="${UI}icons/${size}/${id}.png" srcset="${UI}icons/${size}/${id}@2x.png 2x" width="${size}" height="${size}" alt="">`;

@@ -22,8 +22,12 @@
  *  - siegeArchers: fire arrows on; shoot the foes on the walls in reach, else set the nearest wood wall piece alight;
  *    while shooting with no lit brazier near (W-35), set one down on the ground just behind the squad's centre.
  *  - assault: wait out of bow range until a breach (rubble) or a raised ladder of its team, then go in and attack-move.
+ *  - M5h3 engineer designs (`engine`; a refused build falls back to the plain engine): siegeRam with a coveredRam,
+ *    siegeLadder with a siegeTower (docked like a ladder), siegeArchers with a mantlet (rolled to bow range of the
+ *    nearest foe wall, the archers shoot from behind it); siegeBolts: an oxybeles rolled to OXY.range * 0.6 of the
+ *    nearest foe wall, where it shoots at the men it sees.
  *  - defendWalls: man the walkway nearest the threat; push off foe ladders, attack foes who got inside (within radius / 2
- *    of (x,y)), melee sally out to burn rams, beat out fires on its own wood.
+ *    of (x,y)), melee sally out to burn rams (covered rams, siege towers), beat out fires on its own wood.
  *
  * Fog of war (W-39): on a sim with vision (visibleTo / lastSeen) each team's bots think on what the team knows: foe squads
  * it sees now (any man in sight), or saw within MEMORY ticks (at the spot last seen); foe men and engines in sight; foe
@@ -32,12 +36,14 @@
 import { decodeGraph, encodeGraph } from './state';
 import type { BuildingSnap, Order, SiegeSnap, Snapshot, SquadId, WarBuildSim, WarSim } from '../types';
 import { warStats } from './classes';
+import { OXY } from './siege';
 
 export type Behaviour =
   | { kind: 'attackMove'; x: number; y: number }
   | { kind: 'hold'; x: number; y: number; radius?: number }
   | { kind: 'flank'; via: [number, number]; x: number; y: number }
-  | { kind: 'siegeRam' | 'siegeLadder' | 'siegeArchers' | 'assault'; x: number; y: number }
+  | { kind: 'siegeRam' | 'siegeLadder' | 'siegeArchers' | 'assault'; x: number; y: number; engine?: SiegeSnap['type'] }
+  | { kind: 'siegeBolts'; x: number; y: number }
   | { kind: 'defendWalls'; x: number; y: number; radius?: number };
 
 export interface Bots {
@@ -80,6 +86,7 @@ interface Bot {
   fire: boolean; // fire arrows ordered
   brazier: number; // siege archers: tick of the last brazier set down, tries so far
   tries: number;
+  plain?: boolean; // M5h3: its design was refused: it builds the plain engine
 }
 
 interface Centre {
@@ -222,7 +229,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
       else {
         bot.at = [Math.floor(me.x) + 0.5, Math.floor(me.y) + 0.5];
         bot.phase = 'build';
-        send(bot, 'buildSiege', { kind: 'buildSiege', squad: id, type, x: bot.at[0], y: bot.at[1] });
+        send(bot, `buildSiege:${type}`, { kind: 'buildSiege', squad: id, type, x: bot.at[0], y: bot.at[1] });
         return null;
       }
     }
@@ -233,6 +240,34 @@ export function createBots(sim: WarSim, every = 5): Bots {
       return null;
     }
     return e;
+  };
+
+  /**
+   * M5h3: engineFor the design `want` (else `base`); a refused design build (no engineer, no stock) falls back to `base`
+   * on the next think.
+   */
+  const designFor = (id: SquadId, bot: Bot, me: Centre, snap: Snapshot, base: SiegeSnap['type'] | null, want?: SiegeSnap['type']): SiegeSnap | null => {
+    const type = want && !bot.plain ? want : base;
+    if (!type) return null;
+    const e = engineFor(id, bot, me, snap, type);
+    if (!e && bot.phase === 'nostock' && bot.engine < 0 && type !== base) {
+      bot.plain = true;
+      bot.at = null;
+      if (base) bot.phase = 'start';
+    }
+    return e;
+  };
+
+  /** M5h3: roll its crewed engine to `dist` of the nearest foe wall tile (towards it); true once there. */
+  const rollTo = (id: SquadId, bot: Bot, e: SiegeSnap, walls: BuildingSnap[], dist: number, x: number, y: number): boolean => {
+    const w = nearest(walls, (b) => nearTile(b, e.x, e.y)[2]);
+    const [tx, ty] = w ? nearTile(w, e.x, e.y) : [x, y];
+    const d = Math.hypot(e.x - tx - 0.5, e.y - ty - 0.5);
+    if (d <= dist + ARRIVED) return true;
+    const k = dist / (d || 1);
+    const gx = Math.round(tx + 0.5 + (e.x - tx - 0.5) * k), gy = Math.round(ty + 0.5 + (e.y - ty - 0.5) * k);
+    send(bot, `roll:${gx},${gy}`, { kind: 'move', squad: id, x: gx, y: gy });
+    return false;
   };
 
   const onFoot = (p: string) => p === 'nostock' || p === 'in' || p === 'breach' || p === 'fight' || p === 'march' || p === 'done';
@@ -256,7 +291,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
       bot.phase = 'in';
       return;
     }
-    const e = engineFor(id, bot, me, snap, 'ram');
+    const e = designFor(id, bot, me, snap, 'ram', bot.b.kind === 'siegeRam' ? bot.b.engine : undefined);
     if (!e) {
       if (bot.phase === 'nostock') attackMove(id, bot, me, cs, x, y);
       return;
@@ -284,7 +319,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
     }
     if (onFoot(bot.phase)) return attackMove(id, bot, me, cs, x, y);
     if (scout(id, bot, me, blds, x, y)) return;
-    const e = engineFor(id, bot, me, snap, 'siegeLadder');
+    const e = designFor(id, bot, me, snap, 'siegeLadder', bot.b.kind === 'siegeLadder' ? bot.b.engine : undefined);
     if (!e) {
       if (bot.phase === 'nostock') attackMove(id, bot, me, cs, x, y);
       return;
@@ -319,6 +354,22 @@ export function createBots(sim: WarSim, every = 5): Bots {
     if (!bot.fire) {
       bot.fire = true;
       sim.order({ kind: 'fireArrows', squad: id, on: true });
+    }
+    // M5h3: behind a mantlet, rolled to bow range of the nearest foe wall
+    if (bot.b.kind === 'siegeArchers' && bot.b.engine === 'mantlet' && !bot.plain && bot.phase !== 'nostock') {
+      const walls = (snap.buildings ?? []).filter((b) => b.team !== me.team && isWall(b) && standing(b));
+      if (walls.length) {
+        const e = designFor(id, bot, me, snap, null, 'mantlet');
+        if (!e) {
+          if (bot.phase === 'nostock') bot.plain = true; // refused or lost: plain siege archers from now on
+          return;
+        }
+        if (bot.phase === 'covered' || rollTo(id, bot, e, walls, ARCHER_R * 0.7, x, y)) {
+          bot.phase = 'covered';
+          send(bot, 'covered', { kind: 'hold', squad: id });
+        } else bot.phase = 'mantlet';
+        return;
+      }
     }
     let foe = -1, fd = ARCHER_R * ARCHER_R; // foes up on the walls in reach
     for (const u of snap.units) {
@@ -376,6 +427,23 @@ export function createBots(sim: WarSim, every = 5): Bots {
     }
   };
 
+  /** M5h3: an oxybeles rolled to bow-shot of the walls; it shoots by itself. */
+  const siegeBolts = (id: SquadId, bot: Bot, me: Centre, cs: Centre[], snap: Snapshot, x: number, y: number) => {
+    if (onFoot(bot.phase)) return attackMove(id, bot, me, cs, x, y);
+    const blds = snap.buildings ?? [];
+    if (scout(id, bot, me, blds, x, y)) return;
+    const e = designFor(id, bot, me, snap, null, 'oxybeles');
+    if (!e) {
+      if (bot.phase === 'nostock' || bot.plain) (bot.phase = 'nostock'), attackMove(id, bot, me, cs, x, y);
+      return;
+    }
+    const walls = blds.filter((b) => b.team !== me.team && isWall(b) && standing(b));
+    if (bot.phase === 'bolts' || rollTo(id, bot, e, walls, OXY.range * 0.6, x, y)) {
+      bot.phase = 'bolts';
+      send(bot, 'bolts', { kind: 'hold', squad: id });
+    } else bot.phase = 'roll';
+  };
+
   const defendWalls = (id: SquadId, bot: Bot, me: Centre, cs: Centre[], snap: Snapshot, x: number, y: number, r: number) => {
     const blds = snap.buildings ?? [];
     const near = (px: number, py: number) => Math.hypot(px - x, py - y) < r;
@@ -394,7 +462,7 @@ export function createBots(sim: WarSim, every = 5): Bots {
       return;
     }
     const melee = snap.units.filter((u) => u.squad === id && u.state !== 'dead' && warStats(u.cls).range === 0).length * 2 > me.alive;
-    const ram = melee ? nearest((snap.sieges ?? []).filter((e) => e.type === 'ram' && e.team !== me.team && e.state !== 'destroyed' && !e.burning && near(e.x, e.y)), dist) : null;
+    const ram = melee ? nearest((snap.sieges ?? []).filter((e) => (e.type === 'ram' || e.type === 'coveredRam' || e.type === 'siegeTower') && e.team !== me.team && e.state !== 'destroyed' && !e.burning && near(e.x, e.y)), dist) : null;
     if (ram) {
       bot.phase = 'sally';
       send(bot, `ignite:${ram.id}`, { kind: 'ignite', squad: id, siege: ram.id });
@@ -434,6 +502,8 @@ export function createBots(sim: WarSim, every = 5): Bots {
       if (b.kind === 'siegeRam') siegeRam(id, bot, me, cs, snap, b.x, b.y);
       else if (b.kind === 'siegeLadder') siegeLadder(id, bot, me, cs, snap, b.x, b.y);
       else if (b.kind === 'siegeArchers') siegeArchers(id, bot, me, cs, snap, b.x, b.y);
+      else if (b.kind === 'siegeBolts') siegeBolts(id, bot, me, cs, snap, b.x, b.y);
+
       else if (b.kind === 'assault') assault(id, bot, me, cs, snap, b.x, b.y);
       else if (b.kind === 'defendWalls') defendWalls(id, bot, me, cs, snap, b.x, b.y, b.radius ?? DEFEND_R);
       else if (b.kind === 'attackMove') attackMove(id, bot, me, cs, b.x, b.y);

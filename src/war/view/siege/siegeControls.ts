@@ -25,7 +25,7 @@ const ARMED_TEXT: Record<Armed, string> = {
   raise: 'click an enemy wall face to raise the ladder', push: 'click an enemy ladder on your wall',
   ignite: 'click an enemy wood building or engine to set it alight', extinguish: 'click a burning own building or engine',
 };
-export const SIEGE_NAME: Record<SiegeType, string> = { ram: 'ram', stoneThrower: 'stone thrower', siegeLadder: 'siege ladder' };
+export const SIEGE_NAME: Record<SiegeType, string> = { ram: 'ram', stoneThrower: 'stone thrower', siegeLadder: 'siege ladder', mantlet: 'mantlet', coveredRam: 'covered ram', oxybeles: 'oxybeles', siegeTower: 'siege tower' };
 export const SIEGE_HELP = 'Siege: E / right click crews, raises or pushes ladders, ignites, puts out, attacks (as the cursor label says) · Y deploy / pack · Q fire arrows';
 
 export class SiegeControls {

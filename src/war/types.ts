@@ -85,7 +85,16 @@ export type CraftOrder =
   | { kind: 'repair'; squad?: undefined; team: number; building: number; owner: string; item: Item }
   | { kind: 'salvage'; squad?: undefined; team: number; building: number; owner: string; item: Item };
 // --- M2c siege (src/war/sim/siege.ts, fire and breaches in works.ts; docs/impl/global-war-rebuild.md W-29) ---
-export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder';
+export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder' | 'mantlet' | 'coveredRam' | 'oxybeles' | 'siegeTower';
+/**
+ * M5h3 engineer designs (siege.ts, docs/WAR.md "Crafting and professions"): built like the M2c engines, only by a team with
+ * a living engineer holding the node (mantlet Carpenter, coveredRam Rams, oxybeles Artillerist, siegeTower Poliorcetes).
+ * mantlet: movable cover; its team's men just behind it dodge MANTLET.cover of the missiles from in front. coveredRam: a
+ * ram with a hide roof (more hp, better cover, slow to catch fire). oxybeles: bolt thrower; crewed and standing, it shoots
+ * the nearest foe man in sight in range, the bolt goes through up to OXY.pierce men. siegeTower: raiseLadder docks it on
+ * the wall face: a towerBridge building joins the ground at its foot to the walkway, fast and for many at once (not pushed
+ * off; it goes when the tower burns or breaks).
+ */
 /**
  * buildSiege: the team pays the engine's cost from its stockpile at once (SIEGE in siege.ts) and the squad builds it at
  * (x,y) on open ground (labour like a site); it then stands idle, uncrewed. crew: the squad becomes the engine's crew (it
@@ -112,7 +121,15 @@ export type SiegeOrder =
   | { kind: 'pushLadder'; squad: SquadId; ladder: number }
   | { kind: 'ignite'; squad: SquadId; building?: number; siege?: number }
   | { kind: 'extinguish'; squad: SquadId; building?: number; siege?: number }
-  | { kind: 'fireArrows'; squad: SquadId; on: boolean };
+  | { kind: 'fireArrows'; squad: SquadId; on: boolean }
+  | FortOrder;
+/**
+ * M5h3 fortifications (Fortifier node, works.ts): fortify a done building of the team, paid at once from its stock.
+ * ironGate: a gate's hp +50% (iron 10, charcoal 10, once); wetHides: a wood piece catches at half the chance for
+ * WET.ticks (hides 1 a tile). Stakes and ditch are placed tiles (placeBuilding type 'stakes' / 'ditch', BUILDINGS field).
+ */
+export type FortKind = 'ironGate' | 'wetHides';
+export interface FortOrder { kind: 'fortify'; squad?: undefined; team: number; building: number; fort: FortKind }
 /**
  * building: under construction (progress = labour 0..1); idle: built, standing; move: rolling or carried; deploying /
  * packing: a stone thrower setting up or packing (progress 0..1); deployed: set up, stationary; attack: battering (ram) or
@@ -159,7 +176,7 @@ export interface SquadSnap { id: SquadId; owner: string; team: number; units: Un
   /** M5h: the dish it ate last (while fed), bandages it carries, theriac on (venom ignored). */
   dish?: Product; bandages?: number; theriac?: true }
 export interface FireArrowsSnap { on: boolean; available: boolean; reason?: 'noBrazier' | 'noPitch' }
-export type MissileKind = 'arrow' | 'stone' | 'javelin';
+export type MissileKind = 'arrow' | 'stone' | 'javelin' | 'bolt';
 /**
  * A missile in flight: loosed by unit `by` at tick t0 from (x0,y0) on ground height z0 (levels), lands at (x1,y1)
  * on height z1 on tick t1 (flight t1 - t0 ticks). kind: arrow (bow), stone (sling), javelin.
@@ -224,6 +241,10 @@ export type BuildingType =
   // W-35: brazier (1x1 on open ground, or on the team's own walkway / tower platform deck, no influence needed; paid at once, done and lit on
   // placement, burns BRAZIER.life seconds; no squad needed); pitchKiln: a pitch node fed by the team's wood
   | 'brazier' | 'pitchKiln'
+  // M5h3: towerBridge (a docked siege tower's bridge onto a walkway, never placed), stakes and ditch (Fortifier field
+  // tiles, placed 1x1 in the team's influence: open ground, men slower over them, engines cannot cross; stakes wound
+  // foe men on them; attackBuilding on a ditch fills it)
+  | 'towerBridge' | 'stakes' | 'ditch'
   // M5h workplaces (docs/WAR.md "Workplaces"): chains of 3 levels by `upgrade`; the sorting floor upgrades a storehouse
   | 'forge' | 'forge2' | 'forge3' | 'cookhouse' | 'cookhouse2' | 'cookhouse3' | 'infirmary' | 'infirmary2' | 'infirmary3'
   | 'workshop' | 'workshop2' | 'workshop3' | 'stall' | 'stall2' | 'stall3' | 'sortingFloor' | 'sortingFloor2';
@@ -297,6 +318,8 @@ export interface BuildingSnap {
   rubble?: true;
   /** M2c: a ladder raised by siege engine `siege`; push: defenders' progress pushing it off 0..1. */
   siege?: number; push?: number;
+  /** M5h3: an iron-bound gate; wet hides on it (fire-resistant for now). */
+  iron?: true; wet?: true;
   /**
    * M2d: a bridge piece: its axis, step along the line (dir), width, part (a ramp on the start / far bank, or deck), deck
    * level (the higher bank's height; finished tiles walk at it over the water) and row centres (as BridgePlan pieces).

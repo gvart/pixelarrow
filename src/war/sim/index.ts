@@ -40,15 +40,15 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { FightReport, Order, PersonResult, RegionData, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
+import type { BuildingType, FightReport, Order, PersonResult, RegionData, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
 import { RARITIES, salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
-import { BRAZIER, BUILDINGS, WORK_DEFENCE } from './economy';
+import { BRAZIER, BUILDINGS, FIELD, WORK_DEFENCE } from './economy';
 import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineClear, nearestOpen, tileAt, UPHILL, type Grid } from './grid';
 import { createWorks, type Worker } from './works';
-import { createSiege, LADDER, RAM } from './siege';
+import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { createVision } from './vision';
 import { CAPTURE_R, DETACH_MIN, DROP, gainXp, SQUAD_MAX, XP } from './soldiers';
@@ -114,6 +114,10 @@ const FIRE_RELOAD = 1.5; // fire arrows: slower reload
 const FIRE_ARROW = 0.2; // chance a fire arrow sets the wood it is shot at alight
 const FIRE_DECK = 0.08; // ... the wood deck under the man it is shot at
 const RAM_ROOF = 2; // crew this near their ram are under its roof
+const NO_NODES: ReadonlySet<string> = new Set();
+const STAKES_EVERY = 5; // M5h3: ticks between stakes wounding the foe men crossing them
+/** M5h3: building types that need an engineer node of the team to place; towerBridge is never placed. */
+const PLACE_NODE: Partial<Record<BuildingType, string>> = { stakes: 'fortifier', ditch: 'fortifier', towerBridge: '-' };
 const FILE = 0.75; // tiles between men in file on a bridge (1.5 m; a tile is 2 m, a body 1.4 m)
 const LANE = 0.8; // tiles between the lanes of a bridge 2 or 3 wide
 const COL_AHEAD = 3; // tiles of path ahead of the anchor that put its squad in column for a bridge
@@ -335,10 +339,44 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
   );
 
+  /** M5h3: engineer nodes held by the living engineers of each team (once a tick). */
+  let nodesAt = -1;
+  const teamNodes = new Map<number, Set<string>>();
+  const engineerNodes = (team: number): ReadonlySet<string> => {
+    if (nodesAt !== tick) {
+      nodesAt = tick;
+      teamNodes.clear();
+      for (const u of units) {
+        if (!u.alive || u.civ !== 'engineer') continue;
+        let set = teamNodes.get(u.squad.team);
+        if (!set) teamNodes.set(u.squad.team, (set = new Set()));
+        for (const n of heldNodes('engineer', u.person?.hero.perks)) set.add(n);
+      }
+    }
+    return teamNodes.get(team) ?? NO_NODES;
+  };
+  const placeable = (type: BuildingType, team: number | undefined) => {
+    const n = PLACE_NODE[type];
+    return !n || (team !== undefined && engineerNodes(team).has(n));
+  };
+  /** M5h3: foe men moving over stakes are wounded. */
+  const stakes = () => {
+    for (const u of units) {
+      if (!u.alive || !u.moving) continue;
+      const t = tileAt(grid, u.x, u.y);
+      const f = t >= 0 ? works.fieldAt(t) : undefined;
+      if (f && f.def.field === 'stakes' && f.team !== u.squad.team) hurt(u, FIELD.stakes.dmg * STAKES_EVERY * DT);
+    }
+  };
+
   const siege = createSiege(works, rng, {
+
     path: (team, x0, y0, x1, y1) => {
       grid.team = team;
-      return cornerPath(x0, y0, x1, y1);
+      grid.engine = true; // M5h3: off stakes and ditches
+      const p = cornerPath(x0, y0, x1, y1);
+      grid.engine = false;
+      return p;
     },
     crewNear(crew, x, y, r) {
       let n = 0;
@@ -355,6 +393,33 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     cost(x, y) {
       const t = tileAt(grid, x, y);
       return t >= 0 && grid.cost[t] > 0 ? grid.cost[t] : 1;
+    },
+    nodes: engineerNodes,
+    foe(team, x, y, r) {
+      let best: Unit | null = null, bd = r * r;
+      for (const u of units) {
+        if (!u.alive || u.squad.team === team || u.civ) continue;
+        const d = (u.x - x) ** 2 + (u.y - y) ** 2;
+        if (d < bd && vision.visibleTo(team, u.x, u.y)) (bd = d), (best = u);
+      }
+      return best ? [best.x, best.y] : null;
+    },
+    pierce(team, x0, y0, x1, y1, w, dmg, ap, n) {
+      const dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy || 1;
+      const hit: [number, Unit][] = [];
+      for (const u of units) {
+        if (!u.alive || u.squad.team === team) continue;
+        const k = ((u.x - x0) * dx + (u.y - y0) * dy) / l2;
+        if (k < 0 || k > 1) continue;
+        if ((x0 + dx * k - u.x) ** 2 + (y0 + dy * k - u.y) ** 2 <= w * w) hit.push([k, u]);
+      }
+      hit.sort((a, b) => a[0] - b[0] || a[1].id - b[1].id);
+      for (const [, u] of hit.slice(0, n)) hurt(u, afterArmour(dmg, u.st.armor, ap));
+    },
+    stoneTower(team, x, y) {
+      const t = tileAt(grid, x, y);
+      const b = t >= 0 && grid.deck[t] === DECK ? works.piece(grid.plat[t]) : undefined;
+      return !!b && b.type === 'stoneTower' && b.team === team && (b.state === 'done' || b.state === 'damaged');
     },
   });
 
@@ -507,6 +572,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (b && !b.cancelled && (b.state === 'done' || b.state === 'damaged')) crafting.order(o, b);
       return;
     }
+    if (o.kind === 'fortify') {
+      // M5h3: a Fortifier of the team iron-binds a gate or hangs wet hides, paid at once
+      if (engineerNodes(o.team).has('fortifier')) works.fortify(o.team, o.building, o.fort);
+      return;
+    }
+    if (o.kind === 'placeBuilding' && !placeable(o.type, o.squad === undefined ? o.team : squads[o.squad]?.team)) return;
     if (o.kind === 'upgrade' && o.squad === undefined) {
       if (o.team !== undefined) works.upgrade(o.building, o.team);
       return;
@@ -539,6 +610,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.actReady = tick + activeCooldown(s.actWil);
       return;
     }
+    if (s.siege >= 0 && siege.get(s.siege)?.crew !== s.id) (s.siege = -1), (s.fixed = null); // its ladder or tower went up: the crew is free
     if (s.siege >= 0 && (o.kind === 'move' || o.kind === 'hold' || o.kind === 'stop' || o.kind === 'attackMove' || o.kind === 'attackBuilding' || o.kind === 'deploy' || o.kind === 'raiseLadder')) {
       // the crew drives its engine (an attack-move rolls it like a move, stop holds it)
       const id = s.siege;
@@ -596,7 +668,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         k = { kind: o.kind, b: -1, e: id };
       } else if (o.kind === 'pushLadder') {
         const l = works.piece(o.ladder);
-        if (!l || l.def.access !== 'ladder' || l.team === s.team) return;
+        if (!l || l.type !== 'ladder' || l.team === s.team) return; // M5h3: a siege tower's bridge is not pushed off
         k = { kind: o.kind, b: o.ladder, e: -1 };
       } else {
         k = { kind: o.kind, b: o.building ?? -1, e: o.building === undefined ? o.siege ?? -1 : -1 };
@@ -1421,11 +1493,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     missiles.push({ at: land, by: u, t: null, raw: u.st.rangedDmg * COMBAT.missileDmg * missileHeight(dh) * (fire ? -1 : 1), ap: u.st.ap, ...(k.b >= 0 ? { b: k.b } : { e: k.e }) });
   };
 
-  /** Crew under their ram's roof. */
-  const underRoof = (t: Unit) => {
-    const e = t.squad.siege >= 0 ? siege.get(t.squad.siege) : undefined;
-    return !!e && e.type === 'ram' && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= RAM_ROOF * RAM_ROOF;
-  };
+  /** Share of a missile from `by` that man t dodges: crew under their ram's roof (covered ram: more), men behind a mantlet. */
+  const cover = (t: Unit, by: Unit) => Math.max(t.squad.siege >= 0 ? siege.roof(t.squad.siege, t.x, t.y, RAM_ROOF) : 0, siege.cover(t.squad.team, t.x, t.y, by.x, by.y));
 
   const land = () => {
     if (!missiles.length) return;
@@ -1444,13 +1513,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           if (m.raw < 0) works.fireHit(m.b, FIRE_ARROW);
         } else {
           siege.damage(m.e!, dmg);
-          if (m.raw < 0 && rng.chance(FIRE_ARROW)) siege.kindle(m.e!, 99);
+          if (m.raw < 0 && rng.chance(FIRE_ARROW * siege.fireK(m.e!))) siege.kindle(m.e!, 99);
         }
         continue;
       }
       const t = m.t;
       if (!t || !t.alive) continue;
-      if (underRoof(t) && rng.chance(RAM.cover)) continue;
+      const cv = cover(t, m.by);
+      if (cv > 0 && rng.chance(cv)) continue;
       if (!working(t) && rng.chance(blockChance(blockOf(m.by, t), t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
       hurt(t, afterArmour(m.raw * dmgMult(m.by, t, true), t.st.armor, m.ap), m.by);
     }
@@ -2025,8 +2095,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         if (++u.stuck > STUCK_TICKS) (u.stuck = 0), (u.wgx = u.wgy = -1);
       } else u.stuck = 0;
     }
+    if (tick % STAKES_EVERY === 0) stakes();
     land();
     siege.tick(tick);
+
     for (const s of reslotQueue) reslot(s);
     reslotQueue.clear();
     if (shots.length) shots = shots.filter((sh) => sh.t1 > tick);
