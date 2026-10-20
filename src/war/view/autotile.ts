@@ -41,7 +41,7 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
   const order = T.fallback.order, K = order.length;
   const BUF = order.indexOf(T.fallback.buffer?.land ?? 'grass'); // terrains this set does not know draw as the buffer
   const id = (t: string) => { const i = order.indexOf(t); return i < 0 ? BUF : i; };
-  const DEEP = id('deep'), SHALLOW = id('shallow'), GRASS = BUF, ROAD = id('road');
+  const DEEP = id('deep'), SHALLOW = id('shallow'), GRASS = BUF, ROAD = id('road'), PAVING = order.indexOf('paving');
   const isWater = (t: number) => t === DEEP || t === SHALLOW;
   const pair = new Int16Array(K * K).fill(-1);
   // sheets and variants of terrains the set's order leaves out are not used
@@ -94,14 +94,14 @@ export function autotile(r: RegionData, z: ArrayLike<number>, T: TilesMeta): Aut
         const g = vGroups[a];
         cnt.fill(0);
         let all = 0;
-        if (prev[g] === ROAD) continue; // roads are lines: they keep their width
+        if (prev[g] === ROAD || prev[g] === PAVING) continue; // roads and paved streets are lines: they keep their width
         for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
           const x = vx + dx, y = vy + dy;
           if (x < 0 || y < 0 || x > w || y > h || dx * dx + dy * dy > R * R + 1) continue;
           for (let b = vStart[y * vw + x]; b < vStart[y * vw + x + 1]; b++) if (GZ[vGroups[b]] === GZ[g]) { cnt[prev[vGroups[b]]]++; all++; }
         }
         let best = prev[g];
-        for (let t = 0; t < K; t++) if (t !== ROAD && cnt[t] > cnt[best]) best = t;
+        for (let t = 0; t < K; t++) if (t !== ROAD && t !== PAVING && cnt[t] > cnt[best]) best = t;
         if (best !== prev[g] && cnt[best] * 2 > all) GV[g] = best;
       }
     }

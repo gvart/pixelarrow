@@ -304,21 +304,21 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   const climb = s.ramp([[200, 76], [196, 88], [190, AG[1] + 1]], 4, hu, hc, { run: 5, flat: 3 });
   s.force('ammon-gate-x', 197, 70, { hp: 0.6 }); // the gate on the climb to the upper city
   const av = [
-    s.street([out(gW, -4), [92, 106], [124, 112], [AG[0], 117]], 5),
-    s.street([out(gS, -4), [136, 176], [152, 150], [176, AG[3]]], 5),
-    s.street([[AG[2] - 6, AG[3]], [228, 156], [262, 172], out(gE, -4)], 4),
+    s.street([out(gW, -4), [92, 106], [124, 112], [AG[0], 117]], 4),
+    s.street([out(gS, -4), [136, 176], [152, 150], [176, AG[3]]], 4),
+    s.street([[AG[2] - 6, AG[3]], [228, 156], [262, 172], out(gE, -4)], 3),
     s.street([[200, 66], [208, 58], [222, 72], fA], 4),
     ...streetOn([[200, 66], [176, 48], [168, 24]], 3, hu), ...streetOn([[222, 72], [226, 100], [232, 132]], 3, hu),
   ];
   void sacred; void climb;
   // the ring street inside the wall, streets from the agora and the avenues out to it
   const R = inset(P, 15);
-  const ring = streetOn([...R, R[0], R[1]], 3, hc);
+  const ring = streetOn([...R, R[0], R[1]], 2, hc);
   const radial = ([[[AG[0] + 10, AG[1]], [150, 70], [140, 34]], [[AG[0], AG[3] - 6], [120, 150], [96, 170]], [[200, AG[3]], [208, 168], [212, 192]],
-    [[124, 112], [110, 84], [86, 66]], [[152, 150], [118, 178]], [[170, 100], [150, 74], [128, 40]]] as Pt[][]).flatMap((p) => streetOn(p, 3, hc));
+    [[124, 112], [110, 84], [86, 66]], [[152, 150], [118, 178]], [[170, 100], [150, 74], [128, 40]]] as Pt[][]).flatMap((p) => streetOn(p, 2, hc));
   // winding lanes, small plazas with wells and cisterns where some of them end
   const city = (x: number, y: number) => within(P, x, y, 9) && !inPoly(AC, x, y) && !(x > TP[0] - 2 && x < TP[2] + 2 && y > TP[1] - 2 && y < TP[3] + 2);
-  const ends = lanes(s, [...av, ...ring, ...radial], 50, 2, (x, y) => city(x, y) && (tierOk(x, y, hc) || tierOk(x, y, hu)), 35);
+  const ends = lanes(s, [...av, ...ring, ...radial], 40, 1.6, (x, y) => city(x, y) && (tierOk(x, y, hc) || tierOk(x, y, hu)), 35);
   ends.filter((_, n) => n % 4 === 0).slice(0, 9).forEach(([x, y], n) => {
     s.plaza(x, y, 4.5, 3.5);
     s.force(n % 2 ? 'arch-cistern' : '@town-well', Math.round(x) - (n % 2 ? 1 : 0), Math.round(y) - (n % 2 ? 1 : 0), { hp: 0.5 });
@@ -326,7 +326,7 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   // the quarters: tenements along the avenues, the rich under the acropolis, craftsmen by the west gate, houses elsewhere
   const avTiles = new Set<number>();
   for (const c of av) for (const p of c) for (let d = -7; d <= 7; d++) for (let e = -7; e <= 7; e++) avTiles.add(Math.floor(p.y + d) * 4096 + Math.floor(p.x + e));
-  const houses: District = { ids: [['ammon-house-a', 3], ['ammon-house-d', 1], ['ammon-house-b', 3], ['ammon-house-c', 4], ['arch-house-c', 1], ['arch-house-b', 1]], ruin: 0.75, hp: [0.25, 0.55], empty: 0.3, alley: 0.12 };
+  const houses: District = { ids: [['ammon-house-a', 3], ['ammon-house-d', 1], ['ammon-house-b', 3], ['ammon-house-c', 4], ['arch-house-c', 1], ['arch-house-b', 1]], ruin: 0.75, hp: [0.25, 0.55], empty: 0.18, alley: 0.1 };
   const tenements: District = { ids: [['ammon-tenement', 5], ['ammon-house-b', 2], ['ammon-workshop', 1], ['arch-tenement', 1]], ruin: 0.7, hp: [0.25, 0.55], empty: 0.15, alley: 0.08 };
   const rich: District = { ids: [['ammon-house-c', 4], ['arch-house-c', 2], ['arch-house-b', 3], ['ammon-house-b', 1]], ruin: 0.7, hp: [0.3, 0.6], empty: 0.15 };
   const crafts: District = { ids: [['ammon-workshop', 4], ['arch-workshop', 2], ['@town-storehouse', 1], ['arch-forge', 1], ['ammon-house-a', 2]], ruin: 0.5, hp: [0.3, 0.6], empty: 0.1 };
