@@ -49,6 +49,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-43 World map look (owner 2026-10-20): one coherent painted continent (AAA, hand-drawn quality), not stitched areas; neutral regions under a grey overlay; occupied regions in their alliance colour.
 - W-44 Economy (owner 2026-10-20): fully player-driven — nothing comes from the game (no NPC vendors or system prices). Goods are physical: chests/storehouses/warehouses in the world, carts/wagons (must be built) and porters carry them; no abstract player inventory. Caravans are escorted; ambush, capture and theft are core. Some trade cities are safe zones with rentable stalls/warehouses; player-to-player trade wherever both are present; hiring others to carry/escort via contracts.
 - W-45 Bosses (owner 2026-10-20): some (not all) neutral regions have a boss guarding them; the region can be claimed only after the boss is killed; bosses drop rare/epic/legendary equipment (main source of named legendaries and sets).
+- W-46 Battle loot (owner 2026-10-20): when a soldier dies (or a cart/porter is destroyed) what he wore/carried drops as a physical pile on the spot; anyone, including the enemy, can pick it up after the fight and carry it away. Rules (drop chances, wounded/captured, decay, safe zones) in the Trade design.
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
