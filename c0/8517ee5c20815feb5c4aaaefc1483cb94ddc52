@@ -1,0 +1,34 @@
+src/audio/synth.ts
+  s_cfc22b058125c4::t_058fd3f8cba69a 31,44
+src/audio/engine.ts
+  s_cfc22b058125c4::t_6ba70e014c3fb8 22,25,36-39,43,80-82,130-131,256-258,260-265,281,329-331,356-358,410,412-413
+  s_cfc22b058125c4::t_a0bbe07021b1c2 83,259,411
+src/audio/sfx.ts
+  s_cfc22b058125c4::t_afb9995ac13ca6 609-862,928-959
+src/audio/ambience.ts
+  s_cfc22b058125c4::t_94643abbc602dd 1-246
+src/audio/mixer.ts
+  s_cfc22b058125c4::t_f81bf4fefea039 104-111
+  s_cfc22b058125c4::t_058fd3f8cba69a 45
+  s_cfc22b058125c4::t_663419b09933ab 8
+src/audio/music.ts
+  s_cfc22b058125c4::t_1f6887c767e5dd 197-209,213-234
+  s_cfc22b058125c4::t_dab1fa07ecf315 15,289
+  s_cfc22b058125c4::t_df3bfd2ce43a2d 210-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c08517ee5c20815feb5c4aaaefc1483cb94ddc52",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
