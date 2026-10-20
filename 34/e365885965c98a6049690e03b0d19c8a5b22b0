@@ -1,0 +1,32 @@
+docs/PLAYTEST.md
+  s_cfc22b058125c4::t_5687e99aa51d18 18-24,26-33,77-83,85-86
+  s_cfc22b058125c4::t_880acd0830941c 1-17,25,34-76,84
+scripts/war/play.mjs
+  s_cfc22b058125c4::t_d9ec8b992e92b4 1-19,22-29,31-141,145-147,150-173
+  s_cfc22b058125c4::t_06123ee5cd0aca 20-21,30,142-144,148-149
+scripts/war/play-smoke.mjs
+  s_cfc22b058125c4::t_39c86ba3125ce3 1-19,21,24-34,36-39,41-49,51-52,57-64,69-73,75,84-89,91-93,95-106,108-114
+  s_cfc22b058125c4::t_596870423eee21 20,40
+  s_cfc22b058125c4::t_8f7c7280c304ab 22-23,35,50,90,107
+  s_cfc22b058125c4::t_934baedcc55b6e 53-56,65-68,74,76-77,83
+  s_cfc22b058125c4::t_92208b4e5d6615 78-82
+  s_cfc22b058125c4::t_71c7ada98c6de5 94
+package.json
+  s_cfc22b058125c4::t_a850a9d6b7aeff 19-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "34e365885965c98a6049690e03b0d19c8a5b22b0",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
