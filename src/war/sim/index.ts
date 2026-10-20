@@ -1397,10 +1397,21 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   /** M5d: the fight report (WarBuildSim.endFight). */
   const endFight = (): FightReport => {
+    const persons = resultsOf(units);
+    for (const u of units) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false);
+    for (const s of reslotQueue) reslot(s);
+    reslotQueue.clear();
+    const out: FightReport = { tick, persons, loot };
+    loot = {};
+    return out;
+  };
+
+  /** The fight results of `of` so far (each person's XP, kills, state); their tallies stay for the caller to clear. */
+  const resultsOf = (of: Iterable<Unit>): PersonResult[] => {
     const took = new Map<number, number>(); // team -> its soldiers who took part
     for (const u of units) if (u.engaged && u.squad.team !== MOB_TEAM) took.set(u.squad.team, (took.get(u.squad.team) ?? 0) + 1);
     const persons: PersonResult[] = [];
-    for (const u of units) {
+    for (const u of of) {
       const p = u.person;
       if (!p || u.reported || (u.alive && !u.engaged && !u.obj && !u.repaired)) continue;
       const team = u.squad.team;
@@ -1439,12 +1450,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (!u.alive) u.reported = true;
       persons.push({ pid: p.id, owner: u.squad.owner, team, state, ...(captor !== undefined ? { captor } : {}), ...(fort !== undefined ? { fort } : {}), xp, kills: u.kills, dmg: Math.round(u.dealt), levelUps: g.levelUps, hero });
     }
-    for (const u of units) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false);
-    for (const s of reslotQueue) reslot(s);
-    reslotQueue.clear();
-    const out: FightReport = { tick, persons, loot };
-    loot = {};
-    return out;
+    return persons;
   };
 
   /** Melee can land: at most one height level apart and a walkable line between (no cliff, no blocked tile). */
@@ -2205,6 +2211,22 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       }
       for (const s of reslotQueue) if (s.alive > 0) reslot(s);
       reslotQueue.clear();
+    },
+    reportPersons(ids) {
+      // M4: these living men leave mid-fight (a transfer): their fight so far, reported now, tallies cleared
+      const of = new Set(ids), sel = units.filter((u) => u.alive && u.person && of.has(u.person.id));
+      const out = resultsOf(sel);
+      for (const u of sel) (u.dealt = u.kills = u.obj = 0), (u.engaged = u.repaired = false);
+      for (const s of reslotQueue) reslot(s);
+      reslotQueue.clear();
+      return out;
+    },
+    hurtPersons(lost) {
+      // M4: men arriving from another region come in with the hit points they left with
+      for (const u of units) {
+        const n = u.alive && u.person ? lost[u.person.id] : undefined;
+        if (n !== undefined && n > 0) u.hp = Math.max(1, Math.min(u.hp, u.maxHp - n));
+      }
     },
     spawnSquad(owner, team, cls, count, x, y, persons) {
       // M5b: one man per person, each with his own baked stats

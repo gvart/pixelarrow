@@ -64,4 +64,6 @@ export interface SeasonConfig {
   offExitMsPerTile: number;
   /** A squad may not leave with a foe (mobs included) this close to its centre (tiles). */
   foeRadius: number;
+  /** How long a season runs from its start, unless hegemony ends it first (ms). */
+  lengthMs: number;
 }

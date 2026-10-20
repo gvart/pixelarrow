@@ -4,21 +4,21 @@
  *  - NetSource: the live world (wrangler dev with DEV_AUTH=1, through the vite proxy). Signs in as dev player `?dev=`
  *    (else one kept in localStorage, so the region sandbox opened from here is the same player), joins alliance
  *    `?alliance=` (default Dodona) when it has none, follows /ws/war/world (polls GET /api/war/world when the socket is
- *    down) and the roster (GET /api/war/roster) for the player's men per region. A transfer needs the room's squad ids:
- *    it opens the region's socket for a moment with an empty join (a rejoin of the squads standing there, no spawn),
- *    reads the welcome's squads and sends each over POST /api/war/world/transfer.
+ *    down) and the roster (GET /api/war/roster) for the player's men per region. A transfer sends the roster's person
+ *    ids of his men in the region over POST /api/war/world/transfer, TRANSFER_MAX at a time (each arrives as a squad).
  *  - MockSource (?offline=1): a made-up mid-season world in memory, transfers run on local timers, so the map can be
  *    browsed with no server.
  */
 import { SIM_VERSION } from '../../sim/version';
-import { DEFAULT_CAP, NET_VERSION, splitQuota } from '../net/protocol';
-import type { RegionState, TransitSnap, WorldSnapshot } from '../net/world';
+import { DEFAULT_CAP, splitQuota } from '../net/protocol';
+import { TRANSFER_MAX, type RegionState, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
 import { ALLIANCES, WAR_SEASON } from '../world/alliances';
 import { edge, worldRegion, WORLD_IDS } from '../world/graph';
+import { allianceRates, FRONTIER_TOWNS, OMPHALOS } from '../world/season';
 import type { AllianceId } from '../world/types';
 
-/** The player's men standing in one region (from the roster). */
-export interface FieldSquad { region: string; men: number; classes: Record<string, number> }
+/** The player's men standing in one region (from the roster); ids: their person ids. */
+export interface FieldSquad { region: string; men: number; classes: Record<string, number>; ids: string[] }
 
 export interface WorldView {
   snap: WorldSnapshot;
@@ -53,8 +53,9 @@ export function fieldSquads(persons: RosterPerson[]): FieldSquad[] {
   const by = new Map<string, FieldSquad>();
   for (const p of persons) {
     if (!p.region || p.region.startsWith('>') || !worldRegion(p.region)) continue;
-    const s = by.get(p.region) ?? { region: p.region, men: 0, classes: {} };
+    const s = by.get(p.region) ?? { region: p.region, men: 0, classes: {}, ids: [] };
     s.men++;
+    s.ids.push(p.id);
     s.classes[p.cls] = (s.classes[p.cls] ?? 0) + 1;
     by.set(p.region, s);
   }
@@ -81,7 +82,6 @@ export class NetSource implements WorldSource {
   readonly mode = 'net';
   readonly devId: number;
   private token = '';
-  private pid = 0;
   private auth: Record<string, string> = {};
   private snap: WorldSnapshot | null = null;
   private squads: FieldSquad[] = [];
@@ -93,7 +93,7 @@ export class NetSource implements WorldSource {
   }
 
   private view(): void {
-    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: null, endsAt: null, quota: QUOTA, status: this.status });
+    if (this.snap) this.emit({ snap: this.snap, squads: this.squads, scores: this.snap.score.scores, endsAt: this.snap.at + this.snap.score.left, quota: QUOTA, status: this.status });
   }
 
   private async api<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
@@ -107,9 +107,8 @@ export class NetSource implements WorldSource {
     this.emit = onChange;
     const res = await fetch('/api/auth/telegram', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dev: { id: this.devId, first_name: `World${this.devId}` } }) });
     if (!res.ok) throw new Error(`dev login failed (${res.status}): is wrangler dev running with DEV_AUTH=1? Or open ?offline=1`);
-    const s = (await res.json()) as { token: string; player: { id: number } };
+    const s = (await res.json()) as { token: string };
     this.token = s.token;
-    this.pid = s.player.id;
     this.auth = { authorization: `Bearer ${s.token}`, 'content-type': 'application/json' };
     let snap = await this.api<WorldSnapshot>('GET', '/api/war/world');
     if (snap.you.alliance === null) {
@@ -148,31 +147,15 @@ export class NetSource implements WorldSource {
     };
   }
 
-  /** The squad ids the player holds in `region` (a rejoin over the room's socket, closed again at once). */
-  private roomSquads(region: string, team: number): Promise<number[]> {
-    return new Promise((ok, no) => {
-      const ws = new WebSocket(`${wsBase()}/ws/war/${region}?sim=${SIM_VERSION}`, ['pixelarrow.v1', this.token]);
-      const done = (v: number[] | Error) => { clearTimeout(t); ws.close(); if (v instanceof Error) no(v); else ok(v); };
-      const t = setTimeout(() => done(new Error(`${region}: no answer from the room`)), 8000);
-      ws.onopen = () => ws.send(JSON.stringify({ t: 'join', v: NET_VERSION, region, playerId: this.pid, team, squads: [['none']] }));
-      ws.onmessage = (e) => {
-        if (typeof e.data !== 'string') return;
-        const m = JSON.parse(e.data) as { t: string; squads?: number[]; reason?: string };
-        if (m.t === 'welcome') done(m.squads ?? []);
-        else if (m.t === 'refused') done([]);
-      };
-      ws.onerror = () => done(new Error(`${region}: room socket failed`));
-    });
-  }
-
   async transfer(from: string, to: string): Promise<TransferResult> {
     const team = this.snap?.you.alliance;
     if (team === null || team === undefined) return { error: 'join an alliance first' };
     try {
-      const ids = await this.roomSquads(from, team);
-      if (!ids.length) return { error: `no squad of yours stands in ${worldRegion(from)?.name ?? from} (close its region tab and retry)` };
+      await this.loadRoster();
+      const ids = this.squads.find((s) => s.region === from)?.ids ?? [];
+      if (!ids.length) return { error: `no men of yours stand in ${worldRegion(from)?.name ?? from}` };
       const ok: TransitSnap[] = [];
-      for (const squad of ids) ok.push((await this.api<{ transit: TransitSnap }>('POST', '/api/war/world/transfer', { from, to, squad })).transit);
+      for (let i = 0; i < ids.length; i += TRANSFER_MAX) ok.push((await this.api<{ transit: TransitSnap }>('POST', '/api/war/world/transfer', { from, to, ids: ids.slice(i, i + TRANSFER_MAX) })).transit);
       if (this.snap) this.snap = { ...this.snap, transit: [...this.snap.transit.filter((t) => !ok.some((o) => o.id === t.id)), ...ok] };
       await this.loadRoster().catch(() => undefined);
       this.view();
@@ -202,9 +185,9 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
   });
   regions.find((r) => r.id === 'kyrene')!.live[1] = 18;
   const squads: FieldSquad[] = [
-    { region: 'dodona', men: 12, classes: { hoplite: 8, archer: 4 } },
-    { region: 'dodona-e', men: 10, classes: { hoplite: 6, slinger: 4 } },
-    { region: 'moors', men: 12, classes: { celt_sword: 8, javelineer: 4 } },
+    { region: 'dodona', men: 12, classes: { hoplite: 8, archer: 4 }, ids: [] },
+    { region: 'dodona-e', men: 10, classes: { hoplite: 6, slinger: 4 }, ids: [] },
+    { region: 'moors', men: 12, classes: { celt_sword: 8, javelineer: 4 }, ids: [] },
   ];
   const transit: TransitSnap[] = [
     { id: 1, from: 'dodona-s', to: 'stymphalia', men: 9, departAt: now - 60_000, arriveAt: now - 60_000 + travelMs('dodona-s', 'stymphalia'), state: 'moving' },
@@ -214,7 +197,13 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
     id: a.id, members: 40 + a.id * 3, clans: 6 + a.id, regions: regions.filter((r) => r.owner === a.id).length,
     soldiers: regions.reduce((s, r) => s + r.live[a.id], 0), inTransit: a.id === 0 ? 21 : 6,
   }));
-  return { snap: { season: WAR_SEASON.id, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit }, squads, scores: [412, 377, 498, 365], endsAt: now + (9 * 24 + 4) * 3600_000 };
+  const scores = [412, 377, 498, 365], left = (9 * 24 + 4) * 3600_000;
+  const owner = (id: string) => regions.find((r) => r.id === id)!.owner;
+  const score: SeasonSnap = {
+    id: WAR_SEASON.id, startAt: now + left - WAR_SEASON.lengthMs, endAt: now + left, left, scores, rates: allianceRates(regions),
+    omphalos: owner(OMPHALOS), towns: Object.fromEntries(FRONTIER_TOWNS.map((t) => [t, owner(t)])), hegemony: null, ended: null,
+  };
+  return { snap: { season: WAR_SEASON.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit }, squads, scores, endsAt: now + left };
 }
 
 export class MockSource implements WorldSource {
@@ -250,7 +239,7 @@ export class MockSource implements WorldSource {
       this.w.snap.transit = this.w.snap.transit.filter((x) => x !== t);
       const s = this.w.squads.find((x) => x.region === t.to);
       if (s) s.men += t.men;
-      else this.w.squads.push({ region: t.to, men: t.men, classes: { hoplite: t.men } });
+      else this.w.squads.push({ region: t.to, men: t.men, classes: { hoplite: t.men }, ids: [] });
       changed = true;
     }
     if (changed) this.view();

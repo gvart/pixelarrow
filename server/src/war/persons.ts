@@ -37,6 +37,7 @@ import { freshHero } from '../../../src/war/sim/classes';
 import { isElite, makePerson, promoteBlocker, promotePerson, type PersonOpts } from '../../../src/war/sim/roster';
 import { FAMILY_OF, legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
+import { HONOURS_MAX } from '../../../src/war/sim/honours';
 import type { FightReport, HonourStat, WarPerson, WarSkillId } from '../../../src/war/types';
 import { ApiError } from '../errors';
 import { randomToken } from '../online/store';
@@ -666,20 +667,25 @@ export async function applyFight(db: D1Database, fightId: string, region: string
     const h = x.hero;
     // unpaid: level, xp and points stay (nullif(?n, ?n) is null: the params are still used)
     const xpCols = unpaid.has(pid) ? 'level = coalesce(nullif(?4, ?4), level), xp = coalesce(nullif(?5, ?5), xp), points = coalesce(nullif(?6, ?6), points), ' : 'level = ?4, xp = ?5, points = ?6, ';
-    const base = `cls = ?3, ${xpCols}kills = ?7, battles = ?8, attrs = ?9, gear = ?10, updated_at = ?11`;
-    const args = [x.pid, pid, h.cls ?? 'militia', h.level, h.xp, h.points, h.kills, h.battles, JSON.stringify(h.attrs), JSON.stringify(x.state === 'dead' ? {} : h.equip), now] as const;
-    if (x.state === 'fit') stmts.push(db.prepare(`UPDATE war_persons SET ${base} WHERE id = ?1 AND player_id = ?2`).bind(...args));
+    // a battle honour won: appended while he has fewer than HONOURS_MAX and none of that name (?17: the honour or null)
+    const honourCol = `honours = CASE WHEN ?17 IS NOT NULL AND json_array_length(honours) < ${HONOURS_MAX} AND NOT EXISTS (SELECT 1 FROM json_each(honours) WHERE json_extract(value, '$.name') = json_extract(?17, '$.name')) THEN json_insert(honours, '$[#]', json(?17)) ELSE honours END`;
+    const base = `cls = ?3, ${xpCols}kills = ?7, battles = ?8, attrs = ?9, gear = ?10, updated_at = ?11, ${honourCol}`;
+    const honour = x.honour && x.state !== 'dead' && x.state !== 'captive' ? JSON.stringify(x.honour) : null;
+    const base11 = [x.pid, pid, h.cls ?? 'militia', h.level, h.xp, h.points, h.kills, h.battles, JSON.stringify(h.attrs), JSON.stringify(x.state === 'dead' ? {} : h.equip), now];
+    // ?1..?11 shared, ?12..?16 per state, ?17 the honour
+    const bind = (...extra: unknown[]) => [...base11, ...extra, ...Array<null>(5 - extra.length).fill(null), honour];
+    if (x.state === 'fit') stmts.push(db.prepare(`UPDATE war_persons SET ${base} WHERE id = ?1 AND player_id = ?2`).bind(...bind()));
     else if (x.state === 'wounded')
-      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args, now + HEAL.field));
+      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
     else if (x.state === 'captive' && !overHold(x.fort))
       stmts.push(
         db
           .prepare(`UPDATE war_persons SET ${base}, state = 'captive', until_at = ?12, captor = ?13, held_at = ?14, captor_pid = ?15, held_fort = ?16, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`)
-          .bind(...args, now + CAPTIVE_MS, x.captor ?? null, region, x.captor !== undefined ? (byTeam.get(x.captor)?.[0] ?? null) : null, x.fort ?? null),
+          .bind(...bind(now + CAPTIVE_MS, x.captor ?? null, region, x.captor !== undefined ? (byTeam.get(x.captor)?.[0] ?? null) : null, x.fort ?? null)),
       );
     else if (x.state === 'captive') // the fort is full: he goes free, wounded
-      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args, now + HEAL.field));
-    else stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'dead', until_at = NULL, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...args));
+      stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'wounded', until_at = ?12, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind(now + HEAL.field)));
+    else stmts.push(db.prepare(`UPDATE war_persons SET ${base}, state = 'dead', until_at = NULL, slot = NULL, region = NULL WHERE id = ?1 AND player_id = ?2`).bind(...bind()));
   }
   for (const [team, items] of Object.entries(r.loot)) {
     const owners = [...new Set(r.persons.filter((x) => x.team === Number(team)).map((x) => ownerPid(x.owner)).filter((p): p is number => p !== null))].sort((a, b) => a - b);

@@ -382,6 +382,10 @@ export interface WarBuildSim extends WarSim {
   importState(s: SimState): void;
   /** M5e: these persons' living men leave the field at once, unreported (D1 already sent them home). */
   dropPersons(ids: string[]): void;
+  /** M4 transfer out: the fight so far of these persons' living men (XP, kills, as endFight), reported now and cleared. */
+  reportPersons(ids: string[]): PersonResult[];
+  /** M4 transfer in: these persons' living men take the hit points they lost elsewhere (by person id; never below 1). */
+  hurtPersons(lost: Record<string, number>): void;
 }
 export declare function createSim(region: RegionData, seed: number): WarBuildSim; // implemented in src/war/sim/index.ts
 
@@ -405,6 +409,8 @@ export interface DropSnap { id: number; x: number; y: number; team: number; item
 export interface PersonResult {
   pid: string; owner: string; team: number; state: 'fit' | 'wounded' | 'captive' | 'dead'; captor?: number; fort?: number;
   xp: number; kills: number; dmg: number; levelUps: number; hero: Hero;
+  /** A battle honour won in this fight (src/war/sim/honours.ts; set by the region room, not the sim). */
+  honour?: { name: string; stat: HonourStat };
 }
 /** loot: gear picked up per team since the last report (rare and above at reduced condition). */
 export interface FightReport { tick: number; persons: PersonResult[]; loot: Record<number, Item[]> }

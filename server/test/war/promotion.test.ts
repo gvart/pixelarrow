@@ -2,7 +2,9 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { api, devLogin } from '../helpers';
-import { personOf, PROMOTE_MS, promoteCost, upkeepRate, UPKEEP, type PersonRow } from '../../src/war/persons';
+import { applyFight, personOf, PROMOTE_MS, promoteCost, upkeepRate, UPKEEP, type PersonRow } from '../../src/war/persons';
+import { promoteBlocker } from '../../../src/war/sim/roster';
+import type { FightReport } from '../../../src/war/types';
 import { warStatsOf } from '../../../src/war/sim/classes';
 
 const DB = () => env.DB!;
@@ -52,5 +54,26 @@ describe('promotion to elite', () => {
     expect(await code(await post(me.token, `/persons/${a.id}/promote`, { cls: 'sacred_band' }))).toBe('not_promotable');
     await DB().prepare("UPDATE war_persons SET region = 'test-ridge' WHERE id = ?1").bind(a.id).run();
     expect(await upkeepRate(DB(), me.playerId)).toBe(UPKEEP.elite);
+  });
+
+  it('honours won in fights are written back (at most 3, never the same twice), which makes promotion reachable', async () => {
+    const me = await devLogin(7803);
+    await post(me.token, '/dev/seed', { squad: [{ cls: 'hoplite', level: 6 }], reserve: [] });
+    const [a] = (await roster(me.token)).persons;
+    const p = personOf((await row(a.id))!);
+    expect(promoteBlocker(p, 'royal_guard')).toMatch(/honour/);
+    const fight = (id: string, name: string): Promise<boolean> => {
+      const r: FightReport = { tick: 1, loot: {}, persons: [{ pid: a.id, owner: `p:${me.playerId}`, team: 0, state: 'fit', xp: 0, kills: 0, dmg: 0, levelUps: 0, hero: p.hero, honour: { name, stat: 'hp' } }] };
+      return applyFight(DB(), id, 'kleisoura', r, Date.now());
+    };
+    await fight('h1', 'Veteran of Kleisoura Pass');
+    const once = personOf((await row(a.id))!);
+    expect(once.honours).toEqual([{ name: 'Veteran of Kleisoura Pass', stat: 'hp' }]);
+    expect(promoteBlocker(once, 'royal_guard')).toBeNull();
+    await fight('h2', 'Veteran of Kleisoura Pass'); // the same name again: nothing
+    await fight('h3', 'Held Kleisoura Pass');
+    await fight('h4', 'Veteran of Grey Moors');
+    await fight('h5', 'Took the fort at Ammos Dunes'); // a fourth: no room
+    expect(personOf((await row(a.id))!).honours!.map((h) => h.name)).toEqual(['Veteran of Kleisoura Pass', 'Held Kleisoura Pass', 'Veteran of Grey Moors']);
   });
 });

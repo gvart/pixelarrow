@@ -9,4 +9,4 @@ export const ALLIANCES: readonly Alliance[] = [
 ];
 
 /** The running war season. Alliance membership is per season (server: war_alliance_members). */
-export const WAR_SEASON: SeasonConfig = { id: 1, name: 'First War', travelScale: 1, offExitMsPerTile: 1500, foeRadius: 20 };
+export const WAR_SEASON: SeasonConfig = { id: 1, name: 'First War', travelScale: 1, offExitMsPerTile: 1500, foeRadius: 20, lengthMs: 28 * 24 * 3600_000 };

@@ -12,7 +12,9 @@
  *  - tick: steps the sim, then builds one binary frame per online player from what it may see (src/war/net).
  *  - fights (M5e): once men have fought and FIGHT_QUIET ticks pass with no blow struck and no man falling, the sim's
  *    endFight report leaves tick() with a fight id unique to this room instance; the DO writes it to D1 (idempotent).
- *    The sim's `raid` events leave tick() as `raided` building ids: the DO frees the captives held there.
+ *    The sim's `raid` events leave tick() as `raided` building ids: the DO frees the captives held there. A finished
+ *    fight's report carries the battle honours won in it (src/war/sim/honours.ts: took a fort, held a chokepoint,
+ *    survived a won fight against SQUAD_MAX or more).
  *  - state (M5e): saveState() is the whole region: the sim's exact state (sim.exportState: hit points, wounds, orders,
  *    sites and finished buildings, siege, fog, mobs, rng), the bots, players, squad owners, the join line and the fight
  *    in progress; WarRoom.restore rebuilds the room from it after an eviction and it steps on as if never stopped
@@ -32,6 +34,9 @@ import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
 import type { BridgePlan, FightReport, Order, PlaceResult, RegionData, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
 import type { Side } from '../../../src/war/world/types';
+import { honoursOf } from '../../../src/war/sim/honours';
+import { CHOKEPOINTS } from '../../../src/war/world/season';
+import { worldRegion } from '../../../src/war/world/graph';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -48,6 +53,9 @@ export interface Group { cls: string; count: number; persons?: WarPerson[] }
 
 /** A fight to write back: `id` is unique per room instance (epoch) and tick. */
 export interface Fight { id: string; report: FightReport }
+
+/** A squad gone over a border (M4 transfer out). */
+export interface Departed { ids: string[]; off: number; lost: Record<string, number>; fight?: Fight }
 
 /** A sim `crafted` event (M5h4): the DO mints or updates the item in D1. */
 export type Crafted = Extract<WarEvent, { kind: 'crafted' }>;
@@ -76,6 +84,8 @@ export interface RoomState {
   /** M5h4: the region run (crafted event keys) and stash items at its workplaces. */
   run?: string;
   mends?: Mend[];
+  /** Teams that took a fort in the fight in progress (honours). */
+  stormed?: number[];
 }
 
 export interface RoomOptions {
@@ -144,6 +154,8 @@ export class WarRoom {
   /** This region run: set when the region starts fresh, kept across restores (crafted event keys). */
   run: string;
   private mends: Mend[] = [];
+  /** Teams that raided or brought down a foe's holding building since the last fight ended (honours). */
+  private stormed = new Set<number>();
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -307,13 +319,24 @@ export class WarRoom {
   /**
    * M4 transfer out: the player's squad `squad` leaves the region over the entry on `side` (src/war/net/world.ts). It
    * must be a squad of persons with no foe (mobs included) within `foeRadius` tiles. Its men leave the field at once
-   * (off the wire, no corpse, no fight report). `off`: tiles from the squad's centre to that entry zone (0 inside it).
+   * (off the wire, no corpse). `off`: tiles from the squad's centre to that entry zone (0 inside it). `lost`: hit points
+   * each man is down (they ride along); `fight`: their fight so far not yet written back (XP, kills), for the DO to write
+   * before they leave.
    */
-  depart(pid: number, squad: SquadId, side: Side, foeRadius: number): { ids: string[]; off: number } | { error: 'notOwner' | 'foes'; detail: string } {
+  depart(pid: number, who: SquadId | string[], side: Side, foeRadius: number): Departed | { error: 'notOwner' | 'foes'; detail: string } {
     this.snap = this.sim.snapshot(); // squads spawned since the last tick
-    if (this.owners[squad] !== ownerOf(pid) || !this.squadsOf(pid).includes(squad)) return { error: 'notOwner', detail: 'not a squad of yours here' };
-    const men = this.snap.units.filter((u) => u.squad === squad && u.state !== 'dead');
-    if (!men.length || men.some((u) => !u.pid)) return { error: 'notOwner', detail: 'only squads of soldiers (persons) transfer' };
+    let men: Snapshot['units'];
+    if (Array.isArray(who)) {
+      // by person ids: his living men, from any of his squads here
+      const want = new Set(who), mine = new Set(this.squadsOf(pid));
+      men = this.snap.units.filter((u) => u.state !== 'dead' && u.pid && want.has(u.pid) && mine.has(u.squad));
+      if (!men.length || men.length !== want.size) return { error: 'notOwner', detail: 'not all of these men stand here under you' };
+    } else {
+      if (this.owners[who] !== ownerOf(pid) || !this.squadsOf(pid).includes(who)) return { error: 'notOwner', detail: 'not a squad of yours here' };
+      men = this.snap.units.filter((u) => u.squad === who && u.state !== 'dead');
+      if (!men.length || men.some((u) => !u.pid)) return { error: 'notOwner', detail: 'only squads of soldiers (persons) transfer' };
+    }
+    const squads = new Set(men.map((u) => u.squad)), squad = men[0].squad;
     const team = this.teams[squad];
     const cx = men.reduce((a, u) => a + u.x, 0) / men.length, cy = men.reduce((a, u) => a + u.y, 0) / men.length;
     const foe = this.snap.units.some((u) => u.state !== 'dead' && this.teams[u.squad] !== team && (u.x - cx) ** 2 + (u.y - cy) ** 2 <= foeRadius * foeRadius);
@@ -321,12 +344,16 @@ export class WarRoom {
     const e = this.entry(side);
     const off = Math.hypot(Math.max(e.x0 - cx, 0, cx - e.x1), Math.max(e.y0 - cy, 0, cy - e.y1));
     const ids = men.map((u) => u.pid!);
+    const lost: Record<string, number> = {};
+    for (const u of men) if (u.hp < u.maxHp) lost[u.pid!] = u.maxHp - u.hp;
+    const persons = this.sim.reportPersons(ids);
+    const fight = persons.length ? { id: `${this.region.id}:${this.epoch}:${this.currentTick}:out${squad}`, report: { tick: this.currentTick, persons, loot: {} } } : undefined;
     this.sim.dropPersons(ids);
     for (const u of men) this.diedAt[u.id] = this.currentTick - CORPSE_TICKS; // gone, not fallen: no corpse, no blow
-    this.bots.clear(squad);
     this.live[team] -= men.length;
     this.snap = this.sim.snapshot();
-    return { ids, off };
+    for (const id of squads) if (!this.snap.units.some((u) => u.squad === id && u.state !== 'dead')) this.bots.clear(id);
+    return { ids, off, lost, ...(fight ? { fight } : {}) };
   }
 
   /**
@@ -335,13 +362,14 @@ export class WarRoom {
    * here. They hold where they arrive; an online player gets a fresh welcome (his squads), an offline one takes them
    * over with a join (a rejoin: no new spawn).
    */
-  arrive(pid: number, team: number, persons: WarPerson[], side: Side): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
+  arrive(pid: number, team: number, persons: WarPerson[], side: Side, lost: Record<string, number> = {}): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
     const p = this.players.get(pid);
     if (team >= this.per.length || (p && p.team !== team)) return { error: 'team' };
     if (this.squadsOf(pid).length >= MAX_SQUADS) return { error: 'squads' };
     if (this.queue.some((w) => w.join.team === team) || this.live[team] + persons.length > this.per[team]) return { error: 'full' };
     if (!p) this.players.set(pid, { pid, team, online: false, cam: null, enc: null, sinceKey: -1, bytes: 0 });
     const squad = this.spawn(ownerOf(pid), team, { cls: persons[0].hero.cls ?? 'militia', count: persons.length, persons }, undefined, side);
+    this.sim.hurtPersons(lost);
     const online = this.players.get(pid)!.online;
     if (!online) {
       const e = this.entry(side);
@@ -497,6 +525,7 @@ export class WarRoom {
     const crafted = evs.filter((e): e is Crafted => e.kind === 'crafted');
     // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
     const raided = evs.flatMap((e) => (e.kind === 'raid' ? [e.building] : []));
+    for (const e of evs) if (e.kind === 'raid' && e.by !== undefined && e.by !== e.team) this.stormed.add(e.by);
     const freed = this.unmend(new Set(crafted.filter((e) => e.what !== 'craft').map((e) => e.item.uid)));
     this.live = this.per.map(() => 0);
     for (const s of this.snap.squads) {
@@ -522,6 +551,7 @@ export class WarRoom {
     else if (this.inFight && tick - this.lastBlow >= this.fightQuiet) {
       this.inFight = false;
       const report = this.sim.endFight();
+      this.honour(report);
       if (report.persons.length || Object.keys(report.loot).length) fights.push({ id: `${this.region.id}:${this.epoch}:${tick}`, report });
     }
     const admitted = this.drainQueue();
@@ -543,6 +573,20 @@ export class WarRoom {
     }
     this.lastTick = this.snap.tick;
     return { frames, admitted, fights, crafted, freed, raided, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+  }
+
+  /** Battle honours won in a finished fight go on its report (src/war/sim/honours.ts); the fort-taking slate is wiped. */
+  private honour(report: FightReport): void {
+    const { claims } = this.summary(), best = Math.max(...claims), lead = claims.flatMap((n, i) => (n === best && n > 0 ? [i] : []));
+    const won = honoursOf(report, {
+      region: worldRegion(this.region.id)?.name ?? this.region.name, chokepoint: CHOKEPOINTS.has(this.region.id),
+      holder: lead.length === 1 ? lead[0] : null, stormed: this.stormed,
+    });
+    for (const x of report.persons) {
+      const h = won.get(x.pid);
+      if (h) x.honour = h;
+    }
+    this.stormed.clear();
   }
 
   /** Let waiting joins in, first come first served per alliance, while their alliance has room. */
@@ -569,7 +613,7 @@ export class WarRoom {
       players: [...this.players.values()].map((p) => ({ pid: p.pid, team: p.team })),
       owners: Array.from(this.owners, (o) => o ?? null), teams: Array.from(this.teams, (t) => t ?? null),
       spawns: this.spawns, died, lastBlow: this.lastBlow, inFight: this.inFight, queue: this.queue, pids,
-      sim: this.sim.exportState(), bots: this.bots.exportState(), run: this.run, mends: this.mends,
+      sim: this.sim.exportState(), bots: this.bots.exportState(), run: this.run, mends: this.mends, stormed: [...this.stormed],
     };
   }
 
@@ -591,6 +635,7 @@ export class WarRoom {
     r.queue = st.queue;
     if (st.run) r.run = st.run;
     r.mends = st.mends ?? [];
+    r.stormed = new Set(st.stormed ?? []);
     for (const w of st.queue) r.dequeue(w.pid); // nobody is connected to wait: their persons go home (takeReleased)
     const gone = st.pids.filter((id) => !persons.has(id));
     if (gone.length) r.sim.dropPersons(gone);
