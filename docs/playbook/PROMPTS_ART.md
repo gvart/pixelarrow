@@ -1699,7 +1699,9 @@ renderer over the existing elevations (cyclopean, isodomic, palisade). Mock-ups:
   construction states lie on the ground.
 - **Towers** `tower-stone` / `tower-wood` (kits, 16 frames by open mask, 2 x 2, flush with the footprint): platform =
   the tier's walk height, so a 2-deep walk placed against a side joins level. Stone: cyclopean socle, isodomic body, a
-  door with a threshold on the first non-open side of +y, +x, -x, -y, a roofed stair-house over the internal stair.
+  door on the first non-open side of +y, +x, -x, -y (an arched door, `DOOR`: a limestone voussoir arch round two shut
+  oak leaves with iron bands, 1.24 m wide, 2.2 m to the crown, drawn by the face material so it shows in every state;
+  its threshold step is laid from the foundation on), a roofed stair-house over the internal stair.
   Wood: braced posts, plank platform, log rail, shingle roof 2.9 m above the platform (lower eaves hid the archers).
   `stone-tower-done` / `wood-tower-done` objects are the standalone (nothing open) renders.
 
@@ -1750,7 +1752,7 @@ isodomic stone).
 | Piece | Model |
 | --- | --- |
 | ram (3 x 2 tiles along its facing) | Greek "tortoise": 6 x 3.2 m wheeled shed, six solid disc wheels, posts to 1.3 m eaves, a 2.7 m gable of lashed rawhide panels (drawn texture: 18 x 13 px hides, stitches, a lashing rope every metre) hanging to 0.7 m on the long sides, a log slung from the ridge on ropes with a bronze ram head 0.9 m past the front. Back / front layers: front = the roof and the near side, crew (two files of four) between. Swing: 8 frames, log offsets -0.5..+0.55 m, hit at frame 6 |
-| thrower (2 x 1) | onager-type torsion engine: timber bed 4 x 1.4 m, a rope skein in bronze-capped side frames, one arm with a cup throwing forward against a padded buffer frame, a windlass at the back. Throw: 8 frames, arm -100 deg (cocked, loaded) -> +24 deg (hits the pad), stone released at frame 3 (`release` = tile offsets + zM per facing) |
+| thrower (3 x 2) | (polish: was a 4 m onager) Greek lithobolos (palintone), 6.4 m: a wheeled chassis, a stock on trestles, a spring frame near the front with two upright rope skeins under bronze washers, two arms swinging in the horizontal plane, a bowstring drawn by a slider with an iron claw, a winch at the back. Throw: 8 frames, arms swept back 72 deg with the claw at 1.9 m (cocked, loaded) -> 25 deg, string straight, stone gone at frame 3 (`release` = tile offsets + zM per facing, over the stock in front of the string) |
 | siege ladder | 0.76 m wide, rungs every 0.36 m, iron hooks at the head; long (stone wall) / short (rampart) from the kits' `walkwayM` + `parapetM` + 0.3 m, foot 0.3 x the height out; raised on every side, carried flat on both axes (bearers, `carryPx`), push-off (7 frames, rotating on its foot) and knocked down broken |
 | rubble | breach heaps per wall tile (1 along the run x the wall's depth: stone 2 deep, rampart 2 deep, palisade 1 deep; variants a / b), profile by depth only at the run ends so neighbours join; tower rubble 2 x 2 (stone: a socle corner standing, big blocks, charred beams; wood: post stumps and fallen beams) |
 | states | foundation (sills / rails laid out, hides stacked), rising (chassis, wheels, posts / bed, skein), scaffold (bare rafters / buffer frame, the arm lying by it), done (= moving), damaged (holes in the hides, scorched), destroyed (burnt out: stumps, the roof fallen in, the log on the ground / the arm broken) |
@@ -1768,6 +1770,24 @@ Fire ramp `#3a1a10 #7a2a14 #b0461c #d8762c #eeae52 #f6d48a`, `light: false`.
 | embers | `ember_rise`, ramp `#5a1e10 #a8401a #e0822e #f6c46a`, `size: 1.6, amount: 1.5`; `e1486346` | 12 frames |
 | fire-arrow-trail | `smoke_trail` in the fire ramp, `size: 0.5`; `e94a3acb` | 44 x 18, flies +x (rotate to the flight) |
 | scorch | `scorch_mark`, `size: 1.4, heat: 0.5` (the minimum); `c125a78b` | smouldering decal loop; `scorch-cold` = frame 0 with the reds burnt to char |
+
+**Polish: PixelLab paint over the box render** (owner: the engines were "composed boxes"). The done body of each
+engine (no moving parts) is rendered per facing on the strip canvas and cropped to
+`shots/war/pixellab/siege/raw/paint-in/<id>.png`; one `edit_image_pro_flash` text edit per facing repaints it at the
+same size (`raw/paint/<id>.png`, not in the repo, 6 generations each); `siege.mjs` pastes it back and draws the moving
+parts (`mv` boxes: the ram's log, the thrower's arms, string, slider, stone) over it wherever the full render shows
+them (a marker material finds those pixels), so every strip frame keeps exact geometry. The ram is split into back
+and front by the front render's mask; damaged = the paint scorched, holes burnt where the damaged hides are gone.
+Construction states and the wreck stay rendered. The shed is symmetric: w and n reuse the e and s paint. 36
+generations (ram e, s; thrower e, s, w, n). Jobs: ram `5aa51674`, `32cdc272`; thrower e `7274ae21`, s `ff1ec93d`,
+w `91fdb37e`, n `64b5d150`. Prompts (verbatim, `no_background: true`):
+
+- ram: `Repaint this crude block model as detailed dark pixel art of the same object, keeping its exact outline, size, perspective and every part in place: an ancient Greek battering-ram shed (a siege tortoise) on six solid wooden wheels. The gabled roof and the side flaps are covered with overlapping stitched rawhide panels, dark brown and tan, sewn seams and lashing ropes running down the slope; heavy rough-hewn oak posts, eave beams and sills with wood grain and iron nails; the open front end shows the dark inside. Light from the left: the left-facing sides brighter. Heavy shadows, desaturated dark warm colours, crisp pixel art, no outline glow, no ground, no shadow on the ground.`
+- thrower: `Repaint this crude block model as detailed dark pixel art of the same object, keeping its exact outline, size, perspective and every part in place: an ancient Greek torsion stone thrower (lithobolos) on a low wheeled timber chassis: a long heavy wooden stock on trestles, a tall spring frame of squared oak beams near the front holding two upright twisted rope skeins capped by round bronze washers, a winch drum with spokes at the back, four solid wooden wheels. Rough-hewn timber with wood grain, iron bands and nails, tight rope coils. Light from the left: the left-facing sides brighter. Heavy shadows, desaturated dark warm colours, crisp pixel art, no ground, no shadow on the ground.`
+
+The paint keeps the silhouette and the light; it turns the plaid hide boxes into stitched leather and the beams into
+grained timber, but loses small parts (the thrower's bronze washers came back as wood). A rebuild without the paint
+files falls back to the box render (and says so).
 
 **Lessons:** (1) Machines with moving parts and facings: model them in the box renderer; a part is a set of boxes keyed
 by one parameter (log offset, arm angle, ladder angle), so animations are free and exact. (2) A thin diagonal piece (a
@@ -1942,8 +1962,24 @@ turns round:` and say "away from the viewer towards the upper right / left".
 - `hit` = death frames 0, 1, 1, 0 (the flinch), no generation.
 - **jackal** (0 generations): the wolf's frames shrunk to 0.45 and the palette tinted sandy (`tint`: OKLab hue 70°,
   chroma 0.07, lift 0.08; outline untouched). **bandit** (0 generations): the militia sheet with the crimson cloak
-  ramp swapped for a mud-dark olive-brown one (`bandit.mjs`); every soldier clip, so it fights with `thrust`. A real
-  ragged outfit would need `transfer_outfit` (10–25 generations per ≤3 frames at this size): not in budget.
+  ramp swapped for a mud-dark olive-brown one; the owner disliked it (a recolour reads as the militia). **Polish:** a
+  real outfit by the civilian process (§35): the militia's four rotations as one 2x2 grid, one `edit_image_pro_flash`
+  edit (6 generations, job `e1f32805`): `Re-dress the same man in all four views as a grim ancient Greek hill bandit,
+  an outlaw, no armour: remove the spear, the felt cap and the crimson cloak; keep the same body, size, pose, feet and
+  face in each view. He wears a ragged hooded cloak of dark mud-brown wool, torn and frayed at the hem, the hood up
+  over his head; a dark grey-green cloth face wrap over his nose and mouth, only his eyes show; mismatched scraps of
+  worn leather armour: one dark leather shoulder piece, a scuffed brown leather chest strap and a laced leather bracer;
+  a dirty undyed tunic with ragged edges; wrapped shins and worn sandals. A short iron sword held low in his right
+  hand. Heavy shadows, desaturated dark warm colours, same pixel art style.` The north-west view came back half turned
+  to the viewer: it is the north-east view mirrored (`bandit/prep.mjs`). Clips: pixminimax, 12 frames on 96 x 96 at
+  (14, 24), south-west and north-west generated, the east facings mirrored: idle, look, walk, run, ready, charge,
+  thrust, block, fallBack, fallFwd, cheer (21 generations; from behind both falls are one forward fall). Every prompt:
+  `node scripts/art/pixellab/bandit/prompts.mjs [anim dir]`. The other soldier clips a mob never plays come from these
+  (`docs/v5/pixellab/BANDIT/bandit.sheet.json`: adjust, breathe, shift from idle / look; rout from run; kneel, brace
+  from ready; stagger from fallBack; build from thrust; carry from walk), so the sheet keeps every clip name. Build:
+  `fetchjobs.mjs docs/v5/pixellab/BANDIT/bandit.jobs.json docs/v5/pixellab/BANDIT/raw/bandit` (copy fallFwd NW to
+  fallBack NW), `mobs/build.mjs docs/v5/pixellab/BANDIT/bandit.sheet.json`, `anim2/ground.mjs mob_bandit` on every
+  standing clip. 27 generations. Back-view charge, block and cheer still turn towards the viewer (kept).
 
 **Lessons:** (1) pixminimax paints blood on a struck animal even with "no blood" (wolf SE death a1: a red splat on the
 flank; replaced by a2 with "takes a mortal blow … stays clean"); the clean wording still left red on the neck, so the
