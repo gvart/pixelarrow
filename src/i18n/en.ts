@@ -41,14 +41,12 @@ import { PACE_EN } from './pace.en';
 import { EVENTS_EN } from './events.en';
 import { EVENTCARD_EN } from './eventcard.en';
 import { SHOP_V5_EN } from './shop.v5.en';
-import { MARKET_EN } from './market.en';
 import { RESULTS_EN } from './results.en';
 import { WORLD_V5_EN } from './world.v5.en';
 import { CAMP_V5_EN } from './camp.v5.en';
 import { SETTLEMENT_EN } from './settlement.en';
 import { FORGE_EN } from './forge.en';
 import { ARC_EN } from './arc.en';
-import { WAR_V5_EN } from './war.v5.en';
 import { DUELS_V5_EN } from './duels.v5.en';
 import { GAPS_EN } from './gaps.en';
 import { INPUT_EN } from './input.en';
@@ -137,90 +135,9 @@ export const EN = {
   'menu.tip.record': 'Campaign battles won / fought',
 
   // ---- online hex map (scenes/online/OnlineScene.ts), hex panel, results, duels
-  'online.title': 'Season war',
-  'online.reaching': 'Reaching the realm...',
-  'online.raising': 'Raising your army...',
-  'online.unavailable': 'Online unavailable',
   'online.reloadForUpdate': 'A new version of the game is out. Please reload the game to keep playing online.',
-  'online.offlineStill': 'The campaign is still yours to play offline.',
-  'online.backToMenu': 'Back to menu',
-  'online.join': 'Join',
-  'online.joinBody': 'A shared map of hexes. Every hex is held by locals or beasts: beat them to claim it. Hold farms, forests, mines and towns, join a clan, take forts and capitals before the season ends. Your online army is new and separate from the campaign.',
-  'online.season': 'Season {n} · {d}d left',
-  'online.seasonShort': 'S{n} · {d}d',
-  'online.energyTip': 'Energy {n}/{max}. A march costs 1 per hex, an attack 10. It refills {rate} per hour.',
-  'online.centre': 'Show my army',
-  'online.hint': 'Tap a hex to scout it. Drag to pan, pinch to zoom.',
-  'online.bar.army': 'Army',
   'online.bar.clan': 'Clan',
-  'online.bar.duels': 'Duels',
   'online.bar.collect': 'Collect',
-  'online.bar.armyTip': 'Heroes, gear and recruits of your online army',
-  'online.bar.clanTip': 'Your clan: members, invites, shared land',
-  'online.bar.duelsTip': 'Friendly duels with players online now',
-  'online.bar.collectTip': 'Collect the income of all your hexes',
-  'online.collectNone': 'Nothing to collect yet',
-  'online.collected': 'Collected: {res}',
-  'online.marching': 'Marching · {t}',
-  'online.halt': 'Halt',
-  'online.haltTip': 'Stop on the hex reached last',
-  'online.onMarch': 'On the march: {n} hexes, {t}',
-  'online.discovered': 'Discovered: {name}!',
-  'online.preview': 'Preview map: nothing is sent',
-  'hex.plains': 'Plains',
-  'hex.farmland': 'Farmland',
-  'hex.forest': 'Forest',
-  'hex.hills': 'Hills',
-  'hex.mine': 'Mine',
-  'hex.town': 'Town',
-  'hex.ruins': 'Ruins',
-  'hex.water': 'Sea',
-  'hex.mountain': 'Mountains',
-  'hex.capital': 'Capital',
-  'hex.fort': 'Fort',
-  'hex.lair': 'Beast lair',
-  'hex.title': '{name} · tier {tier}',
-  'hex.neutral': 'Neutral land',
-  'hex.impassable': 'Impassable',
-  'hex.yours': 'Yours',
-  'hex.yourHome': 'Your home',
-  'hex.home': '{name} · home',
-  'hex.underAttack': 'Under attack!',
-  'hex.perHour': 'Per hour',
-  'hex.noIncome': 'No income',
-  'hex.defenders': '{label}: {n} · power {p}',
-  'hex.garrisonFoe': 'Garrison: {n} · power {p}',
-  'hex.militiaFoe': 'No garrison: a militia defends',
-  'hex.garrison': 'Garrison: {names}',
-  'hex.noGarrison': 'No garrison: a militia defends',
-  'hex.siege': 'Siege {wins}/{needed}',
-  'hex.siegeTip': 'Win {needed} battles in a row to take it; progress fades after 6 hours.',
-  'hex.waiting': 'Waiting: {res}',
-  'hex.scouting': 'Scouting...',
-  'hex.act.march': 'March',
-  'hex.act.marchEta': 'March {t}',
-  'hex.act.attack': 'Attack',
-  'hex.act.garrison': 'Garrison',
-  'hex.act.collect': 'Collect',
-  'hex.marchTip': 'March here: about {t}, {e} energy',
-  'hex.attackTip': 'Fight the defenders here: {e} energy',
-  'hex.garrisonTip': 'Choose which heroes hold this hex',
-  'hex.why.notNext': 'Stand next to the hex to attack it',
-  'hex.why.marching': 'Your army is on the march',
-  'hex.why.energy': 'Not enough energy ({n}/{need})',
-  'hex.why.rival': 'Rival land: attack it from next door',
-  'hex.why.impassable': 'Water and mountains cannot be crossed',
-  'hex.why.noPath': 'No known way there',
-  'hex.why.tooFar': 'Too far: at most {n} hexes per march',
-  'hex.why.here': 'Your army is here',
-  'hex.why.ours': 'This land is yours',
-  'hex.why.home': 'Home hexes cannot be attacked',
-  'hex.why.notHere': 'Your army must stand on the hex',
-  'hex.why.locked': 'Someone is attacking it right now',
-  'hex.why.noIncome': 'Nothing waiting here',
-  'hex.why.unknown': 'Hidden by the fog of war',
-  'online.theDefenders': 'the defenders',
-  'online.theGarrison': 'the garrison',
   'result.notCounted': 'Battle not counted',
   'result.taken': 'Hex taken!',
   'result.victory': 'Victory',
@@ -371,8 +288,6 @@ export const EN = {
   ...EVENTCARD_EN,
   // ---- the v5 Shop hub (shop.v5.en.ts)
   ...SHOP_V5_EN,
-  // ---- the v5 Market (market.en.ts)
-  ...MARKET_EN,
   ...WORLD_V5_EN,
   ...CAMP_V5_EN,
   // ---- the v5 Results (results.en.ts)
@@ -383,8 +298,6 @@ export const EN = {
   ...FORGE_EN,
   // ---- the campaign arc on the world map (arc.en.ts)
   ...ARC_EN,
-  // ---- the v5 War hub and War army (war.v5.en.ts)
-  ...WAR_V5_EN,
   // ---- the v5 Duels hub (duels.v5.en.ts)
   ...DUELS_V5_EN,
   // ---- strings that lived outside i18n: online errors, the last kit sheets (gaps.en.ts, G12)
