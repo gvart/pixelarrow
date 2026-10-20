@@ -1,0 +1,412 @@
+{
+ "biome": "dodona",
+ "extends": "public/war/tiles/tiles.json",
+ "note": "biome set: draw with the global sheets, variants and cliffs plus these; a biome variant list replaces the global one for its terrain; palette = the global palette (first entries, unchanged) + this biome's colours",
+ "tile": {
+  "w": 64,
+  "h": 48,
+  "topH": 32,
+  "levelPx": 16,
+  "metres": 2
+ },
+ "mask": "NW<<3|NE<<2|SW<<1|SE, set bit = first terrain; frame index = mask; NW is the top vertex",
+ "anchor": {
+  "x": 32,
+  "y": 0,
+  "note": "top vertex of the top diamond"
+ },
+ "palette": [
+  "#171913",
+  "#1d1a16",
+  "#10161b",
+  "#1a1a1c",
+  "#231b12",
+  "#181f18",
+  "#1e251d",
+  "#202121",
+  "#262920",
+  "#28211d",
+  "#2d251c",
+  "#322a20",
+  "#161d2e",
+  "#212124",
+  "#1f2828",
+  "#1d2c35",
+  "#252829",
+  "#2f3031",
+  "#353b26",
+  "#383726",
+  "#363c26",
+  "#263339",
+  "#324249",
+  "#334249",
+  "#393226",
+  "#443422",
+  "#403a2e",
+  "#3b3c3d",
+  "#3f462f",
+  "#4c452f",
+  "#3a4141",
+  "#3f433e",
+  "#52563b",
+  "#585e41",
+  "#595e41",
+  "#77593d",
+  "#786141",
+  "#444645",
+  "#454949",
+  "#5c6248",
+  "#676348",
+  "#444c50",
+  "#5d6e74",
+  "#727555",
+  "#67797e",
+  "#766c55",
+  "#776f58",
+  "#a39978",
+  "#a49978",
+  "#95988a",
+  "#9ba9ab",
+  "#a7b4b4",
+  "#15130d",
+  "#1c1b16",
+  "#080e1d",
+  "#1d1c1b",
+  "#1e241e",
+  "#26231e",
+  "#28211a",
+  "#111829",
+  "#19232b",
+  "#18252e",
+  "#192833",
+  "#242527",
+  "#2c2d30",
+  "#32302d",
+  "#303525",
+  "#343a2a",
+  "#293841",
+  "#334046",
+  "#3c3023",
+  "#3b3b3b",
+  "#3e412e",
+  "#50402d",
+  "#535138",
+  "#585d3f",
+  "#5c4f36",
+  "#6a5037",
+  "#434645",
+  "#444746",
+  "#494b49",
+  "#685b47",
+  "#3f4d55",
+  "#4d5557",
+  "#6c6b4f",
+  "#756c57",
+  "#7c6447",
+  "#97825f",
+  "#90a2aa",
+  "#a4a491",
+  "#a7b4b5",
+  "#bbcdd0",
+  "#546166",
+  "#908a5f",
+  "#a7a383",
+  "#526168",
+  "#0d0a06",
+  "#0a1108",
+  "#555f63",
+  "#7f7a68",
+  "#0e0a05",
+  "#0d0a05",
+  "#8c7f66",
+  "#90846a",
+  "#495b67",
+  "#595c5b",
+  "#7b7d56",
+  "#505d5f",
+  "#5e5a54",
+  "#757656",
+  "#110d07",
+  "#0c0d06"
+ ],
+ "sheets": [
+  {
+   "pair": "grass-litter",
+   "first": "grass",
+   "second": "litter",
+   "file": "grass-litter.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 9a5bf453 (ART-9)"
+  },
+  {
+   "pair": "grass-moss",
+   "first": "grass",
+   "second": "moss",
+   "file": "grass-moss.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro a1a6008c (ART-9)"
+  },
+  {
+   "pair": "grass-fern",
+   "first": "grass",
+   "second": "fern",
+   "file": "grass-fern.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 521687cc (ART-9)"
+  },
+  {
+   "pair": "grass-mud",
+   "first": "grass",
+   "second": "mud",
+   "file": "grass-mud.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro ea0c817f (ART-9)"
+  },
+  {
+   "pair": "bank-shallow",
+   "first": "bank",
+   "second": "shallow",
+   "file": "bank-shallow.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro e57b498a (ART-9)"
+  }
+ ],
+ "variants": [
+  {
+   "terrain": "litter",
+   "file": "var-litter.png",
+   "frames": 5,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "dodona/fills#0",
+    "dodona/fills#1",
+    "dodona/fills#2",
+    "dodona/fills#5"
+   ],
+   "note": "full litter tiles; wherever a sheet would draw the full litter tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "moss",
+   "file": "var-moss.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "dodona/fills#8",
+    "dodona/fills#9",
+    "dodona/fills#10"
+   ],
+   "note": "full moss tiles; wherever a sheet would draw the full moss tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "fern",
+   "file": "var-fern.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "dodona/fills#12",
+    "dodona/fills#13",
+    "dodona/fills#15"
+   ],
+   "note": "full fern tiles; wherever a sheet would draw the full fern tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "mud",
+   "file": "var-mud.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "dodona/fills2#0",
+    "dodona/fills2#1",
+    "dodona/fills2#2"
+   ],
+   "note": "full mud tiles; wherever a sheet would draw the full mud tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "bank",
+   "file": "var-bank.png",
+   "frames": 4,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "dodona/fills2#4",
+    "dodona/fills2#5",
+    "shift"
+   ],
+   "note": "full bank tiles; wherever a sheet would draw the full bank tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
+   "terrain": "grass",
+   "file": "var-grass.png",
+   "frames": 9,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "art5/fills#12",
+    "art5/fills#14",
+    "art5/fills#15",
+    "art4/grass-rock#15",
+    "dodona/fills2#8",
+    "dodona/fills2#9",
+    "dodona/fills2#12",
+    "dodona/fills2#13"
+   ],
+   "note": "full grass tiles; wherever a sheet would draw the full grass tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  }
+ ],
+ "fallback": {
+  "note": "Same rule as the global tiles.json fallback, over the global sheets plus these. Dodona terrains only have a set with grass (bank: with shallow), so any other pair (litter-moss, fern-mud, bank-grass, ...) gets a grass verge; order says which corner gives way first.",
+  "order": [
+   "deep",
+   "shallow",
+   "marsh",
+   "sand",
+   "dirt",
+   "bank",
+   "mud",
+   "moss",
+   "fern",
+   "litter",
+   "forest",
+   "snow",
+   "rock",
+   "road",
+   "grass"
+  ],
+  "buffer": {
+   "water": "shallow",
+   "land": "grass"
+  }
+ }
+}
