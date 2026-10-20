@@ -1,6 +1,6 @@
 /**
  * The world map canvas (public/war/world/, regions.json "note" for the layers): base art, ownership tints, borders,
- * trade routes, highlights, labels, markers and squads, under a pan / zoom camera. Map px are base.png's (2048 x 1536);
+ * trade routes, highlights, labels, markers and squads, under a pan / zoom camera. Map px are base.jpg's (2048 x 1536);
  * the region under a point comes from region-ids.png (half size, red = 1-based index in `order`).
  */
 import { ALLIANCES } from '../world/alliances';
@@ -43,6 +43,44 @@ export interface MapState {
 
 const img = (src: string) => new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(src)); i.src = src; });
 
+/** '#rrggbb' at alpha a. */
+const hexA = (hex: string, a: number) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
+
+/** Who contests a region: the strongest alliance there other than its owner (-1: none known). */
+function contender(r: RegionState): number {
+  let best = -1;
+  r.live.forEach((n, a) => { if (n > 0 && a !== r.owner && (best < 0 || n > r.live[best])) best = a; });
+  return best;
+}
+
+/** A tileable fog texture: periodic value noise, three octaves, white with alpha. */
+function fogTexture(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d')!, im = g.createImageData(w, h);
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const octave = (n: number) => {
+    const m = n * Math.round((n * h) / w) || n, lat = Array.from({ length: n * m }, rnd);
+    return (x: number, y: number) => {
+      const fx = (x / w) * n, fy = (y / h) * m, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+      const at = (i: number, j: number) => lat[((j % m) + m) % m * n + (((i % n) + n) % n)];
+      const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+      const a = at(ix, iy) + (at(ix + 1, iy) - at(ix, iy)) * sx, b = at(ix, iy + 1) + (at(ix + 1, iy + 1) - at(ix, iy + 1)) * sx;
+      return a + (b - a) * sy;
+    };
+  };
+  const o = [octave(4), octave(8), octave(16)];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const v = o[0](x, y) * 0.55 + o[1](x, y) * 0.3 + o[2](x, y) * 0.15, i = (y * w + x) * 4;
+    im.data[i] = 214; im.data[i + 1] = 210; im.data[i + 2] = 226;
+    im.data[i + 3] = Math.max(0, Math.min(255, (v - 0.42) * 2.4 * 255));
+  }
+  g.putImageData(im, 0, 0);
+  return c;
+}
+
 /** An alliance's colour on the world map (the art's palette, regions.json). */
 export function allianceColor(art: WorldArt, a: number): string {
   return art.alliances[ALLIANCES[a]?.key]?.color ?? '#888';
@@ -57,7 +95,7 @@ export class WorldMap {
   private ids: Uint8ClampedArray = new Uint8ClampedArray(0);
   private paths = new Map<string, Path2D>();
   private pics: Record<string, HTMLImageElement> = {};
-  private sea = '#1e2633';
+  private sea = '#17151d'; // the Abyss beyond the painting
 
   private constructor(readonly canvas: HTMLCanvasElement, readonly art: WorldArt) {
     this.ctx = canvas.getContext('2d')!;
@@ -73,7 +111,7 @@ export class WorldMap {
     const art = (await (await fetch(`${ART}regions.json`)).json()) as WorldArt;
     const m = new WorldMap(canvas, art);
     const names = ['base', 'base@2x', 'borders', 'borders@2x', 'region-ids', 'markers/battle', 'markers/fort', 'markers/transit', ...ALLIANCES.map((a) => `banners/${a.key}`)];
-    const got = await Promise.all(names.map((n) => img(`${ART}${n}.png`)));
+    const got = await Promise.all(names.map((n) => img(`${ART}${n}.${n.startsWith('base') ? 'jpg' : 'png'}`)));
     names.forEach((n, i) => (m.pics[n] = got[i]));
     const ids = got[names.indexOf('region-ids')], c = document.createElement('canvas');
     c.width = ids.width;
@@ -81,11 +119,54 @@ export class WorldMap {
     const cx = c.getContext('2d', { willReadFrequently: true })!;
     cx.drawImage(ids, 0, 0);
     m.ids = cx.getImageData(0, 0, c.width, c.height).data;
-    // the canvas round the map takes the art's own sea colour
-    cx.drawImage(got[0], 0, 0);
-    const [r, g, b] = cx.getImageData(4, 4, 1, 1).data;
-    m.sea = `rgb(${r},${g},${b})`;
+    // the Abyss mist: a drifting fog that only lives off the land (region-ids 0), feathered at the shore
+    const mw = c.width >> 1, mh = c.height >> 1, mask = document.createElement('canvas');
+    mask.width = mw;
+    mask.height = mh;
+    const mx = mask.getContext('2d')!, mi = mx.createImageData(mw, mh);
+    for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) mi.data[(y * mw + x) * 4 + 3] = m.ids[(y * 2 * c.width + x * 2) * 4] ? 0 : 255;
+    mx.putImageData(mi, 0, 0);
+    const soft = document.createElement('canvas');
+    soft.width = mw;
+    soft.height = mh;
+    const sx = soft.getContext('2d')!;
+    sx.filter = 'blur(6px)';
+    sx.drawImage(mask, 0, 0);
+    sx.filter = 'none';
+    sx.globalCompositeOperation = 'destination-in'; // keep the blur from bleeding onto the land
+    sx.drawImage(mask, 0, 0);
+    m.voidMask = soft;
+    m.fog = fogTexture(mw, mh);
+    m.mist = document.createElement('canvas');
+    m.mist.width = mw;
+    m.mist.height = mh;
     return m;
+  }
+
+  private fog?: HTMLCanvasElement;
+  private mist?: HTMLCanvasElement;
+  private voidMask?: HTMLCanvasElement;
+
+  /** Two fog layers drifting against each other over the Abyss (W-42), slow enough to read as weather. */
+  private drawMist(g: CanvasRenderingContext2D, now: number): void {
+    const fog = this.fog, mist = this.mist, mask = this.voidMask;
+    if (!fog || !mist || !mask) return;
+    const x = mist.getContext('2d')!, w = mist.width, h = mist.height, [W, H] = this.art.size;
+    x.globalCompositeOperation = 'source-over';
+    x.clearRect(0, 0, w, h);
+    const layer = (dx: number, dy: number, a: number) => {
+      const ox = ((dx % w) + w) % w, oy = ((dy % h) + h) % h;
+      x.globalAlpha = a;
+      for (const [px, py] of [[0, 0], [-w, 0], [0, -h], [-w, -h]]) x.drawImage(fog, ox + px, oy + py);
+    };
+    layer(now / 260, now / 900, 0.7);
+    layer(-now / 380, now / 1500 + h / 3, 0.5);
+    x.globalAlpha = 1;
+    x.globalCompositeOperation = 'destination-in';
+    x.drawImage(mask, 0, 0);
+    g.globalAlpha = 0.3;
+    g.drawImage(mist, 0, 0, W, H);
+    g.globalAlpha = 1;
   }
 
   /** The region at map px (x, y), or null for the sea. */
@@ -144,26 +225,41 @@ export class WorldMap {
     g.fillRect(0, 0, w, h);
     g.setTransform(dpr * this.k, 0, 0, dpr * this.k, -this.x * this.k * dpr, -this.y * this.k * dpr);
     const hi = this.k * dpr > 1.05;
-    g.imageSmoothingEnabled = this.k * dpr < 1;
+    g.imageSmoothingEnabled = true; // the base is a painting, not pixel art
+    g.imageSmoothingQuality = 'high';
     g.drawImage(this.pics[hi ? 'base@2x' : 'base'], 0, 0, W, H);
-
-    // ownership tints (~35%), contested hatch
-    for (const [id, p] of this.paths) {
-      const r = st.regions.get(id);
-      if (!r || r.owner < 0) continue;
-      g.globalAlpha = 0.35;
-      g.fillStyle = allianceColor(this.art, r.owner);
-      g.fill(p);
+    this.drawMist(g, st.now);
+    // the painting's edge dissolves into the Abyss round the canvas
+    const F = 150;
+    for (const [x0, y0, x1, y1, rx, ry, rw, rh] of [[0, 0, F, 0, -2, -2, F, H + 4], [W, 0, W - F, 0, W - F, -2, F + 2, H + 4], [0, 0, 0, F, -2, -2, W + 4, F], [0, H, 0, H - F, -2, H - F, W + 4, F + 2]]) {
+      const gr = g.createLinearGradient(x0, y0, x1, y1);
+      gr.addColorStop(0, this.sea);
+      gr.addColorStop(1, 'rgba(23,21,29,0)');
+      g.fillStyle = gr;
+      g.fillRect(rx, ry, rw, rh);
     }
-    g.globalAlpha = 1;
+
+    // region washes (W-43): neutral grey, owned in the owner's colour, contested hatched with the contender's
     for (const [id, p] of this.paths) {
       const r = st.regions.get(id);
-      if (!r?.contested && !r?.besieged) continue;
+      if (!r) continue;
+      g.fillStyle = r.owner < 0 ? 'rgba(120,120,128,.26)' : hexA(allianceColor(this.art, r.owner), 0.32);
+      g.fill(p);
+      if (r.owner >= 0) { // the owner's edge: a band of his colour just inside the border
+        g.save();
+        g.clip(p);
+        g.strokeStyle = hexA(allianceColor(this.art, r.owner), 0.75);
+        g.lineWidth = 9;
+        g.stroke(p);
+        g.restore();
+      }
+      if (!r.contested && !r.besieged) continue;
+      const foe = contender(r);
       g.save();
       g.clip(p);
-      g.strokeStyle = 'rgba(240,138,112,.45)';
-      g.lineWidth = 3;
-      for (let x = -H; x < W; x += 18) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + H, H); g.stroke(); }
+      g.strokeStyle = foe < 0 ? 'rgba(240,138,112,.55)' : hexA(allianceColor(this.art, foe), 0.62);
+      g.lineWidth = 7;
+      for (let x = -H; x < W; x += 22) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + H, H); g.stroke(); }
       g.restore();
     }
     g.drawImage(this.pics[hi ? 'borders@2x' : 'borders'], 0, 0, W, H);
@@ -227,19 +323,36 @@ export class WorldMap {
     g.restore();
   }
 
+  /** Atlas lettering: cream Cinzel with a dark ink halo, homes and Omphalos larger in capitals; a name wider than its
+   *  region's free row breaks onto two lines. */
   private drawLabels(g: CanvasRenderingContext2D, st: MapState): void {
-    const size = Math.max(14, 13 / this.k);
-    g.font = `700 ${size}px Cinzel, serif`;
+    const base = Math.max(14, 13 / this.k);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
+    g.lineJoin = 'round';
     for (const [id, r] of Object.entries(this.art.regions)) {
       const big = r.role === 'home' || r.role === 'center';
       if (!big && this.k < 0.32) continue;
-      const [x, y] = r.label, tw = g.measureText(r.name).width;
-      g.fillStyle = 'rgba(14,9,7,.72)';
-      g.fillRect(x - tw / 2 - 6, y - size * 0.62, tw + 12, size * 1.24);
-      g.fillStyle = id === st.hover || id === st.selected ? '#fff0d8' : big ? '#f2b27a' : '#f0d9b5';
-      g.fillText(r.name, x, y + 1);
+      let size = big ? base * 1.45 : base;
+      const text = big ? r.name.toUpperCase() : r.name;
+      g.font = `700 ${size}px Cinzel, serif`;
+      const words = text.split(' ');
+      const lines = g.measureText(text).width > r.labelRoom - 8 && words.length > 1
+        ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')] : [text];
+      const widest = Math.max(...lines.map((l) => g.measureText(l).width));
+      if (!big && widest > r.labelRoom) { // still too wide for a narrow region: letter it smaller
+        size *= Math.max(0.7, r.labelRoom / widest);
+        g.font = `700 ${size}px Cinzel, serif`;
+      }
+      const on = id === st.hover || id === st.selected;
+      lines.forEach((line, k) => {
+        const [x, y] = [r.label[0], r.label[1] + (k - (lines.length - 1) / 2) * size * 1.05];
+        g.strokeStyle = 'rgba(16,10,8,.88)';
+        g.lineWidth = size * 0.28;
+        g.strokeText(line, x, y);
+        g.fillStyle = on ? '#fff6e4' : big ? '#f2c48a' : '#efe0c2';
+        g.fillText(line, x, y);
+      });
     }
   }
 
