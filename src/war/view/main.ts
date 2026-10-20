@@ -1,6 +1,6 @@
 /**
  * War region sandbox: open /sandbox.html?region=<id>&sim=<real|fake>&scenario=<id> on the dev server
- * (scenarios: src/war/scenarios, test-ridge only; default free). Loads and
+ * (scenarios: src/war/scenarios, on test-ridge or their own region; default free). Loads and
  * validates src/war/regions/<id>.json (default test-ridge); ?region=fake is the built-in fake valley
  * (src/war/fake/region.ts). ?sim=fake runs the straight-line fake sim instead of src/war/sim.
  * ?art=grey draws the greybox terrain instead of the PixelLab art (public/war/).
@@ -20,7 +20,9 @@ import { SandboxScene } from './SandboxScene';
 import { loadSheetImages } from './units';
 
 const q = new URLSearchParams(location.search);
-const id = q.get('region') ?? 'test-ridge';
+// M7d: a scenario may name its own region (the landmark raids)
+const want = scenarioById(q.get('scenario'));
+const id = q.get('region') ?? want?.region ?? 'test-ridge';
 
 // no top-level await: the build targets es2020
 void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id), q.get('art') === 'grey' ? null : loadArt(), loadSheetImages()]).then(([region, art, sheets]) => {
@@ -32,7 +34,7 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
     scale: { mode: Phaser.Scale.RESIZE, width: innerWidth, height: innerHeight },
     render: { mipmapFilter: 'LINEAR_MIPMAP_LINEAR' },
   });
-  const sc = id === 'test-ridge' ? (scenarioById(q.get('scenario')) ?? SCENARIOS.find((s) => s.id === 'free')!) : null;
+  const sc = want && (want.region ?? 'test-ridge') === id ? want : id === 'test-ridge' ? SCENARIOS.find((s) => s.id === 'free')! : null;
   // M6k: a scenario's safe, yard and ambush rects join the region's before the sim starts
   if (sc?.zones) for (const k of ['safe', 'yard', 'ambush'] as const) if (sc.zones[k]) region[k] = [...(region[k] ?? []), ...sc.zones[k]!];
   game.scene.add('Sandbox', scene, true, { region, art, sheets });

@@ -7,6 +7,7 @@ import { LANDMARKS } from '../../src/data/warLandmarks';
 import { MOB_TEAM } from '../../src/war/sim/mobs';
 import { RARE_NODES } from '../../src/data/warLandmarks';
 import type { RegionData } from '../../src/war/types';
+import { SCENARIOS } from '../../src/war/scenarios';
 
 const files = import.meta.glob('../../src/war/regions/*.json', { eager: true, import: 'default' });
 const region = (id: string): RegionData => parseRegion(files[`../../src/war/regions/${id}.json`]);
@@ -54,5 +55,37 @@ describe('M7d landmarks in their regions', () => {
     sim.hurtBoss('drakon', 1e9);
     sim.step();
     expect(sim.snapshot().claims![town].state).not.toBe('locked');
+  });
+});
+
+describe('M7d landmark scenarios', () => {
+  const play = (id: string) => {
+    const sc = SCENARIOS.find((s) => s.id === id)!;
+    const sim = createSim(region(sc.region!), 1);
+    sim.spawnMobs();
+    for (const q of sc.squads) sim.spawnSquad('you', q.team, q.cls, q.count, q.x, q.y);
+    for (const o of sc.after!.orders) sim.order(o);
+    return sim;
+  };
+
+  it('landmark-citadel: Drakon is squad 3 and meets the 4-squad raid at the gate', () => {
+    const sim = play('landmark-citadel');
+    sim.step();
+    expect(sim.snapshot().bosses![0].squad).toBe(3);
+    expect(sim.snapshot().squads[4].owner).toBe('you');
+    for (let t = 0; t < 900 && sim.snapshot().bosses![0].hp === sim.snapshot().bosses![0].maxHp; t++) sim.step();
+    expect(sim.snapshot().bosses![0].hp).toBeLessThan(sim.snapshot().bosses![0].maxHp);
+  });
+
+  it('landmark-deadcity: the King is squad 7 and the raid fights the host', () => {
+    const sim = play('landmark-deadcity');
+    sim.step();
+    expect(sim.snapshot().bosses![0]).toMatchObject({ id: 'bandit_king', squad: 7 });
+    let falls = 0;
+    for (let t = 0; t < 900 && falls === 0; t++) {
+      sim.step();
+      falls += sim.events().filter((e) => e.kind === 'fall').length;
+    }
+    expect(falls).toBeGreaterThan(0);
   });
 });

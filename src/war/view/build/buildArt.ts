@@ -59,6 +59,11 @@ const PRE_ART: Partial<Record<BuildingType, string[]>> = {
   tent: ['kyrene/nomad-tent'], shrine: ['elaia/shrine'],
 };
 interface LibObj { id: string; file: string; anchor: { x: number; y: number }; footprint?: [number, number] }
+/** M7d: public/war/landmarks/landmarks.json (pieces' sprites per state, the labyrinth kit). */
+interface LandmarkJson {
+  objects: { id: string; file: string; tileOrigin: { x: number; y: number }; footprint: [number, number] }[];
+  kits: { id: string; frame: { w: number; h: number }; tileOrigin: { x: number; y: number }; states: Record<string, string> }[];
+}
 /** Kit ids per sim type. */
 export const KIT_ID: Partial<Record<BuildingType, string>> = {
   palisade: 'palisade', rampart: 'rampart', stoneWall: 'stone-wall', woodTower: 'tower-wood', stoneTower: 'tower-stone',
@@ -78,6 +83,11 @@ export class BuildArt {
   private work = new Map<string, WorkFx[]>();
   /** Construction stages, by rising threshold. */
   private stages: [string, number][] = FALLBACK_STAGES;
+  /** M7d landmark art (public/war/landmarks/), loaded piece by piece as the map first needs it: null while loading or missing. */
+  private lm = new Map<string, BuildSprite | KitSprite | null>();
+  private lmJson: Promise<LandmarkJson | null> | null = null;
+  private scene: Phaser.Scene | null = null;
+  private base = 'war/buildings/';
 
   /** Fetch the art and add its textures; null if there is none. */
   static async load(scene: Phaser.Scene, base = 'war/buildings/'): Promise<BuildArt | null> {
@@ -93,6 +103,8 @@ export class BuildArt {
         im.src = base + file;
       });
       const art = new BuildArt(), ppm = j.pxPerMetre ?? 33;
+      art.scene = scene;
+      art.base = base;
       if (j.buildOrder?.length && j.progress) {
         const p = j.progress;
         art.stages = j.buildOrder.filter((s) => typeof p[s] === 'number').map((s): [string, number] => [s, p[s]]).sort((a, b) => a[1] - b[1]);
@@ -177,6 +189,43 @@ export class BuildArt {
   preSprite(type: BuildingType, seed: number): BuildSprite | undefined {
     const ids = PRE_ART[type];
     return ids ? this.pre.get(ids[Math.abs(Math.floor(seed)) % ids.length]) ?? this.pre.get(ids[0]) : undefined;
+  }
+
+  /**
+   * M7d: a landmark piece's art in a state (intact, damaged, ruined, restored; landmarks.json objects `<piece>-<state>`),
+   * or the labyrinth kit's sheet (frames by neighbour mask); undefined until it has loaded (it starts loading here).
+   */
+  landmark(piece: string, state: string): BuildSprite | KitSprite | undefined {
+    const id = `${piece}-${state}`, have = this.lm.get(id);
+    if (have !== undefined) return have ?? undefined;
+    this.lm.set(id, null);
+    void this.loadLandmark(piece, state, id);
+    return undefined;
+  }
+
+  private async loadLandmark(piece: string, state: string, id: string): Promise<void> {
+    const sc = this.scene;
+    if (!sc) return;
+    const dir = `${this.base}../landmarks/`;
+    this.lmJson ??= fetch(dir + 'landmarks.json').then((r) => r.json() as Promise<LandmarkJson>).catch(() => null);
+    const j = await this.lmJson;
+    if (!j) return;
+    const im = new Image(), key = `lm-${id}`;
+    const kit = j.kits.find((k) => k.id === piece), obj = j.objects.find((o) => o.id === id);
+    const file = kit ? kit.states[state] : obj?.file;
+    if (!file) return;
+    try {
+      await new Promise((ok, fail) => { im.onload = ok; im.onerror = fail; im.src = dir + file; });
+    } catch {
+      return;
+    }
+    if (kit) {
+      if (!sc.textures.exists(key)) sc.textures.addSpriteSheet(key, im, { frameWidth: kit.frame.w, frameHeight: kit.frame.h });
+      this.lm.set(id, { key, tileOrigin: kit.tileOrigin });
+    } else if (obj) {
+      if (!sc.textures.exists(key)) sc.textures.addImage(key, im);
+      this.lm.set(id, { key, tileOrigin: obj.tileOrigin, fw: obj.footprint[0], fh: obj.footprint[1] });
+    }
   }
 
   /** The working fx of a sim type's art (none: no workplace, or its crafters' clips are the activity). */

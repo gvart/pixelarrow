@@ -137,6 +137,7 @@ export function applyScenario(s: SandboxScene, sc: Scenario): void {
     s.sim.personsFor = pf;
   }
   for (const o of sc.after?.then ?? []) s.sim.order(o);
+  for (const b of sc.bosses ?? []) s.sim.hurtBossTo(b.boss, b.to); // M7d
   if (sc.after?.later) s.sim.skip(sc.after.later.settle);
   for (const o of sc.after?.later?.orders ?? []) s.sim.order(o);
   s.focus(sc.camera.x, sc.camera.y, sc.camera.zoom);

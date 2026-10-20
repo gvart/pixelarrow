@@ -132,6 +132,11 @@ export class SimClient {
   }
 
   /** Neutral play: spawn the region's lairs. */
+  /** M7d dev and scenarios: hurt guardian `boss` down to `to` of its hp (its phases follow). */
+  hurtBossTo(boss: string, to: number): void {
+    this.send({ t: 'hurtBoss', boss, to });
+  }
+
   spawnMobs(): void {
     this.send({ t: 'mobs' });
   }
@@ -226,6 +231,11 @@ export class SimClient {
   speed(scale: number): void {
     if (scale > 0) this.interval = 100 / scale;
     this.send({ t: 'speed', scale });
+  }
+
+  /** M7d: ms since the newest snapshot came. */
+  since(_now: number): number {
+    return performance.now() - this.at;
   }
 
   /** Render time for the clips (./anim.ts): the fractional tick drawn (one behind the newest snapshot). */

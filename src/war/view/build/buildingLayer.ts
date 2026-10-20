@@ -81,6 +81,8 @@ interface Deck {
 const DITCH = 2.4;
 /** M5h3: wet wood with no hides art, darkened. */
 const WET_TINT = 0xb0b4b8;
+/** M7d: the Temple City's labyrinth kit (public/war/landmarks/landmarks.json kits). */
+const LABYRINTH = 'navel-labyrinth';
 /** M7b: a pre-built ruin's stub, soot-dark. */
 const RUIN_TINT = 0xb8aea0;
 /** Siege ladder foot from the wall face in tiles (public/war/siege/objects.json ladders.targets footM / 2 m). */
@@ -471,6 +473,8 @@ export class BuildingLayer {
     this.prepare(buildings);
     const walls = this.wallTiles(buildings), ditches = new Set<number>();
     for (const b of buildings) if (b.type === 'ditch') ditches.add(key(b.tiles[0], b.tiles[1]));
+    const labyrinth = new Set<number>();
+    for (const b of buildings) if (b.art === LABYRINTH && b.state !== 'destroyed') labyrinth.add(key(b.tiles[0], b.tiles[1]));
     for (const b of buildings) {
       const c = this.pt(b.x, b.y, this.z(b));
       const site = b.state === 'foundation' || b.state === 'scaffold';
@@ -482,7 +486,9 @@ export class BuildingLayer {
       const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = this.D(x1 - 0.5, y1 - 0.5);
       const def = BUILDINGS[b.type], l = this.looks.get(b.id) ?? this.look(b), axis = b.w >= b.h ? 'x' : 'y';
       let drawn = false;
-      if (this.art && def.field) drawn = this.drawField(b, l, ditches);
+      if (this.art && b.art && b.state !== 'destroyed') drawn = this.drawLandmark(b, depth, labyrinth);
+      if (drawn) { /* M7d: a landmark piece in its art */ }
+      else if (this.art && def.field) drawn = this.drawField(b, l, ditches);
       else if (this.art && def.bridge) drawn = this.drawBridge(b, l);
       else if (this.art && b.ruin && !def.wall) {
         // M7b a pre-built piece in ruins: the stub of its art, darkened (walls and towers: the rubble placeholder)
@@ -536,6 +542,26 @@ export class BuildingLayer {
   }
 
   private ni = 0;
+
+  /**
+   * M7d: a landmark piece in its art state: ruined (a ruin, or razed), restored (an alliance's at full hp), damaged
+   * (under 45%), else intact (as the season finds it, 60%); the labyrinth tile by its neighbour mask. False: no art yet.
+   */
+  private drawLandmark(b: BuildingSnap, depth: number, labyrinth: Set<number>): boolean {
+    const share = b.hp / Math.max(1, b.maxHp);
+    const state = b.ruin ? 'ruined' : b.team >= 0 && b.team < 4 && share >= 0.99 ? 'restored' : share < 0.45 ? 'damaged' : 'intact';
+    const spr = this.art!.landmark(b.art!, state);
+    if (!spr) return false;
+    if (b.art === LABYRINTH) {
+      const [x, y] = [b.tiles[0], b.tiles[1]];
+      const m = (labyrinth.has(key(x + 1, y)) ? 1 : 0) | (labyrinth.has(key(x, y + 1)) ? 2 : 0) | (labyrinth.has(key(x - 1, y)) ? 4 : 0) | (labyrinth.has(key(x, y - 1)) ? 8 : 0);
+      this.piece(this.img(this.ni++, spr.key, m), spr, x, y, this.zt(x, y)).setDepth(this.D(x + 0.5, y + 0.5));
+      return true;
+    }
+    if (!('fw' in spr)) return false;
+    this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b)).setDepth(depth);
+    return true;
+  }
 
   /** A wall segment tile by tile: palisade by its neighbour mask, layered kits back and front. */
   private drawWall(b: BuildingSnap, walls: Set<number>): boolean {
