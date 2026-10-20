@@ -34,7 +34,7 @@
 import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
 import { BRAZIER, BRIDGE, BUILDINGS, CHEST, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
-import { amount, empty, newHold, put, take, takeFrom, totals, type Cost, type Hold } from './holders';
+import { amount, empty, itemList, newHold, put, take, takeFrom, totals, type Cost, type Hold } from './holders';
 
 const DT = 0.1;
 /** Bridge line steps by octant of the drag angle (+x first, turning towards +y). */
@@ -1722,7 +1722,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
           ...(b.wet > tick ? { wet: true as const } : {}),
           ...(b.push > 0 && b.state !== 'destroyed' ? { push: Math.min(1, b.push) } : {}),
           ...(b.bridge ? { bridge: { axis: b.bridge.axis, dir: b.bridge.dir, width: b.bridge.width, part: b.bridge.part, deck: b.bridge.deck, rows: b.bridge.rows } } : {}),
-          ...(b.hold && b.state !== 'destroyed' ? { goods: totals(b.hold), ...(b.hold.items.length ? { items: b.hold.items.length } : {}) } : {}),
+          ...(b.hold && b.state !== 'destroyed' ? { goods: totals(b.hold), ...(b.hold.items.length ? { items: b.hold.items.length, list: itemList(b.hold) } : {}) } : {}),
           ...(b.owner ? { owner: b.owner } : {}),
         };
       }),

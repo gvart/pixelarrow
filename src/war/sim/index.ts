@@ -64,7 +64,7 @@ import { decodeGraph, encodeGraph, externals, STATE_VERSION, type SimState } fro
 import { CART_ARMOR, isCartType, SIEGE } from './siege';
 import { CARRY as CARRY_N, CHEST } from './economy';
 import { CART_FORD, CART_UPHILL } from './grid';
-import { loads, move as moveHold, newHold, totals, type Hold, type Lot } from './holders';
+import { itemList, loads, move as moveHold, newHold, totals, type Hold, type Lot } from './holders';
 import { CART, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
 import { CRAFT, itemRecipe } from './crafting';
 import type { HolderRef } from '../types';
@@ -2658,7 +2658,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
         ...(rations.size ? { rations: Object.fromEntries(rations) } : {}),
         ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
-        ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}) })) } : {}),
+        ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, ...(p.hold.items.length ? { list: itemList(p.hold) } : {}), loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}) })) } : {}),
       };
     },
     stats() {

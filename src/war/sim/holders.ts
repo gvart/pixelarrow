@@ -5,7 +5,7 @@
  * Takes are first in, first out over the lots, so origins travel with the goods; an emptied lot stays at 0.
  */
 import type { Item } from '../../data/items';
-import type { ResourceKind } from '../types';
+import type { HoldItem, ResourceKind } from '../types';
 import { CARRY } from './economy';
 
 export interface Lot { r: ResourceKind; n: number; o: string }
@@ -109,5 +109,8 @@ export function spoil(h: Hold, share: number): void {
   for (const l of h.lots) l.n *= 1 - share;
   h.lots = h.lots.filter((l) => l.n > EPS);
 }
+
+/** Snapshot of a hold's first items (the view's hover and salvage pick; at most `max`). */
+export const itemList = (h: Hold, max = 8): HoldItem[] => h.items.slice(0, max).map((i) => ({ uid: i.uid, def: i.def, rarity: i.rarity, ...(i.q !== undefined ? { q: i.q } : {}) }));
 
 export const empty = (h: Hold) => !h.items.length && h.lots.every((l) => l.n <= EPS);
