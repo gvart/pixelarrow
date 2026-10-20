@@ -280,7 +280,7 @@ for (const C0 of [
     e.moving[f] = { file, frames: mv.length, fps: 10, frame: { w: mv[0].w, h: mv[0].h }, tileOrigin: set.tileOrigin, note: 'wheel loop at ~1 m/s (a man walking); speed it with the cart' };
     // fire anchors on the burning sprite (siege fx ids, fire v2): tongues on the bed and a wheel, a wisp of smoke, embers
     const sc = screenOf(rs.burning, f, L);
-    e.fx[f] = { burning: [{ id: 'tongue-m-a', at: sc(C0.fire[0]) }, { id: 'tongue-s-b', at: sc(C0.fire[1]) }, { id: 'tongue-s-c', at: sc(C0.fire[2]) }, { id: 'tongue-s-a', at: sc(C0.fire[3]) }, { id: 'embers', at: sc([C0.fire[0][0], C0.fire[0][1], C0.fire[0][2] + 0.6]) }, { id: 'smoke-wisp-a', at: sc([C0.fire[0][0], C0.fire[0][1], C0.fire[0][2] + 0.9]), alpha: 0.5 }, { id: 'heat-glow', at: sc([C0.fire[0][0], C0.fire[0][1], 0]) }], burnt: [{ id: 'smoulder', at: screenOf(rs.burnt, f, L)([C0.fire[0][0], C0.fire[0][1], 0.3]) }] };
+    e.fx[f] = { burning: [{ id: 'tongue-m-a', at: sc(C0.fire[0]) }, { id: 'tongue-s-b', at: sc(C0.fire[1]) }, { id: 'tongue-s-c', at: sc(C0.fire[2]) }, { id: 'tongue-s-a', at: sc(C0.fire[3]) }, { id: 'embers', at: sc([C0.fire[0][0], C0.fire[0][1], C0.fire[0][2] + 0.6]) }, { id: 'smoke-wisp-a', at: sc([C0.fire[0][0], C0.fire[0][1], C0.fire[0][2] + 0.9]), alpha: 0.5 }], burnt: [{ id: 'smoulder', at: screenOf(rs.burnt, f, L)([C0.fire[0][0], C0.fire[0][1], 0.3]) }] };
     // cargo overlays: drawn over any standing state of this facing at the same tileOrigin; the near sides hide the load
     e.cargo[f] = {};
     for (const kind of CARGO) for (const [lvl, name] of [[1, 'half'], [2, 'full']]) {
