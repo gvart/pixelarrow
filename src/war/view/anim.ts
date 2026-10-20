@@ -17,7 +17,9 @@
  * unit, the first the sheet has is used. `workClips` is the stock one: gathering plays chop (wood, pitch),
  * mine (stone, marble, ores, salt) or harvest (food) by the resource it takes in, labouring at a site
  * plays build, walking with a load plays walk with the load drawn over it (`loadOf`: planks, a block, a sack, a basket
- * or a jar by the resource); never an attack clip (a sheet without them idles).
+ * or a jar by the resource); never an attack clip (a sheet without them idles). Civilians (M5f, civ_* sheets): at work
+ * at their building they play their job's clip (UnitSnap.work: cook, forge, trade, heal), a forager gathering plays
+ * chop / mine / harvest as above, an engineer at a site build, and a fleeing one runs.
  */
 import { resolveAnim, SHEET_ANIMS, type SheetAnim } from '../../art/sheetManifest';
 import type { ResourceKind, SquadSnap, UnitSnap } from '../types';
@@ -47,6 +49,7 @@ const HARVEST = ['harvest', 'idle'] as const;
 const BUILD = ['build', 'chop', 'idle'] as const;
 // a loaded man walks: his load is an overlay on the walk (LOADS, drawn by ./units.ts at the sheet's `loads` anchors)
 const CARRY = ['walk'] as const;
+const FLEE = ['run', 'walk'] as const;
 const GATHER: Record<ResourceKind, readonly string[]> = {
   wood: CHOP, pitch: CHOP, food: HARVEST,
   stone: MINE, marble: MINE, copper: MINE, tin: MINE, iron: MINE, bronze: MINE, silver: MINE, salt: MINE,
@@ -65,6 +68,8 @@ export function loadOf(u: UnitSnap): string | undefined {
 
 /** Work clips for a gathering, labouring or loaded unit (the Animator override); undefined: the usual pick. */
 export function workClips(u: UnitSnap): readonly string[] | undefined {
+  if (u.flee && u.state === 'move') return FLEE;
+  if (u.work) return [u.work, 'idle'];
   // a gatherer's carry is the resource of the node it works (set from its first tick there)
   if (u.state === 'gather') return u.carry ? GATHER[u.carry] : BUILD;
   if (u.state === 'build') return BUILD;

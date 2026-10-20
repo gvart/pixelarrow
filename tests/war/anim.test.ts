@@ -67,6 +67,24 @@ describe('war clip selection', () => {
     expect(pick({ state: 'move', carry: 'wood', load: 1 }, clips)).toBe('walk');
   });
 
+  it('civilians: their job clip at work, run when fleeing, die and hit by the civ sheet names', () => {
+    const civ = new Map<string, ClipDef>([['idle', C(12, 8)], ['walk', C(12, 12)], ['run', C(12, 16)], ['cook', C(12, 8)], ['forge', C(12, 8)], ['die', C(12, 10)], ['hit', C(4, 12)]]);
+    const pick = (o: Partial<UnitSnap>) => {
+      const a = new Animator();
+      a.override = workClips;
+      return a.pick(unit({ cls: 'civ_cook', ...o }), civ, at(0, 1), [], []).clip;
+    };
+    expect(pick({ work: 'cook' })).toBe('cook');
+    expect(pick({ work: 'forge', cls: 'civ_smith' })).toBe('forge');
+    expect(pick({ work: 'heal' })).toBe('idle'); // a sheet without the clip idles
+    expect(pick({ state: 'move', flee: true })).toBe('run');
+    expect(pick({ state: 'dead' })).toBe('die');
+    const a = new Animator(), d = unit({ cls: 'civ_cook' });
+    a.pick(d, civ, at(0, 1), [d], []);
+    a.pick(unit({ cls: 'civ_cook', hp: 6 }), civ, at(100, 2), [d], []);
+    expect(a.pick(unit({ cls: 'civ_cook', hp: 6 }), civ, at(200, 2.5), [d], []).clip).toBe('hit');
+  });
+
   it('shows the load by the resource carried, only while walking', () => {
     const u = (o: Partial<UnitSnap>) => unit(o).u;
     expect(loadOf(u({ state: 'move', carry: 'wood', load: 1 }))).toBe('wood');

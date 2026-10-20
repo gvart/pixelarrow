@@ -38,6 +38,7 @@ import { SiegeLayer } from './siege/siegeLayer';
 import { Interact } from './interact';
 import { MapData, type Live, type MapMode } from './mapModes';
 import { FogLayer } from './fog';
+import { anySoldiers } from './hud/cardCiv';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLIMB = ['climb', 'walk'] as const;
@@ -429,7 +430,9 @@ export class SandboxScene extends Phaser.Scene {
     if (this.frame % 15 === 0 && cam.zoom < this.minZoom() - 1e-6) cam.setZoom(this.minZoom());
     // keyboard and edge pan
     const sp = (dt * 0.9) / cam.zoom;
-    let vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
+    // A arms attack-move while own fighting squads are selected (./hud/hud.ts); only with none does it pan
+    const aPans = k.A.isDown && !anySoldiers(this, this.siege.own());
+    let vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (aPans || k.LEFT.isDown ? 1 : 0);
     let vy = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.W.isDown || k.UP.isDown ? 1 : 0);
     const p = this.input.activePointer, m = 12;
     if (this.input.isOver && !p.isDown && this.moved) {
