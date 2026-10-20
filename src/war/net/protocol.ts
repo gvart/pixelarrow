@@ -19,17 +19,23 @@
  *                    site `contract` (+ contract id): a carry's sealed loads out at A, a carry or supply delivered at B
  *   client -> handoff { t, op, with, squad|cart, goods?, uids? }  M6g: the hand-off window with another player here
  *                    (offer my half, confirm, cancel) -> handoff to both
+ *   client -> dev    { t, op, ... }                           DEV_AUTH=1 only (refused `forbidden` otherwise): the dev
+ *                    panel's helpers for the player's team: stock (goods into the home strongroom), claim (an influence
+ *                    anchor), spawn (a squad of any class and team at a point; his own team's is his), skip (ticks at once)
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
+ *   server -> nodes | influence | stock                       the economy view (./economy.ts): resource nodes his team
+ *                    sees (changes only), his team's influence mask (RLE, on change), his team's stockpile (on change)
  *   server -> binary frame                                    (snapshot delta or keyframe)
  */
 import { z } from 'zod';
 import { SQUAD_MAX } from '../sim/soldiers';
+import type { NodeRow } from './economy';
 import type { BridgePlan, BuildingType, Order, PlaceResult, ResourceKind, SquadId, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 7;
+export const NET_VERSION = 8;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -167,8 +173,17 @@ const baseMsgSchema = z.discriminatedUnion('t', [
     squad: id.optional(), cart: id.optional(), goods: z.record(goodSchema, amount).optional(), uids: z.array(z.string().min(1).max(120)).max(20).optional(),
   }).refine((o) => o.op !== 'offer' || (o.squad === undefined) !== (o.cart === undefined), 'an offer names its squad or cart'),
 ]);
-export const clientMsgSchema = z.union([baseMsgSchema, checkSchema]);
-export type ClientMsg = z.infer<typeof baseMsgSchema> | CheckMsg;
+/** Dev helpers (the F1 panel); the region refuses them unless the server runs with DEV_AUTH=1. */
+export const devSchema = z.discriminatedUnion('op', [
+  z.object({ t: z.literal('dev'), op: z.literal('stock'), res: goodSchema, n: amount }),
+  z.object({ t: z.literal('dev'), op: z.literal('claim'), x: num, y: num, r: z.number().positive().max(64).optional() }),
+  z.object({ t: z.literal('dev'), op: z.literal('spawn'), team: z.number().int().min(0).max(ALLIANCES - 1), cls: z.string().regex(/^[a-z_]{1,24}$/), count: z.number().int().min(1).max(MAX_SQUAD), x: num, y: num }),
+  z.object({ t: z.literal('dev'), op: z.literal('skip'), ticks: z.number().int().min(1).max(600) }),
+]);
+export type DevMsg = z.infer<typeof devSchema>;
+
+export const clientMsgSchema = z.union([baseMsgSchema, checkSchema, devSchema]);
+export type ClientMsg = z.infer<typeof baseMsgSchema> | CheckMsg | DevMsg;
 export type JoinMsg = Extract<ClientMsg, { t: 'join' }>;
 export type MendMsg = Extract<ClientMsg, { t: 'mend' }>;
 export type StowMsg = Extract<ClientMsg, { t: 'stow' }>;
@@ -176,7 +191,7 @@ export type HandoffMsg = Extract<ClientMsg, { t: 'handoff' }>;
 
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
-export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad';
+export type OrderError = 'notOwner' | 'notJoined' | 'badTarget' | 'bad' | 'forbidden';
 
 export type ServerMsg =
   | { t: 'welcome'; v: number; region: string; you: { id: number; team: number }; squads: SquadId[]; tick: number; quota: Quota }
@@ -189,7 +204,13 @@ export type ServerMsg =
   /** M6f: a stow went through: what moved (goods by good, item count) and what did not fit (left where it was). */
   | { t: 'stowed'; dir: 'in' | 'out'; site: string; goods: Record<string, number>; items: number; left?: Record<string, number> }
   /** M6g: the hand-off window with `with`: open (halves by player, who confirmed, until tick), done, or closed (`why`). */
-  | { t: 'handoff'; with: number; state: 'open' | 'done' | 'closed'; halves?: Record<number, { goods: Record<string, number>; uids: string[] }>; ok?: number[]; until?: number; why?: string };
+  | { t: 'handoff'; with: number; state: 'open' | 'done' | 'closed'; halves?: Record<number, { goods: Record<string, number>; uids: string[] }>; ok?: number[]; until?: number; why?: string }
+  /** Resource nodes his team sees that changed (packed rows, ./economy.ts), and ids gone. */
+  | { t: 'nodes'; rows: NodeRow[]; gone?: number[] }
+  /** His team's influence: bit `team` of the w x h mask as alternating runs (outside first); v the sim's version. */
+  | { t: 'influence'; team: number; w: number; h: number; v: number; runs: number[] }
+  /** His team's stockpile (its stores and home strongroom here, Snapshot.stock), whole units, when it changed. */
+  | { t: 'stock'; team: number; goods: Record<string, number> };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }

@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DeltaDecoder } from '../../../src/war/net/codec';
 import { CELL, VisionMap } from '../../../src/war/net/interest';
+import { decodeInfluence, encodeInfluence, NODES_EVERY, packNode, unpackNode } from '../../../src/war/net/economy';
 import { NET_VERSION, VISION, type JoinMsg } from '../../../src/war/net/protocol';
 import { createSim } from '../../../src/war/sim';
-import { CORPSE_TICKS, WarRoom } from '../../src/war/room';
+import { CORPSE_TICKS, HOME_CLAIM_R, homeAnchor, WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 import { spot } from './spot';
 
@@ -234,6 +235,95 @@ describe('WarRoom determinism', () => {
       sim.step();
     }
     expect(JSON.stringify(sim.snapshot())).toBe(JSON.stringify(a.snapshot()));
+  });
+});
+
+describe('WarRoom economy view (nodes, influence)', () => {
+  it('sends the nodes the team sees and its own influence, then only changes', () => {
+    const r = room();
+    r.join(1, join(1, 0));
+    r.sim.claim(0, 200, 40, 10);
+    r.sim.claim(1, 60, 200, 10); // a foe's influence never goes out to team 0
+    const first = r.tick().msgs.get(1) ?? [];
+    const infl = first.find((m) => m.t === 'influence');
+    expect(infl).toBeTruthy();
+    if (infl?.t !== 'influence') return;
+    const map = decodeInfluence(infl.w, infl.h, 0, infl.runs, infl.v);
+    expect(map.mask[40 * infl.w + 200]).toBe(1);
+    expect(map.mask[200 * infl.w + 60]).toBe(0);
+    // march toward the nearest node: it comes into sight
+    const all = r.sim.resourceNodes(), u = r.snapshot().units[0];
+    const near = all.reduce((a, b) => (Math.hypot(b.x - u.x, b.y - u.y) < Math.hypot(a.x - u.x, a.y - u.y) ? b : a));
+    r.order(1, { kind: 'move', squad: 0, x: near.x, y: near.y + 2 });
+    const ids = new Set<number>();
+    for (let t = 0; t < 300 && !ids.has(near.id); t++) for (const m of r.tick().msgs.get(1) ?? []) if (m.t === 'nodes') for (const row of m.rows) ids.add(row[0]);
+    expect(ids.has(near.id)).toBe(true);
+    for (const id of ids) {
+      const n = r.sim.resourceNodes()[id];
+      expect(r.sim.teamGrid(0).state[Math.floor(n.y / r.sim.teamGrid(0).cell) * r.sim.teamGrid(0).w + Math.floor(n.x / r.sim.teamGrid(0).cell)]).toBeGreaterThan(0);
+    }
+    expect(r.sim.resourceNodes().some((n) => !ids.has(n.id))).toBe(true); // the unseen rest stays hidden
+    // nothing changed: no repeat
+    const later = steps(r, NODES_EVERY).msgs.get(1) ?? [];
+    expect(later.some((m) => m.t === 'influence')).toBe(false);
+    r.sim.claim(0, 220, 40, 6);
+    expect((r.tick().msgs.get(1) ?? []).some((m) => m.t === 'influence')).toBe(true);
+  });
+
+  it('packs nodes and influence runs losslessly', () => {
+    const n = { id: 7, res: 'wood' as const, x: 10.5, y: 3, amount: 40, max: 60, obj: 2, guarded: true as const };
+    expect(unpackNode(packNode(n))).toEqual(n);
+    const mask = new Uint8Array([0, 2, 2, 0, 3, 1, 2]);
+    expect(decodeInfluence(7, 1, 1, encodeInfluence(mask, 1), 1).mask).toEqual(new Uint8Array([0, 2, 2, 0, 2, 0, 2]));
+  });
+});
+
+describe('WarRoom dev helpers', () => {
+  it('stock, claim, spawn and skip act for the player team; refused without dev rights', () => {
+    const r = room();
+    expect(r.dev(1, { t: 'dev', op: 'stock', res: 'wood', n: 500 })).toBe('notJoined');
+    r.join(1, join(1, 0));
+    const wood = () => r.snapshot().stock?.[0]?.wood ?? 0;
+    const w0 = wood();
+    expect(r.dev(1, { t: 'dev', op: 'stock', res: 'wood', n: 500 })).toBeNull();
+    const sent = steps(r, 1).msgs.get(1) ?? [];
+    expect(wood()).toBe(w0 + 500);
+    expect(sent.some((m) => m.t === 'stock' && m.team === 0 && m.goods.wood === Math.floor(w0 + 500))).toBe(true); // his stock goes out on change
+    expect(r.dev(1, { t: 'dev', op: 'claim', x: 100.5, y: 100.5, r: 10 })).toBeNull();
+    expect(r.sim.influence().mask[100 * region.w + 100] & 1).toBe(1);
+    expect(r.dev(1, { t: 'dev', op: 'spawn', team: 0, cls: 'archer', count: 8, x: 120, y: 60 })).toBeNull();
+    expect(r.dev(1, { t: 'dev', op: 'spawn', team: 1, cls: 'hoplite', count: 6, x: 140, y: 60 })).toBeNull();
+    expect(r.dev(1, { t: 'dev', op: 'spawn', team: 1, cls: 'dragonrider', count: 6, x: 140, y: 60 })).toBe('bad');
+    steps(r, 1);
+    expect(r.squadsOf(1).length).toBe(2); // his own team's squad is his
+    expect(r.snapshot().squads.some((q) => q.team === 1 && q.owner === 'bot')).toBe(true);
+    const t0 = r.currentTick;
+    expect(r.dev(1, { t: 'dev', op: 'skip', ticks: 50 })).toBeNull();
+    steps(r, 1);
+    expect(r.currentTick).toBe(t0 + 51);
+    const locked = new WarRoom({ region, seed: 1, cap: 600, allowArmy: false });
+    expect(locked.dev(1, { t: 'dev', op: 'stock', res: 'wood', n: 500 })).toBe('forbidden');
+  });
+});
+
+describe('WarRoom home regions', () => {
+  it('a fresh home gives its alliance influence at the home town from the start', () => {
+    const home = warRegion('dodona')!;
+    const r = new WarRoom({ region: home, seed: 1, cap: 600, home: 0 });
+    const a = homeAnchor(home), infl = r.sim.influence();
+    expect(infl.mask[Math.floor(a.y) * home.w + Math.floor(a.x)] & 1).toBe(1);
+    // building rights round the town: some camp spot within the anchor's radius takes a camp of team 0, never of team 1
+    let ok0 = false, ok1 = false;
+    for (let d = 46; d < HOME_CLAIM_R - 4 && !ok0; d += 2)
+      for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) {
+        ok0 ||= r.sim.checkPlacement(0, 'camp', a.x + dx, a.y + dy).ok;
+        ok1 ||= r.sim.checkPlacement(1, 'camp', a.x + dx, a.y + dy).ok;
+      }
+    expect(ok0).toBe(true);
+    expect(ok1).toBe(false);
+    // the anchor survives an eviction (it is sim state)
+    const back = WarRoom.restore({ region: home, seed: 1, cap: 600 }, r.saveState(), new Map());
+    expect(back.sim.influence().mask[Math.floor(a.y) * home.w + Math.floor(a.x)] & 1).toBe(1);
   });
 });
 

@@ -373,7 +373,8 @@ export class SandboxScene extends Phaser.Scene {
     if (!pan && this.build.onDown(this.world(p), this.keys.SHIFT.isDown)) return;
     if (!pan && this.placing) {
       const t = this.world(p), { team, cls, count } = this.placing;
-      this.sim.spawn(team === 0 ? 'you' : 'bot', team, cls, count, t.x, t.y);
+      if (this.sim.net) this.sim.devSpawn(team, cls, count, t.x, t.y); // the live region's dev spawn (a join brings the roster)
+      else this.sim.spawn(team === 0 ? 'you' : 'bot', team, cls, count, t.x, t.y);
       this.placing = null;
       return;
     }

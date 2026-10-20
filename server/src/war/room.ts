@@ -34,7 +34,8 @@ import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
-import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
+import { EconomyFeed, encodeInfluence, NODES_EVERY } from '../../../src/war/net/economy';
+import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type DevMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
 import type { BridgePlan, FightReport, LandmarkSnap, Order, PlaceResult, RegionData, RegionMemory, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
@@ -130,11 +131,28 @@ export interface RoomOptions {
   vision?: (sim: WarBuildSim, snap: Snapshot) => TeamVision;
   /** Accept the dev `army` join (class + count). The DO allows it only with DEV_AUTH=1. Default true (tests, tools). */
   allowArmy?: boolean;
+  /** Accept the dev panel's helpers (DevMsg: stock, claim, spawn, skip). The DO allows them only with DEV_AUTH=1. Default: allowArmy. */
+  allowDev?: boolean;
   /** This room instance's id in fight ids (default: random). */
   epoch?: string;
   fightQuiet?: number;
   /** M7f: a fresh room wakes the region's lairs and guardians (a neutral region on its own map). */
   wild?: boolean;
+  /**
+   * The alliance whose home this region is: a fresh room (a new season, docs/WAR.md depth 0 "owned") gives it an
+   * influence anchor of HOME_CLAIM_R at its home town, so it may build at home from the start (homes have no claim points).
+   */
+  home?: number;
+}
+
+/** Influence radius of a home's anchor (tiles): the town (pieces within ~42 tiles of its centre) and a ring round it. */
+export const HOME_CLAIM_R = 64;
+
+/** A home's anchor: the centre of its pre-built town (the map centre when it has none). */
+export function homeAnchor(region: RegionData): { x: number; y: number } {
+  const ps = (region.prebuilt ?? []).filter((p) => !p.tiles);
+  if (!ps.length) return { x: region.w / 2, y: region.h / 2 };
+  return { x: Math.round(ps.reduce((a, p) => a + p.x, 0) / ps.length) + 0.5, y: Math.round(ps.reduce((a, p) => a + p.y, 0) / ps.length) + 0.5 };
 }
 
 /** M7f: a landmark as the room reports it to the world (src/war/net/world.ts LandmarkWorld; back: minutes, not a time). */
@@ -148,6 +166,8 @@ interface Player {
   online: boolean;
   cam: Rect | null;
   enc: DeltaEncoder | null;
+  /** The economy view he was sent (nodes, influence): fresh with each encoder. */
+  feed?: EconomyFeed;
   /** Ticks since its last keyframe; -1: none sent yet. */
   sinceKey: number;
   bytes: number;
@@ -179,6 +199,7 @@ export class WarRoom {
   /** Tick each unit was first seen dead. */
   private diedAt: number[] = [];
   private allowArmy: boolean;
+  private allowDev: boolean;
   private fightQuiet: number;
   private lastBlow = -1;
   private inFight = false;
@@ -191,6 +212,8 @@ export class WarRoom {
   private mends: Mend[] = [];
   /** Teams that raided or brought down a foe's holding building since the last fight ended (honours). */
   private stormed = new Set<number>();
+  /** Each team's influence runs at an influence version (encoded once per change). */
+  private inflRuns = new Map<number, { v: number; runs: number[] }>();
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -203,10 +226,15 @@ export class WarRoom {
     this.vision = o.vision ?? (() => fog);
     this.keyEvery = o.keyframeEvery ?? KEYFRAME_EVERY;
     this.allowArmy = o.allowArmy ?? true;
+    this.allowDev = o.allowDev ?? this.allowArmy;
     this.epoch = o.epoch ?? `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
     this.run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     if (o.wild) this.sim.spawnMobs();
+    if (o.home !== undefined) {
+      const a = homeAnchor(o.region);
+      this.sim.claim(o.home, a.x, a.y, HOME_CLAIM_R);
+    }
     this.snap = this.sim.snapshot();
   }
 
@@ -320,7 +348,7 @@ export class WarRoom {
     let p = this.players.get(pid);
     if (!p) this.players.set(pid, (p = { pid, team, online: true, cam: null, enc: null, sinceKey: -1, bytes: 0 }));
     p.online = true;
-    if (!p.enc) { p.enc = new DeltaEncoder(); p.sinceKey = -1; }
+    if (!p.enc) { p.enc = new DeltaEncoder(); p.sinceKey = -1; p.feed = new EconomyFeed(); }
     for (const id of this.squadsOf(pid)) this.bots.clear(id);
     for (const g of groups) this.spawn(ownerOf(pid), team, g);
     return { t: 'welcome', v: NET_VERSION, region: this.region.id, you: { id: pid, team }, squads: this.squadsOf(pid), tick: this.currentTick, quota: this.quota() };
@@ -775,13 +803,37 @@ export class WarRoom {
     return { t: 'checked', id: c.id, result };
   }
 
+  /**
+   * A dev helper for the player's team (DEV_AUTH only): goods into its home strongroom, an influence anchor, a squad at
+   * a point (his own when of his team, else a bot squad that holds there), or ticks stepped at once (the next tick
+   * sends the frame; events of the skipped ticks come with it).
+   */
+  dev(pid: number, m: DevMsg): OrderError | null {
+    if (!this.allowDev) return 'forbidden';
+    const p = this.players.get(pid);
+    if (!p) return 'notJoined';
+    if (m.op === 'stock') this.sim.addStock(p.team, m.res, m.n);
+    else if (m.op === 'claim') this.sim.claim(p.team, m.x, m.y, m.r);
+    else if (m.op === 'spawn') {
+      if (!isClassId(m.cls) || m.team >= this.per.length) return 'bad';
+      const mine = m.team === p.team, at = { x: Math.max(1, Math.min(this.region.w - 2, m.x)), y: Math.max(1, Math.min(this.region.h - 2, m.y)) };
+      const id = this.spawn(mine ? ownerOf(pid) : 'bot', m.team, { cls: m.cls, count: m.count }, at);
+      if (!mine) this.bots.set(id, { kind: 'hold', x: at.x, y: at.y, radius: HOLD_RADIUS });
+    } else
+      for (let i = 0; i < m.ticks; i++) {
+        this.sim.step();
+        this.bots.tick();
+      }
+    return null;
+  }
+
   view(pid: number, r: Rect): void {
     const p = this.players.get(pid);
     if (p) p.cam = r;
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; msgs: Map<number, ServerMsg[]>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -846,8 +898,43 @@ export class WarRoom {
         frames.set(p.pid, f);
       }
     }
+    const msgs = this.economy();
     this.lastTick = this.snap.tick;
-    return { frames, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, msgs, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+  }
+
+  /**
+   * The economy view per online player (src/war/net/economy.ts): his team's influence and stock when they changed, and every
+   * NODES_EVERY ticks (or at once after a join) the resource nodes his team sees that changed.
+   */
+  private economy(): Map<number, ServerMsg[]> {
+    const out = new Map<number, ServerMsg[]>();
+    const on = [...this.players.values()].filter((p) => p.online && p.feed);
+    if (!on.length) return out;
+    const infl = this.sim.influence();
+    let nodes: ReturnType<WarBuildSim['resourceNodes']> | null = null;
+    const push = (pid: number, m: ServerMsg) => (out.get(pid) ?? out.set(pid, []).get(pid)!).push(m);
+    for (const p of on) {
+      const feed = p.feed!;
+      let c = this.inflRuns.get(p.team);
+      if (c?.v !== infl.version) this.inflRuns.set(p.team, (c = { v: infl.version, runs: encodeInfluence(infl.mask, p.team) }));
+      const r = feed.influence(c.runs);
+      if (r) push(p.pid, { t: 'influence', team: p.team, w: infl.w, h: infl.h, v: infl.version, runs: r });
+      const g0 = feed.stock(this.snap.stock?.[p.team]);
+      if (g0) push(p.pid, { t: 'stock', team: p.team, goods: g0 });
+      if (this.snap.tick % NODES_EVERY && !feed.fresh) continue;
+      const g = this.sim.teamGrid(p.team);
+      const n = feed.nodes({
+        nodes: (nodes ??= this.sim.resourceNodes()),
+        sees: (x, y) => this.sim.visibleTo(p.team, x, y),
+        explored: (x, y) => {
+          const cx = Math.floor(x / g.cell), cy = Math.floor(y / g.cell);
+          return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h && g.state[cy * g.w + cx] > 0;
+        },
+      });
+      if (n) push(p.pid, { t: 'nodes', rows: n.rows, ...(n.gone.length ? { gone: n.gone } : {}) });
+    }
+    return out;
   }
 
   /** Battle honours won in a finished fight go on its report (src/war/sim/honours.ts); the fort-taking slate is wiped. */

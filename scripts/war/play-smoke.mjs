@@ -1,5 +1,7 @@
 // Headless smoke of the local war playtest (docs/PLAYTEST.md), against a running `npm run play:war`:
-// world map -> enter home -> a move order -> a camp placed and built -> back to the world -> a transfer to a neighbour.
+// world map -> enter home -> a move order -> home influence and nodes on the wire -> march to the home town -> gather
+// wood into a store -> a camp placed and built at home -> back to the world -> a transfer to a neighbour. The dev skip
+// (DEV_AUTH) fast-forwards the region server between checks.
 // System Chrome (channel 'chrome'): the bundled Chromium can't load the page.
 //   node scripts/war/play-smoke.mjs [--url http://localhost:5173] [--dev 1] [--shots shots/play]
 import { mkdirSync } from 'node:fs';
@@ -61,11 +63,60 @@ try {
     return Math.hypot(u.x - x0, u.y - y0) > 1.5;
   }, { id: sq.id, x0: sq.x, y0: sq.y }, { timeout: 30_000 }).then(() => check(true, 'move order: the squad marches'), () => check(false, 'move order: the squad never moved'));
 
-  // 4. a build order: a camp next to the squad (first spot the server's placement check accepts)
-  const placed = await page.evaluate(async ({ id, team, to }) => {
+  // 4. the economy view: our home's influence (pre-claimed at the home town) and the resource nodes we see
+  const eco = await page.waitForFunction(() => {
+    const s = window.__sandbox, m = s.sim.influence, ps = (s.region.prebuilt ?? []).filter((p) => !p.tiles);
+    if (!m || !s.sim.nodes.length || !ps.length) return null;
+    const a = { x: Math.round(ps.reduce((t, p) => t + p.x, 0) / ps.length) + 0.5, y: Math.round(ps.reduce((t, p) => t + p.y, 0) / ps.length) + 0.5 };
+    return { ...a, ours: (m.mask[Math.floor(a.y) * m.w + Math.floor(a.x)] & 1) === 1, nodes: s.sim.nodes.length };
+  }, null, { timeout: 60_000 }).then((h) => h.jsonValue(), () => null);
+  check(!!eco?.ours, `home influence and nodes on the wire: ${eco ? `anchor ${eco.x},${eco.y} ours ${eco.ours}, ${eco.nodes} nodes seen` : 'none came'}`);
+  if (!eco) throw new Error('no economy view');
+
+  // the squad's place in the snapshot; the dev skip (DEV_AUTH) fast-forwards the region server
+  const where = () => page.evaluate((id) => {
+    const s = window.__sandbox, q = s.sim.cur.squads.find((x) => x.id === id), us = s.sim.cur.units.filter((u) => q?.units.includes(u.id) && u.state !== 'dead');
+    return us.length ? { x: us.reduce((t, u) => t + u.x, 0) / us.length, y: us.reduce((t, u) => t + u.y, 0) / us.length, carry: us.filter((u) => u.carry).length, states: [...new Set(us.map((u) => u.state))].join(',') } : null;
+  }, sq.id);
+  const skip = (n) => page.evaluate((n) => window.__sandbox.sim.skip(n), n);
+  const until = async (cond, rounds = 20, n = 300) => {
+    for (let i = 0; i < rounds; i++) {
+      const v = await cond();
+      if (v) return v;
+      await skip(n);
+      await page.waitForTimeout(1500);
+    }
+    return cond();
+  };
+
+  // 5. march to the home town: 50 tiles short of its centre on our side (inside the anchor's radius 64)
+  const p0 = await where(), d0 = Math.hypot(p0.x - eco.x, p0.y - eco.y);
+  const town = { x: Math.round(eco.x + ((p0.x - eco.x) / d0) * 50), y: Math.round(eco.y + ((p0.y - eco.y) / d0) * 50) };
+  await page.evaluate(({ id, town }) => window.__sandbox.sim.order({ kind: 'move', squad: id, x: town.x, y: town.y }), { id: sq.id, town });
+  const there = await until(async () => { const p = await where(); return p && Math.hypot(p.x - town.x, p.y - town.y) < 8 ? p : null; });
+  check(!!there, `marched to the home town (${town.x},${town.y})${there ? '' : `: still at ${JSON.stringify(await where())}`}`);
+
+  // 6. gather wood: the nearest open wood node; the men carry it to the nearest store of ours (the town's storehouses)
+  const wood0 = await page.evaluate((team) => window.__sandbox.sim.cur.stock?.[team]?.wood ?? 0, sq.team);
+  const node = await page.evaluate(({ at }) => {
+    const ns = window.__sandbox.sim.nodes.filter((n) => n.res === 'wood' && n.amount >= 1 && !n.guarded && !n.rare);
+    return ns.sort((a, b) => Math.hypot(a.x - at.x, a.y - at.y) - Math.hypot(b.x - at.x, b.y - at.y))[0] ?? null;
+  }, { at: there ?? town });
+  check(!!node, `a wood node to gather${node ? `: ${node.id} at ${node.x.toFixed(0)},${node.y.toFixed(0)} (${node.amount})` : ''}`);
+  if (node) {
+    await page.evaluate(({ id, node }) => window.__sandbox.sim.order({ kind: 'gather', squad: id, node }), { id: sq.id, node: node.id });
+    const got = await until(() => page.evaluate(({ team, w0 }) => { const w = window.__sandbox.sim.cur.stock?.[team]?.wood ?? 0; return w > w0 ? w : null; }, { team: sq.team, w0: wood0 }));
+    check(!!got, `wood delivered to a store: ${wood0} -> ${got ?? JSON.stringify(await where())}`);
+    await page.evaluate((id) => window.__sandbox.sim.order({ kind: 'stopWork', squad: id }), sq.id);
+  }
+  await shot('3-gather.png');
+
+  // 7. build a camp at home: the first spot near the squad the server's placement check accepts, then the men build it
+  const near = (await where()) ?? town;
+  const placed = await page.evaluate(async ({ id, team, at }) => {
     const s = window.__sandbox, why = {};
-    for (let r = 4; r < 60; r += 4) for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, r], [r, -r], [-r, -r]]) {
-      const x = to.x + dx, y = to.y + dy;
+    for (let r = 4; r < 40; r += 3) for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, r], [r, -r], [-r, -r]]) {
+      const x = Math.round(at.x + dx), y = Math.round(at.y + dy);
       const c = await s.sim.checkPlacement(team, 'camp', x, y, 0);
       if (c?.ok) {
         s.sim.order({ kind: 'placeBuilding', squad: id, type: 'camp', x, y, rot: 0 });
@@ -74,22 +125,18 @@ try {
       why[c?.reason ?? 'null'] = (why[c?.reason ?? 'null'] ?? 0) + 1;
     }
     return { why };
-  }, { ...sq, to });
-  // a home region has no claim points: its alliance holds no influence there, so the server refuses a camp ('influence');
-  // that answer still proves the build path (client -> region socket -> server placement check -> reply)
-  const answered = placed.x !== undefined || Object.keys(placed.why).some((k) => k !== 'null');
-  check(answered, `build order: the server's placement check answered (${placed.x !== undefined ? `camp placed at ${placed.x},${placed.y}` : `refused: ${JSON.stringify(placed.why)}`})`);
-  if (placed.x === undefined && placed.why.influence) step('     note: no influence of yours here; claim a neutral first (docs/PLAYTEST.md)');
+  }, { ...sq, at: near });
+  check(placed.x !== undefined, `camp placed at home: ${placed.x !== undefined ? `${placed.x},${placed.y}` : `refused ${JSON.stringify(placed.why)}`}`);
   if (placed.x !== undefined) {
-    await page.waitForFunction(({ team, p }) => window.__sandbox.sim.cur.buildings.some((b) => b.type === 'camp' && b.team === team && Math.abs(b.x - p.x) <= 1 && Math.abs(b.y - p.y) <= 1), { team: sq.team, p: placed }, { timeout: 30_000 })
-      .then(() => check(true, 'camp site in the snapshot'), () => check(false, 'camp site never appeared'));
-    const b = await page.evaluate(({ team }) => window.__sandbox.sim.cur.buildings.find((x) => x.type === 'camp' && x.team === team), { team: sq.team });
-    if (b) step(`     camp ${b.id}: ${JSON.stringify({ state: b.state, progress: b.progress, hp: b.hp })}`);
+    const camp = () => page.evaluate(({ team, p }) => window.__sandbox.sim.cur.buildings.find((b) => b.type === 'camp' && b.team === team && Math.abs(b.x - p.x) <= 2 && Math.abs(b.y - p.y) <= 2) ?? null, { team: sq.team, p: placed });
+    const done = await until(async () => { const b = await camp(); return b?.state === 'done' ? b : null; }, 20, 200);
+    const b = done ?? (await camp());
+    check(!!done, `camp built: ${b ? JSON.stringify({ id: b.id, state: b.state, progress: +b.progress.toFixed(2) }) : 'never appeared'}`);
   }
   await page.waitForTimeout(3000);
-  await shot('3-build.png');
+  await shot('4-build.png');
 
-  // 5. back to the world, a transfer of his men in the home region to a neighbour
+  // 8. back to the world, a transfer of his men in the home region to a neighbour
   await page.goto(`${URL_}/world.html?dev=${DEV}`);
   await page.waitForFunction((home) => window.__world?.st?.regions?.size > 0, home, { timeout: 60_000 });
   const tr = await page.evaluate(async (home) => {
@@ -104,7 +151,7 @@ try {
   }, home);
   check(!('error' in tr.res), `transfer ${home} -> ${tr.to}: ${JSON.stringify(tr.res).slice(0, 160)}`);
   await page.waitForTimeout(2000);
-  await shot('4-transfer.png');
+  await shot('5-transfer.png');
 } catch (e) {
   check(false, `aborted: ${e.message.split('\n')[0]}`);
 }

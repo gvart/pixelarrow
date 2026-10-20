@@ -97,7 +97,9 @@ export class WarRegionDO extends DurableObject<Env> {
     if (!data) return null;
     // M7f: a fresh region wakes its authored lairs and guardians
     const wild = !!(data.lairs?.length || data.guardians?.length);
-    return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', wild };
+    // a home is its alliance's from the season's start: it builds there at once (WarRoom home anchor)
+    const home = ALLIANCES.find((a) => a.home === region)?.id;
+    return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', allowDev: this.env.DEV_AUTH === '1', wild, home };
   }
 
   /**
@@ -183,6 +185,11 @@ export class WarRegionDO extends DurableObject<Env> {
       } else if (m.t === 'view') room.view(me.pid, m);
       else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick });
       else if (m.t === 'check') send(ws, room.check(me.pid, m));
+      else if (m.t === 'dev') {
+        const err = room.dev(me.pid, m);
+        if (err) send(ws, { t: 'error', code: err, detail: `dev ${m.op}${err === 'forbidden' ? ': needs DEV_AUTH=1' : ''}` });
+        else this.save();
+      }
       else if (m.t === 'mend') await this.mend(ws, me.pid, room, m);
       else if (m.t === 'stow') await this.stow(ws, me.pid, room, m);
       else if (m.t === 'handoff') await this.handoff(ws, me.pid, room, m);
@@ -549,6 +556,7 @@ export class WarRegionDO extends DurableObject<Env> {
       if (!a) continue;
       const w = r.admitted.get(a.pid);
       if (w) send(ws, w);
+      for (const m of r.msgs.get(a.pid) ?? []) send(ws, m); // the economy view (nodes, influence)
       const f = r.frames.get(a.pid);
       if (f) {
         try { ws.send(f); bytes += f.length; } catch { /* closing */ }
