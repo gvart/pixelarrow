@@ -1,0 +1,22 @@
+scripts/war/art/ui-trade.mjs
+  s_cfc22b058125c4::t_c04075ccc845c4 38-40,44
+  s_cfc22b058125c4::t_fc4a6208e3d98e 1-37,41-43,45-73
+public/war/ui/ui.json
+  s_cfc22b058125c4::t_68e88470c2672a 1543-1616,1808-1823
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "54295fb5868378166cab272c1628a93373d16c75",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
