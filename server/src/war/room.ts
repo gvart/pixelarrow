@@ -20,6 +20,8 @@ import type { RegionData, ShotSnap, Snapshot, SquadId, WarBuildSim } from '../..
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
 const HOLD_RADIUS = 10;
+/** Ticks a fallen man stays on the wire (the corpse); after that clients forget him (the sim keeps him). */
+export const CORPSE_TICKS = 300;
 
 export const ownerOf = (pid: number) => `p:${pid}`;
 
@@ -70,6 +72,8 @@ export class WarRoom {
   private spawns = 0;
   private keyEvery: number;
   private lastTick = -1;
+  /** Tick each unit was first seen dead. */
+  private diedAt: number[] = [];
   /** Orders applied, with their tick (determinism checks, later a replay log). */
   readonly log: { tick: number; o: NetOrder }[] = [];
 
@@ -224,7 +228,14 @@ export class WarRoom {
       this.owners[s.id] = s.owner;
       this.teams[s.id] = s.team;
     }
-    for (const u of this.snap.units) if (u.state !== 'dead') {
+    const tick = this.snap.tick, wire: typeof this.snap.units = [];
+    for (const u of this.snap.units) {
+      if (u.state === 'dead') {
+        const d = (this.diedAt[u.id] ??= tick);
+        if (tick - d < CORPSE_TICKS) wire.push(u);
+        continue;
+      }
+      wire.push(u);
       const t = this.teams[u.squad];
       if (t !== undefined && t < this.live.length) this.live[t]++;
     }
@@ -232,14 +243,14 @@ export class WarRoom {
     const t2 = now();
     const frames = new Map<number, Uint8Array>();
     if (this.online() > 0) {
-      const vision = this.vision(this.sim, this.snap);
+      const vision = this.vision(this.sim, this.snap), view = { ...this.snap, units: wire };
       const shots = this.snap.shots ?? [];
       const fresh = shots.filter((s: ShotSnap) => s.t0 > this.lastTick);
       for (const p of this.players.values()) {
         if (!p.online || !p.enc) continue;
         const key = p.sinceKey < 0 || p.sinceKey + 1 >= this.keyEvery;
         p.sinceKey = key ? 0 : p.sinceKey + 1;
-        const vis = visibleTo(this.snap, vision, ownerOf(p.pid), p.team, p.cam, key ? shots : fresh);
+        const vis = visibleTo(view, vision, ownerOf(p.pid), p.team, p.cam, key ? shots : fresh);
         const f = p.enc.encode({ tick: this.snap.tick, ...vis }, key);
         p.bytes += f.length;
         frames.set(p.pid, f);

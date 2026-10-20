@@ -3,7 +3,7 @@ import { DeltaDecoder } from '../../../src/war/net/codec';
 import { CELL } from '../../../src/war/net/interest';
 import { NET_VERSION, VISION, type JoinMsg } from '../../../src/war/net/protocol';
 import { createSim } from '../../../src/war/sim';
-import { WarRoom } from '../../src/war/room';
+import { CORPSE_TICKS, WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
 
 const region = warRegion('test-ridge')!;
@@ -142,6 +142,22 @@ describe('WarRoom interest management', () => {
     const before = r.bytesSent();
     steps(r, 10);
     for (const [pid, b] of r.bytesSent()) expect(b - before.get(pid)!).toBeLessThan(10 * 400);
+  });
+});
+
+describe('WarRoom corpses', () => {
+  it('stops sending the fallen after CORPSE_TICKS', () => {
+    const r = room();
+    r.join(1, join(1, 0, 20, 'militia'));
+    steps(r, 1);
+    const foe = r.sim.spawnSquad('bot', 1, 'hoplite', 20, 192, 12);
+    r.sim.order({ kind: 'attack', squad: foe, target: 0 });
+    const dec = new DeltaDecoder();
+    for (let t = 0; t < 400 + CORPSE_TICKS; t++) for (const f of r.tick().frames.values()) dec.apply(f);
+    const deadSim = r.snapshot().units.filter((u) => u.state === 'dead').length;
+    const deadWire = [...dec.units.values()].filter((u) => u.state === 'dead').length;
+    expect(deadSim).toBeGreaterThan(0);
+    expect(deadWire).toBeLessThan(deadSim);
   });
 });
 
