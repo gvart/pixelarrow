@@ -1,0 +1,24 @@
+scripts/war/regions/omphalos.ts
+  s_cfc22b058125c4::t_ebf47139434b21 1-28,32-85
+  s_cfc22b058125c4::t_6c58574a7239fa 29-31
+src/war/regions/omphalos.spots.ts
+  s_cfc22b058125c4::t_1c56ad63fd19bd 1-21
+src/war/regions/omphalos.json
+  s_cfc22b058125c4::t_9e7b8457e2726b 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "78952c826162af83e27348cd3fbc4c12599aa6de",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
