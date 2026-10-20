@@ -98,7 +98,7 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     render();
   });
   card.addEventListener('click', (e) => {
-    const t = e.target as HTMLElement, a = t.closest<HTMLElement>('[data-act]'), o = t.closest<HTMLElement>('[data-offer]');
+    const t = e.target as HTMLElement, a = t.closest<HTMLElement>('[data-act]');
     const eq = t.closest<HTMLElement>('[data-equip]'), uneq = t.closest<HTMLElement>('[data-unequip]');
     if (!sel) return;
     if (eq) void C.equip(sel, eq.dataset.equip!).then(render);
@@ -106,10 +106,6 @@ export function mountRoster(s: SandboxScene, mk: Mk): RosterHooks {
     else if (a?.dataset.act === 'tree') hooks.tree?.(sel);
     else if (a?.dataset.act === 'closeCard') sel = null;
     else if (a?.dataset.act === 'xp') R.devXp(sel);
-    else if (o) {
-      const offer = R.offers(sel)[Number(o.dataset.offer)];
-      if (offer) R.choose(sel, offer);
-    }
     render();
   });
   for (const el of [panel, card]) el.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });

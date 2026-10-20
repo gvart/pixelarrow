@@ -1,17 +1,16 @@
 /**
  * The soldier card (M5g, docs/WAR.md "UI touchpoints"): name, class, level and rank, the XP bar; a paper doll (portrait
  * between the gear slots, item icons with their stats on hover); the four attributes and the baked combat numbers;
- * the two skill slots; honours and traits; the record. A pending level-up shows its offers on top, each with the
- * numbers it changes (before -> after), one click takes it. Pure HTML; ./index.ts mounts it, fills the portrait
- * canvas (#rrPort) and routes data-act / data-offer clicks.
+ * the two skill slots (Tree: his skill tree, ./skillTree.ts); honours and traits; the record. A pending level-up shows a
+ * banner on top that opens the tree, where it is chosen. Pure HTML; ./index.ts mounts it, fills the portrait
+ * canvas (#rrPort) and routes data-act clicks.
  */
 import { ATTR_IDS } from '../../../../data/perks';
 import { TRAITS, type TraitId } from '../../../../data/traits';
 import { xpToNext } from '../../../../data/units';
 import type { Slot } from '../../../../data/items';
 import { warStatsOf } from '../../../sim/classes';
-import { applyOffer, type LevelOffer } from '../../../sim/roster';
-import { activeCooldown, SKILL_LEVELS } from '../../../sim/skills';
+import { SKILL_LEVELS } from '../../../sim/skills';
 import { bar, snapW } from '../kit';
 import { rankOf } from './markers';
 import { SandboxRoster, type Row } from './state';
@@ -49,30 +48,12 @@ function trade(p: WarPerson): string {
     <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">${chips || '<span class="rf-dim">root node only</span>'}<span style="flex:1"></span><button class="rf-tbtn" data-act="tree" data-tip="the profession tree: nodes by level, what each unlocks">Tree</button></div>`;
 }
 
-/** Before -> after of one offer: the baked numbers it moves, else what it does. */
-export function offerPreview(p: WarPerson, o: LevelOffer): string {
-  const after = applyOffer(p, o), a = statRows(warStatsOf(p)), b = statRows(warStatsOf(after));
-  const moved = a.flatMap(([l, t, v], i) => (b[i] && b[i][2] !== v ? [`${l} <span class="rf-dim">${t}</span> → <span class="${b[i][2] > v ? 'rr-up' : 'rr-down'}">${b[i][1]}</span>`] : []));
-  if (o.kind === 'attr' && o.attr === 'wil') {
-    const c0 = activeCooldown(p.hero.attrs.wil) / 10, c1 = activeCooldown(after.hero.attrs.wil) / 10;
-    if (c1 !== c0) moved.push(`Active <span class="rf-dim">${c0} s</span> → <span class="rr-up">${c1} s</span>`);
-  }
-  const what = o.kind === 'skill' ? `${KIND_NAME[skillKind(o.skill)]}: ${SKILL_NOTE[o.skill]}` : '';
-  return [what ? `<span class="rf-dim">${what}</span>` : '', ...moved].filter(Boolean).join('<br>');
-}
-
+/** A pending level-up: a banner that opens his tree, where the choice is made. */
 function offers(R: SandboxRoster, p: WarPerson): string {
   const os = R.offers(p.id);
   if (!os.length) return '';
-  const skill = os[0].kind === 'skill';
-  const head = skill ? `Level ${p.hero.level}: choose a skill` : `Level ${p.hero.level}: +${(os[0] as { n: number }).n} to one attribute`;
-  return `<div style="margin:4px 0 2px;padding:4px;border:1px solid #c9a24a;background:rgba(201,162,74,.08)">
-    <div class="rf-cap" style="color:var(--rf-gold);margin-bottom:4px">▲ ${head}</div>
-    <div style="display:grid;grid-template-columns:${skill ? '1fr 1fr' : '1fr 1fr'};gap:3px">
-    ${os.map((o, i) => {
-      const name = o.kind === 'skill' ? SKILL_NAME[o.skill] : `+${o.n} ${ATTR_NAME[o.attr]}`;
-      return `<button class="rf-tbtn rr-offer" data-offer="${i}"><span style="font:700 12.5px/1.1 Cinzel,serif;color:var(--rf-title)">${name}</span><span style="font-size:11px;line-height:14px;color:var(--rf-ink)">${offerPreview(p, o) || '<span class="rf-dim">no change to the baked numbers</span>'}</span></button>`;
-    }).join('')}</div></div>`;
+  const head = os[0].kind === 'skill' ? `Level ${p.hero.level}: choose a skill` : `Level ${p.hero.level}: +${(os[0] as { n: number }).n} to one attribute`;
+  return `<button class="rf-tbtn rr-pending" data-act="tree" data-tip="open his tree: the lit nodes are the choice">▲ ${head}<span style="flex:1"></span>Tree</button>`;
 }
 
 export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft): string {
@@ -111,7 +92,7 @@ export function cardHtml(R: SandboxRoster, r: Row, C?: SandboxCraft): string {
         <div class="rr-grid" style="grid-template-columns:1fr auto;gap:2px 6px">${stats}</div>
       </div>
     </div>
-    ${civ ? trade(p) : `<div class="rf-cap" style="margin-top:6px">Skills</div>
+    ${civ ? trade(p) : `<div class="rf-cap" style="margin-top:6px;display:flex;align-items:center">Skills<span style="flex:1"></span><button class="rf-tbtn" data-act="tree" data-tip="his skill tree: attributes, the two skill slots, elite">Tree</button></div>
     <div style="display:flex;gap:3px">${skills}</div>
     <div class="rf-cap" style="margin-top:5px">Honours</div>
     <div style="display:flex;flex-wrap:wrap;gap:3px">${honours || '<span class="rf-dim">none yet</span>'}</div>`}
