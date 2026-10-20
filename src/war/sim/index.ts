@@ -782,6 +782,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (o.squad !== undefined) apply({ kind: 'build', squad: o.squad, site: o.building });
       return;
     }
+    if (o.kind === 'restoreLandmark') return; // M7f: ./landmarks.ts (next commit)
     if (o.kind === 'upgrade' && o.squad === undefined) {
       if (o.team !== undefined) works.upgrade(o.building, o.team);
       return;
