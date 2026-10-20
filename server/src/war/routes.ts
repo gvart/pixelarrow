@@ -11,6 +11,11 @@
  *   POST /persons/:id/ransom                  pay a captive's ransom (silver to his captor): he comes home
  *   POST /persons/:id/retire { civ? }         retire (half his gear's value back); level 10: into a civilian class
  *   POST /captives/:id/release                the captor lets a captive he holds go
+ *   POST /persons/:id/node  { node }          M5h4: a civilian takes a profession node
+ *   POST /persons/:id/respec                  M5h4: his nodes reset (50 silver, once a day)
+ *   GET  /stash                               M5h4: stash items, each with the region whose workplace holds it (or null);
+ *                                             equip from it with /persons/:id/equip; repair and salvage go over the
+ *                                             region socket (`mend`), at a workplace of the player's team
  *   POST /dev/seed      { squad?, reserve? }   DEV_AUTH=1 only: a full roster to test with
  */
 import { Hono } from 'hono';
@@ -24,6 +29,7 @@ import { ATTR_IDS, ATTR_MAX } from '../../../src/data/perks';
 import { SKILLS } from '../../../src/war/sim/skills';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
 import type { WarSkillId } from '../../../src/war/types';
+import { pickNode, respec, stash } from './crafting';
 import { equip, formSquad, levelUp, payRansom, recruit, releaseCaptive, retire, roster, ROSTER_MAX, seed, train } from './persons';
 
 export const war = new Hono<AppEnv>();
@@ -89,6 +95,19 @@ war.post('/captives/:id/release', requirePlayable, async (c) => {
   await releaseCaptive(db(c.env), c.get('session').pid, id, Date.now());
   return c.json({ ok: true });
 });
+
+war.post('/persons/:id/node', requirePlayable, async (c) => {
+  const id = idParam(c.req.param('id'));
+  const b = await readJson(c, z.object({ node: z.string().regex(/^[A-Za-z0-9_]{1,40}$/) }), MAX_BODY);
+  return c.json({ perks: await pickNode(db(c.env), c.get('session').pid, id, b.node, Date.now()) });
+});
+
+war.post('/persons/:id/respec', requirePlayable, async (c) => {
+  const id = idParam(c.req.param('id'));
+  return c.json({ next: await respec(db(c.env), c.get('session').pid, id, Date.now()) });
+});
+
+war.get('/stash', requirePlayable, async (c) => c.json({ items: await stash(db(c.env), c.get('session').pid) }));
 
 war.post('/dev/seed', requirePlayable, async (c) => {
   if (c.env.DEV_AUTH !== '1') throw new ApiError(404, 'not_found', 'No such endpoint');

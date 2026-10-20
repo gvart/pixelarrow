@@ -84,9 +84,10 @@ export interface PersonRow {
   id: string; player_id: number; cls: string; name: string; level: number; xp: number; points: number; kills: number; battles: number;
   attrs: string; skills: string; gear: string; honours: string; state: PersonState; until_at: number | null; captor: number | null;
   held_at: string | null; slot: number | null; region: string | null; train_to: string | null; captor_pid: number | null;
+  perks: string; respec_at: number | null;
 }
 
-const json = <T>(s: string, fallback: T): T => {
+export const json = <T>(s: string, fallback: T): T => {
   try {
     return (JSON.parse(s) as T) ?? fallback;
   } catch {
@@ -100,6 +101,7 @@ export function personOf(r: PersonRow): WarPerson {
   const hero: Hero = {
     ...base, name: r.name || base.name, level: r.level, xp: r.xp, points: r.points, kills: r.kills, battles: r.battles,
     attrs: { ...base.attrs, ...json<Partial<Attrs>>(r.attrs, {}) }, equip: json<Equipment>(r.gear, {}),
+    perks: json<Hero['perks']>(r.perks ?? '[]', []),
   };
   return { id: r.id, hero, skills: json<WarSkillId[]>(r.skills, []), honours: json<{ name: string; stat: HonourStat }[]>(r.honours, []) };
 }
@@ -115,12 +117,12 @@ export function view(r: PersonRow) {
   return {
     id: r.id, cls: r.cls, name: p.hero.name, level: r.level, xp: r.xp, kills: r.kills, battles: r.battles, attrs: p.hero.attrs,
     skills: p.skills ?? [], gear: p.hero.equip, honours: p.honours ?? [], state: r.state, until: r.until_at, captor: r.captor,
-    heldAt: r.held_at, slot: r.slot, region: r.region, pending: pending(p), trainTo: r.train_to,
+    heldAt: r.held_at, slot: r.slot, region: r.region, pending: pending(p), trainTo: r.train_to, perks: p.hero.perks, respecAt: r.respec_at,
     ...(r.state === 'captive' ? { ransom: RANSOM_PER_LEVEL * r.level } : {}),
   };
 }
 
-const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid';
+const COLS = 'id, player_id, cls, name, level, xp, points, kills, battles, attrs, skills, gear, honours, state, until_at, captor, held_at, slot, region, train_to, captor_pid, perks, respec_at';
 
 const isElite = (cls: string) => isClassId(cls) && CLASSES[cls].role === 'elite';
 
@@ -205,14 +207,14 @@ export async function persons(db: D1Database, pid: number): Promise<PersonRow[]>
 /** Fighters (the roster cap counts them): soldiers neither dead nor retired; civilians are the household. */
 const isFighter = (r: PersonRow) => r.state !== 'dead' && r.state !== 'retired' && !isCivClass(r.cls);
 
-async function person(db: D1Database, pid: number, id: string): Promise<PersonRow> {
+export async function person(db: D1Database, pid: number, id: string): Promise<PersonRow> {
   const r = await db.prepare(`SELECT ${COLS} FROM war_persons WHERE id = ?1 AND player_id = ?2`).bind(id, pid).first<PersonRow>();
   if (!r) throw new ApiError(404, 'not_found', 'No such soldier');
   return r;
 }
 
 /** A person at home and fit: the API may change him. */
-function home(r: PersonRow): void {
+export function home(r: PersonRow): void {
   if (r.region) throw new ApiError(409, 'deployed', `He is in the field in ${r.region}`);
   if (r.state !== 'active' && r.state !== 'reserve') throw new ApiError(409, 'not_fit', `He is ${r.state}`);
 }
@@ -316,7 +318,7 @@ export async function equip(db: D1Database, pid: number, id: string, slot: Slot,
   const stmts: D1PreparedStatement[] = [];
   let item: Item | null = null;
   if (uid) {
-    const row = await db.prepare('SELECT item FROM war_items WHERE uid = ?1 AND player_id = ?2').bind(uid, pid).first<{ item: string }>();
+    const row = await db.prepare('SELECT item FROM war_items WHERE uid = ?1 AND player_id = ?2 AND region IS NULL').bind(uid, pid).first<{ item: string }>();
     if (!row) throw new ApiError(404, 'not_found', 'No such item in your stash');
     item = json<Item | null>(row.item, null);
     const def = item ? ITEMS[item.def] : undefined;
@@ -324,7 +326,7 @@ export async function equip(db: D1Database, pid: number, id: string, slot: Slot,
     if (def.slot !== slot) throw new ApiError(409, 'wrong_slot', `${def.name} goes in the ${def.slot} slot`);
     const block = classGearBlocker(r.cls, def);
     if (block) throw new ApiError(409, 'class_gear', `A ${r.cls} cannot use ${def.name} (${block})`);
-    stmts.push(db.prepare('DELETE FROM war_items WHERE uid = ?1 AND player_id = ?2').bind(uid, pid));
+    stmts.push(db.prepare('DELETE FROM war_items WHERE uid = ?1 AND player_id = ?2 AND region IS NULL').bind(uid, pid));
   }
   const old = gear[slot];
   if (old) stmts.push(db.prepare('INSERT OR REPLACE INTO war_items (uid, player_id, item, created_at) VALUES (?1, ?2, ?3, ?4)').bind(old.uid, pid, JSON.stringify(old), now));
@@ -545,9 +547,12 @@ export async function release(db: D1Database, region: string, ids: string[]): Pr
   await db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(ids)).run();
 }
 
-/** A fresh room (no saved state): nobody is in the field there any more. */
+/** A fresh room (no saved state): nobody is in the field there any more, and no item waits at its workplaces. */
 export async function releaseRegion(db: D1Database, region: string): Promise<void> {
-  await db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1').bind(region).run();
+  await db.batch([
+    db.prepare('UPDATE war_persons SET region = NULL WHERE region = ?1').bind(region),
+    db.prepare('UPDATE war_items SET region = NULL WHERE region = ?1').bind(region),
+  ]);
 }
 
 /** Persons deployed in `region` by id (a resumed room respawns them). */
@@ -557,7 +562,7 @@ export async function deployed(db: D1Database, region: string, ids: string[]): P
   return new Map(rows.map((r) => [r.id, personOf(r)]));
 }
 
-const ownerPid = (owner: string): number | null => {
+export const ownerPid = (owner: string): number | null => {
   const m = /^p:(\d+)$/.exec(owner);
   return m ? Number(m[1]) : null;
 };

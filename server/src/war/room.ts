@@ -8,6 +8,7 @@
  *    player whose squads are still in the region rejoins them (no new spawn, no quota check).
  *  - order: only for the player's own squads (squad owner `p:<id>` in the sim); attack targets a foe squad.
  *  - leave: the player's squads stay and hold where they stand with the bot hold AI (W-07); they keep counting.
+ *    Civilians at work keep working (their workplace queues run on).
  *  - tick: steps the sim, then builds one binary frame per online player from what it may see (src/war/net).
  *  - fights (M5e): once men have fought and FIGHT_QUIET ticks pass with no blow struck and no man falling, the sim's
  *    endFight report leaves tick() with a fight id unique to this room instance; the DO writes it to D1 (idempotent).
@@ -15,6 +16,10 @@
  *    sites and finished buildings, siege, fog, mobs, rng), the bots, players, squad owners, the join line and the fight
  *    in progress; WarRoom.restore rebuilds the room from it after an eviction and it steps on as if never stopped
  *    (players offline: their squads hold where they stand with the hold AI).
+ *  - crafting (M5h4): craft / cancelCraft orders go to the sim for the player's team; mend() queues a repair or salvage
+ *    of a stash item the DO loaded from D1. tick() hands out the sim's `crafted` events (the DO writes them to D1, keyed
+ *    by `run` + order id, which survives a restore) and the uids of mend items whose order went (cancelled, refused,
+ *    workplace lost: back to the stash). The queues themselves live in the sim state.
  */
 import { createSim } from '../../../src/war/sim';
 import { createBots, type Bots } from '../../../src/war/sim/bots';
@@ -23,7 +28,8 @@ import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
 import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
-import type { BridgePlan, FightReport, Order, PlaceResult, RegionData, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarPerson } from '../../../src/war/types';
+import type { Item } from '../../../src/data/items';
+import type { BridgePlan, FightReport, Order, PlaceResult, RegionData, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -40,6 +46,12 @@ export interface Group { cls: string; count: number; persons?: WarPerson[] }
 
 /** A fight to write back: `id` is unique per room instance (epoch) and tick. */
 export interface Fight { id: string; report: FightReport }
+
+/** A sim `crafted` event (M5h4): the DO mints or updates the item in D1. */
+export type Crafted = Extract<WarEvent, { kind: 'crafted' }>;
+
+/** A stash item at a workplace (a repair or salvage order). */
+export interface Mend { uid: string; pid: number; building: number; def: string }
 
 /** The room record kept in DO storage (WarRoom.saveState / restore). */
 export interface RoomState {
@@ -59,6 +71,9 @@ export interface RoomState {
   pids: string[];
   sim: SimState;
   bots: unknown;
+  /** M5h4: the region run (crafted event keys) and stash items at its workplaces. */
+  run?: string;
+  mends?: Mend[];
 }
 
 export interface RoomOptions {
@@ -124,6 +139,9 @@ export class WarRoom {
   private released: string[] = [];
   /** Orders applied, with their tick (determinism checks, later a replay log). */
   readonly log: { tick: number; o: Order }[] = [];
+  /** This region run: set when the region starts fresh, kept across restores (crafted event keys). */
+  run: string;
+  private mends: Mend[] = [];
 
   constructor(o: RoomOptions) {
     this.region = o.region;
@@ -138,6 +156,7 @@ export class WarRoom {
     this.allowArmy = o.allowArmy ?? true;
     this.epoch = o.epoch ?? `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
+    this.run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.snap = this.sim.snapshot();
   }
 
@@ -271,6 +290,8 @@ export class WarRoom {
     p.enc = null;
     const centres = this.centres();
     for (const id of this.squadsOf(pid)) {
+      const s = this.snap.squads[id];
+      if (s?.civ && (s.order === 'civWork' || s.order === 'gather' || s.order === 'build')) continue; // at work: workplace queues run on
       const c = centres.get(id);
       if (c) this.bots.set(id, { kind: 'hold', x: c.x, y: c.y, radius: HOLD_RADIUS });
     }
@@ -340,6 +361,47 @@ export class WarRoom {
     return null;
   }
 
+  /**
+   * M5h4: repair or salvage `item` (the player's stash item, loaded from D1 by the DO) at workplace `building` of his
+   * team; null when it was sent to the sim. The sim may still refuse it (queue full, wrong workplace): tick() then
+   * hands the uid back.
+   */
+  mend(pid: number, kind: 'repair' | 'salvage', building: number, item: Item): OrderError | null {
+    const p = this.players.get(pid);
+    if (!p?.online) return 'notJoined';
+    if (this.snap.buildings?.find((b) => b.id === building)?.team !== p.team) return 'badTarget';
+    if (this.mends.some((m) => m.uid === item.uid)) return 'bad';
+    const o: Order = { kind, team: p.team, building, owner: ownerOf(pid), item };
+    this.sim.order(o);
+    this.log.push({ tick: this.currentTick, o });
+    this.mends.push({ uid: item.uid, pid, building, def: item.def });
+    return null;
+  }
+
+  /** Uids of the stash items at this region's workplaces. */
+  mendUids(): string[] {
+    return this.mends.map((m) => m.uid);
+  }
+
+  /**
+   * Mend items whose order is gone without a crafted event: per workplace and item kind, the room holds no more items
+   * than its queue has repair / salvage orders (the newest go back first).
+   */
+  private unmend(done: ReadonlySet<string>): string[] {
+    this.mends = this.mends.filter((m) => !done.has(m.uid));
+    if (!this.mends.length) return [];
+    const open = new Map<string, number>();
+    for (const b of this.snap.buildings ?? [])
+      for (const q of b.queue ?? []) if (q.kind !== 'craft') open.set(`${b.id}|${q.recipe}`, (open.get(`${b.id}|${q.recipe}`) ?? 0) + 1);
+    const freed: string[] = [];
+    for (let i = this.mends.length - 1; i >= 0; i--) {
+      const m = this.mends[i], k = `${m.building}|${m.def}`, n = open.get(k) ?? 0;
+      const held = this.mends.filter((x, j) => j <= i && `${x.building}|${x.def}` === k).length;
+      if (held > n) freed.push(m.uid), this.mends.splice(i, 1);
+    }
+    return freed;
+  }
+
   /** A placement check for the player's team (null: not joined). */
   check(pid: number, c: CheckMsg): Extract<ServerMsg, { t: 'checked' }> {
     const p = this.players.get(pid);
@@ -359,12 +421,14 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; freed: string[]; times: TickTimes } {
     const t0 = now();
     this.sim.step();
     this.bots.tick();
     const t1 = now();
     this.snap = this.sim.snapshot();
+    const crafted = this.sim.events().filter((e): e is Crafted => e.kind === 'crafted');
+    const freed = this.unmend(new Set(crafted.filter((e) => e.what !== 'craft').map((e) => e.item.uid)));
     this.live = this.per.map(() => 0);
     for (const s of this.snap.squads) {
       this.owners[s.id] = s.owner;
@@ -409,7 +473,7 @@ export class WarRoom {
       }
     }
     this.lastTick = this.snap.tick;
-    return { frames, admitted, fights, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, admitted, fights, crafted, freed, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /** Let waiting joins in, first come first served per alliance, while their alliance has room. */
@@ -436,7 +500,7 @@ export class WarRoom {
       players: [...this.players.values()].map((p) => ({ pid: p.pid, team: p.team })),
       owners: Array.from(this.owners, (o) => o ?? null), teams: Array.from(this.teams, (t) => t ?? null),
       spawns: this.spawns, died, lastBlow: this.lastBlow, inFight: this.inFight, queue: this.queue, pids,
-      sim: this.sim.exportState(), bots: this.bots.exportState(),
+      sim: this.sim.exportState(), bots: this.bots.exportState(), run: this.run, mends: this.mends,
     };
   }
 
@@ -456,6 +520,8 @@ export class WarRoom {
     r.lastBlow = st.lastBlow;
     r.inFight = st.inFight;
     r.queue = st.queue;
+    if (st.run) r.run = st.run;
+    r.mends = st.mends ?? [];
     for (const w of st.queue) r.dequeue(w.pid); // nobody is connected to wait: their persons go home (takeReleased)
     const gone = st.pids.filter((id) => !persons.has(id));
     if (gone.length) r.sim.dropPersons(gone);
