@@ -88,7 +88,8 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
   const render = () => {
     const cur = s.sim.cur;
     if (!cur) return;
-    bar.innerHTML = (cur.bosses ?? []).map(guardianHtml).join('') + (cur.warden ? `<div class="rf-card w">Rim Warden strike marked: ${Math.ceil(cur.warden.in / 10)} s</div>` : '');
+    const held = (cur.claims ?? []).some((c) => c.state === 'claimed');
+    bar.innerHTML = (cur.bosses ?? []).map((b) => guardianHtml(b, held)).join('') + (cur.warden ? `<div class="rf-card w">Rim Warden strike marked: ${Math.ceil(cur.warden.in / 10)} s</div>` : '');
     if (panel && lm) {
       panel.style.display = open ? 'block' : 'none';
       if (!open) return;
@@ -100,11 +101,11 @@ export function mountGuardians(s: SandboxScene, mk: Mk): void {
 }
 
 /** One guardian's bar: hp with a pip per phase threshold, what it does now, its parts and the raid. */
-export function guardianHtml(b: BossSnap): string {
+export function guardianHtml(b: BossSnap, held = false): string {
   const share = b.maxHp > 0 ? b.hp / b.maxHp : 0, gone = b.state === 'slain' || b.state === 'away';
   const pips = b.phases.slice(1).map((p) => `<s class="${share < p ? '' : 'off'}" style="left:${(p * 100).toFixed(1)}%" title="phase at ${Math.round(p * 100)}%"></s>`).join('');
   const note = gone
-    ? b.state === 'slain' ? `slain: back in ${mins(b.respawnIn ?? 0)} unless the region is held` : `escaped by the postern: back in ${mins(b.respawnIn ?? 0)}`
+    ? b.state === 'slain' ? (held ? 'slain: stays down while the region is held' : `slain: back in ${mins(b.respawnIn ?? 0)} unless the region is held`) : `escaped by the postern: back in ${mins(b.respawnIn ?? 0)}`
     : `phase ${b.phase + 1}/${b.phases.length}: ${PHASE_NOTE[b.id]?.[b.phase] ?? ''}${STATE_NOTE[b.state] && b.state !== 'flee' ? ` (${STATE_NOTE[b.state]})` : ''}`;
   const parts = b.parts ? ` · heads ${b.parts.alive}/${b.parts.total}` : '';
   const raid = b.raid ? ` · raid ${b.raid} squads${b.scale > 1.001 ? `, hp x${b.scale.toFixed(1)}` : ''}` : '';
