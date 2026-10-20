@@ -112,6 +112,8 @@ export interface RoomState {
   mends?: Mend[];
   /** Teams that took a fort in the fight in progress (honours). */
   stormed?: number[];
+  /** The war season and authored region version it was saved on (the DO sets it; another one starts the region over). */
+  edition?: string;
 }
 
 export interface RoomOptions {

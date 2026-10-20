@@ -11,18 +11,16 @@ import { World, freshWorld } from '../../src/war/world/world';
 import { WarRoom } from '../../src/war/room';
 import { applyBossKill } from '../../src/war/bosses';
 import { elapsedTicks, loadMemory, remembered, writeMemory } from '../../src/war/memory';
-import { parseRegion } from '../../../src/war/region/schema';
 import { restoreCost } from '../../../src/data/warLandmarks';
 import { makePerson } from '../../../src/war/sim/roster';
 import { BOSS } from '../../../src/war/sim/bosses';
 import { WAR_SEASON } from '../../../src/war/world/alliances';
 import type { RegionData, ResourceKind } from '../../../src/war/types';
-import kriosJson from '../../../src/war/regions/krios.json';
-import kleisouraJson from '../../../src/war/regions/kleisoura.json';
+import { warRegion } from '../../src/war/regions';
 
 const DB = () => env.DB!;
-const krios = (): RegionData => parseRegion(kriosJson);
-const kleisoura = (): RegionData => parseRegion(kleisouraJson);
+const krios = (): RegionData => warRegion('krios')!;
+const kleisoura = (): RegionData => warRegion('kleisoura')!;
 const room = (region: RegionData) => new WarRoom({ region, seed: 1, cap: 600, wild: true });
 const ticks = (r: WarRoom, n: number) => {
   const out = { bosses: [] as ReturnType<WarRoom['tick']>['bosses'], sacrilege: [] as number[] };

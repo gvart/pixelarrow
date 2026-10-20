@@ -30,7 +30,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
-import { hasOwnMap, warRegion } from './regions';
+import { regionVersion, warRegion } from './regions';
 import { DEFAULT_CAP, parseClientMsg, type HandoffMsg, type JoinMsg, type MendMsg, type ServerMsg, type StowMsg } from '../../../src/war/net/protocol';
 import { cartArrived, contract, deliver, sealedFor } from './contracts';
 import { handoffDone, handoffRefusal, linkedCaptures } from './abuse';
@@ -52,7 +52,7 @@ import { saveRegionHolds } from './holders';
 import { json } from './persons';
 import { isWorldRegion } from '../../../src/war/world/graph';
 import { joinRefusal } from '../../../src/war/world/access';
-import { ALLIANCES } from '../../../src/war/world/alliances';
+import { ALLIANCES, WAR_SEASON } from '../../../src/war/world/alliances';
 import { allianceOf } from './world/members';
 import type { AllianceId, Side } from '../../../src/war/world/types';
 import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
@@ -86,6 +86,8 @@ export class WarRegionDO extends DurableObject<Env> {
   private reported = '';
   /** M7f: the region memory last written to D1. */
   private memory = '';
+  /** Cold start: ms to parse the region data, then to restore or build the room (for /stats). */
+  private boot = { parseMs: 0, roomMs: 0 };
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -95,22 +97,29 @@ export class WarRegionDO extends DurableObject<Env> {
   private options(region: string): RoomOptions | null {
     const data = warRegion(region);
     if (!data) return null;
-    // M7f: a neutral region on its own map wakes its lairs and guardians (stand-in maps stay quiet)
-    const wild = hasOwnMap(region) && !!(data.lairs?.length || data.guardians?.length);
+    // M7f: a fresh region wakes its authored lairs and guardians
+    const wild = !!(data.lairs?.length || data.guardians?.length);
     return { region: data, seed: 1, cap: Number(this.env.WAR_CAP) || DEFAULT_CAP, allowArmy: this.env.DEV_AUTH === '1', wild };
   }
 
-  /** The room of `region`: in memory, restored from storage after an eviction, or fresh. Null for an unknown region. */
+  /**
+   * The room of `region`: in memory, restored from storage after an eviction, or fresh. Null for an unknown region. A
+   * saved state or memory of another war season or another version of the authored region is not taken: the region
+   * starts over from its authored data (pre-built town, lairs, guardians, claim points, safe zones).
+   */
   private async ensure(region: string): Promise<WarRoom | null> {
     if (this.room) return this.room.region.id === region ? this.room : null;
+    const t0 = performance.now();
     const o = this.options(region);
     if (!o) return null;
+    this.boot.parseMs = performance.now() - t0;
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.room) return;
+      const t1 = performance.now();
       const st = await loadState(this.ctx.storage);
       const d = this.env.DB;
       let restored: WarRoom | null = null;
-      if (st && st.region === region) {
+      if (st && st.region === region && st.edition === edition(region)) {
         try {
           const persons = d ? await deployed(d, region, st.pids) : new Map();
           restored = WarRoom.restore(o, st, persons);
@@ -126,7 +135,7 @@ export class WarRegionDO extends DurableObject<Env> {
         if (d) await releaseRegion(d, region);
         this.room = new WarRoom(o);
         // M7f: what the region remembers (razed towns, slain guardians, restored landmarks) since it was left
-        const m = await loadMemory(this.ctx.storage, d, region);
+        const m = await loadMemory(this.ctx.storage, d, region, WAR_SEASON.id, regionVersion(region));
         if (m) {
           try {
             this.room.recall(m.mem, elapsedTicks(m, Date.now()));
@@ -137,6 +146,7 @@ export class WarRegionDO extends DurableObject<Env> {
         }
       }
       await this.ctx.storage.put('region', region);
+      this.boot.roomMs = performance.now() - t1;
     });
     return this.room;
   }
@@ -470,11 +480,11 @@ export class WarRegionDO extends DurableObject<Env> {
     const room = this.room;
     if (!room) return;
     this.savedAt = room.currentTick;
-    const st = room.alive() === 0 && room.online() === 0 ? null : room.saveState();
+    const st = room.alive() === 0 && room.online() === 0 ? null : { ...room.saveState(), edition: edition(room.region.id) };
     this.saving = this.saving.then(() => storeState(this.ctx.storage, st)).catch((e) => logError('war_save_failed', e));
     this.ctx.waitUntil(this.saving);
     // M7f: what the region remembers once it empties (DO storage always; D1 when it changed)
-    const mem = room.memory(), mjson = JSON.stringify(mem), rem = remembered(mem, Date.now());
+    const mem = room.memory(), mjson = JSON.stringify(mem), rem = remembered(mem, Date.now(), WAR_SEASON.id, regionVersion(room.region.id));
     this.saving = this.saving.then(() => storeMemory(this.ctx.storage, rem)).catch((e) => logError('war_memory_failed', e));
     // M6e: what its holders hold, for the stash screen (D1 snapshot; the room state above is the truth)
     const d = this.env.DB, rows = room.holdRows();
@@ -596,10 +606,13 @@ export class WarRegionDO extends DurableObject<Env> {
       region: room?.region.id ?? null, tick: room?.currentTick ?? 0, running: !!this.timer, ticks: h.length, overruns: this.overruns,
       units: room?.alive() ?? 0, online: room?.online() ?? 0, quota: room?.quota() ?? null,
       totalMs: pick('totalMs'), stepMs: pick('stepMs'), snapMs: pick('snapMs'), netMs: pick('netMs'), sendMs: pick('sendMs'), lateMs: pick('lateMs'),
-      bytesPerTick: pick('bytes'), clientsPerTick: pick('clients'),
+      bytesPerTick: pick('bytes'), clientsPerTick: pick('clients'), boot: this.boot,
     };
   }
 }
+
+/** The war season and the authored region's version a saved room belongs to. */
+const edition = (region: string): string => `${WAR_SEASON.id}:${regionVersion(region)}`;
 
 const STATE_META = 'state:meta';
 /** Bytes per stored chunk (under the 128 KiB value limit of either storage backend). */

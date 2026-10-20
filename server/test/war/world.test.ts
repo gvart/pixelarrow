@@ -216,11 +216,12 @@ describe('joinRefusal', () => {
 });
 
 describe('WarRoom transfers', () => {
-  const region = warRegion('dodona-e')!;
+  // the transfer mechanics on the open test map under a world id (real maps: test/war/regionMaps.test.ts)
+  const region = { ...warRegion('test-ridge')!, id: 'dodona-e' };
   const join = (pid: number, team: number, ids: string[][]): JoinMsg => ({ t: 'join', v: NET_VERSION, region: 'dodona-e', playerId: pid, team, squads: ids });
 
-  it('hosts every world region (a stand-in map under its own id)', () => {
-    expect(region.id).toBe('dodona-e');
+  it('hosts every world region on its own map', () => {
+    expect(warRegion('dodona-e')!.id).toBe('dodona-e');
     expect(warRegion('omphalos')!.entries.map((e) => e.side).sort()).toEqual(['E', 'N', 'S', 'W']);
     expect(warRegion('atlantis')).toBeNull();
   });
