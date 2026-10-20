@@ -1,0 +1,48 @@
+public/war/ui/ui.json
+  s_cfc22b058125c4::t_c4829b6d78e79a 1617-1664,1871-1872
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_4e68e89721282a 2579,2584
+  s_cfc22b058125c4::t_c4829b6d78e79a 2580-2583,2585-2644
+scripts/war/art/qa.mjs
+  s_cfc22b058125c4::t_c4829b6d78e79a 453-473,476-477
+  s_cfc22b058125c4::t_4e68e89721282a 479,483
+  s_cfc22b058125c4::t_39ef03a09027f7 474-475,478
+scripts/war/art/ruins-preview.mjs
+  s_cfc22b058125c4::t_d5d3490b96ef11 1-4,6-123
+  s_cfc22b058125c4::t_4e68e89721282a 5
+scripts/war/art/ui-landmark.mjs
+  s_cfc22b058125c4::t_c4829b6d78e79a 1-45
+scripts/war/art/town-jobs.json
+  s_cfc22b058125c4::t_c4829b6d78e79a 2,12-30
+scripts/war/art/landmark-jobs.json
+  s_cfc22b058125c4::t_c4829b6d78e79a 1-7
+scripts/war/art/buildings.mjs
+  s_cfc22b058125c4::t_c4829b6d78e79a 397-398,402,405,416,424,444,576-578,621,669,690,702,1257,1286,1323-1325,1409,1418
+scripts/war/art/town.mjs
+  s_cfc22b058125c4::t_c4829b6d78e79a 9-14,21,40-47,92-94,97-100,103-134,139-140,143-146,150-153,183,185-187,196-204,206-216,218-219,224-238
+public/war/fx/objects.json
+  s_cfc22b058125c4::t_c4829b6d78e79a 1-154
+public/war/biomes/elaia/objects.json
+  s_cfc22b058125c4::t_c4829b6d78e79a 650-692,712-754,774-816,836-878,898-940,960-1002,1022-1064,1084-1126,1298-1340,1379-1421,1441-1483,1503-1545,1603-1645,1664-1706
+public/war/buildings/objects.json
+  s_cfc22b058125c4::t_c4829b6d78e79a 808-809,816-817,1396-1397,1404-1405,1745-1746,1807-1808,1829-1830,1894-1895,1917-1918,1940-1941,1963-1964,3285-3312,3745-3772,3935-3962,4449-4476,4639-4666,4829-4856,5019-5044,5046
+  s_cfc22b058125c4::t_4edcb945f53f07 5045
+scripts/war/art/landmark-fx.mjs
+  s_cfc22b058125c4::t_c4829b6d78e79a 1-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "39349f5653fb320cd4653fbb49fb32aa67d96e3d",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
