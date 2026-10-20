@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { adjacent, WORLD_IDS } from '../../src/war/world/graph';
 import { FRONTIER_TOWNS, inSight, isChokepoint, MARKET_TOWNS, PURPOSE, scoreRate, seasonStandings, TRADE_ROUTES } from '../../src/war/world-view/geo';
-import { fieldSquads, mockWorld, travelMs } from '../../src/war/world-view/source';
-import type { RegionState } from '../../src/war/net/world';
+import { fieldSquads, liveTrade, mockWorld, travelMs } from '../../src/war/world-view/source';
+import { convoySeen } from '../../src/war/world-view/geo';
+import type { ConvoySnap as LiveConvoy, RegionState } from '../../src/war/net/world';
 
 const region = (id: string, owner: number, live = [0, 0, 0, 0]): RegionState => ({ id, owner: owner as RegionState['owner'], claims: [0, 0, 0, 0], live, contested: false, besieged: false });
 
@@ -62,5 +63,26 @@ describe('world view sources', () => {
     expect(w.snap.regions.find((r) => r.id === 'skythia')!.owner).toBe(1);
     expect(w.snap.transit.length).toBeGreaterThan(0);
     expect(travelMs('dodona', 'dodona-n')).toBe(100_000);
+  });
+
+  it('maps the live convoys, boards and trade score onto the map', () => {
+    const { snap } = mockWorld(0);
+    const live = {
+      ...snap,
+      score: { ...snap.score, trade: [5, 0, 12, 0] },
+      convoys: <LiveConvoy[]>[
+        { id: 7, from: 'kleisoura', to: 'dodona-e', men: 6, departAt: 0, arriveAt: 1000, state: 'moving' as const, alliance: 1 as const, cart: 'wagon' as const, loads: 9.5, goods: { tin: 300, iron: 900, food: 20, salt: 1 }, items: 2, mine: false },
+        { id: 8, from: 'dodona', to: 'moors', men: 4, departAt: 0, arriveAt: 1000, state: 'moving' as const, alliance: 0 as const, loads: 1.2, goods: { hides: 30 }, items: 0, mine: true },
+        { id: 9, from: 'dodona', to: 'moors', men: 12, departAt: 0, arriveAt: 1000, state: 'moving' as const, alliance: 0 as const, loads: 0, goods: {}, items: 0, mine: true },
+      ],
+      boards: { stymphalia: { at: 50, goods: { tin: { ask: 11, bid: 9, askDepth: 20, bidDepth: 25 }, oil: { ask: 5, bid: null, askDepth: 120, bidDepth: 0 } }, fills: [{ res: 'tin', n: 3, price: 10, at: 40 }] } },
+    };
+    const t = liveTrade(live);
+    // men only travel as squads, not convoys
+    expect(t.convoys!.map((c) => [c.id, c.kind, c.cargo])).toEqual([[7, 'wagon', 'iron, tin, food, 2 items'], [8, 'porters', 'hides']]);
+    expect(t.boards!.stymphalia).toEqual({ at: 50, fills: 1, rows: [{ good: 'oil', ask: 5, bid: null, depth: 120 }, { good: 'tin', ask: 11, bid: 9, depth: 45 }] });
+    expect(t.trade).toEqual([5, 0, 12, 0]);
+    // the server already filtered by fog: the map keeps them all
+    expect(convoySeen(t.convoys![0], 3, new Map(), new Set())).toBe(true);
   });
 });
