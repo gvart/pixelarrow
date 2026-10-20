@@ -81,9 +81,9 @@ export const PINES = new Set(['pine-a', 'pine-b', 'stone-pine', 'elaia/stone-pin
 
 /**
  * Bridges (M2d W-24, v2 W-33): most tiles of water bank to bank per material, widths in tiles across (default `width`),
- * rows along the line per deck piece, move cost on a deck.
+ * rows along the line per deck piece, bank rows per ramp (a gentle slope up to the deck), move cost on a deck.
  */
-export const BRIDGE = { maxSpan: { wood: 12, stone: 24 }, widths: [1, 2, 3], width: 2, piece: 2, cost: 0.8, kit: { wood: 'woodBridge', stone: 'stoneBridge' } as const };
+export const BRIDGE = { maxSpan: { wood: 12, stone: 24 }, widths: [1, 2, 3], width: 2, piece: 2, ramp: 2, cost: 0.8, kit: { wood: 'woodBridge', stone: 'stoneBridge' } as const };
 
 /** Wall pieces by material. */
 export const WALL_KIT = {

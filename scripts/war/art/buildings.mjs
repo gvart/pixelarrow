@@ -933,39 +933,41 @@ export const PROPS = [
   { id: 'stone-pile', kind: 'prop', material: 'stone', footprint: [1, 1], raw: 'stone-pile', grade: { sat: 0.7, val: 0.8 }, fill: 0.85, source: 'map_object 594dd609' },
 ];
 
-// ---- bridges (W-24, v2 W-33). Axis pieces: 1 tile each. deck-x / deck-y span water along that axis; end-<axis><0|1> =
-// abutment ramp from the bank (deck height at the inner edge, 0 at the outer edge; 0 = the ramp's outer edge is at the low
-// end of the axis). A suffix picks the rails of a tile in a wider bridge: none = both sides (1 wide), .l = the low side
+// ---- bridges (W-24, v2 W-33). Axis pieces: 1 tile each. deck-x / deck-y span water along that axis; a ramp from the bank
+// is 2 tiles: out-<axis><0|1> its lower half (0 at the outer edge, half the deck height at the inner), end-<axis><0|1> its
+// upper half up to the deck (0 = the ramp's outer edge is at the low end of the axis). The deck stands ~1 m over the bank. A suffix picks the rails of a tile in a wider bridge: none = both sides (1 wide), .l = the low side
 // across only (-y along x, -x along y), .h = the high side only, .n = none (the middle tile of a 3-wide bridge).
 // Diagonal pieces (kit <id>-diag): one row segment of a bridge along a grid diagonal: h = screen-horizontal (along
-// +-(1,-1)), v = screen-vertical (along +-(1,1)); <dir><width 1-3>-<part>: deck, end+ / end- = ramp rising towards +a
-// (screen right, h) or +b (screen down, v). Drawn by a screen-aligned box renderer: world a = x - y, b = x + y (m); a box
+// +-(1,-1)), v = screen-vertical (along +-(1,1)); <dir><width 1-3>-<part>: deck, end+ / end- = upper ramp row rising towards
+// +a (screen right, h) or +b (screen down, v), out+ / out- = the lower ramp row on the bank. Drawn by a screen-aligned box renderer: world a = x - y, b = x + y (m); a box
 // shows its top and its +b face (its a faces are edge-on). A segment is 4 m of a or b long (one row step = sqrt 2 tiles)
 // and width x 2 sqrt 2 m across; frame origin = the row's centre on the ground.
-// Stone reads as a road bridge: paved deck, low parapets on a cornice, one round arch per tile / segment over the water.
+// Stone reads as a low road bridge: paved deck, low parapets on a thin cornice, one flat segmental arch per tile / segment.
 const BRIDGES = {
-  'bridge-wood': { material: 'wood', burnable: true, deck: 2.0, source: 'pixflux b5ffd7c7 (trestle elevation)' },
-  'bridge-stone': { material: 'stone', burnable: false, deck: 2.5, source: 'renderer: arches, cornice, ashlar (pixflux ashlar elevation)' },
+  'bridge-wood': { material: 'wood', burnable: true, deck: 1.0, source: 'pixflux b5ffd7c7 (trestle elevation)' },
+  'bridge-stone': { material: 'stone', burnable: false, deck: 1.2, source: 'renderer: arches, cornice, ashlar (pixflux ashlar elevation)' },
 };
-const BRIDGE_BASE = ['deck-x', 'deck-y', 'end-x0', 'end-x1', 'end-y0', 'end-y1'];
+const BRIDGE_BASE = ['deck-x', 'deck-y', 'end-x0', 'end-x1', 'end-y0', 'end-y1', 'out-x0', 'out-x1', 'out-y0', 'out-y1'];
 const BRIDGE_PIECES = [...BRIDGE_BASE, ...['l', 'h', 'n'].flatMap((e) => BRIDGE_BASE.map((p) => `${p}.${e}`))];
 const PARA = 0.5; // stone parapet height (m) over the deck
-// stone arch face along `a` (m): one arch per period L, piers `pier` wide centred on the period ends; springing 0.35 m, crown
-// 0.75 m under the deck; a voussoir ring over it, the soffit in shadow at the head of the opening, open (see-through) below
+// stone arch face along `a` (m): one flat arch per period L, piers `pier` wide centred on the period ends; springing just
+// over the water, crown ARCH_CROWN under the deck; a voussoir ring over it, the soffit in shadow at the head of the opening,
+// open (see-through) below
+const ARCH_CROWN = 0.36;
 function archFace(a, z, u, r, D, L, pier) {
   const m = ((a % L) + L) % L, half = L / 2 - pier / 2, d = Math.abs(m - L / 2);
-  if (z >= D - 0.32 && z < D - 0.2) return mul(TEX.stone[3], 1.04); // cornice course
-  if (z >= D - 0.2) return TEX.ashlar.px(u, r);
-  if (d < half + 0.22) {
-    const q = Math.min(1, d / half), zs = 0.35, top = zs + (D - 0.75 - zs) * Math.sqrt(Math.max(0, 1 - q * q));
+  if (z >= D - 0.22 && z < D - 0.13) return mul(TEX.stone[3], 1.04); // cornice course
+  if (z >= D - 0.13) return TEX.ashlar.px(u, r);
+  if (d < half + 0.16) {
+    const q = Math.min(1, d / half), zs = 0.06, top = zs + (D - ARCH_CROWN - zs) * Math.sqrt(Math.max(0, 1 - q * q));
     if (d < half) {
-      const t = 0.42 * Math.sqrt(Math.max(0, 1 - q * q));
+      const t = 0.22 * Math.sqrt(Math.max(0, 1 - q * q));
       if (z < top - t) return null;
       if (z < top) return mul(TEX.stone[0], 0.5);
     }
-    if (z >= top - 0.01 && z < top + 0.26 && z >= zs) { // voussoirs: radial joints round the ring
-      const ang = Math.atan2(z - zs, (m - L / 2) * ((D - 0.75 - zs) / half)), n = Math.floor(ang / 0.28);
-      return (ang / 0.28) % 1 < 0.14 || z >= top + 0.22 ? TEX.stone[0] : mul(TEX.stone[2 + (n & 1)], 1.02);
+    if (z >= top - 0.01 && z < top + 0.17 && z >= zs) { // voussoirs: radial joints round the ring
+      const ang = Math.atan2(z - zs, (m - L / 2) * ((D - ARCH_CROWN - zs) / half)), n = Math.floor(ang / 0.22);
+      return (ang / 0.22) % 1 < 0.16 || z >= top + 0.14 ? TEX.stone[0] : mul(TEX.stone[2 + (n & 1)], 1.02);
     }
   }
   return TEX.ashlar.px(u, r);
@@ -973,30 +975,30 @@ function archFace(a, z, u, r, D, L, pier) {
 const coping = (f, x, y, z, u, r) => (f === 'top' ? mul(TEX.stone[3], 1.05) : r >= Math.round(PARA * PPM) - 3 ? TEX.stone[3] : TEX.ashlar.px(u, r));
 function bridgeBoxes(id, pieceName, state, k) {
   const [piece, edge = 'b'] = pieceName.split('.'), railLo = edge === 'b' || edge === 'l', railHi = edge === 'b' || edge === 'h';
-  const Bd = BRIDGES[id], stone = Bd.material === 'stone', axis = piece.endsWith('x') || piece[4] === 'x' ? 'x' : 'y', end = piece.startsWith('end'), lowAt0 = piece.endsWith('0');
+  const Bd = BRIDGES[id], stone = Bd.material === 'stone', axis = piece.endsWith('x') || piece[4] === 'x' ? 'x' : 'y', lower = piece.startsWith('out'), end = lower || piece.startsWith('end'), lowAt0 = piece.endsWith('0');
   const map = (b) => (axis === 'x' ? { ...b, x0: b.u0, x1: b.u1, y0: b.v0, y1: b.v1 } : { ...b, x0: b.v0, x1: b.v1, y0: b.u0, y1: b.u1 });
   const out = [], add = (b) => out.push(map(b)), D = Bd.deck, rails = [...(railLo ? [0] : []), ...(railHi ? [1] : [])];
   if (state === 'foundation') { // marked line of the span with stakes / pier stones, on the outer edges
     const fb = foundation([...(railLo ? [[0, 0.05, 2, 0.05, '-y']] : []), ...(railHi ? [[0, 1.95, 2, 1.95, '+y']] : []), ...(rails.length ? [] : [[0, 1, 2, 1, '+y']])], Bd.material, k, 0.66);
     return fb.map((b) => (axis === 'x' ? b : { ...b, x0: b.y0, x1: b.y1, y0: b.x0, y1: b.x1 }));
   }
-  const ramp = (u) => (lowAt0 ? D * u / 2 : D * (2 - u) / 2);
+  const ramp = (u) => (lower ? 0 : D / 2) + (lowAt0 ? D * u / 4 : D * (2 - u) / 4); // a 2-tile ramp: this tile's half
   const dmg = state === 'damaged', half = state === 'scaffold' || state === 'rising', low = state === 'rising';
   const along = (f) => (axis === 'x' ? f === '+y' || f === '-y' : f === '+x' || f === '-x');
   if (!end) {
     if (stone) {
       const mat = (f, x, y, z, u, r) => (f === 'top' ? (half ? rough(f, x, y) : flags(f, x, y)) : along(f) ? archFace(axis === 'x' ? x : y, z, u, r, D, 2, 0.6) : TEX.ashlar.px(u, r));
-      add({ u0: 0, u1: 2, v0: 0, v1: 2, z0: 0, z1: low ? 0.8 : half ? 1.5 : D, mat });
-      if (half && !low) add({ u0: 0.45, u1: 1.55, v0: 0.1, v1: 1.9, z0: 0, z1: 1.3, mat: (f, x, y, z) => ((Math.floor(z * 4) + Math.floor((axis === 'x' ? x : y) * 4)) % 3 ? null : TEX.wood[1]) }); // timber centring
+      add({ u0: 0, u1: 2, v0: 0, v1: 2, z0: 0, z1: low ? D * 0.35 : half ? D * 0.7 : D, mat });
+      if (half && !low) add({ u0: 0.45, u1: 1.55, v0: 0.1, v1: 1.9, z0: 0, z1: D * 0.6, mat: (f, x, y, z) => ((Math.floor(z * 4) + Math.floor((axis === 'x' ? x : y) * 4)) % 3 ? null : TEX.wood[1]) }); // timber centring
       if (!half) for (const s of rails) { const pb = { u0: 0, u1: 2, v0: s ? 1.65 : 0, v1: s ? 2 : 0.35, z0: D, z1: D + PARA, mat: coping }; if (dmg && s) out.push(...sliced(map(pb), axis, (a) => (a > 0.4 && a < 1.6 ? D + 0.1 : D + PARA))); else add(pb); }
     } else {
       const tr = (f, x, y, z, u, r) => (f === 'top' ? TEX.wood[2] : TEX.trestle.px(u, r));
       for (const s of [0, 1]) {
-        const rail = rails.includes(s), sb = { u0: 0, u1: 2, v0: s ? 1.8 : 0.05, v1: s ? 1.95 : 0.2, z0: 0, z1: low ? D * 0.45 : half || !rail ? D - 0.3 : D + 1.0, mat: tr };
-        if (dmg && s && rail) out.push(...sliced(map(sb), axis, (a) => (a > 0.5 && a < 1.6 ? 1.2 : D + 1.0))); else add(sb);
+        const rail = rails.includes(s), sb = { u0: 0, u1: 2, v0: s ? 1.8 : 0.05, v1: s ? 1.95 : 0.2, z0: 0, z1: low ? D * 0.45 : half || !rail ? D - 0.18 : D + 0.9, mat: tr };
+        if (dmg && s && rail) out.push(...sliced(map(sb), axis, (a) => (a > 0.4 && a < 1.2 ? D + 0.2 : D + 0.9))); else add(sb);
       }
-      const deck = { u0: 0, u1: 2, v0: railLo ? 0.2 : 0, v1: railHi ? 1.8 : 2, z0: D - 0.25, z1: D, mat: planks(axis === 'x' ? 'x' : 'y', 2) };
-      if (low) { /* piles only */ } else if (half) add({ ...deck, u1: 1.0 }); else if (dmg) { add({ ...deck, u1: 0.7 }); add({ ...deck, u0: 1.45 }); } else add(deck);
+      const deck = { u0: 0, u1: 2, v0: railLo ? 0.2 : 0, v1: railHi ? 1.8 : 2, z0: D - 0.18, z1: D, mat: planks(axis === 'x' ? 'x' : 'y', 2) };
+      if (low) { /* piles only */ } else if (half) add({ ...deck, v1: (deck.v0 + deck.v1) / 2 }); else if (dmg) { add({ ...deck, u1: 0.7 }); add({ ...deck, u0: 1.45 }); } else add(deck); // scaffold: half the boards laid across
     }
   } else {
     const prof = (a) => Math.max(0.05, ramp(a));
@@ -1010,7 +1012,7 @@ function bridgeBoxes(id, pieceName, state, k) {
 
 // diagonal segments: boxes in (l along, c across, z) m of the screen axes (h: l = a, c = b; v: l = b, c = a)
 const DG_W = 160, DG_H = 184, DG_X0 = 80, DG_Y0 = 144, DG_COLS = 6;
-const DIAG_PIECES = ['h', 'v'].flatMap((d) => [1, 2, 3].flatMap((w) => ['deck', 'end+', 'end-'].map((p) => `${d}${w}-${p}`)));
+const DIAG_PIECES = ['h', 'v'].flatMap((d) => [1, 2, 3].flatMap((w) => ['deck', 'end+', 'end-', 'out+', 'out-'].map((p) => `${d}${w}-${p}`)));
 function drawDBox(cv, axis, B) {
   const h = axis === 'h', a0 = h ? B.l0 : B.c0, a1 = h ? B.l1 : B.c1, b0 = h ? B.c0 : B.l0, b1 = h ? B.c1 : B.l1;
   if (B.z1 <= B.z0 || a1 <= a0 || b1 <= b0) return;
@@ -1039,7 +1041,8 @@ function diagBoxes(id, piece, state, k) {
   const Bd = BRIDGES[id], stone = Bd.material === 'stone', axis = piece[0], W = Number(piece[1]), part = piece.slice(3), D = Bd.deck, L = 2, hw = W * Math.SQRT2;
   const out = [], add = (b) => out.push(b), step = axis === 'h' ? 1 / 16 : 1 / 8;
   const dmg = state === 'damaged', half = state === 'scaffold' || state === 'rising', low = state === 'rising', end = part !== 'deck';
-  const rampZ = (l) => Math.max(0.05, D * (part === 'end+' ? (l + L) / (2 * L) : (L - l) / (2 * L)));
+  // a 2-row ramp: the lower (out) or upper (end) row's half of the rise to the deck
+  const rampZ = (l) => Math.max(0.05, (part.startsWith('out') ? 0 : D / 2) + (D / 2) * (part.endsWith('+') ? (l + L) / (2 * L) : (L - l) / (2 * L)));
   const wood = (i) => (f, l, c, z) => mul(TEX.wood[i], 0.92 + 0.16 * hash(Math.floor(z * 10), Math.floor((l + c + 16) * 6), 3));
   const boards = (f, l, c, z) => { // boards across the way, dark seams
     const s = (f === 'top' ? l : z) * 3.2 + 64, n = Math.floor(s);
@@ -1059,22 +1062,22 @@ function diagBoxes(id, piece, state, k) {
   }
   if (!end) {
     if (stone) {
-      const top = low ? 0.8 : half ? 1.5 : D;
+      const top = low ? D * 0.35 : half ? D * 0.7 : D;
       add({ l0: -L, l1: L, c0: -hw, c1: hw, z0: 0, z1: top, mat: (f, l, c, z, u, r) => (f === 'top' ? (half ? rough(f, l + 16, c + 16) : flags(f, l + 16, c + 16)) : axis === 'h' ? archFace(l + L, z, u, r, D, 2 * L, 0.9) : TEX.ashlar.px(u, r)) });
-      if (half && !low && axis === 'h') add({ l0: -1.2, l1: 1.2, c0: -hw + 0.3, c1: hw - 0.25, z0: 0, z1: 1.45, mat: (f, l, c, z) => ((Math.floor(z * 4) + Math.floor((l + 8) * 4)) % 3 ? null : TEX.wood[1]) }); // timber centring
+      if (half && !low && axis === 'h') add({ l0: -1.2, l1: 1.2, c0: -hw + 0.3, c1: hw - 0.25, z0: 0, z1: D * 0.6, mat: (f, l, c, z) => ((Math.floor(z * 4) + Math.floor((l + 8) * 4)) % 3 ? null : TEX.wood[1]) }); // timber centring
       if (!half) for (const s of [-1, 1]) {
         const pb = { l0: -L, l1: L, c0: s < 0 ? -hw : hw - 0.4, c1: s < 0 ? -hw + 0.4 : hw, z0: D, z1: D + PARA, mat: coping };
         if (dmg && s > 0) out.push(...slicedL(pb, () => D, (l) => (l > -0.9 && l < 0.7 ? D + 0.08 : D + PARA), step)); else add(pb);
       }
     } else {
-      const pz = low ? D * 0.45 : D - 0.25;
+      const pz = low ? D * 0.45 : D - 0.18;
       for (let i = 0; i <= W; i++) { // a bent of piles under the middle of the segment, a cap beam on them
         const c = -hw + 0.25 + (i * (2 * hw - 0.5)) / W;
         add({ l0: -0.12, l1: 0.12, c0: c - 0.12, c1: c + 0.12, z0: 0, z1: pz, mat: wood(1) });
       }
-      if (!low) add({ l0: -0.16, l1: 0.16, c0: -hw + 0.05, c1: hw - 0.05, z0: D - 0.5, z1: D - 0.25, mat: wood(0) });
-      if (!low) for (const s of [-1, 1]) add({ l0: -L, l1: L, c0: s < 0 ? -hw : hw - 0.2, c1: s < 0 ? -hw + 0.2 : hw, z0: D - 0.45, z1: D - 0.2, mat: wood(1) }); // stringers
-      const deck = { l0: -L, l1: L, c0: -hw + 0.02, c1: hw - 0.02, z0: D - 0.25, z1: D, mat: boards };
+      if (!low) add({ l0: -0.16, l1: 0.16, c0: -hw + 0.05, c1: hw - 0.05, z0: D - 0.38, z1: D - 0.18, mat: wood(0) });
+      if (!low) for (const s of [-1, 1]) add({ l0: -L, l1: L, c0: s < 0 ? -hw : hw - 0.2, c1: s < 0 ? -hw + 0.2 : hw, z0: D - 0.34, z1: D - 0.16, mat: wood(1) }); // stringers
+      const deck = { l0: -L, l1: L, c0: -hw + 0.02, c1: hw - 0.02, z0: D - 0.18, z1: D, mat: boards };
       if (low) { /* piles only */ } else if (half) add({ ...deck, l1: 0 }); else if (dmg) { add({ ...deck, l1: -0.7 }); add({ ...deck, l0: 0.6 }); } else add(deck);
       if (!half) for (const s of [-1, 1]) { // railing: posts, a mid and a top rail
         const c0 = s < 0 ? -hw : hw - 0.2, c1 = c0 + 0.2, broken = dmg && s > 0;

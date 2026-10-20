@@ -31,6 +31,11 @@
  * attackBuilding without an engine, buildSiege) send the squad's men to standing points round the target (`fixed`); each
  * man there does the task, and the squad holds once it is done. Men under a ram's roof dodge RAM.cover of missiles.
  *
+ * Bridges (./works.ts): a man on a finished bridge's deck or ramp keeps to one of its lanes (as many as the bridge is tiles
+ * wide, LANE apart across the centre line), never beside them over the water. A squad whose path near its anchor runs over
+ * a bridge (or with a man on one) marches as a column as wide as the bridge (`col`: slots along the path, FILE apart, one
+ * lane a file), the rest queueing behind on the bank, and takes its formation again once over.
+ *
  * Neutral regions (W-12, ./mobs.ts): spawnMobs() puts a squad of team MOB_TEAM on every region lair; the mob controller
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
@@ -86,6 +91,9 @@ const FIRE_RELOAD = 1.5; // fire arrows: slower reload
 const FIRE_ARROW = 0.2; // chance a fire arrow sets the wood it is shot at alight
 const FIRE_DECK = 0.08; // ... the wood deck under the man it is shot at
 const RAM_ROOF = 2; // crew this near their ram are under its roof
+const FILE = 0.75; // tiles between men in file on a bridge (1.5 m; a tile is 2 m, a body 1.4 m)
+const LANE = 0.8; // tiles between the lanes of a bridge 2 or 3 wide
+const COL_AHEAD = 3; // tiles of path ahead of the anchor that put its squad in column for a bridge
 const TASK_REPOINT = 10; // ticks between standing point updates for a task on a moving engine
 
 interface Unit extends Worker {
@@ -115,6 +123,7 @@ interface Unit extends Worker {
   own: number[]; // personal detour (flat x,y) when stuck
   oi: number;
   ownReq: boolean;
+  crossing: boolean; // on a bridge, its slot off it: walks on along its lane (does not settle there)
   settled: boolean; // squad at rest and the unit is in its slot (or as near as it gets): no steering, not pushed
   settleD: number; // distance to its slot when it settled
   best: number; // nearest it has come to its slot since the squad came to rest
@@ -154,6 +163,7 @@ interface Squad {
   sites: number[]; // build order: the sites it works on
   node: number; // gather order: the node it was sent to
   fixed: number[] | null; // standing points (flat x,y) on a wall walkway, by slot, instead of the formation
+  col: number[] | null; // crossing a bridge: column slots (flat x,y) along the path, by slot, instead of the formation
   siege: number; // the engine it crews, -1 none
   task: Task | null;
   fire: boolean; // fire arrows
@@ -279,6 +289,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   const slotPos = (s: Squad, slot: number): [number, number] => {
     if (s.fixed && slot * 2 < s.fixed.length) return [s.fixed[slot * 2], s.fixed[slot * 2 + 1]];
+    if (s.col && slot * 2 < s.col.length) return [s.col[slot * 2], s.col[slot * 2 + 1]];
     const f = s.offsets[slot * 2];
     const r = s.offsets[slot * 2 + 1];
     const c = Math.cos(s.facing);
@@ -345,7 +356,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const [ax, ay] = openPoint(x / picked.length, y / picked.length);
     const ns: Squad = {
       ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1, fixed: null, siege: -1, task: null, claimPt: -1,
+      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1,
     };
     squads.push(ns);
     move(s, ns, picked);
@@ -734,9 +745,123 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     s.facing += Math.max(-FACE_TURN, Math.min(FACE_TURN, turn));
   };
 
+  /**
+   * The lanes of the finished bridge piece on tile t: unit vectors along (e) and across (n) its line, the line's offset
+   * across (cl: a point p is on it at p.n = cl), lane count. A point is e * a + n * (cl + c): a along, c off the centre line.
+   */
+  const laneOf = (t: number) => {
+    const b = works.bridgeAt(t);
+    if (!b) return null;
+    const l = Math.hypot(b.dir[0], b.dir[1]), ex = b.dir[0] / l, ey = b.dir[1] / l;
+    return { id: b.ids[0], ex, ey, nx: -ey, ny: ex, cl: -ey * b.rows[0] + ex * b.rows[1], w: b.width };
+  };
+  type Lanes = NonNullable<ReturnType<typeof laneOf>>;
+  /** Across offset of lane j (0 .. w-1) from the centre line. */
+  const laneC = (L: Lanes, j: number) => (j - (L.w - 1) / 2) * LANE;
+
+  /** The point d tiles along squad s's path from its anchor (ahead > 0, behind < 0; past the start straight on) and the way there. */
+  const alongPath = (s: Squad, d: number): [number, number, number, number] => {
+    const P = s.path, ahead = d >= 0;
+    let x = s.ax, y = s.ay, left = Math.abs(d), k = ahead ? s.pi : s.pi - 1, ux = Math.cos(s.facing), uy = Math.sin(s.facing);
+    for (;;) {
+      const last = ahead ? k >= P.length / 2 : k < 0;
+      const tx = last ? x + (ahead ? 0 : -ux * left) : P[k * 2], ty = last ? y + (ahead ? 0 : -uy * left) : P[k * 2 + 1];
+      const sx = tx - x, sy = ty - y, sl = Math.hypot(sx, sy);
+      if (sl > 1e-6) (ux = (ahead ? sx : -sx) / sl), (uy = (ahead ? sy : -sy) / sl);
+      if (last || sl >= left) {
+        if (sl >= left && sl > 1e-6) return [x + (sx / sl) * left, y + (sy / sl) * left, ux, uy];
+        return [tx, ty, ux, uy];
+      }
+      left -= sl;
+      x = tx;
+      y = ty;
+      k += ahead ? 1 : -1;
+    }
+  };
+
+  /**
+   * Column slots for a squad near a bridge (null: none on its way): w abreast (the bridge's width), FILE apart along the
+   * path, centred on the anchor; a slot on the bridge sits on its lane.
+   */
+  const columnFor = (s: Squad): number[] | null => {
+    if (s.fixed || s.siege >= 0 || s.task || s.order === 'gather' || s.order === 'build' || s.pi >= s.path.length / 2) return null;
+    const n = s.offsets.length / 2;
+    let L: Lanes | null = null;
+    for (const u of s.units) if (u.alive && (L = laneOf(tileAt(grid, u.x, u.y)))) break;
+    const ranks = (w: number) => Math.ceil(n / w), back = (w: number) => ((ranks(w) - 1) / 2) * FILE;
+    for (let d = -back(1) - 1; !L && d <= Math.max(COL_AHEAD, back(1)); d += 0.5) {
+      const [x, y] = alongPath(s, d);
+      L = laneOf(tileAt(grid, x, y));
+    }
+    if (!L) return null;
+    const w = L.w, out: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const r = Math.floor(i / w), j = i % w;
+      const [x, y, ux, uy] = alongPath(s, back(w) - r * FILE);
+      const B = laneOf(tileAt(grid, x, y));
+      if (B) {
+        // on the bridge: the lane, the same side of the way as off it
+        const a = x * B.ex + y * B.ey, jj = -uy * B.nx + ux * B.ny >= 0 ? j : B.w - 1 - j, c = B.cl + laneC(B, Math.min(jj, B.w - 1));
+        out.push(B.ex * a + B.nx * c, B.ey * a + B.ny * c);
+      } else {
+        const c = (j - (w - 1) / 2) * LANE;
+        out.push(x - uy * c, y + ux * c);
+      }
+    }
+    return out;
+  };
+
+  /**
+   * A man on a bridge (not a worker at his job) stands on its nearest lane: never beside the deck over the water. Men in
+   * one lane keep a body apart along it (the press is passed back along the file, not out over the side).
+   */
+  const files = new Map<number, { u: Unit; a: number; L: Lanes; c: number }[]>();
+  const keepToLanes = () => {
+    files.clear();
+    for (const u of units) {
+      if (!u.alive || u.job) continue;
+      const L = laneOf(tileAt(grid, u.x, u.y));
+      if (!L) continue;
+      const a = u.x * L.ex + u.y * L.ey, c = u.x * L.nx + u.y * L.ny - L.cl;
+      // within the outer lanes (on the one lane of a footbridge), else nearer the middle where the deck's tiles end here
+      const j = Math.max(0, Math.min(L.w - 1, Math.round(c / LANE + (L.w - 1) / 2))), m = laneC(L, L.w - 1);
+      const cc = Math.max(-m, Math.min(m, c));
+      let lc = 0, x = 0, y = 0;
+      for (const q of [cc, cc / 2, 0]) {
+        lc = L.cl + q;
+        x = L.ex * a + L.nx * lc;
+        y = L.ey * a + L.ny * lc;
+        if (works.bridgeAt(tileAt(grid, x, y))) break;
+      }
+      if (!works.bridgeAt(tileAt(grid, x, y))) continue;
+      u.x = x;
+      u.y = y;
+      const k = L.id * 4 + j, f = files.get(k);
+      if (f) f.push({ u, a, L, c: lc });
+      else files.set(k, [{ u, a, L, c: lc }]);
+    }
+    const MIN = 2 * RADIUS;
+    for (const f of files.values()) {
+      if (f.length < 2) continue;
+      f.sort((p, q) => p.a - q.a || p.u.id - q.u.id);
+      for (let pass = 0; pass < 4; pass++)
+        for (let i = 1; i < f.length; i++) {
+          const gap = MIN - (f[i].a - f[i - 1].a);
+          if (gap <= 0 || meet(f[i].u, f[i - 1].u)) continue;
+          f[i - 1].a -= gap / 2;
+          f[i].a += gap / 2;
+        }
+      for (const { u, a, L, c } of f) {
+        const x = L.ex * a + L.nx * c, y = L.ey * a + L.ny * c, t = tileAt(grid, x, y);
+        if (t >= 0 && grid.cost[t] > 0) (u.x = x), (u.y = y);
+      }
+    }
+  };
+
   const stepSquad = (s: Squad) => {
     if (s.alive === 0) return;
     if (s.pi >= s.path.length / 2) {
+      s.col = null;
       if (!s.goal) faceThreat(s);
       return;
     }
@@ -776,11 +901,24 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         budget = 0;
       }
     }
+    s.col = columnFor(s);
   };
 
   /** Point the unit steers to: its detour, its slot when in sight, else the furthest visible point of the squad path. */
   const unitTarget = (u: Unit): [number, number] => {
     const s = u.squad;
+    // a man on a bridge whose slot is off it walks on along his lane to the end towards the anchor (not into its side; tile
+    // waypoints of a detour lie off his lane)
+    const L = s.col || s.fixed ? null : laneOf(tileAt(grid, u.x, u.y));
+    if (L) {
+      const [sx, sy] = slotPos(s, u.slot);
+      u.crossing = !works.bridgeAt(tileAt(grid, sx, sy));
+      if (u.crossing) {
+        u.own = [];
+        const a = u.x * L.ex + u.y * L.ey, c = u.x * L.nx + u.y * L.ny, na = a + (s.ax * L.ex + s.ay * L.ey >= a ? 1.5 : -1.5); // the end towards the anchor
+        return [L.ex * na + L.nx * c, L.ey * na + L.ny * c];
+      }
+    } else u.crossing = false;
     if (u.own.length) {
       while (u.oi < u.own.length / 2 - 1 && Math.hypot(u.own[u.oi * 2] - u.x, u.own[u.oi * 2 + 1] - u.y) < (s.fixed ? 0.5 : 0.3)) u.oi++; // wall-walk climbers: a looser hold on waypoints at a crowded stair foot
       const ox = u.own[u.oi * 2];
@@ -1035,7 +1173,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
    * on a stair or ladder (one file: they squeeze past whoever stands at its head or foot).
    */
   const ghost = (a: Unit, b: Unit) =>
-    a.squad.team === b.squad.team && (a.job !== null || b.job !== null || grid.deck[tileAt(grid, a.x, a.y)] > DECK || grid.deck[tileAt(grid, b.x, b.y)] > DECK);
+    (a.squad.team === b.squad.team && (a.job !== null || b.job !== null || grid.deck[tileAt(grid, a.x, a.y)] > DECK || grid.deck[tileAt(grid, b.x, b.y)] > DECK)) ||
+    meet(a, b);
+  /** Two men meeting head-on in a bridge's lane squeeze past each other (else a footbridge jams for good). */
+  const meet = (a: Unit, b: Unit) => a.vx * b.vx + a.vy * b.vy < -0.3 && !!works.bridgeAt(tileAt(grid, a.x, a.y)) && !!works.bridgeAt(tileAt(grid, b.x, b.y));
 
   const separate = () => {
     head.fill(-1);
@@ -1067,8 +1208,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
               ex /= e;
               ey /= e;
             }
-            const uFix = u.settled || u.striking || u.working;
-            const oFix = o.settled || o.striking || o.working;
+            // a man standing on a bridge gives way along the file (it has no room to go round him)
+            const uFix = (u.settled && !works.bridgeAt(tileAt(grid, u.x, u.y))) || u.striking || u.working;
+            const oFix = (o.settled && !works.bridgeAt(tileAt(grid, o.x, o.y))) || o.striking || o.working;
             const k = uFix === oFix ? 0.5 : uFix ? 0 : 1;
             const gap = MIN - e;
             grid.team = u.squad.team;
@@ -1172,7 +1314,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         // squad at rest: settle in the slot, or as near as it gets when another unit stands on it
         // (two units pulled to one spot otherwise push and sidestep round each other for ever)
         const s = u.squad;
-        if (act === null && s.pi >= s.path.length / 2 && !s.goal && s.siege < 0) {
+        if (act === null && s.pi >= s.path.length / 2 && !s.goal && s.siege < 0 && !u.crossing) {
           if (u.settled) {
             const k = Math.min(1, (3 * RADIUS) / Math.max(d, 1e-6)); // the way into the slot must be open too
             const retry = d > ARRIVE && (tick + u.id) % RETRY === 0 && free(tx, ty, i) && free(u.x + dx * k, u.y + dy * k, i);
@@ -1213,7 +1355,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       let yielded = false;
       const cx = Math.floor(u.x);
       const cy = Math.floor(u.y);
-      for (let yy = u.settled ? grid.h : cy - 1; yy <= cy + 1; yy++) {
+      for (let yy = u.settled && !works.bridgeAt(tileAt(grid, u.x, u.y)) ? grid.h : cy - 1; yy <= cy + 1; yy++) {
         if (yy < 0 || yy >= grid.h) continue;
         for (let xx = cx - 1; xx <= cx + 1; xx++) {
           if (xx < 0 || xx >= grid.w) continue;
@@ -1273,6 +1415,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.toSlot = act === null;
     }
     for (let k = 0; k < 3; k++) separate();
+    keepToLanes();
     for (const u of units) {
       if (!u.alive) continue;
       const mx = u.x - u.ox;
@@ -1307,7 +1450,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
-        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, siege: -1, task: null, fire: false, claimPt: -1,
+        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1,
       };
       grid.team = team;
       squads.push(s);
@@ -1317,7 +1460,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         const u: Unit = {
           id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: st.maxHp, maxHp: st.maxHp, cls, st, moving: false, wp: 0,
           alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
-          settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
+          crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
           job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null,
         };
         units.push(u);
