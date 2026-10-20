@@ -26,7 +26,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
     <div class="row"><button id="pause">Pause</button> speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select></div>
     <div class="row"><button id="cut">Walls: full (V)</button></div>
     <div class="row"><button id="b500">+500 resources</button> <button id="bclaim">Claim here</button></div>
-    <div class="row"><label><input type="checkbox" id="grid">tile grid</label> <span class="dim">view modes: F2-F7, M full map</span></div>
+    <div class="row"><label><input type="checkbox" id="grid">tile grid</label> <label><input type="checkbox" id="fog" checked>fog</label> <span class="dim">view modes: F2-F7, M full map</span></div>
     <pre id="score"></pre>
     <pre id="perf"></pre>
     <div class="dim">L click/box select, shift add · E or R click: the context action shown at the cursor<br>H hold · 1-4 line/column/wedge/loose<br>${SIEGE_HELP}<br>WASD, edge, middle or space+drag pan · wheel zoom</div>`;
@@ -57,6 +57,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
   $('bclaim').onclick = () => s.build.armClaim();
   $('speed').onchange = () => { if (!paused) s.sim.speed(Number(val('speed'))); };
   $<HTMLInputElement>('grid').onchange = (e) => s.setGrid((e.target as HTMLInputElement).checked);
+  $<HTMLInputElement>('fog').onchange = (e) => s.setFog((e.target as HTMLInputElement).checked);
   // panel clicks never reach the map
   el.addEventListener('pointerdown', (e) => e.stopPropagation());
 
@@ -81,7 +82,7 @@ export function devPanel(game: Phaser.Game, s: SandboxScene, sc: Scenario | null
 /** Alive / wounded / killed per team (teams with units only), and the current tick. */
 export function tally(s: SandboxScene): { tick: number; rows: { team: number; alive: number; wounded: number; killed: number }[] } {
   const by = new Map<number, { team: number; alive: number; wounded: number; killed: number }>();
-  for (const u of s.sim.cur?.units ?? []) {
+  for (const u of s.sim.full?.units ?? []) {
     const team = s.sim.squads.get(u.squad)?.team ?? 0;
     let r = by.get(team);
     if (!r) by.set(team, (r = { team, alive: 0, wounded: 0, killed: 0 }));
