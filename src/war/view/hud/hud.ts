@@ -24,7 +24,7 @@
 import { draggable } from './drag';
 import '@fontsource/inter/600.css';
 import '@fontsource/cinzel/700.css';
-import { BUILDINGS } from '../../sim/economy';
+import { BUILDINGS, NEUTRAL_TEAM } from '../../sim/economy';
 import { SIEGE } from '../../sim/siege';
 import { FORT } from '../../sim/works';
 import type { BuildingType, FortKind, ResourceKind, SiegeType } from '../../types';
@@ -395,7 +395,7 @@ export function hud(s: SandboxScene): void {
         sCancel.dataset.tip = tipK('Cancel site', `refunds ${Object.keys(refund).length ? costText(refund) : 'nothing'}`, '');
       } else {
         setHead(BUILDING_ICON[b.type], name, `${Math.ceil(b.hp)}/${b.maxHp}`, bar('hp', b.hp / b.maxHp, BAR_W) + (b.burning ? bar('burn', 1, BAR_W) : ''),
-          `${b.team === 0 ? 'yours' : 'enemy'} · ${b.state}${b.burning ? ' · burning' : ''}`);
+          `${b.team === 0 ? 'yours' : b.team === NEUTRAL_TEAM ? 'neutral' : 'enemy'} · ${b.state}${b.burning ? ' · burning' : ''}`);
         const up = b.team === 0 ? m.upgradeOf(b) : null, def = BUILDINGS[b.type], own = b.team === 0 && b.state === 'done';
         const iron = own && def.wall === 'gate', wet = own && !!def.burnable && !def.field;
         setCard(false, [...(up ? [bUp] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : [])], SEL_BLD);

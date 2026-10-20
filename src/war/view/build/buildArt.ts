@@ -10,6 +10,7 @@
  */
 import type Phaser from 'phaser';
 import type { BuildingType, BuildState } from '../../types';
+import { HH, HW } from '../iso';
 
 interface ArtObj { id: string; building: string; state: string; file: string; w: number; h: number; tileOrigin: { x: number; y: number }; footprint: [number, number] }
 interface ArtKit {
@@ -45,7 +46,19 @@ const ART_ID: Partial<Record<BuildingType, string>> = {
   infirmary: 'infirmary', infirmary2: 'infirmary2', infirmary3: 'infirmary3', workshop: 'workshop', workshop2: 'workshop2', workshop3: 'workshop3',
   stall: 'market-stall', stall2: 'market-stall2', stall3: 'market-stall3', sortingFloor: 'sorting-floor', sortingFloor2: 'sorting-floor2',
   stakes: 'stakes', // M5h3 Fortifier field tile
+  warehouse: 'warehouse', // M7a pre-built (a trade town's rented warehouse)
 };
+/**
+ * M7b pre-built pieces with no building art of their own: drawn with the town art of the biome libraries
+ * (public/war/biomes/<lib>/objects.json, done only; several looks are picked by position). Stalls, warehouses,
+ * workplaces, farms, presses, stone towers, gates and walls use their ART-B art or kits above.
+ */
+const PRE_ART: Partial<Record<BuildingType, string[]>> = {
+  house: ['elaia/town-house-a', 'elaia/town-house-b'], cottage: ['elaia/town-cottage'], temple: ['elaia/town-temple'], stoa: ['elaia/town-stoa'],
+  statue: ['elaia/town-statue'], well: ['elaia/town-well'], jetty: ['elaia/town-jetty'], board: ['elaia/town-board'], cache: ['elaia/town-goods'],
+  tent: ['kyrene/nomad-tent'], shrine: ['elaia/shrine'],
+};
+interface LibObj { id: string; file: string; anchor: { x: number; y: number }; footprint?: [number, number] }
 /** Kit ids per sim type. */
 export const KIT_ID: Partial<Record<BuildingType, string>> = {
   palisade: 'palisade', rampart: 'rampart', stoneWall: 'stone-wall', woodTower: 'tower-wood', stoneTower: 'tower-stone',
@@ -56,6 +69,7 @@ const FALLBACK_STAGES: [string, number][] = [['foundation', 0], ['scaffold', 0.5
 
 export class BuildArt {
   private sprites = new Map<string, BuildSprite>(); // `${artId}/${state}`
+  private pre = new Map<string, BuildSprite>(); // M7b town art by `<lib>/<id>`
   private kits = new Map<string, KitSprite>(); // `${kitId}/${state}`
   private metas = new Map<string, KitMeta>();
   /** Ladder top (px above the ground) by target kit id. */
@@ -103,6 +117,21 @@ export class BuildArt {
           if (!scene.textures.exists(key)) scene.textures.addImage(key, await img(o.file));
           art.sprites.set(`${o.building}/${o.state}`, { key, tileOrigin: o.tileOrigin, fw: o.footprint[0], fh: o.footprint[1] });
         }),
+        // M7b: the town art for pre-built pieces; a library that fails leaves those pieces as placeholders
+        ...[...new Set(Object.values(PRE_ART).flat().map((id) => id.split('/')[0]))].map(async (lib) => {
+          try {
+            const lb = `${base}../biomes/${lib}/`, want = new Set(Object.values(PRE_ART).flat());
+            const objs = ((await (await fetch(lb + 'objects.json')).json()) as { objects: LibObj[] }).objects.filter((o) => want.has(`${lib}/${o.id}`));
+            await Promise.all(objs.map(async (o) => {
+              const key = `bld-${lib}-${o.id}`, [fw, fh] = o.footprint ?? [1, 1];
+              if (!scene.textures.exists(key)) scene.textures.addImage(key, await img(`../biomes/${lib}/${o.file}`));
+              // the library anchors its art at the footprint's south vertex; the top vertex of its north tile is (fw + fh) half-tiles up
+              art.pre.set(`${lib}/${o.id}`, { key, tileOrigin: { x: o.anchor.x - (fw - fh) * HW, y: o.anchor.y + 1 - (fw + fh) * HH }, fw, fh });
+            }));
+          } catch (e) {
+            console.warn('[build art] town art', lib, e);
+          }
+        }),
         ...kits.filter((k) => k.post).map((k) => sheet(`kit-${k.id}-post`, k.post!, k)),
         ...kits.flatMap((k) => Object.entries(k.states).map(async ([state, file]) => {
           const key = `kit-${k.id}-${state}`, fkey = k.front?.[state] ? `${key}-front` : undefined;
@@ -142,6 +171,12 @@ export class BuildArt {
     if (!id || stage === 'destroyed') return undefined;
     if (type === 'woodGate' || type === 'stoneGate') id += '-' + axis + (deep ? '-deep-' + deep : '') + (iron && this.sprites.has(`${id}-${axis}${deep ? '-deep-' + deep : ''}-iron/done`) ? '-iron' : '');
     return this.sprites.get(`${id}/${stage}`) ?? this.earlier(stage, (s) => this.sprites.get(`${id}/${s}`)) ?? this.sprites.get(`${id}/done`);
+  }
+
+  /** M7b: the town art of a pre-built type with none of its own (`seed` picks one of its looks), else undefined. */
+  preSprite(type: BuildingType, seed: number): BuildSprite | undefined {
+    const ids = PRE_ART[type];
+    return ids ? this.pre.get(ids[Math.abs(Math.floor(seed)) % ids.length]) ?? this.pre.get(ids[0]) : undefined;
   }
 
   /** The working fx of a sim type's art (none: no workplace, or its crafters' clips are the activity). */
