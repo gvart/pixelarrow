@@ -2542,7 +2542,7 @@ back wall.
 ### 40b Ruins, FX and rare goods
 
 W-47 "Pre-built structures": a razed piece becomes a ruin in place (rubble footprint, slow ×2, cover). **26 PixelLab
-generations** (19 pixflux img2img incl. 3 redos, 6 pixen icons, 1 rejected). Mock-ups: `node
+generations** (20 pixflux img2img incl. 1 rejected and 2 redos, 6 pixen icons). Mock-ups: `node
 scripts/war/art/landmarks-preview.mjs` -> `shots/war/landmarks/` (`RUINS_town_1x`, `RUINS_town_2x_crop`,
 `RUINS_walls_1x`, `FX_scene_1x`, `FX_scene.gif`, `FX_strips_half`, `ICONS_rare_32_4x`).
 
