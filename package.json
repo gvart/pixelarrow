@@ -16,7 +16,8 @@
     "regression": "node scripts/regression/run.mjs",
     "sheets:pack": "node scripts/art/pack/cli.mjs --dev",
     "bench:war": "node scripts/war/bench.mjs",
-    "balance:war": "node scripts/war/balance.mjs"
+    "balance:war": "node scripts/war/balance.mjs",
+    "play:war": "node scripts/war/play.mjs"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.3.0",
