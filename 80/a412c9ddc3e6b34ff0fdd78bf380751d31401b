@@ -1,0 +1,44 @@
+tests/war/works.test.ts
+  s_cfc22b058125c4::t_73cbea3b58024d 308
+  s_cfc22b058125c4::t_6338450dfad22c 309
+  s_cfc22b058125c4::t_51d9accdcc0deb 295,305-307,310-312,315-319,321,326-333,344,351-353,356-357
+tests/war/sim.test.ts
+  s_cfc22b058125c4::t_ff376472520c10 58,71-72
+src/war/scenarios/index.ts
+  s_cfc22b058125c4::t_f06f52aca11319 9,11,52-53,105-106,121-122,126-127,142-143,160-161,186,224,229-231,253-256,265,279-280,283,285,318,331,363,374
+src/war/sim/soldiers.ts
+  s_cfc22b058125c4::t_656ef0afa02df2 2
+  s_cfc22b058125c4::t_4f62e55a493770 1,3-8
+tests/war/bridges.test.ts
+  s_cfc22b058125c4::t_05a4214f701b05 354-356
+scripts/war/bench.mjs
+  s_cfc22b058125c4::t_3a8fe447befac3 2,4-5,27-28,31,33,43,53,59,62,67,70-71,85,96-98,102,135
+  s_cfc22b058125c4::t_b90f770e7911f1 145,150-151,153
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_4d583754b911c0 700-702
+  s_cfc22b058125c4::t_23bb72d49527cc 53,173,364,366,480-484,489-491,1462,1468
+tests/war/combat.test.ts
+  s_cfc22b058125c4::t_ff376472520c10 65,67,73,75-76
+  s_cfc22b058125c4::t_ac3c9e649a308f 111-131,133-134
+tests/war/squadSize.test.ts
+  s_cfc22b058125c4::t_ca63dd456b0a71 46
+  s_cfc22b058125c4::t_a84e647ca9f1a6 1-45,47-93
+src/war/sim/formation.ts
+  s_cfc22b058125c4::t_866041ba9e9fd2 6,12,14-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "80a412c9ddc3e6b34ff0fdd78bf380751d31401b",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": null
+    }
+  }
+}
