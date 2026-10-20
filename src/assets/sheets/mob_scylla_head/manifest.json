@@ -1,0 +1,74 @@
+{
+ "version": 2,
+ "class": "mob_scylla_head",
+ "image": "mob_scylla_head.png",
+ "frame": {
+  "w": 128,
+  "h": 153
+ },
+ "anchor": {
+  "x": 60,
+  "y": 150
+ },
+ "anchors": {
+  "south-east": {
+   "x": 69,
+   "y": 150
+  },
+  "north-east": {
+   "x": 69,
+   "y": 150
+  },
+  "south-west": {
+   "x": 60,
+   "y": 150
+  },
+  "north-west": {
+   "x": 60,
+   "y": 150
+  }
+ },
+ "scale": 1,
+ "rows": [
+  "south-east",
+  "north-east",
+  "south-west",
+  "north-west"
+ ],
+ "wrap": 32,
+ "colorGroups": {},
+ "tiers": {
+  "basic": {}
+ },
+ "anims": {
+  "idle": {
+   "col": 0,
+   "frames": 12,
+   "fps": 8
+  },
+  "attack": {
+   "col": 12,
+   "frames": 12,
+   "fps": 12,
+   "strike": 6
+  },
+  "die": {
+   "col": 24,
+   "frames": 12,
+   "fps": 10
+  },
+  "hit": {
+   "col": 36,
+   "frames": 4,
+   "fps": 12
+  }
+ },
+ "metal": [],
+ "variation": {
+  "skin": false,
+  "shade": false
+ },
+ "rarity": {
+  "metal": false
+ }
+}
