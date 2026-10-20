@@ -22,6 +22,8 @@ import { parseWorldMsg, type RegionState, type SeasonResult, type SeasonSnap, ty
 import type { AllianceId, Side } from '../../../../src/war/world/types';
 import { scoreRate } from '../../../../src/war/world/season';
 import { allianceCounts } from './members';
+import { boardsSeen, hasNode } from '../tradeScore';
+import type { TransitCargo } from '../../../../src/war/net/world';
 import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type RegionReport, type WorldState } from './world';
 
 const STATE = 'world';
@@ -62,7 +64,7 @@ export class WarWorldDO extends DurableObject<Env> {
     const stub = (id: string) => this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(id));
     return {
       depart: (from: string, pid: number, who: number | string[], side: Side, to: string, foeRadius: number) => stub(from).depart(from, pid, who, side, to, foeRadius) as Promise<DepartResult>,
-      arrive: (to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>) => stub(to).arrive(to, pid, alliance, ids, side, lost) as Promise<ArriveResult>,
+      arrive: (to: string, pid: number, alliance: AllianceId, ids: string[], side: Side, lost?: Record<string, number>, cargo?: TransitCargo) => stub(to).arrive(to, pid, alliance, ids, side, lost, cargo) as Promise<ArriveResult>,
     };
   }
 
@@ -78,10 +80,18 @@ export class WarWorldDO extends DurableObject<Env> {
   /** A transfer order of player `pid` (alliance looked up by the Worker). */
   async transfer(pid: number, alliance: AllianceId | null, o: TransferOrder): Promise<{ transit: TransitSnap } | { error: TransferError; detail?: string }> {
     const w = await this.ensure();
-    const t = await w.transfer(pid, alliance, o, Date.now(), this.ports());
+    const safe = this.env.DB ? await hasNode(this.env.DB, pid, 'safeRoads') : false;
+    const t = await w.transfer(pid, alliance, o, Date.now(), this.ports(), safe);
     if ('error' in t) return t;
     await this.commit(w);
     return { transit: snapOf(t) };
+  }
+
+  /** M6h: trade score to an alliance (a scoring fill or contract). */
+  async addTrade(alliance: AllianceId, pts: number): Promise<void> {
+    const w = await this.ensure();
+    w.addTrade(alliance, pts, Date.now());
+    await this.commit(w);
   }
 
   /** A region room's report (WarRegionDO, every few seconds while it changes). */
@@ -125,7 +135,9 @@ export class WarWorldDO extends DurableObject<Env> {
   async snapshot(pid: number, alliance: AllianceId | null): Promise<WorldSnapshot> {
     const w = await this.ensure();
     const counts = this.env.DB ? await allianceCounts(this.env.DB) : { members: [0, 0, 0, 0], clans: [0, 0, 0, 0] };
-    return w.snapshot(pid, alliance, counts, Date.now());
+    const snap = w.snapshot(pid, alliance, counts, Date.now());
+    if (this.env.DB && alliance !== null) snap.boards = await boardsSeen(this.env.DB, alliance);
+    return snap;
   }
 
   /** Arrivals due by `now` (the alarm; tests call it with a later time). One run at a time. */
@@ -200,7 +212,10 @@ export class WarWorldDO extends DurableObject<Env> {
     const now = Date.now();
     for (const ws of this.ctx.getWebSockets()) {
       const a = ws.deserializeAttachment() as Attachment | null;
-      if (a) send(ws, { t: 'world', ...w.snapshot(a.pid, a.alliance, counts, now) });
+      if (!a) continue;
+      const snap = w.snapshot(a.pid, a.alliance, counts, now);
+      if (this.env.DB && a.alliance !== null) snap.boards = await boardsSeen(this.env.DB, a.alliance);
+      send(ws, { t: 'world', ...snap });
     }
   }
 }

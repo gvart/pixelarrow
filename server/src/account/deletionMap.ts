@@ -124,6 +124,8 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_fights: { rule: 'not_player_keyed' },
   // M6e: goods by holder id (`sr:<player>`, stalls, escrows); a deleted player's holder rows go, their lots stay inert
   war_goods: { rule: 'not_player_keyed' },
+  war_trade_score: { rule: 'not_player_keyed' },
+  war_board_seen: { rule: 'not_player_keyed' },
   war_alliance_clans: { rule: 'not_player_keyed' },
   public_snapshot: { rule: 'derived' },
   dev_outbox: { rule: 'dev_only' },

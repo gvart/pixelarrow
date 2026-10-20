@@ -45,7 +45,8 @@ import { CHOKEPOINTS } from '../../../src/war/world/season';
 import { worldRegion } from '../../../src/war/world/graph';
 import { bossItems } from './bosses';
 import { craftKey } from './crafting';
-import { bundleGoods, contents, fill, room as freeLoads, takeOut, type Bundle } from './cargo';
+import { bundleGoods, contents, fill, room as freeLoads, takeAll, takeOut, type Bundle } from './cargo';
+import type { TransitCargo } from '../../../src/war/net/world';
 
 /** What of bundle b went across (b less the rest r): goods and uids to take back. */
 function subtract(b: Bundle, r: Bundle): { goods: Record<string, number>; uids: string[] } {
@@ -78,8 +79,8 @@ export interface Group { cls: string; count: number; persons?: WarPerson[] }
 /** A fight to write back: `id` is unique per room instance (epoch) and tick. */
 export interface Fight { id: string; report: FightReport }
 
-/** A squad gone over a border (M4 transfer out). */
-export interface Departed { ids: string[]; off: number; lost: Record<string, number>; fight?: Fight }
+/** A squad gone over a border (M4 transfer out); M6h: with its packs and the cart it drove. */
+export interface Departed { ids: string[]; off: number; lost: Record<string, number>; fight?: Fight; cargo?: TransitCargo }
 
 /** A sim `crafted` event (M5h4): the DO mints or updates the item in D1. */
 export type Crafted = Extract<WarEvent, { kind: 'crafted' }>;
@@ -372,12 +373,22 @@ export class WarRoom {
     for (const u of men) if (u.hp < u.maxHp) lost[u.pid!] = u.maxHp - u.hp;
     const persons = this.sim.reportPersons(ids);
     const fight = persons.length ? { id: `${this.region.id}:${this.epoch}:${this.currentTick}:out${squad}`, report: { tick: this.currentTick, persons, loot: {} } } : undefined;
+    // M6h: their packs and the cart a squad of theirs crews ride the transfer
+    const cargo: TransitCargo = { packs: {} };
+    for (const id of ids) {
+      const at = this.sim.cargo({ persons: [id] });
+      const b = at ? takeAll(at.slots) : null;
+      if (b && (b.lots.length || b.items.length)) cargo.packs[id] = b;
+    }
+    const crewed = (this.snap.sieges ?? []).find((e) => e.owner === ownerOf(pid) && e.crew !== undefined && squads.has(e.crew) && e.state !== 'destroyed');
+    const cart = crewed ? this.sim.stowCart(crewed.id) : null;
+    if (cart) cargo.cart = { type: cart.type, lots: cart.hold.lots.filter((l) => l.n > 1e-9), items: cart.hold.items };
     this.sim.dropPersons(ids);
     for (const u of men) this.diedAt[u.id] = this.currentTick - CORPSE_TICKS; // gone, not fallen: no corpse, no blow
     this.live[team] -= men.length;
     this.snap = this.sim.snapshot();
     for (const id of squads) if (!this.snap.units.some((u) => u.squad === id && u.state !== 'dead')) this.bots.clear(id);
-    return { ids, off, lost, ...(fight ? { fight } : {}) };
+    return { ids, off, lost, ...(fight ? { fight } : {}), ...(Object.keys(cargo.packs).length || cargo.cart ? { cargo } : {}) };
   }
 
   /**
@@ -386,7 +397,7 @@ export class WarRoom {
    * here. They hold where they arrive; an online player gets a fresh welcome (his squads), an offline one takes them
    * over with a join (a rejoin: no new spawn).
    */
-  arrive(pid: number, team: number, persons: WarPerson[], side: Side, lost: Record<string, number> = {}): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
+  arrive(pid: number, team: number, persons: WarPerson[], side: Side, lost: Record<string, number> = {}, cargo?: TransitCargo): { squad: SquadId; msg: ServerMsg | null } | { error: 'full' | 'team' | 'squads' } {
     const p = this.players.get(pid);
     if (team >= this.per.length || (p && p.team !== team)) return { error: 'team' };
     if (this.squadsOf(pid).length >= MAX_SQUADS) return { error: 'squads' };
@@ -394,6 +405,18 @@ export class WarRoom {
     if (!p) this.players.set(pid, { pid, team, online: false, cam: null, enc: null, sinceKey: -1, bytes: 0 });
     const squad = this.spawn(ownerOf(pid), team, { cls: persons[0].hero.cls ?? 'militia', count: persons.length, persons }, undefined, side);
     this.sim.hurtPersons(lost);
+    // M6h: each man's pack back; the cart rolls in beside them, crewed by the squad
+    for (const [id, b] of Object.entries(cargo?.packs ?? {})) {
+      const at = this.sim.cargo({ persons: [id] });
+      if (at) fill(at.slots, b as Bundle);
+    }
+    if (cargo?.cart) {
+      const e = this.entry(side), men = this.sim.cargo({ squad })!;
+      const x = men.slots[0]?.x ?? (e.x0 + e.x1) / 2, y = men.slots[0]?.y ?? (e.y0 + e.y1) / 2;
+      const c = this.sim.spawnCart(team, ownerOf(pid), cargo.cart.type, x, y);
+      fill(this.sim.cargo({ cart: c })!.slots.map((s) => ({ ...s, cap: Infinity })), cargo.cart as Bundle);
+      this.sim.order({ kind: 'crew', squad, siege: c });
+    }
     const online = this.players.get(pid)!.online;
     if (!online) {
       const e = this.entry(side);

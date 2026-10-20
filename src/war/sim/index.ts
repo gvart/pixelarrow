@@ -2626,6 +2626,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             ...(u.alive && u.squad.flee ? { flee: true as const } : {}),
             ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
             ...(u.alive && u.pack && loads(u.pack) > 1e-9 ? { pack: loads(u.pack) } : {}),
+            ...(u.alive && u.tag > tick ? { tag: u.tag - tick } : {}),
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
         }),

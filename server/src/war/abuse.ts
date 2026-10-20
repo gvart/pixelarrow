@@ -12,5 +12,8 @@ export async function handoffRefusal(_db: D1Database, _w: HandoffWindow, _now: n
 /** Throws when two players may not deal with each other (contracts, deals, letters). */
 export async function contractRefusal(_db: D1Database, _a: number, _b: number, _now: number): Promise<void> {}
 
+/** Throws when two players may not fill each other's offers. */
+export async function tradeRefusal(_db: D1Database, _a: number, _b: number, _now: number): Promise<void> {}
+
 /** A hand-off swapped: its record. */
 export async function handoffDone(_db: D1Database, _w: HandoffWindow, _gave: Record<number, Bundle>, _now: number): Promise<void> {}

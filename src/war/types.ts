@@ -194,7 +194,9 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
   /** M5f civilians: at work at his building (cook, forge, trade, heal: the clip to play); fleeing (run). */
   work?: 'cook' | 'forge' | 'trade' | 'heal'; flee?: true;
   /** M6a: loads in his pack (a porter). */
-  pack?: number }
+  pack?: number;
+  /** M6d combat tag: ticks left before he may enter a safe zone (he hit or was hit; absent: none). */
+  tag?: number }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while

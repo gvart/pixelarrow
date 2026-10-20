@@ -26,7 +26,7 @@ const MAX_BODY = 512;
 // src/war/net/world.ts transferSchema, built with the server's zod (readJson takes its own copy's schemas)
 const regionId = z.string().regex(/^[a-z0-9_-]{1,40}$/);
 const transfer = z
-  .object({ from: regionId, to: regionId, squad: z.number().int().min(0).max(2 ** 31).optional(), ids: z.array(z.string().min(1).max(64)).min(1).max(TRANSFER_MAX).optional() })
+  .object({ from: regionId, to: regionId, squad: z.number().int().min(0).max(2 ** 31).optional(), ids: z.array(z.string().min(1).max(64)).min(1).max(TRANSFER_MAX).optional(), path: z.array(regionId).max(12).optional() })
   .refine((o) => (o.squad === undefined) !== (o.ids === undefined), 'squad or ids');
 export const worldStub = (env: Env) => env.WAR_WORLD.get(env.WAR_WORLD.idFromName(WORLD_NAME));
 

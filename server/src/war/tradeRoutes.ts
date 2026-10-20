@@ -29,7 +29,10 @@ import { db, requirePlayable } from '../middleware';
 import { GOODS } from '../../../src/war/net/protocol';
 import { board, cancelOffer, fill, listOffer, mySites, rentSite, upgradeStall } from './market';
 import { worldStub } from './world/routes';
-import { fillHook } from './tradeScore';
+import { fillHook, recordBoard } from './tradeScore';
+import { allianceOf } from './world/members';
+import { presentIn } from './market';
+import type { AllianceId } from '../../../src/war/world/types';
 import { buyLetter, contractsIn, dropHalf, offerLetter, postContract, postDeal, redeemLetter, takeContract } from './contracts';
 import { contractRefusal } from './abuse';
 
@@ -56,7 +59,12 @@ export async function holderOf(env: Env, region: string): Promise<number> {
   }
 }
 
-trade.get('/:town/board', requirePlayable, async (c) => c.json(await board(db(c.env), town(c.req.param('town')))));
+trade.get('/:town/board', requirePlayable, async (c) => {
+  const t = town(c.req.param('town')), d = db(c.env), pid = c.get('session').pid;
+  const b = await board(d, t);
+  if (await presentIn(d, pid, t)) await recordBoard(d, pid, b, Date.now()); // his men see it: the world map keeps it
+  return c.json(b);
+});
 
 trade.get('/:town/mine', requirePlayable, async (c) => c.json(await mySites(db(c.env), c.get('session').pid, town(c.req.param('town')))));
 
@@ -143,5 +151,14 @@ trade.post('/offers/:id/fill', requirePlayable, async (c) => {
   const d = db(c.env), pid = c.get('session').pid;
   const row = await d.prepare('SELECT town FROM war_offers WHERE id = ?1').bind(id).first<{ town: string }>();
   const holder = row ? await holderOf(c.env, row.town) : -1;
-  return c.json(await fill(d, pid, id, b.n, b.key, holder, Date.now(), fillHook(c.env)));
+  const f = await fill(d, pid, id, b.n, b.key, holder, Date.now(), fillHook(c.env));
+  if (row) {
+    const bd = await board(d, row.town);
+    for (const p of [f.seller, f.buyer]) await recordBoard(d, p, bd, Date.now());
+  }
+  if (f.score > 0) {
+    const a = await allianceOf(d, f.seller);
+    if (a !== null) await worldStub(c.env).addTrade(a as AllianceId, f.score);
+  }
+  return c.json(f);
 });

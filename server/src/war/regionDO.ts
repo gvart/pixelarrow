@@ -55,6 +55,7 @@ import { ALLIANCES } from '../../../src/war/world/alliances';
 import { allianceOf } from './world/members';
 import type { Side } from '../../../src/war/world/types';
 import { WORLD_NAME, type ArriveResult, type DepartResult } from './world/world';
+import type { TransitCargo } from '../../../src/war/net/world';
 
 const TICK_MS = 100;
 /** Ticks between summaries to the world map (sent only when changed). */
@@ -370,14 +371,14 @@ export class WarRegionDO extends DurableObject<Env> {
     if (d) await d.prepare('UPDATE war_persons SET region = ?3, updated_at = ?4 WHERE region = ?1 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(r.ids), `>${to}`, Date.now()).run();
     this.save();
     this.report(room, true);
-    return { ids: r.ids, off: r.off, lost: r.lost };
+    return { ids: r.ids, off: r.off, lost: r.lost, ...(r.cargo ? { cargo: r.cargo } : {}) };
   }
 
   /**
    * M4 (RPC from WarWorldDO): persons `ids` of the player (alliance `team`) in transit to this region come in over the
    * entry on `side`, if the alliance's quota has room (else the world keeps them waiting). D1 marks them deployed here.
    */
-  async arrive(region: string, pid: number, team: number, ids: string[], side: Side, lost: Record<string, number> = {}): Promise<ArriveResult> {
+  async arrive(region: string, pid: number, team: number, ids: string[], side: Side, lost: Record<string, number> = {}, cargo?: TransitCargo): Promise<ArriveResult> {
     const room = await this.ensure(region);
     const d = this.env.DB;
     if (!room || !d) return { error: 'unavailable' };
@@ -385,7 +386,7 @@ export class WarRegionDO extends DurableObject<Env> {
     const got = await deployed(d, road, ids);
     const persons = ids.flatMap((id) => got.get(id) ?? []);
     if (!persons.length) return { error: 'gone' };
-    const r = room.arrive(pid, team, persons, side, lost);
+    const r = room.arrive(pid, team, persons, side, lost, cargo);
     if ('error' in r) return r;
     await d.batch([
       d.prepare('UPDATE war_persons SET region = ?1, updated_at = ?4 WHERE region = ?3 AND id IN (SELECT value FROM json_each(?2))').bind(region, JSON.stringify(persons.map((p) => p.id)), road, Date.now()),
