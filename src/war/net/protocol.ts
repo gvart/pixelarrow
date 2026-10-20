@@ -21,7 +21,7 @@ import { SQUAD_MAX } from '../sim/soldiers';
 import type { BridgePlan, BuildingType, Order, PlaceResult, SquadId, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 3;
+export const NET_VERSION = 4;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -43,7 +43,9 @@ const num = z.number().finite();
 const id = z.number().int().min(0).max(2 ** 31);
 /** Flat x,y tile points of a wall or bridge drag (and its towers, gates, inside point). */
 const pts = (max: number) => z.array(num).max(max * 2).refine((a) => a.length % 2 === 0, 'x,y pairs');
-const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'palisade', 'rampart', 'stoneWall', 'woodStairs', 'stoneStairs', 'ladder', 'woodTower', 'stoneTower', 'woodGate', 'stoneGate', 'woodBridge', 'stoneBridge', 'brazier', 'pitchKiln'] as const satisfies readonly BuildingType[];
+const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'palisade', 'rampart', 'stoneWall', 'woodStairs', 'stoneStairs', 'ladder', 'woodTower', 'stoneTower', 'woodGate', 'stoneGate', 'woodBridge', 'stoneBridge', 'brazier', 'pitchKiln',
+  // M5h workplaces (L2/L3 come by upgrade; listed for checks of every type)
+  'forge', 'forge2', 'forge3', 'cookhouse', 'cookhouse2', 'cookhouse3', 'infirmary', 'infirmary2', 'infirmary3', 'workshop', 'workshop2', 'workshop3', 'stall', 'stall2', 'stall3', 'sortingFloor', 'sortingFloor2'] as const satisfies readonly BuildingType[];
 const rot = z.union([z.literal(0), z.literal(1)]).optional();
 /** building or siege target: exactly one. */
 const target = { building: id.optional(), siege: id.optional() };
@@ -76,6 +78,10 @@ export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('upgrade'), building: id, squad: id.optional() }),
   z.object({ kind: z.literal('cancelSite'), site: id }),
   z.object({ kind: z.literal('claimRegion'), squad: id, point: id }),
+  // M5h crafting: queue a recipe at (or cancel an order of) a workplace of the player's team; repair and salvage carry a
+  // stash item and come from the server (M5h4)
+  z.object({ kind: z.literal('craft'), building: id, recipe: z.string().regex(/^[a-z_]+(:[a-z0-9_]+)?$/).max(48) }),
+  z.object({ kind: z.literal('cancelCraft'), building: id, order: id }),
   // siege
   z.object({ kind: z.literal('buildSiege'), squad: id, type: z.enum(['ram', 'stoneThrower', 'siegeLadder']), x: num, y: num }),
   z.object({ kind: z.literal('crew'), squad: id, siege: id }),

@@ -19,6 +19,7 @@ import { CIV_CLASSES, CIV_TOOLS, isCivClass, type CivClassId } from '../../data/
 import { RARITIES, type Item } from '../../data/items';
 import type { Hero } from '../../data/units';
 import type { ResourceKind, WarPerson } from '../types';
+import { toolMods } from '../../data/recipes';
 import { FALL } from './soldiers';
 
 export type CivJob = 'cook' | 'smith' | 'merchant' | 'engineer' | 'physician' | 'forager';
@@ -52,10 +53,23 @@ export const MERCHANT = { batch: 30, sell: 10, min: 50, silver: 1, goods: ['food
 export const ENGINEER = { build: 1.5 };
 export const FORAGER = { gather: 2 };
 /** heal: share of max HP per second (r: round his camp or fort, and round him on the field); near: added wounded share (docs/WAR.md "Fall"). */
-export const PHYSICIAN = { r: 6, heal: 0.01, near: FALL.physician };
+export const PHYSICIAN = { r: 6, surgeonR: 10, heal: 0.01, near: FALL.physician };
+/** M5h node effects on gathering and building (docs/WAR.md "Trees"). */
+export const FORAGE = { woodsman: 1.25, prospector: 1.25, pitchman: 2, masterBuilder: 1.25 };
+/** M5h Hunter: hides a beast's kill within r tiles brings. */
+export const HUNT = { r: 15, hides: 1 };
+/** M5h remedies: a bandage adds `bandage` to a falling man's wounded share; squads near a physician at work refill to SQUAD_MAX; theriac lasts `theriac` ticks. */
+export const REMEDY = { bandage: 0.05, feedR: 12, theriac: 18000 };
+/** M5h venom (mob flag): a bite holds `ticks`; falling with it takes `share` off the wounded share. */
+export const VENOM = { ticks: 200, share: 0.2 };
+
+/** A falling man's wounded share: his own (END), + a physician near, + a bandage (x2: Battle Dresser), - venom; within 0..FALL.cap. */
+export function fallShare(ws: number, physician: boolean, bandages: number, venom: boolean): number {
+  return Math.max(0, Math.min(FALL.cap, ws + (physician ? PHYSICIAN.near : 0) + REMEDY.bandage * bandages - (venom ? VENOM.share : 0)));
+}
 /** XP per job (docs/WAR.md "Record": meal batch, bar, trade, site, patient). */
 export const CIV_XP = 1;
-/** Work speed: +3% per level above 1, +10% per tool tier above 1, +5% per rarity step. */
+/** Work speed: +3% per level above 1, +10% per tool tier above 1, +5% per rarity step; x(1 + Deft) of a crafted tool. */
 export const WORK = { perLevel: 0.03, perTier: 0.1, perRarity: 0.05 };
 
 export const civJob = (cls: string): CivJob | null => (isCivClass(cls) ? (cls.slice(4) as CivJob) : null);
@@ -67,7 +81,7 @@ export const AT_BUILDING: readonly CivJob[] = ['cook', 'smith', 'merchant', 'phy
 export function workRate(hero: Hero): number {
   const tool = hero.equip.weapon, def = tool ? CIV_TOOLS[tool.def] : undefined;
   const tier = def?.tier ?? 1, rar = tool ? Math.max(0, RARITIES.indexOf(tool.rarity)) : 0;
-  return (1 + WORK.perLevel * (hero.level - 1)) * (1 + WORK.perTier * (tier - 1) + WORK.perRarity * rar);
+  return (1 + WORK.perLevel * (hero.level - 1)) * (1 + WORK.perTier * (tier - 1) + WORK.perRarity * rar) * (1 + toolMods(tool).deft); // M5h: Deft
 }
 
 /** The fresh civilian of a class: level 1, its attributes, the tier-1 tool (common). */

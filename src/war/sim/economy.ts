@@ -4,6 +4,7 @@
  * Wall pieces (perTile) cost and take labour per tile of line.
  */
 import type { BuildingType, ResourceKind } from '../types';
+import type { Workplace } from '../../data/recipes';
 
 export interface BuildingDef {
   w: number; // footprint in tiles, before rotation (walls: 1 tile wide, length from the line)
@@ -37,16 +38,22 @@ export interface BuildingDef {
   upgrade?: { to: BuildingType; cost: Partial<Record<ResourceKind, number>>; labour: number };
   /** W-35: a brazier (see BRAZIER): placed done and lit, never blocks, may stand on the team's own deck. */
   brazier?: boolean;
+  /** M5h: a workplace (docs/WAR.md "Workplaces"): its recipes' kind and its level (crafter slots, +1 grade a level). */
+  workplace?: { kind: Workplace; level: number };
 }
+
+/** Workplace chain levels: L1 (the placed building), L2 and L3 upgrade it in place. */
+const wp = (kind: Workplace, level: number, d: Omit<BuildingDef, 'workplace' | 'workers' | 'influence'> & { workers?: number }): BuildingDef =>
+  ({ workers: 4, influence: 0, ...d, workplace: { kind, level } });
 
 export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   camp: { w: 4, h: 4, hp: 400, cost: {}, labour: 300, workers: 6, influence: 12, material: 'wood', store: true },
-  storehouse: { w: 3, h: 3, hp: 600, cost: { wood: 60 }, labour: 900, workers: 6, influence: 0, material: 'wood', store: true },
+  storehouse: { w: 3, h: 3, hp: 600, cost: { wood: 60 }, labour: 900, workers: 6, influence: 0, material: 'wood', store: true, upgrade: { to: 'sortingFloor', cost: { wood: 40, stone: 20 }, labour: 600 } },
   outpost: { w: 3, h: 3, hp: 600, cost: { wood: 40, stone: 30 }, labour: 1200, workers: 4, influence: 18, material: 'wood' },
   fort: { w: 10, h: 10, hp: 5000, cost: { stone: 400, wood: 150 }, labour: 24000, workers: 20, influence: 32, material: 'stone', store: true },
   barracks: { w: 4, h: 3, hp: 1200, cost: { wood: 120, stone: 40 }, labour: 3000, workers: 8, influence: 0, material: 'wood' },
   farm: { w: 4, h: 4, hp: 300, cost: { wood: 30 }, labour: 600, workers: 6, influence: 0, material: 'wood', yields: { res: 'food', max: 60, regrow: 0.5, rate: 1 } },
-  olivePress: { w: 3, h: 3, hp: 700, cost: { wood: 30, stone: 60 }, labour: 1500, workers: 6, influence: 0, material: 'stone', yields: { res: 'food', max: 100, regrow: 0.8, rate: 1.2 } },
+  olivePress: { w: 3, h: 3, hp: 700, cost: { wood: 30, stone: 60 }, labour: 1500, workers: 6, influence: 0, material: 'stone', yields: { res: 'food', max: 100, regrow: 0.8, rate: 1.2 }, workplace: { kind: 'press', level: 1 } }, // M5h: the Presser's oil
   palisade: { w: 1, h: 1, hp: 300, cost: { wood: 6 }, labour: 60, workers: 2, influence: 0, material: 'wood', wall: 'segment', perTile: true, tier: 1, burnable: true, upgrade: { to: 'rampart', cost: { wood: 8 }, labour: 100 } },
   rampart: { w: 1, h: 1, hp: 700, cost: { wood: 14 }, labour: 160, workers: 4, influence: 0, material: 'wood', wall: 'segment', perTile: true, tier: 2, walk: 2, depth: 2, burnable: true, upgrade: { to: 'stoneWall', cost: { stone: 15 }, labour: 300 } },
   stoneWall: { w: 1, h: 1, hp: 1500, cost: { stone: 15 }, labour: 300, workers: 4, influence: 0, material: 'stone', wall: 'segment', perTile: true, tier: 3, walk: 3, depth: 2 },
@@ -63,6 +70,25 @@ export const BUILDINGS: Record<BuildingType, BuildingDef> = {
   // W-35 fire arrows: a brazier lights them, pitch (from a kiln, or a little with pine wood) feeds them
   brazier: { w: 1, h: 1, hp: 60, cost: { wood: 5 }, labour: 0, workers: 0, influence: 0, material: 'wood', brazier: true },
   pitchKiln: { w: 2, h: 2, hp: 500, cost: { wood: 40, stone: 20 }, labour: 900, workers: 4, influence: 0, material: 'stone', yields: { res: 'pitch', max: 40, regrow: 0.1, rate: 0.6 } },
+  // M5h workplaces: L1 placed, L2 / L3 by upgrade (cost and labour of the step); each level a crafter slot and +1 grade
+  forge: wp('forge', 1, { w: 3, h: 3, hp: 1200, cost: { wood: 40, stone: 60 }, labour: 1500, material: 'stone', upgrade: { to: 'forge2', cost: { stone: 80, iron: 10 }, labour: 1500 } }),
+  forge2: wp('forge', 2, { w: 3, h: 3, hp: 1800, cost: { stone: 80, iron: 10 }, labour: 1500, material: 'stone', upgrade: { to: 'forge3', cost: { stone: 120, bronze: 20, marble: 10 }, labour: 2000 } }),
+  forge3: wp('forge', 3, { w: 3, h: 3, hp: 2400, cost: { stone: 120, bronze: 20, marble: 10 }, labour: 2000, material: 'stone' }),
+  cookhouse: wp('cookhouse', 1, { w: 3, h: 2, hp: 600, cost: { wood: 50, stone: 20 }, labour: 900, material: 'wood', burnable: true, upgrade: { to: 'cookhouse2', cost: { stone: 40 }, labour: 900 } }),
+  cookhouse2: wp('cookhouse', 2, { w: 3, h: 2, hp: 1000, cost: { stone: 40 }, labour: 900, material: 'stone', upgrade: { to: 'cookhouse3', cost: { stone: 60, bronze: 10 }, labour: 1200 } }),
+  cookhouse3: wp('cookhouse', 3, { w: 3, h: 2, hp: 1400, cost: { stone: 60, bronze: 10 }, labour: 1200, material: 'stone' }),
+  infirmary: wp('infirmary', 1, { w: 3, h: 3, hp: 800, cost: { wood: 60, stone: 30 }, labour: 1200, material: 'wood', burnable: true, upgrade: { to: 'infirmary2', cost: { wood: 30, herbs: 10 }, labour: 900 } }),
+  infirmary2: wp('infirmary', 2, { w: 3, h: 3, hp: 1000, cost: { wood: 30, herbs: 10 }, labour: 900, material: 'wood', burnable: true, upgrade: { to: 'infirmary3', cost: { stone: 80, marble: 10 }, labour: 1500 } }),
+  infirmary3: wp('infirmary', 3, { w: 3, h: 3, hp: 1600, cost: { stone: 80, marble: 10 }, labour: 1500, material: 'stone' }),
+  workshop: wp('workshop', 1, { w: 4, h: 3, hp: 900, cost: { wood: 80, stone: 20 }, labour: 1200, workers: 6, material: 'wood', burnable: true, upgrade: { to: 'workshop2', cost: { wood: 60, bronze: 10 }, labour: 1200 } }),
+  workshop2: wp('workshop', 2, { w: 4, h: 3, hp: 1200, cost: { wood: 60, bronze: 10 }, labour: 1200, workers: 6, material: 'wood', burnable: true, upgrade: { to: 'workshop3', cost: { wood: 100, iron: 20 }, labour: 1500 } }),
+  workshop3: wp('workshop', 3, { w: 4, h: 3, hp: 1500, cost: { wood: 100, iron: 20 }, labour: 1500, workers: 6, material: 'wood', burnable: true }),
+  stall: wp('stall', 1, { w: 2, h: 2, hp: 300, cost: { wood: 30 }, labour: 400, workers: 2, material: 'wood', burnable: true, upgrade: { to: 'stall2', cost: { stone: 60 }, labour: 900 } }),
+  stall2: wp('stall', 2, { w: 2, h: 2, hp: 800, cost: { stone: 60 }, labour: 900, workers: 2, material: 'stone', upgrade: { to: 'stall3', cost: { marble: 20, silver: 10 }, labour: 1200 } }),
+  stall3: wp('stall', 3, { w: 2, h: 2, hp: 1000, cost: { marble: 20, silver: 10 }, labour: 1200, workers: 2, material: 'stone' }),
+  // the sorting floor is a storehouse upgraded in place (still a store); L2 adds the tannery
+  sortingFloor: wp('sorting', 1, { w: 3, h: 3, hp: 700, cost: { wood: 40, stone: 20 }, labour: 600, workers: 6, material: 'wood', store: true, upgrade: { to: 'sortingFloor2', cost: { wood: 40, salt: 10 }, labour: 600 } }),
+  sortingFloor2: wp('sorting', 2, { w: 3, h: 3, hp: 800, cost: { wood: 40, salt: 10 }, labour: 600, workers: 6, material: 'wood', store: true }),
 };
 
 /**

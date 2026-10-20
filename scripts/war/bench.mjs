@@ -158,3 +158,45 @@ console.log(
   const g = war.teamGrid(0), seen = g.state.filter((s) => s > 0).length;
   console.log(`fog: units ${war.stats().units}, teams 4, ticks ${ticks}: step ${summary(ms)}; vision ${summary(vms)}; team 0 explored ${((seen / g.state.length) * 100).toFixed(1)}%`);
 }
+
+// craft (M5h2): 40 forges raised on open ground, 60 smiths working their queues (kept full), 480 builders then 240 of
+// them fighting 60 foes: 600 units with 40 workplaces on the civilian loop
+{
+  const { module: roster } = await runnerImport('/src/war/sim/roster.ts', opts);
+  const n = 200, flat = { id: 'f', name: 'f', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [] };
+  const war = sim.createSim(flat, 5);
+  war.claim(0, 70, 70, 70);
+  for (const [r, v] of Object.entries({ wood: 1e5, stone: 1e5, iron: 1e5, charcoal: 1e5 })) war.addStock(0, r, v);
+  const camp = war.spawnSquad('b', 0, 'militia', N, 46, 20);
+  war.order({ kind: 'placeBuilding', squad: camp, type: 'camp', x: 46, y: 16 });
+  for (let k = 0; k < 40; k++) {
+    const x = 30 + (k % 8) * 12, y = 30 + Math.floor(k / 8) * 12;
+    const id = war.spawnSquad(`b${k}`, 0, 'militia', N, x, y + 4);
+    war.order({ kind: 'placeBuilding', squad: id, type: 'forge', x, y });
+  }
+  const forges = () => war.snapshot().buildings.filter((b) => b.type === 'forge' && b.state === 'done');
+  let t0 = 0;
+  for (; t0 < 12000 && forges().length < 40; t0 += 50) for (let i = 0; i < 50; i++) war.step();
+  let done = forges();
+  // 60 smiths: 20 forges get two, 20 get one (spawned before any foe, so the whole civilian quota is the team's)
+  let pid = 0;
+  done.forEach((b, i) => {
+    const ps = Array.from({ length: i < 20 ? 2 : 1 }, () => roster.makePerson(`s${pid++}`, 'civ_smith', { level: 3 }));
+    const s = war.spawnSquad(`c${i}`, 0, 'civ_smith', ps.length, b.x, b.y + 3, ps);
+    war.order({ kind: 'civWork', squad: s, building: b.id });
+  });
+  for (let k = 0; k < 5; k++) war.spawnSquad(`e${k}`, 1, 'hoplite', N, 150 + k * 6, 150);
+  for (let k = 2; k <= 40; k += 2) war.order({ kind: 'attackMove', squad: k, x: 150, y: 150 });
+  const cms = [];
+  let made = 0;
+  for (let t = 0; t < ticks; t++) {
+    if (t % 50 === 0) {
+      done = forges();
+      for (const b of done) for (let q = b.queue?.length ?? 0; q < 5; q++) war.order({ kind: 'craft', team: 0, building: b.id, recipe: 'item:dory' });
+    }
+    war.step();
+    cms.push(war.stats().stepMs);
+    made += war.events().filter((e) => e.kind === 'crafted').length;
+  }
+  console.log(`craft: units ${war.stats().units}, workplaces ${done.length} (built in ${t0} ticks), ticks ${ticks}: ${summary(cms)}; items made ${made}`);
+}

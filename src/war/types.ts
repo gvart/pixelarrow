@@ -1,6 +1,7 @@
 import type { SimState } from './sim/state';
 import type { Hero } from '../data/units';
 import type { Item } from '../data/items';
+import type { Product } from '../data/recipes';
 export type TerrainKind = 'grass' | 'forest' | 'sand' | 'marsh' | 'rock' | 'road' | 'snow' | 'dirt';
 export type WaterKind = 0 | 1 | 2; // 0 none, 1 shallow (ford), 2 deep (impassable)
 export interface RegionData {
@@ -67,7 +68,22 @@ export type Order =
   // M5f civilians (src/war/sim/civilians.ts): a civilian squad stands round its team's done store building (camp,
   // storehouse, fort) and works there by class (cook, smith, merchant, physician). Civilian squads take only work orders
   // (move, hold, stop, formation, gather, build, civWork, detach, merge with another civilian squad).
-  | { kind: 'civWork'; squad: SquadId; building: number };
+  | { kind: 'civWork'; squad: SquadId; building: number }
+  | CraftOrder;
+/**
+ * M5h crafting (src/war/sim/crafting.ts): orders on a team's done workplace (BUILDINGS workplace), its queue at most
+ * CRAFT.queue long. craft: recipe id (src/data/recipes.ts RECIPES) whose workplace kind matches and level is reached;
+ * a civilian of the recipe's class at work there (civWork) holding its node starts it (inputs leave the stock then) and
+ * works it for secs / workRate. cancelCraft: the order goes, inputs taken come back. repair / salvage: an item of
+ * `owner`'s stash (the server sends it) mended to its max condition, or broken up for 30% of its recipe's inputs
+ * (Goldsmith 60%). Items come out in a `crafted` event (the server mints them into the owner's stash); goods go to the
+ * team stock, dishes and remedies to the team's supplies.
+ */
+export type CraftOrder =
+  | { kind: 'craft'; squad?: undefined; team: number; building: number; recipe: string }
+  | { kind: 'cancelCraft'; squad?: undefined; team: number; building: number; order: number }
+  | { kind: 'repair'; squad?: undefined; team: number; building: number; owner: string; item: Item }
+  | { kind: 'salvage'; squad?: undefined; team: number; building: number; owner: string; item: Item };
 // --- M2c siege (src/war/sim/siege.ts, fire and breaches in works.ts; docs/impl/global-war-rebuild.md W-29) ---
 export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder';
 /**
@@ -139,7 +155,9 @@ export interface SquadSnap { id: SquadId; owner: string; team: number; units: Un
    */
   fireArrows?: FireArrowsSnap;
   /** M5f: a civilian squad (work orders only), running from a foe; fed by a cook (rations). */
-  civ?: true; flee?: true; fed?: true }
+  civ?: true; flee?: true; fed?: true;
+  /** M5h: the dish it ate last (while fed), bandages it carries, theriac on (venom ignored). */
+  dish?: Product; bandages?: number; theriac?: true }
 export interface FireArrowsSnap { on: boolean; available: boolean; reason?: 'noBrazier' | 'noPitch' }
 export type MissileKind = 'arrow' | 'stone' | 'javelin';
 /**
@@ -165,6 +183,8 @@ export interface Snapshot {
   drops?: DropSnap[];
   /** M5f: rations per team (cooks make them, squads near a cook eat them). */
   rations?: Record<number, number>;
+  /** M5h: dishes, remedies, kits and caravan goods per team (src/data/recipes.ts Product). */
+  supplies?: Record<number, Partial<Record<Product, number>>>;
 }
 /**
  * A lair: its mob squad (team MOB_TEAM), mobs alive of `count`; state home (idle, wandering), chase, return (leashed back,
@@ -194,14 +214,19 @@ export interface WarSim {
 }
 
 // --- M2a: resources, gathering, construction (rules: src/war/sim/economy.ts) ---
-export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt' | 'pitch';
+export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt' | 'pitch'
+  // M5h crafting goods (src/data/recipes.ts CRAFT_GOODS): raw hides, flax, herbs; refined charcoal, leather, linen, oil
+  | 'hides' | 'flax' | 'herbs' | 'charcoal' | 'leather' | 'linen' | 'oil';
 export type BuildingType =
   | 'camp' | 'storehouse' | 'outpost' | 'fort' | 'barracks' | 'farm' | 'olivePress'
   | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate'
   | 'woodBridge' | 'stoneBridge'
   // W-35: brazier (1x1 on open ground, or on the team's own walkway / tower platform deck, no influence needed; paid at once, done and lit on
   // placement, burns BRAZIER.life seconds; no squad needed); pitchKiln: a pitch node fed by the team's wood
-  | 'brazier' | 'pitchKiln';
+  | 'brazier' | 'pitchKiln'
+  // M5h workplaces (docs/WAR.md "Workplaces"): chains of 3 levels by `upgrade`; the sorting floor upgrades a storehouse
+  | 'forge' | 'forge2' | 'forge3' | 'cookhouse' | 'cookhouse2' | 'cookhouse3' | 'infirmary' | 'infirmary2' | 'infirmary3'
+  | 'workshop' | 'workshop2' | 'workshop3' | 'stall' | 'stall2' | 'stall3' | 'sortingFloor' | 'sortingFloor2';
 /** foundation: marked out, materials arriving; scaffold: labour under way (the footprint blocks); damaged: done below half hp. */
 export type BuildState = 'foundation' | 'scaffold' | 'done' | 'damaged' | 'destroyed';
 export type PlaceReason = 'bounds' | 'noBuild' | 'water' | 'rock' | 'blocked' | 'overlap' | 'influence' | 'slope' | 'node' | 'short' | 'attach' | 'span' | 'bank' | 'cost';
@@ -278,7 +303,11 @@ export interface BuildingSnap {
    * Units on it have `on` = this piece.
    */
   bridge?: { axis: BridgeAxis; dir: [number, number]; width: number; part: 'end0' | 'end1' | 'deck'; deck: number; rows: number[] };
+  /** M5h: a workplace's crafting queue (first = next), oldest first. */
+  queue?: QueueSnap[];
 }
+/** A crafting order: its id, recipe (or 'repair' / 'salvage' of an item def), the crafter's unit once started (-1 waiting), progress 0..1. */
+export interface QueueSnap { id: number; recipe: string; kind: 'craft' | 'repair' | 'salvage'; by: UnitId; progress: number }
 /** A gatherable node: a region object (obj = index into region.objects) or a finished farm/press (building = its id). */
 export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; obj?: number; building?: number;
   /** A living guard lair stands near: no gathering. */
@@ -358,4 +387,6 @@ export type WarEvent =
   | { t: number; kind: 'objective'; squad: SquadId; what: 'claim' | 'building' }
   | { t: number; kind: 'pickup'; drop: number; team: number; items: number }
   | { t: number; kind: 'capture'; unit: UnitId; pid: string; captor: number }
-  | { t: number; kind: 'levelUp'; unit: UnitId; pid: string; level: number };
+  | { t: number; kind: 'levelUp'; unit: UnitId; pid: string; level: number }
+  // M5h: a crafting order finished: the made, mended or salvaged item for `owner`'s stash (salvage: item gone, goods to stock)
+  | { t: number; kind: 'crafted'; order: number; building: number; team: number; owner: string; pid?: string; recipe: string; what: 'craft' | 'repair' | 'salvage'; item: Item };

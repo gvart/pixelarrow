@@ -27,6 +27,8 @@ export const MOB_KINDS: readonly MobKind[] = ['wolf', 'boar', 'bear', 'bandit', 
 export interface MobDef {
   base: ClassId;
   hp: number; dmg: number; speed: number; atk?: number; armor?: number; block?: number; reach?: number; knock?: number;
+  /** M5h: its bite is venomous (scorpion, river serpent, hydra, chimera when they come): ../civilians.ts VENOM. */
+  venom?: boolean;
   count: number; aggro: number; leash: number;
   /** passive: runs from foes, never guards nodes or a claim zone; skittish: breaks off below this share of the pack's hp. */
   passive?: boolean; skittish?: number;
