@@ -91,7 +91,7 @@ gate.
 | 1 | wolves, boars, wild horses (catchable), bandits | entries |
 | 2 | bears, lions, scorpions, river serpents, harpies, pirates | entries, outer neutrals |
 | 3 (lair) | cyclops, Erymanthian boar, Stymphalian harpies, chimera, Nemean lion, hydra, kraken | one per inner or edge neutral |
-| 4 (boss) | titan, minotaur | Omphalos only |
+| 4 (boss) | titan, minotaur, and the region bosses | Omphalos, and per depth: "Living regions" |
 
 ### Regions
 
@@ -253,9 +253,9 @@ gorge – bacchae – erymanthos) is as short as the road through Omphalos but r
 
 | Phase | Goals |
 | --- | --- |
-| Early (days 1–3) | clear the entries and the inner pocket; claim the near edge lifeline (Siren, Krios, Ammon or Delta); open both frontier roads to the first caravans |
-| Mid (weeks 1–2) | hold or deny your metal frontier's tin; take a frontier town; run the first long hauls; take a gate; raid the rival's road |
-| Late (week 3 on) | siege the ramps and hold Omphalos; cut a rival's imports by holding its pass or bridge; keep 3+ market towns |
+| Early (days 1–3) | clear the entries and the inner pocket (its tier-1 boss); raid the near edge lifeline's fields for salt and silver (depth 4: the region itself waits); open both frontier roads to the first caravans |
+| Mid (weeks 1–2) | hold or deny your metal frontier's tin; take a frontier town from its bandit host; run the first long hauls; take a gate landmark; raid the rival's road |
+| Late (week 3 on) | take a rim landmark with allies; restore landmarks with traded rare goods; siege the ramps and hold Omphalos; cut a rival's imports by holding its pass or bridge; keep 3+ market towns |
 
 ### Season score and victory
 
@@ -265,6 +265,8 @@ gorge – bacchae – erymanthos) is as short as the road through Omphalos but r
 | Frontier town (Kleisoura, Stymphalia, Achelous, Ammos) | 3 an hour | town square held |
 | Gate (saddle, erymanthos, gorge, canyons) | 2 an hour | |
 | Other claimed neutral | 1 an hour | |
+| Restored landmark, garrisoned | +2 an hour | ≤ 6 an hour an alliance ("Living regions") |
+| Temples, shrines, statues held intact | 0.25 / 0.1 / 0.1 an hour | ≤ 2 an hour an alliance; razing a temple or shrine −10 |
 | Trade sale of goods from ≥ 3 transfers away ("Trade") | 1 per 100 coin of price, ≤ 60 a day | traders score, not only armies |
 | Razing an enemy home building | 5 | homes never fall (W-09) |
 
@@ -299,6 +301,198 @@ Omphalos in 4. Asymmetric: what is far differs (Dodona copper, Kyrene timber, Sk
 | Buffer | room to manoeuvre, scattered cover, two ways through, no single decisive point |
 | Coastal | a beach or cove landing site and cliffs, kept clear for later naval play |
 | Home | its agora, one road exit per entry, a workplace quarter, the specialty field near the forge |
+
+## Living regions
+
+W-47 (with W-42 lore, W-45 bosses, W-46 loot, W-44 economy). Nothing on a region map is decoration: every structure is
+a sim building with a function, an owner, hp and capture, raze and repair rules; every region has lore and a **depth**;
+the deep regions hold **landmarks**, pre-built strongholds that are hard to take and strong once held. Tables in this
+section supersede the fauna column of "Regions" for the neutrals.
+
+### Region lore and depth
+
+Depth is how far a region lies from the living halls, counted in danger rather than transfers: the homes are safe
+(0), the far rim and the centre are the deepest (4), where Metaxy is thinnest and the Abyss looks in.
+
+| Depth | Regions | Guardian | Mob hp and damage | Lairs | Boss | Claim channel | Lair respawn | Node yield | Score an hour | Boss loot |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 4 homes | none | – | 0 | – | owned | – | as authored | – | – |
+| 1 | 16 entries | packs (fauna tier 1–2), a bandit camp on the road entries | ×1.0 | 3–5 | none | 30 s, 3 men (today) | 10 min | ×1.0 | 0 | – |
+| 2 | 4 frontier towns, 4 inner pockets | towns: a bandit host; pockets: a tier-1 boss + packs | ×1.25 | 4–6 | tier 1 (pockets) | 60 s, 6 men | 20 min | ×1.25 | 1 (towns 3) | tier 1 |
+| 3 | 4 gates | a tier-2 boss in its landmark + a tier-3 lair + packs | ×1.5 | 5–7 | tier 2 | 90 s, 9 men from 2+ players | 30 min | ×1.5 + a rare good | 2 (+2 landmark) | tier 2 |
+| 4 | 4 rim edges, Omphalos | a tier-3 boss with phases in its landmark + elite packs; Warden strikes on the rim | ×2.0 | 6–8 | tier 3 | 120 s, 12 men from 3+ players | 60 min | ×2.0 (+ a rare good) | rim 1 (+2 landmark), Omphalos 10 | tier 3 |
+
+| Rule | Value |
+| --- | --- |
+| Boss and claim | a region with a boss opens its claim point only once the boss is slain (W-45); bandit hosts likewise once their captain falls |
+| Boss respawn | never within the season while the region is held; back (full hp, landmark reset to its start state) after 24 h unheld, and at season start |
+| Lifelines stay reachable | a rim region's salt, silver and iron fields lie outside its landmark, guarded by depth-4 lairs only: a 2–3 squad raid clears one and hauls for the hour until it respawns, so coin and salt flow early; holding the region needs the boss |
+| Warden strikes (depth 4 rim) | the outermost 12 tiles to the dead water are a no-build band; every 15 min a Rim Warden strikes a marked 8×8 patch of it (10 s telegraph, 60% max hp to every man in it, buildings untouched) |
+| Bandit host | a captain (bandit ×3 hp, ×1.5 damage, a 12-man elite guard) + 3–6 bandit lairs that hold a town: they man its pre-built walls and towers, keep its gates shut and send an 8-man raid party at carts on an adjacent route every 30 min (M6j) |
+| Boss tiers (`src/data/warBosses.ts`) | tier = depth − 1, except Omphalos (tier 3): depth 2 → tier 1, depth 3 → tier 2, depth 4 → tier 3; the four signature legendaries stay on the rim |
+
+Today's boss list needs four moves for this to be symmetric (each home faces the same guardians at the same depth):
+the Lion of the Savanna and the Griffin drop to tier 1, the Panoply of Alexander moves to the new Bandit King of Ammon,
+the Titan of Krios becomes the dragon Drakon (keeping the Aegis), and Bacchae, the gates and Omphalos get their bosses.
+
+| id | Name | Depth | Guardian | Lore (Metaxy) |
+| --- | --- | --- | --- | --- |
+| dodona | Dodona | 0 | none | The first dead of the north woke under the oracle oak; its leaves still whisper the muster, and here they always wake again. |
+| skythia | Skythia | 0 | none | Riders who died in the saddle woke on the steppe beside their horses; the burial mounds are their own graves, kept as lookouts. |
+| kyrene | Kyrene | 0 | none | A caravan lost to thirst woke at an oasis that was waiting for it, under red cliffs full of the copper they dug in life. |
+| elaia | Elaia | 0 | none | Sailors the sea took washed into the bay; they cut the terraces and the headland citadel so water would never take them twice. |
+| dodona-n | Boreas Fjords | 1 | wolves, bears | The longships of the drowned rot in the fjord arms; wolves den in the hulls and the north wind sings in their ribs. |
+| dodona-w | Western Heath | 1 | wolves, boars | The peat bogs keep the oath-breakers who fled Dodona's first muster; on still nights the heath is full of their lanterns. |
+| dodona-e | Teeth Foothills | 1 | bears, bandit camp | Deserters from the first iron diggings hold the ravine shoulders; their old shafts still breathe cold from under the Teeth. |
+| dodona-s | Ladon Oakwood | 1 | boars, wolves | An oak wood grown from the spears of a slaughtered host; the Ladon carries their names down to the lake. |
+| skythia-n | Frost Steppe | 1 | wolves, wild horses | The herds of riders who never woke graze the frozen ponds, masterless, waiting to be caught. |
+| skythia-e | Chalk Coast | 1 | wild horses, boars | Faces of those who leapt rather than fade are cut in the white cliffs; the downs end where the dead water begins. |
+| skythia-w | Teeth Eastern Slopes | 1 | bears, bandit camp | A tribe that lost its season hid in the scree pines and lives by robbing the Tin Road. |
+| skythia-s | Kurgan Hills | 1 | wild horses, wolves | Mounds of chieftains older than any alliance; from their tops the Desert Road shows all the way to the dunes. |
+| kyrene-n | Thornscrub Rise | 1 | lions, scorpions | The wadi is the throat where a whole army died of thirst; the lions remember the taste. |
+| kyrene-e | Lagoon Coast | 1 | scorpions, bandit camp | The salt-cutters' huts on the sand bar were emptied by bandits who sell the salt back to Kyrene. |
+| kyrene-s | Southern Dunes | 1 | scorpions, lions | The one well on the outcrop was dug by a man who died digging it; the dunes walk over everyone else. |
+| kyrene-w | Eastbank Floodplain | 1 | river serpents, boars | Fields fed by the Great River's floods; serpents come up the channels with every flood, fat on the drowned. |
+| elaia-n | Lakeshore Fens | 1 | river serpents, boars | The fenfolk who stayed when the bronze birds came are bones in the reeds; the serpents hunt what is left. |
+| elaia-w | Pirate Coves | 1 | pirates, boars | Pirates hanged in life woke here still hungry; the sea caves hold whatever the coast track lost. |
+| elaia-s | Cape of Winds | 1 | boars, bandit camp | A goatherds' cape where the wind blows toward the rim; brigands watch the Delta road from its steps. |
+| elaia-e | Westbank Vineyards | 1 | boars, wolves | Vines of the first Elaian dead; their wine is poured at every crossing of the river for luck. |
+| kleisoura | Kleisoura Pass | 2 | bandit host (the Toll-Takers), bears | The pass fort was the Rim Wardens' toll; when they withdrew to the mist, deserters took it and still tax the tin. |
+| stymphalia | Lake Stymphalia | 2 | bandit host (the Reed Men), harpy lair | The causeway town emptied when the bronze-feathered birds nested on the isle; reed bandits hold the empty square. |
+| achelous | Achelous Ford | 2 | bandit host (the Ferrymen), river serpents | The bridge broke under a fleeing army; the island town fell to ferrymen who, like Charon, charge the dead to cross. |
+| ammos | Ammos Dunes | 2 | bandit host (the Sand Riders), lions | The caravan that never arrived camps forever round the oasis, and its riders rob every caravan that does. |
+| moors | Grey Moors | 2 | Great Bear of the Moors (tier 1) | The bear sleeps on the bones of the first Dodonan army to march east; the granite tors were its cairns. |
+| kimmeria | Kimmerian Hills | 2 | Griffin (tier 1) | The hill fort of the Kimmerians, a people the mist swallowed whole; a griffin nests in its broken gate and keeps their gold. |
+| savanna | Lion Savanna | 2 | Lion of the Savanna (Nemean, tier 1) | A lion whose hide turns blades hunts the kopjes; every Kyrenean hero who went to skin it lies there. |
+| bacchae | Bacchae Hills | 2 | the Maenad Queen and her thiasos (tier 1) | Women who died in the god's frenzy still dance in the cypress groves and tear apart any man who watches. |
+| saddle | Eagle Saddle | 3 | Brontes the Cyclops (tier 2) | Landmark: Cyclopean Gatehouse. The Wardens' giant masons walled the north ramp; the last of them still keeps the gate. |
+| erymanthos | Erymanthos Wood | 3 | Erymanthian Boar (tier 2) | Landmark: Oracle Grove. The springs of Memory and of Lethe rise side by side; the boar keeps the forgetting for itself. |
+| gorge | Gorge of the Falls | 3 | Gyges the Hundred-Handed (tier 2) | Landmark: Titan's Forge. Chained under the falls, the hundred-hander still forges the bronze of a war long lost. |
+| canyons | Red Canyons | 3 | Chimera (tier 2) | Landmark: Obsidian Hold. A rock-cut hold over the canyon junction, built on a vent the chimera breathes through. |
+| krios | Krios Glacier | 4 | Drakon the White (tier 3), Warden strikes | Landmark: Drakon's Citadel. The Wardens' northern citadel stands on a titan frozen into the ice; a dragon took it and sleeps on its iron. |
+| siren | Siren Estuary | 4 | Scylla (tier 3), Warden strikes | Landmark: Rim Watchtower. The beacon that warned ships off the Abyss; the sirens sing from the mist and Scylla feeds below. |
+| ammon | Ammon Salt Flats | 4 | the Bandit King and his host (tier 3), Warden strikes | Landmark: Dead City of Ammon. The oracle that named a conqueror son of a god; his armour is worn now by a king of thieves. |
+| delta | Achelous Delta | 4 | Achelous the River-God (tier 3), Warden strikes | Landmark: Sunken Temple. The god who wrestled Heracles lost a horn and his temple to the sea; he still changes shape. |
+| omphalos | Omphalos Plateau | 4 | the Titan (tier 3), the Minotaur (tier 3) | The navel of the in-between, where the way up opens; a titan who tried to climb it guards the arena, the minotaur the labyrinth. |
+
+### Landmarks
+
+Nine pre-built strongholds, one in every depth-3 and depth-4 neutral, so each home faces the same set at the same
+distance (two gates and two rim edges each side of it, Omphalos for all). Each is authored as pre-built structures
+(next section) that start **neutral at 60% hp, gates shut**, held by its guardian.
+
+| Landmark | Region (depth) | Pre-built layout | Guardian, phases | To take | Once held (restored) | Rare good |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Drakon's Citadel** | krios (4) | the great castle on the glacier tongue over the icy col: stone curtain (cyclopean wall ×2 hp) with 6 towers, a twin gatehouse, the keep (6×6, 8000 hp), barracks, forge L2, cistern well, bone pit | **Drakon the White**: P1 (100–60%) in the yard, claw and tail sweeps (knock 2); P2 (60–30%) on the keep roof, out of melee reach, fire breath in a cone on the yard and the gate (ignites wood, 30% max hp); P3 (< 30%) crashes down enraged, calls 2 drake packs from the bone pit | ram or tower through the gate under fire; archers and an oxybeles bring him off the roof; 8+ squads from 3+ players | the strongest fort on the map: walls and towers already built, influence 32, holds the col (Teeth coast crossing) and Krios iron; keep is a fort (store, recruits 3/h) | dragonbone |
+| **Rim Watchtower** | siren (4) | a beacon tower on a sea stack (h4) over the tidal flats, a walled stair, the keeper's house, a cliff stoa, sea-cave quay | **Scylla**: six heads strike from the cave (each a linked target, 1 man snatched per 6 s within 4 tiles of the water); her body is open only while ≤ 2 heads live; at 50% she drags onto the flats | split squads kill heads at once along the cliff; physicians to save the snatched; 6–8 squads | Rim Sight: the holder sees all transits on the Lake frontier on the world map and the region whole (no fog); the beacon tower is a stone tower cap 12 | nereid pearl |
+| **Dead City of Ammon** | ammon (4) | the big abandoned city on the great butte by the dead lake: walls with 2 gates and 8 towers, ~30 houses (half ruined), agora with 2 stoas and stalls, temple of Ammon (oracle), palace (keep, 6000 hp), lake postern | **the Bandit King** (a champion in Alexander's armour, 12 elite guard) + a 6-lair host in the quarters, archers on the walls: P1 street by street (each quarter's lair holds its houses); P2 the palace gate; P3 (< 30%) he runs for the postern: if he reaches it and lives 60 s he is back in 1 h with half the host | storm both gates at once, clear quarters, cut the postern; 8+ squads from 3+ players | a second home-sized town: recruit pool 6/h, cap 30 (its houses); oracle: once a day names the region an enemy alliance has sent most men toward; palace hoard (once): 20 loads and 6 tier-2 items to a pile | – |
+| **Sunken Temple** | delta (4) | the half-sunk temple of Achelous on the largest mud island: temple (4×4, sanctum), colonnade walls, two shrines, the river god's spring, a stone jetty, causeways (fords) between islands | **Achelous**: P1 (100–66%) a bull-horned giant on the island; P2 (66–33%) a serpent in the channels (venom, reachable only from fords); P3 (< 33%) a bull that charges through ranks (knock 3) | hold the fords on several islands at once; theriac against venom; 6–8 squads | Horn of Plenty: a food node (max 200, regrow 2/s) and a cookhouse L3 that cooks feasts without oil; the spring heals the wounded as a physician's house (1 h) | – |
+| **Temple City of the Navel** | omphalos (4) | the ruined temple city on the mesa: temple (8×8, 12000 hp), Great Fair agora with 10 stall sites and 4 stoas, 4 ramp gatehouses, titan arena, labyrinth (a walled maze round the temple undercroft), crater-lake wells | **the Titan**: P1 throws boulders (range 30, area 3, breaks wood) from the arena; P2 (< 50%) stomps (knock 4 in radius 4) and tears stones from the ramp gates. **The Minotaur** in the labyrinth: only from inside, in single file; opens the sanctum | two fights at once (arena and maze), the ramps under the titan's stones; 10+ squads from 4+ players | the season's prize (10 an hour, hegemony); restored: +2 an hour, the four ramp gates are stone gates the holder controls | – |
+| **Cyclopean Gatehouse** | saddle (3) | a gatehouse of giant blocks astride the switchback road at the top of the north ramp: cyclopean walls (3000 hp a tile), 2 towers, the gate, a guardroom barracks, the eagle crater | **Brontes**: P1 hurls rocks from the gate top (range 25); P2 (< 50%) comes down and smashes (knock 2; his blows hit buildings ×3, his own walls too) | engines or ladders up the switchbacks; 4–6 squads from 2+ players | bars the north ramp: the holder's gate on the only road up; a fort (store) | star iron |
+| **Oracle Grove** | erymanthos (3) | the sacred grove at the Ladon springs: shrine, priestess's house, the Spring of Memory and the Spring of Lethe (wells), a ring of ancient oaks (wood nodes; felling 3 kills the grove) | **Erymanthian Boar**: P1 charges (knock 2) through the oaks; P2 (< 40%) enraged, calls 2 boar packs | stakes and a held line to stop the charge; 4–6 squads from 2+ players | Memory: a squad that drinks (once a day) gets +25% XP for 1 h; the holder sees every town's price board on the world map; Lethe: an enemy captive who drinks walks home at once (frees cells) | asphodel |
+| **Titan's Forge** | gorge (3) | a cave forge under the falls by the rock bridge: the great anvil (a forge L3+, 4000 hp), water bellows, slag heap, two cliffside guard towers | **Gyges the Hundred-Handed**: P1 chained, three blows at once at three targets in reach 6; P2 (< 50%) breaks his chains and fights on the rock bridge (4 wide), throws men into the gorge (knock 2) | missiles from the cliff paths, a line on the bridge; 4–6 squads from 2+ players | the only titan-bronze smelt (bronze 4 + charcoal 4 → 1, 120 s) and a forge with +2 craft grade; holds the rock bridge | titan bronze |
+| **Obsidian Hold** | canyons (3) | a rock-cut hold in the mesa (h5) over the canyon junction at the east ramp: rock walls (not burnable, only stone throwers hurt them), 2 towers, the vent kiln, obsidian glass field | **Chimera**: lion head (melee), goat head (fire breath, ignites), serpent tail (venom); each head a linked target; with the goat dead she stops burning, with the serpent dead she stops poisoning | close under the breath, theriac; 4–6 squads from 2+ players | the vent kiln: pitch without wood (yield 1/s, the south-east's only pitch); a fortress over three canyon floors | obsidian |
+
+| Rule | Value |
+| --- | --- |
+| Damaged on capture | when the claim completes, every landmark piece drops to min(its hp, 40%), its gates to 0 (open) and its unique function goes dormant ("the place remembers its master"); a landmark later taken from another alliance keeps whatever hp the siege left |
+| Patch (fortifications) | any engineer with Fortifier (L5): walls, towers and gates back to 60% at half their build cost per hp; the landmark is then a working fort |
+| Restore (keep and function) | an engineer of level 8 with Fortifier and Master Builder (Drakon's Citadel and the Temple City: level 10, Poliorcetes or Archimedes) leads a restore site at the keep: bulk goods + rare goods below; done, every piece goes to 100% and the function wakes |
+| Landmark bonus | +2 score an hour while restored and ≥ 6 own men stand inside its walls with no enemy there |
+| Season start | each landmark is reset: neutral, 60% hp, gates shut, its guardian back |
+
+| Restore | Bulk | Rare goods (own + from another landmark) |
+| --- | --- | --- |
+| Drakon's Citadel | stone 600, iron 60 | dragonbone 20, titan bronze 10 |
+| Rim Watchtower | stone 300, marble 40 | nereid pearl 10, star iron 5 |
+| Dead City of Ammon | stone 500, wood 200 | obsidian 10, star iron 5 |
+| Sunken Temple | stone 300, marble 60 | asphodel 10, nereid pearl 5 |
+| Temple City of the Navel | marble 300, stone 300 | titan bronze 20, dragonbone 10, asphodel 10 |
+| Cyclopean Gatehouse | stone 400 | star iron 10, obsidian 5 |
+| Oracle Grove | wood 100, marble 40 | asphodel 10, nereid pearl 5 |
+| Titan's Forge | stone 300, bronze 40 | titan bronze 10, star iron 5 |
+| Obsidian Hold | stone 300 | obsidian 10, dragonbone 5 |
+
+### Rare goods
+
+Six new goods (additive to `ResourceKind`), one per landmark that has a node. They are raw, physical and tradeable
+like any good (W-44); the only way to restore a landmark is to own one rare good and buy, haul or raid the other.
+
+| Good | Source | Rate | Used in |
+| --- | --- | --- | --- |
+| dragonbone | Drakon's kill (20 to the pile); the bone pit node in the Citadel | node 1 per 10 min, max 20 | Citadel, Obsidian Hold, Temple City |
+| nereid pearl | Scylla's kill (15); the sea-cave node under the Rim Watchtower | 1 per 10 min, max 20 | Rim Watchtower, Sunken Temple, Oracle Grove |
+| star iron | Brontes' kill (10); the eagle crater node (meteoric iron) | 1 per 10 min, max 20 | Gatehouse, Rim Watchtower, Dead City, Titan's Forge |
+| asphodel | the Boar's kill (10); the grove's flower node (a forager with Herb Finder) | 1 per 10 min, max 20 | Oracle Grove, Sunken Temple, Temple City |
+| titan bronze | Gyges' kill (10); the slag heap (20, once); after restore, the forge's smelt | smelt 1 per 120 s | Titan's Forge, Citadel, Temple City |
+| obsidian | the Chimera's kill (10); the glass field node | 1 per 10 min, max 20 | Obsidian Hold, Gatehouse, Dead City |
+
+Nodes work only for the holder of the region (claim gate) and at landmark yield (no depth multiplier). A rare good
+carries its origin stamp, so selling it in a far town scores as trade.
+
+### Pre-built structures
+
+Every town piece and every built-looking prop the region scripts place today (`scripts/war/regions/kit.ts` town
+dressing, biome props) becomes a sim building, a node, a herd or terrain. The town pieces are placed by the region
+JSON as **pre-built** buildings (`done`, full hp unless the table says otherwise; landmarks 60%).
+
+| Today (object id) | Becomes | Footprint | HP | Material | Function |
+| --- | --- | --- | --- | --- | --- |
+| town-house-a, town-house-b | house | 3×3 | 900 | stone | population: +0.5 recruits an hour and +2 cap to the town's pool (homes and towns); 1 load of food inside at season start |
+| town-cottage, kyrene/nomad-tent, dodona/hut-ruin (ruined) | cottage / tent | 3×2 / 2×2 | 400 / 150 | wood, burnable | population: +0.25 an hour, +1 cap |
+| town-temple | temple | 4×4 | 3000 | stone | blessing: a squad that stands in its precinct 30 s is blessed 15 min (wounded share +0.05 within the 0.9 cap, heal ×1.15); Elysion favour +0.25 score an hour while intact |
+| elaia/shrine, dodona/oracle-grove, dodona/oak-sacred | shrine | 2×2 | 800 | stone | blessing within 8 tiles; favour +0.1 an hour |
+| town-stoa | stoa | 2×6 | 2000 | stone | covered market hall: 2 stall sites under its roof (each a stall L2 once taken) and a store of its owner's network |
+| town-statue | statue | 1×1 | 400 | stone | prestige +0.1 score an hour; its owner may engrave a retired soldier's honour on it (moved from the home memorial) |
+| town-well, kyrene/well, kyrene/oasis-spring | well | 1×1 | 800 | stone | water: own squads resting within 12 tiles pay upkeep ×0.8; own idle men within 6 tiles of a burning building put it out ×2 faster; a foe beside it 30 s fouls it for 30 min |
+| town-jetty | jetty | 1×4 | 300 | wood, burnable | fishing: a food node (max 40, regrow 0.2/s); a landing site for later naval play |
+| town-stall-a/b/c | stall (L1) | 2×2 | as `BUILDINGS` | wood | as today; a rented site in a trade court |
+| town-warehouse | warehouse | 3×2 | 1200 | stone | rented warehouse (20 loads) in a trade town; elsewhere a store |
+| town-workshop, town-storehouse, town-forge, town-cookhouse, town-olive-press, town-farm | workshop, storehouse, forge, cookhouse, olivePress, farm (L1) | as `BUILDINGS` | as `BUILDINGS` | as `BUILDINGS` | as today: a town comes with a working quarter |
+| town-tower | stoneTower | 2×2 | 2500 | stone | platform cap 9, door |
+| town-wall-x/y | stoneWall (2 tiles) | 2×1 | 1500 a tile | stone | walkway wall |
+| town-gate-x/y | stoneGate | 2×1 | 2500 | stone | opens for its owner (neutral: open; bandit-held: shut) |
+| town-board | board | 1×1 | 150 | wood, burnable | the price board; razed, the town shows no prices until rebuilt (wood 10) |
+| town-goods | cache | 1×1 | 100 | wood | 2 loads of the region's goods at season start, lootable by anyone; gone once empty |
+| kyrene/ruin-wall, kyrene/ruin-corner, wall-ruin, elaia/wall-a/b | stoneWall pieces, ruined | 1×1 a tile | 0 / 1500 | stone | rubble (slow ×2, cover); rebuilt by the ground's owner at half cost: a head start for a fort |
+| mountains/watch-post, watchtower | woodTower | 2×2 | 800 | wood, burnable | platform cap 6 over the road |
+| elaia/beehives, elaia/herbs | herbs node | 1×1 | – | – | herbs, max 10, regrow 0.02/s |
+| dodona/timber-stand, dodona/charcoal-pile, dodona/iron-bog, mountains/cairn | wood (max 120), charcoal (20, once), iron, stone (30) nodes | – | – | – | gathered as any node |
+| elaia/goats, kyrene/camels, kyrene/gazelle, mountains/ibex | passive herds (as ibex) | – | – | – | hunt for food and hides |
+| rocks, buttes, mesas, rock pillars, rockfall, eagle nests, massifs | terrain | – | – | – | block, height and cover; not structures |
+
+| Rule | Value |
+| --- | --- |
+| Owner at season start | homes: their alliance; neutral regions: team **neutral** (new team id; mobs never attack it, nobody may use it); bandit-held towns and landmarks: the mob team while the host or boss lives |
+| Who owns a town | a town is the pre-built group round its claim point (the agora's market spot, a village's well): it belongs to the alliance that holds that point; pieces outside any claim radius follow region influence (whoever's covers them), else neutral. Taking the point flips every piece in its radius at once, at the hp it has |
+| Use | only the owner uses a building's function; gates open for the owner and allies, neutral gates stand open |
+| Capture | no building is taken by itself: buildings follow their claim point or influence, so a town is taken by clearing its guardian or garrison and claiming |
+| Raze | any side may attack a building it does not own (never inside a safe court: court walls, towers, gates and stalls are untouchable while the zone is safe); at 0 hp it becomes a **ruin** in place (rubble footprint: slow ×2, cover, no function) and drops half its goods as a pile |
+| Ruined stays ruined | a ruin is rebuilt only by the owner of its ground: 75% of the build cost (stone reused) and 75% labour; landmark pieces only by their restore rule |
+| Repair | a new `repair` order on a damaged building: any squad, engineers ×1.5; per 10% hp, 5% of the build cost and 5% of its labour |
+| Razed town | houses ruined cut the pool (their rate and cap); with ≥ 3/4 of its houses and its temple ruined a town is **ruined**: no pool, no favour, and a frontier town scores 1 an hour instead of 3 until half its houses stand again |
+| Sacrilege | razing a temple or shrine costs the razer's alliance 10 score; no score is ever gained by razing outside homes (the home rule of 5 stays) |
+| Homes | home pre-built pieces belong to the home alliance and may be razed by raiders, never its hall (W-09) |
+
+### Balance
+
+Effort is a raid's men and minutes against a typical first-week squad; reward is per day of holding.
+
+| Depth | Raid to take | Time | Reward a day held | Ratio |
+| --- | --- | --- | --- | --- |
+| 1 | 1 squad | 5–10 min | nodes ×1.0, villages' pool | baseline |
+| 2 | 2–3 squads (2 players) | 15–25 min | nodes ×1.25, tier-1 boss loot once, 24 score (towns 72), a town's pool and buildings | ×2–3 effort, ×2–4 reward |
+| 3 | 4–6 squads (2+ players), engines help | 30–45 min | nodes ×1.5, a rare good 144/day max, tier-2 loot, 48 score (+48 restored), a fort already built | ×5 effort, ×5 reward |
+| 4 | 8–10 squads (3–4 players), engines, physicians, theriac | 60–90 min | nodes ×2, rare good, tier-3 loot with a signature chance, 24 score (+48 restored), the strongest forts | ×10 effort, ×8 reward + the fort |
+
+| Check | Rule |
+| --- | --- |
+| Coordinated play | depth 3 claims need men of 2+ players, depth 4 of 3+; every depth-4 guardian has a phase one squad cannot answer alone (the roof, six heads, two islands, two fights) |
+| One landmark cannot win | a restored landmark gives at most 4 an hour (gate 2 + 2) against Omphalos's 10; landmark bonuses count ≤ 6 an hour an alliance; hegemony stays Omphalos + 3 frontier towns |
+| Restoration forces trade | every restore needs a rare good from a landmark on another frontier, so the holder must buy, haul or raid across the map |
+| Prestige cap | temples, shrines and statues together ≤ 2 an hour an alliance |
+| Strong but takeable | a restored landmark is a finished fort; it falls to a siege like any other (rams, towers, throwers), and its new holder inherits the breaches |
+| Symmetry | every home has, at the same distance, two bandit-held towns (each shared with a neighbour), one tier-1 pocket boss, two depth-3 and two depth-4 landmarks |
 
 ## Soldiers
 
