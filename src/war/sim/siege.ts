@@ -29,7 +29,7 @@ import type { ResourceKind, ShotSnap, SiegeSnap, SiegeState, SiegeType } from '.
 import { FIRE, type Works } from './works';
 import type { Rng } from '../../sim/rng';
 import { RECIPES } from '../../data/recipes';
-import { loads, newHold, totals, type Hold } from './holders';
+import { itemList, loads, newHold, totals, type Hold } from './holders';
 import { CART, CART_LOADS, PACK_MULES } from './trade';
 
 const DT = 0.1;
@@ -560,7 +560,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
         ...(e.target >= 0 && (e.mode === 'attack' || e.state === 'raised') ? { target: e.target } : {}),
         ...(e.burn > 0 ? { burning: e.burn } : {}),
         ...(e.ladder >= 0 ? { ladder: e.ladder } : {}),
-        ...(e.hold ? { owner: e.owner, cargo: totals(e.hold), items: e.hold.items.length, loads: loads(e.hold), cap: cartCap(e), ...(e.halt > tick ? { halted: true as const } : {}), ...(e.cap > 0 ? { capture: Math.min(1, e.cap / CART.capture) } : {}) } : {}),
+        ...(e.hold ? { owner: e.owner, cargo: totals(e.hold), items: e.hold.items.length, ...(e.hold.items.length ? { list: itemList(e.hold) } : {}), loads: loads(e.hold), cap: cartCap(e), ...(e.halt > tick ? { halted: true as const } : {}), ...(e.cap > 0 ? { capture: Math.min(1, e.cap / CART.capture) } : {}) } : {}),
       })),
   };
 }

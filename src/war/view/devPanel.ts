@@ -122,6 +122,7 @@ export function applyScenario(s: SandboxScene, sc: Scenario): void {
     s.sim.skip(1); // orders apply on the next step
     for (const t of new Set(e.bridges.map((b) => b.team))) s.sim.finishBridges(t);
   }
+  for (const c of sc.carts ?? []) s.sim.spawnCart(c.team, c.owner, c.type, c.x, c.y);
   for (const o of sc.after?.orders ?? []) s.sim.order(o);
   if (sc.after?.settle) s.sim.skip(sc.after.settle);
   for (const q of sc.after?.squads ?? []) {

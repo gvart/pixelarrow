@@ -4,7 +4,7 @@
  * ../sim/bots.ts, and sets the camera. Points are tile coords, mostly named spots.
  */
 import type { Behaviour } from '../sim/bots';
-import type { BridgeOrder, BuildingType, Order, ResourceKind, WallOrder } from '../types';
+import type { BridgeOrder, BuildingType, Order, ResourceKind, SafeRect, TileRect, WallOrder } from '../types';
 import { CLAIM_POINT as ridgeClaim, SPOTS } from '../regions/test-ridge.spots';
 import { SQUAD_MAX } from '../sim/soldiers';
 
@@ -38,6 +38,10 @@ export interface Scenario {
      */
     prebuild?: number;
   };
+  /** M6k: carts standing ready after the prebuild (ids from 0 in this order, after any engine built before). */
+  carts?: { team: number; owner: string; type: 'handcart' | 'wagon'; x: number; y: number }[];
+  /** M6k: zones merged into the region before the sim starts (RegionData safe, yard, ambush). */
+  zones?: { safe?: SafeRect[]; yard?: TileRect[]; ambush?: TileRect[] };
   /**
    * After the prebuild: orders, `settle` ticks stepped at once (squads take post), then more squads (ids go on from
    * `squads`) and the orders `then`.
@@ -96,6 +100,10 @@ const ringSites = (a: number, b: number) => [
  * screen-horizontally over the wide reach (23 tiles of water, BRIDGE_STONE) and a 1-wide wood footbridge over the narrow
  * reach (BRIDGE_FOOT). BRIDGE_DRAG: a free reach between them for a bridge of your own (11 tiles along x at y 376).
  */
+/** M6k loot / caravan: open grass by the east road (height 1). */
+const LOOT = [430, 236] as const, LOOT_FOE = [444.5, 236.5] as const, LOOT_CART = [436.5, 242.5] as const;
+const CARAVAN_HOME = [391.5, 189.5] as const;
+const CARAVAN_AMBUSH: TileRect = { x: 446, y: 203, w: 14, h: 9 };
 export const BRIDGE_DRAG = [287.5, 376.5, 305.5, 376.5] as const;
 export const BRIDGE_STONE = [282.5, 370.5, 306.5, 346.5] as const;
 export const BRIDGE_FOOT = [297.5, 400.5, 317.5, 380.5] as const;
@@ -450,6 +458,64 @@ export const SCENARIOS: Scenario[] = [
         { kind: 'civWork', squad: 3, building: 3 },
         { kind: 'civWork', squad: 5, building: 0 },
       ],
+    },
+  },
+  {
+    // M6k loot: the foe's trader (squad 0, team 1) raises its camp (building 0) by the east field, loads its handcart
+    // (cart 0) there and drives it to the field's edge; a skirmish (squads 1, 2, both scripted) leaves loot piles; the
+    // trader lets go of the cart and walks off, and your hoplites (3), smiths (4) and militia porters (5) come up.
+    id: 'loot',
+    name: 'Loot',
+    goal: 'After the skirmish: pick up the loot piles (E on a pile), let the smith salvage gear, and capture the foe trader\'s handcart (stand beside it 5 s with none of theirs near), then load it.',
+    squads: [{ team: 1, cls: 'civ_merchant', count: 2, x: LOOT_FOE[0] - 4, y: LOOT_FOE[1] + 5, owner: 'trader' }],
+    camera: { x: LOOT[0] + 2, y: LOOT[1] + 2, zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 1, x: LOOT_FOE[0], y: LOOT_FOE[1], r: 16 }],
+      foeStock: { food: 40, coin: 400, bronze: 10, hides: 12 },
+      sites: [{ squad: 0, type: 'camp', x: LOOT_FOE[0], y: LOOT_FOE[1] }],
+      prebuild: 2500,
+    },
+    carts: [{ team: 1, owner: 'trader', type: 'handcart', x: LOOT_FOE[0] - 6, y: LOOT_FOE[1] + 5 }],
+    after: {
+      orders: [{ kind: 'crew', squad: 0, siege: 0 }, { kind: 'load', squad: 0, from: { building: 0 } }],
+      settle: 300,
+      squads: [
+        { ...you('militia', at(LOOT, -8, -2)), bot: { kind: 'attackMove', x: LOOT[0] + 2, y: LOOT[1] } },
+        bot('celt_sword', at(LOOT, 8, 2), { kind: 'attackMove', x: LOOT[0] - 2, y: LOOT[1] }),
+        you('hoplite', at(LOOT, -30, 6)), you('civ_smith', at(LOOT, -30, 10), 2), you('militia', at(LOOT, -32, 2), 6),
+      ],
+      then: [{ kind: 'move', squad: 0, x: LOOT_CART[0], y: LOOT_CART[1] }],
+      later: {
+        settle: 900,
+        orders: [{ kind: 'uncrew', squad: 0 }, { kind: 'move', squad: 0, x: LOOT_FOE[0] + 24, y: LOOT_FOE[1] + 16 }, ...[3, 4, 5].map((squad, i): Order => ({ kind: 'move', squad, x: LOOT[0] + 4, y: LOOT[1] + 2 + i * 3 }))],
+      },
+    },
+  },
+  {
+    // M6k caravan: your camp (building 0) by the east road; three militia (squad 1: soldiers, civilians would flee) drive the wagon (cart 0), loads it at
+    // the camp and takes the road east to the entry, hoplites and archers escorting it; foes wait on the ambush rect
+    // over the road half way.
+    id: 'caravan',
+    name: 'Caravan',
+    goal: 'Get the loaded wagon down the east road to the entry. Foes wait in the ambush (red rect) over the road: the escort keeps round the wagon and takes them on; the wagon halts while foes are near.',
+    squads: [you('militia', at(CARAVAN_HOME, -2, -6))],
+    camera: { x: CARAVAN_HOME[0] + 10, y: CARAVAN_HOME[1] + 6, zoom: 1 / 2 },
+    economy: {
+      claims: [{ team: 0, x: CARAVAN_HOME[0], y: CARAVAN_HOME[1], r: 20 }],
+      stock: { food: 60, coin: 600, bronze: 20, hides: 10, oil: 20 },
+      sites: [{ squad: 0, type: 'camp', x: CARAVAN_HOME[0], y: CARAVAN_HOME[1] }],
+      prebuild: 2500,
+    },
+    zones: { ambush: [CARAVAN_AMBUSH] },
+    carts: [{ team: 0, owner: 'you', type: 'wagon', x: CARAVAN_HOME[0] + 6, y: CARAVAN_HOME[1] + 6 }],
+    after: {
+      orders: [],
+      squads: [
+        you('militia', at(CARAVAN_HOME, 4, 8), 3), you('hoplite', at(CARAVAN_HOME, 2, 11)), you('archer', at(CARAVAN_HOME, 8, 11)),
+        ...(['celt_sword', 'javelineer'] as const).map((c, i) => bot(c, [CARAVAN_AMBUSH.x + 4 + i * 6, CARAVAN_AMBUSH.y + 4], { kind: 'hold', x: CARAVAN_AMBUSH.x + 4 + i * 6, y: CARAVAN_AMBUSH.y + 4, radius: 14 }, 8)),
+      ],
+      then: [{ kind: 'crew', squad: 1, siege: 0 }, { kind: 'load', squad: 1, from: { building: 0 } }],
+      later: { settle: 300, orders: [{ kind: 'move', squad: 1, x: S.entryE[0] - 6, y: S.entryE[1] }, { kind: 'escort', squad: 2, cart: 0 }, { kind: 'escort', squad: 3, cart: 0 }] },
     },
   },
   {

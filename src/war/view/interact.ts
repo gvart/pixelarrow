@@ -14,6 +14,8 @@
  *   own building                                      burning: extinguish; unfinished: build / resume; damaged: repair;
  *                                                     M5h3 fortify (Fortifier, paid at once; never the tap's pick):
  *                                                     iron-bind a gate, wet hides on burnable wood
+ *   own cart, loot pile, chest, store (M6k)          ./trade/tradeControls.ts: unload, escort, pull, load, pick up, salvage, loot;
+ *                                                     an enemy cart: capture first, then ignite / attack
  *   claim banner (neutral region)                    open: claim the region (channel); locked: move there
  *   resource node                                     gather (guarded by a lair: move there)
  *   walkway, platform or stair top                    move up
@@ -197,6 +199,16 @@ export class Interact {
       return [...o, move];
     }
 
+    // M6k trade (./trade/tradeControls.ts): own carts, loot piles, chests
+    const th = s.trade.at(t);
+    if (th && th.kind !== 'store' && !(th.kind === 'cart' && th.team !== TEAM) && !(th.kind === 'chest' && th.team !== TEAM)) {
+      const o = s.trade.options(th, own, move);
+      if (th.kind === 'cart') {
+        const e = sc.engineAt(t, false);
+        if (e?.burning) o.unshift(act(`extinguish ${th.name}`, 'act-extinguish', e, 0x60b0ff, () => order((squad) => ({ kind: 'extinguish', squad, siege: e.id }))));
+      }
+      return o;
+    }
     const mine = sc.engineAt(t, false);
     if (mine) {
       const name = SIEGE_NAME[mine.type], o: Option[] = [];
@@ -211,7 +223,9 @@ export class Interact {
     const theirs = sc.engineAt(t, true);
     if (theirs) {
       const name = SIEGE_NAME[theirs.type];
+      const cap = th?.kind === 'cart' && th.team !== TEAM ? s.trade.options(th, own, move).slice(0, 1) : [];
       return [
+        ...cap,
         act(`ignite ${name}`, 'act-ignite', theirs, 0xff8030, () => order((squad) => ({ kind: 'ignite', squad, siege: theirs.id })), theirs.burning ? 'already burning' : driving ? 'a crew carries no torches' : undefined),
         act(`attack ${name}`, 'act-attack', theirs, 0xff4040, () => order((squad) => ({ kind: 'attackBuilding', squad, siege: theirs.id }))),
         fire({ siege: theirs.id }, theirs, name),
@@ -233,6 +247,7 @@ export class Interact {
     }
     if (b && b.team !== TEAM) {
       const o = foeBuilding(b);
+      if (th && th.team !== TEAM && (th.kind === 'chest' || th.kind === 'store')) o.push(...s.trade.options(th, own, move));
       if (walled(b)) o.push({ label: 'raise ladder', icon: 'act-raise-ladder', off: 'needs a siege ladder carried', run: () => {} });
       return o;
     }
@@ -244,6 +259,9 @@ export class Interact {
         o.push(act(label, 'act-build', b, 0x60d060, () => { for (const q of own) s.build.sendTo(q, b.id); }));
       }
       const f = this.fortify(b);
+      // M6k: an own store or chest: unload into it / load from it (recommended when nothing else is to do)
+      const tr = th && (th.kind === 'store' || th.kind === 'chest') && (b.state === 'done' || b.state === 'damaged') ? s.trade.options(th, own, move) : [];
+      if (tr.length) return [...o, ...tr, move, ...f];
       if (o.length) return [...o, move, ...f];
       if (f.length) return [move, ...f];
     }

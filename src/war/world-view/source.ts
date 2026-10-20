@@ -16,6 +16,7 @@ import { ALLIANCES, WAR_SEASON } from '../world/alliances';
 import { edge, worldRegion, WORLD_IDS } from '../world/graph';
 import { allianceRates, FRONTIER_TOWNS, OMPHALOS } from '../world/season';
 import type { AllianceId } from '../world/types';
+import type { BoardSeen, ConvoySnap } from './geo';
 
 /** The player's men standing in one region (from the roster); ids: their person ids. */
 export interface FieldSquad { region: string; men: number; classes: Record<string, number>; ids: string[] }
@@ -29,6 +30,10 @@ export interface WorldView {
   /** Live soldier quota per alliance in a region. */
   quota: number[];
   status: string;
+  /** M6l (mock only until the server's transit rows carry cargo, M6h): carts and porters on the road, the price boards your men last saw, today's trade score per alliance. */
+  convoys?: ConvoySnap[];
+  boards?: Record<string, BoardSeen>;
+  trade?: number[];
 }
 
 export type TransferResult = { ok: TransitSnap[] } | { error: string };
@@ -167,7 +172,7 @@ export class NetSource implements WorldSource {
 }
 
 /** A made-up world mid-season: owners, fights and the player's men (alliance Dodona). */
-export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSquad[]; scores: number[]; endsAt: number } {
+export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSquad[]; scores: number[]; endsAt: number; convoys: ConvoySnap[]; boards: Record<string, BoardSeen>; trade: number[] } {
   const owners: Record<string, AllianceId> = {
     krios: 0, moors: 0, saddle: 0, stymphalia: 0, siren: 3, 'dodona-s': 0,
     kleisoura: 1, kimmeria: 1, ammos: 1, ammon: 2,
@@ -203,7 +208,21 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
     id: WAR_SEASON.id, startAt: now + left - WAR_SEASON.lengthMs, endAt: now + left, left, scores, rates: allianceRates(regions),
     omphalos: owner(OMPHALOS), towns: Object.fromEntries(FRONTIER_TOWNS.map((t) => [t, owner(t)])), hegemony: null, ended: null,
   };
-  return { snap: { season: WAR_SEASON.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit }, squads, scores, endsAt: now + left };
+  // M6l: convoys on the road (yours, a seen foe cart, a Safe Roads foe wagon to a town you stand in, one out of sight)
+  const leg = (from: string, to: string, f: number, mul: number) => { const ms = travelMs(from, to) * mul; return { departAt: now - ms * f, arriveAt: now + ms * (1 - f) }; };
+  const convoys: ConvoySnap[] = [
+    { id: 101, from: 'dodona', to: 'dodona-s', ...leg('dodona', 'dodona-s', 0.45, 1.5), alliance: 0, kind: 'wagon', loads: 11, cargo: 'iron, pitch' },
+    { id: 102, from: 'kleisoura', to: 'dodona-e', ...leg('kleisoura', 'dodona-e', 0.3, 1), alliance: 1, kind: 'handcart', loads: 5, cargo: 'tin' },
+    { id: 103, from: 'elaia-n', to: 'stymphalia', ...leg('elaia-n', 'stymphalia', 0.6, 1.5), alliance: 3, kind: 'wagon', loads: 12, cargo: 'oil, marble', safe: true },
+    { id: 104, from: 'savanna', to: 'kyrene-n', ...leg('savanna', 'kyrene-n', 0.5, 1.2), alliance: 2, kind: 'porters', loads: 8, cargo: 'hides' },
+  ];
+  const min = 60_000;
+  const boards: Record<string, BoardSeen> = {
+    dodona: { at: now - 1 * min, fills: 7, rows: [{ good: 'iron', ask: 6, bid: 4, depth: 140 }, { good: 'pitch', ask: 3, bid: 2, depth: 90 }, { good: 'food', ask: 1, bid: 1, depth: 600 }, { good: 'tin', ask: 14, bid: 11, depth: 20 }] },
+    stymphalia: { at: now - 3 * min, fills: 10, rows: [{ good: 'tin', ask: 11, bid: 9, depth: 45 }, { good: 'oil', ask: 5, bid: 4, depth: 120 }, { good: 'marble', ask: 9, bid: null, depth: 30 }, { good: 'iron', ask: 8, bid: 6, depth: 60 }, { good: 'food', ask: 2, bid: 1, depth: 300 }] },
+    kleisoura: { at: now - 47 * min, fills: 4, rows: [{ good: 'tin', ask: 8, bid: 7, depth: 80 }, { good: 'iron', ask: 9, bid: 5, depth: 25 }, { good: 'hides', ask: 3, bid: null, depth: 40 }] },
+  };
+  return { snap: { season: WAR_SEASON.id, score, at: now, you: { id: 1, alliance: 0 }, alliances, regions, transit }, squads, scores, endsAt: now + left, convoys, boards, trade: [34, 18, 60, 9] };
 }
 
 export class MockSource implements WorldSource {
@@ -215,13 +234,17 @@ export class MockSource implements WorldSource {
 
   private view(): void {
     this.w.snap.at = Date.now();
-    this.emit({ snap: this.w.snap, squads: this.w.squads, scores: this.w.scores, endsAt: this.w.endsAt, quota: QUOTA, status: 'offline (mock world)' });
+    const now = Date.now();
+    // convoys that arrived set off again the other way (the mock keeps the roads busy)
+    for (const c of this.w.convoys) if (c.arriveAt <= now) { const ms = c.arriveAt - c.departAt; [c.from, c.to] = [c.to, c.from]; c.departAt = now; c.arriveAt = now + ms; }
+    this.emit({ snap: this.w.snap, squads: this.w.squads, scores: this.w.scores, endsAt: this.w.endsAt, quota: QUOTA, status: 'offline (mock world)', convoys: this.w.convoys, boards: this.w.boards, trade: this.w.trade });
   }
 
   async start(onChange: (v: WorldView) => void): Promise<void> {
     this.emit = onChange;
     this.view();
     setInterval(() => this.tick(), 1000);
+    setInterval(() => this.view(), 5000);
   }
 
   /** Arrivals: into the region while the quota has room, else wait (queued). */

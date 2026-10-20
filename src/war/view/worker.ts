@@ -28,6 +28,7 @@ export type ToWorker =
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
   | { t: 'finishBridges'; team: number } // scenarios: standing bridges
+  | { t: 'cart'; team: number; owner: string; type: 'handcart' | 'wagon'; x: number; y: number } // scenarios (M6k): a ready cart
   | { t: 'check'; id: number; team: number; type: BuildingType; x: number; y: number; rot: 0 | 1 }
   | { t: 'checkWall'; id: number; team: number; wall: Omit<WallOrder, 'kind' | 'squad'> }
   | { t: 'checkBridge'; id: number; team: number; bridge: Omit<BridgeOrder, 'kind' | 'squad'> }
@@ -139,6 +140,7 @@ onmessage = (e: MessageEvent<ToWorker>) => {
   else if (m.t === 'mobs') build(sim)?.spawnMobs();
   else if (m.t === 'damage') build(sim)?.damageBuilding(m.id, m.dmg);
   else if (m.t === 'finishBridges') build(sim)?.finishBridges(m.team);
+  else if (m.t === 'cart') build(sim)?.spawnCart(m.team, m.owner, m.type, m.x, m.y);
   else if (m.t === 'prebuild') prebuild(sim, m.team, m.max);
   else if (m.t === 'skip') { for (let i = 0; i < m.ticks; i++) { sim.step(); brains!.tick(); } tick(); }
   else if (m.t === 'check') postMessage({ reply: m.id, place: build(sim)?.checkPlacement(m.team, m.type, m.x, m.y, m.rot) ?? null });

@@ -33,6 +33,8 @@ void Promise.all([id === 'fake' ? Promise.resolve(fakeRegion()) : loadRegion(id)
     render: { mipmapFilter: 'LINEAR_MIPMAP_LINEAR' },
   });
   const sc = id === 'test-ridge' ? (scenarioById(q.get('scenario')) ?? SCENARIOS.find((s) => s.id === 'free')!) : null;
+  // M6k: a scenario's safe, yard and ambush rects join the region's before the sim starts
+  if (sc?.zones) for (const k of ['safe', 'yard', 'ambush'] as const) if (sc.zones[k]) region[k] = [...(region[k] ?? []), ...sc.zones[k]!];
   game.scene.add('Sandbox', scene, true, { region, art, sheets });
   // once create() ran (the sim client exists only then)
   const ready = () => {

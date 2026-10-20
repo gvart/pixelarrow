@@ -42,9 +42,11 @@ import { sandboxCraft } from './craft/state';
 import { sandboxRoster } from './roster/state';
 import { PROF_NODES } from '../../../data/professions';
 import { WP_NAME } from './craft/workplace';
+import { mountTrade } from './holder';
+import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 
-const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
+const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives', 'coin'];
 /** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
 const CRAFT_RES: string[] = ['hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'pitch', 'p:bandage', 'p:salve', 'p:theriac'];
 const RES_ICON: Record<string, string> = { 'p:bandage': 'res-bandages', 'p:salve': 'res-salves', 'p:theriac': 'res-theriac' };
@@ -54,7 +56,9 @@ const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).re
 
 interface ToolDef { name: string; icon: string; tool: Tool; cost: Cost; labour: number; note: string;
   /** M5h3: the engineer node it needs (an engine design, a Fortifier field tile). */
-  node?: string }
+  node?: string;
+  /** M6k carts: a workshop recipe queued at your workshop of its level (not laid out on the map). */
+  craft?: string }
 const bTool = (t: BuildingType, note = '', name = nice(t)): ToolDef => ({ name, icon: BUILDING_ICON[t], tool: { kind: 'building', type: t }, cost: BUILDINGS[t].cost, labour: BUILDINGS[t].labour, note });
 /** M5h workplaces: level 1 placed here, L2 / L3 by Upgrade on the building's card. */
 const WORKPLACES: [BuildingType, string, string][] = [
@@ -62,7 +66,12 @@ const WORKPLACES: [BuildingType, string, string][] = [
   ['infirmary', 'Infirmary', 'physicians: bandages, salves, theriac'], ['workshop', 'Workshop', 'engineers: tools, mantlets'],
   ['stall', 'Market stall', 'merchants: caravan goods'], ['sortingFloor', 'Sorting floor', 'foragers: charcoal, linen, leather (or upgrade a storehouse)'],
 ];
-const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege', ToolDef[]> = {
+/** M6k carts (docs/WAR.md "Carts"): made at a workshop, rolled out beside it for you. */
+const cartTool = (t: 'handcart' | 'wagon'): ToolDef => {
+  const r = RECIPES[t], lvl = r.lv;
+  return { name: nice(t), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: r.inputs as Cost, labour: r.secs, note: `${t === 'handcart' ? '6 loads, 2 pull it' : '12 loads, a driver and two mules'} · queued at your workshop L${lvl}`, craft: t };
+};
+const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege' | 'Trade', ToolDef[]> = {
   Camp: TOOLBAR.map((t) => bTool(t)),
   Craft: WORKPLACES.map(([t, name, note]) => bTool(t, `${note} · L2, L3: Upgrade`, name)),
   Walls: [
@@ -78,7 +87,9 @@ const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege', ToolDef[]> = {
     { ...bTool('stakes', 'a tile · slows and hurts foes crossing; burns', 'Stakes'), node: 'fortifier' },
     { ...bTool('ditch', 'a tile · foes slow to cross it; labour only', 'Ditch'), node: 'fortifier' },
   ],
-  Siege: (Object.keys(SIEGE) as SiegeType[]).map((t) => ({ name: nice(SIEGE_NAME[t]), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: SIEGE[t].cost, labour: SIEGE[t].labour, note: `crew ${SIEGE[t].crew} · a squad builds it`, node: SIEGE[t].node })),
+  // M6k: a chest (8 loads, yours only) and the carts (crafted at a workshop)
+  Trade: [bTool('chest', '8 loads · yours only · 4 a region', 'Chest'), cartTool('handcart'), cartTool('wagon')],
+  Siege: (Object.keys(SIEGE) as SiegeType[]).filter((t) => t !== 'handcart' && t !== 'wagon').map((t) => ({ name: nice(SIEGE_NAME[t]), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: SIEGE[t].cost, labour: SIEGE[t].labour, note: `crew ${SIEGE[t].crew} · a squad builds it`, node: SIEGE[t].node })),
 };
 type Tab = keyof typeof TABS;
 const SLOT = 32; // 30 px button + 2 gap
@@ -270,10 +281,20 @@ export function hud(s: SandboxScene): void {
     bTabs.appendChild(b);
   }
   const toolBtns: [HTMLButtonElement, ToolDef][] = [];
+  /** M6k: queue a cart at your finished workshop of its level (the nearest to the camera's centre). */
+  const craftCart = (id: string) => {
+    const lvl = RECIPES[id].lv, cam = s.cameras.main, c = s.tileAt({ x: cam.width / 2, y: cam.height / 2 });
+    const shops = (s.sim.cur?.buildings ?? []).filter((b) => b.team === 0 && (b.state === 'done' || b.state === 'damaged') && BUILDINGS[b.type].workplace?.kind === 'workshop' && BUILDINGS[b.type].workplace!.level >= lvl);
+    const w = shops.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
+    if (!w) { m.status = `${id}: needs a finished workshop L${lvl} of yours`; return; }
+    s.sim.order({ kind: 'craft', team: 0, building: w.id, recipe: id });
+    s.mark(w.x, w.y, 0x60d060);
+    m.status = `${id} queued at the workshop (an engineer makes it)`;
+  };
   const renderTools = () => {
     toolBtns.length = 0;
     bTools.replaceChildren(...TABS[tab].map((d, i) => {
-      const b = btn('bt-' + tab + i, d.icon, () => `<div class="rf-name" style="margin-bottom:4px">${d.name}</div><div style="display:flex;align-items:center">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(d.labour)}${d.note ? ' · ' + d.note : ''}</div>${nodeWhy(d) ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${nodeWhy(d)}</div>` : ''}`, '', () => { if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
+      const b = btn('bt-' + tab + i, d.icon, () => `<div class="rf-name" style="margin-bottom:4px">${d.name}</div><div style="display:flex;align-items:center">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px">${d.craft ? `${d.labour} s an engineer` : `labour ${labourText(d.labour)}`}${d.note ? ' · ' + d.note : ''}</div>${nodeWhy(d) ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${nodeWhy(d)}</div>` : ''}`, '', () => { if (d.craft) return craftCart(d.craft); if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
       b.dataset.tool = String(i);
       toolBtns.push([b, d]);
       return b;
@@ -305,6 +326,9 @@ export function hud(s: SandboxScene): void {
     else if (e.key.toLowerCase() === 'x') stop();
     else if (e.key.toLowerCase() === 'f') fireActives(s, sc.own());
   });
+
+  // ---------- trade: holder panel, hover card, command card slots (./holder.ts, M6k) ----------
+  const trade = mountTrade(s, mk, btn, tipK);
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
@@ -345,6 +369,7 @@ export function hud(s: SandboxScene): void {
     // a button removed or hidden under the pointer never sends pointerleave
     if (tipAt && (!tipAt.isConnected || !tipAt.offsetParent)) { tipAt = null; hideTip(); }
     modes.refresh();
+    trade.refresh();
     const st = s.sim.cur?.stock?.[0] ?? {}, sup = (s.sim.cur?.supplies?.[0] ?? {}) as Record<string, number>;
     counts.forEach((el) => { const r = el.dataset.r!, v = Math.floor(r.startsWith('p:') ? sup[r.slice(2)] ?? 0 : st[r as ResourceKind] ?? 0); el.textContent = String(v); el.classList.toggle('rf-dim', !v); });
 
@@ -402,6 +427,7 @@ export function hud(s: SandboxScene): void {
       }
       if (engines.some((x) => x?.type === 'stoneThrower')) slots.push(gDeploy);
       if (e) slots.push(gLetGo);
+      slots.push(...trade.slots(own));
       setCard(true, slots, SEL_SQUAD, civ ? civOrders : orders);
       cvHold.classList.toggle('on', q.order === 'hold');
       cvMove.classList.toggle('on', sc.armed === 'move');

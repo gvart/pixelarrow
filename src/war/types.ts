@@ -178,6 +178,8 @@ export interface SiegeSnap {
   ladder?: number;
   /** M6b carts: the owning player, cargo (goods, item count, loads of most), halted by a foe near, capture progress 0..1. */
   owner?: string; cargo?: Partial<Record<ResourceKind, number>>; items?: number; loads?: number; cap?: number; halted?: true; capture?: number;
+  /** M6k: the cart's first items (uid, def, rarity, quality; at most 8). */
+  list?: HoldItem[];
 }
 export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; facing: number; hp: number; maxHp: number; cls: string; state: 'idle' | 'move' | 'attack' | 'dead' | 'gather' | 'build'; wounded?: boolean; swing?: number; ready?: number; carry?: ResourceKind; load?: number;
   /** M2c: what it does at its target while standing there: torching, beating out a fire, pushing a ladder, crewing an engine (state build: building one). */
@@ -365,6 +367,8 @@ export interface BuildingSnap {
   queue?: QueueSnap[];
   /** M6a: a store's or chest's goods and item count; a chest's owner. */
   goods?: Partial<Record<ResourceKind, number>>; items?: number; owner?: string;
+  /** M6k: a store's or chest's first items (at most 8). */
+  list?: HoldItem[];
 }
 /** A crafting order: its id, recipe (or 'repair' / 'salvage' of an item def), the crafter's unit once started (-1 waiting), progress 0..1. */
 export interface QueueSnap { id: number; recipe: string; kind: 'craft' | 'repair' | 'salvage'; by: UnitId; progress: number }
@@ -445,8 +449,12 @@ export type HonourStat = 'hp' | 'dmg' | 'armor' | 'block' | 'accuracy';
 export interface WarPerson { id: string; hero: Hero; skills?: WarSkillId[]; honours?: { name: string; stat: HonourStat }[] }
 /** A squad active: ready in `ready` ticks (0 = now), buff on for `on` more ticks (0 = off). */
 export interface ActiveSnap { skill: WarSkillId; ready: number; on: number }
+/** M6k: an item in a hold as the view sees it (src/war/sim/holders.ts itemList). */
+export interface HoldItem { uid: string; def: string; rarity: string; q?: 0 | 1 | 2 }
 /** M6c: a loot pile: its goods, item count, loads, `left` ticks until it is gone; salvage: a smith's progress 0..1. */
-export interface PileSnap { id: number; x: number; y: number; goods: Partial<Record<ResourceKind, number>>; items: number; loads: number; left: number; salvage?: number }
+export interface PileSnap { id: number; x: number; y: number; goods: Partial<Record<ResourceKind, number>>; items: number; loads: number; left: number; salvage?: number;
+  /** M6k: the pile's first items (uid for salvagePile; at most 8). */
+  list?: HoldItem[] }
 /**
  * One person's fight: XP earned (half when wounded or captive, none when dead), level-ups, and the hero after it.
  * fort: a captive's holding building (the captor's nearest standing fort or camp), absent when the captor holds none.

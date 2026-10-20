@@ -36,6 +36,9 @@ import { SiegeArt } from './siege/siegeArt';
 import { SiegeControls } from './siege/siegeControls';
 import { SiegeLayer } from './siege/siegeLayer';
 import { Interact } from './interact';
+import { TradeArt } from './trade/tradeArt';
+import { TradeControls } from './trade/tradeControls';
+import { TradeLayer } from './trade/tradeLayer';
 import { MapData, type Live, type MapMode } from './mapModes';
 import { FogLayer } from './fog';
 import { anySoldiers } from './hud/cardCiv';
@@ -86,6 +89,9 @@ export class SandboxScene extends Phaser.Scene {
   siege!: SiegeControls;
   /** The context action of E and right click, its label at the cursor. */
   interact!: Interact;
+  /** M6k: carts, piles, chests, packs and safe zones on the map; the trade orders. */
+  tradeLayer!: TradeLayer;
+  trade!: TradeControls;
   /** True once the overview has been baked for the current overlays. */
   overviewReady = false;
   private moved = false; // no edge pan before the first real pointer move
@@ -176,6 +182,10 @@ export class SandboxScene extends Phaser.Scene {
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onUp(p));
     this.siegeLayer = new SiegeLayer(this, this.iso, (x, y) => this.depthAt(x, y));
     void SiegeArt.load(this).then((a) => (this.siegeLayer.art = a));
+    this.tradeLayer = new TradeLayer(this, this.iso, r, (x, y) => this.depthAt(x, y), (d) => this.units.feet(d));
+    this.tradeLayer.siegeArt = () => this.siegeLayer.art;
+    void TradeArt.load(this).then((a) => (this.tradeLayer.art = a));
+    this.trade = new TradeControls(this);
     this.build = new BuildMode(this);
     this.siege = new SiegeControls(this);
     this.interact = new Interact(this);
@@ -184,7 +194,7 @@ export class SandboxScene extends Phaser.Scene {
     const layer = this.build.layer, sl = this.siegeLayer;
     layer.charOf = (b, kit, l) => sl.charOf(b, kit, l);
     sl.working = layer.working; // M5h: workplace working fx (the siege art holds the fx loops)
-    layer.skip = (b) => !!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble));
+    layer.skip = (b) => (!!sl.art && (b.siege !== undefined || (b.state === 'destroyed' && !!b.rubble))) || (b.type === 'chest' && !!this.tradeLayer.art && b.state !== 'destroyed');
     this.units.lift = (d) => sl.lift(d) ?? layer.lift(d);
     this.units.ground = (d) => layer.groundDepth(d);
     this.shots.lift = (x, y) => layer.lift({ x, y })?.px ?? 0;
@@ -374,6 +384,10 @@ export class SandboxScene extends Phaser.Scene {
     if (!this.down || this.down.pan) { this.down = null; return; }
     this.down = null;
     const hit = this.box ? null : this.pick(p, true);
+    // M6k: a click on a cart or loot pile picks it for the holder panel (squads stay selected)
+    const h = this.box || hit ? null : this.trade.at(this.world(p));
+    this.trade.selected = h && h.kind !== 'chest' && h.kind !== 'store' ? h.ref : null;
+    if (this.trade.selected) { this.build.selectAt({ x: -1, y: -1 }); return; }
     // a click on a building selects it and keeps the squads selected (the site panel assigns from them)
     if (!this.box && !hit && this.build.selectAt(this.world(p))) return;
     if (!this.keys.SHIFT.isDown) this.selected.clear();
@@ -470,6 +484,9 @@ export class SandboxScene extends Phaser.Scene {
     this.build.update(this.wpx(p.x, p.y), cam.zoom, view);
     const at = this.sim.time(this.time.now), shots = this.sim.cur?.shots ?? [];
     this.siegeLayer.draw(this.sim.cur?.sieges ?? [], this.sim.cur?.buildings ?? [], this.drawn, at, this.sim.cur?.tick ?? 0, view);
+    const cur0 = this.sim.cur, sel = this.trade.selected;
+    this.tradeLayer.ring = sel ?? (this.build.selectedBuilding()?.type === 'chest' ? { building: this.build.selectedBuilding()!.id } : null);
+    this.tradeLayer.draw(cur0?.sieges ?? [], cur0?.piles ?? [], cur0?.buildings ?? [], this.drawn, cam.zoom, view, this.time.now);
     this.units.settle(this.drawn, this.time.now);
     const occluded = this.objects?.draw(view, cam.zoom, this.drawn, (d) => this.units.feet(d), BODY) ?? new Set<number>();
     if (cam.zoom >= SPRITE_ZOOM) this.build.layer.occluded(this.drawn, occluded);
