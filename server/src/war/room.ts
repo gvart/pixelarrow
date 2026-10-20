@@ -37,7 +37,7 @@ import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/inte
 import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
 import type { Item } from '../../../src/data/items';
-import type { BridgePlan, FightReport, Order, PlaceResult, RegionData, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
+import type { BridgePlan, FightReport, LandmarkSnap, Order, PlaceResult, RegionData, RegionMemory, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarEvent, WarPerson } from '../../../src/war/types';
 import type { Side } from '../../../src/war/world/types';
 import type { BossSlain } from './bosses';
 import { honoursOf } from '../../../src/war/sim/honours';
@@ -131,7 +131,14 @@ export interface RoomOptions {
   /** This room instance's id in fight ids (default: random). */
   epoch?: string;
   fightQuiet?: number;
+  /** M7f: a fresh room wakes the region's lairs and guardians (a neutral region on its own map). */
+  wild?: boolean;
 }
+
+/** M7f: a landmark as the room reports it to the world (src/war/net/world.ts LandmarkWorld; back: minutes, not a time). */
+export interface LandmarkReport { id: string; holder: number; guardian: 'alive' | 'slain' | 'away'; back?: number; state: LandmarkSnap['state']; hp: number; garrisoned: boolean }
+/** What the room tells the world (World.report). */
+export interface Summary { live: number[]; claims: number[]; channel: number[]; landmark?: LandmarkReport; prestige?: number[]; ruined?: boolean }
 
 interface Player {
   pid: number;
@@ -197,6 +204,18 @@ export class WarRoom {
     this.epoch = o.epoch ?? `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     this.fightQuiet = o.fightQuiet ?? FIGHT_QUIET;
     this.run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+    if (o.wild) this.sim.spawnMobs();
+    this.snap = this.sim.snapshot();
+  }
+
+  /** M7f: what the region remembers once it empties (pre-built pieces, claim holders, guardians, its landmark). */
+  memory(): RegionMemory {
+    return this.sim.memory();
+  }
+
+  /** M7f: a fresh room takes on what the region remembers, `elapsed` ticks after it was left. */
+  recall(m: RegionMemory, elapsed: number): void {
+    this.sim.recall(m, Math.max(0, Math.floor(elapsed)));
     this.snap = this.sim.snapshot();
   }
 
@@ -428,14 +447,31 @@ export class WarRoom {
   }
 
   /** M4: what the world map shows of this region (alliances 0..3): live men, claim points held, claims in progress. */
-  summary(): { live: number[]; claims: number[]; channel: number[] } {
+  summary(): Summary {
     const n = ALLIANCES, claims = Array<number>(n).fill(0), channel = Array<number>(n).fill(0);
     for (const c of this.snap.claims ?? []) {
       if (c.state === 'claimed' && c.team >= 0 && c.team < n) claims[c.team]++;
       const t = c.squad >= 0 ? this.teams[c.squad] : undefined;
       if ((c.state === 'channel' || c.state === 'contested') && t !== undefined && t < n) channel[t]++;
     }
-    return { live: this.live.slice(0, n), claims, channel };
+    const out: Summary = { live: this.live.slice(0, n), claims, channel };
+    // M7f: its landmark, favour and prestige per alliance, a ruined town
+    const lm = this.snap.landmark;
+    if (lm) {
+      const bs = this.snap.bosses ?? [];
+      const guardian = bs.some((b) => b.state !== 'slain' && b.state !== 'away') ? 'alive' : bs.some((b) => b.state === 'away') ? 'away' : 'slain';
+      const left = bs.filter((b) => b.respawnIn !== undefined).map((b) => b.respawnIn!);
+      out.landmark = {
+        id: lm.id, holder: lm.holder >= 0 && lm.holder < n ? lm.holder : -1, guardian, ...(guardian !== 'alive' && left.length ? { back: Math.ceil(Math.min(...left) / 600) } : {}),
+        state: lm.state, hp: Math.round(lm.hp * 100) / 100, garrisoned: lm.garrisoned,
+      };
+    }
+    if (this.region.prebuilt?.length) {
+      const pr = Array.from({ length: n }, (_, t) => Math.round(this.sim.prestige(t) * 100) / 100);
+      if (pr.some((v) => v > 0)) out.prestige = pr;
+      if ((this.snap.towns ?? []).some((t) => t.claim >= 0 && t.ruined)) out.ruined = true;
+    }
+    return out;
   }
 
   private centres(): Map<number, { x: number; y: number }> {
@@ -737,7 +773,7 @@ export class WarRoom {
   }
 
   /** Step once; frames per online player, the queued players let in this tick and a finished fight to write back. */
-  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
+  tick(now: () => number = () => 0): { frames: Map<number, Uint8Array>; admitted: Map<number, ServerMsg>; fights: Fight[]; crafted: Crafted[]; bosses: BossSlain[]; sacrilege: number[]; freed: string[]; raided: number[]; captured: { cart: number; from: string; team: number; to: string }[]; times: TickTimes } {
     const t0 = now();
     // M6i: carts' owners before the step (a capture names only the taker)
     const cartWas = new Map((this.snap.sieges ?? []).filter((e) => e.owner !== undefined).map((e) => [e.id, { owner: e.owner!, team: e.team }]));
@@ -748,6 +784,8 @@ export class WarRoom {
     const evs = this.sim.events();
     const crafted = evs.filter((e): e is Crafted => e.kind === 'crafted');
     const bosses = evs.filter((e): e is BossSlain => e.kind === 'bossSlain');
+    // M7f: a temple or shrine razed: the razer's alliance pays (the world)
+    const sacrilege = evs.flatMap((e) => (e.kind === 'razed' && e.sacrilege && e.by >= 0 && e.by < ALLIANCES ? [e.by] : []));
     const captured = evs.flatMap((e) => (e.kind === 'cartCaptured' && cartWas.has(e.cart) ? [{ cart: e.cart, from: cartWas.get(e.cart)!.owner, team: cartWas.get(e.cart)!.team, to: e.owner }] : []));
     for (const e of crafted) if (e.what === 'craft') this.deposit(e);
     // M7e: a landmark boss's rare good falls into the pile with its gear (origin: this region)
@@ -801,7 +839,7 @@ export class WarRoom {
       }
     }
     this.lastTick = this.snap.tick;
-    return { frames, admitted, fights, crafted, bosses, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
+    return { frames, admitted, fights, crafted, bosses, sacrilege, freed, raided, captured, times: { stepMs: t1 - t0, snapMs: t2 - t1, netMs: now() - t2 } };
   }
 
   /** Battle honours won in a finished fight go on its report (src/war/sim/honours.ts); the fort-taking slate is wiped. */
@@ -852,7 +890,7 @@ export class WarRoom {
    * (a fight written back after the save) leaves the field unreported.
    */
   static restore(o: RoomOptions, st: RoomState, persons: ReadonlyMap<string, WarPerson>): WarRoom {
-    const r = new WarRoom(o);
+    const r = new WarRoom({ ...o, wild: false });
     r.sim.importState(st.sim);
     r.bots.importState(st.bots);
     st.owners.forEach((x, i) => x !== null && (r.owners[i] = x));

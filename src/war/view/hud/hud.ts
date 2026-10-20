@@ -45,6 +45,7 @@ import { WP_NAME } from './craft/workplace';
 import { mountTrade } from './holder';
 import { mountMarket } from './market';
 import { mountGuardians } from './guardianBar';
+import { billText, mountBuildingCard, rebuildBill, rebuildWhy, repairBill, repairWhy } from './buildingCard';
 import { RECIPES } from '../../../data/recipes';
 import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 
@@ -97,6 +98,7 @@ type Tab = keyof typeof TABS;
 const SLOT = 32; // 30 px button + 2 gap
 
 /** A cost as resource icons with numbers. */
+const ceilBill = (c: Cost): Cost => Object.fromEntries(Object.entries(c).map(([r, v]) => [r, Math.ceil(v ?? 0)]));
 const costHtml = (c: Cost) => Object.entries(c).map(([r, v]) => `<span style="display:inline-flex;align-items:center;gap:2px;margin-right:6px">${icon('res-' + r)}<span class="rf-num">${v}</span></span>`).join('') || '<span class="rf-dim">free</span>';
 
 export function hud(s: SandboxScene): void {
@@ -241,6 +243,19 @@ export function hud(s: SandboxScene): void {
   const fortify = (fort: FortKind) => { const b = m.selectedBuilding(); if (b) s.sim.order({ kind: 'fortify', team: 0, building: b.id, fort }); };
   const bIron = btn('biron', 'bld-gate', '', '', () => fortify('ironGate'));
   const bWet = btn('bwet', 'act-extinguish', '', '', () => fortify('wetHides'));
+  // M7g: repair a damaged building with the selected squads; rebuild an own ruin (the selected squad builds it, else planned)
+  const bRepair = btn('brepair', 'act-build', '', '', () => {
+    const b = m.selectedBuilding();
+    if (!b) return;
+    for (const q of sc.own()) s.sim.order({ kind: 'repairBuilding', squad: q, building: b.id });
+    s.mark(b.x, b.y, 0x60d060);
+  });
+  const bRebuild = btn('brebuild', 'act-upgrade', '', '', () => {
+    const b = m.selectedBuilding(), q = m.squad();
+    if (!b) return;
+    s.sim.order(q === null ? { kind: 'rebuild', building: b.id, team: 0 } : { kind: 'rebuild', building: b.id, squad: q });
+    s.mark(b.x, b.y, 0x60d060);
+  });
   let shownSlots: HTMLElement[] = [], shownOrders: HTMLElement[] | null = null;
   const setCard = (ord: boolean, slots: HTMLElement[], selW: number, list = orders) => {
     const want = ord ? list : null;
@@ -333,6 +348,7 @@ export function hud(s: SandboxScene): void {
   const trade = mountTrade(s, mk, btn, tipK);
   mountMarket(s, mk); // M6k: market, offers, board, contracts, letters, hand-off (./market.ts; K)
   mountGuardians(s, mk); // M7d: the guardian bar and the landmark panel (./guardianBar.ts; L)
+  mountBuildingCard(s, mk); // M7g: the building card over the command card (./buildingCard.ts)
 
   // ---------- soldiers: roster panel (R), soldier card, toasts, veteran pips (./roster, M5g) ----------
   mountCraft(s, mk, mountRoster(s, mk)); // M5h5: workplace panel, profession trees, stash (./craft)
@@ -379,7 +395,7 @@ export function hud(s: SandboxScene): void {
 
     const sq = m.squad(), q = sq === null ? undefined : s.sim.squads.get(sq), own = sc.own();
     const b = m.selectedBuilding();
-    if (b && b.state !== 'destroyed') {
+    if (b && (b.state !== 'destroyed' || b.ruin)) {
       card.style.display = '';
       $('cTag').style.display = 'none';
       const wpd = BUILDINGS[b.type].workplace, site = isSite(b), name = (wpd ? `${WP_NAME[wpd.kind]} L${wpd.level}` : nice(b.type)) + (site ? (b.upgradeFrom ? ' upgrade' : ' site') : '');
@@ -396,11 +412,23 @@ export function hud(s: SandboxScene): void {
         const refund = m.refund(b);
         sCancel.dataset.tip = tipK('Cancel site', `refunds ${Object.keys(refund).length ? costText(refund) : 'nothing'}`, '');
       } else {
-        setHead(BUILDING_ICON[b.type], name, `${Math.ceil(b.hp)}/${b.maxHp}`, bar('hp', b.hp / b.maxHp, BAR_W) + (b.burning ? bar('burn', 1, BAR_W) : ''),
-          `${b.team === 0 ? 'yours' : b.team === NEUTRAL_TEAM ? 'neutral' : 'enemy'} · ${b.state}${b.burning ? ' · burning' : ''}`);
-        const up = b.team === 0 ? m.upgradeOf(b) : null, def = BUILDINGS[b.type], own = b.team === 0 && b.state === 'done';
+        setHead(BUILDING_ICON[b.type], name + (b.ruin ? ' (ruin)' : ''), b.ruin ? 'ruin' : `${Math.ceil(b.hp)}/${b.maxHp}`, bar('hp', b.ruin ? 0 : b.hp / b.maxHp, BAR_W) + (b.burning ? bar('burn', 1, BAR_W) : ''),
+          `${b.team === 0 ? 'yours' : b.team === NEUTRAL_TEAM ? 'neutral' : 'enemy'} · ${b.ruin ? 'ruined' : b.state}${b.burning ? ' · burning' : ''}${b.mend ? ' · under repair' : ''}`);
+        const up = b.team === 0 && !b.ruin ? m.upgradeOf(b) : null, def = BUILDINGS[b.type], own = b.team === 0 && b.state === 'done';
         const iron = own && def.wall === 'gate', wet = own && !!def.burnable && !def.field;
-        setCard(false, [...(up ? [bUp] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : [])], SEL_BLD);
+        // M7g: repair (a hurt standing building), rebuild (a pre-built ruin)
+        const hurt = !b.ruin && b.hp < b.maxHp - 1e-6 && b.state !== 'foundation' && b.state !== 'scaffold' && !def.brazier, ruin = !!b.ruin;
+        setCard(false, [...(up ? [bUp] : []), ...(iron ? [bIron] : []), ...(wet ? [bWet] : []), ...(hurt ? [bRepair] : []), ...(ruin ? [bRebuild] : [])], SEL_BLD);
+        if (hurt) {
+          const r = repairBill(b), why = repairWhy(b, sq);
+          bRepair.disabled = !!why;
+          bRepair.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Repair</div><div style="display:flex;align-items:center">${costHtml(ceilBill(r.all))}</div><div class="rf-dim" style="margin-top:3px">${billText(r.step)} per 10% · labour ${labourText(r.labour)} · any squad, engineers x1.5</div>${why ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${why}</div>` : ''}`;
+        }
+        if (ruin) {
+          const r = rebuildBill(b), why = rebuildWhy(b);
+          bRebuild.disabled = !!why;
+          bRebuild.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Rebuild</div>${b.landmark ? '' : `<div style="display:flex;align-items:center">${costHtml(ceilBill(r.cost))}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(r.labour)} · ${sq === null ? 'planned: send a squad' : `squad #${sq} builds it`}</div>`}${why ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${why}</div>` : ''}`;
+        }
         const tiles = b.tiles.length / 2, stock = s.sim.cur?.stock?.[0] ?? {};
         if (iron) { bIron.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Iron-bind the gate</div><div style="display:flex;align-items:center">${costHtml(FORT.ironCost)}</div><div class="rf-dim" style="margin-top:3px">hp ×${FORT.iron}, once · Fortifier engineer's work, paid at once</div>`; bIron.disabled = (stock.iron ?? 0) < FORT.ironCost.iron || (stock.charcoal ?? 0) < FORT.ironCost.charcoal; }
         if (wet) { bWet.dataset.tip = `<div class="rf-name" style="margin-bottom:4px">Wet hides</div><div style="display:flex;align-items:center">${costHtml({ hides: FORT.wetCost * tiles })}</div><div class="rf-dim" style="margin-top:3px">catches fire at ×${FORT.wet} the chance for ${FORT.wetTicks / 600} min</div>`; bWet.disabled = (stock.hides ?? 0) < FORT.wetCost * tiles; }

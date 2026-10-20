@@ -23,6 +23,10 @@ import { draggable } from '../view/hud/drag';
 import { convoySeen, FRONTIER_TOWNS, HAUL_LOADS, inSight, isChokepoint, MARKET_TOWNS, planHaul, PURPOSE, seasonStandings, TRADE_CAP, type HaulKind } from './geo';
 import { allianceColor, ART, clock, WorldMap, type MapState } from './map';
 import { MockSource, NetSource, travelMs, type WorldSource, type WorldView } from './source';
+import { REGION_DEPTH } from '../sim/depth';
+import { LANDMARK_FUNCTION, REGION_LORE } from '../../data/warLore';
+import { landmarkOfRegion } from '../../data/warLandmarks';
+import { bossesOfRegion } from '../../data/warBosses';
 
 const q = new URLSearchParams(location.search);
 const offline = q.has('offline');
@@ -38,6 +42,10 @@ style.textContent = CSS + `
 .wv-flag.bad{color:var(--rf-bad)}
 .wv-kv{display:grid;grid-template-columns:62px 1fr;gap:1px 6px;margin-top:4px}
 .wv-kv>:nth-child(odd){color:var(--rf-muted)}
+.wv-lore{margin-top:4px;font-style:italic;color:var(--rf-muted);font-size:11.5px;line-height:1.35}
+.wv-depth{display:inline-flex;gap:3px;align-items:center;margin-right:5px;vertical-align:-1px}
+.wv-depth i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--rf-gold)}
+.wv-depth i.on{background:var(--rf-gold)}
 #wvToast{left:50%;bottom:16px;transform:translateX(-50%);display:none;pointer-events:none}
 `;
 document.head.appendChild(style);
@@ -77,6 +85,8 @@ let view: WorldView | null = null;
 const st: MapState = { regions: new Map(), transit: [], squads: new Map(), you: null, hover: null, selected: null, squadAt: null, targets: new Set(), routes: q.get('routes') !== '0', now: Date.now(), convoys: [], haul: null };
 let ordering: string | null = null;
 let mouse = { x: 0, y: 0 };
+/** M7g: the landmark marker under the pointer (its region id): its card wins over the region's. */
+let hoverLm: string | null = null;
 
 function say(text: string, ms = 3500): void {
   toast.textContent = text;
@@ -150,6 +160,37 @@ function tradeHtml(ids: number[], trade: number[]): string {
 }
 draggable(seasonEl);
 
+/** M7g: depth as four rings (filled to the depth) and words. */
+function depthHtml(id: string): string {
+  const d = REGION_DEPTH[id] ?? 1, words = ['home, safe', 'entry', 'frontier', 'gate', 'rim'][d];
+  return `<span class="wv-depth">${[1, 2, 3, 4].map((k) => `<i class="${k <= d ? 'on' : ''}"></i>`).join('')}</span>Depth ${d} of 4 <span class="rf-dim">· ${words}</span>`;
+}
+const LM_STATE: Record<string, string> = { guarded: 'guarded, gates shut', unclaimed: 'guardian slain, unclaimed', damaged: 'damaged: function dormant', restored: 'restored: its function wakes' };
+const RARE_NAME: Record<string, string> = { dragonbone: 'dragonbone', nereidPearl: 'nereid pearl', starIron: 'star iron', asphodel: 'asphodel', titanBronze: 'titan bronze', obsidian: 'obsidian' };
+const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+/** The lore line without its "Landmark: X." lead (the card names the landmark itself). */
+const loreLine = (id: string) => (REGION_LORE[id]?.lore ?? '').replace(/^Landmark: [^.]+\. /, '');
+
+/** M7g: a landmark's hover card: name, lore, guardian alive or slain (back in), holder and state, depth, reward. */
+function landmarkCard(id: string): string {
+  const lm = landmarkOfRegion(id), r = st.regions.get(id), w = r?.landmark;
+  if (!lm || !w) return regionCard(id);
+  const bosses = bossesOfRegion(id).map((b) => b.name.replace(/^the /, 'The ')).join(' and ');
+  const back = w.backAt ? Math.max(0, Math.round((w.backAt - Date.now()) / 1000)) : 0;
+  const guard = w.guardian === 'alive' ? '<span style="color:var(--rf-bad)">alive</span>'
+    : `${w.guardian === 'slain' ? 'slain' : 'escaped'}${back ? ` <span class="rf-dim">· back in ${clock(back)}${w.holder >= 0 ? ' unless held' : ''}</span>` : ''}`;
+  const rare = lm.rare ? `<span style="display:inline-flex;align-items:center;gap:3px"><img src="war/ui/icons/24/res-${kebab(lm.rare)}.png" width="14" height="14" alt="">${RARE_NAME[lm.rare]}</span>` : '<span class="rf-dim">none of its own</span>';
+  return `<div class="rf-head"><span class="rf-name">${lm.name}</span><span class="rf-dim" style="margin-left:auto">${name(id)}</span></div>
+    <div class="wv-lore">${loreLine(id)}</div>
+    <div class="wv-kv" style="grid-template-columns:66px 1fr"><span>Guardian</span><span>${bosses} · ${guard}</span>
+      <span>Holder</span><span style="display:flex;gap:4px;align-items:center">${w.holder >= 0 ? swatch(w.holder) : ''}${w.holder >= 0 ? aName(w.holder) : w.guardian === 'alive' ? 'its guardian' : 'nobody'}</span>
+      <span>State</span><span>${LM_STATE[w.state]}${w.holder >= 0 ? ` <span class="rf-dim">· ${Math.round(w.hp * 100)}%</span>` : ''}</span>
+      <span>Depth</span><span>${depthHtml(id)}</span>
+      <span>Rare good</span><span>${rare}</span>
+      <span>Score</span><span>+2 an hour restored and garrisoned${w.garrisoned ? ' <span class="wv-flag" style="color:var(--rf-good)">now</span>' : ''}</span></div>
+    <div class="rf-cap" style="margin-top:5px">Once held</div><div style="font-size:11.5px;line-height:1.35">${LANDMARK_FUNCTION[lm.id] ?? ''}</div>`;
+}
+
 function regionCard(id: string): string {
   const w = worldRegion(id)!, r = st.regions.get(id), [p1, p2] = PURPOSE[id] ?? ['', ''], you = st.you;
   const res = Object.entries(w.res).map(([k, n]) => `${k} ${n}`).join(' · ');
@@ -167,7 +208,10 @@ function regionCard(id: string): string {
   return `<div class="rf-head"><span class="rf-name">${w.name}</span><span class="rf-dim" style="margin-left:auto">${w.role}</span></div>
     <div style="margin-top:3px">${p1}<span class="rf-dim">${p2 ? ` · ${p2}` : ''}</span></div>
     <div>${flags}</div>
-    <div class="wv-kv"><span>Owner</span><span style="display:flex;gap:4px;align-items:center">${swatch(owner)}${aName(owner)}</span>
+    ${loreLine(id) ? `<div class="wv-lore">${loreLine(id)}</div>` : ''}
+    <div class="wv-kv"><span>Depth</span><span>${depthHtml(id)}</span>
+      ${r?.landmark ? `<span>Landmark</span><span>${landmarkOfRegion(id)?.name ?? ''} <span class="rf-dim">· ${LM_STATE[r.landmark.state]}</span></span>` : ''}
+      <span>Owner</span><span style="display:flex;gap:4px;align-items:center">${swatch(owner)}${aName(owner)}</span>
       <span>Biome</span><span>${w.biome}</span><span>Goods</span><span>${res}</span>
       <span>Troops</span>${troops}
       ${you !== null && seen ? `<span>Garrison</span><span style="display:flex;gap:6px;align-items:center">${bar('ok', ours / quota, 70)}<span class="rf-num">${ours}/${quota}</span></span>` : ''}
@@ -232,7 +276,8 @@ draggable(haulEl);
 
 function placeCard(): void {
   if (!st.hover || ordering) return void (card.style.display = 'none');
-  card.innerHTML = regionCard(st.hover);
+  card.innerHTML = hoverLm ? landmarkCard(hoverLm) : regionCard(st.hover);
+  card.style.width = hoverLm ? '300px' : '270px';
   card.style.display = '';
   const z = Number(card.style.zoom) || 1, r = card.getBoundingClientRect();
   let x = mouse.x + 18, y = mouse.y + 18;
@@ -322,6 +367,7 @@ canvas.addEventListener('pointermove', (e) => {
     if (down.moved) (map.x = down.mx - dx / map.k), (map.y = down.my - dy / map.k);
   }
   st.hover = map.regionAt(...map.toMap(e.clientX, e.clientY));
+  hoverLm = map.landmarkAt(st, ...map.toMap(e.clientX, e.clientY));
   canvas.style.cursor = st.hover ? 'pointer' : 'default';
   placeCard();
 });
@@ -365,5 +411,5 @@ void WorldMap.load(canvas).then(async (m) => {
     say(String((e as Error).message), 60_000);
     band.querySelector('#wvStatus')!.textContent = 'offline: no server';
   }
-  (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0) => { st.hover = id; mouse = { x, y }; placeCard(); } };
+  (window as unknown as { __world: unknown }).__world = { st, map, source, haul: (from: string, to: string, kind: HaulKind = 'wagon') => { Object.assign(haul, { open: true, from, to, kind }); renderHaul(); renderBand(); }, select: selectRegion, order: openOrder, hover: (id: string | null, x = 0, y = 0, lm = false) => { st.hover = id; hoverLm = lm ? id : null; mouse = { x, y }; placeCard(); } };
 });

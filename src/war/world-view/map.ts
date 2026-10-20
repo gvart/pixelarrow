@@ -120,7 +120,7 @@ export class WorldMap {
     const got = await Promise.all(names.map((n) => img(`${ART}${n}.${n.startsWith('base') ? 'jpg' : 'png'}`)));
     names.forEach((n, i) => (m.pics[n] = got[i]));
     // M6l: the kit's cart icons (public/war/ui), for convoys on the road; missing ones are drawn as a dot
-    for (const n of ['trade-cart', 'trade-wagon', 'act-load']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
+    for (const n of ['trade-cart', 'trade-wagon', 'act-load', 'bld-fort']) void img(`war/ui/icons/32/${n}.png`).then((i) => (m.pics[n] = i)).catch(() => undefined);
     const ids = got[names.indexOf('region-ids')], c = document.createElement('canvas');
     c.width = ids.width;
     c.height = ids.height;
@@ -335,12 +335,14 @@ export class WorldMap {
 
   /** Marker spots in map px (x, y, w, h): a siege fort or battle sword right of the region's centre, the player's
    *  banner left of it. Labels are laid out round these (never under them). */
-  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]> } {
+  private markerSpots(st: MapState): { marks: [string, string, number, number, number, number][]; banners: Map<string, [number, number, number]>; landmarks: Map<string, [number, number, number]> } {
     const s = Math.max(1, 0.8 / this.k), marks: [string, string, number, number, number, number][] = [], banners = new Map<string, [number, number, number]>();
+    const landmarks = new Map<string, [number, number, number]>(); // M7g: centre and radius of a landmark's marker, under the region's centre
     for (const [id, r] of Object.entries(this.art.regions)) {
       const rs = st.regions.get(id);
       if (!rs) continue;
       const [cx, cy] = r.centroid;
+      if (rs.landmark) landmarks.set(id, [cx, cy + 34 * s, 17 * s]);
       if (rs.besieged) marks.push([id, 'markers/fort', cx + 6 * s, cy - 24 * s, 48 * s, 48 * s]);
       else if (rs.contested) marks.push([id, 'markers/battle', cx + 4 * s, cy - 28 * s, 56 * s, 56 * s]);
     }
@@ -349,7 +351,63 @@ export class WorldMap {
       const r = this.art.regions[id];
       if (r) banners.set(id, [r.centroid[0] - 44 * b, r.centroid[1] - 28 * b, b]);
     }
-    return { marks, banners };
+    return { marks, banners, landmarks };
+  }
+
+  /** M7g: the landmark marker under map point (x, y), its region id, else null. */
+  landmarkAt(st: MapState, x: number, y: number): string | null {
+    for (const [id, [cx, cy, r]] of this.markerSpots(st).landmarks) if ((x - cx) ** 2 + (y - cy) ** 2 <= (r * 1.25) ** 2) return id;
+    return null;
+  }
+
+  /**
+   * M7g: a landmark marker: a fort on a dark disc ringed in its holder's colour (grey: nobody, red: its guardian), a gold
+   * outer ring once restored (and +2 while garrisoned), dashed while damaged; a pip with the guardian alive (crossed
+   * swords, red) or slain / away (a skull, grey).
+   */
+  private drawLandmarks(g: CanvasRenderingContext2D, st: MapState, spots: Map<string, [number, number, number]>): void {
+    const s = Math.max(1, 0.8 / this.k), ic = this.pics['bld-fort'];
+    for (const [id, [x, y, r]] of spots) {
+      const lm = st.regions.get(id)?.landmark;
+      if (!lm) continue;
+      const col = lm.holder >= 0 ? allianceColor(this.art, lm.holder) : lm.guardian === 'alive' ? '#b8402c' : '#8a786a';
+      if (lm.state === 'restored') {
+        g.beginPath();
+        g.arc(x, y, r + 4 * s, 0, Math.PI * 2);
+        g.strokeStyle = '#e0b867';
+        g.lineWidth = 2.5 * s;
+        g.stroke();
+      }
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fillStyle = '#17100d';
+      g.fill();
+      g.lineWidth = 3.5 * s;
+      g.strokeStyle = col;
+      if (lm.state === 'damaged') g.setLineDash([5 * s, 3 * s]);
+      g.stroke();
+      g.setLineDash([]);
+      if (ic) {
+        g.globalAlpha = lm.state === 'damaged' || lm.state === 'unclaimed' ? 0.75 : 1;
+        g.drawImage(ic, x - 12 * s, y - 12 * s, 24 * s, 24 * s);
+        g.globalAlpha = 1;
+      }
+      // the guardian's pip, top right
+      const px = x + r * 0.78, py = y - r * 0.78, pr = 7.5 * s, alive = lm.guardian === 'alive';
+      g.beginPath();
+      g.arc(px, py, pr, 0, Math.PI * 2);
+      g.fillStyle = alive ? '#8a2418' : '#3a2e28';
+      g.fill();
+      g.lineWidth = 1.5 * s;
+      g.strokeStyle = '#0e0907';
+      g.stroke();
+      g.fillStyle = alive ? '#ffe0c8' : '#d8ccc0';
+      g.font = `700 ${10 * s}px "Segoe UI Symbol", "Apple Symbols", sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(alive ? '⚔' : '☠', px, py + 0.5 * s);
+      if (lm.state === 'restored' && lm.garrisoned) this.badge(g, '+2', x + r + 3 * s, y + r * 0.55, s * 0.9, false);
+    }
   }
 
   private labelCache?: { key: string; out: PlacedLabel[] };
@@ -363,6 +421,7 @@ export class WorldMap {
     const spots = this.markerSpots(st), base = Math.max(14, 13 / this.k), s = Math.max(1, 0.8 / this.k);
     const obstacles: Box[] = [
       ...spots.marks.map(([, , x, y, w, h]) => [x, y, x + w, y + h] as Box),
+      ...[...spots.landmarks.values()].map(([x, y, r]) => [x - r - 4, y - r - 4, x + r + 4, y + r + 4] as Box),
       ...[...spots.banners].map(([id, [x, y, b]]) => [x, y, x + 38 * b + (10 * String(st.squads.get(id)).length + 14) * s, y + 56 * b] as Box),
       ...st.convoys.map((c) => {
         const q = 32 * s, [x, y] = this.transitPos({ ...c, men: 0, state: 'moving' }, st.now).map((v) => Math.round(v / q) * q);
@@ -489,6 +548,7 @@ export class WorldMap {
     const s = Math.max(1, 0.8 / this.k), pic = (n: string) => this.pics[n], spots = this.markerSpots(st);
     g.imageSmoothingEnabled = false;
     for (const [, name, x, y, w, h] of spots.marks) g.drawImage(pic(name), x, y, w, h);
+    this.drawLandmarks(g, st, spots.landmarks);
     // the player's men: the alliance banner with a count
     const you = st.you ?? 0, key = ALLIANCES[you].key;
     for (const [id, men] of st.squads) {

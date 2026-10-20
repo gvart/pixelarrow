@@ -380,8 +380,14 @@ export class BuildMode {
 
   /** Left click outside build mode that hit no unit: select the building there (or none); true if one was hit. */
   selectAt(t: { x: number; y: number }): boolean {
-    this.selected = this.buildingAt(t)?.id ?? -1;
+    this.selected = this.pieceAt(t)?.id ?? -1;
     return this.selected >= 0;
+  }
+
+  /** M7g: the standing building under tile point t, else a pre-built ruin there (its card offers the rebuild). */
+  pieceAt(t: { x: number; y: number }): BuildingSnap | undefined {
+    const all = this.s.sim.cur?.buildings ?? [], tx = Math.floor(t.x), ty = Math.floor(t.y);
+    return this.layer.at(all, t.x, t.y) ?? all.find((b) => b.ruin && pairs(b.tiles).some(([a, c]) => a === tx && c === ty));
   }
 
   /** The standing building under tile point t. */

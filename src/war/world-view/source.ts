@@ -11,7 +11,7 @@
  */
 import { SIM_VERSION } from '../../sim/version';
 import { DEFAULT_CAP, splitQuota } from '../net/protocol';
-import { TRANSFER_MAX, type RegionState, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
+import { TRANSFER_MAX, type LandmarkWorld, type RegionState, type SeasonSnap, type TransitSnap, type WorldSnapshot } from '../net/world';
 import { ALLIANCES, WAR_SEASON } from '../world/alliances';
 import { edge, worldRegion, WORLD_IDS } from '../world/graph';
 import { allianceRates, FRONTIER_TOWNS, OMPHALOS } from '../world/season';
@@ -198,8 +198,8 @@ export function liveTrade(snap: WorldSnapshot): Pick<WorldView, 'convoys' | 'boa
 export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSquad[]; scores: number[]; endsAt: number; convoys: ConvoySnap[]; boards: Record<string, BoardSeen>; trade: number[] } {
   const owners: Record<string, AllianceId> = {
     krios: 0, moors: 0, saddle: 0, stymphalia: 0, siren: 3, 'dodona-s': 0,
-    kleisoura: 1, kimmeria: 1, ammos: 1, ammon: 2,
-    canyons: 2, savanna: 2, achelous: 2, omphalos: 2, gorge: 2,
+    kleisoura: 1, kimmeria: 1, ammos: 1,
+    savanna: 2, achelous: 2, omphalos: 2, gorge: 2,
     delta: 3, bacchae: 3, erymanthos: 3,
   };
   const fights: Record<string, number[]> = { kleisoura: [36, 48, 0, 0], omphalos: [142, 0, 90, 22], achelous: [0, 0, 40, 34], erymanthos: [12, 0, 0, 30] };
@@ -212,6 +212,20 @@ export function mockWorld(now: number): { snap: WorldSnapshot; squads: FieldSqua
     return { id, owner, claims, live, contested, besieged: id === 'kyrene' };
   });
   regions.find((r) => r.id === 'kyrene')!.live[1] = 18;
+  // M7g landmarks: Drakon's Citadel just taken by Dodona (damaged), the Rim Watchtower restored and garrisoned by Elaia,
+  // the Dead City still guarded, the Obsidian Hold's Chimera slain but nobody has claimed it yet
+  const lms: Record<string, LandmarkWorld> = {
+    krios: { id: 'drakons_citadel', holder: 0, guardian: 'slain', state: 'damaged', hp: 0.38, garrisoned: false },
+    siren: { id: 'rim_watchtower', holder: 3, guardian: 'slain', state: 'restored', hp: 1, garrisoned: true },
+    ammon: { id: 'dead_city', holder: -1, guardian: 'alive', state: 'guarded', hp: 0.6, garrisoned: false },
+    canyons: { id: 'obsidian_hold', holder: -1, guardian: 'slain', backAt: now + 17 * 3600_000 + 12 * 60_000, state: 'unclaimed', hp: 0.52, garrisoned: false },
+    delta: { id: 'sunken_temple', holder: 3, guardian: 'slain', state: 'damaged', hp: 0.4, garrisoned: false },
+    omphalos: { id: 'temple_city', holder: 2, guardian: 'slain', state: 'damaged', hp: 0.33, garrisoned: false },
+    saddle: { id: 'cyclopean_gatehouse', holder: 0, guardian: 'slain', state: 'restored', hp: 1, garrisoned: false },
+    erymanthos: { id: 'oracle_grove', holder: 3, guardian: 'slain', state: 'damaged', hp: 0.4, garrisoned: false },
+    gorge: { id: 'titans_forge', holder: 2, guardian: 'slain', state: 'restored', hp: 1, garrisoned: true },
+  };
+  for (const r of regions) if (lms[r.id]) r.landmark = lms[r.id];
   const squads: FieldSquad[] = [
     { region: 'dodona', men: 12, classes: { hoplite: 8, archer: 4 }, ids: [] },
     { region: 'dodona-e', men: 10, classes: { hoplite: 6, slinger: 4 }, ids: [] },

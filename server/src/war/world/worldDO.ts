@@ -94,6 +94,13 @@ export class WarWorldDO extends DurableObject<Env> {
     await this.commit(w);
   }
 
+  /** M7f: alliance `alliance` razed a temple or shrine (WarRegionDO). */
+  async sacrilege(alliance: AllianceId): Promise<void> {
+    const w = await this.ensure();
+    w.sacrilege(alliance, Date.now());
+    await this.commit(w);
+  }
+
   /** A region room's report (WarRegionDO, every few seconds while it changes). */
   async report(region: string, rep: RegionReport): Promise<{ rejected: boolean }> {
     const w = await this.ensure();

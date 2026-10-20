@@ -1527,6 +1527,18 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     for (const [r, v] of by) if (v > bv) (bv = v), (best = r);
     return best;
   };
+  /** M7f: a ruined landmark piece rises again whole in place (a restore, its guardian back). */
+  const raise = (b: Building) => {
+    const p = b.pre!;
+    b.ti.forEach((t, i) => (grid.cost[t] = p.ground[i]));
+    p.ruin = false;
+    b.rubble = false;
+    b.saved = [];
+    b.state = 'scaffold';
+    close(b);
+    finish(b);
+    b.lastBy = -1;
+  };
   const prebuild = (start: number) => {
     fallback = start;
     const good = regionGood();
@@ -1585,9 +1597,69 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     /** M7d: a guardian back from the dead: its landmark's standing pieces up to their start (60% hp) again. */
     resetLandmark() {
       for (const b of prebuilt) {
-        if (!b.pre?.landmark || b.pre.ruin || b.state === 'destroyed') continue;
+        if (!b.pre?.landmark || b.pre.gone) continue;
+        if (b.pre.ruin && region.prebuilt?.[b.pre.i]?.state !== 'ruined') raise(b), (b.hp = b.maxHp * 0.6);
+        if (b.state === 'destroyed') continue;
         b.hp = Math.max(b.hp, b.maxHp * 0.6);
         if (b.state === 'damaged' && b.hp >= b.maxHp / 2) b.state = 'done';
+      }
+    },
+    /**
+     * M7f (docs/WAR.md "Damaged on capture"): the landmark is taken from its guardian: every standing piece down to at
+     * most `share` of its hp, its gates broken open (ruins: only the restore rebuilds them).
+     */
+    landmarkCapture(share: number) {
+      for (const b of prebuilt) {
+        if (!b.pre?.landmark || b.pre.ruin || b.state === 'destroyed') continue;
+        if (b.def.wall === 'gate') {
+          ruin(b, false);
+          continue;
+        }
+        b.hp = Math.min(b.hp, b.maxHp * share);
+        if (b.state === 'done' && b.hp < b.maxHp / 2) b.state = 'damaged';
+      }
+    },
+    /**
+     * M7f restore: `cost` from `team`'s network at (x,y) (false: short), then every landmark piece whole: ruins rise again
+     * in place, standing pieces to full hp.
+     */
+    landmarkRestore(team: number, cost: Cost, x: number, y: number): boolean {
+      if (!takeAt(team, x, y, cost)) return false;
+      for (const b of prebuilt) {
+        const p = b.pre;
+        if (!p?.landmark || p.gone) continue;
+        if (p.ruin) raise(b);
+        else if (b.state === 'done' || b.state === 'damaged') {
+          b.hp = b.maxHp;
+          b.state = 'done';
+        }
+        b.mend = false;
+        b.credit = 0;
+      }
+      return true;
+    },
+    /** M7f memory: each pre-built piece's hp, ruin and owner, by its index in region.prebuilt. */
+    preRows(): { i: number; hp: number; ruin: boolean; gone: boolean; team: number }[] {
+      return prebuilt.map((b) => ({ i: b.pre!.i, hp: Math.round(b.hp), ruin: b.pre!.ruin, gone: b.pre!.gone, team: b.team }));
+    },
+    /** M7f memory: pieces back to the hp and ruin they were left at (a fresh room of a region that remembers). */
+    loadPreRows(rows: readonly { i: number; hp: number; ruin: boolean; gone?: boolean }[]) {
+      const at = new Map(prebuilt.map((b) => [b.pre!.i, b]));
+      for (const r of rows) {
+        const b = at.get(r.i);
+        if (!b || b.pre!.gone) continue;
+        if (r.gone) {
+          b.pre!.gone = true;
+          destroy(b);
+          continue;
+        }
+        if (r.ruin) {
+          if (!b.pre!.ruin) ruin(b, false);
+          continue;
+        }
+        if (b.pre!.ruin) continue; // authored a ruin: only a rebuild raises it
+        b.hp = Math.max(1, Math.min(b.maxHp, r.hp));
+        b.state = b.hp < b.maxHp / 2 ? 'damaged' : 'done';
       }
     },
     /** M7a repairBuilding: a damaged standing building of `team` is mended to full by whoever works it (false: nothing to mend). */

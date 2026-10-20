@@ -129,6 +129,7 @@ export const DELETION_MAP: Record<string, TableRule> = {
   war_trade_score: { rule: 'not_player_keyed' },
   war_board_seen: { rule: 'not_player_keyed' },
   war_alliance_clans: { rule: 'not_player_keyed' },
+  war_region_state: { rule: 'not_player_keyed' },
   public_snapshot: { rule: 'derived' },
   dev_outbox: { rule: 'dev_only' },
 };

@@ -323,8 +323,10 @@ console.log(
   }
   const ms = [], phases = new Set();
   for (let t = 0; t < ticks; t++) {
-    if (t === Math.floor(ticks / 3)) war.hurtBoss('drakon', 17000);
-    if (t === Math.floor((2 * ticks) / 3)) war.hurtBoss('drakon', 12000);
+    // down to 58% (P2, the roof, under 60%), then 40% (P3, the crash, under 56.5%) of his raid-scaled max hp
+    const to = (k, d = war.snapshot().bosses[0]) => war.hurtBoss('drakon', Math.max(0, d.hp - d.maxHp * k));
+    if (t === Math.floor(ticks / 3)) to(0.58);
+    if (t === Math.floor((2 * ticks) / 3)) to(0.4);
     war.step();
     ms.push(war.stats().stepMs);
     phases.add(war.snapshot().bosses[0].phase);

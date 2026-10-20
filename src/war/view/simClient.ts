@@ -139,6 +139,11 @@ export class SimClient {
     this.send({ t: 'hurtBoss', boss, to, part });
   }
 
+  /** M7g dev and scripts: every claim point of the region to `team` (its landmark takes the capture damage). */
+  takeRegion(team: number): void {
+    this.send({ t: 'takeRegion', team });
+  }
+
   spawnMobs(): void {
     this.send({ t: 'mobs' });
   }

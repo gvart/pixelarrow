@@ -85,6 +85,8 @@ const WET_TINT = 0xb0b4b8;
 const LABYRINTH = 'navel-labyrinth';
 /** M7b: a pre-built ruin's stub, soot-dark. */
 const RUIN_TINT = 0xb8aea0;
+/** M7g: a damaged pre-built piece whose town art has no damaged look, soot-dark; a fouled well, murky green. */
+const SOOT_TINT = 0x9a9088, FOUL_TINT = 0x9fb487;
 /** Siege ladder foot from the wall face in tiles (public/war/siege/objects.json ladders.targets footM / 2 m). */
 const SIEGE_FOOT: Partial<Record<BuildingType, number>> = { stoneWall: 0.945, stoneTower: 0.945, stoneGate: 0.945, rampart: 0.645, woodTower: 0.645, woodGate: 0.645 };
 /** How a building is drawn this frame: the type and stage shown (an upgrade shows the old tier), and the grown tiles' stage. */
@@ -486,12 +488,22 @@ export class BuildingLayer {
       const x1 = b.x + b.w / 2, y1 = b.y + b.h / 2, depth = this.D(x1 - 0.5, y1 - 0.5);
       const def = BUILDINGS[b.type], l = this.looks.get(b.id) ?? this.look(b), axis = b.w >= b.h ? 'x' : 'y';
       let drawn = false;
-      if (this.art && b.art && b.state !== 'destroyed') drawn = this.drawLandmark(b, depth, labyrinth);
+      if (this.art && b.art && (b.state !== 'destroyed' || b.ruin)) drawn = this.drawLandmark(b, depth, labyrinth);
       if (drawn) { /* M7d: a landmark piece in its art */ }
       else if (this.art && def.field) drawn = this.drawField(b, l, ditches);
       else if (this.art && def.bridge) drawn = this.drawBridge(b, l);
-      else if (this.art && b.ruin && !def.wall) {
-        // M7b a pre-built piece in ruins: the stub of its art, darkened (walls and towers: the rubble placeholder)
+      else if (this.art && b.ruin && !def.wall && this.art.preState(b.type, b.x * 7 + b.y * 13, 'ruined')) {
+        // M7g a pre-built piece in ruins with a ruined look in its town art
+        const spr = this.art.preState(b.type, b.x * 7 + b.y * 13, 'ruined')!;
+        this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), b.rot === 1).setDepth(depth);
+        drawn = true;
+      } else if (this.art && b.ruin && !def.wall && this.art.rubble(b.w, b.h)) {
+        // M7g no ruined look of its own (warehouses, workplaces): a town ruin of its size as rubble, not a cut-off stub
+        const r = this.art.rubble(b.w, b.h)!;
+        this.fit(this.img(this.ni++, r.spr.key), r.spr, b.type, b.x, b.y, b.w, b.h, this.z(b), r.turned).setDepth(depth);
+        drawn = true;
+      } else if (this.art && b.ruin && !def.wall) {
+        // M7b a pre-built piece in ruins with no ruined art: the stub of its art, darkened (walls and towers: the rubble placeholder)
         const spr = this.art.preSprite(b.type, b.x * 7 + b.y * 13) ?? this.art.sprite(b.type, 'damaged', axis);
         if (spr) {
           const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), b.rot === 1).setDepth(depth);
@@ -505,7 +517,9 @@ export class BuildingLayer {
         if (!drawn) {
           const deep = def.wall === 'gate' ? this.deep.get(b.id) : undefined;
           const near = def.wall === 'gate' && b.state === 'done' && units.some((d) => d.team === b.team && d.u.state !== 'dead' && Math.abs(d.x - b.x) < GATE_NEAR && Math.abs(d.y - b.y) < GATE_NEAR);
-          const spr = this.art.preSprite(l.type, b.x * 7 + b.y * 13) ?? this.art.sprite(l.type, near ? 'open' : l.stage, axis, deep?.side, !!b.iron);
+          // M7g: a damaged pre-built piece in the town art's damaged look (soot-darkened where the library has none)
+          const seed = b.x * 7 + b.y * 13, hurt = b.state === 'damaged' && this.art.hasPreArt(l.type), hurtArt = hurt ? this.art.preState(l.type, seed, 'damaged') : undefined;
+          const spr = hurtArt ?? this.art.preSprite(l.type, seed) ?? this.art.sprite(l.type, near ? 'open' : l.stage, axis, deep?.side, !!b.iron);
           if (spr) {
             if (deep) {
               const all = pairs([...b.tiles, ...deep.tiles]), x0 = Math.min(...all.map((t) => t[0])), y0 = Math.min(...all.map((t) => t[1]));
@@ -515,6 +529,8 @@ export class BuildingLayer {
             } else {
               const im = this.fit(this.img(this.ni++, spr.key), spr, b.type, b.x, b.y, b.w, b.h, this.z(b), !def.wall && b.rot === 1).setDepth(depth);
               if (b.wet) im.setTint(WET_TINT);
+              else if (b.fouled) im.setTint(FOUL_TINT);
+              else if (hurt && !hurtArt) im.setTint(SOOT_TINT);
               if (this.cut(b)) this.stub(im, spr.tileOrigin.y, (b.w + b.h) / 2);
               else if (def.workplace && (b.state === 'done' || b.state === 'damaged') && b.queue?.some((o) => o.by >= 0)) {
                 // a crafter at an order: the art's working fx at their sprite px

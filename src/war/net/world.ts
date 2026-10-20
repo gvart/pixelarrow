@@ -95,6 +95,28 @@ export interface RegionState {
   contested: boolean;
   /** A home with foes in it or foes claiming in it. */
   besieged: boolean;
+  /** M7f: its landmark (depth 3 and 4), as the world map shows it. */
+  landmark?: LandmarkWorld;
+  /** M7f: favour and prestige its temples, shrines and statues give each alliance (score an hour, before the cap). */
+  prestige?: number[];
+  /** M7f: its town is ruined (a frontier town scores 1 an hour instead of 3). */
+  ruined?: boolean;
+}
+
+/**
+ * M7f: a landmark on the world map (src/data/warLandmarks.ts id): who holds it (-1: its guardian or nobody), its guardian
+ * alive, slain or away (escaped) and when it comes back (epoch ms; only while the region is unheld), its state (as
+ * LandmarkSnap: guarded, unclaimed, damaged, restored), the standing pieces' mean hp share and whether it is garrisoned
+ * (restored, enough of the holder's men inside, no foe: +2 an hour).
+ */
+export interface LandmarkWorld {
+  id: string;
+  holder: AllianceId | -1;
+  guardian: 'alive' | 'slain' | 'away';
+  backAt?: number;
+  state: 'guarded' | 'unclaimed' | 'damaged' | 'restored';
+  hp: number;
+  garrisoned: boolean;
 }
 
 export interface AllianceStats {

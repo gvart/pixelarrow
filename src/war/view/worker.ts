@@ -28,6 +28,7 @@ export type ToWorker =
   | { t: 'prebuild'; team: number; max: number } // scenarios: build the team's sites before play (max 0: just step)
   | { t: 'mobs' } // neutral play: spawn the region's lairs
   | { t: 'hurtBoss'; boss: string; to: number; part?: number } // M7d dev and scenarios: a guardian (or its part: a head) down to a share of its hp
+  | { t: 'takeRegion'; team: number } // M7g dev and scripts: every claim point to the team (a landmark takes its capture damage)
   | { t: 'skip'; ticks: number } // scenarios: step this many ticks at once
   | { t: 'damage'; id: number; dmg: number } // dev: damage a building (scripts: a breach)
   | { t: 'finishBridges'; team: number } // scenarios: standing bridges
@@ -153,6 +154,10 @@ onmessage = (e: MessageEvent<ToWorker>) => {
     const b = build(sim), g = b?.snapshot().bosses?.find((x) => x.id === m.boss);
     if (b && g && m.part !== undefined) b.hurtBoss(m.boss, 1e9, 'you', m.part);
     else if (b && g && g.hp > g.maxHp * m.to) b.hurtBoss(m.boss, g.hp - g.maxHp * m.to, 'you');
+  }
+  else if (m.t === 'takeRegion') {
+    const b = build(sim);
+    if (b) { const mem = b.memory(); mem.claims = mem.claims.map(() => m.team); b.recall(mem, 0); }
   }
   else if (m.t === 'damage') build(sim)?.damageBuilding(m.id, m.dmg);
   else if (m.t === 'finishBridges') build(sim)?.finishBridges(m.team);

@@ -106,6 +106,10 @@ export type Order =
   // becomes a site at RUIN.rebuild of its cost and labour (landmark pieces: never); with a squad it builds it.
   | { kind: 'repairBuilding'; squad: SquadId; building: number }
   | { kind: 'rebuild'; building: number; squad?: SquadId; team?: number }
+  // M7f: restoreLandmark: the squad (with an engineer of the landmark's level and nodes: Fortifier, Master Builder; level
+  // 10 also Poliorcetes or Archimedes) restores the region's landmark its team holds: the bill (src/data/warLandmarks.ts)
+  // comes from the team's network, every piece goes to full and its function wakes (refused: a `landmarkRefused` event).
+  | { kind: 'restoreLandmark'; squad: SquadId }
   | WallOrder
   | BridgeOrder
   | SiegeOrder
@@ -277,6 +281,8 @@ export interface Snapshot {
   piles?: PileSnap[];
   /** M7a: towns of pre-built pieces (grouped by claim point). */
   towns?: TownSnap[];
+  /** M7f: the region's landmark (src/data/warLandmarks.ts), as its panel shows it. */
+  landmark?: LandmarkSnap;
   /** M7d: the region's guardians (src/war/sim/bosses.ts) and a Rim Warden strike being marked. */
   bosses?: BossSnap[];
   warden?: WardenSnap;
@@ -284,6 +290,23 @@ export interface Snapshot {
   rations?: Record<number, number>;
   /** M5h: dishes, remedies, kits and caravan goods per team (src/data/recipes.ts Product). */
   supplies?: Record<number, Partial<Record<Product, number>>>;
+}
+/** M7f: a region's memory (WarBuildSim.memory). */
+export interface RegionMemory {
+  pieces: { i: number; hp: number; ruin: boolean; gone: boolean; team: number }[];
+  claims: number[];
+  guardians: { id: string; state: BossSnap['state']; left: number }[];
+  landmark: { captured: boolean; restored: boolean };
+}
+/**
+ * M7f: a landmark (docs/WAR.md "Landmarks"): its holder (an alliance team; -1: its guardian or nobody), its state
+ * (guarded: its guardian lives; unclaimed: guardian slain, nobody holds it; damaged: held, function dormant; restored:
+ * held and restored, its function wakes), the standing pieces' mean hp share, ruined pieces, own men of the holder
+ * inside its walls and foes there (garrisoned: restored, >= LANDMARK_GARRISON own men and no foe: +2 score an hour).
+ */
+export interface LandmarkSnap {
+  id: string; holder: number; state: 'guarded' | 'unclaimed' | 'damaged' | 'restored'; hp: number; ruined: number; pieces: number;
+  men: number; foes: number; garrisoned: boolean;
 }
 /**
  * M7d: a guardian as the view sees it: its body unit (the bar's), hp of all its parts, the phase it is in (index into
@@ -500,6 +523,14 @@ export interface WarBuildSim extends WarSim {
   bossDown(id?: string): void;
   /** M7d (src/war/sim/bosses.ts): wake the region's guardians (spawnMobs does it too); a dev and test hook: deal `dmg` to guardian `boss`'s body (its phases follow). */
   spawnGuardians(): void;
+  /**
+   * M7f: what the region remembers once its room empties (the server keeps it across DO restarts and in D1): its
+   * pre-built pieces' hp, ruin and owner, the claim points' holders, its guardians (slain or away and the ticks until they
+   * are back) and its landmark's capture and restore. recall() lays it onto a fresh sim, `elapsed` ticks later (guardians
+   * whose time ran out while the region was unheld are back, their landmark as the season found it).
+   */
+  memory(): RegionMemory;
+  recall(m: RegionMemory, elapsed: number): void;
   hurtBoss(boss: string, dmg: number, owner?: string, part?: number): void;
   /** W-39 fog: the team sees tile point (x,y) now. */
   visibleTo(team: number, x: number, y: number): boolean;
@@ -606,4 +637,8 @@ export type WarEvent =
   | { t: number; kind: 'bossPhase'; region: string; boss: string; phase: number }
   | { t: number; kind: 'bossFled'; region: string; boss: string }
   | { t: number; kind: 'bossBack'; region: string; boss: string }
+  // M7f: a landmark's state changed (captured: its pieces took the capture damage; restored: its function wakes); a
+  // restore refused (why: not held, no engineer of the level and nodes in the squad, goods short)
+  | { t: number; kind: 'landmark'; id: string; state: LandmarkSnap['state']; holder: number }
+  | { t: number; kind: 'landmarkRefused'; id: string; squad: SquadId; why: 'held' | 'engineer' | 'goods' }
   | { t: number; kind: 'wardenStrike'; x: number; y: number; w: number; h: number; hit: number };
