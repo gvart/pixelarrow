@@ -12,7 +12,7 @@
 import { CLASSES, isCivClass, isClassId, type ClassId } from '../../data/classes';
 import { BASE, type Equipment, type Hero } from '../../data/units';
 import type { Rarity } from '../../data/items';
-import { itemPower } from '../../data/affixes';
+import { affixMods, itemPower } from '../../data/affixes';
 import type { MissileKind, WarPerson } from '../types';
 import { computeStats, type CombatStats } from '../../sim/stats';
 import { mobKindOf, MOBS } from './mobs';
@@ -45,6 +45,8 @@ export interface WarStats {
   flags: number;
   /** M5f civilians: work speed (level and tool, ./civilians.ts workRate); undefined for soldiers. */
   work?: number;
+  /** M5h: Breaching of his weapon (damage vs buildings and engines, fractional). */
+  breach?: number;
 }
 
 /** The power cap of a baked soldier against the fresh soldier of his class (docs/WAR.md "Clamp"). */
@@ -188,5 +190,7 @@ export function warStatsOf(p: WarPerson | Hero): WarStats {
   s.shotTicks = Math.max(s.shotTicks, Math.min(o.shotTicks, Math.round(b.shotTicks * CLAMP.atk)));
   s.speed = Math.min(s.speed, Math.max(o.speed, b.speed * CLAMP.speed));
   s.flags = flags;
+  const breach = hero.equip.weapon ? affixMods(hero.equip.weapon).breaching : undefined;
+  if (breach) s.breach = breach;
   return s;
 }

@@ -380,7 +380,7 @@ then roll exactly as a drop's (`itemAffixes`, `itemPower`), seeded by the order 
 | --- | --- | --- | --- | --- | --- |
 | crude | max(0, 30 − 3G)% | ×0.95 | 1 | 80 | ×1.25 |
 | fine (and every drop) | the rest | ×1.00 | 1–2 | 100 | ×1 |
-| masterwork | Masterwork node: 5% + 1% per G above 8, ≤ 15% | ×1.04 | first line 2 | 100 | ×0.75 |
+| masterwork | Masterwork node: 5% + 1% per G above 8, ≤ 15% | ×1.02 (cap fallback) | first line 2 | 100 | ×0.75 |
 
 War pool: rolls skip what the war ignores (morale, stamina, steady, moraleShock, goldBonus; chargeBonus until mounts)
 and powers that need morale or stuns (Terror, Steadfast, Unshaken, Momentum). Lucky (`koChance`) is +3% wounded share
@@ -390,7 +390,7 @@ The maker's name stays on the card ("forged by Nikias of Dodona").
 
 Caps: a masterwork legendary is the drop legendary × 1.04 on base stats; the bake clamp (HP ×1.4, damage ×1.4, armour
 +4 …) still bounds every man, so the ≤ 2× rule holds (a max squad of N wins ≤ 35% vs 2N fresh). `itemCapReport` adds a
-masterwork legendary per slot; over the +10-point cap, masterwork drops to ×1.02.
+masterwork legendary per slot; it read over the +10-point cap at ×1.04 (as the drop legendaries of weapon, shield and armour already do), so masterwork is ×1.02 (`QUALITY_MULT`).
 
 Durability: condition as today (stats × (0.6 + 0.4 × cond)). Repair at a forge (Field Forge: in the field): per 10
 condition, 10% of the recipe's main material (min 1) and 10% of its time; masterwork −25%. A repair started below 50

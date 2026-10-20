@@ -19,10 +19,12 @@ import { weaponFamily } from './gearRules';
 export type AffixId =
   | 'hp' | 'dmg' | 'rangedDmg' | 'atkSpeed' | 'accuracy' | 'armor' | 'block' | 'morale' | 'stamina' | 'speed'
   | 'chargeBonus' | 'blockPierce' | 'armorPierce' | 'moraleShock' | 'ammo' | 'range' | 'steady' | 'koChance'
-  | 'xpBonus' | 'goldBonus' | 'durable';
+  | 'xpBonus' | 'goldBonus' | 'durable'
+  // war-only (crafted items, docs/WAR.md "Crafted item rolls"): never in the campaign pool
+  | 'breaching' | 'deft' | 'bountiful';
 
-/** Where an affix may roll: melee weapon, ranged weapon (bows, slings, javelins), shield, helmet, armour, trinket. */
-type AffixSlot = 'melee' | 'ranged' | 'shield' | 'helmet' | 'armor' | 'trinket';
+/** Where an affix may roll: melee weapon, ranged weapon (bows, slings, javelins), shield, helmet, armour, trinket, civilian tool (war only). */
+type AffixSlot = 'melee' | 'ranged' | 'shield' | 'helmet' | 'armor' | 'trinket' | 'tool';
 
 interface AffixDef {
   id: AffixId;
@@ -35,6 +37,8 @@ interface AffixDef {
   economy?: boolean;
   /** Only on these weapon families (charge bonus: spears and lances). */
   families?: string[];
+  /** War-only: rolls only on crafted items (warAffixPool), never from a uid. */
+  war?: true;
 }
 
 const A = (id: AffixId, word: string, step: number, slots: AffixSlot[], extra: Partial<AffixDef> = {}): AffixDef => ({ id, word, step, slots, ...extra });
@@ -58,10 +62,16 @@ export const AFFIXES: Record<AffixId, AffixDef> = {
   range: A('range', 'Far', 0.4, ['ranged']),
   steady: A('steady', 'Steady', 0.03, ['helmet', 'armor', 'trinket']),
   koChance: A('koChance', 'Lucky', 0.03, ['helmet', 'armor', 'trinket'], { economy: true }),
-  xpBonus: A('xpBonus', 'Wise', 0.05, ['helmet', 'trinket']),
+  xpBonus: A('xpBonus', 'Wise', 0.05, ['helmet', 'trinket', 'tool']),
   goldBonus: A('goldBonus', 'Gilded', 0.05, ['trinket'], { economy: true }),
-  durable: A('durable', 'Sturdy', 0.15, ['melee', 'ranged', 'shield', 'helmet', 'armor'], { economy: true }),
+  durable: A('durable', 'Sturdy', 0.15, ['melee', 'ranged', 'shield', 'helmet', 'armor', 'tool'], { economy: true }),
+  breaching: A('breaching', 'Breaching', 0.05, ['melee'], { war: true }),
+  deft: A('deft', 'Deft', 0.04, ['tool'], { war: true }),
+  bountiful: A('bountiful', 'Bountiful', 0.03, ['tool'], { war: true }),
 };
+
+/** Stats the war ignores (no morale, stamina or gold there; charges wait for mounts): crafted items never roll them. */
+export const WAR_IGNORED: ReadonlySet<AffixId> = new Set<AffixId>(['morale', 'stamina', 'steady', 'moraleShock', 'goldBonus', 'chargeBonus']);
 
 /** Number of random stats by rarity, and the steps each one rolls. */
 const AFFIX_COUNT = [0, 1, 2, 3, 4];
@@ -79,11 +89,20 @@ export function affixPool(def: ItemDef): [AffixId, number][] {
   const fam = weaponFamily(def);
   const out: [AffixId, number][] = [];
   for (const a of Object.values(AFFIXES)) {
-    if (!a.slots.includes(slot)) continue;
+    if (!a.slots.includes(slot) || a.war) continue;
     if (a.families && def.slot === 'weapon' && !a.families.includes(fam ?? '')) continue;
     const base = (def.mods as Record<string, number | undefined>)[a.id];
     out.push([a.id, base && base > 0 ? 2 : 1]);
   }
+  return out;
+}
+
+/** The pool of a crafted item (docs/WAR.md "Crafted item rolls"): the drop pool without what the war ignores, plus the war-only stats. */
+export function warAffixPool(def: ItemDef | 'tool'): [AffixId, number][] {
+  if (def === 'tool') return Object.values(AFFIXES).filter((a) => a.slots.includes('tool')).map((a) => [a.id, 1]);
+  const out = affixPool(def).filter(([id]) => !WAR_IGNORED.has(id));
+  const slot = affixSlot(def);
+  for (const a of Object.values(AFFIXES)) if (a.war && a.slots.includes(slot)) out.push([a.id, 1]);
   return out;
 }
 
@@ -210,6 +229,8 @@ export const POWERS: Record<PowerId, PowerDef> = {
   executioner: P('executioner', 'Executioner', ['melee', 'ranged'], { value: 0.3 }, { value: 0.4 }, '+{v} damage against targets below 30% HP'),
 };
 export const POWER_IDS = Object.keys(POWERS) as PowerId[];
+/** Powers that need morale or stuns: crafted items never roll them. */
+export const WAR_POWER_IGNORED: ReadonlySet<PowerId> = new Set<PowerId>(['terror', 'steadfast', 'unshaken', 'momentum']);
 
 export interface ItemPower {
   id: PowerId;

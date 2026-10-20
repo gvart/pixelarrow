@@ -54,10 +54,13 @@ import { createVision } from './vision';
 import { CAPTURE_R, DETACH_MIN, DROP, gainXp, SQUAD_MAX, XP } from './soldiers';
 import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
 import { AT_BUILDING, CIV, CIV_QUOTA, CIV_XP, civJob, CLIP, COOK, ENGINEER, FORAGER, MERCHANT, PHYSICIAN, SMITH, wornest, type CivJob } from './civilians';
-import { FALL as FALL_RULE } from './soldiers';
 import { isCivClass } from '../../data/classes';
+import { heldNodes } from '../../data/professions';
+import { toolMods, type Product } from '../../data/recipes';
+import { createCrafting, fedOf, type Crafter } from './crafting';
+import { fallShare, FORAGE, HUNT, REMEDY, VENOM } from './civilians';
+import { mobKindOf, MOBS } from './mobs';
 import { decodeGraph, encodeGraph, externals, STATE_VERSION, type SimState } from './state';
-import { MOBS } from './mobs';
 import { SIEGE } from './siege';
 
 /** Save and restore: the constants a sim's state points at (named, not copied) and a fresh sim's root per region (typed-array diffs). */
@@ -166,6 +169,12 @@ interface Unit extends Worker {
   civT: number;
   civAt: boolean;
   repaired: boolean;
+  // M5h: a venomous bite holds until this tick (falling with it: VENOM.share off the wounded share); his blows bite
+  // (a venomous mob); a beast (its kill brings a hunter hides); a physician's field radius (Field Surgeon)
+  venomUntil: number;
+  venom: boolean;
+  beast: boolean;
+  fieldR: number;
 }
 
 /** M5d: the gear of a dead man (team: his), lying until tick `until`. */
@@ -224,6 +233,16 @@ interface Squad {
   resume: Order | null;
   work: number;
   fedUntil: number;
+  // M5h: the fed record (one per squad, the last dish eaten): damage taken x fedInn, melee / missile damage +, accuracy +,
+  // physician heal x fedHeal; bandages carried (<= SQUAD_MAX, one used by each man who falls); theriac (venom ignored) until
+  fedInn: number;
+  fedMelee: number;
+  fedMissile: number;
+  fedAcc: number;
+  fedHeal: number;
+  dish: Product | null;
+  bandages: number;
+  theriacUntil: number;
 }
 /** M5f: the orders a civilian squad takes (work orders only). */
 const CIV_ORDERS = new Set<Order['kind']>(['move', 'hold', 'stop', 'formation', 'gather', 'build', 'civWork', 'detach', 'merge', 'stopWork', 'placeBuilding', 'placeWall', 'placeBridge', 'upgrade', 'buildSiege']);
@@ -268,6 +287,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   // M5f: the civilians (all ever spawned, in id order), rations per team
   const civs: Unit[] = [];
   const rations = new Map<number, number>();
+  // M5h: teams with a Battle Dresser physician on the field (a bandage counts double), refreshed on the civilian loop
+  const dresser = new Set<number>();
 
   // spatial hash, one cell per tile
   const head = new Int32Array(grid.w * grid.h);
@@ -337,6 +358,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
   });
 
+  // M5h: crafting queues of the workplaces (./crafting.ts), run on the civilian loop
+  const crafting = createCrafting({ seed, takeStock: works.takeStock, addStock: works.addStock, emit: note });
   const mobs = createMobs(region, {
     squads,
     spawn: (kind, count, x, y) => api.spawnSquad(MOB_OWNER, MOB_TEAM, mobClass(kind), count, x, y),
@@ -477,6 +500,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const apply = (o: Order) => {
     if (o.kind === 'cancelSite') {
       works.cancel(o.site);
+      return;
+    }
+    if (o.kind === 'craft' || o.kind === 'cancelCraft' || o.kind === 'repair' || o.kind === 'salvage') {
+      const b = works.piece(o.building);
+      if (b && !b.cancelled && (b.state === 'done' || b.state === 'damaged')) crafting.order(o, b);
       return;
     }
     if (o.kind === 'upgrade' && o.squad === undefined) {
@@ -633,7 +661,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (o.kind === 'civWork') {
       // M5f: the men stand round the building (its ring) and work there by class
       const b = works.piece(o.building);
-      if (!s.civ || !b || b.cancelled || b.team !== s.team || !b.def.store || (b.state !== 'done' && b.state !== 'damaged')) return;
+      if (!s.civ || !b || b.cancelled || b.team !== s.team || !(b.def.store || b.def.workplace) || (b.state !== 'done' && b.state !== 'damaged')) return;
       if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
       s.order = 'civWork';
       s.work = o.building;
@@ -783,7 +811,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (u.cd > 0) return u;
       u.cd = u.st.atkTicks;
       u.swingAt = tick;
-      const dmg = u.st.dmg * BUILDING_MELEE;
+      const dmg = u.st.dmg * BUILDING_MELEE * (1 + (u.st.breach ?? 0)); // M5h Breaching
       if (k.b >= 0) hitBuilding(s, k.b, dmg);
       else siege.damage(k.e, dmg);
     } else if (k.kind === 'buildSiege') {
@@ -1161,7 +1189,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const working = (u: Unit) => u.squad.order === 'gather' || u.squad.order === 'build';
 
   const hurt = (t: Unit, dmg: number, by?: Unit) => {
-    const d = dmg * (working(t) ? WORK_DEFENCE : 1) * (t.squad.fedUntil > tick ? COOK.inn : 1); // M5f: a fed squad takes less
+    const d = dmg * (working(t) ? WORK_DEFENCE : 1) * (t.squad.fedUntil > tick ? t.squad.fedInn : 1); // M5f: a fed squad takes less
+    if (by?.venom && t.squad.theriacUntil <= tick) t.venomUntil = tick + VENOM.ticks; // M5h: a venomous bite
     if (by) {
       by.dealt += Math.min(d, t.hp);
       by.engaged = t.engaged = true;
@@ -1174,7 +1203,10 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     t.fighting = false;
     t.moving = false;
     t.tgt = null;
-    t.wounded = rng.chance(physicianNear(t) ? Math.min(FALL_RULE.cap, t.st.ws + PHYSICIAN.near) : t.st.ws); // M5d: by his END (docs/WAR.md "Lifecycle"); M5f: a physician near
+    // M5d: by his END (docs/WAR.md "Lifecycle"); M5f: a physician near; M5h: a bandage of his squad, venom
+    const bandage = t.squad.bandages > 0 ? (t.squad.bandages--, dresser.has(t.squad.team) ? 2 : 1) : 0;
+    t.wounded = rng.chance(fallShare(t.st.ws, physicianNear(t), bandage, t.venomUntil > tick));
+    if (t.squad.team === MOB_TEAM && t.beast) hides(t);
     t.squad.alive--;
     reslotQueue.add(t.squad);
     if (by) by.kills++;
@@ -1182,6 +1214,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     // the dead drop their gear
     const items = !t.wounded && t.person ? (Object.values(t.person.hero.equip).filter(Boolean) as Item[]) : [];
     if (items.length) drops.push({ id: dropId++, x: t.x, y: t.y, team: t.squad.team, items, until: tick + DROP.ticks });
+  };
+
+  /** M5h Hunter: a beast killed within HUNT.r of a hunter forager brings his team HUNT.hides. */
+  const hides = (t: Unit) => {
+    const got = new Set<number>();
+    for (const c of civs) {
+      const team = c.squad.team;
+      if (!c.alive || c.civ !== 'forager' || got.has(team) || !heldNodes('forager', c.person?.hero.perks).has('hunter') || (c.x - t.x) ** 2 + (c.y - t.y) ** 2 > HUNT.r * HUNT.r) continue;
+      got.add(team);
+      works.addStock(team, 'hides', HUNT.hides);
+    }
   };
 
   /** M5d: objective XP to the living men of s. */
@@ -1311,8 +1354,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     return t.st.flags & F.holdFast && t.squad.order === 'hold' ? b * FLAG_FX.holdBlock : b;
   };
   /** M5c: damage multiplier of u's blow on t: the squad actives (dealt, taken) and Finisher. */
-  const dmgMult = (u: Unit, t: Unit) => {
-    const m = u.squad.out * t.squad.inn;
+  const dmgMult = (u: Unit, t: Unit, missile = false) => {
+    const m = u.squad.out * t.squad.inn * (u.squad.fedUntil > tick ? 1 + (missile ? u.squad.fedMissile : u.squad.fedMelee) : 1);
     return u.st.flags & F.finisher && t.hp < FLAG_FX.finishHp * t.maxHp ? m * FLAG_FX.finishDmg : m;
   };
 
@@ -1359,7 +1402,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     shots.push({ x0: u.x, y0: u.y, x1: t.x, y1: t.y, t0: tick, t1: land, z0: hAt(u.x, u.y), z1: hAt(t.x, t.y), by: u.id, kind: u.st.missile, ...(fire ? { fire: true as const } : {}) });
     if (u.ammo === 0) reslotQueue.add(u.squad);
     const fb = fire ? works.onBuilding(tileAt(grid, t.x, t.y)) : -1;
-    const hit = rng.chance(hitChance(u.st.accuracy, d, range, groundAt(t.x, t.y) === FOREST));
+    const hit = rng.chance(hitChance(u.st.accuracy + (u.squad.fedUntil > tick ? u.squad.fedAcc : 0), d, range, groundAt(t.x, t.y) === FOREST));
     if (!hit && fb < 0) return;
     const bog = groundAt(u.x, u.y) === BOG;
     missiles.push({ at: land, by: u, t: hit ? t : null, raw: u.st.rangedDmg * COMBAT.missileDmg * missileHeight(dh) * (bog ? COMBAT.bogDmg : 1), ap: u.st.ap, ...(fb >= 0 ? { fb } : {}) });
@@ -1409,7 +1452,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (!t || !t.alive) continue;
       if (underRoof(t) && rng.chance(RAM.cover)) continue;
       if (!working(t) && rng.chance(blockChance(blockOf(m.by, t), t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
-      hurt(t, afterArmour(m.raw * dmgMult(m.by, t), t.st.armor, m.ap), m.by);
+      hurt(t, afterArmour(m.raw * dmgMult(m.by, t, true), t.st.armor, m.ap), m.by);
     }
     missiles = keep;
   };
@@ -1528,7 +1571,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** A fit physician of t's team within PHYSICIAN.r of him. */
   const physicianNear = (t: Unit) => {
     for (const p of civs)
-      if (p.civ === 'physician' && p.alive && p !== t && p.squad.team === t.squad.team && (p.x - t.x) ** 2 + (p.y - t.y) ** 2 <= PHYSICIAN.r * PHYSICIAN.r) return true;
+      if (p.civ === 'physician' && p.alive && p !== t && p.squad.team === t.squad.team && (p.x - t.x) ** 2 + (p.y - t.y) ** 2 <= p.fieldR * p.fieldR) return true;
     return false;
   };
   /** Gather and build speed by job and work rate (forager, engineer). */
@@ -1536,6 +1579,22 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const w = u.st.work ?? 1;
     u.wrate = u.civ === 'forager' ? FORAGER.gather * w : u.civ ? w : undefined;
     u.brate = u.civ === 'engineer' ? ENGINEER.build * w : u.civ ? w : undefined;
+    // M5h node effects: Master Builder, the forager's yields (Woodsman, Prospector, Pitchman, Herb Finder, Weaver), Field Surgeon
+    const held = u.civ ? heldNodes(u.civ, u.person?.hero.perks) : null;
+    if (held?.has('masterBuilder') && u.brate) u.brate *= FORAGE.masterBuilder;
+    u.gmul = undefined;
+    if (u.civ === 'forager' && held) {
+      const m: Partial<Record<ResourceKind, number>> = {};
+      if (held.has('woodsman')) m.wood = FORAGE.woodsman;
+      if (held.has('prospector')) m.copper = m.tin = m.iron = m.silver = m.salt = FORAGE.prospector;
+      if (held.has('pitchman')) m.pitch = FORAGE.pitchman;
+      u.gmul = m;
+      u.herbs = held.has('herbFinder');
+      u.flax = held.has('weaver');
+    }
+    u.fieldR = held?.has('fieldSurgeon') ? PHYSICIAN.surgeonR : PHYSICIAN.r;
+    u.venom = mobKindOf(u.cls) ? !!MOBS[mobKindOf(u.cls)!].venom : false;
+    u.beast = !!mobKindOf(u.cls) && mobKindOf(u.cls) !== 'bandit';
   };
   /** Living civilians of the team, and the most it may field: CIV_QUOTA split evenly between the teams present. */
   const civRoom = (team: number) => {
@@ -1646,49 +1705,105 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     works.addStock(team, 'silver', MERCHANT.silver);
     return true;
   };
-  /** Every CIV.every ticks: civilians at their building work (batches, healing); fed squads eat from the rations. */
+  /** M5h: a civilian as the crafting queue sees him. */
+  const crafter = (u: Unit): Crafter => {
+    const h = u.person?.hero, tool = h?.equip.weapon;
+    return { id: u.id, prof: u.civ, level: h?.level ?? 1, perks: h?.perks ?? [], tool, work: u.st.work ?? 1, bountiful: toolMods(tool).bountiful, owner: u.squad.owner, name: h?.name ?? 'civilian', ...(u.person ? { pid: u.person.id } : {}) };
+  };
+  /** M5h: dishes a squad eats, best first (the M5f rations last). */
+  const DISH_PREF: Product[] = ['feast', 'fish_stew', 'lentil_soup', 'black_broth', 'kykeon', 'bread', 'salt_pork', 'ration'];
+  /** M5h: s eats dish d (one fed record, ./crafting.ts fedOf); `long`: a Head Cook served it. */
+  const eat = (s: Squad, d: Product, long: boolean) => {
+    const f = fedOf(d, long);
+    s.dish = d;
+    s.fedInn = f.inn;
+    s.fedMelee = f.melee;
+    s.fedMissile = f.missile;
+    s.fedAcc = f.acc;
+    s.fedHeal = f.heal;
+    s.fedUntil = tick + f.ticks;
+  };
+  /**
+   * Every CIV.every ticks: civilians at their building work. At a workplace the first `level` of them work its crafting
+   * queue (./crafting.ts); the rest, and those at a store, do their M5f batches (healing at a camp, fort or infirmary).
+   * Fed squads eat from the dishes and rations; squads near a physician at work take bandages and theriac.
+   */
   const civTick = () => {
     const sec = CIV.every * DT;
-    let cooks = false;
+    const at: Unit[] = [];
+    const shops = new Map<number, Unit[]>();
+    dresser.clear();
     for (const u of civs) {
       u.civAt = false;
       const s = u.squad;
-      if (!u.alive || s.flee || s.order !== 'civWork' || !AT_BUILDING.includes(u.civ!)) continue;
+      if (u.alive && u.civ === 'physician' && heldNodes('physician', u.person?.hero.perks).has('battleDresser')) dresser.add(s.team);
+      if (!u.alive || s.flee || s.order !== 'civWork') continue;
       const b = works.piece(s.work);
       if (!b || b.cancelled || b.team !== s.team || b.state === 'destroyed' || works.dist2(s.work, u.x, u.y) > CIV.at * CIV.at) continue;
-      if (u.civ === 'physician' && b.type !== 'camp' && b.type !== 'fort') continue;
+      if (!b.def.workplace && !AT_BUILDING.includes(u.civ!)) continue;
+      if (u.civ === 'physician' && !b.def.workplace && b.type !== 'camp' && b.type !== 'fort') continue;
       u.civAt = true;
       u.facing = Math.atan2(b.y - u.y, b.x - u.x);
+      if (b.def.workplace && (b.state === 'done' || b.state === 'damaged') && crafting.has(b.id)) {
+        let l = shops.get(b.id);
+        if (!l) shops.set(b.id, (l = []));
+        l.push(u);
+      } else at.push(u);
+    }
+    for (const [id, list] of shops) {
+      const busy = crafting.work(works.piece(id)!, list.map(crafter), sec, tick);
+      for (const u of list) {
+        const xp = busy.get(u.id);
+        if (xp === undefined) at.push(u);
+        else u.obj += xp;
+      }
+    }
+    for (const u of at) {
+      const s = u.squad, b = works.piece(s.work)!;
+      if (!AT_BUILDING.includes(u.civ!)) continue;
       const w = u.st.work ?? 1;
       if (u.civ === 'physician') {
+        if (b.type !== 'camp' && b.type !== 'fort' && b.def.workplace?.kind !== 'infirmary') continue;
         // the hurt of his team near him heal (fed men faster); every PATIENT_HP healed is a job
         for (const o of units) {
           if (!o.alive || o.hp >= o.maxHp || o.squad.team !== s.team || works.dist2(s.work, o.x, o.y) > PHYSICIAN.r * PHYSICIAN.r) continue;
-          const add = Math.min(o.maxHp - o.hp, o.maxHp * PHYSICIAN.heal * sec * w * (o.squad.fedUntil > tick ? COOK.heal : 1));
+          const add = Math.min(o.maxHp - o.hp, o.maxHp * PHYSICIAN.heal * sec * w * (o.squad.fedUntil > tick ? o.squad.fedHeal : 1));
           o.hp += add;
           u.civT += add;
         }
         if (u.civT >= PATIENT_HP) (u.civT -= PATIENT_HP), (u.obj += CIV_XP);
         continue;
       }
-      if (u.civ === 'cook') cooks = true;
       u.civT += sec * w;
       const batch = BATCH[u.civ!]!;
       if (u.civT < batch) continue;
       if (civJobDone(u, s.team)) (u.civT -= batch), (u.obj += CIV_XP);
       else u.civT = batch;
     }
-    if (!cooks) return;
-    // squads near a cook at work eat a ration a man, if the team has them for all
+    if (!civs.some((c) => c.civAt && (c.civ === 'cook' || c.civ === 'physician'))) return;
     for (const s of squads) {
-      if (s.civ || s.alive === 0 || s.team === MOB_TEAM || s.fedUntil > tick) continue;
-      const have = rations.get(s.team) ?? 0;
-      if (have < s.alive) continue;
-      let near = false;
-      for (const c of civs) if (c.civAt && c.civ === 'cook' && c.squad.team === s.team && (c.x - s.cx) ** 2 + (c.y - s.cy) ** 2 <= COOK.feedR * COOK.feedR) { near = true; break; }
-      if (!near) continue;
-      rations.set(s.team, have - s.alive);
-      s.fedUntil = tick + COOK.fedTicks;
+      if (s.civ || s.alive === 0 || s.team === MOB_TEAM) continue;
+      let cook: Unit | null = null, doc = false;
+      for (const c of civs) {
+        if (!c.civAt || c.squad.team !== s.team || (c.x - s.cx) ** 2 + (c.y - s.cy) ** 2 > COOK.feedR * COOK.feedR) continue;
+        if (c.civ === 'cook') cook = c;
+        else if (c.civ === 'physician') doc = true;
+      }
+      if (doc) {
+        // M5h: bandages up to SQUAD_MAX, theriac when it has run out
+        const need = Math.min(SQUAD_MAX, s.alive) - s.bandages, have = Math.floor(crafting.supply(s.team).bandage ?? 0), n = Math.min(need, have);
+        if (n > 0 && crafting.use(s.team, 'bandage', n)) s.bandages += n;
+        if (s.theriacUntil <= tick && crafting.use(s.team, 'theriac', 1)) s.theriacUntil = tick + REMEDY.theriac;
+      }
+      if (!cook || s.fedUntil > tick) continue;
+      // squads near a cook at work eat a dish (or a ration) a man, if the team has it for all
+      const long = heldNodes('cook', cook.person?.hero.perks).has('headCook');
+      const dish = DISH_PREF.find((d) => crafting.use(s.team, d, s.alive));
+      if (dish) eat(s, dish, long);
+      else if ((rations.get(s.team) ?? 0) >= s.alive) {
+        rations.set(s.team, rations.get(s.team)! - s.alive);
+        eat(s, 'ration', long);
+      }
     }
   };
 
@@ -1922,8 +2037,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   /** Everything a step reads that is not rebuilt each tick (head / next, files, platLoad are per-tick scratch). */
   const saveRoot = () => ({
-    grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, drops, dropId, loot, log, civs, rations,
-    works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(),
+    grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, drops, dropId, loot, log, civs, rations, dresser,
+    crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(),
   });
 
   const api: WarBuildSim = {
@@ -1944,6 +2059,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       siege.loadRoot(r.siege);
       mobs.loadRoot(r.mobs);
       vision.loadRoot(r.vision);
+      crafting.loadRoot(r.crafting);
     },
     dropPersons(ids) {
       // a resumed region whose save predates a fight write-back: men D1 has already sent home leave without a report
@@ -1982,6 +2098,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, pair: -1,
         act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1, amx: ax, amy: ay,
         civ: ps ? ps.every((p) => isCivClass(p.hero.cls)) : isCivClass(cls), flee: false, calm: 0, resume: null, work: -1, fedUntil: -1,
+        fedInn: 1, fedMelee: 0, fedMissile: 0, fedAcc: 0, fedHeal: 1, dish: null, bandages: 0, theriacUntil: -1,
       };
       grid.team = team;
       squads.push(s);
@@ -1994,7 +2111,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: ust.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
           crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
           job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null, person: ps?.[k] ?? null,
-          dealt: 0, kills: 0, obj: 0, engaged: false, reported: false, civ: civJob(ps?.[k].hero.cls ?? cls), civT: 0, civAt: false, repaired: false,
+          dealt: 0, kills: 0, obj: 0, engaged: false, reported: false, civ: civJob(ps?.[k].hero.cls ?? cls), civT: 0, civAt: false, repaired: false, venomUntil: -1, venom: false, beast: false, fieldR: 0,
         };
         setRates(u);
         if (u.civ) civs.push(u);
@@ -2035,7 +2152,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           if (s.act) snap.active = { skill: s.act, ready: Math.max(0, s.actReady - tick), on: Math.max(0, s.actUntil - tick) };
           if (s.civ) snap.civ = true;
           if (s.flee) snap.flee = true;
-          if (s.fedUntil > tick) snap.fed = true;
+          if (s.fedUntil > tick) {
+            snap.fed = true;
+            if (s.dish) snap.dish = s.dish;
+          }
+          if (s.bandages > 0) snap.bandages = s.bandages;
+          if (s.theriacUntil > tick) snap.theriac = true;
           const st = s.units[0]?.st;
           if (st && st.range > 0 && st.missile === 'arrow') {
             const why = fireBlock(s);
@@ -2044,12 +2166,16 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           return snap;
         }),
         shots: [...shots, ...siege.shots()].map((sh) => ({ ...sh })),
-        buildings: works.buildingSnaps(),
+        buildings: works.buildingSnaps().map((b) => {
+          const q = b.type in BUILDINGS && BUILDINGS[b.type].workplace ? crafting.snaps(b.id) : undefined;
+          return q ? { ...b, queue: q } : b;
+        }),
         stock: works.stockSnap(),
         influenceVersion: works.influence().version,
         sieges: siege.snaps(tick),
         ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
         ...(rations.size ? { rations: Object.fromEntries(rations) } : {}),
+        ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
         ...(drops.length ? { drops: drops.map((d) => ({ id: d.id, x: d.x, y: d.y, team: d.team, items: d.items.length, left: d.until - tick })) } : {}),
       };
     },

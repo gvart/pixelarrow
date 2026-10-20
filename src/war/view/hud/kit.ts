@@ -48,6 +48,10 @@ export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string
   palisade: 'bld-palisade', rampart: 'bld-rampart', stoneWall: 'bld-stone-wall', woodStairs: 'bld-stairs-wood', stoneStairs: 'bld-stairs-stone', ladder: 'bld-ladder',
   woodTower: 'bld-tower-wood', stoneTower: 'bld-tower-stone', woodGate: 'bld-gate', stoneGate: 'bld-gate', woodBridge: 'bld-bridge-wood', stoneBridge: 'bld-bridge-stone',
   brazier: 'bld-brazier', pitchKiln: 'bld-pitch-kiln',
+  // M5h workplaces: placeholders until ART-C draws them
+  forge: 'bld-barracks', forge2: 'bld-barracks', forge3: 'bld-barracks', cookhouse: 'bld-storehouse', cookhouse2: 'bld-storehouse', cookhouse3: 'bld-storehouse',
+  infirmary: 'bld-outpost', infirmary2: 'bld-outpost', infirmary3: 'bld-outpost', workshop: 'bld-barracks', workshop2: 'bld-barracks', workshop3: 'bld-barracks',
+  stall: 'bld-storehouse', stall2: 'bld-storehouse', stall3: 'bld-storehouse', sortingFloor: 'bld-storehouse', sortingFloor2: 'bld-storehouse',
 };
 export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder' };
 

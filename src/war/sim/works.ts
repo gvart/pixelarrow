@@ -75,6 +75,8 @@ export interface Worker {
   working: boolean; // harvesting or labouring this tick
   wgx: number; wgy: number; // where it walks
   wpath: number[]; wpi: number; wreq: boolean;
+  /** M5h forager nodes: yield multiplier by resource at delivery; herbs from forest and marsh nodes, flax from farms. */
+  gmul?: Partial<Record<ResourceKind, number>>; herbs?: boolean; flax?: boolean;
   /** M5f: gather and build speed over a soldier's (forager, engineer; undefined 1). */
   wrate?: number; brate?: number;
 }
@@ -114,6 +116,10 @@ interface Building {
 export type Piece = Readonly<Building>;
 
 export type Act = [number, number] | null | 'here';
+
+/** M5h: terrain a Herb Finder finds herbs on, and his share of the load as herbs; a Weaver's share of a farm load as flax. */
+const FORAGE_TERRAIN = new Set(['forest', 'marsh']);
+const FORAGE_SHARE = { herbs: 0.2, flax: 0.25 };
 
 export function createWorks(grid: Grid, region: RegionData, path: (team: number, x0: number, y0: number, x1: number, y1: number) => number[], evict: (tiles: number[]) => void, chance: (p: number) => boolean = () => false, fall: (tiles: number[]) => void = () => {}) {
   const { w, h } = grid;
@@ -965,8 +971,11 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     if (!s) return null;
     if (!at(s.tiles, u)) return walkTo(u, ...spot(s.tiles, u, s.x, s.y));
     const st = stockOf(u.squad.team);
-    if (u.carry) st[u.carry] = (st[u.carry] ?? 0) + u.load;
+    if (u.carry) st[u.carry] = (st[u.carry] ?? 0) + u.load * (u.gmul?.[u.carry] ?? 1);
     const n = nodes[u.wnode];
+    // M5h: Herb Finder (forest and marsh nodes), Weaver (farms)
+    if (u.herbs && n?.obj !== undefined && FORAGE_TERRAIN.has(region.terrain[tileAt(grid, n.x, n.y)])) st.herbs = (st.herbs ?? 0) + u.load * FORAGE_SHARE.herbs;
+    if (u.flax && n?.building !== undefined && buildings[n.building]?.type === 'farm') st.flax = (st.flax ?? 0) + u.load * FORAGE_SHARE.flax;
     if (u.carry === 'wood' && n?.obj !== undefined && PINES.has(region.objects![n.obj].id)) st.pitch = (st.pitch ?? 0) + u.load * KILN.fromPine;
     u.carry = null;
     u.load = 0;

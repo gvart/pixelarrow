@@ -84,6 +84,10 @@ export interface StatMods {
   koChance?: number; // added to the chance a mortal blow only knocks out (campaign and war map)
   goldBonus?: number; // fractional bonus battle gold (campaign and war map)
   durable?: number; // fractional: wear taken shrinks by it (campaign and war map)
+  // war-only random stats of crafted items (docs/WAR.md "Crafted item rolls"); ignored outside the war sim
+  breaching?: number; // fractional: damage vs buildings and engines (melee weapons)
+  deft?: number; // fractional: work rate (tools)
+  bountiful?: number; // fractional: job output (tools)
 }
 
 export interface ItemDef {
@@ -531,7 +535,16 @@ export interface Item {
   aff?: string;
   /** Power set explicitly; missing = rolled from uid for epic and legendary items. */
   pow?: string;
+  /** Crafted quality (docs/WAR.md "Crafted item rolls"): 0 crude, 1 fine (missing: fine, as every drop), 2 masterwork. */
+  q?: 0 | 1 | 2;
+  /** Max condition (missing: 100); repairs below 50 lower it. */
+  mc?: number;
+  /** Maker's name ("Nikias of Dodona"), crafted items only. */
+  mk?: string;
 }
+
+/** Base stats by crafted quality (crude, fine, masterwork). */
+export const QUALITY_MULT: readonly [number, number, number] = [0.95, 1, 1.02];
 
 /** Base stats by rarity: random stats and powers carry the rest (docs/ITEMS.md "Rarity tiers"). */
 export const RARITY_MULT: Record<Rarity, number> = { common: 1, uncommon: 1.03, rare: 1.06, epic: 1.07, legendary: 1.08 };
@@ -567,7 +580,7 @@ export function itemMods(item: Item, attrs?: Attrs): StatMods {
 
 function baseMods(item: Item): StatMods {
   const def = itemDef(item.def);
-  const r = RARITY_MULT[normalizeRarity(item.rarity)];
+  const r = RARITY_MULT[normalizeRarity(item.rarity)] * QUALITY_MULT[item.q ?? 1];
   const c = 0.6 + 0.4 * Math.max(0, Math.min(100, item.cond)) / 100;
   const out: StatMods = {};
   for (const k of Object.keys(def.mods) as (keyof StatMods)[]) {

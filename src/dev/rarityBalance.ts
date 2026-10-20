@@ -90,6 +90,8 @@ export interface ItemCapCase {
   slot?: Slot;
   /** Side 1 wears the same pieces with the set bonus lines switched off: what the bonus alone adds. */
   bonusOnly?: string;
+  /** Crafted quality of the fitted items (2: masterwork, docs/WAR.md "Crafted item rolls"). */
+  q?: 2;
 }
 
 const STANDARD_CLASSES = new Set(['hoplite', 'thureophoros', 'peltast', 'slinger']);
@@ -113,7 +115,7 @@ function capArmy(seed: number, c: ItemCapCase, level: number, fitted: boolean): 
     for (const it of Object.values(h.equip)) if (it) { it.rarity = 'common'; it.cond = 100; delete it.aff; delete it.pow; }
     if (fitted) {
       const own = c.slot ? h.equip[c.slot] : undefined;
-      if (own) h.equip[c.slot!] = { uid: `cap${seed}-${i}`, def: own.def, rarity: 'legendary', cond: 100 };
+      if (own) h.equip[c.slot!] = { uid: `cap${seed}-${i}`, def: own.def, rarity: 'legendary', cond: 100, ...(c.q ? { q: c.q } : {}) };
       const id = heroClass(h).id;
       for (const d of defs) {
         if (classGearBlocker(id, d)) continue;
@@ -149,6 +151,7 @@ export function runItemCap(seed: number, c: ItemCapCase, level = 5): number {
 /** Every case the cap covers: a plain legendary in each slot, each named legendary, each set's bonus lines. */
 export function itemCapCases(): ItemCapCase[] {
   const out: ItemCapCase[] = SLOTS.map((slot) => ({ label: `legendary ${slot}`, slot }));
+  for (const slot of SLOTS) out.push({ label: `masterwork ${slot}`, slot, q: 2 });
   for (const d of ITEM_LIST) if (d.named) out.push({ label: d.id, defs: [d.id] });
   for (const id of Object.keys(SETS)) out.push({ label: `${id} set bonus`, defs: setPieces(id), bonusOnly: id });
   return out;

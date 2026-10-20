@@ -124,4 +124,41 @@ describe('sim exportState / importState', () => {
     expect(() => used.importState(st)).toThrow(/fresh/);
     expect(() => createSim({ ...siegeRegion(), id: 'other' }, 1).importState(st)).toThrow(/does not fit/);
   });
+
+  it('M5h: workplace queues mid-craft, new goods, supplies and crafter XP resume exactly', () => {
+    const n = 64;
+    const region: RegionData = { id: 'c', name: 'c', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [] };
+    const a = createSim(region, 4);
+    a.claim(0, 30, 30, 30);
+    for (const [r, v] of Object.entries({ wood: 200, stone: 200, linen: 20, bronze: 20, hides: 5 })) a.addStock(0, r as never, v);
+    const m = a.spawnSquad('a', 0, 'militia', 12, 26, 36);
+    a.order({ kind: 'placeBuilding', squad: m, type: 'camp', x: 22, y: 30 });
+    const m2 = a.spawnSquad('a', 0, 'militia', 12, 36, 36);
+    a.order({ kind: 'placeBuilding', squad: m2, type: 'forge', x: 34, y: 30 });
+    const m3 = a.spawnSquad('a', 0, 'militia', 12, 44, 36);
+    a.order({ kind: 'placeBuilding', squad: m3, type: 'infirmary', x: 44, y: 30 });
+    for (let i = 0; i < 8000 && a.snapshot().buildings!.filter((b) => b.state === 'done').length < 3; i++) a.step();
+    const smith = makePerson('s1', 'civ_smith', { level: 3 });
+    smith.hero.perks = ['bladesmith'] as never;
+    const sq = a.spawnSquad('a', 0, 'civ_smith', 1, 34, 34, [smith]);
+    a.order({ kind: 'civWork', squad: sq, building: 1 });
+    const dq = a.spawnSquad('a', 0, 'civ_physician', 1, 44, 34, [makePerson('p1', 'civ_physician')]);
+    a.order({ kind: 'civWork', squad: dq, building: 2 });
+    run(a, 100);
+    for (let i = 0; i < 3; i++) a.order({ kind: 'craft', team: 0, building: 1, recipe: 'item:xiphos' });
+    for (let i = 0; i < 2; i++) a.order({ kind: 'craft', team: 0, building: 2, recipe: 'bandage' });
+    run(a, 300);
+    expect(a.snapshot().buildings![1].queue!.length).toBeGreaterThan(0);
+    const b = createSim(region, 4);
+    b.importState(JSON.parse(JSON.stringify(a.exportState())));
+    expect(snap(b)).toBe(snap(a));
+    for (let t = 0; t < 1500; t += 100) {
+      run(a, 100);
+      run(b, 100);
+      expect(snap(b)).toBe(snap(a));
+    }
+    expect(JSON.stringify(b.events())).toBe(JSON.stringify(a.events()));
+    expect(JSON.stringify(b.endFight())).toBe(JSON.stringify(a.endFight()));
+    expect(hash(b)).toBe(hash(a));
+  });
 });
