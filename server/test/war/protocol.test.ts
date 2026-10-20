@@ -25,6 +25,7 @@ describe('war net protocol', () => {
     expect(parseClientMsg('{"t":"order","o":{"kind":"placeWall","squad":0,"material":"wood","points":[1,2,3]}}')).toBeNull();
     expect(parseClientMsg('{"t":"order","o":{"kind":"raiseLadder","squad":0,"wallTile":[1,2,3,4]}}')).toBeNull();
     expect(parseClientMsg('{"t":"order","o":{"kind":"move","squad":-1,"x":1,"y":1}}')).toBeNull();
+    expect(parseClientMsg('{"t":"order","o":{"kind":"fortify","building":1,"fort":"greekFire"}}')).toBeNull();
     expect(parseClientMsg(`{"t":"ping","c":1,"pad":"${'x'.repeat(MAX_CLIENT_MSG)}"}`)).toBeNull();
   });
 
@@ -41,6 +42,11 @@ describe('war net protocol', () => {
     ok({ kind: 'upgrade', building: 3 });
     ok({ kind: 'cancelSite', site: 3 });
     ok({ kind: 'buildSiege', squad: 0, type: 'ram', x: 5, y: 5 });
+    for (const type of ['mantlet', 'coveredRam', 'oxybeles', 'siegeTower']) ok({ kind: 'buildSiege', squad: 0, type, x: 5, y: 5 });
+    ok({ kind: 'placeBuilding', squad: 0, type: 'stakes', x: 5.5, y: 5.5 });
+    ok({ kind: 'placeBuilding', type: 'ditch', x: 5.5, y: 6.5 });
+    ok({ kind: 'fortify', building: 2, fort: 'ironGate' });
+    ok({ kind: 'fortify', building: 2, fort: 'wetHides' });
     ok({ kind: 'crew', squad: 0, siege: 1 });
     ok({ kind: 'uncrew', squad: 0 });
     ok({ kind: 'deploy', squad: 0, pack: true });

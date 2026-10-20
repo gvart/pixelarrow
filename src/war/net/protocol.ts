@@ -86,6 +86,8 @@ export const orderSchema = z.discriminatedUnion('kind', [
   // stash item and come from the server (M5h4)
   z.object({ kind: z.literal('craft'), building: id, recipe: z.string().regex(/^[a-z_]+(:[a-z0-9_]+)?$/).max(48) }),
   z.object({ kind: z.literal('cancelCraft'), building: id, order: id }),
+  // M5h3 Fortifier: iron-bind a gate or hang wet hides on a done building of the player's team (the sim checks the node)
+  z.object({ kind: z.literal('fortify'), building: id, fort: z.enum(['ironGate', 'wetHides']) }),
   // siege
   z.object({ kind: z.literal('buildSiege'), squad: id, type: z.enum(['ram', 'stoneThrower', 'siegeLadder', 'mantlet', 'coveredRam', 'oxybeles', 'siegeTower']), x: num, y: num }),
   z.object({ kind: z.literal('crew'), squad: id, siege: id }),
