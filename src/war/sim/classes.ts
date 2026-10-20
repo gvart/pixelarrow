@@ -49,8 +49,13 @@ export interface WarStats {
   breach?: number;
 }
 
-/** The power cap of a baked soldier against the fresh soldier of his class (docs/WAR.md "Clamp"). */
-export const CLAMP = { hp: 1.4, dmg: 1.4, armor: 4, block: 0.1, accuracy: 0.12, atk: 0.85, speed: 1.1 };
+/**
+ * The power cap of a baked soldier against the fresh soldier of his class (docs/WAR.md "Clamp"). M5h6: range (tiles),
+ * ammo (x), armour pierce and block pierce (added) too, which drop legendaries (Philoctetes' bow, the Cretan and
+ * Immortal bows, the Harpe) and some crafted missile weapons raised past the skills' share (Deep Quiver +1 tile, x1.4
+ * ammo; Shield Breaker +0.10). The single-player item data stays; the cap applies only in the war bake.
+ */
+export const CLAMP = { hp: 1.4, dmg: 1.4, armor: 4, block: 0.1, accuracy: 0.12, atk: 0.85, speed: 1.1, range: 1.5, ammo: 1.5, ap: 0.08, bp: 0.12 };
 /**
  * Elites clamp against the trained class they are promoted from: a fresh royal guard already beats two squads of fresh
  * hoplites, so a cap on his own baseline would break the power curve (docs/WAR.md "Anti-oversaturation").
@@ -189,6 +194,10 @@ export function warStatsOf(p: WarPerson | Hero): WarStats {
   s.atkTicks = Math.max(s.atkTicks, Math.min(o.atkTicks, Math.round(b.atkTicks * CLAMP.atk)));
   s.shotTicks = Math.max(s.shotTicks, Math.min(o.shotTicks, Math.round(b.shotTicks * CLAMP.atk)));
   s.speed = Math.min(s.speed, Math.max(o.speed, b.speed * CLAMP.speed));
+  if (s.range > 0) s.range = Math.min(s.range, Math.max(o.range, b.range + CLAMP.range));
+  s.ammo = Math.min(s.ammo, Math.max(o.ammo, Math.round(b.ammo * CLAMP.ammo)));
+  s.ap = Math.min(s.ap, Math.max(o.ap, b.ap + CLAMP.ap));
+  s.bp = Math.min(s.bp, Math.max(o.bp, b.bp + CLAMP.bp));
   s.flags = flags;
   const breach = hero.equip.weapon ? affixMods(hero.equip.weapon).breaching : undefined;
   if (breach) s.breach = breach;
