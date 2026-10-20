@@ -1,0 +1,26 @@
+src/data/recipes.ts
+  s_cfc22b058125c4::t_b5dec749dfcd17 144
+  s_cfc22b058125c4::t_5a3ad04338d90a 15,120-129,138-139
+  s_cfc22b058125c4::t_ec7f4282a29e52 237-241,246-248
+tests/crafting.test.ts
+  s_cfc22b058125c4::t_0c86a0284d4490 8,49
+docs/WAR.md
+  s_cfc22b058125c4::t_36def02b757d25 183,329-331,375-377,402-413
+  s_cfc22b058125c4::t_cfcf37dd3f3dcd 414
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0d1f6eccad8266ada59b575d3bd74589e4e6f19e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
