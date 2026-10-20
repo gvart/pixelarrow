@@ -310,6 +310,7 @@ export class WarRoom {
    * (off the wire, no corpse, no fight report). `off`: tiles from the squad's centre to that entry zone (0 inside it).
    */
   depart(pid: number, squad: SquadId, side: Side, foeRadius: number): { ids: string[]; off: number } | { error: 'notOwner' | 'foes'; detail: string } {
+    this.snap = this.sim.snapshot(); // squads spawned since the last tick
     if (this.owners[squad] !== ownerOf(pid) || !this.squadsOf(pid).includes(squad)) return { error: 'notOwner', detail: 'not a squad of yours here' };
     const men = this.snap.units.filter((u) => u.squad === squad && u.state !== 'dead');
     if (!men.length || men.some((u) => !u.pid)) return { error: 'notOwner', detail: 'only squads of soldiers (persons) transfer' };
