@@ -1,0 +1,34 @@
+docs/v5/pixellab/ANIM3/javelineer.jobs.json
+  s_cfc22b058125c4::t_6c704b43c396b8 1-2,15
+  s_cfc22b058125c4::t_de94d01489c4b5 13-14
+  s_cfc22b058125c4::t_5fa62ec475ea46 7
+  s_cfc22b058125c4::t_ddf4fc3d2b6778 5-6
+  s_cfc22b058125c4::t_cc8cc3158df675 11-12
+  s_cfc22b058125c4::t_ea5a1a6ca73e40 8-10
+  s_cfc22b058125c4::t_9c4d49f33584be 3-4
+docs/v5/pixellab/ANIM3/javelineer.sheet.json
+  s_cfc22b058125c4::t_7de25b31eb11e2 1-167,183,305-348,417-419
+  s_cfc22b058125c4::t_2fa7d5c475f6c6 168-182,184-304
+  s_cfc22b058125c4::t_c86cd6dcfa18a5 349-416
+src/assets/sheets/javelineer/manifest.json
+  s_cfc22b058125c4::t_2fa7d5c475f6c6 140-149,254
+  s_cfc22b058125c4::t_c86cd6dcfa18a5 150-154
+  s_cfc22b058125c4::t_7de25b31eb11e2 6,15,135-139
+  s_cfc22b058125c4::t_4fed15ac0c4247 253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "928fdcb533b5af01754d59f62c0128d956bcaaef",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
