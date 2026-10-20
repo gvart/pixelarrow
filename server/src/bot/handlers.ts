@@ -40,8 +40,8 @@ export interface CallbackQuery {
 }
 
 const TYPE_LABEL: Record<Lang, Record<NotifyType, string>> = {
-  en: { attack: 'Attacks on your land', march: 'March arrived', income: 'Treasury full', duel: 'Duel challenges', clan: 'Clan news', boss: 'World boss loot', season: 'Season ending', market: 'Marketplace sales' },
-  ru: { attack: 'Атаки на ваши земли', march: 'Войско прибыло', income: 'Казна полна', duel: 'Вызовы на дуэль', clan: 'Новости клана', boss: 'Добыча с боссов', season: 'Конец сезона', market: 'Продажи на рынке' },
+  en: { duel: 'Duel challenges', clan: 'Clan news', season: 'Season ending' },
+  ru: { duel: 'Вызовы на дуэль', clan: 'Новости клана', season: 'Конец сезона' },
 };
 
 /** The legal pages (static assets of the landing Worker on LANDING_URL, ADR-0007). */

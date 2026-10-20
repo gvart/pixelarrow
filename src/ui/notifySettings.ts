@@ -51,7 +51,7 @@ const liveSource: NotifySource = {
 
 /** In-memory settings (layout check, gallery). */
 export function demoNotifySource(over: Partial<NotifySettings> = {}): NotifySource {
-  let st: NotifySettings = { types: NOTIFY_TYPES.map((type) => ({ type, on: type !== 'market' })), quiet: true, tzOffset: 180, blocked: false, ...over };
+  let st: NotifySettings = { types: NOTIFY_TYPES.map((type) => ({ type, on: true })), quiet: true, tzOffset: 180, blocked: false, ...over };
   return {
     load: async () => st,
     save: async (change) => {
