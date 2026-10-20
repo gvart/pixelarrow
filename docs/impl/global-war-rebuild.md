@@ -48,6 +48,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-42 Lore (owner 2026-10-20): every warrior here died in the real world; this is an intermediate world between death and the afterlife. Alliances must survive and dominate to ascend to heaven, or be erased from history and the universe. The world's edge is not sea but a void/abyss patrolled by colossal beasts that forbid passage (they replace the ocean frame).
 - W-43 World map look (owner 2026-10-20): one coherent painted continent (AAA, hand-drawn quality), not stitched areas; neutral regions under a grey overlay; occupied regions in their alliance colour.
 - W-44 Economy (owner 2026-10-20): fully player-driven — nothing comes from the game (no NPC vendors or system prices). Goods are physical: chests/storehouses/warehouses in the world, carts/wagons (must be built) and porters carry them; no abstract player inventory. Caravans are escorted; ambush, capture and theft are core. Some trade cities are safe zones with rentable stalls/warehouses; player-to-player trade wherever both are present; hiring others to carry/escort via contracts.
+- W-45 Bosses (owner 2026-10-20): some (not all) neutral regions have a boss guarding them; the region can be claimed only after the boss is killed; bosses drop rare/epic/legendary equipment (main source of named legendaries and sets).
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
