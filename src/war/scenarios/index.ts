@@ -9,7 +9,9 @@ import { CLAIM_POINT as ridgeClaim, SPOTS } from '../regions/test-ridge.spots';
 import { SQUAD_MAX } from '../sim/soldiers';
 
 /** count: at most SQUAD_MAX (the sim clamps it). owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
-export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string }
+export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string;
+  /** M5h3, own civilians: the persons' level and profession nodes (src/data/professions.ts ids), set on the sandbox roster. */
+  level?: number; nodes?: string[] }
 
 export interface Scenario {
   id: string;
@@ -170,7 +172,7 @@ export const SCENARIOS: Scenario[] = [
       ...['celt_sword', 'militia', 'javelineer'].map((c, i) =>
         bot(c, at(S.bridgeE, 14 + i * 6, -10 - i * 6), { kind: 'flank', via: at(S.bridgeW, -6, 2), x: passSx, y: passSy })),
     ],
-    camera: { x: 291, y: 261, zoom: 1 / 12 }, // both crossings in view
+    camera: { x: 291, y: 261, zoom: 1 / 4 }, // the camera's floor (SandboxScene MIN_ZOOM)
   },
   {
     id: 'brawl-600',
@@ -252,7 +254,7 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'siege',
     name: 'Siege',
-    goal: 'Take the stone fort: batter the gate with the ram (E on the ram to crew it, then E on the gate), raise the ladder on the wall (E on the wall face), shell the towers with the stone thrower, burn the palisade (E with torches, or fire arrows: Q), then storm the breach.',
+    goal: 'Take the stone fort: batter the gate with the ram (E on the ram to crew it, then E on the gate), raise the ladder on the wall (E on the wall face), shell the towers with the stone thrower, burn the palisade (E with torches, or fire arrows: Q), then storm the breach. Your engineer (behind the archers) holds the designs: build a mantlet, covered ram, oxybeles or siege tower from the Siege tab (B), and stakes or a ditch from Walls.',
     squads: [
       // the garrison's builders (they raise the fort before play, then stand inside)
       { team: 1, cls: 'militia', count: SQUAD_MAX, x: RC[0] - 3, y: RC[1], owner: 'garrison' },
@@ -263,7 +265,8 @@ export const SCENARIOS: Scenario[] = [
     camera: { x: 127.5, y: 450, zoom: 1 / 2 },
     economy: {
       claims: [{ team: 1, x: RC[0], y: RC[1], r: 26 }],
-      stock: { wood: 300, stone: 100 },
+      // M5h3: enough over the three engines for one of each engineer design (mantlet, covered ram, oxybeles, siege tower)
+      stock: { wood: 800, stone: 100, hides: 40, iron: 20, bronze: 12, linen: 8, charcoal: 10 },
       foeStock: { stone: 4000, wood: 1500 },
       walls: ringWalls(0, 1),
       sites: ringSites(0, 1),
@@ -288,6 +291,8 @@ export const SCENARIOS: Scenario[] = [
         bot('archer', at(RC, -2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }),
         bot('archer', at(RC, 2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 12),
         bot('hoplite', at(RC, 0, 1), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }),
+        // M5h3: an engineer holding every design and the Fortifier works (squad 13)
+        { ...you('civ_engineer', [127.5, 477], 1), level: 10, nodes: ['carpenter', 'masterBuilder', 'rams', 'fortifier', 'artillerist', 'poliorcetes'] },
       ],
       then: [
         { kind: 'buildSiege', squad: 7, type: 'ram', x: 127.5, y: 458.5 },

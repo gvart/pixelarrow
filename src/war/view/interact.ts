@@ -11,18 +11,23 @@
  *   enemy walkway wall or tower, a ladder carried     raise the ladder on that face
  *   enemy building                                    burnable wood not yet alight: ignite (as engines), else attack; fire arrows;
  *                                                     raise ladder (greyed without a carried ladder)
- *   own building                                      burning: extinguish; unfinished: build / resume; damaged: repair
+ *   own building                                      burning: extinguish; unfinished: build / resume; damaged: repair;
+ *                                                     M5h3 fortify (Fortifier, paid at once; never the tap's pick):
+ *                                                     iron-bind a gate, wet hides on burnable wood
  *   claim banner (neutral region)                    open: claim the region (channel); locked: move there
  *   resource node                                     gather (guarded by a lair: move there)
  *   walkway, platform or stair top                    move up
  *   ground                                            move
  */
 import { BUILDINGS } from '../sim/economy';
+import { FORT } from '../sim/works';
 import type { BuildingSnap, SquadId, SquadSnap } from '../types';
 import { isSite } from './build/buildMode';
 import { Radial, RI } from './hud/radial';
 import { ACTIVE_UI, activeEffect, activesOf, activeWhy, fireActives } from './hud/cardActive';
 import { SIEGE_NAME } from './siege/siegeControls';
+import { sandboxCraft } from './hud/craft/state';
+import { sandboxRoster } from './hud/roster/state';
 import type { SandboxScene } from './SandboxScene';
 
 export interface Action { label: string; run(): void }
@@ -138,6 +143,27 @@ export class Interact {
     return this.options(p).find((o) => !o.off) ?? null;
   }
 
+  /** M5h3: the Fortifier works on own building b (iron-bind a gate, wet hides on burnable wood), greyed with the reason. */
+  private fortify(b: BuildingSnap): Option[] {
+    const s = this.s, def = BUILDINGS[b.type], o: Option[] = [];
+    const iron = def.wall === 'gate', wet = !!def.burnable && !def.field;
+    if (!iron && !wet) return o;
+    const stock = s.sim.cur?.stock?.[TEAM] ?? {}, have = (r: string) => (stock as Record<string, number>)[r] ?? 0;
+    const up = b.state === 'done' || b.state === 'damaged';
+    const no = !sandboxCraft(s, sandboxRoster(s)).engineerNodes().has('fortifier') ? 'needs an engineer with Fortifier' : !up ? 'not finished' : undefined;
+    const run = (fort: 'ironGate' | 'wetHides', label: string) => () => { s.sim.order({ kind: 'fortify', team: TEAM, building: b.id, fort }); s.mark(b.x, b.y, 0x60d060); s.siege.status = label; };
+    if (iron) {
+      const off = no ?? (b.iron ? 'already iron-bound' : have('iron') < FORT.ironCost.iron || have('charcoal') < FORT.ironCost.charcoal ? `needs ${FORT.ironCost.iron} iron, ${FORT.ironCost.charcoal} charcoal` : undefined);
+      o.push({ label: 'iron-bind gate', icon: 'bld-gate', off, run: run('ironGate', 'iron-bind gate') });
+    }
+    if (wet) {
+      const n = FORT.wetCost * (b.tiles.length / 2);
+      const off = no ?? (b.wet ? 'hides already hung' : have('hides') < n ? `needs ${n} hides` : undefined);
+      o.push({ label: 'wet hides', icon: 'act-extinguish', off, run: run('wetHides', 'wet hides') });
+    }
+    return o;
+  }
+
   /** Every action for the target under pointer p, the recommended one first; [] with no own squad selected. */
   options(p: P): Option[] {
     const s = this.s, sc = s.siege, own = sc.own();
@@ -217,7 +243,9 @@ export class Interact {
         const label = `${b.state === 'damaged' ? 'repair' : b.progress > 0 && !b.workers ? 'resume' : 'build'} ${nameOf(b)}`;
         o.push(act(label, 'act-build', b, 0x60d060, () => { for (const q of own) s.build.sendTo(q, b.id); }));
       }
-      if (o.length) return [...o, move];
+      const f = this.fortify(b);
+      if (o.length) return [...o, move, ...f];
+      if (f.length) return [move, ...f];
     }
     const cp = (s.sim.cur?.claims ?? []).find((c) => Math.hypot(c.x - t.x, c.y - t.y) < CLAIM_PICK);
     if (cp && (cp.state === 'open' || cp.state === 'contested' || cp.state === 'channel')) return [act('claim region', 'act-assign', cp, 0xffe070, () => s.sim.order({ kind: 'claimRegion', squad: own[0], point: cp.id })), move];

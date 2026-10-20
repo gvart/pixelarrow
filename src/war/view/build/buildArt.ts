@@ -44,11 +44,13 @@ const ART_ID: Partial<Record<BuildingType, string>> = {
   forge: 'forge', forge2: 'forge2', forge3: 'forge3', cookhouse: 'cookhouse', cookhouse2: 'cookhouse2', cookhouse3: 'cookhouse3',
   infirmary: 'infirmary', infirmary2: 'infirmary2', infirmary3: 'infirmary3', workshop: 'workshop', workshop2: 'workshop2', workshop3: 'workshop3',
   stall: 'market-stall', stall2: 'market-stall2', stall3: 'market-stall3', sortingFloor: 'sorting-floor', sortingFloor2: 'sorting-floor2',
+  stakes: 'stakes', // M5h3 Fortifier field tile
 };
 /** Kit ids per sim type. */
 export const KIT_ID: Partial<Record<BuildingType, string>> = {
   palisade: 'palisade', rampart: 'rampart', stoneWall: 'stone-wall', woodTower: 'tower-wood', stoneTower: 'tower-stone',
   woodStairs: 'stair-wood', stoneStairs: 'stair-stone', ladder: 'ladder', woodBridge: 'bridge-wood', stoneBridge: 'bridge-stone',
+  ditch: 'ditch', // M5h3: frame = neighbour mask of ditch tiles; damaged = filled in
 };
 const FALLBACK_STAGES: [string, number][] = [['foundation', 0], ['scaffold', 0.5], ['done', 1]];
 
@@ -133,12 +135,12 @@ export class BuildArt {
 
   /**
    * The sprite for a building at an art stage ('destroyed' has none), gates by line axis (deep: the 2-deep variant with
-   * its passage on that side, n e s w); falls back to earlier stages.
+   * its passage on that side, n e s w; iron: M5h3 the iron-bound variant); falls back to earlier stages.
    */
-  sprite(type: BuildingType, stage: string, axis: 'x' | 'y', deep?: string): BuildSprite | undefined {
+  sprite(type: BuildingType, stage: string, axis: 'x' | 'y', deep?: string, iron = false): BuildSprite | undefined {
     let id = ART_ID[type];
     if (!id || stage === 'destroyed') return undefined;
-    if (type === 'woodGate' || type === 'stoneGate') id += '-' + axis + (deep ? '-deep-' + deep : '');
+    if (type === 'woodGate' || type === 'stoneGate') id += '-' + axis + (deep ? '-deep-' + deep : '') + (iron && this.sprites.has(`${id}-${axis}${deep ? '-deep-' + deep : ''}-iron/done`) ? '-iron' : '');
     return this.sprites.get(`${id}/${stage}`) ?? this.earlier(stage, (s) => this.sprites.get(`${id}/${s}`)) ?? this.sprites.get(`${id}/done`);
   }
 
@@ -153,6 +155,12 @@ export class BuildArt {
     const id = KIT_ID[type] && KIT_ID[type] + (diag ? '-diag' : '');
     if (!id || stage === 'destroyed') return undefined;
     return this.kits.get(`${id}/${stage}`) ?? this.earlier(stage, (s) => this.kits.get(`${id}/${s}`)) ?? this.kits.get(`${id}/done`);
+  }
+
+  /** M5h3 wet hides over a wall kit's done frames (same frames; layered: back and front), if there is art for it. */
+  hides(type: BuildingType): KitSprite | undefined {
+    const id = KIT_ID[type];
+    return id ? this.kits.get(`hides-${id}/done`) : undefined;
   }
 
   /** Stage-free kit data for a sim type (diag: a bridge's diagonal kit). */

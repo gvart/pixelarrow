@@ -5,7 +5,7 @@
  *   bottom left    round minimap (./minimap.ts), the view mode switcher in its corner (F2-F7) and the mode's legend over it (./modes.ts)
  *   centre         the full map on M (./fullMap.ts)
  *   bottom centre  command card, shown with a selection (a selected building or site wins over squads), in groups:
- *                  selection (class icon, name, men, hp) | orders (move, attack, attack-move A, hold H, stop X) over the
+ *                  selection (class icon, name, men, hp) | orders (move, attack, attack-move: Ctrl + right click or the button then a click, hold H, stop X) over the
  *                  formation segments (1-4) | squad-specific slots only while relevant (the squad active F with its
  *                  cooldown ring, ./cardActive.ts; deploy / pack Y, let go while crewing).
  *                  site: progress, workers, materials | assign N of the selected squad, stop work, cancel (refund)
@@ -37,8 +37,11 @@ import { FullMap } from './fullMap';
 import { ACTIVE_CSS, ACTIVE_KEY, ACTIVE_UI, activesOf, activeTip, fireActives } from './cardActive';
 import { mountRoster } from './roster';
 import { mountCraft } from './craft';
+import { sandboxCraft } from './craft/state';
+import { sandboxRoster } from './roster/state';
+import { PROF_NODES } from '../../../data/professions';
 import { WP_NAME } from './craft/workplace';
-import { allCivilians, anySoldiers, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
+import { allCivilians, civBuild, civGather, civInfo, civName, civTips, civWork } from './cardCiv';
 
 const RES: string[] = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'olives'];
 /** M5h: the band's second page (its toggle under the right end): crafting goods, pitch, and the remedies in the team supplies (p:). */
@@ -48,7 +51,9 @@ const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLASS_NAME: Record<string, string> = { militia: 'Militia', hoplite: 'Hoplites', celt_sword: 'Swordsmen', archer: 'Archers', slinger: 'Slingers', javelineer: 'Javelineers' };
 const nice = (t: string) => t.replace(/[A-Z]/g, (c) => ' ' + c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
 
-interface ToolDef { name: string; icon: string; tool: Tool; cost: Cost; labour: number; note: string }
+interface ToolDef { name: string; icon: string; tool: Tool; cost: Cost; labour: number; note: string;
+  /** M5h3: the engineer node it needs (an engine design, a Fortifier field tile). */
+  node?: string }
 const bTool = (t: BuildingType, note = '', name = nice(t)): ToolDef => ({ name, icon: BUILDING_ICON[t], tool: { kind: 'building', type: t }, cost: BUILDINGS[t].cost, labour: BUILDINGS[t].labour, note });
 /** M5h workplaces: level 1 placed here, L2 / L3 by Upgrade on the building's card. */
 const WORKPLACES: [BuildingType, string, string][] = [
@@ -69,10 +74,10 @@ const TABS: Record<'Camp' | 'Walls' | 'Craft' | 'Siege', ToolDef[]> = {
     { ...bTool('woodBridge', 'per tile · drag bank to bank, burns'), tool: { kind: 'bridge', material: 'wood' } },
     { ...bTool('stoneBridge', 'per tile · drag bank to bank, fireproof'), tool: { kind: 'bridge', material: 'stone' } },
     // M5h3 field works (Fortifier): a tile each, shift keeps the tool for a line
-    bTool('stakes', 'a tile · slows and hurts foes crossing; burns', 'Stakes'),
-    bTool('ditch', 'a tile · foes slow to cross it; labour only', 'Ditch'),
+    { ...bTool('stakes', 'a tile · slows and hurts foes crossing; burns', 'Stakes'), node: 'fortifier' },
+    { ...bTool('ditch', 'a tile · foes slow to cross it; labour only', 'Ditch'), node: 'fortifier' },
   ],
-  Siege: (Object.keys(SIEGE) as SiegeType[]).map((t) => ({ name: nice(SIEGE_NAME[t]), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: SIEGE[t].cost, labour: SIEGE[t].labour, note: `crew ${SIEGE[t].crew} · a squad builds it` })),
+  Siege: (Object.keys(SIEGE) as SiegeType[]).map((t) => ({ name: nice(SIEGE_NAME[t]), icon: SIEGE_ICON[t], tool: { kind: 'siege', type: t }, cost: SIEGE[t].cost, labour: SIEGE[t].labour, note: `crew ${SIEGE[t].crew} · a squad builds it`, node: SIEGE[t].node })),
 };
 type Tab = keyof typeof TABS;
 const SLOT = 32; // 30 px button + 2 gap
@@ -81,7 +86,10 @@ const SLOT = 32; // 30 px button + 2 gap
 const costHtml = (c: Cost) => Object.entries(c).map(([r, v]) => `<span style="display:inline-flex;align-items:center;gap:2px;margin-right:6px">${icon('res-' + r)}<span class="rf-num">${v}</span></span>`).join('') || '<span class="rf-dim">free</span>';
 
 export function hud(s: SandboxScene): void {
-  const m: BuildMode = s.build, sc = s.siege;
+  const m: BuildMode = s.build, sc = s.siege, C = sandboxCraft(s, sandboxRoster(s));
+  /** M5h3: why a tool is greyed (its node held by no living engineer of yours), '' when usable. */
+  let held = new Set<string>();
+  const nodeWhy = (d: ToolDef) => (d.node && !held.has(d.node) ? `needs an engineer with ${PROF_NODES[d.node]?.name ?? d.node}` : '');
   const style = document.createElement('style');
   style.textContent = CSS + ACTIVE_CSS;
   document.head.appendChild(style);
@@ -180,7 +188,7 @@ export function hud(s: SandboxScene): void {
   const stop = () => { for (const q of sc.own()) s.sim.order({ kind: 'stop', squad: q }); };
   const sqMove = btn('cMove', 'act-move', tipK('Move', 'click the map, or', 'right click'), '', () => sc.arm('move'));
   const sqAtk = btn('cAttack', 'act-attack', tipK('Attack', 'click an enemy, or hover it and', 'E'), '', () => sc.arm('attack'));
-  const sqAtkMove = btn('cAttackMove', 'act-attack', tipK('Attack-move', 'march to a point, fighting any foe met on the way', 'A'), 'A', () => sc.arm('attackMove'));
+  const sqAtkMove = btn('cAttackMove', 'act-attack', tipK('Attack-move', 'march to a point, fighting any foe met on the way: click it, or', 'Ctrl + right click'), '', () => sc.arm('attackMove'));
   sqAtkMove.insertAdjacentHTML('beforeend', `<span class="badge">${icon('act-move')}</span>`);
   const sqHold = btn('cHold', 'act-hold', tipK('Hold', 'stand and fight here', 'H'), 'H', () => s.orderSelected((squad) => ({ kind: 'hold', squad })));
   const sqStop = btn('cStop', 'act-stop', tipK('Stop', 'halt and form up where they stand', 'X'), 'X', stop);
@@ -263,7 +271,7 @@ export function hud(s: SandboxScene): void {
   const renderTools = () => {
     toolBtns.length = 0;
     bTools.replaceChildren(...TABS[tab].map((d, i) => {
-      const b = btn('bt-' + tab + i, d.icon, () => `<div class="rf-name" style="margin-bottom:4px">${d.name}</div><div style="display:flex;align-items:center">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(d.labour)}${d.note ? ' · ' + d.note : ''}</div>`, '', () => m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool));
+      const b = btn('bt-' + tab + i, d.icon, () => `<div class="rf-name" style="margin-bottom:4px">${d.name}</div><div style="display:flex;align-items:center">${costHtml(d.cost)}</div><div class="rf-dim" style="margin-top:3px">labour ${labourText(d.labour)}${d.note ? ' · ' + d.note : ''}</div>${nodeWhy(d) ? `<div class="rf-dim" style="margin-top:3px;color:#ff7a5c">${nodeWhy(d)}</div>` : ''}`, '', () => { if (!nodeWhy(d)) m.setTool(JSON.stringify(m.tool) === JSON.stringify(d.tool) ? null : d.tool); });
       b.dataset.tool = String(i);
       toolBtns.push([b, d]);
       return b;
@@ -288,7 +296,6 @@ export function hud(s: SandboxScene): void {
     if (e.key === 'F1') { e.preventDefault(); setDev(dev?.style.display === 'none'); }
     else if (m.active || m.tool) return;
     else if (e.key.toLowerCase() === 'x') stop();
-    else if (e.key.toLowerCase() === 'a' && anySoldiers(s, sc.own())) sc.arm('attackMove'); // with none selected A pans (SandboxScene)
     else if (e.key.toLowerCase() === 'f') fireActives(s, sc.own());
   });
 
@@ -406,7 +413,11 @@ export function hud(s: SandboxScene): void {
     hBtn.classList.toggle('on', m.active);
     // the bar sits above the card when both show
     build.style.bottom = card.style.display === 'none' ? '4px' : `${card.offsetHeight + 8}px`;
-    for (const [x, d] of toolBtns) x.classList.toggle('on', JSON.stringify(d.tool) === JSON.stringify(m.tool));
+    if (m.active) held = C.engineerNodes();
+    for (const [x, d] of toolBtns) {
+      x.classList.toggle('on', JSON.stringify(d.tool) === JSON.stringify(m.tool));
+      x.disabled = !!nodeWhy(d);
+    }
     bWall.style.display = m.tool?.kind === 'wall' ? 'flex' : 'none';
     const status = m.claimArmed ? 'click the map to claim (influence r 20)' : m.tool ? m.status || 'R rotate · Esc cancel · shift keeps the tool' : '';
     bStatus.textContent = status;

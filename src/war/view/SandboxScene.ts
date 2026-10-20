@@ -2,7 +2,7 @@
  * The region sandbox in true iso with raised height (W-16) at real scale (W-18: 64 x 32 tiles of
  * 2 m, a 512-tile region is ~33k px wide): PixelLab terrain (./art.ts; ?art=grey: the greybox of
  * ./terrain.ts) baked into 512 px chunks on demand (LRU pools, culled to the camera) at 1x zoomed
- * in, 1/2 and 1/4 at mid zoom, mountains as massif sprites (./massifs.ts; ?mountains=terrace: stacked levels), over a 1/8 overview baked in bands that stands alone zoomed out; map
+ * in, 1/2 and 1/4 at mid zoom, mountains as massif sprites (./massifs.ts; ?mountains=terrace: stacked levels), over a 1/8 overview baked in bands (shown while chunks bake; the minimap and full map use it); the camera stops at MIN_ZOOM 1/4; map
  * objects as live sprites sorted with the units down to 1/3 (./objects.ts), baked in below that; 10 Hz sim snapshots drawn interpolated as PixelLab
  * soldier sprites with dot and banner LOD (./units.ts); RTS camera and squad controls picking
  * through the height field (./iso.ts).
@@ -45,14 +45,16 @@ const CLIMB = ['climb', 'walk'] as const;
 const CARRY = ['carry', 'walk'] as const;
 /** Torching, beating out a fire, pushing a ladder off: a work swing. */
 const TASK = ['build', 'thrust', 'attack'] as const;
-/** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above. */
-const LADDER = [1 / 32, 1 / 24, 1 / 16, 1 / 12, 1 / 8, 1 / 6, 1 / 4, 1 / 3, 1 / 2, 1, 2, 3];
+/** The camera's zoom floor: never the whole region in view (the full map, M, is for that), and far less to draw. */
+export const MIN_ZOOM = 1 / 4;
+/** Pixel-clean zoom ladder (as regionMapView.zoomStep): 1/n below 1, whole numbers above; from MIN_ZOOM. */
+const LADDER = [1 / 4, 1 / 3, 1 / 2, 1, 2, 3];
 /**
- * Chunk levels, finest first: canvas px per world px and the lowest zoom each shows at. Below
- * 1/6 the overview (1/8) stands alone. Each pool keeps 48 canvases (1 MB each): a 1440x900 view
+ * Chunk levels, finest first: canvas px per world px and the lowest zoom each shows at. Down to
+ * MIN_ZOOM the 1/4 level is the coarsest shown. Each pool keeps 48 canvases (1 MB each): a 1440x900 view
  * at a level's lowest zoom needs ~35. Map objects are baked in where they are not live sprites.
  */
-const LEVELS = [{ scale: 1, zoom: 1 / 2 }, { scale: 1 / 2, zoom: 1 / 3 }, { scale: 1 / 4, zoom: 1 / 6 }] as const;
+const LEVELS = [{ scale: 1, zoom: 1 / 2 }, { scale: 1 / 2, zoom: 1 / 3 }, { scale: 1 / 4, zoom: MIN_ZOOM }] as const;
 /** Bakes at this scale show below LIVE_ZOOM only (the 1/4 level and the overview), so they carry the objects. */
 const baked = (scale: number) => scale < LIVE_ZOOM;
 const POOL = 48;
@@ -251,7 +253,7 @@ export class SandboxScene extends Phaser.Scene {
   /** Centre the camera on a tile point (at its level), optionally zooming. */
   focus(x: number, y: number, zoom?: number): void {
     const cam = this.cameras.main;
-    if (zoom) cam.setZoom(zoom);
+    if (zoom) cam.setZoom(Math.max(zoom, this.minZoom()));
     cam.centerOn(this.iso.sx(x, y), this.iso.sy(x, y, this.iso.zAt(x, y)));
   }
 
@@ -273,9 +275,9 @@ export class SandboxScene extends Phaser.Scene {
     return { x: (wx - cam.scrollX - w) * cam.zoom + w, y: (wy - cam.scrollY - h) * cam.zoom + h };
   }
 
-  /** The lowest zoom: the first ladder step at which the region's shorter side still covers the viewport's shorter side (no void round it). */
+  /** The lowest zoom: MIN_ZOOM, or the first ladder step at which the region's shorter side still covers the viewport's shorter side (no void round it). */
   minZoom(): number {
-    const cam = this.cameras.main, need = Math.min(cam.width, cam.height) / Math.min(this.iso.W, this.iso.H);
+    const cam = this.cameras.main, need = Math.max(MIN_ZOOM, Math.min(cam.width, cam.height) / Math.min(this.iso.W, this.iso.H));
     return LADDER.find((z) => z >= need - 1e-6) ?? LADDER[LADDER.length - 1];
   }
 
@@ -335,6 +337,13 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private onDown(p: Phaser.Input.Pointer): void {
+    // Ctrl + right click: the selected fighting squads attack-move to the spot
+    if (p.rightButtonDown() && (p.event as MouseEvent | undefined)?.ctrlKey && !this.build.tool && anySoldiers(this, this.siege.own())) {
+      const t = this.world(p);
+      this.moveTo(t, 'attackMove');
+      this.mark(t.x, t.y, 0xff4040);
+      return;
+    }
     if (p.rightButtonDown()) return this.build.tool || this.siege.armed ? this.command(p) : this.interact.press(p, 'mouse');
     const pan = p.middleButtonDown() || this.keys.SPACE.isDown;
     if (!pan && this.siege.onDown(this.world(p))) return;
@@ -431,9 +440,7 @@ export class SandboxScene extends Phaser.Scene {
     if (this.frame % 15 === 0 && cam.zoom < this.minZoom() - 1e-6) cam.setZoom(this.minZoom());
     // keyboard and edge pan
     const sp = (dt * 0.9) / cam.zoom;
-    // A arms attack-move while own fighting squads are selected (./hud/hud.ts); only with none does it pan
-    const aPans = k.A.isDown && !anySoldiers(this, this.siege.own());
-    let vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (aPans || k.LEFT.isDown ? 1 : 0);
+    let vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
     let vy = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.W.isDown || k.UP.isDown ? 1 : 0);
     const p = this.input.activePointer, m = 12;
     if (this.input.isOver && !p.isDown && this.moved) {

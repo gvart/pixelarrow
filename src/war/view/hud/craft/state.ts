@@ -244,6 +244,16 @@ export class SandboxCraft {
     return { g, rarity: row, crude, masterwork: mw ? Math.min(1 - crude, masterworkChance(g)) : 0 };
   }
 
+  /** M5h3: the nodes the player's living engineers hold (an engine design or a Fortifier work needs one, ../../../sim/siege.ts). */
+  engineerNodes(): Set<string> {
+    const out = new Set<string>();
+    for (const u of this.s.sim.cur?.units ?? []) {
+      if (u.state === 'dead' || u.cls !== 'civ_engineer' || this.s.sim.squads.get(u.squad)?.team !== TEAM) continue;
+      for (const n of heldNodes('engineer', this.civ(u.pid)?.perks ?? [])) out.add(n);
+    }
+    return out;
+  }
+
   /** Whether civilian c may make recipe r (his class and nodes). */
   canMake(c: Civ, r: Recipe): boolean {
     return !crafterRefusal({ prof: profOf(c.cls), perks: c.perks }, r);

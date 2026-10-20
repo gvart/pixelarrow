@@ -23,7 +23,7 @@
 import Phaser from 'phaser';
 import type { BuildingSnap, BuildingType, SiegeSnap, SiegeType, UnitSnap } from '../../types';
 import { BUILDINGS } from '../../sim/economy';
-import { RAM, THROWER } from '../../sim/siege';
+import { OXY, RAM, THROWER } from '../../sim/siege';
 import type { IsoMap } from '../iso';
 import type { DrawUnit } from '../simClient';
 import type { AnimTime } from '../anim';
@@ -165,38 +165,57 @@ export class SiegeLayer {
   private engine(e: SiegeSnap, crew: DrawUnit[], byId: Map<number, BuildingSnap>, at: AnimTime, snapTick: number, v: V): void {
     const art = this.art!, f = facingOf(e.facing), now = at.now;
     if (e.type === 'siegeLadder') return this.ladderEngine(e, crew, byId, at, v);
-    if (!this.visible(v, e.x, e.y)) return;
-    const j = art.engine(e.type === 'ram' ? 'ram' : 'thrower');
+    if (!this.visible(v, e.x, e.y, e.type === 'siegeTower' ? 500 : 300)) return;
+    const j = art.engine(e.type);
     if (!j) return;
-    const [w, h] = j.footprint[f], x0 = e.x - w / 2, y0 = e.y - h / 2, z = this.iso.zAt(e.x, e.y);
+    const id = j.id, tower = e.type === 'siegeTower';
+    // a docking or docked tower backs off half a tile so its face meets the wall face (the sim holds it on the foot tile)
+    const dock = tower && (e.state === 'raising' || e.state === 'raised') ? 0.5 * (e.state === 'raised' ? 1 : Math.min(1, e.progress * 5)) : 0;
+    const cx = e.x - Math.cos(e.facing) * dock, cy = e.y - Math.sin(e.facing) * dock;
+    const [w, h] = j.footprint[f], x0 = cx - w / 2, y0 = cy - h / 2, z = this.iso.zAt(e.x, e.y);
     const stage = this.stage(e);
     const back = art.sprites.get(j.states[f][stage]);
-    const base = this.D(e.x, e.y);
+    const base = this.D(cx, cy);
     if (!back) return;
-    // the strips: ram swing (hit frame on the blow), thrower throw (release frame as the boulder leaves)
-    let strip: Strip | undefined, frame = 0;
-    if (e.swing !== undefined && (stage === 'done' || stage === 'damaged')) {
+    const done = stage === 'done' || stage === 'damaged';
+    // the strips: ram swing (hit frame on the blow), thrower throw / oxybeles shoot (release frame as the shot leaves),
+    // tower bridge (lowered by the dock's progress, the last frame docked)
+    let strip: Strip | undefined, frame = 0, bridge: Strip | undefined, bframe = 0;
+    if (e.swing !== undefined && done) {
       const last = snapTick - 1 - e.swing; // the tick of the last blow / shot (shown one tick later)
-      if (e.type === 'ram' && e.state === 'attack') {
-        const s = art.strip('ram', f, 'swing');
+      if ((e.type === 'ram' || e.type === 'coveredRam') && e.state === 'attack') {
+        const s = art.strip(id, f, 'swing');
         const fr = s ? this.frameNear(s, s.hitFrame ?? 6, at.tick, last, RAM.ticks) : null;
         if (s && fr !== null) { strip = s; frame = fr; }
       } else if (e.type === 'stoneThrower' && e.state === 'deployed') {
-        const s = art.strip('thrower', f, 'throw');
+        const s = art.strip(id, f, 'throw');
         const fr = s ? this.frameNear(s, s.releaseFrame ?? 3, at.tick, last, THROWER.reload) : null;
+        if (s && fr !== null && fr > 0) { strip = s; frame = fr; }
+      } else if (e.type === 'oxybeles') {
+        const s = art.strip(id, f, 'shoot');
+        const fr = s ? this.frameNear(s, s.releaseFrame ?? 2, at.tick, last, OXY.reload) : null;
         if (s && fr !== null && fr > 0) { strip = s; frame = fr; }
       }
     }
-    const im = strip ? this.put(strip, x0, y0, base - 20 * IN, 0, frame, z) : this.put(back, x0, y0, base - 20 * IN, 0, undefined, z);
+    if (tower && done && dock > 0) {
+      const s = art.strip(id, f, 'bridge');
+      if (s) { bridge = s; bframe = e.state === 'raised' ? s.frames - 1 : Math.max(0, Math.min(s.frames - 1, Math.floor(e.progress * s.frames))); }
+    }
+    // the bridge strip is the tower's front layer facing e / s (the bridge swings towards the viewer), else its back layer
+    const bridgeBack = !!bridge && (f === 'w' || f === 'n');
+    const im = strip ? this.put(strip, x0, y0, base - 20 * IN, 0, frame, z) : bridgeBack ? this.put(bridge!, x0, y0, base - 20 * IN, 0, bframe, z) : this.put(back, x0, y0, base - 20 * IN, 0, undefined, z);
     if (e.state === 'destroyed') im.setTint(0x9a9088);
-    if (e.type === 'stoneThrower' && j.release) {
+    if (j.release) {
       const r = j.release[f];
       this.release.set(e.id, { x: x0 + r.x, y: y0 + r.y, px: r.zM * art.ppm });
     }
     if (j.layered) {
       const fk = j.front?.[f]?.[stage], front = fk && art.sprites.get(fk);
-      if (front) this.put(front, x0, y0, base + 40 * IN, 0, undefined, z).setTint(e.state === 'destroyed' ? 0x9a9088 : 0xffffff);
-      // the crew on the art's offsets, between the layers, facing the way it points
+      if (bridge && !bridgeBack) this.put(bridge, x0, y0, base + 40 * IN, 0, bframe, z);
+      else if (front) this.put(front, x0, y0, base + 40 * IN, 0, undefined, z).setTint(e.state === 'destroyed' ? 0x9a9088 : 0xffffff);
+    }
+    if (j.layered || e.type === 'oxybeles') {
+      // the crew on the art's offsets (between the layers), facing the way it points
       const offs = j.crew?.[f] ?? [];
       const men = crew.filter((d) => Math.hypot(d.x - e.x, d.y - e.y) < 3).sort((a, b) => a.u.id - b.u.id);
       men.slice(0, offs.length).forEach((d, i) => {
@@ -204,8 +223,10 @@ export class SiegeLayer {
         this.lifts.set(d.u.id, { x: x0 + ox, y: y0 + oy, z, px: 0, depth: base + (1 + i) * IN, facing: e.facing });
       });
     }
-    if (e.burning) this.burn(-1 - e.id, e.burning, [this.face(x0, y0 + h, x0 + w, y0 + h, w, z, base + 60 * IN), this.face(x0 + w, y0 + h, x0 + w, y0, h, z, base + 60 * IN)], ENGINE_M, null, now, v);
-    else this.fires.delete(-1 - e.id);
+    if (e.burning) {
+      const hM = j.heightM ? Math.min(j.heightM * 0.8, 8) : ENGINE_M;
+      this.burn(-1 - e.id, e.burning, [this.face(x0, y0 + h, x0 + w, y0 + h, w, z, base + 60 * IN), this.face(x0 + w, y0 + h, x0 + w, y0, h, z, base + 60 * IN)], hM, null, now, v);
+    } else this.fires.delete(-1 - e.id);
   }
 
   private drawGhost(g: { type: SiegeType; x: number; y: number; ok: boolean }): void {
@@ -215,7 +236,7 @@ export class SiegeLayer {
       if (s) this.put(s, g.x - c.footprint[0] / 2, g.y - c.footprint[1] / 2, 11.3).setTint(tint).setAlpha(0.7);
       return;
     }
-    const j = art.engine(g.type === 'ram' ? 'ram' : 'thrower');
+    const j = art.engine(g.type);
     if (!j) return;
     const [w, h] = j.footprint.s, back = art.sprites.get(j.states.s.done), fk = j.front?.s?.done, front = fk && art.sprites.get(fk);
     if (back) this.put(back, g.x - w / 2, g.y - h / 2, 11.3).setTint(tint).setAlpha(0.7);
@@ -321,7 +342,7 @@ export class SiegeLayer {
         const hot = scorch.fell && now - scorch.fell < SCORCH_HOT_MS, p = this.pt(x + 0.5, y + 0.5);
         this.fx(hot ? 'scorch' : 'scorch-cold', p.x, p.y, 2.6, now, x * 7 + y, 1, b.burning || hot ? 1 : 0.85);
       }
-      if (b.siege !== undefined && b.state !== 'destroyed') {
+      if (b.siege !== undefined && b.state !== 'destroyed' && b.type !== 'towerBridge') { // a tower's bridge: drawn with the tower
         const piece = this.ladderPiece(b, byId), s = piece && art.sprites.get(`ladder-${piece}`);
         if (s) {
           const jig = b.push ? Math.round(Math.sin(now / 45) * 2 * Math.min(1, b.push * 3)) : 0;

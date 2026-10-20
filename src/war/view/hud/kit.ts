@@ -53,9 +53,9 @@ export const BUILDING_ICON: Record<BuildingType, string> & Record<string, string
   infirmary: 'art:infirmary-done', infirmary2: 'art:infirmary2-done', infirmary3: 'art:infirmary3-done', workshop: 'art:workshop-done', workshop2: 'art:workshop2-done', workshop3: 'art:workshop3-done',
   stall: 'art:market-stall-done', stall2: 'art:market-stall2-done', stall3: 'art:market-stall3-done', sortingFloor: 'art:sorting-floor-done', sortingFloor2: 'art:sorting-floor2-done',
   // M5h3: placeholders until ART-C draws them
-  stakes: 'bld-palisade', ditch: 'bld-palisade', towerBridge: 'bld-ladder',
+  stakes: 'art:stakes-done', ditch: 'bld-palisade', towerBridge: 'bld-ladder',
 };
-export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder', mantlet: 'bld-ram', coveredRam: 'bld-ram', oxybeles: 'bld-stone-thrower', siegeTower: 'bld-siege-ladder' }; // M5h3 designs: placeholders
+export const SIEGE_ICON: Record<SiegeType, string> = { ram: 'bld-ram', stoneThrower: 'bld-stone-thrower', siegeLadder: 'bld-siege-ladder', mantlet: 'art:../siege/mantlet-s-done-front', coveredRam: 'art:../siege/covered-ram-s-done-front', oxybeles: 'art:../siege/oxybeles-s-done', siegeTower: 'art:../siege/siege-tower-s-done-front' }; // M5h3 designs: their engine art until kit icons exist
 
 /** An icon from the first kit (full colour), 24 or 32 art px; `art:<file>` is a building sprite (public/war/buildings) fitted into the box. */
 export const icon = (id: string, size: 24 | 32 = 24) => id.startsWith('art:')
