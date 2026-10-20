@@ -1,7 +1,7 @@
 // ANIM-1: write docs/v5/pixellab/ANIM1/<class>.sheet.json, the append spec (anim1/append.mjs) of a class's new clips:
 // the class's own sheet spec (ramps, parts, feet, canvases) with only the new anims and the ANIM1 raw dir.
 // Usage: node scripts/art/pixellab/anim1/spec.mjs <class>
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +11,8 @@ const SOURCE = {
   hoplite: 'docs/v5/pixellab/I3/hoplite.sheet.json',
   archer: 'docs/v5/pixellab/I5b/archer.sheet.json',
   slinger: 'docs/v5/pixellab/I5b/slinger.sheet.json',
+  javelineer: 'docs/v5/pixellab/I5a/javelineer/javelineer.sheet.json',
+  celt_sword: 'docs/v5/pixellab/I5b/celt_sword.sheet.json',
 };
 const DIRS = ['south-east', 'north-east', 'south-west', 'north-west'];
 const all = (attempt, extra = {}) => Object.fromEntries(DIRS.map((d) => [d, { attempt, ...extra }]));
@@ -50,8 +52,46 @@ const ANIMS2 = {
     carry: { ...W(12, { 'south-east': ['a2', range(2, 11)], 'north-east': ['a1', range(2, 11)], 'south-west': ['a1', range(2, 11)], 'north-west': ['a1', range(2, 11)] }), align: true },
   },
 };
+// ANIM-3 (PROMPTS_ART §27c): the work clips of the other four sandbox classes, same canvas and picks rule; frames
+// before the tool is in his hands are dropped, a short clip holds its last frame.
+const R = (a, b, n = 10) => { const f = range(a, b); while (f.length < n) f.push(b); return f; };
+// attempt 'nw': no north-east job, the north-west frames stand in (anim3/nw.mjs copies them) and anim3/mirror.mjs
+// turns them into the north-east after the append (the generated north-east work clips turn round).
+const ALL = (a, f, ne = 'a1', o = {}) => ({ 'south-east': [a, f], 'north-east': [ne, f], 'south-west': [a, f], 'north-west': [a, f], ...o });
+const ANIMS3 = {
+  archer: {
+    chop: W(10, ALL('a1', R(2, 11), 'a1', { 'south-east': ['a1', R(3, 11)] })),
+    build: W(10, ALL('a1', R(2, 11))),
+    harvest: W(8, ALL('a1', R(2, 11), 'nw')),
+    mine: W(10, ALL('a1', R(2, 11), 'nw')),
+  },
+  slinger: {
+    chop: W(10, ALL('a1', R(2, 11), 'a1', { 'south-west': ['a1', R(4, 11)] })),
+    build: W(10, ALL('a1', R(2, 11))),
+    harvest: W(8, ALL('a1', R(2, 11), 'nw')),
+    mine: W(10, ALL('a1', R(2, 11), 'nw', { 'south-east': ['a1', R(3, 11)], 'south-west': ['a1', R(3, 11)] })),
+  },
+  javelineer: {
+    chop: W(10, ALL('a1', R(2, 11), 'nw')),
+    build: W(10, ALL('a1', R(2, 11), 'nw')),
+    harvest: W(8, ALL('a1', R(2, 11), 'nw')),
+    mine: W(10, ALL('a1', R(2, 11), 'nw')),
+  },
+  celt_sword: {
+    chop: W(10, { 'south-east': ['a1', R(4, 11)], 'north-east': ['nw', R(2, 11)], 'south-west': ['a1', R(4, 11)], 'north-west': ['a1', R(2, 11)] }),
+    build: W(10, ALL('a1', R(4, 11), 'nw')),
+    harvest: W(8, ALL('a1', R(2, 11), 'nw', { 'south-east': ['a1', R(4, 11)], 'south-west': ['a1', R(5, 11)] })),
+    mine: W(10, ALL('a1', R(2, 11), 'nw', { 'south-east': ['a1', R(4, 11)], 'south-west': ['a1', R(4, 11)] })),
+  },
+};
+// only the clips whose raw frames are all on disk (the round lands a clip at a time)
+for (const [cls, anims] of Object.entries(ANIMS3)) for (const [name, a] of Object.entries(anims)) {
+  const ok = Object.entries(a.dirs).every(([d, { attempt }]) => existsSync(join(ROOT, 'docs/v5/pixellab/ANIM3/raw', cls, 'clips', name, d, attempt, 'job.json')));
+  if (!ok) delete anims[name];
+}
 const ROUND = process.env.ROUND ?? 'ANIM1';
 if (ROUND === 'ANIM2') Object.assign(ANIMS, ANIMS2);
+if (ROUND === 'ANIM3') Object.assign(ANIMS, ANIMS3);
 const cls = process.argv[2];
 const src = JSON.parse(readFileSync(join(ROOT, SOURCE[cls]), 'utf8'));
 const { $doc, anims, raw, out, ...rest } = src;

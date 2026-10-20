@@ -8,6 +8,8 @@
  * behind higher ground, a wall or a stone object show as a team-coloured outline over it; hidden
  * foes are simply hidden.
  * The sheets wear red; team 0 (blue) draws through TEAM_SWAP, a shader that turns the red cloth blue.
+ * A man walking with a load (./anim.ts loadOf) carries its sprite (src/assets/loads) at his sheet's per-frame
+ * `loads` anchor: on the shoulder over him, held at the chest under him in the north facings (his back to us).
  *
  * LOD by zoom: sprites from SPRITE_ZOOM up, team-coloured dots down to BANNER_ZOOM, below that
  * one banner per squad with its unit count.
@@ -15,7 +17,9 @@
 import Phaser from 'phaser';
 import type { SheetManifest } from '../../art/sheetManifest';
 import type { ShotSnap, SquadSnap } from '../types';
-import { Animator, type AnimTime, type ClipDef } from './anim';
+import { Animator, loadOf, type AnimTime, type ClipDef } from './anim';
+import loadsManifest from '../../assets/loads/manifest.json';
+import loadsUrl from '../../assets/loads/loads.png?url';
 import type { DrawUnit } from './simClient';
 import { LH, type IsoMap } from './iso';
 import type { Lift } from './build/buildingLayer';
@@ -100,12 +104,19 @@ const MAX_TEX = 4096;
 /** Screen quadrant (x right, y down) -> sheet row name. */
 const QUADRANT = ['south-east', 'south-west', 'north-east', 'north-west'] as const;
 
+/** A sheet's load anchors (scripts/art/pixellab/anim3/anchors.mjs): per point, per row name, per frame of `clip`, [dx, dy] from the feet. */
+interface SheetLoads { clip: string; shoulder: Record<string, [number, number][]>; chest: Record<string, [number, number][]> }
+const LOADS_KEY = 'war-loads';
+
 interface Sheet {
   /** Per quadrant: the image row, and the sprite origin (the feet). */
   rows: { row: number; ox: number; oy: number }[];
   clips: Map<string, ClipDef>;
   /** Per clip, per image row, per frame: [texture key, frame name]. */
   frames: Map<string, [string, string][][]>;
+  /** Image row names, top to bottom, and the load anchors (none: no loads drawn). */
+  rowNames: string[];
+  loads?: SheetLoads;
 }
 
 /** Fetch and decode the class sheets (before the game starts: big ones are split, see buildSheet). */
@@ -116,6 +127,9 @@ export async function loadSheetImages(): Promise<Map<string, HTMLImageElement>> 
     await new Promise((ok, fail) => { im.onload = ok; im.onerror = () => fail(new Error(`sheet ${url} failed to load`)); im.src = url; });
     out.set(path.split('/').at(-2)!, im);
   }));
+  const im = new Image();
+  await new Promise((ok, fail) => { im.onload = ok; im.onerror = () => fail(new Error(`loads ${loadsUrl} failed to load`)); im.src = loadsUrl; });
+  out.set(LOADS_KEY, im);
   return out;
 }
 
@@ -160,7 +174,15 @@ function buildSheet(scene: Phaser.Scene, cls: string, m: SheetManifest, img: HTM
     }
     frames.set(name, byRow);
   }
-  return { rows, clips, frames };
+  return { rows, clips, frames, rowNames: m.rows, loads: (m as SheetManifest & { loads?: SheetLoads }).loads };
+}
+
+/** The load sprites as frames of one texture, named as in src/assets/loads/manifest.json. */
+function buildLoads(scene: Phaser.Scene, img: HTMLImageElement): void {
+  if (scene.textures.exists(LOADS_KEY)) return;
+  const tex = scene.textures.addImage(LOADS_KEY, img)!;
+  for (const [name, f] of Object.entries(loadsManifest.frames)) tex.add(name, 0, f.x, f.y, f.w, f.h);
+  tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
 }
 
 export class UnitLayer {
@@ -168,6 +190,8 @@ export class UnitLayer {
   readonly anim = new Animator();
   private sheets = new Map<string, Sheet>();
   private pool: Phaser.GameObjects.Image[] = [];
+  private loadPool: Phaser.GameObjects.Image[] = [];
+  private nLoad = 0;
   private ghosts: Phaser.GameObjects.Image[] = [];
   private labels: Phaser.GameObjects.Text[] = [];
   /** Shadow and ring of each raised unit, drawn in its layer slot (gUnder lies under every wall). */
@@ -185,6 +209,8 @@ export class UnitLayer {
       const cls = path.split('/').at(-2)!, img = sheetImages.get(cls);
       if (img) this.sheets.set(cls, buildSheet(scene, cls, m, img));
     }
+    const loadsImg = sheetImages.get(LOADS_KEY);
+    if (loadsImg) buildLoads(scene, loadsImg);
     this.gUnder = scene.add.graphics().setDepth(9);
     this.gOver = scene.add.graphics().setDepth(10.9);
   }
@@ -240,6 +266,7 @@ export class UnitLayer {
     let used = 0, labels = 0;
     this.nGhost = 0;
     this.nRing = 0;
+    this.nLoad = 0;
     this.anim.frame(units, squads, at.now);
     if (this.ids !== units.length) { this.ids = units.length; this.anim.prune(new Set(units.map((d) => d.u.id))); }
     if (zoom >= SPRITE_ZOOM) used = this.sprites(units, view, zoom, selected, at, shots, under, occluded);
@@ -247,6 +274,7 @@ export class UnitLayer {
     else labels = this.banners(units, zoom, selected, over);
     for (let i = used; i < this.pool.length; i++) this.pool[i].setVisible(false);
     for (let i = this.nGhost; i < this.ghosts.length; i++) this.ghosts[i].setVisible(false);
+    for (let i = this.nLoad; i < this.loadPool.length; i++) this.loadPool[i].setVisible(false);
     for (let i = this.nRing; i < this.rings.length; i++) this.rings[i].setVisible(false);
     for (let i = labels; i < this.labels.length; i++) this.labels[i].setVisible(false);
   }
@@ -298,6 +326,7 @@ export class UnitLayer {
       // (drawn under it): the player's own men (and the selected) get a thin team-coloured outline over everything, no
       // fill; a hidden foe is simply hidden
       if (hidden) img.setVisible(false);
+      else this.load(d, sheet, q.row, p.clip, p.frame, img);
       if ((hidden || occluded.has(u.id)) && (d.team === 0 || selected.has(u.squad))) {
         let gh = this.ghosts[this.nGhost];
         if (!gh) {
@@ -311,6 +340,21 @@ export class UnitLayer {
       }
     }
     return n;
+  }
+
+  /** The load a walking carrier holds, on his frame's anchor (shoulder: over him; chest: under him when his back is to us). */
+  private load(d: DrawUnit, sheet: Sheet, row: number, clip: string, frame: number, body: Phaser.GameObjects.Image): void {
+    const name = loadOf(d.u), L = sheet.loads;
+    if (!name || !L || clip !== L.clip || !this.scene.textures.exists(LOADS_KEY)) return;
+    const f = loadsManifest.frames[name as keyof typeof loadsManifest.frames], rowName = sheet.rowNames[row];
+    const at = f && (f.at === 'shoulder' ? L.shoulder : L.chest)[rowName]?.[frame];
+    if (!at) return;
+    let im = this.loadPool[this.nLoad];
+    if (!im) this.loadPool.push((im = this.scene.add.image(0, 0, LOADS_KEY, name)));
+    this.nLoad++;
+    const behind = f.at === 'chest' && rowName.startsWith('north');
+    im.setTexture(LOADS_KEY, name).setOrigin(f.ox / f.w, f.oy / f.h).setPosition(body.x + at[0], body.y + at[1]).setVisible(true);
+    im.setDepth(body.depth + (behind ? -1e-6 : 1e-6)).setTint(body.tintTopLeft);
   }
 
   private dots(units: DrawUnit[], view: { x: number; y: number; right: number; bottom: number }, zoom: number, selected: Set<number>, g: Phaser.GameObjects.Graphics): void {

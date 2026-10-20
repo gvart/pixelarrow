@@ -34,11 +34,28 @@ export const CLASSES = {
     who: 'a lean grim Cretan archer with a bare head, short curly hair and beard, in a short crimson cloak and a leather jerkin over an oxblood tunic, one quiver of arrows on his back and one plain wooden bow',
     pose: 'standing upright at rest, the bow held vertically in the left hand out at his left side, the right hand empty',
     keep: 'only one bow, a single thin curved limb and one straight string, stays held vertically in his left hand out at his left side, never in both hands, no second bow; his right hand stays empty; the quiver stays on his back',
+    stow: 'first he slings his bow across his back beside the quiver, and from then on the bow stays on his back and his hands hold no bow',
+    slung: 'the one bow slung across his back beside the quiver, his right hand swinging empty at his side',
   },
   slinger: {
     who: 'a lean grim Rhodian slinger with a bare head, short hair and beard, in a crimson chlamys knotted at the right shoulder over an oxblood tunic, a leather belt with a pouch of lead bullets and one sling of dark leather cord',
     pose: 'standing upright at rest, the sling hanging from the right hand out at his right side',
     keep: 'one sling only, hanging from his right fist out at his right side, its loaded pouch swinging near his knee, clear of the cloak',
+    stow: 'first he tucks his sling into his belt, and from then on his hands hold no sling',
+    slung: 'the sling tucked into his belt, his right hand swinging empty at his side',
+  },
+  // ANIM-3: the two other sandbox foot classes
+  javelineer: {
+    who: 'a grim lean Carthaginian javelin skirmisher in a soft umber felt Thracian cap with a tall forward-curving top and ear flaps, a short purple-black cloak, a plain umber tunic, bare legs and sandals, a small crescent wicker shield and two javelins',
+    pose: 'standing upright, the two javelins held upright together in the right hand, the small crescent shield on the left arm',
+    stow: 'first he slings the small crescent shield onto his back and lays his two javelins down on the ground behind him, and from then on the shield hangs on his back and his hands hold no javelin',
+    slung: 'the small crescent shield hangs on his back; the two javelins held upright together in his right hand, each with one small leaf-shaped iron head at the top',
+  },
+  celt_sword: {
+    who: 'a grim Celtic warrior swordsman with a long drooping moustache, a low iron Montefortino helmet with a top knob and cheek guards, a muted green plaid cloak over iron ring mail, a bronze torc, brown-and-black checked trousers, a tall oval Celtic shield and a long straight iron sword',
+    pose: 'standing upright, the long sword held point down in the right hand, the tall oval shield on the left arm',
+    stow: 'first he slides the long sword into its scabbard at his left hip and slings the tall oval shield onto his back, and from then on the sword stays in its scabbard, the shield hangs on his back and his hands hold no sword',
+    slung: 'the tall oval shield hangs on his back and the long sword stays in its scabbard at his left hip; his right hand swinging empty at his side',
   },
 };
 
@@ -69,7 +86,11 @@ export function promptOf(cls, anim, dir) {
   let description = CLIPS[anim](c, dir).replaceAll('{t}', TOWARD[dir]);
   if (back(dir)) description = `seen from behind, his back to the viewer in every frame, he never turns round: ${description}`;
   // ANIM-2 a2: the north-east work clips turned to face the viewer by frame 2; say where he faces once more at the end
-  if (back(dir) && WORKS.includes(anim) && anim !== 'haul' && process.env.AWAY) description += `; he keeps facing away from the viewer ${TOWARD[dir].replace('away from the viewer ', '')} in every frame: only his back, the back of his head and his cloak are seen, never his face or chest; what he works on lies beyond him, on the far side of his body`;
+  const away = TOWARD[dir].replace('away from the viewer ', '');
+  // ANIM-3: AWAY=short, the same said in fewer words (javelineer / celt_sword chop and mine run over the 1000 cap)
+  if (back(dir) && WORKS.includes(anim) && anim !== 'haul' && process.env.AWAY) description += process.env.AWAY === 'short'
+    ? `; he keeps facing away ${away} in every frame, only his back seen, never his face; what he works on lies beyond him`
+    : `; he keeps facing away from the viewer ${away} in every frame: only his back, the back of his head and his cloak are seen, never his face or chest; what he works on lies beyond him, on the far side of his body`;
   if (dir === 'north-east' && c.backNE && !WORKS.includes(anim)) description += `; ${c.backNE}`;
   const subject = back(dir) ? `${c.who}, seen from behind` : c.who;
   return { subject_description: subject, initial_pose: c.pose, description, view: 'high top-down', direction: dir };

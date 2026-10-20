@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Animator, frameAt, pickClip, workClips, type ClipDef } from '../../src/war/view/anim';
+import { Animator, frameAt, loadOf, pickClip, workClips, type ClipDef } from '../../src/war/view/anim';
 import type { DrawUnit } from '../../src/war/view/simClient';
 import type { UnitSnap } from '../../src/war/types';
 
@@ -59,10 +59,22 @@ describe('war clip selection', () => {
     expect(pick({ state: 'gather', carry: 'iron', load: 1 })).toBe('mine');
     expect(pick({ state: 'gather', carry: 'food', load: 1 })).toBe('harvest');
     expect(pick({ state: 'build' })).toBe('build');
-    expect(pick({ state: 'move', carry: 'stone', load: 2 })).toBe('carry');
+    // a loaded man walks, his load drawn over the walk (no log clip)
+    expect(pick({ state: 'move', carry: 'stone', load: 2 })).toBe('walk');
     // a sheet without work clips idles at work and walks with its load
     expect(pick({ state: 'gather', carry: 'wood', load: 1 }, clips)).toBe('idle');
     expect(pick({ state: 'build' }, clips)).toBe('idle');
     expect(pick({ state: 'move', carry: 'wood', load: 1 }, clips)).toBe('walk');
+  });
+
+  it('shows the load by the resource carried, only while walking', () => {
+    const u = (o: Partial<UnitSnap>) => unit(o).u;
+    expect(loadOf(u({ state: 'move', carry: 'wood', load: 1 }))).toBe('wood');
+    expect(loadOf(u({ state: 'move', carry: 'marble', load: 1 }))).toBe('marble');
+    expect(loadOf(u({ state: 'move', carry: 'copper', load: 1 }))).toBe('ore');
+    expect(loadOf(u({ state: 'move', carry: 'food', load: 1 }))).toBe('food');
+    expect(loadOf(u({ state: 'move', carry: 'pitch', load: 1 }))).toBe('pitch');
+    expect(loadOf(u({ state: 'gather', carry: 'wood', load: 1 }))).toBeUndefined();
+    expect(loadOf(u({ state: 'move' }))).toBeUndefined();
   });
 });

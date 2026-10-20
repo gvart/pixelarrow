@@ -1,0 +1,15 @@
+[
+ {"anim":"chop","dir":"south-east","attempt":"a1","job":"1e068624-4bef-4e73-821a-94af7d9cf236","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"chop","dir":"north-east","attempt":"a1","job":"bcefff77-35f8-45e2-a68f-3f70188c6838","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"AWAY=short"},
+ {"anim":"chop","dir":"south-west","attempt":"a1","job":"30329833-33d4-461a-ad87-3f6d2b67b9c1","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"chop","dir":"north-west","attempt":"a1","job":"32db699c-b50e-495f-9129-7431eb445c18","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"build","dir":"south-east","attempt":"a1","job":"c903b9b7-3ce7-4870-b05b-196eb39e5853","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"mallet"},
+ {"anim":"build","dir":"south-west","attempt":"a1","job":"e51d0cfe-9bc3-4b4c-8911-71223eaa3f83","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"mallet"},
+ {"anim":"build","dir":"north-west","attempt":"a1","job":"08311b8f-0ad4-454d-8822-d0d7bc7ef230","mode":"pixminimax","frames":12,"gens":1,"first":"tall","note":"mallet"},
+ {"anim":"harvest","dir":"south-east","attempt":"a1","job":"25fa2d54-287b-413f-8a45-54bc4ab2559e","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"harvest","dir":"south-west","attempt":"a1","job":"81811638-5b33-4648-9583-281f6a5a0efd","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"harvest","dir":"north-west","attempt":"a1","job":"2bd872db-e12e-4f28-8c9a-47096e99a6bd","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"mine","dir":"south-east","attempt":"a1","job":"d9046e44-256e-4e1f-9ee0-9ea4e2b9843b","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"mine","dir":"south-west","attempt":"a1","job":"78258e03-5ec6-4d0e-bf46-acb8348d490d","mode":"pixminimax","frames":12,"gens":1,"first":"tall"},
+ {"anim":"mine","dir":"north-west","attempt":"a1","job":"fc045f4a-f800-4d0c-bc39-75ad6905c159","mode":"pixminimax","frames":12,"gens":1,"first":"tall"}
+]

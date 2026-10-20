@@ -1198,6 +1198,59 @@ clips, but vanishes in a few (mine SE / SW). (7) The hoplite sheet has no warm w
 mallet land on dark crimson; the militia bush lands on brown (no green in either sheet). Follow-up if they jar.
 QC (`qc.mjs`): 0 failures on both sheets.
 
+### 27c. Work clips for the other four, carried loads, hoplite fixes (ANIM-3)
+
+**Hoplite fixes, no generations.** North-east chop and mine are the north-west frames mirrored about the row
+anchors (`anim3/mirror.mjs hoplite north-west north-east chop mine`). The logs, chips, stakes, mallets and rocks that
+sheetbuild put on the cloak ramp (the raws are reddish, the hoplite has no warm wood ramp) go to the wood group by
+lightness rank (`anim3/wood.mjs`): per frame the 8-connected cloak / crest / emblem components that are big and reach
+above the hips (the cloak, the crest) or are mostly emblem colours off the ground (the shield emblem) stay; force
+boxes cover a prop touching the cloak (`build:se:-22,-70,-4,-50:2-5 carry:se:-27,-71,27,-41 carry:sw:-7,-48,6,-40
+carry:sw:6,-58,24,-38`). The tiers no longer recolour the props with the cloak. `anim3/hl.mjs` paints a colour
+group green to check, `anim3/zoom.mjs` reads box coordinates.
+
+**Work clips: archer, slinger, javelineer, celt_sword** (chop, mine, harvest, build). Same recipe as §27b
+(pixminimax, tall canvas, 12 frames = 1 generation, `view: high top-down`); fields from
+`node scripts/art/pixellab/anim3/batch.mjs <chop|mine|harvest|mallet> <class>` (anim1/prompts.mjs plus two edits:
+north-east work clips get `AWAY=short` = `; he keeps facing away towards the upper right in every frame, only his
+back seen, never his face; what he works on lies beyond him`, and `short rough log` / `short wooden mallet` become
+`short rough pale grey-brown log` / `short pale grey-brown wooden mallet`, so the props land on wood, not the cloak).
+New stow wordings:
+
+- archer `first he slings his bow across his back beside the quiver, and from then on the bow stays on his back and his hands hold no bow`
+- slinger `first he tucks his sling into his belt, and from then on his hands hold no sling`
+- javelineer `first he slings the small crescent shield onto his back and lays his two javelins down on the ground behind him, and from then on the shield hangs on his back and his hands hold no javelin`
+- celt_sword `first he slides the long sword into its scabbard at his left hip and slings the tall oval shield onto his back, and from then on the sword stays in its scabbard, the shield hangs on his back and his hands hold no sword`
+
+Subjects (the I5 class WHO, `, seen from behind` in the back facings): javelineer `a grim lean Carthaginian javelin
+skirmisher in a soft umber felt Thracian cap with a tall forward-curving top and ear flaps, a short purple-black
+cloak, a plain umber tunic, bare legs and sandals, a small crescent wicker shield and two javelins`; celt_sword `a grim
+Celtic warrior swordsman with a long drooping moustache, a low iron Montefortino helmet with a top knob and cheek
+guards, a muted green plaid cloak over iron ring mail, a bronze torc, brown-and-black checked trousers, a tall oval
+Celtic shield and a long straight iron sword`. Jobs: `docs/v5/pixellab/ANIM3/<class>.jobs.json`; picks in
+`anim1/spec.mjs` ANIMS3; one command rebuilds a class: `node scripts/art/pixellab/anim3/build.mjs <class>` (north-west
+stand-ins, spec, append, mirror, load anchors). Review: `anim3/shots.mjs shots/war/anim3 <class>`.
+
+54 generations (cap 70): 16 chop (all four facings), then build, harvest and mine without the north-east wherever it
+could be mirrored (archer and slinger build kept theirs). No redos.
+
+**Carried loads.** Owner: the log carry was a huge log whenever they built. Carry is now the class's walk with a small
+load sprite on a per-frame anchor; no carry clip per material, no generations. `anim3/loads.mjs` draws the six loads
+in code in the dark ramps (src/assets/loads): wood a bundle of four short planks tied with a cord (on the shoulder),
+stone a dressed block, marble a small pale block, ore / salt a tied sack, food a basket of olives, pitch a clay jar
+(held at the chest). `anim3/anchors.mjs` writes `loads` into each manifest: the left shoulder 44 px up and 6 px to the
+side, the chest 34 px up, plus the walk's per-frame bob and body centre. `anim.ts loadOf(u)` maps `UnitSnap.carry`;
+`units.ts` draws it over him (a chest load under him in the north facings). The militia / hoplite log carry clips are
+stripped (`anim3/strip.mjs`). Preview: `anim3/carrygif.mjs`.
+
+**Lessons:** (1) Naming the wood colour (pale grey-brown) fixed the crimson logs: the mallets come out near white,
+the logs a natural tan. (2) The north-east still turns to a profile in most work clips with AWAY=short; the
+north-west mirrored is a cheaper and reliable north-east (the tool changes hands, unnoticed at game size). (3) The
+weapon goes away in 1-3 frames; drop up to 4 where the tool is not yet in hand or the prop pops in (archer chop SE,
+slinger chop SW, celt_sword chop / build / harvest). (4) ground.mjs is wrong for work clips: the log or rock in front
+of the feet is the lowest row and lifts him 3-5 px; the appended clips already stand on the anchor. (5) celt_sword's
+log lands on his iron ramp (grey bark, pink ends): his sheet has no warm brown.
+
 ## 28. Biome: Kyrene (ART-7)
 
 The desert biome (W-21): Kyrene's oasis town on a river terrace with red cliffs and copper, plus its entries and

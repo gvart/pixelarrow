@@ -1,0 +1,61 @@
+{
+ "$doc": "Carried loads (scripts/art/pixellab/anim3/loads.mjs). Each frame sits with (ox, oy) on the carrier's per-frame load anchor (the class manifest's `loads`): shoulder over the body in every facing, chest behind it in the north facings.",
+ "image": "loads.png",
+ "scale": 0.55,
+ "frames": {
+  "wood": {
+   "x": 0,
+   "y": 0,
+   "w": 19,
+   "h": 11,
+   "ox": 9,
+   "oy": 5,
+   "at": "shoulder"
+  },
+  "stone": {
+   "x": 19,
+   "y": 0,
+   "w": 13,
+   "h": 12,
+   "ox": 6,
+   "oy": 2,
+   "at": "chest"
+  },
+  "marble": {
+   "x": 38,
+   "y": 0,
+   "w": 11,
+   "h": 11,
+   "ox": 5,
+   "oy": 2,
+   "at": "chest"
+  },
+  "ore": {
+   "x": 57,
+   "y": 0,
+   "w": 13,
+   "h": 14,
+   "ox": 6,
+   "oy": 2,
+   "at": "chest"
+  },
+  "food": {
+   "x": 76,
+   "y": 0,
+   "w": 14,
+   "h": 10,
+   "ox": 7,
+   "oy": 2,
+   "at": "chest"
+  },
+  "pitch": {
+   "x": 95,
+   "y": 0,
+   "w": 11,
+   "h": 15,
+   "ox": 5,
+   "oy": 2,
+   "at": "chest"
+  }
+ }
+}
