@@ -1,0 +1,47 @@
+scripts/war/art/landmarks-pl.mjs
+  s_cfc22b058125c4::t_a175b6ab2856a6 1-30,32,65-117,124-125,127,129-132,134-139,150-166,168-169,178-179,181-191,194-197,199,201,203-211,213-214,216-241,243,245-248
+  s_cfc22b058125c4::t_829bafc20f5638 31,33,36,41,43-44,46-53,56-62,133,198,200,202,242
+  s_cfc22b058125c4::t_73e35da5d7607b 118-123,128,212
+  s_cfc22b058125c4::t_8d93232d922143 34
+  s_cfc22b058125c4::t_6aa666b1188bca 37,39,45,140-149,192-193
+  s_cfc22b058125c4::t_a9c2d39cb2165f 126
+  s_cfc22b058125c4::t_226102cbdb14d1 38,42,63-64,167,180,215,244
+  s_cfc22b058125c4::t_cbe04e745d115d 54-55
+  s_cfc22b058125c4::t_b2c792c3e9793b 170-177
+  s_cfc22b058125c4::t_3620d5ab5e05fb 35,40
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_5d7a742402bc9f 2792-2842
+scripts/war/art/landmarks.mjs
+  s_cfc22b058125c4::t_6498c6cb531105 25,830-833,835-837
+  s_cfc22b058125c4::t_d62011048755f4 847
+scripts/war/art/landmarks-pl-jobs.json
+  s_cfc22b058125c4::t_3d775e7718bcfd 49,53,87,89,112-116
+  s_cfc22b058125c4::t_1cb48236ae15dd 65-69,71-73
+  s_cfc22b058125c4::t_d9a750f8a78c4b 74-82
+  s_cfc22b058125c4::t_aff1bd6280f996 5,7,11,14-21,23-30,92-95
+  s_cfc22b058125c4::t_52f86437b4a2ff 22,31,96-100
+  s_cfc22b058125c4::t_8dd6484cb3f382 83-86,88
+  s_cfc22b058125c4::t_6974c8cc27026b 33-35,90
+  s_cfc22b058125c4::t_392e864ecace65 38,40,48,50,54,56,58,62,64,70,102-111
+  s_cfc22b058125c4::t_04eb2b4eadc542 51-52,55,57
+  s_cfc22b058125c4::t_5974fdedc903ac 1-4,32,118
+  s_cfc22b058125c4::t_02dfb2a4200d80 36-37,39,41-47,101
+  s_cfc22b058125c4::t_fc1a1c7f1767aa 59-61,63
+  s_cfc22b058125c4::t_6431acc83b896f 6,8-10,12-13,91,117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "62a5bb7d98e0eaeb6ff3edc01785bcf198b4cc2b",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
