@@ -1,0 +1,23 @@
+docs/v5/pixellab/CIV/engineer.sheet.json
+  s_cfc22b058125c4::t_8ffca0c15e20ca 1-72
+src/assets/sheets/civ_engineer/manifest.json
+  s_cfc22b058125c4::t_8ffca0c15e20ca 1-83
+docs/v5/pixellab/CIV/engineer.jobs.json
+  s_cfc22b058125c4::t_6679bd13f2b7a7 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e663a21fb5675aa42f5d6ec3d5ed13406e14f8df",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
