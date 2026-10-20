@@ -1,3 +1,5 @@
+import type { Hero } from '../data/units';
+import type { Item } from '../data/items';
 export type TerrainKind = 'grass' | 'forest' | 'sand' | 'marsh' | 'rock' | 'road' | 'snow' | 'dirt';
 export type WaterKind = 0 | 1 | 2; // 0 none, 1 shallow (ford), 2 deep (impassable)
 export interface RegionData {
@@ -54,7 +56,9 @@ export type Order =
   | { kind: 'claimRegion'; squad: SquadId; point: number }
   | WallOrder
   | BridgeOrder
-  | SiegeOrder;
+  | SiegeOrder
+  // M5c: the squad's active (SquadSnap.active) fires if it is ready
+  | { kind: 'active'; squad: SquadId };
 // --- M2c siege (src/war/sim/siege.ts, fire and breaches in works.ts; docs/impl/global-war-rebuild.md W-29) ---
 export type SiegeType = 'ram' | 'stoneThrower' | 'siegeLadder';
 /**
@@ -108,12 +112,16 @@ export interface UnitSnap { id: UnitId; squad: SquadId; x: number; y: number; fa
   /** M2c: what it does at its target while standing there: torching, beating out a fire, pushing a ladder, crewing an engine (state build: building one). */
   task?: 'ignite' | 'extinguish' | 'push' | 'crew';
   /** Height level it stands on (ground, stair or walkway). on: the building whose walkway, platform or stair it stands on. */
-  z?: number; on?: number }
+  z?: number; on?: number;
+  /** M5b: a person (WarPerson id) and his level; missing on class-spawned men. */
+  pid?: string; level?: number }
 // wounded: set on dead units, true = wounded, false = killed. state 'attack' only while striking in reach or shooting in range
 // (closing in is 'move'). 'gather': harvesting at a node; 'build': labouring at a site. carry/load: what and how much it
 // carries (set while it has a load, any state: play the carry clip while it walks). swing: ticks since the unit's last blow or shot (0 = it landed / was loosed this tick), set while
 // 'attack' once it has struck; ready: steps before the one that strikes or shoots next (0 = the next step), if it stays in reach. Play the attack clip once per swing.
 export interface SquadSnap { id: SquadId; owner: string; team: number; units: UnitId[]; order: Order['kind'];
+  /** M5c: the squad active, when a man of it holds one. */
+  active?: ActiveSnap;
   /**
    * W-35, archer squads only: fire arrows toggled `on`; available: a living man stands within BRAZIER.radius of a lit
    * brazier of his team and the stockpile holds pitch for a shot; else they loose plain arrows and reason says why.
@@ -140,6 +148,8 @@ export interface Snapshot {
   /** Neutral lairs (after spawnMobs) and region claim points. */
   lairs?: LairSnap[];
   claims?: ClaimSnap[];
+  /** M5d: gear of the dead lying on the field. */
+  drops?: DropSnap[];
 }
 /**
  * A lair: its mob squad (team MOB_TEAM), mobs alive of `count`; state home (idle, wandering), chase, return (leashed back,
@@ -157,7 +167,11 @@ export interface LairSnap {
 export interface ClaimSnap { id: number; x: number; y: number; team: number; squad: SquadId; progress: number; lairs: number[]; state: 'locked' | 'open' | 'channel' | 'contested' | 'claimed' }
 export interface WarSim {
   readonly region: RegionData;
-  spawnSquad(owner: string, team: number, cls: string, count: number, x: number, y: number): SquadId;
+  /**
+   * count (at most SQUAD_MAX) men of class cls; with `persons` (M5b) one man per person instead (count and cls are then
+   * ignored), each with his own baked stats (src/war/sim/classes.ts warStatsOf).
+   */
+  spawnSquad(owner: string, team: number, cls: string, count: number, x: number, y: number, persons?: readonly WarPerson[]): SquadId;
   order(o: Order): void;
   step(): void;               // advance one 10 Hz tick
   snapshot(): Snapshot;
@@ -281,5 +295,41 @@ export interface WarBuildSim extends WarSim {
   teamGrid(team: number): FogGrid;
   /** Foreign buildings as the team last saw them (current where visible). */
   lastSeen(team: number): BuildingSnap[];
+  /**
+   * M5d: the fight is over: every person who took part since the last call is reported once (XP, level-ups, state); a
+   * wounded man with no friendly within CAPTURE_R and a foe near is taken captive. Tallies start afresh.
+   */
+  endFight(): FightReport;
+  /** M5d: a smith salvages drop `id`: it goes, its salvage value comes back (0: no such drop). */
+  salvage(id: number): number;
+  /** M5d: the sim event log since the last call (kills, falls, objectives, pickups, captures, level-ups). */
+  events(): WarEvent[];
 }
 export declare function createSim(region: RegionData, seed: number): WarBuildSim; // implemented in src/war/sim/index.ts
+
+// --- M5 soldiers (docs/WAR.md "Soldiers", src/war/sim/classes.ts, skills.ts, soldiers.ts, roster.ts) ---
+export type WarSkillId =
+  | 'shieldDrill' | 'phalangite' | 'holdFast' | 'shieldWall'
+  | 'brawler' | 'shieldBreaker' | 'finisher' | 'berserk'
+  | 'deepQuiver' | 'eagleEye' | 'fireArcher' | 'volley'
+  | 'horsemanship' | 'lanceCharge' | 'rideDown' | 'wheel';
+export type HonourStat = 'hp' | 'dmg' | 'armor' | 'block' | 'accuracy';
+/** A persistent soldier as the live sim sees him: the hero record (class, level, attributes, gear), his skills, his honours (+2% to one stat each). */
+export interface WarPerson { id: string; hero: Hero; skills?: WarSkillId[]; honours?: { name: string; stat: HonourStat }[] }
+/** A squad active: ready in `ready` ticks (0 = now), buff on for `on` more ticks (0 = off). */
+export interface ActiveSnap { skill: WarSkillId; ready: number; on: number }
+/** Gear of a dead man: `items` pieces, `left` ticks until it is gone; team: the fallen's. */
+export interface DropSnap { id: number; x: number; y: number; team: number; items: number; left: number }
+/** One person's fight: XP earned (half when wounded or captive, none when dead), level-ups, and the hero after it. */
+export interface PersonResult {
+  pid: string; owner: string; team: number; state: 'fit' | 'wounded' | 'captive' | 'dead'; captor?: number;
+  xp: number; kills: number; dmg: number; levelUps: number; hero: Hero;
+}
+/** loot: gear picked up per team since the last report (rare and above at reduced condition). */
+export interface FightReport { tick: number; persons: PersonResult[]; loot: Record<number, Item[]> }
+export type WarEvent =
+  | { t: number; kind: 'fall'; unit: UnitId; by: UnitId; wounded: boolean }
+  | { t: number; kind: 'objective'; squad: SquadId; what: 'claim' | 'building' }
+  | { t: number; kind: 'pickup'; drop: number; team: number; items: number }
+  | { t: number; kind: 'capture'; unit: UnitId; pid: string; captor: number }
+  | { t: number; kind: 'levelUp'; unit: UnitId; pid: string; level: number };

@@ -292,7 +292,7 @@ describe('squad split and merge', () => {
   it('detach makes a new squad of the same owner and team; merge joins them again', () => {
     const sim = createSim(flat(), 26);
     const a = sim.spawnSquad('p', 0, 'militia', 10, 20, 20);
-    const b = sim.spawnSquad('q', 1, 'militia', 3, 40, 40);
+    const b = sim.spawnSquad('q', 1, 'militia', 8, 40, 40);
     sim.order({ kind: 'detach', squad: a, count: 4 });
     sim.step();
     let snap = sim.snapshot();
@@ -302,25 +302,35 @@ describe('squad split and merge', () => {
     expect(c.units).toHaveLength(4);
     expect(snap.squads[a].units).toHaveLength(6);
     for (const id of c.units) expect(snap.units[id].squad).toBe(2);
-    // by unit ids; never the whole squad
-    sim.order({ kind: 'detach', squad: a, unitIds: [snap.squads[a].units[0], snap.squads[a].units[1], 999] });
-    sim.order({ kind: 'detach', squad: b, count: 5 });
+    // M5a: into two detachments of DETACH_MIN or more, no further: a split squad and its detachment stay as they are
+    sim.order({ kind: 'detach', squad: a, count: 2 });
+    sim.order({ kind: 'detach', squad: c.id, count: 4 });
+    sim.order({ kind: 'detach', squad: b, count: 3 }); // too few to go
+    sim.step();
+    expect(sim.snapshot().squads).toHaveLength(3);
+    // by unit ids (unknown ids ignored)
+    sim.order({ kind: 'detach', squad: b, unitIds: [...snap.squads[b].units.slice(0, 4), 999] });
     sim.step();
     snap = sim.snapshot();
-    expect(snap.squads[3].units).toEqual(sim.snapshot().squads[3].units);
-    expect(snap.squads[3].units).toHaveLength(2);
-    expect(snap.squads[4]).toMatchObject({ owner: 'q', team: 1 });
-    expect(snap.squads[4].units).toHaveLength(2);
-    expect(snap.squads[b].units).toHaveLength(1);
-    // merge: only same owner and team
-    sim.order({ kind: 'merge', squad: 4, into: a });
+    expect(snap.squads[3]).toMatchObject({ owner: 'q', team: 1 });
+    expect(snap.squads[3].units).toHaveLength(4);
+    expect(snap.squads[b].units).toHaveLength(4);
+    // merge: only same owner and team, and at most SQUAD_MAX men
+    const d = sim.spawnSquad('p', 0, 'militia', 12, 30, 20);
     sim.order({ kind: 'merge', squad: 3, into: a });
+    sim.order({ kind: 'merge', squad: d, into: a });
     sim.order({ kind: 'merge', squad: c.id, into: a });
     sim.step();
     snap = sim.snapshot();
     expect(snap.squads[a].units).toHaveLength(10);
-    expect(snap.squads[3].units).toHaveLength(0);
-    expect(snap.squads[4].units).toHaveLength(2);
+    expect(snap.squads[c.id].units).toHaveLength(0);
+    expect(snap.squads[3].units).toHaveLength(4);
+    expect(snap.squads[d].units).toHaveLength(12);
+    // whole again, it may split again
+    sim.order({ kind: 'detach', squad: a, count: 5 });
+    sim.step();
+    expect(sim.snapshot().squads.at(-1)!.units).toHaveLength(5);
+    sim.order({ kind: 'merge', squad: sim.snapshot().squads.length - 1, into: a });
     // the merged squad moves as one
     sim.order({ kind: 'move', squad: a, x: 30, y: 20 });
     run(sim, 300);
@@ -331,21 +341,20 @@ describe('squad split and merge', () => {
     const sim = createSim(flat(), 27);
     sim.claim(0, 20, 20, 30);
     const army = sim.spawnSquad('p', 0, 'militia', 12, 26, 26);
-    sim.order({ kind: 'detach', squad: army, count: 3 });
+    sim.order({ kind: 'detach', squad: army, count: 4 });
     sim.step();
     const crew = 1;
     sim.order({ kind: 'placeBuilding', squad: crew, type: 'camp', x: 20, y: 20 });
     run(sim, 200);
     let snap = sim.snapshot();
     expect(snap.squads[army].order).toBe('hold');
-    expect(snap.buildings![0].workers).toBe(3);
-    sim.order({ kind: 'detach', squad: army, count: 3 });
-    sim.step();
-    sim.order({ kind: 'merge', squad: 2, into: crew });
+    expect(snap.buildings![0].workers).toBe(4);
+    const more = sim.spawnSquad('p', 0, 'militia', 4, 28, 26);
+    sim.order({ kind: 'merge', squad: more, into: crew });
     run(sim, 300);
     snap = sim.snapshot();
-    expect(snap.squads[crew].units).toHaveLength(6);
-    expect(snap.buildings![0].workers).toBe(6);
+    expect(snap.squads[crew].units).toHaveLength(8);
+    expect(snap.buildings![0].workers).toBe(6); // a camp takes 6 at once
   });
 });
 

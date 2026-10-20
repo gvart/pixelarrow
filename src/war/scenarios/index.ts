@@ -6,8 +6,9 @@
 import type { Behaviour } from '../sim/bots';
 import type { BridgeOrder, BuildingType, Order, ResourceKind, WallOrder } from '../types';
 import { CLAIM_POINT as ridgeClaim, SPOTS } from '../regions/test-ridge.spots';
+import { SQUAD_MAX } from '../sim/soldiers';
 
-/** owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
+/** count: at most SQUAD_MAX (the sim clamps it). owner: the spawn's owner (default you / bot); a team-1 squad without a bot and with an owner other than `bot` stands idle. */
 export interface ScenarioSquad { team: 0 | 1; cls: string; count: number; x: number; y: number; bot?: Behaviour; owner?: string }
 
 export interface Scenario {
@@ -48,8 +49,8 @@ export interface Scenario {
 
 type P = readonly [number, number];
 const at = (p: P, dx = 0, dy = 0): [number, number] => [p[0] + dx, p[1] + dy];
-const you = (cls: string, [x, y]: [number, number], count = 20): ScenarioSquad => ({ team: 0, cls, count, x, y });
-const bot = (cls: string, [x, y]: [number, number], b: Behaviour, count = 20): ScenarioSquad => ({ team: 1, cls, count, x, y, bot: b });
+const you = (cls: string, [x, y]: [number, number], count = SQUAD_MAX): ScenarioSquad => ({ team: 0, cls, count, x, y });
+const bot = (cls: string, [x, y]: [number, number], b: Behaviour, count = SQUAD_MAX): ScenarioSquad => ({ team: 1, cls, count, x, y, bot: b });
 
 const S = SPOTS;
 /** neutral-clear: test-ridge's claim point (scripts/war/buildTestRidge.ts; its zone holds the lairs round it). */
@@ -101,8 +102,8 @@ export const SCENARIOS: Scenario[] = [
     squads: [
       you('hoplite', at(S.passSaddle, 0, 4)),
       you('hoplite', at(S.passSaddle, -4, 6)),
-      you('archer', at(S.passSaddle, 2, 12), 16),
-      you('archer', at(S.passSaddle, -4, 13), 16),
+      you('archer', at(S.passSaddle, 2, 12)),
+      you('archer', at(S.passSaddle, -4, 13)),
       you('militia', at(S.passSaddle, -1, 18)),
       ...['celt_sword', 'militia', 'hoplite', 'javelineer', 'celt_sword'].map((c, i) =>
         bot(c, at(S.passN, -6 + (i % 2) * 6, -10 - i * 6), { kind: 'attackMove', x: passSx, y: passSy })),
@@ -117,13 +118,13 @@ export const SCENARIOS: Scenario[] = [
       you('hoplite', at(S.fordW, -10, -4)),
       you('hoplite', at(S.fordW, -10, 4)),
       you('celt_sword', at(S.fordW, -16, 0)),
-      you('archer', at(S.fordW, -20, -6), 16),
-      you('slinger', at(S.fordW, -20, 6), 16),
+      you('archer', at(S.fordW, -20, -6)),
+      you('slinger', at(S.fordW, -20, 6)),
       you('militia', at(S.fordW, -26, 0)),
       bot('hoplite', at(S.fordE, 4, -3), { kind: 'hold', x: S.fordE[0] + 4, y: S.fordE[1] - 3, radius: 10 }),
       bot('celt_sword', at(S.fordE, 4, 4), { kind: 'hold', x: S.fordE[0] + 4, y: S.fordE[1] + 4, radius: 10 }),
-      bot('archer', at(S.fordE, 12, -4), { kind: 'hold', x: S.fordE[0] + 12, y: S.fordE[1] - 4, radius: 12 }, 16),
-      bot('javelineer', at(S.fordE, 12, 5), { kind: 'hold', x: S.fordE[0] + 12, y: S.fordE[1] + 5, radius: 12 }, 16),
+      bot('archer', at(S.fordE, 12, -4), { kind: 'hold', x: S.fordE[0] + 12, y: S.fordE[1] - 4, radius: 12 }),
+      bot('javelineer', at(S.fordE, 12, 5), { kind: 'hold', x: S.fordE[0] + 12, y: S.fordE[1] + 5, radius: 12 }),
       bot('militia', at(S.fordE, 18, 0), { kind: 'hold', x: S.fordE[0] + 18, y: S.fordE[1], radius: 12 }),
     ],
     camera: { x: S.ford[0], y: S.ford[1] - 6, zoom: 1 / 3 },
@@ -138,8 +139,8 @@ export const SCENARIOS: Scenario[] = [
       you('hoplite', at(S.rampMid, 18, -18)),
       you('celt_sword', at(S.rampMid, 14, -14)),
       you('militia', at(S.rampMid, 10, -10)),
-      you('archer', at(S.rampMid, 6, -6), 16),
-      you('slinger', at(S.rampMid, 2, -2), 16),
+      you('archer', at(S.rampMid, 6, -6)),
+      you('slinger', at(S.rampMid, 2, -2)),
       bot('hoplite', at(S.plateauTop, -10, 0), { kind: 'hold', x: S.plateauTop[0] - 10, y: S.plateauTop[1], radius: 12 }),
       bot('celt_sword', at(S.plateauTop, -4, 6), { kind: 'hold', x: S.plateauTop[0] - 4, y: S.plateauTop[1] + 6, radius: 12 }),
       bot('militia', at(S.plateauTop, -10, 8), { kind: 'hold', x: S.plateauTop[0] - 10, y: S.plateauTop[1] + 8, radius: 12 }),
@@ -156,8 +157,8 @@ export const SCENARIOS: Scenario[] = [
       you('hoplite', at(S.marsh, -26, -4)),
       you('hoplite', at(S.marsh, -26, 4)),
       you('celt_sword', at(S.marsh, -32, 0)),
-      you('archer', at(S.marsh, -36, -6), 16),
-      you('slinger', at(S.marsh, -36, 6), 16),
+      you('archer', at(S.marsh, -36, -6)),
+      you('slinger', at(S.marsh, -36, 6)),
       you('militia', at(S.marsh, -42, 0)),
       ...['hoplite', 'celt_sword', 'archer'].map((c, i) =>
         bot(c, at(S.fordE, 18 + i * 7, 10), { kind: 'flank', via: at(S.fordW, -4, 0), x: fwx, y: fwy })),
@@ -182,7 +183,7 @@ export const SCENARIOS: Scenario[] = [
       you('militia', at(HOME, 4, 6)),
       you('hoplite', at(HOME, 0, 10)),
       bot('celt_sword', at(S.fieldE, 0, 0), { kind: 'hold', x: S.fieldE[0], y: S.fieldE[1], radius: 8 }),
-      bot('archer', at(S.fieldE, 6, 4), { kind: 'hold', x: S.fieldE[0] + 6, y: S.fieldE[1] + 4, radius: 8 }, 16),
+      bot('archer', at(S.fieldE, 6, 4), { kind: 'hold', x: S.fieldE[0] + 6, y: S.fieldE[1] + 4, radius: 8 }),
     ],
     camera: { x: HOME[0], y: HOME[1] + 4, zoom: 1 / 2 },
     economy: {
@@ -220,14 +221,14 @@ export const SCENARIOS: Scenario[] = [
         { squad: 1, material: 'stone', points: [RING.x0, RING.y0 + 2, RING.x0, RING.y1 - 2], inside: [RC[0], RC[1]], phase: 1 },
         { squad: 1, material: 'stone', points: [RING.x1, RING.y0 + 2, RING.x1, RING.y1 - 2], inside: [RC[0], RC[1]], phase: 1 },
       ],
-      prebuild: 20000,
+      prebuild: 28000,
     },
     after: {
       squads: [
         bot('celt_sword', at(RC, -6, 22), { kind: 'attackMove', x: RC[0], y: RC[1] }),
-        bot('javelineer', at(RC, 6, 22), { kind: 'attackMove', x: RC[0], y: RC[1] }, 16),
-        bot('archer', at(RC, 0, 26), { kind: 'attackMove', x: RC[0], y: RC[1] }, 16),
-        { team: 1, cls: 'militia', count: 20, x: RC[0] - 2, y: RC[1] + 18 }, // raiders: raise the ladders, then climb
+        bot('javelineer', at(RC, 6, 22), { kind: 'attackMove', x: RC[0], y: RC[1] }),
+        bot('archer', at(RC, 0, 26), { kind: 'attackMove', x: RC[0], y: RC[1] }),
+        { team: 1, cls: 'militia', count: SQUAD_MAX, x: RC[0] - 2, y: RC[1] + 18 }, // raiders: raise the ladders, then climb
       ],
       orders: [
         { kind: 'move', squad: 0, x: 127.5, y: 436.5 }, // spears behind the gate
@@ -249,10 +250,10 @@ export const SCENARIOS: Scenario[] = [
     goal: 'Take the stone fort: batter the gate with the ram (E on the ram to crew it, then E on the gate), raise the ladder on the wall (E on the wall face), shell the towers with the stone thrower, burn the palisade (E with torches, or fire arrows: Q), then storm the breach.',
     squads: [
       // the garrison's builders (they raise the fort before play, then stand inside)
-      { team: 1, cls: 'militia', count: 20, x: RC[0] - 3, y: RC[1], owner: 'garrison' },
-      { team: 1, cls: 'militia', count: 20, x: RC[0] + 3, y: RC[1], owner: 'garrison' },
-      { team: 1, cls: 'militia', count: 20, x: RC[0] - 3, y: RC[1] + 3, owner: 'garrison' },
-      { team: 1, cls: 'militia', count: 20, x: RC[0] + 3, y: RC[1] + 3, owner: 'garrison' },
+      { team: 1, cls: 'militia', count: SQUAD_MAX, x: RC[0] - 3, y: RC[1], owner: 'garrison' },
+      { team: 1, cls: 'militia', count: SQUAD_MAX, x: RC[0] + 3, y: RC[1], owner: 'garrison' },
+      { team: 1, cls: 'militia', count: SQUAD_MAX, x: RC[0] - 3, y: RC[1] + 3, owner: 'garrison' },
+      { team: 1, cls: 'militia', count: SQUAD_MAX, x: RC[0] + 3, y: RC[1] + 3, owner: 'garrison' },
     ],
     camera: { x: 127.5, y: 450, zoom: 1 / 2 },
     economy: {
@@ -261,7 +262,7 @@ export const SCENARIOS: Scenario[] = [
       foeStock: { stone: 4000, wood: 1500 },
       walls: ringWalls(0, 1),
       sites: ringSites(0, 1),
-      prebuild: 30000,
+      prebuild: 50000,
     },
     after: {
       orders: [
@@ -275,13 +276,13 @@ export const SCENARIOS: Scenario[] = [
       squads: [
         you('hoplite', [124, 468]),
         you('hoplite', [131, 468]),
-        you('archer', [127.5, 472], 16),
-        you('militia', [127.5, 461], 16), // ram crew (the roof covers half the arrows)
+        you('archer', [127.5, 472]),
+        you('militia', [127.5, 461]), // ram crew (the roof covers half the arrows)
         you('militia', [118.5, 464], 12), // ladder squad
         you('militia', [138.5, 466], 10), // thrower crew
-        bot('archer', at(RC, -2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 16),
+        bot('archer', at(RC, -2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }),
         bot('archer', at(RC, 2, 3), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 12),
-        bot('hoplite', at(RC, 0, 1), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }, 16),
+        bot('hoplite', at(RC, 0, 1), { kind: 'defendWalls', x: RC[0], y: RC[1], radius: 9 }),
       ],
       then: [
         { kind: 'buildSiege', squad: 7, type: 'ram', x: 127.5, y: 458.5 },
@@ -314,7 +315,7 @@ export const SCENARIOS: Scenario[] = [
       foeStock: { wood: 1000, stone: 200, pitch: 60 }, // pitch: the siege archers' fire arrows (W-35)
       walls: ringWalls(0, 1),
       sites: ringSites(0, 1),
-      prebuild: 20000,
+      prebuild: 28000,
     },
     after: {
       orders: [
@@ -327,7 +328,7 @@ export const SCENARIOS: Scenario[] = [
         bot('militia', [127, 470], { kind: 'siegeRam', x: RC[0], y: RC[1] }, 8),
         bot('militia', [119, 468], { kind: 'siegeLadder', x: RC[0], y: RC[1] }, 6),
         bot('militia', [136, 468], { kind: 'siegeLadder', x: RC[0], y: RC[1] }, 6),
-        bot('archer', [128, 474], { kind: 'siegeArchers', x: RC[0], y: RC[1] }, 16),
+        bot('archer', [128, 474], { kind: 'siegeArchers', x: RC[0], y: RC[1] }),
         bot('hoplite', [122, 476], { kind: 'assault', x: RC[0], y: RC[1] }),
         bot('celt_sword', [133, 476], { kind: 'assault', x: RC[0], y: RC[1] }),
       ],
@@ -359,7 +360,7 @@ export const SCENARIOS: Scenario[] = [
         { squad: 3, material: 'wood', points: [301.5, 402.5, 304.5, 402.5], phase: 1 },
         { squad: 2, material: 'wood', points: [305.5, 402.5, 309.5, 402.5], phase: 1 },
       ],
-      prebuild: 6000,
+      prebuild: 10000,
     },
     after: { orders: [{ kind: 'move', squad: 2, x: 322, y: 388 }, { kind: 'move', squad: 3, x: 300, y: 440 }], squads: [] },
   },
@@ -370,7 +371,7 @@ export const SCENARIOS: Scenario[] = [
     squads: [
       you('hoplite', at(CLAIM, -6, 6)),
       you('celt_sword', at(CLAIM, 0, 8)),
-      you('archer', at(CLAIM, 6, 6), 16),
+      you('archer', at(CLAIM, 6, 6)),
       you('militia', at(CLAIM, 0, 12), 12),
     ],
     camera: { x: CLAIM[0], y: CLAIM[1], zoom: 1 / 2 },

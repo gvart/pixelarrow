@@ -40,8 +40,9 @@
  * orders them each tick (wander, aggro, leash back). claimRegion walks a squad to a claim point, where it channels.
  */
 import { Rng } from '../../sim/rng';
-import type { Order, RegionData, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim } from '../types';
-import { warStats, type WarStats } from './classes';
+import type { FightReport, Order, PersonResult, RegionData, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
+import { RARITIES, salvageValue, type Item } from '../../data/items';
+import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
 import { BRAZIER, BUILDINGS, WORK_DEFENCE } from './economy';
@@ -50,6 +51,8 @@ import { createWorks, type Worker } from './works';
 import { createSiege, LADDER, RAM } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { createVision } from './vision';
+import { CAPTURE_R, DETACH_MIN, DROP, gainXp, SQUAD_MAX, XP } from './soldiers';
+import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
 
 const DT = 0.1;
 const SPEED = 1.5; // tiles/s on grass for a man on foot (class speed multiplies)
@@ -134,7 +137,17 @@ interface Unit extends Worker {
   want: number; // distance it set out to walk this tick, -1 when it stood to strike
   toSlot: boolean; // walking to its slot (not closing on a foe)
   doing: UnitSnap['task'] | null; // its siege task this tick
+  person: WarPerson | null; // M5b: the soldier record it was spawned from (null: a class spawn)
+  // M5d tallies since the last endFight: damage dealt, kills, objective XP, took part (dealt or took a blow); reported: fallen and reported once
+  dealt: number;
+  kills: number;
+  obj: number;
+  engaged: boolean;
+  reported: boolean;
 }
+
+/** M5d: the gear of a dead man (team: his), lying until tick `until`. */
+interface Drop { id: number; x: number; y: number; team: number; items: Item[]; until: number }
 
 /** A task order (M2c): the target building b or engine e (-1 none). */
 interface Task { kind: 'ignite' | 'extinguish' | 'pushLadder' | 'attackBuilding' | 'buildSiege'; b: number; e: number }
@@ -169,6 +182,15 @@ interface Squad {
   task: Task | null;
   fire: boolean; // fire arrows
   claimPt: number; // claimRegion: the claim point it goes to and channels at, -1 none
+  pair: SquadId; // M5a: the other detachment of its split (-1 none): a split squad splits no further until merged back
+  // M5c squad active: from its best-ranked man holding one (null none), his WIL; ready again / buff over at these ticks;
+  // while on, damage it deals and takes is multiplied by out / inn (1 otherwise): read in hit resolution
+  act: WarSkillId | null;
+  actWil: number;
+  actReady: number;
+  actUntil: number;
+  out: number;
+  inn: number;
 }
 
 interface Missile {
@@ -195,6 +217,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const reslotQueue = new Set<Squad>();
   let tick = 0;
   let stepMs = 0;
+  // M5d: gear on the field, gear picked up per team since the last report, the event log
+  let drops: Drop[] = [];
+  let dropId = 0;
+  let loot: Record<number, Item[]> = {};
+  let log: WarEvent[] = [];
+  const LOG_MAX = 5000;
+  const note = (e: WarEvent) => {
+    if (log.length < LOG_MAX) log.push(e);
+  };
 
   // spatial hash, one cell per tile
   const head = new Int32Array(grid.w * grid.h);
@@ -271,7 +302,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     arrived: (id) => !squads[id].goal && squads[id].pi >= squads[id].path.length / 2,
     nodes: () => works.resourceNodes(),
     lockNodes: works.lockNodes,
-    claim: (team, x, y, r) => works.claim(team, x, y, r),
+    claim: (team, x, y, r) => {
+      works.claim(team, x, y, r);
+      // M5d: the squad that channelled it (the nearest of the team on a claim order) has an objective
+      let best: Squad | null = null;
+      for (const s of squads) if (s.team === team && s.claimPt >= 0 && s.alive > 0 && (!best || dist2(s, { cx: x, cy: y }) < dist2(best, { cx: x, cy: y }))) best = s;
+      if (best) objective(best, 'claim');
+    },
     influenced: (x, y) => works.influence().mask[tileAt(grid, x, y)] !== 0,
     range: (lo, hi) => rng.range(lo, hi),
     w: grid.w,
@@ -348,6 +385,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     if (k > 0) s.speed = minSpeed;
     s.ranged = ranged * 2 > k;
+    // M5c: the squad's active is its best-ranked man's (highest level, then first in the squad) who holds one
+    let lead: Unit | null = null, act: WarSkillId | null = null;
+    for (const u of s.units) {
+      if (!u.alive || !u.person || (lead && lead.person!.hero.level >= u.person.hero.level)) continue;
+      const a = u.person.skills?.find((id) => ACTIVES[id]);
+      if (a) (lead = u), (act = a);
+    }
+    s.act = act;
+    s.actWil = lead?.person!.hero.attrs.wil ?? 5;
   };
 
   /** A new squad of s's owner and team takes these living units of s, holding where they stand. */
@@ -359,8 +405,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const [ax, ay] = openPoint(x / picked.length, y / picked.length);
     const ns: Squad = {
       ...s, id: squads.length, units: [], alive: 0, ax, ay, cx: ax, cy: ay, path: [], pi: 0, order: 'hold', target: -1, goal: null,
-      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1,
+      near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, claimPt: -1, pair: s.id,
     };
+    s.pair = ns.id;
     squads.push(ns);
     move(s, ns, picked);
     if (s.order === 'gather' || s.order === 'build') for (const u of ns.units) works.setJob(u, null);
@@ -406,6 +453,16 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (!s) return;
     if (o.kind === 'fireArrows') {
       s.fire = o.on;
+      return;
+    }
+    if (o.kind === 'active') {
+      // M5c: fires when ready (no other effect on the squad's order)
+      const fx = s.act ? ACTIVES[s.act] : undefined;
+      if (!fx || tick < s.actReady || s.alive === 0) return;
+      s.out = fx.out;
+      s.inn = fx.in;
+      s.actUntil = tick + ACTIVE.buff;
+      s.actReady = tick + activeCooldown(s.actWil);
       return;
     }
     if (s.siege >= 0 && (o.kind === 'move' || o.kind === 'hold' || o.kind === 'attackBuilding' || o.kind === 'deploy' || o.kind === 'raiseLadder')) {
@@ -474,13 +531,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (o.kind === 'detach') {
       const alive = s.units.filter((u) => u.alive);
       const ids = o.unitIds ? new Set(o.unitIds) : null;
-      const n = Math.min(alive.length - 1, ids ? alive.length : Math.floor(o.count ?? 0));
-      detach(s, n <= 0 ? [] : ids ? alive.filter((u) => ids.has(u.id)).slice(0, n) : alive.slice(alive.length - n));
+      // M5a: two detachments of DETACH_MIN or more; a squad already split splits no further
+      if (s.pair >= 0 && squads[s.pair].alive > 0) return;
+      const n = Math.min(alive.length - DETACH_MIN, ids ? alive.length : Math.floor(o.count ?? 0));
+      const picked = n < DETACH_MIN ? [] : ids ? alive.filter((u) => ids.has(u.id)).slice(0, n) : alive.slice(alive.length - n);
+      if (picked.length >= DETACH_MIN) detach(s, picked);
       return;
     }
     if (o.kind === 'merge') {
       const t = squads[o.into];
-      if (!t || t === s || t.team !== s.team || t.owner !== s.owner || s.alive === 0) return;
+      if (!t || t === s || t.team !== s.team || t.owner !== s.owner || s.alive === 0 || t.alive + s.alive > SQUAD_MAX) return;
+      if (t.pair === s.id) t.pair = -1;
+      if (s.pair === t.id) s.pair = -1;
       const picked = s.units.filter((u) => u.alive);
       for (const u of picked) if (u.job) works.setJob(u, null);
       move(s, t, picked);
@@ -632,7 +694,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.cd = u.st.atkTicks;
       u.swingAt = tick;
       const dmg = u.st.dmg * BUILDING_MELEE;
-      if (k.b >= 0) works.damage(k.b, dmg);
+      if (k.b >= 0) hitBuilding(s, k.b, dmg);
       else siege.damage(k.e, dmg);
     } else if (k.kind === 'buildSiege') {
       if (siege.labour(k.e, DT)) u.working = true;
@@ -689,7 +751,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     for (const s of squads) {
       s.near = [];
       if (s.alive === 0) continue;
-      for (const o of squads) if (o.team !== s.team && o.alive > 0 && dist2(s, o) < NEAR * NEAR) s.near.push(o);
+      // by its centre or its anchor (a squad strung out, some men stuck far behind, still sees the foe its anchor reached)
+      for (const o of squads)
+        if (o.team !== s.team && o.alive > 0 && (dist2(s, o) < NEAR * NEAR || (s.ax - o.cx) ** 2 + (s.ay - o.cy) ** 2 < NEAR * NEAR)) s.near.push(o);
     }
   };
 
@@ -984,8 +1048,13 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   const working = (u: Unit) => u.squad.order === 'gather' || u.squad.order === 'build';
 
-  const hurt = (t: Unit, dmg: number) => {
-    t.hp -= dmg * (working(t) ? WORK_DEFENCE : 1);
+  const hurt = (t: Unit, dmg: number, by?: Unit) => {
+    const d = dmg * (working(t) ? WORK_DEFENCE : 1);
+    if (by) {
+      by.dealt += Math.min(d, t.hp);
+      by.engaged = t.engaged = true;
+    }
+    t.hp -= d;
     if (t.hp > 0) return;
     t.hp = 0;
     t.alive = false;
@@ -993,9 +1062,106 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     t.fighting = false;
     t.moving = false;
     t.tgt = null;
-    t.wounded = rng.chance(COMBAT.woundedShare);
+    t.wounded = rng.chance(t.st.ws); // M5d: by his END (docs/WAR.md "Lifecycle")
     t.squad.alive--;
     reslotQueue.add(t.squad);
+    if (by) by.kills++;
+    note({ t: tick, kind: 'fall', unit: t.id, by: by?.id ?? -1, wounded: t.wounded });
+    // the dead drop their gear
+    const items = !t.wounded && t.person ? (Object.values(t.person.hero.equip).filter(Boolean) as Item[]) : [];
+    if (items.length) drops.push({ id: dropId++, x: t.x, y: t.y, team: t.squad.team, items, until: tick + DROP.ticks });
+  };
+
+  /** M5d: objective XP to the living men of s. */
+  const objective = (s: Squad, what: 'claim' | 'building') => {
+    for (const u of s.units) if (u.alive) u.obj += XP.objective;
+    note({ t: tick, kind: 'objective', squad: s.id, what });
+  };
+  /** Damage building b for squad s; its fall is an objective of s. */
+  const hitBuilding = (s: Squad, b: number, dmg: number) => {
+    const was = works.piece(b)?.state;
+    works.damage(b, dmg);
+    if (was !== undefined && was !== 'destroyed' && works.piece(b)?.state === 'destroyed') objective(s, 'building');
+  };
+
+  /** M5d: men of another team (not fauna, not fighting) standing on a drop pick it up; drops left too long are gone. */
+  const pickUp = () => {
+    drops = drops.filter((d) => {
+      if (tick >= d.until) return false;
+      const cx = Math.floor(d.x), cy = Math.floor(d.y);
+      for (let yy = Math.max(0, cy - 1); yy <= Math.min(grid.h - 1, cy + 1); yy++)
+        for (let xx = Math.max(0, cx - 1); xx <= Math.min(grid.w - 1, cx + 1); xx++)
+          for (let j = head[yy * grid.w + xx]; j !== -1; j = next[j]) {
+            const u = units[j];
+            const team = u.squad.team;
+            if (!u.alive || team === d.team || team === MOB_TEAM || u.fighting || (u.x - d.x) ** 2 + (u.y - d.y) ** 2 > DROP.pick * DROP.pick) continue;
+            const got = (loot[team] ??= []);
+            for (const it of d.items) got.push(RARITIES.indexOf(it.rarity) >= 2 ? { ...it, cond: Math.min(it.cond, DROP.rareCond) } : { ...it });
+            note({ t: tick, kind: 'pickup', drop: d.id, team, items: d.items.length });
+            return false;
+          }
+      return true;
+    });
+  };
+
+  /** M5d: a person's new hero after a level-up: baked again (HP keeps its wounds). */
+  const rebake = (u: Unit) => {
+    const st = warStatsOf(u.person!);
+    u.hp = Math.max(1, Math.min(st.maxHp, u.hp + st.maxHp - u.maxHp));
+    u.maxHp = st.maxHp;
+    u.st = st;
+    reslotQueue.add(u.squad);
+  };
+
+  /** M5d: the fight report (WarBuildSim.endFight). */
+  const endFight = (): FightReport => {
+    const took = new Map<number, number>(); // team -> its soldiers who took part
+    for (const u of units) if (u.engaged && u.squad.team !== MOB_TEAM) took.set(u.squad.team, (took.get(u.squad.team) ?? 0) + 1);
+    const persons: PersonResult[] = [];
+    for (const u of units) {
+      const p = u.person;
+      if (!p || u.reported || (u.alive && !u.engaged && !u.obj)) continue;
+      const team = u.squad.team;
+      let foes = 0;
+      for (const [tm, n] of took) if (tm !== team) foes += n;
+      let state: PersonResult['state'] = u.alive ? 'fit' : u.wounded ? 'wounded' : 'dead';
+      let captor: number | undefined;
+      if (state === 'wounded') {
+        // captive: no friendly within CAPTURE_R, the nearest foe soldier within it takes him
+        let friend = false, bd = CAPTURE_R * CAPTURE_R;
+        for (const o of units) {
+          if (!o.alive || o.squad.team === MOB_TEAM) continue;
+          const d2 = (o.x - u.x) ** 2 + (o.y - u.y) ** 2;
+          if (d2 > CAPTURE_R * CAPTURE_R) continue;
+          if (o.squad.team === team) {
+            friend = true;
+            break;
+          }
+          if (d2 <= bd) (bd = d2), (captor = o.squad.team);
+        }
+        if (friend) captor = undefined;
+        if (captor !== undefined) {
+          state = 'captive';
+          note({ t: tick, kind: 'capture', unit: u.id, pid: p.id, captor });
+        }
+      }
+      let xp = Math.floor(u.dealt * XP.perDmg) + u.kills * XP.kill + u.obj + (u.alive && foes >= SQUAD_MAX ? XP.survived : 0);
+      if (state === 'wounded' || state === 'captive') xp = Math.floor(xp / 2);
+      if (state === 'dead') xp = 0;
+      const g = gainXp(p.hero, xp);
+      const hero = { ...g.hero, kills: p.hero.kills + u.kills, battles: p.hero.battles + (u.engaged ? 1 : 0), ...(state === 'dead' ? { equip: {} } : {}) };
+      u.person = { ...p, hero };
+      if (g.levelUps) note({ t: tick, kind: 'levelUp', unit: u.id, pid: p.id, level: hero.level });
+      if (g.levelUps && u.alive) rebake(u);
+      if (!u.alive) u.reported = true;
+      persons.push({ pid: p.id, owner: u.squad.owner, team, state, ...(captor !== undefined ? { captor } : {}), xp, kills: u.kills, dmg: Math.round(u.dealt), levelUps: g.levelUps, hero });
+    }
+    for (const u of units) (u.dealt = u.kills = u.obj = 0), (u.engaged = false);
+    for (const s of reslotQueue) reslot(s);
+    reslotQueue.clear();
+    const out: FightReport = { tick, persons, loot };
+    loot = {};
+    return out;
   };
 
   /** Melee can land: at most one height level apart and a walkable line between (no cliff, no blocked tile). */
@@ -1026,12 +1192,23 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     return best;
   };
 
+  /** M5c: t's block against u: less by u's block pierce, more with Hold Fast while t's squad holds. */
+  const blockOf = (u: Unit, t: Unit) => {
+    const b = t.st.block * (1 - u.st.bp);
+    return t.st.flags & F.holdFast && t.squad.order === 'hold' ? b * FLAG_FX.holdBlock : b;
+  };
+  /** M5c: damage multiplier of u's blow on t: the squad actives (dealt, taken) and Finisher. */
+  const dmgMult = (u: Unit, t: Unit) => {
+    const m = u.squad.out * t.squad.inn;
+    return u.st.flags & F.finisher && t.hp < FLAG_FX.finishHp * t.maxHp ? m * FLAG_FX.finishDmg : m;
+  };
+
   const strike = (u: Unit, t: Unit, dh: number) => {
     const bog = groundAt(u.x, u.y) === BOG;
     u.cd = Math.round(u.st.atkTicks * (bog ? COMBAT.bogAtk : 1) * (dh < 0 ? COMBAT.uphillAtk : 1));
     u.swingAt = tick;
-    if (!working(t) && rng.chance(blockChance(t.st.block, t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
-    hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1), t.st.armor, 0));
+    if (!working(t) && rng.chance(blockChance(blockOf(u, t), t.facing, u.x - t.x, u.y - t.y, false, groundAt(t.x, t.y) === BOG))) return;
+    hurt(t, afterArmour(u.st.dmg * meleeHeight(dh) * (bog ? COMBAT.bogDmg : 1) * dmgMult(u, t), t.st.armor, 0), u);
     if (u.st.knock && t.alive) {
       // a charge (boar): the man is thrown back, in short steps so no wall is jumped
       const d = Math.hypot(t.x - u.x, t.y - u.y) || 1, k = u.st.knock / 3;
@@ -1045,12 +1222,20 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** W-35: why the squad's fire arrows are out, null when they may loose them (a man by a lit brazier, pitch in stock). */
   const fireBlock = (s: Squad): 'noBrazier' | 'noPitch' | null => {
     let near = false;
-    for (const u of s.units) if (u.alive && works.litNear(s.team, u.x, u.y, hAt(u.x, u.y))) { near = true; break; }
-    return !near ? 'noBrazier' : works.pitch(s.team) < BRAZIER.pitch - 1e-9 ? 'noPitch' : null;
+    let pitch = BRAZIER.pitch;
+    for (const u of s.units) {
+      if (!u.alive) continue;
+      if (u.st.flags & F.fireArcher) pitch = BRAZIER.pitch * FLAG_FX.firePitch;
+      if (!near && works.litNear(s.team, u.x, u.y, hAt(u.x, u.y), fireReach(u))) near = true;
+    }
+    return !near ? 'noBrazier' : works.pitch(s.team) < pitch - 1e-9 ? 'noPitch' : null;
   };
   /** A fire arrow for this shot? Only by a lit brazier, and it takes its pitch (else a plain arrow). */
   const fireShot = (u: Unit) =>
-    u.squad.fire && u.st.missile === 'arrow' && works.litNear(u.squad.team, u.x, u.y, hAt(u.x, u.y)) && works.takeStock(u.squad.team, { pitch: BRAZIER.pitch });
+    u.squad.fire && u.st.missile === 'arrow' && works.litNear(u.squad.team, u.x, u.y, hAt(u.x, u.y), fireReach(u)) &&
+    works.takeStock(u.squad.team, { pitch: u.st.flags & F.fireArcher ? BRAZIER.pitch * FLAG_FX.firePitch : BRAZIER.pitch });
+  /** M5c Fire Archer: twice the brazier reach. */
+  const fireReach = (u: Unit) => (u.st.flags & F.fireArcher ? BRAZIER.radius * FLAG_FX.fireReach : BRAZIER.radius);
 
   const shoot = (u: Unit, t: Unit, d: number, dh: number, range: number) => {
     const fire = fireShot(u);
@@ -1099,7 +1284,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         // at a building or engine: raw < 0 marks a fire arrow
         const dmg = Math.abs(m.raw) * ARROW_BUILDING;
         if (m.b !== undefined) {
-          works.damage(m.b, dmg);
+          hitBuilding(m.by.squad, m.b, dmg);
           if (m.raw < 0) works.fireHit(m.b, FIRE_ARROW);
         } else {
           siege.damage(m.e!, dmg);
@@ -1110,8 +1295,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const t = m.t;
       if (!t || !t.alive) continue;
       if (underRoof(t) && rng.chance(RAM.cover)) continue;
-      if (!working(t) && rng.chance(blockChance(t.st.block, t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
-      hurt(t, afterArmour(m.raw, t.st.armor, m.ap));
+      if (!working(t) && rng.chance(blockChance(blockOf(m.by, t), t.facing, m.by.x - t.x, m.by.y - t.y, true, groundAt(t.x, t.y) === BOG))) continue;
+      hurt(t, afterArmour(m.raw * dmgMult(m.by, t), t.st.armor, m.ap), m.by);
     }
     missiles = keep;
   };
@@ -1230,6 +1415,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     const t0 = performance.now();
     for (const o of queue.splice(0)) apply(o);
     for (const s of squads) {
+      if (s.actUntil === tick) s.out = s.inn = 1;
       if (s.alive === 0) continue;
       let x = 0;
       let y = 0;
@@ -1418,6 +1604,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.toSlot = act === null;
     }
     for (let k = 0; k < 3; k++) separate();
+    if (drops.length && tick % SCAN === 0) pickUp();
     keepToLanes();
     for (const u of units) {
       if (!u.alive) continue;
@@ -1448,28 +1635,36 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   const api: WarBuildSim = {
     region,
-    spawnSquad(owner, team, cls, count, x, y) {
+    spawnSquad(owner, team, cls, count, x, y, persons) {
+      // M5b: one man per person, each with his own baked stats
+      const ps = persons?.slice(0, SQUAD_MAX) ?? null;
+      count = ps ? ps.length : Math.min(count, SQUAD_MAX);
       const [ax, ay] = openPoint(x, y);
-      const st = warStats(cls);
+      const sts = ps ? ps.map((p) => warStatsOf(p)) : null;
+      const st = sts?.[0] ?? warStats(cls);
       const s: Squad = {
         id: squads.length, owner, team, units: [], alive: count, shape: 'line', offsets: formationOffsets('line', count, rng),
         ax, ay, cx: ax, cy: ay, facing: 0, speed: st.speed, ranged: st.range > 0, path: [], pi: 0, order: 'hold', target: -1,
-        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1,
+        repathAt: 0, goal: null, near: [], sites: [], node: -1, fixed: null, col: null, siege: -1, task: null, fire: false, claimPt: -1, pair: -1,
+        act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1,
       };
       grid.team = team;
       squads.push(s);
       for (let k = 0; k < count; k++) {
         const [sx, sy] = slotPos(s, k);
         const [px, py] = lineClear(grid, ax, ay, sx, sy) ? [sx, sy] : [ax + rng.range(-0.2, 0.2), ay + rng.range(-0.2, 0.2)];
+        const ust = sts?.[k] ?? st;
         const u: Unit = {
-          id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: st.maxHp, maxHp: st.maxHp, cls, st, moving: false, wp: 0,
-          alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: st.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
+          id: units.length, squad: s, slot: k, x: px, y: py, facing: 0, hp: ust.maxHp, maxHp: ust.maxHp, cls: ps?.[k].hero.cls ?? cls, st: ust, moving: false, wp: 0,
+          alive: true, wounded: false, fighting: false, striking: false, swingAt: -1, cd: 0, ammo: ust.ammo, tgt: null, vx: 0, vy: 0, stuck: 0, own: [], oi: 0, ownReq: false,
           crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
-          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null,
+          job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null, person: ps?.[k] ?? null,
+          dealt: 0, kills: 0, obj: 0, engaged: false, reported: false,
         };
         units.push(u);
         s.units.push(u);
       }
+      if (ps) reslot(s); // speed and ranged from the men themselves
       scanNear();
       return s.id;
     },
@@ -1491,12 +1686,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             state: !u.alive ? 'dead' : atk ? 'attack' : u.working ? (u.job ?? 'build') : u.moving ? 'move' : 'idle',
             ...(u.alive && u.doing ? { task: u.doing } : {}),
             ...(u.alive ? {} : { wounded: u.wounded }),
+            ...(u.person ? { pid: u.person.id, level: u.person.hero.level } : {}),
             ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
         }),
         squads: squads.map((s) => {
           const snap: SquadSnap = { id: s.id, owner: s.owner, team: s.team, units: s.units.map((u) => u.id), order: s.order };
+          if (s.act) snap.active = { skill: s.act, ready: Math.max(0, s.actReady - tick), on: Math.max(0, s.actUntil - tick) };
           const st = s.units[0]?.st;
           if (st && st.range > 0 && st.missile === 'arrow') {
             const why = fireBlock(s);
@@ -1510,6 +1707,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         influenceVersion: works.influence().version,
         sieges: siege.snaps(tick),
         ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
+        ...(drops.length ? { drops: drops.map((d) => ({ id: d.id, x: d.x, y: d.y, team: d.team, items: d.items.length, left: d.until - tick })) } : {}),
       };
     },
     stats() {
@@ -1528,6 +1726,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     visibleTo: vision.visibleTo,
     teamGrid: vision.teamGrid,
     lastSeen: vision.lastSeen,
+    endFight,
+    salvage(id) {
+      const d = drops.find((x) => x.id === id);
+      if (!d) return 0;
+      drops = drops.filter((x) => x !== d);
+      return d.items.reduce((a, it) => a + salvageValue(it), 0);
+    },
+    events() {
+      const out = log;
+      log = [];
+      return out;
+    },
   };
   return api;
 }

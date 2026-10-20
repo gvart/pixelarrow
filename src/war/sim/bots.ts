@@ -52,6 +52,8 @@ export interface Bots {
 }
 
 const AGGRO = 10; // attack-move: engage enemy squads this near
+const ACTIVE_MELEE = 4; // M5c: fire the squad active with a foe squad's centre this near
+const ACTIVE_MISSILE = 14; // ... a volley this near
 const DISENGAGE = 18; // give up a chase when the target gets this far
 const ARRIVED = 3;
 const HOLD_RADIUS = 8;
@@ -452,7 +454,15 @@ export function createBots(sim: WarSim, every = 5): Bots {
           send(bot, 'hold', { kind: 'hold', squad: id });
         }
       }
+      useActive(id, bot, me, cs, snap);
     }
+  };
+
+  /** M5c: a fighting bot fires its squad active once a foe is close (missiles: in bow range). */
+  const useActive = (id: SquadId, bot: Bot, me: Centre, cs: Centre[], snap: Snapshot) => {
+    const a = snap.squads[id]?.active;
+    if (!a || a.ready > 0 || a.on > 0 || (bot.phase !== 'fight' && bot.phase !== 'suppress' && bot.phase !== 'walls' && bot.phase !== 'in')) return;
+    if (nearestEnemy(cs, me.team, me.x, me.y, a.skill === 'volley' ? ACTIVE_MISSILE : ACTIVE_MELEE) >= 0) sim.order({ kind: 'active', squad: id });
   };
 
   return {

@@ -1396,10 +1396,10 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       if (b.push >= 1) destroy(b);
       return (b.state as BuildState) === 'destroyed';
     },
-    /** W-35: a lit brazier of `team` within BRAZIER.radius of (x,y) at about height z (a level either way). */
-    litNear(team: number, x: number, y: number, z: number): boolean {
+    /** W-35: a lit brazier of `team` within r (default BRAZIER.radius) of (x,y) at about height z (a level either way). */
+    litNear(team: number, x: number, y: number, z: number, r = BRAZIER.radius): boolean {
       for (const b of braziers)
-        if (b.team === team && b.fuel > 0 && b.state !== 'destroyed' && Math.abs(grid.height[b.ti[0]] - z) <= 1 && (b.x - x) ** 2 + (b.y - y) ** 2 <= BRAZIER.radius ** 2) return true;
+        if (b.team === team && b.fuel > 0 && b.state !== 'destroyed' && Math.abs(grid.height[b.ti[0]] - z) <= 1 && (b.x - x) ** 2 + (b.y - y) ** 2 <= r * r) return true;
       return false;
     },
     /** W-35: pitch in `team`'s stockpile. */

@@ -32,8 +32,6 @@ export const COMBAT = {
   forestCover: 0.55,
   /** Hit chance falls by this share at full range. */
   falloff: 0.4,
-  /** Share of the fallen who are wounded (they heal later, M5); the rest are killed. */
-  woundedShare: 0.7,
 };
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
