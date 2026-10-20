@@ -22,6 +22,7 @@ import {
   loadTextures, extendPalette, footOf, CHAR, EMBER, DOORDARK, cylinder, cone, pyramid, gateBoxes, gradeC, ao, lightOf, SHADE, PAINT,
 } from './buildings.mjs';
 import { runLandmarksQa } from './qa.mjs';
+import { NEW, plPiece } from './landmarks-pl.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const OUT = join(ROOT, 'public/war/landmarks');
@@ -826,11 +827,14 @@ export const LANDMARKS = [
 function main() {
   loadTextures(); M = materials(); mkdirSync(OUT, { recursive: true });
   const sprites = [], pieces = [], t0 = Date.now();
-  for (const P of PIECES) {
+  // PixelLab architecture (landmarks-pl.mjs) in place of the box model where it has all four states; its new pieces
+  const pl = (P) => { const r = STATES.map((st) => plPiece(P.id, P.fp, st)); return r.every(Boolean) ? r : null; };
+  const all = [...PIECES.map((P) => [P, pl(P)]), ...NEW.map((P, i) => [{ ...P, k: 900 + i }, pl(P)]).filter(([, r]) => r)];
+  for (const [P, plr] of all) {
     const states = {};
-    for (const st of STATES) {
-      const r = renderPiece(P, st), sid = `${P.id}-${st}`, a = footOf(r.im), base = Math.min((P.fp[0] + P.fp[1]) * 16, r.im.h - 4);
-      sprites.push({ file: `${sid}.png`, im: r.im, meta: { id: sid, kind: P.kind, file: `${sid}.png`, w: r.im.w, h: r.im.h, metres: Math.max(0.05, +((r.im.h - base) / PPM).toFixed(2)), basePx: base, anchor: a, tileOrigin: r.tileOrigin, footprint: P.fp, blocksMovement: st !== 'ruined', building: P.id, state: st, material: P.material, burnable: !!P.burnable, source: 'renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles' } });
+    for (const [si, st] of STATES.entries()) {
+      const r = plr?.[si] ?? renderPiece(P, st), sid = `${P.id}-${st}`, a = footOf(r.im), base = Math.min((P.fp[0] + P.fp[1]) * 16, r.im.h - 4);
+      sprites.push({ file: `${sid}.png`, im: r.im, meta: { id: sid, kind: P.kind, file: `${sid}.png`, w: r.im.w, h: r.im.h, metres: Math.max(0.05, +((r.im.h - base) / PPM).toFixed(2)), basePx: base, anchor: a, tileOrigin: r.tileOrigin, footprint: P.fp, blocksMovement: st !== 'ruined', building: P.id, state: st, material: P.material, burnable: !!P.burnable, source: r.source ?? 'renderer (ART-L): box model + cyclopean / isodomic / ashlar / Lion Gate elevations, drawn roof tiles' } });
       states[st] = sid;
     }
     pieces.push({ id: P.id, landmark: P.landmark, kind: P.kind, footprint: P.fp, material: P.material, burnable: !!P.burnable, hp: P.hp, ...(P.hpNote && { hpNote: P.hpNote }), ...(P.axis && { axis: P.axis }), ...(P.segment && { segmentM: P.segment }), ...(P.platformM && { platformM: P.platformM, platformPx: Math.round(P.platformM * PPM) }), ...(P.platformCap && { platformCap: P.platformCap }), ...(P.riseM && { riseM: P.riseM }), ...(P.node && { node: P.node }), heightM: P.heightM, note: P.note, states });
@@ -840,7 +844,7 @@ function main() {
   for (const st of STATES) { const fr = labFrames(st), sheet = blank(LAB.w * 16, LAB.h); fr.forEach((im, i) => paste(sheet, im, i * LAB.w, 0)); const file = `navel-labyrinth-${st}.png`; sprites.push({ file, im: sheet, sheet: true }); labStates[st] = file; }
   kits.push({ id: 'navel-labyrinth', landmark: 'navel', kind: 'wall', material: 'stone', burnable: false, hp: 1500, hpNote: 'a tile', heightM: LAB.H, frames: 16, columns: 16, frame: { w: LAB.w, h: LAB.h }, tileOrigin: { x: LAB.w / 2, y: LAB.y0 }, note: 'the labyrinth: a 0.9 m thick, 3.4 m ashlar wall, frame = neighbour mask (+x 1, +y 2, -x 4, -y 8)', states: labStates });
   const G = JSON.parse(readFileSync(join(ROOT, 'public/war/tiles/tiles.json'))), GO = JSON.parse(readFileSync(join(ROOT, 'public/war/objects/objects.json')));
-  const pal = extendPalette([...G.palette, ...GO.palette], sprites.filter((s) => s.meta).map((s) => s.im), 64);
+  const pal = extendPalette([...G.palette, ...GO.palette], sprites.filter((s) => s.meta).map((s) => s.im), 96);
   for (const s of sprites) { if (!(s.im.w > 0 && s.im.h > 0) || s.im.data.length !== s.im.w * s.im.h * 4) { console.error('bad sprite', s.file, s.im.w, s.im.h, s.im.data.length); continue; } writeImage(join(OUT, s.file), snapToPalette(s.im, pal)); }
   const json = {
     pxPerMetre: PPM, tileMetres: 2, borderMax: 0.75, states: STATES,
