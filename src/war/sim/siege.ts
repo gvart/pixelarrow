@@ -29,6 +29,8 @@ import type { ResourceKind, ShotSnap, SiegeSnap, SiegeState, SiegeType } from '.
 import { FIRE, type Works } from './works';
 import type { Rng } from '../../sim/rng';
 import { RECIPES } from '../../data/recipes';
+import { loads, newHold, totals, type Hold } from './holders';
+import { CART, CART_LOADS, PACK_MULES } from './trade';
 
 const DT = 0.1;
 
@@ -45,7 +47,13 @@ export const SIEGE: Record<SiegeType, SiegeDef> = {
   coveredRam: { hp: 1400, ...design('covered_ram'), crew: 6, speed: 0.4 },
   oxybeles: { hp: 350, ...design('oxybeles'), crew: 2, speed: 0.5 },
   siegeTower: { hp: 2400, ...design('siege_tower'), crew: 8, speed: 0.2 },
+  // M6b carts (docs/WAR.md "Carts": x0.8 and x0.6 a man's 1.5 tiles/s): made at a workshop (recipes handcart, wagon)
+  handcart: { hp: 200, ...design('handcart'), crew: 2, speed: 1.2 },
+  wagon: { hp: 450, ...design('wagon'), crew: 1, speed: 0.9 },
 };
+/** M6b: a cart's armour (a blow on it as on a man of this armour). */
+export const CART_ARMOR: Partial<Record<SiegeType, number>> = { handcart: 2, wagon: 6 };
+export const isCartType = (t: SiegeType) => t === 'handcart' || t === 'wagon';
 export const RAM = { reach: 1.5, ticks: 30, dmg: 160, stone: 0.4, cover: 0.5 };
 export const THROWER = { min: 8, range: 36, reload: 120, deploy: 100, dmg: 220, speed: 10, acc: 0.65, scatter: 2.5, splash: 1.5, splashDmg: 40 };
 export const LADDER = { raise: 30, pushed: 0.25, fall: 0.6 }; // raise ticks; hp share the engine loses when pushed; climbers' fall (share of maxHp)
@@ -67,6 +75,8 @@ interface Engine {
   target: number; wall: [number, number] | null; ladder: number; cd: number; swingAt: number; prog: number; burn: number; kindle: number;
   /** M5h3: built on its team's stone tower platform. */
   tower: boolean;
+  /** M6b carts: the owning player, cargo, halted (a foe near) until this tick, capture progress (ticks) by team capT / owner capO. */
+  owner: string; hold: Hold | null; halt: number; cap: number; capT: number; capO: string;
 }
 
 interface Boulder { at: number; x: number; y: number; target: number; hit: boolean; dmg: number }
@@ -89,6 +99,18 @@ export interface SiegeHooks {
   pierce(team: number, x0: number, y0: number, x1: number, y1: number, w: number, dmg: number, ap: number, n: number): void;
   /** (x,y) is on a stone tower platform of `team`. */
   stoneTower(team: number, x: number, y: number): boolean;
+  /** M6b: a cart's path (ground rules: grid.cart) and its pace multiplier stepping from (x,y) along (dx,dy) (0: closed). */
+  cartPath?(team: number, x0: number, y0: number, x1: number, y1: number): number[];
+  cartCost?(x: number, y: number, dx: number, dy: number): number;
+  /** M6b: a living foe of `team` (not fauna) within r of (x,y). */
+  foeNear?(team: number, x: number, y: number, r: number): boolean;
+  /** M6b: who would take cart e now: the team and owner of a foe unit beside it with none of e's team within guard; null none. */
+  taker?(e: Readonly<Engine>): [number, string] | null;
+  /** M6b: cart e changed hands; e wrecked or burnt (its cargo to a pile). */
+  captured?(e: Readonly<Engine>, by: string): void;
+  wreck?(e: Readonly<Engine>, burnt: boolean): void;
+  /** M6b: the crew of e holds this merchant node (Pack Mules). */
+  crewNode?(crew: number, node: string): boolean;
 }
 
 export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
@@ -100,8 +122,12 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
   let mantlets = 0; // M5h3: mantlets built (cover() skips the scan without one)
 
   const alive = (e: Engine | undefined): e is Engine => !!e && e.state !== 'destroyed';
+  const cart = (e: Engine) => e.hold !== null;
+  let tickNow = 0;
+  /** M6b: loads a cart holds (a wagon whose crew holds Pack Mules: PACK_MULES). */
+  const cartCap = (e: Engine) => (e.type === 'wagon' && e.crew >= 0 && hooks.crewNode?.(e.crew, 'packMules') ? PACK_MULES : CART_LOADS[e.type as 'handcart' | 'wagon'] ?? 0);
   const built = (e: Engine | undefined): e is Engine => alive(e) && e.state !== 'building';
-  const crewHere = (e: Engine) => (e.crew >= 0 ? hooks.crewNear(e.crew, e.x, e.y, CREW_R) : 0);
+  const crewHere = (e: Engine) => (e.crew >= 0 ? hooks.crewNear(e.crew, e.x, e.y, e.type === 'wagon' ? CART.driver : CREW_R) : 0);
   const has = (team: number, node: string) => hooks.nodes(team).has(node);
   /** Crew it needs (Artillerist: a stone thrower one less). */
   const need = (e: Engine) => e.def.crew - (e.type === 'stoneThrower' && has(e.team, 'artillerist') ? 1 : 0);
@@ -120,8 +146,13 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     if (e.hp > 0) return;
     e.hp = 0;
     e.state = 'destroyed';
+    const burnt = e.burn > 0;
     e.burn = 0;
     e.mode = 'none';
+    if (e.hold) {
+      hooks.wreck?.(e, burnt); // M6c: its cargo to a pile
+      e.hold = newHold();
+    }
     if (e.type === 'siegeTower' && e.ladder >= 0) works.damage(e.ladder, Infinity); // its bridge goes with it
   };
 
@@ -139,17 +170,21 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     if (!e.path.length) {
       if (pathsLeft <= 0) return false;
       pathsLeft--;
-      e.path = hooks.path(e.team, e.x, e.y, e.goal[0], e.goal[1]);
+      e.path = cart(e) && hooks.cartPath ? hooks.cartPath(e.team, e.x, e.y, e.goal[0], e.goal[1]) : hooks.path(e.team, e.x, e.y, e.goal[0], e.goal[1]);
       e.pi = 1;
     }
-    if (n < need(e)) return false;
-    if (e.state === 'deployed') return false;
-    let budget = e.def.speed * DT;
+    // M6b: a handcart with one puller goes at half pace; a halted cart waits
+    const lone = e.type === 'handcart' && n === 1;
+    if (n < need(e) && !lone) return false;
+    if (e.state === 'deployed' || (cart(e) && e.halt > tickNow)) return false;
+    let budget = e.def.speed * DT * (lone ? 0.5 : 1);
     while (budget > 0 && e.pi < e.path.length / 2) {
       const tx = e.path[e.pi * 2], ty = e.path[e.pi * 2 + 1];
       const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
       if (d > 1e-6) e.facing = Math.atan2(dy, dx);
-      const step = budget / Math.max(0.5, hooks.cost(e.x + (dx / (d || 1)) * 0.5, e.y + (dy / (d || 1)) * 0.5));
+      const k = cart(e) && hooks.cartCost ? hooks.cartCost(e.x, e.y, dx / (d || 1), dy / (d || 1)) : 0;
+      if (cart(e) && k <= 0) break; // the ground ahead is closed to carts
+      const step = budget / (cart(e) ? k : Math.max(0.5, hooks.cost(e.x + (dx / (d || 1)) * 0.5, e.y + (dy / (d || 1)) * 0.5)));
       if (step >= d) {
         e.x = tx;
         e.y = ty;
@@ -299,14 +334,29 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
       const def = SIEGE[type];
       if (def.node && !has(team, def.node)) return -1; // M5h3: no engineer with the design
       const tower = (type === 'oxybeles' || type === 'stoneThrower') && has(team, 'archimedes') && hooks.stoneTower(team, x, y);
-      if ((!tower && !hooks.open(x, y)) || !works.takeStock(team, def.cost)) return -1;
+      if ((!tower && !hooks.open(x, y)) || !works.takeAt(team, x, y, def.cost)) return -1;
       engines.push({
         id: engines.length, type, def, team, x, y, facing: 0, hp: def.hp * 0.1, maxHp: def.hp, state: 'building', labour: 0, crew: -1,
         mode: 'none', goal: null, path: [], pi: 0, target: -1, wall: null, ladder: -1, cd: 0, swingAt: -1, prog: 0, burn: 0, kindle: 0, tower,
+        owner: '', hold: null, halt: 0, cap: 0, capT: -1, capO: '',
       });
       if (type === 'mantlet') mantlets++;
       return engines.length - 1;
     },
+    /** M6b: a finished cart of `owner` (team `team`) at (x,y), empty and idle; its id. */
+    cart(team: number, owner: string, type: SiegeType, x: number, y: number): number {
+      const def = SIEGE[type];
+      engines.push({
+        id: engines.length, type, def, team, x, y, facing: 0, hp: def.hp, maxHp: def.hp, state: 'idle', labour: def.labour, crew: -1,
+        mode: 'none', goal: null, path: [], pi: 0, target: -1, wall: null, ladder: -1, cd: 0, swingAt: -1, prog: 0, burn: 0, kindle: 0, tower: false,
+        owner, hold: newHold(), halt: 0, cap: 0, capT: -1, capO: '',
+      });
+      return engines.length - 1;
+    },
+    /** M6b: living carts (of `owner`, or of team `team`). */
+    carts: (o: { owner?: string; team?: number }) => engines.filter((e) => cart(e) && alive(e) && (o.owner === undefined || e.owner === o.owner) && (o.team === undefined || e.team === o.team)).length,
+    isCart: (id: number) => !!engines[id] && cart(engines[id]),
+    cartCap: (id: number) => (engines[id] ? cartCap(engines[id]) : 0),
     /** dt worker-seconds of labour on engine id; false when it is not being built (done or gone). */
     labour(id: number, dt: number): boolean {
       const e = engines[id];
@@ -428,8 +478,27 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
     /** Per tick, after the units moved. */
     tick(tick: number) {
       pathsLeft = 2;
+      tickNow = tick;
       for (const e of engines) {
         if (!alive(e)) continue;
+        if (cart(e) && tick % 5 === 0) {
+          // M6b: halt while a foe is near; taken by a foe beside it with none of its team near
+          if (hooks.foeNear?.(e.team, e.x, e.y, CART.halt)) e.halt = tick + CART.resume;
+          const by = hooks.taker?.(e);
+          if (by && by[0] === e.capT && by[1] === e.capO) e.cap += 5;
+          else (e.cap = by ? 5 : 0), (e.capT = by ? by[0] : -1), (e.capO = by ? by[1] : '');
+          if (by && e.cap >= CART.capture) {
+            e.team = by[0];
+            e.owner = by[1];
+            e.crew = -1;
+            e.mode = 'none';
+            e.goal = null;
+            e.cap = 0;
+            e.capT = -1;
+            e.halt = 0;
+            hooks.captured?.(e, by[1]);
+          }
+        }
         if (e.burn > 0) {
           e.burn = Math.min(1, e.burn + FIRE.grow * DT);
           damage(e, (e.burn * e.maxHp * DT * fireK(e)) / ENGINE_FIRE_LIFE);
@@ -491,6 +560,7 @@ export function createSiege(works: Works, rng: Rng, hooks: SiegeHooks) {
         ...(e.target >= 0 && (e.mode === 'attack' || e.state === 'raised') ? { target: e.target } : {}),
         ...(e.burn > 0 ? { burning: e.burn } : {}),
         ...(e.ladder >= 0 ? { ladder: e.ladder } : {}),
+        ...(e.hold ? { owner: e.owner, cargo: totals(e.hold), items: e.hold.items.length, loads: loads(e.hold), cap: cartCap(e), ...(e.halt > tick ? { halted: true as const } : {}), ...(e.cap > 0 ? { capture: Math.min(1, e.cap / CART.capture) } : {}) } : {}),
       })),
   };
 }

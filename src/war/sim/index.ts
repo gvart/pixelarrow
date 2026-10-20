@@ -41,7 +41,7 @@
  */
 import { Rng } from '../../sim/rng';
 import type { BuildingType, FightReport, Order, PersonResult, RegionData, ResourceKind, ShotSnap, Snapshot, SquadId, SquadSnap, UnitSnap, WarBuildSim, WarEvent, WarPerson, WarSkillId } from '../types';
-import { RARITIES, salvageValue, type Item } from '../../data/items';
+import { salvageValue, type Item } from '../../data/items';
 import { warStats, warStatsOf, type WarStats } from './classes';
 import { afterArmour, blockChance, COMBAT, heightRange, hitChance, meleeHeight, missileHeight } from './combat';
 import { formationOffsets, type Shape } from './formation';
@@ -51,9 +51,9 @@ import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
 import { createVision } from './vision';
-import { CAPTURE_R, DETACH_MIN, DROP, gainXp, SQUAD_MAX, XP } from './soldiers';
+import { CAPTURE_R, DETACH_MIN, gainXp, SQUAD_MAX, XP } from './soldiers';
 import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
-import { AT_BUILDING, CIV, CIV_QUOTA, CIV_XP, civJob, CLIP, COOK, ENGINEER, FORAGER, MERCHANT, PHYSICIAN, SMITH, wornest, type CivJob } from './civilians';
+import { AT_BUILDING, CIV, CIV_QUOTA, CIV_XP, civJob, CLIP, COOK, ENGINEER, FORAGER, PHYSICIAN, SMITH, wornest, type CivJob } from './civilians';
 import { isCivClass } from '../../data/classes';
 import { heldNodes } from '../../data/professions';
 import { toolMods, type Product } from '../../data/recipes';
@@ -61,7 +61,13 @@ import { createCrafting, fedOf, type Crafter } from './crafting';
 import { fallShare, FORAGE, HUNT, REMEDY, VENOM } from './civilians';
 import { mobKindOf, MOBS } from './mobs';
 import { decodeGraph, encodeGraph, externals, STATE_VERSION, type SimState } from './state';
-import { SIEGE } from './siege';
+import { CART_ARMOR, isCartType, SIEGE } from './siege';
+import { CARRY as CARRY_N, CHEST } from './economy';
+import { CART_FORD, CART_UPHILL } from './grid';
+import { loads, move as moveHold, newHold, totals, type Hold, type Lot } from './holders';
+import { CART, createPiles, ESCORT, inRect, PILE, PORTER, SAFE } from './trade';
+import { CRAFT, itemRecipe } from './crafting';
+import type { HolderRef } from '../types';
 
 /** Save and restore: the constants a sim's state points at (named, not copied) and a fresh sim's root per region (typed-array diffs). */
 const exts = new WeakMap<RegionData, Map<object, string>>();
@@ -182,10 +188,16 @@ interface Unit extends Worker {
   venom: boolean;
   beast: boolean;
   fieldR: number;
+  // M6: his pack (a porter's load, null empty so far); combat tag (no safe-zone entry) until this tick; ticks inside a safe zone
+  pack: Hold | null;
+  tag: number;
+  safeT: number;
 }
 
-/** M5d: the gear of a dead man (team: his), lying until tick `until`. */
-interface Drop { id: number; x: number; y: number; team: number; items: Item[]; until: number }
+/** M6 load / unload under way: the holder, which way, the good and how many goods are still wanted. */
+interface Xfer { ref: HolderRef; dir: 'load' | 'unload'; res?: ResourceKind; n: number }
+/** A holder as the trade orders see it. */
+interface HolderAt { hold: Hold; x: number; y: number; kind: 'store' | 'chest' | 'cart' | 'pile'; team: number; owner: string; cap: number; id: number }
 
 /** A task order (M2c): the target building b or engine e (-1 none). */
 interface Task { kind: 'ignite' | 'extinguish' | 'pushLadder' | 'attackBuilding' | 'buildSiege'; b: number; e: number }
@@ -250,11 +262,16 @@ interface Squad {
   dish: Product | null;
   bandages: number;
   theriacUntil: number;
+  // M6: a load / unload under way; the cart it escorts (-1 none); a man of it carries a load; a pile item a smith breaks up
+  xfer: Xfer | null;
+  escort: number;
+  laden: boolean;
+  salv: { pile: number; uid: string; t: number } | null;
 }
 /** M5f: the orders a civilian squad takes (work orders only). */
-const CIV_ORDERS = new Set<Order['kind']>(['move', 'hold', 'stop', 'formation', 'gather', 'build', 'civWork', 'detach', 'merge', 'stopWork', 'placeBuilding', 'placeWall', 'placeBridge', 'upgrade', 'buildSiege']);
+const CIV_ORDERS = new Set<Order['kind']>(['move', 'hold', 'stop', 'formation', 'gather', 'build', 'civWork', 'detach', 'merge', 'stopWork', 'placeBuilding', 'placeWall', 'placeBridge', 'upgrade', 'buildSiege', 'load', 'unload', 'salvagePile', 'crew', 'uncrew']);
 /** M5f: seconds of work per batch, by job at a building. */
-const BATCH: Partial<Record<CivJob, number>> = { cook: COOK.batch, smith: SMITH.batch, merchant: MERCHANT.batch, physician: 1 };
+const BATCH: Partial<Record<CivJob, number>> = { cook: COOK.batch, smith: SMITH.batch, physician: 1 };
 /** M5f: HP a physician heals for one job's XP. */
 const PATIENT_HP = 50;
 
@@ -282,10 +299,18 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const reslotQueue = new Set<Squad>();
   let tick = 0;
   let stepMs = 0;
-  // M5d: gear on the field, gear picked up per team since the last report, the event log
-  let drops: Drop[] = [];
-  let dropId = 0;
+  // M6c: loot piles; items picked up per team since the last report; the event log
+  const piles = createPiles(region);
   let loot: Record<number, Item[]> = {};
+  // M6d: safe-zone tiles (1 inside a region `safe` rect)
+  const safeMask = new Uint8Array(grid.w * grid.h);
+  for (const r of region.safe ?? []) for (let y = Math.max(0, r.y); y < Math.min(grid.h, r.y + r.h); y++) for (let x = Math.max(0, r.x); x < Math.min(grid.w, r.x + r.w); x++) safeMask[y * grid.w + x] = 1;
+  const anySafe = !!region.safe?.length;
+  const inSafe = (x: number, y: number) => {
+    if (!anySafe) return false;
+    const t = tileAt(grid, x, y);
+    return t >= 0 && safeMask[t] === 1;
+  };
   let log: WarEvent[] = [];
   const LOG_MAX = 5000;
   const note = (e: WarEvent) => {
@@ -340,6 +365,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         hurt(u, grid.cost[t] === 0 ? Infinity : u.maxHp * FALL);
       }
     },
+    // M6c: a store or chest that falls leaves its contents in a pile
+    { spill: (x, y, h, burnt) => void piles.drop(x, y, h.lots, h.items, tick, burnt ? PILE.spoil : 0) },
   );
 
   /** M5h3: engineer nodes held by the living engineers of each team (once a tick). */
@@ -424,10 +451,69 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const b = t >= 0 && grid.deck[t] === DECK ? works.piece(grid.plat[t]) : undefined;
       return !!b && b.type === 'stoneTower' && b.team === team && (b.state === 'done' || b.state === 'damaged');
     },
+    // M6b carts
+    cartPath(team, x0, y0, x1, y1) {
+      grid.team = team;
+      grid.engine = grid.cart = true;
+      const p = cornerPath(x0, y0, x1, y1);
+      grid.engine = grid.cart = false;
+      return p;
+    },
+    cartCost(x, y, dx, dy) {
+      const a = tileAt(grid, x, y), b = tileAt(grid, x + dx * 0.5, y + dy * 0.5);
+      if (b < 0) return 0;
+      if (a !== b) {
+        grid.cart = grid.engine = true;
+        const ok = a < 0 || canEnter(grid, a, b);
+        grid.cart = grid.engine = false;
+        if (!ok) return 0;
+      }
+      const k = grid.cartMul[b] > 0 ? grid.cartMul[b] : CART_FORD;
+      return a >= 0 && grid.height[b] > grid.height[a] ? k * CART_UPHILL : k;
+    },
+    foeNear(team, x, y, r) {
+      for (const u of units) if (u.alive && u.squad.team !== team && u.squad.team !== MOB_TEAM && !u.civ && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r) return true;
+      return false;
+    },
+    taker(e) {
+      if (inSafe(e.x, e.y)) return null; // M6d: no capture in a safe zone
+      let by: Unit | null = null;
+      for (const u of units) {
+        if (!u.alive || u.squad.team === MOB_TEAM) continue;
+        const d = (u.x - e.x) ** 2 + (u.y - e.y) ** 2;
+        if (u.squad.team === e.team && d <= CART.guard * CART.guard) return null;
+        if (u.squad.team !== e.team && d <= CART.beside * CART.beside && (!by || u.id < by.id)) by = u;
+      }
+      return by ? [by.squad.team, by.squad.owner] : null;
+    },
+    captured(e, by) {
+      note({ t: tick, kind: 'cartCaptured', cart: e.id, team: e.team, owner: by });
+      // CART.captureXp to the taking squad (the nearest of its owner)
+      let best: Squad | null = null;
+      for (const q of squads) if (q.owner === by && q.alive > 0 && (!best || dist2(q, { cx: e.x, cy: e.y }) < dist2(best, { cx: e.x, cy: e.y }))) best = q;
+      if (best) for (const u of best.units) if (u.alive) u.obj += CART.captureXp;
+      for (const q of squads) if (q.escort === e.id && q.team !== e.team) (q.escort = -1), (q.order = 'hold');
+    },
+    wreck: (e, burnt) => void piles.drop(e.x, e.y, e.hold!.lots, e.hold!.items, tick, burnt ? PILE.spoil : 0),
+    crewNode(crew, node) {
+      for (const u of squads[crew]?.units ?? []) if (u.alive && u.civ === 'merchant' && heldNodes('merchant', u.person?.hero.perks).has(node)) return true;
+      return false;
+    },
   });
 
   // M5h: crafting queues of the workplaces (./crafting.ts), run on the civilian loop
-  const crafting = createCrafting({ seed, takeStock: works.takeStock, addStock: works.addStock, emit: note });
+  const crafting = createCrafting({
+    seed, takeAt: works.takeAt, addAt: works.addAt, emit: note,
+    // M6b: a cart rolls out in front of the workshop for the crafter's player, within his cap and the civilian quota
+    cart(b, owner, type, check) {
+      if (!isCartType(type as never) || siege.carts({ owner }) >= cartCapOf(owner) || civRoom(b.team) <= 0) return false;
+      if (check) return true;
+      const p = works.ringPoints(b.id, 1, b.x, b.y + 10);
+      const [x, y] = p.length ? [p[0], p[1]] : openPoint(b.x, b.y + 3);
+      siege.cart(b.team, owner, type as never, x, y);
+      return true;
+    },
+  });
   const mobs = createMobs(region, {
     squads,
     spawn: (kind, count, x, y) => api.spawnSquad(MOB_OWNER, MOB_TEAM, mobClass(kind), count, x, y),
@@ -613,6 +699,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.actReady = tick + activeCooldown(s.actWil);
       return;
     }
+    // M6d: no attack, fire or capture on what stands in a safe zone
+    if (o.kind === 'attack' && squads[o.target] && inSafe(squads[o.target].cx, squads[o.target].cy)) return;
+    if ((o.kind === 'attackBuilding' || o.kind === 'ignite') && (o.building !== undefined ? safeBuilding(o.building) : o.siege !== undefined && !!siege.get(o.siege) && inSafe(siege.get(o.siege)!.x, siege.get(o.siege)!.y))) return;
+    if (o.kind === 'load' || o.kind === 'unload' || o.kind === 'escort' || o.kind === 'salvagePile') return tradeOrder(s, o);
+    if (o.kind !== 'formation' && o.kind !== 'detach') (s.xfer = null), (s.escort = -1), (s.salv = null);
     if (s.siege >= 0 && siege.get(s.siege)?.crew !== s.id) (s.siege = -1), (s.fixed = null); // its ladder or tower went up: the crew is free
     if (s.siege >= 0 && (o.kind === 'move' || o.kind === 'hold' || o.kind === 'stop' || o.kind === 'attackMove' || o.kind === 'attackBuilding' || o.kind === 'deploy' || o.kind === 'raiseLadder')) {
       // the crew drives its engine (an attack-move rolls it like a move, stop holds it)
@@ -641,6 +732,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       s.claimPt = -1;
     }
     if (o.kind === 'claimRegion') {
+      const cp = region.claimPoints?.[o.point];
+      if (cp && inSafe(cp.x, cp.y)) return; // M6d: no claim in a safe zone
       if (!mobs.startClaim(s.id, o.point)) return;
       if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
       const c = mobs.claimPoint(o.point);
@@ -655,7 +748,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       return;
     }
     if (o.kind === 'crew') {
-      if (!siege.crew(o.siege, s.id, s.team)) return;
+      if ((s.civ && !siege.isCart(o.siege)) || (siege.isCart(o.siege) && siege.get(o.siege)!.owner !== s.owner) || !siege.crew(o.siege, s.id, s.team)) return; // M6b: civilians pull only carts, a player only his own
       if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
       s.siege = o.siege;
       s.order = 'crew';
@@ -757,7 +850,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     }
     if (o.kind === 'placeBuilding' || o.kind === 'placeWall' || o.kind === 'placeBridge' || o.kind === 'build' || o.kind === 'gather') {
       const sites =
-        o.kind === 'placeBuilding' ? [works.place(s.team, o.type, o.x, o.y, o.rot ?? 0)].filter((id) => id >= 0)
+        o.kind === 'placeBuilding' ? [works.place(s.team, o.type, o.x, o.y, o.rot ?? 0, s.owner)].filter((id) => id >= 0)
         : o.kind === 'placeWall' ? works.placeWall(s.team, o)
         : o.kind === 'placeBridge' ? works.placeBridge(s.team, o)
         : o.kind === 'build' ? (works.siteOk(o.site, s.team) ? [o.site] : [])
@@ -889,8 +982,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.cd = u.st.atkTicks;
       u.swingAt = tick;
       const dmg = u.st.dmg * BUILDING_MELEE * (1 + (u.st.breach ?? 0)); // M5h Breaching
+      const ca = k.e >= 0 ? CART_ARMOR[e!.type] : undefined; // M6b: a cart takes a blow like a man of its armour
       if (k.b >= 0) hitBuilding(s, k.b, dmg);
-      else siege.damage(k.e, dmg);
+      else siege.damage(k.e, ca !== undefined ? afterArmour(u.st.dmg, ca, 0) : dmg);
     } else if (k.kind === 'buildSiege') {
       if (siege.labour(k.e, DT * (u.brate ?? 1))) u.working = true;
     } else if (k.kind === 'ignite') {
@@ -1159,7 +1253,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       n++;
     }
     lag = n ? lag / n : 0;
-    let budget = SPEED * s.speed * (s.flee ? CIV.fleeSpeed : 1) * DT * Math.min(1, Math.max(0.25, 1.25 - lag / 6));
+    let budget = SPEED * s.speed * (s.flee ? CIV.fleeSpeed : 1) * (s.laden ? PORTER.slow : 1) * DT * Math.min(1, Math.max(0.25, 1.25 - lag / 6));
     while (budget > 0 && s.pi < s.path.length / 2) {
       const tx = s.path[s.pi * 2];
       const ty = s.path[s.pi * 2 + 1];
@@ -1247,6 +1341,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const t = tileAt(grid, x, y);
       if (t === from) return true;
       if (t < 0 || !canEnter(grid, from, t)) return false;
+      if (anySafe && safeMask[t] && !safeMask[from] && !safeEntry(u)) return false; // M6d: the gate refuses him
       const p = grid.plat[t];
       return p < 0 || p === pf || (platLoad.get(p) ?? 0) < works.platCap(p);
     };
@@ -1266,6 +1361,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const working = (u: Unit) => u.squad.order === 'gather' || u.squad.order === 'build';
 
   const hurt = (t: Unit, dmg: number, by?: Unit) => {
+    if (anySafe && inSafe(t.x, t.y) && dmg !== Infinity) return; // M6d: no combat in a safe zone (a bridge fall aside)
+    if (by) by.tag = t.tag = tick + SAFE.tag; // M6d: combat tag
     const d = dmg * (working(t) ? WORK_DEFENCE : 1) * (t.squad.fedUntil > tick ? t.squad.fedInn : 1); // M5f: a fed squad takes less
     if (by?.venom && t.squad.theriacUntil <= tick) t.venomUntil = tick + VENOM.ticks; // M5h: a venomous bite
     if (by) {
@@ -1288,9 +1385,22 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     reslotQueue.add(t.squad);
     if (by) by.kills++;
     note({ t: tick, kind: 'fall', unit: t.id, by: by?.id ?? -1, wounded: t.wounded });
-    // the dead drop their gear
-    const items = !t.wounded && t.person ? (Object.values(t.person.hero.equip).filter(Boolean) as Item[]) : [];
-    if (items.length) drops.push({ id: dropId++, x: t.x, y: t.y, team: t.squad.team, items, until: tick + DROP.ticks });
+    // M6c (docs/WAR.md "Loot piles"): what he carried goes to a pile; the killed leave their worn kit too, worn by PILE.wear
+    const lots: Lot[] = t.pack ? t.pack.lots.filter((l) => l.n > 1e-9) : [];
+    if (t.carry && t.load > 0 && t.wfor < 0) lots.push({ r: t.carry, n: t.load, o: region.id });
+    const items = t.pack ? t.pack.items.slice() : [];
+    if (!t.wounded && t.person) {
+      for (const it of Object.values(t.person.hero.equip)) if (it) items.push({ ...it, cond: Math.max(0, it.cond - PILE.wear) });
+      t.person = { ...t.person, hero: { ...t.person.hero, equip: {} } };
+    }
+    if (t.carry && t.wfor < 0) (t.carry = null), (t.load = 0);
+    t.pack = null;
+    piles.drop(t.x, t.y, lots, items, tick);
+  };
+  /** M6d: a building of the region stands in a safe zone. */
+  const safeBuilding = (id: number) => {
+    const b = works.piece(id);
+    return !!b && anySafe && inSafe(b.x, b.y);
   };
 
   /** M5h Hunter: a beast killed within HUNT.r of a hunter forager brings his team HUNT.hides. */
@@ -1300,7 +1410,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const team = c.squad.team;
       if (!c.alive || c.civ !== 'forager' || got.has(team) || !heldNodes('forager', c.person?.hero.perks).has('hunter') || (c.x - t.x) ** 2 + (c.y - t.y) ** 2 > HUNT.r * HUNT.r) continue;
       got.add(team);
-      works.addStock(team, 'hides', HUNT.hides);
+      works.addAt(team, c.x, c.y, 'hides', HUNT.hides);
     }
   };
 
@@ -1316,24 +1426,242 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (was !== undefined && was !== 'destroyed' && works.piece(b)?.state === 'destroyed') objective(s, 'building');
   };
 
-  /** M5d: men of another team (not fauna, not fighting) standing on a drop pick it up; drops left too long are gone. */
-  const pickUp = () => {
-    drops = drops.filter((d) => {
-      if (tick >= d.until) return false;
-      const cx = Math.floor(d.x), cy = Math.floor(d.y);
-      for (let yy = Math.max(0, cy - 1); yy <= Math.min(grid.h - 1, cy + 1); yy++)
-        for (let xx = Math.max(0, cx - 1); xx <= Math.min(grid.w - 1, cx + 1); xx++)
-          for (let j = head[yy * grid.w + xx]; j !== -1; j = next[j]) {
-            const u = units[j];
-            const team = u.squad.team;
-            if (!u.alive || team === d.team || team === MOB_TEAM || u.fighting || (u.x - d.x) ** 2 + (u.y - d.y) ** 2 > DROP.pick * DROP.pick) continue;
-            const got = (loot[team] ??= []);
-            for (const it of d.items) got.push(RARITIES.indexOf(it.rarity) >= 2 ? { ...it, cond: Math.min(it.cond, DROP.rareCond) } : { ...it });
-            note({ t: tick, kind: 'pickup', drop: d.id, team, items: d.items.length });
-            return false;
+  // --- M6 trade (./trade.ts): holders, porters, carts, escorts, piles, safe zones ---
+  /** Most carts a player has out (Emporos: one more). */
+  const cartCapOf = (owner: string) => {
+    for (const u of civs) if (u.alive && u.civ === 'merchant' && u.squad.owner === owner && heldNodes('merchant', u.person?.hero.perks).has('emporos')) return CART.emporos;
+    return CART.cap;
+  };
+  const holderAt = (ref: HolderRef): HolderAt | null => {
+    if (ref.building !== undefined) {
+      const b = works.piece(ref.building), hd = works.holdOf(ref.building);
+      return b && hd ? { hold: hd, x: b.x, y: b.y, kind: b.def.chest ? 'chest' : 'store', team: b.team, owner: b.owner, cap: b.def.chest ?? Infinity, id: b.id } : null;
+    }
+    if (ref.cart !== undefined) {
+      const e = siege.get(ref.cart);
+      return e && e.hold && e.state !== 'destroyed' ? { hold: e.hold, x: e.x, y: e.y, kind: 'cart', team: e.team, owner: e.owner, cap: siege.cartCap(e.id), id: e.id } : null;
+    }
+    if (ref.pile !== undefined) {
+      const p = piles.get(ref.pile);
+      return p ? { hold: p.hold, x: p.x, y: p.y, kind: 'pile', team: -1, owner: '', cap: 0, id: p.id } : null;
+    }
+    return null;
+  };
+  /** (x,y) within r of the holder (a building: of its footprint). */
+  const byHolder = (h: HolderAt, x: number, y: number, r: number) => (h.kind === 'store' || h.kind === 'chest' ? works.dist2(h.id, x, y) <= r * r : (h.x - x) ** 2 + (h.y - y) ** 2 <= r * r);
+  const unitNear = (pred: (u: Unit) => boolean, x: number, y: number, r: number) => units.some((u) => u.alive && pred(u) && (u.x - x) ** 2 + (u.y - y) ** 2 <= r * r);
+  /** May squad s take from h? A pile: anyone; his cart, his chest, his team's store; looting: see TradeOrder. In a safe zone only his own. */
+  const mayTake = (s: Squad, h: HolderAt): boolean => {
+    if (h.kind === 'pile') return true;
+    if (h.kind === 'cart') return h.owner === s.owner;
+    const own = h.kind === 'chest' ? h.owner === s.owner : h.team === s.team;
+    if (own) return true;
+    if (inSafe(h.x, h.y) || h.team === s.team) return false;
+    if (h.kind === 'chest') return !unitNear((u) => u.squad.owner === h.owner, h.x, h.y, CHEST.guard);
+    return works.storeNet(h.id) < 0 && !unitNear((u) => u.squad.team === h.team, h.x, h.y, CHEST.guard);
+  };
+  const mayPut = (s: Squad, h: HolderAt) => (h.kind === 'store' ? h.team === s.team : h.kind !== 'pile' && h.owner === s.owner);
+  /** What a take from h draws: an own store also opens the home strongroom. */
+  const takeHolds = (s: Squad, h: HolderAt): Hold[] => (h.kind === 'store' && h.team === s.team ? [h.hold, works.reserveOf(h.team)] : [h.hold]);
+  const crewCart = (s: Squad) => (s.siege >= 0 && siege.isCart(s.siege) && siege.get(s.siege)!.crew === s.id ? s.siege : -1);
+
+  /** M6: a load, unload, escort or salvagePile order. */
+  const tradeOrder = (s: Squad, o: Extract<Order, { kind: 'load' | 'unload' | 'escort' | 'salvagePile' }>) => {
+    const stopWork = () => {
+      if (s.order === 'gather' || s.order === 'build') for (const u of s.units) works.setJob(u, null);
+      s.task = null;
+      s.claimPt = -1;
+      s.xfer = null;
+      s.escort = -1;
+      s.salv = null;
+    };
+    if (o.kind === 'escort') {
+      const e = siege.get(o.cart);
+      if (s.civ || !e || !siege.isCart(o.cart) || e.state === 'destroyed' || e.team !== s.team) return;
+      stopWork();
+      if (s.siege >= 0) uncrew(s);
+      s.escort = o.cart;
+      s.order = 'escort';
+      s.target = -1;
+      s.fixed = null;
+      requestPath(s, e.x, e.y);
+      return;
+    }
+    if (o.kind === 'salvagePile') {
+      const p = piles.get(o.pile);
+      if (!p || !p.hold.items.some((it) => it.uid === o.uid) || !s.units.some((u) => u.alive && u.civ === 'smith')) return;
+      stopWork();
+      if (s.siege >= 0) uncrew(s);
+      s.salv = { pile: o.pile, uid: o.uid, t: 0 };
+      s.order = 'salvagePile';
+      s.fixed = null;
+      requestPath(s, p.x, p.y);
+      return;
+    }
+    const ref = o.kind === 'load' ? o.from : o.to, h = holderAt(ref);
+    if (!h || (o.kind === 'load' ? !mayTake(s, h) : !mayPut(s, h))) return;
+    stopWork();
+    s.xfer = { ref, dir: o.kind, ...(o.res ? { res: o.res } : {}), n: o.kind === 'load' ? o.n ?? Infinity : Infinity };
+    s.order = o.kind;
+    const c = crewCart(s);
+    if (c >= 0) {
+      siege.move(c, h.x, h.y); // the cart rolls up to it; the crew stays with the cart
+      return;
+    }
+    if (s.siege >= 0) uncrew(s);
+    const pts = h.kind === 'store' || h.kind === 'chest' ? works.ringPoints(h.id, Math.max(1, s.alive), s.cx, s.cy) : [];
+    s.fixed = pts.length ? pts : null;
+    if (pts.length) requestPath(s, pts[0], pts[1]);
+    else requestPath(s, h.x, h.y);
+  };
+
+  /** Every tick: loads move, one a man (or a crew man at a cart) every PORTER.every ticks; done, the squad holds. */
+  const tradeTick = () => {
+    for (const s of squads) {
+      if (s.alive === 0) continue;
+      s.laden = s.units.some((u) => u.alive && !!u.pack && loads(u.pack) > 1e-9);
+      if (s.salv) salvTick(s);
+      if (!s.xfer || (tick + s.id) % PORTER.every) continue;
+      const x = s.xfer, h = holderAt(x.ref), load = x.dir === 'load';
+      const end = () => {
+        s.xfer = null;
+        s.order = 'hold';
+      };
+      if (!h || (load ? !mayTake(s, h) : !mayPut(s, h))) {
+        end();
+        continue;
+      }
+      const pile = h.kind === 'pile', c = crewCart(s);
+      if (c >= 0) {
+        const e = siege.get(c)!;
+        if (!byHolder(h, e.x, e.y, CART.reach)) {
+          if (e.mode === 'none') siege.move(c, h.x, h.y);
+          continue;
+        }
+        let n = 0;
+        for (const u of s.units) if (u.alive && (u.x - e.x) ** 2 + (u.y - e.y) ** 2 <= 9) n++;
+        const room = load ? siege.cartCap(c) - loads(e.hold!) : h.cap - loads(h.hold);
+        const amt = Math.min(Math.max(1, n) * PORTER.loads, room, x.n / CARRY_N);
+        let moved = 0;
+        if (load) for (const src of takeHolds(s, h)) moved += moveHold(src, e.hold!, amt - moved, x.res, pile ? 1 : Infinity);
+        else moved = moveHold(e.hold!, h.hold, amt, x.res);
+        x.n -= moved * CARRY_N;
+        if (moved <= 1e-9) end();
+        continue;
+      }
+      let pending = false, moved = 0;
+      for (const u of s.units) {
+        if (!u.alive) continue;
+        if (!byHolder(h, u.x, u.y, PILE.reach + 0.5)) {
+          pending = true;
+          continue;
+        }
+        const pack = (u.pack ??= newHold());
+        if (load) {
+          const amt = Math.min(PORTER.loads - loads(pack), x.n / CARRY_N);
+          let m = 0;
+          const was = pack.items.length;
+          for (const src of takeHolds(s, h)) m += moveHold(src, pack, amt - m, x.res, pile ? 1 : Infinity);
+          if (pile && pack.items.length > was) {
+            const got = (loot[s.team] ??= []);
+            for (const it of pack.items.slice(was)) got.push({ ...it });
+            note({ t: tick, kind: 'pickup', drop: h.id, team: s.team, items: pack.items.length - was });
           }
-      return true;
+          x.n -= m * CARRY_N;
+          moved += m;
+        } else moved += moveHold(pack, h.hold, Math.min(loads(pack), h.cap - loads(h.hold)), x.res);
+      }
+      if (!pending && moved <= 1e-9) end();
+    }
+  };
+
+  /** M6c: a smith squad beside its pile breaks the item up after PILE.salvage ticks: CRAFT.salvage of its recipe's goods into the pile. */
+  const salvTick = (s: Squad) => {
+    const v = s.salv!, p = piles.get(v.pile), i = p ? p.hold.items.findIndex((it) => it.uid === v.uid) : -1;
+    if (!p || i < 0) return void ((s.salv = null), (s.order = 'hold'));
+    if (!s.units.some((u) => u.alive && u.civ === 'smith' && (u.x - p.x) ** 2 + (u.y - p.y) ** 2 <= (PILE.reach + 0.5) ** 2)) return;
+    p.salv = ++v.t;
+    if (v.t < PILE.salvage) return;
+    const [it] = p.hold.items.splice(i, 1), r = itemRecipe(it.def);
+    // at least one of its main material (a small item would round to nothing)
+    (Object.entries(r?.inputs ?? {}) as [ResourceKind, number][]).forEach(([k, n], j) => {
+      const got = Math.max(j === 0 ? 1 : 0, Math.round(n * CRAFT.salvage));
+      if (got > 0) p.hold.lots.push({ r: k, n: got, o: region.id });
     });
+    p.salv = 0;
+    p.until = Math.max(p.until, tick + 1);
+    s.salv = null;
+    s.order = 'hold';
+  };
+
+  /** M6b escort, every tick: round the cart; foes within ESCORT.engage of it are taken on, chased no further than ESCORT.leash. */
+  const escortTick = (s: Squad) => {
+    const e = siege.get(s.escort);
+    if (!e || e.state === 'destroyed' || e.team !== s.team) {
+      s.escort = -1;
+      s.order = 'hold';
+      return;
+    }
+    const far = (s.cx - e.x) ** 2 + (s.cy - e.y) ** 2;
+    if (s.target >= 0) {
+      const t = squads[s.target];
+      if (t.alive === 0 || far > ESCORT.leash * ESCORT.leash || (t.cx - e.x) ** 2 + (t.cy - e.y) ** 2 > ESCORT.leash * ESCORT.leash) s.target = -1;
+      else return chase(s, t);
+    }
+    let best: Squad | null = null, bd = ESCORT.engage * ESCORT.engage;
+    for (const o of s.near) {
+      const d = (o.cx - e.x) ** 2 + (o.cy - e.y) ** 2;
+      if (o.team !== s.team && o.alive > 0 && !inSafe(o.cx, o.cy) && d <= bd) (bd = d), (best = o);
+    }
+    if (best) {
+      s.target = best.id;
+      s.repathAt = tick;
+      return chase(s, best);
+    }
+    // keep a column round the cart: walk up to it when it pulls away
+    if ((s.ax - e.x) ** 2 + (s.ay - e.y) ** 2 > ESCORT.ring * ESCORT.ring && !s.goal && tick >= s.repathAt) {
+      requestPath(s, e.x - Math.cos(e.facing) * 2, e.y - Math.sin(e.facing) * 2);
+      s.repathAt = tick + REPATH_TICKS;
+    }
+  };
+
+  /** M6d, every SCAN ticks: units in a safe zone count their time; a fighter there past SAFE.fighter walks out to the yard. */
+  const safeTick = () => {
+    for (const s of squads) {
+      if (s.alive === 0) continue;
+      let out = false;
+      for (const u of s.units) {
+        if (!u.alive) continue;
+        if (inSafe(u.x, u.y)) {
+          u.safeT += SCAN;
+          if (!u.civ && u.safeT > SAFE.fighter) out = true;
+        } else u.safeT = 0;
+      }
+      if (out) walkSquadOut(s);
+    }
+  };
+  /** The squad walks to the nearest yard rect (else straight out past the zone it is in). */
+  const walkSquadOut = (s: Squad) => {
+    let best: [number, number] | null = null, bd = Infinity;
+    for (const r of region.yard ?? []) {
+      const x = r.x + r.w / 2, y = r.y + r.h / 2, d = (x - s.cx) ** 2 + (y - s.cy) ** 2;
+      if (d < bd) (bd = d), (best = [x, y]);
+    }
+    if (!best) {
+      const z = (region.safe ?? []).find((r) => inRect(r, s.cx, s.cy));
+      if (!z) return;
+      best = [z.x + z.w / 2, Math.min(grid.h - 1, z.y + z.h + 3)];
+    }
+    if (s.siege >= 0) uncrew(s);
+    apply({ kind: 'move', squad: s.id, x: best[0], y: best[1] });
+    for (const u of s.units) u.safeT = 0;
+  };
+  /** M6d: may u step into a safe tile? Not with a combat tag, not past SAFE.units of his player inside already. */
+  const safeEntry = (u: Unit): boolean => {
+    if (u.tag > tick) return false;
+    let n = 0;
+    for (const o of units) if (o.alive && o.squad.owner === u.squad.owner && inSafe(o.x, o.y)) n++;
+    return n < SAFE.units;
   };
 
   /** M5d: a person's new hero after a level-up: baked again (HP keeps its wounds). */
@@ -1437,13 +1765,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           state = 'captive';
           fort = holdOf(captor, u.x, u.y);
           note({ t: tick, kind: 'capture', unit: u.id, pid: p.id, captor });
+          // M6c: his worn kit to a pile at the capture tile (he walks home in a militia tunic)
+          piles.drop(u.x, u.y, [], Object.values(p.hero.equip).filter((it): it is Item => !!it), tick);
         }
       }
       let xp = Math.floor(u.dealt * XP.perDmg) + u.kills * XP.kill + u.obj + (u.alive && foes >= SQUAD_MAX ? XP.survived : 0);
       if (state === 'wounded' || state === 'captive') xp = Math.floor(xp / 2);
       if (state === 'dead') xp = 0;
       const g = gainXp(p.hero, xp);
-      const hero = { ...g.hero, kills: p.hero.kills + u.kills, battles: p.hero.battles + (u.engaged ? 1 : 0), ...(state === 'dead' ? { equip: {} } : {}) };
+      const hero = { ...g.hero, kills: p.hero.kills + u.kills, battles: p.hero.battles + (u.engaged ? 1 : 0), ...(state === 'dead' || state === 'captive' ? { equip: {} } : {}) };
       u.person = { ...p, hero };
       if (g.levelUps) note({ t: tick, kind: 'levelUp', unit: u.id, pid: p.id, level: hero.level });
       if (g.levelUps && u.alive) rebake(u);
@@ -1469,7 +1799,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     for (const o of s.near) {
       const bias = attacking && o !== foe ? 9 : 0; // attackers prefer the ordered target unless another foe is much nearer
       for (const t of o.units) {
-        if (!t.alive) continue;
+        if (!t.alive || (anySafe && inSafe(t.x, t.y))) continue; // M6d: none inside a safe zone
         const d2 = (t.x - u.x) ** 2 + (t.y - u.y) ** 2 + bias;
         if (d2 < bestScore) {
           if (!shoot && d2 < CHARGE * CHARGE && !reachable(u, t)) continue;
@@ -1517,12 +1847,12 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (u.st.flags & F.fireArcher) pitch = BRAZIER.pitch * FLAG_FX.firePitch;
       if (!near && works.litNear(s.team, u.x, u.y, hAt(u.x, u.y), fireReach(u))) near = true;
     }
-    return !near ? 'noBrazier' : works.pitch(s.team) < pitch - 1e-9 ? 'noPitch' : null;
+    return !near ? 'noBrazier' : works.pitch(s.team, s.cx, s.cy) < pitch - 1e-9 ? 'noPitch' : null;
   };
   /** A fire arrow for this shot? Only by a lit brazier, and it takes its pitch (else a plain arrow). */
   const fireShot = (u: Unit) =>
     u.squad.fire && u.st.missile === 'arrow' && works.litNear(u.squad.team, u.x, u.y, hAt(u.x, u.y), fireReach(u)) &&
-    works.takeStock(u.squad.team, { pitch: u.st.flags & F.fireArcher ? BRAZIER.pitch * FLAG_FX.firePitch : BRAZIER.pitch });
+    works.takeAt(u.squad.team, u.x, u.y, { pitch: u.st.flags & F.fireArcher ? BRAZIER.pitch * FLAG_FX.firePitch : BRAZIER.pitch });
   /** M5c Fire Archer: twice the brazier reach. */
   const fireReach = (u: Unit) => (u.st.flags & F.fireArcher ? BRAZIER.radius * FLAG_FX.fireReach : BRAZIER.radius);
 
@@ -1597,7 +1927,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     u.fighting = false;
     u.striking = false;
     if (u.cd > 0) u.cd--;
-    if (u.civ || (s.order === 'move' && (s.goal || s.pi < s.path.length / 2)) || (s.siege >= 0 && siege.busy(s.siege))) {
+    if (u.civ || (s.order === 'move' && (s.goal || s.pi < s.path.length / 2)) || (s.siege >= 0 && siege.busy(s.siege)) || (anySafe && inSafe(u.x, u.y))) {
       u.tgt = null; // marching (or crewing a working engine): no fighting
       return null;
     }
@@ -1605,7 +1935,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.tgt = null;
       return null;
     }
-    const attacking = s.order === 'attack' || (s.order === 'attackMove' && s.target >= 0);
+    const attacking = s.order === 'attack' || ((s.order === 'attackMove' || s.order === 'escort') && s.target >= 0);
     const foe = attacking ? squads[s.target] : null;
     if (!u.tgt || !u.tgt.alive || (tick + u.id) % RETARGET === 0) u.tgt = pickTarget(u, attacking, foe);
     const t = u.tgt;
@@ -1731,7 +2061,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const civRoom = (team: number) => {
     const teams = new Set([team]);
     for (const q of squads) if (q.team !== MOB_TEAM && q.alive > 0) teams.add(q.team);
-    let n = 0;
+    let n = siege.carts({ team }); // M6b: carts are in the civilian quota
     for (const u of civs) if (u.alive && u.squad.team === team) n++;
     return Math.floor(CIV_QUOTA / teams.size) - n;
   };
@@ -1802,17 +2132,17 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       }
     }
   };
-  /** A cook's, smith's or merchant's batch; false: nothing to work with (he waits). */
-  const civJobDone = (u: Unit, team: number): boolean => {
+  /** A cook's or smith's batch at building b, from its network (M6a); false: nothing to work with (he waits). The merchant has no batch (M6: stalls, carts). */
+  const civJobDone = (u: Unit, team: number, b: { x: number; y: number }): boolean => {
     if (u.civ === 'cook') {
-      if (!works.takeStock(team, { food: COOK.food })) return false;
-      const salt = works.takeStock(team, { salt: COOK.salt });
+      if (!works.takeAt(team, b.x, b.y, { food: COOK.food })) return false;
+      const salt = works.takeAt(team, b.x, b.y, { salt: COOK.salt });
       rations.set(team, (rations.get(team) ?? 0) + COOK.rations * (salt ? 1 + COOK.saltBonus : 1));
       return true;
     }
     if (u.civ === 'smith') {
-      if (works.takeStock(team, { copper: SMITH.copper, tin: SMITH.tin })) {
-        works.addStock(team, 'bronze', SMITH.bronze);
+      if (works.takeAt(team, b.x, b.y, { copper: SMITH.copper, tin: SMITH.tin })) {
+        works.addAt(team, b.x, b.y, 'bronze', SMITH.bronze);
         return true;
       }
       // no ore: mend the most worn item of a man of his team near the forge
@@ -1828,13 +2158,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       best.repaired = true;
       return true;
     }
-    // merchant (stub until M6): the team's most plentiful surplus good for silver
-    let good: ResourceKind | null = null, most = MERCHANT.min;
-    const st = works.stockSnap()[team] ?? {};
-    for (const g of MERCHANT.goods) if ((st[g] ?? 0) >= most) (most = st[g] ?? 0), (good = g);
-    if (!good || !works.takeStock(team, { [good]: MERCHANT.sell })) return false;
-    works.addStock(team, 'silver', MERCHANT.silver);
-    return true;
+    return false;
   };
   /** M5h: a civilian as the crafting queue sees him. */
   const crafter = (u: Unit): Crafter => {
@@ -1898,7 +2222,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         if (b.type !== 'camp' && b.type !== 'fort' && b.def.workplace?.kind !== 'infirmary') continue;
         // the hurt of his team near him heal (fed men faster); every PATIENT_HP healed is a job
         for (const o of units) {
-          if (!o.alive || o.hp >= o.maxHp || o.squad.team !== s.team || works.dist2(s.work, o.x, o.y) > PHYSICIAN.r * PHYSICIAN.r) continue;
+          if (!o.alive || o.hp >= o.maxHp || o.squad.team !== s.team || works.dist2(s.work, o.x, o.y) > PHYSICIAN.r * PHYSICIAN.r || (anySafe && inSafe(o.x, o.y))) continue; // M6d: no healing in a safe zone
           const add = Math.min(o.maxHp - o.hp, o.maxHp * PHYSICIAN.heal * sec * w * (o.squad.fedUntil > tick ? o.squad.fedHeal : 1));
           o.hp += add;
           u.civT += add;
@@ -1909,7 +2233,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.civT += sec * w;
       const batch = BATCH[u.civ!]!;
       if (u.civT < batch) continue;
-      if (civJobDone(u, s.team)) (u.civT -= batch), (u.obj += CIV_XP);
+      if (civJobDone(u, s.team, b)) (u.civT -= batch), (u.obj += CIV_XP);
       else u.civT = batch;
     }
     if (!civs.some((c) => c.civAt && (c.civ === 'cook' || c.civ === 'physician'))) return;
@@ -1964,6 +2288,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       if (s.alive === 0) continue;
       if (s.order === 'attack') (grid.team = s.team), updateAttack(s);
       else if (s.order === 'attackMove') (grid.team = s.team), updateAttackMove(s);
+      else if (s.order === 'escort') (grid.team = s.team), escortTick(s);
     }
     for (let budget = PATH_BUDGET; budget > 0 && pathQueue.length > 0; ) {
       const s = pathQueue.shift()!;
@@ -2063,7 +2388,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       } else u.settled = false;
       if (d > ARRIVE) {
         const cost = moveCost(u.x, u.y, dx / d, dy / d);
-        const step = Math.min(d, (SPEED * u.st.speed * (u.squad.flee ? CIV.fleeSpeed : 1) * CATCH_UP * DT) / cost);
+        const step = Math.min(d, (SPEED * u.st.speed * (u.squad.flee ? CIV.fleeSpeed : 1) * (u.squad.laden ? PORTER.slow : 1) * CATCH_UP * DT) / cost);
         u.vx = dx / d;
         u.vy = dy / d;
         dx = u.vx * step;
@@ -2138,7 +2463,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       u.toSlot = act === null;
     }
     for (let k = 0; k < 3; k++) separate();
-    if (drops.length && tick % SCAN === 0) pickUp();
+    tradeTick();
+    if (tick % SCAN === 0) piles.tick(tick);
+    if (anySafe && tick % SCAN === 0) safeTick();
     if (tick % HOLD.every === 0) raidScan();
     keepToLanes();
     for (const u of units) {
@@ -2172,8 +2499,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   /** Everything a step reads that is not rebuilt each tick (head / next, files, platLoad are per-tick scratch). */
   const saveRoot = () => ({
-    grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, drops, dropId, loot, log, civs, rations, dresser,
-    crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(),
+    grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, rations, dresser,
+    crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
   });
 
   const api: WarBuildSim = {
@@ -2189,7 +2516,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const keyed = new Map([...constsOf(region)].map(([o, k]) => [k, o]));
       const r = decodeGraph(st, keyed, saveRoot()) as ReturnType<typeof saveRoot>;
       if (r.grid !== grid || r.squads !== squads || r.units !== units || r.rng !== rng) throw new Error('importState: live state not bound');
-      ({ missiles, shots, tick, drops, dropId, loot, log } = r);
+      ({ missiles, shots, tick, loot, log } = r);
+      piles.loadRoot(r.piles);
       works.loadRoot(r.works);
       siege.loadRoot(r.siege);
       mobs.loadRoot(r.mobs);
@@ -2250,6 +2578,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         act: null, actWil: 5, actReady: 0, actUntil: -1, out: 1, inn: 1, amx: ax, amy: ay,
         civ: ps ? ps.every((p) => isCivClass(p.hero.cls)) : isCivClass(cls), flee: false, calm: 0, resume: null, work: -1, fedUntil: -1,
         fedInn: 1, fedMelee: 0, fedMissile: 0, fedAcc: 0, fedHeal: 1, dish: null, bandages: 0, theriacUntil: -1,
+        xfer: null, escort: -1, laden: false, salv: null,
       };
       grid.team = team;
       squads.push(s);
@@ -2263,6 +2592,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
           job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null, person: ps?.[k] ?? null,
           dealt: 0, kills: 0, obj: 0, engaged: false, reported: false, civ: civJob(ps?.[k].hero.cls ?? cls), civT: 0, civAt: false, repaired: false, venomUntil: -1, venom: false, beast: false, fieldR: 0,
+          pack: null, tag: 0, safeT: 0,
         };
         setRates(u);
         if (u.civ) civs.push(u);
@@ -2295,6 +2625,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             ...(u.alive && u.civAt && CLIP[u.civ!] ? { work: CLIP[u.civ!] } : {}),
             ...(u.alive && u.squad.flee ? { flee: true as const } : {}),
             ...(u.alive && u.load > 0 ? { carry: u.carry!, load: u.load } : {}),
+            ...(u.alive && u.pack && loads(u.pack) > 1e-9 ? { pack: loads(u.pack) } : {}),
             ...(atk ? { ready: Math.max(0, u.cd - 1), ...(u.swingAt >= 0 ? { swing: tick - 1 - u.swingAt } : {}) } : {}),
           };
         }),
@@ -2327,7 +2658,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
         ...(rations.size ? { rations: Object.fromEntries(rations) } : {}),
         ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
-        ...(drops.length ? { drops: drops.map((d) => ({ id: d.id, x: d.x, y: d.y, team: d.team, items: d.items.length, left: d.until - tick })) } : {}),
+        ...(piles.piles.length ? { piles: piles.piles.map((p) => ({ id: p.id, x: p.x, y: p.y, goods: totals(p.hold), items: p.hold.items.length, loads: loads(p.hold), left: p.until - tick, ...(p.salv > 0 ? { salvage: p.salv / PILE.salvage } : {}) })) } : {}),
       };
     },
     stats() {
@@ -2342,16 +2673,23 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     addStock: works.addStock,
     damageBuilding: works.damage,
     finishBridges: works.finishBridges,
+    spawnCart: (team, owner, type, x, y) => siege.cart(team, owner, type, x, y),
     spawnMobs: () => mobs.spawn(),
     visibleTo: vision.visibleTo,
     teamGrid: vision.teamGrid,
     lastSeen: vision.lastSeen,
     endFight,
     salvage(id) {
-      const d = drops.find((x) => x.id === id);
-      if (!d) return 0;
-      drops = drops.filter((x) => x !== d);
-      return d.items.reduce((a, it) => a + salvageValue(it), 0);
+      const p = piles.get(id);
+      if (!p || !p.hold.items.length) return 0;
+      const v = p.hold.items.reduce((a, it) => a + salvageValue(it), 0);
+      p.hold.items = [];
+      return v;
+    },
+    drawAt: (team, x, y, cost) => works.takeAt(team, x, y, cost),
+    goodsAt: (team, x, y) => works.haveAt(team, x, y),
+    walkOut(owner) {
+      for (const s of squads) if (s.owner === owner && s.alive > 0 && s.units.some((u) => u.alive && inSafe(u.x, u.y))) walkSquadOut(s);
     },
     events() {
       const out = log;

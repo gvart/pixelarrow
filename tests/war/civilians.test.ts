@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CIV_CLASS_IDS, CIV_CLASSES, CIV_TOOLS } from '../../src/data/classes';
 import { createSim } from '../../src/war/sim';
 import { warStats, warStatsOf } from '../../src/war/sim/classes';
-import { CIV, CIV_QUOTA, COOK, ENGINEER, FORAGER, MERCHANT, SMITH, workRate } from '../../src/war/sim/civilians';
+import { CIV, CIV_QUOTA, COOK, ENGINEER, FORAGER, SMITH, workRate } from '../../src/war/sim/civilians';
 import { makePerson } from '../../src/war/sim/roster';
 import type { RegionData, Snapshot, WarBuildSim, WarPerson } from '../../src/war/types';
 import { flat } from './flatRegion';
@@ -179,7 +179,7 @@ describe('M5f loops', () => {
     expect(g).toBeGreaterThanOrEqual(0);
   });
 
-  it('merchant: sells the most plentiful surplus for silver', () => {
+  it('merchant: the M6a model has no sell-surplus stub (the game buys nothing)', () => {
     const sim = withCamp();
     sim.addStock(0, 'wood', 200);
     sim.addStock(0, 'food', 60);
@@ -187,8 +187,8 @@ describe('M5f loops', () => {
     sim.order({ kind: 'civWork', squad: c, building: 0 });
     run(sim, 1000);
     const st = sim.snapshot().stock![0];
-    expect(st.silver).toBeGreaterThanOrEqual(2 * MERCHANT.silver);
-    expect(st.wood).toBeLessThan(200);
+    expect(st.silver ?? 0).toBe(0);
+    expect(st.wood).toBe(200);
     expect(st.food).toBe(60);
   });
 

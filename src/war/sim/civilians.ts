@@ -5,10 +5,10 @@
  * is not at, else straight away; once nothing is near for CIV.calm ticks it takes up the order it dropped.
  *
  * Loops (the batch of each is per man, CIV.every ticks at a time; a man's `work` multiplier is his level and tool):
- *   cook       at an own store building (civWork): food (+ salt) -> rations; own squads near a working cook eat (one
+ *   cook       at an own store building (civWork): food (+ salt) of its store network -> rations; own squads near a working cook eat (one
  *              ration a man) and are fed for COOK.fedTicks: COOK.inn of the damage they take, physician heal x COOK.heal
  *   smith      at a store: copper + tin -> bronze; with no ore, he mends the most worn item of the men near his forge
- *   merchant   at a store: sells the team's most plentiful surplus good for silver (stub until the M6 caravans)
+ *   merchant   no batch (M6a: the sell-surplus stub is gone; he runs a stall, drives carts, brokers in M6)
  *   physician  at a camp or fort: the hurt of his team within PHYSICIAN.r of it heal; anywhere: a man falling within
  *              PHYSICIAN.r of him is wounded rather than killed PHYSICIAN.near more often
  *   engineer   on a build order (sites, repairs) or a siege engine: ENGINEER.build x labour
@@ -18,7 +18,7 @@
 import { CIV_CLASSES, CIV_TOOLS, isCivClass, type CivClassId } from '../../data/classes';
 import { RARITIES, type Item } from '../../data/items';
 import type { Hero } from '../../data/units';
-import type { ResourceKind, WarPerson } from '../types';
+import type { WarPerson } from '../types';
 import { toolMods } from '../../data/recipes';
 import { FALL } from './soldiers';
 
@@ -49,7 +49,6 @@ export const CIV_QUOTA = Math.floor(REGION_CAP * CIV.quota);
 
 export const COOK = { batch: 10, food: 4, salt: 1, rations: 4, saltBonus: 0.5, feedR: 12, fedTicks: 6000, inn: 1 / 1.05, heal: 1.25 };
 export const SMITH = { batch: 15, copper: 1, tin: 1, bronze: 2, repairR: 8, repair: 10 };
-export const MERCHANT = { batch: 30, sell: 10, min: 50, silver: 1, goods: ['food', 'wood', 'stone'] as ResourceKind[] };
 export const ENGINEER = { build: 1.5 };
 export const FORAGER = { gather: 2 };
 /** heal: share of max HP per second (r: round his camp or fort, and round him on the field); near: added wounded share (docs/WAR.md "Fall"). */

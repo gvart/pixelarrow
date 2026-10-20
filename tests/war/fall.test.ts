@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { salvageValue } from '../../src/data/items';
 import { xpToNext } from '../../src/data/units';
 import { createSim } from '../../src/war/sim';
 import { warStats, warStatsOf } from '../../src/war/sim/classes';
 import { createRoster, makePerson } from '../../src/war/sim/roster';
-import { CAPTURE_R, DROP, FALL, woundedShare, XP } from '../../src/war/sim/soldiers';
+import { CAPTURE_R, FALL, woundedShare, XP } from '../../src/war/sim/soldiers';
+import { PILE } from '../../src/war/sim/trade';
 import type { WarBuildSim, WarPerson } from '../../src/war/types';
 import { flat } from './flatRegion';
 
@@ -57,8 +57,8 @@ describe('M5d wounded share', () => {
   });
 });
 
-describe('M5d gear drops', () => {
-  it('the dead drop their gear for 10 min; a foe standing on it picks it up (rare and above at 50%), or a smith salvages it', () => {
+describe('M6c loot piles (replace the M5d gear drops)', () => {
+  it('the killed leave their kit in piles (-25 condition), the wounded keep it; any side picks a pile up, first hands win', () => {
     const sim = createSim(flat(), 4);
     const victims = men('v', 'hoplite', 12, { tier: 1, rarity: 'rare' }).map((p) => ({ ...p, hero: { ...p.hero, attrs: { ...p.hero.attrs, end: 0 } } }));
     const a = sim.spawnSquad('a', 0, 'x', 0, 30, 24, victims);
@@ -67,43 +67,44 @@ describe('M5d gear drops', () => {
     run(sim, 3000, () => alive(sim, a) === 0);
     const snap = sim.snapshot();
     const killed = snap.units.filter((u) => u.squad === a && u.wounded === false).length;
-    const events = sim.events();
-    const mineIds = new Set(snap.squads[a].units);
-    expect(events.filter((e) => e.kind === 'fall' && mineIds.has(e.unit))).toHaveLength(12);
-    const picked = events.filter((e) => e.kind === 'pickup').length;
     expect(killed).toBeGreaterThan(0);
-    expect((snap.drops?.length ?? 0) + picked).toBe(killed);
-    for (const d of snap.drops ?? []) expect(d.left).toBeLessThanOrEqual(DROP.ticks);
-    // the winners walk over the field: they pick up what lies there
-    for (const d of snap.drops ?? []) {
-      sim.order({ kind: 'move', squad: b, x: d.x, y: d.y });
-      run(sim, 200);
+    const piles = snap.piles ?? [];
+    const items = piles.reduce((n, p) => n + p.items, 0);
+    const kit = Object.values(victims[0].hero.equip).filter(Boolean).length;
+    expect(items).toBe(killed * kit);
+    for (const p of piles) {
+      expect(p.left).toBeLessThanOrEqual(PILE.decay);
+      expect(p.loads).toBeLessThanOrEqual(PILE.max + 1e-9);
     }
+    // the winners load the nearest pile into their packs: one item a man every PORTER.every ticks
+    sim.order({ kind: 'load', squad: b, from: { pile: piles[0].id } });
+    run(sim, 600);
     const r = sim.endFight();
     const loot = r.loot[1] ?? [];
     expect(loot.length).toBeGreaterThan(0);
-    for (const it of loot) expect(it.cond).toBeLessThanOrEqual(DROP.rareCond);
-    // the dead come back with no gear
+    for (const it of loot) expect(it.cond).toBe(100 - PILE.wear);
+    expect(sim.events().some((e) => e.kind === 'pickup' && e.team === 1)).toBe(true);
+    expect(sim.snapshot().units.filter((u) => u.squad === b).some((u) => (u.pack ?? 0) > 0)).toBe(true);
     for (const p of r.persons.filter((x) => x.state === 'dead')) expect(Object.keys(p.hero.equip)).toHaveLength(0);
+    for (const p of r.persons.filter((x) => x.state === 'wounded')) expect(Object.keys(p.hero.equip).length).toBe(kit);
   });
 
-  it('a drop nobody takes is gone after 10 min; salvage pays its salvage value', () => {
+  it('a pile nobody takes is gone after 15 min; salvage pays its salvage value', () => {
     const sim = createSim(flat(), 5);
     const v = men('v', 'hoplite', 12, { tier: 1, rarity: 'epic' }).map((p) => ({ ...p, hero: { ...p.hero, attrs: { ...p.hero.attrs, end: 0 } } }));
     const a = sim.spawnSquad('a', 0, 'x', 0, 30, 24, v);
     const b = sim.spawnSquad('b', 1, 'royal_guard', 12, 30, 34);
     sim.order({ kind: 'attack', squad: b, target: a });
     run(sim, 3000, () => alive(sim, a) === 0);
-    sim.order({ kind: 'move', squad: b, x: 60, y: 60 }); // away, out of the drops' way
+    sim.order({ kind: 'move', squad: b, x: 60, y: 60 });
     run(sim, 1);
-    const drops = sim.snapshot().drops ?? [];
-    expect(drops.length).toBeGreaterThan(0);
-    const d = drops[0];
-    const gear = Object.values(v[0].hero.equip).filter(Boolean);
-    expect(sim.salvage(d.id)).toBe(gear.reduce((x, it) => x + salvageValue(it!), 0));
-    expect(sim.salvage(d.id)).toBe(0);
-    run(sim, DROP.ticks);
-    expect(sim.snapshot().drops ?? []).toHaveLength(0);
+    const piles = sim.snapshot().piles ?? [];
+    expect(piles.length).toBeGreaterThan(0);
+    const one = piles.find((p) => p.items > 0)!;
+    expect(sim.salvage(one.id)).toBeGreaterThan(0);
+    expect(sim.salvage(one.id)).toBe(0);
+    run(sim, PILE.decay);
+    expect(sim.snapshot().piles ?? []).toHaveLength(0);
   });
 });
 

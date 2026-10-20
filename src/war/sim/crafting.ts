@@ -2,10 +2,11 @@
  * Crafting queues of the war sim (M5h2, docs/WAR.md "Crafting and professions", "How it stays light"). One queue per
  * workplace (BUILDINGS workplace), at most CRAFT.queue orders; it runs on the civilian loop only (every CIV.every
  * ticks). Each workplace level is a crafter slot: the first `level` civilians at work there take the oldest waiting
- * order they may make (their class, its node and needs), the inputs leave the team stock as it starts, and it takes
- * recipe secs / the crafter's work rate. One roll at completion (`craftRoll`, seeded by the sim seed, building and
- * order) for items; the item leaves in a `crafted` event for the server to mint. Goods go to the team stock, dishes,
- * remedies and kits to the team supplies.
+ * order they may make (their class, its node and needs), the inputs leave the store network where the workplace stands
+ * (M6a, works.takeAt) as it starts, and it takes recipe secs / the crafter's work rate. One roll at completion
+ * (`craftRoll`, seeded by the sim seed, building and order) for items; the item leaves in a `crafted` event for the
+ * server to mint. Goods go to the nearest store of that network, dishes, remedies and kits to the team supplies; a cart
+ * (M6b) rolls out beside the workshop for the crafter's player.
  */
 import { CIV_TOOLS } from '../../data/classes';
 import { itemDef, ITEMS, type Item } from '../../data/items';
@@ -32,14 +33,17 @@ export interface Crafter {
   id: number; prof: ProfId | null; level: number; perks: readonly string[]; tool?: Item; work: number; bountiful: number;
   owner: string; name: string; pid?: string;
 }
-interface Placed { id: number; team: number; def: BuildingDef }
+interface Placed { id: number; team: number; def: BuildingDef; x: number; y: number }
 interface QOrder { id: number; kind: 'craft' | 'repair' | 'salvage'; recipe: Recipe; item?: Item; owner?: string; by: number; left: number; total: number; taken: Goods | null }
 
 export interface CraftDeps {
   seed: number;
-  takeStock(team: number, cost: Partial<Record<ResourceKind, number>>): boolean;
-  addStock(team: number, res: ResourceKind, n: number): void;
+  /** Pay from the store network of `team` at (x,y) (M6a); false (nothing taken) when it lacks any of it. */
+  takeAt(team: number, x: number, y: number, cost: Partial<Record<ResourceKind, number>>): boolean;
+  addAt(team: number, x: number, y: number, res: ResourceKind, n: number): void;
   emit(ev: WarEvent): void;
+  /** M6b: a cart of `owner` rolls out of workshop b (false: no room, his cap or the quota; the order waits). */
+  cart?(b: Placed, owner: string, type: string, check: boolean): boolean;
 }
 
 /** The recipe an item is made by (items and tools; null: a drop-only item). */
@@ -82,7 +86,7 @@ export function createCrafting(deps: CraftDeps) {
       const i = q.findIndex((x) => x.id === o.order);
       if (i < 0) return false;
       const [x] = q.splice(i, 1);
-      if (x.taken) for (const [k, v] of Object.entries(x.taken) as [ResourceKind, number][]) deps.addStock(b.team, k, v);
+      if (x.taken) for (const [k, v] of Object.entries(x.taken) as [ResourceKind, number][]) deps.addAt(b.team, b.x, b.y, k, v);
       return true;
     }
     if (q.length >= CRAFT.queue) return false;
@@ -127,7 +131,7 @@ export function createCrafting(deps: CraftDeps) {
     }
     if (x.kind === 'salvage') {
       const share = held.has('goldsmith') ? CRAFT.goldsmith : CRAFT.salvage;
-      for (const [k, v] of Object.entries(r.inputs) as [ResourceKind, number][]) if (Math.floor(v * share) > 0) deps.addStock(team, k, Math.floor(v * share));
+      for (const [k, v] of Object.entries(r.inputs) as [ResourceKind, number][]) if (Math.floor(v * share) > 0) deps.addAt(team, b.x, b.y, k, Math.floor(v * share));
       ev('salvage', x.item!, x.owner!);
       return 1;
     }
@@ -137,9 +141,14 @@ export function createCrafting(deps: CraftDeps) {
       ev('craft', craftRoll(r.out.item ?? r.out.tool!, g, `${deps.seed}|${b.id}|${x.id}`, { masterwork: held.has('masterwork'), maker: c.name }), c.owner);
       return r.xp;
     }
+    if (r.kind === 'cart') {
+      deps.cart?.(b, c.owner, r.out.engine!, false);
+      return r.xp;
+    }
     const node = BATCH_NODES[r.kind];
-    const n = r.out.n * (node && held.has(node) ? CRAFT.batch : 1) * (r.kind === 'smelt' && held.has('alloy') ? CRAFT.alloy : 1) * (1 + c.bountiful);
-    if (r.out.good) deps.addStock(team, r.out.good, n);
+    // M6a: coin is exact (1 silver : 20 coin), no batch bonus
+    const n = r.kind === 'coin' ? r.out.n : r.out.n * (node && held.has(node) ? CRAFT.batch : 1) * (r.kind === 'smelt' && held.has('alloy') ? CRAFT.alloy : 1) * (1 + c.bountiful);
+    if (r.out.good) deps.addAt(team, b.x, b.y, r.out.good, n);
     else if (r.out.product) supply(team)[r.out.product] = (supply(team)[r.out.product] ?? 0) + n;
     return r.xp;
   };
@@ -158,7 +167,8 @@ export function createCrafting(deps: CraftDeps) {
     for (const c of slots) {
       let x = q.find((o) => o.by === c.id);
       if (!x) {
-        x = q.find((o) => o.by < 0 && (o.kind === 'craft' ? !crafterRefusal(c, o.recipe) : c.prof === o.recipe.prof) && (o.taken || deps.takeStock(b.team, (o.taken = inputsOf(o, c))) || ((o.taken = null), false)));
+        x = q.find((o) => o.by < 0 && (o.kind === 'craft' ? !crafterRefusal(c, o.recipe) : c.prof === o.recipe.prof) && (o.recipe.kind !== 'cart' || !!deps.cart?.(b, c.owner, o.recipe.out.engine!, true))
+          && (o.taken || deps.takeAt(b.team, b.x, b.y, (o.taken = inputsOf(o, c))) || ((o.taken = null), false)));
         if (!x) continue;
         x.by = c.id;
       }

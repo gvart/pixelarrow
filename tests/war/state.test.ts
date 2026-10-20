@@ -161,4 +161,31 @@ describe('sim exportState / importState', () => {
     expect(JSON.stringify(b.endFight())).toBe(JSON.stringify(a.endFight()));
     expect(hash(b)).toBe(hash(a));
   });
+
+  it('M6: store goods, packs mid-load, an escorted cart with cargo, a fight leaving piles and a safe zone resume exactly', () => {
+    const n = 80;
+    const region: RegionData = {
+      id: 't6', name: 't6', w: n, h: n, height: Array(n * n).fill(1), terrain: Array(n * n).fill('grass'), water: Array(n * n).fill(0), entries: [], noBuild: [],
+      safe: [{ x: 60, y: 60, w: 12, h: 10 }], yard: [{ x: 60, y: 50, w: 8, h: 5 }],
+    };
+    const { a } = resumes(region, 6, (sim) => {
+      sim.claim(0, 20, 20, 16);
+      sim.addStock(0, 'wood', 120);
+      const m = sim.spawnSquad('a', 0, 'militia', 12, 20, 26);
+      sim.order({ kind: 'placeBuilding', squad: m, type: 'camp', x: 20, y: 20 });
+      const c = sim.spawnCart(0, 'a', 'handcart', 30, 30);
+      const p = sim.spawnSquad('a', 0, 'militia', 2, 30, 31);
+      sim.order({ kind: 'crew', squad: p, siege: c });
+      const g = sim.spawnSquad('a', 0, 'hoplite', 12, 26, 34);
+      sim.order({ kind: 'escort', squad: g, cart: c });
+      const v = sim.spawnSquad('v', 1, 'x', 0, 50, 40, Array.from({ length: 6 }, (_, k) => makePerson(`v${k}`, 'hoplite', { tier: 1 })));
+      sim.order({ kind: 'attackMove', squad: v, x: 30, y: 30 });
+      sim.spawnSquad('s', 0, 'civ_cook', 2, 64, 64);
+    }, 700, 900, (sim) => {
+      sim.order({ kind: 'load', squad: 0, from: { building: 0 }, res: 'wood' });
+      sim.order({ kind: 'move', squad: 1, x: 40, y: 20 });
+    });
+    const s = a.snapshot();
+    expect((s.piles ?? []).length + (s.sieges ?? []).length).toBeGreaterThan(0);
+  });
 });

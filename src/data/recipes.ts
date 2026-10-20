@@ -20,12 +20,12 @@ import type { ProfId } from './professions';
 /** Stock kinds of the war (src/war/types.ts ResourceKind): the M2a ones and the 7 crafting goods (raw hides, flax, herbs; refined charcoal, leather, linen, oil). */
 export const CRAFT_GOODS = ['hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil'] as const;
 export type CraftGood = (typeof CRAFT_GOODS)[number];
-export type Good = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt' | 'pitch' | CraftGood;
+export type Good = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'tin' | 'iron' | 'bronze' | 'silver' | 'salt' | 'pitch' | 'coin' | CraftGood;
 export type Goods = Partial<Record<Good, number>>;
 
 /** Where a recipe runs: a workplace chain, a store building (camp, storehouse, fort), an olive press, or on site (engines, forts: M5h3). */
 export type Workplace = 'forge' | 'cookhouse' | 'infirmary' | 'workshop' | 'stall' | 'sorting' | 'press' | 'store' | 'site';
-export type RecipeKind = 'item' | 'tool' | 'smelt' | 'dish' | 'remedy' | 'good' | 'caravan' | 'engine' | 'fort';
+export type RecipeKind = 'item' | 'tool' | 'smelt' | 'dish' | 'remedy' | 'good' | 'caravan' | 'engine' | 'fort' | 'coin' | 'cart';
 /** Products that are neither stock goods nor items: dishes, remedies, kits, caravan goods (a team's supplies). */
 export type Product = 'ration' | 'bread' | 'salt_pork' | 'lentil_soup' | 'fish_stew' | 'kykeon' | 'black_broth' | 'march_stores' | 'feast'
   | 'bandage' | 'salve' | 'theriac' | 'tent_kit' | 'amphora' | 'fish_jar' | 'linen_bale' | 'ingot_crate';
@@ -164,6 +164,9 @@ const R = (id: string, kind: RecipeKind, prof: ProfId, node: string, at: Workpla
 
 const ROWS: Recipe[] = [
   R('smelt', 'smelt', 'smith', 'smelter', 'forge', 1, { copper: 1, tin: 1 }, 15, { good: 'bronze', n: 2 }),
+  // M6a coin (docs/WAR.md "Coin"): any smith at a forge L2 mints silver into coin and melts coin back, 1 : 20
+  R('mint', 'coin', 'smith', 'smelter', 'forge', 2, { silver: 1 }, 30, { good: 'coin', n: 20 }),
+  R('melt', 'coin', 'smith', 'smelter', 'forge', 2, { coin: 20 }, 30, { good: 'silver', n: 1 }),
   // cook (the ration also runs at camps and stores on the M5f loop)
   R('ration', 'dish', 'cook', 'campCook', 'cookhouse', 1, { food: 4 }, 10, { product: 'ration', n: 4 }),
   R('bread', 'dish', 'cook', 'baker', 'cookhouse', 2, { food: 6 }, 20, { product: 'bread', n: 6 }),
@@ -184,6 +187,9 @@ const ROWS: Recipe[] = [
   R('covered_ram', 'engine', 'engineer', 'rams', 'site', 1, { wood: 100, hides: 6, iron: 4 }, 300, { engine: 'coveredRam', n: 1 }),
   R('oxybeles', 'engine', 'engineer', 'artillerist', 'workshop', 3, { wood: 60, bronze: 6, linen: 4 }, 240, { engine: 'oxybeles', n: 1 }),
   R('siege_tower', 'engine', 'engineer', 'poliorcetes', 'site', 1, { wood: 240, hides: 20, iron: 10 }, 900, { engine: 'siegeTower', n: 1 }),
+  // M6b carts (docs/WAR.md "Carts"): made at a workshop, rolled out for the crafter's player; the wagon's food feeds its draught mules
+  R('handcart', 'cart', 'engineer', 'builder', 'workshop', 1, { wood: 30, hides: 2 }, 60, { engine: 'handcart', n: 1 }),
+  R('wagon', 'cart', 'engineer', 'builder', 'workshop', 2, { wood: 80, bronze: 4, hides: 6, food: 40 }, 180, { engine: 'wagon', n: 1 }),
   R('iron_gate', 'fort', 'engineer', 'fortifier', 'site', 1, { iron: 10, charcoal: 10 }, 0, { fort: 'ironGate', n: 1 }),
   R('wet_hides', 'fort', 'engineer', 'fortifier', 'site', 1, { hides: 1 }, 0, { fort: 'wetHides', n: 1 }, { perTile: true }),
   R('stakes', 'fort', 'engineer', 'fortifier', 'site', 1, { wood: 3 }, 0, { fort: 'stakes', n: 1 }, { perTile: true }),
