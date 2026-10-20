@@ -93,15 +93,15 @@ interface GDef {
   parts?: { n: number; hp: number; dmg: number };
 }
 export const GUARDIANS: Readonly<Record<string, GDef>> = {
-  drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 40000, dmg: 70, armor: 8, reach: 2.6, atk: 1.6, speed: 1.1, aggro: 18, leash: 30 },
-  scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 18000, dmg: 45, armor: 6, reach: 3, atk: 2.5, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 3000, dmg: 40 } },
+  drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 40000, dmg: 55, armor: 4, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
+  scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 18000, dmg: 45, armor: 4, reach: 3, atk: 2.5, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 3000, dmg: 40 } },
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 40, armor: 10, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 160, dmg: 18, armor: 8 } },
-  river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 60, armor: 8, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
-  titan: { ai: 'titan', cls: 'mob_brontes', hp: 36000, dmg: 80, armor: 10, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
-  minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 8, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
-  brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 16000, dmg: 55, armor: 8, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
+  river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 60, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
+  titan: { ai: 'titan', cls: 'mob_brontes', hp: 36000, dmg: 80, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
+  minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
+  brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 16000, dmg: 55, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
   grove_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 4000, dmg: 30, armor: 4, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 8, hp: 90, dmg: 14, armor: 2 } },
-  gyges: { ai: 'gyges', cls: 'mob_gyges', hp: 16000, dmg: 45, armor: 8, reach: 2.4, atk: 1.6, speed: 0.9, aggro: 20, leash: 30 },
+  gyges: { ai: 'gyges', cls: 'mob_gyges', hp: 16000, dmg: 45, armor: 4, reach: 2.4, atk: 1.6, speed: 0.9, aggro: 20, leash: 30 },
   chimera: { ai: 'chimera', cls: 'mob_chimera', hp: 5000, dmg: 40, armor: 6, reach: 1.8, atk: 1.3, speed: 1.15, aggro: 14, leash: 22, parts: { n: 3, hp: 5000, dmg: 40 } },
   maenad_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 2500, dmg: 26, armor: 3, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 6, hp: 80, dmg: 12, armor: 2 } },
   moor_bear: { ai: 'brute', cls: 'mob_bear', hp: 5000, dmg: 40, armor: 6, reach: 1.6, atk: 1.5, speed: 1.05, aggro: 12, leash: 20 },
@@ -111,8 +111,8 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
 
 /** Timings (ticks) and reach of the special moves. */
 export const MOVES = {
-  sweep: { every: 80, r: 3.5, share: 0.25, knock: 2 },
-  breath: { every: 50, len: 16, half: 0.4, share: 0.3, reach: 18 },
+  sweep: { every: 100, r: 3, share: 0.15, knock: 2 },
+  breath: { every: 70, len: 14, half: 0.32, share: 0.3, reach: 18 },
   perchFor: 300, flight: 20,
   crash: { r: 4, share: 0.2, knock: 3, packs: 2, pack: 6, packHp: 2.5, packDmg: 2 },
   enrage: { dmg: 1.3, atk: 0.75 },
