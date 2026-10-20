@@ -55,6 +55,8 @@ const GATHER: Record<ResourceKind, readonly string[]> = {
   stone: MINE, marble: MINE, copper: MINE, tin: MINE, iron: MINE, bronze: MINE, silver: MINE, salt: MINE,
   // M5h goods: herbs and flax come in from gathering, the rest are refined or taken (placeholder clips)
   hides: HARVEST, flax: HARVEST, herbs: HARVEST, charcoal: CHOP, leather: HARVEST, linen: HARVEST, oil: HARVEST, coin: HARVEST,
+  // M7e rare goods (landmark nodes)
+  dragonbone: MINE, nereidPearl: HARVEST, starIron: MINE, asphodel: HARVEST, titanBronze: MINE, obsidian: MINE,
 };
 
 /** The load sprite (src/assets/loads) each carried resource shows: planks, a dressed block, a sack, a basket, a jar. */
@@ -62,6 +64,7 @@ const LOADS: Record<ResourceKind, string> = {
   wood: 'wood', stone: 'stone', marble: 'marble', food: 'food', pitch: 'pitch',
   copper: 'ore', tin: 'ore', iron: 'ore', bronze: 'ore', silver: 'ore', salt: 'ore',
   hides: 'food', flax: 'food', herbs: 'food', charcoal: 'ore', leather: 'food', linen: 'food', oil: 'pitch', coin: 'ore', // M5h, M6a: placeholder loads
+  dragonbone: 'stone', nereidPearl: 'food', starIron: 'ore', asphodel: 'food', titanBronze: 'ore', obsidian: 'stone', // M7e: placeholder loads
 };
 
 /** The load a unit is seen carrying (walking with a load), else undefined. */

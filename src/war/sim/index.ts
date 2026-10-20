@@ -894,7 +894,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         : o.kind === 'build' ? (works.siteOk(o.site, s.team) ? [o.site] : [])
         : [];
       if (o.kind !== 'gather' && !sites.length) return; // invalid placement: the squad carries on
-      if (o.kind === 'gather' && !works.nodeOk(o.node)) return;
+      if (o.kind === 'gather' && !works.nodeOk(o.node, s.team)) return; // M7e: rare nodes for the region's holder only
       s.order = o.kind === 'gather' ? 'gather' : 'build';
       s.sites = sites;
       s.fixed = null;

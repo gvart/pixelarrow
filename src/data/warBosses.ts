@@ -14,6 +14,7 @@
 import { BASE_ITEMS, type Rarity } from './items';
 import { setPieces } from './sets';
 import { Rng, hashString } from '../sim/rng';
+import type { RareGood } from './warLandmarks';
 
 export type BossTier = 1 | 2 | 3;
 
@@ -33,6 +34,8 @@ export interface WarBoss {
    * them; the sim's claim gate only needs `alive`.
    */
   phases: readonly number[];
+  /** M7e: the rare good its kill drops into the loot pile (docs/WAR.md "Rare goods"). */
+  rare?: { good: RareGood; n: number };
 }
 
 export const WAR_BOSSES: readonly WarBoss[] = [
@@ -42,15 +45,15 @@ export const WAR_BOSSES: readonly WarBoss[] = [
   { id: 'savanna_lion', name: 'Lion of the Savanna', region: 'savanna', tier: 1, signature: [], phases: [1] },
   { id: 'maenad_queen', name: 'the Maenad Queen', region: 'bacchae', tier: 1, signature: [], phases: [1] },
   // depth 3 gates: tier 2, each in its landmark
-  { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.5] },
-  { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4] },
-  { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5] },
-  { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1] },
+  { id: 'brontes', name: 'Brontes the Cyclops', region: 'saddle', tier: 2, signature: [], landmark: 'cyclopean_gatehouse', phases: [1, 0.5], rare: { good: 'starIron', n: 10 } },
+  { id: 'erymanthian_boar', name: 'the Erymanthian Boar', region: 'erymanthos', tier: 2, signature: [], landmark: 'oracle_grove', phases: [1, 0.4], rare: { good: 'asphodel', n: 10 } },
+  { id: 'gyges', name: 'Gyges the Hundred-Handed', region: 'gorge', tier: 2, signature: [], landmark: 'titans_forge', phases: [1, 0.5], rare: { good: 'titanBronze', n: 10 } },
+  { id: 'chimera', name: 'the Chimera', region: 'canyons', tier: 2, signature: [], landmark: 'obsidian_hold', phases: [1], rare: { good: 'obsidian', n: 10 } },
   // depth 4 rim edges: tier 3, the four signature legendaries
   // a dragon on the titan frozen in the glacier: the aegis of the god who threw the titans down
-  { id: 'drakon', name: 'Drakon the White', region: 'krios', tier: 3, signature: ['aegis_of_zeus'], landmark: 'drakons_citadel', phases: [1, 0.6, 0.3] },
+  { id: 'drakon', name: 'Drakon the White', region: 'krios', tier: 3, signature: ['aegis_of_zeus'], landmark: 'drakons_citadel', phases: [1, 0.6, 0.3], rare: { good: 'dragonbone', n: 20 } },
   // the estuary where the sea meets the rim: the sea god's trident
-  { id: 'scylla', name: 'Scylla of the Estuary', region: 'siren', tier: 3, signature: ['poseidon_trident'], landmark: 'rim_watchtower', phases: [1, 0.5] },
+  { id: 'scylla', name: 'Scylla of the Estuary', region: 'siren', tier: 3, signature: ['poseidon_trident'], landmark: 'rim_watchtower', phases: [1, 0.5], rare: { good: 'nereidPearl', n: 15 } },
   // the oracle that named Alexander son of a god: his armour on a king of thieves
   { id: 'bandit_king', name: 'the Bandit King of Ammon', region: 'ammon', tier: 3, signature: ['alexander'], landmark: 'dead_city', phases: [1, 0.6, 0.3] },
   // the river that fought Achilles at Troy, here as the Achelous: the arms of Achilles
@@ -74,6 +77,12 @@ export const bossOfRegion = (region: string): WarBoss | undefined => WAR_BOSSES.
 export const bossesOfRegion = (region: string): WarBoss[] => WAR_BOSSES.filter((b) => b.region === region);
 
 export interface BossDrop { def: string; rarity: Rarity }
+
+/** M7e: the goods a kill of `boss` drops into its loot pile (its rare good; none for most). */
+export const bossGoods = (boss: string): { r: RareGood; n: number }[] => {
+  const g = warBoss(boss)?.rare;
+  return g ? [{ r: g.good, n: g.n }] : [];
+};
 
 /** The item ids a signature entry may drop: a set's pieces, or the item itself. */
 const signatureItems = (s: string): string[] => {

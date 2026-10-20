@@ -5,6 +5,7 @@
  */
 import type { BuildingType, ResourceKind } from '../types';
 import type { Workplace } from '../../data/recipes';
+import { RARE_NODE, RARE_NODES } from '../../data/warLandmarks';
 
 export interface BuildingDef {
   w: number; // footprint in tiles, before rotation (walls: 1 tile wide, length from the line)
@@ -199,6 +200,8 @@ export const RESOURCE_NODES: Record<string, NodeDef> = {
   'kyrene/boulder-red': boulder, 'kyrene/rocks-red': boulder, 'kyrene/copper-ore': ore('copper'),
   'mountains/fir': tree, 'mountains/fir-snow': tree, 'mountains/black-pine': tree,
   'mountains/boulder-field': boulder, 'mountains/iron-ore': ore('iron'), 'mountains/tin-ore': ore('tin'),
+  // M7e: the landmarks' rare-good nodes (src/data/warLandmarks.ts)
+  ...Object.fromEntries(Object.entries(RARE_NODES).map(([id, n]) => [id, { res: n.res, max: RARE_NODE.max, regrow: n.once ? 0 : RARE_NODE.regrow, rate: RARE_NODE.rate, slots: RARE_NODE.slots, rare: true as const }])),
 };
 
 /** Footprint (w, h) of a building after rotation. */

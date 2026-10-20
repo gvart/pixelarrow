@@ -44,6 +44,7 @@ import { honoursOf } from '../../../src/war/sim/honours';
 import { CHOKEPOINTS } from '../../../src/war/world/season';
 import { worldRegion } from '../../../src/war/world/graph';
 import { bossItems } from './bosses';
+import { bossGoods } from '../../../src/data/warBosses';
 import { craftKey } from './crafting';
 import { bundleGoods, contents, fill, room as freeLoads, takeAll, takeOut, type Bundle } from './cargo';
 import type { TransitCargo } from '../../../src/war/net/world';
@@ -749,7 +750,8 @@ export class WarRoom {
     const bosses = evs.filter((e): e is BossSlain => e.kind === 'bossSlain');
     const captured = evs.flatMap((e) => (e.kind === 'cartCaptured' && cartWas.has(e.cart) ? [{ cart: e.cart, from: cartWas.get(e.cart)!.owner, team: cartWas.get(e.cart)!.team, to: e.owner }] : []));
     for (const e of crafted) if (e.what === 'craft') this.deposit(e);
-    for (const e of bosses) this.sim.dropPile(e.x ?? this.region.w / 2, e.y ?? this.region.h / 2, [], bossItems(this.region.id, this.run, e));
+    // M7e: a landmark boss's rare good falls into the pile with its gear (origin: this region)
+    for (const e of bosses) this.sim.dropPile(e.x ?? this.region.w / 2, e.y ?? this.region.h / 2, bossGoods(e.boss).map((g) => ({ r: g.r, n: g.n, o: this.region.id })), bossItems(this.region.id, this.run, e));
     // M5e: holding buildings raided or fallen this tick: their captives go free (the DO writes it)
     const raided = evs.flatMap((e) => (e.kind === 'raid' ? [e.building] : []));
     for (const e of evs) if (e.kind === 'raid' && e.by !== undefined && e.by !== e.team) this.stormed.add(e.by);

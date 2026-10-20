@@ -307,7 +307,9 @@ export type ResourceKind = 'food' | 'wood' | 'stone' | 'marble' | 'copper' | 'ti
   // M5h crafting goods (src/data/recipes.ts CRAFT_GOODS): raw hides, flax, herbs; refined charcoal, leather, linen, oil
   | 'hides' | 'flax' | 'herbs' | 'charcoal' | 'leather' | 'linen' | 'oil'
   // M6a: minted from silver at a forge L2 (docs/WAR.md "Coin")
-  | 'coin';
+  | 'coin'
+  // M7e rare goods (docs/WAR.md "Rare goods"): one per landmark with a node, and its boss's kill
+  | 'dragonbone' | 'nereidPearl' | 'starIron' | 'asphodel' | 'titanBronze' | 'obsidian';
 export type BuildingType =
   | 'camp' | 'storehouse' | 'outpost' | 'fort' | 'barracks' | 'farm' | 'olivePress'
   | 'palisade' | 'rampart' | 'stoneWall' | 'woodStairs' | 'stoneStairs' | 'ladder' | 'woodTower' | 'stoneTower' | 'woodGate' | 'stoneGate'
@@ -420,7 +422,9 @@ export interface QueueSnap { id: number; recipe: string; kind: 'craft' | 'repair
 /** A gatherable node: a region object (obj = index into region.objects) or a finished farm/press (building = its id). */
 export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number; amount: number; max: number; obj?: number; building?: number;
   /** A living guard lair stands near: no gathering. */
-  guarded?: true }
+  guarded?: true;
+  /** M7e: a landmark's rare-good node: only the region's holder gathers it. */
+  rare?: true }
 /** Team influence: bit `team` of mask[y*w+x] is set where the team may build. */
 /**
  * W-39 fog of war (src/war/sim/vision.ts): a team's vision on a grid of `cell` x `cell` tiles (w x h cells, row-major).

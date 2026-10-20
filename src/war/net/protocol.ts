@@ -60,7 +60,9 @@ const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'fa
   'house', 'cottage', 'tent', 'temple', 'shrine', 'stoa', 'statue', 'well', 'jetty', 'warehouse', 'board', 'cache'] as const satisfies readonly BuildingType[];
 const rot = z.union([z.literal(0), z.literal(1)]).optional();
 /** Every good (src/war/types.ts ResourceKind). */
-export const GOODS = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'pitch', 'hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'coin'] as const satisfies readonly ResourceKind[];
+export const GOODS = ['food', 'wood', 'stone', 'marble', 'copper', 'tin', 'iron', 'bronze', 'silver', 'salt', 'pitch', 'hides', 'flax', 'herbs', 'charcoal', 'leather', 'linen', 'oil', 'coin',
+  // M7e rare goods
+  'dragonbone', 'nereidPearl', 'starIron', 'asphodel', 'titanBronze', 'obsidian'] as const satisfies readonly ResourceKind[];
 export const goodSchema = z.enum(GOODS);
 /** M6: one holder on the field: a store or chest (building), a cart, a loot pile. */
 const holderRef = z

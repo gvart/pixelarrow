@@ -51,6 +51,8 @@ export const RES_RGB: Record<ResourceKind | 'olives', RGB> = {
   food: [214, 188, 116], wood: [140, 156, 96], stone: [168, 168, 176], marble: [244, 240, 228], copper: [222, 120, 60], tin: [140, 170, 196],
   iron: [150, 70, 60], bronze: [200, 140, 60], silver: [200, 220, 240], coin: [230, 200, 90], salt: [250, 210, 220], pitch: [92, 58, 28], olives: [150, 160, 50],
   hides: [150, 110, 80], flax: [200, 190, 120], herbs: [96, 150, 80], charcoal: [50, 46, 44], leather: [130, 84, 50], linen: [236, 230, 210], oil: [180, 170, 60],
+  // M7e rare goods
+  dragonbone: [232, 226, 200], nereidPearl: [220, 236, 240], starIron: [96, 110, 140], asphodel: [200, 170, 220], titanBronze: [170, 110, 40], obsidian: [40, 36, 52],
 };
 /** Altitude bands (hypsometric, on parchment: sage lowland to umber hills, grey rock, cream peaks): sim levels 0..7, then the mountains' visual levels. */
 const ALT_RGB: RGB[] = [[176, 186, 140], [200, 200, 150], [222, 210, 160], [232, 206, 146], [228, 188, 124], [218, 164, 104], [200, 136, 86], [178, 110, 70],
