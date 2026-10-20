@@ -16,15 +16,20 @@
  *    evicted object restores it on its next socket or its pending alarm (WarRoom.restore, persons reloaded from D1) and
  *    the region steps on exactly where it was saved. A region with no saved state starts fresh and sends home anyone D1
  *    still has deployed there.
+ *
+ * M5h4 crafting: a `mend` message takes the stash item from D1 to the workplace (./crafting.ts takeForMend) and the
+ * room queues it; every tick's `crafted` events are written back (applyCrafts: minted items, repairs, salvage; keyed,
+ * idempotent) and mend items whose order went go back to the stash.
  */
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from '../env';
 import { WarRoom, type RoomOptions, type RoomState, type TickTimes } from './room';
 import { warRegion } from './regions';
-import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type ServerMsg } from '../../../src/war/net/protocol';
+import { DEFAULT_CAP, parseClientMsg, type JoinMsg, type MendMsg, type ServerMsg } from '../../../src/war/net/protocol';
 import type { WarPerson } from '../../../src/war/types';
 import { logError } from '../telemetry/log';
 import { applyFight, claimForJoin, deployed, release, releaseRegion } from './persons';
+import { applyCrafts, keepMends, returnMends, takeForMend } from './crafting';
 
 const TICK_MS = 100;
 const KEEPALIVE_MS = 10_000;
@@ -74,6 +79,7 @@ export class WarRegionDO extends DurableObject<Env> {
         try {
           const persons = d ? await deployed(d, region, st.pids) : new Map();
           restored = WarRoom.restore(o, st, persons);
+          if (d) await keepMends(d, region, restored.mendUids());
         } catch (e) {
           logError('war_restore_failed', e, { region }); // a state the code no longer reads: start the region over
         }
@@ -128,6 +134,7 @@ export class WarRegionDO extends DurableObject<Env> {
       } else if (m.t === 'view') room.view(me.pid, m);
       else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick });
       else if (m.t === 'check') send(ws, room.check(me.pid, m));
+      else if (m.t === 'mend') await this.mend(ws, me.pid, room, m);
     } catch (e) {
       logError('war_message_failed', e);
     }
@@ -148,6 +155,20 @@ export class WarRegionDO extends DurableObject<Env> {
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
     this.save();
     this.start();
+  }
+
+  /** M5h4: the stash item goes to the workplace (D1), then into the room's queue; refused: straight back. */
+  private async mend(ws: WebSocket, pid: number, room: WarRoom, m: MendMsg): Promise<void> {
+    const d = this.env.DB;
+    if (!d) return send(ws, { t: 'error', code: 'bad', detail: 'no database' });
+    const region = room.region.id;
+    const item = await takeForMend(d, pid, m.uid, region);
+    if (!item) return send(ws, { t: 'error', code: 'badTarget', detail: 'no such item in your stash' });
+    const err = room.mend(pid, m.kind, m.building, item);
+    if (err) {
+      this.write('unmend', () => returnMends(d, region, [item.uid]));
+      send(ws, { t: 'error', code: err, detail: m.kind });
+    } else this.save();
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
@@ -260,8 +281,10 @@ export class WarRegionDO extends DurableObject<Env> {
     }
     const d = this.env.DB;
     if (d) for (const f of r.fights) this.write(`fight ${f.id}`, () => applyFight(d, f.id, room.region.id, f.report, Date.now()));
+    if (d && r.crafted.length) this.write('crafted', () => applyCrafts(d, room.region.id, room.run, r.crafted, Date.now()));
+    if (d && r.freed.length) this.write('unmend', () => returnMends(d, room.region.id, r.freed));
     this.flushReleased(room);
-    if (r.fights.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();
+    if (r.fights.length || r.crafted.length || r.freed.length || r.admitted.size || room.currentTick - this.savedAt >= SAVE_TICKS) this.save();
     const t2 = performance.now();
     const total = t2 - t0;
     if (total > TICK_MS) this.overruns++;

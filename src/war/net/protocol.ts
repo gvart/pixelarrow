@@ -11,6 +11,8 @@
  *                    work, building, walls, bridges, upgrades, siege, civilians, actives); squad-less orders (a planned
  *                    site, cancelSite, upgrade) act for the player's team
  *   client -> check  { t, id, ... }                            a placement check for the player's team -> checked
+ *   client -> mend   { t, kind, building, uid }                M5h4: repair or salvage stash item `uid` at a workplace of
+ *                    the player's team (the server loads the item; queue state rides on BuildingSnap.queue)
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
@@ -21,7 +23,7 @@ import { SQUAD_MAX } from '../sim/soldiers';
 import type { BridgePlan, BuildingType, Order, PlaceResult, SquadId, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 4;
+export const NET_VERSION = 5;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -120,10 +122,12 @@ const baseMsgSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('order'), o: orderSchema }),
   z.object({ t: z.literal('view'), x0: num, y0: num, x1: num, y1: num }),
   z.object({ t: z.literal('ping'), c: num }),
+  z.object({ t: z.literal('mend'), kind: z.enum(['repair', 'salvage']), building: id, uid: z.string().min(1).max(120) }),
 ]);
 export const clientMsgSchema = z.union([baseMsgSchema, checkSchema]);
 export type ClientMsg = z.infer<typeof baseMsgSchema> | CheckMsg;
 export type JoinMsg = Extract<ClientMsg, { t: 'join' }>;
+export type MendMsg = Extract<ClientMsg, { t: 'mend' }>;
 
 /** Why a join or an order was turned down. */
 export type Refusal = 'version' | 'region' | 'player' | 'team' | 'army' | 'squads' | 'quota';
