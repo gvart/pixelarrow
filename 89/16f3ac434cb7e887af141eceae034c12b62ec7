@@ -1,0 +1,52 @@
+scripts/art/pixellab/guard/bob.mjs
+  s_cfc22b058125c4::t_bdd27a3dfb8b69 1-27
+docs/v5/pixellab/GUARD/bandit_king.sheet.json
+  s_cfc22b058125c4::t_2d26fa6ec84f1e 1-64
+scripts/art/pixellab/guard/spec.mjs
+  s_cfc22b058125c4::t_64cbf74556fba0 5
+  s_cfc22b058125c4::t_d4066fd3b1a32f 58-59
+  s_cfc22b058125c4::t_0ee040c55e8c47 1-4,6-57,60-63
+scripts/art/pixellab/guard/stack.mjs
+  s_cfc22b058125c4::t_b7760adf645b8f 1-22
+docs/v5/pixellab/GUARD/bandit_archer.jobs.json
+  s_cfc22b058125c4::t_4bf915b7e10146 1-6
+src/assets/sheets/mob_bandit_king/manifest.json
+  s_cfc22b058125c4::t_2d26fa6ec84f1e 1-79
+docs/v5/pixellab/GUARD/drakon.sheet.json
+  s_cfc22b058125c4::t_f1a780fe46ef6d 1-94
+src/assets/sheets/mob_drakon/manifest.json
+  s_cfc22b058125c4::t_64cbf74556fba0 84
+  s_cfc22b058125c4::t_f1a780fe46ef6d 1-83,85-97
+docs/v5/pixellab/GUARD/bandit_captain.jobs.json
+  s_cfc22b058125c4::t_9e3ba9aedd66a2 1-9
+docs/v5/pixellab/GUARD/bandit_guard.jobs.json
+  s_cfc22b058125c4::t_0fa6db466c2fb4 1-10
+docs/v5/pixellab/GUARD/bandit_king.jobs.json
+  s_cfc22b058125c4::t_9941ae484bc987 1-10
+scripts/art/pixellab/guard/bases.mjs
+  s_cfc22b058125c4::t_3086d132924441 1-21
+scripts/art/pixellab/guard/prompts.mjs
+  s_cfc22b058125c4::t_78e82c0903fcee 1-83
+scripts/art/pixellab/guard/rots.mjs
+  s_cfc22b058125c4::t_1857f2aac21910 1-34
+scripts/art/pixellab/guard/upload.mjs
+  s_cfc22b058125c4::t_5a601e2c4d6881 1-14
+scripts/art/pixellab/mobs/build.mjs
+  s_cfc22b058125c4::t_60d44bc3f9a9f4 132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8916f3ac434cb7e887af141eceae034c12b62ec7",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
