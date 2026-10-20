@@ -1,0 +1,35 @@
+scripts/art/pixellab/guard/rots.mjs
+  s_cfc22b058125c4::t_9b932d21a2f82e 29-32
+  s_cfc22b058125c4::t_cd506097404da2 13-16
+docs/v5/pixellab/GUARD/maenad.sheet.json
+  s_cfc22b058125c4::t_097daa7ce20a6c 1-64
+docs/v5/pixellab/GUARD/gyges.sheet.json
+  s_cfc22b058125c4::t_097daa7ce20a6c 1-64
+src/assets/sheets/mob_maenad/manifest.json
+  s_cfc22b058125c4::t_097daa7ce20a6c 1-79
+docs/v5/pixellab/GUARD/maenad_queen.jobs.json
+  s_cfc22b058125c4::t_6fe6c408615fd9 5-6
+  s_cfc22b058125c4::t_cdfcddddc1426b 7-9
+docs/v5/pixellab/GUARD/chimera.jobs.json
+  s_cfc22b058125c4::t_6fe6c408615fd9 1-8
+src/assets/sheets/mob_gyges/manifest.json
+  s_cfc22b058125c4::t_097daa7ce20a6c 1-79
+docs/v5/pixellab/GUARD/scylla_head.jobs.json
+  s_cfc22b058125c4::t_677306be2b1a52 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c953039e3f097bf43a5b19b3b4e049b30e678e0b",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
