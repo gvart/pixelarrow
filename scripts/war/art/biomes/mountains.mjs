@@ -13,7 +13,7 @@ export const FILLS = {
   scree: { dir: 'grass-scree', frame: 0, grade: { sat: 0.6, val: 0.9 } },
   meadow: { dir: 'grass-meadow', frame: 0, grade: { hue: -75, sat: 0.8, val: 0.75 } }, // PixelLab drew a teal turf: turned to a cool dark green
   gravel: { dir: 'grass-gravel', frame: 0, grade: { sat: 0.8, val: 0.72 } },
-  paving: { dir: 'grass-paving', batch: 'art5', frame: 0, grade: { sat: 0.6, val: 0.75 } }, // W-48 landmark streets and plazas
+  paving: { dir: 'grass-paving', batch: 'art5', frame: 0, grade: { sat: 0.45, val: 1 } }, // W-48 landmark streets and plazas
 };
 
 export const SETS = [

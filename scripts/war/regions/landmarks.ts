@@ -155,6 +155,7 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   const crag = new Set<number>();
   for (let y = 0; y < 184; y++) for (let x = 0; x < 200; x++) if (inPoly(C, x + 0.5, y + 0.5)) crag.add(y * 4096 + x);
   s.paintSet(crag, 'dirt');
+  k.patch('mountains', 'gravel', [cc[0], cc[1], 56, 46, 0], ['dirt'], undefined, ho); // the wards' trodden gravel
   s.lift = 4; s.base = hb;
   // the walls: the curtain along the crag's edge, the inner ward's wall along the summit's
   const O = s.wallTrace(CIT, inset(C, 3), { step: 22, every: 22, gates: [[66, 134], [18, 76], [192, 72]], seed: 11 });
@@ -200,6 +201,9 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   s.plaza(158, 109, 7, 5, 'dirt');
   const ward: District = { ids: [['arch-barracks', 3], ['arch-stables', 2], ['arch-forge', 1], ['arch-workshop', 2], ['@town-storehouse', 2], ['arch-cistern', 1], ['@town-cookhouse', 1]], ruin: 0.15, hp: [0.6, 0.6], empty: 0.08, alley: 0.3 };
   const outer = (x: number, y: number) => within(C, x, y, 8) && !inPoly(I, x, y) && !within(I, x, y, -3);
+  const wardLanes = (x: number, y: number) => within(C, x, y, 9) && !within(I, x, y, -4) && Math.hypot(x - yd[0], y - yd[1]) > 18;
+  lanes(s, [s.street([[40, 92], [30, 62], [52, 34], [84, 26]], 3), s.street([[130, 106], [154, 126]], 3)], 24, 2, wardLanes, 17);
+  lanes(s, [s.street([[123, 48], [150, 40], [164, 56], [150, 76]], 3)], 10, 2, (x, y) => within(I, x, y, 7), 18);
   s.infill(outer, ward, { seed: 14, front: 1, back: 6 });
   const summit = (x: number, y: number) => within(I, x, y, 6);
   s.infill(summit, { ids: [['arch-barracks', 2], ['@town-storehouse', 2], ['arch-workshop', 1], ['arch-house-b', 2], ['arch-stables', 1]], ruin: 0.1, hp: [0.6, 0.6], empty: 0.1 }, { seed: 15, front: 1, back: 5 });
@@ -245,7 +249,6 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   // levels up on its butte, the acropolis two more; the dead lake south-east
   k.maskPaint(() => 'sand');
   const c0 = s.u(160, 110);
-  k.patch('kyrene', 'reg', [c0[0], c0[1], 96, 72, 0], ['sand'], undefined, hb + 1); // the city's trodden ground
   k.patch('kyrene', 'hardpan', [c0[0], c0[1], 96, 72, 0], ['sand'], hb);
   k.patch('kyrene', 'salt', [128, 128, 200, 200, 0], ['sand'], hb);
   s.levelBy((x, y) => (inPoly(AC, x + 0.5, y + 0.5) ? ha : inPoly(U, x + 0.5, y + 0.5) && inPoly(P, x + 0.5, y + 0.5) ? hu : inPoly(P, x + 0.5, y + 0.5) ? hc : undefined));
@@ -323,11 +326,11 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   // the quarters: tenements along the avenues, the rich under the acropolis, craftsmen by the west gate, houses elsewhere
   const avTiles = new Set<number>();
   for (const c of av) for (const p of c) for (let d = -7; d <= 7; d++) for (let e = -7; e <= 7; e++) avTiles.add(Math.floor(p.y + d) * 4096 + Math.floor(p.x + e));
-  const houses: District = { ids: [['ammon-house-a', 4], ['ammon-house-b', 3], ['ammon-house-c', 3], ['arch-house-a', 1], ['arch-house-b', 1]], ruin: 0.75, hp: [0.25, 0.55], empty: 0.12, alley: 0.12 };
+  const houses: District = { ids: [['ammon-house-a', 4], ['ammon-house-d', 4], ['ammon-house-b', 3], ['ammon-house-c', 3], ['arch-house-a', 1], ['arch-house-b', 1]], ruin: 0.75, hp: [0.25, 0.55], empty: 0.12, alley: 0.12 };
   const tenements: District = { ids: [['ammon-tenement', 5], ['ammon-house-b', 2], ['ammon-workshop', 1], ['arch-tenement', 1]], ruin: 0.7, hp: [0.25, 0.55], empty: 0.06, alley: 0.08 };
-  const rich: District = { ids: [['ammon-house-c', 4], ['arch-house-b', 3], ['ammon-house-b', 1]], ruin: 0.7, hp: [0.3, 0.6], empty: 0.15 };
+  const rich: District = { ids: [['ammon-house-c', 4], ['arch-house-c', 2], ['arch-house-b', 3], ['ammon-house-b', 1]], ruin: 0.7, hp: [0.3, 0.6], empty: 0.15 };
   const crafts: District = { ids: [['ammon-workshop', 4], ['arch-workshop', 2], ['@town-storehouse', 1], ['arch-forge', 1], ['ammon-house-a', 2]], ruin: 0.5, hp: [0.3, 0.6], empty: 0.1 };
-  const garden = '@town-farm';
+  const garden = 'arch-garden';
   s.infill((x, y) => city(x, y) && avTiles.has(y * 4096 + x), tenements, { seed: 41, front: 1 });
   s.infill((x, y) => city(x, y) && s.hAt(x, y) === hu, rich, { seed: 42, front: 1, back: 6 });
   s.infill((x, y) => city(x, y) && x < 124 && Math.abs(y - 108) < 34, crafts, { seed: 43, front: 1, back: 3 });
@@ -402,21 +405,21 @@ export function templeCity(k: Kit, at: Pt, hm: number): Landmark {
   const A = [170, 182, 232, 220];
   s.pave(A[0], A[1], A[2], A[3], 'paving');
   yard(s, 194, 194, 208, 206);
-  for (const [x, y] of [[172, 184], [172, 206], [228, 184], [228, 206]]) freePut(s, '@town-stoa', x, y);
+  for (let n = 0; n < 5; n++) { freePut(s, '@town-stoa', 172, 184 + n * 6); freePut(s, '@town-stoa', 228, 184 + n * 6); }
   for (let n = 0; n < 5; n++) { freePut(s, `@town-stall-${'abc'[n % 3]}`, 178 + n * 9 + (n >= 2 ? 4 : 0), 183); freePut(s, `@town-stall-${'abc'[(n + 1) % 3]}`, 178 + n * 9 + (n >= 2 ? 4 : 0), 217); }
   // the pilgrims' quarters south of the agora either side of the way
-  const pil: District = { ids: [['arch-house-a', 3], ['arch-house-b', 2], ['arch-tenement', 2], ['@town-cottage', 1], ['arch-workshop', 1]], ruin: 0.8, hp: [0.3, 0.6], empty: 0.15 };
+  const pil: District = { ids: [['arch-house-a', 3], ['arch-house-b', 2], ['arch-house-c', 1], ['arch-tenement', 2], ['@town-cottage', 1], ['arch-workshop', 1]], ruin: 0.8, hp: [0.3, 0.6], empty: 0.15 };
   // W-49: the quarters as grown, not gridded: lanes winding off the sacred ways, lots packed along them
   const inR = (r: number[]) => (x: number, y: number) => x >= r[0] && x < r[2] && y >= r[1] && y < r[3];
   const pilR = [inR([140, 226, 194, 300]), inR([208, 226, 280, 300])];
   const reserved = [[198, 58, 298, 158], [222, 38, 248, 60], [284, 162, 308, 188], [292, 84, 324, 116], [166, 178, 236, 224]].map(inR);
   const rim = (x: number, y: number) => [[8, 0], [-8, 0], [0, 8], [0, -8]].every(([dx, dy]) => s.hAt(x + dx, y + dy) === hm && s.dry(x + dx, y + dy));
   const town = (x: number, y: number) => s.hAt(x, y) === hm && s.dry(x, y) && rim(x, y) && !reserved.some((f) => f(x, y));
-  const ends = lanes(s, wayC, 170, 2, town, 69);
+  const ends = lanes(s, wayC, 140, 2, town, 69);
   ends.filter((_, n) => n % 5 === 0).slice(0, 10).forEach(([x, y], n) => { s.plaza(x, y, 4, 3); s.force(n % 2 ? 'arch-cistern' : '@town-well', Math.round(x) - (n % 2 ? 1 : 0), Math.round(y) - (n % 2 ? 1 : 0), { hp: 0.5 }); });
-  s.infill((x, y) => pilR.some((f) => f(x, y)) && town(x, y), pil, { seed: 63, front: 1, back: 6 });
+  s.infill((x, y) => pilR.some((f) => f(x, y)) && town(x, y), pil, { seed: 63, front: 1, back: 6, garden: 'arch-garden' });
   const outer: District = { ...pil, ruin: 0.85, empty: 0.3, ids: [...pil.ids, ['arch-workshop', 2], ['@town-storehouse', 1]] };
-  s.infill((x, y) => !pilR.some((f) => f(x, y)) && town(x, y), outer, { seed: 67, front: 1, back: 7 });
+  s.infill((x, y) => !pilR.some((f) => f(x, y)) && town(x, y), outer, { seed: 67, front: 1, back: 9, garden: 'arch-garden' });
   scatter(s, ['arch-cistern'], 150, 70, 170, 150, 3, 65, { h: hm });
   capHomes(s, 10, 200, 200);
   return { site: s, host: [], gates: [], spots: { templeSquare: s.u(200, 200), market: s.u(200, 200), labyrinth: s.u(308, 100), arena: s.u(295, 175), precinct: s.u(248, 108) } };

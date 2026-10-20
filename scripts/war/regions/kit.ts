@@ -456,6 +456,9 @@ export class Kit {
   // ---- things (placed at the sim size, after the land)
   spot(name: string, p: Pt) { this.spots[name] = p; return p; }
   /** `n` copies of a set piece on free ground within `r` units of `at`, `gap` units apart (blocking ones keep their footprint clear). */
+  /** W-48: a waterfall where a river falls over a cliff step, its foot at `at`, the foam on its plunge pool at `pool` (units). */
+  readonly falls: { at: Pt; pool: Pt }[] = [];
+  fall(at: Pt, pool: Pt) { this.falls.push({ at, pool }); }
   piece(id: string, at: Pt, o: { r?: number; onRock?: boolean; n?: number; gap?: number } = {}) {
     this.reqs.push({ kind: 'piece', id, at, r: o.r ?? 12, onRock: o.onRock ?? false, n: o.n ?? 1, gap: o.gap ?? 4 });
   }
@@ -1541,6 +1544,12 @@ export function build(def: RegionDef): Built {
       guardians.push(e);
     }
     log.push(`landmark ${L.id}: ${n} pieces (${ruins} ruined${skipped ? `, ${skipped} blocked` : ''}), ${L.guardians.map((g) => g.boss).join(' + ')}`);
+  }
+  // W-48 waterfalls: the fall at the cliff's foot, the foam of its plunge pool (on the water, as placed)
+  for (const f of k.falls) {
+    const [x, y] = tileOf(f.at), [fx, fy] = tileOf(f.pool);
+    put('elaia/waterfall', x + 0.5, y + 0.5);
+    put('elaia/falls-foam', fx + 0.5, fy + 0.5);
   }
   for (const r of k.reqs) {
     if (r.kind === 'piece') {

@@ -12,7 +12,7 @@ export const FILLS = {
   rossa: { dir: 'grass-rossa', frame: 0, grade: { sat: 0.8, val: 0.68 } },
   marble: { dir: 'grass-marble', frame: 0, grade: { sat: 0.5, val: 0.6 } },
   grove: { dir: 'grass-grove', frame: 0, grade: { sat: 0.75, val: 0.75 } },
-  paving: { dir: 'grass-paving', batch: 'art5', frame: 0, grade: { sat: 0.6, val: 0.75 } }, // W-48 landmark streets and plazas
+  paving: { dir: 'grass-paving', batch: 'art5', frame: 0, grade: { sat: 0.45, val: 1 } }, // W-48 landmark streets and plazas
 };
 
 export const SETS = [
@@ -74,4 +74,7 @@ export const OBJECTS = [
   { id: 'olive-harvest', raw: 'olive-harvest', kind: 'prop', blocks: false, footprint: [1, 1], metres: 2, scale: 0.75, grade: { sat: 0.65, val: 0.8 }, extra: { resource: 'food' }, source: 'map_object b1d19d12' },
   { id: 'goats', raw: 'goats', kind: 'fauna', blocks: false, footprint: [2, 1], metres: 1.15, scale: 0.7, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'goat', animateLater: true }, source: 'map_object 4d90e5b6' },
   { id: 'boar', raw: 'boar', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.05, scale: 0.65, grade: { sat: 0.7, val: 0.8 }, extra: { fauna: 'boar', mob: true, animateLater: true }, source: 'map_object 1a2ffbf2' },
+  // W-48 waterfalls where a river falls over a cliff step (the fall itself is water: impassable), the foam of its plunge pool
+  { id: 'waterfall', raw: 'waterfall', kind: 'prop', blocks: false, footprint: [1, 1], metres: 4.2, grade: { sat: 0.45, val: 0.72 }, source: 'map_object 8fdf1472 (W-48)' },
+  { id: 'falls-foam', raw: 'falls-foam', kind: 'prop', blocks: false, footprint: [2, 1], metres: 1.7, grade: { sat: 0.45, val: 0.75 }, source: 'map_object 871f74b0 (W-48)' },
 ];
