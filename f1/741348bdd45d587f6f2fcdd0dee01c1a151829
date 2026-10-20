@@ -1,0 +1,41 @@
+server/test/war/room.test.ts
+  s_cfc22b058125c4::t_a49b05b43d49bb 281-307
+src/war/view/simClient.ts
+  s_cfc22b058125c4::t_656fc7ade9cca2 121-125
+src/war/net/protocol.ts
+  s_cfc22b058125c4::t_86007847b1005a 22-24,176-186,194
+server/src/war/regionDO.ts
+  s_cfc22b058125c4::t_1d8725db9baa06 102,188-192
+src/war/view/devPanel.ts
+  s_cfc22b058125c4::t_656fc7ade9cca2 48-52
+  s_cfc22b058125c4::t_05381db2d9e545 1-3,5,34,69
+  s_cfc22b058125c4::t_485fed23dcc565 4
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_656fc7ade9cca2 376-377
+src/war/view/worker.ts
+  s_cfc22b058125c4::t_656fc7ade9cca2 16,24,161,197-198,201-204
+server/src/war/room.ts
+  s_cfc22b058125c4::t_1d8725db9baa06 38,134-135,202,229,806-827
+  s_cfc22b058125c4::t_64b50701f75622 828-829
+docs/PLAYTEST.md
+  s_cfc22b058125c4::t_7b72f1f618ef44 50-53
+  s_cfc22b058125c4::t_c6ea4cdcb6638d 34
+src/war/net/client.ts
+  s_cfc22b058125c4::t_656fc7ade9cca2 14,30-31,34-36,125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f1741348bdd45d587f6f2fcdd0dee01c1a151829",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
