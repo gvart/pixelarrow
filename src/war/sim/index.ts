@@ -50,6 +50,7 @@ import { BOG, buildGrid, canEnter, DECK, findPath, flushSectors, FOREST, lineCle
 import { createWorks, type Worker } from './works';
 import { createSiege, LADDER } from './siege';
 import { createMobs, MOB_OWNER, MOB_TEAM, mobClass } from './mobs';
+import { createBosses } from './bosses';
 import { createVision } from './vision';
 import { CAPTURE_R, DETACH_MIN, gainXp, SQUAD_MAX, XP } from './soldiers';
 import { ACTIVE, ACTIVES, activeCooldown, F, FLAG_FX } from './skills';
@@ -193,6 +194,12 @@ interface Unit extends Worker {
   pack: Hold | null;
   tag: number;
   safeT: number;
+  // M7d guardians (./bosses.ts): placed by the boss AI (no steering, not pushed); out of melee reach (1: a roof or the air,
+  // 2: the channels, from a ford only); untouchable (Scylla's body while 3+ heads live); the guardian run it belongs to (-1 none)
+  pin: boolean;
+  aloft: 0 | 1 | 2;
+  immune: boolean;
+  boss: number;
 }
 
 /** M6 load / unload under way: the holder, which way, the good and how many goods are still wanted. */
@@ -553,6 +560,73 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     range: (lo, hi) => rng.range(lo, hi),
     w: grid.w,
     h: grid.h,
+  });
+
+  // M7d: the region's guardians (./bosses.ts)
+  const knock = (t: Unit, fx: number, fy: number, tiles: number) => {
+    const d = Math.hypot(t.x - fx, t.y - fy) || 1, k = tiles / 3;
+    grid.team = t.squad.team;
+    for (let i = 0; i < 3; i++) tryMove(t, ((t.x - fx) / d) * k || k, ((t.y - fy) / d) * k);
+    t.settled = false;
+  };
+  const bosses = createBosses(region, {
+    units,
+    squads,
+    spawn: (cls, count, x, y, st, boss) => {
+      const id = api.spawnSquad(MOB_OWNER, MOB_TEAM, 'mob_bear', count, x, y);
+      for (const u of squads[id]?.units ?? []) {
+        u.cls = cls;
+        u.st = { ...u.st, ...st };
+        u.maxHp = u.hp = u.st.maxHp;
+        u.boss = boss;
+        u.beast = false;
+      }
+      if (squads[id]) squads[id].speed = squads[id].units[0].st.speed;
+      return id;
+    },
+    order: (o) => apply(o),
+    hurt: (u, dmg, venom) => {
+      const t = u as Unit;
+      if (venom && t.squad.theriacUntil <= tick) t.venomUntil = tick + VENOM.ticks;
+      hurt(t, dmg);
+    },
+    knock: (u, fx, fy, tiles) => knock(u as Unit, fx, fy, tiles),
+    place: (u, x, y) => {
+      const t = u as Unit;
+      t.x = t.ox = x;
+      t.y = t.oy = y;
+    },
+    vanish: (u) => {
+      const t = u as Unit;
+      if (!t.alive) return;
+      t.alive = false;
+      t.hp = 0;
+      t.reported = true;
+      t.tgt = null;
+      t.squad.alive--;
+      reslotQueue.add(t.squad);
+    },
+    burn: (x, y, r) => {
+      for (const b of works.near(x, y, r)) works.fireHit(b, 1);
+    },
+    smash: (x, y, r, dmg, what) => {
+      for (const id of works.near(x, y, r)) {
+        const b = works.piece(id);
+        if (!b || b.state === 'destroyed' || (what === 'wood' && b.def.material !== 'wood') || (what === 'gate' && b.def.wall !== 'gate')) continue;
+        works.damage(id, dmg, MOB_TEAM);
+      }
+    },
+    water: (x, y) => (x < 0 || y < 0 || x >= grid.w || y >= grid.h ? 0 : region.water[tileAt(grid, x, y)]),
+    open: (x, y) => x >= 0 && y >= 0 && x < grid.w && y < grid.h && grid.cost[tileAt(grid, x, y)] > 0,
+    claimed: () => mobs.claimed(),
+    gate: (id, alive) => (alive ? mobs.setBoss(id) : mobs.bossDown(id)),
+    resetLandmark: () => works.resetLandmark(),
+    note: (e) => note(e),
+    range: (lo, hi) => rng.range(lo, hi),
+    w: grid.w,
+    h: grid.h,
+    mobTeam: MOB_TEAM,
+    neutralTeam: NEUTRAL_TEAM,
   });
 
   // M7a: the region's pre-built pieces and their functions (./prebuilt.ts)
@@ -1409,12 +1483,14 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
 
   const hurt = (t: Unit, dmg: number, by?: Unit) => {
     if (anySafe && inSafe(t.x, t.y) && dmg !== Infinity) return; // M6d: no combat in a safe zone (a bridge fall aside)
+    if (t.immune) return; // M7d: Scylla's body while her heads guard it
     if (by) by.tag = t.tag = tick + SAFE.tag; // M6d: combat tag
     const d = dmg * (working(t) ? WORK_DEFENCE : 1) * (t.squad.fedUntil > tick ? t.squad.fedInn : 1); // M5f: a fed squad takes less
     if (by?.venom && t.squad.theriacUntil <= tick) t.venomUntil = tick + VENOM.ticks; // M5h: a venomous bite
     if (by) {
       by.dealt += Math.min(d, t.hp);
       by.engaged = t.engaged = true;
+      if (t.boss >= 0) bosses.hit(t.boss, by.squad.owner, Math.min(d, t.hp)); // M7d: the killers' list
     }
     t.hp -= d;
     if (t.hp > 0) return;
@@ -1848,6 +1924,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const bias = attacking && o !== foe ? 9 : 0; // attackers prefer the ordered target unless another foe is much nearer
       for (const t of o.units) {
         if (!t.alive || (anySafe && inSafe(t.x, t.y))) continue; // M6d: none inside a safe zone
+        // M7d: a guardian on a roof or in the air only missiles reach; in the channels, melee from a ford only
+        if (t.aloft && !shoot && (t.aloft === 1 || region.water[tileAt(grid, u.x, u.y)] !== 1)) continue;
         const d2 = (t.x - u.x) ** 2 + (t.y - u.y) ** 2 + bias;
         if (d2 < bestScore) {
           if (!shoot && d2 < CHARGE * CHARGE && !reachable(u, t)) continue;
@@ -2064,7 +2142,8 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
             // a man standing on a bridge gives way along the file (it has no room to go round him)
             const uFix = (u.settled && !works.bridgeAt(tileAt(grid, u.x, u.y))) || u.striking || u.working;
             const oFix = (o.settled && !works.bridgeAt(tileAt(grid, o.x, o.y))) || o.striking || o.working;
-            const k = uFix === oFix ? 0.5 : uFix ? 0 : 1;
+            const k = u.pin ? 0 : o.pin ? 1 : uFix === oFix ? 0.5 : uFix ? 0 : 1;
+            if (u.pin && o.pin) continue;
             const gap = MIN - e;
             grid.team = u.squad.team;
             if (k > 0) tryMove(u, ex * gap * k, ey * gap * k);
@@ -2332,6 +2411,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     if (civs.length && tick % SCAN === 0) civScan();
     if (civs.length && tick % CIV.every === 0) civTick();
     mobs.tick(tick);
+    bosses.tick(tick);
     towns.tick(tick);
     for (const s of squads) {
       if (s.alive === 0) continue;
@@ -2384,6 +2464,16 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     for (let i = 0; i < units.length; i++) {
       const u = units[i];
       if (!u.alive) continue;
+      if (u.pin) {
+        // M7d: a guardian the boss AI places (a roof, its chains, a flight): no blows of the sim's, no steering
+        u.fighting = u.striking = false;
+        u.tgt = null;
+        u.ox = u.x;
+        u.oy = u.y;
+        u.want = -1;
+        u.settled = true;
+        continue;
+      }
       const ox = u.x;
       const oy = u.y;
       grid.team = u.squad.team;
@@ -2550,7 +2640,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   const saveRoot = () => ({
     grid, rng, squads, units, queue, pathQueue, unitPathQueue, missiles, shots, reslotQueue, tick, loot, log, civs, rations, dresser,
     crafting: crafting.saveRoot(), works: works.saveRoot(), siege: siege.saveRoot(), mobs: mobs.saveRoot(), vision: vision.saveRoot(), piles: piles.saveRoot(),
-    towns: towns.saveRoot(),
+    towns: towns.saveRoot(), bosses: bosses.saveRoot(),
   });
 
   const api: WarBuildSim = {
@@ -2574,6 +2664,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       vision.loadRoot(r.vision);
       crafting.loadRoot(r.crafting);
       towns.loadRoot(r.towns);
+      bosses.loadRoot(r.bosses);
     },
     dropPersons(ids) {
       // a resumed region whose save predates a fight write-back: men D1 has already sent home leave without a report
@@ -2643,7 +2734,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
           crossing: false, settled: false, settleD: 0, best: Infinity, stall: 0, ox: px, oy: py, want: 0, toSlot: false,
           job: null, carry: null, load: 0, wnode: -1, wsite: -1, wslot: -1, wfor: -1, working: false, wgx: -1, wgy: -1, wpath: [], wpi: 0, wreq: false, doing: null, person: ps?.[k] ?? null,
           dealt: 0, kills: 0, obj: 0, engaged: false, reported: false, civ: civJob(ps?.[k].hero.cls ?? cls), civT: 0, civAt: false, repaired: false, venomUntil: -1, venom: false, beast: false, fieldR: 0,
-          pack: null, tag: 0, safeT: 0,
+          pack: null, tag: 0, safeT: 0, pin: false, aloft: 0, immune: false, boss: -1,
         };
         setRates(u);
         if (u.civ) civs.push(u);
@@ -2709,6 +2800,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
         influenceVersion: works.influence().version,
         sieges: siege.snaps(tick),
         ...(region.lairs?.length || region.claimPoints?.length ? { lairs: mobs.lairSnaps(), claims: mobs.claimSnaps() } : {}),
+        ...(bosses.any() ? { bosses: bosses.snaps(), ...(bosses.warden() ? { warden: bosses.warden() } : {}) } : {}),
         ...(region.prebuilt?.length ? { towns: towns.towns() } : {}),
         ...(rations.size ? { rations: Object.fromEntries(rations) } : {}),
         ...(crafting.supplies.size ? { supplies: crafting.suppliesSnap() } : {}),
@@ -2728,13 +2820,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     damageBuilding: works.damage,
     finishBridges: works.finishBridges,
     spawnCart: (team, owner, type, x, y) => siege.cart(team, owner, type, x, y),
-    spawnMobs: () => mobs.spawn(),
+    spawnMobs: () => (mobs.spawn(), bosses.spawn()),
+    spawnGuardians: () => bosses.spawn(),
+    hurtBoss: (id, dmg, owner, part) => bosses.hurtBoss(id, dmg, owner, part),
     towns: () => towns.towns(),
     population: (team) => towns.population(team),
     prestige: (team) => towns.prestige(team),
     upkeepAt: (team, x, y) => towns.upkeepAt(team, x, y),
     setBoss: (id) => mobs.setBoss(id),
-    bossDown: () => mobs.bossDown(),
+    bossDown: (id) => mobs.bossDown(id),
     visibleTo: vision.visibleTo,
     teamGrid: vision.teamGrid,
     lastSeen: vision.lastSeen,

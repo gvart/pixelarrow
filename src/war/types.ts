@@ -34,6 +34,21 @@ export interface RegionData {
   prebuilt?: PrebuiltEntry[];
   /** M7c: danger depth 0 (homes) .. 4 (rim, Omphalos); absent: src/war/sim/depth.ts REGION_DEPTH, else 1. */
   depth?: number;
+  /** M7d (additive, src/war/sim/bosses.ts): the region's guardians (landmark bosses) and where they fight. */
+  guardians?: GuardianEntry[];
+  /** M7d: the map side facing the dead water: a depth-4 rim region's Warden strikes fall in its outer band. */
+  rim?: 'N' | 'E' | 'S' | 'W';
+}
+/**
+ * M7d: a guardian of the region (src/data/warBosses.ts id) and its posts, in tiles: (x,y) its lair (the yard, the palace,
+ * the cave mouth); perches: roofs and tower tops it fights from (Drakon: the keep roof first, then the towers he flies
+ * between; Brontes, the Titan: the gate top); heads: Scylla's six heads along the cliff; postern: the Bandit King's way
+ * out; pit: where called packs come from (Drakon's bone pit); flats: where a beaten guardian drags itself (Scylla, the
+ * River-God's channel).
+ */
+export interface GuardianEntry {
+  boss: string; x: number; y: number;
+  perches?: [number, number][]; heads?: [number, number][]; postern?: [number, number]; pit?: [number, number]; flats?: [number, number];
 }
 /**
  * M7a: a pre-built structure (docs/WAR.md "Pre-built structures"): a building of `type` standing done at the start, its
@@ -43,6 +58,8 @@ export interface RegionData {
  */
 export interface PrebuiltEntry {
   type: BuildingType; x: number; y: number; rot?: 0 | 1; tiles?: number[]; hp?: number; state?: 'done' | 'ruined'; claim?: number; landmark?: boolean;
+  /** M7d: a landmark piece's art (public/war/landmarks/landmarks.json piece id) and its own max hp (the keep's 8000). */
+  art?: string; maxHp?: number;
 }
 export interface TileRect { x: number; y: number; w: number; h: number }
 export interface SafeRect extends TileRect { gates?: TileRect[] }
@@ -260,11 +277,31 @@ export interface Snapshot {
   piles?: PileSnap[];
   /** M7a: towns of pre-built pieces (grouped by claim point). */
   towns?: TownSnap[];
+  /** M7d: the region's guardians (src/war/sim/bosses.ts) and a Rim Warden strike being marked. */
+  bosses?: BossSnap[];
+  warden?: WardenSnap;
   /** M5f: rations per team (cooks make them, squads near a cook eat them). */
   rations?: Record<number, number>;
   /** M5h: dishes, remedies, kits and caravan goods per team (src/data/recipes.ts Product). */
   supplies?: Record<number, Partial<Record<Product, number>>>;
 }
+/**
+ * M7d: a guardian as the view sees it: its body unit (the bar's), hp of all its parts, the phase it is in (index into
+ * `phases`, the hp shares they start below), what it does (perch: on a roof out of melee reach; flight; flee: running for
+ * the postern; away: escaped, back in respawnIn; slain: respawnIn while its region is unheld), parts alive of its linked
+ * targets (Scylla's heads, the Chimera's heads), the raid it faces (foe squads near) and its hp scale for it; fx: the move
+ * it makes now (breath cone from x,y towards tx,ty, r wide; sweep, crash, stomp, smash: a ring of r; rock and boulder: a
+ * throw landing at tx,ty; snatch: a man pulled into the water at tx,ty), `t` ticks ago; hide: units of its squads the view
+ * does not draw (the Chimera's other heads share the lion's body).
+ */
+export interface BossSnap {
+  id: string; name: string; squad: SquadId; unit: UnitId; x: number; y: number; hp: number; maxHp: number; phase: number; phases: readonly number[];
+  state: 'idle' | 'fight' | 'perch' | 'flight' | 'flee' | 'away' | 'slain'; parts?: { alive: number; total: number }; raid: number; scale: number;
+  respawnIn?: number; fx?: { kind: 'breath' | 'sweep' | 'crash' | 'stomp' | 'smash' | 'rock' | 'boulder' | 'snatch' | 'charge'; x: number; y: number; tx: number; ty: number; r: number; t: number };
+  hide?: UnitId[];
+}
+/** M7d: a Rim Warden strike marked on an 8 x 8 patch of the rim band, landing in `in` ticks (60% max hp to every man in it). */
+export interface WardenSnap { x: number; y: number; w: number; h: number; in: number }
 /**
  * A lair: its mob squad (team MOB_TEAM), mobs alive of `count`; state home (idle, wandering), chase, return (leashed back,
  * healing), flee (a herd), cleared (respawnIn: ticks until it may come back while its area is unclaimed). aggro, leash,
@@ -458,7 +495,10 @@ export interface WarBuildSim extends WarSim {
    * the region is held (its pre-built pieces the mobs', gates shut) and no claim point opens; bossDown: it fell.
    */
   setBoss(id: string | null): void;
-  bossDown(): void;
+  bossDown(id?: string): void;
+  /** M7d (src/war/sim/bosses.ts): wake the region's guardians (spawnMobs does it too); a dev and test hook: deal `dmg` to guardian `boss`'s body (its phases follow). */
+  spawnGuardians(): void;
+  hurtBoss(boss: string, dmg: number, owner?: string, part?: number): void;
   /** W-39 fog: the team sees tile point (x,y) now. */
   visibleTo(team: number, x: number, y: number): boolean;
   /** The team's fog grid (live; copy before posting). */
@@ -558,4 +598,10 @@ export type WarEvent =
   // shrine: sacrilege (the razer's alliance loses score, server)
   | { t: number; kind: 'razed'; building: number; type: BuildingType; owner: number; by: number; sacrilege?: true }
   // M7c: a bandit host's captain fell (its claim point may open)
-  | { t: number; kind: 'captainSlain'; lair: number; by: number };
+  | { t: number; kind: 'captainSlain'; lair: number; by: number }
+  // M7d: a guardian entered phase `phase` (index into its WarBoss phases); escaped (the Bandit King by the postern: back
+  // after a while with half his host); came back (24 h unheld: full hp, its landmark reset); a Rim Warden strike landed
+  | { t: number; kind: 'bossPhase'; region: string; boss: string; phase: number }
+  | { t: number; kind: 'bossFled'; region: string; boss: string }
+  | { t: number; kind: 'bossBack'; region: string; boss: string }
+  | { t: number; kind: 'wardenStrike'; x: number; y: number; w: number; h: number; hit: number };
