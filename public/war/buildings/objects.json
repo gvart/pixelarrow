@@ -124,65 +124,65 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#6e635d",
-  "#706a64",
-  "#6f6c65",
-  "#726d64",
-  "#726e64",
-  "#9b8554",
-  "#987d6e",
-  "#a88961",
-  "#b19069",
-  "#988c78",
-  "#a7947d",
-  "#ab9f8a",
-  "#b4aea3",
-  "#644339",
-  "#664a3f",
-  "#6d4548",
-  "#6d4949",
-  "#797269",
-  "#7c756d",
-  "#846c64",
-  "#90716c",
-  "#715c52",
-  "#6f5855",
-  "#8a7a6d",
-  "#947f6e",
-  "#958879",
-  "#9c8875",
-  "#5f4038",
-  "#60453d",
-  "#78726a",
-  "#767271",
-  "#43211a",
-  "#442a24",
-  "#5b3e30",
-  "#663b28",
-  "#785850",
-  "#7a5f56",
-  "#936947",
-  "#976a55",
-  "#675f57",
   "#716d63",
-  "#878167",
+  "#726e64",
   "#847d78",
-  "#594944",
-  "#767068",
-  "#37181b",
+  "#978a7d",
+  "#a7937d",
+  "#b4aea3",
+  "#706b65",
+  "#6f6c65",
+  "#987d6e",
+  "#b19069",
   "#5b2b25",
-  "#7c4735",
-  "#615d51",
-  "#667249",
-  "#847f53",
+  "#663b27",
+  "#664a3f",
+  "#6d4949",
+  "#866952",
+  "#976a55",
+  "#7c756e",
+  "#90716c",
+  "#6f5b57",
+  "#947f6e",
+  "#432a23",
+  "#60463c",
+  "#7a5f56",
+  "#767271",
+  "#667248",
+  "#706c65",
   "#8b7d70",
-  "#4f4847",
-  "#776e66",
-  "#230f21",
-  "#5d2c1a",
-  "#7a3a1a",
+  "#9b8671",
+  "#978c79",
+  "#ab9f8a",
+  "#6f645f",
+  "#9b8655",
+  "#a98962",
+  "#5d2c1b",
+  "#5b3e30",
+  "#644339",
+  "#6d4548",
   "#845a4a",
-  "#866953"
+  "#936947",
+  "#797269",
+  "#846b63",
+  "#715b52",
+  "#8b7b6d",
+  "#43211a",
+  "#5f4038",
+  "#785850",
+  "#78726a",
+  "#605d51",
+  "#675e57",
+  "#857f52",
+  "#878166",
+  "#230f21",
+  "#37171b",
+  "#4f4847",
+  "#594944",
+  "#7a3a1a",
+  "#7c4735",
+  "#776e67",
+  "#767068"
  ],
  "kits": [
   {
@@ -2507,28 +2507,28 @@
      {
       "id": "heat-glow",
       "at": {
-       "x": 66,
+       "x": 60,
        "y": 101
       }
      },
      {
       "id": "tongue-m-a",
       "at": {
-       "x": 66,
+       "x": 60,
        "y": 103
       }
      },
      {
       "id": "embers",
       "at": {
-       "x": 66,
+       "x": 60,
        "y": 87
       }
      },
      {
       "id": "smoke-wisp-b",
       "at": {
-       "x": 66,
+       "x": 60,
        "y": 95
       },
       "alpha": 0.4
@@ -8658,17 +8658,17 @@
    "id": "forge-done",
    "kind": "forge",
    "file": "forge-done.png",
-   "w": 192,
-   "h": 192,
-   "metres": 2.91,
+   "w": 186,
+   "h": 181,
+   "metres": 2.58,
    "basePx": 96,
    "anchor": {
-    "x": 98,
-    "y": 191
+    "x": 92,
+    "y": 180
    },
    "tileOrigin": {
-    "x": 98,
-    "y": 96
+    "x": 92,
+    "y": 85
    },
    "footprint": [
     3,
@@ -8685,17 +8685,17 @@
    "id": "forge-scaffold",
    "kind": "forge",
    "file": "forge-scaffold.png",
-   "w": 189,
-   "h": 129,
-   "metres": 1,
+   "w": 185,
+   "h": 118,
+   "metres": 0.67,
    "basePx": 96,
    "anchor": {
-    "x": 95,
-    "y": 128
+    "x": 91,
+    "y": 117
    },
    "tileOrigin": {
-    "x": 95,
-    "y": 33
+    "x": 91,
+    "y": 22
    },
    "footprint": [
     3,
@@ -8712,17 +8712,17 @@
    "id": "forge-damaged",
    "kind": "forge",
    "file": "forge-damaged.png",
-   "w": 190,
-   "h": 192,
-   "metres": 2.91,
+   "w": 184,
+   "h": 181,
+   "metres": 2.58,
    "basePx": 96,
    "anchor": {
-    "x": 98,
-    "y": 191
+    "x": 92,
+    "y": 180
    },
    "tileOrigin": {
-    "x": 98,
-    "y": 96
+    "x": 92,
+    "y": 85
    },
    "footprint": [
     3,
@@ -8794,16 +8794,16 @@
    "kind": "forge",
    "file": "forge2-done.png",
    "w": 192,
-   "h": 185,
-   "metres": 2.7,
+   "h": 182,
+   "metres": 2.61,
    "basePx": 96,
    "anchor": {
     "x": 93,
-    "y": 184
+    "y": 181
    },
    "tileOrigin": {
     "x": 93,
-    "y": 89
+    "y": 86
    },
    "footprint": [
     3,
@@ -8820,17 +8820,17 @@
    "id": "forge2-scaffold",
    "kind": "forge",
    "file": "forge2-scaffold.png",
-   "w": 183,
-   "h": 119,
-   "metres": 0.7,
+   "w": 178,
+   "h": 116,
+   "metres": 0.61,
    "basePx": 96,
    "anchor": {
-    "x": 92,
-    "y": 118
+    "x": 89,
+    "y": 115
    },
    "tileOrigin": {
-    "x": 92,
-    "y": 23
+    "x": 89,
+    "y": 20
    },
    "footprint": [
     3,
@@ -8848,16 +8848,16 @@
    "kind": "forge",
    "file": "forge2-damaged.png",
    "w": 178,
-   "h": 179,
-   "metres": 2.52,
+   "h": 176,
+   "metres": 2.42,
    "basePx": 96,
    "anchor": {
-    "x": 80,
-    "y": 178
+    "x": 78,
+    "y": 175
    },
    "tileOrigin": {
-    "x": 80,
-    "y": 83
+    "x": 78,
+    "y": 80
    },
    "footprint": [
     3,
@@ -8929,16 +8929,16 @@
    "kind": "forge",
    "file": "forge3-done.png",
    "w": 192,
-   "h": 231,
-   "metres": 4.09,
+   "h": 221,
+   "metres": 3.79,
    "basePx": 96,
    "anchor": {
     "x": 95,
-    "y": 230
+    "y": 220
    },
    "tileOrigin": {
     "x": 95,
-    "y": 135
+    "y": 125
    },
    "footprint": [
     3,
@@ -8956,16 +8956,16 @@
    "kind": "forge",
    "file": "forge3-scaffold.png",
    "w": 192,
-   "h": 150,
-   "metres": 1.64,
+   "h": 147,
+   "metres": 1.55,
    "basePx": 96,
    "anchor": {
     "x": 95,
-    "y": 149
+    "y": 146
    },
    "tileOrigin": {
     "x": 95,
-    "y": 54
+    "y": 51
    },
    "footprint": [
     3,
@@ -8983,16 +8983,16 @@
    "kind": "forge",
    "file": "forge3-damaged.png",
    "w": 192,
-   "h": 232,
-   "metres": 4.12,
+   "h": 229,
+   "metres": 4.03,
    "basePx": 96,
    "anchor": {
     "x": 95,
-    "y": 231
+    "y": 228
    },
    "tileOrigin": {
     "x": 95,
-    "y": 136
+    "y": 133
    },
    "footprint": [
     3,
@@ -9064,16 +9064,16 @@
    "kind": "cookhouse",
    "file": "cookhouse-done.png",
    "w": 160,
-   "h": 144,
-   "metres": 1.94,
+   "h": 128,
+   "metres": 1.45,
    "basePx": 80,
    "anchor": {
     "x": 80,
-    "y": 143
+    "y": 127
    },
    "tileOrigin": {
     "x": 48,
-    "y": 64
+    "y": 48
    },
    "footprint": [
     3,
@@ -9090,17 +9090,17 @@
    "id": "cookhouse-scaffold",
    "kind": "cookhouse",
    "file": "cookhouse-scaffold.png",
-   "w": 160,
-   "h": 105,
-   "metres": 0.76,
+   "w": 149,
+   "h": 89,
+   "metres": 0.27,
    "basePx": 80,
    "anchor": {
-    "x": 78,
-    "y": 104
+    "x": 76,
+    "y": 88
    },
    "tileOrigin": {
-    "x": 46,
-    "y": 25
+    "x": 44,
+    "y": 9
    },
    "footprint": [
     3,
@@ -9118,16 +9118,16 @@
    "kind": "cookhouse",
    "file": "cookhouse-damaged.png",
    "w": 160,
-   "h": 143,
-   "metres": 1.91,
+   "h": 127,
+   "metres": 1.42,
    "basePx": 80,
    "anchor": {
     "x": 80,
-    "y": 142
+    "y": 126
    },
    "tileOrigin": {
     "x": 48,
-    "y": 63
+    "y": 47
    },
    "footprint": [
     3,
@@ -9144,16 +9144,16 @@
    "id": "cookhouse-rising",
    "kind": "cookhouse",
    "file": "cookhouse-rising.png",
-   "w": 160,
+   "w": 145,
    "h": 75,
    "metres": 0.12,
    "basePx": 71,
    "anchor": {
-    "x": 78,
+    "x": 72,
     "y": 74
    },
    "tileOrigin": {
-    "x": 46,
+    "x": 40,
     "y": -5
    },
    "footprint": [
@@ -9199,16 +9199,16 @@
    "kind": "cookhouse",
    "file": "cookhouse2-done.png",
    "w": 160,
-   "h": 143,
-   "metres": 1.91,
+   "h": 137,
+   "metres": 1.73,
    "basePx": 80,
    "anchor": {
     "x": 76,
-    "y": 142
+    "y": 136
    },
    "tileOrigin": {
     "x": 44,
-    "y": 63
+    "y": 57
    },
    "footprint": [
     3,
@@ -9225,17 +9225,17 @@
    "id": "cookhouse2-scaffold",
    "kind": "cookhouse",
    "file": "cookhouse2-scaffold.png",
-   "w": 158,
-   "h": 105,
-   "metres": 0.76,
+   "w": 152,
+   "h": 99,
+   "metres": 0.58,
    "basePx": 80,
    "anchor": {
-    "x": 73,
-    "y": 104
+    "x": 70,
+    "y": 98
    },
    "tileOrigin": {
-    "x": 41,
-    "y": 25
+    "x": 38,
+    "y": 19
    },
    "footprint": [
     3,
@@ -9253,16 +9253,16 @@
    "kind": "cookhouse",
    "file": "cookhouse2-damaged.png",
    "w": 158,
-   "h": 142,
-   "metres": 1.88,
+   "h": 136,
+   "metres": 1.7,
    "basePx": 80,
    "anchor": {
     "x": 74,
-    "y": 141
+    "y": 135
    },
    "tileOrigin": {
     "x": 42,
-    "y": 62
+    "y": 56
    },
    "footprint": [
     3,
@@ -9279,16 +9279,16 @@
    "id": "cookhouse2-rising",
    "kind": "cookhouse",
    "file": "cookhouse2-rising.png",
-   "w": 157,
+   "w": 152,
    "h": 70,
    "metres": 0.12,
    "basePx": 66,
    "anchor": {
-    "x": 72,
+    "x": 70,
     "y": 69
    },
    "tileOrigin": {
-    "x": 40,
+    "x": 38,
     "y": -10
    },
    "footprint": [
@@ -9334,16 +9334,16 @@
    "kind": "cookhouse",
    "file": "cookhouse3-done.png",
    "w": 160,
-   "h": 161,
-   "metres": 2.45,
+   "h": 160,
+   "metres": 2.42,
    "basePx": 80,
    "anchor": {
     "x": 51,
-    "y": 160
+    "y": 159
    },
    "tileOrigin": {
     "x": 19,
-    "y": 81
+    "y": 80
    },
    "footprint": [
     3,
@@ -9361,16 +9361,16 @@
    "kind": "cookhouse",
    "file": "cookhouse3-scaffold.png",
    "w": 153,
-   "h": 110,
-   "metres": 0.91,
+   "h": 109,
+   "metres": 0.88,
    "basePx": 80,
    "anchor": {
     "x": 44,
-    "y": 109
+    "y": 108
    },
    "tileOrigin": {
     "x": 12,
-    "y": 30
+    "y": 29
    },
    "footprint": [
     3,
@@ -9387,17 +9387,17 @@
    "id": "cookhouse3-damaged",
    "kind": "cookhouse",
    "file": "cookhouse3-damaged.png",
-   "w": 159,
-   "h": 164,
-   "metres": 2.55,
+   "w": 158,
+   "h": 163,
+   "metres": 2.52,
    "basePx": 80,
    "anchor": {
-    "x": 49,
-    "y": 163
+    "x": 48,
+    "y": 162
    },
    "tileOrigin": {
-    "x": 17,
-    "y": 84
+    "x": 16,
+    "y": 83
    },
    "footprint": [
     3,
@@ -9468,17 +9468,17 @@
    "id": "infirmary-done",
    "kind": "infirmary",
    "file": "infirmary-done.png",
-   "w": 192,
-   "h": 181,
-   "metres": 2.58,
+   "w": 191,
+   "h": 178,
+   "metres": 2.48,
    "basePx": 96,
    "anchor": {
-    "x": 98,
-    "y": 180
+    "x": 97,
+    "y": 177
    },
    "tileOrigin": {
-    "x": 98,
-    "y": 85
+    "x": 97,
+    "y": 82
    },
    "footprint": [
     3,
@@ -9495,17 +9495,17 @@
    "id": "infirmary-scaffold",
    "kind": "infirmary",
    "file": "infirmary-scaffold.png",
-   "w": 191,
-   "h": 133,
-   "metres": 1.12,
+   "w": 190,
+   "h": 130,
+   "metres": 1.03,
    "basePx": 96,
    "anchor": {
-    "x": 96,
-    "y": 132
+    "x": 95,
+    "y": 129
    },
    "tileOrigin": {
-    "x": 96,
-    "y": 37
+    "x": 95,
+    "y": 34
    },
    "footprint": [
     3,
@@ -9522,17 +9522,17 @@
    "id": "infirmary-damaged",
    "kind": "infirmary",
    "file": "infirmary-damaged.png",
-   "w": 192,
-   "h": 179,
-   "metres": 2.52,
+   "w": 190,
+   "h": 176,
+   "metres": 2.42,
    "basePx": 96,
    "anchor": {
-    "x": 97,
-    "y": 178
+    "x": 96,
+    "y": 175
    },
    "tileOrigin": {
-    "x": 97,
-    "y": 83
+    "x": 96,
+    "y": 80
    },
    "footprint": [
     3,
@@ -9549,16 +9549,16 @@
    "id": "infirmary-rising",
    "kind": "infirmary",
    "file": "infirmary-rising.png",
-   "w": 191,
+   "w": 190,
    "h": 83,
    "metres": 0.12,
    "basePx": 79,
    "anchor": {
-    "x": 96,
+    "x": 95,
     "y": 82
    },
    "tileOrigin": {
-    "x": 96,
+    "x": 95,
     "y": -13
    },
    "footprint": [
@@ -9604,16 +9604,16 @@
    "kind": "infirmary",
    "file": "infirmary2-done.png",
    "w": 192,
-   "h": 168,
-   "metres": 2.18,
+   "h": 165,
+   "metres": 2.09,
    "basePx": 96,
    "anchor": {
     "x": 95,
-    "y": 167
+    "y": 164
    },
    "tileOrigin": {
     "x": 95,
-    "y": 72
+    "y": 69
    },
    "footprint": [
     3,
@@ -9631,16 +9631,16 @@
    "kind": "infirmary",
    "file": "infirmary2-scaffold.png",
    "w": 192,
-   "h": 117,
-   "metres": 0.64,
+   "h": 114,
+   "metres": 0.55,
    "basePx": 96,
    "anchor": {
     "x": 95,
-    "y": 116
+    "y": 113
    },
    "tileOrigin": {
     "x": 95,
-    "y": 21
+    "y": 18
    },
    "footprint": [
     3,
@@ -9657,17 +9657,17 @@
    "id": "infirmary2-damaged",
    "kind": "infirmary",
    "file": "infirmary2-damaged.png",
-   "w": 192,
-   "h": 167,
-   "metres": 2.15,
+   "w": 191,
+   "h": 164,
+   "metres": 2.06,
    "basePx": 96,
    "anchor": {
     "x": 94,
-    "y": 166
+    "y": 163
    },
    "tileOrigin": {
     "x": 94,
-    "y": 71
+    "y": 68
    },
    "footprint": [
     3,
@@ -9874,16 +9874,16 @@
    "kind": "workshop",
    "file": "workshop-done.png",
    "w": 224,
-   "h": 185,
-   "metres": 2.21,
+   "h": 182,
+   "metres": 2.12,
    "basePx": 112,
    "anchor": {
     "x": 113,
-    "y": 184
+    "y": 181
    },
    "tileOrigin": {
     "x": 81,
-    "y": 73
+    "y": 70
    },
    "footprint": [
     4,
@@ -9900,17 +9900,17 @@
    "id": "workshop-scaffold",
    "kind": "workshop",
    "file": "workshop-scaffold.png",
-   "w": 224,
-   "h": 126,
-   "metres": 0.42,
+   "w": 221,
+   "h": 123,
+   "metres": 0.33,
    "basePx": 112,
    "anchor": {
-    "x": 116,
-    "y": 125
+    "x": 114,
+    "y": 122
    },
    "tileOrigin": {
-    "x": 84,
-    "y": 14
+    "x": 82,
+    "y": 11
    },
    "footprint": [
     4,
@@ -9927,17 +9927,17 @@
    "id": "workshop-damaged",
    "kind": "workshop",
    "file": "workshop-damaged.png",
-   "w": 224,
-   "h": 181,
-   "metres": 2.09,
+   "w": 223,
+   "h": 178,
+   "metres": 2,
    "basePx": 112,
    "anchor": {
     "x": 114,
-    "y": 180
+    "y": 177
    },
    "tileOrigin": {
     "x": 82,
-    "y": 69
+    "y": 66
    },
    "footprint": [
     4,
@@ -9954,16 +9954,16 @@
    "id": "workshop-rising",
    "kind": "workshop",
    "file": "workshop-rising.png",
-   "w": 217,
+   "w": 193,
    "h": 91,
    "metres": 0.12,
    "basePx": 87,
    "anchor": {
-    "x": 109,
+    "x": 88,
     "y": 90
    },
    "tileOrigin": {
-    "x": 77,
+    "x": 56,
     "y": -21
    },
    "footprint": [
@@ -10143,17 +10143,17 @@
    "id": "workshop3-done",
    "kind": "workshop",
    "file": "workshop3-done.png",
-   "w": 224,
-   "h": 222,
-   "metres": 3.33,
+   "w": 213,
+   "h": 218,
+   "metres": 3.21,
    "basePx": 112,
    "anchor": {
-    "x": 110,
-    "y": 221
+    "x": 104,
+    "y": 217
    },
    "tileOrigin": {
-    "x": 78,
-    "y": 110
+    "x": 72,
+    "y": 106
    },
    "footprint": [
     4,
@@ -10170,17 +10170,17 @@
    "id": "workshop3-scaffold",
    "kind": "workshop",
    "file": "workshop3-scaffold.png",
-   "w": 224,
-   "h": 143,
-   "metres": 0.94,
+   "w": 219,
+   "h": 139,
+   "metres": 0.82,
    "basePx": 112,
    "anchor": {
-    "x": 111,
-    "y": 142
+    "x": 106,
+    "y": 138
    },
    "tileOrigin": {
-    "x": 79,
-    "y": 31
+    "x": 74,
+    "y": 27
    },
    "footprint": [
     4,
@@ -10197,17 +10197,17 @@
    "id": "workshop3-damaged",
    "kind": "workshop",
    "file": "workshop3-damaged.png",
-   "w": 224,
-   "h": 222,
-   "metres": 3.33,
+   "w": 213,
+   "h": 217,
+   "metres": 3.18,
    "basePx": 112,
    "anchor": {
-    "x": 111,
-    "y": 221
+    "x": 98,
+    "y": 216
    },
    "tileOrigin": {
-    "x": 79,
-    "y": 110
+    "x": 66,
+    "y": 105
    },
    "footprint": [
     4,
@@ -10224,16 +10224,16 @@
    "id": "workshop3-rising",
    "kind": "workshop",
    "file": "workshop3-rising.png",
-   "w": 224,
+   "w": 216,
    "h": 86,
    "metres": 0.12,
    "basePx": 82,
    "anchor": {
-    "x": 112,
+    "x": 106,
     "y": 85
    },
    "tileOrigin": {
-    "x": 79,
+    "x": 73,
     "y": -26
    },
    "footprint": [
@@ -10278,17 +10278,17 @@
    "id": "market-stall-done",
    "kind": "stall",
    "file": "market-stall-done.png",
-   "w": 128,
-   "h": 131,
-   "metres": 2.03,
+   "w": 127,
+   "h": 125,
+   "metres": 1.85,
    "basePx": 64,
    "anchor": {
     "x": 60,
-    "y": 130
+    "y": 124
    },
    "tileOrigin": {
     "x": 60,
-    "y": 67
+    "y": 61
    },
    "footprint": [
     2,
@@ -10305,17 +10305,17 @@
    "id": "market-stall-scaffold",
    "kind": "stall",
    "file": "market-stall-scaffold.png",
-   "w": 128,
-   "h": 96,
-   "metres": 0.97,
+   "w": 127,
+   "h": 90,
+   "metres": 0.79,
    "basePx": 64,
    "anchor": {
     "x": 63,
-    "y": 95
+    "y": 89
    },
    "tileOrigin": {
     "x": 63,
-    "y": 32
+    "y": 26
    },
    "footprint": [
     2,
@@ -10333,16 +10333,16 @@
    "kind": "stall",
    "file": "market-stall-damaged.png",
    "w": 128,
-   "h": 130,
-   "metres": 2,
+   "h": 124,
+   "metres": 1.82,
    "basePx": 64,
    "anchor": {
     "x": 61,
-    "y": 129
+    "y": 123
    },
    "tileOrigin": {
     "x": 61,
-    "y": 66
+    "y": 60
    },
    "footprint": [
     2,
@@ -10359,7 +10359,7 @@
    "id": "market-stall-rising",
    "kind": "stall",
    "file": "market-stall-rising.png",
-   "w": 127,
+   "w": 126,
    "h": 67,
    "metres": 0.12,
    "basePx": 63,
@@ -10414,16 +10414,16 @@
    "kind": "stall",
    "file": "market-stall2-done.png",
    "w": 128,
-   "h": 141,
-   "metres": 2.33,
+   "h": 136,
+   "metres": 2.18,
    "basePx": 64,
    "anchor": {
     "x": 71,
-    "y": 140
+    "y": 135
    },
    "tileOrigin": {
     "x": 71,
-    "y": 77
+    "y": 72
    },
    "footprint": [
     2,
@@ -10441,16 +10441,16 @@
    "kind": "stall",
    "file": "market-stall2-scaffold.png",
    "w": 128,
-   "h": 103,
-   "metres": 1.18,
+   "h": 98,
+   "metres": 1.03,
    "basePx": 64,
    "anchor": {
     "x": 70,
-    "y": 102
+    "y": 97
    },
    "tileOrigin": {
     "x": 70,
-    "y": 39
+    "y": 34
    },
    "footprint": [
     2,
@@ -10468,16 +10468,16 @@
    "kind": "stall",
    "file": "market-stall2-damaged.png",
    "w": 128,
-   "h": 129,
-   "metres": 1.97,
+   "h": 124,
+   "metres": 1.82,
    "basePx": 64,
    "anchor": {
     "x": 71,
-    "y": 128
+    "y": 123
    },
    "tileOrigin": {
     "x": 71,
-    "y": 65
+    "y": 60
    },
    "footprint": [
     2,
@@ -10549,16 +10549,16 @@
    "kind": "stall",
    "file": "market-stall3-done.png",
    "w": 128,
-   "h": 131,
-   "metres": 2.03,
+   "h": 124,
+   "metres": 1.82,
    "basePx": 64,
    "anchor": {
-    "x": 64,
-    "y": 130
+    "x": 63,
+    "y": 123
    },
    "tileOrigin": {
-    "x": 64,
-    "y": 67
+    "x": 63,
+    "y": 60
    },
    "footprint": [
     2,
@@ -10576,16 +10576,16 @@
    "kind": "stall",
    "file": "market-stall3-scaffold.png",
    "w": 128,
-   "h": 97,
-   "metres": 1,
+   "h": 90,
+   "metres": 0.79,
    "basePx": 64,
    "anchor": {
     "x": 64,
-    "y": 96
+    "y": 89
    },
    "tileOrigin": {
     "x": 64,
-    "y": 33
+    "y": 26
    },
    "footprint": [
     2,
@@ -10603,16 +10603,16 @@
    "kind": "stall",
    "file": "market-stall3-damaged.png",
    "w": 128,
-   "h": 120,
-   "metres": 1.7,
+   "h": 113,
+   "metres": 1.48,
    "basePx": 64,
    "anchor": {
-    "x": 64,
-    "y": 119
+    "x": 63,
+    "y": 112
    },
    "tileOrigin": {
-    "x": 64,
-    "y": 56
+    "x": 63,
+    "y": 49
    },
    "footprint": [
     2,

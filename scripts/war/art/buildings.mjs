@@ -930,6 +930,13 @@ function prepBuilding(o, file) {
   if (Math.abs(s - 1) > 0.01) im = hard((s > 1 ? resizeNearest : resizeArea)(im, Math.round(im.w * s), Math.round(im.h * s))); // small upscales: nearest
   return crop(im, alphaBox(im, 1));
 }
+// the plinth's side faces off: the lowest `t` px of every column (the floor's front edges then end the sprite)
+function shave(im, t) {
+  if (!t) return im;
+  const { w, h, data: d } = im;
+  for (let x = 0; x < w; x++) { let b = h - 1; while (b >= 0 && !d[(b * w + x) * 4 + 3]) b--; for (let y = Math.max(0, b - t + 1); y <= b; y++) d[(y * w + x) * 4 + 3] = 0; }
+  return crop(im, alphaBox(im, 1));
+}
 function footOf(im) { const rows = Math.max(3, Math.round(im.h * 0.03)); let s = 0, n = 0; for (let y = im.h - rows; y < im.h; y++) for (let x = 0; x < im.w; x++) if (im.data[(y * im.w + x) * 4 + 3]) { s += x; n++; } return { x: Math.round(s / n), y: im.h - 1 }; }
 
 // PixelLab raws (raw/objects/<raw>.png) and their state raws. scaffold/damaged = pixflux img2img over the done sprite
@@ -943,15 +950,16 @@ export const BUILDINGS = [
   { id: 'olive-press', kind: 'press', material: 'stone', burnable: false, footprint: [3, 3], raw: 'olive-press', ground: ['green'], grade: { sat: 0.6, val: 0.78 }, fill: 0.95, source: 'map_object 23e61811' },
 ];
 // ART-C workplaces (WAR.md "Workplaces"): each level is its own building type chained by `upgrade` (forge -> forge2 ->
-// forge3); the sorting floor is the storehouse's upgrade and has two levels. Same pipeline as BUILDINGS.
-const WP = (chain, kind, fp, levels) => levels.map(([material, src, extra], i) => ({ id: i ? `${chain}${i + 1}` : chain, raw: i ? `${chain}${i + 1}` : chain, kind, chain, level: i + 1, ...(i + 1 < levels.length && { upgrade: `${chain}${i + 2}` }), material, burnable: material === 'wood', footprint: fp, ground: ['green'], grade: { sat: 0.6, val: 0.78 }, source: `map_object ${src}`, ...extra }));
+// forge3); the sorting floor is the storehouse's upgrade and has two levels. Same pipeline as BUILDINGS. plinth: px of
+// the raised slab PixelLab drew under the floor (its side faces), shaved off so the floor sits on the terrain.
+const WP = (chain, kind, fp, levels) => levels.map(([material, src, plinth, extra], i) => ({ id: i ? `${chain}${i + 1}` : chain, raw: i ? `${chain}${i + 1}` : chain, kind, chain, level: i + 1, ...(i + 1 < levels.length && { upgrade: `${chain}${i + 2}` }), material, burnable: material === 'wood', footprint: fp, ground: ['green'], grade: { sat: 0.6, val: 0.78 }, plinth, source: `map_object ${src}`, ...extra }));
 export const WORKPLACES = [
-  ...WP('forge', 'forge', [3, 3], [['stone', 'e3777fbd'], ['stone', '131af9a3'], ['stone', 'bab7d0b8']]),
-  ...WP('cookhouse', 'cookhouse', [3, 2], [['wood', 'f8bbe7a5'], ['stone', 'eb22ef20'], ['stone', '5e298186']]),
-  ...WP('infirmary', 'infirmary', [3, 3], [['wood', 'ea7f015d'], ['stone', 'a6818f38'], ['stone', '24db3ab2']]),
-  ...WP('workshop', 'workshop', [4, 3], [['wood', '849334f6'], ['wood', '6994bf80'], ['stone', '954f4146']]),
-  ...WP('market-stall', 'stall', [2, 2], [['wood', '6c2ef514'], ['stone', 'ac483a10'], ['stone', '59475235']]),
-  ...WP('sorting-floor', 'sorting-floor', [3, 3], [['stone', '7b3cb213', { from: 'storehouse' }], ['stone', 'e20b0195']]),
+  ...WP('forge', 'forge', [3, 3], [['stone', 'e3777fbd', 11], ['stone', '131af9a3', 3], ['stone', 'bab7d0b8', 3]]),
+  ...WP('cookhouse', 'cookhouse', [3, 2], [['wood', 'f8bbe7a5', 16], ['stone', 'eb22ef20', 6], ['stone', '5e298186', 1]]),
+  ...WP('infirmary', 'infirmary', [3, 3], [['wood', 'ea7f015d', 3], ['stone', 'a6818f38', 3], ['stone', '24db3ab2', 0]]),
+  ...WP('workshop', 'workshop', [4, 3], [['wood', '849334f6', 3], ['wood', '6994bf80', 0], ['stone', '954f4146', 4]]),
+  ...WP('market-stall', 'stall', [2, 2], [['wood', '6c2ef514', 6], ['stone', 'ac483a10', 5], ['stone', '59475235', 7]]),
+  ...WP('sorting-floor', 'sorting-floor', [3, 3], [['stone', '7b3cb213', 0, { from: 'storehouse' }], ['stone', 'e20b0195', 0]]),
 ];
 BUILDINGS.push(...WORKPLACES);
 export const PROPS = [
@@ -1338,7 +1346,7 @@ for (const o of BUILDINGS) {
   const f = join(RAW, 'objects', `${o.raw}.png`); if (!existsSync(f)) { console.error('missing raw', o.raw); continue; }
   rendered[o.id] = {};
   const done = prepBuilding(o, f);
-  const place = (im0) => { const im = crop(im0, alphaBox(im0, 1)), a = footOf(im); return { im, tileOrigin: { x: a.x - (o.footprint[0] - o.footprint[1]) * 32, y: im.h - (o.footprint[0] + o.footprint[1]) * 16 } }; };
+  const place = (im0) => { const im = shave(crop(im0, alphaBox(im0, 1)), o.plinth), a = footOf(im); return { im, tileOrigin: { x: a.x - (o.footprint[0] - o.footprint[1]) * 32, y: im.h - (o.footprint[0] + o.footprint[1]) * 16 } }; };
   const [fw, fh] = o.footprint;
   rendered[o.id].foundation = renderModel(foundation([[0, 0, fw * 2, 0, '-y'], [0, fh * 2, fw * 2, fh * 2, '+y'], [0, 0, 0, fh * 2, '-x'], [fw * 2, 0, fw * 2, fh * 2, '+x']], o.material, o.id.length, 1), fw, fh, 1);
   rendered[o.id].done = place(done);
