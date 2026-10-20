@@ -1,0 +1,23 @@
+docs/v5/pixellab/CIV/physician.jobs.json
+  s_cfc22b058125c4::t_b350fcbab4f02a 1-12
+docs/v5/pixellab/CIV/physician.sheet.json
+  s_cfc22b058125c4::t_2d007f8415c068 1-72
+src/assets/sheets/civ_physician/manifest.json
+  s_cfc22b058125c4::t_647e6d58f73994 1-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "73e4cedd4b554ac282ed1d40390fb1c5fc75294e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
