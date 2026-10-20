@@ -25,8 +25,8 @@
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
  *   server -> welcome | refused | queued | error | pong | checked   (JSON)
- *   server -> nodes | influence                               the economy view (./economy.ts): resource nodes his team
- *                    sees (changes only), his team's influence mask (RLE, on change)
+ *   server -> nodes | influence | stock                       the economy view (./economy.ts): resource nodes his team
+ *                    sees (changes only), his team's influence mask (RLE, on change), his team's stockpile (on change)
  *   server -> binary frame                                    (snapshot delta or keyframe)
  */
 import { z } from 'zod';
@@ -208,7 +208,9 @@ export type ServerMsg =
   /** Resource nodes his team sees that changed (packed rows, ./economy.ts), and ids gone. */
   | { t: 'nodes'; rows: NodeRow[]; gone?: number[] }
   /** His team's influence: bit `team` of the w x h mask as alternating runs (outside first); v the sim's version. */
-  | { t: 'influence'; team: number; w: number; h: number; v: number; runs: number[] };
+  | { t: 'influence'; team: number; w: number; h: number; v: number; runs: number[] }
+  /** His team's stockpile (its stores and home strongroom here, Snapshot.stock), whole units, when it changed. */
+  | { t: 'stock'; team: number; goods: Record<string, number> };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }

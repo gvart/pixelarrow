@@ -286,8 +286,9 @@ describe('WarRoom dev helpers', () => {
     const wood = () => r.snapshot().stock?.[0]?.wood ?? 0;
     const w0 = wood();
     expect(r.dev(1, { t: 'dev', op: 'stock', res: 'wood', n: 500 })).toBeNull();
-    steps(r, 1);
+    const sent = steps(r, 1).msgs.get(1) ?? [];
     expect(wood()).toBe(w0 + 500);
+    expect(sent.some((m) => m.t === 'stock' && m.team === 0 && m.goods.wood === Math.floor(w0 + 500))).toBe(true); // his stock goes out on change
     expect(r.dev(1, { t: 'dev', op: 'claim', x: 100.5, y: 100.5, r: 10 })).toBeNull();
     expect(r.sim.influence().mask[100 * region.w + 100] & 1).toBe(1);
     expect(r.dev(1, { t: 'dev', op: 'spawn', team: 0, cls: 'archer', count: 8, x: 120, y: 60 })).toBeNull();

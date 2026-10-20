@@ -904,7 +904,7 @@ export class WarRoom {
   }
 
   /**
-   * The economy view per online player (src/war/net/economy.ts): his team's influence when it changed, and every
+   * The economy view per online player (src/war/net/economy.ts): his team's influence and stock when they changed, and every
    * NODES_EVERY ticks (or at once after a join) the resource nodes his team sees that changed.
    */
   private economy(): Map<number, ServerMsg[]> {
@@ -920,6 +920,8 @@ export class WarRoom {
       if (c?.v !== infl.version) this.inflRuns.set(p.team, (c = { v: infl.version, runs: encodeInfluence(infl.mask, p.team) }));
       const r = feed.influence(c.runs);
       if (r) push(p.pid, { t: 'influence', team: p.team, w: infl.w, h: infl.h, v: infl.version, runs: r });
+      const g0 = feed.stock(this.snap.stock?.[p.team]);
+      if (g0) push(p.pid, { t: 'stock', team: p.team, goods: g0 });
       if (this.snap.tick % NODES_EVERY && !feed.fresh) continue;
       const g = this.sim.teamGrid(p.team);
       const n = feed.nodes({

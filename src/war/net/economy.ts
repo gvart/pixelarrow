@@ -8,6 +8,7 @@
  *    farm razed) is sent in `gone` if he knew it.
  *  - Influence: his own team's bit of the influence mask only, run-length encoded (runs alternate, the first one is
  *    outside), sent whenever it differs from what he has; `v` is the sim's influence version.
+ *  - Stock: his own team's stockpile (whole units) whenever it differs from what he has.
  * The client (./client.ts) keeps the nodes by id and rebuilds the InfluenceMap with bit `team` set.
  */
 import { GOODS } from './protocol';
@@ -66,6 +67,7 @@ export class EconomyFeed {
   private sent = new Map<number, string>();
   private infl = '';
   private last: number[] | null = null;
+  private goods = '';
   private synced = false;
 
   /** Not synced yet: the first node update goes out at once. */
@@ -89,6 +91,16 @@ export class EconomyFeed {
     for (const id of this.sent.keys()) if (!here.has(id)) gone.push(id);
     for (const id of gone) this.sent.delete(id);
     return rows.length || gone.length ? { rows, gone } : null;
+  }
+
+  /** The team's stockpile in whole units when it differs from what he has (null: unchanged). */
+  stock(goods: Partial<Record<string, number>> | undefined): Record<string, number> | null {
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(goods ?? {})) if (v && Math.floor(v) > 0) out[k] = Math.floor(v);
+    const key = JSON.stringify(out);
+    if (key === this.goods) return null;
+    this.goods = key;
+    return out;
   }
 
   /** The team's influence runs when they differ from what he has (null: unchanged). */
