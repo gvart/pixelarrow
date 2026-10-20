@@ -1,0 +1,56 @@
+src/war/sim/works.ts
+  s_cfc22b058125c4::t_5e1e968aa1edcd 78-79,120-123,974,976-978
+src/war/types.ts
+  s_cfc22b058125c4::t_9dc5f57b2e8819 4,71-86,158-160,186-187,217-219,226-229,306-307,309-310,390-392
+src/war/view/anim.ts
+  s_cfc22b058125c4::t_a0fad0e28e2fcb 56-57,64
+src/war/sim/economy.ts
+  s_cfc22b058125c4::t_9dfd222f2002be 7,41-42,45-48,51,73-91
+  s_cfc22b058125c4::t_43d2d27a6ead08 56
+src/war/sim/civilians.ts
+  s_cfc22b058125c4::t_5e1e968aa1edcd 22,56-64,72,84
+  s_cfc22b058125c4::t_bab227ef19a110 65-69
+src/war/sim/classes.ts
+  s_cfc22b058125c4::t_5e1e968aa1edcd 15,48-49,193-194
+src/war/view/hud/kit.ts
+  s_cfc22b058125c4::t_a0fad0e28e2fcb 51-54
+tests/war/crafting.test.ts
+  s_cfc22b058125c4::t_c33d1810f00478 1-22,26-66,68-73,75-76,79-87,89-90,93,96,98-100,102,104-109,111-113,116-122,125-126,130-133,135-144,146-147,150-154,158-183
+  s_cfc22b058125c4::t_5427ed80be7d5f 23-25,67,74,77-78,88,91-92,94-95,97,101,103,110,114-115,123-124,127-129,134,145,148-149,155-157
+src/war/sim/crafting.ts
+  s_cfc22b058125c4::t_b0c8b4b4525d84 101
+  s_cfc22b058125c4::t_bab227ef19a110 13,203-211
+  s_cfc22b058125c4::t_d38918aeca9aa4 1-10,12,14-47,49-94,96-100,102-160,162-176,182-202
+  s_cfc22b058125c4::t_758adeb41884a7 11,95
+  s_cfc22b058125c4::t_647cff07f13b85 48,161
+src/war/sim/mobs.ts
+  s_cfc22b058125c4::t_5e1e968aa1edcd 30-31
+scripts/war/bench.mjs
+  s_cfc22b058125c4::t_01fd9a432b12ca 161-202
+src/war/sim/index.ts
+  s_cfc22b058125c4::t_5e1e968aa1edcd 172-173,175-177,290-291,2114
+  s_cfc22b058125c4::t_bab227ef19a110 59-61,1207-1208,1715,1717,1719-1722,1724
+  s_cfc22b058125c4::t_81d847a4d74f09 1224
+  s_cfc22b058125c4::t_9595d009c163bd 58,62,174,236-245,361-362,505-509,664,814,1192-1193,1206,1209,1219-1223,1225-1229,1357-1358,1405,1455,1574,1582-1597,2101
+  s_cfc22b058125c4::t_663a7bc9972d4d 1708-1714,1716,1718,1723,1725-1730,1733-1735,1739-1740,1743-1744,1747-1763,1766,1770,1783,1785-1806
+  s_cfc22b058125c4::t_e19f1cad6c34ac 2155-2158
+  s_cfc22b058125c4::t_ddf3acf7ea0346 2159-2160,2169-2172,2178
+src/war/view/mapModes.ts
+  s_cfc22b058125c4::t_a0fad0e28e2fcb 53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "472fcb496f07b73e1fd4f2cbd470d751fda2fbe6",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "unknown"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
