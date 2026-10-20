@@ -1,0 +1,5406 @@
+{
+ "pxPerMetre": 33,
+ "tileMetres": 2,
+ "borderMax": 0.75,
+ "note": "Trade art (ART-T, WAR.md \"Trade\"). objects[]: every single sprite (anchor = foot; tileOrigin = px of world (0, 0, 0), the footprint's top vertex: draw at that tile's top vertex minus tileOrigin). carts[]: handcart and wagon per facing (e +x, s +y, w -x, n -y: the way it is pulled), see stateNote; crew / team = tile offsets from the footprint NW corner. mules: the wagon team sheet (rows by screen direction, facingRow maps a cart facing to a row; anchors = feet). things[]: chest, strongbox, price board (one facing). piles[]: loot piles (WAR.md \"Loot piles\"): small / medium / large by loads, gear-heavy (mostly items) or goods-heavy (mostly loads). stalls: the market-stall chain in public/war/buildings (L1-L3); the warehouse is building `warehouse` there. Colours = tiles.json palette + palette.",
+ "palette": [
+  "#16161e",
+  "#171e21",
+  "#1f362d",
+  "#233c3a",
+  "#324142",
+  "#45503a",
+  "#646b60",
+  "#c7c7c8",
+  "#10181f",
+  "#21212c",
+  "#423f43",
+  "#4a6051",
+  "#16151b",
+  "#171d21",
+  "#222e2f",
+  "#1f3538",
+  "#33433f",
+  "#39483f",
+  "#5c5c5f",
+  "#96999f",
+  "#091221",
+  "#1f2128",
+  "#4d5455",
+  "#1c1a1f",
+  "#191b20",
+  "#182b28",
+  "#24282d",
+  "#1c3232",
+  "#223b32",
+  "#29453e",
+  "#30433e",
+  "#34473d",
+  "#56585b",
+  "#57595c",
+  "#837f7c",
+  "#8d908f",
+  "#0a0e1d",
+  "#11111d",
+  "#1f2028",
+  "#4d3930",
+  "#4b3b3c",
+  "#474d53",
+  "#505255",
+  "#141318",
+  "#141319",
+  "#15161b",
+  "#19171b",
+  "#25151a",
+  "#19181d",
+  "#19181c",
+  "#1d2428",
+  "#24242c",
+  "#24242b",
+  "#202832",
+  "#202c35",
+  "#252c33",
+  "#314739",
+  "#2e463e",
+  "#37453e",
+  "#52423d",
+  "#565456",
+  "#624f4f",
+  "#55585b",
+  "#5f6468",
+  "#626369",
+  "#696c70",
+  "#72817b",
+  "#0a0908",
+  "#0c0a0f",
+  "#0f0e11",
+  "#111015",
+  "#211e27",
+  "#202028",
+  "#3a2c2c",
+  "#362f35",
+  "#38363c",
+  "#3a3c40",
+  "#404446",
+  "#454346",
+  "#424449",
+  "#434851",
+  "#020101",
+  "#020202",
+  "#040303",
+  "#070505",
+  "#070709",
+  "#08070e",
+  "#151925",
+  "#132225",
+  "#1d1d24",
+  "#1c1e26",
+  "#1d1f25",
+  "#1e1f25",
+  "#1f1f25",
+  "#1e2027",
+  "#2b2026",
+  "#2a292e",
+  "#2a2f2f",
+  "#2d3035",
+  "#29352c",
+  "#29352e",
+  "#3c3e45",
+  "#3d3d48",
+  "#3c3f47",
+  "#3e3f46",
+  "#3e4044",
+  "#3f4045",
+  "#443e44",
+  "#16161e",
+  "#171e21",
+  "#1f362d",
+  "#233c3a",
+  "#324142",
+  "#45503a",
+  "#646b60",
+  "#c7c7c8",
+  "#10181f",
+  "#21212c",
+  "#423f43",
+  "#4a6051",
+  "#16151b",
+  "#171d21",
+  "#222e2f",
+  "#1f3538",
+  "#33433f",
+  "#39483f",
+  "#5c5c5f",
+  "#96999f",
+  "#091221",
+  "#1f2128",
+  "#4d5455",
+  "#1c1a1f",
+  "#191b20",
+  "#182b28",
+  "#24282d",
+  "#1c3232",
+  "#223b32",
+  "#29453e",
+  "#30433e",
+  "#34473d",
+  "#56585b",
+  "#57595c",
+  "#837f7c",
+  "#8d908f",
+  "#0a0e1d",
+  "#11111d",
+  "#1f2028",
+  "#4d3930",
+  "#4b3b3c",
+  "#474d53",
+  "#505255",
+  "#141318",
+  "#141319",
+  "#15161b",
+  "#19171b",
+  "#25151a",
+  "#19181d",
+  "#19181c",
+  "#1d2428",
+  "#24242c",
+  "#24242b",
+  "#202832",
+  "#202c35",
+  "#252c33",
+  "#314739",
+  "#2e463e",
+  "#37453e",
+  "#52423d",
+  "#565456",
+  "#624f4f",
+  "#55585b",
+  "#5f6468",
+  "#626369",
+  "#696c70",
+  "#72817b",
+  "#0a0908",
+  "#0c0a0f",
+  "#0f0e11",
+  "#111015",
+  "#211e27",
+  "#202028",
+  "#3a2c2c",
+  "#362f35",
+  "#38363c",
+  "#3a3c40",
+  "#404446",
+  "#454346",
+  "#424449",
+  "#434851",
+  "#020101",
+  "#020202",
+  "#040303",
+  "#070505",
+  "#070709",
+  "#08070e",
+  "#151925",
+  "#132225",
+  "#1d1d24",
+  "#1c1e26",
+  "#1d1f25",
+  "#1e1f25",
+  "#1f1f25",
+  "#1e2027",
+  "#2b2026",
+  "#2a292e",
+  "#2a2f2f",
+  "#2d3035",
+  "#29352c",
+  "#29352e",
+  "#3c3e45",
+  "#3d3d48",
+  "#3c3f47",
+  "#3e3f46",
+  "#3e4044",
+  "#3f4045",
+  "#443e44",
+  "#7a5f56",
+  "#976a55",
+  "#767271",
+  "#90716c",
+  "#947f6e",
+  "#b19069",
+  "#9d8874",
+  "#b4aea3",
+  "#6f5a56",
+  "#6f6c65",
+  "#726e64",
+  "#60473d",
+  "#6d4949",
+  "#653c2a",
+  "#785950",
+  "#936947",
+  "#78726a",
+  "#846c64",
+  "#8b7b6d",
+  "#a88961",
+  "#95887a",
+  "#aa9f8a",
+  "#715b52",
+  "#5f4038",
+  "#6d4548",
+  "#5b3e30",
+  "#7a3a1a",
+  "#7c4736",
+  "#845b4b",
+  "#866a53",
+  "#776e67",
+  "#767068",
+  "#7a7269",
+  "#7b756f",
+  "#857f52",
+  "#878166",
+  "#9b8557",
+  "#987d6e",
+  "#8a7d70",
+  "#867f78",
+  "#988c79",
+  "#a6937d",
+  "#605c4f",
+  "#665f57",
+  "#6f645e",
+  "#706b65",
+  "#667249",
+  "#716d63",
+  "#706c65",
+  "#4f4847",
+  "#594844",
+  "#634539",
+  "#68473e",
+  "#5f2d1a",
+  "#5b2b25",
+  "#230f21",
+  "#341c1a",
+  "#442118",
+  "#472526",
+  "#512c1a",
+  "#522c1a",
+  "#5c3c22",
+  "#674e2c",
+  "#965532",
+  "#9b5734",
+  "#a15b36",
+  "#a75e38",
+  "#4f2a19",
+  "#502b19",
+  "#905a33",
+  "#8e6c3a",
+  "#4e2a18",
+  "#8d6236",
+  "#462416",
+  "#69502b",
+  "#723622",
+  "#703c23",
+  "#713d24",
+  "#723d24",
+  "#733e24",
+  "#743f25",
+  "#753f25",
+  "#763f25",
+  "#714629",
+  "#854b2d",
+  "#894d2e",
+  "#8a4e2e",
+  "#8c4f30",
+  "#8d6a3c",
+  "#917041",
+  "#8e7759",
+  "#987e58",
+  "#b08c54",
+  "#c59d5e",
+  "#b49971",
+  "#c39d63",
+  "#c1b59f",
+  "#ccc4b0",
+  "#cec9ba"
+ ],
+ "carts": [
+  {
+   "id": "handcart",
+   "kind": "cart",
+   "material": "wood",
+   "burnable": true,
+   "loads": 6,
+   "facings": [
+    "e",
+    "s",
+    "w",
+    "n"
+   ],
+   "heightM": 1.6,
+   "footprint": {
+    "e": [
+     2,
+     1
+    ],
+    "s": [
+     1,
+     2
+    ],
+    "w": [
+     2,
+     1
+    ],
+    "n": [
+     1,
+     2
+    ]
+   },
+   "crew": {
+    "e": [
+     [
+      1.5,
+      0.15
+     ],
+     [
+      1.5,
+      0.85
+     ]
+    ],
+    "s": [
+     [
+      0.15,
+      1.5
+     ],
+     [
+      0.85,
+      1.5
+     ]
+    ],
+    "w": [
+     [
+      0.5,
+      0.15
+     ],
+     [
+      0.5,
+      0.85
+     ]
+    ],
+    "n": [
+     [
+      0.15,
+      0.5
+     ],
+     [
+      0.85,
+      0.5
+     ]
+    ]
+   },
+   "crewNote": "two pullers, one outside each shaft, facing the way the cart faces (any class; WAR.md: one alone x0.5)",
+   "states": {
+    "e": {
+     "halted": "handcart-e-halted",
+     "burning": "handcart-e-burning",
+     "wrecked": "handcart-e-wrecked",
+     "burnt": "handcart-e-burnt"
+    },
+    "s": {
+     "halted": "handcart-s-halted",
+     "burning": "handcart-s-burning",
+     "wrecked": "handcart-s-wrecked",
+     "burnt": "handcart-s-burnt"
+    },
+    "w": {
+     "halted": "handcart-w-halted",
+     "burning": "handcart-w-burning",
+     "wrecked": "handcart-w-wrecked",
+     "burnt": "handcart-w-burnt"
+    },
+    "n": {
+     "halted": "handcart-n-halted",
+     "burning": "handcart-n-burning",
+     "wrecked": "handcart-n-wrecked",
+     "burnt": "handcart-n-burnt"
+    }
+   },
+   "moving": {
+    "e": {
+     "file": "handcart-e-moving.png",
+     "frames": 8,
+     "fps": 10,
+     "frame": {
+      "w": 68,
+      "h": 49
+     },
+     "tileOrigin": {
+      "x": 17,
+      "y": 24
+     },
+     "note": "wheel loop at ~1 m/s (a man walking); speed it with the cart"
+    },
+    "s": {
+     "file": "handcart-s-moving.png",
+     "frames": 8,
+     "fps": 10,
+     "frame": {
+      "w": 68,
+      "h": 49
+     },
+     "tileOrigin": {
+      "x": 51,
+      "y": 24
+     },
+     "note": "wheel loop at ~1 m/s (a man walking); speed it with the cart"
+    },
+    "w": {
+     "file": "handcart-w-moving.png",
+     "frames": 8,
+     "fps": 10,
+     "frame": {
+      "w": 67,
+      "h": 56
+     },
+     "tileOrigin": {
+      "x": 18,
+      "y": 20
+     },
+     "note": "wheel loop at ~1 m/s (a man walking); speed it with the cart"
+    },
+    "n": {
+     "file": "handcart-n-moving.png",
+     "frames": 8,
+     "fps": 10,
+     "frame": {
+      "w": 67,
+      "h": 56
+     },
+     "tileOrigin": {
+      "x": 49,
+      "y": 20
+     },
+     "note": "wheel loop at ~1 m/s (a man walking); speed it with the cart"
+    }
+   },
+   "cargo": {
+    "e": {
+     "sacks-half": "handcart-e-cargo-sacks-half",
+     "sacks-full": "handcart-e-cargo-sacks-full",
+     "crates-half": "handcart-e-cargo-crates-half",
+     "crates-full": "handcart-e-cargo-crates-full",
+     "amphorae-half": "handcart-e-cargo-amphorae-half",
+     "amphorae-full": "handcart-e-cargo-amphorae-full",
+     "logs-half": "handcart-e-cargo-logs-half",
+     "logs-full": "handcart-e-cargo-logs-full",
+     "ore-half": "handcart-e-cargo-ore-half",
+     "ore-full": "handcart-e-cargo-ore-full",
+     "strongbox-half": "handcart-e-cargo-strongbox-half",
+     "strongbox-full": "handcart-e-cargo-strongbox-full"
+    },
+    "s": {
+     "sacks-half": "handcart-s-cargo-sacks-half",
+     "sacks-full": "handcart-s-cargo-sacks-full",
+     "crates-half": "handcart-s-cargo-crates-half",
+     "crates-full": "handcart-s-cargo-crates-full",
+     "amphorae-half": "handcart-s-cargo-amphorae-half",
+     "amphorae-full": "handcart-s-cargo-amphorae-full",
+     "logs-half": "handcart-s-cargo-logs-half",
+     "logs-full": "handcart-s-cargo-logs-full",
+     "ore-half": "handcart-s-cargo-ore-half",
+     "ore-full": "handcart-s-cargo-ore-full",
+     "strongbox-half": "handcart-s-cargo-strongbox-half",
+     "strongbox-full": "handcart-s-cargo-strongbox-full"
+    },
+    "w": {
+     "sacks-half": "handcart-w-cargo-sacks-half",
+     "sacks-full": "handcart-w-cargo-sacks-full",
+     "crates-half": "handcart-w-cargo-crates-half",
+     "crates-full": "handcart-w-cargo-crates-full",
+     "amphorae-half": "handcart-w-cargo-amphorae-half",
+     "amphorae-full": "handcart-w-cargo-amphorae-full",
+     "logs-half": "handcart-w-cargo-logs-half",
+     "logs-full": "handcart-w-cargo-logs-full",
+     "ore-half": "handcart-w-cargo-ore-half",
+     "ore-full": "handcart-w-cargo-ore-full",
+     "strongbox-half": "handcart-w-cargo-strongbox-half",
+     "strongbox-full": "handcart-w-cargo-strongbox-full"
+    },
+    "n": {
+     "sacks-half": "handcart-n-cargo-sacks-half",
+     "sacks-full": "handcart-n-cargo-sacks-full",
+     "crates-half": "handcart-n-cargo-crates-half",
+     "crates-full": "handcart-n-cargo-crates-full",
+     "amphorae-half": "handcart-n-cargo-amphorae-half",
+     "amphorae-full": "handcart-n-cargo-amphorae-full",
+     "logs-half": "handcart-n-cargo-logs-half",
+     "logs-full": "handcart-n-cargo-logs-full",
+     "ore-half": "handcart-n-cargo-ore-half",
+     "ore-full": "handcart-n-cargo-ore-full",
+     "strongbox-half": "handcart-n-cargo-strongbox-half",
+     "strongbox-full": "handcart-n-cargo-strongbox-full"
+    }
+   },
+   "fx": {
+    "e": {
+     "burning": [
+      {
+       "id": "tongue-m-a",
+       "at": {
+        "x": 22,
+        "y": 13
+       }
+      },
+      {
+       "id": "tongue-s-b",
+       "at": {
+        "x": 22,
+        "y": 3
+       }
+      },
+      {
+       "id": "tongue-s-c",
+       "at": {
+        "x": 22,
+        "y": 19
+       }
+      },
+      {
+       "id": "tongue-s-a",
+       "at": {
+        "x": 32,
+        "y": 17
+       }
+      },
+      {
+       "id": "embers",
+       "at": {
+        "x": 22,
+        "y": -7
+       }
+      },
+      {
+       "id": "smoke-wisp-a",
+       "at": {
+        "x": 22,
+        "y": -17
+       },
+       "alpha": 0.5
+      },
+      {
+       "id": "heat-glow",
+       "at": {
+        "x": 22,
+        "y": 42
+       }
+      }
+     ],
+     "burnt": [
+      {
+       "id": "smoulder",
+       "at": {
+        "x": 38,
+        "y": 33
+       }
+      }
+     ]
+    },
+    "s": {
+     "burning": [
+      {
+       "id": "tongue-m-a",
+       "at": {
+        "x": 46,
+        "y": 13
+       }
+      },
+      {
+       "id": "tongue-s-b",
+       "at": {
+        "x": 46,
+        "y": 3
+       }
+      },
+      {
+       "id": "tongue-s-c",
+       "at": {
+        "x": 46,
+        "y": 19
+       }
+      },
+      {
+       "id": "tongue-s-a",
+       "at": {
+        "x": 36,
+        "y": 17
+       }
+      },
+      {
+       "id": "embers",
+       "at": {
+        "x": 46,
+        "y": -7
+       }
+      },
+      {
+       "id": "smoke-wisp-a",
+       "at": {
+        "x": 46,
+        "y": -17
+       },
+       "alpha": 0.5
+      },
+      {
+       "id": "heat-glow",
+       "at": {
+        "x": 46,
+        "y": 42
+       }
+      }
+     ],
+     "burnt": [
+      {
+       "id": "smoulder",
+       "at": {
+        "x": 46,
+        "y": 33
+       }
+      }
+     ]
+    },
+    "w": {
+     "burning": [
+      {
+       "id": "tongue-m-a",
+       "at": {
+        "x": 45,
+        "y": 20
+       }
+      },
+      {
+       "id": "tongue-s-b",
+       "at": {
+        "x": 61,
+        "y": 18
+       }
+      },
+      {
+       "id": "tongue-s-c",
+       "at": {
+        "x": 29,
+        "y": 18
+       }
+      },
+      {
+       "id": "tongue-s-a",
+       "at": {
+        "x": 56,
+        "y": 25
+       }
+      },
+      {
+       "id": "embers",
+       "at": {
+        "x": 45,
+        "y": 0
+       }
+      },
+      {
+       "id": "smoke-wisp-a",
+       "at": {
+        "x": 45,
+        "y": -10
+       },
+       "alpha": 0.5
+      },
+      {
+       "id": "heat-glow",
+       "at": {
+        "x": 45,
+        "y": 50
+       }
+      }
+     ],
+     "burnt": [
+      {
+       "id": "smoulder",
+       "at": {
+        "x": 33,
+        "y": 34
+       }
+      }
+     ]
+    },
+    "n": {
+     "burning": [
+      {
+       "id": "tongue-m-a",
+       "at": {
+        "x": 22,
+        "y": 20
+       }
+      },
+      {
+       "id": "tongue-s-b",
+       "at": {
+        "x": 6,
+        "y": 18
+       }
+      },
+      {
+       "id": "tongue-s-c",
+       "at": {
+        "x": 38,
+        "y": 18
+       }
+      },
+      {
+       "id": "tongue-s-a",
+       "at": {
+        "x": 11,
+        "y": 25
+       }
+      },
+      {
+       "id": "embers",
+       "at": {
+        "x": 22,
+        "y": 0
+       }
+      },
+      {
+       "id": "smoke-wisp-a",
+       "at": {
+        "x": 22,
+        "y": -10
+       },
+       "alpha": 0.5
+      },
+      {
+       "id": "heat-glow",
+       "at": {
+        "x": 22,
+        "y": 50
+       }
+      }
+     ],
+     "burnt": [
+      {
+       "id": "smoulder",
+       "at": {
+        "x": 22,
+        "y": 34
+       }
+      }
+     ]
+    }
+   },
+   "stateNote": "halted = standing, moving = the wheel strip (same tileOrigin as halted), burning = halted scorched + fx.burning (siege fire v2 fx ids at sprite px), wrecked = 0 HP (a wheel off, the bed down on that corner; cargo goes to a loot pile), burnt = wrecked by fire + fx.burnt. cargo[facing][<kind>-<half|full>]: an overlay drawn over halted / moving / burning at that sprite's tileOrigin (empty = none); kinds sacks, crates, amphorae, logs, ore, strongbox."
+  },
+  {
+   "id": "wagon",
+   "kind": "wagon",
+   "material": "wood",
+   "burnable": true,
+   "loads": 12,
+   "facings": [
+    "e",
+    "s",
+    "w",
+    "n"
+   ],
+   "heightM": 2,
+   "footprint": {
+    "e": [
+     3,
+     1
+    ],
+    "s": [
+     1,
+     3
+    ],
+    "w": [
+     3,
+     1
+    ],
+    "n": [
+     1,
+     3
+    ]
+   },
+   "crew": {
+    "e": [
+     [
+      2.1,
+      -0.17
+     ]
+    ],
+    "s": [
+     [
+      -0.17,
+      2.1
+     ]
+    ],
+    "w": [
+     [
+      0.9,
+      -0.17
+     ]
+    ],
+    "n": [
+     [
+      -0.17,
+      0.9
+     ]
+    ]
+   },
+   "crewNote": "the driver walks at the near mule's head on the -y side, leading the team (WAR.md: a driver within 2 tiles)",
+   "team": {
+    "e": [
+     [
+      2.38,
+      0.28
+     ],
+     [
+      2.38,
+      0.72
+     ]
+    ],
+    "s": [
+     [
+      0.28,
+      2.38
+     ],
+     [
+      0.72,
+      2.38
+     ]
+    ],
+    "w": [
+     [
+      0.63,
+      0.28
+     ],
+     [
+      0.63,
+      0.72
+     ]
+    ],
+    "n": [
+     [
+      0.28,
+      0.63
+     ],
+     [
+      0.72,
+      0.63
+     ]
+    ]
+   },
+   "teamNote": "two mules side by side under the yoke: draw mule sprites (trade.mules) at these tile offsets (their feet) before the wagon when the team is behind it on screen (facing w, n), after it otherwise",
+   "states": {
+    "e": {
+     "halted": "wagon-e-halted",
+     "burning": "wagon-e-burning",
+     "wrecked": "wagon-e-wrecked",
+     "burnt": "wagon-e-burnt"
+    },
+    "s": {
+     "halted": "wagon-s-halted",
+     "burning": "wagon-s-burning",
+     "wrecked": "wagon-s-wrecked",
+     "burnt": "wagon-s-burnt"
+    },
+    "w": {
+     "halted": "wagon-w-halted",
+     "burning": "wagon-w-burning",
+     "wrecked": "wagon-w-wrecked",
+     "burnt": "wagon-w-burnt"
+    },
+    "n": {
+     "halted": "wagon-n-halted",
+     "burning": "wagon-n-burning",
+     "wrecked": "wagon-n-wrecked",
+     "burnt": "wagon-n-burnt"
+    }
+   },
+   "moving": {
+    "e": {
+     "file": "wagon-e-moving.png",
+     "frames": 8,
+     "fps": 10,
+     "frame": {
+      "w": 110,
+      "h": 76
+     },
+     "tileOrigin": {
+      "x": 23,
+      "y": 36
+     },
+     "note": "wheel loop at ~1 m/s (a man walking); speed it with the cart"
+    },
+    "s": {
+     "file": "wagon-s-moving.png",
+     "frames": 8,
+     "fps": 10,
+     "frame": {
+      "w": 110,
+      "h": 76
+     },
+     "tileOrigin": {
+      "x": 87,
+      "y": 36
+     },
+     "note": "wheel loop at ~1 m/s (a man walking); speed it with the cart"
+    },
+    "w": {
+     "file": "wagon-w-moving.png",
+     "frames": 8,
+     "fps": 10,
+     "frame": {
+      "w": 109,
+      "h": 90
+     },
+     "tileOrigin": {
+      "x": 22,
+      "y": 34
+     },
+     "note": "wheel loop at ~1 m/s (a man walking); speed it with the cart"
+    },
+    "n": {
+     "file": "wagon-n-moving.png",
+     "frames": 8,
+     "fps": 10,
+     "frame": {
+      "w": 109,
+      "h": 90
+     },
+     "tileOrigin": {
+      "x": 87,
+      "y": 34
+     },
+     "note": "wheel loop at ~1 m/s (a man walking); speed it with the cart"
+    }
+   },
+   "cargo": {
+    "e": {
+     "sacks-half": "wagon-e-cargo-sacks-half",
+     "sacks-full": "wagon-e-cargo-sacks-full",
+     "crates-half": "wagon-e-cargo-crates-half",
+     "crates-full": "wagon-e-cargo-crates-full",
+     "amphorae-half": "wagon-e-cargo-amphorae-half",
+     "amphorae-full": "wagon-e-cargo-amphorae-full",
+     "logs-half": "wagon-e-cargo-logs-half",
+     "logs-full": "wagon-e-cargo-logs-full",
+     "ore-half": "wagon-e-cargo-ore-half",
+     "ore-full": "wagon-e-cargo-ore-full",
+     "strongbox-half": "wagon-e-cargo-strongbox-half",
+     "strongbox-full": "wagon-e-cargo-strongbox-full"
+    },
+    "s": {
+     "sacks-half": "wagon-s-cargo-sacks-half",
+     "sacks-full": "wagon-s-cargo-sacks-full",
+     "crates-half": "wagon-s-cargo-crates-half",
+     "crates-full": "wagon-s-cargo-crates-full",
+     "amphorae-half": "wagon-s-cargo-amphorae-half",
+     "amphorae-full": "wagon-s-cargo-amphorae-full",
+     "logs-half": "wagon-s-cargo-logs-half",
+     "logs-full": "wagon-s-cargo-logs-full",
+     "ore-half": "wagon-s-cargo-ore-half",
+     "ore-full": "wagon-s-cargo-ore-full",
+     "strongbox-half": "wagon-s-cargo-strongbox-half",
+     "strongbox-full": "wagon-s-cargo-strongbox-full"
+    },
+    "w": {
+     "sacks-half": "wagon-w-cargo-sacks-half",
+     "sacks-full": "wagon-w-cargo-sacks-full",
+     "crates-half": "wagon-w-cargo-crates-half",
+     "crates-full": "wagon-w-cargo-crates-full",
+     "amphorae-half": "wagon-w-cargo-amphorae-half",
+     "amphorae-full": "wagon-w-cargo-amphorae-full",
+     "logs-half": "wagon-w-cargo-logs-half",
+     "logs-full": "wagon-w-cargo-logs-full",
+     "ore-half": "wagon-w-cargo-ore-half",
+     "ore-full": "wagon-w-cargo-ore-full",
+     "strongbox-half": "wagon-w-cargo-strongbox-half",
+     "strongbox-full": "wagon-w-cargo-strongbox-full"
+    },
+    "n": {
+     "sacks-half": "wagon-n-cargo-sacks-half",
+     "sacks-full": "wagon-n-cargo-sacks-full",
+     "crates-half": "wagon-n-cargo-crates-half",
+     "crates-full": "wagon-n-cargo-crates-full",
+     "amphorae-half": "wagon-n-cargo-amphorae-half",
+     "amphorae-full": "wagon-n-cargo-amphorae-full",
+     "logs-half": "wagon-n-cargo-logs-half",
+     "logs-full": "wagon-n-cargo-logs-full",
+     "ore-half": "wagon-n-cargo-ore-half",
+     "ore-full": "wagon-n-cargo-ore-full",
+     "strongbox-half": "wagon-n-cargo-strongbox-half",
+     "strongbox-full": "wagon-n-cargo-strongbox-full"
+    }
+   },
+   "fx": {
+    "e": {
+     "burning": [
+      {
+       "id": "tongue-m-a",
+       "at": {
+        "x": 39,
+        "y": 17
+       }
+      },
+      {
+       "id": "tongue-s-b",
+       "at": {
+        "x": 33,
+        "y": 3
+       }
+      },
+      {
+       "id": "tongue-s-c",
+       "at": {
+        "x": 45,
+        "y": 28
+       }
+      },
+      {
+       "id": "tongue-s-a",
+       "at": {
+        "x": 36,
+        "y": 28
+       }
+      },
+      {
+       "id": "embers",
+       "at": {
+        "x": 39,
+        "y": -3
+       }
+      },
+      {
+       "id": "smoke-wisp-a",
+       "at": {
+        "x": 39,
+        "y": -13
+       },
+       "alpha": 0.5
+      },
+      {
+       "id": "heat-glow",
+       "at": {
+        "x": 39,
+        "y": 60
+       }
+      }
+     ],
+     "burnt": [
+      {
+       "id": "smoulder",
+       "at": {
+        "x": 39,
+        "y": 50
+       }
+      }
+     ]
+    },
+    "s": {
+     "burning": [
+      {
+       "id": "tongue-m-a",
+       "at": {
+        "x": 71,
+        "y": 17
+       }
+      },
+      {
+       "id": "tongue-s-b",
+       "at": {
+        "x": 77,
+        "y": 3
+       }
+      },
+      {
+       "id": "tongue-s-c",
+       "at": {
+        "x": 65,
+        "y": 28
+       }
+      },
+      {
+       "id": "tongue-s-a",
+       "at": {
+        "x": 74,
+        "y": 28
+       }
+      },
+      {
+       "id": "embers",
+       "at": {
+        "x": 71,
+        "y": -3
+       }
+      },
+      {
+       "id": "smoke-wisp-a",
+       "at": {
+        "x": 71,
+        "y": -13
+       },
+       "alpha": 0.5
+      },
+      {
+       "id": "heat-glow",
+       "at": {
+        "x": 71,
+        "y": 60
+       }
+      }
+     ],
+     "burnt": [
+      {
+       "id": "smoulder",
+       "at": {
+        "x": 39,
+        "y": 50
+       }
+      }
+     ]
+    },
+    "w": {
+     "burning": [
+      {
+       "id": "tongue-m-a",
+       "at": {
+        "x": 70,
+        "y": 31
+       }
+      },
+      {
+       "id": "tongue-s-b",
+       "at": {
+        "x": 96,
+        "y": 33
+       }
+      },
+      {
+       "id": "tongue-s-c",
+       "at": {
+        "x": 44,
+        "y": 26
+       }
+      },
+      {
+       "id": "tongue-s-a",
+       "at": {
+        "x": 100,
+        "y": 59
+       }
+      },
+      {
+       "id": "embers",
+       "at": {
+        "x": 70,
+        "y": 11
+       }
+      },
+      {
+       "id": "smoke-wisp-a",
+       "at": {
+        "x": 70,
+        "y": 1
+       },
+       "alpha": 0.5
+      },
+      {
+       "id": "heat-glow",
+       "at": {
+        "x": 70,
+        "y": 74
+       }
+      }
+     ],
+     "burnt": [
+      {
+       "id": "smoulder",
+       "at": {
+        "x": 54,
+        "y": 50
+       }
+      }
+     ]
+    },
+    "n": {
+     "burning": [
+      {
+       "id": "tongue-m-a",
+       "at": {
+        "x": 39,
+        "y": 31
+       }
+      },
+      {
+       "id": "tongue-s-b",
+       "at": {
+        "x": 13,
+        "y": 33
+       }
+      },
+      {
+       "id": "tongue-s-c",
+       "at": {
+        "x": 65,
+        "y": 26
+       }
+      },
+      {
+       "id": "tongue-s-a",
+       "at": {
+        "x": 9,
+        "y": 59
+       }
+      },
+      {
+       "id": "embers",
+       "at": {
+        "x": 39,
+        "y": 11
+       }
+      },
+      {
+       "id": "smoke-wisp-a",
+       "at": {
+        "x": 39,
+        "y": 1
+       },
+       "alpha": 0.5
+      },
+      {
+       "id": "heat-glow",
+       "at": {
+        "x": 39,
+        "y": 74
+       }
+      }
+     ],
+     "burnt": [
+      {
+       "id": "smoulder",
+       "at": {
+        "x": 39,
+        "y": 50
+       }
+      }
+     ]
+    }
+   },
+   "stateNote": "halted = standing, moving = the wheel strip (same tileOrigin as halted), burning = halted scorched + fx.burning (siege fire v2 fx ids at sprite px), wrecked = 0 HP (a wheel off, the bed down on that corner; cargo goes to a loot pile), burnt = wrecked by fire + fx.burnt. cargo[facing][<kind>-<half|full>]: an overlay drawn over halted / moving / burning at that sprite's tileOrigin (empty = none); kinds sacks, crates, amphorae, logs, ore, strongbox."
+  }
+ ],
+ "mules": {
+  "file": "mule.png",
+  "frame": {
+   "w": 109,
+   "h": 109
+  },
+  "rows": [
+   "south-east",
+   "north-east",
+   "south-west",
+   "north-west"
+  ],
+  "anims": {
+   "halted": {
+    "col": 0,
+    "frames": 1
+   },
+   "walk": {
+    "col": 1,
+    "frames": 8,
+    "fps": 10
+   }
+  },
+  "anchors": {
+   "south-east": {
+    "x": 55,
+    "y": 105
+   },
+   "north-east": {
+    "x": 55,
+    "y": 105
+   },
+   "south-west": {
+    "x": 55,
+    "y": 105
+   },
+   "north-west": {
+    "x": 55,
+    "y": 105
+   }
+  },
+  "facingRow": {
+   "e": "south-east",
+   "s": "south-west",
+   "w": "north-west",
+   "n": "north-east"
+  },
+  "source": "PixelLab create_character pro (quadruped horse, style H4) + walk-8-frames template",
+  "scale": 0.918
+ },
+ "things": [
+  {
+   "id": "chest",
+   "kind": "chest",
+   "footprint": [
+    1,
+    1
+   ],
+   "material": "wood",
+   "burnable": true,
+   "states": {
+    "closed": "chest-closed",
+    "open": "chest-open",
+    "looted": "chest-looted"
+   },
+   "note": "1 x 1 building (WAR.md: wood 10, 8 loads, owner-only); open while its owner or a looter takes from it, looted once empty after a raid"
+  },
+  {
+   "id": "strongbox",
+   "kind": "strongbox",
+   "footprint": [
+    1,
+    1
+   ],
+   "material": "wood",
+   "burnable": true,
+   "states": {
+    "closed": "strongbox-closed",
+    "open": "strongbox-open",
+    "looted": "strongbox-looted"
+   },
+   "note": "coin holder (200 coin a load): a store's or a stall's coin, the court's tax box; cargo kind strongbox on carts"
+  },
+  {
+   "id": "price-board",
+   "kind": "board",
+   "footprint": [
+    1,
+    1
+   ],
+   "material": "wood",
+   "burnable": false,
+   "states": {
+    "done": "price-board-done",
+    "damaged": "price-board-damaged"
+   },
+   "note": "the agora price board (WAR.md \"Stalls, offers and the board\"): a whitewashed notice board on a limestone base, painted rows on the +y and +x faces; placed whole (buildOrder done)"
+  }
+ ],
+ "piles": [
+  {
+   "id": "pile-gear-s",
+   "variant": "gear",
+   "size": "small",
+   "loads": "1-2",
+   "sprite": "pile-gear-s"
+  },
+  {
+   "id": "pile-gear-m",
+   "variant": "gear",
+   "size": "medium",
+   "loads": "3-5",
+   "sprite": "pile-gear-m"
+  },
+  {
+   "id": "pile-gear-l",
+   "variant": "gear",
+   "size": "large",
+   "loads": "6-8",
+   "sprite": "pile-gear-l"
+  },
+  {
+   "id": "pile-goods-s",
+   "variant": "goods",
+   "size": "small",
+   "loads": "1-2",
+   "sprite": "pile-goods-s"
+  },
+  {
+   "id": "pile-goods-m",
+   "variant": "goods",
+   "size": "medium",
+   "loads": "3-5",
+   "sprite": "pile-goods-m"
+  },
+  {
+   "id": "pile-goods-l",
+   "variant": "goods",
+   "size": "large",
+   "loads": "6-8",
+   "sprite": "pile-goods-l"
+  }
+ ],
+ "stalls": [
+  {
+   "level": 1,
+   "building": "market-stall"
+  },
+  {
+   "level": 2,
+   "building": "market-stall2"
+  },
+  {
+   "level": 3,
+   "building": "market-stall3"
+  }
+ ],
+ "warehouse": "warehouse",
+ "objects": [
+  {
+   "id": "handcart-e-halted",
+   "kind": "cart",
+   "file": "handcart-e-halted.png",
+   "w": 68,
+   "h": 49,
+   "metres": 0.12,
+   "basePx": 45,
+   "anchor": {
+    "x": 12,
+    "y": 48
+   },
+   "tileOrigin": {
+    "x": 17,
+    "y": 24
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "e",
+   "state": "halted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-burning",
+   "kind": "cart",
+   "file": "handcart-e-burning.png",
+   "w": 68,
+   "h": 49,
+   "metres": 0.12,
+   "basePx": 45,
+   "anchor": {
+    "x": 12,
+    "y": 48
+   },
+   "tileOrigin": {
+    "x": 17,
+    "y": 24
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "e",
+   "state": "burning",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-wrecked",
+   "kind": "cart",
+   "file": "handcart-e-wrecked.png",
+   "w": 84,
+   "h": 56,
+   "metres": 0.24,
+   "basePx": 48,
+   "anchor": {
+    "x": 13,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 33,
+    "y": 24
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "e",
+   "state": "wrecked",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-burnt",
+   "kind": "cart",
+   "file": "handcart-e-burnt.png",
+   "w": 84,
+   "h": 56,
+   "metres": 0.24,
+   "basePx": 48,
+   "anchor": {
+    "x": 13,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 33,
+    "y": 24
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "e",
+   "state": "burnt",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-sacks-half",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-sacks-half.png",
+   "w": 19,
+   "h": 13,
+   "metres": 0.12,
+   "basePx": 9,
+   "anchor": {
+    "x": 13,
+    "y": 12
+   },
+   "tileOrigin": {
+    "x": 10,
+    "y": 21
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "sacks",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-sacks-full",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-sacks-full.png",
+   "w": 28,
+   "h": 23,
+   "metres": 0.12,
+   "basePx": 19,
+   "anchor": {
+    "x": 21,
+    "y": 22
+   },
+   "tileOrigin": {
+    "x": 10,
+    "y": 26
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "sacks",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-crates-half",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-crates-half.png",
+   "w": 15,
+   "h": 19,
+   "metres": 0.12,
+   "basePx": 15,
+   "anchor": {
+    "x": 10,
+    "y": 18
+   },
+   "tileOrigin": {
+    "x": 7,
+    "y": 26
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "crates",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-crates-full",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-crates-full.png",
+   "w": 24,
+   "h": 35,
+   "metres": 0.12,
+   "basePx": 31,
+   "anchor": {
+    "x": 18,
+    "y": 34
+   },
+   "tileOrigin": {
+    "x": 7,
+    "y": 38
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "crates",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-amphorae-half",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-amphorae-half.png",
+   "w": 19,
+   "h": 24,
+   "metres": 0.12,
+   "basePx": 20,
+   "anchor": {
+    "x": 13,
+    "y": 23
+   },
+   "tileOrigin": {
+    "x": 8,
+    "y": 30
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "amphorae",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-amphorae-full",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-amphorae-full.png",
+   "w": 31,
+   "h": 32,
+   "metres": 0.12,
+   "basePx": 28,
+   "anchor": {
+    "x": 23,
+    "y": 31
+   },
+   "tileOrigin": {
+    "x": 8,
+    "y": 30
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "amphorae",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-logs-half",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-logs-half.png",
+   "w": 41,
+   "h": 28,
+   "metres": 0.12,
+   "basePx": 24,
+   "anchor": {
+    "x": 29,
+    "y": 27
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": 21
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "logs",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-logs-full",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-logs-full.png",
+   "w": 46,
+   "h": 43,
+   "metres": 0.12,
+   "basePx": 39,
+   "anchor": {
+    "x": 30,
+    "y": 42
+   },
+   "tileOrigin": {
+    "x": 15,
+    "y": 35
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "logs",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-ore-half",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-ore-half.png",
+   "w": 22,
+   "h": 12,
+   "metres": 0.12,
+   "basePx": 8,
+   "anchor": {
+    "x": 15,
+    "y": 11
+   },
+   "tileOrigin": {
+    "x": 4,
+    "y": 15
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "ore",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-ore-full",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-ore-full.png",
+   "w": 25,
+   "h": 19,
+   "metres": 0.12,
+   "basePx": 15,
+   "anchor": {
+    "x": 18,
+    "y": 18
+   },
+   "tileOrigin": {
+    "x": 7,
+    "y": 22
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "ore",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-strongbox-half",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-strongbox-half.png",
+   "w": 19,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 16,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 8,
+    "y": 24
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "strongbox",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-e-cargo-strongbox-full",
+   "kind": "cargo",
+   "file": "handcart-e-cargo-strongbox-full.png",
+   "w": 32,
+   "h": 29,
+   "metres": 0.12,
+   "basePx": 25,
+   "anchor": {
+    "x": 25,
+    "y": 28
+   },
+   "tileOrigin": {
+    "x": 8,
+    "y": 24
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "e",
+   "cargo": "strongbox",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-halted",
+   "kind": "cart",
+   "file": "handcart-s-halted.png",
+   "w": 68,
+   "h": 49,
+   "metres": 0.12,
+   "basePx": 45,
+   "anchor": {
+    "x": 55,
+    "y": 48
+   },
+   "tileOrigin": {
+    "x": 51,
+    "y": 24
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "s",
+   "state": "halted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-burning",
+   "kind": "cart",
+   "file": "handcart-s-burning.png",
+   "w": 68,
+   "h": 49,
+   "metres": 0.12,
+   "basePx": 45,
+   "anchor": {
+    "x": 55,
+    "y": 48
+   },
+   "tileOrigin": {
+    "x": 51,
+    "y": 24
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "s",
+   "state": "burning",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-wrecked",
+   "kind": "cart",
+   "file": "handcart-s-wrecked.png",
+   "w": 84,
+   "h": 56,
+   "metres": 0.24,
+   "basePx": 48,
+   "anchor": {
+    "x": 71,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 51,
+    "y": 24
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "s",
+   "state": "wrecked",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-burnt",
+   "kind": "cart",
+   "file": "handcart-s-burnt.png",
+   "w": 84,
+   "h": 56,
+   "metres": 0.24,
+   "basePx": 48,
+   "anchor": {
+    "x": 71,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 51,
+    "y": 24
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "s",
+   "state": "burnt",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-sacks-half",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-sacks-half.png",
+   "w": 20,
+   "h": 14,
+   "metres": 0.12,
+   "basePx": 10,
+   "anchor": {
+    "x": 5,
+    "y": 13
+   },
+   "tileOrigin": {
+    "x": 9,
+    "y": 21
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "sacks",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-sacks-full",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-sacks-full.png",
+   "w": 29,
+   "h": 23,
+   "metres": 0.12,
+   "basePx": 19,
+   "anchor": {
+    "x": 7,
+    "y": 22
+   },
+   "tileOrigin": {
+    "x": 18,
+    "y": 26
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "sacks",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-crates-half",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-crates-half.png",
+   "w": 15,
+   "h": 19,
+   "metres": 0.12,
+   "basePx": 15,
+   "anchor": {
+    "x": 4,
+    "y": 18
+   },
+   "tileOrigin": {
+    "x": 8,
+    "y": 26
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "crates",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-crates-full",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-crates-full.png",
+   "w": 24,
+   "h": 35,
+   "metres": 0.12,
+   "basePx": 31,
+   "anchor": {
+    "x": 6,
+    "y": 34
+   },
+   "tileOrigin": {
+    "x": 17,
+    "y": 38
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "crates",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-amphorae-half",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-amphorae-half.png",
+   "w": 19,
+   "h": 24,
+   "metres": 0.12,
+   "basePx": 20,
+   "anchor": {
+    "x": 5,
+    "y": 23
+   },
+   "tileOrigin": {
+    "x": 11,
+    "y": 30
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "amphorae",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-amphorae-full",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-amphorae-full.png",
+   "w": 31,
+   "h": 32,
+   "metres": 0.12,
+   "basePx": 28,
+   "anchor": {
+    "x": 7,
+    "y": 31
+   },
+   "tileOrigin": {
+    "x": 23,
+    "y": 30
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "amphorae",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-logs-half",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-logs-half.png",
+   "w": 41,
+   "h": 28,
+   "metres": 0.12,
+   "basePx": 24,
+   "anchor": {
+    "x": 11,
+    "y": 27
+   },
+   "tileOrigin": {
+    "x": 29,
+    "y": 21
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "logs",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-logs-full",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-logs-full.png",
+   "w": 46,
+   "h": 43,
+   "metres": 0.12,
+   "basePx": 39,
+   "anchor": {
+    "x": 15,
+    "y": 42
+   },
+   "tileOrigin": {
+    "x": 31,
+    "y": 35
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "logs",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-ore-half",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-ore-half.png",
+   "w": 21,
+   "h": 12,
+   "metres": 0.12,
+   "basePx": 8,
+   "anchor": {
+    "x": 6,
+    "y": 11
+   },
+   "tileOrigin": {
+    "x": 17,
+    "y": 15
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "ore",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-ore-full",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-ore-full.png",
+   "w": 25,
+   "h": 19,
+   "metres": 0.12,
+   "basePx": 15,
+   "anchor": {
+    "x": 7,
+    "y": 18
+   },
+   "tileOrigin": {
+    "x": 18,
+    "y": 22
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "ore",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-strongbox-half",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-strongbox-half.png",
+   "w": 19,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 2,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 11,
+    "y": 24
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "strongbox",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-s-cargo-strongbox-full",
+   "kind": "cargo",
+   "file": "handcart-s-cargo-strongbox-full.png",
+   "w": 32,
+   "h": 29,
+   "metres": 0.12,
+   "basePx": 25,
+   "anchor": {
+    "x": 6,
+    "y": 28
+   },
+   "tileOrigin": {
+    "x": 24,
+    "y": 24
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "s",
+   "cargo": "strongbox",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-halted",
+   "kind": "cart",
+   "file": "handcart-w-halted.png",
+   "w": 67,
+   "h": 56,
+   "metres": 0.24,
+   "basePx": 48,
+   "anchor": {
+    "x": 40,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 18,
+    "y": 20
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "w",
+   "state": "halted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-burning",
+   "kind": "cart",
+   "file": "handcart-w-burning.png",
+   "w": 67,
+   "h": 56,
+   "metres": 0.24,
+   "basePx": 48,
+   "anchor": {
+    "x": 40,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 18,
+    "y": 20
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "w",
+   "state": "burning",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-wrecked",
+   "kind": "cart",
+   "file": "handcart-w-wrecked.png",
+   "w": 55,
+   "h": 62,
+   "metres": 0.42,
+   "basePx": 48,
+   "anchor": {
+    "x": 18,
+    "y": 61
+   },
+   "tileOrigin": {
+    "x": 6,
+    "y": 14
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "w",
+   "state": "wrecked",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-burnt",
+   "kind": "cart",
+   "file": "handcart-w-burnt.png",
+   "w": 55,
+   "h": 62,
+   "metres": 0.42,
+   "basePx": 48,
+   "anchor": {
+    "x": 18,
+    "y": 61
+   },
+   "tileOrigin": {
+    "x": 6,
+    "y": 14
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "w",
+   "state": "burnt",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-sacks-half",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-sacks-half.png",
+   "w": 19,
+   "h": 10,
+   "metres": 0.12,
+   "basePx": 6,
+   "anchor": {
+    "x": 8,
+    "y": 9
+   },
+   "tileOrigin": {
+    "x": -24,
+    "y": 3
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "sacks",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-sacks-full",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-sacks-full.png",
+   "w": 27,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 16,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": -16,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "sacks",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-crates-half",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-crates-half.png",
+   "w": 15,
+   "h": 15,
+   "metres": 0.12,
+   "basePx": 11,
+   "anchor": {
+    "x": 3,
+    "y": 14
+   },
+   "tileOrigin": {
+    "x": -30,
+    "y": 8
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "crates",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-crates-full",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-crates-full.png",
+   "w": 24,
+   "h": 31,
+   "metres": 0.12,
+   "basePx": 27,
+   "anchor": {
+    "x": 11,
+    "y": 30
+   },
+   "tileOrigin": {
+    "x": -21,
+    "y": 24
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "crates",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-amphorae-half",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-amphorae-half.png",
+   "w": 21,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 9,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": -23,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "amphorae",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-amphorae-full",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-amphorae-full.png",
+   "w": 33,
+   "h": 26,
+   "metres": 0.12,
+   "basePx": 22,
+   "anchor": {
+    "x": 21,
+    "y": 25
+   },
+   "tileOrigin": {
+    "x": -11,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "amphorae",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-logs-half",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-logs-half.png",
+   "w": 41,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 29,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": -3,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "logs",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-logs-full",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-logs-full.png",
+   "w": 45,
+   "h": 41,
+   "metres": 0.12,
+   "basePx": 37,
+   "anchor": {
+    "x": 27,
+    "y": 40
+   },
+   "tileOrigin": {
+    "x": -1,
+    "y": 27
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "logs",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-ore-half",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-ore-half.png",
+   "w": 20,
+   "h": 11,
+   "metres": 0.12,
+   "basePx": 7,
+   "anchor": {
+    "x": 14,
+    "y": 10
+   },
+   "tileOrigin": {
+    "x": -18,
+    "y": 4
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "ore",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-ore-full",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-ore-full.png",
+   "w": 24,
+   "h": 17,
+   "metres": 0.12,
+   "basePx": 13,
+   "anchor": {
+    "x": 16,
+    "y": 16
+   },
+   "tileOrigin": {
+    "x": -16,
+    "y": 10
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "ore",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-strongbox-half",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-strongbox-half.png",
+   "w": 19,
+   "h": 16,
+   "metres": 0.12,
+   "basePx": 12,
+   "anchor": {
+    "x": 10,
+    "y": 15
+   },
+   "tileOrigin": {
+    "x": -22,
+    "y": 9
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "strongbox",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-w-cargo-strongbox-full",
+   "kind": "cargo",
+   "file": "handcart-w-cargo-strongbox-full.png",
+   "w": 32,
+   "h": 22,
+   "metres": 0.12,
+   "basePx": 18,
+   "anchor": {
+    "x": 23,
+    "y": 21
+   },
+   "tileOrigin": {
+    "x": -9,
+    "y": 15
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "w",
+   "cargo": "strongbox",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-halted",
+   "kind": "cart",
+   "file": "handcart-n-halted.png",
+   "w": 67,
+   "h": 56,
+   "metres": 0.24,
+   "basePx": 48,
+   "anchor": {
+    "x": 26,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 49,
+    "y": 20
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "n",
+   "state": "halted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-burning",
+   "kind": "cart",
+   "file": "handcart-n-burning.png",
+   "w": 67,
+   "h": 56,
+   "metres": 0.24,
+   "basePx": 48,
+   "anchor": {
+    "x": 26,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 49,
+    "y": 20
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "n",
+   "state": "burning",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-wrecked",
+   "kind": "cart",
+   "file": "handcart-n-wrecked.png",
+   "w": 55,
+   "h": 62,
+   "metres": 0.42,
+   "basePx": 48,
+   "anchor": {
+    "x": 37,
+    "y": 61
+   },
+   "tileOrigin": {
+    "x": 49,
+    "y": 14
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "n",
+   "state": "wrecked",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-burnt",
+   "kind": "cart",
+   "file": "handcart-n-burnt.png",
+   "w": 55,
+   "h": 62,
+   "metres": 0.42,
+   "basePx": 48,
+   "anchor": {
+    "x": 37,
+    "y": 61
+   },
+   "tileOrigin": {
+    "x": 49,
+    "y": 14
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "handcart",
+   "facing": "n",
+   "state": "burnt",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-sacks-half",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-sacks-half.png",
+   "w": 20,
+   "h": 10,
+   "metres": 0.12,
+   "basePx": 6,
+   "anchor": {
+    "x": 12,
+    "y": 9
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 3
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "sacks",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-sacks-full",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-sacks-full.png",
+   "w": 28,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 12,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 13
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "sacks",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-crates-half",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-crates-half.png",
+   "w": 15,
+   "h": 15,
+   "metres": 0.12,
+   "basePx": 11,
+   "anchor": {
+    "x": 11,
+    "y": 14
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": 8
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "crates",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-crates-full",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-crates-full.png",
+   "w": 24,
+   "h": 31,
+   "metres": 0.12,
+   "basePx": 27,
+   "anchor": {
+    "x": 13,
+    "y": 30
+   },
+   "tileOrigin": {
+    "x": 45,
+    "y": 24
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "crates",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-amphorae-half",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-amphorae-half.png",
+   "w": 21,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 12,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 13
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "amphorae",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-amphorae-full",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-amphorae-full.png",
+   "w": 33,
+   "h": 26,
+   "metres": 0.12,
+   "basePx": 22,
+   "anchor": {
+    "x": 12,
+    "y": 25
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 19
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "amphorae",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-logs-half",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-logs-half.png",
+   "w": 41,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 12,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 13
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "logs",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-logs-full",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-logs-full.png",
+   "w": 45,
+   "h": 41,
+   "metres": 0.12,
+   "basePx": 37,
+   "anchor": {
+    "x": 17,
+    "y": 40
+   },
+   "tileOrigin": {
+    "x": 46,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "logs",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-ore-half",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-ore-half.png",
+   "w": 20,
+   "h": 11,
+   "metres": 0.12,
+   "basePx": 7,
+   "anchor": {
+    "x": 6,
+    "y": 10
+   },
+   "tileOrigin": {
+    "x": 38,
+    "y": 4
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "ore",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-ore-full",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-ore-full.png",
+   "w": 25,
+   "h": 18,
+   "metres": 0.12,
+   "basePx": 14,
+   "anchor": {
+    "x": 8,
+    "y": 17
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": 11
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "ore",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-strongbox-half",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-strongbox-half.png",
+   "w": 19,
+   "h": 16,
+   "metres": 0.12,
+   "basePx": 12,
+   "anchor": {
+    "x": 9,
+    "y": 15
+   },
+   "tileOrigin": {
+    "x": 41,
+    "y": 9
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "strongbox",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "handcart-n-cargo-strongbox-full",
+   "kind": "cargo",
+   "file": "handcart-n-cargo-strongbox-full.png",
+   "w": 32,
+   "h": 22,
+   "metres": 0.12,
+   "basePx": 18,
+   "anchor": {
+    "x": 9,
+    "y": 21
+   },
+   "tileOrigin": {
+    "x": 41,
+    "y": 15
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "cart": "handcart",
+   "facing": "n",
+   "cargo": "strongbox",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-halted",
+   "kind": "wagon",
+   "file": "wagon-e-halted.png",
+   "w": 110,
+   "h": 76,
+   "metres": 0.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 44,
+    "y": 75
+   },
+   "tileOrigin": {
+    "x": 23,
+    "y": 36
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "e",
+   "state": "halted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-burning",
+   "kind": "wagon",
+   "file": "wagon-e-burning.png",
+   "w": 110,
+   "h": 76,
+   "metres": 0.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 44,
+    "y": 75
+   },
+   "tileOrigin": {
+    "x": 23,
+    "y": 36
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "e",
+   "state": "burning",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-wrecked",
+   "kind": "wagon",
+   "file": "wagon-e-wrecked.png",
+   "w": 78,
+   "h": 87,
+   "metres": 0.7,
+   "basePx": 64,
+   "anchor": {
+    "x": 37,
+    "y": 86
+   },
+   "tileOrigin": {
+    "x": 23,
+    "y": 36
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "e",
+   "state": "wrecked",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-burnt",
+   "kind": "wagon",
+   "file": "wagon-e-burnt.png",
+   "w": 78,
+   "h": 87,
+   "metres": 0.7,
+   "basePx": 64,
+   "anchor": {
+    "x": 37,
+    "y": 86
+   },
+   "tileOrigin": {
+    "x": 23,
+    "y": 36
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "e",
+   "state": "burnt",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-sacks-half",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-sacks-half.png",
+   "w": 41,
+   "h": 23,
+   "metres": 0.12,
+   "basePx": 19,
+   "anchor": {
+    "x": 32,
+    "y": 22
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": 31
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "sacks",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-sacks-full",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-sacks-full.png",
+   "w": 59,
+   "h": 37,
+   "metres": 0.12,
+   "basePx": 33,
+   "anchor": {
+    "x": 48,
+    "y": 36
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": 36
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "sacks",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-crates-half",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-crates-half.png",
+   "w": 41,
+   "h": 30,
+   "metres": 0.12,
+   "basePx": 26,
+   "anchor": {
+    "x": 32,
+    "y": 29
+   },
+   "tileOrigin": {
+    "x": 15,
+    "y": 36
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "crates",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-crates-full",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-crates-full.png",
+   "w": 58,
+   "h": 49,
+   "metres": 0.12,
+   "basePx": 45,
+   "anchor": {
+    "x": 47,
+    "y": 48
+   },
+   "tileOrigin": {
+    "x": 15,
+    "y": 48
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "crates",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-amphorae-half",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-amphorae-half.png",
+   "w": 38,
+   "h": 32,
+   "metres": 0.12,
+   "basePx": 28,
+   "anchor": {
+    "x": 28,
+    "y": 31
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": 40
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "amphorae",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-amphorae-full",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-amphorae-full.png",
+   "w": 55,
+   "h": 41,
+   "metres": 0.12,
+   "basePx": 37,
+   "anchor": {
+    "x": 46,
+    "y": 40
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": 40
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "amphorae",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-logs-half",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-logs-half.png",
+   "w": 60,
+   "h": 31,
+   "metres": 0.12,
+   "basePx": 27,
+   "anchor": {
+    "x": 48,
+    "y": 30
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": 30
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "logs",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-logs-full",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-logs-full.png",
+   "w": 65,
+   "h": 45,
+   "metres": 0.12,
+   "basePx": 41,
+   "anchor": {
+    "x": 50,
+    "y": 44
+   },
+   "tileOrigin": {
+    "x": 18,
+    "y": 44
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "logs",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-ore-half",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-ore-half.png",
+   "w": 47,
+   "h": 23,
+   "metres": 0.12,
+   "basePx": 19,
+   "anchor": {
+    "x": 42,
+    "y": 22
+   },
+   "tileOrigin": {
+    "x": 10,
+    "y": 22
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "ore",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-ore-full",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-ore-full.png",
+   "w": 49,
+   "h": 28,
+   "metres": 0.12,
+   "basePx": 24,
+   "anchor": {
+    "x": 44,
+    "y": 27
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": 27
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "ore",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-strongbox-half",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-strongbox-half.png",
+   "w": 20,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 15,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": 33
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "strongbox",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-e-cargo-strongbox-full",
+   "kind": "cargo",
+   "file": "wagon-e-cargo-strongbox-full.png",
+   "w": 33,
+   "h": 27,
+   "metres": 0.12,
+   "basePx": 23,
+   "anchor": {
+    "x": 28,
+    "y": 26
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": 33
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "e",
+   "cargo": "strongbox",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-halted",
+   "kind": "wagon",
+   "file": "wagon-s-halted.png",
+   "w": 110,
+   "h": 76,
+   "metres": 0.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 75
+   },
+   "tileOrigin": {
+    "x": 87,
+    "y": 36
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "s",
+   "state": "halted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-burning",
+   "kind": "wagon",
+   "file": "wagon-s-burning.png",
+   "w": 110,
+   "h": 76,
+   "metres": 0.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 75
+   },
+   "tileOrigin": {
+    "x": 87,
+    "y": 36
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "s",
+   "state": "burning",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-wrecked",
+   "kind": "wagon",
+   "file": "wagon-s-wrecked.png",
+   "w": 78,
+   "h": 87,
+   "metres": 0.7,
+   "basePx": 64,
+   "anchor": {
+    "x": 41,
+    "y": 86
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 36
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "s",
+   "state": "wrecked",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-burnt",
+   "kind": "wagon",
+   "file": "wagon-s-burnt.png",
+   "w": 78,
+   "h": 87,
+   "metres": 0.7,
+   "basePx": 64,
+   "anchor": {
+    "x": 41,
+    "y": 86
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 36
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "s",
+   "state": "burnt",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-sacks-half",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-sacks-half.png",
+   "w": 42,
+   "h": 23,
+   "metres": 0.12,
+   "basePx": 19,
+   "anchor": {
+    "x": 9,
+    "y": 22
+   },
+   "tileOrigin": {
+    "x": 26,
+    "y": 31
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "sacks",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-sacks-full",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-sacks-full.png",
+   "w": 59,
+   "h": 37,
+   "metres": 0.12,
+   "basePx": 33,
+   "anchor": {
+    "x": 10,
+    "y": 36
+   },
+   "tileOrigin": {
+    "x": 43,
+    "y": 36
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "sacks",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-crates-half",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-crates-half.png",
+   "w": 41,
+   "h": 30,
+   "metres": 0.12,
+   "basePx": 26,
+   "anchor": {
+    "x": 9,
+    "y": 29
+   },
+   "tileOrigin": {
+    "x": 26,
+    "y": 36
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "crates",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-crates-full",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-crates-full.png",
+   "w": 58,
+   "h": 49,
+   "metres": 0.12,
+   "basePx": 45,
+   "anchor": {
+    "x": 10,
+    "y": 48
+   },
+   "tileOrigin": {
+    "x": 43,
+    "y": 48
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "crates",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-amphorae-half",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-amphorae-half.png",
+   "w": 38,
+   "h": 32,
+   "metres": 0.12,
+   "basePx": 28,
+   "anchor": {
+    "x": 9,
+    "y": 31
+   },
+   "tileOrigin": {
+    "x": 22,
+    "y": 40
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "amphorae",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-amphorae-full",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-amphorae-full.png",
+   "w": 55,
+   "h": 41,
+   "metres": 0.12,
+   "basePx": 37,
+   "anchor": {
+    "x": 8,
+    "y": 40
+   },
+   "tileOrigin": {
+    "x": 39,
+    "y": 40
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "amphorae",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-logs-half",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-logs-half.png",
+   "w": 60,
+   "h": 31,
+   "metres": 0.12,
+   "basePx": 27,
+   "anchor": {
+    "x": 11,
+    "y": 30
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 30
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "logs",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-logs-full",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-logs-full.png",
+   "w": 65,
+   "h": 45,
+   "metres": 0.12,
+   "basePx": 41,
+   "anchor": {
+    "x": 14,
+    "y": 44
+   },
+   "tileOrigin": {
+    "x": 47,
+    "y": 44
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "logs",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-ore-half",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-ore-half.png",
+   "w": 47,
+   "h": 23,
+   "metres": 0.12,
+   "basePx": 19,
+   "anchor": {
+    "x": 4,
+    "y": 22
+   },
+   "tileOrigin": {
+    "x": 37,
+    "y": 22
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "ore",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-ore-full",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-ore-full.png",
+   "w": 49,
+   "h": 28,
+   "metres": 0.12,
+   "basePx": 24,
+   "anchor": {
+    "x": 4,
+    "y": 27
+   },
+   "tileOrigin": {
+    "x": 37,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "ore",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-strongbox-half",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-strongbox-half.png",
+   "w": 20,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 4,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 8,
+    "y": 33
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "strongbox",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-s-cargo-strongbox-full",
+   "kind": "cargo",
+   "file": "wagon-s-cargo-strongbox-full.png",
+   "w": 33,
+   "h": 27,
+   "metres": 0.12,
+   "basePx": 23,
+   "anchor": {
+    "x": 4,
+    "y": 26
+   },
+   "tileOrigin": {
+    "x": 21,
+    "y": 33
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "s",
+   "cargo": "strongbox",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-halted",
+   "kind": "wagon",
+   "file": "wagon-w-halted.png",
+   "w": 109,
+   "h": 90,
+   "metres": 0.79,
+   "basePx": 64,
+   "anchor": {
+    "x": 75,
+    "y": 89
+   },
+   "tileOrigin": {
+    "x": 22,
+    "y": 34
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "w",
+   "state": "halted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-burning",
+   "kind": "wagon",
+   "file": "wagon-w-burning.png",
+   "w": 109,
+   "h": 90,
+   "metres": 0.79,
+   "basePx": 64,
+   "anchor": {
+    "x": 75,
+    "y": 89
+   },
+   "tileOrigin": {
+    "x": 22,
+    "y": 34
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "w",
+   "state": "burning",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-wrecked",
+   "kind": "wagon",
+   "file": "wagon-w-wrecked.png",
+   "w": 93,
+   "h": 76,
+   "metres": 0.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 75
+   },
+   "tileOrigin": {
+    "x": 6,
+    "y": 20
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "w",
+   "state": "wrecked",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-burnt",
+   "kind": "wagon",
+   "file": "wagon-w-burnt.png",
+   "w": 93,
+   "h": 76,
+   "metres": 0.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 75
+   },
+   "tileOrigin": {
+    "x": 6,
+    "y": 20
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "w",
+   "state": "burnt",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-sacks-half",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-sacks-half.png",
+   "w": 40,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 23,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": -40,
+    "y": 3
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "sacks",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-sacks-full",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-sacks-full.png",
+   "w": 58,
+   "h": 34,
+   "metres": 0.12,
+   "basePx": 30,
+   "anchor": {
+    "x": 41,
+    "y": 33
+   },
+   "tileOrigin": {
+    "x": -22,
+    "y": 17
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "sacks",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-crates-half",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-crates-half.png",
+   "w": 41,
+   "h": 25,
+   "metres": 0.12,
+   "basePx": 21,
+   "anchor": {
+    "x": 22,
+    "y": 24
+   },
+   "tileOrigin": {
+    "x": -42,
+    "y": 8
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "crates",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-crates-full",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-crates-full.png",
+   "w": 58,
+   "h": 45,
+   "metres": 0.12,
+   "basePx": 41,
+   "anchor": {
+    "x": 39,
+    "y": 44
+   },
+   "tileOrigin": {
+    "x": -25,
+    "y": 28
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "crates",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-amphorae-half",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-amphorae-half.png",
+   "w": 37,
+   "h": 28,
+   "metres": 0.12,
+   "basePx": 24,
+   "anchor": {
+    "x": 20,
+    "y": 27
+   },
+   "tileOrigin": {
+    "x": -44,
+    "y": 11
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "amphorae",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-amphorae-full",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-amphorae-full.png",
+   "w": 55,
+   "h": 36,
+   "metres": 0.12,
+   "basePx": 32,
+   "anchor": {
+    "x": 38,
+    "y": 35
+   },
+   "tileOrigin": {
+    "x": -26,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "amphorae",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-logs-half",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-logs-half.png",
+   "w": 56,
+   "h": 30,
+   "metres": 0.12,
+   "basePx": 26,
+   "anchor": {
+    "x": 44,
+    "y": 29
+   },
+   "tileOrigin": {
+    "x": -20,
+    "y": 13
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "logs",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-logs-full",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-logs-full.png",
+   "w": 65,
+   "h": 44,
+   "metres": 0.12,
+   "basePx": 40,
+   "anchor": {
+    "x": 48,
+    "y": 43
+   },
+   "tileOrigin": {
+    "x": -16,
+    "y": 27
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "logs",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-ore-half",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-ore-half.png",
+   "w": 45,
+   "h": 19,
+   "metres": 0.12,
+   "basePx": 15,
+   "anchor": {
+    "x": 36,
+    "y": 18
+   },
+   "tileOrigin": {
+    "x": -28,
+    "y": 2
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "ore",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-ore-full",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-ore-full.png",
+   "w": 46,
+   "h": 25,
+   "metres": 0.12,
+   "basePx": 21,
+   "anchor": {
+    "x": 36,
+    "y": 24
+   },
+   "tileOrigin": {
+    "x": -28,
+    "y": 8
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "ore",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-strongbox-half",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-strongbox-half.png",
+   "w": 20,
+   "h": 16,
+   "metres": 0.12,
+   "basePx": 12,
+   "anchor": {
+    "x": 7,
+    "y": 15
+   },
+   "tileOrigin": {
+    "x": -57,
+    "y": -1
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "strongbox",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-w-cargo-strongbox-full",
+   "kind": "cargo",
+   "file": "wagon-w-cargo-strongbox-full.png",
+   "w": 33,
+   "h": 22,
+   "metres": 0.12,
+   "basePx": 18,
+   "anchor": {
+    "x": 20,
+    "y": 21
+   },
+   "tileOrigin": {
+    "x": -44,
+    "y": 5
+   },
+   "footprint": [
+    3,
+    1
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "w",
+   "cargo": "strongbox",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-halted",
+   "kind": "wagon",
+   "file": "wagon-n-halted.png",
+   "w": 109,
+   "h": 90,
+   "metres": 0.79,
+   "basePx": 64,
+   "anchor": {
+    "x": 33,
+    "y": 89
+   },
+   "tileOrigin": {
+    "x": 87,
+    "y": 34
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "n",
+   "state": "halted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-burning",
+   "kind": "wagon",
+   "file": "wagon-n-burning.png",
+   "w": 109,
+   "h": 90,
+   "metres": 0.79,
+   "basePx": 64,
+   "anchor": {
+    "x": 33,
+    "y": 89
+   },
+   "tileOrigin": {
+    "x": 87,
+    "y": 34
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "n",
+   "state": "burning",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-wrecked",
+   "kind": "wagon",
+   "file": "wagon-n-wrecked.png",
+   "w": 93,
+   "h": 76,
+   "metres": 0.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 33,
+    "y": 75
+   },
+   "tileOrigin": {
+    "x": 87,
+    "y": 20
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "n",
+   "state": "wrecked",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-burnt",
+   "kind": "wagon",
+   "file": "wagon-n-burnt.png",
+   "w": 93,
+   "h": 76,
+   "metres": 0.36,
+   "basePx": 64,
+   "anchor": {
+    "x": 33,
+    "y": 75
+   },
+   "tileOrigin": {
+    "x": 87,
+    "y": 20
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "material": "wood",
+   "burnable": true,
+   "cart": "wagon",
+   "facing": "n",
+   "state": "burnt",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-sacks-half",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-sacks-half.png",
+   "w": 40,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 16,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 3
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "sacks",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-sacks-full",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-sacks-full.png",
+   "w": 58,
+   "h": 34,
+   "metres": 0.12,
+   "basePx": 30,
+   "anchor": {
+    "x": 16,
+    "y": 33
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 17
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "sacks",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-crates-half",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-crates-half.png",
+   "w": 41,
+   "h": 25,
+   "metres": 0.12,
+   "basePx": 21,
+   "anchor": {
+    "x": 19,
+    "y": 24
+   },
+   "tileOrigin": {
+    "x": 83,
+    "y": 8
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "crates",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-crates-full",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-crates-full.png",
+   "w": 58,
+   "h": 45,
+   "metres": 0.12,
+   "basePx": 41,
+   "anchor": {
+    "x": 19,
+    "y": 44
+   },
+   "tileOrigin": {
+    "x": 83,
+    "y": 28
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "crates",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-amphorae-half",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-amphorae-half.png",
+   "w": 37,
+   "h": 28,
+   "metres": 0.12,
+   "basePx": 24,
+   "anchor": {
+    "x": 17,
+    "y": 27
+   },
+   "tileOrigin": {
+    "x": 81,
+    "y": 11
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "amphorae",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-amphorae-full",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-amphorae-full.png",
+   "w": 55,
+   "h": 36,
+   "metres": 0.12,
+   "basePx": 32,
+   "anchor": {
+    "x": 17,
+    "y": 35
+   },
+   "tileOrigin": {
+    "x": 81,
+    "y": 19
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "amphorae",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-logs-half",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-logs-half.png",
+   "w": 56,
+   "h": 30,
+   "metres": 0.12,
+   "basePx": 26,
+   "anchor": {
+    "x": 12,
+    "y": 29
+   },
+   "tileOrigin": {
+    "x": 76,
+    "y": 13
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "logs",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-logs-full",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-logs-full.png",
+   "w": 65,
+   "h": 44,
+   "metres": 0.12,
+   "basePx": 40,
+   "anchor": {
+    "x": 17,
+    "y": 43
+   },
+   "tileOrigin": {
+    "x": 81,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "logs",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-ore-half",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-ore-half.png",
+   "w": 45,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 9,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 73,
+    "y": 3
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "ore",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-ore-full",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-ore-full.png",
+   "w": 46,
+   "h": 25,
+   "metres": 0.12,
+   "basePx": 21,
+   "anchor": {
+    "x": 10,
+    "y": 24
+   },
+   "tileOrigin": {
+    "x": 74,
+    "y": 8
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "ore",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-strongbox-half",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-strongbox-half.png",
+   "w": 20,
+   "h": 16,
+   "metres": 0.12,
+   "basePx": 12,
+   "anchor": {
+    "x": 13,
+    "y": 15
+   },
+   "tileOrigin": {
+    "x": 77,
+    "y": -1
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "strongbox",
+   "level": "half",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "wagon-n-cargo-strongbox-full",
+   "kind": "cargo",
+   "file": "wagon-n-cargo-strongbox-full.png",
+   "w": 33,
+   "h": 22,
+   "metres": 0.12,
+   "basePx": 18,
+   "anchor": {
+    "x": 13,
+    "y": 21
+   },
+   "tileOrigin": {
+    "x": 77,
+    "y": 5
+   },
+   "footprint": [
+    1,
+    3
+   ],
+   "blocksMovement": false,
+   "cart": "wagon",
+   "facing": "n",
+   "cargo": "strongbox",
+   "level": "full",
+   "overlay": true,
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "chest-closed",
+   "kind": "chest",
+   "file": "chest-closed.png",
+   "w": 26,
+   "h": 31,
+   "metres": 0.12,
+   "basePx": 27,
+   "anchor": {
+    "x": 16,
+    "y": 30
+   },
+   "tileOrigin": {
+    "x": 13,
+    "y": 9
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "object": "chest",
+   "state": "closed",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "chest-open",
+   "kind": "chest",
+   "file": "chest-open.png",
+   "w": 28,
+   "h": 47,
+   "metres": 0.45,
+   "basePx": 32,
+   "anchor": {
+    "x": 16,
+    "y": 46
+   },
+   "tileOrigin": {
+    "x": 13,
+    "y": 25
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "object": "chest",
+   "state": "open",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "chest-looted",
+   "kind": "chest",
+   "file": "chest-looted.png",
+   "w": 26,
+   "h": 39,
+   "metres": 0.21,
+   "basePx": 32,
+   "anchor": {
+    "x": 11,
+    "y": 38
+   },
+   "tileOrigin": {
+    "x": 13,
+    "y": 13
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "object": "chest",
+   "state": "looted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "strongbox-closed",
+   "kind": "strongbox",
+   "file": "strongbox-closed.png",
+   "w": 20,
+   "h": 23,
+   "metres": 0.12,
+   "basePx": 19,
+   "anchor": {
+    "x": 12,
+    "y": 22
+   },
+   "tileOrigin": {
+    "x": 10,
+    "y": 2
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "object": "strongbox",
+   "state": "closed",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "strongbox-open",
+   "kind": "strongbox",
+   "file": "strongbox-open.png",
+   "w": 22,
+   "h": 36,
+   "metres": 0.12,
+   "basePx": 32,
+   "anchor": {
+    "x": 12,
+    "y": 35
+   },
+   "tileOrigin": {
+    "x": 10,
+    "y": 15
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "object": "strongbox",
+   "state": "open",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "strongbox-looted",
+   "kind": "strongbox",
+   "file": "strongbox-looted.png",
+   "w": 23,
+   "h": 28,
+   "metres": 0.12,
+   "basePx": 24,
+   "anchor": {
+    "x": 11,
+    "y": 27
+   },
+   "tileOrigin": {
+    "x": 13,
+    "y": 0
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": true,
+   "object": "strongbox",
+   "state": "looted",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "price-board-done",
+   "kind": "board",
+   "file": "price-board-done.png",
+   "w": 42,
+   "h": 93,
+   "metres": 1.85,
+   "basePx": 32,
+   "anchor": {
+    "x": 28,
+    "y": 92
+   },
+   "tileOrigin": {
+    "x": 21,
+    "y": 67
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": false,
+   "object": "price-board",
+   "state": "done",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "price-board-damaged",
+   "kind": "board",
+   "file": "price-board-damaged.png",
+   "w": 52,
+   "h": 96,
+   "metres": 1.94,
+   "basePx": 32,
+   "anchor": {
+    "x": 31,
+    "y": 95
+   },
+   "tileOrigin": {
+    "x": 21,
+    "y": 64
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "material": "wood",
+   "burnable": false,
+   "object": "price-board",
+   "state": "damaged",
+   "source": "renderer (voxel model)"
+  },
+  {
+   "id": "pile-gear-s",
+   "kind": "pile",
+   "file": "pile-gear-s.png",
+   "w": 30,
+   "h": 20,
+   "metres": 0.12,
+   "basePx": 16,
+   "anchor": {
+    "x": 10,
+    "y": 19
+   },
+   "tileOrigin": {
+    "x": 10,
+    "y": 2
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "mixed",
+   "burnable": false,
+   "source": "map_object ac902652"
+  },
+  {
+   "id": "pile-gear-m",
+   "kind": "pile",
+   "file": "pile-gear-m.png",
+   "w": 44,
+   "h": 29,
+   "metres": 0.12,
+   "basePx": 25,
+   "anchor": {
+    "x": 20,
+    "y": 28
+   },
+   "tileOrigin": {
+    "x": 20,
+    "y": 11
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "mixed",
+   "burnable": false,
+   "source": "map_object 630c4c00"
+  },
+  {
+   "id": "pile-gear-l",
+   "kind": "pile",
+   "file": "pile-gear-l.png",
+   "w": 60,
+   "h": 45,
+   "metres": 0.39,
+   "basePx": 32,
+   "anchor": {
+    "x": 29,
+    "y": 44
+   },
+   "tileOrigin": {
+    "x": 29,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "mixed",
+   "burnable": false,
+   "source": "map_object 866b3a8b"
+  },
+  {
+   "id": "pile-goods-s",
+   "kind": "pile",
+   "file": "pile-goods-s.png",
+   "w": 30,
+   "h": 27,
+   "metres": 0.12,
+   "basePx": 23,
+   "anchor": {
+    "x": 18,
+    "y": 26
+   },
+   "tileOrigin": {
+    "x": 18,
+    "y": 9
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "mixed",
+   "burnable": false,
+   "source": "map_object ecebcfd9"
+  },
+  {
+   "id": "pile-goods-m",
+   "kind": "pile",
+   "file": "pile-goods-m.png",
+   "w": 44,
+   "h": 34,
+   "metres": 0.12,
+   "basePx": 30,
+   "anchor": {
+    "x": 16,
+    "y": 33
+   },
+   "tileOrigin": {
+    "x": 16,
+    "y": 16
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "mixed",
+   "burnable": false,
+   "source": "map_object ea1948c8"
+  },
+  {
+   "id": "pile-goods-l",
+   "kind": "pile",
+   "file": "pile-goods-l.png",
+   "w": 60,
+   "h": 45,
+   "metres": 0.39,
+   "basePx": 32,
+   "anchor": {
+    "x": 32,
+    "y": 44
+   },
+   "tileOrigin": {
+    "x": 32,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "material": "mixed",
+   "burnable": false,
+   "source": "map_object 70a93937"
+  }
+ ]
+}
