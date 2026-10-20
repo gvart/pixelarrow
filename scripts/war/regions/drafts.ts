@@ -163,10 +163,12 @@ function template(w: WorldRegion): RegionDef {
         const main = n === 0;
         if (ch.kind === 'rock') {
           for (const sg of [1, -1]) for (const o of [24, 60, 96]) { const c = add(G, nn, sg * (gw + o)); k.rockMass([c[0], c[1], 24, 24, 0], { rough: 1.2 }); }
-          // the ledge: carved out of one wall, 3 levels over the gap, a ramp up from the hub side
-          const L = add(G, nn, gw + 2.6);
+          // the ledge: carved out of one wall, 3 levels over the gap, a ramp up from the hub side; in the wall away
+          // from the viewer (lower x + y), so no massif of its own wall stands in front of it
+          const nl: Pt = nn[0] + nn[1] > 0 ? [-nn[0], -nn[1]] : nn;
+          const L = add(G, nl, gw + 2.6);
           k.plateau([L[0], L[1], 2.4, 16, rot], base + 4, { terrain: 'dirt', rough: 0.5 });
-          k.road([add(add(G, d, -22), nn, gw - 1.5), add(add(G, d, -16), nn, gw + 0.5), add(add(G, d, -10), nn, gw + 2.6)], { w: 1.2, fill: true, grade: 1.6 });
+          k.road([add(add(G, d, -22), nl, gw - 1.5), add(add(G, d, -16), nl, gw + 0.5), add(add(G, d, -10), nl, gw + 2.6)], { w: 1.2, fill: true, grade: 1.6 });
           if (main) k.spot('narrows', add(G, nn, -1)), k.spot('ledge', L);
         } else if (ch.kind === 'scarp') {
           k.lift((x, y) => ((x - G[0]) * d[0] + (y - G[1]) * d[1] > 0 ? base + 4 : NaN));
@@ -309,5 +311,5 @@ function nearWater(k: Kit, first: Pt, next: () => Pt): Pt {
   return hasWater(k, p, 30) ? p : first;
 }
 
-const HAND = new Set(['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos']);
+const HAND = new Set(['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios', 'gorge', 'saddle']);
 export const DRAFTS: RegionDef[] = WORLD.filter((w) => !HAND.has(w.id)).map(template);

@@ -211,3 +211,7 @@ export function runChecks(c: CheckIn): Check[] {
   }
   return out;
 }
+
+
+// shared borders line up (build.ts runs it over all 37 built regions; tests/war/worldRegions.test.ts too)
+export { mirrorChecks, type Borders } from '../../../src/war/region/borders.ts';

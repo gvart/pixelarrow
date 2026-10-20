@@ -70,13 +70,76 @@ export const WORLD: WorldRegion[] = [
 
 export const byId = new Map(WORLD.map((r) => [r.id, r]));
 
-/** Where a region's neighbour lies: the side (dominant axis; a tie goes to E/W) and the place along it, 0..1 (N/S: west to east; E/W: north to south). */
-export function sideOf(self: WorldRegion, nb: WorldRegion): { side: Side; along: number } {
+/** The side a neighbour lies on (dominant axis; a tie goes to E/W) and where along it it would like its entry, 0..1 (N/S: west to east; E/W: north to south). */
+function facing(self: WorldRegion, nb: WorldRegion): { side: Side; want: number } {
   const dx = nb.pos[0] - self.pos[0], dy = nb.pos[1] - self.pos[1];
   const horiz = Math.abs(dx) >= Math.abs(dy) - 1e-9;
   const side: Side = horiz ? (dx > 0 ? 'E' : 'W') : dy > 0 ? 'S' : 'N';
   const minor = horiz ? dy / Math.abs(dx) : dx / Math.abs(dy);
-  return { side, along: 0.5 + 0.34 * Math.max(-1, Math.min(1, minor)) };
+  return { side, want: 0.5 + 0.34 * Math.max(-1, Math.min(1, minor)) };
+}
+
+/** Entry places a pair of neighbours may share (one along value for both, so the edges line up). */
+const SLOTS = [0.16, 0.33, 0.5, 0.67, 0.84];
+/** Entries on one side keep at least this far apart. */
+export const ENTRY_GAP = 0.3;
+
+/**
+ * One `along` per border, the same on both sides of it (an exit on A's east edge at along a is B's west entry at a), so
+ * a transfer comes out where it went in. Each side wants its entries ordered as its neighbours lie (`facing`), which a
+ * diagonal pair cannot give both of its ends; chosen by a small deterministic search over SLOTS: entries on a side
+ * ENTRY_GAP apart (hard), near the middle, and few order swaps against either end's wish.
+ */
+const ALONG: Map<string, number> = (() => {
+  const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+  const pairs = [...new Set(WORLD.flatMap((r) => r.adjacent.map((a) => key(r.id, a))))].sort();
+  const val = new Map(pairs.map((p) => [p, 0.5]));
+  // per region side: its pairs and what each wants there
+  const sides = new Map<string, { pair: string; want: number }[]>();
+  for (const r of WORLD) for (const a of r.adjacent) {
+    const f = facing(r, byId.get(a)!), k = `${r.id}:${f.side}`;
+    if (!sides.has(k)) sides.set(k, []);
+    sides.get(k)!.push({ pair: key(r.id, a), want: f.want });
+  }
+  const sidesOf = new Map(pairs.map((p) => [p, [...sides.values()].filter((s) => s.some((e) => e.pair === p))]));
+  // start from the wish of the more crowded end (a home's four single entries stay in the middle)
+  for (const p of pairs) {
+    const ends = sidesOf.get(p)!.map((s) => ({ n: s.length, want: s.find((e) => e.pair === p)!.want }));
+    const m = Math.max(...ends.map((e) => e.n)), w = ends.filter((e) => e.n === m).reduce((t, e, _, a) => t + e.want / a.length, 0);
+    val.set(p, SLOTS.reduce((b, v) => (Math.abs(v - w) < Math.abs(b - w) ? v : b)));
+  }
+  const sideCost = (s: { pair: string; want: number }[]) => {
+    let c = 0;
+    for (let i = 0; i < s.length; i++) {
+      const vi = val.get(s[i].pair)!;
+      c += (vi - 0.5) ** 2;
+      for (let j = i + 1; j < s.length; j++) {
+        const vj = val.get(s[j].pair)!;
+        if (Math.abs(vi - vj) < ENTRY_GAP - 1e-9) c += 100;
+        else if (Math.sign(vi - vj) !== Math.sign(s[i].want - s[j].want) && Math.abs(s[i].want - s[j].want) > 1e-9) c += 0.15;
+      }
+    }
+    return c;
+  };
+  for (let round = 0; round < 50; round++) {
+    let moved = false;
+    for (const p of pairs) {
+      const cur = val.get(p)!, cost = () => sidesOf.get(p)!.reduce((t, s) => t + sideCost(s), 0);
+      let best = cur, bc = cost();
+      for (const v of SLOTS) { val.set(p, v); const c = cost(); if (c < bc - 1e-9) (bc = c), (best = v); }
+      val.set(p, best);
+      if (best !== cur) moved = true;
+    }
+    if (!moved) break;
+  }
+  for (const s of sides.values()) if (sideCost(s) >= 100) throw new Error(`entries crowd a side: ${s.map((e) => e.pair).join(', ')}`);
+  return val;
+})();
+
+/** Where a region's neighbour lies: the side and the place along it, 0..1 (N/S: west to east; E/W: north to south), shared by both ends of the border. */
+export function sideOf(self: WorldRegion, nb: WorldRegion): { side: Side; along: number } {
+  const { side } = facing(self, nb);
+  return { side, along: ALONG.get(self.id < nb.id ? `${self.id}|${nb.id}` : `${nb.id}|${self.id}`)! };
 }
 
 /** Symmetry check of the table (adjacency both ways). */

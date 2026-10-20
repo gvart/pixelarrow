@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { WORLD_REGIONS } from '../../src/war/regions';
 import { parseRegion } from '../../src/war/region/schema';
+import { mirrorChecks, type Borders } from '../../src/war/region/borders';
 
 const files = import.meta.glob('../../src/war/regions/*.json', { eager: true, import: 'default' });
-const HAND = ['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos'];
+const HAND = ['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios', 'gorge', 'saddle'];
 
 describe('world regions (scripts/war/regions)', () => {
   const regions = WORLD_REGIONS.map((w) => ({ w, r: parseRegion(files[`../../src/war/regions/${w.id}.json`]) as ReturnType<typeof parseRegion> & { meta?: { role: string; draft?: boolean; adjacent: { id: string; side: string }[] } } }));
@@ -17,7 +18,11 @@ describe('world regions (scripts/war/regions)', () => {
     }
   });
 
-  it('marks only the 31 not hand-made as drafts', () => {
+  it('lines up every shared border: the exit on one side is the entry on the other', () => {
+    expect(mirrorChecks(regions.map(({ r }) => r as unknown as Borders))).toEqual([]);
+  });
+
+  it('marks only the ones not hand-made as drafts', () => {
     for (const { w, r } of regions) expect(!!r.meta?.draft).toBe(!HAND.includes(w.id));
   });
 

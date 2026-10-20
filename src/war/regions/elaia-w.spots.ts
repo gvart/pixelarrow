@@ -3,7 +3,7 @@ export const SPOTS = {
   "entry_elaia": [502.5, 256.5],
   "entry_elaia-n": [502.5, 82.4],
   "entry_elaia-s": [502.5, 430.6],
-  "entry_siren": [244.9, 10.5],
+  "entry_siren": [256.5, 10.5],
   "ridge": [361.1, 246.3],
   "market": [237.6, 236],
   "food": [417.9, 84.3],

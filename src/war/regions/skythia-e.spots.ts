@@ -3,7 +3,7 @@ export const SPOTS = {
   "entry_skythia": [10.5, 256.5],
   "entry_skythia-n": [10.5, 82.4],
   "entry_skythia-s": [10.5, 430.6],
-  "entry_ammon": [268.1, 502.5],
+  "entry_ammon": [256.5, 502.5],
   "ridge": [127.4, 277.4],
   "market": [226.3, 298.2],
   "food": [311.4, 74.2],
