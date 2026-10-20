@@ -7,15 +7,19 @@
  * Every region is checked against its purpose (./checks.ts: the must-haves of its brief in ./world.ts, and road legs
  * for every trade route through it); a missing feature fails the build (exit 1, the region list left as it was).
  *
+ * Shared borders are checked across all regions too (./checks.ts mirrorChecks: an exit on A's east edge lines up with
+ * B's west entry).
+ *
  * --png writes a top-down preview per region (terrain colours shaded by height, cliffs dark, objects, lairs red,
  * claim points yellow, entries magenta, spots white) for a quick look without the sandbox.
  */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { preview } from './preview.ts';
 import { checkWorld, WORLD } from './world.ts';
 import { writeRegion, type RegionDef } from './kit.ts';
+import { mirrorChecks, type Borders } from './checks.ts';
 import { DRAFTS } from './drafts.ts';
 import elaia from './elaia.ts';
 import kyrene from './kyrene.ts';
@@ -47,6 +51,11 @@ for (const id of ids) {
   if (pngDir) preview(b.json, b.spots, join(pngDir, `${id}.png`));
 }
 console.log(`total ${(total / 1024 / 1024).toFixed(2)} MB for ${ids.length} regions`);
+// shared borders line up across all 37 (the ones not rebuilt read as last written)
+const regionsDir = fileURLToPath(new URL('../../../src/war/regions/', import.meta.url));
+const mirror = mirrorChecks(WORLD.map((r) => JSON.parse(readFileSync(join(regionsDir, `${r.id}.json`), 'utf8')) as Borders));
+console.log(`borders: ${mirror.length ? mirror.length + ' not lined up' : 'all lined up'}`);
+for (const m of mirror) failed.push(`border ${m}`);
 if (failed.length) {
   console.error(`purpose checklist failed:\n  ${failed.join('\n  ')}`);
   process.exit(1);
