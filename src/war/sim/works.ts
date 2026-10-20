@@ -32,7 +32,7 @@
  * tiles go back to water and `fall` drops the men on them.
  */
 import type { BridgeAxis, BridgeOrder, BridgePlan, BuildingSnap, BuildingType, BuildState, InfluenceMap, NodeSnap, PlaceReason, PlaceResult, RegionData, ResourceKind, WallOrder, WallPlan } from '../types';
-import { BRAZIER, BRIDGE, BUILDINGS, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef } from './economy';
+import { BRAZIER, BRIDGE, BUILDINGS, FIELD, KILN, PINES, CANCEL_REFUND, CARRY, CLAIM_RADIUS, lineTiles, rectTiles, RESOURCE_NODES, rotated, SEGMENT, WALL_KIT, type BuildingDef, type Spot } from './economy';
 import { DECK, LADDER, lineClear, STAIR, tileAt, type Grid } from './grid';
 
 const DT = 0.1;
@@ -727,6 +727,44 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
     Object.assign(b, { x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 });
   };
 
+  /**
+   * A workplace's crafter stations in the world (Spot: x, y, fx, fy), its first `level`: the level's spots, else along
+   * the front row facing in. Rot 1 swaps the footprint's x and y (as the art is mirrored).
+   */
+  const spotsOf = (b: Building): Spot[] => {
+    const wp = b.def.workplace;
+    if (!wp) return [];
+    const [lw, lh] = b.rot ? [b.h, b.w] : [b.w, b.h];
+    const own = wp.spots ?? Array.from({ length: lw }, (_, i): Spot => [lw - 0.5 - i, lh - 0.5, lw - 0.5 - i, lh / 2 - 0.5]);
+    const x0 = b.x - b.w / 2, y0 = b.y - b.h / 2;
+    return own.slice(0, wp.level).map(([x, y, fx, fy]): Spot => (b.rot ? [x0 + y, y0 + x, x0 + fy, y0 + fx] : [x0 + x, y0 + y, x0 + fx, y0 + fy]));
+  };
+
+  /**
+   * A done workplace opens its stations to its own team: each spot's tile and the tiles straight out from it to the
+   * nearer front side (+x or +y) become walkable (a gate of the team); the rest of the footprint stays closed.
+   */
+  const openInside = (b: Building) => {
+    const x0 = b.x - b.w / 2, y0 = b.y - b.h / 2, open = new Set<number>();
+    for (const [sx, sy] of spotsOf(b)) {
+      let tx = Math.floor(sx), ty = Math.floor(sy);
+      const alongX = x0 + b.w - 1 - tx <= y0 + b.h - 1 - ty;
+      open.add(ty * w + tx);
+      while (alongX ? tx < x0 + b.w - 1 : ty < y0 + b.h - 1) {
+        if (alongX) tx++;
+        else ty++;
+        open.add(ty * w + tx);
+      }
+    }
+    const shut: number[] = [];
+    b.ti.forEach((t, i) => {
+      if (open.has(t)) (grid.cost[t] = b.saved[i] || 1), (grid.gate[t] = b.team + 1);
+      else if (grid.cost[t] > 0) (grid.cost[t] = 0), (grid.gate[t] = 0), shut.push(t);
+    });
+    grid.dirty.push(...b.tiles);
+    if (shut.length) evict(shut);
+  };
+
   const finish = (b: Building) => {
     b.state = 'done';
     b.hp = b.maxHp;
@@ -736,6 +774,7 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
       b.labour = b.need;
     }
     raiseDeck(b);
+    if (b.def.workplace) openInside(b);
     if (b.def.field) {
       // M5h3: men cross it slowly, engines not at all
       b.saved = b.ti.map((t) => grid.cost[t]);
@@ -1361,6 +1400,11 @@ export function createWorks(grid: Grid, region: RegionData, path: (team: number,
      * Up to n standing points (flat x,y) on open ground round building id (its 8-neighbour ring, off decks), nearest (x,y)
      * first; repeated when the ring is shorter than n.
      */
+    /** A done (or damaged) workplace's crafter stations (x, y, fx, fy; see spotsOf); [] for anything else. */
+    workSpots(id: number): Spot[] {
+      const b = buildings[id];
+      return b && b.def.workplace && (b.state === 'done' || b.state === 'damaged') ? spotsOf(b) : [];
+    },
     ringPoints(id: number, n: number, x: number, y: number): number[] {
       const b = buildings[id];
       if (!b) return [];

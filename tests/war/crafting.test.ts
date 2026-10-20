@@ -50,12 +50,38 @@ describe('M5h2 workplaces', () => {
   it('six chains of up to 3 levels by upgrade, the sorting floor from the storehouse', () => {
     for (const k of ['forge', 'cookhouse', 'infirmary', 'workshop', 'stall'] as const) {
       const ids = [k, `${k}2`, `${k}3`] as BuildingType[];
-      ids.forEach((id, i) => expect(BUILDINGS[id].workplace).toEqual({ kind: k === 'stall' ? 'stall' : k, level: i + 1 }));
+      ids.forEach((id, i) => expect(BUILDINGS[id].workplace).toMatchObject({ kind: k === 'stall' ? 'stall' : k, level: i + 1 }));
       expect(BUILDINGS[ids[0]].upgrade!.to).toBe(ids[1]);
       expect(BUILDINGS[ids[1]].upgrade!.to).toBe(ids[2]);
     }
     expect(BUILDINGS.storehouse.upgrade!.to).toBe('sortingFloor');
     expect(BUILDINGS.sortingFloor2.store).toBe(true);
+  });
+
+  it('every level has a station for each crafter slot, inside its footprint', () => {
+    for (const def of Object.values(BUILDINGS)) {
+      const wp = def.workplace;
+      if (!wp?.spots) continue;
+      expect(wp.spots.length).toBeGreaterThanOrEqual(wp.level);
+      for (const [x, y, fx, fy] of wp.spots) for (const [a, n] of [[x, def.w], [y, def.h], [fx, def.w], [fy, def.h]]) expect(a > 0 && a < n).toBe(true);
+    }
+  });
+
+  it('a smith walks inside the forge to its anvil and works there facing it; a foe cannot follow him in', () => {
+    const sim = withWorkplaces(['forge']);
+    const f = building(sim, 1), x0 = f.x - f.w / 2, y0 = f.y - f.h / 2;
+    const [sx, sy, ax, ay] = BUILDINGS.forge.workplace!.spots![0];
+    const s = civAt(sim, 1, makePerson('s1', 'civ_smith', { level: 1, name: 'Nikias' }));
+    run(sim, 400);
+    const u = sim.snapshot().units.find((v) => v.squad === s)!;
+    expect(Math.hypot(u.x - (x0 + sx), u.y - (y0 + sy))).toBeLessThan(0.5);
+    expect(u.work).toBe('forge');
+    expect(Math.cos(u.facing - Math.atan2(y0 + ay - u.y, x0 + ax - u.x))).toBeGreaterThan(0.95);
+    const foe = sim.spawnSquad('b', 1, 'militia', 1, f.x, f.y + 6);
+    sim.order({ kind: 'move', squad: foe, x: x0 + sx, y: y0 + sy });
+    run(sim, 400);
+    const e = sim.snapshot().units.find((v) => v.squad === foe)!;
+    expect(e.x > x0 && e.x < x0 + f.w && e.y > y0 && e.y < y0 + f.h).toBe(false);
   });
 });
 
