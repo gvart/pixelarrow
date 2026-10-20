@@ -37,6 +37,7 @@ import { SiegeControls } from './siege/siegeControls';
 import { SiegeLayer } from './siege/siegeLayer';
 import { Interact } from './interact';
 import { MapData, type Live, type MapMode } from './mapModes';
+import { FogLayer } from './fog';
 
 const SHAPES = ['line', 'column', 'wedge', 'loose'] as const;
 const CLIMB = ['climb', 'walk'] as const;
@@ -108,6 +109,9 @@ export class SandboxScene extends Phaser.Scene {
   /** Lairs and claim banners (neutral regions). */
   private neutral!: NeutralLayer;
   private shots!: ShotLayer;
+  /** Fog of war over team 0's unexplored and explored ground (W-39; the sim client hides what it cannot see). */
+  private fog!: FogLayer;
+  private fogVer = -1;
   private sheetImages = new Map<string, HTMLImageElement>();
   private gUi!: Phaser.GameObjects.Graphics;
   private markers: { x: number; y: number; t: number; c: number }[] = [];
@@ -145,6 +149,7 @@ export class SandboxScene extends Phaser.Scene {
     this.neutral = new NeutralLayer(this, (p) => this.units.feet(p), (x, y) => this.depthAt(x, y));
     if (this.objects) this.units.depthOf = (x, y) => this.objects!.depth(x, y);
     this.shots = new ShotLayer(this, this.iso);
+    this.fog = new FogLayer(this, this.iso, r);
     this.units.anim.override = workClip;
     this.gUi = this.add.graphics().setDepth(11);
 
@@ -190,6 +195,12 @@ export class SandboxScene extends Phaser.Scene {
     this.mode = m;
     this.neutral.debug = m === 'resources'; // the lairs' aggro, leash and guard rings, drawn live
     this.retint();
+  }
+
+  /** Dev: fog of war on / off (drawn and hiding). */
+  setFog(on: boolean): void {
+    this.sim.setFog(on);
+    this.fog.enabled = on;
   }
 
   /** Dev: the tile grid. */
@@ -438,6 +449,9 @@ export class SandboxScene extends Phaser.Scene {
     if (this.moved && (vx || vy || this.frame % 4 === 0)) this.pointerTile = this.world(p);
 
     for (const s of this.selected) if (this.sim.cur && !this.sim.squads.has(s)) this.selected.delete(s);
+    const fog = this.sim.fog;
+    if (fog && fog.version !== this.fogVer) (this.fogVer = fog.version), this.fog.set(fog);
+    this.fog.update(dt);
     this.drawn = this.sim.units();
     // buildings first: this frame's walks, stairs and ladders lift the units
     this.build.update(this.wpx(p.x, p.y), cam.zoom, view);

@@ -35,6 +35,7 @@ let brains: Bots | null = null;
 const scripted = new Set<number>();
 let timer = 0;
 let inflSent = -1;
+let fogSent = -1;
 const build = (s: WarSim | null): WarBuildSim | null => (s && 'checkPlacement' in s ? (s as WarBuildSim) : null);
 
 function tick(): void {
@@ -47,10 +48,14 @@ function tick(): void {
   const b = build(sim), infl = b && snap.influenceVersion !== inflSent ? b.influence() : null;
   if (infl) inflSent = infl.version;
   const nodes = b && snap.tick % NODES_EVERY === 0 ? b.resourceNodes() : undefined;
-  postMessage({ snap, stats: sim.stats(), nodes, influence: infl ? { ...infl, mask: infl.mask.slice() } : undefined });
+  // fog of war (W-39) of the player's team (0) when it changed: the grid and the foe buildings as last seen
+  const g = b?.teamGrid(0), fog = g && g.version !== fogSent ? { ...g, state: g.state.slice() } : undefined;
+  if (g) fogSent = g.version;
+  postMessage({ snap, stats: sim.stats(), nodes, influence: infl ? { ...infl, mask: infl.mask.slice() } : undefined, fog, seen: fog ? b!.lastSeen(0) : undefined });
 }
 
 function bots(s: WarSim, snap: ReturnType<WarSim['snapshot']>): void {
+  const b = build(s);
   const units = new Map(snap.units.map((u) => [u.id, u]));
   const at = (ids: number[]) => {
     const u = units.get(ids[0]);
@@ -63,6 +68,7 @@ function bots(s: WarSim, snap: ReturnType<WarSim['snapshot']>): void {
     let best = -1, bd = Infinity; // squad ids start at 0
     for (const e of snap.squads) {
       const p = e.team !== q.team && at(e.units);
+      if (p && b && !b.visibleTo(q.team, p.x, p.y)) continue; // fog (W-39): only what the team sees
       if (p && Math.hypot(p.x - me.x, p.y - me.y) < bd) { bd = Math.hypot(p.x - me.x, p.y - me.y); best = e.id; }
     }
     if (best >= 0) s.order({ kind: 'attack', squad: q.id, target: best });

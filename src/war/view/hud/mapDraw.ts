@@ -4,9 +4,11 @@
  * the iso camera (tile +x runs down-right, +y down-left), and the markers over it: buildings by owner (footprints; the
  * main ones as an icon badge on the full map), lairs by beast, claim banners, own squads, enemy squads only where own men
  * or buildings see them, and the camera's view (a rectangle: the screen in tile space, turned back upright).
+ * Fog of war (W-39, ../fog.ts): team 0's fog grid shades the map (dark unexplored, dimmed explored); the sim client
+ * already hides foes out of sight and keeps foe buildings as last seen; lairs show once their ground is explored.
  */
 import { MOB_TEAM } from '../../sim/mobs';
-import type { BuildingSnap } from '../../types';
+import type { BuildingSnap, FogGrid } from '../../types';
 import type { SandboxScene } from '../SandboxScene';
 import { hex, TEAM_RGB } from '../mapModes';
 import { BUILDING_ICON, UI } from './kit';
@@ -53,6 +55,40 @@ export function mapCanvas(s: SandboxScene): HTMLCanvasElement {
   return p.cv;
 }
 
+const fogged = new WeakMap<SandboxScene, { ver: number; cv: HTMLCanvasElement }>();
+
+/** Team 0's fog, one px per vision cell (cached per version); null with fog off or none yet. */
+function fogCanvas(s: SandboxScene): { cv: HTMLCanvasElement; g: FogGrid } | null {
+  const g = s.sim.fog;
+  if (!g || !s.sim.fogOn) return null;
+  let p = fogged.get(s);
+  if (!p) {
+    const cv = document.createElement('canvas');
+    p = { ver: -1, cv };
+    fogged.set(s, p);
+  }
+  if (p.ver !== g.version) {
+    p.ver = g.version;
+    p.cv.width = g.w;
+    p.cv.height = g.h;
+    const ctx = p.cv.getContext('2d')!, im = ctx.createImageData(g.w, g.h);
+    for (let c = 0; c < g.state.length; c++) {
+      im.data[c * 4] = 8; im.data[c * 4 + 1] = 10; im.data[c * 4 + 2] = 16;
+      im.data[c * 4 + 3] = g.state[c] === 2 ? 0 : g.state[c] === 1 ? 110 : 225;
+    }
+    ctx.putImageData(im, 0, 0);
+  }
+  return { cv: p.cv, g };
+}
+
+/** Team 0 has explored tile point (x, y) (always with fog off). */
+function explored(s: SandboxScene, x: number, y: number): boolean {
+  const g = s.sim.fog;
+  if (!g || !s.sim.fogOn) return true;
+  const cx = Math.floor(x / g.cell), cy = Math.floor(y / g.cell);
+  return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h && g.state[cy * g.w + cx] !== 0;
+}
+
 /** A kit icon as an image (24 / 32 art px and their @2x), loaded once. */
 const imgs = new Map<string, HTMLImageElement>();
 export function iconImg(id: string, size: 24 | 32 | 48 | 64): HTMLImageElement {
@@ -93,7 +129,7 @@ export function squads(s: SandboxScene): { team: number; x: number; y: number; n
   const out = [];
   for (const q of by.values()) {
     q.x /= q.n; q.y /= q.n;
-    if (q.team === 0 || sees(q.x, q.y)) out.push(q);
+    if (q.team === 0 || s.sim.fog || sees(q.x, q.y)) out.push(q); // with a fog grid the client already hid the unseen
   }
   return out;
 }
@@ -141,6 +177,11 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
   g.imageSmoothingEnabled = f.k < 4 * m; // cells stay sharp zoomed in
   g.imageSmoothingQuality = 'high';
   g.drawImage(src, 0, 0, s.map.w, s.map.h);
+  const fog = fogCanvas(s);
+  if (fog) {
+    g.imageSmoothingEnabled = true; // soft edges
+    g.drawImage(fog.cv, 0, 0, fog.g.w * fog.g.cell, fog.g.h * fog.g.cell);
+  }
   g.restore();
   const cur = s.sim.cur;
   g.lineJoin = 'round';
@@ -169,6 +210,7 @@ export function drawMap(g: CanvasRenderingContext2D, s: SandboxScene, f: MapXf, 
   }
   // lairs: the beast's head on a dark disc, terracotta ring; cleared ones greyed and struck through
   for (const l of cur?.lairs ?? []) {
+    if (!explored(s, l.x, l.y)) continue;
     const [x, y] = P(l.x, l.y), r = (full ? 8 : 5.5) * m, gone = l.state === 'cleared';
     badge(g, x, y, r, gone ? '#5d4c42' : '#de8a4e', m, gone ? 'rgba(40,30,24,0.85)' : 'rgba(110,23,18,0.88)');
     g.globalAlpha = gone ? 0.45 : 1;

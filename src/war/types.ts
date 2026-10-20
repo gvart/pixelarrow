@@ -161,7 +161,7 @@ export interface WarSim {
   order(o: Order): void;
   step(): void;               // advance one 10 Hz tick
   snapshot(): Snapshot;
-  stats(): { stepMs: number; units: number };
+  stats(): { stepMs: number; units: number; /** W-39: of stepMs, the fog update (0 on ticks without one). */ visionMs?: number };
 }
 
 // --- M2a: resources, gathering, construction (rules: src/war/sim/economy.ts) ---
@@ -255,6 +255,11 @@ export interface NodeSnap { id: number; res: ResourceKind; x: number; y: number;
   /** A living guard lair stands near: no gathering. */
   guarded?: true }
 /** Team influence: bit `team` of mask[y*w+x] is set where the team may build. */
+/**
+ * W-39 fog of war (src/war/sim/vision.ts): a team's vision on a grid of `cell` x `cell` tiles (w x h cells, row-major).
+ * state: 0 unexplored, 1 explored (seen once: terrain and last-seen buildings, no units), 2 visible now. version bumps on change.
+ */
+export interface FogGrid { team: number; w: number; h: number; cell: number; state: Uint8Array; version: number }
 export interface InfluenceMap { w: number; h: number; mask: Uint8Array; version: number }
 export interface WarBuildSim extends WarSim {
   checkPlacement(team: number, type: BuildingType, x: number, y: number, rot?: 0 | 1): PlaceResult;
@@ -270,5 +275,11 @@ export interface WarBuildSim extends WarSim {
   finishBridges(team: number): void;
   /** Spawn the region's lairs (neutral play; once). */
   spawnMobs(): void;
+  /** W-39 fog: the team sees tile point (x,y) now. */
+  visibleTo(team: number, x: number, y: number): boolean;
+  /** The team's fog grid (live; copy before posting). */
+  teamGrid(team: number): FogGrid;
+  /** Foreign buildings as the team last saw them (current where visible). */
+  lastSeen(team: number): BuildingSnap[];
 }
 export declare function createSim(region: RegionData, seed: number): WarBuildSim; // implemented in src/war/sim/index.ts

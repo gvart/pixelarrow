@@ -3,7 +3,7 @@
  * interpolates unit positions between them (rendering runs one 10 Hz tick behind).
  */
 import type { Behaviour } from '../sim/bots';
-import type { BridgeOrder, BridgePlan, BuildingType, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan } from '../types';
+import type { BridgeOrder, BridgePlan, BuildingSnap, BuildingType, FogGrid, InfluenceMap, NodeSnap, Order, PlaceResult, RegionData, ResourceKind, Snapshot, SquadSnap, UnitSnap, WallOrder, WallPlan } from '../types';
 import type { ToWorker } from './worker';
 
 export interface DrawUnit { u: UnitSnap; x: number; y: number; facing: number; team: number }
@@ -11,7 +11,14 @@ export interface DrawUnit { u: UnitSnap; x: number; y: number; facing: number; t
 export class SimClient {
   private worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
   private old = new Map<number, UnitSnap>();
+  /** The newest snapshot as the player's team (0) knows it under the fog (W-39; `full` while fog is off). */
   cur: Snapshot | null = null;
+  /** The newest snapshot, everything in it (dev tallies). */
+  full: Snapshot | null = null;
+  /** Team 0's fog grid (latest version) and the foe buildings as it last saw them; fog off (dev): no hiding. */
+  fog: FogGrid | null = null;
+  seen: BuildingSnap[] = [];
+  fogOn = true;
   private at = 0;
   private interval = 100;
   stats = { stepMs: 0, units: 0 };
@@ -23,7 +30,7 @@ export class SimClient {
   private askId = 0;
 
   constructor(region: RegionData) {
-    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; nodes?: NodeSnap[]; influence?: InfluenceMap } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null };
+    type Msg = { snap: Snapshot; stats: { stepMs: number; units: number }; nodes?: NodeSnap[]; influence?: InfluenceMap; fog?: FogGrid; seen?: BuildingSnap[] } | { reply: number; place?: PlaceResult | null; wall?: WallPlan | null; bridge?: BridgePlan | null };
     this.worker.onmessage = (e: MessageEvent<Msg>) => {
       if ('reply' in e.data) {
         const r = e.data;
@@ -33,14 +40,53 @@ export class SimClient {
       }
       if (e.data.nodes) this.nodes = e.data.nodes;
       if (e.data.influence) this.influence = e.data.influence;
+      if (e.data.fog) (this.fog = e.data.fog), (this.seen = e.data.seen ?? []);
       this.old = new Map(this.cur?.units.map((u) => [u.id, u]));
-      this.cur = e.data.snap;
+      this.full = e.data.snap;
+      this.cur = this.fogged(e.data.snap);
       this.stats = e.data.stats;
       this.at = performance.now();
       this.squads = new Map(this.cur.squads.map((s) => [s.id, s]));
     };
     this.send({ t: 'init', region, seed: 1, sim: new URLSearchParams(location.search).get('sim') === 'fake' ? 'fake' : 'real' });
     this.speed(1);
+  }
+
+  /** Team 0 sees tile point (x, y) now (always with fog off or before the first grid). */
+  visible(x: number, y: number): boolean {
+    const g = this.fog;
+    if (!g || !this.fogOn) return true;
+    const cx = Math.floor(x / g.cell), cy = Math.floor(y / g.cell);
+    return cx >= 0 && cy >= 0 && cx < g.w && cy < g.h && g.state[cy * g.w + cx] === 2;
+  }
+
+  /**
+   * The snapshot as team 0 knows it: foe men, engines and missiles only where it sees; foe buildings where it sees
+   * them now, else as last seen (drawn under the explored shroud); its own side whole.
+   */
+  private fogged(s: Snapshot): Snapshot {
+    if (!this.fog || !this.fogOn) return s;
+    const team = new Map(s.squads.map((q) => [q.id, q.team]));
+    const vis = (b: BuildingSnap) => {
+      for (let i = 0; i < b.tiles.length; i += 2) if (this.visible(b.tiles[i] + 0.5, b.tiles[i + 1] + 0.5)) return true;
+      return this.visible(b.x, b.y);
+    };
+    const buildings = (s.buildings ?? []).filter((b) => b.team === 0 || vis(b));
+    const here = new Set(buildings.map((b) => b.id));
+    for (const b of this.seen) if (!here.has(b.id) && !vis(b)) buildings.push(b);
+    return {
+      ...s,
+      units: s.units.filter((u) => team.get(u.squad) === 0 || this.visible(u.x, u.y)),
+      shots: s.shots?.filter((h) => this.visible(h.x0, h.y0) || this.visible(h.x1, h.y1)),
+      sieges: s.sieges?.filter((e) => e.team === 0 || this.visible(e.x, e.y)),
+      buildings,
+    };
+  }
+
+  /** Dev: fog of war on / off (re-filters the snapshot drawn now). */
+  setFog(on: boolean): void {
+    this.fogOn = on;
+    if (this.full) this.cur = this.fogged(this.full);
   }
 
   private send(m: ToWorker): void {
