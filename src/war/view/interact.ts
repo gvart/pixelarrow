@@ -11,11 +11,12 @@
  *   enemy walkway wall or tower, a ladder carried     raise the ladder on that face
  *   enemy building                                    burnable wood not yet alight: ignite (as engines), else attack; fire arrows;
  *                                                     raise ladder (greyed without a carried ladder)
- *   own building                                      burning: extinguish; unfinished: build / resume; damaged: repair;
+ *   own building                                      burning: extinguish; unfinished: build / resume; hurt: repair (repairBuilding);
  *                                                     M5h3 fortify (Fortifier, paid at once; never the tap's pick):
  *                                                     iron-bind a gate, wet hides on burnable wood
  *   own cart, loot pile, chest, store (M6k)          ./trade/tradeControls.ts: unload, escort, pull, load, pick up, salvage, loot;
  *                                                     an enemy cart: capture first, then ignite / attack
+ *   own pre-built ruin (M7g)                          rebuild (a site at RUIN.rebuild of its cost; landmark pieces: restore only)
  *   claim banner (neutral region)                    open: claim the region (channel); locked: move there
  *   resource node                                     gather (guarded by a lair: move there)
  *   walkway, platform or stair top                    move up
@@ -254,9 +255,12 @@ export class Interact {
     if (b) {
       const o: Option[] = [];
       if (b.burning) o.push(act(`extinguish ${nameOf(b)}`, 'act-extinguish', t, 0x60b0ff, () => order((squad) => ({ kind: 'extinguish', squad, building: b.id }))));
-      if (isSite(b) || b.state === 'damaged') {
-        const label = `${b.state === 'damaged' ? 'repair' : b.progress > 0 && !b.workers ? 'resume' : 'build'} ${nameOf(b)}`;
+      if (isSite(b)) {
+        const label = `${b.progress > 0 && !b.workers ? 'resume' : 'build'} ${nameOf(b)}`;
         o.push(act(label, 'act-build', b, 0x60d060, () => { for (const q of own) s.build.sendTo(q, b.id); }));
+      } else if (b.hp < b.maxHp - 1e-6 && !BUILDINGS[b.type].brazier) {
+        // M7a/M7g: mend it, paid as it goes (REPAIR: every 10% of hp 5% of its cost and labour)
+        o.push(act(`repair ${nameOf(b)}`, 'act-build', b, 0x60d060, () => order((squad) => ({ kind: 'repairBuilding', squad, building: b.id })), b.mend ? 'already under repair' : undefined));
       }
       const f = this.fortify(b);
       // M6k: an own store or chest: unload into it / load from it (recommended when nothing else is to do)
@@ -264,6 +268,11 @@ export class Interact {
       if (tr.length) return [...o, ...tr, move, ...f];
       if (o.length) return [...o, move, ...f];
       if (f.length) return [move, ...f];
+    }
+    // M7g: an own pre-built ruin: rebuild it (the first squad builds the site; landmark pieces only by restore)
+    const ru = !b ? s.build.pieceAt(t) : undefined;
+    if (ru?.ruin && ru.team === TEAM) {
+      return [act(`rebuild ${nameOf(ru)}`, 'act-build', ru, 0x60d060, () => s.sim.order({ kind: 'rebuild', building: ru.id, squad: own[0] }), ru.landmark ? 'a landmark piece: restore the landmark' : undefined), move];
     }
     const cp = (s.sim.cur?.claims ?? []).find((c) => Math.hypot(c.x - t.x, c.y - t.y) < CLAIM_PICK);
     if (cp && (cp.state === 'open' || cp.state === 'contested' || cp.state === 'channel')) return [act('claim region', 'act-assign', cp, 0xffe070, () => s.sim.order({ kind: 'claimRegion', squad: own[0], point: cp.id })), move];
