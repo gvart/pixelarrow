@@ -27,6 +27,11 @@ if (mode === 'all' || mode === 'loot') {
   await page.waitForFunction(() => (window.__sandbox.sim.cur?.piles?.length ?? 0) > 0 && window.__sandbox.sim.cur.sieges?.some((e) => e.type === 'handcart'), null, { timeout: 120000 });
   await wait(2500);
   await shot('loot_1_field');
+  await page.evaluate(() => { const s = window.__sandbox, p = s.sim.cur.piles[0]; s.focus(p.x, p.y, 2); });
+  await wait(1200);
+  await shot('loot_1b_piles_2x');
+  await page.evaluate(() => { const s = window.__sandbox, p = s.sim.cur.piles[0]; s.focus(p.x + 2, p.y + 1, 1 / 2); });
+  await wait(800);
   // select the hoplites and the smith, hover the biggest pile (hover card), then hold E for the radial
   const pile = await page.evaluate(() => {
     const s = window.__sandbox, ps = s.sim.cur.piles.slice().sort((a, b) => b.loads - a.loads);
