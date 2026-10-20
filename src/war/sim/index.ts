@@ -1738,6 +1738,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       log = [];
       return out;
     },
+    setPerson(p) {
+      const u = units.find((x) => x.alive && x.person?.id === p.id);
+      if (!u) return false;
+      u.person = p;
+      rebake(u);
+      for (const s of reslotQueue) reslot(s);
+      reslotQueue.clear();
+      return true;
+    },
   };
   return api;
 }

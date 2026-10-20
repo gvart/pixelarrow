@@ -9,7 +9,8 @@ import { MAX_LEVEL, type Hero } from '../../data/units';
 import type { Rarity } from '../../data/items';
 import type { FightReport, PersonResult, WarPerson, WarSkillId } from '../types';
 import { freshHero, kitItem } from './classes';
-import { FAMILY_OF, legalSkills, type Family } from './skills';
+import { FAMILY_OF, legalSkills, SKILL_LEVELS, SKILL_POOL, type Family } from './skills';
+import { gainXp } from './soldiers';
 
 /** Skills a person takes when none are given: the squad active first (level 3), then the family's best passive (level 7). */
 export const DEFAULT_PICKS: Record<Family, WarSkillId[]> = {
@@ -71,6 +72,8 @@ export interface Roster {
   state(id: string): PersonResult['state'];
   /** Fit persons, for the next spawn. */
   fit(): WarPerson[];
+  /** M5g: replace a person's record (a level-up choice, dev XP); unknown ids are ignored. */
+  update(p: WarPerson): void;
 }
 
 export function createRoster(): Roster {
@@ -99,5 +102,45 @@ export function createRoster(): Roster {
     },
     state: (id) => states.get(id) ?? 'fit',
     fit: () => [...persons.values()].filter((p) => (states.get(p.id) ?? 'fit') === 'fit'),
+    update: (p) => void (persons.has(p.id) && persons.set(p.id, p)),
   };
+}
+
+// --- M5g level-up choice (docs/WAR.md "UI touchpoints": at levels 3 and 7 a choice of 2 skills; +2 attribute points a level) ---
+
+/** One pick a pending level-up offers: a skill for an open slot, or the level's points into one attribute. */
+export type LevelOffer = { kind: 'skill'; skill: WarSkillId } | { kind: 'attr'; attr: AttrId; n: number };
+
+const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+
+/**
+ * What a person may pick now: an open skill slot first (two skills of his family pool he does not hold, the pair fixed
+ * by his id and the slot), else his unspent points into one attribute below ATTR_MAX. Empty: nothing pending.
+ */
+export function levelOffers(p: WarPerson): LevelOffer[] {
+  const h = p.hero, cls = h.cls ?? 'militia', fam = FAMILY_OF[cls as keyof typeof FAMILY_OF];
+  const held = legalSkills(cls, h.level, p.skills ?? []);
+  const slots = SKILL_LEVELS.filter((l) => h.level >= l).length;
+  if (fam && held.length < slots) {
+    const pool = SKILL_POOL[fam].filter((id) => !held.includes(id));
+    const k = hash(p.id + held.length) % Math.max(1, pool.length);
+    const pick = [...pool.slice(k), ...pool.slice(0, k)].slice(0, 2);
+    if (pick.length) return pick.map((skill) => ({ kind: 'skill', skill }));
+  }
+  if (h.points <= 0) return [];
+  const n = Math.min(h.points, POINTS_PER_LEVEL);
+  return ATTR_IDS.filter((a) => h.attrs[a] < ATTR_MAX).map((attr) => ({ kind: 'attr', attr, n }));
+}
+
+/** The person after taking offer o (a skill into his next slot, or points into an attribute up to ATTR_MAX). */
+export function applyOffer(p: WarPerson, o: LevelOffer): WarPerson {
+  const h = p.hero, cls = h.cls ?? 'militia';
+  if (o.kind === 'skill') return { ...p, skills: legalSkills(cls, h.level, [...legalSkills(cls, h.level, p.skills ?? []), o.skill]) };
+  const add = Math.max(0, Math.min(o.n, h.points, ATTR_MAX - h.attrs[o.attr]));
+  return { ...p, hero: { ...h, attrs: { ...h.attrs, [o.attr]: h.attrs[o.attr] + add }, points: h.points - add } };
+}
+
+/** Dev and tests: the person with xp added and levelled up as a fight would (./soldiers.ts gainXp). */
+export function grantXp(p: WarPerson, xp: number): WarPerson {
+  return { ...p, hero: gainXp(p.hero, xp).hero };
 }
