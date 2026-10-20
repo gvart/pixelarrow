@@ -1,0 +1,155 @@
+src/war/regions/siren.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/kyrene-n.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/kyrene-s.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-6,9-10,13
+src/war/regions/elaia-w.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 6
+src/war/regions/kyrene-w.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 6-12,15
+src/war/regions/skythia-n.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-6,13
+src/war/regions/gorge.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/ammon.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-4,6
+src/war/regions/kyrene-e.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 6-7
+src/war/regions/dodona-e.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 6-9,11,15
+src/war/regions/elaia-w.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/delta.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/saddle.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/dodona-s.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-14,20
+src/war/regions/achelous.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-4,7-12,18
+src/war/regions/elaia-n.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/ammos.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-4,7,13
+scripts/war/regions/checks.ts
+  s_cfc22b058125c4::t_3001423c8fc148 214-236
+src/war/regions/gorge.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-5
+src/war/regions/elaia-e.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 6-12,14
+src/war/regions/skythia-e.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/dodona-n.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/elaia-n.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-8,10,14
+src/war/regions/ammon.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+scripts/war/regions/build.ts
+  s_cfc22b058125c4::t_3001423c8fc148 10-12,16,22,54-58
+src/war/regions/kyrene-w.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+scripts/war/regions/world.ts
+  s_cfc22b058125c4::t_6cb63ddc31e12d 73-74,79-104,111-142
+  s_cfc22b058125c4::t_f1cf3f8534f0aa 105-110
+src/war/regions/savanna.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/canyons.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/erymanthos.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-5,10,13
+src/war/regions/skythia-n.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/kyrene-n.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-9,15
+src/war/regions/skythia-w.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/delta.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-4,7-9,11
+src/war/regions/dodona-e.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/bacchae.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-6,8-9,14
+src/war/regions/skythia-s.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-7,10,14
+src/war/regions/kyrene-e.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/stymphalia.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/stymphalia.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-4,7-8
+src/war/regions/kimmeria.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/dodona-s.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/ammos.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/skythia-s.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/moors.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-8,11,14
+src/war/regions/skythia-e.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 6
+src/war/regions/siren.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-4,6-8
+tests/war/worldRegions.test.ts
+  s_cfc22b058125c4::t_7895fe11f6e4bf 4,21-22
+  s_cfc22b058125c4::t_0259cfa9149b46 23-24
+src/war/regions/canyons.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-5
+src/war/regions/krios.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-4,13
+src/war/regions/moors.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/elaia-s.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/bacchae.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/kimmeria.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-6,13
+src/war/regions/savanna.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 3-6,9
+src/war/regions/kyrene-s.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/elaia-s.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-7,9-10
+src/war/regions/dodona-w.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 6,13
+src/war/regions/dodona-n.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-7,11,14
+src/war/regions/erymanthos.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/saddle.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 4-5,15
+src/war/regions/dodona-w.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/elaia-e.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/achelous.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/krios.json
+  s_cfc22b058125c4::t_5a14779eb54a60 1
+src/war/regions/skythia-w.spots.ts
+  s_cfc22b058125c4::t_5a14779eb54a60 6-9,14
+src/war/regions/kleisoura.json
+  s_cfc22b058125c4::t_23f8c310d9bd5d 1
+src/war/regions/kleisoura.spots.ts
+  s_cfc22b058125c4::t_2344be02499556 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3a6f7ac32e13644aad9713acb47a4682ae837c45",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
