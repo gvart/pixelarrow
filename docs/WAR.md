@@ -1,6 +1,6 @@
 # Global war
 
-Living rules of the browser global war. Decisions: `docs/impl/global-war-rebuild.md` (W-01..W-17, temporary).
+Living rules of the browser global war. Why each region matters: "Strategic geography". Decisions: `docs/impl/global-war-rebuild.md` (W-01..W-17, temporary).
 
 ## World
 
@@ -50,13 +50,18 @@ gate.
 | food (grain, fish, olives, dates) | everywhere except peaks; best in Skythia, Elaia, delta, fens |
 | wood | forests: Dodona, Ladon Oakwood, Erymanthos Wood |
 | stone | everywhere hilly |
-| iron | Dodona, Krios, Grey Moors, Eagle Saddle, bog iron in the delta |
-| copper | Kyrene, Red Canyons, Lion Savanna, Ammos |
+| iron | Dodona, Teeth Foothills, Krios, Grey Moors, Eagle Saddle; in the south only bog iron in the delta |
+| copper | Kyrene, Thornscrub Rise, Red Canyons, Lion Savanna, Gorge of the Falls (east of the plateau only, bar the gorge) |
 | tin | Kleisoura Pass, Achelous Ford; nowhere else (scarce) |
 | silver | Omphalos, Siren Estuary, Ammon Salt Flats |
 | horses | Skythia, Frost Steppe, Kurgan Hills, Chalk Coast, Kimmerian Hills |
 | marble | Elaia, Bacchae Hills, Omphalos |
-| salt | Lagoon Coast, Southern Dunes, Ammon Salt Flats, Achelous Delta, Siren Estuary |
+| salt | Lagoon Coast, Southern Dunes, Ammon Salt Flats, Achelous Delta, Siren Estuary (the north's only salt is at the two edges) |
+| pitch (pines) | Dodona, Boreas Fjords, Teeth Foothills, Teeth Eastern Slopes, Pirate Coves; none in the south-east |
+| flax (wet fields) | Lakeshore Fens, Eastbank Floodplain, Achelous Delta, Lake Stymphalia |
+| herbs | forest and marsh: Ladon Oakwood, Erymanthos Wood, Lake Stymphalia, Lakeshore Fens, Achelous Delta, Bacchae Hills |
+| olives (oil) | Elaia, Bacchae Hills, Westbank Vineyards |
+| hides | from kills (W-12); richest in Skythia's steppe entries, Lion Savanna and the lairs |
 
 | Fauna tier | Mobs (W-12: clear to claim) | Found in |
 | --- | --- | --- |
@@ -95,25 +100,183 @@ home.
 | elaia-s | Cape of Winds | entry | rocky goat cape | stepped cape h2–5, cliff edges, one beach | boars, bandits | food 1, stone 2 | elaia, elaia-w, elaia-e, delta |
 | elaia-e | Westbank Vineyards | entry | vine terraces on the Great River's west bank | terraces h1–3, the deep Great River on the east edge, fordable side channels | boars, wolves | food 2, wood 1 | elaia, elaia-n, elaia-s, achelous, bacchae |
 | krios | Krios Glacier | neutral (edge N) | snow peaks at the north end of the Iron Teeth | h7 peaks impassable, glacier tongue h5 (snow), one icy col | cyclops (lair), wolves | stone 1, iron 2 | dodona-n, skythia-n, kleisoura |
-| siren | Siren Estuary | neutral (edge W) | the Ladon's estuary, sea stacks and sea caves | tidal flats (shallow), deep channel, cliffs h4 | kraken (lair), harpies | food 1, wood 1, silver 1 | dodona-w, elaia-w, stymphalia |
+| siren | Siren Estuary | neutral (edge W) | the Ladon's estuary, sea stacks and sea caves | tidal flats (shallow), deep channel, cliffs h4 | kraken (lair), harpies | food 1, salt 1, silver 1 | dodona-w, elaia-w, stymphalia |
 | ammon | Ammon Salt Flats | neutral (edge E) | white salt flats, a dead lake, red buttes | flats h1 (fast, no cover), buttes h5 (fortress spots) | scorpions, lions | salt 2, silver 1 | skythia-e, kyrene-e, ammos |
 | delta | Achelous Delta | neutral (edge S) | the Great River's delta marsh | maze of deep channels and shallow fords, mud islands h0–1 | hydra (lair), river serpents | food 2, iron 1, salt 1 | elaia-s, kyrene-s, achelous |
 | kleisoura | Kleisoura Pass | neutral (mountain pass) | the one gap through the Iron Teeth | gorge 3 tiles wide between h7 walls, switchback climb to a saddle h5 with a ruined fort, archer ledges | bandits, bears | stone 1, tin 2 | dodona-e, skythia-w, krios, saddle |
 | stymphalia | Lake Stymphalia | neutral (lake) | big reed lake between Dodona and Elaia | deep lake, reed marsh round it, shallow causeway, wooded isle h3 | Stymphalian harpies (lair), river serpents | food 2, wood 1 | dodona-s, elaia-n, siren, erymanthos |
 | achelous | Achelous Ford | neutral (river) | the Great River at its widest, floodplain marsh | deep river split by a long island; one shallow ford, one ruined bridge (road), marsh banks | river serpents, bandits | food 1, tin 2 | elaia-e, kyrene-w, delta, gorge |
-| ammos | Ammos Dunes | neutral (desert) | dune sea between Skythia and Kyrene | dunes h1–3 (sand), rocky ridges h3, one oasis | scorpions, lions | food 1, stone 1, copper 1 | skythia-s, kyrene-n, ammon, canyons |
+| ammos | Ammos Dunes | neutral (desert) | dune sea between Skythia and Kyrene | dunes h1–3 (sand), rocky ridges h3, one oasis with a ruined caravanserai | scorpions, lions | food 2, stone 1 | skythia-s, kyrene-n, ammon, canyons |
 | moors | Grey Moors | neutral (inner NW) | high moorland between the Iron Teeth and the west woods | moor h4–5, granite tors (high ground), peat bog, springs | wolves, bears | stone 2, iron 1 | dodona-e, dodona-s, saddle, erymanthos |
 | kimmeria | Kimmerian Hills | neutral (inner NE) | rolling hills with a ruined hill fort | hills h3–4, hill fort h5, chalk streams (shallow) | bandits, wild horses | food 1, stone 1, horses 1 | skythia-w, skythia-s, saddle, canyons |
 | savanna | Lion Savanna | neutral (inner SE) | dry grass and acacia with rock kopjes | flat h2, kopjes h4–5, dry wash | lions, Nemean lion (lair) | food 1, wood 1, copper 1 | kyrene-n, kyrene-w, canyons, gorge |
 | bacchae | Bacchae Hills | neutral (inner SW) | vine and cypress hills | hills h2–4, cypress groves, shallow streams to the Great River | boars, bandits | food 2, wood 1, marble 1 | elaia-n, elaia-e, erymanthos, gorge |
 | saddle | Eagle Saddle | neutral (gate N) | high saddle between the Iron Teeth and the plateau | saddle h5–6, cliff edges, one switchback road up the north ramp | cyclops, wolves | stone 2, iron 1 | kleisoura, moors, kimmeria, omphalos |
 | erymanthos | Erymanthos Wood | neutral (gate W) | dense old forest on the plateau's west skirt, Ladon springs | forest, steep slope h3–6 to the west ramp, shallow springs | Erymanthian boar (lair), wolves | food 1, wood 3 | stymphalia, moors, bacchae, omphalos |
-| gorge | Gorge of the Falls | neutral (gate S) | the Great River's gorge below the plateau | deep gorge with falls, two cliffside paths, a natural rock bridge, the south ramp | harpies, river serpents | food 1, stone 2 | achelous, savanna, bacchae, omphalos |
+| gorge | Gorge of the Falls | neutral (gate S) | the Great River's gorge below the plateau | deep gorge with falls, two cliffside paths, a natural rock bridge, the south ramp | harpies, river serpents | stone 2, copper 1 | achelous, savanna, bacchae, omphalos |
 | canyons | Red Canyons | neutral (gate E) | red-rock canyon maze below the plateau | canyon floors h1, mesas h5 (fortress spots), dry washes, the east ramp | chimera (lair), scorpions | stone 1, copper 2 | ammos, kimmeria, savanna, omphalos |
 | omphalos | Omphalos Plateau | center | high mesa with a ruined temple city | plateau h6–7, cliff rim, four ramps, crater lake (deep) | titan (boss), minotaur (labyrinth under the temple) | stone 2, marble 2, silver 3 | saddle, erymanthos, gorge, canyons |
 
 Route length from any home to Omphalos: home → entry → inner neutral → gate → Omphalos (4 transfers), or by the
 outer mid regions (5). Equal for all four.
+
+## Strategic geography
+
+Why each region matters. The map has four **frontiers**, each crossed at exactly three places: a coast crossing (edge
+neutral), a road crossing (mid neutral, market town) and a rim crossing (gate to Omphalos). Two are **metal
+frontiers** (tin and iron side by side), two are **trade frontiers** (salt, silver and a caravan town).
+
+| Frontier | Between | Coast crossing | Road crossing | Rim crossing | Prize |
+| --- | --- | --- | --- | --- | --- |
+| Iron Teeth (metal) | Dodona – Skythia | Krios icy col | Kleisoura Pass | Eagle Saddle | tin (Kleisoura) + iron (Krios, Saddle) |
+| Great River (metal) | Elaia – Kyrene | Achelous Delta channels | Achelous Ford and bridge | Gorge rock bridge | tin (Achelous) + the south's only iron (Delta) |
+| Ladon and Stymphalia (trade) | Dodona – Elaia | Siren tidal flats | Stymphalia causeway | Erymanthos Wood | salt + silver (Siren), causeway town, timber |
+| Ammos dunes (trade) | Skythia – Kyrene | Ammon salt flats | Ammos oasis | Red Canyons | salt + silver (Ammon), caravanserai, copper |
+
+Each home sits on one metal and one trade frontier. The two diagonal pairs (Dodona–Kyrene, Skythia–Elaia) never
+border: each needs what the other makes, so they are natural trade partners, and their caravans cross a neighbour's
+land or the centre.
+
+### Purpose of every region
+
+Types: **resource heart** (scarce goods), **trade hub** (market town on a route), **chokepoint** (pass, ford, bridge
+site, isthmus), **fortress** (high ground), **breadbasket** (food, flax, olives), **sacred** (season score),
+**buffer** (room to manoeuvre, no single decisive point), **coastal** (landing sites for later naval play). The last
+column is the authoring brief for the region map (widths in tiles; W-41 drafts must meet it too).
+
+| id | Primary | Secondary | Why (goods, route) | Region map must have |
+| --- | --- | --- | --- | --- |
+| dodona | resource heart (iron, wood, pitch) | trade hub (home agora) | Tin Road and Lake Road start here | agora with road exits E and S; ore field by the forge quarter; pine ridges; lake shore |
+| skythia | breadbasket (grain, horses, hides) | trade hub (home agora) | Tin Road and Desert Road start here; open home | agora with road exits W and S; wide pastures; 3+ burial mounds as lookouts |
+| kyrene | resource heart (copper, stone) | trade hub (home agora) | River Road and Desert Road start here | agora with road exits N and W; copper mine in the red cliffs; oasis gardens |
+| elaia | resource heart (marble, oil) | coastal (bay harbour) | Lake Road and River Road start here | agora with road exits N and E; quarry; olive press terraces; harbour quay; citadel headland |
+| dodona-n | buffer | coastal | way to Krios iron and the col | one land bridge 8–12 wide between the fjords, cliffs both sides; pines |
+| dodona-w | buffer | coastal | Dodona's salt and silver lifeline to Siren | coast track along the cliffs; bogs flanking it; open heath for a field battle |
+| dodona-e | chokepoint (Teeth ravine) | resource heart (iron 1) | Tin Road; to Grey Moors | ravine road 6–10 wide climbing E; wooded shoulders above it; ore node off the road |
+| dodona-s | chokepoint (Ladon fords) | breadbasket (herbs, timber) | Lake Road; to Grey Moors | two fords 6–8 wide, 60+ apart; hill h4 covering both; road between them |
+| skythia-n | buffer | coastal | way to Krios iron | flat open steppe; frozen ponds that slow; bluff h3 over the coast |
+| skythia-e | buffer | coastal | Skythia's salt and silver lifeline to Ammon | cliff-top track; cove beach; downs with long sight lines |
+| skythia-w | chokepoint (scree road) | resource heart (Skythia's only timber and pitch) | Tin Road; to Kimmerian Hills | one switchback road through scree; pine stands; streams to cross |
+| skythia-s | buffer | breadbasket | Desert Road; to Kimmerian Hills | mounds h3–4 over the road; dry gullies for flank marches |
+| kyrene-n | chokepoint (wadi) | resource heart (copper 1) | Desert Road; to Lion Savanna | one wadi 6–8 wide through a cliff band; ridge h4 above; copper outcrop |
+| kyrene-e | resource heart (salt 2) | coastal | coast track to Ammon | salt pans; sand bar road 4–6 wide between lagoon and sea |
+| kyrene-s | resource heart (salt) | buffer | way to Delta iron | outcrop h4 with the only well; slow dunes round it |
+| kyrene-w | breadbasket (food, flax) | chokepoint (east bridgehead) | River Road; to Lion Savanna | bridgehead square at the river edge; channels; flax fields open to raids |
+| elaia-n | breadbasket (food, flax, herbs) | chokepoint (causeway landfall) | Lake Road; to Bacchae | causeway landfall on firm ground; reed channels; low islands for archers |
+| elaia-w | coastal | resource heart (pitch) | coast track to Siren | coves with beaches; sea caves (pirate lair); pine headlands |
+| elaia-s | fortress (stepped cape) | buffer | way to Delta iron | stepped cape h2–5 over the Delta approach; one beach |
+| elaia-e | breadbasket (olives, food) | chokepoint (west bridgehead) | River Road; to Bacchae | bridgehead square; terraces overlooking the river; fordable side channels |
+| krios | resource heart (iron 2) | chokepoint (icy col) | Teeth coast crossing | col 4–6 wide in snow; cyclops lair at the richest ore |
+| siren | resource heart (salt, silver) | coastal | Lake coast crossing | tidal flats with tide-cut paths; kraken lair in the sea caves by the silver; cliff h4 |
+| ammon | resource heart (salt 2, silver) | fortress (buttes) | Ammos coast crossing | open flats with no cover; 2–3 buttes h5 with one path up each |
+| delta | resource heart (bog iron, salt) | breadbasket (food, flax) | River coast crossing | channel maze with fords; mud islands; hydra lair on the iron |
+| kleisoura | chokepoint (the pass) | resource heart (tin 2) | Tin Road; toll fort market | gorge 3 wide between h7 walls; archer ledges; ruined fort on the saddle h5 with a market court; tin mine in a side cleft |
+| stymphalia | trade hub (causeway town) | chokepoint (causeway) | Lake Road | causeway 3–4 wide across the reeds; town square mid-lake; wooded isle h3 (harpy lair) |
+| achelous | chokepoint (ford and bridge site) | resource heart (tin 2) | River Road; bridge town market | one ford 6 wide; ruined bridge via the long island (rebuildable); town square on the island; tin at the island's head |
+| ammos | trade hub (oasis caravanserai) | buffer | Desert Road | caravanserai court at the oasis (the only water); road across the sand; ridges h3 for raiders |
+| moors | fortress (granite tors) | resource heart (iron 1) | Dodona's pocket; to Saddle and Erymanthos | 2–3 tors h5 with flat tops; a bog splitting the moor; roads from both entries |
+| kimmeria | fortress (hill fort) | breadbasket (horses) | Skythia's pocket; to Saddle and Canyons | hill fort h5 with one gate path; chalk streams; open slopes |
+| savanna | resource heart (copper 1, hides) | fortress (kopjes) | Kyrene's pocket; to Canyons and Gorge | kopjes h4–5; Nemean lion lair; dry wash as a hidden way |
+| bacchae | breadbasket (olives, food) | resource heart (marble 1) | Elaia's pocket; to Erymanthos and Gorge | vine terraces; cypress groves for cover; small quarry |
+| saddle | chokepoint (north ramp) | resource heart (iron 1) | Sacred Way; Teeth rim crossing | one switchback road up a cliff edge; flat saddle for a camp; cyclops on the ore |
+| erymanthos | chokepoint (west ramp) | resource heart (timber 3, herbs) | Sacred Way; Lake rim crossing | dense forest with one cart road to the ramp; clearings; boar lair |
+| gorge | chokepoint (rock bridge) | resource heart (copper 1) | Sacred Way; River rim crossing | rock bridge 4 wide over the falls; two cliffside paths; copper veins in the walls |
+| canyons | chokepoint (canyon maze) | resource heart (copper 2) | Sacred Way; Ammos rim crossing | 3+ canyon floors joining at the ramp; 2 mesas h5 over them; chimera lair |
+| omphalos | sacred (season score) | resource heart (silver 3, marble 2) | end of the Sacred Way; Great Fair | exactly four ramps; temple city with a big agora; titan arena; labyrinth entrance; crater lake |
+
+### Economy geography
+
+Tin is everyone's import. Beyond tin, each home exports what others lack and imports what only the far side has.
+
+| Home | Exports | Must import (critical) | Nearest source (transfers) | Contested with |
+| --- | --- | --- | --- | --- |
+| Dodona | iron, timber, pitch | copper (bronze), salt (rations, leather), silver (T3), marble (T3 workplaces), tin | Siren salt and silver 2, Kleisoura tin 2, copper 5 | Elaia at Siren; Skythia at Kleisoura and Krios |
+| Skythia | grain, horses, hides | iron, copper, marble, timber for engines, tin | Krios iron 2, Ammon salt and silver 2, Canyons copper 3 | Dodona at Krios and Kleisoura; Kyrene at Ammon and Canyons |
+| Kyrene | copper, salt, stone | iron, timber and pitch (siege), marble, tin | Delta iron 2, Achelous tin 2, pitch 4 | Elaia at Delta and Achelous; Skythia at Ammon |
+| Elaia | marble, oil, linen, food | iron, copper, tin, horses | Delta iron 2, Achelous tin 2, Gorge copper 3 | Kyrene at Delta and Achelous; Dodona at Siren |
+
+Rules: no home holds tin, silver or more than one metal; every tin, silver, salt and iron source outside the homes
+is two transfers from two homes, so each is contested; copper is the east's (Kyrene sells it, the gates give a
+little); T3 crafting needs silver and marble, so a high-end army needs Omphalos, Elaia or a long haul.
+
+### Trade routes
+
+Market towns: the 4 home agoras, 4 frontier towns (Kleisoura toll fort, Stymphalia causeway town, Achelous bridge
+town, Ammos caravanserai) and the Great Fair on Omphalos. Caravan goods sell at 2× at a market ≥ 3 transfers away
+(M6), so the money is in hauls across a frontier or through the centre.
+
+| Route | Regions | Goods typically moved | Chokepoints on it | Raiding pays |
+| --- | --- | --- | --- | --- |
+| Tin Road (N) | dodona – dodona-e – kleisoura – skythia-w – skythia | iron, timber, pitch east; horses, hides, grain west; tin both ways | Teeth ravine, Kleisoura gorge, scree road | on the ravine shoulders and the scree; the pass holder taxes instead |
+| Lake Road (W) | dodona – dodona-s – stymphalia – elaia-n – elaia | iron, pitch, timber south; marble, oil, linen north; Siren salt and silver join at the lake | Ladon fords, the causeway | on the causeway (single file, no room to form) and at the fords |
+| River Road (S) | elaia – elaia-e – achelous – kyrene-w – kyrene | oil, marble, linen east; copper, salt, stone west; tin and Delta iron join at the ford | the bridgeheads, the ford and bridge | at the bridgeheads; a burnt bridge strands a caravan |
+| Desert Road (E) | skythia – skythia-s – ammos – kyrene-n – kyrene | horses, hides, grain south; copper, salt north; Ammon silver joins at the oasis | Kurgan gullies, the oasis well, Thornscrub wadi | in the dunes (sand slows wagons) and at the wadi |
+| Sacred Way (cross, 8 transfers an arm) | iron arm: dodona – dodona-s – moors – saddle or erymanthos – omphalos – canyons or gorge – savanna – kyrene-n – kyrene; marble arm: skythia – skythia-s – kimmeria – saddle or canyons – omphalos – erymanthos or gorge – bacchae – elaia-n – elaia | the diagonal trade: iron for copper, horses and hides for marble and oil; the richest loads | the four ramps; the inner pockets at each end | on the ramps and in the gates; the holder of Omphalos taxes both arms |
+
+Coast tracks (Krios col, Siren flats, Ammon flats, Delta channels) are smugglers' bypasses: no toll and no town, but
+lairs, slow ground and no influence to shelter in. The inner ring (moors – saddle – kimmeria – canyons – savanna –
+gorge – bacchae – erymanthos) is as short as the road through Omphalos but runs through a third alliance's pocket.
+
+### Geopolitics
+
+| Topic | Rule of the map |
+| --- | --- |
+| Natural frontiers | Iron Teeth, Great River, Ladon–Stymphalia, Ammos dunes; each crossed only at its coast, road and rim crossings |
+| Invasion corridors | three per home: the frontier road (fast, chokepointed), the coast track (slow, lairs), the rim (own pocket → gate → the neighbour's pocket) |
+| Defensive pockets | home + entry ring + inner region (moors, kimmeria, savanna, bacchae); the inner region watches both gates of the home's sector |
+| Chokepoints guarding home | Dodona 3 (land bridge, ravine, fords), Kyrene 3 (wadi, sand bar, river), Elaia 3 (causeway landfall, river, cape), Skythia 1 (scree road): the steppe is open, paid back in food, horses and nearer metals |
+| The centre's pull | Omphalos: season score, silver 3 and marble 2, the Great Fair, the tax on the Sacred Way; each gate is shared by two neighbours, so the race to the centre is a fight at the gates |
+| Where alliances collide | Kleisoura + Krios (Dodona–Skythia metals), Achelous + Delta (Elaia–Kyrene metals), Siren and Stymphalia (Dodona–Elaia), Ammon and Ammos (Skythia–Kyrene), then the four gates |
+| Diagonals | Dodona–Kyrene and Skythia–Elaia never border and need each other's goods: trade partners first, allies of convenience against the shared neighbour |
+
+| Phase | Goals |
+| --- | --- |
+| Early (days 1–3) | clear the entries and the inner pocket; claim the near edge lifeline (Siren, Krios, Ammon or Delta); open both frontier roads to the first caravans |
+| Mid (weeks 1–2) | hold or deny your metal frontier's tin; take a frontier town; run the first long hauls; take a gate; raid the rival's road |
+| Late (week 3 on) | siege the ramps and hold Omphalos; cut a rival's imports by holding its pass or bridge; keep 3+ market towns |
+
+### Season score and victory
+
+| Source | Score | Notes |
+| --- | --- | --- |
+| Omphalos | 10 an hour | only while no enemy squad stands on the plateau |
+| Frontier town (Kleisoura, Stymphalia, Achelous, Ammos) | 3 an hour | town square held |
+| Gate (saddle, erymanthos, gorge, canyons) | 2 an hour | |
+| Other claimed neutral | 1 an hour | |
+| Caravan sale at a market ≥ 3 transfers away | 1 per 100 silver of value | traders score, not only armies |
+| Razing an enemy home building | 5 | homes never fall (W-09) |
+
+Victory: **hegemony** ends the season early when one alliance holds Omphalos and 3 of the 4 frontier towns for 24 h;
+otherwise the highest score at the season's end wins. The old war (DESIGN_V2) ranked by capitals; here homes cannot
+fall, so the score sits on the centre and the roads, which a trailing side can still raid back.
+
+### Balance check
+
+Transfers from home (0 = at home).
+
+| Alliance | Tin | Iron | Copper | Silver | Salt | Marble | Pitch | Chokepoints at home | Routes it ends | Edge |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Dodona | 2 | 0 | 5 | 2 | 2 | 4 | 0 | 3 | Tin, Lake, Sacred (iron arm) | iron and timber at home; copper far |
+| Skythia | 2 | 2 | 3 | 2 | 2 | 4 | 1 | 1 | Tin, Desert, Sacred (marble arm) | metals near; open home |
+| Kyrene | 2 | 2 | 0 | 2 | 1 | 4 | 4 | 3 | River, Desert, Sacred (iron arm) | copper and salt at home; no timber |
+| Elaia | 2 | 2 | 3 | 2 | 2 | 0 | 1 | 3 | Lake, River, Sacred (marble arm) | marble and oil at home; iron only at the Delta |
+
+Fair: every home has tin, silver and salt at ≤ 2, ends two frontier roads and one Sacred Way arm, and reaches
+Omphalos in 4. Asymmetric: what is far differs (Dodona copper, Kyrene timber, Skythia safety, Elaia iron).
+
+### Authoring checklist by type
+
+| Type | The region map must have |
+| --- | --- |
+| Trade hub | a town square ≥ 24 × 24 with stall and house sites; roads to every route exit; a caravan yard by the square; one defensible and one open approach |
+| Chokepoint | the narrow (3–10 wide) with high ground on at least one side; a long slow bypass so it is never a hard wall; a site for a toll fort or gate; room ≥ 40 × 40 on both sides to form up |
+| Resource heart | the scarce nodes in 1–2 fields at a defensible spot; the lair on the richest node; a haul road to the owners' exit; room for a camp and storehouse |
+| Fortress | a mesa, tor or hill with ≤ 2 ways up and a flat top ≥ 30 × 30; sight over the road |
+| Breadbasket | wide flat fields and farm sites near water; open ground that is hard to hold (raid bait) |
+| Sacred | temple ruins with a big agora on top; exactly four ramps; room for a 600-man fight |
+| Buffer | room to manoeuvre, scattered cover, two ways through, no single decisive point |
+| Coastal | a beach or cove landing site and cliffs, kept clear for later naval play |
+| Home | its agora, one road exit per entry, a workplace quarter, the specialty field near the forge |
 
 ## Soldiers
 
