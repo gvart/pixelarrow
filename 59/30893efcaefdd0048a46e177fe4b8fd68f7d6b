@@ -1,0 +1,26 @@
+src/war/view/hud/craft/index.ts
+  s_cfc22b058125c4::t_6dd879a1f01d3a 19,37-38
+src/war/view/hud/drag.ts
+  s_cfc22b058125c4::t_82468247cf8c03 8-9,38-39
+  s_cfc22b058125c4::t_9d7bb9f3d260ef 1-7,10-37,40-54
+src/war/view/hud/hud.ts
+  s_cfc22b058125c4::t_6dd879a1f01d3a 24,172
+src/war/view/hud/roster/index.ts
+  s_cfc22b058125c4::t_6dd879a1f01d3a 12,38-39,60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5930893efcaefdd0048a46e177fe4b8fd68f7d6b",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
