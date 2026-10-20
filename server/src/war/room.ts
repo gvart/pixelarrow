@@ -21,9 +21,9 @@ import { createBots, type Bots } from '../../../src/war/sim/bots';
 import { isClassId } from '../../../src/data/classes';
 import { DeltaEncoder } from '../../../src/war/net/codec';
 import { visibleTo, type Rect, type TeamVision } from '../../../src/war/net/interest';
-import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
+import { ALLIANCES, KEYFRAME_EVERY, MAX_SQUAD, MAX_SQUADS, NET_VERSION, splitQuota, type CheckMsg, type JoinMsg, type NetOrder, type OrderError, type Quota, type Refusal, type ServerMsg } from '../../../src/war/net/protocol';
 import type { SimState } from '../../../src/war/sim/state';
-import type { FightReport, RegionData, ShotSnap, Snapshot, SquadId, WarBuildSim, WarPerson } from '../../../src/war/types';
+import type { BridgePlan, FightReport, Order, PlaceResult, RegionData, ShotSnap, Snapshot, SquadId, WallPlan, WarBuildSim, WarPerson } from '../../../src/war/types';
 
 const SIDES = ['N', 'E', 'S', 'W'] as const;
 /** Hold AI radius for an offline player's squads (tiles). */
@@ -287,19 +287,68 @@ export class WarRoom {
     return new Map([...sum].map(([id, s]) => [id, { x: s.x / s.n, y: s.y / s.n }]));
   }
 
-  /** An order from the player; null when it was taken. */
+  /**
+   * An order from the player; null when it was taken. The squad must be his own (a squad-less site order acts for his
+   * team); targets are checked here where the sim would act on anyone's (a foe squad to attack, his own to merge into,
+   * a site of his team to cancel or upgrade, points inside the region); the sim checks placement, stock and the rest.
+   */
   order(pid: number, o: NetOrder): OrderError | null {
     const p = this.players.get(pid);
     if (!p?.online) return 'notJoined';
     const me = ownerOf(pid);
-    if (this.owners[o.squad] !== me) return 'notOwner';
-    if (o.kind === 'attack' && (this.owners[o.target] === undefined || this.teams[o.target] === p.team)) return 'badTarget';
-    if (o.kind === 'merge' && (this.owners[o.into] !== me || o.into === o.squad)) return 'notOwner';
-    if (o.kind === 'move' && !(o.x >= 0 && o.y >= 0 && o.x < this.region.w && o.y < this.region.h)) return 'bad';
-    this.bots.clear(o.squad);
-    this.sim.order(o);
+    const squad = 'squad' in o ? o.squad : undefined;
+    if (squad !== undefined && this.owners[squad] !== me) return 'notOwner';
+    if (squad === undefined && o.kind !== 'cancelSite' && o.kind !== 'placeBuilding' && o.kind !== 'placeWall' && o.kind !== 'placeBridge' && o.kind !== 'upgrade') return 'bad';
+    const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < this.region.w && y < this.region.h;
+    const allIn = (a?: number[]) => !a || a.every((v, i) => (i % 2 ? v < this.region.h : v < this.region.w) && v >= 0);
+    const ownSite = (id: number) => this.snap.buildings?.find((b) => b.id === id)?.team === p.team;
+    switch (o.kind) {
+      case 'attack':
+        if (this.owners[o.target] === undefined || this.teams[o.target] === p.team) return 'badTarget';
+        break;
+      case 'merge':
+        if (this.owners[o.into] !== me || o.into === o.squad) return 'notOwner';
+        break;
+      case 'move':
+      case 'attackMove':
+      case 'placeBuilding':
+      case 'buildSiege':
+        if (!inside(o.x, o.y)) return 'bad';
+        break;
+      case 'placeWall':
+        if (!allIn(o.points) || !allIn(o.towers) || !allIn(o.gates) || !allIn(o.inside)) return 'bad';
+        break;
+      case 'placeBridge':
+      case 'raiseLadder':
+        if (!allIn(o.kind === 'placeBridge' ? o.points : o.wallTile)) return 'bad';
+        break;
+      case 'cancelSite':
+        if (!ownSite(o.site)) return 'badTarget';
+        break;
+      case 'upgrade':
+      case 'build':
+      case 'civWork':
+        if (!ownSite(o.kind === 'build' ? o.site : o.building)) return 'badTarget';
+        break;
+    }
+    const sent = (squad === undefined && o.kind !== 'cancelSite' ? { ...o, team: p.team } : o) as Order;
+    if (squad !== undefined) this.bots.clear(squad);
+    this.sim.order(sent);
     this.log.push({ tick: this.currentTick, o });
     return null;
+  }
+
+  /** A placement check for the player's team (null: not joined). */
+  check(pid: number, c: CheckMsg): Extract<ServerMsg, { t: 'checked' }> {
+    const p = this.players.get(pid);
+    const team = p?.team;
+    let result: PlaceResult | WallPlan | BridgePlan | null = null;
+    if (team !== undefined) {
+      if (c.kind === 'building') result = this.sim.checkPlacement(team, c.type, c.x, c.y, c.rot);
+      else if (c.kind === 'wall') result = this.sim.checkWall(team, { material: c.material, points: c.points, towers: c.towers, gates: c.gates, inside: c.inside });
+      else result = this.sim.checkBridge(team, { material: c.material, points: c.points, width: c.width });
+    }
+    return { t: 'checked', id: c.id, result };
   }
 
   view(pid: number, r: Rect): void {

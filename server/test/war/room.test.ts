@@ -5,6 +5,7 @@ import { NET_VERSION, VISION, type JoinMsg } from '../../../src/war/net/protocol
 import { createSim } from '../../../src/war/sim';
 import { CORPSE_TICKS, WarRoom } from '../../src/war/room';
 import { warRegion } from '../../src/war/regions';
+import { spot } from './spot';
 
 const region = warRegion('test-ridge')!;
 const join = (pid: number, team: number, count = 12, cls = 'hoplite', squads = 1): JoinMsg => ({
@@ -80,6 +81,39 @@ describe('WarRoom orders', () => {
     steps(r, 1);
     expect(r.squadsOf(1)).toEqual([0, 2]);
     expect(r.order(1, { kind: 'hold', squad: 2 })).toBeNull();
+  });
+
+  it('checks ownership and targets of work, building and siege orders; squad-less site orders act for the team', () => {
+    const r = room();
+    r.join(1, join(1, 0, 12, 'militia'));
+    r.join(2, join(2, 1));
+    steps(r, 1);
+    const me = r.snapshot().units.filter((u) => u.squad === 0);
+    const cx = Math.round(me.reduce((a, u) => a + u.x, 0) / me.length), cy = Math.round(me.reduce((a, u) => a + u.y, 0) / me.length);
+    const [sx, sy] = spot(r, cx, cy);
+    r.sim.addStock(0, 'wood', 500);
+    r.sim.addStock(0, 'stone', 500);
+    const before = r.snapshot().buildings?.length ?? 0;
+    // a planned site with no squad goes to the player's team (any team he names is ignored)
+    expect(r.order(1, { kind: 'placeBuilding', type: 'camp', x: sx, y: sy, team: 3 } as never)).toBeNull();
+    steps(r, 1);
+    const site = r.snapshot().buildings!.slice(before).find((b) => b.type === 'camp')!;
+    expect(site.team).toBe(0);
+    // the foe cannot cancel or build our site, we can
+    expect(r.order(2, { kind: 'cancelSite', site: site.id })).toBe('badTarget');
+    expect(r.order(2, { kind: 'build', squad: 1, site: site.id })).toBe('badTarget');
+    expect(r.order(1, { kind: 'build', squad: 1, site: site.id })).toBe('notOwner');
+    expect(r.order(1, { kind: 'build', squad: 0, site: site.id })).toBeNull();
+    expect(r.order(1, { kind: 'buildSiege', squad: 0, type: 'ram', x: -1, y: 4 })).toBe('bad');
+    expect(r.order(1, { kind: 'placeWall', squad: 0, material: 'wood', points: [1, 1, 9999, 1] })).toBe('bad');
+    expect(r.order(1, { kind: 'ignite', squad: 1, building: site.id })).toBe('notOwner');
+    expect(r.order(1, { kind: 'active', squad: 0 })).toBeNull();
+    for (let i = 0; i < 3000 && r.snapshot().buildings!.find((b) => b.id === site.id)!.state !== 'done'; i++) r.tick();
+    expect(r.snapshot().buildings!.find((b) => b.id === site.id)!.state).toBe('done');
+    // placement checks answer for the player's team
+    expect(r.check(1, { t: 'check', id: 5, kind: 'building', type: 'storehouse', x: sx, y: sy })).toMatchObject({ t: 'checked', id: 5, result: { ok: false } });
+    expect(r.check(9, { t: 'check', id: 6, kind: 'building', type: 'camp', x: cx, y: cy })).toEqual({ t: 'checked', id: 6, result: null });
+    expect(r.order(1, { kind: 'cancelSite', site: site.id })).toBeNull();
   });
 
   it('offline squads stay, hold with the bot AI and are handed back on rejoin', () => {

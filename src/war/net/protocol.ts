@@ -7,18 +7,21 @@
  *   client -> join   { t, v, region, playerId, team, squads } once to enter; again to bring more squads (same team).
  *                    squads: person ids (D1 war_persons, M5e) per squad; the server loads and spawns them. `army`
  *                    (class + count) instead is a dev-only join (the server allows it only with DEV_AUTH=1).
- *   client -> order  { t, o }                                 an Order for one of the player's own squads
+ *   client -> order  { t, o }                                 an Order for one of the player's own squads (squad control,
+ *                    work, building, walls, bridges, upgrades, siege, civilians, actives); squad-less orders (a planned
+ *                    site, cancelSite, upgrade) act for the player's team
+ *   client -> check  { t, id, ... }                            a placement check for the player's team -> checked
  *   client -> view   { t, x0, y0, x1, y1 }                    camera rect in tiles (interest management)
  *   client -> ping   { t, c }
- *   server -> welcome | refused | queued | error | pong       (JSON)
+ *   server -> welcome | refused | queued | error | pong | checked   (JSON)
  *   server -> binary frame                                    (snapshot delta or keyframe)
  */
 import { z } from 'zod';
 import { SQUAD_MAX } from '../sim/soldiers';
-import type { Order, SquadId } from '../types';
+import type { BridgePlan, BuildingType, Order, PlaceResult, SquadId, WallPlan } from '../types';
 
 /** Bumped on any wire change (messages or the binary frame layout). */
-export const NET_VERSION = 2;
+export const NET_VERSION = 3;
 /** Positions go out in 1/QUANT tile steps. */
 export const QUANT = 8;
 /** Ticks between keyframes (a full frame of what the client sees; deltas in between). */
@@ -38,21 +41,63 @@ export const MAX_CLIENT_MSG = 4096;
 
 const num = z.number().finite();
 const id = z.number().int().min(0).max(2 ** 31);
+/** Flat x,y tile points of a wall or bridge drag (and its towers, gates, inside point). */
+const pts = (max: number) => z.array(num).max(max * 2).refine((a) => a.length % 2 === 0, 'x,y pairs');
+const BUILDING_TYPES = ['camp', 'storehouse', 'outpost', 'fort', 'barracks', 'farm', 'olivePress', 'palisade', 'rampart', 'stoneWall', 'woodStairs', 'stoneStairs', 'ladder', 'woodTower', 'stoneTower', 'woodGate', 'stoneGate', 'woodBridge', 'stoneBridge', 'brazier', 'pitchKiln'] as const satisfies readonly BuildingType[];
+const rot = z.union([z.literal(0), z.literal(1)]).optional();
+/** building or siege target: exactly one. */
+const target = { building: id.optional(), siege: id.optional() };
+const oneTarget = (o: { building?: number; siege?: number }) => (o.building === undefined) !== (o.siege === undefined);
 
-/** The orders a player may send in this slice (squad control, W-08); building and siege come later. */
+/**
+ * The orders a player may send (W-08 squad control, M2 work and building, M2c siege, M5c actives, M5f civilians). The
+ * room checks the squad is the player's own; squad-less site orders act for the player's team; the sim checks the rest
+ * (placement, stock, engine team, targets) as it does for a local player.
+ */
 export const orderSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('move'), squad: id, x: num, y: num }),
   z.object({ kind: z.literal('attack'), squad: id, target: id }),
   z.object({ kind: z.literal('hold'), squad: id }),
+  z.object({ kind: z.literal('attackMove'), squad: id, x: num, y: num }),
+  z.object({ kind: z.literal('stop'), squad: id }),
   z.object({ kind: z.literal('formation'), squad: id, shape: z.enum(['line', 'column', 'wedge', 'loose']) }),
   z.object({ kind: z.literal('stopWork'), squad: id }),
   z.object({ kind: z.literal('fireArrows'), squad: id, on: z.boolean() }),
-  z.object({ kind: z.literal('detach'), squad: id, count: z.number().int().min(1).max(MAX_SQUAD).optional() }),
+  z.object({ kind: z.literal('detach'), squad: id, count: z.number().int().min(1).max(MAX_SQUAD).optional(), unitIds: z.array(id).min(1).max(MAX_SQUAD).optional() }),
   z.object({ kind: z.literal('merge'), squad: id, into: id }),
+  z.object({ kind: z.literal('active'), squad: id }),
+  // work and building
+  z.object({ kind: z.literal('gather'), squad: id, node: id }),
+  z.object({ kind: z.literal('build'), squad: id, site: id }),
+  z.object({ kind: z.literal('civWork'), squad: id, building: id }),
+  z.object({ kind: z.literal('placeBuilding'), squad: id.optional(), type: z.enum(BUILDING_TYPES), x: num, y: num, rot }),
+  z.object({ kind: z.literal('placeWall'), squad: id.optional(), material: z.enum(['wood', 'timber', 'stone']), points: pts(32), towers: pts(16).optional(), gates: pts(16).optional(), inside: pts(1).optional() }),
+  z.object({ kind: z.literal('placeBridge'), squad: id.optional(), material: z.enum(['wood', 'stone']), points: pts(2), width: z.number().int().min(1).max(3).optional() }),
+  z.object({ kind: z.literal('upgrade'), building: id, squad: id.optional() }),
+  z.object({ kind: z.literal('cancelSite'), site: id }),
+  z.object({ kind: z.literal('claimRegion'), squad: id, point: id }),
+  // siege
+  z.object({ kind: z.literal('buildSiege'), squad: id, type: z.enum(['ram', 'stoneThrower', 'siegeLadder']), x: num, y: num }),
+  z.object({ kind: z.literal('crew'), squad: id, siege: id }),
+  z.object({ kind: z.literal('uncrew'), squad: id }),
+  z.object({ kind: z.literal('deploy'), squad: id, pack: z.boolean().optional() }),
+  z.object({ kind: z.literal('raiseLadder'), squad: id, wallTile: pts(1).refine((a) => a.length === 2, 'one tile') }),
+  z.object({ kind: z.literal('pushLadder'), squad: id, ladder: id }),
+  z.object({ kind: z.literal('attackBuilding'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
+  z.object({ kind: z.literal('ignite'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
+  z.object({ kind: z.literal('extinguish'), squad: id, ...target }).refine(oneTarget, 'building or siege'),
 ]);
 export type NetOrder = z.infer<typeof orderSchema> & Order;
 
-export const clientMsgSchema = z.discriminatedUnion('t', [
+/** A placement check for the player's team (the build UI's live preview), answered by `checked` with the same id. */
+export const checkSchema = z.discriminatedUnion('kind', [
+  z.object({ t: z.literal('check'), id: id, kind: z.literal('building'), type: z.enum(BUILDING_TYPES), x: num, y: num, rot }),
+  z.object({ t: z.literal('check'), id: id, kind: z.literal('wall'), material: z.enum(['wood', 'timber', 'stone']), points: pts(32), towers: pts(16).optional(), gates: pts(16).optional(), inside: pts(1).optional() }),
+  z.object({ t: z.literal('check'), id: id, kind: z.literal('bridge'), material: z.enum(['wood', 'stone']), points: pts(2), width: z.number().int().min(1).max(3).optional() }),
+]);
+export type CheckMsg = z.infer<typeof checkSchema>;
+
+const baseMsgSchema = z.discriminatedUnion('t', [
   z.object({
     t: z.literal('join'),
     v: z.number().int(),
@@ -68,7 +113,8 @@ export const clientMsgSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('view'), x0: num, y0: num, x1: num, y1: num }),
   z.object({ t: z.literal('ping'), c: num }),
 ]);
-export type ClientMsg = z.infer<typeof clientMsgSchema>;
+export const clientMsgSchema = z.union([baseMsgSchema, checkSchema]);
+export type ClientMsg = z.infer<typeof baseMsgSchema> | CheckMsg;
 export type JoinMsg = Extract<ClientMsg, { t: 'join' }>;
 
 /** Why a join or an order was turned down. */
@@ -81,7 +127,8 @@ export type ServerMsg =
   | { t: 'queued'; reason: 'quota'; pos: number; need: number; quota: Quota }
   | { t: 'refused'; reason: Refusal; detail?: string }
   | { t: 'error'; code: OrderError | 'parse' | 'tooBig'; detail?: string }
-  | { t: 'pong'; c: number; tick: number };
+  | { t: 'pong'; c: number; tick: number }
+  | { t: 'checked'; id: number; result: PlaceResult | WallPlan | BridgePlan | null };
 
 /** Live soldiers per alliance against its quota. */
 export interface Quota { cap: number; per: number[]; live: number[] }

@@ -127,6 +127,7 @@ export class WarRegionDO extends DurableObject<Env> {
         if (err) send(ws, { t: 'error', code: err, detail: m.o.kind });
       } else if (m.t === 'view') room.view(me.pid, m);
       else if (m.t === 'ping') send(ws, { t: 'pong', c: m.c, tick: room.currentTick });
+      else if (m.t === 'check') send(ws, room.check(me.pid, m));
     } catch (e) {
       logError('war_message_failed', e);
     }

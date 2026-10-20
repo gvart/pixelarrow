@@ -5,18 +5,24 @@
  * squad of fit soldiers are at home (or `seed` is set), seeds a dev roster (POST /api/war/dev/seed). Opens the region
  * socket with the bearer token in the WebSocket protocol, decodes every binary frame into a Snapshot and hands it on.
  * A spawn becomes a join with person ids: fit soldiers at home of the asked class first, then any. Joins wait until
- * the socket is open and the roster is in.
+ * the socket is open and the roster is in. Every order goes up as is (the server checks the squad is ours and fills in
+ * our team for squad-less site orders); placement checks go up as `check` and come back as `checked`.
  */
 import { SIM_VERSION } from '../../sim/version';
-import type { Order, Snapshot } from '../types';
+import type { BridgePlan, Order, PlaceResult, Snapshot, WallPlan } from '../types';
 import { DeltaDecoder } from './codec';
-import { MAX_SQUAD, NET_VERSION, type ServerMsg } from './protocol';
+import { MAX_SQUAD, NET_VERSION, type CheckMsg, type ServerMsg } from './protocol';
 
 export interface Net {
   join(team: number, cls: string, count: number): void;
   order(o: Order): void;
   view(x0: number, y0: number, x1: number, y1: number): void;
+  /** A placement check for our team; `done` gets the server's answer (null: not joined or the socket closed). */
+  check(c: CheckBody, done: (r: PlaceResult | WallPlan | BridgePlan | null) => void): void;
 }
+
+/** A check message without its envelope (t, id). */
+export type CheckBody = CheckMsg extends infer C ? (C extends unknown ? Omit<C, 't' | 'id'> : never) : never;
 
 interface RosterPerson { id: string; cls: string; state: string; region: string | null }
 
@@ -27,6 +33,8 @@ export function createNet(url: string, region: string, devId: number | undefined
   let ready = false;
   let pid = 0;
   let home: RosterPerson[] = [];
+  let checkId = 0;
+  const checks = new Map<number, (r: PlaceResult | WallPlan | BridgePlan | null) => void>();
   const send = (m: () => unknown) => {
     if (ready && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m()));
     else pending.push(m);
@@ -57,13 +65,22 @@ export function createNet(url: string, region: string, devId: number | undefined
     ws.onmessage = (e) => {
       if (typeof e.data === 'string') {
         const m = JSON.parse(e.data) as ServerMsg;
+        if (m.t === 'checked') {
+          checks.get(m.id)?.(m.result);
+          checks.delete(m.id);
+          return;
+        }
         if (m.t !== 'pong') console.info('[net]', m);
         return;
       }
       const snap = dec.apply(e.data as ArrayBuffer);
       onSnap(snap, { stepMs: 0, units: snap.units.filter((u) => u.state !== 'dead').length });
     };
-    ws.onclose = (e) => console.warn('[net] closed', e.code, e.reason);
+    ws.onclose = (e) => {
+      console.warn('[net] closed', e.code, e.reason);
+      for (const done of checks.values()) done(null);
+      checks.clear();
+    };
   })().catch((e) => console.error(e));
   /** Take up to n soldiers from home for a squad: the class asked for first. */
   const pick = (cls: string, n: number): string[] => {
@@ -79,6 +96,11 @@ export function createNet(url: string, region: string, devId: number | undefined
         return { t: 'join', v: NET_VERSION, region, playerId: pid, team, squads: [ids.length ? ids : ['none']] };
       }),
     order: (o) => send(() => ({ t: 'order', o })),
+    check: (c, done) => {
+      const id = ++checkId;
+      checks.set(id, done);
+      send(() => ({ ...c, t: 'check', id }));
+    },
     view: (x0, y0, x1, y1) => {
       if (ready && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'view', x0, y0, x1, y1 }));
     },

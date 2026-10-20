@@ -10,12 +10,14 @@
  *   v n, n x unit:     v id | u8 mask | fields in mask order (below)
  *   v n, n x removed:  v id (units the client no longer sees)
  *   v n, n x squad:    v id | u8 team | s order | u8 fire (bit0 has, bit1 on, bit2 available, bits 3.. reason) | s owner
+ *                      | s active skill ('' none) [| v ready tick | v buff end tick + 1 (absolute; the decoder counts down)]
  *   v n, n x shot:     u16 x0 y0 x1 y1 | v tick - t0 | u8 t1 - t0 | u8 z0 | u8 z1 | u8 kind | fire<<2 | siege<<3 | z by [| v siege]
  *   v n, n bytes:      JSON { u: BuildingSnap[], r: id[] } of changed / gone buildings (n = 0: none)
  * Unit fields: POS u16 x*QUANT, u16 y*QUANT | FACE u8 (turns * 256) | HP u16 hp*10 | STATE u8 (state | 8 wounded set | 16 wounded)
- *   | Z u8 | ANIM u8 swing, u8 ready (255 none) | META v squad, u16 maxHp*10, s cls | EXTRA v on+1, u8 task, u8 carry, u8 load
+ *   | Z u8 | ANIM u8 swing, u8 ready (255 none) | META v squad, u16 maxHp*10, s cls, s person id ('' none), u8 level
+ *   | EXTRA v on+1, u8 task, u8 carry, u8 load
  */
-import type { BuildingSnap, ResourceKind, ShotSnap, Snapshot, SquadSnap, UnitSnap } from '../types';
+import type { BuildingSnap, ResourceKind, ShotSnap, Snapshot, SquadSnap, UnitSnap, WarSkillId } from '../types';
 import { NET_VERSION, QUANT } from './protocol';
 
 const POS = 1, FACE = 2, HP = 4, STATE = 8, Z = 16, ANIM = 32, META = 64, EXTRA = 128;
@@ -102,7 +104,9 @@ class Reader {
 /** What one client sees this tick (already filtered, ./interest.ts). `shots`: the ones to send (new ones; all on a keyframe). */
 export interface FrameInput { tick: number; units: UnitSnap[]; squads: SquadSnap[]; shots: ShotSnap[]; buildings: BuildingSnap[] }
 
-const squadKey = (s: SquadSnap) => `${s.team}|${s.order}|${s.owner}|${s.fireArrows ? `${s.fireArrows.on}${s.fireArrows.available}${s.fireArrows.reason}` : ''}`;
+/** Squad active as absolute ticks (ready at, buff over at): changes only when it fires. */
+const activeAbs = (s: SquadSnap, tick: number) => (s.active ? [s.active.skill, s.active.ready ? tick + s.active.ready : 0, s.active.on ? tick + s.active.on : 0] as const : null);
+const squadKey = (s: SquadSnap, tick: number) => `${s.team}|${s.order}|${s.owner}|${s.fireArrows ? `${s.fireArrows.on}${s.fireArrows.available}${s.fireArrows.reason}` : ''}|${activeAbs(s, tick)}`;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
@@ -128,7 +132,7 @@ export class DeltaEncoder {
     seen.clear();
     for (const u of f.units) {
       seen.add(u.id);
-      const q = quantise(u), meta = `${u.squad}|${u.maxHp}|${u.cls}`;
+      const q = quantise(u), meta = `${u.squad}|${u.maxHp}|${u.cls}|${u.pid ?? ''}|${u.level ?? 0}`;
       const was = this.units.get(u.id);
       let m = 0;
       if (!was || was.meta !== meta) m |= META | POS | FACE | HP | STATE | Z | ANIM | EXTRA;
@@ -153,7 +157,7 @@ export class DeltaEncoder {
       if (m & STATE) w.u8(q[QS]);
       if (m & Z) w.u8(q[QZ]);
       if (m & ANIM) { w.u8(q[QSW]); w.u8(q[QRD]); }
-      if (m & META) { w.v(u.squad); w.u16(clampU16(Math.round(u.maxHp * 10))); w.s(u.cls); }
+      if (m & META) { w.v(u.squad); w.u16(clampU16(Math.round(u.maxHp * 10))); w.s(u.cls); w.s(u.pid ?? ''); w.u8(u.level ?? 0); }
       if (m & EXTRA) { w.v(q[QON]); w.u8(q[QTK]); w.u8(q[QCA]); w.u8(q[QLD]); }
     }
     // a 4-byte varint (padded with continuation bits) so the count can be patched in place
@@ -167,16 +171,19 @@ export class DeltaEncoder {
     w.v(gone.length);
     for (const id of gone) { this.units.delete(id); w.v(id); }
     // squads
-    const sq = f.squads.filter((s) => this.squads.get(s.id) !== squadKey(s));
+    const sq = f.squads.filter((s) => this.squads.get(s.id) !== squadKey(s, f.tick));
     w.v(sq.length);
     for (const s of sq) {
-      this.squads.set(s.id, squadKey(s));
+      this.squads.set(s.id, squadKey(s, f.tick));
       w.v(s.id);
       w.u8(s.team & 255);
       w.s(s.order);
       const fa = s.fireArrows;
       w.u8(fa ? 1 | (fa.on ? 2 : 0) | (fa.available ? 4 : 0) | (Math.max(0, REASONS.indexOf(fa.reason)) << 3) : 0);
       w.s(s.owner);
+      const a = activeAbs(s, f.tick);
+      w.s(a?.[0] ?? '');
+      if (a) { w.v(a[1]); w.v(a[2]); }
     }
     // shots
     w.v(f.shots.length);
@@ -209,6 +216,8 @@ export class DeltaEncoder {
 export class DeltaDecoder {
   units = new Map<number, UnitSnap>();
   squads = new Map<number, Omit<SquadSnap, 'units'>>();
+  /** Squad actives as absolute ticks [skill, ready at, buff over at]. */
+  actives = new Map<number, [WarSkillId, number, number]>();
   shots: ShotSnap[] = [];
   buildings = new Map<number, BuildingSnap>();
   tick = 0;
@@ -218,7 +227,7 @@ export class DeltaDecoder {
     const kind = r.u8(), v = r.u8();
     if (v !== NET_VERSION) throw new Error(`net version ${v}, expected ${NET_VERSION}`);
     const tick = r.u32();
-    if (kind === 2) { this.units.clear(); this.squads.clear(); this.shots = []; this.buildings.clear(); }
+    if (kind === 2) { this.units.clear(); this.squads.clear(); this.actives.clear(); this.shots = []; this.buildings.clear(); }
     this.tick = tick;
     for (let n = r.v(); n > 0; n--) {
       const id = r.v(), m = r.u8();
@@ -237,7 +246,11 @@ export class DeltaDecoder {
         if (sw === 255) delete u.swing; else u.swing = sw;
         if (rd === 255) delete u.ready; else u.ready = rd;
       }
-      if (m & META) { u.squad = r.v(); u.maxHp = r.u16() / 10; u.cls = r.s(); }
+      if (m & META) {
+        u.squad = r.v(); u.maxHp = r.u16() / 10; u.cls = r.s();
+        const pid = r.s(), level = r.u8();
+        if (pid) { u.pid = pid; u.level = level; } else { delete u.pid; delete u.level; }
+      }
       if (m & EXTRA) {
         const on = r.v(), task = TASKS[r.u8()], carry = CARRY[r.u8()], load = r.u8();
         if (on) u.on = on - 1; else delete u.on;
@@ -251,6 +264,9 @@ export class DeltaDecoder {
       const id = r.v(), team = r.u8(), order = r.s() as SquadSnap['order'], fa = r.u8(), owner = r.s();
       const s: Omit<SquadSnap, 'units'> = { id, owner, team, order };
       if (fa & 1) s.fireArrows = { on: !!(fa & 2), available: !!(fa & 4), ...(REASONS[fa >> 3] ? { reason: REASONS[fa >> 3] } : {}) };
+      const skill = r.s() as WarSkillId | '';
+      if (skill) this.actives.set(id, [skill, r.v(), r.v()]);
+      else this.actives.delete(id);
       this.squads.set(id, s);
     }
     this.shots = this.shots.filter((s) => s.t1 >= tick);
@@ -279,7 +295,11 @@ export class DeltaDecoder {
       if (!l) lists.set(u.squad, (l = []));
       l.push(u.id);
     }
-    const squads = [...this.squads.values()].sort((a, b) => a.id - b.id).map((s) => ({ ...s, units: lists.get(s.id) ?? [] }));
+    const squads = [...this.squads.values()].sort((a, b) => a.id - b.id).map((s) => {
+      const a = this.actives.get(s.id);
+      const active = a ? { active: { skill: a[0], ready: Math.max(0, a[1] - this.tick), on: Math.max(0, a[2] - this.tick) } } : {};
+      return { ...s, ...active, units: lists.get(s.id) ?? [] };
+    });
     return { tick: this.tick, units, squads, shots: this.shots.map((s) => ({ ...s })), buildings: [...this.buildings.values()] };
   }
 }
