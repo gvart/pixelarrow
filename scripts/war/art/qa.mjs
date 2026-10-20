@@ -290,7 +290,10 @@ export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
       ? { '2-deep run x': [blob(two(3, 'x')), [[0, 2], [2, 4], [1, 3], [3, 5]]], '2-deep run y': [blob(two(3, 'y')), [[0, 2], [2, 4], [1, 3], [3, 5]]], '2-deep L': [blob([...two(3, 'x'), [0, 2], [1, 2], [0, 3], [1, 3]]), [[0, 2], [1, 6], [6, 8]]] }
       : k.kind === 'wall'
         ? { 'run x': [[[5, 0, 0], [5, 1, 0], [5, 2, 0]], [[0, 1], [1, 2]]], 'run y': [[[10, 0, 0], [10, 0, 1], [10, 0, 2]], [[0, 1], [1, 2]]], corner: [[[3, 0, 0], [5, 1, 0], [10, 0, 1]], [[0, 1], [0, 2]]] }
-        : { 'span x': [[[2, 0, 0], [0, 1, 0], [0, 2, 0], [3, 3, 0]], [[0, 1], [1, 2], [2, 3]]], 'span y': [[[4, 0, 0], [1, 0, 1], [1, 0, 2], [5, 0, 3]], [[0, 1], [1, 2], [2, 3]]] };
+        : { // a 2-tile ramp (out-, end-), two decks, the far ramp (frames: deck-x 0, deck-y 1, end-x0 2 .. end-y1 5, out-x0 6 .. out-y1 9)
+          'span x': [[[6, 0, 0], [2, 1, 0], [0, 2, 0], [0, 3, 0], [3, 4, 0], [7, 5, 0]], [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]]],
+          'span y': [[[8, 0, 0], [4, 0, 1], [1, 0, 2], [1, 0, 3], [5, 0, 4], [9, 0, 5]], [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]]],
+        };
     for (const [name, [tiles, pairs]] of Object.entries(L)) {
       const W = 9 * 64, H = k.frame.h + 6 * 32, OX = 4 * 64, cmp = { w: W, h: H, data: new Uint8Array(W * H * 4) };
       const sx = (x, y) => OX + (x - y) * 32, sy = (x, y) => (x + y) * 16;
@@ -314,19 +317,19 @@ export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
   }
   return fail;
 }
-// Diagonal bridge segments (kind bridge-diag): runs of ramp, 3 decks, ramp laid one row step apart (h: rowStepPx along
+// Diagonal bridge segments (kind bridge-diag): runs of a 2-row ramp, 3 decks, a 2-row ramp laid one row step apart (h: rowStepPx along
 // screen x, v: along screen y, drawn north to south); no crack or slit where two segments meet.
 function diagSeams(k, im, tag) {
   const fail = [], cols = k.columns ?? k.frames, fw = k.frame.w, fh = k.frame.h;
   const fr = (n) => crop(im, { x: (n % cols) * fw, y: Math.floor(n / cols) * fh, w: fw, h: fh });
   for (const d of ['h', 'v']) for (const w of [1, 2, 3]) {
-    const seq = [`${d}${w}-end+`, `${d}${w}-deck`, `${d}${w}-deck`, `${d}${w}-deck`, `${d}${w}-end-`].map((p) => k.pieces.indexOf(p));
+    const seq = [`${d}${w}-out+`, `${d}${w}-end+`, `${d}${w}-deck`, `${d}${w}-deck`, `${d}${w}-deck`, `${d}${w}-end-`, `${d}${w}-out-`].map((p) => k.pieces.indexOf(p));
     if (seq.some((n) => n < 0)) { fail.push(`${tag}: ${d}${w}: pieces missing`); continue; }
-    const [sx, sy] = k.rowStepPx[d], W = fw + sx * 4, H = fh + sy * 4, cmp = { w: W, h: H, data: new Uint8Array(W * H * 4) };
+    const [sx, sy] = k.rowStepPx[d], W = fw + sx * 6, H = fh + sy * 6, cmp = { w: W, h: H, data: new Uint8Array(W * H * 4) };
     seq.forEach((n, i) => { const t = fr(n); for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) { const s = (y * fw + x) * 4; if (t.data[s + 3]) cmp.data.set(t.data.subarray(s, s + 4), ((y + i * sy) * W + x + i * sx) * 4); } });
     const op = (x, y) => x >= 0 && y >= 0 && x < W && y < H && cmp.data[(y * W + x) * 4 + 3] > 0;
     const near = (x, y, dx, dy, n) => { for (let q = 1; q <= n; q++) if (op(x + dx * q, y + dy * q)) return true; return false; };
-    for (let i = 1; i < 5; i++) { // the boundary between segments i - 1 and i: a column (h) or a row (v)
+    for (let i = 1; i < 7; i++) { // the boundary between segments i - 1 and i: a column (h) or a row (v)
       let n = 0;
       if (d === 'h') { const c = k.tileOrigin.x + (i - 0.5) * sx; for (let x = c - 2; x <= c + 2; x++) for (let y = 0; y < H; y++) if (!op(x, y) && near(x, y, -1, 0, 2) && near(x, y, 1, 0, 2) && near(x, y, 0, -1, 3) && near(x, y, 0, 1, 3)) n++; }
       else { const r = k.tileOrigin.y + (i - 0.5) * sy; for (let y = r - 2; y <= r + 2; y++) for (let x = 0; x < W; x++) if (!op(x, y) && near(x, y, -1, 0, 3) && near(x, y, 1, 0, 3) && near(x, y, 0, -1, 2) && near(x, y, 0, 1, 2)) n++; }
