@@ -1,0 +1,40 @@
+{
+ "note": "ART-C PixelLab jobs (crafting art). objects: create_map_object ids (raw/objects/<name>.png); states: pixflux img2img ids over the --inits state images (raw/objects/<name>.png).",
+ "objects": {
+  "forge": "e3777fbd-5168-46a8-b305-e67faa495efb", "forge2": "131af9a3-1457-4376-88be-c40cda457be5", "forge3": "bab7d0b8-9329-4e2e-8683-f4af7edfe001",
+  "cookhouse": "f8bbe7a5-e90d-4f36-b331-8dba11f4ca54", "cookhouse2": "eb22ef20-fbd9-4f1b-ba51-0d714b29cb6f", "cookhouse3": "5e298186-5518-4fa6-a805-c1b1f1e27b31",
+  "infirmary": "ea7f015d-9928-4af0-a37e-d36761165923", "infirmary2": "a6818f38-7087-4a29-b1cd-b5a6c33fe2cd", "infirmary3": "24db3ab2-765d-4cb2-87b0-987a1f9ad9d6",
+  "workshop": "849334f6-f300-4d06-b027-a206687b967f", "workshop2": "6994bf80-1819-45d9-947d-b6ccb8fc70e4", "workshop3": "954f4146-c27f-40a5-9c10-fa42ce7017dd",
+  "market-stall": "6c2ef514-7000-4c47-b059-7a72e9fcf902", "market-stall2": "ac483a10-885d-4d09-bd1c-f83133570ac4", "market-stall3": "59475235-279e-4d7c-b7ed-d225d291c189",
+  "sorting-floor": "7b3cb213-0d54-4c05-bea9-cf055099bfd7", "sorting-floor2": "e20b0195-e65d-4211-babd-9af2a5c5c277"
+ },
+ "states": {
+  "forge-scaffold": "60871361-23f3-49a7-99f8-b3fb56186520", "forge-damaged": "4dfbfaa0-e957-4b8e-8564-58ced14bdeef",
+  "forge2-scaffold": "9d95d4bc-0719-45de-a787-e5ded62dfaca", "forge2-damaged": "52d189dd-8c76-4d8b-b946-212130f46a72",
+  "forge3-scaffold": "7da233ea-d4d2-49e9-8b1e-5ce954cac50d", "forge3-damaged": "1ccfe9a5-84ea-4b1d-baa4-3d2e3567bfcf",
+  "cookhouse-scaffold": "2340efec-648d-4732-98ca-d3c5fb2b372c", "cookhouse-damaged": "1f595d2e-5a48-4ea6-ba85-b1acdedf4448",
+  "cookhouse2-scaffold": "3bcfc2b2-6d6e-478d-bcaf-c387618231e3", "cookhouse2-damaged": "e140c4c6-7f32-409c-a41f-ca764ee4748d",
+  "cookhouse3-scaffold": "92fff013-ccd4-4b5d-b3d1-7772d1fa8932", "cookhouse3-damaged": "f4a0eb10-4ec9-4934-965b-3622ddf2552f",
+  "infirmary-scaffold": "ac31bce4-6529-4c42-811e-333a81ba4ec4", "infirmary-damaged": "aae6989a-3b2c-4229-93a3-930a93b7ed76",
+  "infirmary2-scaffold": "dbcc682f-1116-40e3-8514-5b399a0b6f29", "infirmary2-damaged": "d932a8d2-0694-4c29-bf4a-73e4907ad2ad",
+  "infirmary3-scaffold": "462ed251-efb7-4bed-81b2-74ec87427fce", "infirmary3-damaged": "2ab746bc-c41f-401c-8bca-4dea5ebfbaa5",
+  "workshop-scaffold": "25cd751e-aa59-4fa5-8134-79aa438f07c8", "workshop-damaged": "b0bee1df-083f-444e-96e9-cc761ea51d0d",
+  "workshop2-scaffold": "ce3b7820-0dc4-487a-94a5-8c10f87cf031", "workshop2-damaged": "0ce294a0-e807-4dc8-abf2-39947459b655",
+  "workshop3-scaffold": "275d9a26-fa36-460d-ac66-f29c19c51502", "workshop3-damaged": "2e634d49-0842-48d4-973e-5ca67ff43a40",
+  "market-stall-scaffold": "ac360e7d-6721-4c76-b342-d9c259a3b4de", "market-stall-damaged": "b5eaae66-d904-4a44-89ef-15bad0394c0d",
+  "market-stall2-scaffold": "ad01b23b-f5b9-40f1-93a6-909a3218cd01", "market-stall2-damaged": "900b4718-376a-4a85-bff0-c4374b3c1522",
+  "market-stall3-scaffold": "7b0e4c9d-02dc-468d-b7f3-f226e10a17d4", "market-stall3-damaged": "52420d54-a8b7-410f-b4e7-8bd2fc932479",
+  "sorting-floor-scaffold": "e0d679fc-3188-4182-8ee4-408164e2f495", "sorting-floor-damaged": "0b4e6c00-eb34-4544-9c9c-59da330668be",
+  "sorting-floor2-scaffold": "d4e08940-e556-4cd3-b8da-41acf5ec73af", "sorting-floor2-damaged": "e93b94f4-1d93-4d7b-8905-def80ea72626"
+ },
+ "paint": {
+  "covered-ram-e": "c1a2b293-550a-44da-a4fd-283466d9e553", "covered-ram-s": "dc219938-f6ce-48c8-ba40-18beb7b7c2ac",
+  "siege-tower-e": "3aba265f-d9d4-43ff-b95c-917adacd00f3", "siege-tower-s": "8eff396d-6824-4607-9d8c-41a1fcf85f9f"
+ },
+ "icons": {
+  "res-hides": "20616382-34e2-47a6-ac34-61875a4fd44a", "res-flax": "48b902e5-f35b-474a-9fae-d9a77261efef", "res-herbs": "39b6bc98-379d-4cc1-9f41-c3ca48564f69",
+  "res-charcoal": "8efbf6ea-2d7a-4db5-b05a-7a58cdc54f36", "res-leather": "9ad93742-845d-4938-b94a-475379d42535", "res-linen": "c95f1f8a-c3e5-4e52-8382-6acfc59643bf",
+  "res-oil": "0538c2a6-4eee-4b5b-be1e-046e2e83bd6f", "res-bandages": "b7f7d9ce-7c31-4a04-81fb-a79b2e448b8e", "res-salves": "6acb8a67-b9d6-4f13-b5b0-0a278410c9f4",
+  "res-theriac": "a782e63b-8429-466a-baf0-d9b9c1f87dc3"
+ }
+}

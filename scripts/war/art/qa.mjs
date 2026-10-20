@@ -279,7 +279,7 @@ export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
     }
     const tag = `${k.id} ${state}`;
     if (k.kind === 'bridge-diag' && ims.back) { fail.push(...diagSeams(k, ims.back, tag)); continue; }
-    if (!ims.back || (k.front && !ims.front) || !['wall', 'bridge'].includes(k.kind)) continue; // stairs, ladders and towers stand alone: no seams to test
+    if (!ims.back || (k.front && !ims.front) || !['wall', 'ditch', 'bridge'].includes(k.kind)) continue; // stairs, ladders and towers stand alone: no seams to test
     const fr = (im, n) => crop(im, { x: (n % cols) * k.frame.w, y: Math.floor(n / cols) * k.frame.h, w: k.frame.w, h: k.frame.h }), o = k.tileOrigin;
     const fi = (n) => (k.frameOf ? k.frameOf[n] : n); // layered walls: frame of (mask, nothing open)
     // blob layouts from tile sets: [[frame, tile x, tile y], ...] with their masks
@@ -288,7 +288,7 @@ export function qaBuildings(dir = join(ROOT, 'public/war/buildings')) {
     // layouts: [[frame, tile x, tile y], ...] and the tile pairs whose boundary is tested
     const L = k.kind === 'wall' && k.layered
       ? { '2-deep run x': [blob(two(3, 'x')), [[0, 2], [2, 4], [1, 3], [3, 5]]], '2-deep run y': [blob(two(3, 'y')), [[0, 2], [2, 4], [1, 3], [3, 5]]], '2-deep L': [blob([...two(3, 'x'), [0, 2], [1, 2], [0, 3], [1, 3]]), [[0, 2], [1, 6], [6, 8]]] }
-      : k.kind === 'wall'
+      : k.kind === 'wall' || k.kind === 'ditch'
         ? { 'run x': [[[5, 0, 0], [5, 1, 0], [5, 2, 0]], [[0, 1], [1, 2]]], 'run y': [[[10, 0, 0], [10, 0, 1], [10, 0, 2]], [[0, 1], [1, 2]]], corner: [[[3, 0, 0], [5, 1, 0], [10, 0, 1]], [[0, 1], [0, 2]]] }
         : { // a 2-tile ramp (out-, end-), two decks, the far ramp (frames: deck-x 0, deck-y 1, end-x0 2 .. end-y1 5, out-x0 6 .. out-y1 9)
           'span x': [[[6, 0, 0], [2, 1, 0], [0, 2, 0], [0, 3, 0], [3, 4, 0], [7, 5, 0]], [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]]],

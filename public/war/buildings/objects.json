@@ -124,57 +124,65 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#5f4135",
+  "#675f57",
+  "#6f5a56",
+  "#706b64",
   "#6f6c65",
-  "#a9805a",
-  "#a6998a",
-  "#5d4034",
-  "#a08754",
-  "#a78969",
-  "#64322b",
-  "#5c3f33",
-  "#988245",
-  "#9b7b4e",
-  "#7e7369",
-  "#7c7877",
-  "#572921",
-  "#5c2c24",
-  "#623218",
-  "#683116",
-  "#635e57",
-  "#6e5754",
-  "#6f6762",
-  "#706b63",
-  "#706c63",
-  "#907246",
-  "#7b6f60",
+  "#716d63",
   "#726e64",
-  "#726e65",
-  "#230e12",
-  "#381b16",
-  "#42201a",
-  "#492316",
-  "#261227",
-  "#311629",
-  "#441e26",
-  "#4d2521",
-  "#614232",
-  "#614236",
-  "#634437",
-  "#644538",
-  "#584c48",
-  "#55514a",
-  "#664e4a",
-  "#665a53",
+  "#878167",
+  "#947f6e",
+  "#987d6e",
+  "#b19069",
+  "#847d78",
+  "#9d8874",
+  "#a7947d",
+  "#b4aea3",
+  "#594944",
+  "#5f453c",
+  "#69473f",
+  "#6d4b4b",
+  "#767068",
+  "#767271",
+  "#7c756e",
+  "#90716c",
+  "#5b2b25",
+  "#663b28",
+  "#866952",
+  "#976a55",
+  "#432a23",
+  "#7a5f56",
+  "#615d51",
+  "#715c52",
+  "#6e645e",
+  "#667249",
+  "#706c65",
+  "#857f52",
+  "#8b7b6d",
+  "#9b8656",
+  "#a88961",
+  "#8b7d70",
+  "#95887a",
+  "#988c78",
+  "#ab9f8a",
+  "#4f4847",
+  "#5f4038",
+  "#634539",
+  "#6d4548",
+  "#776e67",
+  "#78726a",
+  "#797269",
+  "#846b63",
+  "#5d2c1b",
+  "#5b3e30",
+  "#845a4a",
+  "#936947",
+  "#43211a",
+  "#785850",
+  "#230f21",
+  "#37181b",
   "#7a3a1a",
-  "#783c1c",
-  "#745644",
-  "#825545",
-  "#87624c",
-  "#8e634b",
-  "#97674c",
-  "#706b65",
-  "#726d64"
+  "#7c4735"
  ],
  "kits": [
   {
@@ -1018,6 +1026,339 @@
    "source": "renderer"
   },
   {
+   "id": "ditch",
+   "kind": "ditch",
+   "material": "earth",
+   "burnable": false,
+   "depthM": 1.4,
+   "widthM": 1.7,
+   "frames": 16,
+   "columns": 16,
+   "frame": {
+    "w": 96,
+    "h": 100
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 6
+   },
+   "states": {
+    "foundation": "ditch-foundation.png",
+    "rising": "ditch-rising.png",
+    "scaffold": "ditch-scaffold.png",
+    "done": "ditch-done.png",
+    "damaged": "ditch-damaged.png"
+   },
+   "note": "frame = neighbour mask (+x 1, +y 2, -x 4, -y 8) of ditch tiles; a ground-level piece: draw it with the terrain (before anything standing on the tile). Engines cannot cross a done ditch; damaged = filled in (crossable)",
+   "source": "renderer (W-ART-C)"
+  },
+  {
+   "id": "hides-palisade",
+   "kind": "overlay",
+   "overlayOf": "palisade",
+   "material": "hide",
+   "burnable": false,
+   "frames": 16,
+   "columns": 16,
+   "frame": {
+    "w": 96,
+    "h": 254
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 206
+   },
+   "states": {
+    "done": "hides-palisade-done.png"
+   },
+   "note": "wet hides (Fortifier): drawn over the palisade done frame of the same mask; the wall ignites at half the chance",
+   "source": "renderer"
+  },
+  {
+   "id": "hides-rampart",
+   "kind": "overlay",
+   "overlayOf": "rampart",
+   "layered": true,
+   "material": "hide",
+   "burnable": false,
+   "frames": 81,
+   "columns": 16,
+   "frameOf": [
+    0,
+    16,
+    24,
+    32,
+    36,
+    44,
+    48,
+    52,
+    54,
+    62,
+    66,
+    70,
+    72,
+    76,
+    78,
+    80,
+    1,
+    16,
+    25,
+    32,
+    37,
+    44,
+    49,
+    52,
+    55,
+    62,
+    67,
+    70,
+    73,
+    76,
+    79,
+    80,
+    2,
+    17,
+    24,
+    32,
+    38,
+    45,
+    48,
+    52,
+    56,
+    63,
+    66,
+    70,
+    74,
+    77,
+    78,
+    80,
+    3,
+    17,
+    25,
+    32,
+    39,
+    45,
+    49,
+    52,
+    57,
+    63,
+    67,
+    70,
+    75,
+    77,
+    79,
+    80,
+    4,
+    18,
+    26,
+    33,
+    36,
+    44,
+    48,
+    52,
+    58,
+    64,
+    68,
+    71,
+    72,
+    76,
+    78,
+    80,
+    5,
+    18,
+    27,
+    33,
+    37,
+    44,
+    49,
+    52,
+    59,
+    64,
+    69,
+    71,
+    73,
+    76,
+    79,
+    80,
+    6,
+    19,
+    26,
+    33,
+    38,
+    45,
+    48,
+    52,
+    60,
+    65,
+    68,
+    71,
+    74,
+    77,
+    78,
+    80,
+    7,
+    19,
+    27,
+    33,
+    39,
+    45,
+    49,
+    52,
+    61,
+    65,
+    69,
+    71,
+    75,
+    77,
+    79,
+    80,
+    8,
+    20,
+    28,
+    34,
+    40,
+    46,
+    50,
+    53,
+    54,
+    62,
+    66,
+    70,
+    72,
+    76,
+    78,
+    80,
+    9,
+    20,
+    29,
+    34,
+    41,
+    46,
+    51,
+    53,
+    55,
+    62,
+    67,
+    70,
+    73,
+    76,
+    79,
+    80,
+    10,
+    21,
+    28,
+    34,
+    42,
+    47,
+    50,
+    53,
+    56,
+    63,
+    66,
+    70,
+    74,
+    77,
+    78,
+    80,
+    11,
+    21,
+    29,
+    34,
+    43,
+    47,
+    51,
+    53,
+    57,
+    63,
+    67,
+    70,
+    75,
+    77,
+    79,
+    80,
+    12,
+    22,
+    30,
+    35,
+    40,
+    46,
+    50,
+    53,
+    58,
+    64,
+    68,
+    71,
+    72,
+    76,
+    78,
+    80,
+    13,
+    22,
+    31,
+    35,
+    41,
+    46,
+    51,
+    53,
+    59,
+    64,
+    69,
+    71,
+    73,
+    76,
+    79,
+    80,
+    14,
+    23,
+    30,
+    35,
+    42,
+    47,
+    50,
+    53,
+    60,
+    65,
+    68,
+    71,
+    74,
+    77,
+    78,
+    80,
+    15,
+    23,
+    31,
+    35,
+    43,
+    47,
+    51,
+    53,
+    61,
+    65,
+    69,
+    71,
+    75,
+    77,
+    79,
+    80
+   ],
+   "frame": {
+    "w": 96,
+    "h": 226
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 166
+   },
+   "states": {
+    "done": "hides-rampart-done.png"
+   },
+   "front": {
+    "done": "hides-rampart-done-front.png"
+   },
+   "note": "wet hides over the rampart done frames (back over back, front over front, same frameOf)",
+   "source": "renderer"
+  },
+  {
    "id": "tower-stone",
    "kind": "tower",
    "layered": true,
@@ -1701,6 +2042,297 @@
    }
   },
   {
+   "id": "stone-gate-x-iron",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    1
+   ],
+   "axis": "x",
+   "inline": "iron-bound stone-gate-x (Fortifier: gate hp +50%)",
+   "heightM": 6,
+   "variantOf": "stone-gate-x",
+   "states": {
+    "foundation": "stone-gate-x-iron-foundation",
+    "rising": "stone-gate-x-iron-rising",
+    "scaffold": "stone-gate-x-iron-scaffold",
+    "done": "stone-gate-x-iron-done",
+    "damaged": "stone-gate-x-iron-damaged",
+    "open": "stone-gate-x-iron-open"
+   }
+  },
+  {
+   "id": "stone-gate-y-iron",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    1,
+    2
+   ],
+   "axis": "y",
+   "inline": "iron-bound stone-gate-y (Fortifier: gate hp +50%)",
+   "heightM": 6,
+   "variantOf": "stone-gate-y",
+   "states": {
+    "foundation": "stone-gate-y-iron-foundation",
+    "rising": "stone-gate-y-iron-rising",
+    "scaffold": "stone-gate-y-iron-scaffold",
+    "done": "stone-gate-y-iron-done",
+    "damaged": "stone-gate-y-iron-damaged",
+    "open": "stone-gate-y-iron-open"
+   }
+  },
+  {
+   "id": "wood-gate-x-iron",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    1
+   ],
+   "axis": "x",
+   "inline": "iron-bound wood-gate-x (Fortifier: gate hp +50%)",
+   "heightM": 4.9,
+   "variantOf": "wood-gate-x",
+   "states": {
+    "foundation": "wood-gate-x-iron-foundation",
+    "rising": "wood-gate-x-iron-rising",
+    "scaffold": "wood-gate-x-iron-scaffold",
+    "done": "wood-gate-x-iron-done",
+    "damaged": "wood-gate-x-iron-damaged",
+    "open": "wood-gate-x-iron-open"
+   }
+  },
+  {
+   "id": "wood-gate-y-iron",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    1,
+    2
+   ],
+   "axis": "y",
+   "inline": "iron-bound wood-gate-y (Fortifier: gate hp +50%)",
+   "heightM": 4.9,
+   "variantOf": "wood-gate-y",
+   "states": {
+    "foundation": "wood-gate-y-iron-foundation",
+    "rising": "wood-gate-y-iron-rising",
+    "scaffold": "wood-gate-y-iron-scaffold",
+    "done": "wood-gate-y-iron-done",
+    "damaged": "wood-gate-y-iron-damaged",
+    "open": "wood-gate-y-iron-open"
+   }
+  },
+  {
+   "id": "stone-gate-x-deep-s-iron",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "x",
+   "deep": "s",
+   "inline": "iron-bound stone-gate-x-deep-s",
+   "heightM": 6,
+   "variantOf": "stone-gate-x-deep-s",
+   "states": {
+    "foundation": "stone-gate-x-deep-s-iron-foundation",
+    "rising": "stone-gate-x-deep-s-iron-rising",
+    "scaffold": "stone-gate-x-deep-s-iron-scaffold",
+    "done": "stone-gate-x-deep-s-iron-done",
+    "damaged": "stone-gate-x-deep-s-iron-damaged",
+    "open": "stone-gate-x-deep-s-iron-open"
+   }
+  },
+  {
+   "id": "stone-gate-x-deep-n-iron",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "x",
+   "deep": "n",
+   "inline": "iron-bound stone-gate-x-deep-n",
+   "heightM": 6,
+   "variantOf": "stone-gate-x-deep-n",
+   "states": {
+    "foundation": "stone-gate-x-deep-n-iron-foundation",
+    "rising": "stone-gate-x-deep-n-iron-rising",
+    "scaffold": "stone-gate-x-deep-n-iron-scaffold",
+    "done": "stone-gate-x-deep-n-iron-done",
+    "damaged": "stone-gate-x-deep-n-iron-damaged",
+    "open": "stone-gate-x-deep-n-iron-open"
+   }
+  },
+  {
+   "id": "stone-gate-y-deep-e-iron",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "y",
+   "deep": "e",
+   "inline": "iron-bound stone-gate-y-deep-e",
+   "heightM": 6,
+   "variantOf": "stone-gate-y-deep-e",
+   "states": {
+    "foundation": "stone-gate-y-deep-e-iron-foundation",
+    "rising": "stone-gate-y-deep-e-iron-rising",
+    "scaffold": "stone-gate-y-deep-e-iron-scaffold",
+    "done": "stone-gate-y-deep-e-iron-done",
+    "damaged": "stone-gate-y-deep-e-iron-damaged",
+    "open": "stone-gate-y-deep-e-iron-open"
+   }
+  },
+  {
+   "id": "stone-gate-y-deep-w-iron",
+   "kind": "gate",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "y",
+   "deep": "w",
+   "inline": "iron-bound stone-gate-y-deep-w",
+   "heightM": 6,
+   "variantOf": "stone-gate-y-deep-w",
+   "states": {
+    "foundation": "stone-gate-y-deep-w-iron-foundation",
+    "rising": "stone-gate-y-deep-w-iron-rising",
+    "scaffold": "stone-gate-y-deep-w-iron-scaffold",
+    "done": "stone-gate-y-deep-w-iron-done",
+    "damaged": "stone-gate-y-deep-w-iron-damaged",
+    "open": "stone-gate-y-deep-w-iron-open"
+   }
+  },
+  {
+   "id": "wood-gate-x-deep-s-iron",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "x",
+   "deep": "s",
+   "inline": "iron-bound wood-gate-x-deep-s",
+   "heightM": 4.9,
+   "variantOf": "wood-gate-x-deep-s",
+   "states": {
+    "foundation": "wood-gate-x-deep-s-iron-foundation",
+    "rising": "wood-gate-x-deep-s-iron-rising",
+    "scaffold": "wood-gate-x-deep-s-iron-scaffold",
+    "done": "wood-gate-x-deep-s-iron-done",
+    "damaged": "wood-gate-x-deep-s-iron-damaged",
+    "open": "wood-gate-x-deep-s-iron-open"
+   }
+  },
+  {
+   "id": "wood-gate-x-deep-n-iron",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "x",
+   "deep": "n",
+   "inline": "iron-bound wood-gate-x-deep-n",
+   "heightM": 4.9,
+   "variantOf": "wood-gate-x-deep-n",
+   "states": {
+    "foundation": "wood-gate-x-deep-n-iron-foundation",
+    "rising": "wood-gate-x-deep-n-iron-rising",
+    "scaffold": "wood-gate-x-deep-n-iron-scaffold",
+    "done": "wood-gate-x-deep-n-iron-done",
+    "damaged": "wood-gate-x-deep-n-iron-damaged",
+    "open": "wood-gate-x-deep-n-iron-open"
+   }
+  },
+  {
+   "id": "wood-gate-y-deep-e-iron",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "y",
+   "deep": "e",
+   "inline": "iron-bound wood-gate-y-deep-e",
+   "heightM": 4.9,
+   "variantOf": "wood-gate-y-deep-e",
+   "states": {
+    "foundation": "wood-gate-y-deep-e-iron-foundation",
+    "rising": "wood-gate-y-deep-e-iron-rising",
+    "scaffold": "wood-gate-y-deep-e-iron-scaffold",
+    "done": "wood-gate-y-deep-e-iron-done",
+    "damaged": "wood-gate-y-deep-e-iron-damaged",
+    "open": "wood-gate-y-deep-e-iron-open"
+   }
+  },
+  {
+   "id": "wood-gate-y-deep-w-iron",
+   "kind": "gate",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "axis": "y",
+   "deep": "w",
+   "inline": "iron-bound wood-gate-y-deep-w",
+   "heightM": 4.9,
+   "variantOf": "wood-gate-y-deep-w",
+   "states": {
+    "foundation": "wood-gate-y-deep-w-iron-foundation",
+    "rising": "wood-gate-y-deep-w-iron-rising",
+    "scaffold": "wood-gate-y-deep-w-iron-scaffold",
+    "done": "wood-gate-y-deep-w-iron-done",
+    "damaged": "wood-gate-y-deep-w-iron-damaged",
+    "open": "wood-gate-y-deep-w-iron-open"
+   }
+  },
+  {
+   "id": "stakes",
+   "kind": "stakes",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    1,
+    1
+   ],
+   "inline": "stake field (Fortifier): men -50% speed, blocks engines; damaged = broken and burnt",
+   "heightM": 1.3,
+   "states": {
+    "foundation": "stakes-foundation",
+    "rising": "stakes-rising",
+    "scaffold": "stakes-scaffold",
+    "done": "stakes-done",
+    "damaged": "stakes-damaged"
+   }
+  },
+  {
    "id": "pitch-kiln",
    "kind": "kiln",
    "material": "stone",
@@ -1856,6 +2488,534 @@
     "scaffold": "olive-press-scaffold",
     "damaged": "olive-press-damaged",
     "rising": "olive-press-rising"
+   }
+  },
+  {
+   "id": "forge",
+   "kind": "forge",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    3
+   ],
+   "chain": "forge",
+   "level": 1,
+   "upgrade": "forge2",
+   "fx": {
+    "working": [
+     {
+      "id": "heat-glow",
+      "at": {
+       "x": 66,
+       "y": 101
+      }
+     },
+     {
+      "id": "tongue-m-a",
+      "at": {
+       "x": 66,
+       "y": 103
+      }
+     },
+     {
+      "id": "embers",
+      "at": {
+       "x": 66,
+       "y": 87
+      }
+     },
+     {
+      "id": "smoke-wisp-b",
+      "at": {
+       "x": 66,
+       "y": 95
+      },
+      "alpha": 0.4
+     }
+    ]
+   },
+   "states": {
+    "foundation": "forge-foundation",
+    "done": "forge-done",
+    "scaffold": "forge-scaffold",
+    "damaged": "forge-damaged",
+    "rising": "forge-rising"
+   }
+  },
+  {
+   "id": "forge2",
+   "kind": "forge",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    3
+   ],
+   "chain": "forge",
+   "level": 2,
+   "upgrade": "forge3",
+   "fx": {
+    "working": [
+     {
+      "id": "heat-glow",
+      "at": {
+       "x": 124,
+       "y": 94
+      }
+     },
+     {
+      "id": "tongue-m-a",
+      "at": {
+       "x": 124,
+       "y": 96
+      }
+     },
+     {
+      "id": "embers",
+      "at": {
+       "x": 124,
+       "y": 80
+      }
+     },
+     {
+      "id": "smoke-wisp-b",
+      "at": {
+       "x": 141,
+       "y": 0
+      },
+      "alpha": 0.55
+     }
+    ]
+   },
+   "states": {
+    "foundation": "forge2-foundation",
+    "done": "forge2-done",
+    "scaffold": "forge2-scaffold",
+    "damaged": "forge2-damaged",
+    "rising": "forge2-rising"
+   }
+  },
+  {
+   "id": "forge3",
+   "kind": "forge",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    3
+   ],
+   "chain": "forge",
+   "level": 3,
+   "fx": {
+    "working": [
+     {
+      "id": "heat-glow",
+      "at": {
+       "x": 79,
+       "y": 131
+      }
+     },
+     {
+      "id": "tongue-m-a",
+      "at": {
+       "x": 79,
+       "y": 133
+      }
+     },
+     {
+      "id": "embers",
+      "at": {
+       "x": 79,
+       "y": 117
+      }
+     },
+     {
+      "id": "smoke-wisp-b",
+      "at": {
+       "x": 57,
+       "y": 0
+      },
+      "alpha": 0.55
+     }
+    ]
+   },
+   "states": {
+    "foundation": "forge3-foundation",
+    "done": "forge3-done",
+    "scaffold": "forge3-scaffold",
+    "damaged": "forge3-damaged",
+    "rising": "forge3-rising"
+   }
+  },
+  {
+   "id": "cookhouse",
+   "kind": "cookhouse",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    3,
+    2
+   ],
+   "chain": "cookhouse",
+   "level": 1,
+   "upgrade": "cookhouse2",
+   "fx": {
+    "working": [
+     {
+      "id": "heat-glow",
+      "at": {
+       "x": 76,
+       "y": 75
+      }
+     },
+     {
+      "id": "tongue-s-a",
+      "at": {
+       "x": 76,
+       "y": 77
+      }
+     },
+     {
+      "id": "smoke-wisp-b",
+      "at": {
+       "x": 76,
+       "y": 69
+      },
+      "alpha": 0.4
+     }
+    ]
+   },
+   "states": {
+    "foundation": "cookhouse-foundation",
+    "done": "cookhouse-done",
+    "scaffold": "cookhouse-scaffold",
+    "damaged": "cookhouse-damaged",
+    "rising": "cookhouse-rising"
+   }
+  },
+  {
+   "id": "cookhouse2",
+   "kind": "cookhouse",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    2
+   ],
+   "chain": "cookhouse",
+   "level": 2,
+   "upgrade": "cookhouse3",
+   "fx": {
+    "working": [
+     {
+      "id": "smoke-wisp-a",
+      "at": {
+       "x": 83,
+       "y": 0
+      },
+      "alpha": 0.45
+     }
+    ]
+   },
+   "states": {
+    "foundation": "cookhouse2-foundation",
+    "done": "cookhouse2-done",
+    "scaffold": "cookhouse2-scaffold",
+    "damaged": "cookhouse2-damaged",
+    "rising": "cookhouse2-rising"
+   }
+  },
+  {
+   "id": "cookhouse3",
+   "kind": "cookhouse",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    2
+   ],
+   "chain": "cookhouse",
+   "level": 3,
+   "fx": {
+    "working": [
+     {
+      "id": "smoke-wisp-a",
+      "at": {
+       "x": 77,
+       "y": 0
+      },
+      "alpha": 0.45
+     }
+    ]
+   },
+   "states": {
+    "foundation": "cookhouse3-foundation",
+    "done": "cookhouse3-done",
+    "scaffold": "cookhouse3-scaffold",
+    "damaged": "cookhouse3-damaged",
+    "rising": "cookhouse3-rising"
+   }
+  },
+  {
+   "id": "infirmary",
+   "kind": "infirmary",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    3,
+    3
+   ],
+   "chain": "infirmary",
+   "level": 1,
+   "upgrade": "infirmary2",
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "infirmary-foundation",
+    "done": "infirmary-done",
+    "scaffold": "infirmary-scaffold",
+    "damaged": "infirmary-damaged",
+    "rising": "infirmary-rising"
+   }
+  },
+  {
+   "id": "infirmary2",
+   "kind": "infirmary",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    3
+   ],
+   "chain": "infirmary",
+   "level": 2,
+   "upgrade": "infirmary3",
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "infirmary2-foundation",
+    "done": "infirmary2-done",
+    "scaffold": "infirmary2-scaffold",
+    "damaged": "infirmary2-damaged",
+    "rising": "infirmary2-rising"
+   }
+  },
+  {
+   "id": "infirmary3",
+   "kind": "infirmary",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    3
+   ],
+   "chain": "infirmary",
+   "level": 3,
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "infirmary3-foundation",
+    "done": "infirmary3-done",
+    "scaffold": "infirmary3-scaffold",
+    "damaged": "infirmary3-damaged",
+    "rising": "infirmary3-rising"
+   }
+  },
+  {
+   "id": "workshop",
+   "kind": "workshop",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    4,
+    3
+   ],
+   "chain": "workshop",
+   "level": 1,
+   "upgrade": "workshop2",
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "workshop-foundation",
+    "done": "workshop-done",
+    "scaffold": "workshop-scaffold",
+    "damaged": "workshop-damaged",
+    "rising": "workshop-rising"
+   }
+  },
+  {
+   "id": "workshop2",
+   "kind": "workshop",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    4,
+    3
+   ],
+   "chain": "workshop",
+   "level": 2,
+   "upgrade": "workshop3",
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "workshop2-foundation",
+    "done": "workshop2-done",
+    "scaffold": "workshop2-scaffold",
+    "damaged": "workshop2-damaged",
+    "rising": "workshop2-rising"
+   }
+  },
+  {
+   "id": "workshop3",
+   "kind": "workshop",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    4,
+    3
+   ],
+   "chain": "workshop",
+   "level": 3,
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "workshop3-foundation",
+    "done": "workshop3-done",
+    "scaffold": "workshop3-scaffold",
+    "damaged": "workshop3-damaged",
+    "rising": "workshop3-rising"
+   }
+  },
+  {
+   "id": "market-stall",
+   "kind": "stall",
+   "material": "wood",
+   "burnable": true,
+   "footprint": [
+    2,
+    2
+   ],
+   "chain": "market-stall",
+   "level": 1,
+   "upgrade": "market-stall2",
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "market-stall-foundation",
+    "done": "market-stall-done",
+    "scaffold": "market-stall-scaffold",
+    "damaged": "market-stall-damaged",
+    "rising": "market-stall-rising"
+   }
+  },
+  {
+   "id": "market-stall2",
+   "kind": "stall",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "chain": "market-stall",
+   "level": 2,
+   "upgrade": "market-stall3",
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "market-stall2-foundation",
+    "done": "market-stall2-done",
+    "scaffold": "market-stall2-scaffold",
+    "damaged": "market-stall2-damaged",
+    "rising": "market-stall2-rising"
+   }
+  },
+  {
+   "id": "market-stall3",
+   "kind": "stall",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    2,
+    2
+   ],
+   "chain": "market-stall",
+   "level": 3,
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "market-stall3-foundation",
+    "done": "market-stall3-done",
+    "scaffold": "market-stall3-scaffold",
+    "damaged": "market-stall3-damaged",
+    "rising": "market-stall3-rising"
+   }
+  },
+  {
+   "id": "sorting-floor",
+   "kind": "sorting-floor",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    3
+   ],
+   "chain": "sorting-floor",
+   "level": 1,
+   "upgrade": "sorting-floor2",
+   "upgradeOf": "storehouse",
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "sorting-floor-foundation",
+    "done": "sorting-floor-done",
+    "scaffold": "sorting-floor-scaffold",
+    "damaged": "sorting-floor-damaged",
+    "rising": "sorting-floor-rising"
+   }
+  },
+  {
+   "id": "sorting-floor2",
+   "kind": "sorting-floor",
+   "material": "stone",
+   "burnable": false,
+   "footprint": [
+    3,
+    3
+   ],
+   "chain": "sorting-floor",
+   "level": 2,
+   "fx": {
+    "working": [],
+    "workingNote": "no fx: the crafters' work clips are the activity"
+   },
+   "states": {
+    "foundation": "sorting-floor2-foundation",
+    "done": "sorting-floor2-done",
+    "scaffold": "sorting-floor2-scaffold",
+    "damaged": "sorting-floor2-damaged",
+    "rising": "sorting-floor2-rising"
    }
   },
   {
@@ -4309,6 +5469,2085 @@
    "source": "renderer + palisade elevation, composed 2 deep"
   },
   {
+   "id": "stone-gate-x-iron-foundation",
+   "kind": "gate",
+   "file": "stone-gate-x-iron-foundation.png",
+   "w": 98,
+   "h": 66,
+   "metres": 0.55,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 65
+   },
+   "tileOrigin": {
+    "x": 33,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-x-iron",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-x-iron-rising",
+   "kind": "gate",
+   "file": "stone-gate-x-iron-rising.png",
+   "w": 99,
+   "h": 91,
+   "metres": 1.3,
+   "basePx": 48,
+   "anchor": {
+    "x": 56,
+    "y": 90
+   },
+   "tileOrigin": {
+    "x": 36,
+    "y": 43
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-iron",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-x-iron-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-x-iron-scaffold.png",
+   "w": 105,
+   "h": 164,
+   "metres": 3.52,
+   "basePx": 48,
+   "anchor": {
+    "x": 71,
+    "y": 163
+   },
+   "tileOrigin": {
+    "x": 42,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-iron",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-x-iron-done",
+   "kind": "gate",
+   "file": "stone-gate-x-iron-done.png",
+   "w": 94,
+   "h": 243,
+   "metres": 5.91,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 242
+   },
+   "tileOrigin": {
+    "x": 31,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-iron",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-x-iron-damaged",
+   "kind": "gate",
+   "file": "stone-gate-x-iron-damaged.png",
+   "w": 119,
+   "h": 164,
+   "metres": 3.52,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 163
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 110
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-iron",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-x-iron-open",
+   "kind": "gate",
+   "file": "stone-gate-x-iron-open.png",
+   "w": 94,
+   "h": 243,
+   "metres": 5.91,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 242
+   },
+   "tileOrigin": {
+    "x": 31,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-iron",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-y-iron-foundation",
+   "kind": "gate",
+   "file": "stone-gate-y-iron-foundation.png",
+   "w": 98,
+   "h": 66,
+   "metres": 0.55,
+   "basePx": 48,
+   "anchor": {
+    "x": 33,
+    "y": 65
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-y-iron",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-y-iron-rising",
+   "kind": "gate",
+   "file": "stone-gate-y-iron-rising.png",
+   "w": 99,
+   "h": 91,
+   "metres": 1.3,
+   "basePx": 48,
+   "anchor": {
+    "x": 42,
+    "y": 90
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 43
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-iron",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-y-iron-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-y-iron-scaffold.png",
+   "w": 105,
+   "h": 164,
+   "metres": 3.52,
+   "basePx": 48,
+   "anchor": {
+    "x": 34,
+    "y": 163
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 116
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-iron",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-y-iron-done",
+   "kind": "gate",
+   "file": "stone-gate-y-iron-done.png",
+   "w": 94,
+   "h": 243,
+   "metres": 5.91,
+   "basePx": 48,
+   "anchor": {
+    "x": 30,
+    "y": 242
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-iron",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-y-iron-damaged",
+   "kind": "gate",
+   "file": "stone-gate-y-iron-damaged.png",
+   "w": 119,
+   "h": 164,
+   "metres": 3.52,
+   "basePx": 48,
+   "anchor": {
+    "x": 55,
+    "y": 163
+   },
+   "tileOrigin": {
+    "x": 75,
+    "y": 110
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-iron",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-y-iron-open",
+   "kind": "gate",
+   "file": "stone-gate-y-iron-open.png",
+   "w": 94,
+   "h": 243,
+   "metres": 5.91,
+   "basePx": 48,
+   "anchor": {
+    "x": 30,
+    "y": 242
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-iron",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-x-iron-foundation",
+   "kind": "gate",
+   "file": "wood-gate-x-iron-foundation.png",
+   "w": 74,
+   "h": 55,
+   "metres": 0.21,
+   "basePx": 48,
+   "anchor": {
+    "x": 64,
+    "y": 54
+   },
+   "tileOrigin": {
+    "x": 21,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-x-iron",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-x-iron-rising",
+   "kind": "gate",
+   "file": "wood-gate-x-iron-rising.png",
+   "w": 74,
+   "h": 86,
+   "metres": 1.15,
+   "basePx": 48,
+   "anchor": {
+    "x": 59,
+    "y": 85
+   },
+   "tileOrigin": {
+    "x": 21,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-iron",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-x-iron-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-x-iron-scaffold.png",
+   "w": 85,
+   "h": 182,
+   "metres": 4.06,
+   "basePx": 48,
+   "anchor": {
+    "x": 66,
+    "y": 181
+   },
+   "tileOrigin": {
+    "x": 31,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-iron",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-x-iron-done",
+   "kind": "gate",
+   "file": "wood-gate-x-iron-done.png",
+   "w": 86,
+   "h": 194,
+   "metres": 4.42,
+   "basePx": 48,
+   "anchor": {
+    "x": 69,
+    "y": 193
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-iron",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-x-iron-damaged",
+   "kind": "gate",
+   "file": "wood-gate-x-iron-damaged.png",
+   "w": 76,
+   "h": 183,
+   "metres": 4.09,
+   "basePx": 48,
+   "anchor": {
+    "x": 58,
+    "y": 182
+   },
+   "tileOrigin": {
+    "x": 23,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-iron",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-x-iron-open",
+   "kind": "gate",
+   "file": "wood-gate-x-iron-open.png",
+   "w": 86,
+   "h": 194,
+   "metres": 4.42,
+   "basePx": 48,
+   "anchor": {
+    "x": 69,
+    "y": 193
+   },
+   "tileOrigin": {
+    "x": 27,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-iron",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-y-iron-foundation",
+   "kind": "gate",
+   "file": "wood-gate-y-iron-foundation.png",
+   "w": 74,
+   "h": 55,
+   "metres": 0.21,
+   "basePx": 48,
+   "anchor": {
+    "x": 9,
+    "y": 54
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-y-iron",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-y-iron-rising",
+   "kind": "gate",
+   "file": "wood-gate-y-iron-rising.png",
+   "w": 74,
+   "h": 86,
+   "metres": 1.15,
+   "basePx": 48,
+   "anchor": {
+    "x": 14,
+    "y": 85
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-iron",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-y-iron-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-y-iron-scaffold.png",
+   "w": 85,
+   "h": 182,
+   "metres": 4.06,
+   "basePx": 48,
+   "anchor": {
+    "x": 18,
+    "y": 181
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 139
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-iron",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-y-iron-done",
+   "kind": "gate",
+   "file": "wood-gate-y-iron-done.png",
+   "w": 86,
+   "h": 195,
+   "metres": 4.45,
+   "basePx": 48,
+   "anchor": {
+    "x": 16,
+    "y": 194
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-iron",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-y-iron-damaged",
+   "kind": "gate",
+   "file": "wood-gate-y-iron-damaged.png",
+   "w": 76,
+   "h": 183,
+   "metres": 4.09,
+   "basePx": 48,
+   "anchor": {
+    "x": 17,
+    "y": 182
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 139
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-iron",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "wood-gate-y-iron-open",
+   "kind": "gate",
+   "file": "wood-gate-y-iron-open.png",
+   "w": 86,
+   "h": 195,
+   "metres": 4.45,
+   "basePx": 48,
+   "anchor": {
+    "x": 16,
+    "y": 194
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    1,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-iron",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves)"
+  },
+  {
+   "id": "stone-gate-x-deep-s-iron-foundation",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-iron-foundation.png",
+   "w": 130,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-x-deep-s-iron",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-iron-rising",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-iron-rising.png",
+   "w": 131,
+   "h": 107,
+   "metres": 1.3,
+   "basePx": 64,
+   "anchor": {
+    "x": 56,
+    "y": 106
+   },
+   "tileOrigin": {
+    "x": 68,
+    "y": 43
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s-iron",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-iron-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-iron-scaffold.png",
+   "w": 137,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 71,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 74,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s-iron",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-iron-done",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-iron-done.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s-iron",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-iron-damaged",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-iron-damaged.png",
+   "w": 151,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 76,
+    "y": 110
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s-iron",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-s-iron-open",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-s-iron-open.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-s-iron",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-iron-foundation",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-iron-foundation.png",
+   "w": 130,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-x-deep-n-iron",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-iron-rising",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-iron-rising.png",
+   "w": 131,
+   "h": 108,
+   "metres": 1.33,
+   "basePx": 64,
+   "anchor": {
+    "x": 56,
+    "y": 107
+   },
+   "tileOrigin": {
+    "x": 68,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n-iron",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-iron-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-iron-scaffold.png",
+   "w": 137,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 71,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 74,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n-iron",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-iron-done",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-iron-done.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n-iron",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-iron-damaged",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-iron-damaged.png",
+   "w": 154,
+   "h": 185,
+   "metres": 3.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 184
+   },
+   "tileOrigin": {
+    "x": 76,
+    "y": 115
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n-iron",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-x-deep-n-iron-open",
+   "kind": "gate",
+   "file": "stone-gate-x-deep-n-iron-open.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-x-deep-n-iron",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-iron-foundation",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-iron-foundation.png",
+   "w": 130,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 65,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-y-deep-e-iron",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-iron-rising",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-iron-rising.png",
+   "w": 131,
+   "h": 107,
+   "metres": 1.3,
+   "basePx": 64,
+   "anchor": {
+    "x": 74,
+    "y": 106
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 43
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e-iron",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-iron-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-iron-scaffold.png",
+   "w": 137,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e-iron",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-iron-done",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-iron-done.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 62,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e-iron",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-iron-damaged",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-iron-damaged.png",
+   "w": 151,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 87,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 75,
+    "y": 110
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e-iron",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-e-iron-open",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-e-iron-open.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 62,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-e-iron",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-iron-foundation",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-iron-foundation.png",
+   "w": 130,
+   "h": 82,
+   "metres": 0.55,
+   "basePx": 64,
+   "anchor": {
+    "x": 65,
+    "y": 81
+   },
+   "tileOrigin": {
+    "x": 65,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "stone-gate-y-deep-w-iron",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-iron-rising",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-iron-rising.png",
+   "w": 131,
+   "h": 108,
+   "metres": 1.33,
+   "basePx": 64,
+   "anchor": {
+    "x": 74,
+    "y": 107
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w-iron",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-iron-scaffold",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-iron-scaffold.png",
+   "w": 137,
+   "h": 180,
+   "metres": 3.52,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 179
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 116
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w-iron",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-iron-done",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-iron-done.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 62,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w-iron",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-iron-damaged",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-iron-damaged.png",
+   "w": 154,
+   "h": 185,
+   "metres": 3.67,
+   "basePx": 64,
+   "anchor": {
+    "x": 90,
+    "y": 184
+   },
+   "tileOrigin": {
+    "x": 78,
+    "y": 115
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w-iron",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stone-gate-y-deep-w-iron-open",
+   "kind": "gate",
+   "file": "stone-gate-y-deep-w-iron-open.png",
+   "w": 126,
+   "h": 259,
+   "metres": 5.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 62,
+    "y": 258
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 196
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "stone-gate-y-deep-w-iron",
+   "state": "open",
+   "material": "stone",
+   "burnable": false,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-iron-foundation",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-iron-foundation.png",
+   "w": 106,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-x-deep-s-iron",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-iron-rising",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-iron-rising.png",
+   "w": 106,
+   "h": 102,
+   "metres": 1.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s-iron",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-iron-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-iron-scaffold.png",
+   "w": 117,
+   "h": 198,
+   "metres": 4.06,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 197
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s-iron",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-iron-done",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-iron-done.png",
+   "w": 118,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s-iron",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-iron-damaged",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-iron-damaged.png",
+   "w": 108,
+   "h": 199,
+   "metres": 4.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 58,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s-iron",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-s-iron-open",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-s-iron-open.png",
+   "w": 118,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-s-iron",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-iron-foundation",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-iron-foundation.png",
+   "w": 106,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-x-deep-n-iron",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-iron-rising",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-iron-rising.png",
+   "w": 106,
+   "h": 102,
+   "metres": 1.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n-iron",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-iron-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-iron-scaffold.png",
+   "w": 117,
+   "h": 198,
+   "metres": 4.06,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 197
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n-iron",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-iron-done",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-iron-done.png",
+   "w": 118,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 69,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n-iron",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-iron-damaged",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-iron-damaged.png",
+   "w": 108,
+   "h": 199,
+   "metres": 4.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 58,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 55,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n-iron",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-x-deep-n-iron-open",
+   "kind": "gate",
+   "file": "wood-gate-x-deep-n-iron-open.png",
+   "w": 118,
+   "h": 210,
+   "metres": 4.42,
+   "basePx": 64,
+   "anchor": {
+    "x": 69,
+    "y": 209
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 152
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-x-deep-n-iron",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-iron-foundation",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-iron-foundation.png",
+   "w": 106,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 41,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-y-deep-e-iron",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-iron-rising",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-iron-rising.png",
+   "w": 106,
+   "h": 102,
+   "metres": 1.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 46,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e-iron",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-iron-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-iron-scaffold.png",
+   "w": 117,
+   "h": 198,
+   "metres": 4.06,
+   "basePx": 64,
+   "anchor": {
+    "x": 50,
+    "y": 197
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e-iron",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-iron-done",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-iron-done.png",
+   "w": 118,
+   "h": 211,
+   "metres": 4.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 47,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e-iron",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-iron-damaged",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-iron-damaged.png",
+   "w": 108,
+   "h": 199,
+   "metres": 4.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 49,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e-iron",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-e-iron-open",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-e-iron-open.png",
+   "w": 118,
+   "h": 211,
+   "metres": 4.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 47,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-e-iron",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-iron-foundation",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-iron-foundation.png",
+   "w": 106,
+   "h": 71,
+   "metres": 0.21,
+   "basePx": 64,
+   "anchor": {
+    "x": 41,
+    "y": 70
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 13
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "wood-gate-y-deep-w-iron",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-iron-rising",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-iron-rising.png",
+   "w": 106,
+   "h": 102,
+   "metres": 1.15,
+   "basePx": 64,
+   "anchor": {
+    "x": 46,
+    "y": 101
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 44
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w-iron",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-iron-scaffold",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-iron-scaffold.png",
+   "w": 117,
+   "h": 198,
+   "metres": 4.06,
+   "basePx": 64,
+   "anchor": {
+    "x": 50,
+    "y": 197
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w-iron",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-iron-done",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-iron-done.png",
+   "w": 118,
+   "h": 211,
+   "metres": 4.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 48,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w-iron",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-iron-damaged",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-iron-damaged.png",
+   "w": 108,
+   "h": 199,
+   "metres": 4.09,
+   "basePx": 64,
+   "anchor": {
+    "x": 49,
+    "y": 198
+   },
+   "tileOrigin": {
+    "x": 53,
+    "y": 139
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w-iron",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "wood-gate-y-deep-w-iron-open",
+   "kind": "gate",
+   "file": "wood-gate-y-deep-w-iron-open.png",
+   "w": 118,
+   "h": 211,
+   "metres": 4.45,
+   "basePx": 64,
+   "anchor": {
+    "x": 48,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 59,
+    "y": 153
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "wood-gate-y-deep-w-iron",
+   "state": "open",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (iron-bound leaves), composed 2 deep"
+  },
+  {
+   "id": "stakes-foundation",
+   "kind": "stakes",
+   "file": "stakes-foundation.png",
+   "w": 41,
+   "h": 24,
+   "metres": 0.12,
+   "basePx": 20,
+   "anchor": {
+    "x": 21,
+    "y": 23
+   },
+   "tileOrigin": {
+    "x": 20,
+    "y": 0
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "building": "stakes",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (W-ART-C)"
+  },
+  {
+   "id": "stakes-rising",
+   "kind": "stakes",
+   "file": "stakes-rising.png",
+   "w": 37,
+   "h": 45,
+   "metres": 0.39,
+   "basePx": 32,
+   "anchor": {
+    "x": 31,
+    "y": 44
+   },
+   "tileOrigin": {
+    "x": 9,
+    "y": 27
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stakes",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (W-ART-C)"
+  },
+  {
+   "id": "stakes-scaffold",
+   "kind": "stakes",
+   "file": "stakes-scaffold.png",
+   "w": 42,
+   "h": 53,
+   "metres": 0.64,
+   "basePx": 32,
+   "anchor": {
+    "x": 23,
+    "y": 52
+   },
+   "tileOrigin": {
+    "x": 14,
+    "y": 32
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stakes",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (W-ART-C)"
+  },
+  {
+   "id": "stakes-done",
+   "kind": "stakes",
+   "file": "stakes-done.png",
+   "w": 54,
+   "h": 60,
+   "metres": 0.85,
+   "basePx": 32,
+   "anchor": {
+    "x": 27,
+    "y": 59
+   },
+   "tileOrigin": {
+    "x": 26,
+    "y": 32
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stakes",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (W-ART-C)"
+  },
+  {
+   "id": "stakes-damaged",
+   "kind": "stakes",
+   "file": "stakes-damaged.png",
+   "w": 54,
+   "h": 60,
+   "metres": 0.85,
+   "basePx": 32,
+   "anchor": {
+    "x": 27,
+    "y": 59
+   },
+   "tileOrigin": {
+    "x": 26,
+    "y": 32
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": true,
+   "building": "stakes",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "renderer (W-ART-C)"
+  },
+  {
    "id": "pitch-kiln-foundation",
    "kind": "kiln",
    "file": "pitch-kiln-foundation.png",
@@ -5387,6 +8626,2301 @@
    "material": "stone",
    "burnable": false,
    "source": "map_object 23e61811"
+  },
+  {
+   "id": "forge-foundation",
+   "kind": "forge",
+   "file": "forge-foundation.png",
+   "w": 196,
+   "h": 116,
+   "metres": 0.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 98,
+    "y": 115
+   },
+   "tileOrigin": {
+    "x": 98,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "forge",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e3777fbd"
+  },
+  {
+   "id": "forge-done",
+   "kind": "forge",
+   "file": "forge-done.png",
+   "w": 192,
+   "h": 192,
+   "metres": 2.91,
+   "basePx": 96,
+   "anchor": {
+    "x": 98,
+    "y": 191
+   },
+   "tileOrigin": {
+    "x": 98,
+    "y": 96
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e3777fbd"
+  },
+  {
+   "id": "forge-scaffold",
+   "kind": "forge",
+   "file": "forge-scaffold.png",
+   "w": 189,
+   "h": 129,
+   "metres": 1,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 128
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 33
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e3777fbd"
+  },
+  {
+   "id": "forge-damaged",
+   "kind": "forge",
+   "file": "forge-damaged.png",
+   "w": 190,
+   "h": 192,
+   "metres": 2.91,
+   "basePx": 96,
+   "anchor": {
+    "x": 98,
+    "y": 191
+   },
+   "tileOrigin": {
+    "x": 98,
+    "y": 96
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e3777fbd"
+  },
+  {
+   "id": "forge-rising",
+   "kind": "forge",
+   "file": "forge-rising.png",
+   "w": 185,
+   "h": 78,
+   "metres": 0.12,
+   "basePx": 74,
+   "anchor": {
+    "x": 91,
+    "y": 77
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": -18
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e3777fbd"
+  },
+  {
+   "id": "forge2-foundation",
+   "kind": "forge",
+   "file": "forge2-foundation.png",
+   "w": 196,
+   "h": 115,
+   "metres": 0.58,
+   "basePx": 96,
+   "anchor": {
+    "x": 98,
+    "y": 114
+   },
+   "tileOrigin": {
+    "x": 98,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "forge2",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 131af9a3"
+  },
+  {
+   "id": "forge2-done",
+   "kind": "forge",
+   "file": "forge2-done.png",
+   "w": 192,
+   "h": 185,
+   "metres": 2.7,
+   "basePx": 96,
+   "anchor": {
+    "x": 93,
+    "y": 184
+   },
+   "tileOrigin": {
+    "x": 93,
+    "y": 89
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge2",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 131af9a3"
+  },
+  {
+   "id": "forge2-scaffold",
+   "kind": "forge",
+   "file": "forge2-scaffold.png",
+   "w": 183,
+   "h": 119,
+   "metres": 0.7,
+   "basePx": 96,
+   "anchor": {
+    "x": 92,
+    "y": 118
+   },
+   "tileOrigin": {
+    "x": 92,
+    "y": 23
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge2",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 131af9a3"
+  },
+  {
+   "id": "forge2-damaged",
+   "kind": "forge",
+   "file": "forge2-damaged.png",
+   "w": 178,
+   "h": 179,
+   "metres": 2.52,
+   "basePx": 96,
+   "anchor": {
+    "x": 80,
+    "y": 178
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 83
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge2",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 131af9a3"
+  },
+  {
+   "id": "forge2-rising",
+   "kind": "forge",
+   "file": "forge2-rising.png",
+   "w": 178,
+   "h": 78,
+   "metres": 0.12,
+   "basePx": 74,
+   "anchor": {
+    "x": 89,
+    "y": 77
+   },
+   "tileOrigin": {
+    "x": 89,
+    "y": -18
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge2",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 131af9a3"
+  },
+  {
+   "id": "forge3-foundation",
+   "kind": "forge",
+   "file": "forge3-foundation.png",
+   "w": 196,
+   "h": 115,
+   "metres": 0.58,
+   "basePx": 96,
+   "anchor": {
+    "x": 98,
+    "y": 114
+   },
+   "tileOrigin": {
+    "x": 98,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "forge3",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object bab7d0b8"
+  },
+  {
+   "id": "forge3-done",
+   "kind": "forge",
+   "file": "forge3-done.png",
+   "w": 192,
+   "h": 231,
+   "metres": 4.09,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 230
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 135
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge3",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object bab7d0b8"
+  },
+  {
+   "id": "forge3-scaffold",
+   "kind": "forge",
+   "file": "forge3-scaffold.png",
+   "w": 192,
+   "h": 150,
+   "metres": 1.64,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 149
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 54
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge3",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object bab7d0b8"
+  },
+  {
+   "id": "forge3-damaged",
+   "kind": "forge",
+   "file": "forge3-damaged.png",
+   "w": 192,
+   "h": 232,
+   "metres": 4.12,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 231
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 136
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge3",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object bab7d0b8"
+  },
+  {
+   "id": "forge3-rising",
+   "kind": "forge",
+   "file": "forge3-rising.png",
+   "w": 192,
+   "h": 78,
+   "metres": 0.12,
+   "basePx": 74,
+   "anchor": {
+    "x": 95,
+    "y": 77
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": -18
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "forge3",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object bab7d0b8"
+  },
+  {
+   "id": "cookhouse-foundation",
+   "kind": "cookhouse",
+   "file": "cookhouse-foundation.png",
+   "w": 160,
+   "h": 99,
+   "metres": 0.58,
+   "basePx": 80,
+   "anchor": {
+    "x": 96,
+    "y": 98
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "cookhouse",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object f8bbe7a5"
+  },
+  {
+   "id": "cookhouse-done",
+   "kind": "cookhouse",
+   "file": "cookhouse-done.png",
+   "w": 160,
+   "h": 144,
+   "metres": 1.94,
+   "basePx": 80,
+   "anchor": {
+    "x": 80,
+    "y": 143
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 64
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object f8bbe7a5"
+  },
+  {
+   "id": "cookhouse-scaffold",
+   "kind": "cookhouse",
+   "file": "cookhouse-scaffold.png",
+   "w": 160,
+   "h": 105,
+   "metres": 0.76,
+   "basePx": 80,
+   "anchor": {
+    "x": 78,
+    "y": 104
+   },
+   "tileOrigin": {
+    "x": 46,
+    "y": 25
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object f8bbe7a5"
+  },
+  {
+   "id": "cookhouse-damaged",
+   "kind": "cookhouse",
+   "file": "cookhouse-damaged.png",
+   "w": 160,
+   "h": 143,
+   "metres": 1.91,
+   "basePx": 80,
+   "anchor": {
+    "x": 80,
+    "y": 142
+   },
+   "tileOrigin": {
+    "x": 48,
+    "y": 63
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object f8bbe7a5"
+  },
+  {
+   "id": "cookhouse-rising",
+   "kind": "cookhouse",
+   "file": "cookhouse-rising.png",
+   "w": 160,
+   "h": 75,
+   "metres": 0.12,
+   "basePx": 71,
+   "anchor": {
+    "x": 78,
+    "y": 74
+   },
+   "tileOrigin": {
+    "x": 46,
+    "y": -5
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object f8bbe7a5"
+  },
+  {
+   "id": "cookhouse2-foundation",
+   "kind": "cookhouse",
+   "file": "cookhouse2-foundation.png",
+   "w": 165,
+   "h": 100,
+   "metres": 0.61,
+   "basePx": 80,
+   "anchor": {
+    "x": 96,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 66,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "cookhouse2",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object eb22ef20"
+  },
+  {
+   "id": "cookhouse2-done",
+   "kind": "cookhouse",
+   "file": "cookhouse2-done.png",
+   "w": 160,
+   "h": 143,
+   "metres": 1.91,
+   "basePx": 80,
+   "anchor": {
+    "x": 76,
+    "y": 142
+   },
+   "tileOrigin": {
+    "x": 44,
+    "y": 63
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse2",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object eb22ef20"
+  },
+  {
+   "id": "cookhouse2-scaffold",
+   "kind": "cookhouse",
+   "file": "cookhouse2-scaffold.png",
+   "w": 158,
+   "h": 105,
+   "metres": 0.76,
+   "basePx": 80,
+   "anchor": {
+    "x": 73,
+    "y": 104
+   },
+   "tileOrigin": {
+    "x": 41,
+    "y": 25
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse2",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object eb22ef20"
+  },
+  {
+   "id": "cookhouse2-damaged",
+   "kind": "cookhouse",
+   "file": "cookhouse2-damaged.png",
+   "w": 158,
+   "h": 142,
+   "metres": 1.88,
+   "basePx": 80,
+   "anchor": {
+    "x": 74,
+    "y": 141
+   },
+   "tileOrigin": {
+    "x": 42,
+    "y": 62
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse2",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object eb22ef20"
+  },
+  {
+   "id": "cookhouse2-rising",
+   "kind": "cookhouse",
+   "file": "cookhouse2-rising.png",
+   "w": 157,
+   "h": 70,
+   "metres": 0.12,
+   "basePx": 66,
+   "anchor": {
+    "x": 72,
+    "y": 69
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": -10
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse2",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object eb22ef20"
+  },
+  {
+   "id": "cookhouse3-foundation",
+   "kind": "cookhouse",
+   "file": "cookhouse3-foundation.png",
+   "w": 165,
+   "h": 100,
+   "metres": 0.61,
+   "basePx": 80,
+   "anchor": {
+    "x": 96,
+    "y": 99
+   },
+   "tileOrigin": {
+    "x": 66,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "cookhouse3",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e298186"
+  },
+  {
+   "id": "cookhouse3-done",
+   "kind": "cookhouse",
+   "file": "cookhouse3-done.png",
+   "w": 160,
+   "h": 161,
+   "metres": 2.45,
+   "basePx": 80,
+   "anchor": {
+    "x": 51,
+    "y": 160
+   },
+   "tileOrigin": {
+    "x": 19,
+    "y": 81
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse3",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e298186"
+  },
+  {
+   "id": "cookhouse3-scaffold",
+   "kind": "cookhouse",
+   "file": "cookhouse3-scaffold.png",
+   "w": 153,
+   "h": 110,
+   "metres": 0.91,
+   "basePx": 80,
+   "anchor": {
+    "x": 44,
+    "y": 109
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": 30
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse3",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e298186"
+  },
+  {
+   "id": "cookhouse3-damaged",
+   "kind": "cookhouse",
+   "file": "cookhouse3-damaged.png",
+   "w": 159,
+   "h": 164,
+   "metres": 2.55,
+   "basePx": 80,
+   "anchor": {
+    "x": 49,
+    "y": 163
+   },
+   "tileOrigin": {
+    "x": 17,
+    "y": 84
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse3",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e298186"
+  },
+  {
+   "id": "cookhouse3-rising",
+   "kind": "cookhouse",
+   "file": "cookhouse3-rising.png",
+   "w": 153,
+   "h": 70,
+   "metres": 0.12,
+   "basePx": 66,
+   "anchor": {
+    "x": 44,
+    "y": 69
+   },
+   "tileOrigin": {
+    "x": 12,
+    "y": -10
+   },
+   "footprint": [
+    3,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "cookhouse3",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5e298186"
+  },
+  {
+   "id": "infirmary-foundation",
+   "kind": "infirmary",
+   "file": "infirmary-foundation.png",
+   "w": 192,
+   "h": 115,
+   "metres": 0.58,
+   "basePx": 96,
+   "anchor": {
+    "x": 96,
+    "y": 114
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "infirmary",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object ea7f015d"
+  },
+  {
+   "id": "infirmary-done",
+   "kind": "infirmary",
+   "file": "infirmary-done.png",
+   "w": 192,
+   "h": 181,
+   "metres": 2.58,
+   "basePx": 96,
+   "anchor": {
+    "x": 98,
+    "y": 180
+   },
+   "tileOrigin": {
+    "x": 98,
+    "y": 85
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object ea7f015d"
+  },
+  {
+   "id": "infirmary-scaffold",
+   "kind": "infirmary",
+   "file": "infirmary-scaffold.png",
+   "w": 191,
+   "h": 133,
+   "metres": 1.12,
+   "basePx": 96,
+   "anchor": {
+    "x": 96,
+    "y": 132
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 37
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object ea7f015d"
+  },
+  {
+   "id": "infirmary-damaged",
+   "kind": "infirmary",
+   "file": "infirmary-damaged.png",
+   "w": 192,
+   "h": 179,
+   "metres": 2.52,
+   "basePx": 96,
+   "anchor": {
+    "x": 97,
+    "y": 178
+   },
+   "tileOrigin": {
+    "x": 97,
+    "y": 83
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object ea7f015d"
+  },
+  {
+   "id": "infirmary-rising",
+   "kind": "infirmary",
+   "file": "infirmary-rising.png",
+   "w": 191,
+   "h": 83,
+   "metres": 0.12,
+   "basePx": 79,
+   "anchor": {
+    "x": 96,
+    "y": 82
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": -13
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object ea7f015d"
+  },
+  {
+   "id": "infirmary2-foundation",
+   "kind": "infirmary",
+   "file": "infirmary2-foundation.png",
+   "w": 198,
+   "h": 116,
+   "metres": 0.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 99,
+    "y": 115
+   },
+   "tileOrigin": {
+    "x": 99,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "infirmary2",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object a6818f38"
+  },
+  {
+   "id": "infirmary2-done",
+   "kind": "infirmary",
+   "file": "infirmary2-done.png",
+   "w": 192,
+   "h": 168,
+   "metres": 2.18,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 167
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 72
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary2",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object a6818f38"
+  },
+  {
+   "id": "infirmary2-scaffold",
+   "kind": "infirmary",
+   "file": "infirmary2-scaffold.png",
+   "w": 192,
+   "h": 117,
+   "metres": 0.64,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 116
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 21
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary2",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object a6818f38"
+  },
+  {
+   "id": "infirmary2-damaged",
+   "kind": "infirmary",
+   "file": "infirmary2-damaged.png",
+   "w": 192,
+   "h": 167,
+   "metres": 2.15,
+   "basePx": 96,
+   "anchor": {
+    "x": 94,
+    "y": 166
+   },
+   "tileOrigin": {
+    "x": 94,
+    "y": 71
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary2",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object a6818f38"
+  },
+  {
+   "id": "infirmary2-rising",
+   "kind": "infirmary",
+   "file": "infirmary2-rising.png",
+   "w": 192,
+   "h": 78,
+   "metres": 0.12,
+   "basePx": 74,
+   "anchor": {
+    "x": 95,
+    "y": 77
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": -18
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary2",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object a6818f38"
+  },
+  {
+   "id": "infirmary3-foundation",
+   "kind": "infirmary",
+   "file": "infirmary3-foundation.png",
+   "w": 198,
+   "h": 116,
+   "metres": 0.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 99,
+    "y": 115
+   },
+   "tileOrigin": {
+    "x": 99,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "infirmary3",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 24db3ab2"
+  },
+  {
+   "id": "infirmary3-done",
+   "kind": "infirmary",
+   "file": "infirmary3-done.png",
+   "w": 192,
+   "h": 213,
+   "metres": 3.55,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 212
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 117
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary3",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 24db3ab2"
+  },
+  {
+   "id": "infirmary3-scaffold",
+   "kind": "infirmary",
+   "file": "infirmary3-scaffold.png",
+   "w": 192,
+   "h": 138,
+   "metres": 1.27,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 137
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 42
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary3",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 24db3ab2"
+  },
+  {
+   "id": "infirmary3-damaged",
+   "kind": "infirmary",
+   "file": "infirmary3-damaged.png",
+   "w": 192,
+   "h": 215,
+   "metres": 3.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 214
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": 119
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary3",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 24db3ab2"
+  },
+  {
+   "id": "infirmary3-rising",
+   "kind": "infirmary",
+   "file": "infirmary3-rising.png",
+   "w": 192,
+   "h": 78,
+   "metres": 0.12,
+   "basePx": 74,
+   "anchor": {
+    "x": 96,
+    "y": 77
+   },
+   "tileOrigin": {
+    "x": 95,
+    "y": -18
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "infirmary3",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 24db3ab2"
+  },
+  {
+   "id": "workshop-foundation",
+   "kind": "workshop",
+   "file": "workshop-foundation.png",
+   "w": 224,
+   "h": 131,
+   "metres": 0.58,
+   "basePx": 112,
+   "anchor": {
+    "x": 128,
+    "y": 130
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 19
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "workshop",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 849334f6"
+  },
+  {
+   "id": "workshop-done",
+   "kind": "workshop",
+   "file": "workshop-done.png",
+   "w": 224,
+   "h": 185,
+   "metres": 2.21,
+   "basePx": 112,
+   "anchor": {
+    "x": 113,
+    "y": 184
+   },
+   "tileOrigin": {
+    "x": 81,
+    "y": 73
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 849334f6"
+  },
+  {
+   "id": "workshop-scaffold",
+   "kind": "workshop",
+   "file": "workshop-scaffold.png",
+   "w": 224,
+   "h": 126,
+   "metres": 0.42,
+   "basePx": 112,
+   "anchor": {
+    "x": 116,
+    "y": 125
+   },
+   "tileOrigin": {
+    "x": 84,
+    "y": 14
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 849334f6"
+  },
+  {
+   "id": "workshop-damaged",
+   "kind": "workshop",
+   "file": "workshop-damaged.png",
+   "w": 224,
+   "h": 181,
+   "metres": 2.09,
+   "basePx": 112,
+   "anchor": {
+    "x": 114,
+    "y": 180
+   },
+   "tileOrigin": {
+    "x": 82,
+    "y": 69
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 849334f6"
+  },
+  {
+   "id": "workshop-rising",
+   "kind": "workshop",
+   "file": "workshop-rising.png",
+   "w": 217,
+   "h": 91,
+   "metres": 0.12,
+   "basePx": 87,
+   "anchor": {
+    "x": 109,
+    "y": 90
+   },
+   "tileOrigin": {
+    "x": 77,
+    "y": -21
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 849334f6"
+  },
+  {
+   "id": "workshop2-foundation",
+   "kind": "workshop",
+   "file": "workshop2-foundation.png",
+   "w": 224,
+   "h": 131,
+   "metres": 0.58,
+   "basePx": 112,
+   "anchor": {
+    "x": 128,
+    "y": 130
+   },
+   "tileOrigin": {
+    "x": 96,
+    "y": 19
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "workshop2",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6994bf80"
+  },
+  {
+   "id": "workshop2-done",
+   "kind": "workshop",
+   "file": "workshop2-done.png",
+   "w": 224,
+   "h": 184,
+   "metres": 2.18,
+   "basePx": 112,
+   "anchor": {
+    "x": 112,
+    "y": 183
+   },
+   "tileOrigin": {
+    "x": 80,
+    "y": 72
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop2",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6994bf80"
+  },
+  {
+   "id": "workshop2-scaffold",
+   "kind": "workshop",
+   "file": "workshop2-scaffold.png",
+   "w": 210,
+   "h": 131,
+   "metres": 0.58,
+   "basePx": 112,
+   "anchor": {
+    "x": 109,
+    "y": 130
+   },
+   "tileOrigin": {
+    "x": 77,
+    "y": 19
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop2",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6994bf80"
+  },
+  {
+   "id": "workshop2-damaged",
+   "kind": "workshop",
+   "file": "workshop2-damaged.png",
+   "w": 224,
+   "h": 184,
+   "metres": 2.18,
+   "basePx": 112,
+   "anchor": {
+    "x": 115,
+    "y": 183
+   },
+   "tileOrigin": {
+    "x": 83,
+    "y": 72
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop2",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6994bf80"
+  },
+  {
+   "id": "workshop2-rising",
+   "kind": "workshop",
+   "file": "workshop2-rising.png",
+   "w": 210,
+   "h": 91,
+   "metres": 0.12,
+   "basePx": 87,
+   "anchor": {
+    "x": 109,
+    "y": 90
+   },
+   "tileOrigin": {
+    "x": 77,
+    "y": -21
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop2",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6994bf80"
+  },
+  {
+   "id": "workshop3-foundation",
+   "kind": "workshop",
+   "file": "workshop3-foundation.png",
+   "w": 229,
+   "h": 132,
+   "metres": 0.61,
+   "basePx": 112,
+   "anchor": {
+    "x": 132,
+    "y": 131
+   },
+   "tileOrigin": {
+    "x": 99,
+    "y": 19
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "workshop3",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 954f4146"
+  },
+  {
+   "id": "workshop3-done",
+   "kind": "workshop",
+   "file": "workshop3-done.png",
+   "w": 224,
+   "h": 222,
+   "metres": 3.33,
+   "basePx": 112,
+   "anchor": {
+    "x": 110,
+    "y": 221
+   },
+   "tileOrigin": {
+    "x": 78,
+    "y": 110
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop3",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 954f4146"
+  },
+  {
+   "id": "workshop3-scaffold",
+   "kind": "workshop",
+   "file": "workshop3-scaffold.png",
+   "w": 224,
+   "h": 143,
+   "metres": 0.94,
+   "basePx": 112,
+   "anchor": {
+    "x": 111,
+    "y": 142
+   },
+   "tileOrigin": {
+    "x": 79,
+    "y": 31
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop3",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 954f4146"
+  },
+  {
+   "id": "workshop3-damaged",
+   "kind": "workshop",
+   "file": "workshop3-damaged.png",
+   "w": 224,
+   "h": 222,
+   "metres": 3.33,
+   "basePx": 112,
+   "anchor": {
+    "x": 111,
+    "y": 221
+   },
+   "tileOrigin": {
+    "x": 79,
+    "y": 110
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop3",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 954f4146"
+  },
+  {
+   "id": "workshop3-rising",
+   "kind": "workshop",
+   "file": "workshop3-rising.png",
+   "w": 224,
+   "h": 86,
+   "metres": 0.12,
+   "basePx": 82,
+   "anchor": {
+    "x": 112,
+    "y": 85
+   },
+   "tileOrigin": {
+    "x": 79,
+    "y": -26
+   },
+   "footprint": [
+    4,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "workshop3",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 954f4146"
+  },
+  {
+   "id": "market-stall-foundation",
+   "kind": "stall",
+   "file": "market-stall-foundation.png",
+   "w": 128,
+   "h": 83,
+   "metres": 0.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 82
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "market-stall",
+   "state": "foundation",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6c2ef514"
+  },
+  {
+   "id": "market-stall-done",
+   "kind": "stall",
+   "file": "market-stall-done.png",
+   "w": 128,
+   "h": 131,
+   "metres": 2.03,
+   "basePx": 64,
+   "anchor": {
+    "x": 60,
+    "y": 130
+   },
+   "tileOrigin": {
+    "x": 60,
+    "y": 67
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall",
+   "state": "done",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6c2ef514"
+  },
+  {
+   "id": "market-stall-scaffold",
+   "kind": "stall",
+   "file": "market-stall-scaffold.png",
+   "w": 128,
+   "h": 96,
+   "metres": 0.97,
+   "basePx": 64,
+   "anchor": {
+    "x": 63,
+    "y": 95
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 32
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall",
+   "state": "scaffold",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6c2ef514"
+  },
+  {
+   "id": "market-stall-damaged",
+   "kind": "stall",
+   "file": "market-stall-damaged.png",
+   "w": 128,
+   "h": 130,
+   "metres": 2,
+   "basePx": 64,
+   "anchor": {
+    "x": 61,
+    "y": 129
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 66
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall",
+   "state": "damaged",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6c2ef514"
+  },
+  {
+   "id": "market-stall-rising",
+   "kind": "stall",
+   "file": "market-stall-rising.png",
+   "w": 127,
+   "h": 67,
+   "metres": 0.12,
+   "basePx": 63,
+   "anchor": {
+    "x": 63,
+    "y": 66
+   },
+   "tileOrigin": {
+    "x": 63,
+    "y": 3
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall",
+   "state": "rising",
+   "material": "wood",
+   "burnable": true,
+   "source": "map_object 6c2ef514"
+  },
+  {
+   "id": "market-stall2-foundation",
+   "kind": "stall",
+   "file": "market-stall2-foundation.png",
+   "w": 132,
+   "h": 83,
+   "metres": 0.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 82
+   },
+   "tileOrigin": {
+    "x": 66,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "market-stall2",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object ac483a10"
+  },
+  {
+   "id": "market-stall2-done",
+   "kind": "stall",
+   "file": "market-stall2-done.png",
+   "w": 128,
+   "h": 141,
+   "metres": 2.33,
+   "basePx": 64,
+   "anchor": {
+    "x": 71,
+    "y": 140
+   },
+   "tileOrigin": {
+    "x": 71,
+    "y": 77
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall2",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object ac483a10"
+  },
+  {
+   "id": "market-stall2-scaffold",
+   "kind": "stall",
+   "file": "market-stall2-scaffold.png",
+   "w": 128,
+   "h": 103,
+   "metres": 1.18,
+   "basePx": 64,
+   "anchor": {
+    "x": 70,
+    "y": 102
+   },
+   "tileOrigin": {
+    "x": 70,
+    "y": 39
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall2",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object ac483a10"
+  },
+  {
+   "id": "market-stall2-damaged",
+   "kind": "stall",
+   "file": "market-stall2-damaged.png",
+   "w": 128,
+   "h": 129,
+   "metres": 1.97,
+   "basePx": 64,
+   "anchor": {
+    "x": 71,
+    "y": 128
+   },
+   "tileOrigin": {
+    "x": 71,
+    "y": 65
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall2",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object ac483a10"
+  },
+  {
+   "id": "market-stall2-rising",
+   "kind": "stall",
+   "file": "market-stall2-rising.png",
+   "w": 128,
+   "h": 62,
+   "metres": 0.12,
+   "basePx": 58,
+   "anchor": {
+    "x": 70,
+    "y": 61
+   },
+   "tileOrigin": {
+    "x": 70,
+    "y": -2
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall2",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object ac483a10"
+  },
+  {
+   "id": "market-stall3-foundation",
+   "kind": "stall",
+   "file": "market-stall3-foundation.png",
+   "w": 132,
+   "h": 83,
+   "metres": 0.58,
+   "basePx": 64,
+   "anchor": {
+    "x": 66,
+    "y": 82
+   },
+   "tileOrigin": {
+    "x": 66,
+    "y": 19
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "market-stall3",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 59475235"
+  },
+  {
+   "id": "market-stall3-done",
+   "kind": "stall",
+   "file": "market-stall3-done.png",
+   "w": 128,
+   "h": 131,
+   "metres": 2.03,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 130
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 67
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall3",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 59475235"
+  },
+  {
+   "id": "market-stall3-scaffold",
+   "kind": "stall",
+   "file": "market-stall3-scaffold.png",
+   "w": 128,
+   "h": 97,
+   "metres": 1,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 96
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 33
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall3",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 59475235"
+  },
+  {
+   "id": "market-stall3-damaged",
+   "kind": "stall",
+   "file": "market-stall3-damaged.png",
+   "w": 128,
+   "h": 120,
+   "metres": 1.7,
+   "basePx": 64,
+   "anchor": {
+    "x": 64,
+    "y": 119
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": 56
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall3",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 59475235"
+  },
+  {
+   "id": "market-stall3-rising",
+   "kind": "stall",
+   "file": "market-stall3-rising.png",
+   "w": 128,
+   "h": 62,
+   "metres": 0.12,
+   "basePx": 58,
+   "anchor": {
+    "x": 64,
+    "y": 61
+   },
+   "tileOrigin": {
+    "x": 64,
+    "y": -2
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "market-stall3",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 59475235"
+  },
+  {
+   "id": "sorting-floor-foundation",
+   "kind": "sorting-floor",
+   "file": "sorting-floor-foundation.png",
+   "w": 196,
+   "h": 116,
+   "metres": 0.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 98,
+    "y": 115
+   },
+   "tileOrigin": {
+    "x": 98,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "sorting-floor",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 7b3cb213"
+  },
+  {
+   "id": "sorting-floor-done",
+   "kind": "sorting-floor",
+   "file": "sorting-floor-done.png",
+   "w": 192,
+   "h": 154,
+   "metres": 1.76,
+   "basePx": 96,
+   "anchor": {
+    "x": 114,
+    "y": 153
+   },
+   "tileOrigin": {
+    "x": 114,
+    "y": 58
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "sorting-floor",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 7b3cb213"
+  },
+  {
+   "id": "sorting-floor-scaffold",
+   "kind": "sorting-floor",
+   "file": "sorting-floor-scaffold.png",
+   "w": 180,
+   "h": 118,
+   "metres": 0.67,
+   "basePx": 96,
+   "anchor": {
+    "x": 97,
+    "y": 117
+   },
+   "tileOrigin": {
+    "x": 97,
+    "y": 22
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "sorting-floor",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 7b3cb213"
+  },
+  {
+   "id": "sorting-floor-damaged",
+   "kind": "sorting-floor",
+   "file": "sorting-floor-damaged.png",
+   "w": 189,
+   "h": 149,
+   "metres": 1.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 105,
+    "y": 148
+   },
+   "tileOrigin": {
+    "x": 105,
+    "y": 53
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "sorting-floor",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 7b3cb213"
+  },
+  {
+   "id": "sorting-floor-rising",
+   "kind": "sorting-floor",
+   "file": "sorting-floor-rising.png",
+   "w": 180,
+   "h": 78,
+   "metres": 0.12,
+   "basePx": 74,
+   "anchor": {
+    "x": 97,
+    "y": 77
+   },
+   "tileOrigin": {
+    "x": 97,
+    "y": -18
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "sorting-floor",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 7b3cb213"
+  },
+  {
+   "id": "sorting-floor2-foundation",
+   "kind": "sorting-floor",
+   "file": "sorting-floor2-foundation.png",
+   "w": 196,
+   "h": 115,
+   "metres": 0.58,
+   "basePx": 96,
+   "anchor": {
+    "x": 98,
+    "y": 114
+   },
+   "tileOrigin": {
+    "x": 98,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "sorting-floor2",
+   "state": "foundation",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e20b0195"
+  },
+  {
+   "id": "sorting-floor2-done",
+   "kind": "sorting-floor",
+   "file": "sorting-floor2-done.png",
+   "w": 192,
+   "h": 142,
+   "metres": 1.39,
+   "basePx": 96,
+   "anchor": {
+    "x": 40,
+    "y": 141
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": 46
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "sorting-floor2",
+   "state": "done",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e20b0195"
+  },
+  {
+   "id": "sorting-floor2-scaffold",
+   "kind": "sorting-floor",
+   "file": "sorting-floor2-scaffold.png",
+   "w": 189,
+   "h": 103,
+   "metres": 0.21,
+   "basePx": 96,
+   "anchor": {
+    "x": 54,
+    "y": 102
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": 7
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "sorting-floor2",
+   "state": "scaffold",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e20b0195"
+  },
+  {
+   "id": "sorting-floor2-damaged",
+   "kind": "sorting-floor",
+   "file": "sorting-floor2-damaged.png",
+   "w": 192,
+   "h": 143,
+   "metres": 1.42,
+   "basePx": 96,
+   "anchor": {
+    "x": 40,
+    "y": 142
+   },
+   "tileOrigin": {
+    "x": 40,
+    "y": 47
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "sorting-floor2",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e20b0195"
+  },
+  {
+   "id": "sorting-floor2-rising",
+   "kind": "sorting-floor",
+   "file": "sorting-floor2-rising.png",
+   "w": 189,
+   "h": 78,
+   "metres": 0.12,
+   "basePx": 74,
+   "anchor": {
+    "x": 54,
+    "y": 77
+   },
+   "tileOrigin": {
+    "x": 54,
+    "y": -18
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "sorting-floor2",
+   "state": "rising",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e20b0195"
   },
   {
    "id": "fort-foundation",
