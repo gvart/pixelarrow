@@ -13,6 +13,8 @@ import { assertPlayable, credentials, db, requirePlayable, requireSession } from
 import { originCheck } from './auth/origin';
 import { WAR_REGIONS } from './war/regions';
 import { war } from './war/routes';
+import { worldApi, worldStub } from './war/world/routes';
+import { allianceOf } from './war/world/members';
 import { lookupSession, pruneAuth } from './auth/sessions';
 import { finishDeletions } from './account/delete';
 import { pruneLinks } from './account/cron';
@@ -45,6 +47,7 @@ export { RegionDO } from './region';
 export { MatchmakerDO } from './duel/matchmaker';
 export { DuelDO } from './duel/duelDO';
 export { WarRegionDO } from './war/regionDO';
+export { WarWorldDO } from './war/world/worldDO';
 
 /**
  * The landing Worker's way in (ADR-0010 §4): its GAME service binding names
@@ -140,6 +143,7 @@ app.route('/api/online', online);
 app.route('/api/economy', economy);
 app.route('/api/duel', duel);
 app.route('/api/notify', notifyRoutes);
+app.route('/api/war/world', worldApi);
 app.route('/api/war', war);
 
 app.post('/api/battle/verify', requirePlayable, async (c) => {
@@ -212,6 +216,13 @@ app.get('/ws/region/:id', async (c) => {
   headers.delete('x-shard');
   const stub = c.env.REGION.get(c.env.REGION.idFromName(region));
   return stub.fetch(new Request(c.req.url, { headers }));
+});
+
+/** The war world map (M4, server/src/war/world/): snapshots pushed, transfer orders; protocol src/war/net/world.ts. */
+app.get('/ws/war/world', async (c) => {
+  const { session, headers } = await wsSession(c);
+  headers.set('x-alliance', String((await allianceOf(db(c.env), session.pid)) ?? ''));
+  return worldStub(c.env).fetch(new Request(c.req.url, { headers }));
 });
 
 /** A live war region (M3, server/src/war/): the region's WarRegionDO runs the sim; protocol src/war/net/protocol.ts. */

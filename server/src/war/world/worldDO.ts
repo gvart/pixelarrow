@@ -1,0 +1,181 @@
+/**
+ * WarWorldDO: the one strategic world object (M4, named WORLD_NAME; binding WAR_WORLD). Owns a World (./world.ts):
+ * region ownership and influence fed by the region rooms (report), squads in transit between regions, and the world
+ * map pushed to players.
+ *
+ *  - State: the World's state as one value in DO storage, written after every change; an evicted object reloads it on
+ *    its next call or its alarm. The alarm fires at the next arrival (or queued retry).
+ *  - D1: persons in transit carry `region = '>' + to` (no join, no API change touches them meanwhile); the destination
+ *    room sets `region = to` when they arrive. On load, persons marked in transit that the world does not know (a crash
+ *    between the departure and the save) are sent home.
+ *  - Region rooms are reached over RPC (WarRegionDO.depart / arrive).
+ *  - Sockets (/ws/war/world, hibernation API): the Worker authenticates and forwards x-player-id and x-alliance; each
+ *    gets the snapshot on connect and again after changes, at most once per PUSH_MS. Messages: src/war/net/world.ts.
+ */
+import { DurableObject } from 'cloudflare:workers';
+import type { Env } from '../../env';
+import { logError } from '../../telemetry/log';
+import { parseWorldMsg, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
+import type { AllianceId, Side } from '../../../../src/war/world/types';
+import { allianceCounts } from './members';
+import { snapOf, World, type ArriveResult, type DepartResult, type Ports, type RegionReport, type WorldState } from './world';
+
+const STATE = 'world';
+const PUSH_MS = 1000;
+
+interface Attachment { pid: number; alliance: AllianceId | null }
+
+export class WarWorldDO extends DurableObject<Env> {
+  private world: World | null = null;
+  private pushTimer: ReturnType<typeof setTimeout> | null = null;
+  private arriving: Promise<void> = Promise.resolve();
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+  }
+
+  private async ensure(): Promise<World> {
+    if (this.world) return this.world;
+    await this.ctx.blockConcurrencyWhile(async () => {
+      if (this.world) return;
+      const st = await this.ctx.storage.get<WorldState>(STATE);
+      const w = new World(st?.v === 1 ? st : undefined);
+      const d = this.env.DB;
+      if (d) {
+        // persons marked on the road that the world does not carry go home
+        const known = w.personsInTransit();
+        const rows = (await d.prepare("SELECT id FROM war_persons WHERE region LIKE '>%'").all<{ id: string }>()).results;
+        const lost = rows.map((r) => r.id).filter((id) => !known.has(id));
+        if (lost.length) await d.prepare("UPDATE war_persons SET region = NULL WHERE region LIKE '>%' AND id IN (SELECT value FROM json_each(?1))").bind(JSON.stringify(lost)).run();
+      }
+      this.world = w;
+    });
+    return this.world!;
+  }
+
+  private ports(): Ports {
+    const stub = (id: string) => this.env.WAR_REGION.get(this.env.WAR_REGION.idFromName(id));
+    return {
+      depart: (from: string, pid: number, squad: number, side: Side, to: string, foeRadius: number) => stub(from).depart(from, pid, squad, side, to, foeRadius) as Promise<DepartResult>,
+      arrive: (to: string, pid: number, alliance: AllianceId, ids: string[], side: Side) => stub(to).arrive(to, pid, alliance, ids, side) as Promise<ArriveResult>,
+    };
+  }
+
+  /** Save the state, set the alarm for the next arrival and push the map to sockets. */
+  private async commit(w: World): Promise<void> {
+    await this.ctx.storage.put(STATE, w.st);
+    const at = w.nextDue();
+    if (at === null) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(Math.max(at, Date.now() + 10));
+    this.schedulePush();
+  }
+
+  /** A transfer order of player `pid` (alliance looked up by the Worker). */
+  async transfer(pid: number, alliance: AllianceId | null, o: TransferOrder): Promise<{ transit: TransitSnap } | { error: TransferError; detail?: string }> {
+    const w = await this.ensure();
+    const t = await w.transfer(pid, alliance, o, Date.now(), this.ports());
+    if ('error' in t) return t;
+    await this.commit(w);
+    return { transit: snapOf(t) };
+  }
+
+  /** A region room's report (WarRegionDO, every few seconds while it changes). */
+  async report(region: string, rep: RegionReport): Promise<{ rejected: boolean }> {
+    const w = await this.ensure();
+    const r = w.report(region, rep);
+    if (r.changed) {
+      await this.ctx.storage.put(STATE, w.st);
+      this.schedulePush();
+    }
+    return { rejected: r.rejected };
+  }
+
+  async snapshot(pid: number, alliance: AllianceId | null): Promise<WorldSnapshot> {
+    const w = await this.ensure();
+    const counts = this.env.DB ? await allianceCounts(this.env.DB) : { members: [0, 0, 0, 0], clans: [0, 0, 0, 0] };
+    return w.snapshot(pid, alliance, counts, Date.now());
+  }
+
+  /** Arrivals due by `now` (the alarm; tests call it with a later time). One run at a time. */
+  async arrivals(now = Date.now()): Promise<void> {
+    const run = this.arriving.then(() => this.arrive(now));
+    this.arriving = run.catch((e) => logError('war_world_arrivals_failed', e));
+    await run;
+  }
+
+  private async arrive(now: number): Promise<void> {
+    const w = await this.ensure();
+    if (await w.due(now, this.ports())) await this.commit(w);
+    else {
+      const at = w.nextDue();
+      if (at !== null) await this.ctx.storage.setAlarm(Math.max(at, Date.now() + 10));
+    }
+  }
+
+  async alarm(): Promise<void> {
+    await this.arrivals();
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected WebSocket upgrade', { status: 426 });
+    const pid = Number(request.headers.get('x-player-id'));
+    if (!Number.isSafeInteger(pid) || pid <= 0) return new Response('Missing player', { status: 400 });
+    const a = request.headers.get('x-alliance');
+    const alliance = a === null || a === '' ? null : (Number(a) as AllianceId);
+    const [client, server] = Object.values(new WebSocketPair());
+    this.ctx.acceptWebSocket(server, [`p:${pid}`]);
+    server.serializeAttachment({ pid, alliance } satisfies Attachment);
+    send(server, { t: 'world', ...(await this.snapshot(pid, alliance)) });
+    const headers = new Headers();
+    const proto = request.headers.get('x-ws-protocol');
+    if (proto) headers.set('sec-websocket-protocol', proto);
+    return new Response(null, { status: 101, webSocket: client, headers });
+  }
+
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    const me = ws.deserializeAttachment() as Attachment | null;
+    if (!me) return;
+    const m = typeof message === 'string' ? parseWorldMsg(message) : null;
+    if (!m) return send(ws, { t: 'error', code: 'parse' });
+    try {
+      if (m.t === 'ping') send(ws, { t: 'pong', c: m.c });
+      else {
+        const r = await this.transfer(me.pid, me.alliance, { from: m.from, to: m.to, squad: m.squad });
+        send(ws, 'error' in r ? { t: 'error', code: r.error, detail: r.detail } : { t: 'transferred', transit: r.transit });
+      }
+    } catch (e) {
+      logError('war_world_message_failed', e);
+    }
+  }
+
+  async webSocketClose(ws: WebSocket): Promise<void> {
+    ws.serializeAttachment(null);
+  }
+
+  private schedulePush(): void {
+    if (this.pushTimer || !this.ctx.getWebSockets().length) return;
+    this.pushTimer = setTimeout(() => {
+      this.pushTimer = null;
+      this.ctx.waitUntil(this.push().catch((e) => logError('war_world_push_failed', e)));
+    }, PUSH_MS);
+  }
+
+  private async push(): Promise<void> {
+    const w = await this.ensure();
+    const counts = this.env.DB ? await allianceCounts(this.env.DB) : { members: [0, 0, 0, 0], clans: [0, 0, 0, 0] };
+    const now = Date.now();
+    for (const ws of this.ctx.getWebSockets()) {
+      const a = ws.deserializeAttachment() as Attachment | null;
+      if (a) send(ws, { t: 'world', ...w.snapshot(a.pid, a.alliance, counts, now) });
+    }
+  }
+}
+
+function send(ws: WebSocket, m: WorldServerMsg): void {
+  try {
+    ws.send(JSON.stringify(m));
+  } catch {
+    // closing
+  }
+}
