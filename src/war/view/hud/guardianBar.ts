@@ -23,21 +23,11 @@ import { ALLIANCES } from '../../world/alliances';
 import { sandboxCraft } from './craft/state';
 import { sandboxRoster } from './roster/state';
 import { leadText } from './buildingCard';
+import { LANDMARK_FUNCTION } from '../../../data/warLore';
+export { LANDMARK_FUNCTION };
 
 type Mk = (id: string, css: string, html?: string) => HTMLElement;
 
-/** What each landmark does once held and restored (docs/WAR.md "Landmarks", once held). */
-export const LANDMARK_FUNCTION: Record<string, string> = {
-  drakons_citadel: 'The strongest fort on the map: walls and towers built, influence 32, holds the col and Krios iron; the keep is a fort (store, recruits 3 an hour).',
-  rim_watchtower: 'Rim Sight: every transit on the Lake frontier shows on the world map and the region lies open (no fog); the beacon is a stone tower for 12.',
-  dead_city: 'A second home-sized town: recruit pool 6 an hour, cap 30; the oracle names once a day where an enemy sends most men; the palace hoard (once).',
-  sunken_temple: 'Horn of Plenty: a food node (200, regrows 2/s) and a cookhouse L3 that cooks feasts without oil; the spring heals as a physician\'s house.',
-  temple_city: 'The season\'s prize (10 an hour, hegemony); restored: +2 an hour, the four ramp gates are stone gates the holder controls.',
-  cyclopean_gatehouse: 'Bars the north ramp: the holder\'s gate on the only road up; a fort (store).',
-  oracle_grove: 'Memory: a squad that drinks gets +25% XP for an hour; every town\'s price board on the world map. Lethe frees a captive at once.',
-  titans_forge: 'The only titan-bronze smelt (bronze 4 + charcoal 4 -> 1 in 120 s), a forge with +2 craft grade; holds the rock bridge.',
-  obsidian_hold: 'The vent kiln: pitch without wood (1/s, the south-east\'s only pitch); a fortress over three canyon floors.',
-};
 const PHASE_NOTE: Record<string, string[]> = {
   drakon: ['in the yard: claw and tail', 'on the roofs: fire breath, out of melee reach', 'crashed down, enraged: drakes from the bone pit'],
   scylla: ['six heads strike from the cave', 'dragged onto the flats'],
