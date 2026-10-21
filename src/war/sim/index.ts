@@ -1936,6 +1936,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const bias = attacking && o !== foe ? 9 : 0; // attackers prefer the ordered target unless another foe is much nearer
       for (const t of o.units) {
         if (!t.alive || (anySafe && inSafe(t.x, t.y))) continue; // M6d: none inside a safe zone
+        if (t.immune) continue; // Scylla's body while her heads guard it: no blow spent on it
         // M7d: a guardian on a roof or in the air only missiles reach; in the channels, melee from a ford only
         if (t.aloft && !shoot && (t.aloft === 1 || region.water[tileAt(grid, u.x, u.y)] !== 1)) continue;
         const d2 = (t.x - u.x) ** 2 + (t.y - u.y) ** 2 + bias;

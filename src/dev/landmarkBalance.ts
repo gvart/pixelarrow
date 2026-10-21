@@ -80,6 +80,8 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
       const gate = (sim.snapshot().buildings ?? [])
         .filter((x) => x.landmark && x.type === 'stoneGate' && x.state !== 'destroyed' && x.team !== 0 && Math.hypot(x.x - sx, x.y - sy) < 30)
         .sort((p, q) => Math.hypot(p.x - sx, p.y - sy) - Math.hypot(q.x - sx, q.y - sy))[0];
+      // Scylla: the raid splits along the cliff, a squad to a head, while her heads keep her body shut
+      const heads = b.id === 'scylla' && (b.parts?.alive ?? 0) > 2 ? sim.snapshot().units.filter((u) => u.cls === 'mob_scylla_head' && u.id !== b.unit && u.state !== 'dead') : [];
       mine.forEach((s, k) => {
         const ranged = RANGED.has(raid.classes[k]);
         const aloft = b.state === 'perch' || b.state === 'flight';
@@ -90,6 +92,7 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
         if (b.id === 'drakon' && (ranged ? !aloft && b.phase === 0 : aloft)) sim.order({ kind: 'move', squad: s, x: sx + (k - mine.length / 2) * 3, y: sy + 6 });
         else if (gate && !ranged && !near && !host) sim.order({ kind: 'attackBuilding', squad: s, building: gate.id });
         else if (host && near) sim.order({ kind: 'attackMove', squad: s, ...xy(sim, s) });
+        else if (heads.length) sim.order({ kind: 'attackMove', squad: s, x: heads[k % heads.length].x, y: heads[k % heads.length].y });
         else if (host || t < 300 || b.id === 'scylla') sim.order({ kind: 'attackMove', squad: s, x: b.x, y: b.y }); // Scylla: her heads first
         else sim.order({ kind: 'attack', squad: s, target: b.squad });
       });
@@ -97,7 +100,7 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
     if (log && t % 300 === 0) {
       const b = sim.snapshot().bosses!.find((x) => x.id === boss)!;
       const sn = sim.snapshot(), zOf = (s: number) => sn.units[sn.squads[s].units.find((u) => sn.units[u].state !== 'dead') ?? sn.squads[s].units[0]].z;
-      log.push(`${t / 10}s ${b.id} ${Math.round((b.hp / b.maxHp) * 100)}% ${b.state} p${b.phase} @${b.x.toFixed(0)},${b.y.toFixed(0)}z${sn.units[b.unit].z} | ${mine.map((s) => { const p = xy(sim, s); return `${p.x.toFixed(0)},${p.y.toFixed(0)}z${zOf(s)}:${aliveOf(sim, [s])}`; }).join(' ')}`);
+      log.push(`${t / 10}s ${b.id} ${Math.round((b.hp / b.maxHp) * 100)}%${b.parts ? ` heads ${b.parts.alive}` : ''} ${b.state} p${b.phase} @${b.x.toFixed(0)},${b.y.toFixed(0)}z${sn.units[b.unit].z} | ${mine.map((s) => { const p = xy(sim, s); return `${p.x.toFixed(0)},${p.y.toFixed(0)}z${zOf(s)}:${aliveOf(sim, [s])}`; }).join(' ')}`);
     }
     sim.step();
     for (const e of sim.events()) {

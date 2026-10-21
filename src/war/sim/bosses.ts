@@ -15,7 +15,7 @@
  *  - Drakon the White: P1 in the yard, claw (his blows) and a tail sweep (knock 2); P2 (< 60%) flies to the keep roof and
  *    between the towers, out of melee reach, breathing a cone of fire (5% max hp, sets wood alight); P3 (< 56.5%) crashes
  *    down into the yard (knock 3), enraged, and calls 2 drake packs from the bone pit.
- *  - Scylla: six heads strike from the cave along the cliff, one snatching a man within 4 tiles of the water every 6 s
+ *  - Scylla: six heads strike from the cave along the cliff, one snatching a man within 4 tiles of the water every 10 s
  *    (he falls; a physician near may save him); her body is open only while 2 heads or fewer live; at 50% she drags
  *    herself onto the flats.
  *  - Brontes: P1 hurls rocks from the gate top (range 25, breaks wood); P2 (< 85%) comes down and smashes (knock 2),
@@ -96,7 +96,7 @@ interface GDef {
 }
 export const GUARDIANS: Readonly<Record<string, GDef>> = {
   drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 18000, dmg: 8, armor: 2, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
-  scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 18000, dmg: 45, armor: 4, reach: 3, atk: 2.5, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 3000, dmg: 40 } },
+  scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 10000, dmg: 10, armor: 4, reach: 3, atk: 3, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 1200, dmg: 10 } },
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 22, armor: 6, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 150, dmg: 14, armor: 4 } },
   river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 60, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
   titan: { ai: 'titan', cls: 'mob_brontes', hp: 36000, dmg: 80, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
@@ -118,7 +118,7 @@ export const MOVES = {
   perchFor: 300, flight: 20,
   crash: { r: 4, share: 0.1, knock: 3, packs: 2, pack: 4, packHp: 1.2, packDmg: 1 },
   enrage: { dmg: 1.1, atk: 0.75 },
-  snatch: { every: 60, water: 4, head: 8 },
+  snatch: { every: 100, water: 4, head: 8 },
   headStrike: { every: 30, r: 4 },
   rock: { every: 60, range: 25, r: 1.8, share: 0.06, wood: 300 },
   smash: { every: 30, r: 2.5, mult: 3 },

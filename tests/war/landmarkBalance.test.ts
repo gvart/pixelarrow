@@ -24,6 +24,14 @@ describe('M7h landmark balance', () => {
     expect(raidFight('ammon', 'bandit_king', mixed(3), 1).won).toBe(true);
   }, 120_000);
 
+  it("Rim Watchtower: one squad is torn apart by Scylla's heads, six split along the cliff and kill her", () => {
+    const one = raidFight('siren', 'scylla', mixed(1), 1);
+    expect(one.won).toBe(false);
+    expect(one.bossHp).toBe(1); // her body never opened
+    expect(raidFight('siren', 'scylla', mixed(4), 1).won).toBe(false);
+    expect(raidFight('siren', 'scylla', mixed(6), 1).won).toBe(true);
+  }, 120_000);
+
   for (const [region, boss] of [['saddle', 'brontes'], ['gorge', 'gyges'], ['canyons', 'chimera'], ['erymanthos', 'grove_queen']] as const)
     it(`${boss} (depth 3): one squad loses, four win`, () => {
       expect(raidFight(region, boss, mixed(1), 1).won).toBe(false);
