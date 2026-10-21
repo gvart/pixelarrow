@@ -14,15 +14,15 @@ import type { Kit, Pt, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'dodona-s',
-  style: { trees: 0.9, bushes: 0.7 },
+  style: { trees: 0.6, bushes: 0.5 },
   build(k: Kit) {
     const N = k.entry('dodona'), S = k.entry('stymphalia'), E = k.entry('moors'), SW = k.entry('dodona-w'), SE = k.entry('dodona-e');
     k.fill(3);
     k.zone('dodona', () => 99);
-    // the hill in the bend and its spur toward the west ford; low rises on the outer banks
-    k.hill([146, 116, 28, 20, 0.3], 7, 3, 2);
-    k.plateau([146, 116, 9, 7, 0.3], 7, { terrain: 'dirt', rough: 1.5 });
-    k.hill([124, 96, 10, 8, 0.6], 6, 2, 1.5);
+    // the hill in the bend: a mesa on earth cliffs, its spur toward the west ford a tier lower; low rises on the outer banks
+    k.plateau([146, 116, 27, 19, 0.3], 8, { rough: 3 });
+    k.plateau([146, 116, 9, 7, 0.3], 8, { terrain: 'dirt', rough: 1.5 });
+    k.plateau([124, 96, 10, 8, 0.6], 6, { rough: 1.5 });
     k.spot('hill', [146, 116]);
     k.hill([60, 40, 30, 16, 0.4], 4, 4);
     k.hill([214, 220, 30, 18, -0.3], 4, 4);
@@ -46,7 +46,7 @@ const def: RegionDef = {
     k.piece('wall-ruin', [52, 116], { r: 4, n: 2, gap: 3 });
     k.piece('wall-ruin', [60, 132], { r: 4, n: 2, gap: 3 });
     // the oaks: everywhere but the roads' clearings
-    k.forest([40, 60, 34, 24, 0.3], [180, 30, 40, 18, -0.2], [236, 60, 18, 26, 0.2], [146, 116, 26, 18, 0.3], [40, 230, 30, 20, -0.4], [80, 160, 20, 14, 0.5], [180, 210, 22, 16, 0.2], [226, 240, 22, 14, 0], [150, 220, 16, 12, 0], [80, 230, 18, 16, 0.3], [30, 120, 18, 26, 0.2], [70, 20, 30, 12, 0], [236, 160, 14, 16, 0], [190, 120, 8, 10, 0.4], [30, 180, 14, 10, 0]);
+    k.forest([40, 60, 34, 24, 0.3], [180, 30, 40, 18, -0.2], [236, 60, 18, 26, 0.2], [162, 124, 12, 8, 0.3], [40, 230, 30, 20, -0.4], [80, 160, 20, 14, 0.5], [180, 210, 22, 16, 0.2], [226, 240, 22, 14, 0], [150, 220, 16, 12, 0], [80, 230, 18, 16, 0.3], [30, 120, 18, 26, 0.2], [70, 20, 30, 12, 0], [236, 160, 14, 16, 0], [190, 120, 8, 10, 0.4], [30, 180, 14, 10, 0]);
     // the clearing by the east ford: fields, hives and herbs, the woodcutters' hamlet
     k.fields([196, 164, 13, 8, 0.5], 0.5);
     k.piece('elaia/beehives', [160, 182], { r: 6, n: 2 });
