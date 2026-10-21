@@ -2,55 +2,67 @@
  * Cape of Winds (docs/WAR.md): a rocky goat cape, Elaia (N) inland, the Achelous Delta (E) along the coast, Elaia's
  * two other entries at the south ends of the side edges, the sea (S). Strategic purpose: a fortress over the Delta
  * approach, room on its slopes. Depth 1: boars in the scrub, brigands watching the Delta road from the steps.
- * Layout (Gemini reference shots/war/regions/proto/elaia-s.png): the cape climbs from the sea in four tiers on pale
- * limestone walls (h2 by the water, h5, h8, h11: 3-level walls drawn as tall crags) to a wide flat summit (h14) with the ruined fort. Only two paths reach
+ * Layout (Gemini reference shots/war/regions/proto/elaia-s.png; W-52 set pieces): the whole cape is one massif that
+ * climbs from sheer sea cliffs in four tiers on pale limestone walls (h5, h8, h11) to a wide flat summit (h14) in the
+ * north-west with the ruined fort. Only two paths reach
  * the top: the road up from Elaia and the road down toward the Delta, each by ramps through every wall. A small sand
  * beach lies at the cape's foot in the south; goat terraces and scrub on the steps; the coast track joins Elaia's other
  * entries along the lowest tier, the claim point where it meets the Delta road.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-
-/** The tier at a unit point: distance from the summit, the steps wandering. */
-const tier = (x: number, y: number) => {
-  const d = Math.hypot(x - 100, (y - 84) * 1.15) + 8 * Math.sin(Math.atan2(y - 84, x - 100) * 4 + 1) + 4 * Math.sin(x / 11 + y / 19);
-  return d < 34 ? 14 : d < 52 ? 11 : d < 82 ? 8 : d < 120 ? 5 : 2;
-};
+import { massif } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-s',
-  style: { dry: 0.1, trees: 0.3, bushes: 0.4 },
+  style: { dry: 0.15, dryHigh: false, trees: 0.08, bushes: 0.12 },
   build(k: Kit) {
     const N = k.entry('elaia'), E = k.entry('delta'), SW = k.entry('elaia-w'), SE = k.entry('elaia-e');
     k.fill(2);
     k.zone('elaia', () => 99);
-    k.lift(tier, true);
-    k.spot('fortress', [100, 84]);
-    // the sea along the south, the beach at the cape's foot
-    k.waterBody([128, 272, 240, 36, 0], { shore: 4, beach: 3.5, rough: 5 });
-    k.waterBody([150, 238, 18, 6, 0.1], { shore: 2, beach: 3, rough: 2 });
-    k.spot('beach', [150, 230]);
+    // the sea along the south first, so the cape's lowest tier stands on it as sheer cliffs
+    k.waterBody([128, 280, 250, 44, 0], { shore: 4, beach: 0, rough: 6 });
+    massif(k, {
+      outline: [[-12, -12], [268, -12], [268, 176], [232, 214], [176, 232], [110, 238], [50, 236], [-12, 230]],
+      crown: [[-12, -12], [96, -12], [100, 44], [72, 82], [-12, 92]],
+      base: 2, tiers: 4, step: 3, wobble: 0.22,
+    });
+    k.spot('fortress', [42, 40]);
+    // a strand of fallen rock at the cliffs' foot (h1, 2-3 units), so the sea lies low under the walls
+    {
+      const { W, H, K } = k, r = Math.round(2.5 * K), near = new Uint8Array(W * H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (k.water[y * W + x]) {
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && ny >= 0 && nx < W && ny < H && dx * dx + dy * dy <= r * r) near[ny * W + nx] = 1;
+        }
+      }
+      for (let i = 0; i < W * H; i++) if (near[i] && !k.water[i]) { k.height[i] = 1; k.terrain[i] = 'sand'; }
+    }
+    // the beach in a cove at the cape's foot
+    k.waterBody([160, 238, 24, 10, 0.1], { shore: 2, beach: 5, rough: 2 });
+    k.spot('beach', [160, 224]);
     // roads: up from Elaia to the summit, down toward the Delta, ramps through the walls; the coast track
     const hub: Pt = [196, 170];
-    k.road([N, [128, 20], [124, 36], [114, 52], [106, 70], [100, 84]], { w: 1.2, grade: 2, fill: true });
-    k.road([[100, 84], [124, 98], [146, 116], [170, 142], hub, [222, 150], [244, 132], E], { w: 1.2, grade: 2, fill: true });
+    k.road([N, [128, 20], [110, 40], [80, 46], [56, 44], [42, 40]], { w: 1.2, grade: 2, fill: true });
+    k.road([[80, 46], [104, 86], [136, 116], [170, 142], hub, [222, 150], [244, 132], E], { w: 1.2, grade: 2, fill: true });
     k.road([SW, [30, 214], [70, 206], [110, 200], [150, 192], hub, [222, 200], [244, 212], SE], { w: 1.1, grade: 2, fill: true });
-    k.road([[150, 192], [152, 210], [150, 226]], { w: 1, grade: 2 });
+    k.road([[150, 192], [156, 210], [160, 222]], { w: 1, grade: 1.5 });
     // the ruined fort on the summit, the goats' terraces, scrub and pines
-    k.piece('wall-ruin', [100, 84], { r: 12, n: 6, gap: 5 });
-    k.piece('watchtower', [94, 78], { r: 4 });
-    k.piece('watchtower', [108, 90], { r: 4 });
+    k.piece('wall-ruin', [42, 40], { r: 12, n: 6, gap: 5 });
+    k.piece('watchtower', [36, 34], { r: 4 });
+    k.piece('watchtower', [50, 46], { r: 4 });
     k.piece('elaia/goats', [60, 140], { r: 10, n: 2 });
     k.piece('elaia/goats', [170, 80], { r: 10 });
-    k.piece('elaia/shrine', [120, 60], { r: 6 });
-    k.forest([40, 100, 14, 10, 0.4], [180, 60, 14, 10, -0.3], [60, 180, 16, 8, 0.2], [226, 100, 12, 10, 0]);
+    k.piece('elaia/shrine', [70, 20], { r: 6 });
+    k.forest([30, 120, 12, 8, 0.4], [180, 60, 12, 8, -0.3], [60, 190, 12, 6, 0.2], [226, 100, 10, 8, 0], [120, 150, 8, 5, 0.6], [200, 196, 9, 5, -0.4], [110, 60, 7, 4, 0.2]);
     k.resource('stone', [60, 60], 3, 10);
     k.resource('stone', [200, 100], 2, 10);
     k.resource('food', [60, 150], 2, 12);
     k.village([206, 130], 3);
     // fauna: brigands on the steps over the Delta road, boars in the scrub
     k.lair('bandit', [156, 104], { as: 'bandits' });
-    k.lair('boar', [40, 104], { as: 'boars' });
-    k.lair('boar', [60, 186], { as: 'boars' });
+    k.lair('boar', [30, 120], { as: 'boars' });
+    k.lair('boar', [60, 190], { as: 'boars' });
     k.lair('boar', [214, 96], { as: 'boars' });
     k.claim(hub, 160);
   },
