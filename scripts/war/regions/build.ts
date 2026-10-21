@@ -33,8 +33,9 @@ import gorge from './gorge.ts';
 import krios from './krios.ts';
 import ammos from './ammos.ts';
 import achelous from './achelous.ts';
+import dodonaE from './dodona-e.ts';
 
-const HAND: RegionDef[] = [elaia, kyrene, dodona, skythia, kleisoura, omphalos, stymphalia, achelous, ammos, krios, gorge, saddle];
+const HAND: RegionDef[] = [elaia, kyrene, dodona, skythia, kleisoura, omphalos, stymphalia, achelous, ammos, krios, gorge, saddle, dodonaE];
 const ALL = new Map<string, RegionDef>([...DRAFTS, ...HAND].map((d) => [d.id, d]));
 const bad = checkWorld();
 if (bad.length) throw new Error(`asymmetric adjacency: ${bad.join(', ')}`);
