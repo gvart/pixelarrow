@@ -1,0 +1,28 @@
+tests/war/landmarkBalance.test.ts
+  s_cfc22b058125c4::t_79a95620a4582c 11-13,17-20,22-35
+src/dev/landmarkBalance.ts
+  s_cfc22b058125c4::t_ca3e3c8969c4b8 99-100
+  s_cfc22b058125c4::t_49b65891526f5d 59,97-98
+  s_cfc22b058125c4::t_2c73be6df887dd 56-57
+  s_cfc22b058125c4::t_a4c9a854877cb5 140,142-150
+  s_cfc22b058125c4::t_46f4151359e67d 139
+  s_cfc22b058125c4::t_cf1ce80e3c6346 38-40
+  s_cfc22b058125c4::t_bcc83c7314b3d8 93
+  s_cfc22b058125c4::t_30091ea5b8d129 101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b627e641242dae85f7f81385eee3ee051aac39cd",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
