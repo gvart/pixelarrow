@@ -31,3 +31,28 @@ export function tierStream(k: Kit, pts: Pt[], ground: (x: number, y: number) => 
   }
   return falls;
 }
+
+/**
+ * A town wall (W-47/W-48: real stoneWall, stoneTower and stoneGate pieces of the nearest town) round a rectangle of
+ * half-size hx x hy units about c: towers on the corners, 2-tile wall runs between, a gate in the middle of each of
+ * `gates` (map sides: N top, S bottom, W left, E right). Runs that would land on a road or water are left out.
+ */
+export function townWall(k: Kit, c: Pt, hx: number, hy: number, gates: ('N' | 'S' | 'W' | 'E')[] = []) {
+  const t = (u: number) => Math.round((u + 0.5) * 2 - 0.5);
+  const x0 = t(c[0] - hx), x1 = t(c[0] + hx), y0 = t(c[1] - hy), y1 = t(c[1] + hy), mx = (x0 + x1) >> 1, my = (y0 + y1) >> 1;
+  const u = (t: number) => (t + 0.5) / 2 - 0.5;
+  const clear = (x: number, y: number, w: number, h: number) => {
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const n = k.at([u(x + i), u(y + j)]); if (n < 0 || k.water[n] || k.terrain[n] === 'road') return false; }
+    return true;
+  };
+  const put = (id: string, x: number, y: number, w: number, h: number) => { if (clear(x, y, w, h)) k.structure(id, x, y, false); };
+  for (const [x, y] of [[x0, y0], [x1 - 1, y0], [x0, y1 - 1], [x1 - 1, y1 - 1]]) put('elaia/town-tower', x, y, 2, 2);
+  for (const [y, side] of [[y0, 'N'], [y1 - 1, 'S']] as const) for (let x = x0 + 2; x < x1 - 3; x += 2) {
+    if (gates.includes(side) && x <= mx && mx <= x + 1) k.structure('elaia/town-gate-x', x, y, false);
+    else put('elaia/town-wall-x', x, y, 2, 1);
+  }
+  for (const [x, side] of [[x0, 'W'], [x1 - 1, 'E']] as const) for (let y = y0 + 2; y < y1 - 3; y += 2) {
+    if (gates.includes(side) && y <= my && my <= y + 1) k.structure('elaia/town-gate-y', x, y, false);
+    else put('elaia/town-wall-y', x, y, 1, 2);
+  }
+}
