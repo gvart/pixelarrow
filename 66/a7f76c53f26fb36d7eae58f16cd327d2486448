@@ -1,0 +1,38 @@
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_0c2e28fbc462ca 685-686,703-704,775-776,780,783-793,795-798,800-821,1227-1231,1233-1234,1614,1711-1713,1716
+  s_cfc22b058125c4::t_0236e38479d5b0 690,692-697,699-702,1297
+  s_cfc22b058125c4::t_3ba17460ebb0ad 672-682,1232,1240
+  s_cfc22b058125c4::t_165a6cc864cf4c 687-689,794,1290-1296,1298-1299
+  s_cfc22b058125c4::t_9328bad8865585 1322,1714-1715
+  s_cfc22b058125c4::t_b780a218db10c2 1243
+  s_cfc22b058125c4::t_e095e0d562f252 1166-1167
+  s_cfc22b058125c4::t_9f9768fdb64eed 683-684,1224,1238,1258
+  s_cfc22b058125c4::t_0dbde8c23017cf 691,698
+  s_cfc22b058125c4::t_66c06158ab0e04 777-779,781-782,799
+src/war/regions/visual.ts
+  s_cfc22b058125c4::t_fc9a3f92f985b3 18
+src/war/view/fineArt.ts
+  s_cfc22b058125c4::t_3c17fffe45f340 25-28,30-31,33,116,118-121,123-124,130,135,139
+src/war/view/art.ts
+  s_cfc22b058125c4::t_3c17fffe45f340 19,25,32-33,47,55,67-69,83,90-92,284-287,310-312,318-322
+  s_cfc22b058125c4::t_5e58da98cfc93a 314-317
+  s_cfc22b058125c4::t_55c97df849c7a0 70-71
+src/war/view/mapModes.ts
+  s_cfc22b058125c4::t_84db14e8f12300 46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "66a7f76c53f26fb36d7eae58f16cd327d2486448",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
