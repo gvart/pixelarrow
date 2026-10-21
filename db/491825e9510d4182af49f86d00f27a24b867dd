@@ -1,0 +1,30 @@
+scripts/war/regions/landmarks.ts
+  s_cfc22b058125c4::t_a755fc055ac684 23-26,28,154,166,183-186,249,262,271-274,310-311
+  s_cfc22b058125c4::t_5fd2af6c39512a 255-256
+  s_cfc22b058125c4::t_691b250da1509e 158
+  s_cfc22b058125c4::t_9fe09d23c31753 22,27
+  s_cfc22b058125c4::t_f55e738b08f1f5 149
+tests/war/heights.test.ts
+  s_cfc22b058125c4::t_182f920b880feb 8-9,79-88
+  s_cfc22b058125c4::t_cb875e0fe27549 89
+src/war/regions/ammon.json
+  s_cfc22b058125c4::t_5fd2af6c39512a 1
+src/war/view/iso.ts
+  s_cfc22b058125c4::t_b15003d1b41c6c 96-101,154-158,186,190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "db491825e9510d4182af49f86d00f27a24b867dd",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
