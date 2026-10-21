@@ -1217,23 +1217,79 @@ interface Out { kind: Uint8Array; z: Uint8Array }
 
 /** Biome libraries with a paving set (scripts/war/art/biomes/*.mjs grass- or sand-paving); elsewhere paved streets draw as roads. */
 const PAVED = new Set<string>(['kyrene', 'elaia', 'mountains']);
+/** Visual levels per sim level (visualLayer). */
+export const RELIEF = 2;
+/** Extra visual levels a cliff tier (a step of 2+ sim levels) is drawn taller, and the most tiers that stack (craggy). */
+export const CRAG = 6, CRAG_TIERS = 4;
+
+/**
+ * The crags' extra height per fine cell (`ex`): every cliff tier the ground has climbed (a step of 2+ sim levels, counted
+ * up from the lowest ground, a plateau taking its highest count) adds CRAG visual levels, so terraces, bluffs and quarry
+ * cuts stand as tall faces like the landmarks' (W-48 Site.lift). Walkable steps (one level or none) never jump: across
+ * them the extra changes at most half a level per cell, so a plateau that a slope or a road also climbs tilts down to
+ * that side (the cliff dwindling into a ramp). Landmark sites (soft 0, not rock) keep their own relief: extra 0.
+ */
+function craggy(k: Kit, soft: Uint8Array, crag: Uint8Array, ex: Uint8Array): void {
+  const { W, N, height, terrain } = k;
+  const fixed = (i: number) => !soft[i] && (terrain[i] !== 'rock' || crag[i] === 1);
+  const c = new Uint8Array(N), seen = new Uint8Array(N), byH: number[][] = [];
+  for (let i = 0; i < N; i++) (byH[height[i]] ??= []).push(i);
+  const nb = (i: number, f: (j: number) => void) => {
+    const x = i % W;
+    if (x > 0) f(i - 1);
+    if (x < W - 1) f(i + 1);
+    if (i >= W) f(i - W);
+    if (i + W < N) f(i + W);
+  };
+  const comp: number[] = [];
+  for (const cells of byH) if (cells) for (const s of cells) {
+    if (seen[s]) continue;
+    // the same-height component of s: its count is the highest over its lower rims
+    comp.length = 0; comp.push(s); seen[s] = 1;
+    let best = 0;
+    for (let q = 0; q < comp.length; q++) {
+      const i = comp[q], h = height[i];
+      nb(i, (j) => {
+        if (height[j] === h) { if (!seen[j]) { seen[j] = 1; comp.push(j); } }
+        else if (height[j] < h) best = Math.max(best, Math.min(CRAG_TIERS, c[j] + (h - height[j] >= 2 && !fixed(j) ? 1 : 0)));
+      });
+    }
+    for (const i of comp) c[i] = fixed(i) ? 0 : best;
+  }
+  // half-levels, eased across walkable steps by one per cell (a bucket queue from the low values up)
+  const e2 = new Uint8Array(N), top = 2 * CRAG * CRAG_TIERS, buckets: number[][] = Array.from({ length: top + 2 }, () => []);
+  for (let i = 0; i < N; i++) { e2[i] = 2 * CRAG * c[i]; buckets[e2[i]].push(i); }
+  for (let v = 0; v <= top; v++) for (const i of buckets[v]) {
+    if (e2[i] !== v) continue;
+    const h = height[i];
+    nb(i, (j) => { if (Math.abs(height[j] - h) <= 1 && e2[j] > v + 1) { e2[j] = v + 1; buckets[v + 1].push(j); } });
+  }
+  for (let i = 0; i < N; i++) ex[i] = e2[i] >> 1;
+}
 /** The visual layer of a fine (1 m) run. */
 function visualLayer(k: Kit): Out {
   const { W, H, N, height, terrain, water, biome, bDepth, rock, roadDist, style } = k;
-  const SLOPE = 6, STEP = 3, PEAK_LO = 18, SNOW_Z = 33;
+  const SLOPE = 6, STEP = 3, PEAK_LO = 18, PEAK_HI = 44, SNOW_Z = 33;
   const ridged = (x: number, y: number, scale: number, seed: number) => 1 - Math.abs(noise(x / scale, y / scale, seed));
   const kind = new Uint8Array(N), zv = new Uint8Array(N);
-  // W-48 landmark relief: a site's levels drawn `lift` times as tall above its base (cliffs, terraces and retaining
-  // walls read as metres, not steps; the sim keeps its levels), ramps by their smooth slope (Site.vz)
-  const lifted = k.sites.filter((s) => s.lift > 1), crag = new Uint8Array(N);
+  // every sim level is drawn RELIEF visual levels tall (1 m next to the 33 px/m buildings), so terraces, banks and
+  // cliffs read as metres everywhere, not only on landmarks; a one-level step is a soft bank (its upper edge cells a
+  // visual level down), two or more a cliff face. W-48 landmark relief on top: a site's levels drawn `lift` times as
+  // tall above its base (the base at RELIEF * base, as the land round it), ramps by their smooth slope (Site.vz)
+  const lifted = k.sites.filter((s) => s.lift > 1), crag = new Uint8Array(N), soft = new Uint8Array(N);
+  // mountain rock: its rim at RELIEF * (h - 1) (level with the foothills), the peaks over it; snow by the peak's own rise
+  const ex = new Uint8Array(N); // the crags' extra height (craggy)
+  const rimOf = (i: number) => RELIEF * Math.max(0, height[i] - 1) + ex[i];
+  const rise = new Uint8Array(N);
   k.each((i, x, y) => {
-    let z = height[i];
+    let z = RELIEF * height[i];
+    soft[i] = 1;
     if (lifted.length && terrain[i] === 'rock' && !water[i]) {
       // a crag's skirt: its ledges (Site.skirt), each cell jittered so the face breaks into crags
       const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
       for (const s of lifted) {
         const v = tx < s.x0 || ty < s.y0 || tx >= s.x0 + s.w || ty >= s.y0 + s.h ? undefined : s.vrock.get((ty - s.y0) * 4096 + tx - s.x0);
-        if (v !== undefined) { z = Math.max(height[i], Math.min(ZVIS, Math.round(s.vis(v)))); crag[i] = 1; }
+        if (v !== undefined) { z = Math.max(RELIEF * height[i], Math.min(ZVIS, Math.round(s.vis(v) + (RELIEF - 1) * s.base))); crag[i] = 1; soft[i] = 0; }
       }
     } else if (lifted.length && terrain[i] !== 'rock' && !water[i]) {
       const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
@@ -1242,16 +1298,28 @@ function visualLayer(k: Kit): Out {
         if (tx < s.x0 - pd || ty < s.y0 - pd || tx >= s.x0 + s.w + pd || ty >= s.y0 + s.h + pd || height[i] <= s.base) continue;
         if (s.liftOnly && !s.liftOnly(tx - s.x0, ty - s.y0)) continue;
         const hv = s.vz.get((ty - s.y0) * 4096 + tx - s.x0) ?? height[i];
-        z = Math.min(ZVIS, Math.round(s.vis(hv, terrain[i] === 'road')));
+        z = Math.min(ZVIS, Math.round(s.vis(hv, terrain[i] === 'road') + (RELIEF - 1) * s.base));
+        soft[i] = 0;
       }
     }
     if (terrain[i] === 'rock' && rock[i] > -Infinity && !crag[i]) {
       const e = rock[i] + 1.2 * fbm(x, y, 5, 41);
-      const peak = PEAK_LO + (ZVIS - PEAK_LO) * (0.65 * ridged(x, y, 11, 43) + 0.35 * ridged(x, y, 5, 44)) ** 1.6;
-      z = e < 0.6 ? 3 : 3 + STEP * Math.floor(Math.min(SLOPE * (e - 0.6), peak - 3) / STEP);
+      const peak = PEAK_LO + (PEAK_HI - PEAK_LO) * (0.65 * ridged(x, y, 11, 43) + 0.35 * ridged(x, y, 5, 44)) ** 1.6;
+      rise[i] = e < 0.6 ? 0 : STEP * Math.floor(Math.min(SLOPE * (e - 0.6), peak - 3) / STEP);
+      z = Math.min(ZVIS, rimOf(i) + rise[i]);
+      soft[i] = 0;
     }
     zv[i] = z;
   });
+  // soft banks: a ground cell next to ground one sim level lower is drawn a visual level down
+  for (let i = 0; i < N; i++) {
+    if (!soft[i] || terrain[i] === 'rock') continue;
+    const x = i % W, h1 = height[i] - 1;
+    const low = (j: number) => height[j] === h1 && terrain[j] !== 'rock';
+    if ((x > 0 && low(i - 1)) || (x < W - 1 && low(i + 1)) || (i >= W && low(i - W)) || (i + W < N && low(i + W))) zv[i] -= 1;
+  }
+  craggy(k, soft, crag, ex);
+  for (let i = 0; i < N; i++) if (ex[i]) zv[i] = Math.min(ZVIS, zv[i] + ex[i]);
   // keep the roads in sight: rock in front of a road (toward the viewer, +x +y) rises at most half a level per cell
   const lim = new Float32Array(N).fill(Infinity);
   for (let v = 0; v < W + H - 1; v++) for (let x = Math.max(0, v - H + 1); x <= Math.min(W - 1, v); x++) {
@@ -1260,7 +1328,11 @@ function visualLayer(k: Kit): Out {
     if (x > 0) l = Math.min(l, lim[i - 1] + 0.5);
     if (y > 0) l = Math.min(l, lim[i - W] + 0.5);
     lim[i] = l;
-    if (terrain[i] === 'rock' && !crag[i] && zv[i] > l) zv[i] = Math.max(3, 3 + STEP * Math.floor((l - 3) / STEP));
+    if (terrain[i] === 'rock' && !crag[i] && zv[i] > l) {
+      const r0 = rimOf(i);
+      zv[i] = Math.max(r0, r0 + STEP * Math.floor((l - r0) / STEP));
+      rise[i] = zv[i] - r0;
+    }
   }
   const inBlob = (x: number, y: number, b: Blob, seed: number) => blob(x, y, b[0], b[1], b[2], b[3], b[4] ?? 0, 1.2, seed) > 0;
   const sandAll = (i: number) => {
@@ -1272,7 +1344,7 @@ function visualLayer(k: Kit): Out {
     return true;
   };
   k.each((i, x, y) => {
-    const t0 = water[i] === 2 ? 'deep' : water[i] === 1 ? 'shallow' : terrain[i] === 'rock' && zv[i] >= SNOW_Z ? 'snow' : terrain[i];
+    const t0 = water[i] === 2 ? 'deep' : water[i] === 1 ? 'shallow' : terrain[i] === 'rock' && rise[i] + 3 >= SNOW_Z ? 'snow' : terrain[i];
     let out = t0 as Kind;
     const b = BIOMES[biome[i]];
     if (b !== 'global' && b !== 'dodona' && bDepth[i] >= 2 && !water[i]) {

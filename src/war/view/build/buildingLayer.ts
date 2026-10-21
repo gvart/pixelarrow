@@ -1059,7 +1059,7 @@ export class BuildingLayer {
     const tiles: number[] = [];
     for (let y = 0; y < m.h; y++) for (let x = 0; x < w; x++) if (mask[y * w + x] & bit) {
       tiles.push(x, y);
-      const cx = iso.sx(x, y), cy = iso.sy(x, y, iso.zt(x, y));
+      const cx = iso.sx(x, y), cy = iso.sy(x, y, iso.ztop(x, y));
       x0 = Math.min(x0, cx - HW); x1 = Math.max(x1, cx + HW); y0 = Math.min(y0, cy); y1 = Math.max(y1, cy + 2 * HH);
     }
     this.inflImg?.destroy();
@@ -1071,7 +1071,7 @@ export class BuildingLayer {
     const ctx = tex.context, col = TEAM_COLOR[team] ?? 0xcccccc, rgb = `${(col >> 16) & 255},${(col >> 8) & 255},${col & 255}`;
     ctx.lineWidth = 1.5;
     for (const [x, y] of pairs(tiles)) {
-      const px = (iso.sx(x, y) - x0) * s, py = (iso.sy(x, y, iso.zt(x, y)) - y0) * s, hw = HW * s, hh = HH * s;
+      const px = (iso.sx(x, y) - x0) * s, py = (iso.sy(x, y, iso.ztop(x, y)) - y0) * s, hw = HW * s, hh = HH * s;
       const N = [px, py], E = [px + hw, py + hh], S = [px, py + 2 * hh], W = [px - hw, py + hh];
       ctx.fillStyle = `rgba(${rgb},0.18)`;
       ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(E[0], E[1]); ctx.lineTo(S[0], S[1]); ctx.lineTo(W[0], W[1]); ctx.closePath(); ctx.fill();

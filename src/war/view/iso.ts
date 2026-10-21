@@ -95,11 +95,13 @@ export class IsoMap {
   /** Surface level per tile (sim heights, water flush with its banks). */
   readonly z: Float32Array;
   /**
-   * Per tile, the level units on it are drawn about: its surface level, or the lowest of its four visual cells when all of
-   * them stand 2+ levels above it (a landmark's relief drawn taller than the sim's levels, scripts/war/regions/kit.ts
+   * Per tile, the lowest level units on it are drawn at: its surface level, or the lowest of its four visual cells when
+   * all of them stand above it (the relief is drawn taller than the sim's levels, scripts/war/regions/kit.ts RELIEF and
    * Site.lift).
    */
   readonly zu: Float32Array;
+  /** Per tile, the highest level units on it are drawn at (its highest visual cell). */
+  readonly zh: Float32Array;
   /** The visual cells: 2w x 2h, kind (KINDS index) and surface level. */
   readonly fw: number;
   readonly fh: number;
@@ -153,9 +155,12 @@ export class IsoMap {
       }
     }
     this.zu = this.z.slice();
+    this.zh = this.z.slice();
     for (let i = 0; i < this.zu.length; i++) {
-      const j = 2 * ((i / r.w) | 0) * fw + 2 * (i % r.w), lo = Math.min(this.fz[j], this.fz[j + 1], this.fz[j + fw], this.fz[j + fw + 1]);
-      if (lo >= this.zu[i] + 2) this.zu[i] = lo;
+      const j = 2 * ((i / r.w) | 0) * fw + 2 * (i % r.w), c = [this.fz[j], this.fz[j + 1], this.fz[j + fw], this.fz[j + fw + 1]];
+      const lo = Math.min(...c), hi = Math.max(...c);
+      if (lo > this.zu[i]) this.zu[i] = lo;
+      this.zh[i] = Math.max(this.zu[i], hi);
     }
     let top = 0;
     for (let j = 0; j < n; j++) if (this.fz[j] > top) top = this.fz[j];
@@ -168,6 +173,11 @@ export class IsoMap {
   /** Surface level of the tile at integer (x, y); ZBASE off the map. */
   zt(x: number, y: number): number {
     return x < 0 || y < 0 || x >= this.w || y >= this.h ? ZBASE : this.z[y * this.w + x];
+  }
+
+  /** Drawn top level of the tile at integer (x, y) (its highest visual cell); ZBASE off the map. */
+  ztop(x: number, y: number): number {
+    return x < 0 || y < 0 || x >= this.w || y >= this.h ? ZBASE : this.zh[y * this.w + x];
   }
 
   /** Surface level of the visual cell at integer (fx, fy); ZBASE off the map. */
@@ -188,7 +198,8 @@ export class IsoMap {
    */
   zDraw(x: number, y: number): number {
     const X = 2 * x, Y = 2 * y, cx = Math.floor(X), cy = Math.floor(Y), z = this.zf(cx, cy);
-    const tx = Math.floor(x), ty = Math.floor(y), zs = tx < 0 || ty < 0 || tx >= this.w || ty >= this.h ? ZBASE : this.zu[ty * this.w + tx];
+    const tx = Math.floor(x), ty = Math.floor(y), out = tx < 0 || ty < 0 || tx >= this.w || ty >= this.h;
+    const lo = out ? ZBASE : this.zu[ty * this.w + tx], hi = out ? ZBASE : this.zh[ty * this.w + tx];
     if (cx < 0 || cy < 0 || cx >= this.fw || cy >= this.fh) return z;
     const fx = X - cx - 0.5, fy = Y - cy - 0.5;
     const ease = (nx: number, ny: number, f: number) => {
@@ -196,7 +207,7 @@ export class IsoMap {
       return d !== 0 && Math.abs(d) <= 1 ? d * Math.abs(f) : 0;
     };
     const d = z + ease(cx + Math.sign(fx), cy, fx) + ease(cx, cy + Math.sign(fy), fy);
-    return Math.max(zs - 1, Math.min(zs + 1, d));
+    return Math.max(lo - 1, Math.min(hi + 1, d));
   }
 
   sx(x: number, y: number): number {

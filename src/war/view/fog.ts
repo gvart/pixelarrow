@@ -102,7 +102,7 @@ export class FogLayer {
       for (let cx = Math.max(0, s - g.h + 1); cx <= Math.min(g.w - 1, s); cx++) {
         const cy = s - cx, x0 = cx * C, y0 = cy * C;
         let z = 0;
-        for (let y = y0; y < Math.min(r.h, y0 + C); y++) for (let x = x0; x < Math.min(r.w, x0 + C); x++) z = Math.max(z, iso.zt(x, y));
+        for (let y = y0; y < Math.min(r.h, y0 + C); y++) for (let x = x0; x < Math.min(r.w, x0 + C); x++) z = Math.max(z, iso.ztop(x, y));
         const nx = iso.sx(x0, y0), half = C * HW; // the diamond's top corner and half width
         const top = iso.sy(x0, y0, z), bottom = iso.sy(x0 + C, y0 + C, 0);
         const tx0 = Math.max(0, Math.floor((nx - half) / FOG_PX)), tx1 = Math.min(tw - 1, Math.floor((nx + half) / FOG_PX));
