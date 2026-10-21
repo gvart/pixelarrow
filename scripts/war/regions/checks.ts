@@ -17,7 +17,7 @@ export interface CheckIn {
 export interface Check { need: string; ok: boolean; why: string }
 
 const NODE: Record<string, RegExp> = { tin: /^mountains\/tin-ore$/, iron: /^(mountains\/iron-ore|dodona\/iron-bog)$/, copper: /^kyrene\/copper-ore$/, marble: /^elaia\/marble-(deposit|outcrop-a|outcrop-b)$/ };
-const CROPS = /^(elaia\/(olive-harvest|vines|olive-orchard)|kyrene\/date-palm-fruit)$/;
+const CROPS = /^(elaia\/(olive-harvest|vines|olive-orchard|wheat|barley)|kyrene\/date-palm-fruit)$/;
 const OLIVES = /^(elaia\/olive-|olive-[ab]$)/;
 
 export function runChecks(c: CheckIn): Check[] {

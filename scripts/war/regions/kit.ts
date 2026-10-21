@@ -95,7 +95,8 @@ export const pt = (p: { x: number; y: number }): Pt => [p.x, p.y];
 
 interface Lair { kind: MobKind; x: number; y: number; count?: number; as?: string; captain?: boolean }
 interface Req { kind: 'piece'; id: string; at: Pt; r: number; onRock: boolean; n: number; gap: number }
-interface RowsReq { kind: 'rows'; ids: string[]; b: Blob; dx: number; dy: number; seed: number; on: Kind[] }
+/** where: only at these unit points; packed: plants touch (a sown plot: no clear ring, no road gap). */
+interface RowsReq { kind: 'rows'; ids: string[]; b: Blob; dx: number; dy: number; seed: number; on: Kind[]; where?: (x: number, y: number) => boolean; packed?: boolean }
 interface LairReq { kind: MobKind; at: Pt; count?: number; as?: string; captain?: boolean }
 interface River { c: Sample[]; half: number; narrows: { s: number; half: number }[] }
 
@@ -426,14 +427,43 @@ export class Kit {
     });
     return this.spot('market', p);
   }
-  /** Ploughed fields: furrows of dirt every 3 units across a blob (over grass), strips at angle `a`; spot `fields`. */
-  fields(b: Blob, a = 0) {
-    const s = this.seed(), ca = Math.cos(a), sa = Math.sin(a);
+  /**
+   * A quarry pit at `p`, `r` units across: `steps` benches cut 2 levels deep each toward its floor (drawn as cut faces,
+   * craggy), white stone over it in Elaia (marble), spot `quarry`. Lay a road down into it (road() cuts its grade).
+   */
+  quarry(p: Pt, r: number, steps = 3) {
+    const s = this.seed(), h0 = this.height[this.at(p)], w = r / (steps + 0.4);
+    this.each((i, x, y) => {
+      if (this.water[i] || this.terrain[i] === 'rock') return;
+      const d = Math.hypot(x - p[0], y - p[1]) + 0.6 * fbm(x, y, 3, s);
+      if (d >= r) return;
+      this.height[i] = Math.min(this.height[i], Math.max(0, h0 - 2 * Math.min(steps, 1 + Math.floor((r - d) / w))));
+      if (this.terrain[i] === 'forest') this.terrain[i] = 'grass';
+    });
+    this.patch('elaia', 'marble', [p[0], p[1], r + 1.5, r + 1.5, 0], ['grass', 'dirt', 'forest']);
+    return this.spot('quarry', p);
+  }
+  /**
+   * Fields over a blob (over grass), plots at angle `a`: a grid of plots (`plot` units long, `wide` across) between grass
+   * baulks a unit wide, each ploughed (dirt, furrows across it every 2.5 units), sown (dirt under rows of wheat or barley)
+   * or fallow (grass); spot `fields`.
+   */
+  fields(b: Blob, a = 0, o: { plot?: number; wide?: number } = {}) {
+    const s = this.seed(), ca = Math.cos(a), sa = Math.sin(a), PU = o.plot ?? 12, PV = o.wide ?? 8;
+    const plotOf = (x: number, y: number) => {
+      const u = (x - b[0]) * ca + (y - b[1]) * sa, v = (y - b[1]) * ca - (x - b[0]) * sa;
+      const pu = Math.floor(u / PU), pv = Math.floor(v / PV), fu = u - pu * PU, fv = v - pv * PV;
+      if (fu < 1 || fv < 1) return -1; // baulk
+      const k = Math.floor(hsh(pu + 50, pv + 50, s) * 5); // 0, 1 ploughed; 2 wheat; 3 barley; 4 fallow
+      return k <= 1 ? (fu % 2.5 < 0.5 ? -1 : 0) : k;
+    };
     this.each((i, x, y) => {
       if (this.water[i] || this.terrain[i] !== 'grass' || this.e(b, x, y, 2, s) <= 0) return;
-      const u = (x - b[0]) * ca + (y - b[1]) * sa, v = (y - b[1]) * ca - (x - b[0]) * sa;
-      if (((u % 3) + 3) % 3 < 1.5 && ((v % 24) + 24) % 24 > 1.5) this.terrain[i] = 'dirt';
+      const p = plotOf(x, y);
+      if (p >= 0 && p < 4) this.terrain[i] = 'dirt';
     });
+    this.reqs.push({ kind: 'rows', ids: ['elaia/wheat'], b, dx: 1, dy: 1, seed: s, on: ['dirt'], where: (x, y) => plotOf(x, y) === 2, packed: true });
+    this.reqs.push({ kind: 'rows', ids: ['elaia/barley'], b, dx: 1, dy: 1, seed: s, on: ['dirt'], where: (x, y) => plotOf(x, y) === 3, packed: true });
     return this.spot('fields', [b[0], b[1]]);
   }
 
@@ -1220,13 +1250,13 @@ const PAVED = new Set<string>(['kyrene', 'elaia', 'mountains']);
 /** Visual levels per sim level (visualLayer). */
 export const RELIEF = 2;
 /** Extra visual levels a cliff tier (a step of 2+ sim levels) is drawn taller, and the most tiers that stack (craggy). */
-export const CRAG = 6, CRAG_TIERS = 4;
+export const CRAG = 6, CRAG_TIERS = 4, EASE = 3;
 
 /**
  * The crags' extra height per fine cell (`ex`): every cliff tier the ground has climbed (a step of 2+ sim levels, counted
  * up from the lowest ground, a plateau taking its highest count) adds CRAG visual levels, so terraces, bluffs and quarry
  * cuts stand as tall faces like the landmarks' (W-48 Site.lift). Walkable steps (one level or none) never jump: across
- * them the extra changes at most half a level per cell, so a plateau that a slope or a road also climbs tilts down to
+ * them the extra changes at most a level per EASE cells, so a plateau that a slope or a road also climbs tilts down to
  * that side (the cliff dwindling into a ramp). Landmark sites (soft 0, not rock) keep their own relief: extra 0.
  */
 function craggy(k: Kit, soft: Uint8Array, crag: Uint8Array, ex: Uint8Array): void {
@@ -1241,30 +1271,38 @@ function craggy(k: Kit, soft: Uint8Array, crag: Uint8Array, ex: Uint8Array): voi
     if (i >= W) f(i - W);
     if (i + W < N) f(i + W);
   };
-  const comp: number[] = [];
+  const sinks: number[][] = [];
   for (const cells of byH) if (cells) for (const s of cells) {
     if (seen[s]) continue;
     // the same-height component of s: its count is the highest over its lower rims
-    comp.length = 0; comp.push(s); seen[s] = 1;
-    let best = 0;
+    const comp = [s];
+    seen[s] = 1;
+    let best = 0, lower = false;
     for (let q = 0; q < comp.length; q++) {
       const i = comp[q], h = height[i];
       nb(i, (j) => {
         if (height[j] === h) { if (!seen[j]) { seen[j] = 1; comp.push(j); } }
-        else if (height[j] < h) best = Math.max(best, Math.min(CRAG_TIERS, c[j] + (h - height[j] >= 2 && !fixed(j) ? 1 : 0)));
+        else if (height[j] < h) { lower = true; best = Math.max(best, Math.min(CRAG_TIERS, c[j] + (h - height[j] >= 2 && !fixed(j) ? 1 : 0))); }
       });
     }
     for (const i of comp) c[i] = fixed(i) ? 0 : best;
+    if (!lower) sinks.push(comp);
   }
-  // half-levels, eased across walkable steps by one per cell (a bucket queue from the low values up)
-  const e2 = new Uint8Array(N), top = 2 * CRAG * CRAG_TIERS, buckets: number[][] = Array.from({ length: top + 2 }, () => []);
-  for (let i = 0; i < N; i++) { e2[i] = 2 * CRAG * c[i]; buckets[e2[i]].push(i); }
+  // a hollow with no lower rim (a quarry pit, a crater, a lake) sits a tier under the ground round it, not at the bottom
+  for (const comp of sinks) {
+    let best = 0;
+    for (const i of comp) nb(i, (j) => { if (height[j] > height[i]) best = Math.max(best, c[j] - (height[j] - height[i] >= 2 ? 1 : 0)); });
+    for (const i of comp) if (!fixed(i)) c[i] = best;
+  }
+  // in 1/EASE levels, eased across walkable steps by one per cell (a bucket queue from the low values up)
+  const e2 = new Uint8Array(N), top = EASE * CRAG * CRAG_TIERS, buckets: number[][] = Array.from({ length: top + 2 }, () => []);
+  for (let i = 0; i < N; i++) { e2[i] = EASE * CRAG * c[i]; buckets[e2[i]].push(i); }
   for (let v = 0; v <= top; v++) for (const i of buckets[v]) {
     if (e2[i] !== v) continue;
     const h = height[i];
     nb(i, (j) => { if (Math.abs(height[j] - h) <= 1 && e2[j] > v + 1) { e2[j] = v + 1; buckets[v + 1].push(j); } });
   }
-  for (let i = 0; i < N; i++) ex[i] = e2[i] >> 1;
+  for (let i = 0; i < N; i++) ex[i] = Math.floor(e2[i] / EASE);
 }
 /** The visual layer of a fine (1 m) run. */
 function visualLayer(k: Kit): Out {
@@ -1536,7 +1574,9 @@ export function build(def: RegionDef): Built {
       if (id && footSeen(ox, oy)) put(id, ox, oy);
     } else if (terrain[i] !== 'rock' && height[i] >= 2) {
       const wall = Math.max(fzAt(fx - 1, fy), fzAt(fx, fy - 1), fzAt(fx - 1, fy - 1)) - z >= 3;
-      if (wall && p < 0.1 && footSeen(ox, oy)) put('scree', ox, oy);
+      // the talus of the cliff's own stone (art.ts draws the biome's cliff material over the face)
+      const b = B(i), tal = b === 'elaia' ? 'elaia/talus-lime' : b === 'mountains' ? 'mountains/talus-granite' : b === 'kyrene' ? 'kyrene/talus-red' : 'scree';
+      if (wall && p < 0.12 && footSeen(ox, oy)) put(tal, ox, oy);
     }
   }
   for (let n = objects.length - 1; n >= 0; n--) {
@@ -1766,9 +1806,12 @@ export function build(def: RegionDef): Built {
         if (x % r.dx || y % r.dy) continue;
         const i = at(x, y);
         if (i < 0 || water[i] || terrain[i] === 'road' || terrain[i] === 'rock' || spotTiles.has(i) || taken.has(i)) continue;
-        if (blob(k.toUnit(x), k.toUnit(y), cx, cy, rx, ry, rot ?? 0, 1.5, r.seed) <= 0 || !r.on.includes(kindAt(x + 0.5, y + 0.5))) continue;
-        if (ring(x, y, (j) => terrain[j] === 'road' || water[j] > 0)) continue;
-        clear(x - 1, y - 1, x + 2, y + 2);
+        if (r.where ? !r.where(k.toUnit(x), k.toUnit(y)) || terrain[i] !== 'dirt' : blob(k.toUnit(x), k.toUnit(y), cx, cy, rx, ry, rot ?? 0, 1.5, r.seed) <= 0) continue;
+        if (!r.on.includes(kindAt(x + 0.5, y + 0.5))) continue;
+        if (r.packed) { taken.add(i); clear(x, y, x + 1, y + 1); } else {
+          if (ring(x, y, (j) => terrain[j] === 'road' || water[j] > 0)) continue;
+          clear(x - 1, y - 1, x + 2, y + 2);
+        }
         pinned.add(objects[objects.push({ id: pick(r.ids, hsh(x, y, r.seed)), x: r1(x + 0.4 + 0.2 * hsh(x, y, 10)), y: y + 0.5 }) - 1]);
       }
     }
