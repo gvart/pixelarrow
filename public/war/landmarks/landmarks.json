@@ -118,101 +118,102 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#453e2a",
-  "#5c3f32",
-  "#604033",
-  "#634433",
-  "#816552",
-  "#846d5d",
-  "#956950",
-  "#97705a",
-  "#a48861",
-  "#a9926a",
-  "#9c8773",
-  "#a49174",
-  "#b8a98f",
+  "#5c3f33",
+  "#86715e",
+  "#a9906b",
   "#bbae95",
-  "#b8b1a1",
-  "#b7b4aa",
-  "#4e211d",
-  "#60221b",
-  "#775552",
-  "#875a50",
-  "#8e806c",
-  "#90887c",
-  "#afa899",
-  "#9fa7ac",
-  "#422321",
-  "#835a3d",
-  "#7a7b7b",
-  "#969491",
-  "#341717",
-  "#7a3f35",
-  "#7e7b6e",
-  "#7d8d9b",
-  "#594243",
-  "#5d4e43",
-  "#67483f",
-  "#6b474b",
-  "#545f44",
-  "#685b52",
-  "#6e5f58",
-  "#6a6d78",
-  "#736e65",
-  "#76706a",
-  "#75766f",
-  "#727478",
-  "#7b7569",
-  "#787679",
-  "#83786b",
-  "#977167",
-  "#b28b65",
-  "#b09970",
-  "#baa378",
-  "#c1a875",
-  "#b49d7f",
-  "#bba07f",
-  "#bba583",
-  "#ccb881",
-  "#c8af86",
-  "#bfb29e",
-  "#cebc9e",
-  "#d1c2a6",
-  "#c7c3b2",
-  "#cdc5b0",
-  "#d3d0c3",
-  "#4d3d46",
-  "#5e4042",
-  "#654239",
-  "#664843",
-  "#575147",
-  "#635145",
-  "#655f57",
-  "#686766",
-  "#736c65",
-  "#767068",
-  "#75756d",
-  "#747474",
-  "#7a7168",
-  "#797671",
-  "#836e65",
-  "#8b7365",
-  "#b68f5f",
-  "#b19567",
-  "#b69879",
-  "#b7a77b",
-  "#af9c80",
-  "#b79f7e",
-  "#b5a382",
-  "#c1ac81",
-  "#c0aa88",
-  "#c2b092",
-  "#ccbb92",
-  "#cdbda1",
-  "#c2bbac",
-  "#cbc2b2",
-  "#c3c1bb",
-  "#ddddd2"
+  "#432424",
+  "#60241e",
+  "#835a3f",
+  "#895a51",
+  "#9b876d",
+  "#968b7d",
+  "#9b9e9e",
+  "#b0aba0",
+  "#564145",
+  "#6a4543",
+  "#756e68",
+  "#7e7368",
+  "#b59063",
+  "#b49e7f",
+  "#c3ad89",
+  "#c4bfaf",
+  "#4a432c",
+  "#866954",
+  "#a88d63",
+  "#b8a88e",
+  "#331817",
+  "#4f2320",
+  "#7c4239",
+  "#785953",
+  "#8b816c",
+  "#868480",
+  "#80909e",
+  "#b1a38d",
+  "#455f51",
+  "#575548",
+  "#5e5042",
+  "#5f554c",
+  "#6a5e58",
+  "#6f6960",
+  "#716e67",
+  "#6d7079",
+  "#767570",
+  "#767771",
+  "#767574",
+  "#77777e",
+  "#876f64",
+  "#887969",
+  "#917367",
+  "#a17267",
+  "#c0a774",
+  "#baa377",
+  "#b5a57b",
+  "#c2ab7a",
+  "#baa583",
+  "#bfa982",
+  "#cab181",
+  "#ccb781",
+  "#ccb98e",
+  "#ccb999",
+  "#cdbca0",
+  "#d0c0a2",
+  "#c3c1ba",
+  "#d0cabb",
+  "#dadad0",
+  "#ddddd2",
+  "#613f31",
+  "#614035",
+  "#624332",
+  "#654535",
+  "#907153",
+  "#98684f",
+  "#90705c",
+  "#9f6f5b",
+  "#a98c6e",
+  "#a68d75",
+  "#ad9871",
+  "#ac9c82",
+  "#b9af9f",
+  "#bab19e",
+  "#b7b3a6",
+  "#b8b5ad",
+  "#5f3f3e",
+  "#604741",
+  "#6b4e48",
+  "#6b5d53",
+  "#787368",
+  "#77746d",
+  "#7e7a70",
+  "#7b7a72",
+  "#b49474",
+  "#b69e76",
+  "#ba9e7f",
+  "#baa27e",
+  "#c5b191",
+  "#beb19e",
+  "#cec2a9",
+  "#cfc4ad"
  ],
  "pieces": [
   {
@@ -1987,6 +1988,166 @@
     "damaged": "arch-garden-damaged",
     "ruined": "arch-garden-ruined",
     "restored": "arch-garden-restored"
+   }
+  },
+  {
+   "id": "ammon-block-a",
+   "landmark": "ammon",
+   "kind": "house",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 800,
+   "heightM": 4,
+   "note": "a dense block: two mudbrick cube houses back to back, flat roofs at two heights, a reed awning, a water jar",
+   "states": {
+    "intact": "ammon-block-a-intact",
+    "damaged": "ammon-block-a-damaged",
+    "ruined": "ammon-block-a-ruined",
+    "restored": "ammon-block-a-restored"
+   }
+  },
+  {
+   "id": "ammon-block-b",
+   "landmark": "ammon",
+   "kind": "house",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1300,
+   "heightM": 6,
+   "note": "a dense block: three mudbrick cube houses packed together, a roof terrace with a reed awning, a tiny yard with a potted palm",
+   "states": {
+    "intact": "ammon-block-b-intact",
+    "damaged": "ammon-block-b-damaged",
+    "ruined": "ammon-block-b-ruined",
+    "restored": "ammon-block-b-restored"
+   }
+  },
+  {
+   "id": "ammon-block-c",
+   "landmark": "ammon",
+   "kind": "house",
+   "footprint": [
+    4,
+    4
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1800,
+   "heightM": 7,
+   "note": "a dense block: four mudbrick houses wall to wall round a tiny court with date palms, a roof terrace under a reed awning on palm poles, a stair to the roof",
+   "states": {
+    "intact": "ammon-block-c-intact",
+    "damaged": "ammon-block-c-damaged",
+    "ruined": "ammon-block-c-ruined",
+    "restored": "ammon-block-c-restored"
+   }
+  },
+  {
+   "id": "ammon-block-d",
+   "landmark": "ammon",
+   "kind": "house",
+   "footprint": [
+    4,
+    4
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1800,
+   "heightM": 7,
+   "note": "a dense block: five one- and two-storey mudbrick houses, roof terraces with striped cloth awnings, jars and baskets on the roofs, a small inner court",
+   "states": {
+    "intact": "ammon-block-d-intact",
+    "damaged": "ammon-block-d-damaged",
+    "ruined": "ammon-block-d-ruined",
+    "restored": "ammon-block-d-restored"
+   }
+  },
+  {
+   "id": "arch-block-a",
+   "landmark": "arch",
+   "kind": "house",
+   "footprint": [
+    2,
+    2
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 800,
+   "heightM": 5,
+   "note": "a dense block: two tiny limewashed houses wall to wall, tiled gables at two heights",
+   "states": {
+    "intact": "arch-block-a-intact",
+    "damaged": "arch-block-a-damaged",
+    "ruined": "arch-block-a-ruined",
+    "restored": "arch-block-a-restored"
+   }
+  },
+  {
+   "id": "arch-block-b",
+   "landmark": "arch",
+   "kind": "house",
+   "footprint": [
+    3,
+    3
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1300,
+   "heightM": 7,
+   "note": "a dense block: a house and a shop joined wall to wall, a small walled yard, a counter under a cloth awning",
+   "states": {
+    "intact": "arch-block-b-intact",
+    "damaged": "arch-block-b-damaged",
+    "ruined": "arch-block-b-ruined",
+    "restored": "arch-block-b-restored"
+   }
+  },
+  {
+   "id": "arch-block-c",
+   "landmark": "arch",
+   "kind": "house",
+   "footprint": [
+    4,
+    4
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1800,
+   "heightM": 8,
+   "note": "a dense block: four houses wall to wall round a small paved court, tiled gables at several heights, a shop front with a striped awning",
+   "states": {
+    "intact": "arch-block-c-intact",
+    "damaged": "arch-block-c-damaged",
+    "ruined": "arch-block-c-ruined",
+    "restored": "arch-block-c-restored"
+   }
+  },
+  {
+   "id": "arch-block-d",
+   "landmark": "arch",
+   "kind": "house",
+   "footprint": [
+    4,
+    4
+   ],
+   "material": "stone",
+   "burnable": false,
+   "hp": 1800,
+   "heightM": 7,
+   "note": "a dense market block: a row of three narrow shops and houses, counters under faded awnings with amphorae, an upper floor balcony, a back yard",
+   "states": {
+    "intact": "arch-block-d-intact",
+    "damaged": "arch-block-d-damaged",
+    "ruined": "arch-block-d-ruined",
+    "restored": "arch-block-d-restored"
    }
   }
  ],
@@ -11841,6 +12002,870 @@
    "material": "stone",
    "burnable": false,
    "source": "map_object 1bff6e9a, graded fresh + banner"
+  },
+  {
+   "id": "ammon-block-a-intact",
+   "kind": "house",
+   "file": "ammon-block-a-intact.png",
+   "w": 121,
+   "h": 94,
+   "metres": 0.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 93
+   },
+   "tileOrigin": {
+    "x": 60,
+    "y": 29
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-a",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object f12b1928"
+  },
+  {
+   "id": "ammon-block-a-damaged",
+   "kind": "house",
+   "file": "ammon-block-a-damaged.png",
+   "w": 121,
+   "h": 94,
+   "metres": 0.91,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 93
+   },
+   "tileOrigin": {
+    "x": 60,
+    "y": 29
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-a",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 6481d112 img2img over the intact raw"
+  },
+  {
+   "id": "ammon-block-a-ruined",
+   "kind": "house",
+   "file": "ammon-block-a-ruined.png",
+   "w": 118,
+   "h": 56,
+   "metres": 0.12,
+   "basePx": 52,
+   "anchor": {
+    "x": 58,
+    "y": 55
+   },
+   "tileOrigin": {
+    "x": 58,
+    "y": -9
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "ammon-block-a",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 75743d13 img2img over the intact raw"
+  },
+  {
+   "id": "ammon-block-a-restored",
+   "kind": "house",
+   "file": "ammon-block-a-restored.png",
+   "w": 121,
+   "h": 117,
+   "metres": 1.61,
+   "basePx": 64,
+   "anchor": {
+    "x": 59,
+    "y": 116
+   },
+   "tileOrigin": {
+    "x": 60,
+    "y": 52
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-a",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object f12b1928, graded fresh + banner"
+  },
+  {
+   "id": "ammon-block-b-intact",
+   "kind": "house",
+   "file": "ammon-block-b-intact.png",
+   "w": 182,
+   "h": 188,
+   "metres": 2.79,
+   "basePx": 96,
+   "anchor": {
+    "x": 91,
+    "y": 187
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 91
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-b",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 91f1dda8"
+  },
+  {
+   "id": "ammon-block-b-damaged",
+   "kind": "house",
+   "file": "ammon-block-b-damaged.png",
+   "w": 182,
+   "h": 188,
+   "metres": 2.79,
+   "basePx": 96,
+   "anchor": {
+    "x": 91,
+    "y": 187
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 91
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-b",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux a522fcb9 img2img over the intact raw"
+  },
+  {
+   "id": "ammon-block-b-ruined",
+   "kind": "house",
+   "file": "ammon-block-b-ruined.png",
+   "w": 181,
+   "h": 116,
+   "metres": 0.61,
+   "basePx": 96,
+   "anchor": {
+    "x": 90,
+    "y": 115
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 19
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "ammon-block-b",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 494f2408 img2img over the intact raw"
+  },
+  {
+   "id": "ammon-block-b-restored",
+   "kind": "house",
+   "file": "ammon-block-b-restored.png",
+   "w": 182,
+   "h": 211,
+   "metres": 3.48,
+   "basePx": 96,
+   "anchor": {
+    "x": 91,
+    "y": 210
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 114
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-b",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 91f1dda8, graded fresh + banner"
+  },
+  {
+   "id": "ammon-block-c-intact",
+   "kind": "house",
+   "file": "ammon-block-c-intact.png",
+   "w": 246,
+   "h": 225,
+   "metres": 2.94,
+   "basePx": 128,
+   "anchor": {
+    "x": 123,
+    "y": 224
+   },
+   "tileOrigin": {
+    "x": 123,
+    "y": 96
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-c",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 64a95f01"
+  },
+  {
+   "id": "ammon-block-c-damaged",
+   "kind": "house",
+   "file": "ammon-block-c-damaged.png",
+   "w": 246,
+   "h": 225,
+   "metres": 2.94,
+   "basePx": 128,
+   "anchor": {
+    "x": 123,
+    "y": 224
+   },
+   "tileOrigin": {
+    "x": 123,
+    "y": 96
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-c",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux f6dadf31 img2img over the intact raw"
+  },
+  {
+   "id": "ammon-block-c-ruined",
+   "kind": "house",
+   "file": "ammon-block-c-ruined.png",
+   "w": 245,
+   "h": 136,
+   "metres": 0.24,
+   "basePx": 128,
+   "anchor": {
+    "x": 122,
+    "y": 135
+   },
+   "tileOrigin": {
+    "x": 122,
+    "y": 7
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "ammon-block-c",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux a601cb78 img2img over the intact raw"
+  },
+  {
+   "id": "ammon-block-c-restored",
+   "kind": "house",
+   "file": "ammon-block-c-restored.png",
+   "w": 246,
+   "h": 248,
+   "metres": 3.64,
+   "basePx": 128,
+   "anchor": {
+    "x": 123,
+    "y": 247
+   },
+   "tileOrigin": {
+    "x": 123,
+    "y": 119
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-c",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 64a95f01, graded fresh + banner"
+  },
+  {
+   "id": "ammon-block-d-intact",
+   "kind": "house",
+   "file": "ammon-block-d-intact.png",
+   "w": 246,
+   "h": 216,
+   "metres": 2.67,
+   "basePx": 128,
+   "anchor": {
+    "x": 123,
+    "y": 215
+   },
+   "tileOrigin": {
+    "x": 123,
+    "y": 87
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-d",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5f3ae972"
+  },
+  {
+   "id": "ammon-block-d-damaged",
+   "kind": "house",
+   "file": "ammon-block-d-damaged.png",
+   "w": 246,
+   "h": 216,
+   "metres": 2.67,
+   "basePx": 128,
+   "anchor": {
+    "x": 123,
+    "y": 215
+   },
+   "tileOrigin": {
+    "x": 123,
+    "y": 87
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-d",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 39bdc283 img2img over the intact raw"
+  },
+  {
+   "id": "ammon-block-d-ruined",
+   "kind": "house",
+   "file": "ammon-block-d-ruined.png",
+   "w": 246,
+   "h": 131,
+   "metres": 0.12,
+   "basePx": 127,
+   "anchor": {
+    "x": 125,
+    "y": 130
+   },
+   "tileOrigin": {
+    "x": 123,
+    "y": 3
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "ammon-block-d",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 7107d140 img2img over the intact raw"
+  },
+  {
+   "id": "ammon-block-d-restored",
+   "kind": "house",
+   "file": "ammon-block-d-restored.png",
+   "w": 246,
+   "h": 239,
+   "metres": 3.36,
+   "basePx": 128,
+   "anchor": {
+    "x": 123,
+    "y": 238
+   },
+   "tileOrigin": {
+    "x": 123,
+    "y": 110
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "ammon-block-d",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 5f3ae972, graded fresh + banner"
+  },
+  {
+   "id": "arch-block-a-intact",
+   "kind": "house",
+   "file": "arch-block-a-intact.png",
+   "w": 122,
+   "h": 105,
+   "metres": 1.24,
+   "basePx": 64,
+   "anchor": {
+    "x": 54,
+    "y": 104
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 43
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-a",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object a43b6eed"
+  },
+  {
+   "id": "arch-block-a-damaged",
+   "kind": "house",
+   "file": "arch-block-a-damaged.png",
+   "w": 119,
+   "h": 105,
+   "metres": 1.24,
+   "basePx": 64,
+   "anchor": {
+    "x": 54,
+    "y": 104
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 43
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-a",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 726bcf81 img2img over the intact raw"
+  },
+  {
+   "id": "arch-block-a-ruined",
+   "kind": "house",
+   "file": "arch-block-a-ruined.png",
+   "w": 117,
+   "h": 67,
+   "metres": 0.12,
+   "basePx": 63,
+   "anchor": {
+    "x": 54,
+    "y": 66
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 5
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": false,
+   "building": "arch-block-a",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux ae46c69f img2img over the intact raw"
+  },
+  {
+   "id": "arch-block-a-restored",
+   "kind": "house",
+   "file": "arch-block-a-restored.png",
+   "w": 122,
+   "h": 128,
+   "metres": 1.94,
+   "basePx": 64,
+   "anchor": {
+    "x": 53,
+    "y": 127
+   },
+   "tileOrigin": {
+    "x": 61,
+    "y": 66
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-a",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object a43b6eed, graded fresh + banner"
+  },
+  {
+   "id": "arch-block-b-intact",
+   "kind": "house",
+   "file": "arch-block-b-intact.png",
+   "w": 182,
+   "h": 173,
+   "metres": 2.33,
+   "basePx": 96,
+   "anchor": {
+    "x": 93,
+    "y": 172
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 77
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-b",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e4abb8bf"
+  },
+  {
+   "id": "arch-block-b-damaged",
+   "kind": "house",
+   "file": "arch-block-b-damaged.png",
+   "w": 176,
+   "h": 171,
+   "metres": 2.27,
+   "basePx": 96,
+   "anchor": {
+    "x": 90,
+    "y": 170
+   },
+   "tileOrigin": {
+    "x": 87,
+    "y": 75
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-b",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 0ac0a824 img2img over the intact raw"
+  },
+  {
+   "id": "arch-block-b-ruined",
+   "kind": "house",
+   "file": "arch-block-b-ruined.png",
+   "w": 181,
+   "h": 103,
+   "metres": 0.21,
+   "basePx": 96,
+   "anchor": {
+    "x": 95,
+    "y": 102
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 7
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": false,
+   "building": "arch-block-b",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 4cd1771e img2img over the intact raw"
+  },
+  {
+   "id": "arch-block-b-restored",
+   "kind": "house",
+   "file": "arch-block-b-restored.png",
+   "w": 182,
+   "h": 196,
+   "metres": 3.03,
+   "basePx": 96,
+   "anchor": {
+    "x": 93,
+    "y": 195
+   },
+   "tileOrigin": {
+    "x": 91,
+    "y": 100
+   },
+   "footprint": [
+    3,
+    3
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-b",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e4abb8bf, graded fresh + banner"
+  },
+  {
+   "id": "arch-block-c-intact",
+   "kind": "house",
+   "file": "arch-block-c-intact.png",
+   "w": 244,
+   "h": 225,
+   "metres": 2.94,
+   "basePx": 128,
+   "anchor": {
+    "x": 122,
+    "y": 224
+   },
+   "tileOrigin": {
+    "x": 122,
+    "y": 96
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-c",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e263a5d7"
+  },
+  {
+   "id": "arch-block-c-damaged",
+   "kind": "house",
+   "file": "arch-block-c-damaged.png",
+   "w": 241,
+   "h": 225,
+   "metres": 2.94,
+   "basePx": 128,
+   "anchor": {
+    "x": 119,
+    "y": 224
+   },
+   "tileOrigin": {
+    "x": 120,
+    "y": 96
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-c",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 1bf96ae8 img2img over the intact raw"
+  },
+  {
+   "id": "arch-block-c-ruined",
+   "kind": "house",
+   "file": "arch-block-c-ruined.png",
+   "w": 236,
+   "h": 142,
+   "metres": 0.42,
+   "basePx": 128,
+   "anchor": {
+    "x": 117,
+    "y": 141
+   },
+   "tileOrigin": {
+    "x": 118,
+    "y": 13
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "arch-block-c",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux c9c978ba img2img over the intact raw"
+  },
+  {
+   "id": "arch-block-c-restored",
+   "kind": "house",
+   "file": "arch-block-c-restored.png",
+   "w": 244,
+   "h": 248,
+   "metres": 3.64,
+   "basePx": 128,
+   "anchor": {
+    "x": 122,
+    "y": 247
+   },
+   "tileOrigin": {
+    "x": 122,
+    "y": 119
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-c",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object e263a5d7, graded fresh + banner"
+  },
+  {
+   "id": "arch-block-d-intact",
+   "kind": "house",
+   "file": "arch-block-d-intact.png",
+   "w": 247,
+   "h": 212,
+   "metres": 2.55,
+   "basePx": 128,
+   "anchor": {
+    "x": 119,
+    "y": 211
+   },
+   "tileOrigin": {
+    "x": 124,
+    "y": 85
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-d",
+   "state": "intact",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 43c53734"
+  },
+  {
+   "id": "arch-block-d-damaged",
+   "kind": "house",
+   "file": "arch-block-d-damaged.png",
+   "w": 238,
+   "h": 212,
+   "metres": 2.55,
+   "basePx": 128,
+   "anchor": {
+    "x": 114,
+    "y": 211
+   },
+   "tileOrigin": {
+    "x": 119,
+    "y": 85
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-d",
+   "state": "damaged",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux 52f83a53 img2img over the intact raw"
+  },
+  {
+   "id": "arch-block-d-ruined",
+   "kind": "house",
+   "file": "arch-block-d-ruined.png",
+   "w": 216,
+   "h": 133,
+   "metres": 0.15,
+   "basePx": 128,
+   "anchor": {
+    "x": 106,
+    "y": 132
+   },
+   "tileOrigin": {
+    "x": 109,
+    "y": 5
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": false,
+   "building": "arch-block-d",
+   "state": "ruined",
+   "material": "stone",
+   "burnable": false,
+   "source": "pixflux ed368ac4 img2img over the intact raw"
+  },
+  {
+   "id": "arch-block-d-restored",
+   "kind": "house",
+   "file": "arch-block-d-restored.png",
+   "w": 247,
+   "h": 235,
+   "metres": 3.24,
+   "basePx": 128,
+   "anchor": {
+    "x": 119,
+    "y": 234
+   },
+   "tileOrigin": {
+    "x": 124,
+    "y": 108
+   },
+   "footprint": [
+    4,
+    4
+   ],
+   "blocksMovement": true,
+   "building": "arch-block-d",
+   "state": "restored",
+   "material": "stone",
+   "burnable": false,
+   "source": "map_object 43c53734, graded fresh + banner"
   }
  ]
 }
