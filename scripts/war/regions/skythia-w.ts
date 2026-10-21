@@ -20,7 +20,7 @@ const tier = (x: number, y: number) => {
 
 const def: RegionDef = {
   id: 'skythia-w',
-  style: { dry: 0.3, meadow: 0.3, trees: 0.6, bushes: 0.5 },
+  style: { dry: 0.3, meadow: 0.3, trees: 0.4, bushes: 0.12 },
   build(k: Kit) {
     const W = k.entry('kleisoura'), E = k.entry('skythia'), EN = k.entry('skythia-n'), ES = k.entry('skythia-s'), S = k.entry('kimmeria');
     k.fill(3);
