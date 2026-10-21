@@ -10,18 +10,38 @@ describe('M7h landmark balance', () => {
 
   // docs/WAR.md "Living regions" -> "Balance": the raid each landmark is tuned for wins, one squad loses (seed 1 of the
   // 8 the report fights)
-  it("Drakon's Citadel: one squad stalls at the roof, a 6-squad raid kills him with losses", () => {
+  it("Drakon's Citadel: one squad stalls at the roof, four up the switchbacks with a ram through the gate kill him", () => {
     const one = raidFight('krios', 'drakon', mixed(1), 1);
     expect(one.won).toBe(false);
     expect(one.bossHp).toBeGreaterThanOrEqual(0.55);
-    const six = raidFight('krios', 'drakon', mixed(6), 1);
-    expect(six.won).toBe(true);
-    expect(six.lost).toBeGreaterThan(4);
+    const four = raidFight('krios', 'drakon', mixed(4, 1), 1);
+    expect(four.won).toBe(true);
+    expect(four.lost).toBeGreaterThan(0);
   }, 120_000);
 
   it('Dead City of Ammon: one squad falls to the King and his guard, three kill him', () => {
     expect(raidFight('ammon', 'bandit_king', mixed(1), 1).won).toBe(false);
     expect(raidFight('ammon', 'bandit_king', mixed(3), 1).won).toBe(true);
+  }, 120_000);
+
+  it("Rim Watchtower: one squad is torn apart by Scylla's heads, six split along the cliff and kill her", () => {
+    const one = raidFight('siren', 'scylla', mixed(1), 1);
+    expect(one.won).toBe(false);
+    expect(one.bossHp).toBe(1); // her body never opened
+    expect(raidFight('siren', 'scylla', mixed(4), 1).won).toBe(false);
+    expect(raidFight('siren', 'scylla', mixed(6), 1).won).toBe(true);
+  }, 120_000);
+
+  it('Sunken Temple: one squad dies to Achelous, six wade into the fords at his serpent and kill him', () => {
+    expect(raidFight('delta', 'river_god', mixed(1), 1).won).toBe(false);
+    expect(raidFight('delta', 'river_god', mixed(4), 1).won).toBe(false);
+    expect(raidFight('delta', 'river_god', mixed(6), 1).won).toBe(true);
+  }, 120_000);
+
+  it('Temple City: one squad and six fall to the Titan, ten close under his boulders and kill him', () => {
+    expect(raidFight('omphalos', 'titan', mixed(1), 1).won).toBe(false);
+    expect(raidFight('omphalos', 'titan', mixed(6), 1).won).toBe(false);
+    expect(raidFight('omphalos', 'titan', mixed(10), 1).won).toBe(true);
   }, 120_000);
 
   for (const [region, boss] of [['saddle', 'brontes'], ['gorge', 'gyges'], ['canyons', 'chimera'], ['erymanthos', 'grove_queen']] as const)

@@ -191,9 +191,7 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   const fI = s.ramp([out(gI, 1), out(gI, 6), [out(gI, 8)[0] - 6, out(gI, 14)[1]]], 4, hi, ho, { run: 10 / T, flat: 4 });
   // the crag's skirt: broken granite ledges, snow drifted on them, round the wards but where the ramps come down
   s.skirtKinds = { a: 'drift', b: 'rock', cut: -0.15 };
-  // (the south face under the main gate stays open ground along the switchbacks: the 4-squad raid forms up there under
-  // the gate towers Drakon perches on, tests/war/landmarkBalance.test.ts)
-  const sk = s.skirt(C, ho, 8, { steps: 2, seed: 19, open: [fS, fW, fE, ...zig, ...[-40, -26, -12, 0, 12, 26, 40].map((d): Pt => [gS.at[0] + d, gS.at[1] + 8])], openR: 13, lo: 0.35, hi: 0.7 });
+  const sk = s.skirt(C, ho, 8, { steps: 2, seed: 19, open: [fS, fW, fE, ...zig], lo: 0.35, hi: 0.7 });
   // the summit: the keep, the treasury, the temple, a cistern, the commander's halls, stores
   if (!putNear(s, 'citadel-keep', 120, 30)) throw new Error('citadel: no ground for the keep');
   s.plaza(123, 44, 10, 5);

@@ -17,6 +17,7 @@ import { GUARDIANS } from '../war/sim/bosses';
 import { WAR_BOSSES, bossGoods } from '../data/warBosses';
 import { LANDMARKS, RARE_NODE, RARE_NODES, type RareGood } from '../data/warLandmarks';
 import { GATES, HEGEMONY, SCORE } from '../war/world/season';
+import { SIEGE } from '../war/sim/siege';
 
 const files = import.meta.glob('../war/regions/*.json', { eager: true, import: 'default' });
 const cache = new Map<string, RegionData>();
@@ -25,8 +26,8 @@ export const regionOf = (id: string): RegionData => {
   return cache.get(id)!;
 };
 
-/** A raid: its squads' classes (12 men each) and where it starts. */
-export interface Raid { label: string; classes: readonly string[] }
+/** A raid: its squads' classes (12 men each) and the rams its first heavies build at the staging point and crew. */
+export interface Raid { label: string; classes: readonly string[]; rams?: number }
 /** Where each landmark's raid forms up, outside its walls (tiles). */
 export const STAGING: Readonly<Record<string, readonly [number, number]>> = {
   krios: [316, 371],
@@ -41,7 +42,7 @@ export const STAGING: Readonly<Record<string, readonly [number, number]>> = {
 };
 /** Mixed raid of n squads: a line of heavies, then missiles, then lights. */
 const MIX = ['hoplite', 'archer', 'celt_sword', 'slinger', 'peltast', 'archer', 'thureophoros', 'javelineer', 'hoplite', 'archer'];
-export const mixed = (n: number): Raid => ({ label: `${n} squads`, classes: MIX.slice(0, n) });
+export const mixed = (n: number, rams = 0): Raid => ({ label: `${n} squads${rams ? ` + ${rams} ram` : ''}`, classes: MIX.slice(0, n), ...(rams ? { rams } : {}) });
 
 export interface RaidResult { won: boolean; secs: number; men: number; lost: number; bossHp: number; escaped: boolean }
 
@@ -70,6 +71,20 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
     mine.push(sim.spawnSquad(`p${k % 3}`, 0, cls, 12, sx + off, sy + (k % 2) * 4, ps));
   });
   const men = mine.length * 12;
+  // the rams: the raid brings their wood; a heavy squad builds each where it stands, then crews it to the gate
+  const rams = new Map<number, number>(); // squad -> engine
+  if (raid.rams) {
+    sim.addStock(0, 'wood', SIEGE.ram.cost.wood! * raid.rams);
+    const base = sim.snapshot().sieges?.length ?? 0;
+    const crews = mine.filter((_, k) => !RANGED.has(raid.classes[k])).slice(0, raid.rams);
+    crews.forEach((s) => {
+      const p = xy(sim, s);
+      sim.order({ kind: 'buildSiege', squad: s, type: 'ram', x: Math.floor(p.x) + 0.5, y: Math.floor(p.y) - 2.5 });
+    });
+    sim.step();
+    const built = sim.snapshot().sieges ?? [];
+    crews.forEach((s, i) => built[base + i] && rams.set(s, base + i));
+  }
   const host = (r.lairs ?? []).some((l) => l.captain); // a host holds the streets: fight through them
   let won = false, escaped = false, t = 0;
   const limit = limitSecs * TICKS_PER_SEC;
@@ -78,9 +93,14 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
       const b = sim.snapshot().bosses!.find((x) => x.id === boss)!;
       // the heavies break the landmark's nearest shut gate first, the missiles shoot the guardian
       const gate = (sim.snapshot().buildings ?? [])
-        .filter((x) => x.landmark && x.type === 'stoneGate' && x.state !== 'destroyed' && x.team !== 0 && Math.hypot(x.x - sx, x.y - sy) < 30)
+        .filter((x) => x.landmark && x.type === 'stoneGate' && x.state !== 'destroyed' && x.team !== 0 && Math.hypot(x.x - sx, x.y - sy) < 45)
         .sort((p, q) => Math.hypot(p.x - sx, p.y - sy) - Math.hypot(q.x - sx, q.y - sy))[0];
+      // Scylla: the raid splits along the cliff, a squad to a head, while her heads keep her body shut
+      const heads = b.id === 'scylla' && (b.parts?.alive ?? 0) > 2 ? sim.snapshot().units.filter((u) => u.cls === 'mob_scylla_head' && u.id !== b.unit && u.state !== 'dead') : [];
       mine.forEach((s, k) => {
+        const ram = rams.get(s), rs = ram === undefined ? undefined : sim.snapshot().sieges![ram];
+        if (rs?.state === 'building') return; // still building it
+        if (rs && rs.state !== 'destroyed' && rs.crew !== s && gate) return void sim.order({ kind: 'crew', squad: s, siege: ram! });
         const ranged = RANGED.has(raid.classes[k]);
         const aloft = b.state === 'perch' || b.state === 'flight';
         // near the guardian, or (a host) any of the mob team within 6 tiles: fight there before the gate
@@ -90,6 +110,7 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
         if (b.id === 'drakon' && (ranged ? !aloft && b.phase === 0 : aloft)) sim.order({ kind: 'move', squad: s, x: sx + (k - mine.length / 2) * 3, y: sy + 6 });
         else if (gate && !ranged && !near && !host) sim.order({ kind: 'attackBuilding', squad: s, building: gate.id });
         else if (host && near) sim.order({ kind: 'attackMove', squad: s, ...xy(sim, s) });
+        else if (heads.length) sim.order({ kind: 'attackMove', squad: s, x: heads[k % heads.length].x, y: heads[k % heads.length].y });
         else if (host || t < 300 || b.id === 'scylla') sim.order({ kind: 'attackMove', squad: s, x: b.x, y: b.y }); // Scylla: her heads first
         else sim.order({ kind: 'attack', squad: s, target: b.squad });
       });
@@ -97,7 +118,7 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
     if (log && t % 300 === 0) {
       const b = sim.snapshot().bosses!.find((x) => x.id === boss)!;
       const sn = sim.snapshot(), zOf = (s: number) => sn.units[sn.squads[s].units.find((u) => sn.units[u].state !== 'dead') ?? sn.squads[s].units[0]].z;
-      log.push(`${t / 10}s ${b.id} ${Math.round((b.hp / b.maxHp) * 100)}% ${b.state} p${b.phase} @${b.x.toFixed(0)},${b.y.toFixed(0)}z${sn.units[b.unit].z} | ${mine.map((s) => { const p = xy(sim, s); return `${p.x.toFixed(0)},${p.y.toFixed(0)}z${zOf(s)}:${aliveOf(sim, [s])}`; }).join(' ')}`);
+      log.push(`${t / 10}s ${b.id} ${Math.round((b.hp / b.maxHp) * 100)}%${b.parts ? ` heads ${b.parts.alive}` : ''} ${b.state} p${b.phase} @${b.x.toFixed(0)},${b.y.toFixed(0)}z${sn.units[b.unit].z} | ${mine.map((s) => { const p = xy(sim, s); return `${p.x.toFixed(0)},${p.y.toFixed(0)}z${zOf(s)}:${aliveOf(sim, [s])}`; }).join(' ')}`);
     }
     sim.step();
     for (const e of sim.events()) {
@@ -138,8 +159,8 @@ const aliveOf = (sim: WarBuildSim, squads: number[]): number => {
 
 /** The raids the report fights: per guardian, its region, the raid sizes (one squad and the target) and seeds. */
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
-export const FIGHTS: readonly { boss: string; region: string; squads: readonly number[]; seeds: readonly number[] }[] = [
-  { boss: 'drakon', region: 'krios', squads: [1, 4, 6], seeds: SEEDS },
+export const FIGHTS: readonly { boss: string; region: string; squads: readonly number[]; seeds: readonly number[]; rams?: number }[] = [
+  { boss: 'drakon', region: 'krios', squads: [1, 4, 6], seeds: SEEDS, rams: 1 }, // the switchbacks to a shut gate: a ram
   { boss: 'bandit_king', region: 'ammon', squads: [1, 3], seeds: SEEDS },
   { boss: 'scylla', region: 'siren', squads: [1, 6], seeds: SEEDS },
   { boss: 'river_god', region: 'delta', squads: [1, 6], seeds: SEEDS },
@@ -219,9 +240,9 @@ export function fightRows(): string[] {
     const parts = g.parts ? ` (${g.parts.n} parts x ${g.parts.hp} hp, ${g.parts.dmg} dmg)` : '';
     out.push(`  ${f.boss} (${f.region}): hp ${g.hp}${parts}, dmg ${g.dmg}, armour ${g.armor}${g.guard ? `, guard ${g.guard.n} x ${g.guard.hp} hp` : ''}`);
     for (const n of f.squads) {
-      const rs = f.seeds.map((s) => raidFight(f.region, f.boss, mixed(n), s));
+      const rs = f.seeds.map((s) => raidFight(f.region, f.boss, mixed(n, n > 1 ? f.rams : 0), s));
       const cell = rs.map((r) => (r.won ? `won ${fmt(r.secs / 60)} min, lost ${r.lost}/${r.men}` : `${r.escaped ? 'fled' : 'failed'} (boss ${Math.round(r.bossHp * 100)}%, lost ${r.lost}/${r.men}, ${fmt(r.secs / 60)} min)`));
-      out.push(`    ${pad(`${n} squads`, 10)} ${rs.filter((r) => r.won).length}/${rs.length} won: ${cell.join('; ')}`);
+      out.push(`    ${pad(mixed(n, n > 1 ? f.rams : 0).label, 10)} ${rs.filter((r) => r.won).length}/${rs.length} won: ${cell.join('; ')}`);
     }
   }
   return out;

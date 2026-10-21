@@ -1922,6 +1922,15 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
   /** Melee can land: at most one height level apart and a walkable line between (no cliff, no blocked tile). */
   const reachable = (u: Unit, t: Unit) => Math.abs(hAt(u.x, u.y) - hAt(t.x, t.y)) <= 1 && lineClear(grid, u.x, u.y, t.x, t.y);
 
+  /** M7d: a man in a ford or wading in at its edge (a tile of one beside him): he reaches what lurks in the channel. */
+  const atFord = (x: number, y: number) => {
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const tx = Math.floor(x) + dx, ty = Math.floor(y) + dy;
+        if (tx >= 0 && ty >= 0 && tx < grid.w && ty < grid.h && region.water[ty * grid.w + tx] === 1) return true;
+      }
+    return false;
+  };
   /**
    * Nearest living enemy among the squads nearby; a holding unit only looks as far as it may fight.
    * Melee skip foes near at hand they cannot reach (across a cliff): they go round with the squad instead.
@@ -1936,8 +1945,9 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       const bias = attacking && o !== foe ? 9 : 0; // attackers prefer the ordered target unless another foe is much nearer
       for (const t of o.units) {
         if (!t.alive || (anySafe && inSafe(t.x, t.y))) continue; // M6d: none inside a safe zone
+        if (t.immune) continue; // Scylla's body while her heads guard it: no blow spent on it
         // M7d: a guardian on a roof or in the air only missiles reach; in the channels, melee from a ford only
-        if (t.aloft && !shoot && (t.aloft === 1 || region.water[tileAt(grid, u.x, u.y)] !== 1)) continue;
+        if (t.aloft && !shoot && (t.aloft === 1 || !atFord(u.x, u.y))) continue;
         const d2 = (t.x - u.x) ** 2 + (t.y - u.y) ** 2 + bias;
         if (d2 < bestScore) {
           if (!shoot && d2 < CHARGE * CHARGE && !reachable(u, t)) continue;
