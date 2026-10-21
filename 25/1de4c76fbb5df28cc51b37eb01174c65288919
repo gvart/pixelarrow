@@ -1,0 +1,24 @@
+scripts/war/regions/ammos.ts
+  s_cfc22b058125c4::t_5cec54c435a45b 17,39-40
+  s_cfc22b058125c4::t_0be02e6d1504d0 55-58
+  s_cfc22b058125c4::t_6e0883bbae49fd 12-13
+  s_cfc22b058125c4::t_0f4064a71eef9d 4-5,8-9,23-29,31-34,38,41-42,54,74-75,81,83-86
+src/war/regions/ammos.json
+  s_cfc22b058125c4::t_5cec54c435a45b 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "251de4c76fbb5df28cc51b37eb01174c65288919",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
