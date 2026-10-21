@@ -3005,3 +3005,17 @@ streams cross a step (scripts/war/regions/tiers.ts `tierStream` lays them). (2) 
 edges well but not routes or crossings, so the narrows, fords and land bridges are placed in the script. (3) In entry
 regions W-03 keeps a band along every road free of buildings, so a bridgehead town stands in quarters either side of the
 road. (4) A pocket's tier-1 boss is a small guardian site of no pieces (`pocketBoss`).
+
+### 40j Field crops (relief pass)
+
+`create_map_object`, basic mode, high top-down, high detail, detailed shading; built into `public/war/biomes/elaia/`
+(scripts/war/art/biomes/elaia.mjs) and laid by `kit.fields` one per 2 m tile on sown plots.
+
+| id | Call | Canvas | Subject (verbatim) | Result |
+| --- | --- | --- | --- | --- |
+| wheat | `1cefe722` | 96 x 72 | `one small square patch of ripe standing wheat in a field, dense upright dull golden-ochre wheat stalks with heavy ears about one metre tall, planted in straight furrow rows, seen from a high isometric three-quarter view, dark epic desaturated colours, heavy shadows, only the wheat on a fully transparent background, no ground, no soil, no base under it` | kept, first try; came on a soil slab anyway: `base.keep: 'crop'` drops the brown soil, `scale: 0.67` to a 2 m tile |
+| barley | `fd28d78f` | 96 x 64 | same, `young green barley crop ... dense short upright dark muted green barley shoots about half a metre tall` | kept, first try; same slab drop |
+
+**Lesson:** "no ground, no soil, no base" does not stop PixelLab drawing a slab under a crop patch; key it out by colour.
+Do not rebuild a biome with `build.mjs --biome` to add one object: it rewrites objects.json without the town pieces
+(built by town.mjs) and re-snaps every sprite to a new palette; snap the new sprite to the existing palette instead.
