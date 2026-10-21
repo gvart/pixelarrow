@@ -16,6 +16,7 @@ export const FILLS = {
   salt: { dir: 'sand-salt', frame: 0, grade: { sat: 0.5, val: 0.6 } },
   oasis: { dir: 'sand-oasis', frame: 0, grade: { sat: 0.85, val: 0.82 } },
   paving: { dir: 'sand-paving', frame: 0, grade: { sat: 0.7, val: 0.8 } }, // W-48 landmark streets (the Dead City)
+  rubble: { dir: 'sand-rubble', frame: 0, grade: { sat: 0.85, val: 0.9 } }, // W-51: a ruined quarter's rubble field
 };
 
 export const SETS = [
@@ -26,6 +27,7 @@ export const SETS = [
   { pair: 'sand-salt', first: 'sand', second: 'salt', dir: 'sand-salt', side: 'earth', source: 'tiles_pro 1c47a090 (ART-7)' },
   { pair: 'sand-oasis', first: 'sand', second: 'oasis', dir: 'sand-oasis', side: 'earth', source: 'tiles_pro 83db5c22 (ART-7)' },
   { pair: 'sand-paving', first: 'sand', second: 'paving', dir: 'sand-paving', side: 'earth', source: 'tiles_pro 7facd3d0 (W-48)' },
+  { pair: 'sand-rubble', first: 'sand', second: 'rubble', dir: 'sand-rubble', side: 'earth', source: 'tiles_pro 91d8e10b (W-51)' },
 ];
 
 // 'fills' = tiles_pro 3fa738fa (ART-7): 2 independent tiles per item, top vertex at y 11 (items: dune x2, hardpan,
@@ -38,17 +40,22 @@ export const VARIANTS = {
   reg: [fills(8), fills(9), 'shift'],
   salt: [fills(10), fills(11)],
   oasis: [fills(12), fills(13), 'shift'],
+  rubble: ['shift', 'mirror'],
   // desert sand with stones and dry grass blades (replaces the global sand variants inside Kyrene)
   sand: [fills(14), fills(15), { dir: 'sand-shallow', frame: 15, batch: 'art5' }],
 };
 
-export const CLIFFS = [{ id: 'redrock', from: 'redrock' }];
+// W-51 crag kit: tall cliff faces cut from create_tiles_pro runs of tall iso rock blocks (build.mjs faceStrips).
+export const CLIFFS = [
+  { id: 'redrock', from: 'redrock' },
+  { id: 'sandstone', material: 'red sandstone, strata, caprock lip', faces: { dir: 'face-sandstone', batch: 'crag', tiles: [0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 12, 15], grade: { sat: 0.62, val: 0.62 } }, source: 'tiles_pro 1e86ebf7 (W-51)' },
+];
 
 // Kyrene terrains only have a set with sand, so the land buffer is sand: any other pair (dune-hardpan, oasis-grass, ...)
 // gets a sand verge. Water: oasis-shallow and dune-shallow get a sand bank (sand-shallow is a global set).
 export const FALLBACK = {
   note: 'Same rule as the global tiles.json fallback, over the global sheets plus these, but the land buffer is sand: Kyrene terrains only have a set with sand, so any other pair (dune-hardpan, oasis-shallow, redrock-grass, ...) gets a sand verge; order says which corner gives way first.',
-  order: ['deep', 'shallow', 'marsh', 'grass', 'dirt', 'oasis', 'salt', 'hardpan', 'reg', 'dune', 'forest', 'redrock', 'rock', 'road', 'paving', 'sand'],
+  order: ['deep', 'shallow', 'marsh', 'grass', 'dirt', 'oasis', 'salt', 'hardpan', 'reg', 'dune', 'forest', 'redrock', 'rock', 'road', 'paving', 'rubble', 'sand'],
   buffer: { water: 'shallow', land: 'sand' },
 };
 
@@ -94,4 +101,15 @@ export const OBJECTS = [
   { id: 'camels', raw: 'camels', kind: 'fauna', blocks: false, footprint: [2, 1], metres: 2.1, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'camel', animateLater: true }, source: 'map_object 7d986561' },
   { id: 'jackal', raw: 'jackal', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 0.65, scale: 0.7, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'jackal', mob: true, animateLater: true }, source: 'map_object 6212438c' },
   { id: 'gazelle', raw: 'gazelle', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.3, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'gazelle', animateLater: true }, source: 'map_object acc6c5b8' },
+  // W-51 (PROMPTS_ART.md 40h): talus under the sandstone faces, the Dead City's ruin dressing and street life
+  { id: 'talus-red', raw: 'talus-red', kind: 'stone', blocks: true, footprint: [2, 1], metres: 1.97, grade: { sat: 0.6, val: 0.68 }, extra: { overlay: 'talus', cliff: 'sandstone' }, source: 'map_object e6bb6166 (W-51)' },
+  { id: 'debris-mud', raw: 'debris-mud', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.27, grade: mud, extra: { overlay: 'debris' }, source: 'map_object f875b4f1 (W-51)' },
+  { id: 'rubble-heap-mud', raw: 'rubble-heap-mud', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.64, grade: mud, extra: { overlay: 'debris' }, source: 'map_object 2be62c8f (W-51)' },
+  { id: 'wall-fallen-mud', raw: 'wall-fallen-mud', kind: 'stone', blocks: true, footprint: [2, 1], metres: 2.76, grade: mud, extra: { ruin: 'collapsed wall' }, source: 'map_object d172763a (W-51)' },
+  { id: 'ruin-sanded', raw: 'ruin-sanded', kind: 'stone', blocks: true, footprint: [2, 2], metres: 2.42, grade: mud, extra: { ruin: 'sand-drifted house' }, source: 'map_object a110b8c1 (W-51)' },
+  { id: 'stall-awning', raw: 'stall-awning', kind: 'prop', blocks: false, footprint: [1, 1], metres: 2.39, grade: { sat: 0.6, val: 0.75 }, extra: { dressing: 'market awning' }, source: 'map_object c1441d2b (W-51)' },
+  { id: 'palm-pot', raw: 'palm-pot', kind: 'prop', blocks: false, footprint: [1, 1], metres: 2.67, grade: palm, extra: { dressing: 'potted palm' }, source: 'map_object 9a8f77ec (W-51)' },
+  { id: 'amphora-stack', raw: 'amphora-stack', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.39, grade: { sat: 0.6, val: 0.75 }, extra: { dressing: 'amphorae' }, source: 'map_object 2839d874 (W-51)' },
+  { id: 'handcart', raw: 'handcart', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.33, grade: { sat: 0.6, val: 0.75 }, extra: { dressing: 'cart' }, source: 'map_object da27388a (W-51)' },
+  { id: 'steps-stone', raw: 'steps-stone', kind: 'prop', blocks: false, footprint: [1, 1], metres: 2.06, grade: { sat: 0.55, val: 0.72 }, extra: { dressing: 'steps' }, source: 'map_object 7d3fba3a (W-51)' },
 ];

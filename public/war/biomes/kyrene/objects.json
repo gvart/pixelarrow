@@ -111,58 +111,68 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#54a17f",
+  "#522d24",
+  "#455647",
+  "#7a4c3a",
+  "#8f5950",
+  "#8c6b47",
+  "#8f7e6d",
+  "#ae9074",
   "#c0c1c0",
-  "#8b6a55",
-  "#866d56",
-  "#bfbfc0",
-  "#876b51",
-  "#866d54",
-  "#b8b39e",
-  "#bbb7ae",
-  "#886b50",
-  "#876b50",
-  "#8c715f",
-  "#9c776d",
-  "#a2927b",
-  "#b1a187",
-  "#89544a",
-  "#8d5b51",
-  "#896149",
-  "#8d6556",
-  "#597041",
-  "#876c52",
-  "#896c50",
-  "#896d53",
-  "#8a6f56",
-  "#926f57",
-  "#8a7055",
-  "#907258",
-  "#987a54",
-  "#5e3224",
-  "#5f392b",
-  "#694334",
-  "#734637",
-  "#653f41",
-  "#76493d",
-  "#755041",
-  "#745a4f",
-  "#1e0a1d",
-  "#462725",
-  "#4f2a1e",
-  "#502d21",
-  "#532d20",
-  "#592e21",
-  "#542f22",
-  "#573023",
-  "#2f5142",
+  "#542e21",
+  "#4f3b2a",
+  "#744538",
+  "#82524d",
+  "#8b6048",
+  "#916257",
+  "#9e826d",
+  "#bfc0c0",
+  "#512c1f",
+  "#542c1f",
+  "#552f22",
+  "#502f2b",
+  "#6b3f2f",
+  "#6f4338",
+  "#784741",
+  "#7e4a46",
+  "#5c733a",
+  "#6c7043",
+  "#8c5e50",
+  "#926055",
+  "#9b7a5a",
+  "#99796d",
+  "#bbb8af",
+  "#bebebf",
+  "#1b0918",
+  "#1f0d13",
+  "#2e1520",
+  "#502b20",
+  "#2e4419",
+  "#294e3c",
   "#3e5645",
-  "#42583e",
+  "#5d3126",
+  "#614230",
+  "#5d3436",
+  "#624235",
+  "#603f3f",
+  "#6a4144",
+  "#744e42",
+  "#715246",
+  "#46622a",
+  "#4b623c",
   "#425b49",
-  "#583224",
-  "#564029",
-  "#4a5144",
-  "#546550"
+  "#4c6757",
+  "#3f9472",
+  "#785e52",
+  "#6d8773",
+  "#966957",
+  "#977158",
+  "#9c6866",
+  "#977363",
+  "#aca087",
+  "#b0a08d",
+  "#b6ae99",
+  "#b8b3a0"
  ],
  "objects": [
   {
@@ -695,6 +705,197 @@
    "fauna": "gazelle",
    "animateLater": true,
    "source": "map_object acc6c5b8"
+  },
+  {
+   "id": "talus-red",
+   "kind": "stone",
+   "file": "talus-red.png",
+   "w": 103,
+   "h": 65,
+   "metres": 1.97,
+   "anchor": {
+    "x": 61,
+    "y": 64
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "overlay": "talus",
+   "cliff": "sandstone",
+   "source": "map_object e6bb6166 (W-51)"
+  },
+  {
+   "id": "debris-mud",
+   "kind": "prop",
+   "file": "debris-mud.png",
+   "w": 80,
+   "h": 42,
+   "metres": 1.27,
+   "anchor": {
+    "x": 43,
+    "y": 41
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "overlay": "debris",
+   "source": "map_object f875b4f1 (W-51)"
+  },
+  {
+   "id": "rubble-heap-mud",
+   "kind": "prop",
+   "file": "rubble-heap-mud.png",
+   "w": 82,
+   "h": 54,
+   "metres": 1.64,
+   "anchor": {
+    "x": 43,
+    "y": 53
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "overlay": "debris",
+   "source": "map_object 2be62c8f (W-51)"
+  },
+  {
+   "id": "wall-fallen-mud",
+   "kind": "stone",
+   "file": "wall-fallen-mud.png",
+   "w": 125,
+   "h": 91,
+   "metres": 2.76,
+   "anchor": {
+    "x": 61,
+    "y": 90
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "ruin": "collapsed wall",
+   "source": "map_object d172763a (W-51)"
+  },
+  {
+   "id": "ruin-sanded",
+   "kind": "stone",
+   "file": "ruin-sanded.png",
+   "w": 111,
+   "h": 80,
+   "metres": 2.42,
+   "anchor": {
+    "x": 54,
+    "y": 79
+   },
+   "footprint": [
+    2,
+    2
+   ],
+   "blocksMovement": true,
+   "ruin": "sand-drifted house",
+   "source": "map_object a110b8c1 (W-51)"
+  },
+  {
+   "id": "stall-awning",
+   "kind": "prop",
+   "file": "stall-awning.png",
+   "w": 66,
+   "h": 79,
+   "metres": 2.39,
+   "anchor": {
+    "x": 33,
+    "y": 78
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "dressing": "market awning",
+   "source": "map_object c1441d2b (W-51)"
+  },
+  {
+   "id": "palm-pot",
+   "kind": "prop",
+   "file": "palm-pot.png",
+   "w": 60,
+   "h": 88,
+   "metres": 2.67,
+   "anchor": {
+    "x": 29,
+    "y": 87
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "dressing": "potted palm",
+   "source": "map_object 9a8f77ec (W-51)"
+  },
+  {
+   "id": "amphora-stack",
+   "kind": "prop",
+   "file": "amphora-stack.png",
+   "w": 50,
+   "h": 46,
+   "metres": 1.39,
+   "anchor": {
+    "x": 26,
+    "y": 45
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "dressing": "amphorae",
+   "source": "map_object 2839d874 (W-51)"
+  },
+  {
+   "id": "handcart",
+   "kind": "prop",
+   "file": "handcart.png",
+   "w": 74,
+   "h": 44,
+   "metres": 1.33,
+   "anchor": {
+    "x": 28,
+    "y": 43
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "dressing": "cart",
+   "source": "map_object da27388a (W-51)"
+  },
+  {
+   "id": "steps-stone",
+   "kind": "prop",
+   "file": "steps-stone.png",
+   "w": 82,
+   "h": 68,
+   "metres": 2.06,
+   "anchor": {
+    "x": 39,
+    "y": 67
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "dressing": "steps",
+   "source": "map_object 7d3fba3a (W-51)"
   }
  ]
 }
