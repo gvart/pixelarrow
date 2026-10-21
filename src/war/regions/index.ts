@@ -18,7 +18,7 @@ export const WORLD_REGIONS = [
   { id: 'elaia', name: "Elaia", role: 'home', draft: false },
   { id: 'elaia-n', name: "Lakeshore Fens", role: 'entry', draft: false },
   { id: 'elaia-w', name: "Pirate Coves", role: 'entry', draft: true },
-  { id: 'elaia-s', name: "Cape of Winds", role: 'entry', draft: true },
+  { id: 'elaia-s', name: "Cape of Winds", role: 'entry', draft: false },
   { id: 'elaia-e', name: "Westbank Vineyards", role: 'entry', draft: false },
   { id: 'krios', name: "Krios Glacier", role: 'neutral', draft: false },
   { id: 'siren', name: "Siren Estuary", role: 'neutral', draft: true },
