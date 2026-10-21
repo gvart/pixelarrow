@@ -4,10 +4,11 @@
  * green floodplain (h1, fields and palms) between desert terraces (h2); deep in its middle reach, with a narrows a
  * wooden bridge can span by the town and fords at both ends. West of it the dune sea (sand, dunes h3). East of the
  * town the oasis springs and the town (home camp) on the terrace; north-east of it a red butte (h6, one ramp) is the
- * fort site. The red escarpment (h7 mesa) closes the east; the east road climbs it through a narrow wadi canyon (the
+ * fort site. The red escarpment (W-52 set piece: two sheer tiers, h5 and h8, a third of the map wide) closes the east; the east road climbs it through a narrow wadi canyon (the
  * ambush) whose cliff walls overlook the road. Copper ore under the cliffs.
  */
-import { fbm, type Kit, type RegionDef } from './kit.ts';
+import type { Kit, RegionDef } from './kit.ts';
+import { massif } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'kyrene',
@@ -18,9 +19,17 @@ const def: RegionDef = {
     // the dune sea west of the river and the sand east of it; the escarpment and its mesa (h5) in the east
     k.paint('sand', [22, 128, 70, 150, 0.1], { rough: 8 });
     k.paint('sand', [210, 130, 70, 150, 0], { rough: 8 });
-    k.lift((x, y, s) => (x + 14 * fbm(x, y, 22, s) + 5 * fbm(x, y, 6, s + 1) > 200 ? 7 : NaN), true);
-    k.paint('sand', [230, 128, 50, 140, 0], { on: ['grass'], minH: 5 });
-    for (const b of [[30, 60, 12, 6, 0.4], [54, 96, 16, 6, 0.2], [24, 150, 14, 7, -0.3], [60, 200, 18, 6, 0.5], [40, 236, 12, 5, 0.1], [76, 30, 10, 5, 0.6]] as const) k.hill([...b], 3, 3, 2);
+    // W-52 set piece (./setpieces.ts): the red escarpment fills the east third in two sheer tiers (h5, h8) along a
+    // bold curving front
+    massif(k, {
+      outline: [[268, -12], [196, -12], [206, 40], [194, 88], [206, 128], [198, 172], [208, 220], [196, 268], [268, 268]],
+      crown: [[268, -12], [234, -12], [242, 70], [232, 128], [244, 200], [232, 268], [268, 268]],
+      base: 2, tiers: 2, steps: [3, 3], wobble: 0.25,
+    });
+    k.paint('sand', [236, 128, 56, 150, 0], { on: ['grass'], minH: 5 });
+    // the dune sea west of the river: broad stepped crescent ridges (h3-h4)
+    for (const d of [[[14, 40], [40, 26], [70, 36]], [[10, 92], [36, 80], [62, 96]], [[16, 150], [40, 136], [64, 150]], [[20, 200], [46, 186], [74, 204]], [[18, 246], [44, 232], [74, 248]]] as [number, number][][])
+      k.ridge(d, { crest: 4, step: 3, top: 2.5, reach: 14, base: 2 });
     // the river: shallow (half 3) from edge to edge, deep in the middle reach, a narrows by the town
     const RIVER: [number, number][] = [[96, -6], [104, 30], [92, 64], [102, 100], [120, 128], [114, 164], [96, 200], [108, 232], [112, 262]];
     k.river(RIVER, { half: 3, deep: false, bed: 0, bank: 7 });
@@ -33,7 +42,7 @@ const def: RegionDef = {
     k.square([140, 168], 7);
     k.spot('homeCamp', [140, 168]);
     // the red butte (fort site), a lone mesa on the floodplain's west side
-    k.plateau([178, 96, 14, 10, 0.5], 6, { terrain: 'sand' });
+    k.plateau([176, 98, 18, 13, 0.5], 6, { terrain: 'sand' });
     k.spot('fortSite', [178, 95]);
     k.plateau([62, 168, 9, 7, 0.2], 4, { terrain: 'sand' });
     // the wadi canyon through the escarpment (east road)
@@ -47,9 +56,10 @@ const def: RegionDef = {
     k.road([[158, 114], [166, 104], [172, 98]], { fill: true, grade: 2.5 });
     k.road([[100, 214], [118, 206], [134, 196]]);
     k.road([[186, 74], [166, 80], [146, 86]], { grade: 3 });
+    k.road([[188, 150], [198, 132], [210, 116], [226, 108]], { w: 1.2, grade: 2, fill: true }); // up onto the escarpment
     // ground: red rock under the cliffs, salt and hardpan pans in the dunes, palms along the floodplain
-    k.patch('kyrene', 'redrock', [200, 70, 10, 34, 0.1], ['sand']);
-    k.patch('kyrene', 'redrock', [204, 200, 9, 30, -0.1], ['sand']);
+    k.patch('kyrene', 'redrock', [236, 128, 40, 150, 0], ['sand'], undefined, 5);
+    k.patch('kyrene', 'redrock', [176, 98, 19, 14, 0.5], ['sand'], undefined, 6);
     k.patch('kyrene', 'salt', [30, 190, 12, 7, 0.3], ['sand']);
     k.patch('kyrene', 'hardpan', [44, 30, 14, 8, 0.2], ['sand']);
     k.patch('kyrene', 'hardpan', [230, 230, 14, 9, 0.4], ['sand']);

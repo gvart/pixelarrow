@@ -7,21 +7,28 @@
  * bridge over its narrows stands the bridgehead town (h1) round its square, its mudbrick quarters north and south of
  * the road band, a jetty and a ruined old span. East of it the flat floodplain (h1) is cut by shallow winding channels
  * with reeds, wide flax and grain strips between them, unfenced, mudbrick farm huts by the fields; the River Road
- * crosses it on a raised bank, fording the channels. The east third rises a tier (h4) behind a sand cliff to the
- * dry palm ground of Kyrene, the road climbing it by a ramp.
+ * crosses it on a raised bank, fording the channels. The east third (W-52 set piece) rises in two sand cliff tiers
+ * (h4, h6) along a bold curving front to the dry palm ground of Kyrene, the road climbing them by ramps.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
+import { massif } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'kyrene-w',
-  style: { dry: 0.4, trees: 0.7 },
+  style: { dry: 0.4, trees: 0.4, bushes: 0.5 },
   build(k: Kit) {
     const W = k.entry('achelous'), E = k.entry('kyrene'), N = k.entry('savanna'), NE = k.entry('kyrene-n'), SE = k.entry('kyrene-s');
     k.fill(1);
-    k.zone('kyrene', [236, 128, 70, 170, 0], 10);
+    k.zone('kyrene', [236, 128, 80, 170, 0], 10);
     // the desert-edge tier behind its sand cliff
-    k.lift((x, y, s) => (x + 9 * Math.sin(y / 19 + s) + 4 * Math.cos(y / 6) > 188 ? 4 : NaN));
-    k.paint('sand', [226, 128, 44, 160, 0], { rough: 8 });
+    // W-52 set piece (./setpieces.ts): the desert edge fills the east third, rising from the floodplain in two sand
+    // cliff tiers (h4, h6) along a bold curving front
+    massif(k, {
+      outline: [[268, -12], [204, -12], [180, 40], [192, 84], [172, 128], [186, 176], [170, 222], [196, 268], [268, 268]],
+      crown: [[268, -12], [240, -12], [228, 60], [236, 128], [226, 200], [244, 268], [268, 268]],
+      base: 1, tiers: 2, steps: [3, 2], wobble: 0.25,
+    });
+    k.paint('sand', [226, 128, 54, 170, 0], { rough: 8 });
     k.paint('marsh', [52, 128, 14, 130, 0], { rough: 8 });
     k.paint('marsh', [90, 60, 16, 10, 0.4], { rough: 4 });
     k.paint('marsh', [80, 200, 12, 14, 0.2], { rough: 4 });
@@ -42,8 +49,8 @@ const def: RegionDef = {
     k.road([W, [6, 128], [24, 128], [44, 128], hub], { w: 1.4, grade: 3, bridges: [[24, 128]], span: 8 });
     k.road([hub, [100, 132], [140, 126], [170, 130], [200, 128], [230, 128], E], { w: 1.5, grade: 2.4, fill: true });
     k.road([hub, [92, 96], [118, 56], [126, 20], N], { w: 1.2, grade: 3, fill: true });
-    k.road([[200, 128], [224, 90], [244, 54], NE], { w: 1.1, grade: 3 });
-    k.road([[200, 128], [226, 168], [244, 204], SE], { w: 1.1, grade: 3 });
+    k.road([[200, 128], [224, 90], [244, 54], NE], { w: 1.1, grade: 3, fill: true });
+    k.road([[200, 128], [226, 168], [244, 204], SE], { w: 1.1, grade: 3, fill: true });
     k.spot('narrows', [24, 128]);
     k.spot('bridge', [24, 128]);
     // the fields between the channels (flax and grain)
