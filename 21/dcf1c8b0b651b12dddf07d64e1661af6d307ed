@@ -1,0 +1,36 @@
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_c00a24f9c7869a 674-678,1245
+  s_cfc22b058125c4::t_e6a6f09a71d66c 464-465,685-686,1241-1242
+  s_cfc22b058125c4::t_7325ddb00d4b4b 1663-1672
+public/war/biomes/elaia/objects.json
+  s_cfc22b058125c4::t_b634bb234a30ff 665-666,669
+  s_cfc22b058125c4::t_e6a6f09a71d66c 661-664,667-668,670-677
+  s_cfc22b058125c4::t_1116c8dd12dbda 660
+src/war/view/iso.ts
+  s_cfc22b058125c4::t_7325ddb00d4b4b 48-49
+src/war/regions/omphalos.json
+  s_cfc22b058125c4::t_cbd01fb5e4c1ab 1
+scripts/war/regions/landmarks.ts
+  s_cfc22b058125c4::t_13b3e5a20b212e 425-427,473-478
+  s_cfc22b058125c4::t_8c5c703a510077 430
+  s_cfc22b058125c4::t_c00a24f9c7869a 428-429
+  s_cfc22b058125c4::t_cbd01fb5e4c1ab 458,468-470
+scripts/war/regions/omphalos.ts
+  s_cfc22b058125c4::t_13b3e5a20b212e 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "21dcf1c8b0b651b12dddf07d64e1661af6d307ed",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
