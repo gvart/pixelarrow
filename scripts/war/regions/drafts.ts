@@ -66,7 +66,8 @@ const PLAN: Record<string, Plan> = {
   canyons: { chokes: [{ kind: 'canyon', toward: 'omphalos' }] },
 };
 
-function template(w: WorldRegion): RegionDef {
+/** The draft of region w (also the base a raid-tuned landmark region's own script composes over, ./draftCompose.ts). */
+export function template(w: WorldRegion): RegionDef {
   const brief = BRIEF[w.id], needs = new Set(brief.needs), plan = PLAN[w.id] ?? {};
   return {
     id: w.id,
@@ -355,5 +356,5 @@ function nearWater(k: Kit, first: Pt, next: () => Pt): Pt {
   return hasWater(k, p, 30) ? p : first;
 }
 
-const HAND = new Set(['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios', 'gorge', 'saddle', 'dodona-e', 'skythia-w', 'dodona-s', 'elaia-n', 'elaia-e', 'kyrene-w', 'skythia-s', 'kyrene-n', 'moors', 'kimmeria', 'savanna', 'bacchae', 'kyrene-e', 'kyrene-s', 'dodona-n', 'elaia-s', 'dodona-w', 'skythia-n', 'skythia-e', 'elaia-w']);
+const HAND = new Set(['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios', 'gorge', 'saddle', 'dodona-e', 'skythia-w', 'dodona-s', 'elaia-n', 'elaia-e', 'kyrene-w', 'skythia-s', 'kyrene-n', 'moors', 'kimmeria', 'savanna', 'bacchae', 'kyrene-e', 'kyrene-s', 'dodona-n', 'elaia-s', 'dodona-w', 'skythia-n', 'skythia-e', 'elaia-w', 'siren', 'delta']);
 export const DRAFTS: RegionDef[] = WORLD.filter((w) => !HAND.has(w.id)).map(template);

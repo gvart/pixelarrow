@@ -4,7 +4,7 @@ import { parseRegion } from '../../src/war/region/schema';
 import { mirrorChecks, type Borders } from '../../src/war/region/borders';
 
 const files = import.meta.glob('../../src/war/regions/*.json', { eager: true, import: 'default' });
-const HAND = ['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios', 'gorge', 'saddle', 'dodona-e', 'skythia-w', 'dodona-s', 'elaia-n', 'elaia-e', 'kyrene-w', 'skythia-s', 'kyrene-n', 'moors', 'kimmeria', 'savanna', 'bacchae', 'kyrene-e', 'kyrene-s', 'dodona-n', 'dodona-w', 'skythia-n', 'skythia-e', 'elaia-w', 'elaia-s'];
+const HAND = ['elaia', 'kyrene', 'dodona', 'skythia', 'kleisoura', 'omphalos', 'stymphalia', 'achelous', 'ammos', 'krios', 'gorge', 'saddle', 'dodona-e', 'skythia-w', 'dodona-s', 'elaia-n', 'elaia-e', 'kyrene-w', 'skythia-s', 'kyrene-n', 'moors', 'kimmeria', 'savanna', 'bacchae', 'kyrene-e', 'kyrene-s', 'dodona-n', 'dodona-w', 'skythia-n', 'skythia-e', 'elaia-w', 'elaia-s', 'siren', 'delta'];
 
 describe('world regions (scripts/war/regions)', () => {
   const regions = WORLD_REGIONS.map((w) => ({ w, r: parseRegion(files[`../../src/war/regions/${w.id}.json`]) as ReturnType<typeof parseRegion> & { meta?: { role: string; draft?: boolean; adjacent: { id: string; side: string }[] } } }));
