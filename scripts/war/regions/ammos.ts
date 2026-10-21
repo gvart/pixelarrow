@@ -4,7 +4,7 @@
  * Layout: dunes (h1-3, slow sand) everywhere but on the road. Mid-map the oasis, the only water, with the caravanserai
  * beside it: a walled court (the square, the claim point) with tents, camels and a well. The Desert Road runs north to
  * south through it on hard reg; a second track leaves east over the hardpan and salt to Ammon, and a third climbs west
- * through a wadi in the west ridge to the Red Canyons. Two rocky ridges (h3-4) flank the road, the raiders' lookouts
+ * through a wadi in the west ridge to the Red Canyons. Two rocky ridges (h5-6, cliffed outside) flank the road, the raiders' lookouts
  * with lions in their clefts, so it is open ground between them with two ways round the oasis. Scorpions in the east
  * dunes; mesas and rock pillars stand in the sand.
  */
@@ -25,9 +25,9 @@ const def: RegionDef = {
       return d < 18 ? NaN : 1 + (crest > 0.35 ? 1 : 0) + (crest > 0.95 && d > 40 ? 1 : 0);
     });
     // the two rocky ridges flanking the road, cliffed on their outer side
-    k.ridge([[60, 18], [72, 60], [64, 104], [72, 150], [60, 196], [70, 236]], { crest: 4, step: 2.5, top: 2, reach: 18, cliff: -1 });
-    k.ridge([[196, 30], [184, 74], [194, 110]], { crest: 4, step: 2.5, top: 2, reach: 16, cliff: 1 });
-    k.ridge([[192, 160], [182, 196], [196, 236]], { crest: 3, step: 2.5, top: 2, reach: 14, cliff: 1 });
+    k.ridge([[60, 18], [72, 60], [64, 104], [72, 150], [60, 196], [70, 236]], { crest: 6, step: 2.5, top: 2, reach: 18, cliff: -1 });
+    k.ridge([[196, 30], [184, 74], [194, 110]], { crest: 6, step: 2.5, top: 2, reach: 16, cliff: 1 });
+    k.ridge([[192, 160], [182, 196], [196, 236]], { crest: 5, step: 2.5, top: 2, reach: 14, cliff: 1 });
     k.spot('ridge', [70, 118]);
     k.spot('lookoutE', [186, 80]);
     // the wadi through the west ridge toward the canyons
