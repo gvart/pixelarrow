@@ -8,7 +8,7 @@ export const WORLD_REGIONS = [
   { id: 'skythia', name: "Skythia", role: 'home', draft: false },
   { id: 'skythia-n', name: "Frost Steppe", role: 'entry', draft: true },
   { id: 'skythia-e', name: "Chalk Coast", role: 'entry', draft: true },
-  { id: 'skythia-w', name: "Teeth Eastern Slopes", role: 'entry', draft: true },
+  { id: 'skythia-w', name: "Teeth Eastern Slopes", role: 'entry', draft: false },
   { id: 'skythia-s', name: "Kurgan Hills", role: 'entry', draft: true },
   { id: 'kyrene', name: "Kyrene", role: 'home', draft: false },
   { id: 'kyrene-n', name: "Thornscrub Rise", role: 'entry', draft: true },
