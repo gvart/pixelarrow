@@ -1,0 +1,26 @@
+scripts/war/regions/skythia-w.ts
+  s_cfc22b058125c4::t_13781f250de98e 27,56
+  s_cfc22b058125c4::t_7a406514432379 5-6,18,35,39,48,54
+  s_cfc22b058125c4::t_ac52e6c91581d7 23
+src/war/regions/skythia-w.spots.ts
+  s_cfc22b058125c4::t_13781f250de98e 19
+  s_cfc22b058125c4::t_7a406514432379 10-15
+src/war/regions/skythia-w.json
+  s_cfc22b058125c4::t_ac52e6c91581d7 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b43b83e64207ddadbcf076abc9f344c92a906f01",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
