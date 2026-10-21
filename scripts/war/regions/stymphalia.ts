@@ -7,13 +7,13 @@
  * (Elaia) a broad one over shallow flats, the open approach; from the east a middle one landing in the reed marsh. The
  * slow bypasses: the marsh round the lake's east end, and the shallow Ladon, which comes down from the oakwood in the
  * north-west, crosses the lake's west end and leaves west to Siren; the shore track by the Siren road wades it. North
- * shore oaks (Dodona), east woods climbing toward Erymanthos (h3), south fens with flax fields.
+ * shore oaks (Dodona), east woods climbing toward Erymanthos (a bluff up to h4), south fens with flax fields.
  */
 import type { Kit, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'stymphalia',
-  style: { trees: 0.8 },
+  style: { trees: 0.5, bushes: 0.6 },
   build(k: Kit) {
     const N = k.entry('dodona-s'), S = k.entry('elaia-n'), E = k.entry('erymanthos'), W = k.entry('siren');
     k.fill(2);
@@ -22,7 +22,7 @@ const def: RegionDef = {
     // the land: oak hills on the north shore, the east woods rising to the plateau skirt, the low south fens
     k.hill([60, 22, 40, 18, 0.2], 3, 4);
     k.hill([196, 24, 34, 16, -0.2], 3, 4);
-    k.lift((x, y, s) => (x + 12 * Math.sin(y / 23) + 6 * Math.cos(y / 9 + s) > 222 ? 3 : NaN));
+    k.lift((x, y, s) => (x + 12 * Math.sin(y / 23) + 6 * Math.cos(y / 9 + s) > 222 ? 4 : NaN));
     k.basin([128, 236, 150, 34, 0], 1, 0, 6);
     // the reed marsh round the lake and its east end, then the lake (deep core, shallow rim)
     k.paint('marsh', [118, 126, 112, 86, 0.1], { rough: 8 });
