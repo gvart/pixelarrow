@@ -1,0 +1,25 @@
+docs/playbook/PROMPTS_ART.md
+  s_cfc22b058125c4::t_dbfd7c2b88efb5 2889-2966
+scripts/war/art/tile-art.mjs
+  s_cfc22b058125c4::t_e9bb884b762ba7 159
+  s_cfc22b058125c4::t_27697c20053690 1-122,125-126,130-131,133-134,138-139,141-143,145-149,151-158,160-180,182-187,189-192,197-200,203-223
+  s_cfc22b058125c4::t_b46aca94d4e5dc 123-124,135,181,188,193-196,201-202
+  s_cfc22b058125c4::t_4191a550947a7f 144
+  s_cfc22b058125c4::t_ff9eb9793152ee 127-129,132,136-137,140,150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c52edb4c65879c2afbe103c49f5f9fbc8fd2ad38",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
