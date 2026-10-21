@@ -658,6 +658,24 @@
    "source": "map_object 8fdf1472 (W-48)"
   },
   {
+   "id": "waterfall-tall",
+   "kind": "prop",
+   "file": "waterfall-tall.png",
+   "w": 71,
+   "h": 560,
+   "metres": 17,
+   "anchor": {
+    "x": 44,
+    "y": 559
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "the waterfall's sheet repeated down a landmark's tall cliff, its foam foot kept (W-51, composed, no generation)"
+  },
+  {
    "id": "falls-foam",
    "kind": "prop",
    "file": "falls-foam.png",

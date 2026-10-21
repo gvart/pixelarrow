@@ -461,8 +461,8 @@ export class Kit {
   spot(name: string, p: Pt) { this.spots[name] = p; return p; }
   /** `n` copies of a set piece on free ground within `r` units of `at`, `gap` units apart (blocking ones keep their footprint clear). */
   /** W-48: a waterfall where a river falls over a cliff step, its foot at `at`, the foam on its plunge pool at `pool` (units). */
-  readonly falls: { at: Pt; pool: Pt }[] = [];
-  fall(at: Pt, pool: Pt) { this.falls.push({ at, pool }); }
+  readonly falls: { at: Pt; pool: Pt; tall: boolean }[] = [];
+  fall(at: Pt, pool: Pt, tall = false) { this.falls.push({ at, pool, tall }); }
   piece(id: string, at: Pt, o: { r?: number; onRock?: boolean; n?: number; gap?: number } = {}) {
     this.reqs.push({ kind: 'piece', id, at, r: o.r ?? 12, onRock: o.onRock ?? false, n: o.n ?? 1, gap: o.gap ?? 4 });
   }
@@ -671,15 +671,19 @@ export class Site {
   readonly vz = new Map<number, number>();
   /** W-51 visual levels per sim level (sorted [sim, visual] pairs, interpolated; null: `base + (h - base) * lift`): a crag drawn taller than its upper tier. */
   levels: [number, number][] | null = null;
-  /** The visual level sim level `h` (fractional on a ramp) is drawn at. */
-  vis(h: number): number {
-    const L = this.levels;
+  /** Visual levels for road tiles (null: `levels`): the ways up a lifted mesa drawn as steep ramps on embankments. */
+  roadLevels: [number, number][] | null = null;
+  /** The visual level sim level `h` (fractional on a ramp) is drawn at; `road`: on a road tile. */
+  vis(h: number, road = false): number {
+    const L = (road && this.roadLevels) || this.levels;
     if (!L) return this.base + (h - this.base) * this.lift;
     if (h <= L[0][0]) return L[0][1] + (h - L[0][0]);
     for (let n = 1; n < L.length; n++) if (h <= L[n][0]) return L[n - 1][1] + ((L[n][1] - L[n - 1][1]) * (h - L[n - 1][0])) / (L[n][0] - L[n - 1][0]);
     const e = L[L.length - 1];
     return e[1] + (h - e[0]);
   }
+  /** Tiles round the site its relief lift also reaches (a mesa whose rim runs past the site's bounds). */
+  liftPad = 0;
   /** The site tiles its `lift` applies to (null: all above `base`): the crag itself, not the hills round it. */
   liftOnly: ((x: number, y: number) => boolean) | null = null;
   /** W-51 crag skirts (Site.skirt): per site tile of its rock, the level its ledge is drawn at (before `lift`). */
@@ -1234,10 +1238,11 @@ function visualLayer(k: Kit): Out {
     } else if (lifted.length && terrain[i] !== 'rock' && !water[i]) {
       const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
       for (const s of lifted) {
-        if (tx < s.x0 || ty < s.y0 || tx >= s.x0 + s.w || ty >= s.y0 + s.h || height[i] <= s.base) continue;
+        const pd = s.liftPad;
+        if (tx < s.x0 - pd || ty < s.y0 - pd || tx >= s.x0 + s.w + pd || ty >= s.y0 + s.h + pd || height[i] <= s.base) continue;
         if (s.liftOnly && !s.liftOnly(tx - s.x0, ty - s.y0)) continue;
         const hv = s.vz.get((ty - s.y0) * 4096 + tx - s.x0) ?? height[i];
-        z = Math.min(ZVIS, Math.round(s.vis(hv)));
+        z = Math.min(ZVIS, Math.round(s.vis(hv, terrain[i] === 'road')));
       }
     }
     if (terrain[i] === 'rock' && rock[i] > -Infinity && !crag[i]) {
@@ -1655,7 +1660,16 @@ export function build(def: RegionDef): Built {
   // W-48 waterfalls: the fall at the cliff's foot, the foam of its plunge pool (on the water, as placed)
   for (const f of k.falls) {
     const [x, y] = tileOf(f.at), [fx, fy] = tileOf(f.pool);
-    put('elaia/waterfall', x + 0.5, y + 0.5);
+    if (f.tall) {
+      // down a landmark's lifted cliff (Site.levels): at the cliff's foot on the way to the pool, the sheet up its face
+      const z0 = fzAt(2 * x, 2 * y);
+      let px = x, py = y;
+      for (let t = 0; t <= 1; t += 0.02) {
+        const qx = Math.round(x + (fx - x) * t), qy = Math.round(y + (fy - y) * t);
+        if (fzAt(2 * qx, 2 * qy) < z0 - 6) { px = qx; py = qy; break; }
+      }
+      put('elaia/waterfall-tall', px + 0.5, py + 0.5);
+    } else put('elaia/waterfall', x + 0.5, y + 0.5);
     put('elaia/falls-foam', fx + 0.5, fy + 0.5);
   }
   for (const r of k.reqs) {

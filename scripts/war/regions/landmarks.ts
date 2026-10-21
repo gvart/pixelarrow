@@ -422,7 +422,12 @@ export function templeCity(k: Kit, at: Pt, hm: number): Landmark {
   }
   // the sanctuary terrace two levels over the city (its retaining wall a cliff), ramps up to its west and south gates
   s.levelBy((x, y) => (x >= 206 && x < 290 && y >= 66 && y < 150 ? hm + 2 : undefined));
-  s.lift = 3; s.base = hm - 4;
+  // W-51: the mesa's limestone cliffs drawn ~12 m over the plain (the whole rim, past the site's bounds), the sanctuary
+  // terrace ~4 m over the city (visual only); the ramps up keep their grade, drawn steep
+  s.lift = 2; s.base = hm - 4; s.liftPad = 120;
+  s.levels = [[hm - 1, hm - 1], [hm, hm + 21], [hm + 2, Math.min(ZVIS, hm + 29)]];
+  s.roadLevels = [[hm - 3, hm - 3], [hm - 2, hm + 5], [hm - 1, hm + 13], [hm, hm + 21], [hm + 2, Math.min(ZVIS, hm + 29)]];
+  s.look = { ground: 'dry', pave: 'paving', rough: 'ruin', inside: (x, y) => s.hAt(x, y) >= hm };
   ramp(166, 6, 'x'); ramp(198, 316, 'x'); ramp(6, 164, 'y'); ramp(326, 166, 'y');
   for (let y = 230; y < 310; y += 14) { on('@town-statue', 195, y); on('@town-statue', 204, y); }
   // the peribolos of the great temple (gates west and south), the temple and the omphalos, treasuries, chapels
@@ -450,7 +455,7 @@ export function templeCity(k: Kit, at: Pt, hm: number): Landmark {
   for (let n = 0; n < 5; n++) { freePut(s, '@town-stoa', 172, 184 + n * 6); freePut(s, '@town-stoa', 228, 184 + n * 6); }
   for (let n = 0; n < 5; n++) { freePut(s, `@town-stall-${'abc'[n % 3]}`, 178 + n * 9 + (n >= 2 ? 4 : 0), 183); freePut(s, `@town-stall-${'abc'[(n + 1) % 3]}`, 178 + n * 9 + (n >= 2 ? 4 : 0), 217); }
   // the pilgrims' quarters south of the agora either side of the way
-  const pil: District = { ids: [['arch-house-a', 3], ['arch-house-b', 2], ['arch-house-c', 1], ['arch-tenement', 2], ['@town-cottage', 1], ['arch-workshop', 1]], ruin: 0.8, hp: [0.3, 0.6], empty: 0.15 };
+  const pil: District = { ids: [['arch-house-a', 3], ['arch-house-b', 2], ['arch-house-c', 1], ['arch-tenement', 2], ['@town-cottage', 1], ['arch-workshop', 1], ['arch-block-b', 2], ['arch-block-c', 1]], ruin: 0.8, hp: [0.3, 0.6], empty: 0.1 };
   // W-49: the quarters as grown, not gridded: lanes winding off the sacred ways, lots packed along them
   const inR = (r: number[]) => (x: number, y: number) => x >= r[0] && x < r[2] && y >= r[1] && y < r[3];
   const pilR = [inR([140, 226, 194, 300]), inR([208, 226, 280, 300])];
@@ -460,10 +465,17 @@ export function templeCity(k: Kit, at: Pt, hm: number): Landmark {
   const ends = lanes(s, wayC, 140, 2, town, 69);
   ends.filter((_, n) => n % 5 === 0).slice(0, 10).forEach(([x, y], n) => { s.plaza(x, y, 4, 3); s.force(n % 2 ? 'arch-cistern' : '@town-well', Math.round(x) - (n % 2 ? 1 : 0), Math.round(y) - (n % 2 ? 1 : 0), { hp: 0.5 }); });
   s.infill((x, y) => pilR.some((f) => f(x, y)) && town(x, y), pil, { seed: 63, front: 1, back: 6, garden: 'arch-garden' });
-  const outer: District = { ...pil, ruin: 0.85, empty: 0.3, ids: [...pil.ids, ['arch-workshop', 2], ['@town-storehouse', 1]] };
-  s.infill((x, y) => !pilR.some((f) => f(x, y)) && town(x, y), outer, { seed: 67, front: 1, back: 9, garden: 'arch-garden' });
+  // W-51: the rest of the mesa packed with the fallen Greek blocks (storerooms) and house shells, as the reference
+  const outer: District = { ...pil, ruin: 0.75, empty: 0.12, ids: [...pil.ids, ['arch-workshop', 2], ['@town-storehouse', 1], ['arch-block-a', 3], ['arch-block-b', 3], ['arch-block-c', 2], ['arch-block-d', 2]] };
+  s.infill((x, y) => !pilR.some((f) => f(x, y)) && town(x, y), outer, { seed: 67, front: 1, back: 12, garden: 'arch-garden' });
   scatter(s, ['arch-cistern'], 150, 70, 170, 150, 3, 65, { h: hm });
   capHomes(s, 10, 200, 200);
+  // dressing: cypresses along the ways and the precinct, fallen stones and column drums in the quarters, talus under the rim
+  const top = (x: number, y: number) => s.hAt(x, y) === hm && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => s.taken(x + dx, y + dy));
+  s.dress(['elaia/cypress-tall', 'elaia/cypress-flame', 'elaia/cypress-tall'], (x, y) => top(x, y) && !s.streets.has(y * 4096 + x), 120, 71, { gap: 5 });
+  s.dress(['elaia/debris-stone', 'elaia/wall-fallen-stone', 'elaia/debris-stone', 'elaia/talus-lime'], (x, y) => top(x, y) && s.roughAt(x, y), 220, 72, { gap: 3 });
+  const rimFoot = (x: number, y: number) => s.hAt(x, y) < hm - 1 && [[3, 0], [-3, 0], [0, 3], [0, -3]].some(([dx, dy]) => s.hAt(x + dx, y + dy) >= hm);
+  s.dress(['elaia/talus-lime', 'elaia/debris-stone'], rimFoot, 120, 73, { gap: 3 });
   return { site: s, host: [], gates: [], spots: { templeSquare: s.u(200, 200), market: s.u(200, 200), labyrinth: s.u(308, 100), arena: s.u(295, 175), precinct: s.u(248, 108) } };
 }
 /** A walled maze (labyrinth wall tiles) of `n` x `n` cells from site tile (x, y), entered from the west; the minotaur's den in the middle. */

@@ -45,7 +45,8 @@ function flush(w: number, h: number, height: ArrayLike<number>, wet: (i: number)
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const nx = x + dx, ny = y + dy, j = ny * w + nx;
         if (nx < 0 || ny < 0 || nx >= w || ny >= h || seen[j] === 1) continue;
-        if (wet(j)) { seen[j] = 1; body.push(j); } else shore.set(height[j], (shore.get(height[j]) ?? 0) + 1);
+        // a body stops where its bed drops 3+ levels (a river over a fall: the pool below lies at its own banks)
+        if (wet(j) && Math.abs(height[j] - height[i]) <= 2) { seen[j] = 1; body.push(j); } else if (!wet(j)) shore.set(height[j], (shore.get(height[j]) ?? 0) + 1);
       }
     }
     let level = 0, best = -1;
