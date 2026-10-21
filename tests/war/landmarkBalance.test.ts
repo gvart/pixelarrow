@@ -8,17 +8,29 @@ describe('M7h landmark balance', () => {
     expect(rareRows().join('\n')).toContain('longest wait on a source: 0 h');
   });
 
-  it("Drakon's Citadel: one squad stalls at the roof, a 4-squad raid kills him", () => {
+  // docs/WAR.md "Living regions" -> "Balance": the raid each landmark is tuned for wins, one squad loses (seed 1 of the
+  // 8 the report fights)
+  it("Drakon's Citadel: one squad stalls at the roof, a 6-squad raid kills him with losses", () => {
     const one = raidFight('krios', 'drakon', mixed(1), 1);
     expect(one.won).toBe(false);
     expect(one.bossHp).toBeGreaterThanOrEqual(0.55);
-    const four = raidFight('krios', 'drakon', mixed(4), 1);
-    expect(four.won).toBe(true);
-    expect(four.lost).toBeGreaterThan(4);
-  }, 60_000);
+    const six = raidFight('krios', 'drakon', mixed(6), 1);
+    expect(six.won).toBe(true);
+    expect(six.lost).toBeGreaterThan(4);
+  }, 120_000);
 
-  it('a depth-3 guardian: one squad loses, four win', () => {
-    expect(raidFight('gorge', 'gyges', mixed(1), 1).won).toBe(false);
-    expect(raidFight('gorge', 'gyges', mixed(4), 1).won).toBe(true);
-  }, 60_000);
+  it('Dead City of Ammon: one squad falls to the King and his guard, three kill him', () => {
+    expect(raidFight('ammon', 'bandit_king', mixed(1), 1).won).toBe(false);
+    expect(raidFight('ammon', 'bandit_king', mixed(3), 1).won).toBe(true);
+  }, 120_000);
+
+  for (const [region, boss] of [['saddle', 'brontes'], ['gorge', 'gyges'], ['canyons', 'chimera'], ['erymanthos', 'grove_queen']] as const)
+    it(`${boss} (depth 3): one squad loses, four win`, () => {
+      expect(raidFight(region, boss, mixed(1), 1).won).toBe(false);
+      expect(raidFight(region, boss, mixed(4), 1).won).toBe(true);
+    }, 120_000);
+
+  it('is deterministic: the same seed fights the same raid', () => {
+    expect(raidFight('canyons', 'chimera', mixed(4), 3)).toEqual(raidFight('canyons', 'chimera', mixed(4), 3));
+  }, 120_000);
 });
