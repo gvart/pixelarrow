@@ -502,7 +502,7 @@ fixed seeds, 20 min limit).
 | 1 | 1 squad | 5–10 min | nodes ×1.0, villages' pool | baseline |
 | 2 | 2–3 squads (2 players) | 15–25 min | nodes ×1.25, tier-1 boss loot once, 24 score (towns 72), a town's pool and buildings | ×2–3 effort, ×2–4 reward |
 | 3 | 4 squads (2+ players) | 1–4 min at the guardian, plus the region | nodes ×1.5, a rare good 144/day max, tier-2 loot, 48 score (+48 restored), a fort already built | ×4 effort, ×5 reward |
-| 4 | 4–6 squads at Drakon, 3 at the Dead City (3+ players), engines and physicians help | 6–17 min at Drakon, 4–7 min at the Dead City | nodes ×2, rare good, tier-3 loot with a signature chance, 24 score (+48 restored), the strongest forts | ×5 effort, ×8 reward + the fort |
+| 4 | 4–6 squads and a ram at Drakon, 3 at the Dead City, 6 at Scylla and Achelous, 10 at the Titan (3+ players), engines and physicians help | 5–15 min at Drakon, 4–7 at the Dead City, 4–9 at Scylla and Achelous, ~5 at the Titan | nodes ×2, rare good, tier-3 loot with a signature chance, 24 score (+48 restored), the strongest forts | ×5 effort, ×8 reward + the fort |
 
 | Guardian | HP, damage, armour | Moves | Measured (seeds 1–8; one squad, then the target raid) |
 | --- | --- | --- | --- |
