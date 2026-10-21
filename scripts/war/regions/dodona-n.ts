@@ -13,17 +13,17 @@ import type { Kit, Pt, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'dodona-n',
-  style: { meadow: 0.3, trees: 0.9, bushes: 0.6 },
+  style: { meadow: 0.3, trees: 0.5, bushes: 0.4 },
   build(k: Kit) {
     const S = k.entry('dodona'), E = k.entry('krios'), NE = k.entry('dodona-e'), NW = k.entry('dodona-w');
     k.fill(4);
     k.zone('dodona', [100, 160, 140, 120, 0], 10);
     k.zone('mountains', [220, 100, 60, 140, 0], 10);
     // headland tiers over the fjords
-    k.plateau([44, 40, 34, 24, 0.3], 6, { rough: 4 });
-    k.plateau([140, 76, 34, 40, 0.1], 6, { rough: 4 });
-    k.plateau([150, 150, 18, 16, 0.2], 8, { rough: 2 });
-    k.plateau([226, 46, 26, 30, -0.2], 6, { rough: 3 });
+    k.plateau([44, 40, 34, 24, 0.3], 7, { rough: 4 });
+    k.plateau([140, 76, 34, 40, 0.1], 7, { rough: 4 });
+    k.plateau([150, 150, 18, 16, 0.2], 9, { rough: 2 });
+    k.plateau([226, 46, 26, 30, -0.2], 7, { rough: 3 });
     k.spot('headland', [150, 150]);
     k.spot('ridge', [150, 150]);
     // the sea, the two fjords (deep, cliff walls), the beach at the west one's head
