@@ -231,6 +231,30 @@ function extendPalette(base, images, n, far = 12) {
   const extra = only.some((o) => o.data.some((v, i) => i % 4 === 3 && v > 128)) ? medianCut(only, n) : [];
   return [...base, ...extra.filter((h) => !base.includes(h))];
 }
+// Tall cliff faces (W-51 crag kit): a create_tiles_pro run of tall iso rock blocks (64 x 96, top diamond 64 x 20 from
+// y 11, a 52 px side). Each block's side gives three 2 m strips in the cliff strip format (64 x 32, top edge along the
+// lower half of the diamond), 1:1, each column shifted onto the 2:1 edge: level 0 = the lip (the cliff's top edge),
+// 1 = the face, 2 = the lower face. Out: one sheet per material, frame 0 a face strip (a renderer that reads only the
+// first 64 px draws it as a plain cliff), then `roles` names the frames by level.
+const FACE_E = (x) => 31 - Math.abs(x + 0.5 - 32) * (10 / 32); // raw: last row of the top diamond in column x
+const stripTop = (x) => { let y = HH; while (inTop(x, y)) y++; return y - HH; }; // strip: first face row in column x
+function faceStrips(c) {
+  const out = { lip: [], face: [], low: [] };
+  for (const i of c.faces.tiles) {
+    const raw = grade(readImage(join(rawDir(c.faces.batch), 'tiles', c.faces.dir, `tile_${i}.png`)), c.faces.grade);
+    const at = (x, y) => { x = Math.max(2, Math.min(61, x)); return px(raw, x, Math.max(0, Math.min(raw.h - 1, y))); }; // edge columns: the dark outline repainted from 2 px in
+    ['lip', 'face', 'low'].forEach((role, L) => {
+      const s = blank(TW, TH - HH);
+      for (let x = 0; x < TW; x++) for (let k = 0; k < SIDE; k++) {
+        const j = at(x, Math.round(FACE_E(x)) + 1 + L * SIDE + k), y = stripTop(x) + k; if (y >= s.h) continue;
+        s.data.set(raw.data.subarray(j, j + 3), px(s, x, y)); s.data[px(s, x, y) + 3] = 255;
+      }
+      out[role].push(s);
+    });
+  }
+  return [...out.face, ...out.low, ...out.lip].map((im, k, all) => ({ im, role: k < out.face.length ? 'face' : k < 2 * out.face.length ? 'low' : 'lip' }));
+}
+const faceSheets = CLIFFS.filter((c) => c.faces).map((c) => [c, faceStrips(c)]);
 const ownTiles = [...built.flatMap(([, t]) => t), ...variants.flatMap(([, f]) => f)];
 const palette = BIOME ? extendPalette(G.palette, ownTiles, A.EXTRA_COLOURS ?? 48) : medianCut(ownTiles, 128);
 const tilesJson = {
@@ -249,7 +273,14 @@ for (const [terrain, frames, srcs] of variants) {
   tilesJson.variants.push({ terrain, file: `var-${terrain}.png`, frames: frames.length, frame: { w: TW, h: TH }, sources: ['fill', ...srcs.map((s) => (typeof s === 'string' ? s : `${s.batch ?? A.BATCH ?? 'art4'}/${s.dir}#${s.frame}`))], note: `full ${terrain} tiles; wherever a sheet would draw the full ${terrain} tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile` });
 }
 // Cliff side strips: the 16 px side band of a full tile (left + right faces), one per material; stack per level.
-for (const c of CLIFFS) {
+for (const [c, strips] of faceSheets) {
+  const im = blank(TW * strips.length, TH - HH);
+  strips.forEach((s, i) => paste(im, snapToPalette(s.im, palette), i * TW, 0));
+  writeImage(join(OUT_T, `cliff-${c.id}.png`), im);
+  const roles = {}; strips.forEach((s, i) => (roles[s.role] ??= []).push(i));
+  (tilesJson.cliffs ??= []).push({ id: c.id, file: `cliff-${c.id}.png`, w: im.w, h: TH - HH, levelPx: SIDE, frames: strips.length, frame: { w: TW, h: TH - HH }, roles, material: c.material, source: c.source, note: 'tall cliff face (W-51 crag kit): frames of 64x32 in a row, each one 2 m level of the left + right faces (top edge along the lower half of the diamond); roles: lip = the top level under a cliff edge, face = the levels below it, low = the lowest levels; pick a frame per (tile, level) by hash inside its role, frame 0 is a face (a reader of the first 64 px draws a plain cliff)' });
+}
+for (const c of CLIFFS.filter((c) => !c.faces)) {
   const src = sides[c.from]; if (!src) { errors.push(`cliff ${c.id}: no side ${c.from}`); continue; }
   const side = { w: TW, h: TH, data: new Uint8Array(src.data) };
   for (let y = 0; y < 2 * HH; y++) for (let x = 0; x < TW; x++) if (inTop(x, y)) side.data[px(side, x, y) + 3] = 0;

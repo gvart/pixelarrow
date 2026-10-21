@@ -108,34 +108,32 @@
   "#a4a491",
   "#a7b4b5",
   "#bbcdd0",
-  "#565e51",
-  "#686358",
-  "#656d65",
-  "#787e6e",
-  "#707273",
-  "#787977",
-  "#90948d",
+  "#595349",
   "#5a554b",
-  "#656866",
-  "#707372",
-  "#727474",
-  "#7e7f7f",
-  "#696950",
-  "#646564",
-  "#7e807e",
-  "#83867d",
-  "#585147",
-  "#676257",
-  "#575e5d",
-  "#5b5c5d",
-  "#5c5e5f",
-  "#5e5f62",
-  "#697167",
-  "#6d6e6d",
-  "#6e756d",
+  "#585a4e",
+  "#686358",
+  "#686653",
+  "#595d5d",
+  "#5d5e5f",
+  "#626465",
+  "#656a66",
+  "#696965",
+  "#6b7269",
+  "#747a6f",
+  "#707273",
+  "#747774",
   "#7c8575",
-  "#7d817c",
-  "#7c8180"
+  "#747778",
+  "#777d7e",
+  "#7d7e7f",
+  "#7e7f7f",
+  "#81857c",
+  "#8d9491",
+  "#b3b9bc",
+  "#b4babd",
+  "#b8c0c3",
+  "#b9c1c4",
+  "#c2c6c9"
  ],
  "sheets": [
   {
@@ -317,6 +315,36 @@
     15
    ],
    "source": "tiles_pro 03a3bc68 (W-48)"
+  },
+  {
+   "pair": "rock-drift",
+   "first": "rock",
+   "second": "drift",
+   "file": "rock-drift.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro c87bf1ce (W-51)"
   }
  ],
  "variants": [
@@ -368,6 +396,21 @@
    "note": "full gravel tiles; wherever a sheet would draw the full gravel tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
   },
   {
+   "terrain": "drift",
+   "file": "var-drift.png",
+   "frames": 3,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "shift",
+    "mirror"
+   ],
+   "note": "full drift tiles; wherever a sheet would draw the full drift tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
    "terrain": "rock",
    "file": "var-rock.png",
    "frames": 7,
@@ -399,6 +442,7 @@
    "gravel",
    "forest",
    "snow",
+   "drift",
    "scree",
    "rock",
    "road",
@@ -409,5 +453,132 @@
    "water": "shallow",
    "land": "grass"
   }
- }
+ },
+ "cliffs": [
+  {
+   "id": "granite",
+   "file": "cliff-granite.png",
+   "w": 1536,
+   "h": 32,
+   "levelPx": 16,
+   "frames": 24,
+   "frame": {
+    "w": 64,
+    "h": 32
+   },
+   "roles": {
+    "face": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "low": [
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15
+    ],
+    "lip": [
+     16,
+     17,
+     18,
+     19,
+     20,
+     21,
+     22,
+     23
+    ]
+   },
+   "material": "grey granite",
+   "source": "tiles_pro b538ae4d #0-3, 8-11 (W-51)",
+   "note": "tall cliff face (W-51 crag kit): frames of 64x32 in a row, each one 2 m level of the left + right faces (top edge along the lower half of the diamond); roles: lip = the top level under a cliff edge, face = the levels below it, low = the lowest levels; pick a frame per (tile, level) by hash inside its role, frame 0 is a face (a reader of the first 64 px draws a plain cliff)"
+  },
+  {
+   "id": "granite-snow",
+   "file": "cliff-granite-snow.png",
+   "w": 768,
+   "h": 32,
+   "levelPx": 16,
+   "frames": 12,
+   "frame": {
+    "w": 64,
+    "h": 32
+   },
+   "roles": {
+    "face": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "low": [
+     4,
+     5,
+     6,
+     7
+    ],
+    "lip": [
+     8,
+     9,
+     10,
+     11
+    ]
+   },
+   "material": "grey granite, snow on the ledges",
+   "source": "tiles_pro b538ae4d #4-7 (W-51)",
+   "note": "tall cliff face (W-51 crag kit): frames of 64x32 in a row, each one 2 m level of the left + right faces (top edge along the lower half of the diamond); roles: lip = the top level under a cliff edge, face = the levels below it, low = the lowest levels; pick a frame per (tile, level) by hash inside its role, frame 0 is a face (a reader of the first 64 px draws a plain cliff)"
+  },
+  {
+   "id": "granite-ice",
+   "file": "cliff-granite-ice.png",
+   "w": 768,
+   "h": 32,
+   "levelPx": 16,
+   "frames": 12,
+   "frame": {
+    "w": 64,
+    "h": 32
+   },
+   "roles": {
+    "face": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "low": [
+     4,
+     5,
+     6,
+     7
+    ],
+    "lip": [
+     8,
+     9,
+     10,
+     11
+    ]
+   },
+   "material": "grey granite glazed with ice, icicles",
+   "source": "tiles_pro b538ae4d #12-15 (W-51)",
+   "note": "tall cliff face (W-51 crag kit): frames of 64x32 in a row, each one 2 m level of the left + right faces (top edge along the lower half of the diamond); roles: lip = the top level under a cliff edge, face = the levels below it, low = the lowest levels; pick a frame per (tile, level) by hash inside its role, frame 0 is a face (a reader of the first 64 px draws a plain cliff)"
+  },
+  {
+   "id": "mountain-earth",
+   "file": "cliff-mountain-earth.png",
+   "w": 64,
+   "h": 32,
+   "levelPx": 16,
+   "note": "side faces only (left + right), 64x32; its top edge follows the lower half of the diamond; for a cliff of n levels draw it n times, 16 px apart, at tile origin y + 16"
+  }
+ ]
 }

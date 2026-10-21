@@ -2886,3 +2886,81 @@ first try and each reads as a real place (streets that follow the ground, walls 
 heads). (2) A global tile set re-picks the global palette and fails every library snapped to it (buildings, siege,
 trade, landmarks): new terrains go into the biome libraries. (3) The view draws all water at one level, so a fall over
 a cliff shows only as its sprite over flat water; a real cascade needs per-cell water levels in `src/war/view/iso.ts`.
+
+### 40h The tile approach to landmarks (W-51): crag kit, dense blocks, rubble, street dressing
+
+W-51: the owner kept tiles over painted set pieces, so the gap to the Gemini references (Citadel: a castle on a snowy
+granite crag; Dead City: dense mudbrick blocks on a red butte) is closed with tile-system art. 118 PixelLab generations
+(6 tiles_pro runs, about 75; 26 map objects; 16 pixflux states). Jobs: `scripts/war/art/tile-art-jobs.json` (fetch with
+`node scripts/war/art/tile-art.mjs --fetch`) and `landmarks-pl-jobs.json` (blocks). Mock-ups:
+`node scripts/war/art/tile-art.mjs` → `shots/war/tile-art/citadel-crag.png`, `ammon-butte.png` (+ `-half`).
+
+**Tall cliff faces** (`create_tiles_pro`, iso 64, `tile_height: 96`, no tileset, seed 41; 16 tiles, 4 per item): the
+model draws tall iso rock blocks, top diamond 64 x 20 from y 11 and a 52 px side. `build.mjs faceStrips` cuts each block's
+side 1:1 into three 2 m strips in the cliff strip format (64 x 32), every column shifted onto the 2:1 edge: `lip` (the
+level under the edge), `face`, `low`. A biome `CLIFFS` entry with `faces` writes one sheet per material, frame 0 a face
+strip (a reader of the first 64 px draws a plain cliff) and `roles` naming the frames. Strips snap to the biome's
+existing palette (left out of the palette pick: no re-snap churn). Mountains lists `mountain-earth` (the global earth
+strip) first, because the view draws a biome's first cliff on its earth banks.
+
+| Material | Call | Prompt (verbatim start; every item `a tall isometric block of …`) | Kept |
+| --- | --- | --- | --- |
+| granite, granite-snow, granite-ice (mountains) | `b538ae4d` | `1). … dark grey granite mountain crag: sheer natural fractured cliff faces with vertical cracks, jutting ledges and overhangs … 2). … thin white snow lying on its narrow cliff ledges … 3). … deep vertical fissures and broken angular rock slabs … 4). … glazed with blue-white ice and icicles hanging from its ledges …, dark epic desaturated cold mountain palette` | all: #0-3, 8-11 granite, 4-7 snow ledges, 12-15 ice; sat 0.7 / val 0.7 |
+| sandstone (kyrene) | `1e86ebf7` | `1). … dark red sandstone butte: sheer natural cliff faces with horizontal rock strata bands … 2). … deep vertical erosion gullies … 3). … banded red and ochre sandstone mesa cliff with overhanging caprock lip … 4). … honeycomb erosion holes …` | 12 of 16; sat 0.62 / val 0.62 |
+| limestone (elaia) | `b4073d50` | `1). … pale grey Mediterranean limestone cliff: … horizontal bedding layers … 2). … dark water streaks and karst holes … 3). … broken blocky steps and overhangs … 4). … white-grey limestone sea cliff with deep fissures …` | 14 of 16; sat 0.6 / val 0.66 |
+
+**Wang sets** (`tile_feature: tileset`, iso 64, low top-down, seed 31; new biome terrains, visual only):
+
+| Set | Call | Prompt (verbatim) | Result |
+| --- | --- | --- | --- |
+| rock-drift (mountains, terrain `drift`) | `c87bf1ce` | `dark grey granite mountain rock to deep wind-packed white snow drifts with soft lobed edges and blue-grey shadows, dark epic desaturated cold mountains` | block edges: `organic: 0.6`; fill sat 0.55 / val 0.8 |
+| sand-rubble (kyrene, `rubble`) | `91d8e10b` | `pale dull dry sand to a ruined ancient desert city rubble field of broken tan mudbrick chunks, fallen limestone blocks, potsherds and dust drifted between them, dark epic desaturated ancient North African desert` | kept; sat 0.85 / val 0.9 (0.74 read as a grey stain) |
+| grass-ruin (elaia, `ruin`) | `90f682ab` | `dull dark olive grass to a ruined ancient Greek town rubble field of broken grey limestone blocks, fallen ashlar, smashed terracotta roof tiles and weeds between them, dark epic desaturated ancient Mediterranean` | reads as broken paving with tile shards; kept as ruin ground |
+
+**Dense blocks** (landmarks; `create_map_object` high top-down, high detail, detailed shading, the §40f recipe and
+states: damaged pixflux 150, ruined 130 over `--inits`, restored graded + banner). Pieces `ammon-block-a/b/c/d` (2x2,
+3x3, 4x4, 4x4) and `arch-block-a/b/c/d` (the same), kind `house`. Subjects (verbatim starts, each ending with the §40f
+suffix plus `no merlons` / `no trees`):
+
+| piece | subject | canvas |
+| --- | --- | --- |
+| ammon-block-a | `two tiny cube houses of an ancient desert city built back to back: tan sun-dried mudbrick walls, flat roofs at two heights with smooth rounded mud lips, a small reed awning over one door, a water jar` | 128 x 144 |
+| ammon-block-b | `a small cluster of three cube houses … packed together …, a roof terrace with a reed awning, a tiny walled yard with a potted palm` | 192 |
+| ammon-block-c | `a dense city block …: four small cube houses of sun-dried tan mudbrick packed wall to wall round a tiny open courtyard with one date palm, … a roof terrace with a reed-mat awning on palm poles, a mudbrick stair to the roof` | 256 |
+| ammon-block-d | `a dense quarter block …: five tightly packed one- and two-storey houses of tan sun-dried mudbrick with pale lime-plaster patches, … two roof terraces with striped faded cloth awnings, jars and drying baskets on the roofs` | 256 |
+| arch-block-a | `two tiny ancient Greek houses joined wall to wall: limewashed rubble-stone walls on a grey ashlar socle, small gabled roofs of dark weathered terracotta tiles at two heights` | 128 x 144 |
+| arch-block-b | `a small ancient Greek town block: a house and a shop … joined wall to wall, …, a small walled yard, a shop counter under a faded cloth awning` | 192 |
+| arch-block-c | `a dense ancient Greek town block: four limewashed rubble-stone houses … packed wall to wall round a small paved courtyard with a well, … a shop front with … a striped cloth awning` | 256 |
+| arch-block-d | `a dense ancient Greek market street block: a row of three narrow shops and houses …, open shop counters under faded cloth awnings with amphorae and baskets, an upper floor with a small timber balcony` | 256 |
+
+State prompts: damaged `a war-damaged dense block of …: ragged breaches knocked through the … walls showing dark rooms,
+parts of the … roofs caved in with broken … beams, black soot and scorch marks, fallen … rubble at the foot, seen from a
+high isometric view, dark epic desaturated colours`; ruined `the ruin of a … block …: only low broken stumps of … walls of
+even height stand round the roofless rooms, no spikes, floors heaped with … rubble …, black soot, …`. All 24 kept first
+try (the Greek 3x3 and 4x4 read a little medieval: grey stone over limewash).
+
+**Overlays, debris and dressing** (biome objects, `create_map_object` as above, suffix `…, seen from a high isometric
+three-quarter view, dark epic desaturated colours, heavy shadows, only the <thing> on a fully transparent background, no
+grass, no ground`; `extra.overlay` / `ruin` / `dressing` names the role):
+
+| id (biome) | Call | Subject (verbatim start) | Result |
+| --- | --- | --- | --- |
+| snow-drift (mountains) | `6fc586f7` | `a low heap of deep wind-packed white snow drift with soft rounded lobes, a sharp wind-carved crest` | kept |
+| — | `cf3f5b3c` | `a long narrow snow drift lying along the foot of a rock ledge …` | rejected: a snow-capped bar |
+| — | `eb793dfe` | `thin scattered patches of old grey-white snow lying in hollows …` | rejected: a square blob |
+| ice-patch (mountains) | `c43d1267` | `a flat patch of cracked blue-grey glacier ice with white frost and a few small snow lumps` | kept |
+| talus-granite / talus-red / talus-lime | `636c76d4` / `e6bb6166` / `0c7de336` | `a talus cone of fallen angular dark grey granite boulders …` / `… dark red sandstone boulders …` / `… pale grey limestone blocks …` `at the foot of a cliff` | kept |
+| debris-mud, rubble-heap-mud (kyrene) | `f875b4f1`, `2be62c8f` | `scattered debris of a ruined desert city street: broken tan mudbrick chunks, …`; `a big heap of collapsed tan mudbrick rubble from a fallen house …` | kept |
+| wall-fallen-mud, ruin-sanded (kyrene) | `d172763a`, `a110b8c1` | `a collapsed section of an ancient desert city wall of tan sun-dried mudbrick …`; `a wind-blown sand dune drifted half over the broken stumps of a ruined tan mudbrick house …` | kept (a sand slab under each) |
+| debris-stone, wall-fallen-stone (elaia) | `f791ec49`, `d5d0ba84` | `scattered debris of a ruined ancient Greek street: broken grey limestone ashlar blocks, a toppled column drum, smashed … roof tiles …`; `a collapsed section of an ancient Greek town wall …` | kept |
+| stall-awning (kyrene / elaia) | `c1441d2b` / `77c273fe` | `a market stall of an ancient desert city: a striped faded red and cream cloth awning on four palm-wood poles …` / `an ancient Greek market stall: a faded striped cloth awning on timber poles over a wooden counter with red-figure pots …` | kept |
+| palm-pot, amphora-stack, handcart, steps-stone (kyrene + elaia; steps also mountains) | `9a8f77ec`, `2839d874`, `da27388a`, `7d3fba3a` | `a young date palm growing in a big round terracotta pot …`; `a stack of ancient clay amphorae …`; `an ancient two-wheeled wooden hand cart with solid plank wheels …`; `a short wide flight of five worn pale limestone steps climbing up a terrace …` | kept; one raw, built in each library |
+
+**Lessons:** (1) `create_tiles_pro` with `tile_height` makes tall natural cliff blocks in one call, the cheapest way to
+real cliff faces; cut them 1:1, do not stretch them. (2) A crag reads as a crag only with 3-4 tiers of cliff, with talus
+and drifts at each foot; one tall step reads as a box. (3) Heights are compressed: a level is 16 px per 2 m (8 px/m) while
+sprites are 33 px/m, so a 9 m curtain wall stands taller on screen than a 15-level (30 m) crag, and walls on the crag
+edge hide its cliffs. Keep near-side walls low or ruined, and give a crag its full 0-15 range. (4) Rebuilding Elaia drops
+the town objects from its `objects.json`: run `node scripts/war/art/town.mjs` after `build.mjs --biome elaia`. (5) Left to
+wire in the view and regions: the kinds `drift`, `rubble`, `ruin` (`src/war/regions/visual.ts` KINDS) and the cliff
+`roles` (the lip on a cliff's top level, faces below, `src/war/view/art.ts`).

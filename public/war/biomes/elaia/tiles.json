@@ -108,32 +108,35 @@
   "#a4a491",
   "#a7b4b5",
   "#bbcdd0",
-  "#787773",
-  "#797770",
-  "#797772",
-  "#7a7974",
-  "#86837a",
-  "#7e7f80",
-  "#898883",
-  "#707273",
-  "#787774",
+  "#391f19",
   "#45261f",
   "#46261f",
+  "#472820",
+  "#585752",
+  "#5b5a56",
   "#5e5e5b",
+  "#615f59",
+  "#626059",
   "#62625e",
-  "#6e6b61",
-  "#71706d",
+  "#676662",
+  "#71706c",
   "#707272",
+  "#707273",
+  "#787774",
+  "#787773",
+  "#857f6e",
+  "#7b7b7a",
+  "#381f17",
+  "#3f241d",
+  "#46271f",
+  "#4f4135",
   "#5c5d5c",
-  "#3e231c",
-  "#482f26",
-  "#595a54",
-  "#6f7071",
-  "#381e18",
-  "#6a6a67",
-  "#371e17",
-  "#45271e",
-  "#47281f"
+  "#66655f",
+  "#6c6c67",
+  "#747473",
+  "#797770",
+  "#7e7f7f",
+  "#898883"
  ],
  "sheets": [
   {
@@ -285,6 +288,36 @@
     15
    ],
    "source": "tiles_pro 03a3bc68 (W-48)"
+  },
+  {
+   "pair": "grass-ruin",
+   "first": "grass",
+   "second": "ruin",
+   "file": "grass-ruin.png",
+   "frames": 16,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "maskToFrame": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "source": "tiles_pro 90f682ab (W-51)"
   }
  ],
  "variants": [
@@ -355,6 +388,21 @@
    "note": "full grove tiles; wherever a sheet would draw the full grove tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
   },
   {
+   "terrain": "ruin",
+   "file": "var-ruin.png",
+   "frames": 3,
+   "frame": {
+    "w": 64,
+    "h": 48
+   },
+   "sources": [
+    "fill",
+    "shift",
+    "mirror"
+   ],
+   "note": "full ruin tiles; wherever a sheet would draw the full ruin tile, draw frame hash(x, y) % frames instead; frame 0 = that tile; all frames share its outer band, so they sit next to any transition tile"
+  },
+  {
    "terrain": "sand",
    "file": "var-sand.png",
    "frames": 4,
@@ -387,6 +435,7 @@
    "rock",
    "road",
    "paving",
+   "ruin",
    "grass"
   ],
   "buffer": {
@@ -395,6 +444,71 @@
   }
  },
  "cliffs": [
+  {
+   "id": "limestone",
+   "file": "cliff-limestone.png",
+   "w": 2688,
+   "h": 32,
+   "levelPx": 16,
+   "frames": 42,
+   "frame": {
+    "w": 64,
+    "h": 32
+   },
+   "roles": {
+    "face": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13
+    ],
+    "low": [
+     14,
+     15,
+     16,
+     17,
+     18,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24,
+     25,
+     26,
+     27
+    ],
+    "lip": [
+     28,
+     29,
+     30,
+     31,
+     32,
+     33,
+     34,
+     35,
+     36,
+     37,
+     38,
+     39,
+     40,
+     41
+    ]
+   },
+   "material": "pale grey limestone, bedding, karst",
+   "source": "tiles_pro b4073d50 (W-51)",
+   "note": "tall cliff face (W-51 crag kit): frames of 64x32 in a row, each one 2 m level of the left + right faces (top edge along the lower half of the diamond); roles: lip = the top level under a cliff edge, face = the levels below it, low = the lowest levels; pick a frame per (tile, level) by hash inside its role, frame 0 is a face (a reader of the first 64 px draws a plain cliff)"
+  },
   {
    "id": "marble",
    "file": "cliff-marble.png",

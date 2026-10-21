@@ -1,0 +1,37 @@
+{
+  "note": "W-51 tile approach for landmarks (PROMPTS_ART.md 40h): PixelLab jobs for the crag + cliff kit, rubble ground, debris and street dressing. tiles = create_tiles_pro runs (raw dir <batch>/raw/tiles/<dir>), objects = map objects (raw <batch>/raw/objects/<name>.png). Fetch: node scripts/war/art/tile-art.mjs --fetch. The dense blocks are in landmarks-pl-jobs.json.",
+  "tiles": {
+    "crag/face-granite": "b538ae4d-970e-4454-9b1c-5f85b04ed929",
+    "crag/face-sandstone": "1e86ebf7-ecd2-4cb6-bc39-ec243992c2b0",
+    "crag/face-limestone": "b4073d50-a0bb-4f2d-9d5b-85710fbfe1d2",
+    "mountains/rock-drift": "c87bf1ce-683d-45d7-888e-f77ac2dfaaa0",
+    "kyrene/sand-rubble": "91d8e10b-c87d-4936-80b8-3ee8b0ee69ed",
+    "elaia/grass-rubble": "90f682ab-2336-42a1-8086-3fc1678fa726"
+  },
+  "objects": {
+    "mountains/snow-drift-a": "6fc586f7-5048-460e-948e-99ad49655c51",
+    "mountains/snow-drift-b": "cf3f5b3c-ea81-486a-bcf0-12069d4b781d",
+    "mountains/ice-patch": "c43d1267-fce1-4bef-be63-e848b2d882a7",
+    "mountains/talus-granite": "636c76d4-f58b-47a1-9f94-08cb70f4e9e2",
+    "kyrene/talus-red": "e6bb6166-c477-4c14-a2fc-2b9a9799ba98",
+    "elaia/talus-lime": "0c7de336-c207-4b08-adda-ebf41c600973",
+    "kyrene/debris-mud": "f875b4f1-bcf0-455c-8616-ea5e0541fb28",
+    "kyrene/wall-fallen-mud": "d172763a-ef3c-41fc-a528-973c309dbb06",
+    "kyrene/ruin-sanded": "a110b8c1-1703-439c-92c1-902409753f9c",
+    "kyrene/rubble-heap-mud": "2be62c8f-7429-4503-b57f-6503df50831b",
+    "kyrene/stall-awning": "c1441d2b-7cb7-4acc-8f38-5d391e849068",
+    "elaia/debris-stone": "f791ec49-a268-4315-a638-c1c29ee2d466",
+    "elaia/wall-fallen-stone": "d5d0ba84-6cec-4457-990a-e8e958d4b3da",
+    "kyrene/palm-pot": "9a8f77ec-21d7-4afa-aeee-7e2987dab3d4",
+    "kyrene/amphora-stack": "2839d874-e188-4846-9fb5-bf80ba37ed77",
+    "kyrene/handcart": "da27388a-b29c-460d-9809-79239e488db9",
+    "kyrene/steps-stone": "7d3fba3a-616d-4bf5-bae9-bc45b25514f0",
+    "elaia/palm-pot": "9a8f77ec-21d7-4afa-aeee-7e2987dab3d4",
+    "elaia/amphora-stack": "2839d874-e188-4846-9fb5-bf80ba37ed77",
+    "elaia/handcart": "da27388a-b29c-460d-9809-79239e488db9",
+    "elaia/steps-stone": "7d3fba3a-616d-4bf5-bae9-bc45b25514f0",
+    "elaia/stall-awning": "77c273fe-6c12-4033-bd7c-3707380a4986",
+    "mountains/snow-patch": "eb793dfe-0d0e-4fae-bc40-fd9b46ea102c",
+    "mountains/steps-stone": "7d3fba3a-616d-4bf5-bae9-bc45b25514f0"
+  }
+}

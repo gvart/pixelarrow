@@ -13,6 +13,7 @@ export const FILLS = {
   marble: { dir: 'grass-marble', frame: 0, grade: { sat: 0.5, val: 0.6 } },
   grove: { dir: 'grass-grove', frame: 0, grade: { sat: 0.75, val: 0.75 } },
   paving: { dir: 'grass-paving', batch: 'art5', frame: 0, grade: { sat: 0.45, val: 1 } }, // W-48 landmark streets and plazas
+  ruin: { dir: 'grass-rubble', frame: 0, grade: { sat: 0.55, val: 0.8 } }, // W-51: a ruined Greek quarter (broken paving, fallen ashlar, smashed roof tiles)
 };
 
 export const SETS = [
@@ -21,6 +22,7 @@ export const SETS = [
   { pair: 'grass-marble', first: 'grass', second: 'marble', dir: 'grass-marble', side: 'marble', sideName: 'marble', sideFrom: 0, sideGrade: { sat: 0.5, val: 0.6 }, source: 'tiles_pro 4138d83c (ART-6)' },
   { pair: 'grass-grove', first: 'grass', second: 'grove', dir: 'grass-grove', side: 'earth', source: 'tiles_pro bb9d82ae (ART-6)' },
   { pair: 'grass-paving', first: 'grass', second: 'paving', dir: 'grass-paving', batch: 'art5', side: 'earth', source: 'tiles_pro 03a3bc68 (W-48)' },
+  { pair: 'grass-ruin', first: 'grass', second: 'ruin', dir: 'grass-rubble', side: 'earth', source: 'tiles_pro 90f682ab (W-51)' },
 ];
 
 // 'fills' = tiles_pro a8909d68 (ART-6): 2 independent tiles per item, top vertex at y 11 (items: dry x2, rossa x2,
@@ -31,15 +33,20 @@ export const VARIANTS = {
   rossa: [fills(4), fills(5), fills(6), fills(7)],
   marble: [fills(8), fills(9), fills(10)],
   grove: [fills(12), fills(13), 'shift'],
+  ruin: ['shift', 'mirror'],
   // the bay's beach: the global sand with pebbles and shells (replaces the global sand variants inside Elaia)
   sand: [fills(14), fills(15), { dir: 'sand-shallow', frame: 15, batch: 'art5' }],
 };
 
-export const CLIFFS = [{ id: 'marble', from: 'marble' }];
+// W-51 crag kit: tall cliff faces cut from create_tiles_pro runs of tall iso rock blocks (build.mjs faceStrips).
+export const CLIFFS = [
+  { id: 'marble', from: 'marble' },
+  { id: 'limestone', material: 'pale grey limestone, bedding, karst', faces: { dir: 'face-limestone', batch: 'crag', tiles: [0, 1, 2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 4, 5], grade: { sat: 0.6, val: 0.66 } }, source: 'tiles_pro b4073d50 (W-51)' },
+];
 
 export const FALLBACK = {
   note: 'Same rule as the global tiles.json fallback, over the global sheets plus these. Elaia terrains only have a set with grass, so any other pair (dry-rossa, marble-sand, ...) gets a grass verge; order says which corner gives way first.',
-  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'grove', 'dry', 'rossa', 'forest', 'marble', 'rock', 'road', 'paving', 'grass'],
+  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'grove', 'dry', 'rossa', 'forest', 'marble', 'rock', 'road', 'paving', 'ruin', 'grass'],
   buffer: { water: 'shallow', land: 'grass' },
 };
 
@@ -77,4 +84,13 @@ export const OBJECTS = [
   // W-48 waterfalls where a river falls over a cliff step (the fall itself is water: impassable), the foam of its plunge pool
   { id: 'waterfall', raw: 'waterfall', kind: 'prop', blocks: false, footprint: [1, 1], metres: 4.2, grade: { sat: 0.45, val: 0.72 }, source: 'map_object 8fdf1472 (W-48)' },
   { id: 'falls-foam', raw: 'falls-foam', kind: 'prop', blocks: false, footprint: [2, 1], metres: 1.7, grade: { sat: 0.45, val: 0.75 }, source: 'map_object 871f74b0 (W-48)' },
+  // W-51 (PROMPTS_ART.md 40h): talus under the limestone faces, Greek ruin dressing and street life
+  { id: 'talus-lime', raw: 'talus-lime', kind: 'stone', blocks: true, footprint: [2, 1], metres: 2.24, grade: { sat: 0.55, val: 0.68 }, extra: { overlay: 'talus', cliff: 'limestone' }, source: 'map_object 0c7de336 (W-51)' },
+  { id: 'debris-stone', raw: 'debris-stone', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.88, grade: { sat: 0.55, val: 0.72 }, extra: { overlay: 'debris' }, source: 'map_object f791ec49 (W-51)' },
+  { id: 'wall-fallen-stone', raw: 'wall-fallen-stone', kind: 'stone', blocks: true, footprint: [2, 1], metres: 2.58, grade: { sat: 0.55, val: 0.72 }, extra: { ruin: 'collapsed wall' }, source: 'map_object d5d0ba84 (W-51)' },
+  { id: 'stall-awning', raw: 'stall-awning', kind: 'prop', blocks: false, footprint: [1, 1], metres: 2.27, grade: { sat: 0.6, val: 0.75 }, extra: { dressing: 'market awning' }, source: 'map_object 77c273fe (W-51)' },
+  { id: 'palm-pot', raw: 'palm-pot', kind: 'prop', blocks: false, footprint: [1, 1], metres: 2.67, grade: { sat: 0.6, val: 0.75 }, extra: { dressing: 'potted palm' }, source: 'map_object 9a8f77ec (W-51)' },
+  { id: 'amphora-stack', raw: 'amphora-stack', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.39, grade: { sat: 0.6, val: 0.75 }, extra: { dressing: 'amphorae' }, source: 'map_object 2839d874 (W-51)' },
+  { id: 'handcart', raw: 'handcart', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.33, grade: { sat: 0.6, val: 0.75 }, extra: { dressing: 'cart' }, source: 'map_object da27388a (W-51)' },
+  { id: 'steps-stone', raw: 'steps-stone', kind: 'prop', blocks: false, footprint: [1, 1], metres: 2.06, grade: { sat: 0.55, val: 0.72 }, extra: { dressing: 'steps' }, source: 'map_object 7d3fba3a (W-51)' },
 ];

@@ -59,6 +59,15 @@ export const PL = {
   'arch-tower': { key: 20, ground: ['green'], fill: 0.95 },
   'arch-barbican-x': { key: 20, fill: 0.97 },
   'arch-barbican-y': { mirror: 'arch-barbican-x' },
+  // W-51 dense blocks: several houses as one prebuilt unit, so a quarter reads as packed streets (the plot's slab kept as its yard)
+  'ammon-block-a': { key: 20, fill: 0.95 },
+  'ammon-block-b': { key: 20, fill: 0.95 },
+  'ammon-block-c': { key: 20, fill: 0.96 },
+  'ammon-block-d': { key: 20, fill: 0.96 },
+  'arch-block-a': { key: 20, ground: ['green'], fill: 0.95 },
+  'arch-block-b': { key: 20, ground: ['green'], fill: 0.95 },
+  'arch-block-c': { key: 20, ground: ['green'], fill: 0.96 },
+  'arch-block-d': { key: 20, ground: ['green'], fill: 0.96 },
   // Drakon's Citadel: cold cyclopean grey
   'citadel-keep': { key: 20, flatRuin: true, fill: 0.97, grade: { sat: 0.6, val: 0.8 } },
   'citadel-tower': { key: 20, flatRuin: true, fill: 0.95, grade: { sat: 0.6, val: 0.8 } },
@@ -68,6 +77,15 @@ export const NEW = [
   { id: 'ammon-house-d', landmark: 'ammon', kind: 'house', fp: [2, 2], material: 'stone', hp: 600, heightM: 4, note: 'a one-room mudbrick hut: a flat palm-beam roof behind a lip, one door' },
   { id: 'arch-house-c', landmark: 'arch', kind: 'house', fp: [5, 5], material: 'stone', hp: 1500, heightM: 7, note: 'a peristyle townhouse (villa): tiled wings round a colonnaded court with a garden' },
   { id: 'arch-garden', landmark: 'arch', kind: 'well', fp: [3, 3], material: 'stone', hp: 400, heightM: 4, note: 'a walled garden plot: cypress and fig trees, beds, a well-head (a well)' },
+  // W-51 dense blocks (PROMPTS_ART.md 40h)
+  { id: 'ammon-block-a', landmark: 'ammon', kind: 'house', fp: [2, 2], material: 'stone', hp: 800, heightM: 4, note: 'a dense block: two mudbrick cube houses back to back, flat roofs at two heights, a reed awning, a water jar' },
+  { id: 'ammon-block-b', landmark: 'ammon', kind: 'house', fp: [3, 3], material: 'stone', hp: 1300, heightM: 6, note: 'a dense block: three mudbrick cube houses packed together, a roof terrace with a reed awning, a tiny yard with a potted palm' },
+  { id: 'ammon-block-c', landmark: 'ammon', kind: 'house', fp: [4, 4], material: 'stone', hp: 1800, heightM: 7, note: 'a dense block: four mudbrick houses wall to wall round a tiny court with date palms, a roof terrace under a reed awning on palm poles, a stair to the roof' },
+  { id: 'ammon-block-d', landmark: 'ammon', kind: 'house', fp: [4, 4], material: 'stone', hp: 1800, heightM: 7, note: 'a dense block: five one- and two-storey mudbrick houses, roof terraces with striped cloth awnings, jars and baskets on the roofs, a small inner court' },
+  { id: 'arch-block-a', landmark: 'arch', kind: 'house', fp: [2, 2], material: 'stone', hp: 800, heightM: 5, note: 'a dense block: two tiny limewashed houses wall to wall, tiled gables at two heights' },
+  { id: 'arch-block-b', landmark: 'arch', kind: 'house', fp: [3, 3], material: 'stone', hp: 1300, heightM: 7, note: 'a dense block: a house and a shop joined wall to wall, a small walled yard, a counter under a cloth awning' },
+  { id: 'arch-block-c', landmark: 'arch', kind: 'house', fp: [4, 4], material: 'stone', hp: 1800, heightM: 8, note: 'a dense block: four houses wall to wall round a small paved court, tiled gables at several heights, a shop front with a striped awning' },
+  { id: 'arch-block-d', landmark: 'arch', kind: 'house', fp: [4, 4], material: 'stone', hp: 1800, heightM: 7, note: 'a dense market block: a row of three narrow shops and houses, counters under faded awnings with amphorae, an upper floor balcony, a back yard' },
 ];
 
 // ---- keying (as town.mjs)
