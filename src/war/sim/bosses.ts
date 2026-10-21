@@ -27,7 +27,7 @@
  *    postern: there 60 s alive, he escapes and comes back in an hour with half his guard.
  *  - The Maenad Queen (the Oracle Grove, Bacchae): the thiasos dances fast through the trees; P2 (< 40%, the Grove)
  *    frenzied, she calls two maenad packs.
- *  - The Titan of the Navel: P1 boulders from the arena (range 30, area 3, breaks wood); P2 (< 50%) stomps (knock 4) and
+ *  - The Titan of the Navel: P1 boulders from the arena (range 6-30, area 2.5, breaks wood); P2 (< 50%) stomps (knock 3) and
  *    tears the ramp gates. Achelous the River-God: a giant, a serpent in the channels (venom, aloft but from the
  *    fords), a bull that charges through the ranks (knock 2). The Minotaur and the pocket bosses fight as brutes.
  *
@@ -99,7 +99,7 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 10000, dmg: 10, armor: 4, reach: 3, atk: 3, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 1200, dmg: 10 } },
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 22, armor: 6, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 150, dmg: 14, armor: 4 } },
   river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
-  titan: { ai: 'titan', cls: 'mob_brontes', hp: 36000, dmg: 80, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
+  titan: { ai: 'titan', cls: 'mob_brontes', hp: 16000, dmg: 30, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
   minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
   brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
   grove_queen: { ai: 'maenads', cls: 'mob_maenad_queen', hp: 4000, dmg: 30, armor: 4, reach: 1.6, atk: 1, speed: 1.3, aggro: 14, leash: 24, guard: { cls: 'mob_maenad', n: 8, hp: 90, dmg: 14, armor: 2 } },
@@ -126,8 +126,8 @@ export const MOVES = {
   goatBreath: { every: 60, len: 7, half: 0.5, share: 0.2 },
   postern: { at: 2.5, hold: 600, away: 36000 },
   calls: { packs: 2, n: 6 },
-  boulder: { every: 50, range: 30, r: 3, share: 0.3, wood: 400 },
-  stomp: { every: 60, r: 4, share: 0.2, knock: 4, gates: 6, gateDmg: 600 },
+  boulder: { every: 60, range: 30, min: 6, r: 2.5, share: 0.1, wood: 400 },
+  stomp: { every: 100, r: 4, share: 0.08, knock: 3, gates: 6, gateDmg: 600 },
   bite: { every: 30, r: 3 },
   charge: { every: 100, range: 10, w: 1.5, share: 0.15, knock: 2 },
   fx: 20,
@@ -185,8 +185,8 @@ export function createBosses(region: RegionData, host: BossHost) {
     return best;
   };
   /** The foe man within r with the most of his side round him (a breath or a boulder goes where it hurts most). */
-  const densest = (x: number, y: number, r: number): BUnit | null => {
-    const fs = foesIn(x, y, r);
+  const densest = (x: number, y: number, r: number, min = 0): BUnit | null => {
+    const fs = foesIn(x, y, r).filter((u) => !min || (u.x - x) ** 2 + (u.y - y) ** 2 >= min * min);
     let best: BUnit | null = null, bn = -1;
     for (const u of fs) {
       let n = 0;
@@ -342,7 +342,8 @@ export function createBosses(region: RegionData, host: BossHost) {
       u.immune = true;
     }
     // where it starts: Drakon in the yard, Brontes and the Titan on their perch, Gyges in chains, Scylla in her cave
-    if ((r.ai === 'brontes' || r.ai === 'titan') && e.perches?.length) (host.place(u, e.perches[0][0], e.perches[0][1]), pin(u, true, 1), (r.state = 'perch'));
+    // (the Titan stands on the arena floor, in reach of blades; Brontes on his gate top only missiles reach)
+    if ((r.ai === 'brontes' || r.ai === 'titan') && e.perches?.length) (host.place(u, e.perches[0][0], e.perches[0][1]), pin(u, true, r.ai === 'titan' ? 0 : 1), (r.state = 'perch'));
     else if (r.ai === 'brontes' || r.ai === 'titan' || r.ai === 'gyges') pin(u, true);
     host.gate(r.id, true);
   };
@@ -566,7 +567,7 @@ export function createBosses(region: RegionData, host: BossHost) {
         if (r.phase === 0) {
           if (tick >= r.next) {
             r.next = tick + MOVES.boulder.every;
-            const t = densest(u.x, u.y, MOVES.boulder.range);
+            const t = densest(u.x, u.y, MOVES.boulder.range, MOVES.boulder.min); // no throw at his own feet
             if (t) {
               u.facing = Math.atan2(t.y - u.y, t.x - u.x);
               blast(foesIn(t.x, t.y, MOVES.boulder.r), MOVES.boulder.share, t.x, t.y);

@@ -38,6 +38,12 @@ describe('M7h landmark balance', () => {
     expect(raidFight('delta', 'river_god', mixed(6), 1).won).toBe(true);
   }, 120_000);
 
+  it('Temple City: one squad and six fall to the Titan, ten close under his boulders and kill him', () => {
+    expect(raidFight('omphalos', 'titan', mixed(1), 1).won).toBe(false);
+    expect(raidFight('omphalos', 'titan', mixed(6), 1).won).toBe(false);
+    expect(raidFight('omphalos', 'titan', mixed(10), 1).won).toBe(true);
+  }, 120_000);
+
   for (const [region, boss] of [['saddle', 'brontes'], ['gorge', 'gyges'], ['canyons', 'chimera'], ['erymanthos', 'grove_queen']] as const)
     it(`${boss} (depth 3): one squad loses, four win`, () => {
       expect(raidFight(region, boss, mixed(1), 1).won).toBe(false);
