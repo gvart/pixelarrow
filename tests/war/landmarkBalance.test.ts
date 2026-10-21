@@ -32,6 +32,12 @@ describe('M7h landmark balance', () => {
     expect(raidFight('siren', 'scylla', mixed(6), 1).won).toBe(true);
   }, 120_000);
 
+  it('Sunken Temple: one squad dies to Achelous, six wade into the fords at his serpent and kill him', () => {
+    expect(raidFight('delta', 'river_god', mixed(1), 1).won).toBe(false);
+    expect(raidFight('delta', 'river_god', mixed(4), 1).won).toBe(false);
+    expect(raidFight('delta', 'river_god', mixed(6), 1).won).toBe(true);
+  }, 120_000);
+
   for (const [region, boss] of [['saddle', 'brontes'], ['gorge', 'gyges'], ['canyons', 'chimera'], ['erymanthos', 'grove_queen']] as const)
     it(`${boss} (depth 3): one squad loses, four win`, () => {
       expect(raidFight(region, boss, mixed(1), 1).won).toBe(false);

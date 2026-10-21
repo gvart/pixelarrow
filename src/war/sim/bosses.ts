@@ -29,7 +29,7 @@
  *    frenzied, she calls two maenad packs.
  *  - The Titan of the Navel: P1 boulders from the arena (range 30, area 3, breaks wood); P2 (< 50%) stomps (knock 4) and
  *    tears the ramp gates. Achelous the River-God: a giant, a serpent in the channels (venom, aloft but from the
- *    fords), a bull that charges through the ranks (knock 3). The Minotaur and the pocket bosses fight as brutes.
+ *    fords), a bull that charges through the ranks (knock 2). The Minotaur and the pocket bosses fight as brutes.
  *
  * The kill: a `bossSlain` event (killers: owners of the squads that hurt it, the last blow first) at the body; the region
  * room drops its loot (src/data/warBosses.ts bossLoot, bossGoods) as a pile there; the sandbox does the same. Respawn:
@@ -98,7 +98,7 @@ export const GUARDIANS: Readonly<Record<string, GDef>> = {
   drakon: { ai: 'drakon', cls: 'mob_drakon', hp: 18000, dmg: 8, armor: 2, reach: 2.6, atk: 2, speed: 1.1, aggro: 18, leash: 30 },
   scylla: { ai: 'scylla', cls: 'mob_scylla_head', hp: 10000, dmg: 10, armor: 4, reach: 3, atk: 3, speed: 0.8, aggro: 14, leash: 40, parts: { n: 6, hp: 1200, dmg: 10 } },
   bandit_king: { ai: 'king', cls: 'mob_bandit_king', hp: 6000, dmg: 22, armor: 6, reach: 1.6, atk: 1.1, speed: 1.05, aggro: 10, leash: 14, guard: { cls: 'mob_bandit_guard', n: 11, hp: 150, dmg: 14, armor: 4 } },
-  river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 60, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
+  river_god: { ai: 'river', cls: 'mob_brontes', hp: 30000, dmg: 20, armor: 4, reach: 2.4, atk: 1.8, speed: 0.9, aggro: 16, leash: 26 },
   titan: { ai: 'titan', cls: 'mob_brontes', hp: 36000, dmg: 80, armor: 4, reach: 2.6, atk: 2, speed: 0.8, aggro: 30, leash: 30 },
   minotaur: { ai: 'brute', cls: 'mob_bandit_captain', hp: 12000, dmg: 50, armor: 4, reach: 1.8, atk: 1.2, speed: 1.1, aggro: 10, leash: 16 },
   brontes: { ai: 'brontes', cls: 'mob_brontes', hp: 8000, dmg: 30, armor: 4, reach: 2.2, atk: 1.8, speed: 0.85, aggro: 25, leash: 22 },
@@ -129,7 +129,7 @@ export const MOVES = {
   boulder: { every: 50, range: 30, r: 3, share: 0.3, wood: 400 },
   stomp: { every: 60, r: 4, share: 0.2, knock: 4, gates: 6, gateDmg: 600 },
   bite: { every: 30, r: 3 },
-  charge: { every: 60, range: 10, w: 1.5, share: 0.25, knock: 3 },
+  charge: { every: 100, range: 10, w: 1.5, share: 0.15, knock: 2 },
   fx: 20,
   /** Ticks without a blow either way, away from home, before a guardian on the ground walks back to its post. */
   stall: 200,
