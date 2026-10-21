@@ -70,6 +70,9 @@ export const OBJECTS = [
   { id: 'maquis-c', raw: 'maquis-c', ...bush, metres: 2, grade: { sat: 0.4, val: 0.7 }, source: 'map_object 119b5c90' },
   { id: 'herbs', raw: 'herbs', ...bush, metres: 0.65, scale: 0.65, grade: { sat: 0.6, val: 0.8 }, source: 'map_object 8e20f9f2' },
   { id: 'vines', raw: 'vines', kind: 'crop', blocks: false, footprint: [1, 2], metres: 2.6, grade: { sat: 0.65, val: 0.8 }, source: 'map_object e46652d4' },
+  // fields (kit.ts fields): a sown 2 m plot, the soil slab PixelLab drew under it dropped (keep: crop)
+  { id: 'wheat', raw: 'wheat', kind: 'crop', blocks: false, footprint: [1, 1], metres: 1.2, scale: 0.67, base: { y0: 0, keep: 'crop' }, grade: { sat: 0.6, val: 0.72 }, source: 'map_object 1cefe722' },
+  { id: 'barley', raw: 'barley', kind: 'crop', blocks: false, footprint: [1, 1], metres: 1.1, scale: 0.67, base: { y0: 0, keep: 'crop' }, grade: { sat: 0.6, val: 0.72 }, source: 'map_object fd28d78f' },
   { id: 'marble-outcrop-a', raw: 'marble-crags', ...stone, footprint: [2, 1], metres: 2.6, base: { y0: 50, keep: 'neutral' }, grade: { sat: 0.5, val: 0.7 }, source: 'map_object f769bb66' },
   { id: 'marble-outcrop-b', raw: 'marble-outcrop-b', ...stone, footprint: [1, 1], metres: 1.6, grade: { sat: 0.5, val: 0.75 }, source: 'map_object 16026d8f' },
   { id: 'marble-quarry', raw: 'quarry-c', ...stone, footprint: [2, 2], metres: 4.3, base: { y0: 60, keep: 'neutral' }, grade: { sat: 0.5, val: 0.7 }, source: 'map_object d54f3bef' },

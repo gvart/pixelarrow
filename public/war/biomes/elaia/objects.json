@@ -435,6 +435,42 @@
    "source": "map_object e46652d4"
   },
   {
+   "id": "wheat",
+   "kind": "crop",
+   "file": "wheat.png",
+   "w": 58,
+   "h": 39,
+   "metres": 1.2,
+   "anchor": {
+    "x": 28,
+    "y": 38
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object 1cefe722"
+  },
+  {
+   "id": "barley",
+   "kind": "crop",
+   "file": "barley.png",
+   "w": 55,
+   "h": 36,
+   "metres": 1.1,
+   "anchor": {
+    "x": 27,
+    "y": 35
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object fd28d78f"
+  },
+  {
    "id": "marble-outcrop-a",
    "kind": "stone",
    "file": "marble-outcrop-a.png",
