@@ -60,7 +60,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 ## Technical assumptions (desk decisions, revisit if they hurt)
 
 - New code lives in `src/war/` (client + shared sim) and later `server/src/war/`. The sim is pure TS, deterministic, fixed **10 Hz** tick, runs in a Web Worker in the sandbox and in a Durable Object later.
-- Region map = tile grid, 1 tile = 2 m, drawn as 64×32 iso (W-18, W-20). Layers: `height` (0–7 int), `terrain` (enum), `water` (none/shallow/deep). Height step of 1 is a slope (slow uphill), step ≥2 is a cliff (impassable). Deep water and `rock` impassable; shallow water, sand, marsh, forest slow; `road` fast. Higher ground: + range and + damage vs lower.
+- Region map = tile grid, 1 tile = 2 m, drawn as 64×32 iso (W-18, W-20). Layers: `height` (0–15 int, W-51), `terrain` (enum), `water` (none/shallow/deep). Height step of 1 is a slope (slow uphill), step ≥2 is a cliff (impassable). Deep water and `rock` impassable; shallow water, sand, marsh, forest slow; `road` fast. Higher ground: + range and + damage vs lower (missiles: 4 levels count whole, 4 more half; melee 2).
 - Pathfinding: grid A* with terrain costs on a coarse sector graph + per-squad flow/A* (agent picks), spatial hash for neighbours. Budget: 600 units, sim step ≤ 8 ms on a laptop.
 - Region data JSON: `src/war/regions/<id>.json`, schema in `src/war/region/schema.ts` (zod).
 

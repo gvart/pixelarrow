@@ -19,10 +19,11 @@ const region = schema.parseRegion(JSON.parse(raw));
 const parseMs = performance.now() - t0;
 const probe = sim.createSim(region, 1);
 const createMs = performance.now() - t0;
+global.gc?.(); // retained, not the garbage of the parse (without --expose-gc: a no-GC delta, garbage included)
 const heap = (process.memoryUsage().heapUsed - heap0) / 1e6;
 void probe;
 const summary = (ms) => { const s = [...ms].sort((a, b) => a - b), avg = ms.reduce((a, b) => a + b, 0) / ms.length; return `avg ${avg.toFixed(2)} ms, p95 ${s[Math.floor(s.length * 0.95)].toFixed(2)} ms, max ${s.at(-1).toFixed(2)} ms`; };
-console.log(`${id}: prebuilt ${region.prebuilt?.length ?? 0}, json ${(raw.length / 1e6).toFixed(2)} MB, gzip ${(gzipSync(raw).length / 1e6).toFixed(2)} MB, parse ${parseMs.toFixed(0)} ms, parse+sim ${createMs.toFixed(0)} ms, heap ~${heap.toFixed(0)} MB`);
+console.log(`${id}: prebuilt ${region.prebuilt?.length ?? 0}, json ${(raw.length / 1e6).toFixed(2)} MB, gzip ${(gzipSync(raw).length / 1e6).toFixed(2)} MB, parse ${parseMs.toFixed(0)} ms, parse+sim ${createMs.toFixed(0)} ms, heap ~${heap.toFixed(0)} MB${global.gc ? '' : ' (no GC: run with --expose-gc)'}; per room see scripts/war/regions/mem.mjs`);
 // open walkable tiles near the landmark's claim (its streets), for spawn points
 const cp = region.claimPoints.at(-1);
 const W = region.w, open = (x, y) => { const i = y * W + x; return region.water[i] !== 2 && region.terrain[i] !== 'rock'; };

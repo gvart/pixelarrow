@@ -6,7 +6,7 @@ export type TerrainKind = 'grass' | 'forest' | 'sand' | 'marsh' | 'rock' | 'road
 export type WaterKind = 0 | 1 | 2; // 0 none, 1 shallow (ford), 2 deep (impassable)
 export interface RegionData {
   id: string; name: string; w: number; h: number; // tiles
-  height: number[]; terrain: TerrainKind[]; water: WaterKind[]; // row-major, length w*h
+  height: number[]; terrain: TerrainKind[]; water: WaterKind[]; // row-major, length w*h; height 0..15 (W-51)
   entries: { side: 'N' | 'E' | 'S' | 'W'; x: number; y: number; w: number; h: number }[];
   noBuild: { x: number; y: number; w: number; h: number }[];
   /** Map objects (public/war/objects/objects.json ids) by foot point in tiles; blocking ones close their footprint (src/war/region/objects.ts). */

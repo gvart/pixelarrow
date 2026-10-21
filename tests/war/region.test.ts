@@ -26,7 +26,9 @@ describe('test-ridge region', () => {
   it('rejects wrong layer lengths and unknown terrain', () => {
     expect(() => parseRegion({ ...ridge, height: ridge.height.slice(1) })).toThrow(/height/);
     expect(() => parseRegion({ ...ridge, terrain: ['lava', ...ridge.terrain.slice(1)] })).toThrow();
-    expect(() => parseRegion({ ...ridge, height: [9, ...ridge.height.slice(1)] })).toThrow();
+    expect(() => parseRegion({ ...ridge, height: [16, ...ridge.height.slice(1)] })).toThrow(/height/);
+    expect(() => parseRegion({ ...ridge, height: [1.5, ...ridge.height.slice(1)] })).toThrow(/height/);
+    expect(parseRegion({ ...ridge, height: [15, ...ridge.height.slice(1)] }).height[0]).toBe(15);
   });
 
   it('carries a 1 m visual layer whose tall mountains are rock', () => {
