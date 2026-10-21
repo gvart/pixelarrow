@@ -111,26 +111,28 @@
   "#3e4044",
   "#3f4045",
   "#443e44",
-  "#b8b9b9",
-  "#b8b9b8",
   "#d1d1d0",
   "#d4d4d4",
-  "#b6b9b9",
-  "#c8c8c8",
-  "#b4b6b7",
-  "#b5b8ba",
-  "#c0c0c1",
-  "#b7b8ba",
-  "#bebebf",
-  "#c0c0c0",
-  "#b9baba",
-  "#bababb",
-  "#775a57",
+  "#c2c0b9",
+  "#7f5f5f",
+  "#99867c",
   "#a0a0a3",
-  "#acaeae",
-  "#b6b5b3",
-  "#b6b6b3",
-  "#b6b8ba"
+  "#a0a1a2",
+  "#bab5ab",
+  "#4e6b7b",
+  "#bbb6ac",
+  "#d3d3d3",
+  "#7c4644",
+  "#6c8282",
+  "#a09fa3",
+  "#b9b3a9",
+  "#3d5771",
+  "#999da0",
+  "#aaa8a4",
+  "#401d25",
+  "#3d4554",
+  "#7f8c99",
+  "#798f9b"
  ],
  "objects": [
   {
@@ -1483,6 +1485,83 @@
    "fauna": "eagle",
    "animateLater": true,
    "source": "map_object d88753c5"
+  },
+  {
+   "id": "snow-drift",
+   "kind": "prop",
+   "file": "snow-drift.png",
+   "w": 118,
+   "h": 55,
+   "metres": 1.67,
+   "anchor": {
+    "x": 57,
+    "y": 54
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "overlay": "snow",
+   "source": "map_object 6fc586f7 (W-51)"
+  },
+  {
+   "id": "ice-patch",
+   "kind": "prop",
+   "file": "ice-patch.png",
+   "w": 115,
+   "h": 58,
+   "metres": 1.76,
+   "anchor": {
+    "x": 61,
+    "y": 57
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "overlay": "ice",
+   "source": "map_object c43d1267 (W-51)"
+  },
+  {
+   "id": "talus-granite",
+   "kind": "stone",
+   "file": "talus-granite.png",
+   "w": 116,
+   "h": 76,
+   "metres": 2.3,
+   "anchor": {
+    "x": 56,
+    "y": 75
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": true,
+   "overlay": "talus",
+   "cliff": "granite",
+   "source": "map_object 636c76d4 (W-51)"
+  },
+  {
+   "id": "steps-stone",
+   "kind": "prop",
+   "file": "steps-stone.png",
+   "w": 82,
+   "h": 68,
+   "metres": 2.06,
+   "anchor": {
+    "x": 39,
+    "y": 67
+   },
+   "footprint": [
+    1,
+    1
+   ],
+   "blocksMovement": false,
+   "dressing": "steps",
+   "source": "map_object 7d3fba3a (W-51)"
   }
  ]
 }

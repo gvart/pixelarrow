@@ -14,6 +14,7 @@ export const FILLS = {
   meadow: { dir: 'grass-meadow', frame: 0, grade: { hue: -75, sat: 0.8, val: 0.75 } }, // PixelLab drew a teal turf: turned to a cool dark green
   gravel: { dir: 'grass-gravel', frame: 0, grade: { sat: 0.8, val: 0.72 } },
   paving: { dir: 'grass-paving', batch: 'art5', frame: 0, grade: { sat: 0.45, val: 1 } }, // W-48 landmark streets and plazas
+  drift: { dir: 'rock-drift', frame: 0, grade: { sat: 0.55, val: 0.8 } }, // W-51 crag kit: deep wind-packed snow on rock
 };
 
 export const SETS = [
@@ -23,6 +24,7 @@ export const SETS = [
   { pair: 'grass-snow', first: 'grass', second: 'snow', dir: 'grass-snow', side: 'earth', organic: 0.6, source: 'tiles_pro 4418d45e (ART-8)' },
   { pair: 'rock-scree', first: 'rock', second: 'scree', dir: 'rock-scree', side: 'rock', globalFull: true, source: 'tiles_pro d316baf4 (ART-8)' },
   { pair: 'grass-paving', first: 'grass', second: 'paving', dir: 'grass-paving', batch: 'art5', side: 'earth', source: 'tiles_pro 03a3bc68 (W-48)' },
+  { pair: 'rock-drift', first: 'rock', second: 'drift', dir: 'rock-drift', side: 'rock', globalFull: true, organic: 0.6, source: 'tiles_pro c87bf1ce (W-51)' },
 ];
 
 // 'fills' = tiles_pro c6456277 (ART-8): 16 independent 64x64 tiles, top vertex at y 11. PixelLab ignored the item order:
@@ -33,15 +35,24 @@ export const VARIANTS = {
   scree: [fills(0), fills(1), fills(2), fills(3)],
   meadow: ['shift', 'mirror'], // the turf fills (8-15) stay teal after the colour match: unused
   gravel: ['shift', 'mirror'],
+  drift: ['shift', 'mirror'],
   // a biome list replaces the global one: keep the global rock variants and add the boulder-strewn rock
   rock: [rockFills(0), rockFills(1), rockFills(2), rockFills(3), fills(4), fills(6)],
 };
 
-export const CLIFFS = [];
+// W-51 crag kit: tall cliff faces cut from create_tiles_pro runs of tall iso rock blocks (build.mjs faceStrips).
+// The first cliff stays the global earth strip (the renderer draws a biome's first cliff on earth banks).
+const face = (dir, tiles, grade) => ({ dir, batch: 'crag', tiles, grade });
+export const CLIFFS = [
+  { id: 'mountain-earth', from: 'earth' },
+  { id: 'granite', material: 'grey granite', faces: face('face-granite', [0, 1, 2, 3, 8, 9, 10, 11], { sat: 0.7, val: 0.7 }), source: 'tiles_pro b538ae4d #0-3, 8-11 (W-51)' },
+  { id: 'granite-snow', material: 'grey granite, snow on the ledges', faces: face('face-granite', [4, 5, 6, 7], { sat: 0.7, val: 0.72 }), source: 'tiles_pro b538ae4d #4-7 (W-51)' },
+  { id: 'granite-ice', material: 'grey granite glazed with ice, icicles', faces: face('face-granite', [12, 13, 14, 15], { sat: 0.7, val: 0.72 }), source: 'tiles_pro b538ae4d #12-15 (W-51)' },
+];
 
 export const FALLBACK = {
   note: 'Same rule as the global tiles.json fallback, over the global sheets plus these (land buffer grass). Mountain pairs with a sheet: grass-scree, grass-meadow, grass-gravel, grass-snow, rock-scree (plus the global grass-rock, rock-snow, road-rock); others (scree-snow, meadow-rock, gravel-rock, ...) get a grass verge.',
-  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'meadow', 'gravel', 'forest', 'snow', 'scree', 'rock', 'road', 'paving', 'grass'],
+  order: ['deep', 'shallow', 'marsh', 'sand', 'dirt', 'meadow', 'gravel', 'forest', 'snow', 'drift', 'scree', 'rock', 'road', 'paving', 'grass'],
   buffer: { water: 'shallow', land: 'grass' },
 };
 
@@ -161,6 +172,11 @@ export const OBJECTS = [
   { id: 'ibex', raw: 'ibex', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.2, scale: 0.8, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'ibex', animateLater: true }, source: 'map_object b70f2d24' },
   { id: 'bear', raw: 'bear', kind: 'fauna', blocks: false, footprint: [1, 1], metres: 1.6, grade: { sat: 0.65, val: 0.8 }, extra: { fauna: 'bear', mob: true, animateLater: true }, source: 'map_object 177ad7da' },
   { id: 'eagle-nest', raw: 'eagle-nest', ...stone, footprint: [1, 1], metres: 2.5, grade: { sat: 0.6, val: 0.8 }, extra: { fauna: 'eagle', animateLater: true }, source: 'map_object d88753c5' },
+  // W-51 crag kit overlays (PROMPTS_ART.md 40h): drifts on ledges and at a cliff foot, ice on the glacier, talus under the faces
+  { id: 'snow-drift', raw: 'snow-drift-a', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.67, grade: { sat: 0.55, val: 0.8 }, extra: { overlay: 'snow' }, source: 'map_object 6fc586f7 (W-51)' },
+  { id: 'ice-patch', raw: 'ice-patch', kind: 'prop', blocks: false, footprint: [1, 1], metres: 1.76, grade: { sat: 0.5, val: 0.78 }, extra: { overlay: 'ice' }, source: 'map_object c43d1267 (W-51)' },
+  { id: 'talus-granite', raw: 'talus-granite', kind: 'stone', blocks: true, footprint: [2, 1], metres: 2.3, grade: { sat: 0.6, val: 0.75 }, extra: { overlay: 'talus', cliff: 'granite' }, source: 'map_object 636c76d4 (W-51)' },
+  { id: 'steps-stone', raw: 'steps-stone', kind: 'prop', blocks: false, footprint: [1, 1], metres: 2.06, grade: { sat: 0.5, val: 0.72 }, extra: { dressing: 'steps' }, source: 'map_object 7d3fba3a (W-51)' },
 ];
 // role (objects.json extra.role), a size hint for the renderer: `core` = the big masses for the middle of a wide rock area,
 // `ridge` = single peaks, ridges and spurs, `foothill` = low lumps, shoulders and crags for the rim of a rock area.
