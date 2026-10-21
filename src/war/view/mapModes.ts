@@ -43,6 +43,7 @@ const KIND_RGB: Record<string, RGB> = {
   snow: [232, 234, 238], dirt: [140, 116, 84], shallow: [86, 150, 178], deep: [36, 70, 112], scree: [146, 140, 128], meadow: [122, 146, 78],
   gravel: [150, 140, 122], dry: [168, 150, 92], rossa: [170, 98, 66], marble: [214, 208, 196], grove: [96, 112, 56], dune: [222, 192, 132],
   hardpan: [186, 152, 110], redrock: [160, 82, 56], reg: [176, 146, 104], salt: [230, 224, 214], oasis: [72, 128, 72],
+  paving: [176, 168, 150], drift: [214, 220, 226], rubble: [150, 120, 92], ruin: [150, 146, 132],
 };
 /** Biome names for players. */
 export const BIOME_NAME: Record<string, string> = { global: 'Temperate', elaia: 'Elaia olive hills', kyrene: 'Kyrene desert', mountains: 'Mountains' };

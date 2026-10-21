@@ -461,8 +461,8 @@ export class Kit {
   spot(name: string, p: Pt) { this.spots[name] = p; return p; }
   /** `n` copies of a set piece on free ground within `r` units of `at`, `gap` units apart (blocking ones keep their footprint clear). */
   /** W-48: a waterfall where a river falls over a cliff step, its foot at `at`, the foam on its plunge pool at `pool` (units). */
-  readonly falls: { at: Pt; pool: Pt }[] = [];
-  fall(at: Pt, pool: Pt) { this.falls.push({ at, pool }); }
+  readonly falls: { at: Pt; pool: Pt; tall: boolean }[] = [];
+  fall(at: Pt, pool: Pt, tall = false) { this.falls.push({ at, pool, tall }); }
   piece(id: string, at: Pt, o: { r?: number; onRock?: boolean; n?: number; gap?: number } = {}) {
     this.reqs.push({ kind: 'piece', id, at, r: o.r ?? 12, onRock: o.onRock ?? false, n: o.n ?? 1, gap: o.gap ?? 4 });
   }
@@ -669,6 +669,43 @@ export class Site {
   lift = 1;
   base = 0;
   readonly vz = new Map<number, number>();
+  /** W-51 visual levels per sim level (sorted [sim, visual] pairs, interpolated; null: `base + (h - base) * lift`): a crag drawn taller than its upper tier. */
+  levels: [number, number][] | null = null;
+  /** Visual levels for road tiles (null: `levels`): the ways up a lifted mesa drawn as steep ramps on embankments. */
+  roadLevels: [number, number][] | null = null;
+  /** The visual level sim level `h` (fractional on a ramp) is drawn at; `road`: on a road tile. */
+  vis(h: number, road = false): number {
+    const L = (road && this.roadLevels) || this.levels;
+    if (!L) return this.base + (h - this.base) * this.lift;
+    if (h <= L[0][0]) return L[0][1] + (h - L[0][0]);
+    for (let n = 1; n < L.length; n++) if (h <= L[n][0]) return L[n - 1][1] + ((L[n][1] - L[n - 1][1]) * (h - L[n - 1][0])) / (L[n][0] - L[n - 1][0]);
+    const e = L[L.length - 1];
+    return e[1] + (h - e[0]);
+  }
+  /** Tiles round the site its relief lift also reaches (a mesa whose rim runs past the site's bounds). */
+  liftPad = 0;
+  /** The site tiles its `lift` applies to (null: all above `base`): the crag itself, not the hills round it. */
+  liftOnly: ((x: number, y: number) => boolean) | null = null;
+  /** W-51 crag skirts (Site.skirt): per site tile of its rock, the level its ledge is drawn at (before `lift`). */
+  readonly vrock = new Map<number, number>();
+  /** The skirt's visual kinds: `a` where the noise is over `cut`, else `b` (a drifted crag: drift over rock). */
+  skirtKinds: { a: Kind; b: Kind; cut: number } = { a: 'rock', b: 'rock', cut: 0 };
+  /** W-51 a visual ground for the site's tiles where `inside` holds (sim terrain kept): `ground` on open land, `pave` on its streets. */
+  look: { ground: Kind; pave: Kind; inside: (x: number, y: number) => boolean; rough?: Kind } | null = null;
+  /** Site tiles round a ruin (within 1, most of them): its rubble ground (look.rough). */
+  private rubbleAt: Set<number> | null = null;
+  roughAt(x: number, y: number): boolean {
+    if (!this.rubbleAt) {
+      this.rubbleAt = new Set();
+      for (const p of this.pieces) if (p.ruined) {
+        const [w, h] = this.fp(p.id), px = p.x - this.x0, py = p.y - this.y0;
+        for (let j = py - 1; j < py + h + 1; j++) for (let i = px - 1; i < px + w + 1; i++) if (hsh(i, j, 61) < 0.7) this.rubbleAt.add(j * 4096 + i);
+      }
+    }
+    return this.rubbleAt.has(y * 4096 + x);
+  }
+  /** Dressing (biome objects: palms, stalls, debris, drifts, talus) on its ground, walkable: [id, site x, site y]. */
+  readonly props: [string, number, number][] = [];
   /** Keep the wild trees and bushes on its ground (a sacred grove). */
   wild = false;
   private occ = new Set<number>();
@@ -739,6 +776,53 @@ export class Site {
     this.pieces.push({ id, x: this.x0 + x, y: this.y0 + y, ...(o.hp !== undefined ? { hp: o.hp } : {}), ...(o.ruined ? { ruined: true } : {}) });
     return true;
   }
+  /**
+   * W-51 a crag's (or a butte's) skirt: the dry ground outside the outline `p`, within a ragged `width` tiles of it,
+   * turned to rock (impassable) and drawn as `steps` ledges stepping down from `hi` of the height from the foot to `top`
+   * (by the edge) to `lo` (at the skirt's rim): sheer faces between narrow ledges (visual only, `vrock`, drawn at the
+   * site's `lift`); streets, ramps, kept ground and pieces stay. Returns the tiles taken.
+   */
+  skirt(p: Pt[], top: number, width: number, o: { seed?: number; steps?: number; foot?: number; open?: Pt[]; openR?: number; lo?: number; hi?: number } = {}): Set<number> {
+    const seed = o.seed ?? 9, steps = o.steps ?? 4, foot = o.foot ?? this.base, tiles = new Set<number>(), R = o.openR ?? 8, lo = o.lo ?? 0.2, hi = o.hi ?? 0.8;
+    const edge = (x: number, y: number) => {
+      let d = Infinity;
+      for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+        const [ax, ay] = p[j], [bx, by] = p[i], dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+        d = Math.min(d, Math.hypot(ax + dx * t - x, ay + dy * t - y));
+      }
+      return d;
+    };
+    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
+      const k = y * 4096 + x;
+      if (inPoly(p, x + 0.5, y + 0.5) || this.kept.has(k) || this.occ.has(k) || !this.dry(x, y) || this.hAt(x, y) >= top) continue;
+      if ((o.open ?? []).some(([ox, oy]) => Math.hypot(x + 0.5 - ox, y + 0.5 - oy) < R)) continue; // a ramp's foot opens onto the flats
+      const wd = width * (0.7 + 0.45 * fbm(this.x0 + x, this.y0 + y, 9, seed)), d = edge(x + 0.5, y + 0.5);
+      if (d > wd) continue;
+      const lv = Math.max(0, Math.min(steps - 1, Math.floor((1 - d / wd) * steps + 0.6 * fbm(this.x0 + x, this.y0 + y, 4, seed + 1))));
+      tiles.add(k);
+      this.vrock.set(k, foot + (top - foot) * (lo + ((hi - lo) * lv) / Math.max(1, steps - 1)));
+    }
+    this.paintSet(tiles, 'rock');
+    return tiles;
+  }
+  /** A dressing object (`<biome>/<id>`) at site point (x, y). */
+  prop(id: string, x: number, y: number) { this.props.push([id, x, y]); }
+  /**
+   * `n` dressing objects (cycling `ids`) on dry, open site tiles where `mask` holds (no piece on them; streets too when
+   * `streets`), at least `gap` tiles apart; returns how many stand.
+   */
+  dress(ids: string[], mask: (x: number, y: number) => boolean, n: number, seed: number, o: { gap?: number; streets?: boolean } = {}): number {
+    const gap = o.gap ?? 2, at: Pt[] = [];
+    for (let t = 0; t < n * 40 && at.length < n; t++) {
+      const x = Math.floor(hsh(t, seed, 1) * this.w), y = Math.floor(hsh(seed, t, 2) * this.h), k = y * 4096 + x;
+      if (!mask(x, y) || !this.dry(x, y) || this.occ.has(k) || (!o.streets && this.streets.has(k)) || at.some((q) => Math.abs(q[0] - x) < gap && Math.abs(q[1] - y) < gap)) continue;
+      at.push([x, y]);
+      this.prop(ids[at.length % ids.length], x + 0.5, y + 0.5);
+    }
+    return at.length;
+  }
+  /** Whether a piece stands on site tile (x, y). */
+  taken(x: number, y: number) { return this.occ.has(y * 4096 + x); }
   /** An extra node object (a rare-good node) on site tile (x, y). */
   node(id: string, x: number, y: number) { this.extraNodes.push([id, x, y]); this.keep(x - 1, y - 1, x + 2, y + 2); }
   /**
@@ -1083,6 +1167,8 @@ const LANDMARK_TYPE: Record<string, BuildingType | null> = {
   jetty: 'jetty', arena: 'barracks', statue: 'statue', forge: 'forge3', workshop: 'workshop', kiln: 'pitchKiln', stair: 'stoneStairs', ford: null, node: null,
   // W-48 architecture: halls and stables quarter men, a cistern is a well, a chapel or a theatre a shrine, a treasury a store, a tomb a statue (honours)
   barracks: 'barracks', stable: 'barracks', forge2: 'forge2', cistern: 'well', chapel: 'shrine', theatre: 'shrine', treasury: 'warehouse', tomb: 'statue',
+  // W-51 the dense blocks of the quarters: storerooms (a store each), not homes, so the recruit pools hold
+  block: 'storehouse',
 };
 const LANDMARK_NODE: Record<string, string> = { 'citadel-bone-pit': 'landmark/bone-pit', 'titan-slag': 'landmark/slag-heap', 'obsidian-field': 'landmark/glass-field' };
 /** Build-mode and town pieces in a layout (`@id`): their sim type and footprint. */
@@ -1139,18 +1225,27 @@ function visualLayer(k: Kit): Out {
   const kind = new Uint8Array(N), zv = new Uint8Array(N);
   // W-48 landmark relief: a site's levels drawn `lift` times as tall above its base (cliffs, terraces and retaining
   // walls read as metres, not steps; the sim keeps its levels), ramps by their smooth slope (Site.vz)
-  const lifted = k.sites.filter((s) => s.lift > 1);
+  const lifted = k.sites.filter((s) => s.lift > 1), crag = new Uint8Array(N);
   k.each((i, x, y) => {
     let z = height[i];
-    if (lifted.length && terrain[i] !== 'rock' && !water[i]) {
+    if (lifted.length && terrain[i] === 'rock' && !water[i]) {
+      // a crag's skirt: its ledges (Site.skirt), each cell jittered so the face breaks into crags
       const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
       for (const s of lifted) {
-        if (tx < s.x0 || ty < s.y0 || tx >= s.x0 + s.w || ty >= s.y0 + s.h || height[i] <= s.base) continue;
+        const v = tx < s.x0 || ty < s.y0 || tx >= s.x0 + s.w || ty >= s.y0 + s.h ? undefined : s.vrock.get((ty - s.y0) * 4096 + tx - s.x0);
+        if (v !== undefined) { z = Math.max(height[i], Math.min(ZVIS, Math.round(s.vis(v)))); crag[i] = 1; }
+      }
+    } else if (lifted.length && terrain[i] !== 'rock' && !water[i]) {
+      const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
+      for (const s of lifted) {
+        const pd = s.liftPad;
+        if (tx < s.x0 - pd || ty < s.y0 - pd || tx >= s.x0 + s.w + pd || ty >= s.y0 + s.h + pd || height[i] <= s.base) continue;
+        if (s.liftOnly && !s.liftOnly(tx - s.x0, ty - s.y0)) continue;
         const hv = s.vz.get((ty - s.y0) * 4096 + tx - s.x0) ?? height[i];
-        z = Math.min(ZVIS, Math.round(s.base + (hv - s.base) * s.lift));
+        z = Math.min(ZVIS, Math.round(s.vis(hv, terrain[i] === 'road')));
       }
     }
-    if (terrain[i] === 'rock' && rock[i] > -Infinity) {
+    if (terrain[i] === 'rock' && rock[i] > -Infinity && !crag[i]) {
       const e = rock[i] + 1.2 * fbm(x, y, 5, 41);
       const peak = PEAK_LO + (ZVIS - PEAK_LO) * (0.65 * ridged(x, y, 11, 43) + 0.35 * ridged(x, y, 5, 44)) ** 1.6;
       z = e < 0.6 ? 3 : 3 + STEP * Math.floor(Math.min(SLOPE * (e - 0.6), peak - 3) / STEP);
@@ -1165,7 +1260,7 @@ function visualLayer(k: Kit): Out {
     if (x > 0) l = Math.min(l, lim[i - 1] + 0.5);
     if (y > 0) l = Math.min(l, lim[i - W] + 0.5);
     lim[i] = l;
-    if (terrain[i] === 'rock' && zv[i] > l) zv[i] = Math.max(3, 3 + STEP * Math.floor((l - 3) / STEP));
+    if (terrain[i] === 'rock' && !crag[i] && zv[i] > l) zv[i] = Math.max(3, 3 + STEP * Math.floor((l - 3) / STEP));
   }
   const inBlob = (x: number, y: number, b: Blob, seed: number) => blob(x, y, b[0], b[1], b[2], b[3], b[4] ?? 0, 1.2, seed) > 0;
   const sandAll = (i: number) => {
@@ -1197,6 +1292,16 @@ function visualLayer(k: Kit): Out {
       }
     }
     kind[i] = KINDS.indexOf(k.paved[i] && t0 === 'road' && PAVED.has(BIOMES[biome[i]]) ? 'paving' : out);
+    // W-51 landmark looks: a crag's skirt in its kinds, a site's own ground and paving
+    if (k.sites.length && !water[i]) {
+      const tx = k.tileOfUnit(x), ty = k.tileOfUnit(y);
+      for (const s of k.sites) {
+        if (tx < s.x0 || ty < s.y0 || tx >= s.x0 + s.w || ty >= s.y0 + s.h) continue;
+        const sx = tx - s.x0, sy = ty - s.y0;
+        if (terrain[i] === 'rock' && s.vrock.has(sy * 4096 + sx)) kind[i] = KINDS.indexOf(fbm(x, y, 2.5, 53) > s.skirtKinds.cut ? s.skirtKinds.a : s.skirtKinds.b);
+        else if (s.look && terrain[i] !== 'rock' && s.look.inside(sx, sy)) kind[i] = KINDS.indexOf(terrain[i] === 'road' ? s.look.pave : s.look.rough && s.roughAt(sx, sy) ? s.look.rough : s.look.ground);
+      }
+    }
   });
   return { kind, z: zv };
 }
@@ -1219,7 +1324,7 @@ export function build(def: RegionDef): Built {
   const log: string[] = [];
   // a biome terrain stays only where every tile round its cell is of that biome
   {
-    const OWN: Record<string, string[]> = { mountains: ['scree', 'meadow', 'gravel'], elaia: ['dry', 'rossa', 'marble', 'grove'], kyrene: ['dune', 'hardpan', 'redrock', 'reg', 'salt', 'oasis'] };
+    const OWN: Record<string, string[]> = { mountains: ['scree', 'meadow', 'gravel', 'drift'], elaia: ['dry', 'rossa', 'marble', 'grove', 'ruin'], kyrene: ['dune', 'hardpan', 'redrock', 'reg', 'salt', 'oasis', 'rubble'] };
     const ownerOf = new Map(Object.entries(OWN).flatMap(([b, ks]) => ks.map((kk) => [KINDS.indexOf(kk as Kind), BIOMES.indexOf(b as BiomeName)])));
     for (let fy = 0; fy < FH; fy++) for (let fx = 0; fx < FW; fx++) {
       const j = fy * FW + fx, b = ownerOf.get(fine.kind[j]);
@@ -1511,6 +1616,7 @@ export function build(def: RegionDef): Built {
       if (!type) continue;
       place(type, p.x, p.y, fw, fh, p, pid, type === 'stoneWall' ? pc.hp * fw * fh : pc.hp);
     }
+    for (const [id, dx, dy] of L.props) objects.push({ id, x: x0 + dx, y: y0 + dy });
     for (const [id, dx, dy] of L.extraNodes) {
       clear(x0 + dx - 1, y0 + dy - 1, x0 + dx + 2, y0 + dy + 2);
       objects.push({ id, x: x0 + dx + 0.5, y: y0 + dy + 0.5 });
@@ -1554,7 +1660,16 @@ export function build(def: RegionDef): Built {
   // W-48 waterfalls: the fall at the cliff's foot, the foam of its plunge pool (on the water, as placed)
   for (const f of k.falls) {
     const [x, y] = tileOf(f.at), [fx, fy] = tileOf(f.pool);
-    put('elaia/waterfall', x + 0.5, y + 0.5);
+    if (f.tall) {
+      // down a landmark's lifted cliff (Site.levels): at the cliff's foot on the way to the pool, the sheet up its face
+      const z0 = fzAt(2 * x, 2 * y);
+      let px = x, py = y;
+      for (let t = 0; t <= 1; t += 0.02) {
+        const qx = Math.round(x + (fx - x) * t), qy = Math.round(y + (fy - y) * t);
+        if (fzAt(2 * qx, 2 * qy) < z0 - 6) { px = qx; py = qy; break; }
+      }
+      put('elaia/waterfall-tall', px + 0.5, py + 0.5);
+    } else put('elaia/waterfall', x + 0.5, y + 0.5);
     put('elaia/falls-foam', fx + 0.5, fy + 0.5);
   }
   for (const r of k.reqs) {
@@ -1607,6 +1722,12 @@ export function build(def: RegionDef): Built {
     const pieces: MassifPiece[] = json.objects.filter((d) => d.kind === 'massif' && d.footprint).map((d) => ({ ...d, id: `mountains/${d.id}`, ...columnSpans(readImage(join(lib, d.file))) }));
     const MI = BIOMES.indexOf('mountains'), mask = new Uint8Array(N);
     for (let i = 0; i < N; i++) if (biome[i] === MI && terrain[i] === 'rock' && !water[i]) mask[i] = 1;
+    // a landmark's crag skirt (Site.skirt) is drawn as its own ledges, not under massif sprites
+    for (const L of k.sites) for (const key of L.vrock.keys()) {
+      const tx = L.x0 + (key % 4096), ty = L.y0 + Math.floor(key / 4096);
+      const j = at(tx, ty);
+      if (j >= 0) mask[j] = 0;
+    }
     const land = { w: W, h: H, terrain, water }, placed = placeMassifs(land, mask, pieces);
     for (const m of placed) objects.push({ id: m.def.id, x: m.x0 + m.fw, y: m.y0 + m.fh, ...(m.shade < 1 ? { shade: Math.round(m.shade * 100) / 100 } : {}) });
     const base = massifBase(land, placed);

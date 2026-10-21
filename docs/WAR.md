@@ -386,12 +386,16 @@ Gemini reference (W-49, `shots/war/landmarks/proto/<id>/`): streets that follow 
 lanes, plazas with wells), lots packed along every street (courtyard houses, tenements, gardens), walls tracing the
 natural edge (`wallTrace`: an orthogonal run with a tower on every turn), gates at the head of the ramps. Height is real
 in the sim: tiers two levels apart are cliffs (impassable but by their ramps), so the high ground commands the low; the
-view draws a site's relief `lift` times as tall (visual only). The Dead City (1361 pieces) crowns a butte three tiers
-high (lower city h3, upper city h5 with the precinct, acropolis h7) over the salt flats; the Citadel (575) a crag two
-tiers over the glacier (outer ward, inner ward with the keep), the switchbacks up to a forecourt and barbican; the
-Temple City (1389) the mesa top (h5) with the sanctuary terrace at h7; the rest 100–250 pieces. Their condition follows
-the lore: fortifications at 60%, dwellings and quarters lower or in ruins (shells), and at most 12 homes standing in the
-Dead City (8–10 elsewhere) so the recruit pools above hold.
+view draws a site's relief taller (visual only, W-51: `Site.levels` maps sim levels to drawn ones, so a crag's faces
+stand 6–14 m next to the 33 px/m walls; `skirt` rings a crag or butte with rock ledges, impassable, drawn below its
+edge; `look` gives the site its own ground, paving and rubble round ruins; `dress` adds walkable props). The Dead City
+(~2600 pieces) crowns a sandstone butte three tiers of 4 over the salt flats, its quarters packed with mudbrick blocks
+(kind `block`: storerooms, sim storehouses, not homes); the Citadel (575) a snowy granite crag two tiers over the
+glacier (outer ward, inner ward with the keep), the switchbacks up to a forecourt and barbican, the skirt open under the
+main gate where Drakon's 4-squad raid forms up; the Temple City (~1850) the mesa top (h5) on ~11 m limestone cliffs with
+the sanctuary terrace at h7 and the falls down its rim; the rest 100–250 pieces. Their condition follows the lore:
+fortifications at 60%, dwellings and quarters lower or in ruins (shells), and at most 12 homes standing in the Dead City
+(8–10 elsewhere) so the recruit pools above hold.
 
 | Landmark | Region (depth) | Pre-built layout | Guardian, phases | To take | Once held (restored) | Rare good |
 | --- | --- | --- | --- | --- | --- | --- |
