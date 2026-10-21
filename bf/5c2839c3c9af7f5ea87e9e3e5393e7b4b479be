@@ -1,0 +1,23 @@
+tests/war/landmarks.test.ts
+  s_cfc22b058125c4::t_79a95620a4582c 88,93
+src/war/sim/bosses.ts
+  s_cfc22b058125c4::t_03d683e0e43cb2 100
+src/war/scenarios/index.ts
+  s_cfc22b058125c4::t_c9f165fe7c0f4a 570,573-575,577,581-583
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bf5c2839c3c9af7f5ea87e9e3e5393e7b4b479be",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
