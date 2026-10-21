@@ -55,6 +55,7 @@ A Foxhole-style browser war. A strategic **world map** of ~35 hand-made regions;
 - W-49 Authoring from references (owner 2026-10-20): regions, towns, cities and landmarks are built from Gemini prototypes used as references — don't invent layouts in code.
 - W-50 Altitude everywhere (owner 2026-10-21): terrain and cities use real elevation for tactics — tiered terraces, acropolis levels, retaining walls, stairways/ramps, commanding high ground; waterfalls where rivers cross cliff steps (impassable fall, pool below).
 - W-51 Height range 0–15 (owner 2026-10-21), was 0–7, for real tiers. Landmark look: improve the tile approach (snow/rock crags, dense building packs, rubble fields), not painted set pieces (owner choice).
+- W-52 Region composition (owner 2026-10-21): each region is built around 1–3 huge dominant set pieces covering a large share of the map (e.g. a stepped hill over ~40% with contour vineyards, a deep quarry, a dense village); visual level height ~2 m (15 levels ≈ 30 m), sim unchanged.
 - W-15 Git: each work item on its own worktree branch, merged `--no-ff` into local `main`. No push or PR unless the owner asks.
 
 ## Technical assumptions (desk decisions, revisit if they hurt)
