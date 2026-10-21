@@ -502,16 +502,22 @@ fixed seeds, 20 min limit).
 | 1 | 1 squad | 5–10 min | nodes ×1.0, villages' pool | baseline |
 | 2 | 2–3 squads (2 players) | 15–25 min | nodes ×1.25, tier-1 boss loot once, 24 score (towns 72), a town's pool and buildings | ×2–3 effort, ×2–4 reward |
 | 3 | 4 squads (2+ players) | 1–4 min at the guardian, plus the region | nodes ×1.5, a rare good 144/day max, tier-2 loot, 48 score (+48 restored), a fort already built | ×4 effort, ×5 reward |
-| 4 | 4–6 squads at Drakon, 3 at the Dead City (3+ players), engines and physicians help | 8–13 min at Drakon, 2–7 min at the Dead City | nodes ×2, rare good, tier-3 loot with a signature chance, 24 score (+48 restored), the strongest forts | ×5 effort, ×8 reward + the fort |
+| 4 | 4–6 squads at Drakon, 3 at the Dead City (3+ players), engines and physicians help | 6–17 min at Drakon, 4–7 min at the Dead City | nodes ×2, rare good, tier-3 loot with a signature chance, 24 score (+48 restored), the strongest forts | ×5 effort, ×8 reward + the fort |
 
-| Guardian | HP, damage, armour | Moves | Measured (seeds 1–3) |
+| Guardian | HP, damage, armour | Moves | Measured (seeds 1–8; one squad, then the target raid) |
 | --- | --- | --- | --- |
-| Drakon | 30000, 8, 2 | sweep 1.5% (10 s, r 3), breath 5% (10 s), crash 10% + 2 × 4 drakes (hp ×1.2), enrage ×1.1 | 1 squad stalls at the roof (60%, 4–6 lost); 4 squads 3/3 won in 7.7–8.6 min, 12–26 of 48 lost; 5: 3/3 in 8–9 min, 9–14 of 60; 6: 3/3 in 7.9–12.7 min, 8–62 of 72 |
-| Brontes | 8000, 30, 4 | rocks 6% (6 s, r 1.8), down under 85% | 1 squad wiped; 4 squads won in 3 min, 2–10 lost |
-| Gyges | 10000, 12, 4 | three blows of 12 at once (2.5 s) | 1 squad wiped; 4 squads won in 2.3 min, 10–12 lost |
-| Chimera | 3 heads × 2500, 20, 6 | goat breath 20% (6 s) | 1 squad wiped; 4 squads won in 2.3 min, 26–30 lost |
-| Maenad Queen of the Grove | 4000 + 8 × 90, 30, 4 | frenzy +10%, 2 packs | 1 squad wiped (queen at 38%); 4 squads won in 1 min, 9–12 lost |
-| Bandit King of Ammon | 2500, 16, 6 + 11 guards × 80 (10 dmg) + the host (4 lairs at depth ×1.25, captain ×2 hp) | flees under 30% | 2 squads wiped by the host in under a minute (3/3); 3 squads 3/3 won in 2.3–6.6 min, 16–27 of 36 lost. The four lairs answer a raid together, so the host decides the fight; a 4-squad raid in this harness sometimes stalls outside the walls (AI, not numbers) |
+| Drakon | 18000, 8, 2 | sweep 1.5% (10 s, r 3), breath 5% (10 s), crash 10% + 2 × 4 drakes (hp ×1.2), enrage ×1.1 | 1 squad 0/8 (stalls at the roof, 60%); 4 squads 6/8 in 6.2–13.3 min, 1–35 of 48 lost; 6 squads 5/8 in 5.4–16.5 min, 4–24 of 72 |
+| Bandit King of Ammon | 6000, 22, 6 + 11 guards × 150 (14 dmg) | flees under 30% | 1 squad 0/8 (wiped in 3.5 min); 2 squads 3/8; 3 squads 8/8 in 4.0–7.3 min, 3–22 of 36 lost. The host's lairs hold the quarters off the King's street and seldom join |
+| Brontes | 8000, 30, 4 | rocks 6% (6 s, r 1.8), down under 85% | 1 squad 0/8 (wiped); 4 squads 8/8 in 1.8–3.6 min, 0–2 lost |
+| Gyges | 10000, 12, 4 | three blows of 12 at once (2.5 s) | 1 squad 0/8; 4 squads 8/8 in 3.0–4.1 min, 16–23 lost |
+| Chimera | 3 heads × 2200, 16, 6 | goat breath 20% (6 s) | 1 squad 0/8; 4 squads 8/8 in 5.2–6.4 min, 6–30 lost |
+| Maenad Queen of the Grove | 4000 + 8 × 90, 30, 4 | frenzy +10%, 2 packs | 1 squad 0/8 (queen at 38–55%); 4 squads 8/8 in 4.8–5.9 min, 8–17 lost |
+| Scylla, Achelous, the Titan | first-pass numbers (`GUARDIANS`) | as "Landmarks" | not yet on target: 6 squads die to Scylla's heads in 2 min with her body shut (0/8), stall at Achelous's channel phase (64%, 0/8), and 10 squads fall to the Titan's boulders (93%, 0/8) |
+
+Guardians fight on their own tier: one takes on only foe squads within one level of its ground (two levels is a
+cliff no blow crosses), and walks back to its post after 20 s away with no blow landed either way, so a fight across a
+ledge never stalls (`src/war/sim/bosses.ts` engage, MOVES.stall). Landmark gates (stone, 60% of 4000–5000 hp) break
+under rams (64 a blow on stone every 3 s, about 2 min for one ram) and throwers; men alone take ~12 min.
 
 | Check | Rule |
 | --- | --- |
