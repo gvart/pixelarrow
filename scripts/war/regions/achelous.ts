@@ -13,15 +13,15 @@ import type { Kit, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'achelous',
-  style: { dry: 0.3, trees: 0.8 },
+  style: { dry: 0.3, trees: 0.35, bushes: 0.3 },
   build(k: Kit) {
     const N = k.entry('gorge'), S = k.entry('delta'), E = k.entry('kyrene-w'), W = k.entry('elaia-e');
     k.fill(1);
     k.zone('elaia', [10, 128, 70, 160, 0], 10);
     k.zone('kyrene', [250, 128, 76, 160, 0], 10);
     // terraces back from the river: the west bank's vineyard rise, the east bank's sandy bluffs
-    k.lift((x, y, s) => (x + 10 * Math.sin(y / 31 + s) < 44 ? 2 : NaN));
-    k.lift((x, y, s) => (x + 10 * Math.sin(y / 27 + s) > 206 ? 2 : NaN));
+    k.lift((x, y, s) => (x + 10 * Math.sin(y / 31 + s) < 44 ? 3 : NaN));
+    k.lift((x, y, s) => (x + 10 * Math.sin(y / 27 + s) > 206 ? 3 : NaN));
     k.paint('sand', [236, 128, 40, 150, 0], { rough: 8 });
     k.paint('marsh', [120, 128, 44, 140, 0.05], { rough: 12 });
     // the river: the trunk from the gorge, the two arms round the island, the trunk south to the delta
