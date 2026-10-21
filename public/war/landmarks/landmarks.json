@@ -1993,7 +1993,7 @@
   {
    "id": "ammon-block-a",
    "landmark": "ammon",
-   "kind": "house",
+   "kind": "block",
    "footprint": [
     2,
     2
@@ -2013,7 +2013,7 @@
   {
    "id": "ammon-block-b",
    "landmark": "ammon",
-   "kind": "house",
+   "kind": "block",
    "footprint": [
     3,
     3
@@ -2033,7 +2033,7 @@
   {
    "id": "ammon-block-c",
    "landmark": "ammon",
-   "kind": "house",
+   "kind": "block",
    "footprint": [
     4,
     4
@@ -2053,7 +2053,7 @@
   {
    "id": "ammon-block-d",
    "landmark": "ammon",
-   "kind": "house",
+   "kind": "block",
    "footprint": [
     4,
     4
@@ -2073,7 +2073,7 @@
   {
    "id": "arch-block-a",
    "landmark": "arch",
-   "kind": "house",
+   "kind": "block",
    "footprint": [
     2,
     2
@@ -2093,7 +2093,7 @@
   {
    "id": "arch-block-b",
    "landmark": "arch",
-   "kind": "house",
+   "kind": "block",
    "footprint": [
     3,
     3
@@ -2113,7 +2113,7 @@
   {
    "id": "arch-block-c",
    "landmark": "arch",
-   "kind": "house",
+   "kind": "block",
    "footprint": [
     4,
     4
@@ -2133,7 +2133,7 @@
   {
    "id": "arch-block-d",
    "landmark": "arch",
-   "kind": "house",
+   "kind": "block",
    "footprint": [
     4,
     4

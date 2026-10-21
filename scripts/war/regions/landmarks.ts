@@ -8,6 +8,7 @@
  * Population: a landmark's standing houses are capped (capHomes) so its recruit pool stays as docs/WAR.md has it.
  */
 import { spline } from '../shapes.ts';
+import { ZVIS } from '../../../src/war/regions/visual.ts';
 import { inPoly, type District, type Kit, type Pt, type Sample, type Side4, type Site, type WallSet } from './kit.ts';
 
 export interface Landmark { site: Site; gates: Pt[]; host: Pt[]; spots: Record<string, Pt> }
@@ -158,12 +159,16 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   // the ground: the glacier round the crag, the outer ward a tier up, the summit a tier more
   const cc = s.u(104, 76);
   k.paint('snow', [cc[0], cc[1] - 4, 64, 50, 0.2], { on: ['grass', 'dirt', 'forest'], rough: 6 });
+  k.patch('mountains', 'snow', [cc[0], cc[1], 120, 100, 0.2], ['grass', 'dirt', 'forest']); // the glacier all round (visual: the sim keeps its ground)
   s.levelBy((x, y) => (inPoly(I, x + 0.5, y + 0.5) ? hi : inPoly(C, x + 0.5, y + 0.5) ? ho : within(C, x, y, -14) ? hb : undefined));
   const crag = new Set<number>();
   for (let y = 0; y < 184; y++) for (let x = 0; x < 200; x++) if (inPoly(C, x + 0.5, y + 0.5)) crag.add(y * 4096 + x);
   s.paintSet(crag, 'dirt');
   k.patch('mountains', 'gravel', [cc[0], cc[1], 56, 46, 0], ['dirt'], undefined, ho); // the wards' trodden gravel
-  s.lift = 8 / T; s.base = hb;
+  // W-51: the crag drawn ~14 m over the glacier and the summit ~6 m over the ward (visual only), sheer next to the 33 px/m walls
+  s.lift = 2; s.base = hb; s.levels = [[hb, hb], [ho, hb + 28], [hi, Math.min(ZVIS, hb + 40)]];
+  s.look = { ground: 'snow', pave: 'rock', inside: (x, y) => s.hAt(x, y) >= ho };
+  s.liftOnly = (x, y) => inPoly(C, x + 0.5, y + 0.5) || s.hAt(x, y) >= ho || s.vz.has(y * 4096 + x); // snowed-in wards, trodden dark flags
   // the walls: the curtain along the crag's edge, the inner ward's wall along the summit's
   const O = s.wallTrace(CIT, inset(C, 3), { step: 22, every: 22, gates: [[66, 134], [18, 76], [192, 72]], seed: 11 });
   const IW = s.wallTrace(CIT, inset(I, 2), { step: 18, every: 22, gates: [[104, 84]], seed: 13 });
@@ -184,6 +189,11 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   const fW = s.ramp([out(gW, 2), out(gW, 7), [out(gW, 10)[0], out(gW, 7)[1] + 14]], 4, ho, hb, { run: 12 / T, flat: 5 });
   const fE = s.ramp([out(gE, 2), out(gE, 7), [out(gE, 10)[0], out(gE, 7)[1] + 14]], 4, ho, hb, { run: 12 / T, flat: 5 });
   const fI = s.ramp([out(gI, 1), out(gI, 6), [out(gI, 8)[0] - 6, out(gI, 14)[1]]], 4, hi, ho, { run: 10 / T, flat: 4 });
+  // the crag's skirt: broken granite ledges, snow drifted on them, round the wards but where the ramps come down
+  s.skirtKinds = { a: 'drift', b: 'rock', cut: -0.15 };
+  // (the south face under the main gate stays open ground along the switchbacks: the 4-squad raid forms up there under
+  // the gate towers Drakon perches on, tests/war/landmarkBalance.test.ts)
+  const sk = s.skirt(C, ho, 8, { steps: 2, seed: 19, open: [fS, fW, fE, ...zig, ...[-40, -26, -12, 0, 12, 26, 40].map((d): Pt => [gS.at[0] + d, gS.at[1] + 8])], openR: 13, lo: 0.35, hi: 0.7 });
   // the summit: the keep, the treasury, the temple, a cistern, the commander's halls, stores
   if (!putNear(s, 'citadel-keep', 120, 30)) throw new Error('citadel: no ground for the keep');
   s.plaza(123, 44, 10, 5);
@@ -221,6 +231,12 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   s.street([[fS[0] - 24, 176], [fS[0] - 40, 160]], 2, 'dirt');
   const village: District = { ids: [['@town-cottage', 4], ['@town-house-a', 2], ['arch-house-a', 2], ['@town-house-b', 1]], ruin: 1, hp: [0.6, 0.6], empty: 0.3, alley: 0.4 };
   s.infill((x, y) => y > 148 && !within(C, x, y, -6), village, { seed: 21, front: 1, back: 2 });
+  // dressing: drifts in the wards' lee, talus and drifts at the crag's foot, ice on the glacier round it
+  const ward2 = (x: number, y: number) => s.hAt(x, y) >= ho && !s.streets.has(y * 4096 + x);
+  s.dress(['mountains/snow-drift'], ward2, 70, 23, { gap: 4 });
+  const foot = (x: number, y: number) => !sk.has(y * 4096 + x) && [[2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => sk.has((y + dy) * 4096 + x + dx));
+  s.dress(['mountains/talus-granite', 'mountains/snow-drift', 'mountains/talus-granite'], foot, 60, 24, { gap: 3 });
+  s.dress(['mountains/ice-patch', 'mountains/snow-drift'], (x, y) => s.hAt(x, y) <= hb && !sk.has(y * 4096 + x) && !within(C, x, y, -16) && y < 150, 40, 25, { gap: 6 });
   // P2: Drakon takes the roofs of the towers either side of the main gate, then the keep's
   const towers = O.corners.slice().sort((a, b) => Math.hypot(a[0] - gS.at[0], a[1] - gS.at[1]) - Math.hypot(b[0] - gS.at[0], b[1] - gS.at[1]));
   s.guardians[0].perches = [[gS.at[0], gS.at[1]], ...towers.slice(0, 4).map(([x, y]): Pt => [x + 1.5, y + 1.5])];
@@ -259,7 +275,11 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   k.patch('kyrene', 'hardpan', [c0[0], c0[1], 96, 72, 0], ['sand'], hb);
   k.patch('kyrene', 'salt', [128, 128, 200, 200, 0], ['sand'], hb);
   s.levelBy((x, y) => (inPoly(AC, x + 0.5, y + 0.5) ? ha : inPoly(U, x + 0.5, y + 0.5) && inPoly(P, x + 0.5, y + 0.5) ? hu : inPoly(P, x + 0.5, y + 0.5) ? hc : undefined));
-  s.lift = 8 / T; s.base = hb; // the butte's cliffs and the terraces' retaining walls drawn at their height (visual)
+  // the butte's sandstone cliffs ~7 m over the flats, the terraces' faces 3-4 m (visual only, W-51)
+  s.lift = 2; s.base = hb; s.levels = [[hb, hb], [hc, hb + 14], [hu, hb + 21], [ha, Math.min(ZVIS, hb + 29)]];
+  s.liftOnly = (x, y) => inPoly(P, x + 0.5, y + 0.5) || s.vz.has(y * 4096 + x);
+  // the city's own ground: pale sand, flagged avenues (not the flats' dunes)
+  s.look = { ground: 'sand', pave: 'paving', rough: 'rubble', inside: (x, y) => inPoly(P, x + 0.5, y + 0.5) };
   for (let y = 186; y < 220; y++) { const x0 = 300 - Math.round(Math.sqrt(Math.max(0, 1 - ((y - 222) / 36) ** 2)) * 46); if (x0 < 320) s.flood(x0, y, 320, y + 1, y > 200 ? 2 : 1, hb - 1); }
   // the walls: the city wall along the cliff edge, the acropolis wall
   const W = s.wallTrace(AMM, inset(P, 3), { step: 26, every: 26, gates: [[132, 200], [60, 100], [298, 166]], breach: 0.05, seed: 31 });
@@ -333,15 +353,30 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   // the quarters: tenements along the avenues, the rich under the acropolis, craftsmen by the west gate, houses elsewhere
   const avTiles = new Set<number>();
   for (const c of av) for (const p of c) for (let d = -7; d <= 7; d++) for (let e = -7; e <= 7; e++) avTiles.add(Math.floor(p.y + d) * 4096 + Math.floor(p.x + e));
-  const houses: District = { ids: [['ammon-house-a', 3], ['ammon-house-d', 1], ['ammon-house-b', 3], ['ammon-house-c', 4], ['arch-house-c', 1], ['arch-house-b', 1]], ruin: 0.75, hp: [0.25, 0.55], empty: 0.18, alley: 0.1 };
-  const tenements: District = { ids: [['ammon-tenement', 5], ['ammon-house-b', 2], ['ammon-workshop', 1], ['arch-tenement', 1]], ruin: 0.7, hp: [0.25, 0.55], empty: 0.15, alley: 0.08 };
-  const rich: District = { ids: [['ammon-house-c', 4], ['arch-house-c', 2], ['arch-house-b', 3], ['ammon-house-b', 1]], ruin: 0.7, hp: [0.3, 0.6], empty: 0.15 };
+  // W-51: the dense mudbrick blocks (2x2 to 4x4 packs of cube houses) fill the quarters back to back, the courtyard houses among them
+  // (blocks are storerooms, not homes: most stand, battered; the homes among them are capped below)
+  const houses: District = { ids: [['ammon-block-a', 3], ['ammon-block-b', 4], ['ammon-block-c', 3], ['ammon-block-d', 3], ['ammon-house-a', 1], ['ammon-house-c', 1]], ruin: 0.3, hp: [0.25, 0.55], empty: 0.06, alley: 0.06 };
+  const tenements: District = { ids: [['ammon-tenement', 2], ['ammon-block-c', 3], ['ammon-block-d', 3], ['ammon-block-b', 2], ['ammon-workshop', 1]], ruin: 0.3, hp: [0.25, 0.55], empty: 0.05, alley: 0.05 };
+  const rich: District = { ids: [['ammon-house-c', 3], ['ammon-block-d', 2], ['ammon-block-c', 2], ['arch-house-c', 1], ['ammon-house-b', 1]], ruin: 0.7, hp: [0.3, 0.6], empty: 0.08 };
   const crafts: District = { ids: [['ammon-workshop', 4], ['arch-workshop', 2], ['@town-storehouse', 1], ['arch-forge', 1], ['ammon-house-a', 2]], ruin: 0.5, hp: [0.3, 0.6], empty: 0.1 };
   const garden = 'arch-garden';
   s.infill((x, y) => city(x, y) && avTiles.has(y * 4096 + x), tenements, { seed: 41, front: 1 });
   s.infill((x, y) => city(x, y) && s.hAt(x, y) === hu, rich, { seed: 42, front: 1, back: 6 });
   s.infill((x, y) => city(x, y) && x < 124 && Math.abs(y - 108) < 34, crafts, { seed: 43, front: 1, back: 3 });
-  s.infill(city, houses, { seed: 44, front: 1, back: 6, garden });
+  s.infill(city, houses, { seed: 44, front: 1, back: 10, garden });
+  s.infill(city, { ...houses, ruin: 0.4, ids: [['ammon-block-a', 3], ['ammon-block-b', 2]] }, { seed: 45, front: 1, back: 12 }); // the gaps, small packs
+  // the butte's skirt: red sandstone talus and fallen blocks round its foot, but where the ramps come down
+  s.skirtKinds = { a: 'redrock', b: 'redrock', cut: 0 };
+  const sk = s.skirt(P, hc, 6, { steps: 2, seed: 37, open: [fS, fW, fE], lo: 0.2, hi: 0.45 });
+  const foot = (x: number, y: number) => !sk.has(y * 4096 + x) && !inPoly(P, x + 0.5, y + 0.5) && [[2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => sk.has((y + dy) * 4096 + x + dx));
+  s.dress(['kyrene/talus-red', 'kyrene/boulder-red', 'kyrene/rocks-red'], foot, 90, 52, { gap: 3 });
+  // the life of the dead city: palms in the yards and plazas, stalls and amphorae on the agora, rubble and fallen walls in the quarters
+  const open = (x: number, y: number) => city(x, y) && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => s.taken(x + dx, y + dy));
+  s.dress(['kyrene/date-palm-tall', 'kyrene/date-palm-mid', 'kyrene/date-palm-fruit', 'kyrene/date-palm-young', 'kyrene/palm-pot'], open, 70, 53, { gap: 6 });
+  const quarter = (x: number, y: number) => city(x, y) && !s.streets.has(y * 4096 + x);
+  s.dress(['kyrene/rubble-heap-mud', 'kyrene/debris-mud', 'kyrene/wall-fallen-mud', 'kyrene/ruin-sanded', 'kyrene/debris-mud'], quarter, 160, 54, { gap: 3 });
+  const agora = (x: number, y: number) => x >= AG[0] + 4 && x < AG[2] - 4 && y >= AG[1] + 4 && y < AG[3] - 4 && !(Math.abs(x - 186) < 8 && Math.abs(y - 117) < 8);
+  s.dress(['kyrene/stall-awning', 'kyrene/amphora-stack', 'kyrene/handcart', 'kyrene/stall-awning'], agora, 22, 55, { gap: 4, streets: true });
   // the necropolis: mastabas and grave plots along the road below the south gate, out over the flats
   const flats = (x: number, y: number) => !inPoly(P, x, y) && !within(P, x, y, -6) && y > 150 && x < 150 && s.dry(x, y);
   const nec = [s.street([fS, [fS[0] - 18, fS[1] + 2], [8, 212]], 3, 'dirt'), s.street([[fS[0] - 14, fS[1] + 1], [30, 176], [10, 150]], 2, 'dirt')];
