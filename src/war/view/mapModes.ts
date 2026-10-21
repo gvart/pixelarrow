@@ -54,7 +54,7 @@ export const RES_RGB: Record<ResourceKind | 'olives', RGB> = {
   // M7e rare goods
   dragonbone: [232, 226, 200], nereidPearl: [220, 236, 240], starIron: [96, 110, 140], asphodel: [200, 170, 220], titanBronze: [170, 110, 40], obsidian: [40, 36, 52],
 };
-/** Altitude bands (hypsometric, on parchment: sage lowland to umber hills, grey rock, cream peaks): sim levels 0..7, then the mountains' visual levels. */
+/** Altitude bands (hypsometric, on parchment: sage lowland to umber hills, grey rock, cream peaks): levels 0..7 one band each, then wider bands (taller sim tiers W-51, the mountains' visual levels). */
 const ALT_RGB: RGB[] = [[176, 186, 140], [200, 200, 150], [222, 210, 160], [232, 206, 146], [228, 188, 124], [218, 164, 104], [200, 136, 86], [178, 110, 70],
   [150, 92, 62], [128, 104, 90], [168, 160, 152], [240, 234, 222]];
 const altBand = (z: number) => (z <= 7 ? z : z <= 12 ? 8 : z <= 20 ? 9 : z <= 30 ? 10 : 11);

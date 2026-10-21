@@ -12,7 +12,7 @@
  * down that ray from the highest level and takes the first solid column it meets.
  *
  * The ground is drawn from the visual layer (RegionData.visual, src/war/regions/visual.ts): 1 m
- * cells, 2 x 2 per tile, drawn as 32 x 16 diamonds, whose levels may rise far above the sim's 0..7
+ * cells, 2 x 2 per tile, drawn as 32 x 16 diamonds, whose levels may rise far above the sim's 0..15
  * on impassable mountains (up to ZMAX). Picking, occlusion and the objects use those cells; units
  * stand on them too but never more than a level off their tile's sim height.
  */

@@ -3,7 +3,7 @@
  * its resolution (1 m cells, 2 x 2 per sim tile), written by the generator from the same organic
  * shapes, so coasts and borders follow sub-tile curves. Visual only: the sim never reads it.
  * Each cell is one value z * 32 + kind (z = visual level, KINDS index), run-length encoded as
- * [value, count, value, count, ...] row-major. Impassable rock may stand far above the sim's 0..7
+ * [value, count, value, count, ...] row-major. Impassable rock may stand far above the sim's 0..15
  * levels (up to ZVIS): mountains tower over the walkable ground (the renderer may draw it flat
  * under massif sprites instead, src/war/view/massifs.ts).
  * After the sim's terrains and water come the biome terrains (public/war/biomes/<name>/tiles.json):
