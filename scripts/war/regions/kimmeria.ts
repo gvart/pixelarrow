@@ -26,7 +26,7 @@ const def: RegionDef = {
     const F: Pt = [112, 100];
     k.plateau([F[0], F[1], 40, 34, 0.15], 5, { rough: 1.5 });
     k.plateau([F[0], F[1], 29, 24, 0.15], 7, { rough: 1 });
-    k.plateau([F[0], F[1], 19, 16, 0.15], 9, { rough: 0.8, terrain: 'dirt' });
+    k.plateau([F[0], F[1], 19, 16, 0.15], 9, { rough: 0.8 });
     k.spot('fortress', [F[0] + 2, F[1] - 2]);
     // the chalk streams, white banks; the quarry
     k.river([[60, -6], [56, 40], [36, 96], [30, 160], [-6, 214]], { half: 1.3, deep: false, bed: 2, bank: 2 });
