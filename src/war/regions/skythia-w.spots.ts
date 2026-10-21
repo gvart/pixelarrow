@@ -7,12 +7,13 @@ export const SPOTS = {
   "entry_kimmeria": [256.5, 502.5],
   "ledge": [60.5, 232.5],
   "spur": [120.5, 208.5],
-  "northFall": [153.9, 64.9],
-  "northFall1": [281.1, 225.2],
-  "southFall": [106.9, 337.8],
-  "southFall1": [159, 347],
-  "southFall2": [244.6, 370],
+  "northFall": [160.9, 81.4],
+  "northFall1": [274.1, 217.4],
+  "northFall2": [318.4, 271.3],
+  "southFall": [174.4, 350.3],
+  "southFall1": [241.2, 368.9],
+  "southFall2": [310.2, 386.2],
   "narrows": [48.5, 257.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":394.5,"y":258.5},{"x":413.5,"y":301.5}] as const;
+export const CLAIM_POINTS = [{"x":394.5,"y":258.5},{"x":435.5,"y":337.5}] as const;
