@@ -1,0 +1,37 @@
+public/war/biomes/mountains/objects.json
+  s_cfc22b058125c4::t_e46791b11f5fed 117-118,121,124,132-133,1488-1494,1496-1513,1515-1532,1534-1552,1554-1564
+  s_cfc22b058125c4::t_ff9eb9793152ee 116,120,122,125-127,129-131,134-135
+  s_cfc22b058125c4::t_bfb67c182060ee 123,128
+  s_cfc22b058125c4::t_14e104398c5764 1495,1514,1533,1553
+scripts/war/art/build.mjs
+  s_cfc22b058125c4::t_29d2c1285dbd2f 234-257
+  s_cfc22b058125c4::t_85a1eaef4ec9f1 276-283
+scripts/war/art/tile-art-jobs.json
+  s_cfc22b058125c4::t_272c77ae60d755 24-35
+  s_cfc22b058125c4::t_7c9e29efba7a73 1-16,36-37
+  s_cfc22b058125c4::t_de62ff0ea24471 17-23
+public/war/biomes/mountains/tiles.json
+  s_cfc22b058125c4::t_0951856b799f9f 456-583
+  s_cfc22b058125c4::t_bfb67c182060ee 111-113,115-122,124,126-136,318-347,398-412,445
+scripts/war/art/biomes/mountains.mjs
+  s_cfc22b058125c4::t_2b1eda57c90c6a 176-179
+  s_cfc22b058125c4::t_a38f08f6750569 17,27,38,55
+  s_cfc22b058125c4::t_8328d328acc7ef 175
+  s_cfc22b058125c4::t_ff70d4323e8e89 43-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "03229078c73805a4f67b348ab44da031093d89e3",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
