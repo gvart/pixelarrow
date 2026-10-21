@@ -391,8 +391,8 @@ stand 6–14 m next to the 33 px/m walls; `skirt` rings a crag or butte with roc
 edge; `look` gives the site its own ground, paving and rubble round ruins; `dress` adds walkable props). The Dead City
 (~2600 pieces) crowns a sandstone butte three tiers of 4 over the salt flats, its quarters packed with mudbrick blocks
 (kind `block`: storerooms, sim storehouses, not homes); the Citadel (575) a snowy granite crag two tiers over the
-glacier (outer ward, inner ward with the keep), the switchbacks up to a forecourt and barbican, the skirt open under the
-main gate where Drakon's 4-squad raid forms up; the Temple City (~1850) the mesa top (h5) on ~11 m limestone cliffs with
+glacier (outer ward, inner ward with the keep), the switchbacks up to a forecourt and barbican (the raid brings a ram
+up them to the shut gate); the Temple City (~1850) the mesa top (h5) on ~11 m limestone cliffs with
 the sanctuary terrace at h7 and the falls down its rim; the rest 100–250 pieces. Their condition follows the lore:
 fortifications at 60%, dwellings and quarters lower or in ruins (shells), and at most 12 homes standing in the Dead City
 (8–10 elsewhere) so the recruit pools above hold.
@@ -506,7 +506,7 @@ fixed seeds, 20 min limit).
 
 | Guardian | HP, damage, armour | Moves | Measured (seeds 1–8; one squad, then the target raid) |
 | --- | --- | --- | --- |
-| Drakon | 18000, 8, 2 | sweep 1.5% (10 s, r 3), breath 5% (10 s), crash 10% + 2 × 4 drakes (hp ×1.2), enrage ×1.1 | 1 squad 0/8 (stalls at the roof, 60%); 4 squads 6/8 in 6.2–13.3 min, 1–35 of 48 lost; 6 squads 5/8 in 5.4–16.5 min, 4–24 of 72 |
+| Drakon | 18000, 8, 2 | sweep 1.5% (10 s, r 3), breath 5% (10 s), crash 10% + 2 × 4 drakes (hp ×1.2), enrage ×1.1 | up the switchbacks with a ram to the shut barbican gate (no open ground under it): 1 squad 0/8 (stalls at the roof, 60%); 4 squads + ram 8/8 in 4.9–13.6 min, 2–43 of 48 lost; 6 squads + ram 8/8 in 6.4–14.8 min, 0–51 of 72 |
 | Bandit King of Ammon | 6000, 22, 6 + 11 guards × 150 (14 dmg) | flees under 30% | 1 squad 0/8 (wiped in 3.5 min); 2 squads 3/8; 3 squads 8/8 in 4.0–7.3 min, 3–22 of 36 lost. The host's lairs hold the quarters off the King's street and seldom join |
 | Brontes | 8000, 30, 4 | rocks 6% (6 s, r 1.8), down under 85% | 1 squad 0/8 (wiped); 4 squads 8/8 in 1.8–3.6 min, 0–2 lost |
 | Gyges | 10000, 12, 4 | three blows of 12 at once (2.5 s) | 1 squad 0/8; 4 squads 8/8 in 3.0–4.1 min, 16–23 lost |

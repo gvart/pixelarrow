@@ -10,13 +10,13 @@ describe('M7h landmark balance', () => {
 
   // docs/WAR.md "Living regions" -> "Balance": the raid each landmark is tuned for wins, one squad loses (seed 1 of the
   // 8 the report fights)
-  it("Drakon's Citadel: one squad stalls at the roof, a 6-squad raid kills him with losses", () => {
+  it("Drakon's Citadel: one squad stalls at the roof, four up the switchbacks with a ram through the gate kill him", () => {
     const one = raidFight('krios', 'drakon', mixed(1), 1);
     expect(one.won).toBe(false);
     expect(one.bossHp).toBeGreaterThanOrEqual(0.55);
-    const six = raidFight('krios', 'drakon', mixed(6), 1);
-    expect(six.won).toBe(true);
-    expect(six.lost).toBeGreaterThan(4);
+    const four = raidFight('krios', 'drakon', mixed(4, 1), 1);
+    expect(four.won).toBe(true);
+    expect(four.lost).toBeGreaterThan(0);
   }, 120_000);
 
   it('Dead City of Ammon: one squad falls to the King and his guard, three kill him', () => {
