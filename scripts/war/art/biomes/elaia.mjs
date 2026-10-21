@@ -70,6 +70,8 @@ export const OBJECTS = [
   { id: 'maquis-c', raw: 'maquis-c', ...bush, metres: 2, grade: { sat: 0.4, val: 0.7 }, source: 'map_object 119b5c90' },
   { id: 'herbs', raw: 'herbs', ...bush, metres: 0.65, scale: 0.65, grade: { sat: 0.6, val: 0.8 }, source: 'map_object 8e20f9f2' },
   { id: 'vines', raw: 'vines', kind: 'crop', blocks: false, footprint: [1, 2], metres: 2.6, grade: { sat: 0.65, val: 0.8 }, source: 'map_object e46652d4' },
+  // W-52 contour vine rows (scripts/war/regions/setpieces.ts terraceRows): the same row turned along x
+  { id: 'vines-x', raw: 'vines', mirror: true, kind: 'crop', blocks: false, footprint: [2, 1], metres: 2.6, grade: { sat: 0.65, val: 0.8 }, source: 'map_object e46652d4 (mirrored: W-52 contour rows)' },
   // fields (kit.ts fields): a sown 2 m plot, the soil slab PixelLab drew under it dropped (keep: crop)
   { id: 'wheat', raw: 'wheat', kind: 'crop', blocks: false, footprint: [1, 1], metres: 1.2, scale: 0.67, base: { y0: 0, keep: 'crop' }, grade: { sat: 0.6, val: 0.72 }, source: 'map_object 1cefe722' },
   { id: 'barley', raw: 'barley', kind: 'crop', blocks: false, footprint: [1, 1], metres: 1.1, scale: 0.67, base: { y0: 0, keep: 'crop' }, grade: { sat: 0.6, val: 0.72 }, source: 'map_object fd28d78f' },
