@@ -1,0 +1,27 @@
+src/war/regions/elaia-s.spots.ts
+  s_cfc22b058125c4::t_b8bb5d1d1ee756 7
+  s_cfc22b058125c4::t_c870ec89dc4b86 8
+scripts/war/regions/elaia-s.ts
+  s_cfc22b058125c4::t_b8bb5d1d1ee756 5-7,13,22-29,41,46-47,51-53,56,64-65
+  s_cfc22b058125c4::t_c870ec89dc4b86 42-43,49
+  s_cfc22b058125c4::t_cf39ed3bfb08fa 17,57
+  s_cfc22b058125c4::t_fad3a9b8727ff1 30-40
+src/war/regions/elaia-s.json
+  s_cfc22b058125c4::t_cf39ed3bfb08fa 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "992e3176bd29bfbb37ab687cee86d14bd6e3e15e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
