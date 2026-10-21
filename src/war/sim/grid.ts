@@ -338,7 +338,9 @@ let stamp = 0;
 
 let allowed = new Uint32Array(0); // node -> search stamp when the tile search may enter it
 
-/** A binary min-heap over (node, f) pairs in the given arrays. */
+/** Starting room of the search heap (it doubles when full and keeps its size: one per isolate, not 8 per tile up front). */
+const HEAP0 = 1 << 16;
+/** A binary min-heap over (node, f) pairs in the given arrays (growing heapNode / heapF when full). */
 function heap(nodes: Int32Array, fs: Float32Array) {
   let size = 0;
   return {
@@ -346,6 +348,11 @@ function heap(nodes: Int32Array, fs: Float32Array) {
       return size;
     },
     push(node: number, f: number) {
+      if (size === nodes.length) {
+        const n2 = new Int32Array(Math.max(HEAP0, 2 * size)), f2 = new Float32Array(n2.length);
+        n2.set(nodes); f2.set(fs);
+        nodes = heapNode = n2; fs = heapF = f2;
+      }
       let i = size++;
       while (i > 0) {
         const p = (i - 1) >> 1;
@@ -413,8 +420,7 @@ function ensureScratch(g: Grid) {
     parent = new Int32Array(n);
     seen = new Uint32Array(n);
     closed = new Uint32Array(n);
-    heapNode = new Int32Array(n * 8);
-    heapF = new Float32Array(n * 8);
+    if (heapNode.length < HEAP0) (heapNode = new Int32Array(HEAP0)), (heapF = new Float32Array(HEAP0));
     stamp = 0;
   }
   if (allowed.length < g.sectors.n) allowed = new Uint32Array(g.sectors.n);
