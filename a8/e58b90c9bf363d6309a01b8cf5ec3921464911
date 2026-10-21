@@ -1,0 +1,32 @@
+scripts/war/regions/moors.ts
+  s_cfc22b058125c4::t_781c8e54cf6b3b 1-78
+src/war/regions/moors.spots.ts
+  s_cfc22b058125c4::t_2ed16978e635d9 1,7-9,12
+scripts/war/regions/tiers.ts
+  s_cfc22b058125c4::t_899cca97d8acbd 36-43
+  s_cfc22b058125c4::t_c0a238d64d5b4b 35
+src/war/regions/index.ts
+  s_cfc22b058125c4::t_2ed16978e635d9 31
+src/war/regions/moors.json
+  s_cfc22b058125c4::t_2ed16978e635d9 1
+scripts/war/regions/build.ts
+  s_cfc22b058125c4::t_9c15af7efe10e0 37,46
+scripts/war/regions/drafts.ts
+  s_cfc22b058125c4::t_d784e15e9205a7 358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a8e58b90c9bf363d6309a01b8cf5ec3921464911",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
