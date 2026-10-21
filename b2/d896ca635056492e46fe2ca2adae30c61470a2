@@ -1,0 +1,36 @@
+public/war/biomes/elaia/objects.json
+  s_cfc22b058125c4::t_caef08a8b1006e 437-454
+src/war/regions/visual.ts
+  s_cfc22b058125c4::t_b80457b803cd2b 22-28
+scripts/war/regions/setpieces.ts
+  s_cfc22b058125c4::t_62f42e67e2b567 16,188,190-191
+  s_cfc22b058125c4::t_6e333b6d44c39c 17-18,124-127,129,151-153,156
+  s_cfc22b058125c4::t_a495a2ff96d682 1-15,19-123,128,130-138,141-150,154-155,157-187,189,192-215
+  s_cfc22b058125c4::t_cdad81688060dc 139-140
+scripts/war/regions/kit.ts
+  s_cfc22b058125c4::t_b80457b803cd2b 32,1257-1259,1261-1281,1283-1284,1286-1288,1290-1292,1300-1303,1306,1325,1338-1339
+  s_cfc22b058125c4::t_b83b6db42e7758 1282,1285
+  s_cfc22b058125c4::t_62f42e67e2b567 505,508,1794
+  s_cfc22b058125c4::t_6e333b6d44c39c 99,120,481-482,506-507,1368,1788
+src/war/view/art.ts
+  s_cfc22b058125c4::t_1a95a65433aa9d 96-122,140-141,153,364,372-392
+  s_cfc22b058125c4::t_74dd25cfa10e9e 393
+scripts/war/art/biomes/elaia.mjs
+  s_cfc22b058125c4::t_fea415f104af9e 73-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b2d896ca635056492e46fe2ca2adae30c61470a2",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
