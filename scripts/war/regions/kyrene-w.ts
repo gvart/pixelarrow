@@ -7,7 +7,7 @@
  * bridge over its narrows stands the bridgehead town (h1) round its square, its mudbrick quarters north and south of
  * the road band, a jetty and a ruined old span. East of it the flat floodplain (h1) is cut by shallow winding channels
  * with reeds, wide flax and grain strips between them, unfenced, mudbrick farm huts by the fields; the River Road
- * crosses it on a raised bank, fording the channels. The east third rises a tier (h3) behind a low sand cliff to the
+ * crosses it on a raised bank, fording the channels. The east third rises a tier (h4) behind a sand cliff to the
  * dry palm ground of Kyrene, the road climbing it by a ramp.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
@@ -20,7 +20,7 @@ const def: RegionDef = {
     k.fill(1);
     k.zone('kyrene', [236, 128, 70, 170, 0], 10);
     // the desert-edge tier behind its sand cliff
-    k.lift((x, y, s) => (x + 9 * Math.sin(y / 19 + s) + 4 * Math.cos(y / 6) > 188 ? 3 : NaN));
+    k.lift((x, y, s) => (x + 9 * Math.sin(y / 19 + s) + 4 * Math.cos(y / 6) > 188 ? 4 : NaN));
     k.paint('sand', [226, 128, 44, 160, 0], { rough: 8 });
     k.paint('marsh', [52, 128, 14, 130, 0], { rough: 8 });
     k.paint('marsh', [90, 60, 16, 10, 0.4], { rough: 4 });
@@ -29,7 +29,7 @@ const def: RegionDef = {
     k.river([[30, -6], [26, 60], [24, 128], [30, 190], [26, 262]], { half: 11, bed: 0, bank: 1, narrows: [[[24, 128], 2.8]], name: 'river' });
     // the channels over the floodplain (shallow, reeds along them)
     const ch: Pt[][] = [
-      [[44, 50], [80, 70], [110, 60], [140, 84], [150, 120], [176, 150], [180, 200], [160, 262]],
+      [[44, 50], [80, 70], [110, 60], [140, 84], [150, 120], [158, 150], [160, 200], [148, 262]],
       [[44, 200], [76, 186], [100, 158], [96, 120], [116, 96], [130, 40], [120, -6]],
       [[44, 96], [70, 104], [84, 140], [70, 176], [80, 226], [100, 262]],
     ];
