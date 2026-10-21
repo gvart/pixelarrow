@@ -3,9 +3,9 @@
  * coast, Kyrene's two other entries at the south ends of the side edges. Strategic purpose: salt, the way to the
  * Delta's iron, and the only well. Depth 1: scorpions and lions; the dunes walk over everyone but the well-digger.
  * Layout (Gemini reference shots/war/regions/proto/kyrene-s.png): tall dunes (h2-h4) fill the map and slow everything.
- * In the middle one red-rock outcrop rises on sheer walls (skirt h6, top h8) with the only well on its top, one path up
- * its south face. A long low ridge of red rock (h5) runs south-east across the dunes from the outcrop, the defensive
- * line of the Delta way. The sea fills the south; a low sand bluff over the beach, and a salt crust in a hollow behind
+ * In the middle one red-rock outcrop rises on sheer walls (skirt h7, top h11) with the only well on its top, one path up
+ * its south face. A long low ridge of red rock (h6) runs south-east across the dunes from the outcrop, the defensive
+ * line of the Delta way. The north edge is the desert plateau, two cliff tiers (h6, h9) over the dunes. The sea fills the south; a low sand bluff over the beach, and a salt crust in a hollow behind
  * it. The caravan track comes down from Kyrene to the outcrop's foot (the claim point) and on west to the Delta.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
@@ -25,11 +25,13 @@ const def: RegionDef = {
       k.hill([x, y, 10 + (n % 4) * 3, 4 + (n % 3) * 2, 0.5 + (n % 5) * 0.2], 4, 2.5, 2);
     }
     // the outcrop with the well; the red ridge
-    k.plateau([128, 112, 20, 16, 0.3], 6, { rough: 2 });
-    k.plateau([126, 110, 13, 11, 0.3], 8, { rough: 1, terrain: 'dirt' });
-    k.patch('kyrene', 'redrock', [128, 112, 21, 17, 0.3], ['sand', 'dirt'], undefined, 6);
+    // (the north edge: the desert plateau steps down to the dunes in two sandstone cliff tiers)
+    k.lift((x, y, s) => { const e = y + 6 * Math.sin(x / 17 + s) + 3 * Math.sin(x / 7); return e < 20 ? 9 : e < 38 ? 6 : NaN; }, true);
+    k.plateau([128, 112, 22, 18, 0.3], 7, { rough: 2 });
+    k.plateau([126, 110, 14, 12, 0.3], 11, { rough: 1, terrain: 'dirt' });
+    k.patch('kyrene', 'redrock', [128, 112, 23, 19, 0.3], ['sand', 'dirt'], undefined, 7);
     k.spot('outcrop', [126, 110]);
-    k.ridge([[150, 136], [178, 154], [204, 176], [230, 200]], { crest: 5, step: 2, top: 1.5, reach: 12, base: 2 });
+    k.ridge([[150, 136], [178, 154], [204, 176], [230, 200]], { crest: 6, step: 1.5, top: 1.5, reach: 12, base: 2 });
     k.patch('kyrene', 'redrock', [190, 168, 44, 6, 0.65], ['sand'], undefined, 4);
     k.spot('ridge', [190, 166]);
     // the sea, the bluff and the salt hollow
