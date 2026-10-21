@@ -35,6 +35,9 @@ export const STAGING: Readonly<Record<string, readonly [number, number]>> = {
   gorge: [262, 190],
   canyons: [163, 196],
   erymanthos: [162, 410],
+  siren: [47, 312], // the beach under Scylla's cave
+  delta: [236, 373], // the mud island south of the temple
+  omphalos: [450, 258], // the foot of the east ramp
 };
 /** Mixed raid of n squads: a line of heavies, then missiles, then lights. */
 const MIX = ['hoplite', 'archer', 'celt_sword', 'slinger', 'peltast', 'archer', 'thureophoros', 'javelineer', 'hoplite', 'archer'];
@@ -50,9 +53,10 @@ export const LIMIT_SECS = 20 * 60;
  * One headless fight: the raid against guardian `boss` of `region`, seed `seed`, at most `limitSecs` of game time. Every
  * 10 s: missiles hold back while Drakon is on the ground (ammo is the only answer to his roof) and melee stands off while
  * he is up; heavies break the landmark's nearest shut gate unless the guardian is within 8 tiles; a host's streets are
- * fought through where the raid stands. `by` tallies the raid's falls by killer class ('move': a special move).
+ * fought through where the raid stands. `by` tallies the raid's falls by killer class ('move': a special move); `log`
+ * gets a line every 30 s (the guardian's hp, state and ground level, each squad's centre, level and men).
  */
-export function raidFight(region: string, boss: string, raid: Raid, seed: number, limitSecs = LIMIT_SECS, by?: Record<string, number>): RaidResult {
+export function raidFight(region: string, boss: string, raid: Raid, seed: number, limitSecs = LIMIT_SECS, by?: Record<string, number>, log?: string[]): RaidResult {
   const r = regionOf(region);
   const sim: WarBuildSim = createSim(r, seed);
   sim.spawnMobs();
@@ -86,9 +90,14 @@ export function raidFight(region: string, boss: string, raid: Raid, seed: number
         if (b.id === 'drakon' && (ranged ? !aloft && b.phase === 0 : aloft)) sim.order({ kind: 'move', squad: s, x: sx + (k - mine.length / 2) * 3, y: sy + 6 });
         else if (gate && !ranged && !near && !host) sim.order({ kind: 'attackBuilding', squad: s, building: gate.id });
         else if (host && near) sim.order({ kind: 'attackMove', squad: s, ...xy(sim, s) });
-        else if (host || t < 300) sim.order({ kind: 'attackMove', squad: s, x: b.x, y: b.y });
+        else if (host || t < 300 || b.id === 'scylla') sim.order({ kind: 'attackMove', squad: s, x: b.x, y: b.y }); // Scylla: her heads first
         else sim.order({ kind: 'attack', squad: s, target: b.squad });
       });
+    }
+    if (log && t % 300 === 0) {
+      const b = sim.snapshot().bosses!.find((x) => x.id === boss)!;
+      const sn = sim.snapshot(), zOf = (s: number) => sn.units[sn.squads[s].units.find((u) => sn.units[u].state !== 'dead') ?? sn.squads[s].units[0]].z;
+      log.push(`${t / 10}s ${b.id} ${Math.round((b.hp / b.maxHp) * 100)}% ${b.state} p${b.phase} @${b.x.toFixed(0)},${b.y.toFixed(0)}z${sn.units[b.unit].z} | ${mine.map((s) => { const p = xy(sim, s); return `${p.x.toFixed(0)},${p.y.toFixed(0)}z${zOf(s)}:${aliveOf(sim, [s])}`; }).join(' ')}`);
     }
     sim.step();
     for (const e of sim.events()) {
@@ -127,14 +136,18 @@ const aliveOf = (sim: WarBuildSim, squads: number[]): number => {
   return squads.reduce((a, s) => a + snap.squads[s].units.filter((u) => snap.units[u].state !== 'dead').length, 0);
 };
 
-/** The raids the report fights: per guardian, its region, the raid sizes (squads) and seeds. */
+/** The raids the report fights: per guardian, its region, the raid sizes (one squad and the target) and seeds. */
+const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
 export const FIGHTS: readonly { boss: string; region: string; squads: readonly number[]; seeds: readonly number[] }[] = [
-  { boss: 'drakon', region: 'krios', squads: [1, 4, 5, 6], seeds: [1, 2, 3] },
-  { boss: 'bandit_king', region: 'ammon', squads: [2, 3], seeds: [1, 2, 3] },
-  { boss: 'brontes', region: 'saddle', squads: [1, 4], seeds: [1, 2] },
-  { boss: 'gyges', region: 'gorge', squads: [1, 4], seeds: [1, 2] },
-  { boss: 'chimera', region: 'canyons', squads: [1, 4], seeds: [1, 2] },
-  { boss: 'grove_queen', region: 'erymanthos', squads: [1, 4], seeds: [1, 2] },
+  { boss: 'drakon', region: 'krios', squads: [1, 4, 6], seeds: SEEDS },
+  { boss: 'bandit_king', region: 'ammon', squads: [1, 3], seeds: SEEDS },
+  { boss: 'scylla', region: 'siren', squads: [1, 6], seeds: SEEDS },
+  { boss: 'river_god', region: 'delta', squads: [1, 6], seeds: SEEDS },
+  { boss: 'titan', region: 'omphalos', squads: [1, 10], seeds: SEEDS },
+  { boss: 'brontes', region: 'saddle', squads: [1, 4], seeds: SEEDS },
+  { boss: 'gyges', region: 'gorge', squads: [1, 4], seeds: SEEDS },
+  { boss: 'chimera', region: 'canyons', squads: [1, 4], seeds: SEEDS },
+  { boss: 'grove_queen', region: 'erymanthos', squads: [1, 4], seeds: SEEDS },
 ];
 
 /** Raid to take a region of each depth (docs/WAR.md "Living regions" -> "Balance"). */
