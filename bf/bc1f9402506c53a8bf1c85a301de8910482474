@@ -1,0 +1,31 @@
+scripts/war/regions/kyrene-e.ts
+  s_cfc22b058125c4::t_8c7ad305a40e35 29-30,32,40,51
+  s_cfc22b058125c4::t_e08c7b8497928c 1-28,31,33-39,41-50,52-63
+scripts/war/regions/drafts.ts
+  s_cfc22b058125c4::t_105d2c54f7e89f 358
+scripts/war/regions/build.ts
+  s_cfc22b058125c4::t_105d2c54f7e89f 37,50
+src/war/regions/index.ts
+  s_cfc22b058125c4::t_8c7ad305a40e35 15
+src/war/regions/kyrene-e.spots.ts
+  s_cfc22b058125c4::t_8c7ad305a40e35 8
+  s_cfc22b058125c4::t_105d2c54f7e89f 1,7,11
+src/war/regions/kyrene-e.json
+  s_cfc22b058125c4::t_8c7ad305a40e35 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "bfbc1f9402506c53a8bf1c85a301de8910482474",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
