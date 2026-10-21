@@ -1,0 +1,22 @@
+scripts/war/regions/dodona-s.ts
+  s_cfc22b058125c4::t_e23edd11c78b2d 49
+  s_cfc22b058125c4::t_37d05ad014b715 17,22-25
+src/war/regions/dodona-s.json
+  s_cfc22b058125c4::t_b7ad44d8e67c5d 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "04bdca8c02e1f6ea33aa80dc32db52e99d8a3e7c",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
