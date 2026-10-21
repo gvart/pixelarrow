@@ -1,0 +1,23 @@
+scripts/war/regions/mem.mjs
+  s_cfc22b058125c4::t_c1c49c0733a16f 3-5,21-22,25,29-30,32
+  s_cfc22b058125c4::t_4afa15e669cd04 1-2,6,15,18-19,27-28,31
+  s_cfc22b058125c4::t_d632aa3c6242a4 7-14,16-17,20,23-24,26,33
+scripts/war/regions/bench-city.mjs
+  s_cfc22b058125c4::t_6411715d85da12 22,26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4c16d778aa97b23e0fd1a1f095eabaa6931884d4",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
