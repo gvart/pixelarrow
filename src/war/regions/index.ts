@@ -2,7 +2,7 @@
 export const WORLD_REGIONS = [
   { id: 'dodona', name: "Dodona", role: 'home', draft: false },
   { id: 'dodona-n', name: "Boreas Fjords", role: 'entry', draft: false },
-  { id: 'dodona-w', name: "Western Heath", role: 'entry', draft: true },
+  { id: 'dodona-w', name: "Western Heath", role: 'entry', draft: false },
   { id: 'dodona-e', name: "Teeth Foothills", role: 'entry', draft: false },
   { id: 'dodona-s', name: "Ladon Oakwood", role: 'entry', draft: false },
   { id: 'skythia', name: "Skythia", role: 'home', draft: false },
