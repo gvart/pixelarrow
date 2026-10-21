@@ -1,0 +1,21 @@
+scripts/war/regions/skythia-e.ts
+  s_cfc22b058125c4::t_bee36f5e084691 7-8,15,22,27,30
+src/war/regions/skythia-e.json
+  s_cfc22b058125c4::t_bee36f5e084691 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8165570d26617f5afd3ad6c1978dec5fcb64aa66",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
