@@ -90,7 +90,7 @@ const FW = 16, FH = 8; // half the 1 m cell diamond
 const ROCKY = new Set([KINDS.indexOf('rock'), KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
 const SNOWY = new Set([KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
 const WET = new Set([KINDS.indexOf('shallow'), KINDS.indexOf('deep')]);
-/** Zoomed out (the baked levels) objects shorter than this (m) are left out. */
+/** Zoomed out (the baked levels) objects shorter than this (m) are left out, but crops (a sown plot reads as a field). */
 export const LOD_METRES = 2;
 
 export class ArtBaker {
@@ -133,7 +133,7 @@ export class ArtBaker {
     const defs = new Map(art.defs.map((d) => [d.id, d]));
     for (const o of r.objects ?? []) {
       const def = defs.get(o.id), tx = Math.floor(o.x), ty = Math.floor(o.y);
-      if (!def || def.kind === 'massif' || def.metres < LOD_METRES || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
+      if (!def || def.kind === 'massif' || (def.metres < LOD_METRES && def.kind !== 'crop') || tx < 0 || ty < 0 || tx >= r.w || ty >= r.h || massifs?.covers(o.x, o.y, def.metres)) continue;
       // past the massifs it stands in front of
       const v = massifs ? Math.max(Math.floor(2 * o.x) + Math.floor(2 * o.y), Math.floor(2 * massifs.depth(o.x, o.y))) : Math.floor(2 * o.x) + Math.floor(2 * o.y);
       this.rows[Math.min(nRows - 1, v)].push({ def, img: art.objImg.get(o.id)!, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))) });
