@@ -16,19 +16,21 @@ import { autotile, hash, VARIANT, type TilesMeta } from './autotile';
 import type { RegionData, TerrainKind } from '../types';
 import { decodeBiomes, KINDS } from '../regions/visual';
 import { columnTops, type MassifDef, type Massifs } from './massifs';
-import { buildFineArt, OFFS, SmoothFrames, type FineArt } from './fineArt';
+import { buildFineArt, SmoothFrames, type CliffRoles, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
 
 export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
 /** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
-export interface TileSet { name: string; tiles: TilesMeta; sheetIx: number[]; varIx: number[]; earth: string; crag: string }
+export interface TileSet { name: string; tiles: TilesMeta; sheetIx: number[]; varIx: number[]; earth: string; crag: string; snow?: string; ice?: string }
 export interface WarArt {
   /** Every sheet and variant of every set (fallback: the global one). */
   tiles: TilesMeta;
   sheets: HTMLImageElement[];
   variants: HTMLImageElement[];
   cliffs: Record<string, HTMLImageElement>;
+  /** W-51 multi-frame cliffs: frames of 64 px in a row and their roles. */
+  cliffMeta?: Record<string, { frames?: number; roles?: CliffRoles }>;
   /** Global objects, then each biome's as `<biome>/<id>`. */
   defs: ObjDef[];
   objImg: Map<string, HTMLImageElement>;
@@ -42,7 +44,7 @@ export interface WarArt {
 export const BIOMES = ['elaia', 'kyrene', 'mountains', 'dodona'] as const;
 const PIECE = 2048;
 
-interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string }[] }
+interface TilesJson extends TilesMeta { cliffs?: { id: string; file: string; frames?: number; roles?: CliffRoles }[] }
 
 /** Fetch the global and every biome's tiles.json and objects.json and every image they name (relative to the page: public/war/). */
 export async function loadArt(base = 'war/'): Promise<WarArt> {
@@ -50,7 +52,7 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
   const img = (p: string) => { const im = new Image(); im.src = base + p; return im.decode().then(() => im); };
   const libs = [{ name: 'global', tiles: 'tiles/', objs: 'objects/' }, ...BIOMES.map((b) => ({ name: b as string, tiles: `biomes/${b}/`, objs: `biomes/${b}/` }))];
   const metas = await Promise.all(libs.map((l) => Promise.all([json(l.tiles + 'tiles.json') as Promise<TilesJson>, json(l.objs + 'objects.json') as Promise<{ objects: ObjDef[] }>])));
-  const sheets: TilesMeta['sheets'] = [], variants: NonNullable<TilesMeta['variants']> = [], cliffs: { id: string; file: string }[] = [], defs: ObjDef[] = [];
+  const sheets: TilesMeta['sheets'] = [], variants: NonNullable<TilesMeta['variants']> = [], cliffs: { id: string; file: string; frames?: number; roles?: CliffRoles }[] = [], defs: ObjDef[] = [];
   const sets: TileSet[] = [];
   libs.forEach((l, k) => {
     const [T, O] = metas[k], s0 = sheets.length, v0 = variants.length;
@@ -62,7 +64,11 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
     const sheetIx = k ? [...g.sheetIx, ...T.sheets.map((_, i) => s0 + i)] : T.sheets.map((_, i) => i);
     const varIx = k ? [...g.varIx.filter((i) => !own.has(variants[i].terrain)), ...(T.variants ?? []).map((_, i) => v0 + i)] : (T.variants ?? []).map((_, i) => i);
     const tiles = { sheets: sheetIx.map((i) => sheets[i]), variants: varIx.map((i) => variants[i]), fallback: T.fallback };
-    sets.push({ name: l.name, tiles, sheetIx, varIx, earth: k && T.cliffs?.length ? T.cliffs[0].id : 'earth', crag: 'crag' });
+    // W-51: the biome's own cliff material (granite, sandstone, limestone: its first cliff) under every drop, snow-ledged
+    // granite under snow and drifts, ice-glazed at the foot over the glacier; the global set: crag under rock, earth else
+    const has = (id: string) => (T.cliffs ?? []).some((c) => c.id === id);
+    const mine = k && T.cliffs?.length ? T.cliffs[0].id : null;
+    sets.push({ name: l.name, tiles, sheetIx, varIx, earth: mine ?? 'earth', crag: mine && (T.cliffs![0].frames ?? 0) > 1 ? mine : 'crag', snow: has('granite-snow') ? 'granite-snow' : undefined, ice: has('granite-ice') ? 'granite-ice' : undefined });
   });
   const [si, vi, ci, oi] = await Promise.all([
     Promise.all(sheets.map((s) => img(s.file))),
@@ -74,13 +80,16 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
   return {
     tiles: { sheets, variants, fallback: metas[0][0].fallback }, sheets: si, variants: vi, defs, objImg, sets,
     cliffs: Object.fromEntries(cliffs.map((c, i) => [c.id, ci[i]])),
+    cliffMeta: Object.fromEntries(cliffs.filter((c) => c.frames).map((c) => [c.id, { frames: c.frames, roles: c.roles }])),
     massifs: defs.filter((d) => d.kind === 'massif' && d.footprint).map((d) => ({ ...d, footprint: d.footprint!, top: columnTops(objImg.get(d.id)!) })),
   };
 }
 interface Placed { def: ObjDef; img: HTMLImageElement; sx: number; sy: number; shade?: number }
 
 const FW = 16, FH = 8; // half the 1 m cell diamond
-const ROCKY = new Set([KINDS.indexOf('rock'), KINDS.indexOf('snow')]);
+const ROCKY = new Set([KINDS.indexOf('rock'), KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
+const SNOWY = new Set([KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
+const WET = new Set([KINDS.indexOf('shallow'), KINDS.indexOf('deep')]);
 /** Zoomed out (the baked levels) objects shorter than this (m) are left out. */
 export const LOD_METRES = 2;
 
@@ -272,7 +281,10 @@ export class ArtBaker {
     const vmax = Math.ceil((y0 + h - iso.OY + iso.top * LH) / FH) + 2;
     const vmaxO = objects ? vmax + this.reach : vmax; // the tallest object or massif stands this many rows over its foot
     const zt = (x: number, y: number) => (x < 0 || y < 0 || x >= fw || y >= fh ? ZBASE : fz[y * fw + x]);
-    const cl = fine.cliffs, NO = OFFS.length, sets = this.art.sets.map((s) => [cl[s.crag] ?? cl.rock ?? cl.earth, cl[s.earth] ?? cl.earth]);
+    const cl = fine.cliffs, info = fine.cliffInfo;
+    const pick = (...ids: (string | undefined)[]) => ids.find((id) => id && cl[id]) ?? 'earth';
+    // per set: [rock, earth, snow, ice] cliff ids
+    const sets = this.art.sets.map((s) => { const crag = pick(s.crag, 'rock', 'earth'), snow = pick(s.snow, crag); return [crag, pick(s.earth), snow, pick(s.ice, snow)]; });
     // with a view mode's tint: the ground, the tint over it, then the objects over both
     const split = !!o.tint && objects;
     const drawObjects = (v: number) => {
@@ -295,11 +307,19 @@ export class ArtBaker {
           if (ty + 2 * LH + Math.max(0, drop - 1) * LH < y0) continue;
           const tx = iso.OX + u * FW - FW;
           if (drop > 1) {
-            const img = sets[this.setOf[(y >> 1) * this.r.w + (x >> 1)]][ROCKY.has(fk[i]) ? 0 : 1], n = Math.ceil(drop) - 1;
+            const m = sets[this.setOf[(y >> 1) * this.r.w + (x >> 1)]], kd = fk[i], n = Math.ceil(drop) - 1;
+            const foot = Math.min(zt(x + 1, y), zt(x, y + 1)) === zt(x + 1, y) ? fk[Math.min(fw * fh - 1, i + 1)] : fk[Math.min(fw * fh - 1, i + fw)];
+            const id = SNOWY.has(kd) ? m[2] : ROCKY.has(kd) ? m[0] : m[1], low = SNOWY.has(kd) && (WET.has(foot) || SNOWY.has(foot)) ? m[3] : id;
             for (let k = n; k >= 1; k--) {
-              const h = hash(x, y, k), t = k / n + ((h >> 8) % 100) / 400; // darker toward the foot, dithered so no band line shows
-              const f = (t < 0.4 ? 0 : t < 0.75 ? 1 : 2) * NO + (h % NO);
-              ctx.drawImage(img, f * 32, 0, 32, 24, tx, ty + FH + LH * k, 32, 24);
+              // darker toward the foot, dithered so no band line shows; W-51 multi-frame cliffs shade in buttresses (a few
+              // cells wide, drifting down the face) so a tall crag does not read as a grid of blocks
+              const h = hash(x, y, k), R0 = info[id].roles, b = R0 ? Math.sin((x - y) * 0.9 + k * 0.35 + (hash(x - y, 0, 7) % 7)) * 0.22 : 0;
+              const t = Math.max(0, k / n * (R0 ? 0.6 : 1) + ((h >> 8) % 100) / 400 + b);
+              const bottom = n >= 3 && k >= n - (n >= 8 ? 1 : 0), c = bottom ? low : id, ci = info[c], R = ci.roles;
+              // W-51 multi-frame cliffs: the lip under the edge, faces down the wall, the low frames at its foot
+              const fr = R ? (k === 1 ? R.lip : bottom ? R.low : R.face) : null;
+              const f = (t < 0.4 ? 0 : t < 0.75 ? 1 : 2) * ci.n + (fr ? fr[(h >>> 3) % fr.length] : h % ci.n);
+              ctx.drawImage(cl[c], f * 32, 0, 32, 24, tx, ty + FH + LH * k, 32, 24);
             }
           }
           if (c >= VARIANT * 64) {

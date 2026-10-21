@@ -22,9 +22,15 @@ export interface FineArt {
   sheets: HTMLCanvasElement[];
   /** Per variant: (frame * 4 + quadrant) * 32. */
   variants: HTMLCanvasElement[];
-  /** Per cliff id: (shade * OFFS.length + offset) * 32, 32 x 24 each. */
+  /**
+   * Per cliff id: 32 x 24 strips at (shade * n + k) * 32; k a column offset (n = OFFS.length) or, for a W-51 multi-frame
+   * cliff (public/war/biomes/<b>/tiles.json cliffs[].frames), a frame (n = frames).
+   */
   cliffs: Record<string, HTMLCanvasElement>;
+  /** Per cliff id: strips per shade, and the frame roles (lip: under the edge, face, low: at the foot) when it has them. */
+  cliffInfo: Record<string, { n: number; roles?: CliffRoles }>;
 }
+export interface CliffRoles { lip: number[]; face: number[]; low: number[] }
 
 const inTop = (x: number, y: number, hw: number, hh: number) => Math.abs(x + 0.5 - hw) / hw + Math.abs(y + 0.5 - hh) / hh <= 1;
 /** Last top-diamond row of each column. */
@@ -107,27 +113,30 @@ export function buildFineArt(art: WarArt): FineArt {
     g.putImageData(im, 0, 0);
     return c;
   });
-  const cliffs: Record<string, HTMLCanvasElement> = {};
+  const cliffs: Record<string, HTMLCanvasElement> = {}, cliffInfo: FineArt['cliffInfo'] = {};
   for (const [id, img] of Object.entries(art.cliffs)) {
-    const src = pixels(img), d = src.data, W = src.width, n = SHADES.length * OFFS.length;
+    const meta = art.cliffMeta?.[id], frames = meta?.frames && meta.frames > 1 ? meta.frames : 0;
+    const per = frames || OFFS.length, n = SHADES.length * per;
+    cliffInfo[id] = { n: per, roles: frames ? meta!.roles : undefined };
+    const src = pixels(img), d = src.data, W = src.width;
     const c = out(n, 24), g = c.getContext('2d')!, im = g.createImageData(n * CW, 24), o = im.data;
-    SHADES.forEach((sh, si) => OFFS.forEach((off, oi) => {
-      const base = (si * OFFS.length + oi) * CW;
+    SHADES.forEach((sh, si) => { for (let oi = 0; oi < per; oi++) {
+      const base = (si * per + oi) * CW, off = frames ? 0 : OFFS[oi], fx = frames ? oi * TW : 0;
       for (let y = 0; y < 24; y++) for (let x = 0; x < CW; x++) {
         const sp = sideSrc(x, y + 8, off);
         if (!sp) continue;
         const Y = sp[1] - 16; // the strip is the 2 m frame from row 16 down
         if (Y < 0 || Y >= src.height) continue;
-        const from = (Y * W + sp[0]) * 4, t = (y * im.width + base + x) * 4;
+        const from = (Y * W + fx + sp[0]) * 4, t = (y * im.width + base + x) * 4;
         if (!d[from + 3]) continue;
         for (let k = 0; k < 3; k++) o[t + k] = Math.round(d[from + k] * sh);
         o[t + 3] = 255;
       }
-    }));
+    } });
     g.putImageData(im, 0, 0);
     cliffs[id] = c;
   }
-  return { sheets, variants, cliffs };
+  return { sheets, variants, cliffs, cliffInfo };
 }
 
 /**

@@ -15,6 +15,7 @@ export const KINDS = [
   'dry', 'rossa', 'marble', 'grove', // elaia
   'dune', 'hardpan', 'redrock', 'reg', 'salt', 'oasis', // kyrene
   'paving', // W-48 landmark streets and plazas (flagstones; sim terrain road)
+  'drift', 'rubble', 'ruin', // W-51 tile-art: snow drifted on rock (mountains), mudbrick rubble (kyrene), fallen stone (elaia)
 ] as const;
 export type VisualKind = (typeof KINDS)[number];
 /** Highest visual level. */
