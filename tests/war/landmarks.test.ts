@@ -85,12 +85,12 @@ describe('M7d landmark scenarios', () => {
     expect(sim.snapshot().bosses![0].hp).toBeLessThan(sim.snapshot().bosses![0].maxHp);
   });
 
-  it('landmark-deadcity: the King is squad 7 and the raid fights the host', () => {
+  it('landmark-deadcity: the King is squad 7 and the 3-squad raid climbs the butte to his guard', () => {
     const sim = play('landmark-deadcity');
     sim.step();
     expect(sim.snapshot().bosses![0]).toMatchObject({ id: 'bandit_king', squad: 7 });
     let falls = 0;
-    for (let t = 0; t < 900 && falls === 0; t++) {
+    for (let t = 0; t < 3000 && falls === 0; t++) {
       sim.step();
       falls += sim.events().filter((e) => e.kind === 'fall').length;
     }
