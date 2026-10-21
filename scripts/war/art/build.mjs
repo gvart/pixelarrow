@@ -309,7 +309,7 @@ function keyBorder(im, tol = 18, all = false) {
 // Drop the ground patch PixelLab draws under objects anyway (owner: no ground under objects, W-20), see assets.mjs.
 const isGreen = (r, g, b) => g > r + 4 && g >= b - 4;
 const isNeutral = (r, g, b) => Math.max(r, g, b) - Math.min(r, g, b) < 30 && !isGreen(r, g, b);
-const KEEP = { notgreen: (r, g, b) => !(g >= r - 2 && g >= b - 4), green: (r, g, b) => isGreen(r, g, b) || (g >= r - 6 && b < g + 30 && r < g + 10), neutral: isNeutral };
+const KEEP = { crop: (r, g, b) => !(r > g + 15 && g - b < 35), notgreen: (r, g, b) => !(g >= r - 2 && g >= b - 4), green: (r, g, b) => isGreen(r, g, b) || (g >= r - 6 && b < g + 30 && r < g + 10), neutral: isNeutral };
 function footLine(pts, x) {
   if (x <= pts[0][0]) return pts[0][1];
   for (let k = 1; k < pts.length; k++) { const [x0, y0] = pts[k - 1], [x1, y1] = pts[k]; if (x <= x1) return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0); }

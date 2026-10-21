@@ -12,7 +12,7 @@ import type { Kit, Pt, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'dodona-w',
-  style: { meadow: 0.5, trees: 0.25, bushes: 0.6, dry: 0.4 },
+  style: { meadow: 0.5, trees: 0.15, bushes: 0.25, dry: 0.4 },
   build(k: Kit) {
     const E = k.entry('dodona'), NE = k.entry('dodona-n'), SE = k.entry('dodona-s'), S = k.entry('siren');
     k.fill(3);
@@ -31,7 +31,17 @@ const def: RegionDef = {
       k.waterBody([x + 2, y, 3.5, 2.5, 0.5], { deep: true, shore: 1, beach: 0, rough: 1 });
     }
     // the grey ridge across the heath
-    k.ridge([[100, 30], [130, 80], [150, 128], [170, 180], [200, 230]], { crest: 6, step: 2, top: 1.5, reach: 12, base: 3 });
+    // a long grey wall of rock: a crest on two cliff steps (4 -> 6 -> 8), not a soft slope
+    const R: Pt[] = [[100, 30], [130, 80], [150, 128], [170, 180], [200, 230]];
+    const dR = (x: number, y: number) => {
+      let d = Infinity;
+      for (let n = 1; n < R.length; n++) {
+        const [ax, ay] = R[n - 1], [bx, by] = R[n], ux = bx - ax, uy = by - ay, t = Math.max(0, Math.min(1, ((x - ax) * ux + (y - ay) * uy) / (ux * ux + uy * uy)));
+        d = Math.min(d, Math.hypot(x - ax - t * ux, y - ay - t * uy));
+      }
+      return d;
+    };
+    k.lift((x, y, s) => { const d = dR(x, y) + 1.2 * Math.sin(x / 7 + s) + Math.sin(y / 5); return d < 2.5 ? 8 : d < 5.5 ? 6 : NaN; });
     k.spot('ridge', [150, 128]);
     // roads: the coast track along the cliff tops to Siren; Dodona's road over the ridge's saddle to it; the side
     // tracks from Dodona's other entries

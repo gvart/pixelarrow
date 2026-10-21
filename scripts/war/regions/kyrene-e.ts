@@ -5,8 +5,8 @@
  * Layout (Gemini reference shots/war/regions/proto/kyrene-e.png): the sea fills the east; a long sand bar runs up the
  * coast, 5 tiles wide at its waist between the deep lagoon and the surf, curving north-west at its head to the Ammon
  * road; behind it the wide lagoon, deep in the middle, shallow along its west shore where the salt pans are cut (low
- * mud walls, white heaps) with the bandits' palisade camp beside them. Ochre dunes rise in tiers (h3, h4) along the
- * west edge on low cliffs. The road comes down from Kyrene to the pans, rounds the lagoon's south end onto the bar's
+ * mud walls, white heaps) with the bandits' palisade camp beside them. Ochre dunes rise in three sandstone
+ * cliff tiers (h5, h8, h11) along the west edge. The road comes down from Kyrene to the pans, rounds the lagoon's south end onto the bar's
  * root, where the ruined salt-cutters' huts stand, and runs up the bar to Ammon.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
@@ -21,10 +21,11 @@ const def: RegionDef = {
     const W = k.entry('kyrene'), NW = k.entry('kyrene-n'), SW = k.entry('kyrene-s'), N = k.entry('ammon');
     k.fill(2);
     k.zone('kyrene', () => 99);
-    k.paint('sand', [128, 128, 200, 200, 0], { rough: 8 });
+    k.paint('sand', [36, 128, 62, 200, 0], { rough: 8 }); // the cliff tiers' sand; the coastal flat stays green
     // dune tiers along the west edge
-    k.lift((x, y, s) => (x + 8 * Math.sin(y / 15 + s) < 46 ? 4 : x + 8 * Math.sin(y / 15 + s) < 76 ? 3 : NaN), true);
-    for (const b of [[30, 80, 14, 10, 0.4], [40, 180, 16, 10, -0.3], [64, 230, 14, 8, 0]] as const) k.hill([...b], 5, 3, 2);
+    // (sandstone cliff bands: three tiers stepping down to the coastal flat, each a cliff of 3 levels)
+    k.lift((x, y, s) => { const e = x + 8 * Math.sin(y / 15 + s) + 4 * Math.sin(y / 7); return e < 40 ? 11 : e < 66 ? 8 : e < 88 ? 5 : NaN; }, true);
+    for (const b of [[22, 80, 12, 10, 0.4], [26, 180, 14, 10, -0.3], [50, 232, 10, 6, 0]] as const) k.hill([...b], 13, 3, 2);
     // the sea, the lagoon (deep core, shallow west shore), the bar between
     k.waterBody([246, 128, 60, 210, 0], { shore: 5, beach: 0, rough: 2 });
     k.waterBody([156, 112, 40, 92, 0.05], { shore: 6, beach: 1.5, rough: 3 });

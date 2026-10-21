@@ -4,7 +4,7 @@
  * hides, and the kopjes as fortresses. Depth 2: the Lion of the Savanna (Nemean, tier 1), whose hide turns blades, in
  * his den under the great kopje; the lions' lair on the copper beside it.
  * Layout (Gemini reference shots/war/regions/proto/savanna.png): a flat golden plain (h2). Three kopjes of piled
- * red-brown boulders stand over it on stepped walls: the great one in the west (skirt h5, flat top h7, 50+ tiles
+ * red-brown boulders stand over it on stepped walls: the great one in the west (skirt h5, flat top h9, 50+ tiles
  * across, one way up from the south), the den at its foot and the copper crop beside it; a lower one in the north-west
  * and one in the east. A dry wash, a sunken sandy bed (h1) between low banks, winds north to south across the plain,
  * a hidden way past both roads; a muddy waterhole lies by it. The two roads cross at the claim point mid-plain.
@@ -24,7 +24,7 @@ const def: RegionDef = {
     const K: [Pt, number, number][] = [[[62, 82], 22, 18], [[56, 30], 14, 11], [[212, 176], 16, 13]];
     K.forEach(([p, rx, ry], n) => {
       k.plateau([p[0], p[1], rx, ry, 0.3], 5, { rough: 2.5 });
-      k.plateau([p[0], p[1], rx * 0.72, ry * 0.75, 0.3], n === 0 ? 7 : 6, { rough: 1.2, terrain: 'dirt' });
+      k.plateau([p[0], p[1], rx * 0.72, ry * 0.75, 0.3], n === 0 ? 9 : 6, { rough: 1.2, terrain: 'dirt' });
       for (let a = 0; a < 5; a++) {
         const t = Math.PI * (0.8 + a * 0.32) + n * 0.9; // the boulder piles round the rim, the way up left open
         k.rockMass([p[0] + Math.cos(t) * rx * 0.86, p[1] + Math.sin(t) * ry * 0.86, 3.2, 2.6, t], { rough: 0.7, foot: 5 });

@@ -6,7 +6,7 @@ export const SPOTS = {
   "entry_gorge": [502.5, 256.5],
   "quarry": [236.5, 124.5],
   "olives": [372.5, 172.5],
-  "fields": [384.5, 400.5],
+  "fields": [372.5, 400.5],
   "marble": [240.5, 124.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */

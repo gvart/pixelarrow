@@ -19,7 +19,7 @@ export const KINDS = [
 ] as const;
 export type VisualKind = (typeof KINDS)[number];
 /** Highest visual level. */
-export const ZVIS = 44;
+export const ZVIS = 60;
 
 export function encodeVisual(kind: ArrayLike<number>, z: ArrayLike<number>): number[] {
   const out: number[] = [];

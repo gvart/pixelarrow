@@ -3,8 +3,8 @@
  * Layout (Gemini reference shots/war/gemini/art2/kyrene-desert): a river winds north to south west of centre through a
  * green floodplain (h1, fields and palms) between desert terraces (h2); deep in its middle reach, with a narrows a
  * wooden bridge can span by the town and fords at both ends. West of it the dune sea (sand, dunes h3). East of the
- * town the oasis springs and the town (home camp) on the terrace; north-east of it a red butte (h4, one ramp) is the
- * fort site. The red escarpment (h5 mesa) closes the east; the east road climbs it through a narrow wadi canyon (the
+ * town the oasis springs and the town (home camp) on the terrace; north-east of it a red butte (h6, one ramp) is the
+ * fort site. The red escarpment (h7 mesa) closes the east; the east road climbs it through a narrow wadi canyon (the
  * ambush) whose cliff walls overlook the road. Copper ore under the cliffs.
  */
 import { fbm, type Kit, type RegionDef } from './kit.ts';
@@ -18,7 +18,7 @@ const def: RegionDef = {
     // the dune sea west of the river and the sand east of it; the escarpment and its mesa (h5) in the east
     k.paint('sand', [22, 128, 70, 150, 0.1], { rough: 8 });
     k.paint('sand', [210, 130, 70, 150, 0], { rough: 8 });
-    k.lift((x, y, s) => (x + 14 * fbm(x, y, 22, s) + 5 * fbm(x, y, 6, s + 1) > 200 ? 5 : NaN), true);
+    k.lift((x, y, s) => (x + 14 * fbm(x, y, 22, s) + 5 * fbm(x, y, 6, s + 1) > 200 ? 7 : NaN), true);
     k.paint('sand', [230, 128, 50, 140, 0], { on: ['grass'], minH: 5 });
     for (const b of [[30, 60, 12, 6, 0.4], [54, 96, 16, 6, 0.2], [24, 150, 14, 7, -0.3], [60, 200, 18, 6, 0.5], [40, 236, 12, 5, 0.1], [76, 30, 10, 5, 0.6]] as const) k.hill([...b], 3, 3, 2);
     // the river: shallow (half 3) from edge to edge, deep in the middle reach, a narrows by the town
@@ -33,7 +33,7 @@ const def: RegionDef = {
     k.square([140, 168], 7);
     k.spot('homeCamp', [140, 168]);
     // the red butte (fort site), a lone mesa on the floodplain's west side
-    k.plateau([178, 96, 14, 10, 0.5], 4, { terrain: 'sand' });
+    k.plateau([178, 96, 14, 10, 0.5], 6, { terrain: 'sand' });
     k.spot('fortSite', [178, 95]);
     k.plateau([62, 168, 9, 7, 0.2], 4, { terrain: 'sand' });
     // the wadi canyon through the escarpment (east road)

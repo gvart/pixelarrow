@@ -3,8 +3,8 @@
  * Elaia's two other entries at the east edge's ends, the sea (W). Strategic purpose: a coast with landing beaches and
  * pitch from the pines. Depth 1: pirates hanged in life, woken still hungry, in the sea caves; boars in the woods.
  * Layout (Gemini reference shots/war/regions/proto/elaia-w.png): three coves bite into the west coast, each with a
- * small sand beach under limestone walls; between them pine headlands rise in tiers (h5, h7) on cliffs, a dark sea
- * cave in the southern one's face where the pirates lair. Behind the coast a long rocky ridge (h8) runs north-south;
+ * small sand beach under limestone walls; between them pine headlands rise in tiers (h6, h10) on cliffs, a dark sea
+ * cave in the southern one's face where the pirates lair. Behind the coast a long rocky ridge (h10, a cliff on its sea side) runs north-south;
  * the coast track climbs over the headlands from Elaia to the Siren road, paths dropping to each cove. The claim point
  * at the track's fork above the middle cove; resin tappers' huts in the pines.
  */
@@ -12,7 +12,7 @@ import type { Kit, Pt, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'elaia-w',
-  style: { dry: 0.3, trees: 0.9, bushes: 0.7 },
+  style: { dry: 0.3, trees: 0.4, bushes: 0.4 },
   build(k: Kit) {
     const E = k.entry('elaia'), NE = k.entry('elaia-n'), SE = k.entry('elaia-s'), N = k.entry('siren');
     k.fill(3);
@@ -21,7 +21,7 @@ const def: RegionDef = {
     k.waterBody([-26, 128, 48, 210, 0], { shore: 4, beach: 0, rough: 5 });
     k.lift((x, y, s) => {
       const w = x + 10 * Math.sin(y / 19 + s);
-      return w < 70 ? 7 : w < 110 ? 5 : NaN;
+      return w < 70 ? 10 : w < 110 ? 6 : NaN;
     }, true);
     // the three coves: cut down to the water, beaches, the cave in the southern headland
     const coves: Pt[] = [[34, 46], [34, 128], [34, 206]];
@@ -34,7 +34,7 @@ const def: RegionDef = {
     k.rockMass([22, 168, 6, 4, 0.3], { rough: 0.8, foot: 7 });
     k.spot('seaCave', [30, 166]);
     // the ridge behind the coast
-    k.ridge([[150, -6], [140, 60], [150, 128], [140, 196], [150, 262]], { crest: 8, step: 2, top: 2, reach: 12, base: 3 });
+    k.ridge([[150, -6], [140, 60], [150, 128], [140, 196], [150, 262]], { crest: 10, step: 2, top: 2, reach: 14, base: 3, cliff: -1 });
     k.spot('ridge', [146, 100]);
     // roads: the coast track from Elaia over the headlands to the Siren road; paths down to the coves; the side tracks
     const hub: Pt = [90, 128];

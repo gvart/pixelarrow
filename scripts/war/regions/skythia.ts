@@ -14,7 +14,7 @@ const MOUNDS: [number, number, number][] = [[60, 60, 6], [92, 40, 5], [176, 64, 
 
 const def: RegionDef = {
   id: 'skythia',
-  style: { dry: 0.3, dryHigh: false, meadow: -0.2, trees: 0.25, bushes: 0.5 },
+  style: { dry: 0.3, dryHigh: false, meadow: -0.2, trees: 0.2, bushes: 0.12 },
   build(k: Kit) {
     k.fill(3);
     // long swells (h4) and hollows (h2) on the plateau

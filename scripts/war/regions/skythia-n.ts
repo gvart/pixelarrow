@@ -4,32 +4,34 @@
  * purpose: a buffer on the way to Krios and a coast. Depth 1: wolves, and the masterless herds of riders who never
  * woke grazing the frozen ponds.
  * Layout (Gemini reference shots/war/regions/proto/skythia-n.png): the flat frost-brown steppe (h2) runs to a low
- * coastal bluff (h3) over the sea, broken by one pebble beach; in the north-west it climbs in two stepped terraces (h4,
- * h6) under the Krios side. Frozen shallow ponds lie scattered over the steppe (they slow), snow patches and cairns
- * round them; one long low ridge (h4) crosses the steppe south-west to north-east, the Krios road running along its
+ * coastal bluff (h4) over the sea, broken by one pebble beach; in the north-west it climbs in two stepped terraces (h6,
+ * h9) under the Krios side. Frozen shallow ponds lie scattered over the steppe (they slow), snow patches and cairns
+ * round them; one long low ridge (h5) crosses the steppe south-west to north-east, the Krios road running along its
  * foot. The claim point where Skythia's road meets it.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'skythia-n',
-  style: { dry: 0.5, dryHigh: false, trees: 0.15, meadow: 0.4 },
+  style: { dry: 0.5, dryHigh: false, trees: 0.1, bushes: 0.1, meadow: 0.4 },
   build(k: Kit) {
     const S = k.entry('skythia'), W = k.entry('krios'), NW = k.entry('skythia-w'), NE = k.entry('skythia-e');
     k.fill(2);
     k.zone('mountains', [40, 70, 70, 60, 0.3], 10);
     // the coastal bluff, the north-west terraces
-    k.lift((x, y, s) => (y + 6 * Math.sin(x / 19 + s) < 64 ? 3 : NaN), true);
-    k.plateau([46, 64, 44, 34, 0.3], 4, { rough: 4 });
-    k.plateau([40, 56, 26, 20, 0.3], 6, { rough: 3 });
+    k.lift((x, y, s) => (y + 6 * Math.sin(x / 19 + s) < 64 ? 4 : NaN), true);
+    k.plateau([46, 64, 44, 34, 0.3], 6, { rough: 4 });
+    k.plateau([40, 56, 26, 20, 0.3], 9, { rough: 3 });
     // the sea under the bluff, the pebble beach
     k.waterBody([128, -18, 230, 34, 0], { shore: 3, beach: 0, rough: 6 });
     k.basin([170, 22, 22, 9, 0.1], 1, 0, 2);
     k.waterBody([170, 10, 24, 8, 0.1], { shore: 2, beach: 6, rough: 2 });
     k.spot('beach', [170, 22]);
     // the long low ridge
-    k.ridge([[40, 220], [100, 180], [160, 150], [230, 110]], { crest: 4, step: 3, top: 2, reach: 12, base: 2 });
+    k.ridge([[40, 220], [100, 180], [160, 150], [230, 110]], { crest: 5, step: 3, top: 2, reach: 12, base: 2 });
     k.spot('ridge', [140, 160]);
+    // the frost-browned steppe: bare earth in wide drifts over the grass
+    for (const b of [[150, 110, 60, 30, 0.5], [90, 200, 50, 26, -0.3], [210, 200, 40, 30, 0.2], [190, 60, 40, 18, 0]] as const) k.paint('dirt', [...b], { rough: 8 });
     // the frozen ponds (shallow), snow round them
     for (const [x, y, rx, ry] of [[110, 100, 9, 6], [200, 180, 11, 7], [70, 140, 6, 4], [180, 80, 7, 5], [120, 220, 8, 5], [230, 220, 6, 5]] as const) {
       k.waterBody([x, y, rx, ry, 0.4], { deep: false, beach: 0, rough: 2 });

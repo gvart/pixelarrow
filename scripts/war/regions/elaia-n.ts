@@ -5,8 +5,8 @@
  * Layout (Gemini reference shots/war/regions/proto/elaia-n.png): the deep lake fills the north; the Lake Road comes
  * over it on a single causeway, 8 tiles wide, and lands on a firm grassy tongue in the middle of a wide reed marsh cut by
  * shallow channels. Low islands (h3) flank the landfall a bowshot off the causeway, one with a ruined watch tower:
- * archers' ground over the narrows. South of the marsh the firm farmland stands a tier up (h3): wide fields and flax
- * strips by the channels, the farm village round its well (the claim point), and a higher bench (h5) along the south
+ * archers' ground over the narrows. South of the marsh the firm farmland stands a cliff tier up (h4): wide fields and flax
+ * strips by the channels, the farm village round its well (the claim point), and a higher bench (h7) along the south
  * and west edges toward Elaia's hills. Dry tracks on the side benches lead north to Elaia's other entries, a road east
  * to the Bacchae.
  */
@@ -14,16 +14,16 @@ import type { Kit, Pt, RegionDef } from './kit.ts';
 
 const def: RegionDef = {
   id: 'elaia-n',
-  style: { trees: 0.6, dry: 0.4 },
+  style: { trees: 0.25, bushes: 0.35, dry: 0.4 },
   build(k: Kit) {
     const N = k.entry('stymphalia'), S = k.entry('elaia'), E = k.entry('bacchae'), NW = k.entry('elaia-w'), NE = k.entry('elaia-e');
     k.fill(2);
     k.zone('elaia', () => 99);
     // the firm land a tier up south of the marsh, the bench higher still along the south and west edges, the side
     // benches the tracks run on
-    k.lift((x, y, s) => (y + 6 * Math.sin(x / 17 + s) > 128 ? 3 : NaN));
-    k.lift((x, y, s) => (y + 5 * Math.sin(x / 13 + s) > 226 || x + 5 * Math.sin(y / 11) < 22 && y > 120 ? 5 : NaN));
-    k.lift((x, y) => (x < 20 || x > 236 ? 3 : NaN));
+    k.lift((x, y, s) => (y + 6 * Math.sin(x / 17 + s) > 128 ? 4 : NaN));
+    k.lift((x, y, s) => (y + 5 * Math.sin(x / 13 + s) > 226 || x + 5 * Math.sin(y / 11) < 22 && y > 120 ? 7 : NaN));
+    k.lift((x, y) => (x < 20 || x > 236 ? 4 : NaN));
     // the marsh and the lake; channels through the reeds; reed pools
     k.paint('marsh', [128, 92, 120, 42, 0], { rough: 8 });
     k.waterBody([128, 20, 100, 44, 0.02], { shore: 3, beach: 1, rough: 6 });

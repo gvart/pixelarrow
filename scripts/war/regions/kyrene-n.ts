@@ -17,7 +17,7 @@ const bw = (x: number) => 15 + 4 * Math.sin(x / 23);
 
 const def: RegionDef = {
   id: 'kyrene-n',
-  style: { dry: 0.2, trees: 0.4 },
+  style: { dry: 0.2, trees: 0.6, bushes: 1.6 },
   build(k: Kit) {
     const N = k.entry('ammos'), S = k.entry('kyrene'), W = k.entry('savanna'), NW = k.entry('kyrene-w'), NE = k.entry('kyrene-e');
     k.fill(3);
@@ -58,6 +58,11 @@ const def: RegionDef = {
     k.lair('jackal', [196, 64], { as: 'lions' });
     k.lair('jackal', [58, 64], { as: 'scorpions' });
     k.lair('jackal', [210, 206], { as: 'scorpions' });
+    // thornscrub: clumps of thorn trees and acacias on the hills both sides of the band (the scatter's bushes are too small
+    // to show zoomed out)
+    for (const b of [[50, 50, 10, 7, 0.4], [80, 76, 8, 6, 0], [190, 56, 10, 6, -0.3], [222, 90, 8, 6, 0], [176, 92, 7, 5, 0],
+      [50, 196, 10, 7, 0.2], [84, 226, 8, 6, 0], [196, 196, 10, 7, -0.4], [220, 228, 8, 5, 0], [30, 120, 6, 8, 0]] as const)
+      k.rows(['kyrene/thorn-tree', 'kyrene/acacia', 'kyrene/acacia-old', 'kyrene/thorn-tree'], [...b], { dx: 5, dy: 4, on: ['sand', 'dune', 'reg', 'hardpan'] });
     k.claim(hub, 160);
   },
 };

@@ -15,7 +15,7 @@ import { pocketBoss } from './tiers.ts';
 
 const def: RegionDef = {
   id: 'kimmeria',
-  style: { dry: 0.3, dryHigh: false, trees: 0.3, meadow: 0.3 },
+  style: { dry: 0.3, dryHigh: false, trees: 0.3, bushes: 0.4, meadow: 0.3 },
   build(k: Kit) {
     const N = k.entry('skythia-w'), E = k.entry('skythia-s'), W = k.entry('saddle'), S = k.entry('canyons');
     k.fill(3);
@@ -33,9 +33,7 @@ const def: RegionDef = {
     k.river([[262, 70], [214, 104], [196, 160], [214, 214], [226, 262]], { half: 1.3, deep: false, bed: 2, bank: 2 });
     k.patch('elaia', 'marble', [44, 90, 10, 50, 0.3], ['grass', 'sand']);
     k.patch('elaia', 'marble', [204, 150, 10, 50, -0.2], ['grass', 'sand']);
-    k.basin([172, 222, 12, 8, 0.4], 3, 0, 1.5);
-    k.patch('elaia', 'marble', [172, 222, 13, 9, 0.4], ['grass', 'dirt']);
-    k.spot('quarry', [172, 222]);
+    k.quarry([172, 222], 10, 2);
     // roads: the Sacred Way west-east below the fort, the north-south road, the claim point at the crossing; the gate
     // path: a ramp through each rampart, the terraces between
     const hub: Pt = [150, 150];
