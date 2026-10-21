@@ -96,6 +96,16 @@ export interface WarSim {
 export declare function createSim(region: RegionData, seed: number): WarSim; // implemented in src/war/sim/index.ts
 ```
 
+## Status at pause (2026-10-21)
+
+Done and on main: M1 sandbox (sim, iso real-scale view, scenarios), M2 region gameplay (economy, build mode, wall tiers + walkways, siege incl. M5h3 engines, bridges v2, neutral mobs/claiming), M3 live region server (600-soldier go, fog-aware interest, exact resume), M4 world (37 regions, WarWorldDO, transfers, painted Metaxy world map, old shard war deleted), M5 soldiers + civilians + crafting (M5a–h), M6 player-driven physical economy (holders, carts, loot, safe towns, market, contracts, bots), M7 living regions (prebuilt buildings, depth, rare goods, 9 landmarks with phased guardians, all raid targets hold on 8/8 seeds), HUD (red-figure kit, radial, view modes, fog, trees, draggable windows), sound (procedural), `npm run play:war` + docs/PLAYTEST.md.
+
+In progress when paused — W-52 dominant set pieces: 2 m visual levels and Bacchae + the Kyrene family (kyrene, kyrene-e/n/s/w, ammos, savanna) re-authored. Next, in order:
+1. W-52 for the remaining non-landmark regions (Elaia, Dodona, Skythia families, moors, kimmeria, coasts) from their refs in shots/war/regions/proto/; author siren and delta (still `draft: true`) from their landmark refs keeping the tuned approaches; keep `npm run balance:war` green.
+2. Landmark look gaps: Citadel crag/inner ward vs its reference, cliff faces read as a block grid, Obsidian mesa flat, contour vineyard rows, ramps drawn as strip steps, `build.mjs --biome` wipes town objects.
+3. Live play polish from playtests (docs/PLAYTEST.md known gaps); melee clash SFX in big fights; bundled Playwright Chromium can't load the page (captures use system Chrome).
+4. Tests that time out only under heavy machine load (timing budgets in tests/war) — rerun in small groups before trusting a failure.
+
 ## Work items
 
 ### M1 Region sandbox
