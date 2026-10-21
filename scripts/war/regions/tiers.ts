@@ -33,6 +33,15 @@ export function tierStream(k: Kit, pts: Pt[], ground: (x: number, y: number) => 
 }
 
 /**
+ * A depth-2 pocket's tier-1 boss (docs/WAR.md "Region lore and depth", src/data/warBosses.ts) at its den: a small
+ * guardian site of no pieces round unit point `at` (its claim gate as any guardian's), `r` units each way.
+ */
+export function pocketBoss(k: Kit, boss: string, at: Pt, r = 6) {
+  const s = Math.round(r * 4);
+  return k.site(`${boss}-den`, [at[0] - r, at[1] - r], [s, s], { guardians: [{ boss, at: [s / 2, s / 2] }] });
+}
+
+/**
  * A town wall (W-47/W-48: real stoneWall, stoneTower and stoneGate pieces of the nearest town) round a rectangle of
  * half-size hx x hy units about c: towers on the corners, 2-tile wall runs between, a gate in the middle of each of
  * `gates` (map sides: N top, S bottom, W left, E right). Runs that would land on a road or water are left out.

@@ -28,7 +28,7 @@ export const WORLD_REGIONS = [
   { id: 'stymphalia', name: "Lake Stymphalia", role: 'neutral', draft: false },
   { id: 'achelous', name: "Achelous Ford", role: 'neutral', draft: false },
   { id: 'ammos', name: "Ammos Dunes", role: 'neutral', draft: false },
-  { id: 'moors', name: "Grey Moors", role: 'neutral', draft: true },
+  { id: 'moors', name: "Grey Moors", role: 'neutral', draft: false },
   { id: 'kimmeria', name: "Kimmerian Hills", role: 'neutral', draft: true },
   { id: 'savanna', name: "Lion Savanna", role: 'neutral', draft: true },
   { id: 'bacchae', name: "Bacchae Hills", role: 'neutral', draft: true },
