@@ -1,0 +1,34 @@
+scripts/war/regions/tiers.ts
+  s_cfc22b058125c4::t_454b9788e58218 1-33
+src/war/regions/skythia-w.json
+  s_cfc22b058125c4::t_06f8810b4776f3 1
+scripts/war/regions/skythia-w.ts
+  s_cfc22b058125c4::t_6d137bf32061f0 1-29,34-35,38-44,47-72
+  s_cfc22b058125c4::t_06f8810b4776f3 30-33,36-37,45-46
+  s_cfc22b058125c4::t_1229aae53df78e 73
+src/war/regions/index.ts
+  s_cfc22b058125c4::t_06f8810b4776f3 11
+scripts/war/regions/drafts.ts
+  s_cfc22b058125c4::t_a0f40a98d1a779 358
+scripts/war/regions/build.ts
+  s_cfc22b058125c4::t_a0f40a98d1a779 37,39
+src/war/regions/skythia-w.spots.ts
+  s_cfc22b058125c4::t_a0f40a98d1a779 1,9-15,18
+  s_cfc22b058125c4::t_06f8810b4776f3 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8492c7dc086563340a88f6e78cb33f9a40086c50",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
