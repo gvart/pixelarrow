@@ -1,0 +1,34 @@
+scripts/war/regions/build.ts
+  s_cfc22b058125c4::t_e3b38ab43bba48 36,38
+scripts/war/regions/dodona-e.ts
+  s_cfc22b058125c4::t_c27bd5f56acf87 46,48-49,53,60,63
+  s_cfc22b058125c4::t_9d47b547b2d664 73,79
+  s_cfc22b058125c4::t_3e19638fc7118f 62,77
+  s_cfc22b058125c4::t_f86a2fde7504b0 1-16,18-19,22-35,38-45,47,50-52,54-59,64-72,74-76,78,80-86
+  s_cfc22b058125c4::t_4dd91a57dce113 17,20-21,36-37,61
+scripts/war/regions/drafts.ts
+  s_cfc22b058125c4::t_e3b38ab43bba48 358
+src/war/regions/dodona-e.spots.ts
+  s_cfc22b058125c4::t_c27bd5f56acf87 9,14
+  s_cfc22b058125c4::t_e3b38ab43bba48 1,8,10-11
+src/war/regions/dodona-e.json
+  s_cfc22b058125c4::t_9d47b547b2d664 1
+src/war/regions/index.ts
+  s_cfc22b058125c4::t_9d47b547b2d664 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "614d7adb1148247b4573e9ebee86a94666af85c0",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
