@@ -1,0 +1,31 @@
+tests/war/landmarkBalance.test.ts
+  s_cfc22b058125c4::t_2ba9aeb14fcd54 13,17-19
+docs/WAR.md
+  s_cfc22b058125c4::t_9cfd9d5bac4173 394-395
+  s_cfc22b058125c4::t_31c41b9f8b69f0 509
+src/war/regions/krios.json
+  s_cfc22b058125c4::t_94f3f18f6db886 1
+src/dev/landmarkBalance.ts
+  s_cfc22b058125c4::t_dfc410e65939c6 162-163,243,245
+  s_cfc22b058125c4::t_bf003317baf70e 78-86
+  s_cfc22b058125c4::t_cbbe66e2aa11fc 96
+  s_cfc22b058125c4::t_e06f8efcbc5643 20,29-30,45,74-77,87,101-103
+scripts/war/regions/landmarks.ts
+  s_cfc22b058125c4::t_94f3f18f6db886 194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5aa588cc01ec94480a6502082b85953478c9abf8",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
