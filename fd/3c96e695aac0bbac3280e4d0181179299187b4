@@ -1,0 +1,22 @@
+scripts/war/regions/kyrene-n.ts
+  s_cfc22b058125c4::t_d921ffe853744e 20
+  s_cfc22b058125c4::t_5d5efcb2346550 61-65
+src/war/regions/kyrene-n.json
+  s_cfc22b058125c4::t_5d5efcb2346550 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fd3c96e695aac0bbac3280e4d0181179299187b4",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
