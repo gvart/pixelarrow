@@ -70,6 +70,8 @@ export interface BossHost {
   water(x: number, y: number): number;
   /** A man of a squad can stand at (x,y). */
   open(x: number, y: number): boolean;
+  /** Ground level at (x,y) (a wall walk or tower platform: its deck's); two levels apart is a cliff no blow crosses. */
+  level(x: number, y: number): number;
   /** Some claim point of the region is held. */
   claimed(): boolean;
   /** The boss gate on the claim points (./mobs.ts): this guardian lives (true) or fell. */
@@ -129,6 +131,8 @@ export const MOVES = {
   bite: { every: 30, r: 3 },
   charge: { every: 60, range: 10, w: 1.5, share: 0.25, knock: 3 },
   fx: 20,
+  /** Ticks without a blow either way, away from home, before a guardian on the ground walks back to its post. */
+  stall: 200,
 };
 /** 24 h unheld before a slain guardian is back (ticks); retried every 10 min while the region is held. */
 export const BOSS = { respawn: 864000, retry: 6000 };
@@ -147,6 +151,8 @@ interface Run {
   next: number; next2: number; perch: number; perchAt: number;
   fly: { x0: number; y0: number; x1: number; y1: number; t0: number; t1: number; then: 'perch' | 'land' | 'crash' | 'charge' } | null;
   fleeAt: number; respawnAt: number; guardN: number;
+  /** Last tick a blow landed on it or one of its men, or one of theirs on a foe (or it went home for want of one). */
+  hitAt?: number;
   dmg: Record<string, number>; last: string;
   fx: (Omit<Fx, 't'> & { at: number }) | null;
 }
@@ -231,24 +237,44 @@ export function createBosses(region: RegionData, host: BossHost) {
     fx(r, 'breath', u.x, u.y, ex, ey, len * Math.tan(half));
   };
 
-  /** Hold home ground: take on the nearest foe squad within aggro, back home past the leash (and called packs alike). */
-  const engage = (s: BSquad | undefined, hx: number, hy: number, aggro: number, leash: number) => {
+  /**
+   * A foe squad the guardian can come to blows with on the tiers: some living man of it within one level of the
+   * guardian's own ground (two levels apart is a cliff; it would stand at the edge over men it cannot strike).
+   */
+  const onTier = (s: BSquad, o: BSquad) => {
+    const me = s.units.find((u) => u.alive);
+    if (!me) return false;
+    const z = host.level(me.x, me.y);
+    return o.units.some((u) => u.alive && Math.abs(host.level(u.x, u.y) - z) <= 1);
+  };
+  /**
+   * Hold home ground: take on the nearest foe squad within aggro on its own tier, back home past the leash or when no
+   * foe there can be reached (and called packs alike).
+   */
+  const engage = (s: BSquad | undefined, hx: number, hy: number, aggro: number, leash: number, r?: Run) => {
     if (!s || s.alive === 0) return;
     const d = Math.hypot(s.cx - hx, s.cy - hy);
+    if (r && d > 3 && tick - (r.hitAt ?? 0) > MOVES.stall) {
+      // out there and no blow struck either way for a while (men across a ledge, or none that can reach it): home
+      r.hitAt = tick;
+      host.order({ kind: 'move', squad: s.id, x: hx, y: hy });
+      return;
+    }
     if (d > leash) {
       if (s.order !== 'move') host.order({ kind: 'move', squad: s.id, x: hx, y: hy });
       return;
     }
     if (s.order === 'move' && d > 3) return; // on its way home
-    if (s.order === 'attack' && (host.squads[s.target]?.alive ?? 0) > 0) return;
+    const tgt = host.squads[s.target];
+    if (s.order === 'attack' && tgt && tgt.alive > 0 && (tick % 50 !== 0 || onTier(s, tgt))) return;
     let best = -1, bd = aggro * aggro;
     for (const o of host.squads) {
       if (!foe(o) || o.alive === 0) continue;
       const e = (o.cx - s.cx) ** 2 + (o.cy - s.cy) ** 2;
-      if (e < bd) (bd = e), (best = o.id);
+      if (e < bd && onTier(s, o)) (bd = e), (best = o.id);
     }
     if (best >= 0) host.order({ kind: 'attack', squad: s.id, target: best });
-    else if (s.order === 'attack') host.order({ kind: 'move', squad: s.id, x: hx, y: hy });
+    else if (s.order === 'attack' || d > 3) host.order({ kind: 'move', squad: s.id, x: hx, y: hy });
   };
 
   const setSt = (u: BUnit, st: Partial<WarStats>) => void (u.st = { ...u.st, ...st });
@@ -288,6 +314,7 @@ export function createBosses(region: RegionData, host: BossHost) {
     r.dmg = {};
     r.last = '';
     r.fx = null;
+    r.hitAt = tick;
     r.next = tick + 30;
     r.next2 = tick + 45;
     r.perch = 0;
@@ -436,7 +463,7 @@ export function createBosses(region: RegionData, host: BossHost) {
           }
           return;
         }
-        engage(s, e.x, e.y, g.aggro, g.leash);
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
         if (tick >= r.next) {
           r.next = tick + (r.phase === 2 ? 60 : MOVES.sweep.every);
           const near = foesIn(u.x, u.y, MOVES.sweep.r);
@@ -451,7 +478,7 @@ export function createBosses(region: RegionData, host: BossHost) {
           r.next2 = tick + Math.round(g.atk * 10);
           const t = nearestFoe(u.x, u.y, g.reach + 0.5);
           if (t) host.hurt(t, g.dmg);
-        } else if (r.phase === 1) engage(s, e.flats?.[0] ?? e.x, e.flats?.[1] ?? e.y, g.aggro, g.leash);
+        } else if (r.phase === 1) engage(s, e.flats?.[0] ?? e.x, e.flats?.[1] ?? e.y, g.aggro, g.leash, r);
         if (heads && tick % MOVES.headStrike.every === r.i % MOVES.headStrike.every)
           for (const h of heads.units) {
             if (!h.alive) continue;
@@ -487,7 +514,7 @@ export function createBosses(region: RegionData, host: BossHost) {
           }
           return;
         }
-        engage(s, e.x, e.y, g.aggro, g.leash);
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
         if (r.phase === 1 && tick >= r.next && nearestFoe(u.x, u.y, u.st.reach + 0.5)) {
           // his blows hit buildings too, his own walls not spared
           r.next = tick + MOVES.smash.every;
@@ -507,10 +534,10 @@ export function createBosses(region: RegionData, host: BossHost) {
           }
           return;
         }
-        engage(s, e.x, e.y, g.aggro, g.leash);
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
         break;
       case 'chimera': {
-        engage(s, e.x, e.y, g.aggro, g.leash);
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
         const goat = s?.units[1];
         if (goat?.alive && tick >= r.next) {
           r.next = tick + MOVES.goatBreath.every;
@@ -529,11 +556,11 @@ export function createBosses(region: RegionData, host: BossHost) {
           return;
         }
         const k = r.phase === 0 ? 1 : 1.5;
-        engage(s, e.x, e.y, g.aggro * k, g.leash * k);
+        engage(s, e.x, e.y, g.aggro * k, g.leash * k, r);
         break;
       }
       case 'maenads':
-        engage(s, e.x, e.y, g.aggro, g.leash);
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
         break;
       case 'titan':
         if (r.phase === 0) {
@@ -550,7 +577,7 @@ export function createBosses(region: RegionData, host: BossHost) {
           }
           return;
         }
-        engage(s, e.x, e.y, g.aggro, g.leash);
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
         if (tick >= r.next) {
           r.next = tick + MOVES.stomp.every;
           const near = foesIn(u.x, u.y, MOVES.stomp.r);
@@ -567,7 +594,7 @@ export function createBosses(region: RegionData, host: BossHost) {
           }
           return;
         }
-        engage(s, e.x, e.y, g.aggro, g.leash);
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
         if (r.phase === 2 && tick >= r.next) {
           // the bull charges through the ranks
           r.next = tick + MOVES.charge.every;
@@ -586,7 +613,7 @@ export function createBosses(region: RegionData, host: BossHost) {
         }
         break;
       default:
-        engage(s, e.x, e.y, g.aggro, g.leash);
+        engage(s, e.x, e.y, g.aggro, g.leash, r);
     }
     if (s && s.order === 'attack' && r.state === 'idle') r.state = 'fight';
   };
@@ -679,6 +706,7 @@ export function createBosses(region: RegionData, host: BossHost) {
     if (!r || r.state === 'slain' || r.state === 'away') return;
     r.dmg[owner] = (r.dmg[owner] ?? 0) + d;
     r.last = owner;
+    r.hitAt = tick;
   };
 
   return {
@@ -701,6 +729,8 @@ export function createBosses(region: RegionData, host: BossHost) {
       });
     },
     hit,
+    /** A blow by a man of guardian run `i` landed on a foe. */
+    struck: (i: number) => void (runs[i] && (runs[i].hitAt = tick)),
     /**
      * M7f memory: guardian `id` lies slain (a fresh room of a region that remembers the kill): its men leave the field
      * unreported, no event, no loot; back in `left` ticks (while the region is unheld). Escaped: away likewise.

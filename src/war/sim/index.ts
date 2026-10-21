@@ -619,6 +619,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     },
     water: (x, y) => (x < 0 || y < 0 || x >= grid.w || y >= grid.h ? 0 : region.water[tileAt(grid, x, y)]),
     open: (x, y) => x >= 0 && y >= 0 && x < grid.w && y < grid.h && grid.cost[tileAt(grid, x, y)] > 0,
+    level: (x, y) => grid.height[tileAt(grid, Math.min(grid.w - 1, Math.max(0, x)), Math.min(grid.h - 1, Math.max(0, y)))],
     claimed: () => mobs.claimed(),
     gate: (id, alive) => (alive ? mobs.setBoss(id) : mobs.bossDown(id)),
     resetLandmark: () => (works.resetLandmark(), landmarks.reset()),
@@ -1501,6 +1502,7 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
       by.dealt += Math.min(d, t.hp);
       by.engaged = t.engaged = true;
       if (t.boss >= 0) bosses.hit(t.boss, by.squad.owner, Math.min(d, t.hp)); // M7d: the killers' list
+      if (by.boss >= 0) bosses.struck(by.boss);
     }
     t.hp -= d;
     if (t.hp > 0) return;
