@@ -18,10 +18,15 @@ export const COMBAT = {
   meleeDown: 0.25,
   meleeUp: 0.2,
   meleeMaxDiff: 2,
-  /** Missiles +12% damage and +0.8 tiles range per level above the target (4 levels count: war heights run 0..7). */
+  /**
+   * Missiles +12% damage and +0.8 tiles range per counted level above the target (W-51: heights run 0..15). The first
+   * missileFullDiff levels count whole, the next ones half, none past missileMaxDiff (see heightLevels): at most 6
+   * counted levels, x1.72 damage and +4.8 tiles.
+   */
   missileDown: 0.12,
   rangeDown: 0.8,
-  missileMaxDiff: 4,
+  missileFullDiff: 4,
+  missileMaxDiff: 8,
   /** Striking up at a higher man is slower. */
   uphillAtk: 1.2,
   /** Standing in a ford or marsh: own blows weaker and slower, own block halved. */
@@ -42,12 +47,24 @@ export function meleeHeight(dh: number): number {
   return d >= 0 ? 1 + COMBAT.meleeDown * d : 1 + COMBAT.meleeUp * d;
 }
 
-export function missileHeight(dh: number): number {
-  return 1 + COMBAT.missileDown * clamp(dh, 0, COMBAT.missileMaxDiff);
+/**
+ * Counted levels of a missile shot from dh levels above the target (W-51):
+ *   e(dh) = min(d, F) + (min(d, M) - min(d, F)) / 2,  d = max(0, dh),  F = missileFullDiff (4), M = missileMaxDiff (8),
+ * so 0..4 levels count whole, 5..8 half, more no further (e <= 6).
+ */
+export function heightLevels(dh: number): number {
+  const d = Math.max(0, dh), full = Math.min(d, COMBAT.missileFullDiff);
+  return full + (Math.min(d, COMBAT.missileMaxDiff) - full) / 2;
 }
 
+/** Missile damage multiplier from dh levels above the target: 1 + missileDown * e(dh). */
+export function missileHeight(dh: number): number {
+  return 1 + COMBAT.missileDown * heightLevels(dh);
+}
+
+/** Extra missile range (tiles) from dh levels above the target: rangeDown * e(dh). */
 export function heightRange(dh: number): number {
-  return COMBAT.rangeDown * clamp(dh, 0, COMBAT.missileMaxDiff);
+  return COMBAT.rangeDown * heightLevels(dh);
 }
 
 /** Damage after armour (src/sim/battle.ts applyDamage). */

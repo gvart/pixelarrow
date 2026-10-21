@@ -32,7 +32,7 @@ import { blob, curveField, fbm, nearestSample, noise, spline, type Pt, type Samp
 import { encodeBiomes, encodeVisual, KINDS, ZVIS } from '../../../src/war/regions/visual.ts';
 import { footprintTiles, OBJECT_BLOCKS } from '../../../src/war/region/objects.ts';
 import { columnSpans, massifBase, placeMassifs, type MassifPiece } from '../../../src/war/region/massifs.ts';
-import { encodeCells, encodeObjects } from '../../../src/war/region/compact.ts';
+import { encodeCells, encodeObjects, MAX_HEIGHT } from '../../../src/war/region/compact.ts';
 import type { BuildingType, GuardianEntry, MobKind, PrebuiltEntry } from '../../../src/war/types.ts';
 import { REGION_DEPTH } from '../../../src/war/sim/depth.ts';
 import { readImage } from '../../art/lib/png.mjs';
@@ -192,7 +192,7 @@ export class Kit {
       if (this.water[i] || this.terrain[i] === 'rock') return;
       const h = f(x, y, s);
       if (Number.isNaN(h)) return;
-      const v = Math.max(0, Math.min(7, Math.round(h)));
+      const v = Math.max(0, Math.min(MAX_HEIGHT, Math.round(h)));
       this.height[i] = set ? v : Math.max(this.height[i], v);
     });
   }
@@ -228,7 +228,10 @@ export class Kit {
     });
     return c;
   }
-  /** Mountain chain along pts: impassable rock (5 at the rim, 7 in the core) in a noisy band, foothills a level up round it. */
+  /**
+   * Mountain chain along pts: impassable rock (5 at the rim, 7 in the core, or 2 and 4 over ground already that high) in a
+   * noisy band, foothills a level up round it.
+   */
   mountains(pts: Pt[], o: { width?: number; wave?: number; spurs?: Blob[]; foot?: number } = {}) {
     const c = spline(pts), s = this.seed(), f = this.field(c, (o.width ?? 13) + 14);
     const spurSeed = this.seed();
@@ -248,7 +251,8 @@ export class Kit {
     if (e === -Infinity) return;
     if (e > this.rock[i]) this.rock[i] = e;
     if (e > 0) {
-      this.height[i] = e < 4 ? 5 : 7;
+      const v = e < 4 ? 5 : 7;
+      this.height[i] = this.terrain[i] === 'rock' || this.height[i] < v ? Math.max(this.height[i], v) : Math.min(MAX_HEIGHT, this.height[i] + v - 3);
       this.terrain[i] = 'rock';
       this.water[i] = 0;
     } else if (e > -5 && this.terrain[i] !== 'rock') this.height[i] = Math.max(this.height[i], foot ?? this.height[i] + 1);
@@ -381,7 +385,7 @@ export class Kit {
     this.each((i, x, y) => {
       if (f.d[i] < this.roadDist[i]) this.roadDist[i] = f.d[i];
       if (f.d[i] > w || this.inSite(x, y)) return; // a landmark lays its own streets
-      const h = Math.max(0, Math.min(7, Math.round(prof[near(i)] - 0.01)));
+      const h = Math.max(0, Math.min(MAX_HEIGHT, Math.round(prof[near(i)] - 0.01)));
       if (this.water[i] === 1) return; // a ford stays a sandy shallow
       if (this.water[i] === 2) {
         if (!bridgeS.some((s) => Math.abs(f.s[i] - s) <= span)) return;
