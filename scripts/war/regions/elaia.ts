@@ -15,7 +15,7 @@ const BAY: [number, number] = [68, 184];
 
 const def: RegionDef = {
   id: 'elaia',
-  style: { dry: 0.15 },
+  style: { dry: 0.15, trees: 0.6, bushes: 0.6 },
   build(k: Kit) {
     k.fill(1);
     k.zone('elaia', () => 99);
