@@ -4,10 +4,10 @@ export const SPOTS = {
   "entry_elaia-e": [256.5, 502.5],
   "entry_erymanthos": [256.5, 10.5],
   "entry_gorge": [502.5, 256.5],
-  "quarry": [236.5, 124.5],
-  "olives": [372.5, 172.5],
-  "fields": [372.5, 400.5],
-  "marble": [240.5, 124.5],
+  "quarry": [300.5, 128.5],
+  "olives": [396.5, 176.5],
+  "fields": [400.5, 408.5],
+  "marble": [304.5, 128.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":294.5,"y":318.5},{"x":87.5,"y":85.5},{"x":137.5,"y":409.5},{"x":393.5,"y":221.5},{"x":73.5,"y":61.5}] as const;
+export const CLAIM_POINTS = [{"x":303.5,"y":354.5},{"x":81.5,"y":75.5},{"x":107.5,"y":430.5},{"x":413.5,"y":225.5},{"x":69.5,"y":49.5}] as const;

@@ -93,6 +93,33 @@ const WET = new Set([KINDS.indexOf('shallow'), KINDS.indexOf('deep')]);
 /** Zoomed out (the baked levels) objects shorter than this (m) are left out, but crops (a sown plot reads as a field). */
 export const LOD_METRES = 2;
 
+/** W-52 relief light step (alpha per step of ArtBaker.shade). */
+const SHADE = 0.04;
+
+/**
+ * W-52 relief light per visual cell, so tiers read at every zoom: ground above the region's median level a little
+ * lighter, below it darker (about 4 % per 2 m tier), and the ground at the foot of a wall that faces away from the NW
+ * light (toward +x) in its shadow, deepest right under it, as far out as the wall is tall.
+ */
+export function reliefShade(iso: IsoMap): Int8Array {
+  const { fw, fh, fz } = iso, n = fw * fh, out = new Int8Array(n);
+  const hist = new Uint32Array(256);
+  for (let j = 0; j < n; j++) hist[Math.max(0, Math.min(255, Math.round(fz[j])))]++;
+  let med = 0;
+  for (let acc = 0; med < 255 && (acc += hist[med]) < n / 2; med++);
+  for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
+    const j = y * fw + x, z = fz[j];
+    let sh = 0;
+    for (let d = 1; d <= 24 && d <= x; d++) {
+      const rise = fz[j - d] - z - 0.5 * d; // the wall's top over the light's ray at this distance
+      if (rise > sh) sh = rise;
+    }
+    const v = Math.max(-0.2, Math.min(0.16, (z - med) * 0.005)) - Math.min(0.36, sh * 0.03);
+    out[j] = Math.round(v / SHADE);
+  }
+  return out;
+}
+
 export class ArtBaker {
   /** Per visual cell: atlas frame (sheet * 64 + mask * 4 + quadrant, or VARIANT + variant * 64 + frame * 4 + quadrant), -1 none. */
   private code: Int32Array;
@@ -110,6 +137,8 @@ export class ArtBaker {
   private tmp: HTMLCanvasElement | null = null;
   /** Canvas px per world px of the bake in progress (the tint's line width). */
   private scale = 1;
+  /** W-52 per visual cell: relief light in SHADE steps (negative: shadow; ./art.ts reliefShade). */
+  private shade: Int8Array;
 
   constructor(readonly r: RegionData, readonly iso: IsoMap, readonly art: WarArt, massifs: Massifs | null = null) {
     this.fine = buildFineArt(art);
@@ -121,6 +150,7 @@ export class ArtBaker {
     }
     this.code = this.fineCodes();
     this.corners = this.cornerValues();
+    this.shade = reliefShade(iso);
     this.zone = new Uint8Array(r.w * r.h);
     const mark = (b: { x: number; y: number; w: number; h: number }, k: number) => {
       for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) this.zone[y * r.w + x] = k;
@@ -331,11 +361,34 @@ export class ArtBaker {
           } else ctx.drawImage(fine.sheets[c >> 6], (c & 63) * 32, 0, 32, 32, tx, ty, 32, 32);
         }
       }
+      this.shadeRow(ctx, v, umin, umax, y0, h);
       if (objects && !split) drawObjects(v);
     }
     if (o.tint && o.map) o.map.drawTint(ctx, iso, o.tint, x0, y0, w, h, this.scale);
     if (split) for (let v = Math.max(0, vmin); v <= Math.min(fw + fh - 2, vmaxO); v++) drawObjects(v);
     if (o.zones || o.grid) this.lines(ctx, Math.floor(umin / 2) - 1, Math.ceil(umax / 2) + 1, Math.floor(vmin / 2) - 1, Math.ceil(vmax / 2) + 1, o);
+  }
+
+  /** W-52 the relief light over row v's cells (high ground lighter, the ground under a wall in its shadow), one fill per step. */
+  private shadeRow(ctx: CanvasRenderingContext2D, v: number, umin: number, umax: number, y0: number, h: number): void {
+    const { iso, shade, code } = this, { fw, fh, fz } = iso;
+    let u = Math.max(umin, -v, v - 2 * (fh - 1));
+    if ((u + v) & 1) u++;
+    const paths = new Map<number, Path2D>();
+    for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
+      const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i];
+      if (!s || code[i] < 0) continue;
+      const ty = Math.round(iso.OY + v * FH - fz[i] * LH);
+      if (ty > y0 + h || ty + 2 * FH < y0) continue;
+      const tx = iso.OX + u * FW - FW;
+      let p = paths.get(s);
+      if (!p) paths.set(s, (p = new Path2D()));
+      p.moveTo(tx + FW, ty); p.lineTo(tx + 2 * FW, ty + FH); p.lineTo(tx + FW, ty + 2 * FH); p.lineTo(tx, ty + FH); p.closePath();
+    }
+    for (const [s, p] of paths) {
+      ctx.fillStyle = s < 0 ? `rgba(24,18,12,${(-s * SHADE).toFixed(3)})` : `rgba(255,244,214,${(s * SHADE).toFixed(3)})`;
+      ctx.fill(p);
+    }
   }
 
   /** Zone borders and the tile grid over the art. */

@@ -435,6 +435,24 @@
    "source": "map_object e46652d4"
   },
   {
+   "id": "vines-x",
+   "kind": "crop",
+   "file": "vines-x.png",
+   "w": 126,
+   "h": 86,
+   "metres": 2.6,
+   "anchor": {
+    "x": 116,
+    "y": 85
+   },
+   "footprint": [
+    2,
+    1
+   ],
+   "blocksMovement": false,
+   "source": "map_object e46652d4 (mirrored: W-52 contour rows)"
+  },
+  {
    "id": "wheat",
    "kind": "crop",
    "file": "wheat.png",

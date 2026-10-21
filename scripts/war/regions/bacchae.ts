@@ -3,67 +3,68 @@
  * (S) in, Erymanthos Wood (N) and the Gorge (E) on toward Omphalos. Strategic purpose: a breadbasket (olives, food,
  * herbs) and a small marble quarry. Depth 2: the Maenad Queen (tier 1) and her thiasos, dancing in the cypress grove
  * round the ruined round temple; boars and bandits.
- * Layout (Gemini reference shots/war/regions/proto/bacchae.png): one great hill fills the north-west and falls to the
- * south-east in curving terraces behind retaining walls (h14 crown, h11, h8, h5 over the h2 plain: 3-level cliffs drawn as tall crags), vines in rows on them. The crown is the
- * sacred grove, dark cypresses round the ruined round temple. A white marble quarry is cut in steps into the hill's
- * east flank; olive rows and the press on the gentle east slope; flat ploughed fields along the stream that runs down
- * the east edge; the farm village with its well in the south-west. The two roads climb the terraces by ramps and cross
- * at the claim point on the lowest one.
+ * Layout (Gemini reference shots/war/regions/proto/bacchae.png; W-52 set pieces, ./setpieces.ts): one great stepped
+ * hill fills the north-west half of the map and falls to the south-east in five curving terraces behind retaining walls
+ * (h5 to the h14 crown over the h2 plain), vines in rows along every terrace's contour. The crown is the sacred grove,
+ * dark cypresses round the ruined round temple. A deep white marble quarry is cut in benches into the hill's east
+ * flank; olive rows on its gentle east foot; the ploughed fields fill the plain along the stream that runs down the
+ * east edge; the farm village with its well in the south-west. The two roads climb the terraces by cut ramps and cross
+ * at the claim point at the hill's foot.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
+import { massif, pit, terraceRows } from './setpieces.ts';
 import { pocketBoss } from './tiers.ts';
-
-/** The terrace at a unit point: distance from the hill's crown, the steps wandering. */
-const tier = (x: number, y: number) => {
-  const d = Math.hypot(x - 44, y - 44) + 7 * Math.sin(Math.atan2(y - 44, x - 44) * 5) + 4 * Math.sin(x / 13 + y / 17);
-  return d < 34 ? 14 : d < 66 ? 11 : d < 100 ? 8 : d < 140 ? 5 : 2;
-};
 
 const def: RegionDef = {
   id: 'bacchae',
-  style: { dry: 0.2, trees: 0.15, bushes: 0.3 },
+  style: { dry: 0.2, trees: 0.05, bushes: 0.08 },
   build(k: Kit) {
     const W = k.entry('elaia-n'), S = k.entry('elaia-e'), N = k.entry('erymanthos'), E = k.entry('gorge');
     k.fill(2);
     k.zone('elaia', () => 99);
-    k.lift(tier, true);
-    // the quarry stepped into the east flank, the stream down the east edge
-    k.quarry([118, 62], 11, 3);
-    k.river([[214, -6], [224, 60], [230, 120], [214, 180], [232, 230], [262, 250]], { half: 1.4, deep: false, bed: 1, bank: 2 });
-    // roads: both climb the terraces by ramps, crossing at the claim point; the path up to the grove; the quarry road
-    const hub: Pt = [146, 158];
-    k.road([W, [30, 132], [70, 150], [110, 156], hub, [190, 144], [226, 130], E], { w: 1.3, grade: 2.2, fill: true });
-    k.road([N, [130, 30], [134, 80], [140, 120], hub, [136, 200], [130, 236], S], { w: 1.3, grade: 2.2, fill: true });
-    k.road([[134, 80], [100, 70], [76, 60], [56, 52]], { w: 1, grade: 1.4, fill: true });
-    k.road([[134, 80], [126, 70], [120, 64]], { w: 1, grade: 1.4, fill: true });
-    // the vines on the terraces, olives on the east slope, the grove's cypress ring
-    k.rows(['elaia/vines'], [70, 110, 30, 12, -0.7], { dx: 2, dy: 3 });
-    k.rows(['elaia/vines'], [30, 100, 14, 14, 0], { dx: 2, dy: 3 });
-    k.rows(['elaia/vines'], [100, 30, 12, 16, 0.4], { dx: 2, dy: 3 });
-    k.rows(['elaia/olive-orchard', 'elaia/olive-tall', 'elaia/olive-ancient'], [186, 86, 22, 18, 0.3], { dx: 3, dy: 3 });
-    k.spot('olives', [186, 86]);
-    for (let a = 0; a < 8; a++) { const t = (a / 8) * Math.PI * 2; k.forest([44 + Math.cos(t) * 20, 44 + Math.sin(t) * 18, 6, 4, t]); }
-    k.forest([200, 30, 14, 10, 0.3], [30, 236, 16, 10, 0], [236, 70, 6, 14, 0]);
-    // the fields by the stream, herbs and hives
-    k.fields([110, 214, 18, 12, 0.6], 0.6);
-    k.fields([186, 200, 26, 16, 0.6], 0.6);
-    k.resource('food', [192, 200], 5, 14);
-    k.piece('elaia/herbs', [170, 220], { r: 8, n: 2 });
-    k.piece('elaia/beehives', [96, 214], { r: 8, n: 2 });
+    // the hill: its foot sweeps from the north-east edge round to the west edge, the crown in the north-west
+    const hill = massif(k, {
+      outline: [[-12, -12], [176, -12], [196, 40], [184, 96], [150, 140], [100, 168], [46, 184], [-12, 176]],
+      crown: [[20, 18], [58, 14], [64, 40], [40, 56], [16, 48]],
+      base: 2, tiers: 5, steps: [3, 2, 2, 2, 3], wobble: 0.22,
+    });
+    // the quarry cut into the east flank in benches; the stream down the east edge
+    pit(k, [150, 64], { r: 20, ry: 15, rot: 0.5, depth: 6, benches: 3, marble: true });
+    k.river([[214, -6], [226, 60], [234, 120], [222, 180], [236, 230], [262, 250]], { half: 1.6, deep: false, bed: 1, bank: 2 });
+    // roads: both climb the terraces by ramps and cross at the claim point at the foot; the path up to the grove; the quarry road
+    const hub: Pt = [150, 176];
+    k.road([W, [40, 150], [90, 178], hub, [196, 160], [228, 132], E], { w: 1.3, grade: 2.2 });
+    k.road([N, [120, 20], [122, 70], [132, 120], hub, [150, 216], [140, 240], S], { w: 1.3, grade: 2.2 });
+    k.road([[122, 70], [100, 56], [78, 46], [52, 40]], { w: 1, grade: 1.6 });
+    k.road([[132, 120], [146, 92], [150, 74], [151, 64]], { w: 1.2, grade: 1.4 });
+    // vines along the terraces' contours (not on the quarry's rim or the crown), olives on the east foot
+    terraceRows(k, hill, { tiers: [1, 2, 3, 4], every: 1.6, margin: 1.4, soil: 'dirt', where: (x, y) => Math.hypot((x - 150) / 26, (y - 64) / 21) > 1 && x + y < 240 });
+    k.rows(['elaia/olive-orchard', 'elaia/olive-tall', 'elaia/olive-ancient'], [198, 88, 18, 22, 0.2], { dx: 3, dy: 3 });
+    k.spot('olives', [198, 88]);
+    // the grove: a ring of cypresses round the temple on the crown; small woods on the field edges
+    k.forest([40, 34, 30, 24, 0.3]);
+    k.paint('grass', [42, 36, 9, 8, 0], { on: ['forest'] });
+    k.forest([246, 20, 10, 12, 0.3], [14, 236, 12, 8, 0], [110, 246, 14, 5, 0]);
+    // the fields fill the plain by the stream, herbs and hives by the village
+    k.fields([100, 214, 26, 14, 0.5], 0.6);
+    k.fields([200, 204, 26, 22, 0.6], 0.6, { plot: 14, wide: 9 });
+    k.resource('food', [204, 200], 5, 14);
+    k.piece('elaia/herbs', [86, 236], { r: 8, n: 2 });
+    k.piece('elaia/beehives', [36, 210], { r: 8, n: 2 });
     // marble in the quarry
-    k.resource('marble', [120, 62], 3, 5);
-    k.spot('marble', [120, 62]);
+    k.resource('marble', [152, 64], 3, 5);
+    k.spot('marble', [152, 64]);
     // the ruined round temple on the crown, the village, the olive press
-    k.scatterTown(['elaia/town-temple'], [44, 44], { n: 1, r1: 10, gap: 3 });
-    k.piece('elaia/shrine', [52, 40], { r: 6 });
-    k.village([66, 204], 6);
-    k.outskirts([196, 110], 2, 6, 24, ['olive-press', 'farm']);
+    k.scatterTown(['elaia/town-temple'], [42, 36], { n: 1, r1: 10, gap: 3 });
+    k.piece('elaia/shrine', [52, 30], { r: 6 });
+    k.village([54, 216], 7);
+    k.outskirts([206, 112], 2, 6, 24, ['olive-press', 'farm']);
     // the Maenad Queen in the grove; bandits by the quarry, boars in the vines and woods
-    pocketBoss(k, 'maenad_queen', [36, 30], 5);
-    k.lair('bandit', [126, 74], { as: 'bandits' });
-    k.lair('bandit', [204, 30], { as: 'bandits' });
-    k.lair('boar', [70, 110], { as: 'boars' });
-    k.lair('boar', [34, 232], { as: 'boars' });
+    pocketBoss(k, 'maenad_queen', [34, 24], 5);
+    k.lair('bandit', [160, 84], { as: 'bandits' });
+    k.lair('bandit', [236, 24], { as: 'bandits' });
+    k.lair('boar', [80, 120], { as: 'boars' });
+    k.lair('boar', [18, 232], { as: 'boars' });
     k.claim(hub, 180);
   },
 };

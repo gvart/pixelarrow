@@ -29,7 +29,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { blob, curveField, fbm, nearestSample, noise, spline, type Pt, type Sample } from '../shapes.ts';
-import { encodeBiomes, encodeVisual, KINDS, ZVIS } from '../../../src/war/regions/visual.ts';
+import { encodeBiomes, encodeVisual, KINDS, RELIEF, ZVIS } from '../../../src/war/regions/visual.ts';
 import { footprintTiles, OBJECT_BLOCKS } from '../../../src/war/region/objects.ts';
 import { columnSpans, massifBase, placeMassifs, type MassifPiece } from '../../../src/war/region/massifs.ts';
 import { encodeCells, encodeObjects, MAX_HEIGHT } from '../../../src/war/region/compact.ts';
@@ -96,7 +96,7 @@ export const pt = (p: { x: number; y: number }): Pt => [p.x, p.y];
 interface Lair { kind: MobKind; x: number; y: number; count?: number; as?: string; captain?: boolean }
 interface Req { kind: 'piece'; id: string; at: Pt; r: number; onRock: boolean; n: number; gap: number }
 /** where: only at these unit points; packed: plants touch (a sown plot: no clear ring, no road gap). */
-interface RowsReq { kind: 'rows'; ids: string[]; b: Blob; dx: number; dy: number; seed: number; on: Kind[]; where?: (x: number, y: number) => boolean; packed?: boolean }
+interface RowsReq { kind: 'rows'; ids: string[]; b: Blob; dx: number; dy: number; seed: number; on: Kind[]; where?: (x: number, y: number) => boolean; packed?: boolean; idAt?: (x: number, y: number) => string; anyGround?: boolean }
 interface LairReq { kind: MobKind; at: Pt; count?: number; as?: string; captain?: boolean }
 interface River { c: Sample[]; half: number; narrows: { s: number; half: number }[] }
 
@@ -117,7 +117,7 @@ export class Kit {
   readonly reqs: (Req | RowsReq)[] = [];
   readonly lairReqs: LairReq[] = [];
   readonly claimReqs: { at: Pt; r: number; lairs?: number[] }[] = [];
-  readonly patches: { biome: BiomeName; kind: Kind; b: Blob; seed: number; on: string[]; maxH?: number; minH?: number }[] = [];
+  readonly patches: { biome: BiomeName; kind: Kind; b: Blob; seed: number; on: string[]; maxH?: number; minH?: number; where?: (x: number, y: number) => boolean }[] = [];
   readonly oases: Pt[] = [];
   readonly rivers: River[] = [];
   readonly roads: Sample[][] = [];
@@ -478,6 +478,8 @@ export class Kit {
   }
   /** A biome terrain over a blob, drawn where the tile is of that biome and its sim terrain is in `on` (default grass). */
   patch(biome: BiomeName, kind: Kind, b: Blob, on: string[] = ['grass'], maxH?: number, minH?: number) { this.patches.push({ biome, kind, b, seed: this.seed(), on, maxH, minH }); }
+  /** A biome terrain wherever `where` holds (unit point), over `on` terrains (setpieces.ts terraceRows: the vineyard soil). */
+  patchWhere(biome: BiomeName, kind: Kind, where: (x: number, y: number) => boolean, on: string[] = ['grass']) { this.patches.push({ biome, kind, b: [0, 0, 0, 0], seed: this.seed(), on, where }); }
   /** A Kyrene oasis: a shallow spring pool with oasis ground round it (palms, reeds, the spring and a well come with it). */
   oasis(p: Pt, r = 1.8) {
     const s = this.seed();
@@ -499,6 +501,10 @@ export class Kit {
   /** Rows of plants (vines, olive rows) every dx x dy tiles inside a blob, on open ground of the given visual kinds. */
   rows(ids: string[], b: Blob, o: { dx?: number; dy?: number; on?: Kind[] } = {}) {
     this.reqs.push({ kind: 'rows', ids, b, dx: o.dx ?? 3, dy: o.dy ?? 2, seed: this.seed(), on: o.on ?? ['grass', 'dry', 'rossa', 'grove'] });
+  }
+  /** W-52 plants packed on the dirt where `where` holds (unit points) anywhere on the map, every `gap` tiles, each `idAt` (setpieces.ts terraceRows). */
+  rowsAt(idAt: (x: number, y: number) => string, where: (x: number, y: number) => boolean, on: Kind[], gap = 1) {
+    this.reqs.push({ kind: 'rows', ids: [], idAt, b: [U / 2, U / 2, U * 0.75, U * 0.75, 0], dx: gap, dy: gap, seed: this.seed(), on, where, packed: true, anyGround: true });
   }
   /** Resource nodes of a kind (tin, iron, copper, marble, stone, food, dates) round a point. */
   resource(kind: keyof typeof NODE_IDS, at: Pt, n = 3, r = 14) {
@@ -1247,62 +1253,43 @@ interface Out { kind: Uint8Array; z: Uint8Array }
 
 /** Biome libraries with a paving set (scripts/war/art/biomes/*.mjs grass- or sand-paving); elsewhere paved streets draw as roads. */
 const PAVED = new Set<string>(['kyrene', 'elaia', 'mountains']);
-/** Visual levels per sim level (visualLayer). */
-export const RELIEF = 2;
-/** Extra visual levels a cliff tier (a step of 2+ sim levels) is drawn taller, and the most tiers that stack (craggy). */
-export const CRAG = 6, CRAG_TIERS = 4, EASE = 3;
-
 /**
- * The crags' extra height per fine cell (`ex`): every cliff tier the ground has climbed (a step of 2+ sim levels, counted
- * up from the lowest ground, a plateau taking its highest count) adds CRAG visual levels, so terraces, bluffs and quarry
- * cuts stand as tall faces like the landmarks' (W-48 Site.lift). Walkable steps (one level or none) never jump: across
- * them the extra changes at most a level per EASE cells, so a plateau that a slope or a road also climbs tilts down to
- * that side (the cliff dwindling into a ramp). Landmark sites (soft 0, not rock) keep their own relief: extra 0.
+ * W-52 walkable steps (a sim level or none between ground cells) drawn as slopes: the visual levels eased so that no two
+ * such neighbours differ by more than a level (the mean of the lowest and highest 1-Lipschitz fields through the
+ * targets, so the slope straddles the step). Cliffs (2+ sim levels), water, rock and the cells `hard` marks stay as set.
  */
-function craggy(k: Kit, soft: Uint8Array, crag: Uint8Array, ex: Uint8Array): void {
-  const { W, N, height, terrain } = k;
-  const fixed = (i: number) => !soft[i] && (terrain[i] !== 'rock' || crag[i] === 1);
-  const c = new Uint8Array(N), seen = new Uint8Array(N), byH: number[][] = [];
-  for (let i = 0; i < N; i++) (byH[height[i]] ??= []).push(i);
-  const nb = (i: number, f: (j: number) => void) => {
-    const x = i % W;
-    if (x > 0) f(i - 1);
-    if (x < W - 1) f(i + 1);
-    if (i >= W) f(i - W);
-    if (i + W < N) f(i + W);
-  };
-  const sinks: number[][] = [];
-  for (const cells of byH) if (cells) for (const s of cells) {
-    if (seen[s]) continue;
-    // the same-height component of s: its count is the highest over its lower rims
-    const comp = [s];
-    seen[s] = 1;
-    let best = 0, lower = false;
-    for (let q = 0; q < comp.length; q++) {
-      const i = comp[q], h = height[i];
-      nb(i, (j) => {
-        if (height[j] === h) { if (!seen[j]) { seen[j] = 1; comp.push(j); } }
-        else if (height[j] < h) { lower = true; best = Math.max(best, Math.min(CRAG_TIERS, c[j] + (h - height[j] >= 2 && !fixed(j) ? 1 : 0))); }
-      });
+function ease(k: Kit, zv: Uint8Array, hard: (i: number) => boolean): void {
+  const { W, N, height } = k;
+  const lo = new Float32Array(N), hi = new Float32Array(N);
+  for (let i = 0; i < N; i++) lo[i] = hi[i] = zv[i];
+  const link = (i: number, j: number) => !hard(j) && Math.abs(height[i] - height[j]) <= 1;
+  // raster sweeps both ways, a few rounds (the links bend round cliffs)
+  for (let round = 0; round < 3; round++) {
+    let changed = false;
+    for (const dir of [1, -1]) {
+      for (let n = 0; n < N; n++) {
+        const i = dir > 0 ? n : N - 1 - n;
+        if (hard(i)) continue;
+        const x = i % W;
+        let a = lo[i], b = hi[i];
+        const nb = (j: number, c: number) => {
+          if (!link(i, j)) return;
+          if (lo[j] + c < a) a = lo[j] + c;
+          if (hi[j] - c > b) b = hi[j] - c;
+        };
+        if (dir > 0) {
+          if (x > 0) nb(i - 1, 1);
+          if (i >= W) nb(i - W, 1);
+        } else {
+          if (x < W - 1) nb(i + 1, 1);
+          if (i + W < N) nb(i + W, 1);
+        }
+        if (a < lo[i] || b > hi[i]) { lo[i] = a; hi[i] = b; changed = true; }
+      }
     }
-    for (const i of comp) c[i] = fixed(i) ? 0 : best;
-    if (!lower) sinks.push(comp);
+    if (!changed) break;
   }
-  // a hollow with no lower rim (a quarry pit, a crater, a lake) sits a tier under the ground round it, not at the bottom
-  for (const comp of sinks) {
-    let best = 0;
-    for (const i of comp) nb(i, (j) => { if (height[j] > height[i]) best = Math.max(best, c[j] - (height[j] - height[i] >= 2 ? 1 : 0)); });
-    for (const i of comp) if (!fixed(i)) c[i] = best;
-  }
-  // in 1/EASE levels, eased across walkable steps by one per cell (a bucket queue from the low values up)
-  const e2 = new Uint8Array(N), top = EASE * CRAG * CRAG_TIERS, buckets: number[][] = Array.from({ length: top + 2 }, () => []);
-  for (let i = 0; i < N; i++) { e2[i] = EASE * CRAG * c[i]; buckets[e2[i]].push(i); }
-  for (let v = 0; v <= top; v++) for (const i of buckets[v]) {
-    if (e2[i] !== v) continue;
-    const h = height[i];
-    nb(i, (j) => { if (Math.abs(height[j] - h) <= 1 && e2[j] > v + 1) { e2[j] = v + 1; buckets[v + 1].push(j); } });
-  }
-  for (let i = 0; i < N; i++) ex[i] = Math.floor(e2[i] / EASE);
+  for (let i = 0; i < N; i++) if (!hard(i)) zv[i] = Math.round((lo[i] + hi[i]) / 2);
 }
 /** The visual layer of a fine (1 m) run. */
 function visualLayer(k: Kit): Out {
@@ -1310,14 +1297,13 @@ function visualLayer(k: Kit): Out {
   const SLOPE = 6, STEP = 3, PEAK_LO = 18, PEAK_HI = 44, SNOW_Z = 33;
   const ridged = (x: number, y: number, scale: number, seed: number) => 1 - Math.abs(noise(x / scale, y / scale, seed));
   const kind = new Uint8Array(N), zv = new Uint8Array(N);
-  // every sim level is drawn RELIEF visual levels tall (1 m next to the 33 px/m buildings), so terraces, banks and
-  // cliffs read as metres everywhere, not only on landmarks; a one-level step is a soft bank (its upper edge cells a
-  // visual level down), two or more a cliff face. W-48 landmark relief on top: a site's levels drawn `lift` times as
-  // tall above its base (the base at RELIEF * base, as the land round it), ramps by their smooth slope (Site.vz)
+  // W-52 every sim level is drawn RELIEF visual levels tall (2 m next to the 33 px/m buildings), so terraces, banks and
+  // cliffs read as metres everywhere; a one-level step is eased into a slope (ease), two or more a cliff face. W-48
+  // landmark relief on top: a site's levels drawn as its own `levels` or `lift` above its base (the base at RELIEF *
+  // base, as the land round it), never lower than RELIEF levels per sim level; ramps by their smooth slope (Site.vz)
   const lifted = k.sites.filter((s) => s.lift > 1), crag = new Uint8Array(N), soft = new Uint8Array(N);
   // mountain rock: its rim at RELIEF * (h - 1) (level with the foothills), the peaks over it; snow by the peak's own rise
-  const ex = new Uint8Array(N); // the crags' extra height (craggy)
-  const rimOf = (i: number) => RELIEF * Math.max(0, height[i] - 1) + ex[i];
+  const rimOf = (i: number) => RELIEF * Math.max(0, height[i] - 1);
   const rise = new Uint8Array(N);
   k.each((i, x, y) => {
     let z = RELIEF * height[i];
@@ -1336,7 +1322,7 @@ function visualLayer(k: Kit): Out {
         if (tx < s.x0 - pd || ty < s.y0 - pd || tx >= s.x0 + s.w + pd || ty >= s.y0 + s.h + pd || height[i] <= s.base) continue;
         if (s.liftOnly && !s.liftOnly(tx - s.x0, ty - s.y0)) continue;
         const hv = s.vz.get((ty - s.y0) * 4096 + tx - s.x0) ?? height[i];
-        z = Math.min(ZVIS, Math.round(s.vis(hv, terrain[i] === 'road') + (RELIEF - 1) * s.base));
+        z = Math.min(ZVIS, Math.max(Math.round(RELIEF * hv), Math.round(s.vis(hv, terrain[i] === 'road') + (RELIEF - 1) * s.base)));
         soft[i] = 0;
       }
     }
@@ -1349,15 +1335,8 @@ function visualLayer(k: Kit): Out {
     }
     zv[i] = z;
   });
-  // soft banks: a ground cell next to ground one sim level lower is drawn a visual level down
-  for (let i = 0; i < N; i++) {
-    if (!soft[i] || terrain[i] === 'rock') continue;
-    const x = i % W, h1 = height[i] - 1;
-    const low = (j: number) => height[j] === h1 && terrain[j] !== 'rock';
-    if ((x > 0 && low(i - 1)) || (x < W - 1 && low(i + 1)) || (i >= W && low(i - W)) || (i + W < N && low(i + W))) zv[i] -= 1;
-  }
-  craggy(k, soft, crag, ex);
-  for (let i = 0; i < N; i++) if (ex[i]) zv[i] = Math.min(ZVIS, zv[i] + ex[i]);
+  // walkable steps eased into slopes (W-52), cliffs stay sheer
+  ease(k, zv, (i) => !soft[i] || water[i] > 0 || terrain[i] === 'rock');
   // keep the roads in sight: rock in front of a road (toward the viewer, +x +y) rises at most half a level per cell
   const lim = new Float32Array(N).fill(Infinity);
   for (let v = 0; v < W + H - 1; v++) for (let x = Math.max(0, v - H + 1); x <= Math.min(W - 1, v); x++) {
@@ -1386,7 +1365,7 @@ function visualLayer(k: Kit): Out {
     let out = t0 as Kind;
     const b = BIOMES[biome[i]];
     if (b !== 'global' && b !== 'dodona' && bDepth[i] >= 2 && !water[i]) {
-      const p = k.patches.find((q) => q.biome === b && q.on.includes(t0) && (q.maxH === undefined || height[i] <= q.maxH) && (q.minH === undefined || height[i] >= q.minH) && inBlob(x, y, q.b, q.seed));
+      const p = k.patches.find((q) => q.biome === b && q.on.includes(t0) && (q.maxH === undefined || height[i] <= q.maxH) && (q.minH === undefined || height[i] >= q.minH) && (q.where ? q.where(x, y) : inBlob(x, y, q.b, q.seed)));
       if (p) out = p.kind;
       else if (b === 'mountains') {
         if (t0 === 'grass' || t0 === 'forest' || t0 === 'dirt') {
@@ -1806,13 +1785,13 @@ export function build(def: RegionDef): Built {
         if (x % r.dx || y % r.dy) continue;
         const i = at(x, y);
         if (i < 0 || water[i] || terrain[i] === 'road' || terrain[i] === 'rock' || spotTiles.has(i) || taken.has(i)) continue;
-        if (r.where ? !r.where(k.toUnit(x), k.toUnit(y)) || terrain[i] !== 'dirt' : blob(k.toUnit(x), k.toUnit(y), cx, cy, rx, ry, rot ?? 0, 1.5, r.seed) <= 0) continue;
+        if (r.where ? !r.where(k.toUnit(x), k.toUnit(y)) || (!r.anyGround && terrain[i] !== 'dirt') : blob(k.toUnit(x), k.toUnit(y), cx, cy, rx, ry, rot ?? 0, 1.5, r.seed) <= 0) continue;
         if (!r.on.includes(kindAt(x + 0.5, y + 0.5))) continue;
         if (r.packed) { taken.add(i); clear(x, y, x + 1, y + 1); } else {
           if (ring(x, y, (j) => terrain[j] === 'road' || water[j] > 0)) continue;
           clear(x - 1, y - 1, x + 2, y + 2);
         }
-        pinned.add(objects[objects.push({ id: pick(r.ids, hsh(x, y, r.seed)), x: r1(x + 0.4 + 0.2 * hsh(x, y, 10)), y: y + 0.5 }) - 1]);
+        pinned.add(objects[objects.push({ id: r.idAt ? r.idAt(k.toUnit(x), k.toUnit(y)) : pick(r.ids, hsh(x, y, r.seed)), x: r1(x + 0.4 + 0.2 * hsh(x, y, 10)), y: y + 0.5 }) - 1]);
       }
     }
   }
