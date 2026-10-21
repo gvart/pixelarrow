@@ -1,0 +1,40 @@
+src/war/regions/krios.json
+  s_cfc22b058125c4::t_b402e7e24c0512 1
+public/war/landmarks/landmarks.json
+  s_cfc22b058125c4::t_e095e0d562f252 1996,2016,2036,2056,2076,2096,2116,2136
+src/war/regions/ammon.spots.ts
+  s_cfc22b058125c4::t_0dbde8c23017cf 18
+scripts/war/regions/landmarks.ts
+  s_cfc22b058125c4::t_6be5665a1257b5 195
+  s_cfc22b058125c4::t_86b2ac4b8389e9 162
+  s_cfc22b058125c4::t_fab1bc1a06314a 236,238-239
+  s_cfc22b058125c4::t_4d1fe3e99ee88e 192,234-235,237
+  s_cfc22b058125c4::t_0236e38479d5b0 282
+  s_cfc22b058125c4::t_5e58da98cfc93a 193
+  s_cfc22b058125c4::t_05fc95c07c7f01 196
+  s_cfc22b058125c4::t_b402e7e24c0512 194
+  s_cfc22b058125c4::t_9f9768fdb64eed 170-171
+  s_cfc22b058125c4::t_0dbde8c23017cf 357-359,367
+  s_cfc22b058125c4::t_3ba17460ebb0ad 11,168-169
+  s_cfc22b058125c4::t_340d0a3259a720 278-281,356,360,366,368-379
+scripts/war/art/landmarks-pl.mjs
+  s_cfc22b058125c4::t_ff99f5d6febc6d 81-88
+src/war/regions/ammon.json
+  s_cfc22b058125c4::t_0dbde8c23017cf 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "4f6a964c9125f4f2e2a75f317f18d6e529db9ee8",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
