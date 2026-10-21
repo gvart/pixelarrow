@@ -19,7 +19,7 @@ const bx = (y: number) => 176 - 0.42 * y + 8 * Math.sin(y / 19);
 
 const def: RegionDef = {
   id: 'moors',
-  style: { meadow: 0.5, trees: 0.25, bushes: 0.6 },
+  style: { meadow: 0.5, trees: 0.08, bushes: 0.4 },
   build(k: Kit) {
     const N = k.entry('dodona-e'), W = k.entry('dodona-s'), E = k.entry('saddle'), S = k.entry('erymanthos');
     k.fill(4);
@@ -36,7 +36,7 @@ const def: RegionDef = {
     k.plateau([196, 150, 15, 14, 0.2], 9, { rough: 1.2 });
     k.spot('fortress', [196, 150]);
     // granite stacks on the tors' shoulders (rock)
-    for (const b of [[72, 40, 4, 3, 0.4], [40, 66, 4, 4, 0], [214, 136, 4, 3, 0.2], [180, 166, 3, 3, 0], [62, 202, 3, 3, 0]] as const) k.rockMass([...b], { rough: 0.8, foot: 7 });
+    for (const b of [[72, 40, 4, 3, 0.4], [40, 66, 4, 4, 0], [44, 44, 3, 3, 0], [70, 64, 3, 2, 0.3], [214, 136, 4, 3, 0.2], [180, 166, 3, 3, 0], [210, 164, 3, 3, 0], [62, 202, 3, 3, 0], [44, 184, 3, 2, 0]] as const) k.rockMass([...b], { rough: 0.8, foot: 7 });
     k.patch('mountains', 'gravel', [56, 52, 14, 12, 0.2], ['dirt', 'grass'], undefined, 10);
     // the bog: marsh with black pools along its line, a spring stream out of it
     for (let y = -10; y <= 266; y += 22) k.paint('marsh', [bx(y), y, 16, 14, 0.6], { on: ['grass', 'dirt'], rough: 5 });
