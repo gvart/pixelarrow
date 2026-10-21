@@ -5,6 +5,8 @@ import { buildGrid, canEnter, findPath } from '../../src/war/sim/grid';
 import { COMBAT, heightLevels, heightRange, meleeHeight, missileHeight } from '../../src/war/sim/combat';
 import { createSim } from '../../src/war/sim';
 import type { RegionData } from '../../src/war/types';
+import { IsoMap } from '../../src/war/view/iso';
+import { encodeVisual, KINDS } from '../../src/war/regions/visual';
 
 /** Flat grass w x h at height `base`; `shape` edits it. */
 function region(shape: (r: RegionData, i: (x: number, y: number) => number) => void = () => {}, w = 80, h = 40, base = 1): RegionData {
@@ -73,5 +75,16 @@ describe('height 0..15 (W-51)', () => {
       return JSON.stringify(sim.snapshot().units.map((u) => [u.x, u.y, u.hp, u.state]));
     };
     expect(play()).toBe(play());
+  });
+
+  it('units stand on a landmark tier drawn taller than its sim level', () => {
+    // sim: ground 1, a tier at 5 on x >= 10; visual: the tier drawn at 1 + (5 - 1) * 2 = 9 (Site.lift 2)
+    const r = region((r, i) => { for (let y = 0; y < 20; y++) for (let x = 10; x < 20; x++) r.height[i(x, y)] = 5; }, 20, 20);
+    const fw = 40, kind = new Uint8Array(fw * fw).fill(KINDS.indexOf('grass')), z = new Uint8Array(fw * fw);
+    for (let j = 0; j < z.length; j++) z[j] = j % fw >= 20 ? 9 : 1;
+    const iso = new IsoMap({ ...r, visual: { scale: 2, rle: encodeVisual(kind, z) } });
+    expect(iso.zDraw(15.5, 10.5)).toBe(9); // on the drawn tier, not 4 levels under it
+    expect(iso.zDraw(4.5, 10.5)).toBe(1);
+    expect(new IsoMap(r).zDraw(15.5, 10.5)).toBe(5); // no visual layer: the sim level
   });
 });

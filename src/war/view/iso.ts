@@ -93,6 +93,12 @@ export class IsoMap {
   readonly h: number;
   /** Surface level per tile (sim heights, water flush with its banks). */
   readonly z: Float32Array;
+  /**
+   * Per tile, the level units on it are drawn about: its surface level, or the lowest of its four visual cells when all of
+   * them stand 2+ levels above it (a landmark's relief drawn taller than the sim's levels, scripts/war/regions/kit.ts
+   * Site.lift).
+   */
+  readonly zu: Float32Array;
   /** The visual cells: 2w x 2h, kind (KINDS index) and surface level. */
   readonly fw: number;
   readonly fh: number;
@@ -145,6 +151,11 @@ export class IsoMap {
         if ((kind[j] === GRASS || kind[j] === MEADOW) && scree[((j / fw / 2) | 0) * r.w + ((j % fw) >> 1)]) kind[j] = SCREE;
       }
     }
+    this.zu = this.z.slice();
+    for (let i = 0; i < this.zu.length; i++) {
+      const j = 2 * ((i / r.w) | 0) * fw + 2 * (i % r.w), lo = Math.min(this.fz[j], this.fz[j + 1], this.fz[j + fw], this.fz[j + fw + 1]);
+      if (lo >= this.zu[i] + 2) this.zu[i] = lo;
+    }
     let top = 0;
     for (let j = 0; j < n; j++) if (this.fz[j] > top) top = this.fz[j];
     this.top = top;
@@ -172,11 +183,11 @@ export class IsoMap {
    * Level a unit is drawn at: its cell's level, eased toward a neighbour one level up or down (a
    * walkable step) over the half cell next to the shared edge, so a man walking a slope rises
    * smoothly and meets the neighbour's value halfway up the riser. Cliffs and water stay hard. Kept
-   * within a level of the tile's sim height (the cells follow finer curves than the sim).
+   * within a level of the tile's sim height (the cells follow finer curves than the sim), or of its drawn relief (zu).
    */
   zDraw(x: number, y: number): number {
     const X = 2 * x, Y = 2 * y, cx = Math.floor(X), cy = Math.floor(Y), z = this.zf(cx, cy);
-    const zs = this.zt(Math.floor(x), Math.floor(y));
+    const tx = Math.floor(x), ty = Math.floor(y), zs = tx < 0 || ty < 0 || tx >= this.w || ty >= this.h ? ZBASE : this.zu[ty * this.w + tx];
     if (cx < 0 || cy < 0 || cx >= this.fw || cy >= this.fh) return z;
     const fx = X - cx - 0.5, fy = Y - cy - 0.5;
     const ease = (nx: number, ny: number, f: number) => {

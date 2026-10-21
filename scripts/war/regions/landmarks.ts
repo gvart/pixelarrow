@@ -19,6 +19,13 @@ const AMM: WallSet = { wall: 'ammon-wall', tower: 'ammon-tower', gate: 'ammon-ga
 const CYC: WallSet = { wall: 'cyclops-wall', tower: 'cyclops-tower', gate: 'cyclops-gatehouse' };
 const OBS: WallSet = { wall: 'obsidian-wall', tower: 'obsidian-tower', gate: 'obsidian-gate' };
 
+/**
+ * W-51: levels between a landmark's terraces (heights run 0..15). The Dead City's are real tiers of 4 (sight, missile
+ * range and damage, a 4 m cliff), drawn as tall as the old 2-level tiers at 4x relief (Site.lift = 8 / tier; ramps a
+ * level per run / tier tiles, so they keep their length and look). The citadel keeps 2: Drakon's raid is balanced on it
+ * (tests/war/landmarkBalance.test.ts; at 3 or 4 a 4-squad raid no longer brings him down in 20 min).
+ */
+const CITADEL_TIER = 2, DEAD_CITY_TIER = 4;
 const hash = (x: number, y: number, k: number) => {
   let n = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(k, 1274126177);
   n = Math.imul(n ^ (n >>> 13), 1274126177);
@@ -139,16 +146,16 @@ function lanes(s: Site, from: Sample[][], n: number, w: number, ok: (x: number, 
  * shots/war/landmarks/proto/citadel/citadel_1.png): the crag rises two levels on cliffs out of the ice; the outer curtain
  * traces its edge with towers at every turn, the main gate and barbican on the south face at the head of the switchback
  * road that zigzags down the crag to the ruined village, small gates west and east on short ramps; the outer ward with
- * its halls, stables, smithies and cisterns round the yard (Drakon's P1) and the bone pit; the inner ward two levels up
+ * its halls, stables, smithies and cisterns round the yard (Drakon's P1) and the bone pit; the inner ward a tier (CITADEL_TIER levels) up
  * on the crag's summit behind its own wall, reached by one ramp from the yard through its gate, with the keep (Drakon's
  * roof), the treasury, the temple and the commander's halls. Drawn at twice-real relief (Site.lift).
  */
 export function citadel(k: Kit, at: Pt, hb: number): Landmark {
-  const ho = hb + 2, hi = hb + 4;
+  const T = CITADEL_TIER, ho = hb + T, hi = hb + 2 * T;
   const C: Pt[] = [[34, 22], [92, 8], [158, 12], [188, 38], [194, 96], [180, 128], [138, 140], [96, 138], [52, 130], [20, 98], [16, 52]];
   const I: Pt[] = [[84, 16], [150, 18], [176, 42], [174, 78], [140, 88], [100, 84], [80, 54]];
   const s = k.site('citadel', at, [200, 184], { claim: [70, 104], guardians: [{ boss: 'drakon', at: [70, 104], perches: [], pit: [158.5, 108.5] }] });
-  // the ground: the glacier round the crag, the outer ward two levels up, the summit two more
+  // the ground: the glacier round the crag, the outer ward a tier up, the summit a tier more
   const cc = s.u(104, 76);
   k.paint('snow', [cc[0], cc[1] - 4, 64, 50, 0.2], { on: ['grass', 'dirt', 'forest'], rough: 6 });
   s.levelBy((x, y) => (inPoly(I, x + 0.5, y + 0.5) ? hi : inPoly(C, x + 0.5, y + 0.5) ? ho : within(C, x, y, -14) ? hb : undefined));
@@ -156,7 +163,7 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   for (let y = 0; y < 184; y++) for (let x = 0; x < 200; x++) if (inPoly(C, x + 0.5, y + 0.5)) crag.add(y * 4096 + x);
   s.paintSet(crag, 'dirt');
   k.patch('mountains', 'gravel', [cc[0], cc[1], 56, 46, 0], ['dirt'], undefined, ho); // the wards' trodden gravel
-  s.lift = 4; s.base = hb;
+  s.lift = 8 / T; s.base = hb;
   // the walls: the curtain along the crag's edge, the inner ward's wall along the summit's
   const O = s.wallTrace(CIT, inset(C, 3), { step: 22, every: 22, gates: [[66, 134], [18, 76], [192, 72]], seed: 11 });
   const IW = s.wallTrace(CIT, inset(I, 2), { step: 18, every: 22, gates: [[104, 84]], seed: 13 });
@@ -173,10 +180,10 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   s.plaza(bx, fy0 + 4, 11, 4.5);
   const z0: Pt = [bx + 10, fy0 + 6];
   const zig: Pt[] = [z0, [z0[0] + 26, z0[1] + 2], [z0[0] + 30, z0[1] + 8], [z0[0] - 10, z0[1] + 12], [z0[0] - 14, z0[1] + 18], [z0[0] + 14, z0[1] + 24], [z0[0] + 16, z0[1] + 32]];
-  const fS = s.ramp(zig, 5, ho, hb, { run: 30, flat: 2 });
-  const fW = s.ramp([out(gW, 2), out(gW, 7), [out(gW, 10)[0], out(gW, 7)[1] + 14]], 4, ho, hb, { run: 6, flat: 5 });
-  const fE = s.ramp([out(gE, 2), out(gE, 7), [out(gE, 10)[0], out(gE, 7)[1] + 14]], 4, ho, hb, { run: 6, flat: 5 });
-  const fI = s.ramp([out(gI, 1), out(gI, 6), [out(gI, 8)[0] - 6, out(gI, 14)[1]]], 4, hi, ho, { run: 5, flat: 4 });
+  const fS = s.ramp(zig, 5, ho, hb, { run: 60 / T, flat: 2 });
+  const fW = s.ramp([out(gW, 2), out(gW, 7), [out(gW, 10)[0], out(gW, 7)[1] + 14]], 4, ho, hb, { run: 12 / T, flat: 5 });
+  const fE = s.ramp([out(gE, 2), out(gE, 7), [out(gE, 10)[0], out(gE, 7)[1] + 14]], 4, ho, hb, { run: 12 / T, flat: 5 });
+  const fI = s.ramp([out(gI, 1), out(gI, 6), [out(gI, 8)[0] - 6, out(gI, 14)[1]]], 4, hi, ho, { run: 10 / T, flat: 4 });
   // the summit: the keep, the treasury, the temple, a cistern, the commander's halls, stores
   if (!putNear(s, 'citadel-keep', 120, 30)) throw new Error('citadel: no ground for the keep');
   s.plaza(123, 44, 10, 5);
@@ -239,20 +246,20 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
  * strongholds; the necropolis of mastabas along the road below the south gate.
  */
 export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
-  const hc = hb + 2, hu = hb + 4, ha = hb + 6; // the lower city, the upper city, the acropolis (each step a 2-level cliff: impassable but by ramps)
+  const T = DEAD_CITY_TIER, hc = hb + T, hu = hb + 2 * T, ha = hb + 3 * T; // the lower city, the upper city, the acropolis (each step a cliff: impassable but by ramps)
   const P: Pt[] = [[96, 14], [170, 6], [236, 8], [284, 20], [308, 52], [312, 104], [304, 150], [282, 184], [236, 200], [170, 206], [118, 200], [80, 180], [60, 140], [58, 90], [70, 44]];
   const AC: Pt[] = [[214, 22], [258, 14], [290, 28], [298, 58], [278, 76], [234, 80], [212, 60]];
   const AG = [158, 100, 214, 134], TP = [238, 92, 298, 146];
   const U: Pt[] = [[146, 12], [236, 8], [284, 20], [308, 52], [312, 104], [306, 150], [262, 152], [228, 144], [222, 108], [206, 92], [160, 70], [140, 40]];
   const s = k.site('ammon', at, [320, 220], { claim: [186, 117], guardians: [{ boss: 'bandit_king', at: [252, 48], postern: [300, 176] }] });
-  // the ground: the salt flats (the whole region: sand, hardpan round the butte, white salt beyond), the city three
-  // levels up on its butte, the acropolis two more; the dead lake south-east
+  // the ground: the salt flats (the whole region: sand, hardpan round the butte, white salt beyond), the lower and
+  // upper city a tier and two up on its butte, the acropolis a tier more; the dead lake south-east
   k.maskPaint(() => 'sand');
   const c0 = s.u(160, 110);
   k.patch('kyrene', 'hardpan', [c0[0], c0[1], 96, 72, 0], ['sand'], hb);
   k.patch('kyrene', 'salt', [128, 128, 200, 200, 0], ['sand'], hb);
   s.levelBy((x, y) => (inPoly(AC, x + 0.5, y + 0.5) ? ha : inPoly(U, x + 0.5, y + 0.5) && inPoly(P, x + 0.5, y + 0.5) ? hu : inPoly(P, x + 0.5, y + 0.5) ? hc : undefined));
-  s.lift = 4; s.base = hb; // the butte's cliffs and the terraces' retaining walls drawn at their height (visual)
+  s.lift = 8 / T; s.base = hb; // the butte's cliffs and the terraces' retaining walls drawn at their height (visual)
   for (let y = 186; y < 220; y++) { const x0 = 300 - Math.round(Math.sqrt(Math.max(0, 1 - ((y - 222) / 36) ** 2)) * 46); if (x0 < 320) s.flood(x0, y, 320, y + 1, y > 200 ? 2 : 1, hb - 1); }
   // the walls: the city wall along the cliff edge, the acropolis wall
   const W = s.wallTrace(AMM, inset(P, 3), { step: 26, every: 26, gates: [[132, 200], [60, 100], [298, 166]], breach: 0.05, seed: 31 });
@@ -261,10 +268,10 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   const gS = gate([132, 200]), gW = gate([60, 100]), gE = gate([298, 166]), gA = AW.gates[0];
   // the ramps down the cliff, cut along its face (S: west along the south face; W: north along the west face; the postern stair to the lake shore)
   const out = (g: { side: Side4; at: Pt }, d: number): Pt => { const [x, y] = g.at; return g.side === 'N' ? [x, y - d] : g.side === 'S' ? [x, y + d] : g.side === 'W' ? [x - d, y] : [x + d, y]; };
-  const fS = s.ramp([out(gS, 2), out(gS, 7), [out(gS, 9)[0] - 10, out(gS, 11)[1]], [out(gS, 9)[0] - 26, out(gS, 13)[1]]], 4, hc, hb, { run: 6, flat: 6 });
-  const fW = s.ramp([out(gW, 2), out(gW, 7), [out(gW, 10)[0], out(gW, 7)[1] - 10], [out(gW, 12)[0], out(gW, 7)[1] - 26]], 4, hc, hb, { run: 6, flat: 6 });
-  const fE = s.ramp([out(gE, 2), out(gE, 6), [out(gE, 8)[0] + 2, out(gE, 8)[1] + 10]], 3, hc, hb, { run: 4, flat: 4 });
-  const fA = s.ramp([out(gA, 1), out(gA, 6), [out(gA, 8)[0] - 4, out(gA, 12)[1]]], 4, ha, hu, { run: 5, flat: 4 });
+  const fS = s.ramp([out(gS, 2), out(gS, 7), [out(gS, 9)[0] - 10, out(gS, 11)[1]], [out(gS, 9)[0] - 26, out(gS, 13)[1]]], 4, hc, hb, { run: 12 / T, flat: 6 });
+  const fW = s.ramp([out(gW, 2), out(gW, 7), [out(gW, 10)[0], out(gW, 7)[1] - 10], [out(gW, 12)[0], out(gW, 7)[1] - 26]], 4, hc, hb, { run: 12 / T, flat: 6 });
+  const fE = s.ramp([out(gE, 2), out(gE, 6), [out(gE, 8)[0] + 2, out(gE, 8)[1] + 10]], 3, hc, hb, { run: 8 / T, flat: 4 });
+  const fA = s.ramp([out(gA, 1), out(gA, 6), [out(gA, 8)[0] - 4, out(gA, 12)[1]]], 4, ha, hu, { run: 10 / T, flat: 4 });
   /** A street on one tier only: the parts of the curve whose ground (and 3 tiles round) is level h. */
   const tierOk = (x: number, y: number, h: number) => [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]].every(([dx, dy]) => s.hAt(Math.floor(x + dx), Math.floor(y + dy)) === h);
   const streetOn = (pts: Pt[], w: number, h: number): Sample[][] => {
@@ -300,8 +307,8 @@ export function deadCity(k: Kit, at: Pt, hb: number): Landmark {
   const SH: [number, number][] = [[86, 120], [104, 52], [150, 160], [244, 160]];
   const host = SH.map(([x, y]) => stronghold(s, AMM, x, y, 'ammon-workshop'));
   // the avenues from the gates to the agora, the sacred way, the acropolis street, the postern street
-  const sacred = s.ramp([[PG[0].at[0] - 4, PG[0].at[1]], [AG[2] + 6, 119], [AG[2] - 1, 119]], 5, hu, hc, { run: 5, flat: 6 });
-  const climb = s.ramp([[200, 76], [196, 88], [190, AG[1] + 1]], 4, hu, hc, { run: 5, flat: 3 });
+  const sacred = s.ramp([[PG[0].at[0] - 4, PG[0].at[1]], [AG[2] + 6, 119], [AG[2] - 1, 119]], 5, hu, hc, { run: 10 / T, flat: 6 });
+  const climb = s.ramp([[200, 76], [196, 88], [190, AG[1] + 1]], 4, hu, hc, { run: 10 / T, flat: 3 });
   s.force('ammon-gate-x', 197, 70, { hp: 0.6 }); // the gate on the climb to the upper city
   const av = [
     s.street([out(gW, -4), [92, 106], [124, 112], [AG[0], 117]], 4),
