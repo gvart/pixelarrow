@@ -1,0 +1,27 @@
+scripts/war/regions/dodona-w.ts
+  s_cfc22b058125c4::t_6ca1b9145119ea 53-54
+  s_cfc22b058125c4::t_3158c9e3640c66 5-12,15,26-31,33,36-40,44,59-63,65-67,69-70
+  s_cfc22b058125c4::t_486672f580f812 19,23-25
+  s_cfc22b058125c4::t_b12d0edfc4107e 34-35,55
+src/war/regions/dodona-w.spots.ts
+  s_cfc22b058125c4::t_3158c9e3640c66 7
+  s_cfc22b058125c4::t_b12d0edfc4107e 8
+src/war/regions/dodona-w.json
+  s_cfc22b058125c4::t_c96ee91bee3c82 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2ceb8b79511748d87583ef687d428133b4c8e929",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
