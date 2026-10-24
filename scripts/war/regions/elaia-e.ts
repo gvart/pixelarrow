@@ -2,30 +2,31 @@
  * Westbank Vineyards (docs/WAR.md): vine terraces on the Great River's west bank, Elaia (W) above, Achelous Ford (E)
  * over the river, the Bacchae Hills (N) off it, Elaia's two other entries at the west edge's ends. Strategic purpose:
  * the River Road's west bridgehead and a breadbasket (olives, food). Depth 1: boars and wolves in the cypress.
- * Layout (Gemini reference shots/war/regions/proto/elaia-e.png): the deep river fills the east edge. The land climbs
- * west from it in three curving terraces behind stone retaining walls (h5, h8, h11: 3-level cliffs drawn as tall crags), vines in rows on them, olives on
- * the top one with the press and a farmhouse looking down on the river. At the water the walled bridgehead town (h2)
+ * Layout (Gemini reference shots/war/regions/proto/elaia-e.png; W-52 set pieces, ./setpieces.ts): the deep river fills
+ * the east edge. The west two thirds are one great hillside rising toward the north-west corner in three curving
+ * terraces behind stone retaining walls (h5, h8, h11), vines in rows along their contours, olives on the top one with
+ * the press and a farmhouse looking down on the river. At the water the walled bridgehead town (h2)
  * spreads either side of its paved square (W-03 keeps the road's band clear: the houses stand in two quarters north
  * and south of it), its jetty and a ruined old span beside the stone bridge that carries the River Road over the
  * narrows to the far bank. Two shallow side channels cut into the low ground either side of the town, fordable
  * on their sandbars. The road climbs the terraces west by ramps through the walls; a road north to the Bacchae.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-
-/** The terrace of the west bank at a unit point. */
-const tier = (x: number, y: number) => {
-  const w = x + 10 * Math.sin(y / 27) + 6 * Math.cos(y / 11);
-  return w < 64 ? 11 : w < 112 ? 8 : w < 154 ? 5 : 2;
-};
+import { massif, terraceRows } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'elaia-e',
-  style: { dry: 0.35, trees: 0.25, bushes: 0.35 },
+  style: { dry: 0.35, trees: 0.06, bushes: 0.1 },
   build(k: Kit) {
     const W = k.entry('elaia'), E = k.entry('achelous'), N = k.entry('bacchae'), NW = k.entry('elaia-n'), SW = k.entry('elaia-s');
     k.fill(2);
     k.zone('elaia', () => 99);
-    k.lift(tier, true);
+    // the hillside: its foot curves from the north edge round past the town to the south-west corner, the crown in the north-west
+    const hill = massif(k, {
+      outline: [[-12, -12], [190, -12], [178, 50], [156, 104], [150, 150], [128, 200], [92, 236], [40, 268], [-12, 268]],
+      crown: [[-12, -12], [50, -12], [58, 40], [40, 110], [16, 170], [-12, 190]],
+      base: 2, tiers: 3, step: 3, wobble: 0.2,
+    });
     k.lift((x) => (x > 244 ? 1 : NaN), true);
     k.lift((x, y) => (x > 164 && x < 212 && y > 78 && y < 182 ? 2 : NaN), true);
     // the Great River along the east edge, narrowing at the bridge; the side channels round the town
@@ -44,9 +45,8 @@ const def: RegionDef = {
     k.spot('narrows', [228, 128]);
     k.spot('bridge', [228, 128]);
     // the terraces: vines on the two lower ones, olives on the top one, cypress and a shrine
-    k.rows(['elaia/vines'], [134, 128, 12, 112, 0.04], { dx: 2, dy: 3 });
-    k.rows(['elaia/vines'], [88, 128, 14, 112, 0.04], { dx: 2, dy: 3 });
-    k.rows(['elaia/olive-orchard', 'elaia/olive-tall', 'elaia/olive-ancient'], [34, 128, 16, 110, 0.04], { dx: 3, dy: 3 });
+    terraceRows(k, hill, { tiers: [1, 2], every: 1.6, margin: 1.4, soil: 'dirt' });
+    k.rows(['elaia/olive-orchard', 'elaia/olive-tall', 'elaia/olive-ancient'], [24, 80, 18, 70, 0.1], { dx: 5, dy: 5 });
     k.spot('olives', [34, 90]);
     k.forest([60, 20, 18, 8, 0.4], [70, 236, 18, 8, -0.3], [118, 128, 4, 10, 0]);
     k.resource('food', [92, 186], 3, 12);
