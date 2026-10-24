@@ -1,0 +1,26 @@
+scripts/war/regions/moors.ts
+  s_cfc22b058125c4::t_ca35d41ac1d8e7 27,31-34,40-43,64,66
+  s_cfc22b058125c4::t_1207949010bca7 48,71,77
+  s_cfc22b058125c4::t_b2e063cb63f86c 78
+  s_cfc22b058125c4::t_4016745351c971 6-13,17-20,37-39,44-45,47,63
+src/war/regions/moors.json
+  s_cfc22b058125c4::t_c96ee91bee3c82 1
+src/war/regions/moors.spots.ts
+  s_cfc22b058125c4::t_ca35d41ac1d8e7 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1630549ea1886eaf74228445d9761e1c031928ab",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
