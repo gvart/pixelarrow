@@ -293,7 +293,8 @@ describe('M5f determinism and cost', () => {
     expect(go()).toBe(go());
   });
 
-  it('60 civilians at work beside 540 soldiers: the step stays under 8 ms', () => {
+  // its step time budget is in tests/perf/war.perf.ts (npm run perf:war)
+  it('60 civilians at work beside 540 soldiers: the 600 cap holds and they keep working', () => {
     const sim = createSim(flat(160), 3);
     sim.claim(0, 40, 40, 40);
     sim.claim(1, 120, 120, 40);
@@ -313,10 +314,7 @@ describe('M5f determinism and cost', () => {
       sim.order({ kind: 'attackMove', squad: id, x, y: side ? 30 : 60 });
     }
     expect(sim.stats().units).toBeLessThanOrEqual(612);
-    const ms: number[] = [];
-    for (let t = 0; t < 400; t++) (sim.step(), ms.push(sim.stats().stepMs));
-    const avg = ms.slice(50).reduce((a, b) => a + b, 0) / (ms.length - 50);
+    run(sim, 400);
     expect(unitsOf(sim.snapshot(), 1).some((u) => u.work)).toBe(true);
-    expect(avg).toBeLessThan(8);
   });
 });

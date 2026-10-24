@@ -48,7 +48,8 @@ npm install
 npm run dev        # dev server on http://localhost:5173 (also on your LAN)
 npm run build      # type-check + production build into dist/
 npm run preview    # serve dist/ on http://localhost:4173
-npm test           # vitest
+npm test           # vitest: correctness only, no wall-clock asserts (heavy files in the 'scenario' project)
+npm run perf:war   # war sim time budgets (tests/perf, median of 5 after warm-up); run on a quiet machine
 npm run balance    # headless bot-vs-bot balance report (docs/GAMEPLAY.md "Balance")
 npx tsc --noEmit   # type-check only
 ```

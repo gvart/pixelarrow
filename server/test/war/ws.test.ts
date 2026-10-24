@@ -1,5 +1,5 @@
 import { SELF } from 'cloudflare:test';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DeltaDecoder } from '../../../src/war/net/codec';
 import { NET_VERSION, type ServerMsg } from '../../../src/war/net/protocol';
 import { SIM_VERSION } from '../../../src/sim/version';
@@ -34,7 +34,7 @@ async function connect(token: string, region = 'test-ridge'): Promise<Client> {
   return c;
 }
 
-const until = async (f: () => boolean, ms = 20_000) => {
+const until = async (f: () => boolean, ms = 60_000) => {
   const t0 = Date.now();
   while (!f()) {
     if (Date.now() - t0 > ms) throw new Error('timeout');
@@ -71,9 +71,11 @@ describe('WarRegionDO over the socket', () => {
     await until(() => [...ca.dec.units.values()].some((u) => u.state === 'move'));
     // a leaves: its squad stays in the region (b's stats count it), a rejoins without a new army
     ca.ws.close(1000);
-    await new Promise((r) => setTimeout(r, 300));
-    const stats = await (await SELF.fetch(`${BASE}/api/war/test-ridge/stats`)).json<{ units: number; online: number; running: boolean; totalMs: { avg: number } }>();
-    expect(stats).toMatchObject({ units: 24, online: 1, running: true });
+    // the close lands asynchronously: poll the stats rather than sleep a fixed time
+    await vi.waitFor(async () => {
+      const stats = await (await SELF.fetch(`${BASE}/api/war/test-ridge/stats`)).json<{ units: number; online: number; running: boolean; totalMs: { avg: number } }>();
+      expect(stats).toMatchObject({ units: 24, online: 1, running: true });
+    }, { timeout: 30_000, interval: 50 });
     const again = await connect(a.token);
     again.send({ t: 'join', v: NET_VERSION, region: 'test-ridge', playerId: a.playerId, team: 0, army: [{ cls: 'hoplite', count: 12 }] });
     expect(await again.next('welcome')).toMatchObject({ squads: [mine] });

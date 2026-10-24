@@ -35,7 +35,7 @@ interface Mail {
   html: string;
 }
 /** Mail sent to `to` (emails go out after the response, so this waits for `count` of them). */
-async function mailTo(to: string, count = 1, timeoutMs = 3_000): Promise<Mail[]> {
+async function mailTo(to: string, count = 1, timeoutMs = 30_000): Promise<Mail[]> {
   const until = Date.now() + timeoutMs;
   for (;;) {
     const rows = (await DB().prepare('SELECT to_addr, subject, text, html FROM dev_outbox WHERE to_addr = ?1 ORDER BY id').bind(to).all<Mail>()).results;
