@@ -55,14 +55,11 @@ describe('M5b bake', () => {
     expect(q.range).toBe(warStats('archer').range + 1);
   });
 
-  it('baking is cheap: 600 persons well inside one region join', () => {
-    const ps = SOLDIER_CLASSES.flatMap((cls, i) => Array.from({ length: 34 }, (_, k) => makePerson(`${i}-${k}`, cls, { level: 1 + (k % 10), tier: k % 3, rarity: 'epic' })));
-    for (const p of ps.slice(0, 50)) warStatsOf(p); // warm
-    const t0 = performance.now();
-    for (const p of ps.slice(0, 600)) warStatsOf(p);
-    const ms = performance.now() - t0;
-    console.log(`bake: 600 persons in ${ms.toFixed(1)} ms`);
-    expect(ms).toBeLessThan(200);
+  // its time budget (600 persons well inside one region join) is in tests/perf/war.perf.ts (npm run perf:war)
+  it('baking 600 persons is pure: the same person bakes to the same stats every time', () => {
+    const ps = SOLDIER_CLASSES.flatMap((cls, i) => Array.from({ length: 34 }, (_, k) => makePerson(`${i}-${k}`, cls, { level: 1 + (k % 10), tier: k % 3, rarity: 'epic' }))).slice(0, 600);
+    expect(ps).toHaveLength(600);
+    expect(ps.map((p) => warStatsOf(p))).toEqual(ps.map((p) => warStatsOf(p)));
   });
 
   it('spawnSquad takes persons: one man each with his own baked stats, pid and level in the snapshot', () => {

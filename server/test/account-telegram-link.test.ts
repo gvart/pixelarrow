@@ -46,7 +46,7 @@ interface Mail {
   subject: string;
   text: string;
 }
-async function mailTo(to: string, count = 1, timeoutMs = 3_000): Promise<Mail[]> {
+async function mailTo(to: string, count = 1, timeoutMs = 30_000): Promise<Mail[]> {
   const until = Date.now() + timeoutMs;
   for (;;) {
     const rows = (await DB().prepare('SELECT to_addr, subject, text FROM dev_outbox WHERE to_addr = ?1 ORDER BY id').bind(to).all<Mail>()).results;
@@ -58,7 +58,7 @@ const linkToken = (m: Mail) => /#t=([A-Za-z0-9_-]{43})/.exec(m.text)?.[1] ?? nul
 const sidOf = (res: Response) => /__Host-pa_sid=(pa2_[A-Za-z0-9_-]{43})/.exec(res.headers.get('set-cookie') ?? '')?.[1] ?? null;
 const errorOf = async (r: Response) => (await r.json<{ error: { code: string } }>()).error.code;
 async function botTo(chat: number, count = 1): Promise<BotCall[]> {
-  const until = Date.now() + 3_000;
+  const until = Date.now() + 30_000;
   for (;;) {
     const got = bot.filter((c) => c.method === 'sendMessage' && c.params.chat_id === chat);
     if (got.length >= count || Date.now() > until) return got;

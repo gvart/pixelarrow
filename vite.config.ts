@@ -19,6 +19,12 @@ function appVersion(): string {
   }
 }
 
+/** Heavy test files (see test.projects below): tests/war plus the root files with a test over ~2 s. */
+const SCENARIO = [
+  'tests/war/**/*.test.ts',
+  ...['aiDoctrines', 'crafting', 'eventCard', 'eventDeck', 'events', 'feint', 'itemSources', 'opening', 'orders', 'qafixWorld', 'sheetPacked', 'simTypes', 'sources', 'terrain'].map((f) => `tests/${f}.test.ts`),
+];
+
 // Relative base: the build works at a domain root, under a sub-path such as
 // https://gvart.github.io/pixelarrow/ and inside Telegram's webview alike.
 // All art is generated in code, so there are no runtime asset URLs to fix up.
@@ -59,11 +65,22 @@ export default defineConfig({
       '/ws': { target: apiProxy, changeOrigin: true, ws: true },
     },
   },
+  // The suite is seeded simulation: results never depend on time (wall-clock budgets live in
+  // tests/perf, npm run perf:war), so timeouts only catch hangs. Two projects:
+  //  - scenario: whole battles and region runs (tests/war and the heavy campaign files, each with a
+  //    test over ~2 s on a quiet machine). A generous timeout, and at most half the cores, so they
+  //    don't starve each other or the fast tests on a busy machine.
+  //  - unit: the rest; every test there is well under 2 s, so 30 s is wide headroom.
   test: {
-    include: ['tests/**/*.test.ts'],
-    environment: 'node',
-    // The suite is seeded simulation: results never depend on time, but whole battles take
-    // seconds on a loaded CPU (parallel workers, CI), so the default 5 s timeout is too tight.
-    testTimeout: 30_000,
+    projects: [
+      {
+        extends: true,
+        test: { name: 'scenario', include: SCENARIO, environment: 'node', testTimeout: 180_000, hookTimeout: 180_000, maxWorkers: '50%', sequence: { groupOrder: 1 } },
+      },
+      {
+        extends: true,
+        test: { name: 'unit', include: ['tests/**/*.test.ts'], exclude: SCENARIO, environment: 'node', testTimeout: 30_000 },
+      },
+    ],
   },
 } as any);

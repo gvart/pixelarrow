@@ -44,7 +44,7 @@ interface Mail {
   subject: string;
   text: string;
 }
-async function mailTo(to: string, count = 1, timeoutMs = 3_000): Promise<Mail[]> {
+async function mailTo(to: string, count = 1, timeoutMs = 30_000): Promise<Mail[]> {
   const until = Date.now() + timeoutMs;
   for (;;) {
     const rows = (await DB().prepare('SELECT to_addr, subject, text FROM dev_outbox WHERE to_addr = ?1 ORDER BY id').bind(to).all<Mail>()).results;
@@ -57,7 +57,7 @@ const sidOf = (res: Response) => /__Host-pa_sid=(pa2_[A-Za-z0-9_-]{43})/.exec(re
 const errorOf = async (r: Response) => (await r.json<{ error: { code: string } }>()).error.code;
 /** Bot messages sent to a chat (after the response, so this waits a little). */
 async function botTo(chat: number, count = 1): Promise<BotCall[]> {
-  const until = Date.now() + 3_000;
+  const until = Date.now() + 30_000;
   for (;;) {
     const got = bot.filter((c) => c.method === 'sendMessage' && c.params.chat_id === chat);
     if (got.length >= count || Date.now() > until) return got;

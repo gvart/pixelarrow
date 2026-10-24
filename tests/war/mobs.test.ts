@@ -179,7 +179,8 @@ describe('mobs', () => {
     expect(go()).toBe(go());
   });
 
-  it('test-ridge: 6-10 lairs and a claim point, mobs within the step budget', () => {
+  // the step time budget of this run is in tests/perf/war.perf.ts (npm run perf:war)
+  it('test-ridge: 6-10 lairs and a claim point; mobs and four squads run 600 ticks', () => {
     const ridge = parseRegion(ridgeJson);
     expect(ridge.lairs!.length).toBeGreaterThanOrEqual(6);
     expect(ridge.lairs!.length).toBeLessThanOrEqual(10);
@@ -193,9 +194,6 @@ describe('mobs', () => {
       const l = ridge.lairs![cp.lairs[k % cp.lairs.length]];
       sim.order({ kind: 'move', squad: s, x: l.x, y: l.y });
     }
-    const ms: number[] = [];
-    for (let t = 0; t < 600; t++) (sim.step(), ms.push(sim.stats().stepMs));
-    const avg = ms.slice(50).reduce((a, b) => a + b, 0) / (ms.length - 50);
-    expect(avg).toBeLessThan(8);
+    expect(run(sim, 600)).toBe(600);
   });
 });

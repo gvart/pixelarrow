@@ -284,25 +284,19 @@ describe('bridge construction', () => {
   });
 });
 
-describe('bridge determinism and budget', () => {
+// the per-tick time budget of this run is in tests/perf/war.perf.ts (npm run perf:war)
+describe('bridge determinism', () => {
   const play = () => {
     const sim = createSim(river(8), 7);
     const s = base(sim, 20);
     sim.order({ kind: 'placeBridge', squad: s, material: 'wood', points: [12.5, 6.5, 26.5, 6.5] });
     sim.order({ kind: 'placeBridge', team: 0, material: 'wood', points: [12.5, 24.5, 26.5, 24.5] });
-    const ms: number[] = [];
-    for (let t = 0; t < 2500; t++) {
-      sim.step();
-      ms.push(sim.stats().stepMs);
-    }
-    return { snap: JSON.stringify(sim.snapshot()), ms };
+    run(sim, 2500);
+    return JSON.stringify(sim.snapshot());
   };
 
-  it('runs the same twice, within the tick budget', () => {
-    const a = play(), b = play();
-    expect(a.snap).toBe(b.snap);
-    const avg = b.ms.reduce((x, y) => x + y, 0) / b.ms.length;
-    expect(avg).toBeLessThan(2); // ms per tick for 20 builders on two bridges
+  it('runs the same twice', () => {
+    expect(play()).toBe(play());
   });
 });
 
