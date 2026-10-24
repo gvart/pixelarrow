@@ -1,0 +1,46 @@
+server/test/account-telegram-link.test.ts
+  s_cfc22b058125c4::t_5d7f591bb3850c 49,61
+tests/war/civilians.test.ts
+  s_cfc22b058125c4::t_7c3c70cf1a8952 296-297,317
+server/test/war/ws.test.ts
+  s_cfc22b058125c4::t_188f6f3b66d90a 2,74-78
+  s_cfc22b058125c4::t_e1b6fb9aafc086 37
+tests/perf/war.perf.ts
+  s_cfc22b058125c4::t_71dc89542ef94e 1-121
+server/test/account-link.test.ts
+  s_cfc22b058125c4::t_5d7f591bb3850c 47,60
+server/test/auth-email.test.ts
+  s_cfc22b058125c4::t_5d7f591bb3850c 38
+vitest.perf.config.ts
+  s_cfc22b058125c4::t_7c3c70cf1a8952 10
+  s_cfc22b058125c4::t_889e81d7b92cb3 1-9,11-13
+tests/war/mobs.test.ts
+  s_cfc22b058125c4::t_7c3c70cf1a8952 182-183,197
+package.json
+  s_cfc22b058125c4::t_889e81d7b92cb3 19
+tests/war/soldiers.test.ts
+  s_cfc22b058125c4::t_7c3c70cf1a8952 58-62
+vite.config.ts
+  s_cfc22b058125c4::t_2e76d1ac96bbd2 78
+  s_cfc22b058125c4::t_591820733b30ab 22-27,68-73,75-77,79-84
+tests/war/bridges.test.ts
+  s_cfc22b058125c4::t_7c3c70cf1a8952 287-288,294-295,298-299
+README.md
+  s_cfc22b058125c4::t_482a6ad42ac44b 51-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "54ef4bf9964a6d39d42aa5c30dd7598cf5ff48d7",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
