@@ -24,6 +24,7 @@ import type { BakeOpts } from './terrain';
 import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, treeShadow } from './relief';
 import { relightTree } from './treeLight';
 import { PeakPainter } from './peaks';
+import { wallTexture, type Stone } from './rockFace';
 
 export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
 /** A tile set: the global sheets plus one biome's (its variants replace the global ones per terrain), as indices into WarArt's merged lists. */
@@ -82,12 +83,15 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
     const mine = k && T.cliffs?.length ? T.cliffs[0].id : null;
     sets.push({ name: l.name, tiles, sheetIx, varIx, earth: mine ?? 'earth', crag: mine && (T.cliffs![0].frames ?? 0) > 1 ? mine : 'crag', snow: has('granite-snow') ? 'granite-snow' : undefined, ice: has('granite-ice') ? 'granite-ice' : undefined });
   });
-  const [si, vi, ci, oi] = await Promise.all([
+  const [si0, vi0, ci, oi] = await Promise.all([
     Promise.all(sheets.map((s) => img(s.file))),
     Promise.all(variants.map((v) => img(v.file))),
     Promise.all(cliffs.map((c) => img(c.file))),
     Promise.all(defs.map((d) => img(d.file))),
   ]);
+  // the desert's red rock warmed from mud brown to the red and ochre of its walls (./rockFace.ts sandstone)
+  const warm = (file: string, im: HTMLImageElement) => (file.startsWith('biomes/kyrene/') && file.includes('redrock') ? reimage(redden(im)) : im);
+  const [si, vi] = await Promise.all([Promise.all(si0.map((im, i) => warm(sheets[i].file, im))), Promise.all(vi0.map((im, i) => warm(variants[i].file, im)))]);
   // trees relit for the NW light (./treeLight.ts), back as images so every user keeps one kind of source
   const lit = await Promise.all(defs.map((d, i) => (d.kind === 'tree' ? reimage(relightTree(oi[i])) : oi[i])));
   const objImg = new Map(defs.map((d, i) => [d.id, lit[i]]));
@@ -98,6 +102,24 @@ export async function loadArt(base = 'war/'): Promise<WarArt> {
     massifs: defs.filter((d) => d.kind === 'massif' && d.footprint).map((d) => ({ ...d, footprint: d.footprint!, top: columnTops(objImg.get(d.id)!) })),
   };
 }
+/** Red-brown pixels pushed toward terracotta red, their light ones toward ochre; sand, scrub and shade kept. */
+function redden(im: HTMLImageElement): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = im.width; c.height = im.height;
+  const g = c.getContext('2d')!;
+  g.drawImage(im, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+  for (let o = 0; o < p.length; o += 4) {
+    const r = p[o], gr = p[o + 1], b = p[o + 2];
+    if (!p[o + 3] || r < gr * 1.18 || r < b * 1.15 || r < 40) continue;
+    const l = (r + gr + b) / 3, t = Math.min(1, l / 150);
+    p[o] = Math.min(255, r * 1.32 + 14);
+    p[o + 1] = Math.min(255, gr * (1.0 + 0.25 * t) + 4);
+    p[o + 2] = Math.min(255, b * 0.9);
+  }
+  g.putImageData(d, 0, 0);
+  return c;
+}
 /** A canvas as a decoded image. */
 function reimage(c: HTMLCanvasElement): Promise<HTMLImageElement> {
   const im = new Image();
@@ -107,6 +129,10 @@ function reimage(c: HTMLCanvasElement): Promise<HTMLImageElement> {
 interface Placed { def: ObjDef; img: HTMLImageElement; sx: number; sy: number; shade?: number }
 
 const FW = 16, FH = 8; // half the 1 m cell diamond
+/** The wall stone per tile set (./rockFace.ts). */
+const STONES: Record<string, Stone> = { kyrene: 'sandstone', elaia: 'limestone', mountains: 'granite' };
+/** One repeating pattern per wall stone (patterns are not tied to the context that made them). */
+const WALL_PAT: Partial<Record<Stone, CanvasPattern>> = {};
 const ROCKY = new Set([KINDS.indexOf('rock'), KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
 const SNOWY = new Set([KINDS.indexOf('snow'), KINDS.indexOf('drift')]);
 const WET = new Set([KINDS.indexOf('shallow'), KINDS.indexOf('deep')]);
@@ -333,6 +359,8 @@ export class ArtBaker {
     const pick = (...ids: (string | undefined)[]) => ids.find((id) => id && cl[id]) ?? 'earth';
     // per set: [rock, earth, snow, ice] cliff ids
     const sets = this.art.sets.map((s) => { const crag = pick(s.crag, 'rock', 'earth'), snow = pick(s.snow, crag); return [crag, pick(s.earth), snow, pick(s.ice, snow)]; });
+    // per set: the stone of its walls (null: the global set's crag under rock only, strips else)
+    const stones = this.art.sets.map((s): Stone | null => STONES[s.name] ?? null);
     // with a view mode's tint: the ground, the tint over it, then the objects over both
     const split = !!o.tint && objects;
     const sprite = treeShadow();
@@ -356,8 +384,12 @@ export class ArtBaker {
           const drop = z - Math.min(zt(x + 1, y), zt(x, y + 1));
           if (ty + 3 * LH + Math.max(0, drop - 1) * LH < y0) continue;
           const tx = iso.OX + u * FW - FW;
-          if (drop > 1) { // a cliff: the cell's own side covers SIDE px of the riser, strips tile the rest (never stretched)
-            const m = sets[this.setOf[(y >> 1) * this.r.w + (x >> 1)]], kd = fk[i], n = Math.ceil((drop * LH) / SIDE) - 1;
+          const kd = fk[i], si = this.setOf[(y >> 1) * this.r.w + (x >> 1)];
+          // a rock wall: painted with its stone's face texture after the row (./rockFace.ts), over the cell's own side
+          const stone = drop > 1 && !SNOWY.has(kd) ? stones[si] ?? (ROCKY.has(kd) ? 'granite' : null) : null;
+          if (stone) faces.stone(stone, x, y, tx, ty, drop, iso.OX, iso.OY);
+          else if (drop > 1) { // a cliff: the cell's own side covers SIDE px of the riser, strips tile the rest (never stretched)
+            const m = sets[si], n = Math.ceil((drop * LH) / SIDE) - 1;
             const foot = Math.min(zt(x + 1, y), zt(x, y + 1)) === zt(x + 1, y) ? fk[Math.min(fw * fh - 1, i + 1)] : fk[Math.min(fw * fh - 1, i + fw)];
             const id = SNOWY.has(kd) ? m[2] : ROCKY.has(kd) ? m[0] : m[1], low = SNOWY.has(kd) && (WET.has(foot) || SNOWY.has(foot)) ? m[3] : id;
             for (let k = n; k >= 1; k--) {
@@ -390,7 +422,7 @@ export class ArtBaker {
             ctx.drawImage(img, sx, sy, 32, 32, tx, ty, 32, 32);
           }
           const dE = z - zt(x + 1, y), dS = z - zt(x, y + 1);
-          if (dE >= 2 || dS >= 2) faces.add(x, y, tx, ty, dE, dS, z);
+          if (dE >= 2 || dS >= 2) faces.add(x, y, tx, ty, dE, dS, z, !!stone);
         }
         faces.fill(ctx);
       }
@@ -524,10 +556,18 @@ export class ArtBaker {
 class Faces {
   private se = new Path2D(); private sw = new Path2D(); private foot = new Path2D();
   private dark = new Path2D(); private lit = new Path2D(); private rim = new Path2D();
-  private streakLit = new Path2D(); private streakDark = new Path2D(); private upper = new Path2D();
+  private streakLit = new Path2D(); private streakDark = new Path2D(); private upper = new Path2D(); private lip = new Path2D();
   private any = false;
+  /** Rock walls of the row: [stone, x, y, tx, ty, drop, OX, OY]. */
+  private walls: [Stone, number, number, number, number, number, number, number][] = [];
 
-  add(x: number, y: number, tx: number, ty: number, dE: number, dS: number, z: number): void {
+  /** A rock wall under cell (x, y) (frame at tx, ty), `drop` levels down both its faces, painted first in fill(). */
+  stone(st: Stone, x: number, y: number, tx: number, ty: number, drop: number, OX: number, OY: number): void {
+    this.any = true;
+    this.walls.push([st, x, y, tx, ty, drop, OX, OY]);
+  }
+
+  add(x: number, y: number, tx: number, ty: number, dE: number, dS: number, z: number, stone = false): void {
     this.any = true;
     const rx = tx + 2 * FW, ry = ty + FH, bx = tx + FW, by = ty + 2 * FH, lx = tx, ly = ty + FH;
     const quad = (p: Path2D, ax: number, ay: number, bx2: number, by2: number, d0: number, d1: number) => {
@@ -536,21 +576,34 @@ class Faces {
     if (dE >= 2) {
       const d = dE * LH;
       quad(this.se, rx, ry, bx, by, 0, d);
-      this.rim.moveTo(rx, ry + 0.5); this.rim.lineTo(bx, by + 0.5);
+      this.rimOf(x, y, rx, ry, bx, by, stone, 0);
       if (dE >= 3) { quad(this.foot, rx, ry, bx, by, d * 0.6, d); quad(this.upper, rx, ry, bx, by, 0, d * 0.25); }
-      if (dE >= 3) this.detail(x, y, rx, ry, bx, by, dE, z, 0);
+      if (dE >= 3) this.detail(x, y, rx, ry, bx, by, dE, z, 0, stone);
     }
     if (dS >= 2) {
       const d = dS * LH;
       quad(this.sw, bx, by, lx, ly, 0, d);
-      this.rim.moveTo(bx, by + 0.5); this.rim.lineTo(lx, ly + 0.5);
+      this.rimOf(x, y, bx, by, lx, ly, stone, 1);
       if (dS >= 3) { quad(this.foot, bx, by, lx, ly, d * 0.6, d); quad(this.upper, bx, by, lx, ly, 0, d * 0.25); }
-      if (dS >= 3) this.detail(x, y, bx, by, lx, ly, dS, z, 1);
+      if (dS >= 3) this.detail(x, y, bx, by, lx, ly, dS, z, 1, stone);
     }
   }
 
+  /**
+   * The lit rim along the edge a -> b; on a rock wall broken (chipped in places) with the overhang's jagged shadow under
+   * it, so the top of a long wall is not one ruled line.
+   */
+  private rimOf(x: number, y: number, ax: number, ay: number, bx: number, by: number, stone: boolean, side: number): void {
+    if (!stone) { this.rim.moveTo(ax, ay + 0.5); this.rim.lineTo(bx, by + 0.5); return; }
+    const h = hash(x * 3 + side, y * 5 - side, 57), dx = (bx - ax) / 4, dy = (by - ay) / 4;
+    for (let q = 0; q < 4; q++) if ((h >>> q) & 1 || (h >>> (q + 8)) & 1) { this.rim.moveTo(ax + dx * q, ay + dy * q + 0.5); this.rim.lineTo(ax + dx * (q + 1), ay + dy * (q + 1) + 0.5); }
+    this.lip.moveTo(ax, ay);
+    for (let q = 0; q <= 4; q++) this.lip.lineTo(Math.round(ax + dx * q), Math.round(ay + dy * q) + 2 + ((h >>> (12 + 3 * q)) & 7) * ((h >>> 28) & 1 ? 0.9 : 0.6));
+    this.lip.lineTo(bx, by); this.lip.closePath();
+  }
+
   /** Cracks and ledges on the face under the edge a -> b, d levels tall. */
-  private detail(x: number, y: number, ax: number, ay: number, bx: number, by: number, d: number, z: number, side: number): void {
+  private detail(x: number, y: number, ax: number, ay: number, bx: number, by: number, d: number, z: number, side: number, stone: boolean): void {
     const h = hash(x, y, 11 + side);
     // weathering streaks: thin vertical runs of light or shade from the lip down, across the strip seams
     for (let q = 0; q < 2; q++) {
@@ -568,7 +621,8 @@ class Faces {
         this.dark.lineTo(px, py); this.lit.lineTo(px - 1, py);
       }
     }
-    // ledges at the levels the whole wall shares (phase by wall section), broken per cell
+    // ledges at the levels the whole wall shares (phase by wall section), broken per cell (a rock wall's are in its texture)
+    if (stone) return;
     const ph = hash(x >> 3, y >> 3, 13) % 5;
     for (let lv = Math.floor(z) - 2; lv > z - d + 1; lv--) {
       if ((lv + ph) % 5 !== 0 || hash(x, y, lv) % 10 < 3) continue;
@@ -580,9 +634,21 @@ class Faces {
 
   fill(ctx: CanvasRenderingContext2D): void {
     if (!this.any) return;
+    for (const [st, x, y, tx, ty, drop, OX, OY] of this.walls) {
+      // both faces mapped from the world (16 px per cell along the wall, LH per level down it), so strata stay level
+      const p = (WALL_PAT[st] ??= ctx.createPattern(wallTexture(st), 'repeat')!), d = drop * LH;
+      const rx = tx + 2 * FW, ry = ty + FH, bx = tx + FW, by = ty + 2 * FH, lx = tx, ly = ty + FH;
+      p.setTransform(new DOMMatrix([-1, 0.5, 0, 1, OX + (x + 1) * FW, OY + (x + 1) * FH]));
+      ctx.fillStyle = p;
+      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(bx, by); ctx.lineTo(bx, by + d); ctx.lineTo(rx, ry + d); ctx.closePath(); ctx.fill();
+      p.setTransform(new DOMMatrix([1, 0.5, 0, 1, OX - (y + 1) * FW, OY + (y + 1) * FH]));
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(lx, ly); ctx.lineTo(lx, ly + d); ctx.lineTo(bx, by + d); ctx.closePath(); ctx.fill();
+    }
+    this.walls.length = 0;
     ctx.fillStyle = 'rgba(14,16,30,0.17)'; ctx.fill(this.se);
     ctx.fillStyle = 'rgba(255,238,200,0.08)'; ctx.fill(this.sw);
     ctx.fillStyle = 'rgba(10,10,20,0.15)'; ctx.fill(this.foot);
+    ctx.fillStyle = 'rgba(16,8,6,0.42)'; ctx.fill(this.lip);
     ctx.strokeStyle = 'rgba(255,242,214,0.3)'; ctx.lineWidth = 1.5; ctx.stroke(this.rim);
     ctx.fillStyle = 'rgba(255,238,200,0.07)'; ctx.fill(this.upper);
     ctx.fillStyle = 'rgba(255,240,214,0.09)'; ctx.fill(this.streakLit);
@@ -591,7 +657,7 @@ class Faces {
     ctx.strokeStyle = 'rgba(12,10,8,0.55)'; ctx.stroke(this.dark);
     ctx.strokeStyle = 'rgba(255,240,210,0.22)'; ctx.stroke(this.lit);
     this.se = new Path2D(); this.sw = new Path2D(); this.foot = new Path2D(); this.dark = new Path2D(); this.lit = new Path2D(); this.rim = new Path2D();
-    this.streakLit = new Path2D(); this.streakDark = new Path2D(); this.upper = new Path2D();
+    this.streakLit = new Path2D(); this.streakDark = new Path2D(); this.upper = new Path2D(); this.lip = new Path2D();
     this.any = false;
   }
 }
