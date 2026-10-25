@@ -469,9 +469,8 @@ export class WarRoom {
     if (cargo?.cart) {
       const e = this.entry(side), men = this.sim.cargo({ squad })!;
       const x = men.slots[0]?.x ?? (e.x0 + e.x1) / 2, y = men.slots[0]?.y ?? (e.y0 + e.y1) / 2;
-      const c = this.sim.spawnCart(team, ownerOf(pid), cargo.cart.type, x, y);
+      const c = this.sim.spawnCart(team, ownerOf(pid), cargo.cart.type, x, y, squad);
       fill(this.sim.cargo({ cart: c })!.slots.map((s) => ({ ...s, cap: Infinity })), cargo.cart as Bundle);
-      this.sim.order({ kind: 'crew', squad, siege: c });
     }
     const online = this.players.get(pid)!.online;
     if (!online) {

@@ -2844,7 +2844,11 @@ export function createSim(region: RegionData, seed: number): WarBuildSim {
     addStock: works.addStock,
     damageBuilding: works.damage,
     finishBridges: works.finishBridges,
-    spawnCart: (team, owner, type, x, y) => siege.cart(team, owner, type, x, y),
+    spawnCart: (team, owner, type, x, y, crew) => {
+      const id = siege.cart(team, owner, type, x, y);
+      if (crew !== undefined) apply({ kind: 'crew', squad: crew, siege: id }); // at once: a haul's next leg may leave before a tick
+      return id;
+    },
     spawnMobs: () => (mobs.spawn(), bosses.spawn()),
     spawnGuardians: () => bosses.spawn(),
     memory(): RegionMemory {
