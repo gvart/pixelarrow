@@ -221,7 +221,14 @@ export class WarRegionDO extends DurableObject<Env> {
       persons = got;
     }
     const here = persons ? null : room.personsHere();
-    const res = room.join(pid, m, persons);
+    let res: ReturnType<WarRoom['join']>;
+    try {
+      res = room.join(pid, m, persons);
+    } catch (e) {
+      // a spawn that threw leaves no squad: the men claimed for it go home, not stay listed in the region
+      if (persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
+      throw e;
+    }
     send(ws, res.msg);
     if (res.msg.t === 'refused' && persons) this.write('release', () => release(this.env.DB!, region, m.squads!.flat()));
     this.save();

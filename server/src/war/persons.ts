@@ -35,6 +35,7 @@ import { classGearBlocker } from '../../../src/data/gearRules';
 import { freeName } from '../../../src/data/names';
 import type { Equipment, Hero } from '../../../src/data/units';
 import { freshHero } from '../../../src/war/sim/classes';
+import { freshCivilian } from '../../../src/war/sim/civilians';
 import { isElite, makePerson, promoteBlocker, promotePerson, type PersonOpts } from '../../../src/war/sim/roster';
 import { FAMILY_OF, legalSkills, SKILL_LEVELS } from '../../../src/war/sim/skills';
 import { SQUAD_MAX } from '../../../src/war/sim/soldiers';
@@ -113,7 +114,8 @@ export const json = <T>(s: string, fallback: T): T => {
 
 /** The person the sim spawns: the class's fresh hero with the row's level, attributes, gear and tallies. */
 export function personOf(r: PersonRow): WarPerson {
-  const base = freshHero(r.cls, r.id);
+  // a civilian is his own class (freshHero would make him a soldier carrying a tool the item table does not know)
+  const base = isCivClass(r.cls) ? freshCivilian(r.cls, r.id) : freshHero(r.cls, r.id);
   const hero: Hero = {
     ...base, name: r.name || base.name, level: r.level, xp: r.xp, points: r.points, kills: r.kills, battles: r.battles,
     attrs: { ...base.attrs, ...json<Partial<Attrs>>(r.attrs, {}) }, equip: json<Equipment>(r.gear, {}),
