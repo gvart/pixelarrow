@@ -4,7 +4,7 @@ export const SPOTS = {
   "entry_dodona-s": [10.5, 256.5],
   "entry_saddle": [502.5, 256.5],
   "entry_erymanthos": [256.5, 502.5],
-  "bigTor": [112.5, 104.5],
+  "bigTor": [136.5, 124.5],
   "fortress": [392.5, 300.5],
   "causeway": [252.1, 252.5],
 } as const satisfies Record<string, readonly [number, number]>;

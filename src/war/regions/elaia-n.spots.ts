@@ -7,9 +7,9 @@ export const SPOTS = {
   "entry_bacchae": [502.5, 256.5],
   "narrows": [254.5, 88.5],
   "landfall": [240.5, 184.5],
-  "isleW": [200.5, 136.5],
-  "isleE": [308.5, 144.5],
-  "fields": [352.5, 348.5],
+  "isleW": [176.5, 200.5],
+  "isleE": [320.5, 208.5],
+  "fields": [132.5, 364.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
 export const CLAIM_POINTS = [{"x":227.5,"y":302.5},{"x":252.5,"y":333.5},{"x":405.5,"y":321.5}] as const;

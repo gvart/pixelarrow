@@ -5,15 +5,15 @@ export const SPOTS = {
   "entry_dodona-e": [502.5, 430.6],
   "entry_stymphalia": [256.5, 502.5],
   "entry_moors": [502.5, 256.5],
-  "hill": [292.5, 232.5],
-  "ladonFord": [220.5, 152.5],
-  "ladonFord1": [408.5, 248.5],
-  "ladonNarrows": [112.2, 249.1],
-  "ladonNarrowsA": [122.3, 253.8],
-  "ladonNarrowsB": [102, 244.3],
-  "narrows": [220.5, 152.5],
-  "brokenBridge": [110.5, 248.5],
-  "fields": [392.5, 328.5],
+  "hill": [272.5, 232.5],
+  "ladonFord": [168.5, 112.5],
+  "ladonFord1": [446.6, 281.1],
+  "ladonNarrows": [73.6, 201.6],
+  "ladonNarrowsA": [82.6, 208.2],
+  "ladonNarrowsB": [64.5, 195],
+  "narrows": [168.5, 112.5],
+  "brokenBridge": [72.5, 200.5],
+  "fields": [400.5, 464.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
-export const CLAIM_POINTS = [{"x":239.5,"y":337.5},{"x":305.5,"y":357.5}] as const;
+export const CLAIM_POINTS = [{"x":252.5,"y":393.5},{"x":317.5,"y":429.5}] as const;

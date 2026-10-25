@@ -10,32 +10,33 @@
  * foot. The claim point where Skythia's road meets it.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
+import { massif } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'skythia-n',
-  style: { dry: 0.5, dryHigh: false, trees: 0.1, bushes: 0.1, meadow: 0.4 },
+  style: { dry: -1, dryHigh: false, trees: 0.03, bushes: 0.04, meadow: 0.4 },
   build(k: Kit) {
     const S = k.entry('skythia'), W = k.entry('krios'), NW = k.entry('skythia-w'), NE = k.entry('skythia-e');
     k.fill(2);
-    k.zone('mountains', [40, 70, 70, 60, 0.3], 10);
+    k.zone('elaia', () => 99);
+    k.zone('mountains', [40, 50, 70, 50, 0.3], 10);
     // the coastal bluff, the north-west terraces
     k.lift((x, y, s) => (y + 6 * Math.sin(x / 19 + s) < 64 ? 4 : NaN), true);
-    k.plateau([46, 64, 44, 34, 0.3], 6, { rough: 4 });
-    k.plateau([40, 56, 26, 20, 0.3], 9, { rough: 3 });
+    massif(k, { outline: [[-12, -12], [150, -12], [132, 36], [92, 74], [40, 98], [-12, 104]], crown: [[-12, -12], [70, -12], [60, 30], [24, 52], [-12, 56]], base: 4, tiers: 2, step: 3, wobble: 0.15 });
     // the sea under the bluff, the pebble beach
     k.waterBody([128, -18, 230, 34, 0], { shore: 3, beach: 0, rough: 6 });
     k.basin([170, 22, 22, 9, 0.1], 1, 0, 2);
     k.waterBody([170, 10, 24, 8, 0.1], { shore: 2, beach: 6, rough: 2 });
     k.spot('beach', [170, 22]);
     // the long low ridge
-    k.ridge([[40, 220], [100, 180], [160, 150], [230, 110]], { crest: 5, step: 3, top: 2, reach: 12, base: 2 });
-    k.spot('ridge', [140, 160]);
+    massif(k, { outline: [[24, 236], [70, 196], [130, 160], [190, 130], [244, 96], [252, 112], [200, 148], [140, 180], [80, 216], [34, 250]], crown: [[40, 236], [130, 170], [240, 104], [140, 174]], base: 2, tiers: 2, steps: [3, 1], wobble: 0.1 });
+    k.spot('ridge', [136, 170]);
     // the frost-browned steppe: bare earth in wide drifts over the grass
-    for (const b of [[150, 110, 60, 30, 0.5], [90, 200, 50, 26, -0.3], [210, 200, 40, 30, 0.2], [190, 60, 40, 18, 0]] as const) k.paint('dirt', [...b], { rough: 8 });
+    for (const b of [[150, 110, 80, 40, 0.5], [80, 200, 60, 36, -0.3], [214, 214, 50, 40, 0.2], [190, 60, 50, 22, 0], [40, 130, 30, 24, 0]] as const) k.paint('dirt', [...b], { rough: 10 });
     // the frozen ponds (shallow), snow round them
-    for (const [x, y, rx, ry] of [[110, 100, 9, 6], [200, 180, 11, 7], [70, 140, 6, 4], [180, 80, 7, 5], [120, 220, 8, 5], [230, 220, 6, 5]] as const) {
+    for (const [x, y, rx, ry] of [[116, 104, 18, 10], [206, 196, 20, 12], [60, 150, 11, 7], [190, 76, 9, 6], [110, 226, 9, 6]] as const) {
       k.waterBody([x, y, rx, ry, 0.4], { deep: false, beach: 0, rough: 2 });
-      k.paint('snow', [x, y, rx + 5, ry + 4, 0.4], { rough: 3 });
+      k.paint('snow', [x, y, rx + 6, ry + 5, 0.4], { rough: 3, on: ['grass', 'dirt', 'sand'] });
     }
     // roads: Skythia's road to the claim point, the Krios road along the ridge's foot, the tracks to Skythia's other
     // entries; the path up the terraces

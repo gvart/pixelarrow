@@ -5,7 +5,7 @@ export const SPOTS = {
   "entry_skythia-e": [502.5, 82.4],
   "entry_krios": [10.5, 256.5],
   "beach": [340.5, 44.5],
-  "ridge": [280.5, 320.5],
+  "ridge": [272.5, 340.5],
 } as const satisfies Record<string, readonly [number, number]>;
 /** Claim points (neutral play, src/war/sim/mobs.ts), tiles. */
 export const CLAIM_POINTS = [{"x":282.5,"y":373.5},{"x":404.5,"y":441.5}] as const;

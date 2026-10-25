@@ -5,9 +5,9 @@
  * Layout (Gemini reference shots/war/regions/proto/dodona-e.png): one long ravine crosses the map west to east, its
  * floor climbing in three tiers (h2 by Dodona, h4 in the middle, h6 under the Teeth) joined by ramps, a fast stream
  * beside the road falling over the first step. In the middle it pinches to the narrows, 8 tiles between sheer walls.
- * Wooded shoulders stand four levels over the floor on both rims, each with one path up from the road: on the north
+ * Wooded shoulders stand six levels (12 m) over the floor on both rims, each with one path up from the road: on the north
  * shoulder the old iron diggings in a side hollow, on the south one the palisade camp over the narrows. The snowy
- * Teeth fill the north-east; the south shoulder falls in steps to the Moors road, which climbs out of the ravine by a
+ * Teeth fill the whole north-east; the south shoulder falls in steps to the Moors road, which climbs out of the ravine by a
  * side cleft; oak lowland and a woodcutters' hamlet by Dodona in the south-west.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
@@ -22,26 +22,25 @@ const tier = (x: number, y: number) => floor(x + 9 * Math.sin(y / 13) + 5 * Math
 
 const def: RegionDef = {
   id: 'dodona-e',
-  style: { meadow: 0.25, trees: 0.7, bushes: 0.6 },
+  style: { meadow: 0.25, trees: 0.45, bushes: 0.1 },
   build(k: Kit) {
     const W = k.entry('dodona'), WN = k.entry('dodona-n'), WS = k.entry('dodona-s'), E = k.entry('kleisoura'), S = k.entry('moors');
     k.fill(3);
     k.zone('mountains', () => 99);
     k.zone('dodona', [40, 200, 70, 70, 0.3], 10);
-    // the land: the shoulders four over the floor along the ravine, the south falling in steps to the moors road,
+    // the land: the shoulders six over the floor along the ravine, the south falling in steps to the moors road,
     // the oak lowland by Dodona low (h2)
     k.lift((x, y) => {
       const d = Math.abs(y - cy(x)) - half(x);
       if (d <= 0) return floor(Math.max(0, Math.min(255, x))) as number;
-      if (y < cy(x)) return tier(x, y) + (d < 34 + 6 * Math.sin(x / 19) ? 4 : 6); // north shoulder, a tier more under the Teeth
-      return d < 26 + 5 * Math.sin(x / 15) ? tier(x, y) + 4 : d < 50 + 6 * Math.cos(x / 23) ? tier(x, y) + 2 : NaN;
+      if (y < cy(x)) return tier(x, y) + (d < 34 + 6 * Math.sin(x / 19) ? 6 : 8); // north shoulder, a tier more under the Teeth
+      return d < 30 + 5 * Math.sin(x / 15) ? tier(x, y) + 6 : d < 56 + 6 * Math.cos(x / 23) ? tier(x, y) + 3 : NaN;
     }, true);
     k.basin([30, 214, 50, 46, 0.3], 2, 6, 4);
     // the Teeth: snowy massifs along the north-east edge, spurs down to the north shoulder
-    k.mountains([[90, -8], [150, 18], [206, 28], [244, 60], [264, 92]], { width: 18, spurs: [[176, 64, 16, 10, 0.4], [230, 104, 10, 8, 0]] });
+    k.mountains([[60, -24], [150, -4], [220, 10], [256, 44], [276, 96]], { width: 42, spurs: [[176, 58, 18, 12, 0.4], [104, 30, 16, 10, 0.3]] });
     k.rockMass([40, 10, 26, 14, 0.2], { rough: 2 });
     k.rockMass([250, 190, 22, 30, 0.2], { rough: 2 });
-    k.paint('snow', [180, 30, 80, 40, 0.3], { on: ['grass', 'dirt'], minH: 8 });
     // the side cleft south to the moors: a cut from the ravine floor down the shoulders
     k.cut([[158, cy(158) + 8], [150, 176], [134, 212], [128, 262]], { h: 4, half: 5, bank: 3 });
     // the stream down the ravine (shallow), over the first step as a fall
@@ -51,9 +50,9 @@ const def: RegionDef = {
     k.spot('falls', [86, cy(86) - 5]);
     // the narrows and the shoulders over it; the camp and the diggings
     k.spot('narrows', [128, cy(128) + 1.2]);
-    k.plateau([150, 154, 12, 8, 0.1], 8, { terrain: 'dirt', rough: 1 });
+    k.plateau([150, 154, 12, 8, 0.1], 10, { terrain: 'dirt', rough: 1 });
     k.spot('campShoulder', [150, 154]);
-    k.basin([128, 74, 12, 8, 0.3], 7, 0, 1.5);
+    k.basin([128, 74, 12, 8, 0.3], 9, 0, 1.5);
     k.spot('diggings', [128, 74]);
     // roads: the Tin Road up the ravine floor, ramps at the steps; the paths up both shoulders; the moors cleft; the
     // tracks along the west edge to Dodona's other entries
