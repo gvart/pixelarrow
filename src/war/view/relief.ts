@@ -52,13 +52,12 @@ const AMP: Record<number, number> = Object.fromEntries([['road', 0.3], ['paving'
 /** Gradient noise in about [-1, 1] on a lattice of `s` cells (8 hashed gradient directions), rotated off the cell axes. */
 function noise(x: number, y: number, s: number, k: number): number {
   const fx = (x * 0.8 + y * 0.6) / s, fy = (y * 0.8 - x * 0.6) / s, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
-  const g = (a: number, b: number, dx: number, dy: number) => {
-    const t = (hash(a, b, k) >>> 4) & 7, gx = G8[2 * t], gy = G8[2 * t + 1];
-    return gx * dx + gy * dy;
-  };
+  const t00 = ((hash(ix, iy, k) >>> 4) & 7) * 2, t10 = ((hash(ix + 1, iy, k) >>> 4) & 7) * 2;
+  const t01 = ((hash(ix, iy + 1, k) >>> 4) & 7) * 2, t11 = ((hash(ix + 1, iy + 1, k) >>> 4) & 7) * 2;
+  const g00 = G8[t00] * tx + G8[t00 + 1] * ty, g10 = G8[t10] * (tx - 1) + G8[t10 + 1] * ty;
+  const g01 = G8[t01] * tx + G8[t01 + 1] * (ty - 1), g11 = G8[t11] * (tx - 1) + G8[t11 + 1] * (ty - 1);
   const sx = tx * tx * tx * (tx * (tx * 6 - 15) + 10), sy = ty * ty * ty * (ty * (ty * 6 - 15) + 10);
-  const a = g(ix, iy, tx, ty) + (g(ix + 1, iy, tx - 1, ty) - g(ix, iy, tx, ty)) * sx;
-  const b = g(ix, iy + 1, tx, ty - 1) + (g(ix + 1, iy + 1, tx - 1, ty - 1) - g(ix, iy + 1, tx, ty - 1)) * sx;
+  const a = g00 + (g10 - g00) * sx, b = g01 + (g11 - g01) * sx;
   return (a + (b - a) * sy) * 1.4;
 }
 const G8 = [1, 0, -1, 0, 0, 1, 0, -1, 0.707, 0.707, -0.707, 0.707, 0.707, -0.707, -0.707, -0.707];
@@ -138,9 +137,11 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
     const j = y * fw + x, z = P[j];
     let ax = 0, ay = 0, ws = 0;
     for (let d = 1; d <= 3; d++) {
-      const c = C * d, cl = (v: number) => Math.max(-c, Math.min(c, v - z));
-      ax += W[d] * (cl(P[y * fw + Math.min(fw - 1, x + d)]) - cl(P[y * fw + Math.max(0, x - d)])) / (2 * d);
-      ay += W[d] * (cl(P[Math.min(fh - 1, y + d) * fw + x]) - cl(P[Math.max(0, y - d) * fw + x])) / (2 * d);
+      const c = C * d;
+      const e = Math.max(-c, Math.min(c, P[y * fw + Math.min(fw - 1, x + d)] - z)), wv = Math.max(-c, Math.min(c, P[y * fw + Math.max(0, x - d)] - z));
+      const s = Math.max(-c, Math.min(c, P[Math.min(fh - 1, y + d) * fw + x] - z)), nv = Math.max(-c, Math.min(c, P[Math.max(0, y - d) * fw + x] - z));
+      ax += (W[d] * (e - wv)) / (2 * d);
+      ay += (W[d] * (s - nv)) / (2 * d);
       ws += W[d];
     }
     gx[j] = ax / ws; gy[j] = ay / ws;
@@ -160,8 +161,11 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
   const shoreF = blur(sf, fw, fh, 1);
   const damp = distance(fw, fh, wet, (j, f) => !wet(j) && Math.abs(fz[j] - fz[f]) <= 1, 4);
   const out = new Uint8Array(n), foam = new Uint8Array(n);
+  let ray = 0;
   for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
     const j = y * fw + x, k = fk[j];
+    // the light's ray toward +x from the highest ground behind, falling half a level per cell (cast shadows)
+    ray = x ? Math.max(ray - 0.5, fz[j - 1] - 0.5) : -1e9;
     if (wet(j)) {
       const d = shore[j];
       if (d === 1) {
@@ -177,13 +181,8 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
     let s = 0.2 * Math.tanh(lit * 0.9);
     const occ = B[j] - P[j];
     s += occ > 0 ? -Math.min(0.22, occ * 0.045) : Math.min(0.1, -occ * 0.03);
-    // cast shadow of a wall toward +x (the light's ray falls half a level per cell)
-    let sh = 0;
-    for (let d = 1; d <= 24 && d <= x; d++) {
-      const rise = fz[j - d] - fz[j] - 0.5 * d;
-      if (rise > sh) sh = rise;
-    }
-    s -= Math.min(0.36, sh * 0.035);
+    // cast shadow of a wall toward +x
+    s -= Math.min(0.36, Math.max(0, ray - fz[j]) * 0.035);
     s += Math.max(-0.2, Math.min(0.16, (fz[j] - med) * 0.007));
     if (SNOWY.has(k)) s *= s > 0 ? 0.4 : 0.75;
     else if (SANDY.has(k)) s *= 0.85;
