@@ -228,7 +228,7 @@ app.get('/ws/war/:region', async (c) => {
   return stub.fetch(new Request(c.req.url, { headers }));
 });
 
-/** Dev only (DEV_AUTH=1): the region's tick times and bandwidth (scripts/war/loadtest.mjs). */
+/** Dev only (DEV_AUTH=1): the region's tick times and bandwidth (scripts/war/loadtest.mjs), its neutral state (play-smoke.mjs). */
 app.get('/api/war/:region/stats', async (c) => {
   const region = c.req.param('region');
   if (c.env.DEV_AUTH !== '1' || !WAR_REGIONS.includes(region)) throw new ApiError(404, 'not_found', 'No such endpoint');

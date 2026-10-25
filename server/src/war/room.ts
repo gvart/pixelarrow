@@ -481,6 +481,16 @@ export class WarRoom {
     return { squad, msg };
   }
 
+  /** Dev /stats (scripts/war/play-smoke.mjs): the neutral side as the server holds it (lairs, guardians, claim points). */
+  wild() {
+    const s = this.snap;
+    return {
+      lairs: (s.lairs ?? []).map((l) => ({ id: l.id, kind: l.kind, state: l.state, alive: l.alive })),
+      bosses: (s.bosses ?? []).map((b) => ({ id: b.id, state: b.state, hp: Math.round(b.hp) })),
+      claims: (s.claims ?? []).map((c) => ({ id: c.id, state: c.state, team: c.team, progress: c.progress })),
+    };
+  }
+
   /** M4: what the world map shows of this region (alliances 0..3): live men, claim points held, claims in progress. */
   summary(): Summary {
     const n = ALLIANCES, claims = Array<number>(n).fill(0), channel = Array<number>(n).fill(0);

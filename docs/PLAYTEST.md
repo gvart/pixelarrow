@@ -86,10 +86,17 @@ has no dev panel; `npm run play:war -- --reset` gives a fresh world.
 
 - The smoke loop passes from the world map through the caravan's arrival in Kleisoura (gather, camp, storehouse,
   recruit / train, a sword forged into a chest, a handcart made, loaded, crewed and hauled over two borders). The cart
-  rolls into the market court, wood is stowed into a rented stall and a sell offer listed. The buyer's fill then
-  fails ("It costs 30 coin, in your warehouse or stall here": the smoke gives him no coin in his fresh warehouse); the
-  loop goes on to the chained transfer kleisoura -> dodona-e -> moors (arrives); lair raid, claim and ram siege are
-  scripted after it but not yet seen passing live.
+  rolls into the market court, wood is stowed into a rented stall and a sell offer listed. The buyer carries 60 coin
+  from his strongroom in his men's packs (skythia -> skythia-w -> kleisoura), stows it into his warehouse and fills the
+  offer. Then kleisoura -> dodona-e -> moors: the bear lair and the moors' guardian (the Great Bear, which keeps every
+  claim point shut) raided, claim point 2 claimed, a ram built and crewed against the buyer's palisade gate, and a
+  last transfer out. Lairs, guardians and claims are read from the region's dev `/api/war/:region/stats` (`wild`):
+  fog hides the beasts from the page.
+- No squad transfers out with a foe within 20 tiles. A squad lingering at Kleisoura's court with a cart meets the
+  bandits' cart raid outside the court (12 men don't fit in it; those outside are taken), and then cannot leave: the
+  smoke's seller hauls on right after listing his offer.
+- The smoke's buyer socket sends its own `cf-connecting-ip`: accounts seen on one address are linked and may not
+  trade (M6i).
 - Right after the start the home recruit pool is empty (the start's 12 militia took it; it refills 6 an hour).
 - A crafted item lands in the maker's chest by the workplace; with no chest it rides in the maker's pack (the stash
   lists it under packs).
