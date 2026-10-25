@@ -1,0 +1,23 @@
+scripts/war/regions/kleisoura.ts
+  s_cfc22b058125c4::t_3a547f1fd16e61 84-85
+src/war/regions/kleisoura.json
+  s_cfc22b058125c4::t_3a547f1fd16e61 1
+server/test/war/haul.test.ts
+  s_cfc22b058125c4::t_a42e55a5dea67e 81-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f5969cf6ad64795eb2ac9299cf8d4a509b15c738",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
