@@ -1,0 +1,45 @@
+src/war/view/SandboxScene.ts
+  s_cfc22b058125c4::t_b870c6a015ac0b 31,107,159,509
+  s_cfc22b058125c4::t_5e4c82920b324f 274,277-280,283-284
+  s_cfc22b058125c4::t_08a0be9b3e8cf5 285
+src/war/view/treeLight.ts
+  s_cfc22b058125c4::t_0ec0f68c7f9a20 1-35,37,40-48
+  s_cfc22b058125c4::t_4ad7546eb42352 36,38-39
+src/war/view/relief.ts
+  s_cfc22b058125c4::t_223f3c2835ff50 148-149
+  s_cfc22b058125c4::t_8826b78436287a 35-37,167
+  s_cfc22b058125c4::t_207b31394ef02f 164
+  s_cfc22b058125c4::t_02c095e423f009 47-49,119-122,126-128,130-131
+  s_cfc22b058125c4::t_4ad7546eb42352 182-183,208-209
+  s_cfc22b058125c4::t_73ca132a7aacd5 3-4,193-207,210-213
+  s_cfc22b058125c4::t_4a9f6dd5855804 1-2,5-34,38-46,50,52,62,64,67-107,111,114,116-118,123-125,129,132-147,150-157,159-162,168-181,184-185,187-191,214
+  s_cfc22b058125c4::t_055e7252657ec2 51,53-61,63,65-66,186
+  s_cfc22b058125c4::t_cedd7ad32c3bb4 108-110,112-113,115,158,163,165-166,192
+src/war/view/water.ts
+  s_cfc22b058125c4::t_9d951812da36e0 1-68
+src/war/view/art.ts
+  s_cfc22b058125c4::t_5effa2940e93e0 81-83,91-95
+  s_cfc22b058125c4::t_cedd7ad32c3bb4 22,125-126,176,382,385,389-404,413-418
+  s_cfc22b058125c4::t_6b9f4098d59e78 319,362-363,365,451-459,461-471,473-478,480-509,511-512,515-517,519-520
+  s_cfc22b058125c4::t_73ca132a7aacd5 127-128,165-167,170-174,318,368
+  s_cfc22b058125c4::t_7c48f706474437 460,472,479,510,513-514,518
+  s_cfc22b058125c4::t_dea3e869fbadbc 123-124,168-169,175,376,410
+  s_cfc22b058125c4::t_282506186b4dc2 23
+  s_cfc22b058125c4::t_c80e84f8f2aa0c 96,521
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7087afae8ad0dc1bfe6385211d48bdaa2f8c154b",
+  "prompts": {},
+  "sessions": {
+    "s_cfc22b058125c4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1598edba-2ed7-4a23-ba4c-16234c0d0a77",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
