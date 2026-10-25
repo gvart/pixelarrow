@@ -4,14 +4,15 @@
  * Delta's iron, and the only well. Depth 1: scorpions and lions; the dunes walk over everyone but the well-digger.
  * Layout (Gemini reference shots/war/regions/proto/kyrene-s.png; W-52 set pieces): broad stepped dune ridges (h2-h4)
  * fill the open sand and slow everything. In the middle the great red mesa, a fifth of the map across, rises on sheer
- * walls (skirt h7, top h11) with the only well on its top, one path up its south face. A long low ridge of red rock (h6)
+ * walls (a six-level skirt at h8, the top at h13-14) with the only well on its top, one path up its south face. A long low ridge of red rock (h8)
  * runs south-east across the dunes from it, the defensive line of the Delta way. The whole north is the desert
- * plateau's escarpment, two sandstone cliff tiers (h6, h9) over the dunes wrapping down the west edge, the Kyrene and
+ * plateau's escarpment, two sandstone walls (h6-7, rolling dune tops at h10-13) over the dunes wrapping down the west edge, the Kyrene and
  * Delta roads cut down through it. The sea fills the south; a low sand bluff over the beach, and a salt crust in a hollow behind
  * it. The caravan track comes down from Kyrene to the outcrop's foot (the claim point) and on west to the Delta.
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
-import { massif } from './setpieces.ts';
+import { fbm } from './kit.ts';
+import { massif, profile, relief } from './setpieces.ts';
 
 const def: RegionDef = {
   id: 'kyrene-s',
@@ -22,24 +23,36 @@ const def: RegionDef = {
     k.zone('kyrene', () => 99);
     k.paint('sand', [128, 128, 200, 200, 0], { rough: 8 });
     // W-52 set pieces (./setpieces.ts): the desert plateau's escarpment across the whole north in two sandstone tiers
-    massif(k, {
+    const esc = massif(k, {
       outline: [[-12, -12], [268, -12], [268, 58], [214, 66], [176, 52], [138, 60], [96, 50], [62, 64], [50, 96], [36, 112], [-12, 110]],
       crown: [[-12, -12], [268, -12], [268, 18], [30, 22], [18, 70], [-12, 76]],
       base: 2, tiers: 2, steps: [4, 3], wobble: 0.3,
     });
+    // its relief (setpieces.ts relief): a four-level sandstone wall off the dunes, the lower tier rolling up to a
+    // three-level upper wall, rolling dune tops over the plateau
+    relief(k, (x, y, s) => {
+      const t = esc.t(x, y);
+      if (t < 0) return NaN;
+      return profile([[0, 6], [0.8, 7.4], [1, 10], [2, 12]], t) + 0.5 * fbm(x, y, 10, s) + (t > 1 ? 1.1 * fbm(x, y, 18, s + 1) : 0);
+    }, { cliffs: [[7.4, 10]] });
     // the dunes: a few broad crescent ridges, stepped (each a level per 3 units), across the open sand
     for (const d of [[[178, 92], [214, 82], [246, 96]], [[18, 160], [50, 150], [74, 170]], [[160, 200], [196, 188], [238, 196]], [[84, 214], [112, 200], [138, 214]], [[186, 132], [222, 124], [252, 140]]] as Pt[][])
       k.ridge(d, { crest: 4, step: 3, top: 3, reach: 14, base: 2 });
-    // the great red mesa in the middle: sheer skirt walls (h7), the flat top (h11) with the well
-    massif(k, {
+    // the great red mesa in the middle: sheer skirt walls (h8), the top (h13-14) with the well
+    const mesa = massif(k, {
       outline: [[96, 80], [130, 70], [164, 84], [172, 116], [156, 146], [122, 150], [92, 136], [84, 108]],
       crown: [[110, 92], [140, 88], [154, 108], [142, 130], [114, 132], [102, 112]],
       base: 2, tiers: 2, steps: [5, 4], wobble: 0.15, top: 'dirt',
     });
+    relief(k, (x, y, s) => {
+      const t = mesa.t(x, y);
+      if (t < 0) return NaN;
+      return t < 1 ? 8 + 0.4 * fbm(x, y, 6, s) : 13.4 + 0.7 * fbm(x, y, 9, s + 1);
+    });
     k.patch('kyrene', 'redrock', [128, 112, 46, 42, 0.3], ['sand', 'dirt'], undefined, 7);
     k.spot('outcrop', [126, 110]);
     // the long red ridge south-east from the mesa: the defensive line of the Delta way
-    k.ridge([[160, 150], [186, 166], [210, 184], [236, 206]], { crest: 6, step: 1.5, top: 2.5, reach: 12, base: 2 });
+    k.ridge([[160, 150], [186, 166], [210, 184], [236, 206]], { crest: 8, step: 1.2, top: 2.5, reach: 12, base: 2 });
     k.patch('kyrene', 'redrock', [198, 178, 46, 8, 0.65], ['sand'], undefined, 4);
     k.spot('ridge', [190, 170]);
     // the sea, the bluff and the salt hollow
