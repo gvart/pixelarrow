@@ -4,6 +4,7 @@
 //   npm run play:war -- --reset      wipe the local state first (D1, Durable Objects: a fresh world and season)
 //   npm run play:war -- --bots       also 3 bot players (one per other alliance) with a squad standing at their homes
 //   npm run play:war -- --no-serve   seed only, against servers that already run
+//   npm run play:war -- --fast       world travel x0.05 (WAR_TRAVEL_SCALE): transits take seconds (the scripted smoke)
 //   PLAY_API_PORT / PLAY_WEB_PORT    other ports than 8787 / 5173
 //
 // Seeding (idempotent): the dev player (dev id 1, alliance Dodona) gets the design's start: his recruit pool and
@@ -21,7 +22,7 @@ const API_PORT = Number(process.env.PLAY_API_PORT) || 8787, WEB_PORT = Number(pr
 const API = `http://localhost:${API_PORT}`, WEB = `http://localhost:${WEB_PORT}`;
 const DEV_ID = 1;
 const has = (f) => process.argv.includes(`--${f}`);
-const RESET = has('reset'), BOTS = has('bots'), SERVE = !has('no-serve');
+const RESET = has('reset'), BOTS = has('bots'), SERVE = !has('no-serve'), FAST = has('fast');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (s) => console.log(`[play] ${s}`);
 
@@ -140,7 +141,7 @@ if (SERVE) {
     process.exit(1);
   }
   log(`starting wrangler dev :${API_PORT} and vite :${WEB_PORT}`);
-  start('api', 'npx', ['wrangler', 'dev', '--config', '../wrangler.jsonc', '--persist-to', '.wrangler/state', '--port', String(API_PORT), '--inspector-port', String(API_PORT + 1000), '--var', 'DEV_AUTH:1', '--show-interactive-dev-session=false'], SERVER);
+  start('api', 'npx', ['wrangler', 'dev', '--config', '../wrangler.jsonc', '--persist-to', '.wrangler/state', '--port', String(API_PORT), '--inspector-port', String(API_PORT + 1000), '--var', 'DEV_AUTH:1', ...(FAST ? ['--var', 'WAR_TRAVEL_SCALE:0.05'] : []), '--show-interactive-dev-session=false'], SERVER);
   start('web', 'npx', ['vite', '--port', String(WEB_PORT), '--strictPort'], ROOT);
 }
 try {

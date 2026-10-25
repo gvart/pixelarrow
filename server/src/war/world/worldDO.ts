@@ -21,6 +21,7 @@ import { logError } from '../../telemetry/log';
 import { parseWorldMsg, type RegionState, type SeasonResult, type SeasonSnap, type TransferError, type TransferOrder, type TransitSnap, type WorldServerMsg, type WorldSnapshot } from '../../../../src/war/net/world';
 import type { AllianceId, Side } from '../../../../src/war/world/types';
 import { scoreRate } from '../../../../src/war/world/season';
+import { WAR_SEASON } from '../../../../src/war/world/alliances';
 import { allianceCounts } from './members';
 import { boardsSeen, hasNode } from '../tradeScore';
 import type { TransitCargo } from '../../../../src/war/net/world';
@@ -46,7 +47,8 @@ export class WarWorldDO extends DurableObject<Env> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.world) return;
       const st = await this.ctx.storage.get<WorldState>(STATE);
-      const w = new World(st?.v === 2 ? st : undefined);
+      const fast = this.env.DEV_AUTH === '1' ? Number(this.env.WAR_TRAVEL_SCALE) : NaN;
+      const w = new World(st?.v === 2 ? st : undefined, fast > 0 ? { ...WAR_SEASON, travelScale: fast, offExitMsPerTile: WAR_SEASON.offExitMsPerTile * fast } : WAR_SEASON);
       const d = this.env.DB;
       if (d) {
         // persons marked on the road that the world does not carry go home
