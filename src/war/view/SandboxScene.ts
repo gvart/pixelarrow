@@ -197,6 +197,7 @@ export class SandboxScene extends Phaser.Scene {
     void TradeArt.load(this).then((a) => (this.tradeLayer.art = a));
     this.trade = new TradeControls(this);
     this.build = new BuildMode(this);
+    this.build.layer.nodeBase = (n) => (n.obj !== undefined && r.objects?.[n.obj] ? this.objects?.baseOf(r.objects[n.obj].id) : undefined);
     this.siege = new SiegeControls(this);
     this.interact = new Interact(this);
     // wall-walks: units drawn up on walks, stairs and ladders; climbers play climb (else walk); ram crews and ladder

@@ -13,6 +13,7 @@ import type { ObjDef, WarArt } from './art';
 import { HH, LH, type IsoMap } from './iso';
 import type { Massifs } from './massifs';
 import { peakHorizon } from './peaks';
+import { baseOffset } from './objBase';
 import type { DrawUnit } from './simClient';
 
 /** Objects are live sprites from this zoom up (the unit sprites' zoom). */
@@ -36,6 +37,8 @@ export class ObjectLayer {
   private pool: Phaser.GameObjects.Image[] = [];
   private filter = -1;
   private cells = new Map<number, number[]>();
+  /** Per object def id: its base's centre from the anchor, sprite px (./objBase.ts). */
+  private bases = new Map<string, { dx: number; dy: number }>();
 
   constructor(private scene: Phaser.Scene, private iso: IsoMap, r: RegionData, art: WarArt, private massifs: Massifs | null = null) {
     const defs = new Map<string, Def>(), used = new Set([...(r.objects ?? []).map((o) => o.id), ...(massifs?.list ?? []).map((m) => m.def.id)]);
@@ -50,6 +53,7 @@ export class ObjectLayer {
       g.drawImage(img, 0, 0);
       const px = g.getImageData(0, 0, d.w, d.h).data, mw = Math.ceil(d.w / MASK), mh = Math.ceil(d.h / MASK), mask = new Uint8Array(mw * mh);
       for (let y = 0; y < d.h; y++) for (let x = 0; x < d.w; x++) if (px[(y * d.w + x) * 4 + 3] > 128) mask[((y / MASK) | 0) * mw + ((x / MASK) | 0)] = 1;
+      this.bases.set(d.id, baseOffset(px, d.w, d.h, d.anchor.x, d.anchor.y));
       if (d.kind === 'massif' && !scene.textures.exists(key + '-half')) {
         const h = document.createElement('canvas');
         h.width = Math.ceil(d.w / 2); h.height = Math.ceil(d.h / 2);
@@ -79,6 +83,11 @@ export class ObjectLayer {
       const xs = m.x0 + m.fw, ys = m.y0 + m.fh;
       this.big.push({ def: defs.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, iso.zf(2 * xs - 1, 2 * ys - 1))), v: m.v - 0.001 + k * TIE, alpha: 1, tint: Math.round(255 * m.shade) * 0x010101 });
     });
+  }
+
+  /** Where object def `id`'s sprite meets the ground, from its anchor (sprite px); undefined for an unknown def. */
+  baseOf(id: string): { dx: number; dy: number } | undefined {
+    return this.bases.get(id);
   }
 
   /** Depth key of a point: x + y, past the massifs it stands in front of. */
