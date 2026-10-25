@@ -174,6 +174,24 @@ async function connect(token: string): Promise<Client> {
 const stats = async () => (await (await SELF.fetch(`${BASE}/api/war/test-ridge/stats`)).json<{ units: number; online: number; running: boolean }>());
 
 describe('WarRegionDO persistence', () => {
+  it('a rejoin also brings the men named from home as a fresh squad', async () => {
+    const me = await devLogin(7404);
+    await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: {} });
+    const rows = (await env.DB!.prepare("SELECT id FROM war_persons WHERE player_id = ?1 AND state = 'active' ORDER BY slot").bind(me.playerId).all<{ id: string }>()).results.map((r) => r.id);
+    const deployed = async () => (await env.DB!.prepare("SELECT COUNT(*) AS n FROM war_persons WHERE player_id = ?1 AND region = 'test-ridge'").bind(me.playerId).first<{ n: number }>())!.n;
+    const c = await connect(me.token);
+    c.send(join(me.playerId, 0, [rows.slice(0, 6)]));
+    expect(await c.next('welcome')).toMatchObject({ squads: [expect.any(Number)] });
+    c.ws.close(1000);
+    await new Promise((r) => setTimeout(r, 200));
+    const again = await connect(me.token);
+    again.send(join(me.playerId, 0, [rows.slice(6)]));
+    expect(((await again.next('welcome')) as Extract<ServerMsg, { t: 'welcome' }>).squads).toHaveLength(1); // the rejoin
+    expect(((await again.next('welcome')) as Extract<ServerMsg, { t: 'welcome' }>).squads).toHaveLength(2); // and the men from home
+    expect(await deployed()).toBe(12);
+    again.ws.close(1000);
+  });
+
   it('joins with persisted soldiers and resumes the region after an eviction', async () => {
     const me = await devLogin(7403);
     await api('/api/war/dev/seed', { method: 'POST', token: me.token, json: {} });
