@@ -191,7 +191,8 @@ export function citadel(k: Kit, at: Pt, hb: number): Landmark {
   const fI = s.ramp([out(gI, 1), out(gI, 6), [out(gI, 8)[0] - 6, out(gI, 14)[1]]], 4, hi, ho, { run: 10 / T, flat: 4 });
   // the crag's skirt: broken granite ledges, snow drifted on them, round the wards but where the ramps come down
   s.skirtKinds = { a: 'drift', b: 'rock', cut: -0.15 };
-  const sk = s.skirt(C, ho, 8, { steps: 2, seed: 19, open: [fS, fW, fE, ...zig], lo: 0.35, hi: 0.7 });
+  // (four ledges deep within the drafted width, so the face breaks into rock steps; the tiles it takes are as before: Drakon's raid is tuned on them)
+  const sk = s.skirt(C, ho, 8, { steps: 4, seed: 19, open: [fS, fW, fE, ...zig], lo: 0.1, hi: 0.85 });
   // the summit: the keep, the treasury, the temple, a cistern, the commander's halls, stores
   if (!putNear(s, 'citadel-keep', 120, 30)) throw new Error('citadel: no ground for the keep');
   s.plaza(123, 44, 10, 5);

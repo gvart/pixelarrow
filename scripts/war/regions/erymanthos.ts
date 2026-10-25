@@ -12,6 +12,7 @@
  *                   fallen trees; the stream rises in a spring pool in a clearing by the north corner and runs at the
  *                   scarp's foot to the south corner;
  *   the sanctuary   the oracle's walled grove in the south-west, as drafted.
+ * The draft ground round the region-edge entries is kept only along the roads (entryBand), so no bowl is left there.
  */
 import type { Kit, Pt } from './kit.ts';
 import { fbm } from './kit.ts';
@@ -26,7 +27,7 @@ const wallX = (y: number) => profile([[-10, 182], [34, 184], [40, 196], [100, 19
 /** Units behind the scarp's rim (< 0: the forest floor in front of it). */
 const behind = (x: number, y: number, s: number) => x - wallX(y) - 2.5 * fbm(x, y, 9, s) - fbm(x, y, 3.5, s + 1);
 
-export default composeOnDraft('erymanthos', { staging: [162, 410] }, (k: Kit) => {
+export default composeOnDraft('erymanthos', { staging: [162, 410], entryBand: 6 }, (k: Kit) => {
   // the scarp and the flat forest floor (the stream's water and the draft's rock stay)
   let rs = 0;
   relief(k, (x, y, s) => {

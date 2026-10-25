@@ -4,10 +4,13 @@
  * The land is the raid-tuned draft (./drafts.ts template: the city on its three-tier butte, the lake, the sea, the
  * necropolis, roads, hub, the fort) with the W-52 set pieces of the reference (shots/war/regions/proto/ammon.png) laid
  * round it (./draftCompose.ts keeps what the raid and the purpose use as drafted):
- *   the city butte  as drafted: the dominant set piece, its pylon temple given two pylon gates on the way of statues so it reads;
+ *   the city butte  as drafted: the dominant set piece; its pylon temple faces south (toward the viewer), so two more
+ *                   pylon gates and statues line a short way up to its pylon from the south;
  *   the fort butte  the lone red butte by the north corner raised to a tall flat top (h7) on sheer red walls over a talus
  *                   tier (h3), one ramp up (the drafted fortress keeps one way up);
- *   the flats       white salt with rectangular salt pans by the lake and by the necropolis, palms here and there.
+ *   the flats       white salt with rectangular salt pans by the lake and by the necropolis (six beds each between mud
+ *                   bunds, salt heaped along them), palms here and there; draft ground kept round the entries only
+ *                   along the roads (entryBand).
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
 import { fbm } from './kit.ts';
@@ -15,15 +18,33 @@ import { composeOnDraft } from './draftCompose.ts';
 
 const FORT: Pt = [34, 44];
 
-const base = composeOnDraft('ammon', { staging: [330, 350] }, (k: Kit) => {
-  // salt pans: shallow rectangles in the flats (sim tiles), where no road runs
+const base = composeOnDraft('ammon', { staging: [330, 350], entryBand: 6 }, (k: Kit) => {
+  // salt pans: shallow rectangles in the flats (sim tiles), where no road runs; each ringed by a dark mud bund and
+  // white salt raked into heaps along its sides (visual only), so they read as worked pans, not ponds
+  const pans: [number, number][] = [];
   for (const [x, y] of [[312, 64], [334, 64], [312, 80], [184, 448], [206, 448], [184, 466]]) {
     const c = k.at([(x + 9) / 2, (y + 5) / 2]);
-    if (c >= 0 && k.roadDist[c] > 6 && !k.water[c] && k.height[c] <= 1) k.waterRect(x, y, x + 18, y + 10, 1, 0);
+    if (c >= 0 && k.roadDist[c] > 6 && !k.water[c] && k.height[c] <= 1) { k.waterRect(x, y, x + 18, y + 10, 1, 0); pans.push([x, y]); }
   }
-  // the temple of Ammon reads from afar: the way of statues runs through two pylon gates to it (W-48 site tiles)
-  k.sites[0]?.force('ammon-gate-y', 275, 116);
-  k.sites[0]?.force('ammon-gate-y', 259, 116);
+  // each pan split into six beds by low mud bunds (dry, level with the flats: walkable) and ringed by one
+  k.each((i, ux, uy) => {
+    const sx = 2 * ux + 0.5, sy = 2 * uy + 0.5;
+    for (const [x, y] of pans) {
+      if (sx < x - 1 || sx >= x + 19 || sy < y - 1 || sy >= y + 11) continue;
+      const inner = sx >= x && sx < x + 18 && sy >= y && sy < y + 10;
+      const wall = !inner || Math.abs(sx - (x + 6)) < 0.6 || Math.abs(sx - (x + 12)) < 0.6 || Math.abs(sy - (y + 5)) < 0.6;
+      if (wall) { k.water[i] = 0; k.height[i] = 1; k.terrain[i] = 'dirt'; }
+    }
+  });
+  for (const [x, y] of pans) for (const [dx, dy] of [[3, -3.5], [9, -3.5], [15, -3.5], [21, 3], [21, 8], [3, 13], [11, 13], [17, 13], [-3, 2], [-3, 7]]) k.piece('mountains/snow-drift', [(x + dx) / 2, (y + dy) / 2], { r: 1.2 });
+  // the temple of Ammon reads from afar: its pylon faces south (+y, toward the viewer), so the way up to it comes from
+  // the south through two more pylon gates on its axis, statues either side (W-48 site tiles; the precinct's paving)
+  const tp = k.sites[0];
+  if (tp) {
+    tp.force('ammon-gate-x', 279, 123);
+    tp.force('ammon-gate-x', 279, 129);
+    for (const y of [124, 128, 132]) { tp.force('@town-statue', 277, y); tp.force('@town-statue', 286, y); }
+  }
   // the silver and salt knolls crusted white like the flats round them
   k.patchWhere('kyrene', 'salt', (x, y) => Math.hypot(x - 169.4, y - 56) < 14 || Math.hypot(x - 40.8, y - 160) < 14, ['sand']);
   // palms by the lake, the sea and the tracks

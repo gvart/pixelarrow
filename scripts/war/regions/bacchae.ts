@@ -13,7 +13,7 @@
  */
 import type { Kit, Pt, RegionDef } from './kit.ts';
 import { fbm } from './kit.ts';
-import { massif, pit, profile, relief, terraceRows } from './setpieces.ts';
+import { contourRows, massif, pit, profile, relief } from './setpieces.ts';
 import { pocketBoss } from './tiers.ts';
 
 const def: RegionDef = {
@@ -46,7 +46,8 @@ const def: RegionDef = {
     k.road([[122, 70], [100, 56], [78, 46], [52, 40]], { w: 1, grade: 1.6 });
     k.road([[132, 120], [146, 92], [150, 74], [151, 64]], { w: 1.2, grade: 1.4 });
     // vines along the terraces' contours (not on the quarry's rim or the crown), olives on the east foot
-    terraceRows(k, hill, { tiers: [1, 2, 3, 4], every: 1.6, margin: 1.4, soil: 'dirt', where: (x, y) => Math.hypot((x - 150) / 26, (y - 64) / 21) > 1 && x + y < 240 });
+    // (laid along the retaining walls as built, ./setpieces.ts contourRows, so each row follows the wall below it)
+    contourRows(k, (x, y) => hill.tier(x, y) >= 1 && hill.tier(x, y) <= 4 && Math.hypot((x - 150) / 26, (y - 64) / 21) > 1 && x + y < 240, { every: 1.6, margin: 1, soil: 'dirt' });
     k.rows(['elaia/olive-orchard', 'elaia/olive-tall', 'elaia/olive-ancient'], [198, 88, 18, 22, 0.2], { dx: 3, dy: 3 });
     k.spot('olives', [198, 88]);
     // the grove: a ring of cypresses round the temple on the crown; small woods on the field edges
