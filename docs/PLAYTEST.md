@@ -85,13 +85,14 @@ has no dev panel; `npm run play:war -- --reset` gives a fresh world.
 ## Known gaps
 
 - The smoke loop passes from the world map through the caravan's arrival in Kleisoura (gather, camp, storehouse,
-  recruit / train, a sword forged into a chest, a handcart made, loaded, crewed and hauled over two borders). It stops
-  at the market court: a handcart that arrives at Kleisoura's west entry does not roll when its crew is ordered to the
-  court. Stall, sale, buyer, lair raid, claim and ram siege are scripted after it but not yet seen passing live.
-- A chained haul (H planner, transfer `path`) leaves the cart behind after the first leg: send one leg at a time.
+  recruit / train, a sword forged into a chest, a handcart made, loaded, crewed and hauled over two borders). The cart
+  rolls into the market court, wood is stowed into a rented stall and a sell offer listed. The buyer's fill then
+  fails ("It costs 30 coin, in your warehouse or stall here": the smoke gives him no coin in his fresh warehouse); the
+  loop goes on to the chained transfer kleisoura -> dodona-e -> moors (arrives); lair raid, claim and ram siege are
+  scripted after it but not yet seen passing live.
 - Right after the start the home recruit pool is empty (the start's 12 militia took it; it refills 6 an hour).
-- A crafted item lands in the maker's chest by the workplace; with no chest it goes into the team's reserve in the
-  region, which the stash does not list. Place a chest first.
+- A crafted item lands in the maker's chest by the workplace; with no chest it rides in the maker's pack (the stash
+  lists it under packs).
 - Entering a region again with men at home brings them as a fresh squad beside the ones standing there; the dev
   roster is seeded only for a dev id with no one alive.
 - The world map follows your roster every 5 s: men show in a region a few seconds after you enter it.
