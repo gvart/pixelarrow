@@ -10,7 +10,7 @@
 import Phaser from 'phaser';
 import type { RegionData } from '../types';
 import type { ObjDef, WarArt } from './art';
-import type { IsoMap } from './iso';
+import { HH, LH, type IsoMap } from './iso';
 import type { Massifs } from './massifs';
 import type { DrawUnit } from './simClient';
 
@@ -138,7 +138,7 @@ export class ObjectLayer {
       const { iso } = this;
       // tile bounds of the view (objects reach ~400 px above their foot, ground up to iso.top levels)
       const u0 = (view.x - iso.OX) / 32 - 6, u1 = (view.right - iso.OX) / 32 + 6;
-      const v0 = (view.y - iso.OY) / 16 - 2, v1 = (view.bottom - iso.OY) / 16 + iso.top + 26;
+      const v0 = (view.y - iso.OY) / HH - 2, v1 = (view.bottom - iso.OY) / HH + (iso.top * LH) / HH + 26;
       const bx0 = Math.max(0, Math.floor((u0 + v0) / 2 / BUCKET)), bx1 = Math.min(this.bw - 1, Math.floor((u1 + v1) / 2 / BUCKET));
       const by0 = Math.max(0, Math.floor((v0 - u1) / 2 / BUCKET)), by1 = Math.min(this.bh - 1, Math.floor((v1 - u0) / 2 / BUCKET));
       for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) for (const oi of this.buckets[by * this.bw + bx]) show(this.objs[oi]);

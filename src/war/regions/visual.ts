@@ -21,8 +21,8 @@ export type VisualKind = (typeof KINDS)[number];
 /** Highest visual level. */
 export const ZVIS = 120;
 /**
- * W-52 visual levels per sim level: a visual level is 16 px (half a metre next to the 33 px/m soldiers and buildings),
- * so a sim level is drawn 2 m tall (15 levels about 30 m). The generator writes the cells at this scale
+ * W-52 visual levels per sim level: a visual level is drawn LH = 32 px (1 m next to the 33 px/m soldiers and buildings),
+ * so a sim level is drawn 4 m tall (15 levels about 60 m; src/war/view/iso.ts LH). The generator writes the cells at this scale
  * (scripts/war/regions/kit.ts visualLayer); the sim's levels are unchanged.
  */
 export const RELIEF = 4;
