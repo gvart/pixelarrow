@@ -1,6 +1,7 @@
 /**
  * Falls: where a river's course steps down (its water cells meet lower water, scripts/war/regions/kit.ts settleWater),
- * the face toward the viewer is drawn as falling water (a static sheet with streaks) with flickering foam at its foot.
+ * the face toward the viewer is drawn as falling water (a static sheet: slices of blue, white streaks, a glassy lip and
+ * a churned white foot) with flickering foam at its foot.
  *
  * Glints on open water: a sparse set of water cells (about one in GAP, away from the shore) each flash a short warm
  * streak now and then, out of phase, so the sea and the rivers shimmer. Cheap: pooled additive images over the
@@ -15,6 +16,9 @@ const GAP = 9;
 const MAX = 260;
 const BUCKET = 32; // visual cells per bucket side
 const SHALLOW = KINDS.indexOf('shallow'), DEEP = KINDS.indexOf('deep');
+/** Slices of falling water per 1 m cell edge of a fall face, and their blues. */
+const SLICES = 3;
+const FALL_BODY = [0x3f7f97, 0x4b8ea6, 0x5a9db3, 0x6aaabe];
 
 export class WaterGlints {
   /** Per bucket: glint world x, y and phase, flat triples. */
@@ -61,16 +65,30 @@ export class WaterGlints {
         if (!wet(j) || lo >= hi) continue;
         // the shared edge: E-S for +x, S-W for +y (cell corners in grid units)
         const [a, b] = dx ? [[x + 1, y], [x + 1, y + 1]] : [[x + 1, y + 1], [x, y + 1]];
-        const ta = P(a[0], a[1], hi), tb = P(b[0], b[1], hi), bb = P(b[0], b[1], lo), ba = P(a[0], a[1], lo);
+        const ba = P(a[0], a[1], lo), bb = P(b[0], b[1], lo);
         g ??= this.scene.add.graphics().setDepth(1.45);
-        g.fillStyle(0x3a7189, 0.92).fillPoints([ta, tb, bb, ba], true);
-        g.fillStyle(0x8cc3d3, 0.35);
-        for (let k = 0; k < 4; k++) {
-          const u = (k + 0.3 + 0.4 * ((hash(x, y, 30 + k) & 7) / 7)) / 4, w = 0.06;
-          const L = (p: { x: number; y: number }, q: { x: number; y: number }, t: number) => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
-          g.fillPoints([L(ta, tb, u - w), L(ta, tb, u + w), L(ba, bb, u + w), L(ba, bb, u - w)], true);
+        // a point on the face: t along its edge (a -> b), h down it (0 the lip, 1 the pool)
+        const at = (t: number, h: number) => P(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, hi - (hi - lo) * h);
+        const quad = (t0: number, t1: number, h0: number, h1: number) => g!.fillPoints([at(t0, h0), at(t1, h0), at(t1, h1), at(t0, h1)], true);
+        // the foam at the foot about a level tall (at most a third of the drop), the glassy lip a third of a level
+        const H = hi - lo, foot = Math.min(1 / 3, 1.1 / H), lip = Math.min(0.15, 0.35 / H);
+        // the body in slices of falling water, each its own blue, darker behind the lip, paler as it falls
+        for (let k = 0; k < SLICES; k++) {
+          const hk = hash(x, y, 30 + k), c = FALL_BODY[hk % FALL_BODY.length], t0 = k / SLICES, t1 = (k + 1) / SLICES;
+          g.fillStyle(c, 0.95); quad(t0, t1, 0, 1);
+          g.fillStyle(0xd8eef4, 0.18); quad(t0, t1, 0.45 + ((hk >>> 4) & 7) / 40, 1);
         }
-        g.fillStyle(0xe8f6fa, 0.9).fillPoints([ta, tb, P(b[0], b[1], hi - 0.08), P(a[0], a[1], hi - 0.08)], true);
+        // streaks: thin white runs starting at random heights, longer lower down
+        for (let k = 0; k < 2 * SLICES; k++) {
+          const hk = hash(x, y, 40 + k), t = (k + 0.2 + 0.6 * ((hk & 15) / 15)) / (2 * SLICES), w = 0.025 + ((hk >>> 4) & 3) * 0.012;
+          const h0 = ((hk >>> 8) & 15) / 30, h1 = Math.min(1, h0 + 0.25 + ((hk >>> 12) & 15) / 25);
+          g.fillStyle(0xf2fbfd, 0.32 + ((hk >>> 16) & 7) / 25); quad(t - w, t + w, h0, h1);
+        }
+        g.fillStyle(0x9fd6e2, 0.8); quad(0, 1, 0, lip);
+        g.fillStyle(0xf4fbfd, 0.95); quad(0, 1, 0, Math.min(lip, 0.08 / H));
+        // the churned foot: two white bands fading up from the pool
+        g.fillStyle(0xe6f5f8, 0.5); quad(0, 1, 1 - foot, 1);
+        g.fillStyle(0xf6fcfd, 0.75); quad(0, 1, 1 - foot * 0.45, 1);
         this.foam.push((ba.x + bb.x) / 2, (ba.y + bb.y) / 2 + 2, (hash(x, y, 33) & 1023) / 1023 * Math.PI * 2);
       }
     }
