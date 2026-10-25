@@ -600,7 +600,16 @@
    ],
    "blocksMovement": false,
    "fauna": "deer",
-   "animateLater": true,
+   "idle": {
+    "file": "red-deer-idle.png",
+    "frames": 6,
+    "w": 45,
+    "h": 69,
+    "anchor": {
+     "x": 19,
+     "y": 68
+    }
+   },
    "source": "map_object 7bc4f304"
   },
   {
@@ -621,7 +630,16 @@
    "blocksMovement": false,
    "fauna": "owl",
    "flying": true,
-   "animateLater": true,
+   "idle": {
+    "file": "owl-idle.png",
+    "frames": 6,
+    "w": 37,
+    "h": 29,
+    "anchor": {
+     "x": 18,
+     "y": 28
+    }
+   },
    "source": "map_object 20db2686"
   }
  ]

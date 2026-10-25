@@ -1442,7 +1442,16 @@
    ],
    "blocksMovement": false,
    "fauna": "ibex",
-   "animateLater": true,
+   "idle": {
+    "file": "ibex-idle.png",
+    "frames": 6,
+    "w": 37,
+    "h": 43,
+    "anchor": {
+     "x": 16,
+     "y": 42
+    }
+   },
    "source": "map_object b70f2d24"
   },
   {
@@ -1463,7 +1472,16 @@
    "blocksMovement": false,
    "fauna": "bear",
    "mob": true,
-   "animateLater": true,
+   "idle": {
+    "file": "bear-idle.png",
+    "frames": 6,
+    "w": 73,
+    "h": 55,
+    "anchor": {
+     "x": 30,
+     "y": 54
+    }
+   },
    "source": "map_object 177ad7da"
   },
   {
@@ -1483,7 +1501,16 @@
    ],
    "blocksMovement": true,
    "fauna": "eagle",
-   "animateLater": true,
+   "idle": {
+    "file": "eagle-nest-idle.png",
+    "frames": 6,
+    "w": 66,
+    "h": 82,
+    "anchor": {
+     "x": 36,
+     "y": 81
+    }
+   },
    "source": "map_object d88753c5"
   },
   {

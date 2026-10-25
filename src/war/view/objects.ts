@@ -6,6 +6,8 @@
  * Massifs (./massifs.ts) are live sprites too (half-size textures below 1:1); their depth rule
  * comes from Massifs.depth, and objects standing inside a footprint are not drawn. Zoomed out the
  * objects are baked into the terrain chunks instead (./art.ts).
+ * Animals (objects.json `idle`: a strip of frames, frame 0 = the static sprite) play their idle
+ * loop while live, each one at its own phase and speed; the baked far levels keep the still frame.
  */
 import Phaser from 'phaser';
 import type { RegionData } from '../types';
@@ -24,8 +26,18 @@ const FADE = 0.35;
 /** Depth step between objects of one depth key, by list index (well under a key step of 1/4096 for 10^5 objects). */
 const TIE = 1e-8;
 
-interface Def extends ObjDef { key: string; mask: Uint8Array; mw: number; mh: number; fades: boolean; hides: boolean }
-interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number; tint?: number }
+/** An idle strip (objects.json `idle`): `frames` frames of w x h in a row, its own foot anchor, `fps` (default 5). */
+interface Idle { file: string; frames: number; w: number; h: number; anchor: { x: number; y: number }; fps?: number }
+interface Anim { key: string; n: number; ox: number; oy: number; fps: number; ready: boolean }
+interface Def extends ObjDef { key: string; mask: Uint8Array; mw: number; mh: number; fades: boolean; hides: boolean; anim?: Anim }
+/** ph, sp: an animal's loop phase (frames) and speed factor, so a herd does not move in step. */
+interface Obj { def: Def; sx: number; sy: number; v: number; alpha: number; tint?: number; ph: number; sp: number }
+
+/** 0..1 from a point (an animal's phase and speed). */
+const hash = (x: number, y: number) => {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+};
 
 export class ObjectLayer {
   private objs: Obj[] = [];
@@ -59,7 +71,7 @@ export class ObjectLayer {
         scene.textures.addCanvas(key + '-half', h);
       }
       // only what stands taller than a man's middle can hide him
-      defs.set(d.id, { ...d, key, mask, mw, mh, fades: d.kind === 'tree', hides: (d.kind === 'stone' && d.metres >= 2) || d.kind === 'massif' });
+      defs.set(d.id, { ...d, key, mask, mw, mh, fades: d.kind === 'tree', hides: (d.kind === 'stone' && d.metres >= 2) || d.kind === 'massif', anim: this.idle(d, img, key) });
     }
     this.bw = Math.ceil(r.w / BUCKET);
     this.bh = Math.ceil(r.h / BUCKET);
@@ -72,13 +84,31 @@ export class ObjectLayer {
       if (horizon && (iso.peakAt(o.x, o.y) > 0.3 || horizon[ty * r.w + tx] < iso.sy(o.x, o.y, iso.zAt(o.x, o.y)) - def.anchor.y)) continue;
       this.buckets[((ty / BUCKET) | 0) * this.bw + ((tx / BUCKET) | 0)].push(this.objs.length);
       // ties (one depth) break by list order, never by which pooled image a sprite got
-      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: (massifs ? massifs.depth(o.x, o.y) : o.x + o.y) + this.objs.length * TIE, alpha: 1 });
+      const h = hash(o.x, o.y);
+      this.objs.push({ def, sx: Math.round(iso.sx(o.x, o.y)), sy: Math.round(iso.sy(o.x, o.y, iso.zAt(o.x, o.y))), v: (massifs ? massifs.depth(o.x, o.y) : o.x + o.y) + this.objs.length * TIE, alpha: 1, ph: h * 64, sp: 0.8 + 0.4 * hash(o.y, o.x) });
     }
     // massifs just before their south vertex row, in the region's order (as the baked levels draw them)
     massifs?.list.forEach((m, k) => {
       const xs = m.x0 + m.fw, ys = m.y0 + m.fh;
-      this.big.push({ def: defs.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, iso.zf(2 * xs - 1, 2 * ys - 1))), v: m.v - 0.001 + k * TIE, alpha: 1, tint: Math.round(255 * m.shade) * 0x010101 });
+      this.big.push({ def: defs.get(m.def.id)!, sx: Math.round(iso.sx(xs, ys)), sy: Math.round(iso.sy(xs, ys, iso.zf(2 * xs - 1, 2 * ys - 1))), v: m.v - 0.001 + k * TIE, alpha: 1, tint: Math.round(255 * m.shade) * 0x010101, ph: 0, sp: 1 });
     });
+  }
+
+  /** Load an object's idle strip next to its PNG; until it is in, the object shows its still frame. */
+  private idle(d: ObjDef, img: HTMLImageElement, key: string): Anim | undefined {
+    const idle = (d as ObjDef & { idle?: Idle }).idle;
+    if (!idle) return undefined;
+    const a: Anim = { key: key + '-idle', n: idle.frames, ox: idle.anchor.x / idle.w, oy: idle.anchor.y / idle.h, fps: idle.fps ?? 5, ready: this.scene.textures.exists(key + '-idle') };
+    if (!a.ready) {
+      const im = new Image();
+      im.onload = () => {
+        if (!this.scene.textures.exists(a.key)) this.scene.textures.addSpriteSheet(a.key, im, { frameWidth: idle.w, frameHeight: idle.h });
+        this.scene.textures.get(a.key).setFilter(this.filter >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR);
+        a.ready = true;
+      };
+      im.src = img.src.replace(/[^/]*$/, idle.file);
+    }
+    return a;
   }
 
   /** Depth key of a point: x + y, past the massifs it stands in front of. */
@@ -97,7 +127,7 @@ export class ObjectLayer {
       if (zoom !== this.filter) {
         this.filter = zoom;
         const f = zoom >= 1 ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR;
-        for (const o of new Set([...this.objs, ...this.big].map((q) => q.def.key))) this.scene.textures.get(o).setFilter(f);
+        for (const o of new Set([...this.objs, ...this.big].flatMap((q) => (q.def.anim?.ready ? [q.def.key, q.def.anim.key] : [q.def.key])))) this.scene.textures.get(o).setFilter(f);
       }
       // units by screen cell of their middle
       this.cells.clear();
@@ -135,11 +165,13 @@ export class ObjectLayer {
         let img = this.pool[n];
         if (!img) this.pool.push((img = this.scene.add.image(0, 0, d.key)));
         n++;
-        const half = d.kind === 'massif' && zoom < 1;
-        img.setTexture(half ? d.key + '-half' : d.key).setScale(half ? 2 : 1).setOrigin(d.anchor.x / d.w, d.anchor.y / d.h).setPosition(o.sx, o.sy).setAlpha(o.alpha).setTint(o.tint ?? 0xffffff).setVisible(true);
+        const half = d.kind === 'massif' && zoom < 1, a = d.anim;
+        if (a?.ready) img.setTexture(a.key, Math.floor(o.ph + t * a.fps * o.sp) % a.n).setScale(1).setOrigin(a.ox, a.oy);
+        else img.setTexture(half ? d.key + '-half' : d.key).setScale(half ? 2 : 1).setOrigin(d.anchor.x / d.w, d.anchor.y / d.h);
+        img.setPosition(o.sx, o.sy).setAlpha(o.alpha).setTint(o.tint ?? 0xffffff).setVisible(true);
         img.setDepth(10 + o.v / 4096 + 0.25);
       };
-      const { iso } = this;
+      const { iso } = this, t = this.scene.time.now / 1000;
       // tile bounds of the view (objects reach ~400 px above their foot, ground up to iso.top levels)
       const u0 = (view.x - iso.OX) / 32 - 6, u1 = (view.right - iso.OX) / 32 + 6;
       const v0 = (view.y - iso.OY) / HH - 2, v1 = (view.bottom - iso.OY) / HH + (iso.top * LH) / HH + 26;

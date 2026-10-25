@@ -669,7 +669,16 @@
    ],
    "blocksMovement": false,
    "fauna": "goat",
-   "animateLater": true,
+   "idle": {
+    "file": "goats-idle.png",
+    "frames": 6,
+    "w": 61,
+    "h": 41,
+    "anchor": {
+     "x": 22,
+     "y": 40
+    }
+   },
    "source": "map_object 4d90e5b6"
   },
   {
@@ -690,7 +699,16 @@
    "blocksMovement": false,
    "fauna": "boar",
    "mob": true,
-   "animateLater": true,
+   "idle": {
+    "file": "boar-idle.png",
+    "frames": 6,
+    "w": 41,
+    "h": 33,
+    "anchor": {
+     "x": 19,
+     "y": 32
+    }
+   },
    "source": "map_object 1a2ffbf2"
   },
   {
