@@ -22,7 +22,7 @@ export const WORLD_REGIONS = [
   { id: 'elaia-e', name: "Westbank Vineyards", role: 'entry', draft: false },
   { id: 'krios', name: "Krios Glacier", role: 'neutral', draft: false },
   { id: 'siren', name: "Siren Estuary", role: 'neutral', draft: false },
-  { id: 'ammon', name: "Ammon Salt Flats", role: 'neutral', draft: true },
+  { id: 'ammon', name: "Ammon Salt Flats", role: 'neutral', draft: false },
   { id: 'delta', name: "Achelous Delta", role: 'neutral', draft: false },
   { id: 'kleisoura', name: "Kleisoura Pass", role: 'neutral', draft: false },
   { id: 'stymphalia', name: "Lake Stymphalia", role: 'neutral', draft: false },
