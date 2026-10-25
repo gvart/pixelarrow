@@ -63,7 +63,8 @@ const def: RegionDef = {
     k.piece('mountains/watch-post', [110, 160], { r: 5 });
     k.resource('stone', [52, 152], 3, 10);
     k.resource('stone', [70, 74], 2, 10);
-    k.piece('mountains/rockfall', [40, 60], { r: 12, onRock: true, n: 2 });
+    k.piece('mountains/rockfall', [40, 60], { r: 12, onRock: true });
+    k.piece('mountains/rockfall', [74, 176], { r: 14 }); // fallen out onto the scree shelf (the Teeth's rock has room for one)
     k.piece('mountains/cairn', [44, 128], { r: 6 });
     // fauna: the robbers in the south pines and at the gap, bears in the north pines
     k.lair('bandit', [104, 166], { as: 'bandits' });

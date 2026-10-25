@@ -557,9 +557,10 @@ export class Kit {
   /**
    * A home agora or a frontier town's square (docs/WAR.md "Trade towns"), after the square and its roads: the square
    * paved, two stoas facing over it, rows of stalls on its north and south sides, statues, a well and the price board
-   * round a clear centre (the market spot, the claim point), a temple off the square.
+   * round a clear centre (the market spot, the claim point), a temple off the square (or near `o.temple`: an entry
+   * town whose square lies in the road band's no-build corridor puts it in one of its quarters).
    */
-  agora(p: Pt, half = 6.5) {
+  agora(p: Pt, half = 6.5, o: { temple?: Pt } = {}) {
     const tx = Math.round(this.simTile(p[0])), ty = Math.round(this.simTile(p[1])), town = this.townAt(p, 'agora');
     if (this.K === 2) for (let i = 0; i < this.N; i++) if (this.terrain[i] === 'road') this.streets.add(i);
     // paved, but for a beaten-earth heart round the market spot (the claim banner stands on open ground)
@@ -569,7 +570,7 @@ export class Kit {
     // stalls in rows on the north and south sides, a second row at the west and east ends (the square check keeps <= 15% closed)
     for (const [k, dx] of [-10, -7, 5, 8].entries()) for (const [n, dy] of [-11, -7, 5, 9].entries()) if (n === 0 || n === 3 || k === 0 || k === 3) S(['stall-a', 'stall-b', 'stall-c'][(k + n) % 3], dx, dy);
     S('statue', -6, -6); S('statue', 5, 5); S('well', 5, -6); S('board', -6, 5); S('goods', -3, -9); S('goods', 2, 10);
-    this.scatterTown([T('temple')], p, { n: 1, r0: 16, r1: 30, street: 4, town });
+    this.scatterTown([T('temple')], o.temple ?? p, { n: 1, r0: o.temple ? 0 : 16, r1: 30, street: 4, town });
   }
   /**
    * The walled market court of a frontier trade town (src/war/region/zones.ts): its ground levelled to `h` and paved

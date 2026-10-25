@@ -5,12 +5,14 @@
  * one long chalk-white wall, two tiers (a four-level wall to a narrow ledge, a three-level wall to the valley), running
  * the whole way from the west edge to the east edge above the river. Below it a shallow river winds west to east in its
  * broad valley (h2), deep in its eastern reach with a narrows a bridge can span, one ford in the west. The wagon town
- * (home camp, market) stands on the plateau right above the wall; the great kurgan beside it (two stepped tiers on
- * earth walls to h15, a broad top ringed with cairns) is the fort site, and smaller mounds (lookouts) stud the plain. A
+ * (home camp, market) stands packed on beaten earth on the plateau right above the wall; the great kurgan beside it (two stepped tiers on
+ * earth walls to h15, a broad top ringed with cairns) is the fort site, and broad burial mounds (lookouts, four levels,
+ * a cairn on each) stud the plain. A
  * deep dry gully with sheer chalk walls runs from the north edge down past the west of the town to the valley: the west
  * road drops into it and climbs out (the ambush spot), so riders from the west must pass it.
  * Art: no steppe library: global grass with Elaia dry-grass zones (golden steppe); the chalk wall and the gully in the
- * Elaia zone, so their faces are its pale limestone; the kurgan's walls the global earth; sparse scatter; cairns.
+ * Elaia zone, so their faces are its pale limestone; the kurgan's walls the global earth; very sparse scatter, so the
+ * town, the mounds and the kurgan stand out on open grass; cairns.
  */
 import { fbm, type Kit, type RegionDef } from './kit.ts';
 import { profile, relief } from './setpieces.ts';
@@ -20,7 +22,7 @@ const MOUNDS: [number, number, number][] = [[60, 60, 6], [92, 40, 5], [176, 64, 
 
 const def: RegionDef = {
   id: 'skythia',
-  style: { dry: 0.3, dryHigh: false, meadow: -0.2, trees: 0.2, bushes: 0.05 },
+  style: { dry: 0.3, dryHigh: false, meadow: -0.2, trees: 0.04, bushes: 0.01 },
   build(k: Kit) {
     k.fill(9);
     const RIVER: [number, number][] = [[-6, 176], [30, 166], [62, 184], [98, 170], [128, 186], [160, 172], [194, 190], [228, 178], [262, 188]];
@@ -38,7 +40,7 @@ const def: RegionDef = {
     k.plateau([156, 120, 25, 21, 0.3], 12, { rough: 1.5 });
     k.plateau([156, 120, 14, 12, 0.3], 15, { rough: 1 });
     k.spot('fortSite', [150, 127]);
-    MOUNDS.forEach(([x, y, r], n) => { k.hill([x, y, r + 2, (r + 2) * 0.8, 0], k.height[k.at([x, y])] + 2, 3, 1); k.spot(`lookout${n}`, [x, y]); });
+    MOUNDS.forEach(([x, y, r], n) => { k.hill([x, y, r + 5, (r + 5) * 0.85, 0], k.height[k.at([x, y])] + 4, 2, 0.6); k.spot(`lookout${n}`, [x, y]); });
     // the river in its valley: shallow, deep in the east reach (narrows), a ford in the west
     k.river(RIVER, { half: 3, deep: false, bed: 1, bank: 0.5 });
     k.river(RIVER.slice(4), { half: 4.5, bed: 1, bank: 0.5, narrows: [[[176, 180], 2.6]], name: 'river' });
@@ -67,7 +69,9 @@ const def: RegionDef = {
     k.resource('food', [150, 160], 2, 12);
     // the home agora and the town round it; farmsteads out on the steppe
     k.agora([124, 150]);
-    k.houses([124, 150], 16, 16, 40, ['house-a', 'cottage', 'house-b', 'storehouse', 'workshop', 'cottage']);
+    // the wagon town packed close round its square on beaten earth, so it reads from afar
+    k.paint('dirt', [124, 150, 17, 15, 0.2], { rough: 3 });
+    k.houses([124, 150], 20, 14, 30, ['house-a', 'cottage', 'house-b', 'storehouse', 'workshop', 'cottage']);
     k.outskirts([124, 150], 6, 32, 60);
     for (const [x, y] of MOUNDS) k.piece('mountains/cairn', [x, y], { r: 3 });
     k.piece('mountains/cairn', [158, 118], { r: 3 });

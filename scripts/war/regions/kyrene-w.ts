@@ -71,10 +71,10 @@ const def: RegionDef = {
     k.resource('food', [126, 186], 5, 16);
     k.resource('food', [168, 80], 4, 12);
     // the town: the agora, the quarters either side of the road band, the jetty; farm huts; a ruined span
-    k.agora(hub);
+    k.agora(hub, 6.5, { temple: [70, 100] }); // the temple in the north quarter (the square lies in the road band)
     k.scatterTown(['house-a', 'house-b', 'workshop', 'house-a', 'cottage', 'storehouse'].map((id) => `elaia/town-${id}`), [66, 92], { n: 8, r1: 26, gap: 5 });
     k.scatterTown(['house-b', 'cottage', 'house-a', 'farm', 'cottage'].map((id) => `elaia/town-${id}`), [66, 164], { n: 6, r1: 24, gap: 5 });
-    k.jetty([46, 150], 14);
+    k.jetty([40, 150], 14);
     k.piece('wall-ruin', [36, 112], { r: 4, n: 2, gap: 3 });
     k.village([150, 210], 4);
     k.village([200, 70], 3);

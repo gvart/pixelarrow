@@ -63,10 +63,10 @@ const def: RegionDef = {
     k.resource('food', [92, 186], 3, 12);
     // the town: the agora on the square, houses inside the wall, the wall and its gates, the jetty; the press and the
     // farmhouse on the top terrace, the shrine on the middle one, a ruined span by the bridge
-    k.agora(hub);
+    k.agora(hub, 6.5, { temple: [196, 104] }); // the temple in the north quarter (the square lies in the road band)
     k.scatterTown(['house-a', 'house-b', 'workshop', 'house-a', 'cottage', 'storehouse'].map((id) => `elaia/town-${id}`), [190, 96], { n: 8, r1: 26, gap: 5 });
     k.scatterTown(['house-b', 'cottage', 'house-a', 'farm'].map((id) => `elaia/town-${id}`), [192, 162], { n: 6, r1: 24, gap: 5 });
-    k.jetty([208, 150], 14);
+    k.jetty([214, 150], 14);
     k.outskirts([44, 128], 3, 10, 30, ['olive-press', 'farm', 'cottage']);
     k.piece('elaia/shrine', [118, 100], { r: 6 });
     k.piece('wall-ruin', [214, 112], { r: 4, n: 2, gap: 3 });
