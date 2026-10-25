@@ -1,0 +1,24 @@
+src/war/view/art.ts
+  s_fcb7475e0b5395::t_71a620527f8a20 196-197,258-267,273-275
+src/war/view/rockFace.ts
+  s_fcb7475e0b5395::t_71a620527f8a20 9,14,39-43,56-57
+src/war/view/relief.ts
+  s_fcb7475e0b5395::t_71a620527f8a20 203-204,217,219-223,229-230
+  s_fcb7475e0b5395::t_e64969da7727eb 209,211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "98206e1c6827243d3fd431fd3627007b31f8f958",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
