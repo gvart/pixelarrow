@@ -131,6 +131,8 @@ interface Placed { def: ObjDef; img: HTMLImageElement; sx: number; sy: number; s
 const FW = 16, FH = 8; // half the 1 m cell diamond
 /** Wall front smoothing per cell (ArtBaker.cuts): its front tip cut off; a notch under its south vertex filled; its SW face ending in a notch; its SE face starting in one. */
 const CUT_TIP = 1, CUT_NOTCH = 2, CUT_L = 4, CUT_R = 8;
+/** Px of a cell's own side kept over its rock wall as the ground's lip (ArtBaker.lips), more or less by up to LIP_J. */
+const LIP = 5, LIP_J = 2;
 /** Px the smoothing moves a tip up or a notch down: half a cell's front edge, so a stepped front comes out straight. */
 const CUT = FH / 2;
 /** Px a wall's top edge stands off its cell's level at its R, B and L corners (a ramping rim: negative, raised). */
@@ -417,6 +419,8 @@ export class ArtBaker {
     const split = !!o.tint && objects;
     const sprite = treeShadow();
     const faces = new Faces();
+    // the row's rock walls, for their ground lips: [cell, tx, ty, level, cut, lift]
+    const lips: [number, number, number, number, number, Lift][] = [];
     const drawObjects = (v: number) => {
       for (const p of this.rows[v] ?? []) {
         const d = p.def, ox = p.sx - d.anchor.x, oy = p.sy - d.anchor.y;
@@ -441,7 +445,7 @@ export class ArtBaker {
           const stone = this.stoneAt(i, drop), cut = this.cut[i];
           // a rock wall's rim ramping along it (IsoMap.cornerLevels): its top edge through the corners (R, B, L) px off
           const o: Lift = ramp[i] ? [(z - fc[4 * i + 1]) * LH, (z - fc[4 * i + 2]) * LH, (z - fc[4 * i + 3]) * LH] : FLAT;
-          if (stone) faces.stone(stone, x, y, tx, ty, drop, iso.OX, iso.OY, cut, o);
+          if (stone) { faces.stone(stone, x, y, tx, ty, drop, iso.OX, iso.OY, cut, o); lips.push([i, tx, ty, z, cut, o]); }
           else if (drop > 1) { // a cliff: the cell's own side covers SIDE px of the riser, strips tile the rest (never stretched)
             const m = sets[si], n = Math.ceil((drop * LH) / SIDE) - 1;
             const foot = Math.min(zt(x + 1, y), zt(x, y + 1)) === zt(x + 1, y) ? fk[Math.min(fw * fh - 1, i + 1)] : fk[Math.min(fw * fh - 1, i + fw)];
@@ -475,6 +479,7 @@ export class ArtBaker {
           if (cut & CUT_L && this.cut[i - 1] & CUT_NOTCH) faces.notch(this.frameOf(i - 1), tx - FW, ty + FH + (z - fc[4 * i + 3]) * LH);
         }
         faces.fill(ctx);
+        if (lips.length) this.lips(ctx, lips);
       }
       this.shadeRow(ctx, v, umin, umax, y0, h);
       for (const t of this.shadows[v] ?? []) if (t.x < x0 + w && t.x + t.w > x0 && t.y < y0 + h && t.y + t.h > y0) ctx.drawImage(sprite, t.x, t.y, t.w, t.h);
@@ -508,6 +513,28 @@ export class ArtBaker {
       ctx.drawImage(img, sx, sy + FH, 32, 32 - FH, 0, FH, 32, 32 - FH);
     }
     ctx.setTransform(m);
+  }
+
+  /**
+   * The ground's lip over the row's rock walls: each wall cell's frame redrawn a few px lower, clipped to a ragged band
+   * LIP px under its top edge, so its grass, sand or scrub hangs over the stone (its own side's edge under it).
+   */
+  private lips(ctx: CanvasRenderingContext2D, lips: [number, number, number, number, number, Lift][]): void {
+    const { fw } = this.iso, band = new Path2D();
+    for (const [i, tx, ty, , cut, o] of lips) {
+      const x = i % fw, y = (i / fw) | 0, rx = tx + 2 * FW, ry = ty + FH, bx = tx + FW, by = ty + 2 * FH, lx = tx, ly = ty + FH;
+      Faces.band(band, Faces.top(0, rx, ry + o[0], bx, by + o[1], cut), hash(x, y, 61));
+      Faces.band(band, Faces.top(1, bx, by + o[1], lx, ly + o[2], cut), hash(x, y, 62));
+    }
+    ctx.save();
+    ctx.clip(band);
+    for (const [i, tx, ty, z] of lips) {
+      const [img, sx, sy] = this.frameOf(i);
+      if (this.iso.ramp[i]) this.warp(ctx, img, sx, sy, tx, ty + LIP - 1, z, 4 * i, 0);
+      else ctx.drawImage(img, sx, sy, 32, 32, tx, ty + LIP - 1, 32, 32);
+    }
+    ctx.restore();
+    lips.length = 0;
   }
 
   /** The baked light over row v's cells (./relief.ts), one fill per code. */
@@ -641,6 +668,25 @@ class Faces {
     return p;
   }
 
+  /** The height of the top edge `t` (Faces.top) at a share q of its run (x runs one way along it). */
+  static edgeAt(t: number[], q: number): number {
+    const n = t.length - 2, X = t[0] + (t[n] - t[0]) * q;
+    for (let k = 0; k < n; k += 2) {
+      const x0 = t[k], x1 = t[k + 2];
+      if ((X - x0) * (X - x1) <= 0 && x0 !== x1) return t[k + 1] + ((X - x0) / (x1 - x0)) * (t[k + 3] - t[k + 1]);
+    }
+    return t[n + 1];
+  }
+
+  /** A ragged band LIP px (+- LIP_J by the hash h) under the top edge `t` (the ground's lip, ArtBaker.lips). */
+  static band(p: Path2D, t: number[], h: number): void {
+    const n = t.length - 2, dx = (t[n] - t[0]) / 4;
+    p.moveTo(t[0], t[1] - 1);
+    for (let k = 2; k <= n; k += 2) p.lineTo(t[k], t[k + 1] - 1);
+    for (let q = 4; q >= 0; q--) p.lineTo(t[0] + dx * q, Faces.edgeAt(t, q / 4) + LIP + ((((h >>> (4 * q)) & 15) / 15) * 2 - 1) * LIP_J);
+    p.closePath();
+  }
+
   /** The face under the top edge `t` (Faces.top) down to its edge a -> b's line `d` px lower. */
   private static face(p: Path2D, t: number[], ax: number, ay: number, bx: number, by: number, d: number): void {
     p.moveTo(t[0], t[1]);
@@ -671,23 +717,15 @@ class Faces {
   }
 
   /**
-   * The lit rim along the top edge `t` (Faces.top); on a rock wall broken (chipped in places) with the overhang's jagged
-   * shadow under it, so the top of a long wall is not one ruled line.
+   * The lit rim along the top edge `t` (Faces.top); on a rock wall instead the jagged shadow of the ground's lip
+   * (ArtBaker.lips) over it, so the top of a long wall is not one ruled line.
    */
   private rimOf(x: number, y: number, t: number[], stone: boolean, side: number): void {
     const n = t.length - 2, ax = t[0], bx = t[n];
     if (!stone) { this.rim.moveTo(ax, t[1] + 0.5); for (let k = 2; k <= n; k += 2) this.rim.lineTo(t[k], t[k + 1] + 0.5); return; }
-    // the edge's height at a share q of its run (x runs one way along it)
-    const at = (q: number): number => {
-      const X = ax + (bx - ax) * q;
-      for (let k = 0; k < n; k += 2) {
-        const x0 = t[k], x1 = t[k + 2];
-        if ((X - x0) * (X - x1) <= 0 && x0 !== x1) return t[k + 1] + ((X - x0) / (x1 - x0)) * (t[k + 3] - t[k + 1]);
-      }
-      return t[n + 1];
-    };
+    // on a rock wall the ground's lip (ArtBaker.lips) hangs over the top edge: its shadow falls under that
+    const at = (q: number) => Faces.edgeAt(t, q) + LIP;
     const h = hash(x * 3 + side, y * 5 - side, 57), dx = (bx - ax) / 4;
-    for (let q = 0; q < 4; q++) if ((h >>> q) & 1 || (h >>> (q + 8)) & 1) { this.rim.moveTo(ax + dx * q, at(q / 4) + 0.5); this.rim.lineTo(ax + dx * (q + 1), at((q + 1) / 4) + 0.5); }
     this.lip.moveTo(ax, t[1]);
     for (let q = 0; q <= 4; q++) this.lip.lineTo(Math.round(ax + dx * q), Math.round(at(q / 4)) + 2 + ((h >>> (12 + 3 * q)) & 7) * ((h >>> 28) & 1 ? 0.9 : 0.6));
     for (let k = n; k >= 0; k -= 2) this.lip.lineTo(t[k], t[k + 1]);
