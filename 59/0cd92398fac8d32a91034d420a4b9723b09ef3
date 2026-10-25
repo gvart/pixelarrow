@@ -1,0 +1,39 @@
+scripts/war/regions/draftCompose.ts
+  s_fcb7475e0b5395::t_662b6704259fec 19-20,42
+src/war/regions/erymanthos.json
+  s_fcb7475e0b5395::t_077698bdd341cc 1
+scripts/war/regions/canyons.ts
+  s_fcb7475e0b5395::t_6caa7994b68bf2 84
+  s_fcb7475e0b5395::t_53317b76d34c40 76,82-83
+  s_fcb7475e0b5395::t_3b6f3d94b1ecf3 77,79-81
+  s_fcb7475e0b5395::t_3b8962f015e8a9 78
+  s_fcb7475e0b5395::t_507bd310cd57c3 85
+  s_fcb7475e0b5395::t_fd4c15640b5cdb 21-23,50,86-92
+scripts/war/regions/erymanthos.ts
+  s_fcb7475e0b5395::t_ef31c7035c56d2 30
+  s_fcb7475e0b5395::t_e427c7cf0f53b2 15
+scripts/war/regions/ammon.ts
+  s_fcb7475e0b5395::t_e427c7cf0f53b2 7-8,11-13
+  s_fcb7475e0b5395::t_c83a7a5647022c 29-39
+  s_fcb7475e0b5395::t_ef31c7035c56d2 21
+  s_fcb7475e0b5395::t_af3a729f92e84f 22-24,27,40-46
+  s_fcb7475e0b5395::t_773b8cd48e8abf 28
+src/war/regions/ammon.json
+  s_fcb7475e0b5395::t_f83c943c65f14c 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "590cd92398fac8d32a91034d420a4b9723b09ef3",
+  "prompts": {},
+  "sessions": {
+    "s_fcb7475e0b5395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1461c05d-0e23-497c-9452-478f5b2db195",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vladlen Gladis <vladlen.gladis@deliveryhero.com>"
+    }
+  }
+}
