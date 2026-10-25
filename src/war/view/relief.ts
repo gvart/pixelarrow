@@ -22,7 +22,7 @@ import { KINDS } from '../regions/visual';
 const STEP = 0.02;
 /** Shade codes each side of 0. */
 const NS = 24;
-const WATER0 = 1 + 2 * NS + 1, NWATER = 10;
+const WATER0 = 1 + 2 * NS + 1, NWATER = 15;
 const WET0 = WATER0 + NWATER, NWET = 6;
 
 /** Fill per code (index 0 unused). */
@@ -32,9 +32,10 @@ export const RELIEF_FILL: string[] = (() => {
     // shadows cool, light warm
     out.push(s < 0 ? `rgba(16,20,38,${(-s * STEP).toFixed(3)})` : s > 0 ? `rgba(255,240,205,${(s * STEP * 0.8).toFixed(3)})` : 'rgba(0,0,0,0)');
   }
-  // water by distance from land: shallows lit turquoise over the bed, open water darkening offshore
-  for (const c of ['rgba(140,210,200,0.26)', 'rgba(120,196,192,0.19)', 'rgba(104,180,186,0.13)', 'rgba(90,166,180,0.07)', 'rgba(0,0,0,0)',
-    'rgba(6,18,40,0.05)', 'rgba(6,18,40,0.1)', 'rgba(6,18,40,0.15)', 'rgba(6,18,40,0.2)', 'rgba(6,18,40,0.25)']) out.push(c);
+  // water by distance from land: shallows lit turquoise over the bed (fading over 8 cells), open water darkening offshore
+  for (let k = 0; k < 8; k++) out.push(`rgba(130,206,200,${(0.34 - 0.04 * k).toFixed(3)})`);
+  out.push('rgba(0,0,0,0)');
+  for (let k = 1; k < NWATER - 8; k++) out.push(`rgba(6,18,40,${(0.04 * k).toFixed(3)})`);
   for (let k = 1; k <= NWET; k++) out.push(`rgba(40,30,18,${(0.05 * k).toFixed(3)})`);
   return out;
 })();
@@ -153,7 +154,10 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
   let med = 0;
   for (let acc = 0; med < 255 && (acc += hist[med]) < n / 2; med++);
   // water: distance from land; land: distance from water over ground near its level (wet sand)
-  const shore = distance(fw, fh, (j) => !wet(j), (j) => wet(j), NWATER * 2);
+  const shore = distance(fw, fh, (j) => !wet(j), (j) => wet(j), 24);
+  const sf = new Float32Array(n);
+  for (let j = 0; j < n; j++) sf[j] = shore[j];
+  const shoreF = blur(sf, fw, fh, 1);
   const damp = distance(fw, fh, wet, (j, f) => !wet(j) && Math.abs(fz[j] - fz[f]) <= 1, 4);
   const out = new Uint8Array(n), foam = new Uint8Array(n);
   for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
@@ -164,7 +168,7 @@ export function relief(fw: number, fh: number, fk: Uint8Array, fz: Float32Array)
         const land = (i: number) => !wet(i) && fz[i] >= fz[j] - 1;
         foam[j] = (x < fw - 1 && land(j + 1) ? FOAM_PX : 0) | (x > 0 && land(j - 1) ? FOAM_NX : 0) | (y < fh - 1 && land(j + fw) ? FOAM_PY : 0) | (y > 0 && land(j - fw) ? FOAM_NY : 0);
       }
-      out[j] = WATER0 + Math.min(NWATER - 1, d <= 5 ? d - 1 : 4 + Math.ceil((d - 5) / 2));
+      out[j] = WATER0 + Math.max(0, Math.min(NWATER - 1, Math.round(shoreF[j] - 1 + ((hash(x, y, 6) & 255) / 255 - 0.5) * 0.9 + (shoreF[j] > 9 ? (shoreF[j] - 9) * 0.5 : 0))));
       continue;
     }
     if (damp[j] <= 2 && !ROCKY.has(k)) { out[j] = WET0 + (damp[j] === 1 ? 3 : 1); continue; }
@@ -210,5 +214,25 @@ export function treeShadow(): HTMLCanvasElement {
   gr.addColorStop(1, 'rgba(12,16,30,0)');
   g.fillStyle = gr;
   g.beginPath(); g.arc(0, 0, 56, 0, Math.PI * 2); g.fill();
+  return c;
+}
+
+let foamCanvas: HTMLCanvasElement | null = null;
+/** Px of the foam sprite. */
+export const FOAM_W = 26, FOAM_H = 12;
+/** A soft white spray blob for the shore (made once). */
+export function foamSprite(): HTMLCanvasElement {
+  if (foamCanvas) return foamCanvas;
+  const c = (foamCanvas = document.createElement('canvas'));
+  c.width = FOAM_W; c.height = FOAM_H;
+  const g = c.getContext('2d')!;
+  g.translate(FOAM_W / 2, FOAM_H / 2);
+  g.scale(1, FOAM_H / FOAM_W);
+  const gr = g.createRadialGradient(0, 0, 0, 0, 0, FOAM_W / 2);
+  gr.addColorStop(0, 'rgba(240,248,244,0.5)');
+  gr.addColorStop(0.6, 'rgba(236,246,242,0.25)');
+  gr.addColorStop(1, 'rgba(236,246,242,0)');
+  g.fillStyle = gr;
+  g.beginPath(); g.arc(0, 0, FOAM_W / 2, 0, Math.PI * 2); g.fill();
   return c;
 }

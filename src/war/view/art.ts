@@ -19,7 +19,7 @@ import { columnTops, type MassifDef, type Massifs } from './massifs';
 import { buildFineArt, SmoothFrames, type CliffRoles, type FineArt } from './fineArt';
 import { HH, HW, IsoMap, LH, ZBASE } from './iso';
 import type { BakeOpts } from './terrain';
-import { FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, treeShadow } from './relief';
+import { FOAM_H, FOAM_NX, FOAM_NY, FOAM_PX, FOAM_PY, FOAM_W, foamSprite, relief, RELIEF_FILL, SHADOW_H, SHADOW_W, treeShadow } from './relief';
 import { relightTree } from './treeLight';
 
 export interface ObjDef { id: string; kind: string; file: string; w: number; h: number; metres: number; anchor: { x: number; y: number }; footprint?: [number, number]; massif?: string; role?: string }
@@ -360,7 +360,7 @@ export class ArtBaker {
             ctx.drawImage(img, sx, sy, 32, 32, tx, ty, 32, 32);
           } else ctx.drawImage(fine.sheets[c >> 6], (c & 63) * 32, 0, 32, 32, tx, ty, 32, 32);
           const dE = z - zt(x + 1, y), dS = z - zt(x, y + 1);
-          if (dE >= 1 || dS >= 1) faces.add(x, y, tx, ty, dE, dS, z);
+          if (dE >= 2 || dS >= 2) faces.add(x, y, tx, ty, dE, dS, z);
         }
         faces.fill(ctx);
       }
@@ -380,6 +380,7 @@ export class ArtBaker {
     if ((u + v) & 1) u++;
     const paths = new Map<number, Path2D>();
     let foam: Path2D | null = null, wave: Path2D | null = null;
+    const blobs: number[] = [];
     for (; u <= Math.min(umax, v, 2 * (fw - 1) - v); u += 2) {
       const x = (u + v) / 2, y = (v - u) / 2, i = y * fw + x, s = shade[i];
       if ((!s && !this.foam[i]) || code[i] < 0) continue;
@@ -394,6 +395,7 @@ export class ArtBaker {
           // jittered a pixel off the edge into the water; the wave line about a third of the way to the cell's middle
           const j = ((hash(x, y, k) & 7) - 3.5) * 0.3, ox = (C[0] - (a[0] + b[0]) / 2) * 0.12, oy = (C[1] - (a[1] + b[1]) / 2) * 0.12;
           foam!.moveTo(a[0] + ox, a[1] + oy + j); foam!.lineTo(b[0] + ox, b[1] + oy - j);
+          blobs.push((a[0] + b[0]) / 2 + ox * 1.5 + j * 3, (a[1] + b[1]) / 2 + oy * 1.5);
           if (hash(x, y, k + 4) % 3) { const q = 3.2; wave!.moveTo(a[0] + ox * q + (b[0] - a[0]) * 0.15, a[1] + oy * q + (b[1] - a[1]) * 0.15); wave!.lineTo(b[0] + ox * q - (b[0] - a[0]) * 0.2, b[1] + oy * q - (b[1] - a[1]) * 0.2); }
         };
         if (fb & FOAM_PX) edge(R, B, 1);
@@ -413,8 +415,11 @@ export class ArtBaker {
     // surf: a foam line along each shore edge and a broken wave line a little out in the water
     if (!foam) return;
     ctx.lineCap = 'round';
-    ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(236,244,236,0.55)'; ctx.stroke(foam);
-    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.28)'; ctx.stroke(wave!);
+    // soft spray blobs over the edge midpoints hide the cell staircase of the shore; a thin line keeps its edge
+    const fs = foamSprite();
+    for (let k = 0; k < blobs.length; k += 2) ctx.drawImage(fs, blobs[k] - FOAM_W / 2, blobs[k + 1] - FOAM_H / 2);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(236,244,236,0.4)'; ctx.stroke(foam);
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,236,236,0.3)'; ctx.stroke(wave!);
     ctx.lineCap = 'butt';
   }
 
@@ -456,7 +461,7 @@ export class ArtBaker {
  * along levels shared by the whole wall, so a long cliff does not read as one repeated strip.
  */
 class Faces {
-  private se = new Path2D(); private seSoft = new Path2D(); private sw = new Path2D(); private foot = new Path2D();
+  private se = new Path2D(); private sw = new Path2D(); private foot = new Path2D();
   private dark = new Path2D(); private lit = new Path2D(); private rim = new Path2D();
   private any = false;
 
@@ -466,10 +471,10 @@ class Faces {
     const quad = (p: Path2D, ax: number, ay: number, bx2: number, by2: number, d0: number, d1: number) => {
       p.moveTo(ax, ay + d0); p.lineTo(bx2, by2 + d0); p.lineTo(bx2, by2 + d1); p.lineTo(ax, ay + d1); p.closePath();
     };
-    if (dE >= 1) {
+    if (dE >= 2) {
       const d = dE * LH;
-      quad(dE >= 2 ? this.se : this.seSoft, rx, ry, bx, by, 0, d);
-      if (dE >= 2) { this.rim.moveTo(rx, ry + 0.5); this.rim.lineTo(bx, by + 0.5); }
+      quad(this.se, rx, ry, bx, by, 0, d);
+      this.rim.moveTo(rx, ry + 0.5); this.rim.lineTo(bx, by + 0.5);
       if (dE >= 3) quad(this.foot, rx, ry, bx, by, d * 0.6, d);
       if (dE >= 4) this.detail(x, y, rx, ry, bx, by, dE, z, 0);
     }
@@ -507,15 +512,14 @@ class Faces {
 
   fill(ctx: CanvasRenderingContext2D): void {
     if (!this.any) return;
-    ctx.fillStyle = 'rgba(14,16,30,0.22)'; ctx.fill(this.se);
-    ctx.fillStyle = 'rgba(14,16,30,0.16)'; ctx.fill(this.seSoft);
+    ctx.fillStyle = 'rgba(14,16,30,0.17)'; ctx.fill(this.se);
     ctx.fillStyle = 'rgba(255,238,200,0.08)'; ctx.fill(this.sw);
     ctx.fillStyle = 'rgba(10,10,20,0.15)'; ctx.fill(this.foot);
     ctx.strokeStyle = 'rgba(255,242,214,0.3)'; ctx.lineWidth = 1.5; ctx.stroke(this.rim);
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'rgba(12,10,8,0.5)'; ctx.stroke(this.dark);
     ctx.strokeStyle = 'rgba(255,240,210,0.16)'; ctx.stroke(this.lit);
-    this.se = new Path2D(); this.seSoft = new Path2D(); this.sw = new Path2D(); this.foot = new Path2D(); this.dark = new Path2D(); this.lit = new Path2D(); this.rim = new Path2D();
+    this.se = new Path2D(); this.sw = new Path2D(); this.foot = new Path2D(); this.dark = new Path2D(); this.lit = new Path2D(); this.rim = new Path2D();
     this.any = false;
   }
 }
